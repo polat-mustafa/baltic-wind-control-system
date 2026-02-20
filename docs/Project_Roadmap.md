@@ -1243,8 +1243,8 @@ Project 5 (Commissioning) validates ALL previous projects in operation
 ```
 UNIFIED PLATFORM ARCHITECTURE:
 
-Frontend:  React 18 + TypeScript (strict) + Tailwind CSS + Plotly.js + D3.js
-Backend:   FastAPI (Python 3.11+) + SQLAlchemy + Alembic + Pydantic v2
+Frontend:  React 19 + TypeScript (strict) + Tailwind CSS v4 + Plotly.js + D3.js
+Backend:   FastAPI (Python 3.13+) + SQLAlchemy + Alembic + Pydantic v2
 Database:  PostgreSQL 16 + TimescaleDB extension (time-series)
 Cache:     Redis 7 (real-time SCADA simulation state, WebSocket pub/sub)
 Realtime:  FastAPI WebSocket + Server-Sent Events
@@ -1257,8 +1257,8 @@ Docs:      Swagger/OpenAPI auto-generated from FastAPI
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Language** | Python 3.11+ | Core computation, ML, power system analysis |
-| **Language** | TypeScript (strict) / React 18 | Production web UI |
+| **Language** | Python 3.13+ | Core computation, ML, power system analysis |
+| **Language** | TypeScript (strict) / React 19 | Production web UI |
 | **Wind Analysis** | PyWake (DTU) | Wake modelling, layout optimization |
 | **Power Systems** | Pandapower | Steady-state load flow, short-circuit (IEC 60909) |
 | **Dynamic Simulation** | ANDES | FRT, SSO, frequency response (EMT) |

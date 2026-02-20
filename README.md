@@ -17,18 +17,44 @@ A production-grade educational simulation platform for a **510 MW Baltic Sea off
 ## Tech Stack
 
 ```
-Frontend:   React 18 + TypeScript (strict) + Tailwind CSS + Plotly.js
-Backend:    FastAPI + Python 3.11 + Pydantic v2 + SQLAlchemy async
+Frontend:   React 19 + TypeScript (strict) + Tailwind CSS v4 + Plotly.js
+Backend:    FastAPI + Python 3.13 + Pydantic v2 + SQLAlchemy async
 Database:   PostgreSQL 16 + TimescaleDB
 Cache:      Redis 7
 Compute:    PyWake, Pandapower, ANDES, XGBoost, LSTM, TFT
 Container:  Docker Compose
+CI/CD:      GitHub Actions + MkDocs + Dependabot
+Linting:    ruff + mypy + ESLint + pre-commit
 Testing:    pytest + Vitest + Playwright
+```
+
+## Getting Started
+
+```bash
+# Prerequisites: Python 3.13+, Node 22+, Docker
+
+# Install all dependencies
+make install
+
+# Install pre-commit hooks
+make install-hooks
+
+# Start infrastructure (PostgreSQL, Redis, Backend, Frontend)
+make docker-up
+
+# Run all linters
+make lint
+
+# Run all tests
+make test
+
+# Serve documentation locally
+make docs-serve
 ```
 
 ## Status
 
-> **Work in Progress** — Currently in documentation and planning phase. Application code development follows the project sequence P1 → P2 → P3 → P4 → P5.
+> **Phase 0 complete** — Project foundation (CI, Docker, linting, docs) is in place. Application code development follows the project sequence P1 → P2 → P3 → P4 → P5.
 
 ## Reference Case
 

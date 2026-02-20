@@ -1,0 +1,239 @@
+---
+name: github-push
+description: "Commit and push code to GitHub securely. Trigger this skill when the user says: 'GitHub push', 'git push', 'git commit', 'git commit and push', 'push to GitHub', 'commit and push', 'push changes', 'commit changes', or any variation involving committing or pushing code to the remote repository."
+allowed-tools: Bash, Read, Grep, Glob
+---
+
+# GitHub Push — Secure Commit & Push Workflow
+
+You are a strict GitHub security gatekeeper for the Baltic Wind HV Control Platform.
+This is an open-source educational project — every push is public. Act accordingly.
+
+---
+
+## PHASE 1: RECONNAISSANCE (run all in parallel)
+
+Execute these four commands simultaneously:
+
+1. **Git status** (never use `-uall`):
+   ```
+   git status
+   ```
+
+2. **Full diff** (staged + unstaged):
+   ```
+   git diff HEAD
+   ```
+
+3. **Recent commit history** (for message style):
+   ```
+   git log --oneline -10
+   ```
+
+4. **Current branch and remote tracking**:
+   ```
+   git branch -vv
+   ```
+
+---
+
+## PHASE 2: SECURITY AUDIT (MANDATORY — never skip)
+
+### 2.1 Secrets Scanner
+
+Search the ENTIRE diff output for leaked secrets. Block the push if ANY match:
+
+| Pattern | Description | Action |
+|---------|-------------|--------|
+| `password\s*=\s*['"]` | Hardcoded password | BLOCK |
+| `secret\s*=\s*['"]` | Hardcoded secret | BLOCK |
+| `api[_-]?key\s*=\s*['"]` | API key in code | BLOCK |
+| `token\s*=\s*['"]` | Hardcoded token | BLOCK |
+| `AWS_ACCESS_KEY_ID` | AWS credential | BLOCK |
+| `AWS_SECRET_ACCESS_KEY` | AWS credential | BLOCK |
+| `PRIVATE.KEY` | Private key material | BLOCK |
+| `-----BEGIN.*PRIVATE KEY-----` | PEM private key | BLOCK |
+| `sk-[a-zA-Z0-9]{20,}` | OpenAI/Anthropic API key | BLOCK |
+| `ghp_[a-zA-Z0-9]{36}` | GitHub personal access token | BLOCK |
+| `postgres://.*:.*@` | Database connection string with password | BLOCK |
+| `redis://.*:.*@` | Redis connection string with password | BLOCK |
+
+### 2.2 Dangerous File Scanner
+
+Check if ANY of these files are staged or about to be committed. Block if found:
+
+| File/Pattern | Reason | Action |
+|-------------|--------|--------|
+| `.env` | Environment secrets | BLOCK |
+| `.env.*` (except `.env.example`) | Environment secrets | BLOCK |
+| `*.pem`, `*.key`, `*.p12`, `*.pfx` | Certificates/keys | BLOCK |
+| `credentials.json` | Service account keys | BLOCK |
+| `*.sqlite`, `*.db` | Database files | BLOCK |
+| `id_rsa`, `id_ed25519` | SSH private keys | BLOCK |
+| `*.nc` (NetCDF ERA5 data) | Large data files (use .gitignore) | BLOCK |
+| `*.grib`, `*.grib2` | Weather data files | BLOCK |
+| `node_modules/` | Dependencies (use .gitignore) | BLOCK |
+| `__pycache__/` | Python cache (use .gitignore) | BLOCK |
+| `.venv/`, `venv/` | Virtual environment | BLOCK |
+| Files > 10 MB | GitHub soft limit | WARN |
+
+### 2.3 Code Quality Checks
+
+Scan the diff for common issues:
+
+| Check | Pattern | Action |
+|-------|---------|--------|
+| Debug statements | `console.log`, `print(`, `debugger`, `breakpoint()` | WARN — ask user |
+| TODO/FIXME | `TODO`, `FIXME`, `HACK`, `XXX` | WARN — inform user |
+| Disabled tests | `@pytest.mark.skip`, `xit(`, `xdescribe(` | WARN — ask user |
+| Hardcoded localhost | `localhost:`, `127.0.0.1:` | WARN — ask user |
+
+---
+
+## PHASE 3: SECURITY VERDICT
+
+### If ANY BLOCK found:
+```
+SECURITY AUDIT FAILED
+
+[List each blocked item with file path and line number]
+
+These items MUST be resolved before pushing to the public repository.
+Recommended actions:
+- Move secrets to .env (which is in .gitignore)
+- Add large data files to .gitignore
+- Remove cached/generated files from staging
+
+I will NOT proceed with the push until all BLOCK items are resolved.
+```
+**Do NOT proceed. Stop here. Help the user fix the issues.**
+
+### If only WARN items found:
+Present each warning to the user and ask for confirmation before proceeding.
+
+### If clean:
+Proceed to Phase 4.
+
+---
+
+## PHASE 4: STAGING
+
+### 4.1 Smart Staging
+
+- **NEVER** use `git add -A` or `git add .` blindly
+- Stage files individually by name: `git add file1 file2 file3`
+- Group related files logically
+- If there are many files, present the list to the user and ask for confirmation before staging
+
+### 4.2 Verify Staging
+
+After staging, run `git status` to confirm exactly what will be committed.
+Present the staged files to the user in a clear summary.
+
+---
+
+## PHASE 5: COMMIT MESSAGE
+
+### 5.1 Commit Message Format
+
+Follow the project convention:
+
+```
+[SCOPE] Short imperative description (max 72 chars)
+
+- Detail 1: what changed and why
+- Detail 2: what changed and why
+- Detail 3: what changed and why
+
+Standards: IEC XXXXX (if applicable)
+```
+
+**SCOPE values:**
+- `[P1]` — Wind Resource & Layout (PyWake, ERA5, AEP)
+- `[P2]` — Grid Integration (Pandapower, ANDES, FRT)
+- `[P3]` — SCADA & Automation (IEC 61850, GOOSE, PtW)
+- `[P4]` — AI Forecasting (XGBoost, LSTM, TFT)
+- `[P5]` — Commissioning (Switching, LOTO, SAT)
+- `[DOCS]` — Documentation changes
+- `[INFRA]` — Docker, CI/CD, config, tooling
+- `[FIX]` — Bug fixes
+- `[TEST]` — Test additions/changes
+- `[REFACTOR]` — Code restructuring (no behavior change)
+
+### 5.2 Message Rules
+
+- First line: imperative mood ("Add X", "Fix Y", "Update Z"), max 72 characters
+- Blank line after first line
+- Body: bullet points explaining what and why (not how — the diff shows how)
+- Reference IEC/IEEE standards if the change implements a standard
+- Do NOT add Co-Authored-By or Signed-off-by trailers — commits are authored by the user only
+- Use HEREDOC syntax to pass the message to git
+
+---
+
+## PHASE 6: COMMIT & PUSH
+
+### 6.1 Create Commit
+
+```bash
+git commit -m "$(cat <<'EOF'
+[SCOPE] Short description here
+
+- Detail 1
+- Detail 2
+EOF
+)"
+```
+
+### 6.2 Pre-Push Checks
+
+Before pushing, verify:
+1. Commit was created successfully (`git log -1` to confirm)
+2. Branch is correct (should be pushing to the right branch)
+3. Remote is correct (`git remote -v`)
+
+### 6.3 Push
+
+```bash
+git push -u origin <branch-name>
+```
+
+### 6.4 Post-Push Verification
+
+After push completes:
+1. Run `git status` to confirm clean working tree
+2. Run `git log --oneline -3` to show the committed state
+3. Present the GitHub URL where the commit can be viewed
+
+---
+
+## PHASE 7: SUMMARY REPORT
+
+Present a final summary:
+
+```
+PUSH COMPLETE
+
+Branch:    main
+Commit:    abc1234 — [SCOPE] Description
+Files:     X files changed, Y insertions, Z deletions
+Security:  All checks passed
+Remote:    https://github.com/user/repo/commit/abc1234
+
+[List of files that were committed]
+```
+
+---
+
+## SAFETY RULES (ABSOLUTE — never override)
+
+1. **NEVER force push** (`--force`, `-f`) unless the user explicitly says "force push" AND you warn them about the consequences first
+2. **NEVER push to main/master with --force** — refuse entirely, explain why
+3. **NEVER skip the security audit** — even if the user says "just push it quickly"
+4. **NEVER commit files matching .gitignore patterns** — check .gitignore first
+5. **NEVER amend a commit that has already been pushed** — create a new commit instead
+6. **NEVER use --no-verify** to skip pre-commit hooks unless user explicitly requests it
+7. **NEVER modify git config** (user.name, user.email, etc.)
+8. **If the security audit finds a BLOCK item, STOP** — do not offer workarounds to bypass the check
+9. **Always create NEW commits** — never amend unless the user explicitly says "amend"
+10. **If there are no changes to commit, say so** — do not create empty commits

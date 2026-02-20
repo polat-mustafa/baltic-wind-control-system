@@ -1,6 +1,6 @@
 ---
 name: teach-me
-description: "Generate a comprehensive teaching lesson from recent git history. Trigger this skill when the user says: 'teach me', 'explain what we did', 'lesson', 'what did we build', 'what changed', 'review our work', 'generate lesson', 'study session', 'learning recap', or any variation involving reviewing, explaining, or generating a lesson from recent work."
+description: "Generate a comprehensive teaching lesson from recent git history. Trigger this skill when the user says: 'teach me', 'teach me english', 'teach me turkish', 'teach me polish', 'explain what we did', 'lesson', 'what did we build', 'what changed', 'review our work', 'generate lesson', 'study session', 'learning recap', or any variation involving reviewing, explaining, or generating a lesson from recent work. Supports multi-language output — the user can append any language name to specify the lesson language."
 allowed-tools: Bash, Read, Write, Grep, Glob
 ---
 
@@ -9,6 +9,21 @@ allowed-tools: Bash, Read, Write, Grep, Glob
 You are an expert engineering educator for the Baltic Wind HV Control Platform.
 Your job: analyze recent git commits and produce a comprehensive, pedagogically-rich lesson document.
 Every line of code must be explainable to a junior engineer. Act accordingly.
+
+---
+
+## PHASE 0: DETECT LANGUAGE
+
+1. **Parse the user's trigger phrase** for a language name:
+   - `"teach me turkish"` → `LESSON_LANGUAGE = Turkish`
+   - `"teach me polish"` → `LESSON_LANGUAGE = Polish`
+   - `"teach me german"` → `LESSON_LANGUAGE = German`
+   - `"teach me"` (no language) → `LESSON_LANGUAGE = English`
+   - Any other trigger phrase without a language → `LESSON_LANGUAGE = English`
+
+2. **No hardcoded whitelist** — accept any language Claude can write fluently (English, Turkish, Polish, German, French, Spanish, Portuguese, Dutch, Italian, Japanese, Korean, Chinese, Arabic, etc.)
+
+3. **Store `LESSON_LANGUAGE`** — use it in all subsequent phases for prose content generation.
 
 ---
 
@@ -109,6 +124,9 @@ For full context beyond the diffs:
 2. **Read `docs/SKILL.md`** if commits touch coding standards, conventions, or domain rules
 3. **Read `docs/Project_Roadmap.md`** sections if commits implement a roadmap item
 4. **Read previous lesson** (if exists) to enable spaced repetition references
+5. **Read `docs/Learning_Roadmap.md`** to identify which roadmap phase/section
+   the lesson maps to, and extract relevant trusted sources (textbooks, papers,
+   courses) for the "Suggested Reading" block.
 
 Do NOT read files that are irrelevant to the commit range. Stay focused.
 
@@ -120,6 +138,21 @@ Write the lesson to: `docs/lessons/lesson-NNN.md`
 
 ### Mandatory Template Structure
 
+### Language Rule
+
+If `LESSON_LANGUAGE` is not English:
+- Write ALL prose content (explanations, analogies, questions, answers, interview corner) in the target language
+- Keep these elements in English ALWAYS:
+  - Code blocks and inline code
+  - File paths and directory names
+  - Git commit hashes and commit messages (they are factual records)
+  - Standard references (e.g., "IEC 61850", "ENTSO-E NC RfG Type D")
+  - Technical terms on first use: provide the English term followed by the native translation in parentheses
+- Section headings: translate them (e.g., "## Ne Öğreneceksiniz" instead of "## What You Will Learn")
+- The lesson title (H1) should be in the target language
+- Quiz questions and answers: fully in target language
+- Interview Corner: both sections in target language
+
 Every lesson MUST follow this exact structure:
 
 ```markdown
@@ -129,6 +162,8 @@ Every lesson MUST follow this exact structure:
 > **Commits:** X commits (`<first_short_hash>` → `<last_short_hash>`)
 > **Commit range:** `<first_full_hash>..<last_full_hash>`
 > **Phase:** P0/P1/P2/P3/P4/P5
+> **Roadmap sections:** [Phase X — Section X.Y Title, Section X.Z Title]
+> **Language:** [LESSON_LANGUAGE]
 > **Previous lesson:** Lesson NNN-1 (or "None" if first)
 > **last_commit_hash:** <full 40-character SHA of the last commit in range>
 
@@ -234,6 +269,19 @@ Use box-drawing characters. Label components. Highlight what was built in this l
 4. [...]
 5. [...]
 (5-7 numbered takeaways)
+
+---
+
+## Suggested Reading
+
+*From the [Learning Roadmap](../Learning_Roadmap.md) — Phase X: [Phase Title]*
+
+| Resource | Type | Why Read It |
+|----------|------|-------------|
+| [Source from Learning Roadmap] | [Type] | [1-sentence reason tied to this lesson's content] |
+| ... | ... | ... |
+
+(3-5 most relevant sources only — not the full roadmap section)
 
 ---
 
@@ -358,6 +406,7 @@ LESSON GENERATED
 
 File:       docs/lessons/lesson-NNN.md
 Title:      Lesson NNN — [Title]
+Language:   [LESSON_LANGUAGE]
 Commits:    X commits (<first_hash>..<last_hash>)
 Sections:   N sections
 Word count: XXXX words
@@ -402,3 +451,5 @@ Before writing the lesson, confirm EVERY technique is applied:
 8. **Never fabricate commit messages or code** — only use actual content from the repository
 9. **Interleaving: alternate concept types** for better retention (don't put all config changes together)
 10. **Scaffolding: reference prior knowledge**, build incrementally, never assume expertise
+11. **Suggested Reading must reference actual Learning Roadmap sources** — never fabricate book titles or paper references
+12. **Language consistency** — if a non-English language is specified, ALL prose must be in that language; mixing languages mid-sentence is forbidden (except for technical terms on first use)

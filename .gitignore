@@ -57,3 +57,6 @@ docker-compose.override.yml
 # Logs
 *.log
 logs/
+
+# MkDocs
+site/

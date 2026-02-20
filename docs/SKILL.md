@@ -12,8 +12,8 @@
 ## Architecture Overview
 
 ```
-Frontend:   React 18 + TypeScript + Tailwind CSS + Plotly.js + D3.js
-Backend:    FastAPI (Python 3.11+) + SQLAlchemy + Alembic + Pydantic v2
+Frontend:   React 19 + TypeScript + Tailwind CSS v4 + Plotly.js + D3.js
+Backend:    FastAPI (Python 3.13+) + SQLAlchemy + Alembic + Pydantic v2
 Database:   PostgreSQL 16 + TimescaleDB extension
 Cache:      Redis 7 (real-time state, WebSocket pub/sub)
 Realtime:   FastAPI WebSocket + Server-Sent Events
@@ -138,12 +138,12 @@ def calculate_wake_deficit(
 ```
 
 **Python standards:**
-- Python 3.11+ with full type hints (PEP 484, PEP 604 for union types)
+- Python 3.13+ with full type hints (PEP 484, PEP 604 for union types)
 - Pydantic v2 for all data validation
 - async/await for all I/O operations in FastAPI
 - NumPy docstring format for all public functions
 - Engineering units ALWAYS documented in docstrings and variable names
-- `ruff` for linting, `black` for formatting, `mypy` for type checking
+- `ruff` for linting + formatting (`ruff format` replaces `black`), `mypy` for type checking
 - Domain-specific variable names (not generic `x`, `y`, `data`)
 
 **Naming conventions for engineering quantities:**

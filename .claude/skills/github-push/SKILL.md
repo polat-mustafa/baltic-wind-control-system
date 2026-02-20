@@ -45,7 +45,8 @@ Search the ENTIRE diff output for leaked secrets. Block the push if ANY match:
 
 | Pattern | Description | Action |
 |---------|-------------|--------|
-| `password\s*=\s*['"]` | Hardcoded password | BLOCK |
+| `password\s*=\s*['"]` | Hardcoded password (code) | BLOCK |
+| `PASSWORD[:=]\s*.+` (not in docker-compose) | Hardcoded password (config) | WARN — ask user |
 | `secret\s*=\s*['"]` | Hardcoded secret | BLOCK |
 | `api[_-]?key\s*=\s*['"]` | API key in code | BLOCK |
 | `token\s*=\s*['"]` | Hardcoded token | BLOCK |
@@ -57,6 +58,13 @@ Search the ENTIRE diff output for leaked secrets. Block the push if ANY match:
 | `ghp_[a-zA-Z0-9]{36}` | GitHub personal access token | BLOCK |
 | `postgres://.*:.*@` | Database connection string with password | BLOCK |
 | `redis://.*:.*@` | Redis connection string with password | BLOCK |
+
+**Allowed exceptions (WARN only, not BLOCK):**
+- `docker-compose.yml` with `POSTGRES_PASSWORD: postgres` — local dev default, overridden in production via env vars
+- `config.py` with `localhost` defaults — Pydantic Settings overrides these from environment in production
+- Vite proxy config with `localhost` target — dev server only, not shipped to production
+
+When a WARN exception applies, still **report it to the user** with the reason it's acceptable. Never silently skip.
 
 ### 2.2 Dangerous File Scanner
 
@@ -109,9 +117,11 @@ I will NOT proceed with the push until all BLOCK items are resolved.
 **Do NOT proceed. Stop here. Help the user fix the issues.**
 
 ### If only WARN items found:
-Present each warning to the user and ask for confirmation before proceeding.
+Present EVERY warning to the user in a numbered list with file path, line content, and why it triggered.
+**You MUST ask for explicit user confirmation before proceeding.** Do NOT auto-approve WARN items.
+If there are 0 BLOCK items and >0 WARN items, say: "N warnings found (0 blockers). Proceed? [list follows]"
 
-### If clean:
+### If clean (0 BLOCK, 0 WARN):
 Proceed to Phase 4.
 
 ---

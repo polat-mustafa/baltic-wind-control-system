@@ -1,4 +1,4 @@
-# Lesson 003 — Project Planning, Technology Decisions & Professional Engineering Methodology
+# Lesson 000 — Project Planning, Technology Decisions & Professional Engineering Methodology
 
 > **Date:** 2026-02-21
 > **Commits:** Conceptual lesson — covers the entire Phase 0 planning process
@@ -6,7 +6,7 @@
 > **Phase:** P0 (Project Planning & Architecture)
 > **Roadmap sections:** [Phase 0 — All Sections, Cross-Project Integration Map, Technology Stack & Web UI Specifications]
 > **Language:** English
-> **Previous lesson:** Lesson 002
+> **Previous lesson:** None (this is the foundational lesson)
 > **last_commit_hash:** fa528fb95bd6778ea54f50be71ddc6e0475d2818
 
 ---
@@ -452,7 +452,7 @@ The first real commit after "Initial commit" is documentation (`[DOCS]`). The se
 
 **Lesson 002** taught us *how* we extend automated systems: adding multi-language support to the teach-me skill, defining translation boundaries, establishing quality rules. It demonstrated the skill architecture pattern.
 
-**Lesson 003** (this lesson) teaches us *why*. Why did we choose FastAPI over Django? Why did we write documentation before code? Why are analogies mandatory in every lesson? Why is Phase 0 itself a test of engineering maturity? This lesson connects the technical decisions of Lessons 001 and 002 to the engineering philosophy behind them.
+**Lesson 000** (this lesson) teaches us *why*. Why did we choose FastAPI over Django? Why did we write documentation before code? Why are analogies mandatory in every lesson? Why is Phase 0 itself a test of engineering maturity? This lesson connects the technical decisions of Lessons 001 and 002 to the engineering philosophy behind them.
 
 Together, the three lessons form a complete picture: the what, the how, and the why of professional project infrastructure.
 
@@ -582,12 +582,12 @@ The 10 rules are labelled "NEVER violate" because they encode physical laws and 
 
 </details>
 
-**Q6:** Explain how the three lessons (001, 002, 003) form a "what, how, why" progression. Why is this ordering pedagogically effective?
+**Q6:** Explain how the three lessons (000, 001, 002) form a "why, what, how" progression. Why is this ordering pedagogically effective?
 
 <details>
 <summary>Answer</summary>
 
-Lesson 001 teaches the "what" — the specific tools and configurations built in Phase 0 (Docker Compose, CI/CD, pre-commit hooks, security scanning). The reader sees each component and understands its function. Lesson 002 teaches the "how" — how to extend an existing system (adding multi-language support to a skill), demonstrating the pattern of incremental development within an established architecture. Lesson 003 teaches the "why" — the engineering philosophy behind every technology choice, every planning document, and every automation decision. This ordering follows Bloom's Taxonomy: remember (what exists) → understand (how it works) → analyze (why it was designed this way). Starting with "why" would be abstract and unmotivating; starting with "what" gives concrete examples that the "why" can later explain.
+Lesson 000 teaches the "why" — the engineering philosophy behind every technology choice, every planning document, and every automation decision. It establishes the foundational reasoning before any technical details. Lesson 001 teaches the "what" — the specific tools and configurations built in Phase 0 (Docker Compose, CI/CD, pre-commit hooks, security scanning). The reader sees each component and understands its function. Lesson 002 teaches the "how" — how to extend an existing system (adding multi-language support to a skill), demonstrating the pattern of incremental development within an established architecture. This ordering follows a top-down pedagogical approach: understand the purpose first (why), then survey the components (what), then learn to modify them (how). Starting with "why" gives the reader a mental framework that makes the technical details of Lessons 001 and 002 meaningful rather than arbitrary.
 
 </details>
 

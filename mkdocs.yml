@@ -1,6 +1,6 @@
 site_name: Baltic Wind HV Control Platform
 site_description: 510 MW Baltic Sea Offshore Wind Farm Simulation — Documentation
-repo_url: https://github.com/polat/baltic-wind-control-system
+repo_url: https://github.com/polat-mustafa/baltic-wind-control-system
 repo_name: baltic-wind-control-system
 
 theme:

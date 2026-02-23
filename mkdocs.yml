@@ -36,6 +36,7 @@ nav:
     - "000 — Project Planning & Engineering Methodology": lessons/lesson-000.md
     - "001 — DevOps Foundation": lessons/lesson-001.md
     - "002 — Internationalization (TR)": lessons/lesson-002.md
+    - "003 — P1: Veritabanı, ERA5 & Weibull (TR)": lessons/lesson-003.md
 
 markdown_extensions:
   - admonition

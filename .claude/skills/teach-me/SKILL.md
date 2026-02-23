@@ -97,6 +97,42 @@ For every commit in the range, gather:
    git diff <hash>~1 <hash> 2>/dev/null || git diff --root <hash>
    ```
 
+### Commit Triage — What to Include vs. Skip
+
+Before grouping commits into sections, classify each commit:
+
+**SKIP (do not include in lesson):**
+- Typo fixes in documentation (e.g., fixing a misspelling in `.md` files)
+- Whitespace-only changes (trailing spaces, blank line adjustments)
+- Minor formatting changes that don't alter meaning (reordering imports, adjusting indentation)
+- Merge commits that contain no unique changes (standard GitHub merge commits)
+- Dependabot version bumps with no config changes (e.g., `[CI]: Bump actions/checkout from 4 to 6`)
+- Changes to files outside the project's domain scope (e.g., `.claude/settings.local.json`, IDE configs)
+- Commits that ONLY change `mkdocs.yml` nav ordering, cosmetic theme tweaks, or similar non-educational config
+
+**INCLUDE (must appear in lesson):**
+- Any commit that adds, removes, or modifies domain logic (Python, TypeScript, SQL)
+- Infrastructure changes that introduce new patterns (new CI job, new Docker service, new skill)
+- Configuration changes that teach a concept (first Dockerfile, first CI workflow, security scanner rules)
+- Documentation changes that establish engineering standards or design decisions
+- Bug fixes — especially valuable because they teach debugging methodology
+
+**MERGE into adjacent section (don't create a standalone section):**
+- Small fixes that support a larger change (e.g., a lint fix commit right after a feature commit)
+- Follow-up commits that refine a feature introduced in an earlier commit in the same range
+
+**Decision rule:** If a commit cannot support at least ONE "Why It Matters" question with a substantive engineering answer, it is not educational — SKIP it.
+
+**If ALL commits in range are SKIP:** Report to user:
+```
+All N commits since Lesson NNN are minor/cosmetic changes.
+No educational content to teach. Skipped commits:
+- <hash> <message>
+- <hash> <message>
+Build something substantial, then ask again!
+```
+**STOP HERE. Do not generate a lesson from trivial commits.**
+
 ### Grouping Strategy
 
 Group commits into **logical sections** (maximum 6 sections per lesson). Use this priority order:
@@ -157,6 +193,11 @@ Every lesson MUST follow this exact structure:
 
 ```markdown
 # Lesson NNN — [Descriptive Title]
+
+!!! abstract "Lesson Navigation"
+    :material-arrow-left: **Previous:** [Lesson NNN-1 — Title](lesson-NNN-1.md) | **Next:** Upcoming :material-arrow-right:
+
+    **Phase:** PX | **Language:** [LESSON_LANGUAGE] | **Progress:** N of M | [All Lessons](index.md) | [Learning Roadmap](../Learning_Roadmap.md)
 
 > **Date:** YYYY-MM-DD
 > **Commits:** X commits (`<first_short_hash>` → `<last_short_hash>`)
@@ -220,13 +261,14 @@ Always include the standard number and the specific clause if applicable.]
 
 ### Key Concept
 
-> **[Concept Name]**
->
-> **In plain English:** [Feynman-level explanation — explain it like the reader is 12 years old]
->
-> **Analogy:** [A concrete analogy from everyday life]
->
-> **In this project:** [How this concept specifically applies to our 510 MW wind farm]
+!!! tip "Key Concept: [Concept Name]"
+    **In plain English:** [Feynman-level explanation — explain it like the reader is 12 years old]
+
+    **Analogy:** [A concrete analogy from everyday life]
+
+    **In this project:** [How this concept specifically applies to our 510 MW wind farm]
+
+For non-English lessons, use translated label (e.g., `!!! tip "Temel Kavram: [Name]"`).
 
 ---
 
@@ -234,11 +276,14 @@ Always include the standard number and the specific clause if applicable.]
 
 ---
 
-## Connections to Previous Lessons
+## Connections
 
-[For Lesson 002+: Reference specific concepts from earlier lessons.
-Use the format: "In Lesson NNN, we learned X. Now we're building on that by Y."
-This implements spaced repetition — reinforcing earlier knowledge in new contexts.
+**Where these concepts appear next:**
+
+[Focus on FORWARD-LINKS — where current concepts will be used in future lessons/projects.
+Example: "Health checks (Section 3) → P3 SCADA monitoring will expand this pattern."
+Avoid re-summarizing what previous lessons taught — the reader already knows.
+Include 1-2 backward references only when a concept from a prior lesson is DIRECTLY extended.
 
 For Lesson 001: Write "This is our first lesson — future lessons will connect back to concepts introduced here."]
 
@@ -246,18 +291,12 @@ For Lesson 001: Write "This is our first lesson — future lessons will connect 
 
 ## The Big Picture
 
-[ASCII architecture diagram showing where today's work fits in the overall system.
-Use box-drawing characters. Label components. Highlight what was built in this lesson with arrows or markers.]
+*This lesson's focus: **[what this lesson adds/changes]**.*
 
-```
-┌─────────────────────────────────────────────────┐
-│              510 MW Baltic Wind Farm             │
-│                                                  │
-│  [Show relevant subsystems]                      │
-│  [Mark what was built/changed] ◄── THIS LESSON   │
-│                                                  │
-└─────────────────────────────────────────────────┘
-```
+[Mermaid diagram highlighting what THIS lesson adds to the system.
+Each lesson's diagram should EVOLVE — show the new components/layers,
+not repeat the full architecture. Link to the full system architecture
+on the lessons index: "For the full system architecture, see [Lessons Overview](index.md#system-architecture)."]
 
 ---
 
@@ -375,6 +414,21 @@ and architectural reasoning. Demonstrate depth and breadth of understanding.]
 
 ---
 
+### Template Notes
+
+**Long configuration snippets** (>15 lines of YAML, JSON, or config):
+Wrap in collapsible details blocks to keep the page scannable:
+
+??? example "Full configuration"
+
+    ```yaml
+    [long config here]
+    ```
+
+**Navigation header language:** For non-English lessons, translate the navigation label (e.g., "Ders Navigasyonu" for Turkish).
+
+---
+
 ## PHASE 6: WRITE & VERIFY
 
 1. **Create directory if needed:**
@@ -394,6 +448,14 @@ and architectural reasoning. Demonstrate depth and breadth of understanding.]
    ```bash
    grep 'last_commit_hash' docs/lessons/lesson-NNN.md
    ```
+
+5. **Update `docs/lessons/index.md`** — add the new lesson to the "Lesson Progress" table
+
+6. **Update `mkdocs.yml`** — add the new lesson to the `nav:` section under `Lessons:`
+
+7. **Update the previous lesson's navigation header** — change "Upcoming" to link to the new lesson:
+   - Read the previous lesson file
+   - Replace `**Next:** Upcoming :material-arrow-right:` with `**Next:** [Lesson NNN — Title](lesson-NNN.md) :material-arrow-right:`
 
 ---
 
@@ -433,7 +495,7 @@ Before writing the lesson, confirm EVERY technique is applied:
 | 5 | **Analogies** | At least one analogy per section, mandatory | [ ] |
 | 6 | **Chunking** | Commits grouped into max 6 logical sections | [ ] |
 | 7 | **Active Recall** | Quiz with 7 questions, answers hidden in `<details>` tags | [ ] |
-| 8 | **Dual Coding** | ASCII diagram in "The Big Picture" + text explanations | [ ] |
+| 8 | **Dual Coding** | Mermaid diagram in "The Big Picture" + text explanations | [ ] |
 | 9 | **Scaffolding** | Sections ordered foundational → advanced; builds on prior lessons | [ ] |
 | 10 | **Interleaving** | Mixed concept types within the lesson (config, code, design, testing) | [ ] |
 
@@ -453,3 +515,4 @@ Before writing the lesson, confirm EVERY technique is applied:
 10. **Scaffolding: reference prior knowledge**, build incrementally, never assume expertise
 11. **Suggested Reading must reference actual Learning Roadmap sources** — never fabricate book titles or paper references
 12. **Language consistency** — if a non-English language is specified, ALL prose must be in that language; mixing languages mid-sentence is forbidden (except for technical terms on first use)
+13. **Commit triage is mandatory** — never generate a lesson from trivial commits (typo fixes, whitespace changes, Dependabot bumps). If a commit cannot support a "Why It Matters" question, skip it.

@@ -151,7 +151,7 @@ Our technology stack was chosen for three criteria: **domain fit** (does this to
     | Integration | React + TypeScript = component-based UI with compile-time type safety |
     | Learnability | React is the most widely-taught frontend framework |
 
-    TypeScript strict catches `undefined is not a function` at compile time. Plotly.js was chosen over D3.js (too low-level) and Chart.js (insufficient for 3D wake fields). Zustand was chosen over Redux — our SCADA state for 34 turbines doesn't need Redux's ceremony.
+    TypeScript strict catches `undefined is not a function` at compile time. Plotly.js was chosen over D3.js (too low-level) and Chart.js (insufficient for 3D wake fields). XYFlow (`@xyflow/react`) replaces D3.js for node-based UIs — single-line diagrams (P2), SCADA topology (P3), and switching programmes (P5). Zustand was chosen over Redux — our SCADA state for 34 turbines doesn't need Redux's ceremony.
 
 === "Database"
 

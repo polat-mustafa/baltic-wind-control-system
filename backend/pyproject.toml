@@ -2,6 +2,9 @@
 requires = ["setuptools>=75.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["app*"]
+
 [project]
 name = "baltic-wind-backend"
 version = "0.1.0"
@@ -17,6 +20,8 @@ dependencies = [
     "alembic>=1.14.0",
     "redis>=5.2.0",
     "httpx>=0.28.0",
+    "numpy>=2.0.0",
+    "scipy>=1.14.0",
 ]
 
 [project.optional-dependencies]
@@ -48,6 +53,10 @@ select = [
     "SIM", # flake8-simplify
     "RUF", # ruff-specific rules
 ]
+ignore = [
+    "RUF002", # ambiguous Unicode in docstrings (×, α, ≈ used in engineering formulas)
+    "RUF003", # ambiguous Unicode in comments (same reason)
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
@@ -63,6 +72,10 @@ exclude = ["alembic/"]
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["scipy.*"]
+ignore_missing_imports = true
 
 # ─── Pytest ──────────────────────────────────────────────────────
 

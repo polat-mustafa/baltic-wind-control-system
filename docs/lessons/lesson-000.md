@@ -1,5 +1,10 @@
 # Lesson 000 — Project Planning, Technology Decisions & Professional Engineering Methodology
 
+!!! abstract "Lesson Navigation"
+    :material-arrow-left: **Previous:** None (foundational lesson) | **Next:** [Lesson 001 — DevOps Foundation](lesson-001.md) :material-arrow-right:
+
+    **Phase:** P0 | **Language:** English | **Progress:** 1 of 3 | [All Lessons](index.md) | [Learning Roadmap](../Learning_Roadmap.md)
+
 > **Date:** 2026-02-21
 > **Commits:** Conceptual lesson — covers the entire Phase 0 planning process
 > **Commit range:** `f2500024193bb88db74d1269612cd7c14fbe0614..fa528fb95bd6778ea54f50be71ddc6e0475d2818`
@@ -39,17 +44,7 @@ Imagine you are applying for a pilot's license. You do not walk up to a Boeing 7
 - `docs/SKILL.md` — 722-line engineering standards and coding conventions document
 - `CLAUDE.md` — Session protocol and auto-loaded references
 
-The Baltic Wind Alpha project simulates a 510 MW offshore wind farm in the Polish Baltic Sea. The specification is precise: 34 Vestas V236-15.0 MW turbines, 66 kV array cables, an offshore substation (OSS), a 220 kV export cable running 45 km subsea, and connection to the 400 kV PSE (Polish transmission) grid. Every number is based on real parameters from Baltic Sea projects like PGE Baltica's Baltic Power.
-
-The five projects form a single unified system:
-
-| Project | Domain | Core Technology | Key Standard |
-|---------|--------|-----------------|--------------|
-| P1 | Wind Resource & AEP | PyWake, ERA5 | IEC 61400-12 |
-| P2 | HV Grid Integration | Pandapower, ANDES | IEC 60909, ENTSO-E NC RfG |
-| P3 | SCADA & Automation | IEC 61850 data models | IEC 61850, IEC 62443 |
-| P4 | AI Forecasting | XGBoost, LSTM, TFT | IEA Wind Task 36 |
-| P5 | Commissioning | Switching programmes | IEC 62271, LOTO procedures |
+The Baltic Wind Alpha project simulates a **510 MW offshore wind farm** in the Polish Baltic Sea — 34 Vestas V236-15.0 MW turbines connected through a complete HV chain. For the full specification and five-project breakdown, see the [Lessons Overview](index.md#the-project-at-a-glance).
 
 ### Why It Matters
 
@@ -59,15 +54,12 @@ The five projects form a single unified system:
 > **Why** five interconnected projects instead of five separate repositories?
 > Because real wind farms are interconnected systems. The AEP calculated in P1 determines the power flow scenarios in P2. The grid topology in P2 defines the SCADA data model in P3. The SCADA telemetry in P3 feeds the forecasting models in P4. The protection settings from P2 appear in the switching programmes of P5. Splitting these into separate repositories would lose this integration — and it is precisely this systems thinking that separates a mid-level engineer from a senior one.
 
-### Key Concept
+!!! tip "Key Concept: Systems Thinking — The Whole Is Greater Than the Sum of Parts"
+    **In plain English:** Instead of solving five separate problems, you solve one big problem that has five layers. Each layer talks to the others. Understanding how they connect is more valuable than understanding any single layer in isolation.
 
-> **Systems Thinking — The Whole Is Greater Than the Sum of Parts**
->
-> **In plain English:** Instead of solving five separate problems, you solve one big problem that has five layers. Each layer talks to the others. Understanding how they connect is more valuable than understanding any single layer in isolation.
->
-> **Analogy:** Think of a hospital. The emergency room, the operating theatre, the pharmacy, the ICU, and patient records are five "projects." A doctor who understands only the operating theatre is useful — but a hospital administrator who understands how patients flow between all five departments, where bottlenecks form, and how a pharmacy delay cascades into ICU overcrowding — that person runs the hospital.
->
-> **In this project:** When P1's wake model calculates that Turbine 17 produces 12.3 MW at 9 m/s, that number flows into P2's power flow analysis, which determines whether the 66 kV feeder cable can handle the current. If it cannot, P3's SCADA system must generate an alarm, P4's forecasting model must learn the curtailment pattern, and P5's commissioning test must verify the protection relay trips correctly. One number, five consequences — that is systems thinking.
+    **Analogy:** Think of a hospital. The emergency room, the operating theatre, the pharmacy, the ICU, and patient records are five "projects." A doctor who understands only the operating theatre is useful — but a hospital administrator who understands how patients flow between all five departments, where bottlenecks form, and how a pharmacy delay cascades into ICU overcrowding — that person runs the hospital.
+
+    **In this project:** When P1's wake model calculates that Turbine 17 produces 12.3 MW at 9 m/s, that number flows into P2's power flow analysis, which determines whether the 66 kV feeder cable can handle the current. If it cannot, P3's SCADA system must generate an alarm, P4's forecasting model must learn the curtailment pattern, and P5's commissioning test must verify the protection relay trips correctly. One number, five consequences — that is systems thinking.
 
 ---
 
@@ -110,40 +102,16 @@ We created four interlocking documents, each serving a distinct purpose:
 
 ### Code Walkthrough
 
-The `CLAUDE.md` session protocol is deceptively simple but critically important:
+The `CLAUDE.md` session protocol ensures three things: **context is never lost** (opening briefing re-establishes parameters), **learning is always verified** (closing interview questions force active recall), and **sequence is enforced** (P1 before P2 before P3). See the [session protocol reference](index.md#session-protocol) for the full text.
 
-```markdown
-## Session Protocol (MANDATORY)
+The auto-loaded references (`docs/SKILL.md` and `docs/Project_Roadmap.md`) create persistent memory — every session begins by reading these two documents. This is the software equivalent of a control room operator checking the station status board before taking any action. No action without context. No code without standards.
 
-- **Open every session:** "We're building a 510 MW Baltic Sea wind farm simulation.
-  34 × V236-15.0 MW, 66 kV array, 220 kV export (45 km), PSE grid.
-  Today: [module] — maps to [Learning_Roadmap section]."
-- **Close every session:** 3 interview questions + "explain simply" + "explain technically"
-- **Code order:** P1 → P2 → P3 → P4 → P5. Physics first. Code second.
-```
+!!! tip "Key Concept: Design Basis — Decisions Before Construction"
+    **In plain English:** Before you build anything, you write down all the rules and parameters that the building must follow. How tall? How heavy? What materials? These decisions are made by engineers, reviewed, and agreed upon — BEFORE the first brick is laid.
 
-This protocol ensures three things. First, **context is never lost** between sessions — the opening briefing re-establishes the engineering parameters. Second, **learning is always verified** — the closing interview questions force active recall, not passive absorption. Third, **sequence is enforced** — P1 before P2 before P3, because the physics must be understood before the code is written.
+    **Analogy:** Think of a recipe. Before you start cooking, you read the entire recipe, check you have all the ingredients, and note the oven temperature. If you start cooking without reading the recipe, you might discover halfway through that you need an ingredient you do not have — and the dish is ruined. The design basis is the recipe for the entire wind farm.
 
-The auto-loaded references create a persistent memory:
-
-```markdown
-## Auto-Loaded References
-
-- `docs/SKILL.md` — Engineering standards, coding conventions, domain rules, API patterns
-- `docs/Project_Roadmap.md` — Complete project specification (510 MW, 5 projects, all standards)
-```
-
-Every session begins by reading these two documents. This is the software equivalent of a control room operator checking the station status board before taking any action. No action without context. No code without standards.
-
-### Key Concept
-
-> **Design Basis — Decisions Before Construction**
->
-> **In plain English:** Before you build anything, you write down all the rules and parameters that the building must follow. How tall? How heavy? What materials? These decisions are made by engineers, reviewed, and agreed upon — BEFORE the first brick is laid.
->
-> **Analogy:** Think of a recipe. Before you start cooking, you read the entire recipe, check you have all the ingredients, and note the oven temperature. If you start cooking without reading the recipe, you might discover halfway through that you need an ingredient you do not have — and the dish is ruined. The design basis is the recipe for the entire wind farm.
->
-> **In this project:** Our design basis is `docs/Project_Roadmap.md`. It specifies 34 × V236-15.0 MW turbines (not 30, not 40 — exactly 34), 66 kV array cables (not 33 kV), and 220 kV export (not 132 kV). Every calculation in P1 through P5 reads from this one document. If we change the turbine model, we change it in one place, and every downstream calculation updates accordingly.
+    **In this project:** Our design basis is [`docs/Project_Roadmap.md`](../Project_Roadmap.md). It specifies 34 × V236-15.0 MW turbines (not 30, not 40 — exactly 34), 66 kV array cables (not 33 kV), and 220 kV export (not 132 kV). Every calculation in P1 through P5 reads from this one document. If we change the turbine model, we change it in one place, and every downstream calculation updates accordingly.
 
 ---
 
@@ -161,59 +129,69 @@ Choosing the technology stack for a project is like choosing the equipment for a
 
 Our technology stack was chosen for three criteria: **domain fit** (does this tool solve our specific engineering problem?), **integration** (does it work with the other tools?), and **learnability** (can a junior engineer understand it?).
 
-**Backend — Python 3.13 + FastAPI + Pydantic v2:**
+=== "Backend"
 
-```
-Domain fit:    PyWake, Pandapower, ANDES, XGBoost, TensorFlow — all Python
-Integration:   FastAPI + Pydantic = type-safe APIs with auto-generated OpenAPI docs
-Learnability:  Python is the lingua franca of engineering computation
-```
+    **Python 3.13 + FastAPI + Pydantic v2**
 
-We chose Python because the computation engines we need (PyWake for wake modeling, Pandapower for power flow, ANDES for dynamic simulation, XGBoost/LSTM/TFT for forecasting) are all Python libraries. Using a different backend language (Go, Rust, Java) would require bridging to Python for every simulation — adding complexity with no benefit. FastAPI was chosen over Django (too heavy for an API service) and Flask (no built-in async, no automatic OpenAPI). Pydantic v2 provides schema validation at every system boundary — incoming API requests, outgoing responses, configuration loading — catching type errors before they reach domain logic.
+    | Criterion | Rationale |
+    |-----------|-----------|
+    | Domain fit | PyWake, Pandapower, ANDES, XGBoost, TensorFlow — all Python |
+    | Integration | FastAPI + Pydantic = type-safe APIs with auto-generated OpenAPI docs |
+    | Learnability | Python is the lingua franca of engineering computation |
 
-**Frontend — React 19 + TypeScript (strict) + Tailwind v4 + Plotly.js + Zustand:**
+    We chose Python because the computation engines we need are all Python libraries. Using a different backend language would require bridging to Python for every simulation — adding complexity with no benefit. FastAPI was chosen over Django (too heavy) and Flask (no built-in async, no automatic OpenAPI). Pydantic v2 provides schema validation at every system boundary.
 
-```
-Domain fit:    Plotly.js for engineering charts (wind roses, power curves, P50/P90 bands)
-Integration:   React + TypeScript = component-based UI with compile-time type safety
-Learnability:  React is the most widely-taught frontend framework
-```
+=== "Frontend"
 
-TypeScript in strict mode catches an entire class of errors at compile time — `undefined is not a function` becomes a compilation error, not a runtime crash at 3 AM. Plotly.js was chosen over D3.js (lower-level, requires more code for standard charts) and Chart.js (insufficient for complex engineering visualizations like 3D wake fields). Zustand was chosen over Redux because our state management needs are moderate — SCADA state for 34 turbines, not a social media feed with millions of entities. Zustand's minimal API means less boilerplate and a gentler learning curve.
+    **React 19 + TypeScript (strict) + Tailwind v4 + Plotly.js + Zustand**
 
-**Database — PostgreSQL 16 + TimescaleDB + Redis 7:**
+    | Criterion | Rationale |
+    |-----------|-----------|
+    | Domain fit | Plotly.js for engineering charts (wind roses, power curves, P50/P90 bands) |
+    | Integration | React + TypeScript = component-based UI with compile-time type safety |
+    | Learnability | React is the most widely-taught frontend framework |
 
-```
-Domain fit:    TimescaleDB hypertables for wind/power time-series data
-Integration:   PostgreSQL is the most supported RDBMS in the Python ecosystem
-Learnability:  SQL is a universal skill; TimescaleDB extends it, not replaces it
-```
+    TypeScript strict catches `undefined is not a function` at compile time. Plotly.js was chosen over D3.js (too low-level) and Chart.js (insufficient for 3D wake fields). Zustand was chosen over Redux — our SCADA state for 34 turbines doesn't need Redux's ceremony.
 
-Wind farm data is fundamentally time-series: every 10 seconds, each turbine reports power output, wind speed, blade pitch, nacelle direction, and generator temperature. That is 34 turbines × 5 parameters × 6 readings/minute = 1,020 rows per minute. TimescaleDB's hypertables automatically partition this data by time, making range queries ("average power per turbine for the last 24 hours") 10-100x faster than standard PostgreSQL. Redis serves two purposes: caching frequently-accessed simulation results (so the frontend does not re-run a 30-second PyWake simulation on every page refresh), and pub/sub for real-time SCADA updates via WebSocket.
+=== "Database"
 
-**Computation Engines:**
+    **PostgreSQL 16 + TimescaleDB + Redis 7**
 
-| Engine | Project | Purpose | Why This Tool |
-|--------|---------|---------|--------------|
-| PyWake | P1 | Wake modeling & AEP | DTU's official library, implements Bastankhah-Porté-Agel and NOJ models |
-| Pandapower | P2 | Steady-state power flow & short-circuit | Integrates with IEEE/IEC standards, mature Python API |
-| ANDES | P2 | Dynamic simulation (FRT, SSO) | Python-native, supports ENTSO-E NC RfG compliance testing |
-| XGBoost | P4 | Gradient-boosted tree forecasting | Baseline model, interpretable with SHAP |
-| LSTM | P4 | Sequence-based neural forecasting | Captures temporal dependencies in wind patterns |
-| TFT | P4 | Temporal Fusion Transformer | State-of-the-art probabilistic forecasting with attention |
+    | Criterion | Rationale |
+    |-----------|-----------|
+    | Domain fit | TimescaleDB hypertables for wind/power time-series data |
+    | Integration | PostgreSQL is the most supported RDBMS in the Python ecosystem |
+    | Learnability | SQL is a universal skill; TimescaleDB extends it, not replaces it |
 
-**DevOps:**
+    Wind farm data is fundamentally time-series: 34 turbines × 5 parameters × 6 readings/minute = 1,020 rows per minute. TimescaleDB makes range queries 10-100x faster. Redis serves caching (simulation results) and pub/sub (real-time SCADA updates via WebSocket).
 
-| Tool | Purpose | Why This Tool |
-|------|---------|--------------|
-| Docker Compose | Service orchestration | Reproducible 4-service stack with health checks |
-| GitHub Actions | CI/CD pipeline | Free for open-source, 4 parallel jobs |
-| Pre-commit hooks | Local quality gates | Instant feedback before commit creation |
-| Dependabot | Supply chain security | Automated weekly dependency updates across 3 ecosystems |
-| MkDocs Material | Documentation site | Markdown-native, auto-deployed to GitHub Pages |
-| Makefile | Task runner | Universal entry point: `make lint`, `make test`, `make docker-up` |
-| Ruff | Python linting + formatting | 10-100x faster than flake8+black+isort combined, single tool |
-| Mypy (strict) | Python type checking | Catches type errors before runtime |
+=== "Compute"
+
+    **Domain-specific computation engines**
+
+    | Engine | Project | Purpose | Why This Tool |
+    |--------|---------|---------|--------------|
+    | PyWake | P1 | Wake modeling & AEP | DTU's official library, Bastankhah-Porté-Agel and NOJ models |
+    | Pandapower | P2 | Power flow & short-circuit | IEEE/IEC standards integration, mature Python API |
+    | ANDES | P2 | Dynamic simulation (FRT, SSO) | Python-native, ENTSO-E NC RfG compliance testing |
+    | XGBoost | P4 | Gradient-boosted trees | Baseline model, interpretable with SHAP |
+    | LSTM | P4 | Sequence-based neural | Captures temporal dependencies in wind patterns |
+    | TFT | P4 | Temporal Fusion Transformer | State-of-the-art probabilistic forecasting |
+
+=== "DevOps"
+
+    **Quality infrastructure and automation**
+
+    | Tool | Purpose | Why This Tool |
+    |------|---------|--------------|
+    | Docker Compose | Service orchestration | Reproducible 4-service stack with health checks |
+    | GitHub Actions | CI/CD pipeline | Free for open-source, 4 parallel jobs |
+    | Pre-commit hooks | Local quality gates | Instant feedback before commit creation |
+    | Dependabot | Supply chain security | Automated weekly dependency updates across 3 ecosystems |
+    | MkDocs Material | Documentation site | Markdown-native, auto-deployed to GitHub Pages |
+    | Makefile | Task runner | Universal entry point: `make lint`, `make test`, `make docker-up` |
+    | Ruff | Python linting + formatting | 10-100x faster than flake8+black+isort combined |
+    | Mypy (strict) | Python type checking | Catches type errors before runtime |
 
 ### Why It Matters
 
@@ -223,15 +201,12 @@ Wind farm data is fundamentally time-series: every 10 seconds, each turbine repo
 > **Why** did we choose Zustand over Redux for frontend state management?
 > Proportionality. Redux is a powerful state management library designed for applications with complex state interactions across hundreds of components. Our SCADA dashboard has 34 turbines with ~10 state variables each — roughly 340 state values. Zustand handles this with a single store and zero boilerplate. Redux would require actions, reducers, selectors, and middleware for the same result. The engineering principle is: choose the tool that matches the scale of your problem.
 
-### Key Concept
+!!! tip "Key Concept: Fitness for Purpose — Choosing the Right Tool for the Job"
+    **In plain English:** The best tool is not the most powerful or the most popular — it is the one that fits your specific problem. A Ferrari is not the best vehicle for delivering furniture. A pickup truck is.
 
-> **Fitness for Purpose — Choosing the Right Tool for the Job**
->
-> **In plain English:** The best tool is not the most powerful or the most popular — it is the one that fits your specific problem. A Ferrari is not the best vehicle for delivering furniture. A pickup truck is.
->
-> **Analogy:** In a substation, you do not install a 500 MW transformer to serve a 10 MW load. You choose the transformer that matches the load, with enough margin for growth but not so much that you waste capital. Over-engineering is as problematic as under-engineering — the 500 MW transformer still needs cooling, oil management, and protection, all sized for 500 MW even though you only use 2% of its capacity.
->
-> **In this project:** We chose Zustand over Redux because our state management needs are moderate. We chose FastAPI over Django because we are building an API service, not a content management system. We chose TimescaleDB over InfluxDB because we need relational joins (turbine metadata + time-series telemetry) in addition to time-series queries. Every technology decision was made by asking: "What does this specific problem require?"
+    **Analogy:** In a substation, you do not install a 500 MW transformer to serve a 10 MW load. You choose the transformer that matches the load, with enough margin for growth but not so much that you waste capital. Over-engineering is as problematic as under-engineering.
+
+    **In this project:** We chose Zustand over Redux because our state management needs are moderate. We chose FastAPI over Django because we are building an API service, not a CMS. We chose TimescaleDB over InfluxDB because we need relational joins (turbine metadata + telemetry) in addition to time-series queries. Every technology decision was made by asking: "What does this specific problem require?"
 
 ---
 
@@ -284,15 +259,12 @@ The teach-me skill's quality rules demonstrate how to codify engineering standar
 
 These rules serve the same function as the 10 non-negotiable domain rules in SKILL.md. They are absolute constraints — not guidelines, not suggestions. Rule 11 prevents hallucination (fabricated book titles). Rule 3 prevents shallow lessons. Rule 5 ensures accessibility. Together, they guarantee a minimum quality bar regardless of which specific commits are being taught.
 
-### Key Concept
+!!! tip "Key Concept: Standard Operating Procedures — Consistency Through Documentation"
+    **In plain English:** Instead of relying on people to remember the right steps every time, you write down the steps and follow the document. This way, the 100th time is as reliable as the first time, and a new team member can perform the procedure without training from an expert.
 
-> **Standard Operating Procedures — Consistency Through Documentation**
->
-> **In plain English:** Instead of relying on people to remember the right steps every time, you write down the steps and follow the document. This way, the 100th time is as reliable as the first time, and a new team member can perform the procedure without training from an expert.
->
-> **Analogy:** Think of a pilot's pre-flight checklist. Even a pilot with 30 years of experience runs through the same checklist before every flight — check fuel, check instruments, check flaps. The checklist does not imply the pilot is incompetent; it acknowledges that humans forget things under pressure, and a structured procedure prevents errors.
->
-> **In this project:** The github-push skill is our pre-flight checklist for code deployment. No matter how urgent the push, it always scans for secrets, always checks for dangerous files, always formats the commit message correctly. The teach-me skill is our curriculum development procedure — every lesson follows the same template, uses the same teaching techniques, and meets the same quality bar.
+    **Analogy:** Think of a pilot's pre-flight checklist. Even a pilot with 30 years of experience runs through the same checklist before every flight — check fuel, check instruments, check flaps. The checklist does not imply the pilot is incompetent; it acknowledges that humans forget things under pressure, and a structured procedure prevents errors.
+
+    **In this project:** The github-push skill is our pre-flight checklist for code deployment. No matter how urgent the push, it always scans for secrets, always checks for dangerous files, always formats the commit message correctly. The teach-me skill is our curriculum development procedure — every lesson follows the same template, uses the same teaching techniques, and meets the same quality bar.
 
 ---
 
@@ -342,15 +314,12 @@ The ten teaching techniques ensure knowledge retention:
 > **Why** are analogies mandatory in every section, not optional?
 > Because analogies are the bridge between new knowledge and existing knowledge. Cognitive science research shows that learning is fundamentally the process of connecting new information to existing mental models. A reader who has never configured a Docker health check has probably waited for a restaurant table and understood "the table is ready" vs. "the table exists but the previous guests haven't left yet." That analogy makes `service_healthy` intuitive. Without analogies, every concept requires building mental models from scratch — which is slow, fragile, and demotivating.
 
-### Key Concept
+!!! tip "Key Concept: The 4-Layer Learning Model — Physics, Standards, Mathematics, Code"
+    **In plain English:** To truly understand any engineering topic, you need four things: what is actually happening in the physical world, what the rules say about it, what the math looks like, and how to turn it into working software. Skip any one of these, and your knowledge has a gap.
 
-> **The 4-Layer Learning Model — Physics, Standards, Mathematics, Code**
->
-> **In plain English:** To truly understand any engineering topic, you need four things: what is actually happening in the physical world, what the rules say about it, what the math looks like, and how to turn it into working software. Skip any one of these, and your knowledge has a gap.
->
-> **Analogy:** Think of building a bridge. A civil engineer needs to understand gravity and material strength (physics), building codes and load regulations (standards), stress and strain calculations (mathematics), and CAD/FEA software to design and verify the structure (code). An architect who draws beautiful bridges but cannot calculate loads is dangerous. A programmer who writes FEA software but does not understand the physics it models is equally dangerous.
->
-> **In this project:** When we build P2's short-circuit analysis, we will start with the physics (what happens when a conductor touches ground?), consult IEC 60909 (the standard method), apply the voltage factor equations (mathematics), and implement it using Pandapower's `sc.calc_sc()` function (code). This 4-layer approach ensures we do not just produce correct numbers — we understand what the numbers mean.
+    **Analogy:** Think of building a bridge. A civil engineer needs to understand gravity and material strength (physics), building codes and load regulations (standards), stress and strain calculations (mathematics), and CAD/FEA software to design and verify the structure (code). An architect who draws beautiful bridges but cannot calculate loads is dangerous. A programmer who writes FEA software but does not understand the physics it models is equally dangerous.
+
+    **In this project:** When we build P2's short-circuit analysis, we will start with the physics (what happens when a conductor touches ground?), consult IEC 60909 (the standard method), apply the voltage factor equations (mathematics), and implement it using Pandapower's `sc.calc_sc()` function (code). This 4-layer approach ensures we do not just produce correct numbers — we understand what the numbers mean.
 
 ---
 
@@ -434,74 +403,71 @@ fa528fb Merge pull request #14
 
 The first real commit after "Initial commit" is documentation (`[DOCS]`). The second is infrastructure (`[INFRA]`). Then security hardening. Then automated dependency updates. Then more infrastructure. Not a single domain-specific commit — no wind models, no power flow, no SCADA logic. This sequence communicates a clear message: this engineer builds the foundation before the house.
 
-### Key Concept
+!!! tip "Key Concept: Quality System Before Quality Product — Process Over Outcome"
+    **In plain English:** The way you build something matters as much as what you build. A bridge built with proper engineering processes (material testing, load calculations, safety inspections) is trustworthy even before you drive across it. A bridge built without these processes is risky even if it looks fine today.
 
-> **Quality System Before Quality Product — Process Over Outcome**
->
-> **In plain English:** The way you build something matters as much as what you build. A bridge built with proper engineering processes (material testing, load calculations, safety inspections) is trustworthy even before you drive across it. A bridge built without these processes is risky even if it looks fine today.
->
-> **Analogy:** Two chefs make the same dish. Chef A has a clean kitchen, labelled ingredients, a written recipe, and washes hands between steps. Chef B has ingredients everywhere, no recipe, and a dirty cutting board. Even if both dishes taste the same today, which kitchen would a health inspector certify? Which chef would you trust to produce consistent results next week? The process certifies the product.
->
-> **In this project:** Our Phase 0 is the health inspection of our kitchen. Before we cook any domain logic (P1-P5), we proved that our kitchen is clean: CI catches bugs automatically, security scanning prevents leaked secrets, dependency management keeps our supply chain current, and documentation ensures every engineer starts with the same context. The domain code we write next will inherit all of these protections automatically.
+    **Analogy:** Two chefs make the same dish. Chef A has a clean kitchen, labelled ingredients, a written recipe, and washes hands between steps. Chef B has ingredients everywhere, no recipe, and a dirty cutting board. Even if both dishes taste the same today, which kitchen would a health inspector certify? Which chef would you trust to produce consistent results next week? The process certifies the product.
+
+    **In this project:** Our Phase 0 is the health inspection of our kitchen. Before we cook any domain logic (P1-P5), we proved that our kitchen is clean: CI catches bugs automatically, security scanning prevents leaked secrets, dependency management keeps our supply chain current, and documentation ensures every engineer starts with the same context. The domain code we write next will inherit all of these protections automatically.
 
 ---
 
-## Connections to Previous Lessons
+## Connections
 
-**Lesson 001** taught us *what* we built in Phase 0: Docker Compose, CI/CD, pre-commit hooks, Dependabot, the github-push security skill. It was a technical tour of each component.
+**Where these concepts appear next:**
 
-**Lesson 002** taught us *how* we extend automated systems: adding multi-language support to the teach-me skill, defining translation boundaries, establishing quality rules. It demonstrated the skill architecture pattern.
-
-**Lesson 000** (this lesson) teaches us *why*. Why did we choose FastAPI over Django? Why did we write documentation before code? Why are analogies mandatory in every lesson? Why is Phase 0 itself a test of engineering maturity? This lesson connects the technical decisions of Lessons 001 and 002 to the engineering philosophy behind them.
-
-Together, the three lessons form a complete picture: the what, the how, and the why of professional project infrastructure.
+- **Systems thinking** (Section 1) → P1 will demonstrate this concretely when wake model outputs feed directly into P2 power flow scenarios
+- **Design basis** (Section 2) → Every P1-P5 module reads parameters from `Project_Roadmap.md` — the single source of truth established here
+- **Technology stack justification** (Section 3) → [Lesson 001](lesson-001.md) shows each tool configured and running in Docker Compose
+- **Custom skills as SOPs** (Section 4) → [Lesson 002](lesson-002.md) extends the teach-me skill with internationalization, demonstrating the skill architecture pattern
+- **4-layer teaching model** (Section 5) → Every future lesson applies this structure — P1's first lesson will start with wind physics, then IEC 61400-12, then Weibull mathematics, then PyWake code
+- **Phase 0 as engineering test** (Section 6) → P3 SCADA monitoring will build on the health check patterns established here
 
 ---
 
 ## The Big Picture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│           510 MW Baltic Wind Farm — Planning & Technology Map            │
-│                                                                         │
-│   PLANNING DOCUMENTS (the design basis)                                 │
-│   ┌──────────────┐  ┌─────────────────┐  ┌───────────────────────┐    │
-│   │ Project      │  │ Learning        │  │ SKILL.md              │    │
-│   │ Roadmap      │  │ Roadmap         │  │ (Engineering          │    │
-│   │ (1646 lines) │  │ (32 weeks)      │  │  Standards)           │    │
-│   │ WHAT to build│  │ WHAT to learn   │  │ HOW to build          │    │
-│   └──────┬───────┘  └────────┬────────┘  └───────────┬───────────┘    │
-│          │                   │                        │                 │
-│          ▼                   ▼                        ▼                 │
-│   TECHNOLOGY STACK (the tools)                                          │
-│   ┌─────────────┐  ┌──────────────┐  ┌─────────────────────────┐      │
-│   │  React 19   │  │   FastAPI    │  │  PostgreSQL 16          │      │
-│   │  TypeScript  │─▶│  Python 3.13 │─▶│  + TimescaleDB          │      │
-│   │  Tailwind v4 │  │  Pydantic v2 │  │  + Redis 7              │      │
-│   └─────────────┘  └──────────────┘  └─────────────────────────┘      │
-│                                                                         │
-│   AUTOMATION SKILLS (the procedures)                                    │
-│   ┌───────────────────┐     ┌────────────────────────────────────┐    │
-│   │  github-push       │     │  teach-me                          │    │
-│   │  7-phase security  │     │  7-phase lesson generator          │    │
-│   │  13 secret patterns│     │  12 quality rules                  │    │
-│   │  14 file patterns  │     │  10 teaching techniques            │    │
-│   └───────────────────┘     └────────────────────────────────────┘    │
-│                                                                         │
-│   QUALITY INFRASTRUCTURE (the safety system)                            │
-│   ┌─────────────────────────────────────────────────────────────────┐  │
-│   │  GitHub Actions CI ── Pre-commit Hooks ── Dependabot            │  │
-│   │  EditorConfig ── Makefile ── MkDocs ── Docker Compose           │  │
-│   └─────────────────────────────────────────────────────────────────┘  │
-│                                                                         │
-│   ◄──── THIS LESSON: Why every decision above was made ────►           │
-│                                                                         │
-│   FUTURE MODULES (P1 → P5) — built ON TOP of this foundation           │
-│   ┌─────────────────────────────────────────────────────────────────┐  │
-│   │  P1: PyWake    P2: Pandapower    P3: IEC 61850    P4: ML/AI    │  │
-│   │  P5: Commissioning Simulation                                   │  │
-│   └─────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────┘
+*This lesson's focus: **why** every planning and technology decision was made.*
+
+```mermaid
+graph TD
+    subgraph PLAN["Planning Documents (Design Basis)"]
+        Roadmap["Project Roadmap<br/><i>1,646 lines — WHAT to build</i>"]
+        Learning["Learning Roadmap<br/><i>32 weeks — WHAT to learn</i>"]
+        Skill["SKILL.md<br/><i>722 lines — HOW to build</i>"]
+    end
+
+    subgraph TECH["Technology Stack"]
+        FE["React 19 + TypeScript + Tailwind v4"]
+        BE["FastAPI + Python 3.13 + Pydantic v2"]
+        DB["PostgreSQL 16 + TimescaleDB + Redis 7"]
+    end
+
+    subgraph AUTO["Automation Skills"]
+        Push["github-push<br/><i>7 phases, 13 secret patterns</i>"]
+        Teach["teach-me<br/><i>7 phases, 12 quality rules</i>"]
+    end
+
+    subgraph QUALITY["Quality Infrastructure"]
+        CI["GitHub Actions CI"]
+        PreCommit["Pre-commit Hooks"]
+        Deps["Dependabot"]
+        Docker["Docker Compose"]
+    end
+
+    subgraph FUTURE["Future Modules (P1 → P5)"]
+        P1["P1: PyWake"]
+        P2["P2: Pandapower"]
+        P3["P3: IEC 61850"]
+        P4["P4: ML/AI"]
+        P5["P5: Commissioning"]
+    end
+
+    PLAN --> TECH
+    PLAN --> AUTO
+    TECH --> QUALITY
+    AUTO --> QUALITY
+    QUALITY --> FUTURE
 ```
 
 ---
@@ -628,12 +594,10 @@ Some people would say we should have started with the exciting stuff — simulat
 ### Explain It Technically
 *"How would you present the Phase 0 planning and technology decisions to a hiring panel?"*
 
-We established a production-grade monorepo infrastructure for a 510 MW offshore wind farm simulation platform before writing any domain-specific code — a deliberate architectural decision that prioritizes process quality over feature velocity.
+We established a production-grade monorepo infrastructure for a 510 MW offshore wind farm simulation platform before writing any domain-specific code — prioritizing process quality over feature velocity.
 
-The planning phase produced four authoritative documents: a 1,646-line consolidated Project Roadmap (merged from v1 specification and v2 gap analysis, with archived originals for traceability), a 32-week Learning Roadmap with curated academic sources aligned to each project phase, a 722-line SKILL.md codifying 10 non-negotiable domain rules and coding conventions, and a session protocol (CLAUDE.md) ensuring consistent engineering context across development sessions. These documents follow the IEC 61355 principle of hierarchical document management with a single source of truth.
+Four authoritative documents form the design basis: a 1,646-line consolidated Project Roadmap (merged from v1 and v2, originals archived for traceability), a 32-week Learning Roadmap with curated academic sources, a 722-line SKILL.md codifying 10 non-negotiable domain rules, and a session protocol ensuring consistent engineering context. These follow IEC 61355 principles of hierarchical document management.
 
-The technology stack was selected for domain fit over popularity: FastAPI + Python 3.13 for backend (driven by the PyWake/Pandapower/ANDES computation ecosystem), React 19 + TypeScript strict for frontend (type safety for SCADA dashboard complexity), PostgreSQL 16 + TimescaleDB for persistence (relational + time-series hybrid queries on turbine telemetry), and Redis 7 for caching and real-time pub/sub. Each choice was justified against alternatives with explicit engineering rationale — for example, TimescaleDB over InfluxDB because we need relational joins (turbine metadata + telemetry), not just time-series aggregation.
+The technology stack was selected for domain fit: FastAPI + Python 3.13 (driven by PyWake/Pandapower/ANDES ecosystem), React 19 + TypeScript strict (SCADA dashboard type safety), PostgreSQL 16 + TimescaleDB (relational + time-series hybrid), and Redis 7 (caching + pub/sub). Each choice justified against alternatives — e.g., TimescaleDB over InfluxDB for relational joins on turbine metadata + telemetry.
 
-Two custom Claude Code skills automate critical workflows: a 7-phase github-push skill implementing a secrets scanner (13 regex patterns, BLOCK/WARN classification with context-aware exceptions) and a 7-phase teach-me skill generating pedagogically-structured lessons from git history (10 learning science techniques, 12 quality rules, multi-language support). These skills function as version-controlled Standard Operating Procedures, ensuring consistency independent of individual developer discipline.
-
-The quality infrastructure implements defense in depth: pre-commit hooks (ruff, mypy, eslint) for local feedback, GitHub Actions CI (4 parallel jobs with dependency caching and coverage upload) for clean-environment verification, Dependabot for automated supply chain management across pip/npm/Actions ecosystems, and the github-push security audit as a final gate. This architecture directly supports the P1-P5 domain modules: every wake model unit test, every power flow validation, and every SCADA integration test will inherit these quality gates from day one.
+Quality infrastructure implements defense in depth: pre-commit hooks for local feedback, GitHub Actions CI (4 parallel jobs) for clean-environment verification, Dependabot for supply chain management, and a custom 7-phase security audit skill as the final gate. Every future P1-P5 module inherits these quality gates from day one.

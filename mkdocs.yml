@@ -31,17 +31,31 @@ nav:
   - Engineering Standards: SKILL.md
   - Project Roadmap: Project_Roadmap.md
   - Learning Roadmap: Learning_Roadmap.md
+  - Lessons:
+    - Overview: lessons/index.md
+    - "000 — Project Planning & Engineering Methodology": lessons/lesson-000.md
+    - "001 — DevOps Foundation": lessons/lesson-001.md
+    - "002 — Internationalization (TR)": lessons/lesson-002.md
 
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - attr_list
+  - md_in_html
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.tabbed:
       alternate_style: true
   - tables
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - toc:
       permalink: true
 

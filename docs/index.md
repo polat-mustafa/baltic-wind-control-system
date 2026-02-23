@@ -53,3 +53,9 @@ Based on real Polish Baltic Sea offshore wind projects (Baltic Power 1.2 GW, Bal
 ## Purpose
 
 This platform is an **educational tool** designed to demonstrate the full scope of competence expected from HV Control Engineers in the offshore wind industry. Every line of code is written to be explainable to a junior engineer while maintaining production-grade quality.
+
+## Lessons
+
+Step-by-step learning log documenting every engineering decision — from project planning through DevOps foundation to internationalization.
+
+[Browse all lessons →](lessons/index.md)

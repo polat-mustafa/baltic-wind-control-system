@@ -1,5 +1,10 @@
 # Lesson 001 — Building the DevOps Foundation for a 510 MW Offshore Wind Simulation Platform
 
+!!! abstract "Lesson Navigation"
+    :material-arrow-left: **Previous:** [Lesson 000 — Project Planning](lesson-000.md) | **Next:** [Lesson 002 — Internationalization (TR)](lesson-002.md) :material-arrow-right:
+
+    **Phase:** P0 | **Language:** English | **Progress:** 2 of 3 | [All Lessons](index.md) | [Learning Roadmap](../Learning_Roadmap.md)
+
 > **Date:** 2026-02-20
 > **Commits:** 14 commits (`f250002` → `9fc5c88`)
 > **Commit range:** `f2500024193bb88db74d1269612cd7c14fbe0614..9fc5c88d5b74a1070aae0c1c0a89b4cac8704cb0`
@@ -27,7 +32,7 @@ Imagine you arrive at a new offshore wind farm as a commissioning engineer. Befo
 
 ### What the Standards Say
 
-**IEC 61355 (Classification and designation of documents for plants, systems and equipment)** establishes that industrial projects must maintain a hierarchical document structure with a single master document index. While our project is a simulation, we follow the same principle: one roadmap to rule them all, with archived versions for traceability.
+Our documentation follows the **IEC 61355** hierarchical document structure — see the [document philosophy](index.md#document-philosophy-iec-61355) for details. The core principle: one roadmap to rule them all, with archived versions for traceability.
 
 ### What We Built
 
@@ -51,20 +56,7 @@ We had two roadmap documents (v1 and v2) that partially contradicted each other.
 
 ### Code Walkthrough
 
-The `CLAUDE.md` file acts as a persistent "briefing document" that loads every session:
-
-```markdown
-# Baltic Wind HV Control Platform
-
-## Auto-Loaded References
-
-These files are essential context for every session — read them before starting any work:
-
-- `docs/SKILL.md` — Engineering standards, coding conventions, domain rules, API patterns
-- `docs/Project_Roadmap.md` — Complete project specification (510 MW, 5 projects, all standards)
-```
-
-This is deceptively simple but critically important. By declaring which files are auto-loaded, we ensure that every coding session starts with the same engineering context — the same way a control room operator starts every shift by reading the station logbook.
+The `CLAUDE.md` session protocol and auto-loaded references are covered in detail in [Lesson 000 — Section 2](lesson-000.md#section-2-the-planning-documents-engineering-before-code). The key insight: every session starts with the same engineering context, like a control room operator reading the station logbook at shift handover.
 
 The `.gitignore` is equally important — it prevents accidental commits of secrets, weather data (ERA5 NetCDF files can be gigabytes), and build artifacts:
 
@@ -82,15 +74,12 @@ The `.gitignore` is equally important — it prevents accidental commits of secr
 
 These patterns protect us from the most common mistakes in open-source projects: leaking API keys and bloating the repository with binary data.
 
-### Key Concept
+!!! tip "Key Concept: Single Source of Truth (SSOT)"
+    **In plain English:** Instead of having information scattered across five different documents that might disagree with each other, you put it all in one place. If someone asks "how many turbines?" there's exactly one place to look, and it always has the right answer.
 
-> **Single Source of Truth (SSOT)**
->
-> **In plain English:** Instead of having information scattered across five different documents that might disagree with each other, you put it all in one place. If someone asks "how many turbines?" there's exactly one place to look, and it always has the right answer.
->
-> **Analogy:** Think of your phone's contacts app. Imagine if you had three different address books and your friend's number was different in each one. You'd waste time figuring out which is correct. SSOT means one contacts app, one number — always right.
->
-> **In this project:** `docs/Project_Roadmap.md` is the SSOT for the entire 510 MW wind farm specification. Every turbine count, cable voltage, and grid code reference lives there. When we code P1's layout optimizer, we'll read the turbine specs from this one document — never from the archived v1 or v2.
+    **Analogy:** Think of your phone's contacts app. Imagine if you had three different address books and your friend's number was different in each one. You'd waste time figuring out which is correct. SSOT means one contacts app, one number — always right.
+
+    **In this project:** [`docs/Project_Roadmap.md`](../Project_Roadmap.md) is the SSOT for the entire 510 MW wind farm specification. Every turbine count, cable voltage, and grid code reference lives there. When we code P1's layout optimizer, we'll read the turbine specs from this one document — never from the archived v1 or v2.
 
 ---
 
@@ -174,15 +163,12 @@ def test_health_returns_ok():
 
 This test runs in CI on every push. If the application can't even start (import error, missing dependency, config crash), this test catches it in seconds rather than in production.
 
-### Key Concept
+!!! tip "Key Concept: The 12-Factor App — Config in the Environment"
+    **In plain English:** Never write passwords, database addresses, or API keys directly in your code. Instead, your code reads them from the computer's environment (like environment variables), and you set those values differently on your laptop vs. in production.
 
-> **The 12-Factor App — Config in the Environment**
->
-> **In plain English:** Never write passwords, database addresses, or API keys directly in your code. Instead, your code reads them from the computer's environment (like environment variables), and you set those values differently on your laptop vs. in production.
->
-> **Analogy:** Think of a master key system in a building. The lock mechanism (code) is the same everywhere, but the key (config) changes depending on who's accessing it. The janitor has a different key than the CEO, but the doors work the same way.
->
-> **In this project:** Our `config.py` uses `postgresql+asyncpg://postgres:postgres@localhost:5432/balticwind` for development, but Docker Compose overrides it with `postgres:postgres@postgres:5432/balticwind` (note: `postgres` is the Docker service name, not `localhost`). In a real deployment, a secrets manager would inject a proper password.
+    **Analogy:** Think of a master key system in a building. The lock mechanism (code) is the same everywhere, but the key (config) changes depending on who's accessing it. The janitor has a different key than the CEO, but the doors work the same way.
+
+    **In this project:** Our `config.py` uses `postgresql+asyncpg://postgres:postgres@localhost:5432/balticwind` for development, but Docker Compose overrides it with `postgres:postgres@postgres:5432/balticwind` (note: `postgres` is the Docker service name, not `localhost`). In a real deployment, a secrets manager would inject a proper password.
 
 ---
 
@@ -248,15 +234,41 @@ healthcheck:
 
 This is the same pattern used in real industrial systems. Protection relays check circuit breaker status every few hundred milliseconds. If a breaker doesn't respond within the timeout, the relay escalates — first an alarm, then a trip command. Our Docker health checks are a simplified version of the same pattern: poll → timeout → retry → escalate.
 
-### Key Concept
+The health check startup sequence visualized:
 
-> **Service Orchestration and Health Checks**
->
-> **In plain English:** When you have multiple programs that depend on each other, you need a system that starts them in the right order and makes sure each one is actually working before starting the next one.
->
-> **Analogy:** Think of a restaurant kitchen. The prep cook chops vegetables first, then the line cook starts cooking. The line cook doesn't start frying until the prep is done — and the head chef checks that the prep is actually ready, not just that the prep cook has arrived. Docker Compose is the head chef.
->
-> **In this project:** Our FastAPI backend can't function without PostgreSQL and Redis. Docker Compose ensures PostgreSQL is accepting connections (`pg_isready`) and Redis responds to `ping` before the backend starts. When we add P2's Pandapower grid solver, it will follow the same pattern — depending on the backend being healthy before running simulations.
+```mermaid
+sequenceDiagram
+    participant DC as Docker Compose
+    participant PG as PostgreSQL
+    participant RD as Redis
+    participant BE as Backend (FastAPI)
+    participant FE as Frontend (React)
+
+    DC->>PG: Start container
+    DC->>RD: Start container
+    loop Every 5s
+        DC->>PG: pg_isready -U postgres
+        PG-->>DC: not ready
+    end
+    PG-->>DC: ready (healthy)
+    loop Every 5s
+        DC->>RD: redis-cli ping
+    end
+    RD-->>DC: PONG (healthy)
+    DC->>BE: Start (depends_on: healthy)
+    BE->>PG: Connect asyncpg
+    BE->>RD: Connect redis
+    BE-->>DC: /health → 200 OK
+    DC->>FE: Start (depends_on: backend)
+    FE->>BE: API requests
+```
+
+!!! tip "Key Concept: Service Orchestration and Health Checks"
+    **In plain English:** When you have multiple programs that depend on each other, you need a system that starts them in the right order and makes sure each one is actually working before starting the next one.
+
+    **Analogy:** Think of a restaurant kitchen. The prep cook chops vegetables first, then the line cook starts cooking. The line cook doesn't start frying until the prep is done — and the head chef checks that the prep is actually ready, not just that the prep cook has arrived. Docker Compose is the head chef.
+
+    **In this project:** Our FastAPI backend can't function without PostgreSQL and Redis. Docker Compose ensures PostgreSQL is accepting connections (`pg_isready`) and Redis responds to `ping` before the backend starts. When we add P2's Pandapower grid solver, it will follow the same pattern — depending on the backend being healthy before running simulations.
 
 ---
 
@@ -319,37 +331,49 @@ test-backend: ## Run Python tests with coverage
 
 Notice the `## ` comments after each target — these are self-documenting. Running `make help` prints a formatted list of all available targets. This is a small detail that massively improves developer experience: no one has to read the Makefile to know what commands are available.
 
-The pre-commit configuration chains multiple tools together — each one catches a different class of error:
+The pre-commit configuration chains multiple tools together — each one catches a different class of error. If `check-yaml` finds a syntax error in your CI workflow, it blocks the commit *before* you push broken YAML to GitHub.
 
-```yaml
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    hooks:
-      - id: trailing-whitespace        # Catches: invisible formatting errors
-      - id: end-of-file-fixer          # Catches: POSIX compliance issues
-      - id: check-yaml                 # Catches: broken YAML syntax (CI configs!)
-      - id: check-added-large-files    # Catches: accidentally committed binaries
-        args: ['--maxkb=1000']         # Block files > 1 MB
-      - id: check-merge-conflict       # Catches: forgotten merge conflict markers
+??? example "Full pre-commit configuration"
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    hooks:
-      - id: ruff                       # Catches: Python code quality issues
-        args: [--fix]                  # Auto-fix what it can
-      - id: ruff-format               # Catches: inconsistent formatting
+    ```yaml
+    repos:
+      - repo: https://github.com/pre-commit/pre-commit-hooks
+        hooks:
+          - id: trailing-whitespace        # Catches: invisible formatting errors
+          - id: end-of-file-fixer          # Catches: POSIX compliance issues
+          - id: check-yaml                 # Catches: broken YAML syntax (CI configs!)
+          - id: check-added-large-files    # Catches: accidentally committed binaries
+            args: ['--maxkb=1000']         # Block files > 1 MB
+          - id: check-merge-conflict       # Catches: forgotten merge conflict markers
+
+      - repo: https://github.com/astral-sh/ruff-pre-commit
+        hooks:
+          - id: ruff                       # Catches: Python code quality issues
+            args: [--fix]                  # Auto-fix what it can
+          - id: ruff-format               # Catches: inconsistent formatting
+    ```
+
+The defense-in-depth pipeline:
+
+```mermaid
+graph LR
+    Dev["Developer<br/>writes code"] --> PC["Pre-commit<br/>Hooks"]
+    PC -->|"ruff, mypy,<br/>eslint"| Push["git push"]
+    Push --> CI["GitHub Actions<br/>CI Pipeline"]
+    CI -->|"4 parallel<br/>jobs"| Sec["Security<br/>Audit Skill"]
+    Sec -->|"13 secret<br/>patterns"| Merge["Merge to<br/>main"]
+
+    style PC fill:#4a9eff,color:#fff
+    style CI fill:#4a9eff,color:#fff
+    style Sec fill:#4a9eff,color:#fff
 ```
 
-Each hook runs independently and fast. If `check-yaml` finds a syntax error in your CI workflow, it blocks the commit *before* you push broken YAML to GitHub and waste a CI run discovering the same error.
+!!! tip "Key Concept: Defense in Depth — Multiple Independent Quality Gates"
+    **In plain English:** Don't rely on just one safety check. Have multiple checks at different stages, each looking for different problems. If one misses something, the next one catches it.
 
-### Key Concept
+    **Analogy:** Think of airport security. You go through a metal detector (pre-commit hook), then your bag goes through an X-ray scanner (CI pipeline), and a person visually checks your passport (code review). Each layer catches things the others might miss. No single layer is perfect, but together they're very effective.
 
-> **Defense in Depth — Multiple Independent Quality Gates**
->
-> **In plain English:** Don't rely on just one safety check. Have multiple checks at different stages, each looking for different problems. If one misses something, the next one catches it.
->
-> **Analogy:** Think of airport security. You go through a metal detector (pre-commit hook), then your bag goes through an X-ray scanner (CI pipeline), and a person visually checks your passport (code review). Each layer catches things the others might miss. No single layer is perfect, but together they're very effective.
->
-> **In this project:** A developer writes code → pre-commit hooks check formatting and types locally → CI runs the full test suite in a clean environment → the github-push skill scans for secrets before pushing. Three independent gates, each catching a different class of error. When we build P3's SCADA automation, we'll see the same pattern in protection relay coordination: primary protection, backup protection, and breaker-failure protection.
+    **In this project:** A developer writes code → pre-commit hooks check formatting and types locally → CI runs the full test suite in a clean environment → the github-push skill scans for secrets before pushing. Three independent gates, each catching a different class of error. When we build P3's SCADA automation, we'll see the same pattern in protection relay coordination: primary protection, backup protection, and breaker-failure protection.
 
 ---
 
@@ -405,15 +429,12 @@ The hardening commit specifically addressed a real problem encountered during Ph
 
 This teaches an important lesson: security tools must be calibrated. Too strict, and developers bypass them. Too lenient, and they miss real problems. The sweet spot is strict-by-default with documented exceptions.
 
-### Key Concept
+!!! tip "Key Concept: Shift-Left Security — Catch Problems Early"
+    **In plain English:** Instead of checking for security problems after your code is live on the internet, check for them as early as possible — ideally before the code even leaves your computer.
 
-> **Shift-Left Security — Catch Problems Early**
->
-> **In plain English:** Instead of checking for security problems after your code is live on the internet, check for them as early as possible — ideally before the code even leaves your computer.
->
-> **Analogy:** It's like spell-checking while you type, not after you've mailed the letter. If you notice a mistake before sending, you just fix it. If you notice after, you have to send a correction, and the recipient already saw the error.
->
-> **In this project:** The github-push skill scans every diff for hardcoded secrets *before* the commit is created. If it finds an API key in the code, it blocks the push entirely. This is critical because our repository is public — once a secret is pushed to GitHub, it's in the git history forever (even if you delete the file in the next commit). Prevention is infinitely better than remediation.
+    **Analogy:** It's like spell-checking while you type, not after you've mailed the letter. If you notice a mistake before sending, you just fix it. If you notice after, you have to send a correction, and the recipient already saw the error.
+
+    **In this project:** The github-push skill scans every diff for hardcoded secrets *before* the commit is created. If it finds an API key in the code, it blocks the push entirely. This is critical because our repository is public — once a secret is pushed to GitHub, it's in the git history forever (even if you delete the file in the next commit). Prevention is infinitely better than remediation.
 
 ---
 
@@ -436,27 +457,29 @@ A wind turbine has thousands of components from hundreds of suppliers. If a bolt
 
 The Dependabot configuration is elegantly simple — 32 lines that protect the entire supply chain:
 
-```yaml
-version: 2
-updates:
-  - package-ecosystem: "pip"
-    directory: "/backend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    labels: ["dependencies", "python"]
-    commit-message:
-      prefix: "[DEPS]"
+??? example "Full Dependabot configuration"
 
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    labels: ["dependencies", "ci"]
-    commit-message:
-      prefix: "[CI]"
-```
+    ```yaml
+    version: 2
+    updates:
+      - package-ecosystem: "pip"
+        directory: "/backend"
+        schedule:
+          interval: "weekly"
+          day: "monday"
+        labels: ["dependencies", "python"]
+        commit-message:
+          prefix: "[DEPS]"
+
+      - package-ecosystem: "github-actions"
+        directory: "/"
+        schedule:
+          interval: "weekly"
+          day: "monday"
+        labels: ["dependencies", "ci"]
+        commit-message:
+          prefix: "[CI]"
+    ```
 
 ### Why It Matters
 
@@ -483,61 +506,62 @@ d32d82f [DEPS] Update frontend dependencies to latest compatible versions (#12)
 
 Each PR was automatically created by Dependabot, reviewed, and merged. The `#1` through `#7` are pull request numbers — Dependabot opened them, CI ran against them, and they were merged once tests passed. This is a fully automated supply chain update workflow: detect → propose → test → merge.
 
-### Key Concept
+!!! tip "Key Concept: Software Supply Chain Security"
+    **In plain English:** Your project depends on code written by other people (libraries, frameworks, tools). If any of that code has a security bug, your project inherits that bug. Supply chain security means keeping track of all your dependencies and updating them when fixes are available.
 
-> **Software Supply Chain Security**
->
-> **In plain English:** Your project depends on code written by other people (libraries, frameworks, tools). If any of that code has a security bug, your project inherits that bug. Supply chain security means keeping track of all your dependencies and updating them when fixes are available.
->
-> **Analogy:** Think of a car recall. Your car is fine, but the airbag manufacturer found a defect. You didn't write the airbag code, but you still need to go to the dealer for a fix. Dependabot is like an automatic recall notification system — it tells you about the problem and even books the appointment (opens a PR) for you.
->
-> **In this project:** We depend on FastAPI, React, PostgreSQL drivers, and dozens of other packages. Dependabot checks every Monday for new versions, opens PRs with the updates, and our CI pipeline tests them automatically. The six GitHub Actions bumps in our first week demonstrate this working: Dependabot detected v6 was available for actions/checkout, opened PR #6, CI passed, and we merged — all without manual intervention.
+    **Analogy:** Think of a car recall. Your car is fine, but the airbag manufacturer found a defect. You didn't write the airbag code, but you still need to go to the dealer for a fix. Dependabot is like an automatic recall notification system — it tells you about the problem and even books the appointment (opens a PR) for you.
+
+    **In this project:** We depend on FastAPI, React, PostgreSQL drivers, and dozens of other packages. Dependabot checks every Monday for new versions, opens PRs with the updates, and our CI pipeline tests them automatically. The six GitHub Actions bumps in our first week demonstrate this working: Dependabot detected v6 was available for actions/checkout, opened PR #6, CI passed, and we merged — all without manual intervention.
 
 ---
 
-## Connections to Previous Lessons
+## Connections
 
-This is our first lesson — future lessons will connect back to concepts introduced here. The foundational patterns established in this lesson will appear repeatedly:
+**Where these concepts appear next:**
 
-- **Health checks** (Section 3) will expand into full SCADA monitoring in P3
-- **Environment-based config** (Section 2) will be essential when P1 needs ERA5 API credentials
-- **CI quality gates** (Section 4) will run wake analysis tests in P1 and power flow tests in P2
-- **Security scanning** (Section 5) will protect ERA5 API keys and database credentials as we add real data access
+- **Health checks** (Section 3) → P3 SCADA monitoring will expand Docker health patterns into full turbine/substation status monitoring
+- **Environment-based config** (Section 2) → P1 will need ERA5 API credentials injected via the same Pydantic Settings mechanism
+- **CI quality gates** (Section 4) → P1 wake model tests and P2 power flow validations will run in these exact CI jobs
+- **Security scanning** (Section 5) → ERA5 API keys and database credentials in P1+ will be protected by the same secrets scanner
+- **Dependabot** (Section 6) → As we add PyWake, Pandapower, and ML libraries, Dependabot will monitor their security updates
 
 ---
 
 ## The Big Picture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                   510 MW Baltic Wind Farm — System Architecture         │
-│                                                                         │
-│   ┌─────────────┐    ┌──────────────┐    ┌─────────────────────────┐   │
-│   │   React 19   │    │   FastAPI    │    │  PostgreSQL 16          │   │
-│   │  TypeScript  │───▶│  Python 3.13 │───▶│  + TimescaleDB          │   │
-│   │  Tailwind v4 │    │  /health ✓   │    │  balticwind DB          │   │
-│   │  Port 3000   │    │  Port 8000   │    │  Port 5432              │   │
-│   └─────────────┘    └──────────────┘    └─────────────────────────┘   │
-│         │                   │                        │                   │
-│         │                   │              ┌─────────────────┐          │
-│         │                   └─────────────▶│    Redis 7      │          │
-│         │                                  │    Port 6379    │          │
-│         │                                  └─────────────────┘          │
-│         │                                                               │
-│   ◄── THIS LESSON: Docker Compose orchestration, CI/CD, security ──►   │
-│                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                    Future Modules (P1 → P5)                     │   │
-│   │  P1: PyWake + ERA5    P2: Pandapower    P3: IEC 61850 SCADA    │   │
-│   │  P4: XGBoost + LSTM   P5: Switching Programme + LOTO           │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                    DevOps Foundation (Built Today)               │   │
-│   │  GitHub Actions CI ── Pre-commit Hooks ── Dependabot            │   │
-│   │  Docker Compose ── Makefile ── Security Audit Skill             │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
+*This lesson's focus: the **DevOps layer** wrapping the application stack.*
+
+```mermaid
+graph TB
+    subgraph APP["Application Stack"]
+        FE["React 19 + TypeScript<br/>Port 3000"]
+        BE["FastAPI + Python 3.13<br/>Port 8000 · /health ✓"]
+        PG["PostgreSQL 16 + TimescaleDB<br/>Port 5432"]
+        RD["Redis 7<br/>Port 6379"]
+    end
+
+    subgraph DEVOPS["DevOps Foundation (Built in This Lesson)"]
+        Docker["Docker Compose<br/><i>4-service orchestration</i>"]
+        CI["GitHub Actions CI<br/><i>4 parallel jobs</i>"]
+        PC["Pre-commit Hooks<br/><i>ruff, mypy, eslint</i>"]
+        Deps["Dependabot<br/><i>pip + npm + Actions</i>"]
+        Sec["Security Audit Skill<br/><i>13 secret patterns</i>"]
+        Make["Makefile<br/><i>15+ targets</i>"]
+    end
+
+    subgraph FUTURE["Future Modules (P1 → P5)"]
+        P15["P1: PyWake · P2: Pandapower · P3: SCADA · P4: ML · P5: Commissioning"]
+    end
+
+    FE -->|REST API| BE
+    BE --> PG
+    BE --> RD
+    Docker --> APP
+    CI --> PC
+    CI --> Deps
+    CI --> Sec
+    Make --> Docker
+    FUTURE -.->|"built ON TOP of<br/>this foundation"| DEVOPS
 ```
 
 ---
@@ -645,8 +669,8 @@ Think of it like building a house. Before you install the kitchen appliances or 
 ### Explain It Technically
 *"How would you explain the Phase 0 DevOps foundation to a hiring panel?"*
 
-We established a production-grade monorepo infrastructure for a 510 MW offshore wind farm simulation platform, comprising a FastAPI backend (Python 3.13, Pydantic v2, SQLAlchemy async), a React 19 frontend (TypeScript strict, Tailwind v4, Vite), and supporting services orchestrated via Docker Compose (PostgreSQL 16 with TimescaleDB for time-series data, Redis 7 for caching).
+We established a production-grade monorepo infrastructure: FastAPI backend (Python 3.13, Pydantic v2, SQLAlchemy async), React 19 frontend (TypeScript strict, Tailwind v4), and services orchestrated via Docker Compose (PostgreSQL 16 + TimescaleDB, Redis 7).
 
-The CI/CD pipeline implements defense in depth with three quality gates: pre-commit hooks (ruff, mypy, ESLint run locally), GitHub Actions CI (four parallel jobs for backend/frontend lint/test with dependency caching), and a custom security audit skill that scans diffs for hardcoded secrets using regex pattern matching with context-aware exception handling. The security scanner distinguishes between BLOCK-level issues (irreversible exposures like API keys) and WARN-level issues (acceptable development defaults like Docker Compose passwords), requiring explicit user acknowledgment for the latter.
+The CI/CD pipeline implements defense in depth: pre-commit hooks (ruff, mypy, ESLint) for local feedback, GitHub Actions (four parallel jobs with dependency caching) for clean-environment verification, and a custom security audit skill with BLOCK/WARN classification for secrets scanning. Dependabot automates supply chain management across pip, npm, and GitHub Actions ecosystems weekly.
 
-Dependency management is automated via Dependabot with weekly scanning across three ecosystems (pip, npm, GitHub Actions), using scoped commit prefixes (`[CI]`, `[DEPS]`) for traceability. The infrastructure follows 12-Factor App principles — all configuration is environment-based via Pydantic Settings, enabling identical application code across development, CI, and production environments with only configuration changes. This foundation directly supports the upcoming P1-P5 modules: TimescaleDB for ERA5 weather data and turbine telemetry, Redis for simulation result caching, and the CI pipeline for automated validation of wake models and power flow calculations against IEC standards.
+All configuration follows 12-Factor App principles via Pydantic Settings — identical application code across environments with only configuration changes. This foundation directly supports P1-P5: TimescaleDB for ERA5 weather data, Redis for simulation caching, and CI for automated validation of wake models and power flow calculations against IEC standards.

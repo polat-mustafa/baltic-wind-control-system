@@ -1,5 +1,10 @@
 # Ders 002 — Eğitim Becerisine Çok Dilli Destek Eklenmesi: Uluslararasılaştırma Altyapısı
 
+!!! abstract "Ders Navigasyonu"
+    :material-arrow-left: **Önceki:** [Ders 001 — DevOps Temeli](lesson-001.md) | **Sonraki:** P1 dersleri yakında :material-arrow-right:
+
+    **Faz:** P0 | **Dil:** Türkçe | **İlerleme:** 3 / 3 | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
+
 > **Date:** 2026-02-20
 > **Commits:** 2 commits (`eba32fd` → `fa528fb`)
 > **Commit range:** `eba32fd7ab6a979f409d0f2632dedfa35c79f93c..fa528fb95bd6778ea54f50be71ddc6e0475d2818`
@@ -46,6 +51,19 @@ Beceri dosyasına yeni bir **PHASE 0: DETECT LANGUAGE** (Faz 0: Dil Algılama) b
 > **Neden** dil algılama ayrı bir faz (Phase 0) olarak tasarlandı?
 > Çünkü separation of concerns (kaygıların ayrılması) prensibi bunu gerektirir. Dil algılama, ders içeriği oluşturmadan ÖNCE gerçekleşmelidir — tıpkı bir trafo istasyonunda önce voltaj seviyesini ölçüp sonra anahtarlama yapmanız gibi. Sıralama kritiktir: yanlış dil algılanırsa tüm ders yanlış dilde üretilir.
 
+### Dil Algılama Akışı
+
+```mermaid
+graph TD
+    Input["Kullanıcı girdisi:<br/>'teach me turkish'"] --> Parse["Tetikleme ifadesini<br/>ayrıştır (parse)"]
+    Parse --> HasLang{"Dil adı<br/>var mı?"}
+    HasLang -->|Evet| SetLang["LESSON_LANGUAGE = Turkish"]
+    HasLang -->|Hayır| Default["LESSON_LANGUAGE = English<br/>(güvenli geri dönüş)"]
+    SetLang --> Store["Değişkeni sakla"]
+    Default --> Store
+    Store --> Phases["Faz 1-7'de<br/>LESSON_LANGUAGE kullan"]
+```
+
 ### Kod İncelemesi
 
 Dil algılama mantığı, açık ve genişletilebilir bir yapıda tasarlanmıştır. Aşağıdaki SKILL.md bölümü, algılama kurallarını tanımlar:
@@ -69,15 +87,12 @@ Burada dikkat edilmesi gereken üç tasarım ilkesi var. Birincisi, **varsayıla
 
 Bu yapı, koruma rölesi (protection relay) konfigürasyonuna benzer: bir kez ayarlanır, tüm çalışma boyunca geçerli kalır.
 
-### Temel Kavram
+!!! tip "Temel Kavram: Varsayılan Değerlerle Güvenli Geri Dönüş (Safe Fallback with Defaults)"
+    **Basitçe anlatımı:** Bir sistem beklenmedik bir girdi aldığında çökmek yerine, önceden belirlenmiş güvenli bir davranışa dönmelidir. Tıpkı bir asansörün elektrik kesildiğinde en yakın kata gidip kapılarını açması gibi.
 
-> **Varsayılan Değerlerle Güvenli Geri Dönüş (Safe Fallback with Defaults)**
->
-> **Basitçe anlatımı:** Bir sistem beklenmedik bir girdi aldığında çökmek yerine, önceden belirlenmiş güvenli bir davranışa dönmelidir. Tıpkı bir asansörün elektrik kesildiğinde en yakın kata gidip kapılarını açması gibi.
->
-> **Benzetme:** Bir navigasyon uygulaması düşünün. GPS sinyali kesildiğinde uygulama çökmez — son bilinen konumunuzu gösterir ve "sinyal aranıyor" der. Bizim dil algılama sistemimiz de aynı şekilde çalışır: tanınmayan bir dil ifadesi geldiğinde İngilizce'ye döner.
->
-> **Bu projede:** Kullanıcı "teach me" yazarsa (dil belirtmeden), sistem İngilizce üretir. "teach me klingon" yazarsa bile sistem çökmez — Claude'un o dilde ne kadar başarılı olacağı ayrı bir soru, ama sistem kararlı kalır. Bu prensip, P3'te SCADA alarmlarının varsayılan öncelik seviyesine dönmesi ile aynı mantıktır.
+    **Benzetme:** Bir navigasyon uygulaması düşünün. GPS sinyali kesildiğinde uygulama çökmez — son bilinen konumunuzu gösterir ve "sinyal aranıyor" der. Bizim dil algılama sistemimiz de aynı şekilde çalışır: tanınmayan bir dil ifadesi geldiğinde İngilizce'ye döner.
+
+    **Bu projede:** Kullanıcı "teach me" yazarsa (dil belirtmeden), sistem İngilizce üretir. "teach me klingon" yazarsa bile sistem çökmez — Claude'un o dilde ne kadar başarılı olacağı ayrı bir soru, ama sistem kararlı kalır. Bu prensip, P3'te SCADA alarmlarının varsayılan öncelik seviyesine dönmesi ile aynı mantıktır.
 
 ---
 
@@ -137,15 +152,12 @@ Ayrıca, şablon başlığına yeni metadata (üst veri) alanları eklendi:
 
 Bu alanlar, her dersin hangi roadmap bölümüne karşılık geldiğini ve hangi dilde yazıldığını kayıt altına alır — tıpkı bir SCADA kaydının her olayı zaman damgası ve kaynak bilgisiyle etiketlemesi gibi.
 
-### Temel Kavram
+!!! tip "Temel Kavram: Uluslararasılaştırma ve Yerelleştirme (Internationalization — i18n & Localization — l10n)"
+    **Basitçe anlatımı:** Uluslararasılaştırma, bir uygulamayı farklı dillere uyarlanabilir hale getirmektir — sanki evinizdeki elektrik prizlerini farklı ülkelerin fişlerine uyumlu yapıyorsunuz. Yerelleştirme ise belirli bir ülkenin fişini takmaktır. Önce altyapıyı kurar, sonra belirli bir dile uyarlarsınız.
 
-> **Uluslararasılaştırma ve Yerelleştirme (Internationalization — i18n & Localization — l10n)**
->
-> **Basitçe anlatımı:** Uluslararasılaştırma, bir uygulamayı farklı dillere uyarlanabilir hale getirmektir — sanki evinizdeki elektrik prizlerini farklı ülkelerin fişlerine uyumlu yapıyorsunuz. Yerelleştirme ise belirli bir ülkenin fişini takmaktır. Önce altyapıyı kurar, sonra belirli bir dile uyarlarsınız.
->
-> **Benzetme:** Bir IKEA mobilya montaj kılavuzunu düşünün. Çizimleri her ülkede aynıdır (kod blokları gibi), ama uyarı metinleri ve güvenlik talimatları her ülkenin dilinde yazılır. Allen anahtarının resmi çevrilmez ama "Bu vidayı sıkın" yazısı çevrilir. Bizim dil kuralımız da aynı prensibi uygular.
->
-> **Bu projede:** 510 MW rüzgar çiftliği simülasyonumuz uluslararası bir eğitim platformu. Polonyalı bir PSE mühendisi için Lehçe ders üretebilir, Türk bir enerji mühendisi için Türkçe ders üretebilir — ama ikisinde de `pandapower.runpp()` aynı şekilde yazılır ve IEC 60909 aynı numara ile referans verilir.
+    **Benzetme:** Bir IKEA mobilya montaj kılavuzunu düşünün. Çizimleri her ülkede aynıdır (kod blokları gibi), ama uyarı metinleri ve güvenlik talimatları her ülkenin dilinde yazılır. Allen anahtarının resmi çevrilmez ama "Bu vidayı sıkın" yazısı çevrilir. Bizim dil kuralımız da aynı prensibi uygular.
+
+    **Bu projede:** 510 MW rüzgar çiftliği simülasyonumuz uluslararası bir eğitim platformu. Polonyalı bir PSE mühendisi için Lehçe ders üretebilir, Türk bir enerji mühendisi için Türkçe ders üretebilir — ama ikisinde de `pandapower.runpp()` aynı şekilde yazılır ve IEC 60909 aynı numara ile referans verilir.
 
 ---
 
@@ -207,15 +219,12 @@ Ayrıca, kalite kurallarına yeni bir kural eklendi:
 
 Bu kural, halüsinasyonları (hallucination) önleme amacı taşır. Yapay zeka modelleri bazen var olmayan kitaplar veya makaleler uydurabilir. Bu kalite kuralı, her önerilen kaynağın Learning Roadmap'te gerçekten var olduğunu garanti eder — tıpkı bir mühendislik raporunda her referansın doğrulanabilir olması gerektiği gibi.
 
-### Temel Kavram
+!!! tip "Temel Kavram: Küratörlü Öğrenme (Curated Learning)"
+    **Basitçe anlatımı:** İnternette her konuda binlerce kaynak var. Küratörlü öğrenme, bir uzmanın sizin için en iyi 3-5 kaynağı seçip "önce bunları oku" demesidir. Bir müzede tüm tabloları görmek yerine, rehberin "bu beş tablo mutlaka görülmeli" demesi gibi.
 
-> **Küratörlü Öğrenme (Curated Learning)**
->
-> **Basitçe anlatımı:** İnternette her konuda binlerce kaynak var. Küratörlü öğrenme, bir uzmanın sizin için en iyi 3-5 kaynağı seçip "önce bunları oku" demesidir. Bir müzede tüm tabloları görmek yerine, rehberin "bu beş tablo mutlaka görülmeli" demesi gibi.
->
-> **Benzetme:** Bir doktor "sindirim probleminiz var" deyip sizi WebMD'ye yönlendirmez — "bu ilacı günde 2 kez alın, bu diyeti uygulayın" gibi somut talimatlar verir. Küratörlü öğrenme de aynıdır: "wake modelleme öğrenmek istiyorsun — önce Bastankhah & Porté-Agel (2014) makalesini oku, sonra PyWake dokümantasyonunu incele."
->
-> **Bu projede:** Learning Roadmap'imiz 15 akademik makale, düzinelerce ders kitabı ve onlarca çevrimiçi kaynak içeriyor. Ama her ders sonunda sadece 3-5 tanesini öneriyoruz — o dersin konusuyla doğrudan ilgili olanları. P1'de wake modelleme dersi aldığınızda Bastankhah makalesini göreceksiniz, P2'de koruma dersi aldığınızda Jankovic makalesini.
+    **Benzetme:** Bir doktor "sindirim probleminiz var" deyip sizi WebMD'ye yönlendirmez — "bu ilacı günde 2 kez alın, bu diyeti uygulayın" gibi somut talimatlar verir. Küratörlü öğrenme de aynıdır: "wake modelleme öğrenmek istiyorsun — önce Bastankhah & Porté-Agel (2014) makalesini oku, sonra PyWake dokümantasyonunu incele."
+
+    **Bu projede:** Learning Roadmap'imiz 15 akademik makale, düzinelerce ders kitabı ve onlarca çevrimiçi kaynak içeriyor. Ama her ders sonunda sadece 3-5 tanesini öneriyoruz — o dersin konusuyla doğrudan ilgili olanları. P1'de wake modelleme dersi aldığınızda Bastankhah makalesini göreceksiniz, P2'de koruma dersi aldığınızda Jankovic makalesini.
 
 ---
 
@@ -274,15 +283,12 @@ Son olarak, 12. kalite kuralı eklenerek dil tutarlılığı garanti altına al�
 
 Bu kural, "code-switching" (dil değiştirme) sorununu önler. Bir Türkçe derste cümle ortasında İngilizce'ye geçmek okuyucunun dikkatini dağıtır ve profesyonel olmayan bir izlenim bırakır. Tek istisna, teknik terimlerin ilk kullanımıdır — "wake deficit (rüzgar gölgesi açığı)" gibi.
 
-### Temel Kavram
+!!! tip "Temel Kavram: Git Branch Stratejisi (Git Branching Strategy)"
+    **Basitçe anlatımı:** Bir ağacın dalları gibi düşünün. Ana gövde (`main`) her zaman sağlamdır. Yeni bir özellik eklemek istediğinizde, bir dal çıkartırsınız. Dal üzerinde çalışırsınız — ana gövdeye zarar vermeden. İşiniz bitince, dalı ana gövdeye geri birleştirirsiniz. Eğer dal kötü çıkarsa, dalı kesersiniz — ana gövde etkilenmez.
 
-> **Git Branch Stratejisi (Git Branching Strategy)**
->
-> **Basitçe anlatımı:** Bir ağacın dalları gibi düşünün. Ana gövde (`main`) her zaman sağlamdır. Yeni bir özellik eklemek istediğinizde, bir dal çıkartırsınız. Dal üzerinde çalışırsınız — ana gövdeye zarar vermeden. İşiniz bitince, dalı ana gövdeye geri birleştirirsiniz. Eğer dal kötü çıkarsa, dalı kesersiniz — ana gövde etkilenmez.
->
-> **Benzetme:** Bir yemek tarifini düşünün. Ana tarifi (main) doğrudan değiştirmek risklidir — belki yeni malzeme kötü sonuç verir. Bunun yerine, tarifi kopyalarsınız (branch), kopyada deney yaparsınız, beğenirseniz orijinal tarifi güncellersiniz (merge). Beğenmezseniz kopyayı çöpe atarsınız.
->
-> **Bu projede:** `feature/teach-me-multilang` dalı, çok dilli destek özelliği için oluşturuldu. Tüm değişiklikler bu dalda yapıldı, test edildi ve PR #14 ile `main`'e birleştirildi. Bu iş akışı, P1'den P5'e kadar her yeni özellik için tekrarlanacaktır.
+    **Benzetme:** Bir yemek tarifini düşünün. Ana tarifi (main) doğrudan değiştirmek risklidir — belki yeni malzeme kötü sonuç verir. Bunun yerine, tarifi kopyalarsınız (branch), kopyada deney yaparsınız, beğenirseniz orijinal tarifi güncellersiniz (merge). Beğenmezseniz kopyayı çöpe atarsınız.
+
+    **Bu projede:** `feature/teach-me-multilang` dalı, çok dilli destek özelliği için oluşturuldu. Tüm değişiklikler bu dalda yapıldı, test edildi ve PR #14 ile `main`'e birleştirildi. Bu iş akışı, P1'den P5'e kadar her yeni özellik için tekrarlanacaktır.
 
 ---
 
@@ -302,36 +308,40 @@ Ders 001'de, projenin DevOps temelini kurduk: CI/CD pipeline'ı, Docker Compose 
 
 ## Büyük Resim
 
+*Bu dersin odağı: teach-me becerisine eklenen **i18n katmanı**.*
+
+```mermaid
+graph TB
+    subgraph SKILL["Claude Code Beceri Sistemi"]
+        subgraph GP["github-push (Ders 001)"]
+            GP1["7 fazlı güvenlik taraması"]
+        end
+
+        subgraph TM["teach-me (Ders 001 + Ders 002)"]
+            TM1["7 fazlı eğitim üretici"]
+            TM2["Faz 0: Dil Algılama ◄ BU DERS"]
+            TM3["Dil Kuralı (Language Rule)"]
+            TM4["Önerilen Okuma entegrasyonu"]
+            TM5["Kural 11 + 12 (kalite)"]
+        end
+    end
+
+    subgraph ARCH["Sistem Mimarisi (bkz. Dersler Genel Bakış)"]
+        App["React + FastAPI + PostgreSQL + Redis"]
+    end
+
+    subgraph FUTURE["Gelecek Modüller (P1 → P5)"]
+        P15["P1: PyWake · P2: Pandapower · P3: SCADA · P4: ML · P5: Komisyonlama"]
+    end
+
+    TM2 --> TM3
+    TM3 --> TM1
+    TM4 --> TM5
+    SKILL --> ARCH
+    ARCH --> FUTURE
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                   510 MW Baltık Rüzgar Çiftliği — Sistem Mimarisi       │
-│                                                                         │
-│   ┌─────────────┐    ┌──────────────┐    ┌─────────────────────────┐   │
-│   │   React 19   │    │   FastAPI    │    │  PostgreSQL 16          │   │
-│   │  TypeScript  │───▶│  Python 3.13 │───▶│  + TimescaleDB          │   │
-│   │  Tailwind v4 │    │  /health ✓   │    │  balticwind DB          │   │
-│   └─────────────┘    └──────────────┘    └─────────────────────────┘   │
-│                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                    Claude Code Beceri Sistemi                     │   │
-│   │                                                                   │   │
-│   │   ┌───────────────┐     ┌────────────────────────────────────┐   │   │
-│   │   │  github-push   │     │  teach-me                          │   │   │
-│   │   │  (Ders 001)    │     │  (Ders 001 + Ders 002)             │   │   │
-│   │   │  7 fazlı güven │     │  7 fazlı eğitim üretici            │   │   │
-│   │   │  lik taraması  │     │  + Çok dilli destek ◄── BU DERS    │   │   │
-│   │   └───────────────┘     │  + Önerilen Okuma entegrasyonu      │   │   │
-│   │                          │  + Dil tutarlılık kuralı            │   │   │
-│   │                          └────────────────────────────────────┘   │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                    Gelecek Modüller (P1 → P5)                    │   │
-│   │  P1: PyWake + ERA5    P2: Pandapower    P3: IEC 61850 SCADA     │   │
-│   │  P4: XGBoost + LSTM   P5: Anahtarlama Programı + LOTO          │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+
+Tam sistem mimarisi için [Dersler Genel Bakış](index.md#system-architecture) sayfasına bakınız.
 
 ---
 

@@ -95,7 +95,7 @@ All five projects use a consistent reference scenario based on real Baltic Sea p
 | Water Depth | 25–40 m | Baltic Sea shelf conditions |
 | Hub Height | 150 m | V236-15.0 specification |
 | Rotor Diameter | 236 m | V236-15.0 specification |
-| Cut-in / Rated / Cut-out | 3 / 12.5 / 34 m/s | V236-15.0 public specifications |
+| Cut-in / Rated / Cut-out | 3 / 12.5 / 31 m/s | V236-15.0 public specifications |
 | Ct at rated | 0.28 | Updated for 15 MW class |
 | Mean Wind Speed | 9.0–9.5 m/s at hub height | ERA5 Baltic Sea data |
 | TSO | PSE S.A. (Polskie Sieci Elektroenergetyczne) | Polish transmission system operator |
@@ -190,7 +190,7 @@ from py_wake.turbulence_models import STF2017TurbulenceModel
 
 # Turbine: Vestas V236-15.0 MW
 # - Rated: 15 MW | Diameter: 236 m | Hub: 150 m
-# - Cut-in: 3 m/s | Rated: ~12.5 m/s | Cut-out: 34 m/s
+# - Cut-in: 3 m/s | Rated: ~12.5 m/s | Cut-out: 31 m/s
 # - Ct at rated ≈ 0.28 (critical for wake deficit calculation)
 
 # Layout optimization:
@@ -888,7 +888,7 @@ def enforce_physical_constraints(prediction, wind_speed):
     1. Power ≥ 0 (no negative generation)
     2. Power ≤ 15.0 MW per turbine (rated limit)
     3. Power = 0 if wind_speed < 3.0 m/s (below cut-in)
-    4. Power = 0 if wind_speed > 34.0 m/s (above cut-out)
+    4. Power = 0 if wind_speed > 31.0 m/s (above cut-out)
     5. Power monotonically increases from cut-in to rated wind speed
 
     If model violates these: model is wrong, physics is right.
@@ -1243,7 +1243,7 @@ Project 5 (Commissioning) validates ALL previous projects in operation
 ```
 UNIFIED PLATFORM ARCHITECTURE:
 
-Frontend:  React 19 + TypeScript (strict) + Tailwind CSS v4 + Plotly.js + D3.js
+Frontend:  React 19 + TypeScript (strict) + Tailwind CSS v4 + Plotly.js + XYFlow
 Backend:   FastAPI (Python 3.13+) + SQLAlchemy + Alembic + Pydantic v2
 Database:  PostgreSQL 16 + TimescaleDB extension (time-series)
 Cache:     Redis 7 (real-time SCADA simulation state, WebSocket pub/sub)
@@ -1267,7 +1267,8 @@ Docs:      Swagger/OpenAPI auto-generated from FastAPI
 | **ML — Explainability** | SHAP | Feature importance analysis |
 | **Data Processing** | pandas, NumPy, xarray | Tabular and NetCDF data |
 | **Spatial Analysis** | geopandas, shapely | Environmental constraint mapping |
-| **Visualization** | Plotly.js, D3.js | Interactive browser-based charts |
+| **Visualization** | Plotly.js | Interactive browser-based charts |
+| **Node-Based UI** | XYFlow (@xyflow/react) | Single-line diagrams, SCADA topology, switching programmes |
 | **State Management** | Zustand | Lightweight, TypeScript-native state |
 | **Real-time** | WebSocket (FastAPI) | SCADA simulation (1 Hz push via Redis pub/sub) |
 | **Database** | PostgreSQL 16 + TimescaleDB | Config, PtW audit, SCADA time-series |

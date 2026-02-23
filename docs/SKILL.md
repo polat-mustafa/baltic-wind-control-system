@@ -12,7 +12,7 @@
 ## Architecture Overview
 
 ```
-Frontend:   React 19 + TypeScript + Tailwind CSS v4 + Plotly.js + D3.js
+Frontend:   React 19 + TypeScript + Tailwind CSS v4 + Plotly.js + XYFlow
 Backend:    FastAPI (Python 3.13+) + SQLAlchemy + Alembic + Pydantic v2
 Database:   PostgreSQL 16 + TimescaleDB extension
 Cache:      Redis 7 (real-time state, WebSocket pub/sub)

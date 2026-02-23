@@ -1,6 +1,6 @@
 ---
 name: github-push
-description: "Commit and push code to GitHub securely. Trigger this skill when the user says: 'GitHub push', 'git push', 'git commit', 'git commit and push', 'push to GitHub', 'commit and push', 'push changes', 'commit changes', or any variation involving committing or pushing code to the remote repository."
+description: "Commit and push code to GitHub securely. Trigger this skill when the user says: 'GitHub push', 'git push', 'git commit', 'git commit and push', 'push to GitHub', 'commit and push', 'push changes', 'commit changes', or any variation involving committing or pushing code to the remote repository. If the user says 'push and merge', 'commit and merge', 'git push and merge', or any variation including 'merge', enable AUTO-MERGE mode (Phase 8)."
 allowed-tools: Bash, Read, Grep, Glob
 ---
 
@@ -183,7 +183,13 @@ Standards: IEC XXXXX (if applicable)
 
 ## PHASE 6: COMMIT & PUSH
 
-### 6.1 Create Commit
+### 6.1 Branch Strategy
+
+- If on `main`, create a new branch first: `git checkout -b <scope>/<short-description>`
+- Branch naming: `<scope>/<short-kebab-description>` (e.g., `p1/wind-resource-api`, `docs/update-lessons`, `fix/scada-colors`)
+- If already on a feature branch, stay on it
+
+### 6.2 Create Commit
 
 ```bash
 git commit -m "$(cat <<'EOF'
@@ -195,25 +201,40 @@ EOF
 )"
 ```
 
-### 6.2 Pre-Push Checks
+### 6.3 Pre-Push Checks
 
 Before pushing, verify:
 1. Commit was created successfully (`git log -1` to confirm)
 2. Branch is correct (should be pushing to the right branch)
 3. Remote is correct (`git remote -v`)
 
-### 6.3 Push
+### 6.4 Push
 
 ```bash
 git push -u origin <branch-name>
 ```
 
-### 6.4 Post-Push Verification
+### 6.5 Create Pull Request
+
+After pushing, create a PR:
+
+```bash
+gh pr create --title "[SCOPE] Short description" --body "$(cat <<'EOF'
+## Summary
+- What changed and why
+
+## Test plan
+- [ ] CI passes
+EOF
+)"
+```
+
+### 6.6 Post-Push Verification
 
 After push completes:
 1. Run `git status` to confirm clean working tree
 2. Run `git log --oneline -3` to show the committed state
-3. Present the GitHub URL where the commit can be viewed
+3. Present the PR URL to the user
 
 ---
 
@@ -231,6 +252,58 @@ Security:  All checks passed
 Remote:    https://github.com/user/repo/commit/abc1234
 
 [List of files that were committed]
+```
+
+---
+
+## PHASE 8: AUTO-MERGE (only if user said "merge")
+
+**This phase ONLY runs when the user's trigger phrase includes "merge"** (e.g., "push and merge", "commit and merge"). If the user only said "push" or "commit", SKIP this phase entirely.
+
+### 8.1 Wait for CI
+
+```bash
+gh pr checks <PR-NUMBER> --watch
+```
+
+- Wait for ALL required status checks to pass
+- Timeout: 5 minutes max — if CI hasn't finished, inform the user and stop
+
+### 8.2 Merge Decision
+
+| CI Result | Action |
+|-----------|--------|
+| All checks pass | Proceed to merge |
+| Any check fails | **STOP** — show the failure, do NOT merge, help user fix |
+
+### 8.3 Squash Merge
+
+```bash
+gh pr merge <PR-NUMBER> --squash
+```
+
+### 8.4 Update Local Main
+
+```bash
+git checkout main && git pull origin main
+```
+
+### 8.5 Clean Up
+
+- Delete the local feature branch: `git branch -d <branch-name>`
+- Remote branch is auto-deleted by GitHub after merge
+
+### 8.6 Post-Merge Summary
+
+Update the Phase 7 summary to include:
+
+```
+MERGE COMPLETE
+
+PR:        #XX — [SCOPE] Description
+Merged:    squash into main
+CI:        All checks passed
+Local:     main updated, feature branch cleaned up
 ```
 
 ---

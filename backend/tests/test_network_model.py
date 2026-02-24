@@ -82,9 +82,7 @@ class TestNetworkTopology:
         assert len(export_lines) == 1
         row = export_lines.iloc[0]
         assert float(row["length_km"]) == pytest.approx(45.0)
-        assert float(row["r_ohm_per_km"]) == pytest.approx(
-            EXPORT_CABLE_1000.r_ohm_per_km, abs=1e-4
-        )
+        assert float(row["r_ohm_per_km"]) == pytest.approx(EXPORT_CABLE_1000.r_ohm_per_km, abs=1e-4)
 
     def test_transformer_count(self):
         """Network must have exactly 2 transformers."""
@@ -130,9 +128,9 @@ class TestCableGrading:
         }
         for idx in range(len(net.line)):
             r = float(net.line.at[idx, "r_ohm_per_km"])
-            assert any(
-                np.isclose(r, vr, atol=1e-4) for vr in valid_r
-            ), f"Unexpected R={r} Ω/km in cable {net.line.at[idx, 'name']}"
+            assert any(np.isclose(r, vr, atol=1e-4) for vr in valid_r), (
+                f"Unexpected R={r} Ω/km in cable {net.line.at[idx, 'name']}"
+            )
 
 
 # ── Transformer Tests ────────────────────────────────────────────
@@ -204,9 +202,7 @@ class TestGeneration:
         """50 MVAR shunt reactor must be present at OSS 220 kV."""
         net = build_network(enable_reactor=True)
         assert len(net.shunt) == 1
-        assert float(net.shunt.at[0, "q_mvar"]) == pytest.approx(
-            -SHUNT_REACTOR_MVAR, abs=1.0
-        )
+        assert float(net.shunt.at[0, "q_mvar"]) == pytest.approx(-SHUNT_REACTOR_MVAR, abs=1.0)
 
     def test_no_reactor_when_disabled(self):
         """Shunt reactor must be absent when disabled."""

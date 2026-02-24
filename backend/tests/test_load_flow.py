@@ -84,9 +84,7 @@ class TestVoltageCompliance:
         """Full load with STATCOM must be voltage-compliant."""
         result = run_load_flow(LoadFlowScenario.FULL_LOAD, auto_dispatch=True)
         assert result.converged
-        assert result.voltage_compliant, (
-            f"V_min={result.v_min_pu}, V_max={result.v_max_pu}"
-        )
+        assert result.voltage_compliant, f"V_min={result.v_min_pu}, V_max={result.v_max_pu}"
 
 
 # ── Loss Tests ────────────────────────────────────────────────────

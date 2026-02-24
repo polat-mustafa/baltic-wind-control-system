@@ -163,15 +163,11 @@ class STATCOMSizingResult(BaseModel):
     cable_q_mvar: float = Field(
         description="Export cable capacitive reactive power generation [MVAR]"
     )
-    reactor_q_mvar: float = Field(
-        description="Shunt reactor absorption capacity [MVAR]"
-    )
+    reactor_q_mvar: float = Field(description="Shunt reactor absorption capacity [MVAR]")
     ferranti_rise_pu: float = Field(
         description="Ferranti voltage rise at OSS without compensation [p.u.]"
     )
-    statcom_rating_mvar: float = Field(
-        description="Required STATCOM rating (±) [MVAR]"
-    )
+    statcom_rating_mvar: float = Field(description="Required STATCOM rating (±) [MVAR]")
     statcom_q_range_min_mvar: float = Field(
         description="STATCOM minimum Q (absorbing, negative) [MVAR]"
     )

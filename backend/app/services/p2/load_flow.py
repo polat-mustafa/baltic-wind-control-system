@@ -290,8 +290,7 @@ def run_load_flow(
     total_gen = sum(
         float(net.sgen.at[i, "p_mw"])
         for i in range(len(net.sgen))
-        if str(net.sgen.at[i, "name"]) != "STATCOM"
-        and bool(net.sgen.at[i, "in_service"])
+        if str(net.sgen.at[i, "name"]) != "STATCOM" and bool(net.sgen.at[i, "in_service"])
     )
 
     voltage_compliant = v_min >= V_MIN_PU and v_max <= V_MAX_PU

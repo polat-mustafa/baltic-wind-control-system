@@ -113,9 +113,7 @@ class TestCompensationValidation:
     def test_compensation_adequate(self):
         """With reactor + STATCOM, voltage must be compliant."""
         result = validate_compensation()
-        assert result.compensation_adequate, (
-            "Compensation inadequate — voltage non-compliant"
-        )
+        assert result.compensation_adequate, "Compensation inadequate — voltage non-compliant"
 
     def test_cable_q_in_result(self):
         """Result must include cable Q value."""

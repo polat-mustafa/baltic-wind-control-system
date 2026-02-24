@@ -60,6 +60,7 @@ import pandapower as pp  # type: ignore[import-untyped]
 
 # ── Cable Parameters (IEC 60287) ─────────────────────────────────
 
+
 @dataclass(frozen=True)
 class CableSpec:
     """Cable electrical parameters per IEC 60287.

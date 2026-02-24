@@ -19,14 +19,14 @@ Standards
 
 import uuid
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 # ── Enums ─────────────────────────────────────────────────────────
 
 
-class LoadFlowScenario(str, Enum):
+class LoadFlowScenario(StrEnum):
     """Load flow analysis scenarios per PSE IRiESP grid code requirements.
 
     Each scenario tests a different operating condition to ensure voltage

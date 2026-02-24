@@ -66,7 +66,7 @@ Constants (Baltic Wind Alpha)
 
 import math
 
-import pandapower as pp  # type: ignore[import-untyped]
+import pandapower as pp
 
 from app.schemas.grid import STATCOMSizingResult
 from app.services.p2.load_flow import V_MAX_PU, V_MIN_PU, auto_statcom_dispatch

@@ -44,7 +44,7 @@ Constants (Baltic Wind Alpha)
 
 from dataclasses import dataclass
 
-import pandapower as pp  # type: ignore[import-untyped]
+import pandapower as pp
 
 from app.schemas.grid import (
     BusResult,

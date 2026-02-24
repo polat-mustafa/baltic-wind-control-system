@@ -56,7 +56,7 @@ Constants (Baltic Wind Alpha)
 - 400 kV breaker rated: 50 kA
 """
 
-import pandapower.shortcircuit as sc  # type: ignore[import-untyped]
+import pandapower.shortcircuit as sc
 
 from app.schemas.grid import ShortCircuitBusResult, ShortCircuitResponse
 from app.services.p2.network_model import build_network

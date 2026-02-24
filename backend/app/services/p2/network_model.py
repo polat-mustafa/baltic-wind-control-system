@@ -56,7 +56,7 @@ Constants (Baltic Wind Alpha)
 from dataclasses import dataclass
 
 import numpy as np
-import pandapower as pp  # type: ignore[import-untyped]
+import pandapower as pp
 
 # ── Cable Parameters (IEC 60287) ─────────────────────────────────
 

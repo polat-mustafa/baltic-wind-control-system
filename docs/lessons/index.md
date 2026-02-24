@@ -112,5 +112,6 @@ Our documentation follows these principles in a software context:
 | 002 | [Internationalization](lesson-002.md) | P0 | Turkish | Complete |
 | 003 | [Ön Tasarım Kararları: Konum, Türbin, Alan & Şebeke](lesson-003.md) | P1 | Turkish | Complete |
 | 004 | [P1: Veritabanı, ERA5 İşleme & Weibull](lesson-004.md) | P1 | Turkish | Complete |
+| 005 | [Rüzgar Gülü Analizi & PyWake İz Modellemesi](lesson-005.md) | P1 | Turkish | Complete |
 
-**Coming next:** P1 — PyWake wake modelling, layout optimization, AEP calculation
+**Coming next:** P1 — Layout optimization, gross-to-net AEP cascade, P50/P75/P90, LCOE

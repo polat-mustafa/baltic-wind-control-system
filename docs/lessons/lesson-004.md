@@ -1,7 +1,7 @@
 # Ders 004 — P1 Başlangıcı: Veritabanı Modelleri, ERA5 Rüzgar Verisi İşleme ve Weibull Analizi
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 003 — Ön Tasarım Kararları](lesson-003.md) | **Sonraki:** Yakında :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 003 — Ön Tasarım Kararları](lesson-003.md) | **Sonraki:** [Ders 005 — Rüzgar Gülü & İz Modeli](lesson-005.md) :material-arrow-right:
 
     **Faz:** P1 | **Dil:** Türkçe | **İlerleme:** 5 / 5 | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 

@@ -38,6 +38,7 @@ nav:
     - "002 — Internationalization (TR)": lessons/lesson-002.md
     - "003 — Ön Tasarım Kararları (TR)": lessons/lesson-003.md
     - "004 — P1: Veritabanı, ERA5 & Weibull (TR)": lessons/lesson-004.md
+    - "005 — Rüzgar Gülü & İz Modeli (TR)": lessons/lesson-005.md
 
 markdown_extensions:
   - admonition

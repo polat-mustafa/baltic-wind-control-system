@@ -113,5 +113,6 @@ Our documentation follows these principles in a software context:
 | 003 | [Ön Tasarım Kararları: Konum, Türbin, Alan & Şebeke](lesson-003.md) | P1 | Turkish | Complete |
 | 004 | [P1: Veritabanı, ERA5 İşleme & Weibull](lesson-004.md) | P1 | Turkish | Complete |
 | 005 | [Rüzgar Gülü Analizi & PyWake İz Modellemesi](lesson-005.md) | P1 | Turkish | Complete |
+| 006 | [Yerleşim Optimizasyonu, Blokaj & AEP Kaskadı](lesson-006.md) | P1 | Turkish | Complete |
 
-**Coming next:** P1 — Layout optimization, gross-to-net AEP cascade, P50/P75/P90, LCOE
+**Coming next:** P1 — LCOE calculation, sensitivity analysis, final P1 integration

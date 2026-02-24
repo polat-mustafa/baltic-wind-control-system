@@ -1,1 +1,1 @@
-"""P1 Pydantic request/response schemas."""
+"""Pydantic request/response schemas for P1 and P2."""

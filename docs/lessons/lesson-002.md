@@ -1,7 +1,7 @@
 # Ders 002 — Eğitim Becerisine Çok Dilli Destek Eklenmesi: Uluslararasılaştırma Altyapısı
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 001 — DevOps Temeli](lesson-001.md) | **Sonraki:** [Ders 003 — P1: Veritabanı, ERA5 & Weibull](lesson-003.md) :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 001 — DevOps Temeli](lesson-001.md) | **Sonraki:** [Ders 003 — Ön Tasarım Kararları](lesson-003.md) :material-arrow-right:
 
     **Faz:** P0 | **Dil:** Türkçe | **İlerleme:** 3 / 3 | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 

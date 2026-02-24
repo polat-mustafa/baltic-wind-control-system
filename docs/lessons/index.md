@@ -110,6 +110,7 @@ Our documentation follows these principles in a software context:
 | 000 | [Project Planning & Engineering Methodology](lesson-000.md) | P0 | English | Complete |
 | 001 | [DevOps Foundation](lesson-001.md) | P0 | English | Complete |
 | 002 | [Internationalization](lesson-002.md) | P0 | Turkish | Complete |
-| 003 | [P1: Veritabanı, ERA5 İşleme & Weibull](lesson-003.md) | P1 | Turkish | Complete |
+| 003 | [Ön Tasarım Kararları: Konum, Türbin, Alan & Şebeke](lesson-003.md) | P1 | Turkish | Complete |
+| 004 | [P1: Veritabanı, ERA5 İşleme & Weibull](lesson-004.md) | P1 | Turkish | Complete |
 
 **Coming next:** P1 — PyWake wake modelling, layout optimization, AEP calculation

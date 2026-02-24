@@ -166,14 +166,18 @@ class TestFitSectorWeibull:
         """Sectors with enough data should produce valid Weibull parameters."""
         rng = np.random.default_rng(42)
         # Generate enough data in two sectors
-        speeds = np.concatenate([
-            rng.weibull(2.0, 500) * 10.0,  # Sector 0
-            rng.weibull(2.5, 500) * 8.0,   # Sector 1
-        ])
-        indices = np.concatenate([
-            np.zeros(500, dtype=np.intp),
-            np.ones(500, dtype=np.intp),
-        ])
+        speeds = np.concatenate(
+            [
+                rng.weibull(2.0, 500) * 10.0,  # Sector 0
+                rng.weibull(2.5, 500) * 8.0,  # Sector 1
+            ]
+        )
+        indices = np.concatenate(
+            [
+                np.zeros(500, dtype=np.intp),
+                np.ones(500, dtype=np.intp),
+            ]
+        )
         results = fit_sector_weibull(speeds, indices, num_sectors=3)
         assert results[0] is not None
         assert results[0].scale_a_ms > 0

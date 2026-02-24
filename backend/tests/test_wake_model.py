@@ -193,9 +193,7 @@ class TestWakeModel:
         result = run_wake_analysis(x, y, site, turbine)
 
         # Wake loss should be positive
-        assert result.wake_loss_percent > 0.5, (
-            f"Wake loss = {result.wake_loss_percent:.1f}%"
-        )
+        assert result.wake_loss_percent > 0.5, f"Wake loss = {result.wake_loss_percent:.1f}%"
 
     def test_wake_loss_range(self):
         """Wake loss for two turbines at 5D should be positive but moderate.
@@ -217,9 +215,7 @@ class TestWakeModel:
 
         result = run_wake_analysis(x, y, site, turbine)
 
-        assert 0.3 < result.wake_loss_percent < 5.0, (
-            f"Wake loss = {result.wake_loss_percent:.1f}%"
-        )
+        assert 0.3 < result.wake_loss_percent < 5.0, f"Wake loss = {result.wake_loss_percent:.1f}%"
 
     def test_capacity_factor_range(self):
         """Capacity factor should be 0.30-0.55 for Baltic conditions."""
@@ -233,9 +229,7 @@ class TestWakeModel:
         turbine = create_v236_wind_turbine()
         result = run_wake_analysis(np.array([0.0]), np.array([0.0]), site, turbine)
 
-        assert 0.30 < result.capacity_factor < 0.55, (
-            f"CF = {result.capacity_factor:.3f}"
-        )
+        assert 0.30 < result.capacity_factor < 0.55, f"CF = {result.capacity_factor:.3f}"
 
     def test_result_structure(self):
         """WakeAnalysisResult should have correct fields and shapes."""

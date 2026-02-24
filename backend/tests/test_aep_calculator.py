@@ -23,14 +23,12 @@ from app.services.p1.aep_calculator import (
     DEFAULT_UNCERTAINTY_SOURCES,
     AEPCascadeResult,
     LayoutComparisonResult,
-    LossFactor,
     apply_loss_cascade,
     compare_layouts,
     compute_aep_cascade,
     compute_exceedance_values,
     compute_rss_uncertainty,
 )
-
 
 # ── RSS Uncertainty Tests ─────────────────────────────────────────
 
@@ -47,9 +45,7 @@ class TestRSSUncertainty:
              ≈ 6.89%
         """
         result = compute_rss_uncertainty()
-        expected = math.sqrt(
-            4.0**2 + 3.0**2 + 3.0**2 + 2.0**2 + 1.5**2 + 1.0**2 + 2.0**2 + 1.5**2
-        )
+        expected = math.sqrt(4.0**2 + 3.0**2 + 3.0**2 + 2.0**2 + 1.5**2 + 1.0**2 + 2.0**2 + 1.5**2)
         assert result == pytest.approx(expected, rel=1e-6)
 
     def test_single_source(self):

@@ -22,6 +22,8 @@ dependencies = [
     "httpx>=0.28.0",
     "numpy>=2.0.0",
     "scipy>=1.14.0",
+    "py-wake>=2.5.0",
+    "xarray>=2024.1.0",
 ]
 
 [project.optional-dependencies]
@@ -74,7 +76,7 @@ module = "tests.*"
 disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
-module = ["scipy.*"]
+module = ["scipy.*", "py_wake.*", "xarray.*"]
 ignore_missing_imports = true
 
 # ─── Pytest ──────────────────────────────────────────────────────

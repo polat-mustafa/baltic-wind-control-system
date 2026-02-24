@@ -1,7 +1,7 @@
 # Ders 005 — Rüzgar Gülü Analizi ve PyWake İz (Wake) Modellemesi
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 004 — P1: Veritabanı, ERA5 & Weibull](lesson-004.md) | **Sonraki:** Yakında :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 004 — P1: Veritabanı, ERA5 & Weibull](lesson-004.md) | **Sonraki:** [Ders 006 — Yerleşim Optimizasyonu, Blokaj & AEP Kaskadı](lesson-006.md) :material-arrow-right:
 
     **Faz:** P1 | **Dil:** Türkçe | **İlerleme:** 6 / 6 | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 

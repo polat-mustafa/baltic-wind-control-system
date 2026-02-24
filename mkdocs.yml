@@ -39,6 +39,7 @@ nav:
     - "003 — Ön Tasarım Kararları (TR)": lessons/lesson-003.md
     - "004 — P1: Veritabanı, ERA5 & Weibull (TR)": lessons/lesson-004.md
     - "005 — Rüzgar Gülü & İz Modeli (TR)": lessons/lesson-005.md
+    - "006 — Yerleşim, Blokaj & AEP Kaskadı (TR)": lessons/lesson-006.md
 
 markdown_extensions:
   - admonition

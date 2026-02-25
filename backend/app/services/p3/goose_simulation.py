@@ -74,6 +74,7 @@ References
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -387,7 +388,7 @@ def create_cable_earth_fault_scenario() -> FaultScenario:
 
 # ── Scenario Registry ─────────────────────────────────────────────
 
-_SCENARIO_BUILDERS: dict[FaultType, callable] = {
+_SCENARIO_BUILDERS: dict[FaultType, Callable[[], FaultScenario]] = {
     FaultType.BUSBAR_OVERCURRENT: create_busbar_overcurrent_scenario,
     FaultType.TRANSFORMER_DIFFERENTIAL: create_transformer_differential_scenario,
     FaultType.CABLE_EARTH_FAULT: create_cable_earth_fault_scenario,

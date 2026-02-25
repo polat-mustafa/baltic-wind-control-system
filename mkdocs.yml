@@ -42,6 +42,7 @@ nav:
     - "006 — Yerleşim, Blokaj & AEP Kaskadı (TR)": lessons/lesson-006.md
     - "007 — HV Şebeke Entegrasyonu (TR)": lessons/lesson-007.md
     - "008 — Dinamik Uyumluluk: ANDES, FRT, SSO (TR)": lessons/lesson-008.md
+    - "009 — IEC 61850: Veri Modeli, SCL & SCADA (TR)": lessons/lesson-009.md
 
 markdown_extensions:
   - admonition

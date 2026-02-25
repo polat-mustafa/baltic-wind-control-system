@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.routers.p3 import router as p3_router
 
 app = FastAPI(
     title="Baltic Wind HV Control Platform",
@@ -24,6 +25,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(p3_router)
 
 
 @app.get("/health")

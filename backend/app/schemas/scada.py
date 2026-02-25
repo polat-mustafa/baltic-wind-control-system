@@ -2,7 +2,8 @@
 Pydantic schemas for P3 SCADA & IEC 61850 substation automation.
 
 Request and response models for the IEC 61850 device registry,
-logical node queries, GOOSE control blocks, and SCL file generation.
+logical node queries, GOOSE control blocks, SCL file generation,
+and GOOSE fault simulation.
 """
 
 from __future__ import annotations
@@ -164,3 +165,92 @@ class SubstationSummaryResponse(BaseModel):
     wtg_controllers: int = Field(description="Number of WTG controllers")
     goose_control_blocks: int = Field(description="Number of GOOSE publishers")
     devices: list[PhysicalDeviceSchema] = Field(description="All devices")
+
+
+# ── GOOSE Fault Simulation Schemas ────────────────────────────────
+
+
+class FaultScenarioRequest(BaseModel):
+    """Request to run a GOOSE protection fault simulation."""
+
+    fault_type: str = Field(
+        description="Fault type: busbar_overcurrent, transformer_differential, cable_earth_fault"
+    )
+
+
+class ProtectionEventSchema(BaseModel):
+    """A single event in the protection fault clearance timeline."""
+
+    event_type: str = Field(description="Event type identifier")
+    timestamp_ms: float = Field(description="Time since fault inception [ms]")
+    description: str = Field(description="Human-readable event description")
+    ied_name: str = Field(default="", description="IED involved in this event")
+
+
+class GOOSEMessageSchema(BaseModel):
+    """API representation of an IEC 61850-8-1 GOOSE PDU."""
+
+    gocb_ref: str = Field(description="GOOSE Control Block reference")
+    dat_set: str = Field(description="Dataset reference")
+    go_id: str = Field(description="GOOSE identifier string")
+    st_num: int = Field(description="State number (increments on state change)")
+    sq_num: int = Field(description="Sequence number (increments on retransmission)")
+    all_data: dict[str, bool] = Field(description="Trip signal values")
+    timestamp: datetime = Field(description="UTC timestamp of state change")
+    app_id: str = Field(description="GOOSE Application ID (hex)")
+    mac_address: str = Field(description="Multicast destination MAC")
+    vlan_id: int = Field(description="VLAN ID for GOOSE traffic")
+
+
+class ComplianceCheckSchema(BaseModel):
+    """IEC compliance verification result."""
+
+    goose_latency_ms: float = Field(description="GOOSE publisher→subscriber latency [ms]")
+    goose_max_allowed_ms: float = Field(description="IEC 61850-8-1 maximum [ms]")
+    goose_compliant: bool = Field(description="True if latency < 4 ms")
+    total_clearance_ms: float = Field(description="Total fault clearance time [ms]")
+    clearance_max_allowed_ms: float = Field(description="IEC 62271-100 maximum [ms]")
+    clearance_compliant: bool = Field(description="True if clearance < 80 ms")
+
+
+class FaultSimulationResponse(BaseModel):
+    """Complete response from a GOOSE protection fault simulation."""
+
+    fault_type: str = Field(description="Fault type simulated")
+    location: str = Field(description="Fault location")
+    fault_current_pu: float = Field(description="Fault current [pu of nominal]")
+    protection_function: str = Field(description="Primary protection function")
+    description: str = Field(description="Scenario description")
+    events: list[ProtectionEventSchema] = Field(description="Protection timeline")
+    goose_messages: list[GOOSEMessageSchema] = Field(description="GOOSE PDUs published")
+    compliance: ComplianceCheckSchema = Field(description="IEC compliance check")
+    retransmission_schedule_ms: list[float] = Field(
+        description="GOOSE retransmission timestamps [ms] after initial publish"
+    )
+
+
+class RetransmissionRequest(BaseModel):
+    """Request to calculate a GOOSE retransmission schedule."""
+
+    min_time_ms: int = Field(default=2, ge=1, description="Minimum retransmission interval [ms]")
+    max_time_ms: int = Field(default=1000, ge=1, description="Maximum retransmission interval [ms]")
+    num_retransmissions: int = Field(
+        default=10, ge=1, le=50, description="Number of retransmissions to calculate"
+    )
+
+
+class RetransmissionResponse(BaseModel):
+    """GOOSE retransmission schedule per IEC 61850-8-1 §15.2.2."""
+
+    min_time_ms: int = Field(description="Initial interval T0 [ms]")
+    max_time_ms: int = Field(description="Maximum interval [ms]")
+    num_retransmissions: int = Field(description="Number of retransmissions")
+    schedule_ms: list[float] = Field(description="Cumulative retransmission timestamps [ms]")
+    intervals_ms: list[float] = Field(description="Individual interval durations [ms]")
+
+
+class FaultScenarioSummary(BaseModel):
+    """Summary of an available fault scenario."""
+
+    fault_type: str = Field(description="Fault type identifier")
+    description: str = Field(description="Scenario description")

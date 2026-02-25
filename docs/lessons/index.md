@@ -115,5 +115,6 @@ Our documentation follows these principles in a software context:
 | 005 | [Rüzgar Gülü Analizi & PyWake İz Modellemesi](lesson-005.md) | P1 | Turkish | Complete |
 | 006 | [Yerleşim Optimizasyonu, Blokaj & AEP Kaskadı](lesson-006.md) | P1 | Turkish | Complete |
 | 007 | [HV Şebeke Entegrasyonu: Pandapower Kararlı Durum Modeli](lesson-007.md) | P2 | Turkish | Complete |
+| 008 | [Dinamik Şebeke Uyumluluğu: ANDES, FRT, Frekans, SSO & Konvertör](lesson-008.md) | P2 | Turkish | Complete |
 
-**Coming next:** P2 — FRT curves, ANDES dynamic simulation, NC RfG Type D compliance
+**Coming next:** P2 — API endpoints, SCADA data model integration

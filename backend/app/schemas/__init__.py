@@ -1,1 +1,1 @@
-"""Pydantic request/response schemas for P1 and P2."""
+"""Pydantic request/response schemas for P1, P2, and P3."""

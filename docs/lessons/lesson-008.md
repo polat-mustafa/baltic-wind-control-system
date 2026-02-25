@@ -1,7 +1,7 @@
 # Ders 008 — Dinamik Şebeke Uyumluluğu: ANDES, FRT, Frekans Yanıtı, SSO & Konvertör Karşılaştırması
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 007 — HV Şebeke Entegrasyonu: Pandapower Kararlı Durum Modeli](lesson-007.md) | **Sonraki:** Yakında :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 007 — HV Şebeke Entegrasyonu: Pandapower Kararlı Durum Modeli](lesson-007.md) | **Sonraki:** [Ders 009 — IEC 61850 Veri Modeli, SCL & SCADA Cihaz Kayıt Sistemi](lesson-009.md) :material-arrow-right:
 
     **Faz:** P2 | **Dil:** Türkçe | **İlerleme:** 2 / ? | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 

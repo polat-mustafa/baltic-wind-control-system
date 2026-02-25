@@ -1,7 +1,7 @@
 # Ders 007 — HV Şebeke Entegrasyonu: Pandapower Kararlı Durum Modeli
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 006 — Yerleşim Optimizasyonu, Blokaj & AEP Kaskadı](lesson-006.md) | **Sonraki:** Yakında :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 006 — Yerleşim Optimizasyonu, Blokaj & AEP Kaskadı](lesson-006.md) | **Sonraki:** [Ders 008 — Dinamik Şebeke Uyumluluğu: ANDES, FRT, Frekans, SSO & Konvertör](lesson-008.md) :material-arrow-right:
 
     **Faz:** P2 | **Dil:** Türkçe | **İlerleme:** 1 / ? | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 
@@ -10,6 +10,7 @@
 > **Roadmap sections:** [Phase 2 — Section 2.1 Electrical Network Model, Section 2.2 Load Flow, Section 2.3 Short-Circuit, Section 2.4 Reactive Compensation]
 > **Language:** Turkish
 > **Previous lesson:** Lesson 006
+> **last_commit_hash:** 0a571666d8c2a7e2e62689f3b54d6b1e90d830a4
 
 ---
 

@@ -309,18 +309,10 @@ class FRTSimulationResponse(BaseModel):
     fault_bus: str = Field(description="Bus where fault was applied")
     fault_duration_s: float = Field(description="Fault duration [s]")
     stayed_connected: bool = Field(description="WTGs remained connected")
-    reactive_current_compliant: bool = Field(
-        description="dIq >= 2% x dV per NC RfG"
-    )
-    reactive_current_gain: float = Field(
-        description="Achieved Kqv gain [%Iq / %ΔV]"
-    )
-    recovery_time_s: float = Field(
-        description="Time to recover ≥90% active power [s]"
-    )
-    recovery_compliant: bool = Field(
-        description="Recovery within 1s of fault clearance"
-    )
+    reactive_current_compliant: bool = Field(description="dIq >= 2% x dV per NC RfG")
+    reactive_current_gain: float = Field(description="Achieved Kqv gain [%Iq / %ΔV]")
+    recovery_time_s: float = Field(description="Time to recover ≥90% active power [s]")
+    recovery_compliant: bool = Field(description="Recovery within 1s of fault clearance")
     statcom_peak_q_mvar: float = Field(
         description="Peak STATCOM reactive power during fault [MVAR]"
     )
@@ -436,7 +428,5 @@ class DynamicComplianceResponse(BaseModel):
     fsm: FrequencyResponseResponse = Field(description="FSM droop result")
     rocof: FrequencyResponseResponse = Field(description="RoCoF withstand result")
     sso: SSOScreeningResponse = Field(description="SSO screening result")
-    converter_comparison: ConverterComparisonResponse = Field(
-        description="GFL vs GFM comparison"
-    )
+    converter_comparison: ConverterComparisonResponse = Field(description="GFL vs GFM comparison")
     overall_compliant: bool = Field(description="True if ALL checks pass")

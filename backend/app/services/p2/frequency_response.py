@@ -77,20 +77,20 @@ logger = logging.getLogger(__name__)
 
 # ── Frequency Constants ──────────────────────────────────────────
 
-F_NOM_HZ = 50.0                    # Nominal frequency [Hz]
-LFSM_O_THRESHOLD_HZ = 50.2         # Overfrequency activation [Hz]
-LFSM_U_THRESHOLD_HZ = 49.8         # Underfrequency activation [Hz]
-DEFAULT_DROOP_PCT = 5.0             # Default droop R [%]
-ROCOF_RATE_HZ_PER_S = 2.0          # RoCoF withstand [Hz/s]
-ROCOF_DURATION_S = 0.5             # RoCoF withstand duration [s]
+F_NOM_HZ = 50.0  # Nominal frequency [Hz]
+LFSM_O_THRESHOLD_HZ = 50.2  # Overfrequency activation [Hz]
+LFSM_U_THRESHOLD_HZ = 49.8  # Underfrequency activation [Hz]
+DEFAULT_DROOP_PCT = 5.0  # Default droop R [%]
+ROCOF_RATE_HZ_PER_S = 2.0  # RoCoF withstand [Hz/s]
+ROCOF_DURATION_S = 0.5  # RoCoF withstand duration [s]
 
 # Simulation timing
-PRE_EVENT_DURATION_S = 1.0          # Steady-state before event
-POST_EVENT_DURATION_S = 5.0         # Observation after event
-SIMULATION_DT_S = 0.001            # 1 ms time step
+PRE_EVENT_DURATION_S = 1.0  # Steady-state before event
+POST_EVENT_DURATION_S = 5.0  # Observation after event
+SIMULATION_DT_S = 0.001  # 1 ms time step
 
 # Compliance tolerance
-DROOP_TOLERANCE_PCT = 20.0          # ±20% tolerance on expected ΔP
+DROOP_TOLERANCE_PCT = 20.0  # ±20% tolerance on expected ΔP
 
 
 def calculate_expected_droop_response(
@@ -155,11 +155,11 @@ def run_frequency_response(
     """
     # Adjust frequency step direction based on mode
     if mode == FrequencyMode.LFSM_O:
-        freq_dev = abs(freq_step_hz)   # positive = overfrequency
+        freq_dev = abs(freq_step_hz)  # positive = overfrequency
     elif mode == FrequencyMode.LFSM_U:
         freq_dev = -abs(freq_step_hz)  # negative = underfrequency
     elif mode == FrequencyMode.FSM:
-        freq_dev = freq_step_hz        # user-specified direction
+        freq_dev = freq_step_hz  # user-specified direction
     elif mode == FrequencyMode.ROCOF:
         return run_rocof_withstand(
             rocof_hz_per_s=ROCOF_RATE_HZ_PER_S,
@@ -272,7 +272,9 @@ def run_rocof_withstand(
     ss.PFlow.run()
     if not ss.PFlow.converged:
         return _create_failed_freq_response(
-            FrequencyMode.ROCOF, rocof_hz_per_s, 0.0,
+            FrequencyMode.ROCOF,
+            rocof_hz_per_s,
+            0.0,
         )
 
     initial_power_mw = TOTAL_CAPACITY_MW * generation_fraction
@@ -296,7 +298,9 @@ def run_rocof_withstand(
 
     # Calculate expected power change from droop during RoCoF
     expected_dp = calculate_expected_droop_response(
-        total_freq_dev, DEFAULT_DROOP_PCT, initial_power_mw,
+        total_freq_dev,
+        DEFAULT_DROOP_PCT,
+        initial_power_mw,
     )
 
     # Final power after RoCoF event

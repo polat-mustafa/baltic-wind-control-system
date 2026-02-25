@@ -31,14 +31,18 @@ class TestDroopFormula:
     def test_overfrequency_reduces_power(self):
         """Positive Δf (overfrequency) must produce negative ΔP (reduce)."""
         dp = calculate_expected_droop_response(
-            freq_dev_hz=0.5, droop_pct=5.0, rated_mw=510.0,
+            freq_dev_hz=0.5,
+            droop_pct=5.0,
+            rated_mw=510.0,
         )
         assert dp < 0, f"ΔP = {dp:.1f} MW should be negative for overfrequency"
 
     def test_underfrequency_increases_power(self):
         """Negative Δf (underfrequency) must produce positive ΔP (increase)."""
         dp = calculate_expected_droop_response(
-            freq_dev_hz=-0.5, droop_pct=5.0, rated_mw=510.0,
+            freq_dev_hz=-0.5,
+            droop_pct=5.0,
+            rated_mw=510.0,
         )
         assert dp > 0, f"ΔP = {dp:.1f} MW should be positive for underfrequency"
 
@@ -48,14 +52,18 @@ class TestDroopFormula:
         ΔP = -(510 / 0.05) × (0.5 / 50) = -102 MW
         """
         dp = calculate_expected_droop_response(
-            freq_dev_hz=0.5, droop_pct=5.0, rated_mw=510.0,
+            freq_dev_hz=0.5,
+            droop_pct=5.0,
+            rated_mw=510.0,
         )
         assert dp == pytest.approx(-102.0, rel=0.01)
 
     def test_zero_frequency_deviation(self):
         """Zero Δf must produce zero ΔP."""
         dp = calculate_expected_droop_response(
-            freq_dev_hz=0.0, droop_pct=5.0, rated_mw=510.0,
+            freq_dev_hz=0.0,
+            droop_pct=5.0,
+            rated_mw=510.0,
         )
         assert dp == pytest.approx(0.0)
 

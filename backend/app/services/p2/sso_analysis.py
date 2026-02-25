@@ -96,15 +96,15 @@ logger = logging.getLogger(__name__)
 
 # ── SSO Constants ─────────────────────────────────────────────────
 
-SUB_SYNC_FREQ_MIN_HZ = 1.0       # Lower bound of sub-synchronous range
-SUB_SYNC_FREQ_MAX_HZ = 49.0      # Upper bound (below nominal 50 Hz)
-CRITICAL_DAMPING_RATIO = 0.05    # 5% — modes below this are flagged
-PHASE_MARGIN_LOW_DEG = 30.0      # Below 30° = high risk
-PHASE_MARGIN_HIGH_DEG = 60.0     # Above 60° = low risk
+SUB_SYNC_FREQ_MIN_HZ = 1.0  # Lower bound of sub-synchronous range
+SUB_SYNC_FREQ_MAX_HZ = 49.0  # Upper bound (below nominal 50 Hz)
+CRITICAL_DAMPING_RATIO = 0.05  # 5% — modes below this are flagged
+PHASE_MARGIN_LOW_DEG = 30.0  # Below 30° = high risk
+PHASE_MARGIN_HIGH_DEG = 60.0  # Above 60° = low risk
 
 # SCR thresholds for risk classification
-SCR_STRONG = 5.0                  # SCR > 5 = strong grid
-SCR_MODERATE = 3.0                # 3 < SCR < 5 = moderate
+SCR_STRONG = 5.0  # SCR > 5 = strong grid
+SCR_MODERATE = 3.0  # 3 < SCR < 5 = moderate
 
 
 def calculate_cable_resonance_frequency(
@@ -139,8 +139,8 @@ def calculate_cable_resonance_frequency(
     if c_nf_per_km is None:
         c_nf_per_km = EXPORT_CABLE_1000.c_nf_per_km
 
-    l_total_h = (l_mh_per_km * 1e-3) * length_km   # H
-    c_total_f = (c_nf_per_km * 1e-9) * length_km    # F
+    l_total_h = (l_mh_per_km * 1e-3) * length_km  # H
+    c_total_f = (c_nf_per_km * 1e-9) * length_km  # F
 
     if l_total_h <= 0 or c_total_f <= 0:
         return float("inf")

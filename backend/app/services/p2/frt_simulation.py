@@ -82,12 +82,12 @@ logger = logging.getLogger(__name__)
 # Time-voltage pairs defining the PSE LVRT ride-through envelope
 # WTGs must stay connected if voltage remains above this curve
 PSE_LVRT_ENVELOPE = [
-    (0.000, 0.15),   # t=0: voltage can drop to 0.15 pu
-    (0.140, 0.25),   # t=140ms: minimum 0.25 pu
-    (0.500, 0.85),   # t=500ms: recovery to 0.85 pu
-    (1.000, 0.85),   # t=1.0s: maintained at 0.85 pu
-    (1.500, 1.00),   # t=1.5s: full recovery
-    (3.000, 1.00),   # t=3.0s: continuous operation
+    (0.000, 0.15),  # t=0: voltage can drop to 0.15 pu
+    (0.140, 0.25),  # t=140ms: minimum 0.25 pu
+    (0.500, 0.85),  # t=500ms: recovery to 0.85 pu
+    (1.000, 0.85),  # t=1.0s: maintained at 0.85 pu
+    (1.500, 1.00),  # t=1.5s: full recovery
+    (3.000, 1.00),  # t=3.0s: continuous operation
 ]
 
 # HVRT: 1.25 pu for 100 ms
@@ -95,14 +95,14 @@ HVRT_VOLTAGE_PU = 1.25
 HVRT_DURATION_S = 0.100
 
 # Simulation timing
-PRE_FAULT_DURATION_S = 0.5    # Steady-state before fault
-POST_FAULT_DURATION_S = 3.0   # Observation after clearance
-SIMULATION_DT_S = 0.001       # 1 ms time step
+PRE_FAULT_DURATION_S = 0.5  # Steady-state before fault
+POST_FAULT_DURATION_S = 3.0  # Observation after clearance
+SIMULATION_DT_S = 0.001  # 1 ms time step
 
 # Compliance thresholds
-MIN_KQV = 2.0                 # NC RfG minimum reactive current gain
+MIN_KQV = 2.0  # NC RfG minimum reactive current gain
 POWER_RECOVERY_THRESHOLD = 0.90  # 90% active power recovery
-POWER_RECOVERY_TIME_S = 1.0   # Must recover within 1.0 s
+POWER_RECOVERY_TIME_S = 1.0  # Must recover within 1.0 s
 
 
 @dataclass(frozen=True)
@@ -220,18 +220,27 @@ def run_frt_simulation(
 
     # Extract time-series results
     time_series = _extract_time_series(
-        ss, fault_bus_idx, t_fault, t_clear, pre_fault_p_mw, frt_type,
+        ss,
+        fault_bus_idx,
+        t_fault,
+        t_clear,
+        pre_fault_p_mw,
+        frt_type,
     )
 
     # Check compliance
     stayed_connected = _check_stayed_connected(time_series, frt_type, t_fault)
 
     kqv_compliant, kqv_actual = check_reactive_current_compliance(
-        time_series, t_fault, t_clear,
+        time_series,
+        t_fault,
+        t_clear,
     )
 
     recovery_compliant, recovery_time = check_active_power_recovery(
-        time_series, t_clear, pre_fault_p_mw,
+        time_series,
+        t_clear,
+        pre_fault_p_mw,
     )
 
     # STATCOM peak Q
@@ -409,11 +418,7 @@ def _extract_time_series(
     time_points: list[FRTTimePoint] = []
 
     # Try to extract from ANDES TDS output first
-    has_tds_data = (
-        hasattr(ss.TDS, "t")
-        and ss.TDS.t is not None
-        and len(ss.TDS.t) > 10
-    )
+    has_tds_data = hasattr(ss.TDS, "t") and ss.TDS.t is not None and len(ss.TDS.t) > 10
 
     if has_tds_data:
         t_array = np.array(ss.TDS.t)
@@ -436,23 +441,35 @@ def _extract_time_series(
             v = float(v_array[i])
             t = float(t_array[i])
             p_array[i], q_array[i], iq_array[i] = _model_converter_response(
-                v, t, t_fault, t_clear, pre_fault_p_mw, kqv, frt_type,
+                v,
+                t,
+                t_fault,
+                t_clear,
+                pre_fault_p_mw,
+                kqv,
+                frt_type,
             )
 
         # Downsample for reasonable response size (every 10ms)
         step = max(1, int(0.010 / SIMULATION_DT_S))
         for i in range(0, n_points, step):
-            time_points.append(FRTTimePoint(
-                time_s=round(float(t_array[i]), 4),
-                voltage_pu=round(float(v_array[i]), 4),
-                active_power_mw=round(float(p_array[i]), 2),
-                reactive_power_mvar=round(float(q_array[i]), 2),
-                reactive_current_pu=round(float(iq_array[i]), 4),
-            ))
+            time_points.append(
+                FRTTimePoint(
+                    time_s=round(float(t_array[i]), 4),
+                    voltage_pu=round(float(v_array[i]), 4),
+                    active_power_mw=round(float(p_array[i]), 2),
+                    reactive_power_mvar=round(float(q_array[i]), 2),
+                    reactive_current_pu=round(float(iq_array[i]), 4),
+                )
+            )
     else:
         # Generate synthetic time series from fault physics
         time_points = _generate_synthetic_frt_series(
-            t_fault, t_clear, pre_fault_p_mw, kqv, frt_type,
+            t_fault,
+            t_clear,
+            pre_fault_p_mw,
+            kqv,
+            frt_type,
         )
 
     return time_points
@@ -532,16 +549,24 @@ def _generate_synthetic_frt_series(
                 v = 1.0 + (v_fault - 1.0) * np.exp(-dt_post / 0.05)
 
         p, q, iq = _model_converter_response(
-            float(v), float(t), t_fault, t_clear, pre_fault_p_mw, kqv, frt_type,
+            float(v),
+            float(t),
+            t_fault,
+            t_clear,
+            pre_fault_p_mw,
+            kqv,
+            frt_type,
         )
 
-        points.append(FRTTimePoint(
-            time_s=round(float(t), 4),
-            voltage_pu=round(float(v), 4),
-            active_power_mw=round(p, 2),
-            reactive_power_mvar=round(q, 2),
-            reactive_current_pu=round(iq, 4),
-        ))
+        points.append(
+            FRTTimePoint(
+                time_s=round(float(t), 4),
+                voltage_pu=round(float(v), 4),
+                active_power_mw=round(p, 2),
+                reactive_power_mvar=round(q, 2),
+                reactive_current_pu=round(iq, 4),
+            )
+        )
 
     return points
 

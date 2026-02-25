@@ -84,13 +84,13 @@ logger = logging.getLogger(__name__)
 # ── Converter Constants ──────────────────────────────────────────
 
 # GFM virtual synchronous machine parameters
-GFM_INERTIA_H = 4.0              # Virtual inertia constant [s]
-GFM_DAMPING_D = 20.0             # Damping coefficient [pu]
-GFM_RESPONSE_TIME_S = 0.050      # GFM voltage response time [s]
+GFM_INERTIA_H = 4.0  # Virtual inertia constant [s]
+GFM_DAMPING_D = 20.0  # Damping coefficient [pu]
+GFM_RESPONSE_TIME_S = 0.050  # GFM voltage response time [s]
 
 # GFL PLL parameters
-GFL_PLL_BW_HZ = 5.0              # PLL bandwidth [Hz]
-GFL_RESPONSE_TIME_S = 0.100      # GFL current response time [s]
+GFL_PLL_BW_HZ = 5.0  # PLL bandwidth [Hz]
+GFL_RESPONSE_TIME_S = 0.100  # GFL current response time [s]
 
 # Simulation timing
 PRE_DISTURBANCE_S = 1.0
@@ -98,13 +98,13 @@ POST_DISTURBANCE_S = 5.0
 SIMULATION_DT_S = 0.001
 
 # Stability thresholds
-SETTLING_BAND_PU = 0.02           # 2% settling band
-MAX_SETTLING_TIME_S = 3.0         # Maximum acceptable settling time
+SETTLING_BAND_PU = 0.02  # 2% settling band
+MAX_SETTLING_TIME_S = 3.0  # Maximum acceptable settling time
 VOLTAGE_DEVIATION_LIMIT_PU = 0.15  # Max voltage deviation before instability
 
 # SCR test points
-STRONG_GRID_SSC_MVA = GRID_SSC_MVA           # 10,000 MVA → SCR ≈ 19.6
-WEAK_GRID_SSC_MVA = 2_000.0                   # 2,000 MVA → SCR ≈ 3.9
+STRONG_GRID_SSC_MVA = GRID_SSC_MVA  # 10,000 MVA → SCR ≈ 19.6
+WEAK_GRID_SSC_MVA = 2_000.0  # 2,000 MVA → SCR ≈ 3.9
 
 
 def run_converter_comparison(
@@ -377,7 +377,7 @@ def _get_max_voltage_deviation(ss: andes.System) -> float:
             # Check PCC voltage (bus 3 = OSS 220 kV)
             v_ts = ss.TDS.get_bus_v(3)
             if v_ts is not None:
-                v_array = list(v_ts) if not hasattr(v_ts, '__len__') else v_ts
+                v_array = list(v_ts) if not hasattr(v_ts, "__len__") else v_ts
                 return float(max(abs(v - 1.0) for v in v_array))
     except Exception:
         pass
@@ -391,7 +391,7 @@ def _get_settling_time(ss: andes.System) -> float:
             t_array = list(ss.TDS.t)
             v_ts = ss.TDS.get_bus_v(3)
             if v_ts is not None and len(t_array) > 0:
-                v_array = list(v_ts) if not hasattr(v_ts, '__len__') else v_ts
+                v_array = list(v_ts) if not hasattr(v_ts, "__len__") else v_ts
                 # Find last time outside 2% band
                 for i in range(len(t_array) - 1, -1, -1):
                     if abs(v_array[i] - 1.0) > SETTLING_BAND_PU:
@@ -407,7 +407,7 @@ def _get_max_frequency_deviation(ss: andes.System) -> float:
         if hasattr(ss, "Bus") and hasattr(ss.Bus, "f"):
             f_ts = ss.Bus.f.v
             if f_ts is not None:
-                f_array = list(f_ts) if not hasattr(f_ts, '__len__') else f_ts
+                f_array = list(f_ts) if not hasattr(f_ts, "__len__") else f_ts
                 return float(max(abs(f) for f in f_array))
     except Exception:
         pass

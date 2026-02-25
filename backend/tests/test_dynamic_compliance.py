@@ -89,12 +89,8 @@ class TestFullComplianceReport:
         """LVRT must pass all three sub-checks."""
         lvrt = compliance_report.lvrt
         assert lvrt.stayed_connected, "LVRT: WTGs disconnected"
-        assert lvrt.reactive_current_compliant, (
-            f"LVRT: Kqv = {lvrt.reactive_current_gain} < 2.0"
-        )
-        assert lvrt.recovery_compliant, (
-            f"LVRT: recovery time = {lvrt.recovery_time_s}s > 1.0s"
-        )
+        assert lvrt.reactive_current_compliant, f"LVRT: Kqv = {lvrt.reactive_current_gain} < 2.0"
+        assert lvrt.recovery_compliant, f"LVRT: recovery time = {lvrt.recovery_time_s}s > 1.0s"
 
     def test_all_frequency_modes_compliant(self, compliance_report):
         """All frequency response modes must be compliant."""

@@ -14,7 +14,6 @@ Test Strategy
 - STATCOM: provides peak reactive power during fault
 """
 
-
 from app.schemas.grid import FRTTimePoint, FRTType
 from app.services.p2.frt_simulation import (
     check_active_power_recovery,
@@ -103,17 +102,39 @@ class TestComplianceChecks:
         # Simulate: pre-fault V=1.0, Iq=0.0 → fault V=0.5, Iq=1.5
         # ΔV = 0.5, ΔIq = 1.5 → Kqv = 3.0
         time_series = [
-            FRTTimePoint(time_s=0.4, voltage_pu=1.0, active_power_mw=510,
-                         reactive_power_mvar=0, reactive_current_pu=0.0),
-            FRTTimePoint(time_s=0.5, voltage_pu=1.0, active_power_mw=510,
-                         reactive_power_mvar=0, reactive_current_pu=0.0),
-            FRTTimePoint(time_s=0.55, voltage_pu=0.5, active_power_mw=200,
-                         reactive_power_mvar=100, reactive_current_pu=1.5),
-            FRTTimePoint(time_s=0.6, voltage_pu=0.5, active_power_mw=200,
-                         reactive_power_mvar=100, reactive_current_pu=1.5),
+            FRTTimePoint(
+                time_s=0.4,
+                voltage_pu=1.0,
+                active_power_mw=510,
+                reactive_power_mvar=0,
+                reactive_current_pu=0.0,
+            ),
+            FRTTimePoint(
+                time_s=0.5,
+                voltage_pu=1.0,
+                active_power_mw=510,
+                reactive_power_mvar=0,
+                reactive_current_pu=0.0,
+            ),
+            FRTTimePoint(
+                time_s=0.55,
+                voltage_pu=0.5,
+                active_power_mw=200,
+                reactive_power_mvar=100,
+                reactive_current_pu=1.5,
+            ),
+            FRTTimePoint(
+                time_s=0.6,
+                voltage_pu=0.5,
+                active_power_mw=200,
+                reactive_power_mvar=100,
+                reactive_current_pu=1.5,
+            ),
         ]
         compliant, kqv = check_reactive_current_compliance(
-            time_series, t_fault=0.5, t_clear=0.65,
+            time_series,
+            t_fault=0.5,
+            t_clear=0.65,
         )
         assert compliant
         assert kqv >= 2.0
@@ -121,15 +142,32 @@ class TestComplianceChecks:
     def test_reactive_current_compliance_fail(self):
         """Kqv = 1.0 should fail (< 2.0)."""
         time_series = [
-            FRTTimePoint(time_s=0.4, voltage_pu=1.0, active_power_mw=510,
-                         reactive_power_mvar=0, reactive_current_pu=0.0),
-            FRTTimePoint(time_s=0.5, voltage_pu=1.0, active_power_mw=510,
-                         reactive_power_mvar=0, reactive_current_pu=0.0),
-            FRTTimePoint(time_s=0.55, voltage_pu=0.5, active_power_mw=200,
-                         reactive_power_mvar=50, reactive_current_pu=0.5),
+            FRTTimePoint(
+                time_s=0.4,
+                voltage_pu=1.0,
+                active_power_mw=510,
+                reactive_power_mvar=0,
+                reactive_current_pu=0.0,
+            ),
+            FRTTimePoint(
+                time_s=0.5,
+                voltage_pu=1.0,
+                active_power_mw=510,
+                reactive_power_mvar=0,
+                reactive_current_pu=0.0,
+            ),
+            FRTTimePoint(
+                time_s=0.55,
+                voltage_pu=0.5,
+                active_power_mw=200,
+                reactive_power_mvar=50,
+                reactive_current_pu=0.5,
+            ),
         ]
         compliant, kqv = check_reactive_current_compliance(
-            time_series, t_fault=0.5, t_clear=0.65,
+            time_series,
+            t_fault=0.5,
+            t_clear=0.65,
         )
         assert not compliant
         assert kqv < 2.0
@@ -137,15 +175,32 @@ class TestComplianceChecks:
     def test_power_recovery_good(self):
         """Recovery to 95% within 0.5 s should pass."""
         time_series = [
-            FRTTimePoint(time_s=0.65, voltage_pu=0.9, active_power_mw=100,
-                         reactive_power_mvar=0, reactive_current_pu=0),
-            FRTTimePoint(time_s=0.80, voltage_pu=0.95, active_power_mw=400,
-                         reactive_power_mvar=0, reactive_current_pu=0),
-            FRTTimePoint(time_s=1.0, voltage_pu=1.0, active_power_mw=480,
-                         reactive_power_mvar=0, reactive_current_pu=0),
+            FRTTimePoint(
+                time_s=0.65,
+                voltage_pu=0.9,
+                active_power_mw=100,
+                reactive_power_mvar=0,
+                reactive_current_pu=0,
+            ),
+            FRTTimePoint(
+                time_s=0.80,
+                voltage_pu=0.95,
+                active_power_mw=400,
+                reactive_power_mvar=0,
+                reactive_current_pu=0,
+            ),
+            FRTTimePoint(
+                time_s=1.0,
+                voltage_pu=1.0,
+                active_power_mw=480,
+                reactive_power_mvar=0,
+                reactive_current_pu=0,
+            ),
         ]
         compliant, recovery_time = check_active_power_recovery(
-            time_series, t_clear=0.65, pre_fault_p_mw=510.0,
+            time_series,
+            t_clear=0.65,
+            pre_fault_p_mw=510.0,
         )
         assert compliant
         assert recovery_time < 1.0
@@ -153,14 +208,31 @@ class TestComplianceChecks:
     def test_power_recovery_fail(self):
         """Recovery to only 50% should fail."""
         time_series = [
-            FRTTimePoint(time_s=0.65, voltage_pu=0.9, active_power_mw=100,
-                         reactive_power_mvar=0, reactive_current_pu=0),
-            FRTTimePoint(time_s=1.65, voltage_pu=0.95, active_power_mw=250,
-                         reactive_power_mvar=0, reactive_current_pu=0),
-            FRTTimePoint(time_s=2.65, voltage_pu=1.0, active_power_mw=250,
-                         reactive_power_mvar=0, reactive_current_pu=0),
+            FRTTimePoint(
+                time_s=0.65,
+                voltage_pu=0.9,
+                active_power_mw=100,
+                reactive_power_mvar=0,
+                reactive_current_pu=0,
+            ),
+            FRTTimePoint(
+                time_s=1.65,
+                voltage_pu=0.95,
+                active_power_mw=250,
+                reactive_power_mvar=0,
+                reactive_current_pu=0,
+            ),
+            FRTTimePoint(
+                time_s=2.65,
+                voltage_pu=1.0,
+                active_power_mw=250,
+                reactive_power_mvar=0,
+                reactive_current_pu=0,
+            ),
         ]
         compliant, _ = check_active_power_recovery(
-            time_series, t_clear=0.65, pre_fault_p_mw=510.0,
+            time_series,
+            t_clear=0.65,
+            pre_fault_p_mw=510.0,
         )
         assert not compliant

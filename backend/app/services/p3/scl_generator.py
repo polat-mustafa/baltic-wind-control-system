@@ -337,7 +337,8 @@ def generate_icd(
     # Logical devices
     for ld in device.logical_devices:
         _add_logical_device(
-            server, ld,
+            server,
+            ld,
             datasets=datasets,
             goose_control_blocks=goose_control_blocks,
         )
@@ -392,11 +393,15 @@ def generate_scd(
     substation.set("desc", "510 MW Baltic Sea Offshore Wind Farm — Offshore Substation")
 
     _add_voltage_level(
-        substation, "E66", 66.0,
+        substation,
+        "E66",
+        66.0,
         [f"Bay_String{i + 1}" for i in range(7)],
     )
     _add_voltage_level(
-        substation, "E220", 220.0,
+        substation,
+        "E220",
+        220.0,
         ["Bay_Export", "Bay_Trafo", "Bay_STATCOM"],
     )
 
@@ -459,7 +464,8 @@ def generate_scd(
 
         for ld in device.logical_devices:
             _add_logical_device(
-                server, ld,
+                server,
+                ld,
                 datasets=device_ds if device_ds else None,
                 goose_control_blocks=device_gcbs if device_gcbs else None,
             )

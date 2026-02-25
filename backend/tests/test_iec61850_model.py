@@ -66,9 +66,7 @@ class TestIEC61850Hierarchy:
         for ld in ied.logical_devices:
             for ln in ld.logical_nodes:
                 for do in ln.data_objects:
-                    assert len(do.attributes) > 0, (
-                        f"{ln.name}.{do.name} has no attributes"
-                    )
+                    assert len(do.attributes) > 0, f"{ln.name}.{do.name} has no attributes"
 
     def test_data_attribute_functional_constraints(self):
         """Data attributes must have valid functional constraints."""

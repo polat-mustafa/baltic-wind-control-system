@@ -116,5 +116,6 @@ Our documentation follows these principles in a software context:
 | 006 | [Yerleşim Optimizasyonu, Blokaj & AEP Kaskadı](lesson-006.md) | P1 | Turkish | Complete |
 | 007 | [HV Şebeke Entegrasyonu: Pandapower Kararlı Durum Modeli](lesson-007.md) | P2 | Turkish | Complete |
 | 008 | [Dinamik Şebeke Uyumluluğu: ANDES, FRT, Frekans, SSO & Konvertör](lesson-008.md) | P2 | Turkish | Complete |
+| 009 | [IEC 61850 Veri Modeli, SCL & SCADA Cihaz Kayıt Sistemi](lesson-009.md) | P3 | Turkish | Complete |
 
-**Coming next:** P2 — API endpoints, SCADA data model integration
+**Coming next:** P3 — GOOSE simulation, protection state machine, API endpoints

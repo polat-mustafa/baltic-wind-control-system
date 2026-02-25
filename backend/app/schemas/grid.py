@@ -1,8 +1,9 @@
 """
-Pydantic schemas for HV grid integration (P2A — steady-state).
+Pydantic schemas for HV grid integration (P2A steady-state + P2B dynamic).
 
 Request and response models for load flow analysis, IEC 60909 short-circuit
-calculations, and STATCOM reactive power compensation sizing.
+calculations, STATCOM reactive power compensation sizing, fault ride-through,
+frequency response, SSO screening, and converter comparison.
 
 Voltage Levels
 --------------
@@ -14,7 +15,7 @@ Standards
 ---------
 - IEC 60909: Short-circuit current calculation
 - PSE IRiESP: Polish grid code voltage limits (0.95–1.05 pu)
-- ENTSO-E NC RfG: Type D generating unit requirements
+- ENTSO-E NC RfG: Type D generating unit requirements (FRT, frequency, SSO)
 """
 
 import uuid
@@ -228,3 +229,204 @@ class ShortCircuitResultResponse(BaseModel):
     max_ikss_bus: str
     breaker_adequate: bool
     calculated_at: datetime
+
+
+# ── P2B Dynamic Compliance Enums ─────────────────────────────────
+
+
+class FRTType(StrEnum):
+    """Fault ride-through event type."""
+
+    LVRT = "lvrt"
+    """Low-voltage ride-through: voltage dip to ≤0.15 pu."""
+
+    HVRT = "hvrt"
+    """High-voltage ride-through: voltage swell to 1.25 pu."""
+
+
+class FrequencyMode(StrEnum):
+    """NC RfG Type D frequency response mode."""
+
+    LFSM_O = "lfsm_o"
+    """Limited frequency sensitive mode — overfrequency (>50.2 Hz)."""
+
+    LFSM_U = "lfsm_u"
+    """Limited frequency sensitive mode — underfrequency (<49.8 Hz)."""
+
+    FSM = "fsm"
+    """Frequency sensitive mode — droop-based (R = 5% default)."""
+
+    ROCOF = "rocof"
+    """Rate of change of frequency withstand (2 Hz/s for 500 ms)."""
+
+
+class SSOGRiskLevel(StrEnum):
+    """Sub-synchronous oscillation risk classification."""
+
+    LOW = "low"
+    """Strong grid, high damping — no SSO concern."""
+
+    MEDIUM = "medium"
+    """Moderate damping — monitoring recommended."""
+
+    HIGH = "high"
+    """Weak grid, low damping — mitigation required."""
+
+
+class ConverterType(StrEnum):
+    """Converter control strategy."""
+
+    GFL = "gfl"
+    """Grid-following: PLL-based current source (REGCA1/REECA1)."""
+
+    GFM = "gfm"
+    """Grid-forming: virtual synchronous machine, voltage source."""
+
+
+# ── P2B FRT Simulation Response ──────────────────────────────────
+
+
+class FRTTimePoint(BaseModel):
+    """Single time-series data point from FRT simulation."""
+
+    time_s: float = Field(description="Simulation time [s]")
+    voltage_pu: float = Field(description="PCC voltage magnitude [p.u.]")
+    active_power_mw: float = Field(description="Active power at PCC [MW]")
+    reactive_power_mvar: float = Field(description="Reactive power at PCC [MVAR]")
+    reactive_current_pu: float = Field(description="Reactive current injection [p.u.]")
+
+
+class FRTSimulationResponse(BaseModel):
+    """Complete fault ride-through simulation result.
+
+    Contains time-series data, compliance verdicts for reactive current
+    injection and active power recovery, plus the PSE voltage envelope.
+    """
+
+    model_config = {"from_attributes": True}
+
+    frt_type: FRTType = Field(description="LVRT or HVRT")
+    fault_bus: str = Field(description="Bus where fault was applied")
+    fault_duration_s: float = Field(description="Fault duration [s]")
+    stayed_connected: bool = Field(description="WTGs remained connected")
+    reactive_current_compliant: bool = Field(description="dIq >= 2% x dV per NC RfG")
+    reactive_current_gain: float = Field(description="Achieved Kqv gain [%Iq / %ΔV]")
+    recovery_time_s: float = Field(description="Time to recover ≥90% active power [s]")
+    recovery_compliant: bool = Field(description="Recovery within 1s of fault clearance")
+    statcom_peak_q_mvar: float = Field(
+        description="Peak STATCOM reactive power during fault [MVAR]"
+    )
+    time_series: list[FRTTimePoint] = Field(
+        default_factory=list,
+        description="Time-domain simulation data",
+    )
+
+
+# ── P2B Frequency Response ──────────────────────────────────────
+
+
+class FrequencyResponseResponse(BaseModel):
+    """Frequency response simulation result for a single mode.
+
+    Contains the measured power change, expected change from droop formula,
+    and compliance verdict per NC RfG Type D.
+    """
+
+    model_config = {"from_attributes": True}
+
+    mode: FrequencyMode = Field(description="Frequency response mode")
+    frequency_step_hz: float = Field(description="Applied frequency deviation [Hz]")
+    droop_percent: float = Field(description="Droop setting R [%]")
+    initial_power_mw: float = Field(description="Pre-disturbance active power [MW]")
+    final_power_mw: float = Field(description="Post-disturbance active power [MW]")
+    power_change_mw: float = Field(description="Measured ΔP [MW]")
+    expected_power_change_mw: float = Field(description="Expected ΔP from droop formula [MW]")
+    compliant: bool = Field(description="Meets NC RfG Type D requirements")
+    stable: bool = Field(description="System remained stable during event")
+
+
+# ── P2B SSO Screening ───────────────────────────────────────────
+
+
+class EigenvalueMode(BaseModel):
+    """Single eigenvalue mode from ANDES eigenvalue analysis."""
+
+    real: float = Field(description="Real part sigma [1/s]")
+    imaginary: float = Field(description="Imaginary part omega [rad/s]")
+    frequency_hz: float = Field(description="Oscillation frequency [Hz]")
+    damping_ratio: float = Field(description="Damping ratio ζ [-]")
+    is_subsynchronous: bool = Field(description="True if f < 50 Hz")
+
+
+class SSOScreeningResponse(BaseModel):
+    """Sub-synchronous oscillation screening result.
+
+    Contains cable resonance analysis, impedance scan results,
+    eigenvalue modes, and risk classification.
+    """
+
+    model_config = {"from_attributes": True}
+
+    export_length_km: float = Field(description="Export cable length [km]")
+    grid_ssc_mva: float = Field(description="Grid short-circuit power [MVA]")
+    resonance_frequency_hz: float = Field(description="Cable LC resonance frequency [Hz]")
+    phase_margin_deg: float = Field(description="Impedance phase margin at resonance [deg]")
+    stable: bool = Field(description="Re{Z(jω)} > 0 for all sub-synchronous ω")
+    risk_level: SSOGRiskLevel = Field(description="SSO risk classification")
+    minimum_damping_ratio: float = Field(description="Min damping in sub-synchronous range")
+    critical_modes: list[EigenvalueMode] = Field(
+        default_factory=list,
+        description="Eigenvalue modes with damping < 5% in sub-synchronous range",
+    )
+
+
+# ── P2B Converter Comparison ────────────────────────────────────
+
+
+class ConverterResult(BaseModel):
+    """Simulation result for a single converter type at given grid strength."""
+
+    converter_type: ConverterType = Field(description="GFL or GFM")
+    grid_ssc_mva: float = Field(description="Grid short-circuit power [MVA]")
+    scr: float = Field(description="Short-circuit ratio at PCC")
+    stable: bool = Field(description="System remained stable")
+    voltage_deviation_pu: float = Field(description="Max voltage deviation from 1.0 [p.u.]")
+    settling_time_s: float = Field(description="Time to settle within 2% band [s]")
+    frequency_deviation_hz: float = Field(description="Max frequency deviation [Hz]")
+
+
+class ConverterComparisonResponse(BaseModel):
+    """Educational comparison of GFL vs GFM converters.
+
+    Shows stability differences at strong and weak grid conditions,
+    highlighting why GFM is needed for low-SCR connections.
+    """
+
+    model_config = {"from_attributes": True}
+
+    scenario: str = Field(description="Test scenario description")
+    gfl_result: ConverterResult = Field(description="Grid-following converter result")
+    gfm_result: ConverterResult = Field(description="Grid-forming converter result")
+    gfm_advantage: str = Field(description="Educational summary of GFM advantage")
+
+
+# ── P2B Dynamic Compliance Report ───────────────────────────────
+
+
+class DynamicComplianceResponse(BaseModel):
+    """Complete NC RfG Type D dynamic compliance report.
+
+    Aggregates all P2B simulation results into a single compliance verdict.
+    """
+
+    model_config = {"from_attributes": True}
+
+    lvrt: FRTSimulationResponse = Field(description="LVRT simulation result")
+    hvrt: FRTSimulationResponse = Field(description="HVRT simulation result")
+    lfsm_o: FrequencyResponseResponse = Field(description="LFSM-O result")
+    lfsm_u: FrequencyResponseResponse = Field(description="LFSM-U result")
+    fsm: FrequencyResponseResponse = Field(description="FSM droop result")
+    rocof: FrequencyResponseResponse = Field(description="RoCoF withstand result")
+    sso: SSOScreeningResponse = Field(description="SSO screening result")
+    converter_comparison: ConverterComparisonResponse = Field(description="GFL vs GFM comparison")
+    overall_compliant: bool = Field(description="True if ALL checks pass")

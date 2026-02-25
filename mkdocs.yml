@@ -40,6 +40,8 @@ nav:
     - "004 — P1: Veritabanı, ERA5 & Weibull (TR)": lessons/lesson-004.md
     - "005 — Rüzgar Gülü & İz Modeli (TR)": lessons/lesson-005.md
     - "006 — Yerleşim, Blokaj & AEP Kaskadı (TR)": lessons/lesson-006.md
+    - "007 — HV Şebeke Entegrasyonu (TR)": lessons/lesson-007.md
+    - "008 — Dinamik Uyumluluk: ANDES, FRT, SSO (TR)": lessons/lesson-008.md
 
 markdown_extensions:
   - admonition

@@ -3,7 +3,7 @@ Pydantic schemas for P4 Machine Learning forecasting pipeline.
 
 Request and response models for power curve generation, SCADA data
 synthesis, quality filtering, feature engineering, physical
-constraint enforcement, and XGBoost forecasting.
+constraint enforcement, XGBoost forecasting, and LSTM forecasting.
 """
 
 from __future__ import annotations
@@ -294,3 +294,124 @@ class SHAPResponse(BaseModel):
     shap_values_sample: list[list[float]] = Field(
         description="SHAP values for first N samples (rows x features)"
     )
+
+
+# ── LSTM Forecasting Schemas ────────────────────────────────────
+
+
+class LSTMTrainRequest(BaseModel):
+    """Request to train LSTM wind power forecasting model."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0, description="Which turbine to train on")
+    lookback: int = Field(
+        default=144,
+        ge=6,
+        le=1000,
+        description="Lookback window (144 = 24h at 10-min resolution)",
+    )
+    hidden_units_l1: int = Field(default=64, ge=4, le=512, description="LSTM layer 1 hidden units")
+    hidden_units_l2: int = Field(default=32, ge=4, le=256, description="LSTM layer 2 hidden units")
+    dropout: float = Field(default=0.2, ge=0.0, le=0.5, description="Dropout rate")
+    learning_rate: float = Field(default=0.001, gt=0.0, le=0.1, description="Adam learning rate")
+    epochs: int = Field(default=100, ge=1, le=1000, description="Maximum training epochs")
+    patience: int = Field(default=10, ge=1, le=100, description="Early stopping patience")
+    batch_size: int = Field(default=64, ge=8, le=512, description="Training batch size")
+    seed: int | None = Field(default=42)
+
+
+class LSTMFoldMetricsSchema(BaseModel):
+    """Performance metrics for one LSTM CV fold."""
+
+    fold_index: int = Field(description="Zero-based fold number")
+    rmse_mw: float = Field(description="Root Mean Square Error [MW]")
+    mae_mw: float = Field(description="Mean Absolute Error [MW]")
+    mape_pct: float = Field(description="Mean Absolute Percentage Error [%]")
+    r_squared: float = Field(description="Coefficient of determination R²")
+    training_epochs: int = Field(
+        description="Actual training epochs (may be less due to early stopping)"
+    )
+
+
+class LSTMTrainResponse(BaseModel):
+    """LSTM training response with cross-validation metrics."""
+
+    fold_metrics: list[LSTMFoldMetricsSchema] = Field(description="Per-fold CV metrics")
+    mean_rmse_mw: float = Field(description="Mean RMSE across folds [MW]")
+    mean_mae_mw: float = Field(description="Mean MAE across folds [MW]")
+    mean_mape_pct: float = Field(description="Mean MAPE across folds [%]")
+    mean_r_squared: float = Field(description="Mean R² across folds")
+    skill_score_vs_persistence: float = Field(
+        description="Skill score vs persistence baseline (>0 = model wins)"
+    )
+    architecture_summary: str = Field(description="Human-readable LSTM architecture")
+    feature_names: list[str] = Field(description="Feature column names")
+    num_features: int = Field(description="Number of input features")
+    training_samples: int = Field(description="Number of training samples")
+
+
+class LSTMPredictRequest(BaseModel):
+    """Request to generate LSTM probabilistic power forecast."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0)
+    lookback: int = Field(default=144, ge=6, le=1000)
+    mc_samples: int = Field(
+        default=100,
+        ge=10,
+        le=1000,
+        description="Number of MC Dropout forward passes",
+    )
+    horizon_steps: int = Field(
+        default=144,
+        ge=1,
+        le=1000,
+        description="Number of forecast steps to return (144 = 1 day)",
+    )
+    seed: int | None = Field(default=42)
+
+
+class LSTMPredictResponse(BaseModel):
+    """LSTM probabilistic power forecast response."""
+
+    power_p10_mw: list[float] = Field(description="P10 forecast [MW]")
+    power_p50_mw: list[float] = Field(description="P50 (median) forecast [MW]")
+    power_p90_mw: list[float] = Field(description="P90 forecast [MW]")
+    mc_mean_mw: list[float] = Field(description="MC Dropout mean [MW]")
+    mc_std_mw: list[float] = Field(description="MC Dropout std [MW]")
+    wind_speed_ms: list[float] = Field(description="Input wind speeds [m/s]")
+    timestamps_utc: list[int] = Field(description="Forecast timestamps (Unix)")
+    num_steps: int = Field(description="Number of forecast steps")
+
+
+class MCDropoutRequest(BaseModel):
+    """Request for detailed MC Dropout visualization data."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0)
+    lookback: int = Field(default=144, ge=6, le=1000)
+    mc_samples: int = Field(
+        default=100,
+        ge=10,
+        le=1000,
+        description="Number of MC Dropout forward passes",
+    )
+    horizon_steps: int = Field(
+        default=144,
+        ge=1,
+        le=1000,
+        description="Number of steps for visualization",
+    )
+    seed: int | None = Field(default=42)
+
+
+class MCDropoutResponse(BaseModel):
+    """MC Dropout detailed visualization response."""
+
+    all_passes: list[list[float]] = Field(description="All MC passes, shape (mc_samples x n_steps)")
+    mean_mw: list[float] = Field(description="Mean across MC passes [MW]")
+    std_mw: list[float] = Field(description="Std across MC passes [MW]")
+    num_passes: int = Field(description="Number of MC forward passes")

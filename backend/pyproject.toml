@@ -29,6 +29,7 @@ dependencies = [
     "xgboost>=2.0",
     "scikit-learn>=1.5",
     "shap>=0.46",
+    "torch>=2.2",
 ]
 
 [project.optional-dependencies]
@@ -84,7 +85,7 @@ disallow_untyped_defs = false
 [[tool.mypy.overrides]]
 module = [
     "scipy.*", "py_wake.*", "xarray.*", "pandapower.*", "andes.*",
-    "xgboost.*", "shap.*", "sklearn.*",
+    "xgboost.*", "shap.*", "sklearn.*", "torch.*",
 ]
 ignore_missing_imports = true
 

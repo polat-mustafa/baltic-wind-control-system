@@ -5,6 +5,7 @@ All ORM models are imported here for Alembic auto-detection.
 """
 
 from app.models.grid import GridNetwork, LoadFlowResult, ShortCircuitResult
+from app.models.ptw import PermitToWork, PTWTransitionLog
 from app.models.scada import (
     GOOSEControlBlockRecord,
     IEC61850Device,
@@ -21,7 +22,9 @@ __all__ = [
     "IEC61850Device",
     "IEC61850LogicalNode",
     "LoadFlowResult",
+    "PTWTransitionLog",
     "PerTurbineAEP",
+    "PermitToWork",
     "SCLFile",
     "ShortCircuitResult",
     "TurbinePosition",

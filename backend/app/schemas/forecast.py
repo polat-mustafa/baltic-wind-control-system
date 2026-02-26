@@ -415,3 +415,124 @@ class MCDropoutResponse(BaseModel):
     mean_mw: list[float] = Field(description="Mean across MC passes [MW]")
     std_mw: list[float] = Field(description="Std across MC passes [MW]")
     num_passes: int = Field(description="Number of MC forward passes")
+
+
+# ── TFT Forecasting Schemas ──────────────────────────────────────
+
+
+class TFTTrainRequest(BaseModel):
+    """Request to train TFT wind power forecasting model."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0, description="Which turbine to train on")
+    lookback: int = Field(
+        default=72,
+        ge=6,
+        le=1000,
+        description="Lookback window (72 = 12h at 10-min resolution)",
+    )
+    hidden_size: int = Field(
+        default=32, ge=4, le=256, description="Hidden dimension for all layers"
+    )
+    num_attention_heads: int = Field(
+        default=2, ge=1, le=8, description="Number of parallel attention heads"
+    )
+    dropout: float = Field(default=0.1, ge=0.0, le=0.5, description="Dropout rate")
+    learning_rate: float = Field(default=0.001, gt=0.0, le=0.1, description="Adam learning rate")
+    epochs: int = Field(default=100, ge=1, le=1000, description="Maximum training epochs")
+    patience: int = Field(default=10, ge=1, le=100, description="Early stopping patience")
+    batch_size: int = Field(default=64, ge=8, le=512, description="Training batch size")
+    seed: int | None = Field(default=42)
+
+
+class TFTFoldMetricsSchema(BaseModel):
+    """Performance metrics for one TFT CV fold."""
+
+    fold_index: int = Field(description="Zero-based fold number")
+    rmse_mw: float = Field(description="Root Mean Square Error [MW]")
+    mae_mw: float = Field(description="Mean Absolute Error [MW]")
+    mape_pct: float = Field(description="Mean Absolute Percentage Error [%]")
+    r_squared: float = Field(description="Coefficient of determination R²")
+    training_epochs: int = Field(
+        description="Actual training epochs (may be less due to early stopping)"
+    )
+
+
+class TFTTrainResponse(BaseModel):
+    """TFT training response with cross-validation metrics."""
+
+    fold_metrics: list[TFTFoldMetricsSchema] = Field(description="Per-fold CV metrics")
+    mean_rmse_mw: float = Field(description="Mean RMSE across folds [MW]")
+    mean_mae_mw: float = Field(description="Mean MAE across folds [MW]")
+    mean_mape_pct: float = Field(description="Mean MAPE across folds [%]")
+    mean_r_squared: float = Field(description="Mean R² across folds")
+    skill_score_vs_persistence: float = Field(
+        description="Skill score vs persistence baseline (>0 = model wins)"
+    )
+    architecture_summary: str = Field(description="Human-readable TFT architecture")
+    feature_names: list[str] = Field(description="Feature column names")
+    num_features: int = Field(description="Number of input features")
+    training_samples: int = Field(description="Number of training samples")
+
+
+class TFTPredictRequest(BaseModel):
+    """Request to generate TFT probabilistic power forecast."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0)
+    lookback: int = Field(default=72, ge=6, le=1000)
+    horizon_steps: int = Field(
+        default=144,
+        ge=1,
+        le=1000,
+        description="Number of forecast steps to return (144 = 1 day)",
+    )
+    seed: int | None = Field(default=42)
+
+
+class TFTPredictResponse(BaseModel):
+    """TFT probabilistic power forecast response."""
+
+    power_p10_mw: list[float] = Field(description="P10 forecast [MW]")
+    power_p50_mw: list[float] = Field(description="P50 (median) forecast [MW]")
+    power_p90_mw: list[float] = Field(description="P90 forecast [MW]")
+    wind_speed_ms: list[float] = Field(description="Input wind speeds [m/s]")
+    timestamps_utc: list[int] = Field(description="Forecast timestamps (Unix)")
+    num_steps: int = Field(description="Number of forecast steps")
+
+
+class TFTAttentionRequest(BaseModel):
+    """Request for TFT attention weight visualization."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0)
+    lookback: int = Field(default=72, ge=6, le=1000)
+    horizon_steps: int = Field(
+        default=144,
+        ge=1,
+        le=1000,
+        description="Number of steps for attention visualization",
+    )
+    seed: int | None = Field(default=42)
+
+
+class VariableImportanceSchema(BaseModel):
+    """Single variable importance entry from TFT VSN."""
+
+    name: str = Field(description="Feature name")
+    importance: float = Field(description="VSN selection weight (sum=1.0)")
+
+
+class TFTAttentionResponse(BaseModel):
+    """TFT attention weight visualization response."""
+
+    temporal_weights_sample: list[list[float]] = Field(
+        description="Temporal attention weights for sample steps (n_sample x lookback)"
+    )
+    variable_importance: list[VariableImportanceSchema] = Field(
+        description="Per-feature importance from Variable Selection Network"
+    )
+    num_attention_heads: int = Field(description="Number of attention heads used")

@@ -14,6 +14,9 @@ Provides REST endpoints for:
 - LSTM training: 2-layer LSTM with TimeSeriesSplit CV per §5.8
 - LSTM prediction: MC Dropout → P10/P50/P90 forecasting per §5.11
 - MC Dropout visualization: detailed uncertainty passes
+- TFT training: Temporal Fusion Transformer with quantile regression per §5.6
+- TFT prediction: native P10/P50/P90 forecasting with attention weights
+- TFT attention: variable importance and temporal attention visualization
 
 All endpoints follow the convention: /api/v1/forecast/{resource}
 """
@@ -47,7 +50,15 @@ from app.schemas.forecast import (
     SCADADatasetSummary,
     SHAPRequest,
     SHAPResponse,
+    TFTAttentionRequest,
+    TFTAttentionResponse,
+    TFTFoldMetricsSchema,
+    TFTPredictRequest,
+    TFTPredictResponse,
+    TFTTrainRequest,
+    TFTTrainResponse,
     TurbineSpecSchema,
+    VariableImportanceSchema,
     XGBoostPredictRequest,
     XGBoostPredictResponse,
     XGBoostTrainRequest,
@@ -64,6 +75,12 @@ from app.services.p4.nwp_pipeline import NWPConfig, generate_nwp_dataset, merge_
 from app.services.p4.physical_constraints import enforce_physical_constraints
 from app.services.p4.scada_generator import SCADAConfig, generate_scada_dataset
 from app.services.p4.scada_quality_filters import apply_all_quality_filters
+from app.services.p4.tft_model import (
+    TFTConfig,
+    compute_attention_weights,
+    predict_tft,
+    train_tft,
+)
 from app.services.p4.turbine_power_curve import (
     build_power_curve,
     get_v236_spec,
@@ -673,4 +690,180 @@ async def lstm_mc_dropout_endpoint(
         mean_mw=[round(float(v), 4) for v in mc_detail.mean_mw[-n:]],
         std_mw=[round(float(v), 4) for v in mc_detail.std_mw[-n:]],
         num_passes=mc_detail.num_passes,
+    )
+
+
+# ── TFT Training ─────────────────────────────────────────────────
+
+
+@router.post("/train-tft", response_model=TFTTrainResponse)
+async def train_tft_endpoint(
+    request: TFTTrainRequest,
+) -> TFTTrainResponse:
+    """Train TFT model with TimeSeriesSplit cross-validation.
+
+    Pipeline: generate SCADA → quality filter → engineer features →
+    merge NWP → normalize → create sequences → train TFT → return CV metrics.
+
+    TFT uses native quantile regression (pinball loss) for P10/P50/P90
+    instead of MC Dropout, and provides attention-based explainability.
+    """
+    features, target, _, _, feature_names = _build_xgboost_pipeline(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
+
+    tft_config = TFTConfig(
+        lookback=request.lookback,
+        hidden_size=request.hidden_size,
+        num_attention_heads=request.num_attention_heads,
+        dropout=request.dropout,
+        learning_rate=request.learning_rate,
+        epochs=request.epochs,
+        patience=request.patience,
+        batch_size=request.batch_size,
+        seed=request.seed if request.seed is not None else 42,
+    )
+
+    cv_result, _, _ = train_tft(features, target, tft_config)
+
+    fold_schemas = [
+        TFTFoldMetricsSchema(
+            fold_index=m.fold_index,
+            rmse_mw=m.rmse_mw,
+            mae_mw=m.mae_mw,
+            mape_pct=m.mape_pct,
+            r_squared=m.r_squared,
+            training_epochs=m.training_epochs,
+        )
+        for m in cv_result.fold_metrics
+    ]
+
+    return TFTTrainResponse(
+        fold_metrics=fold_schemas,
+        mean_rmse_mw=cv_result.mean_rmse_mw,
+        mean_mae_mw=cv_result.mean_mae_mw,
+        mean_mape_pct=cv_result.mean_mape_pct,
+        mean_r_squared=cv_result.mean_r_squared,
+        skill_score_vs_persistence=cv_result.skill_score_vs_persistence,
+        architecture_summary=cv_result.architecture_summary,
+        feature_names=feature_names,
+        num_features=len(feature_names),
+        training_samples=features.shape[0],
+    )
+
+
+# ── TFT Prediction ──────────────────────────────────────────────
+
+
+@router.post("/predict-tft", response_model=TFTPredictResponse)
+async def predict_tft_endpoint(
+    request: TFTPredictRequest,
+) -> TFTPredictResponse:
+    """Generate TFT probabilistic P10/P50/P90 power forecast.
+
+    Pipeline: generate SCADA → filter → features → NWP → train →
+    quantile regression → P10/P50/P90 → physical constraints.
+
+    Unlike LSTM MC Dropout, TFT produces quantiles natively via
+    separate output heads trained with pinball loss.
+    """
+    features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
+
+    tft_config = TFTConfig(
+        lookback=request.lookback,
+        seed=request.seed if request.seed is not None else 42,
+    )
+
+    _, model, norm_params = train_tft(features, target, tft_config)
+
+    # Use last horizon_steps of features for prediction
+    horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
+    pred_features = features[-horizon:]
+    pred_wind = wind_speed[-horizon:]
+    pred_ts = timestamps[-horizon:]
+
+    forecast = predict_tft(
+        model,
+        pred_features,
+        pred_wind,
+        norm_params,
+        tft_config,
+        pred_ts,
+    )
+
+    # Trim to requested horizon
+    n = min(request.horizon_steps, len(forecast.power_p50_mw))
+
+    return TFTPredictResponse(
+        power_p10_mw=[round(float(v), 4) for v in forecast.power_p10_mw[-n:]],
+        power_p50_mw=[round(float(v), 4) for v in forecast.power_p50_mw[-n:]],
+        power_p90_mw=[round(float(v), 4) for v in forecast.power_p90_mw[-n:]],
+        wind_speed_ms=[round(float(v), 4) for v in forecast.wind_speed_ms[-n:]],
+        timestamps_utc=[int(t) for t in forecast.timestamps_utc[-n:]],
+        num_steps=n,
+    )
+
+
+# ── TFT Attention Visualization ─────────────────────────────────
+
+
+@router.post("/tft-attention", response_model=TFTAttentionResponse)
+async def tft_attention_endpoint(
+    request: TFTAttentionRequest,
+) -> TFTAttentionResponse:
+    """Return TFT attention weights and variable importance for visualization.
+
+    Extracts:
+    1. Temporal attention weights — which past timesteps influenced predictions
+    2. Variable importance — which features the VSN selects (sum = 1.0)
+    """
+    features, target, _, _, feature_names = _build_xgboost_pipeline(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
+
+    tft_config = TFTConfig(
+        lookback=request.lookback,
+        seed=request.seed if request.seed is not None else 42,
+    )
+
+    _, model, norm_params = train_tft(features, target, tft_config)
+
+    # Use last horizon_steps for visualization
+    horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
+    pred_features = features[-horizon:]
+
+    attn_result = compute_attention_weights(
+        model,
+        pred_features,
+        norm_params,
+        tft_config,
+        feature_names,
+    )
+
+    # Sample temporal weights (first 10 steps for response size)
+    n_sample = min(10, attn_result.temporal_weights.shape[0])
+    temporal_sample = [
+        [round(float(v), 6) for v in row] for row in attn_result.temporal_weights[:n_sample]
+    ]
+
+    importance_list = [
+        VariableImportanceSchema(name=name, importance=round(imp, 6))
+        for name, imp in attn_result.variable_importance.items()
+    ]
+
+    return TFTAttentionResponse(
+        temporal_weights_sample=temporal_sample,
+        variable_importance=importance_list,
+        num_attention_heads=attn_result.num_heads,
     )

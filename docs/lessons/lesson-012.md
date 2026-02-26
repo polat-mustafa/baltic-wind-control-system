@@ -1,7 +1,7 @@
 # Ders 012 — SCADA Veri Hattı: Güç Eğrisi, Sentetik Üretim, Kalite Filtreleri & Fiziksel Kısıtlar
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 011 — IEC 62443 RBAC & 9 Durumlu Permit-to-Work Yaşam Döngüsü](lesson-011.md) | **Sonraki:** Yakında :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 011 — IEC 62443 RBAC & 9 Durumlu Permit-to-Work Yaşam Döngüsü](lesson-011.md) | **Sonraki:** [Ders 013 — XGBoost Kantil Tahminleme: NWP, Güç Tahmini & SHAP](lesson-013.md) :material-arrow-right:
 
     **Faz:** P4 | **Dil:** Türkçe | **İlerleme:** 1 / ? | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 

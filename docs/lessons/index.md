@@ -117,5 +117,6 @@ Our documentation follows these principles in a software context:
 | 007 | [HV Şebeke Entegrasyonu: Pandapower Kararlı Durum Modeli](lesson-007.md) | P2 | Turkish | Complete |
 | 008 | [Dinamik Şebeke Uyumluluğu: ANDES, FRT, Frekans, SSO & Konvertör](lesson-008.md) | P2 | Turkish | Complete |
 | 009 | [IEC 61850 Veri Modeli, SCL & SCADA Cihaz Kayıt Sistemi](lesson-009.md) | P3 | Turkish | Complete |
+| 010 | [GOOSE Arıza Simülasyonu, Koruma Zaman Çizelgesi & SCADA API](lesson-010.md) | P3 | Turkish | Complete |
 
-**Coming next:** P3 — GOOSE simulation, protection state machine, API endpoints
+**Coming next:** P3 — Permit-to-Work state machine, cybersecurity (IEC 62443)

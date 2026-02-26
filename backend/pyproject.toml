@@ -26,6 +26,9 @@ dependencies = [
     "xarray>=2024.1.0",
     "pandapower>=2.14.0",
     "andes>=1.10.0",
+    "xgboost>=2.0",
+    "scikit-learn>=1.5",
+    "shap>=0.46",
 ]
 
 [project.optional-dependencies]
@@ -79,7 +82,10 @@ module = "tests.*"
 disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
-module = ["scipy.*", "py_wake.*", "xarray.*", "pandapower.*", "andes.*"]
+module = [
+    "scipy.*", "py_wake.*", "xarray.*", "pandapower.*", "andes.*",
+    "xgboost.*", "shap.*", "sklearn.*",
+]
 ignore_missing_imports = true
 
 # ─── Pytest ──────────────────────────────────────────────────────

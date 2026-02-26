@@ -2,8 +2,8 @@
 Pydantic schemas for P4 Machine Learning forecasting pipeline.
 
 Request and response models for power curve generation, SCADA data
-synthesis, quality filtering, feature engineering, and physical
-constraint enforcement.
+synthesis, quality filtering, feature engineering, physical
+constraint enforcement, and XGBoost forecasting.
 """
 
 from __future__ import annotations
@@ -193,3 +193,104 @@ class ConstraintCheckResponse(BaseModel):
     violations: list[ConstraintViolationSchema] = Field(description="Violation details")
     original_energy_mwh: float = Field(description="Sum of original predictions")
     corrected_energy_mwh: float = Field(description="Sum of corrected predictions")
+
+
+# ── XGBoost Forecasting Schemas ──────────────────────────────────
+
+
+class XGBoostTrainRequest(BaseModel):
+    """Request to train XGBoost wind power forecasting model."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0, description="Which turbine to train on")
+    n_estimators: int = Field(default=500, ge=10, le=5000, description="Maximum boosting rounds")
+    max_depth: int = Field(default=8, ge=2, le=15, description="Maximum tree depth")
+    learning_rate: float = Field(default=0.05, gt=0.001, le=1.0, description="Step size shrinkage")
+    seed: int | None = Field(default=42)
+
+
+class FoldMetricsSchema(BaseModel):
+    """Performance metrics for one CV fold."""
+
+    fold_index: int = Field(description="Zero-based fold number")
+    rmse_mw: float = Field(description="Root Mean Square Error [MW]")
+    mae_mw: float = Field(description="Mean Absolute Error [MW]")
+    mape_pct: float = Field(description="Mean Absolute Percentage Error [%]")
+    r_squared: float = Field(description="Coefficient of determination R²")
+
+
+class XGBoostTrainResponse(BaseModel):
+    """XGBoost training response with cross-validation metrics."""
+
+    fold_metrics: list[FoldMetricsSchema] = Field(description="Per-fold CV metrics")
+    mean_rmse_mw: float = Field(description="Mean RMSE across folds [MW]")
+    mean_mae_mw: float = Field(description="Mean MAE across folds [MW]")
+    mean_mape_pct: float = Field(description="Mean MAPE across folds [%]")
+    mean_r_squared: float = Field(description="Mean R² across folds")
+    skill_score_vs_persistence: float = Field(
+        description="Skill score vs persistence baseline (>0 = model wins)"
+    )
+    feature_names: list[str] = Field(description="Feature column names")
+    num_features: int = Field(description="Number of input features")
+    training_samples: int = Field(description="Number of training samples")
+
+
+class XGBoostPredictRequest(BaseModel):
+    """Request to generate probabilistic power forecast."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0)
+    horizon_steps: int = Field(
+        default=144,
+        ge=1,
+        le=1000,
+        description="Number of forecast steps to return (144 = 1 day)",
+    )
+    seed: int | None = Field(default=42)
+
+
+class XGBoostPredictResponse(BaseModel):
+    """Probabilistic power forecast response."""
+
+    power_p10_mw: list[float] = Field(description="P10 forecast [MW]")
+    power_p50_mw: list[float] = Field(description="P50 (median) forecast [MW]")
+    power_p90_mw: list[float] = Field(description="P90 forecast [MW]")
+    wind_speed_ms: list[float] = Field(description="Input wind speeds [m/s]")
+    timestamps_utc: list[int] = Field(description="Forecast timestamps (Unix)")
+    num_steps: int = Field(description="Number of forecast steps")
+
+
+class SHAPRequest(BaseModel):
+    """Request to compute SHAP feature importance."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0)
+    top_k_features: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Number of top features to return",
+    )
+    seed: int | None = Field(default=42)
+
+
+class FeatureImportanceSchema(BaseModel):
+    """Single feature importance entry."""
+
+    name: str = Field(description="Feature name")
+    importance: float = Field(description="Mean |SHAP| value")
+
+
+class SHAPResponse(BaseModel):
+    """SHAP explainability response."""
+
+    feature_importance: list[FeatureImportanceSchema] = Field(
+        description="Features ranked by mean |SHAP| importance"
+    )
+    top_features: list[str] = Field(description="Top-K feature names")
+    shap_values_sample: list[list[float]] = Field(
+        description="SHAP values for first N samples (rows x features)"
+    )

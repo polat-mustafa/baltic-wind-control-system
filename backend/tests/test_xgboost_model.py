@@ -162,9 +162,7 @@ class TestNWPPipeline:
         """NWP timestamps align with filtered SCADA timestamps."""
         mask = filtered_data.clean_mask[:, TURBINE_INDEX]
         scada_ts = scada_dataset.timestamps[mask]
-        np.testing.assert_array_equal(
-            nwp_dataset.timestamps_utc, scada_ts
-        )
+        np.testing.assert_array_equal(nwp_dataset.timestamps_utc, scada_ts)
 
     def test_merge_nwp_features_shape(self, merged_features, engineered):
         """Merged feature matrix has SCADA columns + 5 NWP columns."""
@@ -251,7 +249,9 @@ class TestQuantileForecasting:
         wind_speed = clean_wind[-len(target_power) :]
 
         forecast = predict_xgboost(
-            models, merged_features, wind_speed,
+            models,
+            merged_features,
+            wind_speed,
         )
 
         assert np.all(forecast.power_p10_mw <= forecast.power_p50_mw + 1e-9), (
@@ -336,9 +336,7 @@ class TestPersistenceBaseline:
 class TestSHAPExplainability:
     """Tests for SHAP value computation and feature importance."""
 
-    def test_shap_values_shape(
-        self, trained_result, merged_features, feature_names
-    ):
+    def test_shap_values_shape(self, trained_result, merged_features, feature_names):
         """SHAP values have shape (n_samples, n_features)."""
         _, models = trained_result
         model_p50 = models[1]
@@ -349,9 +347,7 @@ class TestSHAPExplainability:
 
         assert result.shap_values.shape == (50, len(feature_names))
 
-    def test_feature_importance_non_empty(
-        self, trained_result, merged_features, feature_names
-    ):
+    def test_feature_importance_non_empty(self, trained_result, merged_features, feature_names):
         """Feature importance dict contains all features."""
         _, models = trained_result
         model_p50 = models[1]
@@ -362,9 +358,7 @@ class TestSHAPExplainability:
         assert len(result.feature_importance) == len(feature_names)
         assert all(v >= 0.0 for v in result.feature_importance.values())
 
-    def test_shap_feature_names_match(
-        self, trained_result, merged_features, feature_names
-    ):
+    def test_shap_feature_names_match(self, trained_result, merged_features, feature_names):
         """SHAP result feature names match input feature names."""
         _, models = trained_result
         model_p50 = models[1]
@@ -374,9 +368,7 @@ class TestSHAPExplainability:
 
         assert result.feature_names == feature_names
 
-    def test_shap_values_sum_property(
-        self, trained_result, merged_features, feature_names
-    ):
+    def test_shap_values_sum_property(self, trained_result, merged_features, feature_names):
         """SHAP values approximately sum to prediction minus expected value.
 
         For TreeExplainer: f(x) = E[f(X)] + Σ φ_j(x)

@@ -340,7 +340,12 @@ def train_xgboost(
         fold_models: list[xgb.Booster] = []
         for quantile in config.quantiles:
             model = _train_quantile_model(
-                x_train, y_train, x_test, y_test, quantile, config,
+                x_train,
+                y_train,
+                x_test,
+                y_test,
+                quantile,
+                config,
             )
             fold_models.append(model)
 
@@ -480,9 +485,7 @@ def compute_shap_values(
         importance_dict[name] = round(float(mean_abs_shap[i]), 6)
 
     # Sort by importance (descending)
-    importance_dict = dict(
-        sorted(importance_dict.items(), key=lambda x: x[1], reverse=True)
-    )
+    importance_dict = dict(sorted(importance_dict.items(), key=lambda x: x[1], reverse=True))
 
     return SHAPResult(
         shap_values=shap_array,

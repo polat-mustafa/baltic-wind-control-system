@@ -351,13 +351,15 @@ def merge_nwp_features(
         )
         raise ValueError(msg)
 
-    nwp_columns = np.column_stack([
-        nwp_dataset.wind_speed_100m_ms[offset : offset + n_rows],
-        nwp_dataset.wind_direction_100m_deg[offset : offset + n_rows],
-        nwp_dataset.temperature_2m_c[offset : offset + n_rows],
-        nwp_dataset.pressure_msl_pa[offset : offset + n_rows],
-        nwp_dataset.boundary_layer_height_m[offset : offset + n_rows],
-    ])
+    nwp_columns = np.column_stack(
+        [
+            nwp_dataset.wind_speed_100m_ms[offset : offset + n_rows],
+            nwp_dataset.wind_direction_100m_deg[offset : offset + n_rows],
+            nwp_dataset.temperature_2m_c[offset : offset + n_rows],
+            nwp_dataset.pressure_msl_pa[offset : offset + n_rows],
+            nwp_dataset.boundary_layer_height_m[offset : offset + n_rows],
+        ]
+    )
 
     merged: NDArray[np.float64] = np.hstack([scada_features, nwp_columns])
     return merged

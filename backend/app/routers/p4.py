@@ -490,10 +490,7 @@ async def xgboost_shap_endpoint(
 
     # Sample SHAP values (first 10 rows)
     n_sample = min(10, shap_result.shap_values.shape[0])
-    shap_sample = [
-        [round(float(v), 6) for v in row]
-        for row in shap_result.shap_values[:n_sample]
-    ]
+    shap_sample = [[round(float(v), 6) for v in row] for row in shap_result.shap_values[:n_sample]]
 
     return SHAPResponse(
         feature_importance=importance_list,

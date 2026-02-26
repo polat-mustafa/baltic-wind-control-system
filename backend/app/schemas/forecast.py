@@ -203,18 +203,10 @@ class XGBoostTrainRequest(BaseModel):
 
     num_turbines: int = Field(default=34, ge=1, le=100)
     num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
-    turbine_index: int = Field(
-        default=0, ge=0, description="Which turbine to train on"
-    )
-    n_estimators: int = Field(
-        default=500, ge=10, le=5000, description="Maximum boosting rounds"
-    )
-    max_depth: int = Field(
-        default=8, ge=2, le=15, description="Maximum tree depth"
-    )
-    learning_rate: float = Field(
-        default=0.05, gt=0.001, le=1.0, description="Step size shrinkage"
-    )
+    turbine_index: int = Field(default=0, ge=0, description="Which turbine to train on")
+    n_estimators: int = Field(default=500, ge=10, le=5000, description="Maximum boosting rounds")
+    max_depth: int = Field(default=8, ge=2, le=15, description="Maximum tree depth")
+    learning_rate: float = Field(default=0.05, gt=0.001, le=1.0, description="Step size shrinkage")
     seed: int | None = Field(default=42)
 
 
@@ -251,7 +243,9 @@ class XGBoostPredictRequest(BaseModel):
     num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
     turbine_index: int = Field(default=0, ge=0)
     horizon_steps: int = Field(
-        default=144, ge=1, le=1000,
+        default=144,
+        ge=1,
+        le=1000,
         description="Number of forecast steps to return (144 = 1 day)",
     )
     seed: int | None = Field(default=42)
@@ -275,7 +269,9 @@ class SHAPRequest(BaseModel):
     num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
     turbine_index: int = Field(default=0, ge=0)
     top_k_features: int = Field(
-        default=10, ge=1, le=50,
+        default=10,
+        ge=1,
+        le=50,
         description="Number of top features to return",
     )
     seed: int | None = Field(default=42)

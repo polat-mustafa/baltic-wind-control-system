@@ -10,9 +10,9 @@ from app.services.p4.feature_engineering import (
     engineer_features,
 )
 from app.services.p4.nwp_pipeline import (
+    NWP_FEATURE_NAMES,
     NWPConfig,
     NWPDataset,
-    NWP_FEATURE_NAMES,
     generate_nwp_dataset,
     merge_nwp_features,
 )
@@ -55,6 +55,7 @@ from app.services.p4.xgboost_model import (
 )
 
 __all__ = [
+    "NWP_FEATURE_NAMES",
     "CVResult",
     "ConstraintResult",
     "ConstraintType",
@@ -67,7 +68,6 @@ __all__ = [
     "ForecastResult",
     "NWPConfig",
     "NWPDataset",
-    "NWP_FEATURE_NAMES",
     "PowerCurveResult",
     "QualityFlag",
     "SCADAConfig",

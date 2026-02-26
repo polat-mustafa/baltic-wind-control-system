@@ -60,6 +60,7 @@ select = [
 ignore = [
     "RUF002", # ambiguous Unicode in docstrings (×, α, ≈ used in engineering formulas)
     "RUF003", # ambiguous Unicode in comments (same reason)
+    "B008",   # Depends() and Query() in FastAPI function signatures (standard pattern)
 ]
 
 [tool.ruff.lint.isort]

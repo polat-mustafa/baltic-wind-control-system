@@ -1,7 +1,7 @@
 # Ders 011 — IEC 62443 RBAC & 9 Durumlu Permit-to-Work Yaşam Döngüsü
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 010 — GOOSE Arıza Simülasyonu, Koruma Zaman Çizelgesi & SCADA API](lesson-010.md) | **Sonraki:** Yakında :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 010 — GOOSE Arıza Simülasyonu, Koruma Zaman Çizelgesi & SCADA API](lesson-010.md) | **Sonraki:** [Ders 012 — SCADA Veri Hattı: Güç Eğrisi, Sentetik Üretim, Kalite Filtreleri & Kısıtlar](lesson-012.md) :material-arrow-right:
 
     **Faz:** P3 | **Dil:** Türkçe | **İlerleme:** 3 / ? | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 

@@ -1,7 +1,7 @@
 # Ders 010 — GOOSE Arıza Simülasyonu, Koruma Zaman Çizelgesi & SCADA API Uç Noktaları
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 009 — IEC 61850 Veri Modeli, SCL Oluşturucu & SCADA Cihaz Kayıt Sistemi](lesson-009.md) | **Sonraki:** Yakında :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 009 — IEC 61850 Veri Modeli, SCL Oluşturucu & SCADA Cihaz Kayıt Sistemi](lesson-009.md) | **Sonraki:** [Ders 011 — IEC 62443 RBAC & 9 Durumlu Permit-to-Work Yaşam Döngüsü](lesson-011.md) :material-arrow-right:
 
     **Faz:** P3 | **Dil:** Türkçe | **İlerleme:** 2 / ? | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 

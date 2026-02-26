@@ -15,7 +15,6 @@ from app.services.p4.scada_generator import (
     generate_scada_dataset,
 )
 
-
 # ── Use small dataset for fast tests ──────────────────────────────
 
 FAST_CONFIG = SCADAConfig(

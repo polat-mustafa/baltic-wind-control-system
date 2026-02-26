@@ -12,14 +12,12 @@ import pytest
 
 from app.services.p4.turbine_power_curve import (
     PowerCurveResult,
-    TurbineSpec,
     build_power_curve,
     compute_air_density_kg_m3,
     compute_swept_area_m2,
     get_v236_spec,
     interpolate_power_mw,
 )
-
 
 # ── TurbineSpec Tests ─────────────────────────────────────────────
 

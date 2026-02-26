@@ -10,12 +10,10 @@ import numpy as np
 import pytest
 
 from app.services.p4.physical_constraints import (
-    ConstraintResult,
     ConstraintType,
     enforce_farm_constraints,
     enforce_physical_constraints,
 )
-
 
 # ── Single-Turbine Constraint Tests ──────────────────────────────
 

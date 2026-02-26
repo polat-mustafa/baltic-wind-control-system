@@ -10,8 +10,6 @@ import numpy as np
 import pytest
 
 from app.services.p4.feature_engineering import (
-    EngineeredFeatures,
-    FeatureConfig,
     compute_air_density_array,
     compute_cyclical_time_features,
     compute_power_lags,
@@ -24,7 +22,6 @@ from app.services.p4.feature_engineering import (
 from app.services.p4.scada_generator import SCADAConfig, generate_scada_dataset
 from app.services.p4.scada_quality_filters import apply_all_quality_filters
 
-
 # ── Rolling Statistics Tests ──────────────────────────────────────
 
 
@@ -33,7 +30,7 @@ class TestRollingStats:
 
     def test_rolling_mean_correct(self) -> None:
         values = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-        mean, std = compute_rolling_stats(values, window=3)
+        mean, _std = compute_rolling_stats(values, window=3)
         # First 2 elements should be NaN
         assert np.isnan(mean[0])
         assert np.isnan(mean[1])
@@ -49,7 +46,7 @@ class TestRollingStats:
 
     def test_nan_at_start(self) -> None:
         values = np.arange(10, dtype=np.float64)
-        mean, std = compute_rolling_stats(values, window=6)
+        mean, _std = compute_rolling_stats(values, window=6)
         assert np.all(np.isnan(mean[:5]))
         assert not np.isnan(mean[5])
 

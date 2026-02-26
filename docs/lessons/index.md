@@ -119,5 +119,6 @@ Our documentation follows these principles in a software context:
 | 009 | [IEC 61850 Veri Modeli, SCL & SCADA Cihaz Kayıt Sistemi](lesson-009.md) | P3 | Turkish | Complete |
 | 010 | [GOOSE Arıza Simülasyonu, Koruma Zaman Çizelgesi & SCADA API](lesson-010.md) | P3 | Turkish | Complete |
 | 011 | [IEC 62443 RBAC & 9 Durumlu Permit-to-Work Yaşam Döngüsü](lesson-011.md) | P3 | Turkish | Complete |
+| 012 | [SCADA Veri Hattı: Güç Eğrisi, Sentetik Üretim, Kalite Filtreleri & Kısıtlar](lesson-012.md) | P4 | Turkish | Complete |
 
-**Coming next:** P3 — HMI design, network topology, alarm management
+**Coming next:** P4 — XGBoost baseline model, LSTM sequence forecasting

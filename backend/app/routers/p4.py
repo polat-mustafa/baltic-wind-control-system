@@ -607,7 +607,12 @@ async def predict_lstm_endpoint(
     pred_ts = timestamps[-horizon:]
 
     forecast = predict_lstm(
-        model, pred_features, pred_wind, norm_params, lstm_config, pred_ts,
+        model,
+        pred_features,
+        pred_wind,
+        norm_params,
+        lstm_config,
+        pred_ts,
     )
 
     # Trim to requested horizon
@@ -663,8 +668,7 @@ async def lstm_mc_dropout_endpoint(
 
     return MCDropoutResponse(
         all_passes=[
-            [round(float(v), 4) for v in pass_row[-n:]]
-            for pass_row in mc_detail.all_passes
+            [round(float(v), 4) for v in pass_row[-n:]] for pass_row in mc_detail.all_passes
         ],
         mean_mw=[round(float(v), 4) for v in mc_detail.mean_mw[-n:]],
         std_mw=[round(float(v), 4) for v in mc_detail.std_mw[-n:]],

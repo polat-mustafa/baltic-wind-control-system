@@ -411,9 +411,7 @@ class MCDropoutRequest(BaseModel):
 class MCDropoutResponse(BaseModel):
     """MC Dropout detailed visualization response."""
 
-    all_passes: list[list[float]] = Field(
-        description="All MC passes, shape (mc_samples x n_steps)"
-    )
+    all_passes: list[list[float]] = Field(description="All MC passes, shape (mc_samples x n_steps)")
     mean_mw: list[float] = Field(description="Mean across MC passes [MW]")
     std_mw: list[float] = Field(description="Std across MC passes [MW]")
     num_passes: int = Field(description="Number of MC forward passes")

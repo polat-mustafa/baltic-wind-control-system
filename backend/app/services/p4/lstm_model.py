@@ -513,9 +513,7 @@ def _compute_metrics(
     # MAPE: avoid division by zero for near-zero actual values
     nonzero_mask = np.abs(y_true) > 0.1
     if np.any(nonzero_mask):
-        mape = float(
-            np.mean(np.abs(residuals[nonzero_mask] / y_true[nonzero_mask])) * 100.0
-        )
+        mape = float(np.mean(np.abs(residuals[nonzero_mask] / y_true[nonzero_mask])) * 100.0)
     else:
         mape = 0.0
 
@@ -631,9 +629,7 @@ def train_lstm(
         config = LSTMConfig()
 
     # Normalize before sequencing — all sliding window values on same scale
-    norm_features, norm_target, norm_params = _normalize_features(
-        features, target_power_mw
-    )
+    norm_features, norm_target, norm_params = _normalize_features(features, target_power_mw)
 
     # Create sequences
     x_seq, y_seq = create_sequences(norm_features, norm_target, config.lookback)
@@ -665,9 +661,12 @@ def train_lstm(
 
         # Train
         model, actual_epochs = _train_single_fold(
-            x_train_t, y_train_t, x_test_t,
+            x_train_t,
+            y_train_t,
+            x_test_t,
             torch.tensor(y_test_np, dtype=torch.float32),
-            n_features, config,
+            n_features,
+            config,
         )
 
         # Evaluate (no dropout for fair metrics)
@@ -693,9 +692,7 @@ def train_lstm(
 
     # Skill score vs persistence
     persistence_rmse = _compute_persistence_rmse(target_power_mw)
-    skill_score = (
-        1.0 - mean_rmse / persistence_rmse if persistence_rmse > 0 else 0.0
-    )
+    skill_score = 1.0 - mean_rmse / persistence_rmse if persistence_rmse > 0 else 0.0
 
     h1, h2 = config.hidden_units
     arch_summary = (
@@ -787,9 +784,7 @@ def predict_lstm(
 
     if timestamps_utc is None:
         start = 1_704_067_200
-        timestamps_utc = np.arange(
-            start, start + n_seq * 600, 600, dtype=np.int64
-        )
+        timestamps_utc = np.arange(start, start + n_seq * 600, 600, dtype=np.int64)
     else:
         timestamps_utc = timestamps_utc[-n_seq:]
 

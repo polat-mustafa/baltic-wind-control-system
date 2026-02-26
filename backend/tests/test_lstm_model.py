@@ -115,7 +115,7 @@ def target_power(scada_dataset, filtered_data, engineered):
     """Extract target power aligned to feature matrix."""
     mask = filtered_data.clean_mask[:, TURBINE_INDEX]
     clean_power = scada_dataset.power_mw[mask, TURBINE_INDEX]
-    return clean_power[-engineered.valid_timesteps:]
+    return clean_power[-engineered.valid_timesteps :]
 
 
 @pytest.fixture(scope="module")
@@ -123,7 +123,7 @@ def wind_speed(scada_dataset, filtered_data, engineered):
     """Extract wind speed aligned to feature matrix."""
     mask = filtered_data.clean_mask[:, TURBINE_INDEX]
     clean_wind = scada_dataset.wind_speed_ms[mask, TURBINE_INDEX]
-    return clean_wind[-engineered.valid_timesteps:]
+    return clean_wind[-engineered.valid_timesteps :]
 
 
 @pytest.fixture(scope="module")
@@ -284,7 +284,11 @@ class TestLSTMPrediction:
         _, model, norm_params = trained_result
 
         forecast = predict_lstm(
-            model, merged_features, wind_speed, norm_params, SMALL_LSTM_CONFIG,
+            model,
+            merged_features,
+            wind_speed,
+            norm_params,
+            SMALL_LSTM_CONFIG,
         )
 
         assert np.all(forecast.power_p10_mw <= forecast.power_p50_mw + 1e-9), (
@@ -299,7 +303,11 @@ class TestLSTMPrediction:
         _, model, norm_params = trained_result
 
         forecast = predict_lstm(
-            model, merged_features, wind_speed, norm_params, SMALL_LSTM_CONFIG,
+            model,
+            merged_features,
+            wind_speed,
+            norm_params,
+            SMALL_LSTM_CONFIG,
         )
 
         assert np.all(forecast.power_p10_mw >= 0.0)
@@ -311,7 +319,11 @@ class TestLSTMPrediction:
         _, model, norm_params = trained_result
 
         forecast = predict_lstm(
-            model, merged_features, wind_speed, norm_params, SMALL_LSTM_CONFIG,
+            model,
+            merged_features,
+            wind_speed,
+            norm_params,
+            SMALL_LSTM_CONFIG,
         )
 
         assert np.all(forecast.power_p10_mw <= DEFAULT_RATED_POWER_MW + 1e-9)
@@ -323,7 +335,11 @@ class TestLSTMPrediction:
         _, model, norm_params = trained_result
 
         forecast = predict_lstm(
-            model, merged_features, wind_speed, norm_params, SMALL_LSTM_CONFIG,
+            model,
+            merged_features,
+            wind_speed,
+            norm_params,
+            SMALL_LSTM_CONFIG,
         )
 
         n = len(forecast.power_p50_mw)
@@ -351,7 +367,11 @@ class TestLSTMPhysicalConstraints:
         low_wind = np.full(n, 1.5, dtype=np.float64)  # Below cut-in
 
         forecast = predict_lstm(
-            model, merged_features, low_wind, norm_params, SMALL_LSTM_CONFIG,
+            model,
+            merged_features,
+            low_wind,
+            norm_params,
+            SMALL_LSTM_CONFIG,
         )
 
         # All predictions should be zero for below-cut-in wind

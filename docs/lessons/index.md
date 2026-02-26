@@ -118,5 +118,6 @@ Our documentation follows these principles in a software context:
 | 008 | [Dinamik Şebeke Uyumluluğu: ANDES, FRT, Frekans, SSO & Konvertör](lesson-008.md) | P2 | Turkish | Complete |
 | 009 | [IEC 61850 Veri Modeli, SCL & SCADA Cihaz Kayıt Sistemi](lesson-009.md) | P3 | Turkish | Complete |
 | 010 | [GOOSE Arıza Simülasyonu, Koruma Zaman Çizelgesi & SCADA API](lesson-010.md) | P3 | Turkish | Complete |
+| 011 | [IEC 62443 RBAC & 9 Durumlu Permit-to-Work Yaşam Döngüsü](lesson-011.md) | P3 | Turkish | Complete |
 
-**Coming next:** P3 — Permit-to-Work state machine, cybersecurity (IEC 62443)
+**Coming next:** P3 — HMI design, network topology, alarm management

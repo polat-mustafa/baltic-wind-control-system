@@ -44,6 +44,7 @@ nav:
     - "008 — Dinamik Uyumluluk: ANDES, FRT, SSO (TR)": lessons/lesson-008.md
     - "009 — IEC 61850: Veri Modeli, SCL & SCADA (TR)": lessons/lesson-009.md
     - "010 — GOOSE Simülasyonu & Koruma (TR)": lessons/lesson-010.md
+    - "011 — IEC 62443 RBAC & Permit-to-Work (TR)": lessons/lesson-011.md
 
 markdown_extensions:
   - admonition

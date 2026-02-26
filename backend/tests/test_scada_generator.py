@@ -129,9 +129,7 @@ class TestAnomalyInjection:
         """Icing requires cold + humid conditions — may not appear in all seeds."""
         # Check that icing status exists OR icing conditions exist
         has_icing_status = np.any(dataset.status == "icing")
-        cold_humid = np.any(
-            (dataset.temperature_c < 2.0) & (dataset.humidity_pct > 90.0)
-        )
+        cold_humid = np.any((dataset.temperature_c < 2.0) & (dataset.humidity_pct > 90.0))
         assert has_icing_status or cold_humid
 
     def test_running_is_majority(self, dataset: SCADADataset) -> None:

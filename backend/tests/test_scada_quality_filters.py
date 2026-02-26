@@ -75,9 +75,7 @@ class TestMaintenanceFilter:
         assert not flags[0, 0]
 
     def test_detects_all_non_running(self) -> None:
-        status = np.array(
-            [["curtailed"], ["sensor_fault"], ["icing"], ["running"]], dtype="U20"
-        )
+        status = np.array([["curtailed"], ["sensor_fault"], ["icing"], ["running"]], dtype="U20")
         flags = detect_maintenance(status)
         assert np.sum(flags) == 3
 

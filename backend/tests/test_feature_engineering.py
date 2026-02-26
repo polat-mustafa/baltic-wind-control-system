@@ -139,12 +139,12 @@ class TestPowerLags:
         lags = compute_power_lags(power, num_lags=2)
         # lag_1: P(t-1)
         assert np.isnan(lags[0, 0])  # No predecessor for first
-        assert lags[1, 0] == 10.0   # P(t-1) = 10
-        assert lags[2, 0] == 20.0   # P(t-1) = 20
+        assert lags[1, 0] == 10.0  # P(t-1) = 10
+        assert lags[2, 0] == 20.0  # P(t-1) = 20
         # lag_2: P(t-2)
         assert np.isnan(lags[0, 1])
         assert np.isnan(lags[1, 1])
-        assert lags[2, 1] == 10.0   # P(t-2) = 10
+        assert lags[2, 1] == 10.0  # P(t-2) = 10
 
     def test_no_future_leakage(self) -> None:
         """Lag features should only look backward, never forward."""
@@ -211,8 +211,11 @@ class TestFullPipeline:
         config = SCADAConfig(num_turbines=2, num_timesteps=500, seed=42)
         ds = generate_scada_dataset(config)
         fr = apply_all_quality_filters(
-            ds.wind_speed_ms, ds.power_mw, ds.status,
-            ds.temperature_c, ds.humidity_pct,
+            ds.wind_speed_ms,
+            ds.power_mw,
+            ds.status,
+            ds.temperature_c,
+            ds.humidity_pct,
         )
         features = engineer_features(
             wind_speed=ds.wind_speed_ms,
@@ -231,8 +234,11 @@ class TestFullPipeline:
         config = SCADAConfig(num_turbines=2, num_timesteps=500, seed=42)
         ds = generate_scada_dataset(config)
         fr = apply_all_quality_filters(
-            ds.wind_speed_ms, ds.power_mw, ds.status,
-            ds.temperature_c, ds.humidity_pct,
+            ds.wind_speed_ms,
+            ds.power_mw,
+            ds.status,
+            ds.temperature_c,
+            ds.humidity_pct,
         )
         features = engineer_features(
             wind_speed=ds.wind_speed_ms,

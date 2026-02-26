@@ -31,8 +31,7 @@ class TestNegativePowerConstraint:
         predictions = np.array([-2.0, 5.0, -0.1])
         result = enforce_physical_constraints(predictions)
         neg_violations = [
-            v for v in result.violations
-            if v.constraint == ConstraintType.NEGATIVE_POWER
+            v for v in result.violations if v.constraint == ConstraintType.NEGATIVE_POWER
         ]
         assert len(neg_violations) == 2
 
@@ -126,9 +125,7 @@ class TestFarmConstraints:
     def test_farm_constraints_with_wind(self) -> None:
         power = np.random.default_rng(42).uniform(5, 10, size=(10, 3))
         wind = np.random.default_rng(42).uniform(5, 20, size=(10, 3))
-        results = enforce_farm_constraints(
-            power, wind_speeds_ms=wind, num_turbines=3
-        )
+        results = enforce_farm_constraints(power, wind_speeds_ms=wind, num_turbines=3)
         assert len(results) == 3
         for r in results:
             assert np.all(r.power_mw >= 0.0)

@@ -11,6 +11,9 @@ Provides REST endpoints for:
 - XGBoost training: gradient boosting with TimeSeriesSplit CV per §5.7
 - XGBoost prediction: probabilistic P10/P50/P90 forecasting per §5.11
 - SHAP explainability: feature importance analysis per §5.10
+- LSTM training: 2-layer LSTM with TimeSeriesSplit CV per §5.8
+- LSTM prediction: MC Dropout → P10/P50/P90 forecasting per §5.11
+- MC Dropout visualization: detailed uncertainty passes
 
 All endpoints follow the convention: /api/v1/forecast/{resource}
 """
@@ -29,6 +32,13 @@ from app.schemas.forecast import (
     FeatureImportanceSchema,
     FoldMetricsSchema,
     GenerateSCADARequest,
+    LSTMFoldMetricsSchema,
+    LSTMPredictRequest,
+    LSTMPredictResponse,
+    LSTMTrainRequest,
+    LSTMTrainResponse,
+    MCDropoutRequest,
+    MCDropoutResponse,
     PowerCurveRequest,
     PowerCurveResponse,
     QualityFilterRequest,
@@ -44,6 +54,12 @@ from app.schemas.forecast import (
     XGBoostTrainResponse,
 )
 from app.services.p4.feature_engineering import FeatureConfig, engineer_features
+from app.services.p4.lstm_model import (
+    LSTMConfig,
+    compute_mc_dropout_detail,
+    predict_lstm,
+    train_lstm,
+)
 from app.services.p4.nwp_pipeline import NWPConfig, generate_nwp_dataset, merge_nwp_features
 from app.services.p4.physical_constraints import enforce_physical_constraints
 from app.services.p4.scada_generator import SCADAConfig, generate_scada_dataset
@@ -496,4 +512,165 @@ async def xgboost_shap_endpoint(
         feature_importance=importance_list,
         top_features=top_features,
         shap_values_sample=shap_sample,
+    )
+
+
+# ── LSTM Training ────────────────────────────────────────────────
+
+
+@router.post("/train-lstm", response_model=LSTMTrainResponse)
+async def train_lstm_endpoint(
+    request: LSTMTrainRequest,
+) -> LSTMTrainResponse:
+    """Train LSTM model with TimeSeriesSplit cross-validation.
+
+    Pipeline: generate SCADA → quality filter → engineer features →
+    merge NWP → normalize → create sequences → train LSTM → return CV metrics.
+    """
+    features, target, _, _, feature_names = _build_xgboost_pipeline(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
+
+    lstm_config = LSTMConfig(
+        lookback=request.lookback,
+        hidden_units=(request.hidden_units_l1, request.hidden_units_l2),
+        dropout=request.dropout,
+        learning_rate=request.learning_rate,
+        epochs=request.epochs,
+        patience=request.patience,
+        batch_size=request.batch_size,
+        seed=request.seed if request.seed is not None else 42,
+    )
+
+    cv_result, _, _ = train_lstm(features, target, lstm_config)
+
+    fold_schemas = [
+        LSTMFoldMetricsSchema(
+            fold_index=m.fold_index,
+            rmse_mw=m.rmse_mw,
+            mae_mw=m.mae_mw,
+            mape_pct=m.mape_pct,
+            r_squared=m.r_squared,
+            training_epochs=m.training_epochs,
+        )
+        for m in cv_result.fold_metrics
+    ]
+
+    return LSTMTrainResponse(
+        fold_metrics=fold_schemas,
+        mean_rmse_mw=cv_result.mean_rmse_mw,
+        mean_mae_mw=cv_result.mean_mae_mw,
+        mean_mape_pct=cv_result.mean_mape_pct,
+        mean_r_squared=cv_result.mean_r_squared,
+        skill_score_vs_persistence=cv_result.skill_score_vs_persistence,
+        architecture_summary=cv_result.architecture_summary,
+        feature_names=feature_names,
+        num_features=len(feature_names),
+        training_samples=features.shape[0],
+    )
+
+
+# ── LSTM Prediction ──────────────────────────────────────────────
+
+
+@router.post("/predict-lstm", response_model=LSTMPredictResponse)
+async def predict_lstm_endpoint(
+    request: LSTMPredictRequest,
+) -> LSTMPredictResponse:
+    """Generate LSTM probabilistic P10/P50/P90 power forecast via MC Dropout.
+
+    Pipeline: generate SCADA → filter → features → NWP → train →
+    MC Dropout (N passes) → P10/P50/P90 → physical constraints.
+    """
+    features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
+
+    lstm_config = LSTMConfig(
+        lookback=request.lookback,
+        mc_samples=request.mc_samples,
+        seed=request.seed if request.seed is not None else 42,
+    )
+
+    _, model, norm_params = train_lstm(features, target, lstm_config)
+
+    # Use last horizon_steps of features for prediction
+    horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
+    pred_features = features[-horizon:]
+    pred_wind = wind_speed[-horizon:]
+    pred_ts = timestamps[-horizon:]
+
+    forecast = predict_lstm(
+        model,
+        pred_features,
+        pred_wind,
+        norm_params,
+        lstm_config,
+        pred_ts,
+    )
+
+    # Trim to requested horizon
+    n = min(request.horizon_steps, len(forecast.power_p50_mw))
+
+    return LSTMPredictResponse(
+        power_p10_mw=[round(float(v), 4) for v in forecast.power_p10_mw[-n:]],
+        power_p50_mw=[round(float(v), 4) for v in forecast.power_p50_mw[-n:]],
+        power_p90_mw=[round(float(v), 4) for v in forecast.power_p90_mw[-n:]],
+        mc_mean_mw=[round(float(v), 4) for v in forecast.mc_mean_mw[-n:]],
+        mc_std_mw=[round(float(v), 4) for v in forecast.mc_std_mw[-n:]],
+        wind_speed_ms=[round(float(v), 4) for v in forecast.wind_speed_ms[-n:]],
+        timestamps_utc=[int(t) for t in forecast.timestamps_utc[-n:]],
+        num_steps=n,
+    )
+
+
+# ── MC Dropout Visualization ────────────────────────────────────
+
+
+@router.post("/lstm-mc-dropout", response_model=MCDropoutResponse)
+async def lstm_mc_dropout_endpoint(
+    request: MCDropoutRequest,
+) -> MCDropoutResponse:
+    """Return detailed MC Dropout passes for uncertainty visualization.
+
+    Each pass is a full forward pass with a different dropout mask,
+    producing an ensemble of predictions that visualize epistemic uncertainty.
+    """
+    features, target, _, _, _ = _build_xgboost_pipeline(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
+
+    lstm_config = LSTMConfig(
+        lookback=request.lookback,
+        mc_samples=request.mc_samples,
+        seed=request.seed if request.seed is not None else 42,
+    )
+
+    _, model, norm_params = train_lstm(features, target, lstm_config)
+
+    # Use last horizon_steps for visualization
+    horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
+    pred_features = features[-horizon:]
+
+    mc_detail = compute_mc_dropout_detail(model, pred_features, norm_params, lstm_config)
+
+    # Trim to requested horizon
+    n = min(request.horizon_steps, mc_detail.all_passes.shape[1] if mc_detail.num_passes > 0 else 0)
+
+    return MCDropoutResponse(
+        all_passes=[
+            [round(float(v), 4) for v in pass_row[-n:]] for pass_row in mc_detail.all_passes
+        ],
+        mean_mw=[round(float(v), 4) for v in mc_detail.mean_mw[-n:]],
+        std_mw=[round(float(v), 4) for v in mc_detail.std_mw[-n:]],
+        num_passes=mc_detail.num_passes,
     )

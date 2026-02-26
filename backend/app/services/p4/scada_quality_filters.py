@@ -153,7 +153,7 @@ def detect_curtailment(
 
     Returns mask where True = flagged as curtailed.
     """
-    is_curtailed = (
+    is_curtailed: NDArray[np.bool_] = (
         (power < 0.1)  # Near-zero power
         & (wind_speed > cut_in_ms)  # Sufficient wind
         & (status != "maintenance")  # Not in maintenance
@@ -172,7 +172,8 @@ def detect_maintenance(
 
     Returns mask where True = flagged as maintenance.
     """
-    return status != "running"
+    result: NDArray[np.bool_] = status != "running"
+    return result
 
 
 def detect_sensor_faults(

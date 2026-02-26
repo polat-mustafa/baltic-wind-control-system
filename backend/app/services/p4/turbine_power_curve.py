@@ -255,7 +255,11 @@ def build_power_curve(
 
     # Generate wind speed array from 0 to cut_out + margin
     max_ws = spec.cut_out_speed_ms + 2.0
-    wind_speeds = np.arange(0.0, max_ws + wind_step_ms, wind_step_ms)
+    wind_speeds: NDArray[np.float64] = np.arange(
+        0.0,
+        max_ws + wind_step_ms,
+        wind_step_ms,
+    ).astype(np.float64)
 
     # Compute Cp curve
     cp = _compute_cp_curve(wind_speeds, spec)

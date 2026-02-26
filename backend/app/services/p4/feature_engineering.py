@@ -295,7 +295,8 @@ def compute_wake_direction_indicator(
         Values in [-1, 1]. |value| near 1 = strong wake potential.
     """
     angle_diff_rad = np.radians(wind_direction_deg - farm_alignment_deg)
-    return np.cos(angle_diff_rad)
+    result: NDArray[np.float64] = np.cos(angle_diff_rad)
+    return result
 
 
 # ── Main Feature Engineering Pipeline ─────────────────────────────

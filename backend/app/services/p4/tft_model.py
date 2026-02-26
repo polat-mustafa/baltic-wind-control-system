@@ -661,7 +661,7 @@ def _train_single_fold(
             optimizer.zero_grad()
             pred = model(batch_x)  # (batch, n_quantiles)
             loss = _quantile_loss(pred, batch_y, config.quantiles)
-            loss.backward()
+            loss.backward()  # type: ignore[no-untyped-call]
             optimizer.step()
 
         actual_epochs = epoch + 1

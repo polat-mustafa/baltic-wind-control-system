@@ -47,6 +47,17 @@ from app.services.p4.scada_quality_filters import (
     QualityFlag,
     apply_all_quality_filters,
 )
+from app.services.p4.tft_model import (
+    AttentionWeights,
+    TFTConfig,
+    TFTCVResult,
+    TFTFoldMetrics,
+    TFTForecastResult,
+    WindPowerTFT,
+    compute_attention_weights,
+    predict_tft,
+    train_tft,
+)
 from app.services.p4.turbine_power_curve import (
     PowerCurveResult,
     TurbineSpec,
@@ -69,6 +80,7 @@ from app.services.p4.xgboost_model import (
 
 __all__ = [
     "NWP_FEATURE_NAMES",
+    "AttentionWeights",
     "CVResult",
     "ConstraintResult",
     "ConstraintType",
@@ -92,12 +104,18 @@ __all__ = [
     "SCADAConfig",
     "SCADADataset",
     "SHAPResult",
+    "TFTCVResult",
+    "TFTConfig",
+    "TFTFoldMetrics",
+    "TFTForecastResult",
     "TurbineSpec",
     "WindPowerLSTM",
+    "WindPowerTFT",
     "XGBoostConfig",
     "apply_all_quality_filters",
     "build_power_curve",
     "compute_air_density_kg_m3",
+    "compute_attention_weights",
     "compute_mc_dropout_detail",
     "compute_shap_values",
     "compute_swept_area_m2",
@@ -111,7 +129,9 @@ __all__ = [
     "interpolate_power_mw",
     "merge_nwp_features",
     "predict_lstm",
+    "predict_tft",
     "predict_xgboost",
     "train_lstm",
+    "train_tft",
     "train_xgboost",
 ]

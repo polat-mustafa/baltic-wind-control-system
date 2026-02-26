@@ -60,3 +60,4 @@ logs/
 
 # MkDocs
 site/
+.claude/settings.local.json

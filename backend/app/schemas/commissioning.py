@@ -226,3 +226,150 @@ class AuditTrailResponse(BaseModel):
     programme_id: str = Field(description="Programme identifier")
     total_records: int = Field(description="Total audit entries")
     records: list[AuditRecordSchema] = Field(description="All audit records")
+
+
+# ── FAT / SAT Shared Schemas ─────────────────────────────────────
+
+
+class TestSpecificationSchema(BaseModel):
+    """A single test specification with acceptance criteria."""
+
+    test_id: str = Field(description="Test identifier (e.g. FAT-001)")
+    name: str = Field(description="Human-readable test name")
+    standard: str = Field(description="IEC standard reference")
+    description: str = Field(description="What the test verifies")
+    unit: str = Field(description="Measurement unit")
+    min_value: float = Field(description="Lower acceptance bound")
+    max_value: float = Field(description="Upper acceptance bound")
+
+
+class TestResultSchema(BaseModel):
+    """A recorded test result."""
+
+    test_id: str = Field(description="Matching spec test_id")
+    measured_value: float = Field(description="Recorded measurement")
+    verdict: str = Field(description="Test verdict (pass/fail/not_tested/conditional_pass)")
+    recorded_by: str = Field(description="Engineer who recorded")
+    recorded_at: datetime = Field(description="UTC timestamp")
+    notes: str = Field(default="", description="Optional observations")
+
+
+# ── FAT Schemas ───────────────────────────────────────────────────
+
+
+class CreateFATCampaignRequest(BaseModel):
+    """Request to create a new FAT campaign."""
+
+    equipment_tag: str = Field(
+        min_length=1,
+        description="Equipment being tested (e.g. TX-OSS-01)",
+    )
+
+
+class RecordTestResultRequest(BaseModel):
+    """Request to record a test result."""
+
+    measured_value: float = Field(description="Recorded measurement")
+    recorded_by: str = Field(
+        min_length=1,
+        description="Engineer recording the result",
+    )
+    notes: str = Field(default="", description="Optional observations")
+
+
+class ApproveCampaignRequest(BaseModel):
+    """Request to approve a test campaign."""
+
+    approved_by: str = Field(
+        min_length=1,
+        description="Name of the approver",
+    )
+
+
+class FATCampaignSchema(BaseModel):
+    """FAT campaign detail response."""
+
+    campaign_id: str = Field(description="Campaign identifier")
+    equipment_tag: str = Field(description="Equipment being tested")
+    status: str = Field(description="Campaign lifecycle state")
+    specs: list[TestSpecificationSchema] = Field(description="Test specifications")
+    results: list[TestResultSchema] = Field(description="Recorded results")
+    all_passed: bool = Field(description="True if all tests passed")
+    created_at: datetime = Field(description="Creation timestamp")
+    approved_by: str = Field(default="", description="Approver name")
+    approved_at: datetime | None = Field(default=None, description="Approval timestamp")
+
+
+# ── SAT Schemas ───────────────────────────────────────────────────
+
+
+class CreateSATCampaignRequest(BaseModel):
+    """Request to create a new SAT campaign."""
+
+    require_fat: bool = Field(
+        default=False,
+        description="If true, requires an approved FAT campaign",
+    )
+
+
+class SATCampaignSchema(BaseModel):
+    """SAT campaign detail response."""
+
+    campaign_id: str = Field(description="Campaign identifier")
+    programme_id: str = Field(description="Associated switching programme")
+    status: str = Field(description="Campaign lifecycle state")
+    fat_campaign_id: str = Field(default="", description="Linked FAT campaign")
+    specs: list[TestSpecificationSchema] = Field(description="Test specifications")
+    results: list[TestResultSchema] = Field(description="Recorded results")
+    all_passed: bool = Field(description="True if all tests passed")
+    created_at: datetime = Field(description="Creation timestamp")
+    approved_by: str = Field(default="", description="Approver name")
+    approved_at: datetime | None = Field(default=None, description="Approval timestamp")
+
+
+# ── Protection Relay Schemas ──────────────────────────────────────
+
+
+class RelaySettingSchema(BaseModel):
+    """A single relay setting."""
+
+    setting_id: str = Field(description="Setting identifier")
+    function: str = Field(description="IEC 61850 function code (PTOC, PDIS, etc.)")
+    description: str = Field(description="Human-readable description")
+    pickup_value: float = Field(description="Relay pickup threshold")
+    pickup_unit: str = Field(description="Unit of pickup value")
+    time_delay: float = Field(description="Operating time delay in seconds")
+    location: str = Field(description="Relay location")
+    standard: str = Field(description="IEC standard reference")
+
+
+class GradingPairSchema(BaseModel):
+    """A downstream-upstream relay grading pair."""
+
+    pair_id: str = Field(description="Pair identifier")
+    downstream_id: str = Field(description="Downstream relay setting ID")
+    upstream_id: str = Field(description="Upstream relay setting ID")
+    required_margin_ms: float = Field(description="Required time margin in ms")
+    description: str = Field(description="Human-readable description")
+
+
+class GradingResultSchema(BaseModel):
+    """Result of checking one grading pair."""
+
+    pair_id: str = Field(description="Grading pair checked")
+    downstream_id: str = Field(description="Downstream relay")
+    upstream_id: str = Field(description="Upstream relay")
+    downstream_delay_s: float = Field(description="Downstream time delay (s)")
+    upstream_delay_s: float = Field(description="Upstream time delay (s)")
+    actual_margin_ms: float = Field(description="Actual margin (ms)")
+    required_margin_ms: float = Field(description="Required margin (ms)")
+    verdict: str = Field(description="selective or non_selective")
+
+
+class ProtectionCoordinationSchema(BaseModel):
+    """Complete protection coordination verification result."""
+
+    settings: list[RelaySettingSchema] = Field(description="All relay settings")
+    grading_pairs: list[GradingPairSchema] = Field(description="All grading pairs")
+    results: list[GradingResultSchema] = Field(description="Grading results")
+    all_selective: bool = Field(description="True if all pairs are selective")

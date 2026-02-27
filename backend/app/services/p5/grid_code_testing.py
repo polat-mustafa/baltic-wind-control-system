@@ -431,7 +431,7 @@ def approve_notification(
 def get_stage_summary(
     programme_id: str,
     stage: NotificationStage,
-) -> dict:
+) -> dict[str, object]:
     """
     Return a summary of a stage's compliance status.
 

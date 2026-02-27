@@ -77,6 +77,7 @@ from app.services.p5.fat import (
     record_fat_result,
 )
 from app.services.p5.grid_code_testing import (
+    ComplianceCampaign,
     ComplianceError,
     ComplianceGateError,
     ComplianceTestNotFoundError,
@@ -1018,7 +1019,7 @@ async def get_programme_emergency_log(programme_id: str) -> EmergencyLogResponse
 # ── Grid Code Compliance Endpoints ──────────────────────────────
 
 
-def _build_campaign_schema(campaign) -> ComplianceCampaignSchema:
+def _build_campaign_schema(campaign: ComplianceCampaign) -> ComplianceCampaignSchema:
     """Convert a ComplianceCampaign dataclass to its Pydantic schema."""
     stages = {}
     for stage_key, stage_app in campaign.stages.items():

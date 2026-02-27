@@ -83,7 +83,10 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.services.p5.sat import SATCampaign
 
 from app.services.p5.equipment_state import (
     EquipmentNotFoundError,
@@ -263,6 +266,8 @@ class SwitchingProgramme:
     loto_set: LOTOSet | None = None
     audit_trail: list[AuditRecord] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    sat_campaign: SATCampaign | None = None
+    fat_campaign_id: str | None = None
 
 
 # ── Exceptions ───────────────────────────────────────────────────
@@ -825,6 +830,11 @@ def approve_programme(programme: SwitchingProgramme, approved_by: str) -> None:
 def start_programme(programme: SwitchingProgramme) -> None:
     """Start programme execution.
 
+    If a SAT campaign is attached, all SAT tests must have passed
+    before the programme can start. This enforces the real-world
+    requirement that site acceptance testing completes before
+    energisation begins.
+
     Parameters
     ----------
     programme : SwitchingProgramme
@@ -833,13 +843,24 @@ def start_programme(programme: SwitchingProgramme) -> None:
     Raises
     ------
     ProgrammeStateError
-        If programme is not in APPROVED state.
+        If programme is not in APPROVED state or SAT gate fails.
     """
     if programme.status != ProgrammeStatus.APPROVED:
         raise ProgrammeStateError(
             f"Cannot start programme in '{programme.status.value}' state. "
             f"Must be in 'approved' state."
         )
+
+    # SAT gate: if a SAT campaign is attached, all tests must pass
+    if programme.sat_campaign is not None:
+        from app.services.p5.sat import all_sat_passed
+
+        if not all_sat_passed(programme.sat_campaign):
+            raise ProgrammeStateError(
+                "Cannot start programme: SAT campaign has not passed all tests. "
+                "Complete and approve all site acceptance tests before energisation."
+            )
+
     programme.status = ProgrammeStatus.IN_PROGRESS
     _add_audit(programme, "Programme started", programme.pic_name)
 

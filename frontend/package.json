@@ -15,10 +15,12 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@xyflow/react": "^12.10.1",
     "plotly.js-dist-min": "^3.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-plotly.js": "^2.6.0",
+    "react-router-dom": "^7.13.1",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

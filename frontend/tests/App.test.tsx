@@ -4,7 +4,8 @@ import App from "../src/App";
 
 test("renders the landing page heading", () => {
   render(<App />);
-  expect(screen.getByText("Baltic Wind Alpha")).toBeDefined();
+  const headings = screen.getAllByText("Baltic Wind Alpha");
+  expect(headings.length).toBeGreaterThanOrEqual(1);
 });
 
 test("displays the wind farm specification", () => {

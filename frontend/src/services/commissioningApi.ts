@@ -10,20 +10,28 @@
 
 import type {
   AuditTrailResponse,
+  ComplianceCampaign,
+  EmergencyEvent,
+  EmergencyLogResponse,
+  EmergencyProcedure,
   EmergencyStopRequest,
   EmergencyStopResponse,
   EquipmentState,
   ExecuteStepRequest,
   ExecuteStepResponse,
   FATCampaign,
+  GridCodeTest,
   LOTOActionRequest,
   LOTOActionResponse,
   LOTOSet,
+  NotificationApplication,
+  NotificationStage,
   PiCDecisionRequest,
   PiCDecisionResponse,
   ProgrammeDetail,
   ProgrammeSummary,
   SATCampaign,
+  StageSummary,
   TestResult,
   ProtectionCoordination,
 } from "../types/commissioning";
@@ -219,4 +227,90 @@ export function getProtectionSettings(): Promise<ProtectionCoordination["setting
 
 export function verifySelectivity(): Promise<ProtectionCoordination> {
   return post(`${BASE}/protection/verify-selectivity`, {});
+}
+
+// ── Emergency Response ─────────────────────────────────────────
+
+export function listEmergencyProcedures(): Promise<EmergencyProcedure[]> {
+  return request(`${BASE}/emergency-procedures`);
+}
+
+export function getEmergencyProcedure(
+  emergencyType: string,
+): Promise<EmergencyProcedure> {
+  return request(`${BASE}/emergency-procedures/${emergencyType}`);
+}
+
+export function triggerEmergency(
+  programmeId: string,
+  emergency_type: string,
+  triggered_by: string,
+): Promise<EmergencyEvent> {
+  return post(`${BASE}/programmes/${programmeId}/emergency`, {
+    emergency_type,
+    triggered_by,
+  });
+}
+
+export function getEmergencyLog(
+  programmeId: string,
+): Promise<EmergencyLogResponse> {
+  return request(`${BASE}/programmes/${programmeId}/emergency-log`);
+}
+
+// ── Grid Code Compliance ───────────────────────────────────────
+
+export function createComplianceCampaign(
+  programmeId: string,
+): Promise<ComplianceCampaign> {
+  return post(`${BASE}/programmes/${programmeId}/compliance`, {});
+}
+
+export function getComplianceCampaign(
+  programmeId: string,
+): Promise<ComplianceCampaign> {
+  return request(`${BASE}/programmes/${programmeId}/compliance`);
+}
+
+export function recordComplianceResult(
+  programmeId: string,
+  testId: string,
+  verdict: string,
+  evidence: string,
+  tested_by: string,
+): Promise<GridCodeTest> {
+  return post(
+    `${BASE}/programmes/${programmeId}/compliance/tests/${testId}`,
+    { verdict, evidence, tested_by },
+  );
+}
+
+export function submitNotification(
+  programmeId: string,
+  stage: NotificationStage,
+  submitted_by: string,
+): Promise<NotificationApplication> {
+  return post(
+    `${BASE}/programmes/${programmeId}/compliance/${stage}/submit`,
+    { submitted_by },
+  );
+}
+
+export function approveNotification(
+  programmeId: string,
+  stage: NotificationStage,
+): Promise<NotificationApplication> {
+  return post(
+    `${BASE}/programmes/${programmeId}/compliance/${stage}/approve`,
+    {},
+  );
+}
+
+export function getStageSummary(
+  programmeId: string,
+  stage: NotificationStage,
+): Promise<StageSummary> {
+  return request(
+    `${BASE}/programmes/${programmeId}/compliance/${stage}/summary`,
+  );
 }

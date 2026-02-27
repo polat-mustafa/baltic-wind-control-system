@@ -20,9 +20,13 @@ from app.schemas.commissioning import (
     ApproveCampaignRequest,
     AuditRecordSchema,
     AuditTrailResponse,
+    ComplianceCampaignSchema,
     CreateFATCampaignRequest,
     CreateProgrammeRequest,
     CreateSATCampaignRequest,
+    EmergencyEventSchema,
+    EmergencyLogResponse,
+    EmergencyProcedureSchema,
     EmergencyStopRequest,
     EmergencyStopResponse,
     EquipmentStateSchema,
@@ -31,21 +35,34 @@ from app.schemas.commissioning import (
     FATCampaignSchema,
     GradingPairSchema,
     GradingResultSchema,
+    GridCodeTestSchema,
     LOTOActionRequest,
     LOTOActionResponse,
     LOTOPointSchema,
     LOTOSetSchema,
+    NotificationApplicationSchema,
     PiCDecisionRequest,
     PiCDecisionResponse,
     ProgrammeDetailSchema,
     ProgrammeSummarySchema,
     ProtectionCoordinationSchema,
+    RecordComplianceResultRequest,
     RecordTestResultRequest,
     RelaySettingSchema,
     SATCampaignSchema,
+    StageSummarySchema,
     StepSchema,
+    SubmitNotificationRequest,
     TestResultSchema,
     TestSpecificationSchema,
+    TriggerEmergencyRequest,
+)
+from app.services.p5.emergency_response import (
+    EmergencyType,
+    get_all_procedures,
+    get_emergency_log,
+    get_procedure,
+    trigger_emergency,
 )
 from app.services.p5.equipment_state import (
     get_equipment_definition,
@@ -58,6 +75,19 @@ from app.services.p5.fat import (
     approve_fat_campaign,
     create_fat_campaign,
     record_fat_result,
+)
+from app.services.p5.grid_code_testing import (
+    ComplianceError,
+    ComplianceGateError,
+    ComplianceTestNotFoundError,
+    ComplianceVerdict,
+    NotificationStage,
+    approve_notification,
+    create_compliance_campaign,
+    get_compliance_campaign,
+    get_stage_summary,
+    record_test_result,
+    submit_notification,
 )
 from app.services.p5.loto import (
     LOTOAlreadyAppliedError,
@@ -868,3 +898,337 @@ async def verify_selectivity_endpoint() -> ProtectionCoordinationSchema:
         ],
         all_selective=all_selective,
     )
+
+
+# ── Emergency Response Endpoints ────────────────────────────────
+
+
+@router.get(
+    "/emergency-procedures",
+    response_model=list[EmergencyProcedureSchema],
+    summary="List all emergency procedures",
+)
+async def list_emergency_procedures() -> list[EmergencyProcedureSchema]:
+    """Return all 6 pre-defined emergency response procedures."""
+    procedures = get_all_procedures()
+    return [
+        EmergencyProcedureSchema(
+            emergency_type=p.emergency_type.value,
+            severity=p.severity.value,
+            immediate_actions=p.immediate_actions,
+            responsible=p.responsible,
+            reference_document=p.reference_document,
+            automated_scada_actions=p.automated_scada_actions,
+            communication_protocol=p.communication_protocol,
+        )
+        for p in procedures
+    ]
+
+
+@router.get(
+    "/emergency-procedures/{emergency_type}",
+    response_model=EmergencyProcedureSchema,
+    summary="Get a specific emergency procedure",
+)
+async def get_emergency_procedure(emergency_type: str) -> EmergencyProcedureSchema:
+    """Return the procedure for a specific emergency type."""
+    try:
+        etype = EmergencyType(emergency_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown emergency type: {emergency_type}",
+        ) from None
+    p = get_procedure(etype)
+    return EmergencyProcedureSchema(
+        emergency_type=p.emergency_type.value,
+        severity=p.severity.value,
+        immediate_actions=p.immediate_actions,
+        responsible=p.responsible,
+        reference_document=p.reference_document,
+        automated_scada_actions=p.automated_scada_actions,
+        communication_protocol=p.communication_protocol,
+    )
+
+
+@router.post(
+    "/programmes/{programme_id}/emergency",
+    response_model=EmergencyEventSchema,
+    summary="Trigger an emergency event",
+)
+async def trigger_emergency_event(
+    programme_id: str,
+    body: TriggerEmergencyRequest,
+) -> EmergencyEventSchema:
+    """Trigger an emergency on a programme and record the event."""
+    _get_programme(programme_id)  # Validate programme exists
+    try:
+        etype = EmergencyType(body.emergency_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown emergency type: {body.emergency_type}",
+        ) from None
+
+    event = trigger_emergency(etype, body.triggered_by, programme_id)
+    return EmergencyEventSchema(
+        event_id=event.event_id,
+        programme_id=event.programme_id,
+        emergency_type=event.emergency_type.value,
+        severity=event.severity.value,
+        triggered_by=event.triggered_by,
+        triggered_at=event.triggered_at,
+        actions_taken=event.actions_taken,
+        scada_actions_executed=event.scada_actions_executed,
+        resolved=event.resolved,
+        resolved_at=event.resolved_at,
+    )
+
+
+@router.get(
+    "/programmes/{programme_id}/emergency-log",
+    response_model=EmergencyLogResponse,
+    summary="Get emergency event history",
+)
+async def get_programme_emergency_log(programme_id: str) -> EmergencyLogResponse:
+    """Return the emergency event history for a programme."""
+    _get_programme(programme_id)  # Validate programme exists
+    events = get_emergency_log(programme_id)
+    return EmergencyLogResponse(
+        programme_id=programme_id,
+        total_events=len(events),
+        events=[
+            EmergencyEventSchema(
+                event_id=e.event_id,
+                programme_id=e.programme_id,
+                emergency_type=e.emergency_type.value,
+                severity=e.severity.value,
+                triggered_by=e.triggered_by,
+                triggered_at=e.triggered_at,
+                actions_taken=e.actions_taken,
+                scada_actions_executed=e.scada_actions_executed,
+                resolved=e.resolved,
+                resolved_at=e.resolved_at,
+            )
+            for e in events
+        ],
+    )
+
+
+# ── Grid Code Compliance Endpoints ──────────────────────────────
+
+
+def _build_campaign_schema(campaign) -> ComplianceCampaignSchema:
+    """Convert a ComplianceCampaign dataclass to its Pydantic schema."""
+    stages = {}
+    for stage_key, stage_app in campaign.stages.items():
+        stages[stage_key.value] = NotificationApplicationSchema(
+            stage=stage_app.stage.value,
+            status=stage_app.status.value,
+            tests=[
+                GridCodeTestSchema(
+                    test_id=t.test_id,
+                    stage=t.stage.value,
+                    name=t.name,
+                    description=t.description,
+                    standard=t.standard,
+                    acceptance_criteria=t.acceptance_criteria,
+                    verdict=t.verdict.value,
+                    evidence=t.evidence,
+                    tested_by=t.tested_by,
+                    tested_at=t.tested_at,
+                )
+                for t in stage_app.tests
+            ],
+            submitted_to=stage_app.submitted_to,
+            submitted_at=stage_app.submitted_at,
+            approved_at=stage_app.approved_at,
+        )
+    return ComplianceCampaignSchema(
+        campaign_id=campaign.campaign_id,
+        programme_id=campaign.programme_id,
+        stages=stages,
+        created_at=campaign.created_at,
+        cod_achieved=campaign.cod_achieved,
+        cod_date=campaign.cod_date,
+    )
+
+
+@router.post(
+    "/programmes/{programme_id}/compliance",
+    response_model=ComplianceCampaignSchema,
+    summary="Create a grid code compliance campaign",
+)
+async def create_programme_compliance(programme_id: str) -> ComplianceCampaignSchema:
+    """Create a new EON/ION/FON compliance campaign for a programme."""
+    _get_programme(programme_id)
+    existing = get_compliance_campaign(programme_id)
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Compliance campaign already exists for this programme",
+        )
+    campaign = create_compliance_campaign(programme_id)
+    return _build_campaign_schema(campaign)
+
+
+@router.get(
+    "/programmes/{programme_id}/compliance",
+    response_model=ComplianceCampaignSchema,
+    summary="Get compliance campaign with all stages",
+)
+async def get_programme_compliance(programme_id: str) -> ComplianceCampaignSchema:
+    """Return the compliance campaign for a programme."""
+    _get_programme(programme_id)
+    campaign = get_compliance_campaign(programme_id)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="No compliance campaign found")
+    return _build_campaign_schema(campaign)
+
+
+@router.post(
+    "/programmes/{programme_id}/compliance/tests/{test_id}",
+    response_model=GridCodeTestSchema,
+    summary="Record a compliance test result",
+)
+async def record_compliance_test(
+    programme_id: str,
+    test_id: str,
+    body: RecordComplianceResultRequest,
+) -> GridCodeTestSchema:
+    """Record the result of a grid code compliance test."""
+    _get_programme(programme_id)
+    try:
+        verdict = ComplianceVerdict(body.verdict)
+        test = record_test_result(
+            programme_id, test_id, verdict, body.evidence, body.tested_by
+        )
+    except ComplianceTestNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ComplianceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return GridCodeTestSchema(
+        test_id=test.test_id,
+        stage=test.stage.value,
+        name=test.name,
+        description=test.description,
+        standard=test.standard,
+        acceptance_criteria=test.acceptance_criteria,
+        verdict=test.verdict.value,
+        evidence=test.evidence,
+        tested_by=test.tested_by,
+        tested_at=test.tested_at,
+    )
+
+
+@router.post(
+    "/programmes/{programme_id}/compliance/{stage}/submit",
+    response_model=NotificationApplicationSchema,
+    summary="Submit a notification stage to PSE",
+)
+async def submit_compliance_notification(
+    programme_id: str,
+    stage: str,
+    body: SubmitNotificationRequest,
+) -> NotificationApplicationSchema:
+    """Submit a notification stage (EON/ION/FON) to PSE for approval."""
+    _get_programme(programme_id)
+    try:
+        ns = NotificationStage(stage)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid stage: {stage}") from None
+    try:
+        stage_app = submit_notification(programme_id, ns, body.submitted_by)
+    except ComplianceGateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ComplianceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return NotificationApplicationSchema(
+        stage=stage_app.stage.value,
+        status=stage_app.status.value,
+        tests=[
+            GridCodeTestSchema(
+                test_id=t.test_id,
+                stage=t.stage.value,
+                name=t.name,
+                description=t.description,
+                standard=t.standard,
+                acceptance_criteria=t.acceptance_criteria,
+                verdict=t.verdict.value,
+                evidence=t.evidence,
+                tested_by=t.tested_by,
+                tested_at=t.tested_at,
+            )
+            for t in stage_app.tests
+        ],
+        submitted_to=stage_app.submitted_to,
+        submitted_at=stage_app.submitted_at,
+        approved_at=stage_app.approved_at,
+    )
+
+
+@router.post(
+    "/programmes/{programme_id}/compliance/{stage}/approve",
+    response_model=NotificationApplicationSchema,
+    summary="Approve a notification stage",
+)
+async def approve_compliance_notification(
+    programme_id: str,
+    stage: str,
+) -> NotificationApplicationSchema:
+    """Approve a notification stage (simulates PSE approval)."""
+    _get_programme(programme_id)
+    try:
+        ns = NotificationStage(stage)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid stage: {stage}") from None
+    try:
+        stage_app = approve_notification(programme_id, ns)
+    except ComplianceGateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ComplianceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return NotificationApplicationSchema(
+        stage=stage_app.stage.value,
+        status=stage_app.status.value,
+        tests=[
+            GridCodeTestSchema(
+                test_id=t.test_id,
+                stage=t.stage.value,
+                name=t.name,
+                description=t.description,
+                standard=t.standard,
+                acceptance_criteria=t.acceptance_criteria,
+                verdict=t.verdict.value,
+                evidence=t.evidence,
+                tested_by=t.tested_by,
+                tested_at=t.tested_at,
+            )
+            for t in stage_app.tests
+        ],
+        submitted_to=stage_app.submitted_to,
+        submitted_at=stage_app.submitted_at,
+        approved_at=stage_app.approved_at,
+    )
+
+
+@router.get(
+    "/programmes/{programme_id}/compliance/{stage}/summary",
+    response_model=StageSummarySchema,
+    summary="Get stage compliance summary",
+)
+async def get_compliance_stage_summary(
+    programme_id: str,
+    stage: str,
+) -> StageSummarySchema:
+    """Return a summary of a stage's compliance status with test counts."""
+    _get_programme(programme_id)
+    try:
+        ns = NotificationStage(stage)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid stage: {stage}") from None
+    try:
+        summary = get_stage_summary(programme_id, ns)
+    except ComplianceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return StageSummarySchema(**summary)

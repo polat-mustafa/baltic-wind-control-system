@@ -1,5 +1,5 @@
 /**
- * Commissioning dashboard — CSS Grid layout composing all 7 panels.
+ * Commissioning dashboard — CSS Grid layout composing all 9 panels.
  *
  * Layout (desktop):
  * ┌─────────────────────────┬──────────────────┐
@@ -11,7 +11,10 @@
  * ├────────────┬────────────┼──────────────────│
  * │ LOTO       │ Audit      │  FAT/SAT         │
  * │ Tracker    │ Trail      │  Tracker          │
- * └────────────┴────────────┴──────────────────┘
+ * ├────────────┴────────────┼──────────────────│
+ * │  Grid Code Compliance   │  Emergency       │
+ * │  (EON/ION/FON pipeline) │  Response        │
+ * └─────────────────────────┴──────────────────┘
  *
  * Polls the active programme every 2 seconds via the store's
  * refresh actions to keep all panels synchronized.
@@ -23,8 +26,10 @@ import { usePolling } from "../../hooks/usePolling";
 import { useCommissioningStore } from "../../store/commissioningStore";
 import AnomalyInjection from "./AnomalyInjection";
 import AuditTrail from "./AuditTrail";
+import EmergencyResponsePanel from "./EmergencyResponsePanel";
 import EquipmentStateDiagram from "./EquipmentStateDiagram";
 import FATSATTracker from "./FATSATTracker";
+import GridCodeCompliancePanel from "./GridCodeCompliancePanel";
 import LOTOTracker from "./LOTOTracker";
 import PiCDecisionPanel from "./PiCDecisionPanel";
 import SwitchingProgrammeViewer from "./SwitchingProgrammeViewer";
@@ -40,6 +45,8 @@ export default function CommissioningDashboard() {
     fetchAuditTrail,
     fetchFATCampaigns,
     fetchSATCampaign,
+    fetchEmergencyProcedures,
+    fetchComplianceCampaign,
     clearError,
   } = useCommissioningStore();
 
@@ -49,7 +56,9 @@ export default function CommissioningDashboard() {
     fetchAuditTrail();
     fetchFATCampaigns();
     fetchSATCampaign();
-  }, [fetchLOTO, fetchAuditTrail, fetchFATCampaigns, fetchSATCampaign]);
+    fetchEmergencyProcedures();
+    fetchComplianceCampaign();
+  }, [fetchLOTO, fetchAuditTrail, fetchFATCampaigns, fetchSATCampaign, fetchEmergencyProcedures, fetchComplianceCampaign]);
 
   // Poll active programme state every 2s
   const pollFn = useCallback(async () => {
@@ -104,6 +113,7 @@ export default function CommissioningDashboard() {
             <LOTOTracker />
             <AuditTrail />
           </div>
+          <GridCodeCompliancePanel />
         </div>
 
         {/* Right column (1/3 width on xl) */}
@@ -111,6 +121,7 @@ export default function CommissioningDashboard() {
           <PiCDecisionPanel />
           <AnomalyInjection />
           <FATSATTracker />
+          <EmergencyResponsePanel />
         </div>
       </div>
     </div>

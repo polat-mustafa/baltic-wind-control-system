@@ -280,3 +280,97 @@ export interface ProtectionCoordination {
   results: GradingResult[];
   all_selective: boolean;
 }
+
+// ── Emergency Response Schemas ─────────────────────────────────
+
+export type EmergencyType =
+  | "arc_flash"
+  | "sf6_leak"
+  | "medical"
+  | "man_overboard"
+  | "comms_failure"
+  | "unexpected_voltage";
+
+export type SeverityLevel = "critical" | "high" | "medium";
+
+export interface EmergencyProcedure {
+  emergency_type: EmergencyType;
+  severity: SeverityLevel;
+  immediate_actions: string[];
+  responsible: string;
+  reference_document: string;
+  automated_scada_actions: string[];
+  communication_protocol: string[];
+}
+
+export interface EmergencyEvent {
+  event_id: string;
+  programme_id: string;
+  emergency_type: EmergencyType;
+  severity: SeverityLevel;
+  triggered_by: string;
+  triggered_at: string;
+  actions_taken: string[];
+  scada_actions_executed: string[];
+  resolved: boolean;
+  resolved_at: string | null;
+}
+
+export interface EmergencyLogResponse {
+  programme_id: string;
+  total_events: number;
+  events: EmergencyEvent[];
+}
+
+// ── Grid Code Compliance Schemas ───────────────────────────────
+
+export type NotificationStage = "eon" | "ion" | "fon";
+
+export type ComplianceVerdict =
+  | "compliant"
+  | "non_compliant"
+  | "pending"
+  | "conditional";
+
+export interface GridCodeTest {
+  test_id: string;
+  stage: NotificationStage;
+  name: string;
+  description: string;
+  standard: string;
+  acceptance_criteria: string;
+  verdict: ComplianceVerdict;
+  evidence: string;
+  tested_by: string;
+  tested_at: string | null;
+}
+
+export interface NotificationApplication {
+  stage: NotificationStage;
+  status: ComplianceVerdict;
+  tests: GridCodeTest[];
+  submitted_to: string;
+  submitted_at: string | null;
+  approved_at: string | null;
+}
+
+export interface ComplianceCampaign {
+  campaign_id: string;
+  programme_id: string;
+  stages: Record<NotificationStage, NotificationApplication>;
+  created_at: string;
+  cod_achieved: boolean;
+  cod_date: string | null;
+}
+
+export interface StageSummary {
+  stage: NotificationStage;
+  total_tests: number;
+  compliant: number;
+  non_compliant: number;
+  pending: number;
+  conditional: number;
+  submitted_at: string | null;
+  approved_at: string | null;
+  overall_status: string;
+}

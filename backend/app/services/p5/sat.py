@@ -388,9 +388,7 @@ def approve_sat_campaign(campaign: SATCampaign, approved_by: str) -> None:
         )
 
     if not all_sat_passed(campaign):
-        raise SATCampaignStateError(
-            "Cannot approve: not all tests passed. Review failing tests."
-        )
+        raise SATCampaignStateError("Cannot approve: not all tests passed. Review failing tests.")
 
     campaign.status = TestCampaignStatus.APPROVED
     campaign.approved_by = approved_by

@@ -236,14 +236,14 @@ class TestApprovalGating:
 
 # Passing values for each FAT spec
 _PASSING_VALUES: dict[str, float] = {
-    "FAT-001": 465.0,   # HV withstand >= 460 kV
-    "FAT-002": 5.0,     # PD < 10 pC
-    "FAT-003": 3.333,   # Ratio within ±0.5%
-    "FAT-004": 12.0,    # Impedance within ±10%
-    "FAT-005": -20.0,   # FRA baseline (any value)
-    "FAT-006": 30.0,    # DGA < 50 ppm
-    "FAT-007": 2.0,     # Relay error within ±5%
-    "FAT-008": 0.3,     # SF6 leak < 0.5%/yr
+    "FAT-001": 465.0,  # HV withstand >= 460 kV
+    "FAT-002": 5.0,  # PD < 10 pC
+    "FAT-003": 3.333,  # Ratio within ±0.5%
+    "FAT-004": 12.0,  # Impedance within ±10%
+    "FAT-005": -20.0,  # FRA baseline (any value)
+    "FAT-006": 30.0,  # DGA < 50 ppm
+    "FAT-007": 2.0,  # Relay error within ±5%
+    "FAT-008": 0.3,  # SF6 leak < 0.5%/yr
 }
 
 

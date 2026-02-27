@@ -430,9 +430,7 @@ def approve_fat_campaign(campaign: FATCampaign, approved_by: str) -> None:
         )
 
     if not all_fat_passed(campaign):
-        raise FATCampaignStateError(
-            "Cannot approve: not all tests passed. Review failing tests."
-        )
+        raise FATCampaignStateError("Cannot approve: not all tests passed. Review failing tests.")
 
     campaign.status = TestCampaignStatus.APPROVED
     campaign.approved_by = approved_by

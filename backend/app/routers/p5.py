@@ -749,8 +749,11 @@ async def record_sat_result_endpoint(
 
     try:
         result = record_sat_result(
-            programme.sat_campaign, test_id, request.measured_value,
-            request.recorded_by, request.notes,
+            programme.sat_campaign,
+            test_id,
+            request.measured_value,
+            request.recorded_by,
+            request.notes,
         )
     except SATCampaignStateError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e

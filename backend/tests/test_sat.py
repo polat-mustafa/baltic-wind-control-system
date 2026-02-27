@@ -276,18 +276,18 @@ class TestProgrammeIntegration:
 # ── Helpers ─────────────────────────────────────────────────────
 
 _PASSING_SAT: dict[str, float] = {
-    "SAT-001": 150.0,   # Insulation resistance > 100 MOhm
-    "SAT-002": 0.5,     # CT ratio ±1%
-    "SAT-003": 0.3,     # VT ratio ±0.5%
-    "SAT-004": 65.0,    # CB close < 80 ms
-    "SAT-005": 45.0,    # CB open < 60 ms
-    "SAT-006": 80.0,    # Protection trip < 100 ms
-    "SAT-007": 2.5,     # GOOSE < 4 ms
-    "SAT-008": 100.0,   # SCADA 100%
-    "SAT-009": 17.0,    # Tap changer position (1–33)
-    "SAT-010": 15.0,    # Fire detection < 30 s
-    "SAT-011": 1.0,     # E-stop pass flag
-    "SAT-012": 2.0,     # Cable impedance ±5%
+    "SAT-001": 150.0,  # Insulation resistance > 100 MOhm
+    "SAT-002": 0.5,  # CT ratio ±1%
+    "SAT-003": 0.3,  # VT ratio ±0.5%
+    "SAT-004": 65.0,  # CB close < 80 ms
+    "SAT-005": 45.0,  # CB open < 60 ms
+    "SAT-006": 80.0,  # Protection trip < 100 ms
+    "SAT-007": 2.5,  # GOOSE < 4 ms
+    "SAT-008": 100.0,  # SCADA 100%
+    "SAT-009": 17.0,  # Tap changer position (1–33)
+    "SAT-010": 15.0,  # Fire detection < 30 s
+    "SAT-011": 1.0,  # E-stop pass flag
+    "SAT-012": 2.0,  # Cable impedance ±5%
 }
 
 

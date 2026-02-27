@@ -52,7 +52,7 @@ def sat_campaign():
 def approved_fat():
     """Create and approve a FAT campaign."""
     fat = create_fat_campaign("TX-OSS-01")
-    _PASSING_FAT = {
+    passing_fat = {
         "FAT-001": 465.0,
         "FAT-002": 5.0,
         "FAT-003": 3.333,
@@ -62,7 +62,7 @@ def approved_fat():
         "FAT-007": 2.0,
         "FAT-008": 0.3,
     }
-    for test_id, value in _PASSING_FAT.items():
+    for test_id, value in passing_fat.items():
         record_fat_result(fat, test_id, value, ENGINEER)
     approve_fat_campaign(fat, ENGINEER)
     return fat

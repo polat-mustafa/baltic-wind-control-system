@@ -24,7 +24,6 @@ from app.services.p5.protection_relay import (
     verify_selectivity,
 )
 
-
 # ── Settings Validation ─────────────────────────────────────────
 
 

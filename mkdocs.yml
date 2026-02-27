@@ -47,6 +47,9 @@ nav:
     - "011 — IEC 62443 RBAC & Permit-to-Work (TR)": lessons/lesson-011.md
     - "012 — SCADA Veri Hattı & Kalite Filtreleri (TR)": lessons/lesson-012.md
     - "013 — XGBoost Kantil Tahminleme & SHAP (TR)": lessons/lesson-013.md
+    - "014 — LSTM & MC Dropout Belirsizlik (TR)": lessons/lesson-014.md
+    - "015 — TFT Dikkat Mekanizması (TR)": lessons/lesson-015.md
+    - "016 — Topluluk, Rampa & Değerlendirme (TR)": lessons/lesson-016.md
 
 markdown_extensions:
   - admonition

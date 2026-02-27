@@ -121,5 +121,8 @@ Our documentation follows these principles in a software context:
 | 011 | [IEC 62443 RBAC & 9 Durumlu Permit-to-Work Yaşam Döngüsü](lesson-011.md) | P3 | Turkish | Complete |
 | 012 | [SCADA Veri Hattı: Güç Eğrisi, Sentetik Üretim, Kalite Filtreleri & Kısıtlar](lesson-012.md) | P4 | Turkish | Complete |
 | 013 | [XGBoost Kantil Tahminleme: NWP Pipeline, Olasılıksal Güç Tahmini & SHAP](lesson-013.md) | P4 | Turkish | Complete |
+| 014 | [LSTM Zaman Serisi Tahminleme: MC Dropout ile Belirsizlik Ölçümü](lesson-014.md) | P4 | Turkish | Complete |
+| 015 | [TFT: Dikkat Mekanizması ile Çok Ufuklu Güç Tahmini](lesson-015.md) | P4 | Turkish | Complete |
+| 016 | [Topluluk Tahminleme, Rampa Tespiti ve Model Değerlendirme](lesson-016.md) | P4 | Turkish | Complete |
 
-**Coming next:** P4 — LSTM sequence forecasting, Temporal Fusion Transformer
+**Coming next:** P5 — Commissioning & switching programmes

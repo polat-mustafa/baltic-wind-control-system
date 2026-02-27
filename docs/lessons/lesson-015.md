@@ -1,7 +1,7 @@
 # Ders 015 — Temporal Fusion Transformer (TFT): Dikkat Mekanizması ile Çok Ufuklu Güç Tahmini
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 014 — LSTM Zaman Serisi Tahminleme: MC Dropout ile Belirsizlik Ölçümü](lesson-014.md) | **Sonraki:** Yakında :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 014 — LSTM Zaman Serisi Tahminleme: MC Dropout ile Belirsizlik Ölçümü](lesson-014.md) | **Sonraki:** [Ders 016 — Topluluk Tahminleme, Rampa Tespiti ve Model Değerlendirme](lesson-016.md) :material-arrow-right:
 
     **Faz:** P4 | **Dil:** Türkçe | **İlerleme:** 4 / ? | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 

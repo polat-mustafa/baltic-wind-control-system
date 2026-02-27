@@ -373,3 +373,124 @@ class ProtectionCoordinationSchema(BaseModel):
     grading_pairs: list[GradingPairSchema] = Field(description="All grading pairs")
     results: list[GradingResultSchema] = Field(description="Grading results")
     all_selective: bool = Field(description="True if all pairs are selective")
+
+
+# ── Emergency Response Schemas ──────────────────────────────────
+
+
+class EmergencyProcedureSchema(BaseModel):
+    """Pre-defined emergency response procedure."""
+
+    emergency_type: str = Field(description="Type of emergency (arc_flash, sf6_leak, etc.)")
+    severity: str = Field(description="Severity level: critical, high, or medium")
+    immediate_actions: list[str] = Field(description="Ordered checklist of immediate actions")
+    responsible: str = Field(description="Responsible person (PiC, Safety Officer, OIM)")
+    reference_document: str = Field(description="Reference standard or procedure document")
+    automated_scada_actions: list[str] = Field(description="SCADA actions triggered automatically")
+    communication_protocol: list[str] = Field(description="Notification chain")
+
+
+class TriggerEmergencyRequest(BaseModel):
+    """Request to trigger an emergency event on a programme."""
+
+    emergency_type: str = Field(
+        description="Type of emergency",
+        pattern="^(arc_flash|sf6_leak|medical|man_overboard|comms_failure|unexpected_voltage)$",
+    )
+    triggered_by: str = Field(description="Person who triggered the emergency", min_length=1)
+
+
+class EmergencyEventSchema(BaseModel):
+    """Record of an emergency event that occurred during a programme."""
+
+    event_id: str = Field(description="Unique emergency event ID")
+    programme_id: str = Field(description="Programme ID")
+    emergency_type: str = Field(description="Type of emergency")
+    severity: str = Field(description="Severity level")
+    triggered_by: str = Field(description="Person who triggered the emergency")
+    triggered_at: str = Field(description="ISO 8601 timestamp")
+    actions_taken: list[str] = Field(description="Immediate actions from procedure")
+    scada_actions_executed: list[str] = Field(description="Automated SCADA actions executed")
+    resolved: bool = Field(description="Whether the emergency has been resolved")
+    resolved_at: str | None = Field(default=None, description="Resolution timestamp")
+
+
+class EmergencyLogResponse(BaseModel):
+    """List of emergency events for a programme."""
+
+    programme_id: str = Field(description="Programme ID")
+    total_events: int = Field(description="Total number of emergency events")
+    events: list[EmergencyEventSchema] = Field(description="Emergency event history")
+
+
+# ── Grid Code Compliance Schemas ────────────────────────────────
+
+
+class GridCodeTestSchema(BaseModel):
+    """A single grid code compliance test."""
+
+    test_id: str = Field(description="Test identifier (e.g. EON-001)")
+    stage: str = Field(description="Notification stage: eon, ion, or fon")
+    name: str = Field(description="Test name")
+    description: str = Field(description="Detailed test description")
+    standard: str = Field(description="Reference standard (e.g. IEC 60255)")
+    acceptance_criteria: str = Field(description="Human-readable pass condition")
+    verdict: str = Field(description="Test verdict: compliant, non_compliant, pending, conditional")
+    evidence: str = Field(default="", description="Link/reference to test evidence")
+    tested_by: str = Field(default="", description="Person who performed the test")
+    tested_at: str | None = Field(default=None, description="ISO 8601 timestamp of test")
+
+
+class NotificationApplicationSchema(BaseModel):
+    """Tracks submission and approval of a notification stage."""
+
+    stage: str = Field(description="Notification stage: eon, ion, or fon")
+    status: str = Field(description="Overall stage status")
+    tests: list[GridCodeTestSchema] = Field(description="Tests in this stage")
+    submitted_to: str = Field(default="PSE", description="TSO name")
+    submitted_at: str | None = Field(default=None, description="Submission timestamp")
+    approved_at: str | None = Field(default=None, description="Approval timestamp")
+
+
+class ComplianceCampaignSchema(BaseModel):
+    """Full compliance campaign covering EON → ION → FON."""
+
+    campaign_id: str = Field(description="Campaign identifier")
+    programme_id: str = Field(description="Associated programme ID")
+    stages: dict[str, NotificationApplicationSchema] = Field(
+        description="Stages keyed by eon/ion/fon"
+    )
+    created_at: str = Field(description="Campaign creation timestamp")
+    cod_achieved: bool = Field(description="True when FON approved (COD reached)")
+    cod_date: str | None = Field(default=None, description="Commercial Operation Date")
+
+
+class RecordComplianceResultRequest(BaseModel):
+    """Request to record a compliance test result."""
+
+    verdict: str = Field(
+        description="Test verdict",
+        pattern="^(compliant|non_compliant|pending|conditional)$",
+    )
+    evidence: str = Field(description="Reference to test evidence", min_length=1)
+    tested_by: str = Field(description="Person who performed the test", min_length=1)
+
+
+class SubmitNotificationRequest(BaseModel):
+    """Request to submit a notification stage to PSE."""
+
+    submitted_by: str = Field(description="Person submitting the notification", min_length=1)
+
+
+class StageSummarySchema(BaseModel):
+    """Summary of a notification stage's compliance status."""
+
+    stage: str = Field(description="Notification stage")
+    total_tests: int = Field(description="Total number of tests")
+    compliant: int = Field(description="Number of compliant tests")
+    non_compliant: int = Field(description="Number of non-compliant tests")
+    pending: int = Field(description="Number of pending tests")
+    conditional: int = Field(description="Number of conditional tests")
+    submitted_at: str | None = Field(default=None, description="Submission timestamp")
+    approved_at: str | None = Field(default=None, description="Approval timestamp")
+    overall_status: str = Field(description="Overall stage status")

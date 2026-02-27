@@ -201,7 +201,8 @@ def _compute_gradient_mw_hr(
     """
     # np.gradient returns rate of change per step; multiply by steps/hour
     grad_per_step = np.gradient(power_mw)
-    return grad_per_step * STEPS_PER_HOUR
+    result: NDArray[np.float64] = grad_per_step * STEPS_PER_HOUR
+    return result
 
 
 # ── Detection Method 1: Threshold ─────────────────────────────────
@@ -291,7 +292,8 @@ def _ricker_wavelet(points: int, scale: float) -> NDArray[np.float64]:
     total = mod * gauss
     # Normalise to unit energy
     norm = np.sqrt(a)
-    return total / norm
+    result: NDArray[np.float64] = total / norm
+    return result
 
 
 def _cwt_ricker(

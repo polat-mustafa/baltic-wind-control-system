@@ -85,8 +85,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from app.services.p5.equipment_state import (
-    EquipmentState,
     EquipmentNotFoundError,
+    EquipmentState,
     InterlockError,
     InvalidTransitionError,
     SwitchingAction,
@@ -97,7 +97,6 @@ from app.services.p5.loto import (
     LOTOSet,
     create_loto_set_for_oss,
 )
-
 
 # ── Enums ──────────────────────────────────────────────────────────
 
@@ -350,12 +349,18 @@ def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
 
     # ── Phase 1: Pre-Energisation Checks (15 steps) ──────────────
     phase1_checks = [
-        ("Physical inspection — all installation bolts torqued, covers closed", "Visual inspection log"),
+        (
+            "Physical inspection — all installation bolts torqued, covers closed",
+            "Visual inspection log",
+        ),
         ("Megger test — insulation resistance > 100 MΩ (all HV components)", "Megger test report"),
         ("Continuity test — all earthing connections verified", "Continuity test report"),
         ("SF6 gas pressure — all GIS compartments within limits", "SF6 pressure gauges"),
         ("Transformer oil — DGA (dissolved gas analysis) within normal", "DGA report"),
-        ("Protection relay settings — all confirmed per setting schedule", "Setting schedule sign-off"),
+        (
+            "Protection relay settings — all confirmed per setting schedule",
+            "Setting schedule sign-off",
+        ),
         ("SCADA communication — all IEDs responding via IEC 61850 MMS", "SCADA status screen"),
         ("GOOSE subscriptions — publisher-subscriber mapping verified", "GOOSE monitor tool"),
         ("All earthing switches — CLOSED (system is earthed)", "SCADA + local indicators"),
@@ -539,7 +544,10 @@ def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
             "before": EquipmentState.OPEN, "after": EquipmentState.CLOSED,
             "responsible": "SCADA", "pic_confirm": True,
             "verification": "SCADA indication + magnetising current",
-            "notes": "Expect inrush current up to 8× rated for ~100 ms. 2nd harmonic restraint active.",
+            "notes": (
+                "Expect inrush current up to 8x rated for ~100 ms. "
+                "2nd harmonic restraint active."
+            ),
         },
         # S-019: Verify TX magnetising current
         {
@@ -632,7 +640,11 @@ def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
         # S-024: Energise WTG_01 through WTG_06
         {
             "step_id": "S-024", "type": StepType.VERIFICATION,
-            "action": "Energise WTG_01 through WTG_06 (one by one) — close array CB, verify voltage, start turbine, ramp to 10%, confirm grid sync",
+            "action": (
+                "Energise WTG_01 through WTG_06 (one by one) "
+                "-- close array CB, verify voltage, start turbine, "
+                "ramp to 10%, confirm grid sync"
+            ),
             "responsible": "SCADA", "pic_confirm": True,
             "verification": "Each turbine grid-synced and producing power",
         },
@@ -641,14 +653,14 @@ def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
             "step_id": "S-025", "type": StepType.VERIFICATION,
             "action": "String 1 power ramp to 50%",
             "responsible": "SCADA", "pic_confirm": True,
-            "verification": "SCADA active power reading ~45 MW (6 × 7.5 MW)",
+            "verification": "SCADA active power reading ~45 MW (6 x 7.5 MW)",
         },
         # S-026: String 1 ramp to 100%
         {
             "step_id": "S-026", "type": StepType.VERIFICATION,
             "action": "String 1 power ramp to 100%",
             "responsible": "SCADA", "pic_confirm": True,
-            "verification": "SCADA active power reading ~90 MW (6 × 15 MW)",
+            "verification": "SCADA active power reading ~90 MW (6 x 15 MW)",
         },
         # S-027: Verify protection
         {
@@ -851,7 +863,7 @@ def execute_step(
             if actual != current_step.expected_state_before:
                 current_step.status = StepStatus.FAILED
                 _add_audit(
-                    programme, f"Step failed: pre-condition not met",
+                    programme, "Step failed: pre-condition not met",
                     executed_by, step_id=step_id,
                     details=(
                         f"Expected {current_step.equipment_id} = "
@@ -882,11 +894,13 @@ def execute_step(
             raise StepExecutionError(str(e)) from e
 
         # Post-condition: verify equipment reached expected state
-        if current_step.expected_state_after is not None:
-            if result.new_state != current_step.expected_state_after:
+        if (
+            current_step.expected_state_after is not None
+            and result.new_state != current_step.expected_state_after
+        ):
                 current_step.status = StepStatus.FAILED
                 _add_audit(
-                    programme, f"Step failed: post-condition not met",
+                    programme, "Step failed: post-condition not met",
                     executed_by, step_id=step_id,
                     details=(
                         f"Expected {current_step.equipment_id} = "

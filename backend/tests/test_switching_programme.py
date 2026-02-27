@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.p5.equipment_state import EquipmentState, SwitchingAction
+from app.services.p5.equipment_state import EquipmentState
 from app.services.p5.switching_programme import (
     PiCDecisionRequiredError,
-    ProgrammeStatus,
     ProgrammeStateError,
+    ProgrammeStatus,
     StepExecutionError,
     StepStatus,
     StepType,

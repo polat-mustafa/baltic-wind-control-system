@@ -25,7 +25,6 @@ from app.services.p5.loto import (
     remove_loto,
 )
 
-
 # ── LOTO Set Creation ────────────────────────────────────────────
 
 

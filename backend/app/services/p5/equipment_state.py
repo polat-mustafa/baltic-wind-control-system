@@ -69,7 +69,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 
-
 # ── Enums ──────────────────────────────────────────────────────────
 
 
@@ -627,8 +626,11 @@ def check_interlocks(
                 )
 
     # ILK-005: Cannot rack out CB if CLOSED
-    if eq_type == EquipmentType.CIRCUIT_BREAKER and action == SwitchingAction.RACK_OUT:
-        if system_state.get(equipment_id) == EquipmentState.CLOSED:
+    if (
+        eq_type == EquipmentType.CIRCUIT_BREAKER
+        and action == SwitchingAction.RACK_OUT
+        and system_state.get(equipment_id) == EquipmentState.CLOSED
+    ):
             violations.append(
                 InterlockViolation(
                     interlock_id="ILK-005",

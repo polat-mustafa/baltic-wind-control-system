@@ -17,20 +17,19 @@ from app.services.p5.equipment_state import (
     CB_TRANSITIONS,
     DS_TRANSITIONS,
     ES_TRANSITIONS,
+    OSS_EQUIPMENT,
     TX_TRANSITIONS,
     EquipmentNotFoundError,
     EquipmentState,
     EquipmentType,
     InterlockError,
     InvalidTransitionError,
-    OSS_EQUIPMENT,
     SwitchingAction,
     build_initial_state,
     check_interlocks,
     execute_switching_action,
     get_equipment_definition,
 )
-
 
 # ── Equipment Registry ───────────────────────────────────────────
 

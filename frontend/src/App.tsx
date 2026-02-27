@@ -15,6 +15,7 @@ import AppShell from "./components/layout/AppShell";
 import CommissioningPage from "./pages/CommissioningPage";
 import HVGridPage from "./pages/HVGridPage";
 import LandingPage from "./pages/LandingPage";
+import SCADAPage from "./pages/SCADAPage";
 import WindResourcePage from "./pages/WindResourcePage";
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
           <Route index element={<LandingPage />} />
           <Route path="wind-resource" element={<WindResourcePage />} />
           <Route path="hv-grid" element={<HVGridPage />} />
+          <Route path="scada" element={<SCADAPage />} />
           <Route path="commissioning" element={<CommissioningPage />} />
         </Route>
       </Routes>

@@ -1,7 +1,7 @@
 # Ders 016 — Topluluk Tahminleme, Rampa Tespiti ve Model Değerlendirme
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 015 — TFT: Dikkat Mekanizması ile Çok Ufuklu Güç Tahmini](lesson-015.md) | **Sonraki:** Yakında :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 015 — TFT: Dikkat Mekanizması ile Çok Ufuklu Güç Tahmini](lesson-015.md) | **Sonraki:** [Ders 017 — P5 Devreye Alma: Anahtarlama, Durum Makinesi & LOTO](lesson-017.md) :material-arrow-right:
 
     **Faz:** P4 | **Dil:** Türkçe | **İlerleme:** 5 / ? | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 

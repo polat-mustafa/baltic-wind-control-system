@@ -124,5 +124,6 @@ Our documentation follows these principles in a software context:
 | 014 | [LSTM Zaman Serisi Tahminleme: MC Dropout ile Belirsizlik Ölçümü](lesson-014.md) | P4 | Turkish | Complete |
 | 015 | [TFT: Dikkat Mekanizması ile Çok Ufuklu Güç Tahmini](lesson-015.md) | P4 | Turkish | Complete |
 | 016 | [Topluluk Tahminleme, Rampa Tespiti ve Model Değerlendirme](lesson-016.md) | P4 | Turkish | Complete |
+| 017 | [P5 Devreye Alma: Anahtarlama Programı, Ekipman Durum Makinesi ve LOTO](lesson-017.md) | P5 | Turkish | Complete |
 
-**Coming next:** P5 — Commissioning & switching programmes
+**Coming next:** P5 — SAT reports & frontend visualisation

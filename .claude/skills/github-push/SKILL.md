@@ -122,7 +122,50 @@ Present EVERY warning to the user in a numbered list with file path, line conten
 If there are 0 BLOCK items and >0 WARN items, say: "N warnings found (0 blockers). Proceed? [list follows]"
 
 ### If clean (0 BLOCK, 0 WARN):
-Proceed to Phase 4.
+Proceed to Phase 3.5.
+
+---
+
+## PHASE 3.5: CI LINT GATE (MANDATORY — never skip)
+
+Run ALL 5 CI lint checks locally BEFORE staging. These match `.github/workflows/ci.yml` exactly.
+**If ANY check fails, fix the code BEFORE proceeding. Do NOT push and hope CI passes.**
+
+Run backend checks (sequentially — each must pass before reporting):
+```bash
+cd backend && ruff check app/ tests/ && ruff format --check app/ tests/ && mypy app/
+```
+
+Run frontend checks (sequentially):
+```bash
+cd frontend && npx tsc --noEmit && npx eslint src/
+```
+
+### The 5 checks and common fixes:
+
+| # | Check | Command | Common Failures | Fix |
+|---|-------|---------|-----------------|-----|
+| 1 | **Ruff lint** | `ruff check app/ tests/` | B904 (raise from), I001 (import sort), F401 (unused import) | `ruff check --fix` auto-fixes most |
+| 2 | **Ruff format** | `ruff format --check app/ tests/` | Formatting drift | `ruff format app/ tests/` to auto-fix |
+| 3 | **Mypy** | `mypy app/` | Missing type annotations, untyped `dict` returns, missing imports | Add type annotations manually |
+| 4 | **TypeScript** | `npx tsc --noEmit` | Type mismatches, missing interface fields | Fix type errors manually |
+| 5 | **ESLint** | `npx eslint src/` | React Compiler memoization, exhaustive-deps | Remove manual `useMemo`/`useCallback` (React Compiler handles it) |
+
+### Coding rules to prevent failures:
+
+- **Always** use `from None` or `from exc` when re-raising `HTTPException` inside `except` blocks (B904)
+- **Always** use `datetime.UTC` not `timezone.utc` (UP017)
+- **Always** annotate return types fully — `dict[str, object]` not `dict` (mypy type-arg)
+- **Always** annotate all function parameters — no bare `def foo(bar):` (mypy no-untyped-def)
+- **Never** use `useMemo` with unstable deps — let React Compiler handle memoization
+- **Always** run `ruff format` after `ruff check --fix` (fix can break formatting)
+
+### Verdict:
+
+| Result | Action |
+|--------|--------|
+| All 5 pass | Proceed to Phase 4 |
+| Any fail | Fix the code, re-run the failing check, confirm it passes, then proceed |
 
 ---
 

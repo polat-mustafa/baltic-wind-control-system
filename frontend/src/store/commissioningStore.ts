@@ -14,8 +14,12 @@ import { create } from "zustand";
 import * as api from "../services/commissioningApi";
 import type {
   AuditRecord,
+  ComplianceCampaign,
+  EmergencyEvent,
+  EmergencyProcedure,
   FATCampaign,
   LOTOSet,
+  NotificationStage,
   PiCDecision,
   ProgrammeDetail,
   ProgrammeSummary,
@@ -43,6 +47,9 @@ interface CommissioningState {
   fatCampaigns: FATCampaign[];
   satCampaign: SATCampaign | null;
   anomalies: AnomalyOverlay[];
+  emergencyProcedures: EmergencyProcedure[];
+  emergencyLog: EmergencyEvent[];
+  complianceCampaign: ComplianceCampaign | null;
 
   // UI state
   error: string | null;
@@ -80,6 +87,18 @@ interface CommissioningState {
   recordSATResult: (testId: string, value: number, recordedBy: string, notes?: string) => Promise<void>;
   approveSATCampaign: (approvedBy: string) => Promise<void>;
 
+  // Emergency response
+  fetchEmergencyProcedures: () => Promise<void>;
+  triggerEmergency: (emergencyType: string, triggeredBy: string) => Promise<void>;
+  fetchEmergencyLog: () => Promise<void>;
+
+  // Grid code compliance
+  fetchComplianceCampaign: () => Promise<void>;
+  createComplianceCampaign: () => Promise<void>;
+  recordComplianceResult: (testId: string, verdict: string, evidence: string, testedBy: string) => Promise<void>;
+  submitNotification: (stage: NotificationStage, submittedBy: string) => Promise<void>;
+  approveNotification: (stage: NotificationStage) => Promise<void>;
+
   // Anomaly injection (client-only)
   injectAnomaly: (anomaly: Omit<AnomalyOverlay, "active">) => void;
   clearAnomaly: (id: string) => void;
@@ -100,6 +119,9 @@ export const useCommissioningStore = create<CommissioningState>((set, get) => ({
   fatCampaigns: [],
   satCampaign: null,
   anomalies: [],
+  emergencyProcedures: [],
+  emergencyLog: [],
+  complianceCampaign: null,
   error: null,
   loading: false,
 
@@ -354,6 +376,101 @@ export const useCommissioningStore = create<CommissioningState>((set, get) => ({
       set({ error: null });
       await api.approveSATCampaign(prog.programme_id, approvedBy);
       await get().fetchSATCampaign();
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  // ── Emergency response ────────────────────────────────────────
+
+  fetchEmergencyProcedures: async () => {
+    try {
+      const emergencyProcedures = await api.listEmergencyProcedures();
+      set({ emergencyProcedures });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  triggerEmergency: async (emergencyType, triggeredBy) => {
+    const prog = get().activeProgramme;
+    if (!prog) return;
+    try {
+      set({ error: null });
+      await api.triggerEmergency(prog.programme_id, emergencyType, triggeredBy);
+      await get().fetchEmergencyLog();
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  fetchEmergencyLog: async () => {
+    const prog = get().activeProgramme;
+    if (!prog) return;
+    try {
+      const response = await api.getEmergencyLog(prog.programme_id);
+      set({ emergencyLog: response.events });
+    } catch {
+      set({ emergencyLog: [] });
+    }
+  },
+
+  // ── Grid code compliance ─────────────────────────────────────
+
+  fetchComplianceCampaign: async () => {
+    const prog = get().activeProgramme;
+    if (!prog) return;
+    try {
+      const complianceCampaign = await api.getComplianceCampaign(prog.programme_id);
+      set({ complianceCampaign });
+    } catch {
+      set({ complianceCampaign: null });
+    }
+  },
+
+  createComplianceCampaign: async () => {
+    const prog = get().activeProgramme;
+    if (!prog) return;
+    try {
+      set({ error: null });
+      const complianceCampaign = await api.createComplianceCampaign(prog.programme_id);
+      set({ complianceCampaign });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  recordComplianceResult: async (testId, verdict, evidence, testedBy) => {
+    const prog = get().activeProgramme;
+    if (!prog) return;
+    try {
+      set({ error: null });
+      await api.recordComplianceResult(prog.programme_id, testId, verdict, evidence, testedBy);
+      await get().fetchComplianceCampaign();
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  submitNotification: async (stage, submittedBy) => {
+    const prog = get().activeProgramme;
+    if (!prog) return;
+    try {
+      set({ error: null });
+      await api.submitNotification(prog.programme_id, stage, submittedBy);
+      await get().fetchComplianceCampaign();
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  approveNotification: async (stage) => {
+    const prog = get().activeProgramme;
+    if (!prog) return;
+    try {
+      set({ error: null });
+      await api.approveNotification(prog.programme_id, stage);
+      await get().fetchComplianceCampaign();
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
     }

@@ -104,9 +104,7 @@ class ComplianceCampaign:
 
     campaign_id: str
     programme_id: str
-    stages: dict[NotificationStage, NotificationApplication] = field(
-        default_factory=dict
-    )
+    stages: dict[NotificationStage, NotificationApplication] = field(default_factory=dict)
     created_at: str = ""
     cod_achieved: bool = False
     cod_date: str | None = None
@@ -266,9 +264,7 @@ _campaigns: dict[str, ComplianceCampaign] = {}
 # ── Helper: Build Tests from Specs ──────────────────────────────
 
 
-def _build_tests(
-    stage: NotificationStage, specs: list[dict[str, str]]
-) -> list[GridCodeTest]:
+def _build_tests(stage: NotificationStage, specs: list[dict[str, str]]) -> list[GridCodeTest]:
     """Create GridCodeTest instances from specification dicts."""
     return [
         GridCodeTest(
@@ -341,9 +337,7 @@ def record_test_result(
     """
     campaign = _campaigns.get(programme_id)
     if campaign is None:
-        raise ComplianceError(
-            f"No compliance campaign found for programme {programme_id}"
-        )
+        raise ComplianceError(f"No compliance campaign found for programme {programme_id}")
 
     for stage_app in campaign.stages.values():
         for test in stage_app.tests:
@@ -372,16 +366,12 @@ def submit_notification(
     """
     campaign = _campaigns.get(programme_id)
     if campaign is None:
-        raise ComplianceError(
-            f"No compliance campaign found for programme {programme_id}"
-        )
+        raise ComplianceError(f"No compliance campaign found for programme {programme_id}")
 
     stage_app = campaign.stages[stage]
 
     # Check all tests in this stage are compliant
-    non_compliant = [
-        t for t in stage_app.tests if t.verdict != ComplianceVerdict.COMPLIANT
-    ]
+    non_compliant = [t for t in stage_app.tests if t.verdict != ComplianceVerdict.COMPLIANT]
     if non_compliant:
         names = ", ".join(t.test_id for t in non_compliant)
         raise ComplianceGateError(
@@ -392,15 +382,11 @@ def submit_notification(
     if stage == NotificationStage.ION:
         eon = campaign.stages[NotificationStage.EON]
         if eon.approved_at is None:
-            raise ComplianceGateError(
-                "Cannot submit ION: EON must be approved first"
-            )
+            raise ComplianceGateError("Cannot submit ION: EON must be approved first")
     elif stage == NotificationStage.FON:
         ion = campaign.stages[NotificationStage.ION]
         if ion.approved_at is None:
-            raise ComplianceGateError(
-                "Cannot submit FON: ION must be approved first"
-            )
+            raise ComplianceGateError("Cannot submit FON: ION must be approved first")
 
     stage_app.submitted_at = datetime.now(UTC).isoformat()
     stage_app.status = ComplianceVerdict.CONDITIONAL
@@ -419,24 +405,16 @@ def approve_notification(
     """
     campaign = _campaigns.get(programme_id)
     if campaign is None:
-        raise ComplianceError(
-            f"No compliance campaign found for programme {programme_id}"
-        )
+        raise ComplianceError(f"No compliance campaign found for programme {programme_id}")
 
     stage_app = campaign.stages[stage]
 
     if stage_app.submitted_at is None:
-        raise ComplianceGateError(
-            f"Cannot approve {stage.value.upper()}: not yet submitted"
-        )
+        raise ComplianceGateError(f"Cannot approve {stage.value.upper()}: not yet submitted")
 
-    non_compliant = [
-        t for t in stage_app.tests if t.verdict != ComplianceVerdict.COMPLIANT
-    ]
+    non_compliant = [t for t in stage_app.tests if t.verdict != ComplianceVerdict.COMPLIANT]
     if non_compliant:
-        raise ComplianceGateError(
-            f"Cannot approve {stage.value.upper()}: not all tests compliant"
-        )
+        raise ComplianceGateError(f"Cannot approve {stage.value.upper()}: not all tests compliant")
 
     now = datetime.now(UTC).isoformat()
     stage_app.approved_at = now
@@ -461,9 +439,7 @@ def get_stage_summary(
     """
     campaign = _campaigns.get(programme_id)
     if campaign is None:
-        raise ComplianceError(
-            f"No compliance campaign found for programme {programme_id}"
-        )
+        raise ComplianceError(f"No compliance campaign found for programme {programme_id}")
 
     stage_app = campaign.stages[stage]
     verdicts = {v: 0 for v in ComplianceVerdict}

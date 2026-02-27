@@ -1100,9 +1100,7 @@ async def record_compliance_test(
     _get_programme(programme_id)
     try:
         verdict = ComplianceVerdict(body.verdict)
-        test = record_test_result(
-            programme_id, test_id, verdict, body.evidence, body.tested_by
-        )
+        test = record_test_result(programme_id, test_id, verdict, body.evidence, body.tested_by)
     except ComplianceTestNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ComplianceError as exc:

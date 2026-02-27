@@ -14,6 +14,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import AppShell from "./components/layout/AppShell";
 import CommissioningPage from "./pages/CommissioningPage";
 import LandingPage from "./pages/LandingPage";
+import WindResourcePage from "./pages/WindResourcePage";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<LandingPage />} />
+          <Route path="wind-resource" element={<WindResourcePage />} />
           <Route path="commissioning" element={<CommissioningPage />} />
         </Route>
       </Routes>

@@ -1,7 +1,7 @@
 # Ders 017 — P5 Devreye Alma: Anahtarlama Programı, Ekipman Durum Makinesi ve LOTO İzolasyon Yönetimi
 
 !!! abstract "Ders Navigasyonu"
-    :material-arrow-left: **Önceki:** [Ders 016 — Topluluk Tahminleme, Rampa Tespiti ve Model Değerlendirme](lesson-016.md) | **Sonraki:** Yakında :material-arrow-right:
+    :material-arrow-left: **Önceki:** [Ders 016 — Topluluk Tahminleme, Rampa Tespiti ve Model Değerlendirme](lesson-016.md) | **Sonraki:** [Ders 018 — FAT/SAT Kabul Testleri, Koruma Rölesi Koordinasyonu ve SAT Kapısı](lesson-018.md) :material-arrow-right:
 
     **Faz:** P5 | **Dil:** Türkçe | **İlerleme:** 6 / ? | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 

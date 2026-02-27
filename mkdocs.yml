@@ -51,6 +51,7 @@ nav:
     - "015 — TFT Dikkat Mekanizması (TR)": lessons/lesson-015.md
     - "016 — Topluluk, Rampa & Değerlendirme (TR)": lessons/lesson-016.md
     - "017 — P5 Devreye Alma & LOTO (TR)": lessons/lesson-017.md
+    - "018 — FAT/SAT & Koruma Koordinasyonu (TR)": lessons/lesson-018.md
 
 markdown_extensions:
   - admonition

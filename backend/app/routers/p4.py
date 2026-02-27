@@ -30,11 +30,14 @@ from app.schemas.forecast import (
     ConstraintCheckRequest,
     ConstraintCheckResponse,
     ConstraintViolationSchema,
+    EnsemblePredictRequest,
+    EnsemblePredictResponse,
     FeatureEngineeringRequest,
     FeatureEngineeringResponse,
     FeatureImportanceSchema,
     FoldMetricsSchema,
     GenerateSCADARequest,
+    GridAlertSchema,
     LSTMFoldMetricsSchema,
     LSTMPredictRequest,
     LSTMPredictResponse,
@@ -42,11 +45,17 @@ from app.schemas.forecast import (
     LSTMTrainResponse,
     MCDropoutRequest,
     MCDropoutResponse,
+    ModelCompareRequest,
+    ModelCompareResponse,
+    ModelMetricsSchema,
     PowerCurveRequest,
     PowerCurveResponse,
     QualityFilterRequest,
     QualityFilterResponse,
     QualityFlagSchema,
+    RampDetectRequest,
+    RampDetectResponse,
+    RampEventSchema,
     SCADADatasetSummary,
     SHAPRequest,
     SHAPResponse,
@@ -64,6 +73,10 @@ from app.schemas.forecast import (
     XGBoostTrainRequest,
     XGBoostTrainResponse,
 )
+from app.services.p4.ensemble_model import (
+    ModelForecasts,
+    compute_ensemble_forecast,
+)
 from app.services.p4.feature_engineering import FeatureConfig, engineer_features
 from app.services.p4.lstm_model import (
     LSTMConfig,
@@ -71,8 +84,17 @@ from app.services.p4.lstm_model import (
     predict_lstm,
     train_lstm,
 )
+from app.services.p4.model_evaluation import (
+    compare_models,
+    evaluate_model,
+)
 from app.services.p4.nwp_pipeline import NWPConfig, generate_nwp_dataset, merge_nwp_features
 from app.services.p4.physical_constraints import enforce_physical_constraints
+from app.services.p4.ramp_detection import (
+    RampConfig,
+    detect_all_ramps,
+    generate_grid_alerts,
+)
 from app.services.p4.scada_generator import SCADAConfig, generate_scada_dataset
 from app.services.p4.scada_quality_filters import apply_all_quality_filters
 from app.services.p4.tft_model import (
@@ -866,4 +888,265 @@ async def tft_attention_endpoint(
         temporal_weights_sample=temporal_sample,
         variable_importance=importance_list,
         num_attention_heads=attn_result.num_heads,
+    )
+
+
+# ── Shared Helper: Build All Model Forecasts ─────────────────────
+
+
+def _build_all_model_forecasts(
+    num_turbines: int,
+    num_timesteps: int,
+    turbine_index: int,
+    horizon_steps: int,
+    seed: int | None,
+) -> tuple[ModelForecasts, np.ndarray]:
+    """Train XGBoost, LSTM, and TFT, then return aligned forecast arrays.
+
+    Returns (ModelForecasts, actual_power) for ensemble/evaluation use.
+    """
+    features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
+        num_turbines=num_turbines,
+        num_timesteps=num_timesteps,
+        turbine_index=turbine_index,
+        seed=seed,
+    )
+
+    seed_val = seed if seed is not None else 42
+
+    # ── Train all three models ──
+    xgb_config = XGBoostConfig(seed=seed_val)
+    _, xgb_models = train_xgboost(features, target, xgb_config)
+
+    lstm_config = LSTMConfig(seed=seed_val)
+    _, lstm_model, lstm_norm = train_lstm(features, target, lstm_config)
+
+    tft_config = TFTConfig(seed=seed_val)
+    _, tft_model, tft_norm = train_tft(features, target, tft_config)
+
+    # ── Predict with each model ──
+    horizon = min(horizon_steps, features.shape[0])
+    pred_features = features[-horizon:]
+    pred_wind = wind_speed[-horizon:]
+    pred_ts = timestamps[-horizon:]
+    actual = target[-horizon:]
+
+    xgb_forecast = predict_xgboost(xgb_models, pred_features, pred_wind, pred_ts)
+
+    # LSTM needs lookback buffer
+    lstm_horizon = min(horizon_steps + lstm_config.lookback - 1, features.shape[0])
+    lstm_forecast = predict_lstm(
+        lstm_model,
+        features[-lstm_horizon:],
+        wind_speed[-lstm_horizon:],
+        lstm_norm,
+        lstm_config,
+        timestamps[-lstm_horizon:],
+    )
+
+    # TFT needs lookback buffer
+    tft_horizon = min(horizon_steps + tft_config.lookback - 1, features.shape[0])
+    tft_forecast = predict_tft(
+        tft_model,
+        features[-tft_horizon:],
+        wind_speed[-tft_horizon:],
+        tft_norm,
+        tft_config,
+        timestamps[-tft_horizon:],
+    )
+
+    # Align all to same length (min of all outputs)
+    n = min(
+        len(xgb_forecast.power_p50_mw),
+        len(lstm_forecast.power_p50_mw),
+        len(tft_forecast.power_p50_mw),
+        horizon,
+    )
+
+    forecasts = ModelForecasts(
+        xgb_p10=xgb_forecast.power_p10_mw[-n:],
+        xgb_p50=xgb_forecast.power_p50_mw[-n:],
+        xgb_p90=xgb_forecast.power_p90_mw[-n:],
+        lstm_p10=lstm_forecast.power_p10_mw[-n:],
+        lstm_p50=lstm_forecast.power_p50_mw[-n:],
+        lstm_p90=lstm_forecast.power_p90_mw[-n:],
+        tft_p10=tft_forecast.power_p10_mw[-n:],
+        tft_p50=tft_forecast.power_p50_mw[-n:],
+        tft_p90=tft_forecast.power_p90_mw[-n:],
+        wind_speed_ms=pred_wind[-n:],
+        timestamps_utc=pred_ts[-n:],
+    )
+
+    return forecasts, actual[-n:]
+
+
+# ── Ensemble Prediction ──────────────────────────────────────────
+
+
+@router.post("/predict-ensemble", response_model=EnsemblePredictResponse)
+async def predict_ensemble_endpoint(
+    request: EnsemblePredictRequest,
+) -> EnsemblePredictResponse:
+    """Generate horizon-dependent ensemble forecast from XGBoost + LSTM + TFT.
+
+    Pipeline: train all 3 models → predict → apply horizon-dependent
+    weights → enforce physical constraints → return ensemble P10/P50/P90.
+
+    Weight schedule per Roadmap §5.6:
+        < 6h:    XGB 0.50 + LSTM 0.30 + TFT 0.20
+        6–24h:   XGB 0.20 + LSTM 0.40 + TFT 0.40
+        24–48h:  XGB 0.10 + LSTM 0.30 + TFT 0.60
+    """
+    forecasts, _ = _build_all_model_forecasts(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        horizon_steps=request.horizon_steps,
+        seed=request.seed,
+    )
+
+    ensemble = compute_ensemble_forecast(forecasts)
+    n = len(ensemble.power_p50_mw)
+
+    return EnsemblePredictResponse(
+        power_p10_mw=[round(float(v), 4) for v in ensemble.power_p10_mw],
+        power_p50_mw=[round(float(v), 4) for v in ensemble.power_p50_mw],
+        power_p90_mw=[round(float(v), 4) for v in ensemble.power_p90_mw],
+        wind_speed_ms=[round(float(v), 4) for v in ensemble.wind_speed_ms],
+        timestamps_utc=[int(t) for t in ensemble.timestamps_utc],
+        num_steps=n,
+        weights_applied=ensemble.weights_applied,
+        total_violations=ensemble.constraint_result.total_violations,
+    )
+
+
+# ── Ramp Detection ───────────────────────────────────────────────
+
+
+@router.post("/detect-ramps", response_model=RampDetectResponse)
+async def detect_ramps_endpoint(
+    request: RampDetectRequest,
+) -> RampDetectResponse:
+    """Detect ramp events in ensemble forecast and generate grid alerts.
+
+    Pipeline: train all 3 models → ensemble forecast → scale to farm total
+    (×34 turbines) → ramp detection (threshold + wavelet + regime) →
+    grid stability alerts for ramp-down events.
+    """
+    forecasts, _ = _build_all_model_forecasts(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        horizon_steps=request.horizon_steps,
+        seed=request.seed,
+    )
+
+    ensemble = compute_ensemble_forecast(forecasts)
+
+    # Scale single-turbine forecast to farm total for ramp detection
+    num_turbines = request.num_turbines
+    farm_power = ensemble.power_p50_mw * num_turbines
+
+    ramp_config = RampConfig(threshold_mw_hr=request.threshold_mw_hr)
+    detection = detect_all_ramps(farm_power, ramp_config)
+    alerts = generate_grid_alerts(detection.events)
+
+    event_schemas = [
+        RampEventSchema(
+            start_index=e.start_index,
+            end_index=e.end_index,
+            direction=e.direction.value,
+            magnitude_mw=e.magnitude_mw,
+            rate_mw_hr=e.rate_mw_hr,
+            duration_minutes=e.duration_minutes,
+            severity=e.severity.value,
+            detection_method=e.detection_method,
+        )
+        for e in detection.events
+    ]
+
+    alert_schemas = [
+        GridAlertSchema(
+            alert_level=a.alert_level.value,
+            message=a.message,
+            recommended_action=a.recommended_action,
+            statcom_action=a.statcom_action,
+            pse_notification=a.pse_notification,
+        )
+        for a in alerts
+    ]
+
+    return RampDetectResponse(
+        ramp_events=event_schemas,
+        num_ramp_up=detection.num_ramp_up,
+        num_ramp_down=detection.num_ramp_down,
+        max_ramp_rate_mw_hr=round(detection.max_ramp_rate_mw_hr, 2),
+        grid_alerts=alert_schemas,
+        regime_states=detection.regime_states,
+    )
+
+
+# ── Model Comparison ─────────────────────────────────────────────
+
+
+@router.post("/compare-models", response_model=ModelCompareResponse)
+async def compare_models_endpoint(
+    request: ModelCompareRequest,
+) -> ModelCompareResponse:
+    """Compare XGBoost, LSTM, TFT, and Ensemble forecasts side-by-side.
+
+    Pipeline: train all 3 models → predict → compute ensemble →
+    evaluate each model vs actuals → rank and compare.
+    """
+    forecasts, actual = _build_all_model_forecasts(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        horizon_steps=request.horizon_steps,
+        seed=request.seed,
+    )
+
+    ensemble = compute_ensemble_forecast(forecasts)
+
+    # Evaluate each model
+    xgb_metrics = evaluate_model(
+        "XGBoost", actual, forecasts.xgb_p50, forecasts.xgb_p10, forecasts.xgb_p90
+    )
+    lstm_metrics = evaluate_model(
+        "LSTM", actual, forecasts.lstm_p50, forecasts.lstm_p10, forecasts.lstm_p90
+    )
+    tft_metrics = evaluate_model(
+        "TFT", actual, forecasts.tft_p50, forecasts.tft_p10, forecasts.tft_p90
+    )
+    ens_metrics = evaluate_model(
+        "Ensemble",
+        actual,
+        ensemble.power_p50_mw,
+        ensemble.power_p10_mw,
+        ensemble.power_p90_mw,
+    )
+
+    comparison = compare_models([xgb_metrics, lstm_metrics, tft_metrics, ens_metrics])
+
+    metric_schemas = [
+        ModelMetricsSchema(
+            model_name=m.model_name,
+            rmse_mw=m.rmse_mw,
+            mae_mw=m.mae_mw,
+            mape_pct=m.mape_pct,
+            r_squared=m.r_squared,
+            skill_score=m.skill_score,
+            quantile_coverage=m.quantile_coverage,
+            pinball_losses=m.pinball_losses,
+            num_samples=m.num_samples,
+        )
+        for m in comparison.model_metrics
+    ]
+
+    return ModelCompareResponse(
+        model_metrics=metric_schemas,
+        best_rmse=comparison.best_rmse,
+        best_skill=comparison.best_skill,
+        best_calibration=comparison.best_calibration,
+        ranking=comparison.ranking,
     )

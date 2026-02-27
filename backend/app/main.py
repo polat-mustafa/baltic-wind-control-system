@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers.p1 import router as p1_router
+from app.routers.p2 import router as p2_router
 from app.routers.p3 import router as p3_router
 from app.routers.p4 import router as p4_router
 from app.routers.p5 import router as p5_router
@@ -30,6 +31,7 @@ app.add_middleware(
 )
 
 app.include_router(p1_router)
+app.include_router(p2_router)
 app.include_router(p3_router)
 app.include_router(p4_router)
 app.include_router(p5_router)

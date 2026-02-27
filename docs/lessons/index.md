@@ -125,5 +125,6 @@ Our documentation follows these principles in a software context:
 | 015 | [TFT: Dikkat Mekanizması ile Çok Ufuklu Güç Tahmini](lesson-015.md) | P4 | Turkish | Complete |
 | 016 | [Topluluk Tahminleme, Rampa Tespiti ve Model Değerlendirme](lesson-016.md) | P4 | Turkish | Complete |
 | 017 | [P5 Devreye Alma: Anahtarlama Programı, Ekipman Durum Makinesi ve LOTO](lesson-017.md) | P5 | Turkish | Complete |
+| 018 | [FAT/SAT Kabul Testleri, Koruma Rölesi Koordinasyonu ve SAT Kapısı](lesson-018.md) | P5 | Turkish | Complete |
 
-**Coming next:** P5 — SAT reports & frontend visualisation
+**Coming next:** P5 — Frontend visualisation & commissioning dashboard

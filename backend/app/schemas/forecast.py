@@ -536,3 +536,124 @@ class TFTAttentionResponse(BaseModel):
         description="Per-feature importance from Variable Selection Network"
     )
     num_attention_heads: int = Field(description="Number of attention heads used")
+
+
+# ── Ensemble Forecasting Schemas ─────────────────────────────────
+
+
+class EnsemblePredictRequest(BaseModel):
+    """Request to generate horizon-dependent ensemble forecast."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0)
+    horizon_steps: int = Field(
+        default=144,
+        ge=1,
+        le=1000,
+        description="Number of forecast steps (144 = 1 day)",
+    )
+    seed: int | None = Field(default=42)
+
+
+class EnsemblePredictResponse(BaseModel):
+    """Horizon-dependent ensemble forecast response."""
+
+    power_p10_mw: list[float] = Field(description="Ensemble P10 forecast [MW]")
+    power_p50_mw: list[float] = Field(description="Ensemble P50 (median) forecast [MW]")
+    power_p90_mw: list[float] = Field(description="Ensemble P90 forecast [MW]")
+    wind_speed_ms: list[float] = Field(description="Input wind speeds [m/s]")
+    timestamps_utc: list[int] = Field(description="Forecast timestamps (Unix)")
+    num_steps: int = Field(description="Number of forecast steps")
+    weights_applied: list[str] = Field(description="Horizon band label per step")
+    total_violations: int = Field(description="Physical constraint violations corrected")
+
+
+# ── Ramp Detection Schemas ───────────────────────────────────────
+
+
+class RampEventSchema(BaseModel):
+    """A detected ramp event."""
+
+    start_index: int = Field(description="First timestep index")
+    end_index: int = Field(description="Last timestep index (inclusive)")
+    direction: str = Field(description="ramp_up or ramp_down")
+    magnitude_mw: float = Field(description="Total power change [MW]")
+    rate_mw_hr: float = Field(description="Power change rate [MW/hr]")
+    duration_minutes: int = Field(description="Event duration [min]")
+    severity: str = Field(description="minor/moderate/severe/extreme")
+    detection_method: str = Field(description="threshold/wavelet/regime")
+
+
+class GridAlertSchema(BaseModel):
+    """Grid stability alert for a ramp event."""
+
+    alert_level: str = Field(description="info/warning/critical/emergency")
+    message: str = Field(description="Human-readable alert description")
+    recommended_action: str = Field(description="Suggested response")
+    statcom_action: str = Field(description="STATCOM mode recommendation")
+    pse_notification: bool = Field(description="Whether PSE TSO must be notified")
+
+
+class RampDetectRequest(BaseModel):
+    """Request to detect ramp events in ensemble forecast."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0)
+    horizon_steps: int = Field(default=144, ge=1, le=1000)
+    threshold_mw_hr: float = Field(
+        default=50.0,
+        ge=1.0,
+        le=500.0,
+        description="Ramp rate threshold [MW/hr]",
+    )
+    seed: int | None = Field(default=42)
+
+
+class RampDetectResponse(BaseModel):
+    """Ramp detection and grid alert response."""
+
+    ramp_events: list[RampEventSchema] = Field(description="All detected ramp events")
+    num_ramp_up: int = Field(description="Number of upward ramps")
+    num_ramp_down: int = Field(description="Number of downward ramps")
+    max_ramp_rate_mw_hr: float = Field(description="Peak ramp rate [MW/hr]")
+    grid_alerts: list[GridAlertSchema] = Field(description="Grid stability alerts")
+    regime_states: list[str] = Field(description="Per-step regime classification")
+
+
+# ── Model Comparison Schemas ─────────────────────────────────────
+
+
+class ModelMetricsSchema(BaseModel):
+    """Evaluation metrics for a single model."""
+
+    model_name: str = Field(description="Model identifier")
+    rmse_mw: float = Field(description="Root Mean Square Error [MW]")
+    mae_mw: float = Field(description="Mean Absolute Error [MW]")
+    mape_pct: float = Field(description="Mean Absolute Percentage Error [%]")
+    r_squared: float = Field(description="Coefficient of determination R²")
+    skill_score: float = Field(description="Skill score vs persistence")
+    quantile_coverage: dict[str, float] = Field(description="Calibration per quantile")
+    pinball_losses: dict[str, float] = Field(description="Pinball loss per quantile")
+    num_samples: int = Field(description="Number of evaluation samples")
+
+
+class ModelCompareRequest(BaseModel):
+    """Request to compare all forecasting models."""
+
+    num_turbines: int = Field(default=34, ge=1, le=100)
+    num_timesteps: int = Field(default=52_560, ge=100, le=525_600)
+    turbine_index: int = Field(default=0, ge=0)
+    horizon_steps: int = Field(default=144, ge=1, le=1000)
+    seed: int | None = Field(default=42)
+
+
+class ModelCompareResponse(BaseModel):
+    """Side-by-side model comparison response."""
+
+    model_metrics: list[ModelMetricsSchema] = Field(description="Metrics per model")
+    best_rmse: str = Field(description="Model with lowest RMSE")
+    best_skill: str = Field(description="Model with highest skill score")
+    best_calibration: str = Field(description="Model with best P90 calibration")
+    ranking: list[str] = Field(description="Models ranked by RMSE (best first)")

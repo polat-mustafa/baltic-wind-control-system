@@ -83,6 +83,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 
 from app.services.p5.equipment_state import (
     EquipmentNotFoundError,
@@ -388,207 +389,261 @@ def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
         )
 
     # ── Phase 2: Energisation Switching (S-001 to S-022) ──────────
-    phase2_steps: list[dict] = [
+    phase2_steps: list[dict[str, Any]] = [
         # S-001: PiC declaration
         {
-            "step_id": "S-001", "type": StepType.DECLARATION,
+            "step_id": "S-001",
+            "type": StepType.DECLARATION,
             "action": "PiC declares: 'Begin energisation programme'",
-            "responsible": "PiC", "pic_confirm": False,
+            "responsible": "PiC",
+            "pic_confirm": False,
             "verification": "Verbal declaration logged",
             "notes": "Programme officially starts",
         },
         # S-002: PSE dispatch authorisation
         {
-            "step_id": "S-002", "type": StepType.CHECK,
+            "step_id": "S-002",
+            "type": StepType.CHECK,
             "action": "Confirm PSE dispatch authorisation received",
-            "responsible": "PiC", "pic_confirm": True,
+            "responsible": "PiC",
+            "pic_confirm": True,
             "verification": "Dispatch authorisation document",
             "notes": "Cannot proceed without grid operator clearance",
         },
         # S-003: Open ES-ON-220-01
         {
-            "step_id": "S-003", "type": StepType.SWITCHING,
+            "step_id": "S-003",
+            "type": StepType.SWITCHING,
             "action": "Open Earth Switch ES-ON-220-01",
             "equipment_id": "ES-ON-220-01",
             "switching_action": SwitchingAction.OPEN,
-            "before": EquipmentState.CLOSED, "after": EquipmentState.OPEN,
-            "responsible": "Local", "pic_confirm": True,
+            "before": EquipmentState.CLOSED,
+            "after": EquipmentState.OPEN,
+            "responsible": "Local",
+            "pic_confirm": True,
             "verification": "SCADA indication + local indicator",
         },
         # S-004: Verify ES-ON-220-01
         {
-            "step_id": "S-004", "type": StepType.VERIFICATION,
+            "step_id": "S-004",
+            "type": StepType.VERIFICATION,
             "action": "Verify: Earth Switch ES-ON-220-01 = OPEN",
             "equipment_id": "ES-ON-220-01",
-            "responsible": "Local", "pic_confirm": True,
+            "responsible": "Local",
+            "pic_confirm": True,
             "verification": "SCADA indication + local indicator",
         },
         # S-005: Open ES-OSS-220-01
         {
-            "step_id": "S-005", "type": StepType.SWITCHING,
+            "step_id": "S-005",
+            "type": StepType.SWITCHING,
             "action": "Open Earth Switch ES-OSS-220-01",
             "equipment_id": "ES-OSS-220-01",
             "switching_action": SwitchingAction.OPEN,
-            "before": EquipmentState.CLOSED, "after": EquipmentState.OPEN,
-            "responsible": "Local", "pic_confirm": True,
+            "before": EquipmentState.CLOSED,
+            "after": EquipmentState.OPEN,
+            "responsible": "Local",
+            "pic_confirm": True,
             "verification": "SCADA indication + local indicator",
         },
         # S-006: Verify ES-OSS-220-01
         {
-            "step_id": "S-006", "type": StepType.VERIFICATION,
+            "step_id": "S-006",
+            "type": StepType.VERIFICATION,
             "action": "Verify: Earth Switch ES-OSS-220-01 = OPEN",
             "equipment_id": "ES-OSS-220-01",
-            "responsible": "Local", "pic_confirm": True,
+            "responsible": "Local",
+            "pic_confirm": True,
             "verification": "SCADA indication + local indicator",
         },
         # S-007: Close DS-ON-220-01
         {
-            "step_id": "S-007", "type": StepType.SWITCHING,
+            "step_id": "S-007",
+            "type": StepType.SWITCHING,
             "action": "Close Disconnector DS-ON-220-01",
             "equipment_id": "DS-ON-220-01",
             "switching_action": SwitchingAction.CLOSE,
-            "before": EquipmentState.OPEN, "after": EquipmentState.CLOSED,
-            "responsible": "Local", "pic_confirm": True,
+            "before": EquipmentState.OPEN,
+            "after": EquipmentState.CLOSED,
+            "responsible": "Local",
+            "pic_confirm": True,
             "verification": "SCADA indication + local indicator",
         },
         # S-008: Verify DS-ON-220-01
         {
-            "step_id": "S-008", "type": StepType.VERIFICATION,
+            "step_id": "S-008",
+            "type": StepType.VERIFICATION,
             "action": "Verify: Disconnector DS-ON-220-01 = CLOSED",
             "equipment_id": "DS-ON-220-01",
-            "responsible": "Local", "pic_confirm": True,
+            "responsible": "Local",
+            "pic_confirm": True,
             "verification": "SCADA indication + local indicator",
         },
         # S-009: HOLD POINT
         {
-            "step_id": "S-009", "type": StepType.HOLD_POINT,
+            "step_id": "S-009",
+            "type": StepType.HOLD_POINT,
             "action": "HOLD POINT: PiC confirms all checks complete",
-            "responsible": "PiC", "pic_confirm": True,
+            "responsible": "PiC",
+            "pic_confirm": True,
             "verification": "PiC verbal confirmation",
             "notes": "PiC reviews all pre-energisation checks before closing CB",
         },
         # S-010: Close CB-ON-220-01 (export cable energised)
         {
-            "step_id": "S-010", "type": StepType.SWITCHING,
+            "step_id": "S-010",
+            "type": StepType.SWITCHING,
             "action": "Close CB-ON-220-01 (onshore substation) — export cable energised at 220 kV",
             "equipment_id": "CB-ON-220-01",
             "switching_action": SwitchingAction.CLOSE,
-            "before": EquipmentState.OPEN, "after": EquipmentState.CLOSED,
-            "responsible": "SCADA", "pic_confirm": True,
+            "before": EquipmentState.OPEN,
+            "after": EquipmentState.CLOSED,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA indication + voltage reading",
             "notes": "Export cable now energised at 220 kV. Monitor cable charging current.",
         },
         # S-011: Verify voltage
         {
-            "step_id": "S-011", "type": StepType.VERIFICATION,
+            "step_id": "S-011",
+            "type": StepType.VERIFICATION,
             "action": "Verify: V = 220 kV ±5% at onshore bus",
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA voltage reading 209-231 kV",
         },
         # S-012: Monitor cable charging
         {
-            "step_id": "S-012", "type": StepType.VERIFICATION,
+            "step_id": "S-012",
+            "type": StepType.VERIFICATION,
             "action": "Monitor: Cable charging current stable (5 min)",
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA current reading stable ~89 A/phase",
             "notes": "45 km XLPE cable capacitance ~0.25 µF/km → 89 A charging current",
         },
         # S-013: Close DS-OSS-220-01
         {
-            "step_id": "S-013", "type": StepType.SWITCHING,
+            "step_id": "S-013",
+            "type": StepType.SWITCHING,
             "action": "Close DS-OSS-220-01 (OSS disconnector)",
             "equipment_id": "DS-OSS-220-01",
             "switching_action": SwitchingAction.CLOSE,
-            "before": EquipmentState.OPEN, "after": EquipmentState.CLOSED,
-            "responsible": "Local", "pic_confirm": True,
+            "before": EquipmentState.OPEN,
+            "after": EquipmentState.CLOSED,
+            "responsible": "Local",
+            "pic_confirm": True,
             "verification": "SCADA indication + local indicator",
         },
         # S-014: Close CB-OSS-220-01 (OSS 220 kV busbar energised)
         {
-            "step_id": "S-014", "type": StepType.SWITCHING,
+            "step_id": "S-014",
+            "type": StepType.SWITCHING,
             "action": "Close CB-OSS-220-01 (OSS 220 kV CB) — OSS 220 kV busbar energised",
             "equipment_id": "CB-OSS-220-01",
             "switching_action": SwitchingAction.CLOSE,
-            "before": EquipmentState.OPEN, "after": EquipmentState.CLOSED,
-            "responsible": "SCADA", "pic_confirm": True,
+            "before": EquipmentState.OPEN,
+            "after": EquipmentState.CLOSED,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA indication + voltage reading",
         },
         # S-015: Verify OSS 220 kV voltage
         {
-            "step_id": "S-015", "type": StepType.VERIFICATION,
+            "step_id": "S-015",
+            "type": StepType.VERIFICATION,
             "action": "Verify: V = 220 kV ±5% at OSS 220 kV bus",
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA voltage reading 209-231 kV",
         },
         # S-016: Activate STATCOM
         {
-            "step_id": "S-016", "type": StepType.SWITCHING,
+            "step_id": "S-016",
+            "type": StepType.SWITCHING,
             "action": "Activate STATCOM voltage control mode",
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "STATCOM status = ACTIVE",
             "notes": "STATCOM compensates cable charging reactive power",
         },
         # S-017: Verify STATCOM
         {
-            "step_id": "S-017", "type": StepType.VERIFICATION,
+            "step_id": "S-017",
+            "type": StepType.VERIFICATION,
             "action": "Verify: STATCOM absorbing ~85 MVAR",
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA reactive power reading ~85 MVAR inductive",
         },
         # S-018: Close TX-OSS HV CB
         {
-            "step_id": "S-018", "type": StepType.SWITCHING,
+            "step_id": "S-018",
+            "type": StepType.SWITCHING,
             "action": "Close TX-OSS HV CB (220 kV side)",
             "equipment_id": "CB-TX-OSS-HV",
             "switching_action": SwitchingAction.CLOSE,
-            "before": EquipmentState.OPEN, "after": EquipmentState.CLOSED,
-            "responsible": "SCADA", "pic_confirm": True,
+            "before": EquipmentState.OPEN,
+            "after": EquipmentState.CLOSED,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA indication + magnetising current",
             "notes": (
-                "Expect inrush current up to 8x rated for ~100 ms. "
-                "2nd harmonic restraint active."
+                "Expect inrush current up to 8x rated for ~100 ms. 2nd harmonic restraint active."
             ),
         },
         # S-019: Verify TX magnetising current
         {
-            "step_id": "S-019", "type": StepType.VERIFICATION,
+            "step_id": "S-019",
+            "type": StepType.VERIFICATION,
             "action": "Verify: TX magnetising current normal",
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA current reading < 5 A steady-state",
         },
         # S-019A: Open ES-OSS-66-01 (remove 66 kV earth before energising)
         {
-            "step_id": "S-019A", "type": StepType.SWITCHING,
+            "step_id": "S-019A",
+            "type": StepType.SWITCHING,
             "action": "Open Earth Switch ES-OSS-66-01 (remove 66 kV busbar earth)",
             "equipment_id": "ES-OSS-66-01",
             "switching_action": SwitchingAction.OPEN,
-            "before": EquipmentState.CLOSED, "after": EquipmentState.OPEN,
-            "responsible": "Local", "pic_confirm": True,
+            "before": EquipmentState.CLOSED,
+            "after": EquipmentState.OPEN,
+            "responsible": "Local",
+            "pic_confirm": True,
             "verification": "SCADA indication + local indicator",
             "notes": "Must remove 66 kV earth before closing LV CB",
         },
         # S-020: Close TX-OSS LV CB (66 kV busbar energised)
         {
-            "step_id": "S-020", "type": StepType.SWITCHING,
+            "step_id": "S-020",
+            "type": StepType.SWITCHING,
             "action": "Close TX-OSS LV CB (66 kV side) — OSS 66 kV busbar energised",
             "equipment_id": "CB-TX-OSS-LV",
             "switching_action": SwitchingAction.CLOSE,
-            "before": EquipmentState.OPEN, "after": EquipmentState.CLOSED,
-            "responsible": "SCADA", "pic_confirm": True,
+            "before": EquipmentState.OPEN,
+            "after": EquipmentState.CLOSED,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA indication + voltage reading",
         },
         # S-021: Verify 66 kV voltage
         {
-            "step_id": "S-021", "type": StepType.VERIFICATION,
+            "step_id": "S-021",
+            "type": StepType.VERIFICATION,
             "action": "Verify: V = 66 kV ±5% at OSS 66 kV bus",
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA voltage reading 62.7-69.3 kV",
         },
         # S-022: HOLD POINT
         {
-            "step_id": "S-022", "type": StepType.HOLD_POINT,
+            "step_id": "S-022",
+            "type": StepType.HOLD_POINT,
             "action": "HOLD POINT: PiC confirms all voltages normal — OSS fully energised",
-            "responsible": "PiC", "pic_confirm": True,
+            "responsible": "PiC",
+            "pic_confirm": True,
             "verification": "PiC verbal confirmation",
             "notes": "OSS fully energised, ready for turbine connection",
         },
@@ -615,80 +670,100 @@ def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
         )
 
     # ── Phase 3: Turbine Connection (S-023 to S-030) ─────────────
-    phase3_steps: list[dict] = [
+    phase3_steps: list[dict[str, Any]] = [
         # S-022A: Open String 1 earth switch
         {
-            "step_id": "S-022A", "type": StepType.SWITCHING,
+            "step_id": "S-022A",
+            "type": StepType.SWITCHING,
             "action": "Open Earth Switch ES-STR-01 (remove String 1 earth)",
             "equipment_id": "ES-STR-01",
             "switching_action": SwitchingAction.OPEN,
-            "before": EquipmentState.CLOSED, "after": EquipmentState.OPEN,
-            "responsible": "Local", "pic_confirm": True,
+            "before": EquipmentState.CLOSED,
+            "after": EquipmentState.OPEN,
+            "responsible": "Local",
+            "pic_confirm": True,
             "verification": "SCADA indication + local indicator",
             "notes": "Must remove string earth before closing feeder CB",
         },
         # S-023: Close String 1 feeder CB
         {
-            "step_id": "S-023", "type": StepType.SWITCHING,
+            "step_id": "S-023",
+            "type": StepType.SWITCHING,
             "action": "Close String 1 feeder CB",
             "equipment_id": "CB-STR-01",
             "switching_action": SwitchingAction.CLOSE,
-            "before": EquipmentState.OPEN, "after": EquipmentState.CLOSED,
-            "responsible": "SCADA", "pic_confirm": True,
+            "before": EquipmentState.OPEN,
+            "after": EquipmentState.CLOSED,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA indication + voltage on string cable",
         },
         # S-024: Energise WTG_01 through WTG_06
         {
-            "step_id": "S-024", "type": StepType.VERIFICATION,
+            "step_id": "S-024",
+            "type": StepType.VERIFICATION,
             "action": (
                 "Energise WTG_01 through WTG_06 (one by one) "
                 "-- close array CB, verify voltage, start turbine, "
                 "ramp to 10%, confirm grid sync"
             ),
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "Each turbine grid-synced and producing power",
         },
         # S-025: String 1 ramp to 50%
         {
-            "step_id": "S-025", "type": StepType.VERIFICATION,
+            "step_id": "S-025",
+            "type": StepType.VERIFICATION,
             "action": "String 1 power ramp to 50%",
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA active power reading ~45 MW (6 x 7.5 MW)",
         },
         # S-026: String 1 ramp to 100%
         {
-            "step_id": "S-026", "type": StepType.VERIFICATION,
+            "step_id": "S-026",
+            "type": StepType.VERIFICATION,
             "action": "String 1 power ramp to 100%",
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "SCADA active power reading ~90 MW (6 x 15 MW)",
         },
         # S-027: Verify protection
         {
-            "step_id": "S-027", "type": StepType.VERIFICATION,
+            "step_id": "S-027",
+            "type": StepType.VERIFICATION,
             "action": "Verify: Protection relay operation correct",
-            "responsible": "Local", "pic_confirm": True,
+            "responsible": "Local",
+            "pic_confirm": True,
             "verification": "Protection event log — no spurious trips",
         },
         # S-028: Repeat for strings 2-6
         {
-            "step_id": "S-028", "type": StepType.DECLARATION,
+            "step_id": "S-028",
+            "type": StepType.DECLARATION,
             "action": "REPEAT S-023 to S-027 for Strings 2-6",
-            "responsible": "SCADA", "pic_confirm": True,
+            "responsible": "SCADA",
+            "pic_confirm": True,
             "verification": "All 6 strings connected and producing",
             "notes": "Each string follows identical sequence",
         },
         # S-029: All strings connected
         {
-            "step_id": "S-029", "type": StepType.VERIFICATION,
+            "step_id": "S-029",
+            "type": StepType.VERIFICATION,
             "action": "ALL STRINGS CONNECTED — Farm at rated power (510 MW)",
-            "responsible": "PiC", "pic_confirm": True,
+            "responsible": "PiC",
+            "pic_confirm": True,
             "verification": "SCADA total active power ~510 MW",
         },
         # S-030: PiC declaration complete
         {
-            "step_id": "S-030", "type": StepType.DECLARATION,
+            "step_id": "S-030",
+            "type": StepType.DECLARATION,
             "action": "PiC declares: 'Energisation programme complete'",
-            "responsible": "PiC", "pic_confirm": False,
+            "responsible": "PiC",
+            "pic_confirm": False,
             "verification": "Verbal declaration logged",
             "notes": "Programme officially complete. SAT report to be issued.",
         },
@@ -815,8 +890,7 @@ def execute_step(
     # 1. Programme state check
     if programme.status != ProgrammeStatus.IN_PROGRESS:
         raise ProgrammeStateError(
-            f"Cannot execute step: programme is '{programme.status.value}'. "
-            f"Must be 'in_progress'."
+            f"Cannot execute step: programme is '{programme.status.value}'. Must be 'in_progress'."
         )
 
     # 2. Sequential execution check
@@ -846,8 +920,10 @@ def execute_step(
         current_step.status = StepStatus.IN_PROGRESS
         current_step.executed_by = executed_by
         _add_audit(
-            programme, f"Hold point reached: {current_step.action}",
-            executed_by, step_id=step_id,
+            programme,
+            f"Hold point reached: {current_step.action}",
+            executed_by,
+            step_id=step_id,
             details="Programme on HOLD — awaiting PiC GO/NO-GO decision",
         )
         raise PiCDecisionRequiredError(
@@ -863,8 +939,10 @@ def execute_step(
             if actual != current_step.expected_state_before:
                 current_step.status = StepStatus.FAILED
                 _add_audit(
-                    programme, "Step failed: pre-condition not met",
-                    executed_by, step_id=step_id,
+                    programme,
+                    "Step failed: pre-condition not met",
+                    executed_by,
+                    step_id=step_id,
                     details=(
                         f"Expected {current_step.equipment_id} = "
                         f"{current_step.expected_state_before.value}, "
@@ -888,8 +966,10 @@ def execute_step(
         except (EquipmentNotFoundError, InvalidTransitionError, InterlockError) as e:
             current_step.status = StepStatus.FAILED
             _add_audit(
-                programme, f"Step failed: {e}",
-                executed_by, step_id=step_id,
+                programme,
+                f"Step failed: {e}",
+                executed_by,
+                step_id=step_id,
             )
             raise StepExecutionError(str(e)) from e
 
@@ -898,22 +978,24 @@ def execute_step(
             current_step.expected_state_after is not None
             and result.new_state != current_step.expected_state_after
         ):
-                current_step.status = StepStatus.FAILED
-                _add_audit(
-                    programme, "Step failed: post-condition not met",
-                    executed_by, step_id=step_id,
-                    details=(
-                        f"Expected {current_step.equipment_id} = "
-                        f"{current_step.expected_state_after.value}, "
-                        f"actual = {result.new_state.value}"
-                    ),
-                )
-                raise StepExecutionError(
-                    f"Post-condition failed for '{step_id}': "
-                    f"{current_step.equipment_id} expected "
+            current_step.status = StepStatus.FAILED
+            _add_audit(
+                programme,
+                "Step failed: post-condition not met",
+                executed_by,
+                step_id=step_id,
+                details=(
+                    f"Expected {current_step.equipment_id} = "
                     f"{current_step.expected_state_after.value}, "
-                    f"actual {result.new_state.value}."
-                )
+                    f"actual = {result.new_state.value}"
+                ),
+            )
+            raise StepExecutionError(
+                f"Post-condition failed for '{step_id}': "
+                f"{current_step.equipment_id} expected "
+                f"{current_step.expected_state_after.value}, "
+                f"actual {result.new_state.value}."
+            )
 
     # Mark step completed
     current_step.status = StepStatus.COMPLETED
@@ -922,8 +1004,10 @@ def execute_step(
     programme.current_step_index += 1
 
     _add_audit(
-        programme, f"Step completed: {current_step.action}",
-        executed_by, step_id=step_id,
+        programme,
+        f"Step completed: {current_step.action}",
+        executed_by,
+        step_id=step_id,
     )
 
     # Check if programme is complete
@@ -969,8 +1053,7 @@ def pic_go_decision(
     """
     if programme.status != ProgrammeStatus.HOLD:
         raise ProgrammeStateError(
-            f"Cannot make GO decision: programme is '{programme.status.value}', "
-            f"not 'hold'."
+            f"Cannot make GO decision: programme is '{programme.status.value}', not 'hold'."
         )
 
     if pic_name != programme.pic_name:
@@ -988,8 +1071,10 @@ def pic_go_decision(
     programme.status = ProgrammeStatus.IN_PROGRESS
 
     _add_audit(
-        programme, f"PiC GO decision at {current_step.step_id}",
-        pic_name, step_id=current_step.step_id,
+        programme,
+        f"PiC GO decision at {current_step.step_id}",
+        pic_name,
+        step_id=current_step.step_id,
         details=notes or "All conditions met — proceed",
     )
 
@@ -1021,8 +1106,7 @@ def pic_nogo_decision(
     """
     if programme.status != ProgrammeStatus.HOLD:
         raise ProgrammeStateError(
-            f"Cannot make NO-GO decision: programme is '{programme.status.value}', "
-            f"not 'hold'."
+            f"Cannot make NO-GO decision: programme is '{programme.status.value}', not 'hold'."
         )
 
     if pic_name != programme.pic_name:
@@ -1037,8 +1121,10 @@ def pic_nogo_decision(
     programme.status = ProgrammeStatus.ABORTED
 
     _add_audit(
-        programme, f"PiC NO-GO decision at {current_step.step_id}",
-        pic_name, step_id=current_step.step_id,
+        programme,
+        f"PiC NO-GO decision at {current_step.step_id}",
+        pic_name,
+        step_id=current_step.step_id,
         details=f"Reason: {reason}",
     )
 
@@ -1069,14 +1155,14 @@ def emergency_stop(
     """
     if programme.status in _TERMINAL_STATUSES:
         raise ProgrammeStateError(
-            f"Cannot emergency stop: programme is already "
-            f"'{programme.status.value}'."
+            f"Cannot emergency stop: programme is already '{programme.status.value}'."
         )
 
     programme.status = ProgrammeStatus.ABORTED
 
     _add_audit(
-        programme, "EMERGENCY STOP",
+        programme,
+        "EMERGENCY STOP",
         initiated_by,
         details=f"Reason: {reason}",
     )

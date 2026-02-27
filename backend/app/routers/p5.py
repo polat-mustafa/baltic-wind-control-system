@@ -53,6 +53,7 @@ from app.services.p5.switching_programme import (
     ProgrammeStatus,
     StepExecutionError,
     SwitchingProgramme,
+    SwitchingStep,
     approve_programme,
     create_oss_energisation_programme,
     emergency_stop,
@@ -101,7 +102,7 @@ def _build_equipment_states(programme: SwitchingProgramme) -> list[EquipmentStat
     return states
 
 
-def _build_step_schema(step) -> StepSchema:
+def _build_step_schema(step: SwitchingStep) -> StepSchema:
     """Build a step schema from a SwitchingStep."""
     return StepSchema(
         step_id=step.step_id,
@@ -232,7 +233,10 @@ async def execute_step_endpoint(
 
     try:
         step = execute_step(
-            programme, step_id, request.executed_by, request.pic_confirmed,
+            programme,
+            step_id,
+            request.executed_by,
+            request.pic_confirmed,
         )
         return ExecuteStepResponse(
             success=True,

@@ -43,31 +43,24 @@ class TestEquipmentRegistry:
 
     def test_earth_switch_count(self) -> None:
         """9 earth switches: ES-ON-220-01, ES-OSS-220-01, ES-OSS-66-01, ES-STR-01 to 06."""
-        es_count = sum(
-            1 for eq in OSS_EQUIPMENT if eq.equipment_type == EquipmentType.EARTH_SWITCH
-        )
+        es_count = sum(1 for eq in OSS_EQUIPMENT if eq.equipment_type == EquipmentType.EARTH_SWITCH)
         assert es_count == 9
 
     def test_disconnector_count(self) -> None:
         """2 disconnectors: DS-ON-220-01, DS-OSS-220-01."""
-        ds_count = sum(
-            1 for eq in OSS_EQUIPMENT if eq.equipment_type == EquipmentType.DISCONNECTOR
-        )
+        ds_count = sum(1 for eq in OSS_EQUIPMENT if eq.equipment_type == EquipmentType.DISCONNECTOR)
         assert ds_count == 2
 
     def test_circuit_breaker_count(self) -> None:
         """10 circuit breakers: CB-ON-220-01, CB-OSS-220-01, CB-TX-OSS-HV/LV, CB-STR-01 to 06."""
         cb_count = sum(
-            1 for eq in OSS_EQUIPMENT
-            if eq.equipment_type == EquipmentType.CIRCUIT_BREAKER
+            1 for eq in OSS_EQUIPMENT if eq.equipment_type == EquipmentType.CIRCUIT_BREAKER
         )
         assert cb_count == 10
 
     def test_transformer_count(self) -> None:
         """1 transformer: TX-OSS-01."""
-        tx_count = sum(
-            1 for eq in OSS_EQUIPMENT if eq.equipment_type == EquipmentType.TRANSFORMER
-        )
+        tx_count = sum(1 for eq in OSS_EQUIPMENT if eq.equipment_type == EquipmentType.TRANSFORMER)
         assert tx_count == 1
 
     def test_unique_equipment_ids(self) -> None:

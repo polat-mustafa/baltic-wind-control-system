@@ -410,9 +410,7 @@ OSS_EQUIPMENT: tuple[EquipmentDefinition, ...] = (
 )
 
 # Lookup for quick access by equipment_id
-_EQUIPMENT_BY_ID: dict[str, EquipmentDefinition] = {
-    eq.equipment_id: eq for eq in OSS_EQUIPMENT
-}
+_EQUIPMENT_BY_ID: dict[str, EquipmentDefinition] = {eq.equipment_id: eq for eq in OSS_EQUIPMENT}
 
 
 # ── Interlock Definitions ────────────────────────────────────────
@@ -498,9 +496,7 @@ def get_equipment_definition(equipment_id: str) -> EquipmentDefinition:
         If the equipment ID is not in the registry.
     """
     if equipment_id not in _EQUIPMENT_BY_ID:
-        raise EquipmentNotFoundError(
-            f"Equipment '{equipment_id}' not found in OSS registry."
-        )
+        raise EquipmentNotFoundError(f"Equipment '{equipment_id}' not found in OSS registry.")
     return _EQUIPMENT_BY_ID[equipment_id]
 
 
@@ -631,17 +627,17 @@ def check_interlocks(
         and action == SwitchingAction.RACK_OUT
         and system_state.get(equipment_id) == EquipmentState.CLOSED
     ):
-            violations.append(
-                InterlockViolation(
-                    interlock_id="ILK-005",
-                    description=(
-                        f"Cannot rack out {equipment_id}: CB is CLOSED. "
-                        f"Open the CB before racking out to avoid arc flash."
-                    ),
-                    blocking_equipment=equipment_id,
-                    blocking_state=EquipmentState.CLOSED,
-                )
+        violations.append(
+            InterlockViolation(
+                interlock_id="ILK-005",
+                description=(
+                    f"Cannot rack out {equipment_id}: CB is CLOSED. "
+                    f"Open the CB before racking out to avoid arc flash."
+                ),
+                blocking_equipment=equipment_id,
+                blocking_state=EquipmentState.CLOSED,
             )
+        )
 
     return violations
 
@@ -684,9 +680,7 @@ def execute_switching_action(
     """
     # 1. Equipment exists
     if equipment_id not in _EQUIPMENT_BY_ID:
-        raise EquipmentNotFoundError(
-            f"Equipment '{equipment_id}' not found in OSS registry."
-        )
+        raise EquipmentNotFoundError(f"Equipment '{equipment_id}' not found in OSS registry.")
 
     equipment_def = _EQUIPMENT_BY_ID[equipment_id]
     current_state = system_state[equipment_id]
@@ -719,7 +713,6 @@ def execute_switching_action(
         previous_state=current_state,
         new_state=new_state,
         message=(
-            f"{equipment_id}: {action.value} executed. "
-            f"{current_state.value} → {new_state.value}"
+            f"{equipment_id}: {action.value} executed. {current_state.value} → {new_state.value}"
         ),
     )

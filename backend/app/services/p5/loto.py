@@ -64,10 +64,9 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from app.services.p5.equipment_state import (
-    EquipmentType,
     OSS_EQUIPMENT,
+    EquipmentType,
 )
-
 
 # ── Enums ──────────────────────────────────────────────────────────
 

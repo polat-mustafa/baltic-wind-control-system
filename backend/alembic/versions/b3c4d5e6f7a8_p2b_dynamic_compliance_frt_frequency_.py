@@ -13,16 +13,16 @@ Create Date: 2026-02-25 12:00:00.000000
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "b3c4d5e6f7a8"
-down_revision: Union[str, Sequence[str], None] = "a2b3c4d5e6f7"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "a2b3c4d5e6f7"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -53,7 +53,7 @@ def upgrade() -> None:
             "reactive_current_compliant",
             sa.Boolean(),
             nullable=False,
-            comment="True if ΔIq ≥ 2% × ΔV per NC RfG",
+            comment="True if dIq >= 2% x dV per NC RfG",
         ),
         sa.Column(
             "reactive_current_gain",

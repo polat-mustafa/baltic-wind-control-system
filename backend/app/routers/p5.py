@@ -17,14 +17,20 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.commissioning import (
+    ApproveCampaignRequest,
     AuditRecordSchema,
     AuditTrailResponse,
+    CreateFATCampaignRequest,
     CreateProgrammeRequest,
+    CreateSATCampaignRequest,
     EmergencyStopRequest,
     EmergencyStopResponse,
     EquipmentStateSchema,
     ExecuteStepRequest,
     ExecuteStepResponse,
+    FATCampaignSchema,
+    GradingPairSchema,
+    GradingResultSchema,
     LOTOActionRequest,
     LOTOActionResponse,
     LOTOPointSchema,
@@ -33,10 +39,25 @@ from app.schemas.commissioning import (
     PiCDecisionResponse,
     ProgrammeDetailSchema,
     ProgrammeSummarySchema,
+    ProtectionCoordinationSchema,
+    RecordTestResultRequest,
+    RelaySettingSchema,
+    SATCampaignSchema,
     StepSchema,
+    TestResultSchema,
+    TestSpecificationSchema,
 )
 from app.services.p5.equipment_state import (
     get_equipment_definition,
+)
+from app.services.p5.fat import (
+    FATCampaign,
+    FATCampaignStateError,
+    FATTestNotFoundError,
+    all_fat_passed,
+    approve_fat_campaign,
+    create_fat_campaign,
+    record_fat_result,
 )
 from app.services.p5.loto import (
     LOTOAlreadyAppliedError,
@@ -46,6 +67,23 @@ from app.services.p5.loto import (
     all_loto_removed,
     apply_loto,
     remove_loto,
+)
+from app.services.p5.protection_relay import (
+    GRADING_PAIRS,
+    GradingResult,
+    SelectivityVerdict,
+    get_relay_settings,
+    verify_selectivity,
+)
+from app.services.p5.sat import (
+    SATCampaign,
+    SATCampaignStateError,
+    SATFATGateError,
+    SATTestNotFoundError,
+    all_sat_passed,
+    approve_sat_campaign,
+    create_sat_campaign,
+    record_sat_result,
 )
 from app.services.p5.switching_programme import (
     PiCDecisionRequiredError,
@@ -73,6 +111,8 @@ router = APIRouter(prefix="/api/v1/commissioning", tags=["P5 HV Commissioning"])
 # Persistence (SQLAlchemy) will be added after domain logic is proven.
 
 _programmes: dict[str, SwitchingProgramme] = {}
+_fat_campaigns: dict[str, FATCampaign] = {}
+_protection_results: list[GradingResult] = []
 
 
 def _get_programme(programme_id: str) -> SwitchingProgramme:
@@ -463,4 +503,368 @@ async def get_audit_trail(programme_id: str) -> AuditTrailResponse:
         programme_id=programme.programme_id,
         total_records=len(records),
         records=records,
+    )
+
+
+# ── FAT Helper ──────────────────────────────────────────────────
+
+
+def _build_fat_schema(campaign: FATCampaign) -> FATCampaignSchema:
+    """Build a FAT campaign schema from domain object."""
+    specs = [
+        TestSpecificationSchema(
+            test_id=s.test_id,
+            name=s.name,
+            standard=s.standard,
+            description=s.description,
+            unit=s.unit,
+            min_value=s.min_value,
+            max_value=s.max_value,
+        )
+        for s in campaign.specs.values()
+    ]
+    results = [
+        TestResultSchema(
+            test_id=r.test_id,
+            measured_value=r.measured_value,
+            verdict=r.verdict.value,
+            recorded_by=r.recorded_by,
+            recorded_at=r.recorded_at,
+            notes=r.notes,
+        )
+        for r in campaign.results.values()
+    ]
+    return FATCampaignSchema(
+        campaign_id=campaign.campaign_id,
+        equipment_tag=campaign.equipment_tag,
+        status=campaign.status.value,
+        specs=specs,
+        results=results,
+        all_passed=all_fat_passed(campaign),
+        created_at=campaign.created_at,
+        approved_by=campaign.approved_by,
+        approved_at=campaign.approved_at,
+    )
+
+
+# ── FAT Endpoints ──────────────────────────────────────────────
+
+
+@router.post("/fat", response_model=FATCampaignSchema, status_code=201)
+async def create_fat_campaign_endpoint(
+    request: CreateFATCampaignRequest,
+) -> FATCampaignSchema:
+    """Create a new FAT campaign with 8 IEC-standard test specs."""
+    campaign = create_fat_campaign(request.equipment_tag)
+    _fat_campaigns[campaign.campaign_id] = campaign
+    return _build_fat_schema(campaign)
+
+
+@router.get("/fat", response_model=list[FATCampaignSchema])
+async def list_fat_campaigns() -> list[FATCampaignSchema]:
+    """List all FAT campaigns."""
+    return [_build_fat_schema(c) for c in _fat_campaigns.values()]
+
+
+@router.get("/fat/{campaign_id}", response_model=FATCampaignSchema)
+async def get_fat_campaign(campaign_id: str) -> FATCampaignSchema:
+    """Get FAT campaign detail."""
+    if campaign_id not in _fat_campaigns:
+        raise HTTPException(status_code=404, detail=f"FAT campaign '{campaign_id}' not found.")
+    return _build_fat_schema(_fat_campaigns[campaign_id])
+
+
+@router.post(
+    "/fat/{campaign_id}/tests/{test_id}/record",
+    response_model=TestResultSchema,
+)
+async def record_fat_result_endpoint(
+    campaign_id: str,
+    test_id: str,
+    request: RecordTestResultRequest,
+) -> TestResultSchema:
+    """Record a FAT test result. Auto-evaluates pass/fail against spec."""
+    if campaign_id not in _fat_campaigns:
+        raise HTTPException(status_code=404, detail=f"FAT campaign '{campaign_id}' not found.")
+
+    campaign = _fat_campaigns[campaign_id]
+    try:
+        result = record_fat_result(
+            campaign, test_id, request.measured_value, request.recorded_by, request.notes
+        )
+    except FATCampaignStateError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except FATTestNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+    return TestResultSchema(
+        test_id=result.test_id,
+        measured_value=result.measured_value,
+        verdict=result.verdict.value,
+        recorded_by=result.recorded_by,
+        recorded_at=result.recorded_at,
+        notes=result.notes,
+    )
+
+
+@router.post("/fat/{campaign_id}/approve", response_model=FATCampaignSchema)
+async def approve_fat_campaign_endpoint(
+    campaign_id: str,
+    request: ApproveCampaignRequest,
+) -> FATCampaignSchema:
+    """Approve a completed FAT campaign (all tests must pass)."""
+    if campaign_id not in _fat_campaigns:
+        raise HTTPException(status_code=404, detail=f"FAT campaign '{campaign_id}' not found.")
+
+    campaign = _fat_campaigns[campaign_id]
+    try:
+        approve_fat_campaign(campaign, request.approved_by)
+    except FATCampaignStateError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+
+    return _build_fat_schema(campaign)
+
+
+# ── SAT Helper ──────────────────────────────────────────────────
+
+
+def _build_sat_schema(campaign: SATCampaign) -> SATCampaignSchema:
+    """Build a SAT campaign schema from domain object."""
+    specs = [
+        TestSpecificationSchema(
+            test_id=s.test_id,
+            name=s.name,
+            standard=s.standard,
+            description=s.description,
+            unit=s.unit,
+            min_value=s.min_value,
+            max_value=s.max_value,
+        )
+        for s in campaign.specs.values()
+    ]
+    results = [
+        TestResultSchema(
+            test_id=r.test_id,
+            measured_value=r.measured_value,
+            verdict=r.verdict.value,
+            recorded_by=r.recorded_by,
+            recorded_at=r.recorded_at,
+            notes=r.notes,
+        )
+        for r in campaign.results.values()
+    ]
+    return SATCampaignSchema(
+        campaign_id=campaign.campaign_id,
+        programme_id=campaign.programme_id,
+        status=campaign.status.value,
+        fat_campaign_id=campaign.fat_campaign_id,
+        specs=specs,
+        results=results,
+        all_passed=all_sat_passed(campaign),
+        created_at=campaign.created_at,
+        approved_by=campaign.approved_by,
+        approved_at=campaign.approved_at,
+    )
+
+
+# ── SAT Endpoints (nested under programme) ─────────────────────
+
+
+@router.post(
+    "/programmes/{programme_id}/sat",
+    response_model=SATCampaignSchema,
+    status_code=201,
+)
+async def create_sat_campaign_endpoint(
+    programme_id: str,
+    request: CreateSATCampaignRequest,
+) -> SATCampaignSchema:
+    """Create a SAT campaign for a switching programme.
+
+    If require_fat=true, the programme must have a linked FAT campaign
+    that is approved.
+    """
+    programme = _get_programme(programme_id)
+
+    if programme.sat_campaign is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Programme '{programme_id}' already has a SAT campaign.",
+        )
+
+    fat_campaign = None
+    if request.require_fat:
+        if programme.fat_campaign_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail="require_fat=true but programme has no linked FAT campaign.",
+            )
+        fat_campaign = _fat_campaigns.get(programme.fat_campaign_id)
+        if fat_campaign is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"FAT campaign '{programme.fat_campaign_id}' not found.",
+            )
+
+    try:
+        sat = create_sat_campaign(programme_id, fat_campaign)
+    except SATFATGateError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+
+    programme.sat_campaign = sat
+    return _build_sat_schema(sat)
+
+
+@router.get(
+    "/programmes/{programme_id}/sat",
+    response_model=SATCampaignSchema,
+)
+async def get_sat_campaign_endpoint(programme_id: str) -> SATCampaignSchema:
+    """Get SAT campaign status for a programme."""
+    programme = _get_programme(programme_id)
+    if programme.sat_campaign is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No SAT campaign for programme '{programme_id}'.",
+        )
+    return _build_sat_schema(programme.sat_campaign)
+
+
+@router.post(
+    "/programmes/{programme_id}/sat/tests/{test_id}/record",
+    response_model=TestResultSchema,
+)
+async def record_sat_result_endpoint(
+    programme_id: str,
+    test_id: str,
+    request: RecordTestResultRequest,
+) -> TestResultSchema:
+    """Record a SAT test result. Auto-evaluates pass/fail against spec."""
+    programme = _get_programme(programme_id)
+    if programme.sat_campaign is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No SAT campaign for programme '{programme_id}'.",
+        )
+
+    try:
+        result = record_sat_result(
+            programme.sat_campaign,
+            test_id,
+            request.measured_value,
+            request.recorded_by,
+            request.notes,
+        )
+    except SATCampaignStateError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except SATTestNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+    return TestResultSchema(
+        test_id=result.test_id,
+        measured_value=result.measured_value,
+        verdict=result.verdict.value,
+        recorded_by=result.recorded_by,
+        recorded_at=result.recorded_at,
+        notes=result.notes,
+    )
+
+
+@router.post(
+    "/programmes/{programme_id}/sat/approve",
+    response_model=SATCampaignSchema,
+)
+async def approve_sat_campaign_endpoint(
+    programme_id: str,
+    request: ApproveCampaignRequest,
+) -> SATCampaignSchema:
+    """Approve a completed SAT campaign (all tests must pass)."""
+    programme = _get_programme(programme_id)
+    if programme.sat_campaign is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No SAT campaign for programme '{programme_id}'.",
+        )
+
+    try:
+        approve_sat_campaign(programme.sat_campaign, request.approved_by)
+    except SATCampaignStateError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+
+    return _build_sat_schema(programme.sat_campaign)
+
+
+# ── Protection Relay Endpoints ──────────────────────────────────
+
+
+@router.get("/protection/settings", response_model=list[RelaySettingSchema])
+async def get_protection_settings() -> list[RelaySettingSchema]:
+    """List all OSS protection relay settings."""
+    return [
+        RelaySettingSchema(
+            setting_id=s.setting_id,
+            function=s.function.value,
+            description=s.description,
+            pickup_value=s.pickup_value,
+            pickup_unit=s.pickup_unit,
+            time_delay=s.time_delay,
+            location=s.location,
+            standard=s.standard,
+        )
+        for s in get_relay_settings()
+    ]
+
+
+@router.post(
+    "/protection/verify-selectivity",
+    response_model=ProtectionCoordinationSchema,
+)
+async def verify_selectivity_endpoint() -> ProtectionCoordinationSchema:
+    """Run protection coordination check across all grading pairs."""
+    settings = get_relay_settings()
+    results = verify_selectivity()
+
+    _protection_results.clear()
+    _protection_results.extend(results)
+
+    all_selective = all(r.verdict == SelectivityVerdict.SELECTIVE for r in results)
+
+    return ProtectionCoordinationSchema(
+        settings=[
+            RelaySettingSchema(
+                setting_id=s.setting_id,
+                function=s.function.value,
+                description=s.description,
+                pickup_value=s.pickup_value,
+                pickup_unit=s.pickup_unit,
+                time_delay=s.time_delay,
+                location=s.location,
+                standard=s.standard,
+            )
+            for s in settings
+        ],
+        grading_pairs=[
+            GradingPairSchema(
+                pair_id=gp.pair_id,
+                downstream_id=gp.downstream_id,
+                upstream_id=gp.upstream_id,
+                required_margin_ms=gp.required_margin_ms,
+                description=gp.description,
+            )
+            for gp in GRADING_PAIRS
+        ],
+        results=[
+            GradingResultSchema(
+                pair_id=r.pair_id,
+                downstream_id=r.downstream_id,
+                upstream_id=r.upstream_id,
+                downstream_delay_s=r.downstream_delay_s,
+                upstream_delay_s=r.upstream_delay_s,
+                actual_margin_ms=r.actual_margin_ms,
+                required_margin_ms=r.required_margin_ms,
+                verdict=r.verdict.value,
+            )
+            for r in results
+        ],
+        all_selective=all_selective,
     )

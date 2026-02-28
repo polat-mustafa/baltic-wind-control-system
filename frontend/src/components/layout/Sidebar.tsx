@@ -1,8 +1,5 @@
 /**
- * Navigation sidebar — P1-P5 project links.
- *
- * Only P5 (Commissioning) is active for this lesson. The other four
- * projects show "Coming Soon" badges and are non-interactive.
+ * Navigation sidebar — Overview home link + P1-P5 project links.
  */
 
 import { NavLink } from "react-router-dom";
@@ -14,6 +11,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { label: "Overview", path: "/", enabled: true },
   { label: "P1 · Wind Resource", path: "/wind-resource", enabled: true },
   { label: "P2 · HV Grid", path: "/hv-grid", enabled: true },
   { label: "P3 · SCADA", path: "/scada", enabled: true },
@@ -35,6 +33,7 @@ export default function Sidebar() {
             {item.enabled ? (
               <NavLink
                 to={item.path}
+                end={item.path === "/"}
                 className={({ isActive }) =>
                   `block px-3 py-2 rounded text-sm font-medium transition-colors ${
                     isActive

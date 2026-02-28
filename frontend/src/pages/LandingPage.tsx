@@ -1,27 +1,51 @@
 /**
- * Landing page — extracted from the original App.tsx placeholder.
- * Shows the project identity and links to the commissioning dashboard.
+ * Landing page — interactive wind farm overview map.
+ *
+ * The visual entry point for the Baltic Wind Alpha platform.
+ * Shows 34 turbines across 6 strings, the offshore substation,
+ * 220 kV export cable, and onshore PSE grid connection — like a
+ * real SCADA geographic overview screen (ABB Ability, Siemens DEOP).
+ *
+ * Simulated live data updates every 3s via the landing Zustand store:
+ *   - Wind speed jitters ±0.5 m/s around 10-12 m/s
+ *   - Power follows a simplified cubic wind-power curve
+ *   - Random status changes (operating/curtailed/fault) for realism
+ *
+ * Click navigation:
+ *   - Turbine → /wind-resource (P1)
+ *   - OSS → /scada (P3)
+ *   - Export cable / Onshore SS → /hv-grid (P2)
+ *   - Quick-access buttons → P3, P4, P5
  */
 
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+
+import MapKPIRibbon from "../components/landing/MapKPIRibbon";
+import QuickAccessBar from "../components/landing/QuickAccessBar";
+import WindFarmMap from "../components/landing/WindFarmMap";
+import { useLandingStore } from "../store/landingStore";
 
 export default function LandingPage() {
+  const turbines = useLandingStore((s) => s.turbines);
+  const kpis = useLandingStore((s) => s.kpis);
+  const startSimulation = useLandingStore((s) => s.startSimulation);
+  const stopSimulation = useLandingStore((s) => s.stopSimulation);
+
+  useEffect(() => {
+    startSimulation();
+    return () => stopSimulation();
+  }, [startSimulation, stopSimulation]);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-3.5rem)] text-center px-4">
-      <h1 className="text-4xl font-bold mb-4">Baltic Wind Alpha</h1>
-      <p className="text-lg text-slate-300 mb-2">
-        510 MW Offshore Wind HV Control Simulation Platform
-      </p>
-      <p className="text-sm text-slate-500 mb-8">
-        34 &times; Vestas V236-15.0 MW &mdash; 66 kV array &mdash; 220 kV
-        export (45 km) &mdash; 400 kV PSE grid
-      </p>
-      <Link
-        to="/commissioning"
-        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-      >
-        Open Commissioning Dashboard
-      </Link>
+    <div className="flex flex-col gap-4 p-4 h-full overflow-auto">
+      {/* Main interactive map */}
+      <WindFarmMap turbines={turbines} totalPowerMW={kpis.totalOutputMW} />
+
+      {/* Bottom section: KPIs + quick nav */}
+      <div className="flex flex-col lg:flex-row gap-4 items-start justify-between">
+        <MapKPIRibbon kpis={kpis} />
+        <QuickAccessBar />
+      </div>
     </div>
   );
 }

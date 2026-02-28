@@ -13,6 +13,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import AppShell from "./components/layout/AppShell";
 import CommissioningPage from "./pages/CommissioningPage";
+import ForecastPage from "./pages/ForecastPage";
 import HVGridPage from "./pages/HVGridPage";
 import LandingPage from "./pages/LandingPage";
 import SCADAPage from "./pages/SCADAPage";
@@ -27,6 +28,7 @@ function App() {
           <Route path="wind-resource" element={<WindResourcePage />} />
           <Route path="hv-grid" element={<HVGridPage />} />
           <Route path="scada" element={<SCADAPage />} />
+          <Route path="forecast" element={<ForecastPage />} />
           <Route path="commissioning" element={<CommissioningPage />} />
         </Route>
       </Routes>

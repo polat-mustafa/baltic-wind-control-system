@@ -17,7 +17,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "P1 · Wind Resource", path: "/wind-resource", enabled: true },
   { label: "P2 · HV Grid", path: "/hv-grid", enabled: true },
   { label: "P3 · SCADA", path: "/scada", enabled: true },
-  { label: "P4 · AI Forecast", path: "/forecast", enabled: false },
+  { label: "P4 · AI Forecast", path: "/forecast", enabled: true },
   { label: "P5 · Commissioning", path: "/commissioning", enabled: true },
 ];
 

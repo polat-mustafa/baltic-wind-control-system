@@ -18,25 +18,9 @@ import type {
   TransitionResult,
 } from "../types/scada";
 
+import { post, request } from "./apiClient";
+
 const BASE = "/api/v1/scada";
-
-// ── Helpers ────────────────────────────────────────────────────
-
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(body.detail ?? `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-function post<T>(url: string, body: unknown): Promise<T> {
-  return request<T>(url, { method: "POST", body: JSON.stringify(body) });
-}
 
 // ── GOOSE Fault Simulation ────────────────────────────────────
 

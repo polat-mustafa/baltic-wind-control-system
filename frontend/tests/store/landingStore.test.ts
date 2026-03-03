@@ -2,6 +2,8 @@
  * Tests for the landing page Zustand store.
  *
  * Tests the simulation tick lifecycle using fake timers.
+ * Note: tickInterval is a module-level variable (not in Zustand state)
+ * so we test behavior (data updates) rather than interval presence.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,10 +11,6 @@ import { useLandingStore, selectKPIs } from "../../src/store/landingStore";
 
 beforeEach(() => {
   vi.useFakeTimers();
-  // Reset store state
-  useLandingStore.setState({
-    tickInterval: null,
-  });
 });
 
 afterEach(() => {
@@ -38,26 +36,9 @@ describe("initial state", () => {
     expect(kpis.availabilityPercent).toBe(100);
     expect(kpis.activeAlerts).toBe(0);
   });
-
-  it("tickInterval starts as null", () => {
-    expect(useLandingStore.getState().tickInterval).toBeNull();
-  });
 });
 
 describe("startSimulation", () => {
-  it("sets tickInterval", () => {
-    useLandingStore.getState().startSimulation();
-    expect(useLandingStore.getState().tickInterval).not.toBeNull();
-  });
-
-  it("does not double-start", () => {
-    useLandingStore.getState().startSimulation();
-    const first = useLandingStore.getState().tickInterval;
-    useLandingStore.getState().startSimulation();
-    const second = useLandingStore.getState().tickInterval;
-    expect(first).toBe(second);
-  });
-
   it("updates turbine data after tick", () => {
     useLandingStore.getState().startSimulation();
     vi.advanceTimersByTime(3000);
@@ -66,18 +47,32 @@ describe("startSimulation", () => {
     expect(state.turbines).toHaveLength(34);
     expect(state.kpis.totalOutputMW).toBeGreaterThanOrEqual(0);
   });
+
+  it("does not double-start (only one tick per interval)", () => {
+    const spy = vi.spyOn(globalThis, "setInterval");
+    useLandingStore.getState().startSimulation();
+    const callCount = spy.mock.calls.length;
+    useLandingStore.getState().startSimulation();
+    // Should not have created another interval
+    expect(spy.mock.calls.length).toBe(callCount);
+    spy.mockRestore();
+  });
 });
 
 describe("stopSimulation", () => {
-  it("clears the interval", () => {
+  it("stops data updates after stop", () => {
     useLandingStore.getState().startSimulation();
-    expect(useLandingStore.getState().tickInterval).not.toBeNull();
+    vi.advanceTimersByTime(3000);
     useLandingStore.getState().stopSimulation();
-    expect(useLandingStore.getState().tickInterval).toBeNull();
+    const stateAfterStop = useLandingStore.getState().turbines.map((t) => t.windSpeedMs);
+    vi.advanceTimersByTime(3000);
+    const stateAfterWait = useLandingStore.getState().turbines.map((t) => t.windSpeedMs);
+    // Data should not change after stop
+    expect(stateAfterStop).toEqual(stateAfterWait);
   });
 
   it("is safe to call when not running", () => {
+    // Should not throw
     useLandingStore.getState().stopSimulation();
-    expect(useLandingStore.getState().tickInterval).toBeNull();
   });
 });

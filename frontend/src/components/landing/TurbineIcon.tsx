@@ -14,11 +14,12 @@ import { SCADA_COLORS } from "../../constants/scadaColors";
 import type { TurbineStatus } from "../../types/landing";
 
 interface TurbineIconProps {
+  turbineId: string;
   x: number;
   y: number;
   status: TurbineStatus;
   powerOutputMW: number;
-  onMouseEnter: (e: React.MouseEvent<SVGGElement>) => void;
+  onMouseEnter: (turbineId: string, e: React.MouseEvent<SVGGElement>) => void;
   onMouseLeave: () => void;
   onClick: () => void;
 }
@@ -43,6 +44,7 @@ function bladeAnimationDuration(powerMW: number): string {
 }
 
 function TurbineIcon({
+  turbineId,
   x,
   y,
   status,
@@ -58,7 +60,7 @@ function TurbineIcon({
   return (
     <g
       transform={`translate(${x}, ${y})`}
-      onMouseEnter={onMouseEnter}
+      onMouseEnter={(e) => onMouseEnter(turbineId, e)}
       onMouseLeave={onMouseLeave}
       onClick={onClick}
       className="cursor-pointer"

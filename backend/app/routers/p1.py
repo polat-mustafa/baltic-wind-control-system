@@ -24,6 +24,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.cache import cached
 from app.services.p1.aep_calculator import (
     DEFAULT_PRICE_EUR_MWH,
     compute_aep_cascade,
@@ -273,6 +274,26 @@ def _run_wake_for_layout(
     return run_wake_analysis(layout.x_positions, layout.y_positions, site)
 
 
+@cached(prefix="wake", ttl=300)
+def _cached_wake_analysis(
+    layout_name: str,
+    weibull_a: float,
+    weibull_k: float,
+    ti: float,
+) -> dict[str, object]:
+    """Cached wrapper — returns wake result as a dict for Redis storage."""
+    layout = _get_layout(layout_name)
+    result = _run_wake_for_layout(layout, weibull_a, weibull_k, ti)
+    return {
+        "gross_aep_gwh": result.gross_aep_gwh,
+        "net_aep_gwh": result.net_aep_gwh,
+        "wake_loss_percent": result.wake_loss_percent,
+        "capacity_factor": result.capacity_factor,
+        "per_turbine_aep_gwh": [float(v) for v in result.per_turbine_aep_gwh],
+        "per_turbine_wake_loss_percent": [float(v) for v in result.per_turbine_wake_loss_percent],
+    }
+
+
 # ── Endpoints ────────────────────────────────────────────────────
 
 
@@ -349,13 +370,14 @@ async def wake_analysis(request: WakeAnalysisRequest) -> WakeAnalysisResponse:
     """Run PyWake BPA Gaussian wake analysis on a layout.
 
     Returns gross/net AEP with per-turbine breakdown.
+    Uses Redis cache (TTL 300s) to avoid recomputing identical requests.
     """
-    layout = _get_layout(request.layout)
-
     try:
-        result = _run_wake_for_layout(
-            layout, request.weibull_a, request.weibull_k, request.turbulence_intensity
+        result = await _cached_wake_analysis(
+            request.layout, request.weibull_a, request.weibull_k, request.turbulence_intensity
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -363,13 +385,13 @@ async def wake_analysis(request: WakeAnalysisRequest) -> WakeAnalysisResponse:
         ) from e
 
     return WakeAnalysisResponse(
-        gross_aep_gwh=round(result.gross_aep_gwh, 2),
-        net_aep_gwh=round(result.net_aep_gwh, 2),
-        wake_loss_percent=round(result.wake_loss_percent, 2),
-        capacity_factor=round(result.capacity_factor, 4),
-        per_turbine_aep_gwh=[round(float(v), 3) for v in result.per_turbine_aep_gwh],
+        gross_aep_gwh=round(result["gross_aep_gwh"], 2),
+        net_aep_gwh=round(result["net_aep_gwh"], 2),
+        wake_loss_percent=round(result["wake_loss_percent"], 2),
+        capacity_factor=round(result["capacity_factor"], 4),
+        per_turbine_aep_gwh=[round(float(v), 3) for v in result["per_turbine_aep_gwh"]],
         per_turbine_wake_loss_percent=[
-            round(float(v), 2) for v in result.per_turbine_wake_loss_percent
+            round(float(v), 2) for v in result["per_turbine_wake_loss_percent"]
         ],
     )
 

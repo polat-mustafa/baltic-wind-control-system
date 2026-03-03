@@ -355,11 +355,11 @@ export default function SubstationSLD() {
   const breakerStates = useScadaStore((s) => s.breakerStates);
   const faultHighlightNodeId = useScadaStore((s) => s.faultHighlightNodeId);
   const toggleBreaker = useScadaStore((s) => s.toggleBreaker);
-  const measurements = useScadaStore((s) => s.measurements);
+  const measurements = useScadaStore((s) => s.measurements) ?? [];
   const [selectedNode, setSelectedNode] = useState<{ data: Record<string, unknown>; type: string } | null>(null);
 
   const graph = useMemo(() => {
-    if (!substationSummary) return { nodes: [], edges: [] };
+    if (!substationSummary?.devices) return { nodes: [], edges: [] };
     return buildGraph(substationSummary.devices, breakerStates, faultHighlightNodeId);
   }, [substationSummary, breakerStates, faultHighlightNodeId]);
 

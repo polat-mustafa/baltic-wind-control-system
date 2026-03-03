@@ -46,7 +46,7 @@ export default function EventLogPanel() {
     if (eventLog.length > 0) return eventLog;
 
     // Fallback: convert old simulation result to SOE format
-    if (!simulationResult) return [];
+    if (!simulationResult?.events) return [];
     return simulationResult.events.map((e, i) => ({
       id: `legacy-${i}`,
       timestamp: Date.now() + e.timestamp_ms,

@@ -26,6 +26,8 @@ from __future__ import annotations
 import numpy as np
 from fastapi import APIRouter
 
+from app.core.cache import cached
+
 from app.schemas.forecast import (
     ConstraintCheckRequest,
     ConstraintCheckResponse,
@@ -980,6 +982,39 @@ def _build_all_model_forecasts(
     return forecasts, actual[-n:]
 
 
+# ── Cached Ensemble Helper ───────────────────────────────────────
+
+
+@cached(prefix="ensemble", ttl=120)
+def _cached_ensemble_predict(
+    num_turbines: int,
+    num_timesteps: int,
+    turbine_index: int,
+    horizon_steps: int,
+    seed: int | None,
+) -> dict:
+    """Cached wrapper for ensemble prediction — returns response as dict."""
+    forecasts, _ = _build_all_model_forecasts(
+        num_turbines=num_turbines,
+        num_timesteps=num_timesteps,
+        turbine_index=turbine_index,
+        horizon_steps=horizon_steps,
+        seed=seed,
+    )
+    ensemble = compute_ensemble_forecast(forecasts)
+    n = len(ensemble.power_p50_mw)
+    return {
+        "power_p10_mw": [round(float(v), 4) for v in ensemble.power_p10_mw],
+        "power_p50_mw": [round(float(v), 4) for v in ensemble.power_p50_mw],
+        "power_p90_mw": [round(float(v), 4) for v in ensemble.power_p90_mw],
+        "wind_speed_ms": [round(float(v), 4) for v in ensemble.wind_speed_ms],
+        "timestamps_utc": [int(t) for t in ensemble.timestamps_utc],
+        "num_steps": n,
+        "weights_applied": ensemble.weights_applied,
+        "total_violations": ensemble.constraint_result.total_violations,
+    }
+
+
 # ── Ensemble Prediction ──────────────────────────────────────────
 
 
@@ -991,13 +1026,14 @@ async def predict_ensemble_endpoint(
 
     Pipeline: train all 3 models → predict → apply horizon-dependent
     weights → enforce physical constraints → return ensemble P10/P50/P90.
+    Uses Redis cache (TTL 120s) to avoid recomputing identical requests.
 
     Weight schedule per Roadmap §5.6:
         < 6h:    XGB 0.50 + LSTM 0.30 + TFT 0.20
         6–24h:   XGB 0.20 + LSTM 0.40 + TFT 0.40
         24–48h:  XGB 0.10 + LSTM 0.30 + TFT 0.60
     """
-    forecasts, _ = _build_all_model_forecasts(
+    result = await _cached_ensemble_predict(
         num_turbines=request.num_turbines,
         num_timesteps=request.num_timesteps,
         turbine_index=request.turbine_index,
@@ -1005,19 +1041,7 @@ async def predict_ensemble_endpoint(
         seed=request.seed,
     )
 
-    ensemble = compute_ensemble_forecast(forecasts)
-    n = len(ensemble.power_p50_mw)
-
-    return EnsemblePredictResponse(
-        power_p10_mw=[round(float(v), 4) for v in ensemble.power_p10_mw],
-        power_p50_mw=[round(float(v), 4) for v in ensemble.power_p50_mw],
-        power_p90_mw=[round(float(v), 4) for v in ensemble.power_p90_mw],
-        wind_speed_ms=[round(float(v), 4) for v in ensemble.wind_speed_ms],
-        timestamps_utc=[int(t) for t in ensemble.timestamps_utc],
-        num_steps=n,
-        weights_applied=ensemble.weights_applied,
-        total_violations=ensemble.constraint_result.total_violations,
-    )
+    return EnsemblePredictResponse(**result)
 
 
 # ── Ramp Detection ───────────────────────────────────────────────

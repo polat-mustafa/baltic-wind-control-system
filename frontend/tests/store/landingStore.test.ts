@@ -21,12 +21,14 @@ afterEach(() => {
 
 describe("initial state", () => {
   it("has 34 turbines", () => {
-    expect(useLandingStore.getState().turbines).toHaveLength(34);
+    const { turbineIds, turbineMap } = useLandingStore.getState();
+    expect(turbineIds).toHaveLength(34);
+    expect(Object.keys(turbineMap)).toHaveLength(34);
   });
 
   it("all turbines start as operating", () => {
-    const turbines = useLandingStore.getState().turbines;
-    const allOperating = turbines.every((t) => t.status === "operating");
+    const { turbineMap } = useLandingStore.getState();
+    const allOperating = Object.values(turbineMap).every((t) => t.status === "operating");
     expect(allOperating).toBe(true);
   });
 
@@ -42,9 +44,8 @@ describe("startSimulation", () => {
   it("updates turbine data after tick", () => {
     useLandingStore.getState().startSimulation();
     vi.advanceTimersByTime(3000);
-    // Wind speed should have jittered (may be same due to random, but state should update)
     const state = useLandingStore.getState();
-    expect(state.turbines).toHaveLength(34);
+    expect(Object.keys(state.turbineMap)).toHaveLength(34);
     expect(state.kpis.totalOutputMW).toBeGreaterThanOrEqual(0);
   });
 
@@ -64,11 +65,11 @@ describe("stopSimulation", () => {
     useLandingStore.getState().startSimulation();
     vi.advanceTimersByTime(3000);
     useLandingStore.getState().stopSimulation();
-    const stateAfterStop = useLandingStore.getState().turbines.map((t) => t.windSpeedMs);
+    const windsBefore = Object.values(useLandingStore.getState().turbineMap).map((t) => t.windSpeedMs);
     vi.advanceTimersByTime(3000);
-    const stateAfterWait = useLandingStore.getState().turbines.map((t) => t.windSpeedMs);
+    const windsAfter = Object.values(useLandingStore.getState().turbineMap).map((t) => t.windSpeedMs);
     // Data should not change after stop
-    expect(stateAfterStop).toEqual(stateAfterWait);
+    expect(windsBefore).toEqual(windsAfter);
   });
 
   it("is safe to call when not running", () => {

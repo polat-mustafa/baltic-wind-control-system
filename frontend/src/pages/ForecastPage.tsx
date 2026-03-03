@@ -26,6 +26,8 @@ export default function ForecastPage() {
     loading,
     error,
     analysisRun,
+    progress,
+    progressMessage,
     turbineIndex,
     horizonSteps,
     rampThresholdMwHr,
@@ -193,7 +195,7 @@ export default function ForecastPage() {
             </CardContent>
           </Card>
 
-          {/* Run Analysis button */}
+          {/* Run Analysis button + progress */}
           <Button
             onClick={runFullAnalysis}
             disabled={loading}
@@ -211,6 +213,21 @@ export default function ForecastPage() {
               "Run Forecast Analysis"
             )}
           </Button>
+
+          {/* Progress bar during analysis */}
+          {loading && (
+            <div className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2">
+              <div className="w-full h-2 bg-bg-tertiary rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-xs text-text-muted text-center font-mono">
+                {progressMessage || "Initialising pipeline..."}
+              </p>
+            </div>
+          )}
 
           {/* Reference box */}
           <div className="rounded-lg border border-border-primary bg-bg-tertiary p-3">

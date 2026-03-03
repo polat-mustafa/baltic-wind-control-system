@@ -10,10 +10,11 @@
 
 import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
-import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { InfoButton } from "../ui/InfoButton";
 import { aepCascadeInfo } from "../../constants/panelInfo";
+import { ChartWrapper } from "../ui/ChartWrapper";
 
 export default function AEPCascadePanel() {
   const { aepCascade } = useWindResourceStore();
@@ -65,13 +66,11 @@ export default function AEPCascadePanel() {
   ];
 
   return (
-    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
-          AEP Loss Cascade &amp; Exceedance (P-values)
-        </h3>
-        <InfoButton info={aepCascadeInfo} />
-      </div>
+    <ChartWrapper
+      title="AEP Loss Cascade & Exceedance (P-values)"
+      headerRight={<InfoButton info={aepCascadeInfo} />}
+      footer={`Total loss: ${aepCascade.total_loss_percent.toFixed(1)}% · Uncertainty: ±${aepCascade.combined_uncertainty_percent.toFixed(1)}% (RSS, IEC 61400-15)`}
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Waterfall */}
         <Plot
@@ -113,7 +112,7 @@ export default function AEPCascadePanel() {
           config={PLOTLY_CONFIG}
           useResizeHandler
           className="w-full"
-          style={{ height: 320 }}
+          style={{ height: CHART_HEIGHT }}
         />
 
         {/* P-values */}
@@ -166,14 +165,9 @@ export default function AEPCascadePanel() {
           config={PLOTLY_CONFIG}
           useResizeHandler
           className="w-full"
-          style={{ height: 320 }}
+          style={{ height: CHART_HEIGHT }}
         />
       </div>
-      <p className="text-xs text-text-muted mt-2 text-center">
-        Total loss: {aepCascade.total_loss_percent.toFixed(1)}% · Uncertainty:
-        {" \u00B1"}
-        {aepCascade.combined_uncertainty_percent.toFixed(1)}% (RSS, IEC 61400-15)
-      </p>
-    </div>
+    </ChartWrapper>
   );
 }

@@ -995,19 +995,91 @@ def _build_all_model_forecasts(
     return forecasts, actual[-n:]
 
 
-# ── Cached Ensemble Helper ───────────────────────────────────────
+# ── Cached Model Forecasts (shared across all endpoints) ─────────
+
+# Lock prevents parallel requests from each training models independently.
+# First request builds+caches; remaining requests wait then get cache hit.
+_build_lock = asyncio.Lock()
 
 
-@cached(prefix="ensemble", ttl=120)
-def _cached_ensemble_predict(
+@cached(prefix="forecasts", ttl=300)
+def _cached_build_forecasts(
     num_turbines: int,
     num_timesteps: int,
     turbine_index: int,
     horizon_steps: int,
     seed: int | None,
 ) -> dict[str, object]:
-    """Cached wrapper for ensemble prediction — returns response as dict."""
-    forecasts, _ = _build_all_model_forecasts(
+    """Cached wrapper for all model forecasts — serialisable dict for Redis."""
+    forecasts, actual = _build_all_model_forecasts(
+        num_turbines=num_turbines,
+        num_timesteps=num_timesteps,
+        turbine_index=turbine_index,
+        horizon_steps=horizon_steps,
+        seed=seed,
+    )
+    return {
+        "xgb_p10": forecasts.xgb_p10.tolist(),
+        "xgb_p50": forecasts.xgb_p50.tolist(),
+        "xgb_p90": forecasts.xgb_p90.tolist(),
+        "lstm_p10": forecasts.lstm_p10.tolist(),
+        "lstm_p50": forecasts.lstm_p50.tolist(),
+        "lstm_p90": forecasts.lstm_p90.tolist(),
+        "tft_p10": forecasts.tft_p10.tolist(),
+        "tft_p50": forecasts.tft_p50.tolist(),
+        "tft_p90": forecasts.tft_p90.tolist(),
+        "wind_speed_ms": forecasts.wind_speed_ms.tolist(),
+        "timestamps_utc": forecasts.timestamps_utc.tolist(),
+        "actual": actual.tolist(),
+    }
+
+
+async def _get_cached_forecasts(
+    num_turbines: int,
+    num_timesteps: int,
+    turbine_index: int,
+    horizon_steps: int,
+    seed: int | None,
+) -> tuple[ModelForecasts, np.ndarray]:
+    """Get cached model forecasts with lock to serialise first build."""
+    async with _build_lock:
+        raw = await _cached_build_forecasts(
+            num_turbines=num_turbines,
+            num_timesteps=num_timesteps,
+            turbine_index=turbine_index,
+            horizon_steps=horizon_steps,
+            seed=seed,
+        )
+
+    forecasts = ModelForecasts(
+        xgb_p10=np.asarray(raw["xgb_p10"]),
+        xgb_p50=np.asarray(raw["xgb_p50"]),
+        xgb_p90=np.asarray(raw["xgb_p90"]),
+        lstm_p10=np.asarray(raw["lstm_p10"]),
+        lstm_p50=np.asarray(raw["lstm_p50"]),
+        lstm_p90=np.asarray(raw["lstm_p90"]),
+        tft_p10=np.asarray(raw["tft_p10"]),
+        tft_p50=np.asarray(raw["tft_p50"]),
+        tft_p90=np.asarray(raw["tft_p90"]),
+        wind_speed_ms=np.asarray(raw["wind_speed_ms"]),
+        timestamps_utc=np.asarray(raw["timestamps_utc"]),
+    )
+    actual = np.asarray(raw["actual"])
+    return forecasts, actual
+
+
+# ── Cached Ensemble Helper ───────────────────────────────────────
+
+
+async def _cached_ensemble_predict(
+    num_turbines: int,
+    num_timesteps: int,
+    turbine_index: int,
+    horizon_steps: int,
+    seed: int | None,
+) -> dict[str, object]:
+    """Build ensemble from cached model forecasts."""
+    forecasts, _ = await _get_cached_forecasts(
         num_turbines=num_turbines,
         num_timesteps=num_timesteps,
         turbine_index=turbine_index,
@@ -1053,7 +1125,6 @@ async def predict_ensemble_endpoint(
         horizon_steps=request.horizon_steps,
         seed=request.seed,
     )
-
     return EnsemblePredictResponse(**result)
 
 
@@ -1071,17 +1142,14 @@ async def detect_ramps_endpoint(
     grid stability alerts for ramp-down events.
     """
 
-    # Run CPU-bound ramp detection pipeline in thread pool
-    def _detect() -> tuple[ModelForecasts, np.ndarray]:
-        return _build_all_model_forecasts(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            horizon_steps=request.horizon_steps,
-            seed=request.seed,
-        )
-
-    forecasts, _ = await asyncio.to_thread(_detect)
+    # Use shared cached forecasts (lock serialises first build)
+    forecasts, _ = await _get_cached_forecasts(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        horizon_steps=request.horizon_steps,
+        seed=request.seed,
+    )
 
     ensemble = compute_ensemble_forecast(forecasts)
 
@@ -1141,17 +1209,14 @@ async def compare_models_endpoint(
     evaluate each model vs actuals → rank and compare.
     """
 
-    # Run CPU-bound model comparison pipeline in thread pool
-    def _compare() -> tuple[ModelForecasts, np.ndarray]:
-        return _build_all_model_forecasts(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            horizon_steps=request.horizon_steps,
-            seed=request.seed,
-        )
-
-    forecasts, actual = await asyncio.to_thread(_compare)
+    # Use shared cached forecasts (lock serialises first build)
+    forecasts, actual = await _get_cached_forecasts(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        horizon_steps=request.horizon_steps,
+        seed=request.seed,
+    )
 
     ensemble = compute_ensemble_forecast(forecasts)
 

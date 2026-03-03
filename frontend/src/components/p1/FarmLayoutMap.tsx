@@ -7,9 +7,10 @@
 
 import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
-import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { farmLayoutInfo } from "../../constants/panelInfo";
+import { ChartWrapper } from "../ui/ChartWrapper";
 
 export default function FarmLayoutMap() {
   const { layoutPositions, wakeAnalysis } = useWindResourceStore();
@@ -31,14 +32,11 @@ export default function FarmLayoutMap() {
     y_positions.reduce((a, b) => a + b, 0) / y_positions.length;
 
   return (
-    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
-          Farm Layout — {layoutPositions.name} ({layoutPositions.num_turbines}{" "}
-          turbines)
-        </h3>
-        <InfoButton info={farmLayoutInfo} />
-      </div>
+    <ChartWrapper
+      title={`Farm Layout — ${layoutPositions.name} (${layoutPositions.num_turbines} turbines)`}
+      headerRight={<InfoButton info={farmLayoutInfo} />}
+      footer={`Min spacing: ${layoutPositions.min_spacing_m.toFixed(0)}m · Area: ${layoutPositions.area_km2.toFixed(1)} km²`}
+    >
       <Plot
         data={[
           {
@@ -98,12 +96,8 @@ export default function FarmLayoutMap() {
         config={PLOTLY_CONFIG}
         useResizeHandler
         className="w-full"
-        style={{ height: 350 }}
+        style={{ height: CHART_HEIGHT }}
       />
-      <p className="text-xs text-text-muted mt-1 text-center">
-        Min spacing: {layoutPositions.min_spacing_m.toFixed(0)}m · Area:{" "}
-        {layoutPositions.area_km2.toFixed(1)} km²
-      </p>
-    </div>
+    </ChartWrapper>
   );
 }

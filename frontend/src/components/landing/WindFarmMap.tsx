@@ -9,7 +9,7 @@
  * This mirrors a real SCADA geographic overview (ABB Ability, Siemens DEOP).
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { SCADA_COLORS } from "../../constants/scadaColors";
@@ -41,8 +41,20 @@ export default function WindFarmMap({ turbines, totalPowerMW }: WindFarmMapProps
   const [hoveredTurbine, setHoveredTurbine] = useState<TurbineData | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
+  // Memoize turbineMap — only recomputed when turbines array ref changes
+  const turbineMap = useMemo(
+    () => new Map(turbines.map((t) => [t.id, t])),
+    [turbines],
+  );
+
+  // Keep ref for stable callback access (avoids stale closure)
+  const turbineMapRef = useRef(turbineMap);
+  turbineMapRef.current = turbineMap;
+
   const handleTurbineHover = useCallback(
-    (turbine: TurbineData, e: React.MouseEvent<SVGGElement>) => {
+    (turbineId: string, e: React.MouseEvent<SVGGElement>) => {
+      const turbine = turbineMapRef.current.get(turbineId);
+      if (!turbine) return;
       // Get position relative to the map container
       const container = svgRef.current?.parentElement;
       if (!container) return;
@@ -63,9 +75,6 @@ export default function WindFarmMap({ turbines, totalPowerMW }: WindFarmMapProps
   const handleTurbineClick = useCallback(() => {
     navigate("/wind-resource");
   }, [navigate]);
-
-  // Build turbine lookup for fast access
-  const turbineMap = new Map(turbines.map((t) => [t.id, t]));
 
   return (
     <div className="relative w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
@@ -174,11 +183,12 @@ export default function WindFarmMap({ turbines, totalPowerMW }: WindFarmMapProps
           return (
             <TurbineIcon
               key={pos.id}
+              turbineId={pos.id}
               x={pos.x}
               y={pos.y}
               status={turbine.status}
               powerOutputMW={turbine.powerOutputMW}
-              onMouseEnter={(e) => handleTurbineHover(turbine, e)}
+              onMouseEnter={handleTurbineHover}
               onMouseLeave={handleTurbineLeave}
               onClick={handleTurbineClick}
             />

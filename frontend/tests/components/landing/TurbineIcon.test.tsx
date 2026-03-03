@@ -8,6 +8,7 @@ import TurbineIcon from "../../../src/components/landing/TurbineIcon";
 
 describe("TurbineIcon", () => {
   const defaultProps = {
+    turbineId: "WTG-01",
     x: 100,
     y: 200,
     status: "operating" as const,
@@ -61,7 +62,7 @@ describe("TurbineIcon", () => {
     );
     const group = container.querySelector('[role="button"]');
     if (group) fireEvent.mouseEnter(group);
-    expect(onMouseEnter).toHaveBeenCalled();
+    expect(onMouseEnter).toHaveBeenCalledWith("WTG-01", expect.any(Object));
   });
 
   it("calls onMouseLeave on mouse out", () => {

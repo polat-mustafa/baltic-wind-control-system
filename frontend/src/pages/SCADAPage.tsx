@@ -1,64 +1,181 @@
 /**
  * SCADA & IEC 61850 page — route /scada.
  *
- * Loads substation data on mount. Shows fault scenario selector,
- * role selector, and "Run Simulation" button. Renders SCADADashboard
- * with SLD, GOOSE timeline, alarms, PtW, and RBAC panels.
+ * Professional layout:
+ * - Compact header with alarm summary badges
+ * - Fault scenario + role selectors inline (dropdowns, not sidebar)
+ * - Auto-simulation toggle for continuous fault injection
+ * - Full-width SCADADashboard with SLD + alarms + tabbed panels
  */
 
 import { useEffect } from "react";
-import { Monitor } from "lucide-react";
+import { Monitor, Play, Square, Zap } from "lucide-react";
 
 import SCADADashboard from "../components/p3/SCADADashboard";
+import SCADAKPIHeader from "../components/p3/SCADAKPIHeader";
 import { useScadaStore } from "../store/scadaStore";
 import { Button } from "../components/ui/Button";
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
+import { cn } from "../lib/utils";
 
 const ROLE_OPTIONS = [
   { value: 1, label: "Viewer (L1)" },
   { value: 2, label: "Operator (L2)" },
-  { value: 3, label: "Senior Operator (L3)" },
+  { value: 3, label: "Sr. Operator (L3)" },
   { value: 4, label: "Engineer (L4)" },
   { value: 5, label: "Admin (L5)" },
 ] as const;
 
 export default function SCADAPage() {
-  const {
-    substationSummary,
-    faultScenarios,
-    selectedFaultType,
-    selectedRoleLevel,
-    loading,
-    error,
-    dataLoaded,
-    setSelectedFaultType,
-    setSelectedRoleLevel,
-    fetchInitialData,
-    runGooseSimulation,
-    clearError,
-  } = useScadaStore();
+  const substationSummary = useScadaStore((s) => s.substationSummary);
+  const faultScenarios = useScadaStore((s) => s.faultScenarios);
+  const selectedFaultType = useScadaStore((s) => s.selectedFaultType);
+  const selectedRoleLevel = useScadaStore((s) => s.selectedRoleLevel);
+  const loading = useScadaStore((s) => s.loading);
+  const error = useScadaStore((s) => s.error);
+  const dataLoaded = useScadaStore((s) => s.dataLoaded);
+  const autoSimEnabled = useScadaStore((s) => s.autoSimEnabled);
+  const alarms = useScadaStore((s) => s.alarms);
+
+  const setSelectedFaultType = useScadaStore((s) => s.setSelectedFaultType);
+  const setSelectedRoleLevel = useScadaStore((s) => s.setSelectedRoleLevel);
+  const fetchInitialData = useScadaStore((s) => s.fetchInitialData);
+  const runGooseSimulation = useScadaStore((s) => s.runGooseSimulation);
+  const startAutoSimulation = useScadaStore((s) => s.startAutoSimulation);
+  const stopAutoSimulation = useScadaStore((s) => s.stopAutoSimulation);
+  const clearError = useScadaStore((s) => s.clearError);
 
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
 
+  // Stop auto-sim on unmount
+  useEffect(() => {
+    return () => stopAutoSimulation();
+  }, [stopAutoSimulation]);
+
+  // Alarm counts for header
+  const critCount = alarms.filter((a) => a.priority === "CRITICAL" && a.state === "ACTIVE").length;
+  const highCount = alarms.filter((a) => a.priority === "HIGH" && a.state === "ACTIVE").length;
+  const medCount = alarms.filter((a) => a.priority === "MEDIUM" && a.state === "ACTIVE").length;
+  const activeCount = alarms.filter((a) => a.state === "ACTIVE").length;
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold text-text-primary">
-          P3 · SCADA & IEC 61850
-        </h2>
-        <p className="text-xs text-text-muted mt-1 font-mono">
-          {substationSummary
-            ? `${substationSummary.total_devices} IEDs · ${substationSummary.total_logical_nodes} LNs · IEC 61850-7-4 · GOOSE 8-1 · IEC 62443 RBAC`
-            : "Loading substation configuration..."}
-        </p>
+    <div className="flex flex-col gap-3 h-full">
+      {/* Compact header row */}
+      <div className="flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-text-primary">
+            P3 · SCADA & Automation
+          </h2>
+          <span className="text-[10px] text-text-muted font-mono hidden md:inline">
+            {substationSummary
+              ? `${substationSummary.total_devices} IEDs · ${substationSummary.total_logical_nodes} LNs · IEC 61850 · GOOSE`
+              : "Loading..."}
+          </span>
+        </div>
+
+        {/* Alarm summary badges */}
+        <div className="flex items-center gap-2">
+          {activeCount > 0 && (
+            <div className="flex items-center gap-1.5 text-[10px] font-mono">
+              {critCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded bg-red-900/40 text-red-400 font-bold animate-pulse">
+                  {critCount} CRIT
+                </span>
+              )}
+              {highCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded bg-orange-900/40 text-orange-400">
+                  {highCount} HIGH
+                </span>
+              )}
+              {medCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400">
+                  {medCount} MED
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Controls bar — inline selectors + simulation buttons */}
+      <div className="flex items-center gap-3 shrink-0 flex-wrap">
+        {/* Fault scenario dropdown */}
+        <div className="flex items-center gap-1.5">
+          <Zap size={12} className="text-text-muted" />
+          <select
+            value={selectedFaultType}
+            onChange={(e) => setSelectedFaultType(e.target.value)}
+            className="text-xs bg-bg-secondary border border-border-primary rounded px-2 py-1 text-text-secondary"
+          >
+            {faultScenarios.map((s) => (
+              <option key={s.fault_type} value={s.fault_type}>
+                {s.description}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Run GOOSE simulation */}
+        <Button
+          onClick={runGooseSimulation}
+          disabled={loading}
+          size="sm"
+          className="text-xs"
+        >
+          {loading ? (
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Running...
+            </span>
+          ) : (
+            "Run GOOSE Sim"
+          )}
+        </Button>
+
+        <div className="w-px h-5 bg-border-primary" />
+
+        {/* Auto-simulation toggle */}
+        <button
+          onClick={autoSimEnabled ? stopAutoSimulation : startAutoSimulation}
+          className={cn(
+            "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
+            autoSimEnabled
+              ? "bg-green-900/30 border-green-700/50 text-green-400 hover:bg-green-900/50"
+              : "bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover",
+          )}
+        >
+          {autoSimEnabled ? <Square size={10} /> : <Play size={10} />}
+          {autoSimEnabled ? "Stop Auto-Sim" : "Auto-Sim"}
+        </button>
+
+        <div className="flex-1" />
+
+        {/* Role selector */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-text-muted">Role:</span>
+          <select
+            value={selectedRoleLevel}
+            onChange={(e) => setSelectedRoleLevel(Number(e.target.value))}
+            className="text-xs bg-bg-secondary border border-border-primary rounded px-2 py-1 text-text-secondary"
+          >
+            {ROLE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Standards reference */}
+        <span className="text-[9px] text-text-muted font-mono hidden lg:inline">
+          ISA-18.2 · IEC 61850 · IEC 62443
+        </span>
       </div>
 
       {/* Error banner */}
       {error && (
-        <div className="p-3 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-sm flex justify-between items-center">
+        <div className="p-2 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-xs flex justify-between items-center shrink-0">
           <span className="text-status-alarm">{error}</span>
           <Button variant="ghost" size="sm" onClick={clearError}>
             Dismiss
@@ -66,132 +183,39 @@ export default function SCADAPage() {
         </div>
       )}
 
-      {/* Main grid: controls on right, dashboard on left */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Left: Dashboard (2/3 width) */}
-        <div className="xl:col-span-2">
-          {dataLoaded ? (
-            <SCADADashboard />
-          ) : (
-            <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
-              <div className="text-center">
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2 text-text-secondary">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Loading SCADA configuration...
-                  </span>
-                ) : (
-                  <>
-                    <div className="flex justify-center mb-4">
-                      <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                        <Monitor size={24} className="text-accent" />
-                      </div>
+      {/* KPI row — compact */}
+      {dataLoaded && <SCADAKPIHeader />}
+
+      {/* Main dashboard */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        {dataLoaded ? (
+          <SCADADashboard />
+        ) : (
+          <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
+            <div className="text-center">
+              {loading ? (
+                <span className="flex items-center justify-center gap-2 text-text-secondary">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Loading SCADA configuration...
+                </span>
+              ) : (
+                <>
+                  <div className="flex justify-center mb-4">
+                    <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
+                      <Monitor size={24} className="text-accent" />
                     </div>
-                    <p className="text-text-secondary text-base mb-2">
-                      SCADA HMI loading...
-                    </p>
-                    <p className="text-text-muted text-sm">
-                      IEC 61850 device registry, GOOSE configuration, RBAC matrix
-                    </p>
-                  </>
-                )}
-              </div>
+                  </div>
+                  <p className="text-text-secondary text-base mb-2">
+                    SCADA HMI loading...
+                  </p>
+                  <p className="text-text-muted text-sm">
+                    IEC 61850 device registry, GOOSE configuration, RBAC matrix
+                  </p>
+                </>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Right: Controls (1/3 width) */}
-        <div className="space-y-4">
-          {/* Fault scenario selector */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Fault Scenario</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {faultScenarios.map((s) => (
-                  <label
-                    key={s.fault_type}
-                    className="flex items-center gap-2 cursor-pointer group"
-                  >
-                    <input
-                      type="radio"
-                      name="faultType"
-                      value={s.fault_type}
-                      checked={selectedFaultType === s.fault_type}
-                      onChange={() => setSelectedFaultType(s.fault_type)}
-                      className="accent-accent"
-                    />
-                    <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">
-                      {s.description}
-                    </span>
-                  </label>
-                ))}
-                {faultScenarios.length === 0 && (
-                  <p className="text-xs text-text-muted">Loading scenarios...</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Role selector */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Active Role (IEC 62443)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {ROLE_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className="flex items-center gap-2 cursor-pointer group"
-                  >
-                    <input
-                      type="radio"
-                      name="role"
-                      value={opt.value}
-                      checked={selectedRoleLevel === opt.value}
-                      onChange={() => setSelectedRoleLevel(opt.value)}
-                      className="accent-accent"
-                    />
-                    <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">
-                      {opt.label}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Run Simulation button */}
-          <Button
-            onClick={runGooseSimulation}
-            disabled={loading}
-            className="w-full py-3"
-            size="lg"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Running Simulation...
-              </span>
-            ) : (
-              "Run GOOSE Simulation"
-            )}
-          </Button>
-
-          {/* Reference box */}
-          <div className="rounded-lg border border-border-primary bg-bg-tertiary p-3">
-            <p className="text-xs text-text-muted">
-              <span className="font-medium text-text-secondary">Standards:</span>{" "}
-              IEC 61850-7-4, IEC 61850-8-1 (GOOSE), IEC 62443 (RBAC), ISA-18.2
-            </p>
-            <p className="text-xs text-text-muted mt-1">
-              <span className="font-medium text-text-secondary">Simulation:</span>{" "}
-              Deterministic fault clearance with GOOSE retransmission per &sect;15.2.2
-            </p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

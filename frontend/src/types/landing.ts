@@ -87,6 +87,14 @@ export interface FarmKPI {
   availabilityPercent: number;
   /** Number of active alarms (fault + curtailed turbines) */
   activeAlerts: number;
+  /** Farm-level wind direction in degrees (meteorological, 0=N) */
+  windDirectionDeg: number;
+  /** Capacity factor as percentage */
+  capacityFactorPct: number;
+  /** Grid frequency in Hz */
+  gridFrequencyHz: number;
+  /** Estimated revenue today in EUR */
+  revenueTodayEUR: number;
 }
 
 // ── Offshore Substation ─────────────────────────────────────────

@@ -32,7 +32,7 @@ import {
   TURBINE_POSITIONS,
 } from "../../constants/windFarmLayout";
 import { cn } from "../../lib/utils";
-import { selectCable, selectTransformer, selectTurbine, useLandingStore } from "../../store/landingStore";
+import { selectCable, selectKPIs, selectTransformer, selectTurbine, useLandingStore } from "../../store/landingStore";
 
 import CableDetailPanel from "./CableDetailPanel";
 import ExportCableRoute from "./ExportCableRoute";
@@ -113,6 +113,7 @@ export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
   const ossTx = useLandingStore(selectTransformer("OSS-TX1"));
   const onsTx = useLandingStore(selectTransformer("ONS-TX1"));
   const cable = useLandingStore(selectCable);
+  const kpis = useLandingStore(selectKPIs);
 
   // Initialize d3-zoom
   useEffect(() => {
@@ -178,19 +179,22 @@ export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
     navigate("/wind-resource");
   }, [navigate]);
 
-  // Simulated wind direction (SW ~225 deg)
-  const windDirDeg = 225;
+  // Wind direction from store (dynamic, meteorological convention)
+  const windDirDeg = kpis.windDirectionDeg;
+
+  // Cardinal direction label from degrees
+  const cardinals = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+  const windCardinal = cardinals[Math.round(windDirDeg / 22.5) % 16];
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full rounded-lg overflow-hidden border border-border-primary bg-bg-secondary shadow-lg shadow-black/20"
+      className="relative w-full h-full rounded-lg overflow-hidden border border-border-primary bg-bg-secondary shadow-lg shadow-black/20"
     >
       <svg
         ref={svgRef}
         viewBox={`0 0 ${SVG_VIEWBOX.width} ${SVG_VIEWBOX.height}`}
-        className="w-full h-auto cursor-grab active:cursor-grabbing"
-        style={{ minHeight: 400, maxHeight: 600 }}
+        className="w-full h-full cursor-grab active:cursor-grabbing"
       >
         <defs>
           <linearGradient id="seaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -412,26 +416,31 @@ export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
             34 × V236-15.0 MW | 66 kV Array | 220 kV Export | 400 kV PSE Grid
           </text>
 
-          {/* Compass rose */}
+          {/* Compass rose with north pointer */}
           <g transform="translate(1130, 60)">
-            <circle cx={0} cy={0} r={22} fill="rgba(15,17,23,0.7)" stroke="#3d4560" strokeWidth={1} />
-            <text x={0} y={-10} fill="#e8eaf0" fontSize={9} fontWeight="600" textAnchor="middle" fontFamily="Inter, sans-serif">N</text>
-            <text x={0} y={18} fill="#6b7490" fontSize={7} textAnchor="middle" fontFamily="Inter, sans-serif">S</text>
-            <text x={12} y={4} fill="#6b7490" fontSize={7} textAnchor="middle" fontFamily="Inter, sans-serif">E</text>
-            <text x={-12} y={4} fill="#6b7490" fontSize={7} textAnchor="middle" fontFamily="Inter, sans-serif">W</text>
-            <line x1={0} y1={-5} x2={0} y2={5} stroke="#6b7490" strokeWidth={1} />
-            <line x1={-5} y1={0} x2={5} y2={0} stroke="#6b7490" strokeWidth={1} />
+            <circle cx={0} cy={0} r={24} fill="rgba(15,17,23,0.8)" stroke="#3d4560" strokeWidth={1} />
+            {/* Crosshairs */}
+            <line x1={0} y1={-18} x2={0} y2={18} stroke="#2a3040" strokeWidth={0.5} />
+            <line x1={-18} y1={0} x2={18} y2={0} stroke="#2a3040" strokeWidth={0.5} />
+            {/* North pointer triangle */}
+            <polygon points="0,-20 -4,-12 4,-12" fill="#ef4444" />
+            <polygon points="0,20 -4,12 4,12" fill="#3d4560" />
+            {/* Cardinal labels */}
+            <text x={0} y={-8} fill="#ef4444" fontSize={8} fontWeight="700" textAnchor="middle" fontFamily="Inter, sans-serif">N</text>
+            <text x={0} y={16} fill="#6b7490" fontSize={6} textAnchor="middle" fontFamily="Inter, sans-serif">S</text>
+            <text x={14} y={3} fill="#6b7490" fontSize={6} textAnchor="middle" fontFamily="Inter, sans-serif">E</text>
+            <text x={-14} y={3} fill="#6b7490" fontSize={6} textAnchor="middle" fontFamily="Inter, sans-serif">W</text>
           </g>
 
-          {/* Wind direction indicator */}
+          {/* Wind direction indicator — arrow points TOWARD where wind blows (windDirDeg + 180) */}
           <g transform="translate(1130, 120)">
-            <circle cx={0} cy={0} r={16} fill="rgba(15,17,23,0.7)" stroke="#3d4560" strokeWidth={1} />
-            <g transform={`rotate(${windDirDeg})`}>
-              <line x1={0} y1={8} x2={0} y2={-8} stroke="#3b82f6" strokeWidth={1.5} />
-              <polygon points="0,-10 -3,-5 3,-5" fill="#3b82f6" />
+            <circle cx={0} cy={0} r={18} fill="rgba(15,17,23,0.8)" stroke="#3d4560" strokeWidth={1} />
+            <g transform={`rotate(${windDirDeg + 180})`}>
+              <line x1={0} y1={10} x2={0} y2={-10} stroke="#3b82f6" strokeWidth={2} />
+              <polygon points="0,-13 -4,-7 4,-7" fill="#3b82f6" />
             </g>
-            <text x={0} y={28} fill="#6b7490" fontSize={7} textAnchor="middle" fontFamily="JetBrains Mono, monospace">
-              SW 10.2 m/s
+            <text x={0} y={30} fill="#94a3b8" fontSize={7} textAnchor="middle" fontFamily="JetBrains Mono, monospace">
+              {windCardinal} {kpis.averageWindSpeedMs.toFixed(1)} m/s
             </text>
           </g>
 
@@ -441,7 +450,10 @@ export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
             <line x1={0} y1={-4} x2={0} y2={4} stroke="#6b7490" strokeWidth={1} />
             <line x1={80} y1={-4} x2={80} y2={4} stroke="#6b7490" strokeWidth={1} />
             <text x={40} y={-6} fill="#6b7490" fontSize={8} textAnchor="middle" fontFamily="JetBrains Mono, monospace">
-              5 km
+              ~1 km
+            </text>
+            <text x={40} y={12} fill="#4a5568" fontSize={6} textAnchor="middle" fontFamily="JetBrains Mono, monospace">
+              Schematic · 6D/8D spacing
             </text>
           </g>
         </g>

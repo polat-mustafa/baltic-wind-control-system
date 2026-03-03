@@ -91,7 +91,10 @@ export default function AppShell() {
               "font-mono text-xs text-text-secondary tabular-nums",
             )}
           >
-            {clock.toISOString().slice(0, 19).replace("T", " ")}
+            {clock.toLocaleString("sv-SE", { timeZone: "Europe/Warsaw" })}{" "}
+            <span className="text-text-muted text-[10px]">
+              {clock.toLocaleString("en-GB", { timeZone: "Europe/Warsaw", timeZoneName: "short" }).split(" ").pop()}
+            </span>
           </div>
         </div>
       </header>

@@ -1,86 +1,87 @@
 /**
- * Tests for the EventLogPanel component.
+ * Tests for the EventLogPanel component (persistent SOE log).
  */
 
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import EventLogPanel from "../../../src/components/p3/EventLogPanel";
 import { useScadaStore } from "../../../src/store/scadaStore";
+import type { SOEEvent } from "../../../src/store/scadaStore";
 
 vi.mock("../../../src/store/scadaStore");
+
+const noop = () => {};
+
+function mockStore(overrides: Record<string, unknown> = {}) {
+  const defaults: Record<string, unknown> = {
+    eventLog: [],
+    simulationResult: null,
+    clearEventLog: noop,
+    ...overrides,
+  };
+
+  vi.mocked(useScadaStore).mockImplementation((selector: unknown) => {
+    if (typeof selector === "function") {
+      return (selector as (s: Record<string, unknown>) => unknown)(defaults);
+    }
+    return defaults;
+  });
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("EventLogPanel", () => {
-  it("shows empty message when no simulation results", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      simulationResult: null,
-    } as unknown as ReturnType<typeof useScadaStore>);
-
+  it("shows empty message when no events", () => {
+    mockStore();
     render(<EventLogPanel />);
     expect(
-      screen.getByText(/No events — run a fault simulation/),
+      screen.getByText(/No events/),
     ).toBeDefined();
   });
 
-  it("renders event log table with entries", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      simulationResult: {
-        events: [
-          {
-            event_type: "fault_inception",
-            timestamp_ms: 0,
-            description: "Fault inception at 66 kV busbar",
-            ied_name: "",
-          },
-          {
-            event_type: "relay_trip",
-            timestamp_ms: 15,
-            description: "Relay tripped",
-            ied_name: "OSS_PROT_IED01",
-          },
-        ],
-        goose_messages: [
-          {
-            gocb_ref: "OSS_PROT/GoCB01",
-            dat_set: "DS01",
-            go_id: "GO01",
-            st_num: 1,
-            sq_num: 0,
-            all_data: { PTRC1_Tr_general: true },
-            timestamp: "2025-01-01T00:00:00",
-            app_id: "0001",
-            mac_address: "01:0C:CD:01:00:00",
-            vlan_id: 100,
-          },
-        ],
+  it("renders event log with entries from persistent store", () => {
+    const eventLog: SOEEvent[] = [
+      {
+        id: "SOE-00001",
+        timestamp: Date.now(),
+        source: "System",
+        type: "fault_inception",
+        description: "Fault inception at 66 kV busbar",
+        priority: "CRITICAL",
       },
-    } as unknown as ReturnType<typeof useScadaStore>);
+      {
+        id: "SOE-00002",
+        timestamp: Date.now() + 15,
+        source: "OSS_PROT_IED01",
+        type: "relay_trip",
+        description: "Relay tripped",
+        priority: "CRITICAL",
+      },
+    ];
 
+    mockStore({ eventLog });
     render(<EventLogPanel />);
     expect(screen.getByText("Event Log / SOE")).toBeDefined();
-    expect(screen.getByText("3 entries")).toBeDefined();
+    expect(screen.getByText("2 entries")).toBeDefined();
   });
 
   it("shows column headers", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      simulationResult: {
-        events: [
-          {
-            event_type: "fault_inception",
-            timestamp_ms: 0,
-            description: "Fault inception",
-            ied_name: "",
-          },
-        ],
-        goose_messages: [],
+    const eventLog: SOEEvent[] = [
+      {
+        id: "SOE-00001",
+        timestamp: Date.now(),
+        source: "System",
+        type: "fault_inception",
+        description: "Fault inception",
+        priority: "INFO",
       },
-    } as unknown as ReturnType<typeof useScadaStore>);
+    ];
 
+    mockStore({ eventLog });
     render(<EventLogPanel />);
-    expect(screen.getByText("T [ms]")).toBeDefined();
+    expect(screen.getByText("Time")).toBeDefined();
     expect(screen.getByText("Source")).toBeDefined();
     expect(screen.getByText("Type")).toBeDefined();
     expect(screen.getByText("Description")).toBeDefined();

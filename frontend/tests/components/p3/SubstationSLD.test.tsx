@@ -1,5 +1,5 @@
 /**
- * Tests for the SubstationSLD component.
+ * Tests for the SubstationSLD component (live SLD with breaker states).
  */
 
 import { render, screen } from "@testing-library/react";
@@ -18,16 +18,33 @@ vi.mock("@xyflow/react", () => ({
   Position: { Top: "top", Bottom: "bottom" },
 }));
 
+const noop = () => {};
+
+function mockStore(overrides: Record<string, unknown> = {}) {
+  const defaults: Record<string, unknown> = {
+    substationSummary: null,
+    breakerStates: {},
+    faultHighlightNodeId: null,
+    toggleBreaker: noop,
+    measurements: [],
+    ...overrides,
+  };
+
+  vi.mocked(useScadaStore).mockImplementation((selector: unknown) => {
+    if (typeof selector === "function") {
+      return (selector as (s: Record<string, unknown>) => unknown)(defaults);
+    }
+    return defaults;
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("SubstationSLD", () => {
   it("shows loading message when substationSummary is null", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      substationSummary: null,
-    } as unknown as ReturnType<typeof useScadaStore>);
-
+    mockStore();
     render(<SubstationSLD />);
     expect(
       screen.getByText("Loading substation configuration..."),
@@ -35,7 +52,7 @@ describe("SubstationSLD", () => {
   });
 
   it("renders SLD title and device counts when data is loaded", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
+    mockStore({
       substationSummary: {
         total_devices: 42,
         total_logical_nodes: 186,
@@ -52,9 +69,16 @@ describe("SubstationSLD", () => {
           },
         ],
       },
-    } as unknown as ReturnType<typeof useScadaStore>);
+      breakerStates: {
+        "cb-400": "CLOSED",
+        "cb-220": "CLOSED",
+      },
+      measurements: [
+        { nodeId: "bb-400kv", voltageKV: 400, currentA: 420, powerMW: 290 },
+      ],
+    });
 
     render(<SubstationSLD />);
-    expect(screen.getByText("Substation Single-Line Diagram")).toBeDefined();
+    expect(screen.getByText("Substation SLD")).toBeDefined();
   });
 });

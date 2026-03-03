@@ -1,17 +1,20 @@
 /**
  * Zustand store for P3 SCADA & IEC 61850 dashboard state.
  *
- * Manages IEC 61850 device registry, GOOSE fault simulation results,
- * RBAC roles/zones, and Permit-to-Work lifecycle.
- *
- * Data flow: user selects fault scenario → runGooseSimulation() →
- * events populate alarm list + event log; user manages PtW lifecycle.
+ * Manages:
+ * - IEC 61850 device registry + GOOSE fault simulation
+ * - ISA-18.2 alarm lifecycle (ACTIVE → ACK → CLEARED → RTN)
+ * - Auto-simulation: random turbine faults every 15-30s
+ * - Breaker states for SLD live visualization
+ * - Persistent event history (last 200 events)
+ * - RBAC roles/zones and Permit-to-Work lifecycle
  */
 
 import { create } from "zustand";
 
 import * as api from "../services/scadaApi";
 import type {
+  BreakerState,
   FaultScenarioSummary,
   FaultSimulationResult,
   IEC62443Zone,
@@ -19,9 +22,143 @@ import type {
   PermitList,
   RetransmissionResult,
   RoleDefinition,
+  SCADAAlarm,
+  AlarmPriority,
+  AlarmState,
+  SLDMeasurement,
   SubstationSummary,
+  TurbineFaultType,
   TransitionResult,
 } from "../types/scada";
+
+// ── Fault Category Definitions ──────────────────────────────────
+
+const FAULT_CATEGORIES: {
+  type: TurbineFaultType;
+  label: string;
+  priority: AlarmPriority;
+  probableCause: string;
+  recommendedAction: string;
+  valueTemplate: () => string;
+  setpoint: string;
+}[] = [
+  {
+    type: "PITCH_CONTROL_FAULT",
+    label: "Pitch Control Fault",
+    priority: "CRITICAL",
+    probableCause: "Blade pitch actuator malfunction or sensor failure",
+    recommendedAction: "Initiate controlled shutdown, dispatch maintenance crew",
+    valueTemplate: () => `${(Math.random() * 20 + 70).toFixed(1)}°`,
+    setpoint: "< 30°",
+  },
+  {
+    type: "CONVERTER_OVERTEMP",
+    label: "Converter Overtemperature",
+    priority: "HIGH",
+    probableCause: "Power electronics cooling system degradation",
+    recommendedAction: "Reduce power output, check coolant flow and filters",
+    valueTemplate: () => `${(Math.random() * 15 + 85).toFixed(0)}°C`,
+    setpoint: "< 80°C",
+  },
+  {
+    type: "YAW_ERROR",
+    label: "Yaw Position Error",
+    priority: "MEDIUM",
+    probableCause: "Nacelle yaw position deviation exceeds threshold",
+    recommendedAction: "Check yaw motor and wind vane alignment",
+    valueTemplate: () => `${(Math.random() * 20 + 15).toFixed(1)}° deviation`,
+    setpoint: "< 10°",
+  },
+  {
+    type: "BEARING_OVERTEMP",
+    label: "Main Bearing Overtemperature",
+    priority: "HIGH",
+    probableCause: "Bearing lubrication degradation or excessive load",
+    recommendedAction: "Reduce load, schedule bearing inspection",
+    valueTemplate: () => `${(Math.random() * 20 + 75).toFixed(0)}°C`,
+    setpoint: "< 70°C",
+  },
+  {
+    type: "GEARBOX_OIL_TEMP",
+    label: "Gearbox Oil Temperature",
+    priority: "MEDIUM",
+    probableCause: "Gearbox lubrication system alarm — oil temp elevated",
+    recommendedAction: "Check oil level, filters, and cooling circuit",
+    valueTemplate: () => `${(Math.random() * 10 + 80).toFixed(0)}°C`,
+    setpoint: "< 75°C",
+  },
+  {
+    type: "GRID_FREQUENCY_FAULT",
+    label: "Grid Frequency Out of Range",
+    priority: "CRITICAL",
+    probableCause: "Grid frequency deviation exceeds PSE IRiESP limits",
+    recommendedAction: "Activate FRT mode, reduce active power per grid code",
+    valueTemplate: () => `${(49 + Math.random() * 2).toFixed(2)} Hz`,
+    setpoint: "49.5–50.5 Hz",
+  },
+  {
+    type: "GENERATOR_WINDING_TEMP",
+    label: "Generator Winding Temperature",
+    priority: "HIGH",
+    probableCause: "Generator thermal alarm — winding insulation at risk",
+    recommendedAction: "Derate output, inspect cooling system",
+    valueTemplate: () => `${(Math.random() * 20 + 140).toFixed(0)}°C`,
+    setpoint: "< 130°C",
+  },
+  {
+    type: "COMMUNICATION_LOSS",
+    label: "IED Communication Timeout",
+    priority: "MEDIUM",
+    probableCause: "Network disruption or IED failure",
+    recommendedAction: "Check fiber optic links and switch ports",
+    valueTemplate: () => "TIMEOUT",
+    setpoint: "< 100 ms",
+  },
+  {
+    type: "HYDRAULIC_PRESSURE_LOW",
+    label: "Hydraulic Pressure Low",
+    priority: "HIGH",
+    probableCause: "Blade pitch hydraulic system leak or pump failure",
+    recommendedAction: "Check hydraulic fluid level, inspect for leaks",
+    valueTemplate: () => `${(Math.random() * 50 + 80).toFixed(0)} bar`,
+    setpoint: "> 160 bar",
+  },
+  {
+    type: "VIBRATION_ALARM",
+    label: "Excessive Vibration",
+    priority: "CRITICAL",
+    probableCause: "Nacelle/tower vibration exceeds ISO 10816 limits",
+    recommendedAction: "Emergency shutdown, structural inspection required",
+    valueTemplate: () => `${(Math.random() * 5 + 6).toFixed(1)} mm/s`,
+    setpoint: "< 4.5 mm/s",
+  },
+];
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+let _alarmIdCounter = 0;
+function nextAlarmId(): string {
+  return `ALM-${String(++_alarmIdCounter).padStart(4, "0")}`;
+}
+
+let _autoSimInterval: ReturnType<typeof setInterval> | null = null;
+let _alarmTickInterval: ReturnType<typeof setInterval> | null = null;
+
+// ── SOE Event for persistent log ─────────────────────────────────
+
+export interface SOEEvent {
+  id: string;
+  timestamp: number;
+  source: string;
+  type: string;
+  description: string;
+  priority: AlarmPriority | "INFO";
+}
+
+let _soeIdCounter = 0;
+function nextSOEId(): string {
+  return `SOE-${String(++_soeIdCounter).padStart(5, "0")}`;
+}
 
 // ── Store Interface ────────────────────────────────────────────
 
@@ -44,6 +181,25 @@ interface ScadaState {
   permitList: PermitList | null;
   activePermit: PermitDetail | null;
 
+  // ISA-18.2 Alarm System
+  alarms: SCADAAlarm[];
+  alarmFilter: {
+    priority: AlarmPriority | "ALL";
+    state: AlarmState | "ALL";
+    equipment: string;
+  };
+
+  // SLD live state
+  breakerStates: Record<string, BreakerState>;
+  measurements: SLDMeasurement[];
+  faultHighlightNodeId: string | null;
+
+  // Persistent event log
+  eventLog: SOEEvent[];
+
+  // Auto-simulation
+  autoSimEnabled: boolean;
+
   // UI state
   loading: boolean;
   error: string | null;
@@ -52,6 +208,27 @@ interface ScadaState {
   // Parameter setters
   setSelectedFaultType: (ft: string) => void;
   setSelectedRoleLevel: (level: number) => void;
+  setAlarmFilter: (filter: Partial<ScadaState["alarmFilter"]>) => void;
+
+  // Alarm actions
+  acknowledgeAlarm: (alarmId: string, operator: string) => void;
+  acknowledgeAll: (operator: string) => void;
+  clearAlarm: (alarmId: string) => void;
+  clearAllResolved: () => void;
+  shelveAlarm: (alarmId: string) => void;
+  unshelveAlarm: (alarmId: string) => void;
+  injectTurbineFault: (turbineId: string, faultType: TurbineFaultType) => void;
+
+  // SLD actions
+  toggleBreaker: (breakerId: string) => void;
+
+  // Auto-simulation
+  startAutoSimulation: () => void;
+  stopAutoSimulation: () => void;
+
+  // Event log
+  addEvent: (event: Omit<SOEEvent, "id" | "timestamp">) => void;
+  clearEventLog: () => void;
 
   // Data actions
   fetchInitialData: () => Promise<void>;
@@ -78,6 +255,33 @@ interface ScadaState {
   clearError: () => void;
 }
 
+// ── Initial breaker states ──────────────────────────────────────
+
+function initBreakerStates(): Record<string, BreakerState> {
+  return {
+    "cb-400": "CLOSED",
+    "cb-220": "CLOSED",
+    "cb-220-a": "CLOSED",
+    "cb-220-b": "CLOSED",
+    "cb-66-a": "CLOSED",
+    "cb-66-b": "CLOSED",
+    "cb-str1": "CLOSED",
+    "cb-str2": "CLOSED",
+    "cb-str3": "CLOSED",
+    "cb-str4": "CLOSED",
+    "cb-str5": "CLOSED",
+    "cb-str6": "CLOSED",
+  };
+}
+
+function initMeasurements(): SLDMeasurement[] {
+  return [
+    { nodeId: "bb-400kv", voltageKV: 400, currentA: 420, powerMW: 290 },
+    { nodeId: "bb-220kv", voltageKV: 220, currentA: 760, powerMW: 290 },
+    { nodeId: "bb-66kv", voltageKV: 66, currentA: 2530, powerMW: 290 },
+  ];
+}
+
 // ── Store Implementation ───────────────────────────────────────
 
 export const useScadaStore = create<ScadaState>((set, get) => ({
@@ -99,6 +303,21 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
   permitList: null,
   activePermit: null,
 
+  // ISA-18.2 Alarms
+  alarms: [],
+  alarmFilter: { priority: "ALL", state: "ALL", equipment: "" },
+
+  // SLD
+  breakerStates: initBreakerStates(),
+  measurements: initMeasurements(),
+  faultHighlightNodeId: null,
+
+  // Event log
+  eventLog: [],
+
+  // Auto-sim
+  autoSimEnabled: false,
+
   // UI
   loading: false,
   error: null,
@@ -108,6 +327,211 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
 
   setSelectedFaultType: (ft) => set({ selectedFaultType: ft }),
   setSelectedRoleLevel: (level) => set({ selectedRoleLevel: level }),
+  setAlarmFilter: (filter) =>
+    set((s) => ({ alarmFilter: { ...s.alarmFilter, ...filter } })),
+
+  // ── Alarm Actions ──────────────────────────────────────────
+
+  acknowledgeAlarm: (alarmId, operator) =>
+    set((s) => ({
+      alarms: s.alarms.map((a) =>
+        a.id === alarmId
+          ? { ...a, state: "ACKNOWLEDGED" as const, acknowledgedBy: operator, acknowledgedAt: Date.now() }
+          : a,
+      ),
+    })),
+
+  acknowledgeAll: (operator) =>
+    set((s) => ({
+      alarms: s.alarms.map((a) =>
+        a.state === "ACTIVE"
+          ? { ...a, state: "ACKNOWLEDGED" as const, acknowledgedBy: operator, acknowledgedAt: Date.now() }
+          : a,
+      ),
+    })),
+
+  clearAlarm: (alarmId) =>
+    set((s) => ({
+      alarms: s.alarms.map((a) =>
+        a.id === alarmId ? { ...a, state: "CLEARED" as const } : a,
+      ),
+    })),
+
+  clearAllResolved: () =>
+    set((s) => ({
+      alarms: s.alarms.filter(
+        (a) => a.state !== "CLEARED" && a.state !== "RETURN_TO_NORMAL",
+      ),
+    })),
+
+  shelveAlarm: (alarmId) =>
+    set((s) => ({
+      alarms: s.alarms.map((a) =>
+        a.id === alarmId ? { ...a, shelved: true } : a,
+      ),
+    })),
+
+  unshelveAlarm: (alarmId) =>
+    set((s) => ({
+      alarms: s.alarms.map((a) =>
+        a.id === alarmId ? { ...a, shelved: false } : a,
+      ),
+    })),
+
+  injectTurbineFault: (turbineId, faultType) => {
+    const category = FAULT_CATEGORIES.find((c) => c.type === faultType);
+    if (!category) return;
+
+    const alarm: SCADAAlarm = {
+      id: nextAlarmId(),
+      timestamp: Date.now(),
+      priority: category.priority,
+      tag: `${turbineId}.${faultType}`,
+      equipment: turbineId,
+      description: `${category.label} — ${turbineId}`,
+      value: category.valueTemplate(),
+      setpoint: category.setpoint,
+      state: "ACTIVE",
+      durationSec: 0,
+      acknowledgedBy: null,
+      acknowledgedAt: null,
+      shelved: false,
+      faultType: category.type,
+      probableCause: category.probableCause,
+      recommendedAction: category.recommendedAction,
+    };
+
+    const event: SOEEvent = {
+      id: nextSOEId(),
+      timestamp: Date.now(),
+      source: turbineId,
+      type: faultType,
+      description: `${category.label} on ${turbineId}`,
+      priority: category.priority,
+    };
+
+    set((s) => ({
+      alarms: [alarm, ...s.alarms],
+      eventLog: [event, ...s.eventLog].slice(0, 200),
+    }));
+  },
+
+  // ── SLD Actions ────────────────────────────────────────────
+
+  toggleBreaker: (breakerId) =>
+    set((s) => {
+      const current = s.breakerStates[breakerId] ?? "CLOSED";
+      const next: BreakerState = current === "CLOSED" ? "OPEN" : "CLOSED";
+
+      const event: SOEEvent = {
+        id: nextSOEId(),
+        timestamp: Date.now(),
+        source: breakerId.toUpperCase(),
+        type: "breaker_operation",
+        description: `${breakerId.toUpperCase()} switched from ${current} to ${next}`,
+        priority: "INFO",
+      };
+
+      return {
+        breakerStates: { ...s.breakerStates, [breakerId]: next },
+        eventLog: [event, ...s.eventLog].slice(0, 200),
+      };
+    }),
+
+  // ── Auto-Simulation ───────────────────────────────────────
+
+  startAutoSimulation: () => {
+    const state = get();
+    if (state.autoSimEnabled) return;
+    set({ autoSimEnabled: true });
+
+    // Generate random faults every 15-30s
+    const scheduleFault = () => {
+      const delay = 15000 + Math.random() * 15000;
+      _autoSimInterval = setTimeout(() => {
+        const s = get();
+        if (!s.autoSimEnabled) return;
+
+        // Pick random turbine and fault
+        const turbineNum = Math.floor(Math.random() * 34) + 1;
+        const turbineId = `WTG-${String(turbineNum).padStart(2, "0")}`;
+        const faultIdx = Math.floor(Math.random() * FAULT_CATEGORIES.length);
+        const fault = FAULT_CATEGORIES[faultIdx];
+
+        s.injectTurbineFault(turbineId, fault.type);
+
+        // Randomly affect a breaker for critical faults
+        if (fault.priority === "CRITICAL" && Math.random() > 0.5) {
+          const stringNum = Math.ceil(turbineNum / 6);
+          const breakerId = `cb-str${Math.min(stringNum, 6)}`;
+          set((st) => ({
+            breakerStates: { ...st.breakerStates, [breakerId]: "TRIPPED" },
+            faultHighlightNodeId: breakerId,
+          }));
+
+          // Clear highlight after 5s
+          setTimeout(() => {
+            set({ faultHighlightNodeId: null });
+          }, 5000);
+        }
+
+        // Also randomly clear older alarms (simulate RTN)
+        set((st) => ({
+          alarms: st.alarms.map((a) => {
+            if (a.state === "ACKNOWLEDGED" && Date.now() - a.timestamp > 30000 && Math.random() > 0.6) {
+              return { ...a, state: "RETURN_TO_NORMAL" as const };
+            }
+            return a;
+          }),
+        }));
+
+        scheduleFault();
+      }, delay) as unknown as ReturnType<typeof setInterval>;
+    };
+
+    scheduleFault();
+
+    // Update alarm durations every second
+    _alarmTickInterval = setInterval(() => {
+      set((s) => ({
+        alarms: s.alarms.map((a) =>
+          a.state === "ACTIVE" || a.state === "ACKNOWLEDGED"
+            ? { ...a, durationSec: Math.round((Date.now() - a.timestamp) / 1000) }
+            : a,
+        ),
+        // Slowly update measurements with jitter
+        measurements: s.measurements.map((m) => ({
+          ...m,
+          currentA: Math.round(m.currentA + (Math.random() - 0.5) * 10),
+          powerMW: Math.round(m.powerMW + (Math.random() - 0.5) * 5),
+        })),
+      }));
+    }, 1000);
+  },
+
+  stopAutoSimulation: () => {
+    set({ autoSimEnabled: false });
+    if (_autoSimInterval) {
+      clearTimeout(_autoSimInterval as unknown as number);
+      _autoSimInterval = null;
+    }
+    if (_alarmTickInterval) {
+      clearInterval(_alarmTickInterval);
+      _alarmTickInterval = null;
+    }
+  },
+
+  // ── Event Log ──────────────────────────────────────────────
+
+  addEvent: (event) =>
+    set((s) => ({
+      eventLog: [
+        { ...event, id: nextSOEId(), timestamp: Date.now() },
+        ...s.eventLog,
+      ].slice(0, 200),
+    })),
+
+  clearEventLog: () => set({ eventLog: [] }),
 
   // ── Data actions ───────────────────────────────────────────
 
@@ -149,7 +573,48 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
         api.calculateRetransmission(),
       ]);
 
-      set({ simulationResult, retransmissionResult });
+      // Convert simulation events to alarms
+      const newAlarms: SCADAAlarm[] = simulationResult.events.map((event) => {
+        const isCritical = event.event_type === "relay_trip" || event.event_type === "breaker_open";
+        const isWarning = event.event_type === "relay_pickup" || event.event_type === "fault_inception";
+        const priority: AlarmPriority = isCritical ? "CRITICAL" : isWarning ? "HIGH" : "LOW";
+
+        return {
+          id: nextAlarmId(),
+          timestamp: Date.now() + event.timestamp_ms,
+          priority,
+          tag: `GOOSE.${event.event_type}`,
+          equipment: event.ied_name || "Substation",
+          description: event.description,
+          value: `${event.timestamp_ms.toFixed(1)} ms`,
+          setpoint: "N/A",
+          state: "ACTIVE" as AlarmState,
+          durationSec: 0,
+          acknowledgedBy: null,
+          acknowledgedAt: null,
+          shelved: false,
+          faultType: selectedFaultType,
+          probableCause: `${selectedFaultType.replace(/_/g, " ")} scenario`,
+          recommendedAction: "Follow protection coordination procedures",
+        };
+      });
+
+      // Add to event log
+      const newEvents: SOEEvent[] = simulationResult.events.map((event) => ({
+        id: nextSOEId(),
+        timestamp: Date.now() + event.timestamp_ms,
+        source: event.ied_name || "System",
+        type: event.event_type,
+        description: event.description,
+        priority: (event.event_type === "relay_trip" ? "CRITICAL" : "INFO") as AlarmPriority | "INFO",
+      }));
+
+      set((s) => ({
+        simulationResult,
+        retransmissionResult,
+        alarms: [...newAlarms, ...s.alarms],
+        eventLog: [...newEvents, ...s.eventLog].slice(0, 200),
+      }));
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -178,7 +643,6 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
   createPermit: async (params) => {
     try {
       const permit = await api.createPermit(params);
-      // Refresh list after creation
       const permitList = await api.listPermits();
       set({ activePermit: permit, permitList });
       return permit;
@@ -191,7 +655,6 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
   transitionPermit: async (ptwNumber, params) => {
     try {
       const result = await api.transitionPermit(ptwNumber, params);
-      // Refresh permit detail and list
       const [activePermit, permitList] = await Promise.all([
         api.getPermitDetail(ptwNumber),
         api.listPermits(),

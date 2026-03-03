@@ -1,15 +1,17 @@
 /**
  * Professional Substation Single-Line Diagram — IEC 60617 + IEC 61850.
  *
- * Full switchgear topology between voltage levels:
+ * Live features:
+ * - Breaker nodes show OPEN/CLOSED/TRIPPED state dynamically
+ * - Fault location highlighted with flashing red
+ * - Power flow values on busbar measurement points
+ * - Click breaker → toggle OPEN/CLOSE (with RBAC check via store)
+ * - Animated edges on energized paths
+ *
+ * Topology:
  *   400 kV PSE Grid ← CB-DS-TX(400/220)-DS-CB → 220 kV Export
  *   220 kV Export ← CB-DS-TX(220/66)-DS-CB → 66 kV Array Busbar
  *   66 kV Busbar → CB-DS per string → 6 strings × WTG IEDs
- *
- * All IEC 60617 symbols (CB, DS, ES, TX) are interactive — click opens
- * a detail panel showing status, ratings, and simulated controls.
- *
- * Fault highlighting driven by GOOSE simulation results from scadaStore.
  */
 
 import { useCallback, useMemo, useState } from "react";
@@ -36,6 +38,7 @@ import {
 import SLDDetailPanel from "../sld/SLDDetailPanel";
 import { InfoButton } from "../ui/InfoButton";
 import { substationSldInfo } from "../../constants/panelInfo";
+import type { BreakerState } from "../../types/scada";
 
 // ── Equipment type → ISA-101 color mapping ───────────────────
 
@@ -57,6 +60,17 @@ const nodeTypes: NodeTypes = {
   tx: TransformerNode,
 };
 
+// ── Breaker state → color mapping ────────────────────────────
+
+function breakerColor(state: BreakerState): string {
+  switch (state) {
+    case "CLOSED": return SCADA_COLORS.ENERGIZED;
+    case "OPEN": return SCADA_COLORS.DE_ENERGIZED;
+    case "TRIPPED": return SCADA_COLORS.FAULT;
+    case "RACKING": return SCADA_COLORS.WARNING;
+  }
+}
+
 // ── Layout builder — full switchgear topology ────────────────
 
 function buildGraph(
@@ -65,11 +79,17 @@ function buildGraph(
     equipment_type: string;
     logical_devices: { logical_nodes: unknown[] }[];
   }[],
+  breakerStates: Record<string, BreakerState>,
+  faultHighlightNodeId: string | null,
 ) {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
   const green = SCADA_COLORS.ENERGIZED;
+
+  // Helper to get breaker state and color
+  const cbState = (id: string) => breakerStates[id] ?? "CLOSED";
+  const cbColor = (id: string) => breakerColor(cbState(id));
 
   // ── 400 kV Section ──
   nodes.push({
@@ -79,12 +99,16 @@ function buildGraph(
     data: { label: "400 kV PSE Grid", color: SCADA_COLORS.VOLTAGE_400KV, voltage: 400 },
   });
 
-  // CB and DS on 400kV side of transformer
   nodes.push({
     id: "cb-400",
     type: "cb",
     position: { x: 360, y: 50 },
-    data: { label: "CB-400", color: SCADA_COLORS.VOLTAGE_400KV, state: "CLOSED" },
+    data: {
+      label: "CB-400",
+      color: cbColor("cb-400"),
+      state: cbState("cb-400"),
+      highlight: faultHighlightNodeId === "cb-400",
+    },
   });
   nodes.push({
     id: "ds-400-1",
@@ -120,7 +144,12 @@ function buildGraph(
     id: "cb-220",
     type: "cb",
     position: { x: 360, y: 320 },
-    data: { label: "CB-220", color: SCADA_COLORS.VOLTAGE_220KV, state: "CLOSED" },
+    data: {
+      label: "CB-220",
+      color: cbColor("cb-220"),
+      state: cbState("cb-220"),
+      highlight: faultHighlightNodeId === "cb-220",
+    },
   });
 
   nodes.push({
@@ -135,7 +164,12 @@ function buildGraph(
     id: "cb-220-a",
     type: "cb",
     position: { x: 260, y: 440 },
-    data: { label: "CB-220A", color: SCADA_COLORS.VOLTAGE_220KV, state: "CLOSED" },
+    data: {
+      label: "CB-220A",
+      color: cbColor("cb-220-a"),
+      state: cbState("cb-220-a"),
+      highlight: faultHighlightNodeId === "cb-220-a",
+    },
   });
   nodes.push({
     id: "tx-220-66-a",
@@ -147,14 +181,24 @@ function buildGraph(
     id: "cb-66-a",
     type: "cb",
     position: { x: 260, y: 590 },
-    data: { label: "CB-66A", color: SCADA_COLORS.VOLTAGE_66KV, state: "CLOSED" },
+    data: {
+      label: "CB-66A",
+      color: cbColor("cb-66-a"),
+      state: cbState("cb-66-a"),
+      highlight: faultHighlightNodeId === "cb-66-a",
+    },
   });
 
   nodes.push({
     id: "cb-220-b",
     type: "cb",
     position: { x: 460, y: 440 },
-    data: { label: "CB-220B", color: SCADA_COLORS.VOLTAGE_220KV, state: "CLOSED" },
+    data: {
+      label: "CB-220B",
+      color: cbColor("cb-220-b"),
+      state: cbState("cb-220-b"),
+      highlight: faultHighlightNodeId === "cb-220-b",
+    },
   });
   nodes.push({
     id: "tx-220-66-b",
@@ -166,7 +210,12 @@ function buildGraph(
     id: "cb-66-b",
     type: "cb",
     position: { x: 460, y: 590 },
-    data: { label: "CB-66B", color: SCADA_COLORS.VOLTAGE_66KV, state: "CLOSED" },
+    data: {
+      label: "CB-66B",
+      color: cbColor("cb-66-b"),
+      state: cbState("cb-66-b"),
+      highlight: faultHighlightNodeId === "cb-66-b",
+    },
   });
 
   // ── 66 kV Array Busbar ──
@@ -178,26 +227,28 @@ function buildGraph(
   });
 
   // ── Edges: 400kV section ──
-  edges.push({ id: "e-bb400-cb400", source: "bb-400kv", target: "cb-400", style: { stroke: SCADA_COLORS.VOLTAGE_400KV, strokeWidth: 2 }, animated: true });
-  edges.push({ id: "e-cb400-ds400", source: "cb-400", target: "ds-400-1", style: { stroke: SCADA_COLORS.VOLTAGE_400KV, strokeWidth: 2 } });
-  edges.push({ id: "e-ds400-tx", source: "ds-400-1", target: "tx-400-220", style: { stroke: SCADA_COLORS.VOLTAGE_400KV, strokeWidth: 2 } });
+  const e400Color = cbState("cb-400") === "CLOSED" ? SCADA_COLORS.VOLTAGE_400KV : SCADA_COLORS.DE_ENERGIZED;
+  edges.push({ id: "e-bb400-cb400", source: "bb-400kv", target: "cb-400", style: { stroke: SCADA_COLORS.VOLTAGE_400KV, strokeWidth: 2 }, animated: cbState("cb-400") === "CLOSED" });
+  edges.push({ id: "e-cb400-ds400", source: "cb-400", target: "ds-400-1", style: { stroke: e400Color, strokeWidth: 2 } });
+  edges.push({ id: "e-ds400-tx", source: "ds-400-1", target: "tx-400-220", style: { stroke: e400Color, strokeWidth: 2 } });
   edges.push({ id: "e-bb400-es400", source: "bb-400kv", target: "es-400", style: { stroke: SCADA_COLORS.EARTHED, strokeWidth: 1, strokeDasharray: "4 4" } });
 
   // ── Edges: 220kV section ──
+  const e220Color = cbState("cb-220") === "CLOSED" ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED;
   edges.push({ id: "e-tx-ds220", source: "tx-400-220", target: "ds-220-1", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
   edges.push({ id: "e-ds220-cb220", source: "ds-220-1", target: "cb-220", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb220-bb220", source: "cb-220", target: "bb-220kv", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 }, animated: true });
+  edges.push({ id: "e-cb220-bb220", source: "cb-220", target: "bb-220kv", style: { stroke: e220Color, strokeWidth: 2 }, animated: cbState("cb-220") === "CLOSED" });
 
   // ── Edges: 220/66 transformers ──
   edges.push({ id: "e-bb220-cb220a", source: "bb-220kv", target: "cb-220-a", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb220a-txa", source: "cb-220-a", target: "tx-220-66-a", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
+  edges.push({ id: "e-cb220a-txa", source: "cb-220-a", target: "tx-220-66-a", style: { stroke: cbState("cb-220-a") === "CLOSED" ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 } });
   edges.push({ id: "e-txa-cb66a", source: "tx-220-66-a", target: "cb-66-a", style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb66a-bb66", source: "cb-66-a", target: "bb-66kv", style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 2 } });
+  edges.push({ id: "e-cb66a-bb66", source: "cb-66-a", target: "bb-66kv", style: { stroke: cbState("cb-66-a") === "CLOSED" ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 } });
 
   edges.push({ id: "e-bb220-cb220b", source: "bb-220kv", target: "cb-220-b", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb220b-txb", source: "cb-220-b", target: "tx-220-66-b", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
+  edges.push({ id: "e-cb220b-txb", source: "cb-220-b", target: "tx-220-66-b", style: { stroke: cbState("cb-220-b") === "CLOSED" ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 } });
   edges.push({ id: "e-txb-cb66b", source: "tx-220-66-b", target: "cb-66-b", style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb66b-bb66", source: "cb-66-b", target: "bb-66kv", style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 2 } });
+  edges.push({ id: "e-cb66b-bb66", source: "cb-66-b", target: "bb-66kv", style: { stroke: cbState("cb-66-b") === "CLOSED" ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 } });
 
   // ── Feeder CBs + DS per string off 66 kV busbar ──
   const stringLayout = [6, 6, 6, 6, 5, 5];
@@ -209,14 +260,18 @@ function buildGraph(
 
   stringLayout.forEach((count, stringNum) => {
     const feederX = feederStartX + stringNum * 140;
-
-    // Feeder CB off busbar
     const cbId = `cb-str${stringNum + 1}`;
+
     nodes.push({
       id: cbId,
       type: "cb",
       position: { x: feederX, y: feederY },
-      data: { label: `CB-S${stringNum + 1}`, color: SCADA_COLORS.VOLTAGE_66KV, state: "CLOSED" },
+      data: {
+        label: `CB-S${stringNum + 1}`,
+        color: cbColor(cbId),
+        state: cbState(cbId),
+        highlight: faultHighlightNodeId === cbId,
+      },
     });
     edges.push({
       id: `e-bb66-${cbId}`,
@@ -236,7 +291,7 @@ function buildGraph(
       id: `e-${cbId}-label`,
       source: cbId,
       target: `label-str${stringNum + 1}`,
-      style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 1 },
+      style: { stroke: cbState(cbId) === "CLOSED" ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 1 },
     });
 
     // WTG IEDs in this string
@@ -296,13 +351,17 @@ function buildGraph(
 // ── Main Component ───────────────────────────────────────────
 
 export default function SubstationSLD() {
-  const { substationSummary } = useScadaStore();
+  const substationSummary = useScadaStore((s) => s.substationSummary);
+  const breakerStates = useScadaStore((s) => s.breakerStates);
+  const faultHighlightNodeId = useScadaStore((s) => s.faultHighlightNodeId);
+  const toggleBreaker = useScadaStore((s) => s.toggleBreaker);
+  const measurements = useScadaStore((s) => s.measurements) ?? [];
   const [selectedNode, setSelectedNode] = useState<{ data: Record<string, unknown>; type: string } | null>(null);
 
   const graph = useMemo(() => {
-    if (!substationSummary) return { nodes: [], edges: [] };
-    return buildGraph(substationSummary.devices);
-  }, [substationSummary]);
+    if (!substationSummary?.devices) return { nodes: [], edges: [] };
+    return buildGraph(substationSummary.devices, breakerStates, faultHighlightNodeId);
+  }, [substationSummary, breakerStates, faultHighlightNodeId]);
 
   const onInit = useCallback(
     (instance: { fitView: () => void }) => {
@@ -312,51 +371,47 @@ export default function SubstationSLD() {
   );
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    // If it's a circuit breaker, toggle it
+    if (node.type === "cb") {
+      toggleBreaker(node.id);
+    }
     setSelectedNode({
       data: node.data as Record<string, unknown>,
       type: node.type ?? "ied",
     });
-  }, []);
+  }, [toggleBreaker]);
 
   if (!substationSummary) {
     return (
-      <div className="bg-bg-secondary rounded-lg border border-border-primary p-6 h-[600px] flex items-center justify-center">
+      <div className="bg-bg-secondary rounded-lg border border-border-primary p-6 h-[400px] flex items-center justify-center">
         <p className="text-text-muted">Loading substation configuration...</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden relative">
-      <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden relative h-full">
+      <div className="px-3 py-1.5 border-b border-border-primary flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-text-primary">
-            Substation Single-Line Diagram
+          <h3 className="text-xs font-semibold text-text-primary">
+            Substation SLD
           </h3>
           <InfoButton info={substationSldInfo} />
-          <p className="text-[10px] text-text-muted font-mono">
-            {substationSummary.total_devices} IEDs &middot;{" "}
-            {substationSummary.total_logical_nodes} LNs &middot; IEC 60617 / 61850
+          <p className="text-[9px] text-text-muted font-mono">
+            {substationSummary.total_devices} IEDs · IEC 60617 · Click CB to toggle
           </p>
         </div>
-        {/* Equipment type legend */}
+        {/* Live measurements */}
         <div className="flex gap-3">
-          {[
-            { label: "CB", color: SCADA_COLORS.ENERGIZED },
-            { label: "DS", color: SCADA_COLORS.ENERGIZED },
-            { label: "ES", color: SCADA_COLORS.EARTHED },
-            { label: "TX", color: SCADA_COLORS.ENERGIZED },
-            { label: "Protection", color: SCADA_COLORS.FAULT },
-            { label: "WTG Ctrl", color: SCADA_COLORS.EARTHED },
-          ].map(({ label, color }) => (
-            <div key={label} className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color }} />
-              <span className="text-[10px] text-text-muted">{label}</span>
+          {measurements.map((m) => (
+            <div key={m.nodeId} className="flex items-center gap-1">
+              <span className="text-[9px] text-text-muted font-mono">{m.voltageKV}kV:</span>
+              <span className="text-[9px] text-text-secondary font-mono tabular-nums">{m.powerMW}MW</span>
             </div>
           ))}
         </div>
       </div>
-      <div className="h-[600px]">
+      <div style={{ height: "calc(100% - 34px)" }}>
         <ReactFlow
           nodes={graph.nodes}
           edges={graph.edges}

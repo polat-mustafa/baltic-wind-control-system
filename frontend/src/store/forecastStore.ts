@@ -43,6 +43,8 @@ interface ForecastState {
   loading: boolean;
   error: string | null;
   analysisRun: boolean;
+  progress: number; // 0-100
+  progressMessage: string;
 
   // Parameter setters
   setTurbineIndex: (i: number) => void;
@@ -66,7 +68,7 @@ export const useForecastStore = create<ForecastState>((set, get) => ({
 
   // Parameters
   numTurbines: 34,
-  numTimesteps: 52560,
+  numTimesteps: 8760,
   turbineIndex: 0,
   horizonSteps: 288,
   rampThresholdMwHr: 50,
@@ -82,6 +84,8 @@ export const useForecastStore = create<ForecastState>((set, get) => ({
   loading: false,
   error: null,
   analysisRun: false,
+  progress: 0,
+  progressMessage: "",
 
   // ── Parameter setters ──────────────────────────────────────
 
@@ -111,40 +115,34 @@ export const useForecastStore = create<ForecastState>((set, get) => ({
       rampThresholdMwHr,
     } = get();
 
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, progress: 0, progressMessage: "" });
 
     try {
-      // Run all analyses in parallel for speed
-      const [ensembleForecast, modelComparison, shapResult, rampDetection] =
-        await Promise.all([
-          api.predictEnsemble(
-            numTurbines,
-            numTimesteps,
-            turbineIndex,
-            horizonSteps,
-          ),
-          api.compareModels(
-            numTurbines,
-            numTimesteps,
-            turbineIndex,
-            horizonSteps,
-          ),
-          api.getXGBoostSHAP(numTurbines, numTimesteps, turbineIndex),
-          api.detectRamps(
-            numTurbines,
-            numTimesteps,
-            turbineIndex,
-            horizonSteps,
-            rampThresholdMwHr,
-          ),
-        ]);
+      // Step 1: Ensemble first — this builds+caches all 3 models on backend.
+      // Subsequent calls will hit the cache and return fast.
+      set({ progress: 5, progressMessage: "Training XGBoost + LSTM + TFT models..." });
+      const ensembleForecast = await api.predictEnsemble(
+        numTurbines,
+        numTimesteps,
+        turbineIndex,
+        horizonSteps,
+      );
+      set({ ensembleForecast, progress: 50, progressMessage: "Models cached. Running analysis..." });
+
+      // Step 2: Remaining 3 endpoints run in parallel — all hit cached forecasts
+      const [modelComparison, shapResult, rampDetection] = await Promise.all([
+        api.compareModels(numTurbines, numTimesteps, turbineIndex, horizonSteps),
+        api.getXGBoostSHAP(numTurbines, numTimesteps, turbineIndex),
+        api.detectRamps(numTurbines, numTimesteps, turbineIndex, horizonSteps, rampThresholdMwHr),
+      ]);
 
       set({
-        ensembleForecast,
         modelComparison,
         shapResult,
         rampDetection,
         analysisRun: true,
+        progress: 100,
+        progressMessage: "Analysis complete",
       });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });

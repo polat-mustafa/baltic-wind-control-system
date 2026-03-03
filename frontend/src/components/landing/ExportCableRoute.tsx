@@ -9,13 +9,15 @@
  */
 
 import { memo } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { EXPORT_CABLE_PATH } from "../../constants/windFarmLayout";
 
-function ExportCableRoute() {
-  const navigate = useNavigate();
+interface ExportCableRouteProps {
+  onClick?: () => void;
+}
+
+function ExportCableRoute({ onClick }: ExportCableRouteProps) {
 
   // Build SVG path string from waypoints
   const pathData = EXPORT_CABLE_PATH.reduce((acc, point, i) => {
@@ -25,7 +27,7 @@ function ExportCableRoute() {
 
   return (
     <g
-      onClick={() => navigate("/hv-grid")}
+      onClick={onClick}
       className="cursor-pointer"
       role="button"
       aria-label="220 kV Export Cable — click to open HV Grid"

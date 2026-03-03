@@ -24,6 +24,56 @@ export interface TurbineData {
   powerOutputMW: number;
   /** Hub-height wind speed in m/s */
   windSpeedMs: number;
+  /** Rotor speed in RPM (V236 rated: 9.55 rpm) */
+  rotorSpeedRpm: number;
+  /** Nacelle yaw position in degrees (0-360) */
+  nacellePositionDeg: number;
+  /** Blade pitch angle in degrees (0-90, 0=power, 90=feathered) */
+  pitchAngleDeg: number;
+  /** Turbine availability percentage (0-100) */
+  availabilityPct: number;
+  /** Energy produced today in MWh */
+  energyTodayMWh: number;
+  /** Main bearing vibration in mm/s (ISO 10816) */
+  vibrationMmS: number;
+  /** Main bearing temperature in Celsius */
+  bearingTempC: number;
+  /** Total operating hours since commissioning */
+  operatingHours: number;
+}
+
+// ── Transformer Data ─────────────────────────────────────────────
+
+export interface TransformerData {
+  name: string;
+  type: string;
+  ratingMVA: number;
+  hvKV: number;
+  lvKV: number;
+  tapPosition: number;
+  totalTaps: number;
+  oilTemperatureC: number;
+  windingTempHVC: number;
+  windingTempLVC: number;
+  loadPercent: number;
+  coolingStatus: "ONAN" | "ONAF-1" | "ONAF-2";
+  buchholzStatus: "Normal" | "Alarm" | "Trip";
+  dgaStatus: "Normal" | "Caution" | "Warning";
+  operatingHours: number;
+}
+
+// ── Cable Data ───────────────────────────────────────────────────
+
+export interface CableData {
+  type: string;
+  voltageRatingKV: number;
+  currentRatingA: number;
+  lengthKm: number;
+  thermalLoadingPct: number;
+  crossSectionMm2: number;
+  manufacturer: string;
+  insulationType: string;
+  burialDepthM: number;
 }
 
 // ── Farm-Level KPIs ─────────────────────────────────────────────

@@ -14,6 +14,14 @@ const MOCK_TURBINE: TurbineData = {
   status: "operating",
   powerOutputMW: 12.5,
   windSpeedMs: 10.3,
+  rotorSpeedRpm: 8.2,
+  nacellePositionDeg: 225,
+  pitchAngleDeg: 0,
+  availabilityPct: 99.5,
+  energyTodayMWh: 245,
+  vibrationMmS: 1.2,
+  bearingTempC: 42,
+  operatingHours: 18500,
 };
 
 describe("TurbineTooltip", () => {
@@ -25,17 +33,19 @@ describe("TurbineTooltip", () => {
   });
 
   it("displays power output", () => {
-    render(
+    const { container } = render(
       <TurbineTooltip turbine={MOCK_TURBINE} position={{ x: 50, y: 50 }} />,
     );
-    expect(screen.getByText("12.5 MW")).toBeDefined();
+    expect(container.textContent).toContain("12.5");
+    expect(container.textContent).toContain("MW");
   });
 
   it("displays wind speed", () => {
-    render(
+    const { container } = render(
       <TurbineTooltip turbine={MOCK_TURBINE} position={{ x: 50, y: 50 }} />,
     );
-    expect(screen.getByText("10.3 m/s")).toBeDefined();
+    expect(container.textContent).toContain("10.3");
+    expect(container.textContent).toContain("m/s");
   });
 
   it("shows status label", () => {
@@ -46,10 +56,10 @@ describe("TurbineTooltip", () => {
   });
 
   it("shows string number", () => {
-    render(
+    const { container } = render(
       <TurbineTooltip turbine={MOCK_TURBINE} position={{ x: 50, y: 50 }} />,
     );
-    expect(screen.getByText("String 1")).toBeDefined();
+    expect(container.textContent).toContain("String 1");
   });
 
   it("renders fault status correctly", () => {

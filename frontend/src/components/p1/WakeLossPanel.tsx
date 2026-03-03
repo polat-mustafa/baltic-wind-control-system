@@ -7,10 +7,11 @@
 
 import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
-import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { InfoButton } from "../ui/InfoButton";
 import { wakeLossInfo } from "../../constants/panelInfo";
+import { ChartWrapper } from "../ui/ChartWrapper";
 
 export default function WakeLossPanel() {
   const { wakeAnalysis } = useWindResourceStore();
@@ -30,13 +31,26 @@ export default function WakeLossPanel() {
   );
 
   return (
-    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
-          Per-Turbine Wake Loss
-        </h3>
-        <InfoButton info={wakeLossInfo} />
-      </div>
+    <ChartWrapper
+      title="Per-Turbine Wake Loss"
+      headerRight={<InfoButton info={wakeLossInfo} />}
+      footer={
+        <span className="flex gap-4 justify-center">
+          <span>
+            <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: SCADA_COLORS.ENERGIZED }} />
+            {"<10%"}
+          </span>
+          <span>
+            <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: SCADA_COLORS.WARNING }} />
+            10-15%
+          </span>
+          <span>
+            <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: SCADA_COLORS.FAULT }} />
+            {">15%"}
+          </span>
+        </span>
+      }
+    >
       <Plot
         data={[
           {
@@ -66,31 +80,8 @@ export default function WakeLossPanel() {
         config={PLOTLY_CONFIG}
         useResizeHandler
         className="w-full"
-        style={{ height: 350 }}
+        style={{ height: CHART_HEIGHT }}
       />
-      <div className="flex gap-4 text-xs text-text-muted mt-1 justify-center">
-        <span>
-          <span
-            className="inline-block w-2 h-2 rounded-full mr-1"
-            style={{ backgroundColor: SCADA_COLORS.ENERGIZED }}
-          />
-          {"<10%"}
-        </span>
-        <span>
-          <span
-            className="inline-block w-2 h-2 rounded-full mr-1"
-            style={{ backgroundColor: SCADA_COLORS.WARNING }}
-          />
-          10-15%
-        </span>
-        <span>
-          <span
-            className="inline-block w-2 h-2 rounded-full mr-1"
-            style={{ backgroundColor: SCADA_COLORS.FAULT }}
-          />
-          {">15%"}
-        </span>
-      </div>
-    </div>
+    </ChartWrapper>
   );
 }

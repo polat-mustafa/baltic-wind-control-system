@@ -7,9 +7,10 @@
 
 import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
-import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { windRoseInfo } from "../../constants/panelInfo";
+import { ChartWrapper } from "../ui/ChartWrapper";
 
 export default function WindRoseChart() {
   const { windRose } = useWindResourceStore();
@@ -22,13 +23,11 @@ export default function WindRoseChart() {
   const energy = [...windRose.energy_fractions, windRose.energy_fractions[0]];
 
   return (
-    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
-          Wind Rose — Frequency &amp; Energy
-        </h3>
-        <InfoButton info={windRoseInfo} />
-      </div>
+    <ChartWrapper
+      title="Wind Rose — Frequency & Energy"
+      headerRight={<InfoButton info={windRoseInfo} />}
+      footer={`Dominant: ${windRose.dominant_direction_deg}° · Circ. σ: ${windRose.circular_std_deg}°`}
+    >
       <Plot
         data={[
           {
@@ -73,12 +72,8 @@ export default function WindRoseChart() {
         config={PLOTLY_CONFIG}
         useResizeHandler
         className="w-full"
-        style={{ height: 350 }}
+        style={{ height: CHART_HEIGHT }}
       />
-      <p className="text-xs text-text-muted mt-1 text-center">
-        Dominant: {windRose.dominant_direction_deg}° · Circ. σ:{" "}
-        {windRose.circular_std_deg}°
-      </p>
-    </div>
+    </ChartWrapper>
   );
 }

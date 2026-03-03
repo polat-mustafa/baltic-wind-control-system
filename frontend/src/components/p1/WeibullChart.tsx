@@ -7,10 +7,11 @@
 
 import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
-import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { InfoButton } from "../ui/InfoButton";
 import { weibullInfo } from "../../constants/panelInfo";
+import { ChartWrapper } from "../ui/ChartWrapper";
 
 export default function WeibullChart() {
   const { weibullFit, turbineSpec } = useWindResourceStore();
@@ -20,14 +21,11 @@ export default function WeibullChart() {
   const maxPdf = Math.max(...weibullFit.pdf_values);
 
   return (
-    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
-          Weibull Distribution — A={weibullFit.fitted_a} m/s, k=
-          {weibullFit.fitted_k}
-        </h3>
-        <InfoButton info={weibullInfo} />
-      </div>
+    <ChartWrapper
+      title={`Weibull Distribution — A=${weibullFit.fitted_a} m/s, k=${weibullFit.fitted_k}`}
+      headerRight={<InfoButton info={weibullInfo} />}
+      footer={`Mean: ${weibullFit.mean_speed_ms} m/s · 8760 synthetic hours`}
+    >
       <Plot
         data={[
           {
@@ -112,11 +110,8 @@ export default function WeibullChart() {
         config={PLOTLY_CONFIG}
         useResizeHandler
         className="w-full"
-        style={{ height: 350 }}
+        style={{ height: CHART_HEIGHT }}
       />
-      <p className="text-xs text-text-muted mt-1 text-center">
-        Mean: {weibullFit.mean_speed_ms} m/s · 8760 synthetic hours
-      </p>
-    </div>
+    </ChartWrapper>
   );
 }

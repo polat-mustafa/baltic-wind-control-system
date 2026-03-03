@@ -54,6 +54,11 @@ export const DARK_PLOTLY_LAYOUT: Record<string, any> = {
 };
 
 export const PLOTLY_CONFIG: Record<string, any> = {
-  displayModeBar: false,
+  displayModeBar: "hover",
+  displaylogo: false,
+  modeBarButtonsToRemove: ["lasso2d", "select2d", "sendDataToCloud"],
   responsive: true,
 };
+
+/** Dynamic chart height — responsive to viewport */
+export const CHART_HEIGHT = "max(350px, 28vh)";

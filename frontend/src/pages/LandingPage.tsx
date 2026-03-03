@@ -19,7 +19,6 @@ import { InfoButton } from "../components/ui/InfoButton";
 import { farmOverviewInfo } from "../constants/panelInfo";
 
 export default function LandingPage() {
-  const turbines = useLandingStore((s) => s.turbines);
   const kpis = useLandingStore((s) => s.kpis);
   const startSimulation = useLandingStore((s) => s.startSimulation);
   const stopSimulation = useLandingStore((s) => s.stopSimulation);
@@ -44,8 +43,8 @@ export default function LandingPage() {
         <InfoButton info={farmOverviewInfo} />
       </div>
 
-      {/* Main interactive map */}
-      <WindFarmMap turbines={turbines} totalPowerMW={kpis.totalOutputMW} />
+      {/* Main interactive map — turbines read from store individually */}
+      <WindFarmMap totalPowerMW={kpis.totalOutputMW} />
 
       {/* Bottom section: KPIs + quick nav */}
       <div className="flex flex-col lg:flex-row gap-4 items-start justify-between">

@@ -8,23 +8,22 @@
  */
 
 import { memo } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { OSS_POSITION } from "../../constants/windFarmLayout";
 
 interface OffshoreSubstationProps {
   powerThroughMW: number;
+  onClick?: () => void;
 }
 
-function OffshoreSubstation({ powerThroughMW }: OffshoreSubstationProps) {
-  const navigate = useNavigate();
+function OffshoreSubstation({ powerThroughMW, onClick }: OffshoreSubstationProps) {
   const { x, y } = OSS_POSITION;
 
   return (
     <g
       transform={`translate(${x}, ${y})`}
-      onClick={() => navigate("/scada")}
+      onClick={onClick}
       className="cursor-pointer"
       role="button"
       aria-label="Offshore Substation — click to open SCADA"

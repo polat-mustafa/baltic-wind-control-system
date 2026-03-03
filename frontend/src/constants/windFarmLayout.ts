@@ -112,3 +112,56 @@ export const COASTLINE_PATH = "M 880,0 Q 870,100 890,200 Q 910,300 880,400 Q 860
 // ── Sea Area Boundary ───────────────────────────────────────────
 
 export const SEA_BOUNDARY_X = 880; // Everything left of this is sea
+
+// ── Bathymetry Contour Lines (depth in metres) ──────────────────
+// Approximated isobaths for the Polish Baltic — shallow shelf slopes gently
+
+export const BATHYMETRY_CONTOURS: { depth: number; path: string; label: { x: number; y: number } }[] = [
+  {
+    depth: 20,
+    path: "M 0,620 Q 200,600 400,610 Q 600,630 800,660 Q 850,670 880,680",
+    label: { x: 420, y: 600 },
+  },
+  {
+    depth: 30,
+    path: "M 0,450 Q 150,430 350,450 Q 550,470 750,520 Q 830,550 870,580",
+    label: { x: 370, y: 442 },
+  },
+  {
+    depth: 40,
+    path: "M 0,280 Q 120,260 300,290 Q 480,320 660,380 Q 800,440 860,480",
+    label: { x: 320, y: 282 },
+  },
+  {
+    depth: 50,
+    path: "M 0,140 Q 100,130 250,160 Q 400,200 560,270 Q 720,350 840,400",
+    label: { x: 270, y: 155 },
+  },
+];
+
+// ── Shipping Lane (TSS — Traffic Separation Scheme) ─────────────
+// Simplified representation of the Baltic shipping corridor
+
+export const SHIPPING_LANE: { x1: number; y1: number; x2: number; y2: number }[] = [
+  { x1: 0, y1: 60, x2: 200, y2: 55 },
+  { x1: 200, y1: 55, x2: 450, y2: 65 },
+  { x1: 450, y1: 65, x2: 700, y2: 80 },
+  { x1: 700, y1: 80, x2: 880, y2: 95 },
+];
+
+// ── Lat/Lon Grid (approximate for SVG overlay) ──────────────────
+// Polish Baltic ~54.5°N to 55.0°N, ~16.0°E to 17.0°E
+
+export const LAT_LON_GRID = {
+  latLines: [
+    { y: 100, label: "55.0°N" },
+    { y: 300, label: "54.8°N" },
+    { y: 500, label: "54.6°N" },
+  ],
+  lonLines: [
+    { x: 120, label: "16.0°E" },
+    { x: 360, label: "16.3°E" },
+    { x: 600, label: "16.6°E" },
+    { x: 840, label: "16.9°E" },
+  ],
+};

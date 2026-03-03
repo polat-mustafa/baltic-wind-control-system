@@ -7,19 +7,21 @@
  */
 
 import { memo } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { ONSHORE_POSITION } from "../../constants/windFarmLayout";
 
-function OnshoreSubstation() {
-  const navigate = useNavigate();
+interface OnshoreSubstationProps {
+  onClick?: () => void;
+}
+
+function OnshoreSubstation({ onClick }: OnshoreSubstationProps) {
   const { x, y } = ONSHORE_POSITION;
 
   return (
     <g
       transform={`translate(${x}, ${y})`}
-      onClick={() => navigate("/hv-grid")}
+      onClick={onClick}
       className="cursor-pointer"
       role="button"
       aria-label="Onshore Substation — click to open HV Grid"

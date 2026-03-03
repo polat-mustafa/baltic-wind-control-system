@@ -25,7 +25,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.cache import cached
-
 from app.services.p1.aep_calculator import (
     DEFAULT_PRICE_EUR_MWH,
     compute_aep_cascade,
@@ -281,7 +280,7 @@ def _cached_wake_analysis(
     weibull_a: float,
     weibull_k: float,
     ti: float,
-) -> dict:
+) -> dict[str, object]:
     """Cached wrapper — returns wake result as a dict for Redis storage."""
     layout = _get_layout(layout_name)
     result = _run_wake_for_layout(layout, weibull_a, weibull_k, ti)

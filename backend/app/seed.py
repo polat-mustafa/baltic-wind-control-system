@@ -18,7 +18,6 @@ import logging
 import uuid
 
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import async_session_factory
 from app.models.wind_farm import TurbinePosition, WindFarm
@@ -34,16 +33,16 @@ STRING_LAYOUT = [6, 6, 6, 6, 5, 5]  # 34 total
 # Spacing (metres)
 CROSS_WIND_SPACING_M = 1500.0  # ~6.4D cross-wind
 ALONG_WIND_SPACING_M = 2360.0  # ~10D along-wind
-STAGGER_OFFSET_M = 750.0       # Half cross-wind spacing for stagger
+STAGGER_OFFSET_M = 750.0  # Half cross-wind spacing for stagger
 
 
-def _generate_positions() -> list[dict]:
+def _generate_positions() -> list[dict[str, str | float]]:
     """Generate 34 turbine positions on a staggered grid.
 
     Returns a list of dicts with keys: turbine_id, x_m, y_m.
     Origin at (0, 0) for string 1, turbine 1.
     """
-    positions: list[dict] = []
+    positions: list[dict[str, str | float]] = []
     turbine_id = 1
 
     for string_idx, n_turbines in enumerate(STRING_LAYOUT):
@@ -53,11 +52,13 @@ def _generate_positions() -> list[dict]:
         y_offset = STAGGER_OFFSET_M if string_idx % 2 == 1 else 0.0
 
         for turbine_in_string in range(n_turbines):
-            positions.append({
-                "turbine_id": f"WTG-{turbine_id:02d}",
-                "x_m": round(x_base, 1),
-                "y_m": round(y_offset + turbine_in_string * ALONG_WIND_SPACING_M, 1),
-            })
+            positions.append(
+                {
+                    "turbine_id": f"WTG-{turbine_id:02d}",
+                    "x_m": round(x_base, 1),
+                    "y_m": round(y_offset + turbine_in_string * ALONG_WIND_SPACING_M, 1),
+                }
+            )
             turbine_id += 1
 
     return positions
@@ -69,8 +70,6 @@ async def seed_default_farm() -> None:
     Checks ``COUNT(*) > 0`` on ``wind_farm`` before inserting.
     """
     async with async_session_factory() as session:
-        session: AsyncSession
-
         # Check if any farm already exists
         result = await session.execute(select(func.count()).select_from(WindFarm))
         count = result.scalar_one()
@@ -105,6 +104,6 @@ async def seed_default_farm() -> None:
 
         await session.commit()
         logger.info(
-            "Seeded Baltic Wind Alpha: 34 × V236-15.0 MW = 510 MW (UUID: %s)",
+            "Seeded Baltic Wind Alpha: 34 x V236-15.0 MW = 510 MW (UUID: %s)",
             FARM_UUID,
         )

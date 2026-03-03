@@ -27,7 +27,6 @@ import numpy as np
 from fastapi import APIRouter
 
 from app.core.cache import cached
-
 from app.schemas.forecast import (
     ConstraintCheckRequest,
     ConstraintCheckResponse,
@@ -992,7 +991,7 @@ def _cached_ensemble_predict(
     turbine_index: int,
     horizon_steps: int,
     seed: int | None,
-) -> dict:
+) -> dict[str, object]:
     """Cached wrapper for ensemble prediction — returns response as dict."""
     forecasts, _ = _build_all_model_forecasts(
         num_turbines=num_turbines,

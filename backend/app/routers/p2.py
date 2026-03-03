@@ -22,7 +22,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.cache import cached
-
 from app.schemas.grid import (
     ConverterComparisonResponse,
     FRTSimulationResponse,
@@ -52,7 +51,7 @@ router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
 
 
 @cached(prefix="loadflow", ttl=300)
-def _cached_load_flow(scenario: str, auto_dispatch: bool = True) -> dict:
+def _cached_load_flow(scenario: str, auto_dispatch: bool = True) -> dict[str, object]:
     """Cached wrapper for load flow — returns Pydantic model as dict."""
     result = run_load_flow(LoadFlowScenario(scenario), auto_dispatch=auto_dispatch)
     return result.model_dump()

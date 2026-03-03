@@ -32,6 +32,8 @@ repos:
           - fastapi
           - pydantic
           - pydantic-settings
+          - sqlalchemy[mypy]
+          - types-redis
         args: [--config-file=backend/pyproject.toml]
         files: ^backend/
 

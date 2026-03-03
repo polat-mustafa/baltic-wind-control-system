@@ -24,14 +24,20 @@ from pydantic import BaseModel, Field
 from app.core.cache import cached
 from app.schemas.grid import (
     ConverterComparisonResponse,
+    DynamicComplianceResponse,
+    FrequencyMode,
+    FrequencyResponseResponse,
     FRTSimulationResponse,
     FRTType,
     LoadFlowResponse,
     LoadFlowScenario,
     ShortCircuitResponse,
+    SSOScreeningResponse,
     STATCOMSizingResult,
 )
 from app.services.p2.converter_comparison import get_comparison_response
+from app.services.p2.dynamic_compliance import run_full_compliance_assessment
+from app.services.p2.frequency_response import run_frequency_response
 from app.services.p2.frt_simulation import run_frt_simulation
 from app.services.p2.load_flow import run_all_scenarios, run_load_flow
 from app.services.p2.network_model import (
@@ -42,6 +48,7 @@ from app.services.p2.network_model import (
     TOTAL_CAPACITY_MW,
 )
 from app.services.p2.short_circuit import calc_short_circuit
+from app.services.p2.sso_analysis import run_sso_screening
 from app.services.p2.statcom_sizing import validate_compensation
 
 router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
@@ -84,6 +91,43 @@ class FRTRequest(BaseModel):
     generation_fraction: float = Field(
         1.0, ge=0.0, le=1.0, description="Pre-fault generation level [0-1]"
     )
+
+
+class DynamicComplianceRequest(BaseModel):
+    """Request for full NC RfG Type D dynamic compliance assessment."""
+
+    export_length_km: float = Field(
+        EXPORT_CABLE_LENGTH_KM, ge=1.0, le=200.0, description="Export cable length [km]"
+    )
+    grid_ssc_mva: float = Field(
+        GRID_SSC_MVA, ge=500.0, le=50_000.0, description="Grid short-circuit capacity [MVA]"
+    )
+    generation_fraction: float = Field(
+        1.0, ge=0.0, le=1.0, description="Pre-fault generation level [0-1]"
+    )
+
+
+class FrequencyResponseRequest(BaseModel):
+    """Request for frequency response simulation."""
+
+    mode: FrequencyMode = Field(description="NC RfG frequency response mode")
+    freq_step_hz: float = Field(0.5, ge=0.01, le=2.0, description="Frequency step [Hz]")
+    droop_pct: float = Field(5.0, ge=1.0, le=12.0, description="Droop percentage [%]")
+    generation_fraction: float = Field(
+        0.8, ge=0.0, le=1.0, description="Pre-event generation level [0-1]"
+    )
+
+
+class SSOScreeningRequest(BaseModel):
+    """Request for sub-synchronous oscillation screening."""
+
+    export_length_km: float = Field(
+        EXPORT_CABLE_LENGTH_KM, ge=1.0, le=200.0, description="Export cable length [km]"
+    )
+    grid_ssc_mva: float = Field(
+        GRID_SSC_MVA, ge=500.0, le=50_000.0, description="Grid short-circuit capacity [MVA]"
+    )
+    generation_fraction: float = Field(1.0, ge=0.0, le=1.0, description="Generation level [0-1]")
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -230,3 +274,94 @@ async def converter_comparison(scenario: str) -> ConverterComparisonResponse:
             status_code=500,
             detail=f"Converter comparison failed: {e}",
         ) from e
+
+
+# ── Dynamic Compliance (P2B) ────────────────────────────────────
+
+
+@router.post("/dynamic-compliance", response_model=DynamicComplianceResponse)
+async def dynamic_compliance(
+    request: DynamicComplianceRequest,
+) -> DynamicComplianceResponse:
+    """Run full NC RfG Type D dynamic compliance assessment.
+
+    Aggregates LVRT, HVRT, LFSM-O, LFSM-U, FSM, RoCoF, SSO, and
+    converter comparison into a single compliance verdict.
+    """
+    try:
+        return run_full_compliance_assessment(
+            export_length_km=request.export_length_km,
+            grid_ssc_mva=request.grid_ssc_mva,
+            generation_fraction=request.generation_fraction,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Dynamic compliance assessment failed: {e}",
+        ) from e
+
+
+@router.post("/frequency-response", response_model=FrequencyResponseResponse)
+async def frequency_response(
+    request: FrequencyResponseRequest,
+) -> FrequencyResponseResponse:
+    """Run NC RfG frequency response simulation for a single mode.
+
+    Modes: LFSM-O (over-frequency), LFSM-U (under-frequency),
+    FSM (frequency-sensitive mode).
+    """
+    try:
+        return run_frequency_response(
+            mode=request.mode,
+            freq_step_hz=request.freq_step_hz,
+            droop_pct=request.droop_pct,
+            generation_fraction=request.generation_fraction,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Frequency response simulation failed: {e}",
+        ) from e
+
+
+@router.post("/sso-analysis", response_model=SSOScreeningResponse)
+async def sso_analysis(
+    request: SSOScreeningRequest,
+) -> SSOScreeningResponse:
+    """Run sub-synchronous oscillation screening analysis.
+
+    Checks cable resonance frequency, impedance scan, and eigenvalue
+    stability for Type 4 WTG interactions with long export cables.
+    """
+    try:
+        return run_sso_screening(
+            export_length_km=request.export_length_km,
+            grid_ssc_mva=request.grid_ssc_mva,
+            generation_fraction=request.generation_fraction,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"SSO analysis failed: {e}",
+        ) from e
+
+
+@router.get("/andes-network", response_model=NetworkSpecResponse)
+async def get_andes_network() -> NetworkSpecResponse:
+    """Return ANDES dynamic network specification.
+
+    Same network constants as the Pandapower model, confirming
+    consistency between steady-state and dynamic simulation tools.
+    """
+    return NetworkSpecResponse(
+        total_capacity_mw=TOTAL_CAPACITY_MW,
+        num_turbines=34,
+        num_strings=len(STRING_LAYOUT),
+        string_layout=list(STRING_LAYOUT),
+        array_voltage_kv=66.0,
+        export_voltage_kv=220.0,
+        grid_voltage_kv=400.0,
+        export_length_km=EXPORT_CABLE_LENGTH_KM,
+        grid_ssc_mva=GRID_SSC_MVA,
+        statcom_rating_mvar=STATCOM_RATING_MVAR,
+    )

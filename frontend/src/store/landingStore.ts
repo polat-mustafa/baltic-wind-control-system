@@ -54,13 +54,15 @@ function computeKPIs(turbines: TurbineData[]): FarmKPI {
   return { totalOutputMW, averageWindSpeedMs, availabilityPercent, activeAlerts };
 }
 
+// ── Module-level interval (not in Zustand state) ────────────────
+
+let _tickInterval: ReturnType<typeof setInterval> | null = null;
+
 // ── Store Interface ─────────────────────────────────────────────
 
 interface LandingState {
   turbines: TurbineData[];
   kpis: FarmKPI;
-  /** Interval ID for cleanup */
-  tickInterval: ReturnType<typeof setInterval> | null;
 
   /** Start the simulation tick (call on mount) */
   startSimulation: () => void;
@@ -70,19 +72,18 @@ interface LandingState {
 
 // ── Store Implementation ────────────────────────────────────────
 
-export const useLandingStore = create<LandingState>((set, get) => {
+export const useLandingStore = create<LandingState>((set) => {
   const initialTurbines = createInitialTurbines();
 
   return {
     turbines: initialTurbines,
     kpis: computeKPIs(initialTurbines),
-    tickInterval: null,
 
     startSimulation: () => {
       // Prevent double-start
-      if (get().tickInterval) return;
+      if (_tickInterval) return;
 
-      const interval = setInterval(() => {
+      _tickInterval = setInterval(() => {
         set((state) => {
           const newTurbines = state.turbines.map((t) => {
             // Jitter wind speed by ±0.5 m/s
@@ -139,15 +140,12 @@ export const useLandingStore = create<LandingState>((set, get) => {
           };
         });
       }, 3000);
-
-      set({ tickInterval: interval });
     },
 
     stopSimulation: () => {
-      const interval = get().tickInterval;
-      if (interval) {
-        clearInterval(interval);
-        set({ tickInterval: null });
+      if (_tickInterval) {
+        clearInterval(_tickInterval);
+        _tickInterval = null;
       }
     },
   };

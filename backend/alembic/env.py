@@ -3,9 +3,14 @@ Alembic environment configuration for async PostgreSQL.
 
 Uses asyncpg driver with SQLAlchemy 2.0 async engine.
 Imports all ORM models via app.models for autogenerate support.
+
+When running inside Docker, the DATABASE_URL environment variable
+overrides the URL from alembic.ini (different hostname: 'postgres'
+instead of 'localhost').
 """
 
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -17,6 +22,11 @@ import app.models  # noqa: F401
 from app.db import Base
 
 config = context.config
+
+# Override sqlalchemy.url from environment if set (Docker uses postgres:5432)
+database_url = os.environ.get("DATABASE_URL")
+if database_url:
+    config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

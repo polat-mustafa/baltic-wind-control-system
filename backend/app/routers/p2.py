@@ -21,6 +21,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.cache import cached
 from app.schemas.grid import (
     ConverterComparisonResponse,
     FRTSimulationResponse,
@@ -44,6 +45,16 @@ from app.services.p2.short_circuit import calc_short_circuit
 from app.services.p2.statcom_sizing import validate_compensation
 
 router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
+
+
+# ── Cached Helpers ───────────────────────────────────────────────
+
+
+@cached(prefix="loadflow", ttl=300)
+def _cached_load_flow(scenario: str, auto_dispatch: bool = True) -> dict[str, object]:
+    """Cached wrapper for load flow — returns Pydantic model as dict."""
+    result = run_load_flow(LoadFlowScenario(scenario), auto_dispatch=auto_dispatch)
+    return result.model_dump()
 
 
 # ── Pydantic Schemas ─────────────────────────────────────────────
@@ -101,9 +112,11 @@ async def load_flow_scenario(scenario: LoadFlowScenario) -> LoadFlowResponse:
 
     Scenarios: full_load, partial_load, no_load, n_minus_1.
     STATCOM auto-dispatch adjusts Q to maintain OSS voltage at 1.0 pu.
+    Uses Redis cache (TTL 300s) to avoid recomputing identical requests.
     """
     try:
-        return run_load_flow(scenario, auto_dispatch=True)
+        result_dict = await _cached_load_flow(scenario.value)
+        return LoadFlowResponse(**result_dict)
     except Exception as e:
         raise HTTPException(
             status_code=500,

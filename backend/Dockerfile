@@ -10,8 +10,16 @@ WORKDIR /app
 COPY pyproject.toml .
 RUN pip install --no-cache-dir .
 
+# Copy Alembic configuration and migrations
+COPY alembic.ini .
+COPY alembic/ alembic/
+
 # Copy application code
 COPY app/ app/
+
+# Copy and prepare entrypoint
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 # Run as non-root user (IEC 62443 security best practice)
 RUN adduser --disabled-password --no-create-home appuser
@@ -19,4 +27,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["./entrypoint.sh"]

@@ -16,7 +16,7 @@ Usage::
 
     # In helper functions (not route handlers):
     @cached(prefix="wake", ttl=300)
-    def compute_wake(layout: str, a: float, k: float) -> dict: ...
+    def compute_wake(layout: str, a: float, k: float) -> dict[str, Any]: ...
 
     # FastAPI dependency for direct access:
     async def my_route(redis=Depends(get_redis_client)): ...
@@ -28,6 +28,7 @@ import functools
 import hashlib
 import json
 import logging
+from collections.abc import Callable
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -46,23 +47,24 @@ async def init_redis() -> None:
     Called once during application startup (lifespan).
     Fails silently with a warning if Redis is unreachable.
     """
-    global _redis_client  # noqa: PLW0603
+    global _redis_client
     try:
-        _redis_client = aioredis.from_url(
+        client: aioredis.Redis = aioredis.from_url(  # type: ignore[assignment]
             settings.redis_url,
             decode_responses=True,
             socket_connect_timeout=3,
         )
-        await _redis_client.ping()
+        await client.ping()
+        _redis_client = client
         logger.info("Redis connected: %s", settings.redis_url)
     except Exception:
-        logger.warning("Redis unavailable — caching disabled")
+        logger.warning("Redis unavailable -- caching disabled")
         _redis_client = None
 
 
 async def close_redis() -> None:
     """Close the Redis connection during shutdown."""
-    global _redis_client  # noqa: PLW0603
+    global _redis_client
     if _redis_client is not None:
         await _redis_client.aclose()
         _redis_client = None
@@ -70,7 +72,7 @@ async def close_redis() -> None:
 
 
 async def get_redis_client() -> aioredis.Redis | None:
-    """FastAPI dependency — returns the Redis client (or None)."""
+    """FastAPI dependency -- returns the Redis client (or None)."""
     return _redis_client
 
 
@@ -79,7 +81,8 @@ async def redis_ping() -> bool:
     if _redis_client is None:
         return False
     try:
-        return bool(await _redis_client.ping())
+        result = await _redis_client.ping()
+        return bool(result)
     except Exception:
         return False
 
@@ -90,11 +93,14 @@ def _make_cache_key(prefix: str, args: tuple[Any, ...], kwargs: dict[str, Any]) 
     Key format: ``bw:{prefix}:{md5(serialised_args)[:12]}``
     """
     raw = json.dumps({"a": args, "k": kwargs}, sort_keys=True, default=str)
-    digest = hashlib.md5(raw.encode()).hexdigest()[:12]  # noqa: S324
+    digest = hashlib.md5(raw.encode()).hexdigest()[:12]
     return f"bw:{prefix}:{digest}"
 
 
-def cached(prefix: str = "default", ttl: int = 300):
+def cached(
+    prefix: str = "default",
+    ttl: int = 300,
+) -> Callable[..., Callable[..., Any]]:
     """Decorator for caching function results in Redis.
 
     Works on **sync helper functions** that return JSON-serialisable
@@ -112,9 +118,9 @@ def cached(prefix: str = "default", ttl: int = 300):
     - If serialisation fails, the function runs uncached.
     """
 
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             if _redis_client is None:
                 return func(*args, **kwargs)
 
@@ -128,7 +134,7 @@ def cached(prefix: str = "default", ttl: int = 300):
             except Exception:
                 pass
 
-            # Cache miss — compute
+            # Cache miss -- compute
             result = func(*args, **kwargs)
 
             # Store in cache

@@ -1,0 +1,6 @@
+# Ensure shell scripts always use LF (critical for Docker on Windows)
+*.sh text eol=lf
+entrypoint.sh text eol=lf
+
+# Dockerfile should also use LF
+Dockerfile text eol=lf

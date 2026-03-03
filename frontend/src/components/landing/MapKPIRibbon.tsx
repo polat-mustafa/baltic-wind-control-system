@@ -2,69 +2,59 @@
  * Bottom KPI ribbon — farm-level metrics updated every 3s.
  *
  * Displays: total power output, average wind speed, availability, active alerts.
- * Reuses the KPICard pattern from P1 KPIHeader.
+ * Uses the shared KPICard component from the design system.
  */
 
-import { SCADA_COLORS } from "../../constants/scadaColors";
 import type { FarmKPI } from "../../types/landing";
+import { KPICard } from "../ui/KPICard";
+import { Zap, Wind, Gauge, AlertTriangle } from "lucide-react";
 
 interface MapKPIRibbonProps {
   kpis: FarmKPI;
 }
 
-interface KPIItemProps {
-  label: string;
-  value: string;
-  unit: string;
-  color?: string;
-}
-
-function KPIItem({ label, value, unit, color }: KPIItemProps) {
-  return (
-    <div className="bg-slate-800 rounded-lg px-4 py-2.5 border border-slate-700 min-w-[140px]">
-      <p className="text-[10px] text-slate-400 uppercase tracking-wider">{label}</p>
-      <p className="text-lg font-bold mt-0.5" style={color ? { color } : undefined}>
-        {value}
-        <span className="text-xs font-normal text-slate-400 ml-1">{unit}</span>
-      </p>
-    </div>
-  );
-}
-
 export default function MapKPIRibbon({ kpis }: MapKPIRibbonProps) {
-  const availColor =
+  const availTrend: "up" | "down" | "flat" =
     kpis.availabilityPercent >= 95
-      ? SCADA_COLORS.ENERGIZED
+      ? "up"
       : kpis.availabilityPercent >= 85
-        ? SCADA_COLORS.WARNING
-        : SCADA_COLORS.FAULT;
+        ? "flat"
+        : "down";
 
-  const alertColor = kpis.activeAlerts === 0 ? SCADA_COLORS.ENERGIZED : SCADA_COLORS.WARNING;
+  const alertTrend: "up" | "down" | "flat" =
+    kpis.activeAlerts === 0 ? "down" : "up";
 
   return (
-    <div className="flex gap-3 flex-wrap">
-      <KPIItem
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-1">
+      <KPICard
         label="Total Output"
         value={kpis.totalOutputMW.toFixed(0)}
-        unit={`MW / 510 MW`}
-        color={SCADA_COLORS.ENERGIZED}
+        unit="MW / 510"
+        icon={<Zap size={16} />}
+        trend="up"
+        trendValue={`${((kpis.totalOutputMW / 510) * 100).toFixed(0)}% capacity`}
       />
-      <KPIItem
+      <KPICard
         label="Avg Wind Speed"
         value={kpis.averageWindSpeedMs.toFixed(1)}
         unit="m/s"
+        icon={<Wind size={16} />}
       />
-      <KPIItem
+      <KPICard
         label="Availability"
         value={kpis.availabilityPercent.toFixed(1)}
         unit="%"
-        color={availColor}
+        icon={<Gauge size={16} />}
+        trend={availTrend}
+        trendValue={availTrend === "up" ? "Target met" : "Below target"}
       />
-      <KPIItem
+      <KPICard
         label="Active Alerts"
         value={String(kpis.activeAlerts)}
         unit={kpis.activeAlerts === 1 ? "alarm" : "alarms"}
-        color={alertColor}
+        icon={<AlertTriangle size={16} />}
+        trend={alertTrend}
+        trendValue={kpis.activeAlerts === 0 ? "All clear" : "Attention needed"}
       />
     </div>
   );

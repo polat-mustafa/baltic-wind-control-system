@@ -22,6 +22,8 @@ import "@xyflow/react/dist/style.css";
 
 import { useScadaStore } from "../../store/scadaStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
+import { InfoButton } from "../ui/InfoButton";
+import { permitWorkflowInfo } from "../../constants/panelInfo";
 
 // ── PtW 9-state definitions ─────────────────────────────────
 
@@ -174,11 +176,12 @@ export default function PermitWorkflowPanel() {
       {/* Flowchart + permit form side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* 9-state flowchart */}
-        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-          <div className="px-4 py-2 border-b border-slate-700">
-            <h3 className="text-sm font-semibold text-slate-300">
+        <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+          <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-text-primary">
               PtW 9-State Lifecycle
             </h3>
+            <InfoButton info={permitWorkflowInfo} />
           </div>
           <div className="h-[400px]">
             <ReactFlow

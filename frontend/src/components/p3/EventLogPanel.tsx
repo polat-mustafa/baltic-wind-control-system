@@ -9,6 +9,8 @@ import { useMemo } from "react";
 
 import { useScadaStore } from "../../store/scadaStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
+import { InfoButton } from "../ui/InfoButton";
+import { eventLogInfo } from "../../constants/panelInfo";
 
 interface SOEEntry {
   timestamp_ms: number;
@@ -49,14 +51,17 @@ export default function EventLogPanel() {
   }, [simulationResult]);
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-      <div className="px-4 py-2 border-b border-slate-700 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-300">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+      <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-text-primary">
           Event Log / SOE
         </h3>
-        <span className="text-[10px] text-slate-500 font-mono">
-          {entries.length} entries
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-text-muted font-mono">
+            {entries.length} entries
+          </span>
+          <InfoButton info={eventLogInfo} />
+        </div>
       </div>
       <div className="max-h-[240px] overflow-y-auto">
         {entries.length === 0 ? (

@@ -22,7 +22,9 @@ COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
 # Run as non-root user (IEC 62443 security best practice)
-RUN adduser --disabled-password --no-create-home appuser
+# --create-home is required: Alembic and ANDES write cache/config to $HOME
+RUN adduser --disabled-password --gecos "" appuser \
+    && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000

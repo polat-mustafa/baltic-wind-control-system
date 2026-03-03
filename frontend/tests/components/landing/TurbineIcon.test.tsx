@@ -37,7 +37,7 @@ describe("TurbineIcon", () => {
     const button = container.querySelector('[role="button"]');
     expect(button).toBeDefined();
     expect(button?.getAttribute("aria-label")).toBe(
-      "Turbine at position 100,200",
+      "Turbine WTG-01 — operating, 12.0 MW",
     );
   });
 

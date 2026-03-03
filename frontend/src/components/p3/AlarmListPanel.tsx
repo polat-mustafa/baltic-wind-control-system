@@ -14,6 +14,8 @@ import { useMemo } from "react";
 import { useScadaStore } from "../../store/scadaStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import type { ProtectionEvent } from "../../types/scada";
+import { InfoButton } from "../ui/InfoButton";
+import { alarmListInfo } from "../../constants/panelInfo";
 
 type AlarmPriority = "critical" | "warning" | "info";
 
@@ -81,14 +83,17 @@ export default function AlarmListPanel() {
   }, [simulationResult]);
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-      <div className="px-4 py-2 border-b border-slate-700 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-300">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+      <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-text-primary">
           Alarm List (ISA-18.2)
         </h3>
-        <span className="text-[10px] text-slate-500 font-mono">
-          {alarms.length} alarms
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-text-muted font-mono">
+            {alarms.length} alarms
+          </span>
+          <InfoButton info={alarmListInfo} />
+        </div>
       </div>
       <div className="max-h-[320px] overflow-y-auto">
         {alarms.length === 0 ? (

@@ -13,6 +13,8 @@ import Plot from "react-plotly.js";
 import { useGridStore } from "../../store/gridStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { InfoButton } from "../ui/InfoButton";
+import { frtInfo } from "../../constants/panelInfo";
 
 // PSE LVRT envelope (time [s], voltage [pu])
 const PSE_LVRT_ENVELOPE = [
@@ -61,12 +63,13 @@ export default function FRTPanel() {
   const typeLabel = frtResult.frt_type.toUpperCase();
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <h3 className="text-sm font-semibold text-slate-200">
+        <h3 className="text-sm font-semibold text-text-primary">
           {typeLabel} Simulation — {frtResult.fault_bus}, {(frtResult.fault_duration_s * 1000).toFixed(0)} ms
         </h3>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <InfoButton info={frtInfo} />
           <ComplianceBadge label="Connected" ok={frtResult.stayed_connected} />
           <ComplianceBadge label={`Kqv\u2265${2.0}`} ok={frtResult.reactive_current_compliant} />
           <ComplianceBadge label="Recovery" ok={frtResult.recovery_compliant} />
@@ -180,7 +183,7 @@ export default function FRTPanel() {
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3 mt-2 text-center">
         <div>
-          <p className="text-xs text-slate-400">Kqv Achieved</p>
+          <p className="text-xs text-text-muted">Kqv Achieved</p>
           <p className="text-sm font-bold" style={{
             color: frtResult.reactive_current_gain >= 2.0
               ? SCADA_COLORS.ENERGIZED
@@ -190,7 +193,7 @@ export default function FRTPanel() {
           </p>
         </div>
         <div>
-          <p className="text-xs text-slate-400">Recovery Time</p>
+          <p className="text-xs text-text-muted">Recovery Time</p>
           <p className="text-sm font-bold" style={{
             color: frtResult.recovery_time_s <= 1.0
               ? SCADA_COLORS.ENERGIZED
@@ -200,7 +203,7 @@ export default function FRTPanel() {
           </p>
         </div>
         <div>
-          <p className="text-xs text-slate-400">STATCOM Peak Q</p>
+          <p className="text-xs text-text-muted">STATCOM Peak Q</p>
           <p className="text-sm font-bold text-slate-200">
             {frtResult.statcom_peak_q_mvar.toFixed(1)} MVAR
           </p>

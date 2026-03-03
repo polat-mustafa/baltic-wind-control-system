@@ -1,37 +1,39 @@
 /**
  * Quick-access navigation buttons for P3/P4/P5 dashboards.
  *
- * These projects aren't directly clickable on the map (turbines → P1,
- * cable/substations → P2), so we provide icon buttons for direct access.
+ * These projects aren't directly clickable on the map (turbines -> P1,
+ * cable/substations -> P2), so we provide icon buttons for direct access.
  */
 
 import { useNavigate } from "react-router-dom";
+import { Monitor, Brain, ClipboardCheck, type LucideIcon } from "lucide-react";
+import { cn } from "../../lib/utils";
 
 interface QuickLink {
   label: string;
-  shortLabel: string;
   path: string;
   description: string;
+  icon: LucideIcon;
 }
 
 const QUICK_LINKS: QuickLink[] = [
   {
     label: "P3 · SCADA",
-    shortLabel: "P3",
     path: "/scada",
     description: "IEC 61850 automation",
+    icon: Monitor,
   },
   {
     label: "P4 · Forecast",
-    shortLabel: "P4",
     path: "/forecast",
     description: "AI wind prediction",
+    icon: Brain,
   },
   {
     label: "P5 · Commissioning",
-    shortLabel: "P5",
     path: "/commissioning",
     description: "Switching programme",
+    icon: ClipboardCheck,
   },
 ];
 
@@ -40,20 +42,34 @@ export default function QuickAccessBar() {
 
   return (
     <div className="flex gap-2">
-      {QUICK_LINKS.map((link) => (
-        <button
-          key={link.path}
-          onClick={() => navigate(link.path)}
-          className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-left hover:bg-slate-700 hover:border-slate-500 transition-colors group min-w-[150px]"
-        >
-          <div className="text-xs text-slate-400 group-hover:text-slate-300">
-            {link.label}
-          </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">
-            {link.description}
-          </div>
-        </button>
-      ))}
+      {QUICK_LINKS.map((link) => {
+        const Icon = link.icon;
+        return (
+          <button
+            key={link.path}
+            onClick={() => navigate(link.path)}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-4 py-2.5 text-left min-w-[160px]",
+              "border border-border-primary bg-bg-secondary",
+              "hover:bg-bg-hover hover:border-border-secondary",
+              "shadow-md shadow-black/15",
+              "transition-all duration-200 group",
+            )}
+          >
+            <div className="flex items-center justify-center h-8 w-8 rounded-md bg-accent/10 group-hover:bg-accent/20 transition-colors">
+              <Icon size={16} className="text-accent" />
+            </div>
+            <div>
+              <div className="text-xs font-medium text-text-secondary group-hover:text-text-primary transition-colors">
+                {link.label}
+              </div>
+              <div className="text-[10px] text-text-muted mt-0.5">
+                {link.description}
+              </div>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

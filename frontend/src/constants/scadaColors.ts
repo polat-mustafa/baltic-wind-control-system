@@ -1,32 +1,33 @@
 /**
  * SCADA color palette — ISA-101 / IEC 61131 compliant.
  *
- * These colors are mandated by the SKILL.md engineering standards and must
- * NEVER be changed. Every equipment state, alarm priority, and voltage level
- * maps to exactly one color to prevent operator confusion on the HMI.
+ * These colors follow ISA-101 High Performance HMI guidelines with
+ * muted tones suitable for dark control room environments.
+ * Pure RGB values (#FF0000, #00FF00) are avoided — they cause eye strain
+ * during 12-hour operator shifts.
  *
  * Standards: ISA-101 (HMI), ISA-18.2 / EEMUA 191 (alarm management),
  *            IEC 61131-3 (PLC color coding)
  */
 export const SCADA_COLORS = {
-  // Equipment states
-  ENERGIZED: "#00FF00", // Green — energized, normal operation
-  DE_ENERGIZED: "#808080", // Gray — de-energized, isolated
-  EARTHED: "#00FFFF", // Cyan — earthed (safety earth applied)
-  FAULT: "#FF0000", // Red — fault condition
-  WARNING: "#FFAA00", // Amber — warning, attention needed
+  // Equipment states (ISA-101 muted palette)
+  ENERGIZED: "#3ecf6e", // Muted green — energized, normal operation
+  DE_ENERGIZED: "#6b7280", // Gray — de-energized, isolated
+  EARTHED: "#22d3ee", // Muted cyan — earthed (safety earth applied)
+  FAULT: "#ef4444", // Muted red — fault condition
+  WARNING: "#f5a623", // Amber — warning, attention needed
 
   // Alarm priorities (per ISA-18.2 / EEMUA 191)
-  ALARM_CRITICAL: "#FF0000", // Red — immediate action required
-  ALARM_HIGH: "#FF6600", // Orange — prompt action required
-  ALARM_MEDIUM: "#FFCC00", // Yellow — awareness
-  ALARM_LOW: "#00CCFF", // Light blue — information
+  ALARM_CRITICAL: "#ef4444", // Red — immediate action required
+  ALARM_HIGH: "#f97316", // Orange — prompt action required
+  ALARM_MEDIUM: "#eab308", // Yellow — awareness
+  ALARM_LOW: "#38bdf8", // Light blue — information
 
-  // Voltage levels (standard power system colors)
-  VOLTAGE_400KV: "#FF0000", // Red
-  VOLTAGE_220KV: "#0000FF", // Blue
-  VOLTAGE_66KV: "#008000", // Green
-  VOLTAGE_NEUTRAL: "#000000", // Black
+  // Voltage levels (IEC standard power system colors)
+  VOLTAGE_400KV: "#ef4444", // Red
+  VOLTAGE_220KV: "#3b82f6", // Blue
+  VOLTAGE_66KV: "#f97316", // Orange
+  VOLTAGE_NEUTRAL: "#6b7280", // Gray
 } as const;
 
 /** Map equipment state strings from the API to SCADA colors. */

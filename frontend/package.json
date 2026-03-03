@@ -15,12 +15,24 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-zoom": "^3.0.8",
     "@xyflow/react": "^12.10.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "d3-selection": "^3.0.0",
+    "d3-zoom": "^3.0.0",
+    "framer-motion": "^12.34.5",
+    "lucide-react": "^0.576.0",
     "plotly.js-dist-min": "^3.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^7.13.1",
+    "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

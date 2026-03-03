@@ -11,6 +11,8 @@ import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
+import { InfoButton } from "../ui/InfoButton";
+import { shapInfo } from "../../constants/panelInfo";
 
 export default function SHAPPanel() {
   const { shapResult } = useForecastStore();
@@ -35,10 +37,13 @@ export default function SHAPPanel() {
   });
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-      <h3 className="text-sm font-semibold text-slate-200 mb-2">
-        SHAP Feature Importance — XGBoost
-      </h3>
+    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-text-primary">
+          SHAP Feature Importance — XGBoost
+        </h3>
+        <InfoButton info={shapInfo} />
+      </div>
       <Plot
         data={[
           {

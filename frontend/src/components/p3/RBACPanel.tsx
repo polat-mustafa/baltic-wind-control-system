@@ -10,6 +10,8 @@
 
 import { useScadaStore } from "../../store/scadaStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
+import { InfoButton } from "../ui/InfoButton";
+import { rbacInfo } from "../../constants/panelInfo";
 
 const ROLE_COLORS: Record<number, string> = {
   1: SCADA_COLORS.ALARM_LOW,
@@ -27,11 +29,12 @@ export default function RBACPanel() {
   return (
     <div className="space-y-4">
       {/* Role matrix */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-        <div className="px-4 py-2 border-b border-slate-700">
-          <h3 className="text-sm font-semibold text-slate-300">
+      <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+        <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-text-primary">
             RBAC Role Matrix (IEC 62443)
           </h3>
+          <InfoButton info={rbacInfo} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">

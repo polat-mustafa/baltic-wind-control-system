@@ -8,6 +8,8 @@
 
 import { useGridStore } from "../../store/gridStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
+import { InfoButton } from "../ui/InfoButton";
+import { converterComparisonInfo } from "../../constants/panelInfo";
 
 function MetricRow({
   label,
@@ -21,8 +23,8 @@ function MetricRow({
   unit: string;
 }) {
   return (
-    <tr className="border-b border-slate-700">
-      <td className="py-2 px-3 text-xs text-slate-400">{label}</td>
+    <tr className="border-b border-border-primary">
+      <td className="py-2 px-3 text-xs text-text-muted">{label}</td>
       <td className="py-2 px-3 text-sm text-center font-mono">{gflValue} {unit}</td>
       <td className="py-2 px-3 text-sm text-center font-mono">{gfmValue} {unit}</td>
     </tr>
@@ -37,15 +39,18 @@ export default function ConverterComparisonPanel() {
   const { gfl_result: gfl, gfm_result: gfm, gfm_advantage } = converterComparison;
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-      <h3 className="text-sm font-semibold text-slate-200 mb-3">
-        Converter Comparison — {converterComparison.scenario.replace("_", " ")} (SCR = {gfl.scr})
-      </h3>
+    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-text-primary">
+          Converter Comparison — {converterComparison.scenario.replace("_", " ")} (SCR = {gfl.scr})
+        </h3>
+        <InfoButton info={converterComparisonInfo} />
+      </div>
 
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-slate-600">
-            <th className="py-2 px-3 text-xs text-slate-400 font-semibold">Metric</th>
+            <th className="py-2 px-3 text-xs text-text-muted font-semibold">Metric</th>
             <th className="py-2 px-3 text-xs text-center font-semibold" style={{ color: SCADA_COLORS.WARNING }}>
               GFL (PLL)
             </th>
@@ -55,8 +60,8 @@ export default function ConverterComparisonPanel() {
           </tr>
         </thead>
         <tbody>
-          <tr className="border-b border-slate-700">
-            <td className="py-2 px-3 text-xs text-slate-400">Stable</td>
+          <tr className="border-b border-border-primary">
+            <td className="py-2 px-3 text-xs text-text-muted">Stable</td>
             <td className="py-2 px-3 text-sm text-center">
               <span
                 className="px-2 py-0.5 rounded text-xs font-bold"
@@ -102,8 +107,8 @@ export default function ConverterComparisonPanel() {
       </table>
 
       {/* Educational summary */}
-      <div className="mt-3 p-3 bg-slate-900/50 rounded border border-slate-700">
-        <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
+      <div className="mt-3 p-3 bg-slate-900/50 rounded border border-border-primary">
+        <p className="text-xs text-text-muted uppercase tracking-wider mb-1">
           GFM Advantage
         </p>
         <p className="text-xs text-slate-300 leading-relaxed">

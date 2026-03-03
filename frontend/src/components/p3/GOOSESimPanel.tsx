@@ -11,6 +11,8 @@ import Plot from "react-plotly.js";
 
 import { useScadaStore } from "../../store/scadaStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
+import { InfoButton } from "../ui/InfoButton";
+import { gooseSimInfo } from "../../constants/panelInfo";
 
 const EVENT_COLOR: Record<string, string> = {
   fault_inception: SCADA_COLORS.FAULT,
@@ -79,20 +81,23 @@ export default function GOOSESimPanel() {
   return (
     <div className="space-y-4">
       {/* Compliance summary */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+      <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-slate-300">
+          <h3 className="text-sm font-semibold text-text-primary">
             GOOSE Fault Simulation — {simulationResult.fault_type}
           </h3>
-          <span
+          <div className="flex items-center gap-2">
+            <InfoButton info={gooseSimInfo} />
+            <span
             className="px-2 py-0.5 rounded text-xs font-bold"
             style={{
               backgroundColor: allCompliant ? "#064e3b" : "#7f1d1d",
               color: allCompliant ? SCADA_COLORS.ENERGIZED : SCADA_COLORS.FAULT,
             }}
           >
-            {allCompliant ? "IEC COMPLIANT" : "NON-COMPLIANT"}
-          </span>
+              {allCompliant ? "IEC COMPLIANT" : "NON-COMPLIANT"}
+            </span>
+          </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div>

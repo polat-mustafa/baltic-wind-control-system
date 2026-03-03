@@ -24,6 +24,7 @@ Usage::
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import hashlib
 import json
@@ -122,7 +123,7 @@ def cached(
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             if _redis_client is None:
-                return func(*args, **kwargs)
+                return await asyncio.to_thread(func, *args, **kwargs)
 
             key = _make_cache_key(prefix, args, kwargs)
 
@@ -134,8 +135,8 @@ def cached(
             except Exception:
                 pass
 
-            # Cache miss -- compute
-            result = func(*args, **kwargs)
+            # Cache miss -- run in thread pool to avoid blocking the event loop
+            result = await asyncio.to_thread(func, *args, **kwargs)
 
             # Store in cache
             try:

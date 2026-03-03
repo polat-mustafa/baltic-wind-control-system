@@ -1,1 +1,90 @@
 @import "tailwindcss";
+
+/* ── ISA-101 High Performance HMI Design System ──────────────────
+   Baltic Wind HV Control Platform
+   Color palette follows ISA-101 dark control room variant.
+   Typography: Inter (UI) + JetBrains Mono (data values).
+   ────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ── Backgrounds (ISA-101 dark control room) ── */
+  --color-bg-primary: #0f1117;
+  --color-bg-secondary: #161924;
+  --color-bg-tertiary: #1e2231;
+  --color-bg-elevated: #252a3a;
+  --color-bg-hover: #2d3348;
+
+  /* ── Borders ── */
+  --color-border-primary: #2a3040;
+  --color-border-secondary: #3d4560;
+  --color-border-accent: #4a5580;
+
+  /* ── Text ── */
+  --color-text-primary: #e8eaf0;
+  --color-text-secondary: #9ba3b8;
+  --color-text-muted: #6b7490;
+
+  /* ── ISA-101 Status Colors ── */
+  --color-status-normal: #3ecf6e;
+  --color-status-warning: #f5a623;
+  --color-status-alarm: #ef4444;
+  --color-status-info: #3b82f6;
+  --color-status-offline: #6b7280;
+  --color-status-maintenance: #f97316;
+  --color-status-comms-loss: #d946ef;
+
+  /* ── IEC Voltage Level Colors ── */
+  --color-voltage-400kv: #ef4444;
+  --color-voltage-220kv: #3b82f6;
+  --color-voltage-66kv: #f97316;
+  --color-voltage-lv: #6b7280;
+
+  /* ── Accent ── */
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-accent-muted: rgba(59, 130, 246, 0.15);
+
+  /* ── Typography ── */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ── Base Styles ── */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar Styling (control room aesthetics) ── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-secondary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-accent);
+}
+
+/* ── Selection ── */
+::selection {
+  background-color: rgba(59, 130, 246, 0.3);
+  color: var(--color-text-primary);
+}
+
+/* ── Focus ring (accessible) ── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

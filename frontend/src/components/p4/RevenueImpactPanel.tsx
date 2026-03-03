@@ -13,6 +13,8 @@ import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
+import { InfoButton } from "../ui/InfoButton";
+import { revenueImpactInfo } from "../../constants/panelInfo";
 
 const POWER_COLOR = "#CC66FF";
 const REVENUE_COLOR = "#00CC66";
@@ -69,14 +71,17 @@ export default function RevenueImpactPanel() {
       : `${(finalRevenue / 1_000).toFixed(0)}k EUR`;
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-slate-200">
+        <h3 className="text-sm font-semibold text-text-primary">
           Revenue Impact — 34 Turbines
         </h3>
-        <span className="text-xs text-slate-500">
-          Total: {revLabel} (synthetic spot price)
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-text-muted">
+            Total: {revLabel} (synthetic spot price)
+          </span>
+          <InfoButton info={revenueImpactInfo} />
+        </div>
       </div>
       <Plot
         data={[

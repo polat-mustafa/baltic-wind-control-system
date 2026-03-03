@@ -11,6 +11,8 @@ import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
+import { InfoButton } from "../ui/InfoButton";
+import { modelComparisonInfo } from "../../constants/panelInfo";
 
 /** Per-model colors from plan spec */
 const MODEL_COLORS: Record<string, string> = {
@@ -30,10 +32,13 @@ export default function ModelComparisonPanel() {
   const colors = names.map((n) => MODEL_COLORS[n] ?? "#94A3B8");
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-      <h3 className="text-sm font-semibold text-slate-200 mb-2">
-        Model Comparison — Error Metrics
-      </h3>
+    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-text-primary">
+          Model Comparison — Error Metrics
+        </h3>
+        <InfoButton info={modelComparisonInfo} />
+      </div>
       <Plot
         data={[
           {

@@ -88,6 +88,7 @@ export const useForecastStore = create<ForecastState>((set, get) => ({
   setTurbineIndex: (i) => set({ turbineIndex: i }),
   setHorizonSteps: (h) => set({ horizonSteps: h }),
   setRampThresholdMwHr: (t) => set({ rampThresholdMwHr: t }),
+  // TODO: wire to revenue impact calculation
   setSpotPriceEurMwh: (p) => set({ spotPriceEurMwh: p }),
 
   // ── Data actions ───────────────────────────────────────────

@@ -106,6 +106,7 @@ interface CommissioningState {
 
   // Utility
   clearError: () => void;
+  clearActiveProgramme: () => void;
 }
 
 // ── Store Implementation ───────────────────────────────────────
@@ -497,4 +498,5 @@ export const useCommissioningStore = create<CommissioningState>((set, get) => ({
   // ── Utility ──────────────────────────────────────────────────
 
   clearError: () => set({ error: null }),
+  clearActiveProgramme: () => set({ activeProgramme: null }),
 }));

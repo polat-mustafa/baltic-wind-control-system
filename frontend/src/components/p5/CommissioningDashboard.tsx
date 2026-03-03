@@ -48,6 +48,7 @@ export default function CommissioningDashboard() {
     fetchEmergencyProcedures,
     fetchComplianceCampaign,
     clearError,
+    clearActiveProgramme,
   } = useCommissioningStore();
 
   // Initial data load
@@ -83,7 +84,7 @@ export default function CommissioningDashboard() {
           </p>
         </div>
         <button
-          onClick={() => useCommissioningStore.setState({ activeProgramme: null })}
+          onClick={() => clearActiveProgramme()}
           className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium transition-colors"
         >
           Back to List

@@ -10,9 +10,41 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# ─── Change Detection ──────────────────────────────────────
+# Determines which jobs to run based on changed files.
+# docs-only changes skip ALL jobs → CI finishes in ~0 seconds.
+# backend-only changes skip frontend jobs → saves ~1 min.
+# frontend-only changes skip backend jobs → saves ~12 min.
+
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
+
   backend-lint:
     name: Backend Lint
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,27 +56,30 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Cache pip
+      - name: Cache venv
+        id: cache-venv
         uses: actions/cache@v5
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('backend/pyproject.toml') }}
-          restore-keys: ${{ runner.os }}-pip-
+          path: backend/.venv
+          key: ${{ runner.os }}-venv-${{ hashFiles('backend/pyproject.toml') }}
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
 
       - name: Ruff check
-        run: ruff check app/ tests/
+        run: source .venv/bin/activate && ruff check app/ tests/
 
       - name: Ruff format check
-        run: ruff format --check app/ tests/
+        run: source .venv/bin/activate && ruff format --check app/ tests/
 
       - name: Mypy
-        run: mypy app/
+        run: source .venv/bin/activate && mypy app/
 
   backend-test:
     name: Backend Test
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -56,18 +91,19 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Cache pip
+      - name: Cache venv
+        id: cache-venv
         uses: actions/cache@v5
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('backend/pyproject.toml') }}
-          restore-keys: ${{ runner.os }}-pip-
+          path: backend/.venv
+          key: ${{ runner.os }}-venv-${{ hashFiles('backend/pyproject.toml') }}
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
 
       - name: Run tests with coverage
-        run: pytest --cov=app --cov-report=xml --cov-report=term-missing tests/
+        run: source .venv/bin/activate && pytest --cov=app --cov-report=xml --cov-report=term-missing tests/
 
       - name: Upload coverage
         if: github.event_name == 'pull_request'
@@ -78,6 +114,8 @@ jobs:
 
   frontend-lint:
     name: Frontend Lint
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -88,13 +126,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      - name: Cache npm
-        uses: actions/cache@v5
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('frontend/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -107,6 +140,8 @@ jobs:
 
   frontend-test:
     name: Frontend Test
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -117,13 +152,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      - name: Cache npm
-        uses: actions/cache@v5
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('frontend/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci

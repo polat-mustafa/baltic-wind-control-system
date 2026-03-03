@@ -12,6 +12,8 @@ import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { SCADA_COLORS } from "../../constants/scadaColors";
+import { InfoButton } from "../ui/InfoButton";
+import { aepCascadeInfo } from "../../constants/panelInfo";
 
 export default function AEPCascadePanel() {
   const { aepCascade } = useWindResourceStore();
@@ -63,10 +65,13 @@ export default function AEPCascadePanel() {
   ];
 
   return (
-    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-      <h3 className="text-sm font-semibold text-slate-300 mb-2">
-        AEP Loss Cascade & Exceedance (P-values)
-      </h3>
+    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-text-primary">
+          AEP Loss Cascade &amp; Exceedance (P-values)
+        </h3>
+        <InfoButton info={aepCascadeInfo} />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Waterfall */}
         <Plot
@@ -164,7 +169,7 @@ export default function AEPCascadePanel() {
           style={{ height: 320 }}
         />
       </div>
-      <p className="text-xs text-slate-500 mt-2 text-center">
+      <p className="text-xs text-text-muted mt-2 text-center">
         Total loss: {aepCascade.total_loss_percent.toFixed(1)}% · Uncertainty:
         {" \u00B1"}
         {aepCascade.combined_uncertainty_percent.toFixed(1)}% (RSS, IEC 61400-15)

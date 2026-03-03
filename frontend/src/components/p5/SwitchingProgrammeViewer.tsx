@@ -16,6 +16,8 @@ import { useState } from "react";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { useCommissioningStore } from "../../store/commissioningStore";
 import type { Step } from "../../types/commissioning";
+import { InfoButton } from "../ui/InfoButton";
+import { switchingProgrammeInfo } from "../../constants/panelInfo";
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-slate-600 text-slate-200",
@@ -143,17 +145,18 @@ export default function SwitchingProgrammeViewer() {
   const progress = steps.length > 0 ? (completedCount / steps.length) * 100 : 0;
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-border-primary flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold">Switching Programme</h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <h3 className="text-sm font-semibold text-text-primary">Switching Programme</h3>
+          <p className="text-xs text-text-muted mt-0.5">
             {completedCount}/{steps.length} steps completed
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
+          <InfoButton info={switchingProgrammeInfo} />
+          <div className="w-32 h-2 bg-bg-tertiary rounded-full overflow-hidden">
             <div
               className="h-full bg-green-500 rounded-full transition-all duration-300"
               style={{ width: `${progress}%` }}

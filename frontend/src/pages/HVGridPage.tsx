@@ -7,9 +7,12 @@
  */
 
 import { useEffect } from "react";
+import { Zap } from "lucide-react";
 
 import GridDashboard from "../components/p2/GridDashboard";
 import { useGridStore } from "../store/gridStore";
+import { Button } from "../components/ui/Button";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 
 const SCENARIO_OPTIONS = [
   { value: "full_load", label: "Full Load (510 MW)" },
@@ -50,11 +53,13 @@ export default function HVGridPage() {
   }, [fetchNetworkSpec]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold">P2 · HV Grid Integration</h2>
-        <p className="text-xs text-slate-400 mt-1">
+        <h2 className="text-xl font-semibold text-text-primary">
+          P2 · HV Grid Integration
+        </h2>
+        <p className="text-xs text-text-muted mt-1 font-mono">
           {networkSpec
             ? `${networkSpec.total_capacity_mw} MW · ${networkSpec.array_voltage_kv}/${networkSpec.export_voltage_kv}/${networkSpec.grid_voltage_kv} kV · ${networkSpec.export_length_km} km export · Pandapower + ANDES`
             : "Loading..."}
@@ -63,30 +68,32 @@ export default function HVGridPage() {
 
       {/* Error banner */}
       {error && (
-        <div className="p-3 bg-red-900/50 border border-red-700 rounded text-red-200 text-sm flex justify-between">
-          <span>{error}</span>
-          <button
-            onClick={clearError}
-            className="text-red-400 hover:text-red-200 ml-4"
-          >
+        <div className="p-3 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-sm flex justify-between items-center">
+          <span className="text-status-alarm">{error}</span>
+          <Button variant="ghost" size="sm" onClick={clearError}>
             Dismiss
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Main grid: controls on right, charts on left */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         {/* Left: Dashboard charts (2/3 width) */}
         <div className="xl:col-span-2">
           {analysisRun ? (
             <GridDashboard />
           ) : (
-            <div className="flex items-center justify-center h-96 bg-slate-800 rounded-lg border border-slate-700">
+            <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
               <div className="text-center">
-                <p className="text-slate-400 text-lg mb-2">
+                <div className="flex justify-center mb-4">
+                  <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
+                    <Zap size={24} className="text-accent" />
+                  </div>
+                </div>
+                <p className="text-text-secondary text-base mb-2">
                   Configure scenarios and run analysis
                 </p>
-                <p className="text-slate-500 text-sm">
+                <p className="text-text-muted text-sm">
                   Select load flow scenario, FRT type, and grid strength,
                   then click &quot;Run Analysis&quot;
                 </p>
@@ -98,85 +105,98 @@ export default function HVGridPage() {
         {/* Right: Controls (1/3 width) */}
         <div className="space-y-4">
           {/* Scenario selector */}
-          <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-              Load Flow Scenario
-            </h3>
-            <div className="space-y-2">
-              {SCENARIO_OPTIONS.map((opt) => (
-                <label
-                  key={opt.value}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <input
-                    type="radio"
-                    name="scenario"
-                    value={opt.value}
-                    checked={activeScenario === opt.value}
-                    onChange={() => setActiveScenario(opt.value)}
-                    className="accent-blue-500"
-                  />
-                  <span className="text-sm text-slate-300">{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Load Flow Scenario</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {SCENARIO_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex items-center gap-2 cursor-pointer group"
+                  >
+                    <input
+                      type="radio"
+                      name="scenario"
+                      value={opt.value}
+                      checked={activeScenario === opt.value}
+                      onChange={() => setActiveScenario(opt.value)}
+                      className="accent-accent"
+                    />
+                    <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">
+                      {opt.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* FRT selector */}
-          <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-              Fault Ride-Through Type
-            </h3>
-            <div className="space-y-2">
-              {FRT_OPTIONS.map((opt) => (
-                <label
-                  key={opt.value}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <input
-                    type="radio"
-                    name="frt"
-                    value={opt.value}
-                    checked={frtType === opt.value}
-                    onChange={() => setFrtType(opt.value)}
-                    className="accent-blue-500"
-                  />
-                  <span className="text-sm text-slate-300">{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Fault Ride-Through</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {FRT_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex items-center gap-2 cursor-pointer group"
+                  >
+                    <input
+                      type="radio"
+                      name="frt"
+                      value={opt.value}
+                      checked={frtType === opt.value}
+                      onChange={() => setFrtType(opt.value)}
+                      className="accent-accent"
+                    />
+                    <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">
+                      {opt.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Converter scenario selector */}
-          <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-              Grid Strength (GFL vs GFM)
-            </h3>
-            <div className="space-y-2">
-              {CONVERTER_OPTIONS.map((opt) => (
-                <label
-                  key={opt.value}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <input
-                    type="radio"
-                    name="converter"
-                    value={opt.value}
-                    checked={converterScenario === opt.value}
-                    onChange={() => setConverterScenario(opt.value)}
-                    className="accent-blue-500"
-                  />
-                  <span className="text-sm text-slate-300">{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Grid Strength</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {CONVERTER_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex items-center gap-2 cursor-pointer group"
+                  >
+                    <input
+                      type="radio"
+                      name="converter"
+                      value={opt.value}
+                      checked={converterScenario === opt.value}
+                      onChange={() => setConverterScenario(opt.value)}
+                      className="accent-accent"
+                    />
+                    <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">
+                      {opt.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Run Analysis button */}
-          <button
+          <Button
             onClick={runFullAnalysis}
             disabled={loading}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg text-sm font-semibold transition-colors"
+            className="w-full py-3"
+            size="lg"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -188,16 +208,17 @@ export default function HVGridPage() {
             ) : (
               "Run Analysis"
             )}
-          </button>
+          </Button>
 
           {/* Reference box */}
-          <div className="bg-slate-900/50 rounded-lg border border-slate-700 p-3">
-            <p className="text-xs text-slate-500">
-              <strong>Standards:</strong> PSE IRiESP (0.95-1.05 pu), IEC 60909,
-              ENTSO-E NC RfG Type D, IEC 62271-100
+          <div className="rounded-lg border border-border-primary bg-bg-tertiary p-3">
+            <p className="text-xs text-text-muted">
+              <span className="font-medium text-text-secondary">Standards:</span>{" "}
+              PSE IRiESP (0.95-1.05 pu), IEC 60909, ENTSO-E NC RfG Type D
             </p>
-            <p className="text-xs text-slate-500 mt-1">
-              <strong>Tools:</strong> Pandapower (steady-state), ANDES (dynamic)
+            <p className="text-xs text-text-muted mt-1">
+              <span className="font-medium text-text-secondary">Tools:</span>{" "}
+              Pandapower (steady-state), ANDES (dynamic)
             </p>
           </div>
         </div>

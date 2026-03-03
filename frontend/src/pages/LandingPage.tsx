@@ -6,16 +6,7 @@
  * 220 kV export cable, and onshore PSE grid connection — like a
  * real SCADA geographic overview screen (ABB Ability, Siemens DEOP).
  *
- * Simulated live data updates every 3s via the landing Zustand store:
- *   - Wind speed jitters ±0.5 m/s around 10-12 m/s
- *   - Power follows a simplified cubic wind-power curve
- *   - Random status changes (operating/curtailed/fault) for realism
- *
- * Click navigation:
- *   - Turbine → /wind-resource (P1)
- *   - OSS → /scada (P3)
- *   - Export cable / Onshore SS → /hv-grid (P2)
- *   - Quick-access buttons → P3, P4, P5
+ * Simulated live data updates every 3s via the landing Zustand store.
  */
 
 import { useEffect } from "react";
@@ -24,6 +15,8 @@ import MapKPIRibbon from "../components/landing/MapKPIRibbon";
 import QuickAccessBar from "../components/landing/QuickAccessBar";
 import WindFarmMap from "../components/landing/WindFarmMap";
 import { useLandingStore } from "../store/landingStore";
+import { InfoButton } from "../components/ui/InfoButton";
+import { farmOverviewInfo } from "../constants/panelInfo";
 
 export default function LandingPage() {
   const turbines = useLandingStore((s) => s.turbines);
@@ -37,7 +30,20 @@ export default function LandingPage() {
   }, [startSimulation, stopSimulation]);
 
   return (
-    <div className="flex flex-col gap-4 p-4 h-full overflow-auto">
+    <div className="flex flex-col gap-5 h-full overflow-auto">
+      {/* Map header with info button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary">
+            Wind Farm Overview
+          </h2>
+          <p className="text-xs text-text-muted font-mono">
+            34 × V236-15.0 MW · Polish Baltic Sea · Real-time simulation
+          </p>
+        </div>
+        <InfoButton info={farmOverviewInfo} />
+      </div>
+
       {/* Main interactive map */}
       <WindFarmMap turbines={turbines} totalPowerMW={kpis.totalOutputMW} />
 

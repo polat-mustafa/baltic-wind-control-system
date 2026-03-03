@@ -11,6 +11,8 @@ import Plot from "react-plotly.js";
 import { useGridStore } from "../../store/gridStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { InfoButton } from "../ui/InfoButton";
+import { voltageProfileInfo } from "../../constants/panelInfo";
 
 const VOLTAGE_COLORS: Record<number, string> = {
   400: SCADA_COLORS.VOLTAGE_400KV,
@@ -41,10 +43,13 @@ export default function VoltageProfilePanel() {
   const scenarioLabel = activeScenario.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-      <h3 className="text-sm font-semibold text-slate-200 mb-2">
-        Voltage Profile — {scenarioLabel}
-      </h3>
+    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-text-primary">
+          Voltage Profile — {scenarioLabel}
+        </h3>
+        <InfoButton info={voltageProfileInfo} />
+      </div>
       <Plot
         data={[
           {

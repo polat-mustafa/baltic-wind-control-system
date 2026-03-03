@@ -10,6 +10,8 @@ import Plot from "react-plotly.js";
 import { useGridStore } from "../../store/gridStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { InfoButton } from "../ui/InfoButton";
+import { statcomInfo } from "../../constants/panelInfo";
 
 export default function STATCOMPanel() {
   const { statcomSizing } = useGridStore();
@@ -19,12 +21,14 @@ export default function STATCOMPanel() {
   const netQ = statcomSizing.cable_q_mvar - statcomSizing.reactor_q_mvar;
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-slate-200">
+        <h3 className="text-sm font-semibold text-text-primary">
           STATCOM &amp; Reactive Compensation
         </h3>
-        <span
+        <div className="flex items-center gap-2">
+          <InfoButton info={statcomInfo} />
+          <span
           className="text-xs px-2 py-1 rounded font-semibold"
           style={{
             backgroundColor: statcomSizing.compensation_adequate
@@ -35,8 +39,9 @@ export default function STATCOMPanel() {
               : SCADA_COLORS.FAULT,
           }}
         >
-          {statcomSizing.compensation_adequate ? "Compensation Adequate" : "Compensation Insufficient"}
-        </span>
+            {statcomSizing.compensation_adequate ? "Compensation Adequate" : "Compensation Insufficient"}
+          </span>
+        </div>
       </div>
 
       <Plot
@@ -88,13 +93,13 @@ export default function STATCOMPanel() {
       {/* Summary metrics */}
       <div className="grid grid-cols-3 gap-3 mt-3">
         <div className="text-center">
-          <p className="text-xs text-slate-400">Ferranti Rise</p>
+          <p className="text-xs text-text-muted">Ferranti Rise</p>
           <p className="text-sm font-bold" style={{ color: SCADA_COLORS.WARNING }}>
             {(statcomSizing.ferranti_rise_pu * 100).toFixed(2)}%
           </p>
         </div>
         <div className="text-center">
-          <p className="text-xs text-slate-400">Without Comp. V_max</p>
+          <p className="text-xs text-text-muted">Without Comp. V_max</p>
           <p className="text-sm font-bold" style={{
             color: statcomSizing.without_compensation_v_max_pu > 1.05
               ? SCADA_COLORS.FAULT
@@ -104,7 +109,7 @@ export default function STATCOMPanel() {
           </p>
         </div>
         <div className="text-center">
-          <p className="text-xs text-slate-400">Q = \u03C9CV\u00B2L</p>
+          <p className="text-xs text-text-muted">Q = \u03C9CV\u00B2L</p>
           <p className="text-sm font-bold text-slate-200">
             {statcomSizing.cable_q_mvar.toFixed(1)} MVAR
           </p>

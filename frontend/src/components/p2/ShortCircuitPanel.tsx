@@ -10,6 +10,8 @@ import Plot from "react-plotly.js";
 import { useGridStore } from "../../store/gridStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { InfoButton } from "../ui/InfoButton";
+import { shortCircuitInfo } from "../../constants/panelInfo";
 
 export default function ShortCircuitPanel() {
   const { shortCircuit } = useGridStore();
@@ -22,12 +24,14 @@ export default function ShortCircuitPanel() {
   const ip = buses.map((b) => b.ip_ka);
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-slate-200">
+        <h3 className="text-sm font-semibold text-text-primary">
           Short-Circuit Analysis (IEC 60909, c={shortCircuit.voltage_factor_c})
         </h3>
-        <span
+        <div className="flex items-center gap-2">
+          <InfoButton info={shortCircuitInfo} />
+          <span
           className="text-xs px-2 py-1 rounded font-semibold"
           style={{
             backgroundColor: shortCircuit.breaker_adequate
@@ -38,8 +42,9 @@ export default function ShortCircuitPanel() {
               : SCADA_COLORS.FAULT,
           }}
         >
-          {shortCircuit.breaker_adequate ? "Breakers Adequate" : "Breakers Inadequate"}
-        </span>
+            {shortCircuit.breaker_adequate ? "Breakers Adequate" : "Breakers Inadequate"}
+          </span>
+        </div>
       </div>
       <Plot
         data={[
@@ -98,7 +103,7 @@ export default function ShortCircuitPanel() {
         config={PLOTLY_CONFIG}
         className="w-full"
       />
-      <p className="text-xs text-slate-500 mt-1">
+      <p className="text-xs text-text-muted mt-1">
         Max Ik&apos;&apos; = {shortCircuit.max_ikss_ka.toFixed(2)} kA at {shortCircuit.max_ikss_bus}
       </p>
     </div>

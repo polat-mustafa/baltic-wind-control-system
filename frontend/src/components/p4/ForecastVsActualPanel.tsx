@@ -12,6 +12,8 @@ import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
+import { InfoButton } from "../ui/InfoButton";
+import { forecastVsActualInfo } from "../../constants/panelInfo";
 
 /** Model color palette per plan spec */
 const ENSEMBLE_COLOR = "#CC66FF";
@@ -42,10 +44,13 @@ export default function ForecastVsActualPanel() {
   const wind = idx.map((i) => ensembleForecast.wind_speed_ms[i]);
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-      <h3 className="text-sm font-semibold text-slate-200 mb-2">
-        Ensemble Forecast — P10 / P50 / P90
-      </h3>
+    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-text-primary">
+          Ensemble Forecast — P10 / P50 / P90
+        </h3>
+        <InfoButton info={forecastVsActualInfo} />
+      </div>
       <Plot
         data={[
           // P90 upper bound (invisible line for fill)

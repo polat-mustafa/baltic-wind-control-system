@@ -15,6 +15,8 @@ import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
+import { InfoButton } from "../ui/InfoButton";
+import { accuracyHeatmapInfo } from "../../constants/panelInfo";
 
 export default function AccuracyHeatmapPanel() {
   const { ensembleForecast, horizonSteps } = useForecastStore();
@@ -65,10 +67,13 @@ export default function AccuracyHeatmapPanel() {
   const hourLabels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-      <h3 className="text-sm font-semibold text-slate-200 mb-2">
-        Forecast Uncertainty — P90-P10 Spread
-      </h3>
+    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-text-primary">
+          Forecast Uncertainty — P90-P10 Spread
+        </h3>
+        <InfoButton info={accuracyHeatmapInfo} />
+      </div>
       <Plot
         data={[
           {

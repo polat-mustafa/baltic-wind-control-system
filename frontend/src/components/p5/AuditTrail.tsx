@@ -10,6 +10,8 @@
  */
 
 import { useCommissioningStore } from "../../store/commissioningStore";
+import { InfoButton } from "../ui/InfoButton";
+import { auditTrailInfo } from "../../constants/panelInfo";
 
 const ACTION_COLORS: Record<string, string> = {
   step_executed: "bg-blue-600",
@@ -40,12 +42,15 @@ export default function AuditTrail() {
   const sorted = [...auditRecords].reverse();
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-      <div className="px-4 py-3 border-b border-slate-700">
-        <h3 className="text-sm font-semibold">Audit Trail</h3>
-        <p className="text-xs text-slate-400 mt-0.5">
-          {auditRecords.length} records
-        </p>
+    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+      <div className="px-4 py-3 border-b border-border-primary flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-text-primary">Audit Trail</h3>
+          <p className="text-xs text-text-muted mt-0.5">
+            {auditRecords.length} records
+          </p>
+        </div>
+        <InfoButton info={auditTrailInfo} />
       </div>
 
       <div className="overflow-auto max-h-[400px]">

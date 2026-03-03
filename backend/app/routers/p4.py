@@ -23,6 +23,9 @@ All endpoints follow the convention: /api/v1/forecast/{resource}
 
 from __future__ import annotations
 
+import asyncio
+from typing import Any
+
 import numpy as np
 from fastapi import APIRouter
 
@@ -81,6 +84,7 @@ from app.services.p4.ensemble_model import (
 from app.services.p4.feature_engineering import FeatureConfig, engineer_features
 from app.services.p4.lstm_model import (
     LSTMConfig,
+    MCDropoutDetail,
     compute_mc_dropout_detail,
     predict_lstm,
     train_lstm,
@@ -99,6 +103,7 @@ from app.services.p4.ramp_detection import (
 from app.services.p4.scada_generator import SCADAConfig, generate_scada_dataset
 from app.services.p4.scada_quality_filters import apply_all_quality_filters
 from app.services.p4.tft_model import (
+    AttentionWeights,
     TFTConfig,
     compute_attention_weights,
     predict_tft,
@@ -427,21 +432,25 @@ async def train_xgboost_endpoint(
     Pipeline: generate SCADA → quality filter → engineer features →
     merge NWP → train XGBoost → return CV metrics.
     """
-    features, target, _, _, feature_names = _build_xgboost_pipeline(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        seed=request.seed,
-    )
 
-    xgb_config = XGBoostConfig(
-        n_estimators=request.n_estimators,
-        max_depth=request.max_depth,
-        learning_rate=request.learning_rate,
-        seed=request.seed if request.seed is not None else 42,
-    )
+    # Run CPU-bound ML training in thread pool to avoid blocking the event loop
+    def _train() -> tuple[Any, ...]:
+        features, target, _, _, feature_names = _build_xgboost_pipeline(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            seed=request.seed,
+        )
+        xgb_config = XGBoostConfig(
+            n_estimators=request.n_estimators,
+            max_depth=request.max_depth,
+            learning_rate=request.learning_rate,
+            seed=request.seed if request.seed is not None else 42,
+        )
+        cv_result, _ = train_xgboost(features, target, xgb_config)
+        return cv_result, feature_names, features.shape[0]
 
-    cv_result, _ = train_xgboost(features, target, xgb_config)
+    cv_result, feature_names, num_samples = await asyncio.to_thread(_train)
 
     fold_schemas = [
         FoldMetricsSchema(
@@ -463,7 +472,7 @@ async def train_xgboost_endpoint(
         skill_score_vs_persistence=cv_result.skill_score_vs_persistence,
         feature_names=feature_names,
         num_features=len(feature_names),
-        training_samples=features.shape[0],
+        training_samples=num_samples,
     )
 
 
@@ -479,25 +488,26 @@ async def predict_xgboost_endpoint(
     Pipeline: generate SCADA → filter → features → NWP → train → predict.
     Returns the last `horizon_steps` of the forecast.
     """
-    features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        seed=request.seed,
-    )
 
-    xgb_config = XGBoostConfig(
-        seed=request.seed if request.seed is not None else 42,
-    )
-    _, models = train_xgboost(features, target, xgb_config)
+    # Run CPU-bound pipeline + training + prediction in thread pool
+    def _predict() -> tuple[Any, ...]:
+        features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            seed=request.seed,
+        )
+        xgb_config = XGBoostConfig(
+            seed=request.seed if request.seed is not None else 42,
+        )
+        _, models = train_xgboost(features, target, xgb_config)
+        horizon = min(request.horizon_steps, features.shape[0])
+        forecast = predict_xgboost(
+            models, features[-horizon:], wind_speed[-horizon:], timestamps[-horizon:]
+        )
+        return forecast, horizon
 
-    # Predict on the last horizon_steps
-    horizon = min(request.horizon_steps, features.shape[0])
-    pred_features = features[-horizon:]
-    pred_wind = wind_speed[-horizon:]
-    pred_ts = timestamps[-horizon:]
-
-    forecast = predict_xgboost(models, pred_features, pred_wind, pred_ts)
+    forecast, horizon = await asyncio.to_thread(_predict)
 
     return XGBoostPredictResponse(
         power_p10_mw=[round(float(v), 4) for v in forecast.power_p10_mw],
@@ -520,20 +530,24 @@ async def xgboost_shap_endpoint(
 
     Pipeline: generate data → train → compute SHAP → return importance.
     """
-    features, target, _, _, feature_names = _build_xgboost_pipeline(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        seed=request.seed,
-    )
 
-    xgb_config = XGBoostConfig(
-        seed=request.seed if request.seed is not None else 42,
-    )
-    _, models = train_xgboost(features, target, xgb_config)
-    model_p50 = models[1]  # P50 = index 1
+    # Run CPU-bound SHAP computation in thread pool
+    def _compute_shap() -> tuple[Any, ...]:
+        features, target, _, _, feature_names = _build_xgboost_pipeline(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            seed=request.seed,
+        )
+        xgb_config = XGBoostConfig(
+            seed=request.seed if request.seed is not None else 42,
+        )
+        _, models = train_xgboost(features, target, xgb_config)
+        model_p50 = models[1]  # P50 = index 1
+        shap_result = compute_shap_values(model_p50, features, feature_names)
+        return shap_result, feature_names, features
 
-    shap_result = compute_shap_values(model_p50, features, feature_names)
+    shap_result, feature_names, _features = await asyncio.to_thread(_compute_shap)
 
     # Build response
     top_k = min(request.top_k_features, len(feature_names))
@@ -567,25 +581,29 @@ async def train_lstm_endpoint(
     Pipeline: generate SCADA → quality filter → engineer features →
     merge NWP → normalize → create sequences → train LSTM → return CV metrics.
     """
-    features, target, _, _, feature_names = _build_xgboost_pipeline(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        seed=request.seed,
-    )
 
-    lstm_config = LSTMConfig(
-        lookback=request.lookback,
-        hidden_units=(request.hidden_units_l1, request.hidden_units_l2),
-        dropout=request.dropout,
-        learning_rate=request.learning_rate,
-        epochs=request.epochs,
-        patience=request.patience,
-        batch_size=request.batch_size,
-        seed=request.seed if request.seed is not None else 42,
-    )
+    # Run CPU-bound ML training in thread pool to avoid blocking the event loop
+    def _train() -> tuple[Any, ...]:
+        features, target, _, _, feature_names = _build_xgboost_pipeline(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            seed=request.seed,
+        )
+        lstm_config = LSTMConfig(
+            lookback=request.lookback,
+            hidden_units=(request.hidden_units_l1, request.hidden_units_l2),
+            dropout=request.dropout,
+            learning_rate=request.learning_rate,
+            epochs=request.epochs,
+            patience=request.patience,
+            batch_size=request.batch_size,
+            seed=request.seed if request.seed is not None else 42,
+        )
+        cv_result, _, _ = train_lstm(features, target, lstm_config)
+        return cv_result, feature_names, features.shape[0]
 
-    cv_result, _, _ = train_lstm(features, target, lstm_config)
+    cv_result, feature_names, num_samples = await asyncio.to_thread(_train)
 
     fold_schemas = [
         LSTMFoldMetricsSchema(
@@ -609,7 +627,7 @@ async def train_lstm_endpoint(
         architecture_summary=cv_result.architecture_summary,
         feature_names=feature_names,
         num_features=len(feature_names),
-        training_samples=features.shape[0],
+        training_samples=num_samples,
     )
 
 
@@ -625,38 +643,34 @@ async def predict_lstm_endpoint(
     Pipeline: generate SCADA → filter → features → NWP → train →
     MC Dropout (N passes) → P10/P50/P90 → physical constraints.
     """
-    features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        seed=request.seed,
-    )
 
-    lstm_config = LSTMConfig(
-        lookback=request.lookback,
-        mc_samples=request.mc_samples,
-        seed=request.seed if request.seed is not None else 42,
-    )
+    # Run CPU-bound LSTM pipeline in thread pool
+    def _predict() -> tuple[Any, ...]:
+        features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            seed=request.seed,
+        )
+        lstm_config = LSTMConfig(
+            lookback=request.lookback,
+            mc_samples=request.mc_samples,
+            seed=request.seed if request.seed is not None else 42,
+        )
+        _, model, norm_params = train_lstm(features, target, lstm_config)
+        horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
+        forecast = predict_lstm(
+            model,
+            features[-horizon:],
+            wind_speed[-horizon:],
+            norm_params,
+            lstm_config,
+            timestamps[-horizon:],
+        )
+        return forecast, request.horizon_steps
 
-    _, model, norm_params = train_lstm(features, target, lstm_config)
-
-    # Use last horizon_steps of features for prediction
-    horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
-    pred_features = features[-horizon:]
-    pred_wind = wind_speed[-horizon:]
-    pred_ts = timestamps[-horizon:]
-
-    forecast = predict_lstm(
-        model,
-        pred_features,
-        pred_wind,
-        norm_params,
-        lstm_config,
-        pred_ts,
-    )
-
-    # Trim to requested horizon
-    n = min(request.horizon_steps, len(forecast.power_p50_mw))
+    forecast, horizon_steps = await asyncio.to_thread(_predict)
+    n = min(horizon_steps, len(forecast.power_p50_mw))
 
     return LSTMPredictResponse(
         power_p10_mw=[round(float(v), 4) for v in forecast.power_p10_mw[-n:]],
@@ -682,26 +696,26 @@ async def lstm_mc_dropout_endpoint(
     Each pass is a full forward pass with a different dropout mask,
     producing an ensemble of predictions that visualize epistemic uncertainty.
     """
-    features, target, _, _, _ = _build_xgboost_pipeline(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        seed=request.seed,
-    )
 
-    lstm_config = LSTMConfig(
-        lookback=request.lookback,
-        mc_samples=request.mc_samples,
-        seed=request.seed if request.seed is not None else 42,
-    )
+    # Run CPU-bound MC Dropout computation in thread pool
+    def _compute() -> MCDropoutDetail:
+        features, target, _, _, _ = _build_xgboost_pipeline(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            seed=request.seed,
+        )
+        lstm_config = LSTMConfig(
+            lookback=request.lookback,
+            mc_samples=request.mc_samples,
+            seed=request.seed if request.seed is not None else 42,
+        )
+        _, model, norm_params = train_lstm(features, target, lstm_config)
+        horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
+        mc_detail = compute_mc_dropout_detail(model, features[-horizon:], norm_params, lstm_config)
+        return mc_detail
 
-    _, model, norm_params = train_lstm(features, target, lstm_config)
-
-    # Use last horizon_steps for visualization
-    horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
-    pred_features = features[-horizon:]
-
-    mc_detail = compute_mc_dropout_detail(model, pred_features, norm_params, lstm_config)
+    mc_detail = await asyncio.to_thread(_compute)
 
     # Trim to requested horizon
     n = min(request.horizon_steps, mc_detail.all_passes.shape[1] if mc_detail.num_passes > 0 else 0)
@@ -731,26 +745,30 @@ async def train_tft_endpoint(
     TFT uses native quantile regression (pinball loss) for P10/P50/P90
     instead of MC Dropout, and provides attention-based explainability.
     """
-    features, target, _, _, feature_names = _build_xgboost_pipeline(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        seed=request.seed,
-    )
 
-    tft_config = TFTConfig(
-        lookback=request.lookback,
-        hidden_size=request.hidden_size,
-        num_attention_heads=request.num_attention_heads,
-        dropout=request.dropout,
-        learning_rate=request.learning_rate,
-        epochs=request.epochs,
-        patience=request.patience,
-        batch_size=request.batch_size,
-        seed=request.seed if request.seed is not None else 42,
-    )
+    # Run CPU-bound ML training in thread pool to avoid blocking the event loop
+    def _train() -> tuple[Any, ...]:
+        features, target, _, _, feature_names = _build_xgboost_pipeline(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            seed=request.seed,
+        )
+        tft_config = TFTConfig(
+            lookback=request.lookback,
+            hidden_size=request.hidden_size,
+            num_attention_heads=request.num_attention_heads,
+            dropout=request.dropout,
+            learning_rate=request.learning_rate,
+            epochs=request.epochs,
+            patience=request.patience,
+            batch_size=request.batch_size,
+            seed=request.seed if request.seed is not None else 42,
+        )
+        cv_result, _, _ = train_tft(features, target, tft_config)
+        return cv_result, feature_names, features.shape[0]
 
-    cv_result, _, _ = train_tft(features, target, tft_config)
+    cv_result, feature_names, training_samples = await asyncio.to_thread(_train)
 
     fold_schemas = [
         TFTFoldMetricsSchema(
@@ -774,7 +792,7 @@ async def train_tft_endpoint(
         architecture_summary=cv_result.architecture_summary,
         feature_names=feature_names,
         num_features=len(feature_names),
-        training_samples=features.shape[0],
+        training_samples=training_samples,
     )
 
 
@@ -793,37 +811,33 @@ async def predict_tft_endpoint(
     Unlike LSTM MC Dropout, TFT produces quantiles natively via
     separate output heads trained with pinball loss.
     """
-    features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        seed=request.seed,
-    )
 
-    tft_config = TFTConfig(
-        lookback=request.lookback,
-        seed=request.seed if request.seed is not None else 42,
-    )
+    # Run CPU-bound TFT pipeline in thread pool
+    def _predict() -> tuple[Any, ...]:
+        features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            seed=request.seed,
+        )
+        tft_config = TFTConfig(
+            lookback=request.lookback,
+            seed=request.seed if request.seed is not None else 42,
+        )
+        _, model, norm_params = train_tft(features, target, tft_config)
+        horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
+        forecast = predict_tft(
+            model,
+            features[-horizon:],
+            wind_speed[-horizon:],
+            norm_params,
+            tft_config,
+            timestamps[-horizon:],
+        )
+        return forecast, request.horizon_steps
 
-    _, model, norm_params = train_tft(features, target, tft_config)
-
-    # Use last horizon_steps of features for prediction
-    horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
-    pred_features = features[-horizon:]
-    pred_wind = wind_speed[-horizon:]
-    pred_ts = timestamps[-horizon:]
-
-    forecast = predict_tft(
-        model,
-        pred_features,
-        pred_wind,
-        norm_params,
-        tft_config,
-        pred_ts,
-    )
-
-    # Trim to requested horizon
-    n = min(request.horizon_steps, len(forecast.power_p50_mw))
+    forecast, horizon_steps = await asyncio.to_thread(_predict)
+    n = min(horizon_steps, len(forecast.power_p50_mw))
 
     return TFTPredictResponse(
         power_p10_mw=[round(float(v), 4) for v in forecast.power_p10_mw[-n:]],
@@ -848,31 +862,31 @@ async def tft_attention_endpoint(
     1. Temporal attention weights — which past timesteps influenced predictions
     2. Variable importance — which features the VSN selects (sum = 1.0)
     """
-    features, target, _, _, feature_names = _build_xgboost_pipeline(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        seed=request.seed,
-    )
 
-    tft_config = TFTConfig(
-        lookback=request.lookback,
-        seed=request.seed if request.seed is not None else 42,
-    )
+    # Run CPU-bound TFT attention computation in thread pool
+    def _compute() -> AttentionWeights:
+        features, target, _, _, feature_names = _build_xgboost_pipeline(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            seed=request.seed,
+        )
+        tft_config = TFTConfig(
+            lookback=request.lookback,
+            seed=request.seed if request.seed is not None else 42,
+        )
+        _, model, norm_params = train_tft(features, target, tft_config)
+        horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
+        attn_result = compute_attention_weights(
+            model,
+            features[-horizon:],
+            norm_params,
+            tft_config,
+            feature_names,
+        )
+        return attn_result
 
-    _, model, norm_params = train_tft(features, target, tft_config)
-
-    # Use last horizon_steps for visualization
-    horizon = min(request.horizon_steps + request.lookback - 1, features.shape[0])
-    pred_features = features[-horizon:]
-
-    attn_result = compute_attention_weights(
-        model,
-        pred_features,
-        norm_params,
-        tft_config,
-        feature_names,
-    )
+    attn_result = await asyncio.to_thread(_compute)
 
     # Sample temporal weights (first 10 steps for response size)
     n_sample = min(10, attn_result.temporal_weights.shape[0])
@@ -1056,13 +1070,18 @@ async def detect_ramps_endpoint(
     (×34 turbines) → ramp detection (threshold + wavelet + regime) →
     grid stability alerts for ramp-down events.
     """
-    forecasts, _ = _build_all_model_forecasts(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        horizon_steps=request.horizon_steps,
-        seed=request.seed,
-    )
+
+    # Run CPU-bound ramp detection pipeline in thread pool
+    def _detect() -> tuple[ModelForecasts, np.ndarray]:
+        return _build_all_model_forecasts(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            horizon_steps=request.horizon_steps,
+            seed=request.seed,
+        )
+
+    forecasts, _ = await asyncio.to_thread(_detect)
 
     ensemble = compute_ensemble_forecast(forecasts)
 
@@ -1121,13 +1140,18 @@ async def compare_models_endpoint(
     Pipeline: train all 3 models → predict → compute ensemble →
     evaluate each model vs actuals → rank and compare.
     """
-    forecasts, actual = _build_all_model_forecasts(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        horizon_steps=request.horizon_steps,
-        seed=request.seed,
-    )
+
+    # Run CPU-bound model comparison pipeline in thread pool
+    def _compare() -> tuple[ModelForecasts, np.ndarray]:
+        return _build_all_model_forecasts(
+            num_turbines=request.num_turbines,
+            num_timesteps=request.num_timesteps,
+            turbine_index=request.turbine_index,
+            horizon_steps=request.horizon_steps,
+            seed=request.seed,
+        )
+
+    forecasts, actual = await asyncio.to_thread(_compare)
 
     ensemble = compute_ensemble_forecast(forecasts)
 

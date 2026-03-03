@@ -214,3 +214,82 @@ export interface TransitionResult {
   message: string;
   step_number: number;
 }
+
+// ── ISA-18.2 Alarm Lifecycle ─────────────────────────────────────
+
+/** ISA-18.2 alarm states */
+export type AlarmState = "ACTIVE" | "ACKNOWLEDGED" | "CLEARED" | "RETURN_TO_NORMAL";
+
+/** ISA-18.2 alarm priority levels */
+export type AlarmPriority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+
+/** Wind turbine fault categories matching real SCADA systems */
+export type TurbineFaultType =
+  | "PITCH_CONTROL_FAULT"
+  | "CONVERTER_OVERTEMP"
+  | "YAW_ERROR"
+  | "BEARING_OVERTEMP"
+  | "GEARBOX_OIL_TEMP"
+  | "GRID_FREQUENCY_FAULT"
+  | "GENERATOR_WINDING_TEMP"
+  | "COMMUNICATION_LOSS"
+  | "HYDRAULIC_PRESSURE_LOW"
+  | "VIBRATION_ALARM";
+
+/** Full alarm record per ISA-18.2 */
+export interface SCADAAlarm {
+  /** Unique alarm ID */
+  id: string;
+  /** Wall-clock timestamp */
+  timestamp: number;
+  /** ISA-18.2 priority */
+  priority: AlarmPriority;
+  /** Equipment tag / alarm code, e.g. "WTG-07.PITCH" */
+  tag: string;
+  /** Affected equipment name */
+  equipment: string;
+  /** Human-readable alarm description */
+  description: string;
+  /** Current process value that triggered the alarm */
+  value: string;
+  /** Setpoint / threshold that was exceeded */
+  setpoint: string;
+  /** ISA-18.2 lifecycle state */
+  state: AlarmState;
+  /** Duration in seconds since alarm inception */
+  durationSec: number;
+  /** Operator who acknowledged (null if not ACK'd) */
+  acknowledgedBy: string | null;
+  /** Timestamp when acknowledged */
+  acknowledgedAt: number | null;
+  /** Whether alarm is shelved (temporarily suppressed) */
+  shelved: boolean;
+  /** Fault type for turbine-level faults */
+  faultType: TurbineFaultType | string;
+  /** Probable cause */
+  probableCause: string;
+  /** Recommended action for operator */
+  recommendedAction: string;
+}
+
+/** Fault category definition for simulation */
+export interface FaultCategory {
+  type: TurbineFaultType;
+  label: string;
+  priority: AlarmPriority;
+  probableCause: string;
+  recommendedAction: string;
+  valueTemplate: string;
+  setpoint: string;
+}
+
+/** SLD breaker state */
+export type BreakerState = "CLOSED" | "OPEN" | "TRIPPED" | "RACKING";
+
+/** SLD measurement point */
+export interface SLDMeasurement {
+  nodeId: string;
+  voltageKV: number;
+  currentA: number;
+  powerMW: number;
+}

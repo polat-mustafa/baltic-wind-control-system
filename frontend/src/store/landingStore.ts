@@ -164,9 +164,30 @@ function computeKPIs(turbineMap: Record<string, TurbineData>): FarmKPI {
   const activeAlerts = turbines.filter(
     (t) => t.status === "fault" || t.status === "curtailed",
   ).length;
+  const capacityFactorPct = (totalOutputMW / 510) * 100;
+  // Grid frequency: 50 Hz ± small random drift (±0.05 Hz)
+  const gridFrequencyHz = round1(50.0 + (Math.random() - 0.5) * 0.1);
+  // Revenue: spot price ~€80/MWh × energy produced today (sum of turbines)
+  const totalEnergyMWh = turbines.reduce((sum, t) => sum + t.energyTodayMWh, 0);
+  const revenueTodayEUR = Math.round(totalEnergyMWh * 80);
 
-  return { totalOutputMW, averageWindSpeedMs, availabilityPercent, activeAlerts };
+  return {
+    totalOutputMW,
+    averageWindSpeedMs,
+    availabilityPercent,
+    activeAlerts,
+    windDirectionDeg: _windDirDeg,
+    capacityFactorPct,
+    gridFrequencyHz,
+    revenueTodayEUR,
+  };
 }
+
+// ── Wind simulation state (module-level for continuity) ─────────
+
+let _simStartTime = Date.now();
+let _windDirDeg = 225; // current wind direction (meteorological)
+let _baseWindSpeed = 11.0; // farm-level base wind speed
 
 // ── Module-level interval ───────────────────────────────────────
 
@@ -199,22 +220,36 @@ export const useLandingStore = create<LandingState>((set) => {
 
     startSimulation: () => {
       if (_tickInterval) return;
+      _simStartTime = Date.now();
 
       _tickInterval = setInterval(() => {
         set((state) => {
           const newMap: Record<string, TurbineData> = {};
 
+          // Update farm-level wind direction: sinusoidal drift ±30° around 225°, ~60s period + noise
+          const elapsed = (Date.now() - _simStartTime) / 1000;
+          _windDirDeg = (225 + 30 * Math.sin(elapsed * (2 * Math.PI / 60)) + rand(-2, 2) + 360) % 360;
+
+          // Update base wind speed: gradual ramp with ~30s period
+          _baseWindSpeed = clamp(
+            11.0 + 2.5 * Math.sin(elapsed * (2 * Math.PI / 30)) + 1.5 * Math.sin(elapsed * (2 * Math.PI / 90)),
+            7, 15,
+          );
+
           for (const id of state.turbineIds) {
             const t = state.turbineMap[id];
 
-            // Jitter wind speed by ±0.5 m/s
-            const newWind = clamp(t.windSpeedMs + rand(-0.5, 0.5), 6, 16);
+            // Per-turbine wind varies based on position relative to wind direction (wake effect proxy)
+            const pos = TURBINE_POSITIONS.find((p) => p.id === id);
+            const posOffset = pos ? (pos.x * Math.cos(_windDirDeg * Math.PI / 180) + pos.y * Math.sin(_windDirDeg * Math.PI / 180)) / 800 : 0;
+            const turbineBaseWind = _baseWindSpeed + posOffset * 0.5 + rand(-0.3, 0.3);
+            const newWind = clamp(t.windSpeedMs * 0.7 + turbineBaseWind * 0.3, 5, 16);
             const newPower = computePower(newWind, t.status);
             const newRotor = computeRotorSpeed(newWind, t.status);
             const newPitch = computePitchAngle(newWind, t.status);
 
-            // Nacelle yaw drifts slowly toward wind direction (~225 deg)
-            const yawTarget = 225;
+            // Nacelle yaw drifts slowly toward dynamic wind direction
+            const yawTarget = _windDirDeg;
             const yawDelta = clamp((yawTarget - t.nacellePositionDeg) * 0.1, -2, 2);
             const newYaw = (t.nacellePositionDeg + yawDelta + rand(-0.5, 0.5) + 360) % 360;
 

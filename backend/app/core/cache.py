@@ -49,12 +49,12 @@ async def init_redis() -> None:
     """
     global _redis_client
     try:
-        client: aioredis.Redis = aioredis.from_url(  # type: ignore[assignment]
+        client = aioredis.from_url(
             settings.redis_url,
             decode_responses=True,
             socket_connect_timeout=3,
         )
-        await client.ping()
+        await client.ping()  # type: ignore[misc]
         _redis_client = client
         logger.info("Redis connected: %s", settings.redis_url)
     except Exception:
@@ -81,7 +81,7 @@ async def redis_ping() -> bool:
     if _redis_client is None:
         return False
     try:
-        result = await _redis_client.ping()
+        result = await _redis_client.ping()  # type: ignore[misc]
         return bool(result)
     except Exception:
         return False

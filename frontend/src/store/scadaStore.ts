@@ -4,7 +4,7 @@
  * Manages:
  * - IEC 61850 device registry + GOOSE fault simulation
  * - ISA-18.2 alarm lifecycle (ACTIVE → ACK → CLEARED → RTN)
- * - Auto-simulation: random turbine faults every 15-30s
+ * - Auto-simulation: random turbine faults every 45-90s
  * - Breaker states for SLD live visualization
  * - Persistent event history (last 200 events)
  * - RBAC roles/zones and Permit-to-Work lifecycle
@@ -12,6 +12,7 @@
 
 import { create } from "zustand";
 
+import { FAULT_CATEGORIES } from "../constants/faultCategories";
 import * as api from "../services/scadaApi";
 import type {
   BreakerState,
@@ -30,109 +31,6 @@ import type {
   TurbineFaultType,
   TransitionResult,
 } from "../types/scada";
-
-// ── Fault Category Definitions ──────────────────────────────────
-
-const FAULT_CATEGORIES: {
-  type: TurbineFaultType;
-  label: string;
-  priority: AlarmPriority;
-  probableCause: string;
-  recommendedAction: string;
-  valueTemplate: () => string;
-  setpoint: string;
-}[] = [
-  {
-    type: "PITCH_CONTROL_FAULT",
-    label: "Pitch Control Fault",
-    priority: "CRITICAL",
-    probableCause: "Blade pitch actuator malfunction or sensor failure",
-    recommendedAction: "Initiate controlled shutdown, dispatch maintenance crew",
-    valueTemplate: () => `${(Math.random() * 20 + 70).toFixed(1)}°`,
-    setpoint: "< 30°",
-  },
-  {
-    type: "CONVERTER_OVERTEMP",
-    label: "Converter Overtemperature",
-    priority: "HIGH",
-    probableCause: "Power electronics cooling system degradation",
-    recommendedAction: "Reduce power output, check coolant flow and filters",
-    valueTemplate: () => `${(Math.random() * 15 + 85).toFixed(0)}°C`,
-    setpoint: "< 80°C",
-  },
-  {
-    type: "YAW_ERROR",
-    label: "Yaw Position Error",
-    priority: "MEDIUM",
-    probableCause: "Nacelle yaw position deviation exceeds threshold",
-    recommendedAction: "Check yaw motor and wind vane alignment",
-    valueTemplate: () => `${(Math.random() * 20 + 15).toFixed(1)}° deviation`,
-    setpoint: "< 10°",
-  },
-  {
-    type: "BEARING_OVERTEMP",
-    label: "Main Bearing Overtemperature",
-    priority: "HIGH",
-    probableCause: "Bearing lubrication degradation or excessive load",
-    recommendedAction: "Reduce load, schedule bearing inspection",
-    valueTemplate: () => `${(Math.random() * 20 + 75).toFixed(0)}°C`,
-    setpoint: "< 70°C",
-  },
-  {
-    type: "GEARBOX_OIL_TEMP",
-    label: "Gearbox Oil Temperature",
-    priority: "MEDIUM",
-    probableCause: "Gearbox lubrication system alarm — oil temp elevated",
-    recommendedAction: "Check oil level, filters, and cooling circuit",
-    valueTemplate: () => `${(Math.random() * 10 + 80).toFixed(0)}°C`,
-    setpoint: "< 75°C",
-  },
-  {
-    type: "GRID_FREQUENCY_FAULT",
-    label: "Grid Frequency Out of Range",
-    priority: "CRITICAL",
-    probableCause: "Grid frequency deviation exceeds PSE IRiESP limits",
-    recommendedAction: "Activate FRT mode, reduce active power per grid code",
-    valueTemplate: () => `${(49 + Math.random() * 2).toFixed(2)} Hz`,
-    setpoint: "49.5–50.5 Hz",
-  },
-  {
-    type: "GENERATOR_WINDING_TEMP",
-    label: "Generator Winding Temperature",
-    priority: "HIGH",
-    probableCause: "Generator thermal alarm — winding insulation at risk",
-    recommendedAction: "Derate output, inspect cooling system",
-    valueTemplate: () => `${(Math.random() * 20 + 140).toFixed(0)}°C`,
-    setpoint: "< 130°C",
-  },
-  {
-    type: "COMMUNICATION_LOSS",
-    label: "IED Communication Timeout",
-    priority: "MEDIUM",
-    probableCause: "Network disruption or IED failure",
-    recommendedAction: "Check fiber optic links and switch ports",
-    valueTemplate: () => "TIMEOUT",
-    setpoint: "< 100 ms",
-  },
-  {
-    type: "HYDRAULIC_PRESSURE_LOW",
-    label: "Hydraulic Pressure Low",
-    priority: "HIGH",
-    probableCause: "Blade pitch hydraulic system leak or pump failure",
-    recommendedAction: "Check hydraulic fluid level, inspect for leaks",
-    valueTemplate: () => `${(Math.random() * 50 + 80).toFixed(0)} bar`,
-    setpoint: "> 160 bar",
-  },
-  {
-    type: "VIBRATION_ALARM",
-    label: "Excessive Vibration",
-    priority: "CRITICAL",
-    probableCause: "Nacelle/tower vibration exceeds ISO 10816 limits",
-    recommendedAction: "Emergency shutdown, structural inspection required",
-    valueTemplate: () => `${(Math.random() * 5 + 6).toFixed(1)} mm/s`,
-    setpoint: "< 4.5 mm/s",
-  },
-];
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -445,9 +343,9 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
     if (state.autoSimEnabled) return;
     set({ autoSimEnabled: true });
 
-    // Generate random faults every 15-30s
+    // Generate random faults every 45-90s
     const scheduleFault = () => {
-      const delay = 15000 + Math.random() * 15000;
+      const delay = 45000 + Math.random() * 45000;
       _autoSimInterval = setTimeout(() => {
         const s = get();
         if (!s.autoSimEnabled) return;

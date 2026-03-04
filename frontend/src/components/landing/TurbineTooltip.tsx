@@ -2,14 +2,15 @@
  * Professional SCADA tooltip for turbine icons — shows full operational
  * data in a 2-column grid with ISA-101 color-coded alarm thresholds.
  *
- * Positioned as an HTML overlay on top of the SVG canvas using
- * absolute positioning relative to the map container.
+ * When a turbine is faulted and has a fault type, a red-tinted fault
+ * detail section is shown between the header and the data grid.
  *
  * Thresholds per ISO 10816 (vibration) and OEM specs (bearing temp):
  *   vibration > 4.5 mm/s → warning, > 7.0 → alarm
  *   bearing temp > 65°C → warning, > 80°C → alarm
  */
 
+import { FAULT_CATEGORIES } from "../../constants/faultCategories";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import type { TurbineData, TurbineStatus } from "../../types/landing";
 
@@ -53,7 +54,10 @@ function Row({ label, value, unit, color }: { label: string; value: string; unit
 
 export default function TurbineTooltip({ turbine, position }: TurbineTooltipProps) {
   const t = turbine;
-  const statusColor = STATUS_COLOR[t.status];
+  const sColor = STATUS_COLOR[t.status];
+  const faultCategory = t.status === "fault" && t.faultType
+    ? FAULT_CATEGORIES.find((c) => c.type === t.faultType)
+    : null;
 
   return (
     <div
@@ -69,11 +73,37 @@ export default function TurbineTooltip({ turbine, position }: TurbineTooltipProp
       {/* Header */}
       <div className="px-3 py-1.5 border-b flex items-center justify-between" style={{ borderColor: "#2a3040" }}>
         <span className="font-semibold text-sm text-[#e8eaf0]">{t.id}</span>
-        <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: statusColor }}>
-          <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: statusColor }} />
+        <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: sColor }}>
+          <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: sColor }} />
           {STATUS_LABEL[t.status]}
         </span>
       </div>
+
+      {/* Fault detail section — red-tinted, only shown when faulted */}
+      {faultCategory && (
+        <div className="px-3 py-2 border-b" style={{ borderColor: "#2a3040", backgroundColor: "rgba(239,68,68,0.08)" }}>
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: SCADA_COLORS.FAULT }} />
+            <span className="text-[11px] font-semibold" style={{ color: SCADA_COLORS.FAULT }}>
+              {faultCategory.label}
+            </span>
+          </div>
+          <div className="text-[9px] text-[#6b7490] space-y-0.5">
+            <div>
+              <span className="text-[#94a3b8]">Priority:</span>{" "}
+              <span style={{ color: faultCategory.priority === "CRITICAL" ? SCADA_COLORS.FAULT : faultCategory.priority === "HIGH" ? SCADA_COLORS.WARNING : "#e8eaf0" }}>
+                {faultCategory.priority}
+              </span>
+            </div>
+            <div>
+              <span className="text-[#94a3b8]">Cause:</span> {faultCategory.probableCause}
+            </div>
+            <div>
+              <span className="text-[#94a3b8]">Action:</span> {faultCategory.recommendedAction}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Two-column data grid */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 px-3 py-2">
@@ -97,7 +127,7 @@ export default function TurbineTooltip({ turbine, position }: TurbineTooltipProp
         <Row
           label="Bearing"
           value={t.bearingTempC.toFixed(0)}
-          unit="°C"
+          unit="\u00B0C"
           color={valueColor(t.bearingTempC, 65, 80)}
         />
         <Row label="Hours" value={t.operatingHours.toLocaleString()} unit="h" />
@@ -105,7 +135,7 @@ export default function TurbineTooltip({ turbine, position }: TurbineTooltipProp
 
       {/* Footer */}
       <div className="px-3 py-1 border-t text-[9px] text-[#6b7490] font-mono" style={{ borderColor: "#2a3040" }}>
-        String {t.stringNumber} · Click for details
+        String {t.stringNumber} · {faultCategory ? "Click for fault details" : "Click for details"}
       </div>
     </div>
   );

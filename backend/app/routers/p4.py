@@ -24,10 +24,12 @@ All endpoints follow the convention: /api/v1/forecast/{resource}
 from __future__ import annotations
 
 import asyncio
+import time
+import uuid
 from typing import Any
 
 import numpy as np
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.core.cache import cached
 from app.schemas.forecast import (
@@ -63,6 +65,8 @@ from app.schemas.forecast import (
     SCADADatasetSummary,
     SHAPRequest,
     SHAPResponse,
+    TaskStartResponse,
+    TaskStatusResponse,
     TFTAttentionRequest,
     TFTAttentionResponse,
     TFTFoldMetricsSchema,
@@ -121,6 +125,24 @@ from app.services.p4.xgboost_model import (
 )
 
 router = APIRouter(prefix="/api/v1/forecast", tags=["P4 — ML Forecasting"])
+
+# ── In-memory task store for async ensemble training ──────────────
+# Keys: task_id (UUID str) → dict with status, progress, result, error, created_at
+_ensemble_tasks: dict[str, dict[str, Any]] = {}
+_ensemble_bg_tasks: set[asyncio.Task[None]] = set()  # prevent GC of running tasks
+_TASK_TTL_SECONDS = 600  # 10 minutes — auto-cleanup prevents memory leaks
+
+
+def _cleanup_expired_tasks() -> None:
+    """Remove tasks older than TTL to prevent unbounded memory growth."""
+    now = time.monotonic()
+    expired = [
+        tid
+        for tid, t in _ensemble_tasks.items()
+        if now - t.get("created_at", now) > _TASK_TTL_SECONDS
+    ]
+    for tid in expired:
+        del _ensemble_tasks[tid]
 
 
 # ── Turbine Specification ─────────────────────────────────────────
@@ -1100,32 +1122,94 @@ async def _cached_ensemble_predict(
     }
 
 
-# ── Ensemble Prediction ──────────────────────────────────────────
+# ── Ensemble Prediction (async background task + polling) ─────────
 
 
-@router.post("/predict-ensemble", response_model=EnsemblePredictResponse)
+async def _run_ensemble_task(task_id: str, req: EnsemblePredictRequest) -> None:
+    """Background worker that trains the 3-model ensemble and stores the result.
+
+    Runs as an asyncio task so the POST returns 202 instantly, eliminating
+    proxy timeout issues on slow hardware (training can take 5-15 min).
+    """
+    try:
+        _ensemble_tasks[task_id]["progress"] = 10
+        result = await _cached_ensemble_predict(
+            num_turbines=req.num_turbines,
+            num_timesteps=req.num_timesteps,
+            turbine_index=req.turbine_index,
+            horizon_steps=req.horizon_steps,
+            seed=req.seed,
+        )
+        _ensemble_tasks[task_id].update(
+            status="completed",
+            progress=100,
+            result=result,
+        )
+    except Exception as e:
+        _ensemble_tasks[task_id].update(
+            status="failed",
+            progress=0,
+            error=str(e),
+        )
+
+
+@router.post(
+    "/predict-ensemble",
+    response_model=TaskStartResponse,
+    status_code=202,
+)
 async def predict_ensemble_endpoint(
     request: EnsemblePredictRequest,
-) -> EnsemblePredictResponse:
-    """Generate horizon-dependent ensemble forecast from XGBoost + LSTM + TFT.
+) -> TaskStartResponse:
+    """Start ensemble forecast training as a background task.
 
-    Pipeline: train all 3 models → predict → apply horizon-dependent
-    weights → enforce physical constraints → return ensemble P10/P50/P90.
-    Uses Redis cache (TTL 120s) to avoid recomputing identical requests.
+    Returns **202 Accepted** with a ``task_id`` immediately.
+    Poll ``GET /predict-ensemble/status/{task_id}`` for progress and results.
+
+    Pipeline: train XGBoost + LSTM + TFT → horizon-dependent weights →
+    physical constraints → ensemble P10/P50/P90.  Uses Redis cache
+    (TTL 120 s) to skip recomputation on repeated requests.
 
     Weight schedule per Roadmap §5.6:
-        < 6h:    XGB 0.50 + LSTM 0.30 + TFT 0.20
-        6–24h:   XGB 0.20 + LSTM 0.40 + TFT 0.40
-        24–48h:  XGB 0.10 + LSTM 0.30 + TFT 0.60
+        < 6 h:   XGB 0.50 + LSTM 0.30 + TFT 0.20
+        6–24 h:  XGB 0.20 + LSTM 0.40 + TFT 0.40
+        24–48 h: XGB 0.10 + LSTM 0.30 + TFT 0.60
     """
-    result = await _cached_ensemble_predict(
-        num_turbines=request.num_turbines,
-        num_timesteps=request.num_timesteps,
-        turbine_index=request.turbine_index,
-        horizon_steps=request.horizon_steps,
-        seed=request.seed,
+    _cleanup_expired_tasks()
+    task_id = str(uuid.uuid4())
+    _ensemble_tasks[task_id] = {
+        "status": "running",
+        "progress": 0,
+        "result": None,
+        "error": None,
+        "created_at": time.monotonic(),
+    }
+    task = asyncio.create_task(_run_ensemble_task(task_id, request))
+    _ensemble_bg_tasks.add(task)
+    task.add_done_callback(_ensemble_bg_tasks.discard)
+    return TaskStartResponse(task_id=task_id, status="running")
+
+
+@router.get(
+    "/predict-ensemble/status/{task_id}",
+    response_model=TaskStatusResponse,
+)
+async def ensemble_status(task_id: str) -> TaskStatusResponse:
+    """Poll the status of a background ensemble training task.
+
+    Returns progress (0-100 %), and the full ``EnsemblePredictResponse``
+    once training completes (status = 'completed').
+    """
+    _cleanup_expired_tasks()
+    task = _ensemble_tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return TaskStatusResponse(
+        status=task["status"],
+        progress=task["progress"],
+        result=EnsemblePredictResponse(**task["result"]) if task["result"] else None,
+        error=task["error"],
     )
-    return EnsemblePredictResponse(**result)
 
 
 # ── Ramp Detection ───────────────────────────────────────────────

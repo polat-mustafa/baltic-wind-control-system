@@ -12,6 +12,7 @@
 
 import { create } from "zustand";
 
+import { FAULT_TYPES } from "../constants/faultCategories";
 import { TURBINE_POSITIONS } from "../constants/windFarmLayout";
 import type {
   CableData,
@@ -285,21 +286,22 @@ export const useLandingStore = create<LandingState>((set) => {
           const roll = Math.random();
 
           if (target.status === "operating") {
-            if (roll < 0.05) {
-              newMap[targetId] = { ...target, status: "fault", powerOutputMW: 0, rotorSpeedRpm: 0, pitchAngleDeg: 90, availabilityPct: round1(target.availabilityPct * 0.99) };
-            } else if (roll < 0.15) {
+            if (roll < 0.01) {
+              const faultType = FAULT_TYPES[Math.floor(Math.random() * FAULT_TYPES.length)];
+              newMap[targetId] = { ...target, status: "fault", faultType, powerOutputMW: 0, rotorSpeedRpm: 0, pitchAngleDeg: 90, availabilityPct: round1(target.availabilityPct * 0.99) };
+            } else if (roll < 0.04) {
               newMap[targetId] = { ...target, status: "curtailed" };
             }
           } else if (target.status === "fault") {
-            if (roll < 0.3) {
-              newMap[targetId] = { ...target, status: "operating" };
+            if (roll < 0.35) {
+              newMap[targetId] = { ...target, status: "operating", faultType: undefined };
             }
           } else if (target.status === "curtailed") {
-            if (roll < 0.4) {
+            if (roll < 0.5) {
               newMap[targetId] = { ...target, status: "operating" };
             }
           } else if (target.status === "offline") {
-            if (roll < 0.2) {
+            if (roll < 0.3) {
               newMap[targetId] = { ...target, status: "operating" };
             }
           }

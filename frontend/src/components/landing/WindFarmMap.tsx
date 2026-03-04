@@ -34,12 +34,14 @@ import {
 import { cn } from "../../lib/utils";
 import { selectCable, selectKPIs, selectTransformer, selectTurbine, useLandingStore } from "../../store/landingStore";
 
+import AlarmTicker from "./AlarmTicker";
 import CableDetailPanel from "./CableDetailPanel";
 import ExportCableRoute from "./ExportCableRoute";
 import MapLegend from "./MapLegend";
 import OffshoreSubstation from "./OffshoreSubstation";
 import OnshoreSubstation from "./OnshoreSubstation";
 import TransformerDetailPanel from "./TransformerDetailPanel";
+import TurbineDetailPanel from "./TurbineDetailPanel";
 import TurbineIcon from "./TurbineIcon";
 import TurbineTooltip from "./TurbineTooltip";
 
@@ -59,7 +61,7 @@ const ConnectedTurbineIcon = memo(function ConnectedTurbineIcon({
   y: number;
   onMouseEnter: (id: string, e: React.MouseEvent<SVGGElement>) => void;
   onMouseLeave: () => void;
-  onClick: () => void;
+  onClick: (turbineId: string) => void;
 }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
   if (!turbine) return null;
@@ -72,7 +74,7 @@ const ConnectedTurbineIcon = memo(function ConnectedTurbineIcon({
       powerOutputMW={turbine.powerOutputMW}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      onClick={onClick}
+      onClick={() => onClick(turbineId)}
     />
   );
 });
@@ -90,13 +92,26 @@ function ConnectedTooltip({
   return <TurbineTooltip turbine={turbine} position={position} />;
 }
 
+/** Detail panel reads live data from store by turbine ID. */
+function ConnectedTurbineDetailPanel({
+  turbineId,
+  onClose,
+}: {
+  turbineId: string;
+  onClose: () => void;
+}) {
+  const turbine = useLandingStore(selectTurbine(turbineId));
+  if (!turbine) return null;
+  return <TurbineDetailPanel turbine={turbine} onClose={onClose} />;
+}
+
 // ── Main Component ──────────────────────────────────────────────
 
 interface WindFarmMapProps {
   totalPowerMW: number;
 }
 
-type DetailPanel = "oss" | "onshore" | "cable" | null;
+type DetailPanel = "oss" | "onshore" | "cable" | "turbine" | null;
 
 export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
   const navigate = useNavigate();
@@ -108,6 +123,7 @@ export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
   const [activePanel, setActivePanel] = useState<DetailPanel>(null);
+  const [selectedTurbineId, setSelectedTurbineId] = useState<string | null>(null);
 
   // Equipment data from store
   const ossTx = useLandingStore(selectTransformer("OSS-TX1"));
@@ -175,9 +191,10 @@ export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
     setHoveredTurbineId(null);
   }, []);
 
-  const handleTurbineClick = useCallback(() => {
-    navigate("/wind-resource");
-  }, [navigate]);
+  const handleTurbineClick = useCallback((turbineId: string) => {
+    setSelectedTurbineId(turbineId);
+    setActivePanel("turbine");
+  }, []);
 
   // Wind direction from store (dynamic, meteorological convention)
   const windDirDeg = kpis.windDirectionDeg;
@@ -569,6 +586,18 @@ export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
           onNavigate={() => navigate("/hv-grid")}
         />
       )}
+      {activePanel === "turbine" && selectedTurbineId && (
+        <ConnectedTurbineDetailPanel
+          turbineId={selectedTurbineId}
+          onClose={() => {
+            setActivePanel(null);
+            setSelectedTurbineId(null);
+          }}
+        />
+      )}
+
+      {/* Alarm ticker — shows active faults */}
+      <AlarmTicker />
     </div>
   );
 }

@@ -9,10 +9,12 @@ echo "Running database migrations..."
 alembic upgrade head
 
 echo "Starting application server..."
-# --timeout-keep-alive 300: Allow long-running ML training requests (P4 ensemble ~120s)
+# --timeout-keep-alive 120: Max idle time (seconds) before closing a keep-alive connection.
+#   This does NOT control request processing time — uvicorn has no request timeout.
+#   P4 ensemble training uses async background tasks, so no single request blocks long.
 # --workers 2: Prevent single-worker blocking during CPU-bound operations
 exec uvicorn app.main:app \
     --host 0.0.0.0 \
     --port 8000 \
-    --timeout-keep-alive 300 \
+    --timeout-keep-alive 120 \
     --workers 2

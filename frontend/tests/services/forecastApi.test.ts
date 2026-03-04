@@ -48,13 +48,33 @@ describe("getTurbineSpec", () => {
 });
 
 describe("predictEnsemble", () => {
-  it("sends POST with parameters", async () => {
-    mockJsonResponse({ num_steps: 288 });
-    await api.predictEnsemble(34, 52560, 0, 288);
+  it("sends POST with parameters and polls for result", async () => {
+    // 1. POST returns 202 with task_id
+    mockJsonResponse({ task_id: "test-task-id", status: "running" }, 202);
+    // 2. Poll GET returns completed result
+    mockJsonResponse({
+      status: "completed",
+      progress: 100,
+      result: { num_steps: 288 },
+      error: null,
+    });
+
+    vi.useFakeTimers();
+    const promise = api.predictEnsemble(34, 52560, 0, 288);
+    // Advance past the 3s poll delay
+    await vi.runAllTimersAsync();
+    const result = await promise;
+    vi.useRealTimers();
+
     expect(mockFetch).toHaveBeenCalledWith(
       `${BASE}/predict-ensemble`,
       expect.objectContaining({ method: "POST" }),
     );
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${BASE}/predict-ensemble/status/test-task-id`,
+      expect.anything(),
+    );
+    expect(result).toEqual({ num_steps: 288 });
   });
 });
 

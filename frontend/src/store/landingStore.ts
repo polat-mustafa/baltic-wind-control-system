@@ -226,13 +226,13 @@ export const useLandingStore = create<LandingState>((set) => {
         set((state) => {
           const newMap: Record<string, TurbineData> = {};
 
-          // Update farm-level wind direction: sinusoidal drift ±30° around 225°, ~60s period + noise
+          // Update farm-level wind direction: sinusoidal drift ±30° around 225°, ~20s period + noise
           const elapsed = (Date.now() - _simStartTime) / 1000;
-          _windDirDeg = (225 + 30 * Math.sin(elapsed * (2 * Math.PI / 60)) + rand(-2, 2) + 360) % 360;
+          _windDirDeg = (225 + 30 * Math.sin(elapsed * (2 * Math.PI / 20)) + rand(-2, 2) + 360) % 360;
 
-          // Update base wind speed: gradual ramp with ~30s period
+          // Update base wind speed: gradual ramp with ~12s period
           _baseWindSpeed = clamp(
-            11.0 + 2.5 * Math.sin(elapsed * (2 * Math.PI / 30)) + 1.5 * Math.sin(elapsed * (2 * Math.PI / 90)),
+            11.0 + 3.5 * Math.sin(elapsed * (2 * Math.PI / 12)) + 1.5 * Math.sin(elapsed * (2 * Math.PI / 40)),
             7, 15,
           );
 
@@ -243,7 +243,7 @@ export const useLandingStore = create<LandingState>((set) => {
             const pos = TURBINE_POSITIONS.find((p) => p.id === id);
             const posOffset = pos ? (pos.x * Math.cos(_windDirDeg * Math.PI / 180) + pos.y * Math.sin(_windDirDeg * Math.PI / 180)) / 800 : 0;
             const turbineBaseWind = _baseWindSpeed + posOffset * 0.5 + rand(-0.3, 0.3);
-            const newWind = clamp(t.windSpeedMs * 0.7 + turbineBaseWind * 0.3, 5, 16);
+            const newWind = clamp(t.windSpeedMs * 0.5 + turbineBaseWind * 0.5, 5, 16);
             const newPower = computePower(newWind, t.status);
             const newRotor = computeRotorSpeed(newWind, t.status);
             const newPitch = computePitchAngle(newWind, t.status);

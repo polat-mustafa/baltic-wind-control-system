@@ -569,6 +569,27 @@ class EnsemblePredictResponse(BaseModel):
     total_violations: int = Field(description="Physical constraint violations corrected")
 
 
+# ── Ensemble Task Schemas (async background training) ────────────
+
+
+class TaskStartResponse(BaseModel):
+    """Returned immediately (202) when ensemble training starts in the background."""
+
+    task_id: str = Field(description="UUID identifying the background training task")
+    status: str = Field(default="running", description="Initial status (always 'running')")
+
+
+class TaskStatusResponse(BaseModel):
+    """Polling response for background ensemble training task."""
+
+    status: str = Field(description="running | completed | failed")
+    progress: int = Field(description="Estimated progress 0-100 %")
+    result: EnsemblePredictResponse | None = Field(
+        default=None, description="Full forecast result when status='completed'"
+    )
+    error: str | None = Field(default=None, description="Error message when status='failed'")
+
+
 # ── Ramp Detection Schemas ───────────────────────────────────────
 
 

@@ -36,7 +36,7 @@ export default function LandingPage() {
   }, [startSimulation, stopSimulation]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-[calc(100vh-8rem)]">
       {/* Header row — title + quick access buttons */}
       <div className="flex items-center justify-between mb-3 shrink-0">
         <div className="flex items-center gap-3">
@@ -80,7 +80,7 @@ export default function LandingPage() {
       {/* Main area: Map (flex-1) + KPI strip (fixed width) */}
       <div className="flex gap-3 flex-1 min-h-0">
         {/* Map — fills remaining space */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 h-full">
           <WindFarmMap totalPowerMW={kpis.totalOutputMW} />
         </div>
 

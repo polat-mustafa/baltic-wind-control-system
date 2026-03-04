@@ -314,22 +314,64 @@ export function tftAttention(
   });
 }
 
-// ── Ensemble Prediction ───────────────────────────────────────
+// ── Ensemble Prediction (async background task + polling) ─────
 
-export function predictEnsemble(
+/** Polling interval for ensemble task status checks. */
+const ENSEMBLE_POLL_MS = 3_000;
+
+interface TaskStartResponse {
+  task_id: string;
+  status: string;
+}
+
+interface TaskStatusResponse {
+  status: string;
+  progress: number;
+  result: EnsemblePredictResponse | null;
+  error: string | null;
+}
+
+/**
+ * Start ensemble training as a background task, then poll until complete.
+ *
+ * The backend returns 202 immediately with a task_id.  We poll
+ * GET /predict-ensemble/status/{task_id} every 3 s until the task
+ * finishes.  The caller still gets a simple Promise<EnsemblePredictResponse>,
+ * so the store and UI code need no changes.
+ */
+export async function predictEnsemble(
   numTurbines: number,
   numTimesteps: number,
   turbineIndex: number,
   horizonSteps: number,
   seed?: number,
 ): Promise<EnsemblePredictResponse> {
-  return post(`${BASE}/predict-ensemble`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    horizon_steps: horizonSteps,
-    seed,
-  });
+  // 1. Start background task → 202 Accepted
+  const { task_id } = await post<TaskStartResponse>(
+    `${BASE}/predict-ensemble`,
+    {
+      num_turbines: numTurbines,
+      num_timesteps: numTimesteps,
+      turbine_index: turbineIndex,
+      horizon_steps: horizonSteps,
+      seed,
+    },
+  );
+
+  // 2. Poll until completed or failed
+  for (;;) {
+    await new Promise((r) => setTimeout(r, ENSEMBLE_POLL_MS));
+    const status = await request<TaskStatusResponse>(
+      `${BASE}/predict-ensemble/status/${task_id}`,
+    );
+    if (status.status === "completed" && status.result) {
+      return status.result;
+    }
+    if (status.status === "failed") {
+      throw new Error(status.error ?? "Ensemble training failed");
+    }
+    // status === "running" → continue polling
+  }
 }
 
 // ── Ramp Detection ────────────────────────────────────────────

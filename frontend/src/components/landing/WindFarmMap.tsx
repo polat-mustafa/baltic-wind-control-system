@@ -190,6 +190,7 @@ export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
     <div
       ref={containerRef}
       className="relative w-full h-full rounded-lg overflow-hidden border border-border-primary bg-bg-secondary shadow-lg shadow-black/20"
+      style={{ minHeight: 450 }}
     >
       <svg
         ref={svgRef}
@@ -416,30 +417,33 @@ export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
             34 × V236-15.0 MW | 66 kV Array | 220 kV Export | 400 kV PSE Grid
           </text>
 
-          {/* Compass rose with north pointer */}
-          <g transform="translate(1130, 60)">
-            <circle cx={0} cy={0} r={24} fill="rgba(15,17,23,0.8)" stroke="#3d4560" strokeWidth={1} />
-            {/* Crosshairs */}
-            <line x1={0} y1={-18} x2={0} y2={18} stroke="#2a3040" strokeWidth={0.5} />
-            <line x1={-18} y1={0} x2={18} y2={0} stroke="#2a3040" strokeWidth={0.5} />
-            {/* North pointer triangle */}
-            <polygon points="0,-20 -4,-12 4,-12" fill="#ef4444" />
-            <polygon points="0,20 -4,12 4,12" fill="#3d4560" />
-            {/* Cardinal labels */}
-            <text x={0} y={-8} fill="#ef4444" fontSize={8} fontWeight="700" textAnchor="middle" fontFamily="Inter, sans-serif">N</text>
-            <text x={0} y={16} fill="#6b7490" fontSize={6} textAnchor="middle" fontFamily="Inter, sans-serif">S</text>
-            <text x={14} y={3} fill="#6b7490" fontSize={6} textAnchor="middle" fontFamily="Inter, sans-serif">E</text>
-            <text x={-14} y={3} fill="#6b7490" fontSize={6} textAnchor="middle" fontFamily="Inter, sans-serif">W</text>
-          </g>
+          {/* Combined compass + wind direction indicator */}
+          <g transform="translate(1130, 75)">
+            {/* Outer ring */}
+            <circle cx={0} cy={0} r={32} fill="rgba(15,17,23,0.85)" stroke="#3d4560" strokeWidth={1} />
+            <circle cx={0} cy={0} r={30} fill="none" stroke="#2a3040" strokeWidth={0.5} />
 
-          {/* Wind direction indicator — arrow points TOWARD where wind blows (windDirDeg + 180) */}
-          <g transform="translate(1130, 120)">
-            <circle cx={0} cy={0} r={18} fill="rgba(15,17,23,0.8)" stroke="#3d4560" strokeWidth={1} />
+            {/* Cardinal tick marks on perimeter */}
+            <line x1={0} y1={-30} x2={0} y2={-24} stroke="#ef4444" strokeWidth={1.5} />
+            <line x1={0} y1={30} x2={0} y2={24} stroke="#4a5568" strokeWidth={1} />
+            <line x1={30} y1={0} x2={24} y2={0} stroke="#4a5568" strokeWidth={1} />
+            <line x1={-30} y1={0} x2={-24} y2={0} stroke="#4a5568" strokeWidth={1} />
+
+            {/* Cardinal labels outside ticks */}
+            <text x={0} y={-20} fill="#ef4444" fontSize={7} fontWeight="700" textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif">N</text>
+            <text x={0} y={21} fill="#6b7490" fontSize={6} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif">S</text>
+            <text x={20} y={1} fill="#6b7490" fontSize={6} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif">E</text>
+            <text x={-20} y={1} fill="#6b7490" fontSize={6} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif">W</text>
+
+            {/* Wind direction arrow — rotates inside compass (meteorological: +180 = blowing toward) */}
             <g transform={`rotate(${windDirDeg + 180})`}>
-              <line x1={0} y1={10} x2={0} y2={-10} stroke="#3b82f6" strokeWidth={2} />
-              <polygon points="0,-13 -4,-7 4,-7" fill="#3b82f6" />
+              <line x1={0} y1={14} x2={0} y2={-14} stroke="#3b82f6" strokeWidth={2} strokeLinecap="round" />
+              <polygon points="0,-17 -4,-10 4,-10" fill="#3b82f6" />
+              <circle cx={0} cy={0} r={2.5} fill="#3b82f6" opacity={0.6} />
             </g>
-            <text x={0} y={30} fill="#94a3b8" fontSize={7} textAnchor="middle" fontFamily="JetBrains Mono, monospace">
+
+            {/* Wind label below compass */}
+            <text x={0} y={44} fill="#94a3b8" fontSize={8} textAnchor="middle" fontFamily="JetBrains Mono, monospace">
               {windCardinal} {kpis.averageWindSpeedMs.toFixed(1)} m/s
             </text>
           </g>
@@ -452,8 +456,35 @@ export default function WindFarmMap({ totalPowerMW }: WindFarmMapProps) {
             <text x={40} y={-6} fill="#6b7490" fontSize={8} textAnchor="middle" fontFamily="JetBrains Mono, monospace">
               ~1 km
             </text>
-            <text x={40} y={12} fill="#4a5568" fontSize={6} textAnchor="middle" fontFamily="JetBrains Mono, monospace">
-              Schematic · 6D/8D spacing
+          </g>
+
+          {/* Turbine spacing dimension annotations */}
+          {/* Within-string: 6D vertical between WTG-05 (85,440) → WTG-06 (90,520) */}
+          <g>
+            <line x1={55} y1={445} x2={55} y2={515} stroke="#94a3b8" strokeWidth={0.6} strokeDasharray="3 2" opacity={0.5} />
+            <line x1={50} y1={445} x2={60} y2={445} stroke="#94a3b8" strokeWidth={0.6} opacity={0.5} />
+            <line x1={50} y1={515} x2={60} y2={515} stroke="#94a3b8" strokeWidth={0.6} opacity={0.5} />
+            <text x={42} y={483} fill="#94a3b8" fontSize={7} textAnchor="end" fontFamily="JetBrains Mono, monospace" opacity={0.7}>
+              6D
+            </text>
+          </g>
+          {/* Between-string: 8D horizontal between S1 (90,520) → S2 (185,500) */}
+          <g>
+            <line x1={95} y1={545} x2={180} y2={545} stroke="#94a3b8" strokeWidth={0.6} strokeDasharray="3 2" opacity={0.5} />
+            <line x1={95} y1={540} x2={95} y2={550} stroke="#94a3b8" strokeWidth={0.6} opacity={0.5} />
+            <line x1={180} y1={540} x2={180} y2={550} stroke="#94a3b8" strokeWidth={0.6} opacity={0.5} />
+            <text x={137} y={558} fill="#94a3b8" fontSize={7} textAnchor="middle" fontFamily="JetBrains Mono, monospace" opacity={0.7}>
+              8D
+            </text>
+          </g>
+          {/* Spacing legend box */}
+          <g transform="translate(20, 595)">
+            <rect x={0} y={0} width={180} height={32} rx={3} fill="rgba(15,17,23,0.7)" stroke="#3d4560" strokeWidth={0.5} />
+            <text x={10} y={13} fill="#94a3b8" fontSize={8} fontFamily="JetBrains Mono, monospace">
+              Within string: 6D (1,416 m)
+            </text>
+            <text x={10} y={26} fill="#94a3b8" fontSize={8} fontFamily="JetBrains Mono, monospace">
+              Between strings: 8D (1,888 m)
             </text>
           </g>
         </g>

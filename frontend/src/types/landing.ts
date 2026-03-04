@@ -5,6 +5,8 @@
  * export cable route, and real-time KPI aggregation.
  */
 
+import type { TurbineFaultType } from "./scada";
+
 // ── Turbine Status ──────────────────────────────────────────────
 
 export type TurbineStatus = "operating" | "curtailed" | "fault" | "offline";
@@ -40,6 +42,8 @@ export interface TurbineData {
   bearingTempC: number;
   /** Total operating hours since commissioning */
   operatingHours: number;
+  /** Active fault type (only set when status === "fault") */
+  faultType?: TurbineFaultType;
 }
 
 // ── Transformer Data ─────────────────────────────────────────────

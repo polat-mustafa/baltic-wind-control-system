@@ -26,6 +26,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { useScadaStore } from "../../store/scadaStore";
+import { useLandingStore } from "../../store/landingStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import {
   BusbarNode,
@@ -81,6 +82,7 @@ function buildGraph(
   }[],
   breakerStates: Record<string, BreakerState>,
   faultHighlightNodeId: string | null,
+  turbineMap?: Record<string, { powerOutputMW: number; windSpeedMs: number; status: string }>,
 ) {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -294,17 +296,38 @@ function buildGraph(
       style: { stroke: cbState(cbId) === "CLOSED" ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 1 },
     });
 
-    // WTG IEDs in this string
+    // WTG IEDs in this string — with live turbine data if available
     for (let j = 0; j < count && wtgIdx < wtgDevices.length; j++) {
       const d = wtgDevices[wtgIdx];
       const lnCount = d.logical_devices.reduce((sum, ld) => sum + ld.logical_nodes.length, 0);
       const color = EQUIPMENT_COLOR[d.equipment_type] ?? SCADA_COLORS.DE_ENERGIZED;
       const nodeId = `ied-${d.name}`;
+
+      // Match WTG device name to turbine ID (e.g. "WTG-01_IED" → "WTG-01")
+      const turbineId = d.name.replace(/_IED$/i, "").replace(/_.*$/, "");
+      const turbine = turbineMap?.[turbineId];
+      const statusColorMap: Record<string, string> = {
+        operating: SCADA_COLORS.ENERGIZED,
+        curtailed: SCADA_COLORS.WARNING,
+        fault: SCADA_COLORS.FAULT,
+        offline: SCADA_COLORS.DE_ENERGIZED,
+      };
+
       nodes.push({
         id: nodeId,
         type: "ied",
         position: { x: feederX - 5, y: feederY + 130 + j * 55 },
-        data: { label: d.name, type: d.equipment_type, lns: lnCount, color },
+        data: {
+          label: d.name,
+          type: d.equipment_type,
+          lns: lnCount,
+          color,
+          ...(turbine && {
+            powerMW: turbine.powerOutputMW,
+            windMs: turbine.windSpeedMs,
+            statusColor: statusColorMap[turbine.status] ?? SCADA_COLORS.DE_ENERGIZED,
+          }),
+        },
       });
       if (j === 0) {
         edges.push({
@@ -358,10 +381,15 @@ export default function SubstationSLD() {
   const measurements = useScadaStore((s) => s.measurements) ?? [];
   const [selectedNode, setSelectedNode] = useState<{ data: Record<string, unknown>; type: string } | null>(null);
 
+  // Start landing simulation so turbine data is available on SCADA page
+  const startSimulation = useLandingStore((s) => s.startSimulation);
+  const turbineMap = useLandingStore((s) => s.turbineMap);
+  useState(() => { startSimulation(); });
+
   const graph = useMemo(() => {
     if (!substationSummary?.devices) return { nodes: [], edges: [] };
-    return buildGraph(substationSummary.devices, breakerStates, faultHighlightNodeId);
-  }, [substationSummary, breakerStates, faultHighlightNodeId]);
+    return buildGraph(substationSummary.devices, breakerStates, faultHighlightNodeId, turbineMap);
+  }, [substationSummary, breakerStates, faultHighlightNodeId, turbineMap]);
 
   const onInit = useCallback(
     (instance: { fitView: () => void }) => {

@@ -88,7 +88,8 @@ describe("ForecastKPIHeader", () => {
     } as unknown as ReturnType<typeof useForecastStore>);
 
     render(<ForecastKPIHeader />);
-    // Both RMSE and MAE subtitles show "Model: XGBoost"
-    expect(screen.getAllByText("Model: XGBoost")).toHaveLength(2);
+    // RMSE and MAE cards each show the model name in their subtitle
+    expect(screen.getByText("XGBoost · Lower is better (<1.2 MW = excellent)")).toBeDefined();
+    expect(screen.getByText("XGBoost · Avg forecast deviation")).toBeDefined();
   });
 });

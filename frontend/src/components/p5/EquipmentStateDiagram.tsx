@@ -165,15 +165,12 @@ function buildNodes(
       const nodeType =
         EQUIPMENT_TYPE_TO_NODE[eq.equipment_type] ?? "circuit_breaker";
 
-      // Short label: "CB-ON-220-01" → "ON-220-01"
-      const shortLabel = eq.equipment_id.split("-").slice(1).join("-");
-
       return {
         id: eq.equipment_id,
         type: nodeType,
         position: pos,
         data: {
-          label: shortLabel,
+          label: eq.equipment_id,
           color,
           state: eq.state.toUpperCase(),
           ...(eq.equipment_type === "transformer"
@@ -250,7 +247,7 @@ export default function EquipmentStateDiagram() {
         </div>
       </div>
 
-      <div style={{ height: 500 }}>
+      <div className="h-[50vh] min-h-[400px]">
         <ReactFlow
           nodes={graph.nodes}
           edges={graph.edges}

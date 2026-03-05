@@ -62,6 +62,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from numpy.typing import NDArray
 
 from app.services.p4.turbine_power_curve import (
@@ -197,12 +198,16 @@ def detect_sensor_faults(
     num_t, num_turb = wind_speed.shape
     flagged = np.zeros((num_t, num_turb), dtype=np.bool_)
 
-    # Frozen anemometer detection (rolling std < threshold)
-    for turb in range(num_turb):
-        for t in range(window_size - 1, num_t):
-            window = wind_speed[t - window_size + 1 : t + 1, turb]
-            if np.std(window) < std_threshold:
-                flagged[t - window_size + 1 : t + 1, turb] = True
+    # Frozen anemometer detection — vectorized rolling std
+    # sliding_window_view creates (num_t - window_size + 1, num_turb, window_size)
+    # views without copying data, then np.std along the window axis
+    if num_t >= window_size:
+        windows = sliding_window_view(wind_speed, window_size, axis=0)
+        rolling_std = np.std(windows, axis=-1)  # (num_t - w + 1, num_turb)
+        frozen = rolling_std < std_threshold
+        # Propagate flag to all timesteps within each detected window
+        for offset in range(window_size):
+            flagged[offset : offset + frozen.shape[0]] |= frozen
 
     # Overpower detection
     overpower = power > overpower_factor * rated_power_mw

@@ -12,6 +12,7 @@ import { useForecastStore } from "../../store/forecastStore";
 import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
+  CHART_HEIGHT,
 } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { revenueImpactInfo } from "../../constants/panelInfo";
@@ -83,6 +84,7 @@ export default function RevenueImpactPanel() {
           <InfoButton info={revenueImpactInfo} />
         </div>
       </div>
+      <div className="w-full" style={{ height: CHART_HEIGHT }}>
       <Plot
         data={[
           // P50 power
@@ -124,7 +126,7 @@ export default function RevenueImpactPanel() {
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 300,
+          autosize: true,
           legend: {
             x: 0,
             y: 1.18,
@@ -160,8 +162,9 @@ export default function RevenueImpactPanel() {
           margin: { t: 40, r: 80, b: 50, l: 60 },
         }}
         config={PLOTLY_CONFIG}
-        className="w-full"
+        className="w-full h-full"
       />
+      </div>
     </div>
   );
 }

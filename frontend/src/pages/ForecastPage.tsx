@@ -229,17 +229,45 @@ export default function ForecastPage() {
             </div>
           )}
 
-          {/* Reference box */}
-          <div className="rounded-lg border border-border-primary bg-bg-tertiary p-3">
-            <p className="text-xs text-text-muted">
-              <span className="font-medium text-text-secondary">Models:</span>{" "}
-              XGBoost (gradient boosting), LSTM (recurrent), TFT (attention)
-            </p>
-            <p className="text-xs text-text-muted mt-1">
-              <span className="font-medium text-text-secondary">Note:</span>{" "}
-              Spot prices are synthetic (educational). Revenue figures are illustrative.
-            </p>
-          </div>
+          {/* Quick Reference card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Reference</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="font-medium text-text-secondary">RMSE</span>
+                  <span className="text-text-muted"> — Root Mean Square Error. Lower is better. &lt;1.2 MW = excellent</span>
+                </div>
+                <div>
+                  <span className="font-medium text-text-secondary">MAE</span>
+                  <span className="text-text-muted"> — Mean Absolute Error. Average forecast deviation in MW</span>
+                </div>
+                <div>
+                  <span className="font-medium text-text-secondary">Skill Score</span>
+                  <span className="text-text-muted"> — Improvement over persistence model. &gt;0.3 = strong forecast skill</span>
+                </div>
+                <div>
+                  <span className="font-medium text-text-secondary">Capacity Factor</span>
+                  <span className="text-text-muted"> — Actual output / rated output. Typical offshore: 35-55%</span>
+                </div>
+                <hr className="border-border-primary" />
+                <div>
+                  <span className="font-medium text-text-secondary">Models:</span>
+                  <span className="text-text-muted"> XGBoost (gradient boosting), LSTM (recurrent neural net), TFT (transformer with attention)</span>
+                </div>
+                <div>
+                  <span className="font-medium text-text-secondary">SHAP</span>
+                  <span className="text-text-muted"> — SHapley Additive exPlanations. Shows which input features drive the forecast</span>
+                </div>
+                <hr className="border-border-primary" />
+                <p className="text-text-muted italic">
+                  Spot prices are synthetic (educational). Revenue figures are illustrative.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

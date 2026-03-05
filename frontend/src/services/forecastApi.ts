@@ -361,9 +361,21 @@ export async function predictEnsemble(
   // 2. Poll until completed or failed
   for (;;) {
     await new Promise((r) => setTimeout(r, ENSEMBLE_POLL_MS));
-    const status = await request<TaskStatusResponse>(
-      `${BASE}/predict-ensemble/status/${task_id}`,
-    );
+    let status: TaskStatusResponse;
+    try {
+      status = await request<TaskStatusResponse>(
+        `${BASE}/predict-ensemble/status/${task_id}`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === "Task not found") {
+        throw new Error(
+          "Forecast task was lost (server may have restarted). Please run the analysis again.",
+          { cause: err },
+        );
+      }
+      throw err;
+    }
     if (status.status === "completed" && status.result) {
       return status.result;
     }

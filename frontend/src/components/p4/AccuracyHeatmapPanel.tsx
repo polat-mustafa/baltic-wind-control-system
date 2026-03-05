@@ -14,6 +14,7 @@ import { useForecastStore } from "../../store/forecastStore";
 import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
+  CHART_HEIGHT,
 } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { accuracyHeatmapInfo } from "../../constants/panelInfo";
@@ -74,6 +75,7 @@ export default function AccuracyHeatmapPanel() {
         </h3>
         <InfoButton info={accuracyHeatmapInfo} />
       </div>
+      <div className="w-full" style={{ height: CHART_HEIGHT }}>
       <Plot
         data={[
           {
@@ -98,7 +100,7 @@ export default function AccuracyHeatmapPanel() {
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 320,
+          autosize: true,
           xaxis: {
             ...DARK_PLOTLY_LAYOUT.xaxis,
             title: "Forecast Horizon",
@@ -110,8 +112,9 @@ export default function AccuracyHeatmapPanel() {
           },
         }}
         config={PLOTLY_CONFIG}
-        className="w-full"
+        className="w-full h-full"
       />
+      </div>
     </div>
   );
 }

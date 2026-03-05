@@ -200,24 +200,65 @@ interface IEDNodeData {
   color: string;
   type: string;
   lns: number;
+  /** Live turbine data (only for WTG controllers) */
+  powerMW?: number;
+  windMs?: number;
+  statusColor?: string;
 }
 
 export function IEDNode({ data }: { data: IEDNodeData }) {
-  const { label, color, lns } = data;
+  const { label, color, lns, powerMW, windMs, statusColor } = data;
+  const hasLiveData = powerMW !== undefined;
+  const powerFraction = hasLiveData ? Math.min((powerMW ?? 0) / 15, 1) : 0;
+
   return (
     <div
       className="rounded border px-2 py-1.5 text-center font-mono"
       style={{
         borderColor: color,
         backgroundColor: "#161924",
-        minWidth: 90,
+        minWidth: hasLiveData ? 100 : 90,
       }}
     >
       <Handle type="target" position={Position.Top} className="!w-1.5 !h-1.5" style={{ background: color }} />
-      <div className="text-[10px] font-bold truncate" style={{ color }}>
-        {label}
+      <div className="flex items-center justify-center gap-1">
+        {statusColor && (
+          <span
+            className="w-1.5 h-1.5 rounded-full inline-block shrink-0"
+            style={{ backgroundColor: statusColor }}
+          />
+        )}
+        <div className="text-[10px] font-bold truncate" style={{ color }}>
+          {label}
+        </div>
       </div>
       <div className="text-[8px]" style={{ color: "#6b7490" }}>{lns} LNs</div>
+
+      {/* Live turbine data block */}
+      {hasLiveData && (
+        <div className="mt-1 pt-1 border-t" style={{ borderColor: color + "33" }}>
+          <div className="flex justify-between text-[8px]">
+            <span style={{ color: "#6b7490" }}>Power</span>
+            <span className="tabular-nums font-medium" style={{ color: statusColor ?? "#e8eaf0" }}>
+              {(powerMW ?? 0).toFixed(1)} MW
+            </span>
+          </div>
+          <div className="flex justify-between text-[8px]">
+            <span style={{ color: "#6b7490" }}>Wind</span>
+            <span className="tabular-nums font-medium" style={{ color: "#e8eaf0" }}>
+              {(windMs ?? 0).toFixed(1)} m/s
+            </span>
+          </div>
+          {/* Mini power bar */}
+          <div className="w-full h-1 bg-bg-tertiary rounded-full mt-0.5 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${powerFraction * 100}%`, backgroundColor: statusColor ?? "#3ecf6e" }}
+            />
+          </div>
+        </div>
+      )}
+
       <Handle type="source" position={Position.Bottom} className="!w-1.5 !h-1.5" style={{ background: color }} />
     </div>
   );

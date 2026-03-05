@@ -58,6 +58,7 @@ interface CommissioningState {
   // Programme lifecycle actions
   fetchProgrammes: () => Promise<void>;
   createProgramme: (picName: string) => Promise<void>;
+  deleteProgramme: (id: string) => Promise<void>;
   selectProgramme: (id: string) => Promise<void>;
   startProgramme: (id: string) => Promise<void>;
   refreshActiveProgramme: () => Promise<void>;
@@ -141,6 +142,19 @@ export const useCommissioningStore = create<CommissioningState>((set, get) => ({
     try {
       set({ loading: true, error: null });
       await api.createProgramme(picName);
+      await get().fetchProgrammes();
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  deleteProgramme: async (id) => {
+    try {
+      set({ loading: true, error: null });
+      const res = await fetch(`/api/v1/commissioning/programmes/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`Delete failed: ${res.statusText}`);
       await get().fetchProgrammes();
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });

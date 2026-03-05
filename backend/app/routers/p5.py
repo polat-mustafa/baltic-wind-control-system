@@ -239,6 +239,14 @@ async def list_programmes() -> list[ProgrammeSummarySchema]:
     return result
 
 
+@router.delete("/programmes/{programme_id}", status_code=204)
+async def delete_programme(programme_id: str) -> None:
+    """Delete a switching programme."""
+    if programme_id not in _programmes:
+        raise HTTPException(status_code=404, detail="Programme not found")
+    del _programmes[programme_id]
+
+
 @router.get("/programmes/{programme_id}", response_model=ProgrammeDetailSchema)
 async def get_programme_detail(programme_id: str) -> ProgrammeDetailSchema:
     """Get detailed programme view including all steps and equipment states."""

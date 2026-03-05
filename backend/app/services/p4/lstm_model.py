@@ -73,6 +73,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import torch
 import torch.nn as nn
+from numpy.lib.stride_tricks import sliding_window_view
 from numpy.typing import NDArray
 from sklearn.model_selection import TimeSeriesSplit
 
@@ -370,15 +371,11 @@ def create_sequences(
             np.empty((0,), dtype=np.float64),
         )
 
-    n_sequences = n_samples - lookback + 1
-    n_features = features.shape[1]
-
-    x = np.zeros((n_sequences, lookback, n_features), dtype=np.float64)
-    y = np.zeros(n_sequences, dtype=np.float64)
-
-    for i in range(n_sequences):
-        x[i] = features[i : i + lookback]
-        y[i] = target[i + lookback - 1]
+    # Vectorized sliding window — creates (n_sequences, n_features, lookback) view
+    # then transpose to (n_sequences, lookback, n_features) with contiguous copy
+    x = sliding_window_view(features, lookback, axis=0)  # (n_seq, n_feat, lookback)
+    x = np.moveaxis(x, -1, 1).copy()  # (n_seq, lookback, n_feat) — contiguous for PyTorch
+    y = target[lookback - 1 :].copy()
 
     return x, y
 
@@ -848,14 +845,22 @@ def compute_mc_dropout_detail(
     x_tensor = torch.tensor(x_seq, dtype=torch.float32)
 
     # MC Dropout: keep model in train() mode for active dropout
+    # Batched: process `chunk_size` passes at once by repeating the input.
+    # Each copy gets an independent dropout mask because model.forward()
+    # initialises hidden state to zeros (stateless LSTM).
     model.train()
     all_passes: list[NDArray[np.float64]] = []
+    chunk_size = 10
 
-    for _ in range(config.mc_samples):
+    for chunk_start in range(0, config.mc_samples, chunk_size):
+        chunk_n = min(chunk_size, config.mc_samples - chunk_start)
+        x_repeated = x_tensor.repeat(chunk_n, 1, 1)  # (chunk_n * n_seq, lookback, n_feat)
         with torch.no_grad():
-            pred_norm = model(x_tensor).squeeze(-1).numpy()
-        pred_mw = _denormalize_power(pred_norm, norm_params)
-        all_passes.append(pred_mw)
+            pred_norm = model(x_repeated).squeeze(-1).numpy()  # (chunk_n * n_seq,)
+        pred_norm = pred_norm.reshape(chunk_n, -1)  # (chunk_n, n_seq)
+        for i in range(chunk_n):
+            pred_mw = _denormalize_power(pred_norm[i], norm_params)
+            all_passes.append(pred_mw)
 
     all_passes_array = np.array(all_passes, dtype=np.float64)  # (mc_samples, n_steps)
     mc_mean = np.mean(all_passes_array, axis=0)

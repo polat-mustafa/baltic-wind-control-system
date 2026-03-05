@@ -10,6 +10,7 @@ import { useForecastStore } from "../../store/forecastStore";
 import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
+  CHART_HEIGHT,
 } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { shapInfo } from "../../constants/panelInfo";
@@ -44,6 +45,7 @@ export default function SHAPPanel() {
         </h3>
         <InfoButton info={shapInfo} />
       </div>
+      <div className="w-full" style={{ height: CHART_HEIGHT }}>
       <Plot
         data={[
           {
@@ -61,7 +63,7 @@ export default function SHAPPanel() {
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 320,
+          autosize: true,
           xaxis: {
             ...DARK_PLOTLY_LAYOUT.xaxis,
             title: "Mean |SHAP| Value",
@@ -73,8 +75,9 @@ export default function SHAPPanel() {
           margin: { t: 30, r: 60, b: 50, l: 120 },
         }}
         config={PLOTLY_CONFIG}
-        className="w-full"
+        className="w-full h-full"
       />
+      </div>
     </div>
   );
 }

@@ -43,20 +43,26 @@ export default function AppShell() {
   // Unified fault synchronization between landing map and SCADA
   useFaultSync();
 
-  // Subscribe to alarm/fault state for dynamic header status
-  const criticalAlarms = useScadaStore((s) =>
-    s.alarms.filter((a) => a.priority === "CRITICAL" && a.state === "ACTIVE"),
+  // Subscribe to alarm/fault state using primitives — never return arrays from
+  // Zustand selectors (filter/map return new references → Object.is fails → infinite loop)
+  const criticalCount = useScadaStore((s) =>
+    s.alarms.filter((a) => a.priority === "CRITICAL" && a.state === "ACTIVE").length,
   );
+  const firstCriticalText = useScadaStore((s) => {
+    const alarm = s.alarms.find((a) => a.priority === "CRITICAL" && a.state === "ACTIVE");
+    if (!alarm) return "";
+    return `${alarm.equipment} ${alarm.description.split("—")[0]?.trim() ?? ""}`;
+  });
   const landingActiveAlerts = useLandingStore((s) => s.kpis.activeAlerts);
 
   // Dynamic status indicator
-  const headerStatus: "normal" | "warning" | "alarm" = criticalAlarms.length > 0
+  const headerStatus: "normal" | "warning" | "alarm" = criticalCount > 0
     ? "alarm"
     : landingActiveAlerts > 0
       ? "warning"
       : "normal";
-  const headerLabel = criticalAlarms.length > 0
-    ? `${criticalAlarms.length} Critical`
+  const headerLabel = criticalCount > 0
+    ? `${criticalCount} Critical`
     : landingActiveAlerts > 0
       ? "Degraded"
       : "Normal";
@@ -125,16 +131,16 @@ export default function AppShell() {
       </header>
 
       {/* ── Global Critical Alarm Banner ── */}
-      {criticalAlarms.length > 0 && (
+      {criticalCount > 0 && (
         <div className="shrink-0 px-4 py-1.5 bg-red-900/40 border-b border-red-700/50 flex items-center justify-between animate-pulse">
           <div className="flex items-center gap-2 text-xs font-mono text-red-400">
             <AlertTriangle size={14} />
             <span className="font-bold">
-              {criticalAlarms.length} CRITICAL ALARM{criticalAlarms.length > 1 ? "S" : ""} ACTIVE
+              {criticalCount} CRITICAL ALARM{criticalCount > 1 ? "S" : ""} ACTIVE
             </span>
-            <span className="text-red-400/70">
-              — {criticalAlarms[0].equipment} {criticalAlarms[0].description.split("—")[0]?.trim()}
-            </span>
+            {firstCriticalText && (
+              <span className="text-red-400/70">— {firstCriticalText}</span>
+            )}
           </div>
           <Link
             to="/scada"

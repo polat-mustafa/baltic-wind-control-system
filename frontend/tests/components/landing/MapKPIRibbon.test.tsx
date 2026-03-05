@@ -1,5 +1,11 @@
 /**
- * Tests for the MapKPIRibbon component (vertical KPI panel).
+ * Tests for the MapKPIRibbon component (horizontal glassmorphic bar — default layout).
+ *
+ * Labels were shortened in the Leaflet refactor for compact display:
+ *   "Total Output" → "Output", "Wind Speed" → "Wind",
+ *   "Availability" → "Avail", "Active Alerts" → "Alerts",
+ *   "Capacity Factor" → "CF", "Grid Frequency" → "Freq".
+ * Revenue chip is not rendered in horizontal mode.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -21,25 +27,25 @@ describe("MapKPIRibbon", () => {
 
   it("renders total output", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
-    expect(screen.getByText("Total Output")).toBeDefined();
+    expect(screen.getByText("Output")).toBeDefined();
     expect(screen.getByText("450")).toBeDefined();
   });
 
   it("renders wind speed", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
-    expect(screen.getByText("Wind Speed")).toBeDefined();
+    expect(screen.getByText("Wind")).toBeDefined();
     expect(screen.getByText("11.2")).toBeDefined();
   });
 
   it("renders availability", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
-    expect(screen.getByText("Availability")).toBeDefined();
+    expect(screen.getByText("Avail")).toBeDefined();
     expect(screen.getByText("96.5")).toBeDefined();
   });
 
   it("renders active alerts", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
-    expect(screen.getByText("Active Alerts")).toBeDefined();
+    expect(screen.getByText("Alerts")).toBeDefined();
   });
 
   it("uses singular 'alarm' for 1 alert", () => {
@@ -50,18 +56,13 @@ describe("MapKPIRibbon", () => {
 
   it("renders capacity factor", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
-    expect(screen.getByText("Capacity Factor")).toBeDefined();
+    expect(screen.getByText("CF")).toBeDefined();
     expect(screen.getByText("88.2%")).toBeDefined();
   });
 
   it("renders grid frequency", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
-    expect(screen.getByText("Grid Frequency")).toBeDefined();
+    expect(screen.getByText("Freq")).toBeDefined();
     expect(screen.getByText("50.01")).toBeDefined();
-  });
-
-  it("renders revenue", () => {
-    render(<MapKPIRibbon kpis={highAvailKPIs} />);
-    expect(screen.getByText("Revenue Today")).toBeDefined();
   });
 });

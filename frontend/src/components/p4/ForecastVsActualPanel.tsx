@@ -11,6 +11,7 @@ import { useForecastStore } from "../../store/forecastStore";
 import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
+  CHART_HEIGHT,
 } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { forecastVsActualInfo } from "../../constants/panelInfo";
@@ -51,6 +52,7 @@ export default function ForecastVsActualPanel() {
         </h3>
         <InfoButton info={forecastVsActualInfo} />
       </div>
+      <div className="w-full" style={{ height: CHART_HEIGHT }}>
       <Plot
         data={[
           // P90 upper bound (invisible line for fill)
@@ -99,7 +101,7 @@ export default function ForecastVsActualPanel() {
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 320,
+          autosize: true,
           legend: {
             x: 0,
             y: 1.15,
@@ -124,8 +126,9 @@ export default function ForecastVsActualPanel() {
           },
         }}
         config={PLOTLY_CONFIG}
-        className="w-full"
+        className="w-full h-full"
       />
+      </div>
     </div>
   );
 }

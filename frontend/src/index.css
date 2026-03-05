@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 /* ── ISA-101 High Performance HMI Design System ──────────────────
    Baltic Wind HV Control Platform
@@ -58,6 +59,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Numeric Display Polish ── */
+/* Ensure all monospace numeric displays use tabular figures for alignment */
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Scrollbar Styling (control room aesthetics) ── */
 ::-webkit-scrollbar {
   width: 8px;
@@ -87,4 +94,46 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* ── Leaflet Overrides (dark theme) ─────────────────────────────── */
+
+/* Remove default marker shadows and backgrounds for custom DivIcons */
+.leaflet-turbine-marker,
+.leaflet-oss-marker,
+.leaflet-onshore-marker {
+  background: none !important;
+  border: none !important;
+}
+
+/* Dark-themed Leaflet tooltips matching ISA-101 palette */
+.leaflet-turbine-tooltip .leaflet-tooltip-content-wrapper,
+.leaflet-turbine-tooltip {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.leaflet-turbine-tooltip::before {
+  display: none !important;
+}
+
+/* Animated export cable dashes (power flow effect) */
+.leaflet-export-cable-animated {
+  animation: cable-flow 1.5s linear infinite;
+}
+@keyframes cable-flow {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -40; }
+}
+
+/* Dark-themed zoom controls */
+.leaflet-control-zoom a {
+  background-color: rgba(22, 25, 36, 0.9) !important;
+  color: #9ba3b8 !important;
+  border-color: #2a3040 !important;
+}
+.leaflet-control-zoom a:hover {
+  background-color: #2d3348 !important;
+  color: #e8eaf0 !important;
 }

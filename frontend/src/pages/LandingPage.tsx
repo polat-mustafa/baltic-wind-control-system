@@ -1,18 +1,20 @@
 /**
  * Landing page — single-screen wind farm overview.
  *
- * No-scroll layout: map fills ~75% width, KPI panel fills ~25% on right.
- * Quick-access buttons (P3/P4/P5) are compact icons in the header.
+ * Leaflet map fills the full content area with glassmorphic KPI ribbon
+ * overlaid at top. Quick-access buttons in the header bar.
  * Designed like a real control room overview screen — everything visible
  * without scrolling (ABB Ability, Siemens DEOP paradigm).
+ *
+ * Control Room Mode: fullscreen toggle hides AppShell and fills viewport.
  */
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Monitor, Brain, ClipboardCheck } from "lucide-react";
+import { Monitor, Brain, ClipboardCheck, Maximize2, Minimize2 } from "lucide-react";
 
 import MapKPIRibbon from "../components/landing/MapKPIRibbon";
-import WindFarmMap from "../components/landing/WindFarmMap";
+import LeafletWindFarmMap from "../components/landing/LeafletWindFarmMap";
 import { useLandingStore } from "../store/landingStore";
 import { InfoButton } from "../components/ui/InfoButton";
 import { farmOverviewInfo } from "../constants/panelInfo";
@@ -29,11 +31,59 @@ export default function LandingPage() {
   const startSimulation = useLandingStore((s) => s.startSimulation);
   const stopSimulation = useLandingStore((s) => s.stopSimulation);
   const navigate = useNavigate();
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     startSimulation();
     return () => stopSimulation();
   }, [startSimulation, stopSimulation]);
+
+  // Listen for fullscreen change events (Escape key, etc.)
+  useEffect(() => {
+    const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handleChange);
+    return () => document.removeEventListener("fullscreenchange", handleChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  }, []);
+
+  // Fullscreen (Control Room Mode) — map fills entire viewport
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-bg-primary flex flex-col">
+        {/* Horizontal KPI ribbon — glassmorphic overlay at top */}
+        <div className="absolute top-0 left-0 right-0 z-[1001]">
+          <MapKPIRibbon kpis={kpis} horizontal />
+        </div>
+
+        {/* Exit fullscreen button */}
+        <button
+          onClick={toggleFullscreen}
+          className={cn(
+            "absolute top-2 right-3 z-[1002] flex items-center gap-1.5 rounded-md px-2 py-1.5",
+            "bg-bg-secondary/80 border border-border-primary backdrop-blur-sm",
+            "text-text-muted hover:text-text-primary hover:bg-bg-hover",
+            "transition-colors duration-150",
+          )}
+          title="Exit Control Room Mode (Esc)"
+        >
+          <Minimize2 size={13} />
+          <span className="text-[10px] font-medium">Exit</span>
+        </button>
+
+        {/* Map fills viewport */}
+        <div className="flex-1">
+          <LeafletWindFarmMap totalPowerMW={kpis.totalOutputMW} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
@@ -51,7 +101,7 @@ export default function LandingPage() {
           <InfoButton info={farmOverviewInfo} />
         </div>
 
-        {/* Quick nav buttons */}
+        {/* Quick nav + Control Room Mode button */}
         <div className="flex items-center gap-1.5">
           {QUICK_LINKS.map((link) => {
             const Icon = link.icon;
@@ -74,19 +124,36 @@ export default function LandingPage() {
               </button>
             );
           })}
+
+          {/* Control Room Mode toggle */}
+          <button
+            onClick={toggleFullscreen}
+            title="Control Room Mode (fullscreen)"
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5",
+              "border border-accent/30 bg-accent/10",
+              "hover:bg-accent/20 hover:border-accent/50",
+              "transition-all duration-150 group",
+            )}
+          >
+            <Maximize2 size={13} className="text-accent" />
+            <span className="text-[10px] font-medium text-accent/80 group-hover:text-accent">
+              Control Room
+            </span>
+          </button>
         </div>
       </div>
 
-      {/* Main area: Map (flex-1) + KPI strip (fixed width) */}
-      <div className="flex gap-3 flex-1 min-h-0">
-        {/* Map — fills remaining space */}
-        <div className="flex-1 min-w-0 h-full">
-          <WindFarmMap totalPowerMW={kpis.totalOutputMW} />
+      {/* Main area: Map fills width, horizontal KPI bar overlaid at top */}
+      <div className="relative flex-1 min-h-0">
+        {/* Horizontal KPI ribbon overlay */}
+        <div className="absolute top-0 left-0 right-0 z-[1001]">
+          <MapKPIRibbon kpis={kpis} horizontal />
         </div>
 
-        {/* KPI vertical strip */}
-        <div className="w-52 shrink-0">
-          <MapKPIRibbon kpis={kpis} />
+        {/* Leaflet map — fills remaining space */}
+        <div className="w-full h-full">
+          <LeafletWindFarmMap totalPowerMW={kpis.totalOutputMW} />
         </div>
       </div>
     </div>

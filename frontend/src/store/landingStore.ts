@@ -30,6 +30,11 @@ const RATED_ROTOR_RPM = 9.55;
 const CUT_IN_MS = 3.0;
 const CUT_OUT_MS = 31.0;
 
+// Ramp rate limits per tick (3s) — realistic 15 MW turbine can't jump instantly
+const MAX_POWER_RAMP_MW_PER_TICK = 2.0; // ≈0.67 MW/s
+const MAX_ROTOR_RAMP_RPM_PER_TICK = 1.0;
+const MAX_PITCH_RAMP_DEG_PER_TICK = 10.0;
+
 // ── Helpers ────────────────────────────────────────────────────
 
 function rand(min: number, max: number): number {
@@ -42,6 +47,12 @@ function clamp(value: number, min: number, max: number): number {
 
 function round1(v: number): number {
   return Math.round(v * 10) / 10;
+}
+
+/** Gradually move `current` toward `target` by at most `maxStep`. */
+function rampToward(current: number, target: number, maxStep: number): number {
+  const delta = target - current;
+  return current + clamp(delta, -maxStep, maxStep);
 }
 
 // ── Physics-based turbine simulation ───────────────────────────
@@ -245,9 +256,16 @@ export const useLandingStore = create<LandingState>((set) => {
             const posOffset = pos ? (pos.x * Math.cos(_windDirDeg * Math.PI / 180) + pos.y * Math.sin(_windDirDeg * Math.PI / 180)) / 800 : 0;
             const turbineBaseWind = _baseWindSpeed + posOffset * 0.5 + rand(-0.3, 0.3);
             const newWind = clamp(t.windSpeedMs * 0.5 + turbineBaseWind * 0.5, 5, 16);
-            const newPower = computePower(newWind, t.status);
-            const newRotor = computeRotorSpeed(newWind, t.status);
-            const newPitch = computePitchAngle(newWind, t.status);
+
+            // Compute TARGET values from physics — then ramp-limit for realism
+            const targetPower = computePower(newWind, t.status);
+            const targetRotor = computeRotorSpeed(newWind, t.status);
+            const targetPitch = computePitchAngle(newWind, t.status);
+
+            // Apply ramp rate limits — a 15 MW turbine can't jump instantly
+            const newPower = rampToward(t.powerOutputMW, targetPower, MAX_POWER_RAMP_MW_PER_TICK);
+            const newRotor = rampToward(t.rotorSpeedRpm, targetRotor, MAX_ROTOR_RAMP_RPM_PER_TICK);
+            const newPitch = rampToward(t.pitchAngleDeg, targetPitch, MAX_PITCH_RAMP_DEG_PER_TICK);
 
             // Nacelle yaw drifts slowly toward dynamic wind direction
             const yawTarget = _windDirDeg;
@@ -287,8 +305,10 @@ export const useLandingStore = create<LandingState>((set) => {
 
           if (target.status === "operating") {
             if (roll < 0.01) {
+              // Fault: set status but let ramp rates gradually bring power to 0
+              // (computePower returns 0 for fault, ramp will catch up in 2-3 ticks)
               const faultType = FAULT_TYPES[Math.floor(Math.random() * FAULT_TYPES.length)];
-              newMap[targetId] = { ...target, status: "fault", faultType, powerOutputMW: 0, rotorSpeedRpm: 0, pitchAngleDeg: 90, availabilityPct: round1(target.availabilityPct * 0.99) };
+              newMap[targetId] = { ...target, status: "fault", faultType, availabilityPct: round1(target.availabilityPct * 0.99) };
             } else if (roll < 0.04) {
               newMap[targetId] = { ...target, status: "curtailed" };
             }

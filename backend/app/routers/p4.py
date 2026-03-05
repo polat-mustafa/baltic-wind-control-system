@@ -24,14 +24,18 @@ All endpoints follow the convention: /api/v1/forecast/{resource}
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import json as _json
+import logging
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
-from app.core.cache import cached
+from app.core.cache import cached, get_redis
 from app.schemas.forecast import (
     ConstraintCheckRequest,
     ConstraintCheckResponse,
@@ -130,7 +134,7 @@ router = APIRouter(prefix="/api/v1/forecast", tags=["P4 — ML Forecasting"])
 # Keys: task_id (UUID str) → dict with status, progress, result, error, created_at
 _ensemble_tasks: dict[str, dict[str, Any]] = {}
 _ensemble_bg_tasks: set[asyncio.Task[None]] = set()  # prevent GC of running tasks
-_TASK_TTL_SECONDS = 600  # 10 minutes — auto-cleanup prevents memory leaks
+_TASK_TTL_SECONDS = 3600  # 1 hour — ensemble training can take 15+ min
 
 
 def _cleanup_expired_tasks() -> None:
@@ -143,6 +147,63 @@ def _cleanup_expired_tasks() -> None:
     ]
     for tid in expired:
         del _ensemble_tasks[tid]
+
+
+_TASK_KEY_PREFIX = "bw:task:"
+
+
+def _task_key(task_id: str) -> str:
+    return f"{_TASK_KEY_PREFIX}{task_id}"
+
+
+async def _task_save(task_id: str, data: dict[str, Any]) -> None:
+    """Dual-write: always store in-memory + best-effort Redis."""
+    _ensemble_tasks[task_id] = data
+    redis = get_redis()
+    if redis is not None:
+        with contextlib.suppress(Exception):
+            await redis.setex(
+                _task_key(task_id),
+                _TASK_TTL_SECONDS,
+                _json.dumps(data, default=str),
+            )
+
+
+async def _task_get(task_id: str) -> dict[str, Any] | None:
+    """Read task state. In-memory first (freshest), then Redis fallback."""
+    if task_id in _ensemble_tasks:
+        return _ensemble_tasks[task_id]
+    redis = get_redis()
+    if redis is not None:
+        try:
+            raw = await redis.get(_task_key(task_id))
+            if raw:
+                result: dict[str, Any] = _json.loads(raw)
+                return result
+        except Exception:
+            pass
+    return None
+
+
+async def _task_update(task_id: str, **kwargs: Any) -> None:
+    """Dual-write update: always update in-memory + best-effort Redis."""
+    if task_id in _ensemble_tasks:
+        _ensemble_tasks[task_id].update(kwargs)
+    else:
+        _ensemble_tasks[task_id] = dict(kwargs)
+    redis = get_redis()
+    if redis is not None:
+        try:
+            raw = await redis.get(_task_key(task_id))
+            data = _json.loads(raw) if raw else {}
+            data.update(kwargs)
+            await redis.setex(
+                _task_key(task_id),
+                _TASK_TTL_SECONDS,
+                _json.dumps(data, default=str),
+            )
+        except Exception:
+            pass
 
 
 # ── Turbine Specification ─────────────────────────────────────────
@@ -442,6 +503,58 @@ def _build_xgboost_pipeline(
     return merged_features, target_power, wind_speed, timestamps, feature_names
 
 
+# ── Cached Pipeline ────────────────────────────────────────────────
+
+
+@cached(prefix="xgb_pipeline", ttl=300)
+def _cached_xgb_pipeline(
+    num_turbines: int,
+    num_timesteps: int,
+    turbine_index: int,
+    seed: int | None,
+) -> dict[str, object]:
+    """Cached wrapper for the SCADA → filter → features pipeline.
+
+    Serialises numpy arrays to lists for Redis storage.
+    All 10+ endpoints share this cached result.
+    """
+    features, target, wind_speed, timestamps, feature_names = _build_xgboost_pipeline(
+        num_turbines=num_turbines,
+        num_timesteps=num_timesteps,
+        turbine_index=turbine_index,
+        seed=seed,
+    )
+    return {
+        "features": features.tolist(),
+        "target": target.tolist(),
+        "wind_speed": wind_speed.tolist(),
+        "timestamps": timestamps.tolist(),
+        "feature_names": feature_names,
+    }
+
+
+async def _get_pipeline_data(
+    num_turbines: int,
+    num_timesteps: int,
+    turbine_index: int,
+    seed: int | None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[str]]:
+    """Retrieve cached pipeline data, reconstructing numpy arrays."""
+    raw = await _cached_xgb_pipeline(
+        num_turbines=num_turbines,
+        num_timesteps=num_timesteps,
+        turbine_index=turbine_index,
+        seed=seed,
+    )
+    return (
+        np.array(raw["features"]),
+        np.array(raw["target"]),
+        np.array(raw["wind_speed"]),
+        np.array(raw["timestamps"]),
+        raw["feature_names"],
+    )
+
+
 # ── XGBoost Training ───────────────────────────────────────────────
 
 
@@ -454,15 +567,14 @@ async def train_xgboost_endpoint(
     Pipeline: generate SCADA → quality filter → engineer features →
     merge NWP → train XGBoost → return CV metrics.
     """
+    features, target, _, _, feature_names = await _get_pipeline_data(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
 
-    # Run CPU-bound ML training in thread pool to avoid blocking the event loop
     def _train() -> tuple[Any, ...]:
-        features, target, _, _, feature_names = _build_xgboost_pipeline(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            seed=request.seed,
-        )
         xgb_config = XGBoostConfig(
             n_estimators=request.n_estimators,
             max_depth=request.max_depth,
@@ -510,15 +622,14 @@ async def predict_xgboost_endpoint(
     Pipeline: generate SCADA → filter → features → NWP → train → predict.
     Returns the last `horizon_steps` of the forecast.
     """
+    features, target, wind_speed, timestamps, _ = await _get_pipeline_data(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
 
-    # Run CPU-bound pipeline + training + prediction in thread pool
     def _predict() -> tuple[Any, ...]:
-        features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            seed=request.seed,
-        )
         xgb_config = XGBoostConfig(
             seed=request.seed if request.seed is not None else 42,
         )
@@ -552,15 +663,14 @@ async def xgboost_shap_endpoint(
 
     Pipeline: generate data → train → compute SHAP → return importance.
     """
+    features, target, _, _, feature_names = await _get_pipeline_data(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
 
-    # Run CPU-bound SHAP computation in thread pool
     def _compute_shap() -> tuple[Any, ...]:
-        features, target, _, _, feature_names = _build_xgboost_pipeline(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            seed=request.seed,
-        )
         xgb_config = XGBoostConfig(
             seed=request.seed if request.seed is not None else 42,
         )
@@ -603,15 +713,14 @@ async def train_lstm_endpoint(
     Pipeline: generate SCADA → quality filter → engineer features →
     merge NWP → normalize → create sequences → train LSTM → return CV metrics.
     """
+    features, target, _, _, feature_names = await _get_pipeline_data(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
 
-    # Run CPU-bound ML training in thread pool to avoid blocking the event loop
     def _train() -> tuple[Any, ...]:
-        features, target, _, _, feature_names = _build_xgboost_pipeline(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            seed=request.seed,
-        )
         lstm_config = LSTMConfig(
             lookback=request.lookback,
             hidden_units=(request.hidden_units_l1, request.hidden_units_l2),
@@ -665,15 +774,14 @@ async def predict_lstm_endpoint(
     Pipeline: generate SCADA → filter → features → NWP → train →
     MC Dropout (N passes) → P10/P50/P90 → physical constraints.
     """
+    features, target, wind_speed, timestamps, _ = await _get_pipeline_data(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
 
-    # Run CPU-bound LSTM pipeline in thread pool
     def _predict() -> tuple[Any, ...]:
-        features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            seed=request.seed,
-        )
         lstm_config = LSTMConfig(
             lookback=request.lookback,
             mc_samples=request.mc_samples,
@@ -718,15 +826,14 @@ async def lstm_mc_dropout_endpoint(
     Each pass is a full forward pass with a different dropout mask,
     producing an ensemble of predictions that visualize epistemic uncertainty.
     """
+    features, target, _, _, _ = await _get_pipeline_data(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
 
-    # Run CPU-bound MC Dropout computation in thread pool
     def _compute() -> MCDropoutDetail:
-        features, target, _, _, _ = _build_xgboost_pipeline(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            seed=request.seed,
-        )
         lstm_config = LSTMConfig(
             lookback=request.lookback,
             mc_samples=request.mc_samples,
@@ -767,15 +874,14 @@ async def train_tft_endpoint(
     TFT uses native quantile regression (pinball loss) for P10/P50/P90
     instead of MC Dropout, and provides attention-based explainability.
     """
+    features, target, _, _, feature_names = await _get_pipeline_data(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
 
-    # Run CPU-bound ML training in thread pool to avoid blocking the event loop
     def _train() -> tuple[Any, ...]:
-        features, target, _, _, feature_names = _build_xgboost_pipeline(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            seed=request.seed,
-        )
         tft_config = TFTConfig(
             lookback=request.lookback,
             hidden_size=request.hidden_size,
@@ -833,15 +939,14 @@ async def predict_tft_endpoint(
     Unlike LSTM MC Dropout, TFT produces quantiles natively via
     separate output heads trained with pinball loss.
     """
+    features, target, wind_speed, timestamps, _ = await _get_pipeline_data(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
 
-    # Run CPU-bound TFT pipeline in thread pool
     def _predict() -> tuple[Any, ...]:
-        features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            seed=request.seed,
-        )
         tft_config = TFTConfig(
             lookback=request.lookback,
             seed=request.seed if request.seed is not None else 42,
@@ -885,14 +990,14 @@ async def tft_attention_endpoint(
     2. Variable importance — which features the VSN selects (sum = 1.0)
     """
 
-    # Run CPU-bound TFT attention computation in thread pool
+    features, target, _, _, feature_names = await _get_pipeline_data(
+        num_turbines=request.num_turbines,
+        num_timesteps=request.num_timesteps,
+        turbine_index=request.turbine_index,
+        seed=request.seed,
+    )
+
     def _compute() -> AttentionWeights:
-        features, target, _, _, feature_names = _build_xgboost_pipeline(
-            num_turbines=request.num_turbines,
-            num_timesteps=request.num_timesteps,
-            turbine_index=request.turbine_index,
-            seed=request.seed,
-        )
         tft_config = TFTConfig(
             lookback=request.lookback,
             seed=request.seed if request.seed is not None else 42,
@@ -950,47 +1055,60 @@ def _build_all_model_forecasts(
     )
 
     seed_val = seed if seed is not None else 42
+    logger = logging.getLogger(__name__)
 
-    # ── Train all three models ──
+    # ── Train all three models in parallel ──
+    # XGBoost (C++) and PyTorch (ATen C++) both release the GIL,
+    # so threads give true parallelism without serialization overhead.
     xgb_config = XGBoostConfig(seed=seed_val)
-    _, xgb_models = train_xgboost(features, target, xgb_config)
-
     lstm_config = LSTMConfig(seed=seed_val)
-    _, lstm_model, lstm_norm = train_lstm(features, target, lstm_config)
-
     tft_config = TFTConfig(seed=seed_val)
-    _, tft_model, tft_norm = train_tft(features, target, tft_config)
 
-    # ── Predict with each model ──
+    t0 = time.perf_counter()
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        xgb_future = executor.submit(train_xgboost, features, target, xgb_config)
+        lstm_future = executor.submit(train_lstm, features, target, lstm_config)
+        tft_future = executor.submit(train_tft, features, target, tft_config)
+
+    _, xgb_models = xgb_future.result()
+    _, lstm_model, lstm_norm = lstm_future.result()
+    _, tft_model, tft_norm = tft_future.result()
+    logger.info("Parallel training took %.1fs", time.perf_counter() - t0)
+
+    # ── Predict with each model in parallel ──
     horizon = min(horizon_steps, features.shape[0])
     pred_features = features[-horizon:]
     pred_wind = wind_speed[-horizon:]
     pred_ts = timestamps[-horizon:]
     actual = target[-horizon:]
 
-    xgb_forecast = predict_xgboost(xgb_models, pred_features, pred_wind, pred_ts)
-
-    # LSTM needs lookback buffer
     lstm_horizon = min(horizon_steps + lstm_config.lookback - 1, features.shape[0])
-    lstm_forecast = predict_lstm(
-        lstm_model,
-        features[-lstm_horizon:],
-        wind_speed[-lstm_horizon:],
-        lstm_norm,
-        lstm_config,
-        timestamps[-lstm_horizon:],
-    )
-
-    # TFT needs lookback buffer
     tft_horizon = min(horizon_steps + tft_config.lookback - 1, features.shape[0])
-    tft_forecast = predict_tft(
-        tft_model,
-        features[-tft_horizon:],
-        wind_speed[-tft_horizon:],
-        tft_norm,
-        tft_config,
-        timestamps[-tft_horizon:],
-    )
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        xgb_pred_f = executor.submit(predict_xgboost, xgb_models, pred_features, pred_wind, pred_ts)
+        lstm_pred_f = executor.submit(
+            predict_lstm,
+            lstm_model,
+            features[-lstm_horizon:],
+            wind_speed[-lstm_horizon:],
+            lstm_norm,
+            lstm_config,
+            timestamps[-lstm_horizon:],
+        )
+        tft_pred_f = executor.submit(
+            predict_tft,
+            tft_model,
+            features[-tft_horizon:],
+            wind_speed[-tft_horizon:],
+            tft_norm,
+            tft_config,
+            timestamps[-tft_horizon:],
+        )
+
+    xgb_forecast = xgb_pred_f.result()
+    lstm_forecast = lstm_pred_f.result()
+    tft_forecast = tft_pred_f.result()
 
     # Align all to same length (min of all outputs)
     n = min(
@@ -1132,7 +1250,7 @@ async def _run_ensemble_task(task_id: str, req: EnsemblePredictRequest) -> None:
     proxy timeout issues on slow hardware (training can take 5-15 min).
     """
     try:
-        _ensemble_tasks[task_id]["progress"] = 10
+        await _task_update(task_id, progress=10)
         result = await _cached_ensemble_predict(
             num_turbines=req.num_turbines,
             num_timesteps=req.num_timesteps,
@@ -1140,17 +1258,9 @@ async def _run_ensemble_task(task_id: str, req: EnsemblePredictRequest) -> None:
             horizon_steps=req.horizon_steps,
             seed=req.seed,
         )
-        _ensemble_tasks[task_id].update(
-            status="completed",
-            progress=100,
-            result=result,
-        )
+        await _task_update(task_id, status="completed", progress=100, result=result)
     except Exception as e:
-        _ensemble_tasks[task_id].update(
-            status="failed",
-            progress=0,
-            error=str(e),
-        )
+        await _task_update(task_id, status="failed", progress=0, error=str(e))
 
 
 @router.post(
@@ -1175,15 +1285,17 @@ async def predict_ensemble_endpoint(
         6–24 h:  XGB 0.20 + LSTM 0.40 + TFT 0.40
         24–48 h: XGB 0.10 + LSTM 0.30 + TFT 0.60
     """
-    _cleanup_expired_tasks()
     task_id = str(uuid.uuid4())
-    _ensemble_tasks[task_id] = {
-        "status": "running",
-        "progress": 0,
-        "result": None,
-        "error": None,
-        "created_at": time.monotonic(),
-    }
+    await _task_save(
+        task_id,
+        {
+            "status": "running",
+            "progress": 0,
+            "result": None,
+            "error": None,
+            "created_at": time.monotonic(),
+        },
+    )
     task = asyncio.create_task(_run_ensemble_task(task_id, request))
     _ensemble_bg_tasks.add(task)
     task.add_done_callback(_ensemble_bg_tasks.discard)
@@ -1200,8 +1312,7 @@ async def ensemble_status(task_id: str) -> TaskStatusResponse:
     Returns progress (0-100 %), and the full ``EnsemblePredictResponse``
     once training completes (status = 'completed').
     """
-    _cleanup_expired_tasks()
-    task = _ensemble_tasks.get(task_id)
+    task = await _task_get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return TaskStatusResponse(

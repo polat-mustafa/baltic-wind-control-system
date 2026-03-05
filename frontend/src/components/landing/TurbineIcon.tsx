@@ -100,6 +100,7 @@ function TurbineIcon({
         d="M -1.5,3 L -2.5,20 L 2.5,20 L 1.5,3 Z"
         fill={color}
         opacity={0.5}
+        style={{ transition: "fill 0.6s ease" }}
       />
 
       {/* Foundation base */}
@@ -112,10 +113,11 @@ function TurbineIcon({
         rx={1.5}
         fill={color}
         opacity={0.85}
+        style={{ transition: "fill 0.6s ease" }}
       />
 
       {/* Hub center dot */}
-      <circle cx={0} cy={0} r={2} fill={color} />
+      <circle cx={0} cy={0} r={2} fill={color} style={{ transition: "fill 0.6s ease" }} />
 
       {/* 3-blade rotor group */}
       <g>

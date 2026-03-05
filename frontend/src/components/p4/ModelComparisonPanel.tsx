@@ -10,6 +10,7 @@ import { useForecastStore } from "../../store/forecastStore";
 import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
+  CHART_HEIGHT,
 } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { modelComparisonInfo } from "../../constants/panelInfo";
@@ -39,6 +40,7 @@ export default function ModelComparisonPanel() {
         </h3>
         <InfoButton info={modelComparisonInfo} />
       </div>
+      <div className="w-full" style={{ height: CHART_HEIGHT }}>
       <Plot
         data={[
           {
@@ -63,7 +65,7 @@ export default function ModelComparisonPanel() {
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 260,
+          autosize: true,
           barmode: "group",
           legend: {
             x: 0,
@@ -80,8 +82,9 @@ export default function ModelComparisonPanel() {
           },
         }}
         config={PLOTLY_CONFIG}
-        className="w-full"
+        className="w-full h-full"
       />
+      </div>
 
       {/* Mini summary table */}
       <div className="mt-2 overflow-x-auto">

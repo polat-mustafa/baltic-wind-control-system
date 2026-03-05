@@ -99,27 +99,27 @@ export default function ForecastKPIHeader() {
       : `${(totalRevenue / 1_000).toFixed(0)}k`;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
       <KPICard
         label="Best RMSE"
         value={rmseVal.toFixed(2)}
         unit="MW"
         color={rmseColor}
-        subtitle={`Model: ${modelComparison.best_rmse}`}
+        subtitle={`${modelComparison.best_rmse} · Lower is better (<1.2 MW = excellent)`}
       />
       <KPICard
         label="Best MAE"
         value={maeVal.toFixed(2)}
         unit="MW"
         color={maeColor}
-        subtitle={`Model: ${modelComparison.best_rmse}`}
+        subtitle={`${modelComparison.best_rmse} · Avg forecast deviation`}
       />
       <KPICard
         label="Skill Score"
         value={skillVal.toFixed(3)}
         unit=""
         color={skillColor}
-        subtitle={`Model: ${modelComparison.best_skill} (vs persistence)`}
+        subtitle={`${modelComparison.best_skill} · Improvement vs persistence (>0.3 = strong)`}
       />
       <KPICard
         label="Grid Alerts"
@@ -133,7 +133,7 @@ export default function ForecastKPIHeader() {
         value={revenueStr}
         unit="EUR"
         color="#60A5FA"
-        subtitle={`@ ${spotPriceEurMwh} EUR/MWh (synthetic)`}
+        subtitle={`@ ${spotPriceEurMwh} EUR/MWh · P50 × spot × 34 turbines`}
       />
     </div>
   );

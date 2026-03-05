@@ -8,11 +8,14 @@
  * - Full-width SCADADashboard with SLD + alarms + tabbed panels
  */
 
-import { useEffect } from "react";
-import { Monitor, Play, Square, Zap } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Maximize2, Monitor, Play, Square, Zap } from "lucide-react";
 
 import SCADADashboard from "../components/p3/SCADADashboard";
 import SCADAKPIHeader from "../components/p3/SCADAKPIHeader";
+import SCADAControlRoomBar from "../components/p3/SCADAControlRoomBar";
+import SubstationSLD from "../components/p3/SubstationSLD";
+import AlarmListPanel from "../components/p3/AlarmListPanel";
 import { useScadaStore } from "../store/scadaStore";
 import { Button } from "../components/ui/Button";
 import { cn } from "../lib/utils";
@@ -53,11 +56,78 @@ export default function SCADAPage() {
     return () => stopAutoSimulation();
   }, [stopAutoSimulation]);
 
+  // Fullscreen (Control Room Mode)
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handleChange);
+    return () => document.removeEventListener("fullscreenchange", handleChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  }, []);
+
   // Alarm counts for header
   const critCount = alarms.filter((a) => a.priority === "CRITICAL" && a.state === "ACTIVE").length;
   const highCount = alarms.filter((a) => a.priority === "HIGH" && a.state === "ACTIVE").length;
   const medCount = alarms.filter((a) => a.priority === "MEDIUM" && a.state === "ACTIVE").length;
   const activeCount = alarms.filter((a) => a.state === "ACTIVE").length;
+  const measurements = useScadaStore((s) => s.measurements);
+
+  // Fullscreen Control Room Mode — SLD fills viewport with alarm sidebar
+  if (isFullscreen) {
+    const m400 = measurements.find((m) => m.nodeId === "bb-400kv");
+    const m220 = measurements.find((m) => m.nodeId === "bb-220kv");
+    const m66 = measurements.find((m) => m.nodeId === "bb-66kv");
+
+    return (
+      <div className="fixed inset-0 z-[9999] bg-bg-primary flex flex-col">
+        {/* Top bar */}
+        <SCADAControlRoomBar onExit={toggleFullscreen} />
+
+        {/* Main content: SLD + Alarm sidebar */}
+        <div className="flex flex-1 min-h-0">
+          {/* SLD — 75% width */}
+          <div className="flex-1 min-w-0">
+            <SubstationSLD />
+          </div>
+
+          {/* Alarm sidebar — 25% width */}
+          <div className="w-80 border-l border-border-primary flex flex-col min-h-0">
+            <AlarmListPanel compact />
+          </div>
+        </div>
+
+        {/* Bottom measurement ribbon */}
+        <div className="shrink-0 px-4 py-1.5 bg-bg-secondary/80 border-t border-border-primary flex items-center justify-center gap-6 text-[10px] font-mono text-text-secondary">
+          {m400 && (
+            <span>
+              <span className="text-red-400 font-medium">400 kV:</span>{" "}
+              {m400.powerMW} MW · {m400.currentA} A · {m400.voltageKV} kV
+            </span>
+          )}
+          {m220 && (
+            <span>
+              <span className="text-blue-400 font-medium">220 kV:</span>{" "}
+              {m220.powerMW} MW · {m220.currentA} A · {m220.voltageKV} kV
+            </span>
+          )}
+          {m66 && (
+            <span>
+              <span className="text-orange-400 font-medium">66 kV:</span>{" "}
+              {m66.powerMW} MW · {m66.currentA} A · {m66.voltageKV} kV
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3 h-full">
@@ -166,6 +236,18 @@ export default function SCADAPage() {
             ))}
           </select>
         </div>
+
+        {/* Control Room Mode */}
+        <button
+          onClick={toggleFullscreen}
+          className={cn(
+            "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
+            "bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover hover:text-text-primary",
+          )}
+        >
+          <Maximize2 size={10} />
+          Control Room
+        </button>
 
         {/* Standards reference */}
         <span className="text-[9px] text-text-muted font-mono hidden lg:inline">

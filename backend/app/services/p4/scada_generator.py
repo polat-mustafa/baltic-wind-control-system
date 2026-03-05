@@ -60,6 +60,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy.signal import lfilter, lfilter_zi
 
 from app.services.p4.turbine_power_curve import (
     build_power_curve,
@@ -180,17 +181,18 @@ def _generate_base_wind(
     weibull_raw = rng.weibull(config.weibull_k, size=config.num_timesteps)
     weibull_scaled = config.weibull_a * weibull_raw
 
-    # Apply AR(1) temporal smoothing
-    wind = np.zeros(config.num_timesteps, dtype=np.float64)
-    wind[0] = weibull_scaled[0]
+    # AR(1) temporal smoothing via IIR filter:
+    #   wind[t] = phi * wind[t-1] + (1 - phi) * weibull[t]
+    # This is equivalent to: y = lfilter(b=[1-phi], a=[1, -phi], x=weibull)
     phi = config.ar1_phi
-
-    for t in range(1, config.num_timesteps):
-        wind[t] = phi * wind[t - 1] + (1.0 - phi) * weibull_scaled[t]
+    b = np.array([1.0 - phi])
+    a = np.array([1.0, -phi])
+    zi = lfilter_zi(b, a) * weibull_scaled[0]
+    wind, _ = lfilter(b, a, weibull_scaled, zi=zi)
 
     # Ensure non-negative
-    wind = np.maximum(wind, 0.0)
-    return wind
+    wind_clamped: NDArray[np.float64] = np.maximum(wind, 0.0)
+    return wind_clamped
 
 
 def _perturb_wind_per_turbine(
@@ -223,13 +225,9 @@ def _generate_wind_direction(
 
     Baltic Sea predominant wind: ~240° (WSW) with seasonal variation.
     """
-    # Base direction with slow drift
-    base_dir = np.zeros(num_timesteps, dtype=np.float64)
-    base_dir[0] = 240.0  # Predominant WSW
-
-    for t in range(1, num_timesteps):
-        drift = rng.normal(0, 2.0)  # Slow direction changes
-        base_dir[t] = (base_dir[t - 1] + drift) % 360.0
+    # Base direction with slow drift — vectorized via cumulative sum
+    drifts = rng.normal(0, 2.0, size=num_timesteps)
+    base_dir = (240.0 + np.concatenate([[0.0], np.cumsum(drifts[:-1])])) % 360.0
 
     # Small per-turbine variation
     wd = np.zeros((num_timesteps, num_turbines), dtype=np.float64)
@@ -301,13 +299,12 @@ def _inject_anomalies(
     spec = get_v236_spec()
 
     for turb in range(num_turb):
-        # Curtailment: power forced to 0 while wind > cut-in
+        # Curtailment: power forced to 0 while wind > cut-in (vectorized)
         n_curtail = int(num_t * config.curtailment_rate)
         curtail_indices = rng.choice(num_t, size=n_curtail, replace=False)
-        for idx in curtail_indices:
-            if wind_speed[idx, turb] > spec.cut_in_speed_ms:
-                power[idx, turb] = 0.0
-                status[idx, turb] = "curtailed"
+        valid = curtail_indices[wind_speed[curtail_indices, turb] > spec.cut_in_speed_ms]
+        power[valid, turb] = 0.0
+        status[valid, turb] = "curtailed"
 
         # Maintenance: multi-hour blocks (12-48 consecutive timesteps)
         n_maint_events = max(1, int(num_t * config.maintenance_rate / 24))
@@ -328,22 +325,20 @@ def _inject_anomalies(
             wind_speed[start:end, turb] = frozen_val
             status[start:end, turb] = "sensor_fault"
 
-        # Overpower: occasional readings > P_rated × 1.05
+        # Overpower: occasional readings > P_rated × 1.05 (vectorized)
         n_overpower = int(num_t * config.overpower_rate)
         overpower_indices = rng.choice(num_t, size=n_overpower, replace=False)
-        for idx in overpower_indices:
-            if power[idx, turb] > spec.rated_power_mw * 0.8:
-                power[idx, turb] = spec.rated_power_mw * rng.uniform(1.05, 1.12)
+        high = overpower_indices[power[overpower_indices, turb] > spec.rated_power_mw * 0.8]
+        power[high, turb] = spec.rated_power_mw * rng.uniform(1.05, 1.12, size=len(high))
 
-        # Icing: power below curve when cold and humid
+        # Icing: power below curve when cold and humid (vectorized)
         n_icing = int(num_t * config.icing_rate)
         icing_candidates = np.where((temperature[:, turb] < 2.0) & (humidity[:, turb] > 90.0))[0]
         if len(icing_candidates) > 0:
             n_actual = min(n_icing, len(icing_candidates))
             icing_indices = rng.choice(icing_candidates, size=n_actual, replace=False)
-            for idx in icing_indices:
-                power[idx, turb] *= rng.uniform(0.1, 0.4)
-                status[idx, turb] = "icing"
+            power[icing_indices, turb] *= rng.uniform(0.1, 0.4, size=len(icing_indices))
+            status[icing_indices, turb] = "icing"
 
 
 def generate_scada_dataset(config: SCADAConfig | None = None) -> SCADADataset:

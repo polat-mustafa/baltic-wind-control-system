@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Play, FolderOpen } from "lucide-react";
+import { Play, FolderOpen, Trash2 } from "lucide-react";
 
 import CommissioningDashboard from "../components/p5/CommissioningDashboard";
 import { useCommissioningStore } from "../store/commissioningStore";
@@ -23,6 +23,7 @@ export default function CommissioningPage() {
     loading,
     fetchProgrammes,
     createProgramme,
+    deleteProgramme,
     selectProgramme,
     startProgramme,
     clearError,
@@ -150,6 +151,18 @@ export default function CommissioningPage() {
                     >
                       <FolderOpen size={12} />
                       Open
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm(`Delete programme "${prog.title}"?`)) {
+                          deleteProgramme(prog.programme_id);
+                        }
+                      }}
+                      className="!text-status-alarm hover:!bg-status-alarm/10 !border-status-alarm/30"
+                    >
+                      <Trash2 size={12} />
                     </Button>
                   </div>
                 </div>

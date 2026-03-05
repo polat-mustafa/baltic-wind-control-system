@@ -19,6 +19,10 @@ export interface TurbinePosition {
   stringNumber: number;
   x: number;
   y: number;
+  /** WGS84 latitude (decimal degrees) — Polish Baltic EEZ */
+  lat: number;
+  /** WGS84 longitude (decimal degrees) */
+  lon: number;
 }
 
 /**
@@ -26,57 +30,89 @@ export interface TurbinePosition {
  * Strings run roughly N-S, spaced E-W across the wind farm area.
  * Coordinates are in SVG viewBox units.
  */
+/**
+ * 34 turbine positions arranged in 6 strings.
+ *
+ * Geographic coordinates: centered ~54.75°N, 16.4°E (Polish Baltic EEZ).
+ * String spacing ~1,888m (8D) east-west ≈ 0.0295° lon at 54.75°N.
+ * Turbine spacing ~1,416m (6D) north-south ≈ 0.01272° lat.
+ */
 export const TURBINE_POSITIONS: TurbinePosition[] = [
   // String 1 (6 turbines) — westernmost
-  { id: "WTG-01", stringNumber: 1, x: 80, y: 120 },
-  { id: "WTG-02", stringNumber: 1, x: 90, y: 200 },
-  { id: "WTG-03", stringNumber: 1, x: 100, y: 280 },
-  { id: "WTG-04", stringNumber: 1, x: 95, y: 360 },
-  { id: "WTG-05", stringNumber: 1, x: 85, y: 440 },
-  { id: "WTG-06", stringNumber: 1, x: 90, y: 520 },
+  { id: "WTG-01", stringNumber: 1, x: 80, y: 120, lat: 54.7819, lon: 16.3230 },
+  { id: "WTG-02", stringNumber: 1, x: 90, y: 200, lat: 54.7692, lon: 16.3230 },
+  { id: "WTG-03", stringNumber: 1, x: 100, y: 280, lat: 54.7564, lon: 16.3230 },
+  { id: "WTG-04", stringNumber: 1, x: 95, y: 360, lat: 54.7437, lon: 16.3230 },
+  { id: "WTG-05", stringNumber: 1, x: 85, y: 440, lat: 54.7310, lon: 16.3230 },
+  { id: "WTG-06", stringNumber: 1, x: 90, y: 520, lat: 54.7182, lon: 16.3230 },
 
   // String 2 (6 turbines)
-  { id: "WTG-07", stringNumber: 2, x: 180, y: 100 },
-  { id: "WTG-08", stringNumber: 2, x: 190, y: 180 },
-  { id: "WTG-09", stringNumber: 2, x: 195, y: 260 },
-  { id: "WTG-10", stringNumber: 2, x: 185, y: 340 },
-  { id: "WTG-11", stringNumber: 2, x: 180, y: 420 },
-  { id: "WTG-12", stringNumber: 2, x: 185, y: 500 },
+  { id: "WTG-07", stringNumber: 2, x: 180, y: 100, lat: 54.7819, lon: 16.3525 },
+  { id: "WTG-08", stringNumber: 2, x: 190, y: 180, lat: 54.7692, lon: 16.3525 },
+  { id: "WTG-09", stringNumber: 2, x: 195, y: 260, lat: 54.7564, lon: 16.3525 },
+  { id: "WTG-10", stringNumber: 2, x: 185, y: 340, lat: 54.7437, lon: 16.3525 },
+  { id: "WTG-11", stringNumber: 2, x: 180, y: 420, lat: 54.7310, lon: 16.3525 },
+  { id: "WTG-12", stringNumber: 2, x: 185, y: 500, lat: 54.7182, lon: 16.3525 },
 
   // String 3 (6 turbines)
-  { id: "WTG-13", stringNumber: 3, x: 280, y: 110 },
-  { id: "WTG-14", stringNumber: 3, x: 290, y: 190 },
-  { id: "WTG-15", stringNumber: 3, x: 285, y: 270 },
-  { id: "WTG-16", stringNumber: 3, x: 280, y: 350 },
-  { id: "WTG-17", stringNumber: 3, x: 275, y: 430 },
-  { id: "WTG-18", stringNumber: 3, x: 285, y: 510 },
+  { id: "WTG-13", stringNumber: 3, x: 280, y: 110, lat: 54.7819, lon: 16.3820 },
+  { id: "WTG-14", stringNumber: 3, x: 290, y: 190, lat: 54.7692, lon: 16.3820 },
+  { id: "WTG-15", stringNumber: 3, x: 285, y: 270, lat: 54.7564, lon: 16.3820 },
+  { id: "WTG-16", stringNumber: 3, x: 280, y: 350, lat: 54.7437, lon: 16.3820 },
+  { id: "WTG-17", stringNumber: 3, x: 275, y: 430, lat: 54.7310, lon: 16.3820 },
+  { id: "WTG-18", stringNumber: 3, x: 285, y: 510, lat: 54.7182, lon: 16.3820 },
 
   // String 4 (6 turbines)
-  { id: "WTG-19", stringNumber: 4, x: 380, y: 130 },
-  { id: "WTG-20", stringNumber: 4, x: 390, y: 210 },
-  { id: "WTG-21", stringNumber: 4, x: 385, y: 290 },
-  { id: "WTG-22", stringNumber: 4, x: 380, y: 370 },
-  { id: "WTG-23", stringNumber: 4, x: 375, y: 450 },
-  { id: "WTG-24", stringNumber: 4, x: 380, y: 530 },
+  { id: "WTG-19", stringNumber: 4, x: 380, y: 130, lat: 54.7819, lon: 16.4115 },
+  { id: "WTG-20", stringNumber: 4, x: 390, y: 210, lat: 54.7692, lon: 16.4115 },
+  { id: "WTG-21", stringNumber: 4, x: 385, y: 290, lat: 54.7564, lon: 16.4115 },
+  { id: "WTG-22", stringNumber: 4, x: 380, y: 370, lat: 54.7437, lon: 16.4115 },
+  { id: "WTG-23", stringNumber: 4, x: 375, y: 450, lat: 54.7310, lon: 16.4115 },
+  { id: "WTG-24", stringNumber: 4, x: 380, y: 530, lat: 54.7182, lon: 16.4115 },
 
   // String 5 (5 turbines)
-  { id: "WTG-25", stringNumber: 5, x: 480, y: 140 },
-  { id: "WTG-26", stringNumber: 5, x: 490, y: 220 },
-  { id: "WTG-27", stringNumber: 5, x: 485, y: 300 },
-  { id: "WTG-28", stringNumber: 5, x: 480, y: 380 },
-  { id: "WTG-29", stringNumber: 5, x: 475, y: 460 },
+  { id: "WTG-25", stringNumber: 5, x: 480, y: 140, lat: 54.7819, lon: 16.4410 },
+  { id: "WTG-26", stringNumber: 5, x: 490, y: 220, lat: 54.7692, lon: 16.4410 },
+  { id: "WTG-27", stringNumber: 5, x: 485, y: 300, lat: 54.7564, lon: 16.4410 },
+  { id: "WTG-28", stringNumber: 5, x: 480, y: 380, lat: 54.7437, lon: 16.4410 },
+  { id: "WTG-29", stringNumber: 5, x: 475, y: 460, lat: 54.7310, lon: 16.4410 },
 
   // String 6 (5 turbines) — easternmost
-  { id: "WTG-30", stringNumber: 6, x: 570, y: 150 },
-  { id: "WTG-31", stringNumber: 6, x: 580, y: 230 },
-  { id: "WTG-32", stringNumber: 6, x: 575, y: 310 },
-  { id: "WTG-33", stringNumber: 6, x: 570, y: 390 },
-  { id: "WTG-34", stringNumber: 6, x: 565, y: 470 },
+  { id: "WTG-30", stringNumber: 6, x: 570, y: 150, lat: 54.7819, lon: 16.4705 },
+  { id: "WTG-31", stringNumber: 6, x: 580, y: 230, lat: 54.7692, lon: 16.4705 },
+  { id: "WTG-32", stringNumber: 6, x: 575, y: 310, lat: 54.7564, lon: 16.4705 },
+  { id: "WTG-33", stringNumber: 6, x: 570, y: 390, lat: 54.7437, lon: 16.4705 },
+  { id: "WTG-34", stringNumber: 6, x: 565, y: 470, lat: 54.7310, lon: 16.4705 },
 ];
 
 // ── Offshore Substation (OSS) ───────────────────────────────────
 
 export const OSS_POSITION = { x: 640, y: 320 };
+export const OSS_GEO = { lat: 54.7500, lon: 16.4950 };
+
+// ── Geographic Coordinates ───────────────────────────────────────
+
+export const ONSHORE_GEO = { lat: 54.5850, lon: 16.8500 };
+
+/** 220 kV export cable geographic waypoints — OSS to onshore (45 km undersea route) */
+export const EXPORT_CABLE_GEO: { lat: number; lon: number }[] = [
+  { lat: 54.7500, lon: 16.4950 },  // OSS
+  { lat: 54.7200, lon: 16.5500 },  // Sea waypoint 1
+  { lat: 54.6800, lon: 16.6200 },  // Sea waypoint 2
+  { lat: 54.6400, lon: 16.7000 },  // Approaching coast
+  { lat: 54.6100, lon: 16.7800 },  // Landfall
+  { lat: 54.5850, lon: 16.8500 },  // Onshore substation
+];
+
+/** PSE grid connection line (extends east from onshore substation) */
+export const PSE_GRID_LINE_GEO: [{ lat: number; lon: number }, { lat: number; lon: number }] = [
+  { lat: 54.5850, lon: 16.8500 },
+  { lat: 54.5850, lon: 16.9200 },
+];
+
+/** Farm map center for Leaflet */
+export const FARM_CENTER_GEO: [number, number] = [54.70, 16.55];
+export const FARM_DEFAULT_ZOOM = 11;
 
 // ── 66 kV Array Cable Collection Points ─────────────────────────
 // Each string's last turbine connects to the OSS via 66 kV cable

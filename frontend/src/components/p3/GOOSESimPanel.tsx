@@ -11,7 +11,9 @@ import Plot from "react-plotly.js";
 
 import { useScadaStore } from "../../store/scadaStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
+import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
+import { ChartWrapper } from "../ui/ChartWrapper";
 import { gooseSimInfo } from "../../constants/panelInfo";
 
 const EVENT_COLOR: Record<string, string> = {
@@ -66,8 +68,8 @@ export default function GOOSESimPanel() {
 
   if (!simulationResult) {
     return (
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 flex items-center justify-center h-64">
-        <p className="text-slate-500">
+      <div className="bg-bg-secondary rounded-lg border border-border-primary p-6 flex items-center justify-center h-64">
+        <p className="text-text-muted">
           Run a GOOSE fault simulation to see the protection timeline
         </p>
       </div>
@@ -151,62 +153,58 @@ export default function GOOSESimPanel() {
 
       {/* Protection timeline chart */}
       {timelineData && (
-        <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-          <h3 className="text-sm font-semibold text-slate-300 mb-2">
-            Protection Event Timeline
-          </h3>
-          <Plot
-            data={[timelineData]}
-            layout={{
-              height: 280,
-              margin: { l: 200, r: 20, t: 10, b: 40 },
-              paper_bgcolor: "transparent",
-              plot_bgcolor: "transparent",
-              font: { color: "#94a3b8", size: 10 },
-              xaxis: {
-                title: { text: "Time since fault inception [ms]" },
-                gridcolor: "#334155",
-                zerolinecolor: "#475569",
-              },
-              yaxis: {
-                gridcolor: "#334155",
-              },
-              showlegend: false,
-            }}
-            config={{ displayModeBar: false, responsive: true }}
-            className="w-full"
-          />
-        </div>
+        <ChartWrapper title="Protection Event Timeline">
+          <div className="w-full" style={{ height: 320 }}>
+            <Plot
+              data={[timelineData]}
+              layout={{
+                ...DARK_PLOTLY_LAYOUT,
+                autosize: true,
+                margin: { l: 160, r: 30, t: 10, b: 50 },
+                xaxis: {
+                  ...DARK_PLOTLY_LAYOUT.xaxis,
+                  title: { text: "Time since fault inception [ms]" },
+                },
+                yaxis: {
+                  ...DARK_PLOTLY_LAYOUT.yaxis,
+                  automargin: true,
+                },
+                showlegend: false,
+              }}
+              config={PLOTLY_CONFIG}
+              useResizeHandler
+              style={{ width: "100%", height: "100%" }}
+            />
+          </div>
+        </ChartWrapper>
       )}
 
       {/* Retransmission schedule */}
       {retransmissionData && (
-        <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-          <h3 className="text-sm font-semibold text-slate-300 mb-2">
-            GOOSE Retransmission Schedule (IEC 61850-8-1 §15.2.2)
-          </h3>
-          <Plot
-            data={[retransmissionData]}
-            layout={{
-              height: 200,
-              margin: { l: 60, r: 20, t: 10, b: 40 },
-              paper_bgcolor: "transparent",
-              plot_bgcolor: "transparent",
-              font: { color: "#94a3b8", size: 10 },
-              xaxis: {
-                title: { text: "Cumulative time [ms]" },
-                gridcolor: "#334155",
-              },
-              yaxis: {
-                title: { text: "Interval [ms]" },
-                gridcolor: "#334155",
-              },
-              showlegend: false,
-            }}
-            config={{ displayModeBar: false, responsive: true }}
-            className="w-full"
-          />
-        </div>
+        <ChartWrapper title="GOOSE Retransmission Schedule (IEC 61850-8-1 §15.2.2)">
+          <div className="w-full" style={{ height: 240 }}>
+            <Plot
+              data={[retransmissionData]}
+              layout={{
+                ...DARK_PLOTLY_LAYOUT,
+                autosize: true,
+                margin: { l: 60, r: 30, t: 10, b: 50 },
+                xaxis: {
+                  ...DARK_PLOTLY_LAYOUT.xaxis,
+                  title: { text: "Cumulative time [ms]" },
+                },
+                yaxis: {
+                  ...DARK_PLOTLY_LAYOUT.yaxis,
+                  title: { text: "Interval [ms]" },
+                },
+                showlegend: false,
+              }}
+              config={PLOTLY_CONFIG}
+              useResizeHandler
+              style={{ width: "100%", height: "100%" }}
+            />
+          </div>
+        </ChartWrapper>
       )}
     </div>
   );

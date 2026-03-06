@@ -72,6 +72,7 @@ export default function MapKPIRibbon({ kpis, horizontal = true }: MapKPIRibbonPr
         "flex items-center justify-between flex-wrap gap-y-0.5",
         "bg-bg-secondary/80 backdrop-blur-md border-b border-border-primary",
         "rounded-b-lg mx-12 shadow-lg shadow-black/20",
+        "pointer-events-auto",
       )}
     >
       <KPIChip

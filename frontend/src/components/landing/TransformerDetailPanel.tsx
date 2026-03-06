@@ -50,7 +50,7 @@ export default function TransformerDetailPanel({
 }: TransformerDetailPanelProps) {
   return (
     <div
-      className="absolute z-50 rounded-lg shadow-2xl shadow-black/50 border overflow-hidden"
+      className="absolute z-[1100] rounded-lg shadow-2xl shadow-black/50 border overflow-hidden"
       style={{
         backgroundColor: "#0f1117",
         borderColor: "#2a3040",

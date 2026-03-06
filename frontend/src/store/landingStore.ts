@@ -14,6 +14,7 @@ import { create } from "zustand";
 
 import { FAULT_TYPES } from "../constants/faultCategories";
 import { TURBINE_POSITIONS } from "../constants/windFarmLayout";
+import { useFaultBus } from "./faultBus";
 import type {
   CableData,
   FarmKPI,
@@ -21,6 +22,7 @@ import type {
   TurbineData,
   TurbineStatus,
 } from "../types/landing";
+import type { TurbineFaultType } from "../types/scada";
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -216,6 +218,11 @@ interface LandingState {
 
   startSimulation: () => void;
   stopSimulation: () => void;
+
+  /** Set a turbine to fault state (called by faultBus sync from SCADA). */
+  setTurbineFault: (turbineId: string, faultType: TurbineFaultType) => void;
+  /** Clear a turbine fault back to operating (called by faultBus sync from SCADA). */
+  clearTurbineFault: (turbineId: string) => void;
 }
 
 // ── Store Implementation ────────────────────────────────────────
@@ -230,8 +237,40 @@ export const useLandingStore = create<LandingState>((set) => {
     cable: createInitialCable(),
     kpis: computeKPIs(initialMap),
 
+    setTurbineFault: (turbineId, faultType) =>
+      set((state) => {
+        const t = state.turbineMap[turbineId];
+        if (!t || t.status === "fault") return state;
+        return {
+          turbineMap: {
+            ...state.turbineMap,
+            [turbineId]: { ...t, status: "fault" as const, faultType },
+          },
+          kpis: computeKPIs({
+            ...state.turbineMap,
+            [turbineId]: { ...t, status: "fault" as const, faultType },
+          }),
+        };
+      }),
+
+    clearTurbineFault: (turbineId) =>
+      set((state) => {
+        const t = state.turbineMap[turbineId];
+        if (!t || t.status !== "fault") return state;
+        return {
+          turbineMap: {
+            ...state.turbineMap,
+            [turbineId]: { ...t, status: "operating" as const, faultType: undefined },
+          },
+          kpis: computeKPIs({
+            ...state.turbineMap,
+            [turbineId]: { ...t, status: "operating" as const, faultType: undefined },
+          }),
+        };
+      }),
+
     startSimulation: () => {
-      if (_tickInterval) return;
+      if (_tickInterval) return; // already running — idempotent
       _simStartTime = Date.now();
 
       _tickInterval = setInterval(() => {
@@ -283,17 +322,41 @@ export const useLandingStore = create<LandingState>((set) => {
             // Energy accumulates (~3s tick ≈ 0.000833 hr)
             const newEnergy = t.energyTodayMWh + newPower * (3 / 3600);
 
-            newMap[id] = {
-              ...t,
-              windSpeedMs: round1(newWind),
-              powerOutputMW: round1(newPower),
-              rotorSpeedRpm: round1(newRotor),
-              nacellePositionDeg: Math.round(newYaw),
-              pitchAngleDeg: round1(newPitch),
-              vibrationMmS: round1(newVibr),
-              bearingTempC: round1(newBearingTemp),
-              energyTodayMWh: round1(newEnergy),
-            };
+            // Round new values
+            const rWind = round1(newWind);
+            const rPower = round1(newPower);
+            const rRotor = round1(newRotor);
+            const rYaw = Math.round(newYaw);
+            const rPitch = round1(newPitch);
+            const rVibr = round1(newVibr);
+            const rTemp = round1(newBearingTemp);
+            const rEnergy = round1(newEnergy);
+
+            // Preserve reference if nothing changed — prevents re-render
+            if (
+              t.windSpeedMs === rWind &&
+              t.powerOutputMW === rPower &&
+              t.rotorSpeedRpm === rRotor &&
+              t.nacellePositionDeg === rYaw &&
+              t.pitchAngleDeg === rPitch &&
+              t.vibrationMmS === rVibr &&
+              t.bearingTempC === rTemp &&
+              t.energyTodayMWh === rEnergy
+            ) {
+              newMap[id] = t;
+            } else {
+              newMap[id] = {
+                ...t,
+                windSpeedMs: rWind,
+                powerOutputMW: rPower,
+                rotorSpeedRpm: rRotor,
+                nacellePositionDeg: rYaw,
+                pitchAngleDeg: rPitch,
+                vibrationMmS: rVibr,
+                bearingTempC: rTemp,
+                energyTodayMWh: rEnergy,
+              };
+            }
           }
 
           // Randomly toggle 1 turbine status every tick
@@ -309,12 +372,16 @@ export const useLandingStore = create<LandingState>((set) => {
               // (computePower returns 0 for fault, ramp will catch up in 2-3 ticks)
               const faultType = FAULT_TYPES[Math.floor(Math.random() * FAULT_TYPES.length)];
               newMap[targetId] = { ...target, status: "fault", faultType, availabilityPct: round1(target.availabilityPct * 0.99) };
+              // Publish to unified fault bus → syncs to SCADA
+              useFaultBus.getState().publishFault(targetId, faultType, "landing");
             } else if (roll < 0.04) {
               newMap[targetId] = { ...target, status: "curtailed" };
             }
           } else if (target.status === "fault") {
             if (roll < 0.35) {
               newMap[targetId] = { ...target, status: "operating", faultType: undefined };
+              // Clear from unified fault bus → syncs to SCADA
+              useFaultBus.getState().clearFault(targetId, "landing");
             }
           } else if (target.status === "curtailed") {
             if (roll < 0.5) {
@@ -358,10 +425,9 @@ export const useLandingStore = create<LandingState>((set) => {
     },
 
     stopSimulation: () => {
-      if (_tickInterval) {
-        clearInterval(_tickInterval);
-        _tickInterval = null;
-      }
+      // No-op: simulation runs for the app's lifetime (3s interval, negligible cost).
+      // Stopping caused race conditions with React Strict Mode and page navigation
+      // where unmount/remount timing would kill the interval permanently.
     },
   };
 });
@@ -379,3 +445,41 @@ export const selectTransformer = (id: string) => (state: LandingState) =>
   state.transformers[id];
 
 export const selectCable = (state: LandingState) => state.cable;
+
+// ── SLD-specific memoized selector ──────────────────────────────
+// Extracts only fields SubstationSLD actually reads (power, wind, status).
+// Returns the same object reference when none of those fields changed,
+// preventing ReactFlow graph rebuild on every 3s tick.
+
+export type TurbineSLDData = {
+  powerOutputMW: number;
+  windSpeedMs: number;
+  status: string;
+};
+
+let _prevSLDMap: Record<string, TurbineSLDData> | null = null;
+
+export const selectTurbineSLDMap = (state: LandingState): Record<string, TurbineSLDData> => {
+  const raw = state.turbineMap;
+  // Fast path: check if any SLD-relevant field changed
+  if (_prevSLDMap) {
+    let changed = false;
+    for (const id of state.turbineIds) {
+      const t = raw[id];
+      const p = _prevSLDMap[id];
+      if (!p || t.powerOutputMW !== p.powerOutputMW || t.windSpeedMs !== p.windSpeedMs || t.status !== p.status) {
+        changed = true;
+        break;
+      }
+    }
+    if (!changed) return _prevSLDMap;
+  }
+
+  const next: Record<string, TurbineSLDData> = {};
+  for (const id of state.turbineIds) {
+    const t = raw[id];
+    next[id] = { powerOutputMW: t.powerOutputMW, windSpeedMs: t.windSpeedMs, status: t.status };
+  }
+  _prevSLDMap = next;
+  return next;
+};

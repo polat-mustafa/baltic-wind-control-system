@@ -80,7 +80,7 @@ export default function AlarmListPanel({ compact = false }: AlarmListPanelProps)
   const critCount = alarms.filter((a) => a.priority === "CRITICAL" && a.state === "ACTIVE").length;
   const highCount = alarms.filter((a) => a.priority === "HIGH" && a.state === "ACTIVE").length;
 
-  const maxHeight = compact ? "max-h-[280px]" : "max-h-[400px]";
+  const maxHeight = compact ? "" : "max-h-[400px]";
 
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden flex flex-col h-full">
@@ -145,13 +145,15 @@ export default function AlarmListPanel({ compact = false }: AlarmListPanelProps)
           <option value="CLEARED">Cleared</option>
           <option value="RETURN_TO_NORMAL">RTN</option>
         </select>
-        <input
-          type="text"
-          placeholder="Equipment..."
-          value={alarmFilter.equipment}
-          onChange={(e) => setAlarmFilter({ equipment: e.target.value })}
-          className="text-[10px] bg-bg-secondary border border-border-primary rounded px-1.5 py-0.5 text-text-secondary w-20"
-        />
+        {!compact && (
+          <input
+            type="text"
+            placeholder="Equipment..."
+            value={alarmFilter.equipment}
+            onChange={(e) => setAlarmFilter({ equipment: e.target.value })}
+            className="text-[10px] bg-bg-secondary border border-border-primary rounded px-1.5 py-0.5 text-text-secondary w-20"
+          />
+        )}
         <div className="flex-1" />
         <button
           onClick={() => acknowledgeAll(OPERATOR)}
@@ -195,8 +197,8 @@ export default function AlarmListPanel({ compact = false }: AlarmListPanelProps)
                 <th className="text-left px-2 py-1 text-text-muted font-medium w-16">Time</th>
                 <th className="text-left px-2 py-1 text-text-muted font-medium w-14">State</th>
                 <th className="text-left px-2 py-1 text-text-muted font-medium">Equipment</th>
-                <th className="text-left px-2 py-1 text-text-muted font-medium">Description</th>
-                <th className="text-left px-2 py-1 text-text-muted font-medium w-16">Value</th>
+                {!compact && <th className="text-left px-2 py-1 text-text-muted font-medium">Description</th>}
+                {!compact && <th className="text-left px-2 py-1 text-text-muted font-medium w-16">Value</th>}
                 <th className="text-left px-2 py-1 text-text-muted font-medium w-14">Dur</th>
                 <th className="text-left px-2 py-1 text-text-muted font-medium w-10"></th>
               </tr>
@@ -206,6 +208,7 @@ export default function AlarmListPanel({ compact = false }: AlarmListPanelProps)
                 <AlarmRow
                   key={alarm.id}
                   alarm={alarm}
+                  compact={compact}
                   onAck={() => acknowledgeAlarm(alarm.id, OPERATOR)}
                   onShelve={() => alarm.shelved ? unshelveAlarm(alarm.id) : shelveAlarm(alarm.id)}
                 />
@@ -222,10 +225,12 @@ export default function AlarmListPanel({ compact = false }: AlarmListPanelProps)
 
 function AlarmRow({
   alarm,
+  compact,
   onAck,
   onShelve,
 }: {
   alarm: SCADAAlarm;
+  compact: boolean;
   onAck: () => void;
   onShelve: () => void;
 }) {
@@ -257,12 +262,16 @@ function AlarmRow({
       <td className="px-2 py-1 font-mono text-text-secondary">
         {alarm.equipment}
       </td>
-      <td className="px-2 py-1 text-text-primary truncate max-w-[200px]" title={alarm.description}>
-        {alarm.description}
-      </td>
-      <td className="px-2 py-1 font-mono text-text-secondary">
-        {alarm.value}
-      </td>
+      {!compact && (
+        <td className="px-2 py-1 text-text-primary truncate max-w-[200px]" title={alarm.description}>
+          {alarm.description}
+        </td>
+      )}
+      {!compact && (
+        <td className="px-2 py-1 font-mono text-text-secondary">
+          {alarm.value}
+        </td>
+      )}
       <td className="px-2 py-1 font-mono text-text-muted">
         {formatDuration(alarm.durationSec)}
       </td>

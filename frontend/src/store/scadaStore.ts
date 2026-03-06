@@ -13,6 +13,7 @@
 import { create } from "zustand";
 
 import { FAULT_CATEGORIES } from "../constants/faultCategories";
+import { useFaultBus } from "./faultBus";
 import * as api from "../services/scadaApi";
 import type {
   BreakerState,
@@ -116,6 +117,10 @@ interface ScadaState {
   shelveAlarm: (alarmId: string) => void;
   unshelveAlarm: (alarmId: string) => void;
   injectTurbineFault: (turbineId: string, faultType: TurbineFaultType) => void;
+  /** Inject fault from bus — same as injectTurbineFault but skips re-publishing to bus. */
+  injectTurbineFaultFromBus: (turbineId: string, faultType: TurbineFaultType) => void;
+  /** Transition active/acknowledged alarm for turbine to RETURN_TO_NORMAL. */
+  transitionAlarmToRTN: (turbineId: string) => void;
 
   // SLD actions
   toggleBreaker: (breakerId: string) => void;
@@ -312,7 +317,58 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
       alarms: [alarm, ...s.alarms],
       eventLog: [event, ...s.eventLog].slice(0, 200),
     }));
+
+    // Publish to unified fault bus → syncs to landing map
+    useFaultBus.getState().publishFault(turbineId, faultType, "scada");
   },
+
+  injectTurbineFaultFromBus: (turbineId, faultType) => {
+    // Same alarm creation as injectTurbineFault but does NOT re-publish to bus
+    const category = FAULT_CATEGORIES.find((c) => c.type === faultType);
+    if (!category) return;
+
+    const alarm: SCADAAlarm = {
+      id: nextAlarmId(),
+      timestamp: Date.now(),
+      priority: category.priority,
+      tag: `${turbineId}.${faultType}`,
+      equipment: turbineId,
+      description: `${category.label} — ${turbineId}`,
+      value: category.valueTemplate(),
+      setpoint: category.setpoint,
+      state: "ACTIVE",
+      durationSec: 0,
+      acknowledgedBy: null,
+      acknowledgedAt: null,
+      shelved: false,
+      faultType: category.type,
+      probableCause: category.probableCause,
+      recommendedAction: category.recommendedAction,
+    };
+
+    const event: SOEEvent = {
+      id: nextSOEId(),
+      timestamp: Date.now(),
+      source: turbineId,
+      type: faultType,
+      description: `${category.label} on ${turbineId} (synced)`,
+      priority: category.priority,
+    };
+
+    set((s) => ({
+      alarms: [alarm, ...s.alarms],
+      eventLog: [event, ...s.eventLog].slice(0, 200),
+    }));
+  },
+
+  transitionAlarmToRTN: (turbineId) =>
+    set((s) => ({
+      alarms: s.alarms.map((a) =>
+        a.equipment === turbineId && (a.state === "ACTIVE" || a.state === "ACKNOWLEDGED")
+          ? { ...a, state: "RETURN_TO_NORMAL" as const }
+          : a,
+      ),
+    })),
 
   // ── SLD Actions ────────────────────────────────────────────
 

@@ -17,11 +17,15 @@ import {
   Wind,
   Signal,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 
 import Sidebar from "./Sidebar";
 import { StatusIndicator } from "../ui/StatusIndicator";
 import { cn } from "../../lib/utils";
+import { useFaultSync } from "../../hooks/useFaultSync";
+import { useScadaStore } from "../../store/scadaStore";
+import { useLandingStore } from "../../store/landingStore";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Overview",
@@ -35,6 +39,33 @@ const ROUTE_LABELS: Record<string, string> = {
 export default function AppShell() {
   const location = useLocation();
   const currentLabel = ROUTE_LABELS[location.pathname] ?? "Dashboard";
+
+  // Unified fault synchronization between landing map and SCADA
+  useFaultSync();
+
+  // Subscribe to alarm/fault state using primitives — never return arrays from
+  // Zustand selectors (filter/map return new references → Object.is fails → infinite loop)
+  const criticalCount = useScadaStore((s) =>
+    s.alarms.filter((a) => a.priority === "CRITICAL" && a.state === "ACTIVE").length,
+  );
+  const firstCriticalText = useScadaStore((s) => {
+    const alarm = s.alarms.find((a) => a.priority === "CRITICAL" && a.state === "ACTIVE");
+    if (!alarm) return "";
+    return `${alarm.equipment} ${alarm.description.split("—")[0]?.trim() ?? ""}`;
+  });
+  const landingActiveAlerts = useLandingStore((s) => s.kpis.activeAlerts);
+
+  // Dynamic status indicator
+  const headerStatus: "normal" | "warning" | "alarm" = criticalCount > 0
+    ? "alarm"
+    : landingActiveAlerts > 0
+      ? "warning"
+      : "normal";
+  const headerLabel = criticalCount > 0
+    ? `${criticalCount} Critical`
+    : landingActiveAlerts > 0
+      ? "Degraded"
+      : "Normal";
 
   // Simulation clock — updates every second
   const [clock, setClock] = useState(new Date());
@@ -80,7 +111,7 @@ export default function AppShell() {
           {/* Connection status */}
           <div className="flex items-center gap-2">
             <Signal size={12} className="text-text-muted" />
-            <StatusIndicator status="normal" label="Live" />
+            <StatusIndicator status={headerStatus} label={headerLabel} />
           </div>
 
           {/* Simulation clock */}
@@ -98,6 +129,27 @@ export default function AppShell() {
           </div>
         </div>
       </header>
+
+      {/* ── Global Critical Alarm Banner ── */}
+      {criticalCount > 0 && (
+        <div className="shrink-0 px-4 py-1.5 bg-red-900/40 border-b border-red-700/50 flex items-center justify-between animate-pulse">
+          <div className="flex items-center gap-2 text-xs font-mono text-red-400">
+            <AlertTriangle size={14} />
+            <span className="font-bold">
+              {criticalCount} CRITICAL ALARM{criticalCount > 1 ? "S" : ""} ACTIVE
+            </span>
+            {firstCriticalText && (
+              <span className="text-red-400/70">— {firstCriticalText}</span>
+            )}
+          </div>
+          <Link
+            to="/scada"
+            className="text-[10px] font-mono text-red-400 hover:text-red-300 underline underline-offset-2"
+          >
+            Open SCADA →
+          </Link>
+        </div>
+      )}
 
       {/* ── Main Layout: Sidebar + Content ── */}
       <div className="flex flex-1 overflow-hidden">

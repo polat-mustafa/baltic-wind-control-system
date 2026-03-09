@@ -12,8 +12,9 @@
  * DOM tree — so they are never hidden behind GPU-composited translate3d layers.
  */
 
-import { memo, useCallback, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  CircleMarker,
   MapContainer,
   TileLayer,
   Marker,
@@ -40,10 +41,64 @@ import {
   selectTurbine,
   useLandingStore,
 } from "../../store/landingStore";
+import { useLayerStore } from "../../store/layerStore";
 import type { TurbineStatus } from "../../types/landing";
 
 import AlarmTicker from "./AlarmTicker";
+import BathymetryLayer from "./BathymetryLayer";
+import DayNightOverlay from "./DayNightOverlay";
+import EnvironmentPanel from "./EnvironmentPanel";
+import LayerControlPanel from "./LayerControlPanel";
 import MapLegend from "./MapLegend";
+import OceanWaveOverlay from "./OceanWaveOverlay";
+import TurbineDetailOverlay from "./TurbineDetailOverlay";
+import WakeEffectLayer from "./WakeEffectLayer";
+import WindParticleOverlay from "./WindParticleOverlay";
+
+// ── Atmospheric Pane (z-index between tiles and markers) ──────
+// Creates a custom Leaflet pane at z-index 250 (tile-pane = 200,
+// overlay-pane = 400). Overlays portaled here render ABOVE tiles
+// but BELOW markers/polylines. Counter-transform keeps the pane
+// viewport-fixed despite Leaflet's translate3d on map-pane.
+function AtmosphericPanes() {
+  const map = useMap();
+  const paneRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const existing = map.getPane("atmosphericPane");
+    if (existing) {
+      paneRef.current = existing;
+      return;
+    }
+    const pane = map.createPane("atmosphericPane");
+    pane.style.zIndex = "250";
+    pane.style.pointerEvents = "none";
+    paneRef.current = pane;
+
+    // Counter-transform: undo map-pane translate3d so overlays
+    // stay viewport-fixed (fullscreen tints, particle canvas, etc.)
+    function syncTransform() {
+      const mapPane = map.getPanes().mapPane;
+      if (!mapPane || !paneRef.current) return;
+      const pos = L.DomUtil.getPosition(mapPane);
+      paneRef.current.style.transform = `translate3d(${-pos.x}px, ${-pos.y}px, 0)`;
+    }
+    syncTransform();
+    map.on("move", syncTransform);
+    map.on("moveend", syncTransform);
+    map.on("zoom", syncTransform);
+    map.on("zoomend", syncTransform);
+
+    return () => {
+      map.off("move", syncTransform);
+      map.off("moveend", syncTransform);
+      map.off("zoom", syncTransform);
+      map.off("zoomend", syncTransform);
+    };
+  }, [map]);
+
+  return null;
+}
 
 // ── Status Colors ──────────────────────────────────────────────
 const STATUS_COLOR: Record<TurbineStatus, string> = {
@@ -80,25 +135,29 @@ function createTurbineIcon(
     status === "fault"
       ? `<circle cx="0" cy="0" r="8" fill="${color}" opacity="0.15"><animate attributeName="opacity" values="0.15;0.3;0.15" dur="1.5s" repeatCount="indefinite" /></circle>`
       : status === "operating"
-        ? `<circle cx="0" cy="0" r="6" fill="${color}" opacity="0.08" />`
+        ? `<circle cx="0" cy="0" r="6" fill="${color}" opacity="0.08"><animate attributeName="opacity" values="0.05;0.18;0.05" dur="3s" repeatCount="indefinite" /></circle>`
         : "";
 
   const BLADE = "M 0,0 C -1.2,-3 -1.8,-8 -1,-13 L 0,-15 L 1,-13 C 1.4,-8 0.8,-3 0,0 Z";
 
   const svg = `<svg width="40" height="56" viewBox="-20 -20 40 56" xmlns="http://www.w3.org/2000/svg">
     ${glow}
-    <path d="M -1.5,3 L -2.5,20 L 2.5,20 L 1.5,3 Z" fill="${color}" opacity="0.5" style="transition:fill 0.6s"/>
-    <line x1="-4" y1="20" x2="4" y2="20" stroke="${color}" stroke-width="1.5" opacity="0.4"/>
-    <rect x="-4" y="-2" width="8" height="4" rx="1.5" fill="${color}" opacity="0.85" style="transition:fill 0.6s"/>
-    <circle cx="0" cy="0" r="2" fill="${color}" style="transition:fill 0.6s"/>
-    <g>${rotation}
-      <path d="${BLADE}" fill="${color}" opacity="0.75"/>
-      <path d="${BLADE}" fill="${color}" opacity="0.75" transform="rotate(120 0 0)"/>
-      <path d="${BLADE}" fill="${color}" opacity="0.75" transform="rotate(240 0 0)"/>
+    <path d="M -2.5,3 L -3.5,22 L 3.5,22 L 2.5,3 Z" fill="${color}" opacity="0.6" style="transition:fill 0.6s"/>
+    <line x1="-6" y1="22" x2="6" y2="22" stroke="${color}" stroke-width="2" opacity="0.5"/>
+    <line x1="-4.5" y1="24" x2="4.5" y2="24" stroke="${color}" stroke-width="1" opacity="0.3"/>
+    <g class="nacelle-group" style="transform-origin: 0px 0px">
+      <circle cx="0" cy="2" r="3" fill="${color}" opacity="0.4"/>
+      <rect x="-5" y="-2" width="10" height="4" rx="2" fill="${color}" opacity="0.85" style="transition:fill 0.6s"/>
+      <circle cx="0" cy="0" r="2" fill="${color}" style="transition:fill 0.6s"/>
+      <g>${rotation}
+        <path d="${BLADE}" fill="${color}" opacity="0.75"/>
+        <path d="${BLADE}" fill="${color}" opacity="0.75" transform="rotate(120 0 0)"/>
+        <path d="${BLADE}" fill="${color}" opacity="0.75" transform="rotate(240 0 0)"/>
+      </g>
     </g>
-    <rect x="-5" y="22" width="10" height="2" rx="0.5" fill="#1e2231" stroke="${color}" stroke-width="0.3" opacity="0.5"/>
-    ${fraction > 0 ? `<rect x="-5" y="22" width="${(10 * fraction).toFixed(1)}" height="2" rx="0.5" fill="${color}" opacity="0.6"/>` : ""}
-    <text x="0" y="30" fill="#6b7490" font-size="6" font-family="JetBrains Mono, monospace" text-anchor="middle">${shortId}</text>
+    <rect x="-5" y="26" width="10" height="2" rx="0.5" fill="#1e2231" stroke="${color}" stroke-width="0.3" opacity="0.5"/>
+    ${fraction > 0 ? `<rect x="-5" y="26" width="${(10 * fraction).toFixed(1)}" height="2" rx="0.5" fill="${color}" opacity="0.6"/>` : ""}
+    <text x="0" y="34" fill="#6b7490" font-size="6" font-family="JetBrains Mono, monospace" text-anchor="middle">${shortId}</text>
   </svg>`;
 
   return L.divIcon({
@@ -322,6 +381,68 @@ function InvalidateSize() {
   return null;
 }
 
+// ── Turbine label visibility (CSS class toggle on container) ─────
+function TurbineLabelToggler() {
+  const map = useMap();
+  const show = useLayerStore((s) => s.layers.turbineLabels);
+
+  useEffect(() => {
+    const el = map.getContainer();
+    if (show) el.classList.remove("hide-turbine-labels");
+    else el.classList.add("hide-turbine-labels");
+  }, [map, show]);
+
+  return null;
+}
+
+// ── Yaw rotation — sets CSS custom property for nacelle orientation ──
+function YawUpdater() {
+  const map = useMap();
+  const kpis = useLandingStore(selectKPIs);
+
+  useEffect(() => {
+    map.getContainer().style.setProperty(
+      "--wind-yaw",
+      `${kpis.windDirectionDeg}deg`,
+    );
+  }, [map, kpis.windDirectionDeg]);
+
+  return null;
+}
+
+// ── Foundation circles visible at high zoom (monopile outline) ───
+function FoundationLayer() {
+  const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+
+  useEffect(() => {
+    const onZoom = () => setZoom(map.getZoom());
+    map.on("zoomend", onZoom);
+    return () => { map.off("zoomend", onZoom); };
+  }, [map]);
+
+  if (zoom < 14) return null;
+
+  return (
+    <>
+      {TURBINE_POSITIONS.map((pos) => (
+        <CircleMarker
+          key={`foundation-${pos.id}`}
+          center={[pos.lat, pos.lon]}
+          radius={8}
+          pathOptions={{
+            color: "#4a5580",
+            weight: 1.5,
+            fillColor: "#1e2231",
+            fillOpacity: 0.6,
+            interactive: false,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 // ── Static polyline paths (derived from constants, never change) ─
 const EXPORT_CABLE_PATH: [number, number][] = EXPORT_CABLE_GEO.map((p) => [p.lat, p.lon]);
 const PSE_GRID_PATH: [number, number][] = PSE_GRID_LINE_GEO.map((p) => [p.lat, p.lon]);
@@ -347,6 +468,7 @@ function LeafletWindFarmMapInner({
 }: LeafletWindFarmMapProps) {
   const ossIcon = useMemo(() => createOSSIcon(totalPowerMW), [totalPowerMW]);
   const onshoreIcon = useMemo(() => createOnshoreIcon(), []);
+  const layers = useLayerStore((s) => s.layers);
 
   const handleTurbineHover = useCallback((_id: string) => {}, []);
   const handleTurbineLeave = useCallback(() => {}, []);
@@ -368,6 +490,18 @@ function LeafletWindFarmMapInner({
       >
         <InvalidateSize />
 
+        {/* Custom pane for atmospheric overlays (z: 250, between tiles and markers) */}
+        <AtmosphericPanes />
+
+        {/* Ocean wave texture (CSS-animated gradient layers) */}
+        {layers.oceanWaves && <OceanWaveOverlay />}
+
+        {/* Day/night tint (compressed 24h cycle) */}
+        {layers.dayNightTint && <DayNightOverlay />}
+
+        {/* Wind particle animation (Windy.com style) */}
+        {layers.windParticles && <WindParticleOverlay />}
+
         {/* CartoDB Dark Matter tiles — dark control room theme */}
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -375,19 +509,27 @@ function LeafletWindFarmMapInner({
         />
 
         {/* Exclusion zone boundary */}
-        <Polygon
-          positions={EXCLUSION_ZONE}
-          pathOptions={{
-            color: "rgba(59,130,246,0.4)",
-            weight: 1.5,
-            dashArray: "10 5",
-            fillColor: "rgba(59,130,246,0.03)",
-            fillOpacity: 1,
-          }}
-        />
+        {layers.exclusionZone && (
+          <Polygon
+            positions={EXCLUSION_ZONE}
+            pathOptions={{
+              color: "rgba(59,130,246,0.4)",
+              weight: 1.5,
+              dashArray: "10 5",
+              fillColor: "rgba(59,130,246,0.03)",
+              fillOpacity: 1,
+            }}
+          />
+        )}
+
+        {/* Bathymetry contour lines (isobaths) */}
+        {layers.bathymetry && <BathymetryLayer />}
+
+        {/* Jensen/Park wake effect cones + loss badges */}
+        {layers.wakeEffects && <WakeEffectLayer />}
 
         {/* 66 kV array cables */}
-        <ArrayCables />
+        {layers.arrayCables && <ArrayCables />}
 
         {/* 220 kV export cable (animated via CSS) */}
         <Polyline
@@ -434,6 +576,18 @@ function LeafletWindFarmMapInner({
           eventHandlers={onshoreHandlers}
         />
 
+        {/* Yaw rotation — updates CSS custom property on map container */}
+        <YawUpdater />
+
+        {/* Turbine label visibility (CSS class toggle) */}
+        <TurbineLabelToggler />
+
+        {/* Monopile foundation circles (zoom ≥ 14) */}
+        {layers.foundations && <FoundationLayer />}
+
+        {/* Zoom-dependent turbine detail (power labels, pitch arcs, sway) */}
+        <TurbineDetailOverlay />
+
         {/* Turbine markers */}
         {TURBINE_POSITIONS.map((pos) => (
           <TurbineMarker
@@ -448,6 +602,12 @@ function LeafletWindFarmMapInner({
           />
         ))}
       </MapContainer>
+
+      {/* Layer control panel */}
+      <LayerControlPanel />
+
+      {/* Environment / sea-state info panel */}
+      <EnvironmentPanel />
 
       {/* Compass overlay */}
       <WindCompass />

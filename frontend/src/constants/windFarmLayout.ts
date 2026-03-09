@@ -4,6 +4,8 @@
  * Layout: 6 strings of 5-6 turbines each, arranged NW-SE to minimise
  * wake losses from the prevailing SW wind (Baltic Sea, ~240 deg).
  * String spacing ~1200 m (8D), turbine spacing ~900 m (6D) along string.
+ * Alternate strings (2, 4, 6) staggered ~700 m south to reduce
+ * systematic wake alignment from prevailing SW wind.
  *
  * SVG canvas: 1200 x 700 viewBox. Sea occupies left 70%, coast/land right 30%.
  */
@@ -46,13 +48,13 @@ export const TURBINE_POSITIONS: TurbinePosition[] = [
   { id: "WTG-05", stringNumber: 1, x: 85, y: 440, lat: 54.7310, lon: 16.3230 },
   { id: "WTG-06", stringNumber: 1, x: 90, y: 520, lat: 54.7182, lon: 16.3230 },
 
-  // String 2 (6 turbines)
-  { id: "WTG-07", stringNumber: 2, x: 180, y: 100, lat: 54.7819, lon: 16.3525 },
-  { id: "WTG-08", stringNumber: 2, x: 190, y: 180, lat: 54.7692, lon: 16.3525 },
-  { id: "WTG-09", stringNumber: 2, x: 195, y: 260, lat: 54.7564, lon: 16.3525 },
-  { id: "WTG-10", stringNumber: 2, x: 185, y: 340, lat: 54.7437, lon: 16.3525 },
-  { id: "WTG-11", stringNumber: 2, x: 180, y: 420, lat: 54.7310, lon: 16.3525 },
-  { id: "WTG-12", stringNumber: 2, x: 185, y: 500, lat: 54.7182, lon: 16.3525 },
+  // String 2 (6 turbines) — staggered 700 m south
+  { id: "WTG-07", stringNumber: 2, x: 180, y: 100, lat: 54.7756, lon: 16.3525 },
+  { id: "WTG-08", stringNumber: 2, x: 190, y: 180, lat: 54.7629, lon: 16.3525 },
+  { id: "WTG-09", stringNumber: 2, x: 195, y: 260, lat: 54.7501, lon: 16.3525 },
+  { id: "WTG-10", stringNumber: 2, x: 185, y: 340, lat: 54.7374, lon: 16.3525 },
+  { id: "WTG-11", stringNumber: 2, x: 180, y: 420, lat: 54.7247, lon: 16.3525 },
+  { id: "WTG-12", stringNumber: 2, x: 185, y: 500, lat: 54.7119, lon: 16.3525 },
 
   // String 3 (6 turbines)
   { id: "WTG-13", stringNumber: 3, x: 280, y: 110, lat: 54.7819, lon: 16.3820 },
@@ -62,13 +64,13 @@ export const TURBINE_POSITIONS: TurbinePosition[] = [
   { id: "WTG-17", stringNumber: 3, x: 275, y: 430, lat: 54.7310, lon: 16.3820 },
   { id: "WTG-18", stringNumber: 3, x: 285, y: 510, lat: 54.7182, lon: 16.3820 },
 
-  // String 4 (6 turbines)
-  { id: "WTG-19", stringNumber: 4, x: 380, y: 130, lat: 54.7819, lon: 16.4115 },
-  { id: "WTG-20", stringNumber: 4, x: 390, y: 210, lat: 54.7692, lon: 16.4115 },
-  { id: "WTG-21", stringNumber: 4, x: 385, y: 290, lat: 54.7564, lon: 16.4115 },
-  { id: "WTG-22", stringNumber: 4, x: 380, y: 370, lat: 54.7437, lon: 16.4115 },
-  { id: "WTG-23", stringNumber: 4, x: 375, y: 450, lat: 54.7310, lon: 16.4115 },
-  { id: "WTG-24", stringNumber: 4, x: 380, y: 530, lat: 54.7182, lon: 16.4115 },
+  // String 4 (6 turbines) — staggered 700 m south
+  { id: "WTG-19", stringNumber: 4, x: 380, y: 130, lat: 54.7756, lon: 16.4115 },
+  { id: "WTG-20", stringNumber: 4, x: 390, y: 210, lat: 54.7629, lon: 16.4115 },
+  { id: "WTG-21", stringNumber: 4, x: 385, y: 290, lat: 54.7501, lon: 16.4115 },
+  { id: "WTG-22", stringNumber: 4, x: 380, y: 370, lat: 54.7374, lon: 16.4115 },
+  { id: "WTG-23", stringNumber: 4, x: 375, y: 450, lat: 54.7247, lon: 16.4115 },
+  { id: "WTG-24", stringNumber: 4, x: 380, y: 530, lat: 54.7119, lon: 16.4115 },
 
   // String 5 (5 turbines)
   { id: "WTG-25", stringNumber: 5, x: 480, y: 140, lat: 54.7819, lon: 16.4410 },
@@ -77,12 +79,12 @@ export const TURBINE_POSITIONS: TurbinePosition[] = [
   { id: "WTG-28", stringNumber: 5, x: 480, y: 380, lat: 54.7437, lon: 16.4410 },
   { id: "WTG-29", stringNumber: 5, x: 475, y: 460, lat: 54.7310, lon: 16.4410 },
 
-  // String 6 (5 turbines) — easternmost
-  { id: "WTG-30", stringNumber: 6, x: 570, y: 150, lat: 54.7819, lon: 16.4705 },
-  { id: "WTG-31", stringNumber: 6, x: 580, y: 230, lat: 54.7692, lon: 16.4705 },
-  { id: "WTG-32", stringNumber: 6, x: 575, y: 310, lat: 54.7564, lon: 16.4705 },
-  { id: "WTG-33", stringNumber: 6, x: 570, y: 390, lat: 54.7437, lon: 16.4705 },
-  { id: "WTG-34", stringNumber: 6, x: 565, y: 470, lat: 54.7310, lon: 16.4705 },
+  // String 6 (5 turbines) — easternmost, staggered 700 m south
+  { id: "WTG-30", stringNumber: 6, x: 570, y: 150, lat: 54.7756, lon: 16.4705 },
+  { id: "WTG-31", stringNumber: 6, x: 580, y: 230, lat: 54.7629, lon: 16.4705 },
+  { id: "WTG-32", stringNumber: 6, x: 575, y: 310, lat: 54.7501, lon: 16.4705 },
+  { id: "WTG-33", stringNumber: 6, x: 570, y: 390, lat: 54.7374, lon: 16.4705 },
+  { id: "WTG-34", stringNumber: 6, x: 565, y: 470, lat: 54.7247, lon: 16.4705 },
 ];
 
 // ── Offshore Substation (OSS) ───────────────────────────────────
@@ -172,6 +174,44 @@ export const BATHYMETRY_CONTOURS: { depth: number; path: string; label: { x: num
     depth: 50,
     path: "M 0,140 Q 100,130 250,160 Q 400,200 560,270 Q 720,350 840,400",
     label: { x: 270, y: 155 },
+  },
+];
+
+// ── Bathymetry Contours — Geographic (for Leaflet) ──────────────
+// Isobaths run roughly NE-SW, curving shoreward at southern end.
+// Depths increase westward away from the Polish coastline.
+
+export const BATHYMETRY_CONTOURS_GEO: {
+  depth: number;
+  points: [number, number][];
+}[] = [
+  {
+    depth: 20,
+    points: [
+      [54.82, 16.58], [54.78, 16.60], [54.74, 16.62],
+      [54.70, 16.64], [54.66, 16.67], [54.62, 16.71],
+    ],
+  },
+  {
+    depth: 30,
+    points: [
+      [54.82, 16.47], [54.78, 16.49], [54.74, 16.51],
+      [54.70, 16.54], [54.66, 16.58], [54.62, 16.63],
+    ],
+  },
+  {
+    depth: 40,
+    points: [
+      [54.82, 16.36], [54.78, 16.38], [54.74, 16.41],
+      [54.70, 16.44], [54.66, 16.49], [54.62, 16.55],
+    ],
+  },
+  {
+    depth: 50,
+    points: [
+      [54.82, 16.25], [54.78, 16.27], [54.74, 16.30],
+      [54.70, 16.34], [54.66, 16.40], [54.62, 16.47],
+    ],
   },
 ];
 

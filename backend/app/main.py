@@ -18,6 +18,8 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.core.cache import close_redis, init_redis, redis_ping
+from app.core.exceptions import register_exception_handlers
+from app.core.middleware import RequestLoggingMiddleware
 from app.db import async_session_factory, engine
 from app.routers.digital_twin import router as digital_twin_router
 from app.routers.p1 import router as p1_router
@@ -66,6 +68,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+register_exception_handlers(app)
+
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

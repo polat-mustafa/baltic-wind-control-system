@@ -17,6 +17,7 @@ import {
   Monitor,
   Brain,
   ClipboardCheck,
+  Cpu,
   ChevronLeft,
   ChevronRight,
   type LucideIcon,
@@ -74,6 +75,13 @@ const NAV_ITEMS: NavItem[] = [
     path: "/commissioning",
     icon: ClipboardCheck,
     description: "Switching, LOTO, SAT",
+  },
+  {
+    label: "Digital Twin",
+    shortLabel: "DT",
+    path: "/digital-twin",
+    icon: Cpu,
+    description: "Condition monitoring, ISO 13374",
   },
 ];
 

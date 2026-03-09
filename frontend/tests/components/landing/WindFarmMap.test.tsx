@@ -35,6 +35,6 @@ describe("WindFarmMap", () => {
 
   it("renders the legend component", () => {
     render(<WindFarmMap totalPowerMW={442} />);
-    expect(screen.getByText("Status")).toBeDefined();
+    expect(screen.getByText("Operating")).toBeDefined();
   });
 });

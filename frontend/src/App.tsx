@@ -8,6 +8,8 @@
  *   /scada           → SCADAPage (P3 IEC 61850)
  *   /forecast        → ForecastPage (P4 AI forecasting)
  *   /commissioning   → CommissioningPage (P5 switching programme)
+ *   /turbine-physics → TurbinePhysicsPage (dynamic simulation)
+ *   /digital-twin    → DigitalTwinPage (condition monitoring)
  *
  * All routes are wrapped in AppShell (top bar + sidebar + content area).
  */
@@ -21,6 +23,8 @@ import ForecastPage from "./pages/ForecastPage";
 import HVGridPage from "./pages/HVGridPage";
 import LandingPage from "./pages/LandingPage";
 import SCADAPage from "./pages/SCADAPage";
+import DigitalTwinPage from "./pages/DigitalTwinPage";
+import TurbinePhysicsPage from "./pages/TurbinePhysicsPage";
 import WindResourcePage from "./pages/WindResourcePage";
 
 function App() {
@@ -35,6 +39,8 @@ function App() {
             <Route path="scada" element={<SCADAPage />} />
             <Route path="forecast" element={<ForecastPage />} />
             <Route path="commissioning" element={<CommissioningPage />} />
+            <Route path="turbine-physics" element={<TurbinePhysicsPage />} />
+            <Route path="digital-twin" element={<DigitalTwinPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

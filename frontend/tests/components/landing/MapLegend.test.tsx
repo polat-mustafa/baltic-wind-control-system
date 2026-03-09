@@ -7,9 +7,9 @@ import { describe, expect, it } from "vitest";
 import MapLegend from "../../../src/components/landing/MapLegend";
 
 describe("MapLegend", () => {
-  it("renders Status header", () => {
+  it("renders legend items", () => {
     render(<MapLegend />);
-    expect(screen.getByText("Status")).toBeDefined();
+    expect(screen.getByText("Operating")).toBeDefined();
   });
 
   it("renders all four status labels", () => {

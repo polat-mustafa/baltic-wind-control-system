@@ -8,7 +8,7 @@
  */
 
 import { Maximize2, Minimize2 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "../../lib/utils";
 
@@ -26,25 +26,34 @@ export function ChartWrapper({ title, headerRight, footer, children }: ChartWrap
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Sync React state with Fullscreen API (handles Escape key, etc.)
+  useEffect(() => {
+    const handleChange = () => {
+      setIsFullscreen(document.fullscreenElement === containerRef.current);
+    };
+    document.addEventListener("fullscreenchange", handleChange);
+    return () => document.removeEventListener("fullscreenchange", handleChange);
+  }, []);
+
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
 
-    if (!isFullscreen) {
+    if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen?.().catch(() => {
         // Fallback: just toggle the CSS class
+        setIsFullscreen((prev) => !prev);
       });
     } else {
       document.exitFullscreen?.().catch(() => {});
     }
-    setIsFullscreen((prev) => !prev);
-  }, [isFullscreen]);
+  }, []);
 
   return (
     <div
       ref={containerRef}
       className={cn(
         "bg-bg-secondary rounded-lg p-4 border border-border-primary",
-        isFullscreen && "fixed inset-0 z-[100] rounded-none overflow-auto",
+        isFullscreen && "fixed inset-0 z-[9000] rounded-none overflow-auto",
       )}
     >
       <div className="flex items-center justify-between mb-2">

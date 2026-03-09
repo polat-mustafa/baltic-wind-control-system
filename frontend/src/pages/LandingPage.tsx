@@ -7,6 +7,9 @@
  * without scrolling (ABB Ability, Siemens DEOP paradigm).
  *
  * Control Room Mode: fullscreen toggle hides AppShell and fills viewport.
+ *
+ * Detail panels (turbine, OSS, onshore, cable) are rendered OUTSIDE Leaflet's
+ * DOM tree so they are never hidden behind GPU-composited translate3d layers.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -15,10 +18,78 @@ import { Monitor, Brain, ClipboardCheck, Maximize2, Minimize2 } from "lucide-rea
 
 import MapKPIRibbon from "../components/landing/MapKPIRibbon";
 import LeafletWindFarmMap from "../components/landing/LeafletWindFarmMap";
-import { useLandingStore } from "../store/landingStore";
+import CableDetailPanel from "../components/landing/CableDetailPanel";
+import TransformerDetailPanel from "../components/landing/TransformerDetailPanel";
+import TurbineDetailPanel from "../components/landing/TurbineDetailPanel";
+import {
+  selectCable,
+  selectTransformer,
+  selectTurbine,
+  useLandingStore,
+} from "../store/landingStore";
 import { InfoButton } from "../components/ui/InfoButton";
 import { farmOverviewInfo } from "../constants/panelInfo";
 import { cn } from "../lib/utils";
+
+// ── Connected detail panel wrappers ─────────────────────────────
+// Defined at module level so React never unmounts/remounts them on parent render.
+// Each subscribes to only the store slice it needs.
+
+function ConnectedTurbineDetailPanel({
+  turbineId,
+  onClose,
+}: {
+  turbineId: string;
+  onClose: () => void;
+}) {
+  const turbine = useLandingStore(selectTurbine(turbineId));
+  if (!turbine) return null;
+  return <TurbineDetailPanel turbine={turbine} onClose={onClose} />;
+}
+
+function ConnectedOSSPanel({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  const ossTx = useLandingStore(selectTransformer("OSS-TX1"));
+  if (!ossTx) return null;
+  return (
+    <TransformerDetailPanel
+      transformer={ossTx}
+      onClose={onClose}
+      onNavigate={() => navigate("/scada")}
+      navLabel="Open SCADA Dashboard"
+    />
+  );
+}
+
+function ConnectedOnshorePanel({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  const onsTx = useLandingStore(selectTransformer("ONS-TX1"));
+  if (!onsTx) return null;
+  return (
+    <TransformerDetailPanel
+      transformer={onsTx}
+      onClose={onClose}
+      onNavigate={() => navigate("/hv-grid")}
+      navLabel="Open HV Grid Dashboard"
+    />
+  );
+}
+
+function ConnectedCablePanel({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  const cable = useLandingStore(selectCable);
+  if (!cable) return null;
+  return (
+    <CableDetailPanel
+      cable={cable}
+      onClose={onClose}
+      onNavigate={() => navigate("/hv-grid")}
+    />
+  );
+}
+
+// ── Panel type ──────────────────────────────────────────────────
+type DetailPanel = "oss" | "onshore" | "cable" | "turbine" | null;
 
 const QUICK_LINKS = [
   { label: "P3", path: "/scada", icon: Monitor, tip: "SCADA" },
@@ -32,6 +103,10 @@ export default function LandingPage() {
   const stopSimulation = useLandingStore((s) => s.stopSimulation);
   const navigate = useNavigate();
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Panel state — lifted from LeafletWindFarmMap so panels render outside Leaflet DOM
+  const [activePanel, setActivePanel] = useState<DetailPanel>(null);
+  const [selectedTurbineId, setSelectedTurbineId] = useState<string | null>(null);
 
   useEffect(() => {
     startSimulation();
@@ -53,12 +128,45 @@ export default function LandingPage() {
     }
   }, []);
 
+  // Map click handlers — stable callbacks for memo'd LeafletWindFarmMap
+  const handleTurbineClick = useCallback((turbineId: string) => {
+    setSelectedTurbineId(turbineId);
+    setActivePanel("turbine");
+  }, []);
+
+  const handleOSSClick = useCallback(() => setActivePanel("oss"), []);
+  const handleOnshoreClick = useCallback(() => setActivePanel("onshore"), []);
+  const handleCableClick = useCallback(() => setActivePanel("cable"), []);
+
+  const handlePanelClose = useCallback(() => {
+    setActivePanel(null);
+    setSelectedTurbineId(null);
+  }, []);
+
+  // Round power to avoid re-renders on decimal changes
+  const roundedPower = Math.round(kpis.totalOutputMW);
+
+  // Detail panels — rendered outside Leaflet's DOM tree
+  const detailPanels = (
+    <>
+      {activePanel === "oss" && <ConnectedOSSPanel onClose={handlePanelClose} />}
+      {activePanel === "onshore" && <ConnectedOnshorePanel onClose={handlePanelClose} />}
+      {activePanel === "cable" && <ConnectedCablePanel onClose={handlePanelClose} />}
+      {activePanel === "turbine" && selectedTurbineId && (
+        <ConnectedTurbineDetailPanel
+          turbineId={selectedTurbineId}
+          onClose={handlePanelClose}
+        />
+      )}
+    </>
+  );
+
   // Fullscreen (Control Room Mode) — map fills entire viewport
   if (isFullscreen) {
     return (
       <div className="fixed inset-0 z-[9999] bg-bg-primary flex flex-col">
         {/* Horizontal KPI ribbon — glassmorphic overlay at top */}
-        <div className="absolute top-0 left-0 right-0 z-[1001]">
+        <div className="absolute top-0 left-0 right-0 z-[1001] pointer-events-none">
           <MapKPIRibbon kpis={kpis} horizontal />
         </div>
 
@@ -77,9 +185,19 @@ export default function LandingPage() {
           <span className="text-[10px] font-medium">Exit</span>
         </button>
 
-        {/* Map fills viewport */}
-        <div className="flex-1">
-          <LeafletWindFarmMap totalPowerMW={kpis.totalOutputMW} />
+        {/* Map fills viewport — panels rendered after map, outside Leaflet DOM */}
+        <div className="relative flex-1">
+          <div className="w-full h-full">
+            <LeafletWindFarmMap
+              totalPowerMW={roundedPower}
+              selectedTurbineId={selectedTurbineId}
+              onTurbineClick={handleTurbineClick}
+              onOSSClick={handleOSSClick}
+              onOnshoreClick={handleOnshoreClick}
+              onCableClick={handleCableClick}
+            />
+          </div>
+          {detailPanels}
         </div>
       </div>
     );
@@ -144,17 +262,27 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Main area: Map fills width, horizontal KPI bar overlaid at top */}
+      {/* Main area: Map fills width, KPI + detail panels overlaid */}
       <div className="relative flex-1 min-h-0">
         {/* Horizontal KPI ribbon overlay */}
-        <div className="absolute top-0 left-0 right-0 z-[1001]">
+        <div className="absolute top-0 left-0 right-0 z-[1001] pointer-events-none">
           <MapKPIRibbon kpis={kpis} horizontal />
         </div>
 
         {/* Leaflet map — fills remaining space */}
         <div className="w-full h-full">
-          <LeafletWindFarmMap totalPowerMW={kpis.totalOutputMW} />
+          <LeafletWindFarmMap
+            totalPowerMW={roundedPower}
+            selectedTurbineId={selectedTurbineId}
+            onTurbineClick={handleTurbineClick}
+            onOSSClick={handleOSSClick}
+            onOnshoreClick={handleOnshoreClick}
+            onCableClick={handleCableClick}
+          />
         </div>
+
+        {/* Detail panels — OUTSIDE Leaflet's DOM, above compositor layers */}
+        {detailPanels}
       </div>
     </div>
   );

@@ -14,7 +14,7 @@
  *   66 kV Busbar → CB-DS per string → 6 strings × WTG IEDs
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -26,7 +26,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { useScadaStore } from "../../store/scadaStore";
-import { useLandingStore } from "../../store/landingStore";
+import { useLandingStore, selectTurbineSLDMap } from "../../store/landingStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import {
   BusbarNode,
@@ -383,13 +383,17 @@ export default function SubstationSLD() {
 
   // Start landing simulation so turbine data is available on SCADA page
   const startSimulation = useLandingStore((s) => s.startSimulation);
-  const turbineMap = useLandingStore((s) => s.turbineMap);
-  useState(() => { startSimulation(); });
+  const stopSimulation = useLandingStore((s) => s.stopSimulation);
+  const turbineSLDMap = useLandingStore(selectTurbineSLDMap);
+  useEffect(() => {
+    startSimulation();
+    return () => stopSimulation();
+  }, [startSimulation, stopSimulation]);
 
   const graph = useMemo(() => {
     if (!substationSummary?.devices) return { nodes: [], edges: [] };
-    return buildGraph(substationSummary.devices, breakerStates, faultHighlightNodeId, turbineMap);
-  }, [substationSummary, breakerStates, faultHighlightNodeId, turbineMap]);
+    return buildGraph(substationSummary.devices, breakerStates, faultHighlightNodeId, turbineSLDMap);
+  }, [substationSummary, breakerStates, faultHighlightNodeId, turbineSLDMap]);
 
   const onInit = useCallback(
     (instance: { fitView: () => void }) => {

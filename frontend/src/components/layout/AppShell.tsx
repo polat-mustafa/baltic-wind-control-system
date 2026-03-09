@@ -34,6 +34,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/scada": "P3 · SCADA & Automation",
   "/forecast": "P4 · AI Forecasting",
   "/commissioning": "P5 · HV Commissioning",
+  "/digital-twin": "Digital Twin · Condition Monitoring",
 };
 
 export default function AppShell() {

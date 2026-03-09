@@ -7,10 +7,12 @@
  * animated dash pattern. KPI ribbon overlays at top, alarm ticker at bottom.
  *
  * Geographic coordinates: centered ~54.70°N, 16.55°E (Polish Baltic EEZ).
+ *
+ * Detail panels are rendered by the parent (LandingPage) — OUTSIDE Leaflet's
+ * DOM tree — so they are never hidden behind GPU-composited translate3d layers.
  */
 
-import { memo, useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { memo, useCallback, useEffect, useMemo } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -34,19 +36,14 @@ import {
   TURBINE_POSITIONS,
 } from "../../constants/windFarmLayout";
 import {
-  selectCable,
   selectKPIs,
-  selectTransformer,
   selectTurbine,
   useLandingStore,
 } from "../../store/landingStore";
 import type { TurbineStatus } from "../../types/landing";
 
 import AlarmTicker from "./AlarmTicker";
-import CableDetailPanel from "./CableDetailPanel";
 import MapLegend from "./MapLegend";
-import TransformerDetailPanel from "./TransformerDetailPanel";
-import TurbineDetailPanel from "./TurbineDetailPanel";
 
 // ── Status Colors ──────────────────────────────────────────────
 const STATUS_COLOR: Record<TurbineStatus, string> = {
@@ -57,12 +54,22 @@ const STATUS_COLOR: Record<TurbineStatus, string> = {
 };
 
 // ── Turbine DivIcon factory ────────────────────────────────────
+// Representative power per status so icon reference is stable across 3s ticks.
+// Real-time power is shown in the tooltip — icon only changes on status change.
+const REPRESENTATIVE_POWER: Record<TurbineStatus, number> = {
+  operating: 12,
+  curtailed: 8,
+  fault: 0,
+  offline: 0,
+};
+
 function createTurbineIcon(
   status: TurbineStatus,
-  powerMW: number,
   shortId: string,
+  isSelected: boolean,
 ): L.DivIcon {
   const color = STATUS_COLOR[status];
+  const powerMW = REPRESENTATIVE_POWER[status];
   const isSpinning = status === "operating" || status === "curtailed";
   const dur = powerMW <= 0 ? 0 : Math.max(2, 8 - (powerMW / 15) * 6);
   const fraction = Math.min(powerMW / 15, 1);
@@ -96,17 +103,23 @@ function createTurbineIcon(
 
   return L.divIcon({
     html: svg,
-    className: "leaflet-turbine-marker",
+    className: `leaflet-turbine-marker${isSelected ? " turbine-selected" : ""}`,
     iconSize: [40, 56],
     iconAnchor: [20, 20],
   });
 }
 
 // ── Single Turbine Marker (connected to store) ─────────────────
+// Icon is keyed ONLY on status + isSelected — never on power/wind.
+// This keeps the L.DivIcon reference stable across 3s ticks so
+// react-leaflet never calls setIcon() → DOM element survives →
+// SVG animations keep spinning, CSS hover persists, click works.
+// Real-time power/wind values are shown in the Tooltip (React-managed).
 const TurbineMarker = memo(function TurbineMarker({
   turbineId,
   lat,
   lon,
+  isSelected,
   onHover,
   onLeave,
   onClick,
@@ -114,25 +127,35 @@ const TurbineMarker = memo(function TurbineMarker({
   turbineId: string;
   lat: number;
   lon: number;
+  isSelected: boolean;
   onHover: (id: string) => void;
   onLeave: () => void;
   onClick: (id: string) => void;
 }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
-  if (!turbine) return null;
-
   const shortId = turbineId.replace(/^WTG-/, "");
-  const icon = createTurbineIcon(turbine.status, turbine.powerOutputMW, shortId);
+
+  // Icon depends ONLY on status + selection — stable across power/wind ticks
+  const icon = useMemo(
+    () => createTurbineIcon(turbine?.status ?? "offline", shortId, isSelected),
+    [turbine?.status, shortId, isSelected],
+  );
+
+  // Stable event handler object — prevents react-leaflet from unbinding/rebinding
+  // listeners on every render (onHover/onLeave/onClick are useCallback([]) in parent)
+  const eventHandlers = useMemo(() => ({
+    mouseover: () => onHover(turbineId),
+    mouseout: () => onLeave(),
+    click: () => onClick(turbineId),
+  }), [turbineId, onHover, onLeave, onClick]);
+
+  if (!turbine) return null;
 
   return (
     <Marker
       position={[lat, lon]}
       icon={icon}
-      eventHandlers={{
-        mouseover: () => onHover(turbineId),
-        mouseout: () => onLeave(),
-        click: () => onClick(turbineId),
-      }}
+      eventHandlers={eventHandlers}
     >
       <Tooltip
         direction="right"
@@ -214,7 +237,7 @@ function WindCompass() {
   const windCardinal = cardinals[Math.round(windDirDeg / 22.5) % 16];
 
   return (
-    <div className="absolute top-14 right-3 z-[1000] pointer-events-none">
+    <div className="absolute top-3 right-3 z-[1000] pointer-events-none">
       <svg width="72" height="90" viewBox="-36 -36 72 90">
         <circle cx={0} cy={0} r={32} fill="rgba(15,17,23,0.85)" stroke="#3d4560" strokeWidth={1} />
         <line x1={0} y1={-30} x2={0} y2={-24} stroke="#ef4444" strokeWidth={1.5} />
@@ -289,43 +312,49 @@ function ArrayCables() {
   );
 }
 
-// ── Invalidate size on mount ─────────────────────────────────────
+// ── Invalidate size on mount (fires once, not every render) ──────
 function InvalidateSize() {
   const map = useMap();
-  // Invalidate after mount to handle container resize
-  setTimeout(() => map.invalidateSize(), 100);
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 100);
+    return () => clearTimeout(timer);
+  }, [map]);
   return null;
 }
 
-// ── Main Component ──────────────────────────────────────────────
-type DetailPanel = "oss" | "onshore" | "cable" | "turbine" | null;
+// ── Static polyline paths (derived from constants, never change) ─
+const EXPORT_CABLE_PATH: [number, number][] = EXPORT_CABLE_GEO.map((p) => [p.lat, p.lon]);
+const PSE_GRID_PATH: [number, number][] = PSE_GRID_LINE_GEO.map((p) => [p.lat, p.lon]);
 
+// ── Props ────────────────────────────────────────────────────────
 interface LeafletWindFarmMapProps {
   totalPowerMW: number;
+  selectedTurbineId: string | null;
+  onTurbineClick: (id: string) => void;
+  onOSSClick: () => void;
+  onOnshoreClick: () => void;
+  onCableClick: () => void;
 }
 
-export default function LeafletWindFarmMap({ totalPowerMW }: LeafletWindFarmMapProps) {
-  const navigate = useNavigate();
-  const [activePanel, setActivePanel] = useState<DetailPanel>(null);
-  const [selectedTurbineId, setSelectedTurbineId] = useState<string | null>(null);
-
-  const ossTx = useLandingStore(selectTransformer("OSS-TX1"));
-  const onsTx = useLandingStore(selectTransformer("ONS-TX1"));
-  const cable = useLandingStore(selectCable);
-
-  const ossIcon = createOSSIcon(totalPowerMW);
-  const onshoreIcon = createOnshoreIcon();
+// ── Main Component ──────────────────────────────────────────────
+function LeafletWindFarmMapInner({
+  totalPowerMW,
+  selectedTurbineId,
+  onTurbineClick,
+  onOSSClick,
+  onOnshoreClick,
+  onCableClick,
+}: LeafletWindFarmMapProps) {
+  const ossIcon = useMemo(() => createOSSIcon(totalPowerMW), [totalPowerMW]);
+  const onshoreIcon = useMemo(() => createOnshoreIcon(), []);
 
   const handleTurbineHover = useCallback((_id: string) => {}, []);
   const handleTurbineLeave = useCallback(() => {}, []);
-  const handleTurbineClick = useCallback((turbineId: string) => {
-    setSelectedTurbineId(turbineId);
-    setActivePanel("turbine");
-  }, []);
 
-  // Export cable path as LatLng array
-  const exportCablePath: [number, number][] = EXPORT_CABLE_GEO.map((p) => [p.lat, p.lon]);
-  const pseGridPath: [number, number][] = PSE_GRID_LINE_GEO.map((p) => [p.lat, p.lon]);
+  // Stable event handler objects for non-turbine markers
+  const ossHandlers = useMemo(() => ({ click: onOSSClick }), [onOSSClick]);
+  const onshoreHandlers = useMemo(() => ({ click: onOnshoreClick }), [onOnshoreClick]);
+  const cableHandlers = useMemo(() => ({ click: onCableClick }), [onCableClick]);
 
   return (
     <div className="relative w-full h-full rounded-lg overflow-hidden border border-border-primary shadow-lg shadow-black/20" style={{ minHeight: 450 }}>
@@ -362,7 +391,7 @@ export default function LeafletWindFarmMap({ totalPowerMW }: LeafletWindFarmMapP
 
         {/* 220 kV export cable (animated via CSS) */}
         <Polyline
-          positions={exportCablePath}
+          positions={EXPORT_CABLE_PATH}
           pathOptions={{
             color: SCADA_COLORS.VOLTAGE_220KV,
             weight: 4,
@@ -370,7 +399,7 @@ export default function LeafletWindFarmMap({ totalPowerMW }: LeafletWindFarmMapP
           }}
         />
         <Polyline
-          positions={exportCablePath}
+          positions={EXPORT_CABLE_PATH}
           pathOptions={{
             color: SCADA_COLORS.VOLTAGE_220KV,
             weight: 3,
@@ -378,12 +407,12 @@ export default function LeafletWindFarmMap({ totalPowerMW }: LeafletWindFarmMapP
             dashArray: "8 12",
             className: "leaflet-export-cable-animated",
           }}
-          eventHandlers={{ click: () => setActivePanel("cable") }}
+          eventHandlers={cableHandlers}
         />
 
         {/* PSE grid connection line */}
         <Polyline
-          positions={pseGridPath}
+          positions={PSE_GRID_PATH}
           pathOptions={{
             color: SCADA_COLORS.VOLTAGE_400KV,
             weight: 3,
@@ -395,14 +424,14 @@ export default function LeafletWindFarmMap({ totalPowerMW }: LeafletWindFarmMapP
         <Marker
           position={[OSS_GEO.lat, OSS_GEO.lon]}
           icon={ossIcon}
-          eventHandlers={{ click: () => setActivePanel("oss") }}
+          eventHandlers={ossHandlers}
         />
 
         {/* Onshore Substation marker */}
         <Marker
           position={[ONSHORE_GEO.lat, ONSHORE_GEO.lon]}
           icon={onshoreIcon}
-          eventHandlers={{ click: () => setActivePanel("onshore") }}
+          eventHandlers={onshoreHandlers}
         />
 
         {/* Turbine markers */}
@@ -412,9 +441,10 @@ export default function LeafletWindFarmMap({ totalPowerMW }: LeafletWindFarmMapP
             turbineId={pos.id}
             lat={pos.lat}
             lon={pos.lon}
+            isSelected={selectedTurbineId === pos.id}
             onHover={handleTurbineHover}
             onLeave={handleTurbineLeave}
-            onClick={handleTurbineClick}
+            onClick={onTurbineClick}
           />
         ))}
       </MapContainer>
@@ -425,55 +455,10 @@ export default function LeafletWindFarmMap({ totalPowerMW }: LeafletWindFarmMapP
       {/* Legend overlay */}
       <MapLegend />
 
-      {/* Equipment detail panels */}
-      {activePanel === "oss" && ossTx && (
-        <TransformerDetailPanel
-          transformer={ossTx}
-          onClose={() => setActivePanel(null)}
-          onNavigate={() => navigate("/scada")}
-          navLabel="Open SCADA Dashboard"
-        />
-      )}
-      {activePanel === "onshore" && onsTx && (
-        <TransformerDetailPanel
-          transformer={onsTx}
-          onClose={() => setActivePanel(null)}
-          onNavigate={() => navigate("/hv-grid")}
-          navLabel="Open HV Grid Dashboard"
-        />
-      )}
-      {activePanel === "cable" && cable && (
-        <CableDetailPanel
-          cable={cable}
-          onClose={() => setActivePanel(null)}
-          onNavigate={() => navigate("/hv-grid")}
-        />
-      )}
-      {activePanel === "turbine" && selectedTurbineId && (
-        <ConnectedTurbineDetailPanel
-          turbineId={selectedTurbineId}
-          onClose={() => {
-            setActivePanel(null);
-            setSelectedTurbineId(null);
-          }}
-        />
-      )}
-
       {/* Alarm ticker */}
       <AlarmTicker />
     </div>
   );
 }
 
-/** Detail panel reads live data from store by turbine ID. */
-function ConnectedTurbineDetailPanel({
-  turbineId,
-  onClose,
-}: {
-  turbineId: string;
-  onClose: () => void;
-}) {
-  const turbine = useLandingStore(selectTurbine(turbineId));
-  if (!turbine) return null;
-  return <TurbineDetailPanel turbine={turbine} onClose={onClose} />;
-}
+export default memo(LeafletWindFarmMapInner);

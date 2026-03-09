@@ -28,7 +28,7 @@
     "d3-zoom": "^3.0.0",
     "framer-motion": "^12.35.1",
     "leaflet": "^1.9.4",
-    "lucide-react": "^0.576.0",
+    "lucide-react": "^0.577.0",
     "plotly.js-dist-min": "^3.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

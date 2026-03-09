@@ -17,6 +17,7 @@ import { TURBINE_POSITIONS } from "../constants/windFarmLayout";
 import { useFaultBus } from "./faultBus";
 import type {
   CableData,
+  EnvironmentData,
   FarmKPI,
   TransformerData,
   TurbineData,
@@ -81,6 +82,73 @@ function computePower(windMs: number, status: TurbineStatus): number {
   const raw = ratio * ratio * ratio * RATED_POWER_MW;
   const capped = clamp(raw, 0, RATED_POWER_MW);
   return status === "curtailed" ? capped * 0.6 : capped;
+}
+
+// ── Beaufort scale lookup ─────────────────────────────────────
+
+const BEAUFORT: { max: number; desc: string }[] = [
+  { max: 0.2, desc: "Calm" },
+  { max: 1.5, desc: "Light air" },
+  { max: 3.3, desc: "Light breeze" },
+  { max: 5.4, desc: "Gentle breeze" },
+  { max: 7.9, desc: "Moderate breeze" },
+  { max: 10.7, desc: "Fresh breeze" },
+  { max: 13.8, desc: "Strong breeze" },
+  { max: 17.1, desc: "Near gale" },
+  { max: 20.7, desc: "Gale" },
+  { max: 24.4, desc: "Strong gale" },
+  { max: 28.4, desc: "Storm" },
+  { max: 32.6, desc: "Violent storm" },
+  { max: Infinity, desc: "Hurricane" },
+];
+
+/** Compute environment / sea state from wind speed + elapsed sim time. */
+function computeEnvironment(windMs: number, elapsedS: number): EnvironmentData {
+  // Beaufort scale
+  const bIdx = BEAUFORT.findIndex((b) => windMs <= b.max);
+  const beaufortScale = bIdx >= 0 ? bIdx : 12;
+  const beaufortDesc = BEAUFORT[beaufortScale].desc;
+
+  // Pierson-Moskowitz simplified: Hs ≈ 0.024 × U²
+  const significantWaveHeightM = round1(0.024 * windMs * windMs);
+  // Peak period: Tp ≈ 5.6 × √Hs
+  const wavePeriodS = round1(5.6 * Math.sqrt(Math.max(significantWaveHeightM, 0.1)));
+
+  // Compressed day cycle — 24 h in ~5 min (300 s)
+  const simulatedHour = ((elapsedS / 300) * 24) % 24;
+
+  // Air temp: 8–15 °C, peak at ~14:00
+  const airTemperatureC = round1(
+    11.5 + 3.5 * Math.sin(((simulatedHour - 6) / 12) * Math.PI),
+  );
+  // Baltic sea surface: ~9–11 °C, slow diurnal lag
+  const seaTemperatureC = round1(
+    10 + 1.0 * Math.sin(((simulatedHour - 15) / 12) * Math.PI),
+  );
+
+  // Visibility reduces with wind / spray
+  const visibilityKm = round1(clamp(22 - windMs * 0.9, 2, 25));
+
+  // Cloud cover: varies 20–80 %, noisier in afternoon
+  const cloudCoverPct = Math.round(
+    clamp(45 + 25 * Math.sin(((simulatedHour - 2) / 12) * Math.PI), 15, 95),
+  );
+
+  // Barometric pressure: slow sinusoidal drift around 1013 hPa
+  const pressureHpa = round1(1013 + 6 * Math.sin((elapsedS / 600) * Math.PI));
+
+  return {
+    beaufortScale,
+    beaufortDesc,
+    significantWaveHeightM,
+    wavePeriodS,
+    airTemperatureC,
+    seaTemperatureC,
+    visibilityKm,
+    cloudCoverPct,
+    pressureHpa,
+    simulatedHour,
+  };
 }
 
 // ── Initial Data ──────────────────────────────────────────────
@@ -215,6 +283,7 @@ interface LandingState {
   transformers: Record<string, TransformerData>;
   cable: CableData;
   kpis: FarmKPI;
+  environment: EnvironmentData;
 
   startSimulation: () => void;
   stopSimulation: () => void;
@@ -236,6 +305,7 @@ export const useLandingStore = create<LandingState>((set) => {
     transformers: createInitialTransformers(),
     cable: createInitialCable(),
     kpis: computeKPIs(initialMap),
+    environment: computeEnvironment(11.0, 0),
 
     setTurbineFault: (turbineId, faultType) =>
       set((state) => {
@@ -414,11 +484,15 @@ export const useLandingStore = create<LandingState>((set) => {
           // Cable thermal loading follows power
           const cableThermal = clamp((kpis.totalOutputMW / 510) * 85, 5, 100);
 
+          // Environment / sea state
+          const environment = computeEnvironment(_baseWindSpeed, elapsed);
+
           return {
             turbineMap: newMap,
             kpis,
             transformers: txs,
             cable: { ...state.cable, thermalLoadingPct: round1(cableThermal) },
+            environment,
           };
         });
       }, 3000);
@@ -445,6 +519,8 @@ export const selectTransformer = (id: string) => (state: LandingState) =>
   state.transformers[id];
 
 export const selectCable = (state: LandingState) => state.cable;
+
+export const selectEnvironment = (state: LandingState) => state.environment;
 
 // ── SLD-specific memoized selector ──────────────────────────────
 // Extracts only fields SubstationSLD actually reads (power, wind, status).

@@ -101,6 +101,22 @@ export interface FarmKPI {
   revenueTodayEUR: number;
 }
 
+// ── Environmental / Sea State ────────────────────────────────────
+
+export interface EnvironmentData {
+  beaufortScale: number;
+  beaufortDesc: string;
+  significantWaveHeightM: number;
+  wavePeriodS: number;
+  airTemperatureC: number;
+  seaTemperatureC: number;
+  visibilityKm: number;
+  cloudCoverPct: number;
+  pressureHpa: number;
+  /** Simulated hour of day (0–23.99) for day/night tint */
+  simulatedHour: number;
+}
+
 // ── Offshore Substation ─────────────────────────────────────────
 
 export interface OSSData {

@@ -106,13 +106,28 @@ body {
   border: none !important;
 }
 
+/* Turbine label visibility toggle (controlled by LayerControlPanel) */
+.hide-turbine-labels .leaflet-turbine-marker text {
+  display: none;
+}
+
+/* Turbine nacelle yaw — rotates only nacelle+blades, tower stays static */
+.leaflet-turbine-marker .nacelle-group {
+  transform: rotate(var(--wind-yaw, 0deg));
+  transition: transform 1s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .leaflet-turbine-marker .nacelle-group { transition: none; }
+}
+
 /* Turbine marker hover & selected effects */
+/* Uses separate `scale` property to avoid conflicting with tower-sway `transform` */
 .leaflet-turbine-marker {
   cursor: pointer;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  transition: scale 0.15s ease, filter 0.15s ease;
 }
 .leaflet-turbine-marker:hover {
-  transform: scale(1.25);
+  scale: 1.25;
   filter: brightness(1.3);
   z-index: 1000 !important;
 }
@@ -151,6 +166,101 @@ body {
 .leaflet-control-zoom a:hover {
   background-color: #2d3348 !important;
   color: #e8eaf0 !important;
+}
+
+/* Wake loss badge — remove default Leaflet icon styling */
+.leaflet-wake-loss-badge {
+  background: none !important;
+  border: none !important;
+}
+
+/* Turbine power badge (zoom ≥ 13) — remove default icon styling */
+.leaflet-turbine-power-badge {
+  background: none !important;
+  border: none !important;
+  pointer-events: none !important;
+}
+.leaflet-turbine-power-badge span {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  background: rgba(15, 17, 23, 0.75);
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.leaflet-turbine-power-badge small {
+  font-size: 7px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* Pitch arc indicator (zoom ≥ 14) — remove default icon styling */
+.leaflet-turbine-pitch-arc {
+  background: none !important;
+  border: none !important;
+  pointer-events: none !important;
+}
+
+/* Tower sway animation at high zoom — subtle wind-driven oscillation */
+.high-zoom-detail .leaflet-turbine-marker:not(:hover):not(.turbine-selected) {
+  animation: tower-sway 4s ease-in-out infinite;
+}
+@keyframes tower-sway {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(0.7px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .high-zoom-detail .leaflet-turbine-marker { animation: none !important; }
+}
+
+/* Bathymetry label tooltip — remove default Leaflet tooltip chrome */
+.leaflet-bathy-label,
+.leaflet-bathy-label .leaflet-tooltip-content-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.leaflet-bathy-label::before {
+  display: none !important;
+}
+
+/* ── Ocean Wave Animations ─────────────────────────────────────── */
+
+/* Primary swell — large, slow (94px period, 15s cycle) */
+.ocean-wave-swell {
+  animation: ocean-swell 15s linear infinite;
+}
+@keyframes ocean-swell {
+  from { transform: translateY(0); }
+  to { transform: translateY(-94px); }
+}
+
+/* Secondary wind-sea — medium (58px period, 10s cycle) */
+.ocean-wave-sea {
+  animation: ocean-sea 10s linear infinite;
+}
+@keyframes ocean-sea {
+  from { transform: translateY(0); }
+  to { transform: translateY(-58px); }
+}
+
+/* Cross-ripples — small, fast (32px period, 6s cycle) */
+.ocean-wave-ripple {
+  animation: ocean-ripple 6s linear infinite;
+}
+@keyframes ocean-ripple {
+  from { transform: translateY(0); }
+  to { transform: translateY(-32px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ocean-wave-swell,
+  .ocean-wave-sea,
+  .ocean-wave-ripple {
+    animation: none;
+  }
 }
 
 /* Trap Leaflet internal z-indexes so detail panels (z-[1100]) render above */

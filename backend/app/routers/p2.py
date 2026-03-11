@@ -7,6 +7,7 @@ Provides REST endpoints for:
 - STATCOM reactive power compensation sizing
 - Fault ride-through simulation (ANDES TDS)
 - GFL vs GFM converter comparison
+- Power Plant Controller (PPC) simulation and status
 - Network specification constants
 
 All endpoints follow the convention: /api/v1/grid/{resource}
@@ -18,10 +19,12 @@ of the 510 MW offshore wind farm network (34 × V236-15.0 MW,
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.core.cache import cached
+from app.core.exceptions import DomainError
+from app.core.exceptions import ValidationError as DomainValidationError
 from app.schemas.grid import (
     ConverterComparisonResponse,
     DynamicComplianceResponse,
@@ -35,6 +38,14 @@ from app.schemas.grid import (
     SSOScreeningResponse,
     STATCOMSizingResult,
 )
+from app.schemas.ppc import (
+    ActivePowerMode,
+    PPCSimulationRequest,
+    PPCSimulationResponse,
+    PPCStatusResponse,
+    ReactivePowerMode,
+    TSOSetpoint,
+)
 from app.services.p2.converter_comparison import get_comparison_response
 from app.services.p2.dynamic_compliance import run_full_compliance_assessment
 from app.services.p2.frequency_response import run_frequency_response
@@ -43,10 +54,12 @@ from app.services.p2.load_flow import run_all_scenarios, run_load_flow
 from app.services.p2.network_model import (
     EXPORT_CABLE_LENGTH_KM,
     GRID_SSC_MVA,
+    NUM_TURBINES,
     STATCOM_RATING_MVAR,
     STRING_LAYOUT,
     TOTAL_CAPACITY_MW,
 )
+from app.services.p2.power_plant_controller import get_ppc_status, run_ppc_simulation
 from app.services.p2.short_circuit import calc_short_circuit
 from app.services.p2.sso_analysis import run_sso_screening
 from app.services.p2.statcom_sizing import validate_compensation
@@ -161,11 +174,10 @@ async def load_flow_scenario(scenario: LoadFlowScenario) -> LoadFlowResponse:
     try:
         result_dict = await _cached_load_flow(scenario.value)
         return LoadFlowResponse(**result_dict)
+    except DomainError:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Load flow analysis failed: {e}",
-        ) from e
+        raise DomainError(f"Load flow analysis failed: {e}") from e
 
 
 @router.get("/load-flow-all", response_model=list[LoadFlowResponse])
@@ -176,11 +188,10 @@ async def load_flow_all_scenarios() -> list[LoadFlowResponse]:
     """
     try:
         return run_all_scenarios(auto_dispatch=True)
+    except DomainError:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Load flow analysis failed: {e}",
-        ) from e
+        raise DomainError(f"Load flow analysis failed: {e}") from e
 
 
 @router.get("/short-circuit/{case}", response_model=ShortCircuitResponse)
@@ -191,17 +202,13 @@ async def short_circuit(case: str) -> ShortCircuitResponse:
     sensitivity. Returns Ik'', ip, Sk'' per bus with breaker adequacy check.
     """
     if case not in ("max", "min"):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid case: '{case}'. Must be 'max' or 'min'.",
-        )
+        raise DomainValidationError(f"Invalid case: '{case}'. Must be 'max' or 'min'.")
     try:
         return calc_short_circuit(case=case)
+    except DomainError:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Short-circuit calculation failed: {e}",
-        ) from e
+        raise DomainError(f"Short-circuit calculation failed: {e}") from e
 
 
 @router.get("/statcom-sizing", response_model=STATCOMSizingResult)
@@ -214,11 +221,10 @@ async def statcom_sizing() -> STATCOMSizingResult:
     """
     try:
         return validate_compensation()
+    except DomainError:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"STATCOM sizing failed: {e}",
-        ) from e
+        raise DomainError(f"STATCOM sizing failed: {e}") from e
 
 
 @router.post("/frt/{frt_type}", response_model=FRTSimulationResponse)
@@ -241,11 +247,10 @@ async def frt_simulation(
             fault_duration_s=request.fault_duration_s,
             generation_fraction=request.generation_fraction,
         )
+    except DomainError:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"FRT simulation failed: {e}",
-        ) from e
+        raise DomainError(f"FRT simulation failed: {e}") from e
 
 
 @router.get(
@@ -263,17 +268,15 @@ async def converter_comparison(scenario: str) -> ConverterComparisonResponse:
     elif scenario == "weak_grid":
         grid_ssc = 2_000.0
     else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid scenario: '{scenario}'. Must be 'strong_grid' or 'weak_grid'.",
+        raise DomainValidationError(
+            f"Invalid scenario: '{scenario}'. Must be 'strong_grid' or 'weak_grid'."
         )
     try:
         return get_comparison_response(scenario=scenario, grid_ssc_mva=grid_ssc)
+    except DomainError:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Converter comparison failed: {e}",
-        ) from e
+        raise DomainError(f"Converter comparison failed: {e}") from e
 
 
 # ── Dynamic Compliance (P2B) ────────────────────────────────────
@@ -294,11 +297,10 @@ async def dynamic_compliance(
             grid_ssc_mva=request.grid_ssc_mva,
             generation_fraction=request.generation_fraction,
         )
+    except DomainError:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Dynamic compliance assessment failed: {e}",
-        ) from e
+        raise DomainError(f"Dynamic compliance assessment failed: {e}") from e
 
 
 @router.post("/frequency-response", response_model=FrequencyResponseResponse)
@@ -317,11 +319,10 @@ async def frequency_response(
             droop_pct=request.droop_pct,
             generation_fraction=request.generation_fraction,
         )
+    except DomainError:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Frequency response simulation failed: {e}",
-        ) from e
+        raise DomainError(f"Frequency response simulation failed: {e}") from e
 
 
 @router.post("/sso-analysis", response_model=SSOScreeningResponse)
@@ -339,11 +340,10 @@ async def sso_analysis(
             grid_ssc_mva=request.grid_ssc_mva,
             generation_fraction=request.generation_fraction,
         )
+    except DomainError:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"SSO analysis failed: {e}",
-        ) from e
+        raise DomainError(f"SSO analysis failed: {e}") from e
 
 
 @router.get("/andes-network", response_model=NetworkSpecResponse)
@@ -365,3 +365,87 @@ async def get_andes_network() -> NetworkSpecResponse:
         grid_ssc_mva=GRID_SSC_MVA,
         statcom_rating_mvar=STATCOM_RATING_MVAR,
     )
+
+
+# ── Power Plant Controller (PPC) ─────────────────────────────────
+
+
+class PPCStatusRequest(BaseModel):
+    """Request parameters for PPC status snapshot."""
+
+    wind_speed_ms: float = Field(12.5, ge=0.0, le=50.0, description="Hub-height wind speed [m/s]")
+    available_turbines: int = Field(
+        NUM_TURBINES, ge=0, le=NUM_TURBINES, description="Number of online turbines"
+    )
+    active_power_mode: ActivePowerMode = Field(
+        ActivePowerMode.POWER_REFERENCE, description="Active power control mode"
+    )
+    reactive_power_mode: ReactivePowerMode = Field(
+        ReactivePowerMode.VOLTAGE_CONTROL, description="Reactive power control mode"
+    )
+    frequency_hz: float = Field(50.0, ge=45.0, le=55.0, description="System frequency [Hz]")
+    tso_setpoint: TSOSetpoint = Field(
+        default_factory=TSOSetpoint, description="TSO dispatch command"
+    )
+
+
+@router.get("/ppc/status", response_model=PPCStatusResponse)
+async def ppc_status_default() -> PPCStatusResponse:
+    """Get PPC status at default operating conditions.
+
+    Returns a real-time snapshot of the PPC state at rated wind (12.5 m/s),
+    all 34 turbines online, nominal frequency (50 Hz).
+    """
+    try:
+        return get_ppc_status()
+    except DomainError:
+        raise
+    except Exception as e:
+        raise DomainError(f"PPC status query failed: {e}") from e
+
+
+@router.post("/ppc/status", response_model=PPCStatusResponse)
+async def ppc_status(request: PPCStatusRequest) -> PPCStatusResponse:
+    """Get PPC status at specified operating conditions.
+
+    Returns a real-time snapshot of the PPC state for the given wind speed,
+    turbine availability, control modes, and TSO setpoint. This represents
+    what the SCADA HMI would display in real-time.
+    """
+    try:
+        return get_ppc_status(
+            wind_speed_ms=request.wind_speed_ms,
+            available_turbines=request.available_turbines,
+            tso_setpoint=request.tso_setpoint,
+            active_power_mode=request.active_power_mode,
+            reactive_power_mode=request.reactive_power_mode,
+            frequency_hz=request.frequency_hz,
+        )
+    except DomainError:
+        raise
+    except Exception as e:
+        raise DomainError(f"PPC status query failed: {e}") from e
+
+
+@router.post("/ppc/simulate", response_model=PPCSimulationResponse)
+async def ppc_simulate(request: PPCSimulationRequest) -> PPCSimulationResponse:
+    """Run a PPC control simulation over a time window.
+
+    Simulates the full PPC control loop: TSO dispatch → ramp rate limiter →
+    pro-rata WTG dispatch → voltage/reactive power control → compliance check.
+
+    The simulation models:
+    - Active power ramp rate limiting (PSE IRiESP: 10% Pn/min up, 20% Pn/min down)
+    - Pro-rata power dispatch to 34 WTGs
+    - Voltage PI control, direct Q, power factor, or Q(V) droop mode
+    - STATCOM / WTG reactive power coordination
+    - Frequency response integration (LFSM-O/U/FSM)
+    - Emergency stop (2% Pn/s = 10.2 MW/s)
+    - PSE compliance verdicts (setpoint accuracy ±5%, ramp rates, voltage 0.95-1.05 pu)
+    """
+    try:
+        return run_ppc_simulation(request)
+    except DomainError:
+        raise
+    except Exception as e:
+        raise DomainError(f"PPC simulation failed: {e}") from e

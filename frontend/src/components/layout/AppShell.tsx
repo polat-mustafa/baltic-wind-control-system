@@ -155,7 +155,7 @@ export default function AppShell() {
       {/* ── Main Layout: Sidebar + Content ── */}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-auto p-5">
+        <main className="flex-1 overflow-auto p-3">
           <Outlet />
         </main>
       </div>

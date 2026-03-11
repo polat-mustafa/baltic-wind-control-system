@@ -7,6 +7,11 @@ All ORM models are imported here for Alembic auto-detection.
 from app.models.commissioning import CommissioningEvent, SwitchingProgrammeRecord
 from app.models.forecast import ForecastResult
 from app.models.grid import GridNetwork, LoadFlowResult, ShortCircuitResult
+from app.models.programme import (
+    FATCampaignModel,
+    ProtectionGradingModel,
+    SwitchingProgrammeModel,
+)
 from app.models.ptw import PermitToWork, PTWTransitionLog
 from app.models.scada import (
     GOOSEControlBlockRecord,
@@ -20,6 +25,7 @@ from app.models.wind_resource import WindResource
 __all__ = [
     "AEPResult",
     "CommissioningEvent",
+    "FATCampaignModel",
     "ForecastResult",
     "GOOSEControlBlockRecord",
     "GridNetwork",
@@ -29,8 +35,10 @@ __all__ = [
     "PTWTransitionLog",
     "PerTurbineAEP",
     "PermitToWork",
+    "ProtectionGradingModel",
     "SCLFile",
     "ShortCircuitResult",
+    "SwitchingProgrammeModel",
     "SwitchingProgrammeRecord",
     "TurbinePosition",
     "WindFarm",

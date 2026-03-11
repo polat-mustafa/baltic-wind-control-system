@@ -19,16 +19,19 @@ from sqlalchemy import text
 from app.config import settings
 from app.core.cache import close_redis, init_redis, redis_ping
 from app.core.exceptions import register_exception_handlers
+from app.core.logging import configure_logging
 from app.core.middleware import RequestLoggingMiddleware
-from app.db import async_session_factory, engine
-from app.routers.digital_twin import router as digital_twin_router
-from app.routers.p1 import router as p1_router
-from app.routers.p2 import router as p2_router
-from app.routers.p3 import router as p3_router
-from app.routers.p4 import router as p4_router
-from app.routers.p5 import router as p5_router
-from app.routers.turbine_physics import router as turbine_physics_router
-from app.seed import seed_default_farm
+
+configure_logging(debug=settings.debug)
+from app.db import async_session_factory, engine  # noqa: E402
+from app.routers.digital_twin import router as digital_twin_router  # noqa: E402
+from app.routers.p1 import router as p1_router  # noqa: E402
+from app.routers.p2 import router as p2_router  # noqa: E402
+from app.routers.p3 import router as p3_router  # noqa: E402
+from app.routers.p4 import router as p4_router  # noqa: E402
+from app.routers.p5 import router as p5_router  # noqa: E402
+from app.routers.turbine_physics import router as turbine_physics_router  # noqa: E402
+from app.seed import seed_default_farm  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

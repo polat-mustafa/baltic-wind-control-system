@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import get_session
 from app.schemas.commissioning import (
     GradingPairSchema,
     GradingResultSchema,
     ProtectionCoordinationSchema,
     RelaySettingSchema,
 )
-from app.services.p5.programme_store import protection_results
+from app.services.p5.programme_repository import ProgrammeRepository
 from app.services.p5.protection_relay import (
     GRADING_PAIRS,
     SelectivityVerdict,
@@ -43,13 +45,16 @@ async def get_protection_settings() -> list[RelaySettingSchema]:
     "/protection/verify-selectivity",
     response_model=ProtectionCoordinationSchema,
 )
-async def verify_selectivity_endpoint() -> ProtectionCoordinationSchema:
+async def verify_selectivity_endpoint(
+    session: AsyncSession = Depends(get_session),
+) -> ProtectionCoordinationSchema:
     """Run protection coordination check across all grading pairs."""
+    repo = ProgrammeRepository(session)
     settings = get_relay_settings()
     results = verify_selectivity()
 
-    protection_results.clear()
-    protection_results.extend(results)
+    await repo.save_protection_results(results)
+    await session.commit()
 
     all_selective = all(r.verdict == SelectivityVerdict.SELECTIVE for r in results)
 

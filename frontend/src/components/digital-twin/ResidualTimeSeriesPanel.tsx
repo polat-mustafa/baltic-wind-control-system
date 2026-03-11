@@ -70,7 +70,7 @@ export default function ResidualTimeSeriesPanel() {
             gridcolor: "rgba(148,163,184,0.1)",
             zeroline: false,
           },
-          height: 250,
+          height: 380,
         }}
         config={{ responsive: true, displayModeBar: false }}
         className="w-full"

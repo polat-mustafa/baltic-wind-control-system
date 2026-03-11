@@ -1,10 +1,8 @@
 /**
  * DigitalTwinPage — route /digital-twin.
  *
- * Loads config + scenarios on mount. Shows scenario selector sidebar
- * with controls, and DigitalTwinDashboard once analysis completes.
- *
- * Follows the TurbinePhysicsPage pattern: 2/3 dashboard + 1/3 controls.
+ * Loads config + scenarios on mount. Controls live in a slide-out drawer.
+ * DigitalTwinDashboard renders at full width once analysis completes.
  */
 
 import { useEffect } from "react";
@@ -13,7 +11,10 @@ import { Cpu } from "lucide-react";
 import DigitalTwinDashboard from "../components/digital-twin/DigitalTwinDashboard";
 import { useDigitalTwinStore } from "../store/digitalTwinStore";
 import { Button } from "../components/ui/Button";
+import { TrainingGuide } from "../components/ui/TrainingGuide";
+import { ControlDrawer } from "../components/ui/ControlDrawer";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
+import { digitalTwinGuide } from "../constants/trainingGuideContent";
 
 const SCENARIO_LABELS: Record<string, string> = {
   healthy: "Healthy Baseline",
@@ -50,15 +51,153 @@ export default function DigitalTwinPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold text-text-primary">
-          Digital Twin
-        </h2>
-        <p className="text-xs text-text-muted mt-1 font-mono">
-          {config
-            ? `ISO 13374-1 Condition Monitoring | EWMA span=${config.ewma_span} | Weights: P=${config.health_weights.power} R=${config.health_weights.rpm} Pi=${config.health_weights.pitch}`
-            : "Loading configuration..."}
-        </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-text-primary">
+            Digital Twin
+          </h2>
+          <p className="text-xs text-text-muted mt-1 font-mono">
+            {config
+              ? `ISO 13374-1 Condition Monitoring | EWMA span=${config.ewma_span} | Weights: P=${config.health_weights.power} R=${config.health_weights.rpm} Pi=${config.health_weights.pitch}`
+              : "Loading configuration..."}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            onClick={runAnalysis}
+            disabled={loading}
+            size="sm"
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Analyzing...
+              </span>
+            ) : analysisRun ? (
+              "Re-run"
+            ) : (
+              "Run Analysis"
+            )}
+          </Button>
+          <ControlDrawer
+            title="Digital Twin Controls"
+            subtitle="Fault scenario & analysis settings"
+            footer={
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="font-medium text-text-secondary">Digital Twin</span>
+                  <span className="text-text-muted">
+                    {" "}— Virtual replica predicting expected behavior from physics
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium text-text-secondary">Residual</span>
+                  <span className="text-text-muted">
+                    {" "}— Actual minus predicted. Persistent deviation = fault
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium text-text-secondary">EWMA</span>
+                  <span className="text-text-muted">
+                    {" "}— Exponentially Weighted Moving Average (span=24, ~4 hours)
+                  </span>
+                </div>
+              </div>
+            }
+          >
+            {/* Scenario selector */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Fault Scenario</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <select
+                  value={selectedScenario}
+                  onChange={(e) => setSelectedScenario(e.target.value)}
+                  className="w-full bg-bg-tertiary border border-border-secondary rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                >
+                  {Object.entries(SCENARIO_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-text-muted mt-2">
+                  {selectedScenario === "healthy" && "No faults — all turbines operate normally."}
+                  {selectedScenario === "blade_icing" && "WTG-05 to WTG-08: 20-40% power loss from ice."}
+                  {selectedScenario === "gearbox_degradation" && "WTG-12: progressive 5% efficiency loss."}
+                  {selectedScenario === "pitch_malfunction" && "WTG-20: pitch stuck at 5 degrees."}
+                  {selectedScenario === "generator_derating" && "WTG-28: generator capped at 12 MW."}
+                  {selectedScenario === "sensor_drift" && "WTG-15: anemometer reads 8% high."}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Analysis settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Analysis Settings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <NumberInput
+                    label="Timesteps"
+                    unit="× 10min"
+                    value={numTimesteps}
+                    onChange={setNumTimesteps}
+                    min={24}
+                    max={1000}
+                    step={24}
+                  />
+                  <NumberInput
+                    label="Turbines"
+                    unit="WTGs"
+                    value={numTurbines}
+                    onChange={setNumTurbines}
+                    min={5}
+                    max={34}
+                    step={1}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Run Analysis button */}
+            <Button
+              onClick={runAnalysis}
+              disabled={loading}
+              className="w-full py-3"
+              size="lg"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Analyzing...
+                </span>
+              ) : analysisRun ? (
+                "Re-run Analysis"
+              ) : (
+                "Run Analysis"
+              )}
+            </Button>
+
+            {/* Progress bar */}
+            {loading && (
+              <div className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2">
+                <div className="w-full h-2 bg-bg-tertiary rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-text-muted text-center font-mono">
+                  {progressMessage || "Initializing..."}
+                </p>
+              </div>
+            )}
+          </ControlDrawer>
+          <TrainingGuide guide={digitalTwinGuide} />
+        </div>
       </div>
 
       {/* Error banner */}
@@ -71,180 +210,42 @@ export default function DigitalTwinPage() {
         </div>
       )}
 
-      {/* Main grid: charts on left, controls on right */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Left: Dashboard (2/3 width) */}
-        <div className="xl:col-span-2">
-          {analysisRun ? (
-            <DigitalTwinDashboard />
-          ) : (
-            <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
-              <div className="text-center">
-                <div className="flex justify-center mb-4">
-                  <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                    <Cpu size={24} className="text-accent" />
-                  </div>
-                </div>
-                <p className="text-text-secondary text-base mb-2">
-                  Select a scenario and run analysis
-                </p>
-                <p className="text-text-muted text-sm">
-                  The digital twin compares physics predictions against
-                  SCADA data to detect anomalies
-                </p>
+      {/* Progress bar (visible inline when loading) */}
+      {loading && (
+        <div className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2">
+          <div className="w-full h-2 bg-bg-tertiary rounded-full overflow-hidden">
+            <div
+              className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-xs text-text-muted text-center font-mono">
+            {progressMessage || "Initializing..."}
+          </p>
+        </div>
+      )}
+
+      {/* Full-width dashboard */}
+      {analysisRun ? (
+        <DigitalTwinDashboard />
+      ) : (
+        <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
+          <div className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
+                <Cpu size={24} className="text-accent" />
               </div>
             </div>
-          )}
+            <p className="text-text-secondary text-base mb-2">
+              Select a scenario and run analysis
+            </p>
+            <p className="text-text-muted text-sm">
+              The digital twin compares physics predictions against
+              SCADA data to detect anomalies
+            </p>
+          </div>
         </div>
-
-        {/* Right: Controls (1/3 width) */}
-        <div className="space-y-4">
-          {/* Scenario selector */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Fault Scenario</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <select
-                value={selectedScenario}
-                onChange={(e) => setSelectedScenario(e.target.value)}
-                className="w-full bg-bg-tertiary border border-border-secondary rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-              >
-                {Object.entries(SCENARIO_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[10px] text-text-muted mt-2">
-                {selectedScenario === "healthy" && "No faults — all turbines operate normally."}
-                {selectedScenario === "blade_icing" && "WTG-05 to WTG-08: 20-40% power loss from ice."}
-                {selectedScenario === "gearbox_degradation" && "WTG-12: progressive 5% efficiency loss."}
-                {selectedScenario === "pitch_malfunction" && "WTG-20: pitch stuck at 5 degrees."}
-                {selectedScenario === "generator_derating" && "WTG-28: generator capped at 12 MW."}
-                {selectedScenario === "sensor_drift" && "WTG-15: anemometer reads 8% high."}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Analysis settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Analysis Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <NumberInput
-                  label="Timesteps"
-                  unit="× 10min"
-                  value={numTimesteps}
-                  onChange={setNumTimesteps}
-                  min={24}
-                  max={1000}
-                  step={24}
-                />
-                <NumberInput
-                  label="Turbines"
-                  unit="WTGs"
-                  value={numTurbines}
-                  onChange={setNumTurbines}
-                  min={5}
-                  max={34}
-                  step={1}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Run Analysis button */}
-          <Button
-            onClick={runAnalysis}
-            disabled={loading}
-            className="w-full py-3"
-            size="lg"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Analyzing...
-              </span>
-            ) : analysisRun ? (
-              "Re-run Analysis"
-            ) : (
-              "Run Analysis"
-            )}
-          </Button>
-
-          {/* Progress bar */}
-          {loading && (
-            <div className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2">
-              <div className="w-full h-2 bg-bg-tertiary rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <p className="text-xs text-text-muted text-center font-mono">
-                {progressMessage || "Initializing..."}
-              </p>
-            </div>
-          )}
-
-          {/* Quick Reference */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Reference</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="font-medium text-text-secondary">Digital Twin</span>
-                  <span className="text-text-muted">
-                    {" "}
-                    — Virtual replica predicting expected behavior from physics
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-text-secondary">Residual</span>
-                  <span className="text-text-muted">
-                    {" "}
-                    — Actual minus predicted. Persistent deviation = fault
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-text-secondary">EWMA</span>
-                  <span className="text-text-muted">
-                    {" "}
-                    — Exponentially Weighted Moving Average (span=24, ~4 hours)
-                  </span>
-                </div>
-                <hr className="border-border-primary" />
-                <div>
-                  <span className="font-medium text-text-secondary">Health Score</span>
-                  <span className="text-text-muted">
-                    {" "}
-                    — H = 100 x exp(-|EWMA| / sigma). Weighted: 50% power, 30% rpm, 20% pitch
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-text-secondary">ISO 13374-1</span>
-                  <span className="text-text-muted">
-                    {" "}
-                    — Condition monitoring standard: Data → Detection → Assessment → Prognosis
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-text-secondary">RUL</span>
-                  <span className="text-text-muted">
-                    {" "}
-                    — Remaining Useful Life = (health - threshold) / |slope|
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

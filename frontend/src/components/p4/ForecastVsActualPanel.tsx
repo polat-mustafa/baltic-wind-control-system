@@ -47,7 +47,7 @@ export default function ForecastVsActualPanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
+        <h3 className="text-base font-semibold text-text-primary">
           Ensemble Forecast — P10 / P50 / P90
         </h3>
         <InfoButton info={forecastVsActualInfo} />

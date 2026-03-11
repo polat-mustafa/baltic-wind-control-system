@@ -265,16 +265,18 @@ class FATCampaign:
 
 # ── Exceptions ────────────────────────────────────────────────────
 
+from app.core.exceptions import DomainError, NotFoundError, StateTransitionError  # noqa: E402
 
-class FATError(Exception):
+
+class FATError(DomainError):
     """Base exception for FAT operations."""
 
 
-class FATCampaignStateError(FATError):
+class FATCampaignStateError(StateTransitionError):
     """Campaign is in wrong state for the requested operation."""
 
 
-class FATTestNotFoundError(FATError):
+class FATTestNotFoundError(NotFoundError):
     """Test ID not found in campaign specs."""
 
 

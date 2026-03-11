@@ -28,7 +28,9 @@ import {
   useLandingStore,
 } from "../store/landingStore";
 import { InfoButton } from "../components/ui/InfoButton";
+import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { farmOverviewInfo } from "../constants/panelInfo";
+import { landingGuide } from "../constants/trainingGuideContent";
 import { cn } from "../lib/utils";
 
 // ── Connected detail panel wrappers ─────────────────────────────
@@ -219,8 +221,9 @@ export default function LandingPage() {
           <InfoButton info={farmOverviewInfo} />
         </div>
 
-        {/* Quick nav + Control Room Mode button */}
+        {/* Quick nav + Training Guide + Control Room Mode button */}
         <div className="flex items-center gap-1.5">
+          <TrainingGuide guide={landingGuide} />
           {QUICK_LINKS.map((link) => {
             const Icon = link.icon;
             return (

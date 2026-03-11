@@ -14,15 +14,15 @@ export const DARK_PLOTLY_LAYOUT: Record<string, any> = {
   font: {
     color: "#e8eaf0", // text-primary
     family: "'Inter', sans-serif",
-    size: 11,
+    size: 14,
   },
-  margin: { t: 40, r: 20, b: 50, l: 60 },
+  margin: { t: 44, r: 24, b: 56, l: 68 },
   xaxis: {
     gridcolor: "rgba(42, 48, 64, 0.8)", // border-primary
     zerolinecolor: "rgba(61, 69, 96, 0.6)", // border-secondary
     tickfont: {
       family: "'JetBrains Mono', monospace",
-      size: 10,
+      size: 12,
       color: "#9ba3b8", // text-secondary
     },
   },
@@ -31,14 +31,14 @@ export const DARK_PLOTLY_LAYOUT: Record<string, any> = {
     zerolinecolor: "rgba(61, 69, 96, 0.6)",
     tickfont: {
       family: "'JetBrains Mono', monospace",
-      size: 10,
+      size: 12,
       color: "#9ba3b8",
     },
   },
   legend: {
     font: {
       color: "#9ba3b8",
-      size: 10,
+      size: 12,
     },
     bgcolor: "transparent",
   },
@@ -47,7 +47,7 @@ export const DARK_PLOTLY_LAYOUT: Record<string, any> = {
     bordercolor: "#3d4560", // border-secondary
     font: {
       family: "'JetBrains Mono', monospace",
-      size: 11,
+      size: 13,
       color: "#e8eaf0",
     },
   },
@@ -61,4 +61,4 @@ export const PLOTLY_CONFIG: Record<string, any> = {
 };
 
 /** Dynamic chart height — responsive to viewport */
-export const CHART_HEIGHT = "max(350px, 28vh)";
+export const CHART_HEIGHT = "max(420px, 38vh)";

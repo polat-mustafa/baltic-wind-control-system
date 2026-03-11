@@ -3,7 +3,7 @@
  *
  * Manages simulated live data for 34 turbines, 2 transformers,
  * export cable, and farm KPIs. Uses setInterval to jitter values
- * every 3 seconds, creating a "live SCADA" feel without backend.
+ * every 5 seconds, creating a "live SCADA" feel without backend.
  *
  * Data is stored as Record<string, TurbineData> with a stable
  * turbineIds array. Each TurbineIcon subscribes individually
@@ -33,10 +33,10 @@ const RATED_ROTOR_RPM = 9.55;
 const CUT_IN_MS = 3.0;
 const CUT_OUT_MS = 31.0;
 
-// Ramp rate limits per tick (3s) — realistic 15 MW turbine can't jump instantly
-const MAX_POWER_RAMP_MW_PER_TICK = 2.0; // ≈0.67 MW/s
-const MAX_ROTOR_RAMP_RPM_PER_TICK = 1.0;
-const MAX_PITCH_RAMP_DEG_PER_TICK = 10.0;
+// Ramp rate limits per tick (5s) — realistic 15 MW turbine can't jump instantly
+const MAX_POWER_RAMP_MW_PER_TICK = 1.5; // ≈0.30 MW/s
+const MAX_ROTOR_RAMP_RPM_PER_TICK = 0.7;
+const MAX_PITCH_RAMP_DEG_PER_TICK = 7.0;
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -349,7 +349,7 @@ export const useLandingStore = create<LandingState>((set) => {
 
           // Update farm-level wind direction: sinusoidal drift ±30° around 225°, ~20s period + noise
           const elapsed = (Date.now() - _simStartTime) / 1000;
-          _windDirDeg = (225 + 30 * Math.sin(elapsed * (2 * Math.PI / 20)) + rand(-2, 2) + 360) % 360;
+          _windDirDeg = (225 + 30 * Math.sin(elapsed * (2 * Math.PI / 20)) + rand(-1, 1) + 360) % 360;
 
           // Update base wind speed: gradual ramp with ~12s period
           _baseWindSpeed = clamp(
@@ -363,7 +363,7 @@ export const useLandingStore = create<LandingState>((set) => {
             // Per-turbine wind varies based on position relative to wind direction (wake effect proxy)
             const pos = TURBINE_POSITIONS.find((p) => p.id === id);
             const posOffset = pos ? (pos.x * Math.cos(_windDirDeg * Math.PI / 180) + pos.y * Math.sin(_windDirDeg * Math.PI / 180)) / 800 : 0;
-            const turbineBaseWind = _baseWindSpeed + posOffset * 0.5 + rand(-0.3, 0.3);
+            const turbineBaseWind = _baseWindSpeed + posOffset * 0.5 + rand(-0.15, 0.15);
             const newWind = clamp(t.windSpeedMs * 0.5 + turbineBaseWind * 0.5, 5, 16);
 
             // Compute TARGET values from physics — then ramp-limit for realism
@@ -379,18 +379,18 @@ export const useLandingStore = create<LandingState>((set) => {
             // Nacelle yaw drifts slowly toward dynamic wind direction
             const yawTarget = _windDirDeg;
             const yawDelta = clamp((yawTarget - t.nacellePositionDeg) * 0.1, -2, 2);
-            const newYaw = (t.nacellePositionDeg + yawDelta + rand(-0.5, 0.5) + 360) % 360;
+            const newYaw = (t.nacellePositionDeg + yawDelta + rand(-0.25, 0.25) + 360) % 360;
 
             // Vibration jitters (higher during fault onset)
-            const baseVibr = t.status === "fault" ? rand(4, 8) : rand(0.5, 2.0);
+            const baseVibr = t.status === "fault" ? rand(4, 8) : rand(0.6, 1.6);
             const newVibr = clamp(t.vibrationMmS * 0.7 + baseVibr * 0.3, 0.3, 10);
 
             // Bearing temp follows load
             const targetTemp = 35 + (newPower / RATED_POWER_MW) * 20 + (t.status === "fault" ? 25 : 0);
             const newBearingTemp = t.bearingTempC * 0.9 + targetTemp * 0.1;
 
-            // Energy accumulates (~3s tick ≈ 0.000833 hr)
-            const newEnergy = t.energyTodayMWh + newPower * (3 / 3600);
+            // Energy accumulates (~5s tick ≈ 0.001389 hr)
+            const newEnergy = t.energyTodayMWh + newPower * (5 / 3600);
 
             // Round new values
             const rWind = round1(newWind);
@@ -495,7 +495,7 @@ export const useLandingStore = create<LandingState>((set) => {
             environment,
           };
         });
-      }, 3000);
+      }, 5000);
     },
 
     stopSimulation: () => {

@@ -225,20 +225,22 @@ class SATCampaign:
 
 # ── Exceptions ────────────────────────────────────────────────────
 
+from app.core.exceptions import DomainError, NotFoundError, StateTransitionError  # noqa: E402
 
-class SATError(Exception):
+
+class SATError(DomainError):
     """Base exception for SAT operations."""
 
 
-class SATCampaignStateError(SATError):
+class SATCampaignStateError(StateTransitionError):
     """Campaign is in wrong state for the requested operation."""
 
 
-class SATTestNotFoundError(SATError):
+class SATTestNotFoundError(NotFoundError):
     """Test ID not found in campaign specs."""
 
 
-class SATFATGateError(SATError):
+class SATFATGateError(StateTransitionError):
     """FAT campaign has not been approved — cannot create SAT."""
 
 

@@ -74,7 +74,7 @@ export default function RevenueImpactPanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
+        <h3 className="text-base font-semibold text-text-primary">
           Revenue Impact — 34 Turbines
         </h3>
         <div className="flex items-center gap-2">
@@ -149,7 +149,7 @@ export default function RevenueImpactPanel() {
             side: "right",
             position: 0.88,
             gridcolor: "rgba(148, 163, 184, 0.05)",
-            tickfont: { color: SPOT_COLOR, size: 9 },
+            tickfont: { color: SPOT_COLOR, size: 11 },
           },
           yaxis3: {
             title: { text: "Revenue [EUR]", font: { color: REVENUE_COLOR, size: 10 } },
@@ -157,7 +157,7 @@ export default function RevenueImpactPanel() {
             side: "right",
             position: 0.95,
             gridcolor: "rgba(148, 163, 184, 0.05)",
-            tickfont: { color: REVENUE_COLOR, size: 9 },
+            tickfont: { color: REVENUE_COLOR, size: 11 },
           },
           margin: { t: 40, r: 80, b: 50, l: 60 },
         }}

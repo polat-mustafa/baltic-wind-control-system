@@ -219,8 +219,10 @@ TRANSITION_MAP: dict[tuple[PermitStatus, PermitStatus], tuple[Permission, str]] 
 
 # ── Exceptions ────────────────────────────────────────────────────
 
+from app.core.exceptions import DomainError, StateTransitionError  # noqa: E402
 
-class InvalidStateTransitionError(Exception):
+
+class InvalidStateTransitionError(StateTransitionError):
     """Raised when a PtW state transition is not allowed.
 
     This means the requested (from_state → to_state) pair is not in the
@@ -229,7 +231,7 @@ class InvalidStateTransitionError(Exception):
     """
 
 
-class PermitExpiredError(Exception):
+class PermitExpiredError(DomainError):
     """Raised when a PtW has exceeded its 12-hour validity period.
 
     Expired permits cannot be transitioned — they must be extended or

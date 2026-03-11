@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import ValidationError as DomainValidationError
+from app.db import get_session
 from app.schemas.commissioning import (
     AuditRecordSchema,
     AuditTrailResponse,
@@ -20,12 +23,10 @@ from app.schemas.commissioning import (
     StepSchema,
 )
 from app.services.p5.equipment_state import get_equipment_definition
-from app.services.p5.programme_store import get_programme, programmes
+from app.services.p5.programme_repository import ProgrammeRepository
 from app.services.p5.switching_programme import (
     PiCDecisionRequiredError,
-    ProgrammeStateError,
     ProgrammeStatus,
-    StepExecutionError,
     SwitchingProgramme,
     SwitchingStep,
     approve_programme,
@@ -79,19 +80,8 @@ def _build_step_schema(step: SwitchingStep) -> StepSchema:
     )
 
 
-# ── Programme Endpoints ──────────────────────────────────────────
-
-
-@router.post("/programmes", response_model=ProgrammeSummarySchema, status_code=201)
-async def create_programme(request: CreateProgrammeRequest) -> ProgrammeSummarySchema:
-    """Create a new 30-step OSS first energisation switching programme.
-
-    The programme is created in CREATED state with all equipment in
-    their initial de-energised positions and LOTO set ready.
-    """
-    programme = create_oss_energisation_programme(request.pic_name)
-    programmes[programme.programme_id] = programme
-
+def _build_summary(programme: SwitchingProgramme) -> ProgrammeSummarySchema:
+    """Build a programme summary schema."""
     completed = sum(1 for s in programme.steps if s.status.value == "completed")
     return ProgrammeSummarySchema(
         programme_id=programme.programme_id,
@@ -105,39 +95,55 @@ async def create_programme(request: CreateProgrammeRequest) -> ProgrammeSummaryS
     )
 
 
+# ── Programme Endpoints ──────────────────────────────────────────
+
+
+@router.post("/programmes", response_model=ProgrammeSummarySchema, status_code=201)
+async def create_programme(
+    request: CreateProgrammeRequest,
+    session: AsyncSession = Depends(get_session),
+) -> ProgrammeSummarySchema:
+    """Create a new 30-step OSS first energisation switching programme.
+
+    The programme is created in CREATED state with all equipment in
+    their initial de-energised positions and LOTO set ready.
+    """
+    repo = ProgrammeRepository(session)
+    programme = create_oss_energisation_programme(request.pic_name)
+    await repo.save_programme(programme)
+    await session.commit()
+    return _build_summary(programme)
+
+
 @router.get("/programmes", response_model=list[ProgrammeSummarySchema])
-async def list_programmes() -> list[ProgrammeSummarySchema]:
+async def list_programmes(
+    session: AsyncSession = Depends(get_session),
+) -> list[ProgrammeSummarySchema]:
     """List all switching programmes."""
-    result = []
-    for prog in programmes.values():
-        completed = sum(1 for s in prog.steps if s.status.value == "completed")
-        result.append(
-            ProgrammeSummarySchema(
-                programme_id=prog.programme_id,
-                title=prog.title,
-                pic_name=prog.pic_name,
-                status=prog.status.value,
-                total_steps=len(prog.steps),
-                completed_steps=completed,
-                current_step_index=prog.current_step_index,
-                created_at=prog.created_at,
-            )
-        )
-    return result
+    repo = ProgrammeRepository(session)
+    all_progs = await repo.list_programmes()
+    return [_build_summary(p) for p in all_progs]
 
 
 @router.delete("/programmes/{programme_id}", status_code=204)
-async def delete_programme(programme_id: str) -> None:
+async def delete_programme(
+    programme_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> None:
     """Delete a switching programme."""
-    if programme_id not in programmes:
-        raise HTTPException(status_code=404, detail="Programme not found")
-    del programmes[programme_id]
+    repo = ProgrammeRepository(session)
+    await repo.delete_programme(programme_id)
+    await session.commit()
 
 
 @router.get("/programmes/{programme_id}", response_model=ProgrammeDetailSchema)
-async def get_programme_detail(programme_id: str) -> ProgrammeDetailSchema:
+async def get_programme_detail(
+    programme_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> ProgrammeDetailSchema:
     """Get detailed programme view including all steps and equipment states."""
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
     return ProgrammeDetailSchema(
         programme_id=programme.programme_id,
         title=programme.title,
@@ -151,31 +157,24 @@ async def get_programme_detail(programme_id: str) -> ProgrammeDetailSchema:
 
 
 @router.post("/programmes/{programme_id}/start", response_model=ProgrammeSummarySchema)
-async def start_programme_endpoint(programme_id: str) -> ProgrammeSummarySchema:
+async def start_programme_endpoint(
+    programme_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> ProgrammeSummarySchema:
     """Approve and start programme execution.
 
     Transitions: CREATED → APPROVED → IN_PROGRESS.
     """
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
 
-    try:
-        if programme.status == ProgrammeStatus.CREATED:
-            approve_programme(programme, programme.pic_name)
-        start_programme(programme)
-    except ProgrammeStateError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
+    if programme.status == ProgrammeStatus.CREATED:
+        approve_programme(programme, programme.pic_name)
+    start_programme(programme)
 
-    completed = sum(1 for s in programme.steps if s.status.value == "completed")
-    return ProgrammeSummarySchema(
-        programme_id=programme.programme_id,
-        title=programme.title,
-        pic_name=programme.pic_name,
-        status=programme.status.value,
-        total_steps=len(programme.steps),
-        completed_steps=completed,
-        current_step_index=programme.current_step_index,
-        created_at=programme.created_at,
-    )
+    await repo.save_programme(programme)
+    await session.commit()
+    return _build_summary(programme)
 
 
 # ── Step Execution ───────────────────────────────────────────────
@@ -189,13 +188,15 @@ async def execute_step_endpoint(
     programme_id: str,
     step_id: str,
     request: ExecuteStepRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> ExecuteStepResponse:
     """Execute a single step in the switching programme.
 
     Steps must be executed in order. Hold points will transition the
     programme to HOLD state (use PiC decision endpoint to proceed).
     """
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
 
     try:
         step = execute_step(
@@ -204,6 +205,8 @@ async def execute_step_endpoint(
             request.executed_by,
             request.pic_confirmed,
         )
+        await repo.save_programme(programme)
+        await session.commit()
         return ExecuteStepResponse(
             success=True,
             step_id=step.step_id,
@@ -212,6 +215,8 @@ async def execute_step_endpoint(
             programme_status=programme.status.value,
         )
     except PiCDecisionRequiredError:
+        await repo.save_programme(programme)
+        await session.commit()
         return ExecuteStepResponse(
             success=False,
             step_id=step_id,
@@ -219,10 +224,6 @@ async def execute_step_endpoint(
             message=f"Hold point at {step_id}. Programme on HOLD — PiC decision required.",
             programme_status=programme.status.value,
         )
-    except ProgrammeStateError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except StepExecutionError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 # ── PiC Decision ─────────────────────────────────────────────────
@@ -235,38 +236,36 @@ async def execute_step_endpoint(
 async def pic_decision_endpoint(
     programme_id: str,
     request: PiCDecisionRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> PiCDecisionResponse:
     """PiC GO/NO-GO decision at a hold point.
 
     GO: Resumes programme execution.
     NO-GO: Aborts the programme (reason required).
     """
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
 
-    try:
-        if request.decision == "go":
-            pic_go_decision(programme, request.pic_name, request.reason)
-            return PiCDecisionResponse(
-                decision="go",
-                programme_status=programme.status.value,
-                message="PiC GO — programme resumed.",
-            )
-        else:
-            if not request.reason:
-                raise HTTPException(
-                    status_code=422,
-                    detail="NO-GO decision requires a reason.",
-                )
-            pic_nogo_decision(programme, request.pic_name, request.reason)
-            return PiCDecisionResponse(
-                decision="nogo",
-                programme_status=programme.status.value,
-                message=f"PiC NO-GO — programme aborted. Reason: {request.reason}",
-            )
-    except ProgrammeStateError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except StepExecutionError as e:
-        raise HTTPException(status_code=403, detail=str(e)) from e
+    if request.decision == "go":
+        pic_go_decision(programme, request.pic_name, request.reason)
+        await repo.save_programme(programme)
+        await session.commit()
+        return PiCDecisionResponse(
+            decision="go",
+            programme_status=programme.status.value,
+            message="PiC GO — programme resumed.",
+        )
+    else:
+        if not request.reason:
+            raise DomainValidationError("NO-GO decision requires a reason.")
+        pic_nogo_decision(programme, request.pic_name, request.reason)
+        await repo.save_programme(programme)
+        await session.commit()
+        return PiCDecisionResponse(
+            decision="nogo",
+            programme_status=programme.status.value,
+            message=f"PiC NO-GO — programme aborted. Reason: {request.reason}",
+        )
 
 
 # ── Emergency Stop ───────────────────────────────────────────────
@@ -279,18 +278,18 @@ async def pic_decision_endpoint(
 async def emergency_stop_endpoint(
     programme_id: str,
     request: EmergencyStopRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> EmergencyStopResponse:
     """Emergency stop — immediately abort the programme.
 
     Can be called from any non-terminal state. All HV operations cease.
     """
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
+    emergency_stop(programme, request.initiated_by, request.reason)
 
-    try:
-        emergency_stop(programme, request.initiated_by, request.reason)
-    except ProgrammeStateError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-
+    await repo.save_programme(programme)
+    await session.commit()
     return EmergencyStopResponse(
         success=True,
         programme_status=programme.status.value,
@@ -305,9 +304,13 @@ async def emergency_stop_endpoint(
     "/programmes/{programme_id}/equipment",
     response_model=list[EquipmentStateSchema],
 )
-async def get_equipment_states(programme_id: str) -> list[EquipmentStateSchema]:
+async def get_equipment_states(
+    programme_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> list[EquipmentStateSchema]:
     """Get current equipment states for a programme."""
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
     return _build_equipment_states(programme)
 
 
@@ -318,9 +321,13 @@ async def get_equipment_states(programme_id: str) -> list[EquipmentStateSchema]:
     "/programmes/{programme_id}/audit-trail",
     response_model=AuditTrailResponse,
 )
-async def get_audit_trail(programme_id: str) -> AuditTrailResponse:
+async def get_audit_trail(
+    programme_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> AuditTrailResponse:
     """Get the complete audit trail for a programme."""
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
 
     records = [
         AuditRecordSchema(

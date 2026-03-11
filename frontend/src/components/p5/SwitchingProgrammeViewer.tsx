@@ -149,7 +149,7 @@ export default function SwitchingProgrammeViewer() {
       {/* Header */}
       <div className="px-4 py-3 border-b border-border-primary flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Switching Programme</h3>
+          <h3 className="text-base font-semibold text-text-primary">Switching Programme</h3>
           <p className="text-xs text-text-muted mt-0.5">
             {completedCount}/{steps.length} steps completed
           </p>

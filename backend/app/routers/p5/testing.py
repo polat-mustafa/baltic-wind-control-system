@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import NotFoundError, StateTransitionError
+from app.core.exceptions import ValidationError as DomainValidationError
+from app.db import get_session
 from app.schemas.commissioning import (
     ApproveCampaignRequest,
     ComplianceCampaignSchema,
@@ -22,8 +26,6 @@ from app.schemas.commissioning import (
 )
 from app.services.p5.fat import (
     FATCampaign,
-    FATCampaignStateError,
-    FATTestNotFoundError,
     all_fat_passed,
     approve_fat_campaign,
     create_fat_campaign,
@@ -31,9 +33,6 @@ from app.services.p5.fat import (
 )
 from app.services.p5.grid_code_testing import (
     ComplianceCampaign,
-    ComplianceError,
-    ComplianceGateError,
-    ComplianceTestNotFoundError,
     ComplianceVerdict,
     NotificationStage,
     approve_notification,
@@ -43,12 +42,9 @@ from app.services.p5.grid_code_testing import (
     record_test_result,
     submit_notification,
 )
-from app.services.p5.programme_store import fat_campaigns, get_programme
+from app.services.p5.programme_repository import ProgrammeRepository
 from app.services.p5.sat import (
     SATCampaign,
-    SATCampaignStateError,
-    SATFATGateError,
-    SATTestNotFoundError,
     all_sat_passed,
     approve_sat_campaign,
     create_sat_campaign,
@@ -105,25 +101,35 @@ def _build_fat_schema(campaign: FATCampaign) -> FATCampaignSchema:
 @router.post("/fat", response_model=FATCampaignSchema, status_code=201)
 async def create_fat_campaign_endpoint(
     request: CreateFATCampaignRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> FATCampaignSchema:
     """Create a new FAT campaign with 8 IEC-standard test specs."""
+    repo = ProgrammeRepository(session)
     campaign = create_fat_campaign(request.equipment_tag)
-    fat_campaigns[campaign.campaign_id] = campaign
+    await repo.save_fat_campaign(campaign)
+    await session.commit()
     return _build_fat_schema(campaign)
 
 
 @router.get("/fat", response_model=list[FATCampaignSchema])
-async def list_fat_campaigns() -> list[FATCampaignSchema]:
+async def list_fat_campaigns(
+    session: AsyncSession = Depends(get_session),
+) -> list[FATCampaignSchema]:
     """List all FAT campaigns."""
-    return [_build_fat_schema(c) for c in fat_campaigns.values()]
+    repo = ProgrammeRepository(session)
+    campaigns = await repo.list_fat_campaigns()
+    return [_build_fat_schema(c) for c in campaigns]
 
 
 @router.get("/fat/{campaign_id}", response_model=FATCampaignSchema)
-async def get_fat_campaign(campaign_id: str) -> FATCampaignSchema:
+async def get_fat_campaign(
+    campaign_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> FATCampaignSchema:
     """Get FAT campaign detail."""
-    if campaign_id not in fat_campaigns:
-        raise HTTPException(status_code=404, detail=f"FAT campaign '{campaign_id}' not found.")
-    return _build_fat_schema(fat_campaigns[campaign_id])
+    repo = ProgrammeRepository(session)
+    campaign = await repo.get_fat_campaign(campaign_id)
+    return _build_fat_schema(campaign)
 
 
 @router.post(
@@ -134,20 +140,16 @@ async def record_fat_result_endpoint(
     campaign_id: str,
     test_id: str,
     request: RecordTestResultRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> TestResultSchema:
     """Record a FAT test result. Auto-evaluates pass/fail against spec."""
-    if campaign_id not in fat_campaigns:
-        raise HTTPException(status_code=404, detail=f"FAT campaign '{campaign_id}' not found.")
-
-    campaign = fat_campaigns[campaign_id]
-    try:
-        result = record_fat_result(
-            campaign, test_id, request.measured_value, request.recorded_by, request.notes
-        )
-    except FATCampaignStateError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except FATTestNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    repo = ProgrammeRepository(session)
+    campaign = await repo.get_fat_campaign(campaign_id)
+    result = record_fat_result(
+        campaign, test_id, request.measured_value, request.recorded_by, request.notes
+    )
+    await repo.save_fat_campaign(campaign)
+    await session.commit()
 
     return TestResultSchema(
         test_id=result.test_id,
@@ -163,16 +165,14 @@ async def record_fat_result_endpoint(
 async def approve_fat_campaign_endpoint(
     campaign_id: str,
     request: ApproveCampaignRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> FATCampaignSchema:
     """Approve a completed FAT campaign (all tests must pass)."""
-    if campaign_id not in fat_campaigns:
-        raise HTTPException(status_code=404, detail=f"FAT campaign '{campaign_id}' not found.")
-
-    campaign = fat_campaigns[campaign_id]
-    try:
-        approve_fat_campaign(campaign, request.approved_by)
-    except FATCampaignStateError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
+    repo = ProgrammeRepository(session)
+    campaign = await repo.get_fat_campaign(campaign_id)
+    approve_fat_campaign(campaign, request.approved_by)
+    await repo.save_fat_campaign(campaign)
+    await session.commit()
 
     return _build_fat_schema(campaign)
 
@@ -230,40 +230,31 @@ def _build_sat_schema(campaign: SATCampaign) -> SATCampaignSchema:
 async def create_sat_campaign_endpoint(
     programme_id: str,
     request: CreateSATCampaignRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> SATCampaignSchema:
     """Create a SAT campaign for a switching programme.
 
     If require_fat=true, the programme must have a linked FAT campaign
     that is approved.
     """
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
 
     if programme.sat_campaign is not None:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Programme '{programme_id}' already has a SAT campaign.",
-        )
+        raise StateTransitionError(f"Programme '{programme_id}' already has a SAT campaign.")
 
     fat_campaign = None
     if request.require_fat:
         if programme.fat_campaign_id is None:
-            raise HTTPException(
-                status_code=422,
-                detail="require_fat=true but programme has no linked FAT campaign.",
+            raise DomainValidationError(
+                "require_fat=true but programme has no linked FAT campaign."
             )
-        fat_campaign = fat_campaigns.get(programme.fat_campaign_id)
-        if fat_campaign is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"FAT campaign '{programme.fat_campaign_id}' not found.",
-            )
+        fat_campaign = await repo.get_fat_campaign(programme.fat_campaign_id)
 
-    try:
-        sat = create_sat_campaign(programme_id, fat_campaign)
-    except SATFATGateError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-
+    sat = create_sat_campaign(programme_id, fat_campaign)
     programme.sat_campaign = sat
+    await repo.save_programme(programme)
+    await session.commit()
     return _build_sat_schema(sat)
 
 
@@ -271,14 +262,15 @@ async def create_sat_campaign_endpoint(
     "/programmes/{programme_id}/sat",
     response_model=SATCampaignSchema,
 )
-async def get_sat_campaign_endpoint(programme_id: str) -> SATCampaignSchema:
+async def get_sat_campaign_endpoint(
+    programme_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> SATCampaignSchema:
     """Get SAT campaign status for a programme."""
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
     if programme.sat_campaign is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No SAT campaign for programme '{programme_id}'.",
-        )
+        raise NotFoundError(f"No SAT campaign for programme '{programme_id}'.")
     return _build_sat_schema(programme.sat_campaign)
 
 
@@ -290,28 +282,24 @@ async def record_sat_result_endpoint(
     programme_id: str,
     test_id: str,
     request: RecordTestResultRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> TestResultSchema:
     """Record a SAT test result. Auto-evaluates pass/fail against spec."""
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
     if programme.sat_campaign is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No SAT campaign for programme '{programme_id}'.",
-        )
+        raise NotFoundError(f"No SAT campaign for programme '{programme_id}'.")
 
-    try:
-        result = record_sat_result(
-            programme.sat_campaign,
-            test_id,
-            request.measured_value,
-            request.recorded_by,
-            request.notes,
-        )
-    except SATCampaignStateError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except SATTestNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    result = record_sat_result(
+        programme.sat_campaign,
+        test_id,
+        request.measured_value,
+        request.recorded_by,
+        request.notes,
+    )
 
+    await repo.save_programme(programme)
+    await session.commit()
     return TestResultSchema(
         test_id=result.test_id,
         measured_value=result.measured_value,
@@ -329,20 +317,17 @@ async def record_sat_result_endpoint(
 async def approve_sat_campaign_endpoint(
     programme_id: str,
     request: ApproveCampaignRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> SATCampaignSchema:
     """Approve a completed SAT campaign (all tests must pass)."""
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
     if programme.sat_campaign is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No SAT campaign for programme '{programme_id}'.",
-        )
+        raise NotFoundError(f"No SAT campaign for programme '{programme_id}'.")
 
-    try:
-        approve_sat_campaign(programme.sat_campaign, request.approved_by)
-    except SATCampaignStateError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-
+    approve_sat_campaign(programme.sat_campaign, request.approved_by)
+    await repo.save_programme(programme)
+    await session.commit()
     return _build_sat_schema(programme.sat_campaign)
 
 
@@ -390,15 +375,16 @@ def _build_campaign_schema(campaign: ComplianceCampaign) -> ComplianceCampaignSc
     response_model=ComplianceCampaignSchema,
     summary="Create a grid code compliance campaign",
 )
-async def create_programme_compliance(programme_id: str) -> ComplianceCampaignSchema:
+async def create_programme_compliance(
+    programme_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> ComplianceCampaignSchema:
     """Create a new EON/ION/FON compliance campaign for a programme."""
-    get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    await repo.get_programme(programme_id)
     existing = get_compliance_campaign(programme_id)
     if existing is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="Compliance campaign already exists for this programme",
-        )
+        raise StateTransitionError("Compliance campaign already exists for this programme")
     campaign = create_compliance_campaign(programme_id)
     return _build_campaign_schema(campaign)
 
@@ -408,12 +394,16 @@ async def create_programme_compliance(programme_id: str) -> ComplianceCampaignSc
     response_model=ComplianceCampaignSchema,
     summary="Get compliance campaign with all stages",
 )
-async def get_programme_compliance(programme_id: str) -> ComplianceCampaignSchema:
+async def get_programme_compliance(
+    programme_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> ComplianceCampaignSchema:
     """Return the compliance campaign for a programme."""
-    get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    await repo.get_programme(programme_id)
     campaign = get_compliance_campaign(programme_id)
     if campaign is None:
-        raise HTTPException(status_code=404, detail="No compliance campaign found")
+        raise NotFoundError("No compliance campaign found")
     return _build_campaign_schema(campaign)
 
 
@@ -426,16 +416,16 @@ async def record_compliance_test(
     programme_id: str,
     test_id: str,
     body: RecordComplianceResultRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> GridCodeTestSchema:
     """Record the result of a grid code compliance test."""
-    get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    await repo.get_programme(programme_id)
     try:
         verdict = ComplianceVerdict(body.verdict)
-        test = record_test_result(programme_id, test_id, verdict, body.evidence, body.tested_by)
-    except ComplianceTestNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ComplianceError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError:
+        raise DomainValidationError(f"Invalid verdict: '{body.verdict}'") from None
+    test = record_test_result(programme_id, test_id, verdict, body.evidence, body.tested_by)
     return GridCodeTestSchema(
         test_id=test.test_id,
         stage=test.stage.value,
@@ -459,19 +449,16 @@ async def submit_compliance_notification(
     programme_id: str,
     stage: str,
     body: SubmitNotificationRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> NotificationApplicationSchema:
     """Submit a notification stage (EON/ION/FON) to PSE for approval."""
-    get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    await repo.get_programme(programme_id)
     try:
         ns = NotificationStage(stage)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid stage: {stage}") from None
-    try:
-        stage_app = submit_notification(programme_id, ns, body.submitted_by)
-    except ComplianceGateError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except ComplianceError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise DomainValidationError(f"Invalid stage: {stage}") from None
+    stage_app = submit_notification(programme_id, ns, body.submitted_by)
     return NotificationApplicationSchema(
         stage=stage_app.stage.value,
         status=stage_app.status.value,
@@ -504,19 +491,16 @@ async def submit_compliance_notification(
 async def approve_compliance_notification(
     programme_id: str,
     stage: str,
+    session: AsyncSession = Depends(get_session),
 ) -> NotificationApplicationSchema:
     """Approve a notification stage (simulates PSE approval)."""
-    get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    await repo.get_programme(programme_id)
     try:
         ns = NotificationStage(stage)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid stage: {stage}") from None
-    try:
-        stage_app = approve_notification(programme_id, ns)
-    except ComplianceGateError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except ComplianceError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise DomainValidationError(f"Invalid stage: {stage}") from None
+    stage_app = approve_notification(programme_id, ns)
     return NotificationApplicationSchema(
         stage=stage_app.stage.value,
         status=stage_app.status.value,
@@ -549,15 +533,14 @@ async def approve_compliance_notification(
 async def get_compliance_stage_summary(
     programme_id: str,
     stage: str,
+    session: AsyncSession = Depends(get_session),
 ) -> StageSummarySchema:
     """Return a summary of a stage's compliance status with test counts."""
-    get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    await repo.get_programme(programme_id)
     try:
         ns = NotificationStage(stage)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid stage: {stage}") from None
-    try:
-        summary = get_stage_summary(programme_id, ns)
-    except ComplianceError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise DomainValidationError(f"Invalid stage: {stage}") from None
+    summary = get_stage_summary(programme_id, ns)
     return StageSummarySchema(**summary)

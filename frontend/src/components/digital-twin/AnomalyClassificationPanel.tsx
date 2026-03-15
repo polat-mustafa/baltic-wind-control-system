@@ -72,17 +72,17 @@ export default function AnomalyClassificationPanel() {
               marker: { colors },
               textinfo: "label+percent",
               textposition: "outside",
-              textfont: { size: 9 },
+              textfont: { size: 11 },
             },
           ]}
           layout={{
             paper_bgcolor: "transparent",
             plot_bgcolor: "transparent",
-            font: { color: "#94a3b8", size: 9 },
+            font: { color: "#94a3b8", size: 11 },
             margin: { t: 10, r: 10, b: 10, l: 10 },
             showlegend: false,
-            height: 200,
-            width: 200,
+            height: 260,
+            width: 260,
           }}
           config={{ responsive: true, displayModeBar: false }}
         />

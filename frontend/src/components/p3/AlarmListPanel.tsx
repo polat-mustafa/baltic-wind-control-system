@@ -87,7 +87,7 @@ export default function AlarmListPanel({ compact = false }: AlarmListPanelProps)
       {/* Header */}
       <div className="px-3 py-2 border-b border-border-primary flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-text-primary">
+          <h3 className="text-base font-semibold text-text-primary">
             Alarm List
           </h3>
           <span className="text-[9px] text-text-muted font-mono">ISA-18.2</span>

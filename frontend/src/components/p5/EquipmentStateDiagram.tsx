@@ -219,7 +219,7 @@ export default function EquipmentStateDiagram() {
       <div className="px-4 py-3 border-b border-border-primary flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-text-primary">
+            <h3 className="text-base font-semibold text-text-primary">
               Single-Line Diagram — IEC 60617
             </h3>
             <InfoButton info={equipmentSldInfo} />

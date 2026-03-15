@@ -105,6 +105,25 @@ body {
   background: none !important;
   border: none !important;
 }
+.leaflet-oss-marker,
+.leaflet-onshore-marker {
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+.leaflet-oss-marker svg,
+.leaflet-onshore-marker svg {
+  transition: transform 0.2s ease;
+  transform-origin: center center;
+}
+.leaflet-oss-marker:hover svg,
+.leaflet-onshore-marker:hover svg {
+  transform: scale(1.06);
+}
+.leaflet-oss-marker:hover,
+.leaflet-onshore-marker:hover {
+  filter: brightness(1.15);
+  z-index: 1000 !important;
+}
 
 /* Turbine label visibility toggle (controlled by LayerControlPanel) */
 .hide-turbine-labels .leaflet-turbine-marker text {
@@ -121,15 +140,39 @@ body {
 }
 
 /* Turbine marker hover & selected effects */
-/* Uses separate `scale` property to avoid conflicting with tower-sway `transform` */
 .leaflet-turbine-marker {
   cursor: pointer;
-  transition: scale 0.15s ease, filter 0.15s ease;
+  transition: filter 0.2s ease;
+}
+/* Scale the SVG content — NOT the Leaflet wrapper — to avoid
+   transform-origin: 0 0 conflict with .leaflet-zoom-animated
+   which causes hover flicker when the hit-area shifts. */
+.leaflet-turbine-marker svg {
+  transition: transform 0.4s ease;
+  transform-origin: center center;
+}
+.leaflet-turbine-marker:hover svg {
+  transform: scale(1.1);
 }
 .leaflet-turbine-marker:hover {
-  scale: 1.25;
-  filter: brightness(1.3);
+  filter: brightness(1.25);
   z-index: 1000 !important;
+}
+
+/* ── Zoom-dependent turbine scaling ────────────────────────────
+   Class is on the map container (parent), not on the marker itself.
+   SVG-level transform avoids Leaflet transform-origin conflict. */
+.turbine-zoom-far .leaflet-turbine-marker svg {
+  transform: scale(0.7);
+}
+.turbine-zoom-far .leaflet-turbine-marker:hover svg {
+  transform: scale(0.8);
+}
+.turbine-zoom-close .leaflet-turbine-marker svg {
+  transform: scale(1.2);
+}
+.turbine-zoom-close .leaflet-turbine-marker:hover svg {
+  transform: scale(1.3);
 }
 .leaflet-turbine-marker.turbine-selected {
   filter: brightness(1.4) drop-shadow(0 0 6px rgba(59, 130, 246, 0.7));
@@ -137,12 +180,14 @@ body {
 }
 
 /* Dark-themed Leaflet tooltips matching ISA-101 palette */
+/* pointer-events: none prevents tooltip from stealing hover from the marker */
 .leaflet-turbine-tooltip .leaflet-tooltip-content-wrapper,
 .leaflet-turbine-tooltip {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   padding: 0 !important;
+  pointer-events: none !important;
 }
 .leaflet-turbine-tooltip::before {
   display: none !important;
@@ -202,18 +247,6 @@ body {
   pointer-events: none !important;
 }
 
-/* Tower sway animation at high zoom — subtle wind-driven oscillation */
-.high-zoom-detail .leaflet-turbine-marker:not(:hover):not(.turbine-selected) {
-  animation: tower-sway 4s ease-in-out infinite;
-}
-@keyframes tower-sway {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(0.7px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .high-zoom-detail .leaflet-turbine-marker { animation: none !important; }
-}
-
 /* Bathymetry label tooltip — remove default Leaflet tooltip chrome */
 .leaflet-bathy-label,
 .leaflet-bathy-label .leaflet-tooltip-content-wrapper {
@@ -226,46 +259,20 @@ body {
   display: none !important;
 }
 
-/* ── Ocean Wave Animations ─────────────────────────────────────── */
-
-/* Primary swell — large, slow (94px period, 15s cycle) */
-.ocean-wave-swell {
-  animation: ocean-swell 15s linear infinite;
-}
-@keyframes ocean-swell {
-  from { transform: translateY(0); }
-  to { transform: translateY(-94px); }
-}
-
-/* Secondary wind-sea — medium (58px period, 10s cycle) */
-.ocean-wave-sea {
-  animation: ocean-sea 10s linear infinite;
-}
-@keyframes ocean-sea {
-  from { transform: translateY(0); }
-  to { transform: translateY(-58px); }
-}
-
-/* Cross-ripples — small, fast (32px period, 6s cycle) */
-.ocean-wave-ripple {
-  animation: ocean-ripple 6s linear infinite;
-}
-@keyframes ocean-ripple {
-  from { transform: translateY(0); }
-  to { transform: translateY(-32px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ocean-wave-swell,
-  .ocean-wave-sea,
-  .ocean-wave-ripple {
-    animation: none;
-  }
-}
-
 /* Trap Leaflet internal z-indexes so detail panels (z-[1100]) render above */
 .leaflet-container {
   z-index: 0;
+}
+
+/* ── Chart Fullscreen — force Plotly to fill available height ──── */
+[data-chart-fs] .js-plotly-plot,
+[data-chart-fs] .plot-container,
+[data-chart-fs] .svg-container {
+  height: 100% !important;
+  width: 100% !important;
+}
+[data-chart-fs] .main-svg {
+  height: 100% !important;
 }
 
 /* ── Turbine Cross-Section Animations ─────────────────────────── */

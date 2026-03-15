@@ -13,17 +13,20 @@
  * A non-engineer should immediately understand what's happening inside the turbine.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Wind, Zap, Monitor, Brain, ClipboardCheck, Activity } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { FAULT_CATEGORIES } from "../../constants/faultCategories";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { FAULT_TO_PART, type TurbinePartId } from "../../constants/turbinePartEducation";
+import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { useTurbineHistory } from "../../hooks/useTurbineHistory";
+import { selectKPIs, useLandingStore } from "../../store/landingStore";
 import type { TurbineData, TurbineStatus } from "../../types/landing";
 
 import { inferCurtailment } from "../../utils/curtailmentReason";
+import { computeWakeLosses } from "../../utils/wakeModel";
 
 import TurbineCrossSection from "./TurbineCrossSection";
 import TurbineEducationPanel from "./TurbineEducationPanel";
@@ -48,6 +51,25 @@ const STATUS_LABEL: Record<TurbineStatus, string> = {
   fault: "Fault",
   offline: "Offline",
 };
+
+/** Stable reference to turbine geographic data (never changes). */
+const TURBINE_GEO = TURBINE_POSITIONS.map((t) => ({
+  id: t.id,
+  lat: t.lat,
+  lon: t.lon,
+}));
+
+/** Round wind direction to nearest `step` degrees (matches WakeEffectLayer). */
+function quantizeDir(deg: number, step = 5): number {
+  return Math.round(deg / step) * step;
+}
+
+/** Wake loss color based on severity threshold. */
+function wakeLossColor(pct: number): string {
+  if (pct > 20) return "#ef4444"; // red
+  if (pct > 10) return "#f97316"; // orange
+  return "#fbbf24"; // yellow
+}
 
 const NAV_ITEMS = [
   { label: "P1", path: "/wind-resource", icon: Wind, color: "#3b82f6", tip: "Wind Resource" },
@@ -77,6 +99,14 @@ export default function TurbineDetailPanel({ turbine: t, onClose }: TurbineDetai
   const curtailmentPartId: TurbinePartId | null = curtailInfo?.affectedPart ?? null;
 
   const { powerHistory, windHistory } = useTurbineHistory(t.powerOutputMW, t.windSpeedMs);
+
+  // Wake loss computation — same quantized direction as WakeEffectLayer badges
+  const kpis = useLandingStore(selectKPIs);
+  const windDir = quantizeDir(kpis.windDirectionDeg);
+  const wakeLoss = useMemo(() => {
+    const losses = computeWakeLosses(TURBINE_GEO, windDir);
+    return losses.find((l) => l.turbineId === t.id) ?? null;
+  }, [windDir, t.id]);
 
   // Toggle part selection (click same part again to close)
   const handlePartClick = useCallback(
@@ -207,7 +237,7 @@ export default function TurbineDetailPanel({ turbine: t, onClose }: TurbineDetai
             className="cursor-pointer"
             title="Click to learn about wake effects"
           >
-            <TurbineWakeCone powerOutputMW={t.powerOutputMW} />
+            <TurbineWakeCone powerOutputMW={t.powerOutputMW} wakeLossPct={wakeLoss?.lossPct} />
           </div>
         </div>
 
@@ -220,6 +250,27 @@ export default function TurbineDetailPanel({ turbine: t, onClose }: TurbineDetai
             currentWindMs={t.windSpeedMs}
           />
         </div>
+
+        {/* ── Wake Loss (conditional) ── */}
+        {wakeLoss && (
+          <div className="px-3 py-2 border-b" style={{ borderColor: "#1e2231" }}>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: wakeLossColor(wakeLoss.lossPct) }}
+              />
+              <span className="text-[11px] font-semibold" style={{ color: wakeLossColor(wakeLoss.lossPct) }}>
+                Wake Loss: &minus;{wakeLoss.lossPct}%
+              </span>
+            </div>
+            <div className="text-[9px] text-[#6b7490] mb-1">
+              Power loss from upstream turbine wakes (Jensen/Park model)
+            </div>
+            <div className="text-[9px] text-[#94a3b8]">
+              Upstream: {wakeLoss.upstreamIds.join(", ")}
+            </div>
+          </div>
+        )}
 
         {/* ── Health Summary (compact row) ── */}
         <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "#1e2231" }}>

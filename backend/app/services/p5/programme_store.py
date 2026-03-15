@@ -1,29 +1,44 @@
-"""In-memory stores for P5 commissioning domain objects.
+"""DEPRECATED — In-memory stores replaced by programme_repository.py.
 
-Extracted from ``routers/p5.py`` to keep router files thin.
-Each programme owns its equipment state and LOTO set (no shared mutable state).
-Persistence (SQLAlchemy) will be added after domain logic is proven.
+All P5 routers now use ``ProgrammeRepository`` with SQLAlchemy/PostgreSQL.
+This module is retained only for backward compatibility with any tests
+that reference the in-memory stores directly. It will be removed once
+all tests migrate to the DB-backed repository.
+
+Migration path:
+    programme_store.programmes       → ProgrammeRepository.save_programme / get_programme
+    programme_store.fat_campaigns    → ProgrammeRepository.save_fat_campaign / get_fat_campaign
+    programme_store.protection_results → ProgrammeRepository.save_protection_results
+    programme_store.get_programme()  → ProgrammeRepository.get_programme()
 """
 
 from __future__ import annotations
 
-from fastapi import HTTPException
+import warnings
 
+from app.core.exceptions import NotFoundError
 from app.services.p5.fat import FATCampaign
 from app.services.p5.protection_relay import GradingResult
 from app.services.p5.switching_programme import SwitchingProgramme
 
-# In-memory stores
+# In-memory stores — DEPRECATED, use ProgrammeRepository instead
 programmes: dict[str, SwitchingProgramme] = {}
 fat_campaigns: dict[str, FATCampaign] = {}
 protection_results: list[GradingResult] = []
 
 
 def get_programme(programme_id: str) -> SwitchingProgramme:
-    """Retrieve a programme by ID or raise 404."""
+    """Retrieve a programme by ID or raise 404.
+
+    .. deprecated::
+        Use ``ProgrammeRepository.get_programme()`` instead.
+    """
+    warnings.warn(
+        "programme_store.get_programme() is deprecated. "
+        "Use ProgrammeRepository.get_programme() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if programme_id not in programmes:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Programme '{programme_id}' not found.",
-        )
+        raise NotFoundError(f"Programme '{programme_id}' not found.")
     return programmes[programme_id]

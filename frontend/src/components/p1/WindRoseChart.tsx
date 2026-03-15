@@ -57,7 +57,7 @@ export default function WindRoseChart() {
             bgcolor: "rgb(15, 23, 42)",
             radialaxis: {
               gridcolor: "rgba(148, 163, 184, 0.15)",
-              tickfont: { size: 9, color: "rgb(148, 163, 184)" },
+              tickfont: { size: 11, color: "rgb(148, 163, 184)" },
               ticksuffix: "%",
             },
             angularaxis: {

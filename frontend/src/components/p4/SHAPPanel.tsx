@@ -40,7 +40,7 @@ export default function SHAPPanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
+        <h3 className="text-base font-semibold text-text-primary">
           SHAP Feature Importance — XGBoost
         </h3>
         <InfoButton info={shapInfo} />
@@ -56,7 +56,7 @@ export default function SHAPPanel() {
             marker: { color: colors },
             text: values.map((v) => v.toFixed(4)),
             textposition: "outside",
-            textfont: { size: 9, color: "rgb(148, 163, 184)" },
+            textfont: { size: 11, color: "rgb(148, 163, 184)" },
             hovertemplate:
               "%{y}<br>Mean |SHAP|: %{x:.4f}<extra></extra>",
           },

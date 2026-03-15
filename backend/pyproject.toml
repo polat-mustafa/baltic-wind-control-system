@@ -30,6 +30,7 @@ dependencies = [
     "scikit-learn>=1.5",
     "shap>=0.46",
     "torch>=2.2",
+    "structlog>=24.0.0",
 ]
 
 [project.optional-dependencies]

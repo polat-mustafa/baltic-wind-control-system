@@ -21,10 +21,12 @@ as P4's scada_generator.py — physics-correct synthetic data.
 from __future__ import annotations
 
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.core.cache import cached
+from app.core.exceptions import DomainError
+from app.core.exceptions import ValidationError as DomainValidationError
 from app.services.p1.aep_calculator import (
     DEFAULT_PRICE_EUR_MWH,
     compute_aep_cascade,
@@ -257,10 +259,7 @@ def _get_layout(name: str) -> LayoutResult:
     elif name == "staggered":
         return generate_staggered_grid()
     else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown layout: '{name}'. Valid: regular, staggered",
-        )
+        raise DomainValidationError(f"Unknown layout: '{name}'. Valid: regular, staggered")
 
 
 def _run_wake_for_layout(
@@ -322,7 +321,7 @@ async def weibull_fit(request: WeibullFitRequest) -> WeibullFitResponse:
     try:
         params = fit_weibull(speeds)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
+        raise DomainValidationError(str(e)) from e
 
     # Histogram for plotting
     bin_edges = np.linspace(0, 30, 31)
@@ -376,13 +375,10 @@ async def wake_analysis(request: WakeAnalysisRequest) -> WakeAnalysisResponse:
         result = await _cached_wake_analysis(
             request.layout, request.weibull_a, request.weibull_k, request.turbulence_intensity
         )
-    except HTTPException:
+    except DomainError:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Wake analysis failed: {e}",
-        ) from e
+        raise DomainError(f"Wake analysis failed: {e}") from e
 
     return WakeAnalysisResponse(
         gross_aep_gwh=round(result["gross_aep_gwh"], 2),
@@ -411,8 +407,10 @@ async def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
         wake_result = _run_wake_for_layout(
             layout, request.weibull_a, request.weibull_k, request.turbulence_intensity
         )
+    except DomainError:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Wake analysis failed: {e}") from e
+        raise DomainError(f"Wake analysis failed: {e}") from e
 
     # Blockage
     blockage = estimate_blockage_loss_percent(
@@ -522,7 +520,7 @@ async def layout_comparison(request: LayoutComparisonRequest) -> LayoutCompariso
         )
 
     if not entries:
-        raise HTTPException(status_code=500, detail="All layout analyses failed")
+        raise DomainError("All layout analyses failed")
 
     best = max(entries, key=lambda e: e.net_aep_gwh)
     worst = min(entries, key=lambda e: e.net_aep_gwh)

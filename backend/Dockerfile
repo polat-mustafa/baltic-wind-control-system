@@ -6,15 +6,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install dependencies first (leverages Docker layer caching)
-COPY pyproject.toml .
-RUN pip install --no-cache-dir .
+# ── Layer 1: CPU-only PyTorch (separate layer for maximum cache reuse) ──
+# The default torch pulls ~5 GB of CUDA/NVIDIA libs we don't need in Docker.
+# CPU-only torch is ~200 MB. This layer rarely changes.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-# Copy Alembic configuration and migrations
+# ── Layer 2: Remaining Python dependencies ──
+# Copies only pyproject.toml first so this layer is cached until deps change.
+# torch>=2.2 is already satisfied by the CPU layer above — pip skips it.
+COPY pyproject.toml .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install .
+
+# ── Layer 3: Application code (changes most often, cached least) ──
 COPY alembic.ini .
 COPY alembic/ alembic/
-
-# Copy application code
 COPY app/ app/
 
 # Copy and prepare entrypoint

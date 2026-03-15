@@ -5,6 +5,10 @@
  * - Responsive height via CSS `max(350px, 28vh)`
  * - Fullscreen expand/collapse button
  * - Consistent dark SCADA card styling
+ *
+ * Fullscreen: uses flex-col layout so the chart (children) stretches
+ * to fill available height. A CSS rule in index.css forces Plotly's
+ * inner containers to `height: 100%` when inside `[data-chart-fs]`.
  */
 
 import { Maximize2, Minimize2 } from "lucide-react";
@@ -51,27 +55,45 @@ export function ChartWrapper({ title, headerRight, footer, children }: ChartWrap
   return (
     <div
       ref={containerRef}
+      data-chart-fs={isFullscreen ? "" : undefined}
       className={cn(
-        "bg-bg-secondary rounded-lg p-4 border border-border-primary",
-        isFullscreen && "fixed inset-0 z-[9000] rounded-none overflow-auto",
+        "relative bg-bg-secondary rounded-lg p-4 border border-border-primary",
+        isFullscreen && "fixed inset-0 z-[9000] rounded-none flex flex-col overflow-auto",
       )}
     >
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+      <div className="flex items-center justify-between mb-2 shrink-0">
+        <h3 className="text-base font-semibold text-text-primary">{title}</h3>
         <div className="flex items-center gap-2">
           {headerRight}
-          <button
-            onClick={toggleFullscreen}
-            className="text-text-muted hover:text-text-primary transition-colors p-0.5"
-            aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-          >
-            {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-          </button>
+          {/* Normal mode: inline expand button */}
+          {!isFullscreen && (
+            <button
+              onClick={toggleFullscreen}
+              className="text-text-muted hover:text-text-primary transition-colors p-0.5"
+              aria-label="Fullscreen"
+            >
+              <Maximize2 size={16} />
+            </button>
+          )}
         </div>
       </div>
-      {children}
+      <div className={cn(isFullscreen && "flex-1 min-h-0")}>
+        {children}
+      </div>
       {footer && (
-        <p className="text-xs text-text-muted mt-1 text-center">{footer}</p>
+        <p className="text-xs text-text-muted mt-1 text-center shrink-0">{footer}</p>
+      )}
+
+      {/* Fullscreen mode: floating exit button — bottom-right to avoid blocking chart data */}
+      {isFullscreen && (
+        <button
+          onClick={toggleFullscreen}
+          className="fixed bottom-6 right-6 z-[9001] flex items-center gap-2 rounded-lg px-4 py-2.5 bg-bg-elevated border border-border-secondary text-text-secondary hover:text-text-primary hover:bg-bg-hover shadow-lg shadow-black/40 transition-colors"
+          aria-label="Exit fullscreen"
+        >
+          <Minimize2 size={16} />
+          <span className="text-xs font-medium">Exit</span>
+        </button>
       )}
     </div>
   );

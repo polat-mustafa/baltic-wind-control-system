@@ -112,16 +112,18 @@ class ComplianceCampaign:
 
 # ── Exceptions ──────────────────────────────────────────────────
 
+from app.core.exceptions import DomainError, NotFoundError, StateTransitionError  # noqa: E402
 
-class ComplianceError(Exception):
+
+class ComplianceError(DomainError):
     """Base exception for grid code compliance operations."""
 
 
-class ComplianceGateError(ComplianceError):
+class ComplianceGateError(StateTransitionError):
     """Raised when a stage gate prerequisite is not met."""
 
 
-class ComplianceTestNotFoundError(ComplianceError):
+class ComplianceTestNotFoundError(NotFoundError):
     """Raised when a test ID is not found in the campaign."""
 
 

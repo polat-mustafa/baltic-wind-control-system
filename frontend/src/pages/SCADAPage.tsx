@@ -18,7 +18,9 @@ import SubstationSLD from "../components/p3/SubstationSLD";
 import AlarmListPanel from "../components/p3/AlarmListPanel";
 import { useScadaStore } from "../store/scadaStore";
 import { Button } from "../components/ui/Button";
+import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { cn } from "../lib/utils";
+import { p3Guide } from "../constants/trainingGuideContent";
 
 const ROLE_OPTIONS = [
   { value: 1, label: "Viewer (L1)" },
@@ -144,8 +146,9 @@ export default function SCADAPage() {
           </span>
         </div>
 
-        {/* Alarm summary badges */}
-        <div className="flex items-center gap-2">
+        {/* Training guide + Alarm summary badges */}
+        <div className="flex items-center gap-3">
+          <TrainingGuide guide={p3Guide} />
           {activeCount > 0 && (
             <div className="flex items-center gap-1.5 text-[10px] font-mono">
               {critCount > 0 && (

@@ -12,8 +12,10 @@ import { Play, FolderOpen, Trash2 } from "lucide-react";
 import CommissioningDashboard from "../components/p5/CommissioningDashboard";
 import { useCommissioningStore } from "../store/commissioningStore";
 import { Button } from "../components/ui/Button";
+import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
+import { p5Guide } from "../constants/trainingGuideContent";
 
 export default function CommissioningPage() {
   const {
@@ -41,13 +43,16 @@ export default function CommissioningPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-text-primary">
-          P5 · HV Commissioning Simulator
-        </h2>
-        <p className="text-xs text-text-muted mt-1 font-mono">
-          30-step switching programme · LOTO isolation · SAT verification
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-text-primary">
+            P5 · HV Commissioning Simulator
+          </h2>
+          <p className="text-xs text-text-muted mt-1 font-mono">
+            30-step switching programme · LOTO isolation · SAT verification
+          </p>
+        </div>
+        <TrainingGuide guide={p5Guide} />
       </div>
 
       {/* Error banner */}

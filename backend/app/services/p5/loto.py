@@ -149,20 +149,22 @@ class LOTOSet:
 
 # ── Exceptions ───────────────────────────────────────────────────
 
+from app.core.exceptions import DomainError, NotFoundError, StateTransitionError  # noqa: E402
 
-class LOTOError(Exception):
+
+class LOTOError(DomainError):
     """Base exception for LOTO operations."""
 
 
-class LOTOAlreadyAppliedError(LOTOError):
+class LOTOAlreadyAppliedError(StateTransitionError):
     """Raised when trying to apply LOTO to a point that already has it."""
 
 
-class LOTONotAppliedError(LOTOError):
+class LOTONotAppliedError(StateTransitionError):
     """Raised when trying to remove LOTO from a point that doesn't have it."""
 
 
-class LOTOPointNotFoundError(LOTOError):
+class LOTOPointNotFoundError(NotFoundError):
     """Raised when a LOTO point ID is not in the set."""
 
 

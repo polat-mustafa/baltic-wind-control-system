@@ -70,7 +70,7 @@ export default function AccuracyHeatmapPanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
+        <h3 className="text-base font-semibold text-text-primary">
           Forecast Uncertainty — P90-P10 Spread
         </h3>
         <InfoButton info={accuracyHeatmapInfo} />
@@ -92,7 +92,7 @@ export default function AccuracyHeatmapPanel() {
             ],
             colorbar: {
               title: { text: "Spread [MW]", font: { size: 10, color: "rgb(148, 163, 184)" } },
-              tickfont: { size: 9, color: "rgb(148, 163, 184)" },
+              tickfont: { size: 11, color: "rgb(148, 163, 184)" },
             },
             hovertemplate:
               "Hour: %{y}<br>Horizon: %{x}<br>Spread: %{z:.2f} MW<extra></extra>",

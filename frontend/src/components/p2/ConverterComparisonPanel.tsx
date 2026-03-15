@@ -41,7 +41,7 @@ export default function ConverterComparisonPanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-text-primary">
+        <h3 className="text-base font-semibold text-text-primary">
           Converter Comparison — {converterComparison.scenario.replace("_", " ")} (SCR = {gfl.scr})
         </h3>
         <InfoButton info={converterComparisonInfo} />

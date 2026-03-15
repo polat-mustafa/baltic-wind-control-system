@@ -77,11 +77,19 @@ function AtmosphericPanes() {
 
     // Counter-transform: undo map-pane translate3d so overlays
     // stay viewport-fixed (fullscreen tints, particle canvas, etc.)
+    // RAF guard coalesces multiple same-frame events (move+zoom during
+    // pan/pinch gestures) into a single style recalculation per frame.
+    let rafPending = false;
     function syncTransform() {
-      const mapPane = map.getPanes().mapPane;
-      if (!mapPane || !paneRef.current) return;
-      const pos = L.DomUtil.getPosition(mapPane);
-      paneRef.current.style.transform = `translate3d(${-pos.x}px, ${-pos.y}px, 0)`;
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(() => {
+        rafPending = false;
+        const mapPane = map.getPanes().mapPane;
+        if (!mapPane || !paneRef.current) return;
+        const pos = L.DomUtil.getPosition(mapPane);
+        paneRef.current.style.transform = `translate3d(${-pos.x}px, ${-pos.y}px, 0)`;
+      });
     }
     syncTransform();
     map.on("move", syncTransform);
@@ -252,39 +260,141 @@ const TurbineMarker = memo(function TurbineMarker({
   );
 });
 
-// ── OSS Marker Icon ──────────────────────────────────────────────
+// ── OSS Marker Icon (IEC 60617 HVAC Transformer) ────────────────
 function createOSSIcon(powerMW: number): L.DivIcon {
-  const svg = `<svg width="56" height="70" viewBox="-28 -20 56 70" xmlns="http://www.w3.org/2000/svg">
-    <rect x="-20" y="-16" width="40" height="32" rx="3" fill="#1e293b" stroke="${SCADA_COLORS.ENERGIZED}" stroke-width="2"/>
-    <circle cx="-5" cy="0" r="8" fill="none" stroke="${SCADA_COLORS.VOLTAGE_66KV}" stroke-width="1.5"/>
-    <circle cx="5" cy="0" r="8" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.5"/>
-    <text x="0" y="-22" text-anchor="middle" fill="${SCADA_COLORS.ENERGIZED}" font-size="10" font-weight="bold" font-family="Inter, sans-serif">OSS</text>
-    <text x="0" y="28" text-anchor="middle" fill="#94a3b8" font-size="7" font-family="JetBrains Mono, monospace">66/220 kV</text>
-    <text x="0" y="40" text-anchor="middle" fill="#e2e8f0" font-size="8" font-weight="bold" font-family="JetBrains Mono, monospace">${powerMW.toFixed(0)} MW</text>
+  const svg = `<svg width="64" height="78" viewBox="-32 -24 64 78" xmlns="http://www.w3.org/2000/svg">
+    <!-- Label -->
+    <text x="0" y="-15" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="600" font-family="Inter, sans-serif" letter-spacing="0.5">OSS</text>
+
+    <!-- Platform deck (offshore structure) -->
+    <rect x="-26" y="-8" width="52" height="28" rx="2" fill="#0d1017" stroke="#2a3040" stroke-width="1"/>
+
+    <!-- Transformer tank body -->
+    <rect x="-21" y="-4" width="42" height="20" rx="1.5" fill="#151b28" stroke="#3d4560" stroke-width="0.8"/>
+    <!-- Tank top edge highlight (depth) -->
+    <line x1="-20" y1="-3" x2="20" y2="-3" stroke="#283044" stroke-width="0.5"/>
+
+    <!-- Cooling radiator fins (right side of tank) -->
+    <g opacity="0.35" stroke="#4a5580" stroke-width="0.6" fill="#1a2030">
+      <rect x="16" y="-1" width="3" height="2.5" rx="0.3"/>
+      <rect x="16" y="2.5" width="3" height="2.5" rx="0.3"/>
+      <rect x="16" y="6" width="3" height="2.5" rx="0.3"/>
+      <rect x="16" y="9.5" width="3" height="2.5" rx="0.3"/>
+    </g>
+
+    <!-- HV bushing insulator (left — 66 kV) -->
+    <rect x="-27" y="2" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_66KV}" stroke-width="0.7" opacity="0.8"/>
+    <line x1="-20" y1="4.5" x2="-12" y2="4.5" stroke="${SCADA_COLORS.VOLTAGE_66KV}" stroke-width="1.2" opacity="0.85"/>
+
+    <!-- LV bushing insulator (right — 220 kV) -->
+    <rect x="20" y="2" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="0.7" opacity="0.8"/>
+    <line x1="12" y1="4.5" x2="20" y2="4.5" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.2" opacity="0.85"/>
+
+    <!-- Primary winding — 66 kV (IEC circle with subtle fill) -->
+    <circle cx="-4" cy="5" r="7" fill="${SCADA_COLORS.VOLTAGE_66KV}" opacity="0.06"/>
+    <circle cx="-4" cy="5" r="7" fill="none" stroke="${SCADA_COLORS.VOLTAGE_66KV}" stroke-width="1.4" opacity="0.85"/>
+    <!-- Polarity dot -->
+    <circle cx="-4" cy="-0.5" r="1" fill="${SCADA_COLORS.VOLTAGE_66KV}" opacity="0.65"/>
+
+    <!-- Secondary winding — 220 kV (IEC circle with subtle fill) -->
+    <circle cx="4" cy="5" r="7" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.06"/>
+    <circle cx="4" cy="5" r="7" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.4" opacity="0.85"/>
+    <!-- Polarity dot -->
+    <circle cx="4" cy="-0.5" r="1" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.65"/>
+
+    <!-- Tap changer arrow indicator -->
+    <polygon points="6,10 8,10 7,12.5" fill="#64748b" opacity="0.4"/>
+
+    <!-- Status LED (energized) -->
+    <circle cx="-17" cy="-1" r="1.5" fill="${SCADA_COLORS.ENERGIZED}">
+      <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="-17" cy="-1" r="3.5" fill="${SCADA_COLORS.ENERGIZED}" opacity="0.08"/>
+
+    <!-- Voltage rating -->
+    <text x="0" y="28" text-anchor="middle" fill="#64748b" font-size="7" font-family="JetBrains Mono, monospace">66/220 kV</text>
+    <!-- Power readout -->
+    <text x="0" y="40" text-anchor="middle" fill="#cbd5e1" font-size="9" font-weight="600" font-family="JetBrains Mono, monospace">${powerMW.toFixed(0)} MW</text>
   </svg>`;
   return L.divIcon({
     html: svg,
     className: "leaflet-oss-marker",
-    iconSize: [56, 70],
-    iconAnchor: [28, 20],
+    iconSize: [64, 78],
+    iconAnchor: [32, 26],
   });
 }
 
-// ── Onshore Substation Marker Icon ───────────────────────────────
+// ── Onshore Substation Marker Icon (IEC 60617 HVAC Transformer) ─
 function createOnshoreIcon(): L.DivIcon {
-  const svg = `<svg width="60" height="70" viewBox="-30 -24 60 70" xmlns="http://www.w3.org/2000/svg">
-    <rect x="-22" y="-18" width="44" height="36" rx="3" fill="#1e293b" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="2"/>
-    <circle cx="-6" cy="0" r="8" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.5"/>
-    <circle cx="6" cy="0" r="8" fill="none" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="1.5"/>
-    <text x="0" y="-24" text-anchor="middle" fill="${SCADA_COLORS.VOLTAGE_400KV}" font-size="9" font-weight="bold" font-family="Inter, sans-serif">Onshore SS</text>
-    <text x="0" y="28" text-anchor="middle" fill="#94a3b8" font-size="7" font-family="JetBrains Mono, monospace">220/400 kV</text>
-    <text x="24" y="4" fill="${SCADA_COLORS.VOLTAGE_400KV}" font-size="8" font-weight="bold" font-family="Inter, sans-serif">PSE</text>
+  const svg = `<svg width="64" height="82" viewBox="-32 -24 64 82" xmlns="http://www.w3.org/2000/svg">
+    <!-- Label -->
+    <text x="0" y="-15" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="600" font-family="Inter, sans-serif" letter-spacing="0.5">Onshore</text>
+
+    <!-- Substation fence / perimeter (dashed) -->
+    <rect x="-28" y="-8" width="56" height="30" rx="2" fill="none" stroke="#3d4560" stroke-width="0.6" stroke-dasharray="4 2"/>
+
+    <!-- Building body -->
+    <rect x="-24" y="-6" width="48" height="26" rx="2" fill="#0d1017" stroke="#2a3040" stroke-width="1"/>
+
+    <!-- Transformer tank body -->
+    <rect x="-19" y="-2" width="38" height="18" rx="1.5" fill="#151b28" stroke="#3d4560" stroke-width="0.8"/>
+    <!-- Tank top edge highlight (depth) -->
+    <line x1="-18" y1="-1" x2="18" y2="-1" stroke="#283044" stroke-width="0.5"/>
+
+    <!-- Cooling radiator fins (right side of tank) -->
+    <g opacity="0.35" stroke="#4a5580" stroke-width="0.6" fill="#1a2030">
+      <rect x="14" y="1" width="3" height="2.5" rx="0.3"/>
+      <rect x="14" y="4.5" width="3" height="2.5" rx="0.3"/>
+      <rect x="14" y="8" width="3" height="2.5" rx="0.3"/>
+    </g>
+
+    <!-- HV bushing insulator (left — 220 kV) -->
+    <rect x="-25" y="4" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="0.7" opacity="0.8"/>
+    <line x1="-18" y1="6.5" x2="-10" y2="6.5" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.2" opacity="0.85"/>
+
+    <!-- LV bushing insulator (right — 400 kV) -->
+    <rect x="18" y="4" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="0.7" opacity="0.8"/>
+    <line x1="10" y1="6.5" x2="18" y2="6.5" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="1.2" opacity="0.85"/>
+
+    <!-- Primary winding — 220 kV (IEC circle with subtle fill) -->
+    <circle cx="-3" cy="7" r="6.5" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.06"/>
+    <circle cx="-3" cy="7" r="6.5" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.4" opacity="0.85"/>
+    <!-- Polarity dot -->
+    <circle cx="-3" cy="2" r="1" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.65"/>
+
+    <!-- Secondary winding — 400 kV (IEC circle with subtle fill) -->
+    <circle cx="3" cy="7" r="6.5" fill="${SCADA_COLORS.VOLTAGE_400KV}" opacity="0.06"/>
+    <circle cx="3" cy="7" r="6.5" fill="none" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="1.4" opacity="0.85"/>
+    <!-- Polarity dot -->
+    <circle cx="3" cy="2" r="1" fill="${SCADA_COLORS.VOLTAGE_400KV}" opacity="0.65"/>
+
+    <!-- Tap changer arrow indicator -->
+    <polygon points="5,11.5 7,11.5 6,14" fill="#64748b" opacity="0.4"/>
+
+    <!-- Status LED (energized) -->
+    <circle cx="-15" cy="1" r="1.5" fill="${SCADA_COLORS.ENERGIZED}">
+      <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="-15" cy="1" r="3.5" fill="${SCADA_COLORS.ENERGIZED}" opacity="0.08"/>
+
+    <!-- Ground symbol -->
+    <g transform="translate(0, 24)" opacity="0.4" stroke="#64748b" stroke-width="0.8" fill="none">
+      <line x1="0" y1="0" x2="0" y2="3"/>
+      <line x1="-4" y1="3" x2="4" y2="3"/>
+      <line x1="-2.5" y1="5" x2="2.5" y2="5"/>
+      <line x1="-1" y1="7" x2="1" y2="7"/>
+    </g>
+
+    <!-- Voltage rating -->
+    <text x="0" y="38" text-anchor="middle" fill="#64748b" font-size="7" font-family="JetBrains Mono, monospace">220/400 kV</text>
+    <!-- PSE Grid label -->
+    <text x="0" y="50" text-anchor="middle" fill="${SCADA_COLORS.VOLTAGE_400KV}" font-size="8" font-weight="600" font-family="Inter, sans-serif" opacity="0.85">PSE Grid</text>
   </svg>`;
   return L.divIcon({
     html: svg,
     className: "leaflet-onshore-marker",
-    iconSize: [60, 70],
-    iconAnchor: [30, 24],
+    iconSize: [64, 82],
+    iconAnchor: [32, 26],
   });
 }
 
@@ -296,7 +406,7 @@ function WindCompass() {
   const windCardinal = cardinals[Math.round(windDirDeg / 22.5) % 16];
 
   return (
-    <div className="absolute top-3 right-3 z-[1000] pointer-events-none">
+    <div className="absolute top-14 right-3 z-[1000] pointer-events-none">
       <svg width="72" height="90" viewBox="-36 -36 72 90">
         <circle cx={0} cy={0} r={32} fill="rgba(15,17,23,0.85)" stroke="#3d4560" strokeWidth={1} />
         <line x1={0} y1={-30} x2={0} y2={-24} stroke="#ef4444" strokeWidth={1.5} />
@@ -410,6 +520,31 @@ function YawUpdater() {
   return null;
 }
 
+// ── Zoom-dependent turbine scale — toggles CSS classes on the map container ──
+// Uses the same DOM class toggle pattern as TurbineLabelToggler.
+// CSS rules in index.css handle SVG-level transform to avoid Leaflet conflicts.
+const ZOOM_FAR_CLASS = "turbine-zoom-far";
+const ZOOM_CLOSE_CLASS = "turbine-zoom-close";
+
+function TurbineZoomScaler() {
+  const map = useMap();
+
+  useEffect(() => {
+    function applyZoomClass() {
+      const z = map.getZoom();
+      const el = map.getContainer();
+      // zoom < 11 → far (small), 11-12 → default, ≥ 13 → close (big)
+      el.classList.toggle(ZOOM_FAR_CLASS, z < 11);
+      el.classList.toggle(ZOOM_CLOSE_CLASS, z >= 13);
+    }
+    applyZoomClass();
+    map.on("zoomend", applyZoomClass);
+    return () => { map.off("zoomend", applyZoomClass); };
+  }, [map]);
+
+  return null;
+}
+
 // ── Foundation circles visible at high zoom (monopile outline) ───
 function FoundationLayer() {
   const map = useMap();
@@ -493,7 +628,7 @@ function LeafletWindFarmMapInner({
         {/* Custom pane for atmospheric overlays (z: 250, between tiles and markers) */}
         <AtmosphericPanes />
 
-        {/* Ocean wave texture (CSS-animated gradient layers) */}
+        {/* Ocean wave texture (Canvas-animated sine wave crests) */}
         {layers.oceanWaves && <OceanWaveOverlay />}
 
         {/* Day/night tint (compressed 24h cycle) */}
@@ -562,18 +697,20 @@ function LeafletWindFarmMapInner({
           }}
         />
 
-        {/* Offshore Substation marker */}
+        {/* Offshore Substation marker (z above turbines) */}
         <Marker
           position={[OSS_GEO.lat, OSS_GEO.lon]}
           icon={ossIcon}
           eventHandlers={ossHandlers}
+          zIndexOffset={1000}
         />
 
-        {/* Onshore Substation marker */}
+        {/* Onshore Substation marker (z above turbines) */}
         <Marker
           position={[ONSHORE_GEO.lat, ONSHORE_GEO.lon]}
           icon={onshoreIcon}
           eventHandlers={onshoreHandlers}
+          zIndexOffset={1000}
         />
 
         {/* Yaw rotation — updates CSS custom property on map container */}
@@ -581,6 +718,9 @@ function LeafletWindFarmMapInner({
 
         {/* Turbine label visibility (CSS class toggle) */}
         <TurbineLabelToggler />
+
+        {/* Zoom-dependent turbine scaling (CSS class toggle on container) */}
+        <TurbineZoomScaler />
 
         {/* Monopile foundation circles (zoom ≥ 14) */}
         {layers.foundations && <FoundationLayer />}
@@ -606,17 +746,15 @@ function LeafletWindFarmMapInner({
       {/* Layer control panel */}
       <LayerControlPanel />
 
-      {/* Environment / sea-state info panel */}
-      <EnvironmentPanel />
+      {/* Bottom-left panels (flex column to prevent overlap) */}
+      <div className="absolute bottom-3 left-3 z-[1000] flex flex-col gap-2 pointer-events-none">
+        <EnvironmentPanel />
+        <MapLegend />
+        <AlarmTicker />
+      </div>
 
       {/* Compass overlay */}
       <WindCompass />
-
-      {/* Legend overlay */}
-      <MapLegend />
-
-      {/* Alarm ticker */}
-      <AlarmTicker />
     </div>
   );
 }

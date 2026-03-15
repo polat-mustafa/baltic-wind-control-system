@@ -82,7 +82,7 @@ export default function TwinComparisonPanel() {
         data={traces}
         layout={{
           ...PLOTLY_LAYOUT_BASE,
-          height: 280,
+          height: 380,
         }}
         config={{ responsive: true, displayModeBar: false }}
         className="w-full"

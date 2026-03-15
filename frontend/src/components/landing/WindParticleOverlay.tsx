@@ -25,8 +25,8 @@ import { useLandingStore } from "../../store/landingStore";
 const PARTICLE_COUNT = 300;
 const BASE_MAX_AGE = 80; // frames before respawn
 const AGE_VARIANCE = 30;
-const STREAK_FRAMES = 5; // trail length in frames of travel
-const JITTER = 0.6; // random lateral wander (px/frame)
+const STREAK_FRAMES = 7; // trail length in frames of travel
+const JITTER = 0.3; // random lateral wander (px/frame)
 
 // ── Wind speed → color ───────────────────────────────────────────
 
@@ -44,6 +44,8 @@ interface Particle {
   y: number;
   age: number;
   maxAge: number;
+  phase: number;
+  speedFactor: number;
 }
 
 // ── Component ────────────────────────────────────────────────────
@@ -83,10 +85,17 @@ export default function WindParticleOverlay() {
         y: Math.random() * h,
         age: Math.floor(Math.random() * BASE_MAX_AGE),
         maxAge: BASE_MAX_AGE + Math.floor(Math.random() * AGE_VARIANCE),
+        phase: Math.random() * Math.PI * 2,
+        speedFactor: 0.8 + Math.random() * 0.4,
       };
     }
 
     particlesRef.current = Array.from({ length: PARTICLE_COUNT }, spawn);
+
+    // Lerp targets — smoothly interpolate toward store values each frame
+    const LERP_RATE = 0.03; // ~84% convergence in 1s at 60fps
+    let lerpWindDir = useLandingStore.getState().kpis.windDirectionDeg;
+    let lerpWindSpeed = useLandingStore.getState().kpis.averageWindSpeedMs;
 
     function onMapChange() {
       resize();
@@ -108,13 +117,22 @@ export default function WindParticleOverlay() {
       const { windDirectionDeg, averageWindSpeedMs } =
         useLandingStore.getState().kpis;
 
+      // Lerp wind direction (shortest angular path handles 0/360 wrap)
+      let dirDelta = windDirectionDeg - lerpWindDir;
+      if (dirDelta > 180) dirDelta -= 360;
+      if (dirDelta < -180) dirDelta += 360;
+      lerpWindDir = (lerpWindDir + dirDelta * LERP_RATE + 360) % 360;
+
+      // Lerp wind speed
+      lerpWindSpeed += (averageWindSpeedMs - lerpWindSpeed) * LERP_RATE;
+
       // Particles flow in the downwind direction (FROM → TO)
-      const toRad = ((windDirectionDeg + 180) * Math.PI) / 180;
-      const speed = Math.max(0.4, (averageWindSpeedMs / 15) * 3);
+      const toRad = ((lerpWindDir + 180) * Math.PI) / 180;
+      const speed = Math.max(0.3, (lerpWindSpeed / 15) * 1.5);
       const dx = Math.sin(toRad) * speed;
       const dy = -Math.cos(toRad) * speed; // canvas Y is inverted
 
-      const color = windColor(averageWindSpeedMs);
+      const color = windColor(lerpWindSpeed);
 
       ctx.clearRect(0, 0, w, h);
 
@@ -123,9 +141,15 @@ export default function WindParticleOverlay() {
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
-        // Advance position
-        p.x += dx + (Math.random() - 0.5) * JITTER;
-        p.y += dy + (Math.random() - 0.5) * JITTER;
+        // Wave-like modulation: sinusoidal speed variation per particle
+        const waveFactor = 0.7 + 0.3 * Math.sin(p.age * 0.05 + p.phase);
+        // Lateral sway: gentle perpendicular sine wave
+        const perpX = -dy;
+        const perpY = dx;
+        const sway = Math.sin(p.age * 0.03 + p.phase * 2) * 0.15;
+
+        p.x += (dx * waveFactor + perpX * sway) * p.speedFactor + (Math.random() - 0.5) * JITTER;
+        p.y += (dy * waveFactor + perpY * sway) * p.speedFactor + (Math.random() - 0.5) * JITTER;
         p.age++;
 
         // Respawn if out of bounds or expired
@@ -147,8 +171,8 @@ export default function WindParticleOverlay() {
           t < 0.12 ? t / 0.12 : t > 0.8 ? (1 - t) / 0.2 : 1;
 
         // Streak tail (short line in wind direction)
-        const tailX = p.x - dx * STREAK_FRAMES;
-        const tailY = p.y - dy * STREAK_FRAMES;
+        const tailX = p.x - dx * STREAK_FRAMES * p.speedFactor;
+        const tailY = p.y - dy * STREAK_FRAMES * p.speedFactor;
 
         ctx.globalAlpha = alpha * 0.3;
         ctx.strokeStyle = color;

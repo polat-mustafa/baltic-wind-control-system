@@ -33,7 +33,7 @@ export default function CpSurfaceChart() {
         showlabels: true,
         labelfont: {
           family: "'JetBrains Mono', monospace",
-          size: 9,
+          size: 11,
           color: "white",
         },
       },

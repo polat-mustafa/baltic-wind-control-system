@@ -272,16 +272,18 @@ class SwitchingProgramme:
 
 # ── Exceptions ───────────────────────────────────────────────────
 
+from app.core.exceptions import DomainError, StateTransitionError, ValidationError  # noqa: E402
 
-class ProgrammeError(Exception):
+
+class ProgrammeError(DomainError):
     """Base exception for switching programme operations."""
 
 
-class ProgrammeStateError(ProgrammeError):
+class ProgrammeStateError(StateTransitionError):
     """Programme is in wrong state for the requested operation."""
 
 
-class StepExecutionError(ProgrammeError):
+class StepExecutionError(ValidationError):
     """Step execution failed."""
 
 

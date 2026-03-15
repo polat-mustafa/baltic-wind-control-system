@@ -33,7 +33,7 @@ export default function EnvironmentPanel() {
 
   return (
     <div
-      className="absolute bottom-14 left-3 z-[1000] rounded-lg border overflow-hidden"
+      className="pointer-events-auto rounded-lg border overflow-hidden"
       style={{
         backgroundColor: "rgba(15,17,23,0.92)",
         borderColor: "#2a3040",

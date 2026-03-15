@@ -89,9 +89,9 @@ def test_short_circuit_max():
 
 
 def test_short_circuit_invalid_case():
-    """GET /api/v1/grid/short-circuit/invalid returns 400."""
+    """GET /api/v1/grid/short-circuit/invalid returns 422 (validation error)."""
     response = client.get("/api/v1/grid/short-circuit/invalid")
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 # ── STATCOM Sizing ───────────────────────────────────────────────
@@ -151,6 +151,6 @@ def test_converter_comparison_strong():
 
 
 def test_converter_comparison_invalid():
-    """GET /api/v1/grid/converter-comparison/invalid returns 400."""
+    """GET /api/v1/grid/converter-comparison/invalid returns 422 (validation error)."""
     response = client.get("/api/v1/grid/converter-comparison/invalid")
-    assert response.status_code == 400
+    assert response.status_code == 422

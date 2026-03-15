@@ -178,7 +178,7 @@ export default function PermitWorkflowPanel() {
         {/* 9-state flowchart */}
         <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
           <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-text-primary">
+            <h3 className="text-base font-semibold text-text-primary">
               PtW 9-State Lifecycle
             </h3>
             <InfoButton info={permitWorkflowInfo} />

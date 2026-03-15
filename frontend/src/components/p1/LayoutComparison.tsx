@@ -18,7 +18,7 @@ export default function LayoutComparison() {
   return (
     <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-text-primary">
+        <h3 className="text-base font-semibold text-text-primary">
           Layout Comparison
         {layoutComparison.improvement_percent > 0 && (
           <span className="ml-2 text-xs font-normal text-emerald-400">

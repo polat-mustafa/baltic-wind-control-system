@@ -65,7 +65,7 @@ export default function FRTPanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <h3 className="text-sm font-semibold text-text-primary">
+        <h3 className="text-base font-semibold text-text-primary">
           {typeLabel} Simulation — {frtResult.fault_bus}, {(frtResult.fault_duration_s * 1000).toFixed(0)} ms
         </h3>
         <div className="flex items-center gap-2">
@@ -105,15 +105,15 @@ export default function FRTPanel() {
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 200,
-          title: { text: "Voltage [p.u.]", font: { size: 11, color: "rgb(148,163,184)" } },
+          height: 340,
+          title: { text: "Voltage [p.u.]", font: { size: 13, color: "rgb(148,163,184)" } },
           yaxis: {
             ...DARK_PLOTLY_LAYOUT.yaxis,
             title: "V [pu]",
             range: [0, 1.3],
           },
           xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, title: "" },
-          legend: { orientation: "h", y: 1.2, font: { size: 9, color: "rgb(148,163,184)" } },
+          legend: { orientation: "h", y: 1.2, font: { size: 11, color: "rgb(148,163,184)" } },
           margin: { ...DARK_PLOTLY_LAYOUT.margin, b: 20 },
         }}
         config={PLOTLY_CONFIG}

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import NotFoundError
+from app.db import get_session
 from app.schemas.commissioning import (
     LOTOActionRequest,
     LOTOActionResponse,
@@ -11,25 +14,26 @@ from app.schemas.commissioning import (
     LOTOSetSchema,
 )
 from app.services.p5.loto import (
-    LOTOAlreadyAppliedError,
-    LOTONotAppliedError,
-    LOTOPointNotFoundError,
     all_loto_applied,
     all_loto_removed,
     apply_loto,
     remove_loto,
 )
-from app.services.p5.programme_store import get_programme
+from app.services.p5.programme_repository import ProgrammeRepository
 
 router = APIRouter()
 
 
 @router.get("/programmes/{programme_id}/loto", response_model=LOTOSetSchema)
-async def get_loto_status(programme_id: str) -> LOTOSetSchema:
+async def get_loto_status(
+    programme_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> LOTOSetSchema:
     """Get LOTO status for all isolation points in a programme."""
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
     if programme.loto_set is None:
-        raise HTTPException(status_code=404, detail="No LOTO set for this programme.")
+        raise NotFoundError("No LOTO set for this programme.")
 
     loto = programme.loto_set
     points = [
@@ -62,19 +66,18 @@ async def apply_loto_endpoint(
     programme_id: str,
     point_id: str,
     request: LOTOActionRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> LOTOActionResponse:
     """Apply LOTO (lock and danger tag) to an isolation point."""
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
     if programme.loto_set is None:
-        raise HTTPException(status_code=404, detail="No LOTO set for this programme.")
+        raise NotFoundError("No LOTO set for this programme.")
 
-    try:
-        point = apply_loto(programme.loto_set, point_id, request.performed_by)
-    except LOTOPointNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except LOTOAlreadyAppliedError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
+    point = apply_loto(programme.loto_set, point_id, request.performed_by)
 
+    await repo.save_programme(programme)
+    await session.commit()
     return LOTOActionResponse(
         success=True,
         point_id=point.point_id,
@@ -91,19 +94,18 @@ async def remove_loto_endpoint(
     programme_id: str,
     point_id: str,
     request: LOTOActionRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> LOTOActionResponse:
     """Remove LOTO (lock and danger tag) from an isolation point."""
-    programme = get_programme(programme_id)
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
     if programme.loto_set is None:
-        raise HTTPException(status_code=404, detail="No LOTO set for this programme.")
+        raise NotFoundError("No LOTO set for this programme.")
 
-    try:
-        point = remove_loto(programme.loto_set, point_id, request.performed_by)
-    except LOTOPointNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except LOTONotAppliedError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
+    point = remove_loto(programme.loto_set, point_id, request.performed_by)
 
+    await repo.save_programme(programme)
+    await session.commit()
     return LOTOActionResponse(
         success=True,
         point_id=point.point_id,

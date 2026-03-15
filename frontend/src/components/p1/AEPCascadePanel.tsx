@@ -87,7 +87,7 @@ export default function AEPCascadePanel() {
               totals: { marker: { color: "rgb(59, 130, 246)" } },
               texttemplate: "%{y:.1f}",
               textposition: "outside",
-              textfont: { size: 9 },
+              textfont: { size: 11 },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any,
           ]}
@@ -105,7 +105,7 @@ export default function AEPCascadePanel() {
             xaxis: {
               ...DARK_PLOTLY_LAYOUT.xaxis,
               tickangle: -30,
-              tickfont: { size: 9 },
+              tickfont: { size: 11 },
             },
             margin: { t: 40, r: 20, b: 80, l: 60 },
           }}
@@ -155,7 +155,7 @@ export default function AEPCascadePanel() {
                 showarrow: true,
                 arrowhead: 2,
                 arrowcolor: "rgb(234, 179, 8)",
-                font: { size: 9, color: "rgb(234, 179, 8)" },
+                font: { size: 11, color: "rgb(234, 179, 8)" },
                 ax: 60,
                 ay: -30,
               },

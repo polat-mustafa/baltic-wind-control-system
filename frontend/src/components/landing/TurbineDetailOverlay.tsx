@@ -9,9 +9,6 @@
  * Each per-turbine badge subscribes individually to the store
  * via selectTurbine(id) — only the turbine whose power/pitch
  * actually changed will re-render (same pattern as TurbineMarker).
- *
- * Tower sway animation is toggled via CSS class on the map
- * container at zoom ≥ 14 (subtle oscillation proportional to wind).
  */
 
 import { memo, useEffect, useMemo, useState } from "react";
@@ -153,28 +150,6 @@ const TurbinePitchArc = memo(function TurbinePitchArc({
   );
 });
 
-// ── Tower Sway CSS class toggle ─────────────────────────────────
-// At zoom ≥ 14, adds class that enables subtle horizontal sway
-// animation on turbine markers (CSS-only, wind-proportional period).
-
-function TowerSwayUpdater({ zoom }: { zoom: number }) {
-  const map = useMap();
-
-  useEffect(() => {
-    const el = map.getContainer();
-    if (zoom >= 14) {
-      el.classList.add("high-zoom-detail");
-    } else {
-      el.classList.remove("high-zoom-detail");
-    }
-    return () => {
-      el.classList.remove("high-zoom-detail");
-    };
-  }, [map, zoom]);
-
-  return null;
-}
-
 // ── Main Overlay ─────────────────────────────────────────────────
 
 export default function TurbineDetailOverlay() {
@@ -182,9 +157,6 @@ export default function TurbineDetailOverlay() {
 
   return (
     <>
-      {/* Tower sway CSS class toggle (always active for cleanup) */}
-      <TowerSwayUpdater zoom={zoom} />
-
       {/* Power output labels (zoom ≥ 13) */}
       {zoom >= 13 &&
         TURBINE_POSITIONS.map((pos) => (

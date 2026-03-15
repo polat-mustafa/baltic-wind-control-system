@@ -10,10 +10,22 @@
 
 interface TurbineWakeConeProps {
   powerOutputMW: number;
+  /** When provided and > 0, show actual wake loss instead of generic label. */
+  wakeLossPct?: number;
 }
 
-export default function TurbineWakeCone({ powerOutputMW }: TurbineWakeConeProps) {
+/** Color matching the severity thresholds used in TurbineDetailPanel / WakeEffectLayer. */
+function wakeConeColor(pct: number): string {
+  if (pct > 20) return "#ef4444"; // red
+  if (pct > 10) return "#f97316"; // orange
+  return "#fbbf24"; // yellow
+}
+
+export default function TurbineWakeCone({ powerOutputMW, wakeLossPct }: TurbineWakeConeProps) {
   const opacity = Math.min(powerOutputMW / 15, 1) * 0.6;
+  const hasLoss = wakeLossPct != null && wakeLossPct > 0;
+  const fillColor = hasLoss ? wakeConeColor(wakeLossPct) : "#3b82f6";
+  const labelText = hasLoss ? `\u2212${wakeLossPct}% wake loss` : "Wake deficit zone";
 
   return (
     <svg
@@ -21,17 +33,17 @@ export default function TurbineWakeCone({ powerOutputMW }: TurbineWakeConeProps)
       className="w-full"
       style={{ height: 35 }}
       role="img"
-      aria-label="Wake deficit zone"
+      aria-label={labelText}
     >
       <defs>
         <linearGradient id="wake-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.35} />
-          <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+          <stop offset="0%" stopColor={fillColor} stopOpacity={0.35} />
+          <stop offset="100%" stopColor={fillColor} stopOpacity={0} />
         </linearGradient>
       </defs>
 
       {/* Rotor line (left edge) */}
-      <line x1={75} y1={6} x2={75} y2={29} stroke="#3b82f6" strokeWidth={1.5} opacity={0.4} />
+      <line x1={75} y1={6} x2={75} y2={29} stroke={fillColor} strokeWidth={1.5} opacity={0.4} />
 
       {/* Wake cone trapezoid */}
       <polygon
@@ -42,20 +54,21 @@ export default function TurbineWakeCone({ powerOutputMW }: TurbineWakeConeProps)
       />
 
       {/* Wake boundary lines */}
-      <line x1={75} y1={10} x2={350} y2={0} stroke="#3b82f6" strokeWidth={0.5} opacity={0.2} strokeDasharray="4 3" />
-      <line x1={75} y1={25} x2={350} y2={35} stroke="#3b82f6" strokeWidth={0.5} opacity={0.2} strokeDasharray="4 3" />
+      <line x1={75} y1={10} x2={350} y2={0} stroke={fillColor} strokeWidth={0.5} opacity={0.2} strokeDasharray="4 3" />
+      <line x1={75} y1={25} x2={350} y2={35} stroke={fillColor} strokeWidth={0.5} opacity={0.2} strokeDasharray="4 3" />
 
       {/* Label */}
       <text
         x={210}
         y={20}
         textAnchor="middle"
-        fill="#3b82f6"
+        fill={fillColor}
         fontSize={8}
-        opacity={0.4}
+        opacity={hasLoss ? 0.7 : 0.4}
+        fontWeight={hasLoss ? 600 : 400}
         fontFamily="Inter, sans-serif"
       >
-        Wake deficit zone
+        {labelText}
       </text>
     </svg>
   );

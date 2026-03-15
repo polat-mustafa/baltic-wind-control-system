@@ -17,7 +17,7 @@ Backend:    FastAPI (Python 3.13+) + SQLAlchemy + Alembic + Pydantic v2
 Database:   PostgreSQL 16 + TimescaleDB extension
 Cache:      Redis 7 (real-time state, WebSocket pub/sub)
 Realtime:   FastAPI WebSocket + Server-Sent Events
-Auth:       JWT + RBAC (5 security levels per IEC 62443)
+Auth:       RBAC simulation (5 security levels per IEC 62443) — JWT planned
 Container:  Docker + Docker Compose
 CI/CD:      GitHub Actions
 Testing:    pytest (backend) + Vitest (frontend) + Playwright (E2E)
@@ -33,12 +33,12 @@ offshore-wind-hv-platform/
 │   │   ├── main.py
 │   │   ├── config.py        # Pydantic Settings
 │   │   ├── database.py      # SQLAlchemy async engine
-│   │   ├── auth/            # JWT + RBAC
-│   │   ├── api/v1/          # REST endpoints per project
+│   │   ├── core/            # Exceptions, middleware, cache, RBAC
+│   │   ├── routers/         # REST endpoints per project (p1-p5)
 │   │   ├── models/          # SQLAlchemy ORM models
 │   │   ├── schemas/         # Pydantic request/response
 │   │   ├── services/        # Business logic + computation
-│   │   └── websocket/       # Real-time SCADA handlers
+│   │   └── db.py            # SQLAlchemy async engine + session
 │   ├── tests/
 │   ├── alembic/
 │   └── pyproject.toml
@@ -704,10 +704,10 @@ Standards: IEC 60909-0:2016
 
 ## Security Checklist (IEC 62443 Alignment)
 
-- [ ] All API endpoints require JWT authentication (except /health)
-- [ ] RBAC middleware checks user level before executing control commands
-- [ ] All PtW state transitions logged with timestamp, user, and IP
-- [ ] WebSocket connections authenticated before data streaming
+- [ ] All API endpoints require JWT authentication (except /health) — **planned**
+- [x] RBAC simulation checks user level before executing control commands
+- [x] All PtW state transitions logged with timestamp, user, and role level
+- [ ] WebSocket connections authenticated before data streaming — **planned**
 - [ ] SQL injection prevention via SQLAlchemy ORM (never raw SQL)
 - [ ] CORS restricted to specific frontend origin
 - [ ] Rate limiting on authentication endpoints

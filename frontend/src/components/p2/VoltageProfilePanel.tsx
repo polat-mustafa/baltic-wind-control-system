@@ -45,7 +45,7 @@ export default function VoltageProfilePanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
+        <h3 className="text-base font-semibold text-text-primary">
           Voltage Profile — {scenarioLabel}
         </h3>
         <InfoButton info={voltageProfileInfo} />
@@ -59,13 +59,13 @@ export default function VoltageProfilePanel() {
             marker: { color: colors },
             text: voltages.map((v) => `${v.toFixed(4)} pu`),
             textposition: "outside",
-            textfont: { size: 9, color: "rgb(148, 163, 184)" },
+            textfont: { size: 11, color: "rgb(148, 163, 184)" },
             hovertemplate: "%{x}<br>V = %{y:.4f} pu<extra></extra>",
           },
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 300,
+          height: 400,
           yaxis: {
             ...DARK_PLOTLY_LAYOUT.yaxis,
             title: "Voltage [p.u.]",
@@ -74,7 +74,7 @@ export default function VoltageProfilePanel() {
           xaxis: {
             ...DARK_PLOTLY_LAYOUT.xaxis,
             tickangle: -45,
-            tickfont: { size: 9, color: "rgb(148, 163, 184)" },
+            tickfont: { size: 11, color: "rgb(148, 163, 184)" },
           },
           shapes: [
             // PSE upper limit (1.05 pu)
@@ -104,14 +104,14 @@ export default function VoltageProfilePanel() {
               x: names.length - 1, y: 1.05,
               text: "1.05 pu (PSE max)",
               showarrow: false,
-              font: { size: 9, color: SCADA_COLORS.FAULT },
+              font: { size: 11, color: SCADA_COLORS.FAULT },
               yshift: 12,
             },
             {
               x: names.length - 1, y: 0.95,
               text: "0.95 pu (PSE min)",
               showarrow: false,
-              font: { size: 9, color: SCADA_COLORS.FAULT },
+              font: { size: 11, color: SCADA_COLORS.FAULT },
               yshift: -12,
             },
           ],

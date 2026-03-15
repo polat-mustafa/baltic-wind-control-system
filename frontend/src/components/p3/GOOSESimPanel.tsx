@@ -85,7 +85,7 @@ export default function GOOSESimPanel() {
       {/* Compliance summary */}
       <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-text-primary">
+          <h3 className="text-base font-semibold text-text-primary">
             GOOSE Fault Simulation — {simulationResult.fault_type}
           </h3>
           <div className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export default function GOOSESimPanel() {
       {/* Protection timeline chart */}
       {timelineData && (
         <ChartWrapper title="Protection Event Timeline">
-          <div className="w-full" style={{ height: 320 }}>
+          <div className="w-full" style={{ height: 400 }}>
             <Plot
               data={[timelineData]}
               layout={{
@@ -182,7 +182,7 @@ export default function GOOSESimPanel() {
       {/* Retransmission schedule */}
       {retransmissionData && (
         <ChartWrapper title="GOOSE Retransmission Schedule (IEC 61850-8-1 §15.2.2)">
-          <div className="w-full" style={{ height: 240 }}>
+          <div className="w-full" style={{ height: 340 }}>
             <Plot
               data={[retransmissionData]}
               layout={{

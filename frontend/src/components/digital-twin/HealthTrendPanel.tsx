@@ -86,7 +86,7 @@ export default function HealthTrendPanel() {
             zeroline: false,
             range: [0, 105],
           },
-          height: 250,
+          height: 380,
         }}
         config={{ responsive: true, displayModeBar: false }}
         className="w-full"

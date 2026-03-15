@@ -23,7 +23,7 @@ export default function STATCOMPanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">
+        <h3 className="text-base font-semibold text-text-primary">
           STATCOM &amp; Reactive Compensation
         </h3>
         <div className="flex items-center gap-2">
@@ -76,7 +76,7 @@ export default function STATCOMPanel() {
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 280,
+          height: 380,
           yaxis: {
             ...DARK_PLOTLY_LAYOUT.yaxis,
             title: "Reactive Power [MVAR]",

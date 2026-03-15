@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import get_session
 from app.schemas.commissioning import (
     EmergencyEventSchema,
     EmergencyLogResponse,
@@ -17,7 +19,7 @@ from app.services.p5.emergency_response import (
     get_procedure,
     trigger_emergency,
 )
-from app.services.p5.programme_store import get_programme
+from app.services.p5.programme_repository import ProgrammeRepository
 
 router = APIRouter()
 
@@ -78,9 +80,11 @@ async def get_emergency_procedure(emergency_type: str) -> EmergencyProcedureSche
 async def trigger_emergency_event(
     programme_id: str,
     body: TriggerEmergencyRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> EmergencyEventSchema:
     """Trigger an emergency on a programme and record the event."""
-    get_programme(programme_id)  # Validate programme exists
+    repo = ProgrammeRepository(session)
+    await repo.get_programme(programme_id)  # Validate programme exists
     try:
         etype = EmergencyType(body.emergency_type)
     except ValueError:
@@ -109,9 +113,13 @@ async def trigger_emergency_event(
     response_model=EmergencyLogResponse,
     summary="Get emergency event history",
 )
-async def get_programme_emergency_log(programme_id: str) -> EmergencyLogResponse:
+async def get_programme_emergency_log(
+    programme_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> EmergencyLogResponse:
     """Return the emergency event history for a programme."""
-    get_programme(programme_id)  # Validate programme exists
+    repo = ProgrammeRepository(session)
+    await repo.get_programme(programme_id)  # Validate programme exists
     events = get_emergency_log(programme_id)
     return EmergencyLogResponse(
         programme_id=programme_id,

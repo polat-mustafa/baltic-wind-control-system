@@ -457,12 +457,14 @@ for _cb_id, _ds_ids in _CB_DS_PAIRS.items():
 
 # ── Exceptions ───────────────────────────────────────────────────
 
+from app.core.exceptions import NotFoundError, StateTransitionError  # noqa: E402
 
-class InvalidTransitionError(Exception):
+
+class InvalidTransitionError(StateTransitionError):
     """Raised when a switching action is not a valid state transition."""
 
 
-class InterlockError(Exception):
+class InterlockError(StateTransitionError):
     """Raised when a switching action violates safety interlocks."""
 
     def __init__(self, message: str, violations: tuple[InterlockViolation, ...]) -> None:
@@ -470,7 +472,7 @@ class InterlockError(Exception):
         self.violations = violations
 
 
-class EquipmentNotFoundError(Exception):
+class EquipmentNotFoundError(NotFoundError):
     """Raised when an equipment ID is not in the registry."""
 
 

@@ -45,7 +45,7 @@ export default function AuditTrail() {
     <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
       <div className="px-4 py-3 border-b border-border-primary flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Audit Trail</h3>
+          <h3 className="text-base font-semibold text-text-primary">Audit Trail</h3>
           <p className="text-xs text-text-muted mt-0.5">
             {auditRecords.length} records
           </p>

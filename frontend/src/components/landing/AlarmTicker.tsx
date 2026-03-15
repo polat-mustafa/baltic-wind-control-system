@@ -29,7 +29,7 @@ export default function AlarmTicker() {
 
   return (
     <div
-      className="absolute bottom-3 left-3 z-40 rounded-md border px-2 py-1.5 backdrop-blur-sm"
+      className="pointer-events-auto rounded-md border px-2 py-1.5 backdrop-blur-sm"
       style={{
         backgroundColor: "rgba(15,17,23,0.9)",
         borderColor: faultedTurbines.length > 0 ? "rgba(239,68,68,0.3)" : "rgba(107,116,144,0.3)",

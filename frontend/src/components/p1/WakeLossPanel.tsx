@@ -73,7 +73,7 @@ export default function WakeLossPanel() {
           yaxis: {
             ...DARK_PLOTLY_LAYOUT.yaxis,
             autorange: "reversed",
-            tickfont: { size: 9 },
+            tickfont: { size: 11 },
           },
           margin: { t: 10, r: 20, b: 40, l: 35 },
         }}

@@ -53,7 +53,7 @@ export default function FarmLayoutMap() {
               showscale: true,
               colorbar: {
                 title: { text: "AEP\n(GWh)", font: { size: 10 } },
-                tickfont: { size: 9 },
+                tickfont: { size: 11 },
                 len: 0.8,
               },
               line: { color: "rgba(255,255,255,0.5)", width: 1 },

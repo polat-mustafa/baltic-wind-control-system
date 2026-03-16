@@ -8,6 +8,7 @@ from fastapi import APIRouter
 
 from .devices import router as devices_router
 from .goose import router as goose_router
+from .historian import router as historian_router
 from .permits import router as permits_router
 from .rbac import router as rbac_router
 from .scl import router as scl_router
@@ -18,3 +19,4 @@ router.include_router(devices_router)
 router.include_router(scl_router)
 router.include_router(rbac_router)
 router.include_router(permits_router)
+router.include_router(historian_router)

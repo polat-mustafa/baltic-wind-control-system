@@ -46,8 +46,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from app.services.p1.layout_optimizer import (
-    LayoutResult,
     MIN_SPACING_M,
+    LayoutResult,
     _compute_layout_area_km2,
     check_minimum_spacing,
 )
@@ -100,9 +100,7 @@ class RobustOptimizationResult:
     best_case_aep_gwh: float
     risk_aversion: float
     n_scenarios: int
-    scenario_aeps_gwh: NDArray[np.floating] = field(
-        default_factory=lambda: np.array([])
-    )
+    scenario_aeps_gwh: NDArray[np.floating] = field(default_factory=lambda: np.array([]))
     nominal_layout_mean_aep_gwh: float = 0.0
     nominal_layout_std_aep_gwh: float = 0.0
     robustness_improvement_percent: float = 0.0
@@ -137,8 +135,8 @@ def _evaluate_layout_scenarios(
             turbulence_intensity=scen["turbulence_intensity"],
         )
         try:
-            result = run_wake_analysis(x, y, site, turbine)
-            aeps[i] = result.net_aep_gwh
+            wake_result: WakeAnalysisResult = run_wake_analysis(x, y, site, turbine)
+            aeps[i] = wake_result.net_aep_gwh
         except Exception:
             aeps[i] = 0.0
 
@@ -182,11 +180,13 @@ def _generate_scenarios(
         a = max(5.0, min(20.0, rng.normal(weibull_a_mean, weibull_a_std)))
         k = max(1.2, min(3.5, rng.normal(weibull_k_mean, weibull_k_std)))
         ti = max(0.02, min(0.20, rng.normal(ti_mean, ti_std)))
-        scenarios.append({
-            "weibull_a": a,
-            "weibull_k": k,
-            "turbulence_intensity": ti,
-        })
+        scenarios.append(
+            {
+                "weibull_a": a,
+                "weibull_k": k,
+                "turbulence_intensity": ti,
+            }
+        )
 
     return scenarios
 
@@ -238,7 +238,7 @@ def run_robust_optimization(
         passes, actual_min = check_minimum_spacing(np.array(x), np.array(y), MIN_SPACING_M)
         if not passes:
             violation = MIN_SPACING_M - actual_min
-            return 1e6 * violation ** 2
+            return 1e6 * violation**2
 
         aeps = _evaluate_layout_scenarios(
             np.array(x, dtype=np.float64),
@@ -289,16 +289,16 @@ def run_robust_optimization(
 
     layout = LayoutResult(
         name="Robust Optimized",
-        x_positions=opt_x, y_positions=opt_y,
-        num_turbines=n, min_spacing_m=min_dist, area_km2=area,
+        x_positions=opt_x,
+        y_positions=opt_y,
+        num_turbines=n,
+        min_spacing_m=min_dist,
+        area_km2=area,
     )
 
     # Robustness improvement = reduction in CoV
     nominal_cov = nominal_std / nominal_mean * 100.0 if nominal_mean > 0 else 0.0
-    robustness_improvement = (
-        (nominal_cov - cov) / nominal_cov * 100.0
-        if nominal_cov > 0 else 0.0
-    )
+    robustness_improvement = (nominal_cov - cov) / nominal_cov * 100.0 if nominal_cov > 0 else 0.0
 
     return RobustOptimizationResult(
         layout=layout,

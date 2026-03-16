@@ -62,8 +62,12 @@ class TestConfigureWakeModelWithDeflection:
         n = layout.num_turbines
         yaw = np.zeros(n, dtype=np.float64)
         total_mw, per_turbine = compute_farm_power_with_yaw(
-            layout.x_positions, layout.y_positions,
-            yaw, 240.0, 10.0, model,
+            layout.x_positions,
+            layout.y_positions,
+            yaw,
+            240.0,
+            10.0,
+            model,
         )
         assert total_mw > 0.0
         assert len(per_turbine) == n
@@ -78,8 +82,12 @@ class TestComputeFarmPowerWithYaw:
         model = configure_wake_model_with_deflection(site, turbine)
         n = layout.num_turbines
         total_mw, _ = compute_farm_power_with_yaw(
-            layout.x_positions, layout.y_positions,
-            np.zeros(n), 240.0, 10.0, model,
+            layout.x_positions,
+            layout.y_positions,
+            np.zeros(n),
+            240.0,
+            10.0,
+            model,
         )
         assert total_mw > 0.0
 
@@ -90,13 +98,21 @@ class TestComputeFarmPowerWithYaw:
         n = layout.num_turbines
 
         _, power_zero_yaw = compute_farm_power_with_yaw(
-            layout.x_positions, layout.y_positions,
-            np.zeros(n), 240.0, 10.0, model,
+            layout.x_positions,
+            layout.y_positions,
+            np.zeros(n),
+            240.0,
+            10.0,
+            model,
         )
         # Set all turbines to maximum yaw
         _, power_max_yaw = compute_farm_power_with_yaw(
-            layout.x_positions, layout.y_positions,
-            np.full(n, MAX_YAW_DEG), 240.0, 10.0, model,
+            layout.x_positions,
+            layout.y_positions,
+            np.full(n, MAX_YAW_DEG),
+            240.0,
+            10.0,
+            model,
         )
         # Total power should decrease when ALL turbines are yawed
         # (no downstream benefit when all are yawed equally)
@@ -110,7 +126,8 @@ class TestOptimizeYawSingleDirection:
 
     def test_returns_valid_result(self, site, layout):
         result = optimize_yaw_single_direction(
-            layout.x_positions, layout.y_positions,
+            layout.x_positions,
+            layout.y_positions,
             wind_direction_deg=240.0,
             wind_speed_ms=10.0,
             site=site,
@@ -123,7 +140,8 @@ class TestOptimizeYawSingleDirection:
 
     def test_yaw_angles_within_bounds(self, site, layout):
         result = optimize_yaw_single_direction(
-            layout.x_positions, layout.y_positions,
+            layout.x_positions,
+            layout.y_positions,
             wind_direction_deg=240.0,
             wind_speed_ms=10.0,
             site=site,
@@ -134,7 +152,8 @@ class TestOptimizeYawSingleDirection:
 
     def test_optimized_power_not_less_than_zero(self, site, layout):
         result = optimize_yaw_single_direction(
-            layout.x_positions, layout.y_positions,
+            layout.x_positions,
+            layout.y_positions,
             wind_direction_deg=240.0,
             wind_speed_ms=10.0,
             site=site,
@@ -145,7 +164,8 @@ class TestOptimizeYawSingleDirection:
     def test_power_gain_is_non_negative(self, site, layout):
         """Optimizer should find at least as good as baseline (or very close)."""
         result = optimize_yaw_single_direction(
-            layout.x_positions, layout.y_positions,
+            layout.x_positions,
+            layout.y_positions,
             wind_direction_deg=240.0,
             wind_speed_ms=10.0,
             site=site,
@@ -160,7 +180,8 @@ class TestOptimizeYawAllDirections:
 
     def test_returns_valid_result(self, site, layout):
         result = optimize_yaw_all_directions(
-            layout.x_positions, layout.y_positions,
+            layout.x_positions,
+            layout.y_positions,
             site=site,
             wind_directions_deg=np.array([0.0, 90.0, 180.0, 270.0]),
             wind_speed_ms=10.0,
@@ -172,7 +193,8 @@ class TestOptimizeYawAllDirections:
     def test_best_direction_is_valid(self, site, layout):
         directions = np.array([0.0, 120.0, 240.0])
         result = optimize_yaw_all_directions(
-            layout.x_positions, layout.y_positions,
+            layout.x_positions,
+            layout.y_positions,
             site=site,
             wind_directions_deg=directions,
             wind_speed_ms=10.0,

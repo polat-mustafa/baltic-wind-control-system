@@ -124,7 +124,7 @@ def compute_derated_power(
     turbine = create_v236_wind_turbine()
 
     # Run full-power wake analysis
-    result = run_wake_analysis(x_positions_m, y_positions_m, site, turbine)
+    result: WakeAnalysisResult = run_wake_analysis(x_positions_m, y_positions_m, site, turbine)
     per_turbine_gwh = result.per_turbine_aep_gwh
 
     # Identify upstream turbines (front half based on wind direction)
@@ -144,11 +144,13 @@ def compute_derated_power(
     downstream_mask = ~is_upstream
     wake_loss_fraction = result.per_turbine_wake_loss_percent[downstream_mask] / 100.0
     recovery = wake_loss_fraction * wake_reduction_factor * 0.4  # 40% recovery
-    derated_gwh[downstream_mask] *= (1.0 + recovery)
+    derated_gwh[downstream_mask] *= 1.0 + recovery
 
-    # Convert AEP to average power
+    # Convert AEP to average power, cap at rated
+    rated_mw = RATED_POWER_KW / 1000.0
     total_mw = float(derated_gwh.sum()) * 1000.0 / 8760.0  # GWh -> MW avg
     per_turbine_mw = derated_gwh * 1000.0 / 8760.0
+    per_turbine_mw = np.minimum(per_turbine_mw, rated_mw)
 
     return total_mw, per_turbine_mw.astype(np.float64)
 
@@ -194,13 +196,21 @@ def optimize_derating(
 
     # Baseline (no derating, α = 1.0)
     baseline_mw, baseline_per_turbine = compute_derated_power(
-        x_positions_m, y_positions_m, site, 1.0, wind_direction_deg,
+        x_positions_m,
+        y_positions_m,
+        site,
+        1.0,
+        wind_direction_deg,
     )
 
     # Optimize derating fraction
     def objective(alpha: float) -> float:
         total_mw, _ = compute_derated_power(
-            x_positions_m, y_positions_m, site, alpha, wind_direction_deg,
+            x_positions_m,
+            y_positions_m,
+            site,
+            alpha,
+            wind_direction_deg,
         )
         return -total_mw
 
@@ -213,19 +223,22 @@ def optimize_derating(
 
     optimal_alpha = float(result.x)
     derated_mw, derated_per_turbine = compute_derated_power(
-        x_positions_m, y_positions_m, site, optimal_alpha, wind_direction_deg,
+        x_positions_m,
+        y_positions_m,
+        site,
+        optimal_alpha,
+        wind_direction_deg,
     )
 
     # Compute upstream loss and downstream gain
     loss_mask = derated_per_turbine < baseline_per_turbine
     gain_mask = derated_per_turbine > baseline_per_turbine
     upstream_loss = float(np.sum(baseline_per_turbine[loss_mask] - derated_per_turbine[loss_mask]))
-    downstream_gain = float(np.sum(derated_per_turbine[gain_mask] - baseline_per_turbine[gain_mask]))
-
-    gain_pct = (
-        (derated_mw - baseline_mw) / baseline_mw * 100.0
-        if baseline_mw > 0 else 0.0
+    downstream_gain = float(
+        np.sum(derated_per_turbine[gain_mask] - baseline_per_turbine[gain_mask]),
     )
+
+    gain_pct = (derated_mw - baseline_mw) / baseline_mw * 100.0 if baseline_mw > 0 else 0.0
 
     return DeratingResult(
         baseline_power_mw=round(baseline_mw, 3),

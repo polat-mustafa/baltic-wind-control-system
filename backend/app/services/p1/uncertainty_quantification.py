@@ -54,7 +54,6 @@ from app.services.p1.wake_model import (
     run_wake_analysis,
 )
 
-
 # ── PCE Constants ───────────────────────────────────────────────
 
 DEFAULT_PCE_ORDER: int = 3
@@ -146,9 +145,7 @@ class PCEResult:
     pce_order: int = DEFAULT_PCE_ORDER
     num_samples: int = DEFAULT_NUM_SAMPLES
     r_squared: float = 0.0
-    sample_aep_values_gwh: NDArray[np.floating] = field(
-        default_factory=lambda: np.array([])
-    )
+    sample_aep_values_gwh: NDArray[np.floating] = field(default_factory=lambda: np.array([]))
 
 
 def _generate_lhs_samples(
@@ -179,14 +176,14 @@ def _generate_lhs_samples(
     for j, param in enumerate(parameters):
         # Latin hypercube: divide [0,1] into n equal strata, sample one from each
         intervals = np.linspace(0, 1, n_samples + 1)
-        uniform_samples = np.array([
-            rng.uniform(intervals[i], intervals[i + 1])
-            for i in range(n_samples)
-        ])
+        uniform_samples = np.array(
+            [rng.uniform(intervals[i], intervals[i + 1]) for i in range(n_samples)]
+        )
         rng.shuffle(uniform_samples)
 
         if param.distribution == "gaussian":
             from scipy.stats import norm
+
             samples[:, j] = norm.ppf(uniform_samples, loc=param.nominal, scale=param.std_dev)
         else:
             # Uniform: ±2σ range
@@ -305,8 +302,13 @@ def run_pce_uncertainty(
         )
 
         try:
-            result = run_wake_analysis(x_positions_m, y_positions_m, site, turbine)
-            aep_values[i] = result.net_aep_gwh
+            wake_result: WakeAnalysisResult = run_wake_analysis(
+                x_positions_m,
+                y_positions_m,
+                site,
+                turbine,
+            )
+            aep_values[i] = wake_result.net_aep_gwh
         except Exception:
             aep_values[i] = np.nan
 
@@ -317,9 +319,14 @@ def run_pce_uncertainty(
 
     if len(aep_valid) < 5:
         return PCEResult(
-            mean_aep_gwh=0.0, std_aep_gwh=0.0, cov_percent=0.0,
-            p50_gwh=0.0, p75_gwh=0.0, p90_gwh=0.0,
-            pce_order=pce_order, num_samples=n_samples,
+            mean_aep_gwh=0.0,
+            std_aep_gwh=0.0,
+            cov_percent=0.0,
+            p50_gwh=0.0,
+            p75_gwh=0.0,
+            p90_gwh=0.0,
+            pce_order=pce_order,
+            num_samples=n_samples,
             sample_aep_values_gwh=aep_values,
         )
 
@@ -334,7 +341,7 @@ def run_pce_uncertainty(
     basis = _build_polynomial_basis(samples_norm, pce_order)
 
     # Fit PCE coefficients via least squares
-    coeffs, residuals, _, _ = np.linalg.lstsq(basis, aep_valid, rcond=None)
+    coeffs, _residuals, _, _ = np.linalg.lstsq(basis, aep_valid, rcond=None)
 
     # PCE statistics
     mean_aep = float(coeffs[0])
@@ -363,18 +370,19 @@ def run_pce_uncertainty(
             if t == 0:
                 continue  # Skip constant term
             # First-order: only p_idx is nonzero in this multi-index
-            is_first_order = (
-                idx[p_idx] > 0
-                and all(idx[k] == 0 for k in range(n_params) if k != p_idx)
+            is_first_order = idx[p_idx] > 0 and all(
+                idx[k] == 0 for k in range(n_params) if k != p_idx
             )
             if is_first_order:
                 param_var += coeffs[t] ** 2
 
         sobol_first = param_var / variance if variance > 0 else 0.0
-        sobol_indices.append(SobolIndex(
-            parameter=param.name,
-            first_order=round(sobol_first, 4),
-        ))
+        sobol_indices.append(
+            SobolIndex(
+                parameter=param.name,
+                first_order=round(sobol_first, 4),
+            )
+        )
 
     dominant = max(sobol_indices, key=lambda s: s.first_order).parameter if sobol_indices else ""
 
@@ -384,6 +392,12 @@ def run_pce_uncertainty(
     p50 = mean_aep
     p75 = mean_aep - z_75 * std_aep
     p90 = mean_aep - z_90 * std_aep
+
+    # Theoretical maximum AEP for sanity-checking PCE predictions
+    n_turbines = len(x_positions_m)
+    theoretical_max_gwh = RATED_POWER_KW * 1e-6 * 8760.0 * n_turbines
+    # Clamp PCE mean to physical bounds
+    mean_aep = min(mean_aep, theoretical_max_gwh)
 
     cov = std_aep / mean_aep * 100.0 if mean_aep > 0 else 0.0
 

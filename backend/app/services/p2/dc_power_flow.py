@@ -44,7 +44,6 @@ import pandapower as pp
 
 from app.services.p2.network_model import (
     STRING_LAYOUT,
-    TURBINE_RATED_MW,
     build_network,
 )
 
@@ -210,12 +209,14 @@ def _extract_dc_results(net: pp.pandapowerNet) -> DCPowerFlowResult:
         if overloaded:
             n_overloaded += 1
         max_loading = max(max_loading, loading)
-        line_results.append(DCLineResult(
-            name=name,
-            p_from_mw=round(p_from, 2),
-            loading_percent=round(loading, 1),
-            overloaded=overloaded,
-        ))
+        line_results.append(
+            DCLineResult(
+                name=name,
+                p_from_mw=round(p_from, 2),
+                loading_percent=round(loading, 1),
+                overloaded=overloaded,
+            )
+        )
 
     # Export power (from ext_grid perspective)
     total_export = abs(float(net.res_ext_grid["p_mw"].sum()))
@@ -285,8 +286,10 @@ def run_dc_contingency_screening(
             result = _extract_dc_results(net)
         except Exception:
             result = DCPowerFlowResult(
-                converged=False, total_generation_mw=0.0,
-                total_export_mw=0.0, max_line_loading_percent=0.0,
+                converged=False,
+                total_generation_mw=0.0,
+                total_export_mw=0.0,
+                max_line_loading_percent=0.0,
                 num_overloaded_lines=0,
             )
 

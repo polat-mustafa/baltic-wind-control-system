@@ -79,7 +79,6 @@ from app.services.p1.wake_model import (
     run_wake_analysis,
 )
 
-
 # ── Multi-Variable Optimization (C4) ────────────────────────────
 
 
@@ -168,38 +167,50 @@ def run_simultaneous_optimization(
     bounds = pos_bounds + yaw_bounds + derate_bounds
 
     def objective(params: NDArray) -> float:
-        x = params[:2 * n:2]
-        y = params[1:2 * n:2]
-        _yaw = params[2 * n:3 * n]
-        _derate = params[3 * n:]
+        x = params[: 2 * n : 2]
+        y = params[1 : 2 * n : 2]
+        _yaw = params[2 * n : 3 * n]
+        _derate = params[3 * n :]
 
         passes, actual = check_minimum_spacing(np.array(x), np.array(y), MIN_SPACING_M)
         if not passes:
             return 1e6 * (MIN_SPACING_M - actual) ** 2
 
         try:
-            result = run_wake_analysis(np.array(x, dtype=np.float64), np.array(y, dtype=np.float64), site, turbine)
+            result = run_wake_analysis(
+                np.array(x, dtype=np.float64),
+                np.array(y, dtype=np.float64),
+                site,
+                turbine,
+            )
             # Approximate yaw/derating effect: scale AEP by mean derating
             mean_derate = float(np.mean(_derate))
             return -(result.net_aep_gwh * mean_derate)
         except Exception:
             return 1e12
 
-    x0 = np.concatenate([
-        np.column_stack([initial_x, initial_y]).ravel(),
-        np.zeros(n),
-        np.ones(n),
-    ])
-
-    result = differential_evolution(
-        objective, bounds, maxiter=maxiter, seed=seed,
-        tol=1e-3, polish=False, x0=x0,
+    x0 = np.concatenate(
+        [
+            np.column_stack([initial_x, initial_y]).ravel(),
+            np.zeros(n),
+            np.ones(n),
+        ]
     )
 
-    opt_x = result.x[:2 * n:2].astype(np.float64)
-    opt_y = result.x[1:2 * n:2].astype(np.float64)
-    opt_yaw = result.x[2 * n:3 * n].astype(np.float64)
-    opt_derate = result.x[3 * n:].astype(np.float64)
+    result = differential_evolution(
+        objective,
+        bounds,
+        maxiter=maxiter,
+        seed=seed,
+        tol=1e-3,
+        polish=False,
+        x0=x0,
+    )
+
+    opt_x = result.x[: 2 * n : 2].astype(np.float64)
+    opt_y = result.x[1 : 2 * n : 2].astype(np.float64)
+    opt_yaw = result.x[2 * n : 3 * n].astype(np.float64)
+    opt_derate = result.x[3 * n :].astype(np.float64)
 
     # Evaluate optimized layout
     opt_result = run_wake_analysis(opt_x, opt_y, site, turbine)
@@ -219,8 +230,12 @@ def run_simultaneous_optimization(
     area = _compute_layout_area_km2(opt_x, opt_y)
 
     layout = LayoutResult(
-        name="Multi-Variable Optimized", x_positions=opt_x, y_positions=opt_y,
-        num_turbines=n, min_spacing_m=min_dist, area_km2=area,
+        name="Multi-Variable Optimized",
+        x_positions=opt_x,
+        y_positions=opt_y,
+        num_turbines=n,
+        min_spacing_m=min_dist,
+        area_km2=area,
     )
 
     return MultiVariableOptResult(
@@ -246,9 +261,9 @@ class AdjointSensitivity:
     ----------
     turbine_index : int
         Turbine index.
-    dAEP_dx_gwh_per_m : float
+    d_aep_dx_gwh_per_m : float
         AEP sensitivity to x-position change [GWh/m].
-    dAEP_dy_gwh_per_m : float
+    d_aep_dy_gwh_per_m : float
         AEP sensitivity to y-position change [GWh/m].
     gradient_magnitude : float
         ||∇AEP|| at this turbine [GWh/m].
@@ -257,8 +272,8 @@ class AdjointSensitivity:
     """
 
     turbine_index: int
-    dAEP_dx_gwh_per_m: float
-    dAEP_dy_gwh_per_m: float
+    d_aep_dx_gwh_per_m: float
+    d_aep_dy_gwh_per_m: float
     gradient_magnitude: float
     optimal_move_direction_deg: float
 
@@ -327,29 +342,31 @@ def compute_adjoint_sensitivities(
         x_plus = x_positions_m.copy()
         x_plus[i] += perturbation_m
         aep_xp = run_wake_analysis(x_plus, y_positions_m, site, turbine).net_aep_gwh
-        dAEP_dx = (aep_xp - base_aep) / perturbation_m
+        d_aep_dx = (aep_xp - base_aep) / perturbation_m
 
         # dAEP/dy
         y_plus = y_positions_m.copy()
         y_plus[i] += perturbation_m
         aep_yp = run_wake_analysis(x_positions_m, y_plus, site, turbine).net_aep_gwh
-        dAEP_dy = (aep_yp - base_aep) / perturbation_m
+        d_aep_dy = (aep_yp - base_aep) / perturbation_m
 
-        mag = float(np.sqrt(dAEP_dx ** 2 + dAEP_dy ** 2))
-        direction = float(np.degrees(np.arctan2(dAEP_dx, dAEP_dy))) % 360.0
+        mag = float(np.sqrt(d_aep_dx**2 + d_aep_dy**2))
+        direction = float(np.degrees(np.arctan2(d_aep_dx, d_aep_dy))) % 360.0
 
-        sensitivities.append(AdjointSensitivity(
-            turbine_index=i,
-            dAEP_dx_gwh_per_m=round(dAEP_dx, 6),
-            dAEP_dy_gwh_per_m=round(dAEP_dy, 6),
-            gradient_magnitude=round(mag, 6),
-            optimal_move_direction_deg=round(direction, 1),
-        ))
+        sensitivities.append(
+            AdjointSensitivity(
+                turbine_index=i,
+                d_aep_dx_gwh_per_m=round(d_aep_dx, 6),
+                d_aep_dy_gwh_per_m=round(d_aep_dy, 6),
+                gradient_magnitude=round(mag, 6),
+                optimal_move_direction_deg=round(direction, 1),
+            )
+        )
         grad_norms.append(mag)
 
     most_sensitive = int(np.argmax(grad_norms))
     least_sensitive = int(np.argmin(grad_norms))
-    total_norm = float(np.sqrt(sum(g ** 2 for g in grad_norms)))
+    total_norm = float(np.sqrt(sum(g**2 for g in grad_norms)))
 
     return PDEConstrainedResult(
         sensitivities=sensitivities,
@@ -447,7 +464,12 @@ def run_two_stage_stochastic(
         for a, k, ti in scenarios:
             site = create_uniform_site(a, k, ti)
             try:
-                r = run_wake_analysis(np.array(x, dtype=np.float64), np.array(y, dtype=np.float64), site, turbine)
+                r = run_wake_analysis(
+                    np.array(x, dtype=np.float64),
+                    np.array(y, dtype=np.float64),
+                    site,
+                    turbine,
+                )
                 total += r.net_aep_gwh
             except Exception:
                 return 1e12
@@ -464,8 +486,13 @@ def run_two_stage_stochastic(
     x0[1::2] = initial_y
 
     result = differential_evolution(
-        stochastic_objective, bounds, maxiter=maxiter, seed=seed,
-        tol=1e-3, polish=False, x0=x0,
+        stochastic_objective,
+        bounds,
+        maxiter=maxiter,
+        seed=seed,
+        tol=1e-3,
+        polish=False,
+        x0=x0,
     )
 
     opt_x = result.x[0::2].astype(np.float64)
@@ -486,8 +513,12 @@ def run_two_stage_stochastic(
     _, min_dist = check_minimum_spacing(opt_x, opt_y)
     area = _compute_layout_area_km2(opt_x, opt_y)
     layout = LayoutResult(
-        name="Stochastic Optimized", x_positions=opt_x, y_positions=opt_y,
-        num_turbines=n, min_spacing_m=min_dist, area_km2=area,
+        name="Stochastic Optimized",
+        x_positions=opt_x,
+        y_positions=opt_y,
+        num_turbines=n,
+        min_spacing_m=min_dist,
+        area_km2=area,
     )
 
     return StochasticOptResult(
@@ -592,12 +623,17 @@ def run_mga(
             x = params[0::2]
             y = params[1::2]
 
-            passes, actual = check_minimum_spacing(np.array(x), np.array(y), MIN_SPACING_M)
+            passes, _actual = check_minimum_spacing(np.array(x), np.array(y), MIN_SPACING_M)
             if not passes:
                 return 1e6
 
             try:
-                r = run_wake_analysis(np.array(x, dtype=np.float64), np.array(y, dtype=np.float64), site, turbine)
+                r = run_wake_analysis(
+                    np.array(x, dtype=np.float64),
+                    np.array(y, dtype=np.float64),
+                    site,
+                    turbine,
+                )
             except Exception:
                 return 1e12
 
@@ -613,8 +649,13 @@ def run_mga(
         x0[1::2] = initial_y + rng.normal(0, ROTOR_DIAMETER_M * 0.3, n)
 
         result = differential_evolution(
-            mga_objective, bounds, maxiter=15, seed=seed + alt_idx,
-            tol=1e-3, polish=False, x0=x0,
+            mga_objective,
+            bounds,
+            maxiter=15,
+            seed=seed + alt_idx,
+            tol=1e-3,
+            polish=False,
+            x0=x0,
         )
 
         alt_x = result.x[0::2].astype(np.float64)
@@ -626,8 +667,11 @@ def run_mga(
 
         layout = LayoutResult(
             name=f"MGA Alternative {alt_idx + 1}",
-            x_positions=alt_x, y_positions=alt_y,
-            num_turbines=n, min_spacing_m=min_dist, area_km2=area,
+            x_positions=alt_x,
+            y_positions=alt_y,
+            num_turbines=n,
+            min_spacing_m=min_dist,
+            area_km2=area,
         )
         alternatives.append(layout)
         aeps.append(round(alt_res.net_aep_gwh, 2))

@@ -44,11 +44,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from app.services.p2.network_model import (
-    NUM_TURBINES,
     TOTAL_CAPACITY_MW,
-    TURBINE_RATED_MW,
 )
-
 
 # ── Economic Dispatch Constants ─────────────────────────────────
 
@@ -241,13 +238,12 @@ def run_economic_dispatch(
         # Ramp rate (MW/min, assuming 1-hour timestep → ramp over 60 min)
         ramp_mw_min = (dispatched - prev_dispatch) / 60.0 if h > 0 else 0.0
         ramp_compliant = True
-        if h > 0:
-            if ramp_mw_min > 0 and ramp_mw_min > ramp_up_limit * 1.01:
-                ramp_compliant = False
-                ramp_violations += 1
-            elif ramp_mw_min < 0 and abs(ramp_mw_min) > ramp_down_limit * 1.01:
-                ramp_compliant = False
-                ramp_violations += 1
+        if h > 0 and (
+            (ramp_mw_min > 0 and ramp_mw_min > ramp_up_limit * 1.01)
+            or (ramp_mw_min < 0 and abs(ramp_mw_min) > ramp_down_limit * 1.01)
+        ):
+            ramp_compliant = False
+            ramp_violations += 1
 
         # Costs
         gen_cost = dispatched * WIND_MARGINAL_COST  # 0 for wind
@@ -255,16 +251,18 @@ def run_economic_dispatch(
         import_cost = import_mw * GRID_IMPORT_COST
         hour_cost = gen_cost + curtail_penalty + import_cost
 
-        timesteps.append(DispatchTimestep(
-            hour=h,
-            wind_power_available_mw=round(available, 1),
-            wind_power_dispatched_mw=round(dispatched, 1),
-            curtailed_mw=round(curtailed, 1),
-            grid_import_mw=round(import_mw, 1),
-            ramp_rate_mw_min=round(ramp_mw_min, 2),
-            ramp_compliant=ramp_compliant,
-            cost_eur=round(hour_cost, 2),
-        ))
+        timesteps.append(
+            DispatchTimestep(
+                hour=h,
+                wind_power_available_mw=round(available, 1),
+                wind_power_dispatched_mw=round(dispatched, 1),
+                curtailed_mw=round(curtailed, 1),
+                grid_import_mw=round(import_mw, 1),
+                ramp_rate_mw_min=round(ramp_mw_min, 2),
+                ramp_compliant=ramp_compliant,
+                cost_eur=round(hour_cost, 2),
+            )
+        )
 
         total_gen += dispatched
         total_curtail += curtailed

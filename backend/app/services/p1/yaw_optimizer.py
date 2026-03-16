@@ -53,9 +53,6 @@ from numpy.typing import NDArray
 from scipy.optimize import minimize
 
 from app.services.p1.wake_model import (
-    RATED_POWER_KW,
-    ROTOR_DIAMETER_M,
-    WakeAnalysisResult,
     create_v236_wind_turbine,
     run_wake_analysis,
 )
@@ -259,17 +256,23 @@ def optimize_yaw_single_direction(
 
     # Baseline: zero yaw
     baseline_total, baseline_per_turbine = compute_farm_power_with_yaw(
-        x_positions_m, y_positions_m,
+        x_positions_m,
+        y_positions_m,
         np.zeros(n, dtype=np.float64),
-        wind_direction_deg, wind_speed_ms, wf_model,
+        wind_direction_deg,
+        wind_speed_ms,
+        wf_model,
     )
 
     # Optimization objective: minimize negative total power
     def objective(yaw_deg: NDArray[np.floating]) -> float:
         total_mw, _ = compute_farm_power_with_yaw(
-            x_positions_m, y_positions_m,
+            x_positions_m,
+            y_positions_m,
             yaw_deg.astype(np.float64),
-            wind_direction_deg, wind_speed_ms, wf_model,
+            wind_direction_deg,
+            wind_speed_ms,
+            wf_model,
         )
         return -total_mw
 
@@ -286,13 +289,16 @@ def optimize_yaw_single_direction(
 
     optimal_yaw = result.x.astype(np.float64)
     optimized_total, optimized_per_turbine = compute_farm_power_with_yaw(
-        x_positions_m, y_positions_m,
-        optimal_yaw, wind_direction_deg, wind_speed_ms, wf_model,
+        x_positions_m,
+        y_positions_m,
+        optimal_yaw,
+        wind_direction_deg,
+        wind_speed_ms,
+        wf_model,
     )
 
     gain_pct = (
-        (optimized_total - baseline_total) / baseline_total * 100.0
-        if baseline_total > 0 else 0.0
+        (optimized_total - baseline_total) / baseline_total * 100.0 if baseline_total > 0 else 0.0
     )
 
     return YawOptimizationResult(
@@ -350,8 +356,11 @@ def optimize_yaw_all_directions(
     per_direction_results: list[YawOptimizationResult] = []
     for wd in wind_directions_deg:
         result = optimize_yaw_single_direction(
-            x_positions_m, y_positions_m,
-            float(wd), wind_speed_ms, site,
+            x_positions_m,
+            y_positions_m,
+            float(wd),
+            wind_speed_ms,
+            site,
             max_yaw_deg=max_yaw_deg,
             maxiter=50,
         )
@@ -367,9 +376,9 @@ def optimize_yaw_all_directions(
     # Approximate optimized AEP: baseline × (1 + mean_gain/100)
     optimized_aep = baseline_result.net_aep_gwh * (1.0 + mean_gain / 100.0)
     aep_gain = (
-        (optimized_aep - baseline_result.net_aep_gwh)
-        / baseline_result.net_aep_gwh * 100.0
-        if baseline_result.net_aep_gwh > 0 else 0.0
+        (optimized_aep - baseline_result.net_aep_gwh) / baseline_result.net_aep_gwh * 100.0
+        if baseline_result.net_aep_gwh > 0
+        else 0.0
     )
 
     return FarmYawOptimizationResult(

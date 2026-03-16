@@ -408,7 +408,6 @@ def compute_market_weighted_aep(
     MarketWeightedAEPResult
         Market-weighted AEP and revenue comparison.
     """
-    import numpy as np
 
     n_hours = len(hourly_generation_mw)
 
@@ -438,13 +437,10 @@ def compute_market_weighted_aep(
     # Market value-weighted AEP: AEP_weighted = Σ(P_i × price_i) / price_avg
     avg_price = float(prices.mean())
     market_weighted_aep_gwh = (
-        float((gen * prices).sum()) / (avg_price * 1000.0)
-        if avg_price > 0 else flat_aep_gwh
+        float((gen * prices).sum()) / (avg_price * 1000.0) if avg_price > 0 else flat_aep_gwh
     )
 
-    market_value_factor = (
-        market_weighted_aep_gwh / flat_aep_gwh if flat_aep_gwh > 0 else 1.0
-    )
+    market_value_factor = market_weighted_aep_gwh / flat_aep_gwh if flat_aep_gwh > 0 else 1.0
 
     # Average capture price
     total_gen = float(gen.sum())
@@ -453,13 +449,10 @@ def compute_market_weighted_aep(
     # Peak generation fraction (hours when price > 75th percentile)
     price_75 = float(np.percentile(prices, 75))
     peak_mask = prices >= price_75
-    peak_gen_fraction = (
-        float(gen[peak_mask].sum()) / total_gen if total_gen > 0 else 0.25
-    )
+    peak_gen_fraction = float(gen[peak_mask].sum()) / total_gen if total_gen > 0 else 0.25
 
     revenue_uplift = (
-        (market_revenue - flat_revenue) / flat_revenue * 100.0
-        if flat_revenue > 0 else 0.0
+        (market_revenue - flat_revenue) / flat_revenue * 100.0 if flat_revenue > 0 else 0.0
     )
 
     return MarketWeightedAEPResult(

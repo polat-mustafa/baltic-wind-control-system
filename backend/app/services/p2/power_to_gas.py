@@ -47,7 +47,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-
 # ── Electrolyzer Constants ─────────────────────────────────────
 
 HYDROGEN_LHV_KWH_PER_KG: float = 33.3
@@ -59,6 +58,7 @@ WATER_CONSUMPTION_L_PER_KG: float = 9.0
 
 class ElectrolyzerType(enum.Enum):
     """Electrolyzer technology type."""
+
     PEM = "pem"
     ALKALINE = "alkaline"
     SOEC = "soec"
@@ -140,9 +140,7 @@ class ElectrolyzerResult:
     lcoh_eur_per_kg: float
     annual_opex_meur: float
     capex_meur: float
-    hourly_h2_production_kg: NDArray[np.floating] = field(
-        default_factory=lambda: np.array([])
-    )
+    hourly_h2_production_kg: NDArray[np.floating] = field(default_factory=lambda: np.array([]))
     full_load_hours: float = 0.0
 
 
@@ -229,8 +227,14 @@ def run_electrolyzer_simulation(
     total_elec_mwh = float(np.sum(hourly_elec))
     operating_hours = float(np.sum(hourly_elec > 0))
 
-    cf = total_elec_mwh / (electrolyzer_capacity_mw * n_hours) if electrolyzer_capacity_mw > 0 else 0
-    avg_eff = (total_h2_kg * HYDROGEN_LHV_KWH_PER_KG) / (total_elec_mwh * 1000) if total_elec_mwh > 0 else 0
+    cf = (
+        total_elec_mwh / (electrolyzer_capacity_mw * n_hours) if electrolyzer_capacity_mw > 0 else 0
+    )
+    avg_eff = (
+        (total_h2_kg * HYDROGEN_LHV_KWH_PER_KG) / (total_elec_mwh * 1000)
+        if total_elec_mwh > 0
+        else 0
+    )
     water_m3 = total_h2_kg * WATER_CONSUMPTION_L_PER_KG / 1000.0
     realized_se = total_elec_mwh * 1000 / total_h2_kg if total_h2_kg > 0 else 0
 
@@ -240,7 +244,9 @@ def run_electrolyzer_simulation(
 
     crf = wacc * (1 + wacc) ** lifetime_years / ((1 + wacc) ** lifetime_years - 1)
     annual_capex = capex_meur * crf
-    avg_elec_cost = float(np.mean(electricity_price_eur_mwh[hourly_elec > 0])) if operating_hours > 0 else 50.0
+    avg_elec_cost = (
+        float(np.mean(electricity_price_eur_mwh[hourly_elec > 0])) if operating_hours > 0 else 50.0
+    )
     annual_elec_cost = total_elec_mwh * avg_elec_cost / 1e6
 
     total_annual_cost = annual_capex + annual_opex_meur + annual_elec_cost

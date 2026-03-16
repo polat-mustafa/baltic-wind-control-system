@@ -57,7 +57,6 @@ from app.services.p1.wake_model import (
     get_v236_power_curve_kw,
 )
 
-
 # ── FLOWERS Constants ───────────────────────────────────────────
 
 WAKE_EXPANSION_COEFFICIENT: float = 0.04
@@ -200,9 +199,8 @@ def _analytical_wake_loss_pair(
     f_at_angle = a_0
     if a_n is not None and b_n is not None:
         for n in range(len(a_n)):
-            f_at_angle += (
-                a_n[n] * math.cos((n + 1) * pair_angle)
-                + b_n[n] * math.sin((n + 1) * pair_angle)
+            f_at_angle += a_n[n] * math.cos((n + 1) * pair_angle) + b_n[n] * math.sin(
+                (n + 1) * pair_angle
             )
     f_at_angle = max(f_at_angle, 0.0)
 
@@ -263,7 +261,9 @@ def compute_flowers_aep(
 
     # Fourier decomposition of wind rose
     a_0, a_n, b_n = _fourier_decompose_wind_rose(
-        sector_frequencies, directions_rad, n_fourier_modes,
+        sector_frequencies,
+        directions_rad,
+        n_fourier_modes,
     )
 
     # Evaluate power and Ct at mean wind speed

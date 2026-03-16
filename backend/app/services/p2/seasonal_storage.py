@@ -39,7 +39,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-
 # ── Seasonal Storage Constants ─────────────────────────────────
 
 HYDROGEN_LHV_MWH_PER_KG: float = 0.0333
@@ -47,6 +46,7 @@ HYDROGEN_LHV_MWH_PER_KG: float = 0.0333
 
 class StorageTechnology(enum.Enum):
     """Long-duration storage technology."""
+
     HYDROGEN_CAVERN = "hydrogen_cavern"
     COMPRESSED_AIR = "compressed_air"
     PUMPED_HYDRO = "pumped_hydro"
@@ -54,10 +54,10 @@ class StorageTechnology(enum.Enum):
 
 STORAGE_SPECS: dict[str, dict] = {
     "hydrogen_cavern": {
-        "charge_efficiency": 0.65,   # Electrolyzer
-        "discharge_efficiency": 0.50, # Fuel cell
+        "charge_efficiency": 0.65,  # Electrolyzer
+        "discharge_efficiency": 0.50,  # Fuel cell
         "self_discharge_per_day": 0.0001,  # Negligible
-        "capex_eur_per_kwh": 2.0,    # Very low per kWh (large caverns)
+        "capex_eur_per_kwh": 2.0,  # Very low per kWh (large caverns)
         "capex_eur_per_kw_charge": 1200.0,  # Electrolyzer
         "capex_eur_per_kw_discharge": 1500.0,  # Fuel cell
         "max_cycles_per_year": 50,
@@ -135,9 +135,7 @@ class SeasonalStorageResult:
     arbitrage_revenue_meur: float
     capex_meur: float
     lcoes_eur_mwh: float
-    hourly_soc_mwh: NDArray[np.floating] = field(
-        default_factory=lambda: np.array([])
-    )
+    hourly_soc_mwh: NDArray[np.floating] = field(default_factory=lambda: np.array([]))
 
 
 def run_seasonal_storage_simulation(
@@ -218,7 +216,7 @@ def run_seasonal_storage_simulation(
 
     for h in range(n_hours):
         # Self-discharge
-        current_soc *= (1.0 - self_discharge)
+        current_soc *= 1.0 - self_discharge
 
         surplus = float(surplus_power_mw[h])
         deficit = float(deficit_power_mw[h])
@@ -252,10 +250,15 @@ def run_seasonal_storage_simulation(
     cycles = int(total_charged / storage_capacity_mwh) if storage_capacity_mwh > 0 else 0
 
     # Revenue from arbitrage
-    revenue = float(np.sum(
-        discharge_energy * electricity_price_eur_mwh
-        - charge_energy * electricity_price_eur_mwh
-    )) / 1e6
+    revenue = (
+        float(
+            np.sum(
+                discharge_energy * electricity_price_eur_mwh
+                - charge_energy * electricity_price_eur_mwh
+            )
+        )
+        / 1e6
+    )
 
     # CAPEX
     energy_capex = storage_capacity_mwh * specs["capex_eur_per_kwh"] * 1000 / 1e6

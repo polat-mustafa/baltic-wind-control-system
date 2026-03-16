@@ -58,11 +58,10 @@ import numpy as np
 from numpy.typing import NDArray
 
 from app.services.p1.wake_model import (
-    ROTOR_DIAMETER_M,
     HUB_HEIGHT_M,
+    ROTOR_DIAMETER_M,
     get_v236_ct_curve,
 )
-
 
 # ── CFD Constants ───────────────────────────────────────────────
 
@@ -279,7 +278,10 @@ def generate_mesh(
     est_solve = n_cells * 0.001 * 200
 
     return MeshSpec(
-        n_cells=n_cells, n_cells_x=nx, n_cells_y=ny, n_cells_z=nz,
+        n_cells=n_cells,
+        n_cells_x=nx,
+        n_cells_y=ny,
+        n_cells_z=nz,
         min_cell_size_m=round(min_cell, 1),
         max_cell_size_m=round(base_size, 1),
         domain_x_m=round(domain_x, 0),
@@ -322,18 +324,20 @@ def compute_actuator_disk_forces(
     u_disk = wind_speed_ms * (1.0 - a)
 
     # Thrust force: F = 0.5 ρ A U² Ct
-    thrust_n = 0.5 * AIR_DENSITY_KG_M3 * rotor_area * wind_speed_ms ** 2 * ct
+    thrust_n = 0.5 * AIR_DENSITY_KG_M3 * rotor_area * wind_speed_ms**2 * ct
     thrust_kn = thrust_n / 1000.0
 
     results = []
     for i in range(n):
-        results.append(ActuatorDiskResult(
-            turbine_index=i,
-            thrust_force_kn=round(thrust_kn, 1),
-            axial_induction=round(a, 4),
-            disk_averaged_velocity_ms=round(u_disk, 2),
-            ct=round(ct, 4),
-        ))
+        results.append(
+            ActuatorDiskResult(
+                turbine_index=i,
+                thrust_force_kn=round(thrust_kn, 1),
+                axial_induction=round(a, 4),
+                disk_averaged_velocity_ms=round(u_disk, 2),
+                ct=round(ct, 4),
+            )
+        )
 
     return results
 
@@ -369,10 +373,10 @@ def compute_terrain_effects(
         elif terrain_type == "coastal_ridge":
             # Speed-up over coastal ridges (simplified)
             rel_x = (x_positions_m[i] - np.mean(x_positions_m)) / 1000.0
-            speedup = 1.0 + 0.1 * np.exp(-rel_x ** 2 / 2.0)
+            speedup = 1.0 + 0.1 * np.exp(-(rel_x**2) / 2.0)
             deflection = 2.0 * rel_x
             ti_enhance = 1.0 + 0.05 * abs(rel_x)
-            elevation = 20.0 + 10.0 * np.exp(-rel_x ** 2 / 2.0)
+            elevation = 20.0 + 10.0 * np.exp(-(rel_x**2) / 2.0)
         else:  # onshore_complex
             rng = np.random.default_rng(42 + i)
             speedup = 1.0 + 0.15 * rng.standard_normal()
@@ -380,13 +384,15 @@ def compute_terrain_effects(
             ti_enhance = 1.0 + 0.1 * abs(rng.standard_normal())
             elevation = 50.0 + 30.0 * rng.standard_normal()
 
-        results.append(TerrainEffect(
-            turbine_index=i,
-            speed_up_factor=round(float(speedup), 4),
-            direction_deflection_deg=round(float(deflection), 2),
-            turbulence_enhancement=round(float(ti_enhance), 4),
-            elevation_m=round(float(elevation), 1),
-        ))
+        results.append(
+            TerrainEffect(
+                turbine_index=i,
+                speed_up_factor=round(float(speedup), 4),
+                direction_deflection_deg=round(float(deflection), 2),
+                turbulence_enhancement=round(float(ti_enhance), 4),
+                elevation_m=round(float(elevation), 1),
+            )
+        )
 
     return results
 
@@ -454,7 +460,8 @@ def run_cfd_simulation(
     wind_rad = np.radians(wind_direction_deg)
     ws_arr = np.array([wind_speed_ms])
     ct = float(get_v236_ct_curve(ws_arr)[0])
-    a_induction = 0.5 * (1.0 - math.sqrt(max(0.0, 1.0 - ct)))
+    # Induction factor from Ct — used in actuator disk pressure drop below
+    induction = 0.5 * (1.0 - math.sqrt(max(0.0, 1.0 - ct)))
 
     for t_idx in range(n):
         tx, ty = x_positions_m[t_idx], y_positions_m[t_idx]
@@ -467,34 +474,44 @@ def run_cfd_simulation(
         # Only apply wake downstream
         downstream = dx > 0
         wake_width = ROTOR_DIAMETER_M / 2.0 + WAKE_EXPANSION_RATE * dx
-        in_wake = downstream & (np.abs(dy_lat) < wake_width)
+        wake_mask = downstream & (np.abs(dy_lat) < wake_width)
 
-        # Gaussian deficit profile
+        # Gaussian deficit profile — apply only within wake region
         sigma = wake_width / 2.35  # FWHM to sigma
         sigma = np.maximum(sigma, ROTOR_DIAMETER_M / 4.0)
-        deficit = (1.0 - math.sqrt(1.0 - ct)) * np.exp(-dy_lat ** 2 / (2.0 * sigma ** 2))
-        deficit *= downstream.astype(float)
+        deficit = (1.0 - math.sqrt(1.0 - ct)) * np.exp(-(dy_lat**2) / (2.0 * sigma**2))
+        deficit *= wake_mask.astype(float)
 
         u_field -= wind_speed_ms * deficit
 
         # Wake-added TKE
-        tke_wake = 0.5 * wind_speed_ms ** 2 * deficit ** 2
+        tke_wake = 0.5 * wind_speed_ms**2 * deficit**2
         tke_field += tke_wake
 
-        # Pressure drop across disk (actuator disk)
-        disk_region = (np.abs(dx) < ROTOR_DIAMETER_M / 4.0) & (np.abs(dy_lat) < ROTOR_DIAMETER_M / 2.0)
-        p_field[disk_region] -= 0.5 * AIR_DENSITY_KG_M3 * wind_speed_ms ** 2 * ct
+        # Pressure drop across actuator disk: Δp = 2ρU²a(1-a)
+        disk_region = (np.abs(dx) < ROTOR_DIAMETER_M / 4.0) & (
+            np.abs(dy_lat) < ROTOR_DIAMETER_M / 2.0
+        )
+        p_field[disk_region] -= (
+            0.5 * AIR_DENSITY_KG_M3 * wind_speed_ms**2 * 4.0 * induction * (1.0 - induction)
+        )
 
     u_field = np.maximum(u_field, 0.5)  # Floor at 0.5 m/s
 
     # Actuator disk forces
-    ad_results = compute_actuator_disk_forces(x_positions_m, y_positions_m, wind_speed_ms, wind_direction_deg)
+    ad_results = compute_actuator_disk_forces(
+        x_positions_m,
+        y_positions_m,
+        wind_speed_ms,
+        wind_direction_deg,
+    )
 
     # Terrain effects
     terrain_results = compute_terrain_effects(x_positions_m, y_positions_m, terrain_type)
 
     # Farm power from flow field (interpolate at turbine locations)
     from app.services.p1.wake_model import get_v236_power_curve_kw
+
     total_power = 0.0
     for t_idx in range(n):
         # Simple nearest-grid interpolation

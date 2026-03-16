@@ -51,11 +51,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from app.services.p1.wake_model import (
-    RATED_POWER_KW,
     RATED_SPEED_MS,
     ROTOR_DIAMETER_M,
 )
-
 
 # ── Helix Constants ─────────────────────────────────────────────
 
@@ -175,11 +173,13 @@ def generate_helix_pitch_signal(
     for blade in range(3):
         phase = direction * 2.0 * math.pi * blade / 3.0
         pitch = amplitude_deg * np.sin(omega * t + phase)
-        signals.append(HelixPitchSignal(
-            blade_index=blade,
-            time_s=t.astype(np.float64),
-            pitch_offset_deg=np.round(pitch, 3).astype(np.float64),
-        ))
+        signals.append(
+            HelixPitchSignal(
+                blade_index=blade,
+                time_s=t.astype(np.float64),
+                pitch_offset_deg=np.round(pitch, 3).astype(np.float64),
+            )
+        )
 
     return signals
 
@@ -283,6 +283,7 @@ def simulate_helix_control(
 
     # Compute per-turbine power (rated at given wind speed)
     from app.services.p1.wake_model import get_v236_power_curve_kw
+
     ws = np.array([wind_speed_ms])
     rated_kw = float(get_v236_power_curve_kw(ws)[0])
     rated_mw = rated_kw / 1000.0
@@ -303,8 +304,10 @@ def simulate_helix_control(
     # Helix effect: upstream turbines lose power, downstream gain
     helix_mw = baseline_mw.copy()
 
-    # Upstream penalty
-    penalty_mw = rated_mw * UPSTREAM_POWER_PENALTY_FRACTION
+    # Upstream penalty — above rated speed, blade pitch is already active
+    # for power limiting, so helix IPC perturbation has less relative impact
+    pitch_activity_factor = min(1.0, wind_speed_ms / RATED_SPEED_MS)
+    penalty_mw = rated_mw * UPSTREAM_POWER_PENALTY_FRACTION * pitch_activity_factor
     helix_mw[is_helix_active] -= penalty_mw
 
     # Downstream benefit: wake recovery enhanced by WAKE_RECOVERY_ENHANCEMENT
@@ -320,7 +323,9 @@ def simulate_helix_control(
 
     baseline_total = float(np.sum(baseline_mw))
     helix_total = float(np.sum(helix_mw))
-    gain_pct = (helix_total - baseline_total) / baseline_total * 100.0 if baseline_total > 0 else 0.0
+    gain_pct = (
+        (helix_total - baseline_total) / baseline_total * 100.0 if baseline_total > 0 else 0.0
+    )
 
     upstream_loss = float(np.sum(baseline_mw[is_helix_active] - helix_mw[is_helix_active]))
     downstream_gain = float(np.sum(helix_mw[downstream_mask] - baseline_mw[downstream_mask]))
@@ -329,7 +334,8 @@ def simulate_helix_control(
     omega_rpm = DEFAULT_ROTOR_RPM
     helix_freq = omega_rpm / 60.0  # 1P frequency
     pitch_signals = generate_helix_pitch_signal(
-        amplitude_deg=helix_amplitude_deg, rotor_rpm=omega_rpm,
+        amplitude_deg=helix_amplitude_deg,
+        rotor_rpm=omega_rpm,
     )
 
     natural_recovery = _compute_wake_recovery_distance(turbulence_intensity, False)

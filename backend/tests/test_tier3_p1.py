@@ -5,9 +5,6 @@ and Gaussian FLOWERS.
 """
 
 import numpy as np
-import pytest
-
-from app.services.p1.layout_optimizer import generate_staggered_grid
 
 
 def _small_layout():

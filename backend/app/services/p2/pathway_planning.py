@@ -36,7 +36,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-
 # ── Pathway Constants ──────────────────────────────────────────
 
 BASE_YEAR: int = 2025
@@ -75,7 +74,7 @@ CO2_INTENSITY_KG_MWH: dict[str, float] = {
 
 # Polish electricity demand growth
 DEMAND_GROWTH_RATE: float = 0.015  # 1.5% per year
-BASE_DEMAND_TWH: float = 180.0    # 2025 Polish demand
+BASE_DEMAND_TWH: float = 180.0  # 2025 Polish demand
 
 
 @dataclass(frozen=True)
@@ -174,8 +173,13 @@ def _technology_capex(technology: str, year: int) -> float:
     return base * (1.0 - lr) ** years_from_base
 
 
-def _compute_lcoe(capex_eur_kw: float, cf: float, lifetime_years: int = 25,
-                  opex_fraction: float = 0.025, wacc: float = 0.07) -> float:
+def _compute_lcoe(
+    capex_eur_kw: float,
+    cf: float,
+    lifetime_years: int = 25,
+    opex_fraction: float = 0.025,
+    wacc: float = 0.07,
+) -> float:
     """Compute LCOE [EUR/MWh] from CAPEX and capacity factor.
 
     Parameters
@@ -260,9 +264,8 @@ def run_pathway_planning(
 
     additions = scenarios.get(scenario, scenarios["reference"])
 
-    if offshore_wind_additions_gw is not None:
-        if len(offshore_wind_additions_gw) >= n_periods:
-            additions["offshore_wind"] = offshore_wind_additions_gw[:n_periods]
+    if offshore_wind_additions_gw is not None and len(offshore_wind_additions_gw) >= n_periods:
+        additions["offshore_wind"] = offshore_wind_additions_gw[:n_periods]
 
     # Starting capacities [GW] (approximate 2025 Poland)
     capacity = {
@@ -295,16 +298,11 @@ def run_pathway_planning(
 
         # Renewable share
         total_gen = sum(generation.values())
-        renewable_gen = sum(
-            generation[t] for t in ["offshore_wind", "onshore_wind", "solar_pv"]
-        )
+        renewable_gen = sum(generation[t] for t in ["offshore_wind", "onshore_wind", "solar_pv"])
         re_share = renewable_gen / total_gen * 100.0 if total_gen > 0 else 0.0
 
         # CO2 emissions
-        co2_mt = sum(
-            generation[t] * CO2_INTENSITY_KG_MWH[t] / 1e6
-            for t in generation
-        )
+        co2_mt = sum(generation[t] * CO2_INTENSITY_KG_MWH[t] / 1e6 for t in generation)
 
         # Investment this period
         for tech in capacity:
@@ -325,24 +323,25 @@ def run_pathway_planning(
                 total_lcoe_den += gen
         system_lcoe = total_lcoe_num / total_lcoe_den if total_lcoe_den > 0 else 0.0
 
-        milestones.append(PathwayMilestone(
-            year=year,
-            total_capacity_gw={t: round(c, 2) for t, c in capacity.items()},
-            annual_generation_twh=generation,
-            total_demand_twh=round(demand_twh, 1),
-            renewable_share_percent=round(re_share, 1),
-            co2_emissions_mt=round(co2_mt, 2),
-            cumulative_investment_beur=round(cumulative_investment, 2),
-            system_lcoe_eur_mwh=round(system_lcoe, 1),
-        ))
+        milestones.append(
+            PathwayMilestone(
+                year=year,
+                total_capacity_gw={t: round(c, 2) for t, c in capacity.items()},
+                annual_generation_twh=generation,
+                total_demand_twh=round(demand_twh, 1),
+                renewable_share_percent=round(re_share, 1),
+                co2_emissions_mt=round(co2_mt, 2),
+                cumulative_investment_beur=round(cumulative_investment, 2),
+                system_lcoe_eur_mwh=round(system_lcoe, 1),
+            )
+        )
 
     # Check targets
-    meets_2030 = any(
-        m.renewable_share_percent >= 42.5 for m in milestones if m.year == 2030
-    )
+    meets_2030 = any(m.renewable_share_percent >= 42.5 for m in milestones if m.year == 2030)
     meets_2050 = any(
         m.co2_emissions_mt < milestones[0].co2_emissions_mt * 0.1
-        for m in milestones if m.year == 2050
+        for m in milestones
+        if m.year == 2050
     )
 
     base_co2 = milestones[0].co2_emissions_mt

@@ -41,10 +41,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import numpy as np
-from numpy.typing import NDArray
-
-
 # ── Expansion Planning Constants ─────────────────────────────────
 
 DISCOUNT_RATE: float = 0.07
@@ -212,14 +208,10 @@ def _compute_lcoe(
     """
     # Discounted OPEX
     annual_opex = capacity_mw * 1000.0 * OPEX_FIXED_EUR_PER_KW_YEAR / 1e6  # M EUR
-    total_opex = sum(
-        annual_opex / (1.0 + discount_rate) ** t for t in range(1, lifetime + 1)
-    )
+    total_opex = sum(annual_opex / (1.0 + discount_rate) ** t for t in range(1, lifetime + 1))
 
     # Discounted AEP
-    total_aep = sum(
-        annual_aep_gwh / (1.0 + discount_rate) ** t for t in range(1, lifetime + 1)
-    )
+    total_aep = sum(annual_aep_gwh / (1.0 + discount_rate) ** t for t in range(1, lifetime + 1))
 
     total_cost = capex_meur + total_opex
     lcoe = total_cost / total_aep * 1000.0 if total_aep > 0 else 0.0  # M EUR / GWh → EUR/MWh
@@ -282,6 +274,7 @@ def _compute_irr(
     float
         IRR [%].
     """
+
     def npv_at_rate(r: float) -> float:
         return -capex_meur + sum(
             annual_net_cash_meur / (1.0 + r) ** t for t in range(1, lifetime + 1)
@@ -324,16 +317,41 @@ def plan_capacity_expansion(
     """
     if projects is None:
         projects = [
-            {"name": "P1 Baltic Wind Alpha", "capacity_mw": 510.0,
-             "cable_length_km": 45.0, "cf": 0.45, "build_delay_years": 0},
-            {"name": "P2 Baltic Wind Beta", "capacity_mw": 510.0,
-             "cable_length_km": 50.0, "cf": 0.46, "build_delay_years": 2},
-            {"name": "P3 Baltic Wind Gamma", "capacity_mw": 510.0,
-             "cable_length_km": 55.0, "cf": 0.47, "build_delay_years": 4},
-            {"name": "P4 Baltic Wind Delta", "capacity_mw": 510.0,
-             "cable_length_km": 60.0, "cf": 0.47, "build_delay_years": 6},
-            {"name": "P5 Baltic Wind Epsilon", "capacity_mw": 510.0,
-             "cable_length_km": 65.0, "cf": 0.48, "build_delay_years": 8},
+            {
+                "name": "P1 Baltic Wind Alpha",
+                "capacity_mw": 510.0,
+                "cable_length_km": 45.0,
+                "cf": 0.45,
+                "build_delay_years": 0,
+            },
+            {
+                "name": "P2 Baltic Wind Beta",
+                "capacity_mw": 510.0,
+                "cable_length_km": 50.0,
+                "cf": 0.46,
+                "build_delay_years": 2,
+            },
+            {
+                "name": "P3 Baltic Wind Gamma",
+                "capacity_mw": 510.0,
+                "cable_length_km": 55.0,
+                "cf": 0.47,
+                "build_delay_years": 4,
+            },
+            {
+                "name": "P4 Baltic Wind Delta",
+                "capacity_mw": 510.0,
+                "cable_length_km": 60.0,
+                "cf": 0.47,
+                "build_delay_years": 6,
+            },
+            {
+                "name": "P5 Baltic Wind Epsilon",
+                "capacity_mw": 510.0,
+                "cable_length_km": 65.0,
+                "cf": 0.48,
+                "build_delay_years": 8,
+            },
         ]
 
     phases: list[ProjectPhase] = []
@@ -366,18 +384,20 @@ def plan_capacity_expansion(
         npv = _compute_npv(capex, annual_revenue, annual_opex)
         irr = _compute_irr(capex, annual_revenue - annual_opex)
 
-        phases.append(ProjectPhase(
-            name=name,
-            capacity_mw=capacity,
-            build_year=build_year,
-            cod_year=cod_year,
-            capex_meur=round(capex, 1),
-            annual_aep_gwh=round(aep, 1),
-            lcoe_eur_mwh=round(lcoe, 1),
-            npv_meur=round(npv, 1),
-            irr_percent=round(irr, 1),
-            bess_mwh=bess_mwh,
-        ))
+        phases.append(
+            ProjectPhase(
+                name=name,
+                capacity_mw=capacity,
+                build_year=build_year,
+                cod_year=cod_year,
+                capex_meur=round(capex, 1),
+                annual_aep_gwh=round(aep, 1),
+                lcoe_eur_mwh=round(lcoe, 1),
+                npv_meur=round(npv, 1),
+                irr_percent=round(irr, 1),
+                bess_mwh=bess_mwh,
+            )
+        )
 
         total_capex += capex
         total_aep += aep

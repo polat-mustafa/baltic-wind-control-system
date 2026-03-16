@@ -46,17 +46,16 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from app.services.p1.flowers_aep import (
+    N_FOURIER_MODES,
+    _fourier_decompose_wind_rose,
+)
 from app.services.p1.wake_model import (
     RATED_POWER_KW,
     ROTOR_DIAMETER_M,
     get_v236_ct_curve,
     get_v236_power_curve_kw,
 )
-from app.services.p1.flowers_aep import (
-    _fourier_decompose_wind_rose,
-    N_FOURIER_MODES,
-)
-
 
 # ── Gaussian FLOWERS Constants ─────────────────────────────────
 
@@ -141,10 +140,7 @@ def _gaussian_wake_deficit(
     # Centreline deficit
     sigma_d = sigma / rotor_d
     radicand = 1.0 - ct / (8.0 * sigma_d**2)
-    if radicand <= 0:
-        c_x = 1.0  # Very near wake — full deficit
-    else:
-        c_x = 1.0 - math.sqrt(radicand)
+    c_x = 1.0 if radicand <= 0 else 1.0 - math.sqrt(radicand)
 
     # Gaussian radial profile
     deficit = c_x * math.exp(-0.5 * (r_lateral_m / sigma) ** 2)
@@ -200,10 +196,7 @@ def _analytical_gaussian_wake_loss_pair(
     # Centreline deficit
     sigma_d = sigma / rotor_d
     radicand = 1.0 - ct / (8.0 * sigma_d**2)
-    if radicand <= 0:
-        c_x = 1.0
-    else:
-        c_x = 1.0 - math.sqrt(radicand)
+    c_x = 1.0 if radicand <= 0 else 1.0 - math.sqrt(radicand)
 
     # Angular width of wake: where Gaussian deficit drops to 5% of peak
     # exp(-r²/(2σ²)) = 0.05 → r = σ√(2×ln(20)) ≈ 2.45σ
@@ -217,9 +210,8 @@ def _analytical_gaussian_wake_loss_pair(
     f_at_angle = a_0
     if a_n is not None and b_n is not None:
         for n in range(len(a_n)):
-            f_at_angle += (
-                a_n[n] * math.cos((n + 1) * pair_angle)
-                + b_n[n] * math.sin((n + 1) * pair_angle)
+            f_at_angle += a_n[n] * math.cos((n + 1) * pair_angle) + b_n[n] * math.sin(
+                (n + 1) * pair_angle
             )
     f_at_angle = max(f_at_angle, 0.0)
 
@@ -280,7 +272,9 @@ def compute_gaussian_flowers_aep(
 
     # Fourier decomposition
     a_0, a_n, b_n = _fourier_decompose_wind_rose(
-        sector_frequencies, directions_rad, n_fourier_modes,
+        sector_frequencies,
+        directions_rad,
+        n_fourier_modes,
     )
 
     # Power and Ct at mean wind speed
@@ -300,7 +294,12 @@ def compute_gaussian_flowers_aep(
             dx = x_positions_m[j] - x_positions_m[i]
             dy = y_positions_m[j] - y_positions_m[i]
             loss = _analytical_gaussian_wake_loss_pair(
-                dx, dy, ct, a_0=a_0, a_n=a_n, b_n=b_n,
+                dx,
+                dy,
+                ct,
+                a_0=a_0,
+                a_n=a_n,
+                b_n=b_n,
             )
             total_loss += loss
         per_turbine_loss[j] = min(total_loss, 0.5)
@@ -317,7 +316,8 @@ def compute_gaussian_flowers_aep(
     from app.services.p1.flowers_aep import compute_flowers_aep
 
     jensen_result = compute_flowers_aep(
-        x_positions_m, y_positions_m,
+        x_positions_m,
+        y_positions_m,
         sector_frequencies=sector_frequencies,
         sector_directions_deg=sector_directions_deg,
         mean_wind_speed_ms=mean_wind_speed_ms,
@@ -326,7 +326,8 @@ def compute_gaussian_flowers_aep(
 
     diff_pct = (
         (total_net - jensen_result.aep_gwh) / jensen_result.aep_gwh * 100.0
-        if jensen_result.aep_gwh > 0 else 0.0
+        if jensen_result.aep_gwh > 0
+        else 0.0
     )
 
     elapsed_ms = (time.perf_counter() - t0) * 1000.0

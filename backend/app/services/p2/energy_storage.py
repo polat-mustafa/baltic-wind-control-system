@@ -42,7 +42,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-
 # ── BESS Constants ──────────────────────────────────────────────
 
 DEFAULT_BESS_POWER_MW: float = 100.0
@@ -232,7 +231,11 @@ def run_bess_dispatch(
             soc -= max_discharge_mw / (eta_discharge * bess_energy_mwh)
             total_discharge_energy += max_discharge_mw
 
-        elif price < median_price * 0.9 and soc < SOC_MAX - 0.05 and wind < grid_export_limit_mw * 0.7:
+        elif (
+            price < median_price * 0.9
+            and soc < SOC_MAX - 0.05
+            and wind < grid_export_limit_mw * 0.7
+        ):
             # Low price, low wind: charge from grid (arbitrage)
             charge_room = (SOC_MAX - soc) * bess_energy_mwh
             max_charge_mw = min(bess_power_mw, charge_room / 1.0)
@@ -261,15 +264,17 @@ def run_bess_dispatch(
         total_revenue += revenue
         soc_sum += soc
 
-        timesteps.append(BESSTimestep(
-            hour=h,
-            wind_power_mw=round(wind, 1),
-            bess_power_mw=round(bess_power, 1),
-            grid_export_mw=round(grid_export, 1),
-            soc=round(float(soc), 3),
-            curtailed_mw=round(curtailed, 1),
-            revenue_eur=round(revenue, 2),
-        ))
+        timesteps.append(
+            BESSTimestep(
+                hour=h,
+                wind_power_mw=round(wind, 1),
+                bess_power_mw=round(bess_power, 1),
+                grid_export_mw=round(grid_export, 1),
+                soc=round(float(soc), 3),
+                curtailed_mw=round(curtailed, 1),
+                revenue_eur=round(revenue, 2),
+            )
+        )
 
     # Equivalent cycles
     total_energy_throughput = (total_charge_energy + total_discharge_energy) / 2.0
@@ -277,8 +282,7 @@ def run_bess_dispatch(
 
     revenue_gain = total_revenue - total_revenue_no_bess
     revenue_gain_pct = (
-        revenue_gain / total_revenue_no_bess * 100.0
-        if total_revenue_no_bess > 0 else 0.0
+        revenue_gain / total_revenue_no_bess * 100.0 if total_revenue_no_bess > 0 else 0.0
     )
 
     return BESSResult(

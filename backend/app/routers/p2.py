@@ -46,11 +46,24 @@ from app.schemas.ppc import (
     ReactivePowerMode,
     TSOSetpoint,
 )
+from app.services.p2.ac_dc_network import compare_export_options
+from app.services.p2.capacity_expansion import plan_capacity_expansion
 from app.services.p2.converter_comparison import get_comparison_response
+from app.services.p2.dc_power_flow import (
+    run_dc_contingency_screening,
+    run_dc_power_flow,
+)
 from app.services.p2.dynamic_compliance import run_full_compliance_assessment
+from app.services.p2.economic_dispatch import (
+    generate_wind_forecast,
+    run_economic_dispatch,
+)
+from app.services.p2.energy_storage import run_bess_dispatch
+from app.services.p2.flexible_demand import run_flexible_demand_simulation
 from app.services.p2.frequency_response import run_frequency_response
 from app.services.p2.frt_simulation import run_frt_simulation
 from app.services.p2.load_flow import run_all_scenarios, run_load_flow
+from app.services.p2.multi_energy_carrier import run_multi_energy_analysis
 from app.services.p2.network_model import (
     EXPORT_CABLE_LENGTH_KM,
     GRID_SSC_MVA,
@@ -59,29 +72,16 @@ from app.services.p2.network_model import (
     STRING_LAYOUT,
     TOTAL_CAPACITY_MW,
 )
+from app.services.p2.optimal_power_flow import run_ac_opf, run_dc_opf
+from app.services.p2.pathway_planning import run_pathway_planning
 from app.services.p2.power_plant_controller import get_ppc_status, run_ppc_simulation
+from app.services.p2.power_to_gas import ElectrolyzerType, run_electrolyzer_simulation
+from app.services.p2.scopf import run_scopf
+from app.services.p2.seasonal_storage import StorageTechnology, run_seasonal_storage_simulation
+from app.services.p2.sector_coupling import run_sector_coupling
 from app.services.p2.short_circuit import calc_short_circuit
 from app.services.p2.sso_analysis import run_sso_screening
-from app.services.p2.optimal_power_flow import run_ac_opf, run_dc_opf
-from app.services.p2.scopf import run_scopf
-from app.services.p2.dc_power_flow import (
-    run_dc_power_flow,
-    run_dc_contingency_screening,
-)
-from app.services.p2.economic_dispatch import (
-    generate_wind_forecast,
-    run_economic_dispatch,
-)
-from app.services.p2.energy_storage import run_bess_dispatch
-from app.services.p2.ac_dc_network import compare_export_options
-from app.services.p2.capacity_expansion import plan_capacity_expansion
 from app.services.p2.statcom_sizing import validate_compensation
-from app.services.p2.pathway_planning import run_pathway_planning
-from app.services.p2.sector_coupling import run_sector_coupling
-from app.services.p2.power_to_gas import run_electrolyzer_simulation, ElectrolyzerType
-from app.services.p2.seasonal_storage import run_seasonal_storage_simulation, StorageTechnology
-from app.services.p2.flexible_demand import run_flexible_demand_simulation
-from app.services.p2.multi_energy_carrier import run_multi_energy_analysis
 
 router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
 
@@ -613,8 +613,11 @@ async def optimal_power_flow(request: OPFRequest) -> OPFResponse:
         max_trafo_loading_percent=result.max_trafo_loading_percent,
         generators=[
             GeneratorDispatchSchema(
-                name=g.name, p_mw=g.p_mw, q_mvar=g.q_mvar,
-                p_max_mw=g.p_max_mw, curtailed_mw=g.curtailed_mw,
+                name=g.name,
+                p_mw=g.p_mw,
+                q_mvar=g.q_mvar,
+                p_max_mw=g.p_max_mw,
+                curtailed_mw=g.curtailed_mw,
                 marginal_cost_eur_mwh=g.marginal_cost_eur_mwh,
             )
             for g in result.generators
@@ -660,8 +663,11 @@ async def security_constrained_opf(request: SCOPFRequest) -> SCOPFResponse:
         max_trafo_loading_percent=result.base_case.max_trafo_loading_percent,
         generators=[
             GeneratorDispatchSchema(
-                name=g.name, p_mw=g.p_mw, q_mvar=g.q_mvar,
-                p_max_mw=g.p_max_mw, curtailed_mw=g.curtailed_mw,
+                name=g.name,
+                p_mw=g.p_mw,
+                q_mvar=g.q_mvar,
+                p_max_mw=g.p_max_mw,
+                curtailed_mw=g.curtailed_mw,
                 marginal_cost_eur_mwh=g.marginal_cost_eur_mwh,
             )
             for g in result.base_case.generators
@@ -672,8 +678,11 @@ async def security_constrained_opf(request: SCOPFRequest) -> SCOPFResponse:
 
     cont_results = [
         ContingencyResultSchema(
-            name=c.name, description=c.description, converged=c.converged,
-            v_min_pu=c.v_min_pu, v_max_pu=c.v_max_pu,
+            name=c.name,
+            description=c.description,
+            converged=c.converged,
+            v_min_pu=c.v_min_pu,
+            v_max_pu=c.v_max_pu,
             max_line_loading_percent=c.max_line_loading_percent,
             max_trafo_loading_percent=c.max_trafo_loading_percent,
             violations=[
@@ -681,7 +690,9 @@ async def security_constrained_opf(request: SCOPFRequest) -> SCOPFResponse:
                     contingency_name=v.contingency_name,
                     violation_type=v.violation_type,
                     element_name=v.element_name,
-                    value=v.value, limit=v.limit, severity=v.severity,
+                    value=v.value,
+                    limit=v.limit,
+                    severity=v.severity,
                 )
                 for v in c.violations
             ],
@@ -875,8 +886,10 @@ async def dc_power_flow(request: DCPowerFlowRequest) -> DCPowerFlowResponse:
         num_overloaded_lines=result.num_overloaded_lines,
         line_results=[
             DCLineResultSchema(
-                name=lr.name, p_from_mw=lr.p_from_mw,
-                loading_percent=lr.loading_percent, overloaded=lr.overloaded,
+                name=lr.name,
+                p_from_mw=lr.p_from_mw,
+                loading_percent=lr.loading_percent,
+                overloaded=lr.overloaded,
             )
             for lr in result.line_results
         ],
@@ -953,8 +966,6 @@ async def bess_dispatch(request: BESSRequest) -> BESSResponse:
     Optimizes BESS charge/discharge against electricity prices to maximize
     revenue while reducing curtailment and smoothing ramps.
     """
-    import numpy as np
-
     forecast = generate_wind_forecast(mean_speed_ms=request.mean_wind_speed_ms)
 
     try:
@@ -979,9 +990,13 @@ async def bess_dispatch(request: BESSRequest) -> BESSResponse:
         average_soc=result.average_soc,
         timesteps=[
             BESSTimestepSchema(
-                hour=ts.hour, wind_power_mw=ts.wind_power_mw,
-                bess_power_mw=ts.bess_power_mw, grid_export_mw=ts.grid_export_mw,
-                soc=ts.soc, curtailed_mw=ts.curtailed_mw, revenue_eur=ts.revenue_eur,
+                hour=ts.hour,
+                wind_power_mw=ts.wind_power_mw,
+                bess_power_mw=ts.bess_power_mw,
+                grid_export_mw=ts.grid_export_mw,
+                soc=ts.soc,
+                curtailed_mw=ts.curtailed_mw,
+                revenue_eur=ts.revenue_eur,
             )
             for ts in result.timesteps
         ],
@@ -1006,11 +1021,14 @@ async def ac_dc_comparison(request: ACDCComparisonRequest) -> ACDCComparisonResp
     return ACDCComparisonResponse(
         options=[
             ExportOptionSchema(
-                technology=opt.technology, total_loss_mw=opt.total_loss_mw,
-                loss_percent=opt.loss_percent, cable_loss_mw=opt.cable_loss_mw,
+                technology=opt.technology,
+                total_loss_mw=opt.total_loss_mw,
+                loss_percent=opt.loss_percent,
+                cable_loss_mw=opt.cable_loss_mw,
                 converter_loss_mw=opt.converter_loss_mw,
                 reactive_compensation_mvar=opt.reactive_compensation_mvar,
-                annual_loss_gwh=opt.annual_loss_gwh, capex_index=opt.capex_index,
+                annual_loss_gwh=opt.annual_loss_gwh,
+                capex_index=opt.capex_index,
             )
             for opt in result.options
         ],
@@ -1040,11 +1058,16 @@ async def capacity_expansion(request: CapacityExpansionRequest) -> CapacityExpan
     return CapacityExpansionResponse(
         phases=[
             ProjectPhaseSchema(
-                name=p.name, capacity_mw=p.capacity_mw,
-                build_year=p.build_year, cod_year=p.cod_year,
-                capex_meur=p.capex_meur, annual_aep_gwh=p.annual_aep_gwh,
-                lcoe_eur_mwh=p.lcoe_eur_mwh, npv_meur=p.npv_meur,
-                irr_percent=p.irr_percent, bess_mwh=p.bess_mwh,
+                name=p.name,
+                capacity_mw=p.capacity_mw,
+                build_year=p.build_year,
+                cod_year=p.cod_year,
+                capex_meur=p.capex_meur,
+                annual_aep_gwh=p.annual_aep_gwh,
+                lcoe_eur_mwh=p.lcoe_eur_mwh,
+                npv_meur=p.npv_meur,
+                irr_percent=p.irr_percent,
+                bess_mwh=p.bess_mwh,
             )
             for p in result.phases
         ],
@@ -1123,7 +1146,10 @@ class ElectrolyzerResponse(BaseModel):
 
 
 class SeasonalStorageRequest(BaseModel):
-    technology: str = Field("hydrogen_cavern", description="hydrogen_cavern, compressed_air, pumped_hydro")
+    technology: str = Field(
+        "hydrogen_cavern",
+        description="hydrogen_cavern, compressed_air, pumped_hydro",
+    )
     storage_capacity_mwh: float = Field(5000.0, ge=100.0, le=50000.0)
     charge_capacity_mw: float = Field(50.0, ge=5.0, le=200.0)
     discharge_capacity_mw: float = Field(50.0, ge=5.0, le=200.0)

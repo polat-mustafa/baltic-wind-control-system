@@ -45,20 +45,20 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
 from app.services.p1.wake_model import (
+    RATED_POWER_KW,
     WakeAnalysisResult,
     create_v236_wind_turbine,
-    RATED_POWER_KW,
 )
 
 
-class WakeDeficitModel(str, Enum):
+class WakeDeficitModel(StrEnum):
     """Available wake deficit models."""
 
     JENSEN = "jensen"
@@ -67,14 +67,14 @@ class WakeDeficitModel(str, Enum):
     ZONG_GAUSSIAN = "zong_gaussian"
 
 
-class TurbulenceModel(str, Enum):
+class TurbulenceModel(StrEnum):
     """Available turbulence models."""
 
     STF2017 = "stf2017"
     CRESPO_HERNANDEZ = "crespo_hernandez"
 
 
-class SuperpositionModel(str, Enum):
+class SuperpositionModel(StrEnum):
     """Available wake superposition models."""
 
     LINEAR_SUM = "linear_sum"
@@ -118,15 +118,19 @@ def _get_deficit_model(model: WakeDeficitModel) -> Any:
     """
     if model == WakeDeficitModel.JENSEN:
         from py_wake.deficit_models import NOJDeficit
+
         return NOJDeficit()  # NOJ = Niels Otto Jensen (original Jensen top-hat)
     elif model == WakeDeficitModel.BPA_GAUSSIAN:
         from py_wake.deficit_models.gaussian import BastankhahGaussianDeficit
+
         return BastankhahGaussianDeficit()
     elif model == WakeDeficitModel.NOJ:
         from py_wake.deficit_models import NOJDeficit
+
         return NOJDeficit()
     elif model == WakeDeficitModel.ZONG_GAUSSIAN:
         from py_wake.deficit_models.gaussian import ZongGaussianDeficit
+
         return ZongGaussianDeficit()
     else:
         msg = f"Unknown deficit model: {model}"
@@ -147,9 +151,11 @@ def _get_turbulence_model(model: TurbulenceModel) -> Any:
     """
     if model == TurbulenceModel.STF2017:
         from py_wake.turbulence_models import STF2017TurbulenceModel
+
         return STF2017TurbulenceModel()
     elif model == TurbulenceModel.CRESPO_HERNANDEZ:
         from py_wake.turbulence_models import CrespoHernandez
+
         return CrespoHernandez()
     else:
         msg = f"Unknown turbulence model: {model}"
@@ -170,12 +176,15 @@ def _get_superposition_model(model: SuperpositionModel) -> Any:
     """
     if model == SuperpositionModel.LINEAR_SUM:
         from py_wake.superposition_models import LinearSum
+
         return LinearSum()
     elif model == SuperpositionModel.SQUARED_SUM:
         from py_wake.superposition_models import SquaredSum
+
         return SquaredSum()
     elif model == SuperpositionModel.MAX_SUM:
         from py_wake.superposition_models import MaxSum
+
         return MaxSum()
     else:
         msg = f"Unknown superposition model: {model}"
@@ -255,15 +264,17 @@ def run_wake_analysis_flexible(
     """
     turbine = create_v236_wind_turbine()
     wf_model = configure_wake_model_flexible(
-        site, turbine, deficit_model, turbulence_model, superposition_model,
+        site,
+        turbine,
+        deficit_model,
+        turbulence_model,
+        superposition_model,
     )
 
     sim_res = wf_model(x=x_positions_m, y=y_positions_m)
 
     net_aep_per_turbine = sim_res.aep().values
-    per_turbine_net_gwh = net_aep_per_turbine.sum(
-        axis=tuple(range(1, net_aep_per_turbine.ndim))
-    )
+    per_turbine_net_gwh = net_aep_per_turbine.sum(axis=tuple(range(1, net_aep_per_turbine.ndim)))
 
     gross_aep_per_turbine = sim_res.aep(with_wake_loss=False).values
     per_turbine_gross_gwh = gross_aep_per_turbine.sum(
@@ -273,10 +284,7 @@ def run_wake_analysis_flexible(
     total_net_gwh = float(per_turbine_net_gwh.sum())
     total_gross_gwh = float(per_turbine_gross_gwh.sum())
 
-    wake_loss_pct = (
-        (1.0 - total_net_gwh / total_gross_gwh) * 100.0
-        if total_gross_gwh > 0 else 0.0
-    )
+    wake_loss_pct = (1.0 - total_net_gwh / total_gross_gwh) * 100.0 if total_gross_gwh > 0 else 0.0
 
     per_turbine_wake_loss = np.where(
         per_turbine_gross_gwh > 0,
@@ -303,6 +311,8 @@ def compare_wake_models(
     y_positions_m: NDArray[np.floating],
     site: Any,
     models: list[WakeDeficitModel] | None = None,
+    turbulence_model: TurbulenceModel = TurbulenceModel.STF2017,
+    superposition_model: SuperpositionModel = SuperpositionModel.LINEAR_SUM,
 ) -> WakeModelComparison:
     """Compare multiple wake models on the same layout and site.
 
@@ -316,6 +326,10 @@ def compare_wake_models(
         PyWake site object.
     models : list[WakeDeficitModel], optional
         Models to compare. Default: all four.
+    turbulence_model : TurbulenceModel
+        Turbulence model applied to all comparisons. Default: STF2017.
+    superposition_model : SuperpositionModel
+        Superposition model applied to all comparisons. Default: LinearSum.
 
     Returns
     -------
@@ -328,7 +342,12 @@ def compare_wake_models(
     results: list[tuple[str, WakeAnalysisResult]] = []
     for model in models:
         result = run_wake_analysis_flexible(
-            x_positions_m, y_positions_m, site, deficit_model=model,
+            x_positions_m,
+            y_positions_m,
+            site,
+            deficit_model=model,
+            turbulence_model=turbulence_model,
+            superposition_model=superposition_model,
         )
         results.append((model.value, result))
 
@@ -339,5 +358,7 @@ def compare_wake_models(
         results=results,
         model_names=[r[0] for r in results],
         aep_range_gwh=round(max(aep_values) - min(aep_values), 2) if aep_values else 0.0,
-        wake_loss_range_percent=round(max(loss_values) - min(loss_values), 2) if loss_values else 0.0,
+        wake_loss_range_percent=(
+            round(max(loss_values) - min(loss_values), 2) if loss_values else 0.0
+        ),
     )

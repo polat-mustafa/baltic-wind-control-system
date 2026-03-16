@@ -36,7 +36,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-
 # ── Multi-Energy Constants ─────────────────────────────────────
 
 NATURAL_GAS_LHV_MWH_PER_KG: float = 0.0139
@@ -113,9 +112,7 @@ class MultiEnergyResult:
     co2_emissions_tonnes: float = 0.0
     co2_reduction_vs_separate_percent: float = 0.0
     total_annual_cost_meur: float = 0.0
-    coupling_matrix: NDArray[np.floating] = field(
-        default_factory=lambda: np.zeros((4, 4))
-    )
+    coupling_matrix: NDArray[np.floating] = field(default_factory=lambda: np.zeros((4, 4)))
     renewable_share_percent: float = 0.0
 
 
@@ -261,14 +258,24 @@ def run_multi_energy_analysis(
             total_demand_mwh=round(hydrogen_demand_mwh, 1),
             conversion_in_mwh=round(h2_from_elec, 1),
             conversion_out_mwh=round(coupling[0, 3], 1),
-            surplus_mwh=round(max(0, total_h2_supply - hydrogen_demand_mwh - coupling[0, 3] / fuel_cell_efficiency), 1),
+            surplus_mwh=round(
+                max(
+                    0,
+                    total_h2_supply - hydrogen_demand_mwh - coupling[0, 3] / fuel_cell_efficiency,
+                ),
+                1,
+            ),
             deficit_mwh=round(max(0, hydrogen_demand_mwh - h2_from_elec), 1),
         ),
     ]
 
     # System metrics
     total_primary = wind_generation_mwh + gas_supply_mwh
-    total_useful = min(total_elec_supply, electricity_demand_mwh) + min(total_heat_supply, heat_demand_mwh) + min(total_h2_supply, hydrogen_demand_mwh)
+    total_useful = (
+        min(total_elec_supply, electricity_demand_mwh)
+        + min(total_heat_supply, heat_demand_mwh)
+        + min(total_h2_supply, hydrogen_demand_mwh)
+    )
     system_eff = total_useful / total_primary if total_primary > 0 else 0
 
     co2 = total_gas_used * CO2_PER_MWH_GAS
@@ -282,9 +289,7 @@ def run_multi_energy_analysis(
     re_share = wind_generation_mwh / total_primary * 100 if total_primary > 0 else 0
 
     # Cost
-    cost = (
-        total_gas_used * gas_price_eur_mwh / 1e6
-    )
+    cost = total_gas_used * gas_price_eur_mwh / 1e6
 
     return MultiEnergyResult(
         carrier_balances=balances,

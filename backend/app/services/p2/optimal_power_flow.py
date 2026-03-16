@@ -56,8 +56,6 @@ import pandapower as pp
 from app.services.p2.network_model import (
     NUM_TURBINES,
     STATCOM_RATING_MVAR,
-    STRING_LAYOUT,
-    TOTAL_CAPACITY_MW,
     TURBINE_RATED_MW,
     build_network,
 )
@@ -195,13 +193,19 @@ def _add_opf_constraints(
             net.sgen.at[idx, "controllable"] = True
             # Negative cost = reward for generating (minimize curtailment)
             pp.create_poly_cost(
-                net, idx, "sgen", cp1_eur_per_mw=-CURTAILMENT_PENALTY,
+                net,
+                idx,
+                "sgen",
+                cp1_eur_per_mw=-CURTAILMENT_PENALTY,
             )
 
     # External grid cost (import from PSE grid)
     for idx in range(len(net.ext_grid)):
         pp.create_poly_cost(
-            net, idx, "ext_grid", cp1_eur_per_mw=GRID_IMPORT_COST,
+            net,
+            idx,
+            "ext_grid",
+            cp1_eur_per_mw=GRID_IMPORT_COST,
         )
 
     # Set voltage constraints on all buses
@@ -250,12 +254,18 @@ def run_dc_opf(
         pp.rundcopp(net)
     except Exception:
         return OPFResult(
-            converged=False, method="dc",
-            objective_value_eur_h=0.0, total_generation_mw=0.0,
-            total_curtailment_mw=0.0, curtailment_percent=0.0,
-            total_loss_mw=0.0, v_min_pu=0.0, v_max_pu=0.0,
+            converged=False,
+            method="dc",
+            objective_value_eur_h=0.0,
+            total_generation_mw=0.0,
+            total_curtailment_mw=0.0,
+            curtailment_percent=0.0,
+            total_loss_mw=0.0,
+            v_min_pu=0.0,
+            v_max_pu=0.0,
             voltage_compliant=False,
-            max_line_loading_percent=0.0, max_trafo_loading_percent=0.0,
+            max_line_loading_percent=0.0,
+            max_trafo_loading_percent=0.0,
         )
 
     return _extract_opf_results(net, "dc", generation_fraction)
@@ -296,12 +306,18 @@ def run_ac_opf(
         pp.runopp(net, init="flat", calculate_voltage_angles=True)
     except Exception:
         return OPFResult(
-            converged=False, method="ac",
-            objective_value_eur_h=0.0, total_generation_mw=0.0,
-            total_curtailment_mw=0.0, curtailment_percent=0.0,
-            total_loss_mw=0.0, v_min_pu=0.0, v_max_pu=0.0,
+            converged=False,
+            method="ac",
+            objective_value_eur_h=0.0,
+            total_generation_mw=0.0,
+            total_curtailment_mw=0.0,
+            curtailment_percent=0.0,
+            total_loss_mw=0.0,
+            v_min_pu=0.0,
+            v_max_pu=0.0,
             voltage_compliant=False,
-            max_line_loading_percent=0.0, max_trafo_loading_percent=0.0,
+            max_line_loading_percent=0.0,
+            max_trafo_loading_percent=0.0,
         )
 
     return _extract_opf_results(net, "ac", generation_fraction)
@@ -342,19 +358,30 @@ def _extract_opf_results(
 
         if name == "STATCOM":
             statcom_q = q_opt
-            generators.append(GeneratorDispatch(
-                name=name, p_mw=round(p_opt, 3), q_mvar=round(q_opt, 3),
-                p_max_mw=0.0, curtailed_mw=0.0, marginal_cost_eur_mwh=0.0,
-            ))
+            generators.append(
+                GeneratorDispatch(
+                    name=name,
+                    p_mw=round(p_opt, 3),
+                    q_mvar=round(q_opt, 3),
+                    p_max_mw=0.0,
+                    curtailed_mw=0.0,
+                    marginal_cost_eur_mwh=0.0,
+                )
+            )
         else:
             curtailed = max(0.0, p_available - p_opt)
             total_gen += p_opt
             total_curtail += curtailed
-            generators.append(GeneratorDispatch(
-                name=name, p_mw=round(p_opt, 3), q_mvar=round(q_opt, 3),
-                p_max_mw=round(p_available, 3), curtailed_mw=round(curtailed, 3),
-                marginal_cost_eur_mwh=CURTAILMENT_PENALTY,
-            ))
+            generators.append(
+                GeneratorDispatch(
+                    name=name,
+                    p_mw=round(p_opt, 3),
+                    q_mvar=round(q_opt, 3),
+                    p_max_mw=round(p_available, 3),
+                    curtailed_mw=round(curtailed, 3),
+                    marginal_cost_eur_mwh=CURTAILMENT_PENALTY,
+                )
+            )
 
     # Network losses
     line_losses = float(net.res_line["pl_mw"].sum()) if len(net.res_line) > 0 else 0.0
@@ -366,9 +393,7 @@ def _extract_opf_results(
         # Exclude slack bus from compliance check
         slack_buses = set(net.ext_grid["bus"].values)
         non_slack_vm = [
-            float(net.res_bus.at[i, "vm_pu"])
-            for i in range(len(net.bus))
-            if i not in slack_buses
+            float(net.res_bus.at[i, "vm_pu"]) for i in range(len(net.bus)) if i not in slack_buses
         ]
         v_min = min(non_slack_vm) if non_slack_vm else 1.0
         v_max = max(non_slack_vm) if non_slack_vm else 1.0

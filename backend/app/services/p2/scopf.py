@@ -223,51 +223,59 @@ def _check_contingency_violations(
         vm = float(net.res_bus.at[idx, "vm_pu"])
         name = str(net.bus.at[idx, "name"])
         if vm < V_MIN_PU:
-            violations.append(ContingencyViolation(
-                contingency_name=contingency_name,
-                violation_type="voltage_low",
-                element_name=name,
-                value=round(vm, 4),
-                limit=V_MIN_PU,
-                severity=round(V_MIN_PU - vm, 4),
-            ))
+            violations.append(
+                ContingencyViolation(
+                    contingency_name=contingency_name,
+                    violation_type="voltage_low",
+                    element_name=name,
+                    value=round(vm, 4),
+                    limit=V_MIN_PU,
+                    severity=round(V_MIN_PU - vm, 4),
+                )
+            )
         if vm > V_MAX_PU:
-            violations.append(ContingencyViolation(
-                contingency_name=contingency_name,
-                violation_type="voltage_high",
-                element_name=name,
-                value=round(vm, 4),
-                limit=V_MAX_PU,
-                severity=round(vm - V_MAX_PU, 4),
-            ))
+            violations.append(
+                ContingencyViolation(
+                    contingency_name=contingency_name,
+                    violation_type="voltage_high",
+                    element_name=name,
+                    value=round(vm, 4),
+                    limit=V_MAX_PU,
+                    severity=round(vm - V_MAX_PU, 4),
+                )
+            )
 
     # Line overload violations
     for idx in range(len(net.line)):
         loading = float(net.res_line.at[idx, "loading_percent"])
         if loading > 100.0:
             name = str(net.line.at[idx, "name"])
-            violations.append(ContingencyViolation(
-                contingency_name=contingency_name,
-                violation_type="line_overload",
-                element_name=name,
-                value=round(loading, 1),
-                limit=100.0,
-                severity=round(loading - 100.0, 1),
-            ))
+            violations.append(
+                ContingencyViolation(
+                    contingency_name=contingency_name,
+                    violation_type="line_overload",
+                    element_name=name,
+                    value=round(loading, 1),
+                    limit=100.0,
+                    severity=round(loading - 100.0, 1),
+                )
+            )
 
     # Transformer overload violations
     for idx in range(len(net.trafo)):
         loading = float(net.res_trafo.at[idx, "loading_percent"])
         if loading > 100.0:
             name = str(net.trafo.at[idx, "name"])
-            violations.append(ContingencyViolation(
-                contingency_name=contingency_name,
-                violation_type="trafo_overload",
-                element_name=name,
-                value=round(loading, 1),
-                limit=100.0,
-                severity=round(loading - 100.0, 1),
-            ))
+            violations.append(
+                ContingencyViolation(
+                    contingency_name=contingency_name,
+                    violation_type="trafo_overload",
+                    element_name=name,
+                    value=round(loading, 1),
+                    limit=100.0,
+                    severity=round(loading - 100.0, 1),
+                )
+            )
 
     return violations
 
@@ -313,12 +321,18 @@ def run_scopf(
         except Exception:
             return SCOPFResult(
                 base_case=OPFResult(
-                    converged=False, method="ac",
-                    objective_value_eur_h=0.0, total_generation_mw=0.0,
-                    total_curtailment_mw=0.0, curtailment_percent=0.0,
-                    total_loss_mw=0.0, v_min_pu=0.0, v_max_pu=0.0,
+                    converged=False,
+                    method="ac",
+                    objective_value_eur_h=0.0,
+                    total_generation_mw=0.0,
+                    total_curtailment_mw=0.0,
+                    curtailment_percent=0.0,
+                    total_loss_mw=0.0,
+                    v_min_pu=0.0,
+                    v_max_pu=0.0,
                     voltage_compliant=False,
-                    max_line_loading_percent=0.0, max_trafo_loading_percent=0.0,
+                    max_line_loading_percent=0.0,
+                    max_trafo_loading_percent=0.0,
                 ),
                 iterations=iteration,
             )
@@ -340,9 +354,7 @@ def run_scopf(
             # Apply base case dispatch results to generators
             for sgen_idx in range(len(cont_net.sgen)):
                 if sgen_idx < len(net.res_sgen):
-                    cont_net.sgen.at[sgen_idx, "p_mw"] = float(
-                        net.res_sgen.at[sgen_idx, "p_mw"]
-                    )
+                    cont_net.sgen.at[sgen_idx, "p_mw"] = float(net.res_sgen.at[sgen_idx, "p_mw"])
                     cont_net.sgen.at[sgen_idx, "q_mvar"] = float(
                         net.res_sgen.at[sgen_idx, "q_mvar"]
                     )
@@ -355,21 +367,33 @@ def run_scopf(
             try:
                 pp.runpp(cont_net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
             except Exception:
-                contingency_results.append(ContingencyResult(
-                    name=cont_name, description=description,
-                    converged=False, v_min_pu=0.0, v_max_pu=0.0,
-                    max_line_loading_percent=0.0, max_trafo_loading_percent=0.0,
-                    secure=False,
-                ))
+                contingency_results.append(
+                    ContingencyResult(
+                        name=cont_name,
+                        description=description,
+                        converged=False,
+                        v_min_pu=0.0,
+                        v_max_pu=0.0,
+                        max_line_loading_percent=0.0,
+                        max_trafo_loading_percent=0.0,
+                        secure=False,
+                    )
+                )
                 continue
 
             if not cont_net.converged:
-                contingency_results.append(ContingencyResult(
-                    name=cont_name, description=description,
-                    converged=False, v_min_pu=0.0, v_max_pu=0.0,
-                    max_line_loading_percent=0.0, max_trafo_loading_percent=0.0,
-                    secure=False,
-                ))
+                contingency_results.append(
+                    ContingencyResult(
+                        name=cont_name,
+                        description=description,
+                        converged=False,
+                        v_min_pu=0.0,
+                        v_max_pu=0.0,
+                        max_line_loading_percent=0.0,
+                        max_trafo_loading_percent=0.0,
+                        secure=False,
+                    )
+                )
                 continue
 
             # Check violations
@@ -385,25 +409,37 @@ def run_scopf(
             ]
             v_min = min(non_slack_vm) if non_slack_vm else 1.0
             v_max = max(non_slack_vm) if non_slack_vm else 1.0
-            max_line = float(cont_net.res_line["loading_percent"].max()) if len(cont_net.res_line) > 0 else 0.0
-            max_trafo = float(cont_net.res_trafo["loading_percent"].max()) if len(cont_net.res_trafo) > 0 else 0.0
+            max_line = (
+                float(cont_net.res_line["loading_percent"].max())
+                if len(cont_net.res_line) > 0
+                else 0.0
+            )
+            max_trafo = (
+                float(cont_net.res_trafo["loading_percent"].max())
+                if len(cont_net.res_trafo) > 0
+                else 0.0
+            )
 
-            contingency_results.append(ContingencyResult(
-                name=cont_name,
-                description=description,
-                converged=True,
-                v_min_pu=round(v_min, 4),
-                v_max_pu=round(v_max, 4),
-                max_line_loading_percent=round(max_line, 1),
-                max_trafo_loading_percent=round(max_trafo, 1),
-                violations=violations,
-                secure=len(violations) == 0,
-            ))
+            contingency_results.append(
+                ContingencyResult(
+                    name=cont_name,
+                    description=description,
+                    converged=True,
+                    v_min_pu=round(v_min, 4),
+                    v_max_pu=round(v_max, 4),
+                    max_line_loading_percent=round(max_line, 1),
+                    max_trafo_loading_percent=round(max_trafo, 1),
+                    violations=violations,
+                    secure=len(violations) == 0,
+                )
+            )
 
         # Step 3: Check if N-1 secure
         if not all_violations:
             # All secure — done
-            curtailment_for_security = (generation_fraction - current_gen_fraction) * TURBINE_RATED_MW * len(STRING_LAYOUT)
+            curtailment_for_security = (
+                (generation_fraction - current_gen_fraction) * TURBINE_RATED_MW * len(STRING_LAYOUT)
+            )
             return SCOPFResult(
                 base_case=base_result,
                 contingency_results=contingency_results,
@@ -425,7 +461,9 @@ def run_scopf(
         default=None,
     )
 
-    curtailment_for_security = (generation_fraction - current_gen_fraction) * TURBINE_RATED_MW * len(STRING_LAYOUT)
+    curtailment_for_security = (
+        (generation_fraction - current_gen_fraction) * TURBINE_RATED_MW * len(STRING_LAYOUT)
+    )
 
     return SCOPFResult(
         base_case=base_result,

@@ -43,7 +43,7 @@ Maths
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import numpy as np
@@ -52,13 +52,14 @@ from numpy.typing import NDArray
 from app.services.p1.wake_model import ROTOR_DIAMETER_M
 
 
-class OptimizationAlgorithm(str, Enum):
+class OptimizationAlgorithm(StrEnum):
     """Available layout optimization algorithms."""
 
     DIFFERENTIAL_EVOLUTION = "differential_evolution"
     BASIN_HOPPING = "basin_hopping"
     GENETIC_ALGORITHM = "genetic_algorithm"
     GRADIENT_LBFGSB = "gradient_lbfgsb"
+
 
 # ── Layout Constants ──────────────────────────────────────────────
 
@@ -463,7 +464,8 @@ def _make_objective(
             result = run_wake_analysis(
                 np.array(x, dtype=np.float64),
                 np.array(y, dtype=np.float64),
-                site, turbine,
+                site,
+                turbine,
             )
             return -result.net_aep_gwh + penalty
         except Exception:
@@ -534,8 +536,11 @@ def optimize_layout_basin_hopping(
 
     return LayoutResult(
         name="Basin-Hopping Optimized",
-        x_positions=opt_x, y_positions=opt_y,
-        num_turbines=n, min_spacing_m=min_dist, area_km2=area,
+        x_positions=opt_x,
+        y_positions=opt_y,
+        num_turbines=n,
+        min_spacing_m=min_dist,
+        area_km2=area,
     )
 
 
@@ -580,10 +585,9 @@ def optimize_layout_genetic(
     x0[0::2] = initial_x
     x0[1::2] = initial_y
 
-    population = np.array([
-        x0 + rng.normal(0, ROTOR_DIAMETER_M * 0.5, 2 * n)
-        for _ in range(pop_size)
-    ])
+    population = np.array(
+        [x0 + rng.normal(0, ROTOR_DIAMETER_M * 0.5, 2 * n) for _ in range(pop_size)]
+    )
     population[0] = x0  # Keep initial as first individual
 
     # Clip to bounds
@@ -638,8 +642,11 @@ def optimize_layout_genetic(
 
     return LayoutResult(
         name="Genetic Algorithm Optimized",
-        x_positions=opt_x, y_positions=opt_y,
-        num_turbines=n, min_spacing_m=min_dist, area_km2=area,
+        x_positions=opt_x,
+        y_positions=opt_y,
+        num_turbines=n,
+        min_spacing_m=min_dist,
+        area_km2=area,
     )
 
 
@@ -684,7 +691,8 @@ def optimize_layout_gradient(
     ] * n
 
     result = minimize(
-        objective, x0,
+        objective,
+        x0,
         method="L-BFGS-B",
         bounds=bounds,
         options={"maxiter": maxiter, "ftol": 1e-6},
@@ -697,8 +705,11 @@ def optimize_layout_gradient(
 
     return LayoutResult(
         name="Gradient Optimized",
-        x_positions=opt_x, y_positions=opt_y,
-        num_turbines=n, min_spacing_m=min_dist, area_km2=area,
+        x_positions=opt_x,
+        y_positions=opt_y,
+        num_turbines=n,
+        min_spacing_m=min_dist,
+        area_km2=area,
     )
 
 

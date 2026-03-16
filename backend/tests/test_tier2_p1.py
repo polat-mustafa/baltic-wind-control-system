@@ -6,7 +6,6 @@ market-weighted AEP, multi-algorithm optimization, PCE UQ, and robust optimizati
 import numpy as np
 import pytest
 
-from app.services.p1.layout_optimizer import generate_regular_grid, generate_staggered_grid
 from app.services.p1.wake_model import create_uniform_site
 
 
@@ -67,7 +66,10 @@ class TestWakeModels:
         site = _default_site()
         # Compare 2 models for speed
         result = compare_wake_models(
-            x, y, site, models=[WakeDeficitModel.JENSEN, WakeDeficitModel.BPA_GAUSSIAN],
+            x,
+            y,
+            site,
+            models=[WakeDeficitModel.JENSEN, WakeDeficitModel.BPA_GAUSSIAN],
         )
         assert len(result.results) == 2
         assert result.aep_range_gwh >= 0
@@ -82,7 +84,9 @@ class TestWakeModels:
         x, y = _small_layout()
         site = _default_site()
         result = run_wake_analysis_flexible(
-            x, y, site,
+            x,
+            y,
+            site,
             deficit_model=WakeDeficitModel.BPA_GAUSSIAN,
             turbulence_model=TurbulenceModel.CRESPO_HERNANDEZ,
         )
@@ -152,7 +156,7 @@ class TestFLOWERS:
 
         freqs = np.ones(12) / 12.0
         dirs = np.radians(np.linspace(0, 330, 12))
-        a_0, a_n, b_n = _fourier_decompose_wind_rose(freqs, dirs)
+        a_0, _a_n, _b_n = _fourier_decompose_wind_rose(freqs, dirs)
         assert abs(a_0 - 1.0 / 12.0) < 0.01
 
 
@@ -219,7 +223,9 @@ class TestMultiAlgorithm:
         x, y = _small_layout()
         site = _default_site()
         result = optimize_layout_multi(
-            x, y, site,
+            x,
+            y,
+            site,
             algorithm=OptimizationAlgorithm.GRADIENT_LBFGSB,
             maxiter=2,
         )
@@ -239,7 +245,10 @@ class TestPCEUQ:
         assert p.distribution == "gaussian"
 
     def test_pce_lhs_samples(self):
-        from app.services.p1.uncertainty_quantification import UncertainParameter, _generate_lhs_samples
+        from app.services.p1.uncertainty_quantification import (
+            UncertainParameter,
+            _generate_lhs_samples,
+        )
 
         params = [
             UncertainParameter("a", 10.5, 0.5),
@@ -292,7 +301,10 @@ class TestRobustOptimization:
             assert "turbulence_intensity" in s
 
     def test_evaluate_scenarios(self):
-        from app.services.p1.robust_optimization import _evaluate_layout_scenarios, _generate_scenarios
+        from app.services.p1.robust_optimization import (
+            _evaluate_layout_scenarios,
+            _generate_scenarios,
+        )
 
         x, y = _small_layout()
         scenarios = _generate_scenarios(n_scenarios=3)
@@ -305,7 +317,10 @@ class TestRobustOptimization:
 
         x, y = _small_layout()
         result = run_robust_optimization(
-            x, y, n_scenarios=3, maxiter=2,
+            x,
+            y,
+            n_scenarios=3,
+            maxiter=2,
         )
         assert result.mean_aep_gwh > 0
         assert result.layout.num_turbines == 4

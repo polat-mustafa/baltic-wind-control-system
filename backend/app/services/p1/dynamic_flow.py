@@ -51,10 +51,9 @@ from numpy.typing import NDArray
 from app.services.p1.wake_model import (
     RATED_POWER_KW,
     ROTOR_DIAMETER_M,
-    get_v236_power_curve_kw,
     get_v236_ct_curve,
+    get_v236_power_curve_kw,
 )
-
 
 # ── Dynamic Flow Constants ──────────────────────────────────────
 
@@ -265,24 +264,26 @@ def _compute_instantaneous_power(
             if dx <= 0:
                 continue
             # Lateral distance
-            cross = (
-                (x_positions_m[i] - x_positions_m[j]) * np.cos(wind_rad)
-                - (y_positions_m[i] - y_positions_m[j]) * np.sin(wind_rad)
-            )
+            cross = (x_positions_m[i] - x_positions_m[j]) * np.cos(wind_rad) - (
+                y_positions_m[i] - y_positions_m[j]
+            ) * np.sin(wind_rad)
             # Wake radius at distance dx
             wake_radius = ROTOR_DIAMETER_M / 2.0 + WAKE_EXPANSION_RATE * dx
             if abs(cross) < wake_radius:
                 # Jensen deficit
-                deficit = (1.0 - np.sqrt(1.0 - ct)) / (1.0 + 2.0 * WAKE_EXPANSION_RATE * dx / ROTOR_DIAMETER_M) ** 2
-                total_deficit_sq += deficit ** 2
+                deficit = (1.0 - np.sqrt(1.0 - ct)) / (
+                    1.0 + 2.0 * WAKE_EXPANSION_RATE * dx / ROTOR_DIAMETER_M
+                ) ** 2
+                total_deficit_sq += deficit**2
 
         effective_ws[i] = wind_speed_ms * (1.0 - np.sqrt(total_deficit_sq))
 
-    # Compute power from effective wind speed
+    # Compute power from effective wind speed, cap at rated
+    rated_mw = RATED_POWER_KW / 1000.0
     per_turbine_mw = np.zeros(n)
     for i in range(n):
         ws_i = np.array([max(3.0, effective_ws[i])])
-        per_turbine_mw[i] = float(get_v236_power_curve_kw(ws_i)[0]) / 1000.0
+        per_turbine_mw[i] = min(float(get_v236_power_curve_kw(ws_i)[0]) / 1000.0, rated_mw)
 
     farm_power = float(np.sum(per_turbine_mw))
     return farm_power, per_turbine_mw, effective_ws
@@ -334,14 +335,23 @@ def run_dynamic_flow_simulation(
         )
     if len(wind_direction_series_deg) != n_steps:
         wind_direction_series_deg = np.interp(
-            times, np.linspace(0, duration_s, len(wind_direction_series_deg)), wind_direction_series_deg
+            times,
+            np.linspace(0, duration_s, len(wind_direction_series_deg)),
+            wind_direction_series_deg,
         )
 
     # Estimate wake advection time
-    farm_extent = float(np.max(np.sqrt(
-        (x_positions_m - x_positions_m.mean()) ** 2 +
-        (y_positions_m - y_positions_m.mean()) ** 2
-    ))) * 2.0
+    farm_extent = (
+        float(
+            np.max(
+                np.sqrt(
+                    (x_positions_m - x_positions_m.mean()) ** 2
+                    + (y_positions_m - y_positions_m.mean()) ** 2
+                )
+            )
+        )
+        * 2.0
+    )
     mean_ws = float(np.mean(wind_speed_series_ms))
     advection_time = farm_extent / mean_ws if mean_ws > 0 else 300.0
 
@@ -353,17 +363,22 @@ def run_dynamic_flow_simulation(
         wd = float(wind_direction_series_deg[t_idx])
 
         farm_power, per_turbine, effective_ws = _compute_instantaneous_power(
-            x_positions_m, y_positions_m, ws, wd,
+            x_positions_m,
+            y_positions_m,
+            ws,
+            wd,
         )
 
-        timesteps.append(DynamicFlowTimestep(
-            time_s=round(times[t_idx], 1),
-            wind_speed_ms=round(ws, 2),
-            wind_direction_deg=round(wd % 360.0, 1),
-            farm_power_mw=round(farm_power, 3),
-            per_turbine_power_mw=np.round(per_turbine, 3),
-            per_turbine_effective_ws_ms=np.round(effective_ws, 2),
-        ))
+        timesteps.append(
+            DynamicFlowTimestep(
+                time_s=round(times[t_idx], 1),
+                wind_speed_ms=round(ws, 2),
+                wind_direction_deg=round(wd % 360.0, 1),
+                farm_power_mw=round(farm_power, 3),
+                per_turbine_power_mw=np.round(per_turbine, 3),
+                per_turbine_effective_ws_ms=np.round(effective_ws, 2),
+            )
+        )
         farm_powers.append(farm_power)
 
     powers = np.array(farm_powers)

@@ -36,7 +36,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-
 # ── Sector Coupling Constants ──────────────────────────────────
 
 HEAT_PUMP_COP: float = 3.5
@@ -110,9 +109,7 @@ class SectorCouplingResult:
     overall_system_efficiency: float
     renewable_utilization_percent: float
     annual_revenue_meur: float
-    hourly_hydrogen_storage_kg: NDArray[np.floating] = field(
-        default_factory=lambda: np.array([])
-    )
+    hourly_hydrogen_storage_kg: NDArray[np.floating] = field(default_factory=lambda: np.array([]))
 
 
 def run_sector_coupling(
@@ -207,7 +204,11 @@ def run_sector_coupling(
             h2_produced = ez_input * ELECTROLYZER_EFFICIENCY / HYDROGEN_LHV_MWH_PER_KG  # kg
             h2_space = h2_storage_capacity_kg - h2_level
             actual_h2 = min(h2_produced, h2_space)
-            actual_ez = actual_h2 * HYDROGEN_LHV_MWH_PER_KG / ELECTROLYZER_EFFICIENCY if actual_h2 > 0 else 0
+            actual_ez = (
+                actual_h2 * HYDROGEN_LHV_MWH_PER_KG / ELECTROLYZER_EFFICIENCY
+                if actual_h2 > 0
+                else 0
+            )
             elec_to_h2[h] = actual_ez
             h2_level += actual_h2
             remaining -= actual_ez
@@ -238,11 +239,14 @@ def run_sector_coupling(
     baseline_curtail = float(np.sum(np.maximum(wind_generation_mw - grid_capacity_mw, 0)))
     curtail_reduction = (
         (baseline_curtail - total_curtail) / baseline_curtail * 100.0
-        if baseline_curtail > 0 else 0.0
+        if baseline_curtail > 0
+        else 0.0
     )
 
     # Efficiency: useful energy out / total energy in
-    useful_out = total_grid + heat_produced + h2_produced_kg * HYDROGEN_LHV_MWH_PER_KG + total_h2_power
+    useful_out = (
+        total_grid + heat_produced + h2_produced_kg * HYDROGEN_LHV_MWH_PER_KG + total_h2_power
+    )
     efficiency = useful_out / total_gen if total_gen > 0 else 0.0
 
     utilization = (total_gen - total_curtail) / total_gen * 100.0 if total_gen > 0 else 0.0

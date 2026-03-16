@@ -39,7 +39,6 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-
 # ── Flexible Demand Constants ──────────────────────────────────
 
 VOLL_EUR_MWH: float = 10000.0
@@ -54,6 +53,7 @@ PEAK_DEMAND_MW: float = 500.0
 
 class DSRCategory(enum.Enum):
     """Demand-side response category."""
+
     INDUSTRIAL = "industrial"
     COMMERCIAL = "commercial"
     RESIDENTIAL = "residential"
@@ -126,9 +126,7 @@ class FlexibleDemandResult:
     dsr_activation_cost_meur: float
     avoided_voll_meur: float
     net_benefit_meur: float
-    hourly_modified_demand_mw: NDArray[np.floating] = field(
-        default_factory=lambda: np.array([])
-    )
+    hourly_modified_demand_mw: NDArray[np.floating] = field(default_factory=lambda: np.array([]))
     n_shedding_events: int = 0
 
 
@@ -193,12 +191,10 @@ def run_flexible_demand_simulation(
         dsr_categories = [DSRCategory.INDUSTRIAL, DSRCategory.COMMERCIAL, DSRCategory.RESIDENTIAL]
 
     # Compute total shiftable capacity
-    total_shiftable_fraction = sum(
-        DSR_SPECS[c.value]["shiftable_fraction"] for c in dsr_categories
+    total_shiftable_fraction = sum(DSR_SPECS[c.value]["shiftable_fraction"] for c in dsr_categories)
+    avg_activation_cost = float(
+        np.mean([DSR_SPECS[c.value]["activation_cost_eur_mw"] for c in dsr_categories])
     )
-    avg_activation_cost = float(np.mean([
-        DSR_SPECS[c.value]["activation_cost_eur_mw"] for c in dsr_categories
-    ]))
 
     mean_price = float(np.mean(electricity_price_eur_mwh))
     modified_demand = base_demand_mw.copy()

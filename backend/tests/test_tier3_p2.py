@@ -4,8 +4,6 @@ seasonal storage, flexible demand, and multi-energy carrier.
 """
 
 import numpy as np
-import pytest
-
 
 # ── Pathway Planning ──────────────────────────────────────────
 
@@ -159,20 +157,29 @@ class TestSeasonalStorage:
     """Tests for long-duration energy storage."""
 
     def test_hydrogen_cavern(self):
-        from app.services.p2.seasonal_storage import StorageTechnology, run_seasonal_storage_simulation
+        from app.services.p2.seasonal_storage import (
+            StorageTechnology,
+            run_seasonal_storage_simulation,
+        )
 
         result = run_seasonal_storage_simulation(technology=StorageTechnology.HYDROGEN_CAVERN)
         assert result.technology == "hydrogen_cavern"
         assert result.annual_energy_stored_mwh > 0
 
     def test_compressed_air(self):
-        from app.services.p2.seasonal_storage import StorageTechnology, run_seasonal_storage_simulation
+        from app.services.p2.seasonal_storage import (
+            StorageTechnology,
+            run_seasonal_storage_simulation,
+        )
 
         result = run_seasonal_storage_simulation(technology=StorageTechnology.COMPRESSED_AIR)
         assert result.round_trip_efficiency > 0.3  # CAES is more efficient
 
     def test_pumped_hydro(self):
-        from app.services.p2.seasonal_storage import StorageTechnology, run_seasonal_storage_simulation
+        from app.services.p2.seasonal_storage import (
+            StorageTechnology,
+            run_seasonal_storage_simulation,
+        )
 
         result = run_seasonal_storage_simulation(technology=StorageTechnology.PUMPED_HYDRO)
         assert result.round_trip_efficiency > 0.5  # PHS is most efficient

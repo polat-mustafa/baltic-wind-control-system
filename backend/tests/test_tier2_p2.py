@@ -4,8 +4,6 @@ BESS, AC-DC comparison, and capacity expansion planning.
 """
 
 import numpy as np
-import pytest
-
 
 # ── DC Power Flow ───────────────────────────────────────────────
 

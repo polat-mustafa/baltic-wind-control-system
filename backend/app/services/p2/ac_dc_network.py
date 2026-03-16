@@ -48,7 +48,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-
 # ── HVDC Constants ──────────────────────────────────────────────
 
 HVDC_VOLTAGE_KV: float = 320.0
@@ -168,7 +167,7 @@ def _compute_hvac_losses(
 
     # Resistive losses: P_loss = 3 × I² × R × L (3-phase)
     r_total = r_ohm_per_km * cable_length_km
-    cable_loss_mw = 3.0 * (current_a ** 2) * r_total / 1e6
+    cable_loss_mw = 3.0 * (current_a**2) * r_total / 1e6
 
     # Reactive power generation: Q = ω × C × V² × L (per phase, 3-phase)
     omega = 2.0 * np.pi * 50.0
@@ -210,7 +209,7 @@ def _compute_hvdc_losses(
 
     # Cable losses: 2 × I² × R × L (two poles)
     r_total = r_ohm_per_km * cable_length_km
-    cable_loss_mw = 2.0 * (current_a ** 2) * r_total / 1e6
+    cable_loss_mw = 2.0 * (current_a**2) * r_total / 1e6
 
     # Converter losses: 2 stations × loss_pct
     converter_loss_mw = power_mw * converter_loss_pct / 100.0 * 2.0
@@ -247,28 +246,36 @@ def compare_export_options(
 
     # Option 1: HVAC (current design)
     hvac_cable, hvac_q, _ = _compute_hvac_losses(
-        avg_power, HVAC_VOLTAGE_KV, cable_length_km,
-        HVAC_CABLE_R_OHM_PER_KM, HVAC_CABLE_C_NF_PER_KM,
+        avg_power,
+        HVAC_VOLTAGE_KV,
+        cable_length_km,
+        HVAC_CABLE_R_OHM_PER_KM,
+        HVAC_CABLE_C_NF_PER_KM,
     )
     hvac_total = hvac_cable
     hvac_annual = hvac_total * hours_per_year / 1000.0  # MWh → GWh
-    options.append(ExportOptionResult(
-        technology="HVAC",
-        cable_length_km=cable_length_km,
-        total_loss_mw=round(hvac_total, 2),
-        loss_percent=round(hvac_total / avg_power * 100.0, 2) if avg_power > 0 else 0.0,
-        cable_loss_mw=round(hvac_cable, 2),
-        converter_loss_mw=0.0,
-        reactive_compensation_mvar=round(hvac_q, 1),
-        annual_loss_gwh=round(hvac_annual, 2),
-        capex_index=1.0,
-        breakeven_distance_km=0.0,
-    ))
+    options.append(
+        ExportOptionResult(
+            technology="HVAC",
+            cable_length_km=cable_length_km,
+            total_loss_mw=round(hvac_total, 2),
+            loss_percent=round(hvac_total / avg_power * 100.0, 2) if avg_power > 0 else 0.0,
+            cable_loss_mw=round(hvac_cable, 2),
+            converter_loss_mw=0.0,
+            reactive_compensation_mvar=round(hvac_q, 1),
+            annual_loss_gwh=round(hvac_annual, 2),
+            capex_index=1.0,
+            breakeven_distance_km=0.0,
+        )
+    )
 
     # Option 2: HVDC-VSC (±320 kV)
     hvdc_cable, _, hvdc_conv = _compute_hvdc_losses(
-        avg_power, HVDC_VOLTAGE_KV, cable_length_km,
-        HVDC_CABLE_R_OHM_PER_KM, VSC_CONVERTER_LOSS_PERCENT,
+        avg_power,
+        HVDC_VOLTAGE_KV,
+        cable_length_km,
+        HVDC_CABLE_R_OHM_PER_KM,
+        VSC_CONVERTER_LOSS_PERCENT,
     )
     hvdc_total = hvdc_cable + hvdc_conv
     hvdc_annual = hvdc_total * hours_per_year / 1000.0
@@ -277,44 +284,54 @@ def compare_export_options(
     # Breakeven: where HVDC total cost < HVAC total cost
     # Typically 80-120 km for HVDC-VSC
     breakeven = 80.0 + (rated_power_mw - 500.0) * 0.05
-    options.append(ExportOptionResult(
-        technology="HVDC-VSC",
-        cable_length_km=cable_length_km,
-        total_loss_mw=round(hvdc_total, 2),
-        loss_percent=round(hvdc_total / avg_power * 100.0, 2) if avg_power > 0 else 0.0,
-        cable_loss_mw=round(hvdc_cable, 2),
-        converter_loss_mw=round(hvdc_conv, 2),
-        reactive_compensation_mvar=0.0,
-        annual_loss_gwh=round(hvdc_annual, 2),
-        capex_index=round(hvdc_capex, 2),
-        breakeven_distance_km=round(breakeven, 0),
-    ))
+    options.append(
+        ExportOptionResult(
+            technology="HVDC-VSC",
+            cable_length_km=cable_length_km,
+            total_loss_mw=round(hvdc_total, 2),
+            loss_percent=round(hvdc_total / avg_power * 100.0, 2) if avg_power > 0 else 0.0,
+            cable_loss_mw=round(hvdc_cable, 2),
+            converter_loss_mw=round(hvdc_conv, 2),
+            reactive_compensation_mvar=0.0,
+            annual_loss_gwh=round(hvdc_annual, 2),
+            capex_index=round(hvdc_capex, 2),
+            breakeven_distance_km=round(breakeven, 0),
+        )
+    )
 
     # Option 3: Hybrid (HVAC array + HVDC export for last 2/3 of distance)
     hvac_short_km = cable_length_km * 0.33
     hvdc_long_km = cable_length_km * 0.67
     hybrid_hvac_loss, hybrid_q, _ = _compute_hvac_losses(
-        avg_power, HVAC_VOLTAGE_KV, hvac_short_km,
-        HVAC_CABLE_R_OHM_PER_KM, HVAC_CABLE_C_NF_PER_KM,
+        avg_power,
+        HVAC_VOLTAGE_KV,
+        hvac_short_km,
+        HVAC_CABLE_R_OHM_PER_KM,
+        HVAC_CABLE_C_NF_PER_KM,
     )
     hybrid_hvdc_cable, _, hybrid_conv = _compute_hvdc_losses(
-        avg_power, HVDC_VOLTAGE_KV, hvdc_long_km,
-        HVDC_CABLE_R_OHM_PER_KM, VSC_CONVERTER_LOSS_PERCENT,
+        avg_power,
+        HVDC_VOLTAGE_KV,
+        hvdc_long_km,
+        HVDC_CABLE_R_OHM_PER_KM,
+        VSC_CONVERTER_LOSS_PERCENT,
     )
     hybrid_total = hybrid_hvac_loss + hybrid_hvdc_cable + hybrid_conv
     hybrid_annual = hybrid_total * hours_per_year / 1000.0
-    options.append(ExportOptionResult(
-        technology="Hybrid",
-        cable_length_km=cable_length_km,
-        total_loss_mw=round(hybrid_total, 2),
-        loss_percent=round(hybrid_total / avg_power * 100.0, 2) if avg_power > 0 else 0.0,
-        cable_loss_mw=round(hybrid_hvac_loss + hybrid_hvdc_cable, 2),
-        converter_loss_mw=round(hybrid_conv, 2),
-        reactive_compensation_mvar=round(hybrid_q, 1),
-        annual_loss_gwh=round(hybrid_annual, 2),
-        capex_index=round(1.4, 2),
-        breakeven_distance_km=round(breakeven * 0.7, 0),
-    ))
+    options.append(
+        ExportOptionResult(
+            technology="Hybrid",
+            cable_length_km=cable_length_km,
+            total_loss_mw=round(hybrid_total, 2),
+            loss_percent=round(hybrid_total / avg_power * 100.0, 2) if avg_power > 0 else 0.0,
+            cable_loss_mw=round(hybrid_hvac_loss + hybrid_hvdc_cable, 2),
+            converter_loss_mw=round(hybrid_conv, 2),
+            reactive_compensation_mvar=round(hybrid_q, 1),
+            annual_loss_gwh=round(hybrid_annual, 2),
+            capex_index=round(1.4, 2),
+            breakeven_distance_km=round(breakeven * 0.7, 0),
+        )
+    )
 
     # Recommendation
     best = min(options, key=lambda o: o.total_loss_mw)
@@ -322,13 +339,24 @@ def compare_export_options(
 
     if cable_length_km < 60:
         recommended = "HVAC"
-        reason = f"Cable length ({cable_length_km} km) is below HVDC breakeven distance. HVAC is most cost-effective."
+        reason = (
+            f"Cable length ({cable_length_km} km) is below HVDC"
+            " breakeven distance. HVAC is most cost-effective."
+        )
     elif cable_length_km < 100:
         recommended = "HVAC"
-        reason = f"Cable length ({cable_length_km} km) is near HVDC breakeven. HVAC preferred for lower CAPEX, but HVDC should be evaluated for future extensions."
+        reason = (
+            f"Cable length ({cable_length_km} km) is near HVDC"
+            " breakeven. HVAC preferred for lower CAPEX, but HVDC"
+            " should be evaluated for future extensions."
+        )
     else:
         recommended = "HVDC-VSC"
-        reason = f"Cable length ({cable_length_km} km) exceeds HVDC breakeven. HVDC has lower losses and eliminates reactive compensation."
+        reason = (
+            f"Cable length ({cable_length_km} km) exceeds HVDC"
+            " breakeven. HVDC has lower losses and eliminates"
+            " reactive compensation."
+        )
 
     return ACDCComparisonResult(
         options=options,

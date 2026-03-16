@@ -55,6 +55,10 @@ from app.services.p1.wake_model import (
     run_wake_analysis,
 )
 from app.services.p1.wind_analysis import compute_wind_rose
+from app.services.p1.yaw_optimizer import (
+    optimize_yaw_all_directions,
+    optimize_yaw_single_direction,
+)
 
 router = APIRouter(prefix="/api/v1/wind", tags=["P1 Wind Resource"])
 
@@ -223,6 +227,67 @@ class LayoutPositionsResponse(BaseModel):
     num_turbines: int
     min_spacing_m: float
     area_km2: float
+
+
+# ── Yaw Optimization Schemas ────────────────────────────────────
+
+
+class YawOptimizationRequest(BaseModel):
+    """Request for yaw optimization at a single wind direction."""
+
+    layout: str = Field("staggered", description="Layout name: regular, staggered")
+    wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0, description="Wind direction [deg]")
+    wind_speed_ms: float = Field(9.5, ge=3.0, le=25.0, description="Wind speed [m/s]")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    max_yaw_deg: float = Field(30.0, ge=5.0, le=40.0, description="Max yaw angle [deg]")
+
+
+class YawOptimizationResponse(BaseModel):
+    """Result of yaw optimization for a single wind direction."""
+
+    wind_direction_deg: float
+    baseline_power_mw: float
+    optimized_power_mw: float
+    power_gain_percent: float
+    optimal_yaw_angles_deg: list[float]
+    per_turbine_baseline_mw: list[float]
+    per_turbine_optimized_mw: list[float]
+
+
+class FarmYawOptimizationRequest(BaseModel):
+    """Request for yaw optimization across all wind directions."""
+
+    layout: str = Field("staggered", description="Layout name: regular, staggered")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    wind_speed_ms: float = Field(9.5, ge=3.0, le=25.0, description="Representative wind speed [m/s]")
+    max_yaw_deg: float = Field(30.0, ge=5.0, le=40.0, description="Max yaw angle [deg]")
+    num_directions: int = Field(12, ge=4, le=36, description="Number of wind directions to evaluate")
+
+
+class DirectionResult(BaseModel):
+    """Single wind direction yaw optimization result."""
+
+    wind_direction_deg: float
+    baseline_power_mw: float
+    optimized_power_mw: float
+    power_gain_percent: float
+    optimal_yaw_angles_deg: list[float]
+
+
+class FarmYawOptimizationResponse(BaseModel):
+    """Aggregated yaw optimization result across all directions."""
+
+    baseline_aep_gwh: float
+    optimized_aep_gwh: float
+    aep_gain_percent: float
+    mean_power_gain_percent: float
+    max_power_gain_percent: float
+    best_direction_deg: float
+    per_direction_results: list[DirectionResult]
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -549,4 +614,93 @@ async def get_layout_positions(name: str) -> LayoutPositionsResponse:
         num_turbines=layout.num_turbines,
         min_spacing_m=round(layout.min_spacing_m, 1),
         area_km2=round(layout.area_km2, 3),
+    )
+
+
+# ── Yaw Optimization Endpoints ──────────────────────────────────
+
+
+@router.post("/yaw-optimization", response_model=YawOptimizationResponse)
+async def yaw_optimization(request: YawOptimizationRequest) -> YawOptimizationResponse:
+    """Optimize per-turbine yaw angles for wake steering at a single wind direction.
+
+    Wake steering deflects upstream wakes by yawing turbines, increasing
+    total farm power by 5-15%. Uses Jiménez deflection model + L-BFGS-B
+    optimization to find optimal yaw angles within [-max_yaw, +max_yaw].
+
+    Physics: P_yaw = P_aligned × cos^1.88(γ) — upstream loss is offset by
+    downstream wake deflection gain.
+    """
+    layout = _get_layout(request.layout)
+    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+
+    try:
+        result = optimize_yaw_single_direction(
+            x_positions_m=layout.x_positions,
+            y_positions_m=layout.y_positions,
+            wind_direction_deg=request.wind_direction_deg,
+            wind_speed_ms=request.wind_speed_ms,
+            site=site,
+            max_yaw_deg=request.max_yaw_deg,
+        )
+    except Exception as e:
+        raise DomainError(f"Yaw optimization failed: {e}") from e
+
+    return YawOptimizationResponse(
+        wind_direction_deg=result.wind_direction_deg,
+        baseline_power_mw=result.baseline_power_mw,
+        optimized_power_mw=result.optimized_power_mw,
+        power_gain_percent=result.power_gain_percent,
+        optimal_yaw_angles_deg=[round(float(v), 1) for v in result.optimal_yaw_angles_deg],
+        per_turbine_baseline_mw=[round(float(v), 3) for v in result.per_turbine_baseline_mw],
+        per_turbine_optimized_mw=[round(float(v), 3) for v in result.per_turbine_optimized_mw],
+    )
+
+
+@router.post("/yaw-optimization-farm", response_model=FarmYawOptimizationResponse)
+async def yaw_optimization_farm(
+    request: FarmYawOptimizationRequest,
+) -> FarmYawOptimizationResponse:
+    """Optimize yaw angles across all wind directions and estimate AEP gain.
+
+    Runs per-direction yaw optimization and aggregates results to estimate
+    annual energy production improvement from wake steering. This is the
+    primary farm-level control optimization — the single most impactful
+    operational improvement for offshore wind farms.
+    """
+    layout = _get_layout(request.layout)
+    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+    directions = np.linspace(0, 360 - 360 / request.num_directions, request.num_directions)
+
+    try:
+        result = optimize_yaw_all_directions(
+            x_positions_m=layout.x_positions,
+            y_positions_m=layout.y_positions,
+            site=site,
+            wind_directions_deg=directions.astype(np.float64),
+            wind_speed_ms=request.wind_speed_ms,
+            max_yaw_deg=request.max_yaw_deg,
+        )
+    except Exception as e:
+        raise DomainError(f"Farm yaw optimization failed: {e}") from e
+
+    per_dir = [
+        DirectionResult(
+            wind_direction_deg=r.wind_direction_deg,
+            baseline_power_mw=r.baseline_power_mw,
+            optimized_power_mw=r.optimized_power_mw,
+            power_gain_percent=r.power_gain_percent,
+            optimal_yaw_angles_deg=[round(float(v), 1) for v in r.optimal_yaw_angles_deg],
+        )
+        for r in result.per_direction_results
+    ]
+
+    return FarmYawOptimizationResponse(
+        baseline_aep_gwh=result.baseline_aep_gwh,
+        optimized_aep_gwh=result.optimized_aep_gwh,
+        aep_gain_percent=result.aep_gain_percent,
+        mean_power_gain_percent=result.mean_power_gain_percent,
+        max_power_gain_percent=result.max_power_gain_percent,
+        best_direction_deg=result.best_direction_deg,
+        per_direction_results=per_dir,
     )

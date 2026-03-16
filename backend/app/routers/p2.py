@@ -62,6 +62,8 @@ from app.services.p2.network_model import (
 from app.services.p2.power_plant_controller import get_ppc_status, run_ppc_simulation
 from app.services.p2.short_circuit import calc_short_circuit
 from app.services.p2.sso_analysis import run_sso_screening
+from app.services.p2.optimal_power_flow import run_ac_opf, run_dc_opf
+from app.services.p2.scopf import run_scopf
 from app.services.p2.statcom_sizing import validate_compensation
 
 router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
@@ -449,3 +451,234 @@ async def ppc_simulate(request: PPCSimulationRequest) -> PPCSimulationResponse:
         raise
     except Exception as e:
         raise DomainError(f"PPC simulation failed: {e}") from e
+
+
+# ── Optimal Power Flow (OPF) ────────────────────────────────────
+
+
+class OPFRequest(BaseModel):
+    """Request for Optimal Power Flow analysis."""
+
+    method: str = Field("ac", description="OPF method: 'ac' (nonlinear) or 'dc' (linearized)")
+    generation_fraction: float = Field(
+        1.0, ge=0.0, le=1.0, description="Available generation fraction [0-1]"
+    )
+    export_length_km: float = Field(
+        EXPORT_CABLE_LENGTH_KM, ge=1.0, le=200.0, description="Export cable length [km]"
+    )
+    grid_ssc_mva: float = Field(
+        GRID_SSC_MVA, ge=500.0, le=50_000.0, description="Grid short-circuit capacity [MVA]"
+    )
+
+
+class GeneratorDispatchSchema(BaseModel):
+    """OPF dispatch result for a single generator."""
+
+    name: str
+    p_mw: float
+    q_mvar: float
+    p_max_mw: float
+    curtailed_mw: float
+    marginal_cost_eur_mwh: float
+
+
+class OPFResponse(BaseModel):
+    """Optimal Power Flow result."""
+
+    converged: bool
+    method: str
+    objective_value_eur_h: float
+    total_generation_mw: float
+    total_curtailment_mw: float
+    curtailment_percent: float
+    total_loss_mw: float
+    v_min_pu: float
+    v_max_pu: float
+    voltage_compliant: bool
+    max_line_loading_percent: float
+    max_trafo_loading_percent: float
+    generators: list[GeneratorDispatchSchema]
+    statcom_q_mvar: float
+    cost_saving_vs_curtailment_eur_h: float
+
+
+class SCOPFRequest(BaseModel):
+    """Request for Security-Constrained OPF analysis."""
+
+    generation_fraction: float = Field(
+        1.0, ge=0.0, le=1.0, description="Available generation fraction [0-1]"
+    )
+    export_length_km: float = Field(
+        EXPORT_CABLE_LENGTH_KM, ge=1.0, le=200.0, description="Export cable length [km]"
+    )
+    grid_ssc_mva: float = Field(
+        GRID_SSC_MVA, ge=500.0, le=50_000.0, description="Grid short-circuit capacity [MVA]"
+    )
+
+
+class ContingencyViolationSchema(BaseModel):
+    """A constraint violation in a post-contingency state."""
+
+    contingency_name: str
+    violation_type: str
+    element_name: str
+    value: float
+    limit: float
+    severity: float
+
+
+class ContingencyResultSchema(BaseModel):
+    """Post-contingency analysis result for a single N-1 scenario."""
+
+    name: str
+    description: str
+    converged: bool
+    v_min_pu: float
+    v_max_pu: float
+    max_line_loading_percent: float
+    max_trafo_loading_percent: float
+    violations: list[ContingencyViolationSchema]
+    secure: bool
+
+
+class SCOPFResponse(BaseModel):
+    """Security-Constrained OPF result."""
+
+    base_case: OPFResponse
+    contingency_results: list[ContingencyResultSchema]
+    n1_secure: bool
+    num_violations: int
+    worst_contingency: str
+    iterations: int
+    total_curtailment_for_security_mw: float
+
+
+@router.post("/opf", response_model=OPFResponse)
+async def optimal_power_flow(request: OPFRequest) -> OPFResponse:
+    """Run Optimal Power Flow to find least-cost dispatch.
+
+    Minimizes curtailment cost while respecting voltage limits (0.95-1.05 pu),
+    cable thermal limits, and transformer loading limits. AC OPF uses interior
+    point method; DC OPF uses linearized power flow for fast screening.
+
+    Physics: min Σ c_i × P_i subject to power balance + network constraints.
+    """
+    try:
+        if request.method == "dc":
+            result = run_dc_opf(
+                generation_fraction=request.generation_fraction,
+                export_length_km=request.export_length_km,
+                grid_ssc_mva=request.grid_ssc_mva,
+            )
+        else:
+            result = run_ac_opf(
+                generation_fraction=request.generation_fraction,
+                export_length_km=request.export_length_km,
+                grid_ssc_mva=request.grid_ssc_mva,
+            )
+    except DomainError:
+        raise
+    except Exception as e:
+        raise DomainError(f"OPF analysis failed: {e}") from e
+
+    return OPFResponse(
+        converged=result.converged,
+        method=result.method,
+        objective_value_eur_h=result.objective_value_eur_h,
+        total_generation_mw=result.total_generation_mw,
+        total_curtailment_mw=result.total_curtailment_mw,
+        curtailment_percent=result.curtailment_percent,
+        total_loss_mw=result.total_loss_mw,
+        v_min_pu=result.v_min_pu,
+        v_max_pu=result.v_max_pu,
+        voltage_compliant=result.voltage_compliant,
+        max_line_loading_percent=result.max_line_loading_percent,
+        max_trafo_loading_percent=result.max_trafo_loading_percent,
+        generators=[
+            GeneratorDispatchSchema(
+                name=g.name, p_mw=g.p_mw, q_mvar=g.q_mvar,
+                p_max_mw=g.p_max_mw, curtailed_mw=g.curtailed_mw,
+                marginal_cost_eur_mwh=g.marginal_cost_eur_mwh,
+            )
+            for g in result.generators
+        ],
+        statcom_q_mvar=result.statcom_q_mvar,
+        cost_saving_vs_curtailment_eur_h=result.cost_saving_vs_curtailment_eur_h,
+    )
+
+
+@router.post("/scopf", response_model=SCOPFResponse)
+async def security_constrained_opf(request: SCOPFRequest) -> SCOPFResponse:
+    """Run Security-Constrained OPF with N-1 contingency analysis.
+
+    Solves AC OPF, then checks all 7 string outage contingencies. If any
+    post-contingency state violates voltage or thermal limits, reduces
+    generation and re-solves until N-1 security is achieved.
+
+    Physics: Same as OPF + ∀ contingency k: constraints remain feasible.
+    """
+    try:
+        result = run_scopf(
+            generation_fraction=request.generation_fraction,
+            export_length_km=request.export_length_km,
+            grid_ssc_mva=request.grid_ssc_mva,
+        )
+    except DomainError:
+        raise
+    except Exception as e:
+        raise DomainError(f"SCOPF analysis failed: {e}") from e
+
+    base_resp = OPFResponse(
+        converged=result.base_case.converged,
+        method=result.base_case.method,
+        objective_value_eur_h=result.base_case.objective_value_eur_h,
+        total_generation_mw=result.base_case.total_generation_mw,
+        total_curtailment_mw=result.base_case.total_curtailment_mw,
+        curtailment_percent=result.base_case.curtailment_percent,
+        total_loss_mw=result.base_case.total_loss_mw,
+        v_min_pu=result.base_case.v_min_pu,
+        v_max_pu=result.base_case.v_max_pu,
+        voltage_compliant=result.base_case.voltage_compliant,
+        max_line_loading_percent=result.base_case.max_line_loading_percent,
+        max_trafo_loading_percent=result.base_case.max_trafo_loading_percent,
+        generators=[
+            GeneratorDispatchSchema(
+                name=g.name, p_mw=g.p_mw, q_mvar=g.q_mvar,
+                p_max_mw=g.p_max_mw, curtailed_mw=g.curtailed_mw,
+                marginal_cost_eur_mwh=g.marginal_cost_eur_mwh,
+            )
+            for g in result.base_case.generators
+        ],
+        statcom_q_mvar=result.base_case.statcom_q_mvar,
+        cost_saving_vs_curtailment_eur_h=result.base_case.cost_saving_vs_curtailment_eur_h,
+    )
+
+    cont_results = [
+        ContingencyResultSchema(
+            name=c.name, description=c.description, converged=c.converged,
+            v_min_pu=c.v_min_pu, v_max_pu=c.v_max_pu,
+            max_line_loading_percent=c.max_line_loading_percent,
+            max_trafo_loading_percent=c.max_trafo_loading_percent,
+            violations=[
+                ContingencyViolationSchema(
+                    contingency_name=v.contingency_name,
+                    violation_type=v.violation_type,
+                    element_name=v.element_name,
+                    value=v.value, limit=v.limit, severity=v.severity,
+                )
+                for v in c.violations
+            ],
+            secure=c.secure,
+        )
+        for c in result.contingency_results
+    ]
+
+    return SCOPFResponse(
+        base_case=base_resp,
+        contingency_results=cont_results,
+        n1_secure=result.n1_secure,
+        num_violations=result.num_violations,
+        worst_contingency=result.worst_contingency,
+        iterations=result.iterations,
+        total_curtailment_for_security_mw=result.total_curtailment_for_security_mw,
+    )

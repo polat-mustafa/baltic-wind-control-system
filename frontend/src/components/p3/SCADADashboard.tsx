@@ -7,19 +7,20 @@
  * │   Live breaker states            │  Filterable, sortable   │
  * │   Fault zone highlighting        │  ACK/Shelve controls    │
  * ├──────────────────────────────────┴─────────────────────────┤
- * │  Tabs: [GOOSE Sim] [Event Log] [Permits] [RBAC]           │
- * │  Selected tab content                                      │
+ * │  Tabs: [GOOSE Sim] [Event Log] [Permits] [RBAC] [Historian] │
+ * │  Selected tab content                                       │
  * └────────────────────────────────────────────────────────────┘
  */
 
 import { useState } from "react";
-import { Zap, FileText, Shield, ScrollText } from "lucide-react";
+import { Zap, FileText, Shield, ScrollText, Database } from "lucide-react";
 
 import { useScadaStore } from "../../store/scadaStore";
 import SubstationSLD from "./SubstationSLD";
 import AlarmListPanel from "./AlarmListPanel";
 import GOOSESimPanel from "./GOOSESimPanel";
 import EventLogPanel from "./EventLogPanel";
+import HistorianPanel from "./HistorianPanel";
 import PermitWorkflowPanel from "./PermitWorkflowPanel";
 import RBACPanel from "./RBACPanel";
 import { cn } from "../../lib/utils";
@@ -29,6 +30,7 @@ const TABS = [
   { id: "events", label: "Event Log", icon: ScrollText },
   { id: "permits", label: "Permits", icon: FileText },
   { id: "rbac", label: "RBAC", icon: Shield },
+  { id: "historian", label: "Historian", icon: Database },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -85,6 +87,7 @@ export default function SCADADashboard() {
           {activeTab === "events" && <EventLogPanel />}
           {activeTab === "permits" && <PermitWorkflowPanel />}
           {activeTab === "rbac" && <RBACPanel />}
+          {activeTab === "historian" && <HistorianPanel />}
         </div>
       </div>
     </div>

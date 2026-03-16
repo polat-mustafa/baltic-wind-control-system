@@ -254,3 +254,83 @@ class FaultScenarioSummary(BaseModel):
 
     fault_type: str = Field(description="Fault type identifier")
     description: str = Field(description="Scenario description")
+
+
+# ── Historian Schemas ───────────────────────────────────────────────
+
+
+class HistorianTagMetaSchema(BaseModel):
+    """Engineering metadata for a single SCADA historian tag."""
+
+    tag: str = Field(description="IEC 61400-25 / IEC 61850 tag identifier")
+    display_name: str = Field(description="Human-readable label for UI")
+    description: str = Field(description="Full engineering description")
+    unit: str = Field(description="Engineering unit (MW, MVAR, pu, Hz, etc.)")
+    nominal: float = Field(description="Typical operating value")
+    range_min: float = Field(description="Physical minimum (hard limit)")
+    range_max: float = Field(description="Physical maximum (hard limit)")
+
+
+class TimeSeriesPointSchema(BaseModel):
+    """A single timestamp-value pair."""
+
+    timestamp_iso: str = Field(description="ISO-8601 UTC timestamp")
+    value: float = Field(description="Engineering value in tag's unit")
+
+
+class TagTimeSeriesSchema(BaseModel):
+    """Time-series response for one historian tag."""
+
+    tag: str = Field(description="Tag identifier")
+    display_name: str = Field(description="Human-readable label")
+    unit: str = Field(description="Engineering unit")
+    description: str = Field(description="Tag description")
+    nominal: float = Field(description="Nominal operating value")
+    range_min: float = Field(description="Hard minimum")
+    range_max: float = Field(description="Hard maximum")
+    resolution: str = Field(description="Sample interval (1min, 5min, 15min, 1hr)")
+    points: list[TimeSeriesPointSchema] = Field(description="Ordered time-series data")
+
+
+class HistorianQueryRequest(BaseModel):
+    """Request body for a multi-tag historian query."""
+
+    tags: list[str] = Field(
+        description="List of tag identifiers to query",
+        min_length=1,
+        max_length=10,
+    )
+    range_hours: int = Field(
+        default=4,
+        ge=1,
+        le=168,
+        description="Time window in hours (1, 4, 24, or 168 = 7 days)",
+    )
+    resolution: str = Field(
+        default="5min",
+        description="Sample interval: 1min, 5min, 15min, 1hr",
+    )
+    now_epoch_minutes: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Minutes from simulation epoch (2026-01-01T00:00:00Z). "
+            "Used to shift the data window for 'live' appearance."
+        ),
+    )
+
+
+class HistorianQueryResponse(BaseModel):
+    """Response for a multi-tag historian query."""
+
+    range_hours: int = Field(description="Requested time window [hours]")
+    resolution: str = Field(description="Sample interval used")
+    series: list[TagTimeSeriesSchema] = Field(description="One time-series per requested tag")
+
+
+class HistorianLatestResponse(BaseModel):
+    """Latest values snapshot for all historian tags."""
+
+    values: dict[str, float] = Field(
+        description="Mapping of tag → current value in engineering units"
+    )

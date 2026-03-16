@@ -8,6 +8,10 @@
 import type {
   FaultScenarioSummary,
   FaultSimulationResult,
+  HistorianLatestResponse,
+  HistorianQueryRequest,
+  HistorianQueryResponse,
+  HistorianTagMeta,
   IEC62443Zone,
   PermitDetail,
   PermitList,
@@ -133,4 +137,20 @@ export function extendPermit(
     `${BASE}/permits/${encodeURIComponent(ptwNumber)}/extend`,
     params,
   );
+}
+
+// ── Historian ─────────────────────────────────────────────────
+
+export function listHistorianTags(): Promise<HistorianTagMeta[]> {
+  return request(`${BASE}/historian/tags`);
+}
+
+export function getHistorianLatest(): Promise<HistorianLatestResponse> {
+  return request(`${BASE}/historian/latest`);
+}
+
+export function queryHistorian(
+  params: HistorianQueryRequest,
+): Promise<HistorianQueryResponse> {
+  return post(`${BASE}/historian/query`, params);
 }

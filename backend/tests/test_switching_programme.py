@@ -81,7 +81,7 @@ class TestProgrammeCreation:
 
     def test_phase_counts_add_up(self, programme) -> None:
         """Phase counts (15 + 23 + 9) sum to total step count (47)."""
-        phase_counts = {}
+        phase_counts: dict[int, int] = {}
         for s in programme.steps:
             phase_counts[s.phase] = phase_counts.get(s.phase, 0) + 1
         total = sum(phase_counts.values())

@@ -27,21 +27,40 @@ from pydantic import BaseModel, Field
 from app.core.cache import cached
 from app.core.exceptions import DomainError
 from app.core.exceptions import ValidationError as DomainValidationError
+from app.services.p1.advanced_optimization import (
+    compute_adjoint_sensitivities,
+    run_mga,
+    run_simultaneous_optimization,
+    run_two_stage_stochastic,
+)
 from app.services.p1.aep_calculator import (
     DEFAULT_PRICE_EUR_MWH,
+    MarketWeightedAEPResult,
     compute_aep_cascade,
+    compute_market_weighted_aep,
 )
 from app.services.p1.blockage import (
     estimate_blockage_loss_percent,
 )
+from app.services.p1.cfd_simulation import run_cfd_simulation
 from app.services.p1.data_processing import (
     compute_weibull_pdf,
     fit_weibull,
 )
+from app.services.p1.derating import optimize_derating
+from app.services.p1.dynamic_flow import run_dynamic_flow_simulation
+from app.services.p1.flowers_aep import compute_flowers_aep
+from app.services.p1.gaussian_flowers import compute_gaussian_flowers_aep
+from app.services.p1.helix_control import simulate_helix_control
 from app.services.p1.layout_optimizer import (
     LayoutResult,
+    OptimizationAlgorithm,
     generate_regular_grid,
     generate_staggered_grid,
+    optimize_layout_multi,
+)
+from app.services.p1.uncertainty_quantification import (
+    run_pce_uncertainty,
 )
 from app.services.p1.wake_model import (
     CUT_IN_SPEED_MS,
@@ -54,7 +73,17 @@ from app.services.p1.wake_model import (
     create_uniform_site,
     run_wake_analysis,
 )
+from app.services.p1.wake_models import (
+    SuperpositionModel,
+    TurbulenceModel,
+    WakeDeficitModel,
+    compare_wake_models,
+)
 from app.services.p1.wind_analysis import compute_wind_rose
+from app.services.p1.yaw_optimizer import (
+    optimize_yaw_all_directions,
+    optimize_yaw_single_direction,
+)
 
 router = APIRouter(prefix="/api/v1/wind", tags=["P1 Wind Resource"])
 
@@ -223,6 +252,82 @@ class LayoutPositionsResponse(BaseModel):
     num_turbines: int
     min_spacing_m: float
     area_km2: float
+
+
+# ── Yaw Optimization Schemas ────────────────────────────────────
+
+
+class YawOptimizationRequest(BaseModel):
+    """Request for yaw optimization at a single wind direction."""
+
+    layout: str = Field("staggered", description="Layout name: regular, staggered")
+    wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0, description="Wind direction [deg]")
+    wind_speed_ms: float = Field(9.5, ge=3.0, le=25.0, description="Wind speed [m/s]")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    max_yaw_deg: float = Field(30.0, ge=5.0, le=40.0, description="Max yaw angle [deg]")
+
+
+class YawOptimizationResponse(BaseModel):
+    """Result of yaw optimization for a single wind direction."""
+
+    wind_direction_deg: float
+    baseline_power_mw: float
+    optimized_power_mw: float
+    power_gain_percent: float
+    optimal_yaw_angles_deg: list[float]
+    per_turbine_baseline_mw: list[float]
+    per_turbine_optimized_mw: list[float]
+
+
+class FarmYawOptimizationRequest(BaseModel):
+    """Request for yaw optimization across all wind directions."""
+
+    layout: str = Field("staggered", description="Layout name: regular, staggered")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    wind_speed_ms: float = Field(
+        9.5,
+        ge=3.0,
+        le=25.0,
+        description="Representative wind speed [m/s]",
+    )
+    max_yaw_deg: float = Field(
+        30.0,
+        ge=5.0,
+        le=40.0,
+        description="Max yaw angle [deg]",
+    )
+    num_directions: int = Field(
+        12,
+        ge=4,
+        le=36,
+        description="Number of wind directions to evaluate",
+    )
+
+
+class DirectionResult(BaseModel):
+    """Single wind direction yaw optimization result."""
+
+    wind_direction_deg: float
+    baseline_power_mw: float
+    optimized_power_mw: float
+    power_gain_percent: float
+    optimal_yaw_angles_deg: list[float]
+
+
+class FarmYawOptimizationResponse(BaseModel):
+    """Aggregated yaw optimization result across all directions."""
+
+    baseline_aep_gwh: float
+    optimized_aep_gwh: float
+    aep_gain_percent: float
+    mean_power_gain_percent: float
+    max_power_gain_percent: float
+    best_direction_deg: float
+    per_direction_results: list[DirectionResult]
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -549,4 +654,798 @@ async def get_layout_positions(name: str) -> LayoutPositionsResponse:
         num_turbines=layout.num_turbines,
         min_spacing_m=round(layout.min_spacing_m, 1),
         area_km2=round(layout.area_km2, 3),
+    )
+
+
+# ── Yaw Optimization Endpoints ──────────────────────────────────
+
+
+@router.post("/yaw-optimization", response_model=YawOptimizationResponse)
+async def yaw_optimization(request: YawOptimizationRequest) -> YawOptimizationResponse:
+    """Optimize per-turbine yaw angles for wake steering at a single wind direction.
+
+    Wake steering deflects upstream wakes by yawing turbines, increasing
+    total farm power by 5-15%. Uses Jiménez deflection model + L-BFGS-B
+    optimization to find optimal yaw angles within [-max_yaw, +max_yaw].
+
+    Physics: P_yaw = P_aligned × cos^1.88(γ) — upstream loss is offset by
+    downstream wake deflection gain.
+    """
+    layout = _get_layout(request.layout)
+    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+
+    try:
+        result = optimize_yaw_single_direction(
+            x_positions_m=layout.x_positions,
+            y_positions_m=layout.y_positions,
+            wind_direction_deg=request.wind_direction_deg,
+            wind_speed_ms=request.wind_speed_ms,
+            site=site,
+            max_yaw_deg=request.max_yaw_deg,
+        )
+    except Exception as e:
+        raise DomainError(f"Yaw optimization failed: {e}") from e
+
+    return YawOptimizationResponse(
+        wind_direction_deg=result.wind_direction_deg,
+        baseline_power_mw=result.baseline_power_mw,
+        optimized_power_mw=result.optimized_power_mw,
+        power_gain_percent=result.power_gain_percent,
+        optimal_yaw_angles_deg=[round(float(v), 1) for v in result.optimal_yaw_angles_deg],
+        per_turbine_baseline_mw=[round(float(v), 3) for v in result.per_turbine_baseline_mw],
+        per_turbine_optimized_mw=[round(float(v), 3) for v in result.per_turbine_optimized_mw],
+    )
+
+
+@router.post("/yaw-optimization-farm", response_model=FarmYawOptimizationResponse)
+async def yaw_optimization_farm(
+    request: FarmYawOptimizationRequest,
+) -> FarmYawOptimizationResponse:
+    """Optimize yaw angles across all wind directions and estimate AEP gain.
+
+    Runs per-direction yaw optimization and aggregates results to estimate
+    annual energy production improvement from wake steering. This is the
+    primary farm-level control optimization — the single most impactful
+    operational improvement for offshore wind farms.
+    """
+    layout = _get_layout(request.layout)
+    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+    directions = np.linspace(0, 360 - 360 / request.num_directions, request.num_directions)
+
+    try:
+        result = optimize_yaw_all_directions(
+            x_positions_m=layout.x_positions,
+            y_positions_m=layout.y_positions,
+            site=site,
+            wind_directions_deg=directions.astype(np.float64),
+            wind_speed_ms=request.wind_speed_ms,
+            max_yaw_deg=request.max_yaw_deg,
+        )
+    except Exception as e:
+        raise DomainError(f"Farm yaw optimization failed: {e}") from e
+
+    per_dir = [
+        DirectionResult(
+            wind_direction_deg=r.wind_direction_deg,
+            baseline_power_mw=r.baseline_power_mw,
+            optimized_power_mw=r.optimized_power_mw,
+            power_gain_percent=r.power_gain_percent,
+            optimal_yaw_angles_deg=[round(float(v), 1) for v in r.optimal_yaw_angles_deg],
+        )
+        for r in result.per_direction_results
+    ]
+
+    return FarmYawOptimizationResponse(
+        baseline_aep_gwh=result.baseline_aep_gwh,
+        optimized_aep_gwh=result.optimized_aep_gwh,
+        aep_gain_percent=result.aep_gain_percent,
+        mean_power_gain_percent=result.mean_power_gain_percent,
+        max_power_gain_percent=result.max_power_gain_percent,
+        best_direction_deg=result.best_direction_deg,
+        per_direction_results=per_dir,
+    )
+
+
+# ── Tier 2 Schemas ────────────────────────────────────────────
+
+
+class WakeModelComparisonRequest(BaseModel):
+    """Request to compare multiple wake deficit models."""
+
+    layout: str = Field("staggered")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    models: list[str] = Field(
+        default=["jensen", "bpa_gaussian", "noj", "zong_gaussian"],
+        description="Wake deficit models to compare",
+    )
+    turbulence_model: str = Field(
+        default="stf2017",
+        description="Turbulence model: stf2017 or crespo_hernandez",
+    )
+    superposition_model: str = Field(
+        default="linear_sum",
+        description="Superposition: linear_sum, squared_sum, or max_sum",
+    )
+
+
+class WakeModelResultEntry(BaseModel):
+    model_name: str
+    net_aep_gwh: float
+    wake_loss_percent: float
+    capacity_factor: float
+
+
+class WakeModelComparisonResponse(BaseModel):
+    results: list[WakeModelResultEntry]
+    aep_range_gwh: float
+    wake_loss_range_percent: float
+
+
+class DeratingRequest(BaseModel):
+    layout: str = Field("staggered")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0)
+
+
+class DeratingResponse(BaseModel):
+    baseline_power_mw: float
+    derated_power_mw: float
+    power_gain_percent: float
+    optimal_derating_fraction: float
+    upstream_loss_mw: float
+    downstream_gain_mw: float
+
+
+class FLOWERSRequest(BaseModel):
+    layout: str = Field("staggered")
+    mean_wind_speed_ms: float = Field(10.5, ge=5.0, le=20.0)
+    n_fourier_modes: int = Field(12, ge=4, le=24)
+
+
+class FLOWERSResponse(BaseModel):
+    aep_gwh: float
+    gross_aep_gwh: float
+    wake_loss_percent: float
+    computation_time_ms: float
+    capacity_factor: float
+    n_fourier_modes: int
+
+
+class MarketWeightedAEPRequest(BaseModel):
+    layout: str = Field("staggered")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    flat_price_eur_mwh: float = Field(72.0, ge=10.0, le=300.0)
+
+
+class MarketWeightedAEPResponse(BaseModel):
+    flat_aep_gwh: float
+    market_weighted_aep_gwh: float
+    market_value_factor: float
+    flat_revenue_meur: float
+    market_revenue_meur: float
+    revenue_uplift_percent: float
+    average_capture_price_eur_mwh: float
+    peak_generation_fraction: float
+
+
+class PCEUQRequest(BaseModel):
+    layout: str = Field("staggered")
+    pce_order: int = Field(3, ge=1, le=5)
+    n_samples: int = Field(30, ge=10, le=100)
+
+
+class SobolIndexSchema(BaseModel):
+    parameter: str
+    first_order: float
+
+
+class PCEUQResponse(BaseModel):
+    mean_aep_gwh: float
+    std_aep_gwh: float
+    cov_percent: float
+    p50_gwh: float
+    p75_gwh: float
+    p90_gwh: float
+    dominant_parameter: str
+    sobol_indices: list[SobolIndexSchema]
+    r_squared: float
+    pce_order: int
+    num_samples: int
+
+
+# ── Tier 2 Endpoints ──────────────────────────────────────────
+
+
+@router.post("/wake-model-comparison", response_model=WakeModelComparisonResponse)
+async def wake_model_comparison(request: WakeModelComparisonRequest) -> WakeModelComparisonResponse:
+    """Compare multiple wake deficit models on the same layout.
+
+    Models available: jensen (NOJ top-hat), bpa_gaussian (Bastankhah),
+    noj (same as Jensen), zong_gaussian (Zong & Porté-Agel LES-based).
+    """
+    layout = _get_layout(request.layout)
+    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+    models = [WakeDeficitModel(m) for m in request.models]
+    turb_model = TurbulenceModel(request.turbulence_model)
+    sup_model = SuperpositionModel(request.superposition_model)
+
+    try:
+        result = compare_wake_models(
+            layout.x_positions,
+            layout.y_positions,
+            site,
+            models,
+            turbulence_model=turb_model,
+            superposition_model=sup_model,
+        )
+    except Exception as e:
+        raise DomainError(f"Wake model comparison failed: {e}") from e
+
+    entries = [
+        WakeModelResultEntry(
+            model_name=name,
+            net_aep_gwh=round(r.net_aep_gwh, 2),
+            wake_loss_percent=round(r.wake_loss_percent, 2),
+            capacity_factor=round(r.capacity_factor, 4),
+        )
+        for name, r in result.results
+    ]
+
+    return WakeModelComparisonResponse(
+        results=entries,
+        aep_range_gwh=result.aep_range_gwh,
+        wake_loss_range_percent=result.wake_loss_range_percent,
+    )
+
+
+@router.post("/derating", response_model=DeratingResponse)
+async def derating_analysis(request: DeratingRequest) -> DeratingResponse:
+    """Optimize turbine derating for wake mitigation.
+
+    Finds the optimal upstream power reduction that maximizes total farm
+    power by weakening wakes for downstream turbines.
+    """
+    layout = _get_layout(request.layout)
+    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+
+    try:
+        result = optimize_derating(
+            layout.x_positions,
+            layout.y_positions,
+            site,
+            wind_direction_deg=request.wind_direction_deg,
+        )
+    except Exception as e:
+        raise DomainError(f"Derating analysis failed: {e}") from e
+
+    return DeratingResponse(
+        baseline_power_mw=result.baseline_power_mw,
+        derated_power_mw=result.derated_power_mw,
+        power_gain_percent=result.power_gain_percent,
+        optimal_derating_fraction=result.optimal_derating_fraction,
+        upstream_loss_mw=result.upstream_loss_mw,
+        downstream_gain_mw=result.downstream_gain_mw,
+    )
+
+
+@router.post("/flowers-aep", response_model=FLOWERSResponse)
+async def flowers_aep(request: FLOWERSRequest) -> FLOWERSResponse:
+    """Compute AEP using FLOWERS fast analytical method.
+
+    FLOWERS uses Fourier decomposition of the wind rose to analytically
+    integrate wake losses, providing 100-1000× speedup over directional sweeps.
+    """
+    layout = _get_layout(request.layout)
+
+    try:
+        result = compute_flowers_aep(
+            layout.x_positions,
+            layout.y_positions,
+            mean_wind_speed_ms=request.mean_wind_speed_ms,
+            n_fourier_modes=request.n_fourier_modes,
+        )
+    except Exception as e:
+        raise DomainError(f"FLOWERS AEP failed: {e}") from e
+
+    return FLOWERSResponse(
+        aep_gwh=result.aep_gwh,
+        gross_aep_gwh=result.gross_aep_gwh,
+        wake_loss_percent=result.wake_loss_percent,
+        computation_time_ms=result.computation_time_ms,
+        capacity_factor=result.capacity_factor,
+        n_fourier_modes=result.n_fourier_modes,
+    )
+
+
+@router.post("/market-weighted-aep", response_model=MarketWeightedAEPResponse)
+async def market_weighted_aep(request: MarketWeightedAEPRequest) -> MarketWeightedAEPResponse:
+    """Compute market value-weighted AEP accounting for price-generation correlation.
+
+    Captures the 'cannibalization' effect where wind generation can depress
+    spot prices, reducing the effective value of each MWh produced.
+    """
+    layout = _get_layout(request.layout)
+    wake = _run_wake_for_layout(
+        layout,
+        request.weibull_a,
+        request.weibull_k,
+        request.turbulence_intensity,
+    )
+
+    # Generate synthetic 8760 hourly profile from average power
+    avg_power_mw = wake.net_aep_gwh * 1000.0 / 8760.0
+    rng = np.random.default_rng(42)
+    hours = np.arange(8760)
+    diurnal = 1.0 + 0.1 * np.cos(2 * np.pi * (hours % 24 - 4) / 24.0)
+    noise = 1.0 + 0.3 * rng.standard_normal(8760)
+    hourly_gen = np.clip(avg_power_mw * diurnal * noise, 0.0, 510.0)
+
+    try:
+        result: MarketWeightedAEPResult = compute_market_weighted_aep(
+            hourly_gen,
+            flat_price_eur_mwh=request.flat_price_eur_mwh,
+        )
+    except Exception as e:
+        raise DomainError(f"Market-weighted AEP failed: {e}") from e
+
+    return MarketWeightedAEPResponse(
+        flat_aep_gwh=result.flat_aep_gwh,
+        market_weighted_aep_gwh=result.market_weighted_aep_gwh,
+        market_value_factor=result.market_value_factor,
+        flat_revenue_meur=result.flat_revenue_meur,
+        market_revenue_meur=result.market_revenue_meur,
+        revenue_uplift_percent=result.revenue_uplift_percent,
+        average_capture_price_eur_mwh=result.average_capture_price_eur_mwh,
+        peak_generation_fraction=result.peak_generation_fraction,
+    )
+
+
+@router.post("/pce-uncertainty", response_model=PCEUQResponse)
+async def pce_uncertainty(request: PCEUQRequest) -> PCEUQResponse:
+    """Run Polynomial Chaos Expansion uncertainty quantification on AEP.
+
+    Builds a polynomial surrogate from sampled wake analyses to extract
+    statistics (mean, std, Sobol indices) without Monte Carlo sampling.
+    """
+    layout = _get_layout(request.layout)
+
+    try:
+        result = run_pce_uncertainty(
+            layout.x_positions,
+            layout.y_positions,
+            pce_order=request.pce_order,
+            n_samples=request.n_samples,
+        )
+    except Exception as e:
+        raise DomainError(f"PCE UQ failed: {e}") from e
+
+    return PCEUQResponse(
+        mean_aep_gwh=result.mean_aep_gwh,
+        std_aep_gwh=result.std_aep_gwh,
+        cov_percent=result.cov_percent,
+        p50_gwh=result.p50_gwh,
+        p75_gwh=result.p75_gwh,
+        p90_gwh=result.p90_gwh,
+        dominant_parameter=result.dominant_parameter,
+        sobol_indices=[
+            SobolIndexSchema(parameter=s.parameter, first_order=s.first_order)
+            for s in result.sobol_indices
+        ],
+        r_squared=result.r_squared,
+        pce_order=result.pce_order,
+        num_samples=result.num_samples,
+    )
+
+
+# ── Tier 3 Schemas ────────────────────────────────────────────
+
+
+class HelixControlRequest(BaseModel):
+    layout: str = Field("staggered")
+    wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0)
+    wind_speed_ms: float = Field(10.0, ge=3.0, le=25.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    helix_amplitude_deg: float = Field(2.0, ge=0.5, le=5.0)
+
+
+class HelixControlResponse(BaseModel):
+    baseline_farm_power_mw: float
+    helix_farm_power_mw: float
+    power_gain_percent: float
+    helix_amplitude_deg: float
+    helix_frequency_hz: float
+    upstream_power_loss_mw: float
+    downstream_power_gain_mw: float
+    n_helix_active_turbines: int
+    wake_recovery_distance_d: float
+    natural_recovery_distance_d: float
+
+
+class DynamicFlowRequest(BaseModel):
+    layout: str = Field("staggered")
+    dt_s: float = Field(60.0, ge=10.0, le=600.0)
+    duration_s: float = Field(3600.0, ge=600.0, le=7200.0)
+
+
+class DynamicFlowResponse(BaseModel):
+    mean_farm_power_mw: float
+    power_variability_mw: float
+    max_ramp_rate_mw_s: float
+    steady_state_power_mw: float
+    wake_advection_time_s: float
+    n_timesteps: int
+
+
+class CFDSimulationRequest(BaseModel):
+    layout: str = Field("staggered")
+    wind_speed_ms: float = Field(10.5, ge=3.0, le=25.0)
+    wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0)
+    mesh_resolution: str = Field("coarse", description="coarse, medium, or fine")
+    terrain_type: str = Field("offshore_flat")
+
+
+class CFDSimulationResponse(BaseModel):
+    farm_power_mw: float
+    total_thrust_kn: float
+    mean_tke_m2s2: float
+    mesh_cells: int
+    mesh_resolution: str
+    n_turbines: int
+
+
+class SimultaneousOptRequest(BaseModel):
+    layout: str = Field("staggered")
+    maxiter: int = Field(5, ge=1, le=50)
+
+
+class SimultaneousOptResponse(BaseModel):
+    baseline_aep_gwh: float
+    optimized_aep_gwh: float
+    gain_percent: float
+    position_contribution_percent: float
+    control_contribution_percent: float
+
+
+class AdjointSensitivityRequest(BaseModel):
+    layout: str = Field("staggered")
+
+
+class AdjointSensitivityResponse(BaseModel):
+    most_sensitive_turbine: int
+    least_sensitive_turbine: int
+    total_gradient_norm: float
+    current_aep_gwh: float
+    n_turbines: int
+
+
+class TwoStageStochasticRequest(BaseModel):
+    layout: str = Field("staggered")
+    n_scenarios: int = Field(3, ge=2, le=10)
+    maxiter: int = Field(3, ge=1, le=20)
+
+
+class TwoStageStochasticResponse(BaseModel):
+    expected_aep_gwh: float
+    worst_case_aep_gwh: float
+    best_case_aep_gwh: float
+    value_of_stochastic_solution_gwh: float
+    n_scenarios: int
+
+
+class MGARequest(BaseModel):
+    layout: str = Field("staggered")
+    n_alternatives: int = Field(3, ge=2, le=10)
+    aep_slack_percent: float = Field(2.0, ge=0.5, le=10.0)
+
+
+class MGAResponse(BaseModel):
+    n_alternatives: int
+    diversity_scores: list[float]
+    aep_values_gwh: list[float]
+    optimal_aep_gwh: float
+    aep_slack_percent: float
+
+
+class GaussianFLOWERSRequest(BaseModel):
+    layout: str = Field("staggered")
+    mean_wind_speed_ms: float = Field(10.5, ge=5.0, le=20.0)
+    n_fourier_modes: int = Field(12, ge=4, le=24)
+
+
+class GaussianFLOWERSResponse(BaseModel):
+    aep_gwh: float
+    gross_aep_gwh: float
+    wake_loss_percent: float
+    computation_time_ms: float
+    capacity_factor: float
+    jensen_comparison_aep_gwh: float
+    gaussian_vs_jensen_diff_percent: float
+
+
+class LayoutOptimizationRequest(BaseModel):
+    layout: str = Field("staggered", description="Initial layout: regular or staggered")
+    algorithm: str = Field(
+        "differential_evolution",
+        description="Algorithm: differential_evolution, basin_hopping, "
+        "genetic_algorithm, or gradient_lbfgsb",
+    )
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    maxiter: int = Field(5, ge=1, le=50)
+
+
+class LayoutOptimizationResponse(BaseModel):
+    name: str
+    num_turbines: int
+    min_spacing_m: float
+    area_km2: float
+
+
+# ── Tier 3 Endpoints ──────────────────────────────────────────
+
+
+@router.post("/helix-control", response_model=HelixControlResponse)
+async def helix_control(request: HelixControlRequest) -> HelixControlResponse:
+    """Simulate helix control (dynamic individual pitch) for wake mixing.
+
+    Helix control uses periodic IPC at the rotor's 1P frequency to excite
+    helical wake instabilities, enhancing wake recovery by ~50%.
+    """
+    layout = _get_layout(request.layout)
+    try:
+        result = simulate_helix_control(
+            layout.x_positions,
+            layout.y_positions,
+            wind_direction_deg=request.wind_direction_deg,
+            wind_speed_ms=request.wind_speed_ms,
+            turbulence_intensity=request.turbulence_intensity,
+            helix_amplitude_deg=request.helix_amplitude_deg,
+        )
+    except Exception as e:
+        raise DomainError(f"Helix control simulation failed: {e}") from e
+
+    return HelixControlResponse(
+        baseline_farm_power_mw=result.baseline_farm_power_mw,
+        helix_farm_power_mw=result.helix_farm_power_mw,
+        power_gain_percent=result.power_gain_percent,
+        helix_amplitude_deg=result.helix_amplitude_deg,
+        helix_frequency_hz=result.helix_frequency_hz,
+        upstream_power_loss_mw=result.upstream_power_loss_mw,
+        downstream_power_gain_mw=result.downstream_power_gain_mw,
+        n_helix_active_turbines=result.n_helix_active_turbines,
+        wake_recovery_distance_d=result.wake_recovery_distance_d,
+        natural_recovery_distance_d=result.natural_recovery_distance_d,
+    )
+
+
+@router.post("/dynamic-flow", response_model=DynamicFlowResponse)
+async def dynamic_flow(request: DynamicFlowRequest) -> DynamicFlowResponse:
+    """Run FLORIDyn-style dynamic flow simulation with time-varying wind.
+
+    Models wake advection delays and time-varying power output as wind
+    speed and direction change throughout the simulation period.
+    """
+    layout = _get_layout(request.layout)
+    try:
+        result = run_dynamic_flow_simulation(
+            layout.x_positions,
+            layout.y_positions,
+            dt_s=request.dt_s,
+            duration_s=request.duration_s,
+        )
+    except Exception as e:
+        raise DomainError(f"Dynamic flow simulation failed: {e}") from e
+
+    return DynamicFlowResponse(
+        mean_farm_power_mw=result.mean_farm_power_mw,
+        power_variability_mw=result.power_variability_mw,
+        max_ramp_rate_mw_s=result.max_ramp_rate_mw_s,
+        steady_state_power_mw=result.steady_state_power_mw,
+        wake_advection_time_s=result.wake_advection_time_s,
+        n_timesteps=len(result.timesteps),
+    )
+
+
+@router.post("/cfd-simulation", response_model=CFDSimulationResponse)
+async def cfd_simulation(request: CFDSimulationRequest) -> CFDSimulationResponse:
+    """Run analytical RANS-approximate CFD simulation.
+
+    Computes a 2D hub-height flow field with actuator disk forces and
+    terrain effects. Analytical approximation — not a full FEM solver.
+    """
+    layout = _get_layout(request.layout)
+    try:
+        result = run_cfd_simulation(
+            layout.x_positions,
+            layout.y_positions,
+            wind_speed_ms=request.wind_speed_ms,
+            wind_direction_deg=request.wind_direction_deg,
+            resolution=request.mesh_resolution,
+            terrain_type=request.terrain_type,
+        )
+    except Exception as e:
+        raise DomainError(f"CFD simulation failed: {e}") from e
+
+    return CFDSimulationResponse(
+        farm_power_mw=result.farm_power_mw,
+        total_thrust_kn=result.total_thrust_kn,
+        mean_tke_m2s2=result.mean_tke_m2s2,
+        mesh_cells=result.mesh.n_cells if result.mesh else 0,
+        mesh_resolution=request.mesh_resolution,
+        n_turbines=len(layout.x_positions),
+    )
+
+
+@router.post("/simultaneous-optimization", response_model=SimultaneousOptResponse)
+async def simultaneous_optimization(request: SimultaneousOptRequest) -> SimultaneousOptResponse:
+    """Joint position + yaw + derating optimization.
+
+    Simultaneously optimizes turbine positions, yaw angles, and derating
+    factors — the most complete farm-level optimization possible.
+    """
+    layout = _get_layout(request.layout)
+    try:
+        result = run_simultaneous_optimization(
+            layout.x_positions,
+            layout.y_positions,
+            maxiter=request.maxiter,
+        )
+    except Exception as e:
+        raise DomainError(f"Simultaneous optimization failed: {e}") from e
+
+    return SimultaneousOptResponse(
+        baseline_aep_gwh=result.baseline_aep_gwh,
+        optimized_aep_gwh=result.optimized_aep_gwh,
+        gain_percent=result.gain_percent,
+        position_contribution_percent=result.position_contribution_percent,
+        control_contribution_percent=result.control_contribution_percent,
+    )
+
+
+@router.post("/adjoint-sensitivities", response_model=AdjointSensitivityResponse)
+async def adjoint_sensitivities(request: AdjointSensitivityRequest) -> AdjointSensitivityResponse:
+    """Compute PDE-constrained adjoint-like layout sensitivities.
+
+    Uses finite-difference gradients dAEP/dx and dAEP/dy for each turbine
+    to identify which turbines benefit most from repositioning.
+    """
+    layout = _get_layout(request.layout)
+    try:
+        result = compute_adjoint_sensitivities(layout.x_positions, layout.y_positions)
+    except Exception as e:
+        raise DomainError(f"Adjoint sensitivity computation failed: {e}") from e
+
+    return AdjointSensitivityResponse(
+        most_sensitive_turbine=result.most_sensitive_turbine,
+        least_sensitive_turbine=result.least_sensitive_turbine,
+        total_gradient_norm=result.total_gradient_norm,
+        current_aep_gwh=result.current_aep_gwh,
+        n_turbines=len(result.sensitivities),
+    )
+
+
+@router.post("/two-stage-stochastic", response_model=TwoStageStochasticResponse)
+async def two_stage_stochastic(request: TwoStageStochasticRequest) -> TwoStageStochasticResponse:
+    """Run two-stage stochastic layout optimization.
+
+    Here-and-now layout decisions + wait-and-see operational adjustments
+    under multiple wind climate scenarios.
+    """
+    layout = _get_layout(request.layout)
+    try:
+        result = run_two_stage_stochastic(
+            layout.x_positions,
+            layout.y_positions,
+            n_scenarios=request.n_scenarios,
+            maxiter=request.maxiter,
+        )
+    except Exception as e:
+        raise DomainError(f"Two-stage stochastic failed: {e}") from e
+
+    return TwoStageStochasticResponse(
+        expected_aep_gwh=result.expected_aep_gwh,
+        worst_case_aep_gwh=result.worst_case_aep_gwh,
+        best_case_aep_gwh=result.best_case_aep_gwh,
+        value_of_stochastic_solution_gwh=result.value_of_stochastic_solution_gwh,
+        n_scenarios=result.n_scenarios,
+    )
+
+
+@router.post("/mga", response_model=MGAResponse)
+async def mga_alternatives(request: MGARequest) -> MGAResponse:
+    """Generate maximally different near-optimal layout alternatives.
+
+    MGA produces layouts that are as different as possible while maintaining
+    AEP within a specified fraction of the best solution.
+    """
+    layout = _get_layout(request.layout)
+    try:
+        result = run_mga(
+            layout.x_positions,
+            layout.y_positions,
+            n_alternatives=request.n_alternatives,
+            aep_slack_percent=request.aep_slack_percent,
+        )
+    except Exception as e:
+        raise DomainError(f"MGA failed: {e}") from e
+
+    return MGAResponse(
+        n_alternatives=len(result.alternatives),
+        diversity_scores=[round(d, 3) for d in result.diversity_scores],
+        aep_values_gwh=[round(a, 2) for a in result.aep_values_gwh],
+        optimal_aep_gwh=result.optimal_aep_gwh,
+        aep_slack_percent=result.aep_slack_percent,
+    )
+
+
+@router.post("/gaussian-flowers-aep", response_model=GaussianFLOWERSResponse)
+async def gaussian_flowers_aep(request: GaussianFLOWERSRequest) -> GaussianFLOWERSResponse:
+    """Compute AEP using Gaussian FLOWERS analytical method.
+
+    Extends FLOWERS with Bastankhah-Porté-Agel Gaussian wake model for
+    improved accuracy (< 1% error vs directional sweeps).
+    """
+    layout = _get_layout(request.layout)
+    try:
+        result = compute_gaussian_flowers_aep(
+            layout.x_positions,
+            layout.y_positions,
+            mean_wind_speed_ms=request.mean_wind_speed_ms,
+            n_fourier_modes=request.n_fourier_modes,
+        )
+    except Exception as e:
+        raise DomainError(f"Gaussian FLOWERS failed: {e}") from e
+
+    return GaussianFLOWERSResponse(
+        aep_gwh=result.aep_gwh,
+        gross_aep_gwh=result.gross_aep_gwh,
+        wake_loss_percent=result.wake_loss_percent,
+        computation_time_ms=result.computation_time_ms,
+        capacity_factor=result.capacity_factor,
+        jensen_comparison_aep_gwh=result.jensen_comparison_aep_gwh,
+        gaussian_vs_jensen_diff_percent=result.gaussian_vs_jensen_diff_percent,
+    )
+
+
+@router.post("/layout-optimization", response_model=LayoutOptimizationResponse)
+async def layout_optimization(
+    request: LayoutOptimizationRequest,
+) -> LayoutOptimizationResponse:
+    """Optimize turbine layout using a selected algorithm.
+
+    Supports differential evolution, basin hopping, genetic algorithm,
+    and gradient-based (L-BFGS-B) optimization. Maximizes net AEP while
+    respecting minimum spacing constraints (5D = 1180 m).
+    """
+    layout = _get_layout(request.layout)
+    site = create_uniform_site(
+        request.weibull_a,
+        request.weibull_k,
+        request.turbulence_intensity,
+    )
+    algorithm = OptimizationAlgorithm(request.algorithm)
+
+    try:
+        result = optimize_layout_multi(
+            layout.x_positions,
+            layout.y_positions,
+            site,
+            algorithm=algorithm,
+            maxiter=request.maxiter,
+        )
+    except Exception as e:
+        raise DomainError(f"Layout optimization failed: {e}") from e
+
+    return LayoutOptimizationResponse(
+        name=result.name,
+        num_turbines=result.num_turbines,
+        min_spacing_m=round(result.min_spacing_m, 1),
+        area_km2=round(result.area_km2, 3),
     )

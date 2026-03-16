@@ -22,19 +22,18 @@ from __future__ import annotations
 import pytest
 
 from app.services.p3.historian import (
+    MAX_POINTS_PER_QUERY,
+    RESOLUTION_MINUTES,
+    TAG_REGISTRY,
     HistorianTag,
     TagMetadata,
     TimeResolution,
+    _compute_value_at_hour,
+    _format_pseudo_iso,
     generate_time_series,
     get_available_tags,
     get_latest_values,
-    TAG_REGISTRY,
-    MAX_POINTS_PER_QUERY,
-    RESOLUTION_MINUTES,
-    _compute_value_at_hour,
-    _format_pseudo_iso,
 )
-
 
 # ── Tag Registry Tests ─────────────────────────────────────────────
 
@@ -72,8 +71,7 @@ class TestTagRegistry:
         """Nominal value must be within [range_min, range_max]."""
         for tag, meta in TAG_REGISTRY.items():
             assert meta.range_min <= meta.nominal <= meta.range_max, (
-                f"{tag}: nominal={meta.nominal} outside "
-                f"[{meta.range_min}, {meta.range_max}]"
+                f"{tag}: nominal={meta.nominal} outside [{meta.range_min}, {meta.range_max}]"
             )
 
     def test_all_entries_have_positive_periods(self):
@@ -155,9 +153,7 @@ class TestComputeValueAtHour:
         meta = TAG_REGISTRY[HistorianTag.OSS_TOTAL_POWER_MW]
         for h in [i * 0.5 for i in range(48)]:
             val = _compute_value_at_hour(meta, h)
-            assert meta.range_min <= val <= meta.range_max, (
-                f"Hour {h}: value {val} outside range"
-            )
+            assert meta.range_min <= val <= meta.range_max, f"Hour {h}: value {val} outside range"
 
     def test_determinism(self):
         """Same inputs must produce same output (no randomness)."""
@@ -256,9 +252,7 @@ class TestGenerateTimeSeries:
             resolution=TimeResolution.FIFTEEN_MINUTES,
         )
         for pt in ts.points:
-            assert 49.0 <= pt.value <= 51.0, (
-                f"Frequency {pt.value} Hz outside 49-51 Hz band"
-            )
+            assert 49.0 <= pt.value <= 51.0, f"Frequency {pt.value} Hz outside 49-51 Hz band"
 
     def test_voltage_pu_within_range(self):
         """Voltage must stay within declared range (0.95-1.05 pu)."""
@@ -268,9 +262,7 @@ class TestGenerateTimeSeries:
             resolution=TimeResolution.FIFTEEN_MINUTES,
         )
         for pt in ts.points:
-            assert 0.95 <= pt.value <= 1.05, (
-                f"Voltage {pt.value} pu outside 0.95-1.05 band"
-            )
+            assert 0.95 <= pt.value <= 1.05, f"Voltage {pt.value} pu outside 0.95-1.05 band"
 
     def test_statcom_within_rating(self):
         """STATCOM output must be within ±120 MVAR rating."""
@@ -280,9 +272,7 @@ class TestGenerateTimeSeries:
             resolution=TimeResolution.FIFTEEN_MINUTES,
         )
         for pt in ts.points:
-            assert -120.0 <= pt.value <= 120.0, (
-                f"STATCOM {pt.value} MVAR exceeds ±120 MVAR rating"
-            )
+            assert -120.0 <= pt.value <= 120.0, f"STATCOM {pt.value} MVAR exceeds ±120 MVAR rating"
 
     def test_timestamps_are_strings(self):
         """All timestamps must be strings (ISO-8601 format)."""
@@ -392,8 +382,7 @@ class TestGetLatestValues:
         for tag, meta in TAG_REGISTRY.items():
             val = values[tag.value]
             assert meta.range_min <= val <= meta.range_max, (
-                f"{tag}: latest value {val} outside "
-                f"[{meta.range_min}, {meta.range_max}]"
+                f"{tag}: latest value {val} outside [{meta.range_min}, {meta.range_max}]"
             )
 
     def test_deterministic_latest_values(self):

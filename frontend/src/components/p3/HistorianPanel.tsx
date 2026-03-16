@@ -315,7 +315,7 @@ export default function HistorianPanel() {
               </tr>
             </thead>
             <tbody>
-              {selectedMeta.map((t, idx) => (
+              {selectedMeta.map((t, _idx) => (
                 <tr
                   key={t.tag}
                   className="border-b border-border-primary last:border-0"

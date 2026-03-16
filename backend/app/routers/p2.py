@@ -76,6 +76,12 @@ from app.services.p2.energy_storage import run_bess_dispatch
 from app.services.p2.ac_dc_network import compare_export_options
 from app.services.p2.capacity_expansion import plan_capacity_expansion
 from app.services.p2.statcom_sizing import validate_compensation
+from app.services.p2.pathway_planning import run_pathway_planning
+from app.services.p2.sector_coupling import run_sector_coupling
+from app.services.p2.power_to_gas import run_electrolyzer_simulation, ElectrolyzerType
+from app.services.p2.seasonal_storage import run_seasonal_storage_simulation, StorageTechnology
+from app.services.p2.flexible_demand import run_flexible_demand_simulation
+from app.services.p2.multi_energy_carrier import run_multi_energy_analysis
 
 router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
 
@@ -1049,4 +1055,321 @@ async def capacity_expansion(request: CapacityExpansionRequest) -> CapacityExpan
         portfolio_npv_meur=result.portfolio_npv_meur,
         buildout_years=result.buildout_years,
         total_bess_mwh=result.total_bess_mwh,
+    )
+
+
+# ── Tier 3 Schemas ────────────────────────────────────────────
+
+
+class PathwayPlanningRequest(BaseModel):
+    scenario: str = Field("reference", description="reference, accelerated, or conservative")
+    demand_growth_rate: float = Field(0.015, ge=0.0, le=0.05)
+
+
+class PathwayMilestoneSchema(BaseModel):
+    year: int
+    renewable_share_percent: float
+    co2_emissions_mt: float
+    cumulative_investment_beur: float
+    system_lcoe_eur_mwh: float
+
+
+class PathwayPlanningResponse(BaseModel):
+    scenario_name: str
+    meets_2030_target: bool
+    meets_2050_target: bool
+    total_investment_beur: float
+    co2_reduction_percent: float
+    offshore_wind_capacity_2050_gw: float
+    milestones: list[PathwayMilestoneSchema]
+
+
+class SectorCouplingRequest(BaseModel):
+    grid_capacity_mw: float = Field(400.0, ge=100.0, le=1000.0)
+    electrolyzer_capacity_mw: float = Field(50.0, ge=5.0, le=200.0)
+    heat_pump_capacity_mw: float = Field(30.0, ge=5.0, le=100.0)
+
+
+class SectorCouplingResponse(BaseModel):
+    total_electricity_gen_mwh: float
+    electricity_to_grid_mwh: float
+    electricity_to_heat_mwh: float
+    electricity_to_hydrogen_mwh: float
+    heat_produced_mwh: float
+    hydrogen_produced_kg: float
+    curtailment_mwh: float
+    curtailment_reduction_percent: float
+    overall_system_efficiency: float
+    renewable_utilization_percent: float
+    annual_revenue_meur: float
+
+
+class ElectrolyzerRequest(BaseModel):
+    electrolyzer_capacity_mw: float = Field(50.0, ge=5.0, le=200.0)
+    technology: str = Field("pem", description="pem, alkaline, or soec")
+    price_threshold_eur_mwh: float = Field(40.0, ge=10.0, le=100.0)
+
+
+class ElectrolyzerResponse(BaseModel):
+    technology: str
+    capacity_mw: float
+    annual_hydrogen_production_tonnes: float
+    capacity_factor: float
+    average_efficiency: float
+    specific_energy_kwh_per_kg: float
+    lcoh_eur_per_kg: float
+    capex_meur: float
+    full_load_hours: float
+
+
+class SeasonalStorageRequest(BaseModel):
+    technology: str = Field("hydrogen_cavern", description="hydrogen_cavern, compressed_air, pumped_hydro")
+    storage_capacity_mwh: float = Field(5000.0, ge=100.0, le=50000.0)
+    charge_capacity_mw: float = Field(50.0, ge=5.0, le=200.0)
+    discharge_capacity_mw: float = Field(50.0, ge=5.0, le=200.0)
+
+
+class SeasonalStorageResponse(BaseModel):
+    technology: str
+    storage_capacity_mwh: float
+    annual_energy_stored_mwh: float
+    annual_energy_discharged_mwh: float
+    round_trip_efficiency: float
+    storage_cycles: int
+    arbitrage_revenue_meur: float
+    capex_meur: float
+    lcoes_eur_mwh: float
+
+
+class FlexibleDemandRequest(BaseModel):
+    grid_capacity_mw: float = Field(450.0, ge=100.0, le=1000.0)
+    price_elasticity: float = Field(-0.15, ge=-0.5, le=0.0)
+
+
+class FlexibleDemandResponse(BaseModel):
+    total_demand_mwh: float
+    shifted_demand_mwh: float
+    shed_demand_mwh: float
+    elastic_reduction_mwh: float
+    peak_demand_reduction_mw: float
+    peak_demand_reduction_percent: float
+    curtailment_reduction_mwh: float
+    dsr_activation_cost_meur: float
+    net_benefit_meur: float
+    n_shedding_events: int
+
+
+class MultiEnergyRequest(BaseModel):
+    wind_generation_mwh: float = Field(2_000_000.0, ge=100_000.0, le=10_000_000.0)
+    electricity_demand_mwh: float = Field(1_800_000.0, ge=100_000.0, le=10_000_000.0)
+    heat_demand_mwh: float = Field(500_000.0, ge=10_000.0, le=5_000_000.0)
+    hydrogen_demand_mwh: float = Field(100_000.0, ge=1_000.0, le=1_000_000.0)
+
+
+class CarrierBalanceSchema(BaseModel):
+    carrier: str
+    total_supply_mwh: float
+    total_demand_mwh: float
+    surplus_mwh: float
+    deficit_mwh: float
+
+
+class MultiEnergyResponse(BaseModel):
+    system_efficiency: float
+    co2_emissions_tonnes: float
+    co2_reduction_vs_separate_percent: float
+    total_annual_cost_meur: float
+    renewable_share_percent: float
+    carrier_balances: list[CarrierBalanceSchema]
+
+
+# ── Tier 3 Endpoints ──────────────────────────────────────────
+
+
+@router.post("/pathway-planning", response_model=PathwayPlanningResponse)
+async def pathway_planning(request: PathwayPlanningRequest) -> PathwayPlanningResponse:
+    """Run multi-decade energy transition pathway planning.
+
+    Models 2025-2050 capacity additions with technology learning curves,
+    policy milestones, and CO2 reduction tracking.
+    """
+    try:
+        result = run_pathway_planning(
+            scenario=request.scenario,
+            demand_growth_rate=request.demand_growth_rate,
+        )
+    except Exception as e:
+        raise DomainError(f"Pathway planning failed: {e}") from e
+
+    return PathwayPlanningResponse(
+        scenario_name=result.scenario_name,
+        meets_2030_target=result.meets_2030_target,
+        meets_2050_target=result.meets_2050_target,
+        total_investment_beur=result.total_investment_beur,
+        co2_reduction_percent=result.co2_reduction_percent,
+        offshore_wind_capacity_2050_gw=result.offshore_wind_capacity_2050_gw,
+        milestones=[
+            PathwayMilestoneSchema(
+                year=m.year,
+                renewable_share_percent=m.renewable_share_percent,
+                co2_emissions_mt=m.co2_emissions_mt,
+                cumulative_investment_beur=m.cumulative_investment_beur,
+                system_lcoe_eur_mwh=m.system_lcoe_eur_mwh,
+            )
+            for m in result.milestones
+        ],
+    )
+
+
+@router.post("/sector-coupling", response_model=SectorCouplingResponse)
+async def sector_coupling(request: SectorCouplingRequest) -> SectorCouplingResponse:
+    """Run sector coupling simulation (electricity + heat + hydrogen).
+
+    Dispatches wind surplus to heat pumps and electrolyzers, with hydrogen
+    reconversion during high-price periods.
+    """
+    try:
+        result = run_sector_coupling(
+            grid_capacity_mw=request.grid_capacity_mw,
+            electrolyzer_capacity_mw=request.electrolyzer_capacity_mw,
+            heat_pump_capacity_mw=request.heat_pump_capacity_mw,
+        )
+    except Exception as e:
+        raise DomainError(f"Sector coupling failed: {e}") from e
+
+    return SectorCouplingResponse(
+        total_electricity_gen_mwh=result.total_electricity_gen_mwh,
+        electricity_to_grid_mwh=result.electricity_to_grid_mwh,
+        electricity_to_heat_mwh=result.electricity_to_heat_mwh,
+        electricity_to_hydrogen_mwh=result.electricity_to_hydrogen_mwh,
+        heat_produced_mwh=result.heat_produced_mwh,
+        hydrogen_produced_kg=result.hydrogen_produced_kg,
+        curtailment_mwh=result.curtailment_mwh,
+        curtailment_reduction_percent=result.curtailment_reduction_percent,
+        overall_system_efficiency=result.overall_system_efficiency,
+        renewable_utilization_percent=result.renewable_utilization_percent,
+        annual_revenue_meur=result.annual_revenue_meur,
+    )
+
+
+@router.post("/electrolyzer", response_model=ElectrolyzerResponse)
+async def electrolyzer_simulation(request: ElectrolyzerRequest) -> ElectrolyzerResponse:
+    """Simulate electrolyzer operation for green hydrogen production.
+
+    Models PEM, alkaline, or SOEC electrolyzer with price-responsive dispatch.
+    """
+    try:
+        result = run_electrolyzer_simulation(
+            electrolyzer_capacity_mw=request.electrolyzer_capacity_mw,
+            technology=ElectrolyzerType(request.technology),
+            price_threshold_eur_mwh=request.price_threshold_eur_mwh,
+        )
+    except Exception as e:
+        raise DomainError(f"Electrolyzer simulation failed: {e}") from e
+
+    return ElectrolyzerResponse(
+        technology=result.technology,
+        capacity_mw=result.capacity_mw,
+        annual_hydrogen_production_tonnes=result.annual_hydrogen_production_tonnes,
+        capacity_factor=result.capacity_factor,
+        average_efficiency=result.average_efficiency,
+        specific_energy_kwh_per_kg=result.specific_energy_kwh_per_kg,
+        lcoh_eur_per_kg=result.lcoh_eur_per_kg,
+        capex_meur=result.capex_meur,
+        full_load_hours=result.full_load_hours,
+    )
+
+
+@router.post("/seasonal-storage", response_model=SeasonalStorageResponse)
+async def seasonal_storage(request: SeasonalStorageRequest) -> SeasonalStorageResponse:
+    """Simulate seasonal (long-duration) energy storage.
+
+    Models hydrogen cavern, compressed air, or pumped hydro storage over
+    a full year with seasonal charge/discharge patterns.
+    """
+    try:
+        result = run_seasonal_storage_simulation(
+            technology=StorageTechnology(request.technology),
+            storage_capacity_mwh=request.storage_capacity_mwh,
+            charge_capacity_mw=request.charge_capacity_mw,
+            discharge_capacity_mw=request.discharge_capacity_mw,
+        )
+    except Exception as e:
+        raise DomainError(f"Seasonal storage simulation failed: {e}") from e
+
+    return SeasonalStorageResponse(
+        technology=result.technology,
+        storage_capacity_mwh=result.storage_capacity_mwh,
+        annual_energy_stored_mwh=result.annual_energy_stored_mwh,
+        annual_energy_discharged_mwh=result.annual_energy_discharged_mwh,
+        round_trip_efficiency=result.round_trip_efficiency,
+        storage_cycles=result.storage_cycles,
+        arbitrage_revenue_meur=result.arbitrage_revenue_meur,
+        capex_meur=result.capex_meur,
+        lcoes_eur_mwh=result.lcoes_eur_mwh,
+    )
+
+
+@router.post("/flexible-demand", response_model=FlexibleDemandResponse)
+async def flexible_demand(request: FlexibleDemandRequest) -> FlexibleDemandResponse:
+    """Simulate flexible demand / demand-side response.
+
+    Models industrial, commercial, and residential DSR with load shifting,
+    price elasticity, and emergency load shedding.
+    """
+    try:
+        result = run_flexible_demand_simulation(
+            grid_capacity_mw=request.grid_capacity_mw,
+            price_elasticity=request.price_elasticity,
+        )
+    except Exception as e:
+        raise DomainError(f"Flexible demand simulation failed: {e}") from e
+
+    return FlexibleDemandResponse(
+        total_demand_mwh=result.total_demand_mwh,
+        shifted_demand_mwh=result.shifted_demand_mwh,
+        shed_demand_mwh=result.shed_demand_mwh,
+        elastic_reduction_mwh=result.elastic_reduction_mwh,
+        peak_demand_reduction_mw=result.peak_demand_reduction_mw,
+        peak_demand_reduction_percent=result.peak_demand_reduction_percent,
+        curtailment_reduction_mwh=result.curtailment_reduction_mwh,
+        dsr_activation_cost_meur=result.dsr_activation_cost_meur,
+        net_benefit_meur=result.net_benefit_meur,
+        n_shedding_events=result.n_shedding_events,
+    )
+
+
+@router.post("/multi-energy-carrier", response_model=MultiEnergyResponse)
+async def multi_energy_carrier(request: MultiEnergyRequest) -> MultiEnergyResponse:
+    """Analyze multi-energy carrier system integration.
+
+    Couples electricity, heat, gas, and hydrogen through conversion
+    technologies (heat pumps, electrolyzers, CHP, fuel cells).
+    """
+    try:
+        result = run_multi_energy_analysis(
+            wind_generation_mwh=request.wind_generation_mwh,
+            electricity_demand_mwh=request.electricity_demand_mwh,
+            heat_demand_mwh=request.heat_demand_mwh,
+            hydrogen_demand_mwh=request.hydrogen_demand_mwh,
+        )
+    except Exception as e:
+        raise DomainError(f"Multi-energy analysis failed: {e}") from e
+
+    return MultiEnergyResponse(
+        system_efficiency=result.system_efficiency,
+        co2_emissions_tonnes=result.co2_emissions_tonnes,
+        co2_reduction_vs_separate_percent=result.co2_reduction_vs_separate_percent,
+        total_annual_cost_meur=result.total_annual_cost_meur,
+        renewable_share_percent=result.renewable_share_percent,
+        carrier_balances=[
+            CarrierBalanceSchema(
+                carrier=b.carrier,
+                total_supply_mwh=b.total_supply_mwh,
+                total_demand_mwh=b.total_demand_mwh,
+                surplus_mwh=b.surplus_mwh,
+                deficit_mwh=b.deficit_mwh,
+            )
+            for b in result.carrier_balances
+        ],
     )

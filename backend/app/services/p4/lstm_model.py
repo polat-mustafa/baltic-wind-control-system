@@ -267,7 +267,7 @@ class NormParams:
 # ── PyTorch Model ─────────────────────────────────────────────────
 
 
-class WindPowerLSTM(nn.Module):  # type: ignore[misc]
+class WindPowerLSTM(nn.Module):
     """2-layer LSTM for wind power forecasting with MC Dropout.
 
     Architecture: Input → LSTM(h1) → Dropout → LSTM(h2) → Dropout → Dense(1)

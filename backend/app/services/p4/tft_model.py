@@ -251,7 +251,7 @@ class AttentionWeights:
 # ── PyTorch Modules ──────────────────────────────────────────────
 
 
-class GatedResidualNetwork(nn.Module):  # type: ignore[misc]
+class GatedResidualNetwork(nn.Module):
     """Gated Residual Network (GRN) — the fundamental building block of TFT.
 
     GRN applies non-linear processing with a gated skip connection:
@@ -305,7 +305,7 @@ class GatedResidualNetwork(nn.Module):  # type: ignore[misc]
         return result
 
 
-class VariableSelectionNetwork(nn.Module):  # type: ignore[misc]
+class VariableSelectionNetwork(nn.Module):
     """Variable Selection Network (VSN) — learns per-feature importance.
 
     VSN determines which input features are most relevant by computing
@@ -361,7 +361,7 @@ class VariableSelectionNetwork(nn.Module):  # type: ignore[misc]
         return combined, weights
 
 
-class InterpretableMultiHeadAttention(nn.Module):  # type: ignore[misc]
+class InterpretableMultiHeadAttention(nn.Module):
     """Multi-head attention with interpretable weight extraction.
 
     Standard multi-head attention from Vaswani et al. (2017), but designed
@@ -433,7 +433,7 @@ class InterpretableMultiHeadAttention(nn.Module):  # type: ignore[misc]
         return self._attention_weights
 
 
-class WindPowerTFT(nn.Module):  # type: ignore[misc]
+class WindPowerTFT(nn.Module):
     """Temporal Fusion Transformer for wind power forecasting.
 
     Simplified educational TFT architecture:
@@ -661,7 +661,7 @@ def _train_single_fold(
             optimizer.zero_grad()
             pred = model(batch_x)  # (batch, n_quantiles)
             loss = _quantile_loss(pred, batch_y, config.quantiles)
-            loss.backward()
+            loss.backward()  # type: ignore[no-untyped-call]
             optimizer.step()
 
         actual_epochs = epoch + 1

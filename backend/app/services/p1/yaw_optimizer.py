@@ -47,6 +47,7 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -174,7 +175,7 @@ def compute_farm_power_with_yaw(
     yaw_angles_deg: NDArray[np.floating],
     wind_direction_deg: float,
     wind_speed_ms: float,
-    wf_model: object,
+    wf_model: Any,
 ) -> tuple[float, NDArray[np.floating]]:
     """Compute total farm power for given yaw angles at a single wind condition.
 

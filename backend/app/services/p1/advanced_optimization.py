@@ -601,7 +601,7 @@ def run_mga(
     opt_aep = opt_result.net_aep_gwh
     min_aep = opt_aep * (1.0 - aep_slack_percent / 100.0)
 
-    alternatives = []
+    alternatives: list[LayoutResult] = []
     aeps = []
     diversity = []
 

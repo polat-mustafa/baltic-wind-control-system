@@ -40,6 +40,7 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 # ── Expansion Planning Constants ─────────────────────────────────
 
@@ -291,7 +292,7 @@ def _compute_irr(
 
 
 def plan_capacity_expansion(
-    projects: list[dict] | None = None,
+    projects: list[dict[str, Any]] | None = None,
     electricity_price_eur_mwh: float = 72.0,
     base_year: int = 2026,
     include_bess: bool = True,

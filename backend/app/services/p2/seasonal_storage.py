@@ -52,7 +52,7 @@ class StorageTechnology(enum.Enum):
     PUMPED_HYDRO = "pumped_hydro"
 
 
-STORAGE_SPECS: dict[str, dict] = {
+STORAGE_SPECS: dict[str, dict[str, float | int]] = {
     "hydrogen_cavern": {
         "charge_efficiency": 0.65,  # Electrolyzer
         "discharge_efficiency": 0.50,  # Fuel cell

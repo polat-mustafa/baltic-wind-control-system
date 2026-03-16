@@ -64,7 +64,7 @@ class ElectrolyzerType(enum.Enum):
     SOEC = "soec"
 
 
-ELECTROLYZER_SPECS: dict[str, dict] = {
+ELECTROLYZER_SPECS: dict[str, dict[str, float | int]] = {
     "pem": {
         "efficiency": 0.65,
         "specific_energy_kwh_per_kg": 51.2,

@@ -166,7 +166,7 @@ def run_simultaneous_optimization(
     derate_bounds = [(0.6, 1.0)] * n
     bounds = pos_bounds + yaw_bounds + derate_bounds
 
-    def objective(params: NDArray) -> float:
+    def objective(params: NDArray[np.floating]) -> float:
         x = params[: 2 * n : 2]
         y = params[1 : 2 * n : 2]
         _yaw = params[2 * n : 3 * n]
@@ -453,7 +453,7 @@ def run_two_stage_stochastic(
         ti = max(0.03, min(0.15, rng.normal(0.06, 0.015)))
         scenarios.append((a, k, ti))
 
-    def stochastic_objective(params: NDArray) -> float:
+    def stochastic_objective(params: NDArray[np.floating]) -> float:
         x = params[0::2]
         y = params[1::2]
         passes, actual = check_minimum_spacing(np.array(x), np.array(y), MIN_SPACING_M)
@@ -619,7 +619,7 @@ def run_mga(
         for prev_layout in alternatives:
             all_prev.extend([prev_layout.x_positions, prev_layout.y_positions])
 
-        def mga_objective(params: NDArray) -> float:
+        def mga_objective(params: NDArray[np.floating]) -> float:
             x = params[0::2]
             y = params[1::2]
 

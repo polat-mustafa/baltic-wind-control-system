@@ -275,11 +275,14 @@ def simulate_helix_control(
     turbine_rows[order] = row_idx
 
     # Baseline wake loss model: each row downstream loses more
+    wake_loss_pct: float
     if baseline_wake_loss_per_row_pct is None:
         # Typical: ~3-5% additional loss per row at 5D spacing
-        avg_spacing = np.mean(np.diff(np.sort(np.unique(sorted_proj))))
+        avg_spacing = float(np.mean(np.diff(np.sort(np.unique(sorted_proj)))))
         spacing_d = avg_spacing / ROTOR_DIAMETER_M if avg_spacing > 0 else 5.0
-        baseline_wake_loss_per_row_pct = max(1.0, 8.0 - 0.8 * spacing_d)
+        wake_loss_pct = max(1.0, 8.0 - 0.8 * spacing_d)
+    else:
+        wake_loss_pct = baseline_wake_loss_per_row_pct
 
     # Compute per-turbine power (rated at given wind speed)
     from app.services.p1.wake_model import get_v236_power_curve_kw
@@ -292,7 +295,7 @@ def simulate_helix_control(
     baseline_mw = np.zeros(n)
     for i in range(n):
         row = turbine_rows[i]
-        loss_frac = 1.0 - (baseline_wake_loss_per_row_pct / 100.0) * row
+        loss_frac = 1.0 - (wake_loss_pct / 100.0) * row
         loss_frac = max(0.3, loss_frac)
         baseline_mw[i] = rated_mw * loss_frac
 

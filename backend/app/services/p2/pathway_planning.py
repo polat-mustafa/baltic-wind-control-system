@@ -265,7 +265,10 @@ def run_pathway_planning(
     additions = scenarios.get(scenario, scenarios["reference"])
 
     if offshore_wind_additions_gw is not None and len(offshore_wind_additions_gw) >= n_periods:
-        additions["offshore_wind"] = offshore_wind_additions_gw[:n_periods]
+        additions["offshore_wind"] = np.asarray(
+            offshore_wind_additions_gw[:n_periods],
+            dtype=np.float64,
+        )
 
     # Starting capacities [GW] (approximate 2025 Poland)
     capacity = {

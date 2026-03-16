@@ -59,7 +59,7 @@ class DSRCategory(enum.Enum):
     RESIDENTIAL = "residential"
 
 
-DSR_SPECS: dict[str, dict] = {
+DSR_SPECS: dict[str, dict[str, float | int]] = {
     "industrial": {
         "shiftable_fraction": 0.20,
         "max_shift_hours": 4,

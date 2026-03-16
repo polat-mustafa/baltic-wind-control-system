@@ -171,7 +171,8 @@ def generate_wind_forecast(
     power_fraction = np.clip((speed_profile / 12.5) ** 3, 0.0, 1.0)
 
     available_mw = power_fraction * TOTAL_CAPACITY_MW
-    return np.round(available_mw, 1).astype(np.float64)
+    result: NDArray[np.floating] = np.round(available_mw, 1).astype(np.float64)
+    return result
 
 
 def run_economic_dispatch(

@@ -384,8 +384,8 @@ class MarketWeightedAEPResult:
 
 
 def compute_market_weighted_aep(
-    hourly_generation_mw: NDArray,
-    hourly_prices_eur_mwh: NDArray | None = None,
+    hourly_generation_mw: NDArray[np.floating],
+    hourly_prices_eur_mwh: NDArray[np.floating] | None = None,
     flat_price_eur_mwh: float = DEFAULT_PRICE_EUR_MWH,
 ) -> MarketWeightedAEPResult:
     """Compute market value-weighted AEP accounting for price-generation correlation.

@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import SCADADashboard from "../../../src/components/p3/SCADADashboard";
 import { useScadaStore } from "../../../src/store/scadaStore";
 
+vi.mock("react-plotly.js", () => ({ default: () => null }));
 vi.mock("../../../src/store/scadaStore");
 vi.mock("../../../src/components/p3/SCADAKPIHeader", () => ({
   default: () => <div>SCADAKPIHeader</div>,

@@ -29,7 +29,9 @@ from app.core.exceptions import DomainError
 from app.core.exceptions import ValidationError as DomainValidationError
 from app.services.p1.aep_calculator import (
     DEFAULT_PRICE_EUR_MWH,
+    MarketWeightedAEPResult,
     compute_aep_cascade,
+    compute_market_weighted_aep,
 )
 from app.services.p1.blockage import (
     estimate_blockage_loss_percent,
@@ -59,6 +61,24 @@ from app.services.p1.yaw_optimizer import (
     optimize_yaw_all_directions,
     optimize_yaw_single_direction,
 )
+from app.services.p1.wake_models import (
+    WakeDeficitModel,
+    TurbulenceModel,
+    SuperpositionModel,
+    compare_wake_models,
+    run_wake_analysis_flexible,
+)
+from app.services.p1.derating import optimize_derating
+from app.services.p1.flowers_aep import compute_flowers_aep
+from app.services.p1.layout_optimizer import (
+    OptimizationAlgorithm,
+    optimize_layout_multi,
+)
+from app.services.p1.uncertainty_quantification import (
+    UncertainParameter,
+    run_pce_uncertainty,
+)
+from app.services.p1.robust_optimization import run_robust_optimization
 
 router = APIRouter(prefix="/api/v1/wind", tags=["P1 Wind Resource"])
 
@@ -703,4 +723,275 @@ async def yaw_optimization_farm(
         max_power_gain_percent=result.max_power_gain_percent,
         best_direction_deg=result.best_direction_deg,
         per_direction_results=per_dir,
+    )
+
+
+# ── Tier 2 Schemas ────────────────────────────────────────────
+
+
+class WakeModelComparisonRequest(BaseModel):
+    """Request to compare multiple wake deficit models."""
+
+    layout: str = Field("staggered")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    models: list[str] = Field(
+        default=["jensen", "bpa_gaussian", "noj", "zong_gaussian"],
+        description="Wake deficit models to compare",
+    )
+
+
+class WakeModelResultEntry(BaseModel):
+    model_name: str
+    net_aep_gwh: float
+    wake_loss_percent: float
+    capacity_factor: float
+
+
+class WakeModelComparisonResponse(BaseModel):
+    results: list[WakeModelResultEntry]
+    aep_range_gwh: float
+    wake_loss_range_percent: float
+
+
+class DeratingRequest(BaseModel):
+    layout: str = Field("staggered")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0)
+
+
+class DeratingResponse(BaseModel):
+    baseline_power_mw: float
+    derated_power_mw: float
+    power_gain_percent: float
+    optimal_derating_fraction: float
+    upstream_loss_mw: float
+    downstream_gain_mw: float
+
+
+class FLOWERSRequest(BaseModel):
+    layout: str = Field("staggered")
+    mean_wind_speed_ms: float = Field(10.5, ge=5.0, le=20.0)
+    n_fourier_modes: int = Field(12, ge=4, le=24)
+
+
+class FLOWERSResponse(BaseModel):
+    aep_gwh: float
+    gross_aep_gwh: float
+    wake_loss_percent: float
+    computation_time_ms: float
+    capacity_factor: float
+    n_fourier_modes: int
+
+
+class MarketWeightedAEPRequest(BaseModel):
+    layout: str = Field("staggered")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    flat_price_eur_mwh: float = Field(72.0, ge=10.0, le=300.0)
+
+
+class MarketWeightedAEPResponse(BaseModel):
+    flat_aep_gwh: float
+    market_weighted_aep_gwh: float
+    market_value_factor: float
+    flat_revenue_meur: float
+    market_revenue_meur: float
+    revenue_uplift_percent: float
+    average_capture_price_eur_mwh: float
+    peak_generation_fraction: float
+
+
+class PCEUQRequest(BaseModel):
+    layout: str = Field("staggered")
+    pce_order: int = Field(3, ge=1, le=5)
+    n_samples: int = Field(30, ge=10, le=100)
+
+
+class SobolIndexSchema(BaseModel):
+    parameter: str
+    first_order: float
+
+
+class PCEUQResponse(BaseModel):
+    mean_aep_gwh: float
+    std_aep_gwh: float
+    cov_percent: float
+    p50_gwh: float
+    p75_gwh: float
+    p90_gwh: float
+    dominant_parameter: str
+    sobol_indices: list[SobolIndexSchema]
+    r_squared: float
+    pce_order: int
+    num_samples: int
+
+
+# ── Tier 2 Endpoints ──────────────────────────────────────────
+
+
+@router.post("/wake-model-comparison", response_model=WakeModelComparisonResponse)
+async def wake_model_comparison(request: WakeModelComparisonRequest) -> WakeModelComparisonResponse:
+    """Compare multiple wake deficit models on the same layout.
+
+    Models available: jensen (NOJ top-hat), bpa_gaussian (Bastankhah),
+    noj (same as Jensen), zong_gaussian (Zong & Porté-Agel LES-based).
+    """
+    layout = _get_layout(request.layout)
+    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+    models = [WakeDeficitModel(m) for m in request.models]
+
+    try:
+        result = compare_wake_models(
+            layout.x_positions, layout.y_positions, site, models,
+        )
+    except Exception as e:
+        raise DomainError(f"Wake model comparison failed: {e}") from e
+
+    entries = [
+        WakeModelResultEntry(
+            model_name=name,
+            net_aep_gwh=round(r.net_aep_gwh, 2),
+            wake_loss_percent=round(r.wake_loss_percent, 2),
+            capacity_factor=round(r.capacity_factor, 4),
+        )
+        for name, r in result.results
+    ]
+
+    return WakeModelComparisonResponse(
+        results=entries,
+        aep_range_gwh=result.aep_range_gwh,
+        wake_loss_range_percent=result.wake_loss_range_percent,
+    )
+
+
+@router.post("/derating", response_model=DeratingResponse)
+async def derating_analysis(request: DeratingRequest) -> DeratingResponse:
+    """Optimize turbine derating for wake mitigation.
+
+    Finds the optimal upstream power reduction that maximizes total farm
+    power by weakening wakes for downstream turbines.
+    """
+    layout = _get_layout(request.layout)
+    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+
+    try:
+        result = optimize_derating(
+            layout.x_positions, layout.y_positions, site,
+            wind_direction_deg=request.wind_direction_deg,
+        )
+    except Exception as e:
+        raise DomainError(f"Derating analysis failed: {e}") from e
+
+    return DeratingResponse(
+        baseline_power_mw=result.baseline_power_mw,
+        derated_power_mw=result.derated_power_mw,
+        power_gain_percent=result.power_gain_percent,
+        optimal_derating_fraction=result.optimal_derating_fraction,
+        upstream_loss_mw=result.upstream_loss_mw,
+        downstream_gain_mw=result.downstream_gain_mw,
+    )
+
+
+@router.post("/flowers-aep", response_model=FLOWERSResponse)
+async def flowers_aep(request: FLOWERSRequest) -> FLOWERSResponse:
+    """Compute AEP using FLOWERS fast analytical method.
+
+    FLOWERS uses Fourier decomposition of the wind rose to analytically
+    integrate wake losses, providing 100-1000× speedup over directional sweeps.
+    """
+    layout = _get_layout(request.layout)
+
+    try:
+        result = compute_flowers_aep(
+            layout.x_positions, layout.y_positions,
+            mean_wind_speed_ms=request.mean_wind_speed_ms,
+            n_fourier_modes=request.n_fourier_modes,
+        )
+    except Exception as e:
+        raise DomainError(f"FLOWERS AEP failed: {e}") from e
+
+    return FLOWERSResponse(
+        aep_gwh=result.aep_gwh,
+        gross_aep_gwh=result.gross_aep_gwh,
+        wake_loss_percent=result.wake_loss_percent,
+        computation_time_ms=result.computation_time_ms,
+        capacity_factor=result.capacity_factor,
+        n_fourier_modes=result.n_fourier_modes,
+    )
+
+
+@router.post("/market-weighted-aep", response_model=MarketWeightedAEPResponse)
+async def market_weighted_aep(request: MarketWeightedAEPRequest) -> MarketWeightedAEPResponse:
+    """Compute market value-weighted AEP accounting for price-generation correlation.
+
+    Captures the 'cannibalization' effect where wind generation can depress
+    spot prices, reducing the effective value of each MWh produced.
+    """
+    layout = _get_layout(request.layout)
+    wake = _run_wake_for_layout(layout, request.weibull_a, request.weibull_k, request.turbulence_intensity)
+
+    # Generate synthetic 8760 hourly profile from average power
+    avg_power_mw = wake.net_aep_gwh * 1000.0 / 8760.0
+    rng = np.random.default_rng(42)
+    hours = np.arange(8760)
+    diurnal = 1.0 + 0.1 * np.cos(2 * np.pi * (hours % 24 - 4) / 24.0)
+    noise = 1.0 + 0.3 * rng.standard_normal(8760)
+    hourly_gen = np.clip(avg_power_mw * diurnal * noise, 0.0, 510.0)
+
+    try:
+        result = compute_market_weighted_aep(
+            hourly_gen, flat_price_eur_mwh=request.flat_price_eur_mwh,
+        )
+    except Exception as e:
+        raise DomainError(f"Market-weighted AEP failed: {e}") from e
+
+    return MarketWeightedAEPResponse(
+        flat_aep_gwh=result.flat_aep_gwh,
+        market_weighted_aep_gwh=result.market_weighted_aep_gwh,
+        market_value_factor=result.market_value_factor,
+        flat_revenue_meur=result.flat_revenue_meur,
+        market_revenue_meur=result.market_revenue_meur,
+        revenue_uplift_percent=result.revenue_uplift_percent,
+        average_capture_price_eur_mwh=result.average_capture_price_eur_mwh,
+        peak_generation_fraction=result.peak_generation_fraction,
+    )
+
+
+@router.post("/pce-uncertainty", response_model=PCEUQResponse)
+async def pce_uncertainty(request: PCEUQRequest) -> PCEUQResponse:
+    """Run Polynomial Chaos Expansion uncertainty quantification on AEP.
+
+    Builds a polynomial surrogate from sampled wake analyses to extract
+    statistics (mean, std, Sobol indices) without Monte Carlo sampling.
+    """
+    layout = _get_layout(request.layout)
+
+    try:
+        result = run_pce_uncertainty(
+            layout.x_positions, layout.y_positions,
+            pce_order=request.pce_order, n_samples=request.n_samples,
+        )
+    except Exception as e:
+        raise DomainError(f"PCE UQ failed: {e}") from e
+
+    return PCEUQResponse(
+        mean_aep_gwh=result.mean_aep_gwh,
+        std_aep_gwh=result.std_aep_gwh,
+        cov_percent=result.cov_percent,
+        p50_gwh=result.p50_gwh,
+        p75_gwh=result.p75_gwh,
+        p90_gwh=result.p90_gwh,
+        dominant_parameter=result.dominant_parameter,
+        sobol_indices=[
+            SobolIndexSchema(parameter=s.parameter, first_order=s.first_order)
+            for s in result.sobol_indices
+        ],
+        r_squared=result.r_squared,
+        pce_order=result.pce_order,
+        num_samples=result.num_samples,
     )

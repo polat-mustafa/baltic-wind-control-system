@@ -43,12 +43,22 @@ Maths
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
 from app.services.p1.wake_model import ROTOR_DIAMETER_M
+
+
+class OptimizationAlgorithm(str, Enum):
+    """Available layout optimization algorithms."""
+
+    DIFFERENTIAL_EVOLUTION = "differential_evolution"
+    BASIN_HOPPING = "basin_hopping"
+    GENETIC_ALGORITHM = "genetic_algorithm"
+    GRADIENT_LBFGSB = "gradient_lbfgsb"
 
 # ── Layout Constants ──────────────────────────────────────────────
 
@@ -417,3 +427,317 @@ def optimize_layout(
         min_spacing_m=min_dist,
         area_km2=area,
     )
+
+
+# ── Multi-Algorithm Optimization ─────────────────────────────────
+
+
+def _make_objective(
+    site: Any,
+    n: int,
+    penalty_weight: float = 1e6,
+) -> tuple[Any, Any]:
+    """Create shared objective function and turbine for optimization.
+
+    Returns
+    -------
+    tuple[callable, WindTurbine]
+        (objective_function, turbine_object).
+    """
+    from app.services.p1.wake_model import (
+        create_v236_wind_turbine,
+        run_wake_analysis,
+    )
+
+    turbine = create_v236_wind_turbine()
+
+    def objective(params: NDArray[np.floating]) -> float:
+        x = params[0::2]
+        y = params[1::2]
+        passes, actual_min = check_minimum_spacing(np.array(x), np.array(y), MIN_SPACING_M)
+        penalty = 0.0
+        if not passes:
+            violation = MIN_SPACING_M - actual_min
+            penalty = penalty_weight * violation**2
+        try:
+            result = run_wake_analysis(
+                np.array(x, dtype=np.float64),
+                np.array(y, dtype=np.float64),
+                site, turbine,
+            )
+            return -result.net_aep_gwh + penalty
+        except Exception:
+            return 1e12
+
+    return objective, turbine
+
+
+def optimize_layout_basin_hopping(
+    initial_x: NDArray[np.floating],
+    initial_y: NDArray[np.floating],
+    site: Any,
+    niter: int = 20,
+    seed: int = 42,
+) -> LayoutResult:
+    """Optimize layout using basin-hopping (global optimization with local refinement).
+
+    Basin-hopping iteratively: perturb → local minimize → accept/reject (Metropolis).
+    Good for escaping local minima in the non-convex AEP landscape.
+
+    Parameters
+    ----------
+    initial_x, initial_y : NDArray
+        Initial turbine coordinates [m].
+    site : py_wake.site.BaseSite
+        PyWake site object.
+    niter : int
+        Number of basin-hopping iterations. Default: 20.
+    seed : int
+        Random seed. Default: 42.
+
+    Returns
+    -------
+    LayoutResult
+        Optimized layout.
+    """
+    from scipy.optimize import basinhopping
+
+    n = len(initial_x)
+    objective, _ = _make_objective(site, n)
+
+    x0 = np.empty(2 * n, dtype=np.float64)
+    x0[0::2] = initial_x
+    x0[1::2] = initial_y
+
+    margin = 2.0 * ROTOR_DIAMETER_M
+    x_min, x_max = float(np.min(initial_x)) - margin, float(np.max(initial_x)) + margin
+    y_min, y_max = float(np.min(initial_y)) - margin, float(np.max(initial_y)) + margin
+
+    minimizer_kwargs = {
+        "method": "L-BFGS-B",
+        "bounds": [(x_min, x_max), (y_min, y_max)] * n,
+    }
+
+    result = basinhopping(
+        objective,
+        x0,
+        niter=niter,
+        minimizer_kwargs=minimizer_kwargs,
+        seed=seed,
+        stepsize=ROTOR_DIAMETER_M,
+    )
+
+    opt_x = result.x[0::2].astype(np.float64)
+    opt_y = result.x[1::2].astype(np.float64)
+    _, min_dist = check_minimum_spacing(opt_x, opt_y)
+    area = _compute_layout_area_km2(opt_x, opt_y)
+
+    return LayoutResult(
+        name="Basin-Hopping Optimized",
+        x_positions=opt_x, y_positions=opt_y,
+        num_turbines=n, min_spacing_m=min_dist, area_km2=area,
+    )
+
+
+def optimize_layout_genetic(
+    initial_x: NDArray[np.floating],
+    initial_y: NDArray[np.floating],
+    site: Any,
+    pop_size: int = 30,
+    n_generations: int = 30,
+    seed: int = 42,
+) -> LayoutResult:
+    """Optimize layout using a simple genetic algorithm.
+
+    Parameters
+    ----------
+    initial_x, initial_y : NDArray
+        Initial turbine coordinates [m].
+    site : py_wake.site.BaseSite
+        PyWake site object.
+    pop_size : int
+        Population size. Default: 30.
+    n_generations : int
+        Number of generations. Default: 30.
+    seed : int
+        Random seed. Default: 42.
+
+    Returns
+    -------
+    LayoutResult
+        Optimized layout.
+    """
+    rng = np.random.default_rng(seed)
+    n = len(initial_x)
+    objective, _ = _make_objective(site, n)
+
+    margin = 2.0 * ROTOR_DIAMETER_M
+    x_min, x_max = float(np.min(initial_x)) - margin, float(np.max(initial_x)) + margin
+    y_min, y_max = float(np.min(initial_y)) - margin, float(np.max(initial_y)) + margin
+
+    # Initialize population around initial layout
+    x0 = np.empty(2 * n, dtype=np.float64)
+    x0[0::2] = initial_x
+    x0[1::2] = initial_y
+
+    population = np.array([
+        x0 + rng.normal(0, ROTOR_DIAMETER_M * 0.5, 2 * n)
+        for _ in range(pop_size)
+    ])
+    population[0] = x0  # Keep initial as first individual
+
+    # Clip to bounds
+    for i in range(pop_size):
+        population[i, 0::2] = np.clip(population[i, 0::2], x_min, x_max)
+        population[i, 1::2] = np.clip(population[i, 1::2], y_min, y_max)
+
+    fitness = np.array([objective(ind) for ind in population])
+
+    for _gen in range(n_generations):
+        # Tournament selection (size 3)
+        parents = []
+        for _ in range(pop_size):
+            candidates = rng.choice(pop_size, size=3, replace=False)
+            winner = candidates[np.argmin(fitness[candidates])]
+            parents.append(population[winner])
+
+        # Crossover (uniform)
+        offspring = np.zeros_like(population)
+        for i in range(0, pop_size, 2):
+            mask = rng.random(2 * n) < 0.5
+            p1, p2 = parents[i % pop_size], parents[(i + 1) % pop_size]
+            offspring[i] = np.where(mask, p1, p2)
+            if i + 1 < pop_size:
+                offspring[i + 1] = np.where(mask, p2, p1)
+
+        # Mutation (Gaussian perturbation)
+        mutation_mask = rng.random((pop_size, 2 * n)) < 0.1
+        mutations = rng.normal(0, ROTOR_DIAMETER_M * 0.3, (pop_size, 2 * n))
+        offspring += mutation_mask * mutations
+
+        # Clip to bounds
+        for i in range(pop_size):
+            offspring[i, 0::2] = np.clip(offspring[i, 0::2], x_min, x_max)
+            offspring[i, 1::2] = np.clip(offspring[i, 1::2], y_min, y_max)
+
+        # Evaluate offspring
+        offspring_fitness = np.array([objective(ind) for ind in offspring])
+
+        # Elitism: keep best from combined population
+        combined = np.vstack([population, offspring])
+        combined_fitness = np.concatenate([fitness, offspring_fitness])
+        best_indices = np.argsort(combined_fitness)[:pop_size]
+        population = combined[best_indices]
+        fitness = combined_fitness[best_indices]
+
+    best = population[np.argmin(fitness)]
+    opt_x = best[0::2].astype(np.float64)
+    opt_y = best[1::2].astype(np.float64)
+    _, min_dist = check_minimum_spacing(opt_x, opt_y)
+    area = _compute_layout_area_km2(opt_x, opt_y)
+
+    return LayoutResult(
+        name="Genetic Algorithm Optimized",
+        x_positions=opt_x, y_positions=opt_y,
+        num_turbines=n, min_spacing_m=min_dist, area_km2=area,
+    )
+
+
+def optimize_layout_gradient(
+    initial_x: NDArray[np.floating],
+    initial_y: NDArray[np.floating],
+    site: Any,
+    maxiter: int = 100,
+) -> LayoutResult:
+    """Optimize layout using gradient-based L-BFGS-B.
+
+    Fast convergence for local optimization. Best when started from a good
+    initial layout (e.g., staggered grid). Uses numerical gradient estimation.
+
+    Parameters
+    ----------
+    initial_x, initial_y : NDArray
+        Initial turbine coordinates [m].
+    site : py_wake.site.BaseSite
+        PyWake site object.
+    maxiter : int
+        Maximum iterations. Default: 100.
+
+    Returns
+    -------
+    LayoutResult
+        Locally optimized layout.
+    """
+    from scipy.optimize import minimize
+
+    n = len(initial_x)
+    objective, _ = _make_objective(site, n)
+
+    x0 = np.empty(2 * n, dtype=np.float64)
+    x0[0::2] = initial_x
+    x0[1::2] = initial_y
+
+    margin = 2.0 * ROTOR_DIAMETER_M
+    bounds = [
+        (float(np.min(initial_x)) - margin, float(np.max(initial_x)) + margin),
+        (float(np.min(initial_y)) - margin, float(np.max(initial_y)) + margin),
+    ] * n
+
+    result = minimize(
+        objective, x0,
+        method="L-BFGS-B",
+        bounds=bounds,
+        options={"maxiter": maxiter, "ftol": 1e-6},
+    )
+
+    opt_x = result.x[0::2].astype(np.float64)
+    opt_y = result.x[1::2].astype(np.float64)
+    _, min_dist = check_minimum_spacing(opt_x, opt_y)
+    area = _compute_layout_area_km2(opt_x, opt_y)
+
+    return LayoutResult(
+        name="Gradient Optimized",
+        x_positions=opt_x, y_positions=opt_y,
+        num_turbines=n, min_spacing_m=min_dist, area_km2=area,
+    )
+
+
+def optimize_layout_multi(
+    initial_x: NDArray[np.floating],
+    initial_y: NDArray[np.floating],
+    site: Any,
+    algorithm: OptimizationAlgorithm = OptimizationAlgorithm.DIFFERENTIAL_EVOLUTION,
+    maxiter: int = 50,
+    seed: int = 42,
+) -> LayoutResult:
+    """Optimize layout using a user-selected algorithm.
+
+    Parameters
+    ----------
+    initial_x, initial_y : NDArray
+        Initial turbine coordinates [m].
+    site : py_wake.site.BaseSite
+        PyWake site object.
+    algorithm : OptimizationAlgorithm
+        Optimization algorithm to use.
+    maxiter : int
+        Maximum iterations/generations. Default: 50.
+    seed : int
+        Random seed. Default: 42.
+
+    Returns
+    -------
+    LayoutResult
+        Optimized layout.
+    """
+    if algorithm == OptimizationAlgorithm.DIFFERENTIAL_EVOLUTION:
+        return optimize_layout(initial_x, initial_y, site, maxiter=maxiter, seed=seed)
+    elif algorithm == OptimizationAlgorithm.BASIN_HOPPING:
+        return optimize_layout_basin_hopping(initial_x, initial_y, site, niter=maxiter, seed=seed)
+    elif algorithm == OptimizationAlgorithm.GENETIC_ALGORITHM:
+        return optimize_layout_genetic(initial_x, initial_y, site, n_generations=maxiter, seed=seed)
+    elif algorithm == OptimizationAlgorithm.GRADIENT_LBFGSB:
+        return optimize_layout_gradient(initial_x, initial_y, site, maxiter=maxiter)
+    else:
+        msg = f"Unknown algorithm: {algorithm}"
+        raise ValueError(msg)

@@ -64,6 +64,17 @@ from app.services.p2.short_circuit import calc_short_circuit
 from app.services.p2.sso_analysis import run_sso_screening
 from app.services.p2.optimal_power_flow import run_ac_opf, run_dc_opf
 from app.services.p2.scopf import run_scopf
+from app.services.p2.dc_power_flow import (
+    run_dc_power_flow,
+    run_dc_contingency_screening,
+)
+from app.services.p2.economic_dispatch import (
+    generate_wind_forecast,
+    run_economic_dispatch,
+)
+from app.services.p2.energy_storage import run_bess_dispatch
+from app.services.p2.ac_dc_network import compare_export_options
+from app.services.p2.capacity_expansion import plan_capacity_expansion
 from app.services.p2.statcom_sizing import validate_compensation
 
 router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
@@ -681,4 +692,361 @@ async def security_constrained_opf(request: SCOPFRequest) -> SCOPFResponse:
         worst_contingency=result.worst_contingency,
         iterations=result.iterations,
         total_curtailment_for_security_mw=result.total_curtailment_for_security_mw,
+    )
+
+
+# ── Tier 2 Schemas ────────────────────────────────────────────
+
+
+class DCPowerFlowRequest(BaseModel):
+    """Request for DC (linearized) power flow."""
+
+    generation_fraction: float = Field(1.0, ge=0.0, le=1.0)
+    export_length_km: float = Field(EXPORT_CABLE_LENGTH_KM, ge=1.0, le=200.0)
+    grid_ssc_mva: float = Field(GRID_SSC_MVA, ge=500.0, le=50_000.0)
+
+
+class DCLineResultSchema(BaseModel):
+    name: str
+    p_from_mw: float
+    loading_percent: float
+    overloaded: bool
+
+
+class DCPowerFlowResponse(BaseModel):
+    converged: bool
+    total_generation_mw: float
+    total_export_mw: float
+    max_line_loading_percent: float
+    num_overloaded_lines: int
+    line_results: list[DCLineResultSchema]
+
+
+class DCContingencyResponse(BaseModel):
+    n_contingencies: int
+    n_secure: int
+    n_violations: int
+    worst_contingency: str
+    worst_loading_percent: float
+
+
+class EconomicDispatchRequest(BaseModel):
+    mean_wind_speed_ms: float = Field(10.5, ge=5.0, le=20.0)
+    curtailment_order_mw: float = Field(0.0, ge=0.0, le=510.0)
+    electricity_price_eur_mwh: float = Field(72.0, ge=10.0, le=300.0)
+
+
+class DispatchTimestepSchema(BaseModel):
+    hour: int
+    wind_power_available_mw: float
+    wind_power_dispatched_mw: float
+    curtailed_mw: float
+    ramp_rate_mw_min: float
+    ramp_compliant: bool
+    cost_eur: float
+
+
+class EconomicDispatchResponse(BaseModel):
+    total_generation_mwh: float
+    total_curtailment_mwh: float
+    total_cost_eur: float
+    curtailment_cost_eur: float
+    average_cost_eur_mwh: float
+    max_ramp_mw_min: float
+    ramp_violations: int
+    capacity_factor: float
+    timesteps: list[DispatchTimestepSchema]
+
+
+class BESSRequest(BaseModel):
+    mean_wind_speed_ms: float = Field(10.5, ge=5.0, le=20.0)
+    grid_export_limit_mw: float = Field(510.0, ge=100.0, le=1000.0)
+    bess_power_mw: float = Field(100.0, ge=10.0, le=500.0)
+    bess_energy_mwh: float = Field(400.0, ge=40.0, le=2000.0)
+
+
+class BESSTimestepSchema(BaseModel):
+    hour: int
+    wind_power_mw: float
+    bess_power_mw: float
+    grid_export_mw: float
+    soc: float
+    curtailed_mw: float
+    revenue_eur: float
+
+
+class BESSResponse(BaseModel):
+    total_revenue_eur: float
+    revenue_without_bess_eur: float
+    revenue_gain_eur: float
+    revenue_gain_percent: float
+    curtailment_without_bess_mwh: float
+    curtailment_with_bess_mwh: float
+    curtailment_reduction_mwh: float
+    bess_cycles: float
+    average_soc: float
+    timesteps: list[BESSTimestepSchema]
+
+
+class ACDCComparisonRequest(BaseModel):
+    cable_length_km: float = Field(45.0, ge=1.0, le=300.0)
+    capacity_factor: float = Field(0.45, ge=0.1, le=0.7)
+
+
+class ExportOptionSchema(BaseModel):
+    technology: str
+    total_loss_mw: float
+    loss_percent: float
+    cable_loss_mw: float
+    converter_loss_mw: float
+    reactive_compensation_mvar: float
+    annual_loss_gwh: float
+    capex_index: float
+
+
+class ACDCComparisonResponse(BaseModel):
+    options: list[ExportOptionSchema]
+    recommended: str
+    recommendation_reason: str
+    loss_saving_mw: float
+    loss_saving_gwh_year: float
+
+
+class CapacityExpansionRequest(BaseModel):
+    electricity_price_eur_mwh: float = Field(72.0, ge=10.0, le=300.0)
+    base_year: int = Field(2026, ge=2024, le=2035)
+    include_bess: bool = Field(True)
+
+
+class ProjectPhaseSchema(BaseModel):
+    name: str
+    capacity_mw: float
+    build_year: int
+    cod_year: int
+    capex_meur: float
+    annual_aep_gwh: float
+    lcoe_eur_mwh: float
+    npv_meur: float
+    irr_percent: float
+    bess_mwh: float
+
+
+class CapacityExpansionResponse(BaseModel):
+    phases: list[ProjectPhaseSchema]
+    total_capacity_mw: float
+    total_capex_meur: float
+    total_annual_aep_gwh: float
+    portfolio_lcoe_eur_mwh: float
+    portfolio_npv_meur: float
+    buildout_years: int
+    total_bess_mwh: float
+
+
+# ── Tier 2 Endpoints ──────────────────────────────────────────
+
+
+@router.post("/dc-power-flow", response_model=DCPowerFlowResponse)
+async def dc_power_flow(request: DCPowerFlowRequest) -> DCPowerFlowResponse:
+    """Run DC (linearized) power flow for fast network screening.
+
+    DC power flow assumes flat voltage profile and lossless lines.
+    100-1000× faster than AC power flow — ideal for contingency screening.
+    """
+    try:
+        result = run_dc_power_flow(
+            generation_fraction=request.generation_fraction,
+            export_length_km=request.export_length_km,
+            grid_ssc_mva=request.grid_ssc_mva,
+        )
+    except Exception as e:
+        raise DomainError(f"DC power flow failed: {e}") from e
+
+    return DCPowerFlowResponse(
+        converged=result.converged,
+        total_generation_mw=result.total_generation_mw,
+        total_export_mw=result.total_export_mw,
+        max_line_loading_percent=result.max_line_loading_percent,
+        num_overloaded_lines=result.num_overloaded_lines,
+        line_results=[
+            DCLineResultSchema(
+                name=lr.name, p_from_mw=lr.p_from_mw,
+                loading_percent=lr.loading_percent, overloaded=lr.overloaded,
+            )
+            for lr in result.line_results
+        ],
+    )
+
+
+@router.post("/dc-contingency-screening", response_model=DCContingencyResponse)
+async def dc_contingency_screening(request: DCPowerFlowRequest) -> DCContingencyResponse:
+    """Screen all N-1 string contingencies using fast DC power flow."""
+    try:
+        result = run_dc_contingency_screening(
+            generation_fraction=request.generation_fraction,
+            export_length_km=request.export_length_km,
+            grid_ssc_mva=request.grid_ssc_mva,
+        )
+    except Exception as e:
+        raise DomainError(f"DC contingency screening failed: {e}") from e
+
+    return DCContingencyResponse(
+        n_contingencies=result.n_contingencies,
+        n_secure=result.n_secure,
+        n_violations=result.n_violations,
+        worst_contingency=result.worst_contingency,
+        worst_loading_percent=result.worst_loading_percent,
+    )
+
+
+@router.post("/economic-dispatch", response_model=EconomicDispatchResponse)
+async def economic_dispatch(request: EconomicDispatchRequest) -> EconomicDispatchResponse:
+    """Run 24-hour economic dispatch with ramp rate compliance.
+
+    Optimizes wind farm dispatch against grid code constraints (PSE IRiESP
+    ramp limits: 10% Pn/min up, 20% Pn/min down) and curtailment costs.
+    """
+    forecast = generate_wind_forecast(mean_speed_ms=request.mean_wind_speed_ms)
+
+    try:
+        result = run_economic_dispatch(
+            wind_forecast_mw=forecast,
+            curtailment_order_mw=request.curtailment_order_mw,
+            electricity_price_eur_mwh=request.electricity_price_eur_mwh,
+        )
+    except Exception as e:
+        raise DomainError(f"Economic dispatch failed: {e}") from e
+
+    return EconomicDispatchResponse(
+        total_generation_mwh=result.total_generation_mwh,
+        total_curtailment_mwh=result.total_curtailment_mwh,
+        total_cost_eur=result.total_cost_eur,
+        curtailment_cost_eur=result.curtailment_cost_eur,
+        average_cost_eur_mwh=result.average_cost_eur_mwh,
+        max_ramp_mw_min=result.max_ramp_mw_min,
+        ramp_violations=result.ramp_violations,
+        capacity_factor=result.capacity_factor,
+        timesteps=[
+            DispatchTimestepSchema(
+                hour=ts.hour,
+                wind_power_available_mw=ts.wind_power_available_mw,
+                wind_power_dispatched_mw=ts.wind_power_dispatched_mw,
+                curtailed_mw=ts.curtailed_mw,
+                ramp_rate_mw_min=ts.ramp_rate_mw_min,
+                ramp_compliant=ts.ramp_compliant,
+                cost_eur=ts.cost_eur,
+            )
+            for ts in result.timesteps
+        ],
+    )
+
+
+@router.post("/bess-dispatch", response_model=BESSResponse)
+async def bess_dispatch(request: BESSRequest) -> BESSResponse:
+    """Run battery energy storage dispatch optimization.
+
+    Optimizes BESS charge/discharge against electricity prices to maximize
+    revenue while reducing curtailment and smoothing ramps.
+    """
+    import numpy as np
+
+    forecast = generate_wind_forecast(mean_speed_ms=request.mean_wind_speed_ms)
+
+    try:
+        result = run_bess_dispatch(
+            wind_power_mw=forecast,
+            grid_export_limit_mw=request.grid_export_limit_mw,
+            bess_power_mw=request.bess_power_mw,
+            bess_energy_mwh=request.bess_energy_mwh,
+        )
+    except Exception as e:
+        raise DomainError(f"BESS dispatch failed: {e}") from e
+
+    return BESSResponse(
+        total_revenue_eur=result.total_revenue_eur,
+        revenue_without_bess_eur=result.revenue_without_bess_eur,
+        revenue_gain_eur=result.revenue_gain_eur,
+        revenue_gain_percent=result.revenue_gain_percent,
+        curtailment_without_bess_mwh=result.curtailment_without_bess_mwh,
+        curtailment_with_bess_mwh=result.curtailment_with_bess_mwh,
+        curtailment_reduction_mwh=result.curtailment_reduction_mwh,
+        bess_cycles=result.bess_cycles,
+        average_soc=result.average_soc,
+        timesteps=[
+            BESSTimestepSchema(
+                hour=ts.hour, wind_power_mw=ts.wind_power_mw,
+                bess_power_mw=ts.bess_power_mw, grid_export_mw=ts.grid_export_mw,
+                soc=ts.soc, curtailed_mw=ts.curtailed_mw, revenue_eur=ts.revenue_eur,
+            )
+            for ts in result.timesteps
+        ],
+    )
+
+
+@router.post("/ac-dc-comparison", response_model=ACDCComparisonResponse)
+async def ac_dc_comparison(request: ACDCComparisonRequest) -> ACDCComparisonResponse:
+    """Compare HVAC, HVDC-VSC, and hybrid export options.
+
+    Evaluates cable losses, converter losses, reactive compensation needs,
+    and relative CAPEX for each technology at the given cable length.
+    """
+    try:
+        result = compare_export_options(
+            cable_length_km=request.cable_length_km,
+            capacity_factor=request.capacity_factor,
+        )
+    except Exception as e:
+        raise DomainError(f"AC-DC comparison failed: {e}") from e
+
+    return ACDCComparisonResponse(
+        options=[
+            ExportOptionSchema(
+                technology=opt.technology, total_loss_mw=opt.total_loss_mw,
+                loss_percent=opt.loss_percent, cable_loss_mw=opt.cable_loss_mw,
+                converter_loss_mw=opt.converter_loss_mw,
+                reactive_compensation_mvar=opt.reactive_compensation_mvar,
+                annual_loss_gwh=opt.annual_loss_gwh, capex_index=opt.capex_index,
+            )
+            for opt in result.options
+        ],
+        recommended=result.recommended,
+        recommendation_reason=result.recommendation_reason,
+        loss_saving_mw=result.loss_saving_mw,
+        loss_saving_gwh_year=result.loss_saving_gwh_year,
+    )
+
+
+@router.post("/capacity-expansion", response_model=CapacityExpansionResponse)
+async def capacity_expansion(request: CapacityExpansionRequest) -> CapacityExpansionResponse:
+    """Plan optimal capacity expansion for the P1-P5 wind farm portfolio.
+
+    Computes phased buildout with technology learning curves, BESS integration
+    for later phases, LCOE, NPV, and IRR per project.
+    """
+    try:
+        result = plan_capacity_expansion(
+            electricity_price_eur_mwh=request.electricity_price_eur_mwh,
+            base_year=request.base_year,
+            include_bess=request.include_bess,
+        )
+    except Exception as e:
+        raise DomainError(f"Capacity expansion failed: {e}") from e
+
+    return CapacityExpansionResponse(
+        phases=[
+            ProjectPhaseSchema(
+                name=p.name, capacity_mw=p.capacity_mw,
+                build_year=p.build_year, cod_year=p.cod_year,
+                capex_meur=p.capex_meur, annual_aep_gwh=p.annual_aep_gwh,
+                lcoe_eur_mwh=p.lcoe_eur_mwh, npv_meur=p.npv_meur,
+                irr_percent=p.irr_percent, bess_mwh=p.bess_mwh,
+            )
+            for p in result.phases
+        ],
+        total_capacity_mw=result.total_capacity_mw,
+        total_capex_meur=result.total_capex_meur,
+        total_annual_aep_gwh=result.total_annual_aep_gwh,
+        portfolio_lcoe_eur_mwh=result.portfolio_lcoe_eur_mwh,
+        portfolio_npv_meur=result.portfolio_npv_meur,
+        buildout_years=result.buildout_years,
+        total_bess_mwh=result.total_bess_mwh,
     )

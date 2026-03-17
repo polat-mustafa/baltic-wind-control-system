@@ -52,6 +52,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+import numpy as np
+from numpy.typing import NDArray
+
 # ── Z-scores for exceedance percentiles ───────────────────────────
 Z_75: float = 0.674
 Z_90: float = 1.282
@@ -342,6 +345,125 @@ def compute_aep_cascade(
         revenue_meur=revenue,
         loss_factors=loss_factors,
         price_eur_mwh=price_eur_mwh,
+    )
+
+
+@dataclass(frozen=True)
+class MarketWeightedAEPResult:
+    """Market value-weighted AEP result.
+
+    Attributes
+    ----------
+    flat_aep_gwh : float
+        Standard AEP (flat price) [GWh/year].
+    market_weighted_aep_gwh : float
+        Market value-weighted AEP [GWh/year equivalent].
+    market_value_factor : float
+        Ratio of weighted to flat AEP [-]. >1 = generation correlates
+        with high prices, <1 = cannibalization effect.
+    flat_revenue_meur : float
+        Revenue at flat price [M EUR/year].
+    market_revenue_meur : float
+        Revenue at time-varying prices [M EUR/year].
+    revenue_uplift_percent : float
+        Revenue increase from price correlation [%].
+    average_capture_price_eur_mwh : float
+        Volume-weighted average capture price [EUR/MWh].
+    peak_generation_fraction : float
+        Fraction of generation during peak-price hours [-].
+    """
+
+    flat_aep_gwh: float
+    market_weighted_aep_gwh: float
+    market_value_factor: float
+    flat_revenue_meur: float
+    market_revenue_meur: float
+    revenue_uplift_percent: float
+    average_capture_price_eur_mwh: float
+    peak_generation_fraction: float
+
+
+def compute_market_weighted_aep(
+    hourly_generation_mw: NDArray[np.floating],
+    hourly_prices_eur_mwh: NDArray[np.floating] | None = None,
+    flat_price_eur_mwh: float = DEFAULT_PRICE_EUR_MWH,
+) -> MarketWeightedAEPResult:
+    """Compute market value-weighted AEP accounting for price-generation correlation.
+
+    Standard AEP assumes a flat electricity price. In reality, wind generation
+    is correlated with prices — often negatively (wind depresses spot prices).
+    Market-weighted AEP captures this "cannibalization" effect.
+
+    Parameters
+    ----------
+    hourly_generation_mw : NDArray
+        8760-hour generation profile [MW].
+    hourly_prices_eur_mwh : NDArray, optional
+        8760-hour price profile [EUR/MWh]. Default: synthetic Polish DAM profile.
+    flat_price_eur_mwh : float
+        Flat price for standard AEP revenue [EUR/MWh]. Default: 72.0.
+
+    Returns
+    -------
+    MarketWeightedAEPResult
+        Market-weighted AEP and revenue comparison.
+    """
+
+    n_hours = len(hourly_generation_mw)
+
+    if hourly_prices_eur_mwh is None:
+        # Synthetic Polish Day-Ahead Market prices (diurnal + seasonal)
+        hours = np.arange(n_hours)
+        # Diurnal pattern: peak 8-20h, trough 0-6h
+        diurnal = 72.0 + 25.0 * np.sin(np.pi * (hours % 24 - 6) / 12.0)
+        # Seasonal: higher winter, lower summer
+        seasonal = 1.0 + 0.15 * np.cos(2 * np.pi * hours / 8760.0)
+        # Random noise
+        rng = np.random.default_rng(42)
+        noise = 1.0 + 0.1 * rng.standard_normal(n_hours)
+        hourly_prices_eur_mwh = np.clip(diurnal * seasonal * noise, 15.0, 200.0)
+
+    gen = np.asarray(hourly_generation_mw, dtype=np.float64)
+    prices = np.asarray(hourly_prices_eur_mwh, dtype=np.float64)
+
+    # Flat AEP and revenue
+    flat_aep_gwh = float(gen.sum()) / 1000.0  # MWh → GWh
+    flat_revenue = flat_aep_gwh * 1000.0 * flat_price_eur_mwh / 1e6  # M EUR
+
+    # Market revenue
+    hourly_revenue = gen * prices  # EUR/h
+    market_revenue = float(hourly_revenue.sum()) / 1e6  # M EUR
+
+    # Market value-weighted AEP: AEP_weighted = Σ(P_i × price_i) / price_avg
+    avg_price = float(prices.mean())
+    market_weighted_aep_gwh = (
+        float((gen * prices).sum()) / (avg_price * 1000.0) if avg_price > 0 else flat_aep_gwh
+    )
+
+    market_value_factor = market_weighted_aep_gwh / flat_aep_gwh if flat_aep_gwh > 0 else 1.0
+
+    # Average capture price
+    total_gen = float(gen.sum())
+    capture_price = float(hourly_revenue.sum()) / total_gen if total_gen > 0 else avg_price
+
+    # Peak generation fraction (hours when price > 75th percentile)
+    price_75 = float(np.percentile(prices, 75))
+    peak_mask = prices >= price_75
+    peak_gen_fraction = float(gen[peak_mask].sum()) / total_gen if total_gen > 0 else 0.25
+
+    revenue_uplift = (
+        (market_revenue - flat_revenue) / flat_revenue * 100.0 if flat_revenue > 0 else 0.0
+    )
+
+    return MarketWeightedAEPResult(
+        flat_aep_gwh=round(flat_aep_gwh, 2),
+        market_weighted_aep_gwh=round(market_weighted_aep_gwh, 2),
+        market_value_factor=round(market_value_factor, 4),
+        flat_revenue_meur=round(flat_revenue, 2),
+        market_revenue_meur=round(market_revenue, 2),
+        revenue_uplift_percent=round(revenue_uplift, 2),
+        average_capture_price_eur_mwh=round(capture_price, 2),
+        peak_generation_fraction=round(peak_gen_fraction, 4),
     )
 
 

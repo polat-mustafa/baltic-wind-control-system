@@ -293,3 +293,55 @@ export interface SLDMeasurement {
   currentA: number;
   powerMW: number;
 }
+
+// ── Historian Types ───────────────────────────────────────────────
+
+/** Engineering metadata for a SCADA historian tag */
+export interface HistorianTagMeta {
+  tag: string;
+  display_name: string;
+  description: string;
+  unit: string;
+  nominal: number;
+  range_min: number;
+  range_max: number;
+}
+
+/** Single timestamp-value pair */
+export interface TimeSeriesPoint {
+  timestamp_iso: string;
+  value: number;
+}
+
+/** Time-series data for one tag */
+export interface TagTimeSeries {
+  tag: string;
+  display_name: string;
+  unit: string;
+  description: string;
+  nominal: number;
+  range_min: number;
+  range_max: number;
+  resolution: string;
+  points: TimeSeriesPoint[];
+}
+
+/** Request body for historian query */
+export interface HistorianQueryRequest {
+  tags: string[];
+  range_hours: number;
+  resolution: string;
+  now_epoch_minutes: number;
+}
+
+/** Multi-tag time-series response */
+export interface HistorianQueryResponse {
+  range_hours: number;
+  resolution: string;
+  series: TagTimeSeries[];
+}
+
+/** Latest values snapshot */
+export interface HistorianLatestResponse {
+  values: Record<string, number>;
+}

@@ -210,7 +210,7 @@ class TestSingleGradingPair:
         assert result.upstream_delay_s == 0.8
 
     def test_missing_setting_raises_key_error(self) -> None:
-        settings = {}  # Empty
+        settings: dict[str, RelaySetting] = {}  # Empty
         with pytest.raises(KeyError):
             check_single_grading_pair(GRADING_PAIRS[0], settings)
 

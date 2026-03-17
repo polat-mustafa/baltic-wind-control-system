@@ -1,4 +1,4 @@
-﻿# Przeglad Lekcji - Baltic Wind HV Control Platform
+# Przeglad Lekcji - Baltic Wind HV Control Platform
 
 <a id="the-project-at-a-glance"></a>
 ## The Project at a Glance

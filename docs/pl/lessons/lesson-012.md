@@ -1,4 +1,4 @@
-﻿# Lekcja 012 - Pipeline Danych SCADA: Krzywe Mocy, Produkcja Syntetyczna, Filtry Jakosci i Ograniczenia Fizyczne
+# Lekcja 012 - Pipeline Danych SCADA: Krzywe Mocy, Produkcja Syntetyczna, Filtry Jakosci i Ograniczenia Fizyczne
 
 !!! abstract "Nawigacja Lekcji"
     :material-arrow-left: **Poprzednia:** [Lekcja 011 - RBAC i Permit-to-Work](lesson-011.md) | **Nastepna:** [Lekcja 013 - Prognozowanie Kwantylowe XGBoost](lesson-013.md) :material-arrow-right:

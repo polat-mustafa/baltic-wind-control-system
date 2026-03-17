@@ -1,4 +1,4 @@
-﻿# Lesson 011 - IEC 62443 RBAC and the Permit-to-Work Lifecycle
+# Lesson 011 - IEC 62443 RBAC and the Permit-to-Work Lifecycle
 
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** [Lesson 010 - GOOSE Simulation and Protection Timeline](lesson-010.md) | **Next:** [Lesson 012 - SCADA Data Pipeline](lesson-012.md) :material-arrow-right:

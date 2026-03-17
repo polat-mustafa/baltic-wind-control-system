@@ -1,4 +1,4 @@
-﻿# Lesson 010 - GOOSE Fault Simulation, Protection Timeline and SCADA API Endpoints
+# Lesson 010 - GOOSE Fault Simulation, Protection Timeline and SCADA API Endpoints
 
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** [Lesson 009 - IEC 61850 Data Model](lesson-009.md) | **Next:** [Lesson 011 - IEC 62443 RBAC and Permit-to-Work](lesson-011.md) :material-arrow-right:

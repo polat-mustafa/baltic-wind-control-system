@@ -1,244 +1,225 @@
-﻿# Lekcja 015 - Temporal Fusion Transformer (TFT): Wielohoryzontowe Prognozowanie Mocy z Mechanizmem Attention
+# Lekcja 015 — Temporal Fusion Transformer (TFT): Wielohoryzontowe Prognozowanie Mocy z Mechanizmem Attention
 
-!!! abstract "Nawigacja Lekcji"
-    **Poprzednia:** [Lekcja 014 - LSTM i MC Dropout](lesson-014.md) | **Nastepna:** [Lekcja 016 - Prognozowanie Ensemble, Detekcja Ramp i Ewaluacja Modeli](lesson-016.md)
+!!! abstract "Nawigacja lekcji"
+    :material-arrow-left: **Poprzednia:** [Lekcja 014 — LSTM szeregi czasowe: pomiar niepewności z MC Dropout](lesson-014.md) | **Następna:** [Lekcja 016 — Prognozowanie ensemble, wykrywanie ramp i ocena modeli](lesson-016.md) :material-arrow-right:
 
-    **Faza:** P4 | **Jezyk:** Polish | **Postep:** 14 z 17 przetlumaczonych lekcji tureckich | [Wszystkie lekcje](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
+    **Faza:** P4 | **Język:** Polski | **Postęp:** 15 z 19 | [Wszystkie lekcje](index.md) | [Plan nauki](../../Learning_Roadmap.md)
 
 > **Data:** 2026-02-26
 > **Faza:** P4 (AI Forecasting)
-> **Sekcje roadmapy:** [Phase 4 - Section 5.6 TFT Model, Section 5.7 Quantile Regression, Section 5.10 Attention]
-> **Jezyk:** Polish
+> **Sekcje roadmapy:** [Phase 4 — Section 5.6 TFT Model, Section 5.7 Quantile Regression, Section 5.10 Attention]
+> **Język:** Polski
 > **Poprzednia lekcja:** Lesson 014
 
 ---
 
-## Czego Sie Nauczysz
+## Czego się nauczysz
 
-- Dlaczego rozne horyzonty prognozy, takie jak 1 h, 6 h, 24 h i 48 h, wymagaja roznych strategii modelowania
-- Jakie sa cztery glowne elementy architektury Temporal Fusion Transformer: GRN, VSN, Multi-Head Attention i Quantile Outputs
-- W jaki sposob mechanizm attention odpowiada na pytanie: "ktore historyczne kroki czasowe wplynely na prognoze?"
-- Dlaczego native quantile regression z pinball loss potrafi zwracac P10, P50 i P90 bez korzystania z MC Dropout
-- Jak Variable Selection Network zapewnia wbudowany ranking istotnosci cech bez dodatkowego workflow SHAP
-
----
-
-## Sekcja 1: Wielohoryzontowe Prognozowanie - Dlaczego Jeden Model Nie Wystarcza
-
-### Problem z Rzeczywistego Swiata
-
-Front sztormowy zbliza sie nad Morze Baltyckie. Operator systemu przesylowego, PSE, musi podejmowac rozne decyzje w zaleznosci od horyzontu prognozy:
-
-| Horyzont | Typowa decyzja | Dominujace zrodlo informacji |
-| --- | --- | --- |
-| 1-6 godzin | Dzialania na rynku bilansujacym | Autokorelacja SCADA |
-| 6-24 godziny | Oferty na rynku dnia nastepnego | Synoptyczna prognoza NWP |
-| 24-48 godzin | Planowanie prac utrzymaniowych | Zmiany rezyimu pogodowego |
-
-XGBoost traktuje kazdy wiersz niezaleznie, dlatego dobrze radzi sobie na krotkich horyzontach przy dobrze przygotowanych lag features. LSTM dobrze odtwarza strukture czasowa, zwlaszcza na srednich horyzontach. Zadna z tych architektur nie zostala jednak zaprojektowana tak, aby jednoczesnie wskazywac, ktore cechy i ktore chwile z przeszlosci sa najwazniejsze dla danego horyzontu prognozy. Wlasnie te luke wypelnia TFT.
-
-### Co Mowia Standardy i Literatura
-
-W repozytorium stosowane sa dwie glowne rodziny metod prognozowania niepewnosci:
-
-1. **MC Dropout** - wykorzystany w LSTM w poprzedniej lekcji do estymacji niepewnosci przez wielokrotne losowe forward pass.
-2. **Quantile regression** - wykorzystany w XGBoost i TFT do bezposredniego przewidywania P10, P50 i P90 przez funkcje straty.
-
-Kluczowym odniesieniem akademickim jest praca Lim et al. (2021), *Temporal Fusion Transformers for Interpretable Multi-horizon Time Series Forecasting*. Najwieksza zaleta TFT polega na tym, ze interpretowalnosc i prognozowanie probabilistyczne sa wpisane w sama architekture, zamiast byc dodawane dopiero po treningu.
+- Dlaczego różne horyzonty prognozy (1h, 6h, 24h, 48h) wymagają różnych strategii modelowania
+- Cztery kluczowe komponenty architektury Temporal Fusion Transformer (TFT): GRN, VSN, Multi-Head Attention, Quantile Outputs
+- W jaki sposób mechanizm attention (uwagi) odpowiada na pytanie: „które historyczne kroki czasowe wpłynęły na prognozę?"
+- Jak natywna quantile regression (pinball loss) generuje P10/P50/P90 jako alternatywa dla MC Dropout
+- Jak Variable Selection Network (VSN) zapewnia wbudowany ranking istotności cech bez osobnego workflow SHAP
 
 ---
 
-## Sekcja 2: Architektura TFT - Cztery Glowne Bloki
+## Sekcja 1: Wielohoryzontowe prognozowanie — dlaczego jeden model nie wystarcza?
+
+### Problem z realnego świata
+
+Front sztormowy zbliża się nad Morze Bałtyckie. Operator systemu przesyłowego (PSE) musi podejmować różne decyzje w zależności od horyzontu czasowego:
+
+| Horyzont | Decyzja | Dominujące źródło informacji |
+|----------|---------|------------------------------|
+| 1–6 godzin | Rynek bilansujący | Autokorelacja SCADA |
+| 6–24 godziny | Oferta na rynek dnia następnego | Synoptyczna prognoza NWP |
+| 24–48 godzin | Planowanie prac utrzymaniowych | Zmiany reżimów pogodowych |
+
+XGBoost ocenia każdy wiersz niezależnie — sprawdza się na krótkich horyzontach. LSTM uczy się sekwencji 24-godzinnych — sprawdza się na średnich horyzontach. Żadna z tych architektur nie została jednak zaprojektowana tak, aby automatycznie decydować, które cechy i które historyczne chwile są krytyczne dla danego horyzontu prognozy. Właśnie tę lukę wypełnia TFT.
+
+### Co mówią standardy
+
+**IEC 61400-26-1** definiuje dwa główne podejścia do pomiaru niepewności:
+
+1. **MC Dropout** (LSTM — Lekcja 014): jeden model jest trenowany, a niepewność jest generowana przez stochastyczne forward pass
+2. **Quantile Regression** (XGBoost — Lekcja 013, TFT — ta lekcja): parametr τ jest dodawany do funkcji straty, generując bezpośrednio P10/P50/P90
+
+TFT wbudowuje quantile regression w samą architekturę — istnieje osobna głowica wyjściowa (output head) dla każdego kwantyla. Daje to lepiej skalibrowane (calibrated) prognozy niż podejścia post-hoc.
+
+**Lim et al. (2021):** „Temporal Fusion Transformers for Interpretable Multi-horizon Time Series Forecasting" — jedna z najpotężniejszych współczesnych architektur prognozowania szeregów czasowych.
+
+---
+
+## Sekcja 2: Architektura TFT — 4 kluczowe komponenty
 
 ### 2.1 Gated Residual Network (GRN)
 
-Gated Residual Network jest podstawowym blokiem nieliniowego przetwarzania wewnatrz TFT.
+GRN jest podstawowym blokiem budulcowym TFT. Jest używany wewnątrz każdego komponentu:
 
-```text
-eta1 = W1 x + b1
-eta2 = W2 · ELU(eta1) + b2
-GRN(x) = LayerNorm(x + GLU(eta2))
+```
+η₁ = W₁x + b₁
+η₂ = W₂ · ELU(η₁) + b₂
+GRN(x) = LayerNorm(x + GLU(η₂))
 ```
 
-Najwazniejsze sa tutaj dwa elementy:
+**GLU (Gated Linear Unit)**: dzieli wyjście na dwie połowy — jedna to wartość (value), druga to brama (gate). Brama przechodzi przez sigmoid i kontroluje przepływ informacji w zakresie 0–1. Gdy brama → 0, dane wejście jest całkowicie tłumione.
 
-- **GLU (Gated Linear Unit)** steruje tym, ile informacji moze przejsc dalej.
-- **Residual / skip connection** utrzymuje przeplyw gradientu i stabilizuje uczenie glebszej architektury.
-
-Z inzynierskiego punktu widzenia GRN zachowuje sie jak adaptacyjna bramka. Jesli przetworzony sygnal nie wnosi wartosci prognostycznej, siec moze go stlumic zamiast propagowac szum dalej.
+**Skip connection**: zachowuje przepływ gradientu i gwarantuje dostosowywalność (trainability) głębokich sieci.
 
 ### 2.2 Variable Selection Network (VSN)
 
-Variable Selection Network uczy sie wzglednej istotnosci poszczegolnych cech wejsciowych.
+VSN uczy się, jak ważna jest każda cecha wejściowa:
 
-```text
-v_j = GRN_j(xi_j)
-weights = Softmax(GRN_w(xi))
-VSN(xi) = Sum_j weights_j × v_j
+```
+v_j = GRN_j(ξ_j)             dla każdej cechy j
+weights = Softmax(GRN_w(ξ))   wagi selekcji
+VSN(ξ) = Σ_j weights_j × v_j  suma ważona
 ```
 
-Oznacza to, ze model nie traktuje wszystkich cech rownowaznie. Uczy sie, ktore zmienne sa najwazniejsze w danym kontekscie prognostycznym.
-
-Dla offshore wind forecasting zwykle oznacza to, ze:
-
-- dla **1 h** dominowac beda ostatnie lagi mocy i predkosci wiatru,
-- dla **24 h** wieksza wage uzyskaja NWP wind speed i cechy cykliczne, takie jak hour-of-day.
+Zapewnia to **wbudowaną istotność cech** bez konieczności stosowania SHAP. Przy prognozowaniu mocy wiatru VSN może nauczyć się:
+- dla horyzontu 1h: `power_lag_1` i `wind_speed_mean` mają wysoką wagę
+- dla horyzontu 24h: `nwp_wind_speed_100m` i `hour_cos` mają wysoką wagę
 
 ### 2.3 Multi-Head Attention
 
-Mechanizm attention opiera sie na formulacji z transformera wprowadzonej przez Vaswani et al. (2017):
+Z pracy Vaswani et al. (2017) „Attention Is All You Need":
 
-```text
-Attention(Q, K, V) = softmax(QK^T / sqrt(d_k)) · V
+```
+Attention(Q,K,V) = softmax(QK^T / √d_k) · V
 ```
 
-Interpretacja:
+**Co to oznacza?**
+- **Q (Query)**: „Jakiej informacji szukam?"
+- **K (Key)**: „Tożsamość każdego historycznego kroku"
+- **V (Value)**: „Informacja przechowywana w każdym historycznym kroku"
 
-- **Query** - jakiej informacji aktualnie szukamy,
-- **Key** - jak reprezentowany jest kazdy historyczny krok,
-- **Value** - jaka informacja jest w tym kroku przechowywana.
-
-Najwieksza praktyczna korzyscia jest interpretowalnosc. Wagi attention mozna wyekstrahowac i zwizualizowac, aby pokazac, ktore fragmenty historii najsilniej wplynely na prognoze.
+Wagi attention (attention weights) są **ekstrahowalnym** — pokazują, jak bardzo każdy historyczny krok czasowy przyczynił się do prognozy. Jeśli front pogodowy rozpoczął się 6 godzin temu, ten krok czasowy otrzymuje wysoką wagę attention.
 
 ### 2.4 Quantile Output Heads
 
-Warstwa wyjsciowa zawiera osobne glowice dla kazdego kwantyla.
+W ostatniej warstwie osobna warstwa liniowa dla każdego kwantyla:
 
 ```python
 self.quantile_heads = nn.ModuleList([
-    nn.Linear(hidden_size, 1),  # P10
-    nn.Linear(hidden_size, 1),  # P50
-    nn.Linear(hidden_size, 1),  # P90
+    nn.Linear(hidden_size, 1)  # P10
+    nn.Linear(hidden_size, 1)  # P50
+    nn.Linear(hidden_size, 1)  # P90
 ])
 ```
 
-Do treningu stosowana jest **pinball loss**:
+Podczas treningu stosowana jest **pinball loss**:
 
-```text
-L_tau(y, y_hat) = tau × max(y-y_hat, 0) + (1-tau) × max(y_hat-y, 0)
-L_total = L_0.10 + L_0.50 + L_0.90
 ```
-
-Dzieki temu model od razu generuje prognoze probabilistyczna zamiast najpierw przewidywac wartosc srednia, a niepewnosc dodawac pozniej.
+L_τ(y, ŷ) = τ × max(y-ŷ, 0) + (1-τ) × max(ŷ-y, 0)
+L_total = L₀.₁₀ + L₀.₅₀ + L₀.₉₀
+```
 
 ---
 
-## Sekcja 3: Co Zostal Zbudowane
+## Sekcja 3: Co zbudowaliśmy
 
-### Nowe Pliki
+### Nowe pliki
 
-- `backend/app/services/p4/tft_model.py` - pelna implementacja TFT z GRN, VSN, attention, treningiem, inferencja i ekstrakcja wag attention
-- `backend/tests/test_tft_model.py` - testy jednostkowe i integracyjne workflow prognozowania TFT
+- `backend/app/services/p4/tft_model.py` — Kompletny model TFT: GRN, VSN, MultiHeadAttn, WindPowerTFT, trening, prognozowanie, wagi attention
+- `backend/tests/test_tft_model.py` — 23 testy (GRN, VSN, Attention, Trening, Quantile, Prognoza, Ograniczenia, Attention)
 
-### Zmienione Pliki
+### Zmienione pliki
 
-- `backend/app/services/p4/__init__.py` - eksport modulow
-- `backend/app/schemas/forecast.py` - schematy request/response dla TFT
-- `backend/app/routers/p4.py` - endpointy do treningu, inferencji i inspekcji attention
+- `backend/app/services/p4/__init__.py` — eksporty modułu TFT
+- `backend/app/schemas/forecast.py` — schematy Pydantic dla TFT (TFTTrainRequest/Response, TFTPredictRequest/Response, TFTAttentionRequest/Response)
+- `backend/app/routers/p4.py` — 3 nowe endpointy (train-tft, predict-tft, tft-attention)
 
-### Podsumowanie Architektury
+### Podsumowanie architektury
 
-```text
+```
 Input (batch, lookback=72, n_features=19)
-  -> Variable Selection Network
-  -> LSTM encoder
-  -> Multi-Head Attention
-  -> Gated Residual Network
-  -> Quantile heads (P10, P50, P90)
+  ↓
+Variable Selection Network (wagi softmax na cechę)
+  ↓
+LSTM Encoder (hidden=32, 1 warstwa) — kontekst czasowy
+  ↓
+Multi-Head Attention (2 głowice, d_model=32) — zależności długozasięgowe
+  ↓
+Gated Residual Network — nieliniowe wzbogacenie
+  ↓
+Quantile Output (3 głowice: P10, P50, P90) — natywna prognoza probabilistyczna
 ```
 
 ### Endpointy API
 
-| Endpoint | Cel |
-| --- | --- |
-| `POST /api/v1/forecast/train-tft` | trening TFT z walidacja TimeSeriesSplit |
-| `POST /api/v1/forecast/predict-tft` | zwrot probabilistycznej prognozy mocy |
-| `POST /api/v1/forecast/tft-attention` | zwrot wag attention i score Variable Selection |
+| Endpoint | Opis |
+|----------|------|
+| `POST /api/v1/forecast/train-tft` | Trening TFT + TimeSeriesSplit CV |
+| `POST /api/v1/forecast/predict-tft` | Prognoza mocy P10/P50/P90 |
+| `POST /api/v1/forecast/tft-attention` | Wagi attention + istotność cech VSN |
 
 ---
 
-## Sekcja 4: Porownanie XGBoost, LSTM i TFT
+## Sekcja 4: Porównanie trzech modeli
 
 | Cecha | XGBoost | LSTM | TFT |
-| --- | --- | --- | --- |
-| Architektura | Gradient-boosted trees | Recurrent neural network | LSTM + transformer-style attention |
-| Najlepszy horyzont | < 6 h | 6-24 h | 12-48 h |
-| Metoda niepewnosci | Quantile regression | MC Dropout | Native quantile heads |
-| Explainability | SHAP | Ograniczona | Attention + VSN |
-| Szybkosc treningu | Najwyzsza | Srednia | Najnizsza |
-| Wymagania danych | Najmniejsze | Srednie | Najwieksze |
+|-------|---------|------|-----|
+| Architektura | Drzewa decyzyjne | Rekurencyjna sieć neuronowa | Transformer + LSTM |
+| Najlepszy horyzont | < 6 godzin | 6–24 godziny | 12–48 godzin |
+| Metoda niepewności | Quantile regression | MC Dropout | Natywny quantile |
+| Interpretowalność | SHAP | Ograniczona | Wagi attention + VSN |
+| Szybkość treningu | Najszybszy | Średnia | Najwolniejszy |
+| Wymagania danych | Najmniejsze | Średnie | Największe |
 
-### Strategia Ensemble
+### Strategia ensemble (Roadmap §5.6)
 
-W praktycznym systemie trzy modele czesto sa laczone:
-
-```text
-< 6 h:   0.50 × XGBoost + 0.30 × LSTM + 0.20 × TFT
-6-24 h:  0.20 × XGBoost + 0.40 × LSTM + 0.40 × TFT
-24-48 h: 0.10 × XGBoost + 0.30 × LSTM + 0.60 × TFT
+```
+< 6h:   0.50 × XGBoost + 0.30 × LSTM + 0.20 × TFT
+6-24h:  0.20 × XGBoost + 0.40 × LSTM + 0.40 × TFT
+24-48h: 0.10 × XGBoost + 0.30 × LSTM + 0.60 × TFT
 ```
 
-To odzwierciedla fakt, ze zaden pojedynczy model nie dominuje rownomiernie na wszystkich horyzontach.
+---
+
+## Sekcja 5: Ograniczenia fizyczne
+
+Wyjścia TFT przechodzą przez ten sam moduł `physical_constraints.py` co XGBoost i LSTM:
+
+1. **C1**: P ≥ 0 MW (brak ujemnej produkcji)
+2. **C2**: P ≤ 15.0 MW (moc nominalna V236)
+3. **C3**: v < 3.0 m/s → P = 0 (poniżej cut-in)
+4. **C4**: v > 31.0 m/s → P = 0 (powyżej cut-out)
+5. **Monotoniczność**: P10 ≤ P50 ≤ P90
 
 ---
 
-## Sekcja 5: Ograniczenia Fizyczne
+## Sekcja 6: Zakres testów
 
-Wyjscia TFT przechodza przez te sama warstwe ograniczen fizycznych co pozostale modele forecastingowe:
+23 testy w 8 klasach testowych:
 
-1. `P >= 0 MW`
-2. `P <= 15.0 MW`
-3. `wind speed < 3.0 m/s -> P = 0`
-4. `wind speed > 31.0 m/s -> P = 0`
-5. `P10 <= P50 <= P90`
-
-Te reguly nie sa opcjonalne. Zapewniaja zgodnosc prognozy z fizyka niezaleznie od architektury modelu.
-
----
-
-## Sekcja 6: Zakres Testow
-
-Modul TFT jest pokryty testami w osmiu obszarach:
-
-| Grupa testow | Zakres |
-| --- | --- |
-| `TestGRN` | shape i residual behaviour |
-| `TestVariableSelection` | poprawne wagi i shape wyjscia |
-| `TestMultiHeadAttention` | zapis attention i normalizacja |
-| `TestTFTTraining` | zakonczenie treningu, foldy CV, early stopping |
-| `TestTFTPrediction` | monotoniczne kwantyle i poprawne wyjscia |
-| `TestTFTPhysicalConstraints` | enforcement cut-in i cut-out |
-| `TestTFTAttention` | wymiary attention i etykiety cech |
+| Klasa testowa | Liczba testów | Zakres |
+|---------------|---------------|--------|
+| TestGRN | 3 | Wymiar wyjścia, skip connection |
+| TestVariableSelection | 3 | Wymiar wyjścia, suma wag, nieujemność |
+| TestMultiHeadAttention | 3 | Wymiar wyjścia, zapis wag, suma=1 |
+| TestTFTTraining | 5 | Ukończenie treningu, fold CV, early stopping, RMSE, architektura |
+| TestTFTPrediction | 4 | Monotoniczność, kontrola ujemnych, moc nominalna, spójność długości |
+| TestTFTPhysicalConstraints | 1 | Zerowa moc poniżej cut-in |
+| TestTFTAttention | 4 | Wymiar attention, suma VSN, nazwy cech, liczba głowic |
 
 ---
 
-## Pytania Rekrutacyjne
+## Rozmowa kwalifikacyjna
 
-### Pytanie 1: Czym TFT rozni sie od XGBoost i LSTM?
+### Pytanie 1: Czym TFT różni się od XGBoost i LSTM?
 
-**Prosto:** XGBoost jest mocny w tabular short-horizon forecasting, LSTM dobrze uczy sie sekwencji, a TFT laczy uczenie sekwencyjne, wbudowany feature selection, attention i bezposrednie kwantyle w jednej architekturze.
+**Wyjaśnij prosto:** XGBoost patrzy na każdy wiersz niezależnie, LSTM uczy się wzorców sekwencyjnych, ale prognozuje na jeden horyzont. TFT natomiast uczy się zarówno wzorców sekwencyjnych, jak i tego, które cechy i kroki czasowe są ważne — i robi to jednocześnie dla wielu horyzontów.
 
-**Technicznie:** TFT wykorzystuje Variable Selection Networks do feature-wise gating, rekurencyjne kodowanie do modelowania kontekstu czasowego, Multi-Head Attention do dlugozasiegowych zaleznosci oraz native quantile heads do bezposredniego P10/P50/P90. Dzieki temu laczy interpretowalnosc i forecasting probabilistyczny bardziej naturalnie niz XGBoost albo standardowy LSTM.
+**Wyjaśnij technicznie:** TFT stosuje Variable Selection Network do per-feature gating (bez konieczności SHAP), LSTM encoder do przechwytywania krótkoterminowego kontekstu czasowego, Multi-Head Attention do wykrywania zależności długozasięgowych (nie wymaga O(n) kroków jak LSTM), oraz natywną quantile regression do bezpośredniego generowania P10/P50/P90. Łączy to tabelaryczną siłę XGBoost z temporalną siłą LSTM w jednej architekturze.
 
-### Pytanie 2: Dlaczego stosowac pinball loss zamiast MC Dropout?
+### Pytanie 2: Jak działa pinball loss i dlaczego jest preferowana zamiast MC Dropout?
 
-**Prosto:** Pinball loss uczy model przewidywac konkretny kwantyl bezposrednio, podczas gdy MC Dropout estymuje niepewnosc posrednio przez wiele losowych predykcji.
+**Wyjaśnij prosto:** Pinball loss karze model różnie w zależności od tego, czy rzeczywista wartość jest powyżej czy poniżej prognozy. Dla P90 bycie poniżej rzeczywistej wartości jest karane 9 razy bardziej. Pozwala to modelowi bezpośrednio nauczyć się żądanego kwantyla.
 
-**Technicznie:** Pinball loss jest asymetryczna i zalezy od wybranego kwantyla. Dla tau = 0.9 niedoszacowanie jest karane znacznie mocniej niz przeszacowanie. To sprawia, ze siec uczy sie docelowego kwantyla bez przyjmowania z gory gaussowskiego ksztaltu niepewnosci.
+**Wyjaśnij technicznie:** L_τ(y,ŷ) = τ·max(y-ŷ,0) + (1-τ)·max(ŷ-y,0). Dla τ=0.9 niedoszacowanie (y>ŷ) jest karane wagą 0.9, a przeszacowanie wagą 0.1. MC Dropout zakłada rozkład Gaussowski (wyprowadza P10/P90 z z-score), podczas gdy pinball loss jest agnostyczna względem rozkładu. Przy asymetrycznych rozkładach (takich jak moc wiatru z granicą zera) pinball loss generuje lepiej skalibrowane prognozy.
 
-### Pytanie 3: Jak interpretowac attention weights?
+### Pytanie 3: Jak interpretować wagi attention?
 
-**Prosto:** Pokazuja, na ktorych historycznych krokach czasowych model polegal najmocniej, budujac prognoze.
+**Wyjaśnij prosto:** Wagi attention pokazują, na które momenty z przeszłości model „patrzył" bardziej podczas tworzenia prognozy. Jeśli dany krok czasowy sprzed 6 godzin otrzymuje wysoką wagę, oznacza to, że zdarzenie z tamtej chwili (np. początek frontu pogodowego) wpływa na dzisiejszą prognozę.
 
-**Technicznie:** Attention scores tworza mape istotnosci w czasie. W systemie offshore wind wysokie wagi dla konkretnego bloku historii moga wskazywac, ze model sledzi nadejscie frontu pogodowego, cykl dobowy albo inny stabilny rezyim pracy.
-
----
-
-## Wyjasnij Prosto
-
-Dzisiaj dodalismy model prognostyczny, ktory potrafi spojrzec daleko w przeszlosc i sam zdecydowac, ktore sygnaly historyczne sa najwazniejsze dla przewidywania przyszlej mocy farmy wiatrowej. Zamiast zwracac tylko jedna liczbe, potrafi tez podac bezpieczny zakres pesymistyczny i optymistyczny, co jest kluczowe dla operatorow i traderow.
-
-## Wyjasnij Technicznie
-
-W tej lekcji wprowadzono pipeline Temporal Fusion Transformer dla wielohoryzontowego prognozowania mocy offshore wind. Implementacja laczy variable selection, rekurencyjne kodowanie kontekstu czasowego, attention-based interpretability oraz bezposrednie quantile outputs w jednej rodzinie modeli. W porownaniu z poprzednimi implementacjami XGBoost i LSTM, TFT jest najbardziej ekspresyjny i najbardziej wymagajacy obliczeniowo, ale jednoczesnie najlepiej pasuje do dlugohoryzontowego forecastingu probabilistycznego i inspekcji istotnosci cech.
-
+**Wyjaśnij technicznie:** W self-attention softmax Q·K^T/√d_k oblicza podobieństwo każdego kroku czasowego do wszystkich pozostałych kroków. W architekturze wielogłowicowej (multi-head) każda głowica uczy się osobnej podprzestrzeni zależności — jedna głowica może koncentrować się na wzorcu dobowym, inna na skali synoptycznej. Po uśrednieniu po głowicach uzyskuje się ogólną mapę istotności czasowej. W odróżnieniu od „czarnej skrzynki" jaką jest LSTM, jest to interpretowalny mechanizm wyjaśnialności, który można badać.

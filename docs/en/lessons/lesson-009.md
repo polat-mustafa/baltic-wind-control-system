@@ -1,4 +1,4 @@
-﻿# Lesson 009 - IEC 61850 Data Model, SCL Builder and SCADA Asset Registry
+# Lesson 009 - IEC 61850 Data Model, SCL Builder and SCADA Asset Registry
 
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** [Lesson 008 - Dynamic Grid Compliance](lesson-008.md) | **Next:** [Lesson 010 - GOOSE Simulation and Protection Timeline](lesson-010.md) :material-arrow-right:

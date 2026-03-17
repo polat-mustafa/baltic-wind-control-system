@@ -1,4 +1,4 @@
-﻿# Lesson 012 - SCADA Data Pipeline: Power Curves, Synthetic Production, Quality Filters and Physical Constraints
+# Lesson 012 - SCADA Data Pipeline: Power Curves, Synthetic Production, Quality Filters and Physical Constraints
 
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** [Lesson 011 - RBAC and Permit-to-Work](lesson-011.md) | **Next:** [Lesson 013 - XGBoost Quantile Forecasting](lesson-013.md) :material-arrow-right:

@@ -1,4 +1,4 @@
-﻿# Lessons Overview - Baltic Wind HV Control Platform
+# Lessons Overview - Baltic Wind HV Control Platform
 
 <a id="the-project-at-a-glance"></a>
 ## The Project at a Glance

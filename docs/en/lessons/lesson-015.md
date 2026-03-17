@@ -1,4 +1,4 @@
-﻿# Lesson 015 - Temporal Fusion Transformer (TFT): Multi-Horizon Power Forecasting with Attention
+# Lesson 015 - Temporal Fusion Transformer (TFT): Multi-Horizon Power Forecasting with Attention
 
 !!! abstract "Lesson Navigation"
     **Previous:** [Lesson 014 - LSTM Forecasting with MC Dropout](lesson-014.md) | **Next:** [Lesson 016 - Ensemble Forecasting, Ramp Detection and Model Evaluation](lesson-016.md)

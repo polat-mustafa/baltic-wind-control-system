@@ -1,4 +1,4 @@
-﻿# Baltic Wind HV Control Platform
+# Baltic Wind HV Control Platform
 
 English documentation for the 510 MW Baltic Sea offshore wind farm simulation. This track now contains the full English lesson sequence used for GitHub Pages publication, together with the user guide and the core project references.
 

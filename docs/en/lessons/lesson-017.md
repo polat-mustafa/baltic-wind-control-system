@@ -1,4 +1,4 @@
-﻿# Lesson 017 - P5 Commissioning: Switching Programme, Equipment State Machine and LOTO Isolation Management
+# Lesson 017 - P5 Commissioning: Switching Programme, Equipment State Machine and LOTO Isolation Management
 
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** [Lesson 016 - Ensemble Forecasting](lesson-016.md) | **Next:** [Lesson 018 - FAT/SAT and Protection Coordination](lesson-018.md) :material-arrow-right:

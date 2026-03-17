@@ -1,4 +1,4 @@
-﻿# Lesson 014 - LSTM Time-Series Forecasting: Uncertainty Estimation with MC Dropout
+# Lesson 014 - LSTM Time-Series Forecasting: Uncertainty Estimation with MC Dropout
 
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** [Lesson 013 - XGBoost Quantile Forecasting](lesson-013.md) | **Next:** [Lesson 015 - TFT Multi-Horizon Forecasting](lesson-015.md) :material-arrow-right:

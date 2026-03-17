@@ -1,4 +1,4 @@
-﻿# Lesson 016 - Ensemble Forecasting, Ramp Detection and Model Evaluation
+# Lesson 016 - Ensemble Forecasting, Ramp Detection and Model Evaluation
 
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** [Lesson 015 - TFT Multi-Horizon Forecasting](lesson-015.md) | **Next:** [Lesson 017 - Commissioning Workflow and LOTO](lesson-017.md) :material-arrow-right:

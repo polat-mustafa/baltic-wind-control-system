@@ -1,4 +1,4 @@
-﻿# Lekcja 013 - Prognozowanie Kwantylowe XGBoost: Pipeline NWP, Probabilistyczna Prognoza Mocy i Wyjasnialnosc SHAP
+# Lekcja 013 - Prognozowanie Kwantylowe XGBoost: Pipeline NWP, Probabilistyczna Prognoza Mocy i Wyjasnialnosc SHAP
 
 !!! abstract "Nawigacja Lekcji"
     :material-arrow-left: **Poprzednia:** [Lekcja 012 - Pipeline Danych SCADA](lesson-012.md) | **Nastepna:** [Lekcja 014 - LSTM i MC Dropout](lesson-014.md) :material-arrow-right:

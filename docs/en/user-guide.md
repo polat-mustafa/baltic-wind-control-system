@@ -1,4 +1,4 @@
-﻿# User Guide - Baltic Wind HV Control Platform
+# User Guide - Baltic Wind HV Control Platform
 
 > **510 MW Baltic Sea offshore wind farm simulation platform**
 > 34 x Vestas V236-15.0 MW | 66 kV array system | 220 kV export cable (45 km) | 400 kV PSE grid connection

@@ -1,4 +1,4 @@
-﻿# Lesson 000 â€” Project Planning, Technology Decisions & Professional Engineering Methodology
+# Lesson 000 â€” Project Planning, Technology Decisions & Professional Engineering Methodology
 
 !!! abstract "Lesson Navigation"
 :material-arrow-left: **Previous:** None (foundational lesson) | **Next:** [Lesson 001 â€” DevOps Foundation](lesson-001.md) :material-arrow-right:

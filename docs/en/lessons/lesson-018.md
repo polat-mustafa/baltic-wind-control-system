@@ -1,4 +1,4 @@
-﻿# Lesson 018 - FAT/SAT Acceptance Testing, Protection Relay Coordination and the SAT Gate
+# Lesson 018 - FAT/SAT Acceptance Testing, Protection Relay Coordination and the SAT Gate
 
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** [Lesson 017 - Commissioning Workflow and LOTO](lesson-017.md) | **Next:** None :material-arrow-right:

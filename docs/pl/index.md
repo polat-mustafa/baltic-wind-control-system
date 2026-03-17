@@ -1,4 +1,4 @@
-﻿# Baltic Wind HV Control Platform - Polski Tor Dokumentacji
+# Baltic Wind HV Control Platform - Polski Tor Dokumentacji
 
 Polska dokumentacja dla symulacji morskiej farmy wiatrowej 510 MW na Morzu Baltyckim. Ten tor zawiera polskie tlumaczenia tureckich lekcji inzynierskich, przewodnik uzytkownika oraz odniesienia do glownej dokumentacji projektu.
 

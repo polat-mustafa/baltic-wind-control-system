@@ -1,4 +1,4 @@
-﻿# Lesson 013 - XGBoost Quantile Forecasting: NWP Pipeline, Probabilistic Power Forecasting and SHAP Explainability
+# Lesson 013 - XGBoost Quantile Forecasting: NWP Pipeline, Probabilistic Power Forecasting and SHAP Explainability
 
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** [Lesson 012 - SCADA Data Pipeline](lesson-012.md) | **Next:** [Lesson 014 - LSTM Forecasting with MC Dropout](lesson-014.md) :material-arrow-right:

@@ -1,4 +1,4 @@
-﻿# Lesson 001 â€” Building the DevOps Foundation for a 510 MW Offshore Wind Simulation Platform
+# Lesson 001 â€” Building the DevOps Foundation for a 510 MW Offshore Wind Simulation Platform
 
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** [Lesson 000 â€” Project Planning](lesson-000.md) | **Next:** [Lesson 002 â€” Internationalisation Infrastructure](lesson-002.md) :material-arrow-right:

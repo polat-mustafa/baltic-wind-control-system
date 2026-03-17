@@ -1,4 +1,4 @@
-﻿# Przewodnik Uzytkownika - Baltic Wind HV Control Platform
+# Przewodnik Uzytkownika - Baltic Wind HV Control Platform
 
 > **Platforma symulacyjna morskiej farmy wiatrowej 510 MW na Morzu Baltyckim**
 > 34 x Vestas V236-15.0 MW | system zbiorczy 66 kV | kabel eksportowy 220 kV (45 km) | przylaczenie do sieci PSE 400 kV

@@ -168,9 +168,37 @@ These patterns were set in Chapters 1–5 and must be maintained for consistency
 - **Standard references as inline blockquotes:** Introducing `> **Standard reference:** IEC XXXXX:YYYY...` blockquotes within sections (not just in Notes) makes the regulatory context visible without disrupting prose flow. Used for IEC 61400-24 and IEC 61400-12-1.
 - **Formula density in Part II (concluded):** Ch 7 has 5 display formulas (power scaling, blade mass D^α, specific power, capacity factor, availability). Consistent with the ~3-6 target. Part II total: Ch 5 (6) + Ch 6 (5) + Ch 7 (5) = 16 formulas across 3 chapters.
 
+### Patterns Added (Ch 8)
+- **Physical location as sensory classroom:** Kaan climbs to the met mast platform at 40 m — the wind is "sharper," pressing against his chest. Using physical sensations (pressure, cold, noise) to ground abstract atmospheric physics. The met mast visit makes the ABL tangible before the mathematics begins.
+- **New character introduced via professional habit:** Maja Kowalska (Resource Assessment Lead) is established through her Kestrel weather meter — she checks it "the way other people checked their phones." Professional habits define character faster than description.
+- **Top-down conceptual flow:** Chapter moves from global scale (heat engine, Hadley cells) through mesoscale (Coriolis, geostrophic wind) to local scale (ABL, shear, turbulence, stability). This "zoom in" structure works for any topic with multiple spatial scales.
+- **Multiple historical figures per chapter:** Ch 8 features Hadley (1735), Ferrel (1856), Coriolis (1835), Prandtl (1904), Ekman (1902), Buys Ballot (1857), Monin & Obukhov (1954), Businger (1971). Dense historical threading is appropriate for foundational science chapters — each figure contributes one key concept.
+- **Fun facts woven into historical context:** "The force is named after a man who studied waterwheels, not weather" (Coriolis); Hadley's paper forgotten for a century, confused with his brother; Prandtl's 10-minute talk changed fluid mechanics. These are embedded in the prose, not called out.
+- **Roughness length comparison table:** A simple markdown table of z₀ values across surface types (0.0002 m sea to 2.0 m city) makes the four-orders-of-magnitude range visceral. Tables for parameter comparisons across categories are more effective than inline lists.
+- **Model comparison worked example:** Comparing the neutral log law (11.3 m/s) with the IEC power law (13.1 m/s) for the same input reveals that the choice of shear model is worth hundreds of millions of euros. The "two methods, same input, different answer — why?" structure teaches critical thinking about model assumptions.
+- **Cubic amplification as recurring teaching beat:** A 25% wind speed increase → 98% power density increase; a 46% increase → 208%. The cubic law amplifies every uncertainty, and repeating this theme across chapters (Ch 5, Ch 7, Ch 8) builds intuition.
+- **Revenue consequence as anchor for engineering decisions:** "13.2 million EUR per year — or nearly 400 million EUR over the farm's 30-year design life" converts abstract modelling choices into financial stakes. Use revenue/cost numbers to close every worked example.
+- **Bridge via data, not narrative drama:** The closing narrative bridges to Ch 9 (Measuring and Modelling the Wind) through Maja's statement about data quality — "the difference between data and knowledge" — rather than a dramatic event. Intellectual transitions work for Part III chapters.
+- **Part III opening chapter establishes meteorological foundations:** Ch 8 introduces the complete atmospheric framework (circulation → Coriolis → ABL → shear → turbulence → stability) that all subsequent Part III chapters will build upon. The opening chapter of each Part should establish the conceptual vocabulary for the Part.
+- **Formula density in Part III (begun):** Ch 8 has 6 display formulas (Coriolis parameter, log law, power law, TI definition, Obukhov length, stability-corrected log law). Consistent with the ~3-6 target.
+
+### Patterns Added (Ch 9)
+- **Windowless room as data immersion:** The SOV analysis room — windowless, two monitors, whiteboard with unwiped equations — contrasts with Ch 8's outdoor met mast visit. Moving indoors signals a shift from physical phenomena to data analysis. The physical environment should match the chapter's intellectual mode.
+- **Character continuity across paired chapters:** Maja leads both Ch 8 (atmospheric physics) and Ch 9 (measurement and modelling) — the Resource Assessment Lead covers her full domain across two chapters. When a character's expertise spans multiple topics, they can lead consecutive chapters without introducing a new character.
+- **Historical figure outside the field:** Waloddi Weibull (1887–1979) studied ball bearings and steel fatigue, not wind. His 1951 ASME paper used seven examples from unrelated domains. Introducing a statistical tool through its origin story in a completely different field (material science) makes the tool memorable and shows the universality of mathematics.
+- **Inventor's confident error as cautionary tale:** Robinson's wrong assertion that cups spin at 1/3 wind speed, believed for decades, parallels Growian (Ch 6) as a reminder that plausible physical arguments need empirical validation. Every field has its "everyone believed it until someone checked" moment — use them.
+- **Technology evolution timeline within a section:** Cup anemometer (Robinson 1846 → Patterson 1926 → Brevoort & Joiner 1935) and LiDAR (ZephIR 2003 → Windcube → floating LiDAR) show instrument evolution as a compressed timeline. Three to four milestones tell the story efficiently.
+- **Three complementary data sources structure:** Met masts (point precision), LiDAR (profile without mast), ERA5 (long-term depth) — presenting three data sources with different strengths and weaknesses teaches the reader that no single source is sufficient. The "three tools, each covering a different gap" structure applies to any measurement topic.
+- **Energy pattern factor as cubic surprise:** The Weibull power density (1,180 W/m²) is 82% higher than the naive cube-of-the-mean estimate (650 W/m²). This is the "mean ≠ energy" lesson. The energy pattern factor demonstrates why distribution shape matters, reinforcing the cubic amplification theme from Ch 5, 7, and 8.
+- **Wind rose vs energy rose as cubic amplification by direction:** A sector with 18% frequency and 11.5 m/s mean contributes 6.7× more energy than a sector with 12% frequency and 7.0 m/s mean — despite being only 1.5× more frequent. The side-by-side comparison (wind rose vs energy rose) is a powerful visual for the cubic law's directional impact.
+- **MCP as financial bridge:** Measure-Correlate-Predict is presented not as a statistical method but as the bridge between a 2-year measurement campaign and a 30-year financial model. The P50/P90 distinction ("what the developer hopes for versus what the bank will lend against") gives the method financial stakes.
+- **Worked example as full pipeline:** The worked example walks through the complete chain: Weibull fit → power curve integration → single-turbine AEP → farm scaling → revenue. This "full pipeline" structure shows how each concept feeds the next and closes with a financial number.
+- **Revenue hook for next chapter:** The 450M EUR wake loss figure at the end of the worked example creates an irresistible bridge to Ch 10. Quantifying the cost of the next chapter's topic before the chapter begins motivates the reader to continue.
+- **Formula density in Part III (continued):** Ch 9 has 6 display formulas (Doppler velocity, Weibull PDF, mean from Weibull, power density from Weibull, sector energy, AEP integration). Consistent with the ~3-6 target. Part III running total: Ch 8 (6) + Ch 9 (6) = 12 formulas across 2 chapters.
+
 ---
 
-## CHARACTERS ESTABLISHED (through Ch 7)
+## CHARACTERS ESTABLISHED (through Ch 9)
 
 | Character | Role | Introduced | Key Traits | Signature Detail |
 |-----------|------|-----------|------------|-----------------|
@@ -179,9 +207,10 @@ These patterns were set in Chapters 1–5 and must be maintained for consistency
 | **Anders** | Senior electrical engineer, Kaan's mentor | Ch 3 | Laconic, observational, faintly amused | Drops facts with quiet authority; lifejacket zipped to chin; uses tablet charts as teaching tools (Ch 7) |
 | **Elif** | Electrical engineer | Ch 3 (intro), Ch 4 (main) | Direct, confident, slightly teasing | "I ♥ REACTIVE POWER" mug; professional disdain for non-EEs |
 | **Morten** | Turbine technician | Ch 5 | Wiry, unhurried confidence, hands-on | Salt-faded Vestas cap; decade of tower climbing; decommissioned blade as teaching prop (Ch 5); nacelle tour guide — taps gearbox, opens pitch hatch, points to sensors (Ch 6) |
+| **Maja** | Resource Assessment Lead | Ch 8 | Precise, data-focused, slight Polish accent, wry | Kestrel weather meter clipped to jacket; checks it like others check phones; measures before she speaks; leads both Ch 8 (atmosphere) and Ch 9 (measurement/data) — the full resource assessment arc |
 
 **Future characters** (from narrative tracker — not yet written):
-- Resource Assessment Lead (Ch 8), Data Analyst (Ch 9), Layout Engineer (Ch 11), Project Finance Lead (Ch 12, Ch 44), Marine Engineer (Ch 13), Cable Engineer (Ch 14), HV Technician (Ch 17), Protection Engineer (Ch 19, Ch 26), STATCOM Specialist (Ch 20), PPC Lead (Ch 22, Ch 24), SCADA Engineer (Ch 28-29), Cybersecurity Lead (Ch 31), Safety Officer (Ch 32, Ch 41), Data Scientist (Ch 33), ML Engineer (Ch 34-36), Commissioning Lead (Ch 38), Grid Operator (Ch 25, Ch 37)
+- Layout Engineer (Ch 11), Project Finance Lead (Ch 12, Ch 44), Marine Engineer (Ch 13), Cable Engineer (Ch 14), HV Technician (Ch 17), Protection Engineer (Ch 19, Ch 26), STATCOM Specialist (Ch 20), PPC Lead (Ch 22, Ch 24), SCADA Engineer (Ch 28-29), Cybersecurity Lead (Ch 31), Safety Officer (Ch 32, Ch 41), Data Scientist (Ch 33), ML Engineer (Ch 34-36), Commissioning Lead (Ch 38), Grid Operator (Ch 25, Ch 37)
 
 ---
 

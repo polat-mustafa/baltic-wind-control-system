@@ -110,10 +110,11 @@ Read this file when:
 
 ---
 
-## VOICE & PATTERNS ESTABLISHED (from Ch 1)
+## VOICE & PATTERNS ESTABLISHED (from Ch 1–5)
 
-These patterns were set in Chapter 1 and must be maintained for consistency:
+These patterns were set in Chapters 1–5 and must be maintained for consistency:
 
+### Core Patterns (Ch 1)
 - **Opening narrative length:** ~400 words (4 paragraphs). Sets scene, introduces characters present, ends with Kaan beginning to learn.
 - **Section naming:** `## N.X [Descriptive Title]` — active, engaging titles (not "Section about X")
 - **Prose-to-formula ratio:** ~300-500 words of prose before each formula. Never drop a formula cold.
@@ -127,6 +128,60 @@ These patterns were set in Chapter 1 and must be maintained for consistency:
 - **Tone:** Conversational authority — "Notice the cubic dependence" not "It should be noted that..." Never didactic, never dumbed down.
 - **Fun facts woven into prose**, not called out in boxes.
 - **Cross-references to future chapters:** "That story begins in Chapter 2" — natural, not forced.
+
+### Patterns Added (Ch 2–4)
+- **Dialogue-driven narrative framing:** When a character (e.g., Elif) narrates the chapter content, the opening/closing use dialogue form. The character tells a story rather than Kaan discovering alone. Different chapters can be "told by" different characters.
+- **Character voices in narrative:** Anders is laconic, observational, drops facts with faint amusement. Elif is direct, professionally confident, slightly teasing ("the faint professional disdain that electrical engineers reserve for everyone who is not an electrical engineer").
+- **Worked example as dramatic contrast:** Using an absurd extreme (DC at 110 V for 500 MW → cable vaporises) to make the correct approach memorable. The absurdity is stated plainly: "which is exactly the point."
+- **Part-ending chapters bridge to next Part:** The final chapter of a Part must close by pivoting Kaan toward the next Part's subject. Ch 4 (end of Part I) pivots from electricity history to seeing a physical turbine (Part II).
+- **Thread-pulling across chapters:** Concepts introduced in one chapter are explicitly connected to later ones: "It was Meikle's spring sail reborn" (Ch 3 → Ch 2), "That story belongs to Chapter 20" (Ch 4 → Ch 20). Always natural, never forced.
+- **Recurring motifs:** The "I ♥ REACTIVE POWER" mug (Elif's), the porthole view of turbines at night (Kaan's cabin), the pattern of characters asking questions that reveal deeper answers.
+- **Technical density increases across Part I:** Ch 1 has 3 formulas, Ch 2 has 1, Ch 3 has 2, Ch 4 has 5. As the book moves from wind history to electrical fundamentals, the formula density rises. Part II onward should maintain ~3-6 formulas per chapter.
+
+### Patterns Added (Ch 5)
+- **Physical object as narrative anchor:** Morten lays a decommissioned blade cross-section on trestles — Kaan touches, examines, and learns from it. Using physical artifacts to ground abstract concepts (airfoil shape → lift theory → BEM).
+- **Multi-step derivation pacing:** The Betz limit derivation spans ~600 words, building from continuity equation through momentum theory to the final dCp/da = 0 result. Each step is a paragraph with physical interpretation, not just algebra.
+- **Worked example with regime contrast:** Show the same turbine operating in Region 2 (10 m/s, Cp = 0.48) and Region 3 (rated, Cp = 0.287) to illustrate deliberate power limitation. The contrast makes the control philosophy concrete.
+- **Formula density in Part II:** Ch 5 has 6 display formulas (Kutta-Joukowski, lift/drag coefficients, Betz Cp derivation, velocity triangle, tip speed ratio, power equation). Consistent with the ~3-6 target.
+- **Technician's voice:** Morten is practical, hands-on, speaks from experience ("The guys who designed it probably ran ten thousand BEM iterations"). Contrasts with Anders's quiet authority and Elif's intellectual confidence.
+- **Speed comparisons for visceral impact:** "374 km/h — faster than a Formula 1 car" makes the tip speed tangible. Use real-world comparisons for extreme engineering numbers.
+- **Subsection headers within technical sections:** Section 5.3 uses `### The Derivation` and Section 5.4 uses `### The Idea`, `### The Velocity Triangle`, `### Why Blades Are Twisted and Tapered`. Useful for long sections with distinct sub-topics.
+
+### Patterns Added (Ch 6)
+- **Elevator ride as liminal space:** The 4-minute elevator ride (150 m) serves as a narrative transition — physical sensations (ears popping, tower sway, LED-lit steel tube) build anticipation. Liminal moments between locations are opportunities for character interaction and sensory grounding.
+- **Scale surprise as narrative beat:** Kaan expects something cramped; the nacelle is 28 m long and 9 m wide. Subverting expectations with concrete dimensions (longer than a tennis court, heavier than a loaded 747) makes industrial scale visceral.
+- **Three-way comparison structure:** The drivetrain section presents three competing philosophies (high-speed geared, direct-drive, medium-speed) with quantitative torque comparison. The "three options with trade-offs" pattern works well for engineering design decisions.
+- **Inline character dialogue within technical sections:** Brief Morten dialogue is woven INTO sections 6.3, 6.4, and 6.5 (not just opening/closing narrative). He opens hatches, points to accelerometers, taps the gearbox casing. This breaks up dense technical prose with physical interaction.
+- **Historical cautionary tale:** Growian (1983, ~400 hours of operation) illustrates the cost of failed engineering ambition. Failure stories are as instructive as success stories — include one per chapter where possible.
+- **Geopolitical dimension of engineering:** The rare-earth supply chain (China: ~60% mining, ~90% processing) connects generator design to energy security policy. Engineering choices have political consequences — acknowledge them when they arise.
+- **Comparative worked example:** The worked example compares two independent loss mechanisms (drivetrain efficiency vs yaw misalignment) to reveal which matters more economically (reducing yaw error from 10° to 5° recovers 17 MW vs 5 MW from 1% efficiency gain). The comparison teaches more than either calculation alone.
+- **Tables in worked examples:** Markdown tables for component efficiencies and yaw loss comparison make numerical data scannable. Tables work better than inline lists for multi-parameter comparisons.
+- **Formula density in Part II (continued):** Ch 6 has 5 display formulas (T=P/ω, rotor/generator torque, DFIG slip, cos³ yaw loss, efficiency chain). Consistent with the ~3-6 target.
+
+### Patterns Added (Ch 7)
+- **Mentor-led exposition via data visualisation:** Anders opens his tablet to show a scaling chart — the data itself drives the chapter's structure. Using charts/graphs as narrative props lets a character "walk through" technical content naturally.
+- **Galileo callback as intellectual anchor:** Framing the square-cube law through Galileo (1638) connects modern wind engineering to foundational physics. Historical intellectual figures lend weight to engineering constraints.
+- **Quantitative "beating the prediction" structure:** Present the theoretical limit (cubic scaling → D³), then show the observed reality (D^2.1–2.5), and explain the engineering that closed the gap. The "prediction was wrong because engineers refused to accept it" pattern works for any scaling discussion.
+- **Part-ending bridge confirmed as pattern:** Ch 7 (end of Part II) closes with Anders asking "can you tell me what the wind speed will be at hub height tomorrow?" — pivoting from the machine to the wind, exactly as Ch 4 pivoted from electricity to the turbine. Part-ending chapters MUST bridge.
+- **Porthole motif returns:** Kaan watches turbines through the SOV mess room porthole in the closing narrative, consistent with the recurring porthole motif from earlier chapters. The view evolves — now he sees them with understanding but recognises what he still doesn't know.
+- **Scaling worked example as generation comparison:** Comparing two real turbines (V80 2000 vs V236 2022) across multiple metrics (area, power, specific power, capacity factor, AEP, foundation count) makes the abstract economics of scaling concrete. The "86% fewer foundations" number is the killer fact.
+- **Standard references as inline blockquotes:** Introducing `> **Standard reference:** IEC XXXXX:YYYY...` blockquotes within sections (not just in Notes) makes the regulatory context visible without disrupting prose flow. Used for IEC 61400-24 and IEC 61400-12-1.
+- **Formula density in Part II (concluded):** Ch 7 has 5 display formulas (power scaling, blade mass D^α, specific power, capacity factor, availability). Consistent with the ~3-6 target. Part II total: Ch 5 (6) + Ch 6 (5) + Ch 7 (5) = 16 formulas across 3 chapters.
+
+---
+
+## CHARACTERS ESTABLISHED (through Ch 7)
+
+| Character | Role | Introduced | Key Traits | Signature Detail |
+|-----------|------|-----------|------------|-----------------|
+| **Kaan** | Protagonist, control engineer | Ch 1 | Curious, careful, note-taker, asks "why?" | Turkish-origin, late twenties, tablet always open |
+| **CTV Captain** | Vessel crew | Ch 1 | Practical, weathered | Brief appearance during storm wait |
+| **Anders** | Senior electrical engineer, Kaan's mentor | Ch 3 | Laconic, observational, faintly amused | Drops facts with quiet authority; lifejacket zipped to chin; uses tablet charts as teaching tools (Ch 7) |
+| **Elif** | Electrical engineer | Ch 3 (intro), Ch 4 (main) | Direct, confident, slightly teasing | "I ♥ REACTIVE POWER" mug; professional disdain for non-EEs |
+| **Morten** | Turbine technician | Ch 5 | Wiry, unhurried confidence, hands-on | Salt-faded Vestas cap; decade of tower climbing; decommissioned blade as teaching prop (Ch 5); nacelle tour guide — taps gearbox, opens pitch hatch, points to sensors (Ch 6) |
+
+**Future characters** (from narrative tracker — not yet written):
+- Resource Assessment Lead (Ch 8), Data Analyst (Ch 9), Layout Engineer (Ch 11), Project Finance Lead (Ch 12, Ch 44), Marine Engineer (Ch 13), Cable Engineer (Ch 14), HV Technician (Ch 17), Protection Engineer (Ch 19, Ch 26), STATCOM Specialist (Ch 20), PPC Lead (Ch 22, Ch 24), SCADA Engineer (Ch 28-29), Cybersecurity Lead (Ch 31), Safety Officer (Ch 32, Ch 41), Data Scientist (Ch 33), ML Engineer (Ch 34-36), Commissioning Lead (Ch 38), Grid Operator (Ch 25, Ch 37)
 
 ---
 

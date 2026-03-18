@@ -4,16 +4,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Last completed chapter** | None (scaffolding only) |
-| **Last completed file** | `front-matter/preface.md`, `front-matter/how-to-read.md` |
-| **Next chapter to write** | Chapter 1: Fire, Water, Wind (`part-01/ch-01-fire-water-wind.md`) |
-| **Kaan's location** | CTV (crew transfer vessel), delayed by weather, North Sea approach |
-| **Kaan's emotional state** | Nervous anticipation — first offshore assignment, hasn't seen the turbines yet |
-| **Last narrative sentence** | N/A (Ch 1 not started — only stub exists) |
-| **Total words written** | ~2,500 (preface + how-to-read only) |
-| **Total chapters complete** | 0 / 48 |
-| **Session count** | 1 |
-| **Last session date** | 2026-03-17 |
+| **Last completed chapter** | Chapter 3: From Poul la Cour to MOD-2 (`part-01-wind-before-machines/ch-03-poul-la-cour-to-mod2.md`) |
+| **Last completed file** | `part-01-wind-before-machines/ch-03-poul-la-cour-to-mod2.md` |
+| **Next chapter to write** | Chapter 4: The War of Currents (`part-01-wind-before-machines/ch-04-war-of-currents.md`) |
+| **Kaan's location** | SOV common room, evening — just transferred from CTV, met Elif (electrical engineer) |
+| **Kaan's emotional state** | Awed by first sight of turbines, settling in, curious — Elif has just asked "Do you know why we use alternating current?" |
+| **Last narrative sentence** | "Let me tell you about two men who nearly destroyed each other over that question," she said. |
+| **Total words written** | ~21,000 (preface + how-to-read + Ch 1 + Ch 2 + Ch 3) |
+| **Total chapters complete** | 3 / 48 |
+| **Session count** | 4 |
+| **Last session date** | 2026-03-18 |
 | **Master plan location** | `.claude/plans/sequential-booping-pumpkin.md` |
 
 ---
@@ -77,10 +77,10 @@ This section tracks Kaan's journey chapter by chapter, so narrative continuity s
 
 ## Chapter Progress
 
-**Last updated:** 2026-03-17
+**Last updated:** 2026-03-18
 **Total chapters:** 48
-**Completed:** 0 / 48
-**Word count:** ~2,500 / ~280,000
+**Completed:** 3 / 48
+**Word count:** ~21,000 / ~280,000
 
 ### Status Legend
 - `[ ]` Not started (stub only)
@@ -97,9 +97,9 @@ This section tracks Kaan's journey chapter by chapter, so narrative continuity s
 - `[ ]` List of Abbreviations & Symbols (`front-matter/abbreviations.md`)
 
 ### Part I: The Wind Before Machines (~55 pages)
-- `[~]` Ch 1: Fire, Water, Wind: The First Energy Sources
-- `[ ]` Ch 2: The Millwrights: Holland, England, and the Birth of Mechanical Power
-- `[ ]` Ch 3: From Poul la Cour to MOD-2: Electricity from Wind
+- `[x]` Ch 1: Fire, Water, Wind: The First Energy Sources
+- `[x]` Ch 2: The Millwrights: Holland, England, and the Birth of Mechanical Power
+- `[x]` Ch 3: From Poul la Cour to MOD-2: Electricity from Wind
 - `[ ]` Ch 4: The War of Currents
 
 ### Part II: The Anatomy of a Wind Turbine (~45 pages)
@@ -206,6 +206,7 @@ Topics discovered during writing that need to be added or expanded:
 | Three reading paths (narrative / technical / full) | Serves widest audience | 2026-03-17 |
 | No AI mention in text | Would be repulsive to readers; natural voice only | 2026-03-17 |
 | American English, no exclamation marks in technical sections | Sincere tone, reserve emotion for narrative | 2026-03-17 |
+| Auto-audit on startup | Every "continue ebook" reads last chapter + runs quality checklist before showing briefing | 2026-03-18 |
 
 ---
 
@@ -224,4 +225,7 @@ Topics discovered during writing that need to be added or expanded:
 
 | Session | Date | Chapters Written | Words Added | Key Decisions |
 |---------|------|-----------------|-------------|---------------|
-| 1 | 2026-03-17 | Scaffolding only | ~2,500 | Created 48 stubs, preface, how-to-read, SKILL.md, skills.md. Established voice, template, citation rules. Ch 1 started (stub). |
+| 1 | 2026-03-17 | Scaffolding only | ~2,500 | Created 48 stubs, preface, how-to-read, SKILL.md, skills.md. Established voice, template, citation rules. |
+| 2 | 2026-03-17 | Ch 1 complete | ~6,000 | Ch 1 first draft: 6 sections, 3 formulas, 18 citations, 3 image placeholders. Narrative voice established. Worked example (Nashtifan vs V236). Updated SKILL.md with startup protocol and context restoration. |
+| 3 | 2026-03-18 | Ch 2 complete | ~6,000 | Ch 2 first draft: 5 sections, 1 formula, 25 citations, 3 image placeholders. Dutch drainage (Beemster, Kinderdijk), Zaanstreek industrial district, fantail as negative feedback, Oliver Evans automated mill. Worked example: pumping capacity calculation. |
+| 4 | 2026-03-18 | Ch 3 complete | ~6,500 | Ch 3 first draft: 5 sections, 2 formulas (tip speed ratio, capacity factor), 39 citations, 5 image placeholders. Blyth (1887), Brush (1888), Poul la Cour (1891-1908), Jacobs Wind Electric (1920s-1950s), Smith-Putnam (1941-1945), Gedser/Juul (1957), NASA MOD-0/1/2 (1975-1982), California Wind Rush (1981-1986). Introduced Anders (mentor) and Elif (electrical engineer). Worked example: capacity factor Gedser → modern (9,146 Gedser turbines = one 500 MW farm). |

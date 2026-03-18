@@ -22,11 +22,19 @@ This file contains:
 
 ### Step 2: Read Context Files
 Based on the RESUME POINT in skills.md, read these files:
-- The **last completed chapter** (its closing narrative — for continuity)
+- The **last completed chapter** (full file — for continuity AND audit)
 - The **next chapter stub** (to see the template and any notes)
 - If the user asks about the plan: `.claude/plans/sequential-booping-pumpkin.md`
 
-### Step 3: Show the Resume Briefing
+### Step 3: Auto-Audit the Last Completed Chapter
+Run the QUALITY CHECKLIST (see below) against the last completed chapter. Build an audit report:
+- For each checklist item: PASS or MISSING
+- If ALL items pass → mark as "Clean"
+- If ANY item is missing → list the gaps
+
+This step is automatic — the user does NOT need to ask for it.
+
+### Step 4: Show the Resume Briefing (with audit)
 Display this to the user before doing anything else:
 
 ```
@@ -37,19 +45,27 @@ Last written: Chapter [N]: [Title] — [date]
 Next up:      Chapter [M]: [Title]
 Kaan is:      [location], [emotional state]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LAST CHAPTER AUDIT — Ch [N]: [Title]
+[table with checklist item | status for each item]
+Result: Clean / [N] gaps found
+
 Last chapter ended with: "[final sentence of closing narrative]"
 
-Ready to write Chapter [M]? Or would you like to do something else?
+Ready to write Chapter [M]? Or would you like to fix gaps first?
 ```
 
-### Step 4: Wait for User Direction
+### Step 5: Wait for User Direction
 The user may say:
 - "continue" / "yes" / "go" → Write the next chapter in sequence
+- "fix gaps" / "fix it" → Fix any gaps found in the audit before moving on
 - "chapter [N]" → Write a specific chapter (even out of order)
 - "status" → Show detailed progress table
 - "plan" → Read and show the master plan
 - "review chapter [N]" → Re-read and improve an existing chapter
 - "forgotten topics" → Show the forgotten topics queue
+
+**If the audit found gaps:** Recommend fixing them before writing the next chapter, but let the user decide. Do NOT auto-fix without confirmation.
 
 ---
 
@@ -91,6 +107,26 @@ Read this file when:
 - No emojis in the manuscript
 - Technical terms defined on first use, then used freely
 - Formulas always have: variable definitions + units + physical meaning sentence
+
+---
+
+## VOICE & PATTERNS ESTABLISHED (from Ch 1)
+
+These patterns were set in Chapter 1 and must be maintained for consistency:
+
+- **Opening narrative length:** ~400 words (4 paragraphs). Sets scene, introduces characters present, ends with Kaan beginning to learn.
+- **Section naming:** `## N.X [Descriptive Title]` — active, engaging titles (not "Section about X")
+- **Prose-to-formula ratio:** ~300-500 words of prose before each formula. Never drop a formula cold.
+- **Formula presentation:** Display math (`$$`), then `where:` block with bullet list of variables, units in square brackets.
+- **Historical storytelling:** Concrete details (dates, locations, names, numbers) — never vague. "The Barbegal aqueduct complex near Arles, France (2nd century CE)" not "an ancient mill complex."
+- **Image placeholders:** Full 7-field blockquote format, always with a comparison to modern scale.
+- **Closing narrative:** ~250 words. Kaan reflects on what he learned, bridges to next chapter with a concrete action (opens tablet, turns page, looks at something).
+- **Footnotes:** Detailed — include author, year, full title, publisher/journal, DOI, and a note on what the source covers.
+- **Worked example heading:** `## N.X Worked Example: [Descriptive Subtitle]`
+- **Key Takeaways:** Bold lead phrase + explanation. 4-5 bullets.
+- **Tone:** Conversational authority — "Notice the cubic dependence" not "It should be noted that..." Never didactic, never dumbed down.
+- **Fun facts woven into prose**, not called out in boxes.
+- **Cross-references to future chapters:** "That story begins in Chapter 2" — natural, not forced.
 
 ---
 
@@ -229,7 +265,7 @@ Before marking a chapter `[x]` complete, verify:
 - [ ] 3-6 technical sections with formulas
 - [ ] Variable definitions with units for every formula
 - [ ] 2-5 image placeholders (7-field format)
-- [ ] Standard references with clause numbers
+- [ ] Standard references with clause numbers (N/A for historical chapters in Part I)
 - [ ] Worked example with real numbers
 - [ ] Key Takeaways (3-5 bullets)
 - [ ] For Further Reading (2-3 annotated sources)
@@ -253,4 +289,5 @@ Before marking a chapter `[x]` complete, verify:
 | "ebook plan" | Read `.claude/plans/sequential-booping-pumpkin.md` → show plan |
 | "review chapter 5" | Read Ch 5 → suggest improvements → apply if approved |
 | "what did we forget" | Show forgotten topics queue from skills.md |
+| "check chapter [N]" | Read Ch N → run quality checklist → report gaps → fix if approved |
 | "change [X] about the book" | Discuss → update SKILL.md and/or skills.md accordingly |

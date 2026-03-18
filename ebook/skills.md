@@ -4,15 +4,15 @@
 
 | Field | Value |
 |-------|-------|
-| **Last completed chapter** | Chapter 3: From Poul la Cour to MOD-2 (`part-01-wind-before-machines/ch-03-poul-la-cour-to-mod2.md`) |
-| **Last completed file** | `part-01-wind-before-machines/ch-03-poul-la-cour-to-mod2.md` |
-| **Next chapter to write** | Chapter 4: The War of Currents (`part-01-wind-before-machines/ch-04-war-of-currents.md`) |
-| **Kaan's location** | SOV common room, evening — just transferred from CTV, met Elif (electrical engineer) |
-| **Kaan's emotional state** | Awed by first sight of turbines, settling in, curious — Elif has just asked "Do you know why we use alternating current?" |
-| **Last narrative sentence** | "Let me tell you about two men who nearly destroyed each other over that question," she said. |
-| **Total words written** | ~21,000 (preface + how-to-read + Ch 1 + Ch 2 + Ch 3) |
-| **Total chapters complete** | 3 / 48 |
-| **Session count** | 4 |
+| **Last completed chapter** | Chapter 7: Scaling Up: From 100 kW to 15 MW (`part-02-anatomy-of-turbine/ch-07-scaling-up.md`) |
+| **Last completed file** | `part-02-anatomy-of-turbine/ch-07-scaling-up.md` |
+| **Next chapter to write** | Chapter 8: The Atmosphere Is an Engine (`part-03-understanding-the-wind/ch-08-atmosphere-engine.md`) |
+| **Kaan's location** | SOV mess room, Day 2 evening — Part II complete |
+| **Kaan's emotional state** | Knows the machine thoroughly (airfoil → nacelle → scaling). Realises he cannot predict the wind. Ready for Part III. |
+| **Last narrative sentence** | The wind — invisible, unmeasured, still a mystery to him — drove all of it. |
+| **Total words written** | ~48,000 (preface + how-to-read + Ch 1-7) |
+| **Total chapters complete** | 7 / 48 |
+| **Session count** | 8 |
 | **Last session date** | 2026-03-18 |
 | **Master plan location** | `.claude/plans/sequential-booping-pumpkin.md` |
 
@@ -79,8 +79,8 @@ This section tracks Kaan's journey chapter by chapter, so narrative continuity s
 
 **Last updated:** 2026-03-18
 **Total chapters:** 48
-**Completed:** 3 / 48
-**Word count:** ~21,000 / ~280,000
+**Completed:** 7 / 48
+**Word count:** ~48,000 / ~280,000
 
 ### Status Legend
 - `[ ]` Not started (stub only)
@@ -100,12 +100,12 @@ This section tracks Kaan's journey chapter by chapter, so narrative continuity s
 - `[x]` Ch 1: Fire, Water, Wind: The First Energy Sources
 - `[x]` Ch 2: The Millwrights: Holland, England, and the Birth of Mechanical Power
 - `[x]` Ch 3: From Poul la Cour to MOD-2: Electricity from Wind
-- `[ ]` Ch 4: The War of Currents
+- `[x]` Ch 4: The War of Currents
 
 ### Part II: The Anatomy of a Wind Turbine (~45 pages)
-- `[ ]` Ch 5: How an Airfoil Makes a Turbine Spin
-- `[ ]` Ch 6: Inside the Nacelle
-- `[ ]` Ch 7: Scaling Up: From 100 kW to 15 MW
+- `[x]` Ch 5: How an Airfoil Makes a Turbine Spin
+- `[x]` Ch 6: Inside the Nacelle
+- `[x]` Ch 7: Scaling Up: From 100 kW to 15 MW
 
 ### Part III: Understanding the Wind (~65 pages)
 - `[ ]` Ch 8: The Atmosphere Is an Engine
@@ -229,3 +229,7 @@ Topics discovered during writing that need to be added or expanded:
 | 2 | 2026-03-17 | Ch 1 complete | ~6,000 | Ch 1 first draft: 6 sections, 3 formulas, 18 citations, 3 image placeholders. Narrative voice established. Worked example (Nashtifan vs V236). Updated SKILL.md with startup protocol and context restoration. |
 | 3 | 2026-03-18 | Ch 2 complete | ~6,000 | Ch 2 first draft: 5 sections, 1 formula, 25 citations, 3 image placeholders. Dutch drainage (Beemster, Kinderdijk), Zaanstreek industrial district, fantail as negative feedback, Oliver Evans automated mill. Worked example: pumping capacity calculation. |
 | 4 | 2026-03-18 | Ch 3 complete | ~6,500 | Ch 3 first draft: 5 sections, 2 formulas (tip speed ratio, capacity factor), 39 citations, 5 image placeholders. Blyth (1887), Brush (1888), Poul la Cour (1891-1908), Jacobs Wind Electric (1920s-1950s), Smith-Putnam (1941-1945), Gedser/Juul (1957), NASA MOD-0/1/2 (1975-1982), California Wind Rush (1981-1986). Introduced Anders (mentor) and Elif (electrical engineer). Worked example: capacity factor Gedser → modern (9,146 Gedser turbines = one 500 MW farm). |
+| 5 | 2026-03-18 | Ch 4 complete | ~7,000 | Ch 4 first draft: 7 sections, 5 formulas (Faraday's law, P_loss=I²R, R=ρL/A, transformer ratio, 3-phase current), 33 citations, 4 image placeholders. Faraday (1831), Edison/Pearl Street (1882), ZBD transformer (1884-85), Tesla patents (1888), Harold Brown electrocutions, Kemmler execution (1890), Chicago World's Fair (1893), Niagara Falls (1895-96), Ferranti/Deptford (1889-91), Ferranti effect, HVDC comeback. Elif narrates the War of Currents story. Worked example: DC 110V vs AC 220kV losses for 500 MW over 45 km. Part I complete. |
+| 6 | 2026-03-18 | Ch 5 complete | ~7,000 | Ch 5 first draft: 6 sections, 6 formulas (lift/drag forces, Kutta-Joukowski, Betz derivation with Cp=4a(1-a)², velocity triangle/flow angle, tip speed ratio), 18 citations, 5 image placeholders. Cayley (1799 silver disc), Lilienthal (1889), Kutta (1902), Joukowski (1906), Bernoulli (1738), Lanchester (1915), Betz (1920), Glauert (1935 BEM). DU/NACA/FFA/NREL airfoil families. Introduced Morten (turbine technician). Worked example: power extraction at 10 m/s and rated for 236m rotor, farm-level scaling. Fun fact: blade tips at 374 km/h. Part II begins. |
+| 7 | 2026-03-18 | Ch 6 complete | ~6,500 | Ch 6 first draft: 6 sections, 5 formulas (T=P/ω torque, rotor/generator torque calculations, DFIG slip, cos³ yaw misalignment, drivetrain efficiency chain), 19 citations, 4 image placeholders. Three drivetrain philosophies (high-speed geared, direct-drive, medium-speed). Enercon E-40 (1993, first DD), Growian (1983, 400-hour failure), Smith-Putnam (1941, first variable-pitch). V236 medium-speed 3-stage all-planetary (ZF, ~48:1, 400 rpm PMSG). DFIG vs PMSG, rare earth geopolitics (30 vs 160-200 kg REE/MW). Pitch system (electric, ultracapacitor backup, IEC 61400-1 dual brake requirement). Yaw system (10 motors, ±720-1080° cable twist, cos³ loss). Condition monitoring (vibration, oil particles, temperature). Worked example: 15 MW → 14.18 MW grid (η=0.945) + yaw loss comparison. Nacelle heavier than a 747 (630 vs 413 tonnes). |
+| 8 | 2026-03-18 | Ch 7 complete | ~6,500 | Ch 7 first draft: 5 sections, 5 formulas (P=½ρACpv³ scaling, m∝D^α blade mass, specific power SP=P/A, capacity factor CF=AEP/(P×8760), time-based availability), 16 citations, 5 image placeholders. Square-cube law (Galileo 1638), beating the cube (α=2.1-2.5 vs theoretical 3.0). Carbon fibre spar caps (Vestas V90 2004, CFRP 3× specific stiffness of GFRP). Leading-edge erosion (1-5% AEP loss, tip speeds >100 m/s, IEA Wind Task 46 classification). Lightning protection (IEC 61400-24:2019, LPL I-IV, receptor-down conductor system, 200 kA peak, continuing current). Power curve (IEC 61400-12-1:2017, bin method, Regions 1-3, storm-riding to 31 m/s). Specific power decline (393→223 W/m² US onshore, V80 398 vs V236 343 W/m²). Reliability (IEC 61400-26-1, 95-97% availability, Carroll et al. 2016 failure costs). Worked example: V80→V236 scaling (8.7× area, 7.5× power, 10.3× AEP, 86% fewer foundations). Part II complete — bridges to Part III (Understanding the Wind). |

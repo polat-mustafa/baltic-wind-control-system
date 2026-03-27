@@ -33,28 +33,28 @@ nav:
   - Project Roadmap: Project_Roadmap.md
   - Learning Roadmap: Learning_Roadmap.md
   - English:
-      - Overview: lessons/index.md
+      - Overview: en/lessons/index.md
       - User Guide: en/user-guide.md
       - Lessons:
-          - '000 - Project Planning & Engineering Methodology': lessons/lesson-000.md
-          - '001 - DevOps Foundation': lessons/lesson-001.md
-          - '002 - Internationalisation Infrastructure': lessons/lesson-002.md
-          - '003 - Early Design Decisions': lessons/lesson-003.md
-          - '004 - Database, ERA5 & Weibull': lessons/lesson-004.md
-          - '005 - Wind Rose & Wake Modelling': lessons/lesson-005.md
-          - '006 - Layout, Blockage & AEP Cascade': lessons/lesson-006.md
-          - '007 - HV Grid Integration': lessons/lesson-007.md
-          - '008 - Dynamic Compliance, ANDES, FRT & SSO': lessons/lesson-008.md
-          - '009 - IEC 61850 Data Model, SCL & SCADA': lessons/lesson-009.md
-          - '010 - GOOSE Simulation & Protection Timeline': lessons/lesson-010.md
-          - '011 - IEC 62443 RBAC & Permit-to-Work': lessons/lesson-011.md
-          - '012 - SCADA Data Pipeline & Quality Filters': lessons/lesson-012.md
-          - '013 - XGBoost Quantile Forecasting & SHAP': lessons/lesson-013.md
-          - '014 - LSTM Forecasting & MC Dropout': lessons/lesson-014.md
-          - '015 - TFT Multi-horizon Forecasting': lessons/lesson-015.md
-          - '016 - Ensemble Forecasting, Ramp Detection & Evaluation': lessons/lesson-016.md
-          - '017 - Commissioning, State Machine & LOTO': lessons/lesson-017.md
-          - '018 - FAT/SAT & Protection Coordination': lessons/lesson-018.md
+          - '000 - Project Planning & Engineering Methodology': en/lessons/lesson-000.md
+          - '001 - DevOps Foundation': en/lessons/lesson-001.md
+          - '002 - Internationalisation Infrastructure': en/lessons/lesson-002.md
+          - '003 - Early Design Decisions': en/lessons/lesson-003.md
+          - '004 - Database, ERA5 & Weibull': en/lessons/lesson-004.md
+          - '005 - Wind Rose & Wake Modelling': en/lessons/lesson-005.md
+          - '006 - Layout, Blockage & AEP Cascade': en/lessons/lesson-006.md
+          - '007 - HV Grid Integration': en/lessons/lesson-007.md
+          - '008 - Dynamic Compliance, ANDES, FRT & SSO': en/lessons/lesson-008.md
+          - '009 - IEC 61850 Data Model, SCL & SCADA': en/lessons/lesson-009.md
+          - '010 - GOOSE Simulation & Protection Timeline': en/lessons/lesson-010.md
+          - '011 - IEC 62443 RBAC & Permit-to-Work': en/lessons/lesson-011.md
+          - '012 - SCADA Data Pipeline & Quality Filters': en/lessons/lesson-012.md
+          - '013 - XGBoost Quantile Forecasting & SHAP': en/lessons/lesson-013.md
+          - '014 - LSTM Forecasting & MC Dropout': en/lessons/lesson-014.md
+          - '015 - TFT Multi-horizon Forecasting': en/lessons/lesson-015.md
+          - '016 - Ensemble Forecasting, Ramp Detection & Evaluation': en/lessons/lesson-016.md
+          - '017 - Commissioning, State Machine & LOTO': en/lessons/lesson-017.md
+          - '018 - FAT/SAT & Protection Coordination': en/lessons/lesson-018.md
   - Turkish:
       - Overview: tr/index.md
       - User Guide: KULLANICI_KILAVUZU.md

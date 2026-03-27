@@ -3,14 +3,14 @@
 !!! abstract "Nawigacja kursu"
 :material-arrow-left: **Poprzednia:** [Lekcja 003 — Wstępne decyzje projektowe](lesson-003.md) | **Następny:** [Lekcja 005 — Wiatrowskaz i model szlaku](lesson-005.md) :material-arrow-right:
 
-**Faza:** P1 | **Język:** turecki | **Postęp:** 5 / 5 | [Wszystkie lekcje](index.md) | [Plan nauczania](../../Learning_Roadmap.md)
+**Faza:** P1 | **Język:** Polski | **Postęp:** 5 z 19 | [Wszystkie lekcje](index.md) | [Plan nauczania](../../Learning_Roadmap.md)
 
 > **Data:** 23.02.2026
 > **Zatwierdzenia:** 15 zatwierdzeń (`d6e30ee` → `bb84814`), 3 dahil / 12 w kraju
 > **Zakres zatwierdzenia:** `d6e30ee52c7a389c8232f546dc3e6ae2952e79f7..bb84814a0a0bf528dd78c95d42e6341e50b89bb5`
 > **Faza:** P1 (zasoby wiatru i AEP)
 > **Ekrany planu działania:** [Faza 1 — Sekcja 1.1 Ocena zasobów wiatru, Sekcja 1.2 Modelowanie śladu i optymalizacja układu]
-> **Język:** turecki
+> **Język:** Polski
 > **Poprzednia lekcja:** Lekcja 002
 > **last_commit_hash:** bb84814a0a0bf528dd78c95d42e6341e50b89bb5
 

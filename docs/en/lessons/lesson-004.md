@@ -3,14 +3,14 @@
 !!! abstract "Course Navigation"
 :material-arrow-left: **Previous:** [Lesson 003 — Preliminary Design Decisions](lesson-003.md) | **Next:** [Lesson 005 — Wind Vane & Trail Model](lesson-005.md) :material-arrow-right:
 
-**Phase:** P1 | **Language:** Turkish | **Progress:** 5 / 5 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
+**Phase:** P1 | **Language:** English | **Progress:** 5 of 19 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
 
 > **Date:** 2026-02-23
 > **Commits:** 15 commits (`d6e30ee` → `bb84814`), 3 dahil / 12 atlandı
 > **Commit range:** `d6e30ee52c7a389c8232f546dc3e6ae2952e79f7..bb84814a0a0bf528dd78c95d42e6341e50b89bb5`
 > **Phase:** P1 (Wind Resource & AEP)
 > **Roadmap sections:** [Phase 1 — Section 1.1 Wind Resource Assessment, Section 1.2 Wake Modelling & Layout Optimization]
-> **Language:** Turkish
+> **Language:** English
 > **Previous lesson:** Lesson 002
 > **last_commit_hash:** bb84814a0a0bf528dd78c95d42e6341e50b89bb5
 

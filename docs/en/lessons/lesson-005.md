@@ -3,14 +3,14 @@
 !!! abstract "Course Navigation"
 :material-arrow-left: **Previous:** [Lesson 004 — P1: Database, ERA5 & Weibull](lesson-004.md) | **Next:** [Lesson 006 — Layout Optimization, Blocking & AEP Cascade](lesson-006.md) :material-arrow-right:
 
-**Phase:** P1 | **Language:** Turkish | **Progress:** 6 / 6 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
+**Phase:** P1 | **Language:** English | **Progress:** 6 of 19 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
 
 > **Date:** 2026-02-24
 > **Commits:** 1 commit (`c7ab018`)
 > **Commit range:** `bb84814a0a0bf528dd78c95d42e6341e50b89bb5..c7ab0188b07035ec2875942e5667d67c7cadba67`
 > **Phase:** P1 (Wind Resource & AEP)
 > **Roadmap sections:** [Phase 1 — Section 1.1 Wind Resource Assessment, Section 1.2 Wake Modelling & Layout Optimization]
-> **Language:** Turkish
+> **Language:** English
 > **Previous lesson:** Lesson 004
 > **last_commit_hash:** c7ab0188b07035ec2875942e5667d67c7cadba67
 

@@ -3,7 +3,7 @@
 !!! abstract "Nawigacja Lekcji"
     :material-arrow-left: **Poprzednia:** [Lekcja 009 — Model Danych IEC 61850, Generator SCL i System Rejestracji Urządzeń SCADA](lesson-009.md) | **Następna:** [Lekcja 011 — IEC 62443 RBAC i 9-Stanowy Cykl Życia Permit-to-Work](lesson-011.md) :material-arrow-right:
 
-    **Faza:** P3 | **Język:** Polski | **Postęp:** 10 z 19 | [Wszystkie lekcje](index.md) | [Plan nauki](../../Learning_Roadmap.md)
+    **Faza:** P3 | **Język:** Polski | **Postęp:** 11 z 19 | [Wszystkie lekcje](index.md) | [Plan nauki](../../Learning_Roadmap.md)
 
 > **Data:** 2026-02-25
 > **Commity:** 1 commit (`c085bcb` → `c085bcb`)

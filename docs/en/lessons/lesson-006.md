@@ -1,16 +1,16 @@
 # Lesson 006 — Placement Optimization, Blocking Model and Gross-Net AEP Cascade
 
 !!! abstract "Course Navigation"
-:material-arrow-left: **Previous:** [Lesson 005 — Wind Vane Analysis & PyWake Wake Modeling](lesson-005.md) | **Next:** Coming Soon :material-arrow-right:
+:material-arrow-left: **Previous:** [Lesson 005 — Wind Vane Analysis & PyWake Wake Modeling](lesson-005.md) | **Next:** [Lesson 007 — HV Grid Integration](lesson-007.md) :material-arrow-right:
 
-**Phase:** P1 | **Language:** Turkish | **Progress:** 7 / 7 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
+**Phase:** P1 | **Language:** English | **Progress:** 7 of 19 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
 
 > **Date:** 2026-02-24
 > **Commits:** 1 commit (`3cd5675`)
 > **Commit range:** `6893c0295296b98a2d7fe022301ca066cfed4a38..3cd56751c0c768a91e0c8dbee4557b597b4c889f`
 > **Phase:** P1 (Wind Resource & AEP)
 > **Roadmap sections:** [Phase 1 — Section 1.2 Wake Modelling & Layout Optimization, Section 1.3 Energy Yield & Financial Analysis]
-> **Language:** Turkish
+> **Language:** English
 > **Previous lesson:** Lesson 005
 > **last_commit_hash:** 3cd56751c0c768a91e0c8dbee4557b597b4c889f
 

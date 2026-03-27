@@ -3,7 +3,7 @@
 !!! abstract "Ders Navigasyonu"
     :material-arrow-left: **Önceki:** [Ders 006 — Yerleşim Optimizasyonu, Blokaj & AEP Kaskadı](lesson-006.md) | **Sonraki:** [Ders 008 — Dinamik Şebeke Uyumluluğu: ANDES, FRT, Frekans, SSO & Konvertör](lesson-008.md) :material-arrow-right:
 
-    **Faz:** P2 | **Dil:** Türkçe | **İlerleme:** 1 / ? | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
+    **Faz:** P2 | **Dil:** Türkçe | **İlerleme:** 8 / 19 | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 
 > **Date:** 2026-02-24
 > **Phase:** P2 (HV Grid Integration)

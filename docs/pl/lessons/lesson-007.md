@@ -3,7 +3,7 @@
 !!! abstract "Nawigacja lekcji"
     :material-arrow-left: **Poprzednia:** [Lekcja 006 — Optymalizacja rozmieszczenia, efekt blokowania i kaskada AEP](lesson-006.md) | **Następna:** [Lekcja 008 — Dynamiczna zgodność sieci: ANDES, FRT, odpowiedź częstotliwościowa, SSO i porównanie konwerterów](lesson-008.md) :material-arrow-right:
 
-    **Faza:** P2 | **Język:** Polski | **Postęp:** 7 z 19 | [Wszystkie lekcje](index.md) | [Plan nauki](../../Learning_Roadmap.md)
+    **Faza:** P2 | **Język:** Polski | **Postęp:** 8 z 19 | [Wszystkie lekcje](index.md) | [Plan nauki](../../Learning_Roadmap.md)
 
 > **Data:** 2026-02-24
 > **Faza:** P2 (HV Grid Integration)

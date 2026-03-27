@@ -10,10 +10,10 @@ When a 45 km 220 kV submarine cable is energised for the first time, two
 critical phenomena occur:
 
 1. **Cable charging current** — A 45 km XLPE submarine cable has a
-   capacitance of ~0.25 µF/km (IEC 60287). The charging current is:
+   capacitance of ~190 nF/km (IEC 60287). The charging current is:
 
-     I_c = ω × C × V = 2π × 50 × (0.25e-6 × 45) × (220e3/√3)
-         ≈ 89 A per phase
+     I_c = ω × C × V = 2π × 50 × (190e-9 × 45) × (220e3/√3)
+         ≈ 341 A per phase
 
    This reactive current flows continuously and must be compensated by
    the STATCOM (P2) to maintain voltage within ±5%.
@@ -23,8 +23,8 @@ critical phenomena occur:
 
      V_receiving / V_sending = 1 / cos(β × l)
 
-   where β = ω√(LC) ≈ 1.05e-3 rad/km. For 45 km:
-     V_ratio = 1 / cos(0.0473) ≈ 1.001 (0.1% rise)
+   where β = ω√(LC) ≈ 2.63e-3 rad/km (L=0.369 mH/km, C=190 nF/km). For 45 km:
+     V_ratio = 1 / cos(0.1184) ≈ 1.007 (0.71% rise)
 
    Manageable for 45 km, but critical for longer cables (>100 km).
 
@@ -526,8 +526,8 @@ def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
             "action": "Monitor: Cable charging current stable (5 min)",
             "responsible": "SCADA",
             "pic_confirm": True,
-            "verification": "SCADA current reading stable ~89 A/phase",
-            "notes": "45 km XLPE cable capacitance ~0.25 µF/km → 89 A charging current",
+            "verification": "SCADA current reading stable ~341 A/phase",
+            "notes": "45 km XLPE cable capacitance ~190 nF/km → 341 A charging current",
         },
         # S-013: Close DS-OSS-220-01
         {
@@ -578,10 +578,10 @@ def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
         {
             "step_id": "S-017",
             "type": StepType.VERIFICATION,
-            "action": "Verify: STATCOM absorbing ~85 MVAR",
+            "action": "Verify: STATCOM absorbing ~130 MVAR",
             "responsible": "SCADA",
             "pic_confirm": True,
-            "verification": "SCADA reactive power reading ~85 MVAR inductive",
+            "verification": "SCADA reactive power reading ~130 MVAR inductive",
         },
         # S-018: Close TX-OSS HV CB
         {

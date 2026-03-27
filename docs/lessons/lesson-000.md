@@ -3,7 +3,7 @@
 !!! abstract "Lesson Navigation"
     :material-arrow-left: **Previous:** None (foundational lesson) | **Next:** [Lesson 001 — DevOps Foundation](lesson-001.md) :material-arrow-right:
 
-    **Phase:** P0 | **Language:** English | **Progress:** 1 of 3 | [All Lessons](index.md) | [Learning Roadmap](../Learning_Roadmap.md)
+    **Phase:** P0 | **Language:** English | **Progress:** 1 of 19 | [All Lessons](index.md) | [Learning Roadmap](../Learning_Roadmap.md)
 
 > **Date:** 2026-02-21
 > **Commits:** Conceptual lesson — covers the entire Phase 0 planning process

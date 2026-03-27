@@ -3,12 +3,12 @@
 !!! abstract "Nawigacja kursu"
 :material-arrow-left: **Poprzednia:** [Lekcja 002 — Internacjonalizacja](lesson-002.md) | **Następny:** [Lekcja 004 — Baza danych, ERA5 i Weibull](lesson-004.md):material-arrow-right:
 
-**Faza:** P1 | **Język:** turecki | **Postęp:** 4 / 5 | [Wszystkie lekcje](index.md) | [Plan nauczania](../../Learning_Roadmap.md)
+**Faza:** P1 | **Język:** Polski | **Postęp:** 4 z 19 | [Wszystkie lekcje](index.md) | [Plan nauczania](../../Learning_Roadmap.md)
 
 > **Data:** 24.02.2026
 > **Faza:** P1 (Zasoby wiatru i AEP) – Wstępne przygotowanie
 > **Ekrany planu działania:** [Sekcja 1.3 Referencyjna specyfikacja farmy wiatrowej, Sekcja 1.4 Kontekst branżowy]
-> **Język:** turecki
+> **Język:** Polski
 
 ---
 

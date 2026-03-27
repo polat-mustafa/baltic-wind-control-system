@@ -3,12 +3,12 @@
 !!! abstract "Course Navigation"
 :material-arrow-left: **Previous:** [Lesson 002 — Internationalization](lesson-002.md) | **Next:** [Lesson 004 — Database, ERA5 & Weibull](lesson-004.md) :material-arrow-right:
 
-**Phase:** P1 | **Language:** Turkish | **Progress:** 4 / 5 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
+**Phase:** P1 | **Language:** English | **Progress:** 4 of 19 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
 
 > **Date:** 2026-02-24
 > **Phase:** P1 (Wind Resource & AEP) — ​​Preliminary Preparation
 > **Roadmap sections:** [Section 1.3 Reference Wind Farm Specification, Section 1.4 Industry Context]
-> **Language:** Turkish
+> **Language:** English
 
 ---
 

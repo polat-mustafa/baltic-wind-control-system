@@ -3,7 +3,7 @@
 !!! abstract "Nawigacja lekcji"
     :material-arrow-left: **Poprzednia:** [Lekcja 014 — LSTM szeregi czasowe: pomiar niepewności z MC Dropout](lesson-014.md) | **Następna:** [Lekcja 016 — Prognozowanie ensemble, wykrywanie ramp i ocena modeli](lesson-016.md) :material-arrow-right:
 
-    **Faza:** P4 | **Język:** Polski | **Postęp:** 15 z 19 | [Wszystkie lekcje](index.md) | [Plan nauki](../../Learning_Roadmap.md)
+    **Faza:** P4 | **Język:** Polski | **Postęp:** 16 z 19 | [Wszystkie lekcje](index.md) | [Plan nauki](../../Learning_Roadmap.md)
 
 > **Data:** 2026-02-26
 > **Faza:** P4 (AI Forecasting)

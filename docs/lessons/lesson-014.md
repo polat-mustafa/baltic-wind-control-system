@@ -3,7 +3,7 @@
 !!! abstract "Ders Navigasyonu"
     :material-arrow-left: **Önceki:** [Ders 013 — XGBoost Kantil Tahminleme: NWP Pipeline, Olasılıksal Güç Tahmini & SHAP Açıklanabilirlik](lesson-013.md) | **Sonraki:** [Ders 015 — TFT: Dikkat Mekanizması ile Çok Ufuklu Güç Tahmini](lesson-015.md) :material-arrow-right:
 
-    **Faz:** P4 | **Dil:** Türkçe | **İlerleme:** 3 / ? | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
+    **Faz:** P4 | **Dil:** Türkçe | **İlerleme:** 15 / 19 | [Tüm Dersler](index.md) | [Öğrenme Yol Haritası](../Learning_Roadmap.md)
 
 > **Date:** 2026-02-26
 > **Phase:** P4 (AI Forecasting)

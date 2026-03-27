@@ -4,16 +4,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Last completed chapter** | Chapter 45: Digital Twins and Condition Monitoring (`part-10-life-of-wind-farm/ch-45-digital-twins.md`) |
-| **Last completed file** | `part-10-life-of-wind-farm/ch-45-digital-twins.md` |
-| **Next chapter to write** | Chapter 46: Environmental Impact and Decommissioning (`part-10-life-of-wind-farm/ch-46-environment.md`) |
-| **Kaan's location** | OSS control room, Month 18. Katrine Holm (Danish digital twin specialist) has just completed the T17 diagnosis session. Helena approved digital twin procurement. Environmental survey vessel arriving next week from Gdańsk university. |
-| **Kaan's emotional state** | Ch 45 complete: T17 main bearing BPFO confirmed at 3.56 Hz (predicted 3.55 Hz). Health Index 51, RUL P50 = 3.4 months. Payback calculation sent to Helena (EUR 4.2M NPV, 1.3-year simple payback). Helena: "Proceed with procurement." T09 also flagged yellow. Next: Ch 46 — environmental impact, reef effect on monopile foundations, decommissioning plans. New character from marine biology. |
-| **Last narrative sentence** | "That was the next chapter." |
-| **Total words written** | ~294,000 (preface + how-to-read + Ch 1-45) |
-| **Total chapters complete** | 45 / 48 |
-| **Session count** | 46 |
-| **Last session date** | 2026-03-26 |
+| **Last completed chapter** | Chapter 48: The Man Who Steered the Wind (`part-11-what-comes-next/ch-48-the-man-who-steered-the-wind.md`) |
+| **Last completed file** | `part-11-what-comes-next/ch-48-the-man-who-steered-the-wind.md` |
+| **Next chapter to write** | ALL 48 CHAPTERS COMPLETE. Back matter (appendices, bibliography, index) remaining. |
+| **Kaan's location** | OSS observation deck, Year 2, dawn. Returned from Copenhagen conference. Watched all 34 turbines turning. Exchanged messages with Anders. Went inside to start work. |
+| **Kaan's emotional state** | Book complete. Kaan understood the machine fully — physically, financially, ecologically, computationally. He went inside to start work. The arc is closed. |
+| **Last narrative sentence** | "The turbines were still turning." |
+| **Total words written** | ~315,000 (preface + how-to-read + Ch 1-48) |
+| **Total chapters complete** | 48 / 48 |
+| **Session count** | 49 |
+| **Last session date** | 2026-03-27 |
 | **Master plan location** | `.claude/plans/sequential-booping-pumpkin.md` |
 
 ---
@@ -70,18 +70,18 @@ This section tracks Kaan's journey chapter by chapter, so narrative continuity s
 | 43 | OSS control room + operations harbour | Kaan, Erik Svensson (O&M Manager) | Six months after commercial operation. CTV delayed by 1.7m Hs (limit 1.5m). Erik arrives 07:30, reviews wave forecast, schedules 4-hour access window at 11:00. Learns TBA vs PBA divergence, bathtub curve, spare parts lead times, CBM financial argument. Year 1: TBA 97.97%, PBA 98.66%, AEP 2,306 GWh, EUR 12.3M O&M cost. Helena Voss scheduled next week. | Month 15 |
 | 44 | OSS conference room (Helena's first physical visit) | Kaan, Helena Voss (first in-person), Erik Svensson | Helena arrives by CTV — first time on the physical structure. LCOE = EUR 64.6/MWh, CfD strike EUR 89.50/MWh, Year 1 DSCR 1.93 vs covenant 1.20, equity IRR updated 11.5%→12.3%. "Good Year One." T17 14:1 CBM payback ratio calculated live in EUR (EUR 15,210 planned vs EUR 210,600 emergency). Helena asks for digital twin payback calculation. Kaan: "What does the turbine know about itself that the SCADA system doesn't know yet?" | Month 16 |
 | 45 | OSS control room (digital twin console) | Kaan, Katrine Holm (Danish digital twin specialist) | T17 BPFO confirmed at 3.56 Hz. HI 51 (amber). RUL 3.4 months P50. Payback EUR 4.2M NPV approved by Helena. T09 flagged yellow. Bridge: environmental survey vessel next week. | Month 18 |
-| 46 | Environmental survey vessel | Kaan, Marine Biologist | Reef effect, bird surveys, decommissioning plans | Month 18 |
-| 47 | Conference presentation | Kaan, alone on stage | Looking forward — HVDC, floating, hydrogen | Year 2 |
-| 48 | OSS observation deck | Kaan, alone | 34 turning rotors — reflection on the journey | Year 2 |
+| 46 | Environmental survey vessel (Doktor Jan Mielke, Gdańsk), then OSS | Kaan, Zofia Wiśniewska (University of Gdańsk marine ecologist) | T14 ROV footage: 41 invertebrate species including mussels, kelp, cod in scour protection rock. EIA framework (2011/92/EU, Habitats Directive, Natura 2000). Pile driving noise: unmitigated 180.9 dB SEL at 750 m vs 160 dB BSH limit; double bubble curtain 22 dB → 158.9 dB (✓). Cumulative SEL: 189.5 dB over 30 min (exceeds NOAA PTS criterion) → requires MMO/PAM layers. Reef effect vs full removal decommissioning: EUR 1,359M vs EUR 544M (exemption). Annual decommissioning provision: EUR 20.6M/yr = 10% revenue. Zofia: "The sea has opinions." Anders margin note: "floating, HVDC, hydrogen, 40 MW." | Month 18 |
+| 47 | Copenhagen conference centre | Kaan alone on stage (first time in book as the teacher, not the student) | Presented 5 technologies; Anders's margin note is the chapter's spine; student with folded orange vest asks Ch 1 question back at him; "Tomorrow was the last chapter." | Year 2 |
+| 48 | OSS observation deck | Kaan, alone (Anders via phone message) | Dawn, Year 2. All 34 turbines turning. Historical arc: 8,000 years from Nashtifan to GOOSE in 4 ms. 62% cost reduction. Reflections on mentors (Morten, Anders, Elif, Maja, Pieter, Johan, Helena, Brigid). Physics that doesn't change. Student with orange vest from Ch 47. Anders's text: "That's what the next two years are for." Reef at T14. The man who steered the wind. Went inside to start work. | Year 2 |
 
 ---
 
 ## Chapter Progress
 
-**Last updated:** 2026-03-26
+**Last updated:** 2026-03-27
 **Total chapters:** 48
-**Completed:** 45 / 48
-**Word count:** ~294,000 / ~280,000
+**Completed:** 48 / 48
+**Word count:** ~315,000 / ~280,000
 
 ### Status Legend
 - `[ ]` Not started (stub only)
@@ -161,11 +161,11 @@ This section tracks Kaan's journey chapter by chapter, so narrative continuity s
 - `[x]` Ch 43: Operations & Maintenance
 - `[x]` Ch 44: The Economics
 - `[x]` Ch 45: Digital Twins and Condition Monitoring
-- `[ ]` Ch 46: Environmental Impact and Decommissioning
+- `[x]` Ch 46: Environmental Impact and Decommissioning
 
 ### Part XI: What Comes Next (~25 pages)
-- `[ ]` Ch 47: The Horizon
-- `[ ]` Ch 48: The Man Who Steered the Wind
+- `[x]` Ch 47: The Horizon
+- `[x]` Ch 48: The Man Who Steered the Wind
 
 ### Back Matter
 - `[ ]` Appendix A: Standards Reference Matrix
@@ -226,6 +226,9 @@ Topics discovered during writing that need to be added or expanded:
 
 | Session | Date | Chapters Written | Words Added | Key Decisions |
 |---------|------|-----------------|-------------|---------------|
+| 49 | 2026-03-27 | Ch 48 complete — ALL 48 CHAPTERS DONE | ~6,000 | Ch 48: The Man Who Steered the Wind. Pure narrative finale, no formulas, no citations. Opens at dawn on OSS observation deck, Year 2. Historical arc: 8,000 years from first sails to GOOSE in 4 ms, Nashtifan windmills as waypoint, Poul la Cour 1891, Vindeby 1991, 62% offshore wind cost reduction 2010→2024. Reflections on 10 mentors through their objects and phrases (Morten's blade cross-section, Anders's teaching style, Elif's mug, Maja's Kestrel, Pieter's soil core, Johan's thermos, Helena's twenty-second silence, Brigid's padlocks). Physics that doesn't change: Bernoulli 1738, Betz 1919/1926, Faraday 1831, Steinmetz 1893. What the engineering work is: system integrator role, hybrid discipline. The student from Copenhagen (orange-vest, orange safety vest, asked Kaan's own Ch 1 question). Anders text exchange: "That's what the next two years are for." Reef at T14 (Zofia's cod) as engineering consequence. "The man who steered the wind" explained: you can't steer the wind; you steer the machine. Closing image: "The turbines were still turning." 2 image placeholders (fig-48-01 dawn observation deck, fig-48-02 knowledge map). 5 Key Takeaways. Notes: "no citations." |
+| 48 | 2026-03-27 | Ch 47 complete | ~7,000 | Ch 47: The Horizon. Conference setting (Copenhagen, Year 2) — Kaan alone on stage for the first time in the book. Anders's margin note ("floating, HVDC, hydrogen, 40 MW") photographed and used as the chapter's spine slide. Five technologies: (1) HVDC-VSC/MMC — reactive power formula shows AC physically impossible at 300 km for 2 GW; break-even ~85 km; BorWin1 (2009); Gotland 1954 ASEA callback to Johan Carlsson (Ch 20). (2) MTDC grids — DC fault clearing, ABB hybrid breaker (5 ms, 2012/2013), DC power flow by voltage difference, Bornholm Energy Island. (3) Floating wind — SPAR/semi-sub/TLP; dynamic cable as critical enabler; heave natural period formula; Hywind Demo (2009), Scotland (2017), Tampen (2022); 40 MW economics explained. (4) GFM inverters — GFL vs GFM; virtual inertia formula (identical to Ch 25/Ch 27, named callback); National Grid ESO Black Start 2020. (5) Green hydrogen — PEM specific energy formula (Faraday's law), LCOH formula; NorthH2 project; Year 2 curtailment event (248 MWh, 4,769 kg H₂ = EUR 23,845 vs EUR 11,160 curtailed revenue). Worked example: AC impossibility at 300 km (cable current 2,884 A vs 1,600-1,800 A ampacity limit); HVDC 2.5% total losses, EUR 17.7M/yr; H₂ from curtailment EUR 23,845. Student with folded orange vest asks Kaan's own question ("how do you prioritise when everything is changing at once?"). Teaching arc closes — Kaan was that student two years ago. Bridge: "Tomorrow was the last chapter." 7 display formulas, 4 image placeholders, 7 footnotes. |
+| 47 | 2026-03-27 | Ch 46 complete | ~8,200 | Ch 46: Environmental Impact and Decommissioning. New character: Zofia Wiśniewska (University of Gdańsk marine ecologist, artificial reef specialist). ROV footage at T14: 41 invertebrate species ahead of Vindeby literature. Reef effect: 1,900 m² vertical habitat per monopile, colonisation sequence (biofilm → mussels → kelp → cod). BSH noise standard (160 dB SEL / 190 dB peak at 750 m). Pile noise worked example: unmitigated 180.9 dB SEL → double bubble curtain 22 dB → 158.9 dB (✓). Cumulative SEL at 750 m over 30 min: 189.5 dB (exceeds NOAA PTS criterion) → MMO/PAM protocol layers. EIA Directive 2011/92/EU, Habitats Directive, Natura 2000. Baltic harbour porpoise (Phocoena phocoena relicta): IUCN Critically Endangered, <500 individuals. Band collision model for sea eagle. Trefoil cable EMF cancellation (1-5 µT residual vs 40 µT ICNIRP limit). Decommissioning: full removal EUR 1,359M vs reef exemption EUR 544M; OSPAR Decision 98/3 and HELCOM Rec 10/3E. Annual decommissioning provision: EUR 20.6M/yr = 10% revenue. Anders margin note bridges to Part XI. 6 display formulas (TL, RL=SL-TL, SEL_cum, B=µ₀I/2πr, Band CRM, C_decom + A_decom annuity), 4 image placeholders, 11 footnotes. |
 | 46 | 2026-03-26 | Ch 45 complete | ~6,200 | Ch 45: Digital Twins and Condition Monitoring. New character: Katrine Holm (Danish digital twin specialist, DTU structural mechanics, ex-Ørsted digital innovation). T17 main bearing BPFO: kinematic prediction 3.55 Hz, measured 3.56 Hz — geometry confirmed. NBM residuals Month 12-18, HI trending 91→51 (amber). Weibull RUL P50 = 3.4 months, June maintenance window within P10-P50 range. Financial case: EUR 210,600 emergency vs EUR 15,210 planned (13.8:1 ratio), fleet NPV EUR 4.2M, simple payback 1.3 years. Grieves 2002 PLM Consortium origin + Vickers 2010 NASA term origin. Apollo 13 cited as conceptual precursor (with correct epistemic caveat). ISO 13374 six-level framework. T09 flagged yellow (gearbox). Bridge to Ch 46: environmental survey vessel from Gdańsk arriving next week (reef effect, mussels, cod in scour protection). 6 display formulas, 4 image placeholders, 5 footnotes. |
 | 45 | 2026-03-26 | Ch 44 complete | ~6,000 | Ch 44: Helena Voss's first physical visit to the OSS. LCOE formula (IRENA method), CfD bilateral mechanism (UK AR1→AR6 arc, Polish OZE), Year 1 revenue EUR 206.4M, LCOE EUR 64.6/MWh, DSCR 1.93, equity IRR update 12.3%. 6 display formulas, 5 image placeholders, 4 annotated sources. Bridge to Ch 45 via Helena asking for digital twin payback calculation. |
 | 1 | 2026-03-17 | Scaffolding only | ~2,500 | Created 48 stubs, preface, how-to-read, SKILL.md, skills.md. Established voice, template, citation rules. |

@@ -3,14 +3,14 @@
 !!! abstract "Course Navigation"
 :material-arrow-left: **Previous:** [Lesson 001 — DevOps Foundation](lesson-001.md) | **Next:** [Lesson 003 — Preliminary Design Decisions](lesson-003.md) :material-arrow-right:
 
-**Phase:** P0 | **Language:** Turkish | **Progress:** 3 / 3 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
+**Phase:** P0 | **Language:** English | **Progress:** 3 of 19 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
 
 > **Date:** 2026-02-20
 > **Commits:** 2 commits (`eba32fd` → `fa528fb`)
 > **Commit range:** `eba32fd7ab6a979f409d0f2632dedfa35c79f93c..fa528fb95bd6778ea54f50be71ddc6e0475d2818`
 > **Phase:** P0 (DevOps Foundation)
 > **Roadmap sections:** [Phase 0 — Section 0.3 Web Development Foundations]
-> **Language:** Turkish
+> **Language:** English
 > **Previous lesson:** Lesson 001
 > **last_commit_hash:** fa528fb95bd6778ea54f50be71ddc6e0475d2818
 

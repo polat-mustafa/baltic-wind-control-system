@@ -169,10 +169,11 @@ def _compute_hvac_losses(
     r_total = r_ohm_per_km * cable_length_km
     cable_loss_mw = 3.0 * (current_a**2) * r_total / 1e6
 
-    # Reactive power generation: Q = ω × C × V² × L (per phase, 3-phase)
+    # Reactive power generation: Q_3phase = ω × C × V_LL² × L
+    # (C is per-phase; ω × C × V_LL² = 3 × ω × C × V_phase², so no ×3 needed)
     omega = 2.0 * np.pi * 50.0
     c_total = c_nf_per_km * 1e-9 * cable_length_km
-    q_mvar = omega * c_total * (voltage_kv * 1000.0) ** 2 / 1e6 * 3.0
+    q_mvar = omega * c_total * (voltage_kv * 1000.0) ** 2 / 1e6
 
     return cable_loss_mw, q_mvar, 0.0
 

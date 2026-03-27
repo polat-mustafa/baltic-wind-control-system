@@ -3,14 +3,14 @@
 !!! abstract "Course Navigation"
 :material-arrow-left: **Previous:** [Lesson 007 — HV Grid Integration: Pandapower Steady State Model](lesson-007.md) | **Next:** [Lesson 009 — IEC 61850 Data Model, SCL & SCADA Device Logging System](lesson-009.md) :material-arrow-right:
 
-**Phase:** P2 | **Language:** Turkish | **Progress:** 2 / ? | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
+**Phase:** P2 | **Language:** English | **Progress:** 9 of 19 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
 
 > **Date:** 2026-02-25
 > **Commits:** 1 commit (`2870f65` → `2870f65`)
 > **Commit range:** `2870f65581ff4829308754b84cdb4c75cfcc62c7..2870f65581ff4829308754b84cdb4c75cfcc62c7`
 > **Phase:** P2 (HV Grid Integration — Dynamic Compliance)
 > **Roadmap sections:** [Phase 2 — Section 2.4 Grid Codes & Compliance, Section 2.3 FACTS Devices]
-> **Language:** Turkish
+> **Language:** English
 > **Previous lesson:** Lesson 007
 > **last_commit_hash:** 2870f65581ff4829308754b84cdb4c75cfcc62c7
 

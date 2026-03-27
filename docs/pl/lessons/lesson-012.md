@@ -3,12 +3,12 @@
 !!! abstract "Nawigacja Lekcji"
     :material-arrow-left: **Poprzednia:** [Lekcja 011 - RBAC i Permit-to-Work](lesson-011.md) | **Nastepna:** [Lekcja 013 - Prognozowanie Kwantylowe XGBoost](lesson-013.md) :material-arrow-right:
 
-    **Faza:** P3/P4 | **Jezyk:** Polish | **Postep:** 11 z 17 przetlumaczonych lekcji tureckich | [Wszystkie lekcje](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
+    **Faza:** P3/P4 | **Jezyk:** Polski | **Postep:** 13 z 19 | [Wszystkie lekcje](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
 
 > **Data:** 2026-02-26
 > **Faza:** przejscie P3 -> P4
 > **Sekcje roadmapy:** [Phase 3 - Data Quality, Phase 4 - Forecasting Inputs]
-> **Jezyk:** Polish
+> **Jezyk:** Polski
 > **Poprzednia lekcja:** Lesson 011
 
 ---

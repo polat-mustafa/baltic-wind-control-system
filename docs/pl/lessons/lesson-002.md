@@ -3,14 +3,14 @@
 !!! abstract "Nawigacja kursu"
 :material-arrow-left: **Poprzednia:** [Lekcja 001 — Podstawy DevOps](lesson-001.md) | **Następny:** [Lekcja 003 — Wstępne decyzje projektowe](lesson-003.md):material-arrow-right:
 
-**Faza:** P0 | **Język:** turecki | **Postęp:** 3 / 3 | [Wszystkie lekcje](index.md) | [Plan nauczania](../../Learning_Roadmap.md)
+**Faza:** P0 | **Język:** Polski | **Postęp:** 3 z 19 | [Wszystkie lekcje](index.md) | [Plan nauczania](../../Learning_Roadmap.md)
 
 > **Data:** 2026-02-20
 > **Zatwierdzenia:** 2 zatwierdzenia (`eba32fd` → `fa528fb`)
 > **Zakres zatwierdzenia:** `eba32fd7ab6a979f409d0f2632dedfa35c79f93c..fa528fb95bd6778ea54f50be71ddc6e0475d2818`
 > **Faza:** P0 (Podstawa DevOps)
 > **Ekrany planu działania:** [Faza 0 — Sekcja 0.3 Podstawy tworzenia stron internetowych]
-> **Język:** turecki
+> **Język:** Polski
 > **Poprzednia lekcja:** Lekcja 001
 > **last_commit_hash:** fa528fb95bd6778ea54f50be71ddc6e0475d2818
 

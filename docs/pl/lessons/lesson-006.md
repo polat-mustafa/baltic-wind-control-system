@@ -1,16 +1,16 @@
 # Lekcja 006 — Optymalizacja rozmieszczenia, model blokowania i kaskada AEP brutto
 
 !!! abstract "Nawigacja kursu"
-:material-arrow-left: **Poprzednia:** [Lekcja 005 — Analiza łopatek wiatru i modelowanie śladu PyWake](lesson-005.md) | **Następny:** Już wkrótce :material-arrow-right:
+:material-arrow-left: **Poprzednia:** [Lekcja 005 — Analiza łopatek wiatru i modelowanie śladu PyWake](lesson-005.md) | **Następny:** [Lekcja 007 — Integracja Sieci WN](lesson-007.md) :material-arrow-right:
 
-**Faza:** P1 | **Język:** turecki | **Postęp:** 7 / 7 | [Wszystkie lekcje](index.md) | [Plan nauczania](../../Learning_Roadmap.md)
+**Faza:** P1 | **Język:** Polski | **Postęp:** 7 z 19 | [Wszystkie lekcje](index.md) | [Plan nauczania](../../Learning_Roadmap.md)
 
 > **Data:** 24.02.2026
 > **Zatwierdzenia:** 1 zatwierdzenie (`3cd5675`)
 > **Zakres zatwierdzenia:** `6893c0295296b98a2d7fe022301ca066cfed4a38..3cd56751c0c768a91e0c8dbee4557b597b4c889f`
 > **Faza:** P1 (zasoby wiatru i AEP)
 > **Ekrany planu działania:** [Faza 1 — Sekcja 1.2 Modelowanie budzenia i optymalizacja układu, Sekcja 1.3 Uzysk energii i analiza finansowa]
-> **Język:** turecki
+> **Język:** Polski
 > **Poprzednia lekcja:** Lekcja 005
 > **last_commit_hash:** 3cd56751c0c768a91e0c8dbee4557b597b4c889f
 

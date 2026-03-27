@@ -17,7 +17,7 @@ approximated by the lumped pi-model. Each cable has:
 The capacitive charging current generates reactive power (Rule 7):
   Q_cable = ω × C × V² × L  [MVAR]
 
-For a 220 kV, 45 km export cable: Q ≈ 2π×50 × 190e-9 × 220000² × 45 ≈ 85 MVAR
+For a 220 kV, 45 km export cable: Q ≈ 2π×50 × 190e-9 × 220000² × 45 ≈ 130 MVAR
 
 Physics — Transformer Equivalent Circuit
 -----------------------------------------

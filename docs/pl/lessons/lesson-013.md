@@ -3,12 +3,12 @@
 !!! abstract "Nawigacja Lekcji"
     :material-arrow-left: **Poprzednia:** [Lekcja 012 - Pipeline Danych SCADA](lesson-012.md) | **Nastepna:** [Lekcja 014 - LSTM i MC Dropout](lesson-014.md) :material-arrow-right:
 
-    **Faza:** P4 | **Jezyk:** Polish | **Postep:** 12 z 17 przetlumaczonych lekcji tureckich | [Wszystkie lekcje](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
+    **Faza:** P4 | **Jezyk:** Polski | **Postep:** 14 z 19 | [Wszystkie lekcje](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
 
 > **Data:** 2026-02-26
 > **Faza:** P4 (AI Forecasting)
 > **Sekcje roadmapy:** [Phase 4 - Quantile Forecasting, NWP Features and Explainability]
-> **Jezyk:** Polish
+> **Jezyk:** Polski
 > **Poprzednia lekcja:** Lesson 012
 
 ---

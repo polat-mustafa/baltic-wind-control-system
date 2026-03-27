@@ -3,12 +3,12 @@
 !!! abstract "Course Navigation"
 :material-arrow-left: **Previous:** [Lesson 006 — Layout Optimization, Blocking & AEP Cascade](lesson-006.md) | **Next:** [Lesson 008 — Dynamic Grid Compatibility: ANDES, FRT, Frequency, SSO & Converter](lesson-008.md) :material-arrow-right:
 
-**Phase:** P2 | **Language:** Turkish | **Progress:** 1 / ? | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
+**Phase:** P2 | **Language:** English | **Progress:** 8 of 19 | [All Lessons](index.md) | [Learning Roadmap](../../Learning_Roadmap.md)
 
 > **Date:** 2026-02-24
 > **Phase:** P2 (HV Grid Integration)
 > **Roadmap sections:** [Phase 2 — Section 2.1 Electrical Network Model, Section 2.2 Load Flow, Section 2.3 Short-Circuit, Section 2.4 Reactive Compensation]
-> **Language:** Turkish
+> **Language:** English
 > **Previous lesson:** Lesson 006
 > **last_commit_hash:** 0a571666d8c2a7e2e62689f3b54d6b1e90d830a4
 

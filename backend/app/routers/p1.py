@@ -87,6 +87,21 @@ from app.services.p1.yaw_optimizer import (
 
 router = APIRouter(prefix="/api/v1/wind", tags=["P1 Wind Resource"])
 
+# Phase C — M04 Multi-Farm Comparison
+from app.routers.p1_farms import router as _farms_router  # noqa: E402
+
+router.include_router(_farms_router)
+
+# Phase F — M13 Availability Tracking (IEC 61400-26)
+from app.routers.p1_availability import router as _availability_router  # noqa: E402
+
+router.include_router(_availability_router)
+
+# Phase F — M14 Weather Window & O&M Logistics
+from app.routers.p1_weather_window import router as _weather_window_router  # noqa: E402
+
+router.include_router(_weather_window_router)
+
 
 # ── Pydantic Schemas ─────────────────────────────────────────────
 

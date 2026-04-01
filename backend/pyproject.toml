@@ -31,6 +31,7 @@ dependencies = [
     "shap>=0.46",
     "torch>=2.2",
     "structlog>=24.0.0",
+    "asyncua>=1.1.0",
 ]
 
 [project.optional-dependencies]
@@ -68,6 +69,13 @@ ignore = [
     "B008",   # Depends() and Query() in FastAPI function signatures (standard pattern)
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Data-heavy narrative files: long scenario/description strings are intentional
+"app/services/p3/security.py" = ["E501"]
+"app/schemas/security.py" = ["E501"]
+"app/schemas/market.py" = ["E501"]
+"app/services/p2/market.py" = ["E501"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
@@ -86,7 +94,7 @@ disallow_untyped_defs = false
 [[tool.mypy.overrides]]
 module = [
     "scipy.*", "py_wake.*", "xarray.*", "pandapower.*", "andes.*",
-    "xgboost.*", "shap.*", "sklearn.*", "torch.*",
+    "xgboost.*", "shap.*", "sklearn.*", "torch.*", "asyncua.*",
 ]
 ignore_missing_imports = true
 

@@ -85,6 +85,31 @@ from app.services.p2.statcom_sizing import validate_compensation
 
 router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
 
+# Phase B — M05 Protection Relay Coordination
+from app.routers.p2_protection import router as _protection_router  # noqa: E402
+
+router.include_router(_protection_router)
+
+# Phase D — M06 Power Quality & Harmonics
+from app.routers.p2_power_quality import router as _power_quality_router  # noqa: E402
+
+router.include_router(_power_quality_router)
+
+# Phase D — M08 BESS Integration
+from app.routers.p2_bess import router as _bess_router  # noqa: E402
+
+router.include_router(_bess_router)
+
+# Phase E — M11 Market Integration
+from app.routers.p2_market import router as _market_router  # noqa: E402
+
+router.include_router(_market_router)
+
+# Phase F — M10 Cable DTS Thermal Monitoring
+from app.routers.p2_cable_dts import router as _cable_dts_router  # noqa: E402
+
+router.include_router(_cable_dts_router)
+
 
 # ── Cached Helpers ───────────────────────────────────────────────
 

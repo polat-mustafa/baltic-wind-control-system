@@ -120,6 +120,59 @@ class SwitchingAction(StrEnum):
     RACK_OUT = "rack_out"
 
 
+class BayMode(StrEnum):
+    """Operational mode of a bay controller.
+
+    LOCAL:       All commands from local panel only; SCADA commands ignored.
+                 Used during local maintenance and testing at the bay.
+    REMOTE:      SCADA and remote commands accepted — normal operating state.
+    MAINTENANCE: Bay isolated for maintenance work; all switching blocked.
+                 Set when a PTW is issued for the bay.
+    """
+
+    LOCAL = "local"
+    REMOTE = "remote"
+    MAINTENANCE = "maintenance"
+
+
+class RelayState(StrEnum):
+    """State of the protection relay in a bay.
+
+    ARMED:   Relay energised and monitoring for faults — normal state.
+    TRIPPED: Relay has operated (fault detected); reset before reclose.
+    BLOCKED: Relay manually disabled (e.g. during secondary injection test);
+             CB close is still permitted by the interlock engine.
+    TEST:    Relay in test mode with secondary injection active;
+             all CB operations locked out by ILK-004.
+    """
+
+    ARMED = "armed"
+    TRIPPED = "tripped"
+    BLOCKED = "blocked"
+    TEST = "test"
+
+
+class SwitchPosition(StrEnum):
+    """Detailed position states for bay-level equipment display.
+
+    More granular than EquipmentState — used by the SCADA bay controller
+    to represent positions that are not captured in the commissioning
+    state machine (e.g. TRIPPED, FAILED, INTERMEDIATE).
+
+    OPEN:          Contacts separated — no current path.
+    CLOSED:        Contacts made — current can flow.
+    TRIPPED:       CB only — opened by protection relay operation.
+    FAILED:        Mechanism failure — position uncertain.
+    INTERMEDIATE:  Contacts in motion or indeterminate state.
+    """
+
+    OPEN = "open"
+    CLOSED = "closed"
+    TRIPPED = "tripped"
+    FAILED = "failed"
+    INTERMEDIATE = "intermediate"
+
+
 # ── Data Models ────────────────────────────────────────────────────
 
 
@@ -202,6 +255,127 @@ class SwitchingResult:
     message: str
     interlock_violations: tuple[InterlockViolation, ...] = ()
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass(frozen=True)
+class SynchroCheckResult:
+    """Live voltage/frequency/phase measurements for synchrocheck (ILK-007).
+
+    IEC 60909-3 defines synchronising conditions for parallel operation.
+    Before closing a tie CB to parallel two busbars:
+
+      ΔV   = |V_source − V_bus| / V_nom × 100%  →  must be < 5 %
+      Δf   = |f_source − f_bus|                  →  must be < 0.1 Hz
+      Δφ   = |φ_source − φ_bus|                  →  must be < 10°
+
+    Closing out-of-phase creates a synchronising torque that can destroy
+    the generator and damage the transformer windings.
+
+    Reference: IEC 60909-3, IEC 61936-1 §7.6 synchronising conditions.
+    """
+
+    delta_voltage_percent: float
+    delta_frequency_hz: float
+    delta_phase_deg: float
+
+    @property
+    def is_in_sync(self) -> bool:
+        """True if all three synchronising conditions are within limits."""
+        return (
+            self.delta_voltage_percent < 5.0
+            and self.delta_frequency_hz < 0.1
+            and self.delta_phase_deg < 10.0
+        )
+
+
+@dataclass(frozen=True)
+class SwitchCommand:
+    """A SCADA switching command with operational context.
+
+    Carries the operator identity and whether this is an automatic
+    reclose (initiated by auto-reclose logic) or a manual command.
+    Auto-reclose commands are subject to ILK-006.
+    """
+
+    equipment_id: str
+    action: SwitchingAction
+    operator_id: str
+    is_auto_reclose: bool = False
+
+
+@dataclass(frozen=True)
+class InterlockResult:
+    """Result of an interlock validation dry-run.
+
+    Returned by the bay controller validate_command() endpoint so the
+    SCADA UI can show green/red interlock status before the operator
+    executes the command.
+    """
+
+    allowed: bool
+    blocked_by: tuple[str, ...]  # Interlock IDs that fired, e.g. ('ILK-001',)
+    reasons: tuple[str, ...]  # Human-readable block reason per interlock
+
+
+@dataclass
+class BayController:
+    """Runtime state of a single bay controller.
+
+    Aggregates all equipment positions and relay state for one feeder,
+    transformer, or coupler bay. Used by the SCADA bay_controller service
+    (P3) — one instance per bay.
+
+    Physics — Bay Controller Role
+    ------------------------------
+    A bay controller is the digital representation of one feeder panel in
+    the switchboard. It holds the current position of every switching device
+    in the bay (CB, two disconnectors, earth switch) and the protection relay
+    arming state. The interlock engine uses this state to validate commands
+    before passing them to the primary equipment.
+
+    Standard: IEC 61850-7-4 logical nodes CSWI (switch controller),
+    XCBR (CB), XSWI (disconnector), CILO (interlock).
+
+    Attributes
+    ----------
+    bay_id : str
+        Unique identifier, e.g. 'BAY-OSS-66-01'.
+    bay_name : str
+        Human-readable label, e.g. 'String 1 Feeder'.
+    voltage_kv : float
+        Nominal voltage level of the bay [kV].
+    bay_mode : BayMode
+        LOCAL / REMOTE / MAINTENANCE.
+    circuit_breaker : SwitchPosition
+        CB position (OPEN / CLOSED / TRIPPED / FAILED).
+    disconnector_bus : SwitchPosition
+        Busbar side disconnector position.
+    disconnector_line : SwitchPosition
+        Line side disconnector (feeder bays; OPEN for transformer bays).
+    earth_switch : SwitchPosition
+        Earth switch position.
+    protection_relay : RelayState
+        Protection relay arming state.
+    manual_isolation_active : bool
+        True if a PTW or manual isolation tag-out is in place for this bay.
+    synchrocheck : SynchroCheckResult | None
+        Live synchrocheck measurements — only relevant for tie/coupler CBs.
+    is_tie_cb : bool
+        True if the bay CB is a bus coupler or tie CB requiring synchrocheck.
+    """
+
+    bay_id: str
+    bay_name: str
+    voltage_kv: float
+    bay_mode: BayMode = BayMode.REMOTE
+    circuit_breaker: SwitchPosition = SwitchPosition.OPEN
+    disconnector_bus: SwitchPosition = SwitchPosition.OPEN
+    disconnector_line: SwitchPosition = SwitchPosition.OPEN
+    earth_switch: SwitchPosition = SwitchPosition.OPEN
+    protection_relay: RelayState = RelayState.ARMED
+    manual_isolation_active: bool = False
+    synchrocheck: SynchroCheckResult | None = None
+    is_tie_cb: bool = False
 
 
 # ── Transition Maps ──────────────────────────────────────────────
@@ -520,15 +694,22 @@ def check_interlocks(
     equipment_id: str,
     action: SwitchingAction,
     system_state: dict[str, EquipmentState],
+    *,
+    is_auto_reclose: bool = False,
+    manual_isolation_active: bool = False,
+    is_tie_cb: bool = False,
+    synchrocheck: SynchroCheckResult | None = None,
 ) -> list[InterlockViolation]:
     """Check all safety interlocks before executing a switching action.
 
-    Implements the 5 IEC 61936-1 interlocks:
+    Implements 7 IEC 61936-1 / IEC 61850 interlocks:
       ILK-001: Cannot close CB if associated earth switch CLOSED
       ILK-002: Cannot close earth switch if associated CB CLOSED
       ILK-003: Cannot close/open disconnector if associated CB CLOSED
       ILK-004: Cannot close CB if associated disconnector OPEN
       ILK-005: Cannot rack out CB if CLOSED
+      ILK-006: Auto-reclose BLOCKED if manual isolation (PTW/tag-out) in effect
+      ILK-007: Synchrocheck required before closing tie/coupler CB
 
     Parameters
     ----------
@@ -538,6 +719,14 @@ def check_interlocks(
         Proposed switching action.
     system_state : dict[str, EquipmentState]
         Current state of all equipment.
+    is_auto_reclose : bool
+        True if command originates from auto-reclose logic (checked by ILK-006).
+    manual_isolation_active : bool
+        True if a PTW or manual isolation tag-out is active (checked by ILK-006).
+    is_tie_cb : bool
+        True if the CB is a bus coupler or tie-line CB (checked by ILK-007).
+    synchrocheck : SynchroCheckResult | None
+        Live ΔV/Δf/Δφ measurements for synchrocheck validation (ILK-007).
 
     Returns
     -------
@@ -641,6 +830,71 @@ def check_interlocks(
             )
         )
 
+    # ILK-006: Auto-reclose BLOCKED if manual isolation (PTW/tag-out) in effect
+    #
+    # An auto-reclose sequence fires automatically after a protection trip to
+    # restore supply. If a PTW or manual isolation tag-out is active, the section
+    # is isolated for human work — auto-reclose must not re-energise it.
+    # IEC 61850-7-4 RREC logical node: auto-reclose is inhibited when
+    # CSWI.Loc = TRUE (local/isolation mode).
+    if (
+        eq_type == EquipmentType.CIRCUIT_BREAKER
+        and action == SwitchingAction.CLOSE
+        and is_auto_reclose
+        and manual_isolation_active
+    ):
+        violations.append(
+            InterlockViolation(
+                interlock_id="ILK-006",
+                description=(
+                    f"Cannot auto-reclose {equipment_id}: manual isolation "
+                    f"is in effect (PTW or tag-out active on this bay). "
+                    f"Auto-reclose is blocked to prevent re-energising a "
+                    f"section where personnel may be working."
+                ),
+                blocking_equipment=equipment_id,
+                blocking_state=system_state.get(equipment_id, EquipmentState.OPEN),
+            )
+        )
+
+    # ILK-007: Synchrocheck required before closing tie/coupler CB
+    #
+    # A tie CB or bus coupler parallels two live busbars. If the busbars are
+    # not synchronised (same voltage, frequency, phase), closing the CB creates
+    # a synchronising current proportional to the phase difference. A 10° angle
+    # difference at 66 kV produces a surge current of ~40% of rated short-circuit
+    # current. At 90° it is equivalent to a phase-to-phase fault.
+    # IEC 60909-3: synchronising conditions ΔV < 5%, Δf < 0.1 Hz, Δφ < 10°.
+    if eq_type == EquipmentType.CIRCUIT_BREAKER and action == SwitchingAction.CLOSE and is_tie_cb:
+        if synchrocheck is None:
+            violations.append(
+                InterlockViolation(
+                    interlock_id="ILK-007",
+                    description=(
+                        f"Cannot close tie CB {equipment_id}: synchrocheck "
+                        f"measurements not available. Provide ΔV, Δf, Δφ "
+                        f"readings before attempting to parallel busbars."
+                    ),
+                    blocking_equipment=equipment_id,
+                    blocking_state=system_state.get(equipment_id, EquipmentState.OPEN),
+                )
+            )
+        elif not synchrocheck.is_in_sync:
+            violations.append(
+                InterlockViolation(
+                    interlock_id="ILK-007",
+                    description=(
+                        f"Cannot close tie CB {equipment_id}: out-of-sync condition. "
+                        f"ΔV={synchrocheck.delta_voltage_percent:.1f}% (limit 5%), "
+                        f"Δf={synchrocheck.delta_frequency_hz:.3f} Hz (limit 0.1 Hz), "
+                        f"Δφ={synchrocheck.delta_phase_deg:.1f}° (limit 10°). "
+                        f"Closing out-of-phase risks equipment damage."
+                    ),
+                    blocking_equipment=equipment_id,
+                    blocking_state=system_state.get(equipment_id, EquipmentState.OPEN),
+                )
+            )
+
     return violations
 
 
@@ -648,13 +902,18 @@ def execute_switching_action(
     equipment_id: str,
     action: SwitchingAction,
     system_state: dict[str, EquipmentState],
+    *,
+    is_auto_reclose: bool = False,
+    manual_isolation_active: bool = False,
+    is_tie_cb: bool = False,
+    synchrocheck: SynchroCheckResult | None = None,
 ) -> SwitchingResult:
     """Execute a switching action with full validation and interlock checking.
 
     Validation chain:
     1. Equipment exists in registry
     2. Action is a valid transition for this equipment type and current state
-    3. All safety interlocks pass
+    3. All 7 safety interlocks pass (ILK-001 through ILK-007)
     4. State is updated
 
     Parameters
@@ -665,6 +924,14 @@ def execute_switching_action(
         Switching action to perform.
     system_state : dict[str, EquipmentState]
         Mutable state map — updated in place on success.
+    is_auto_reclose : bool
+        True if command is from auto-reclose logic (ILK-006 context).
+    manual_isolation_active : bool
+        True if PTW or tag-out is active on the bay (ILK-006 context).
+    is_tie_cb : bool
+        True if CB is a tie/coupler CB requiring synchrocheck (ILK-007).
+    synchrocheck : SynchroCheckResult | None
+        Live synchrocheck measurements for ILK-007 validation.
 
     Returns
     -------
@@ -697,8 +964,16 @@ def execute_switching_action(
             f"from state {current_state.value}."
         )
 
-    # 3. Interlock check
-    violations = check_interlocks(equipment_id, action, system_state)
+    # 3. Interlock check (all 7 rules)
+    violations = check_interlocks(
+        equipment_id,
+        action,
+        system_state,
+        is_auto_reclose=is_auto_reclose,
+        manual_isolation_active=manual_isolation_active,
+        is_tie_cb=is_tie_cb,
+        synchrocheck=synchrocheck,
+    )
     if violations:
         msg = f"Interlock violation(s) for {equipment_id} {action.value}: "
         msg += "; ".join(v.description for v in violations)

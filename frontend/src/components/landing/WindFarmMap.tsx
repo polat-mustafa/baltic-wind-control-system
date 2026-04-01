@@ -16,6 +16,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { select } from "d3-selection";
+import "d3-transition"; // augments Selection with .transition() (required for TypeScript 6+)
 import { zoom, zoomIdentity, type ZoomBehavior } from "d3-zoom";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 

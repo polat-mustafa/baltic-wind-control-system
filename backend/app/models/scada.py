@@ -7,6 +7,7 @@ iec61850_device : Physical device (IED) registry
 iec61850_logical_node : Logical node instances per device
 goose_control_block : GOOSE publisher configuration
 scl_file : Generated SCL file storage (SSD/ICD/SCD)
+soe_event : Sequence of Events log (TimescaleDB hypertable, M02)
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -214,4 +215,116 @@ class SCLFile(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=datetime.now,
+    )
+
+
+class SOEEvent(Base):
+    """Sequence of Events (SOE) log entry — M02.
+
+    Stores every significant event in the substation automation system
+    with microsecond-precision UTC timestamps. In production this table
+    is a TimescaleDB hypertable (partitioned by timestamp_utc) for fast
+    time-range queries over multi-year datasets.
+
+    Alembic migration must call:
+        SELECT create_hypertable('soe_event', 'timestamp_utc');
+    after the CREATE TABLE statement.
+
+    Physics — Why SOE Matters
+    --------------------------
+    When a fault occurs on an offshore wind farm, the protection engineer
+    reconstructs the sequence of events from the SOE log. Events must be
+    timestamped to millisecond (ideally microsecond) precision to determine:
+      - Which relay operated first (selectivity check)
+      - Time from fault inception to CB trip (fault clearance time)
+      - Time from trip to GOOSE message receipt (comms latency)
+      - Operator response time to alarm
+
+    IEC 61850-7-2 defines time quality flags — here we store UTC with
+    microsecond precision (TIMESTAMPTZ(6)) for post-event analysis.
+
+    Event Types
+    -----------
+    PROTECTION_TRIP  : protection relay operated
+    CB_OPERATION     : circuit breaker opened or closed
+    ALARM_RAISED     : new alarm entered ACTIVE state
+    ALARM_CLEARED    : alarm returned to normal
+    ALARM_ACKED      : operator acknowledged alarm
+    OPERATOR_COMMAND : any manual SCADA command
+    INTERLOCK_BLOCK  : command rejected by interlock engine
+    STATE_CHANGE     : equipment state transition (disconnector, earth switch)
+    COMMS_LOSS       : communication failure with a device
+    COMMS_RESTORE    : communication restored
+    """
+
+    __tablename__ = "soe_event"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="BIGSERIAL — sequential event ID for strict ordering",
+    )
+    timestamp_utc: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+        comment="UTC event timestamp — microsecond precision (TimescaleDB partition key)",
+    )
+    event_type: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        index=True,
+        comment=(
+            "PROTECTION_TRIP / CB_OPERATION / ALARM_RAISED / ALARM_CLEARED / "
+            "ALARM_ACKED / OPERATOR_COMMAND / INTERLOCK_BLOCK / STATE_CHANGE / "
+            "COMMS_LOSS / COMMS_RESTORE"
+        ),
+    )
+    source_device: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+        comment="Originating device/bay, e.g. 'OSS_66kV_Bay01_CB' or 'WTG-05'",
+    )
+    description: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Human-readable event description for SOE report",
+    )
+    value_before: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="State or measurement value before the event",
+    )
+    value_after: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="State or measurement value after the event",
+    )
+    operator_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Operator identifier for commanded events (None for automatic events)",
+    )
+    severity: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        default="INFO",
+        comment="Severity: CRITICAL / HIGH / MEDIUM / LOW / INFO",
+    )
+    acknowledged: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        comment="True once an operator has acknowledged this event",
+    )
+    ack_by: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Operator who acknowledged",
+    )
+    ack_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="UTC time of acknowledgement",
     )

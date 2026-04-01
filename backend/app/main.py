@@ -21,6 +21,7 @@ from app.core.cache import close_redis, init_redis, redis_ping
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestLoggingMiddleware
+from app.services.p3 import opcua_server
 
 configure_logging(debug=settings.debug)
 from app.db import async_session_factory, engine  # noqa: E402
@@ -56,9 +57,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.warning("Seed failed — database may not be migrated yet")
 
+    # M03 — OPC-UA server (graceful if asyncua not installed)
+    await opcua_server.start_server()
+
     yield
 
     # ── Shutdown ─────────────────────────────────────────────────
+    await opcua_server.stop_server()
     await close_redis()
     await engine.dispose()
     logger.info("Application shutdown complete")

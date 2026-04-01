@@ -60,4 +60,12 @@ logs/
 
 # MkDocs
 site/
-.claude/settings.local.json
+
+# AI assistant / tool working directories
+.claude/
+.codex/
+.agents/
+.planning/
+
+# E-book project (separate from wind control platform)
+ebook/

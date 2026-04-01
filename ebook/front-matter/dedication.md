@@ -1,3 +1,0 @@
-# Dedication
-
-*[To be written]*

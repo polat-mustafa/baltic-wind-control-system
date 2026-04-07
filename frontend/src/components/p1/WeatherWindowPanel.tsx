@@ -16,6 +16,8 @@ import Plot from "react-plotly.js";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useWeatherWindowStore } from "../../store/weatherWindowStore";
 import { Badge } from "../ui/Badge";
+import { EducationButton } from "../ui/EducationButton";
+import { weatherWindowEducation } from "../../constants/education/p1";
 
 // ── Vessel display config ─────────────────────────────────────────
 
@@ -49,9 +51,12 @@ export default function WeatherWindowPanel() {
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h3 className="text-base font-semibold text-text-primary">
-          Monthly Vessel Access Probability by Type
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-semibold text-text-primary">
+            Monthly Vessel Access Probability by Type
+          </h3>
+          <EducationButton content={weatherWindowEducation} />
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           {vesselAccess.vessels.map((v) => (
             <Badge key={v.vessel} variant="neutral">

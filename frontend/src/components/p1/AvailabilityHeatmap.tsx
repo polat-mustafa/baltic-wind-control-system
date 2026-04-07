@@ -11,6 +11,8 @@ import Plot from "react-plotly.js";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useAvailabilityStore } from "../../store/availabilityStore";
 import { Badge } from "../ui/Badge";
+import { EducationButton } from "../ui/EducationButton";
+import { availabilityHeatmapEducation } from "../../constants/education/p1";
 
 
 export default function AvailabilityHeatmap() {
@@ -28,9 +30,12 @@ export default function AvailabilityHeatmap() {
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       {/* Header row */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h3 className="text-base font-semibold text-text-primary">
-          Time-Based Availability per Turbine (IEC 61400-26)
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-semibold text-text-primary">
+            Time-Based Availability per Turbine (IEC 61400-26)
+          </h3>
+          <EducationButton content={availabilityHeatmapEducation} />
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="normal">
             Fleet TBA: {fleet_tba_pct.toFixed(1)}%

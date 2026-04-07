@@ -18,6 +18,7 @@ import {
   Brain,
   ClipboardCheck,
   Cpu,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
   type LucideIcon,
@@ -82,6 +83,13 @@ const NAV_ITEMS: NavItem[] = [
     path: "/digital-twin",
     icon: Cpu,
     description: "Condition monitoring, ISO 13374",
+  },
+  {
+    label: "Engineer's Library",
+    shortLabel: "Lib",
+    path: "/library",
+    icon: BookOpen,
+    description: "Read-only primers (no sim)",
   },
 ];
 

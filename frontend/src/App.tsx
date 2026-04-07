@@ -10,6 +10,7 @@
  *   /commissioning   → CommissioningPage (P5 switching programme)
  *   /turbine-physics → TurbinePhysicsPage (dynamic simulation)
  *   /digital-twin    → DigitalTwinPage (condition monitoring)
+ *   /library         → EngineerLibraryPage (read-only educational primers)
  *
  * All routes are wrapped in AppShell (top bar + sidebar + content area).
  */
@@ -19,6 +20,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import AppShell from "./components/layout/AppShell";
 import CommissioningPage from "./pages/CommissioningPage";
+import EngineerLibraryPage from "./pages/EngineerLibraryPage";
 import ForecastPage from "./pages/ForecastPage";
 import HVGridPage from "./pages/HVGridPage";
 import LandingPage from "./pages/LandingPage";
@@ -41,6 +43,7 @@ function App() {
             <Route path="commissioning" element={<CommissioningPage />} />
             <Route path="turbine-physics" element={<TurbinePhysicsPage />} />
             <Route path="digital-twin" element={<DigitalTwinPage />} />
+            <Route path="library" element={<EngineerLibraryPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

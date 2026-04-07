@@ -8,8 +8,8 @@
 import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
 import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
-import { InfoButton } from "../ui/InfoButton";
-import { windRoseInfo } from "../../constants/panelInfo";
+import { EducationButton } from "../ui/EducationButton";
+import { windRoseEducation } from "../../constants/education/p1";
 import { ChartWrapper } from "../ui/ChartWrapper";
 
 export default function WindRoseChart() {
@@ -25,7 +25,7 @@ export default function WindRoseChart() {
   return (
     <ChartWrapper
       title="Wind Rose — Frequency & Energy"
-      headerRight={<InfoButton info={windRoseInfo} />}
+      headerRight={<EducationButton content={windRoseEducation} />}
       footer={`Dominant: ${windRose.dominant_direction_deg}° · Circ. σ: ${windRose.circular_std_deg}°`}
     >
       <Plot

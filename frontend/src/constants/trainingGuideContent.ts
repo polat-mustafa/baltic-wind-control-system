@@ -12,13 +12,20 @@ export interface TrainingGuideSection {
   description: string;
 }
 
+export interface TrainingGuideStandard {
+  /** Display text, e.g. "IEC 61400-1 — Wind turbine design requirements" */
+  label: string;
+  /** Official document / publisher URL; omit for non-web references */
+  url?: string;
+}
+
 export interface TrainingGuideData {
   title: string;
   subtitle: string;
   purpose: string;
   howToUse: string[];
   sections: TrainingGuideSection[];
-  standards: string[];
+  standards: TrainingGuideStandard[];
   learningObjectives: string[];
 }
 
@@ -54,9 +61,9 @@ export const landingGuide: TrainingGuideData = {
     { name: "Environment Panel", description: "Ambient conditions: wind speed/direction, air temperature, wave height, and visibility." },
   ],
   standards: [
-    "ISA-101 — Human Machine Interface design",
-    "ISA-18.2 — Alarm management lifecycle",
-    "IEC 61850 — Substation communication",
+    { label: "ISA-101 — Human Machine Interface design", url: "https://en.wikipedia.org/wiki/Human-machine_interface" },
+    { label: "ISA-18.2 — Alarm management lifecycle", url: "https://en.wikipedia.org/wiki/Alarm_management" },
+    { label: "IEC 61850 — Substation communication networks", url: "https://en.wikipedia.org/wiki/IEC_61850" },
   ],
   learningObjectives: [
     "Understand the physical layout of an offshore wind farm from turbines to grid.",
@@ -95,10 +102,11 @@ export const p1Guide: TrainingGuideData = {
     { name: "Layout Comparison", description: "Side-by-side comparison of different turbine spacings showing the trade-off between cable cost and wake losses." },
   ],
   standards: [
-    "IEC 61400-1 — Wind conditions for design",
-    "IEC 61400-12-1 — Power performance testing",
-    "IEC 61400-12-4 — Numerical site calibration",
-    "DNV-RP-J103 — Layout assessment of offshore wind farms",
+    { label: "IEC 61400-1/3/12/15 — Wind turbine and wind farm design standards", url: "https://en.wikipedia.org/wiki/IEC_61400" },
+    { label: "IEC 61400-12-1 — Power performance measurements", url: "https://en.wikipedia.org/wiki/IEC_61400" },
+    { label: "DNV-RP-J103 — Wind farm layout assessment" },
+    { label: "ENTSO-E NC RfG — Requirements for generators (EU Regulation 2016/631)", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0631" },
+    { label: "PyWake open-source wake model (DTU Wind Energy)", url: "https://doi.org/10.5194/wes-6-627-2021" },
   ],
   learningObjectives: [
     "Fit Weibull distributions to wind data and interpret shape/scale parameters.",
@@ -137,11 +145,11 @@ export const p2Guide: TrainingGuideData = {
     { name: "Converter Comparison", description: "Grid-Forming vs Grid-Following control strategies. Grid-Forming provides virtual inertia and works in weak grids." },
   ],
   standards: [
-    "PSE IRiESP — Polish grid code (voltage limits ±5%)",
-    "IEC 60909 — Short-circuit current calculations",
-    "IEC 60287 — Current rating of cables",
-    "IEC 60038 — Standard voltages",
-    "ENTSO-E NC RfG Type D — Generator requirements",
+    { label: "PSE IRiESP — Polish grid code (voltage limits ±5%)", url: "https://www.pse.pl/en/transmission-system-operator/regulatory-framework/iriesp" },
+    { label: "IEC 60909 — Short-circuit current calculations", url: "https://en.wikipedia.org/wiki/Short-circuit_current" },
+    { label: "IEC 60287 — Current rating of cables in normal operation", url: "https://en.wikipedia.org/wiki/IEC_60287" },
+    { label: "IEC 60038 — Standard voltages", url: "https://en.wikipedia.org/wiki/IEC_60038" },
+    { label: "ENTSO-E NC RfG Type D — Requirements for generators (EU Reg. 2016/631)", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0631" },
   ],
   learningObjectives: [
     "Run load flow analysis and interpret per-unit voltage results.",
@@ -184,13 +192,13 @@ export const p3Guide: TrainingGuideData = {
     { name: "Control Room Mode", description: "Fullscreen view with SLD (75% width), alarm sidebar (25%), and bottom measurement ribbon showing real-time voltage/current/power per busbar." },
   ],
   standards: [
-    "IEC 61850 — Communication networks for power utility automation",
-    "IEC 61850-8-1 — GOOSE protocol specification",
-    "ISA-18.2 / IEC 62682 — Alarm management",
-    "ISA-101 — Human-machine interface design",
-    "IEC 62443 — Industrial cybersecurity",
-    "IEC 62351 — Data and communications security",
-    "BS 6626 — Maintenance of electrical switchgear",
+    { label: "IEC 61850 — Communication networks for power utility automation", url: "https://en.wikipedia.org/wiki/IEC_61850" },
+    { label: "IEC 61850-8-1 — GOOSE protocol specification", url: "https://en.wikipedia.org/wiki/IEC_61850" },
+    { label: "ISA-18.2 / IEC 62682 — Alarm management lifecycle", url: "https://en.wikipedia.org/wiki/Alarm_management" },
+    { label: "ISA-101 — Human-machine interface design", url: "https://en.wikipedia.org/wiki/Human-machine_interface" },
+    { label: "IEC 62443 — Industrial OT cybersecurity", url: "https://en.wikipedia.org/wiki/IEC_62443" },
+    { label: "IEC 62351 — Data and communications security", url: "https://en.wikipedia.org/wiki/IEC_62351" },
+    { label: "BS 6626 — Maintenance of electrical switchgear and controlgear" },
   ],
   learningObjectives: [
     "Read and interact with a substation Single Line Diagram (SLD).",
@@ -230,8 +238,10 @@ export const p4Guide: TrainingGuideData = {
     { name: "Revenue Impact", description: "Financial value of improved forecasting vs persistence baseline. Better forecasts reduce imbalance penalties and increase day-ahead market revenue." },
   ],
   standards: [
-    "IEC 61400-26-2 — Production-based availability",
-    "Lundberg & Lee (2017) — SHAP framework",
+    { label: "IEC 61400-26-2 — Production-based availability for wind turbines", url: "https://en.wikipedia.org/wiki/IEC_61400" },
+    { label: "Lundberg & Lee (2017) — SHAP unified model explanations (arXiv)", url: "https://arxiv.org/abs/1705.07874" },
+    { label: "Lim et al. (2021) — Temporal Fusion Transformer (arXiv)", url: "https://arxiv.org/abs/1912.09363" },
+    { label: "Chen & Guestrin (2016) — XGBoost (arXiv)", url: "https://arxiv.org/abs/1603.02754" },
   ],
   learningObjectives: [
     "Compare ML architectures for time-series forecasting (boosting vs RNN vs transformer).",
@@ -275,11 +285,12 @@ export const p5Guide: TrainingGuideData = {
     { name: "Grid Code Compliance", description: "Automated verification of PSE IRiESP + ENTSO-E NC RfG Type D requirements: FRT, frequency response, reactive power, power quality." },
   ],
   standards: [
-    "BS 6626 — Maintenance of electrical switchgear",
-    "DNV-ST-0145 — Offshore substations commissioning",
-    "OSHA 29 CFR 1910.147 — Control of hazardous energy (LOTO)",
-    "IEC 62271-200 — AC metal-enclosed switchgear",
-    "PSE IRiESP + ENTSO-E NC RfG Type D — Grid code requirements",
+    { label: "BS 6626 — Maintenance of electrical switchgear and controlgear" },
+    { label: "DNV-ST-0145 — Offshore substations" },
+    { label: "OSHA 29 CFR 1910.147 — Control of hazardous energy (LOTO)", url: "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.147" },
+    { label: "IEC 62271-200 — AC metal-enclosed switchgear", url: "https://en.wikipedia.org/wiki/Switchgear" },
+    { label: "PSE IRiESP — Polish transmission grid operating manual", url: "https://www.pse.pl/en/transmission-system-operator/regulatory-framework/iriesp" },
+    { label: "ENTSO-E NC RfG Type D — Requirements for generators (EU Reg. 2016/631)", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0631" },
   ],
   learningObjectives: [
     "Execute a 30-step HV switching programme safely and sequentially.",
@@ -318,9 +329,9 @@ export const turbinePhysicsGuide: TrainingGuideData = {
     { name: "TSR-Cp-Yaw Chart", description: "Shows operating point trajectory on the Cp curve during simulation, plus yaw tracking error. Optimal operation follows the maximum-Cp ridge." },
   ],
   standards: [
-    "IEC 61400-1 — Wind turbine design requirements",
-    "IEC 61400-12-1 — Power performance testing",
-    "Betz limit — Max theoretical Cp = 16/27 ≈ 0.593",
+    { label: "IEC 61400-1/12 — Wind turbine design and performance standards", url: "https://en.wikipedia.org/wiki/IEC_61400" },
+    { label: "Betz (1920) — Maximum theoretical power coefficient Cp = 16/27 ≈ 0.593" },
+    { label: "Sørensen & Larsen (2021) — Wind turbine aerodynamics (DTU Wind Energy)", url: "https://doi.org/10.11581/DTU.00000016" },
   ],
   learningObjectives: [
     "Understand the Cp(TSR, pitch) aerodynamic surface and Betz limit.",
@@ -358,9 +369,9 @@ export const digitalTwinGuide: TrainingGuideData = {
     { name: "Anomaly Classification", description: "Categorizes detected anomalies by type (icing, gearbox, pitch, etc.) and severity. Uses pattern matching on residual signatures." },
   ],
   standards: [
-    "ISO 13374-1 — Condition monitoring and diagnostics",
-    "IEC 61400-25 — Communications for monitoring wind turbines",
-    "ISO 17359 — Condition monitoring and diagnostics of machines",
+    { label: "ISO 13374 — Condition monitoring and diagnostics of machines", url: "https://en.wikipedia.org/wiki/Condition_monitoring" },
+    { label: "IEC 61400-25 — Communications for monitoring wind power plants", url: "https://en.wikipedia.org/wiki/IEC_61400" },
+    { label: "Zaher et al. (2009) — Online wind turbine fault detection (survey)", url: "https://doi.org/10.1016/j.rser.2015.12.219" },
   ],
   learningObjectives: [
     "Build a digital twin using physics-based predictions vs SCADA data.",

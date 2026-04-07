@@ -9,8 +9,8 @@ import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
 import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { SCADA_COLORS } from "../../constants/scadaColors";
-import { InfoButton } from "../ui/InfoButton";
-import { weibullInfo } from "../../constants/panelInfo";
+import { EducationButton } from "../ui/EducationButton";
+import { weibullEducation } from "../../constants/education/p1";
 import { ChartWrapper } from "../ui/ChartWrapper";
 
 export default function WeibullChart() {
@@ -23,7 +23,7 @@ export default function WeibullChart() {
   return (
     <ChartWrapper
       title={`Weibull Distribution — A=${weibullFit.fitted_a} m/s, k=${weibullFit.fitted_k}`}
-      headerRight={<InfoButton info={weibullInfo} />}
+      headerRight={<EducationButton content={weibullEducation} />}
       footer={`Mean: ${weibullFit.mean_speed_ms} m/s · 8760 synthetic hours`}
     >
       <Plot

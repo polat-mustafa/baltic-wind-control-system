@@ -8,6 +8,8 @@
 
 import { useFarmComparisonStore } from "../../store/farmComparisonStore";
 import type { FarmConfig } from "../../types/farmComparison";
+import { EducationButton } from "../ui/EducationButton";
+import { farmConfigEducation } from "../../constants/education/p1";
 
 interface Props {
   index: number;
@@ -60,17 +62,18 @@ export default function FarmConfigPanel({ index, config }: Props) {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3 flex flex-col gap-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-1">
         <input
           type="text"
           value={config.name}
           onChange={(e) => update({ name: e.target.value })}
           className="text-sm font-semibold text-text-primary bg-transparent border-b border-transparent hover:border-border-primary focus:border-accent outline-none w-full"
         />
+        <EducationButton content={farmConfigEducation} />
         {farms.length > 2 && (
           <button
             onClick={() => removeFarm(index)}
-            className="text-[10px] text-status-alarm hover:underline ml-2 shrink-0"
+            className="text-[10px] text-status-alarm hover:underline ml-1 shrink-0"
           >
             Remove
           </button>

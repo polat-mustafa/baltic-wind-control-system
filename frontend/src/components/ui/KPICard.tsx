@@ -1,6 +1,8 @@
 import { type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import type { EducationContent } from "../../types/education";
+import { EducationButton } from "./EducationButton";
 
 type Trend = "up" | "down" | "flat";
 
@@ -12,6 +14,8 @@ interface KPICardProps {
   trendValue?: string;
   icon?: ReactNode;
   className?: string;
+  /** Optional educational content shown via a small graduation-cap icon. */
+  education?: EducationContent;
 }
 
 const trendConfig: Record<Trend, { icon: typeof TrendingUp; color: string }> = {
@@ -28,6 +32,7 @@ export function KPICard({
   trendValue,
   icon,
   className,
+  education,
 }: KPICardProps) {
   const TrendIcon = trend ? trendConfig[trend].icon : null;
   const trendColor = trend ? trendConfig[trend].color : "";
@@ -45,7 +50,10 @@ export function KPICard({
         <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
           {label}
         </span>
-        {icon && <span className="text-text-muted">{icon}</span>}
+        <div className="flex items-center gap-1">
+          {icon && <span className="text-text-muted">{icon}</span>}
+          {education && <EducationButton content={education} />}
+        </div>
       </div>
 
       <div className="flex items-baseline gap-1.5">

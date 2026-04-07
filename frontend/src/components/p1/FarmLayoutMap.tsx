@@ -8,8 +8,8 @@
 import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
 import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
-import { InfoButton } from "../ui/InfoButton";
-import { farmLayoutInfo } from "../../constants/panelInfo";
+import { EducationButton } from "../ui/EducationButton";
+import { farmLayoutMapEducation } from "../../constants/education/p1";
 import { ChartWrapper } from "../ui/ChartWrapper";
 
 export default function FarmLayoutMap() {
@@ -34,7 +34,7 @@ export default function FarmLayoutMap() {
   return (
     <ChartWrapper
       title={`Farm Layout — ${layoutPositions.name} (${layoutPositions.num_turbines} turbines)`}
-      headerRight={<InfoButton info={farmLayoutInfo} />}
+      headerRight={<EducationButton content={farmLayoutMapEducation} />}
       footer={`Min spacing: ${layoutPositions.min_spacing_m.toFixed(0)}m · Area: ${layoutPositions.area_km2.toFixed(1)} km²`}
     >
       <Plot

@@ -8,6 +8,8 @@
 import Plot from "react-plotly.js";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useFarmComparisonStore } from "../../store/farmComparisonStore";
+import { EducationButton } from "../ui/EducationButton";
+import { layoutComparisonEducation, lcoeEducation } from "../../constants/education/p1";
 
 const METRIC_COLORS = ["#3ecf6e", "#60a5fa", "#f59e0b"];
 
@@ -38,7 +40,10 @@ export default function FarmComparisonResultsPanel() {
 
       {/* AEP + Capacity Factor grouped bar */}
       <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-        <h4 className="text-xs font-semibold text-text-primary mb-2">AEP & Capacity Factor</h4>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-semibold text-text-primary">AEP & Capacity Factor</h4>
+          <EducationButton content={layoutComparisonEducation} />
+        </div>
         <Plot
           data={[
             {
@@ -85,7 +90,10 @@ export default function FarmComparisonResultsPanel() {
 
       {/* LCOE bar */}
       <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-        <h4 className="text-xs font-semibold text-text-primary mb-2">LCOE Comparison</h4>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-semibold text-text-primary">LCOE Comparison</h4>
+          <EducationButton content={lcoeEducation} />
+        </div>
         <Plot
           data={[
             {

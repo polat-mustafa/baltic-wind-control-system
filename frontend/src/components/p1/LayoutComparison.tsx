@@ -7,8 +7,8 @@
 
 import { useWindResourceStore } from "../../store/windResourceStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
-import { InfoButton } from "../ui/InfoButton";
-import { layoutComparisonInfo } from "../../constants/panelInfo";
+import { EducationButton } from "../ui/EducationButton";
+import { layoutComparisonEducation } from "../../constants/education/p1";
 
 export default function LayoutComparison() {
   const { layoutComparison } = useWindResourceStore();
@@ -27,7 +27,7 @@ export default function LayoutComparison() {
           </span>
         )}
         </h3>
-        <InfoButton info={layoutComparisonInfo} />
+        <EducationButton content={layoutComparisonEducation} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

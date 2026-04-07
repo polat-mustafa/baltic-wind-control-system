@@ -12,8 +12,8 @@ import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
 import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { SCADA_COLORS } from "../../constants/scadaColors";
-import { InfoButton } from "../ui/InfoButton";
-import { aepCascadeInfo } from "../../constants/panelInfo";
+import { EducationButton } from "../ui/EducationButton";
+import { aepCascadeEducation } from "../../constants/education/p1";
 import { ChartWrapper } from "../ui/ChartWrapper";
 
 export default function AEPCascadePanel() {
@@ -68,7 +68,7 @@ export default function AEPCascadePanel() {
   return (
     <ChartWrapper
       title="AEP Loss Cascade & Exceedance (P-values)"
-      headerRight={<InfoButton info={aepCascadeInfo} />}
+      headerRight={<EducationButton content={aepCascadeEducation} />}
       footer={`Total loss: ${aepCascade.total_loss_percent.toFixed(1)}% · Uncertainty: ±${aepCascade.combined_uncertainty_percent.toFixed(1)}% (RSS, IEC 61400-15)`}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

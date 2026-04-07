@@ -11,7 +11,7 @@
 
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { GraduationCap, X, BookOpen, Target, ListChecks, Scale } from "lucide-react";
+import { GraduationCap, X, BookOpen, Target, ListChecks, Scale, ExternalLink } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { TrainingGuideData } from "../../constants/trainingGuideContent";
 
@@ -50,10 +50,10 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
       </Dialog.Trigger>
 
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" />
+        <Dialog.Overlay className="fixed inset-0 z-[2000] bg-black/70 backdrop-blur-sm" />
         <Dialog.Content
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-full max-w-2xl max-h-[85vh] -translate-x-1/2 -translate-y-1/2",
+            "fixed left-1/2 top-1/2 z-[2100] w-full max-w-2xl max-h-[85vh] -translate-x-1/2 -translate-y-1/2",
             "rounded-lg border border-border-secondary bg-bg-secondary shadow-2xl shadow-black/50",
             "flex flex-col focus:outline-none",
           )}
@@ -168,13 +168,28 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
                 <div className="space-y-1.5">
                   {guide.standards.map((standard) => (
                     <div
-                      key={standard}
+                      key={standard.label}
                       className="flex items-start gap-2 text-sm"
                     >
                       <span className="shrink-0 mt-1.5 h-1.5 w-1.5 rounded-full bg-status-info" />
-                      <span className="text-text-secondary font-mono text-xs leading-relaxed">
-                        {standard}
-                      </span>
+                      {standard.url ? (
+                        <a
+                          href={standard.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-start gap-1.5 text-text-secondary font-mono text-xs leading-relaxed hover:text-accent transition-colors"
+                        >
+                          <span>{standard.label}</span>
+                          <ExternalLink
+                            size={10}
+                            className="shrink-0 mt-0.5 opacity-50 group-hover:opacity-100 transition-opacity"
+                          />
+                        </a>
+                      ) : (
+                        <span className="text-text-secondary font-mono text-xs leading-relaxed">
+                          {standard.label}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>

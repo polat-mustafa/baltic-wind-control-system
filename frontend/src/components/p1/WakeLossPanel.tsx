@@ -9,8 +9,8 @@ import Plot from "react-plotly.js";
 import { useWindResourceStore } from "../../store/windResourceStore";
 import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { SCADA_COLORS } from "../../constants/scadaColors";
-import { InfoButton } from "../ui/InfoButton";
-import { wakeLossInfo } from "../../constants/panelInfo";
+import { EducationButton } from "../ui/EducationButton";
+import { wakeLossEducation } from "../../constants/education/p1";
 import { ChartWrapper } from "../ui/ChartWrapper";
 
 export default function WakeLossPanel() {
@@ -33,7 +33,7 @@ export default function WakeLossPanel() {
   return (
     <ChartWrapper
       title="Per-Turbine Wake Loss"
-      headerRight={<InfoButton info={wakeLossInfo} />}
+      headerRight={<EducationButton content={wakeLossEducation} />}
       footer={
         <span className="flex gap-4 justify-center">
           <span>

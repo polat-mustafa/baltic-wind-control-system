@@ -8,6 +8,13 @@
 import { useWindResourceStore } from "../../store/windResourceStore";
 import { KPICard } from "../ui/KPICard";
 import { Wind, Gauge, TrendingUp, AlertTriangle, Waves } from "lucide-react";
+import {
+  aepCascadeEducation,
+  wakeLossEducation,
+  capacityFactorEducation,
+  lcoeEducation,
+  uncertaintyEducation,
+} from "../../constants/education/p1";
 
 export default function KPIHeader() {
   const { aepCascade, wakeAnalysis } = useWindResourceStore();
@@ -30,6 +37,7 @@ export default function KPIHeader() {
         icon={<Wind size={16} />}
         trend="up"
         trendValue={`P90: ${aepCascade.p90_gwh.toFixed(1)} GWh`}
+        education={aepCascadeEducation}
       />
       <KPICard
         label="Wake Loss"
@@ -38,12 +46,14 @@ export default function KPIHeader() {
         icon={<Waves size={16} />}
         trend={wakeTrend}
         trendValue={wakeTrend === "up" ? "Above target" : "Within target"}
+        education={wakeLossEducation}
       />
       <KPICard
         label="Capacity Factor"
         value={(aepCascade.capacity_factor * 100).toFixed(1)}
         unit="%"
         icon={<Gauge size={16} />}
+        education={capacityFactorEducation}
       />
       <KPICard
         label="Revenue (P50)"
@@ -52,6 +62,7 @@ export default function KPIHeader() {
         icon={<TrendingUp size={16} />}
         trend="up"
         trendValue={`@ ${aepCascade.price_eur_mwh} \u20AC/MWh`}
+        education={lcoeEducation}
       />
       <KPICard
         label="Uncertainty"
@@ -60,6 +71,7 @@ export default function KPIHeader() {
         icon={<AlertTriangle size={16} />}
         trend="flat"
         trendValue="IEC 61400-15 RSS"
+        education={uncertaintyEducation}
       />
     </div>
   );

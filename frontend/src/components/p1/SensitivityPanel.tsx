@@ -6,6 +6,8 @@
  */
 
 import { useWindResourceStore } from "../../store/windResourceStore";
+import { EducationButton } from "../ui/EducationButton";
+import { sensitivityEducation } from "../../constants/education/p1";
 
 interface SliderProps {
   label: string;
@@ -55,9 +57,12 @@ export default function SensitivityPanel() {
 
   return (
     <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 space-y-4">
-      <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-        Parameters
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+          Parameters
+        </h3>
+        <EducationButton content={sensitivityEducation} />
+      </div>
 
       <Slider
         label="Weibull A (scale)"

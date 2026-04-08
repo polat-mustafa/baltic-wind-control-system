@@ -99,6 +99,9 @@ interface ScadaState {
   // Auto-simulation
   autoSimEnabled: boolean;
 
+  // GOOSE alarm selection (for detail side panel)
+  selectedAlarmId: string | null;
+
   // UI state
   loading: boolean;
   error: string | null;
@@ -157,9 +160,25 @@ interface ScadaState {
   // Simulation
   clearSimulationResults: () => void;
 
+  // Alarm selection
+  setSelectedAlarm: (id: string | null) => void;
+
   // Utility
   clearError: () => void;
 }
+
+// ── GOOSE fault → breaker ID mapping ─────────────────────────────
+// Maps each fault scenario to the primary circuit breaker that operates.
+// IDs must match keys in initBreakerStates() exactly.
+
+const GOOSE_FAULT_BREAKER: Record<string, string> = {
+  busbar_overcurrent:          "cb-66-a",
+  earth_fault_66kv:            "cb-66-b",
+  transformer_diff_protection: "cb-220-a",
+  distance_protection_220kv:   "cb-220",
+  generator_protection:        "cb-str1",
+  arc_flash_detection:         "cb-66-a",
+};
 
 // ── Initial breaker states ──────────────────────────────────────
 
@@ -224,6 +243,9 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
   // Auto-sim
   autoSimEnabled: false,
 
+  // Alarm selection
+  selectedAlarmId: null,
+
   // UI
   loading: false,
   error: null,
@@ -235,6 +257,8 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
   setSelectedRoleLevel: (level) => set({ selectedRoleLevel: level }),
   setAlarmFilter: (filter) =>
     set((s) => ({ alarmFilter: { ...s.alarmFilter, ...filter } })),
+
+  setSelectedAlarm: (id) => set({ selectedAlarmId: id }),
 
   // ── Alarm Actions ──────────────────────────────────────────
 
@@ -266,7 +290,10 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
   clearAllResolved: () =>
     set((s) => ({
       alarms: s.alarms.filter(
-        (a) => a.state !== "CLEARED" && a.state !== "RETURN_TO_NORMAL",
+        (a) =>
+          a.state !== "CLEARED" &&
+          a.state !== "RETURN_TO_NORMAL" &&
+          a.state !== "ACKNOWLEDGED",
       ),
     })),
 
@@ -448,7 +475,8 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
 
     scheduleFault(true);
 
-    // Update alarm durations every second
+    // Update alarm durations every second (guard against duplicate if GOOSE sim already started it)
+    if (!_alarmTickInterval) {
     _alarmTickInterval = setInterval(() => {
       set((s) => ({
         alarms: s.alarms.map((a) =>
@@ -464,6 +492,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
         })),
       }));
     }, 1000);
+    } // end if (!_alarmTickInterval)
   },
 
   stopAutoSimulation: () => {
@@ -572,6 +601,73 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
         alarms: [...newAlarms, ...s.alarms],
         eventLog: [...newEvents, ...s.eventLog].slice(0, 200),
       }));
+
+      // ── Duration ticker ──────────────────────────────────────
+      // Start the ticker if auto-sim hasn't already started it, so durationSec
+      // advances on manually-created GOOSE alarms without needing auto-sim.
+      if (!_alarmTickInterval) {
+        _alarmTickInterval = setInterval(() => {
+          set((s) => ({
+            alarms: s.alarms.map((a) =>
+              a.state === "ACTIVE" || a.state === "ACKNOWLEDGED"
+                ? { ...a, durationSec: Math.round((Date.now() - a.timestamp) / 1000) }
+                : a,
+            ),
+          }));
+        }, 1000);
+      }
+
+      // ── SLD Animation (scaled: 1 ms real → 50 ms display) ───
+      // Animates fault → relay pickup → relay trip → breaker open in the SLD.
+      // Scale of 50× makes a 100 ms protection sequence take ~5 s to animate.
+      const SCALE = 50;
+      const breakerId = GOOSE_FAULT_BREAKER[selectedFaultType] ?? "cb-66-a";
+      const relayPickup = simulationResult.events.find((e) => e.event_type === "relay_pickup");
+      const relayTrip   = simulationResult.events.find((e) => e.event_type === "relay_trip");
+      const breakerOpen = simulationResult.events.find((e) => e.event_type === "breaker_open");
+
+      // t=0: immediately highlight the faulted busbar
+      set({ faultHighlightNodeId: "bb-66kv" });
+
+      if (relayPickup) {
+        setTimeout(() => {
+          get().addEvent({
+            source: relayPickup.ied_name || "Protection IED",
+            type: "relay_pickup",
+            description: `Relay pickup — ${relayPickup.description}`,
+            priority: "HIGH",
+          });
+        }, relayPickup.timestamp_ms * SCALE);
+      }
+
+      if (relayTrip) {
+        setTimeout(() => {
+          get().addEvent({
+            source: relayTrip.ied_name || "Protection IED",
+            type: "relay_trip",
+            description: `Relay trip — ${relayTrip.description}`,
+            priority: "CRITICAL",
+          });
+        }, relayTrip.timestamp_ms * SCALE);
+      }
+
+      if (breakerOpen) {
+        const t = breakerOpen.timestamp_ms * SCALE;
+        setTimeout(() => {
+          set((s) => ({
+            breakerStates: { ...s.breakerStates, [breakerId]: "TRIPPED" as BreakerState },
+            faultHighlightNodeId: breakerId,
+          }));
+          get().addEvent({
+            source: breakerId.toUpperCase(),
+            type: "breaker_open",
+            description: `${breakerId.toUpperCase()} tripped — fault cleared`,
+            priority: "CRITICAL",
+          });
+        }, t);
+        // Clear highlight 5 s after breaker opens; breaker stays TRIPPED for operator to see
+        setTimeout(() => set({ faultHighlightNodeId: null }), t + 5000);
+      }
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -626,8 +722,14 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
 
   // ── Simulation ─────────────────────────────────────────────
 
-  clearSimulationResults: () =>
-    set({ simulationResult: null, retransmissionResult: null }),
+  clearSimulationResults: () => {
+    // Stop the duration ticker if auto-sim isn't running (it was started by runGooseSimulation)
+    if (_alarmTickInterval && !get().autoSimEnabled) {
+      clearInterval(_alarmTickInterval);
+      _alarmTickInterval = null;
+    }
+    set({ simulationResult: null, retransmissionResult: null });
+  },
 
   // ── Utility ────────────────────────────────────────────────
 

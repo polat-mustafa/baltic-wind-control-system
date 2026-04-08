@@ -16,11 +16,18 @@ import SCADAKPIHeader from "../components/p3/SCADAKPIHeader";
 import SCADAControlRoomBar from "../components/p3/SCADAControlRoomBar";
 import SubstationSLD from "../components/p3/SubstationSLD";
 import AlarmListPanel from "../components/p3/AlarmListPanel";
+import { ActiveAlarmsPanel } from "../components/p3/ActiveAlarmsPanel";
 import { useScadaStore } from "../store/scadaStore";
 import { Button } from "../components/ui/Button";
+import { InfoButton } from "../components/ui/InfoButton";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { cn } from "../lib/utils";
 import { p3Guide } from "../constants/trainingGuideContent";
+import {
+  runGooseSimButtonInfo,
+  autoSimButtonInfo,
+  controlRoomButtonInfo,
+} from "../constants/panelInfo";
 
 const ROLE_OPTIONS = [
   { value: 1, label: "Viewer (L1)" },
@@ -150,23 +157,28 @@ export default function SCADAPage() {
         <div className="flex items-center gap-3">
           <TrainingGuide guide={p3Guide} />
           {activeCount > 0 && (
-            <div className="flex items-center gap-1.5 text-[10px] font-mono">
-              {critCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded bg-red-900/40 text-red-400 font-bold animate-pulse">
-                  {critCount} CRIT
-                </span>
-              )}
-              {highCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded bg-orange-900/40 text-orange-400">
-                  {highCount} HIGH
-                </span>
-              )}
-              {medCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400">
-                  {medCount} MED
-                </span>
-              )}
-            </div>
+            <ActiveAlarmsPanel>
+              <button
+                className="flex items-center gap-1.5 text-[10px] font-mono cursor-pointer rounded px-1 py-0.5 hover:bg-bg-hover transition-colors"
+                title="Click to view active alarm details"
+              >
+                {critCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-red-900/40 text-red-400 font-bold animate-pulse">
+                    {critCount} CRIT
+                  </span>
+                )}
+                {highCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-orange-900/40 text-orange-400">
+                    {highCount} HIGH
+                  </span>
+                )}
+                {medCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400">
+                    {medCount} MED
+                  </span>
+                )}
+              </button>
+            </ActiveAlarmsPanel>
           )}
         </div>
       </div>
@@ -180,6 +192,7 @@ export default function SCADAPage() {
             value={selectedFaultType}
             onChange={(e) => setSelectedFaultType(e.target.value)}
             className="text-xs bg-bg-secondary border border-border-primary rounded px-2 py-1 text-text-secondary"
+            title="Select a turbine fault scenario to inject and simulate the IEC 61850 protection response"
           >
             {faultScenarios.map((s) => (
               <option key={s.fault_type} value={s.fault_type}>
@@ -190,37 +203,43 @@ export default function SCADAPage() {
         </div>
 
         {/* Run GOOSE simulation */}
-        <Button
-          onClick={runGooseSimulation}
-          disabled={loading}
-          size="sm"
-          className="text-xs"
-        >
-          {loading ? (
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Running...
-            </span>
-          ) : (
-            "Run GOOSE Sim"
-          )}
-        </Button>
+        <div className="flex items-center gap-1">
+          <InfoButton info={runGooseSimButtonInfo} />
+          <Button
+            onClick={runGooseSimulation}
+            disabled={loading}
+            size="sm"
+            className="text-xs"
+          >
+            {loading ? (
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Running...
+              </span>
+            ) : (
+              "Run GOOSE Sim"
+            )}
+          </Button>
+        </div>
 
         <div className="w-px h-5 bg-border-primary" />
 
         {/* Auto-simulation toggle */}
-        <button
-          onClick={autoSimEnabled ? stopAutoSimulation : startAutoSimulation}
-          className={cn(
-            "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
-            autoSimEnabled
-              ? "bg-green-900/30 border-green-700/50 text-green-400 hover:bg-green-900/50"
-              : "bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover",
-          )}
-        >
-          {autoSimEnabled ? <Square size={10} /> : <Play size={10} />}
-          {autoSimEnabled ? "Stop Auto-Sim" : "Auto-Sim"}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={autoSimEnabled ? stopAutoSimulation : startAutoSimulation}
+            className={cn(
+              "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
+              autoSimEnabled
+                ? "bg-green-900/30 border-green-700/50 text-green-400 hover:bg-green-900/50"
+                : "bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover",
+            )}
+          >
+            {autoSimEnabled ? <Square size={10} /> : <Play size={10} />}
+            {autoSimEnabled ? "Stop Auto-Sim" : "Auto-Sim"}
+          </button>
+          <InfoButton info={autoSimButtonInfo} />
+        </div>
 
         <div className="flex-1" />
 
@@ -231,6 +250,7 @@ export default function SCADAPage() {
             value={selectedRoleLevel}
             onChange={(e) => setSelectedRoleLevel(Number(e.target.value))}
             className="text-xs bg-bg-secondary border border-border-primary rounded px-2 py-1 text-text-secondary"
+            title="Set operator RBAC role — controls which actions are permitted (IEC 62351 access control)"
           >
             {ROLE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -241,16 +261,19 @@ export default function SCADAPage() {
         </div>
 
         {/* Control Room Mode */}
-        <button
-          onClick={toggleFullscreen}
-          className={cn(
-            "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
-            "bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover hover:text-text-primary",
-          )}
-        >
-          <Maximize2 size={10} />
-          Control Room
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleFullscreen}
+            className={cn(
+              "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
+              "bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover hover:text-text-primary",
+            )}
+          >
+            <Maximize2 size={10} />
+            Control Room
+          </button>
+          <InfoButton info={controlRoomButtonInfo} />
+        </div>
 
         {/* Standards reference */}
         <span className="text-[9px] text-text-muted font-mono hidden lg:inline">

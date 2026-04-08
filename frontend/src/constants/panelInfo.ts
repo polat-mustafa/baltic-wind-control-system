@@ -194,6 +194,61 @@ export const rbacInfo: InfoContent = {
   ],
 };
 
+export const runGooseSimButtonInfo: InfoContent = {
+  title: "Run GOOSE Fault Simulation",
+  description:
+    "Injects a synthetic fault event at the selected location and simulates the full IEC 61850 " +
+    "protection response chain: relay pickup → GOOSE publish → breaker trip → SCADA alarm. " +
+    "Results show protection event timeline with millisecond precision and IEC compliance check.",
+  standard: "IEC 61850-8-1 §15 — GOOSE protocol performance classes",
+  parameters: [
+    { name: "P3 class", description: "≤4 ms GOOSE delivery time (protection class)" },
+    { name: "Retransmission", description: "Exponential backoff schedule per §15.2.2" },
+    { name: "Clearance time", description: "Relay pickup + GOOSE + breaker open (≤80 ms)" },
+  ],
+  interpretation:
+    "IEC COMPLIANT badge = GOOSE latency ≤4 ms and clearance ≤80 ms. " +
+    "Fault clearance must be <80 ms for 66 kV array per PSE IRiESP grid code. " +
+    "Run different scenarios from the fault dropdown to test each protection zone.",
+};
+
+export const autoSimButtonInfo: InfoContent = {
+  title: "Auto-Simulation Mode",
+  description:
+    "Continuously injects random turbine fault alarms on a 45–90 second interval. " +
+    "Randomly selects a turbine (WTG-01 to WTG-34) and a fault type from 10 categories. " +
+    "Critical faults have a 50% chance of tripping the associated string circuit breaker. " +
+    "Use this to practice alarm management and stress-test the SCADA response.",
+  standard: "ISA-18.2 / IEC 62682 — Alarm management lifecycle",
+  parameters: [
+    { name: "Fault interval", description: "Random 45–90 s between injections" },
+    { name: "Fault types", description: "10 categories: pitch, vibration, temperature, grid, comms…" },
+    { name: "Breaker trip", description: "50% probability for CRITICAL priority faults" },
+    { name: "First fault", description: "Fires within ~3 s of starting" },
+  ],
+  interpretation:
+    "Watch the alarm table fill up — practice acknowledging and shelving alarms. " +
+    "EEMUA 191 benchmark: ≤1 alarm per 10 min per operator is acceptable. " +
+    "Click 'Stop Auto-Sim' to halt injection. Already-active alarms remain until acknowledged.",
+};
+
+export const controlRoomButtonInfo: InfoContent = {
+  title: "Control Room Mode",
+  description:
+    "Enters a fullscreen immersive display designed for the main control room workstation. " +
+    "Shows the Substation Single Line Diagram at full width with live breaker states, " +
+    "a compact alarm sidebar, and a measurement ribbon (400 kV / 220 kV / 66 kV).",
+  standard: "EEMUA 201 — Alarm system usability for process control",
+  parameters: [
+    { name: "SLD", description: "75% width — live substation topology" },
+    { name: "Alarm sidebar", description: "25% width — ISA-18.2 alarm table, compact mode" },
+    { name: "Measurement ribbon", description: "Bottom bar — MW, A, kV per voltage level" },
+  ],
+  interpretation:
+    "Use during incident response or training exercises. " +
+    "Press Esc or click the Exit button to return to normal dashboard view.",
+};
+
 // ── P4 Forecasting ──
 
 export const forecastVsActualInfo: InfoContent = {

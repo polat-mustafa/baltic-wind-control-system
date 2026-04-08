@@ -26,6 +26,7 @@ from app.services.p3 import opcua_server
 configure_logging(debug=settings.debug)
 from app.db import async_session_factory, engine  # noqa: E402
 from app.routers.digital_twin import router as digital_twin_router  # noqa: E402
+from app.routers.p0_info import router as p0_info_router  # noqa: E402
 from app.routers.p1 import router as p1_router  # noqa: E402
 from app.routers.p2 import router as p2_router  # noqa: E402
 from app.routers.p3 import router as p3_router  # noqa: E402
@@ -87,6 +88,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(p0_info_router)
 app.include_router(p1_router)
 app.include_router(p2_router)
 app.include_router(p3_router)

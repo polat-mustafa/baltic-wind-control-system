@@ -26,6 +26,12 @@ import { nis2CyberEducation } from "./nis2Cyber";
 import { oamLogisticsEducation } from "./oamLogistics";
 import { powerCurveTestingEducation } from "./powerCurveTesting";
 import { gridCodeComplianceEducation } from "./gridCodeCompliance";
+// Design-rationale entries — explain WHY each project component was chosen
+import { turbineSelectionEducation } from "./turbineSelection";
+import { statcomSizingEducation } from "./statcomSizing";
+import { arrayVoltageEducation } from "./arrayVoltage";
+import { cableCrossSectionEducation } from "./cableCrossSection";
+import { sensorArchitectureEducation } from "./sensorArchitecture";
 
 export {
   siteSelectionEducation,
@@ -45,24 +51,39 @@ export {
   oamLogisticsEducation,
   powerCurveTestingEducation,
   gridCodeComplianceEducation,
+  turbineSelectionEducation,
+  statcomSizingEducation,
+  arrayVoltageEducation,
+  cableCrossSectionEducation,
+  sensorArchitectureEducation,
 };
 
 /**
  * Ordered list used by the EngineerLibraryPage card grid.
- * Order is roughly: site → civil → electrical → ops/finance/cyber.
+ * Order is roughly: site → civil → electrical (design rationale first) → ops/finance/cyber.
  */
 export const libraryEntries: readonly EducationContent[] = [
+  // Site & Civil
   siteSelectionEducation,
   foundationDesignEducation,
   structuralFatigueEducation,
   cableInstallationEducation,
   offshoreSubstationEducation,
+  // Electrical — design rationale (project-specific decisions)
+  turbineSelectionEducation,
+  arrayVoltageEducation,
+  hvacVsHvdcEducation,
+  statcomSizingEducation,
+  cableCrossSectionEducation,
+  // Electrical — general knowledge
   earthingLightningEducation,
   insulationCoordinationEducation,
-  hvacVsHvdcEducation,
   gridCodeComplianceEducation,
   blackStartEducation,
   powerCurveTestingEducation,
+  // Control & Monitoring
+  sensorArchitectureEducation,
+  // Safety, Environment, Finance, Cyber, Ops
   offshoreSafetyEducation,
   environmentalImpactEducation,
   decommissioningEducation,

@@ -30,7 +30,10 @@ class SensorSpec(BaseModel):
     range: str = Field(..., description="Measurement range with units")
     accuracy: str = Field(..., description="Stated accuracy (e.g. ±0.2 m/s, Class 0.5)")
     standard: str = Field(..., description="Governing IEC/ISO standard")
-    iec_61850_ln: str | None = Field(None, description="IEC 61850-7-4 logical node (WMET1, WTHI1, etc.)")
+    iec_61850_ln: str | None = Field(
+        None,
+        description="IEC 61850-7-4 logical node (WMET1, WTHI1, etc.)",
+    )
     notes: str = Field(default="", description="Engineering notes or calibration requirements")
 
 

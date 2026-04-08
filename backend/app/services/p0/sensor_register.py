@@ -25,13 +25,13 @@ _TURBINE_SENSORS: list[SensorSpec] = [
     SensorSpec(
         name="Nacelle anemometer",
         quantity_per_location=1,
-        signal_type="4–20 mA",
-        range="0–50 m/s",
+        signal_type="4-20 mA",
+        range="0-50 m/s",
         accuracy="±0.2 m/s (IEC 61400-12-1 Class 1A)",
         standard="IEC 61400-12-1",
         iec_61850_ln="WMET1.WdSpd",
         notes=(
-            "Subject to rotor wake distortion (5–15% bias). "
+            "Subject to rotor wake distortion (5-15% bias). "
             "Transfer function to free-stream speed derived during power-performance test "
             "per IEC 61400-12-2. Redundant with met-mast/lidar reference."
         ),
@@ -39,8 +39,8 @@ _TURBINE_SENSORS: list[SensorSpec] = [
     SensorSpec(
         name="Wind vane (yaw reference)",
         quantity_per_location=1,
-        signal_type="4–20 mA",
-        range="0–360°",
+        signal_type="4-20 mA",
+        range="0-360°",
         accuracy="±2°",
         standard="IEC 61400-12-1",
         iec_61850_ln="WMET1.WdDir",
@@ -50,7 +50,7 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         name="Main bearing RTD",
         quantity_per_location=1,
         signal_type="PT100 3-wire",
-        range="–40 to +120°C",
+        range="-40 to +120°C",
         accuracy="±0.5°C (IEC 60751 Class B)",
         standard="IEC 60751",
         iec_61850_ln="WTHI1.TmpSv",
@@ -64,7 +64,7 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         name="Gearbox high-speed (HS) bearing RTD",
         quantity_per_location=1,
         signal_type="PT100 3-wire",
-        range="–40 to +120°C",
+        range="-40 to +120°C",
         accuracy="±0.5°C",
         standard="IEC 60751",
         iec_61850_ln="WTHI1.TmpSv",
@@ -74,7 +74,7 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         name="Gearbox low-speed (LS) bearing RTD",
         quantity_per_location=1,
         signal_type="PT100 3-wire",
-        range="–40 to +120°C",
+        range="-40 to +120°C",
         accuracy="±0.5°C",
         standard="IEC 60751",
         iec_61850_ln="WTHI1.TmpSv",
@@ -84,7 +84,7 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         name="Generator winding RTD",
         quantity_per_location=1,
         signal_type="PT100 3-wire",
-        range="–40 to +155°C",
+        range="-40 to +155°C",
         accuracy="±1.0°C (IEC 60034-1 Class F insulation)",
         standard="IEC 60034-1",
         iec_61850_ln="WGEN1.TmpSv",
@@ -97,7 +97,7 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         name="Main bearing accelerometer (CMS)",
         quantity_per_location=1,
         signal_type="IEPE (ICP), 4 mA constant current",
-        range="0–1 kHz, 0–50 g pk",
+        range="0-1 kHz, 0-50 g pk",
         accuracy="±5% (ISO 10816-21 Class 1)",
         standard="ISO 10816-21",
         iec_61850_ln="WTUR1.VibVl",
@@ -111,26 +111,26 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         name="Gearbox accelerometer (CMS)",
         quantity_per_location=1,
         signal_type="IEPE (ICP), 4 mA constant current",
-        range="0–5 kHz, 0–100 g pk",
+        range="0-5 kHz, 0-100 g pk",
         accuracy="±5% (ISO 10816-21 Class 1)",
         standard="ISO 10816-21",
         iec_61850_ln="WTUR1.VibVl",
         notes=(
             "Sensitivity 100 mV/g (higher frequency range for gear mesh frequencies). "
-            "Gearbox mesh frequency ≈ n_LS × Z_teeth. Envelope analysis detects "
+            "Gearbox mesh frequency ≈ n_LS x Z_teeth. Envelope analysis detects "
             "early-stage pitting at sub-alarm amplitude."
         ),
     ),
     SensorSpec(
         name="Pitch actuator hydraulic pressure",
         quantity_per_location=1,
-        signal_type="4–20 mA",
-        range="0–300 bar",
+        signal_type="4-20 mA",
+        range="0-300 bar",
         accuracy="±1 bar (±0.3%)",
         standard="IEC 61400-1 §11",
         iec_61850_ln="WPPC1.PtchAnglSetPt",
         notes=(
-            "3× sensors per turbine (one per blade). Monitors pitch control hydraulics. "
+            "3x sensors per turbine (one per blade). Monitors pitch control hydraulics. "
             "Low pressure alarm prevents blade feathering failure on emergency stop. "
             "Data used to infer blade icing (asymmetric pressure signature)."
         ),
@@ -139,7 +139,7 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         name="Rotor absolute encoder",
         quantity_per_location=1,
         signal_type="SSI (Synchronous Serial Interface)",
-        range="0–360° (absolute), 0–12 rpm",
+        range="0-360° (absolute), 0-12 rpm",
         accuracy="±0.1° (16-bit resolution)",
         standard="IEC 61400-1",
         iec_61850_ln="WTUR1.RotSpd",
@@ -163,7 +163,7 @@ _OSS_BAY_SENSORS: list[SensorSpec] = [
         name="Current transformer — metering core",
         quantity_per_location=2,
         signal_type="5 A secondary (class 0.5)",
-        range="0–1000 A primary, ratio 1000/1",
+        range="0-1000 A primary, ratio 1000/1",
         accuracy="Class 0.5 per IEC 61869-2 (≤0.5% ratio error at 100% In)",
         standard="IEC 61869-2",
         iec_61850_ln="MMXU1.A",
@@ -176,13 +176,13 @@ _OSS_BAY_SENSORS: list[SensorSpec] = [
         name="Current transformer — protection core",
         quantity_per_location=2,
         signal_type="1 A secondary (class 5P20)",
-        range="0–1000 A primary",
-        accuracy="Class 5P20 per IEC 61869-2 (≤5% composite error at 20× In)",
+        range="0-1000 A primary",
+        accuracy="Class 5P20 per IEC 61869-2 (≤5% composite error at 20x In)",
         standard="IEC 61869-2",
         iec_61850_ln="MMXU1.A",
         notes=(
             "Used for: overcurrent (ANSI 50/51), differential (ANSI 87T), earth fault (ANSI 51N). "
-            "20× accuracy limit factor ensures relay operates during fault conditions. "
+            "20x accuracy limit factor ensures relay operates during fault conditions. "
             "CT saturation analysis required per IEC 60909."
         ),
     ),
@@ -195,7 +195,8 @@ _OSS_BAY_SENSORS: list[SensorSpec] = [
         standard="IEC 61869-3",
         iec_61850_ln="MMXU1.PhV",
         notes=(
-            "Capacitive VT (CVT) preferred for 66 kV. Used for: voltage magnitude/angle measurement, "
+            "Capacitive VT (CVT) preferred for 66 kV. "
+            "Used for: voltage magnitude/angle measurement, "
             "synchrocheck (ΔV < 5%, Δf < 0.1 Hz, Δφ < 10°) before tie-CB close, "
             "directional overcurrent element polarisation."
         ),
@@ -209,7 +210,7 @@ _OSS_BAY_SENSORS: list[SensorSpec] = [
         standard="IEC 61850-8-1 (GOOSE publisher)",
         iec_61850_ln="XCBR1.Pos / XSWI1.Pos",
         notes=(
-            "Reads auxiliary contacts from: CB (1× NO + 1× NC for trip supervision), "
+            "Reads auxiliary contacts from: CB (1x NO + 1x NC for trip supervision), "
             "Disconnector (OPEN/CLOSED/MOVING), Earth switch (OPEN/CLOSED). "
             "Time-stamped at 1 ms resolution for SOE (Sequence of Events) recording."
         ),
@@ -225,40 +226,40 @@ _OSS_BAY_SENSOR_GROUP = OSSBaySensorGroup(
 
 _CABLE_SENSORS: list[SensorSpec] = [
     SensorSpec(
-        name="DTS fibre — section 1 (0–15 km)",
+        name="DTS fibre — section 1 (0-15 km)",
         quantity_per_location=1,
         signal_type="Optical (Raman backscatter)",
-        range="–40 to +120°C, 0–15,000 m",
+        range="-40 to +120°C, 0-15,000 m",
         accuracy="±0.1°C temperature, 1 m spatial resolution",
         standard="IEC 60287 (thermal model validation)",
         iec_61850_ln=None,
         notes=(
             "Raman OTDR interrogator at OSS. Scan period: 5 min. "
             "Alarm at conductor temperature > 70°C (warning) / 90°C (critical). "
-            "J-tube zone (0–200 m at each end) has enhanced zone factor 1.4 in thermal model. "
+            "J-tube zone (0-200 m at each end) has enhanced zone factor 1.4 in thermal model. "
             "DTS data used for dynamic cable rating (IEC 60853 method)."
         ),
     ),
     SensorSpec(
-        name="DTS fibre — section 2 (15–30 km)",
+        name="DTS fibre — section 2 (15-30 km)",
         quantity_per_location=1,
         signal_type="Optical (Raman backscatter)",
-        range="–40 to +120°C, 15,000–30,000 m",
+        range="-40 to +120°C, 15,000-30,000 m",
         accuracy="±0.1°C temperature, 1 m spatial resolution",
         standard="IEC 60287",
         iec_61850_ln=None,
-        notes="Mid-route section. Typical seabed temperature at 40 m depth: 4–12°C seasonal.",
+        notes="Mid-route section. Typical seabed temperature at 40 m depth: 4-12°C seasonal.",
     ),
     SensorSpec(
-        name="DTS fibre — section 3 (30–45 km)",
+        name="DTS fibre — section 3 (30-45 km)",
         quantity_per_location=1,
         signal_type="Optical (Raman backscatter)",
-        range="–40 to +120°C, 30,000–45,000 m",
+        range="-40 to +120°C, 30,000-45,000 m",
         accuracy="±0.1°C temperature, 1 m spatial resolution",
         standard="IEC 60287",
         iec_61850_ln=None,
         notes=(
-            "Onshore-transition zone (km 43–45). Higher ambient temperature on land; "
+            "Onshore-transition zone (km 43-45). Higher ambient temperature on land; "
             "separate thermal derating factor applied for burial in soil vs seabed."
         ),
     ),
@@ -266,7 +267,7 @@ _CABLE_SENSORS: list[SensorSpec] = [
         name="Joint box temperature monitor — km 15",
         quantity_per_location=1,
         signal_type="PT100 3-wire, cable piggyback signal pair",
-        range="0–80°C",
+        range="0-80°C",
         accuracy="±0.5°C",
         standard="IEC 60840 §14 (joint requirements)",
         iec_61850_ln=None,
@@ -280,7 +281,7 @@ _CABLE_SENSORS: list[SensorSpec] = [
         name="Joint box temperature monitor — km 30",
         quantity_per_location=1,
         signal_type="PT100 3-wire, cable piggyback signal pair",
-        range="0–80°C",
+        range="0-80°C",
         accuracy="±0.5°C",
         standard="IEC 60840 §14",
         iec_61850_ln=None,

@@ -19,6 +19,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  MarkerType,
   type Node,
   type Edge,
   type NodeTypes,
@@ -228,29 +229,42 @@ function buildGraph(
     data: { label: "66 kV Array Busbar", color: SCADA_COLORS.VOLTAGE_66KV, voltage: 66 },
   });
 
+  // ── Helper: add power-flow arrow to energized edges ──────────────
+  // Arrow direction = source → target (power flow direction in SLD convention)
+  const flowArrow = (color: string, energized: boolean) =>
+    energized
+      ? { type: MarkerType.ArrowClosed as const, color, width: 12, height: 12 }
+      : undefined;
+
   // ── Edges: 400kV section ──
-  const e400Color = cbState("cb-400") === "CLOSED" ? SCADA_COLORS.VOLTAGE_400KV : SCADA_COLORS.DE_ENERGIZED;
-  edges.push({ id: "e-bb400-cb400", source: "bb-400kv", target: "cb-400", style: { stroke: SCADA_COLORS.VOLTAGE_400KV, strokeWidth: 2 }, animated: cbState("cb-400") === "CLOSED" });
+  const cb400Closed = cbState("cb-400") === "CLOSED";
+  const e400Color = cb400Closed ? SCADA_COLORS.VOLTAGE_400KV : SCADA_COLORS.DE_ENERGIZED;
+  edges.push({ id: "e-bb400-cb400", source: "bb-400kv", target: "cb-400", style: { stroke: SCADA_COLORS.VOLTAGE_400KV, strokeWidth: 2 }, animated: cb400Closed, markerEnd: flowArrow(SCADA_COLORS.VOLTAGE_400KV, cb400Closed) });
   edges.push({ id: "e-cb400-ds400", source: "cb-400", target: "ds-400-1", style: { stroke: e400Color, strokeWidth: 2 } });
-  edges.push({ id: "e-ds400-tx", source: "ds-400-1", target: "tx-400-220", style: { stroke: e400Color, strokeWidth: 2 } });
+  edges.push({ id: "e-ds400-tx", source: "ds-400-1", target: "tx-400-220", style: { stroke: e400Color, strokeWidth: 2 }, markerEnd: flowArrow(e400Color, cb400Closed) });
   edges.push({ id: "e-bb400-es400", source: "bb-400kv", target: "es-400", style: { stroke: SCADA_COLORS.EARTHED, strokeWidth: 1, strokeDasharray: "4 4" } });
 
   // ── Edges: 220kV section ──
-  const e220Color = cbState("cb-220") === "CLOSED" ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED;
+  const cb220Closed = cbState("cb-220") === "CLOSED";
+  const e220Color = cb220Closed ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED;
   edges.push({ id: "e-tx-ds220", source: "tx-400-220", target: "ds-220-1", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
   edges.push({ id: "e-ds220-cb220", source: "ds-220-1", target: "cb-220", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb220-bb220", source: "cb-220", target: "bb-220kv", style: { stroke: e220Color, strokeWidth: 2 }, animated: cbState("cb-220") === "CLOSED" });
+  edges.push({ id: "e-cb220-bb220", source: "cb-220", target: "bb-220kv", style: { stroke: e220Color, strokeWidth: 2 }, animated: cb220Closed, markerEnd: flowArrow(e220Color, cb220Closed) });
 
   // ── Edges: 220/66 transformers ──
+  const cb220aOn = cbState("cb-220-a") === "CLOSED";
+  const cb66aOn  = cbState("cb-66-a") === "CLOSED";
+  const cb220bOn = cbState("cb-220-b") === "CLOSED";
+  const cb66bOn  = cbState("cb-66-b") === "CLOSED";
   edges.push({ id: "e-bb220-cb220a", source: "bb-220kv", target: "cb-220-a", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb220a-txa", source: "cb-220-a", target: "tx-220-66-a", style: { stroke: cbState("cb-220-a") === "CLOSED" ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 } });
+  edges.push({ id: "e-cb220a-txa", source: "cb-220-a", target: "tx-220-66-a", style: { stroke: cb220aOn ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 }, animated: cb220aOn, markerEnd: flowArrow(SCADA_COLORS.VOLTAGE_220KV, cb220aOn) });
   edges.push({ id: "e-txa-cb66a", source: "tx-220-66-a", target: "cb-66-a", style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb66a-bb66", source: "cb-66-a", target: "bb-66kv", style: { stroke: cbState("cb-66-a") === "CLOSED" ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 } });
+  edges.push({ id: "e-cb66a-bb66", source: "cb-66-a", target: "bb-66kv", style: { stroke: cb66aOn ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 }, animated: cb66aOn, markerEnd: flowArrow(SCADA_COLORS.VOLTAGE_66KV, cb66aOn) });
 
   edges.push({ id: "e-bb220-cb220b", source: "bb-220kv", target: "cb-220-b", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb220b-txb", source: "cb-220-b", target: "tx-220-66-b", style: { stroke: cbState("cb-220-b") === "CLOSED" ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 } });
+  edges.push({ id: "e-cb220b-txb", source: "cb-220-b", target: "tx-220-66-b", style: { stroke: cb220bOn ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 }, animated: cb220bOn, markerEnd: flowArrow(SCADA_COLORS.VOLTAGE_220KV, cb220bOn) });
   edges.push({ id: "e-txb-cb66b", source: "tx-220-66-b", target: "cb-66-b", style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb66b-bb66", source: "cb-66-b", target: "bb-66kv", style: { stroke: cbState("cb-66-b") === "CLOSED" ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 } });
+  edges.push({ id: "e-cb66b-bb66", source: "cb-66-b", target: "bb-66kv", style: { stroke: cb66bOn ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 }, animated: cb66bOn, markerEnd: flowArrow(SCADA_COLORS.VOLTAGE_66KV, cb66bOn) });
 
   // ── Feeder CBs + DS per string off 66 kV busbar ──
   const stringLayout = [6, 6, 6, 6, 5, 5];
@@ -275,11 +289,14 @@ function buildGraph(
         highlight: faultHighlightNodeId === cbId,
       },
     });
+    const strCbClosed = cbState(cbId) === "CLOSED";
     edges.push({
       id: `e-bb66-${cbId}`,
       source: "bb-66kv",
       target: cbId,
-      style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 1.5 },
+      style: { stroke: strCbClosed ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 1.5 },
+      animated: strCbClosed,
+      markerEnd: strCbClosed ? { type: MarkerType.ArrowClosed as const, color: SCADA_COLORS.VOLTAGE_66KV, width: 10, height: 10 } : undefined,
     });
 
     // String label

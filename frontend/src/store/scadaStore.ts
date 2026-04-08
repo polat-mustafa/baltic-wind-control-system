@@ -154,6 +154,9 @@ interface ScadaState {
     },
   ) => Promise<TransitionResult | null>;
 
+  // Simulation
+  clearSimulationResults: () => void;
+
   // Utility
   clearError: () => void;
 }
@@ -399,9 +402,9 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
     if (state.autoSimEnabled) return;
     set({ autoSimEnabled: true });
 
-    // Generate random faults every 45-90s
-    const scheduleFault = () => {
-      const delay = 45000 + Math.random() * 45000;
+    // Generate random faults every 45-90s (first fault fires in ~3s)
+    const scheduleFault = (isFirst = false) => {
+      const delay = isFirst ? 3000 : 45000 + Math.random() * 45000;
       _autoSimInterval = setTimeout(() => {
         const s = get();
         if (!s.autoSimEnabled) return;
@@ -443,7 +446,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
       }, delay) as unknown as ReturnType<typeof setInterval>;
     };
 
-    scheduleFault();
+    scheduleFault(true);
 
     // Update alarm durations every second
     _alarmTickInterval = setInterval(() => {
@@ -620,6 +623,11 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
       return null;
     }
   },
+
+  // ── Simulation ─────────────────────────────────────────────
+
+  clearSimulationResults: () =>
+    set({ simulationResult: null, retransmissionResult: null }),
 
   // ── Utility ────────────────────────────────────────────────
 

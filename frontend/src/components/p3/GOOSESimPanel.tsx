@@ -7,6 +7,7 @@
  */
 
 import { useMemo } from "react";
+import { X } from "lucide-react";
 import Plot from "react-plotly.js";
 
 import { useScadaStore } from "../../store/scadaStore";
@@ -26,7 +27,7 @@ const EVENT_COLOR: Record<string, string> = {
 };
 
 export default function GOOSESimPanel() {
-  const { simulationResult, retransmissionResult } = useScadaStore();
+  const { simulationResult, retransmissionResult, clearSimulationResults } = useScadaStore();
 
   const timelineData = useMemo(() => {
     if (!simulationResult) return null;
@@ -90,6 +91,14 @@ export default function GOOSESimPanel() {
           </h3>
           <div className="flex items-center gap-2">
             <InfoButton info={gooseSimInfo} />
+            <button
+              onClick={clearSimulationResults}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-text-muted hover:text-text-secondary hover:bg-bg-hover transition-colors"
+              title="Clear simulation results"
+              aria-label="Clear simulation results"
+            >
+              <X size={14} />
+            </button>
             <span
             className="px-2 py-0.5 rounded text-xs font-bold"
             style={{

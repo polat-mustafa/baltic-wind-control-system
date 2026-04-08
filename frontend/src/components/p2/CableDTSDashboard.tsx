@@ -16,6 +16,7 @@ import { useCableDTSStore } from "../../store/cableDtsStore";
 import { Button } from "../ui/Button";
 import DTSProfilePanel from "./DTSProfilePanel";
 import DTSRatingPanel from "./DTSRatingPanel";
+import CableDTSTemperatureMap from "./CableDTSTemperatureMap";
 
 export default function CableDTSDashboard() {
   const {
@@ -80,6 +81,9 @@ export default function CableDTSDashboard() {
           ) : "Update"}
         </Button>
       </div>
+
+      {/* Heat map strip — shows temperature colour-gradient along 45 km route */}
+      <CableDTSTemperatureMap />
 
       {/* Main content */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

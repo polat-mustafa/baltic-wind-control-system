@@ -16,6 +16,7 @@ vi.mock("@xyflow/react", () => ({
   Controls: () => null,
   Handle: () => null,
   Position: { Top: "top", Bottom: "bottom" },
+  MarkerType: { ArrowClosed: "arrowclosed" },
 }));
 
 const noop = () => {};

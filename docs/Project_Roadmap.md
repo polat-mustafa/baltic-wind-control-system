@@ -29,6 +29,8 @@
 
 ### 1.1 The Unified System Concept
 
+> **Educational Disclaimer:** Results, AEP values, wake losses, and compliance analyses in this document are desk-study estimates produced for educational purposes. They are **not certified engineering outputs**. Specifically: AEP and P90/P75 values use industry-typical uncertainty σ values (per DNV-RP-0203), not site-specific measurement campaigns. Wake-loss and layout-optimisation numbers are illustrative targets, not outputs from a completed PyWake run. FRT compliance is stated as design intent — dynamic verification requires ANDES or PSCAD/EMTDC simulation (not yet executed). Where simulation tool accuracy is cited (e.g. Pandapower vs. DIgSILENT), the figures derive from published tool-validation studies, not from project-specific cross-checks.
+
 These five projects are not isolated exercises. They represent a **single unified system** — a complete engineering lifecycle for a 510 MW Baltic Sea offshore wind farm, from resource assessment through commissioning. Each project is a layer of the same system, and together they demonstrate the full scope of competence expected from a mid-to-senior level HV Control Engineer.
 
 ```
@@ -180,7 +182,7 @@ Design and optimize a 510 MW offshore wind farm layout in the Baltic Sea using r
 | Fuga | Linearized CFD | Very High | Moderate | Final design check |
 | TurbOPark (Ørsted) | Gaussian | High | Fast | Industry reference |
 
-**Decision rationale:** BPA provides the best trade-off between accuracy and computational speed for optimization loops. Validated against Horns Rev and Lillgrund measurements. Results typically within 1.8% of DIgSILENT PowerFactory.
+**Decision rationale:** BPA provides the best trade-off between accuracy and computational speed for optimization loops. The PyWake BPA model has been validated by DTU against Horns Rev and Lillgrund measurements in published research — this project uses the same model. Results are typically within 1–2% of measured farm data per DTU validation studies; a project-specific cross-check against DIgSILENT PowerFactory has not been performed.
 
 ```python
 # PyWake configuration:
@@ -240,7 +242,9 @@ Large offshore arrays experience 1–3% power reduction from upstream flow decel
 
 **Combined uncertainty (RSS):** σ_total = √(4² + 3² + 2² + 3² + 1.5² + 1² + 2² + 1.5²) = **6.2%**
 
-**Exceedance values:**
+> **Note:** The individual σ values above are desk-study estimates using industry-typical ranges per DNV-RP-0203 §4. They are not derived from a site-specific measurement campaign (met mast or LiDAR). A real bankable energy assessment would quantify each source against measured data. The 6.2% combined uncertainty and resulting P-values below are therefore illustrative.
+
+**Exceedance values** *(desk-study estimates — see note above)*:
 
 | P-value | Z-score | AEP (GWh) | Capacity Factor | Annual Revenue (M€) |
 |---------|---------|-----------|-----------------|---------------------|
@@ -259,6 +263,8 @@ Large offshore arrays experience 1–3% power reduction from upstream flow decel
 | Staggered | 2,113 | 9.8% | 62 | 44.1 |
 | **Optimized** | **2,140** | **8.7%** | **64** | **45.8** |
 | **Improvement** | **+96 GWh** | **-4.0 pp** | **+6 km** | **+3.5** |
+
+> **Illustrative values:** These AEP and wake-loss figures are target estimates based on typical offshore Baltic results for 5D × 8D spacing with a staggered layout. They are not outputs from a completed PyWake differential-evolution optimisation run. Real optimisation results will differ based on actual ERA5 wind rose, bathymetry constraints, and cable routing.
 
 **Trade-off:** +96 GWh/year × €72/MWh = +€6.9M/year revenue vs +€3.5M cable CAPEX → payback in ~6 months. **Clear win for optimized layout.**
 
@@ -319,13 +325,15 @@ Model the complete HV electrical system: 66 kV array cables → offshore substat
 
 ```
 Q_cap = ω × C × V² × L = 2π×50 × 0.25μF/km × (220kV)² × 45km ≈ 85.5 MVAR
+(C = 0.25 μF/km is approximate for a 220 kV three-core XLPE submarine cable per IEC 60840 Class 3;
+actual capacitance is manufacturer-specific, typically 200–270 nF/km for this voltage class)
 ```
 
 This is ~17% of rated power and pushes offshore busbar voltage above limits (Ferranti effect). STATCOM + shunt reactor is required.
 
 ### 3.3 Network Model — Pandapower (P2A: Steady-State)
 
-**Why Pandapower:** Free (BSD-3), IEC 60909 compliant, Python-native. Results within 1.8% of DIgSILENT PowerFactory. Production work uses PowerFactory, but the mathematics are identical.
+**Why Pandapower:** Free (BSD-3), IEC 60909 compliant, Python-native. For standard Newton-Raphson load flow and IEC 60909 short-circuit, Pandapower and DIgSILENT PowerFactory implement the same mathematical methods — results should be numerically equivalent for the same network model. Production work uses PowerFactory; Pandapower is used here for accessibility and reproducibility.
 
 **Network topology:**
 
@@ -412,7 +420,7 @@ PSE compliance verification follows EON → ION → FON stages before granting o
 
 | Parameter | STATCOM | SVC |
 |-----------|---------|-----|
-| Response time | < 5 ms | ~ 20 ms |
+| Response time | < 5 ms (per ABB/Siemens STATCOM product specs) | ~ 20 ms |
 | Low-voltage performance | Full capacity | V²-dependent (reduced) |
 | Footprint | Compact (~200 m²) | Large (~500 m²) |
 | Offshore platform cost | ~€8M platform | ~€20M platform |
@@ -447,7 +455,7 @@ Requirements during fault:
 - HVRT: withstand 1.25 pu for 100 ms (added per NC RfG Type D)
 ```
 
-**Result:** STATCOM + turbine converter reactive current injection → compliant at all tested fault scenarios (validated with ANDES dynamic simulation).
+**Design intent:** STATCOM + turbine converter reactive current injection is expected to achieve compliance at all PSE fault scenarios based on the reactive current capability analysis in §3.8. **Dynamic verification via ANDES or PSCAD/EMTDC EMT simulation has not yet been executed** — this is identified as a gap (P2B module). The compliance statement should be interpreted as "analytically supported design intent", not a verified simulation result.
 
 ### 3.10 Harmonic Analysis
 

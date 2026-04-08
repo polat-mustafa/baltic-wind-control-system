@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { X, Wind, Zap, Monitor, Brain, ClipboardCheck, Activity } from "lucide-react";
+import { X, Wind, Zap, Monitor, Brain, ClipboardCheck, Activity, BookOpen, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { FAULT_CATEGORIES } from "../../constants/faultCategories";
@@ -32,6 +32,92 @@ import TurbineCrossSection from "./TurbineCrossSection";
 import TurbineEducationPanel from "./TurbineEducationPanel";
 import TurbineSparklines from "./TurbineSparklines";
 import TurbineWakeCone from "./TurbineWakeCone";
+import { EducationPanel } from "../ui/EducationPanel";
+import { turbineSelectionEducation } from "../../constants/education/library/turbineSelection";
+
+// ── V236 Published power curve (interpolated from Vestas product card) ──
+// Source: Vestas V236-15.0 MW published specifications
+// Cut-in: 3 m/s, Rated: 12.5 m/s, Cut-out: 31 m/s
+const V236_CURVE: { v: number; p: number }[] = [
+  { v: 3.0, p: 0 }, { v: 4.0, p: 0.4 }, { v: 5.0, p: 0.95 },
+  { v: 6.0, p: 1.8 }, { v: 7.0, p: 3.1 }, { v: 8.0, p: 4.9 },
+  { v: 9.0, p: 7.1 }, { v: 10.0, p: 9.6 }, { v: 11.0, p: 12.0 },
+  { v: 12.0, p: 14.0 }, { v: 12.5, p: 15.0 }, { v: 25.0, p: 15.0 }, { v: 31.0, p: 0 },
+];
+
+function V236PowerCurve({ windSpeedMs, powerOutputMW }: { windSpeedMs: number; powerOutputMW: number }) {
+  const W = 400; const H = 90; const padL = 28; const padR = 4; const padT = 4; const padB = 18;
+  const vMax = 32; const pMax = 16;
+  const toX = (v: number) => padL + ((v / vMax) * (W - padL - padR));
+  const toY = (p: number) => padT + ((1 - p / pMax) * (H - padT - padB));
+
+  // Build SVG path
+  const pts = V236_CURVE.map((d) => `${toX(d.v).toFixed(1)},${toY(d.p).toFixed(1)}`).join(" ");
+  const polyline = `M ${pts.split(" ").join(" L ")}`;
+
+  // Cp at current operating point
+  const RHO = 1.225; const A = Math.PI * (236 / 2) ** 2;
+  const pWind = 0.5 * RHO * A * Math.pow(Math.max(windSpeedMs, 0.1), 3) / 1e6;
+  const cp = windSpeedMs > 3 && powerOutputMW > 0 ? Math.min(0.593, powerOutputMW / pWind) : 0;
+
+  return (
+    <div className="mt-1.5 mb-1">
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
+        {/* Grid lines */}
+        {[0, 5, 10, 15].map((p) => (
+          <line key={p} x1={padL} y1={toY(p)} x2={W - padR} y2={toY(p)}
+            stroke="#2a3040" strokeWidth={0.5} />
+        ))}
+        {[0, 5, 10, 15, 20, 25, 30].map((v) => (
+          <line key={v} x1={toX(v)} y1={padT} x2={toX(v)} y2={H - padB}
+            stroke="#2a3040" strokeWidth={0.5} />
+        ))}
+        {/* Y labels */}
+        {[0, 5, 10, 15].map((p) => (
+          <text key={p} x={padL - 3} y={toY(p) + 3} fontSize={6} fill="#6b7490" textAnchor="end">
+            {p}
+          </text>
+        ))}
+        {/* X labels */}
+        {[0, 5, 10, 15, 20, 25, 30].map((v) => (
+          <text key={v} x={toX(v)} y={H - padB + 10} fontSize={6} fill="#6b7490" textAnchor="middle">
+            {v}
+          </text>
+        ))}
+        {/* Axes */}
+        <line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="#3a4255" strokeWidth={1} />
+        <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#3a4255" strokeWidth={1} />
+        {/* Power curve */}
+        <path d={polyline} fill="none" stroke="#3b82f6" strokeWidth={1.5} />
+        {/* Rated power line */}
+        <line x1={padL} y1={toY(15)} x2={W - padR} y2={toY(15)}
+          stroke="#22c55e" strokeWidth={0.8} strokeDasharray="3,2" opacity={0.6} />
+        {/* Current operating point */}
+        {windSpeedMs >= 3 && windSpeedMs <= 31 && (
+          <>
+            <line x1={toX(windSpeedMs)} y1={padT} x2={toX(windSpeedMs)} y2={H - padB}
+              stroke="#f59e0b" strokeWidth={1} strokeDasharray="2,2" />
+            <circle cx={toX(windSpeedMs)} cy={toY(powerOutputMW)} r={3.5}
+              fill="#f59e0b" stroke="#0f1117" strokeWidth={1} />
+          </>
+        )}
+        {/* Axis labels */}
+        <text x={W / 2} y={H - 1} fontSize={6} fill="#6b7490" textAnchor="middle">Wind speed (m/s)</text>
+        <text x={7} y={H / 2} fontSize={6} fill="#6b7490" textAnchor="middle"
+          transform={`rotate(-90, 7, ${H / 2})`}>MW</text>
+      </svg>
+      <div className="flex items-center gap-3 text-[9px] text-[#6b7490] mt-0.5">
+        <span>
+          <span className="text-[#f59e0b]">●</span> {windSpeedMs.toFixed(1)} m/s → {powerOutputMW.toFixed(1)} MW
+        </span>
+        {windSpeedMs > 3 && (
+          <span>Cp = {cp.toFixed(3)} (Betz limit 0.593)</span>
+        )}
+        <span className="opacity-60">Vestas V236 product card (indicative)</span>
+      </div>
+    </div>
+  );
+}
 
 interface TurbineDetailPanelProps {
   turbine: TurbineData;
@@ -84,6 +170,8 @@ export default function TurbineDetailPanel({ turbine: t, onClose }: TurbineDetai
   const navigate = useNavigate();
   const [selectedPart, setSelectedPart] = useState<TurbinePartId | null>(null);
   const [isNarrow, setIsNarrow] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [showPowerCurve, setShowPowerCurve] = useState(false);
 
   const sColor = STATUS_COLOR[t.status];
   const faultCategory = t.status === "fault" && t.faultType
@@ -156,7 +244,17 @@ export default function TurbineDetailPanel({ turbine: t, onClose }: TurbineDetai
         <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "#2a3040" }}>
           <div>
             <div className="text-sm font-semibold text-[#e8eaf0]">{t.id}</div>
-            <div className="text-[10px] text-[#6b7490]">String {t.stringNumber} · V236-15.0 MW</div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#6b7490]">String {t.stringNumber} · V236-15.0 MW</span>
+              <button
+                onClick={() => setLibraryOpen(true)}
+                className="flex items-center gap-1 text-[9px] text-[#3b82f6] hover:text-[#60a5fa] transition-colors"
+                title="Why was the V236-15.0 MW chosen?"
+              >
+                <BookOpen size={9} />
+                Why V236?
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: sColor }}>
@@ -292,6 +390,24 @@ export default function TurbineDetailPanel({ turbine: t, onClose }: TurbineDetai
           </div>
         </div>
 
+        {/* ── Power Curve toggle ── */}
+        <div className="px-3 py-1 border-b" style={{ borderColor: "#1e2231" }}>
+          <button
+            onClick={() => setShowPowerCurve((v) => !v)}
+            className="flex items-center gap-1.5 text-[10px] text-[#6b7490] hover:text-[#e8eaf0] transition-colors w-full"
+          >
+            <TrendingUp size={10} />
+            <span>V236 Power Curve</span>
+            <span className="ml-auto text-[9px]">{showPowerCurve ? "▲" : "▼"}</span>
+          </button>
+          {showPowerCurve && (
+            <V236PowerCurve
+              windSpeedMs={t.windSpeedMs}
+              powerOutputMW={t.powerOutputMW}
+            />
+          )}
+        </div>
+
         {/* ── Compact Navigation Icons ── */}
         <div className="px-3 py-2 flex items-center gap-1.5">
           {NAV_ITEMS.map((item) => {
@@ -331,6 +447,13 @@ export default function TurbineDetailPanel({ turbine: t, onClose }: TurbineDetai
           curtailmentInfo={curtailInfo}
         />
       )}
+
+      {/* ── Library Panel: Turbine Selection Rationale ── */}
+      <EducationPanel
+        content={turbineSelectionEducation}
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+      />
     </>
   );
 }

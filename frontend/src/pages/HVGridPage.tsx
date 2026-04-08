@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   TrendingUp,
   Zap,
+  BookOpen,
 } from "lucide-react";
 
 import GridDashboard from "../components/p2/GridDashboard";
@@ -38,6 +39,11 @@ import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { ControlDrawer } from "../components/ui/ControlDrawer";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { p2Guide } from "../constants/trainingGuideContent";
+import { EducationPanel } from "../components/ui/EducationPanel";
+import { hvacVsHvdcEducation } from "../constants/education/library/hvacVsHvdc";
+import { statcomSizingEducation } from "../constants/education/library/statcomSizing";
+import { arrayVoltageEducation } from "../constants/education/library/arrayVoltage";
+import { cableCrossSectionEducation } from "../constants/education/library/cableCrossSection";
 
 import type { ActivePowerMode, ReactivePowerMode } from "../types/ppc";
 
@@ -93,6 +99,9 @@ const REACTIVE_POWER_MODES: { value: ReactivePowerMode; label: string }[] = [
 
 export default function HVGridPage() {
   const [activeTab, setActiveTab] = useState<Tab>("grid");
+  const [libraryEntry, setLibraryEntry] = useState<
+    typeof hvacVsHvdcEducation | typeof statcomSizingEducation | typeof arrayVoltageEducation | typeof cableCrossSectionEducation | null
+  >(null);
 
   // Grid store (existing P2)
   const {
@@ -158,6 +167,24 @@ export default function HVGridPage() {
               ? `${networkSpec.total_capacity_mw} MW · ${networkSpec.array_voltage_kv}/${networkSpec.export_voltage_kv}/${networkSpec.grid_voltage_kv} kV · ${networkSpec.export_length_km} km export`
               : "Loading..."}
           </p>
+          {/* Design-rationale cross-links */}
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+            {[
+              { label: "Why HVAC?", entry: hvacVsHvdcEducation },
+              { label: "Why 66 kV?", entry: arrayVoltageEducation },
+              { label: "Why ±120 MVAR STATCOM?", entry: statcomSizingEducation },
+              { label: "Why graded cables?", entry: cableCrossSectionEducation },
+            ].map(({ label, entry }) => (
+              <button
+                key={label}
+                onClick={() => setLibraryEntry(entry)}
+                className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                <BookOpen size={10} />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {/* Action buttons — only for grid/ppc tabs */}
@@ -452,6 +479,15 @@ export default function HVGridPage() {
       {activeTab === "bess"          && <BESSDashboard />}
       {activeTab === "cable-dts"     && <CableDTSDashboard />}
       {activeTab === "market"        && <MarketDashboard />}
+
+      {/* ── Library: Design rationale panels ───────────────────── */}
+      {libraryEntry && (
+        <EducationPanel
+          content={libraryEntry}
+          open={libraryEntry !== null}
+          onOpenChange={(open) => { if (!open) setLibraryEntry(null); }}
+        />
+      )}
     </div>
   );
 }

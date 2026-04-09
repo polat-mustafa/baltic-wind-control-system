@@ -7,6 +7,8 @@
  */
 
 import { usePowerQualityStore } from "../../store/powerQualityStore";
+import { InfoButton } from "../ui/InfoButton";
+import { flickerFilterInfo } from "../../constants/panelInfo";
 
 function KPI({ label, value, limit, unit }: { label: string; value: number; limit: number; unit: string }) {
   const ok = value <= limit;
@@ -36,7 +38,10 @@ export default function FlickerFilterPanel() {
 
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-      <h3 className="text-sm font-semibold text-text-primary mb-3">Flicker Emission (IEC 61000-3-7)</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-text-primary">Flicker Emission (IEC 61000-3-7)</h3>
+        <InfoButton info={flickerFilterInfo} />
+      </div>
       <div className="grid grid-cols-2 gap-3 mb-4">
         <KPI label="Short-term flicker Pst" value={flicker.pst} limit={flicker.pst_limit} unit="" />
         <KPI label="Long-term flicker Plt" value={flicker.plt} limit={flicker.plt_limit} unit="" />

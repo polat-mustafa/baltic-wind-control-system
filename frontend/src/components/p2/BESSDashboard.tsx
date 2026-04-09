@@ -17,6 +17,8 @@ import { Button } from "../ui/Button";
 import BESSStatusPanel from "./BESSStatusPanel";
 import BESSFrequencyPanel from "./BESSFrequencyPanel";
 import BESSDegradationPanel from "./BESSDegradationPanel";
+import { InfoButton } from "../ui/InfoButton";
+import { bessDashboardInfo } from "../../constants/panelInfo";
 
 export default function BESSDashboard() {
   const { rampResult, loading, simLoading, error, fetchStatus, simRampSmoothing, clearError } = useBESSStore();
@@ -48,6 +50,7 @@ export default function BESSDashboard() {
         <div className="flex items-center gap-2">
           <Battery size={16} className="text-accent" />
           <span className="text-sm font-semibold text-text-primary">BESS — 50 MW / 200 MWh LFP</span>
+          <InfoButton info={bessDashboardInfo} />
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="secondary" onClick={simRampSmoothing} disabled={simLoading}>

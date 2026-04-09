@@ -17,6 +17,8 @@ import { Button } from "../ui/Button";
 import DTSProfilePanel from "./DTSProfilePanel";
 import DTSRatingPanel from "./DTSRatingPanel";
 import CableDTSTemperatureMap from "./CableDTSTemperatureMap";
+import { InfoButton } from "../ui/InfoButton";
+import { cableDtsDashboardInfo } from "../../constants/panelInfo";
 
 export default function CableDTSDashboard() {
   const {
@@ -46,6 +48,7 @@ export default function CableDTSDashboard() {
       {/* Controls */}
       <div className="flex items-center gap-4 flex-wrap bg-bg-secondary rounded-lg border border-border-primary p-3">
         <Thermometer size={16} className="text-accent shrink-0" />
+        <InfoButton info={cableDtsDashboardInfo} />
         <div className="flex items-center gap-2">
           <label className="text-xs text-text-muted">Current:</label>
           <input

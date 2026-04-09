@@ -11,6 +11,8 @@ import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefault
 import { useBESSStore } from "../../store/bessStore";
 import { Button } from "../ui/Button";
 import type { DegradationYearPoint } from "../../types/bess";
+import { InfoButton } from "../ui/InfoButton";
+import { bessDegradationInfo } from "../../constants/panelInfo";
 
 export default function BESSDegradationPanel() {
   const { degradation, simLoading, calcDegradation } = useBESSStore();
@@ -19,7 +21,10 @@ export default function BESSDegradationPanel() {
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Battery Degradation (20-year)</h3>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-semibold text-text-primary">Battery Degradation (20-year)</h3>
+            <InfoButton info={bessDegradationInfo} />
+          </div>
           <p className="text-xs text-text-muted">LFP: 3000 cycles → 80% SoH</p>
         </div>
         <Button size="sm" onClick={calcDegradation} disabled={simLoading}>
@@ -64,8 +69,8 @@ export default function BESSDegradationPanel() {
                 title: { text: "State of Health (%)", font: { color: "#9ba3b8", size: 12 } },
                 range: [60, 102],
               },
-              legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", y: -0.28 },
-              margin: { t: 16, r: 16, b: 60, l: 64 },
+              legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", x: 0.5, xanchor: "center", y: 1.04, yanchor: "bottom" },
+              margin: { t: 52, r: 16, b: 24, l: 64 },
               shapes: [
                 {
                   type: "line" as const,

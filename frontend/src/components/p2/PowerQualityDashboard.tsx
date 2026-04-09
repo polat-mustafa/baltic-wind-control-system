@@ -18,6 +18,8 @@ import { Button } from "../ui/Button";
 import HarmonicSpectrumPanel from "./HarmonicSpectrumPanel";
 import ResonanceScanPanel from "./ResonanceScanPanel";
 import FlickerFilterPanel from "./FlickerFilterPanel";
+import { InfoButton } from "../ui/InfoButton";
+import { powerQualityDashboardInfo } from "../../constants/panelInfo";
 
 function KPIBadge({ label, value, unit, ok }: { label: string; value: string; unit: string; ok?: boolean }) {
   return (
@@ -60,6 +62,7 @@ export default function PowerQualityDashboard() {
         <div className="flex items-center gap-2">
           <Activity size={16} className="text-accent" />
           <span className="text-sm font-semibold text-text-primary">Power Quality — 66 kV POC (IEC HV tier)</span>
+          <InfoButton info={powerQualityDashboardInfo} />
         </div>
         <Button size="sm" onClick={runAll} disabled={loading}>Refresh</Button>
       </div>

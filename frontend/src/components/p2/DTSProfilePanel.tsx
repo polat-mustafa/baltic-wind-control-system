@@ -9,6 +9,8 @@
 import Plot from "react-plotly.js";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useCableDTSStore } from "../../store/cableDtsStore";
+import { InfoButton } from "../ui/InfoButton";
+import { dtsProfileInfo } from "../../constants/panelInfo";
 
 export default function DTSProfilePanel() {
   const { profile } = useCableDTSStore();
@@ -39,7 +41,10 @@ export default function DTSProfilePanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">DTS Temperature Profile (45 km)</h3>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-semibold text-text-primary">DTS Temperature Profile (45 km)</h3>
+          <InfoButton info={dtsProfileInfo} />
+        </div>
         <div className="text-xs text-text-muted">
           Max: <span className="text-text-primary font-mono">{profile.max_temp_c.toFixed(1)}°C</span>
           {" "}@ {profile.max_temp_location_km.toFixed(1)} km
@@ -89,8 +94,8 @@ export default function DTSProfilePanel() {
             title: { text: "Temperature (°C)", font: { color: "#9ba3b8", size: 12 } },
             range: [0, 100],
           },
-          legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", y: -0.28 },
-          margin: { t: 16, r: 16, b: 60, l: 60 },
+          legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", x: 0.5, xanchor: "center", y: 1.04, yanchor: "bottom" },
+          margin: { t: 52, r: 16, b: 32, l: 60 },
         }}
         config={PLOTLY_CONFIG}
         className="w-full"

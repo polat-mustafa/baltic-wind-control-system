@@ -407,7 +407,7 @@ function CodeTab({ c }: { c: EducationContent }) {
             {c.relatedLessons!.map((lesson) => (
               <a
                 key={lesson}
-                href={`/docs/lessons/${lesson}.md`}
+                href={`https://polat-mustafa.github.io/baltic-wind-control-system/en/lessons/${lesson}/`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-bg-hover transition-colors group"

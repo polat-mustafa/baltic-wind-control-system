@@ -195,6 +195,13 @@ export function BusbarNode({ data }: { data: BusbarNodeData }) {
 // ── IED Node ─────────────────────────────────────────────────
 // Protection / measurement / bay controller with LN count
 
+const ALARM_COLOR: Record<string, string> = {
+  CRITICAL: "#ef4444",
+  HIGH:     "#f97316",
+  MEDIUM:   "#eab308",
+  LOW:      "#38bdf8",
+};
+
 interface IEDNodeData {
   label: string;
   color: string;
@@ -204,23 +211,41 @@ interface IEDNodeData {
   powerMW?: number;
   windMs?: number;
   statusColor?: string;
+  /** Active alarm on this equipment — drives border color + badge */
+  alarmPriority?: string;
+  /** ACTIVE pulses; ACKNOWLEDGED shows static ring */
+  alarmState?: string;
 }
 
 export function IEDNode({ data }: { data: IEDNodeData }) {
-  const { label, color, lns, powerMW, windMs, statusColor } = data;
+  const { label, color, lns, powerMW, windMs, statusColor, alarmPriority, alarmState } = data;
   const hasLiveData = powerMW !== undefined;
   const powerFraction = hasLiveData ? Math.min((powerMW ?? 0) / 15, 1) : 0;
 
+  const alarmColor = alarmPriority ? ALARM_COLOR[alarmPriority] : undefined;
+  const pulse = alarmColor && alarmState === "ACTIVE" &&
+    (alarmPriority === "CRITICAL" || alarmPriority === "HIGH");
+
   return (
     <div
-      className="rounded border px-2 py-1.5 text-center font-mono"
+      className={`rounded border px-2 py-1.5 text-center font-mono relative${pulse ? " animate-pulse" : ""}`}
       style={{
-        borderColor: color,
-        backgroundColor: "#161924",
+        borderColor: alarmColor ?? color,
+        backgroundColor: alarmColor ? alarmColor + "1a" : "#161924",
         minWidth: hasLiveData ? 100 : 90,
       }}
     >
-      <Handle type="target" position={Position.Top} className="!w-1.5 !h-1.5" style={{ background: color }} />
+      <Handle type="target" position={Position.Top} className="!w-1.5 !h-1.5" style={{ background: alarmColor ?? color }} />
+      {/* Alarm badge — top-right corner */}
+      {alarmColor && (
+        <span
+          className="absolute top-0.5 right-0.5 text-[9px] leading-none select-none"
+          style={{ color: alarmColor }}
+          title={alarmPriority}
+        >
+          ⚠
+        </span>
+      )}
       <div className="flex items-center justify-center gap-1">
         {statusColor && (
           <span
@@ -228,7 +253,7 @@ export function IEDNode({ data }: { data: IEDNodeData }) {
             style={{ backgroundColor: statusColor }}
           />
         )}
-        <div className="text-[10px] font-bold truncate" style={{ color }}>
+        <div className="text-[10px] font-bold truncate" style={{ color: alarmColor ?? color }}>
           {label}
         </div>
       </div>
@@ -259,7 +284,7 @@ export function IEDNode({ data }: { data: IEDNodeData }) {
         </div>
       )}
 
-      <Handle type="source" position={Position.Bottom} className="!w-1.5 !h-1.5" style={{ background: color }} />
+      <Handle type="source" position={Position.Bottom} className="!w-1.5 !h-1.5" style={{ background: alarmColor ?? color }} />
     </div>
   );
 }

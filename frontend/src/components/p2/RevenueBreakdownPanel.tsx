@@ -11,6 +11,8 @@ import Plotly from "plotly.js";
 import Plot from "react-plotly.js";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useMarketStore } from "../../store/marketStore";
+import { InfoButton } from "../ui/InfoButton";
+import { revenueWaterfallInfo } from "../../constants/panelInfo";
 
 export default function RevenueBreakdownPanel() {
   const { revenueResult } = useMarketStore();
@@ -29,7 +31,10 @@ export default function RevenueBreakdownPanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">Annual Revenue Breakdown</h3>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-semibold text-text-primary">Annual Revenue Breakdown</h3>
+          <InfoButton info={revenueWaterfallInfo} />
+        </div>
         <div className="flex gap-3 text-xs">
           <span className="text-text-muted">EBITDA: <span className="text-text-primary font-mono">{revenueResult.ebitda_m_eur.toFixed(1)} M€</span></span>
           <span className="text-text-muted">{revenueResult.revenue_per_mwh_eur.toFixed(1)} €/MWh</span>

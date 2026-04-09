@@ -16,6 +16,8 @@ import { useProtectionStore } from "../../store/protectionStore";
 import { Button } from "../ui/Button";
 import TCCCurvePlot from "./TCCCurvePlot";
 import RelayCoordinationTable from "./RelayCoordinationTable";
+import { InfoButton } from "../ui/InfoButton";
+import { protectionDashboardInfo, tccCurveInfo, relayCoordinationInfo } from "../../constants/panelInfo";
 
 const FAULT_LOCATIONS = [
   { value: "WTG_ARRAY", label: "WTG Array (66 kV)" },
@@ -67,6 +69,7 @@ export default function ProtectionDashboard() {
       {/* Controls row */}
       <div className="flex items-center gap-3 flex-wrap bg-bg-secondary rounded-lg border border-border-primary p-3">
         <ShieldAlert size={16} className="text-accent shrink-0" />
+        <InfoButton info={protectionDashboardInfo} />
         <div className="flex items-center gap-2">
           <label className="text-xs text-text-muted">Fault location:</label>
           <select
@@ -107,7 +110,10 @@ export default function ProtectionDashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {/* Relay list */}
         <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-          <h3 className="text-sm font-semibold text-text-primary mb-3">Relay Configuration</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-text-primary">Relay Configuration</h3>
+            <InfoButton info={relayCoordinationInfo} />
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-text-secondary border-collapse">
               <thead>
@@ -138,7 +144,10 @@ export default function ProtectionDashboard() {
 
         {/* TCC log-log plot */}
         <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-          <h3 className="text-sm font-semibold text-text-primary mb-1">TCC Overlay (IEC 60255)</h3>
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-sm font-semibold text-text-primary">TCC Overlay (IEC 60255)</h3>
+            <InfoButton info={tccCurveInfo} />
+          </div>
           <TCCCurvePlot />
         </div>
       </div>
@@ -146,9 +155,12 @@ export default function ProtectionDashboard() {
       {/* Selectivity grading table */}
       {coordinationResult && (
         <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-          <h3 className="text-sm font-semibold text-text-primary mb-3">
-            Selectivity Grading — {coordinationResult.fault_location} @ {coordinationResult.fault_current_ka.toFixed(1)} kA
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-text-primary">
+              Selectivity Grading — {coordinationResult.fault_location} @ {coordinationResult.fault_current_ka.toFixed(1)} kA
+            </h3>
+            <InfoButton info={relayCoordinationInfo} />
+          </div>
           <RelayCoordinationTable />
           {coordinationResult.assessment && (
             <p className="mt-3 text-xs text-text-muted bg-bg-tertiary rounded p-2">

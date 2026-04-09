@@ -28,6 +28,7 @@ function mockStore(overrides: Record<string, unknown> = {}) {
     faultHighlightNodeId: null,
     toggleBreaker: noop,
     measurements: [],
+    alarms: [],
     ...overrides,
   };
 

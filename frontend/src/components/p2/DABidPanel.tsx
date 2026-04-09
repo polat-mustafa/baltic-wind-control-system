@@ -10,6 +10,8 @@ import Plot from "react-plotly.js";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useMarketStore } from "../../store/marketStore";
 import type { DAPricePoint } from "../../types/market";
+import { InfoButton } from "../ui/InfoButton";
+import { daBidInfo } from "../../constants/panelInfo";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`);
 
@@ -26,7 +28,10 @@ export default function DABidPanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">Day-Ahead Bid Schedule (TGE)</h3>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-semibold text-text-primary">Day-Ahead Bid Schedule (TGE)</h3>
+          <InfoButton info={daBidInfo} />
+        </div>
         <div className="text-xs text-text-muted">
           Revenue: <span className="text-text-primary font-mono">{(daBidResult.total_revenue_eur / 1000).toFixed(0)} k€</span>
           {daBidResult.curtailment_hours > 0 && (
@@ -76,8 +81,8 @@ export default function DABidPanel() {
             tickfont: { family: "'JetBrains Mono', monospace", size: 11, color: "#f59e0b" },
             gridcolor: "transparent",
           },
-          legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", y: -0.28 },
-          margin: { t: 16, r: 64, b: 60, l: 60 },
+          legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", x: 0.5, xanchor: "center", y: 1.04, yanchor: "bottom" },
+          margin: { t: 52, r: 64, b: 32, l: 60 },
         }}
         config={PLOTLY_CONFIG}
         className="w-full"

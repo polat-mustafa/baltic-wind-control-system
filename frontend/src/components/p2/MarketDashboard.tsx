@@ -16,6 +16,8 @@ import { useMarketStore } from "../../store/marketStore";
 import { Button } from "../ui/Button";
 import DABidPanel from "./DABidPanel";
 import RevenueBreakdownPanel from "./RevenueBreakdownPanel";
+import { InfoButton } from "../ui/InfoButton";
+import { marketDashboardInfo, ancillaryServicesInfo } from "../../constants/panelInfo";
 
 export default function MarketDashboard() {
   const {
@@ -55,6 +57,7 @@ export default function MarketDashboard() {
         <div className="flex items-center gap-2">
           <TrendingUp size={16} className="text-accent" />
           <span className="text-sm font-semibold text-text-primary">Market Integration — TGE / PSE / CfD (OZMB 2024)</span>
+          <InfoButton info={marketDashboardInfo} />
         </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
@@ -80,7 +83,10 @@ export default function MarketDashboard() {
         {ancillaryResult && (
           <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-text-primary">Ancillary Services Portfolio (PSE BSP)</h3>
+              <div className="flex items-center gap-1">
+                <h3 className="text-sm font-semibold text-text-primary">Ancillary Services Portfolio (PSE BSP)</h3>
+                <InfoButton info={ancillaryServicesInfo} />
+              </div>
               <span className="text-xs font-mono text-text-primary">{(ancillaryResult.bsp_contract_value_m_eur_year).toFixed(1)} M€/yr</span>
             </div>
             <div className="space-y-2">

@@ -11,6 +11,7 @@
  */
 
 import Plot from "react-plotly.js";
+import { Radio } from "lucide-react";
 
 import { usePPCStore } from "../../store/ppcStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
@@ -18,6 +19,13 @@ import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
+import { InfoButton } from "../ui/InfoButton";
+import {
+  ppcDashboardInfo,
+  ppcRampChartInfo,
+  ppcVoltageQInfo,
+  ppcDispatchInfo,
+} from "../../constants/panelInfo";
 
 // ── KPI Card (local, matches GridKPIHeader pattern) ─────────────
 
@@ -31,8 +39,8 @@ interface KPIProps {
 
 function KPI({ label, value, unit, color, subtitle }: KPIProps) {
   return (
-    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-      <p className="text-xs text-slate-400 uppercase tracking-wider">
+    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+      <p className="text-xs text-text-muted uppercase tracking-wider">
         {label}
       </p>
       <p
@@ -40,9 +48,9 @@ function KPI({ label, value, unit, color, subtitle }: KPIProps) {
         style={color ? { color } : undefined}
       >
         {value}
-        <span className="text-sm font-normal text-slate-400 ml-1">{unit}</span>
+        <span className="text-sm font-normal text-text-muted ml-1">{unit}</span>
       </p>
-      {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
+      {subtitle && <p className="text-xs text-text-muted mt-1">{subtitle}</p>}
     </div>
   );
 }
@@ -126,6 +134,13 @@ export default function PPCDashboard() {
 
   return (
     <div className="space-y-4">
+      {/* ── Dashboard header ───────────────────────────────────── */}
+      <div className="flex items-center gap-2">
+        <Radio size={16} className="text-accent" />
+        <span className="text-sm font-semibold text-text-primary">Power Plant Controller (PPC)</span>
+        <InfoButton info={ppcDashboardInfo} />
+      </div>
+
       {/* ── KPI Header ─────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <KPI
@@ -179,9 +194,12 @@ export default function PPCDashboard() {
 
       {/* ── Active Power Ramp Chart ────────────────────────────── */}
       <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
-        <h3 className="text-base font-semibold text-text-primary mb-2">
-          Active Power Ramp Response
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-base font-semibold text-text-primary">
+            Active Power Ramp Response
+          </h3>
+          <InfoButton info={ppcRampChartInfo} />
+        </div>
         <Plot
           data={[
             {
@@ -267,9 +285,12 @@ export default function PPCDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Voltage & Reactive Power */}
         <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
-          <h3 className="text-base font-semibold text-text-primary mb-2">
-            PCC Voltage & Reactive Power
-          </h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-base font-semibold text-text-primary">
+              PCC Voltage & Reactive Power
+            </h3>
+            <InfoButton info={ppcVoltageQInfo} />
+          </div>
           <Plot
             data={[
               {
@@ -309,14 +330,17 @@ export default function PPCDashboard() {
                 title: "Q [MVAR]",
                 overlaying: "y" as const,
                 side: "right" as const,
+                gridcolor: "transparent",
               },
               legend: {
                 ...DARK_PLOTLY_LAYOUT.legend,
                 orientation: "h" as const,
                 x: 0.5,
                 xanchor: "center" as const,
-                y: 1.12,
+                y: 1.04,
+                yanchor: "bottom" as const,
               },
+              margin: { t: 52, r: 72, b: 44, l: 68 },
               shapes: [
                 // PSE voltage limits
                 {
@@ -354,9 +378,12 @@ export default function PPCDashboard() {
 
         {/* WTG Pro-Rata Dispatch */}
         <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
-          <h3 className="text-base font-semibold text-text-primary mb-2">
-            WTG Pro-Rata Dispatch
-          </h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-base font-semibold text-text-primary">
+              WTG Pro-Rata Dispatch
+            </h3>
+            <InfoButton info={ppcDispatchInfo} />
+          </div>
           <Plot
             data={[
               {

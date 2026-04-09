@@ -8,6 +8,8 @@
 import Plot from "react-plotly.js";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useBESSStore } from "../../store/bessStore";
+import { InfoButton } from "../ui/InfoButton";
+import { bessStatusInfo } from "../../constants/panelInfo";
 
 const MODE_COLOR: Record<string, string> = {
   STANDBY: "#9ba3b8",
@@ -31,7 +33,10 @@ export default function BESSStatusPanel() {
 
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-      <h3 className="text-sm font-semibold text-text-primary mb-3">BESS Status</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-text-primary">BESS Status</h3>
+        <InfoButton info={bessStatusInfo} />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
         {/* SOC gauge */}

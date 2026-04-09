@@ -10,6 +10,8 @@ import Plot from "react-plotly.js";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { usePowerQualityStore } from "../../store/powerQualityStore";
 import type { ResonancePoint } from "../../types/powerQuality";
+import { InfoButton } from "../ui/InfoButton";
+import { resonanceScanInfo } from "../../constants/panelInfo";
 
 export default function ResonanceScanPanel() {
   const { resonance } = usePowerQualityStore();
@@ -22,8 +24,8 @@ export default function ResonanceScanPanel() {
     );
   }
 
-  // Resonance peak annotations
-  const annotations = resonance.resonance_points.map((pt: ResonancePoint) => ({
+  // Resonance peak annotations — alternate ay to avoid overlap
+  const annotations = resonance.resonance_points.map((pt: ResonancePoint, i: number) => ({
     x: pt.frequency_hz,
     y: pt.impedance_ohm,
     text: `${pt.frequency_hz.toFixed(0)} Hz<br>${pt.risk_level}`,
@@ -32,14 +34,17 @@ export default function ResonanceScanPanel() {
     arrowcolor: pt.risk_level === "HIGH" ? "#ef4444" : "#f59e0b",
     arrowsize: 0.8,
     arrowwidth: 1.5,
-    ax: 30,
-    ay: -30,
+    ax: i % 2 === 0 ? 30 : -30,
+    ay: i % 2 === 0 ? -30 : -50,
   }));
 
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">Network Impedance Scan</h3>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-semibold text-text-primary">Network Impedance Scan</h3>
+          <InfoButton info={resonanceScanInfo} />
+        </div>
         <span className="text-xs text-text-muted font-mono">
           Cable resonance: {resonance.cable_resonant_freq_hz.toFixed(0)} Hz
         </span>

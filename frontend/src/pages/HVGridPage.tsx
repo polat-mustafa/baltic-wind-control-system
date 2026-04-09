@@ -56,14 +56,14 @@ type Tab =
   | "cable-dts"
   | "market";
 
-const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }> }[] = [
-  { id: "grid",          label: "Grid Analysis",    Icon: Zap },
-  { id: "ppc",           label: "PPC",              Icon: Radio },
-  { id: "protection",    label: "Protection",       Icon: ShieldCheck },
-  { id: "power-quality", label: "Power Quality",    Icon: Activity },
-  { id: "bess",          label: "BESS",             Icon: Battery },
-  { id: "cable-dts",     label: "Cable DTS",        Icon: Cable },
-  { id: "market",        label: "Market",           Icon: TrendingUp },
+const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }>; tooltip: string }[] = [
+  { id: "grid",          label: "Grid Analysis",    Icon: Zap,         tooltip: "Pandapower load-flow, short-circuit (IEC 60909), FRT, STATCOM sizing" },
+  { id: "ppc",           label: "PPC",              Icon: Radio,       tooltip: "Power Plant Controller — TSO active/reactive power dispatch (ENTSO-E NC RfG Type D)" },
+  { id: "protection",    label: "Protection",       Icon: ShieldCheck, tooltip: "Relay coordination, TCC curves, selectivity grading (IEC 60255)" },
+  { id: "power-quality", label: "Power Quality",    Icon: Activity,    tooltip: "Harmonics, resonance scan, flicker at 66 kV POC (IEC 61000-3-6 / 3-7)" },
+  { id: "bess",          label: "BESS",             Icon: Battery,     tooltip: "Battery Energy Storage System — 50 MW / 200 MWh LFP, FCR/FFR, ramp smoothing" },
+  { id: "cable-dts",     label: "Cable DTS",        Icon: Cable,       tooltip: "Distributed Temperature Sensing — IEC 60287 dynamic ampacity, 45 km export cable" },
+  { id: "market",        label: "Market",           Icon: TrendingUp,  tooltip: "TGE day-ahead bid, CfD (OZMB 2024), PSE ancillary services (BSP)" },
 ];
 
 const SCENARIO_OPTIONS = [
@@ -395,10 +395,11 @@ export default function HVGridPage() {
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-1 p-1 bg-bg-secondary rounded-lg border border-border-primary w-fit">
-        {TABS.map(({ id, label, Icon }) => (
+        {TABS.map(({ id, label, Icon, tooltip }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
+            title={tooltip}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
               activeTab === id
                 ? "bg-accent text-white"
@@ -428,19 +429,24 @@ export default function HVGridPage() {
             <GridDashboard />
           ) : (
             <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
-              <div className="text-center">
+              <div className="text-center max-w-sm">
                 <div className="flex justify-center mb-4">
                   <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
                     <Zap size={24} className="text-accent" />
                   </div>
                 </div>
-                <p className="text-text-secondary text-base mb-2">
-                  Configure scenarios and run analysis
+                <p className="text-text-secondary text-base mb-2 font-medium">
+                  Grid Analysis — Pandapower + IEC 60909
                 </p>
-                <p className="text-text-muted text-sm">
-                  Select load flow scenario, FRT type, and grid strength,
-                  then click &quot;Run Analysis&quot;
-                </p>
+                <ul className="text-text-muted text-xs text-left mb-4 space-y-1 list-disc list-inside">
+                  <li>Load flow: bus voltages, line loadings, losses</li>
+                  <li>Short-circuit: Ik'' and Ip per bus (IEC 60909)</li>
+                  <li>STATCOM sizing: cable charging Q balance</li>
+                  <li>FRT: LVRT / HVRT dynamic simulation</li>
+                </ul>
+                <Button onClick={runFullAnalysis} disabled={loading} size="sm">
+                  {loading ? "Running…" : "Run Analysis"}
+                </Button>
               </div>
             </div>
           )}
@@ -454,19 +460,24 @@ export default function HVGridPage() {
             <PPCDashboard />
           ) : (
             <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
-              <div className="text-center">
+              <div className="text-center max-w-sm">
                 <div className="flex justify-center mb-4">
                   <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
                     <Radio size={24} className="text-accent" />
                   </div>
                 </div>
-                <p className="text-text-secondary text-base mb-2">
-                  Configure TSO dispatch and run PPC simulation
+                <p className="text-text-secondary text-base mb-2 font-medium">
+                  PPC — Power Plant Controller
                 </p>
-                <p className="text-text-muted text-sm">
-                  Set power setpoint, wind speed, control mode,
-                  then click &quot;Run PPC Simulation&quot;
-                </p>
+                <ul className="text-text-muted text-xs text-left mb-4 space-y-1 list-disc list-inside">
+                  <li>Active power modes: Reference, Delta, Limit, Ramp</li>
+                  <li>Reactive power: Voltage PI, Q setpoint, PF, Q(V) droop</li>
+                  <li>Pro-rata WTG dispatch across all 34 turbines</li>
+                  <li>PSE ramp-rate compliance check (10%Pn/min ↑)</li>
+                </ul>
+                <Button onClick={runSimulation} disabled={loading} size="sm">
+                  {loading ? "Simulating…" : "Run PPC Simulation"}
+                </Button>
               </div>
             </div>
           )}

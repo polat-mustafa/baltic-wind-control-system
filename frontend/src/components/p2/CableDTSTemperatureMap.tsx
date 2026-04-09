@@ -25,6 +25,8 @@
 import { useState } from "react";
 import { useCableDTSStore } from "../../store/cableDtsStore";
 import type { DTSProfilePoint } from "../../types/cableDts";
+import { InfoButton } from "../ui/InfoButton";
+import { dtsThermalMapInfo } from "../../constants/panelInfo";
 
 // ── Colour scale ──────────────────────────────────────────────────────────
 
@@ -130,9 +132,12 @@ export default function CableDTSTemperatureMap() {
     <div className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2">
       {/* Title row */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-text-primary">
-          45 km Cable Temperature Profile (DTS)
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-text-primary">
+            45 km Cable Temperature Profile (DTS)
+          </span>
+          <InfoButton info={dtsThermalMapInfo} />
+        </div>
         <LegendStrip />
       </div>
 

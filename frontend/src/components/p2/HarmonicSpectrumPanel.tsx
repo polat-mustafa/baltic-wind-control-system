@@ -9,6 +9,8 @@
 import Plot from "react-plotly.js";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { usePowerQualityStore } from "../../store/powerQualityStore";
+import { InfoButton } from "../ui/InfoButton";
+import { harmonicSpectrumInfo } from "../../constants/panelInfo";
 
 export default function HarmonicSpectrumPanel() {
   const { harmonics } = usePowerQualityStore();
@@ -31,7 +33,10 @@ export default function HarmonicSpectrumPanel() {
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">Harmonic Spectrum (IEC 61000-3-6)</h3>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-semibold text-text-primary">Harmonic Spectrum (IEC 61000-3-6)</h3>
+          <InfoButton info={harmonicSpectrumInfo} />
+        </div>
         <div className="flex items-center gap-2 text-xs">
           <span className={`px-2 py-0.5 rounded font-mono ${harmonics.compliant ? "bg-status-success/20 text-status-success" : "bg-status-alarm/20 text-status-alarm"}`}>
             THD {harmonics.thd_voltage_pct.toFixed(1)}% {harmonics.compliant ? "✓" : "✗"}
@@ -71,8 +76,8 @@ export default function HarmonicSpectrumPanel() {
             ...DARK_PLOTLY_LAYOUT.yaxis,
             title: { text: "Magnitude (% of fundamental)", font: { color: "#9ba3b8", size: 12 } },
           },
-          legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", y: -0.25 },
-          margin: { t: 20, r: 16, b: 60, l: 64 },
+          legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", x: 0.5, xanchor: "center", y: 1.04, yanchor: "bottom" },
+          margin: { t: 52, r: 16, b: 32, l: 80 },
         }}
         config={PLOTLY_CONFIG}
         className="w-full"

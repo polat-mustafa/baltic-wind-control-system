@@ -7,6 +7,8 @@
  */
 
 import { useCableDTSStore } from "../../store/cableDtsStore";
+import { InfoButton } from "../ui/InfoButton";
+import { dtsRatingInfo } from "../../constants/panelInfo";
 
 function Bar({ pct, color }: { pct: number; color: string }) {
   return (
@@ -30,7 +32,10 @@ export default function DTSRatingPanel() {
     <div className="space-y-3">
       {/* Rating KPIs */}
       <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-        <h3 className="text-sm font-semibold text-text-primary mb-3">Dynamic Ampacity Rating</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-text-primary">Dynamic Ampacity Rating</h3>
+          <InfoButton info={dtsRatingInfo} />
+        </div>
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="bg-bg-tertiary rounded p-2">
             <p className="text-text-muted">Static rating (IEC 60287)</p>

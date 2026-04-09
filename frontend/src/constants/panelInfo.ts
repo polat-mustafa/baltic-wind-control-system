@@ -402,6 +402,385 @@ export const complianceInfo: InfoContent = {
   ],
 };
 
+// ── P2 New Modules ──
+
+export const ppcDashboardInfo: InfoContent = {
+  title: "PPC — Power Plant Controller",
+  description:
+    "The Power Plant Controller is the top-level control system that dispatches all 34 turbines " +
+    "and the STATCOM in response to TSO (PSE) setpoints. It enforces ramp-rate limits, " +
+    "maintains reactive power compliance, and reports state to the SCADA system.",
+  standard: "ENTSO-E NC RfG Type D + PSE IRiESP — Grid code for offshore wind ≥ 75 MW",
+  parameters: [
+    { name: "Power Reference", description: "Follow TSO MW setpoint directly" },
+    { name: "Delta Control", description: "Hold a spinning reserve headroom below available capacity" },
+    { name: "Absolute Limitation", description: "Cap output regardless of wind (curtailment)" },
+    { name: "Ramp Rate Control", description: "Limit MW/min rate of change" },
+  ],
+  interpretation:
+    "PASS = setpoint accuracy ±5%, ramp rate ≤10%Pn/min up / ≤20%Pn/min down, PCC voltage 0.95–1.05 pu. " +
+    "WTG pro-rata dispatch means each turbine receives a share proportional to its available capacity.",
+};
+
+export const ppcRampChartInfo: InfoContent = {
+  title: "Active Power Ramp Response",
+  description:
+    "Time-series showing how the wind farm tracks a new TSO power setpoint. " +
+    "Three traces: Available (what wind provides), Setpoint (TSO demand), Actual (what is dispatched).",
+  standard: "PSE IRiESP §6.2 — Ramp-rate limits: ↑10%Pn/min, ↓20%Pn/min, emergency 2%Pn/s",
+  parameters: [
+    { name: "Ramp time", description: "Seconds to reach steady-state within ±5% of setpoint" },
+    { name: "10%Pn/min ↑", description: "Max 51 MW/min ramp-up (510 MW × 10%)" },
+    { name: "20%Pn/min ↓", description: "Max 102 MW/min ramp-down (curtailment)" },
+  ],
+  interpretation:
+    "The vertical dotted line marks ramp_time. Setpoint – Actual gap should close within tolerance. " +
+    "If Actual lags Setpoint significantly, the ramp-rate limiter is the constraint.",
+};
+
+export const ppcVoltageQInfo: InfoContent = {
+  title: "PCC Voltage & Reactive Power",
+  description:
+    "Dual-axis chart showing PCC voltage (left, pu) and reactive power output (right, MVAR) over the simulation horizon. " +
+    "Reactive power mode determines how Q is controlled (PI voltage, fixed Q, power factor, or Q(V) droop).",
+  standard: "ENTSO-E NC RfG Type D — Q range ±120 MVAR at PCC; PSE IRiESP voltage band 0.95–1.05 pu",
+  parameters: [
+    { name: "V_pcc", description: "Voltage at point of common coupling (220 kV bus)" },
+    { name: "Q", description: "Net reactive power injection (+ = capacitive, – = inductive)" },
+    { name: "±120 MVAR", description: "STATCOM range; WTGs contribute additional ±Q" },
+  ],
+  interpretation:
+    "Red dashed lines at 0.95 / 1.05 pu are PSE limits. Voltage should stay inside these bounds at all times. " +
+    "Q swings are normal — the PPC adjusts reactive power to regulate voltage.",
+};
+
+export const ppcDispatchInfo: InfoContent = {
+  title: "WTG Pro-Rata Dispatch",
+  description:
+    "Stacked bar chart showing each turbine's dispatched MW vs curtailed MW. " +
+    "Dispatch uses a pro-rata algorithm: P_i = P_target × (P_avail_i / ΣP_avail).",
+  parameters: [
+    { name: "Dispatched", description: "MW actually commanded to the turbine (green)" },
+    { name: "Curtailed", description: "MW withheld to meet TSO setpoint (amber)" },
+    { name: "15 MW line", description: "Rated power per V236-15.0 MW turbine" },
+  ],
+  interpretation:
+    "All bars should reach the rated line under full-wind, no-curtailment conditions. " +
+    "Uniform curtailment across turbines = fair pro-rata sharing. Uneven bars indicate availability differences.",
+};
+
+export const protectionDashboardInfo: InfoContent = {
+  title: "Protection Relay Coordination — M05",
+  description:
+    "Coordinates overcurrent protection relays from WTG feeder level through OSS to the 220 kV export cable. " +
+    "Selectivity ensures only the faulted zone is isolated — upstream relays wait for downstream to trip first.",
+  standard: "IEC 60255 — Measuring relays; IEC 60909 — Short-circuit calculations; PSE coordination rules",
+  parameters: [
+    { name: "Pickup (A)", description: "Minimum fault current to activate the relay" },
+    { name: "TMS", description: "Time Multiplier Setting — scales the IEC inverse-time curve" },
+    { name: "CTI", description: "Coordination Time Interval: ≥80 ms grading margin between zones" },
+  ],
+  interpretation:
+    "A coordination study injects a simulated fault and checks the relay trip sequence. " +
+    "The FIRST relay to trip should be the one closest to the fault. Upstream relays serve as backup.",
+};
+
+export const tccCurveInfo: InfoContent = {
+  title: "TCC Overlay — Time-Current Characteristic",
+  description:
+    "Log-log plot of operating time vs fault current multiple (I/I_n) for each protection relay. " +
+    "Curves must be separated vertically (time margin) at the fault current level to ensure selectivity.",
+  standard: "IEC 60255-151 — Standard inverse-time operating curves (SI, VI, EI)",
+  parameters: [
+    { name: "I/I_n", description: "Fault current as multiple of relay pickup current (x-axis, log)" },
+    { name: "t (s)", description: "Relay operating time in seconds (y-axis, log)" },
+    { name: "Red line", description: "Fault current marker — read off operating times at this x-value" },
+  ],
+  interpretation:
+    "At the fault current marker, curves higher on the plot trip later (upstream/backup relays). " +
+    "The vertical gap between adjacent curves must be ≥80 ms for proper selectivity.",
+};
+
+export const relayCoordinationInfo: InfoContent = {
+  title: "Selectivity Grading Table",
+  description:
+    "Summary of relay grading pairs after running a coordination study. " +
+    "Shows the time margin between adjacent relays at the specified fault current level.",
+  parameters: [
+    { name: "Grading margin", description: "Time difference between adjacent relay trips (must be ≥80 ms)" },
+    { name: "PASS", description: "Margin ≥ 80 ms — acceptable selectivity" },
+    { name: "FAIL", description: "Margin < 80 ms — relays may both trip, isolating too much" },
+  ],
+  interpretation:
+    "A PASS on all grading pairs means the protection scheme will correctly isolate only the faulted zone. " +
+    "If any pair FAILs, adjust TMS or pickup values and re-run the study.",
+};
+
+export const powerQualityDashboardInfo: InfoContent = {
+  title: "Power Quality — M06 (IEC 61000 Series)",
+  description:
+    "Monitors harmonics, network resonance, and voltage flicker at the 66 kV Point of Connection. " +
+    "The 66 kV bus is classified as IEC HV tier (≥35 kV threshold) — stricter limits apply.",
+  standard: "IEC 61000-3-6 (harmonics HV), IEC 61000-3-7 (flicker HV), IEC 61400-21 (wind turbine PQ)",
+  parameters: [
+    { name: "THD", description: "Total Harmonic Distortion — limit 3% at 66 kV (IEC HV tier)" },
+    { name: "H5 limit", description: "5th harmonic — 2% at 66 kV; worst offender in VSC converters" },
+    { name: "Pst / Plt", description: "Short/long-term flicker severity — ≤1.0 / ≤0.65 for HV" },
+  ],
+  interpretation:
+    "Green badges = compliant. Red badges = exceeds IEC planning level and requires mitigation (passive filter). " +
+    "THD above 3% may require a notch filter at the dominant harmonic order.",
+};
+
+export const harmonicSpectrumInfo: InfoContent = {
+  title: "Harmonic Spectrum — IEC 61000-3-6",
+  description:
+    "Bar chart of voltage harmonic magnitudes as % of fundamental (50 Hz) at the 66 kV POC. " +
+    "Orange dashed line = IEC planning level limit for each harmonic order.",
+  standard: "IEC 61000-3-6 Table 2 — HV planning levels (≥35 kV): THD 3%, H5 2%, H7 2%, H11 1.5%, H13 1.5%",
+  parameters: [
+    { name: "H5 (250 Hz)", description: "5th harmonic — dominant in 6-pulse VSC converters" },
+    { name: "H7 (350 Hz)", description: "7th harmonic — second largest in VSC output" },
+    { name: "H11, H13", description: "Characteristic harmonics of 12-pulse rectifiers" },
+  ],
+  interpretation:
+    "Green bars = within IEC limit. Red bars = exceeds limit and requires filtering. " +
+    "THD badge in top-right shows total distortion — must stay ≤3% at 66 kV.",
+};
+
+export const resonanceScanInfo: InfoContent = {
+  title: "Network Impedance Scan",
+  description:
+    "Frequency sweep of the Thevenin impedance seen at the 66 kV busbar (0–2500 Hz). " +
+    "Parallel resonance peaks occur where impedance spikes — dangerous if a harmonic source coincides with a peak.",
+  standard: "IEC 61000-3-6 Annex B — Impedance-based resonance assessment",
+  parameters: [
+    { name: "Cable resonance", description: "π-model cable: f_res = 1/(2π√(LC)) — falls in 200–800 Hz range for 45 km export" },
+    { name: "HIGH risk", description: "Peak aligns with a WTG harmonic injection frequency" },
+    { name: "MEDIUM risk", description: "Peak near a harmonic — damping may be insufficient" },
+  ],
+  interpretation:
+    "Peaks above 200 Ω are significant. If a HIGH-risk peak coincides with H5 or H7, " +
+    "a passive LC filter must detune the resonance before the farm can export.",
+};
+
+export const flickerFilterInfo: InfoContent = {
+  title: "Flicker Emission — IEC 61000-3-7",
+  description:
+    "Flicker measures rapid voltage fluctuations (≤35 Hz) caused by turbine blade shadows, " +
+    "tower wakes, and switching operations. Pst is measured over 10 minutes; Plt over 2 hours.",
+  standard: "IEC 61000-3-7 Table 1 — HV planning levels: Pst ≤ 1.0, Plt ≤ 0.65",
+  parameters: [
+    { name: "Pst", description: "Short-term flicker (10 min) — instantaneous annoyance threshold" },
+    { name: "Plt", description: "Long-term flicker (2 h) — cumulative effect of intermittent sources" },
+    { name: "c_f coefficient", description: "IEC 61400-21 per-turbine flicker coefficient — site + turbine specific" },
+  ],
+  interpretation:
+    "Values below limit = compliant (green). If Pst > 1.0, consider STATCOM voltage regulation or " +
+    "installing a passive filter to damp the dominant switching frequency.",
+};
+
+export const bessDashboardInfo: InfoContent = {
+  title: "BESS — Battery Energy Storage System (M08)",
+  description:
+    "50 MW / 200 MWh lithium iron phosphate (LFP) battery co-located at the offshore substation. " +
+    "Provides frequency regulation (FCR/FFR), wind ramp smoothing, and TGE market arbitrage.",
+  standard: "IEC 62933 — Grid-scale battery storage; ENTSO-E FCR requirements",
+  parameters: [
+    { name: "50 MW / 200 MWh", description: "Power / energy capacity — C-rate 0.25 (4h discharge)" },
+    { name: "SOC window", description: "Operational state-of-charge: 10–90% (180 MWh usable)" },
+    { name: "LFP chemistry", description: "Lithium Iron Phosphate — 3000 cycles to 80% SoH, safer than NMC" },
+  ],
+  interpretation:
+    "SOC gauge shows current charge level. Green zone (10–90%) is the safe operating window. " +
+    "Red zone (<10%) risks deep discharge damage; amber (>90%) limits absorb capability.",
+};
+
+export const bessStatusInfo: InfoContent = {
+  title: "BESS Status — Real-Time State",
+  description:
+    "Real-time snapshot of the BESS operating state from the battery management system (BMS). " +
+    "Shows SOC gauge, operating mode, power flow, temperature, and degradation indicators.",
+  parameters: [
+    { name: "SOC %", description: "State of Charge — % of 200 MWh total capacity" },
+    { name: "Power MW", description: "Positive = discharging (exporting), Negative = charging" },
+    { name: "SoH %", description: "State of Health — capacity remaining vs new (100% → 80% = EOL)" },
+    { name: "Cycles", description: "Equivalent full cycle count — LFP EOL at 3000 cycles" },
+  ],
+  interpretation:
+    "FREQUENCY_RESPONSE mode = FCR/FFR active. RAMP_SMOOTHING = suppressing wind ramp events. " +
+    "ARBITRAGE = TGE price-driven charge/discharge. Temperature >40°C triggers thermal derating.",
+};
+
+export const bessFrequencyInfo: InfoContent = {
+  title: "FCR / FFR Frequency Response",
+  description:
+    "Simulates the BESS response to a Nordic grid frequency disturbance event. " +
+    "FCR (Frequency Containment Reserve) activates proportionally via 5% droop. " +
+    "FFR (Fast Frequency Reserve) injects maximum power within 200 ms if frequency drops below 49.7 Hz.",
+  standard: "ENTSO-E FCR specification: activation within 30 s; FFR: 200 ms — national variant (Nord Pool/PSE)",
+  parameters: [
+    { name: "5% droop", description: "FCR droop: 1 Hz deviation → 20% rated power response" },
+    { name: "49.7 Hz", description: "FFR threshold — full 50 MW injection activated instantaneously" },
+    { name: "Nadir", description: "Minimum frequency reached before FCR/FFR arrests the decline" },
+  ],
+  interpretation:
+    "The frequency trace (blue, left axis) should recover after the nadir. " +
+    "BESS power (green dashed, right axis) shows discharge burst. FFR ✓ = full burst activated.",
+};
+
+export const bessDegradationInfo: InfoContent = {
+  title: "Battery Degradation — 20-Year SoH Projection",
+  description:
+    "Projects State of Health (SoH%) over the 20-year project lifetime using a rain-flow cycle counting model. " +
+    "LFP chemistry: 3000 equivalent full cycles to reach 80% SoH (end-of-life threshold).",
+  parameters: [
+    { name: "SoH 100%", description: "New battery — full 200 MWh capacity" },
+    { name: "SoH 80%", description: "End-of-life (EOL) — battery replacement triggered" },
+    { name: "EOL year", description: "Year when SoH reaches 80% based on dispatch cycle count" },
+    { name: "LCOE contribution", description: "€/MWh cost allocated to battery replacement in project LCOE" },
+  ],
+  interpretation:
+    "Steeper slope = more aggressive cycling. If EOL year < 10, the BESS is over-cycled — " +
+    "reduce daily cycle depth or increase SOC window to extend battery life.",
+};
+
+export const cableDtsDashboardInfo: InfoContent = {
+  title: "Cable DTS — Distributed Temperature Sensing (M10)",
+  description:
+    "Monitors temperature along the full 45 km export cable using an IEC 60287 thermal model. " +
+    "DTS uses Raman backscatter in fibre optic cable to measure temperature every ~10 m. " +
+    "Enables dynamic ampacity rating — increasing cable capacity in cold weather.",
+  standard: "IEC 60287 — Current rating of cables; IEC 60840 — HV cable joint limits",
+  parameters: [
+    { name: "Static rating", description: "800 A — IEC 60287 at 15°C ambient, seabed burial" },
+    { name: "J-tube factor", description: "1.4× thermal resistance in air (worse than seabed)" },
+    { name: "Warning >70°C", description: "XLPE insulation approaching thermal limit" },
+    { name: "Critical >90°C", description: "Maximum conductor temperature — trip if sustained" },
+  ],
+  interpretation:
+    "Adjust current and ambient temperature sliders to model seasonal conditions. " +
+    "Dynamic rating increases in winter (cold seabed) and decreases in summer.",
+};
+
+export const dtsThermalMapInfo: InfoContent = {
+  title: "45 km Cable Temperature Heat Map",
+  description:
+    "Colour-coded strip showing temperature distribution along the full export cable route. " +
+    "Left = offshore substation (0 km); Right = onshore substation (45 km). " +
+    "Hover over any segment to see exact temperature and loading percentage.",
+  parameters: [
+    { name: "Blue (<30°C)", description: "Cold zone — seabed ambient, well below limits" },
+    { name: "Green (30–60°C)", description: "Normal operating range for loaded cable" },
+    { name: "Amber (60–80°C)", description: "Warning zone — approaching 70°C alarm threshold" },
+    { name: "Red (>80°C)", description: "Critical zone — exceeds IEC 60287 thermal limit" },
+  ],
+  interpretation:
+    "The J-tube section (first 0.2 km from OSS) runs in air, giving it the highest temperature. " +
+    "White dashed vertical lines mark active hotspot locations.",
+};
+
+export const dtsProfileInfo: InfoContent = {
+  title: "DTS Temperature Profile — Distance vs Temperature",
+  description:
+    "Line chart of cable conductor temperature vs distance along the 45 km export route. " +
+    "IEC 60287 thermal model: T = T_amb + I² × R_AC × R_thermal × zone_factor.",
+  standard: "IEC 60287-1-1 — Current rating equations for cables",
+  parameters: [
+    { name: "R_thermal", description: "2.989 K·m/W (calibrated for XLPE 630mm² cable in seabed)" },
+    { name: "Warning 70°C", description: "Amber dashed line — sustained operation requires review" },
+    { name: "Critical 90°C", description: "Red dashed line — XLPE max conductor temperature" },
+  ],
+  interpretation:
+    "Temperature peaks at the J-tube and onshore transition zones where zone_factor = 1.4. " +
+    "Vertical marker lines indicate hotspot locations identified by the DTS algorithm.",
+};
+
+export const dtsRatingInfo: InfoContent = {
+  title: "Dynamic Ampacity Rating",
+  description:
+    "Calculates the current-carrying capacity of the cable based on real-time ambient temperature. " +
+    "Dynamic rating formula: I_dyn = I_static × √((90 − T_amb) / (90 − 15)). " +
+    "Winter gives +7%, summer −5% vs static 800 A baseline.",
+  standard: "IEC 60287 — Dynamic rating; IEC 60853 — Cyclic and emergency current ratings",
+  parameters: [
+    { name: "Static rating", description: "800 A — IEC 60287 reference (15°C ambient)" },
+    { name: "Dynamic rating", description: "Adjusted for actual ambient temperature" },
+    { name: "Headroom", description: "Dynamic − actual current = available thermal margin" },
+    { name: "Utilisation %", description: "Actual current / Dynamic rating × 100" },
+  ],
+  interpretation:
+    "Green = <75% utilisation (comfortable). Amber = 75–90% (approaching limit). " +
+    "Red = >90% — reduce load or force thermal review. Hotspot list shows worst-case locations.",
+};
+
+export const marketDashboardInfo: InfoContent = {
+  title: "Market Integration — M11 (TGE / PSE / CfD)",
+  description:
+    "Optimises the wind farm's participation across three Polish energy markets: " +
+    "TGE day-ahead spot market, PSE ancillary services (BSP contracts), and CfD support (OZMB 2024 scheme).",
+  standard: "TGE market rules + PSE IRIESP §8 ancillary services + OZMB 2024 offshore wind CfD",
+  parameters: [
+    { name: "TGE DA", description: "Warsaw day-ahead market — 24h bid submitted by 11:00 D-1" },
+    { name: "CfD (OZMB)", description: "Polish offshore wind CfD — ~80 €/MWh strike price (2024 round)" },
+    { name: "PSE BSP", description: "Balancing Service Provider — FCR-N, FCR-D, aFRR, mFRR contracts" },
+    { name: "BESS arbitrage", description: "Charge at negative/low prices, discharge at peak prices" },
+  ],
+  interpretation:
+    "Total annual revenue = DA market + CfD top-up + ancillary BSP − imbalance penalties. " +
+    "CfD strike price compensates when DA market < 80 €/MWh; farm pays back when DA > 80 €/MWh.",
+};
+
+export const daBidInfo: InfoContent = {
+  title: "Day-Ahead Bid Schedule — TGE",
+  description:
+    "24-hour bid volume submitted to the TGE (Towarowa Giełda Energii) day-ahead market. " +
+    "Red bars indicate hours where the DA price is negative — optimal strategy is to curtail and avoid cost.",
+  parameters: [
+    { name: "Bid volume (MWh)", description: "Energy offered per hour — left axis (blue bars)" },
+    { name: "DA price (€/MWh)", description: "Cleared market price — right axis (amber line)" },
+    { name: "Curtailment hours", description: "Red bars: revenue ≤ 0 → bid = 0 (curtail or BESS charge)" },
+  ],
+  interpretation:
+    "Negative DA prices are increasingly common (high solar saturation in Poland). " +
+    "BESS arbitrage option charges during negative hours and discharges during the 6 most expensive hours. " +
+    "This improves net revenue by €500k–1M/year depending on price volatility.",
+};
+
+export const revenueWaterfallInfo: InfoContent = {
+  title: "Annual Revenue Breakdown — Waterfall Chart",
+  description:
+    "Decomposed view of the wind farm's annual revenue from all sources minus costs. " +
+    "Each bar shows the incremental contribution (green = adds, red = subtracts).",
+  parameters: [
+    { name: "DA Market", description: "TGE day-ahead revenue (largest component)" },
+    { name: "CfD Support", description: "Polish OZMB 2024 support — top-up when market < 80 €/MWh" },
+    { name: "Ancillary", description: "PSE BSP contract value (FCR-N, aFRR, mFRR)" },
+    { name: "Imbalance", description: "Cost of deviating from scheduled output (red = cost)" },
+    { name: "Net Revenue", description: "Total sum — blue bar" },
+  ],
+  interpretation:
+    "EBITDA is shown in top-right. €/MWh figure = Net Revenue ÷ Annual Generation. " +
+    "A 1% MAPE improvement in forecasting reduces imbalance costs by ~2M €/year.",
+};
+
+export const ancillaryServicesInfo: InfoContent = {
+  title: "Ancillary Services Portfolio — PSE BSP",
+  description:
+    "Balancing Service Provider (BSP) contracts with PSE (Polish TSO) for frequency regulation services. " +
+    "The wind farm + BESS provides a portfolio of services simultaneously.",
+  standard: "PSE IRiESP §8 — Ancillary services; ENTSO-E FCR/aFRR/mFRR product specifications",
+  parameters: [
+    { name: "FCR-N", description: "Frequency Containment Reserve (BESS — ±2.5 MW per 0.1 Hz deviation)" },
+    { name: "FCR-D", description: "Fast frequency response from BESS (FFR, activates at 49.7 Hz)" },
+    { name: "aFRR", description: "Automatic frequency restoration — WTG delta control (30–200 s response)" },
+    { name: "mFRR", description: "Manual frequency restoration — operator-commanded ramp" },
+  ],
+  interpretation:
+    "Availability price (€/MW/h) is paid regardless of activation. " +
+    "BSP contract value ≈3.5 M€/year represents ~5% of total project revenue — valuable low-risk income.",
+};
+
 // ── Landing Page ──
 
 export const farmOverviewInfo: InfoContent = {

@@ -84,6 +84,7 @@ function buildGraph(
   breakerStates: Record<string, BreakerState>,
   faultHighlightNodeId: string | null,
   turbineMap?: Record<string, { powerOutputMW: number; windSpeedMs: number; status: string }>,
+  alarmNodeMap?: Record<string, { priority: string; state: string }>,
 ) {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -330,6 +331,7 @@ function buildGraph(
         offline: SCADA_COLORS.DE_ENERGIZED,
       };
 
+      const wtgAlarm = alarmNodeMap?.[nodeId];
       nodes.push({
         id: nodeId,
         type: "ied",
@@ -339,6 +341,7 @@ function buildGraph(
           type: d.equipment_type,
           lns: lnCount,
           color,
+          ...(wtgAlarm && { alarmPriority: wtgAlarm.priority, alarmState: wtgAlarm.state }),
           ...(turbine && {
             powerMW: turbine.powerOutputMW,
             windMs: turbine.windSpeedMs,
@@ -371,11 +374,18 @@ function buildGraph(
     const lnCount = d.logical_devices.reduce((sum, ld) => sum + ld.logical_nodes.length, 0);
     const color = EQUIPMENT_COLOR[d.equipment_type] ?? SCADA_COLORS.DE_ENERGIZED;
     const nodeId = `ied-${d.name}`;
+    const ossAlarm = alarmNodeMap?.[nodeId];
     nodes.push({
       id: nodeId,
       type: "ied",
       position: { x: 900 + i * 120, y: 660 },
-      data: { label: d.name, type: d.equipment_type, lns: lnCount, color },
+      data: {
+        label: d.name,
+        type: d.equipment_type,
+        lns: lnCount,
+        color,
+        ...(ossAlarm && { alarmPriority: ossAlarm.priority, alarmState: ossAlarm.state }),
+      },
     });
     edges.push({
       id: `e-66-${d.name}`,
@@ -388,6 +398,10 @@ function buildGraph(
   return { nodes, edges };
 }
 
+// ── Alarm priority → numeric rank (higher = worse) ───────────
+
+const PRIORITY_RANK: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+
 // ── Main Component ───────────────────────────────────────────
 
 export default function SubstationSLD() {
@@ -396,6 +410,7 @@ export default function SubstationSLD() {
   const faultHighlightNodeId = useScadaStore((s) => s.faultHighlightNodeId);
   const toggleBreaker = useScadaStore((s) => s.toggleBreaker);
   const measurements = useScadaStore((s) => s.measurements) ?? [];
+  const alarms = useScadaStore((s) => s.alarms);
   const [selectedNode, setSelectedNode] = useState<{ data: Record<string, unknown>; type: string } | null>(null);
 
   // Start landing simulation so turbine data is available on SCADA page
@@ -407,10 +422,30 @@ export default function SubstationSLD() {
     return () => stopSimulation();
   }, [startSimulation, stopSimulation]);
 
+  const alarmNodeMap = useMemo(() => {
+    const map: Record<string, { priority: string; state: string }> = {};
+    for (const alarm of alarms) {
+      if (alarm.state !== "ACTIVE" && alarm.state !== "ACKNOWLEDGED") continue;
+      // Turbine fault: equipment = "WTG-07" → IED node "ied-WTG-07_IED"
+      // GOOSE/OSS fault: equipment = "PROTECT-01" → IED node "ied-PROTECT-01"
+      const candidates = [
+        `ied-${alarm.equipment}_IED`,
+        `ied-${alarm.equipment}`,
+      ];
+      for (const nodeId of candidates) {
+        const existing = map[nodeId];
+        if (!existing || PRIORITY_RANK[alarm.priority] > PRIORITY_RANK[existing.priority]) {
+          map[nodeId] = { priority: alarm.priority, state: alarm.state };
+        }
+      }
+    }
+    return map;
+  }, [alarms]);
+
   const graph = useMemo(() => {
     if (!substationSummary?.devices) return { nodes: [], edges: [] };
-    return buildGraph(substationSummary.devices, breakerStates, faultHighlightNodeId, turbineSLDMap);
-  }, [substationSummary, breakerStates, faultHighlightNodeId, turbineSLDMap]);
+    return buildGraph(substationSummary.devices, breakerStates, faultHighlightNodeId, turbineSLDMap, alarmNodeMap);
+  }, [substationSummary, breakerStates, faultHighlightNodeId, turbineSLDMap, alarmNodeMap]);
 
   const onInit = useCallback(
     (instance: { fitView: () => void }) => {

@@ -57,9 +57,6 @@ export default function VoltageProfilePanel() {
             x: names,
             y: voltages,
             marker: { color: colors },
-            text: voltages.map((v) => `${v.toFixed(4)} pu`),
-            textposition: "outside",
-            textfont: { size: 11, color: "rgb(148, 163, 184)" },
             hovertemplate: "%{x}<br>V = %{y:.4f} pu<extra></extra>",
           },
         ]}

@@ -10,6 +10,8 @@ import Plot from "react-plotly.js";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useBESSStore } from "../../store/bessStore";
 import { Button } from "../ui/Button";
+import { InfoButton } from "../ui/InfoButton";
+import { bessFrequencyInfo } from "../../constants/panelInfo";
 
 export default function BESSFrequencyPanel() {
   const { freqResponse, simLoading, simFrequencyResponse } = useBESSStore();
@@ -18,7 +20,10 @@ export default function BESSFrequencyPanel() {
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">FCR / FFR Frequency Response</h3>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-semibold text-text-primary">FCR / FFR Frequency Response</h3>
+            <InfoButton info={bessFrequencyInfo} />
+          </div>
           <p className="text-xs text-text-muted">Nordic frequency event — 5% droop, FFR @ 49.7 Hz</p>
         </div>
         <Button size="sm" onClick={simFrequencyResponse} disabled={simLoading}>
@@ -74,8 +79,8 @@ export default function BESSFrequencyPanel() {
                 tickfont: { family: "'JetBrains Mono', monospace", size: 11, color: "#3ecf6e" },
                 gridcolor: "transparent",
               },
-              legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", y: -0.28 },
-              margin: { t: 16, r: 72, b: 60, l: 64 },
+              legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", x: 0.5, xanchor: "center", y: 1.04, yanchor: "bottom" },
+              margin: { t: 52, r: 72, b: 32, l: 64 },
             }}
             config={PLOTLY_CONFIG}
             className="w-full"

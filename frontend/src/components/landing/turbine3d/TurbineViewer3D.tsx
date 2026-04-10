@@ -24,6 +24,7 @@ import type { Object3D } from "three";
 
 import {
   useLandingStore,
+  selectTurbine,
   selectTurbinePart,
   selectViewerMode,
   selectAnnotationFlag,
@@ -33,6 +34,8 @@ import type { TurbineData } from "../../../types/landing";
 
 import { V236Turbine } from "./scene/V236Turbine";
 import { SeaPlane } from "./scene/SeaPlane";
+import { WakeParticles } from "./scene/WakeParticles";
+import { ArrayCables } from "./scene/ArrayCables";
 import { HumanScaleFigure } from "./scene/HumanScaleFigure";
 import { MeasurementLayer } from "./scene/MeasurementLayer";
 import { ViewerControls } from "./ui/ViewerControls";
@@ -62,15 +65,22 @@ function TurbineScene({
   turbineId,
   explodedOffset,
   showHumanFigure,
+  overridePitch,
+  overrideRpm,
 }: {
   turbineId: string;
   explodedOffset: number;
   showHumanFigure: boolean;
+  overridePitch?: number;
+  overrideRpm?: number;
 }) {
   const selectedPart = useLandingStore(selectTurbinePart);
   const viewerMode = useLandingStore(selectViewerMode);
   const showAnnotations = useLandingStore(selectAnnotationFlag);
   const annotations = useAnnotationCatalog(turbineId);
+
+  const turbineForRpm = useLandingStore(selectTurbine(turbineId));
+  const sceneRpm = overrideRpm ?? (turbineForRpm?.rotorSpeedRpm ?? 0);
 
   // ── Outline glow — find mesh by name matching selectedPart ──────
   const { scene } = useThree();
@@ -106,6 +116,8 @@ function TurbineScene({
 
       {/* Sea */}
       <SeaPlane />
+      <WakeParticles rpm={sceneRpm} />
+      <ArrayCables />
 
       {/* Turbine */}
       <V236Turbine
@@ -113,6 +125,8 @@ function TurbineScene({
         selectedPart={selectedPart}
         viewerMode={viewerMode}
         explodedOffset={explodedOffset}
+        overridePitch={overridePitch}
+        overrideRpm={overrideRpm}
       />
 
       {/* Human scale figure */}
@@ -160,6 +174,12 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
   const [explodedOffset, setExplodedOffset] = useState(0);
   const [showHumanFigure, setShowHumanFigure] = useState(false);
   const [dpr, setDpr] = useState(Math.min(window.devicePixelRatio, 2));
+  const [manualRun, setManualRun] = useState<boolean | null>(null); // null=auto, false=stopped
+  const [manualWindMs, setManualWindMs] = useState<number>(11);
+
+  // Derived overrides — undefined means "let store drive"
+  const overridePitch = manualRun === false ? 90 : manualRun === true ? 0 : undefined;
+  const overrideRpm   = manualRun === false ? 0  : undefined;
 
   const selectedPart = useLandingStore(selectTurbinePart);
   const viewerMode = useLandingStore(selectViewerMode);
@@ -184,6 +204,10 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
   const handleResetCamera = useCallback(() => {
     setSelectedPart(null);
   }, [setSelectedPart]);
+
+  const handleToggleRun = useCallback(() => {
+    setManualRun((prev) => (prev === false ? null : false));
+  }, []);
 
   if (!webGLOk) {
     return <WebGLFallback turbine={turbine} />;
@@ -212,6 +236,8 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
             turbineId={turbineId}
             explodedOffset={explodedOffset}
             showHumanFigure={showHumanFigure}
+            overridePitch={overridePitch}
+            overrideRpm={overrideRpm}
           />
         </Suspense>
       </Canvas>
@@ -225,6 +251,10 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
         onViewerModeChange={setViewerMode}
         onToggleAnnotations={() => setShowAnnotations(!showAnnotationLayer)}
         onToggleHumanFigure={() => setShowHumanFigure((v) => !v)}
+        onToggleRun={handleToggleRun}
+        isRunning={manualRun !== false}
+        manualWindMs={manualWindMs}
+        onWindSpeedChange={setManualWindMs}
       />
 
       {viewerMode === "exploded" && (

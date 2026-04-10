@@ -37,6 +37,8 @@ interface V236TurbineProps {
   viewerMode: "normal" | "cutaway" | "exploded";
   explodedOffset: number;
   showHumanFigure?: boolean;
+  overridePitch?: number;
+  overrideRpm?: number;
 }
 
 export const V236Turbine = memo(function V236Turbine({
@@ -44,6 +46,8 @@ export const V236Turbine = memo(function V236Turbine({
   selectedPart,
   viewerMode,
   explodedOffset,
+  overridePitch,
+  overrideRpm,
 }: V236TurbineProps) {
   const turbine = useLandingStore(selectTurbine(turbineId));
   const nacelleGroupRef = useRef<Group>(null);
@@ -85,6 +89,8 @@ export const V236Turbine = memo(function V236Turbine({
         <Rotor
           turbineId={turbineId}
           selectedPart={selectedPart}
+          overridePitch={overridePitch}
+          overrideRpm={overrideRpm}
         />
       </group>
     </group>

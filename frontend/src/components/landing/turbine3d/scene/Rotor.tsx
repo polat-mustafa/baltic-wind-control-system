@@ -29,13 +29,15 @@ const STATUS_EMISSIVE: Record<string, string> = {
 interface RotorProps {
   turbineId: string;
   selectedPart: TurbinePartId | null;
+  overridePitch?: number;   // degrees: 0=fine pitch, 90=feathered
+  overrideRpm?: number;     // rpm: 0=stopped
 }
 
 export const Rotor = memo(
-  forwardRef<Group, RotorProps>(function Rotor({ turbineId, selectedPart }, ref) {
+  forwardRef<Group, RotorProps>(function Rotor({ turbineId, selectedPart, overridePitch, overrideRpm }, ref) {
     const turbine = useLandingStore(selectTurbine(turbineId));
-    const rpm = turbine?.rotorSpeedRpm ?? 0;
-    const pitch = turbine?.pitchAngleDeg ?? 0;
+    const rpm   = overrideRpm   ?? (turbine?.rotorSpeedRpm  ?? 0);
+    const pitch = overridePitch ?? (turbine?.pitchAngleDeg  ?? 0);
     const status = turbine?.status ?? "operating";
 
     const rotorRef = useRef<Group>(null);

@@ -102,61 +102,88 @@ export const Drivetrain = memo(function Drivetrain({
         />
       </mesh>
 
-      {/* Gearbox (medium-speed) */}
-      <mesh
+      {/* Gearbox (medium-speed planetary) */}
+      <group
         position={[0, -0.5, -exp * 0.5]}
         name="gearbox"
-        castShadow
         onClick={pickPart("gearbox")}
       >
-        <boxGeometry args={[3.5, 2, 2]} />
-        <meshStandardMaterial
-          color={usePartColor("gearbox", selectedPart, "#374151")}
-          roughness={0.4}
-          metalness={0.6}
-          emissive={usePartEmissive("gearbox", selectedPart)}
-          emissiveIntensity={usePartEmissiveIntensity("gearbox", selectedPart)}
-        />
-      </mesh>
+        {/* Ghost shell — transparent to reveal internals */}
+        <mesh castShadow>
+          <boxGeometry args={[3.5, 2, 2]} />
+          <meshStandardMaterial
+            color={usePartColor("gearbox", selectedPart, "#374151")}
+            roughness={0.4}
+            metalness={0.6}
+            emissive={usePartEmissive("gearbox", selectedPart)}
+            emissiveIntensity={usePartEmissiveIntensity("gearbox", selectedPart)}
+            transparent
+            opacity={0.15}
+          />
+        </mesh>
+        {/* Ring gear (outer) */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[1.6, 0.15, 8, 32]} />
+          <meshStandardMaterial color="#374151" metalness={0.8} roughness={0.3} />
+        </mesh>
+        {/* Planet carrier (middle) */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[1.0, 0.12, 8, 24]} />
+          <meshStandardMaterial color="#4b5563" metalness={0.8} roughness={0.3} />
+        </mesh>
+        {/* Sun gear stub (centre) */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.35, 0.35, 2.2, 16]} />
+          <meshStandardMaterial color="#6b7280" metalness={0.9} roughness={0.2} />
+        </mesh>
+      </group>
 
-      {/* Generator (PMSG disc) */}
-      <mesh
-        position={[0, -2.5, -exp * 0.7]}
-        rotation={[Math.PI / 2, 0, 0]}
-        name="generator"
-        castShadow
-        onClick={pickPart("generator")}
-      >
-        <cylinderGeometry args={[2, 2, 1.8, 24]} />
-        <meshStandardMaterial
-          color={usePartColor("generator", selectedPart, "#1e3a5f")}
-          roughness={0.3}
-          metalness={0.7}
-          emissive={
-            selectedPart === "generator"
-              ? HIGHLIGHT_EMISSIVE
-              : "#0a2040"
-          }
-          emissiveIntensity={selectedPart === "generator" ? 0.5 : 0.15}
-        />
-      </mesh>
+      {/* Generator (PMSG) */}
+      <group position={[0, -2.5, -exp * 0.7]} name="generator" onClick={pickPart("generator")}>
+        {/* Stator disc */}
+        <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[2, 2, 1.8, 32]} />
+          <meshStandardMaterial
+            color={usePartColor("generator", selectedPart, "#1e3a5f")}
+            roughness={0.3}
+            metalness={0.7}
+            emissive={selectedPart === "generator" ? "#1d4ed8" : "#0a2040"}
+            emissiveIntensity={selectedPart === "generator" ? 0.5 : 0.15}
+          />
+        </mesh>
+        {/* Copper/iron coil strips ×4 */}
+        {[0, 0.45, 0.9, 1.35].map((offset, i) => (
+          <mesh key={i} position={[0, offset - 0.675, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1.9, 0.08, 6, 32]} />
+            <meshStandardMaterial
+              color={i % 2 === 0 ? "#b45309" : "#374151"}
+              metalness={0.6}
+              roughness={0.4}
+            />
+          </mesh>
+        ))}
+      </group>
 
       {/* Converter cabinet */}
-      <mesh
-        position={[3.5, -3, -exp * 0.6]}
-        name="converter"
-        castShadow
-        onClick={pickPart("converter")}
-      >
-        <boxGeometry args={[2, 1.5, 1.2]} />
-        <meshStandardMaterial
-          color={usePartColor("converter", selectedPart, "#1f2937")}
-          roughness={0.5}
-          metalness={0.5}
-          emissive={usePartEmissive("converter", selectedPart)}
-          emissiveIntensity={usePartEmissiveIntensity("converter", selectedPart)}
-        />
-      </mesh>
+      <group name="converter" position={[3.5, -3, -exp * 0.6]} onClick={pickPart("converter")}>
+        <mesh castShadow>
+          <boxGeometry args={[2, 1.5, 1.2]} />
+          <meshStandardMaterial
+            color={usePartColor("converter", selectedPart, "#1f2937")}
+            roughness={0.5}
+            metalness={0.5}
+            emissive={usePartEmissive("converter", selectedPart)}
+            emissiveIntensity={usePartEmissiveIntensity("converter", selectedPart)}
+          />
+        </mesh>
+        {/* Glowing display panels on front face (z = +0.61 = half depth + overlap) */}
+        {([[-0.5, 0.3], [0.1, 0.3], [-0.5, -0.2]] as [number, number][]).map(([px, py], i) => (
+          <mesh key={i} position={[px, py, 0.61]}>
+            <boxGeometry args={[0.35, 0.2, 0.02]} />
+            <meshStandardMaterial color="#0f4c75" emissive="#1a6fa8" emissiveIntensity={0.8} />
+          </mesh>
+        ))}
+      </group>
     </group>
   );
 });

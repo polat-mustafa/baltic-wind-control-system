@@ -1,24 +1,44 @@
 /**
- * Baltic Sea water surface.
+ * Baltic Sea water surface — animated with two overlapping sine waves.
  *
- * A flat, slightly transparent plane at y=0 with a dark-teal PBR material.
- * The plane is large enough (600×600 m) to extend to the horizon at the
- * default camera distance.
+ * Vertex mutation in useFrame; geometry created once in useMemo.
+ * NOT wrapped in React.memo — memo blocks useFrame from firing.
  */
+import { useRef, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
 
-import { memo } from "react";
+export function SeaPlane() {
+  const meshRef = useRef<THREE.Mesh>(null);
 
-export const SeaPlane = memo(function SeaPlane() {
+  // 60×60 segments = 7,442 vertices. Created once — never recreated.
+  const geometry = useMemo(() => new THREE.PlaneGeometry(600, 600, 60, 60), []);
+
+  useFrame(({ clock }) => {
+    if (!meshRef.current) return;
+    const t = clock.getElapsedTime();
+    const pos = geometry.attributes.position as THREE.BufferAttribute;
+    const arr = pos.array as Float32Array; // cast required: typed as ArrayLike<number>
+    for (let i = 0; i < pos.count; i++) {
+      const x = arr[i * 3];
+      const y = arr[i * 3 + 1];
+      // Z = vertical displacement in local geometry space (becomes Y-up after mesh rotation)
+      arr[i * 3 + 2] =
+        Math.sin(x * 0.015 + t * 0.6) * 0.8 +
+        Math.sin(y * 0.012 + t * 0.45 + 1.2) * 0.5;
+    }
+    pos.needsUpdate = true;
+  });
+
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-      <planeGeometry args={[600, 600]} />
+    <mesh ref={meshRef} geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <meshStandardMaterial
         color="#0a1628"
-        roughness={0.3}
-        metalness={0.1}
+        roughness={0.2}
+        metalness={0.15}
         transparent
         opacity={0.92}
       />
     </mesh>
   );
-});
+}

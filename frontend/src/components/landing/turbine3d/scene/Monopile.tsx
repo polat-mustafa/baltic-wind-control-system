@@ -60,6 +60,24 @@ export const Monopile = memo(function Monopile({ isSelected }: MonopileProps) {
         <meshStandardMaterial color="#d97706" roughness={0.6} metalness={0.1} />
       </mesh>
 
+      {/* Orange safety barrier rings — J-tube / boat landing level */}
+      {/* Upper ring: y=21, radius 5.2 sits proud of 4.5 m monopile */}
+      <mesh position={[0, 21, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[5.2, 0.3, 8, 32]} />
+        <meshStandardMaterial
+          color="#FF6600"
+          roughness={0.5}
+          metalness={0.1}
+          emissive="#FF6600"
+          emissiveIntensity={0.1}
+        />
+      </mesh>
+      {/* Lower guard ring: y=19 */}
+      <mesh position={[0, 19, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[5.0, 0.2, 8, 32]} />
+        <meshStandardMaterial color="#FF6600" roughness={0.5} metalness={0.1} />
+      </mesh>
+
       {/* Transition piece (tapers to match tower base Ø 10 m → Ø 9 m) */}
       <mesh position={[0, 23, 0]} castShadow>
         <cylinderGeometry args={[5, 4.5, 6, 32]} />

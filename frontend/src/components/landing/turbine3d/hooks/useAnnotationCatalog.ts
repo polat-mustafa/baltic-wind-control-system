@@ -123,7 +123,6 @@ export function useAnnotationCatalog(turbineId: string): Annotation[] {
     ];
 
     return [...STATIC_ANNOTATIONS, ...live];
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     t?.powerOutputMW,
     t?.windSpeedMs,

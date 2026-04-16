@@ -285,6 +285,14 @@ interface LandingState {
   kpis: FarmKPI;
   environment: EnvironmentData;
 
+  // ── 3D viewer state ─────────────────────────────────────────────
+  selectedTurbinePart: import("../constants/turbinePartEducation").TurbinePartId | null;
+  viewerMode: "normal" | "cutaway" | "exploded";
+  showAnnotationLayer: boolean;
+  setSelectedTurbinePart: (id: import("../constants/turbinePartEducation").TurbinePartId | null) => void;
+  setViewerMode: (mode: "normal" | "cutaway" | "exploded") => void;
+  setShowAnnotationLayer: (visible: boolean) => void;
+
   startSimulation: () => void;
   stopSimulation: () => void;
 
@@ -306,6 +314,14 @@ export const useLandingStore = create<LandingState>((set) => {
     cable: createInitialCable(),
     kpis: computeKPIs(initialMap),
     environment: computeEnvironment(11.0, 0),
+
+    // ── 3D viewer state ────────────────────────────────────────────
+    selectedTurbinePart: null,
+    viewerMode: "normal",
+    showAnnotationLayer: false,
+    setSelectedTurbinePart: (id) => set({ selectedTurbinePart: id }),
+    setViewerMode: (mode) => set({ viewerMode: mode }),
+    setShowAnnotationLayer: (visible) => set({ showAnnotationLayer: visible }),
 
     setTurbineFault: (turbineId, faultType) =>
       set((state) => {
@@ -521,6 +537,11 @@ export const selectTransformer = (id: string) => (state: LandingState) =>
 export const selectCable = (state: LandingState) => state.cable;
 
 export const selectEnvironment = (state: LandingState) => state.environment;
+
+// ── 3D viewer selectors ─────────────────────────────────────────
+export const selectTurbinePart    = (state: LandingState) => state.selectedTurbinePart;
+export const selectViewerMode     = (state: LandingState) => state.viewerMode;
+export const selectAnnotationFlag = (state: LandingState) => state.showAnnotationLayer;
 
 // ── SLD-specific memoized selector ──────────────────────────────
 // Extracts only fields SubstationSLD actually reads (power, wind, status).

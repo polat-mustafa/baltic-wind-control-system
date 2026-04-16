@@ -22,7 +22,7 @@ import { SCADA_COLORS } from "../../constants/scadaColors";
 import { FAULT_TO_PART, type TurbinePartId } from "../../constants/turbinePartEducation";
 import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { useTurbineHistory } from "../../hooks/useTurbineHistory";
-import { selectKPIs, useLandingStore } from "../../store/landingStore";
+import { selectKPIs, selectTurbinePart, useLandingStore } from "../../store/landingStore";
 import type { TurbineData, TurbineStatus } from "../../types/landing";
 
 import { inferCurtailment } from "../../utils/curtailmentReason";
@@ -122,6 +122,9 @@ function V236PowerCurve({ windSpeedMs, powerOutputMW }: { windSpeedMs: number; p
 interface TurbineDetailPanelProps {
   turbine: TurbineData;
   onClose: () => void;
+  /** Horizontal offset from viewport left edge. Defaults to 20 (standalone).
+   *  Pass ~640 when the 3D viewer is rendered to the left. */
+  leftOffset?: number;
 }
 
 const STATUS_COLOR: Record<TurbineStatus, string> = {
@@ -166,9 +169,11 @@ const NAV_ITEMS = [
   { label: "Phys", path: "/turbine-physics", icon: Activity, color: "#06b6d4", tip: "Turbine Physics" },
 ];
 
-export default function TurbineDetailPanel({ turbine: t, onClose }: TurbineDetailPanelProps) {
+export default function TurbineDetailPanel({ turbine: t, onClose, leftOffset = 20 }: TurbineDetailPanelProps) {
   const navigate = useNavigate();
-  const [selectedPart, setSelectedPart] = useState<TurbinePartId | null>(null);
+  // selectedPart is lifted into the store so the 3D viewer can subscribe
+  const selectedPart = useLandingStore(selectTurbinePart);
+  const setSelectedPart = useLandingStore((s) => s.setSelectedTurbinePart);
   const [isNarrow, setIsNarrow] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [showPowerCurve, setShowPowerCurve] = useState(false);
@@ -199,9 +204,9 @@ export default function TurbineDetailPanel({ turbine: t, onClose }: TurbineDetai
   // Toggle part selection (click same part again to close)
   const handlePartClick = useCallback(
     (partId: TurbinePartId) => {
-      setSelectedPart((prev) => (prev === partId ? null : partId));
+      setSelectedPart(selectedPart === partId ? null : partId);
     },
-    [],
+    [selectedPart, setSelectedPart],
   );
 
   // Responsive check: narrow viewport → inline education panel
@@ -235,7 +240,7 @@ export default function TurbineDetailPanel({ turbine: t, onClose }: TurbineDetai
           backgroundColor: "#0f1117",
           borderColor: "#2a3040",
           width: 440,
-          left: 20,
+          left: leftOffset,
           top: 60,
           maxHeight: "calc(100% - 80px)",
         }}

@@ -348,3 +348,32 @@ body {
     stroke-dasharray: 4 3;
   }
 }
+
+/* ── 3D Turbine Viewer — annotation markers ──────────────────────
+   .annotation-marker: flex row (circle + label), no pointer-events
+   on parent (handled by inner circle)
+   .annotation-pulse: pulsing glow for live telemetry markers
+   ────────────────────────────────────────────────────────────── */
+
+.annotation-marker {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+@keyframes annotation-pulse {
+  0%, 100% { box-shadow: 0 0 4px var(--pulse-color, #22c55e88); }
+  50%       { box-shadow: 0 0 10px var(--pulse-color, #22c55e); transform: scale(1.15); }
+}
+
+.annotation-pulse {
+  animation: annotation-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .annotation-pulse {
+    animation: none;
+  }
+}

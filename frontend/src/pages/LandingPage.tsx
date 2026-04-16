@@ -12,7 +12,7 @@
  * DOM tree so they are never hidden behind GPU-composited translate3d layers.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Monitor, Brain, ClipboardCheck, Maximize2, Minimize2 } from "lucide-react";
 
@@ -27,6 +27,11 @@ import {
   selectTurbine,
   useLandingStore,
 } from "../store/landingStore";
+
+// Code-split 3D viewer — only downloads when a turbine is clicked
+const TurbineViewer3D = lazy(
+  () => import("../components/landing/turbine3d/TurbineViewer3D"),
+);
 import { InfoButton } from "../components/ui/InfoButton";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { farmOverviewInfo } from "../constants/panelInfo";
@@ -37,6 +42,12 @@ import { cn } from "../lib/utils";
 // Defined at module level so React never unmounts/remounts them on parent render.
 // Each subscribes to only the store slice it needs.
 
+// 3D viewer width + gap before the detail panel
+const VIEWER_W = 580;
+const VIEWER_LEFT = 10;
+const VIEWER_TOP = 60;
+const PANEL_LEFT_WITH_VIEWER = VIEWER_LEFT + VIEWER_W + 10; // 600
+
 function ConnectedTurbineDetailPanel({
   turbineId,
   onClose,
@@ -46,7 +57,37 @@ function ConnectedTurbineDetailPanel({
 }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
   if (!turbine) return null;
-  return <TurbineDetailPanel turbine={turbine} onClose={onClose} />;
+  return (
+    <>
+      {/* 3D Viewer — to the left of the detail panel */}
+      <div
+        className="absolute z-[1050]"
+        style={{
+          left: VIEWER_LEFT,
+          top: VIEWER_TOP,
+          width: VIEWER_W,
+          height: "calc(100% - 80px)",
+        }}
+      >
+        <Suspense
+          fallback={
+            <div className="w-full h-full rounded-lg border border-border-primary bg-bg-secondary flex items-center justify-center">
+              <span className="text-[11px] text-text-muted font-mono">Loading 3D viewer…</span>
+            </div>
+          }
+        >
+          <TurbineViewer3D turbineId={turbineId} turbine={turbine} />
+        </Suspense>
+      </div>
+
+      {/* Detail panel — shifted right to make room for viewer */}
+      <TurbineDetailPanel
+        turbine={turbine}
+        onClose={onClose}
+        leftOffset={PANEL_LEFT_WITH_VIEWER}
+      />
+    </>
+  );
 }
 
 function ConnectedOSSPanel({ onClose }: { onClose: () => void }) {

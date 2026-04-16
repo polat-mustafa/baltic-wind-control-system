@@ -19,6 +19,9 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@react-leaflet/core": "^3.0.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "@react-three/postprocessing": "^3.0.4",
     "@types/d3-selection": "^3.0.11",
     "@types/d3-zoom": "^3.0.8",
     "@xyflow/react": "^12.10.1",
@@ -36,6 +39,7 @@
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^7.13.1",
     "tailwind-merge": "^3.5.0",
+    "three": "^0.183.2",
     "zustand": "^5.0.3"
   },
   "overrides": {
@@ -51,6 +55,7 @@
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@types/react-plotly.js": "^2.6.4",
+    "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.2",
     "eslint": "^10.2.0",

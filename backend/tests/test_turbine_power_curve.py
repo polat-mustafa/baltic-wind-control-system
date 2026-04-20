@@ -120,21 +120,21 @@ class TestPowerCurveShape:
         assert np.all(curve.power_mw[above] == 0.0)
 
     def test_rated_power_at_rated_speed(self, curve: PowerCurveResult) -> None:
-        """Power should reach rated (15 MW) at rated wind speed."""
-        rated_idx = np.argmin(np.abs(curve.wind_speeds_ms - 12.5))
+        """Power should reach rated (15 MW) at rated wind speed (11.1 m/s)."""
+        rated_idx = np.argmin(np.abs(curve.wind_speeds_ms - 11.1))
         assert curve.power_mw[rated_idx] == pytest.approx(15.0, abs=0.5)
 
     def test_power_monotonic_in_region2(self, curve: PowerCurveResult) -> None:
-        """Power should increase monotonically from cut-in to rated."""
-        region2 = (curve.wind_speeds_ms >= 3.0) & (curve.wind_speeds_ms <= 12.5)
+        """Power should increase monotonically from cut-in to rated (3.0–11.1 m/s)."""
+        region2 = (curve.wind_speeds_ms >= 3.0) & (curve.wind_speeds_ms <= 11.1)
         power_r2 = curve.power_mw[region2]
         # Allow small tolerance for numerical noise
         diffs = np.diff(power_r2)
         assert np.all(diffs >= -0.01)
 
     def test_rated_plateau_in_region3(self, curve: PowerCurveResult) -> None:
-        """Power should be at rated in Region 3 (12.5-31.0 m/s)."""
-        region3 = (curve.wind_speeds_ms >= 13.0) & (curve.wind_speeds_ms <= 31.0)
+        """Power should be at rated in Region 3 (11.1–31.0 m/s)."""
+        region3 = (curve.wind_speeds_ms >= 12.0) & (curve.wind_speeds_ms <= 31.0)
         power_r3 = curve.power_mw[region3]
         assert np.all(power_r3 >= 14.5)  # Near rated
         assert np.all(power_r3 <= 15.0)
@@ -157,7 +157,7 @@ class TestThrustCoefficient:
         return build_power_curve()
 
     def test_ct_at_rated_speed(self, curve: PowerCurveResult) -> None:
-        rated_idx = np.argmin(np.abs(curve.wind_speeds_ms - 12.5))
+        rated_idx = np.argmin(np.abs(curve.wind_speeds_ms - 11.1))
         assert curve.ct[rated_idx] == pytest.approx(0.28, abs=0.05)
 
     def test_ct_zero_below_cut_in(self, curve: PowerCurveResult) -> None:
@@ -179,14 +179,14 @@ class TestInterpolation:
         assert interpolate_power_mw(0.0) == 0.0
 
     def test_interpolate_at_rated(self) -> None:
-        p = interpolate_power_mw(12.5)
+        p = interpolate_power_mw(11.1)  # V236 rated wind speed
         assert p == pytest.approx(15.0, abs=0.5)
 
     def test_interpolate_above_cutout(self) -> None:
         assert interpolate_power_mw(35.0) == 0.0
 
     def test_interpolate_array(self) -> None:
-        winds = np.array([0.0, 5.0, 12.5, 20.0, 35.0])
+        winds = np.array([0.0, 5.0, 11.1, 20.0, 35.0])
         powers = interpolate_power_mw(winds)
         assert isinstance(powers, np.ndarray)
         assert len(powers) == 5

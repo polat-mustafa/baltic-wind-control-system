@@ -19,7 +19,7 @@ We use a discrete approximation over 1 m/s bins:
 
 The Vestas V236-15.0 MW power curve is approximated using a cubic
 spline through the published IEC power curve points (Vestas product card):
-  cut-in: 3 m/s, rated: 12.5 m/s, cut-out: 31 m/s
+  cut-in: 3 m/s, rated: 11.1 m/s, cut-out: 31 m/s
 
 Wake losses are approximated using the Jensen-Katic model:
   ΔP/P ≈ 1 - (1 - a × (r₀/(r₀ + k×x))²)^n_turbines
@@ -89,14 +89,14 @@ def _v236_power_kw(v: float) -> float:
     """Approximated V236-15.0 MW power curve [kW].
 
     Based on published Vestas product card points. Uses cubic interpolation
-    between key points: cut-in 3 m/s, rated 12.5 m/s, cut-out 31 m/s.
+    between key points: cut-in 3 m/s, rated 11.1 m/s, cut-out 31 m/s.
 
     The full IEC 61400-12-1 power curve is measured in free-stream wind
     at hub height (119 m for V236).
     """
     if v < 3.0 or v >= 31.0:
         return 0.0
-    if v >= 12.5:
+    if v >= 11.1:
         return 15_000.0  # rated
 
     # Cubic interpolation through published key points

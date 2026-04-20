@@ -73,18 +73,18 @@ class TestTipSpeedRatio:
 
     def test_basic_calculation(self) -> None:
         """λ = ωR/V for known values."""
-        # At 8.6 rpm, R = 118 m, V = 12.5 m/s
-        lam = compute_tip_speed_ratio(8.6, 12.5, 118.0)
-        expected = (8.6 * 2 * math.pi / 60) * 118.0 / 12.5
+        # At rated: 8.33 rpm, R = 118 m, V = 11.1 m/s → λ ≈ 9.3
+        lam = compute_tip_speed_ratio(8.33, 11.1, 118.0)
+        expected = (8.33 * 2 * math.pi / 60) * 118.0 / 11.1
         assert abs(lam - expected) < 1e-10
 
     def test_zero_wind(self) -> None:
         """λ = 0 when wind speed is zero (avoid division by zero)."""
-        assert compute_tip_speed_ratio(8.6, 0.0, 118.0) == 0.0
+        assert compute_tip_speed_ratio(8.33, 0.0, 118.0) == 0.0
 
     def test_negative_wind(self) -> None:
         """λ = 0 for negative wind speed."""
-        assert compute_tip_speed_ratio(8.6, -5.0, 118.0) == 0.0
+        assert compute_tip_speed_ratio(8.33, -5.0, 118.0) == 0.0
 
 
 class TestCpSurface:
@@ -145,8 +145,8 @@ class TestAerodynamicState:
     """Test the master aerodynamic computation."""
 
     def test_rated_power_near_15mw(self) -> None:
-        """Power ≈ 15 MW near rated conditions."""
-        state = compute_aerodynamic_state(12.5, 8.6, 0.0)
+        """Power ≈ 15 MW near rated conditions (V236: 11.1 m/s, 8.33 rpm)."""
+        state = compute_aerodynamic_state(11.1, 8.33, 0.0)
         power_mw = state.aero_power_w / 1e6
         # Aerodynamic power should be in the right ballpark
         # (exact value depends on Cp at actual λ)
@@ -154,7 +154,7 @@ class TestAerodynamicState:
 
     def test_zero_wind_zero_power(self) -> None:
         """No power at zero wind speed."""
-        state = compute_aerodynamic_state(0.0, 8.6, 0.0)
+        state = compute_aerodynamic_state(0.0, 8.33, 0.0)
         assert state.aero_power_w == 0.0
         assert state.aero_torque_nm == 0.0
         assert state.thrust_force_n == 0.0
@@ -167,7 +167,7 @@ class TestAerodynamicState:
 
     def test_thrust_force_positive(self) -> None:
         """Thrust force > 0 when wind blows."""
-        state = compute_aerodynamic_state(12.0, 8.0, 0.0)
+        state = compute_aerodynamic_state(11.0, 8.0, 0.0)
         assert state.thrust_force_n > 0.0
 
 
@@ -223,7 +223,7 @@ class TestRotorDynamics:
 
     def test_kinetic_energy_positive(self) -> None:
         """KE is positive for non-zero speed."""
-        omega = rpm_to_rad_s(8.6)
+        omega = rpm_to_rad_s(8.33)  # V236 rated rotor speed
         ke = compute_kinetic_energy_mj(omega, ROTOR_INERTIA_KG_M2)
         assert ke > 0.0
 
@@ -251,14 +251,19 @@ class TestDrivetrain:
     """Test drivetrain — gearbox and generator."""
 
     def test_generator_speed_ratio(self) -> None:
-        """Generator speed = rotor_speed × gearbox_ratio."""
-        gen_rpm = compute_generator_speed_rpm(8.6, GEARBOX_RATIO)
-        assert abs(gen_rpm - 8.6 * GEARBOX_RATIO) < 1e-10
+        """Generator speed = rotor_speed × gearbox_ratio (48:1 → 8.33 × 48 = 400 rpm)."""
+        gen_rpm = compute_generator_speed_rpm(8.33, GEARBOX_RATIO)
+        assert abs(gen_rpm - 8.33 * GEARBOX_RATIO) < 1e-10
+
+    def test_generator_speed_at_rated(self) -> None:
+        """At rated rotor speed, generator reaches 400 rpm."""
+        gen_rpm = compute_generator_speed_rpm(8.33, GEARBOX_RATIO)
+        assert abs(gen_rpm - 400.0) < 1.0  # 8.33 × 48 ≈ 400 rpm
 
     def test_elec_less_than_mech(self) -> None:
         """Electrical power < mechanical power (losses)."""
         state = compute_drivetrain_state(
-            rotor_speed_rpm=8.6,
+            rotor_speed_rpm=8.33,
             aero_torque_nm=20e6,
             gen_torque_nm=18e6,
         )
@@ -267,7 +272,7 @@ class TestDrivetrain:
     def test_losses_positive(self) -> None:
         """Drivetrain losses > 0 when power flows."""
         state = compute_drivetrain_state(
-            rotor_speed_rpm=8.6,
+            rotor_speed_rpm=8.33,
             aero_torque_nm=20e6,
             gen_torque_nm=18e6,
         )
@@ -279,17 +284,16 @@ class TestDrivetrain:
         assert torque == 0.0
 
     def test_rated_power_approx_15mw(self) -> None:
-        """At rated conditions, electrical power ≈ 15 MW."""
-        # Use rated rotor speed
-        omega = rpm_to_rad_s(8.6)
-        # Rated power = 15 MW → aero torque ≈ P/ω
+        """At rated conditions (8.33 rpm, 11.1 m/s), electrical power ≈ 15 MW."""
+        # Rated rotor speed: 400 rpm gen / 48 ratio = 8.33 rpm
+        omega = rpm_to_rad_s(8.33)
         rated_power_w = 15e6
-        aero_torque = rated_power_w / omega  # ≈ 16.6 MN·m
+        aero_torque = rated_power_w / omega  # ≈ 17.2 MN·m
 
         config = DrivetrainConfig()
-        gen_torque = compute_generator_torque_nm(rated_power_w, 8.6, config)
+        gen_torque = compute_generator_torque_nm(rated_power_w, 8.33, config)
 
-        state = compute_drivetrain_state(8.6, aero_torque, gen_torque, config)
+        state = compute_drivetrain_state(8.33, aero_torque, gen_torque, config)
         elec_mw = state.elec_power_w / 1e6
 
         # Should be close to 15 MW (minus losses)

@@ -141,7 +141,7 @@ from app.services.p2.network_model import (
 # ── Wind Turbine Power Curve (V236-15.0 MW) ─────────────────────
 
 CUT_IN_MS = 3.0  # Cut-in wind speed [m/s]
-RATED_MS = 12.5  # Rated wind speed [m/s]
+RATED_MS = 11.1  # Rated wind speed [m/s]  — official Vestas V236 spec (wind-turbine-models.com)
 CUT_OUT_MS = 31.0  # Cut-out wind speed [m/s]
 NOMINAL_FREQUENCY_HZ = 50.0  # System nominal frequency [Hz]
 

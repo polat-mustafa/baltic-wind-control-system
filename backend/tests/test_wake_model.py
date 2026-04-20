@@ -53,7 +53,7 @@ class TestPowerCurve:
         np.testing.assert_array_equal(power, 0.0)
 
     def test_rated_power_at_rated_speed(self):
-        """Power should reach rated (15,000 kW) at rated speed (12.5 m/s)."""
+        """Power should reach rated (15,000 kW) at rated speed (11.1 m/s)."""
         speeds = np.array([RATED_SPEED_MS])
         power = get_v236_power_curve_kw(speeds)
         assert power[0] == pytest.approx(RATED_POWER_KW, abs=100)
@@ -105,10 +105,10 @@ class TestCtCurve:
         assert np.all(ct <= 1.0)
 
     def test_ct_near_rated_speed(self):
-        """Ct at rated speed should be approximately 0.28."""
+        """Ct at rated speed (11.1 m/s) should be ~0.35 — peak before pitch regulation."""
         speeds = np.array([RATED_SPEED_MS])
         ct = get_v236_ct_curve(speeds)
-        assert ct[0] == pytest.approx(0.28, abs=0.05)
+        assert ct[0] == pytest.approx(0.35, abs=0.05)
 
     def test_ct_zero_below_cut_in(self):
         """Ct must be 0 below cut-in speed."""

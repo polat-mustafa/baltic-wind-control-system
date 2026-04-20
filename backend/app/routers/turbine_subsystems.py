@@ -29,13 +29,17 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from app.schemas.nacelle_subsystems import (
+    CableTwistStateResponse,
     CoolingStateResponse,
     HPUStateResponse,
     NacelleSubsystemsRequest,
     NacelleSubsystemsResponse,
     SafetyStateResponse,
+    UPSStateResponse,
 )
 from app.services.turbine_physics.nacelle_subsystems import (
+    CableTwistState,
+    UPSState,
     compute_cooling_state,
     compute_hpu_state,
     compute_nacelle_subsystems,
@@ -227,13 +231,9 @@ async def get_safety(
 # ── Private helpers ───────────────────────────────────────────────────────────
 
 
-def _cable_twist_to_response(state):  # type: ignore[no-untyped-def]
-    from app.schemas.nacelle_subsystems import CableTwistStateResponse
-
+def _cable_twist_to_response(state: CableTwistState) -> CableTwistStateResponse:
     return CableTwistStateResponse(**state.__dict__)
 
 
-def _ups_to_response(state):  # type: ignore[no-untyped-def]
-    from app.schemas.nacelle_subsystems import UPSStateResponse
-
+def _ups_to_response(state: UPSState) -> UPSStateResponse:
     return UPSStateResponse(**state.__dict__)

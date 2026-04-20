@@ -18,6 +18,7 @@
 
 import { memo, useRef } from "react";
 import { Group } from "three";
+import { useFrame } from "@react-three/fiber";
 
 import type { TurbinePartId } from "../../../../constants/turbinePartEducation";
 import { selectTurbine, useLandingStore } from "../../../../store/landingStore";
@@ -27,6 +28,7 @@ import { Cooler } from "./Cooler";
 import { Drivetrain } from "./Drivetrain";
 import { Monopile } from "./Monopile";
 import { Nacelle } from "./Nacelle";
+import { NacelleSubsystems } from "./NacelleSubsystems";
 import { Rotor } from "./Rotor";
 import { Tower } from "./Tower";
 import { YawAssembly } from "./YawAssembly";
@@ -39,6 +41,10 @@ interface V236TurbineProps {
   showHumanFigure?: boolean;
   overridePitch?: number;
   overrideRpm?: number;
+  /** Wind speed for sway/deflection amplitude (m/s). */
+  windMs?: number;
+  /** Blade surface vertex-color field mode. */
+  bladeFieldMode?: "off" | "thermal" | "pressure" | "strain";
 }
 
 export const V236Turbine = memo(function V236Turbine({
@@ -48,17 +54,32 @@ export const V236Turbine = memo(function V236Turbine({
   explodedOffset,
   overridePitch,
   overrideRpm,
+  windMs = 11,
+  bladeFieldMode = "off",
 }: V236TurbineProps) {
   const turbine = useLandingStore(selectTurbine(turbineId));
   const nacelleGroupRef = useRef<Group>(null);
+  const swayRef = useRef<Group>(null);
   const nacellePositionDeg = turbine?.nacellePositionDeg ?? 225;
 
   useYawRotation(nacelleGroupRef, nacellePositionDeg);
 
+  // Tower sway — first bending mode of 150 m monopile (T ≈ 3 s).
+  // Amplitude scales with wind²/rated² as a crude thrust proxy.
+  useFrame(({ clock }) => {
+    if (!swayRef.current) return;
+    const t = clock.getElapsedTime();
+    const amp = Math.min(1, (windMs / 11.1) ** 2);
+    // Very small rotation at the base — tip deflection ≈ 0.15 m.
+    const swayRad = Math.sin(t * (2 * Math.PI) / 3) * 0.0012 * amp;
+    swayRef.current.rotation.z = swayRad;
+    swayRef.current.rotation.x = Math.cos(t * (2 * Math.PI) / 3) * 0.0006 * amp;
+  });
+
   const showInternals = viewerMode === "cutaway" || viewerMode === "exploded";
 
   return (
-    <group>
+    <group ref={swayRef}>
       {/* Fixed structure */}
       <Monopile isSelected={selectedPart === "foundation"} />
       <Tower isSelected={selectedPart === "tower"} />
@@ -76,10 +97,15 @@ export const V236Turbine = memo(function V236Turbine({
         />
 
         {showInternals && (
-          <Drivetrain
-            selectedPart={selectedPart}
-            explodedOffset={explodedOffset}
-          />
+          <>
+            <Drivetrain
+              selectedPart={selectedPart}
+              explodedOffset={explodedOffset}
+            />
+            <NacelleSubsystems
+              selectedPart={selectedPart}
+            />
+          </>
         )}
 
         <Cooler isSelected={selectedPart === "cooler"} />
@@ -91,6 +117,7 @@ export const V236Turbine = memo(function V236Turbine({
           selectedPart={selectedPart}
           overridePitch={overridePitch}
           overrideRpm={overrideRpm}
+          fieldMode={bladeFieldMode}
         />
       </group>
     </group>

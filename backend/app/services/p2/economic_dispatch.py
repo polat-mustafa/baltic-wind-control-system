@@ -168,7 +168,7 @@ def generate_wind_forecast(
     # P ∝ v³, normalised to capacity
     speed_profile = mean_speed_ms * diurnal * noise
     # Simple power curve approximation
-    power_fraction = np.clip((speed_profile / 12.5) ** 3, 0.0, 1.0)
+    power_fraction = np.clip((speed_profile / 11.1) ** 3, 0.0, 1.0)
 
     available_mw = power_fraction * TOTAL_CAPACITY_MW
     result: NDArray[np.floating] = np.round(available_mw, 1).astype(np.float64)

@@ -20,7 +20,7 @@ Turbine: Vestas V236-15.0 MW
 -----------------------------
 - Rotor diameter: 236 m
 - Hub height: 150 m
-- Cut-in / rated / cut-out: 3 / 12.5 / 31 m/s
+- Cut-in / rated / cut-out: 3 / 11.1 / 31 m/s  (official Vestas spec)
 - Rated power: 15,000 kW (15 MW)
 
 References
@@ -44,11 +44,13 @@ ROTOR_DIAMETER_M: float = 236.0
 HUB_HEIGHT_M: float = 150.0
 RATED_POWER_KW: float = 15_000.0
 CUT_IN_SPEED_MS: float = 3.0
-RATED_SPEED_MS: float = 12.5
+RATED_SPEED_MS: float = 11.1  # Official Vestas V236-15.0 MW spec (wind-turbine-models.com)
 CUT_OUT_SPEED_MS: float = 31.0
 
 # Power curve data points [m/s, kW]
-# Based on V236-15.0 MW public specification (simplified for educational use)
+# Based on V236-15.0 MW public specification (simplified for educational use).
+# Rated wind speed corrected to 11.1 m/s (official Vestas spec).
+# Below-rated values recalculated using P ≈ 15000 × (v / 11.1)³ [kW].
 _POWER_CURVE_SPEEDS_MS: NDArray[np.floating] = np.array(
     [
         0.0,
@@ -63,6 +65,7 @@ _POWER_CURVE_SPEEDS_MS: NDArray[np.floating] = np.array(
         10.0,
         10.5,
         11.0,
+        11.1,  # Rated wind speed — power reaches 15 MW here
         11.5,
         12.0,
         12.5,
@@ -87,18 +90,17 @@ _POWER_CURVE_KW: NDArray[np.floating] = np.array(
     [
         0.0,
         0.0,
-        200.0,
-        700.0,
-        1500.0,
-        2700.0,
-        4200.0,
-        6100.0,
-        8300.0,
-        10500.0,
-        11400.0,
-        12400.0,
-        13300.0,
-        14200.0,
+        200.0,  # v=3.0: ~200 kW (cut-in, minimum self-excited power)
+        700.0,  # v=4.0: 15000 × (4/11.1)³ ≈ 692 kW
+        1400.0,  # v=5.0: 15000 × (5/11.1)³ ≈ 1354 kW
+        2400.0,  # v=6.0: 15000 × (6/11.1)³ ≈ 2347 kW
+        3700.0,  # v=7.0: 15000 × (7/11.1)³ ≈ 3712 kW
+        5600.0,  # v=8.0: 15000 × (8/11.1)³ ≈ 5553 kW
+        7900.0,  # v=9.0: 15000 × (9/11.1)³ ≈ 7904 kW
+        10900.0,  # v=10.0: 15000 × (10/11.1)³ ≈ 10893 kW
+        12600.0,  # v=10.5: 15000 × (10.5/11.1)³ ≈ 12588 kW
+        14500.0,  # v=11.0: 15000 × (11/11.1)³ ≈ 14539 kW
+        15000.0,  # v=11.1: rated power — Region 2/3 transition
         15000.0,
         15000.0,
         15000.0,
@@ -112,6 +114,8 @@ _POWER_CURVE_KW: NDArray[np.floating] = np.array(
         15000.0,
         15000.0,
         15000.0,
+        15000.0,
+        0.0,  # v=31.0: cut-out — safety shutdown
         0.0,
     ],
     dtype=np.float64,
@@ -132,6 +136,7 @@ _CT_CURVE_SPEEDS_MS: NDArray[np.floating] = np.array(
         10.0,
         10.5,
         11.0,
+        11.1,  # Rated wind speed — Ct peaks near here then drops with pitch regulation
         11.5,
         12.0,
         12.5,
@@ -166,6 +171,7 @@ _CT_CURVE_VALUES: NDArray[np.floating] = np.array(
         0.45,
         0.40,
         0.36,
+        0.35,  # v=11.1: rated — pitch regulation begins, Ct starts declining
         0.33,
         0.30,
         0.28,

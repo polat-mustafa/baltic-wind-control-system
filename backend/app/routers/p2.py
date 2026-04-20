@@ -437,7 +437,7 @@ class PPCStatusRequest(BaseModel):
 async def ppc_status_default() -> PPCStatusResponse:
     """Get PPC status at default operating conditions.
 
-    Returns a real-time snapshot of the PPC state at rated wind (12.5 m/s),
+    Returns a real-time snapshot of the PPC state at rated wind (11.1 m/s),
     all 34 turbines online, nominal frequency (50 Hz).
     """
     try:

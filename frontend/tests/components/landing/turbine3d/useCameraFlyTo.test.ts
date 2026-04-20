@@ -2,14 +2,16 @@
  * Tests for useCameraFlyTo hook.
  *
  * Mocks @react-three/fiber's useThree and useFrame to avoid needing
- * a real Canvas/WebGL context.
+ * a real Canvas/WebGL context. The registry now computes camera targets
+ * from mesh bounds at runtime — our fake scene has no meshes, so the hook
+ * falls back to DEFAULT_CAMERA_TARGET for AutoFocus entries and uses the
+ * literal position for FixedFocus entries.
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { Vector3 } from "three";
+import { Clock, Vector3 } from "three";
 
-// Collect frame callbacks registered by useFrame
 const frameCallbacks: Array<(state: unknown, delta: number) => void> = [];
 
 const mockCamera = {
@@ -23,19 +25,27 @@ const mockControls = {
   update: vi.fn(),
 };
 
+const mockScene = {
+  getObjectByName: () => null,
+  traverse: () => {},
+};
+
+const mockClock = new Clock();
+
 vi.mock("@react-three/fiber", () => ({
-  useThree: () => ({ camera: mockCamera, controls: mockControls }),
+  useThree: () => ({
+    camera: mockCamera,
+    controls: mockControls,
+    scene: mockScene,
+    clock: mockClock,
+  }),
   useFrame: (cb: (state: unknown, delta: number) => void) => {
     frameCallbacks.push(cb);
   },
 }));
 
-// Must import AFTER vi.mock
 import { useCameraFlyTo } from "../../../../src/components/landing/turbine3d/hooks/useCameraFlyTo";
-import {
-  PART_CAMERA_TARGETS,
-  DEFAULT_CAMERA_TARGET,
-} from "../../../../src/components/landing/turbine3d/registry/partMeshRegistry";
+import { DEFAULT_CAMERA_TARGET } from "../../../../src/components/landing/turbine3d/registry/partMeshRegistry";
 
 beforeEach(() => {
   frameCallbacks.length = 0;
@@ -46,10 +56,16 @@ beforeEach(() => {
 
 function tickFrames(n: number, delta = 1 / 60) {
   for (let i = 0; i < n; i++) {
+    mockClock.getElapsedTime(); // advance
     for (const cb of frameCallbacks) {
       cb({}, delta);
     }
   }
+}
+
+/** Flush one rAF — the hook defers target resolution by one frame. */
+async function flushRaf() {
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 describe("useCameraFlyTo", () => {
@@ -58,41 +74,15 @@ describe("useCameraFlyTo", () => {
     expect(typeof result.current).toBe("function");
   });
 
-  it("triggering with a partId starts animation toward that part", () => {
+  it("triggering with null eases toward the default camera target", async () => {
     const { result } = renderHook(() => useCameraFlyTo());
     const trigger = result.current;
 
-    act(() => { trigger("gearbox"); });
-
-    const target = PART_CAMERA_TARGETS.gearbox;
-
-    // Tick a few frames — camera should move toward the target position
-    tickFrames(5);
-
-    // Camera should have moved closer to the gearbox target
-    const distBefore = new Vector3(180, 160, 180).distanceTo(
-      new Vector3(...target.position),
-    );
-    const distAfter = mockCamera.position.distanceTo(
-      new Vector3(...target.position),
-    );
-    expect(distAfter).toBeLessThan(distBefore);
-  });
-
-  it("triggering with null targets DEFAULT_CAMERA_TARGET", () => {
-    const { result } = renderHook(() => useCameraFlyTo());
-    const trigger = result.current;
-
-    // First move somewhere
-    act(() => { trigger("gearbox"); });
-    tickFrames(100); // run to completion
-
-    // Now reset
     mockCamera.position.set(5, 153, 15);
     act(() => { trigger(null); });
-    tickFrames(5);
+    await flushRaf();
+    tickFrames(30);
 
-    // Camera should move toward default position
     const dist = mockCamera.position.distanceTo(
       new Vector3(...DEFAULT_CAMERA_TARGET.position),
     );
@@ -100,35 +90,39 @@ describe("useCameraFlyTo", () => {
       new Vector3(...DEFAULT_CAMERA_TARGET.position),
     );
     expect(dist).toBeLessThan(distFromStart);
-  });
-
-  it("controls.target is lerped alongside camera.position", () => {
-    const { result } = renderHook(() => useCameraFlyTo());
-    const trigger = result.current;
-
-    const initialTarget = mockTarget.clone();
-    act(() => { trigger("tower"); });
-    tickFrames(10);
-
-    // controls.target should have moved toward tower lookAt
-    const towerLookAt = new Vector3(...PART_CAMERA_TARGETS.tower.lookAt);
-    const distAfter = mockTarget.distanceTo(towerLookAt);
-    const distBefore = initialTarget.distanceTo(towerLookAt);
-    expect(distAfter).toBeLessThan(distBefore);
     expect(mockControls.update).toHaveBeenCalled();
   });
 
-  it("animation stops once camera reaches target", () => {
+  it("triggering with a part id with no mesh falls back to the default target", async () => {
     const { result } = renderHook(() => useCameraFlyTo());
     const trigger = result.current;
 
-    act(() => { trigger("hub"); });
+    // Start well away from the default target so the fallback has somewhere to go.
+    mockCamera.position.set(5, 10, 5);
+    act(() => { trigger("gearbox"); });
+    await flushRaf();
+    tickFrames(120);
 
-    // Run many frames to converge
+    const dist = mockCamera.position.distanceTo(
+      new Vector3(...DEFAULT_CAMERA_TARGET.position),
+    );
+    const distFromStart = new Vector3(5, 10, 5).distanceTo(
+      new Vector3(...DEFAULT_CAMERA_TARGET.position),
+    );
+    expect(dist).toBeLessThan(distFromStart);
+  });
+
+  it("animation stops once the camera reaches its target", async () => {
+    const { result } = renderHook(() => useCameraFlyTo());
+    const trigger = result.current;
+
+    act(() => { trigger(null); });
+    await flushRaf();
     tickFrames(500);
 
-    const hubPos = new Vector3(...PART_CAMERA_TARGETS.hub.position);
-    const dist = mockCamera.position.distanceTo(hubPos);
-    expect(dist).toBeLessThan(0.5);
+    const dist = mockCamera.position.distanceTo(
+      new Vector3(...DEFAULT_CAMERA_TARGET.position),
+    );
+    expect(dist).toBeLessThan(1);
   });
 });

@@ -397,8 +397,8 @@ This platform is designed against real offshore wind standards — the same ones
 
 This platform models a wind farm based on real Polish Baltic Sea projects:
 
-- **Baltic Power** (1.2 GW) — PGE Baltica / Orsted, under construction
-- **Baltyk 2 & 3** (1.4 GW) — Equinor / Polenergia, in development
+- **Baltic Power** (1.2 GW)
+- **Baltyk 2 & 3** (1.4 GW) 
 - **Educational scaling** — our 510 MW (34 x 15 MW) sits at a realistic project scale
 
 The parameters are real: 66 kV XLPE array cables, 220 kV HVAC export (45 km subsea + 5 km onshore), ±120 MVAR STATCOM with 50 MVAR shunt reactor, 50 MW/200 MWh BESS, PSE grid connection at 400 kV. Every number is traceable to published project data or IEC standards.

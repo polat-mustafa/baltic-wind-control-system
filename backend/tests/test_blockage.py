@@ -115,12 +115,12 @@ class TestBlockageEstimate:
         assert result.mean_ct > 0.0
 
     def test_mean_ct_at_rated(self):
-        """Mean Ct at rated wind speed (12.5 m/s) should be ~0.28."""
+        """Mean Ct at rated wind speed (11.1 m/s) should be ~0.35."""
         x = np.linspace(0, 10000, 34)
         y = np.zeros(34)
         y[::2] = 1000.0
-        result = estimate_blockage_loss_percent(34, x, y, mean_wind_speed_ms=12.5)
-        assert result.mean_ct == pytest.approx(0.28, abs=0.05)
+        result = estimate_blockage_loss_percent(34, x, y, mean_wind_speed_ms=11.1)
+        assert result.mean_ct == pytest.approx(0.35, abs=0.05)
 
     def test_method_name(self):
         """Method should be 'nygaard_2020'."""

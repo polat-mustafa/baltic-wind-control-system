@@ -31,10 +31,11 @@ interface RotorProps {
   selectedPart: TurbinePartId | null;
   overridePitch?: number;   // degrees: 0=fine pitch, 90=feathered
   overrideRpm?: number;     // rpm: 0=stopped
+  fieldMode?: "off" | "thermal" | "pressure" | "strain";
 }
 
 export const Rotor = memo(
-  forwardRef<Group, RotorProps>(function Rotor({ turbineId, selectedPart, overridePitch, overrideRpm }, ref) {
+  forwardRef<Group, RotorProps>(function Rotor({ turbineId, selectedPart, overridePitch, overrideRpm, fieldMode = "off" }, ref) {
     const turbine = useLandingStore(selectTurbine(turbineId));
     const rpm   = overrideRpm   ?? (turbine?.rotorSpeedRpm  ?? 0);
     const pitch = overridePitch ?? (turbine?.pitchAngleDeg  ?? 0);
@@ -60,21 +61,21 @@ export const Rotor = memo(
           {/* Blade 1 — pointing up */}
           <group rotation={[0, 0, 0]}>
             <group ref={b1Ref}>
-              <Blade isSelected={isBladeSelected} statusColor={statusColor} />
+              <Blade isSelected={isBladeSelected} statusColor={statusColor} fieldMode={fieldMode} />
             </group>
           </group>
 
           {/* Blade 2 — 120° offset */}
           <group rotation={[0, 0, (2 * Math.PI) / 3]}>
             <group ref={b2Ref}>
-              <Blade isSelected={isBladeSelected} statusColor={statusColor} />
+              <Blade isSelected={isBladeSelected} statusColor={statusColor} fieldMode={fieldMode} />
             </group>
           </group>
 
           {/* Blade 3 — 240° offset */}
           <group rotation={[0, 0, (4 * Math.PI) / 3]}>
             <group ref={b3Ref}>
-              <Blade isSelected={isBladeSelected} statusColor={statusColor} />
+              <Blade isSelected={isBladeSelected} statusColor={statusColor} fieldMode={fieldMode} />
             </group>
           </group>
         </group>

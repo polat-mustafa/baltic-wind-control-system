@@ -45,8 +45,8 @@ class TestTwinEngine:
     """Tests for twin_engine.py — steady-state predictions."""
 
     def test_run_twin_at_rated_wind(self):
-        """Twin at rated wind (12.5 m/s) should produce ~15 MW."""
-        pred = run_twin_at_operating_point(12.5, 0.0, num_steps=200)
+        """Twin at rated wind (11.1 m/s) should produce ~15 MW."""
+        pred = run_twin_at_operating_point(11.1, 0.0, num_steps=200)
         # At rated wind, power should be close to 15 MW
         assert pred.power_mw > 10.0, f"Power {pred.power_mw} too low at rated wind"
         assert pred.power_mw <= 15.0, f"Power {pred.power_mw} exceeds rated (Rule 1)"

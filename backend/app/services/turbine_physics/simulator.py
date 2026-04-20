@@ -70,6 +70,10 @@ from app.services.turbine_physics.rotor_dynamics import (
     compute_rotor_state,
     step_rotor_speed,
 )
+from app.services.turbine_physics.state_machine import (
+    TurbineOperatingState,
+    classify_wind_state,
+)
 from app.services.turbine_physics.yaw_control import (
     YawConfig,
     YawState,
@@ -159,14 +163,22 @@ class SimulationConfig:
 
 
 def _determine_status(wind_speed_ms: float, spec: TurbineSpec, is_shutdown: bool = False) -> str:
-    """Determine turbine operating status based on wind speed."""
+    """Determine turbine operating status using IEC 61400-1 state machine.
+
+    Delegates to ``classify_wind_state()`` which maps wind speed to the
+    appropriate IEC 61400-1 §7.4 state.  The returned string is the
+    TurbineOperatingState enum value (e.g. ``"power_production"``).
+
+    For full state-machine behaviour (faults, commands, overspeed) use
+    ``state_machine.next_state()`` directly with ``StateMachineInput``.
+    """
     if is_shutdown:
-        return "shutdown"
-    if wind_speed_ms < spec.cut_in_speed_ms:
-        return "below_cut_in"
-    if wind_speed_ms > spec.cut_out_speed_ms:
-        return "above_cut_out"
-    return "operating"
+        return TurbineOperatingState.EMERGENCY_SHUTDOWN.value
+    return classify_wind_state(
+        wind_speed_ms,
+        cut_in_ms=spec.cut_in_speed_ms,
+        cut_out_ms=spec.cut_out_speed_ms,
+    ).value
 
 
 def step_turbine(
@@ -200,7 +212,13 @@ def step_turbine(
     status = _determine_status(wind_speed_ms, config.spec)
 
     # ── Outside operating range → coast down ────────────────────────
-    if status in ("below_cut_in", "above_cut_out"):
+    # IEC 61400-1 states where turbine is not generating power:
+    #   PARKED_STANDBY  — wind below cut-in (DLC 6.x)
+    #   NORMAL_SHUTDOWN — wind above cut-out or operator command (DLC 4.x)
+    if status in (
+        TurbineOperatingState.PARKED_STANDBY.value,
+        TurbineOperatingState.NORMAL_SHUTDOWN.value,
+    ):
         # No aerodynamic power, generator disconnected
         yaw_state = step_yaw(prev_state.yaw.nacelle_dir_deg, wind_dir_deg, dt, config.yaw_config)
         aero_state = compute_aerodynamic_state(
@@ -340,7 +358,7 @@ def _build_initial_state(config: SimulationConfig) -> TurbineState:
         pitch=pitch,
         yaw=yaw,
         electrical_power_mw=0.0,
-        status="idle",
+        status=TurbineOperatingState.PARKED_STANDBY.value,
     )
 
 

@@ -40,6 +40,21 @@ const CLICK_ZONES: Record<TurbinePartId, ClickZone> = {
   yaw:          { shape: "circle", coords: [175, 170, 16] },
   tower:        { shape: "rect",   coords: [160, 150, 30, 62] },
   foundation:   { shape: "rect",   coords: [153, 204, 44, 30] },
+  // Interior nacelle components — not rendered in SVG cross-section
+  // (accessible only via 3D viewer cutaway mode).
+  // Zones are defined here to satisfy Record<TurbinePartId, ClickZone>.
+  bedplate:            { shape: "rect", coords: [146, 90, 140, 10] },
+  hpu:                 { shape: "rect", coords: [96,  88,  30,  8] },
+  control_cabinet:     { shape: "rect", coords: [268, 88,  30,  8] },
+  transformer:         { shape: "rect", coords: [268, 78,  28,  8] },
+  oil_cooler:          { shape: "rect", coords: [230, 90,  30,  8] },
+  coupling:            { shape: "rect", coords: [185, 90,  15,  8] },
+  ups:                 { shape: "rect", coords: [268, 88,  20,  6] },
+  crane_rail:          { shape: "rect", coords: [96,  62, 170,  4] },
+  yaw_brake:           { shape: "circle", coords: [175, 170, 6] },
+  cable_routing:       { shape: "rect", coords: [168, 160,  10, 25] },
+  fire_suppression:    { shape: "rect", coords: [155, 72,   8,  8] },
+  lightning_conductor: { shape: "rect", coords: [96,  60, 170,  3] },
 };
 
 // Render order: nacelle first (background catch-all), then specific parts on top.

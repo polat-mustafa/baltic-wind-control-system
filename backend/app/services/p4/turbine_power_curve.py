@@ -33,8 +33,8 @@ IEC 61400-12-1 defines the standard method for measuring power curves:
 
 The power curve has 4 distinct regions:
   Region 1: v < v_cut_in (3.0 m/s) → P = 0 (insufficient torque)
-  Region 2: v_cut_in ≤ v < v_rated (3.0-12.5 m/s) → P ∝ v³ (maximum energy capture)
-  Region 3: v_rated ≤ v ≤ v_cut_out (12.5-31.0 m/s) → P = P_rated (pitch-regulated)
+  Region 2: v_cut_in ≤ v < v_rated (3.0-11.1 m/s) → P ∝ v³ (maximum energy capture)
+  Region 3: v_rated ≤ v ≤ v_cut_out (11.1-31.0 m/s) → P = P_rated (pitch-regulated)
   Region 4: v > v_cut_out (31.0 m/s) → P = 0 (safety shutdown)
 
 Maths — V236-15.0 MW Parameters
@@ -44,7 +44,7 @@ Swept area: A = π × (236/2)² = π × 118² = 43,743.54 m²
 Hub height: 140 m (typical for Baltic Sea installation)
 Rated power: 15.0 MW
 Cut-in wind speed: 3.0 m/s
-Rated wind speed: 12.5 m/s
+Rated wind speed: 11.1 m/s  (official Vestas spec; source: wind-turbine-models.com)
 Cut-out wind speed: 31.0 m/s
 
 Air density at standard conditions:
@@ -99,11 +99,14 @@ class TurbineSpec:
     hub_height_m: float = 140.0
     rated_power_mw: float = 15.0
     cut_in_speed_ms: float = 3.0
-    rated_speed_ms: float = 12.5
+    rated_speed_ms: float = 11.1   # Official Vestas spec (wind-turbine-models.com)
     cut_out_speed_ms: float = 31.0
     num_blades: int = 3
     cp_max: float = 0.48  # Maximum power coefficient (Region 2)
     ct_rated: float = 0.28  # Thrust coefficient at rated wind speed
+    generator_voltage_v: float = 784.0   # PMSG terminal voltage [V] → 66 kV via nacelle transformer
+    gearbox_ratio: float = 48.0          # 3-stage planetary (ZF Wind Power); rotor 8.33 → gen 400 rpm
+    nacelle_mass_kg: float = 520_000.0   # Nacelle + hub + rotor approx. mass [kg]
 
 
 @dataclass(frozen=True)

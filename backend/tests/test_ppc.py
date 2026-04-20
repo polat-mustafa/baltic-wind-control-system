@@ -33,7 +33,7 @@ from app.services.p2.power_plant_controller import (
 
 
 class TestTurbinePowerCurve:
-    """V236-15.0 MW power curve: cut-in 3 m/s, rated 12.5 m/s, cut-out 31 m/s."""
+    """V236-15.0 MW power curve: cut-in 3 m/s, rated 11.1 m/s, cut-out 31 m/s."""
 
     def test_below_cut_in(self) -> None:
         assert _turbine_available_power(0.0) == 0.0

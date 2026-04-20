@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-
 # ── Request schema ────────────────────────────────────────────────────────────
 
 
@@ -42,8 +41,7 @@ class NacelleSubsystemsRequest(BaseModel):
         ge=0.0,
         le=90.0,
         description=(
-            "Current blade pitch angle [°]. "
-            "0° = fine pitch (max power), 90° = feathered (parked)."
+            "Current blade pitch angle [°]. 0° = fine pitch (max power), 90° = feathered (parked)."
         ),
     )
     accumulated_yaw_deg: float = Field(
@@ -111,8 +109,7 @@ class HPUStateResponse(BaseModel):
     )
     accumulator_pressure_bar: float = Field(
         description=(
-            "Bladder accumulator gas pressure [bar]. "
-            "Pre-charge: 140 bar (N₂). Working: 250 bar."
+            "Bladder accumulator gas pressure [bar]. Pre-charge: 140 bar (N₂). Working: 250 bar."
         )
     )
     accumulator_charge_pct: float = Field(
@@ -120,8 +117,7 @@ class HPUStateResponse(BaseModel):
     )
     pitch_cylinder_extension_pct: float = Field(
         description=(
-            "Blade pitch cylinder extension [%]. "
-            "0% = feathered (90°), 100% = fine pitch (0°)."
+            "Blade pitch cylinder extension [%]. 0% = feathered (90°), 100% = fine pitch (0°)."
         )
     )
     brake_caliper_pressure_bar: float = Field(
@@ -130,9 +126,7 @@ class HPUStateResponse(BaseModel):
             "250 bar = fully clamped (parked). 0 bar = released (operating)."
         )
     )
-    pump_running: bool = Field(
-        description="HPU pump is running to maintain system pressure."
-    )
+    pump_running: bool = Field(description="HPU pump is running to maintain system pressure.")
     iso_cleanliness_code: str = Field(
         description=(
             "ISO 4406:2021 hydraulic oil cleanliness code (e.g. '16/14/11'). "
@@ -155,9 +149,7 @@ class CoolingStateResponse(BaseModel):
             "Nominal: 65°C. Alarm: 75°C. Trip: 85°C → EMERGENCY_SHUTDOWN."
         )
     )
-    oil_temp_alarm: bool = Field(
-        description="Oil temperature ≥ 75°C alarm threshold."
-    )
+    oil_temp_alarm: bool = Field(description="Oil temperature ≥ 75°C alarm threshold.")
     oil_temp_trip: bool = Field(
         description="Oil temperature ≥ 85°C trip threshold — initiates emergency shutdown."
     )
@@ -173,9 +165,7 @@ class CoolingStateResponse(BaseModel):
             "Variable speed drive: proportional control to maintain 65°C setpoint."
         )
     )
-    ambient_temp_c: float = Field(
-        description="Ambient air temperature used for heat balance [°C]."
-    )
+    ambient_temp_c: float = Field(description="Ambient air temperature used for heat balance [°C].")
     viscosity_cst: float = Field(
         description=(
             "ISO VG 320 gear oil kinematic viscosity at current temperature [cSt]. "
@@ -191,9 +181,7 @@ class SafetyStateResponse(BaseModel):
     ice detection, fire detection, and lightning strikes.
     """
 
-    rotor_speed_rpm: float = Field(
-        description="Current rotor speed [rpm]. Rated: 8.33 rpm."
-    )
+    rotor_speed_rpm: float = Field(description="Current rotor speed [rpm]. Rated: 8.33 rpm.")
     overspeed_warning: bool = Field(
         description=(
             "Rotor speed > 110% rated (9.16 rpm). "
@@ -206,9 +194,7 @@ class SafetyStateResponse(BaseModel):
             "Centrifugal mechanical overspeed governor activated."
         )
     )
-    vibration_mm_s: float = Field(
-        description="Main bearing housing vibration velocity RMS [mm/s]."
-    )
+    vibration_mm_s: float = Field(description="Main bearing housing vibration velocity RMS [mm/s].")
     vibration_zone: str = Field(
         description=(
             "ISO 10816-21 vibration zone: "
@@ -218,12 +204,8 @@ class SafetyStateResponse(BaseModel):
             "D (>7.1 mm/s, risk of damage, emergency stop)."
         )
     )
-    vibration_alarm: bool = Field(
-        description="Vibration in Zone C or D — alarm active."
-    )
-    vibration_trip: bool = Field(
-        description="Vibration in Zone D — emergency shutdown initiated."
-    )
+    vibration_alarm: bool = Field(description="Vibration in Zone C or D — alarm active.")
+    vibration_trip: bool = Field(description="Vibration in Zone D — emergency shutdown initiated.")
     ice_detection_active: bool = Field(
         description=(
             "Ice detected on rotor blades. "
@@ -235,8 +217,7 @@ class SafetyStateResponse(BaseModel):
     )
     lightning_strike_count: int = Field(
         description=(
-            "Cumulative lightning strikes on this turbine. "
-            "IEC 62305 LPL I design current: 200 kA."
+            "Cumulative lightning strikes on this turbine. IEC 62305 LPL I design current: 200 kA."
         )
     )
 
@@ -263,9 +244,7 @@ class CableTwistStateResponse(BaseModel):
     hard_limit_reached: bool = Field(
         description="Accumulated yaw ≥ ±1260° (±3.5 turns) — forced untwist initiated."
     )
-    untwist_in_progress: bool = Field(
-        description="Cable untwist sequence currently executing."
-    )
+    untwist_in_progress: bool = Field(description="Cable untwist sequence currently executing.")
 
 
 class UPSStateResponse(BaseModel):
@@ -285,21 +264,15 @@ class UPSStateResponse(BaseModel):
             "t = E_battery × η_discharge / P_load. Rated: ~22 min at full load."
         )
     )
-    charging: bool = Field(
-        description="Battery is being actively charged from grid."
-    )
+    charging: bool = Field(description="Battery is being actively charged from grid.")
     on_battery: bool = Field(
         description="UPS is drawing from battery (grid loss or mains transfer)."
     )
-    load_kw: float = Field(
-        description="Current UPS load [kW]. Includes pitch, controls, lighting."
-    )
+    load_kw: float = Field(description="Current UPS load [kW]. Includes pitch, controls, lighting.")
     battery_voltage_v: float = Field(
         description="Battery terminal voltage [V]. Nominal: 48 V (float: 54 V)."
     )
-    alarm: bool = Field(
-        description="UPS fault or low-battery alarm (SOC < 20% or backup < 5 min)."
-    )
+    alarm: bool = Field(description="UPS fault or low-battery alarm (SOC < 20% or backup < 5 min).")
 
 
 # ── Aggregate response ────────────────────────────────────────────────────────
@@ -313,18 +286,14 @@ class NacelleSubsystemsResponse(BaseModel):
     """
 
     hpu: HPUStateResponse = Field(description="Hydraulic Power Unit state.")
-    cooling: CoolingStateResponse = Field(
-        description="Gearbox oil cooling and lubrication state."
-    )
+    cooling: CoolingStateResponse = Field(description="Gearbox oil cooling and lubrication state.")
     safety: SafetyStateResponse = Field(
         description="Safety systems: overspeed, vibration, ice, fire, lightning."
     )
     cable_twist: CableTwistStateResponse = Field(
         description="Cable twist counter and untwist status."
     )
-    ups: UPSStateResponse = Field(
-        description="Uninterruptible Power Supply state."
-    )
+    ups: UPSStateResponse = Field(description="Uninterruptible Power Supply state.")
     any_alarm: bool = Field(
         description="True if any subsystem has an active alarm or trip condition."
     )

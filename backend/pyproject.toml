@@ -64,6 +64,7 @@ select = [
     "RUF", # ruff-specific rules
 ]
 ignore = [
+    "RUF001", # ambiguous Unicode in strings (×, –, −, γ used in engineering formulas)
     "RUF002", # ambiguous Unicode in docstrings (×, α, ≈ used in engineering formulas)
     "RUF003", # ambiguous Unicode in comments (same reason)
     "B008",   # Depends() and Query() in FastAPI function signatures (standard pattern)
@@ -75,6 +76,13 @@ ignore = [
 "app/schemas/security.py" = ["E501"]
 "app/schemas/market.py" = ["E501"]
 "app/services/p2/market.py" = ["E501"]
+# FastAPI Query() descriptions and formula-heavy tests push past 100 cols
+"app/routers/turbine_subsystems.py" = ["E501"]
+"app/services/p4/turbine_power_curve.py" = ["E501"]
+"tests/test_nacelle_subsystems.py" = ["E501"]
+# Physics / engineering variable names (A, B for Walther; S as enum alias; T_K)
+"app/services/turbine_physics/nacelle_subsystems.py" = ["N806"]
+"app/services/turbine_physics/state_machine.py" = ["N806"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

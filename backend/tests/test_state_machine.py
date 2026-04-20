@@ -6,8 +6,6 @@ classifier used by the simulator.
 
 from __future__ import annotations
 
-import pytest
-
 from app.services.turbine_physics.state_machine import (
     StateMachineInput,
     TurbineOperatingState,
@@ -131,9 +129,7 @@ class TestPowerProductionTransitions:
 
     def test_overspeed_takes_priority_over_minor_fault(self) -> None:
         """Overspeed must override fault (priority rule)."""
-        result = next_state(
-            S.POWER_PRODUCTION, _inputs(fault=True, rpm=RATED_RPM * 1.15)
-        )
+        result = next_state(S.POWER_PRODUCTION, _inputs(fault=True, rpm=RATED_RPM * 1.15))
         assert result == S.EMERGENCY_SHUTDOWN
 
 
@@ -148,9 +144,7 @@ class TestPowerProductionFaultTransitions:
         assert result == S.POWER_PRODUCTION_FAULT
 
     def test_fault_cleared_returns_to_power_production(self) -> None:
-        result = next_state(
-            S.POWER_PRODUCTION_FAULT, _inputs(fault=False, fault_cleared=True)
-        )
+        result = next_state(S.POWER_PRODUCTION_FAULT, _inputs(fault=False, fault_cleared=True))
         assert result == S.POWER_PRODUCTION
 
     def test_critical_fault_goes_to_emergency_shutdown(self) -> None:

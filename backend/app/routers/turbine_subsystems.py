@@ -82,14 +82,22 @@ def _build_request_from_query(
 @router.get("/subsystems", response_model=NacelleSubsystemsResponse)
 async def get_subsystems(
     power_mw: float = Query(default=10.0, ge=0.0, le=15.0, description="Electrical output [MW]"),
-    ambient_temp_c: float = Query(default=15.0, ge=-30.0, le=50.0, description="Ambient temperature [°C]"),
+    ambient_temp_c: float = Query(
+        default=15.0, ge=-30.0, le=50.0, description="Ambient temperature [°C]"
+    ),
     rotor_speed_rpm: float = Query(default=7.5, ge=0.0, le=15.0, description="Rotor speed [rpm]"),
     pitch_deg: float = Query(default=5.0, ge=0.0, le=90.0, description="Blade pitch angle [°]"),
-    accumulated_yaw_deg: float = Query(default=90.0, ge=-1260.0, le=1260.0, description="Accumulated yaw [°]"),
+    accumulated_yaw_deg: float = Query(
+        default=90.0, ge=-1260.0, le=1260.0, description="Accumulated yaw [°]"
+    ),
     is_operating: bool = Query(default=True, description="Turbine in power production"),
     grid_available: bool = Query(default=True, description="Grid connection available"),
-    battery_soc_pct: float = Query(default=98.0, ge=0.0, le=100.0, description="UPS battery SOC [%]"),
-    vibration_mm_s: float = Query(default=1.5, ge=0.0, le=20.0, description="Vibration velocity RMS [mm/s]"),
+    battery_soc_pct: float = Query(
+        default=98.0, ge=0.0, le=100.0, description="UPS battery SOC [%]"
+    ),
+    vibration_mm_s: float = Query(
+        default=1.5, ge=0.0, le=20.0, description="Vibration velocity RMS [mm/s]"
+    ),
     ice_detection: bool = Query(default=False, description="Ice detected on rotor"),
     fire_alarm: bool = Query(default=False, description="Fire/smoke alarm active"),
     lightning_count: int = Query(default=0, ge=0, description="Cumulative lightning strike count"),
@@ -164,7 +172,9 @@ async def get_hpu(
 @router.get("/cooling", response_model=CoolingStateResponse)
 async def get_cooling(
     power_mw: float = Query(default=10.0, ge=0.0, le=15.0, description="Electrical output [MW]"),
-    ambient_temp_c: float = Query(default=15.0, ge=-30.0, le=50.0, description="Ambient temperature [°C]"),
+    ambient_temp_c: float = Query(
+        default=15.0, ge=-30.0, le=50.0, description="Ambient temperature [°C]"
+    ),
 ) -> CoolingStateResponse:
     """Return gearbox cooling and lubrication system state.
 
@@ -185,7 +195,9 @@ async def get_cooling(
 async def get_safety(
     rotor_speed_rpm: float = Query(default=7.5, ge=0.0, le=15.0, description="Rotor speed [rpm]"),
     power_mw: float = Query(default=10.0, ge=0.0, le=15.0, description="Electrical output [MW]"),
-    vibration_mm_s: float = Query(default=1.5, ge=0.0, le=20.0, description="Vibration velocity RMS [mm/s]"),
+    vibration_mm_s: float = Query(
+        default=1.5, ge=0.0, le=20.0, description="Vibration velocity RMS [mm/s]"
+    ),
     ice_detection: bool = Query(default=False, description="Ice detected on rotor"),
     fire_alarm: bool = Query(default=False, description="Fire/smoke alarm active"),
     lightning_count: int = Query(default=0, ge=0, description="Cumulative lightning strike count"),

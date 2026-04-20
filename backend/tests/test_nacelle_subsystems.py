@@ -7,18 +7,12 @@ and the FastAPI nacelle endpoints.
 
 from __future__ import annotations
 
-import math
-
 import pytest
 from fastapi.testclient import TestClient
 
 from app.services.turbine_physics.nacelle_subsystems import (
     CABLE_TWIST_HARD_LIMIT_DEG,
     CABLE_TWIST_SOFT_LIMIT_DEG,
-    COOLER_UA_W_PER_K,
-    GEARBOX_EFFICIENCY,
-    GEARBOX_OIL_ALARM_TEMP_C,
-    GEARBOX_OIL_NOMINAL_TEMP_C,
     GEARBOX_OIL_TRIP_TEMP_C,
     HPU_NOMINAL_PRESSURE_BAR,
     HPU_PRECHARGE_PRESSURE_BAR,
@@ -29,8 +23,6 @@ from app.services.turbine_physics.nacelle_subsystems import (
     UPS_DISCHARGE_EFFICIENCY,
     UPS_LOAD_POWER_KW,
     VIBRATION_ZONE_A_MAX_MM_S,
-    VIBRATION_ZONE_B_MAX_MM_S,
-    VIBRATION_ZONE_C_MAX_MM_S,
     compute_cable_twist_state,
     compute_cooling_state,
     compute_hpu_state,
@@ -39,7 +31,6 @@ from app.services.turbine_physics.nacelle_subsystems import (
     compute_safety_state,
     compute_ups_state,
 )
-
 
 # ── HPU tests ─────────────────────────────────────────────────────────────────
 
@@ -197,39 +188,37 @@ class TestSafetyState:
 
     def test_overspeed_warning_threshold_exact(self) -> None:
         """Warning triggers at > 110% rated (> 9.163 rpm)."""
-        assert OVERSPEED_WARNING_RPM == pytest.approx(RATED_ROTOR_SPEED_RPM * 1.10, abs=0.01)
+        assert pytest.approx(RATED_ROTOR_SPEED_RPM * 1.10, abs=0.01) == OVERSPEED_WARNING_RPM
 
     def test_overspeed_hardware_threshold_exact(self) -> None:
         """Hardware governor triggers at > 120% rated (> 9.996 rpm)."""
-        assert OVERSPEED_HARDWARE_RPM == pytest.approx(RATED_ROTOR_SPEED_RPM * 1.20, abs=0.01)
+        assert pytest.approx(RATED_ROTOR_SPEED_RPM * 1.20, abs=0.01) == OVERSPEED_HARDWARE_RPM
 
     def test_vibration_zone_a(self) -> None:
         """Vibration ≤ 2.3 mm/s → Zone A (new equipment acceptance)."""
-        state = compute_safety_state(rotor_speed_rpm=8.0, power_mw=0.0,
-                                     vibration_mm_s=VIBRATION_ZONE_A_MAX_MM_S - 0.1)
+        state = compute_safety_state(
+            rotor_speed_rpm=8.0, power_mw=0.0, vibration_mm_s=VIBRATION_ZONE_A_MAX_MM_S - 0.1
+        )
         assert state.vibration_zone == "A"
         assert not state.vibration_alarm
         assert not state.vibration_trip
 
     def test_vibration_zone_b(self) -> None:
         """Vibration 2.3–4.5 mm/s → Zone B (unrestricted operation)."""
-        state = compute_safety_state(rotor_speed_rpm=8.0, power_mw=0.0,
-                                     vibration_mm_s=3.5)
+        state = compute_safety_state(rotor_speed_rpm=8.0, power_mw=0.0, vibration_mm_s=3.5)
         assert state.vibration_zone == "B"
         assert not state.vibration_alarm
 
     def test_vibration_zone_c_triggers_alarm(self) -> None:
         """Vibration 4.5–7.1 mm/s → Zone C (alarm, plan maintenance)."""
-        state = compute_safety_state(rotor_speed_rpm=8.0, power_mw=0.0,
-                                     vibration_mm_s=6.0)
+        state = compute_safety_state(rotor_speed_rpm=8.0, power_mw=0.0, vibration_mm_s=6.0)
         assert state.vibration_zone == "C"
         assert state.vibration_alarm
         assert not state.vibration_trip
 
     def test_vibration_zone_d_triggers_trip(self) -> None:
         """Vibration > 7.1 mm/s → Zone D (emergency stop)."""
-        state = compute_safety_state(rotor_speed_rpm=8.0, power_mw=0.0,
-                                     vibration_mm_s=8.0)
+        state = compute_safety_state(rotor_speed_rpm=8.0, power_mw=0.0, vibration_mm_s=8.0)
         assert state.vibration_zone == "D"
         assert state.vibration_alarm
         assert state.vibration_trip
@@ -248,8 +237,7 @@ class TestSafetyState:
 
     def test_vibration_zone_a_at_rated_power(self) -> None:
         """Rated operation with normal vibration stays in Zone A."""
-        state = compute_safety_state(rotor_speed_rpm=8.33, power_mw=15.0,
-                                     vibration_mm_s=1.5)
+        state = compute_safety_state(rotor_speed_rpm=8.33, power_mw=15.0, vibration_mm_s=1.5)
         assert state.vibration_zone == "A"
 
 
@@ -320,7 +308,9 @@ class TestUPSState:
     def test_backup_time_calculation(self) -> None:
         """t_backup = 6.6 kWh × 0.85 / 15 kW × 60 min ≈ 22.4 min at 100% SOC."""
         state = compute_ups_state(grid_available=True, soc_pct=100.0)
-        expected_min = UPS_BATTERY_CAPACITY_KWH * UPS_DISCHARGE_EFFICIENCY / UPS_LOAD_POWER_KW * 60.0
+        expected_min = (
+            UPS_BATTERY_CAPACITY_KWH * UPS_DISCHARGE_EFFICIENCY / UPS_LOAD_POWER_KW * 60.0
+        )
         assert state.backup_time_min == pytest.approx(expected_min, abs=0.5)
 
     def test_backup_time_scales_with_soc(self) -> None:
@@ -448,9 +438,7 @@ class TestNacelleAPI:
     def test_safety_overspeed_via_query_param(self, client: TestClient) -> None:
         """Pass overspeed RPM via query parameter and verify warning flag."""
         speed = RATED_ROTOR_SPEED_RPM * 1.15
-        data = client.get(
-            f"/api/v1/turbine-sim/nacelle/safety?rotor_speed_rpm={speed}"
-        ).json()
+        data = client.get(f"/api/v1/turbine-sim/nacelle/safety?rotor_speed_rpm={speed}").json()
         assert data["overspeed_warning"] is True
 
     def test_cooling_high_ambient_via_query_param(self, client: TestClient) -> None:
@@ -478,7 +466,5 @@ class TestNacelleAPI:
         assert data["any_alarm"] is False
 
     def test_subsystems_any_alarm_true_on_fire(self, client: TestClient) -> None:
-        data = client.get(
-            "/api/v1/turbine-sim/nacelle/subsystems?fire_alarm=true"
-        ).json()
+        data = client.get("/api/v1/turbine-sim/nacelle/subsystems?fire_alarm=true").json()
         assert data["any_alarm"] is True

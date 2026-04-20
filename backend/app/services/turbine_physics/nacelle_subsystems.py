@@ -92,9 +92,9 @@ OVERSPEED_WARNING_RPM: float = RATED_ROTOR_SPEED_RPM * 1.10  # 9.16 rpm
 OVERSPEED_HARDWARE_RPM: float = RATED_ROTOR_SPEED_RPM * 1.20  # 10.0 rpm
 
 # ISO 10816-21 vibration zones (velocity RMS, mm/s)
-VIBRATION_ZONE_A_MAX_MM_S: float = 2.3   # New equipment acceptance
-VIBRATION_ZONE_B_MAX_MM_S: float = 4.5   # Unrestricted long-term operation
-VIBRATION_ZONE_C_MAX_MM_S: float = 7.1   # Restricted operation, plan maintenance
+VIBRATION_ZONE_A_MAX_MM_S: float = 2.3  # New equipment acceptance
+VIBRATION_ZONE_B_MAX_MM_S: float = 4.5  # Unrestricted long-term operation
+VIBRATION_ZONE_C_MAX_MM_S: float = 7.1  # Restricted operation, plan maintenance
 # Zone D: above 7.1 → risk of damage, emergency shutdown
 
 # UPS
@@ -319,9 +319,10 @@ def compute_hpu_state(
     else:
         # Accumulator keeping pitch/brake alive without pump
         charge_fraction = max(0.3, 1.0 - pitch_deg / 90.0)
-        line_pressure = HPU_PRECHARGE_PRESSURE_BAR + (
-            HPU_NOMINAL_PRESSURE_BAR - HPU_PRECHARGE_PRESSURE_BAR
-        ) * charge_fraction
+        line_pressure = (
+            HPU_PRECHARGE_PRESSURE_BAR
+            + (HPU_NOMINAL_PRESSURE_BAR - HPU_PRECHARGE_PRESSURE_BAR) * charge_fraction
+        )
 
     # Accumulator pressure: adiabatic discharge model
     # At 250 bar (working) → 140 bar (pre-charge) represents 0→100% discharge
@@ -357,8 +358,7 @@ def compute_hpu_state(
     return HPUState(
         line_pressure_bar=round(line_pressure, 1),
         accumulator_pressure_bar=round(
-            HPU_PRECHARGE_PRESSURE_BAR
-            + (p_work - HPU_PRECHARGE_PRESSURE_BAR) * charge_pct / 100.0,
+            HPU_PRECHARGE_PRESSURE_BAR + (p_work - HPU_PRECHARGE_PRESSURE_BAR) * charge_pct / 100.0,
             1,
         ),
         accumulator_charge_pct=round(charge_pct, 1),
@@ -620,8 +620,9 @@ def compute_nacelle_subsystems(
     return NacelleSubsystemsState(
         hpu=compute_hpu_state(power_mw, is_operating, pitch_deg),
         cooling=compute_cooling_state(power_mw, ambient_temp_c),
-        safety=compute_safety_state(rotor_speed_rpm, power_mw, vibration_mm_s,
-                                    ice_detection, fire_alarm, lightning_count),
+        safety=compute_safety_state(
+            rotor_speed_rpm, power_mw, vibration_mm_s, ice_detection, fire_alarm, lightning_count
+        ),
         cable_twist=compute_cable_twist_state(accumulated_yaw_deg),
         ups=compute_ups_state(grid_available, battery_soc_pct),
     )

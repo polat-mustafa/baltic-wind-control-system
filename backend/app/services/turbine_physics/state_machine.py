@@ -42,13 +42,12 @@ given a current state and inputs, it returns the next state.  No side effects.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
-
+from enum import StrEnum
 
 # ── State enum ─────────────────────────────────────────────────────────────
 
 
-class TurbineOperatingState(str, Enum):
+class TurbineOperatingState(StrEnum):
     """IEC 61400-1 turbine operating states (§7.4).
 
     The string value is the IEC 61400-25-2 SCADA status code used in the

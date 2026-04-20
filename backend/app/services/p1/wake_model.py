@@ -65,7 +65,7 @@ _POWER_CURVE_SPEEDS_MS: NDArray[np.floating] = np.array(
         10.0,
         10.5,
         11.0,
-        11.1,   # Rated wind speed — power reaches 15 MW here
+        11.1,  # Rated wind speed — power reaches 15 MW here
         11.5,
         12.0,
         12.5,
@@ -90,13 +90,13 @@ _POWER_CURVE_KW: NDArray[np.floating] = np.array(
     [
         0.0,
         0.0,
-        200.0,    # v=3.0: ~200 kW (cut-in, minimum self-excited power)
-        700.0,    # v=4.0: 15000 × (4/11.1)³ ≈ 692 kW
-        1400.0,   # v=5.0: 15000 × (5/11.1)³ ≈ 1354 kW
-        2400.0,   # v=6.0: 15000 × (6/11.1)³ ≈ 2347 kW
-        3700.0,   # v=7.0: 15000 × (7/11.1)³ ≈ 3712 kW
-        5600.0,   # v=8.0: 15000 × (8/11.1)³ ≈ 5553 kW
-        7900.0,   # v=9.0: 15000 × (9/11.1)³ ≈ 7904 kW
+        200.0,  # v=3.0: ~200 kW (cut-in, minimum self-excited power)
+        700.0,  # v=4.0: 15000 × (4/11.1)³ ≈ 692 kW
+        1400.0,  # v=5.0: 15000 × (5/11.1)³ ≈ 1354 kW
+        2400.0,  # v=6.0: 15000 × (6/11.1)³ ≈ 2347 kW
+        3700.0,  # v=7.0: 15000 × (7/11.1)³ ≈ 3712 kW
+        5600.0,  # v=8.0: 15000 × (8/11.1)³ ≈ 5553 kW
+        7900.0,  # v=9.0: 15000 × (9/11.1)³ ≈ 7904 kW
         10900.0,  # v=10.0: 15000 × (10/11.1)³ ≈ 10893 kW
         12600.0,  # v=10.5: 15000 × (10.5/11.1)³ ≈ 12588 kW
         14500.0,  # v=11.0: 15000 × (11/11.1)³ ≈ 14539 kW
@@ -115,7 +115,7 @@ _POWER_CURVE_KW: NDArray[np.floating] = np.array(
         15000.0,
         15000.0,
         15000.0,
-        0.0,      # v=31.0: cut-out — safety shutdown
+        0.0,  # v=31.0: cut-out — safety shutdown
         0.0,
     ],
     dtype=np.float64,
@@ -136,7 +136,7 @@ _CT_CURVE_SPEEDS_MS: NDArray[np.floating] = np.array(
         10.0,
         10.5,
         11.0,
-        11.1,   # Rated wind speed — Ct peaks near here then drops with pitch regulation
+        11.1,  # Rated wind speed — Ct peaks near here then drops with pitch regulation
         11.5,
         12.0,
         12.5,
@@ -171,7 +171,7 @@ _CT_CURVE_VALUES: NDArray[np.floating] = np.array(
         0.45,
         0.40,
         0.36,
-        0.35,   # v=11.1: rated — pitch regulation begins, Ct starts declining
+        0.35,  # v=11.1: rated — pitch regulation begins, Ct starts declining
         0.33,
         0.30,
         0.28,

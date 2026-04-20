@@ -19,7 +19,7 @@ When Q_aero < Q_gen + Q_friction, the rotor decelerates.
 Standards Layer
 ───────────────
 - IEC 61400-1: Design requirements for wind turbines
-- V236-15.0 MW: rotor speed range 4.0–8.6 rpm (variable speed)
+- V236-15.0 MW: rotor speed range 4.0–8.33 rpm (variable speed, 48:1 gearbox → 400 rpm gen)
 
 Maths Layer
 ───────────
@@ -58,8 +58,14 @@ the rotor from spinning indefinitely with zero wind.
 MIN_ROTOR_SPEED_RPM: float = 4.0
 """Minimum rotor speed [rpm].  Below this, the generator disconnects."""
 
-MAX_ROTOR_SPEED_RPM: float = 8.6
-"""Maximum rotor speed [rpm].  V236 rated rotor speed at 12.5 m/s."""
+MAX_ROTOR_SPEED_RPM: float = 8.33
+"""Maximum rotor speed [rpm].  V236 rated rotor speed at 11.1 m/s.
+
+Derived from generator max speed / gearbox ratio:
+    ω_rotor_max = 400 rpm / 48 = 8.333 rpm
+
+Source: Vestas V236-15.0 MW product spec; wind-turbine-models.com.
+"""
 
 
 # ── Data containers ────────────────────────────────────────────────────
@@ -145,8 +151,8 @@ def compute_kinetic_energy_mj(
 
     E = ½ · J · ω²
 
-    At rated speed (8.6 rpm ≈ 0.9 rad/s) with J = 160e6 kg·m²:
-    E = ½ × 160e6 × 0.9² ≈ 64.8 MJ ≈ 18 kWh
+    At rated speed (8.33 rpm ≈ 0.872 rad/s) with J = 160e6 kg·m²:
+    E = ½ × 160e6 × 0.872² ≈ 60.8 MJ ≈ 16.9 kWh
 
     This stored energy provides short-term ride-through capability
     during wind gusts and grid disturbances.

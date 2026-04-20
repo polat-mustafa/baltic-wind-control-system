@@ -14,7 +14,7 @@
  *   66 kV Busbar → CB-DS per string → 6 strings × WTG IEDs
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -447,12 +447,40 @@ export default function SubstationSLD() {
     return buildGraph(substationSummary.devices, breakerStates, faultHighlightNodeId, turbineSLDMap, alarmNodeMap);
   }, [substationSummary, breakerStates, faultHighlightNodeId, turbineSLDMap, alarmNodeMap]);
 
+  const rfRef = useRef<{ fitView: () => void } | null>(null);
+  const sldContainerRef = useRef<HTMLDivElement>(null);
+
   const onInit = useCallback(
     (instance: { fitView: () => void }) => {
+      rfRef.current = instance;
       instance.fitView();
     },
     [],
   );
+
+  // Re-fit the diagram when the container resizes (window resize, layout shifts,
+  // tab activation). Without this, ReactFlow's internal viewport stays at the
+  // mount-time dimensions and nodes get clipped or float in dead space.
+  useEffect(() => {
+    const el = sldContainerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let firstFire = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new ResizeObserver(() => {
+      if (firstFire) { firstFire = false; return; }
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        if ((sldContainerRef.current?.clientWidth ?? 0) > 0) {
+          rfRef.current?.fitView();
+        }
+      }, 120);
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     // If it's a circuit breaker, toggle it
@@ -495,7 +523,7 @@ export default function SubstationSLD() {
           ))}
         </div>
       </div>
-      <div style={{ height: "calc(100% - 34px)" }}>
+      <div ref={sldContainerRef} style={{ height: "calc(100% - 34px)" }}>
         <ReactFlow
           nodes={graph.nodes}
           edges={graph.edges}

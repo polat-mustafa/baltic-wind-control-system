@@ -81,7 +81,7 @@ export default function SCADADashboard() {
   return (
     <div className="flex flex-col gap-3 h-full">
       {/* Top half: SLD + Alarms side by side */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-3" style={{ minHeight: 400 }}>
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-3 h-[480px]">
         {/* SLD — takes 3/5 width */}
         <div className="xl:col-span-3">
           <SubstationSLD />

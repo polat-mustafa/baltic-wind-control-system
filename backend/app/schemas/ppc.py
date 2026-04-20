@@ -315,7 +315,7 @@ class PPCSimulationRequest(BaseModel):
         ReactivePowerMode.VOLTAGE_CONTROL,
         description="Reactive power control mode",
     )
-    wind_speed_ms: float = Field(12.5, ge=0.0, le=50.0, description="Hub-height wind speed [m/s]")
+    wind_speed_ms: float = Field(11.1, ge=0.0, le=50.0, description="Hub-height wind speed [m/s]")
     available_turbines: int = Field(34, ge=0, le=34, description="Number of online turbines")
     initial_power_mw: float = Field(
         510.0, ge=0.0, le=510.0, description="Current farm output before dispatch [MW]"

@@ -288,19 +288,73 @@ interface LandingState {
   // ── 3D viewer state ─────────────────────────────────────────────
   selectedTurbinePart: import("../constants/turbinePartEducation").TurbinePartId | null;
   viewerMode: "normal" | "cutaway" | "exploded";
+  /** 3D scene vs. 2D isometric schematic (Phase 3.3) */
+  interiorView: "3d" | "schematic";
   showAnnotationLayer: boolean;
+  /** D1 — thermal temperature colour overlay */
+  showThermalOverlay: boolean;
+  /** D2 — CMS sensor marker spheres */
+  showSensorMarkers: boolean;
+  /** D3 — power flow particle animation */
+  showPowerFlow: boolean;
+  /** D5 — wind-field visualization (freestream arrow, streamlines, wake ribbon) */
+  showWindField: boolean;
+  /** D5 — Pythagorean apparent-wind triangle at blade radii */
+  showWindTriangle: boolean;
+  /** D6 — blade surface vertex-color field (off | thermal | pressure-Cp | strain) */
+  bladeFieldMode: "off" | "thermal" | "pressure" | "strain";
+  /** D7 — power-loss cascade HUD (Sankey-style breakdown) */
+  showLossHUD: boolean;
+  /** D8 — Cp(λ, β) mini-plot */
+  showCpWidget: boolean;
+  /** Scene environment — sun position driven by simulated time (0..24 h). */
+  timeOfDay: number;
+  /** Scene environment — sky preset (weather / time-of-day atmosphere). */
+  skyPreset: "overcast" | "golden" | "night";
   setSelectedTurbinePart: (id: import("../constants/turbinePartEducation").TurbinePartId | null) => void;
   setViewerMode: (mode: "normal" | "cutaway" | "exploded") => void;
+  setInteriorView: (v: "3d" | "schematic") => void;
   setShowAnnotationLayer: (visible: boolean) => void;
+  setShowThermalOverlay: (v: boolean) => void;
+  setShowSensorMarkers: (v: boolean) => void;
+  setShowPowerFlow: (v: boolean) => void;
+  setShowWindField: (v: boolean) => void;
+  setShowWindTriangle: (v: boolean) => void;
+  setBladeFieldMode: (m: "off" | "thermal" | "pressure" | "strain") => void;
+  setShowLossHUD: (v: boolean) => void;
+  setShowCpWidget: (v: boolean) => void;
+  setTimeOfDay: (hour: number) => void;
+  setSkyPreset: (p: "overcast" | "golden" | "night") => void;
 
   startSimulation: () => void;
   stopSimulation: () => void;
+
+  /** Reset all 3D viewer state (overlays, modes, sky, selection) to defaults. */
+  resetViewerDefaults: () => void;
 
   /** Set a turbine to fault state (called by faultBus sync from SCADA). */
   setTurbineFault: (turbineId: string, faultType: TurbineFaultType) => void;
   /** Clear a turbine fault back to operating (called by faultBus sync from SCADA). */
   clearTurbineFault: (turbineId: string) => void;
 }
+
+// ── Viewer defaults — single source for the Reset button ───────
+
+const VIEWER_DEFAULTS = {
+  selectedTurbinePart: null,
+  viewerMode: "normal" as const,
+  interiorView: "3d" as const,
+  showAnnotationLayer: false,
+  showThermalOverlay: false,
+  showSensorMarkers: false,
+  showPowerFlow: false,
+  showWindField: false,
+  showWindTriangle: false,
+  bladeFieldMode: "off" as const,
+  showLossHUD: false,
+  showCpWidget: false,
+  skyPreset: "overcast" as const,
+};
 
 // ── Store Implementation ────────────────────────────────────────
 
@@ -316,12 +370,22 @@ export const useLandingStore = create<LandingState>((set) => {
     environment: computeEnvironment(11.0, 0),
 
     // ── 3D viewer state ────────────────────────────────────────────
-    selectedTurbinePart: null,
-    viewerMode: "normal",
-    showAnnotationLayer: false,
+    ...VIEWER_DEFAULTS,
+    timeOfDay: 14,          // default mid-afternoon (sim-driven, not in VIEWER_DEFAULTS)
     setSelectedTurbinePart: (id) => set({ selectedTurbinePart: id }),
     setViewerMode: (mode) => set({ viewerMode: mode }),
+    setInteriorView: (v) => set({ interiorView: v }),
     setShowAnnotationLayer: (visible) => set({ showAnnotationLayer: visible }),
+    setShowThermalOverlay: (v) => set({ showThermalOverlay: v }),
+    setShowSensorMarkers: (v) => set({ showSensorMarkers: v }),
+    setShowPowerFlow: (v) => set({ showPowerFlow: v }),
+    setShowWindField: (v) => set({ showWindField: v }),
+    setShowWindTriangle: (v) => set({ showWindTriangle: v }),
+    setBladeFieldMode: (m) => set({ bladeFieldMode: m }),
+    setShowLossHUD: (v) => set({ showLossHUD: v }),
+    setShowCpWidget: (v) => set({ showCpWidget: v }),
+    setTimeOfDay: (hour) => set({ timeOfDay: Math.max(0, Math.min(24, hour)) }),
+    setSkyPreset: (p) => set({ skyPreset: p }),
 
     setTurbineFault: (turbineId, faultType) =>
       set((state) => {
@@ -519,6 +583,8 @@ export const useLandingStore = create<LandingState>((set) => {
       // Stopping caused race conditions with React Strict Mode and page navigation
       // where unmount/remount timing would kill the interval permanently.
     },
+
+    resetViewerDefaults: () => set(VIEWER_DEFAULTS),
   };
 });
 
@@ -539,9 +605,20 @@ export const selectCable = (state: LandingState) => state.cable;
 export const selectEnvironment = (state: LandingState) => state.environment;
 
 // ── 3D viewer selectors ─────────────────────────────────────────
-export const selectTurbinePart    = (state: LandingState) => state.selectedTurbinePart;
-export const selectViewerMode     = (state: LandingState) => state.viewerMode;
-export const selectAnnotationFlag = (state: LandingState) => state.showAnnotationLayer;
+export const selectTurbinePart       = (state: LandingState) => state.selectedTurbinePart;
+export const selectViewerMode        = (state: LandingState) => state.viewerMode;
+export const selectInteriorView      = (state: LandingState) => state.interiorView;
+export const selectAnnotationFlag    = (state: LandingState) => state.showAnnotationLayer;
+export const selectThermalOverlay    = (state: LandingState) => state.showThermalOverlay;
+export const selectSensorMarkers     = (state: LandingState) => state.showSensorMarkers;
+export const selectPowerFlow         = (state: LandingState) => state.showPowerFlow;
+export const selectWindField         = (state: LandingState) => state.showWindField;
+export const selectWindTriangle      = (state: LandingState) => state.showWindTriangle;
+export const selectBladeFieldMode    = (state: LandingState) => state.bladeFieldMode;
+export const selectLossHUD           = (state: LandingState) => state.showLossHUD;
+export const selectCpWidget          = (state: LandingState) => state.showCpWidget;
+export const selectTimeOfDay         = (state: LandingState) => state.timeOfDay;
+export const selectSkyPreset         = (state: LandingState) => state.skyPreset;
 
 // ── SLD-specific memoized selector ──────────────────────────────
 // Extracts only fields SubstationSLD actually reads (power, wind, status).

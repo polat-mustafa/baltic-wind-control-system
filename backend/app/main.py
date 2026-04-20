@@ -33,6 +33,7 @@ from app.routers.p3 import router as p3_router  # noqa: E402
 from app.routers.p4 import router as p4_router  # noqa: E402
 from app.routers.p5 import router as p5_router  # noqa: E402
 from app.routers.turbine_physics import router as turbine_physics_router  # noqa: E402
+from app.routers.turbine_subsystems import router as turbine_subsystems_router  # noqa: E402
 from app.seed import seed_default_farm  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,7 @@ app.include_router(p3_router)
 app.include_router(p4_router)
 app.include_router(p5_router)
 app.include_router(turbine_physics_router)
+app.include_router(turbine_subsystems_router)
 app.include_router(digital_twin_router)
 
 

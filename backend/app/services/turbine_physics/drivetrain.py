@@ -5,7 +5,7 @@ Physics Layer
 The drivetrain converts low-speed rotor rotation into high-speed generator
 rotation, then into electrical power:
 
-    Rotor (8.6 rpm) → Gearbox (×36) → Generator (309.6 rpm) → Grid
+    Rotor (8.33 rpm) → Gearbox (×48) → Generator (400 rpm) → Grid
 
 Power losses occur at each stage:
     P_elec = P_mech × η_gearbox × η_generator
@@ -13,7 +13,7 @@ Power losses occur at each stage:
 Standards Layer
 ───────────────
 - IEC 61400-4: Design requirements for wind turbine gearboxes
-- V236-15.0 MW uses a medium-speed drivetrain (ratio ≈ 1:36)
+- V236-15.0 MW uses a 3-stage planetary gearbox (ZF Wind Power, ratio 1:48)
 
 Maths Layer
 ───────────
@@ -36,12 +36,36 @@ from app.services.turbine_physics.rotor_dynamics import rpm_to_rad_s
 
 # ── V236-15.0 MW drivetrain constants ───────────────────────────────────
 
-GEARBOX_RATIO: float = 36.0
+GEARBOX_RATIO: float = 48.0
 """Gearbox speed-up ratio (output/input).
 
-The V236 medium-speed drivetrain multiplies rotor speed by 36:
-- Rotor: 8.6 rpm → Generator: 309.6 rpm
-- Lower ratio than traditional high-speed (≈100:1) for reliability.
+The V236 uses a 3-stage planetary gearbox (manufactured by ZF Wind Power)
+with a ratio of 1:48:
+- Rotor: 8.33 rpm → Generator: 400 rpm
+- 3 planetary stages: Low-speed (≈2×) → Intermediate (≈4×) → High-speed (≈6×)
+- Lower than traditional high-speed (≈100:1) for improved reliability (IEC 61400-4).
+
+Source: Vestas V236-15.0 MW product specification; wind-turbine-models.com.
+"""
+
+NACELLE_MASS_KG: float = 520_000.0
+"""Nacelle mass [kg].
+
+The V236-15.0 MW nacelle (including hub and rotor) weighs approximately
+520 tonnes. This large mass drives the yaw system design (high-torque
+electric drives with hydraulic brake calipers) and foundation loading.
+
+Source: Vestas press releases (2022–2023).
+"""
+
+GENERATOR_VOLTAGE_V: float = 784.0
+"""Generator terminal voltage [V].
+
+The PMSG stator is wound for 784 V. The nacelle transformer steps this up
+to 66 kV for transmission through the array cable to the offshore substation.
+Converter topology: four-quadrant IGBT full-power converter.
+
+Source: wind-turbine-models.com V236-15.0 MW entry.
 """
 
 GEARBOX_EFFICIENCY: float = 0.97
@@ -101,7 +125,7 @@ def compute_generator_speed_rpm(
 
     ω_gen = ω_rotor × N_gear
 
-    At rated: 8.6 rpm × 36 = 309.6 rpm
+    At rated: 8.33 rpm × 48 = 400 rpm
 
     Args:
         rotor_speed_rpm: Rotor speed [rpm].

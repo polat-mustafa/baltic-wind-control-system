@@ -54,19 +54,23 @@ const SKY_PARAMS: Record<SkyPreset, {
   iblPreset: "dawn" | "sunset" | "night" | "city" | "park";
 }> = {
   overcast: {
-    rayleigh: 4,
-    turbidity: 14,
-    mieCoefficient: 0.01,
-    mieDirectionalG: 0.85,
-    fogColor: "#7d8ea0",
-    fogDensity: 0.0008,
-    ambient: 0.45,
-    hemiTop: "#c6d1dc",
-    hemiBottom: "#2a4357",
-    keyIntensity: 0.9,
-    keyColor: "#ffffff",
-    rimIntensity: 0.35,
-    iblIntensity: 0.6,
+    // Darker, moodier Baltic overcast — coheres with the dark application
+    // chrome and keeps the turbine readable instead of bleaching the scene.
+    // Rayleigh is pushed low and mie high so the Sky shader produces a
+    // hazy, muted grey dome instead of the default bright-blue atmosphere.
+    rayleigh: 0.6,
+    turbidity: 18,
+    mieCoefficient: 0.025,
+    mieDirectionalG: 0.75,
+    fogColor: "#1e2a38",
+    fogDensity: 0.0009,
+    ambient: 0.28,
+    hemiTop: "#4f6070",
+    hemiBottom: "#0a1420",
+    keyIntensity: 0.70,
+    keyColor: "#b9c3d1",
+    rimIntensity: 0.24,
+    iblIntensity: 0.35,
     iblPreset: "city",
   },
   golden: {

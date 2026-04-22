@@ -24,6 +24,7 @@ import EngineerLibraryPage from "./pages/EngineerLibraryPage";
 import ForecastPage from "./pages/ForecastPage";
 import HVGridPage from "./pages/HVGridPage";
 import LandingPage from "./pages/LandingPage";
+import ResearchLab from "./pages/ResearchLab";
 import SCADAPage from "./pages/SCADAPage";
 import DigitalTwinPage from "./pages/DigitalTwinPage";
 import TurbinePhysicsPage from "./pages/TurbinePhysicsPage";
@@ -44,6 +45,7 @@ function App() {
             <Route path="turbine-physics" element={<TurbinePhysicsPage />} />
             <Route path="digital-twin" element={<DigitalTwinPage />} />
             <Route path="library" element={<EngineerLibraryPage />} />
+            <Route path="research-lab" element={<ResearchLab />} />
           </Route>
         </Routes>
       </ErrorBoundary>

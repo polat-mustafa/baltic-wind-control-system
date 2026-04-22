@@ -49,6 +49,7 @@ import {
   selectLossHUD,
   selectCpWidget,
 } from "../../../store/landingStore";
+import { useNacelleSubsystemsStore } from "../../../store/nacelleSubsystemsStore";
 import type { TurbinePartId } from "../../../constants/turbinePartEducation";
 import type { TurbineData } from "../../../types/landing";
 
@@ -77,6 +78,7 @@ import { useCameraFlyTo } from "./hooks/useCameraFlyTo";
 import { useViewerKeyboard } from "./hooks/useViewerKeyboard";
 import { DEFAULT_CAMERA_TARGET } from "./registry/partMeshRegistry";
 import { NacelleSchematic } from "./schematic/NacelleSchematic";
+import { SceneErrorBoundary } from "./SceneErrorBoundary";
 
 // ── WebGL detection ──────────────────────────────────────────────
 
@@ -161,7 +163,7 @@ function TurbineScene({
     const updateMetric = () => {
       const persp = camera as THREE.PerspectiveCamera;
       if (!persp.isPerspectiveCamera) return;
-      const pivot = new THREE.Vector3(0, 80, 0);
+      const pivot = new THREE.Vector3(0, 118, 0);
       const distance = camera.position.distanceTo(pivot);
       const vFov = (persp.fov * Math.PI) / 180;
       const heightAtDistance = 2 * Math.tan(vFov / 2) * distance;
@@ -215,7 +217,11 @@ function TurbineScene({
       )}
 
       {/* D3 — Power flow animation */}
-      {showPowerFlow && <PowerFlowParticles turbineId={turbineId} />}
+      {showPowerFlow && (
+        <SceneErrorBoundary area="power-flow">
+          <PowerFlowParticles turbineId={turbineId} />
+        </SceneErrorBoundary>
+      )}
 
       {/* D5 — Wind-field visualization (freestream, streamlines, wake, tip-speed) */}
       {showWindField && (
@@ -281,9 +287,10 @@ function TurbineScene({
       {/* Camera controls */}
       <OrbitControls
         makeDefault
+        enableZoom
         minDistance={8}
         maxDistance={650}
-        target={[0, 80, 0]}
+        target={[0, 118, 0]}
         enableDamping
         dampingFactor={0.12}
         rotateSpeed={0.7}
@@ -373,6 +380,14 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
     }
   }, [selectedPart, viewerMode, setViewerMode]);
 
+  // Live HPU/cooling/safety telemetry from backend nacelle subsystem endpoints.
+  useEffect(() => {
+    const startPolling = useNacelleSubsystemsStore.getState().startPolling;
+    const stopPolling = useNacelleSubsystemsStore.getState().stopPolling;
+    startPolling(turbineId, 2000);
+    return () => stopPolling(turbineId);
+  }, [turbineId]);
+
   useEffect(() => {
     if (viewerMode !== "exploded") setExplodedOffset(0);
   }, [viewerMode]);
@@ -429,6 +444,9 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
   }, [showSensorMarkers, viewerMode, setViewerMode, setShowSensors]);
 
   const handleTogglePowerFlow = useCallback(() => {
+    // Auto-cutaway when enabling from normal mode — the particles render inside
+    // the nacelle shell, which is opaque in normal view, so without this the
+    // button would silently appear to do nothing.
     if (!showPowerFlow && viewerMode === "normal") setViewerMode("cutaway");
     setShowPowerFlow(!showPowerFlow);
   }, [showPowerFlow, viewerMode, setViewerMode, setShowPowerFlow]);
@@ -454,6 +472,10 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
     <div
       ref={containerRef}
       className="relative w-full h-full rounded-lg overflow-hidden border border-border-primary bg-[#06090f] focus:outline-none"
+      // Stop wheel events from bubbling to the underlying Leaflet map / page
+      // scroller. Without this, scrolling over the canvas also scrolls the
+      // farm overview behind it instead of zooming the turbine.
+      onWheel={(e) => e.stopPropagation()}
     >
       <Canvas
         dpr={dpr}
@@ -463,7 +485,7 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
           near: 0.5,
           far: 6000,
         }}
-        shadows
+        shadows={{ type: THREE.PCFShadowMap }}
         gl={glProps}
         onCreated={({ gl }) => {
           gl.localClippingEnabled = true;

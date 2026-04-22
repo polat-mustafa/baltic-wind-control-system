@@ -137,17 +137,10 @@ export function ViewerControls({
 }: ViewerControlsProps) {
   return (
     <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 items-end pointer-events-none max-h-[calc(100vh-120px)] overflow-y-auto pr-1">
-      {/* View — camera reset, viewer mode, interior view */}
+      {/* View — mode + interior view; reset is surfaced as a trailing
+          icon-only button so the section fits in one visually clean block. */}
       <Section title="View" icon={Box}>
-        <button
-          className={btn}
-          onClick={onResetCamera}
-          title="Reset all overlays, modes, and camera (R)"
-        >
-          <RotateCcw size={11} />
-          <span>Reset</span>
-        </button>
-        <div className="grid grid-cols-3 gap-0.5">
+        <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-0.5">
           <button
             className={viewerMode === "normal" ? btnActive : btn}
             onClick={() => onViewerModeChange("normal")}
@@ -171,6 +164,14 @@ export function ViewerControls({
           >
             <Layers size={11} />
             <span>Exp</span>
+          </button>
+          <button
+            className={cn(btn, "justify-center !w-auto px-1.5")}
+            onClick={onResetCamera}
+            title="Reset all overlays, modes, and camera (R)"
+            aria-label="Reset camera and overlays"
+          >
+            <RotateCcw size={11} />
           </button>
         </div>
         <div className="grid grid-cols-2 gap-0.5">

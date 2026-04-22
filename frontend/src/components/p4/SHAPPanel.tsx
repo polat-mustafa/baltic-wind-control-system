@@ -66,7 +66,8 @@ export default function SHAPPanel() {
           autosize: true,
           xaxis: {
             ...DARK_PLOTLY_LAYOUT.xaxis,
-            title: "Mean |SHAP| Value",
+            title: "Mean |SHAP| Value (log scale)",
+            type: "log",
           },
           yaxis: {
             ...DARK_PLOTLY_LAYOUT.yaxis,

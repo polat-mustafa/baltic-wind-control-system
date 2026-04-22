@@ -30,8 +30,8 @@ interface AnnotationDetailPopupProps {
 // Card offset from the marker anchor, in CSS pixels of the Html wrapper.
 const CARD_OFFSET_X = 40;
 const CARD_OFFSET_Y = 80; // card sits this many px ABOVE the marker
-const CARD_WIDTH = 220;
-const CARD_HEIGHT_HINT = 150; // SVG drawing area hint; card auto-grows
+const CARD_WIDTH = 300;
+const CARD_HEIGHT_HINT = 180; // SVG drawing area hint; card auto-grows
 
 export function AnnotationDetailPopup({ annotation, onClose }: AnnotationDetailPopupProps) {
   const detail = annotation.detail;
@@ -119,35 +119,35 @@ export function AnnotationDetailPopup({ annotation, onClose }: AnnotationDetailP
             className="w-2.5 h-2.5 rounded-full flex-shrink-0"
             style={{ background: color }}
           />
-          <span className="text-[11px] font-semibold text-text-primary">
+          <span className="text-[13px] font-semibold text-text-primary">
             {detail.title}
           </span>
         </div>
 
         {/* Value */}
         <div className="mb-1.5">
-          <span className="text-[13px] font-mono font-bold text-text-primary">{value}</span>
+          <span className="text-[16px] font-mono font-bold text-text-primary">{value}</span>
           {detail.unit && (
-            <span className="text-[10px] text-text-muted ml-1">{detail.unit}</span>
+            <span className="text-[12px] text-text-muted ml-1">{detail.unit}</span>
           )}
         </div>
 
         {/* Formula */}
         {detail.formula && (
           <div className="mb-1.5 px-2 py-1 bg-bg-primary rounded border border-border-primary">
-            <code className="text-[9px] font-mono text-accent">{detail.formula}</code>
+            <code className="text-[11px] font-mono text-accent">{detail.formula}</code>
           </div>
         )}
 
         {/* Description */}
         {detail.description && (
-          <p className="text-[9px] text-text-muted leading-relaxed mb-1.5">
+          <p className="text-[12px] text-text-muted leading-relaxed mb-1.5">
             {detail.description}
           </p>
         )}
 
         {/* Source */}
-        <div className="text-[8px] text-text-muted opacity-60 font-mono">{detail.source}</div>
+        <div className="text-[10px] text-text-muted opacity-60 font-mono">{detail.source}</div>
       </div>
     </div>
   );

@@ -68,6 +68,7 @@ class ModelComparisonResult:
     Attributes:
         model_metrics — metrics for each model
         best_rmse — model name with lowest RMSE
+        best_mae — model name with lowest MAE
         best_skill — model name with highest skill score
         best_calibration — model name with best quantile calibration
         ranking — model names ordered by RMSE (best first)
@@ -75,6 +76,7 @@ class ModelComparisonResult:
 
     model_metrics: list[ModelMetrics]
     best_rmse: str
+    best_mae: str
     best_skill: str
     best_calibration: str
     ranking: list[str] = field(default_factory=list)
@@ -338,6 +340,10 @@ def compare_models(
     ranking = [m.model_name for m in sorted_by_rmse]
     best_rmse = ranking[0]
 
+    # Best MAE (lowest) — may differ from best RMSE when residual
+    # distributions differ (RMSE penalises large errors more than MAE)
+    best_mae = min(model_results, key=lambda m: m.mae_mw).model_name
+
     # Best skill score (highest)
     best_skill = max(model_results, key=lambda m: m.skill_score).model_name
 
@@ -349,9 +355,10 @@ def compare_models(
     best_calibration = min(model_results, key=calibration_error).model_name
 
     logger.info(
-        "Model comparison: %d models — best RMSE: %s, best skill: %s, best calibration: %s",
+        "Model comparison: %d models — best RMSE: %s, best MAE: %s, best skill: %s, best calibration: %s",
         len(model_results),
         best_rmse,
+        best_mae,
         best_skill,
         best_calibration,
     )
@@ -359,6 +366,7 @@ def compare_models(
     return ModelComparisonResult(
         model_metrics=model_results,
         best_rmse=best_rmse,
+        best_mae=best_mae,
         best_skill=best_skill,
         best_calibration=best_calibration,
         ranking=ranking,

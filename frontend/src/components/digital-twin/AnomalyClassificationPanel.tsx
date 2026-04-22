@@ -52,8 +52,27 @@ export default function AnomalyClassificationPanel() {
   const values = categories.map((c) => counts[c]);
   const colors = categories.map((c) => CATEGORY_COLORS[c] ?? "#64748b");
 
-  // Show latest anomalies (max 8 rows)
-  const latestAnomalies = anomalies.slice(-8);
+  // Show most significant anomalies across the farm (max 8 rows).
+  // Ranking by severity first, then by max EWMA magnitude — otherwise the
+  // table would always land on the last turbine's records (appended in order).
+  const severityRank = (s: string): number =>
+    s === "high" ? 2 : s === "medium" ? 1 : 0;
+  const maxMag = (x: {
+    power_ewma_pct: number;
+    rpm_ewma_pct: number;
+    pitch_ewma_pct: number;
+  }): number =>
+    Math.max(
+      Math.abs(x.power_ewma_pct),
+      Math.abs(x.rpm_ewma_pct),
+      Math.abs(x.pitch_ewma_pct),
+    );
+  const latestAnomalies = [...anomalies]
+    .sort((a, b) => {
+      const sev = severityRank(b.severity) - severityRank(a.severity);
+      return sev !== 0 ? sev : maxMag(b) - maxMag(a);
+    })
+    .slice(0, 8);
 
   return (
     <ChartWrapper

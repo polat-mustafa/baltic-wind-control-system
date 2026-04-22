@@ -37,9 +37,13 @@ interface RotorProps {
 export const Rotor = memo(
   forwardRef<Group, RotorProps>(function Rotor({ turbineId, selectedPart, overridePitch, overrideRpm, fieldMode = "off" }, ref) {
     const turbine = useLandingStore(selectTurbine(turbineId));
-    const rpm   = overrideRpm   ?? (turbine?.rotorSpeedRpm  ?? 0);
-    const pitch = overridePitch ?? (turbine?.pitchAngleDeg  ?? 0);
     const status = turbine?.status ?? "operating";
+    const rawRpm = overrideRpm ?? (turbine?.rotorSpeedRpm ?? 0);
+    // Faulted/offline turbines must not spin even if an override RPM is provided
+    const rpm = (status === "fault" || status === "offline") ? 0 : rawRpm;
+    const rawPitch = overridePitch ?? (turbine?.pitchAngleDeg ?? 0);
+    // Faulted/offline turbines feather to 90°
+    const pitch = (status === "fault" || status === "offline") ? 90 : rawPitch;
 
     const rotorRef = useRef<Group>(null);
     const b1Ref = useRef<Group>(null);

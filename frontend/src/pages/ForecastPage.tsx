@@ -98,6 +98,10 @@ export default function ForecastPage() {
                 <p className="text-text-muted italic">
                   Spot prices are synthetic (educational). Revenue figures are illustrative.
                 </p>
+                <p className="text-text-muted italic">
+                  Skill scores above 0.9 are typical only on synthetic SCADA data. Real
+                  operational wind-power forecasts usually achieve 0.2–0.5 vs persistence.
+                </p>
               </div>
             }
           >

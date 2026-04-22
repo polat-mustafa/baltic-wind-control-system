@@ -1,7 +1,7 @@
 /**
  * KPI summary cards — top-level forecasting metrics.
  *
- * Displays: Best RMSE, Best MAE, Skill Score, Grid Alerts, Est. Revenue.
+ * Displays: Best RMSE, Best MAE, Skill Score, Alert Events, Est. Revenue.
  * Color-coded per ISA-101: green = normal, amber = warning, red = fault.
  */
 
@@ -42,18 +42,22 @@ export default function ForecastKPIHeader() {
 
   if (!modelComparison || !rampDetection || !ensembleForecast) return null;
 
-  // Find best RMSE model
+  // Find best RMSE / MAE / Skill model (each may be a different model)
   const bestRmseModel = modelComparison.model_metrics.find(
     (m) => m.model_name === modelComparison.best_rmse,
+  );
+  const bestMaeModel = modelComparison.model_metrics.find(
+    (m) => m.model_name === modelComparison.best_mae,
   );
   const bestSkillModel = modelComparison.model_metrics.find(
     (m) => m.model_name === modelComparison.best_skill,
   );
 
   const rmseVal = bestRmseModel?.rmse_mw ?? 0;
-  const maeVal = bestRmseModel?.mae_mw ?? 0;
+  const maeVal = bestMaeModel?.mae_mw ?? 0;
   const skillVal = bestSkillModel?.skill_score ?? 0;
   const alertCount = rampDetection.grid_alerts.length;
+  const totalRamps = rampDetection.num_ramp_up + rampDetection.num_ramp_down;
 
   // RMSE color: green <1.2 MW, amber <1.8, red ≥1.8
   const rmseColor =
@@ -112,7 +116,7 @@ export default function ForecastKPIHeader() {
         value={maeVal.toFixed(2)}
         unit="MW"
         color={maeColor}
-        subtitle={`${modelComparison.best_rmse} · Avg forecast deviation`}
+        subtitle={`${modelComparison.best_mae} · Avg forecast deviation`}
       />
       <KPICard
         label="Skill Score"
@@ -122,11 +126,11 @@ export default function ForecastKPIHeader() {
         subtitle={`${modelComparison.best_skill} · Improvement vs persistence (>0.3 = strong)`}
       />
       <KPICard
-        label="Grid Alerts"
+        label="Alert Events"
         value={String(alertCount)}
         unit=""
         color={alertColor}
-        subtitle={`${rampDetection.num_ramp_up}↑ ${rampDetection.num_ramp_down}↓ ramps detected`}
+        subtitle={`${rampDetection.num_ramp_up}↑ ${rampDetection.num_ramp_down}↓ ramps (${totalRamps} total)`}
       />
       <KPICard
         label="Est. Revenue"

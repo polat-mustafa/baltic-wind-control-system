@@ -2,23 +2,26 @@
  * D3 — Power Flow Animation
  *
  * Animated particle trails visualising the energy conversion chain through
- * the drivetrain. Four segments, each with a dedicated colour:
+ * the drivetrain. Five segments, each with a dedicated colour:
  *
- *   Wind → Rotor   (blue   #3b82f6)  aerodynamic capture
- *   Rotor → Shaft  (green  #22c55e)  mechanical transmission
- *   Shaft → Generator (yellow #eab308) electromagnetic conversion
- *   Generator → Converter (orange #f97316) power electronics
+ *   Wind → Rotor         (blue   #3b82f6)  aerodynamic capture
+ *   Rotor → Gearbox      (green  #22c55e)  mechanical transmission
+ *   Gearbox → Generator  (yellow #eab308)  electromagnetic conversion
+ *   Generator → Converter (orange #f97316)  power electronics (split L/R)
  *
  * Particle speed is proportional to electrical power output:
- *   speed = BASE_SPEED + SPEED_SCALE × (P / P_rated)
+ *   speed = IDLE + SPEED_SCALE × (P / P_rated)
  *
- * Physics note: energy flows from high to low along the drivetrain Z-axis
- * (positive Z = upwind/hub side, negative Z = downwind/converter side).
- *
- * Reuses the WakeParticles design pattern (useFrame mutation on BufferAttribute).
+ * Implementation notes
+ * --------------------
+ * All segments share ONE BufferGeometry, ONE Points object, and ONE useFrame
+ * subscription. Per-particle segment data (origin, direction, length, colour)
+ * is baked into Float32Arrays at mount-time. This avoids the 5× subscription
+ * storm and undisposed-geometry churn the previous version caused whenever the
+ * overlay was toggled on top of the post-processing stack.
  */
 
-import { useRef, useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -29,177 +32,180 @@ interface PowerFlowParticlesProps {
 }
 
 const RATED_MW = 15.0;
-const BASE_SPEED = 0.5;
 const SPEED_SCALE = 2.5;
+const IDLE_SPEED = 0.05;
 
 interface Segment {
   colour: string;
-  /** Start point in nacelle-local world space */
-  start: THREE.Vector3;
-  /** End point */
-  end: THREE.Vector3;
+  start: [number, number, number];
+  end: [number, number, number];
   count: number;
-  /** Radial spread around the segment axis [m] */
   spread: number;
 }
 
 const SEGMENTS: Segment[] = [
-  {
-    // Wind → Rotor (from ~3m in front of hub to hub face)
-    colour: "#3b82f6",
-    start: new THREE.Vector3(0, 150, 5),
-    end:   new THREE.Vector3(0, 150, 1.5),
-    count: 40,
-    spread: 1.2,
-  },
-  {
-    // Rotor → Gearbox (main shaft: hub face to gearbox centre)
-    colour: "#22c55e",
-    start: new THREE.Vector3(0, 150, 1.5),
-    end:   new THREE.Vector3(0, 150, -1.5),
-    count: 40,
-    spread: 0.5,
-  },
-  {
-    // Gearbox → Generator (gearbox output shaft to generator centre)
-    colour: "#eab308",
-    start: new THREE.Vector3(0, 150, -1.5),
-    end:   new THREE.Vector3(0, 150, -5.5),
-    count: 40,
-    spread: 0.5,
-  },
-  {
-    // Generator → Converter port
-    colour: "#f97316",
-    start: new THREE.Vector3(0, 150, -5.5),
-    end:   new THREE.Vector3(-3.5, 149, -3.0),
-    count: 30,
-    spread: 0.3,
-  },
-  {
-    // Generator → Converter starboard (symmetric split)
-    colour: "#f97316",
-    start: new THREE.Vector3(0, 150, -5.5),
-    end:   new THREE.Vector3(3.5, 149, -3.0),
-    count: 30,
-    spread: 0.3,
-  },
+  // Wind → Rotor (hub approach)
+  { colour: "#3b82f6", start: [0, 150,  5.0], end: [0, 150,  1.5], count: 40, spread: 1.2 },
+  // Rotor → Gearbox (main shaft)
+  { colour: "#22c55e", start: [0, 150,  1.5], end: [0, 150, -1.5], count: 40, spread: 0.5 },
+  // Gearbox → Generator
+  { colour: "#eab308", start: [0, 150, -1.5], end: [0, 150, -5.5], count: 40, spread: 0.5 },
+  // Generator → Converter port
+  { colour: "#f97316", start: [0, 150, -5.5], end: [-3.5, 149, -3.0], count: 30, spread: 0.3 },
+  // Generator → Converter starboard
+  { colour: "#f97316", start: [0, 150, -5.5], end: [ 3.5, 149, -3.0], count: 30, spread: 0.3 },
 ];
 
-function useSegmentParticles(seg: Segment) {
-  const ref = useRef<THREE.Points>(null);
+const TOTAL_COUNT = SEGMENTS.reduce((sum, s) => sum + s.count, 0);
 
-  const { geometry, velocities } = useMemo(() => {
-    const { count, start, end, spread } = seg;
-    const dir = new THREE.Vector3().subVectors(end, start).normalize();
-    const len = start.distanceTo(end);
+/**
+ * Build per-particle Float32Arrays. Runs once per mount.
+ *
+ * Returns raw typed arrays — the BufferGeometry itself is created
+ * declaratively in JSX (`<bufferGeometry>`) so R3F manages its lifecycle.
+ * Previous revisions built and disposed a THREE.BufferGeometry here, which
+ * broke under React Strict Mode: the cleanup effect fired between the fake
+ * unmount and the real mount, disposing the GPU buffer before first render
+ * and blanking the entire Canvas subtree via the parent Suspense fallback.
+ */
+function buildParticleBuffers() {
+  const positions = new Float32Array(TOTAL_COUNT * 3);
+  const colors    = new Float32Array(TOTAL_COUNT * 3);
+  const origins   = new Float32Array(TOTAL_COUNT * 3);
+  const dirs      = new Float32Array(TOTAL_COUNT * 3);
+  const lengths   = new Float32Array(TOTAL_COUNT);
 
-    const pos = new Float32Array(count * 3);
-    const vel = new Float32Array(count * 3);
+  const tmpDir    = new THREE.Vector3();
+  const tmpStart  = new THREE.Vector3();
+  const tmpEnd    = new THREE.Vector3();
+  const tmpPerp1  = new THREE.Vector3();
+  const tmpPerp2  = new THREE.Vector3();
+  const tmpColour = new THREE.Color();
+  const tmpPoint  = new THREE.Vector3();
 
-    for (let i = 0; i < count; i++) {
-      // Distribute particles randomly along the segment
-      const t = Math.random();
-      // Random radial spread in the plane perpendicular to dir
+  let idx = 0;
+  for (const seg of SEGMENTS) {
+    tmpStart.fromArray(seg.start);
+    tmpEnd.fromArray(seg.end);
+    tmpDir.subVectors(tmpEnd, tmpStart);
+    const len = tmpDir.length();
+    if (len < 1e-6) continue;
+    tmpDir.divideScalar(len);
+    tmpColour.set(seg.colour);
+
+    for (let i = 0; i < seg.count; i++) {
+      const t     = Math.random();
       const angle = Math.random() * Math.PI * 2;
-      const r = Math.random() * spread;
+      const r     = Math.random() * seg.spread;
 
-      // Find two axes perpendicular to dir
-      const perp1 = new THREE.Vector3(1, 0, 0);
-      if (Math.abs(dir.dot(perp1)) > 0.9) perp1.set(0, 1, 0);
-      const perp2 = new THREE.Vector3().crossVectors(dir, perp1).normalize();
-      perp1.crossVectors(perp2, dir).normalize();
+      tmpPerp1.set(1, 0, 0);
+      if (Math.abs(tmpDir.dot(tmpPerp1)) > 0.9) tmpPerp1.set(0, 1, 0);
+      tmpPerp2.crossVectors(tmpDir, tmpPerp1).normalize();
+      tmpPerp1.crossVectors(tmpPerp2, tmpDir).normalize();
 
-      const pt = new THREE.Vector3()
-        .copy(start)
-        .addScaledVector(dir, t * len)
-        .addScaledVector(perp1, Math.cos(angle) * r)
-        .addScaledVector(perp2, Math.sin(angle) * r);
+      tmpPoint
+        .copy(tmpStart)
+        .addScaledVector(tmpDir, t * len)
+        .addScaledVector(tmpPerp1, Math.cos(angle) * r)
+        .addScaledVector(tmpPerp2, Math.sin(angle) * r);
 
-      pos[i * 3    ] = pt.x;
-      pos[i * 3 + 1] = pt.y;
-      pos[i * 3 + 2] = pt.z;
+      const p3 = idx * 3;
+      positions[p3    ] = tmpPoint.x;
+      positions[p3 + 1] = tmpPoint.y;
+      positions[p3 + 2] = tmpPoint.z;
 
-      // Velocity along segment axis
-      vel[i * 3    ] = dir.x;
-      vel[i * 3 + 1] = dir.y;
-      vel[i * 3 + 2] = dir.z;
+      origins[p3    ] = tmpStart.x;
+      origins[p3 + 1] = tmpStart.y;
+      origins[p3 + 2] = tmpStart.z;
+
+      dirs[p3    ] = tmpDir.x;
+      dirs[p3 + 1] = tmpDir.y;
+      dirs[p3 + 2] = tmpDir.z;
+
+      lengths[idx] = len;
+
+      colors[p3    ] = tmpColour.r;
+      colors[p3 + 1] = tmpColour.g;
+      colors[p3 + 2] = tmpColour.b;
+
+      idx++;
     }
+  }
 
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(pos.slice(), 3));
-    return { geometry: geo, velocities: vel };
-  }, [seg]);
-
-  return { ref, geometry, velocities };
+  return { positions, colors, origins, dirs, lengths };
 }
 
-function SegmentParticles({
-  seg,
-  speed,
-}: {
-  seg: Segment;
-  speed: number;
-}) {
-  const { ref, geometry, velocities } = useSegmentParticles(seg);
-  const len = seg.start.distanceTo(seg.end);
+export function PowerFlowParticles({ turbineId }: PowerFlowParticlesProps) {
+  const turbine = useLandingStore(selectTurbine(turbineId));
+  const rawFraction = turbine ? turbine.powerOutputMW / RATED_MW : 0;
+  const powerFraction = Number.isFinite(rawFraction)
+    ? Math.max(0, Math.min(1, rawFraction))
+    : 0;
+  const speed = IDLE_SPEED + SPEED_SCALE * powerFraction;
+
+  const pointsRef = useRef<THREE.Points>(null);
+
+  const { positions, colors, origins, dirs, lengths } = useMemo(
+    () => buildParticleBuffers(),
+    [],
+  );
 
   useFrame((_state, delta) => {
-    if (!ref.current) return;
-    const attr = ref.current.geometry.attributes.position as THREE.BufferAttribute;
+    const pts = pointsRef.current;
+    if (!pts) return;
+    const attr = pts.geometry.attributes.position as THREE.BufferAttribute;
     const arr = attr.array as Float32Array;
-    const { count, start } = seg;
-    const dir = new THREE.Vector3().subVectors(seg.end, seg.start).normalize();
+    const step = speed * delta;
 
-    for (let i = 0; i < count; i++) {
-      const ix = i * 3;
-      arr[ix    ] += velocities[ix    ] * speed * delta;
-      arr[ix + 1] += velocities[ix + 1] * speed * delta;
-      arr[ix + 2] += velocities[ix + 2] * speed * delta;
+    for (let i = 0; i < TOTAL_COUNT; i++) {
+      const p3 = i * 3;
+      const dx = dirs[p3    ];
+      const dy = dirs[p3 + 1];
+      const dz = dirs[p3 + 2];
 
-      // Recycle: check how far the particle has moved along the segment
-      const relX = arr[ix    ] - start.x;
-      const relY = arr[ix + 1] - start.y;
-      const relZ = arr[ix + 2] - start.z;
-      const proj = relX * dir.x + relY * dir.y + relZ * dir.z;
+      arr[p3    ] += dx * step;
+      arr[p3 + 1] += dy * step;
+      arr[p3 + 2] += dz * step;
 
-      if (proj > len) {
-        // Reset to start with random t (stagger)
-        const t2 = Math.random() * 0.3; // Reset near start
-        arr[ix    ] = start.x + dir.x * t2 * len;
-        arr[ix + 1] = start.y + dir.y * t2 * len;
-        arr[ix + 2] = start.z + dir.z * t2 * len;
+      // Recycle: project current position onto segment axis, reset near origin
+      // with a small random stagger if it has overshot the end.
+      const ox = origins[p3    ];
+      const oy = origins[p3 + 1];
+      const oz = origins[p3 + 2];
+      const proj =
+        (arr[p3    ] - ox) * dx +
+        (arr[p3 + 1] - oy) * dy +
+        (arr[p3 + 2] - oz) * dz;
+
+      if (proj > lengths[i]) {
+        const t2 = Math.random() * 0.3 * lengths[i];
+        arr[p3    ] = ox + dx * t2;
+        arr[p3 + 1] = oy + dy * t2;
+        arr[p3 + 2] = oz + dz * t2;
       }
     }
     attr.needsUpdate = true;
   });
 
   return (
-    <points ref={ref} geometry={geometry}>
+    <points
+      ref={pointsRef}
+      frustumCulled={false}
+      raycast={() => null}
+      name="power-flow"
+    >
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-color"    args={[colors,    3]} />
+      </bufferGeometry>
       <pointsMaterial
         size={0.18}
-        color={seg.colour}
+        vertexColors
         transparent
-        opacity={0.8}
+        opacity={0.85}
         sizeAttenuation
         depthWrite={false}
       />
     </points>
-  );
-}
-
-export function PowerFlowParticles({ turbineId }: PowerFlowParticlesProps) {
-  const turbine = useLandingStore(selectTurbine(turbineId));
-  const powerFraction = turbine ? Math.max(0.1, turbine.powerOutputMW / RATED_MW) : 0.5;
-  const speed = BASE_SPEED + SPEED_SCALE * powerFraction;
-
-  if (!turbine || turbine.powerOutputMW < 0.1) return null;
-
-  return (
-    <group name="power-flow">
-      {SEGMENTS.map((seg, i) => (
-        <SegmentParticles key={i} seg={seg} speed={speed} />
-      ))}
-    </group>
   );
 }

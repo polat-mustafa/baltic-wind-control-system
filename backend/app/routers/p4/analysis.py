@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 from fastapi import APIRouter
 
 from app.schemas.forecast import (
@@ -17,9 +18,24 @@ from app.services.p4.ensemble_model import compute_ensemble_forecast
 from app.services.p4.model_evaluation import compare_models, evaluate_model
 from app.services.p4.ramp_detection import RampConfig, detect_all_ramps, generate_grid_alerts
 
-from ._pipeline import _get_cached_forecasts
+from ._pipeline import _get_cached_forecasts, build_adaptive_ensemble_config
 
 router = APIRouter()
+
+
+def _persistence_forecast(actual: np.ndarray) -> np.ndarray:
+    """Last-value persistence: P̂(t+1) = actual(t).
+
+    Uses ``actual[0]`` for the first step so the forecast has the same length
+    as ``actual``. This is the baseline the skill score measures against —
+    showing it next to the ML models makes "what are we beating?" visible.
+    """
+    if len(actual) == 0:
+        return actual
+    shifted = np.empty_like(actual)
+    shifted[0] = actual[0]
+    shifted[1:] = actual[:-1]
+    return shifted
 
 
 # ── Ramp Detection ───────────────────────────────────────────────
@@ -37,7 +53,7 @@ async def detect_ramps_endpoint(
     """
 
     # Use shared cached forecasts (lock serialises first build)
-    forecasts, _ = await _get_cached_forecasts(
+    forecasts, actual = await _get_cached_forecasts(
         num_turbines=request.num_turbines,
         num_timesteps=request.num_timesteps,
         turbine_index=request.turbine_index,
@@ -45,7 +61,7 @@ async def detect_ramps_endpoint(
         seed=request.seed,
     )
 
-    ensemble = compute_ensemble_forecast(forecasts)
+    ensemble = compute_ensemble_forecast(forecasts, build_adaptive_ensemble_config(forecasts, actual))
 
     # Scale single-turbine forecast to farm total for ramp detection
     num_turbines = request.num_turbines
@@ -112,7 +128,7 @@ async def compare_models_endpoint(
         seed=request.seed,
     )
 
-    ensemble = compute_ensemble_forecast(forecasts)
+    ensemble = compute_ensemble_forecast(forecasts, build_adaptive_ensemble_config(forecasts, actual))
 
     # Evaluate each model
     xgb_metrics = evaluate_model(
@@ -132,7 +148,14 @@ async def compare_models_endpoint(
         ensemble.power_p90_mw,
     )
 
-    comparison = compare_models([xgb_metrics, lstm_metrics, tft_metrics, ens_metrics])
+    # Persistence baseline — the thing skill score measures improvement against.
+    # No P10/P90 (persistence is deterministic), so no quantile coverage.
+    persist_p50 = _persistence_forecast(actual)
+    persist_metrics = evaluate_model("Persistence", actual, persist_p50)
+
+    comparison = compare_models(
+        [xgb_metrics, lstm_metrics, tft_metrics, ens_metrics, persist_metrics]
+    )
 
     metric_schemas = [
         ModelMetricsSchema(
@@ -152,6 +175,7 @@ async def compare_models_endpoint(
     return ModelCompareResponse(
         model_metrics=metric_schemas,
         best_rmse=comparison.best_rmse,
+        best_mae=comparison.best_mae,
         best_skill=comparison.best_skill,
         best_calibration=comparison.best_calibration,
         ranking=comparison.ranking,

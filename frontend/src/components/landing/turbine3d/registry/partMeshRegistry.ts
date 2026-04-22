@@ -85,10 +85,12 @@ export const PART_FOCUS: Record<TurbinePartId, PartFocus> = {
   lightning_conductor: { kind: "auto", direction: [ 0.65, 0.55, 0.55], distanceMultiplier: 3.0, minDistance: 8 },
 };
 
-/** Default overview camera (full turbine visible). */
+/** Default overview camera — frames rotor + nacelle prominently while
+ *  still showing the tower. Previous target (y=80) was low enough that the
+ *  opening view was dominated by ocean surface instead of the turbine. */
 export const DEFAULT_CAMERA_TARGET: CameraTarget = {
-  position: [180, 160, 180],
-  lookAt:   [  0,  80,   0],
+  position: [150, 165, 150],
+  lookAt:   [  0, 118,   0],
 };
 
 const FOV_RAD = (45 * Math.PI) / 180;

@@ -71,7 +71,7 @@ export const ScaleBar = memo(function ScaleBar({ metresPerPixel }: ScaleBarProps
   const barPx = barMeters / metresPerPixel;
 
   return (
-    <div className="absolute bottom-12 left-3 z-10 pointer-events-none bg-bg-secondary/70 backdrop-blur-sm rounded px-1.5 py-1 border border-border-primary">
+    <div className="absolute bottom-20 left-3 z-10 pointer-events-none bg-bg-secondary/70 backdrop-blur-sm rounded px-1.5 py-1 border border-border-primary">
       <div
         className="h-1.5 border-l border-r border-t border-text-muted"
         style={{ width: `${Math.min(barPx, 200)}px` }}

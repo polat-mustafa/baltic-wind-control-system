@@ -251,6 +251,7 @@ export interface ModelMetrics {
 export interface ModelCompareResponse {
   model_metrics: ModelMetrics[];
   best_rmse: string;
+  best_mae: string;
   best_skill: string;
   best_calibration: string;
   ranking: string[];

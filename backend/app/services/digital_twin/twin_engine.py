@@ -123,9 +123,7 @@ def _expected_rpm(wind_speed_ms: float) -> float:
     if wind_speed_ms < spec.cut_in_speed_ms or wind_speed_ms > spec.cut_out_speed_ms:
         return 0.0
     if wind_speed_ms < spec.rated_speed_ms:
-        frac = (wind_speed_ms - spec.cut_in_speed_ms) / (
-            spec.rated_speed_ms - spec.cut_in_speed_ms
-        )
+        frac = (wind_speed_ms - spec.cut_in_speed_ms) / (spec.rated_speed_ms - spec.cut_in_speed_ms)
         return RATED_ROTOR_SPEED_RPM * frac
     return RATED_ROTOR_SPEED_RPM
 

@@ -335,9 +335,7 @@ async def _get_cached_forecasts(
     return forecasts, actual
 
 
-def build_adaptive_ensemble_config(
-    forecasts: ModelForecasts, actual: np.ndarray
-) -> EnsembleConfig:
+def build_adaptive_ensemble_config(forecasts: ModelForecasts, actual: np.ndarray) -> EnsembleConfig:
     """Build an ensemble config adapted to the evaluation window.
 
     Two stages, applied in order:

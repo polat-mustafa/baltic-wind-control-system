@@ -25,11 +25,18 @@ export function ViewerLegend({ turbineId }: ViewerLegendProps) {
   ];
 
   return (
-    <div className="absolute bottom-2 left-2 z-10 flex gap-2 pointer-events-none">
+    <div className="absolute bottom-6 left-3 z-10 flex gap-1.5 pointer-events-none">
       {items.map(({ label, value }) => (
-        <div key={label} className="flex flex-col items-center bg-bg-secondary/70 backdrop-blur-sm rounded px-1.5 py-0.5 border border-border-primary">
-          <span className="text-[8px] text-text-muted font-mono">{label}</span>
-          <span className="text-[10px] text-text-primary font-mono font-medium">{value}</span>
+        <div
+          key={label}
+          className="flex flex-col items-center bg-bg-secondary/80 backdrop-blur-sm rounded-md px-2 py-1 border border-border-primary min-w-[48px]"
+        >
+          <span className="text-[10px] text-text-muted font-mono uppercase tracking-wider leading-3">
+            {label}
+          </span>
+          <span className="text-[12px] text-text-primary font-mono font-semibold leading-4 tabular-nums">
+            {value}
+          </span>
         </div>
       ))}
     </div>

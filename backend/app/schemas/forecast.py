@@ -675,6 +675,7 @@ class ModelCompareResponse(BaseModel):
 
     model_metrics: list[ModelMetricsSchema] = Field(description="Metrics per model")
     best_rmse: str = Field(description="Model with lowest RMSE")
+    best_mae: str = Field(description="Model with lowest MAE")
     best_skill: str = Field(description="Model with highest skill score")
     best_calibration: str = Field(description="Model with best P90 calibration")
     ranking: list[str] = Field(description="Models ranked by RMSE (best first)")

@@ -27,6 +27,10 @@ import { useMemo } from "react";
 import * as THREE from "three";
 
 import { selectTurbine, useLandingStore } from "../../../../store/landingStore";
+import {
+  selectNacelleData,
+  useNacelleSubsystemsStore,
+} from "../../../../store/nacelleSubsystemsStore";
 
 interface ThermalOverlayProps {
   turbineId: string;
@@ -125,16 +129,21 @@ const RATED_POWER_MW = 15.0;
 
 export function ThermalOverlay({ turbineId }: ThermalOverlayProps) {
   const turbine = useLandingStore(selectTurbine(turbineId));
+  const liveData = useNacelleSubsystemsStore(selectNacelleData(turbineId));
   const powerFraction = turbine ? Math.max(0, turbine.powerOutputMW / RATED_POWER_MW) : 0.5;
 
-  const spots = useMemo(
-    () =>
-      HOT_SPOTS.map((hs) => ({
-        ...hs,
-        tempC: hs.tMin + hs.tRise * powerFraction,
-      })),
-    [powerFraction],
-  );
+  const spots = useMemo(() => {
+    const oilTempLive = liveData?.cooling?.oil_temp_c;
+    return HOT_SPOTS.map((hs) => {
+      // Backend supplies oil temp; gearbox HS bearing tracks oil + ~5 °C and
+      // the cooler-inlet circle reflects the same live temperature.
+      if (oilTempLive !== undefined) {
+        if (hs.label === "Oil Cooler Inlet") return { ...hs, tempC: oilTempLive };
+        if (hs.label === "Gearbox HS Bearing") return { ...hs, tempC: oilTempLive + 5 };
+      }
+      return { ...hs, tempC: hs.tMin + hs.tRise * powerFraction };
+    });
+  }, [powerFraction, liveData]);
 
   return (
     <group name="thermal-overlay">

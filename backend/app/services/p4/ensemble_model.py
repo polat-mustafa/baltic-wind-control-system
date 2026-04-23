@@ -207,6 +207,113 @@ def _weighted_average(
     )
 
 
+def apply_skill_gate(
+    config: EnsembleConfig,
+    skill_scores: dict[str, float],
+    min_skill: float = 0.0,
+) -> EnsembleConfig:
+    """Zero out weights for models whose skill score falls below ``min_skill``.
+
+    Guards against a broken base model dragging the ensemble below its best
+    member. For each horizon band, surviving models are renormalised so their
+    weights still sum to 1.0. If every model is gated in a band the original
+    weights for that band are kept (no safe fallback other than the static
+    schedule).
+
+    Args:
+        config: baseline ensemble config (typically default static weights)
+        skill_scores: mapping of {"XGBoost"|"LSTM"|"TFT" → skill_score}
+        min_skill: threshold below which a model is excluded (default 0.0)
+
+    Returns:
+        New ``EnsembleConfig`` with gated + renormalised weights per band.
+    """
+    xgb_ok = skill_scores.get("XGBoost", float("inf")) >= min_skill
+    lstm_ok = skill_scores.get("LSTM", float("inf")) >= min_skill
+    tft_ok = skill_scores.get("TFT", float("inf")) >= min_skill
+
+    def gate(hw: HorizonWeights) -> HorizonWeights:
+        xgb = hw.xgb_weight if xgb_ok else 0.0
+        lstm = hw.lstm_weight if lstm_ok else 0.0
+        tft = hw.tft_weight if tft_ok else 0.0
+        total = xgb + lstm + tft
+        if total <= 0.0:
+            return hw  # every model gated — preserve original to avoid div/0
+        return HorizonWeights(
+            label=f"{hw.label}_gated",
+            xgb_weight=xgb / total,
+            lstm_weight=lstm / total,
+            tft_weight=tft / total,
+        )
+
+    return EnsembleConfig(
+        short_weights=gate(config.short_weights),
+        medium_weights=gate(config.medium_weights),
+        long_weights=gate(config.long_weights),
+        rated_power_mw=config.rated_power_mw,
+        cut_in_ms=config.cut_in_ms,
+        cut_out_ms=config.cut_out_ms,
+    )
+
+
+def apply_inverse_rmse_weighting(
+    config: EnsembleConfig,
+    rmse_scores: dict[str, float],
+    eps: float = 1e-6,
+) -> EnsembleConfig:
+    """Scale each per-band weight by ``1 / RMSE²`` (inverse-variance).
+
+    Preserves the horizon expertise encoded in the static schedule
+    (e.g. TFT dominates at long horizons) while pulling weight away
+    from models that underperform on the evaluation window.
+
+    Denominator uses ``RMSE² + eps`` so a perfect model (RMSE=0) does
+    not blow up, and a model missing from ``rmse_scores`` simply keeps
+    its base weight.
+
+    Args:
+        config: baseline ensemble config
+        rmse_scores: mapping of {"XGBoost"|"LSTM"|"TFT" → RMSE in MW}
+        eps: small floor to avoid division by zero
+
+    Returns:
+        New ``EnsembleConfig`` with adaptively scaled + renormalised weights.
+    """
+
+    def inv(name: str) -> float:
+        rmse = rmse_scores.get(name)
+        if rmse is None:
+            return 1.0
+        return 1.0 / (rmse**2 + eps)
+
+    xgb_inv = inv("XGBoost")
+    lstm_inv = inv("LSTM")
+    tft_inv = inv("TFT")
+
+    def scale(hw: HorizonWeights) -> HorizonWeights:
+        xgb = hw.xgb_weight * xgb_inv
+        lstm = hw.lstm_weight * lstm_inv
+        tft = hw.tft_weight * tft_inv
+        total = xgb + lstm + tft
+        if total <= 0.0:
+            return hw
+        return HorizonWeights(
+            label=f"{hw.label}_adaptive",
+            xgb_weight=xgb / total,
+            lstm_weight=lstm / total,
+            tft_weight=tft / total,
+        )
+
+    return EnsembleConfig(
+        short_weights=scale(config.short_weights),
+        medium_weights=scale(config.medium_weights),
+        long_weights=scale(config.long_weights),
+        rated_power_mw=config.rated_power_mw,
+        cut_in_ms=config.cut_in_ms,
+        cut_out_ms=config.cut_out_ms,
+    )
+
+
 def compute_ensemble_forecast(
     forecasts: ModelForecasts,
     config: EnsembleConfig | None = None,

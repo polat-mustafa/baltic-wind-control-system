@@ -25,7 +25,9 @@ import type { SkyPreset } from "./Environment";
 
 // Sea palette per sky preset — keeps water in visual harmony with the sky.
 const SEA_COLORS_BY_PRESET: Record<SkyPreset, { deep: string; shallow: string; crest: string }> = {
-  overcast: { deep: "#041424", shallow: "#0f3b4a", crest: "#6fa8c3" },
+  // Deeper, less luminous palette so the water reads as Baltic-dark instead
+  // of a foamy near-white expanse that dominates the frame.
+  overcast: { deep: "#02101c", shallow: "#0a2634", crest: "#3a6578" },
   golden:   { deep: "#1a1408", shallow: "#3a2614", crest: "#d4a574" },
   night:    { deep: "#02060f", shallow: "#0a1428", crest: "#2a3a5a" },
 };
@@ -138,16 +140,17 @@ const FRAGMENT_SHADER = /* glsl */ `
     // Specular sun glitter — Blinn-Phong, very tight
     vec3 h = normalize(lightDir + viewDir);
     float spec = pow(clamp(dot(n, h), 0.0, 1.0), 180.0);
-    col += spec * 1.2 * vec3(1.0, 0.95, 0.85);
+    col += spec * 0.7 * vec3(1.0, 0.95, 0.85);
 
     // Fresnel rim — ocean gets lighter at grazing angles
     float fres = pow(1.0 - clamp(dot(n, viewDir), 0.0, 1.0), 3.0);
-    col = mix(col, uCrestColor * 1.4, fres * 0.45);
+    col = mix(col, uCrestColor * 1.1, fres * 0.28);
 
-    // Foam at wave crests — animated noise
+    // Foam at wave crests — animated noise. Kept subtle so the whole surface
+    // does not glow white under strong wind.
     float foamPattern = noise(vWorldPos.xz * 0.4 + uTime * 0.15);
-    float foam = clamp(vFoam * 1.4 - 0.3, 0.0, 1.0) * smoothstep(0.35, 0.85, foamPattern);
-    col = mix(col, vec3(0.95, 0.97, 1.0), foam);
+    float foam = clamp(vFoam * 1.0 - 0.45, 0.0, 1.0) * smoothstep(0.45, 0.90, foamPattern);
+    col = mix(col, vec3(0.82, 0.86, 0.92), foam * 0.7);
 
     gl_FragColor = vec4(col, 0.95);
   }

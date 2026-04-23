@@ -21,6 +21,7 @@ const MODEL_COLORS: Record<string, string> = {
   LSTM: "#00AAFF",
   TFT: "#00CC66",
   Ensemble: "#CC66FF",
+  Persistence: "#94A3B8",
 };
 
 export default function ModelComparisonPanel() {
@@ -31,6 +32,23 @@ export default function ModelComparisonPanel() {
   const models = modelComparison.model_metrics;
   const names = models.map((m) => m.model_name);
   const colors = names.map((n) => MODEL_COLORS[n] ?? "#94A3B8");
+
+  // Detect ensemble under-performance: an ensemble should never be worse
+  // than its best base member. When this happens we surface a hint so
+  // the user understands why (adaptive weighting has already mitigated
+  // it, but a very weak base model can still leak some error through).
+  const ensemble = models.find((m) => m.model_name === "Ensemble");
+  const baseMembers = models.filter(
+    (m) => m.model_name === "XGBoost" || m.model_name === "LSTM" || m.model_name === "TFT",
+  );
+  const bestBaseRmse = baseMembers.length
+    ? Math.min(...baseMembers.map((m) => m.rmse_mw))
+    : Number.POSITIVE_INFINITY;
+  const ensembleUnderperforms = ensemble !== undefined && ensemble.rmse_mw > bestBaseRmse + 1e-6;
+  const worstBase = baseMembers.reduce(
+    (acc, m) => (m.rmse_mw > acc.rmse_mw ? m : acc),
+    baseMembers[0] ?? { model_name: "", rmse_mw: 0 },
+  );
 
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
@@ -85,6 +103,16 @@ export default function ModelComparisonPanel() {
         className="w-full h-full"
       />
       </div>
+
+      {ensembleUnderperforms && (
+        <div className="mt-2 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          ⚠ Ensemble RMSE ({ensemble?.rmse_mw.toFixed(3)} MW) is higher than the
+          best base model. Likely cause: {worstBase.model_name} underperformed
+          ({worstBase.rmse_mw.toFixed(3)} MW) and leaked residual error through
+          the weighted average. Skill-gate + inverse-RMSE weighting mitigate
+          but cannot always eliminate this.
+        </div>
+      )}
 
       {/* Mini summary table */}
       <div className="mt-2 overflow-x-auto">

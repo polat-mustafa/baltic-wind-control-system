@@ -35,6 +35,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/forecast": "P4 · AI Forecasting",
   "/commissioning": "P5 · HV Commissioning",
   "/digital-twin": "Digital Twin · Condition Monitoring",
+  "/research-lab": "Research Lab · Advanced Wind R&D",
 };
 
 export default function AppShell() {

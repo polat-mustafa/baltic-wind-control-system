@@ -43,21 +43,21 @@ export function AnnotationMarkerContent({ annotation, isSelected, onClick }: Ann
         className={isPulsing ? "annotation-pulse" : ""}
         data-testid="marker-circle"
         style={{
-          width: 12,
-          height: 12,
+          width: 18,
+          height: 18,
           borderRadius: "50%",
           background: color,
           border: isSelected ? "2px solid white" : "1.5px solid rgba(255,255,255,0.4)",
           cursor: "pointer",
-          boxShadow: isSelected ? `0 0 8px ${color}` : `0 0 4px ${color}88`,
+          boxShadow: isSelected ? `0 0 10px ${color}` : `0 0 5px ${color}88`,
           flexShrink: 0,
         }}
       />
       {/* Label */}
       <span
         style={{
-          marginLeft: 5,
-          fontSize: 10,
+          marginLeft: 6,
+          fontSize: 13,
           fontFamily: "JetBrains Mono, monospace",
           color: "#e2e8f0",
           whiteSpace: "nowrap",

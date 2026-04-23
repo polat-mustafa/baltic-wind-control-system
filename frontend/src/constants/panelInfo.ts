@@ -301,13 +301,16 @@ export const shapInfo: InfoContent = {
 };
 
 export const accuracyHeatmapInfo: InfoContent = {
-  title: "Accuracy Heatmap — Error by Hour and Month",
+  title: "Uncertainty vs Lead Time — P90-P10 Spread",
   description:
-    "Shows prediction error (MAE or RMSE) across time-of-day and month-of-year. " +
-    "Identifies systematic patterns where the model struggles.",
+    "Shows forecast uncertainty (P90-P10 spread) as a function of lead time. " +
+    "A single 48 h forecast does not support an hour-of-day × horizon heatmap " +
+    "(each step would map to exactly one cell), so this curve plots the quantity " +
+    "the data actually supports.",
   interpretation:
-    "Darker cells indicate higher error. Common patterns: higher error during " +
-    "dawn/dusk transitions and winter storms. Use this to identify retraining needs.",
+    "Spread should rise monotonically: uncertainty grows with horizon because the " +
+    "NWP error band widens and the lagged SCADA features become less informative. " +
+    "A flat or shrinking curve suggests the quantile heads are under-dispersed.",
 };
 
 export const revenueImpactInfo: InfoContent = {

@@ -44,13 +44,22 @@ export default function RevenueImpactPanel() {
     return spotPriceEurMwh + amplitude * Math.cos(((hourOfDay - 12) / 12) * Math.PI);
   });
 
-  // Cumulative revenue: Σ(P50 × spot × dt × numTurbines)
-  const cumRevenue: number[] = [];
-  let total = 0;
+  // Cumulative revenue: Σ(P × spot × dt × numTurbines) — per quantile
+  const cumRevP10: number[] = [];
+  const cumRevP50: number[] = [];
+  const cumRevP90: number[] = [];
+  let acc10 = 0;
+  let acc50 = 0;
+  let acc90 = 0;
   for (let i = 0; i < numSteps; i++) {
-    total +=
-      ensembleForecast.power_p50_mw[i] * spotPrices[i] * dtHours * numTurbines;
-    cumRevenue.push(total);
+    const priceStep = spotPrices[i] * dtHours * numTurbines;
+    const p50 = ensembleForecast.power_p50_mw[i];
+    acc10 += (ensembleForecast.power_p10_mw?.[i] ?? p50) * priceStep;
+    acc50 += p50 * priceStep;
+    acc90 += (ensembleForecast.power_p90_mw?.[i] ?? p50) * priceStep;
+    cumRevP10.push(acc10);
+    cumRevP50.push(acc50);
+    cumRevP90.push(acc90);
   }
 
   // Downsample for performance
@@ -61,15 +70,20 @@ export default function RevenueImpactPanel() {
   );
   const xSampled = idx.map((i) => xLabels[i]);
   const p50Sampled = idx.map((i) => ensembleForecast.power_p50_mw[i]);
-  const revSampled = idx.map((i) => cumRevenue[i]);
+  const revP10Sampled = idx.map((i) => cumRevP10[i]);
+  const revP50Sampled = idx.map((i) => cumRevP50[i]);
+  const revP90Sampled = idx.map((i) => cumRevP90[i]);
   const spotSampled = idx.map((i) => spotPrices[i]);
 
-  // Format final revenue
-  const finalRevenue = cumRevenue[cumRevenue.length - 1] ?? 0;
-  const revLabel =
-    finalRevenue >= 1_000_000
-      ? `${(finalRevenue / 1_000_000).toFixed(2)}M EUR`
-      : `${(finalRevenue / 1_000).toFixed(0)}k EUR`;
+  // Format final revenue (P50 central + P10/P90 band endpoints)
+  const finalP10 = cumRevP10[cumRevP10.length - 1] ?? 0;
+  const finalP50 = cumRevP50[cumRevP50.length - 1] ?? 0;
+  const finalP90 = cumRevP90[cumRevP90.length - 1] ?? 0;
+  const fmtEur = (v: number) =>
+    v >= 1_000_000
+      ? `${(v / 1_000_000).toFixed(2)}M EUR`
+      : `${(v / 1_000).toFixed(0)}k EUR`;
+  const revLabel = `${fmtEur(finalP50)} (P10 ${fmtEur(finalP10)} · P90 ${fmtEur(finalP90)})`;
 
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
@@ -109,17 +123,40 @@ export default function RevenueImpactPanel() {
             hovertemplate:
               "%{x}<br>Spot: %{y:.1f} EUR/MWh<extra></extra>",
           },
-          // Cumulative revenue on tertiary
+          // Revenue P90 (invisible line, upper fill bound)
           {
             type: "scatter",
             x: xSampled,
-            y: revSampled,
+            y: revP90Sampled,
             mode: "lines",
-            name: "Cumulative Revenue",
+            line: { width: 0 },
+            yaxis: "y3",
+            showlegend: false,
+            hoverinfo: "skip",
+          },
+          // Revenue P10 (fills to P90 for uncertainty band)
+          {
+            type: "scatter",
+            x: xSampled,
+            y: revP10Sampled,
+            mode: "lines",
+            line: { width: 0 },
+            fill: "tonexty",
+            fillcolor: "rgba(0, 204, 102, 0.18)",
+            yaxis: "y3",
+            name: "Revenue P10-P90",
+            hovertemplate:
+              "%{x}<br>Revenue P10: %{y:,.0f} EUR<extra></extra>",
+          },
+          // Cumulative P50 revenue on tertiary axis
+          {
+            type: "scatter",
+            x: xSampled,
+            y: revP50Sampled,
+            mode: "lines",
+            name: "Cumulative Revenue (P50)",
             line: { color: REVENUE_COLOR, width: 2 },
             yaxis: "y3",
-            fill: "tozeroy",
-            fillcolor: "rgba(0, 204, 102, 0.08)",
             hovertemplate:
               "%{x}<br>Revenue: %{y:,.0f} EUR<extra></extra>",
           },

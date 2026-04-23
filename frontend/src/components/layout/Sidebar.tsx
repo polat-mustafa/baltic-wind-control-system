@@ -19,6 +19,7 @@ import {
   ClipboardCheck,
   Cpu,
   BookOpen,
+  FlaskConical,
   ChevronLeft,
   ChevronRight,
   type LucideIcon,
@@ -90,6 +91,13 @@ const NAV_ITEMS: NavItem[] = [
     path: "/library",
     icon: BookOpen,
     description: "Read-only primers (no sim)",
+  },
+  {
+    label: "Research Lab",
+    shortLabel: "Lab",
+    path: "/research-lab",
+    icon: FlaskConical,
+    description: "Advanced wind R&D tools",
   },
 ];
 

@@ -16,6 +16,7 @@ import { useMarketStore } from "../../store/marketStore";
 import { Button } from "../ui/Button";
 import DABidPanel from "./DABidPanel";
 import RevenueBreakdownPanel from "./RevenueBreakdownPanel";
+import ImbalanceSettlementPanel from "./ImbalanceSettlementPanel";
 import { InfoButton } from "../ui/InfoButton";
 import { marketDashboardInfo, ancillaryServicesInfo } from "../../constants/panelInfo";
 
@@ -75,6 +76,9 @@ export default function MarketDashboard() {
 
       {/* DA bid + revenue */}
       <DABidPanel />
+
+      {/* Imbalance settlement (M11 endpoint, previously orphaned from UI) */}
+      <ImbalanceSettlementPanel />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <RevenueBreakdownPanel />

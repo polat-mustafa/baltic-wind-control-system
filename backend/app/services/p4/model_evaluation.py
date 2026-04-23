@@ -355,7 +355,8 @@ def compare_models(
     best_calibration = min(model_results, key=calibration_error).model_name
 
     logger.info(
-        "Model comparison: %d models — best RMSE: %s, best MAE: %s, best skill: %s, best calibration: %s",
+        "Model comparison: %d models — best RMSE: %s, best MAE: %s,"
+        " best skill: %s, best calibration: %s",
         len(model_results),
         best_rmse,
         best_mae,

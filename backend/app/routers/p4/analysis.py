@@ -61,7 +61,9 @@ async def detect_ramps_endpoint(
         seed=request.seed,
     )
 
-    ensemble = compute_ensemble_forecast(forecasts, build_adaptive_ensemble_config(forecasts, actual))
+    ensemble = compute_ensemble_forecast(
+        forecasts, build_adaptive_ensemble_config(forecasts, actual)
+    )
 
     # Scale single-turbine forecast to farm total for ramp detection
     num_turbines = request.num_turbines
@@ -128,7 +130,9 @@ async def compare_models_endpoint(
         seed=request.seed,
     )
 
-    ensemble = compute_ensemble_forecast(forecasts, build_adaptive_ensemble_config(forecasts, actual))
+    ensemble = compute_ensemble_forecast(
+        forecasts, build_adaptive_ensemble_config(forecasts, actual)
+    )
 
     # Evaluate each model
     xgb_metrics = evaluate_model(

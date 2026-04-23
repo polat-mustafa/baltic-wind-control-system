@@ -283,9 +283,15 @@ class TestSkillGate:
         tft = truth + rng.normal(0, 0.1, n)
 
         forecasts = ModelForecasts(
-            xgb_p10=xgb - 0.1, xgb_p50=xgb, xgb_p90=xgb + 0.1,
-            lstm_p10=lstm - 0.5, lstm_p50=lstm, lstm_p90=lstm + 0.5,
-            tft_p10=tft - 0.1, tft_p50=tft, tft_p90=tft + 0.1,
+            xgb_p10=xgb - 0.1,
+            xgb_p50=xgb,
+            xgb_p90=xgb + 0.1,
+            lstm_p10=lstm - 0.5,
+            lstm_p50=lstm,
+            lstm_p90=lstm + 0.5,
+            tft_p10=tft - 0.1,
+            tft_p50=tft,
+            tft_p90=tft + 0.1,
             wind_speed_ms=np.full(n, 10.0),
             timestamps_utc=np.arange(n, dtype=np.int64) * 600,
         )

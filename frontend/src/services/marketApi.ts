@@ -60,6 +60,47 @@ export function runRevenueSimulation(
   return post(`${BASE}/revenue`, params);
 }
 
+// ── Imbalance Settlement ──────────────────────────────────────────
+
+export interface ImbalanceRequest {
+  forecast_mwh: number[];      // length 24
+  actual_mwh: number[];        // length 24
+  da_price_eur_mwh: number[];  // length 24
+  imbalance_penalty_factor?: number;  // default 1.15
+}
+
+export interface ImbalanceHourResult {
+  hour: number;
+  forecast_mwh: number;
+  actual_mwh: number;
+  delta_mwh: number;
+  da_price_eur_mwh: number;
+  da_revenue_eur: number;
+  imbalance_cost_eur: number;
+  direction: "long" | "short" | "balanced";
+}
+
+export interface ImbalanceResponse {
+  hourly_results: ImbalanceHourResult[];
+  total_da_revenue_eur: number;
+  total_imbalance_cost_eur: number;
+  net_revenue_eur: number;
+  mae_mwh: number;
+  mape_pct: number;
+  long_hours: number;
+  short_hours: number;
+  assessment: string;
+}
+
+/**
+ * Settle a 24-h imbalance: penalises forecast error against the DA bid using
+ * PSE's ±factor (default 1.15). Output includes hourly direction (long/short),
+ * MAE/MAPE, and a qualitative assessment string.
+ */
+export function runImbalanceSettlement(req: ImbalanceRequest): Promise<ImbalanceResponse> {
+  return post(`${BASE}/imbalance`, req);
+}
+
 // ── Ancillary Services ─────────────────────────────────────────────
 
 /**

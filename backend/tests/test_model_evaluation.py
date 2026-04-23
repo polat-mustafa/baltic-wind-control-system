@@ -276,8 +276,37 @@ class TestCompareModels:
         result = compare_models([bad, good])
         assert isinstance(result, ModelComparisonResult)
         assert result.best_rmse == "Good"
+        assert result.best_mae == "Good"
         assert result.ranking[0] == "Good"
         assert result.ranking[1] == "Bad"
+
+    def test_best_mae_differs_from_best_rmse(self) -> None:
+        """When one model minimises MAE and another minimises RMSE, both are reported."""
+        rmse_winner = ModelMetrics(
+            model_name="RMSEWinner",
+            rmse_mw=0.80,  # lowest RMSE
+            mae_mw=0.60,
+            mape_pct=10.0,
+            r_squared=0.88,
+            skill_score=0.5,
+            quantile_coverage={"P90": 0.88},
+            pinball_losses={"P90": 0.3},
+            num_samples=100,
+        )
+        mae_winner = ModelMetrics(
+            model_name="MAEWinner",
+            rmse_mw=0.90,
+            mae_mw=0.45,  # lowest MAE (fewer large outliers, more small errors)
+            mape_pct=9.0,
+            r_squared=0.85,
+            skill_score=0.5,
+            quantile_coverage={"P90": 0.88},
+            pinball_losses={"P90": 0.3},
+            num_samples=100,
+        )
+        result = compare_models([rmse_winner, mae_winner])
+        assert result.best_rmse == "RMSEWinner"
+        assert result.best_mae == "MAEWinner"
 
     def test_empty_list_raises(self) -> None:
         """Empty model list should raise ValueError."""

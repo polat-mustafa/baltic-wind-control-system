@@ -18,6 +18,8 @@ import {
   Activity,
   Battery,
   Cable,
+  FlaskConical,
+  Network,
   Radio,
   ShieldCheck,
   TrendingUp,
@@ -32,6 +34,8 @@ import PowerQualityDashboard from "../components/p2/PowerQualityDashboard";
 import BESSDashboard from "../components/p2/BESSDashboard";
 import CableDTSDashboard from "../components/p2/CableDTSDashboard";
 import MarketDashboard from "../components/p2/MarketDashboard";
+import AdvancedAnalysisTab from "../components/p2/AdvancedAnalysisTab";
+import PlanningCouplingTab from "../components/p2/PlanningCouplingTab";
 import { useGridStore } from "../store/gridStore";
 import { usePPCStore } from "../store/ppcStore";
 import { Button } from "../components/ui/Button";
@@ -54,16 +58,20 @@ type Tab =
   | "power-quality"
   | "bess"
   | "cable-dts"
-  | "market";
+  | "market"
+  | "advanced"
+  | "planning";
 
 const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }>; tooltip: string }[] = [
-  { id: "grid",          label: "Grid Analysis",    Icon: Zap,         tooltip: "Pandapower load-flow, short-circuit (IEC 60909), FRT, STATCOM sizing" },
-  { id: "ppc",           label: "PPC",              Icon: Radio,       tooltip: "Power Plant Controller — TSO active/reactive power dispatch (ENTSO-E NC RfG Type D)" },
-  { id: "protection",    label: "Protection",       Icon: ShieldCheck, tooltip: "Relay coordination, TCC curves, selectivity grading (IEC 60255)" },
-  { id: "power-quality", label: "Power Quality",    Icon: Activity,    tooltip: "Harmonics, resonance scan, flicker at 66 kV POC (IEC 61000-3-6 / 3-7)" },
-  { id: "bess",          label: "BESS",             Icon: Battery,     tooltip: "Battery Energy Storage System — 50 MW / 200 MWh LFP, FCR/FFR, ramp smoothing" },
-  { id: "cable-dts",     label: "Cable DTS",        Icon: Cable,       tooltip: "Distributed Temperature Sensing — IEC 60287 dynamic ampacity, 45 km export cable" },
-  { id: "market",        label: "Market",           Icon: TrendingUp,  tooltip: "TGE day-ahead bid, CfD (OZMB 2024), PSE ancillary services (BSP)" },
+  { id: "grid",          label: "Grid Analysis",    Icon: Zap,           tooltip: "Pandapower load-flow, short-circuit (IEC 60909), FRT, STATCOM sizing" },
+  { id: "ppc",           label: "PPC",              Icon: Radio,         tooltip: "Power Plant Controller — TSO active/reactive power dispatch (ENTSO-E NC RfG Type D)" },
+  { id: "protection",    label: "Protection",       Icon: ShieldCheck,   tooltip: "Relay coordination, TCC curves, selectivity grading (IEC 60255)" },
+  { id: "power-quality", label: "Power Quality",    Icon: Activity,      tooltip: "Harmonics, resonance scan, flicker at 66 kV POC (IEC 61000-3-6 / 3-7)" },
+  { id: "bess",          label: "BESS",             Icon: Battery,       tooltip: "Battery Energy Storage System — 50 MW / 200 MWh LFP, FCR/FFR, ramp smoothing" },
+  { id: "cable-dts",     label: "Cable DTS",        Icon: Cable,         tooltip: "Distributed Temperature Sensing — IEC 60287 dynamic ampacity, 45 km export cable" },
+  { id: "market",        label: "Market",           Icon: TrendingUp,    tooltip: "TGE day-ahead bid, CfD (OZMB 2024), PSE ancillary services (BSP)" },
+  { id: "advanced",      label: "Advanced",         Icon: FlaskConical,  tooltip: "Dynamic compliance, OPF/SCOPF, DC PF, SSO screening, ANDES network spec" },
+  { id: "planning",      label: "Planning & P2X",   Icon: Network,       tooltip: "Economic dispatch, capacity expansion, sector coupling, electrolyzer, LDES" },
 ];
 
 const SCENARIO_OPTIONS = [
@@ -490,6 +498,8 @@ export default function HVGridPage() {
       {activeTab === "bess"          && <BESSDashboard />}
       {activeTab === "cable-dts"     && <CableDTSDashboard />}
       {activeTab === "market"        && <MarketDashboard />}
+      {activeTab === "advanced"      && <AdvancedAnalysisTab />}
+      {activeTab === "planning"      && <PlanningCouplingTab />}
 
       {/* ── Library: Design rationale panels ───────────────────── */}
       {libraryEntry && (

@@ -46,7 +46,7 @@ class TestTwinEngine:
 
     def test_run_twin_at_rated_wind(self):
         """Twin at rated wind (11.1 m/s) should produce ~15 MW."""
-        pred = run_twin_at_operating_point(11.1, 0.0, num_steps=200)
+        pred = run_twin_at_operating_point(11.1, 0.0)
         # At rated wind, power should be close to 15 MW
         assert pred.power_mw > 10.0, f"Power {pred.power_mw} too low at rated wind"
         assert pred.power_mw <= 15.0, f"Power {pred.power_mw} exceeds rated (Rule 1)"
@@ -74,19 +74,41 @@ class TestTwinEngine:
         assert table.rpm_grid.shape == (n_speeds, n_dirs)
         assert table.pitch_grid.shape == (n_speeds, n_dirs)
 
-    def test_lookup_matches_direct_simulation(self):
-        """Lookup table prediction should match direct simulation."""
+    def test_lookup_matches_direct_evaluation(self):
+        """Lookup table prediction should match direct analytical evaluation."""
         clear_twin_cache()
         table = build_twin_lookup_table()
 
         # Test at an exact grid point
-        direct = run_twin_at_operating_point(10.0, 0.0, num_steps=100)
+        direct = run_twin_at_operating_point(10.0, 0.0)
         lookup = lookup_twin_prediction(table, 10.0, 0.0)
 
-        # Should be very close (exact grid point)
-        assert abs(lookup.power_mw - direct.power_mw) < 0.5, (
-            f"Lookup {lookup.power_mw:.2f} vs direct {direct.power_mw:.2f}"
+        # Should match exactly at a grid point (bilinear collapses).
+        assert abs(lookup.power_mw - direct.power_mw) < 1e-6, (
+            f"Lookup {lookup.power_mw:.6f} vs direct {direct.power_mw:.6f}"
         )
+
+    def test_twin_matches_scada_power_curve(self):
+        """Twin must use the same power curve as the SCADA generator.
+
+        If this ever drifts, the healthy scenario will show spurious residuals
+        (the exact 50% bug fixed in plan digital-twin-section-cant-optimized).
+        """
+        from app.services.p4.turbine_power_curve import (
+            build_power_curve,
+            interpolate_power_mw,
+        )
+
+        clear_twin_cache()
+        table = build_twin_lookup_table()
+        curve = build_power_curve()
+
+        for v in (5.0, 8.0, 10.0, 11.1, 15.0, 20.0, 25.0):
+            twin = lookup_twin_prediction(table, v, 0.0)
+            ref = float(interpolate_power_mw(v, curve))
+            assert twin.power_mw == pytest.approx(ref, rel=1e-3, abs=1e-6), (
+                f"Twin {twin.power_mw:.4f} MW != power curve {ref:.4f} MW at v={v}"
+            )
 
     def test_lookup_interpolation(self):
         """Interpolated lookups should be reasonable between grid points."""
@@ -253,14 +275,38 @@ class TestScenarioGenerator:
     """End-to-end tests for scenario_generator.py."""
 
     def test_healthy_scenario(self):
-        """Healthy scenario: pipeline completes without error."""
-        from app.services.digital_twin.scenario_generator import run_digital_twin_analysis
+        """Healthy scenario: all turbines should be healthy, minimal anomalies.
 
-        result = run_digital_twin_analysis("healthy", num_timesteps=144, num_turbines=5)
+        Regression guard for the 50%-health bug: previously this test only
+        asserted farm_health_pct >= 0 which passed trivially even when every
+        turbine sat at ~50% from model mismatch between twin and SCADA.
+        """
+        from app.services.digital_twin.scenario_generator import run_digital_twin_analysis
+        from app.services.digital_twin.twin_engine import clear_twin_cache
+
+        clear_twin_cache()
+        num_turbines = 5
+        result = run_digital_twin_analysis("healthy", num_timesteps=144, num_turbines=num_turbines)
         assert result.scenario == "healthy"
-        assert result.num_turbines == 5
-        assert result.farm_health["farm_health_pct"] >= 0.0
-        assert len(result.turbine_analyses) == 5
+        assert result.num_turbines == num_turbines
+        assert len(result.turbine_analyses) == num_turbines
+
+        farm = result.farm_health
+        assert farm["farm_health_pct"] >= 90.0, (
+            f"Healthy scenario farm health too low: {farm['farm_health_pct']}"
+        )
+        assert farm["healthy_count"] == num_turbines, (
+            f"Expected all {num_turbines} healthy, got {farm['healthy_count']}"
+        )
+        assert farm["critical_count"] == 0
+
+        total_anomalies = sum(len(a.anomalies) for a in result.turbine_analyses)
+        # Healthy pipeline should not classify every sample as an anomaly
+        # (previously all 24 samples per turbine were flagged as sensor_drift).
+        assert total_anomalies < num_turbines, (
+            f"Healthy scenario produced {total_anomalies} anomalies for "
+            f"{num_turbines} turbines — expected sporadic at most"
+        )
 
     def test_blade_icing_scenario(self):
         """Blade icing: pipeline completes and detects anomalies."""

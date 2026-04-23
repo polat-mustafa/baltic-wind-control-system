@@ -15,9 +15,16 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 from app.core.cache import cached
-from app.services.p4.ensemble_model import ModelForecasts, compute_ensemble_forecast
+from app.services.p4.ensemble_model import (
+    EnsembleConfig,
+    ModelForecasts,
+    apply_inverse_rmse_weighting,
+    apply_skill_gate,
+    compute_ensemble_forecast,
+)
 from app.services.p4.feature_engineering import FeatureConfig, engineer_features
 from app.services.p4.lstm_model import LSTMConfig, predict_lstm, train_lstm
+from app.services.p4.model_evaluation import compute_rmse, compute_skill_score
 from app.services.p4.nwp_pipeline import NWPConfig, generate_nwp_dataset, merge_nwp_features
 from app.services.p4.scada_generator import SCADAConfig, generate_scada_dataset
 from app.services.p4.scada_quality_filters import apply_all_quality_filters
@@ -328,6 +335,31 @@ async def _get_cached_forecasts(
     return forecasts, actual
 
 
+def build_adaptive_ensemble_config(forecasts: ModelForecasts, actual: np.ndarray) -> EnsembleConfig:
+    """Build an ensemble config adapted to the evaluation window.
+
+    Two stages, applied in order:
+      1. **Skill gate** — drop any model failing to beat persistence (skill < 0).
+      2. **Inverse-RMSE** — scale surviving weights by ``1 / RMSE²``.
+
+    Preserves the roadmap §5.6 horizon expertise (TFT long, XGB short)
+    while preventing a weak base model from pulling the ensemble below
+    its best member.
+    """
+    skill_scores = {
+        "XGBoost": compute_skill_score(actual, forecasts.xgb_p50),
+        "LSTM": compute_skill_score(actual, forecasts.lstm_p50),
+        "TFT": compute_skill_score(actual, forecasts.tft_p50),
+    }
+    rmse_scores = {
+        "XGBoost": compute_rmse(actual, forecasts.xgb_p50),
+        "LSTM": compute_rmse(actual, forecasts.lstm_p50),
+        "TFT": compute_rmse(actual, forecasts.tft_p50),
+    }
+    cfg = apply_skill_gate(EnsembleConfig(), skill_scores)
+    return apply_inverse_rmse_weighting(cfg, rmse_scores)
+
+
 async def _cached_ensemble_predict(
     num_turbines: int,
     num_timesteps: int,
@@ -335,15 +367,23 @@ async def _cached_ensemble_predict(
     horizon_steps: int,
     seed: int | None,
 ) -> dict[str, object]:
-    """Build ensemble from cached model forecasts."""
-    forecasts, _ = await _get_cached_forecasts(
+    """Build ensemble from cached model forecasts.
+
+    Weights are adapted per evaluation window: first skill-gated against
+    persistence (negative-skill models dropped), then scaled by inverse
+    RMSE so the best performer naturally gets more weight. Protects the
+    ensemble from being dragged below its best member.
+    """
+    forecasts, actual = await _get_cached_forecasts(
         num_turbines=num_turbines,
         num_timesteps=num_timesteps,
         turbine_index=turbine_index,
         horizon_steps=horizon_steps,
         seed=seed,
     )
-    ensemble = compute_ensemble_forecast(forecasts)
+    ensemble = compute_ensemble_forecast(
+        forecasts, build_adaptive_ensemble_config(forecasts, actual)
+    )
     n = len(ensemble.power_p50_mw)
     return {
         "power_p10_mw": [round(float(v), 4) for v in ensemble.power_p10_mw],

@@ -306,18 +306,31 @@ def _inject_anomalies(
         power[valid, turb] = 0.0
         status[valid, turb] = "curtailed"
 
-        # Maintenance: multi-hour blocks (12-48 consecutive timesteps)
-        n_maint_events = max(1, int(num_t * config.maintenance_rate / 24))
+        # Maintenance: multi-hour blocks (12-48 consecutive timesteps).
+        # Honour rate=0 exactly (previously a max(1, ...) guard forced at least
+        # one maintenance block per turbine, which made "healthy" scenarios
+        # contain forced zero-power stretches). When rate > 0 but truncation
+        # yields 0, keep at least one event so small nonzero rates still inject.
+        n_maint_events = int(num_t * config.maintenance_rate / 24)
+        if config.maintenance_rate > 0 and n_maint_events == 0:
+            n_maint_events = 1
         for _ in range(n_maint_events):
+            if num_t <= 48:
+                break
             start = rng.integers(0, num_t - 48)
             duration = rng.integers(12, 48)
             end = min(start + duration, num_t)
             power[start:end, turb] = 0.0
             status[start:end, turb] = "maintenance"
 
-        # Frozen anemometer: constant wind reading for > 1 hour
-        n_frozen = max(1, int(num_t * config.frozen_anemometer_rate / 12))
+        # Frozen anemometer: constant wind reading for > 1 hour.
+        # Same rate=0 semantics as maintenance above.
+        n_frozen = int(num_t * config.frozen_anemometer_rate / 12)
+        if config.frozen_anemometer_rate > 0 and n_frozen == 0:
+            n_frozen = 1
         for _ in range(n_frozen):
+            if num_t <= 12:
+                break
             start = rng.integers(0, num_t - 12)
             duration = rng.integers(7, 18)  # 70-180 minutes
             end = min(start + duration, num_t)

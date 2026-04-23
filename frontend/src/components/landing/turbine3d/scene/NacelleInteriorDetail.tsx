@@ -29,6 +29,10 @@ import { Line, Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 
 import { selectTurbine, useLandingStore } from "../../../../store/landingStore";
+import {
+  selectNacelleData,
+  useNacelleSubsystemsStore,
+} from "../../../../store/nacelleSubsystemsStore";
 import { CableTray } from "./nacelle/CableTray";
 
 const NACELLE_Y = 151;
@@ -144,10 +148,11 @@ function IGBTHeatsinks({ turbineId }: { turbineId: string }) {
 
 function OilFlowLoop({ turbineId }: { turbineId: string }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
+  const liveOilTempC = useNacelleSubsystemsStore(selectNacelleData(turbineId))?.cooling.oil_temp_c;
   const powerFrac = Math.min(1, (turbine?.powerOutputMW ?? 0) / RATED_POWER_MW);
-  // Temperature proxy — 55 °C idle → 90 °C full load.
-  const tempC = 55 + powerFrac * 35;
-  const tempFrac = (tempC - 55) / 35;
+  // Prefer live backend oil temperature; fall back to local steady-state proxy.
+  const tempC = liveOilTempC ?? (55 + powerFrac * 35);
+  const tempFrac = Math.min(1, Math.max(0, (tempC - 55) / 35));
 
   const color = useMemo(() => {
     const c = new THREE.Color().lerpColors(
@@ -289,9 +294,11 @@ function TransformerToCableRoutingTray() {
 
 function HPUPressureGauge({ turbineId }: { turbineId: string }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
+  const liveLineBar = useNacelleSubsystemsStore(selectNacelleData(turbineId))?.hpu.line_pressure_bar;
   const powerFrac = Math.min(1, (turbine?.powerOutputMW ?? 0) / RATED_POWER_MW);
-  // Pressure proxy — 180 bar idle → 240 bar heavy pitch activity.
-  const barFrac = 0.75 + powerFrac * 0.15;
+  // Map a 140–260 bar range to needle sweep [0, π]. Use live value if polled.
+  const bar = liveLineBar ?? (180 + powerFrac * 60);
+  const barFrac = Math.min(1, Math.max(0, (bar - 140) / 120));
   const needleAng = barFrac * Math.PI - Math.PI / 2;
 
   return (

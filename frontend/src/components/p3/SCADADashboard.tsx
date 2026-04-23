@@ -18,6 +18,7 @@ import {
   Activity,
   Bell,
   Database,
+  FileCode,
   FileText,
   GitBranch,
   List,
@@ -51,6 +52,8 @@ import AlarmRationalizationPanel from "./AlarmRationalizationPanel";
 import CMSDashboard from "./CMSDashboard";
 // M15 — Communication Network
 import NetworkDashboard from "./NetworkDashboard";
+// IEC 61850-6 — SCL file generator (audit gap fill)
+import SCLGeneratorPanel from "./SCLGeneratorPanel";
 import { cn } from "../../lib/utils";
 
 const TABS = [
@@ -68,6 +71,7 @@ const TABS = [
   { id: "alarm-kpi", label: "Alarm KPI",   icon: Bell },
   { id: "cms",       label: "CMS",         icon: Activity },
   { id: "network",   label: "Network",     icon: Network },
+  { id: "scl",       label: "SCL Gen",     icon: FileCode },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -134,6 +138,7 @@ export default function SCADADashboard() {
           {activeTab === "alarm-kpi" && <AlarmRationalizationPanel />}
           {activeTab === "cms"       && <CMSDashboard />}
           {activeTab === "network"   && <NetworkDashboard />}
+          {activeTab === "scl"       && <SCLGeneratorPanel />}
         </div>
       </div>
     </div>

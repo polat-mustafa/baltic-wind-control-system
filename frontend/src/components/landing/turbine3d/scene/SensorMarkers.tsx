@@ -76,7 +76,7 @@ const SENSORS: Sensor[] = [
   { id: "wind-speed",         label: "Nacelle Anemometer",          type: "encoder",     position: [0.0, 157.5, -6.0],  partId: "anemometer"},
 ];
 
-const RADIUS = 0.22;
+const RADIUS = 0.40;
 
 export function SensorMarkers({ onSelectPart }: SensorMarkersProps) {
   return (

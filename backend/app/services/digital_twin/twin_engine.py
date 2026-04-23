@@ -1,38 +1,43 @@
-"""Twin engine — wraps existing physics simulator for steady-state predictions.
+"""Twin engine — analytical V236 reference model for healthy-behavior predictions.
 
 Physics Layer
 ─────────────
 A digital twin predicts what a turbine SHOULD produce given current wind
-conditions. The prediction comes from the same physics model used in the
-turbine simulator (aerodynamics + pitch + drivetrain + rotor dynamics).
+conditions. For condition monitoring, the twin must be the same reference
+model used to generate the healthy baseline — otherwise "residuals" would
+just be model mismatch, not real turbine degradation.
 
-For steady-state prediction, we run the simulator for ~100 steps at constant
-wind speed to let the controller settle, then take the final state as the
-twin's prediction for that operating point.
+We use the IEC 61400-12-1 analytical power curve from ``turbine_power_curve``
+— identical to the one driving ``scada_generator.generate_scada_dataset``.
+Rotor speed and pitch are derived from the V236 operating envelope:
+
+  • Below cut-in or above cut-out  → power = 0, rpm = 0, pitch = 0
+  • Region 2 (cut-in ≤ v < rated)  → TSR-following: rpm scales with wind,
+                                     pitch held at 0° (fine pitch / Cp-optimal)
+  • Region 3 (v ≥ rated)           → rpm clamped to rated, pitch increases
+                                     to shed aerodynamic power (pitch control)
 
 Standards Layer
 ───────────────
 - ISO 13374-1 Level 2: Data Manipulation — the twin provides the "expected"
   reference signal that residual analysis compares against actual SCADA data.
+- IEC 61400-12-1: Power performance measurement — defines the reference curve.
 - IEC 61400-25-2: The twin output maps to the same SCADA data model.
 
 Maths Layer
 ───────────
-Lookup table approach for performance:
-- Pre-compute predictions for wind_speed × wind_dir grid
-- wind_speed: [0, 0.5, 1.0, ..., 35.0] → 71 values
-- wind_dir: [0, 10, 20, ..., 350°] → 36 values
-- Total: 71 × 36 = 2,556 steady-state simulations
-- Each simulation: 100 steps × 0.1s dt = 10s of simulated time
-- Runtime: 2,556 sims vs 3.4M steps for direct computation
-
-For arbitrary (speed, dir) pairs, use bilinear interpolation on the lookup
-table. This gives sub-millisecond lookups vs ~10ms per direct simulation.
+Lookup table on a wind-speed × wind-direction grid, interpolated bilinearly.
+The curve is direction-independent (analytical power curve does not depend on
+wind direction), so the direction axis collapses — but the grid API is kept
+unchanged so callers don't need to know. This also leaves a hook for future
+direction-dependent corrections (e.g., wake-induced derating).
 
 Code Layer
 ──────────
-Reuses run_simulation() from turbine_physics/simulator.py — zero physics
-duplication. The twin IS the simulator, just pre-computed at steady state.
+Zero duplication with the SCADA generator: both call the same
+``interpolate_power_mw`` on the same ``build_power_curve()`` result, so in the
+healthy scenario the twin and actual power match exactly (modulo ±2 %
+measurement noise the generator adds).
 """
 
 from __future__ import annotations
@@ -42,17 +47,29 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from app.services.turbine_physics.simulator import SimulationConfig, run_simulation
+from app.services.p4.turbine_power_curve import (
+    build_power_curve,
+    get_v236_spec,
+    interpolate_power_mw,
+)
 
 # ── Constants ─────────────────────────────────────────────────────
 
-STEADY_STATE_STEPS = 100  # Steps to reach steady state (~10s at dt=0.1)
 WIND_SPEED_MIN = 0.0
 WIND_SPEED_MAX = 35.0
 WIND_SPEED_STEP = 0.5
 WIND_DIR_MIN = 0.0
 WIND_DIR_MAX = 350.0
 WIND_DIR_STEP = 10.0
+
+# V236-15.0 MW rated rotor speed (matches drivetrain.py and state_machine.py)
+RATED_ROTOR_SPEED_RPM: float = 8.33
+
+# Pitch authority in region 3: deg per (m/s) above rated, clamped to PITCH_MAX_DEG.
+# Calibrated so pitch runs from 0° at rated speed to ~30° near cut-out — consistent
+# with V236 pitch behaviour reported by the turbine_physics controller.
+PITCH_SLOPE_DEG_PER_MS: float = 1.5
+PITCH_MAX_DEG: float = 30.0
 
 
 # ── Data containers ──────────────────────────────────────────────
@@ -97,38 +114,62 @@ _cached_table: TwinLookupTable | None = None
 # ── Core functions ───────────────────────────────────────────────
 
 
+def _expected_rpm(wind_speed_ms: float) -> float:
+    """Analytical V236 rotor-speed reference.
+
+    Region 1/4 → 0. Region 2 → linear ramp to rated. Region 3 → rated.
+    """
+    spec = get_v236_spec()
+    if wind_speed_ms < spec.cut_in_speed_ms or wind_speed_ms > spec.cut_out_speed_ms:
+        return 0.0
+    if wind_speed_ms < spec.rated_speed_ms:
+        frac = (wind_speed_ms - spec.cut_in_speed_ms) / (spec.rated_speed_ms - spec.cut_in_speed_ms)
+        return RATED_ROTOR_SPEED_RPM * frac
+    return RATED_ROTOR_SPEED_RPM
+
+
+def _expected_pitch(wind_speed_ms: float) -> float:
+    """Analytical V236 pitch reference.
+
+    Region 1/4 → 0 (feathered at shutdown is handled by state machine, not here).
+    Region 2 → 0° fine pitch (Cp-optimal).
+    Region 3 → linear increase with excess wind, capped at PITCH_MAX_DEG.
+    """
+    spec = get_v236_spec()
+    if wind_speed_ms < spec.cut_in_speed_ms or wind_speed_ms > spec.cut_out_speed_ms:
+        return 0.0
+    if wind_speed_ms < spec.rated_speed_ms:
+        return 0.0
+    excess = wind_speed_ms - spec.rated_speed_ms
+    return min(PITCH_MAX_DEG, PITCH_SLOPE_DEG_PER_MS * excess)
+
+
 def run_twin_at_operating_point(
     wind_speed_ms: float,
     wind_dir_deg: float = 0.0,
-    num_steps: int = STEADY_STATE_STEPS,
 ) -> TwinPrediction:
-    """Run simulator at constant wind to get steady-state prediction.
+    """Evaluate the analytical twin at one operating point.
 
-    Runs the physics simulator for `num_steps` at constant conditions,
-    takes the final state as the twin's prediction. This is the "truth"
-    model — what a healthy turbine should produce.
+    Pure function — no simulator state. Used primarily by tests; normal
+    dashboard flow goes through the cached lookup table.
     """
-    wind_speeds = [wind_speed_ms] * num_steps
-    wind_dirs = [wind_dir_deg] * num_steps
-    config = SimulationConfig(dt=0.1)
-
-    result = run_simulation(wind_speeds, wind_dirs, config)
-
+    curve = build_power_curve()
+    power = float(interpolate_power_mw(wind_speed_ms, curve))
     return TwinPrediction(
         wind_speed_ms=wind_speed_ms,
         wind_dir_deg=wind_dir_deg,
-        power_mw=float(result.electrical_power_mw[-1]),
-        rotor_speed_rpm=float(result.rotor_speed_rpm[-1]),
-        pitch_angle_deg=float(result.pitch_angle_deg[-1]),
+        power_mw=max(0.0, power),
+        rotor_speed_rpm=_expected_rpm(wind_speed_ms),
+        pitch_angle_deg=_expected_pitch(wind_speed_ms),
     )
 
 
 def build_twin_lookup_table() -> TwinLookupTable:
     """Pre-compute twin predictions for a grid of (speed × direction).
 
-    Creates a lookup table that can be interpolated for any operating point.
-    This is the key performance optimization — pre-compute 2,556 simulations
-    once, then use fast bilinear interpolation for millions of lookups.
+    The analytical curve is direction-independent, so every direction column
+    holds the same values — the grid shape is preserved purely for API
+    stability and future extensibility (e.g., wake-induced derating).
 
     Returns cached table if already computed.
     """
@@ -146,22 +187,22 @@ def build_twin_lookup_table() -> TwinLookupTable:
     n_speeds = len(wind_speeds)
     n_dirs = len(wind_dirs)
 
-    power_grid = np.zeros((n_speeds, n_dirs), dtype=np.float64)
-    rpm_grid = np.zeros((n_speeds, n_dirs), dtype=np.float64)
-    pitch_grid = np.zeros((n_speeds, n_dirs), dtype=np.float64)
+    curve = build_power_curve()
 
-    config = SimulationConfig(dt=0.1)
+    # Evaluate the analytical curve once per speed, broadcast across directions.
+    power_col: NDArray[np.float64] = np.maximum(
+        np.asarray(interpolate_power_mw(wind_speeds, curve), dtype=np.float64), 0.0
+    )
+    rpm_col: NDArray[np.float64] = np.asarray(
+        [_expected_rpm(float(v)) for v in wind_speeds], dtype=np.float64
+    )
+    pitch_col: NDArray[np.float64] = np.asarray(
+        [_expected_pitch(float(v)) for v in wind_speeds], dtype=np.float64
+    )
 
-    for i, ws in enumerate(wind_speeds):
-        for j, wd in enumerate(wind_dirs):
-            wind_arr = [float(ws)] * STEADY_STATE_STEPS
-            dir_arr = [float(wd)] * STEADY_STATE_STEPS
-
-            result = run_simulation(wind_arr, dir_arr, config)
-
-            power_grid[i, j] = float(result.electrical_power_mw[-1])
-            rpm_grid[i, j] = float(result.rotor_speed_rpm[-1])
-            pitch_grid[i, j] = float(result.pitch_angle_deg[-1])
+    power_grid = np.broadcast_to(power_col[:, None], (n_speeds, n_dirs)).copy()
+    rpm_grid = np.broadcast_to(rpm_col[:, None], (n_speeds, n_dirs)).copy()
+    pitch_grid = np.broadcast_to(pitch_col[:, None], (n_speeds, n_dirs)).copy()
 
     _cached_table = TwinLookupTable(
         wind_speeds=wind_speeds,
@@ -186,8 +227,8 @@ def _bilinear_interpolate(
     Clamps to grid boundaries for out-of-range values.
     """
     # Clamp to grid bounds
-    x_val = np.clip(x_val, x_arr[0], x_arr[-1])
-    y_val = np.clip(y_val, y_arr[0], y_arr[-1])
+    x_val = float(np.clip(x_val, x_arr[0], x_arr[-1]))
+    y_val = float(np.clip(y_val, y_arr[0], y_arr[-1]))
 
     # Find surrounding indices
     ix: int = int(np.searchsorted(x_arr, x_val, side="right")) - 1
@@ -221,7 +262,7 @@ def lookup_twin_prediction(
 ) -> TwinPrediction:
     """Look up twin prediction using bilinear interpolation on cached table.
 
-    Sub-millisecond performance vs ~10ms for a full simulation.
+    Sub-millisecond performance; the table is built once per process.
     """
     power = _bilinear_interpolate(
         table.power_grid,

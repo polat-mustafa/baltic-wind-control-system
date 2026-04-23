@@ -85,7 +85,9 @@ def _compute_ewma(values: NDArray[np.float64], alpha: float = EWMA_ALPHA) -> NDA
     """
     n = len(values)
     ewma = np.zeros(n, dtype=np.float64)
-    ewma[0] = values[0]
+    # Zero cold-start: a low-wind spike at t=0 must not poison the ~24-sample
+    # memory window. The filter warms up over its span instead.
+    ewma[0] = 0.0
 
     for i in range(1, n):
         ewma[i] = alpha * values[i] + (1.0 - alpha) * ewma[i - 1]
@@ -133,10 +135,15 @@ def compute_residuals(
     rpm_res = actual_rpm - twin_rpm
     pitch_res = actual_pitch_deg - twin_pitch_deg
 
-    # Normalized (percentage)
-    power_pct = _normalize_residual(power_res, twin_power_mw, min_ref=0.1)
+    # Normalized (percentage). Floors prevent low-output periods from blowing
+    # tiny absolute residuals into huge percentages:
+    #   - power: 1.0 MW (~7% of rated) — below this the turbine isn't
+    #     producing meaningfully and health cannot be assessed.
+    #   - rpm:   0.1 rpm — rated is 8.33 rpm, so 0.1 is a safe non-zero floor.
+    #   - pitch: 1.0° — baseline 0° pitch noise must not emit phantom residuals.
+    power_pct = _normalize_residual(power_res, twin_power_mw, min_ref=1.0)
     rpm_pct = _normalize_residual(rpm_res, twin_rpm, min_ref=0.1)
-    pitch_pct = _normalize_residual(pitch_res, twin_pitch_deg, min_ref=0.5)
+    pitch_pct = _normalize_residual(pitch_res, twin_pitch_deg, min_ref=1.0)
 
     # EWMA smoothing
     power_ewma = _compute_ewma(power_pct, ewma_alpha)

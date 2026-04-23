@@ -63,7 +63,7 @@ describe("ForecastKPIHeader", () => {
     expect(screen.getByText("Best RMSE")).toBeDefined();
     expect(screen.getByText("Best MAE")).toBeDefined();
     expect(screen.getByText("Skill Score")).toBeDefined();
-    expect(screen.getByText("Grid Alerts")).toBeDefined();
+    expect(screen.getByText("Alert Events")).toBeDefined();
     expect(screen.getByText("Est. Revenue")).toBeDefined();
   });
 
@@ -74,6 +74,7 @@ describe("ForecastKPIHeader", () => {
           { model_name: "XGBoost", rmse_mw: 1.05, mae_mw: 0.62, skill_score: 0.35 },
         ],
         best_rmse: "XGBoost",
+        best_mae: "XGBoost",
         best_skill: "XGBoost",
       },
       rampDetection: {

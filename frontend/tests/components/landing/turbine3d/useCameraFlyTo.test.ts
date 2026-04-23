@@ -10,7 +10,7 @@
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { Clock, Vector3 } from "three";
+import { Vector3 } from "three";
 
 const frameCallbacks: Array<(state: unknown, delta: number) => void> = [];
 
@@ -30,7 +30,8 @@ const mockScene = {
   traverse: () => {},
 };
 
-const mockClock = new Clock();
+let _simTime = 0;
+const mockClock = { getElapsedTime: () => _simTime };
 
 vi.mock("@react-three/fiber", () => ({
   useThree: () => ({
@@ -49,6 +50,7 @@ import { DEFAULT_CAMERA_TARGET } from "../../../../src/components/landing/turbin
 
 beforeEach(() => {
   frameCallbacks.length = 0;
+  _simTime = 0;
   mockCamera.position.set(180, 160, 180);
   mockTarget.set(0, 80, 0);
   mockControls.update.mockClear();
@@ -56,7 +58,7 @@ beforeEach(() => {
 
 function tickFrames(n: number, delta = 1 / 60) {
   for (let i = 0; i < n; i++) {
-    mockClock.getElapsedTime(); // advance
+    _simTime += delta;
     for (const cb of frameCallbacks) {
       cb({}, delta);
     }

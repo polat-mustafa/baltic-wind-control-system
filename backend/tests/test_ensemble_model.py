@@ -316,12 +316,25 @@ class TestInverseRmseWeighting:
         assert scaled.short_weights.xgb_weight > scaled.short_weights.lstm_weight
         assert scaled.short_weights.xgb_weight > scaled.short_weights.tft_weight
         # Weights still sum to 1 per band
-        assert scaled.short_weights.xgb_weight + scaled.short_weights.lstm_weight + scaled.short_weights.tft_weight == pytest.approx(1.0, abs=1e-9)
-        assert scaled.medium_weights.xgb_weight + scaled.medium_weights.lstm_weight + scaled.medium_weights.tft_weight == pytest.approx(1.0, abs=1e-9)
-        assert scaled.long_weights.xgb_weight + scaled.long_weights.lstm_weight + scaled.long_weights.tft_weight == pytest.approx(1.0, abs=1e-9)
+        assert (
+            scaled.short_weights.xgb_weight
+            + scaled.short_weights.lstm_weight
+            + scaled.short_weights.tft_weight
+        ) == pytest.approx(1.0, abs=1e-9)
+        assert (
+            scaled.medium_weights.xgb_weight
+            + scaled.medium_weights.lstm_weight
+            + scaled.medium_weights.tft_weight
+        ) == pytest.approx(1.0, abs=1e-9)
+        assert (
+            scaled.long_weights.xgb_weight
+            + scaled.long_weights.lstm_weight
+            + scaled.long_weights.tft_weight
+        ) == pytest.approx(1.0, abs=1e-9)
 
     def test_equal_rmse_preserves_static_schedule(self) -> None:
-        """When all RMSEs are equal the inverse-variance factor is uniform so the static weights persist."""
+        """When all RMSEs are equal the inverse-variance factor is uniform;
+        static weights persist unchanged."""
         scaled = apply_inverse_rmse_weighting(
             EnsembleConfig(),
             rmse_scores={"XGBoost": 0.5, "LSTM": 0.5, "TFT": 0.5},

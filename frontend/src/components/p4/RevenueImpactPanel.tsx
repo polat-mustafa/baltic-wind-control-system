@@ -53,9 +53,10 @@ export default function RevenueImpactPanel() {
   let acc90 = 0;
   for (let i = 0; i < numSteps; i++) {
     const priceStep = spotPrices[i] * dtHours * numTurbines;
-    acc10 += ensembleForecast.power_p10_mw[i] * priceStep;
-    acc50 += ensembleForecast.power_p50_mw[i] * priceStep;
-    acc90 += ensembleForecast.power_p90_mw[i] * priceStep;
+    const p50 = ensembleForecast.power_p50_mw[i];
+    acc10 += (ensembleForecast.power_p10_mw?.[i] ?? p50) * priceStep;
+    acc50 += p50 * priceStep;
+    acc90 += (ensembleForecast.power_p90_mw?.[i] ?? p50) * priceStep;
     cumRevP10.push(acc10);
     cumRevP50.push(acc50);
     cumRevP90.push(acc90);

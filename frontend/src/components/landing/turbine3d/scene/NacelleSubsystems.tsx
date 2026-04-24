@@ -19,6 +19,7 @@
  */
 
 import { memo } from "react";
+import { RoundedBox } from "@react-three/drei";
 
 import type { TurbinePartId } from "../../../../constants/turbinePartEducation";
 import { useLandingStore } from "../../../../store/landingStore";
@@ -30,13 +31,14 @@ import {
 } from "../materials";
 import { BoltRing } from "./nacelle/BoltRing";
 import { Nameplate } from "./nacelle/Nameplate";
+import { statusPalette } from "./palette";
 
 interface NacelleSubsystemsProps {
   selectedPart: TurbinePartId | null;
 }
 
-const HL = "#60a5fa";
-const HL_EM = "#1d4ed8";
+const HL = statusPalette.selected;
+const HL_EM = statusPalette.selectedGlow;
 
 function col(id: TurbinePartId, sel: TurbinePartId | null, base: string) {
   return sel === id ? HL : base;
@@ -85,16 +87,15 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       {/* Nacelle floor, starboard side, forward of gearbox */}
       <group position={[2.5, 147.8, 2]} name="hpu" onClick={pick("hpu")}>
         {/* Main pump/reservoir box — RAL 2010 safety orange painted steel */}
-        <mesh castShadow>
-          <boxGeometry args={[1.5, 1.0, 1.2]} />
+        <RoundedBox args={[1.5, 1.0, 1.2]} radius={0.04} smoothness={4} castShadow>
           <meshPhysicalMaterial
             {...metalPaintedShell}
-            color={col("hpu", selectedPart, "#ea580c")}
+            color={col("hpu", selectedPart, "#c2410c")}
             clearcoat={0.6}
             emissive={em("hpu", selectedPart)}
             emissiveIntensity={emI("hpu", selectedPart)}
           />
-        </mesh>
+        </RoundedBox>
         {/* Accumulator cylinder */}
         <mesh position={[0, 0.95, -0.3]} rotation={[Math.PI / 2, 0, 0]} castShadow>
           <cylinderGeometry args={[0.2, 0.2, 1.0, 20]} />
@@ -117,26 +118,24 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       </group>
 
       {/* ── B3 Control Cabinets (TCS + Safety PLC) ───────────────── */}
-      {/* Port aft section, two side-by-side cabinets */}
-      <group position={[-3, 149.5, -9]} name="control_cabinet" onClick={pick("control_cabinet")}>
+      {/* Port aft section, two side-by-side cabinets, rotated 15° to face aisle */}
+      <group position={[-3.3, 149.0, -8.5]} rotation={[0, (15 * Math.PI) / 180, 0]} name="control_cabinet" onClick={pick("control_cabinet")}>
         {/* Cabinet 1 — Main TCS (RAL 7035 light grey) */}
-        <mesh position={[-0.45, 0, 0]} castShadow>
-          <boxGeometry args={[0.8, 2.0, 0.6]} />
+        <RoundedBox args={[0.8, 2.0, 0.6]} radius={0.03} smoothness={4} position={[-0.45, 0, 0]} castShadow>
           <meshPhysicalMaterial
             {...metalPaintedDetail}
-            color={col("control_cabinet", selectedPart, "#d1d5db")}
+            color={col("control_cabinet", selectedPart, "#cbd5e1")}
             emissive={em("control_cabinet", selectedPart)}
             emissiveIntensity={emI("control_cabinet", selectedPart)}
           />
-        </mesh>
+        </RoundedBox>
         {/* Cabinet 2 — Safety PLC */}
-        <mesh position={[0.45, 0, 0]} castShadow>
-          <boxGeometry args={[0.8, 2.0, 0.6]} />
+        <RoundedBox args={[0.8, 2.0, 0.6]} radius={0.03} smoothness={4} position={[0.45, 0, 0]} castShadow>
           <meshPhysicalMaterial
             {...metalPaintedDetail}
-            color={col("control_cabinet", selectedPart, "#d1d5db")}
+            color={col("control_cabinet", selectedPart, "#cbd5e1")}
           />
-        </mesh>
+        </RoundedBox>
         {/* Nameplates on both cabinet doors */}
         <Nameplate
           position={[-0.45, 0.75, 0.305]}
@@ -164,9 +163,9 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       </group>
 
       {/* ── B8 UPS / Battery Cabinet ─────────────────────────────── */}
-      <group position={[-3, 148.8, -6.5]} name="ups" onClick={pick("ups")}>
-        <mesh castShadow>
-          <boxGeometry args={[1.0, 1.5, 0.6]} />
+      {/* Moved to starboard so both sides of the aisle read as populated */}
+      <group position={[3.5, 148.8, -6.5]} name="ups" onClick={pick("ups")}>
+        <RoundedBox args={[1.0, 1.5, 0.6]} radius={0.035} smoothness={4} castShadow>
           <meshPhysicalMaterial
             {...metalPaintedShell}
             color={col("ups", selectedPart, "#1e40af")}
@@ -174,7 +173,7 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
             emissive={em("ups", selectedPart)}
             emissiveIntensity={emI("ups", selectedPart)}
           />
-        </mesh>
+        </RoundedBox>
         {/* Battery charge indicator strip */}
         <mesh position={[0.51, 0.2, 0]}>
           <boxGeometry args={[0.02, 0.8, 0.3]} />
@@ -194,8 +193,7 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       {/* 784 V / 66 kV, 16 MVA, Dyn11 — nacelle aft base */}
       <group position={[0, 148.0, -11]} name="transformer" onClick={pick("transformer")}>
         {/* Main tank — IEC green enamel over cast steel */}
-        <mesh castShadow>
-          <boxGeometry args={[2.5, 2.0, 2.5]} />
+        <RoundedBox args={[2.5, 2.0, 2.5]} radius={0.05} smoothness={4} castShadow>
           <meshPhysicalMaterial
             {...metalPaintedShell}
             color={col("transformer", selectedPart, "#14532d")}
@@ -203,7 +201,7 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
             emissive={em("transformer", selectedPart)}
             emissiveIntensity={emI("transformer", selectedPart)}
           />
-        </mesh>
+        </RoundedBox>
         {/* Cooling fins — 3 flat boxes on each side */}
         {([-1.3, 0, 1.3] as number[]).flatMap((fz) =>
           ([-1, 1] as number[]).map((side, i) => (
@@ -253,15 +251,14 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       {/* Starboard side wall, gearbox oil circuit */}
       <group position={[4.6, 151, -3]} name="oil_cooler" onClick={pick("oil_cooler")}>
         {/* Main radiator body — copper-brown painted heat exchanger */}
-        <mesh castShadow>
-          <boxGeometry args={[0.3, 1.5, 2.0]} />
+        <RoundedBox args={[0.3, 1.5, 2.0]} radius={0.03} smoothness={4} castShadow>
           <meshPhysicalMaterial
             {...metalPaintedDetail}
             color={col("oil_cooler", selectedPart, "#92400e")}
             emissive={em("oil_cooler", selectedPart)}
             emissiveIntensity={emI("oil_cooler", selectedPart)}
           />
-        </mesh>
+        </RoundedBox>
         {/* Fin pattern — 8 thin horizontal fins */}
         {Array.from({ length: 8 }).map((_, i) => (
           <mesh key={i} position={[0.19, -0.6 + i * 0.18, 0]}>

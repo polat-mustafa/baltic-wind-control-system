@@ -42,6 +42,9 @@ export const Nacelle = memo(function Nacelle({ viewerMode, selectedPart }: Nacel
   // with x > plane.constant is kept, x < plane.constant is clipped away.
   // constant = 0 cuts at the nacelle centreline; we animate in from +6.
   const clipPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(1, 0, 0), 6), []);
+  // Inverse plane — keeps only the half the main plane removes. Used for the
+  // ghost-shell wireframe so the cut-away half still reads as a volume.
+  const ghostPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0), []);
   const targetConstant = useRef(6);
 
   useFrame((_, dt) => {
@@ -49,9 +52,12 @@ export const Nacelle = memo(function Nacelle({ viewerMode, selectedPart }: Nacel
     // Critically damped approach — ~0.25 s settling.
     const k = 1 - Math.exp(-dt * 8);
     clipPlane.constant += (targetConstant.current - clipPlane.constant) * k;
+    // Ghost plane tracks the inverse so the two halves meet exactly.
+    ghostPlane.constant = -clipPlane.constant;
   });
 
   const clippingPlanes = isCutaway ? [clipPlane] : [];
+  const ghostPlanes = isCutaway ? [ghostPlane] : [];
 
   const shellColor = isSelected ? "#7fb1ff" : metalPaintedShell.color;
   const sideColor  = isSelected ? "#7fb1ff" : "#5b6470";
@@ -61,6 +67,15 @@ export const Nacelle = memo(function Nacelle({ viewerMode, selectedPart }: Nacel
     e.stopPropagation();
     setSelectedPart("nacelle");
   };
+
+  // Shell dimensions for ghost-edge geometry (must mirror the main mesh boxes)
+  const shells: { size: [number, number, number]; position: [number, number, number] }[] = [
+    { size: [9, 8, 20],    position: [0, 0, 0] },     // central bay
+    { size: [2, 6, 12],    position: [-5.5, -1, -2] }, // port
+    { size: [2, 6, 12],    position: [5.5, -1, -2] },  // starboard
+    { size: [9, 6, 5],     position: [0, -1, -7.5] },  // rear bay
+    { size: [8.5, 1.5, 16], position: [0, 4.5, -2] },  // cowling
+  ];
 
   return (
     <group position={[0, 151, -5]}>
@@ -77,6 +92,9 @@ export const Nacelle = memo(function Nacelle({ viewerMode, selectedPart }: Nacel
           emissiveIntensity={isSelected ? 0.18 : 0}
           clippingPlanes={clippingPlanes}
           side={THREE.DoubleSide}
+          sheen={isCutaway ? 0.6 : 0}
+          sheenColor="#93c5fd"
+          sheenRoughness={0.35}
         />
       </mesh>
 
@@ -142,6 +160,52 @@ export const Nacelle = memo(function Nacelle({ viewerMode, selectedPart }: Nacel
           clippingPlanes={clippingPlanes}
         />
       </mesh>
+
+      {/* Ghost-shell wireframe — only visible in cutaway mode. Clipped by
+          the *inverse* plane so only the removed half renders its edges,
+          preserving the "cut open" metaphor instead of a floating interior. */}
+      {isCutaway && shells.map((s, i) => (
+        <GhostShell
+          key={`ghost-${i}`}
+          size={s.size}
+          position={s.position}
+          clippingPlanes={ghostPlanes}
+        />
+      ))}
     </group>
   );
 });
+
+/**
+ * Translucent wireframe outline of a shell mesh. Renders only the edges of a
+ * box geometry so the clipped-away half still reads as a volume without
+ * obscuring interior components.
+ */
+function GhostShell({
+  size,
+  position,
+  clippingPlanes,
+}: {
+  size: [number, number, number];
+  position: [number, number, number];
+  clippingPlanes: THREE.Plane[];
+}) {
+  const edges = useMemo(() => {
+    const box = new THREE.BoxGeometry(size[0], size[1], size[2]);
+    const eg = new THREE.EdgesGeometry(box, 1);
+    box.dispose();
+    return eg;
+  }, [size]);
+
+  return (
+    <lineSegments position={position} geometry={edges}>
+      <lineBasicMaterial
+        color="#7b8698"
+        transparent
+        opacity={0.35}
+        clippingPlanes={clippingPlanes}
+        depthWrite={false}
+      />
+    </lineSegments>
+  );
+}

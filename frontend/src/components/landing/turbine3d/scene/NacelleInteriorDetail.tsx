@@ -60,11 +60,176 @@ export const NacelleInteriorDetail = memo(function NacelleInteriorDetail({
       <ConverterToTransformerTray />
       <TransformerToCableRoutingTray />
       <HPUPressureGauge turbineId={turbineId} />
+      <ServiceCatwalk />
       {showLabels && <InteriorLabels />}
       <FunctionalGroupRings />
     </group>
   );
 });
+
+/**
+ * Service catwalk + safety handrails — gives the nacelle interior a
+ * walkable-space spatial anchor. Grating is approximated with a dark
+ * panel + subtle stripe pattern via a procedural CanvasTexture.
+ */
+function ServiceCatwalk() {
+  const grateTexture = useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = 64;
+    c.height = 64;
+    const g = c.getContext("2d");
+    if (g) {
+      g.fillStyle = "#1f2937";
+      g.fillRect(0, 0, 64, 64);
+      g.strokeStyle = "#475569";
+      g.lineWidth = 1;
+      for (let i = 0; i < 64; i += 8) {
+        g.beginPath();
+        g.moveTo(0, i);
+        g.lineTo(64, i);
+        g.stroke();
+      }
+      g.strokeStyle = "#334155";
+      for (let i = 0; i < 64; i += 16) {
+        g.beginPath();
+        g.moveTo(i, 0);
+        g.lineTo(i, 64);
+        g.stroke();
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(1.5, 20);
+    return tex;
+  }, []);
+
+  // Anti-slip hatch pattern — diagonal safety stripes atop the grating.
+  const antiSlipTexture = useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = 64; c.height = 64;
+    const g = c.getContext("2d");
+    if (g) {
+      g.fillStyle = "rgba(30, 41, 59, 0.0)";
+      g.fillRect(0, 0, 64, 64);
+      g.strokeStyle = "rgba(234, 179, 8, 0.55)";
+      g.lineWidth = 3;
+      for (let i = -64; i < 128; i += 12) {
+        g.beginPath();
+        g.moveTo(i, 0);
+        g.lineTo(i + 64, 64);
+        g.stroke();
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(1.5, 20);
+    return tex;
+  }, []);
+
+  return (
+    <group>
+      {/* Catwalk deck — 1.2 m × 18 m, local y=-3.8 (≈ world 147.2) */}
+      <mesh
+        position={[0, -3.8, -3]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[1.2, 18]} />
+        <meshStandardMaterial
+          map={grateTexture}
+          color="#334155"
+          roughness={0.85}
+          metalness={0.4}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Anti-slip safety stripes — subtle yellow hatching just above the grate */}
+      <mesh position={[0, -3.795, -3]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[1.2, 18]} />
+        <meshStandardMaterial
+          map={antiSlipTexture}
+          transparent
+          opacity={0.65}
+          roughness={0.95}
+          metalness={0.0}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* I-beam stringers — two longitudinal structural members under the catwalk */}
+      {([-0.55, 0.55] as number[]).map((x) => (
+        <mesh key={`stringer-${x}`} position={[x, -3.95, -3]}>
+          <boxGeometry args={[0.08, 0.25, 18]} />
+          <meshStandardMaterial color="#334155" roughness={0.75} metalness={0.55} />
+        </mesh>
+      ))}
+      {/* Yellow kickplates — 10 cm strips along both deck edges, hazard-marked */}
+      {([-0.6, 0.6] as number[]).map((x) => (
+        <mesh key={`kick-${x}`} position={[x, -3.72, -3]}>
+          <boxGeometry args={[0.02, 0.1, 18]} />
+          <meshStandardMaterial color="#eab308" roughness={0.5} metalness={0.3} />
+        </mesh>
+      ))}
+      {/* Handrails — two yellow tubes at 1.1 m height flanking the walkway */}
+      {([-0.65, 0.65] as number[]).map((x) => (
+        <mesh key={`rail-${x}`} position={[x, -2.7, -3]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.035, 0.035, 18, 8]} />
+          <meshStandardMaterial color="#eab308" roughness={0.55} metalness={0.5} />
+        </mesh>
+      ))}
+      {/* Mid-rail — second horizontal tube at ~0.55 m */}
+      {([-0.65, 0.65] as number[]).map((x) => (
+        <mesh key={`midrail-${x}`} position={[x, -3.25, -3]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.025, 0.025, 18, 8]} />
+          <meshStandardMaterial color="#eab308" roughness={0.55} metalness={0.5} />
+        </mesh>
+      ))}
+      {/* Handrail uprights — 10 stanchions per side along the 18 m run */}
+      {([-0.65, 0.65] as number[]).flatMap((x) =>
+        Array.from({ length: 10 }).map((_, i) => {
+          const z = -3 + (i - 4.5) * 1.8;
+          return (
+            <mesh key={`stanch-${x}-${i}`} position={[x, -3.25, z]}>
+              <cylinderGeometry args={[0.025, 0.025, 1.2, 8]} />
+              <meshStandardMaterial color="#eab308" roughness={0.55} metalness={0.5} />
+            </mesh>
+          );
+        }),
+      )}
+      {/* Overhead LED strip lights — two parallel emissive planes with matching
+          pointLights. Without light sources inside the nacelle, PBR materials on
+          cabinets/HPU look flat. The emissive planes give the eye visible
+          fixtures; the pointLights drive specular reflections on the hardware. */}
+      {([-1.0, 1.0] as number[]).map((x) => (
+        <mesh
+          key={`strip-${x}`}
+          position={[x, -1.2, -3]}
+          rotation={[Math.PI / 2, 0, 0]}
+        >
+          <planeGeometry args={[0.2, 16]} />
+          <meshStandardMaterial
+            color="#f8fafc"
+            emissive="#f8fafc"
+            emissiveIntensity={1.2}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+      {/* Three pointLights along the centreline — short-range, cosmetic. */}
+      {[-6, -3, 0].map((z) => (
+        <pointLight
+          key={`lamp-${z}`}
+          position={[0, -1.3, z]}
+          intensity={0.8}
+          distance={5.5}
+          decay={2}
+          color="#f8fafc"
+        />
+      ))}
+    </group>
+  );
+}
 
 // ── Stator slot ring (96 slots) ────────────────────────────────────
 

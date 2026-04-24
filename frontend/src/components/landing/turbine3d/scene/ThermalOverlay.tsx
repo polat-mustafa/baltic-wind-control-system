@@ -8,11 +8,17 @@
  *   T_component = T_nominal + ΔT_max × (P / P_rated)
  *
  * Colour scale (IEC-style, matches industrial IR cameras):
- *   ≤ 20 °C  → blue   (#3b82f6)
- *   40 °C    → cyan   (#22d3ee)
- *   60 °C    → green  (#22c55e)
- *   80 °C    → yellow (#eab308)
- *   100 °C+  → red    (#ef4444)
+ *   ≤ 20 °C  → blue    (#3b82f6)
+ *   40 °C    → cyan    (#22d3ee)
+ *   60 °C    → green   (#22c55e)
+ *   80 °C    → yellow  (#eab308)
+ *   100 °C   → red     (#ef4444)
+ *   155 °C   → crimson (#7f1d1d)   — IEC 60034-1 Class F insulation limit
+ *   180 °C+  → magenta (#86198f)   — Class H reserve / trip
+ *
+ * The colour gradient saturates at 155 °C (Class F) so that readings on
+ * generator windings, converter, and transformer never appear cooler than
+ * their actual thermal class headroom. 180 °C represents the IEEE trip point.
  *
  * Components monitored:
  *   Main bearing (nominal 45 °C, alarm 65 °C)
@@ -36,7 +42,7 @@ interface ThermalOverlayProps {
   turbineId: string;
 }
 
-/** Lerp through a 5-stop temperature → hex colour gradient. */
+/** Lerp through a 7-stop temperature → hex colour gradient (Class F-aware). */
 function tempToHex(tempC: number): string {
   const stops: [number, number, number, number][] = [
     // [threshold, R, G, B]  (0-255 per channel)
@@ -45,6 +51,8 @@ function tempToHex(tempC: number): string {
     [60,   34, 197,  94],  // green
     [80,  234, 179,   8],  // yellow
     [100, 239,  68,  68],  // red
+    [155, 127,  29,  29],  // crimson — Class F insulation limit
+    [180, 134,  25, 143],  // magenta — Class H reserve / trip
   ];
 
   const t = Math.max(stops[0][0], Math.min(tempC, stops[stops.length - 1][0]));

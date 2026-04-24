@@ -270,6 +270,20 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId }: Na
           </text>
         </g>
 
+        {/* Nameplate badge strip (IEC/ISO compliance) — top-right, fixed */}
+        <g transform={`translate(${VIEWBOX_W - 490}, 16)`}>
+          <NameplateBadge x={0}   label="IP54"        sub="IEC 60529" />
+          <NameplateBadge x={100} label="Class F"     sub="IEC 60034-1" />
+          <NameplateBadge x={200} label="ISO VG 320"  sub="ISO 3448" />
+          <NameplateBadge x={300} label="DNV 6.x"     sub="WT Guidelines" />
+        </g>
+
+        {/* Resonance-risk indicator — below the badge strip, fixed */}
+        <ResonanceBadge x={VIEWBOX_W - 490} y={60} />
+
+        {/* Thermal-class envelope legend — bottom-left, fixed */}
+        <ThermalEnvelopeLegend x={16} y={VIEWBOX_H - 70} />
+
         {/* Connections legend (also fixed) */}
         {showConnections && (
           <g transform="translate(16, 148)">
@@ -588,6 +602,94 @@ function HoverTooltip({ part, x, y }: { part: SchematicPart; x: number; y: numbe
       ) : null}
       <div className="mt-1.5 text-[8px] font-mono text-text-muted italic">Click for details · opens in 3D from panel</div>
     </div>
+  );
+}
+
+// ── Nameplate badge (fixed, top-right) ─────────────────────────────
+
+function NameplateBadge({ x, label, sub }: { x: number; label: string; sub: string }) {
+  return (
+    <g transform={`translate(${x}, 0)`}>
+      <rect width="92" height="32" rx="3" fill="#0c1828" stroke="#475569" strokeWidth="1" />
+      <text x="46" y="14" textAnchor="middle" className="fill-slate-200" fontSize="10" fontFamily="monospace" fontWeight="700">
+        {label}
+      </text>
+      <text x="46" y="26" textAnchor="middle" className="fill-slate-500" fontSize="8" fontFamily="monospace">
+        {sub}
+      </text>
+    </g>
+  );
+}
+
+// ── Resonance-risk badge — reads tower/drivetrain natural-frequency margin ─
+
+function ResonanceBadge({ x, y }: { x: number; y: number }) {
+  // V236 tower 2nd bending ≈ 6.0 Hz; drivetrain fundamental ≈ 5.9 Hz at rated.
+  // Margin = (|f_tower - f_drive| / f_tower) × 100.
+  const fTower = 6.0;
+  const fDrive = 5.9;
+  const marginPct = Math.abs((fTower - fDrive) / fTower) * 100;
+  const tone =
+    marginPct >= 5  ? { bg: "#064e3b", stroke: "#10b981", text: "#a7f3d0", label: "GREEN" } :
+    marginPct >= 2  ? { bg: "#78350f", stroke: "#f59e0b", text: "#fde68a", label: "AMBER" } :
+                      { bg: "#7f1d1d", stroke: "#ef4444", text: "#fecaca", label: "RED"   };
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <rect width="384" height="38" rx="3" fill={tone.bg} stroke={tone.stroke} strokeWidth="1" />
+      <text x="10" y="15" className="fill-slate-100" fontSize="10" fontFamily="monospace" fontWeight="700">
+        RESONANCE · {tone.label}
+      </text>
+      <text x="10" y="30" fill={tone.text} fontSize="9" fontFamily="monospace">
+        f_op {fDrive.toFixed(1)} Hz · tower 2nd {fTower.toFixed(1)} Hz · Δ = {marginPct.toFixed(1)}%
+      </text>
+    </g>
+  );
+}
+
+// ── Thermal-class envelope legend ──────────────────────────────────
+
+function ThermalEnvelopeLegend({ x, y }: { x: number; y: number }) {
+  // IEC 60034-1 insulation classes: A 105 °C, E 120 °C, B 130 °C, F 155 °C, H 180 °C.
+  // Bar span: 80 → 200 °C, width 180 px.
+  const classes = [
+    { t: 105, c: "#3b82f6", k: "A" },
+    { t: 120, c: "#22d3ee", k: "E" },
+    { t: 130, c: "#22c55e", k: "B" },
+    { t: 155, c: "#ef4444", k: "F" },  // our spec
+    { t: 180, c: "#86198f", k: "H" },
+  ];
+  const tMin = 80, tMax = 200, W = 180;
+  const toX = (t: number) => ((t - tMin) / (tMax - tMin)) * W;
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <rect width="200" height="58" rx="3" fill="#0c1828" stroke="#475569" strokeWidth="1" />
+      <text x="10" y="14" className="fill-slate-200" fontSize="10" fontFamily="monospace" fontWeight="700">
+        THERMAL CLASS (IEC 60034-1)
+      </text>
+      <g transform="translate(10, 22)">
+        {/* gradient bar */}
+        <defs>
+          <linearGradient id="thermal-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"    stopColor="#3b82f6" />
+            <stop offset="33%"   stopColor="#22c55e" />
+            <stop offset="63%"   stopColor="#ef4444" />
+            <stop offset="100%"  stopColor="#86198f" />
+          </linearGradient>
+        </defs>
+        <rect width={W} height="8" rx="2" fill="url(#thermal-grad)" />
+        {classes.map((c) => (
+          <g key={c.k}>
+            <line x1={toX(c.t)} y1="0" x2={toX(c.t)} y2="12" stroke={c.c} strokeWidth="1.2" />
+            <text x={toX(c.t)} y="22" textAnchor="middle" className="fill-slate-400" fontSize="7.5" fontFamily="monospace">
+              {c.k}·{c.t}
+            </text>
+          </g>
+        ))}
+      </g>
+      <text x="10" y="54" className="fill-slate-500" fontSize="7.5" fontFamily="monospace">
+        V236 generator = Class F · trip @ 180 °C
+      </text>
+    </g>
   );
 }
 

@@ -51,7 +51,7 @@ export function useAnnotationCatalog(turbineId: string): Annotation[] {
           unit: "m/s",
           source: "Cup anemometer (live)",
           description:
-            "Wind speed at hub height (150 m MSL). Rated wind speed is 12.5 m/s — the turbine produces full 15 MW above this.",
+            "Wind speed at hub height (150 m MSL). Rated wind speed is 11.1 m/s — the turbine produces full 15 MW above this.",
         },
       },
       {

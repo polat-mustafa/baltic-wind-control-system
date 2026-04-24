@@ -43,7 +43,7 @@ The power curve has 4 different regions:
 | Region | Wind Speed ​​| Behavior | Physics |
 |-------|-------------|----------|-------|
 | 1 | v < 3.0 m/s | P = 0 | Aerodynamic torque cannot overcome propulsion system friction |
-| 2 | 3.0 ≤ v < 12.5 m/s | P ∝ v³ | Maximum energy capture (Cp optimization) |
+| 2 | 3.0 ≤ v < 11.1 m/s | P ∝ v³ | Maximum energy capture (Cp optimization) |
 | 3 | 12.5 ≤ v ≤ 31.0 m/s | P = P_nominal | Constant power control with blade angle (pitch) |
 | 4 | v > 31.0 m/s | P = 0 | Safety shutdown (blade feathering) |
 

@@ -7,7 +7,7 @@
  *
  *        ┌──────────────────────┐
  *        │ ● Gearbox            │  ← card
- *        │   36:1 ratio         │
+ *        │   48:1 ratio         │
  *        │   [formula]          │
  *        └──▲───────────────────┘
  *           ╲  ← dashed leader line

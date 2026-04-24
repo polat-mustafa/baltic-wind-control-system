@@ -37,12 +37,12 @@ import { turbineSelectionEducation } from "../../constants/education/library/tur
 
 // ── V236 Published power curve (interpolated from Vestas product card) ──
 // Source: Vestas V236-15.0 MW published specifications
-// Cut-in: 3 m/s, Rated: 12.5 m/s, Cut-out: 31 m/s
+// Cut-in: 3 m/s, Rated: 11.1 m/s, Cut-out: 31 m/s
 const V236_CURVE: { v: number; p: number }[] = [
   { v: 3.0, p: 0 }, { v: 4.0, p: 0.4 }, { v: 5.0, p: 0.95 },
   { v: 6.0, p: 1.8 }, { v: 7.0, p: 3.1 }, { v: 8.0, p: 4.9 },
-  { v: 9.0, p: 7.1 }, { v: 10.0, p: 9.6 }, { v: 11.0, p: 12.0 },
-  { v: 12.0, p: 14.0 }, { v: 12.5, p: 15.0 }, { v: 25.0, p: 15.0 }, { v: 31.0, p: 0 },
+  { v: 9.0, p: 7.1 }, { v: 10.0, p: 10.5 }, { v: 11.0, p: 14.5 },
+  { v: 11.1, p: 15.0 }, { v: 12.0, p: 15.0 }, { v: 25.0, p: 15.0 }, { v: 31.0, p: 0 },
 ];
 
 function V236PowerCurve({ windSpeedMs, powerOutputMW }: { windSpeedMs: number; powerOutputMW: number }) {

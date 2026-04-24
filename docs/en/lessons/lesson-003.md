@@ -213,7 +213,7 @@ Cut-out speed (31 m/s) and reference wind speed (50 m/s) are different concepts.
 | wing length | ~115.5 m | Compare with Airbus A380 wingspan (79.75 m) per wing |
 | IEC class | I-B | High wind, moderate turbulence |
 | Cut-in speed | 3 m/s | The speed at which the turbine starts producing |
-| rated speed | 12.5 m/s | Speed ​​at which rated power is reached |
+| rated speed | 11.1 m/s | Speed ​​at which rated power is reached |
 | Cut-out speed | 31 m/s | Safety stop speed |
 | Drive type | Semi-direct drive (medium-speed gearbox) | Single stage gearbox + PMG (permanent magnet generator) |
 | Ct (at rated speed) | 0.28 | Thrust coefficient — critical in wake modeling |

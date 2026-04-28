@@ -510,6 +510,58 @@ function createSTATCOMIcon(qMVAR: number): L.DivIcon {
   });
 }
 
+// ── Met Mast / LIDAR Buoy Marker Icon ─────────────────────────
+// Floating LIDAR (e.g. ZX 300M / Vaisala WindCube) — used for wind resource
+// validation and turbulence intensity reference, independent of WTG SCADA.
+function createMetMastIcon(windMs: number, windDir: number): L.DivIcon {
+  const arrowAngle = windDir; // 0° = N
+  const speedColor = windMs > 25 ? "#ef4444" : windMs > 15 ? "#f5a623" : "#3ecf6e";
+
+  const svg = `<svg width="44" height="64" viewBox="-22 -22 44 64" xmlns="http://www.w3.org/2000/svg">
+    <text x="0" y="-12" text-anchor="middle" fill="#94a3b8" font-size="6" font-weight="600" font-family="Inter, sans-serif" letter-spacing="0.5">LIDAR · MM-1</text>
+
+    <!-- Floating buoy hull — yellow safety paint -->
+    <ellipse cx="0" cy="20" rx="9" ry="3" fill="#eab308" stroke="#a16207" stroke-width="0.7"/>
+    <!-- Waterline -->
+    <ellipse cx="0" cy="22" rx="9" ry="1" fill="none" stroke="#3b82f6" stroke-width="0.4" opacity="0.7"/>
+
+    <!-- Mast tower -->
+    <line x1="0" y1="20" x2="0" y2="-2" stroke="#cbd5e1" stroke-width="1.4"/>
+    <!-- Mast guy wires -->
+    <line x1="0" y1="-2" x2="-7" y2="18" stroke="#475569" stroke-width="0.3"/>
+    <line x1="0" y1="-2" x2="7" y2="18" stroke="#475569" stroke-width="0.3"/>
+
+    <!-- LIDAR head — small box at top -->
+    <rect x="-3" y="-7" width="6" height="5" fill="#0d1017" stroke="#94a3b8" stroke-width="0.6"/>
+    <!-- Beam emission lines (4 conical scan beams) -->
+    <line x1="0" y1="-5" x2="-4.5" y2="-12" stroke="${speedColor}" stroke-width="0.4" opacity="0.7"/>
+    <line x1="0" y1="-5" x2="4.5" y2="-12" stroke="${speedColor}" stroke-width="0.4" opacity="0.7"/>
+    <line x1="0" y1="-5" x2="-2.5" y2="-13" stroke="${speedColor}" stroke-width="0.4" opacity="0.7"/>
+    <line x1="0" y1="-5" x2="2.5" y2="-13" stroke="${speedColor}" stroke-width="0.4" opacity="0.7"/>
+
+    <!-- Wind direction arrow at top of mast (rotates with measured wind) -->
+    <g transform="rotate(${arrowAngle} 0 -8)">
+      <line x1="0" y1="-15" x2="0" y2="-19" stroke="${speedColor}" stroke-width="1"/>
+      <polygon points="0,-21 -1.5,-18 1.5,-18" fill="${speedColor}"/>
+    </g>
+
+    <!-- Status pulse -->
+    <circle cx="0" cy="20" r="2" fill="${speedColor}" opacity="0.7">
+      <animate attributeName="opacity" values="0.4;1;0.4" dur="3s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- Live readout -->
+    <text x="0" y="34" text-anchor="middle" fill="${speedColor}" font-size="6.5" font-family="JetBrains Mono, monospace" font-weight="600">${windMs.toFixed(1)} m/s</text>
+    <text x="0" y="40" text-anchor="middle" fill="#64748b" font-size="4.5" font-family="JetBrains Mono, monospace">${arrowAngle.toFixed(0)}°</text>
+  </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: "leaflet-metmast-marker",
+    iconSize: [44, 64],
+    iconAnchor: [22, 22],
+  });
+}
+
 // ── Onshore Substation Marker Icon (IEC 60617 HVAC Transformer) ─
 function createOnshoreIcon(): L.DivIcon {
   const svg = `<svg width="64" height="82" viewBox="-32 -24 64 82" xmlns="http://www.w3.org/2000/svg">
@@ -641,27 +693,59 @@ const EXCLUSION_ZONE: [number, number][] = [
 ];
 
 // ── Array cable polylines (66 kV within each string) ──────────────
+// Each cable carries the cumulative power of the upstream turbines on its
+// string. We colour-code by load fraction relative to the cable's continuous
+// rating (3×1×400 mm² Cu XLPE 66 kV ≈ 105 MVA), per IEC 60287:
+//   <60% rating  → green (idle / light)
+//   60–85%       → amber (normal-heavy)
+//   >85%         → red   (overload risk)
+const CABLE_RATING_MVA = 105;
+const FULL_TURBINE_MW = 15.0;
+
+function loadColor(loadFrac: number): string {
+  if (loadFrac < 0.6) return "#3ecf6e";
+  if (loadFrac < 0.85) return "#f5a623";
+  return "#ef4444";
+}
+
 function ArrayCables() {
-  const lines: { positions: [number, number][]; key: string }[] = [];
+  // Compute per-cable load: each segment carries the sum of all turbines
+  // downstream on the string (between this segment and the OSS).
+  const lines: { positions: [number, number][]; key: string; loadFrac: number; cumMW: number; isCollector: boolean }[] = [];
 
   for (const cp of STRING_COLLECTION_POINTS) {
     const stringTurbines = TURBINE_POSITIONS.filter(
       (t) => t.stringNumber === cp.stringNumber,
     );
-    // Within-string cables
-    for (let i = 1; i < stringTurbines.length; i++) {
+    const stringLength = stringTurbines.length;
+    // Within-string cables — segment i carries turbines [0..i-1] toward OSS.
+    // Segment direction: prev → curr, but power flows from turbines toward
+    // the collection point at the FAR end of the string. So segment between
+    // station k and k+1 carries power from all stations <= k that drain
+    // toward the OSS-side end (assume turbines numbered 0..N-1, OSS at end).
+    for (let i = 1; i < stringLength; i++) {
       const prev = stringTurbines[i - 1];
       const curr = stringTurbines[i];
+      // Power carried = sum of all turbines from index 0..i-1 (those upstream)
+      const cumMW = i * FULL_TURBINE_MW * 0.78; // typical 78% capacity factor
+      const loadFrac = cumMW / CABLE_RATING_MVA;
       lines.push({
         positions: [[prev.lat, prev.lon], [curr.lat, curr.lon]],
         key: `cable-${prev.id}-${curr.id}`,
+        loadFrac,
+        cumMW,
+        isCollector: false,
       });
     }
-    // String to OSS cable
+    // String → OSS cable carries the entire string's power.
     const last = stringTurbines[stringTurbines.length - 1];
+    const stringTotalMW = stringLength * FULL_TURBINE_MW * 0.78;
     lines.push({
       positions: [[last.lat, last.lon], [OSS_GEO.lat, OSS_GEO.lon]],
       key: `string-${cp.stringNumber}-oss`,
+      loadFrac: stringTotalMW / CABLE_RATING_MVA,
+      cumMW: stringTotalMW,
+      isCollector: true,
     });
   }
 
@@ -672,12 +756,22 @@ function ArrayCables() {
           key={line.key}
           positions={line.positions}
           pathOptions={{
-            color: SCADA_COLORS.VOLTAGE_66KV,
-            weight: 1.5,
-            opacity: 0.25,
-            dashArray: line.key.startsWith("string") ? "6 6" : undefined,
+            color: loadColor(line.loadFrac),
+            weight: line.isCollector ? 2.4 : 1.6,
+            opacity: 0.55 + Math.min(line.loadFrac, 0.35),
+            dashArray: line.isCollector ? "6 6" : undefined,
           }}
-        />
+        >
+          <Tooltip direction="top" sticky offset={[0, -2]} className="leaflet-cable-tooltip">
+            <div className="text-[10px] font-mono text-text-secondary">
+              <div className="font-bold mb-0.5" style={{ color: loadColor(line.loadFrac) }}>
+                {line.cumMW.toFixed(1)} MW · {(line.loadFrac * 100).toFixed(0)}%
+              </div>
+              <div className="text-text-muted">{line.isCollector ? "String → OSS" : "Inter-WTG"}</div>
+              <div className="text-text-muted">3×1×400mm² Cu · 66 kV</div>
+            </div>
+          </Tooltip>
+        </Polyline>
       ))}
     </>
   );
@@ -817,6 +911,15 @@ function LeafletWindFarmMapInner({
     () => createGridSwitchyardIcon(totalPowerMW > 0.5),
     [totalPowerMW > 0.5],
   );
+  // Floating LIDAR met mast — independent wind reference for resource validation.
+  // Reads farm-level wind from the KPI stream (quantised so the icon is stable).
+  const farmKpis = useLandingStore(selectKPIs);
+  const lidarWindMs = Math.round(farmKpis.averageWindSpeedMs * 2) / 2;
+  const lidarWindDir = Math.round(farmKpis.windDirectionDeg / 5) * 5;
+  const metMastIcon = useMemo(
+    () => createMetMastIcon(lidarWindMs, lidarWindDir),
+    [lidarWindMs, lidarWindDir],
+  );
   const layers = useLayerStore((s) => s.layers);
 
   const handleTurbineHover = useCallback((_id: string) => {}, []);
@@ -941,6 +1044,14 @@ function LeafletWindFarmMapInner({
           position={[ONSHORE_GEO.lat - 0.012, ONSHORE_GEO.lon + 0.085]}
           icon={switchyardIcon}
           zIndexOffset={950}
+        />
+
+        {/* Floating LIDAR met mast — NW corner of the wind farm cluster.
+            Provides independent wind validation reference per IEC 61400-12-1 */}
+        <Marker
+          position={[FARM_CENTER_GEO[0] + 0.045, FARM_CENTER_GEO[1] - 0.08]}
+          icon={metMastIcon}
+          zIndexOffset={920}
         />
 
         {/* Yaw rotation — updates CSS custom property on map container */}

@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { Monitor, Brain, ClipboardCheck, Maximize2, Minimize2 } from "lucide-react";
 
 import MapKPIRibbon from "../components/landing/MapKPIRibbon";
+import { WindRoseWidget } from "../components/landing/WindRoseWidget";
 import LeafletWindFarmMap from "../components/landing/LeafletWindFarmMap";
 import CableDetailPanel from "../components/landing/CableDetailPanel";
 import TransformerDetailPanel from "../components/landing/TransformerDetailPanel";
@@ -324,6 +325,9 @@ export default function LandingPage() {
             onCableClick={handleCableClick}
           />
         </div>
+
+        {/* Wind rose climatology widget — top-left corner overlay */}
+        <WindRoseWidget />
 
         {/* Detail panels — OUTSIDE Leaflet's DOM, above compositor layers */}
         {detailPanels}

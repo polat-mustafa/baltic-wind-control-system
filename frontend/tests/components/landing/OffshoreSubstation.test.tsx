@@ -66,7 +66,7 @@ describe("OffshoreSubstation", () => {
     );
     const group = container.querySelector('[role="button"]');
     expect(group?.getAttribute("aria-label")).toBe(
-      "Offshore Substation — click to open SCADA",
+      "Offshore Substation — 350 MW, oil 55°C",
     );
   });
 });

@@ -416,6 +416,39 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
           <meshStandardMaterial color="#b45309" roughness={0.3} metalness={0.9} />
         </mesh>
       </group>
+
+      {/* ── Cable Ladders — port & starboard nacelle walls ────────── */}
+      {/* Hot-dip galvanised steel perforated cable trays running the nacelle
+          length. Provide realistic cable management and visual depth. */}
+      {([-4.35, 4.35] as number[]).map((x) => (
+        <group key={`ladder-${x}`}>
+          {/* Longitudinal side rails */}
+          {([-0.18, 0.18] as number[]).map((dy) => (
+            <mesh key={dy} position={[x, 149.5 + dy, -4]} rotation={[Math.PI / 2, 0, 0]}>
+              <boxGeometry args={[0.04, 17, 0.03]} />
+              <meshStandardMaterial color="#71717a" roughness={0.4} metalness={0.75} />
+            </mesh>
+          ))}
+          {/* Cross-rungs every 300 mm — 28 rungs over 8.4 m visible length */}
+          {Array.from({ length: 28 }).map((_, i) => (
+            <mesh key={i} position={[x, 149.5, -12 + i * 0.6]}>
+              <boxGeometry args={[0.03, 0.36, 0.02]} />
+              <meshStandardMaterial color="#71717a" roughness={0.45} metalness={0.75} />
+            </mesh>
+          ))}
+          {/* MV cable bundle on ladder — 3 × 95 mm² (IEC 60502-2 red sheaths) */}
+          {([-0.06, 0, 0.06] as number[]).map((dy, ci) => (
+            <mesh key={ci} position={[x, 149.5 + dy - 0.04, -4]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.035, 0.035, 17, 6]} />
+              <meshStandardMaterial
+                color={["#b91c1c", "#111827", "#374151"][ci]}
+                roughness={0.8}
+                metalness={0.1}
+              />
+            </mesh>
+          ))}
+        </group>
+      ))}
     </group>
   );
 });

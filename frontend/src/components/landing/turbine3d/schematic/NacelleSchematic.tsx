@@ -151,6 +151,20 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId }: Na
 
   const resetView = useCallback(() => setView(DEFAULT_VIEW), []);
 
+  // Auto-pan/zoom to frame the selected component whenever selection changes.
+  // Scale 1.8 shows the part clearly without losing surrounding context.
+  useEffect(() => {
+    if (!selected) return;
+    const part = parts.find((p) => p.id === selected);
+    if (!part) return;
+    const { x, y } = isoProject(part.x + part.w / 2, part.y + part.h / 2);
+    setView({
+      scale: 1.8,
+      tx: VIEWBOX_W / 2 - x * 1.8,
+      ty: VIEWBOX_H / 2 - y * 1.8,
+    });
+  }, [selected, parts]);
+
   const hoveredPart = useMemo(
     () => (hoveredId ? parts.find((p) => p.id === hoveredId) ?? null : null),
     [hoveredId, parts],
@@ -247,6 +261,12 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId }: Na
           <marker id="arrow-power" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#22d3ee" />
           </marker>
+          {/* Radial heat halo for thermal overlay on hot components */}
+          <radialGradient id="thermal-halo" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stopColor="#f97316" stopOpacity="0.55" />
+            <stop offset="60%"  stopColor="#ef4444" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#ef4444" stopOpacity="0"    />
+          </radialGradient>
         </defs>
 
         {/* Paper background */}
@@ -335,7 +355,6 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId }: Na
                 overlaySensors={showSensors}
                 overlayPower={showPower}
                 showHatching={showHatching}
-                showInlineLabel={showLabels}
               />
             ))}
 
@@ -343,9 +362,9 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId }: Na
             {showPower && <PowerFlowArrows parts={parts} />}
           </g>
 
-          {/* Leader-line labels (screen-space, still inside pan/zoom) */}
-          {showLabels && parts.map((p) => (
-            <PartLabel key={`lbl-${p.id}`} part={p} selected={selected === p.id} />
+          {/* Leader-line labels — orthogonal gutter routing, index for stagger */}
+          {showLabels && parts.map((p, i) => (
+            <PartLabel key={`lbl-${p.id}`} part={p} selected={selected === p.id} index={i} />
           ))}
         </g>
 
@@ -423,12 +442,46 @@ interface PartRectProps {
   overlaySensors: boolean;
   overlayPower: boolean;
   showHatching: boolean;
-  showInlineLabel: boolean;
+}
+
+// Sensor types → IEC-style glyphs per corner of a component box
+const SENSOR_GLYPHS: Record<string, { cx: (p: SchematicPart) => number; cy: (p: SchematicPart) => number; shape: "diamond" | "triangle" | "circle" | "square"; color: string }[]> = {
+  gearbox:    [
+    { cx: p => p.x + 9,       cy: p => p.y + 9,       shape: "diamond", color: "#ef4444" }, // PT100 oil temp
+    { cx: p => p.x + p.w - 9, cy: p => p.y + 9,       shape: "triangle",color: "#f59e0b" }, // IEPE vibration
+  ],
+  generator:  [
+    { cx: p => p.x + 9,       cy: p => p.y + 9,       shape: "diamond", color: "#ef4444" },
+    { cx: p => p.x + p.w - 9, cy: p => p.y + p.h - 9, shape: "triangle",color: "#f59e0b" },
+  ],
+  converter:  [{ cx: p => p.x + 9, cy: p => p.y + 9, shape: "diamond", color: "#ef4444" }],
+  transformer:[{ cx: p => p.x + 9, cy: p => p.y + 9, shape: "diamond", color: "#ef4444" }],
+  bearing:    [
+    { cx: p => p.x + 9,       cy: p => p.y + 9,       shape: "diamond", color: "#ef4444" },
+    { cx: p => p.x + p.w - 9, cy: p => p.y + 9,       shape: "triangle",color: "#f59e0b" },
+  ],
+  hpu:        [{ cx: p => p.x + 9, cy: p => p.y + p.h - 9, shape: "circle", color: "#3b82f6" }],
+  yaw_brake:  [{ cx: p => p.x + 9, cy: p => p.y + 9,       shape: "square", color: "#22c55e" }],
+};
+
+function SensorGlyph({ glyph, part }: { glyph: typeof SENSOR_GLYPHS[string][0]; part: SchematicPart }) {
+  const cx = glyph.cx(part), cy = glyph.cy(part), r = 3.5;
+  if (glyph.shape === "diamond") {
+    return <polygon points={`${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`} fill={glyph.color} opacity={0.9} />;
+  }
+  if (glyph.shape === "triangle") {
+    return <polygon points={`${cx},${cy - r} ${cx + r},${cy + r * 0.7} ${cx - r},${cy + r * 0.7}`} fill={glyph.color} opacity={0.9} />;
+  }
+  if (glyph.shape === "circle") {
+    return <circle cx={cx} cy={cy} r={r} fill={glyph.color} opacity={0.9} />;
+  }
+  // square
+  return <rect x={cx - r} y={cy - r} width={r * 2} height={r * 2} fill={glyph.color} opacity={0.9} />;
 }
 
 function SchematicPartRect({
   part, selected, hovered, inFocus, onSelect, onHover,
-  overlayThermal, overlaySensors, showHatching, showInlineLabel,
+  overlayThermal, overlaySensors, showHatching,
 }: PartRectProps) {
   const style = TONE_STYLES[part.tone];
   const hatchFill =
@@ -440,7 +493,7 @@ function SchematicPartRect({
   const hotParts: TurbinePartId[] = ["gearbox", "generator", "converter", "transformer"];
   const isHot = hotParts.includes(part.id);
 
-  // Dim parts outside the active focus group (but never dim the selected one).
+  // Non-focused parts drop to near-invisible so the focus group pops clearly.
   const dimmed = !inFocus && !selected;
 
   return (
@@ -450,14 +503,19 @@ function SchematicPartRect({
       onMouseLeave={() => onHover(null)}
       style={{ cursor: "pointer" }}
       filter={selected ? "url(#selected-glow)" : undefined}
-      opacity={dimmed ? 0.3 : 1}
+      opacity={dimmed ? 0.08 : 1}
     >
       <rect x={part.x} y={part.y} width={part.w} height={part.h} fill={style.fill} opacity={0.85} />
       {hatchFill && (
         <rect x={part.x} y={part.y} width={part.w} height={part.h} fill={hatchFill} opacity={0.35} />
       )}
+      {/* Thermal: radial heat halo on hot parts */}
       {overlayThermal && isHot && (
-        <rect x={part.x} y={part.y} width={part.w} height={part.h} fill="#f97316" opacity={0.22} />
+        <ellipse
+          cx={part.x + part.w / 2} cy={part.y + part.h / 2}
+          rx={part.w / 2 + 6} ry={part.h / 2 + 6}
+          fill="url(#thermal-halo)" opacity={0.45}
+        />
       )}
       <rect
         x={part.x} y={part.y} width={part.w} height={part.h}
@@ -465,47 +523,77 @@ function SchematicPartRect({
         stroke={selected ? "#60a5fa" : hovered ? "#93c5fd" : style.stroke}
         strokeWidth={selected ? 2.5 : hovered ? 1.8 : 1.2}
       />
-      {showInlineLabel && (
-        <text
-          x={part.x + part.w / 2}
-          y={part.y + part.h / 2 + 3}
-          textAnchor="middle"
-          className="fill-slate-200"
-          fontSize="8.5"
-          fontFamily="monospace"
-          pointerEvents="none"
-        >
-          {part.label.split(" ")[0]}
-        </text>
-      )}
-      {overlaySensors && (
-        <>
-          <circle cx={part.x + 8}          cy={part.y + 8}          r="2.2" fill="#22c55e" />
-          <circle cx={part.x + part.w - 8} cy={part.y + part.h - 8} r="2.2" fill="#22c55e" />
-        </>
-      )}
+      {/* Sensor glyphs: IEC-symbol per sensor type, positioned inside the component box */}
+      {overlaySensors && (SENSOR_GLYPHS[part.id] ?? []).map((g, i) => (
+        <SensorGlyph key={i} glyph={g} part={part} />
+      ))}
     </g>
   );
 }
 
-// ── Leader-line label ──────────────────────────────────────────────
+// ── Leader-line label — orthogonal L-shaped gutter routing ───────────
+//
+// Zone logic (by pre-iso y position of the component):
+//   Upper  (y ≤ 200) → labels at TOP gutter (labelY = 22), horizontal jog
+//   Lower  (y ≥ 420) → labels staggered across 3 bottom rows (534 / 558 / 582)
+//   Middle (driveline) → labels use callout.xy from schematicData (already spaced)
+//
+// In all cases the leader is an L-shape: vertical stub from tip, then
+// horizontal run to the label anchor — no diagonals across component boxes.
 
-function PartLabel({ part, selected }: { part: SchematicPart; selected: boolean }) {
+function PartLabel({ part, selected, index }: {
+  part: SchematicPart; selected: boolean; index: number;
+}) {
   const tip = isoProject(part.x + part.w / 2, part.y + part.h / 2);
-  const labelX = part.callout?.x ?? tip.x + 40;
-  const labelY = part.callout?.y ?? tip.y - 20;
   const stroke = selected ? "#60a5fa" : "#64748b";
-  const text = selected ? "#93c5fd" : "#cbd5e1";
+  const textColor = selected ? "#93c5fd" : "#cbd5e1";
+
+  const isLower = part.y >= 420;
+  const isUpper = part.y <= 200;
+
+  // ── Label anchor ───────────────────────────────────────────────
+  let labelX: number, labelY: number;
+
+  if (isLower) {
+    // Three staggered rows so 6 bottom-deck labels never pile up on one line.
+    labelX = part.callout?.x ?? tip.x;
+    labelY = 534 + (index % 3) * 24;
+  } else if (isUpper) {
+    // Converge to top gutter; keep callout.x for horizontal spread.
+    labelX = part.callout?.x ?? tip.x;
+    labelY = 22;
+  } else {
+    // Driveline — callout positions in schematicData are already well spaced.
+    labelX = part.callout?.x ?? (tip.x < 700 ? 50 : 1145);
+    labelY = part.callout?.y ?? tip.y;
+  }
+
+  // ── L-shaped path: vertical stub from tip then horizontal to label ─
+  // For upper/lower: drop/rise from tip.x to labelY, then jog to labelX.
+  // For driveline:   go horizontally from tip.y to labelX, then drop to labelY.
+  const pathD = (isUpper || isLower)
+    ? `M ${tip.x} ${tip.y} L ${tip.x} ${labelY} L ${labelX} ${labelY}`
+    : `M ${tip.x} ${tip.y} L ${labelX} ${tip.y} L ${labelX} ${labelY}`;
+
+  const toRight = labelX > tip.x;
+  const textAnchor = (isUpper || isLower)
+    ? (labelX < tip.x ? "end" : labelX > tip.x ? "start" : "middle")
+    : (toRight ? "start" : "end");
+  const textX = textAnchor === "end" ? labelX - 4 : textAnchor === "start" ? labelX + 4 : labelX;
+  const textY = isLower ? labelY - 3 : labelY + 3;
 
   return (
-    <g pointerEvents="none" opacity={selected ? 1 : 0.75}>
-      <line x1={tip.x} y1={tip.y} x2={labelX} y2={labelY} stroke={stroke} strokeWidth={selected ? 1.3 : 0.8} />
-      <circle cx={tip.x} cy={tip.y} r="2" fill={stroke} />
-      <text x={labelX + 4} y={labelY} fill={text} fontSize="9.5" fontFamily="monospace" fontWeight={selected ? 700 : 400}>
+    <g pointerEvents="none" opacity={selected ? 1 : 0.72}>
+      <path d={pathD} fill="none" stroke={stroke} strokeWidth={selected ? 1.3 : 0.7} />
+      <circle cx={tip.x} cy={tip.y} r={2} fill={stroke} />
+      <text x={textX} y={textY} textAnchor={textAnchor}
+            fill={textColor} fontSize="9.5" fontFamily="monospace" fontWeight={selected ? 700 : 400}>
         {part.label}
       </text>
-      {part.sublabel && (
-        <text x={labelX + 4} y={labelY + 10} fill="#64748b" fontSize="8" fontFamily="monospace">
+      {/* Sublabel only shown when selected — prevents crowding at default zoom */}
+      {selected && part.sublabel && (
+        <text x={textX} y={textY + 12} textAnchor={textAnchor}
+              fill="#64748b" fontSize="8" fontFamily="monospace">
           {part.sublabel}
         </text>
       )}

@@ -34,6 +34,7 @@ import {
   useNacelleSubsystemsStore,
 } from "../../../../store/nacelleSubsystemsStore";
 import { CableTray } from "./nacelle/CableTray";
+import { TechnicianFigure } from "./nacelle/TechnicianFigure";
 
 const NACELLE_Y = 151;
 const RATED_POWER_MW = 15.0;
@@ -61,6 +62,7 @@ export const NacelleInteriorDetail = memo(function NacelleInteriorDetail({
       <TransformerToCableRoutingTray />
       <HPUPressureGauge turbineId={turbineId} />
       <ServiceCatwalk />
+      <TechnicianFigure />
       {showLabels && <InteriorLabels />}
       <FunctionalGroupRings />
     </group>
@@ -216,17 +218,30 @@ function ServiceCatwalk() {
           />
         </mesh>
       ))}
-      {/* Three pointLights along the centreline — short-range, cosmetic. */}
+      {/* Centreline LED ceiling lamps — reduced to 0.6 so port fill doesn't wash */}
       {[-6, -3, 0].map((z) => (
         <pointLight
           key={`lamp-${z}`}
           position={[0, -1.3, z]}
-          intensity={0.8}
+          intensity={0.6}
           distance={5.5}
           decay={2}
           color="#f8fafc"
         />
       ))}
+      {/* Port-side warm fill — bounced off painted steel walls, softens shadows */}
+      <pointLight position={[-4.0, -1.0, -3]} intensity={0.45} distance={8} decay={2} color="#e8e0d0" />
+      {/* Generator-area key light — aims straight down from above PMSG */}
+      <spotLight
+        position={[0, 1.5, -5]}
+        angle={0.42}
+        penumbra={0.35}
+        intensity={1.1}
+        distance={12}
+        decay={2}
+        color="#f0f4ff"
+        castShadow={false}
+      />
     </group>
   );
 }
@@ -335,23 +350,25 @@ function OilFlowLoop({ turbineId }: { turbineId: string }) {
     }
   });
 
-  // Path: gearbox (x=0, y=-2, z=0) → oil cooler (x=-2.5, y=-3.5, z=2)
-  // → back (returning on opposite side).
+  // Path: gearbox sump (starboard base) → oil cooler (starboard wall at [4.6,0,-3])
+  // → return line back to gearbox.
+  // OilCooler world [4.6,151,-3] → local to this group [4.6,0,-3].
+  // Gearbox world [0,150.5,0] → local [0,-0.5,0]; exit starboard side ~[1.75,-1.6,0].
   const outbound = useMemo(
     () =>
       new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.5, -2, 1.2),
-        new THREE.Vector3(-1.8, -2.8, 1.8),
-        new THREE.Vector3(-2.6, -3.4, 2.0),
+        new THREE.Vector3(1.75, -1.6, 0.0),   // gearbox sump, starboard
+        new THREE.Vector3(3.5,  -0.8, -1.5),  // route along starboard nacelle wall
+        new THREE.Vector3(4.6,   0.0, -3.0),  // oil cooler inlet
       ]),
     [],
   );
   const returnPath = useMemo(
     () =>
       new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-2.6, -3.4, -0.5),
-        new THREE.Vector3(-1.8, -2.8, -1.0),
-        new THREE.Vector3(-0.5, -2, -0.5),
+        new THREE.Vector3(4.6,   0.2, -3.0),  // oil cooler outlet (cooled)
+        new THREE.Vector3(3.2,  -0.4, -1.5),  // return arc
+        new THREE.Vector3(1.75, -1.4,  0.2),  // back to gearbox lube inlet
       ]),
     [],
   );
@@ -467,7 +484,9 @@ function HPUPressureGauge({ turbineId }: { turbineId: string }) {
   const needleAng = barFrac * Math.PI - Math.PI / 2;
 
   return (
-    <group position={[3.8, -2.6, 3.2]} rotation={[0, 0, 0]}>
+    // HPU world [2.5,147.8,2] → local [-0.25,-3.1,2]; gauge indicator on top face.
+    // Matches the small indicator on NacelleSubsystems HPU at local [0.76,0.1,0.35].
+    <group position={[3.26, -3.1, 2.35]} rotation={[0, 0, 0]}>
       {/* Gauge face */}
       <mesh>
         <cylinderGeometry args={[0.22, 0.22, 0.04, 20]} />
@@ -489,15 +508,25 @@ function HPUPressureGauge({ turbineId }: { turbineId: string }) {
 
 // ── Billboard labels ───────────────────────────────────────────────
 
+// All positions are local to NacelleInteriorDetail group at world [0, 151, 0].
+// Derivation: world_pos − [0, 151, 0] = local_pos.
+//   Main bearing:  drivetrain [0,151,0]+[0,3,0]  → local [0, 3, 0]
+//   Gearbox:       drivetrain [0,151,0]+[0,-0.5,0]→ local [0,-0.5, 0]
+//   Generator:     drivetrain [0,151,0]+[0,-2.5,0]→ local [0,-2.5, 0]
+//   Conv port:     drivetrain [0,151,0]+[-3.5,-3,0]→local [-3.5,-3, 0]
+//   Conv stbd:     drivetrain [0,151,0]+[3.5,-3,0] → local [3.5,-3, 0]
+//   Transformer:   world [0,148,-11]             → local [0,-3,-11]
+//   HPU:           world [2.5,147.8,2]           → local [2.5,-3.2, 2]
+//   OilCooler:     world [4.6,151,-3]            → local [4.6, 0, -3]
 const LABELS: Array<{ pos: [number, number, number]; text: string }> = [
-  { pos: [0, 0, 4.5], text: "MAIN BEARING" },
-  { pos: [0, 0, 2.0], text: "GEARBOX 48:1" },
-  { pos: [0, 0, -1.0], text: "PMSG · 15 MW" },
-  { pos: [-3.5, -1.3, 0], text: "CONVERTER" },
-  { pos: [3.5, -1.3, 0], text: "CONVERTER" },
-  { pos: [4.2, -1.3, -2], text: "TRANSFORMER" },
-  { pos: [-3.8, -2.3, 3.2], text: "HPU · 210 bar" },
-  { pos: [-3.8, -3.8, 3.2], text: "OIL COOLER" },
+  { pos: [0,  3.8,  1.5], text: "MAIN BEARING"  },
+  { pos: [0,  0.8,  0.0], text: "GEARBOX 48:1"  },
+  { pos: [0, -1.0, -0.5], text: "PMSG · 15 MW"  },
+  { pos: [-3.5, -1.5, 0.8], text: "CONVERTER"   },
+  { pos: [ 3.5, -1.5, 0.8], text: "CONVERTER"   },
+  { pos: [0,   -1.5, -11.0], text: "TRANSFORMER" },
+  { pos: [2.5, -2.0,  2.0], text: "HPU · 210 bar"},
+  { pos: [3.8,  0.8, -3.0], text: "OIL COOLER"  },
 ];
 
 function InteriorLabels() {

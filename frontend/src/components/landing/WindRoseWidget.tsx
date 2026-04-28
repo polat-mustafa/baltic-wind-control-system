@@ -10,7 +10,9 @@
  * the dominant SW direction (220°) typical of the Polish Baltic.
  */
 
-import { memo, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { GripVertical, X, Wind } from "lucide-react";
 
 import { selectKPIs, useLandingStore } from "../../store/landingStore";
 
@@ -52,12 +54,48 @@ function buildClimatology(): number[][] {
 const CLIMATOLOGY = buildClimatology();
 const MAX_FREQ = Math.max(...CLIMATOLOGY.map((s) => s.reduce((a, b) => a + b, 0)));
 
+// Stable default position — clears the 2-row KPI ribbon (~80 px) at the top.
+const DEFAULT_POS = { x: 8, y: 96 };
+
 export const WindRoseWidget = memo(function WindRoseWidget() {
   const kpis = useLandingStore(selectKPIs);
   const currentDir = kpis.windDirectionDeg;
 
   // Sector index of the current wind (mod 16)
   const activeSector = Math.floor(((currentDir + SECTOR_DEG / 2) / SECTOR_DEG) % SECTORS);
+
+  // ── Visibility + drag state ─────────────────────────────────────
+  const [isOpen, setIsOpen] = useState(true);
+  const [pos, setPos] = useState(DEFAULT_POS);
+  const dragStateRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  const onDragMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragStateRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: pos.x,
+      origY: pos.y,
+    };
+  }, [pos.x, pos.y]);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const ds = dragStateRef.current;
+      if (!ds) return;
+      // Clamp to viewport so the panel doesn't disappear off-screen
+      const newX = Math.max(0, Math.min(window.innerWidth - 100, ds.origX + (e.clientX - ds.startX)));
+      const newY = Math.max(0, Math.min(window.innerHeight - 80, ds.origY + (e.clientY - ds.startY)));
+      setPos({ x: newX, y: newY });
+    };
+    const onUp = () => { dragStateRef.current = null; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
 
   const sectors = useMemo(() => {
     return CLIMATOLOGY.map((bins, s) => {
@@ -75,10 +113,47 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
     });
   }, [activeSector]);
 
+  // Collapsed state — small reopen tab in the same screen position
+  if (!isOpen) {
+    return (
+      <button
+        onClick={() => setIsOpen(true)}
+        className="absolute z-[1000] flex items-center gap-1.5 px-2 py-1.5 bg-bg-secondary/85 backdrop-blur-md border border-border-primary rounded-md shadow-lg shadow-black/30 hover:bg-bg-hover transition-colors pointer-events-auto"
+        style={{ left: pos.x, top: pos.y }}
+        aria-label="Open wind rose"
+        title="Open wind rose"
+      >
+        <Wind size={12} className="text-cyan-400" />
+        <span className="text-[10px] font-mono text-text-secondary">Wind Rose</span>
+      </button>
+    );
+  }
+
   return (
-    <div className="absolute top-14 left-2 z-[1000] pointer-events-none select-none">
-      <div className="bg-bg-secondary/85 backdrop-blur-md border border-border-primary rounded-lg shadow-lg shadow-black/30 p-2">
-        <div className="text-[9px] text-text-muted font-mono uppercase tracking-widest mb-1 px-1">Wind Rose · 30-day</div>
+    <div
+      className="absolute z-[1000] select-none pointer-events-auto"
+      style={{ left: pos.x, top: pos.y }}
+    >
+      <div className="bg-bg-secondary/85 backdrop-blur-md border border-border-primary rounded-lg shadow-lg shadow-black/30">
+        {/* Drag handle + title + close */}
+        <div
+          className="flex items-center justify-between px-2 py-1 border-b border-border-primary cursor-grab active:cursor-grabbing"
+          onMouseDown={onDragMouseDown}
+        >
+          <div className="flex items-center gap-1">
+            <GripVertical size={10} className="text-text-muted" />
+            <span className="text-[9px] text-text-muted font-mono uppercase tracking-widest">Wind Rose · 30-day</span>
+          </div>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => setIsOpen(false)}
+            className="text-text-muted hover:text-text-primary p-0.5 rounded hover:bg-bg-hover ml-1"
+            aria-label="Close wind rose"
+          >
+            <X size={10} />
+          </button>
+        </div>
+        <div className="p-2">
         <svg width="160" height="160" viewBox="-80 -80 160 160">
           {/* Backdrop circle + range rings */}
           {[20, 40, 60].map((r) => (
@@ -152,6 +227,7 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
               <span className="text-text-muted">{b.min}{b.max < 25 ? `–${b.max}` : "+"}</span>
             </div>
           ))}
+        </div>
         </div>
       </div>
     </div>

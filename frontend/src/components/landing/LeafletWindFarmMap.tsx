@@ -941,6 +941,8 @@ interface LeafletWindFarmMapProps {
   onOSSClick: () => void;
   onOnshoreClick: () => void;
   onCableClick: () => void;
+  onSTATCOMClick?: () => void;
+  onLIDARClick?: () => void;
 }
 
 // ── Main Component ──────────────────────────────────────────────
@@ -951,6 +953,8 @@ function LeafletWindFarmMapInner({
   onOSSClick,
   onOnshoreClick,
   onCableClick,
+  onSTATCOMClick,
+  onLIDARClick,
 }: LeafletWindFarmMapProps) {
   const ossIcon = useMemo(() => createOSSIcon(totalPowerMW), [totalPowerMW]);
   const onshoreIcon = useMemo(() => createOnshoreIcon(), []);
@@ -984,6 +988,14 @@ function LeafletWindFarmMapInner({
   const ossHandlers = useMemo(() => ({ click: onOSSClick }), [onOSSClick]);
   const onshoreHandlers = useMemo(() => ({ click: onOnshoreClick }), [onOnshoreClick]);
   const cableHandlers = useMemo(() => ({ click: onCableClick }), [onCableClick]);
+  const statcomHandlers = useMemo(
+    () => (onSTATCOMClick ? { click: onSTATCOMClick } : {}),
+    [onSTATCOMClick],
+  );
+  const metMastHandlers = useMemo(
+    () => (onLIDARClick ? { click: onLIDARClick } : {}),
+    [onLIDARClick],
+  );
 
   return (
     <div className="relative w-full h-full rounded-lg overflow-hidden border border-border-primary shadow-lg shadow-black/20" style={{ minHeight: 450 }}>
@@ -1083,6 +1095,7 @@ function LeafletWindFarmMapInner({
         <Marker
           position={[OSS_GEO.lat + 0.025, OSS_GEO.lon + 0.04]}
           icon={statcomIcon}
+          eventHandlers={statcomHandlers}
           zIndexOffset={950}
         />
 
@@ -1107,8 +1120,9 @@ function LeafletWindFarmMapInner({
             always stays on top.
             Provides independent wind validation per IEC 61400-12-1. */}
         <Marker
-          position={[FARM_CENTER_GEO[0] + 0.06, FARM_CENTER_GEO[1] - 0.18]}
+          position={[FARM_CENTER_GEO[0] - 0.05, FARM_CENTER_GEO[1] - 0.32]}
           icon={metMastIcon}
+          eventHandlers={metMastHandlers}
           zIndexOffset={1100}
         />
 

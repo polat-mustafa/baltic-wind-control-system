@@ -156,22 +156,49 @@ export const Drivetrain = memo(function Drivetrain({
       </group>
 
       {/* ── Brake disc ───────────────────────────────────────────── */}
-      <mesh
+      {/* Vented disc with 8 radial cooling slots + a piston caliper enclosure
+          straddling the disc edge — the visual cue that this is a real friction
+          brake, not just a polished cylinder. */}
+      <group
         position={[0, 1, -exp * 0.3]}
-        rotation={[Math.PI / 2, 0, 0]}
         name="brake"
-        castShadow
         onClick={pickPart("brake")}
       >
-        <cylinderGeometry args={[0.8, 0.8, 0.3, 32]} />
-        <meshPhysicalMaterial
-          {...metalPolished}
-          color={usePartColor("brake", selectedPart, "#6b7280")}
-          roughness={0.22}
-          emissive={usePartEmissive("brake", selectedPart)}
-          emissiveIntensity={usePartEmissiveIntensity("brake", selectedPart)}
-        />
-      </mesh>
+        <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.8, 0.8, 0.3, 32]} />
+          <meshPhysicalMaterial
+            {...metalPolished}
+            color={usePartColor("brake", selectedPart, "#6b7280")}
+            roughness={0.22}
+            emissive={usePartEmissive("brake", selectedPart)}
+            emissiveIntensity={usePartEmissiveIntensity("brake", selectedPart)}
+          />
+        </mesh>
+        {/* 8 radial cooling slots — thin sectoral cuts at slot positions */}
+        {Array.from({ length: 8 }).map((_, i) => {
+          const a = (i / 8) * Math.PI * 2;
+          return (
+            <mesh
+              key={i}
+              position={[Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5]}
+              rotation={[0, -a, 0]}
+            >
+              <boxGeometry args={[0.45, 0.32, 0.05]} />
+              <meshStandardMaterial color="#1f2937" roughness={0.85} metalness={0.2} />
+            </mesh>
+          );
+        })}
+        {/* Caliper enclosure — straddles the disc rim at the top */}
+        <mesh position={[0, 0, 0.85]} castShadow>
+          <boxGeometry args={[0.55, 0.52, 0.32]} />
+          <meshStandardMaterial color="#7f1d1d" roughness={0.45} metalness={0.55} />
+        </mesh>
+        {/* Hydraulic feed line stub */}
+        <mesh position={[0, 0.45, 0.95]}>
+          <cylinderGeometry args={[0.025, 0.025, 0.4, 8]} />
+          <meshStandardMaterial color="#171717" roughness={0.85} metalness={0.05} />
+        </mesh>
+      </group>
 
       {/* ── Gearbox — 3-stage planetary (ZF Wind Power, 1:48) ────── */}
       {/*   Stage 1 (LS): 8.33 rpm → ~17 rpm  — ring Ø3.2 m          */}

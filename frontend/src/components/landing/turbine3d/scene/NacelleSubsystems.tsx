@@ -115,11 +115,28 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
           width={0.78}
           height={0.34}
         />
+        {/* Hydraulic hose stubs — three short black rubber stubs leaving the
+            top manifold and exiting toward the yaw-brake circuit. Polished
+            stainless fittings at each exit point. */}
+        {([-0.4, 0.0, 0.4] as number[]).map((hx, i) => (
+          <group key={i}>
+            {/* Stainless fitting at HPU top */}
+            <mesh position={[hx, 0.55, 0.3]} castShadow>
+              <cylinderGeometry args={[0.045, 0.045, 0.08, 12]} />
+              <meshPhysicalMaterial {...metalPolished} color="#cbd5e1" />
+            </mesh>
+            {/* Hose stub — short rubber section leaving manifold */}
+            <mesh position={[hx, 0.78, 0.3]} castShadow>
+              <cylinderGeometry args={[0.035, 0.035, 0.4, 8]} />
+              <meshStandardMaterial color="#0a0a0a" roughness={0.85} metalness={0.05} />
+            </mesh>
+          </group>
+        ))}
       </group>
 
       {/* ── B3 Control Cabinets (TCS + Safety PLC) ───────────────── */}
-      {/* Port aft section, two side-by-side cabinets, rotated 15° to face aisle */}
-      <group position={[-3.3, 149.0, -8.5]} rotation={[0, (15 * Math.PI) / 180, 0]} name="control_cabinet" onClick={pick("control_cabinet")}>
+      {/* Port aft section, two side-by-side cabinets, axis-aligned to aft wall */}
+      <group position={[-3.3, 149.0, -8.5]} name="control_cabinet" onClick={pick("control_cabinet")}>
         {/* Cabinet 1 — Main TCS (RAL 7035 light grey) */}
         <RoundedBox args={[0.8, 2.0, 0.6]} radius={0.03} smoothness={4} position={[-0.45, 0, 0]} castShadow>
           <meshPhysicalMaterial
@@ -163,25 +180,33 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       </group>
 
       {/* ── B8 UPS / Battery Cabinet ─────────────────────────────── */}
-      {/* Moved to starboard so both sides of the aisle read as populated */}
-      <group position={[3.5, 148.8, -6.5]} name="ups" onClick={pick("ups")}>
-        <RoundedBox args={[1.0, 1.5, 0.6]} radius={0.035} smoothness={4} castShadow>
+      {/* Mirror of the control cabinet: same z (-8.5), opposite x, deeper navy
+          paint so it doesn't read toy-like next to the RAL 7035 cabinets. */}
+      <group position={[3.3, 149.0, -8.5]} name="ups" onClick={pick("ups")}>
+        <RoundedBox args={[1.0, 2.0, 0.6]} radius={0.035} smoothness={4} castShadow>
           <meshPhysicalMaterial
             {...metalPaintedShell}
-            color={col("ups", selectedPart, "#1e40af")}
+            color={col("ups", selectedPart, "#0f4c75")}
             clearcoat={0.55}
             emissive={em("ups", selectedPart)}
             emissiveIntensity={emI("ups", selectedPart)}
           />
         </RoundedBox>
         {/* Battery charge indicator strip */}
-        <mesh position={[0.51, 0.2, 0]}>
+        <mesh position={[-0.51, 0.2, 0]}>
           <boxGeometry args={[0.02, 0.8, 0.3]} />
           <meshStandardMaterial color="#34d399" emissive="#10b981" emissiveIntensity={0.7} />
         </mesh>
+        {/* Ventilation louvres — 4 horizontal slits on the door */}
+        {[-0.55, -0.25, 0.05, 0.35].map((y, i) => (
+          <mesh key={i} position={[0, y, 0.305]}>
+            <boxGeometry args={[0.7, 0.04, 0.005]} />
+            <meshStandardMaterial color="#0a2b42" roughness={0.4} metalness={0.6} />
+          </mesh>
+        ))}
         {/* Engineering nameplate */}
         <Nameplate
-          position={[0, 0.55, 0.305]}
+          position={[0, 0.78, 0.305]}
           title="UPS · 6.6 kWh"
           lines={["VRLA · 15 min backup", "IEC 62040-1", "230 V AC · 5 kVA"]}
           width={0.72}
@@ -190,8 +215,25 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       </group>
 
       {/* ── B4 Nacelle Transformer ────────────────────────────────── */}
-      {/* 784 V / 66 kV, 16 MVA, Dyn11 — nacelle aft base */}
+      {/* 784 V / 66 kV, 16 MVA, Dyn11 — nacelle aft base, sits on a fabricated
+          steel skid so the 16-tonne tank doesn't appear to float in the bay. */}
       <group position={[0, 148.0, -11]} name="transformer" onClick={pick("transformer")}>
+        {/* Support skid — 4 longitudinal I-beams + cross-members at y = -1.05 */}
+        <mesh position={[0, -1.08, 0]} castShadow receiveShadow>
+          <boxGeometry args={[2.6, 0.15, 2.6]} />
+          <meshPhysicalMaterial
+            {...metalPaintedDetail}
+            color="#3f3f46"
+            roughness={0.55}
+          />
+        </mesh>
+        {/* 4 stub feet under the skid corners */}
+        {([[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]] as [number, number][]).map(([fx, fz], i) => (
+          <mesh key={i} position={[fx, -1.32, fz]} castShadow>
+            <boxGeometry args={[0.18, 0.32, 0.18]} />
+            <meshStandardMaterial color="#27272a" roughness={0.7} metalness={0.5} />
+          </mesh>
+        ))}
         {/* Main tank — IEC green enamel over cast steel */}
         <RoundedBox args={[2.5, 2.0, 2.5]} radius={0.05} smoothness={4} castShadow>
           <meshPhysicalMaterial
@@ -202,6 +244,29 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
             emissiveIntensity={emI("transformer", selectedPart)}
           />
         </RoundedBox>
+        {/* Conservator tank — small horizontal cylinder atop the rear face,
+            holds expansion oil per IEC 60076-1. */}
+        <mesh position={[0, 1.35, -1.05]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[0.18, 0.18, 1.6, 16]} />
+          <meshPhysicalMaterial {...metalPaintedShell} color="#166534" clearcoat={0.5} />
+        </mesh>
+        {/* Conservator end caps */}
+        {([-0.8, 0.8] as number[]).map((cx) => (
+          <mesh key={cx} position={[cx, 1.35, -1.05]}>
+            <sphereGeometry args={[0.18, 14, 8]} />
+            <meshPhysicalMaterial {...metalPaintedShell} color="#166534" clearcoat={0.5} />
+          </mesh>
+        ))}
+        {/* Buchholz relay — small cylinder mounted between conservator and tank */}
+        <mesh position={[0, 1.18, -0.4]} castShadow>
+          <cylinderGeometry args={[0.08, 0.08, 0.18, 12]} />
+          <meshStandardMaterial color="#1a2e22" roughness={0.6} metalness={0.5} />
+        </mesh>
+        {/* Connecting pipe — conservator → Buchholz → tank top */}
+        <mesh position={[0, 1.27, -0.7]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.04, 0.04, 0.65, 8]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.5} metalness={0.7} />
+        </mesh>
         {/* Cooling fins — 3 flat boxes on each side */}
         {([-1.3, 0, 1.3] as number[]).flatMap((fz) =>
           ([-1, 1] as number[]).map((side, i) => (
@@ -248,8 +313,17 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       </group>
 
       {/* ── B5 Oil Cooler / Heat Exchanger ────────────────────────── */}
-      {/* Starboard side wall, gearbox oil circuit */}
+      {/* Starboard wall mount, gearbox oil circuit. Hung from 4 short brackets
+          off the side compartment ceiling so the radiator visibly attaches to
+          the nacelle structure rather than floating. */}
       <group position={[4.6, 151, -3]} name="oil_cooler" onClick={pick("oil_cooler")}>
+        {/* 4 mounting brackets — short stubs to the starboard wall above */}
+        {([[-0.85, 0.85], [-0.85, -0.85], [0.85, 0.85], [0.85, -0.85]] as [number, number][]).map(([bz, _by], i) => (
+          <mesh key={i} position={[-0.18, 0.95, bz]} castShadow>
+            <boxGeometry args={[0.06, 0.18, 0.08]} />
+            <meshStandardMaterial color="#52525b" roughness={0.55} metalness={0.65} />
+          </mesh>
+        ))}
         {/* Main radiator body — copper-brown painted heat exchanger */}
         <RoundedBox args={[0.3, 1.5, 2.0]} radius={0.03} smoothness={4} castShadow>
           <meshPhysicalMaterial
@@ -259,6 +333,16 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
             emissiveIntensity={emI("oil_cooler", selectedPart)}
           />
         </RoundedBox>
+        {/* Header tank — top horizontal manifold collecting fin returns */}
+        <mesh position={[0.05, 0.85, 0]} castShadow>
+          <boxGeometry args={[0.36, 0.18, 2.05]} />
+          <meshPhysicalMaterial {...metalPaintedDetail} color="#7c2d12" />
+        </mesh>
+        {/* Bottom collector tank */}
+        <mesh position={[0.05, -0.85, 0]} castShadow>
+          <boxGeometry args={[0.36, 0.18, 2.05]} />
+          <meshPhysicalMaterial {...metalPaintedDetail} color="#7c2d12" />
+        </mesh>
         {/* Fin pattern — 8 thin horizontal fins */}
         {Array.from({ length: 8 }).map((_, i) => (
           <mesh key={i} position={[0.19, -0.6 + i * 0.18, 0]}>
@@ -305,37 +389,78 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
           <boxGeometry args={[4.2, 0.35, 0.8]} />
           <meshStandardMaterial color="#ca8a04" roughness={0.5} metalness={0.5} />
         </mesh>
-        {/* Hoist hook */}
-        <mesh position={[0, 153.8, -3]}>
-          <boxGeometry args={[0.12, 0.5, 0.12]} />
+        {/* Trolley wheels — 4 flanged wheels riding the I-beam top flanges,
+            two per side, gives the trolley actual contact with the rails */}
+        {([[-2, -0.3], [-2, 0.3], [2, -0.3], [2, 0.3]] as [number, number][]).map(([wx, wz], i) => (
+          <mesh key={i} position={[wx, 154.55, -3 + wz]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.09, 0.09, 0.05, 16]} />
+            <meshPhysicalMaterial {...metalPolished} color="#a8a29e" />
+          </mesh>
+        ))}
+        {/* Hoist gearbox — small box hanging below trolley centre */}
+        <mesh position={[0, 154.0, -3]}>
+          <boxGeometry args={[0.5, 0.3, 0.4]} />
+          <meshStandardMaterial color="#78716c" roughness={0.5} metalness={0.6} />
+        </mesh>
+        {/* Wire rope drop */}
+        <mesh position={[0, 153.7, -3]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.5, 6]} />
+          <meshStandardMaterial color="#52525b" roughness={0.3} metalness={0.85} />
+        </mesh>
+        {/* Hoist hook — proper crane hook shape */}
+        <mesh position={[0, 153.3, -3]}>
+          <torusGeometry args={[0.08, 0.025, 8, 16, Math.PI * 1.4]} />
+          <meshPhysicalMaterial {...metalPolished} color="#78716c" />
+        </mesh>
+        <mesh position={[0, 153.45, -3]}>
+          <boxGeometry args={[0.05, 0.2, 0.05]} />
           <meshStandardMaterial color="#78716c" roughness={0.4} metalness={0.8} />
         </mesh>
       </group>
 
       {/* ── B9 Yaw Brake Calipers ─────────────────────────────────── */}
-      {/* 4 × hydraulic disc calipers at 45°/135°/225°/315° on yaw ring */}
-      {/* Yaw ring is at y=147.5 world space, radius 3.2 m */}
+      {/* 4 × SAHR hydraulic disc calipers at 45°/135°/225°/315° on yaw ring.
+          Each shows the caliper body + a polished piston rod feeding into the
+          pad housing — the visual cue that these are powered actuators, not
+          static blocks. */}
       {([45, 135, 225, 315] as number[]).map((deg) => {
         const rad = (deg * Math.PI) / 180;
         const r = 3.0;
+        const cx = Math.cos(rad) * r;
+        const cz = Math.sin(rad) * r;
         return (
-          <mesh
-            key={deg}
-            position={[Math.cos(rad) * r, 147.9, Math.sin(rad) * r]}
-            rotation={[0, -rad, 0]}
-            name="yaw_brake"
-            castShadow
-            onClick={pick("yaw_brake")}
-          >
-            <boxGeometry args={[0.45, 0.55, 0.4]} />
-            <meshStandardMaterial
-              color={col("yaw_brake", selectedPart, "#991b1b")}
-              roughness={0.5}
-              metalness={0.5}
-              emissive={em("yaw_brake", selectedPart)}
-              emissiveIntensity={emI("yaw_brake", selectedPart)}
-            />
-          </mesh>
+          <group key={deg} name="yaw_brake" onClick={pick("yaw_brake")}>
+            {/* Caliper body */}
+            <mesh
+              position={[cx, 147.9, cz]}
+              rotation={[0, -rad, 0]}
+              castShadow
+            >
+              <boxGeometry args={[0.45, 0.55, 0.4]} />
+              <meshStandardMaterial
+                color={col("yaw_brake", selectedPart, "#991b1b")}
+                roughness={0.5}
+                metalness={0.5}
+                emissive={em("yaw_brake", selectedPart)}
+                emissiveIntensity={emI("yaw_brake", selectedPart)}
+              />
+            </mesh>
+            {/* Piston rod — polished stainless cylinder protruding outward */}
+            <mesh
+              position={[cx + Math.cos(rad) * 0.32, 147.9, cz + Math.sin(rad) * 0.32]}
+              rotation={[0, 0, Math.PI / 2]}
+            >
+              <cylinderGeometry args={[0.045, 0.045, 0.22, 12]} />
+              <meshPhysicalMaterial {...metalPolished} color="#e5e7eb" />
+            </mesh>
+            {/* Hydraulic line stub — black rubber feed from above */}
+            <mesh
+              position={[cx, 148.25, cz]}
+            >
+              <cylinderGeometry args={[0.025, 0.025, 0.25, 8]} />
+              <meshStandardMaterial color="#171717" roughness={0.85} metalness={0.05} />
+            </mesh>
+          </group>
         );
       })}
 
@@ -372,28 +497,49 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       </group>
 
       {/* ── B11 Fire Suppression Cylinders ───────────────────────── */}
-      {/* 4 × red cylinders near high-risk areas */}
+      {/* 4 × HFC-227ea cylinders, ceiling-mounted at uniform y=154.0 just below
+          the cowling, each with a drop nozzle pointed at its protected zone.
+          Standardised height + uniform manifold reads as engineered, not random. */}
       {(
         [
-          [1.5, 150.2, 0.8],    // Near gearbox
-          [1.5, 148.5, 0.8],    // Near generator
-          [3.2, 149.5, -2.5],   // Near converter port
-          [-3.2, 149.5, -2.5],  // Near converter starboard
-        ] as [number, number, number][]
-      ).map((pos, i) => (
-        <mesh key={i} position={pos} rotation={[Math.PI / 2, 0, 0]} castShadow
-          name="fire_suppression"
-          onClick={pick("fire_suppression")}
-        >
-          <cylinderGeometry args={[0.075, 0.075, 0.5, 10]} />
-          <meshStandardMaterial
-            color={col("fire_suppression", selectedPart, "#dc2626")}
-            roughness={0.4}
-            metalness={0.5}
-            emissive={em("fire_suppression", selectedPart)}
-            emissiveIntensity={emI("fire_suppression", selectedPart)}
-          />
-        </mesh>
+          [1.5,  154.0,  0.8, 150.4],   // Above gearbox — drops to y=150.4
+          [-1.5, 154.0, -2.0, 148.8],   // Above generator
+          [3.2,  154.0, -2.5, 149.6],   // Above converter starboard
+          [-3.2, 154.0, -2.5, 149.6],   // Above converter port
+        ] as [number, number, number, number][]
+      ).map(([x, y, z, nozzleY], i) => (
+        <group key={i} name="fire_suppression" onClick={pick("fire_suppression")}>
+          {/* Cylinder body — vertical, top-mounted */}
+          <mesh position={[x, y, z]} castShadow>
+            <cylinderGeometry args={[0.085, 0.085, 0.7, 12]} />
+            <meshStandardMaterial
+              color={col("fire_suppression", selectedPart, "#dc2626")}
+              roughness={0.4}
+              metalness={0.5}
+              emissive={em("fire_suppression", selectedPart)}
+              emissiveIntensity={emI("fire_suppression", selectedPart)}
+            />
+          </mesh>
+          {/* Top valve manifold + pressure indicator */}
+          <mesh position={[x, y + 0.42, z]} castShadow>
+            <boxGeometry args={[0.18, 0.12, 0.18]} />
+            <meshStandardMaterial color="#7f1d1d" roughness={0.5} metalness={0.6} />
+          </mesh>
+          <mesh position={[x + 0.12, y + 0.42, z]}>
+            <cylinderGeometry args={[0.04, 0.04, 0.04, 12]} />
+            <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={0.5} />
+          </mesh>
+          {/* Drop pipe — runs from cylinder bottom down to nozzle elevation */}
+          <mesh position={[x, (y - 0.35 + nozzleY + 0.1) / 2, z]}>
+            <cylinderGeometry args={[0.022, 0.022, y - 0.35 - (nozzleY + 0.1), 8]} />
+            <meshStandardMaterial color="#991b1b" roughness={0.4} metalness={0.6} />
+          </mesh>
+          {/* Drop nozzle — IEC 14520 spray head */}
+          <mesh position={[x, nozzleY + 0.05, z]}>
+            <coneGeometry args={[0.08, 0.12, 8]} />
+            <meshStandardMaterial color="#e7e5e4" roughness={0.4} metalness={0.7} />
+          </mesh>
+        </group>
       ))}
 
       {/* ── B12 Lightning Down-Conductor ─────────────────────────── */}

@@ -241,6 +241,12 @@ export default function LandingPage() {
               onCableClick={handleCableClick}
             />
           </div>
+
+          {/* Wind rose climatology widget — top-left corner overlay (also
+              rendered in normal mode below). Both code paths must include it
+              so the widget survives the Control Room toggle. */}
+          <WindRoseWidget />
+
           {detailPanels}
         </div>
       </div>

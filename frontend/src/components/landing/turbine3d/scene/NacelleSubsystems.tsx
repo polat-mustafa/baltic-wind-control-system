@@ -61,6 +61,84 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
 
   return (
     <group>
+      {/* ── B0 Structural Bedplate Frame ──────────────────────────── */}
+      {/* The cast-steel bedplate is what every other component bolts to.
+          Without it visible the interior reads as floating cabinets. We model
+          the ZF-style ladder frame: 2 longitudinal main beams + 5 cross-beams
+          + a bolted main-shaft pedestal cradle. Top of frame at y=147.6
+          (matches transformer skid + HPU base). */}
+      {/* Two main longitudinal I-beams (port + starboard) */}
+      {([-3.6, 3.6] as number[]).map((bx) => (
+        <group key={`beam-${bx}`}>
+          {/* Top flange */}
+          <mesh position={[bx, 147.65, -3]} castShadow receiveShadow>
+            <boxGeometry args={[0.55, 0.06, 18]} />
+            <meshStandardMaterial color="#2d3543" roughness={0.6} metalness={0.55} />
+          </mesh>
+          {/* Web */}
+          <mesh position={[bx, 147.40, -3]} castShadow>
+            <boxGeometry args={[0.08, 0.45, 18]} />
+            <meshStandardMaterial color="#2d3543" roughness={0.65} metalness={0.5} />
+          </mesh>
+          {/* Bottom flange */}
+          <mesh position={[bx, 147.15, -3]} castShadow>
+            <boxGeometry args={[0.55, 0.06, 18]} />
+            <meshStandardMaterial color="#2d3543" roughness={0.6} metalness={0.55} />
+          </mesh>
+        </group>
+      ))}
+      {/* Cross-beams every 4 m bolting the two longitudinals together */}
+      {[-10.5, -6.5, -2.5, 1.5, 5.5].map((bz) => (
+        <mesh key={`xbeam-${bz}`} position={[0, 147.40, bz]} castShadow>
+          <boxGeometry args={[7.2, 0.4, 0.18]} />
+          <meshStandardMaterial color="#3a4452" roughness={0.6} metalness={0.55} />
+        </mesh>
+      ))}
+      {/* Main-shaft pedestal cradle — diagonal gusset rising to bearing y=151 */}
+      {([-1.5, 1.5] as number[]).map((px) => (
+        <group key={`ped-${px}`}>
+          <mesh position={[px, 149, 1]} castShadow>
+            <boxGeometry args={[0.35, 3.0, 0.5]} />
+            <meshStandardMaterial color="#3a4452" roughness={0.6} metalness={0.5} />
+          </mesh>
+          {/* Diagonal brace */}
+          <mesh position={[px * 1.6, 149, 1]} rotation={[0, 0, px > 0 ? -0.3 : 0.3]}>
+            <boxGeometry args={[0.18, 2.6, 0.18]} />
+            <meshStandardMaterial color="#3a4452" roughness={0.65} metalness={0.5} />
+          </mesh>
+        </group>
+      ))}
+      {/* Aisle floor grating — 1.2 m wide steel grating between the two main
+          beams, gives the catwalk a mounted-to-frame feel */}
+      <mesh position={[0, 147.7, -3]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[1.2, 18]} />
+        <meshStandardMaterial color="#1f2937" roughness={0.85} metalness={0.45} />
+      </mesh>
+      {/* Steel kickplates flanking the aisle */}
+      {([-0.65, 0.65] as number[]).map((kx) => (
+        <mesh key={`kick-${kx}`} position={[kx, 147.78, -3]} castShadow>
+          <boxGeometry args={[0.04, 0.16, 18]} />
+          <meshStandardMaterial color="#eab308" roughness={0.55} metalness={0.4} />
+        </mesh>
+      ))}
+      {/* Tower-top access ladder cage — 4 vertical tubes at the rear bay */}
+      {([[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]] as [number, number][]).map(([lx, lz], i) => (
+        <mesh key={`ladder-${i}`} position={[lx, 145.0, -10 + lz]} castShadow>
+          <cylinderGeometry args={[0.025, 0.025, 4.5, 8]} />
+          <meshStandardMaterial color="#eab308" roughness={0.5} metalness={0.5} />
+        </mesh>
+      ))}
+      {/* Ladder rungs — 12 short bars between the front and rear pair */}
+      {Array.from({ length: 12 }).map((_, i) => {
+        const y = 143.0 + i * 0.32;
+        return (
+          <mesh key={`rung-${i}`} position={[0, y, -10]} rotation={[0, 0, 0]}>
+            <boxGeometry args={[0.85, 0.025, 0.04]} />
+            <meshStandardMaterial color="#eab308" roughness={0.5} metalness={0.5} />
+          </mesh>
+        );
+      })}
+
       {/* ── B6 Generator Flexible Coupling ───────────────────────── */}
       {/* Between gearbox (y≈150.5) and generator (y≈148.5) */}
       <group position={[0, 149.5, 0]} name="coupling" onClick={pick("coupling")}>

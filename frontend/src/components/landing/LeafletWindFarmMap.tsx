@@ -412,50 +412,101 @@ function createGridSwitchyardIcon(breakerClosed: boolean = true): L.DivIcon {
   });
 }
 
-// ── STATCOM Marker Icon (IEC 60617 capacitor bank in circle) ────
-// Represents the ±120 MVAR STATCOM + 50 MVAR shunt reactor at the OSS
-// platform. Q sign convention: positive = injecting, negative = absorbing.
+// ── STATCOM Marker Icon — containerised industrial design ───────
+// Real ABB SVC Light / Siemens SVC Plus units: a row of valve containers
+// (IGBT MMC modules), a paralleled capacitor bank, and a coupling
+// transformer to the busbar. This icon lays them out as a single-line:
+//
+//   [bus 220 kV] ─┬─ [coupling tx] ─┬─ [filter L] ─┬─ [valves] ─┬─ [cap bank]
+//
+// Q sign convention: positive = injecting (capacitive, leading), negative
+// = absorbing (inductive, lagging). |Q| ≤ 5 reads as idle.
 function createSTATCOMIcon(qMVAR: number): L.DivIcon {
-  // Colour by Q direction:
-  //   |Q| < 5  → idle grey
-  //   Q > 5    → leading injection (capacitive) — amber
-  //   Q < -5   → lagging absorption (inductive)  — cyan
   const isInjecting = qMVAR > 5;
   const isAbsorbing = qMVAR < -5;
-  const ringColor = isInjecting ? "#f59e0b" : isAbsorbing ? "#06b6d4" : "#64748b";
-  const arrowDir = isInjecting ? "up" : isAbsorbing ? "down" : "none";
+  const liveColor = isInjecting ? "#f59e0b" : isAbsorbing ? "#06b6d4" : "#64748b";
+  const dimColor = "#475569";
+  const fillBg = "#0d1017";
   const qLabel = `${qMVAR >= 0 ? "+" : ""}${qMVAR.toFixed(0)} MVAr`;
+  const modeLabel = isInjecting ? "INJECT" : isAbsorbing ? "ABSORB" : "STANDBY";
 
-  const arrowSvg =
-    arrowDir === "up"
-      ? `<polygon points="0,-7 -2.5,-4 2.5,-4" fill="${ringColor}" opacity="0.85"/>
-         <line x1="0" y1="-4" x2="0" y2="2" stroke="${ringColor}" stroke-width="1.2"/>`
-      : arrowDir === "down"
-        ? `<polygon points="0,7 -2.5,4 2.5,4" fill="${ringColor}" opacity="0.85"/>
-           <line x1="0" y1="4" x2="0" y2="-2" stroke="${ringColor}" stroke-width="1.2"/>`
-        : "";
+  // Q-bar fill: |Q|/120 of the rated capacity, rendered as a horizontal bar
+  // under the readout. Always ±120 MVAr is full scale.
+  const qFrac = Math.min(Math.abs(qMVAR) / 120, 1);
+  const barColor = liveColor;
 
-  const svg = `<svg width="48" height="58" viewBox="-24 -24 48 58" xmlns="http://www.w3.org/2000/svg">
-    <text x="0" y="-15" text-anchor="middle" fill="#94a3b8" font-size="7" font-weight="600" font-family="Inter, sans-serif">STATCOM</text>
-    <!-- Outer ring -->
-    <circle cx="0" cy="0" r="11" fill="#0d1017" stroke="${ringColor}" stroke-width="1.4"/>
-    <!-- IEC capacitor symbol — 2 parallel plates inside the ring -->
-    <line x1="-5" y1="-3" x2="5" y2="-3" stroke="${ringColor}" stroke-width="1.4"/>
-    <line x1="-5" y1="3" x2="5" y2="3" stroke="${ringColor}" stroke-width="1.4"/>
-    <!-- Connecting lines top/bottom -->
-    <line x1="0" y1="-11" x2="0" y2="-3" stroke="${ringColor}" stroke-width="1"/>
-    <line x1="0" y1="3" x2="0" y2="11" stroke="${ringColor}" stroke-width="1"/>
-    <!-- Q arrow indicator (when active) -->
-    <g transform="translate(8 0)">${arrowSvg}</g>
-    <!-- Q readout -->
-    <text x="0" y="20" text-anchor="middle" fill="${ringColor}" font-size="6.5" font-family="JetBrains Mono, monospace" font-weight="600">${qLabel}</text>
+  const svg = `<svg width="120" height="78" viewBox="-60 -28 120 78" xmlns="http://www.w3.org/2000/svg">
+    <!-- Title strip -->
+    <text x="0" y="-18" text-anchor="middle" fill="#cbd5e1" font-size="7" font-weight="700" font-family="Inter, sans-serif" letter-spacing="1">STATCOM · ±120 MVAr</text>
+
+    <!-- Container outline (steel skid frame) -->
+    <rect x="-55" y="-12" width="110" height="22" rx="2" fill="${fillBg}" stroke="#3d4560" stroke-width="0.8"/>
+
+    <!-- 220 kV busbar tap (left edge) -->
+    <line x1="-55" y1="-1" x2="-50" y2="-1" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.4"/>
+    <text x="-58" y="-13" fill="${SCADA_COLORS.VOLTAGE_220KV}" font-size="3.5" font-family="monospace">220kV</text>
+
+    <!-- Coupling transformer — 2-circle Δ/Y -->
+    <circle cx="-44" cy="-1" r="3.5" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="0.8"/>
+    <circle cx="-39" cy="-1" r="3.5" fill="none" stroke="#94a3b8" stroke-width="0.8"/>
+
+    <!-- Filter reactor coil (3 humps) -->
+    <path d="M -32 -1 q 1.5 -3 3 0 q 1.5 3 3 0 q 1.5 -3 3 0" fill="none" stroke="${liveColor}" stroke-width="0.9"/>
+
+    <!-- IGBT valve container — 4 modules (MMC SM half-bridges) -->
+    <rect x="-18" y="-7" width="20" height="12" rx="1" fill="#0a1018" stroke="${liveColor}" stroke-width="0.7"/>
+    ${[-14, -10, -6, -2].map((cx, i) => `
+      <rect x="${cx - 1.5}" y="${-5}" width="3" height="8" fill="${liveColor}" fill-opacity="${isInjecting || isAbsorbing ? 0.55 + i * 0.08 : 0.18}" stroke="${dimColor}" stroke-width="0.3"/>
+    `).join("")}
+
+    <!-- Capacitor bank — 4 stacked plates, IEC capacitor pairs -->
+    <g transform="translate(8 -1)">
+      ${[-5, 0, 5].map((cy) => `
+        <line x1="-3" y1="${cy - 0.6}" x2="3" y2="${cy - 0.6}" stroke="${liveColor}" stroke-width="0.9"/>
+        <line x1="-3" y1="${cy + 0.6}" x2="3" y2="${cy + 0.6}" stroke="${liveColor}" stroke-width="0.9"/>
+      `).join("")}
+      <!-- vertical bus connecting the cap stack -->
+      <line x1="0" y1="-7" x2="0" y2="7" stroke="${liveColor}" stroke-width="0.6" opacity="0.7"/>
+    </g>
+
+    <!-- Shunt reactor (50 MVAr inductor) — small coil at right -->
+    <g transform="translate(20 0)">
+      <circle cx="0" cy="-3" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
+      <circle cx="0" cy="0" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
+      <circle cx="0" cy="3" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
+      <text x="0" y="11" text-anchor="middle" fill="#64748b" font-size="3" font-family="monospace">50 MVAr L</text>
+    </g>
+
+    <!-- Status LED (solid pulse only when active) -->
+    ${isInjecting || isAbsorbing
+      ? `<circle cx="32" cy="-9" r="1.6" fill="${liveColor}"><animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/></circle>`
+      : `<circle cx="32" cy="-9" r="1.6" fill="${dimColor}" opacity="0.6"/>`}
+
+    <!-- Mode badge -->
+    <rect x="36" y="-12" width="20" height="6" rx="1" fill="${fillBg}" stroke="${liveColor}" stroke-width="0.5"/>
+    <text x="46" y="-7.5" text-anchor="middle" fill="${liveColor}" font-size="4.2" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.5">${modeLabel}</text>
+
+    <!-- Q readout + capability bar -->
+    <text x="-55" y="22" fill="${liveColor}" font-size="8" font-weight="700" font-family="JetBrains Mono, monospace">${qLabel}</text>
+    <!-- Bar background (full ±120 scale, divided at zero) -->
+    <rect x="14" y="16" width="42" height="6" fill="#0a1018" stroke="#3d4560" stroke-width="0.5"/>
+    <line x1="35" y1="16" x2="35" y2="22" stroke="#3d4560" stroke-width="0.4"/>
+    <!-- Q fill: from centre toward injection (right) or absorption (left) -->
+    ${qMVAR > 0
+      ? `<rect x="35" y="16.8" width="${(qFrac * 21).toFixed(1)}" height="4.4" fill="${barColor}" opacity="0.85"/>`
+      : qMVAR < 0
+        ? `<rect x="${(35 - qFrac * 21).toFixed(1)}" y="16.8" width="${(qFrac * 21).toFixed(1)}" height="4.4" fill="${barColor}" opacity="0.85"/>`
+        : ""}
+    <text x="14" y="29" fill="#64748b" font-size="3" font-family="monospace">−120</text>
+    <text x="35" y="29" text-anchor="middle" fill="#64748b" font-size="3" font-family="monospace">0</text>
+    <text x="56" y="29" text-anchor="end" fill="#64748b" font-size="3" font-family="monospace">+120</text>
   </svg>`;
 
   return L.divIcon({
     html: svg,
     className: "leaflet-statcom-marker",
-    iconSize: [48, 58],
-    iconAnchor: [24, 18],
+    iconSize: [120, 78],
+    iconAnchor: [60, 0],
   });
 }
 
@@ -868,9 +919,11 @@ function LeafletWindFarmMapInner({
           zIndexOffset={1000}
         />
 
-        {/* STATCOM marker — ±120 MVAR + 50 MVAr shunt reactor at the OSS */}
+        {/* STATCOM marker — ±120 MVAR + 50 MVAr shunt reactor at the OSS.
+            Placed northeast of OSS so the wide single-line container icon has
+            clear water around it instead of overlapping the substation. */}
         <Marker
-          position={[OSS_GEO.lat + 0.012, OSS_GEO.lon - 0.018]}
+          position={[OSS_GEO.lat + 0.025, OSS_GEO.lon + 0.04]}
           icon={statcomIcon}
           zIndexOffset={950}
         />

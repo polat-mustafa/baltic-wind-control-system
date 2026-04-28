@@ -58,12 +58,14 @@ export const Rotor = memo(
     const statusColor = STATUS_EMISSIVE[status] ?? "#000000";
 
     return (
-      // Rotor placed 8 m ahead of the nacelle's longitudinal centre. The
-      // nacelle's central bay spans z = -15…+5 (front face at z=+5); putting
-      // the rotor at z=+8 leaves the hub rear-flange roughly flush with the
-      // front face and gives the blade-root sweep plane a 3 m clearance from
-      // the cowling so blades cannot pass through the fuselage.
-      <group ref={ref} position={[0, 150, 8]}>
+      // Rotor placed just ahead of the nacelle front face. The nacelle's
+      // central bay spans z = -15…+5 (front face at z=+5); putting the rotor
+      // at z=+6 gives the blade disc a tight ~1 m visual gap from the
+      // cowling — matching real Vestas V236 photos where the spinner sits
+      // almost flush with the nacelle nose. The hub rear-flange (at hub
+      // local y=-2.5, mapped to world z=3.5) tucks slightly inside the
+      // cowling where the main shaft enters.
+      <group ref={ref} position={[0, 150, 6]}>
         <group ref={rotorRef}>
           <Hub isSelected={isHubSelected} />
 

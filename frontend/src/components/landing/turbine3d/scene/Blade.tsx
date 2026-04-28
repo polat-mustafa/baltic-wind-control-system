@@ -362,6 +362,32 @@ export const Blade = memo(
             />
           )}
         </mesh>
+
+        {/* Aviation obstruction marking — 3 high-visibility red bands at the
+            blade tip per ICAO Annex 14 vol I & IEC 61400-1. Each band wraps
+            the blade chord. We place them inside the tip 6 m of the blade,
+            offset along the local prebend + sweep so they sit ON the blade
+            surface as it curves forward. Rendered unlit (toneMapped=false)
+            so they stay visibly red even in low-light scenes. */}
+        {!renderField && (
+          <group>
+            {[
+              { span: 109.0, chord: 1.15, sweep: 0.95, prebend: 4.55 },
+              { span: 112.0, chord: 0.85, sweep: 1.05, prebend: 4.80 },
+              { span: 114.5, chord: 0.55, sweep: 1.15, prebend: 4.95 },
+            ].map((b, i) => (
+              <mesh
+                key={i}
+                position={[b.sweep, b.span, b.prebend]}
+                castShadow={false}
+              >
+                {/* x = chord-width, y = band height along span, z = thickness */}
+                <boxGeometry args={[b.chord * 1.05, 0.7, 0.35]} />
+                <meshBasicMaterial color="#d62828" toneMapped={false} />
+              </mesh>
+            ))}
+          </group>
+        )}
       </group>
     );
   }),

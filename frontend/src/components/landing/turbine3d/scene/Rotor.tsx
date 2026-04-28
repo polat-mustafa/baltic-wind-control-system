@@ -58,7 +58,12 @@ export const Rotor = memo(
     const statusColor = STATUS_EMISSIVE[status] ?? "#000000";
 
     return (
-      <group ref={ref} position={[0, 150, 0]}>
+      // Rotor placed 8 m ahead of the nacelle's longitudinal centre. The
+      // nacelle's central bay spans z = -15…+5 (front face at z=+5); putting
+      // the rotor at z=+8 leaves the hub rear-flange roughly flush with the
+      // front face and gives the blade-root sweep plane a 3 m clearance from
+      // the cowling so blades cannot pass through the fuselage.
+      <group ref={ref} position={[0, 150, 8]}>
         <group ref={rotorRef}>
           <Hub isSelected={isHubSelected} />
 

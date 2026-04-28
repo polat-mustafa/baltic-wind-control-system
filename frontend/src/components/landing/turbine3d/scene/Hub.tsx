@@ -86,7 +86,11 @@ export const Hub = memo(function Hub({ isSelected }: HubProps) {
   }, []);
 
   return (
-    <group>
+    // Rotate the lathe so its symmetry axis (local +Y) maps to world +Z.
+    // The rotor frame's spin axis is Z; +Z is forward (toward incoming wind).
+    // Without this rotation the apex pointed UP and the blade root flange sat
+    // in the XZ plane — geometrically wrong for a horizontal-axis turbine.
+    <group rotation={[Math.PI / 2, 0, 0]}>
       <mesh
         castShadow
         receiveShadow

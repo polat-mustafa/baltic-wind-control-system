@@ -67,22 +67,24 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
           the ZF-style ladder frame: 2 longitudinal main beams + 5 cross-beams
           + a bolted main-shaft pedestal cradle. Top of frame at y=147.6
           (matches transformer skid + HPU base). */}
-      {/* Two main longitudinal I-beams (port + starboard) */}
+      {/* Two main longitudinal I-beams (port + starboard).
+          Length 16 m centred at z=-4 → Z extent −12 to +4 (1 m clear of
+          central-bay front face at z=+5 — no protrusion through nose). */}
       {([-3.6, 3.6] as number[]).map((bx) => (
         <group key={`beam-${bx}`}>
           {/* Top flange */}
-          <mesh position={[bx, 147.65, -3]} castShadow receiveShadow>
-            <boxGeometry args={[0.55, 0.06, 18]} />
+          <mesh position={[bx, 147.65, -4]} castShadow receiveShadow>
+            <boxGeometry args={[0.55, 0.06, 16]} />
             <meshStandardMaterial color="#2d3543" roughness={0.6} metalness={0.55} />
           </mesh>
           {/* Web */}
-          <mesh position={[bx, 147.40, -3]} castShadow>
-            <boxGeometry args={[0.08, 0.45, 18]} />
+          <mesh position={[bx, 147.40, -4]} castShadow>
+            <boxGeometry args={[0.08, 0.45, 16]} />
             <meshStandardMaterial color="#2d3543" roughness={0.65} metalness={0.5} />
           </mesh>
           {/* Bottom flange */}
-          <mesh position={[bx, 147.15, -3]} castShadow>
-            <boxGeometry args={[0.55, 0.06, 18]} />
+          <mesh position={[bx, 147.15, -4]} castShadow>
+            <boxGeometry args={[0.55, 0.06, 16]} />
             <meshStandardMaterial color="#2d3543" roughness={0.6} metalness={0.55} />
           </mesh>
         </group>
@@ -109,35 +111,24 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
         </group>
       ))}
       {/* Aisle floor grating — 1.2 m wide steel grating between the two main
-          beams, gives the catwalk a mounted-to-frame feel */}
-      <mesh position={[0, 147.7, -3]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[1.2, 18]} />
+          beams, gives the catwalk a mounted-to-frame feel.
+          Length 16 m centred at z=-4 to match the bedplate beams. */}
+      <mesh position={[0, 147.7, -4]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[1.2, 16]} />
         <meshStandardMaterial color="#1f2937" roughness={0.85} metalness={0.45} />
       </mesh>
       {/* Steel kickplates flanking the aisle */}
       {([-0.65, 0.65] as number[]).map((kx) => (
-        <mesh key={`kick-${kx}`} position={[kx, 147.78, -3]} castShadow>
-          <boxGeometry args={[0.04, 0.16, 18]} />
+        <mesh key={`kick-${kx}`} position={[kx, 147.78, -4]} castShadow>
+          <boxGeometry args={[0.04, 0.16, 16]} />
           <meshStandardMaterial color="#eab308" roughness={0.55} metalness={0.4} />
         </mesh>
       ))}
-      {/* Tower-top access ladder cage — 4 vertical tubes at the rear bay */}
-      {([[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]] as [number, number][]).map(([lx, lz], i) => (
-        <mesh key={`ladder-${i}`} position={[lx, 145.0, -10 + lz]} castShadow>
-          <cylinderGeometry args={[0.025, 0.025, 4.5, 8]} />
-          <meshStandardMaterial color="#eab308" roughness={0.5} metalness={0.5} />
-        </mesh>
-      ))}
-      {/* Ladder rungs — 12 short bars between the front and rear pair */}
-      {Array.from({ length: 12 }).map((_, i) => {
-        const y = 143.0 + i * 0.32;
-        return (
-          <mesh key={`rung-${i}`} position={[0, y, -10]} rotation={[0, 0, 0]}>
-            <boxGeometry args={[0.85, 0.025, 0.04]} />
-            <meshStandardMaterial color="#eab308" roughness={0.5} metalness={0.5} />
-          </mesh>
-        );
-      })}
+      {/* Tower-top access ladder removed — the cage previously dropped from
+          y=147 down to y=143 below the central-bay floor (y=147). It was
+          visible floating in space when the tower wasn't opaque from the
+          camera angle. The cable-routing torus + 3 MV cable drops in
+          section B10 already convey "things go down into the tower". */}
 
       {/* ── B6 Generator Flexible Coupling ───────────────────────── */}
       {/* Between gearbox (y≈150.5) and generator (y≈148.5) */}
@@ -394,11 +385,13 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       {/* Starboard wall mount, gearbox oil circuit. Hung from 4 short brackets
           off the side compartment ceiling so the radiator visibly attaches to
           the nacelle structure rather than floating. */}
-      <group position={[4.6, 151, -3]} name="oil_cooler" onClick={pick("oil_cooler")}>
-        {/* 4 mounting brackets — short stubs to the starboard wall above */}
+      <group position={[4.85, 151, -3]} name="oil_cooler" onClick={pick("oil_cooler")}>
+        {/* 4 mounting brackets — stubs reaching back to the inner starboard wall
+            at x=4.5. Bracket length 0.30 m → bracket inner face at x=4.5,
+            outer face at x=4.8 (just before the cooler at x=4.85±0.18). */}
         {([[-0.85, 0.85], [-0.85, -0.85], [0.85, 0.85], [0.85, -0.85]] as [number, number][]).map(([bz, _by], i) => (
-          <mesh key={i} position={[-0.18, 0.95, bz]} castShadow>
-            <boxGeometry args={[0.06, 0.18, 0.08]} />
+          <mesh key={i} position={[-0.35, 0.95, bz]} castShadow>
+            <boxGeometry args={[0.30, 0.18, 0.08]} />
             <meshStandardMaterial color="#52525b" roughness={0.55} metalness={0.65} />
           </mesh>
         ))}
@@ -440,11 +433,13 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       </group>
 
       {/* ── B7 Service Crane Rail ─────────────────────────────────── */}
-      {/* Two I-beam rails at nacelle ceiling, y≈154.5, running along z */}
+      {/* Two I-beam rails at nacelle ceiling, y≈154.5, running along z.
+          Length 14 m centred at z=-3 → Z extent −10 to +4 — ends at the
+          rear-bay wall (z=-10) and 1 m clear of the front face. */}
       <group name="crane_rail" onClick={pick("crane_rail")}>
         {/* Port rail */}
-        <mesh position={[-2, 154.6, -4]} castShadow>
-          <boxGeometry args={[0.15, 0.2, 18]} />
+        <mesh position={[-2, 154.6, -3]} castShadow>
+          <boxGeometry args={[0.15, 0.2, 14]} />
           <meshStandardMaterial
             color={col("crane_rail", selectedPart, "#eab308")}
             roughness={0.4}
@@ -454,8 +449,8 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
           />
         </mesh>
         {/* Starboard rail */}
-        <mesh position={[2, 154.6, -4]} castShadow>
-          <boxGeometry args={[0.15, 0.2, 18]} />
+        <mesh position={[2, 154.6, -3]} castShadow>
+          <boxGeometry args={[0.15, 0.2, 14]} />
           <meshStandardMaterial
             color={col("crane_rail", selectedPart, "#eab308")}
             roughness={0.4}
@@ -646,24 +641,24 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
           length. Provide realistic cable management and visual depth. */}
       {([-4.35, 4.35] as number[]).map((x) => (
         <group key={`ladder-${x}`}>
-          {/* Longitudinal side rails */}
+          {/* Longitudinal side rails — length 14 centred at z=-3 → Z −10..+4 */}
           {([-0.18, 0.18] as number[]).map((dy) => (
-            <mesh key={dy} position={[x, 149.5 + dy, -4]} rotation={[Math.PI / 2, 0, 0]}>
-              <boxGeometry args={[0.04, 17, 0.03]} />
+            <mesh key={dy} position={[x, 149.5 + dy, -3]} rotation={[Math.PI / 2, 0, 0]}>
+              <boxGeometry args={[0.04, 14, 0.03]} />
               <meshStandardMaterial color="#71717a" roughness={0.4} metalness={0.75} />
             </mesh>
           ))}
-          {/* Cross-rungs every 300 mm — 28 rungs over 8.4 m visible length */}
-          {Array.from({ length: 28 }).map((_, i) => (
-            <mesh key={i} position={[x, 149.5, -12 + i * 0.6]}>
+          {/* Cross-rungs every 300 mm — 23 rungs over 13.2 m visible length */}
+          {Array.from({ length: 23 }).map((_, i) => (
+            <mesh key={i} position={[x, 149.5, -9.6 + i * 0.6]}>
               <boxGeometry args={[0.03, 0.36, 0.02]} />
               <meshStandardMaterial color="#71717a" roughness={0.45} metalness={0.75} />
             </mesh>
           ))}
           {/* MV cable bundle on ladder — 3 × 95 mm² (IEC 60502-2 red sheaths) */}
           {([-0.06, 0, 0.06] as number[]).map((dy, ci) => (
-            <mesh key={ci} position={[x, 149.5 + dy - 0.04, -4]} rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[0.035, 0.035, 17, 6]} />
+            <mesh key={ci} position={[x, 149.5 + dy - 0.04, -3]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.035, 0.035, 14, 6]} />
               <meshStandardMaterial
                 color={["#b91c1c", "#111827", "#374151"][ci]}
                 roughness={0.8}

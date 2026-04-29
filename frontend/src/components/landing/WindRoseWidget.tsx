@@ -54,8 +54,9 @@ function buildClimatology(): number[][] {
 const CLIMATOLOGY = buildClimatology();
 const MAX_FREQ = Math.max(...CLIMATOLOGY.map((s) => s.reduce((a, b) => a + b, 0)));
 
-// Stable default position — clears the 2-row KPI ribbon (~80 px) at the top.
-const DEFAULT_POS = { x: 8, y: 96 };
+// Stable default position — y=160 sits below the 2-row KPI ribbon and the
+// Layers button so all three top-left overlays are visually separate.
+const DEFAULT_POS = { x: 8, y: 160 };
 
 export const WindRoseWidget = memo(function WindRoseWidget() {
   const kpis = useLandingStore(selectKPIs);

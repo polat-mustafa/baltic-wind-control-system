@@ -513,109 +513,56 @@ function createSTATCOMIcon(qMVAR: number): L.DivIcon {
 // ── Met Mast / LIDAR Buoy Marker Icon ─────────────────────────
 // Floating LIDAR (e.g. ZX 300M / Vaisala WindCube) — used for wind resource
 // validation and turbulence intensity reference, independent of WTG SCADA.
-// Sized large (110×160) with a glassmorphic backing panel so it stays
-// distinguishable from the dense turbine cluster at common zoom levels.
-function createMetMastIcon(windMs: number, windDir: number): L.DivIcon {
-  const arrowAngle = windDir;
+// Compact map marker — only the buoy + mast + scan head + small label.
+// Detailed measurements (vertical profile, TI, sensor health, etc) live in
+// the LIDARDetailPanel that opens on click. Keeping the marker small lets
+// it sit in the seascape without dwarfing the turbine icons.
+function createMetMastIcon(windMs: number, _windDir: number): L.DivIcon {
   const speedColor = windMs > 25 ? "#ef4444" : windMs > 15 ? "#f5a623" : "#3ecf6e";
 
-  const svg = `<svg width="110" height="160" viewBox="-55 -55 110 160" xmlns="http://www.w3.org/2000/svg">
-    <!-- Backing panel — glassmorphic plate so the marker stands out from
-         the dense turbine cluster at any zoom -->
-    <rect x="-50" y="-50" width="100" height="150" rx="6"
-          fill="rgba(15,17,23,0.78)" stroke="${speedColor}" stroke-width="1.2"
-          stroke-dasharray="4 3"/>
-
-    <!-- Title strip -->
-    <rect x="-50" y="-50" width="100" height="14" rx="6" fill="${speedColor}" fill-opacity="0.18"/>
-    <text x="0" y="-40" text-anchor="middle" fill="${speedColor}" font-size="9" font-weight="700"
-          font-family="Inter, sans-serif" letter-spacing="1.2">LIDAR · MM-1</text>
-
-    <!-- Pulsing range halo around the buoy (advertise position from afar) -->
-    <circle cx="0" cy="55" r="22" fill="${speedColor}" opacity="0.10">
-      <animate attributeName="r" values="18;30;18" dur="3.5s" repeatCount="indefinite"/>
-      <animate attributeName="opacity" values="0.18;0.04;0.18" dur="3.5s" repeatCount="indefinite"/>
+  // 36 × 48 px — same order of magnitude as the turbine markers (40 × 56).
+  const svg = `<svg width="36" height="48" viewBox="-18 -18 36 48" xmlns="http://www.w3.org/2000/svg">
+    <!-- Faint pulsing halo so the eye picks it out from the seascape -->
+    <circle cx="0" cy="6" r="9" fill="${speedColor}" opacity="0.15">
+      <animate attributeName="r" values="7;11;7" dur="3.5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.20;0.05;0.20" dur="3.5s" repeatCount="indefinite"/>
     </circle>
 
     <!-- Floating buoy hull — yellow safety paint -->
-    <ellipse cx="0" cy="55" rx="22" ry="6" fill="#eab308" stroke="#a16207" stroke-width="1.2"/>
-    <!-- Waterline -->
-    <ellipse cx="0" cy="60" rx="22" ry="2" fill="none" stroke="#3b82f6" stroke-width="0.8" opacity="0.7"/>
-    <!-- Hull bands (high-vis striping) -->
-    <line x1="-22" y1="56" x2="22" y2="56" stroke="#7c2d12" stroke-width="0.6"/>
+    <ellipse cx="0" cy="6" rx="6" ry="2" fill="#eab308" stroke="#a16207" stroke-width="0.6"/>
+    <line x1="-6" y1="6.4" x2="6" y2="6.4" stroke="#7c2d12" stroke-width="0.4"/>
 
-    <!-- Mast tower (taller, thicker) -->
-    <line x1="0" y1="49" x2="0" y2="-12" stroke="#cbd5e1" stroke-width="2.5"/>
-    <!-- Crossarms / mounting platforms at three heights -->
-    <line x1="-7" y1="20" x2="7" y2="20" stroke="#94a3b8" stroke-width="0.8"/>
-    <line x1="-9" y1="0"  x2="9" y2="0"  stroke="#94a3b8" stroke-width="0.8"/>
-    <!-- Mast guy wires (4 — fore/aft + port/starboard projection) -->
-    <line x1="0" y1="-12" x2="-18" y2="48" stroke="#475569" stroke-width="0.4"/>
-    <line x1="0" y1="-12" x2="18"  y2="48" stroke="#475569" stroke-width="0.4"/>
-    <line x1="0" y1="-12" x2="-12" y2="48" stroke="#475569" stroke-width="0.3" opacity="0.7"/>
-    <line x1="0" y1="-12" x2="12"  y2="48" stroke="#475569" stroke-width="0.3" opacity="0.7"/>
+    <!-- Mast (short for icon scale) -->
+    <line x1="0" y1="4" x2="0" y2="-8" stroke="#cbd5e1" stroke-width="1.1"/>
 
-    <!-- LIDAR head box -->
-    <rect x="-7" y="-22" width="14" height="10" fill="#0d1017" stroke="${speedColor}" stroke-width="1"/>
-    <text x="0" y="-15" text-anchor="middle" fill="${speedColor}" font-size="5.5" font-family="monospace" font-weight="700">ZX 300</text>
+    <!-- LIDAR head — small box atop mast -->
+    <rect x="-2.5" y="-11" width="5" height="3" fill="#0d1017" stroke="${speedColor}" stroke-width="0.6"/>
 
-    <!-- 4 conical scan beams (animated dash for visible scan effect) -->
-    <line x1="0" y1="-22" x2="-12" y2="-40" stroke="${speedColor}" stroke-width="0.9" opacity="0.85"
-          stroke-dasharray="3 2">
-      <animate attributeName="stroke-dashoffset" values="0;-5" dur="1.4s" repeatCount="indefinite"/>
+    <!-- 2 scan beams (animated dash) -->
+    <line x1="0" y1="-11" x2="-3.5" y2="-15" stroke="${speedColor}" stroke-width="0.55"
+          stroke-dasharray="2 1.5" opacity="0.85">
+      <animate attributeName="stroke-dashoffset" values="0;-3.5" dur="1.4s" repeatCount="indefinite"/>
     </line>
-    <line x1="0" y1="-22" x2="12"  y2="-40" stroke="${speedColor}" stroke-width="0.9" opacity="0.85"
-          stroke-dasharray="3 2">
-      <animate attributeName="stroke-dashoffset" values="0;-5" dur="1.4s" repeatCount="indefinite"/>
-    </line>
-    <line x1="0" y1="-22" x2="-7"  y2="-44" stroke="${speedColor}" stroke-width="0.9" opacity="0.85"
-          stroke-dasharray="3 2">
-      <animate attributeName="stroke-dashoffset" values="0;-5" dur="1.4s" repeatCount="indefinite"/>
-    </line>
-    <line x1="0" y1="-22" x2="7"   y2="-44" stroke="${speedColor}" stroke-width="0.9" opacity="0.85"
-          stroke-dasharray="3 2">
-      <animate attributeName="stroke-dashoffset" values="0;-5" dur="1.4s" repeatCount="indefinite"/>
+    <line x1="0" y1="-11" x2="3.5" y2="-15" stroke="${speedColor}" stroke-width="0.55"
+          stroke-dasharray="2 1.5" opacity="0.85">
+      <animate attributeName="stroke-dashoffset" values="0;-3.5" dur="1.4s" repeatCount="indefinite"/>
     </line>
 
-    <!-- Wind vane on top of mast — rotates with measured direction -->
-    <g transform="rotate(${arrowAngle} 0 -28)">
-      <line x1="0" y1="-28" x2="0" y2="-38" stroke="#cbd5e1" stroke-width="1.4"/>
-      <polygon points="0,-42 -3,-37 3,-37" fill="${speedColor}"/>
-      <circle cx="0" cy="-28" r="1.5" fill="#cbd5e1"/>
-    </g>
-
-    <!-- Status pulse on the buoy -->
-    <circle cx="-15" cy="50" r="2.5" fill="${speedColor}">
-      <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
-    </circle>
-
-    <!-- Readout panel -->
-    <rect x="-30" y="36" width="60" height="13" rx="2" fill="#0d1017" stroke="#3d4560" stroke-width="0.5"/>
-    <text x="0" y="46" text-anchor="middle" fill="${speedColor}" font-size="9" font-weight="700"
+    <!-- Compact label below the buoy -->
+    <text x="0" y="16" text-anchor="middle" fill="${speedColor}" font-size="5.5" font-weight="700"
           font-family="JetBrains Mono, monospace">${windMs.toFixed(1)} m/s</text>
-
-    <!-- Direction readout -->
-    <text x="0" y="92" text-anchor="middle" fill="#94a3b8" font-size="7"
-          font-family="JetBrains Mono, monospace">${arrowAngle.toFixed(0)}° · ${cardinalDir(arrowAngle)}</text>
-
-    <!-- Footer label -->
-    <text x="0" y="100" text-anchor="middle" fill="#64748b" font-size="5.5"
-          font-family="monospace" letter-spacing="0.5">IEC 61400-12-1</text>
+    <text x="0" y="22" text-anchor="middle" fill="#94a3b8" font-size="4.5" font-weight="600"
+          font-family="Inter, sans-serif" letter-spacing="0.5">LIDAR MM-1</text>
   </svg>`;
 
   return L.divIcon({
     html: svg,
     className: "leaflet-metmast-marker",
-    iconSize: [110, 160],
-    iconAnchor: [55, 55], // anchor at the buoy hull centre (y=55 in viewBox)
+    iconSize: [36, 48],
+    iconAnchor: [18, 6], // anchor at the buoy hull centre
   });
 }
 
-// 16-point cardinal helper — used only by the LIDAR icon labelling.
-function cardinalDir(deg: number): string {
-  const dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
-  return dirs[Math.round(deg / 22.5) % 16] ?? "N";
-}
 
 // ── Onshore Substation Marker Icon (IEC 60617 HVAC Transformer) ─
 function createOnshoreIcon(): L.DivIcon {
@@ -1120,7 +1067,7 @@ function LeafletWindFarmMapInner({
             always stays on top.
             Provides independent wind validation per IEC 61400-12-1. */}
         <Marker
-          position={[FARM_CENTER_GEO[0] - 0.05, FARM_CENTER_GEO[1] - 0.32]}
+          position={[FARM_CENTER_GEO[0] + 0.02, FARM_CENTER_GEO[1] - 0.12]}
           icon={metMastIcon}
           eventHandlers={metMastHandlers}
           zIndexOffset={1100}

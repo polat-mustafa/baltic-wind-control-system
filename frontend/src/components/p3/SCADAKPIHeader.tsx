@@ -1,39 +1,21 @@
 /**
- * KPI summary cards — top-level SCADA metrics.
+ * SCADA KPI strip — system-level status tiles (Level-1 supplement).
  *
- * Displays: Total IEDs, Logical Nodes, Active Permits, GOOSE Compliance, Alerts.
- * Color-coded per ISA-101: green = normal, amber = warning, red = fault.
+ * Per ISA-101, color appears only when the operator must look. Tiles
+ * default to grayscale "normal" priority and shift to warning/alarm
+ * priority when their value leaves its normal band.
+ *
+ * Tiles: Total IEDs, Logical Nodes, Active Permits, GOOSE Compliance,
+ * Protection Events.
  */
 
 import { useScadaStore } from "../../store/scadaStore";
-import { SCADA_COLORS } from "../../constants/scadaColors";
-
-interface KPICardProps {
-  label: string;
-  value: string;
-  unit: string;
-  color?: string;
-  subtitle?: string;
-}
-
-function KPICard({ label, value, unit, color, subtitle }: KPICardProps) {
-  return (
-    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-      <p className="text-xs text-slate-400 uppercase tracking-wider">{label}</p>
-      <p
-        className="text-2xl font-bold mt-1"
-        style={color ? { color } : undefined}
-      >
-        {value}
-        <span className="text-sm font-normal text-slate-400 ml-1">{unit}</span>
-      </p>
-      {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
-    </div>
-  );
-}
+import { InfoTile, type TilePriority } from "../ui/InfoTile";
 
 export default function SCADAKPIHeader() {
-  const { substationSummary, simulationResult, permitList } = useScadaStore();
+  const substationSummary = useScadaStore((s) => s.substationSummary);
+  const simulationResult = useScadaStore((s) => s.simulationResult);
+  const permitList = useScadaStore((s) => s.permitList);
 
   if (!substationSummary) return null;
 
@@ -44,13 +26,7 @@ export default function SCADAKPIHeader() {
 
   const gooseCompliant = simulationResult?.compliance.goose_compliant;
   const clearanceCompliant = simulationResult?.compliance.clearance_compliant;
-
-  const complianceColor =
-    gooseCompliant === undefined
-      ? SCADA_COLORS.DE_ENERGIZED
-      : gooseCompliant && clearanceCompliant
-        ? SCADA_COLORS.ENERGIZED
-        : SCADA_COLORS.FAULT;
+  const compliancePass = gooseCompliant && clearanceCompliant;
 
   const criticalEvents =
     simulationResult?.events.filter(
@@ -58,61 +34,62 @@ export default function SCADAKPIHeader() {
         e.event_type === "relay_trip" || e.event_type === "breaker_open",
     ).length ?? 0;
 
-  const alertColor =
-    criticalEvents > 0 ? SCADA_COLORS.ALARM_CRITICAL : SCADA_COLORS.ENERGIZED;
+  const compliancePriority: TilePriority =
+    gooseCompliant === undefined
+      ? "normal"
+      : compliancePass
+        ? "normal"
+        : "alarm";
+
+  const eventsPriority: TilePriority =
+    criticalEvents === 0 ? "normal" : "warning";
+
+  const permitsPriority: TilePriority =
+    activePermits === 0 ? "normal" : activePermits > 5 ? "alarm" : "info";
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-      <KPICard
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border-primary">
+      <InfoTile
         label="Total IEDs"
-        value={String(substationSummary.total_devices)}
+        value={substationSummary.total_devices}
         unit="devices"
-        color={SCADA_COLORS.ENERGIZED}
-        subtitle={`${substationSummary.protection_ieds} prot + ${substationSummary.wtg_controllers} WTG`}
+        subtitle={`${substationSummary.protection_ieds} prot · ${substationSummary.wtg_controllers} WTG`}
       />
-      <KPICard
+      <InfoTile
         label="Logical Nodes"
-        value={String(substationSummary.total_logical_nodes)}
-        unit="LNs"
-        color={SCADA_COLORS.VOLTAGE_220KV}
-        subtitle="IEC 61850-7-4 hierarchy"
+        value={substationSummary.total_logical_nodes}
+        unit="LN"
+        subtitle="IEC 61850-7-4"
       />
-      <KPICard
+      <InfoTile
         label="Active Permits"
-        value={String(activePermits)}
+        value={activePermits}
         unit="PtW"
-        color={
-          activePermits > 0 ? SCADA_COLORS.WARNING : SCADA_COLORS.ENERGIZED
-        }
         subtitle={`${permitList?.total ?? 0} total in system`}
+        priority={permitsPriority}
+        normalBand={[0, 5]}
       />
-      <KPICard
+      <InfoTile
         label="GOOSE Compliance"
-        value={
-          gooseCompliant === undefined
-            ? "---"
-            : gooseCompliant && clearanceCompliant
-              ? "PASS"
-              : "FAIL"
-        }
-        unit=""
-        color={complianceColor}
+        value={gooseCompliant === undefined ? "—" : compliancePass ? "PASS" : "FAIL"}
         subtitle={
           simulationResult
             ? `${simulationResult.compliance.goose_latency_ms.toFixed(1)} ms latency`
-            : "Run simulation first"
+            : "Run simulation"
         }
+        priority={compliancePriority}
       />
-      <KPICard
+      <InfoTile
         label="Protection Events"
-        value={String(criticalEvents)}
+        value={criticalEvents}
         unit="alerts"
-        color={alertColor}
         subtitle={
           simulationResult
             ? `${simulationResult.events.length} total events`
             : "No simulation run"
         }
+        priority={eventsPriority}
+        normalBand={[0, 0]}
       />
     </div>
   );

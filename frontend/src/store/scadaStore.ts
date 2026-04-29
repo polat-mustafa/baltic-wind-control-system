@@ -59,6 +59,42 @@ function nextSOEId(): string {
   return `SOE-${String(++_soeIdCounter).padStart(5, "0")}`;
 }
 
+// ── ISA-101 Navigation Hierarchy ────────────────────────────────
+// Level 2 areas (4) → Level 3 sub-tabs (5 each).
+
+export type ScadaArea =
+  | "operations"
+  | "equipment"
+  | "diagnostics"
+  | "engineering";
+
+export type ScadaSubTab =
+  // operations
+  | "mimic"
+  | "sld"
+  | "alarms"
+  | "permits"
+  | "events"
+  | "bays"
+  // equipment
+  | "cms"
+  | "vibration"
+  | "historian"
+  | "network"
+  | "interlocks"
+  // diagnostics
+  | "goose"
+  | "soe"
+  | "latency"
+  | "fleet"
+  | "attack"
+  // engineering
+  | "rbac"
+  | "security"
+  | "opcua"
+  | "scl"
+  | "almrat";
+
 // ── Store Interface ────────────────────────────────────────────
 
 interface ScadaState {
@@ -107,10 +143,16 @@ interface ScadaState {
   error: string | null;
   dataLoaded: boolean;
 
+  // ISA-101 navigation (Level 2 area + per-area Level 3 sub-tab)
+  area: ScadaArea;
+  subTabs: Record<ScadaArea, ScadaSubTab>;
+
   // Parameter setters
   setSelectedFaultType: (ft: string) => void;
   setSelectedRoleLevel: (level: number) => void;
   setAlarmFilter: (filter: Partial<ScadaState["alarmFilter"]>) => void;
+  setArea: (area: ScadaArea) => void;
+  setSubTab: (area: ScadaArea, subTab: ScadaSubTab) => void;
 
   // Alarm actions
   acknowledgeAlarm: (alarmId: string, operator: string) => void;
@@ -251,12 +293,24 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
   error: null,
   dataLoaded: false,
 
+  // ISA-101 nav defaults — operator landing on Operations · Plant Mimic
+  area: "operations",
+  subTabs: {
+    operations: "mimic",
+    equipment: "cms",
+    diagnostics: "goose",
+    engineering: "rbac",
+  },
+
   // ── Parameter setters ──────────────────────────────────────
 
   setSelectedFaultType: (ft) => set({ selectedFaultType: ft }),
   setSelectedRoleLevel: (level) => set({ selectedRoleLevel: level }),
   setAlarmFilter: (filter) =>
     set((s) => ({ alarmFilter: { ...s.alarmFilter, ...filter } })),
+  setArea: (area) => set({ area }),
+  setSubTab: (area, subTab) =>
+    set((s) => ({ subTabs: { ...s.subTabs, [area]: subTab } })),
 
   setSelectedAlarm: (id) => set({ selectedAlarmId: id }),
 

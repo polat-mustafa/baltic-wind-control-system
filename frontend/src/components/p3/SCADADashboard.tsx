@@ -1,145 +1,140 @@
 /**
- * SCADA dashboard — professional layout with always-visible SLD + alarms.
+ * SCADA dashboard — ISA-101 Level-2/3 area router.
  *
- * Layout:
- * ┌──────────────────────────────────┬─────────────────────────┐
- * │   Substation SLD (interactive)   │  Alarm Table (ISA-18.2) │
- * │   Live breaker states            │  Filterable, sortable   │
- * │   Fault zone highlighting        │  ACK/Shelve controls    │
- * ├──────────────────────────────────┴─────────────────────────┤
- * │  Tabs (12 total):                                          │
- * │  GOOSE Sim · Event Log · Permits · RBAC · Historian        │
- * │  Bays · SOE · OPC-UA · Security · Alarm KPI · CMS · Network│
- * └────────────────────────────────────────────────────────────┘
+ * Hierarchy:
+ *   Level 1 — PlantOverviewBar (rendered by SCADAPage, persistent)
+ *   Level 2 — Operations · Equipment · Diagnostics · Engineering (AreaTabs)
+ *   Level 3 — sub-tabs per area (SubTabs)
+ *
+ * This component dispatches to the active L3 panel based on store state.
+ * Operations · SLD is the operator's default landing — it gets the
+ * privileged side-by-side SLD + Alarm List layout; every other sub-tab
+ * fills the area-content region.
  */
 
-import { useState } from "react";
-import {
-  Activity,
-  Bell,
-  Database,
-  FileCode,
-  FileText,
-  GitBranch,
-  List,
-  Lock,
-  Network,
-  ScrollText,
-  Server,
-  Shield,
-  Zap,
-} from "lucide-react";
-
 import { useScadaStore } from "../../store/scadaStore";
+
 import SubstationSLD from "./SubstationSLD";
 import AlarmListPanel from "./AlarmListPanel";
+import WindFarmMimic from "./WindFarmMimic";
 import GOOSESimPanel from "./GOOSESimPanel";
 import EventLogPanel from "./EventLogPanel";
 import HistorianPanel from "./HistorianPanel";
 import PermitWorkflowPanel from "./PermitWorkflowPanel";
 import RBACPanel from "./RBACPanel";
-// M01 — Bay Controller
 import BayControllerPanel from "./BayControllerPanel";
-// M02 — SOE Recorder
 import SOERecorderPanel from "./SOERecorderPanel";
-// M03 — OPC-UA
 import OPCUAPanel from "./OPCUAPanel";
-// M07 — Cybersecurity
 import SecurityDashboard from "./SecurityDashboard";
-// M09 — Alarm Rationalization
 import AlarmRationalizationPanel from "./AlarmRationalizationPanel";
-// M12 — Condition Monitoring
 import CMSDashboard from "./CMSDashboard";
-// M15 — Communication Network
 import NetworkDashboard from "./NetworkDashboard";
-// IEC 61850-6 — SCL file generator (audit gap fill)
 import SCLGeneratorPanel from "./SCLGeneratorPanel";
-import { cn } from "../../lib/utils";
+import VibrationPanel from "./VibrationPanel";
+import InterlockStatusPanel from "./InterlockStatusPanel";
+import LatencyBudgetPanel from "./LatencyBudgetPanel";
+import FleetHealthPanel from "./FleetHealthPanel";
+import AttackSimPanel from "./AttackSimPanel";
 
-const TABS = [
-  // ── Original 5 tabs ────────────────────────────────
-  { id: "goose",     label: "GOOSE Sim",   icon: Zap },
-  { id: "events",    label: "Event Log",   icon: ScrollText },
-  { id: "permits",   label: "Permits",     icon: FileText },
-  { id: "rbac",      label: "RBAC",        icon: Shield },
-  { id: "historian", label: "Historian",   icon: Database },
-  // ── M01-M03, M07, M09, M12, M15 ───────────────────
-  { id: "bays",      label: "Bay Control", icon: GitBranch },
-  { id: "soe",       label: "SOE",         icon: List },
-  { id: "opcua",     label: "OPC-UA",      icon: Server },
-  { id: "security",  label: "Security",    icon: Lock },
-  { id: "alarm-kpi", label: "Alarm KPI",   icon: Bell },
-  { id: "cms",       label: "CMS",         icon: Activity },
-  { id: "network",   label: "Network",     icon: Network },
-  { id: "scl",       label: "SCL Gen",     icon: FileCode },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
+import AreaTabs from "./AreaTabs";
+import SubTabs from "./SubTabs";
 
 export default function SCADADashboard() {
-  const { substationSummary } = useScadaStore();
-  const [activeTab, setActiveTab] = useState<TabId>("goose");
+  const substationSummary = useScadaStore((s) => s.substationSummary);
+  const area = useScadaStore((s) => s.area);
+  const subTabs = useScadaStore((s) => s.subTabs);
 
   if (!substationSummary) return null;
 
+  const active = subTabs[area];
+
   return (
-    <div className="flex flex-col gap-3 h-full">
-      {/* Top half: SLD + Alarms side by side */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-3 h-[480px]">
-        {/* SLD — takes 3/5 width */}
-        <div className="xl:col-span-3">
-          <SubstationSLD />
-        </div>
+    <div className="flex flex-col h-full bg-bg-secondary border border-border-primary overflow-hidden">
+      <AreaTabs />
+      <SubTabs />
 
-        {/* Alarm table — takes 2/5 width */}
-        <div className="xl:col-span-2">
-          <AlarmListPanel />
-        </div>
-      </div>
+      <div className="flex-1 min-h-0 overflow-auto">
+        {/* Operations · Plant Mimic — operator's primary surface */}
+        {area === "operations" && active === "mimic" && (
+          <div className="h-full min-h-[560px]"><WindFarmMimic /></div>
+        )}
 
-      {/* Bottom half: Tabbed secondary panels */}
-      <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
-        {/* Tab bar — scrollable on small screens */}
-        <div className="flex items-center border-b border-border-primary bg-bg-tertiary px-2 overflow-x-auto">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors border-b-2 -mb-px whitespace-nowrap shrink-0",
-                  isActive
-                    ? "text-accent border-accent"
-                    : "text-text-muted hover:text-text-secondary border-transparent",
-                )}
-              >
-                <Icon size={12} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Operations · SLD — privileged side-by-side layout */}
+        {area === "operations" && active === "sld" && (
+          <div className="grid grid-cols-1 xl:grid-cols-5 gap-2 p-2 h-full min-h-[520px]">
+            <div className="xl:col-span-3 min-h-[480px]">
+              <SubstationSLD />
+            </div>
+            <div className="xl:col-span-2 min-h-[480px]">
+              <AlarmListPanel />
+            </div>
+          </div>
+        )}
 
-        {/* Tab content */}
-        <div className="p-3">
-          {/* ── Original tabs ── */}
-          {activeTab === "goose"     && <GOOSESimPanel />}
-          {activeTab === "events"    && <EventLogPanel />}
-          {activeTab === "permits"   && <PermitWorkflowPanel />}
-          {activeTab === "rbac"      && <RBACPanel />}
-          {activeTab === "historian" && <HistorianPanel />}
-          {/* ── New module tabs ── */}
-          {activeTab === "bays"      && <BayControllerPanel />}
-          {activeTab === "soe"       && <SOERecorderPanel />}
-          {activeTab === "opcua"     && <OPCUAPanel />}
-          {activeTab === "security"  && <SecurityDashboard />}
-          {activeTab === "alarm-kpi" && <AlarmRationalizationPanel />}
-          {activeTab === "cms"       && <CMSDashboard />}
-          {activeTab === "network"   && <NetworkDashboard />}
-          {activeTab === "scl"       && <SCLGeneratorPanel />}
-        </div>
+        {/* Operations · others */}
+        {area === "operations" && active === "alarms" && (
+          <div className="p-2 h-full"><AlarmListPanel /></div>
+        )}
+        {area === "operations" && active === "permits" && (
+          <div className="p-3"><PermitWorkflowPanel /></div>
+        )}
+        {area === "operations" && active === "events" && (
+          <div className="p-3"><EventLogPanel /></div>
+        )}
+        {area === "operations" && active === "bays" && (
+          <div className="p-3"><BayControllerPanel /></div>
+        )}
+
+        {/* Equipment */}
+        {area === "equipment" && active === "cms" && (
+          <div className="p-3"><CMSDashboard /></div>
+        )}
+        {area === "equipment" && active === "vibration" && (
+          <div className="p-3"><VibrationPanel /></div>
+        )}
+        {area === "equipment" && active === "historian" && (
+          <div className="p-3"><HistorianPanel /></div>
+        )}
+        {area === "equipment" && active === "network" && (
+          <div className="p-3"><NetworkDashboard /></div>
+        )}
+        {area === "equipment" && active === "interlocks" && (
+          <div className="p-3"><InterlockStatusPanel /></div>
+        )}
+
+        {/* Diagnostics */}
+        {area === "diagnostics" && active === "goose" && (
+          <div className="p-3"><GOOSESimPanel /></div>
+        )}
+        {area === "diagnostics" && active === "soe" && (
+          <div className="p-3"><SOERecorderPanel /></div>
+        )}
+        {area === "diagnostics" && active === "latency" && (
+          <div className="p-3"><LatencyBudgetPanel /></div>
+        )}
+        {area === "diagnostics" && active === "fleet" && (
+          <div className="p-3"><FleetHealthPanel /></div>
+        )}
+        {area === "diagnostics" && active === "attack" && (
+          <div className="p-3"><AttackSimPanel /></div>
+        )}
+
+        {/* Engineering */}
+        {area === "engineering" && active === "rbac" && (
+          <div className="p-3"><RBACPanel /></div>
+        )}
+        {area === "engineering" && active === "security" && (
+          <div className="p-3"><SecurityDashboard /></div>
+        )}
+        {area === "engineering" && active === "opcua" && (
+          <div className="p-3"><OPCUAPanel /></div>
+        )}
+        {area === "engineering" && active === "scl" && (
+          <div className="p-3"><SCLGeneratorPanel /></div>
+        )}
+        {area === "engineering" && active === "almrat" && (
+          <div className="p-3"><AlarmRationalizationPanel /></div>
+        )}
       </div>
     </div>
   );

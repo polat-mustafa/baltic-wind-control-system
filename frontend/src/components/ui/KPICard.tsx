@@ -1,8 +1,23 @@
+/**
+ * Legacy KPICard — preserved as a thin wrapper over the ISA-101 InfoTile
+ * primitive for back-compatibility with P1/P2/P4/P5 dashboards.
+ *
+ * New code should call <InfoTile /> directly. This wrapper exists so the
+ * widespread `<KPICard label value unit trend trendValue education />`
+ * call sites keep working through the ISA-101 refactor without touching
+ * every consumer.
+ *
+ * Behavioural notes:
+ *   - `trend="down"` → priority="alarm" (matches old red-on-down styling)
+ *   - `trendValue` is rendered as InfoTile's subtitle slot
+ *   - `education` is composed into the icon slot beside `icon`
+ */
+
 import { type ReactNode } from "react";
-import { cn } from "../../lib/utils";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import type { EducationContent } from "../../types/education";
+
+import { InfoTile } from "./InfoTile";
 import { EducationButton } from "./EducationButton";
+import type { EducationContent } from "../../types/education";
 
 type Trend = "up" | "down" | "flat";
 
@@ -18,12 +33,6 @@ interface KPICardProps {
   education?: EducationContent;
 }
 
-const trendConfig: Record<Trend, { icon: typeof TrendingUp; color: string }> = {
-  up: { icon: TrendingUp, color: "text-status-normal" },
-  down: { icon: TrendingDown, color: "text-status-alarm" },
-  flat: { icon: Minus, color: "text-text-muted" },
-};
-
 export function KPICard({
   label,
   value,
@@ -34,43 +43,28 @@ export function KPICard({
   className,
   education,
 }: KPICardProps) {
-  const TrendIcon = trend ? trendConfig[trend].icon : null;
-  const trendColor = trend ? trendConfig[trend].color : "";
+  // Compose icon + education button into InfoTile's single icon slot.
+  const composedIcon =
+    icon || education ? (
+      <span className="inline-flex items-center gap-1">
+        {icon}
+        {education && <EducationButton content={education} />}
+      </span>
+    ) : undefined;
+
+  // Old KPICard: down-trend = red. Map to InfoTile priority for the same effect.
+  const priority = trend === "down" ? "alarm" : "normal";
 
   return (
-    <div
-      className={cn(
-        "rounded-lg border border-border-primary bg-bg-secondary p-4",
-        "shadow-md shadow-black/15",
-        "transition-all duration-200 hover:border-border-secondary",
-        className,
-      )}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
-          {label}
-        </span>
-        <div className="flex items-center gap-1">
-          {icon && <span className="text-text-muted">{icon}</span>}
-          {education && <EducationButton content={education} />}
-        </div>
-      </div>
-
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-2xl font-semibold font-mono text-text-primary tabular-nums">
-          {value}
-        </span>
-        {unit && (
-          <span className="text-sm font-medium text-text-muted">{unit}</span>
-        )}
-      </div>
-
-      {trend && trendValue && TrendIcon && (
-        <div className={cn("flex items-center gap-1 mt-2", trendColor)}>
-          <TrendIcon size={14} />
-          <span className="text-xs font-medium">{trendValue}</span>
-        </div>
-      )}
-    </div>
+    <InfoTile
+      label={label}
+      value={value}
+      unit={unit}
+      trend={trend}
+      subtitle={trendValue}
+      icon={composedIcon}
+      priority={priority}
+      className={className}
+    />
   );
 }

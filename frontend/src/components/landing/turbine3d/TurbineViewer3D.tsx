@@ -44,6 +44,7 @@ import {
   selectTimeOfDay,
   selectSkyPreset,
   selectWindField,
+  selectWindDirection,
   selectWindTriangle,
   selectBladeFieldMode,
   selectLossHUD,
@@ -64,7 +65,7 @@ import { ThermalOverlay } from "./scene/ThermalOverlay";
 import { SensorMarkers, SensorLegend } from "./scene/SensorMarkers";
 import { PowerFlowParticles } from "./scene/PowerFlowParticles";
 import { HealthBadges } from "./scene/HealthBadges";
-import { WindFieldViz } from "./scene/WindFieldViz";
+import { WindFieldViz, WindDirectionArrow } from "./scene/WindFieldViz";
 import { WindTriangle } from "./scene/WindTriangle";
 import { NacelleInteriorDetail } from "./scene/NacelleInteriorDetail";
 import { ViewerControls } from "./ui/ViewerControls";
@@ -104,9 +105,11 @@ interface TurbineSceneProps {
   showSensors: boolean;
   showPowerFlow: boolean;
   showWindField: boolean;
+  showWindDirection: boolean;
   showWindTriangle: boolean;
   bladeFieldMode: "off" | "thermal" | "pressure" | "strain";
   manualWindMs: number;
+  windDirectionDeg: number;
   overridePitch?: number;
   overrideRpm?: number;
   onSelectPart: (id: TurbinePartId) => void;
@@ -121,9 +124,11 @@ function TurbineScene({
   showSensors,
   showPowerFlow,
   showWindField,
+  showWindDirection,
   showWindTriangle,
   bladeFieldMode,
   manualWindMs,
+  windDirectionDeg,
   overridePitch,
   overrideRpm,
   onSelectPart,
@@ -223,12 +228,20 @@ function TurbineScene({
         </SceneErrorBoundary>
       )}
 
+      {/* Always-on wind-direction arrow — visible in all view modes */}
+      {showWindDirection && (
+        <WindDirectionArrow
+          windMs={manualWindMs}
+          windDirectionDeg={windDirectionDeg}
+        />
+      )}
+
       {/* D5 — Wind-field visualization (freestream, streamlines, wake, tip-speed) */}
       {showWindField && (
         <WindFieldViz
           windMs={manualWindMs}
           rotorSpeedRpm={turbineForRpm?.rotorSpeedRpm ?? 0}
-          yawDeg={turbineForRpm?.nacellePositionDeg ?? 0}
+          yawDeg={windDirectionDeg}
         />
       )}
 
@@ -350,6 +363,7 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
   const showSensorMarkers = useLandingStore(selectSensorMarkers);
   const showPowerFlow = useLandingStore(selectPowerFlow);
   const showWindField = useLandingStore(selectWindField);
+  const showWindDirection = useLandingStore(selectWindDirection);
   const showWindTriangle = useLandingStore(selectWindTriangle);
   const bladeFieldMode = useLandingStore(selectBladeFieldMode);
   const showLossHUD = useLandingStore(selectLossHUD);
@@ -366,6 +380,7 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
   const setShowSensors = useLandingStore((s) => s.setShowSensorMarkers);
   const setShowPowerFlow = useLandingStore((s) => s.setShowPowerFlow);
   const setShowWindField = useLandingStore((s) => s.setShowWindField);
+  const setShowWindDirection = useLandingStore((s) => s.setShowWindDirection);
   const setShowWindTriangle = useLandingStore((s) => s.setShowWindTriangle);
   const setBladeFieldMode = useLandingStore((s) => s.setBladeFieldMode);
   const setShowLossHUD = useLandingStore((s) => s.setShowLossHUD);
@@ -379,6 +394,31 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
       setViewerMode("cutaway");
     }
   }, [selectedPart, viewerMode, setViewerMode]);
+
+  // Default interior view to the SVG schematic the first time the user enters
+  // cutaway/exploded in this session. The schematic carries the engineering
+  // metadata (standards, resonance, thermal class) far more clearly than the 3D
+  // interior; users who prefer the 3D interior toggle it in the controls and we
+  // preserve that choice via the hasUserChosenInteriorView ref below.
+  const prevViewerModeRef = useRef(viewerMode);
+  const hasUserChosenInteriorViewRef = useRef(false);
+  useEffect(() => {
+    const prev = prevViewerModeRef.current;
+    const entered = (viewerMode === "cutaway" || viewerMode === "exploded")
+                 && (prev !== "cutaway" && prev !== "exploded");
+    if (entered && !hasUserChosenInteriorViewRef.current && interiorView === "3d") {
+      setInteriorView("schematic");
+    }
+    prevViewerModeRef.current = viewerMode;
+  }, [viewerMode, interiorView, setInteriorView]);
+
+  const handleInteriorViewChange = useCallback(
+    (next: "3d" | "schematic") => {
+      hasUserChosenInteriorViewRef.current = true;
+      setInteriorView(next);
+    },
+    [setInteriorView],
+  );
 
   // Live HPU/cooling/safety telemetry from backend nacelle subsystem endpoints.
   useEffect(() => {
@@ -504,9 +544,11 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
             showSensors={showSensorMarkers}
             showPowerFlow={showPowerFlow}
             showWindField={showWindField}
+            showWindDirection={showWindDirection}
             showWindTriangle={showWindTriangle}
             bladeFieldMode={bladeFieldMode}
             manualWindMs={manualWindMs}
+            windDirectionDeg={compassWind}
             overridePitch={overridePitch}
             overrideRpm={overrideRpm}
             onSelectPart={setSelectedPart}
@@ -533,13 +575,14 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
         showSensorMarkers={showSensorMarkers}
         showPowerFlow={showPowerFlow}
         showWindField={showWindField}
+        showWindDirection={showWindDirection}
         showWindTriangle={showWindTriangle}
         bladeFieldMode={bladeFieldMode}
         showLossHUD={showLossHUD}
         showCpWidget={showCpWidget}
         onResetCamera={handleResetCamera}
         onViewerModeChange={setViewerMode}
-        onInteriorViewChange={setInteriorView}
+        onInteriorViewChange={handleInteriorViewChange}
         onSkyPresetChange={setSkyPreset}
         onToggleAnnotations={() => setShowAnnotations(!showAnnotationLayer)}
         onToggleHumanFigure={() => setShowHumanFigure((v) => !v)}
@@ -547,6 +590,7 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
         onToggleSensors={handleToggleSensors}
         onTogglePowerFlow={handleTogglePowerFlow}
         onToggleWindField={() => setShowWindField(!showWindField)}
+        onToggleWindDirection={() => setShowWindDirection(!showWindDirection)}
         onToggleWindTriangle={() => setShowWindTriangle(!showWindTriangle)}
         onBladeFieldModeChange={setBladeFieldMode}
         onToggleLossHUD={() => setShowLossHUD(!showLossHUD)}

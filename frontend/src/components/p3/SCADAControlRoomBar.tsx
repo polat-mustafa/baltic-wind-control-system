@@ -35,47 +35,48 @@ export default function SCADAControlRoomBar({ onExit }: SCADAControlRoomBarProps
         "bg-bg-secondary/80 backdrop-blur-md border-b border-border-primary",
       )}
     >
-      {/* Left: Alarm priority badges */}
+      {/* Left: Alarm priority badges (vivid color preserved — only place
+          where saturation carries meaning per ISA-101). */}
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold text-text-primary mr-1">SCADA Control Room</span>
         <div className="w-px h-4 bg-border-primary" />
         {critCount > 0 && (
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-red-900/40 text-red-400 animate-pulse">
-            {critCount} CRIT
+          <span data-priority="P1" className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold animate-pulse">
+            {critCount} P1
           </span>
         )}
         {highCount > 0 && (
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-orange-900/40 text-orange-400">
-            {highCount} HIGH
+          <span data-priority="P2" className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold">
+            {highCount} P2
           </span>
         )}
         {medCount > 0 && (
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-yellow-900/30 text-yellow-400">
-            {medCount} MED
+          <span data-priority="P3" className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold">
+            {medCount} P3
           </span>
         )}
         {critCount === 0 && highCount === 0 && medCount === 0 && (
-          <span className="text-[10px] font-mono text-green-400">All Clear</span>
+          <span className="text-[10px] font-mono text-text-secondary">All Clear</span>
         )}
       </div>
 
-      {/* Center: Measurement readouts */}
+      {/* Center: Measurement readouts — desaturated voltage tokens */}
       <div className="flex items-center gap-4 text-[10px] font-mono text-text-secondary">
         {m400 && (
           <span>
-            <span className="text-red-400">400 kV:</span>{" "}
+            <span style={{ color: "var(--color-voltage-400kv)" }}>400 kV:</span>{" "}
             {m400.powerMW} MW / {m400.currentA} A
           </span>
         )}
         {m220 && (
           <span>
-            <span className="text-blue-400">220 kV:</span>{" "}
+            <span style={{ color: "var(--color-voltage-220kv)" }}>220 kV:</span>{" "}
             {m220.powerMW} MW / {m220.currentA} A
           </span>
         )}
         {m66 && (
           <span>
-            <span className="text-orange-400">66 kV:</span>{" "}
+            <span style={{ color: "var(--color-voltage-66kv)" }}>66 kV:</span>{" "}
             {m66.powerMW} MW / {m66.currentA} A
           </span>
         )}
@@ -85,7 +86,7 @@ export default function SCADAControlRoomBar({ onExit }: SCADAControlRoomBarProps
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-[10px] font-mono">
           <span className="text-text-muted">Farm:</span>
-          <span className="text-green-400 font-bold">
+          <span className="font-bold text-status-normal">
             {Math.round(kpis.totalOutputMW)} MW
           </span>
           <span className="text-text-muted">|</span>

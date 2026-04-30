@@ -167,7 +167,7 @@ def test_high_speed_sector_dominates(self):
 
     **Benzetme:** Su musluğunu düşünün. Suyu iki kat daha hızlı akıtırsanız, basıncı 8 kat artırırsınız — elinizi musluğun altına koyduğunuzda bunu hissedersiniz. Rüzgar da aynı şekilde çalışır.
 
-    **Bu projede:** Baltık Denizi'nde ortalama 10.5 m/s'lik Weibull A parametresi, kübik yasa nedeniyle yüksek enerji potansiyeli anlamına gelir. V236-15.0 MW'ın 12.5 m/s'de nominal güce ulaşması, bu bölgedeki rüzgar rejiminin türbinle ne kadar uyumlu olduğunu gösterir.
+    **Bu projede:** Baltık Denizi'nde ortalama 10.5 m/s'lik Weibull A parametresi, kübik yasa nedeniyle yüksek enerji potansiyeli anlamına gelir. V236-15.0 MW'ın 11.1 m/s'de nominal güce ulaşması, bu bölgedeki rüzgar rejiminin türbinle ne kadar uyumlu olduğunu gösterir.
 
 ---
 
@@ -245,7 +245,7 @@ Bir otomobilin motor haritasını (torque map) düşünün. Gaz pedalına ne kad
 **IEC 61400-12-1:2017** güç eğrisi ölçüm metodolojisini tanımlar. Her türbin üreticisi, sertifikalı güç eğrisini bu standarda göre sağlar. Güç eğrisinde üç kritik hız vardır:
 
 - **Cut-in (devreye giriş):** 3 m/s — altında türbin dönmez
-- **Rated (nominal):** 12.5 m/s — nominal güce (15 MW) ulaşılır
+- **Rated (nominal):** 11.1 m/s — nominal güce (15 MW) ulaşılır
 - **Cut-out (devre dışı):** 31 m/s — güvenlik nedeniyle türbin durur
 
 ### Ne İnşa Ettik
@@ -541,7 +541,7 @@ graph TB
 <details>
 <summary>Cevap</summary>
 
-Cut-in: 3 m/s, rated: 12.5 m/s, cut-out: 31 m/s. Rated hızdaki Ct yaklaşık 0.28'dir. Ct'nin düşük hızlarda (~0.90) çok yüksek, yüksek hızlarda düşük olması, türbinin düşük hızlarda rüzgardan daha fazla momentum çektiğini gösterir.
+Cut-in: 3 m/s, rated: 11.1 m/s, cut-out: 31 m/s. Rated hızdaki Ct yaklaşık 0.28'dir. Ct'nin düşük hızlarda (~0.90) çok yüksek, yüksek hızlarda düşük olması, türbinin düşük hızlarda rüzgardan daha fazla momentum çektiğini gösterir.
 
 </details>
 

@@ -46,7 +46,9 @@ export const WindFieldViz = memo(function WindFieldViz({
 }: WindFieldVizProps) {
   const active = windMs > 0.1;
 
-  // Rotation around Y so +X always points upwind (yawDeg is bearing).
+  // Rotation around Y so +X always points upwind (wind-bearing-driven, not yaw —
+  // the field must match real wind direction, not where the turbine happens to
+  // be pointing during a transient yaw).
   const yawRad = (yawDeg * Math.PI) / 180;
 
   return (
@@ -56,6 +58,65 @@ export const WindFieldViz = memo(function WindFieldViz({
       {active && <WakeDeficitRibbon />}
       {active && <TipVortexHelices rotorSpeedRpm={rotorSpeedRpm} />}
       {active && <TipSpeedGauge rotorSpeedRpm={rotorSpeedRpm} windMs={windMs} />}
+    </group>
+  );
+});
+
+// ── Always-on wind-direction arrow ───────────────────────────────
+//
+// A single bold arrow upstream of the rotor that points in the direction
+// the wind is blowing TOWARD. Visible in every view mode (Normal / Cutaway
+// / Exploded) so the user always knows "where is the wind coming from".
+//
+// Meteorological convention: windDirectionDeg = bearing the wind comes
+// FROM (0° = from N, 90° = from E). Internally we rotate +X axis so the
+// arrow shaft points from upwind to the rotor.
+
+interface WindDirectionArrowProps {
+  /** Measured wind speed, m/s. */
+  windMs: number;
+  /** Meteorological wind bearing (0° = wind from N). */
+  windDirectionDeg: number;
+}
+
+export const WindDirectionArrow = memo(function WindDirectionArrow({
+  windMs,
+  windDirectionDeg,
+}: WindDirectionArrowProps) {
+  if (windMs < 0.1) return null;
+
+  // Rotate group so +X axis points INTO the wind's origin (upwind).
+  // In meteorological convention, windDirectionDeg is the bearing FROM which
+  // the wind comes; we want the arrow shaft to extend in that bearing.
+  const yawRad = (windDirectionDeg * Math.PI) / 180;
+
+  const shaftLen = 100;
+  const originX = 250;                  // tail (upwind) — 250 m from hub
+  const tipX = originX - shaftLen;      // head (rotor-side)
+
+  return (
+    <group position={[0, HUB_HEIGHT, 0]} rotation={[0, yawRad, 0]}>
+      {/* Shaft — cylinder rotated 90° around Z so its length lies on +X */}
+      <mesh position={[(originX + tipX) / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[1.2, 1.2, shaftLen, 12]} />
+        <meshBasicMaterial color="#38bdf8" transparent opacity={0.85} />
+      </mesh>
+      {/* Arrowhead — cone pointing toward rotor (–X) */}
+      <mesh position={[tipX - 5, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+        <coneGeometry args={[5, 12, 16]} />
+        <meshBasicMaterial color="#38bdf8" transparent opacity={0.9} />
+      </mesh>
+      {/* Tail fletching — small disc at origin for readability */}
+      <mesh position={[originX, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[2.2, 2.2, 1.5, 16]} />
+        <meshBasicMaterial color="#0284c7" transparent opacity={0.9} />
+      </mesh>
+      {/* Label anchored at the tail */}
+      <Html position={[originX + 6, 10, 0]} center>
+        <div className="text-[10px] font-mono text-sky-200 bg-black/60 px-2 py-0.5 rounded border border-sky-400/50 whitespace-nowrap shadow-lg shadow-black/50">
+          WIND · {windMs.toFixed(1)} m/s · {Math.round(windDirectionDeg)}°
+        </div>
+      </Html>
     </group>
   );
 });

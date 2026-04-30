@@ -1,21 +1,25 @@
 /**
- * SCADA & IEC 61850 page — route /scada.
+ * P3 SCADA & IEC 61850 page — route /scada.
  *
- * Professional layout:
- * - Compact header with alarm summary badges
- * - Fault scenario + role selectors inline (dropdowns, not sidebar)
- * - Auto-simulation toggle for continuous fault injection
- * - Full-width SCADADashboard with SLD + alarms + tabbed panels
+ * ISA-101 / ASM Consortium high-performance HMI.
+ *   Level 1 — PlantOverviewBar (persistent banner, situational awareness)
+ *   Level 2 — Operations / Equipment / Diagnostics / Engineering (AreaTabs)
+ *   Level 3 — sub-tabs per area (SubTabs)
+ *
+ * The page applies the .scada-isa101 wrapper class so the medium-grey
+ * grayscale theme is scoped to /scada only — other dashboards keep their
+ * dark control-room palette.
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Maximize2, Monitor, Play, Square, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, Maximize2, Play, Square, Zap } from "lucide-react";
 
 import SCADADashboard from "../components/p3/SCADADashboard";
 import SCADAKPIHeader from "../components/p3/SCADAKPIHeader";
 import SCADAControlRoomBar from "../components/p3/SCADAControlRoomBar";
 import SubstationSLD from "../components/p3/SubstationSLD";
 import AlarmListPanel from "../components/p3/AlarmListPanel";
+import PlantOverviewBar from "../components/p3/PlantOverviewBar";
 import { ActiveAlarmsPanel } from "../components/p3/ActiveAlarmsPanel";
 import { useScadaStore } from "../store/scadaStore";
 import { Button } from "../components/ui/Button";
@@ -60,13 +64,12 @@ export default function SCADAPage() {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // Stop auto-sim on unmount
   useEffect(() => {
     return () => stopAutoSimulation();
   }, [stopAutoSimulation]);
 
-  // Fullscreen (Control Room Mode)
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(true);
 
   useEffect(() => {
     const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -82,208 +85,157 @@ export default function SCADAPage() {
     }
   }, []);
 
-  // Alarm counts for header
-  const critCount = alarms.filter((a) => a.priority === "CRITICAL" && a.state === "ACTIVE").length;
-  const highCount = alarms.filter((a) => a.priority === "HIGH" && a.state === "ACTIVE").length;
-  const medCount = alarms.filter((a) => a.priority === "MEDIUM" && a.state === "ACTIVE").length;
   const activeCount = alarms.filter((a) => a.state === "ACTIVE").length;
-  const measurements = useScadaStore((s) => s.measurements);
 
-  // Fullscreen Control Room Mode — SLD fills viewport with alarm sidebar
+  // Fullscreen Control Room Mode — SLD fills viewport with alarm sidebar.
   if (isFullscreen) {
-    const m400 = measurements.find((m) => m.nodeId === "bb-400kv");
-    const m220 = measurements.find((m) => m.nodeId === "bb-220kv");
-    const m66 = measurements.find((m) => m.nodeId === "bb-66kv");
-
     return (
-      <div className="fixed inset-0 z-[9999] bg-bg-primary flex flex-col">
-        {/* Top bar */}
+      <div className="scada-isa101 fixed inset-0 z-[9999] flex flex-col">
         <SCADAControlRoomBar onExit={toggleFullscreen} />
-
-        {/* Main content: SLD + Alarm sidebar */}
         <div className="flex flex-1 min-h-0">
-          {/* SLD — 75% width */}
           <div className="flex-1 min-w-0">
             <SubstationSLD />
           </div>
-
-          {/* Alarm sidebar — 25% width */}
           <div className="w-80 border-l border-border-primary flex flex-col min-h-0">
             <AlarmListPanel compact />
           </div>
-        </div>
-
-        {/* Bottom measurement ribbon */}
-        <div className="shrink-0 px-4 py-1.5 bg-bg-secondary/80 border-t border-border-primary flex items-center justify-center gap-6 text-[10px] font-mono text-text-secondary">
-          {m400 && (
-            <span>
-              <span className="text-red-400 font-medium">400 kV:</span>{" "}
-              {m400.powerMW} MW · {m400.currentA} A · {m400.voltageKV} kV
-            </span>
-          )}
-          {m220 && (
-            <span>
-              <span className="text-blue-400 font-medium">220 kV:</span>{" "}
-              {m220.powerMW} MW · {m220.currentA} A · {m220.voltageKV} kV
-            </span>
-          )}
-          {m66 && (
-            <span>
-              <span className="text-orange-400 font-medium">66 kV:</span>{" "}
-              {m66.powerMW} MW · {m66.currentA} A · {m66.voltageKV} kV
-            </span>
-          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3 h-full">
-      {/* Compact header row */}
-      <div className="flex items-center justify-between shrink-0">
+    <div className="scada-isa101 flex flex-col h-full">
+      {/* ── Level 1: Plant Overview banner ── */}
+      <PlantOverviewBar />
+
+      {/* ── Compact title row ── */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-primary bg-bg-secondary shrink-0">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold text-text-primary">
-            P3 · SCADA & Automation
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+            P3 · SCADA &amp; Automation
           </h2>
           <span className="text-[10px] text-text-muted font-mono hidden md:inline">
             {substationSummary
-              ? `${substationSummary.total_devices} IEDs · ${substationSummary.total_logical_nodes} LNs · IEC 61850 · GOOSE`
+              ? `${substationSummary.total_devices} IEDs · ${substationSummary.total_logical_nodes} LN · IEC 61850 · GOOSE`
               : "Loading..."}
           </span>
         </div>
 
-        {/* Training guide + Alarm summary badges */}
         <div className="flex items-center gap-3">
           <TrainingGuide guide={p3Guide} />
           {activeCount > 0 && (
             <ActiveAlarmsPanel>
               <button
-                className="flex items-center gap-1.5 text-[10px] font-mono cursor-pointer rounded px-1 py-0.5 hover:bg-bg-hover transition-colors"
-                title="Click to view active alarm details"
+                className="text-[10px] font-mono cursor-pointer rounded px-1.5 py-0.5 text-text-secondary hover:bg-bg-hover transition-colors"
+                title="Click to view active alarms"
               >
-                {critCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded bg-red-900/40 text-red-400 font-bold animate-pulse">
-                    {critCount} CRIT
-                  </span>
-                )}
-                {highCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded bg-orange-900/40 text-orange-400">
-                    {highCount} HIGH
-                  </span>
-                )}
-                {medCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400">
-                    {medCount} MED
-                  </span>
-                )}
+                {activeCount} active
               </button>
             </ActiveAlarmsPanel>
           )}
+          <button
+            type="button"
+            onClick={() => setControlsOpen((o) => !o)}
+            className="flex items-center gap-1 text-[10px] text-text-muted hover:text-text-primary"
+            title={controlsOpen ? "Hide simulation controls" : "Show simulation controls"}
+          >
+            {controlsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            Controls
+          </button>
         </div>
       </div>
 
-      {/* Controls bar — inline selectors + simulation buttons */}
-      <div className="flex items-center gap-3 shrink-0 flex-wrap">
-        {/* Fault scenario dropdown */}
-        <div className="flex items-center gap-1.5">
-          <Zap size={12} className="text-text-muted" />
-          <select
-            value={selectedFaultType}
-            onChange={(e) => setSelectedFaultType(e.target.value)}
-            className="text-xs bg-bg-secondary border border-border-primary rounded px-2 py-1 text-text-secondary"
-            title="Select a turbine fault scenario to inject and simulate the IEC 61850 protection response"
-          >
-            {faultScenarios.map((s) => (
-              <option key={s.fault_type} value={s.fault_type}>
-                {s.description}
-              </option>
-            ))}
-          </select>
+      {/* ── Collapsible simulation control bar ── */}
+      {controlsOpen && (
+        <div className="flex items-center gap-3 px-3 py-1.5 border-b border-border-primary bg-bg-tertiary shrink-0 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Zap size={12} className="text-text-muted" />
+            <select
+              value={selectedFaultType}
+              onChange={(e) => setSelectedFaultType(e.target.value)}
+              className="text-xs bg-bg-secondary border border-border-primary rounded px-2 py-1 text-text-secondary"
+              title="Select a turbine fault scenario to inject"
+            >
+              {faultScenarios.map((s) => (
+                <option key={s.fault_type} value={s.fault_type}>
+                  {s.description}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <InfoButton info={runGooseSimButtonInfo} />
+            <Button
+              onClick={runGooseSimulation}
+              disabled={loading}
+              size="sm"
+              className="text-xs"
+            >
+              {loading ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Running...
+                </span>
+              ) : (
+                "Run GOOSE Sim"
+              )}
+            </Button>
+          </div>
+
+          <div className="w-px h-5 bg-border-primary" />
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={autoSimEnabled ? stopAutoSimulation : startAutoSimulation}
+              className={cn(
+                "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
+                autoSimEnabled
+                  ? "border-status-normal text-status-normal hover:bg-bg-hover"
+                  : "bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover",
+              )}
+            >
+              {autoSimEnabled ? <Square size={10} /> : <Play size={10} />}
+              {autoSimEnabled ? "Stop Auto-Sim" : "Auto-Sim"}
+            </button>
+            <InfoButton info={autoSimButtonInfo} />
+          </div>
+
+          <div className="flex-1" />
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-text-muted">Role:</span>
+            <select
+              value={selectedRoleLevel}
+              onChange={(e) => setSelectedRoleLevel(Number(e.target.value))}
+              className="text-xs bg-bg-secondary border border-border-primary rounded px-2 py-1 text-text-secondary"
+              title="Operator RBAC role (IEC 62351 access control)"
+            >
+              {ROLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleFullscreen}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
+            >
+              <Maximize2 size={10} />
+              Control Room
+            </button>
+            <InfoButton info={controlRoomButtonInfo} />
+          </div>
         </div>
+      )}
 
-        {/* Run GOOSE simulation */}
-        <div className="flex items-center gap-1">
-          <InfoButton info={runGooseSimButtonInfo} />
-          <Button
-            onClick={runGooseSimulation}
-            disabled={loading}
-            size="sm"
-            className="text-xs"
-          >
-            {loading ? (
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Running...
-              </span>
-            ) : (
-              "Run GOOSE Sim"
-            )}
-          </Button>
-        </div>
-
-        <div className="w-px h-5 bg-border-primary" />
-
-        {/* Auto-simulation toggle */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={autoSimEnabled ? stopAutoSimulation : startAutoSimulation}
-            className={cn(
-              "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
-              autoSimEnabled
-                ? "bg-green-900/30 border-green-700/50 text-green-400 hover:bg-green-900/50"
-                : "bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover",
-            )}
-          >
-            {autoSimEnabled ? <Square size={10} /> : <Play size={10} />}
-            {autoSimEnabled ? "Stop Auto-Sim" : "Auto-Sim"}
-          </button>
-          <InfoButton info={autoSimButtonInfo} />
-        </div>
-
-        <div className="flex-1" />
-
-        {/* Role selector */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-text-muted">Role:</span>
-          <select
-            value={selectedRoleLevel}
-            onChange={(e) => setSelectedRoleLevel(Number(e.target.value))}
-            className="text-xs bg-bg-secondary border border-border-primary rounded px-2 py-1 text-text-secondary"
-            title="Set operator RBAC role — controls which actions are permitted (IEC 62351 access control)"
-          >
-            {ROLE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Control Room Mode */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={toggleFullscreen}
-            className={cn(
-              "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
-              "bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover hover:text-text-primary",
-            )}
-          >
-            <Maximize2 size={10} />
-            Control Room
-          </button>
-          <InfoButton info={controlRoomButtonInfo} />
-        </div>
-
-        {/* Standards reference */}
-        <span className="text-[9px] text-text-muted font-mono hidden lg:inline">
-          ISA-18.2 · IEC 61850 · IEC 62443
-        </span>
-      </div>
-
-      {/* Error banner */}
+      {/* ── Error banner ── */}
       {error && (
-        <div className="p-2 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-xs flex justify-between items-center shrink-0">
+        <div className="mx-3 mt-2 p-2 bg-status-alarm/10 border border-status-alarm/30 rounded text-xs flex justify-between items-center shrink-0">
           <span className="text-status-alarm">{error}</span>
           <Button variant="ghost" size="sm" onClick={clearError}>
             Dismiss
@@ -291,15 +243,19 @@ export default function SCADAPage() {
         </div>
       )}
 
-      {/* KPI row — compact */}
-      {dataLoaded && <SCADAKPIHeader />}
+      {/* ── KPI strip (system status) ── */}
+      {dataLoaded && (
+        <div className="border-b border-border-primary shrink-0">
+          <SCADAKPIHeader />
+        </div>
+      )}
 
-      {/* Main dashboard */}
-      <div className="flex-1 min-h-0 overflow-auto">
+      {/* ── Main routing area ── */}
+      <div className="flex-1 min-h-0 overflow-hidden">
         {dataLoaded ? (
           <SCADADashboard />
         ) : (
-          <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
+          <div className="flex items-center justify-center h-full">
             <div className="text-center">
               {loading ? (
                 <span className="flex items-center justify-center gap-2 text-text-secondary">
@@ -307,19 +263,7 @@ export default function SCADAPage() {
                   Loading SCADA configuration...
                 </span>
               ) : (
-                <>
-                  <div className="flex justify-center mb-4">
-                    <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                      <Monitor size={24} className="text-accent" />
-                    </div>
-                  </div>
-                  <p className="text-text-secondary text-base mb-2">
-                    SCADA HMI loading...
-                  </p>
-                  <p className="text-text-muted text-sm">
-                    IEC 61850 device registry, GOOSE configuration, RBAC matrix
-                  </p>
-                </>
+                <p className="text-text-muted text-sm">SCADA HMI loading…</p>
               )}
             </div>
           </div>

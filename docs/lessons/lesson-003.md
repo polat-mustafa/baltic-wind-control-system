@@ -213,7 +213,7 @@ Baltık Denizi'ndeki referans alanımızda yıllık ortalama rüzgar hızı ~9.0
 | Kanat uzunluğu | ~115.5 m | Her bir kanat, Airbus A380 kanat açıklığı (79.75 m) ile karşılaştırın |
 | IEC sınıfı | I-B | Yüksek rüzgar, orta türbülans |
 | Cut-in hızı | 3 m/s | Türbinin üretime başladığı hız |
-| Nominal hız | 12.5 m/s | Nominal güce ulaşılan hız |
+| Nominal hız | 11.1 m/s | Nominal güce ulaşılan hız |
 | Cut-out hızı | 31 m/s | Güvenlik durdurması hızı |
 | Tahrik tipi | Yarı-doğrudan sürüş (medium-speed gearbox) | Tek kademeli dişli kutusu + PMG (kalıcı mıknatıslı jeneratör) |
 | Ct (nominal hızda) | 0.28 | İtme katsayısı — iz (wake) modellemede kritik |

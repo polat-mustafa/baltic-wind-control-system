@@ -277,7 +277,7 @@ export default function TurbineCrossSection({
       <circle cx={163} cy={85} r={6} fill="none" stroke="#3d4560" strokeWidth={1} strokeDasharray="2 2" />
       <circle cx={179} cy={85} r={4} fill="none" stroke="#3d4560" strokeWidth={1} strokeDasharray="2 2" />
       <text x={171} y={79} textAnchor="middle" fill="#6b7490" fontSize={7} fontFamily="JetBrains Mono, monospace">
-        36:1
+        48:1
       </text>
 
       {/* ── Generator ── */}

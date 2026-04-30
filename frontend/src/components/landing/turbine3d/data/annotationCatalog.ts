@@ -150,12 +150,12 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
     kind: "component",
     category: "kinematic",
     anchor: [-3, 150.5, -2],
-    label: "Medium-speed gearbox 36:1",
+    label: "Medium-speed gearbox 48:1",
     relatedPartId: "gearbox",
     visibleInModes: ["cutaway", "exploded"],
     detail: {
       title: "Medium-speed gearbox",
-      value: "36:1 ratio (1-stage planetary + 1-stage helical)",
+      value: "48:1 ratio (3-stage: 1 planetary + 2 helical)",
       source: "Vestas V236 drivetrain",
       description:
         "Steps rotor 9.55 rpm up to ~344 rpm for the PMSG. Lower ratio than legacy 3-stage = fewer wear parts, smaller oil volume.",

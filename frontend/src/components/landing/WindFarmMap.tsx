@@ -73,6 +73,8 @@ const ConnectedTurbineIcon = memo(function ConnectedTurbineIcon({
       y={y}
       status={turbine.status}
       powerOutputMW={turbine.powerOutputMW}
+      yawDeg={turbine.nacellePositionDeg}
+      pitchDeg={turbine.pitchAngleDeg}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onClick={() => onClick(turbineId)}

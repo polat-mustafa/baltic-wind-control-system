@@ -17,10 +17,13 @@ import { useNavigate } from "react-router-dom";
 import { Monitor, Brain, ClipboardCheck, Maximize2, Minimize2 } from "lucide-react";
 
 import MapKPIRibbon from "../components/landing/MapKPIRibbon";
+import { WindRoseWidget } from "../components/landing/WindRoseWidget";
 import LeafletWindFarmMap from "../components/landing/LeafletWindFarmMap";
 import CableDetailPanel from "../components/landing/CableDetailPanel";
 import TransformerDetailPanel from "../components/landing/TransformerDetailPanel";
 import TurbineDetailPanel from "../components/landing/TurbineDetailPanel";
+import LIDARDetailPanel from "../components/landing/LIDARDetailPanel";
+import STATCOMDetailPanel from "../components/landing/STATCOMDetailPanel";
 import {
   selectCable,
   selectTransformer,
@@ -132,7 +135,7 @@ function ConnectedCablePanel({ onClose }: { onClose: () => void }) {
 }
 
 // ── Panel type ──────────────────────────────────────────────────
-type DetailPanel = "oss" | "onshore" | "cable" | "turbine" | null;
+type DetailPanel = "oss" | "onshore" | "cable" | "turbine" | "lidar" | "statcom" | null;
 
 const QUICK_LINKS = [
   { label: "P3", path: "/scada", icon: Monitor, tip: "SCADA" },
@@ -180,6 +183,8 @@ export default function LandingPage() {
   const handleOSSClick = useCallback(() => setActivePanel("oss"), []);
   const handleOnshoreClick = useCallback(() => setActivePanel("onshore"), []);
   const handleCableClick = useCallback(() => setActivePanel("cable"), []);
+  const handleSTATCOMClick = useCallback(() => setActivePanel("statcom"), []);
+  const handleLIDARClick = useCallback(() => setActivePanel("lidar"), []);
 
   const handlePanelClose = useCallback(() => {
     setActivePanel(null);
@@ -195,6 +200,8 @@ export default function LandingPage() {
       {activePanel === "oss" && <ConnectedOSSPanel onClose={handlePanelClose} />}
       {activePanel === "onshore" && <ConnectedOnshorePanel onClose={handlePanelClose} />}
       {activePanel === "cable" && <ConnectedCablePanel onClose={handlePanelClose} />}
+      {activePanel === "lidar" && <LIDARDetailPanel onClose={handlePanelClose} />}
+      {activePanel === "statcom" && <STATCOMDetailPanel onClose={handlePanelClose} />}
       {activePanel === "turbine" && selectedTurbineId && (
         <ConnectedTurbineDetailPanel
           turbineId={selectedTurbineId}
@@ -209,7 +216,7 @@ export default function LandingPage() {
     return (
       <div className="fixed inset-0 z-[9999] bg-bg-primary flex flex-col">
         {/* Horizontal KPI ribbon — glassmorphic overlay at top */}
-        <div className="absolute top-0 left-0 right-0 z-[1001] pointer-events-none">
+        <div className="absolute top-2 left-0 right-0 z-[1001] pointer-events-none">
           <MapKPIRibbon kpis={kpis} horizontal />
         </div>
 
@@ -238,8 +245,16 @@ export default function LandingPage() {
               onOSSClick={handleOSSClick}
               onOnshoreClick={handleOnshoreClick}
               onCableClick={handleCableClick}
+              onSTATCOMClick={handleSTATCOMClick}
+              onLIDARClick={handleLIDARClick}
             />
           </div>
+
+          {/* Wind rose climatology widget — top-left corner overlay (also
+              rendered in normal mode below). Both code paths must include it
+              so the widget survives the Control Room toggle. */}
+          <WindRoseWidget />
+
           {detailPanels}
         </div>
       </div>
@@ -309,7 +324,7 @@ export default function LandingPage() {
       {/* Main area: Map fills width, KPI + detail panels overlaid */}
       <div className="relative flex-1 min-h-0">
         {/* Horizontal KPI ribbon overlay */}
-        <div className="absolute top-0 left-0 right-0 z-[1001] pointer-events-none">
+        <div className="absolute top-2 left-0 right-0 z-[1001] pointer-events-none">
           <MapKPIRibbon kpis={kpis} horizontal />
         </div>
 
@@ -322,8 +337,13 @@ export default function LandingPage() {
             onOSSClick={handleOSSClick}
             onOnshoreClick={handleOnshoreClick}
             onCableClick={handleCableClick}
+            onSTATCOMClick={handleSTATCOMClick}
+            onLIDARClick={handleLIDARClick}
           />
         </div>
+
+        {/* Wind rose climatology widget — top-left corner overlay */}
+        <WindRoseWidget />
 
         {/* Detail panels — OUTSIDE Leaflet's DOM, above compositor layers */}
         {detailPanels}

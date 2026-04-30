@@ -68,7 +68,7 @@ describe("OnshoreSubstation", () => {
     );
     const group = container.querySelector('[role="button"]');
     expect(group?.getAttribute("aria-label")).toBe(
-      "Onshore Substation — click to open HV Grid",
+      "Onshore Substation — 220/400 kV, oil 50°C",
     );
   });
 });

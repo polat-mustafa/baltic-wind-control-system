@@ -53,7 +53,7 @@ tasarlanmıştır.
 | İhraç kablo uzunluğu | 45 km |
 | Şebeke bağlantısı | 400 kV (PSE — Polonya İletim Operatörü) |
 | Konum | Polonya Baltık Denizi |
-| Rüzgâr hızları | Devreye girme: 3 m/s · Nominal: 12.5 m/s · Devre dışı: 31 m/s |
+| Rüzgâr hızları | Devreye girme: 3 m/s · Nominal: 11.1 m/s · Devre dışı: 31 m/s |
 | STATCOM | ±120 MVAR + 50 MVAR şönt reaktör |
 
 ### 1.2. Beş Proje Modülü

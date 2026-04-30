@@ -46,7 +46,7 @@ Güç eğrisinin 4 farklı bölgesi vardır:
 | Bölge | Rüzgar Hızı | Davranış | Fizik |
 |-------|-------------|----------|-------|
 | 1 | v < 3.0 m/s | P = 0 | Aerodinamik tork, tahrik sistemi sürtünmesini yenemez |
-| 2 | 3.0 ≤ v < 12.5 m/s | P ∝ v³ | Maksimum enerji yakalama (Cp optimizasyonu) |
+| 2 | 3.0 ≤ v < 11.1 m/s | P ∝ v³ | Maksimum enerji yakalama (Cp optimizasyonu) |
 | 3 | 12.5 ≤ v ≤ 31.0 m/s | P = P_nominal | Kanat açısı (pitch) ile sabit güç kontrolü |
 | 4 | v > 31.0 m/s | P = 0 | Güvenlik kapatması (blade feathering) |
 

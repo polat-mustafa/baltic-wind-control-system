@@ -264,7 +264,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "gearbox",
     title: "Gearbox",
     overview:
-      "The gearbox converts the slow, high-torque rotation from the rotor (5\u20139.55 rpm) into fast rotation suitable for the generator (~344 rpm). The V236 uses a 36:1 gear ratio through a three-stage planetary/helical design.",
+      "The gearbox converts the slow, high-torque rotation from the rotor (5\u20138.33 rpm) into fast rotation suitable for the generator (~400 rpm). The V236 uses a 48:1 gear ratio through a three-stage planetary/helical design.",
     standards: ["IEC 61400-4", "ISO 6336", "AGMA 6006"],
     formulas: [
       {
@@ -275,7 +275,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "\u03C9\u2091\u2091\u2099", name: "Generator speed", unit: "rpm" },
         ],
         explanation:
-          "The gear ratio multiplies rotational speed. At rated: 9.55 rpm \u00D7 36 = 343.8 rpm on the generator side. Torque is inversely reduced by the same ratio.",
+          "The gear ratio multiplies rotational speed. At rated: 8.33 rpm \u00D7 48 \u2248 400 rpm on the generator side. Torque is inversely reduced by the same ratio.",
       },
       {
         expression: "\u03B7\u2091\u2091\u2090\u2063 \u2248 97\u201398%",
@@ -285,7 +285,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
       },
     ],
     design: {
-      v236Value: "Three-stage (1 planetary + 2 helical), 36:1 ratio, forced oil lubrication",
+      v236Value: "Three-stage (1 planetary + 2 helical), 48:1 ratio, forced oil lubrication",
       reasoning:
         "Planetary first stage handles the extreme low-speed torque in a compact package. Helical stages provide quiet, efficient speed multiplication for the final ratio.",
       influencingFactors: ["Input torque (18,350 kN\u00B7m)", "Oil temperature", "Gear tooth wear", "Alignment precision"],
@@ -295,7 +295,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
       { name: "Churning/windage", typicalLossPct: "~1%", dissipation: "Oil splash and air resistance" },
     ],
     simpleExplanation:
-      "Like a bicycle gear system \u2014 the blades spin slowly with lots of force, and the gearbox converts that into fast spinning for the generator. The '36:1' means the generator shaft spins 36 times faster than the rotor.",
+      "Like a bicycle gear system \u2014 the blades spin slowly with lots of force, and the gearbox converts that into fast spinning for the generator. The '48:1' means the generator shaft spins 48 times faster than the rotor.",
     technicalExplanation:
       "A three-stage gearbox (1P+2H) rated per IEC 61400-4 and ISO 6336. The planetary stage absorbs full rotor torque via a ring gear, sun gear, and planet carrier. Oil temperature monitoring detects lubrication degradation; particle counters in the oil circuit provide early warning of gear tooth pitting.",
     faultTypes: ["GEARBOX_OIL_TEMP"],
@@ -508,7 +508,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "wind",
     title: "Incoming Wind",
     overview:
-      "Wind is the primary energy source. The turbine operates between cut-in (3 m/s) and cut-out (31 m/s) wind speeds, with rated power at 12.5 m/s. Wind speed follows a Weibull distribution, and hub-height speed is estimated from surface measurements using the power law. Downstream turbines experience a wake deficit — reduced wind speed and increased turbulence — which can cut power by 8–12% at farm level (see the wake cone visualization below the cross-section).",
+      "Wind is the primary energy source. The turbine operates between cut-in (3 m/s) and cut-out (31 m/s) wind speeds, with rated power at 11.1 m/s. Wind speed follows a Weibull distribution, and hub-height speed is estimated from surface measurements using the power law. Downstream turbines experience a wake deficit — reduced wind speed and increased turbulence — which can cut power by 8–12% at farm level (see the wake cone visualization below the cross-section).",
     standards: ["IEC 61400-12-1", "IEC 61400-1 Annex B", "IEC 61400-12-2"],
     formulas: [
       {
@@ -519,7 +519,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "V", name: "Wind speed", unit: "m/s" },
         ],
         explanation:
-          "Available power in the wind before any extraction. At 12.5 m/s: P = 0.5 \u00D7 1.225 \u00D7 43,742 \u00D7 12.5\u00B3 \u2248 52.3 MW available, from which the turbine extracts ~15 MW (C\u209A \u2248 0.287 at rated).",
+          "Available power in the wind before any extraction. At 11.1 m/s: P = 0.5 \u00D7 1.225 \u00D7 43,742 \u00D7 11.1\u00B3 \u2248 36.7 MW available, from which the turbine extracts ~15 MW (C\u209A \u2248 0.287 at rated).",
       },
       {
         expression: "V(h) = V\u2063\u2091\u2091\u2099 \u00D7 (h/h\u2063\u2091\u2091\u2099)^\u03B1",
@@ -533,7 +533,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
       },
     ],
     design: {
-      v236Value: "Cut-in 3 m/s, rated 12.5 m/s, cut-out 31 m/s",
+      v236Value: "Cut-in 3 m/s, rated 11.1 m/s, cut-out 31 m/s",
       reasoning:
         "The wide operating range maximizes annual energy production. The high cut-out speed (31 m/s vs. typical 25 m/s) is enabled by the V236's advanced storm control strategy.",
       influencingFactors: ["Air density (temperature/pressure)", "Turbulence intensity", "Wind shear", "Wake effects from upstream turbines"],
@@ -566,7 +566,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "n_pads", name: "Number of friction pads", unit: "dimensionless" },
         ],
         explanation:
-          "Braking torque must exceed maximum aerodynamic torque at any wind speed. For the V236 with ~18,350 kN·m rated torque (low-speed side), the high-speed brake needs only ~510 kN·m (÷36 gear ratio), but is sized with a safety factor of 1.5–2.0.",
+          "Braking torque must exceed maximum aerodynamic torque at any wind speed. For the V236 with ~18,350 kN·m rated torque (low-speed side), the high-speed brake needs only ~510 kN·m (÷48 gear ratio), but is sized with a safety factor of 1.5–2.0.",
       },
     ],
     design: {
@@ -673,7 +673,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "P_grid", name: "Net power to 66 kV cable", unit: "MW" },
         ],
         explanation:
-          "Each stage multiplies efficiency: 0.45 × 0.97 × 0.975 × 0.98 × 0.995 ≈ 0.414. From ~36 MW available wind power at rated speed (12.5 m/s), ~15 MW reaches the grid — a chain efficiency of ~42%.",
+          "Each stage multiplies efficiency: 0.45 × 0.97 × 0.975 × 0.98 × 0.995 ≈ 0.414. From ~36 MW available wind power at rated speed (11.1 m/s), ~15 MW reaches the grid — a chain efficiency of ~42%.",
       },
     ],
     design: {

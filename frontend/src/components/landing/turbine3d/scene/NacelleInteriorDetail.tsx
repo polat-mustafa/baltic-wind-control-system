@@ -34,6 +34,7 @@ import {
   useNacelleSubsystemsStore,
 } from "../../../../store/nacelleSubsystemsStore";
 import { CableTray } from "./nacelle/CableTray";
+import { TechnicianFigure } from "./nacelle/TechnicianFigure";
 
 const NACELLE_Y = 151;
 const RATED_POWER_MW = 15.0;
@@ -60,11 +61,190 @@ export const NacelleInteriorDetail = memo(function NacelleInteriorDetail({
       <ConverterToTransformerTray />
       <TransformerToCableRoutingTray />
       <HPUPressureGauge turbineId={turbineId} />
+      <ServiceCatwalk />
+      <TechnicianFigure />
       {showLabels && <InteriorLabels />}
       <FunctionalGroupRings />
     </group>
   );
 });
+
+/**
+ * Service catwalk + safety handrails — gives the nacelle interior a
+ * walkable-space spatial anchor. Grating is approximated with a dark
+ * panel + subtle stripe pattern via a procedural CanvasTexture.
+ */
+function ServiceCatwalk() {
+  const grateTexture = useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = 64;
+    c.height = 64;
+    const g = c.getContext("2d");
+    if (g) {
+      g.fillStyle = "#1f2937";
+      g.fillRect(0, 0, 64, 64);
+      g.strokeStyle = "#475569";
+      g.lineWidth = 1;
+      for (let i = 0; i < 64; i += 8) {
+        g.beginPath();
+        g.moveTo(0, i);
+        g.lineTo(64, i);
+        g.stroke();
+      }
+      g.strokeStyle = "#334155";
+      for (let i = 0; i < 64; i += 16) {
+        g.beginPath();
+        g.moveTo(i, 0);
+        g.lineTo(i, 64);
+        g.stroke();
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(1.5, 20);
+    return tex;
+  }, []);
+
+  // Anti-slip hatch pattern — diagonal safety stripes atop the grating.
+  const antiSlipTexture = useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = 64; c.height = 64;
+    const g = c.getContext("2d");
+    if (g) {
+      g.fillStyle = "rgba(30, 41, 59, 0.0)";
+      g.fillRect(0, 0, 64, 64);
+      g.strokeStyle = "rgba(234, 179, 8, 0.55)";
+      g.lineWidth = 3;
+      for (let i = -64; i < 128; i += 12) {
+        g.beginPath();
+        g.moveTo(i, 0);
+        g.lineTo(i + 64, 64);
+        g.stroke();
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(1.5, 20);
+    return tex;
+  }, []);
+
+  return (
+    <group>
+      {/* Catwalk deck — 1.2 m × 18 m, local y=-3.8 (≈ world 147.2) */}
+      <mesh
+        position={[0, -3.8, -3]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[1.2, 18]} />
+        <meshStandardMaterial
+          map={grateTexture}
+          color="#334155"
+          roughness={0.85}
+          metalness={0.4}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Anti-slip safety stripes — subtle yellow hatching just above the grate */}
+      <mesh position={[0, -3.795, -3]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[1.2, 18]} />
+        <meshStandardMaterial
+          map={antiSlipTexture}
+          transparent
+          opacity={0.65}
+          roughness={0.95}
+          metalness={0.0}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* I-beam stringers — two longitudinal structural members under the catwalk */}
+      {([-0.55, 0.55] as number[]).map((x) => (
+        <mesh key={`stringer-${x}`} position={[x, -3.95, -3]}>
+          <boxGeometry args={[0.08, 0.25, 18]} />
+          <meshStandardMaterial color="#334155" roughness={0.75} metalness={0.55} />
+        </mesh>
+      ))}
+      {/* Yellow kickplates — 10 cm strips along both deck edges, hazard-marked */}
+      {([-0.6, 0.6] as number[]).map((x) => (
+        <mesh key={`kick-${x}`} position={[x, -3.72, -3]}>
+          <boxGeometry args={[0.02, 0.1, 18]} />
+          <meshStandardMaterial color="#eab308" roughness={0.5} metalness={0.3} />
+        </mesh>
+      ))}
+      {/* Handrails — two yellow tubes at 1.1 m height flanking the walkway */}
+      {([-0.65, 0.65] as number[]).map((x) => (
+        <mesh key={`rail-${x}`} position={[x, -2.7, -3]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.035, 0.035, 18, 8]} />
+          <meshStandardMaterial color="#eab308" roughness={0.55} metalness={0.5} />
+        </mesh>
+      ))}
+      {/* Mid-rail — second horizontal tube at ~0.55 m */}
+      {([-0.65, 0.65] as number[]).map((x) => (
+        <mesh key={`midrail-${x}`} position={[x, -3.25, -3]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.025, 0.025, 18, 8]} />
+          <meshStandardMaterial color="#eab308" roughness={0.55} metalness={0.5} />
+        </mesh>
+      ))}
+      {/* Handrail uprights — 10 stanchions per side along the 18 m run */}
+      {([-0.65, 0.65] as number[]).flatMap((x) =>
+        Array.from({ length: 10 }).map((_, i) => {
+          const z = -3 + (i - 4.5) * 1.8;
+          return (
+            <mesh key={`stanch-${x}-${i}`} position={[x, -3.25, z]}>
+              <cylinderGeometry args={[0.025, 0.025, 1.2, 8]} />
+              <meshStandardMaterial color="#eab308" roughness={0.55} metalness={0.5} />
+            </mesh>
+          );
+        }),
+      )}
+      {/* Overhead LED strip lights — two parallel emissive planes with matching
+          pointLights. Without light sources inside the nacelle, PBR materials on
+          cabinets/HPU look flat. The emissive planes give the eye visible
+          fixtures; the pointLights drive specular reflections on the hardware. */}
+      {([-1.0, 1.0] as number[]).map((x) => (
+        <mesh
+          key={`strip-${x}`}
+          position={[x, -1.2, -3]}
+          rotation={[Math.PI / 2, 0, 0]}
+        >
+          <planeGeometry args={[0.2, 16]} />
+          <meshStandardMaterial
+            color="#f8fafc"
+            emissive="#f8fafc"
+            emissiveIntensity={1.2}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+      {/* Centreline LED ceiling lamps — reduced to 0.6 so port fill doesn't wash */}
+      {[-6, -3, 0].map((z) => (
+        <pointLight
+          key={`lamp-${z}`}
+          position={[0, -1.3, z]}
+          intensity={0.6}
+          distance={5.5}
+          decay={2}
+          color="#f8fafc"
+        />
+      ))}
+      {/* Port-side warm fill — bounced off painted steel walls, softens shadows */}
+      <pointLight position={[-4.0, -1.0, -3]} intensity={0.45} distance={8} decay={2} color="#e8e0d0" />
+      {/* Generator-area key light — aims straight down from above PMSG */}
+      <spotLight
+        position={[0, 1.5, -5]}
+        angle={0.42}
+        penumbra={0.35}
+        intensity={1.1}
+        distance={12}
+        decay={2}
+        color="#f0f4ff"
+        castShadow={false}
+      />
+    </group>
+  );
+}
 
 // ── Stator slot ring (96 slots) ────────────────────────────────────
 
@@ -170,23 +350,25 @@ function OilFlowLoop({ turbineId }: { turbineId: string }) {
     }
   });
 
-  // Path: gearbox (x=0, y=-2, z=0) → oil cooler (x=-2.5, y=-3.5, z=2)
-  // → back (returning on opposite side).
+  // Path: gearbox sump (starboard base) → oil cooler (starboard wall at [4.6,0,-3])
+  // → return line back to gearbox.
+  // OilCooler world [4.6,151,-3] → local to this group [4.6,0,-3].
+  // Gearbox world [0,150.5,0] → local [0,-0.5,0]; exit starboard side ~[1.75,-1.6,0].
   const outbound = useMemo(
     () =>
       new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.5, -2, 1.2),
-        new THREE.Vector3(-1.8, -2.8, 1.8),
-        new THREE.Vector3(-2.6, -3.4, 2.0),
+        new THREE.Vector3(1.75, -1.6, 0.0),   // gearbox sump, starboard
+        new THREE.Vector3(3.5,  -0.8, -1.5),  // route along starboard nacelle wall
+        new THREE.Vector3(4.6,   0.0, -3.0),  // oil cooler inlet
       ]),
     [],
   );
   const returnPath = useMemo(
     () =>
       new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-2.6, -3.4, -0.5),
-        new THREE.Vector3(-1.8, -2.8, -1.0),
-        new THREE.Vector3(-0.5, -2, -0.5),
+        new THREE.Vector3(4.6,   0.2, -3.0),  // oil cooler outlet (cooled)
+        new THREE.Vector3(3.2,  -0.4, -1.5),  // return arc
+        new THREE.Vector3(1.75, -1.4,  0.2),  // back to gearbox lube inlet
       ]),
     [],
   );
@@ -302,7 +484,9 @@ function HPUPressureGauge({ turbineId }: { turbineId: string }) {
   const needleAng = barFrac * Math.PI - Math.PI / 2;
 
   return (
-    <group position={[3.8, -2.6, 3.2]} rotation={[0, 0, 0]}>
+    // HPU world [2.5,147.8,2] → local [-0.25,-3.1,2]; gauge indicator on top face.
+    // Matches the small indicator on NacelleSubsystems HPU at local [0.76,0.1,0.35].
+    <group position={[3.26, -3.1, 2.35]} rotation={[0, 0, 0]}>
       {/* Gauge face */}
       <mesh>
         <cylinderGeometry args={[0.22, 0.22, 0.04, 20]} />
@@ -324,15 +508,25 @@ function HPUPressureGauge({ turbineId }: { turbineId: string }) {
 
 // ── Billboard labels ───────────────────────────────────────────────
 
+// All positions are local to NacelleInteriorDetail group at world [0, 151, 0].
+// Derivation: world_pos − [0, 151, 0] = local_pos.
+//   Main bearing:  drivetrain [0,151,0]+[0,3,0]  → local [0, 3, 0]
+//   Gearbox:       drivetrain [0,151,0]+[0,-0.5,0]→ local [0,-0.5, 0]
+//   Generator:     drivetrain [0,151,0]+[0,-2.5,0]→ local [0,-2.5, 0]
+//   Conv port:     drivetrain [0,151,0]+[-3.5,-3,0]→local [-3.5,-3, 0]
+//   Conv stbd:     drivetrain [0,151,0]+[3.5,-3,0] → local [3.5,-3, 0]
+//   Transformer:   world [0,148,-11]             → local [0,-3,-11]
+//   HPU:           world [2.5,147.8,2]           → local [2.5,-3.2, 2]
+//   OilCooler:     world [4.6,151,-3]            → local [4.6, 0, -3]
 const LABELS: Array<{ pos: [number, number, number]; text: string }> = [
-  { pos: [0, 0, 4.5], text: "MAIN BEARING" },
-  { pos: [0, 0, 2.0], text: "GEARBOX 48:1" },
-  { pos: [0, 0, -1.0], text: "PMSG · 15 MW" },
-  { pos: [-3.5, -1.3, 0], text: "CONVERTER" },
-  { pos: [3.5, -1.3, 0], text: "CONVERTER" },
-  { pos: [4.2, -1.3, -2], text: "TRANSFORMER" },
-  { pos: [-3.8, -2.3, 3.2], text: "HPU · 210 bar" },
-  { pos: [-3.8, -3.8, 3.2], text: "OIL COOLER" },
+  { pos: [0,  3.8,  1.5], text: "MAIN BEARING"  },
+  { pos: [0,  0.8,  0.0], text: "GEARBOX 48:1"  },
+  { pos: [0, -1.0, -0.5], text: "PMSG · 15 MW"  },
+  { pos: [-3.5, -1.5, 0.8], text: "CONVERTER"   },
+  { pos: [ 3.5, -1.5, 0.8], text: "CONVERTER"   },
+  { pos: [0,   -1.5, -11.0], text: "TRANSFORMER" },
+  { pos: [2.5, -2.0,  2.0], text: "HPU · 210 bar"},
+  { pos: [3.8,  0.8, -3.0], text: "OIL COOLER"  },
 ];
 
 function InteriorLabels() {

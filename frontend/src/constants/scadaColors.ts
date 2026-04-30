@@ -10,24 +10,28 @@
  *            IEC 61131-3 (PLC color coding)
  */
 export const SCADA_COLORS = {
-  // Equipment states (ISA-101 muted palette)
-  ENERGIZED: "#3ecf6e", // Muted green — energized, normal operation
-  DE_ENERGIZED: "#6b7280", // Gray — de-energized, isolated
-  EARTHED: "#22d3ee", // Muted cyan — earthed (safety earth applied)
-  FAULT: "#ef4444", // Muted red — fault condition
-  WARNING: "#f5a623", // Amber — warning, attention needed
+  // Equipment states — desaturated per ISA-101 (color only when abnormal)
+  ENERGIZED: "#2E7D5B",      // Desat green — energized, normal operation
+  DE_ENERGIZED: "#8B8B8B",   // Mid-grey — de-energized, isolated
+  EARTHED: "#7A4FB0",        // Desat magenta — earthed (safety earth applied)
+  FAULT: "#C8362D",          // Dark red — fault condition (Priority 1)
+  WARNING: "#C9A227",        // Mustard — warning, operator attention
 
-  // Alarm priorities (per ISA-18.2 / EEMUA 191)
-  ALARM_CRITICAL: "#ef4444", // Red — immediate action required
-  ALARM_HIGH: "#f97316", // Orange — prompt action required
-  ALARM_MEDIUM: "#eab308", // Yellow — awareness
-  ALARM_LOW: "#38bdf8", // Light blue — information
+  // Alarm priorities (EEMUA-191) — saturation INTENTIONALLY kept here;
+  // alarm chips are the one place vivid color carries meaning.
+  ALARM_CRITICAL: "#C8362D", // P1 red — immediate action required
+  ALARM_HIGH: "#E5C100",     // P2 mustard yellow — prompt action required
+  ALARM_MEDIUM: "#4FC3D8",   // P3 cyan — awareness
+  ALARM_LOW: "#5C7CB1",      // Journal slate blue — informational
 
-  // Voltage levels (IEC standard power system colors)
-  VOLTAGE_400KV: "#ef4444", // Red
-  VOLTAGE_220KV: "#3b82f6", // Blue
-  VOLTAGE_66KV: "#f97316", // Orange
-  VOLTAGE_NEUTRAL: "#6b7280", // Gray
+  // IEC voltage levels — desaturated; SLD also uses stroke width to differentiate
+  VOLTAGE_400KV: "#B0413E",  // Desat red
+  VOLTAGE_220KV: "#4A6FA5",  // Desat blue
+  VOLTAGE_66KV: "#B07B3E",   // Desat amber
+  VOLTAGE_NEUTRAL: "#5A5F66",// Matches canvas
+
+  // Normal-band marker for InfoTile sparklines — neutral grey
+  NORMAL_BAND: "#A8AAAD",
 } as const;
 
 /** Map equipment state strings from the API to SCADA colors. */

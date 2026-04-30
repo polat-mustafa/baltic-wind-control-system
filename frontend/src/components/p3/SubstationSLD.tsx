@@ -505,8 +505,11 @@ export default function SubstationSLD() {
     <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden relative h-full">
       <div className="px-3 py-1.5 border-b border-border-primary flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <span className="text-[9px] uppercase tracking-wider text-text-muted font-mono">
+            Operations ·
+          </span>
           <h3 className="text-xs font-semibold text-text-primary">
-            Substation SLD
+            Single-Line Diagram
           </h3>
           <InfoButton info={substationSldInfo} />
           <p className="text-[9px] text-text-muted font-mono">

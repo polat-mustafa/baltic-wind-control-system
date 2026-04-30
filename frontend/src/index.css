@@ -59,6 +59,79 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── ISA-101 Grayscale Override (scoped to SCADA page) ──────────────
+   ISA-101 / ASM Consortium high-performance HMI: medium-grey canvas,
+   ~90% grayscale, color reserved for alarms and energized HV equipment.
+   Applied via a wrapper element (className="scada-isa101") on /scada
+   only, so other dashboards keep the dark control-room theme.
+   ────────────────────────────────────────────────────────────── */
+.scada-isa101 {
+  /* Backgrounds — medium grey canvas (Tier 1 darkest → Tier 5 lightest) */
+  --color-bg-primary:   #4A4F55;
+  --color-bg-secondary: #5A5F66;
+  --color-bg-tertiary:  #686E76;
+  --color-bg-elevated:  #767D86;
+  --color-bg-hover:     #828A94;
+
+  /* Borders — low-contrast hairlines */
+  --color-border-primary:   #3A3E43;
+  --color-border-secondary: #2C2F33;
+  --color-border-accent:    #1F2226;
+
+  /* Text — high-contrast neutrals */
+  --color-text-primary:   #F5F5F5;
+  --color-text-secondary: #D8D8D8;
+  --color-text-muted:     #A8AAAD;
+
+  /* Status — desaturated; saturation kept only for alarm priorities */
+  --color-status-normal:        #2E7D5B;
+  --color-status-warning:       #C9A227;
+  --color-status-alarm:         #C8362D;
+  --color-status-info:          #5C7CB1;
+  --color-status-offline:       #8B8B8B;
+  --color-status-maintenance:   #B86A2A;
+  --color-status-comms-loss:    #7A4FB0;
+
+  /* IEC voltage levels — desaturated; SLD differentiates by stroke width too */
+  --color-voltage-400kv: #B0413E;
+  --color-voltage-220kv: #4A6FA5;
+  --color-voltage-66kv:  #B07B3E;
+  --color-voltage-lv:    #5A5F66;
+
+  /* Accent — desat cyan (used only for active-tab affordance) */
+  --color-accent: #4FC3D8;
+
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* ISA-101: prefer flat hairlines over 3D depth — neutralise heavy shadows */
+.scada-isa101 .shadow-lg,
+.scada-isa101 .shadow-md {
+  box-shadow: none;
+}
+
+/* Alarm-priority chip palette — kept vivid by design (only colour place
+   where saturation is allowed; rule of "color = look here now"). */
+.scada-isa101 [data-priority="P1"] { background: #C8362D; color: #FFFFFF; }
+.scada-isa101 [data-priority="P2"] { background: #E5C100; color: #1F2226; }
+.scada-isa101 [data-priority="P3"] { background: #4FC3D8; color: #1F2226; }
+.scada-isa101 [data-priority="JOURNAL"] { background: #5C7CB1; color: #FFFFFF; }
+
+/* ── Plant Mimic flow-line animation (marching dashes) ── */
+.scada-isa101 .mimic-flow-66kv,
+.scada-isa101 .mimic-flow-220kv,
+.scada-isa101 .mimic-flow-400kv {
+  stroke-dasharray: 6 4;
+  animation: mimic-march 1.6s linear infinite;
+}
+.scada-isa101 .mimic-flow-220kv { animation-duration: 1.2s; }
+.scada-isa101 .mimic-flow-400kv { animation-duration: 0.9s; }
+
+@keyframes mimic-march {
+  to { stroke-dashoffset: -20; }
+}
+
 /* ── Numeric Display Polish ── */
 /* Ensure all monospace numeric displays use tabular figures for alignment */
 .font-mono {

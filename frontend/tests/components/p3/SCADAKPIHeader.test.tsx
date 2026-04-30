@@ -9,24 +9,34 @@ import { useScadaStore } from "../../../src/store/scadaStore";
 
 vi.mock("../../../src/store/scadaStore");
 
+function mockStore(overrides: Record<string, unknown> = {}) {
+  const store: Record<string, unknown> = {
+    substationSummary: null,
+    simulationResult: null,
+    permitList: null,
+    ...overrides,
+  };
+  vi.mocked(useScadaStore).mockImplementation((selector: unknown) => {
+    if (typeof selector === "function") {
+      return (selector as (s: typeof store) => unknown)(store);
+    }
+    return store;
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("SCADAKPIHeader", () => {
   it("returns null when substationSummary is null", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      substationSummary: null,
-      simulationResult: null,
-      permitList: null,
-    } as unknown as ReturnType<typeof useScadaStore>);
-
+    mockStore();
     const { container } = render(<SCADAKPIHeader />);
     expect(container.innerHTML).toBe("");
   });
 
   it("renders all 5 KPI cards when data is loaded", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
+    mockStore({
       substationSummary: {
         total_devices: 42,
         total_logical_nodes: 186,
@@ -53,7 +63,7 @@ describe("SCADAKPIHeader", () => {
           { status: "closed" },
         ],
       },
-    } as unknown as ReturnType<typeof useScadaStore>);
+    });
 
     render(<SCADAKPIHeader />);
 
@@ -69,7 +79,7 @@ describe("SCADAKPIHeader", () => {
   });
 
   it("shows FAIL when compliance fails", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
+    mockStore({
       substationSummary: {
         total_devices: 42,
         total_logical_nodes: 186,
@@ -85,42 +95,38 @@ describe("SCADAKPIHeader", () => {
         events: [],
       },
       permitList: { total: 0, permits: [] },
-    } as unknown as ReturnType<typeof useScadaStore>);
+    });
 
     render(<SCADAKPIHeader />);
     expect(screen.getByText("FAIL")).toBeDefined();
   });
 
-  it("shows --- when no simulation has been run", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
+  it("shows — when no simulation has been run", () => {
+    mockStore({
       substationSummary: {
         total_devices: 42,
         total_logical_nodes: 186,
         protection_ieds: 4,
         wtg_controllers: 34,
       },
-      simulationResult: null,
-      permitList: null,
-    } as unknown as ReturnType<typeof useScadaStore>);
+    });
 
     render(<SCADAKPIHeader />);
-    expect(screen.getByText("---")).toBeDefined();
-    expect(screen.getByText("Run simulation first")).toBeDefined();
+    expect(screen.getByText("—")).toBeDefined();
+    expect(screen.getByText("Run simulation")).toBeDefined();
   });
 
   it("shows device subtitle with prot + WTG counts", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
+    mockStore({
       substationSummary: {
         total_devices: 42,
         total_logical_nodes: 186,
         protection_ieds: 4,
         wtg_controllers: 34,
       },
-      simulationResult: null,
-      permitList: null,
-    } as unknown as ReturnType<typeof useScadaStore>);
+    });
 
     render(<SCADAKPIHeader />);
-    expect(screen.getByText("4 prot + 34 WTG")).toBeDefined();
+    expect(screen.getByText("4 prot · 34 WTG")).toBeDefined();
   });
 });

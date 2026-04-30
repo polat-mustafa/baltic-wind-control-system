@@ -26,31 +26,41 @@ export const CompassWidget = memo(function CompassWidget({
   nacelleYawDeg,
 }: CompassProps) {
   return (
-    <div className="absolute top-2 left-24 z-10 w-14 h-14 pointer-events-none">
-      <svg viewBox="-50 -50 100 100" className="w-full h-full">
-        {/* Dial */}
-        <circle cx="0" cy="0" r="42" fill="rgba(12,18,28,0.72)" stroke="#334155" strokeWidth="1.5" />
-        {/* Cardinal marks */}
-        <text x="0" y="-30" textAnchor="middle" className="fill-sky-300" fontSize="10" fontFamily="monospace">N</text>
-        <text x="30" y="3" textAnchor="middle" className="fill-slate-400" fontSize="8" fontFamily="monospace">E</text>
-        <text x="0" y="36" textAnchor="middle" className="fill-slate-400" fontSize="8" fontFamily="monospace">S</text>
-        <text x="-30" y="3" textAnchor="middle" className="fill-slate-400" fontSize="8" fontFamily="monospace">W</text>
+    <div className="absolute top-14 left-2 z-10 w-20 h-20 pointer-events-none">
+      <div className="w-full h-full rounded-full ring-1 ring-slate-700/60 shadow-lg shadow-black/40">
+        <svg viewBox="-50 -50 100 100" className="w-full h-full">
+          {/* Dial */}
+          <circle cx="0" cy="0" r="44" fill="rgba(12,18,28,0.78)" stroke="#475569" strokeWidth="1.25" />
+          {/* Inner tick ring */}
+          <circle cx="0" cy="0" r="36" fill="none" stroke="#334155" strokeWidth="0.5" strokeDasharray="1 5" />
+          {/* Cardinal marks */}
+          <text x="0" y="-30" textAnchor="middle" className="fill-sky-300" fontSize="11" fontWeight="600" fontFamily="monospace">N</text>
+          <text x="32" y="4" textAnchor="middle" className="fill-slate-300" fontSize="9" fontFamily="monospace">E</text>
+          <text x="0" y="38" textAnchor="middle" className="fill-slate-300" fontSize="9" fontFamily="monospace">S</text>
+          <text x="-32" y="4" textAnchor="middle" className="fill-slate-300" fontSize="9" fontFamily="monospace">W</text>
 
-        {/* Wind arrow (blue) */}
-        <g transform={`rotate(${windDirectionDeg})`}>
-          <path d="M 0 -34 L -4 -26 L 0 -28 L 4 -26 Z" fill="#60a5fa" />
-          <line x1="0" y1="-28" x2="0" y2="-12" stroke="#60a5fa" strokeWidth="1.5" />
-        </g>
+          {/* Wind arrow (blue) — shows meteorological bearing */}
+          <g transform={`rotate(${windDirectionDeg})`}>
+            <path d="M 0 -38 L -5 -28 L 0 -30 L 5 -28 Z" fill="#60a5fa" />
+            <line x1="0" y1="-30" x2="0" y2="-10" stroke="#60a5fa" strokeWidth="2" />
+          </g>
 
-        {/* Nacelle yaw indicator (amber) — short line */}
-        <g transform={`rotate(${nacelleYawDeg})`}>
-          <line x1="0" y1="0" x2="0" y2="-20" stroke="#f59e0b" strokeWidth="2" />
-          <circle cx="0" cy="-20" r="2.5" fill="#f59e0b" />
-        </g>
-      </svg>
-      <div className="absolute -bottom-3 left-0 right-0 text-center">
-        <span className="text-[8px] font-mono text-text-muted">
-          {Math.round(windDirectionDeg)}°
+          {/* Nacelle yaw indicator (amber) — short line with dot */}
+          <g transform={`rotate(${nacelleYawDeg})`}>
+            <line x1="0" y1="0" x2="0" y2="-22" stroke="#f59e0b" strokeWidth="2.5" />
+            <circle cx="0" cy="-22" r="3" fill="#f59e0b" />
+          </g>
+
+          {/* Centre hub */}
+          <circle cx="0" cy="0" r="2" fill="#94a3b8" />
+        </svg>
+      </div>
+      <div className="absolute -bottom-4 left-0 right-0 flex flex-col items-center gap-0">
+        <span className="text-[8px] font-mono text-sky-300">
+          Wind {Math.round(windDirectionDeg)}°
+        </span>
+        <span className="text-[8px] font-mono text-amber-400">
+          Yaw {Math.round(nacelleYawDeg)}°
         </span>
       </div>
     </div>

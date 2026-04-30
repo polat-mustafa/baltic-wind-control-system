@@ -22,7 +22,7 @@ export const turbineSelectionEducation: EducationContent = {
 
   technicalExplanation:
     "The three key technical filters applied were: (1) capacity factor at Baltic mean wind speed 9.0–9.5 m/s — the V236 " +
-    "reaches rated power at 12.5 m/s, giving ~45% CF, while the SG 14-236 DD reaches rated at 11 m/s (slightly higher CF " +
+    "reaches rated power at 11.1 m/s, giving ~45% CF, while the SG 14-236 DD reaches rated at 11 m/s (slightly higher CF " +
     "but lower absolute rated power at 14 MW nominal); (2) nacelle mass — the V236 uses a medium-speed gearbox + PMSG " +
     "reducing nacelle mass vs. a full direct-drive machine at equivalent rating; (3) grid code — PSE IRiESP Type D " +
     "pre-qualification requires LVRT to 15% Un for 140 ms + reactive current injection ≥2%/% voltage drop. " +
@@ -83,7 +83,7 @@ export const turbineSelectionEducation: EducationContent = {
         "Baltic mean wind speed at 150 m hub height ≈ 9.2 m/s (Weibull k = 2.1, ERA5). " +
         "Compare V236-15.0 vs SG 14-236 DD vs Haliade-X 13 MW.",
       steps: [
-        "V236: rated at 12.5 m/s, cut-in 3 m/s, cut-out 31 m/s → AEP ≈ 2,140 GWh for 34 units → CF ≈ 45%",
+        "V236: rated at 11.1 m/s, cut-in 3 m/s, cut-out 31 m/s → AEP ≈ 2,140 GWh for 34 units → CF ≈ 45%",
         "SG 14-236 DD: rated at ~11 m/s, 14 MW → slightly higher CF per turbine but 36.4 units needed for same capacity",
         "Haliade-X: rated at ~13 m/s, 13 MW → lower CF in Baltic (optimised for North Sea ~10 m/s)",
         "V236 wins on: serial production in Poland, supply chain certainty, PSE pre-qualification",

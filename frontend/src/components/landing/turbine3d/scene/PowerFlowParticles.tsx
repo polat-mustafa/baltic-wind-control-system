@@ -8,9 +8,15 @@
  *   Rotor → Gearbox      (green  #22c55e)  mechanical transmission
  *   Gearbox → Generator  (yellow #eab308)  electromagnetic conversion
  *   Generator → Converter (orange #f97316)  power electronics (split L/R)
+ *   Oil loop              (amber  #f59e0b)  4-leg closed circuit:
+ *                                             gearbox → cooler → HPU → gearbox
  *
  * Particle speed is proportional to electrical power output:
  *   speed = IDLE + SPEED_SCALE × (P / P_rated)
+ *
+ * The oil-loop stream uses the same speed scaling as a proxy for gearbox heat
+ * rejection, so when the turbine is generating more power the oil flow reads
+ * as faster — consistent with the backend cooling model's higher ΔT at rated.
  *
  * Implementation notes
  * --------------------
@@ -54,6 +60,16 @@ const SEGMENTS: Segment[] = [
   { colour: "#f97316", start: [0, 150, -5.5], end: [-3.5, 149, -3.0], count: 30, spread: 0.3 },
   // Generator → Converter starboard
   { colour: "#f97316", start: [0, 150, -5.5], end: [ 3.5, 149, -3.0], count: 30, spread: 0.3 },
+  // ── Oil-loop circuit (amber #f59e0b) — closed loop gearbox → cooler → HPU → gearbox.
+  // Secondary stream representing gear-oil flow; speed ∝ active power (ΔT proxy).
+  // Gearbox HS bearing → oil-cooler inlet (up and starboard)
+  { colour: "#f59e0b", start: [0.6, 150.0, -1.5], end: [4.5, 151.3, -3.0], count: 18, spread: 0.18 },
+  // Oil-cooler inlet → outlet header (top-run along the cooler)
+  { colour: "#f59e0b", start: [4.5, 151.3, -3.0], end: [4.5, 149.8, -3.0], count: 14, spread: 0.12 },
+  // Cooler outlet → HPU reservoir (return along starboard, downstream)
+  { colour: "#f59e0b", start: [4.5, 149.8, -3.0], end: [3.0, 148.2,  1.8], count: 18, spread: 0.15 },
+  // HPU → gearbox suction port (close the loop)
+  { colour: "#f59e0b", start: [3.0, 148.2,  1.8], end: [0.6, 150.0, -1.5], count: 18, spread: 0.18 },
 ];
 
 const TOTAL_COUNT = SEGMENTS.reduce((sum, s) => sum + s.count, 0);

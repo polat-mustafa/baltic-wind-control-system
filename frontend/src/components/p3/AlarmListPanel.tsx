@@ -51,10 +51,10 @@ const PRIORITY_STYLE: Record<AlarmPriority, { label: string; color: string; bg: 
 };
 
 const STATE_STYLE: Record<AlarmState, { label: string; color: string }> = {
-  ACTIVE: { label: "ACTIVE", color: "#ef4444" },
-  ACKNOWLEDGED: { label: "ACK", color: "#f5a623" },
-  CLEARED: { label: "CLR", color: "#6b7280" },
-  RETURN_TO_NORMAL: { label: "RTN", color: "#3ecf6e" },
+  ACTIVE: { label: "ACTIVE", color: SCADA_COLORS.ALARM_CRITICAL },
+  ACKNOWLEDGED: { label: "ACK", color: SCADA_COLORS.WARNING },
+  CLEARED: { label: "CLR", color: SCADA_COLORS.DE_ENERGIZED },
+  RETURN_TO_NORMAL: { label: "RTN", color: SCADA_COLORS.ENERGIZED },
 };
 
 // ── Event color map (matches GOOSESimPanel) ──────────────────────
@@ -584,6 +584,7 @@ function AlarmRow({
   return (
     <tr
       onClick={isGoose ? onSelect : undefined}
+      style={{ boxShadow: `inset 3px 0 0 ${pri.color}` }}
       className={cn(
         pri.bg,
         "border-b border-border-primary/50 hover:bg-bg-hover/50 transition-colors",

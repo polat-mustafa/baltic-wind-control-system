@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
 import {
   RotateCcw, Layers, Ruler, User, ScanLine, Box, Play, Pause, Wind,
   Thermometer, Radio, Zap, Cloud, Sun, Moon, Grid3x3,
-  Triangle, TrendingDown, LineChart, Activity, ChevronRight,
+  Triangle, TrendingDown, LineChart, Activity, ChevronRight, Navigation,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "../../../../lib/utils";
@@ -30,6 +30,7 @@ interface ViewerControlsProps {
   showSensorMarkers: boolean;
   showPowerFlow: boolean;
   showWindField: boolean;
+  showWindDirection: boolean;
   showWindTriangle: boolean;
   bladeFieldMode: "off" | "thermal" | "pressure" | "strain";
   showLossHUD: boolean;
@@ -44,6 +45,7 @@ interface ViewerControlsProps {
   onToggleSensors: () => void;
   onTogglePowerFlow: () => void;
   onToggleWindField: () => void;
+  onToggleWindDirection: () => void;
   onToggleWindTriangle: () => void;
   onBladeFieldModeChange: (m: "off" | "thermal" | "pressure" | "strain") => void;
   onToggleLossHUD: () => void;
@@ -112,6 +114,7 @@ export function ViewerControls({
   showSensorMarkers,
   showPowerFlow,
   showWindField,
+  showWindDirection,
   showWindTriangle,
   bladeFieldMode,
   showLossHUD,
@@ -126,6 +129,7 @@ export function ViewerControls({
   onToggleSensors,
   onTogglePowerFlow,
   onToggleWindField,
+  onToggleWindDirection,
   onToggleWindTriangle,
   onBladeFieldModeChange,
   onToggleLossHUD,
@@ -265,6 +269,14 @@ export function ViewerControls({
         >
           <Zap size={11} />
           <span>Power Flow</span>
+        </button>
+        <button
+          className={showWindDirection ? btnActive : btn}
+          onClick={onToggleWindDirection}
+          title="Always-on wind-direction arrow at hub height"
+        >
+          <Navigation size={11} />
+          <span>Wind Direction</span>
         </button>
         <button
           className={showWindField ? btnActive : btn}

@@ -81,6 +81,6 @@ describe("SubstationSLD", () => {
     });
 
     render(<SubstationSLD />);
-    expect(screen.getByText("Substation SLD")).toBeDefined();
+    expect(screen.getByText("Single-Line Diagram")).toBeDefined();
   });
 });

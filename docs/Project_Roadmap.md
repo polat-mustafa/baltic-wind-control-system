@@ -192,7 +192,7 @@ from py_wake.turbulence_models import STF2017TurbulenceModel
 
 # Turbine: Vestas V236-15.0 MW
 # - Rated: 15 MW | Diameter: 236 m | Hub: 150 m
-# - Cut-in: 3 m/s | Rated: ~12.5 m/s | Cut-out: 31 m/s
+# - Cut-in: 3 m/s | Rated: ~11.1 m/s | Cut-out: 31 m/s
 # - Ct at rated ≈ 0.28 (critical for wake deficit calculation)
 
 # Layout optimization:

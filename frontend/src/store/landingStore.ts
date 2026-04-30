@@ -299,6 +299,8 @@ interface LandingState {
   showPowerFlow: boolean;
   /** D5 — wind-field visualization (freestream arrow, streamlines, wake ribbon) */
   showWindField: boolean;
+  /** Always-on wind direction arrow (separate from heavier Wind Field overlay) */
+  showWindDirection: boolean;
   /** D5 — Pythagorean apparent-wind triangle at blade radii */
   showWindTriangle: boolean;
   /** D6 — blade surface vertex-color field (off | thermal | pressure-Cp | strain) */
@@ -319,6 +321,7 @@ interface LandingState {
   setShowSensorMarkers: (v: boolean) => void;
   setShowPowerFlow: (v: boolean) => void;
   setShowWindField: (v: boolean) => void;
+  setShowWindDirection: (v: boolean) => void;
   setShowWindTriangle: (v: boolean) => void;
   setBladeFieldMode: (m: "off" | "thermal" | "pressure" | "strain") => void;
   setShowLossHUD: (v: boolean) => void;
@@ -349,6 +352,7 @@ const VIEWER_DEFAULTS = {
   showSensorMarkers: false,
   showPowerFlow: false,
   showWindField: false,
+  showWindDirection: true,
   showWindTriangle: false,
   bladeFieldMode: "off" as const,
   showLossHUD: false,
@@ -380,6 +384,7 @@ export const useLandingStore = create<LandingState>((set) => {
     setShowSensorMarkers: (v) => set({ showSensorMarkers: v }),
     setShowPowerFlow: (v) => set({ showPowerFlow: v }),
     setShowWindField: (v) => set({ showWindField: v }),
+    setShowWindDirection: (v) => set({ showWindDirection: v }),
     setShowWindTriangle: (v) => set({ showWindTriangle: v }),
     setBladeFieldMode: (m) => set({ bladeFieldMode: m }),
     setShowLossHUD: (v) => set({ showLossHUD: v }),
@@ -427,9 +432,13 @@ export const useLandingStore = create<LandingState>((set) => {
         set((state) => {
           const newMap: Record<string, TurbineData> = {};
 
-          // Update farm-level wind direction: sinusoidal drift ±30° around 225°, ~20s period + noise
+          // Farm-level wind direction: slow ±8° drift around 225° over ~60s with EWMA smoothing.
+          // Previous generator (±30°, ±1° jitter, 20s period) produced visible flicker that
+          // desynced from the compass/arrow visually. Smoothing keeps all consumers coherent.
           const elapsed = (Date.now() - _simStartTime) / 1000;
-          _windDirDeg = (225 + 30 * Math.sin(elapsed * (2 * Math.PI / 20)) + rand(-1, 1) + 360) % 360;
+          const windDirTarget = 225 + 8 * Math.sin(elapsed * (2 * Math.PI / 60)) + rand(-0.2, 0.2);
+          const EWMA_ALPHA = 0.15;
+          _windDirDeg = ((1 - EWMA_ALPHA) * _windDirDeg + EWMA_ALPHA * windDirTarget + 360) % 360;
 
           // Update base wind speed: gradual ramp with ~12s period
           _baseWindSpeed = clamp(
@@ -456,10 +465,20 @@ export const useLandingStore = create<LandingState>((set) => {
             const newRotor = rampToward(t.rotorSpeedRpm, targetRotor, MAX_ROTOR_RAMP_RPM_PER_TICK);
             const newPitch = rampToward(t.pitchAngleDeg, targetPitch, MAX_PITCH_RAMP_DEG_PER_TICK);
 
-            // Nacelle yaw drifts slowly toward dynamic wind direction
+            // Nacelle yaw: DNV-GL 6.10.2 limits yaw rate to ≤ 1 °/s with a small deadband
+            // to prevent chatter. Tick interval is ~5s → max 5° travel per tick.
+            // Deadband: ignore errors < 0.5° (below yaw-system resolution).
+            const YAW_RATE_DEG_PER_S = 1.0;
+            const YAW_DEADBAND_DEG = 0.5;
+            const TICK_SECONDS = 5;
             const yawTarget = _windDirDeg;
-            const yawDelta = clamp((yawTarget - t.nacellePositionDeg) * 0.1, -2, 2);
-            const newYaw = (t.nacellePositionDeg + yawDelta + rand(-0.25, 0.25) + 360) % 360;
+            let yawError = yawTarget - t.nacellePositionDeg;
+            yawError = ((yawError + 540) % 360) - 180; // shortest angular path
+            const yawDelta =
+              Math.abs(yawError) < YAW_DEADBAND_DEG
+                ? 0
+                : clamp(yawError, -YAW_RATE_DEG_PER_S * TICK_SECONDS, YAW_RATE_DEG_PER_S * TICK_SECONDS);
+            const newYaw = (t.nacellePositionDeg + yawDelta + 360) % 360;
 
             // Vibration jitters (higher during fault onset)
             const baseVibr = t.status === "fault" ? rand(4, 8) : rand(0.6, 1.6);
@@ -613,6 +632,7 @@ export const selectThermalOverlay    = (state: LandingState) => state.showTherma
 export const selectSensorMarkers     = (state: LandingState) => state.showSensorMarkers;
 export const selectPowerFlow         = (state: LandingState) => state.showPowerFlow;
 export const selectWindField         = (state: LandingState) => state.showWindField;
+export const selectWindDirection     = (state: LandingState) => state.showWindDirection;
 export const selectWindTriangle      = (state: LandingState) => state.showWindTriangle;
 export const selectBladeFieldMode    = (state: LandingState) => state.bladeFieldMode;
 export const selectLossHUD           = (state: LandingState) => state.showLossHUD;

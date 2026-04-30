@@ -167,7 +167,7 @@ The two sectors receive wind with equal frequency, but the speeds are 5 and 10 m
 
 **Similarity:** Think of a water tap. If you run the water twice as fast, you increase the pressure 8 times — you can feel it when you put your hand under the faucet. Wind works the same way.
 
-**In this project:** The average Weibull A parameter of 10.5 m/s in the Baltic Sea means high energy potential due to the cubic law. The fact that V236-15.0 MW reaches nominal power at 12.5 m/s shows how compatible the wind regime in this region is with the turbine.
+**In this project:** The average Weibull A parameter of 10.5 m/s in the Baltic Sea means high energy potential due to the cubic law. The fact that V236-15.0 MW reaches nominal power at 11.1 m/s shows how compatible the wind regime in this region is with the turbine.
 
 ---
 
@@ -245,7 +245,7 @@ Think of the engine map (torque map) of a car. The harder you press the gas peda
 **IEC 61400-12-1:2017** defines the power curve measurement methodology. Each turbine manufacturer provides its certified power curve according to this standard. There are three critical speeds in the power curve:
 
 - **Cut-in:** 3 m/s — below which the turbine does not rotate
-- **Rated (nominal):** 12.5 m/s — rated power (15 MW) is reached
+- **Rated (nominal):** 11.1 m/s — rated power (15 MW) is reached
 - **Cut-out (disabled):** 31 m/s — turbine stops for safety reasons
 
 ### What We Built
@@ -541,7 +541,7 @@ graph TB
 <details>
 <summary>Reply</summary>
 
-Cut-in: 3 m/s, rated: 12.5 m/s, cut-out: 31 m/s. Ct at rated speed is approximately 0.28. The fact that Ct is very high at low speeds (~0.90) and low at high speeds indicates that the turbine draws more momentum from the wind at low speeds.
+Cut-in: 3 m/s, rated: 11.1 m/s, cut-out: 31 m/s. Ct at rated speed is approximately 0.28. The fact that Ct is very high at low speeds (~0.90) and low at high speeds indicates that the turbine draws more momentum from the wind at low speeds.
 
 </details>
 

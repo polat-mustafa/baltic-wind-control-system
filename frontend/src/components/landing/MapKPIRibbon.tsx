@@ -8,8 +8,10 @@
  * Uses ISA-101 muted colors for control room readability.
  */
 
+import { useEffect, useRef, useState } from "react";
+
 import type { FarmKPI } from "../../types/landing";
-import { Zap, Wind, Gauge, AlertTriangle, Activity, TrendingUp } from "lucide-react";
+import { Zap, Wind, Gauge, AlertTriangle, Activity, TrendingUp, Sigma, Waves, Tornado } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 interface MapKPIRibbonProps {
@@ -45,6 +47,36 @@ export default function MapKPIRibbon({ kpis, horizontal = true }: MapKPIRibbonPr
   const capacityColor = capacityPct > 80 ? "#3ecf6e" : capacityPct > 50 ? "#f5a623" : "#ef4444";
   const alertColor = kpis.activeAlerts === 0 ? "#3ecf6e" : kpis.activeAlerts > 3 ? "#ef4444" : "#f5a623";
   const freqColor = Math.abs(kpis.gridFrequencyHz - 50) < 0.05 ? "#3ecf6e" : "#f5a623";
+
+  // Derived operator KPIs (deterministic stubs — store doesn't carry these yet):
+  // Reactive Q: at low generation we boost (capacitive +Q), near rated we
+  //   absorb (inductive −Q). Same formula as the STATCOM marker for visual
+  //   consistency. Quantised to 1 MVAr.
+  const reactiveQ = Math.round(((255 - kpis.totalOutputMW) / 510) * 90);
+  const reactiveColor = Math.abs(reactiveQ) < 30 ? "#3ecf6e" : Math.abs(reactiveQ) < 80 ? "#f5a623" : "#ef4444";
+
+  // Gust speed: typical 1.3–1.5 gust factor over 10-minute mean wind.
+  const gustMs = kpis.averageWindSpeedMs * 1.4;
+  const gustColor = gustMs > 28 ? "#ef4444" : gustMs > 22 ? "#f5a623" : "#3ecf6e";
+
+  // df/dt — frequency rate of change in mHz/s. Derived by tracking the
+  // previous gridFrequencyHz value across renders. ENTSO-E NC RfG limit is
+  // ±200 mHz/s for Type D; we colour-code amber > 100, red > 200.
+  const prevFreq = useRef(kpis.gridFrequencyHz);
+  const prevTime = useRef(Date.now());
+  const [dfdt, setDfdt] = useState(0);
+  useEffect(() => {
+    const now = Date.now();
+    const dt = (now - prevTime.current) / 1000;
+    if (dt > 0.1) {
+      const rate = ((kpis.gridFrequencyHz - prevFreq.current) / dt) * 1000; // mHz/s
+      // Smooth via simple low-pass to reduce jitter from 3s tick
+      setDfdt((d) => d * 0.6 + rate * 0.4);
+      prevFreq.current = kpis.gridFrequencyHz;
+      prevTime.current = now;
+    }
+  }, [kpis.gridFrequencyHz]);
+  const dfdtColor = Math.abs(dfdt) > 200 ? "#ef4444" : Math.abs(dfdt) > 100 ? "#f5a623" : "#3ecf6e";
 
   if (!horizontal) {
     // Legacy vertical layout (kept for backward compatibility)
@@ -125,6 +157,27 @@ export default function MapKPIRibbon({ kpis, horizontal = true }: MapKPIRibbonPr
         unit="Hz"
         icon={<Activity size={12} />}
         color={freqColor}
+      />
+      <KPIChip
+        label="df/dt"
+        value={`${dfdt >= 0 ? "+" : ""}${dfdt.toFixed(0)}`}
+        unit="mHz/s"
+        icon={<Sigma size={12} />}
+        color={dfdtColor}
+      />
+      <KPIChip
+        label="Q"
+        value={`${reactiveQ >= 0 ? "+" : ""}${reactiveQ}`}
+        unit="MVAr"
+        icon={<Waves size={12} />}
+        color={reactiveColor}
+      />
+      <KPIChip
+        label="Gust"
+        value={gustMs.toFixed(1)}
+        unit="m/s"
+        icon={<Tornado size={12} />}
+        color={gustColor}
       />
     </div>
   );

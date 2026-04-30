@@ -575,11 +575,9 @@ Fifteen production-grade modules that bolt onto the core P1–P5 platform. **All
 
 ## Industry Context
 
-This platform models a wind farm sized between real Polish Baltic Sea projects:
-
-- **Baltic Power** — 1.2 GW · Orsted + PGE · operational 2026
-- **Bałtyk 2 & 3** — 1.4 GW · Equinor + Polenergia
-- **This simulation** — 510 MW (34 × 15 MW), educational scaling at realistic project size
+This platform models a wind farm sized between Polish Baltic Sea :
+ 
+- **This simulation** — 510 MW (34 × 15 MW), educational 
 
 Every parameter is real or traceable: 66 kV XLPE array cables, 220 kV HVAC export (45 km subsea + 5 km onshore), ±120 MVAR STATCOM with 50 MVAR shunt reactor, 50 MW / 200 MWh BESS, PSE grid connection at 400 kV.
 

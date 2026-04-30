@@ -13,30 +13,30 @@ import {
 
 describe("SCADA_COLORS", () => {
   it("defines all required equipment state colors", () => {
-    expect(SCADA_COLORS.ENERGIZED).toBe("#3ecf6e");
-    expect(SCADA_COLORS.DE_ENERGIZED).toBe("#6b7280");
-    expect(SCADA_COLORS.EARTHED).toBe("#22d3ee");
-    expect(SCADA_COLORS.FAULT).toBe("#ef4444");
-    expect(SCADA_COLORS.WARNING).toBe("#f5a623");
+    expect(SCADA_COLORS.ENERGIZED).toBe("#2E7D5B");
+    expect(SCADA_COLORS.DE_ENERGIZED).toBe("#8B8B8B");
+    expect(SCADA_COLORS.EARTHED).toBe("#7A4FB0");
+    expect(SCADA_COLORS.FAULT).toBe("#C8362D");
+    expect(SCADA_COLORS.WARNING).toBe("#C9A227");
   });
 
   it("defines all alarm priority colors", () => {
-    expect(SCADA_COLORS.ALARM_CRITICAL).toBe("#ef4444");
-    expect(SCADA_COLORS.ALARM_HIGH).toBe("#f97316");
-    expect(SCADA_COLORS.ALARM_MEDIUM).toBe("#eab308");
-    expect(SCADA_COLORS.ALARM_LOW).toBe("#38bdf8");
+    expect(SCADA_COLORS.ALARM_CRITICAL).toBe("#C8362D");
+    expect(SCADA_COLORS.ALARM_HIGH).toBe("#E5C100");
+    expect(SCADA_COLORS.ALARM_MEDIUM).toBe("#4FC3D8");
+    expect(SCADA_COLORS.ALARM_LOW).toBe("#5C7CB1");
   });
 
   it("defines all voltage level colors", () => {
-    expect(SCADA_COLORS.VOLTAGE_400KV).toBe("#ef4444");
-    expect(SCADA_COLORS.VOLTAGE_220KV).toBe("#3b82f6");
-    expect(SCADA_COLORS.VOLTAGE_66KV).toBe("#f97316");
-    expect(SCADA_COLORS.VOLTAGE_NEUTRAL).toBe("#6b7280");
+    expect(SCADA_COLORS.VOLTAGE_400KV).toBe("#B0413E");
+    expect(SCADA_COLORS.VOLTAGE_220KV).toBe("#4A6FA5");
+    expect(SCADA_COLORS.VOLTAGE_66KV).toBe("#B07B3E");
+    expect(SCADA_COLORS.VOLTAGE_NEUTRAL).toBe("#5A5F66");
   });
 
   it("is frozen (as const) — all values are string literals", () => {
     const keys = Object.keys(SCADA_COLORS);
-    expect(keys.length).toBe(13);
+    expect(keys.length).toBe(14);
   });
 });
 

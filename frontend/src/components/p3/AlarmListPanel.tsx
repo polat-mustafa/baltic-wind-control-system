@@ -442,7 +442,7 @@ export default function AlarmListPanel({ compact = false }: AlarmListPanelProps)
 
   const fullscreenPortal = isFullscreen
     ? createPortal(
-        <div className="fixed inset-0 z-[1000] bg-bg-primary flex flex-col">
+        <div className="fixed inset-0 z-1000 bg-bg-primary flex flex-col">
           {/* Fullscreen header */}
           <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between shrink-0 bg-bg-secondary">
             <div className="flex items-center gap-2">

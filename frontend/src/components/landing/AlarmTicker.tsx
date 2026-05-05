@@ -62,7 +62,7 @@ export default function AlarmTicker() {
                     {t.id}
                   </span>
                   {category && (
-                    <span className="text-[9px] text-[#6b7490] truncate">
+                    <span className="text-[9px] text-text-muted truncate">
                       {category.label}
                     </span>
                   )}
@@ -70,7 +70,7 @@ export default function AlarmTicker() {
               );
             })}
             {totalFaults > 5 && (
-              <div className="text-[9px] text-[#6b7490] font-mono">
+              <div className="text-[9px] text-text-muted font-mono">
                 +{totalFaults - 5} more
               </div>
             )}

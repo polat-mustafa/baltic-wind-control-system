@@ -45,7 +45,7 @@ export default function EnvironmentPanel() {
         className="flex items-center justify-between px-2.5 py-1 border-b"
         style={{ borderColor: "#2a3040" }}
       >
-        <span className="text-[10px] font-semibold tracking-wider uppercase text-[#6b7490]">
+        <span className="text-[10px] font-semibold tracking-wider uppercase text-text-muted">
           Environment
         </span>
         <span
@@ -88,8 +88,8 @@ export default function EnvironmentPanel() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between">
-      <span className="text-[#6b7490]">{label}</span>
-      <span className="text-[#e8eaf0] font-mono tabular-nums">{value}</span>
+      <span className="text-text-muted">{label}</span>
+      <span className="text-text-primary font-mono tabular-nums">{value}</span>
     </div>
   );
 }

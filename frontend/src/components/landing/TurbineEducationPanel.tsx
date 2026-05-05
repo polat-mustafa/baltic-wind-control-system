@@ -79,7 +79,7 @@ export default function TurbineEducationPanel({
       className={
         isInline
           ? "border-t px-3 py-3"
-          : "absolute z-[1100] rounded-lg shadow-2xl shadow-black/50 border overflow-y-auto"
+          : "absolute z-1100 rounded-lg shadow-2xl shadow-black/50 border overflow-y-auto"
       }
       style={
         isInline
@@ -99,12 +99,12 @@ export default function TurbineEducationPanel({
         className="px-3 py-2 border-b flex items-center justify-between"
         style={{ borderColor: "#2a3040" }}
       >
-        <div className="text-sm font-semibold text-[#e8eaf0]">
+        <div className="text-sm font-semibold text-text-primary">
           {education.title}
         </div>
         <button
           onClick={onClose}
-          className="text-[#6b7490] hover:text-[#e8eaf0] transition-colors"
+          className="text-text-muted hover:text-text-primary transition-colors"
         >
           <X size={14} />
         </button>
@@ -122,20 +122,20 @@ export default function TurbineEducationPanel({
                 className="w-2 h-2 rounded-full animate-pulse"
                 style={{ backgroundColor: "#ef4444" }}
               />
-              <span className="text-[11px] font-semibold text-[#ef4444]">
+              <span className="text-[11px] font-semibold text-status-alarm">
                 Active Fault: {faultCategory.label}
               </span>
             </div>
-            <div className="text-[10px] text-[#6b7490] space-y-0.5">
+            <div className="text-[10px] text-text-muted space-y-0.5">
               <div>
-                <span className="text-[#94a3b8]">Location:</span> {education.title}
+                <span className="text-text-secondary">Location:</span> {education.title}
               </div>
               <div>
-                <span className="text-[#94a3b8]">Probable cause:</span>{" "}
+                <span className="text-text-secondary">Probable cause:</span>{" "}
                 {faultCategory.probableCause}
               </div>
               <div>
-                <span className="text-[#94a3b8]">Action:</span>{" "}
+                <span className="text-text-secondary">Action:</span>{" "}
                 {faultCategory.recommendedAction}
               </div>
             </div>
@@ -153,17 +153,17 @@ export default function TurbineEducationPanel({
                 className="w-2 h-2 rounded-full animate-pulse"
                 style={{ backgroundColor: "#f5a623" }}
               />
-              <span className="text-[11px] font-semibold text-[#f5a623]">
+              <span className="text-[11px] font-semibold text-status-warning">
                 {curtailmentInfo.label}
               </span>
             </div>
-            <div className="text-[10px] text-[#6b7490] space-y-0.5">
+            <div className="text-[10px] text-text-muted space-y-0.5">
               <div>{curtailmentInfo.explanation}</div>
               <div className="mt-1 pt-1 border-t" style={{ borderColor: "rgba(245,166,35,0.15)" }}>
-                <span className="text-[#f5a623] text-[9px] font-semibold uppercase tracking-wider">
+                <span className="text-status-warning text-[9px] font-semibold uppercase tracking-wider">
                   Engineering Note
                 </span>
-                <div className="mt-0.5 text-[#9ba3b8]">{curtailmentInfo.educationalNote}</div>
+                <div className="mt-0.5 text-text-secondary">{curtailmentInfo.educationalNote}</div>
               </div>
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function TurbineEducationPanel({
 
         {/* ── Overview ── */}
         <Section title="Overview">
-          <p className="text-[11px] text-[#9ba3b8] leading-relaxed">
+          <p className="text-[11px] text-text-secondary leading-relaxed">
             {education.overview}
           </p>
         </Section>
@@ -192,7 +192,7 @@ export default function TurbineEducationPanel({
                   }}
                 >
                   <div
-                    className="px-2 py-1.5 font-mono text-[11px] text-[#e8eaf0]"
+                    className="px-2 py-1.5 font-mono text-[11px] text-text-primary"
                     style={{ fontFamily: "JetBrains Mono, monospace" }}
                   >
                     {f.expression}
@@ -208,13 +208,13 @@ export default function TurbineEducationPanel({
                           className="flex items-baseline gap-1.5 text-[10px]"
                         >
                           <span
-                            className="text-[#3b82f6] font-mono shrink-0"
+                            className="text-accent font-mono shrink-0"
                             style={{ fontFamily: "JetBrains Mono, monospace" }}
                           >
                             {v.symbol}
                           </span>
-                          <span className="text-[#6b7490]">{v.name}</span>
-                          <span className="text-[#4a5580] ml-auto shrink-0">
+                          <span className="text-text-muted">{v.name}</span>
+                          <span className="text-border-accent ml-auto shrink-0">
                             [{v.unit}]
                           </span>
                         </div>
@@ -222,7 +222,7 @@ export default function TurbineEducationPanel({
                     </div>
                   )}
                   <div
-                    className="px-2 pb-1.5 text-[10px] text-[#6b7490] leading-relaxed border-t"
+                    className="px-2 pb-1.5 text-[10px] text-text-muted leading-relaxed border-t"
                     style={{ borderColor: "#2a3040" }}
                   >
                     {f.explanation}
@@ -237,7 +237,7 @@ export default function TurbineEducationPanel({
         <Section title="V236-15.0 Design">
           <div className="space-y-1.5">
             <div
-              className="rounded px-2 py-1.5 text-[11px] font-mono text-[#e8eaf0]"
+              className="rounded px-2 py-1.5 text-[11px] font-mono text-text-primary"
               style={{
                 backgroundColor: "#1e2231",
                 fontFamily: "JetBrains Mono, monospace",
@@ -245,7 +245,7 @@ export default function TurbineEducationPanel({
             >
               {education.design.v236Value}
             </div>
-            <p className="text-[10px] text-[#9ba3b8] leading-relaxed">
+            <p className="text-[10px] text-text-secondary leading-relaxed">
               {education.design.reasoning}
             </p>
             <div className="flex flex-wrap gap-1">
@@ -274,13 +274,13 @@ export default function TurbineEducationPanel({
                   key={e.name}
                   className="flex items-center justify-between text-[10px]"
                 >
-                  <span className="text-[#9ba3b8]">{e.name}</span>
-                  <span className="font-mono text-[#f5a623]" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+                  <span className="text-text-secondary">{e.name}</span>
+                  <span className="font-mono text-status-warning" style={{ fontFamily: "JetBrains Mono, monospace" }}>
                     {e.typicalLossPct}
                   </span>
                 </div>
               ))}
-              <div className="text-[9px] text-[#4a5580] mt-0.5">
+              <div className="text-[9px] text-border-accent mt-0.5">
                 {education.efficiencyNotes.map((e) => e.dissipation).join(" | ")}
               </div>
             </div>
@@ -316,7 +316,7 @@ export default function TurbineEducationPanel({
           onToggle={() => setShowSimple(!showSimple)}
           borderColor="#3ecf6e"
         >
-          <p className="text-[11px] text-[#9ba3b8] leading-relaxed">
+          <p className="text-[11px] text-text-secondary leading-relaxed">
             {education.simpleExplanation}
           </p>
         </CollapsibleSection>
@@ -328,7 +328,7 @@ export default function TurbineEducationPanel({
           onToggle={() => setShowTechnical(!showTechnical)}
           borderColor="#3b82f6"
         >
-          <p className="text-[11px] text-[#9ba3b8] leading-relaxed">
+          <p className="text-[11px] text-text-secondary leading-relaxed">
             {education.technicalExplanation}
           </p>
         </CollapsibleSection>
@@ -350,7 +350,7 @@ function Section({
 }) {
   return (
     <div>
-      <div className="text-[10px] text-[#6b7490] uppercase tracking-wider mb-1">
+      <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
         {title}
       </div>
       {children}
@@ -382,7 +382,7 @@ function CollapsibleSection({
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-2 py-1.5 text-[10px] text-[#9ba3b8] hover:text-[#e8eaf0] transition-colors"
+        className="w-full flex items-center justify-between px-2 py-1.5 text-[10px] text-text-secondary hover:text-text-primary transition-colors"
       >
         <span className="uppercase tracking-wider">{title}</span>
         {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}

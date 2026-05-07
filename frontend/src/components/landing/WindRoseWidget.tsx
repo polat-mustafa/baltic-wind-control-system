@@ -119,7 +119,7 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="absolute z-[1000] flex items-center gap-1.5 px-2 py-1.5 bg-bg-secondary/85 backdrop-blur-md border border-border-primary rounded-md shadow-lg shadow-black/30 hover:bg-bg-hover transition-colors pointer-events-auto"
+        className="absolute z-1000 flex items-center gap-1.5 px-2 py-1.5 bg-bg-secondary/85 backdrop-blur-md border border-border-primary rounded-md shadow-lg shadow-black/30 hover:bg-bg-hover transition-colors pointer-events-auto"
         style={{ left: pos.x, top: pos.y }}
         aria-label="Open wind rose"
         title="Open wind rose"
@@ -132,7 +132,7 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
 
   return (
     <div
-      className="absolute z-[1000] select-none pointer-events-auto"
+      className="absolute z-1000 select-none pointer-events-auto"
       style={{ left: pos.x, top: pos.y }}
     >
       <div className="bg-bg-secondary/85 backdrop-blur-md border border-border-primary rounded-lg shadow-lg shadow-black/30">

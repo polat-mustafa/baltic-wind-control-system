@@ -511,7 +511,7 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full rounded-lg overflow-hidden border border-border-primary bg-[#06090f] focus:outline-none"
+      className="relative w-full h-full rounded-lg overflow-hidden border border-border-primary bg-bg-primary focus:outline-none"
       // Stop wheel events from bubbling to the underlying Leaflet map / page
       // scroller. Without this, scrolling over the canvas also scrolls the
       // farm overview behind it instead of zooming the turbine.

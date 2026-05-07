@@ -30,6 +30,7 @@ import {
   EXPORT_CABLE_GEO,
   FARM_CENTER_GEO,
   FARM_DEFAULT_ZOOM,
+  LIDAR_GEO,
   ONSHORE_GEO,
   OSS_GEO,
   PSE_GRID_LINE_GEO,
@@ -148,7 +149,8 @@ function createTurbineIcon(
         ? `<circle cx="0" cy="0" r="6" fill="${color}" opacity="0.08"><animate attributeName="opacity" values="0.05;0.18;0.05" dur="3s" repeatCount="indefinite" /></circle>`
         : "";
 
-  const BLADE = "M 0,0 C -1.2,-3 -1.8,-8 -1,-13 L 0,-15 L 1,-13 C 1.4,-8 0.8,-3 0,0 Z";
+  const BLADE =
+    "M 0,0 C -1.2,-3 -1.8,-8 -1,-13 L 0,-15 L 1,-13 C 1.4,-8 0.8,-3 0,0 Z";
 
   // Yaw compass — faint dashed ring + N-arrow rotated to nacelle yaw
   const yawCompass = `
@@ -231,26 +233,32 @@ const TurbineMarker = memo(function TurbineMarker({
   const yawQ = Math.round((turbine?.nacellePositionDeg ?? 225) / 5) * 5;
   const pitchQ = Math.round(turbine?.pitchAngleDeg ?? 0);
   const icon = useMemo(
-    () => createTurbineIcon(turbine?.status ?? "offline", shortId, isSelected, yawQ, pitchQ),
+    () =>
+      createTurbineIcon(
+        turbine?.status ?? "offline",
+        shortId,
+        isSelected,
+        yawQ,
+        pitchQ,
+      ),
     [turbine?.status, shortId, isSelected, yawQ, pitchQ],
   );
 
   // Stable event handler object — prevents react-leaflet from unbinding/rebinding
   // listeners on every render (onHover/onLeave/onClick are useCallback([]) in parent)
-  const eventHandlers = useMemo(() => ({
-    mouseover: () => onHover(turbineId),
-    mouseout: () => onLeave(),
-    click: () => onClick(turbineId),
-  }), [turbineId, onHover, onLeave, onClick]);
+  const eventHandlers = useMemo(
+    () => ({
+      mouseover: () => onHover(turbineId),
+      mouseout: () => onLeave(),
+      click: () => onClick(turbineId),
+    }),
+    [turbineId, onHover, onLeave, onClick],
+  );
 
   if (!turbine) return null;
 
   return (
-    <Marker
-      position={[lat, lon]}
-      icon={icon}
-      eventHandlers={eventHandlers}
-    >
+    <Marker position={[lat, lon]} icon={icon} eventHandlers={eventHandlers}>
       <Tooltip
         direction="right"
         offset={[20, 0]}
@@ -258,28 +266,49 @@ const TurbineMarker = memo(function TurbineMarker({
         permanent={false}
       >
         <div
-          className="rounded-md border overflow-hidden"
-          style={{
-            backgroundColor: "#0f1117",
-            borderColor: "#2a3040",
-            minWidth: 180,
-          }}
+          className="rounded-md border border-border-primary bg-bg-primary overflow-hidden"
+          style={{ minWidth: 180 }}
         >
-          <div
-            className="px-2 py-1 border-b flex items-center justify-between"
-            style={{ borderColor: "#2a3040" }}
-          >
-            <span className="font-semibold text-xs text-[#e8eaf0]">{turbine.id}</span>
-            <span className="flex items-center gap-1 text-[10px] font-medium" style={{ color: STATUS_COLOR[turbine.status] }}>
-              <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: STATUS_COLOR[turbine.status] }} />
+          <div className="px-2 py-1 border-b border-border-primary flex items-center justify-between">
+            <span className="font-semibold text-xs text-text-primary">
+              {turbine.id}
+            </span>
+            <span
+              className="flex items-center gap-1 text-[10px] font-medium"
+              style={{ color: STATUS_COLOR[turbine.status] }}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full inline-block"
+                style={{ backgroundColor: STATUS_COLOR[turbine.status] }}
+              />
               {turbine.status}
             </span>
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-2 py-1.5 text-[10px]">
-            <div className="flex justify-between"><span className="text-[#6b7490]">Power</span><span className="text-[#e8eaf0] font-mono tabular-nums">{turbine.powerOutputMW.toFixed(1)} MW</span></div>
-            <div className="flex justify-between"><span className="text-[#6b7490]">Wind</span><span className="text-[#e8eaf0] font-mono tabular-nums">{turbine.windSpeedMs.toFixed(1)} m/s</span></div>
-            <div className="flex justify-between"><span className="text-[#6b7490]">Rotor</span><span className="text-[#e8eaf0] font-mono tabular-nums">{turbine.rotorSpeedRpm.toFixed(1)} rpm</span></div>
-            <div className="flex justify-between"><span className="text-[#6b7490]">Pitch</span><span className="text-[#e8eaf0] font-mono tabular-nums">{turbine.pitchAngleDeg.toFixed(1)}°</span></div>
+            <div className="flex justify-between">
+              <span className="text-text-muted">Power</span>
+              <span className="text-text-primary font-mono tabular-nums">
+                {turbine.powerOutputMW.toFixed(1)} MW
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-muted">Wind</span>
+              <span className="text-text-primary font-mono tabular-nums">
+                {turbine.windSpeedMs.toFixed(1)} m/s
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-muted">Rotor</span>
+              <span className="text-text-primary font-mono tabular-nums">
+                {turbine.rotorSpeedRpm.toFixed(1)} rpm
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-muted">Pitch</span>
+              <span className="text-text-primary font-mono tabular-nums">
+                {turbine.pitchAngleDeg.toFixed(1)}°
+              </span>
+            </div>
           </div>
         </div>
       </Tooltip>
@@ -424,7 +453,11 @@ function createGridSwitchyardIcon(breakerClosed: boolean = true): L.DivIcon {
 function createSTATCOMIcon(qMVAR: number): L.DivIcon {
   const isInjecting = qMVAR > 5;
   const isAbsorbing = qMVAR < -5;
-  const liveColor = isInjecting ? "#f59e0b" : isAbsorbing ? "#06b6d4" : "#64748b";
+  const liveColor = isInjecting
+    ? "#f59e0b"
+    : isAbsorbing
+      ? "#06b6d4"
+      : "#64748b";
   const dimColor = "#475569";
   const fillBg = "#0d1017";
   const qLabel = `${qMVAR >= 0 ? "+" : ""}${qMVAR.toFixed(0)} MVAr`;
@@ -455,16 +488,24 @@ function createSTATCOMIcon(qMVAR: number): L.DivIcon {
 
     <!-- IGBT valve container — 4 modules (MMC SM half-bridges) -->
     <rect x="-18" y="-7" width="20" height="12" rx="1" fill="#0a1018" stroke="${liveColor}" stroke-width="0.7"/>
-    ${[-14, -10, -6, -2].map((cx, i) => `
+    ${[-14, -10, -6, -2]
+      .map(
+        (cx, i) => `
       <rect x="${cx - 1.5}" y="${-5}" width="3" height="8" fill="${liveColor}" fill-opacity="${isInjecting || isAbsorbing ? 0.55 + i * 0.08 : 0.18}" stroke="${dimColor}" stroke-width="0.3"/>
-    `).join("")}
+    `,
+      )
+      .join("")}
 
     <!-- Capacitor bank — 4 stacked plates, IEC capacitor pairs -->
     <g transform="translate(8 -1)">
-      ${[-5, 0, 5].map((cy) => `
+      ${[-5, 0, 5]
+        .map(
+          (cy) => `
         <line x1="-3" y1="${cy - 0.6}" x2="3" y2="${cy - 0.6}" stroke="${liveColor}" stroke-width="0.9"/>
         <line x1="-3" y1="${cy + 0.6}" x2="3" y2="${cy + 0.6}" stroke="${liveColor}" stroke-width="0.9"/>
-      `).join("")}
+      `,
+        )
+        .join("")}
       <!-- vertical bus connecting the cap stack -->
       <line x1="0" y1="-7" x2="0" y2="7" stroke="${liveColor}" stroke-width="0.6" opacity="0.7"/>
     </g>
@@ -478,9 +519,11 @@ function createSTATCOMIcon(qMVAR: number): L.DivIcon {
     </g>
 
     <!-- Status LED (solid pulse only when active) -->
-    ${isInjecting || isAbsorbing
-      ? `<circle cx="32" cy="-9" r="1.6" fill="${liveColor}"><animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/></circle>`
-      : `<circle cx="32" cy="-9" r="1.6" fill="${dimColor}" opacity="0.6"/>`}
+    ${
+      isInjecting || isAbsorbing
+        ? `<circle cx="32" cy="-9" r="1.6" fill="${liveColor}"><animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/></circle>`
+        : `<circle cx="32" cy="-9" r="1.6" fill="${dimColor}" opacity="0.6"/>`
+    }
 
     <!-- Mode badge -->
     <rect x="36" y="-12" width="20" height="6" rx="1" fill="${fillBg}" stroke="${liveColor}" stroke-width="0.5"/>
@@ -492,11 +535,13 @@ function createSTATCOMIcon(qMVAR: number): L.DivIcon {
     <rect x="14" y="16" width="42" height="6" fill="#0a1018" stroke="#3d4560" stroke-width="0.5"/>
     <line x1="35" y1="16" x2="35" y2="22" stroke="#3d4560" stroke-width="0.4"/>
     <!-- Q fill: from centre toward injection (right) or absorption (left) -->
-    ${qMVAR > 0
-      ? `<rect x="35" y="16.8" width="${(qFrac * 21).toFixed(1)}" height="4.4" fill="${barColor}" opacity="0.85"/>`
-      : qMVAR < 0
-        ? `<rect x="${(35 - qFrac * 21).toFixed(1)}" y="16.8" width="${(qFrac * 21).toFixed(1)}" height="4.4" fill="${barColor}" opacity="0.85"/>`
-        : ""}
+    ${
+      qMVAR > 0
+        ? `<rect x="35" y="16.8" width="${(qFrac * 21).toFixed(1)}" height="4.4" fill="${barColor}" opacity="0.85"/>`
+        : qMVAR < 0
+          ? `<rect x="${(35 - qFrac * 21).toFixed(1)}" y="16.8" width="${(qFrac * 21).toFixed(1)}" height="4.4" fill="${barColor}" opacity="0.85"/>`
+          : ""
+    }
     <text x="14" y="29" fill="#64748b" font-size="3" font-family="monospace">−120</text>
     <text x="35" y="29" text-anchor="middle" fill="#64748b" font-size="3" font-family="monospace">0</text>
     <text x="56" y="29" text-anchor="end" fill="#64748b" font-size="3" font-family="monospace">+120</text>
@@ -518,7 +563,8 @@ function createSTATCOMIcon(qMVAR: number): L.DivIcon {
 // the LIDARDetailPanel that opens on click. Keeping the marker small lets
 // it sit in the seascape without dwarfing the turbine icons.
 function createMetMastIcon(windMs: number, _windDir: number): L.DivIcon {
-  const speedColor = windMs > 25 ? "#ef4444" : windMs > 15 ? "#f5a623" : "#3ecf6e";
+  const speedColor =
+    windMs > 25 ? "#ef4444" : windMs > 15 ? "#f5a623" : "#3ecf6e";
 
   // 64 × 88 px — sits comfortably between turbine markers (40×56) and the
   // OSS/onshore substation (~80 px). Pulsing halo draws the eye to clear
@@ -583,7 +629,6 @@ function createMetMastIcon(windMs: number, _windDir: number): L.DivIcon {
     iconAnchor: [32, 22], // anchor at the buoy waterline (y=10 + 12 viewBox offset)
   });
 }
-
 
 // ── Onshore Substation Marker Icon (IEC 60617 HVAC Transformer) ─
 function createOnshoreIcon(): L.DivIcon {
@@ -679,27 +724,117 @@ function createOnshoreIcon(): L.DivIcon {
 function WindCompass() {
   const kpis = useLandingStore(selectKPIs);
   const windDirDeg = kpis.windDirectionDeg;
-  const cardinals = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  const cardinals = [
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
+  ];
   const windCardinal = cardinals[Math.round(windDirDeg / 22.5) % 16];
 
   return (
-    <div className="absolute top-14 right-3 z-[1000] pointer-events-none">
+    <div className="absolute top-14 right-3 z-1000 pointer-events-none">
       <svg width="72" height="90" viewBox="-36 -36 72 90">
-        <circle cx={0} cy={0} r={32} fill="rgba(15,17,23,0.85)" stroke="#3d4560" strokeWidth={1} />
-        <line x1={0} y1={-30} x2={0} y2={-24} stroke="#ef4444" strokeWidth={1.5} />
+        <circle
+          cx={0}
+          cy={0}
+          r={32}
+          fill="rgba(15,17,23,0.85)"
+          stroke="#3d4560"
+          strokeWidth={1}
+        />
+        <line
+          x1={0}
+          y1={-30}
+          x2={0}
+          y2={-24}
+          stroke="#ef4444"
+          strokeWidth={1.5}
+        />
         <line x1={0} y1={30} x2={0} y2={24} stroke="#4a5568" strokeWidth={1} />
         <line x1={30} y1={0} x2={24} y2={0} stroke="#4a5568" strokeWidth={1} />
-        <line x1={-30} y1={0} x2={-24} y2={0} stroke="#4a5568" strokeWidth={1} />
-        <text x={0} y={-20} fill="#ef4444" fontSize={7} fontWeight="700" textAnchor="middle" dominantBaseline="middle">N</text>
-        <text x={0} y={21} fill="#6b7490" fontSize={6} textAnchor="middle" dominantBaseline="middle">S</text>
-        <text x={20} y={1} fill="#6b7490" fontSize={6} textAnchor="middle" dominantBaseline="middle">E</text>
-        <text x={-20} y={1} fill="#6b7490" fontSize={6} textAnchor="middle" dominantBaseline="middle">W</text>
+        <line
+          x1={-30}
+          y1={0}
+          x2={-24}
+          y2={0}
+          stroke="#4a5568"
+          strokeWidth={1}
+        />
+        <text
+          x={0}
+          y={-20}
+          fill="#ef4444"
+          fontSize={7}
+          fontWeight="700"
+          textAnchor="middle"
+          dominantBaseline="middle"
+        >
+          N
+        </text>
+        <text
+          x={0}
+          y={21}
+          fill="#6b7490"
+          fontSize={6}
+          textAnchor="middle"
+          dominantBaseline="middle"
+        >
+          S
+        </text>
+        <text
+          x={20}
+          y={1}
+          fill="#6b7490"
+          fontSize={6}
+          textAnchor="middle"
+          dominantBaseline="middle"
+        >
+          E
+        </text>
+        <text
+          x={-20}
+          y={1}
+          fill="#6b7490"
+          fontSize={6}
+          textAnchor="middle"
+          dominantBaseline="middle"
+        >
+          W
+        </text>
         <g transform={`rotate(${windDirDeg + 180})`}>
-          <line x1={0} y1={14} x2={0} y2={-14} stroke="#3b82f6" strokeWidth={2} strokeLinecap="round" />
+          <line
+            x1={0}
+            y1={14}
+            x2={0}
+            y2={-14}
+            stroke="#3b82f6"
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
           <polygon points="0,-17 -4,-10 4,-10" fill="#3b82f6" />
           <circle cx={0} cy={0} r={2.5} fill="#3b82f6" opacity={0.6} />
         </g>
-        <text x={0} y={44} fill="#94a3b8" fontSize={8} textAnchor="middle" fontFamily="JetBrains Mono, monospace">
+        <text
+          x={0}
+          y={44}
+          fill="#94a3b8"
+          fontSize={8}
+          textAnchor="middle"
+          fontFamily="JetBrains Mono, monospace"
+        >
           {windCardinal} {kpis.averageWindSpeedMs.toFixed(1)} m/s
         </text>
       </svg>
@@ -709,10 +844,10 @@ function WindCompass() {
 
 // ── Exclusion Zone Polygon (farm boundary) ────────────────────────
 const EXCLUSION_ZONE: [number, number][] = [
-  [54.7950, 16.3100],
-  [54.7950, 16.4850],
-  [54.7050, 16.4850],
-  [54.7050, 16.3100],
+  [54.795, 16.31],
+  [54.795, 16.485],
+  [54.705, 16.485],
+  [54.705, 16.31],
 ];
 
 // ── Array cable polylines (66 kV within each string) ──────────────
@@ -734,7 +869,13 @@ function loadColor(loadFrac: number): string {
 function ArrayCables() {
   // Compute per-cable load: each segment carries the sum of all turbines
   // downstream on the string (between this segment and the OSS).
-  const lines: { positions: [number, number][]; key: string; loadFrac: number; cumMW: number; isCollector: boolean }[] = [];
+  const lines: {
+    positions: [number, number][];
+    key: string;
+    loadFrac: number;
+    cumMW: number;
+    isCollector: boolean;
+  }[] = [];
 
   for (const cp of STRING_COLLECTION_POINTS) {
     const stringTurbines = TURBINE_POSITIONS.filter(
@@ -753,7 +894,10 @@ function ArrayCables() {
       const cumMW = i * FULL_TURBINE_MW * 0.78; // typical 78% capacity factor
       const loadFrac = cumMW / CABLE_RATING_MVA;
       lines.push({
-        positions: [[prev.lat, prev.lon], [curr.lat, curr.lon]],
+        positions: [
+          [prev.lat, prev.lon],
+          [curr.lat, curr.lon],
+        ],
         key: `cable-${prev.id}-${curr.id}`,
         loadFrac,
         cumMW,
@@ -764,7 +908,10 @@ function ArrayCables() {
     const last = stringTurbines[stringTurbines.length - 1];
     const stringTotalMW = stringLength * FULL_TURBINE_MW * 0.78;
     lines.push({
-      positions: [[last.lat, last.lon], [OSS_GEO.lat, OSS_GEO.lon]],
+      positions: [
+        [last.lat, last.lon],
+        [OSS_GEO.lat, OSS_GEO.lon],
+      ],
       key: `string-${cp.stringNumber}-oss`,
       loadFrac: stringTotalMW / CABLE_RATING_MVA,
       cumMW: stringTotalMW,
@@ -785,12 +932,22 @@ function ArrayCables() {
             dashArray: line.isCollector ? "6 6" : undefined,
           }}
         >
-          <Tooltip direction="top" sticky offset={[0, -2]} className="leaflet-cable-tooltip">
+          <Tooltip
+            direction="top"
+            sticky
+            offset={[0, -2]}
+            className="leaflet-cable-tooltip"
+          >
             <div className="text-[10px] font-mono text-text-secondary">
-              <div className="font-bold mb-0.5" style={{ color: loadColor(line.loadFrac) }}>
+              <div
+                className="font-bold mb-0.5"
+                style={{ color: loadColor(line.loadFrac) }}
+              >
                 {line.cumMW.toFixed(1)} MW · {(line.loadFrac * 100).toFixed(0)}%
               </div>
-              <div className="text-text-muted">{line.isCollector ? "String → OSS" : "Inter-WTG"}</div>
+              <div className="text-text-muted">
+                {line.isCollector ? "String → OSS" : "Inter-WTG"}
+              </div>
               <div className="text-text-muted">3×1×400mm² Cu · 66 kV</div>
             </div>
           </Tooltip>
@@ -830,10 +987,9 @@ function YawUpdater() {
   const kpis = useLandingStore(selectKPIs);
 
   useEffect(() => {
-    map.getContainer().style.setProperty(
-      "--wind-yaw",
-      `${kpis.windDirectionDeg}deg`,
-    );
+    map
+      .getContainer()
+      .style.setProperty("--wind-yaw", `${kpis.windDirectionDeg}deg`);
   }, [map, kpis.windDirectionDeg]);
 
   return null;
@@ -858,7 +1014,9 @@ function TurbineZoomScaler() {
     }
     applyZoomClass();
     map.on("zoomend", applyZoomClass);
-    return () => { map.off("zoomend", applyZoomClass); };
+    return () => {
+      map.off("zoomend", applyZoomClass);
+    };
   }, [map]);
 
   return null;
@@ -872,7 +1030,9 @@ function FoundationLayer() {
   useEffect(() => {
     const onZoom = () => setZoom(map.getZoom());
     map.on("zoomend", onZoom);
-    return () => { map.off("zoomend", onZoom); };
+    return () => {
+      map.off("zoomend", onZoom);
+    };
   }, [map]);
 
   if (zoom < 14) return null;
@@ -898,8 +1058,14 @@ function FoundationLayer() {
 }
 
 // ── Static polyline paths (derived from constants, never change) ─
-const EXPORT_CABLE_PATH: [number, number][] = EXPORT_CABLE_GEO.map((p) => [p.lat, p.lon]);
-const PSE_GRID_PATH: [number, number][] = PSE_GRID_LINE_GEO.map((p) => [p.lat, p.lon]);
+const EXPORT_CABLE_PATH: [number, number][] = EXPORT_CABLE_GEO.map((p) => [
+  p.lat,
+  p.lon,
+]);
+const PSE_GRID_PATH: [number, number][] = PSE_GRID_LINE_GEO.map((p) => [
+  p.lat,
+  p.lon,
+]);
 
 // ── Props ────────────────────────────────────────────────────────
 interface LeafletWindFarmMapProps {
@@ -930,8 +1096,10 @@ function LeafletWindFarmMapInner({
   // at low generation, the unit is in capacitive (boosting) mode to support
   // voltage; near full output, it absorbs the natural Q overshoot. Quantised
   // to 5 MVAr so the icon doesn't recreate on every tick.
-  const statcomQRaw = ((255 - totalPowerMW) / 510) * 90 + (Math.random() < 0.001 ? 0 : 0);
-  const statcomQ = Math.round(Math.max(-120, Math.min(120, statcomQRaw)) / 5) * 5;
+  const statcomQRaw =
+    ((255 - totalPowerMW) / 510) * 90 + (Math.random() < 0.001 ? 0 : 0);
+  const statcomQ =
+    Math.round(Math.max(-120, Math.min(120, statcomQRaw)) / 5) * 5;
   const statcomIcon = useMemo(() => createSTATCOMIcon(statcomQ), [statcomQ]);
   // Grid switchyard breaker is closed whenever the farm is exporting power.
   const switchyardIcon = useMemo(
@@ -954,8 +1122,14 @@ function LeafletWindFarmMapInner({
 
   // Stable event handler objects for non-turbine markers
   const ossHandlers = useMemo(() => ({ click: onOSSClick }), [onOSSClick]);
-  const onshoreHandlers = useMemo(() => ({ click: onOnshoreClick }), [onOnshoreClick]);
-  const cableHandlers = useMemo(() => ({ click: onCableClick }), [onCableClick]);
+  const onshoreHandlers = useMemo(
+    () => ({ click: onOnshoreClick }),
+    [onOnshoreClick],
+  );
+  const cableHandlers = useMemo(
+    () => ({ click: onCableClick }),
+    [onCableClick],
+  );
   const statcomHandlers = useMemo(
     () => (onSTATCOMClick ? { click: onSTATCOMClick } : {}),
     [onSTATCOMClick],
@@ -966,7 +1140,10 @@ function LeafletWindFarmMapInner({
   );
 
   return (
-    <div className="relative w-full h-full rounded-lg overflow-hidden border border-border-primary shadow-lg shadow-black/20" style={{ minHeight: 450 }}>
+    <div
+      className="relative w-full h-full rounded-lg overflow-hidden border border-border-primary shadow-lg shadow-black/20"
+      style={{ minHeight: 450 }}
+    >
       <MapContainer
         center={FARM_CENTER_GEO}
         zoom={FARM_DEFAULT_ZOOM}
@@ -1082,13 +1259,12 @@ function LeafletWindFarmMapInner({
           zIndexOffset={950}
         />
 
-        {/* Floating LIDAR met mast — placed in clear water NW of the wind
-            farm cluster (~2.5 km offset), well away from turbines so the
-            marker doesn't get lost in the icon swarm. zIndex above turbines
-            so it always stays on top.
+        {/* Floating LIDAR met mast — placed in clear water northwest of the
+            turbine array, outside the marker swarm and turbine wake field.
+            zIndex above turbines so it remains discoverable.
             Provides independent wind validation per IEC 61400-12-1. */}
         <Marker
-          position={[FARM_CENTER_GEO[0] + 0.045, FARM_CENTER_GEO[1] - 0.22]}
+          position={[LIDAR_GEO.lat, LIDAR_GEO.lon]}
           icon={metMastIcon}
           eventHandlers={metMastHandlers}
           zIndexOffset={1100}
@@ -1128,7 +1304,7 @@ function LeafletWindFarmMapInner({
       <LayerControlPanel />
 
       {/* Bottom-left panels (flex column to prevent overlap) */}
-      <div className="absolute bottom-3 left-3 z-[1000] flex flex-col gap-2 pointer-events-none">
+      <div className="absolute bottom-3 left-3 z-1000 flex flex-col gap-2 pointer-events-none">
         <EnvironmentPanel />
         <MapLegend />
         <AlarmTicker />

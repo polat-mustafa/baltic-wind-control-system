@@ -43,10 +43,10 @@ function valueColor(value: number, warnThreshold: number, alarmThreshold: number
 function Row({ label, value, unit, color }: { label: string; value: string; unit: string; color?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span className="text-[#6b7490] text-[10px]">{label}</span>
+      <span className="text-text-muted text-[10px]">{label}</span>
       <span className="font-mono tabular-nums text-[11px] font-medium" style={{ color: color ?? "#e8eaf0" }}>
         {value}
-        <span className="text-[#6b7490] text-[9px] ml-0.5">{unit}</span>
+        <span className="text-text-muted text-[9px] ml-0.5">{unit}</span>
       </span>
     </div>
   );
@@ -72,7 +72,7 @@ export default function TurbineTooltip({ turbine, position }: TurbineTooltipProp
     >
       {/* Header */}
       <div className="px-3 py-1.5 border-b flex items-center justify-between" style={{ borderColor: "#2a3040" }}>
-        <span className="font-semibold text-sm text-[#e8eaf0]">{t.id}</span>
+        <span className="font-semibold text-sm text-text-primary">{t.id}</span>
         <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: sColor }}>
           <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: sColor }} />
           {STATUS_LABEL[t.status]}
@@ -88,18 +88,18 @@ export default function TurbineTooltip({ turbine, position }: TurbineTooltipProp
               {faultCategory.label}
             </span>
           </div>
-          <div className="text-[9px] text-[#6b7490] space-y-0.5">
+          <div className="text-[9px] text-text-muted space-y-0.5">
             <div>
-              <span className="text-[#94a3b8]">Priority:</span>{" "}
+              <span className="text-text-secondary">Priority:</span>{" "}
               <span style={{ color: faultCategory.priority === "CRITICAL" ? SCADA_COLORS.FAULT : faultCategory.priority === "HIGH" ? SCADA_COLORS.WARNING : "#e8eaf0" }}>
                 {faultCategory.priority}
               </span>
             </div>
             <div>
-              <span className="text-[#94a3b8]">Cause:</span> {faultCategory.probableCause}
+              <span className="text-text-secondary">Cause:</span> {faultCategory.probableCause}
             </div>
             <div>
-              <span className="text-[#94a3b8]">Action:</span> {faultCategory.recommendedAction}
+              <span className="text-text-secondary">Action:</span> {faultCategory.recommendedAction}
             </div>
           </div>
         </div>
@@ -134,7 +134,7 @@ export default function TurbineTooltip({ turbine, position }: TurbineTooltipProp
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-1 border-t text-[9px] text-[#6b7490] font-mono" style={{ borderColor: "#2a3040" }}>
+      <div className="px-3 py-1 border-t text-[9px] text-text-muted font-mono" style={{ borderColor: "#2a3040" }}>
         String {t.stringNumber} · {faultCategory ? "Click for fault details" : "Click for details"}
       </div>
     </div>

@@ -14,7 +14,13 @@
 
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Monitor, Brain, ClipboardCheck, Maximize2, Minimize2 } from "lucide-react";
+import {
+  Monitor,
+  Brain,
+  ClipboardCheck,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 
 import MapKPIRibbon from "../components/landing/MapKPIRibbon";
 import { WindRoseWidget } from "../components/landing/WindRoseWidget";
@@ -64,8 +70,9 @@ function ConnectedTurbineDetailPanel({
     <>
       {/* 3D Viewer — to the left of the detail panel */}
       <div
-        className="absolute z-[1050]"
+        className="absolute"
         style={{
+          zIndex: 1050,
           left: VIEWER_LEFT,
           top: VIEWER_TOP,
           width: VIEWER_W,
@@ -75,7 +82,9 @@ function ConnectedTurbineDetailPanel({
         <Suspense
           fallback={
             <div className="w-full h-full rounded-lg border border-border-primary bg-bg-secondary flex items-center justify-center">
-              <span className="text-[11px] text-text-muted font-mono">Loading 3D viewer…</span>
+              <span className="text-[11px] text-text-muted font-mono">
+                Loading 3D viewer…
+              </span>
             </div>
           }
         >
@@ -135,12 +144,24 @@ function ConnectedCablePanel({ onClose }: { onClose: () => void }) {
 }
 
 // ── Panel type ──────────────────────────────────────────────────
-type DetailPanel = "oss" | "onshore" | "cable" | "turbine" | "lidar" | "statcom" | null;
+type DetailPanel =
+  | "oss"
+  | "onshore"
+  | "cable"
+  | "turbine"
+  | "lidar"
+  | "statcom"
+  | null;
 
 const QUICK_LINKS = [
   { label: "P3", path: "/scada", icon: Monitor, tip: "SCADA" },
   { label: "P4", path: "/forecast", icon: Brain, tip: "Forecast" },
-  { label: "P5", path: "/commissioning", icon: ClipboardCheck, tip: "Commissioning" },
+  {
+    label: "P5",
+    path: "/commissioning",
+    icon: ClipboardCheck,
+    tip: "Commissioning",
+  },
 ] as const;
 
 export default function LandingPage() {
@@ -152,7 +173,9 @@ export default function LandingPage() {
 
   // Panel state — lifted from LeafletWindFarmMap so panels render outside Leaflet DOM
   const [activePanel, setActivePanel] = useState<DetailPanel>(null);
-  const [selectedTurbineId, setSelectedTurbineId] = useState<string | null>(null);
+  const [selectedTurbineId, setSelectedTurbineId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     startSimulation();
@@ -197,11 +220,21 @@ export default function LandingPage() {
   // Detail panels — rendered outside Leaflet's DOM tree
   const detailPanels = (
     <>
-      {activePanel === "oss" && <ConnectedOSSPanel onClose={handlePanelClose} />}
-      {activePanel === "onshore" && <ConnectedOnshorePanel onClose={handlePanelClose} />}
-      {activePanel === "cable" && <ConnectedCablePanel onClose={handlePanelClose} />}
-      {activePanel === "lidar" && <LIDARDetailPanel onClose={handlePanelClose} />}
-      {activePanel === "statcom" && <STATCOMDetailPanel onClose={handlePanelClose} />}
+      {activePanel === "oss" && (
+        <ConnectedOSSPanel onClose={handlePanelClose} />
+      )}
+      {activePanel === "onshore" && (
+        <ConnectedOnshorePanel onClose={handlePanelClose} />
+      )}
+      {activePanel === "cable" && (
+        <ConnectedCablePanel onClose={handlePanelClose} />
+      )}
+      {activePanel === "lidar" && (
+        <LIDARDetailPanel onClose={handlePanelClose} />
+      )}
+      {activePanel === "statcom" && (
+        <STATCOMDetailPanel onClose={handlePanelClose} />
+      )}
       {activePanel === "turbine" && selectedTurbineId && (
         <ConnectedTurbineDetailPanel
           turbineId={selectedTurbineId}
@@ -214,9 +247,15 @@ export default function LandingPage() {
   // Fullscreen (Control Room Mode) — map fills entire viewport
   if (isFullscreen) {
     return (
-      <div className="fixed inset-0 z-[9999] bg-bg-primary flex flex-col">
+      <div
+        className="fixed inset-0 bg-bg-primary flex flex-col"
+        style={{ zIndex: 9999 }}
+      >
         {/* Horizontal KPI ribbon — glassmorphic overlay at top */}
-        <div className="absolute top-2 left-0 right-0 z-[1001] pointer-events-none">
+        <div
+          className="absolute top-2 left-0 right-0 pointer-events-none"
+          style={{ zIndex: 1001 }}
+        >
           <MapKPIRibbon kpis={kpis} horizontal />
         </div>
 
@@ -224,12 +263,13 @@ export default function LandingPage() {
         <button
           onClick={toggleFullscreen}
           className={cn(
-            "absolute top-2 right-3 z-[1002] flex items-center gap-1.5 rounded-md px-2 py-1.5",
+            "absolute top-2 right-3 flex items-center gap-1.5 rounded-md px-2 py-1.5",
             "bg-bg-secondary/80 border border-border-primary backdrop-blur-sm",
             "text-text-muted hover:text-text-primary hover:bg-bg-hover",
             "transition-colors duration-150",
           )}
           title="Exit Control Room Mode (Esc)"
+          style={{ zIndex: 1002 }}
         >
           <Minimize2 size={13} />
           <span className="text-[10px] font-medium">Exit</span>
@@ -324,7 +364,10 @@ export default function LandingPage() {
       {/* Main area: Map fills width, KPI + detail panels overlaid */}
       <div className="relative flex-1 min-h-0">
         {/* Horizontal KPI ribbon overlay */}
-        <div className="absolute top-2 left-0 right-0 z-[1001] pointer-events-none">
+        <div
+          className="absolute top-2 left-0 right-0 pointer-events-none"
+          style={{ zIndex: 1001 }}
+        >
           <MapKPIRibbon kpis={kpis} horizontal />
         </div>
 

@@ -63,9 +63,9 @@ function Sparkline({
   return (
     <div className="flex-1 min-w-0">
       <div className="flex items-center justify-between mb-0.5">
-        <span className="text-[9px] text-[#6b7490] uppercase tracking-wider">{label}</span>
+        <span className="text-[9px] text-text-muted uppercase tracking-wider">{label}</span>
         <span className="text-[11px] font-mono tabular-nums font-medium" style={{ color: lineColor }}>
-          {value} <span className="text-[9px] text-[#6b7490]">{unit}</span>
+          {value} <span className="text-[9px] text-text-muted">{unit}</span>
         </span>
       </div>
       <svg

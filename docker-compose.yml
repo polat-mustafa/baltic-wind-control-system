@@ -33,13 +33,40 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/balticwind
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: '["http://localhost:3000"]'
+    develop:
+      watch:
+        # Fast feedback for Python/Alembic edits: copy changed files and restart uvicorn.
+        - action: sync+restart
+          path: ./backend/app
+          target: /app/app
+          ignore:
+            - "**/__pycache__/"
+            - "**/*.pyc"
+            - ".pytest_cache/"
+        - action: sync+restart
+          path: ./backend/alembic
+          target: /app/alembic
+        - action: sync+restart
+          path: ./backend/alembic.ini
+          target: /app/alembic.ini
+        # Dependency, image, or entrypoint changes must rebuild the backend image.
+        - action: rebuild
+          path: ./backend/pyproject.toml
+        - action: rebuild
+          path: ./backend/Dockerfile
+        - action: rebuild
+          path: ./backend/entrypoint.sh
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8000/health'')"',
+        ]
       interval: 15s
       timeout: 30s
       retries: 10
@@ -49,6 +76,28 @@ services:
     build: ./frontend
     ports:
       - "3000:3000"
+    develop:
+      watch:
+        # This image serves the compiled SPA with nginx, so UI/source edits trigger
+        # a frontend-only rebuild. npm ci remains cached until package files change.
+        - action: rebuild
+          path: ./frontend/src
+        - action: rebuild
+          path: ./frontend/index.html
+        - action: rebuild
+          path: ./frontend/vite.config.ts
+        - action: rebuild
+          path: ./frontend/tsconfig.json
+        - action: rebuild
+          path: ./frontend/package.json
+        - action: rebuild
+          path: ./frontend/package-lock.json
+        - action: rebuild
+          path: ./frontend/.npmrc
+        - action: rebuild
+          path: ./frontend/nginx.conf
+        - action: rebuild
+          path: ./frontend/Dockerfile
     depends_on:
       backend:
         condition: service_healthy

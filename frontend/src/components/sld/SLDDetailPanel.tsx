@@ -21,7 +21,7 @@ interface SLDDetailPanelProps {
 function Row({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex items-center justify-between py-0.5">
-      <span className="text-[11px] text-[#6b7490]">{label}</span>
+      <span className="text-[11px] text-text-muted">{label}</span>
       <span className="text-[11px] font-mono tabular-nums font-medium" style={{ color: color ?? "#e8eaf0" }}>
         {value}
       </span>
@@ -32,7 +32,7 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="px-3 py-2 border-b" style={{ borderColor: "#1e2231" }}>
-      <div className="text-[10px] text-[#6b7490] uppercase tracking-wider mb-1">{title}</div>
+      <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">{title}</div>
       {children}
     </div>
   );
@@ -124,8 +124,8 @@ export default function SLDDetailPanel({ nodeData, nodeType, onClose }: SLDDetai
     >
       {/* Header */}
       <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "#2a3040" }}>
-        <span className="text-sm font-semibold text-[#e8eaf0] font-mono">{label}</span>
-        <button onClick={onClose} className="text-[#6b7490] hover:text-[#e8eaf0] transition-colors">
+        <span className="text-sm font-semibold text-text-primary font-mono">{label}</span>
+        <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors">
           <X size={14} />
         </button>
       </div>

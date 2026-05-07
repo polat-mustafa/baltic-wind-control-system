@@ -90,7 +90,7 @@ export default function SCADAPage() {
   // Fullscreen Control Room Mode — SLD fills viewport with alarm sidebar.
   if (isFullscreen) {
     return (
-      <div className="scada-isa101 fixed inset-0 z-[9999] flex flex-col">
+      <div className="scada-isa101 fixed inset-0 z-9999 flex flex-col">
         <SCADAControlRoomBar onExit={toggleFullscreen} />
         <div className="flex flex-1 min-h-0">
           <div className="flex-1 min-w-0">

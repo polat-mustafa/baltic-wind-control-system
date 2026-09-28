@@ -22,7 +22,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import createPlotlyComponent from "react-plotly.js/factory";
-// @ts-expect-error — plotly.js-dist-min has no TypeScript declarations
 import Plotly from "plotly.js-dist-min";
 
 /**

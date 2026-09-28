@@ -25,8 +25,16 @@ updates:
     commit-message:
       prefix: "[DEPS]"
     groups:
+      # vitest and its plugins must move in lockstep (mismatched majors break coverage)
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
       npm-minor-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # TypeScript 7 (native compiler) crashes the current tsc/typescript-eslint toolchain.
+      # Revisit when typescript-eslint announces TS 7 support.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

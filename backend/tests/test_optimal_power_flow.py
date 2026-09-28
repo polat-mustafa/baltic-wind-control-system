@@ -118,40 +118,38 @@ class TestACOPF:
 class TestSCOPF:
     """Test Security-Constrained Optimal Power Flow."""
 
-    def test_scopf_returns_valid_result(self):
-        result = run_scopf(generation_fraction=1.0)
-        assert isinstance(result, SCOPFResult)
-        assert result.iterations >= 1
+    @pytest.fixture(scope="class")
+    def scopf_full(self) -> SCOPFResult:
+        """Full-generation SCOPF (~10 s), computed once for the class; tests only read it."""
+        return run_scopf(generation_fraction=1.0)
 
-    def test_base_case_present(self):
-        result = run_scopf(generation_fraction=1.0)
-        assert result.base_case is not None
-        assert isinstance(result.base_case, OPFResult)
+    def test_scopf_returns_valid_result(self, scopf_full):
+        assert isinstance(scopf_full, SCOPFResult)
+        assert scopf_full.iterations >= 1
 
-    def test_contingency_results_present(self):
+    def test_base_case_present(self, scopf_full):
+        assert scopf_full.base_case is not None
+        assert isinstance(scopf_full.base_case, OPFResult)
+
+    def test_contingency_results_present(self, scopf_full):
         """Should have 7 contingency results (one per string)."""
-        result = run_scopf(generation_fraction=1.0)
-        assert len(result.contingency_results) == 7
+        assert len(scopf_full.contingency_results) == 7
 
-    def test_contingency_names(self):
-        result = run_scopf(generation_fraction=1.0)
-        names = [c.name for c in result.contingency_results]
+    def test_contingency_names(self, scopf_full):
+        names = [c.name for c in scopf_full.contingency_results]
         for i in range(1, 8):
             assert f"String_{i}_outage" in names
 
-    def test_contingency_results_have_descriptions(self):
-        result = run_scopf(generation_fraction=1.0)
-        for c in result.contingency_results:
+    def test_contingency_results_have_descriptions(self, scopf_full):
+        for c in scopf_full.contingency_results:
             assert isinstance(c, ContingencyResult)
             assert len(c.description) > 0
 
-    def test_partial_generation_fewer_violations(self):
+    def test_partial_generation_fewer_violations(self, scopf_full):
         """Lower generation should have fewer or equal violations."""
-        result_full = run_scopf(generation_fraction=1.0)
         result_partial = run_scopf(generation_fraction=0.5)
         # Partial generation should be easier to keep secure
-        assert result_partial.num_violations <= result_full.num_violations + 1
+        assert result_partial.num_violations <= scopf_full.num_violations + 1
 
-    def test_security_curtailment_non_negative(self):
-        result = run_scopf(generation_fraction=1.0)
-        assert result.total_curtailment_for_security_mw >= 0.0
+    def test_security_curtailment_non_negative(self, scopf_full):
+        assert scopf_full.total_curtailment_for_security_mw >= 0.0

@@ -42,7 +42,20 @@ dev = [
     "httpx>=0.28.0",
     "ruff>=0.9.0",
     "mypy>=1.14.0",
+    "pytest-xdist>=3.6.0",
 ]
+
+# ─── uv (lockfile + CPU-only torch on Linux/CI) ─────────────────
+# uv.lock pins every transitive dependency so CI and local runs are reproducible.
+# On Linux, torch comes from the CPU wheel index (~200 MB instead of ~2.5 GB CUDA build).
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 # ─── Ruff (linting + formatting) ────────────────────────────────
 

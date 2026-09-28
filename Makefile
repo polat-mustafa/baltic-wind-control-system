@@ -52,7 +52,7 @@ format: ## Auto-format all code
 test: test-backend test-frontend ## Run all tests
 
 test-backend: ## Run Python tests with coverage
-	cd backend && pytest --cov=app --cov-report=term-missing tests/
+	cd backend && pytest -n auto --cov=app --cov-report=term-missing tests/
 
 test-frontend: ## Run TypeScript tests with coverage
 	cd frontend && npx vitest run --coverage

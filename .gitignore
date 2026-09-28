@@ -69,3 +69,6 @@ site/
 
 # E-book project (separate from wind control platform)
 ebook/
+
+# CodeGraph local index
+.codegraph/

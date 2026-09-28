@@ -5,16 +5,22 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
 
+# Cancel superseded PR runs; never cancel a run on main/develop (keeps caches warm).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  UV_PYTHON: "3.13"
+  FORCE_COLOR: "1"
 
 # ─── Change Detection ──────────────────────────────────────
-# Determines which jobs to run based on changed files.
-# docs-only changes skip ALL jobs → CI finishes in ~0 seconds.
-# backend-only changes skip frontend jobs → saves ~1 min.
-# frontend-only changes skip backend jobs → saves ~12 min.
+# docs-only changes skip ALL jobs; backend-only / frontend-only changes skip the other side.
 
 jobs:
   changes:
@@ -26,7 +32,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: dorny/paths-filter@v4
         id: filter
@@ -41,69 +47,73 @@ jobs:
               - 'docker-compose.yml'
               - '.github/workflows/ci.yml'
 
+  # ─── Backend ──────────────────────────────────────────────
+  # uv + uv.lock: reproducible installs (no version drift) and a cache keyed on the lockfile.
+  # torch is resolved from the CPU wheel index on Linux (see backend/pyproject.toml).
+
   backend-lint:
     name: Backend Lint
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
-          python-version: "3.13"
-
-      - name: Cache venv
-        id: cache-venv
-        uses: actions/cache@v5
-        with:
-          path: backend/.venv
-          key: ${{ runner.os }}-venv-${{ hashFiles('backend/pyproject.toml') }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
 
       - name: Install dependencies
-        if: steps.cache-venv.outputs.cache-hit != 'true'
-        run: python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
+        run: uv sync --locked --extra dev
 
       - name: Ruff check
-        run: source .venv/bin/activate && ruff check app/ tests/
+        run: uv run --no-sync ruff check --output-format=github app/ tests/
 
       - name: Ruff format check
-        run: source .venv/bin/activate && ruff format --check app/ tests/
+        run: uv run --no-sync ruff format --check app/ tests/
+
+      - name: Restore mypy cache
+        uses: actions/cache@v6
+        with:
+          path: backend/.mypy_cache
+          key: mypy-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}-${{ github.sha }}
+          restore-keys: mypy-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}-
 
       - name: Mypy
-        run: source .venv/bin/activate && mypy app/
+        run: uv run --no-sync mypy app/
 
   backend-test:
     name: Backend Test
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
-          python-version: "3.13"
-
-      - name: Cache venv
-        id: cache-venv
-        uses: actions/cache@v5
-        with:
-          path: backend/.venv
-          key: ${{ runner.os }}-venv-${{ hashFiles('backend/pyproject.toml') }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
 
       - name: Install dependencies
-        if: steps.cache-venv.outputs.cache-hit != 'true'
-        run: python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
+        run: uv sync --locked --extra dev
 
+      # -n auto: one pytest worker per runner core (4 on ubuntu-latest).
       - name: Run tests with coverage
-        run: source .venv/bin/activate && pytest --cov=app --cov-report=xml --cov-report=term-missing tests/
+        run: >-
+          uv run --no-sync pytest -n auto -q -o addopts="--tb=short"
+          --durations=15
+          --cov=app --cov-report=xml --cov-report=term-missing:skip-covered
+          tests/
 
       - name: Upload coverage
         if: github.event_name == 'pull_request'
@@ -112,25 +122,28 @@ jobs:
           name: backend-coverage
           path: backend/coverage.xml
 
+  # ─── Frontend ─────────────────────────────────────────────
+
   frontend-lint:
     name: Frontend Lint
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: TypeScript type check
         run: npx tsc --noEmit
@@ -143,20 +156,21 @@ jobs:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Run tests with coverage
         run: npx vitest run --coverage
@@ -167,3 +181,16 @@ jobs:
         with:
           name: frontend-coverage
           path: frontend/coverage/
+
+  # Single required check for branch protection: passes when every needed job passed or was skipped.
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [backend-lint, backend-test, frontend-lint, frontend-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify job results
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more CI jobs failed or were cancelled." && exit 1
+          fi

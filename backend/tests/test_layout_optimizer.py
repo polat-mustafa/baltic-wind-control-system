@@ -226,6 +226,7 @@ class TestOptimizeLayout:
             site,
             maxiter=5,
             seed=42,
+            popsize=2,  # small DE population keeps this integration test fast
         )
 
         assert isinstance(result, LayoutResult)
@@ -240,8 +241,12 @@ class TestOptimizeLayout:
         site = create_uniform_site()
         initial = generate_regular_grid(6)
 
-        r1 = optimize_layout(initial.x_positions, initial.y_positions, site, maxiter=3, seed=42)
-        r2 = optimize_layout(initial.x_positions, initial.y_positions, site, maxiter=3, seed=42)
+        r1 = optimize_layout(
+            initial.x_positions, initial.y_positions, site, maxiter=3, seed=42, popsize=2
+        )
+        r2 = optimize_layout(
+            initial.x_positions, initial.y_positions, site, maxiter=3, seed=42, popsize=2
+        )
 
         np.testing.assert_array_almost_equal(r1.x_positions, r2.x_positions)
         np.testing.assert_array_almost_equal(r1.y_positions, r2.y_positions)
@@ -255,6 +260,8 @@ class TestOptimizeLayout:
         # Use staggered 12-turbine layout (2D spread) so optimizer can't collapse to line
         initial = generate_staggered_grid(12)
 
-        result = optimize_layout(initial.x_positions, initial.y_positions, site, maxiter=3, seed=42)
+        result = optimize_layout(
+            initial.x_positions, initial.y_positions, site, maxiter=3, seed=42, popsize=1
+        )
 
         assert result.area_km2 > 0

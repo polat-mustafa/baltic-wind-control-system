@@ -329,6 +329,7 @@ def optimize_layout(
     maxiter: int = 50,
     seed: int = 42,
     penalty_weight: float = 1e6,
+    popsize: int = 15,
 ) -> LayoutResult:
     """Optimize turbine layout using differential evolution to maximize net AEP.
 
@@ -349,6 +350,10 @@ def optimize_layout(
         Random seed for reproducibility. Default: 42.
     penalty_weight : float
         Penalty multiplier for spacing violations. Default: 1e6.
+    popsize : int
+        DE population multiplier (population ≈ popsize × 2n, rounded up to a
+        power of two by Sobol init). Default: 15 (SciPy default). Each member
+        costs one PyWake run, so tests use a small value.
 
     Returns
     -------
@@ -407,6 +412,7 @@ def optimize_layout(
         objective,
         bounds=bounds,
         maxiter=maxiter,
+        popsize=popsize,
         seed=seed,
         init="sobol",
         tol=1e-4,

@@ -251,7 +251,7 @@ async def _run_ua_server() -> None:
     global _server_running, _connected_clients, _started_at, _last_update, _ua_server
 
     try:
-        from asyncua import Server
+        from asyncua.server.server import Server
     except ImportError:
         log.warning(
             "asyncua not installed — OPC-UA server disabled. "

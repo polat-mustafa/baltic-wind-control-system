@@ -1,7 +1,9 @@
 version: 2
+# Grouped weekly updates: one PR per ecosystem (+ separate majors) instead of one PR per package.
+# Fewer PRs = fewer CI runs and less review noise.
 updates:
-  # Python (backend)
-  - package-ecosystem: "pip"
+  # Python (backend) — uv ecosystem keeps backend/uv.lock in sync
+  - package-ecosystem: "uv"
     directory: "/backend"
     schedule:
       interval: "weekly"
@@ -9,6 +11,9 @@ updates:
     labels: ["dependencies", "python"]
     commit-message:
       prefix: "[DEPS]"
+    groups:
+      python-minor-patch:
+        update-types: ["minor", "patch"]
 
   # npm (frontend)
   - package-ecosystem: "npm"
@@ -19,6 +24,9 @@ updates:
     labels: ["dependencies", "javascript"]
     commit-message:
       prefix: "[DEPS]"
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -29,3 +37,6 @@ updates:
     labels: ["dependencies", "ci"]
     commit-message:
       prefix: "[CI]"
+    groups:
+      github-actions:
+        patterns: ["*"]

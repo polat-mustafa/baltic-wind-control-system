@@ -18,8 +18,10 @@ export function useRotorSpin(
   rotorSpeedRpm: number,
 ): void {
   useFrame((_state, delta) => {
-    if (!rotorRef.current) return;
+    const rotor = rotorRef.current;
+    if (!rotor) return;
     const omega = rotorSpeedRpm * TWO_PI_OVER_60; // rad/s
-    rotorRef.current.rotation.z += omega * delta;
+    const { x, y, z } = rotor.rotation;
+    rotor.rotation.set(x, y, z + omega * delta);
   });
 }

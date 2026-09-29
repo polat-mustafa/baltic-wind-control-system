@@ -20,7 +20,7 @@ import { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-import { selectEnvironment, selectSkyPreset, useLandingStore } from "../../../../store/landingStore";
+import { selectSkyPreset, useLandingStore } from "../../../../store/landingStore";
 import type { SkyPreset } from "./Environment";
 
 // Sea palette per sky preset — keeps water in visual harmony with the sky.
@@ -215,6 +215,3 @@ export function SeaPlane() {
     </mesh>
   );
 }
-
-// Keep selector import to avoid tree-shaker warning when feature toggled later.
-export const _seaSelectorRef = selectEnvironment;

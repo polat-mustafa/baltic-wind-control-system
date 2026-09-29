@@ -87,12 +87,20 @@ jobs:
       - name: Mypy
         run: uv run --no-sync mypy app/
 
+  # 3 shards run in parallel, each with one pytest worker per core (4 on ubuntu-latest).
+  # pytest-split balances shards using backend/.test_durations; refresh it occasionally with
+  #   cd backend && python -m pytest -n 4 --store-durations --durations-path .test_durations
+  # (new tests missing from the file are still run — they are assigned the average duration).
   backend-test:
-    name: Backend Test
+    name: Backend Test (${{ matrix.group }}/3)
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3]
     defaults:
       run:
         working-directory: backend
@@ -107,11 +115,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra dev
 
-      # -n auto: one pytest worker per runner core (4 on ubuntu-latest).
       - name: Run tests with coverage
         run: >-
           uv run --no-sync pytest -n auto -q -o addopts="--tb=short"
-          --durations=15
+          --splits 3 --group ${{ matrix.group }} --durations-path .test_durations
+          --durations=10
           --cov=app --cov-report=xml --cov-report=term-missing:skip-covered
           tests/
 
@@ -119,7 +127,7 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v7
         with:
-          name: backend-coverage
+          name: backend-coverage-${{ matrix.group }}
           path: backend/coverage.xml
 
   # ─── Frontend ─────────────────────────────────────────────

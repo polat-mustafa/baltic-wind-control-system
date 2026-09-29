@@ -1,16 +1,16 @@
 /**
- * Transformer detail overlay — shows operating data when a substation is clicked.
+ * Transformer detail panel — two identical units in parallel per substation
+ * (OSS 66/220 kV, onshore 220/400 kV; 2 × 300 MVA, N-1).
  *
- * Displays: MVA rating, tap position, oil/winding temperatures, load %,
- * cooling status (ONAN/ONAF), Buchholz relay, DGA trending.
- *
- * ISA-101 color coding for temperature and load thresholds.
+ * Shows loading against installed capacity, what an N-1 unit trip would cost,
+ * top-oil / hot-spot temperatures against alarm limits (IEC 60076-7),
+ * OLTC position, cooling stage and protection/condition (Buchholz, DGA).
  */
 
-import { X } from "lucide-react";
+import { Zap } from "lucide-react";
 
-import { SCADA_COLORS } from "../../constants/scadaColors";
 import type { TransformerData } from "../../types/landing";
+import { DataRow, EquipmentPanel, HeroValue, LevelBar, PanelSection } from "./EquipmentPanel";
 
 interface TransformerDetailPanelProps {
   transformer: TransformerData;
@@ -19,35 +19,36 @@ interface TransformerDetailPanelProps {
   navLabel: string;
 }
 
-function valueColor(value: number, warn: number, alarm: number): string {
-  if (value >= alarm) return SCADA_COLORS.FAULT;
-  if (value >= warn) return SCADA_COLORS.WARNING;
-  return "var(--color-text-primary)";
+const NORMAL = "#3ecf6e";
+const WARN = "#f5a623";
+const ALARM = "#ef4444";
+const COOLING_STAGES: TransformerData["coolingStatus"][] = ["ONAN", "ONAF-1", "ONAF-2"];
+
+function levelColor(value: number, warn: number, alarm: number): string {
+  return value >= alarm ? ALARM : value >= warn ? WARN : NORMAL;
 }
 
-function statusColor(status: string): string {
-  if (status === "Normal") return SCADA_COLORS.ENERGIZED;
-  if (status === "Alarm" || status === "Caution") return SCADA_COLORS.WARNING;
-  return SCADA_COLORS.FAULT;
+function conditionColor(status: string): string {
+  return status === "Normal" ? NORMAL : status === "Trip" ? ALARM : WARN;
 }
 
-function Row({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color?: string;
-}) {
+function TempRow({ label, value, warn, alarm }: { label: string; value: number; warn: number; alarm: number }) {
+  const color = levelColor(value, warn, alarm);
   return (
-    <div className="flex items-center justify-between py-0.5">
-      <span className="text-[11px] text-text-muted">{label}</span>
-      <span
-        className="text-[11px] font-mono tabular-nums font-medium"
-        style={{ color: color ?? "var(--color-text-primary)" }}
-      >
-        {value}
+    <div className="grid grid-cols-[1fr_110px_56px] items-center gap-2 py-[3px]">
+      <span className="text-xs text-text-secondary">{label}</span>
+      <LevelBar
+        value={value}
+        max={120}
+        color={color}
+        height={6}
+        marks={[
+          { at: warn, color: `${WARN}aa` },
+          { at: alarm, color: `${ALARM}aa` },
+        ]}
+      />
+      <span className="text-right font-mono text-xs tabular-nums" style={{ color }}>
+        {value.toFixed(1)} °C
       </span>
     </div>
   );
@@ -59,110 +60,116 @@ export default function TransformerDetailPanel({
   onNavigate,
   navLabel,
 }: TransformerDetailPanelProps) {
+  const installedMVA = tx.units * tx.ratingMVA;
+  const throughputMVA = (tx.loadPercent / 100) * installedMVA;
+  // N-1: the surviving unit carries at most its own rating; the rest is curtailed.
+  const n1CurtailMW = Math.max(0, throughputMVA - tx.ratingMVA);
+  const loadColor = levelColor(tx.loadPercent, 85, 100);
+  const tapRange = (tx.totalTaps - 1) / 2;
+  const base = tx.name.replace(/-\d+\/\d+$/, "");
+  const worst = [tx.buchholzStatus, tx.dgaStatus].find((s) => s !== "Normal");
+
   return (
-    <div
-      className="absolute rounded-lg shadow-2xl shadow-black/50 border border-border-primary bg-bg-primary overflow-hidden"
-      style={{
-        zIndex: 1100,
-        width: 280,
-        right: 20,
-        top: 60,
-      }}
+    <EquipmentPanel
+      icon={Zap}
+      tag={tx.name}
+      subtitle={`${tx.units} × ${tx.ratingMVA} MVA · ${tx.lvKV}/${tx.hvKV} kV · ${tx.type}`}
+      status={worst ? { label: worst, color: conditionColor(worst) } : { label: "Energised", color: NORMAL }}
+      onClose={onClose}
+      action={{ label: navLabel, onClick: onNavigate }}
+      footnote="IEC 60076-7 thermal limits · IEC 60599 DGA · simplified live model"
     >
-      {/* Header */}
-      <div className="px-3 py-2 border-b border-border-primary flex items-center justify-between">
-        <div>
-          <div className="text-sm font-semibold text-text-primary">
-            {tx.name}
+      <div className="px-4 py-3 border-b border-border-primary/60">
+        <div className="flex items-end justify-between">
+          <HeroValue caption="Loading" value={tx.loadPercent.toFixed(1)} unit="%" color={loadColor} />
+          <div className="pb-1 text-right font-mono text-[11px] tabular-nums text-text-muted">
+            <span className="text-text-primary">{throughputMVA.toFixed(0)}</span> / {installedMVA} MVA
           </div>
-          <div className="text-[10px] text-text-muted">{tx.type}</div>
         </div>
-        <button
-          onClick={onClose}
-          className="text-text-muted hover:text-text-primary transition-colors"
-        >
-          <X size={14} />
-        </button>
+        <div className="mt-2.5">
+          <LevelBar value={tx.loadPercent} max={120} color={loadColor} marks={[{ at: 100, color: ALARM }]} />
+        </div>
       </div>
 
-      {/* Rating section */}
-      <div className="px-3 py-2 border-b border-bg-tertiary">
-        <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
-          Rating
+      <PanelSection title="Units · parallel, equal sharing">
+        <div className="grid grid-cols-2 gap-2">
+          {Array.from({ length: tx.units }, (_, i) => (
+            <div key={i} className="rounded-lg border border-border-primary bg-bg-secondary/60 px-2.5 py-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-semibold text-text-primary">
+                  {base}-{String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="size-1.5 rounded-full" style={{ backgroundColor: NORMAL }} />
+              </div>
+              <div className="mt-0.5 text-[10px] text-text-muted">
+                {tx.lvKV === 66 ? `66 kV section ${String.fromCharCode(65 + i)}` : `Circuit ${i + 1}`}
+              </div>
+              <div className="mt-1 font-mono text-sm tabular-nums" style={{ color: loadColor }}>
+                {tx.loadPercent.toFixed(0)} %
+                <span className="ml-1 text-[10px] text-text-muted">
+                  {(throughputMVA / tx.units).toFixed(0)} MVA
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
-        <Row label="MVA" value={`${tx.units} × ${tx.ratingMVA} MVA`} />
-        <Row label="Voltage" value={`${tx.lvKV}/${tx.hvKV} kV`} />
-        <Row
-          label="Tap Position"
-          value={`${tx.tapPosition > 0 ? "+" : ""}${tx.tapPosition} / ${tx.totalTaps}`}
+        <DataRow
+          label="If one unit trips (N-1)"
+          value={n1CurtailMW > 0 ? `curtail ${n1CurtailMW.toFixed(0)} MW` : "no curtailment"}
+          color={n1CurtailMW > 0 ? WARN : NORMAL}
+          hint={`The remaining unit carries at most ${tx.ratingMVA} MVA`}
         />
-      </div>
+      </PanelSection>
 
-      {/* Temperatures */}
-      <div className="px-3 py-2 border-b border-bg-tertiary">
-        <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
-          Temperatures
+      <PanelSection title="Temperatures" aside="limits: warn · alarm">
+        <TempRow label="Top oil" value={tx.oilTemperatureC} warn={70} alarm={85} />
+        <TempRow label="Hot-spot HV" value={tx.windingTempHVC} warn={80} alarm={95} />
+        <TempRow label="Hot-spot LV" value={tx.windingTempLVC} warn={80} alarm={95} />
+      </PanelSection>
+
+      <PanelSection title="Tap changer & cooling">
+        <DataRow
+          label="OLTC position"
+          value={`${tx.tapPosition > 0 ? "+" : ""}${tx.tapPosition}`}
+          unit={`of ±${tapRange}`}
+        />
+        <div className="mt-1 mb-3 flex gap-[2px]">
+          {Array.from({ length: tx.totalTaps }, (_, i) => {
+            const pos = i - tapRange;
+            return (
+              <div
+                key={pos}
+                className="h-2 flex-1 rounded-[1px]"
+                style={{
+                  backgroundColor:
+                    pos === tx.tapPosition ? "var(--color-accent)" : pos === 0 ? "var(--color-border-secondary)" : "var(--color-bg-tertiary)",
+                }}
+              />
+            );
+          })}
         </div>
-        <Row
-          label="Oil"
-          value={`${tx.oilTemperatureC.toFixed(1)} °C`}
-          color={valueColor(tx.oilTemperatureC, 70, 85)}
-        />
-        <Row
-          label="Winding HV"
-          value={`${tx.windingTempHVC.toFixed(1)} °C`}
-          color={valueColor(tx.windingTempHVC, 80, 95)}
-        />
-        <Row
-          label="Winding LV"
-          value={`${tx.windingTempLVC.toFixed(1)} °C`}
-          color={valueColor(tx.windingTempLVC, 80, 95)}
-        />
-      </div>
-
-      {/* Load & Cooling */}
-      <div className="px-3 py-2 border-b border-bg-tertiary">
-        <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
-          Load & Cooling
+        <div className="grid grid-cols-3 gap-1 rounded-lg bg-bg-tertiary p-0.5">
+          {COOLING_STAGES.map((stage) => (
+            <div
+              key={stage}
+              className="rounded-md py-1 text-center font-mono text-[11px]"
+              style={
+                stage === tx.coolingStatus
+                  ? { backgroundColor: "var(--color-bg-elevated)", color: "var(--color-text-primary)" }
+                  : { color: "var(--color-text-muted)" }
+              }
+            >
+              {stage}
+            </div>
+          ))}
         </div>
-        <Row
-          label="Load"
-          value={`${tx.loadPercent.toFixed(1)} %`}
-          color={valueColor(tx.loadPercent, 85, 100)}
-        />
-        <Row label="Cooling" value={tx.coolingStatus} />
-      </div>
+      </PanelSection>
 
-      {/* Protection */}
-      <div className="px-3 py-2 border-b border-bg-tertiary">
-        <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
-          Protection
-        </div>
-        <Row
-          label="Buchholz"
-          value={tx.buchholzStatus}
-          color={statusColor(tx.buchholzStatus)}
-        />
-        <Row
-          label="DGA"
-          value={tx.dgaStatus}
-          color={statusColor(tx.dgaStatus)}
-        />
-        <Row
-          label="Operating Hours"
-          value={tx.operatingHours.toLocaleString()}
-        />
-      </div>
-
-      {/* Navigation */}
-      <div className="px-3 py-2">
-        <button
-          onClick={onNavigate}
-          className="w-full text-center text-xs py-1.5 rounded-md border border-accent text-accent hover:bg-accent-muted transition-colors"
-        >
-          {navLabel}
-        </button>
-      </div>
-    </div>
+      <PanelSection title="Protection & condition">
+        <DataRow label="Buchholz relay" value={tx.buchholzStatus} color={conditionColor(tx.buchholzStatus)} />
+        <DataRow label="Dissolved gas (DGA)" value={tx.dgaStatus} color={conditionColor(tx.dgaStatus)} />
+        <DataRow label="Operating hours" value={tx.operatingHours.toLocaleString("en-US")} unit="h" />
+      </PanelSection>
+    </EquipmentPanel>
   );
 }

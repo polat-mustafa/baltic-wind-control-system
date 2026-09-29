@@ -12,7 +12,7 @@
  */
 
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import {
   Wind,
   Signal,
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import Sidebar from "./Sidebar";
+import { Skeleton } from "../ui/Skeleton";
 import { StatusIndicator } from "../ui/StatusIndicator";
 import { cn } from "../../lib/utils";
 import { useFaultSync } from "../../hooks/useFaultSync";
@@ -37,6 +38,17 @@ const ROUTE_LABELS: Record<string, string> = {
   "/digital-twin": "Digital Twin · Condition Monitoring",
   "/research-lab": "Research Lab · Advanced Wind R&D",
 };
+
+/** Placeholder while a lazy page chunk downloads. */
+function PageLoading() {
+  return (
+    <div className="space-y-3" role="status" aria-label="Loading page">
+      <Skeleton className="h-7 w-64" />
+      <Skeleton className="h-4 w-96" />
+      <Skeleton className="h-[60vh] w-full" />
+    </div>
+  );
+}
 
 export default function AppShell() {
   const location = useLocation();
@@ -157,7 +169,10 @@ export default function AppShell() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-auto p-3">
-          <Outlet />
+          {/* Pages are lazy-loaded (App.tsx) */}
+          <Suspense fallback={<PageLoading />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

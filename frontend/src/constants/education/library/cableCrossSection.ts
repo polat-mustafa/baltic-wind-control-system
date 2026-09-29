@@ -105,7 +105,7 @@ export const cableCrossSectionEducation: EducationContent = {
       result:
         "Graded design: 6 km of 500 mm², 2 km of 630 mm², 4 km of 800 mm² per string. " +
         "Uniform design: 12 km of 800 mm² per string. " +
-        "Cost saving: ~€3M per string × 5 strings = ~€15M for the whole farm (15–25% of array cable CAPEX). " +
+        "Cost saving: ~€3M per string × 6 strings = ~€18M for the whole farm (15–25% of array cable CAPEX). " +
         "Note: these are illustrative estimates; actual savings depend on manufacturer pricing.",
     },
   ],

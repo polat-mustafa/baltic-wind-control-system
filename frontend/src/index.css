@@ -173,29 +173,12 @@ body {
 
 /* Remove default marker shadows and backgrounds for custom DivIcons */
 .leaflet-turbine-marker,
-.leaflet-oss-marker,
-.leaflet-onshore-marker {
+.leaflet-eq-marker {
   background: none !important;
   border: none !important;
 }
-.leaflet-oss-marker,
-.leaflet-onshore-marker {
-  cursor: pointer;
-  transition: filter 0.2s ease;
-}
-.leaflet-oss-marker svg,
-.leaflet-onshore-marker svg {
-  transition: transform 0.2s ease;
-  transform-origin: center center;
-}
-.leaflet-oss-marker:hover svg,
-.leaflet-onshore-marker:hover svg {
-  transform: scale(1.06);
-}
-.leaflet-oss-marker:hover,
-.leaflet-onshore-marker:hover {
-  filter: brightness(1.15);
-  z-index: 1000 !important;
+.leaflet-eq-marker:hover {
+  z-index: 2000 !important;
 }
 
 /* Turbine label visibility toggle (controlled by LayerControlPanel) */
@@ -284,6 +267,95 @@ body {
 .leaflet-control-zoom a:hover {
   background-color: #2d3348 !important;
   color: #e8eaf0 !important;
+}
+
+/* ── Equipment chips (OSS, STATCOM, LIDAR, onshore, switchyard) ──
+   The 24 × 24 glyph sits exactly on the geographic point; the label
+   overflows to the right. --eq-color = state/accent colour. */
+.eq-marker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+.eq-marker__glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: rgba(15, 17, 23, 0.92);
+  border: 1.5px solid var(--eq-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--eq-color) 18%, transparent), 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: transform 150ms ease;
+}
+.eq-marker__glyph.is-live::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 8px;
+  border: 1.5px solid var(--eq-color);
+  animation: eq-pulse 2.4s ease-out infinite;
+  pointer-events: none;
+}
+.eq-marker__body {
+  display: flex;
+  flex-direction: column;
+  padding: 3px 7px 3px 6px;
+  border-radius: 5px;
+  background: rgba(15, 17, 23, 0.82);
+  border-left: 2px solid var(--eq-color);
+  backdrop-filter: blur(4px);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.eq-marker__tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #cbd5e1;
+  /* no text-transform: units like "kV" are case-sensitive */
+}
+.eq-marker__value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--eq-color);
+  font-variant-numeric: tabular-nums;
+}
+.eq-marker__sub {
+  font-weight: 400;
+  color: #6b7490;
+  margin-left: 4px;
+}
+.eq-marker:hover .eq-marker__glyph {
+  transform: scale(1.12);
+}
+@keyframes eq-pulse {
+  from { transform: scale(1); opacity: 0.8; }
+  to { transform: scale(1.7); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eq-marker__glyph.is-live::after { animation: none; }
+}
+
+/* Light OSM tiles → dark control-room basemap */
+.osm-dark-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.4);
+}
+
+/* Dark-themed attribution (required by the OSM licence) */
+.leaflet-control-attribution {
+  background: rgba(15, 17, 23, 0.7) !important;
+  color: #6b7280 !important;
+  font-size: 9px;
+}
+.leaflet-control-attribution a {
+  color: #9ba3b8 !important;
 }
 
 /* Wake loss badge — remove default Leaflet icon styling */

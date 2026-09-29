@@ -26,7 +26,7 @@ export interface TurbineData {
   powerOutputMW: number;
   /** Hub-height wind speed in m/s */
   windSpeedMs: number;
-  /** Rotor speed in RPM (V236 rated: 9.55 rpm) */
+  /** Rotor speed in RPM (V236 rated: 8.33 rpm) */
   rotorSpeedRpm: number;
   /** Nacelle yaw position in degrees (0-360) */
   nacellePositionDeg: number;

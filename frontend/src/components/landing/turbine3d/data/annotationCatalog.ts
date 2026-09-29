@@ -158,7 +158,7 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
       value: "48:1 ratio (3-stage: 1 planetary + 2 helical)",
       source: "Vestas V236 drivetrain",
       description:
-        "Steps rotor 9.55 rpm up to ~344 rpm for the PMSG. Lower ratio than legacy 3-stage = fewer wear parts, smaller oil volume.",
+        "Steps rotor 8.33 rpm up to 400 rpm for the PMSG. Lower ratio than legacy 3-stage = fewer wear parts, smaller oil volume.",
     },
   },
   {
@@ -171,7 +171,7 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
     visibleInModes: ["cutaway", "exploded"],
     detail: {
       title: "Permanent Magnet Synchronous Generator",
-      value: "15 MW, ~344 rpm, full-power converter",
+      value: "15 MW, 400 rpm at rated, full-power converter",
       source: "Vestas V236 spec",
       description:
         "Permanent magnets eliminate rotor excitation windings → higher efficiency, lower maintenance vs DFIG. Full converter decouples from grid frequency.",

@@ -186,7 +186,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "shaft",
     title: "Main Shaft (Low-Speed)",
     overview:
-      "The main shaft is a forged steel component that transmits the rotor torque from the hub through the main bearing into the gearbox. It rotates slowly (5\u20139.55 rpm) under enormous torque.",
+      "The main shaft is a forged steel component that transmits the rotor torque from the hub through the main bearing into the gearbox. It rotates slowly (4\u20138.33 rpm) under enormous torque.",
     standards: ["IEC 61400-4", "DIN 743"],
     formulas: [
       {
@@ -197,7 +197,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "P\u2098\u2091\u2092\u2095", name: "Mechanical power", unit: "W" },
         ],
         explanation:
-          "Mechanical power is the product of torque and angular velocity. At rated conditions: Q \u2248 18,350 kN\u00B7m, \u03C9 = 9.55 rpm \u00D7 2\u03C0/60 \u2248 1.0 rad/s, giving P \u2248 18.35 MW aerodynamic (before losses).",
+          "Mechanical power is the product of torque and angular velocity. At rated conditions: \u03C9 = 8.33 rpm \u00D7 2\u03C0/60 \u2248 0.872 rad/s. With \u2248 16 MW aerodynamic power (15 MW electrical \u00F7 \u2248 94 % drivetrain efficiency), Q = P/\u03C9 \u2248 18,300 kN\u00B7m.",
       },
     ],
     design: {
@@ -234,7 +234,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "L\u2081\u2080\u2095", name: "Basic rating life", unit: "hours" },
         ],
         explanation:
-          "ISO 281 bearing life formula. The L\u2081\u2080 life is the number of hours at which 90% of identical bearings will survive. For a 25-year design life at 9.55 rpm, the target is >175,000 hours.",
+          "ISO 281 bearing life formula. The L\u2081\u2080 life is the number of hours at which 90% of identical bearings will survive. For a 25-year design life at 8.33 rpm, the target is >175,000 hours.",
       },
       {
         expression: "Vibration thresholds: Zone A < 2.8, B < 4.5, C < 7.1, D \u2265 7.1 mm/s",
@@ -324,7 +324,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     design: {
       v236Value: "15 MW PMSG, variable speed via full-scale converter",
       reasoning:
-        "PMSG eliminates rotor windings and slip rings, reducing maintenance. Combined with full-scale converter, it enables wide speed range (5\u20139.55 rpm rotor) and full reactive power control.",
+        "PMSG eliminates rotor windings and slip rings, reducing maintenance. Combined with full-scale converter, it enables wide speed range (4\u20138.33 rpm rotor) and full reactive power control.",
       influencingFactors: ["Winding temperature", "Rare earth magnet supply", "Cooling system", "Insulation class (F/H)"],
     },
     efficiencyNotes: [

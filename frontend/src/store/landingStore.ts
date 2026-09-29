@@ -24,14 +24,19 @@ import type {
   TurbineStatus,
 } from "../types/landing";
 import type { TurbineFaultType } from "../types/scada";
+import {
+  V236,
+  exportCableState,
+  v236PitchDeg,
+  v236PowerMW,
+  v236RotorRpm,
+} from "../utils/landingPhysics";
 
 // ── Constants ──────────────────────────────────────────────────
 
-const RATED_WIND_MS = 12.5;
-const RATED_POWER_MW = 15.0;
-const RATED_ROTOR_RPM = 9.55;
-const CUT_IN_MS = 3.0;
-const CUT_OUT_MS = 31.0;
+// V236 model (power curve, rotor speed, pitch) lives in utils/landingPhysics
+// so the store, detail panel, curtailment inference and 3D viewer agree.
+const RATED_POWER_MW = V236.ratedMW;
 
 // Ramp rate limits per tick (5s) — realistic 15 MW turbine can't jump instantly
 const MAX_POWER_RAMP_MW_PER_TICK = 1.5; // ≈0.30 MW/s
@@ -60,28 +65,23 @@ function rampToward(current: number, target: number, maxStep: number): number {
 
 // ── Physics-based turbine simulation ───────────────────────────
 
-/** Compute rotor speed from wind speed (proportional below rated). */
+/** Rotor speed [rpm] — 0 when stopped (fault/offline). */
 function computeRotorSpeed(windMs: number, status: TurbineStatus): number {
   if (status === "fault" || status === "offline") return 0;
-  if (windMs < CUT_IN_MS || windMs > CUT_OUT_MS) return 0;
-  return clamp((windMs / RATED_WIND_MS) * RATED_ROTOR_RPM, 0, RATED_ROTOR_RPM);
+  return v236RotorRpm(windMs);
 }
 
-/** Compute blade pitch from wind speed (0 below rated, increases above). */
+/** Blade pitch [deg] — feathered (90°) when stopped. */
 function computePitchAngle(windMs: number, status: TurbineStatus): number {
-  if (status === "fault" || status === "offline") return 90; // feathered
-  if (windMs <= RATED_WIND_MS) return 0;
-  // Linear ramp from 0 at rated to 25 at cut-out
-  return clamp(((windMs - RATED_WIND_MS) / (CUT_OUT_MS - RATED_WIND_MS)) * 25, 0, 25);
+  if (status === "fault" || status === "offline") return 90;
+  return v236PitchDeg(windMs);
 }
 
-/** Compute power from wind (cubic below rated, constant above). */
+/** Electrical power [MW] from the V236 curve; curtailed units run at 60 %. */
 function computePower(windMs: number, status: TurbineStatus): number {
   if (status === "fault" || status === "offline") return 0;
-  const ratio = windMs / RATED_WIND_MS;
-  const raw = ratio * ratio * ratio * RATED_POWER_MW;
-  const capped = clamp(raw, 0, RATED_POWER_MW);
-  return status === "curtailed" ? capped * 0.6 : capped;
+  const p = v236PowerMW(windMs);
+  return status === "curtailed" ? p * 0.6 : p;
 }
 
 // ── Beaufort scale lookup ─────────────────────────────────────
@@ -564,14 +564,15 @@ export const useLandingStore = create<LandingState>((set) => {
             }
           }
 
-          // Update transformer loading based on total power
+          // Transformer loading = throughput / installed capacity (units × rating),
+          // throughput ≈ P since the STATCOM keeps Q ≈ 0 at the grid connection.
           const kpis = computeKPIs(newMap);
-          const loadPct = (kpis.totalOutputMW / 510) * 100;
           const txs = { ...state.transformers };
           for (const txId of Object.keys(txs)) {
             const tx = txs[txId];
+            const loadPct = (kpis.totalOutputMW / (tx.units * tx.ratingMVA)) * 100;
             const targetOilTemp = 35 + (loadPct / 100) * 30 + rand(-1, 1);
-            const cooling: TransformerData["coolingStatus"] = loadPct > 90 ? "ONAF-2" : loadPct > 70 ? "ONAF-1" : "ONAN";
+            const cooling: TransformerData["coolingStatus"] = loadPct > 80 ? "ONAF-2" : loadPct > 55 ? "ONAF-1" : "ONAN";
             txs[txId] = {
               ...tx,
               loadPercent: round1(loadPct),
@@ -582,8 +583,8 @@ export const useLandingStore = create<LandingState>((set) => {
             };
           }
 
-          // Cable thermal loading follows power
-          const cableThermal = clamp((kpis.totalOutputMW / 510) * 85, 5, 100);
+          // Export cable current loading (active + half charging current, per circuit)
+          const cableThermal = exportCableState(kpis.totalOutputMW).loadingPct;
 
           // Environment / sea state
           const environment = computeEnvironment(_baseWindSpeed, elapsed);

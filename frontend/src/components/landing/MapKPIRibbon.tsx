@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FarmKPI } from "../../types/landing";
 import { Zap, Wind, Gauge, AlertTriangle, Activity, TrendingUp, Sigma, Waves, Tornado } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { gustMs as gustFromMean, reactiveBalance } from "../../utils/landingPhysics";
 
 interface MapKPIRibbonProps {
   kpis: FarmKPI;
@@ -48,15 +49,13 @@ export default function MapKPIRibbon({ kpis, horizontal = true }: MapKPIRibbonPr
   const alertColor = kpis.activeAlerts === 0 ? "#3ecf6e" : kpis.activeAlerts > 3 ? "#ef4444" : "#f5a623";
   const freqColor = Math.abs(kpis.gridFrequencyHz - 50) < 0.05 ? "#3ecf6e" : "#f5a623";
 
-  // Derived operator KPIs (deterministic stubs — store doesn't carry these yet):
-  // Reactive Q: at low generation we boost (capacitive +Q), near rated we
-  //   absorb (inductive −Q). Same formula as the STATCOM marker for visual
-  //   consistency. Quantised to 1 MVAr.
-  const reactiveQ = Math.round(((255 - kpis.totalOutputMW) / 510) * 90);
-  const reactiveColor = Math.abs(reactiveQ) < 30 ? "#3ecf6e" : Math.abs(reactiveQ) < 80 ? "#f5a623" : "#ef4444";
+  // Derived operator KPIs from the shared landing model (utils/landingPhysics),
+  // so the ribbon, the STATCOM marker and the STATCOM panel always agree.
+  // Q = STATCOM output (+ injecting / − absorbing), coloured by use of its ±120 MVAr.
+  const reactiveQ = Math.round(reactiveBalance(kpis.totalOutputMW).statcomMVAr);
+  const reactiveColor = Math.abs(reactiveQ) < 60 ? "#3ecf6e" : Math.abs(reactiveQ) < 100 ? "#f5a623" : "#ef4444";
 
-  // Gust speed: typical 1.3–1.5 gust factor over 10-minute mean wind.
-  const gustMs = kpis.averageWindSpeedMs * 1.4;
+  const gustMs = gustFromMean(kpis.averageWindSpeedMs);
   const gustColor = gustMs > 28 ? "#ef4444" : gustMs > 22 ? "#f5a623" : "#3ecf6e";
 
   // df/dt — frequency rate of change in mHz/s. Derived by tracking the

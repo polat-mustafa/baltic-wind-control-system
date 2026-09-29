@@ -1,7 +1,7 @@
 /**
  * Leaflet-based interactive wind farm map — replaces the SVG WindFarmMap.
  *
- * Uses react-leaflet with CartoDB Dark Matter tiles (matches ISA-101 dark theme).
+ * Uses react-leaflet with OpenStreetMap tiles, CSS-darkened to match the ISA-101 dark theme.
  * Turbines are DivIcon markers with inline SVG, connected by 66 kV array cable
  * polylines. Export cable (220 kV) runs from OSS to onshore substation with
  * animated dash pattern. KPI ribbon overlays at top, alarm ticker at bottom.
@@ -44,6 +44,7 @@ import {
 } from "../../store/landingStore";
 import { useLayerStore } from "../../store/layerStore";
 import type { TurbineStatus } from "../../types/landing";
+import { reactiveBalance } from "../../utils/landingPhysics";
 
 import AlarmTicker from "./AlarmTicker";
 import BathymetryLayer from "./BathymetryLayer";
@@ -316,407 +317,102 @@ const TurbineMarker = memo(function TurbineMarker({
   );
 });
 
-// ── OSS Marker Icon (IEC 60617 HVAC Transformer) ────────────────
+// ── Equipment chip markers (OSS, STATCOM, LIDAR, onshore, switchyard) ──
+// One visual grammar for all plant: a 24 px IEC-style glyph pinned on the
+// geographic point + a label chip (tag / live value) to its right. HTML text
+// (not scaled SVG) keeps labels crisp at ≥ 9.5 px. Styles: `.eq-marker` in
+// index.css. Details live in the panels that open on click.
+const EQ_GREEN = "#3ecf6e";
+const EQ_INJECT = "#f5a623";
+const EQ_ABSORB = "#4FC3D8";
+const EQ_IDLE = "#9ba3b8";
+
+/** Two-winding transformer (IEC 60617): LV circle left, HV circle right. */
+const transformerGlyph = (lv: string, hv: string) =>
+  `<svg width="18" height="14" viewBox="0 0 18 14"><circle cx="6.5" cy="7" r="5" fill="none" stroke="${lv}" stroke-width="1.6"/><circle cx="11.5" cy="7" r="5" fill="none" stroke="${hv}" stroke-width="1.6"/></svg>`;
+
+/** Static converter (IEC 60617): box, diagonal, AC ~ top-left, DC = bottom-right. */
+const converterGlyph = (c: string) =>
+  `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="${c}" stroke-width="1.4"><rect x="1" y="1" width="14" height="14" rx="1.5"/><path d="M1 15 15 1"/><path d="M3 5.5q1-2 2 0t2 0" /><path d="M9 10.5h4M9 12.5h4"/></svg>`;
+
+/** Buoy with a conical scan. */
+const lidarGlyph = (c: string) =>
+  `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="${c}" stroke-width="1.4" stroke-linecap="round"><path d="M8 9 3.5 2M8 9l4.5-7" stroke-dasharray="2 1.6"/><path d="M8 9v3"/><path d="M3.5 12.5h9" stroke-width="2"/></svg>`;
+
+/** Circuit breaker on a busbar: filled = closed, hollow = open. */
+const breakerGlyph = (c: string, closed: boolean) =>
+  `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="${c}" stroke-width="1.4"><path d="M1 8h4M11 8h4"/><rect x="5" y="5" width="6" height="6" fill="${closed ? c : "none"}"/></svg>`;
+
+function createEquipmentIcon(opts: {
+  glyph: string;
+  tag: string;
+  value: string;
+  sub?: string;
+  color: string;
+  live?: boolean;
+}): L.DivIcon {
+  const html = `<div class="eq-marker" style="--eq-color:${opts.color}">
+    <span class="eq-marker__glyph${opts.live ? " is-live" : ""}">${opts.glyph}</span>
+    <span class="eq-marker__body">
+      <span class="eq-marker__tag">${opts.tag}</span>
+      <span class="eq-marker__value">${opts.value}${opts.sub ? `<span class="eq-marker__sub">${opts.sub}</span>` : ""}</span>
+    </span>
+  </div>`;
+  return L.divIcon({ html, className: "leaflet-eq-marker", iconSize: [24, 24], iconAnchor: [12, 12] });
+}
+
+const STATCOM_CHIP_GEO: [number, number] = [OSS_GEO.lat + 0.025, OSS_GEO.lon + 0.04];
+
 function createOSSIcon(powerMW: number): L.DivIcon {
-  const svg = `<svg width="64" height="78" viewBox="-32 -24 64 78" xmlns="http://www.w3.org/2000/svg">
-    <!-- Label -->
-    <text x="0" y="-15" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="600" font-family="Inter, sans-serif" letter-spacing="0.5">OSS</text>
-
-    <!-- Platform deck (offshore structure) -->
-    <rect x="-26" y="-8" width="52" height="28" rx="2" fill="#0d1017" stroke="#2a3040" stroke-width="1"/>
-
-    <!-- Conservator tank (oil expansion) — small horizontal cylinder on top -->
-    <ellipse cx="0" cy="-9" rx="9" ry="2.2" fill="#1a2030" stroke="${SCADA_COLORS.ENERGIZED}" stroke-width="0.5" opacity="0.7"/>
-    <!-- Buchholz relay -->
-    <rect x="-1.6" y="-7" width="3.2" height="2" fill="${SCADA_COLORS.ENERGIZED}" opacity="0.5"/>
-    <!-- Connecting pipe -->
-    <line x1="0" y1="-7" x2="0" y2="-4" stroke="#475569" stroke-width="0.7"/>
-    <!-- LTC motor drive box (left of tank top) -->
-    <rect x="-18" y="-7" width="5" height="3.5" fill="#0d1421" stroke="#94a3b8" stroke-width="0.5"/>
-    <text x="-15.5" y="-4" text-anchor="middle" fill="#cbd5e1" font-size="2.6" font-family="monospace">T7</text>
-
-    <!-- Transformer tank body -->
-    <rect x="-21" y="-4" width="42" height="20" rx="1.5" fill="#151b28" stroke="#3d4560" stroke-width="0.8"/>
-    <!-- Tank top edge highlight (depth) -->
-    <line x1="-20" y1="-3" x2="20" y2="-3" stroke="#283044" stroke-width="0.5"/>
-
-    <!-- Cooling radiator fins (right side of tank) -->
-    <g opacity="0.45" stroke="#4a5580" stroke-width="0.5" fill="${SCADA_COLORS.ENERGIZED}">
-      <rect x="16" y="-1" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="16" y="2.5" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="16" y="6" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="16" y="9.5" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-    </g>
-    <!-- Cooling radiator fins (left side of tank, mirrors the right) -->
-    <g opacity="0.45" stroke="#4a5580" stroke-width="0.5" fill="${SCADA_COLORS.ENERGIZED}">
-      <rect x="-19" y="-1" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="-19" y="2.5" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="-19" y="6" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="-19" y="9.5" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-    </g>
-
-    <!-- HV bushing insulator (left — 66 kV) -->
-    <rect x="-27" y="2" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_66KV}" stroke-width="0.7" opacity="0.8"/>
-    <line x1="-20" y1="4.5" x2="-12" y2="4.5" stroke="${SCADA_COLORS.VOLTAGE_66KV}" stroke-width="1.2" opacity="0.85"/>
-
-    <!-- LV bushing insulator (right — 220 kV) -->
-    <rect x="20" y="2" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="0.7" opacity="0.8"/>
-    <line x1="12" y1="4.5" x2="20" y2="4.5" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.2" opacity="0.85"/>
-
-    <!-- Primary winding — 66 kV (IEC circle with subtle fill) -->
-    <circle cx="-4" cy="5" r="7" fill="${SCADA_COLORS.VOLTAGE_66KV}" opacity="0.06"/>
-    <circle cx="-4" cy="5" r="7" fill="none" stroke="${SCADA_COLORS.VOLTAGE_66KV}" stroke-width="1.4" opacity="0.85"/>
-    <!-- Polarity dot -->
-    <circle cx="-4" cy="-0.5" r="1" fill="${SCADA_COLORS.VOLTAGE_66KV}" opacity="0.65"/>
-
-    <!-- Secondary winding — 220 kV (IEC circle with subtle fill) -->
-    <circle cx="4" cy="5" r="7" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.06"/>
-    <circle cx="4" cy="5" r="7" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.4" opacity="0.85"/>
-    <!-- Polarity dot -->
-    <circle cx="4" cy="-0.5" r="1" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.65"/>
-
-    <!-- Tap changer arrow indicator -->
-    <polygon points="6,10 8,10 7,12.5" fill="#64748b" opacity="0.4"/>
-
-    <!-- Status LED (energized) -->
-    <circle cx="-17" cy="-1" r="1.5" fill="${SCADA_COLORS.ENERGIZED}">
-      <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
-    </circle>
-    <circle cx="-17" cy="-1" r="3.5" fill="${SCADA_COLORS.ENERGIZED}" opacity="0.08"/>
-
-    <!-- Voltage rating -->
-    <text x="0" y="28" text-anchor="middle" fill="#64748b" font-size="7" font-family="JetBrains Mono, monospace">66/220 kV</text>
-    <!-- Power readout -->
-    <text x="0" y="40" text-anchor="middle" fill="#cbd5e1" font-size="9" font-weight="600" font-family="JetBrains Mono, monospace">${powerMW.toFixed(0)} MW</text>
-  </svg>`;
-  return L.divIcon({
-    html: svg,
-    className: "leaflet-oss-marker",
-    iconSize: [64, 78],
-    iconAnchor: [32, 26],
+  return createEquipmentIcon({
+    glyph: transformerGlyph(SCADA_COLORS.VOLTAGE_66KV, SCADA_COLORS.VOLTAGE_220KV),
+    tag: "OSS · 66/220 kV",
+    value: `${powerMW.toFixed(0)} MW`,
+    sub: "2 × 300 MVA",
+    color: EQ_GREEN,
   });
 }
 
-// ── Grid Switchyard Icon (IEC 60617 single-line) ────────────────
-// Shows the 400 kV interface to PSE: 3-phase busbar + circuit breaker +
-// disconnector + grounding switch + voltage transformer. Per IEC 60617:2015.
-function createGridSwitchyardIcon(breakerClosed: boolean = true): L.DivIcon {
-  const liveColor = breakerClosed ? SCADA_COLORS.VOLTAGE_400KV : "#475569";
-  const cbFill = breakerClosed ? SCADA_COLORS.VOLTAGE_400KV : "#0d1017";
-  const svg = `<svg width="80" height="62" viewBox="-40 -22 80 62" xmlns="http://www.w3.org/2000/svg">
-    <text x="0" y="-12" text-anchor="middle" fill="#94a3b8" font-size="6.5" font-weight="600" font-family="Inter, sans-serif">SWITCHYARD</text>
-
-    <!-- 3-phase busbar (3 horizontal lines) -->
-    ${[-3, 0, 3].map((dy) => `<line x1="-30" y1="${dy}" x2="30" y2="${dy}" stroke="${liveColor}" stroke-width="1.2" opacity="0.9"/>`).join("")}
-
-    <!-- Voltage transformer (VT) — circle with H winding inside -->
-    <circle cx="-22" cy="0" r="3.5" fill="#0d1017" stroke="${liveColor}" stroke-width="0.8"/>
-    <text x="-22" y="2.2" text-anchor="middle" fill="${liveColor}" font-size="4" font-family="monospace">VT</text>
-
-    <!-- Circuit breaker — filled square (closed) or open square -->
-    <rect x="-12" y="-2.5" width="5" height="5" fill="${cbFill}" stroke="${liveColor}" stroke-width="0.8"/>
-    <text x="-9.5" y="9" text-anchor="middle" fill="#94a3b8" font-size="3.5" font-family="monospace">CB</text>
-
-    <!-- Disconnector blade — knife switch (line at angle) -->
-    <line x1="0" y1="2.5" x2="6" y2="-2.5" stroke="${liveColor}" stroke-width="1.1"/>
-    <circle cx="0" cy="2.5" r="1" fill="${liveColor}"/>
-    <text x="3" y="9" text-anchor="middle" fill="#94a3b8" font-size="3.5" font-family="monospace">DS</text>
-
-    <!-- Grounding switch — line down + earth symbol -->
-    <line x1="14" y1="-2.5" x2="14" y2="6" stroke="#94a3b8" stroke-width="0.8"/>
-    <line x1="11" y1="6" x2="17" y2="6" stroke="#94a3b8" stroke-width="0.8"/>
-    <line x1="12.5" y1="7.5" x2="15.5" y2="7.5" stroke="#94a3b8" stroke-width="0.8"/>
-    <line x1="13.5" y1="9" x2="14.5" y2="9" stroke="#94a3b8" stroke-width="0.8"/>
-    <text x="20" y="9" text-anchor="middle" fill="#94a3b8" font-size="3.5" font-family="monospace">GS</text>
-
-    <!-- Voltage label -->
-    <text x="0" y="20" text-anchor="middle" fill="${liveColor}" font-size="6.5" font-family="JetBrains Mono, monospace" font-weight="600">400 kV · ${breakerClosed ? "ENERGISED" : "OPEN"}</text>
-  </svg>`;
-
-  return L.divIcon({
-    html: svg,
-    className: "leaflet-switchyard-marker",
-    iconSize: [80, 62],
-    iconAnchor: [40, 22],
-  });
-}
-
-// ── STATCOM Marker Icon — containerised industrial design ───────
-// Real ABB SVC Light / Siemens SVC Plus units: a row of valve containers
-// (IGBT MMC modules), a paralleled capacitor bank, and a coupling
-// transformer to the busbar. This icon lays them out as a single-line:
-//
-//   [bus 220 kV] ─┬─ [coupling tx] ─┬─ [filter L] ─┬─ [valves] ─┬─ [cap bank]
-//
-// Q sign convention: positive = injecting (capacitive, leading), negative
-// = absorbing (inductive, lagging). |Q| ≤ 5 reads as idle.
-function createSTATCOMIcon(qMVAR: number): L.DivIcon {
-  const isInjecting = qMVAR > 5;
-  const isAbsorbing = qMVAR < -5;
-  const liveColor = isInjecting
-    ? "#f59e0b"
-    : isAbsorbing
-      ? "#06b6d4"
-      : "#64748b";
-  const dimColor = "#475569";
-  const fillBg = "#0d1017";
-  const qLabel = `${qMVAR >= 0 ? "+" : ""}${qMVAR.toFixed(0)} MVAr`;
-  const modeLabel = isInjecting ? "INJECT" : isAbsorbing ? "ABSORB" : "STANDBY";
-
-  // Q-bar fill: |Q|/120 of the rated capacity, rendered as a horizontal bar
-  // under the readout. Always ±120 MVAr is full scale.
-  const qFrac = Math.min(Math.abs(qMVAR) / 120, 1);
-  const barColor = liveColor;
-
-  const svg = `<svg width="120" height="78" viewBox="-60 -28 120 78" xmlns="http://www.w3.org/2000/svg">
-    <!-- Title strip -->
-    <text x="0" y="-18" text-anchor="middle" fill="#cbd5e1" font-size="7" font-weight="700" font-family="Inter, sans-serif" letter-spacing="1">STATCOM · ±120 MVAr</text>
-
-    <!-- Container outline (steel skid frame) -->
-    <rect x="-55" y="-12" width="110" height="22" rx="2" fill="${fillBg}" stroke="#3d4560" stroke-width="0.8"/>
-
-    <!-- 220 kV busbar tap (left edge) -->
-    <line x1="-55" y1="-1" x2="-50" y2="-1" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.4"/>
-    <text x="-58" y="-13" fill="${SCADA_COLORS.VOLTAGE_220KV}" font-size="3.5" font-family="monospace">220kV</text>
-
-    <!-- Coupling transformer — 2-circle Δ/Y -->
-    <circle cx="-44" cy="-1" r="3.5" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="0.8"/>
-    <circle cx="-39" cy="-1" r="3.5" fill="none" stroke="#94a3b8" stroke-width="0.8"/>
-
-    <!-- Filter reactor coil (3 humps) -->
-    <path d="M -32 -1 q 1.5 -3 3 0 q 1.5 3 3 0 q 1.5 -3 3 0" fill="none" stroke="${liveColor}" stroke-width="0.9"/>
-
-    <!-- IGBT valve container — 4 modules (MMC SM half-bridges) -->
-    <rect x="-18" y="-7" width="20" height="12" rx="1" fill="#0a1018" stroke="${liveColor}" stroke-width="0.7"/>
-    ${[-14, -10, -6, -2]
-      .map(
-        (cx, i) => `
-      <rect x="${cx - 1.5}" y="${-5}" width="3" height="8" fill="${liveColor}" fill-opacity="${isInjecting || isAbsorbing ? 0.55 + i * 0.08 : 0.18}" stroke="${dimColor}" stroke-width="0.3"/>
-    `,
-      )
-      .join("")}
-
-    <!-- Capacitor bank — 4 stacked plates, IEC capacitor pairs -->
-    <g transform="translate(8 -1)">
-      ${[-5, 0, 5]
-        .map(
-          (cy) => `
-        <line x1="-3" y1="${cy - 0.6}" x2="3" y2="${cy - 0.6}" stroke="${liveColor}" stroke-width="0.9"/>
-        <line x1="-3" y1="${cy + 0.6}" x2="3" y2="${cy + 0.6}" stroke="${liveColor}" stroke-width="0.9"/>
-      `,
-        )
-        .join("")}
-      <!-- vertical bus connecting the cap stack -->
-      <line x1="0" y1="-7" x2="0" y2="7" stroke="${liveColor}" stroke-width="0.6" opacity="0.7"/>
-    </g>
-
-    <!-- Shunt reactors (3 × 80 MVAr inductors, N+1) — small coil at right -->
-    <g transform="translate(20 0)">
-      <circle cx="0" cy="-3" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
-      <circle cx="0" cy="0" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
-      <circle cx="0" cy="3" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
-      <text x="0" y="11" text-anchor="middle" fill="#64748b" font-size="3" font-family="monospace">3×80 MVAr L</text>
-    </g>
-
-    <!-- Status LED (solid pulse only when active) -->
-    ${
-      isInjecting || isAbsorbing
-        ? `<circle cx="32" cy="-9" r="1.6" fill="${liveColor}"><animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/></circle>`
-        : `<circle cx="32" cy="-9" r="1.6" fill="${dimColor}" opacity="0.6"/>`
-    }
-
-    <!-- Mode badge -->
-    <rect x="36" y="-12" width="20" height="6" rx="1" fill="${fillBg}" stroke="${liveColor}" stroke-width="0.5"/>
-    <text x="46" y="-7.5" text-anchor="middle" fill="${liveColor}" font-size="4.2" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.5">${modeLabel}</text>
-
-    <!-- Q readout + capability bar -->
-    <text x="-55" y="22" fill="${liveColor}" font-size="8" font-weight="700" font-family="JetBrains Mono, monospace">${qLabel}</text>
-    <!-- Bar background (full ±120 scale, divided at zero) -->
-    <rect x="14" y="16" width="42" height="6" fill="#0a1018" stroke="#3d4560" stroke-width="0.5"/>
-    <line x1="35" y1="16" x2="35" y2="22" stroke="#3d4560" stroke-width="0.4"/>
-    <!-- Q fill: from centre toward injection (right) or absorption (left) -->
-    ${
-      qMVAR > 0
-        ? `<rect x="35" y="16.8" width="${(qFrac * 21).toFixed(1)}" height="4.4" fill="${barColor}" opacity="0.85"/>`
-        : qMVAR < 0
-          ? `<rect x="${(35 - qFrac * 21).toFixed(1)}" y="16.8" width="${(qFrac * 21).toFixed(1)}" height="4.4" fill="${barColor}" opacity="0.85"/>`
-          : ""
-    }
-    <text x="14" y="29" fill="#64748b" font-size="3" font-family="monospace">−120</text>
-    <text x="35" y="29" text-anchor="middle" fill="#64748b" font-size="3" font-family="monospace">0</text>
-    <text x="56" y="29" text-anchor="end" fill="#64748b" font-size="3" font-family="monospace">+120</text>
-  </svg>`;
-
-  return L.divIcon({
-    html: svg,
-    className: "leaflet-statcom-marker",
-    iconSize: [120, 78],
-    iconAnchor: [60, 0],
-  });
-}
-
-// ── Met Mast / LIDAR Buoy Marker Icon ─────────────────────────
-// Floating LIDAR (e.g. ZX 300M / Vaisala WindCube) — used for wind resource
-// validation and turbulence intensity reference, independent of WTG SCADA.
-// Compact map marker — only the buoy + mast + scan head + small label.
-// Detailed measurements (vertical profile, TI, sensor health, etc) live in
-// the LIDARDetailPanel that opens on click. Keeping the marker small lets
-// it sit in the seascape without dwarfing the turbine icons.
-function createMetMastIcon(windMs: number, _windDir: number): L.DivIcon {
-  const speedColor =
-    windMs > 25 ? "#ef4444" : windMs > 15 ? "#f5a623" : "#3ecf6e";
-
-  // 64 × 88 px — sits comfortably between turbine markers (40×56) and the
-  // OSS/onshore substation (~80 px). Pulsing halo draws the eye to clear
-  // water NW of the cluster. Detail (vertical profile, TI, sensor health)
-  // lives in LIDARDetailPanel on click.
-  const svg = `<svg width="64" height="88" viewBox="-32 -32 64 88" xmlns="http://www.w3.org/2000/svg">
-    <!-- Outer attention-getter halo — wide, faint, slow pulse. Pointer events
-         disabled in CSS so it doesn't block clicks on neighbouring markers. -->
-    <circle cx="0" cy="10" r="20" fill="${speedColor}" opacity="0.10" pointer-events="none">
-      <animate attributeName="r" values="16;22;16" dur="3.5s" repeatCount="indefinite"/>
-      <animate attributeName="opacity" values="0.18;0.04;0.18" dur="3.5s" repeatCount="indefinite"/>
-    </circle>
-
-    <!-- Inner halo, slightly tighter for a layered ripple feel -->
-    <circle cx="0" cy="10" r="13" fill="${speedColor}" opacity="0.18" pointer-events="none">
-      <animate attributeName="r" values="11;15;11" dur="2.4s" repeatCount="indefinite"/>
-    </circle>
-
-    <!-- Floating buoy hull — yellow safety paint, with shadow line -->
-    <ellipse cx="0" cy="10" rx="11" ry="3.5" fill="#eab308" stroke="#a16207" stroke-width="1"/>
-    <line x1="-11" y1="10.8" x2="11" y2="10.8" stroke="#7c2d12" stroke-width="0.7"/>
-
-    <!-- Mast riser -->
-    <line x1="0" y1="6.5" x2="0" y2="-14" stroke="#cbd5e1" stroke-width="1.6"/>
-
-    <!-- LIDAR scan head — small instrument box -->
-    <rect x="-4.5" y="-19" width="9" height="5" rx="0.6" fill="#0d1017"
-          stroke="${speedColor}" stroke-width="1"/>
-    <circle cx="0" cy="-16.5" r="1.2" fill="${speedColor}" opacity="0.85">
-      <animate attributeName="opacity" values="0.4;1;0.4" dur="1.6s" repeatCount="indefinite"/>
-    </circle>
-
-    <!-- 4 scan beams (VAD conical scan, IEC 61400-12-1) -->
-    <line x1="0" y1="-19" x2="-7" y2="-26" stroke="${speedColor}" stroke-width="1"
-          stroke-dasharray="3 2" opacity="0.85">
-      <animate attributeName="stroke-dashoffset" values="0;-5" dur="1.4s" repeatCount="indefinite"/>
-    </line>
-    <line x1="0" y1="-19" x2="7" y2="-26" stroke="${speedColor}" stroke-width="1"
-          stroke-dasharray="3 2" opacity="0.85">
-      <animate attributeName="stroke-dashoffset" values="0;-5" dur="1.4s" repeatCount="indefinite"/>
-    </line>
-    <line x1="0" y1="-19" x2="-3.5" y2="-29" stroke="${speedColor}" stroke-width="0.7"
-          stroke-dasharray="2 2" opacity="0.6"/>
-    <line x1="0" y1="-19" x2="3.5" y2="-29" stroke="${speedColor}" stroke-width="0.7"
-          stroke-dasharray="2 2" opacity="0.6"/>
-
-    <!-- Wind readout pill below the buoy -->
-    <rect x="-15" y="18" width="30" height="11" rx="1.5" fill="#0a0d14"
-          stroke="${speedColor}" stroke-width="0.7" opacity="0.92"/>
-    <text x="0" y="26" text-anchor="middle" fill="${speedColor}" font-size="7.5" font-weight="700"
-          font-family="JetBrains Mono, monospace">${windMs.toFixed(1)} m/s</text>
-
-    <!-- Tag label -->
-    <text x="0" y="36" text-anchor="middle" fill="#94a3b8" font-size="5.5" font-weight="700"
-          font-family="Inter, sans-serif" letter-spacing="0.8">LIDAR · MM-1</text>
-  </svg>`;
-
-  return L.divIcon({
-    html: svg,
-    className: "leaflet-metmast-marker",
-    iconSize: [64, 88],
-    iconAnchor: [32, 22], // anchor at the buoy waterline (y=10 + 12 viewBox offset)
-  });
-}
-
-// ── Onshore Substation Marker Icon (IEC 60617 HVAC Transformer) ─
 function createOnshoreIcon(): L.DivIcon {
-  const svg = `<svg width="64" height="82" viewBox="-32 -24 64 82" xmlns="http://www.w3.org/2000/svg">
-    <!-- Label -->
-    <text x="0" y="-15" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="600" font-family="Inter, sans-serif" letter-spacing="0.5">Onshore</text>
+  return createEquipmentIcon({
+    glyph: transformerGlyph(SCADA_COLORS.VOLTAGE_220KV, SCADA_COLORS.VOLTAGE_400KV),
+    tag: "Onshore · 220/400 kV",
+    value: "2 × 300 MVA",
+    color: EQ_GREEN,
+  });
+}
 
-    <!-- Substation fence / perimeter (dashed) -->
-    <rect x="-28" y="-8" width="56" height="30" rx="2" fill="none" stroke="#3d4560" stroke-width="0.6" stroke-dasharray="4 2"/>
+function createGridSwitchyardIcon(breakerClosed: boolean): L.DivIcon {
+  const color = breakerClosed ? EQ_GREEN : EQ_IDLE;
+  return createEquipmentIcon({
+    glyph: breakerGlyph(color, breakerClosed),
+    tag: "PSE · 400 kV",
+    value: breakerClosed ? "CB closed" : "CB open",
+    color,
+  });
+}
 
-    <!-- Building body -->
-    <rect x="-24" y="-6" width="48" height="26" rx="2" fill="#0d1017" stroke="#2a3040" stroke-width="1"/>
+/** Q sign convention (rule 4): + injecting (capacitive), − absorbing (inductive). */
+function createSTATCOMIcon(qMVAR: number): L.DivIcon {
+  const color = qMVAR > 5 ? EQ_INJECT : qMVAR < -5 ? EQ_ABSORB : EQ_IDLE;
+  const sign = qMVAR > 0 ? "+" : qMVAR < 0 ? "−" : "";
+  return createEquipmentIcon({
+    glyph: converterGlyph(color),
+    tag: "STATCOM",
+    value: `${sign}${Math.abs(qMVAR).toFixed(0)} MVAr`,
+    sub: qMVAR > 5 ? "inject" : qMVAR < -5 ? "absorb" : "float",
+    color,
+  });
+}
 
-    <!-- Conservator tank (oil expansion) — small horizontal cylinder on top -->
-    <ellipse cx="0" cy="-7" rx="8" ry="2" fill="#1a2030" stroke="${SCADA_COLORS.ENERGIZED}" stroke-width="0.5" opacity="0.7"/>
-    <!-- Buchholz relay -->
-    <rect x="-1.4" y="-5.2" width="2.8" height="1.8" fill="${SCADA_COLORS.ENERGIZED}" opacity="0.5"/>
-    <!-- Connecting pipe -->
-    <line x1="0" y1="-5.2" x2="0" y2="-2" stroke="#475569" stroke-width="0.6"/>
-    <!-- LTC motor drive box -->
-    <rect x="-16" y="-5" width="4.5" height="3" fill="#0d1421" stroke="#94a3b8" stroke-width="0.4"/>
-    <text x="-13.7" y="-2.5" text-anchor="middle" fill="#cbd5e1" font-size="2.4" font-family="monospace">T9</text>
-
-    <!-- Transformer tank body -->
-    <rect x="-19" y="-2" width="38" height="18" rx="1.5" fill="#151b28" stroke="#3d4560" stroke-width="0.8"/>
-    <!-- Tank top edge highlight (depth) -->
-    <line x1="-18" y1="-1" x2="18" y2="-1" stroke="#283044" stroke-width="0.5"/>
-
-    <!-- Cooling radiator fins (right side of tank) -->
-    <g opacity="0.45" stroke="#4a5580" stroke-width="0.5">
-      <rect x="14" y="1" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-      <rect x="14" y="4.5" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-      <rect x="14" y="8" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-    </g>
-    <!-- Cooling radiator fins (left side of tank — mirror) -->
-    <g opacity="0.45" stroke="#4a5580" stroke-width="0.5">
-      <rect x="-17" y="1" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-      <rect x="-17" y="4.5" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-      <rect x="-17" y="8" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-    </g>
-
-    <!-- HV bushing insulator (left — 220 kV) -->
-    <rect x="-25" y="4" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="0.7" opacity="0.8"/>
-    <line x1="-18" y1="6.5" x2="-10" y2="6.5" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.2" opacity="0.85"/>
-
-    <!-- LV bushing insulator (right — 400 kV) -->
-    <rect x="18" y="4" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="0.7" opacity="0.8"/>
-    <line x1="10" y1="6.5" x2="18" y2="6.5" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="1.2" opacity="0.85"/>
-
-    <!-- Primary winding — 220 kV (IEC circle with subtle fill) -->
-    <circle cx="-3" cy="7" r="6.5" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.06"/>
-    <circle cx="-3" cy="7" r="6.5" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.4" opacity="0.85"/>
-    <!-- Polarity dot -->
-    <circle cx="-3" cy="2" r="1" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.65"/>
-
-    <!-- Secondary winding — 400 kV (IEC circle with subtle fill) -->
-    <circle cx="3" cy="7" r="6.5" fill="${SCADA_COLORS.VOLTAGE_400KV}" opacity="0.06"/>
-    <circle cx="3" cy="7" r="6.5" fill="none" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="1.4" opacity="0.85"/>
-    <!-- Polarity dot -->
-    <circle cx="3" cy="2" r="1" fill="${SCADA_COLORS.VOLTAGE_400KV}" opacity="0.65"/>
-
-    <!-- Tap changer arrow indicator -->
-    <polygon points="5,11.5 7,11.5 6,14" fill="#64748b" opacity="0.4"/>
-
-    <!-- Status LED (energized) -->
-    <circle cx="-15" cy="1" r="1.5" fill="${SCADA_COLORS.ENERGIZED}">
-      <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
-    </circle>
-    <circle cx="-15" cy="1" r="3.5" fill="${SCADA_COLORS.ENERGIZED}" opacity="0.08"/>
-
-    <!-- Ground symbol -->
-    <g transform="translate(0, 24)" opacity="0.4" stroke="#64748b" stroke-width="0.8" fill="none">
-      <line x1="0" y1="0" x2="0" y2="3"/>
-      <line x1="-4" y1="3" x2="4" y2="3"/>
-      <line x1="-2.5" y1="5" x2="2.5" y2="5"/>
-      <line x1="-1" y1="7" x2="1" y2="7"/>
-    </g>
-
-    <!-- Voltage rating -->
-    <text x="0" y="38" text-anchor="middle" fill="#64748b" font-size="7" font-family="JetBrains Mono, monospace">220/400 kV</text>
-    <!-- PSE Grid label -->
-    <text x="0" y="50" text-anchor="middle" fill="${SCADA_COLORS.VOLTAGE_400KV}" font-size="8" font-weight="600" font-family="Inter, sans-serif" opacity="0.85">PSE Grid</text>
-  </svg>`;
-  return L.divIcon({
-    html: svg,
-    className: "leaflet-onshore-marker",
-    iconSize: [64, 82],
-    iconAnchor: [32, 26],
+function createMetMastIcon(windMs: number, windDirDeg: number): L.DivIcon {
+  return createEquipmentIcon({
+    glyph: lidarGlyph(EQ_ABSORB),
+    tag: "LIDAR MM-01",
+    value: `${windMs.toFixed(1)} m/s`,
+    sub: `${windDirDeg.toFixed(0)}°`,
+    color: EQ_ABSORB,
+    live: true,
   });
 }
 
@@ -1092,14 +788,9 @@ function LeafletWindFarmMapInner({
 }: LeafletWindFarmMapProps) {
   const ossIcon = useMemo(() => createOSSIcon(totalPowerMW), [totalPowerMW]);
   const onshoreIcon = useMemo(() => createOnshoreIcon(), []);
-  // STATCOM Q derived from instantaneous total power as a deterministic stub:
-  // at low generation, the unit is in capacitive (boosting) mode to support
-  // voltage; near full output, it absorbs the natural Q overshoot. Quantised
-  // to 5 MVAr so the icon doesn't recreate on every tick.
-  const statcomQRaw =
-    ((255 - totalPowerMW) / 510) * 90;
-  const statcomQ =
-    Math.round(Math.max(-120, Math.min(120, statcomQRaw)) / 5) * 5;
+  // STATCOM Q closes the OSS reactive balance (utils/landingPhysics).
+  // Rounded to 1 MVAr, the same as the KPI ribbon and the panel.
+  const statcomQ = Math.round(reactiveBalance(totalPowerMW).statcomMVAr);
   const statcomIcon = useMemo(() => createSTATCOMIcon(statcomQ), [statcomQ]);
   // Grid switchyard breaker is closed whenever the farm is exporting power.
   const isExporting = totalPowerMW > 0.5;
@@ -1110,7 +801,7 @@ function LeafletWindFarmMapInner({
   // Floating LIDAR met mast — independent wind reference for resource validation.
   // Reads farm-level wind from the KPI stream (quantised so the icon is stable).
   const farmKpis = useLandingStore(selectKPIs);
-  const lidarWindMs = Math.round(farmKpis.averageWindSpeedMs * 2) / 2;
+  const lidarWindMs = Math.round(farmKpis.averageWindSpeedMs * 10) / 10;
   const lidarWindDir = Math.round(farmKpis.windDirectionDeg / 5) * 5;
   const metMastIcon = useMemo(
     () => createMetMastIcon(lidarWindMs, lidarWindDir),
@@ -1151,7 +842,6 @@ function LeafletWindFarmMapInner({
         className="w-full h-full"
         style={{ background: "#0a1628" }}
         zoomControl={false}
-        attributionControl={false}
       >
         <InvalidateSize />
 
@@ -1167,9 +857,14 @@ function LeafletWindFarmMapInner({
         {/* Wind particle animation (Windy.com style) */}
         {layers.windParticles && <WindParticleOverlay />}
 
-        {/* CartoDB Dark Matter tiles — dark control room theme */}
+        {/* OpenStreetMap tiles (free, no API key), darkened via CSS filter
+            (.osm-dark-tiles) for the control room theme. ODbL requires the
+            attribution. ponytail: OSM's public tile server is for light use;
+            self-host or switch to OpenFreeMap vector tiles if traffic grows. */}
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          className="osm-dark-tiles"
           maxZoom={19}
         />
 
@@ -1235,11 +930,21 @@ function LeafletWindFarmMapInner({
           zIndexOffset={1000}
         />
 
-        {/* STATCOM marker — ±120 MVAR + 3 × 80 MVAr shunt reactors (N+1) at the OSS.
-            Placed northeast of OSS so the wide single-line container icon has
-            clear water around it instead of overlapping the substation. */}
+        {/* STATCOM marker — ±120 MVAr on the OSS 220 kV busbar. Drawn offset
+            northeast so its chip clears the OSS label; the leader line shows
+            it is the same platform. */}
+        <Polyline
+          positions={[[OSS_GEO.lat, OSS_GEO.lon], STATCOM_CHIP_GEO]}
+          pathOptions={{
+            color: SCADA_COLORS.VOLTAGE_220KV,
+            weight: 1.5,
+            opacity: 0.8,
+            dashArray: "3 4",
+            interactive: false,
+          }}
+        />
         <Marker
-          position={[OSS_GEO.lat + 0.025, OSS_GEO.lon + 0.04]}
+          position={STATCOM_CHIP_GEO}
           icon={statcomIcon}
           eventHandlers={statcomHandlers}
           zIndexOffset={950}

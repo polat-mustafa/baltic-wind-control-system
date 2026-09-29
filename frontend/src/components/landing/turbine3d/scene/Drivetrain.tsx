@@ -309,7 +309,7 @@ export const Drivetrain = memo(function Drivetrain({
           position={[0, 2.08, 0.65]}
           rotation={[-Math.PI / 2, 0, 0]}
           title="PMSG · 15 MW"
-          lines={["784 V · 460 rpm @ rated", "η 96 % · NREL TP-84919", "IEC 60034-1"]}
+          lines={["784 V · 400 rpm @ rated", "η 96 % · NREL TP-84919", "IEC 60034-1"]}
           width={1.2}
           height={0.48}
         />

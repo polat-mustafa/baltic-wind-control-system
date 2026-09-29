@@ -79,6 +79,7 @@ import { useCameraFlyTo } from "./hooks/useCameraFlyTo";
 import { useViewerKeyboard } from "./hooks/useViewerKeyboard";
 import { DEFAULT_CAMERA_TARGET } from "./registry/partMeshRegistry";
 import { NacelleSchematic } from "./schematic/NacelleSchematic";
+import { v236PitchDeg, v236RotorRpm } from "../../../utils/landingPhysics";
 import { SceneErrorBoundary } from "./SceneErrorBoundary";
 
 // ── WebGL detection ──────────────────────────────────────────────
@@ -334,24 +335,12 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // V236 power-curve model driving live rpm & pitch from the slider.
-  //   Below cut-in (3 m/s):  rpm=0, pitch=90°
-  //   Cut-in → rated (11.1):  rpm ∝ wind, pitch=0
-  //   Rated → cut-out (31):   rpm=rated, pitch ramps 0°→25°
-  //   Above cut-out:          rpm=0, pitch=90°
-  const CUT_IN = 3, RATED = 11.1, CUT_OUT = 31, RATED_RPM = 9.55;
+  // V236 model (utils/landingPhysics) drives live rpm & pitch from the slider:
+  // rpm tracks wind to 8.33 rpm at rated 11.1 m/s, pitch sheds power above it,
+  // feathered (90°) and stopped outside 3–31 m/s.
   const windForSim = manualRun === false ? 0 : manualWindMs;
-  let computedRpm = 0;
-  let computedPitch = 90;
-  if (windForSim >= CUT_IN && windForSim <= CUT_OUT) {
-    if (windForSim <= RATED) {
-      computedRpm = (windForSim / RATED) * RATED_RPM;
-      computedPitch = 0;
-    } else {
-      computedRpm = RATED_RPM;
-      computedPitch = ((windForSim - RATED) / (CUT_OUT - RATED)) * 25;
-    }
-  }
+  const computedRpm = v236RotorRpm(windForSim);
+  const computedPitch = v236PitchDeg(windForSim);
   const overridePitch = computedPitch;
   const overrideRpm   = computedRpm;
 

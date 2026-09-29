@@ -75,3 +75,6 @@ These are large (SKILL.md ≈ 28 KB, Project_Roadmap.md ≈ 93 KB). Do NOT read 
 - Dependencies are pinned in `backend/uv.lock`. After editing `pyproject.toml` dependencies run `cd backend && uv lock` and commit the lockfile (CI uses `--locked` and fails otherwise).
 - `.planning/` holds old planning notes (legacy GSD) — not a source of truth.
 - Never commit `.env*` files; secrets stay out of the repo.
+- Commit messages, PR titles and PR bodies are always in **English** (conventional-commit style), even when chatting in Turkish.
+- Backend CI runs in 3 pytest-split shards balanced by `backend/.test_durations`; refresh it after adding many/slow tests (command in `.github/workflows/ci.yml`).
+- Dependabot minor/patch PRs auto-merge once the required `CI OK` check passes; majors need manual review.

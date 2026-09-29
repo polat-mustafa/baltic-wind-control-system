@@ -29,7 +29,7 @@ describe("ExportCableRoute", () => {
     );
     const group = container.querySelector('[role="button"]');
     expect(group?.getAttribute("aria-label")).toBe(
-      "220 kV Export Cable — click to open HV Grid",
+      "2 × 220 kV Export Cables — click to open HV Grid",
     );
   });
 

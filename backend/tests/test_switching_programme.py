@@ -110,13 +110,13 @@ class TestProgrammeCreation:
         assert programme.pic_name == PIC_NAME
 
     def test_system_state_initialized(self, programme) -> None:
-        """System state has all 22 equipment entries."""
-        assert len(programme.system_state) == 22
+        """System state has all 26 equipment entries."""
+        assert len(programme.system_state) == 26
 
     def test_loto_set_created(self, programme) -> None:
-        """LOTO set is created with 9 isolation points."""
+        """LOTO set is created with 10 isolation points (one per earth switch)."""
         assert programme.loto_set is not None
-        assert len(programme.loto_set.points) == 9
+        assert len(programme.loto_set.points) == 10
 
     def test_audit_trail_has_creation_entry(self, programme) -> None:
         """Audit trail records programme creation."""

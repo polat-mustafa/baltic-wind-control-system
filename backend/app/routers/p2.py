@@ -581,6 +581,15 @@ class ContingencyResultSchema(BaseModel):
     max_trafo_loading_percent: float
     violations: list[ContingencyViolationSchema]
     secure: bool
+    security_type: str = Field(description="preventive | corrective")
+    corrective_action: str = Field(description="Automatic/corrective actions applied")
+    corrective_curtailment_mw: float = Field(description="Corrective runback [MW]")
+    pre_corrective_max_line_loading_percent: float = Field(
+        description="Max cable loading before the corrective runback [%]"
+    )
+    pre_corrective_max_trafo_loading_percent: float = Field(
+        description="Max transformer loading before the corrective runback [%]"
+    )
 
 
 class SCOPFResponse(BaseModel):
@@ -656,9 +665,11 @@ async def optimal_power_flow(request: OPFRequest) -> OPFResponse:
 async def security_constrained_opf(request: SCOPFRequest) -> SCOPFResponse:
     """Run Security-Constrained OPF with N-1 contingency analysis.
 
-    Solves AC OPF, then checks all 7 string outage contingencies. If any
-    post-contingency state violates voltage or thermal limits, reduces
-    generation and re-solves until N-1 security is achieved.
+    Solves AC OPF, then checks all 6 string outage contingencies (preventive):
+    if any post-contingency state (with STATCOM voltage control) violates voltage
+    or thermal limits, reduces generation and re-solves. Finally screens the loss
+    of one export cable circuit and of one OSS / onshore transformer unit
+    (corrective): automatic actions + PPC runback to the remaining capacity.
 
     Physics: Same as OPF + ∀ contingency k: constraints remain feasible.
     """
@@ -722,6 +733,11 @@ async def security_constrained_opf(request: SCOPFRequest) -> SCOPFResponse:
                 for v in c.violations
             ],
             secure=c.secure,
+            security_type=c.security_type,
+            corrective_action=c.corrective_action,
+            corrective_curtailment_mw=c.corrective_curtailment_mw,
+            pre_corrective_max_line_loading_percent=c.pre_corrective_max_line_loading_percent,
+            pre_corrective_max_trafo_loading_percent=c.pre_corrective_max_trafo_loading_percent,
         )
         for c in result.contingency_results
     ]

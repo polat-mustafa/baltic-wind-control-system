@@ -21,14 +21,12 @@ from sqlalchemy import func, select
 
 from app.db import async_session_factory
 from app.models.wind_farm import TurbinePosition, WindFarm
+from app.services.p2.network_model import STRING_LAYOUT  # 6-6-6-6-5-5, single source of truth
 
 logger = logging.getLogger(__name__)
 
 # Deterministic UUID for the reference wind farm
 FARM_UUID = uuid.UUID("00000000-0000-4000-a000-000000000001")
-
-# String layout: 6 strings with turbine counts matching P2 network model
-STRING_LAYOUT = [6, 6, 6, 6, 5, 5]  # 34 total
 
 # Spacing (metres)
 CROSS_WIND_SPACING_M = 1500.0  # ~6.4D cross-wind

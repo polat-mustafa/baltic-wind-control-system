@@ -181,6 +181,12 @@ class STATCOMSizingResult(BaseModel):
     without_compensation_v_max_pu: float = Field(
         description="Max voltage without any compensation [p.u.] — validates necessity"
     )
+    reactor_n1_statcom_q_mvar: float = Field(
+        description="Worst STATCOM Q with one shunt reactor out [MVAR], negative=absorbing"
+    )
+    reactor_n1_secure: bool = Field(
+        description="True if one reactor out keeps voltage compliant without STATCOM saturation"
+    )
 
 
 # ── Persistence Response (for API) ───────────────────────────────

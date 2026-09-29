@@ -7,20 +7,60 @@ Covers:
 - Hotspot detection at overload conditions
 - Dynamic rating higher in winter, lower in summer
 - IEC 60287 temperature formula correctness
+- Spec consistency with the network model (EXPORT_CABLE_1000, one circuit)
 """
 
 from __future__ import annotations
 
+import pytest
+
 from app.services.p2.cable_dts import (
     CABLE_LENGTH_KM,
     N_POINTS,
+    R_AC_OHM_PER_KM,
     STATIC_RATING_A,
+    T_CONDUCTOR_MAX,
     T_CRIT,
     T_WARN,
     calculate_dynamic_rating,
     detect_hotspots,
     simulate_dts,
 )
+from app.services.p2.network_model import EXPORT_CABLE_1000, EXPORT_CABLE_LENGTH_KM
+
+# Currents as fractions of the 950 A per-circuit static rating
+HALF_LOAD_A = 0.5 * STATIC_RATING_A
+OVERLOAD_A = 1.1 * STATIC_RATING_A
+
+
+# ── Cable Spec ─────────────────────────────────────────────────────────────────
+
+
+class TestCableSpec:
+    """The DTS model must describe the same cable as the load flow."""
+
+    def test_spec_matches_network_model(self):
+        """Regression: DTS once used its own 1×800 mm² Al / 800 A cable."""
+        assert pytest.approx(EXPORT_CABLE_1000.max_i_ka * 1000.0) == STATIC_RATING_A
+        assert pytest.approx(950.0) == STATIC_RATING_A
+        assert CABLE_LENGTH_KM == EXPORT_CABLE_LENGTH_KM
+
+    def test_ac_resistance_at_90c(self):
+        """R_AC,90 = 0.0176 × (1 + 0.00393 × 70) × (1 + 0.039) ≈ 0.0233 Ω/km (IEC 60287-1-1)."""
+        assert pytest.approx(0.0233, abs=0.0002) == R_AC_OHM_PER_KM
+        # hotter conductor + AC effects → higher than the 20 °C DC value
+        assert EXPORT_CABLE_1000.r_ohm_per_km < R_AC_OHM_PER_KM
+
+    def test_static_rating_reaches_90c_in_j_tube(self):
+        """Calibration: rated current at 15 °C ambient → 90 °C at the J-tube (±1 °C noise)."""
+        result = simulate_dts(STATIC_RATING_A, 15.0)
+        assert result["max_temp_c"] == pytest.approx(T_CONDUCTOR_MAX, abs=1.0)
+        assert result["max_temp_location_km"] < 1.0
+
+    def test_full_farm_load_per_circuit_is_normal(self):
+        """510 MW over 2 circuits ≈ 730 A each → comfortably below 70 °C at 10 °C ambient."""
+        assert simulate_dts(730.0, 10.0)["hotspot_count"] == 0
+
 
 # ── DTS Profile ────────────────────────────────────────────────────────────────
 
@@ -52,15 +92,15 @@ class TestDTSProfile:
 
     def test_loading_percent_proportional_to_current(self):
         """Loading % = current / static_rating * 100."""
-        result = simulate_dts(400.0, 10.0)
-        expected_loading = 100.0 * 400.0 / STATIC_RATING_A
+        result = simulate_dts(HALF_LOAD_A, 10.0)
+        expected_loading = 100.0 * HALF_LOAD_A / STATIC_RATING_A
         for pt in result["profile"][:5]:
             assert abs(pt["loading_percent"] - expected_loading) < 0.1
 
     def test_higher_current_higher_max_temp(self):
         """More current → higher conductor temperature (physics check)."""
-        low = simulate_dts(400.0, 10.0)
-        high = simulate_dts(800.0, 10.0)
+        low = simulate_dts(HALF_LOAD_A, 10.0)
+        high = simulate_dts(STATIC_RATING_A, 10.0)
         assert high["max_temp_c"] > low["max_temp_c"]
 
     def test_higher_ambient_higher_max_temp(self):
@@ -79,12 +119,12 @@ class TestDTSProfile:
 
     def test_normal_load_no_hotspots(self):
         """At 50% load and cool ambient — should have no hotspots."""
-        result = simulate_dts(400.0, 5.0)
+        result = simulate_dts(HALF_LOAD_A, 5.0)
         assert result["hotspot_count"] == 0
 
     def test_overload_creates_hotspots(self):
-        """At 110% load (880 A) with warm ambient — hotspots should appear."""
-        result = simulate_dts(880.0, 22.0)
+        """At 110% load (1045 A) with warm ambient — hotspots should appear."""
+        result = simulate_dts(OVERLOAD_A, 22.0)
         assert result["hotspot_count"] > 0
 
     def test_hotspot_flag_consistent_with_temperature(self):
@@ -102,12 +142,12 @@ class TestHotspotDetection:
     """Hotspot classification and severity."""
 
     def test_normal_conditions_no_hotspots(self):
-        result = detect_hotspots(400.0, 5.0)
+        result = detect_hotspots(HALF_LOAD_A, 5.0)
         assert result["hotspot_count"] == 0
         assert result["max_severity"] == "NORMAL"
 
     def test_overload_hotspots_detected(self):
-        result = detect_hotspots(900.0, 25.0)
+        result = detect_hotspots(OVERLOAD_A, 25.0)
         assert result["hotspot_count"] > 0
         assert result["max_severity"] in ("WARNING", "CRITICAL")
 
@@ -120,7 +160,7 @@ class TestHotspotDetection:
             assert "cause" in hs
 
     def test_hotspot_severity_matches_temperature(self):
-        result = detect_hotspots(900.0, 25.0)
+        result = detect_hotspots(OVERLOAD_A, 25.0)
         for hs in result["hotspots"]:
             if hs["severity"] == "CRITICAL":
                 assert hs["temperature_c"] >= T_CRIT - 1.0
@@ -139,12 +179,12 @@ class TestDynamicRating:
     """IEC 60287 dynamic rating calculation."""
 
     def test_winter_rating_exceeds_static(self):
-        """Cold ambient (4°C) → dynamic rating > 800 A static."""
+        """Cold ambient (4°C) → 950 × √(86/75) ≈ 1017 A > 950 A static."""
         result = calculate_dynamic_rating(650.0, 4.0)
         assert result["dynamic_rating_a"] > STATIC_RATING_A
 
     def test_summer_rating_below_static(self):
-        """Warm ambient (25°C) → dynamic rating < 800 A static."""
+        """Warm ambient (25°C) → 950 × √(65/75) ≈ 884 A < 950 A static."""
         result = calculate_dynamic_rating(650.0, 25.0)
         assert result["dynamic_rating_a"] < STATIC_RATING_A
 
@@ -158,8 +198,8 @@ class TestDynamicRating:
         assert result["headroom_a"] > 0.0
 
     def test_headroom_negative_when_overloaded(self):
-        """At 900 A in warm ambient, should be over dynamic rating."""
-        result = calculate_dynamic_rating(900.0, 25.0)
+        """At 110% of static in warm ambient, should be over the ~884 A dynamic rating."""
+        result = calculate_dynamic_rating(OVERLOAD_A, 25.0)
         assert result["headroom_a"] < 0.0
 
     def test_utilisation_correct(self):

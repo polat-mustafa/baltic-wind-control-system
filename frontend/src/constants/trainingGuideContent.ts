@@ -140,7 +140,7 @@ export const p2Guide: TrainingGuideData = {
     { name: "Voltage Profile", description: "Bar chart of per-bus voltage magnitude. Must stay within ±5% (0.95–1.05 pu) per PSE grid code. Color-coded: green = within limits, red = violation." },
     { name: "Cable Loading", description: "Thermal utilization of each cable segment as percentage of rated ampacity. The 45 km export cable is typically the bottleneck at full load." },
     { name: "Short Circuit Analysis", description: "Fault current levels at each bus per IEC 60909. Protection relays must be coordinated to trip within these ranges (selectivity)." },
-    { name: "STATCOM Panel", description: "Reactive power compensation sizing: ±120 MVAR STATCOM + 50 MVAR shunt reactor. Shows operating point across power factor range." },
+    { name: "STATCOM Panel", description: "Reactive power compensation sizing: ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors. Shows operating point across power factor range." },
     { name: "FRT Simulation", description: "Time-domain voltage dip/swell at PCC using ANDES dynamic simulation. The farm must stay connected and inject reactive current during faults." },
     { name: "Converter Comparison", description: "Grid-Forming vs Grid-Following control strategies. Grid-Forming provides virtual inertia and works in weak grids." },
   ],

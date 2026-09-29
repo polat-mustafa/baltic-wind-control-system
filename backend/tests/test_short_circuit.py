@@ -15,6 +15,7 @@ Test Strategy
 
 import pytest
 
+from app.services.p2 import short_circuit
 from app.services.p2.short_circuit import calc_short_circuit
 
 # ── Max Case Tests (c=1.1) ───────────────────────────────────────
@@ -123,3 +124,17 @@ class TestErrorHandling:
         """Invalid case parameter must raise ValueError."""
         with pytest.raises(ValueError, match="case must be"):
             calc_short_circuit(case="invalid")
+
+
+def test_short_circuit_uses_20c_cable_resistance(monkeypatch):
+    """IEC 60909: Ik''max needs cold (20 °C) R — never the 90 °C load-flow resistance."""
+    seen: dict[str, object] = {}
+    real_build = short_circuit.build_network
+
+    def spy(**kwargs):
+        seen.update(kwargs)
+        return real_build(**kwargs)
+
+    monkeypatch.setattr(short_circuit, "build_network", spy)
+    calc_short_circuit("max")
+    assert seen.get("r_at_operating_temp") is False

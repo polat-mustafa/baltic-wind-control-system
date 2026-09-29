@@ -183,9 +183,10 @@ function createInitialTurbineMap(): Record<string, TurbineData> {
 function createInitialTransformers(): Record<string, TransformerData> {
   return {
     "OSS-TX1": {
-      name: "OSS-TX1",
+      name: "TX-OSS-01/02",
       type: "Three-phase ONAN/ONAF",
       ratingMVA: 300,
+      units: 2,
       hvKV: 220,
       lvKV: 66,
       tapPosition: 0,
@@ -200,9 +201,10 @@ function createInitialTransformers(): Record<string, TransformerData> {
       operatingHours: 18500,
     },
     "ONS-TX1": {
-      name: "ONS-TX1",
+      name: "TX-ON-01/02",
       type: "Three-phase ONAN/ONAF",
-      ratingMVA: 400,
+      ratingMVA: 300,
+      units: 2,
       hvKV: 400,
       lvKV: 220,
       tapPosition: -1,
@@ -221,12 +223,12 @@ function createInitialTransformers(): Record<string, TransformerData> {
 
 function createInitialCable(): CableData {
   return {
-    type: "3-core XLPE submarine",
+    type: "2 × 3-core XLPE submarine (parallel circuits)",
     voltageRatingKV: 220,
-    currentRatingA: 825,
+    currentRatingA: 950, // per circuit — matches backend EXPORT_CABLE_1000
     lengthKm: 45,
     thermalLoadingPct: 68,
-    crossSectionMm2: 800,
+    crossSectionMm2: 1000,
     manufacturer: "Nexans",
     insulationType: "Cross-linked polyethylene (XLPE)",
     burialDepthM: 1.5,

@@ -115,6 +115,10 @@ class TestACOPF:
             assert abs(result.statcom_q_mvar) <= 120.0 + 1.0  # STATCOM ±120 MVAR
 
 
+def _by_name(result: SCOPFResult, name: str) -> ContingencyResult:
+    return next(c for c in result.contingency_results if c.name == name)
+
+
 class TestSCOPF:
     """Test Security-Constrained Optimal Power Flow."""
 
@@ -122,6 +126,11 @@ class TestSCOPF:
     def scopf_full(self) -> SCOPFResult:
         """Full-generation SCOPF (~10 s), computed once for the class; tests only read it."""
         return run_scopf(generation_fraction=1.0)
+
+    @pytest.fixture(scope="class")
+    def scopf_half(self) -> SCOPFResult:
+        """Half-generation SCOPF (255 MW), computed once for the class."""
+        return run_scopf(generation_fraction=0.5)
 
     def test_scopf_returns_valid_result(self, scopf_full):
         assert isinstance(scopf_full, SCOPFResult)
@@ -132,12 +141,14 @@ class TestSCOPF:
         assert isinstance(scopf_full.base_case, OPFResult)
 
     def test_contingency_results_present(self, scopf_full):
-        """Should have 7 contingency results (one per string)."""
-        assert len(scopf_full.contingency_results) == 7
+        """6 string outages (preventive) + cable / OSS trafo / onshore trafo (corrective)."""
+        assert len(scopf_full.contingency_results) == 9
+        types = [c.security_type for c in scopf_full.contingency_results]
+        assert types == ["preventive"] * 6 + ["corrective"] * 3
 
     def test_contingency_names(self, scopf_full):
         names = [c.name for c in scopf_full.contingency_results]
-        for i in range(1, 8):
+        for i in range(1, 7):
             assert f"String_{i}_outage" in names
 
     def test_contingency_results_have_descriptions(self, scopf_full):
@@ -145,11 +156,63 @@ class TestSCOPF:
             assert isinstance(c, ContingencyResult)
             assert len(c.description) > 0
 
-    def test_partial_generation_fewer_violations(self, scopf_full):
+    def test_partial_generation_fewer_violations(self, scopf_full, scopf_half):
         """Lower generation should have fewer or equal violations."""
-        result_partial = run_scopf(generation_fraction=0.5)
-        # Partial generation should be easier to keep secure
-        assert result_partial.num_violations <= scopf_full.num_violations + 1
+        assert scopf_half.num_violations <= scopf_full.num_violations + 1
+
+    def test_no_preventive_curtailment_at_full_load(self, scopf_full):
+        """String outages are handled by STATCOM voltage control, not by curtailing MW.
+
+        Regression: with STATCOM Q frozen post-contingency, ~1.051 pu overvoltages
+        made SCOPF curtail 15 % (76.5 MW) of the base case.
+        """
+        assert scopf_full.n1_secure
+        assert scopf_full.total_curtailment_for_security_mw == pytest.approx(0.0)
+        assert scopf_full.base_case.total_generation_mw == pytest.approx(510.0, abs=1.0)
+
+    def test_export_cable_outage_corrective_runback(self, scopf_full):
+        """One circuit lost at 510 MW: ~140 % → runback to the remaining ~362 MVA circuit.
+
+        Remaining capacity √3 × 220 kV × 0.95 kA ≈ 362 MVA, minus reactive flow and
+        losses → ~345 MW, i.e. a ~165 MW runback (~16 s at 2 % Pn/s = 10.2 MW/s).
+        """
+        cable = _by_name(scopf_full, "Export_cable_1_outage")
+        assert cable.name == "Export_cable_1_outage"
+        assert cable.secure
+        assert cable.pre_corrective_max_line_loading_percent > 130.0
+        assert cable.max_line_loading_percent <= 100.0
+        assert 140.0 < cable.corrective_curtailment_mw < 190.0
+        assert "runback" in cable.corrective_action
+        assert cable.v_min_pu >= 0.95
+        assert cable.v_max_pu <= 1.05
+
+    def test_export_cable_outage_no_runback_at_half_load(self, scopf_half):
+        """At 255 MW the remaining circuit (~362 MVA) carries everything — no runback."""
+        cable = _by_name(scopf_half, "Export_cable_1_outage")
+        assert cable.secure
+        assert cable.corrective_curtailment_mw == pytest.approx(0.0)
+        assert cable.max_line_loading_percent < 100.0
 
     def test_security_curtailment_non_negative(self, scopf_full):
         assert scopf_full.total_curtailment_for_security_mw >= 0.0
+
+    @pytest.mark.parametrize("name", ["OSS_transformer_1_outage", "Onshore_transformer_1_outage"])
+    def test_transformer_outage_corrective_runback(self, scopf_full, name):
+        """One of 2 × 300 MVA lost at 510 MW: ~170 % → runback to what 300 MVA carries.
+
+        ~300 MVA remaining minus reactive flow → ~300 MW, i.e. a ~210 MW runback
+        (~21 s at 10.2 MW/s).
+        """
+        trafo = _by_name(scopf_full, name)
+        assert trafo.security_type == "corrective"
+        assert trafo.secure
+        assert trafo.pre_corrective_max_trafo_loading_percent > 150.0
+        assert trafo.max_trafo_loading_percent <= 100.0
+        assert 180.0 < trafo.corrective_curtailment_mw < 240.0
+
+    @pytest.mark.parametrize("name", ["OSS_transformer_1_outage", "Onshore_transformer_1_outage"])
+    def test_transformer_outage_no_runback_at_half_load(self, scopf_half, name):
+        """At 255 MW one 300 MVA unit carries everything (~85 %) — no runback."""
+        trafo = _by_name(scopf_half, name)
+        assert trafo.secure
+        assert trafo.corrective_curtailment_mw == pytest.approx(0.0)

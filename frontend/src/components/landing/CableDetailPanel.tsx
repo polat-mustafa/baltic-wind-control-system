@@ -55,7 +55,7 @@ export default function CableDetailPanel({
       <div className="px-3 py-2 border-b border-border-primary flex items-center justify-between">
         <div>
           <div className="text-sm font-semibold text-text-primary">
-            220 kV Export Cable
+            2 × 220 kV Export Cables
           </div>
           <div className="text-[10px] text-text-muted">{cable.type}</div>
         </div>
@@ -97,7 +97,7 @@ export default function CableDetailPanel({
           Electrical
         </div>
         <Row label="Voltage Rating" value={`${cable.voltageRatingKV} kV`} />
-        <Row label="Current Rating" value={`${cable.currentRatingA} A`} />
+        <Row label="Current Rating" value={`${cable.currentRatingA} A per circuit`} />
         <Row label="Cross Section" value={`${cable.crossSectionMm2} mm²`} />
       </div>
 

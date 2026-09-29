@@ -82,7 +82,7 @@ export const hvacVsHvdcEducation: EducationContent = {
         "I_c = 2π · 50 · 200e-9 · 220,000/√3 · 45 ≈ 360 A",
         "P_active = √3 · 220 · √(800² − 360²) ≈ √3 · 220 · 716 = 273 MVA per cable",
         "Two cables → 546 MVA capacity, comfortably above 510 MW gross",
-        "Add 50 MVAR shunt reactor at OSS to compensate excess Q at low generation",
+        "Add 3 × 80 MVAR shunt reactors (one per cable + one spare, N+1) at the OSS to absorb most of the ~260 MVAR charging power",
       ],
       result:
         "Two parallel 220 kV three-core cables with onshore + offshore reactor banks comfortably handle the 510 MW farm. " +

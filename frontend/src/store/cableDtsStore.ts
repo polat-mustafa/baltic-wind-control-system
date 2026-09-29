@@ -35,7 +35,7 @@ export const useCableDTSStore = create<CableDTSState>((set, get) => ({
   profile: null,
   hotspots: null,
   dynamicRating: null,
-  currentA: 600,
+  currentA: 730, // per circuit at 510 MW (2 × 1000 mm² Cu, 950 A each)
   ambientTempC: 15,
   loading: false,
   error: null,

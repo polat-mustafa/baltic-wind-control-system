@@ -23,14 +23,16 @@ Standard: IEC 61850-7-4 logical nodes XCBR, XSWI, CSWI, CILO, RREC
 
 OSS Bay Registry (66 kV switchboard — Baltic Wind Alpha)
 ---------------------------------------------------------
-BAY-OSS-66-01: String 1 Feeder  (WTG-01 to WTG-05)
-BAY-OSS-66-02: String 2 Feeder  (WTG-06 to WTG-11)
-BAY-OSS-66-03: String 3 Feeder  (WTG-12 to WTG-17)
-BAY-OSS-66-04: String 4 Feeder  (WTG-18 to WTG-22)
-BAY-OSS-66-05: String 5 Feeder  (WTG-23 to WTG-28)
-BAY-OSS-66-06: String 6 Feeder  (WTG-29 to WTG-34)
-BAY-OSS-66-07: Transformer LV   (66 kV side of 66/220 kV step-up)
+BAY-OSS-66-01: String 1 Feeder  (WTG-01 to WTG-06)
+BAY-OSS-66-02: String 2 Feeder  (WTG-07 to WTG-12)
+BAY-OSS-66-03: String 3 Feeder  (WTG-13 to WTG-18)
+BAY-OSS-66-04: String 4 Feeder  (WTG-19 to WTG-24)
+BAY-OSS-66-05: String 5 Feeder  (WTG-25 to WTG-29)
+BAY-OSS-66-06: String 6 Feeder  (WTG-30 to WTG-34)
+(same 6-6-6-6-5-5 split as network_model.STRING_LAYOUT)
+BAY-OSS-66-07: Transformer A LV (66 kV side of TX-OSS-01, busbar section A)
 BAY-OSS-66-08: Bus Coupler      (tie CB, requires synchrocheck — ILK-007)
+BAY-OSS-66-09: Transformer B LV (66 kV side of TX-OSS-02, busbar section B)
 """
 
 from __future__ import annotations
@@ -69,7 +71,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-01",
         "ds_line_id": "DS-LINE-STR-01",
         "es_id": "ES-STR-01",
-        "description": "Feeds WTG-01 to WTG-05 via 66 kV array cable String 1",
+        "description": "Feeds WTG-01 to WTG-06 via 66 kV array cable String 1",
     },
     {
         "bay_id": "BAY-OSS-66-02",
@@ -81,7 +83,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-02",
         "ds_line_id": "DS-LINE-STR-02",
         "es_id": "ES-STR-02",
-        "description": "Feeds WTG-06 to WTG-11 via 66 kV array cable String 2",
+        "description": "Feeds WTG-07 to WTG-12 via 66 kV array cable String 2",
     },
     {
         "bay_id": "BAY-OSS-66-03",
@@ -93,7 +95,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-03",
         "ds_line_id": "DS-LINE-STR-03",
         "es_id": "ES-STR-03",
-        "description": "Feeds WTG-12 to WTG-17 via 66 kV array cable String 3",
+        "description": "Feeds WTG-13 to WTG-18 via 66 kV array cable String 3",
     },
     {
         "bay_id": "BAY-OSS-66-04",
@@ -105,7 +107,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-04",
         "ds_line_id": "DS-LINE-STR-04",
         "es_id": "ES-STR-04",
-        "description": "Feeds WTG-18 to WTG-22 via 66 kV array cable String 4",
+        "description": "Feeds WTG-19 to WTG-24 via 66 kV array cable String 4",
     },
     {
         "bay_id": "BAY-OSS-66-05",
@@ -117,7 +119,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-05",
         "ds_line_id": "DS-LINE-STR-05",
         "es_id": "ES-STR-05",
-        "description": "Feeds WTG-23 to WTG-28 via 66 kV array cable String 5",
+        "description": "Feeds WTG-25 to WTG-29 via 66 kV array cable String 5",
     },
     {
         "bay_id": "BAY-OSS-66-06",
@@ -129,11 +131,11 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-06",
         "ds_line_id": "DS-LINE-STR-06",
         "es_id": "ES-STR-06",
-        "description": "Feeds WTG-29 to WTG-34 via 66 kV array cable String 6",
+        "description": "Feeds WTG-30 to WTG-34 via 66 kV array cable String 6",
     },
     {
         "bay_id": "BAY-OSS-66-07",
-        "display_name": "Transformer LV Side",
+        "display_name": "Transformer A LV Side",
         "voltage_kv": 66.0,
         "bay_type": "TRANSFORMER",
         "is_tie_cb": False,
@@ -141,7 +143,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-TX-LV",
         "ds_line_id": "DS-TX-LV",
         "es_id": "ES-OSS-66-01",
-        "description": "66 kV LV side of OSS main transformer (TX-OSS-01, 220/66 kV)",
+        "description": "66 kV LV side of OSS transformer 1 (TX-OSS-01, 220/66 kV 300 MVA)",
     },
     {
         "bay_id": "BAY-OSS-66-08",
@@ -154,6 +156,18 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_line_id": "DS-BUS-TIE-B",
         "es_id": "ES-TIE-66-01",
         "description": "Bus coupler — parallels busbar sections A and B. Synchrocheck required.",
+    },
+    {
+        "bay_id": "BAY-OSS-66-09",
+        "display_name": "Transformer B LV Side",
+        "voltage_kv": 66.0,
+        "bay_type": "TRANSFORMER",
+        "is_tie_cb": False,
+        "cb_id": "CB-TX-OSS-02-LV",
+        "ds_bus_id": "DS-BUS-TX2-LV",
+        "ds_line_id": "DS-TX2-LV",
+        "es_id": "ES-OSS-66-02",
+        "description": "66 kV LV side of OSS transformer 2 (TX-OSS-02, 220/66 kV 300 MVA)",
     },
 ]
 

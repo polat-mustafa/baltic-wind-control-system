@@ -119,7 +119,7 @@ export default function MimicFlowLines({
         66 kV
       </text>
 
-      {/* OSS → Onshore — 220 kV export cable (animated when energised) */}
+      {/* OSS → Onshore — 2 × 220 kV export cables, drawn as one route (animated when energised) */}
       <path
         d={`M ${ossBottomX} ${ossBottomY} L ${onshoreTopX} ${onshoreTopY}`}
         stroke={exportEnergised ? COLOR_220KV : COLOR_DEEN}

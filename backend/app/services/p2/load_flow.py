@@ -109,8 +109,8 @@ SCENARIOS: dict[LoadFlowScenario, ScenarioConfig] = {
     LoadFlowScenario.N_MINUS_1: ScenarioConfig(
         scenario=LoadFlowScenario.N_MINUS_1,
         generation_fraction=1.0,
-        disable_string=6,  # String 7 (4 WTGs = 60 MW)
-        description="String 7 out of service (N-1 contingency)",
+        disable_string=5,  # String 6 (5 WTGs = 75 MW)
+        description="String 6 out of service (N-1 contingency)",
     ),
 }
 
@@ -190,6 +190,11 @@ def auto_statcom_dispatch(
         raise ValueError(msg)
 
     current_q = float(net.sgen.at[statcom_idx, "q_mvar"])
+    # Initial guess for dQ/dV [MVAR/pu]; refined each step by the secant method
+    # from the measured response, so the step size adapts to the grid strength
+    # (e.g. 2 export cables make the OSS bus stiffer: ~33 MVAR per 0.01 pu).
+    dq_dv = 3000.0
+    prev: tuple[float, float] | None = None  # (q, v) of the previous iteration
 
     for _ in range(max_iterations):
         pp.runpp(net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
@@ -203,14 +208,21 @@ def auto_statcom_dispatch(
         if abs(deviation) <= tolerance_pu:
             break
 
-        # Proportional adjustment: ~50 MVAR per 0.01 pu deviation
-        # (empirical gain for this network topology)
-        adjustment = deviation * 5000.0
-        current_q += adjustment
+        if prev is not None and abs(v_oss - prev[1]) > 1e-6:
+            dq_dv = (current_q - prev[0]) / (v_oss - prev[1])
+        prev = (current_q, v_oss)
+
+        new_q = current_q + deviation * dq_dv
 
         # Clamp to STATCOM rating
-        current_q = max(-STATCOM_RATING_MVAR, min(STATCOM_RATING_MVAR, current_q))
+        new_q = max(-STATCOM_RATING_MVAR, min(STATCOM_RATING_MVAR, new_q))
+        if new_q == current_q:
+            break  # saturated at the limit — no further correction possible
+        current_q = new_q
         net.sgen.at[statcom_idx, "q_mvar"] = current_q
+    else:
+        # Loop exhausted after a setpoint change: refresh results so they match current_q
+        pp.runpp(net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
 
     return current_q
 

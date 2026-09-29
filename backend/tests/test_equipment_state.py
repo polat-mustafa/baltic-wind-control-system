@@ -38,13 +38,13 @@ class TestEquipmentRegistry:
     """Verify the OSS equipment registry is complete and correct."""
 
     def test_total_equipment_count(self) -> None:
-        """Registry contains all 22 pieces of OSS equipment."""
-        assert len(OSS_EQUIPMENT) == 22
+        """Registry contains all 26 pieces of OSS equipment (2 OSS transformers, N-1)."""
+        assert len(OSS_EQUIPMENT) == 26
 
     def test_earth_switch_count(self) -> None:
-        """9 earth switches: ES-ON-220-01, ES-OSS-220-01, ES-OSS-66-01, ES-STR-01 to 06."""
+        """10 earth switches: ES-ON/OSS-220-01, ES-OSS-66-01/02 (sections A/B), ES-STR-01..06."""
         es_count = sum(1 for eq in OSS_EQUIPMENT if eq.equipment_type == EquipmentType.EARTH_SWITCH)
-        assert es_count == 9
+        assert es_count == 10
 
     def test_disconnector_count(self) -> None:
         """2 disconnectors: DS-ON-220-01, DS-OSS-220-01."""
@@ -52,16 +52,16 @@ class TestEquipmentRegistry:
         assert ds_count == 2
 
     def test_circuit_breaker_count(self) -> None:
-        """10 circuit breakers: CB-ON-220-01, CB-OSS-220-01, CB-TX-OSS-HV/LV, CB-STR-01 to 06."""
+        """12 CBs: CB-ON/OSS-220-01, CB-TX-OSS-HV/LV, CB-TX-OSS-02-HV/LV, CB-STR-01..06."""
         cb_count = sum(
             1 for eq in OSS_EQUIPMENT if eq.equipment_type == EquipmentType.CIRCUIT_BREAKER
         )
-        assert cb_count == 10
+        assert cb_count == 12
 
     def test_transformer_count(self) -> None:
-        """1 transformer: TX-OSS-01."""
+        """2 transformers: TX-OSS-01 and TX-OSS-02 (2 × 300 MVA, N-1)."""
         tx_count = sum(1 for eq in OSS_EQUIPMENT if eq.equipment_type == EquipmentType.TRANSFORMER)
-        assert tx_count == 1
+        assert tx_count == 2
 
     def test_unique_equipment_ids(self) -> None:
         """All equipment IDs are unique."""
@@ -92,9 +92,9 @@ class TestEquipmentRegistry:
             get_equipment_definition("CB-DOES-NOT-EXIST")
 
     def test_build_initial_state(self) -> None:
-        """Build initial state map has all 22 entries."""
+        """Build initial state map has all 26 entries."""
         state = build_initial_state()
-        assert len(state) == 22
+        assert len(state) == 26
 
 
 # ── Valid Transitions ────────────────────────────────────────────

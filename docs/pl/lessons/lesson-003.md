@@ -444,9 +444,12 @@ Kablo kapasitansı: C ≈ 0.19 µF/km (3 fazlı XLPE 220 kV tipik değer)
 Reaktif güç üretimi:
  Q = ω × C × V² × L × 3 (3 faz)
  Q = 314.16 × 0.19×10⁻⁶ × (220,000/√3)² × 45 × 3
- Q ≈ 85.5 MVAR
+ Q ≈ 130 MVAR   (= ω × C × V_LL² × L, ponieważ 3 × (V_LL/√3)² = V_LL²)
 
-Bu, kablonun yüksüz iken 85.5 MVAR kapasitif reaktif güç ürettiği anlamına gelir.
+Oznacza to, że każdy kabel bez obciążenia wytwarza ~130 MVAR pojemnościowej mocy biernej.
+Ponieważ jeden kabel przenosi tylko √3 × 220 kV × 0,95 kA ≈ 362 MVA (mniej niż 510 MW), stosuje się
+dwa równoległe kable eksportowe → łącznie ≈ 260 MVAR
+(kod: services/p2/statcom_sizing.py → calculate_cable_reactive_power() = 260,0 MVAR, oba kable).
 ```
 
 ### Matryca decyzyjna HVAC vs HVDC
@@ -523,16 +526,17 @@ Każdy poziom napięcia jest decyzją inżynierską:
 
 ### STATCOM: Dlaczego ±120 MVAR?
 
-Jak obliczyliśmy w Rozdziale 6, 45 km kabla 220 kV wytwarza ~85,5 MVAR pojemnościowej mocy biernej. Aby skompensować tę moc bierną i utrzymać napięcie w zakresie ±5%, wymagany jest STATCOM (Static Synchronous Compensator).
+Jak obliczyliśmy w Rozdziale 6, każdy kabel 220 kV o długości 45 km wytwarza ~130 MVAR, a dwa równoległe kable razem ~260 MVAR pojemnościowej mocy biernej. Aby skompensować tę moc bierną i utrzymać napięcie w zakresie ±5%, wymagany jest STATCOM (Static Synchronous Compensator).
 
 **Rozmiar STATCOM:**
 
 | Część | Wartość | Wyjaśnienie |
 | --------- | ------- | ---------- |
-| Moc bierna kabla | +85,5 MVAR (pojemnościowy) | Wymagane ciągłe wynagrodzenie |
-| Margines redundancji N-1 | +34,5 MVAR | Wystarczająca pojemność w przypadku awarii modułu STATCOM |
-| **Nominalna wartość STATCOM** | **±120 MVAR** | Zarówno wchłanianie, jak i wstrzykiwanie |
-| reaktor bocznikowy | 50 MVAR | Ciągła kompensacja obciążenia podstawowego — zmniejsza obciążenie STATCOM |
+| Moc bierna kabli | +260 MVAR (2 × 130, pojemnościowa, generowana) | Występuje nawet bez obciążenia |
+| Dławiki bocznikowe | −240 MVAR (3 × 80, N+1: jeden na kabel + jeden rezerwowy) | Kompensacja bazowa — tania, pozwala na mniejszy STATCOM |
+| Pozostałe Q netto dla STATCOM | ≈ 20 MVAR normalnie; ≈ 100 MVAR przy jednym dławiku wyłączonym (N-1) | 260 − 240 / 260 − 160 |
+| Margines temperatury (10%) + starzenia (5%) | Przypadek N-1: 100 × 1,15 → 115 → wymagane **120 MVAR** | `size_statcom()` zaokrągla w górę do 10 MVAR |
+| **Nominalna wartość STATCOM** | **±120 MVAR** | Pochłanianie (−) i generowanie (+); wstrzykiwanie prądu biernego przy FRT |
 
 **STATCOM vs SVC (statyczny kompensator VAR) Kararı:**
 
@@ -604,7 +608,7 @@ Każda decyzja projektowa pociąga za sobą następną decyzję:
 **Wybór turbiny** (15 MW, wirnik 236 m) →
 **Liczba turbin** (34 = 510 MW) →
 **İletim tipi** (HVAC, 45 km < 80 km) →
-**Pojemność kabla** (85,5 MVAR) →
+**Pojemność kabli** (2 × 130 = ~260 MVAR) →
 **Rozmiar STATCOM** (±120 MVAR) →
 **Dopasowanie FRT** (symulacja dynamiczna ANDES)
 
@@ -631,11 +635,11 @@ Umieśćmy wszystkie nasze wstępne decyzje projektowe w jednej tabeli referency
 | **Szacowany obszar** | ~70–100 km² | Rozstaw + strefa buforowa | Obliczenie |
 | **Gęstość mocy** | ~6–7 MW/km² | W zakresie standardów branżowych | Aby porównać |
 | **Napięcie ciągu** | 66 kV | Standard branżowy dla klasy 15 MW | praktyka branżowa |
-| **Napięcie eksportu** | Klimatyzacja 220 kV | 45 km < 80 km progu rentowności | CIGRE, IEC 60287 |
-| **Kabel eksportowy** | 45 km pod wodą + 5 km na lądzie | Odległość od pola do brzegu | ograniczenie geograficzne |
-| **Moc bierna kabla** | ~85,5 MVAR | Q = obliczenie ωCV²L | IEC 60287-1-1 |
-| **STATKOM** | ±120 MVAR | Komp. kabla + Redundancja N-1 | Obliczanie rozmiaru |
-| **Dławik bocznikowy** | 50 MVAR | Ciągła kompensacja obciążenia podstawowego | Projekt N-1 |
+| **Napięcie eksportu** | HVAC 220 kV | 45 km < 80 km progu rentowności | CIGRE, IEC 60287 |
+| **Kable eksportowe** | 2 × (45 km pod wodą + 5 km na lądzie) | 1 kabel ≈ 362 MVA < 510 MW | Obciążalność cieplna |
+| **Moc bierna kabli** | ~260 MVAR (2 × 130) | Q = n·ωCV²L, C = 190 nF/km | Dane producenta (pojemność) |
+| **STATKOM** | ±120 MVAR | N-1: (260 − 2 × 80) × 1,15 = 115 → 120 MVAR | Obliczanie rozmiaru |
+| **Dławiki bocznikowe** | 3 × 80 MVAR (N+1) | Ciągła kompensacja obciążenia podstawowego | Jeden na kabel + jeden rezerwowy → N-1 bezpieczne |
 | **Połączenie sieciowe** | PSE 400 kV | Polska sieć przesyłowa | PSE IRiESP |
 | **Kod sieciowy** | NC RfG Końcówka D + PSE IRiESP | ≥75 MW → najbardziej rygorystyczne wymagania | UE 2016/631 |
 | **Wytrzymałość zwarciowa** | 10 GVA | Model sieci zewnętrznej | IEC 60909 |
@@ -670,10 +674,10 @@ W przybliżeniu ile km wynosi minimalna długość kabla, której potrzebujemy, 
 **~80 km** (typowy próg rentowności). Ponieważ długość kabla w naszym projekcie wynosi 45 km, HVAC jest ekonomicznie lepszy. Wartość ta waha się od 60 do 120 km w zależności od lat i kosztów technologii.
 
 !!! question "Pytanie 5 (Zrozumienie)"
-Dlaczego ustawiliśmy rozmiar STATCOM na ±120 MVAR? Czy kompensacja kabla 85,5 MVAR nie byłaby wystarczająca?
+Dwa kable eksportowe wytwarzają ~260 MVAR. Dlaczego ustawiliśmy rozmiar STATCOM na ±120 MVAR — mniej niż połowę 260?
 
   ??? success "Odpowiedź"
-**Ze względu na zasadę redundancji N-1.** 85,5 MVAR dotyczy wyłącznie warunków nominalnych. Dodano ~40% marginesu, aby zapewnić wystarczającą zdolność kompensacji nawet w przypadku awarii modułu STATCOM. Dodatkowo STATCOM musi mieć zdolność zarówno pochłaniania (+), jak i wtryskiwania (-) — zapotrzebowanie na indukcyjną moc bierną turbin przy pełnym obciążeniu jest również zaspokajane przez STATCOM.
+**Ponieważ STATCOM nie pracuje sam.** Trzy dławiki bocznikowe (3 × 80 = 240 MVAR) stale pochłaniają moc bierną, więc normalnie dla STATCOM pozostaje tylko ~20 MVAR. Wymiaruje się go na najgorszy przypadek N-1: przy jednym dławiku wyłączonym pozostaje 260 − 160 = 100 MVAR; z marginesem temperatury (10%) i starzenia (5%) 100 × 1,15 = 115 → 120 MVAR. Moc ładowania kabla zależy od V², a nie od wiatru, więc jest prawie stała — idealna dla tanich, stałych dławików; drogi STATCOM przejmuje tylko część zmienną. STATCOM musi móc zarówno pochłaniać (Q < 0), jak i generować (Q > 0) (Zasada 4) — przy pełnym obciążeniu reaktancja szeregowa kabli i transformatorów pobiera moc bierną i napięcie spada. Bez rezerwowego (N+1) dławika awaria jednego dławika w układzie 2 × 80 pozostawiłaby 180 MVAR — więcej niż 120 MVAR STATCOM. Trzeci dławik 80 MVAR jest znacznie tańszy niż powiększenie STATCOM do 210 MVAR.
 
 !!! question "Pytanie 6 (trudne)"
 Jeżeli straty w śladzie cieplnym w farmie składającej się z 34 turbin wynoszą 12,7% i zostaną zmniejszone do 8,7% przy optymalizacji układu schodkowego, w przybliżeniu ile GWh wyniesie roczny zysk energii przy średniej prędkości wiatru 9,5 m/s i współczynniku wydajności wynoszącym 48%?
@@ -696,7 +700,7 @@ Efekt Ferrantiego to sytuacja, w której napięcie na końcu odbiorczym linii pr
 
 Kable podmorskie są szczególnie wrażliwe, ponieważ:
     1. Ma 20–40 razy większą pojemność niż linie napowietrzne (grubość izolacji i bliskość gruntu)
-    2. Na dużych dystansach (45+ km) pojemnościowa produkcja mocy biernej staje się bardzo wysoka (85,5 MVAR)
+    2. Na dużych dystansach (45+ km) pojemnościowa produkcja mocy biernej staje się bardzo wysoka (~130 MVAR na kabel)
     3. Farmy wiatrowe przenoszą minimalne obciążenia w nocy lub przy słabym wietrze – dokładnie w warunkach, w których efekt Ferrantiego jest najsilniejszy
 
 Rozwiązanie: Kompensacja mocy biernej za pomocą STATCOM + dławik bocznikowy. W naszym projekcie będzie to jeden z głównych tematów P2.
@@ -711,7 +715,7 @@ Przed rozpoczęciem projektu farmy wiatrowej należy podjąć wiele kluczowych d
 
 ### Opis techniczny (dla panelu przesłuchań)
 
-Na etapie wstępnego projektowania podjęto osiem podstawowych decyzji inżynieryjnych. Lokalizacja została wybrana niedaleko Ustki w polskiej WSE — na podstawie danych z ponownej analizy ERA5 przy średniej prędkości wiatru 9,0–9,5 m/s na wysokości piasty 150 m, głębokości wody 25–40 m (odpowiednia dla monopala) i spokojnych warunkach falowych w porównaniu z Morzem Północnym (Hs < 1,5 m średniorocznie). Turbina została wybrana jako posiadająca certyfikat IEC klasy I-B V236-15,0 MW — powierzchnia skokowa 43 742 m², napęd z napędem półbezpośrednim, w pełni akceptowalny standard branżowy na lata 2024–2026. Moc 34 × 15 MW = 510 MW zapewnia wydajność obliczeniową na skalę edukacyjną, jednocześnie spełniając wymagania NC RfG typu D. W układzie naprzemiennym z rozstawem 8D ​​z wiatrem × 5D z wiatrem bocznym (~1888 m × 1180 m) szacowany obszar farmy wynosi ~70–100 km², a gęstość mocy ~6–7 MW/km². System przesyłowy składa się z układu 66 kV → eksportu HVAC 220 kV (45 km) → łańcucha sieci PSE 400 kV — odległość 45 km znajduje się poniżej progu rentowności HVAC/HVDC (~80 km). Wytwarzanie pojemnościowej mocy biernej ~85,5 MVAR w kablu 220 kV jest kompensowane przez dławik bocznikowy ±120 MVAR STATCOM + 50 MVAR — preferowano STATCOM zamiast SVC, ponieważ pełna wydajność Q jest utrzymywana przy niskim napięciu (zgodność z FRT), a jego zwarta konstrukcja zmniejsza koszt platformy morskiej. Model sieci zewnętrznej o mocy zwarciowej 10 GVA stanowi podstawę koordynacji zabezpieczeń w oparciu o normę IEC 60909.
+Na etapie wstępnego projektowania podjęto osiem podstawowych decyzji inżynieryjnych. Lokalizacja została wybrana niedaleko Ustki w polskiej WSE — na podstawie danych z ponownej analizy ERA5 przy średniej prędkości wiatru 9,0–9,5 m/s na wysokości piasty 150 m, głębokości wody 25–40 m (odpowiednia dla monopala) i spokojnych warunkach falowych w porównaniu z Morzem Północnym (Hs < 1,5 m średniorocznie). Turbina została wybrana jako posiadająca certyfikat IEC klasy I-B V236-15,0 MW — powierzchnia skokowa 43 742 m², napęd z napędem półbezpośrednim, w pełni akceptowalny standard branżowy na lata 2024–2026. Moc 34 × 15 MW = 510 MW zapewnia wydajność obliczeniową na skalę edukacyjną, jednocześnie spełniając wymagania NC RfG typu D. W układzie naprzemiennym z rozstawem 8D ​​z wiatrem × 5D z wiatrem bocznym (~1888 m × 1180 m) szacowany obszar farmy wynosi ~70–100 km², a gęstość mocy ~6–7 MW/km². System przesyłowy składa się z układu 66 kV → eksportu HVAC 2 × 220 kV (45 km) → łańcucha sieci PSE 400 kV — odległość 45 km znajduje się poniżej progu rentowności HVAC/HVDC (~80 km). Zastosowano dwa równoległe kable, ponieważ jeden nie przeniesie 510 MW (≈ 362 MVA); ich ~260 MVAR pojemnościowej mocy biernej jest kompensowane przez STATCOM ±120 MVAR + dławiki bocznikowe 3 × 80 MVAR (N+1) — preferowano STATCOM zamiast SVC, ponieważ pełna wydajność Q jest utrzymywana przy niskim napięciu (zgodność z FRT), a jego zwarta konstrukcja zmniejsza koszt platformy morskiej. Model sieci zewnętrznej o mocy zwarciowej 10 GVA stanowi podstawę koordynacji zabezpieczeń w oparciu o normę IEC 60909.
 
 ---
 
@@ -734,7 +738,7 @@ Sugestie z planu nauczania dotyczące pogłębienia tematów tego kursu:
 | Dane dotyczące wiatru ERA5 → 9,0–9,5 m/s | **Lekcja 004 (P1):** Dopasowanie Weibulla i integracja krzywej mocy |
 | Krzywa mocy V236-15,0MW | **P1:** Modelowanie śladów PyWake, obliczenia AEP |
 | Układ schodkowy z 34 drzwiami | **P1:** Optymalizacja układu, redukcja utraty śladów |
-| Moc bierna kabla 85,5 MVAR | **P2:** Strategia sterowania STATCOM, symulacja Pandapower |
+| Moc bierna kabli ~260 MVAR (2 kable) | **P2:** Strategia sterowania STATCOM, symulacja Pandapower |
 | Wymagania FRT (15%, 140 ms) | **P2:** Dynamiczna symulacja ANDESÓW |
 | Łańcuch 66 kV → 220 kV → 400 kV | **P2:** Schemat jednokreskowy, analiza przepływu obciążenia |
 | STATCOM ±120 MVAR | **P2:** Tryby kontroli mocy biernej (opad V, wartość zadana Q) |

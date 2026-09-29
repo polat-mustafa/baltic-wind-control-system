@@ -61,7 +61,7 @@ export default function AdvancedAnalysisTab() {
       />
       <EndpointRunnerCard
         title="Security-Constrained OPF (SCOPF)"
-        description="OPF with N-1 contingency constraints — preventive dispatch."
+        description="OPF with N-1 security — string outages (preventive) + loss of one export cable (corrective PPC runback)."
         standard="ENTSO-E SOGL N-1 criterion"
         defaultBody={DEFAULTS.scopf}
         runner={postSCOPF}

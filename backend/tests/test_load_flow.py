@@ -10,14 +10,15 @@ Test Strategy
 - Voltage: 0.95–1.05 p.u. with STATCOM auto-dispatch
 - Losses: reasonable ranges (0.5–3% of generation)
 - Compliance: all scenarios compliant with compensation
-- N-1: reduced generation (450 MW, string 7 out)
+- N-1: reduced generation (435 MW, string 6 out)
 - No-load: minimal losses, Ferranti effect visible
 """
 
 import pytest
 
 from app.schemas.grid import LoadFlowScenario
-from app.services.p2.load_flow import run_all_scenarios, run_load_flow
+from app.services.p2.load_flow import auto_statcom_dispatch, run_all_scenarios, run_load_flow
+from app.services.p2.network_model import build_network
 
 # ── Convergence Tests ─────────────────────────────────────────────
 
@@ -134,10 +135,10 @@ class TestGeneration:
         assert result.total_generation_mw == pytest.approx(255.0, abs=1.0)
 
     def test_n_minus_1_generation(self):
-        """N-1 generation must be 450 MW (34-4=30 WTGs × 15 MW)."""
+        """N-1 generation must be 435 MW (34-5=29 WTGs × 15 MW, string 6 out)."""
         result = run_load_flow(LoadFlowScenario.N_MINUS_1)
         assert result.converged
-        assert result.total_generation_mw == pytest.approx(450.0, abs=1.0)
+        assert result.total_generation_mw == pytest.approx(435.0, abs=1.0)
 
 
 # ── Result Structure Tests ───────────────────────────────────────
@@ -170,3 +171,27 @@ class TestResultStructure:
         assert len(results) == 4
         for r in results:
             assert r.converged, f"{r.scenario} did not converge"
+
+
+class TestSTATCOMDispatch:
+    """Secant-based STATCOM voltage control at OSS 220 kV."""
+
+    def test_no_load_converges_inside_limits(self):
+        """No load, one reactor out: reach 1.00 ± 0.01 pu without hitting ±120 MVAR.
+
+        Regression: a fixed 5000 MVAR/pu gain overshot on the stiffer 2-cable
+        network and saturated at −120 MVAR with V_OSS = 0.991 pu.
+        """
+        net = build_network(generation_fraction=0.0)
+        net.shunt.at[net.shunt.index[0], "in_service"] = False  # ~100 MVAR left to absorb
+        q = auto_statcom_dispatch(net)
+        oss = net.bus.index[net.bus["name"] == "OSS_220kV"][0]
+        assert float(net.res_bus.at[oss, "vm_pu"]) == pytest.approx(1.0, abs=0.01)
+        assert -120.0 < q < 0.0  # absorbing (Rule 4), inside rating
+
+    def test_returned_q_matches_network_results(self):
+        """The returned setpoint must be the one the load flow results belong to."""
+        net = build_network(generation_fraction=0.5)
+        q = auto_statcom_dispatch(net)
+        statcom = net.sgen.index[net.sgen["name"] == "STATCOM"][0]
+        assert float(net.res_sgen.at[statcom, "q_mvar"]) == pytest.approx(q, abs=0.01)

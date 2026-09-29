@@ -187,7 +187,7 @@ Wyobraź sobie przygotowanie do koncertu orkiestry: każdy muzyk kolejno stroi i
 ### Co mówią standardy?
 
 - **IEC 62271-100 §4.101**: Kolejność operacji wyłącznika O — 0,3s — CO — 3min — CO. Opóźnienie 0,3 s służy odbudowaniu izolacji gazem SF₆. Podczas uruchomienia automatyczne szybkie ponowne załączenie (auto-reclose) jest wyłączone — każdy krok wymaga zatwierdzenia PiC.
-- **IEC 60287:2023**: Obliczanie prądu obciążalności kabla. Pojemność 45 km kabla XLPE ~0,25 µF/km → prąd ładowania ~89 A/fazę.
+- **IEC 60287-1-1:2023**: Obliczanie obciążalności prądowej kabla — prąd ładowania zużywa część tej obciążalności. Pojemność to dane producenta: w tym projekcie 190 nF/km → prąd ładowania na 45 km ~341 A/fazę.
 - **IEC 60076-5:2006**: Prąd wciągania transformatora (inrush current) przy pierwszym załączeniu może osiągnąć 8-krotność prądu znamionowego (~100 ms). Zawartość 2. harmonicznej (I₂/I₁ > 0,15) odróżnia wciąganie od zwarcia w przekaźniku zabezpieczeniowym.
 
 ### Co zbudowaliśmy
@@ -420,7 +420,7 @@ Wyobraź sobie wąż ogrodowy: gdy odkręcasz kran, woda nie wylatuje natychmias
 
 ### Co mówią standardy?
 
-- **IEC 60287:2023**: Pojemność kabla XLPE ~0,25 µF/km. Całkowita pojemność kabla 45 km = 11,25 µF.
+- **Pojemność kabla** pochodzi z karty katalogowej producenta (IEC 60287 definiuje obciążalność prądową, nie wartości pojemności). W tym projekcie 190 nF/km (`EXPORT_CABLE_1000`) → łącznie 8,55 µF dla 45 km.
 - **IEC 60076-5:2006**: Prąd wciągania transformatora mocy przy pierwszym załączeniu wynosi 6–8 razy prąd znamionowy, czas trwania ~100 ms.
 
 ### Model matematyczny
@@ -429,12 +429,12 @@ Obliczenie prądu ładowania kabla:
 
 ```
 I_c = ω × C_total × V_phase
-    = 2π × 50 × (0.25e-6 × 45) × (220e3 / √3)
-    = 314.16 × 11.25e-6 × 127,017
-    ≈ 89 A / fazę
+    = 2π × 50 × (190e-9 × 45) × (220e3 / √3)
+    = 314.16 × 8.55e-6 × 127,017
+    ≈ 341 A / fazę
 ```
 
-Ten reaktywny prąd 89 A płynie ciągle i musi być kompensowany przez STATCOM (P2). Krok programu S-016 robi dokładnie to: przełącza STATCOM w tryb regulacji napięcia, a S-017 weryfikuje pochłanianie mocy biernej ~85 MVAR.
+Ten prąd bierny 341 A płynie ciągle w każdym kablu (Q = √3 × 220 kV × 341 A ≈ 130 MVAR; oba kable ≈ 260 MVAR) i musi być kompensowany przez dławiki bocznikowe (3 × 80 MVAR, N+1) + STATCOM (P2). Krok programu S-016 robi dokładnie to: przełącza STATCOM w tryb regulacji napięcia, a S-017 weryfikuje, że STATCOM utrzymuje napięcie przy niewielkim pochłanianiu (~0–20 MVAR) — większość Q przejmują dławiki.
 
 Efekt Ferranti:
 
@@ -465,7 +465,7 @@ Udział 2. harmonicznej: I₂/I₁ > 0.15 → przekaźnik zabezpieczeniowy rozr�
 
     **Analogia:** Jak nadmuchiwanie balonu — powietrze (prąd bierny) wypełnia balon (ładuje pojemność kabla), ale nie wykonuje pracy (nie wytwarza mocy czynnej). STATCOM pochłania nadmiar powietrza z balonu, przywracając równowagę.
 
-    **W tym projekcie:** Nasz kabel 45 km generuje 89 A prądu ładowania na fazę. Odpowiada to mocy biernej ~85 MVAR — dokładnie tyle, ile ma skompensować zwymiarowany w P2 STATCOM (±120 MVAR).
+    **W tym projekcie:** Każdy z naszych kabli eksportowych 45 km generuje ~341 A prądu ładowania na fazę (≈ 130 MVAR); oba kable razem ~260 MVAR. 240 MVAR pochłaniają trzy dławiki bocznikowe (N+1), a pozostałe ~20 MVAR zwymiarowany w P2 STATCOM (±120 MVAR); przy jednym dławiku wyłączonym STATCOM rośnie do ~100 MVAR.
 
 ---
 
@@ -476,7 +476,7 @@ Udział 2. harmonicznej: I₂/I₁ > 0.15 → przekaźnik zabezpieczeniowy rozr�
 - **Maszyna stanów urządzeń** (Sekcja 1) → W dalszej części P5 zostanie zrealizowana wizualizacja SLD (Single Line Diagram) w czasie rzeczywistym przy użyciu frontendu React. Zmiany stanu będą odzwierciedlane jako zmiany kolorów na węzłach grafu XYFlow.
 - **Zestaw izolacji LOTO** (Sekcja 2) → Po dodaniu trwałości bazy danych (SQLAlchemy) historia LOTO będzie przechowywana jako szereg czasowy w TimescaleDB i będzie można generować raporty audytowe.
 - **Logika decyzyjna PiC** (Sekcja 3) → Zostanie zintegrowana z systemem RBAC z P3 (IEC 62443): tylko użytkownicy z rolą `commissioning_engineer` lub `pic` będą mogli wydawać decyzje GO/NO-GO.
-- **Prąd ładowania kabla** (Sekcja 5) → Wartość 89 A obliczona w Lekcji 007 (P2 Pandapower) pojawia się tu ponownie jako operacyjny krok weryfikacyjny (S-012) — konkretny przykład cyklu fizyka → kod → operacja.
+- **Prąd ładowania kabla** (Sekcja 5) → Wartość ~341 A obliczona w Lekcji 007 (P2 Pandapower) pojawia się tu ponownie jako operacyjny krok weryfikacyjny (S-012) — konkretny przykład cyklu fizyka → kod → operacja.
 
 ---
 
@@ -522,7 +522,7 @@ graph TB
     P2 --> P3
     P3 --> P4
 
-    STATCOM -.->|"kompensacja<br/>prądu ładowania 89 A"| SP
+    STATCOM -.->|"kompensacja<br/>prądu ładowania 341 A"| SP
     GOOSE -.->|"weryfikacja stanu<br/>zabezpieczeń"| SP
     RBAC -.->|"autoryzacja PiC"| SP
 
@@ -548,7 +548,7 @@ graph TB
 3. **Cykl życia LOTO** (NOT_APPLIED → APPLIED → REMOVED) zapewnia identyfikowalność każdego punktu izolacji aż do osoby zakładającej blokadę — wymóg normy OSHA 1910.147.
 4. **Punkty wstrzymania** (hold point) wymagają ludzkiego osądu tam, gdzie automatyzacja jest niewystarczająca — decyzja GO/NO-GO PiC jest nieodwracalna.
 5. Podejście **domain-first**: najpierw zweryfikuj reguły biznesowe 66 testami, potem dodaj API, na końcu bazę danych — zerowy dług technologiczny.
-6. **Prąd ładowania kabla 45 km** (~89 A/fazę) i **prąd wciągania transformatora** (8× znamionowy) to fizyczne realia stojące za krokami programu łączeń.
+6. **Prąd ładowania kabla 45 km** (~341 A/fazę) i **prąd wciągania transformatora** (8× znamionowy) to fizyczne realia stojące za krokami programu łączeń.
 7. **Wyjątki jako mechanizm sterowania przepływem**: `PiCDecisionRequiredError` to nie błąd, lecz zaprojektowane zachowanie programu — warstwa API zwraca go jako normalną odpowiedź.
 
 ---

@@ -4,6 +4,11 @@ Switching programme execution engine for OSS first energisation.
 Implements the 30-step switching programme with Person in Control (PiC)
 decision logic, hold points, and full audit trail.
 
+Scope: first energisation of circuit 1 — export cable 1 → TX-OSS-01 → 66 kV
+busbar section A. The second circuit (export cable 2 → TX-OSS-02 → section B)
+is commissioned afterwards with an identical programme; section B stays earthed
+(ES-OSS-66-02 closed) throughout this one.
+
 Physics — What Happens During First Energisation
 --------------------------------------------------
 When a 45 km 220 kV submarine cable is energised for the first time, two

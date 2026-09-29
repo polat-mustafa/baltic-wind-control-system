@@ -510,12 +510,12 @@ function createSTATCOMIcon(qMVAR: number): L.DivIcon {
       <line x1="0" y1="-7" x2="0" y2="7" stroke="${liveColor}" stroke-width="0.6" opacity="0.7"/>
     </g>
 
-    <!-- Shunt reactor (50 MVAr inductor) — small coil at right -->
+    <!-- Shunt reactors (3 × 80 MVAr inductors, N+1) — small coil at right -->
     <g transform="translate(20 0)">
       <circle cx="0" cy="-3" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
       <circle cx="0" cy="0" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
       <circle cx="0" cy="3" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
-      <text x="0" y="11" text-anchor="middle" fill="#64748b" font-size="3" font-family="monospace">50 MVAr L</text>
+      <text x="0" y="11" text-anchor="middle" fill="#64748b" font-size="3" font-family="monospace">3×80 MVAr L</text>
     </g>
 
     <!-- Status LED (solid pulse only when active) -->
@@ -1195,7 +1195,7 @@ function LeafletWindFarmMapInner({
         {/* 66 kV array cables */}
         {layers.arrayCables && <ArrayCables />}
 
-        {/* 220 kV export cable (animated via CSS) */}
+        {/* 2 × 220 kV export cables, drawn as one route (animated via CSS) */}
         <Polyline
           positions={EXPORT_CABLE_PATH}
           pathOptions={{
@@ -1234,7 +1234,7 @@ function LeafletWindFarmMapInner({
           zIndexOffset={1000}
         />
 
-        {/* STATCOM marker — ±120 MVAR + 50 MVAr shunt reactor at the OSS.
+        {/* STATCOM marker — ±120 MVAR + 3 × 80 MVAr shunt reactors (N+1) at the OSS.
             Placed northeast of OSS so the wide single-line container icon has
             clear water around it instead of overlapping the substation. */}
         <Marker

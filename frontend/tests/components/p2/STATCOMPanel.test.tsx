@@ -27,8 +27,10 @@ describe("STATCOMPanel", () => {
   it("renders title and compensation badge", () => {
     vi.mocked(useGridStore).mockReturnValue({
       statcomSizing: {
-        cable_q_mvar: 85,
-        reactor_q_mvar: 50,
+        cable_q_mvar: 260,
+        reactor_q_mvar: 240,
+        reactor_n1_statcom_q_mvar: -80,
+        reactor_n1_secure: true,
         ferranti_rise_pu: 0.03,
         statcom_rating_mvar: 120,
         compensation_adequate: true,
@@ -46,8 +48,10 @@ describe("STATCOMPanel", () => {
   it("shows Ferranti rise metric", () => {
     vi.mocked(useGridStore).mockReturnValue({
       statcomSizing: {
-        cable_q_mvar: 85,
-        reactor_q_mvar: 50,
+        cable_q_mvar: 260,
+        reactor_q_mvar: 240,
+        reactor_n1_statcom_q_mvar: -80,
+        reactor_n1_secure: true,
         ferranti_rise_pu: 0.03,
         statcom_rating_mvar: 120,
         compensation_adequate: true,
@@ -60,5 +64,26 @@ describe("STATCOMPanel", () => {
     render(<STATCOMPanel />);
     expect(screen.getByText("Ferranti Rise")).toBeDefined();
     expect(screen.getByText("3.00%")).toBeDefined();
+  });
+
+  it("flags an insecure reactor N-1 case", () => {
+    vi.mocked(useGridStore).mockReturnValue({
+      statcomSizing: {
+        cable_q_mvar: 260,
+        reactor_q_mvar: 160,
+        reactor_n1_statcom_q_mvar: -120,
+        reactor_n1_secure: false,
+        ferranti_rise_pu: 0.03,
+        statcom_rating_mvar: 120,
+        compensation_adequate: true,
+        without_compensation_v_max_pu: 1.06,
+        statcom_q_range_min_mvar: -120,
+        statcom_q_range_max_mvar: 120,
+      },
+    } as unknown as ReturnType<typeof useGridStore>);
+
+    render(<STATCOMPanel />);
+    expect(screen.getByText("Reactor N-1")).toBeDefined();
+    expect(screen.getByText(/Not secure/)).toBeDefined();
   });
 });

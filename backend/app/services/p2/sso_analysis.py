@@ -89,6 +89,7 @@ from app.services.p2.network_model import (
     EXPORT_CABLE_1000,
     EXPORT_CABLE_LENGTH_KM,
     GRID_SSC_MVA,
+    NUM_EXPORT_CABLES,
     TOTAL_CAPACITY_MW,
 )
 
@@ -175,10 +176,13 @@ def run_impedance_scan(
     freqs = np.linspace(SUB_SYNC_FREQ_MIN_HZ, SUB_SYNC_FREQ_MAX_HZ, freq_points)
     omega_array = 2.0 * np.pi * freqs
 
-    # Cable impedance (pi-model per unit length)
-    r_cable = EXPORT_CABLE_1000.r_ohm_per_km * export_length_km
-    l_cable = (EXPORT_CABLE_1000.x_ohm_per_km / (2.0 * np.pi * 50.0)) * export_length_km
-    c_cable = EXPORT_CABLE_1000.c_nf_per_km * 1e-9 * export_length_km
+    # Cable impedance (pi-model per unit length), n identical circuits in parallel:
+    # R and L divide by n, C multiplies by n (LC product — and resonance — unchanged)
+    n = NUM_EXPORT_CABLES
+    # 20 °C DC resistance on purpose: lower R = less damping = conservative for SSO
+    r_cable = EXPORT_CABLE_1000.r_ohm_per_km * export_length_km / n
+    l_cable = (EXPORT_CABLE_1000.x_ohm_per_km / (2.0 * np.pi * 50.0)) * export_length_km / n
+    c_cable = EXPORT_CABLE_1000.c_nf_per_km * 1e-9 * export_length_km * n
 
     # Z_cable(jω) = R + jωL + 1/(jωC) = R + j(ωL - 1/(ωC))
     z_cable_real = np.full_like(freqs, r_cable)

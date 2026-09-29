@@ -3,12 +3,10 @@
 510 MW Baltic Sea offshore wind farm simulation: 34 × V236-15.0 MW, 66 kV array, 220 kV export (45 km), PSE grid.
 Monorepo: FastAPI (Python 3.13, SQLAlchemy, Pydantic v2) backend + React 19 / TypeScript / Tailwind v4 / Vite frontend.
 
-## Session Protocol (MANDATORY)
+## Working style
 
-- **Open every session:** "We're building a 510 MW Baltic Sea wind farm simulation. 34 × V236-15.0 MW, 66 kV array, 220 kV export (45 km), PSE grid. Today: [module] — maps to [Learning_Roadmap section]."
-- **Close every session:** 3 interview questions + "explain simply" + "explain technically"
-- **Code order:** P1 → P2 → P3 → P4 → P5. Physics first. Code second.
-- **Teaching methodology:** 4-layer structure (physics → standard → maths → code) every session.
+- Physics first, code second: sanity-check results against the domain rules below and state units.
+- Keep replies short — no session opener, no interview questions / "explain simply" sections.
 
 ## Commands (run from repo root unless noted)
 
@@ -48,7 +46,7 @@ This repo is indexed (`.codegraph/`, auto-syncs). For "where is / what calls / h
 
 1. 0 ≤ P ≤ Prated; zero output below cut-in 3 m/s and above cut-out 31 m/s; ML never overrides physics (`enforce_physical_constraints()`).
 2. Per-unit consistent: Sbase 100 MVA, Vbase = bus nominal (66/220/400 kV); never mix pu and absolute.
-3. Short-circuit per IEC 60909 via `pandapower.shortcircuit.calc_sc()` (cmax 1.1, cmin 0.95) — do not re-implement.
+3. Short-circuit per IEC 60909 via `pandapower.shortcircuit.calc_sc()` (HV/MV: cmax 1.10, cmin 1.00; 0.95 is LV-only) — do not re-implement.
 4. Reactive power: generating Q positive (`reactive_power_mvar`).
 5. GOOSE is L2 Ethernet (<4 ms); HTTP/WS simulations must carry `# EDUCATIONAL SIMULATION — GOOSE is L2 Ethernet in real systems`.
 6. Time series: `TimeSeriesSplit`, never shuffle.

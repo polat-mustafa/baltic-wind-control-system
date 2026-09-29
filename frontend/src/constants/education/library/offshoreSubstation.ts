@@ -8,10 +8,10 @@ export const offshoreSubstationEducation: EducationContent = {
 
   overview:
     "The offshore substation (OSS) collects 66 kV array cables from up to ~70 turbines, steps the voltage up to 220 kV " +
-    "(or HVDC for long-distance projects) and exports power to shore. It is a 2,000–4,000 t platform supporting 35–60 MVA " +
-    "of GIS, oil-filled transformers, dry-type reactors, MV/LV switchgear, helideck, accommodation and emergency systems. " +
+    "(or HVDC for long-distance projects) and exports power to shore. It is a 2,000–4,000 t platform supporting " +
+    "GIS, oil-filled transformers, dry-type reactors, MV/LV switchgear, helideck, accommodation and emergency systems. " +
     "The mechanical design must withstand decades of corrosive marine atmosphere, breaking waves, and the structural " +
-    "vibration of three or four 250 MVA transformers running 24/7.",
+    "vibration of its power transformers running 24/7 — at Baltic Wind Alpha two 300 MVA units (N-1: one can carry ~300 MW alone).",
 
   simpleExplanation:
     "Imagine putting an entire electrical substation that you'd normally build on land — transformers, switchgear, " +

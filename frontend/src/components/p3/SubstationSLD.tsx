@@ -126,7 +126,7 @@ function buildGraph(
     id: "tx-400-220",
     type: "tx",
     position: { x: 355, y: 170 },
-    data: { label: "TX-400/220", color: green, state: "IN SERVICE", rating: "300 MVA" },
+    data: { label: "TX-400/220 ×2", color: green, state: "IN SERVICE", rating: "2 × 300 MVA" },
   });
 
   // ES on 400kV side
@@ -160,7 +160,7 @@ function buildGraph(
     id: "bb-220kv",
     type: "busbar",
     position: { x: 300, y: 390 },
-    data: { label: "220 kV Export Cable (45 km)", color: SCADA_COLORS.VOLTAGE_220KV, voltage: 220 },
+    data: { label: "2 × 220 kV Export Cables (45 km)", color: SCADA_COLORS.VOLTAGE_220KV, voltage: 220 },
   });
 
   // ── 220/66 kV Transformers (2x parallel) ──

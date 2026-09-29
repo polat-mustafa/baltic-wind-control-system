@@ -39,7 +39,7 @@ export function useViewerKeyboard({
     if (!el) return;
 
     // The container needs tabindex to receive keyboard focus.
-    if (el.tabIndex < 0) el.tabIndex = 0;
+    if (el.tabIndex < 0) el.setAttribute("tabindex", "0");
 
     const handler = (e: KeyboardEvent) => {
       // Don't steal keys when a form input is the active element.

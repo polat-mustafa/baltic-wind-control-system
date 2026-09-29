@@ -171,5 +171,3 @@ export const SceneEnvironment = memo(function SceneEnvironment({
     </>
   );
 });
-
-export const SKY_PRESETS: SkyPreset[] = ["overcast", "golden", "night"];

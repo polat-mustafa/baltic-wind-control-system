@@ -21,10 +21,11 @@ export function useYawRotation(
   nacellePositionDeg: number,
 ): void {
   useFrame((_state, delta) => {
-    if (!nacelleRef.current) return;
+    const nacelle = nacelleRef.current;
+    if (!nacelle) return;
 
     const target = -(nacellePositionDeg * DEG_TO_RAD);
-    const current = nacelleRef.current.rotation.y;
+    const current = nacelle.rotation.y;
 
     // Shortest-path difference on circle [-π, π]
     let diff = target - current;
@@ -33,6 +34,6 @@ export function useYawRotation(
 
     const maxStep = MAX_YAW_RATE_RAD_PER_S * delta;
     const step = Math.sign(diff) * Math.min(Math.abs(diff), maxStep);
-    nacelleRef.current.rotation.y += step;
+    nacelle.rotation.set(nacelle.rotation.x, current + step, nacelle.rotation.z);
   });
 }

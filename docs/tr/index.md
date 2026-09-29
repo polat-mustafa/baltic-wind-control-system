@@ -24,7 +24,7 @@
 | **Açık deniz alt istasyonu** | 66/220 kV |
 | **İhracat kablosu** | 220 kV HVAC, 45 km denizaltı |
 | **Şebeke bağlantısı** | 400 kV PSE (Polonya TSO) |
-| **STATCOM** | ±120 MVAR + 50 MVAR şönt reaktör |
+| **STATCOM** | ±120 MVAR + 3 × 80 MVAR (N+1) şönt reaktör |
 | **Konum** | Polonya Baltık Denizi |
 | **Uyumluluk** | PSE IRiESP, ENTSO-E NC RfG Tip D |
 | **Devreye alma / nominal / kapanma** | 3 / 12,5 / 31 m/s |

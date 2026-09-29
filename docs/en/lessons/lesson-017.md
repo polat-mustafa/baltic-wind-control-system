@@ -187,7 +187,7 @@ Imagine preparations for an orchestra concert: each musician takes turns tuning,
 ### What Do the Standards Say?
 
 - **IEC 62271-100 §4.101**: Circuit breaker operating sequence O — 0.3s — CO — 3min — CO. 0.3s delay is for SF₆ gas recovery. Automatic rapid reclose is disabled during commissioning — each step requires PiC approval.
-- **IEC 60287:2023**: Cable current calculation. Capacitance of 45 km XLPE submarine cable ~0.25 µF/km → charging current ~89 A/phase.
+- **IEC 60287-1-1:2023**: Cable current rating — the charging current uses part of this thermal capacity. Capacitance is manufacturer data: 190 nF/km in this project → charging current over 45 km ~341 A/phase.
 - **IEC 60076-5:2006**: Transformer initial energization current (inrush current) can reach 8 times the rated current (~100 ms). 2nd harmonic content (I₂/I₁ > 0.15) is distinguished from fault by the protection relay.
 
 ### What We Built
@@ -424,7 +424,7 @@ Think of a garden hose: when you turn on the faucet, water does not immediately 
 
 ### What Do the Standards Say?
 
-- **IEC 60287:2023**: Capacitance of XLPE cable ~0.25 µF/km. Total capacitance for 45 km of cable = 11.25 µF.
+- **Cable capacitance** comes from the manufacturer's datasheet (IEC 60287 defines current rating, not capacitance values). This project uses 190 nF/km (`EXPORT_CABLE_1000`) → total 8.55 µF for 45 km.
 - **IEC 60076-5:2006**: Power transformer initial energization current 6-8 times the rated current, duration ~100 ms.
 
 ### Mathematical Model
@@ -433,12 +433,12 @@ Cable charging current calculation:
 
 ```
 I_c = ω × C_total × V_phase
-    = 2π × 50 × (0.25e-6 × 45) × (220e3 / √3)
-    = 314.16 × 11.25e-6 × 127,017
-    ≈ 89 A / faz
+    = 2π × 50 × (190e-9 × 45) × (220e3 / √3)
+    = 314.16 × 8.55e-6 × 127,017
+    ≈ 341 A / phase
 ```
 
-This 89 A reactive current flows continuously and must be compensated by STATCOM (P2). Program step S-016 does exactly this: puts STATCOM in voltage control mode and verifies reactive power absorption of ~85 MVAR at S-017.
+This 341 A reactive current flows continuously in each cable (Q = √3 × 220 kV × 341 A ≈ 130 MVAR; both cables ≈ 260 MVAR) and must be compensated by the shunt reactors (3 × 80 MVAR, N+1) + STATCOM (P2). Program step S-016 does exactly this: puts STATCOM in voltage control mode and at S-017 verifies that the STATCOM holds the voltage with a small absorption (~0–20 MVAR) — the reactors take most of the Q.
 
 Ferranti effect:
 
@@ -469,7 +469,7 @@ I_inrush_peak ≈ 8 × I_rated (ilk 100 ms)
 
     **Analogy:** It's like blowing up a balloon — air (reactive current) fills the balloon (charges the wire capacitance) but does no work (produces no active power). STATCOM ensures balance by absorbing excess air in this balloon.
 
-    **In this project:** Our 45 km cable produces 89 A charging current per phase. This corresponds to ~85 MVAR of reactive power—exactly the load that the STATCOM we sized in P2 (±120 MVAR) must accommodate.
+    **In this project:** Each of our 45 km export cables produces ~341 A charging current per phase (≈ 130 MVAR); both cables together ~260 MVAR. 240 MVAR is absorbed by the three shunt reactors (N+1) and the remaining ~20 MVAR by the STATCOM we sized in P2 (±120 MVAR); with one reactor out the STATCOM rises to ~100 MVAR.
 
 ---
 
@@ -480,7 +480,7 @@ I_inrush_peak ≈ 8 × I_rated (ilk 100 ms)
 - **Equipment state machine** (Part 1) → In the sequel of P5, real-time SLD (Single Line Diagram) visualization will be made with React frontend. State changes will be reflected as a color change on the XYFlow chart nodes.
 - **LOTO isolation set** (Part 2) → Repository-backed persistence already stores LOTO state inside the programme aggregate, and that can be extended into long-horizon audit analytics or time-series reporting later.
 - **PiC decision logic** (Part 3) → will be integrated with the RBAC system (IEC 62443) in P3: only users with the `commissioning_engineer` or `pic` role will be able to make a GO/NO-GO decision.
-- **Cable charging current** (Chapter 5) → The value of 89 A calculated in Lesson 007 (P2 Pandapower) reappears here as an operational verification step (S-012) — the embodiment of the physics → code → operation cycle.
+- **Cable charging current** (Chapter 5) → The value of ~341 A calculated in Lesson 007 (P2 Pandapower) reappears here as an operational verification step (S-012) — the embodiment of the physics → code → operation cycle.
 
 ---
 
@@ -526,7 +526,7 @@ graph TB
     P2 --> P3
     P3 --> P4
 
-    STATCOM -.->|"89 A şarj<br/>kompanzasyonu"| SP
+    STATCOM -.->|"341 A charging<br/>compensation"| SP
     GOOSE -.->|"Koruma durumu<br/>doğrulama"| SP
     RBAC -.->|"PiC yetkilendirme"| SP
 
@@ -552,7 +552,7 @@ graph TB
 3. **LOTO lifecycle** (NOT_APPLIED → APPLIED → REMOVED) ensures that each isolation point is traceable to the person who applied the lock — OSHA 1910.147 requirement.
 4. **Hold points** (hold points) require human judgment where automation falls short — the PiC GO/NO-GO decision is irreversible.
 5. **Domain-first with repository-backed persistence** keeps switching safety logic in pure services while SQLAlchemy stores the aggregate after validation.
-6. **45 km cable charging current** (~89 A/phase) and **transformer inrush current** (8× rated) are the physical realities behind the switching steps.
+6. **45 km cable charging current** (~341 A/phase) and **transformer inrush current** (8× rated) are the physical realities behind the switching steps.
 7. **Exceptions as flow control**: `PiCDecisionRequiredError` is not an error, but the designed behavior of the program — the API layer returns this as a normal response.
 
 ---

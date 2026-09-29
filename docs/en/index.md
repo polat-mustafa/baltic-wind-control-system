@@ -17,4 +17,4 @@ English documentation for the 510 MW Baltic Sea offshore wind farm simulation. T
 
 ## Reference Plant
 
-34 x Vestas V236-15.0 MW | 66 kV array | 220 kV export over 45 km | 400 kV PSE connection | +/-120 MVAR STATCOM + 50 MVAR shunt reactor
+34 x Vestas V236-15.0 MW | 66 kV array | 2 x 220 kV export over 45 km | 400 kV PSE connection | +/-120 MVAR STATCOM + 3 x 80 MVAR (N+1) shunt reactors

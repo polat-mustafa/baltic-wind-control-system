@@ -1097,14 +1097,15 @@ function LeafletWindFarmMapInner({
   // voltage; near full output, it absorbs the natural Q overshoot. Quantised
   // to 5 MVAr so the icon doesn't recreate on every tick.
   const statcomQRaw =
-    ((255 - totalPowerMW) / 510) * 90 + (Math.random() < 0.001 ? 0 : 0);
+    ((255 - totalPowerMW) / 510) * 90;
   const statcomQ =
     Math.round(Math.max(-120, Math.min(120, statcomQRaw)) / 5) * 5;
   const statcomIcon = useMemo(() => createSTATCOMIcon(statcomQ), [statcomQ]);
   // Grid switchyard breaker is closed whenever the farm is exporting power.
+  const isExporting = totalPowerMW > 0.5;
   const switchyardIcon = useMemo(
-    () => createGridSwitchyardIcon(totalPowerMW > 0.5),
-    [totalPowerMW > 0.5],
+    () => createGridSwitchyardIcon(isExporting),
+    [isExporting],
   );
   // Floating LIDAR met mast — independent wind reference for resource validation.
   // Reads farm-level wind from the KPI stream (quantised so the icon is stable).

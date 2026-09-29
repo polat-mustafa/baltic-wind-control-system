@@ -50,11 +50,12 @@ export default function CableDTSDashboard() {
         <Thermometer size={16} className="text-accent shrink-0" />
         <InfoButton info={cableDtsDashboardInfo} />
         <div className="flex items-center gap-2">
-          <label className="text-xs text-text-muted">Current:</label>
+          <label className="text-xs text-text-muted">Current per circuit:</label>
+          {/* 950 A static rating; up to 1400 A covers the N-1 case (one circuit carries both) */}
           <input
             type="range"
             min={100}
-            max={900}
+            max={1400}
             step={10}
             value={currentA}
             onChange={(e) => setCurrentA(Number(e.target.value))}

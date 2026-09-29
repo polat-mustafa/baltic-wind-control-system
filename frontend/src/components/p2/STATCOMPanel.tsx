@@ -91,7 +91,7 @@ export default function STATCOMPanel() {
       />
 
       {/* Summary metrics */}
-      <div className="grid grid-cols-3 gap-3 mt-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
         <div className="text-center">
           <p className="text-xs text-text-muted">Ferranti Rise</p>
           <p className="text-sm font-bold" style={{ color: SCADA_COLORS.WARNING }}>
@@ -112,6 +112,17 @@ export default function STATCOMPanel() {
           <p className="text-xs text-text-muted">Q = \u03C9CV\u00B2L</p>
           <p className="text-sm font-bold text-slate-200">
             {statcomSizing.cable_q_mvar.toFixed(1)} MVAR
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="text-xs text-text-muted">Reactor N-1</p>
+          <p className="text-sm font-bold" style={{
+            color: statcomSizing.reactor_n1_secure
+              ? SCADA_COLORS.ENERGIZED
+              : SCADA_COLORS.FAULT,
+          }}>
+            {statcomSizing.reactor_n1_secure ? "Secure" : "Not secure"} (
+            {statcomSizing.reactor_n1_statcom_q_mvar.toFixed(0)} MVAR)
           </p>
         </div>
       </div>

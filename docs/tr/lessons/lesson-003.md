@@ -444,9 +444,12 @@ Kablo kapasitansı: C ≈ 0.19 µF/km (3 fazlı XLPE 220 kV tipik değer)
 Reaktif güç üretimi:
   Q = ω × C × V² × L × 3 (3 faz)
   Q = 314.16 × 0.19×10⁻⁶ × (220,000/√3)² × 45 × 3
-  Q ≈ 85.5 MVAR
+  Q ≈ 130 MVAR   (= ω × C × V_LL² × L, çünkü 3 × (V_LL/√3)² = V_LL²)
 
-Bu, kablonun yüksüz iken 85.5 MVAR kapasitif reaktif güç ürettiği anlamına gelir.
+Bu, her kablonun yüksüz iken ~130 MVAR kapasitif reaktif güç ürettiği anlamına gelir.
+Tek kablo yalnızca √3 × 220 kV × 0.95 kA ≈ 362 MVA taşıyabildiği için (510 MW'tan az) iki paralel
+ihracat kablosu kullanılır → toplam ≈ 260 MVAR
+(kod: services/p2/statcom_sizing.py → calculate_cable_reactive_power() = 260.0 MVAR, iki kablo).
 ```
 
 ### HVAC vs HVDC Karar Matrisi
@@ -523,16 +526,17 @@ Her gerilim seviyesi bir mühendislik kararıdır:
 
 ### STATCOM: Neden ±120 MVAR?
 
-Bölüm 6'da hesapladığımız gibi, 45 km'lik 220 kV kablo ~85.5 MVAR kapasitif reaktif güç üretir. Bu reaktif gücü kompanse etmek ve gerilimi ±%5 bandında tutmak için STATCOM (Static Synchronous Compensator) gereklidir.
+Bölüm 6'da hesapladığımız gibi, 45 km'lik her 220 kV kablo ~130 MVAR, iki paralel kablo birlikte ~260 MVAR kapasitif reaktif güç üretir. Bu reaktif gücü kompanse etmek ve gerilimi ±%5 bandında tutmak için STATCOM (Static Synchronous Compensator) gereklidir.
 
 **STATCOM boyutlandırması:**
 
 | Bileşen | Değer | Açıklama |
 |---------|-------|----------|
-| Kablo reaktif gücü | +85.5 MVAR (kapasitif) | Sürekli kompanzasyon gerekli |
-| N-1 yedeklilik marjı | +34.5 MVAR | Bir STATCOM modülü arızasında yeterli kapasite |
-| **STATCOM nominal** | **±120 MVAR** | Hem absorbsiyon hem enjeksiyon |
-| Şönt reaktör | 50 MVAR | Sürekli taban yük kompanzasyonu — STATCOM iş yükünü azaltır |
+| Kablo reaktif gücü | +260 MVAR (2 × 130, kapasitif, üretilen) | Yüksüzde bile sürekli |
+| Şönt reaktörler | −240 MVAR (3 × 80, N+1: kablo başına bir + bir yedek) | Taban yük kompanzasyonu — ucuz, STATCOM'u küçük tutar |
+| STATCOM'a kalan net Q | ≈ 20 MVAR normalde; ≈ 100 MVAR bir reaktör devre dışıyken (N-1) | 260 − 240 / 260 − 160 |
+| Sıcaklık (%10) + yaşlanma (%5) marjı | N-1 durumu: 100 × 1.15 → 115 → **120 MVAR** gerekli | `size_statcom()` 10 MVAR'a yukarı yuvarlar |
+| **STATCOM nominal** | **±120 MVAR** | Hem absorbe (−) hem üretme (+); FRT'de reaktif akım enjeksiyonu |
 
 **STATCOM vs SVC (Static VAR Compensator) Kararı:**
 
@@ -604,7 +608,7 @@ Bu değer, tüm koruma röle ayarlarının (P2) ve anahtarlama programlarının 
     **Türbin seçimi** (15 MW, 236 m rotor) →
     **Türbin sayısı** (34 = 510 MW) →
     **İletim tipi** (HVAC, 45 km < 80 km) →
-    **Kablo kapasitansı** (85.5 MVAR) →
+    **Kablo kapasitansı** (2 × 130 = ~260 MVAR) →
     **STATCOM boyutu** (±120 MVAR) →
     **FRT uyumu** (ANDES dinamik simülasyonu)
 
@@ -632,10 +636,10 @@ Tüm ön tasarım kararlarımızı tek bir referans tablosunda toparlayalım:
 | **Güç yoğunluğu** | ~6–7 MW/km² | Endüstri standardı aralığında | Karşılaştırma |
 | **Dizi gerilimi** | 66 kV | 15 MW sınıfı için endüstri standardı | Endüstri pratiği |
 | **İhraç gerilimi** | 220 kV HVAC | 45 km < 80 km başa baş noktası | CIGRE, IEC 60287 |
-| **İhraç kablosu** | 45 km deniz altı + 5 km kara | Sahadan kıyıya mesafe | Coğrafi kısıt |
-| **Kablo reaktif gücü** | ~85.5 MVAR | Q = ωCV²L hesaplaması | IEC 60287-1-1 |
-| **STATCOM** | ±120 MVAR | Kablo komp. + N-1 yedeklilik | Boyutlandırma hesabı |
-| **Şönt reaktör** | 50 MVAR | Sürekli taban yük kompanzasyonu | N-1 tasarımı |
+| **İhraç kabloları** | 2 × (45 km deniz altı + 5 km kara) | 1 kablo ≈ 362 MVA < 510 MW | Termal kapasite |
+| **Kablo reaktif gücü** | ~260 MVAR (2 × 130) | Q = n·ωCV²L, C = 190 nF/km | Üretici verisi (kapasitans) |
+| **STATCOM** | ±120 MVAR | N-1: (260 − 2 × 80) × 1.15 = 115 → 120 MVAR | Boyutlandırma hesabı |
+| **Şönt reaktörler** | 3 × 80 MVAR (N+1) | Sürekli taban yük kompanzasyonu | Kablo başına bir + bir yedek → reaktör N-1 güvenli |
 | **Şebeke bağlantısı** | 400 kV PSE | Polonya iletim şebekesi | PSE IRiESP |
 | **Şebeke kodu** | NC RfG Tip D + PSE IRiESP | ≥75 MW → en katı gereksinimler | EU 2016/631 |
 | **Kısa devre kapasitesi** | 10 GVA | Dış şebeke modeli | IEC 60909 |
@@ -670,10 +674,10 @@ Tüm ön tasarım kararlarımızı tek bir referans tablosunda toparlayalım:
         **~80 km** (tipik başa baş noktası). Bizim projemizde kablo uzunluğu 45 km olduğundan, HVAC ekonomik olarak üstündür. Bu değer yıllara ve teknoloji maliyetlerine göre 60–120 km arasında değişir.
 
 !!! question "Soru 5 (Anlama)"
-    STATCOM boyutunu neden ±120 MVAR olarak belirledik? 85.5 MVAR kablo kompanzasyonu yetmez miydi?
+    İki ihracat kablosu ~260 MVAR üretiyor. STATCOM boyutunu neden ±120 MVAR olarak belirledik — 260'ın yarısından bile küçük değil mi?
 
     ??? success "Cevap"
-        **N-1 yedeklilik prensibi nedeniyle.** 85.5 MVAR yalnızca nominal koşullar içindir. Bir STATCOM modülünün arızalanması durumunda bile yeterli kompanzasyon kapasitesine sahip olmak için ~%40 marj eklenmiştir. Ayrıca STATCOM'un hem absorbe (+) hem de enjekte (−) etme kapasitesi olması gerekir — tam yükte türbinlerin indüktif reaktif güç talebi de STATCOM tarafından karşılanır.
+        **Çünkü STATCOM tek başına çalışmaz.** Üç şönt reaktör (3 × 80 = 240 MVAR) sürekli absorbe eder; normalde STATCOM'a yalnızca ~20 MVAR kalır. Boyutlandırma en kötü durum olan N-1'e göre yapılır: bir reaktör devre dışıyken 260 − 160 = 100 MVAR kalır; sıcaklık (%10) ve yaşlanma (%5) marjıyla 100 × 1.15 = 115 → 120 MVAR. Kablo şarj gücü rüzgara değil V²'ye bağlı olduğundan neredeyse sabittir — sabit ve ucuz reaktörlere uygundur; pahalı STATCOM yalnızca değişken kısmı üstlenir. STATCOM'un hem absorbe (Q < 0) hem de üretme (Q > 0) kapasitesi olması gerekir (Kural 4) — tam yükte kablo ve transformatörlerin seri reaktansı reaktif güç tüketir ve gerilim düşer. Yedek (N+1) reaktör olmasaydı, 2 × 80 tasarımında bir reaktör arızası 180 MVAR bırakırdı — STATCOM'un 120 MVAR'ı yetmezdi. Üçüncü 80 MVAR'lık reaktör, STATCOM'u 210 MVAR'a büyütmekten çok daha ucuzdur.
 
 !!! question "Soru 6 (Zorlayıcı)"
     34 türbinlik bir çiftlikte iz kayıpları %12.7 ise ve staggered layout optimizasyonu ile %8.7'ye düşürülürse, 9.5 m/s ortalama rüzgar hızında ve %48 kapasite faktöründe yıllık enerji kazancı yaklaşık kaç GWh olur?
@@ -696,7 +700,7 @@ Tüm ön tasarım kararlarımızı tek bir referans tablosunda toparlayalım:
 
         Deniz altı kabloları özellikle hassastır çünkü:
         1. Havai hatlardan 20–40 kat daha yüksek kapasitansa sahiptir (yalıtım kalınlığı ve toprak yakınlığı)
-        2. Uzun mesafelerde (45+ km) kapasitif reaktif güç üretimi çok yüksek olur (85.5 MVAR)
+        2. Uzun mesafelerde (45+ km) kapasitif reaktif güç üretimi çok yüksek olur (kablo başına ~130 MVAR)
         3. Rüzgar çiftlikleri gece veya düşük rüzgarda minimal yük taşır — tam da Ferranti etkisinin en şiddetli olduğu koşullar
 
         Çözüm: STATCOM + şönt reaktör ile reaktif güç kompanzasyonu. Projemizde bu, P2'nin temel konularından biri olacaktır.
@@ -711,7 +715,7 @@ Bir rüzgar çiftliği projesine başlamadan önce birçok kritik karar almanız
 
 ### Teknik Açıklama (Mülakat Paneli İçin)
 
-Ön tasarım aşamasında sekiz temel mühendislik kararı alınmıştır. Konum olarak Polonya MEB'inde Ustka açıkları seçilmiştir — ERA5 reanaliz verisine göre 150 m hub yüksekliğinde 9.0–9.5 m/s ortalama rüzgar hızı, 25–40 m su derinliği (monopile uygun), ve Kuzey Denizi'ne kıyasla sakin dalga koşulları (Hs < 1.5 m yıllık ortalama). Türbin olarak IEC Sınıf I-B sertifikalı V236-15.0 MW seçilmiştir — 43,742 m² süpürülen alan, yarı-doğrudan sürüş tahrik, 2024-2026 döneminin tam ticari olgunluktaki (bankable) endüstri standardıdır. 34 × 15 MW = 510 MW kapasite, NC RfG Tip D gereksinimlerini tetiklerken eğitim ölçeğinde hesaplama verimliliği sağlar. Staggered layout'ta 8D downwind × 5D crosswind aralıkla (~1,888 m × 1,180 m) tahmini çiftlik alanı ~70–100 km² ve güç yoğunluğu ~6–7 MW/km²'dir. İletim sistemi 66 kV array → 220 kV HVAC export (45 km) → 400 kV PSE şebekesi zincirinden oluşur — 45 km mesafe HVAC/HVDC başa baş noktasının (~80 km) altındadır. 220 kV kablonun ~85.5 MVAR kapasitif reaktif güç üretimi, ±120 MVAR STATCOM + 50 MVAR şönt reaktör ile kompanse edilir — STATCOM, SVC'ye tercih edilmiştir çünkü düşük gerilimde tam Q kapasitesi korunur (FRT uyumu) ve kompakt yapısı offshore platform maliyetini azaltır. Kısa devre kapasitesi 10 GVA dış şebeke modeli, IEC 60909 bazlı koruma koordinasyonunun temelini oluşturur.
+Ön tasarım aşamasında sekiz temel mühendislik kararı alınmıştır. Konum olarak Polonya MEB'inde Ustka açıkları seçilmiştir — ERA5 reanaliz verisine göre 150 m hub yüksekliğinde 9.0–9.5 m/s ortalama rüzgar hızı, 25–40 m su derinliği (monopile uygun), ve Kuzey Denizi'ne kıyasla sakin dalga koşulları (Hs < 1.5 m yıllık ortalama). Türbin olarak IEC Sınıf I-B sertifikalı V236-15.0 MW seçilmiştir — 43,742 m² süpürülen alan, yarı-doğrudan sürüş tahrik, 2024-2026 döneminin tam ticari olgunluktaki (bankable) endüstri standardıdır. 34 × 15 MW = 510 MW kapasite, NC RfG Tip D gereksinimlerini tetiklerken eğitim ölçeğinde hesaplama verimliliği sağlar. Staggered layout'ta 8D downwind × 5D crosswind aralıkla (~1,888 m × 1,180 m) tahmini çiftlik alanı ~70–100 km² ve güç yoğunluğu ~6–7 MW/km²'dir. İletim sistemi 66 kV array → 2 × 220 kV HVAC export (45 km) → 400 kV PSE şebekesi zincirinden oluşur — 45 km mesafe HVAC/HVDC başa baş noktasının (~80 km) altındadır. Tek kablo 510 MW'ı taşıyamadığı için (≈ 362 MVA) iki paralel kablo seçilmiştir; iki 220 kV kablonun ~260 MVAR kapasitif reaktif güç üretimi, ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) şönt reaktör ile kompanse edilir — STATCOM, SVC'ye tercih edilmiştir çünkü düşük gerilimde tam Q kapasitesi korunur (FRT uyumu) ve kompakt yapısı offshore platform maliyetini azaltır. Kısa devre kapasitesi 10 GVA dış şebeke modeli, IEC 60909 bazlı koruma koordinasyonunun temelini oluşturur.
 
 ---
 
@@ -734,7 +738,7 @@ Bu dersin konularını derinleştirmek için Learning Roadmap'ten öneriler:
 | ERA5 rüzgar verisi → 9.0–9.5 m/s | **Ders 004 (P1):** Weibull fit ve güç eğrisi entegrasyonu |
 | V236-15.0 MW güç eğrisi | **P1:** PyWake iz modelleme, AEP hesaplama |
 | 34 türbin staggered layout | **P1:** Yerleşim optimizasyonu, iz kaybı azaltma |
-| 85.5 MVAR kablo reaktif gücü | **P2:** STATCOM kontrol stratejisi, Pandapower simülasyonu |
+| ~260 MVAR kablo reaktif gücü (2 kablo) | **P2:** STATCOM kontrol stratejisi, Pandapower simülasyonu |
 | FRT gereksinimleri (%15, 140 ms) | **P2:** ANDES dinamik simülasyonu |
 | 66 kV → 220 kV → 400 kV zinciri | **P2:** Tek hat diyagramı, yük akışı analizi |
 | STATCOM ±120 MVAR | **P2:** Reaktif güç kontrol modları (V-droop, Q-setpoint) |

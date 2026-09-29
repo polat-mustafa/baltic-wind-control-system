@@ -6,7 +6,7 @@
  * MMC valve module status, control loop coefficients per ENTSO-E NC RfG.
  *
  * Q sign convention: +ve = injecting (capacitive, leading), −ve = absorbing
- * (inductive, lagging). Rated ±120 MVAr static + 50 MVAr shunt reactor.
+ * (inductive, lagging). Rated ±120 MVAr static + 3 × 80 MVAr shunt reactors (N+1).
  */
 
 import { useMemo } from "react";

@@ -152,7 +152,7 @@ The platform is split into **five sequential projects (P1 → P5)** plus **fifte
 - Short-circuit analysis per **IEC 60909**
 - Fault Ride-Through per **ENTSO-E NC RfG Type D**
 - **Power Plant Controller** (PPC) — active & reactive dispatch with PSE IRiESP ramp limits
-- **STATCOM ±120 MVAR** + 50 MVAR shunt reactor coordination
+- **STATCOM ±120 MVAR** + 3 × 80 MVAR (N+1) shunt reactor coordination
 - **50 MW / 200 MWh BESS** — FCR, FFR, ramp smoothing
 - Cable **DTS thermal monitoring** with IEC 60287 dynamic rating
 - Protection relay coordination with time-current curves
@@ -579,7 +579,7 @@ This platform models a wind farm sized between Polish Baltic Sea :
  
 - **This simulation** — 510 MW (34 × 15 MW), educational 
 
-Every parameter is real or traceable: 66 kV XLPE array cables, 220 kV HVAC export (45 km subsea + 5 km onshore), ±120 MVAR STATCOM with 50 MVAR shunt reactor, 50 MW / 200 MWh BESS, PSE grid connection at 400 kV.
+Every parameter is real or traceable: 66 kV XLPE array cables, 2 × 220 kV HVAC export cables (45 km subsea + 5 km onshore), ±120 MVAR STATCOM with 3 × 80 MVAR (N+1) shunt reactors, 50 MW / 200 MWh BESS, PSE grid connection at 400 kV.
 
 ---
 

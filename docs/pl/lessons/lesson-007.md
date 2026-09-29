@@ -48,7 +48,7 @@ Model pi przybliża linię z parametrami rozproszonymi za pomocą trzech element
 ```
 
 Dla każdego odcinka kabla:
-- **R** [Ω/km]: rezystancja przewodu (odwrotnie proporcjonalna do przekroju)
+- **R** [Ω/km]: rezystancja przewodu (odwrotnie proporcjonalna do przekroju). Rośnie z temperaturą i efektami AC: R_AC,90 = R20 × (1 + 0,00393 × 70) × (1 + y_s + y_p) — dla 1000 mm² Cu 0,0176 → 0,0233 Ω/km (+33 %). Straty w rozpływie mocy liczone są przy 90 °C, zwarcie wg IEC 60909 przy 20 °C (zimny = niska R dla Ik''max).
 - **X** [Ω/km]: reaktancja indukcyjna (pole magnetyczne)
 - **C** [nF/km]: pojemność na fazę (dielektryk XLPE)
 
@@ -113,10 +113,10 @@ Funkcja `build_network()` tworzy sieć Pandapower z 38 szynami:
 | Element | Liczba | Opis |
 |---------|--------|------|
 | **Szyny** | 38 | 1× PSE 400 kV + 1× ląd 220 kV + 1× OSS 220 kV + 1× OSS 66 kV + 34× WTG 66 kV |
-| **Kable** | 35 | 34× zbiorowe (66 kV, stopniowane) + 1× eksportowy (220 kV, 45 km) |
-| **Transformatory** | 2 | 66/220 kV Dyn11 (OSS) + 220/400 kV YNyn0 (lądowy) |
+| **Kable** | 35 | 34× zbiorowe (66 kV, stopniowane) + 1× element eksportowy = 2 równoległe obwody 220 kV (`parallel=2`, 45 km) |
+| **Transformatory** | 2 elementy | 66/220 kV Dyn11 (OSS) + 220/400 kV YNyn0 (lądowy); każdy 2 × 300 MVA równolegle (`parallel=2`, N-1) |
 | **Generatory** | 35 | 34× WTG (15 MW) + 1× STATCOM (sterowanie Q) |
-| **Reaktor szuntowy** | 1 | 50 MVAR (OSS 220 kV) |
+| **Reaktory szuntowe** | 3 | 3 × 80 MVAR (OSS 220 kV, N+1: jeden na kabel + jeden rezerwowy) |
 | **Sieć zewnętrzna** | 1 | PSE 400 kV, Ssc = 10 GVA |
 
 **Układ ciągów:** 6 ciągów × 5 WTG + 1 ciąg × 4 WTG = 34 WTG
@@ -147,7 +147,7 @@ Kryterium zbieżności: $\|\Delta P, \Delta Q\| < 10^{-8}$ MVA
 | **Pełne obciążenie** | 510 MW (34 × 15 MW) | Termiczne limity kabli |
 | **Częściowe obciążenie** | 255 MW (50%) | Napięcia przy normalnej pracy |
 | **Bieg jałowy** | 0 MW | Wzrost napięcia efektem Ferrantiego |
-| **N-1** | 450 MW (ciąg 7 wyłączony) | Marginesy rezerwowe |
+| **N-1** | 435 MW (ciąg 6 wyłączony) | Marginesy rezerwowe |
 
 ### Wyniki
 
@@ -156,7 +156,7 @@ Wszystkie cztery scenariusze osiągają zbieżność i spełniają limity napię
 - **Pełne obciążenie:** Straty ~1–3% (5–15 MW), napięcie zgodne
 - **Częściowe obciążenie:** Mniejsze straty, napięcie zgodne
 - **Bieg jałowy:** Minimalne straty (tylko straty w żelazie transformatorów), efekt Ferrantiego skompensowany
-- **N-1:** 450 MW, rezerwa potwierdzona
+- **N-1:** 435 MW, rezerwa potwierdzona
 
 ### Przegląd kodu
 
@@ -170,8 +170,12 @@ def auto_statcom_dispatch(net, target_vm_pu=1.0, tolerance_pu=0.01):
         deviation = target_vm_pu - v_oss
         if abs(deviation) <= tolerance_pu:
             break
-        # Korekta proporcjonalna: ~5000 MVAR/pu wzmocnienia
-        current_q += deviation * 5000.0
+        # Krok siecznych: dQ/dV aktualizowane z mierzonej odpowiedzi. Stałe wzmocnienie
+        # 5000 MVAR/pu oscylowało w sztywniejszej sieci z 2 kablami (~33 MVAR / 0,01 pu).
+        if prev:
+            dq_dv = (current_q - prev[0]) / (v_oss - prev[1])
+        prev = (current_q, v_oss)
+        current_q += deviation * dq_dv
         # Ograniczenie do znamionowej mocy STATCOM-a (±120 MVAR)
         current_q = max(-120, min(120, current_q))
 ```
@@ -230,7 +234,9 @@ Na naszym kablu 45 km, 220 kV wzrost napięcia efektem Ferrantiego wynosi ~2–5
 
 ### Strategia kompensacji
 
-1. **Reaktor szuntowy (50 MVAR):** Stałe obciążenie indukcyjne absorbuje część mocy Q kabla
+1. **Reaktory szuntowe (3 × 80 MVAR, N+1):** Stałe obciążenie indukcyjne absorbuje większość mocy Q kabli (240 MVAR); przy jednym wyłączonym STATCOM nadal mieści się w swojej mocy znamionowej
+
+    > **Uwaga — konwencja znaków:** w pandapower `create_shunt(q_mvar=...)` używa konwencji **odbiornikowej**: dodatnie `q_mvar` = pochłanianie (dławik). Ten model był kiedyś zbudowany z `q_mvar=-50` — „dławik” był w rzeczywistości kondensatorem i podnosił napięcie z 1,044 do 1,063 pu. Zasada 4 (generowane Q dodatnie) dotyczy wyjść API i sgenów (STATCOM), a nie wejść bocznika w pandapower.
 2. **STATCOM (±120 MVAR):** Dynamiczna kompensacja — wytwarza lub pochłania Q w zależności od napięcia
 
 **Dlaczego STATCOM, a nie SVC?**
@@ -243,10 +249,10 @@ Na naszym kablu 45 km, 220 kV wzrost napięcia efektem Ferrantiego wynosi ~2–5
 
 | Metryka | Wartość |
 |---------|---------|
-| Moc Q kabla (220 kV, 45 km) | ~130 MVAR |
-| Reaktor szuntowy | 50 MVAR |
+| Moc Q kabli (2 × 220 kV, 45 km) | ~260 MVAR (2 × 130) |
+| Reaktory szuntowe | 3 × 80 = 240 MVAR (N+1) |
 | Moc znamionowa STATCOM-a | ±120 MVAR |
-| Wzrost napięcia Ferrantiego (bez kompensacji) | > 1,0 pu |
+| V_max bez kompensacji (bez obciążenia) | ≈ 1,08 pu ✗ |
 | V_max z kompensacją | ≤ 1,05 pu ✓ |
 
 ---
@@ -288,4 +294,4 @@ Dziś zbudowaliśmy w komputerze sieć elektroenergetyczną naszej farmy wiatrow
 
 ## Wyjaśnij technicznie
 
-W sesji P2A zbudowano w Pandapower pełnoskalowy model sieci 66/220/400 kV. W sieci z 38 szynami, 35 kablami (model pi, parametry IEC 60287) i 2 transformatorami (Dyn11 + YNyn0) przepływ mocy Newton-Raphsona uzyskał zbieżność w 4 scenariuszach (full, partial, no-load, N-1) i spełnił limity napięciowe PSE IRiESP (0,95–1,05 pu) przy automatycznym sterowaniu STATCOM-em. Analiza zwarciowa IEC 60909 (3-fazowa, c_max=1,1, c_min=1,0) wykazała wartości Ik'' poniżej zdolności łączeniowych wyłączników na wszystkich szynach. Wymiarowanie STATCOM-a skompensowało ~130 MVAR pojemnościowej mocy Q kabla eksportowego 45 km za pomocą reaktora szuntowego 50 MVAR + STATCOM ±120 MVAR, eliminując wzrost napięcia Ferrantiego. 68 testów jednostkowych zaliczone w 100%.
+W sesji P2A zbudowano w Pandapower pełnoskalowy model sieci 66/220/400 kV. W sieci z 38 szynami, 35 kablami (model pi, parametry IEC 60287) i 2 transformatorami (Dyn11 + YNyn0) przepływ mocy Newton-Raphsona uzyskał zbieżność w 4 scenariuszach (full, partial, no-load, N-1) i spełnił limity napięciowe PSE IRiESP (0,95–1,05 pu) przy automatycznym sterowaniu STATCOM-em. Analiza zwarciowa IEC 60909 (3-fazowa, c_max=1,1, c_min=1,0) wykazała wartości Ik'' poniżej zdolności łączeniowych wyłączników na wszystkich szynach. Ponieważ pojedynczy kabel 1000 mm² jest obciążony w ~140 % przy 510 MW, eksport podzielono na dwa równoległe kable (~75 %). Wymiarowanie STATCOM-a skompensowało ~260 MVAR pojemnościowej mocy Q obu kabli za pomocą reaktorów szuntowych 3 × 80 MVAR (N+1) + STATCOM ±120 MVAR, eliminując wzrost napięcia Ferrantiego. 68 testów jednostkowych zaliczone w 100%.

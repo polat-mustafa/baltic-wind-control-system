@@ -48,7 +48,7 @@ The Pi-model approximates the distributed parameter transmission line with three
 ```
 
 For each cable segment:
-- **R** [Ω/km]: Conductor resistance (inversely proportional to cross-sectional area)
+- **R** [Ω/km]: Conductor resistance (inversely proportional to cross-sectional area). It rises with temperature and AC effects: R_AC,90 = R20 × (1 + 0.00393 × 70) × (1 + y_s + y_p) — 0.0176 → 0.0233 Ω/km (+33 %) for 1000 mm² Cu. Load-flow losses use the 90 °C value; IEC 60909 short circuit uses 20 °C (cold = low R for Ik''max).
 - **X** [Ω/km]: Inductive reactance (magnetic field)
 - **C** [nF/km]: Capacitance per phase (XLPE dielectric)
 
@@ -112,10 +112,10 @@ The `build_network()` function creates the 38-bar Pandapower network:
 | Element | Number | Explanation |
 | -------- | ------ | ---------- |
 | **Guys** | 38 | 1× PSE 400kV + 1× Onshore 220kV + 1× OSS 220kV + 1× OSS 66kV + 34× WTG 66kV |
-| **Cables** | 35 | 34× array (66 kV, rated) + 1× export (220 kV, 45 km) |
-| **Trafolar** | 2 | 66/220 kV Dyn11 (OSS) + 220/400 kV YNyn0 (onshore) |
-| **Generators** | 35 | 34× WTG (15 MW) + 1× STATCOM (Q kontrol) |
-| **Shunt reactor** | 1 | 50 MVAR (US 220 kV) |
+| **Cables** | 35 | 34× array (66 kV, graded) + 1× export element = 2 parallel 220 kV circuits (`parallel=2`, 45 km) |
+| **Transformers** | 2 elements | 66/220 kV Dyn11 (OSS) + 220/400 kV YNyn0 (onshore); each 2 × 300 MVA in parallel (`parallel=2`, N-1) |
+| **Generators** | 35 | 34× WTG (15 MW) + 1× STATCOM (Q control) |
+| **Shunt reactors** | 3 | 3 × 80 MVAR (OSS 220 kV, N+1: one per cable + one spare) |
 | **External network** | 1 | PSE 400 kV, Ssc = 10 GVA |
 
 **String düzeni:** 6 string × 5 WTG + 1 string × 4 WTG = 34 WTG
@@ -146,7 +146,7 @@ Convergence criterion: $\|\Delta P, \Delta Q\| < 10^{-8}$ MVA
 | **Full load** | 510 MW (34 × 15 MW) | Cable thermal limits |
 | **Part load** | 255 MW (%50) | Normal operating voltages |
 | **Empty load** | 0 MW | Ferranti voltage rise |
-| **N-1** | 450 MW (String 7 disabled) | Redundancy margins |
+| **N-1** | 435 MW (String 6 disabled) | Redundancy margins |
 
 ### Results
 
@@ -155,11 +155,11 @@ All four scenarios converge and meet voltage limits of 0.95–1.05 pu (with STAT
 - **Full load:** Losses ~1-3% (5-15 MW), voltage compatible
 - **Part load:** Lower losses, voltage compatible
 - **No load:** Minimum loss (transformer iron losses only), Ferranti effect compensated
-- **N-1:** 450 MW, redundancy verified
+- **N-1:** 435 MW, redundancy verified
 
 ### Code Review
 
-STATCOM auto-dispatch reduces the voltage to 1.0 pu on the OSS 220 kV bus:
+STATCOM auto-dispatch holds the voltage at 1.0 pu on the OSS 220 kV bus:
 
 ```python
 def auto_statcom_dispatch(net, target_vm_pu=1.0, tolerance_pu=0.01):
@@ -169,9 +169,13 @@ def auto_statcom_dispatch(net, target_vm_pu=1.0, tolerance_pu=0.01):
     deviation = target_vm_pu - v_oss
     if abs(deviation) <= tolerance_pu:
       break
-    # Oransal ayarlama: ~5000 MVAR/pu kazanç
-    current_q += deviation * 5000.0
-    # STATCOM ratingi ile sınırla (±120 MVAR)
+    # Secant step: dQ/dV is updated from the measured response. A fixed
+    # 5000 MVAR/pu gain oscillated on the stiffer 2-cable grid (~33 MVAR / 0.01 pu).
+    if prev:
+      dq_dv = (current_q - prev[0]) / (v_oss - prev[1])
+    prev = (current_q, v_oss)
+    current_q += deviation * dq_dv
+    # Clamp to STATCOM rating (±120 MVAR)
     current_q = max(-120, min(120, current_q))
 ```
 
@@ -227,7 +231,9 @@ Ferranti rise in our 45 km, 220 kV cable is around ~2-5%. This can exceed voltag
 
 ### Compensation Strategy
 
-1. **Shunt reactor (50 MVAR):** Constant inductive load absorbs part of cable Q
+1. **Shunt reactors (3 × 80 MVAR, N+1):** Constant inductive load absorbs most of the cable Q (240 MVAR); with one out the STATCOM still stays inside its rating
+
+    > **Watch out — sign convention:** in pandapower `create_shunt(q_mvar=...)` uses the **load** convention: positive `q_mvar` = absorbing (reactor). This model was once built with `q_mvar=-50` — the "reactor" was really a capacitor and raised the voltage from 1.044 to 1.063 pu. Rule 4 (generated Q positive) applies to API outputs and sgens (STATCOM), not to pandapower shunt inputs.
 2. **STATCOM (±120 MVAR):** Dynamic compensation generates/absorbs Q according to voltage
 
 **Why STATCOM and not SVC?**
@@ -240,10 +246,10 @@ Ferranti rise in our 45 km, 220 kV cable is around ~2-5%. This can exceed voltag
 
 | Metric | Value |
 | -------- | ------- |
-| Cable Q (220 kV, 45 km) | ~130 MVAR |
-| shunt reactor | 50 MVAR |
+| Cable Q (2 × 220 kV, 45 km) | ~260 MVAR (2 × 130) |
+| Shunt reactors | 3 × 80 = 240 MVAR (N+1) |
 | STATCOM rating | ±120 MVAR |
-| Ferranti rise (without compensation) | > 1.0 pu |
+| Uncompensated V_max (no load) | ≈ 1.08 pu ✗ |
 | Compensated V_max | ≤ 1.05 pu ✓ |
 
 ---
@@ -285,4 +291,4 @@ Today we built the electrical grid of our wind farm on the computer — the enti
 
 ## Technical Description
 
-In the P2A session, a 66/220/400 kV full-scale grid model was created with Pandapower. In the 38-bar, 35-wire (pi-model, IEC 60287 parameters), 2-transformer (Dyn11 + YNyn0) network, Newton-Raphson load flow converged in 4 scenarios (full, partial, no-load, N-1) and PSE IRiESP voltage limits (0.95–1.05 pu) were met with STATCOM auto-dispatch. IEC 60909 short circuit analysis (3-phase, c_max=1.1, c_min=1.0) gave Ik'' values ​​below the breaker capacities in all busbars. STATCOM sizing eliminated the Ferranti voltage rise by compensating the ~130 MVAR capacitive Q generation of the 45 km export cable with a 50 MVAR shunt reactor + ±120 MVAR STATCOM. 68 unit tests passed 100%.
+In the P2A session, a 66/220/400 kV full-scale grid model was created with Pandapower. In the 38-bar, 35-wire (pi-model, IEC 60287 parameters), 2-transformer (Dyn11 + YNyn0) network, Newton-Raphson load flow converged in 4 scenarios (full, partial, no-load, N-1) and PSE IRiESP voltage limits (0.95–1.05 pu) were met with STATCOM auto-dispatch. IEC 60909 short circuit analysis (3-phase, c_max=1.1, c_min=1.0) gave Ik'' values ​​below the breaker capacities in all busbars. Because a single 1000 mm² cable is ~140 % loaded at 510 MW, the export was split into two parallel cables (~75 %). STATCOM sizing eliminated the Ferranti voltage rise by compensating the ~260 MVAR capacitive Q of the two cables with 3 × 80 MVAR (N+1) shunt reactors + a ±120 MVAR STATCOM. 68 unit tests passed 100%.

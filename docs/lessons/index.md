@@ -14,7 +14,7 @@ Step-by-step learning log documenting every engineering decision in the 510 MW B
 | **Offshore substation** | 66/220 kV |
 | **Export cable** | 220 kV HVAC, 45 km subsea |
 | **Grid connection** | 400 kV PSE (Polish TSO) |
-| **STATCOM** | ±120 MVAR + 50 MVAR shunt reactor |
+| **STATCOM** | ±120 MVAR + 3 × 80 MVAR (N+1) shunt reactors |
 | **Location** | Polish Baltic Sea |
 | **Compliance** | PSE IRiESP, ENTSO-E NC RfG Type D |
 | **Cut-in / rated / cut-out** | 3 / 12.5 / 31 m/s |

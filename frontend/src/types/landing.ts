@@ -51,7 +51,10 @@ export interface TurbineData {
 export interface TransformerData {
   name: string;
   type: string;
+  /** Rating of ONE unit [MVA] */
   ratingMVA: number;
+  /** Identical units in parallel at this substation (N-1) */
+  units: number;
   hvKV: number;
   lvKV: number;
   tapPosition: number;

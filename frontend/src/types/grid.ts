@@ -100,6 +100,10 @@ export interface STATCOMSizingResult {
   statcom_q_range_max_mvar: number;
   compensation_adequate: boolean;
   without_compensation_v_max_pu: number;
+  /** Worst STATCOM Q with one shunt reactor out [MVAR], negative = absorbing */
+  reactor_n1_statcom_q_mvar: number;
+  /** One reactor out: voltage compliant and STATCOM not saturated */
+  reactor_n1_secure: boolean;
 }
 
 // ── FRT Simulation ───────────────────────────────────────────────

@@ -48,21 +48,27 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from app.services.p2.network_model import ALPHA_CU_PER_K, EXPORT_CABLE_1000, NUM_EXPORT_CABLES
+
 # ── HVDC Constants ──────────────────────────────────────────────
 
 HVDC_VOLTAGE_KV: float = 320.0
 """HVDC voltage per pole [kV] (±320 kV system)."""
 
-HVDC_CABLE_R_OHM_PER_KM: float = 0.010
-"""HVDC cable resistance [Ω/km] (1200 mm² Cu)."""
+HVDC_CONDUCTOR_TEMP_C: float = 70.0
+"""HVDC XLPE rated conductor temperature [°C] (lower than 90 °C AC: space-charge limit)."""
+
+HVDC_CABLE_R_OHM_PER_KM: float = 0.0151 * (1.0 + ALPHA_CU_PER_K * (HVDC_CONDUCTOR_TEMP_C - 20.0))
+"""HVDC cable resistance at 70 °C [Ω/km]: 1200 mm² Cu, IEC 60228 R20 = 0.0151 → ≈ 0.0181.
+DC current → no skin/proximity effect."""
 
 VSC_CONVERTER_LOSS_PERCENT: float = 1.0
 """VSC converter losses per station [%]."""
 
-HVAC_CABLE_R_OHM_PER_KM: float = 0.0176
-"""HVAC 220 kV cable resistance [Ω/km]."""
+HVAC_CABLE_R_OHM_PER_KM: float = EXPORT_CABLE_1000.r_ac_ohm_per_km
+"""HVAC 220 kV cable AC resistance at 90 °C [Ω/km] (≈ 0.0233)."""
 
-HVAC_CABLE_C_NF_PER_KM: float = 190.0
+HVAC_CABLE_C_NF_PER_KM: float = EXPORT_CABLE_1000.c_nf_per_km
 """HVAC 220 kV cable capacitance [nF/km]."""
 
 HVAC_VOLTAGE_KV: float = 220.0
@@ -140,6 +146,7 @@ def _compute_hvac_losses(
     cable_length_km: float,
     r_ohm_per_km: float,
     c_nf_per_km: float,
+    num_circuits: int = 1,
 ) -> tuple[float, float, float]:
     """Compute HVAC cable losses and reactive compensation needs.
 
@@ -155,6 +162,8 @@ def _compute_hvac_losses(
         Cable resistance [Ω/km].
     c_nf_per_km : float
         Cable capacitance [nF/km].
+    num_circuits : int
+        Identical cables in parallel sharing the current: losses ∝ 1/n, Q ∝ n.
 
     Returns
     -------
@@ -165,14 +174,14 @@ def _compute_hvac_losses(
     current_ka = power_mw / (np.sqrt(3) * voltage_kv)  # kA
     current_a = current_ka * 1000.0
 
-    # Resistive losses: P_loss = 3 × I² × R × L (3-phase)
-    r_total = r_ohm_per_km * cable_length_km
+    # Resistive losses: P_loss = 3 × I² × R × L (3-phase), R_eq = R / n circuits
+    r_total = r_ohm_per_km * cable_length_km / num_circuits
     cable_loss_mw = 3.0 * (current_a**2) * r_total / 1e6
 
     # Reactive power generation: Q_3phase = ω × C × V_LL² × L
     # (C is per-phase; ω × C × V_LL² = 3 × ω × C × V_phase², so no ×3 needed)
     omega = 2.0 * np.pi * 50.0
-    c_total = c_nf_per_km * 1e-9 * cable_length_km
+    c_total = c_nf_per_km * 1e-9 * cable_length_km * num_circuits
     q_mvar = omega * c_total * (voltage_kv * 1000.0) ** 2 / 1e6
 
     return cable_loss_mw, q_mvar, 0.0
@@ -252,6 +261,7 @@ def compare_export_options(
         cable_length_km,
         HVAC_CABLE_R_OHM_PER_KM,
         HVAC_CABLE_C_NF_PER_KM,
+        NUM_EXPORT_CABLES,
     )
     hvac_total = hvac_cable
     hvac_annual = hvac_total * hours_per_year / 1000.0  # MWh → GWh
@@ -309,6 +319,7 @@ def compare_export_options(
         hvac_short_km,
         HVAC_CABLE_R_OHM_PER_KM,
         HVAC_CABLE_C_NF_PER_KM,
+        NUM_EXPORT_CABLES,
     )
     hybrid_hvdc_cable, _, hybrid_conv = _compute_hvdc_losses(
         avg_power,

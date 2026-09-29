@@ -60,6 +60,9 @@ const nodeTypes: NodeTypes = {
 
 // ── Node positions — OSS topology layout ───────────────────────
 
+// Circuit 1 only (export cable 1 → TX-OSS-01 → 66 kV section A), matching the switching
+// programme scope. Circuit 2 equipment (TX-OSS-02, CB-TX-OSS-02-*, ES-OSS-66-02) has no
+// position and is filtered out below.
 const EQUIPMENT_POSITIONS: Record<string, { x: number; y: number }> = {
   // Onshore side (left)
   "ES-ON-220-01": { x: 50, y: 100 },
@@ -174,7 +177,7 @@ function buildNodes(
           color,
           state: eq.state.toUpperCase(),
           ...(eq.equipment_type === "transformer"
-            ? { rating: "220/66 kV\n250 MVA" }
+            ? { rating: "220/66 kV\n300 MVA" }
             : {}),
         },
       };

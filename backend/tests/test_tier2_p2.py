@@ -47,7 +47,7 @@ class TestDCPowerFlow:
         from app.services.p2.dc_power_flow import run_dc_contingency_screening
 
         result = run_dc_contingency_screening(generation_fraction=1.0)
-        assert result.n_contingencies == 7  # 7 strings
+        assert result.n_contingencies == 6  # 6 strings
         assert result.n_secure + result.n_violations == result.n_contingencies
 
     def test_dc_contingency_worst_case(self):

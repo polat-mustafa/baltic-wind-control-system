@@ -54,7 +54,7 @@ tasarlanmıştır.
 | Şebeke bağlantısı | 400 kV (PSE — Polonya İletim Operatörü) |
 | Konum | Polonya Baltık Denizi |
 | Rüzgâr hızları | Devreye girme: 3 m/s · Nominal: 11.1 m/s · Devre dışı: 31 m/s |
-| STATCOM | ±120 MVAR + 50 MVAR şönt reaktör |
+| STATCOM | ±120 MVAR + 3 × 80 MVAR (N+1) şönt reaktör |
 
 ### 1.2. Beş Proje Modülü
 

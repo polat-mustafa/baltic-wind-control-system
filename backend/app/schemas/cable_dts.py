@@ -11,11 +11,11 @@ IEC 60287 cable thermal model:
   W = I² × R_AC  [W/m — conductor losses]
   R_thermal = thermal resistance of insulation + outer sheath + soil/sea [K·m/W]
 
-IEC 60502 / IEC 62067 — 220 kV XLPE cable operating limits:
-  Normal: 90 °C conductor (55 °C sea/soil ambient → 35 °C rise)
+IEC 62067 — 220 kV XLPE cable operating limits:
+  Normal: 90 °C conductor
   Emergency: 105 °C (short duration)
-  Static rating: 800 A
-  Dynamic rating: varies 600-950 A depending on burial depth and season
+  Static rating: 950 A per circuit (EXPORT_CABLE_1000: 1000 mm² Cu, 2 circuits)
+  Dynamic rating: ~905 A (22 °C summer) to ~1017 A (4 °C winter) per circuit
 """
 
 from __future__ import annotations
@@ -96,8 +96,8 @@ class DTSSimulationRequest(BaseModel):
     current_a: float = Field(
         default=650.0,
         ge=0.0,
-        le=1200.0,
-        description="Cable current [A]. Static rating = 800 A.",
+        le=1500.0,
+        description="Per-circuit current [A]. Static rating = 950 A (≈ 730 A at 510 MW).",
     )
     ambient_temp_c: float = Field(
         default=10.0,

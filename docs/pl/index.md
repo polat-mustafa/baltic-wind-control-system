@@ -17,4 +17,4 @@ Polska dokumentacja dla symulacji morskiej farmy wiatrowej 510 MW na Morzu Balty
 
 ## Elektrownia Referencyjna
 
-34 x Vestas V236-15.0 MW | system zbiorczy 66 kV | eksport 220 kV na 45 km | przylaczenie 400 kV PSE | +/-120 MVAR STATCOM + reaktor 50 MVAR
+34 x Vestas V236-15.0 MW | system zbiorczy 66 kV | eksport 2 x 220 kV na 45 km | przylaczenie 400 kV PSE | +/-120 MVAR STATCOM + reaktory 3 x 80 MVAR (N+1)

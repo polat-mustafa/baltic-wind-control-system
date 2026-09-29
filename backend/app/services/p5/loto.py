@@ -175,8 +175,8 @@ def create_loto_set_for_oss(programme_id: str) -> LOTOSet:
     """Build a LOTO set with isolation points for all OSS earth switches.
 
     Creates one isolation point per earth switch in the OSS equipment
-    registry. For the 510 MW Baltic Wind OSS, this gives 9 isolation
-    points (ES-ON-220-01, ES-OSS-220-01, ES-OSS-66-01, ES-STR-01..06).
+    registry. For the 510 MW Baltic Wind OSS, this gives 10 isolation
+    points (ES-ON-220-01, ES-OSS-220-01, ES-OSS-66-01/02, ES-STR-01..06).
 
     Parameters
     ----------

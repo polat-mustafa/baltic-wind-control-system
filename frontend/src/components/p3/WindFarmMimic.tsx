@@ -5,7 +5,7 @@
  *   • 6 string rows of TurbineCells on the left (34 turbines total)
  *   • Vertical 66 kV bus collecting all strings
  *   • Offshore Substation (66 / 220 kV, ±120 MVAR STATCOM)
- *   • 220 kV export cable (45 km, animated when energised)
+ *   • 2 × 220 kV export cables (45 km, drawn as one route, animated when energised)
  *   • Onshore substation (220 / 400 kV)
  *   • PSE 400 kV grid connection
  *

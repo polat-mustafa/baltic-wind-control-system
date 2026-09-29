@@ -9,8 +9,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Production stage — serve with nginx
-FROM nginx:alpine
+# Production stage — serve with nginx as non-root (uid 101); listens on unprivileged :3000
+FROM nginxinc/nginx-unprivileged:alpine
 
 COPY --from=build /app/dist /usr/share/nginx/html
 

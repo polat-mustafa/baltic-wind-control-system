@@ -90,7 +90,7 @@ export default function TransformerDetailPanel({
         <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
           Rating
         </div>
-        <Row label="MVA" value={`${tx.ratingMVA} MVA`} />
+        <Row label="MVA" value={`${tx.units} × ${tx.ratingMVA} MVA`} />
         <Row label="Voltage" value={`${tx.lvKV}/${tx.hvKV} kV`} />
         <Row
           label="Tap Position"

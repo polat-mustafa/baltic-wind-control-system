@@ -13,7 +13,8 @@ Baltic Wind Alpha uses a 3-tier OT network following IEC 61850 / IEC 62443:
   Tier 2 — Station Bus (OSS):
     Offshore substation LAN: three managed switches (ring) with redundant uplinks
     Protocols: IEC 61850-8-1 MMS, GOOSE, IEC 61850-9-2 sampled values
-    OPC-UA server on OSS gateway: exposes all 34 WTGs + 2 transformers as UA nodes
+    OPC-UA server on OSS gateway: exposes all 34 WTGs + transformers (2 × OSS, 2 × onshore)
+    as UA nodes
     IEC 62443 Zone 2 (OT critical) — Purdue Level 1/2
 
   Tier 3 — WAN (OSS to Onshore):

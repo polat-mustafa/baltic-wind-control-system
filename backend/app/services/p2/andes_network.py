@@ -80,8 +80,12 @@ from app.services.p2.network_model import (
     EXPORT_CABLE_1000,
     EXPORT_CABLE_LENGTH_KM,
     GRID_SSC_MVA,
+    NUM_EXPORT_CABLES,
+    NUM_ONSHORE_TRANSFORMERS,
+    NUM_OSS_TRANSFORMERS,
+    NUM_SHUNT_REACTORS,
     NUM_TURBINES,
-    SHUNT_REACTOR_MVAR,
+    SHUNT_REACTOR_UNIT_MVAR,
     STATCOM_RATING_MVAR,
     STRING_LAYOUT,
     TRAFO_66_220_MVA,
@@ -242,7 +246,7 @@ def build_andes_system(
     statcom_q_mvar : float
         STATCOM reactive power setpoint [MVAR]. Positive = generating.
     enable_reactor : bool
-        If True, include 50 MVAR shunt reactor at OSS 220 kV.
+        If True, include the 3 × 80 MVAR shunt reactors at OSS 220 kV.
     export_length_km : float
         Export cable length [km]. Default: 45.0.
     grid_ssc_mva : float
@@ -320,7 +324,7 @@ def build_andes_system(
         bus_lv=2,
         vn_hv=400.0,
         vn_lv=220.0,
-        sn_mva=TRAFO_220_400_MVA,
+        sn_mva=TRAFO_220_400_MVA * NUM_ONSHORE_TRANSFORMERS,  # parallel units
         vk_percent=TRAFO_220_400_VK_PERCENT,
         vkr_percent=TRAFO_220_400_VKR_PERCENT,
     )
@@ -334,7 +338,7 @@ def build_andes_system(
         bus_lv=4,
         vn_hv=220.0,
         vn_lv=66.0,
-        sn_mva=TRAFO_66_220_MVA,
+        sn_mva=TRAFO_66_220_MVA * NUM_OSS_TRANSFORMERS,  # parallel units
         vk_percent=TRAFO_66_220_VK_PERCENT,
         vkr_percent=TRAFO_66_220_VKR_PERCENT,
     )
@@ -349,6 +353,7 @@ def build_andes_system(
         length_km=export_length_km,
         cable=EXPORT_CABLE_1000,
         vn_kv=220.0,
+        num_circuits=NUM_EXPORT_CABLES,
     )
 
     # ── Array Cables (66 kV) ─────────────────────────────────────
@@ -416,22 +421,24 @@ def build_andes_system(
         },
     )
 
-    # ── Shunt Reactor at OSS 220 kV ──────────────────────────────
+    # ── Shunt Reactors at OSS 220 kV ─────────────────────────────
     if enable_reactor:
-        # Reactor modelled as constant impedance load (Q absorbing)
-        reactor_q_pu = SHUNT_REACTOR_MVAR / SYSTEM_MVA_BASE
-        ss.add(
-            "Shunt",
-            {
-                "idx": 1,
-                "name": "Reactor_50MVAR",
-                "bus": 3,
-                "Vn": 220.0,
-                "g": 0.0,
-                "b": reactor_q_pu,  # positive b = capacitive; negative = inductive
-                "u": 1,
-            },
-        )
+        # Reactors modelled as constant susceptance (Q absorbing)
+        reactor_q_pu = SHUNT_REACTOR_UNIT_MVAR / SYSTEM_MVA_BASE
+        for n in range(NUM_SHUNT_REACTORS):
+            ss.add(
+                "Shunt",
+                {
+                    "idx": n + 1,
+                    "name": f"Reactor_{n + 1}_{SHUNT_REACTOR_UNIT_MVAR:.0f}MVAR",
+                    "bus": 3,
+                    "Vn": 220.0,
+                    "g": 0.0,
+                    # ANDES: positive b = capacitive → a reactor needs NEGATIVE b
+                    "b": -reactor_q_pu,
+                    "u": 1,
+                },
+            )
 
     # ── Fault Element (must be added before setup) ─────────────────
     if fault_config is not None:
@@ -523,6 +530,7 @@ def _add_cable_line(
     length_km: float,
     cable: CableSpec,
     vn_kv: float,
+    num_circuits: int = 1,
 ) -> None:
     """Add a cable (pi-model) to the ANDES system.
 
@@ -539,13 +547,16 @@ def _add_cable_line(
         Physical cable parameters from network_model.py.
     vn_kv : float
         Nominal voltage of the cable [kV].
+    num_circuits : int
+        Identical circuits in parallel, lumped into one equivalent line:
+        R and X divide by n, charging susceptance B multiplies by n.
     """
     z_base = (vn_kv**2) / SYSTEM_MVA_BASE  # [Ω]
     omega = 2.0 * math.pi * SYSTEM_FREQ_HZ
 
-    r_total = cable.r_ohm_per_km * length_km
-    x_total = cable.x_ohm_per_km * length_km
-    b_total = omega * (cable.c_nf_per_km * 1e-9) * length_km  # [S]
+    r_total = cable.r_ac_ohm_per_km * length_km / num_circuits  # 90 °C AC (losses)
+    x_total = cable.x_ohm_per_km * length_km / num_circuits
+    b_total = omega * (cable.c_nf_per_km * 1e-9) * length_km * num_circuits  # [S]
 
     r_pu = r_total / z_base
     x_pu = x_total / z_base

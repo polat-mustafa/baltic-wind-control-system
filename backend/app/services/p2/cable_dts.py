@@ -7,11 +7,23 @@ Physics layers
    T_conductor = T_ambient + I² × R_AC × R_thermal_total
    where R_thermal_total = T1 + T2 + T3 + T4 [K·m/W] (insulation + jacket + soil layers)
 
-   For 220 kV XLPE 1×800 mm² at 45 km submarine cable:
-   R_AC   = 0.028 Ω/km (aluminium conductor at 90°C)
-   R_th   = 0.87 K·m/W (combined insulation + sea burial)
-   Static rating I_max: T_conductor = 90°C → I = sqrt((90-T_amb)/R_AC/R_th * 1/L)
-   With T_amb = 15°C → I_max ≈ 800 A (standard nameplate)
+   Export cable = network_model.EXPORT_CABLE_1000 (single source of truth):
+   220 kV 3-core XLPE, 1000 mm² Cu, 950 A static rating PER CIRCUIT, 45 km.
+   The farm has 2 parallel circuits; each has its own DTS fibre, so this model
+   simulates ONE circuit and ``current_a`` is the per-circuit current
+   (≈ 730 A per circuit at 510 MW; ~1 360 A on the survivor right after an N-1 trip).
+
+   R_AC at 90 °C (IEC 60287-1-1 §2.1):
+     R_DC,20 = 0.0176 Ω/km                       (IEC 60228, 1000 mm² Cu)
+     R_DC,90 = R_DC,20 × (1 + 0.00393 × 70)      = 0.02244 Ω/km
+     R_AC,90 = R_DC,90 × (1 + y_s + y_p)          = 0.0233 Ω/km
+       y_s ≈ 0.030 (skin, Milliken conductor k_s = 0.435)
+       y_p ≈ 0.009 (proximity, k_p = 0.37, d_c ≈ 38 mm, core spacing s ≈ 120 mm)
+
+   R_th is calibrated so the static rating is exactly the current that brings
+   the worst spot (J-tube, zone factor 1.4) to 90 °C at 15 °C design ambient:
+     R_th = (90 − 15) / (950² × R_AC,90 [Ω/m] × 1.4) ≈ 2.55 K·m/W
+   (per metre — the cable length does not enter the thermal balance)
 
 2. Spatial variation along 45 km route
    Three zones with different thermal environments:
@@ -21,8 +33,8 @@ Physics layers
 
 3. Dynamic rating
    I_dynamic = I_static × sqrt((T_max - T_ambient_actual) / (T_max - T_ambient_design))
-   Winter (T_amb = 4°C vs design 15°C): I_dynamic ≈ 800 × sqrt(86/75) ≈ 856 A
-   Summer (T_amb = 22°C vs design 15°C): I_dynamic ≈ 800 × sqrt(68/75) ≈ 762 A
+   Winter (T_amb = 4°C vs design 15°C): I_dynamic ≈ 950 × sqrt(86/75) ≈ 1017 A
+   Summer (T_amb = 22°C vs design 15°C): I_dynamic ≈ 950 × sqrt(68/75) ≈ 905 A
 
 4. Hotspot detection
    WARNING: T_conductor > 70°C (IEC 60502-2 alarm threshold)
@@ -30,9 +42,9 @@ Physics layers
 
 References
 ----------
+IEC 60228:2004     — Conductors of insulated cables (DC resistance at 20 °C)
 IEC 60287-1-1:2014 — Electric cables: current rating
 IEC 60287-2-1:2015 — Thermal resistance
-IEC 60502-2:2014   — Power cables: 1-30 kV (principles same for HV)
 IEC 62067:2011     — Power cables above 150 kV (our 220 kV cable)
 """
 
@@ -42,20 +54,25 @@ import math
 import random
 from typing import Any
 
-# ── Cable constants — 220 kV XLPE 1×800 mm² aluminium ────────────────────────
+from app.services.p2.network_model import EXPORT_CABLE_1000, EXPORT_CABLE_LENGTH_KM
 
-CABLE_LENGTH_KM = 45.0
+# ── Cable constants — one circuit of EXPORT_CABLE_1000 (220 kV, 1000 mm² Cu) ──
+
+CABLE_LENGTH_KM = EXPORT_CABLE_LENGTH_KM
 N_POINTS = 450  # 1 point per 100 m
-STATIC_RATING_A = 800.0
-
-# IEC 60287 parameters
-R_AC_OHM_PER_KM = 0.028  # AC resistance at 90°C [Ω/km]
-# IEC 60287 calibration: 800 A at 15 °C ambient → 90 °C in J-tube (zone_factor=1.4)
-# R_THERMAL = ΔT / (I² × R_AC_per_m × zone_factor) = 75 / (640000 × 2.8e-5 × 1.4)
-R_THERMAL = 2.989  # Combined thermal resistance [K·m/W]
+STATIC_RATING_A = EXPORT_CABLE_1000.max_i_ka * 1000.0  # 950 A per circuit
 
 T_CONDUCTOR_MAX = 90.0  # Normal operating limit [°C] — IEC 62067
 T_AMBIENT_DESIGN = 15.0  # Design ambient temperature [°C]
+
+# IEC 60287-1-1 §2.1: AC resistance at the 90 °C operating temperature (≈ 0.0233 Ω/km)
+R_AC_OHM_PER_KM = EXPORT_CABLE_1000.r_ac_ohm_per_km
+
+J_TUBE_ZONE_FACTOR = 1.4  # worst thermal environment (J-tube at km 0)
+# Calibration: STATIC_RATING_A at design ambient → exactly 90 °C in the J-tube
+R_THERMAL = (T_CONDUCTOR_MAX - T_AMBIENT_DESIGN) / (
+    STATIC_RATING_A**2 * (R_AC_OHM_PER_KM / 1000.0) * J_TUBE_ZONE_FACTOR
+)  # ≈ 2.55 K·m/W
 
 # Hotspot thresholds
 T_WARN = 70.0  # °C — DTS alarm
@@ -76,7 +93,7 @@ def _zone_thermal_factor(km: float) -> float:
     if km <= 5.0:
         # J-tube + landfall zone: concrete encasement, reduced cooling
         # Linear interpolation from 1.4 at km=0 (surface) to 1.1 at km=5
-        return 1.4 - 0.06 * km
+        return J_TUBE_ZONE_FACTOR - 0.06 * km
     elif km <= 40.0:
         # Open sea: uniform sea-floor burial, optimal cooling
         # Small sinusoidal variation from seabed micro-topography
@@ -114,8 +131,9 @@ def simulate_dts(
     ambient_temp_c: float = 10.0,
 ) -> dict[str, Any]:
     """
-    Simulate DTS temperature profile along 45 km export cable.
+    Simulate DTS temperature profile along one 45 km export cable circuit.
 
+    ``current_a`` is the current in that circuit [A] (not the farm total).
     Returns 450 temperature points (1 per 100 m), hotspot count, and assessment.
     """
     rng = random.Random(int(current_a * 100 + ambient_temp_c * 10))

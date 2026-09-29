@@ -39,7 +39,7 @@ export const cableLoadingInfo: InfoContent = {
     { name: "Derating", description: "Applied for seabed burial depth and grouping" },
   ],
   interpretation:
-    "Bars approaching 100% need attention. The export cable (45 km) is typically " +
+    "Bars approaching 100% need attention. The two parallel export cables (45 km) are typically " +
     "the most loaded segment under full farm output.",
 };
 
@@ -63,11 +63,11 @@ export const statcomInfo: InfoContent = {
   title: "STATCOM Sizing — Reactive Power Compensation",
   description:
     "Determines the required STATCOM capacity for voltage regulation and grid code compliance. " +
-    "Includes ±120 MVAR STATCOM + 50 MVAR shunt reactor for cable charging.",
+    "Includes ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors for the ~260 MVAR charging power of the two export cables.",
   standard: "ENTSO-E NC RfG Type D + PSE IRiESP reactive power requirements",
   parameters: [
     { name: "STATCOM", description: "±120 MVAR (full 4-quadrant operation)" },
-    { name: "Shunt reactor", description: "50 MVAR (compensates cable capacitance)" },
+    { name: "Shunt reactors", description: "3 × 80 MVAR (N+1: one per export cable + one spare, compensates cable capacitance)" },
     { name: "Power factor", description: "0.95 lead to 0.95 lag at PCC" },
   ],
   interpretation:
@@ -654,9 +654,9 @@ export const cableDtsDashboardInfo: InfoContent = {
     "Monitors temperature along the full 45 km export cable using an IEC 60287 thermal model. " +
     "DTS uses Raman backscatter in fibre optic cable to measure temperature every ~10 m. " +
     "Enables dynamic ampacity rating — increasing cable capacity in cold weather.",
-  standard: "IEC 60287 — Current rating of cables; IEC 60840 — HV cable joint limits",
+  standard: "IEC 60287 — Current rating of cables; IEC 62067 — 220 kV XLPE cable operating limits",
   parameters: [
-    { name: "Static rating", description: "800 A — IEC 60287 at 15°C ambient, seabed burial" },
+    { name: "Static rating", description: "950 A per circuit (2 × 1000 mm² Cu) — IEC 60287 at 15°C ambient; ~730 A per circuit at 510 MW" },
     { name: "J-tube factor", description: "1.4× thermal resistance in air (worse than seabed)" },
     { name: "Warning >70°C", description: "XLPE insulation approaching thermal limit" },
     { name: "Critical >90°C", description: "Maximum conductor temperature — trip if sustained" },

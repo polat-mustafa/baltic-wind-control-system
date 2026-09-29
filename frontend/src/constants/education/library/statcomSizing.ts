@@ -7,33 +7,32 @@ export const statcomSizingEducation: EducationContent = {
   discipline: "Electrical",
 
   overview:
-    "A 45 km subsea 220 kV HVAC cable is not a simple wire — it behaves like a capacitor, generating reactive power " +
-    "that must be absorbed to prevent overvoltage at the offshore busbar (the Ferranti effect). The STATCOM " +
-    "(Static Synchronous Compensator) is selected over the older SVC (Static VAR Compensator) for this project " +
-    "because of superior low-voltage performance during faults — critical for PSE FRT compliance. " +
-    "The ±120 MVAR rating is derived from cable charging power plus N-1 margin, not chosen arbitrarily.",
+    "Baltic Wind Alpha exports 510 MW over two parallel 45 km subsea 220 kV HVAC cables (one cable carries only " +
+    "~362 MVA). Each cable behaves like a long capacitor, generating ~130 MVAR — ~260 MVAR in total — that must be " +
+    "absorbed to prevent overvoltage at the offshore busbar (the Ferranti effect). Two fixed 80 MVAR shunt reactors " +
+    "take the constant base load; a ±120 MVAR STATCOM (Static Synchronous Compensator) handles the variable rest and " +
+    "fault support. The STATCOM is selected over the older SVC because of its low-voltage performance during faults.",
 
   simpleExplanation:
-    "Imagine blowing air through a very long balloon hose. The hose itself inflates and pushes back — that is what " +
-    "the cable's capacitance does to the grid: it generates reactive power nobody asked for. The STATCOM is like a " +
-    "variable pressure relief valve at the offshore end — it absorbs exactly as much reactive power as the cable " +
-    "generates, keeping the voltage steady. We size it 20% bigger than strictly needed so that one transformer " +
-    "failing (N-1 contingency) doesn't take the whole farm offline.",
+    "Imagine blowing air through two very long balloon hoses. The hoses inflate and push back — that is what the " +
+    "cables' capacitance does to the grid: it generates reactive power nobody asked for. Two fixed pressure-relief " +
+    "valves (the shunt reactors) always let out the same amount; a smart adjustable valve (the STATCOM) trims the " +
+    "rest second by second. Fixed valves are cheap, the smart valve is expensive — so we let the cheap ones do most " +
+    "of the work.",
 
   technicalExplanation:
-    "Three-phase 220 kV XLPE cable capacitance is approximately 200–270 nF/km depending on conductor size and " +
-    "insulation geometry (IEC 60840 Class 3). At 45 km, the no-load charging reactive power is: " +
-    "Q_cable = ω·C·V²·L = 2π×50 × 230e-9 × (220e3)² × 45 ≈ 100–130 MVAR (range reflects cable class uncertainty). " +
-    "A 50 MVAR continuously-rated shunt reactor at the OSS absorbs the base load; the STATCOM handles the variable " +
-    "remainder plus fault support. STATCOM uses VSC (voltage-source converter) technology — unlike SVC which uses " +
-    "thyristor-switched capacitors/reactors — and maintains full reactive current capability even at 15% residual " +
-    "voltage (required by PSE LVRT envelope). SVC output collapses at low voltage (Q ∝ V²) making it unsuitable " +
-    "for FRT support. Response time < 5 ms (per manufacturer datasheets, e.g. ABB SVC Light, Siemens SVC PLUS) " +
-    "versus ~20 ms for SVC, satisfying the PSE IRiESP FRT reactive current injection timeline.",
+    "220 kV XLPE export cable capacitance is manufacturer data (IEC 62067 covers cables above 150 kV); the model " +
+    "uses 190 nF/km per phase. Per circuit at 45 km: Q = ω·C·V_LL²·L = 2π×50 × 190e-9 × (220e3)² × 45 ≈ 130 MVAR, " +
+    "so the two export circuits generate ≈ 260 MVAR. Three 80 MVAR shunt reactors (N+1) at the OSS absorb 240 MVAR " +
+    "continuously; the STATCOM covers the small remainder and is sized for one reactor out. STATCOM uses VSC (voltage-source " +
+    "converter) technology — unlike SVC which uses thyristor-switched capacitors/reactors — and maintains full " +
+    "reactive current capability even at 15% residual voltage (required by the PSE LVRT envelope). SVC output " +
+    "collapses at low voltage (Q ∝ V²), making it unsuitable for FRT support. Limitation: if one reactor is out " +
+    "(N-1), 100 MVAR remain — still inside the STATCOM's 120 MVAR, which is why the third (spare) reactor exists.",
 
   standards: [
     {
-      label: "IEC 61954 — Testing of thyristor valves for SVCs",
+      label: "IEC 62067 — Power cables with extruded insulation for rated voltages above 150 kV",
       type: "standard",
     },
     {
@@ -53,70 +52,73 @@ export const statcomSizingEducation: EducationContent = {
 
   formulas: [
     {
-      expression: "Q_cable = ω · C' · (V_LL/√3)² · L · 3",
+      expression: "Q_cable = n · ω · C' · V_LL² · L",
       variables: [
-        { symbol: "Q_cable", name: "Three-phase cable charging power", unit: "MVAR" },
+        { symbol: "Q_cable", name: "Three-phase charging power of all export circuits", unit: "MVAR" },
+        { symbol: "n", name: "Number of parallel export cables (2)", unit: "—" },
         { symbol: "ω", name: "Angular frequency = 2π × 50", unit: "rad/s" },
-        { symbol: "C'", name: "Cable capacitance per unit length (manufacturer)", unit: "F/km" },
+        { symbol: "C'", name: "Cable capacitance per phase per km (manufacturer, 190 nF/km)", unit: "F/km" },
         { symbol: "V_LL", name: "Line-to-line voltage (220 kV)", unit: "V" },
         { symbol: "L", name: "Cable length (45 km)", unit: "km" },
       ],
       explanation:
-        "For a 220 kV cable with C' = 230 nF/km: Q = 2π×50 × 230e-9 × (127e3)² × 45 × 3 ≈ 140 MVAR. " +
-        "A 50 MVAR shunt reactor reduces the dynamic burden to ~90 MVAR. " +
-        "Note: the value cited in §3.2 (85.5 MVAR) uses C' = 0.25 μF/km (= 250 nF/km per-phase), which is " +
-        "an approximation. Exact value requires the specific cable manufacturer's datasheet.",
-      reference: "IEC 60840 Clause 12 (capacitance test requirements)",
+        "ω·C'·V_LL² equals 3·ω·C'·V_phase², so no extra ×3 is needed. " +
+        "Q = 2 × 2π×50 × 190e-9 × (220e3)² × 45 ≈ 2 × 130 = 260 MVAR. " +
+        "Backend: calculate_cable_reactive_power() in services/p2/statcom_sizing.py.",
+      reference: "Circuit theory (π-model shunt capacitance); cable data per manufacturer datasheet",
     },
     {
-      expression: "Q_STATCOM = Q_net × f_N1 × f_derating",
+      expression: "Q_STATCOM = (Q_cable − Q_reactors) × (1 + k_temp + k_aging)",
       variables: [
-        { symbol: "Q_net", name: "Net cable Q after shunt reactor", unit: "MVAR" },
-        { symbol: "f_N1", name: "N-1 margin factor (typically 1.15)", unit: "—" },
-        { symbol: "f_derating", name: "Temp + aging derating (1.05)", unit: "—" },
+        { symbol: "Q_reactors", name: "In-service reactor absorption in the N-1 case (2 of the 3 × 80)", unit: "MVAR" },
+        { symbol: "k_temp", name: "Temperature derating (0.10)", unit: "—" },
+        { symbol: "k_aging", name: "Ageing derating over 25 years (0.05)", unit: "—" },
       ],
       explanation:
-        "Sizing: 90 MVAR × 1.15 × 1.05 ≈ 109 MVAR → round up to standard rating ±120 MVAR. " +
-        "The ± symmetry allows absorbing excess Q at light load and injecting Q during faults.",
+        "Sizing for N-1 (one of 3 reactors out): (260 − 2 × 80) × 1.15 = 115 MVAR → round up to ±120 MVAR. " +
+        "The ± symmetry allows absorbing excess Q at light load and injecting Q during faults. " +
+        "Backend: size_statcom().",
     },
   ],
 
   workedExamples: [
     {
-      title: "STATCOM vs SVC — platform cost comparison for 510 MW OSS",
+      title: "Reactor vs STATCOM split — who carries the 260 MVAR?",
       scenario:
-        "Offshore substation must house reactive compensation rated ±120 MVAR. Compare STATCOM vs SVC platform cost.",
+        "Two export cables generate ~260 MVAR at no load. Compare covering it with a STATCOM alone versus " +
+        "fixed shunt reactors plus a smaller STATCOM.",
       steps: [
-        "STATCOM: equipment €15 M + offshore platform €8 M = €23 M total",
-        "SVC: equipment €10 M + offshore platform €20 M (500 m² vs 200 m²) = €30 M total",
-        "Offshore platform cost dominates because space costs ~€40,000/m²",
-        "STATCOM wins on total cost despite higher equipment cost",
-        "STATCOM also wins on FRT performance — SVC cannot inject rated current at 15% Un",
+        "STATCOM only: (260 − 0) × 1.15 = 299 → ±300 MVAR STATCOM on the offshore platform",
+        "2 × 80 MVAR reactors + STATCOM: fine normally, but one reactor out → (260 − 80) × 1.15 = 207 → ±210 MVAR STATCOM",
+        "3 × 80 MVAR reactors (N+1) + STATCOM: one out → (260 − 160) × 1.15 = 115 → ±120 MVAR STATCOM",
+        "Shunt reactors cost far less per MVAR than VSC converters and need no cooling or control system",
+        "The cable charging power is almost constant (it depends on V², not on wind), so a fixed device suits it",
+        "The STATCOM keeps the fast, variable part: load changes, voltage control and FRT current injection",
       ],
       result:
-        "STATCOM selected at ±120 MVAR + 50 MVAR shunt reactor. " +
-        "Cost advantage over SVC: ~€7 M. FRT advantage: full reactive current at any voltage ≥0 pu. " +
-        "Note: these cost figures are illustrative estimates based on published industry references for " +
-        "this rating class; actual tender prices will differ.",
+        "Selected: ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors. Load flow confirms 0.99–1.01 pu in all " +
+        "scenarios with near-zero reactive exchange at the PSE connection point. " +
+        "Note: in real projects reactors are often placed at both cable ends; this model puts them at the OSS.",
     },
   ],
 
   realWorldCases: [
     {
-      title: "Hornsea One (UK) — ±150 MVAR STATCOM at 500 kV",
+      title: "Hornsea One (UK) — multiple 220 kV HVAC export circuits",
       description:
-        "ABB SVC Light (VSC-STATCOM) installed at the Killingholme onshore substation to manage the reactive " +
-        "power from 140 km of 132 kV submarine cable. Response time <5 ms, providing FRT support during faults.",
+        "The 1.2 GW Hornsea One farm exports over three 220 kV HVAC circuits and uses an offshore reactive " +
+        "compensation station part-way along the ~120 km route, because a single 220 kV cable cannot carry the " +
+        "full output and long cables generate large charging power.",
       takeaway:
-        "VSC-STATCOM is now standard for large HVAC offshore export systems. The technology is proven at " +
-        "rating up to ±400 MVAR and at voltage levels up to 500 kV.",
+        "Large HVAC-connected farms split their export over several cables and combine shunt reactors with " +
+        "dynamic compensation — the same pattern used in Baltic Wind Alpha.",
     },
     {
       title: "Baltic Power (Poland) — STATCOM at OSS",
       description:
-        "The ±120 MVAR STATCOM rating for Baltic Wind Alpha is calibrated to Baltic Power, which uses a " +
-        "similar 220 kV export at comparable distance. Baltic Power's STATCOM specification is not publicly disclosed, " +
-        "but the same cable-compensation calculation methodology applies.",
+        "Baltic Power is a nearby Polish Baltic offshore project with 220 kV HVAC export. Its compensation " +
+        "specification is not publicly disclosed, so the Baltic Wind Alpha rating is derived from first principles " +
+        "rather than copied — but the same cable-compensation methodology applies.",
       takeaway:
         "Baltic Power provides the closest real-world precedent for the STATCOM sizing methodology used here.",
     },

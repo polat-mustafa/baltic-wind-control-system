@@ -32,9 +32,9 @@ class TestLOTOSetCreation:
     """Verify LOTO set factory creates correct isolation points."""
 
     def test_creates_9_isolation_points(self) -> None:
-        """One isolation point per earth switch (9 total)."""
+        """One isolation point per earth switch (10 total)."""
         loto_set = create_loto_set_for_oss("SP-001")
-        assert len(loto_set.points) == 9
+        assert len(loto_set.points) == 10
 
     def test_all_points_start_not_applied(self) -> None:
         """All isolation points start in NOT_APPLIED state."""
@@ -55,7 +55,7 @@ class TestLOTOSetCreation:
         """Each point has a unique tag number."""
         loto_set = create_loto_set_for_oss("SP-001")
         tags = {p.tag_number for p in loto_set.points.values()}
-        assert len(tags) == 9
+        assert len(tags) == 10
 
     def test_programme_id_stored(self) -> None:
         """LOTO set records its programme ID."""

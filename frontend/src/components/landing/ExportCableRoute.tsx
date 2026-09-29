@@ -30,7 +30,7 @@ function ExportCableRoute({ onClick }: ExportCableRouteProps) {
       onClick={onClick}
       className="cursor-pointer"
       role="button"
-      aria-label="220 kV Export Cable — click to open HV Grid"
+      aria-label="2 × 220 kV Export Cables — click to open HV Grid"
     >
       {/* Cable background (solid, slightly wider) */}
       <path

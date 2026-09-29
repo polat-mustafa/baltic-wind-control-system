@@ -444,9 +444,12 @@ Kablo kapasitansı: C ≈ 0.19 µF/km (3 fazlı XLPE 220 kV tipik değer)
 Reaktif güç üretimi:
  Q = ω × C × V² × L × 3 (3 faz)
  Q = 314.16 × 0.19×10⁻⁶ × (220,000/√3)² × 45 × 3
- Q ≈ 85.5 MVAR
+ Q ≈ 130 MVAR   (= ω × C × V_LL² × L, since 3 × (V_LL/√3)² = V_LL²)
 
-Bu, kablonun yüksüz iken 85.5 MVAR kapasitif reaktif güç ürettiği anlamına gelir.
+This means each cable generates ~130 MVAR of capacitive reactive power at no load.
+Because one cable carries only √3 × 220 kV × 0.95 kA ≈ 362 MVA (less than 510 MW), two parallel
+export cables are used → ≈ 260 MVAR in total
+(code: services/p2/statcom_sizing.py → calculate_cable_reactive_power() = 260.0 MVAR, both cables).
 ```
 
 ### HVAC vs HVDC Decision Matrix
@@ -523,16 +526,17 @@ Each voltage level is an engineering decision:
 
 ### STATCOM: Why ±120 MVAR?
 
-As we calculated in Chapter 6, 45 km of 220 kV cable produces ~85.5 MVAR of capacitive reactive power. STATCOM (Static Synchronous Compensator) is required to compensate for this reactive power and keep the voltage within the ±5% band.
+As we calculated in Chapter 6, each 45 km 220 kV cable produces ~130 MVAR — the two parallel cables together ~260 MVAR — of capacitive reactive power. STATCOM (Static Synchronous Compensator) is required to compensate for this reactive power and keep the voltage within the ±5% band.
 
 **STATCOM sizing:**
 
 | Component | Value | Explanation |
 | --------- | ------- | ---------- |
-| Cable reactive power | +85.5 MVAR (capacitive) | Continuous compensation required |
-| N-1 redundancy margin | +34.5 MVAR | Sufficient capacity in the event of a STATCOM module failure |
-| **STATCOM nominal** | **±120 MVAR** | Both absorption and injection |
-| shunt reactor | 50 MVAR | Continuous base load compensation — reduces STATCOM workload |
+| Cable reactive power | +260 MVAR (2 × 130, capacitive, generated) | Present even at no load |
+| Shunt reactors | −240 MVAR (3 × 80, N+1: one per cable + one spare) | Base-load compensation — cheap, keeps the STATCOM small |
+| Net Q left for STATCOM | ≈ 20 MVAR normally; ≈ 100 MVAR with one reactor out (N-1) | 260 − 240 / 260 − 160 |
+| Temperature (10%) + ageing (5%) margin | N-1 case: 100 × 1.15 → 115 → **120 MVAR** required | `size_statcom()` rounds up to 10 MVAR |
+| **STATCOM nominal** | **±120 MVAR** | Both absorb (−) and generate (+); reactive current injection during FRT |
 
 **STATCOM vs SVC (Static VAR Compensator) Kararı:**
 
@@ -604,7 +608,7 @@ Each design decision triggers the next decision:
 **Turbine selection** (15 MW, 236 m rotor) →
 **Number of turbines** (34 = 510 MW) →
 **İletim tipi** (HVAC, 45 km < 80 km) →
-**Cable capacitance** (85.5 MVAR) →
+**Cable capacitance** (2 × 130 = ~260 MVAR) →
 **STATCOM size** (±120 MVAR) →
 **FRT fit** (ANDES dynamic simulation)
 
@@ -632,10 +636,10 @@ Let's put all our preliminary design decisions into one reference table:
 | **Power density** | ~6–7 MW/km² | Within industry standard range | To compare |
 | **String voltage** | 66 kV | Industry standard for 15 MW class | industry practice |
 | **Export voltage** | 220 kV HVAC | 45 km < 80 km break-even point | CIGRE, IEC 60287 |
-| **Export cable** | 45 km undersea + 5 km on land | Distance from field to shore | geographical restriction |
-| **Cable reactive power** | ~85.5 MVAR | Q = ωCV²L calculation | IEC 60287-1-1 |
-| **STATCOM** | ±120 MVAR | Cable comp. + N-1 redundancy | Sizing calculation |
-| **Shunt reactor** | 50 MVAR | Continuous base load compensation | N-1 design |
+| **Export cables** | 2 × (45 km undersea + 5 km on land) | 1 cable ≈ 362 MVA < 510 MW | Thermal capacity |
+| **Cable reactive power** | ~260 MVAR (2 × 130) | Q = n·ωCV²L, C = 190 nF/km | Manufacturer data (capacitance) |
+| **STATCOM** | ±120 MVAR | N-1: (260 − 2 × 80) × 1.15 = 115 → 120 MVAR | Sizing calculation |
+| **Shunt reactors** | 3 × 80 MVAR (N+1) | Continuous base load compensation | One per cable + one spare → reactor N-1 secure |
 | **Network connection** | 400 kV PSE | Polish transmission grid | PSE IRiESP |
 | **Network code** | NC RfG Tip D + PSE IRiESP | ≥75 MW → most stringent requirements | EU 2016/631 |
 | **Short circuit capacity** | 10 GVA | External network model | IEC 60909 |
@@ -670,10 +674,10 @@ Approximately how many km is the minimum cable length we need to use HVDC instea
 **~80 km** (typical break-even point). Since the cable length in our project is 45 km, HVAC is economically superior. This value varies between 60 and 120 km depending on years and technology costs.
 
 !!! question "Question 5 (Comprehension)"
-Why did we set the STATCOM size to ±120 MVAR? Wouldn't 85.5 MVAR cable compensation be enough?
+The two export cables generate ~260 MVAR. Why did we set the STATCOM size to ±120 MVAR — less than half of 260?
 
   ??? success "Reply"
-**Due to the N-1 redundancy principle.** 85.5 MVAR is for nominal conditions only. ~40% margin has been added to have sufficient compensation capacity even in the event of a STATCOM module failure. Additionally, the STATCOM must have the capacity to both absorb (+) and inject (−) — the inductive reactive power demand of the turbines at full load is also met by the STATCOM.
+**Because the STATCOM does not work alone.** Three shunt reactors (3 × 80 = 240 MVAR) absorb continuously, so normally only ~20 MVAR is left for the STATCOM. It is sized for the worst case, N-1: with one reactor out 260 − 160 = 100 MVAR remain; with temperature (10%) and ageing (5%) margins, 100 × 1.15 = 115 → 120 MVAR. Cable charging power depends on V², not on wind, so it is almost constant — ideal for cheap fixed reactors; the expensive STATCOM only takes the variable part. The STATCOM must be able to both absorb (Q < 0) and generate (Q > 0) (Rule 4) — at full load the series reactance of cables and transformers consumes reactive power and the voltage drops. Without the spare (N+1) reactor, a reactor failure in a 2 × 80 design would leave 180 MVAR — more than the STATCOM's 120 MVAR. A third 80 MVAR reactor is far cheaper than enlarging the STATCOM to 210 MVAR.
 
 !!! question "Question 6 (Challenging)"
 If the wake losses in a farm of 34 turbines are 12.7% and are reduced to 8.7% with staggered layout optimization, approximately how many GWh will the annual energy gain be at an average wind speed of 9.5 m/s and a capacity factor of 48%?
@@ -696,7 +700,7 @@ The Ferranti effect is the situation where the voltage at the receiving end of a
 
 Subsea cables are particularly sensitive because:
     1. It has 20–40 times higher capacitance than overhead lines (insulation thickness and ground proximity)
-    2. Over long distances (45+ km) capacitive reactive power generation becomes very high (85.5 MVAR)
+    2. Over long distances (45+ km) capacitive reactive power generation becomes very high (~130 MVAR per cable)
     3. Wind farms carry minimal loads at night or in low winds—exactly the conditions where the Ferranti effect is strongest
 
 Solution: Reactive power compensation with STATCOM + shunt reactor. In our project this will be one of the main topics of P2.
@@ -711,7 +715,7 @@ Before starting a wind farm project, you need to make many critical decisions �
 
 ### Technical Description (For Interview Panel)
 
-Eight basic engineering decisions were made during the preliminary design phase. The location was chosen off Ustka in the Polish EEZ — based on ERA5 reanalysis data with an average wind speed of 9.0–9.5 m/s at a hub height of 150 m, water depth of 25–40 m (suitable for monopile), and calm wave conditions compared to the North Sea (Hs < 1.5 m annual average). The turbine was selected as the IEC Class I-B certified V236-15.0 MW — 43,742 m² swept area, semi-direct drive propulsion, the fully bankable industry standard for the period 2024-2026. 34 × 15 MW = 510 MW capacity provides education-scale computing efficiency while triggering NC RfG Type D requirements. In the staggered layout with 8D downwind × 5D crosswind spacing (~1,888 m × 1,180 m) the estimated farm area is ~70–100 km² and the power density is ~6–7 MW/km². The transmission system consists of a 66 kV array → 220 kV HVAC export (45 km) → 400 kV PSE grid chain — 45 km distance is below the HVAC/HVDC break-even point (~80 km). The ~85.5 MVAR capacitive reactive power generation of the 220 kV cable is compensated by a ±120 MVAR STATCOM + 50 MVAR shunt reactor — STATCOM was preferred over SVC because full Q capacity is maintained at low voltage (FRT compliance) and its compact structure reduces offshore platform cost. The external grid model with short circuit capacity 10 GVA forms the basis of protection coordination based on IEC 60909.
+Eight basic engineering decisions were made during the preliminary design phase. The location was chosen off Ustka in the Polish EEZ — based on ERA5 reanalysis data with an average wind speed of 9.0–9.5 m/s at a hub height of 150 m, water depth of 25–40 m (suitable for monopile), and calm wave conditions compared to the North Sea (Hs < 1.5 m annual average). The turbine was selected as the IEC Class I-B certified V236-15.0 MW — 43,742 m² swept area, semi-direct drive propulsion, the fully bankable industry standard for the period 2024-2026. 34 × 15 MW = 510 MW capacity provides education-scale computing efficiency while triggering NC RfG Type D requirements. In the staggered layout with 8D downwind × 5D crosswind spacing (~1,888 m × 1,180 m) the estimated farm area is ~70–100 km² and the power density is ~6–7 MW/km². The transmission system consists of a 66 kV array → 2 × 220 kV HVAC export (45 km) → 400 kV PSE grid chain — 45 km distance is below the HVAC/HVDC break-even point (~80 km). Two parallel cables are used because one cannot carry 510 MW (≈ 362 MVA); their ~260 MVAR capacitive reactive power generation is compensated by a ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors — STATCOM was preferred over SVC because full Q capacity is maintained at low voltage (FRT compliance) and its compact structure reduces offshore platform cost. The external grid model with short circuit capacity 10 GVA forms the basis of protection coordination based on IEC 60909.
 
 ---
 
@@ -734,7 +738,7 @@ Suggestions from the Learning Roadmap to deepen the topics of this course:
 | ERA5 wind data → 9.0–9.5 m/s | **Lesson 004 (P1):** Weibull fit and power curve integration |
 | V236-15.0MW power curve | **P1:** PyWake trace modeling, AEP calculation |
 | 34 door staggered layout | **P1:** Layout optimization, trace loss reduction |
-| 85.5 MVAR cable reactive power | **P2:** STATCOM control strategy, Pandapower simulation |
+| ~260 MVAR cable reactive power (2 cables) | **P2:** STATCOM control strategy, Pandapower simulation |
 | FRT requirements (15%, 140 ms) | **P2:** ANDES dynamic simulation |
 | 66 kV → 220 kV → 400 kV chain | **P2:** Single line diagram, load flow analysis |
 | STATCOM ±120 MVAR | **P2:** Reactive power control modes (V-droop, Q-setpoint) |

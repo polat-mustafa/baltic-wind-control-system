@@ -27,32 +27,32 @@ Docs:       Auto-generated OpenAPI (Swagger) from FastAPI
 ### Monorepo Structure
 
 ```
-offshore-wind-hv-platform/
+baltic-wind-control-system/
 ├── backend/           # FastAPI Python service
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── config.py        # Pydantic Settings
-│   │   ├── database.py      # SQLAlchemy async engine
-│   │   ├── core/            # Exceptions, middleware, cache, RBAC
-│   │   ├── routers/         # REST endpoints per project (p1-p5)
+│   │   ├── db.py            # SQLAlchemy async engine + session
+│   │   ├── core/            # Exceptions, middleware, cache, logging
+│   │   ├── routers/         # REST endpoints per project (p0-p5, digital_twin, turbine_*)
 │   │   ├── models/          # SQLAlchemy ORM models
 │   │   ├── schemas/         # Pydantic request/response
-│   │   ├── services/        # Business logic + computation
-│   │   └── db.py            # SQLAlchemy async engine + session
+│   │   └── services/        # Business logic + computation (p0-p5, digital_twin, turbine_physics)
 │   ├── tests/
 │   ├── alembic/
-│   └── pyproject.toml
+│   ├── pyproject.toml
+│   └── uv.lock              # pinned deps — CI uses `uv sync --locked`
 ├── frontend/          # React TypeScript SPA
 │   ├── src/
+│   │   ├── pages/           # One page per module
 │   │   ├── components/      # React components per project
+│   │   ├── constants/       # e.g. scadaColors.ts (single source of truth)
 │   │   ├── hooks/           # Custom hooks
 │   │   ├── services/        # API client layer
 │   │   ├── store/           # Zustand state management
 │   │   └── types/           # TypeScript interfaces
 │   ├── tests/
 │   └── package.json
-├── notebooks/         # Jupyter exploration notebooks
-├── data/              # Reference data, SCL files, specs
 ├── docker-compose.yml
 └── docs/
 ```
@@ -67,7 +67,7 @@ offshore-wind-hv-platform/
 
 2. **Per-unit (pu) system must be consistent.** All voltage values in power system calculations use per-unit. Base voltage = nominal voltage of the bus. Base power = system MVA base (typically 100 MVA). NEVER mix absolute and per-unit values in the same calculation.
 
-3. **IEC 60909 method for short-circuit.** Use the voltage factor c (cmax=1.1 for max, cmin=0.95 for min). Calculate Ik'' (initial symmetrical), ip (peak), Ib (breaking), and Ith (thermal). Pandapower handles this — do NOT implement from scratch.
+3. **IEC 60909 method for short-circuit.** Use the voltage factor c from IEC 60909-0 Table 1: for our MV/HV buses (66/220/400 kV) cmax=1.10, cmin=1.00 (cmin=0.95 applies only to LV ≤ 1 kV). Calculate Ik'' (initial symmetrical), ip (peak), Ib (breaking), and Ith (thermal). Pandapower handles this — do NOT implement from scratch.
 
 4. **Reactive power sign convention.** Generating reactive power = positive Q (capacitive source, inductive load compensation). Absorbing reactive power = negative Q (inductive source, capacitive load compensation). STATCOM absorbing cable reactive power → Q is negative from STATCOM perspective.
 
@@ -98,7 +98,7 @@ def calculate_wake_deficit(
     turbulence_intensity: float = 0.06,  # typical offshore TI
 ) -> float:
     """
-    Calculate wake velocity deficit using Bastankhah-Porté-Agel (2014) model.
+    Calculate wake velocity deficit using the Bastankhah & Porté-Agel (2014) Gaussian model.
     
     The Gaussian wake model assumes the wake velocity deficit follows a 
     Gaussian distribution in the cross-stream direction, with the deficit
@@ -123,17 +123,21 @@ def calculate_wake_deficit(
     
     References
     ----------
-    Bastankhah, M. & Porté-Agel, F. (2014). J. Fluid Mech., 781, 706-730.
+    Bastankhah, M. & Porté-Agel, F. (2014). A new analytical model for
+        wind-turbine wakes. Renewable Energy, 70, 116-123.
+    Niayifar, A. & Porté-Agel, F. (2016). Energies, 9(9), 741  (k* = f(TI)).
     """
-    # Wake expansion rate (linear model)
+    # Wake expansion rate k* (Niayifar & Porté-Agel 2016 fit)
     k_star = 0.3837 * turbulence_intensity + 0.003678
-    
-    # Characteristic wake width at x_downstream
+
+    # Characteristic wake width at x_downstream (initial width σ0 = D/√8)
     sigma = k_star * x_downstream + rotor_diameter / np.sqrt(8)
-    
-    # Maximum velocity deficit at wake center
-    deficit = (1 - np.sqrt(1 - ct / (8 * (sigma / rotor_diameter) ** 2)))
-    
+
+    # Maximum velocity deficit at wake center. The radicand goes negative in
+    # the near wake (small x, high Ct) where the model is invalid → clamp to 0.
+    radicand = max(1 - ct / (8 * (sigma / rotor_diameter) ** 2), 0.0)
+    deficit = 1 - np.sqrt(radicand)
+
     return float(np.clip(deficit, 0.0, 1.0))
 ```
 
@@ -152,13 +156,13 @@ def calculate_wake_deficit(
 # GOOD — clear engineering names with units
 voltage_pu: float = 1.03        # per-unit
 voltage_kv: float = 226.6       # kilovolts
-power_mw: float = 500.0         # megawatts
-reactive_power_mvar: float = 85.5  # megavolt-ampere reactive
+power_mw: float = 510.0         # megawatts
+reactive_power_mvar: float = 260.0  # megavolt-ampere reactive
 current_ka: float = 18.3        # kiloamperes
 frequency_hz: float = 50.0      # hertz
 wind_speed_ms: float = 9.5      # meters per second
 distance_km: float = 45.0       # kilometers
-cable_capacitance_uf_per_km: float = 0.25  # microfarads per km
+cable_capacitance_nf_per_km: float = 190.0  # nanofarads per km (codebase uses nF/km)
 
 # BAD — ambiguous
 v = 1.03       # voltage? velocity? volume?
@@ -183,57 +187,36 @@ interface TurbineState {
   timestamp: string;            // ISO 8601 format
 }
 
-// Enum for well-defined states
-enum TurbineStatus {
-  RUNNING = 'running',
-  STOPPED = 'stopped',
-  ERROR = 'error',
-  MAINTENANCE = 'maintenance',
-  CURTAILED = 'curtailed',
-}
+// String-literal unions for well-defined states (codebase convention — no `enum`)
+type TurbineStatus = 'running' | 'stopped' | 'error' | 'maintenance' | 'curtailed';
 
-// Enum for switching equipment states
-enum SwitchPosition {
-  OPEN = 'open',
-  CLOSED = 'closed',
-  INTERMEDIATE = 'intermediate',  // transitioning
-  UNKNOWN = 'unknown',            // communication failure
-}
+// Switching equipment states
+type SwitchPosition =
+  | 'open'
+  | 'closed'
+  | 'intermediate'  // transitioning
+  | 'unknown';      // communication failure
 ```
 
 **TypeScript standards:**
 - Strict mode enabled (`"strict": true` in tsconfig)
 - Interfaces for all API responses and domain objects
-- Enums for all finite state sets
+- String-literal union types for all finite state sets (no TS `enum` — they emit runtime code and don't match JSON payloads 1:1)
 - No `any` type — use `unknown` if type is truly unknown
 - React components: functional with hooks only, no class components
 - Zustand for state management (lightweight, TypeScript-native)
 
-### Safety-Critical Color Coding (IEC 61131 + ISA-101)
+### Safety-Critical Color Coding (ISA-101 + ISA-18.2 / EEMUA 191)
 
-```typescript
-// SCADA color palette — NEVER change these in the codebase
-const SCADA_COLORS = {
-  // Equipment states
-  ENERGIZED: '#00FF00',     // Green — energized, normal operation
-  DE_ENERGIZED: '#808080',  // Gray — de-energized, isolated
-  EARTHED: '#00FFFF',       // Cyan — earthed (safety earth applied)
-  FAULT: '#FF0000',         // Red — fault condition
-  WARNING: '#FFAA00',       // Amber — warning, attention needed
-  
-  // Alarm priorities (per ISA-18.2 / EEMUA 191)
-  ALARM_CRITICAL: '#FF0000',   // Red — immediate action required
-  ALARM_HIGH: '#FF6600',       // Orange — prompt action required
-  ALARM_MEDIUM: '#FFCC00',     // Yellow — awareness
-  ALARM_LOW: '#00CCFF',        // Light blue — information
-  
-  // Voltage levels (standard power system colors)
-  VOLTAGE_400KV: '#FF0000',    // Red
-  VOLTAGE_220KV: '#0000FF',    // Blue
-  VOLTAGE_66KV: '#008000',     // Green
-  VOLTAGE_NEUTRAL: '#000000',  // Black
-} as const;
-```
+The single source of truth is `frontend/src/constants/scadaColors.ts` — never hard-code
+SCADA colors in components, import `SCADA_COLORS` / `EQUIPMENT_STATE_COLOR` / `VOLTAGE_COLOR`.
+
+Principles (ISA-101 High Performance HMI):
+- Grey/desaturated for normal state; vivid color is reserved for abnormal conditions and alarms.
+- No pure RGB (`#FF0000`, `#00FF00`) — eye strain over 12-hour shifts.
+- Alarm priority colors (P1 red → P4 blue) follow ISA-18.2 / EEMUA 191 and must stay distinct from equipment-state colors.
+- Voltage-level colors (400/220/66 kV) are a project convention, not an IEC standard; SLDs also differentiate by stroke width.
+- Color is never the only cue (accessibility): pair it with text, shape or icon.
 
 ---
 
@@ -341,50 +324,39 @@ CREATE TABLE switching_step (
 ### REST Endpoints Convention
 
 ```python
-# All endpoints follow: /api/v1/{project}/{resource}
-# Example routes:
+# All endpoints follow: /api/v1/{project}/{resource}   (kebab-case resources)
+# Project prefixes (see backend/app/routers/, live list at /docs):
+#   /api/v1/info            P0 project info (sensor register, …)
+#   /api/v1/wind            P1 Wind Resource & AEP
+#   /api/v1/grid            P2 HV Grid (+ PPC, OPF, cable DTS)
+#   /api/v1/scada           P3 SCADA & IEC 61850
+#   /api/v1/forecast        P4 ML Forecasting
+#   /api/v1/commissioning   P5 HV Commissioning
+#   /api/v1/digital-twin, /api/v1/turbine-physics, /api/v1/turbine-sim/nacelle
 
-# P1: Wind Resource
-GET    /api/v1/wind/farms                    # List wind farms
-GET    /api/v1/wind/farms/{id}               # Get farm details
-POST   /api/v1/wind/farms/{id}/wake-analysis # Run wake analysis
-GET    /api/v1/wind/farms/{id}/aep           # Get AEP results
-
-# P2: Grid Integration
-GET    /api/v1/grid/networks/{id}            # Get network model
-POST   /api/v1/grid/networks/{id}/load-flow  # Run load flow
-POST   /api/v1/grid/networks/{id}/short-circuit  # Run IEC 60909
-GET    /api/v1/grid/networks/{id}/frt-compliance  # FRT results
-
-# P3: SCADA
-GET    /api/v1/scada/equipment               # Equipment list
-GET    /api/v1/scada/alarms                  # Active alarms
-POST   /api/v1/scada/ptw                     # Create PtW
-PATCH  /api/v1/scada/ptw/{id}/status         # Update PtW status
-WS     /api/v1/scada/ws/live                 # WebSocket real-time
-
-# P4: Forecasting
-POST   /api/v1/forecast/run                  # Run forecast
-GET    /api/v1/forecast/latest               # Latest forecast
-GET    /api/v1/forecast/metrics              # Model performance
-
-# P5: Commissioning
-GET    /api/v1/commissioning/programmes      # List programmes
-GET    /api/v1/commissioning/programmes/{id}/steps  # Get steps
-PATCH  /api/v1/commissioning/steps/{id}/execute     # Execute step
+# Real examples:
+GET    /api/v1/wind/turbine-spec                # V236-15.0 spec
+POST   /api/v1/wind/wake-analysis               # PyWake wake analysis
+GET    /api/v1/grid/load-flow/{scenario}        # Newton-Raphson load flow
+GET    /api/v1/grid/short-circuit/{case}        # IEC 60909 (case = max | min)
+POST   /api/v1/grid/frt/{frt_type}              # FRT simulation
+POST   /api/v1/grid/ppc/simulate                # Power Plant Controller
 ```
+
+Rules: GET for pure/idempotent computations with no body, POST when the request carries
+parameters or triggers a long computation; every route declares `response_model=`.
 
 ### Pydantic Schema Examples
 
 ```python
 from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
-class LoadFlowScenario(str, Enum):
-    FULL_LOAD = "full_load"          # 500 MW
-    PARTIAL_LOAD = "partial_load"    # 250 MW
-    NO_LOAD = "no_load"              # 0 MW
+class LoadFlowScenario(StrEnum):
+    FULL_LOAD = "full_load"          # 510 MW
+    PARTIAL_LOAD = "partial_load"    # 255 MW
+    NO_LOAD = "no_load"              # 0 MW (Ferranti check)
     N_MINUS_1 = "n_minus_1"          # One cable out of service
 
 class LoadFlowRequest(BaseModel):
@@ -417,7 +389,7 @@ class SwitchingStepExecute(BaseModel):
     
     @field_validator('pic_confirmed')
     @classmethod
-    def pic_must_confirm(cls, v: bool, info) -> bool:
+    def pic_must_confirm(cls, v: bool) -> bool:
         # PiC confirmation is mandatory for all steps — never skip
         if not v:
             raise ValueError("Person in Control confirmation is MANDATORY. Cannot proceed without PiC GO decision.")
@@ -430,62 +402,61 @@ class SwitchingStepExecute(BaseModel):
 
 ### PyWake (P1)
 
+Reference implementation: `backend/app/services/p1/wake_model.py`.
+
 ```python
-# ALWAYS use this pattern for PyWake integration
+# ALWAYS use this pattern for PyWake integration (PyWake 2.6)
 from py_wake.deficit_models.gaussian import BastankhahGaussianDeficit
+from py_wake.site import UniformWeibullSite
 from py_wake.superposition_models import LinearSum
 from py_wake.turbulence_models import STF2017TurbulenceModel
-from py_wake.site import XRSite
-import xarray as xr
+from py_wake.wind_farm_models import All2AllIterative
+from py_wake.wind_turbines import WindTurbine
+from py_wake.wind_turbines.power_ct_functions import PowerCtTabular
 
-async def run_wake_analysis(farm_config: WindFarmConfig) -> WakeAnalysisResult:
-    """Run wake analysis using PyWake BPA model."""
-    
-    # 1. Load site data (ERA5 preprocessed)
-    site = XRSite(ds=xr.open_dataset(farm_config.site_data_path))
-    
-    # 2. Define turbine (V236-15.0 class)
-    turbine = GenericWindTurbine(
-        name='V236-15.0',
-        diameter=236,
-        hub_height=150,
-        power_norm=15000,  # kW
-        ct_func=ct_curve_interp,  # interpolated Ct curve
+def run_wake_analysis(x_m: np.ndarray, y_m: np.ndarray, site: UniformWeibullSite) -> WakeResult:
+    """Run wake analysis using the PyWake Bastankhah Gaussian deficit model.
+
+    CPU-bound and synchronous — call from FastAPI via `run_in_threadpool`, never block the event loop.
+    """
+    # 1. Turbine: V236-15.0 from tabulated power/Ct curves (see HUB_HEIGHT_M in wake_model.py)
+    turbine = WindTurbine(
+        name="V236-15.0",
+        diameter=236.0,       # [m]
+        hub_height=150.0,     # [m]
+        powerCtFunction=PowerCtTabular(ws_ms, power_kw, "kW", ct),
     )
-    
-    # 3. Configure wake model
-    wf_model = BastankhahGaussianDeficit(
-        site=site,
-        windTurbines=turbine,
+
+    # 2. Wind farm model = deficit model + superposition + turbulence
+    #    (the *Deficit class is a component, not a callable farm model)
+    wf_model = All2AllIterative(
+        site,
+        turbine,
+        wake_deficitModel=BastankhahGaussianDeficit(),
         superpositionModel=LinearSum(),
         turbulenceModel=STF2017TurbulenceModel(),
     )
-    
-    # 4. Run simulation
-    sim_res = wf_model(
-        x=farm_config.x_positions,
-        y=farm_config.y_positions,
-    )
-    
-    # 5. Extract results
-    aep_gwh = float(sim_res.aep().sum()) / 1e6  # Convert from MWh to GWh
-    wake_loss_pct = float(1 - sim_res.aep().sum() / sim_res.aep(with_wake_loss=False).sum()) * 100
-    
-    return WakeAnalysisResult(
-        aep_gwh=aep_gwh,
-        wake_loss_percent=wake_loss_pct,
-        per_turbine_aep=sim_res.aep().values.tolist(),
-    )
+
+    # 3. Run simulation
+    sim_res = wf_model(x=x_m, y=y_m)
+
+    # 4. Extract results — PyWake aep() already returns GWh (no unit conversion)
+    net_gwh = float(sim_res.aep().sum())
+    gross_gwh = float(sim_res.aep(with_wake_loss=False).sum())
+    wake_loss_pct = (1.0 - net_gwh / gross_gwh) * 100.0 if gross_gwh > 0 else 0.0
+    ...
 ```
 
 ### Pandapower (P2)
+
+Reference implementations: `backend/app/services/p2/network_model.py`, `short_circuit.py` (Pandapower 3.x).
 
 ```python
 # ALWAYS validate network before running calculations
 import pandapower as pp
 import pandapower.shortcircuit as sc
 
-async def run_load_flow(scenario: LoadFlowScenario) -> LoadFlowResponse:
+def run_load_flow(scenario: LoadFlowScenario) -> LoadFlowResponse:
     """Run Newton-Raphson load flow using Pandapower."""
     
     net = build_network_model()  # Build the 66/220/400 kV network
@@ -508,12 +479,13 @@ async def run_load_flow(scenario: LoadFlowScenario) -> LoadFlowResponse:
     
     return build_load_flow_response(net, scenario)
 
-async def run_short_circuit_iec60909(net) -> ShortCircuitResult:
+def run_short_circuit_iec60909(net) -> ShortCircuitResult:
     """Run IEC 60909 short-circuit calculation."""
-    
-    # Max short-circuit (for equipment rating)
-    sc.calc_sc(net, case='max', ith=True, ip=True, 
-               branch_results=True, method='complete')
+
+    # Max short-circuit (for equipment rating). Pandapower picks c from
+    # IEC 60909 Table 1 by bus voltage (HV: cmax 1.10 / cmin 1.00).
+    sc.calc_sc(net, fault='3ph', case='max', ip=True, ith=True,
+               branch_results=True)
     
     results = []
     for bus_idx in net.res_bus_sc.index:
@@ -536,92 +508,84 @@ async def run_short_circuit_iec60909(net) -> ShortCircuitResult:
 ```python
 # Unit tests: Pure computation functions
 def test_wake_deficit_at_8d_downstream():
-    """BPA wake deficit at 8D downstream should be approximately 15-25%."""
+    """Below-rated (Ct≈0.8) deficit at 8D, TI 6% ≈ 17% (hand calc: 0.170)."""
     deficit = calculate_wake_deficit(
         x_downstream=8 * 236,  # 8 rotor diameters
         rotor_diameter=236,
-        ct=0.28,
+        ct=0.8,                # below rated; above rated Ct≈0.3 gives only ~6%
         turbulence_intensity=0.06,
     )
-    assert 0.10 < deficit < 0.30, f"Wake deficit {deficit:.3f} outside expected range"
+    assert 0.15 < deficit < 0.20, f"Wake deficit {deficit:.3f} outside expected range"
 
 def test_cable_reactive_power():
-    """45 km 220 kV XLPE cable should generate approximately 85 MVAR."""
+    """One 45 km 220 kV export circuit, C = 190 nF/km → Q = ωCV²L ≈ 130 MVAR (three-phase, V = V_LL).
+    The farm has 2 parallel export cables → ≈ 260 MVAR in total (the function's default)."""
     q_mvar = calculate_cable_reactive_power(
-        omega=2 * np.pi * 50,
-        capacitance_uf_per_km=0.25,
-        voltage_kv=220,
-        length_km=45,
+        c_nf_per_km=190.0,
+        voltage_kv=220.0,
+        length_km=45.0,
+        num_cables=1,
     )
-    assert 80 < q_mvar < 95, f"Cable Q={q_mvar:.1f} MVAR outside expected range"
+    assert 125 < q_mvar < 135, f"Cable Q={q_mvar:.1f} MVAR outside expected range"
 
 def test_physical_constraints_enforcement():
     """ML prediction must be clipped to physical limits."""
     raw_prediction = np.array([16.0, -2.0, 5.0, 0.5])
     wind_speed = np.array([15.0, 8.0, 2.0, 35.0])  # 2.0 = below cut-in, 35.0 = above cut-out
-    
-    result = enforce_physical_constraints(raw_prediction, wind_speed, rated_power=15.0)
-    
-    assert result[0] == 15.0  # Clipped to rated
-    assert result[1] == 0.0   # Clipped to zero (was negative)
-    assert result[2] == 0.0   # Below cut-in → zero
-    assert result[3] == 0.0   # Above cut-out → zero
+
+    result = enforce_physical_constraints(raw_prediction, wind_speed, rated_power_mw=15.0)
+
+    assert result.power_mw[0] == 15.0  # Clipped to rated
+    assert result.power_mw[1] == 0.0   # Clipped to zero (was negative)
+    assert result.power_mw[2] == 0.0   # Below cut-in → zero
+    assert result.power_mw[3] == 0.0   # Above cut-out → zero
 
 # Integration tests: API endpoint validation
 async def test_load_flow_endpoint_returns_valid_voltages(client):
     """All bus voltages should be within 0.90-1.10 pu for normal scenarios."""
-    response = await client.post("/api/v1/grid/networks/1/load-flow", json={
-        "scenario": "full_load",
-        "wind_power_mw": 500.0,
-    })
+    response = await client.get("/api/v1/grid/load-flow/full_load")
     assert response.status_code == 200
     data = response.json()
     assert data["converged"] is True
     for bus in data["buses"]:
-        assert 0.90 <= bus["voltage_pu"] <= 1.10
+        assert 0.90 <= bus["vm_pu"] <= 1.10
 
-# PtW state machine tests
+# PtW state machine tests (services/p3/permit_to_work.py)
 def test_ptw_cannot_skip_loto():
     """PtW must follow strict state machine — cannot go from APPROVED to ACTIVE."""
-    ptw = PermitToWork(status="APPROVED")
-    with pytest.raises(InvalidStateTransition):
-        ptw.transition_to("ACTIVE")  # Must go through ISOLATION_CONFIRMED → LOTO_APPLIED first
+    permit = make_permit(status=PermitStatus.APPROVED)  # test helper around create_permit()
+    allowed, _reason = validate_transition(permit, PermitStatus.ACTIVE, RoleLevel.ENGINEER)
+    assert not allowed  # Must go through ISOLATION_CONFIRMED → LOTO_APPLIED first
 ```
+
+Numbers in test docstrings must be hand-calculated (state the formula and units) — never
+copy an "expected" value without recomputing it.
 
 ---
 
 ## Error Handling Patterns
 
-```python
-# Domain-specific exceptions
-class OffshoreWindError(Exception):
-    """Base exception for all domain errors."""
-    pass
+Services raise domain exceptions from `backend/app/core/exceptions.py` — never `HTTPException`.
+A global handler (registered in `main.py`) maps them to JSON responses:
 
-class GridCodeViolation(OffshoreWindError):
-    """Raised when simulation results violate grid code requirements."""
-    def __init__(self, standard: str, requirement: str, actual: float, limit: float):
-        self.standard = standard
-        self.requirement = requirement
-        self.actual = actual
-        self.limit = limit
-        super().__init__(
-            f"Grid code violation: {standard} - {requirement}. "
-            f"Actual: {actual:.3f}, Limit: {limit:.3f}"
-        )
-
-class ProtectionMiscoordination(OffshoreWindError):
-    """Raised when protection relay settings are non-selective."""
-    pass
-
-class InvalidSwitchingSequence(OffshoreWindError):
-    """Raised when switching programme step precondition is not met."""
-    pass
-
-class PtWViolation(OffshoreWindError):
-    """Raised when PtW state machine transition is invalid."""
-    pass
 ```
+DomainError               400   base class
+├── NotFoundError         404   unknown bay / permit / programme id
+├── ValidationError       422   physically invalid input (import as DomainValidationError
+│                               in routers to avoid clashing with pydantic.ValidationError)
+├── StateTransitionError  409   PtW / switching programme / bay interlock violation
+└── PermissionDeniedError 403   RBAC level too low
+```
+
+```python
+from app.core.exceptions import StateTransitionError
+
+if not allowed:
+    raise StateTransitionError(f"PtW {permit.ptw_number}: {current} → {target} not allowed ({reason})")
+```
+
+Add a new subclass only when it needs a different HTTP status; otherwise put the domain
+detail (standard, limit, actual value with units) in the message.
 
 ---
 
@@ -639,7 +603,7 @@ class PtWViolation(OffshoreWindError):
 Grid Integration Module — HV Power System Analysis
 
 Implements steady-state and quasi-dynamic power system analysis for a
-500 MW offshore wind farm connected to the PSE transmission grid via
+510 MW offshore wind farm connected to the PSE transmission grid via
 45 km 220 kV HVAC export cable.
 
 Standards Implemented:
@@ -659,7 +623,7 @@ Limitations:
 - No harmonic impedance scan (requires frequency-dependent models)
 - STATCOM modeled as ideal reactive power source (no converter dynamics)
 
-Tools: Pandapower v2.x (BSD-3 license, IEC 60909 compliant)
+Tools: Pandapower 3.x (BSD-3 license, IEC 60909 compliant)
 """
 ```
 
@@ -678,19 +642,16 @@ Tools: Pandapower v2.x (BSD-3 license, IEC 60909 compliant)
 ## Git Workflow
 
 ```
-main          ← production-ready, tagged releases
-├── develop   ← integration branch, all features merge here
-│   ├── feature/p1-wake-model
-│   ├── feature/p2-load-flow
-│   ├── feature/p3-scada-goose
-│   ├── feature/p4-xgboost-model
-│   ├── feature/p5-switching-programme
-│   └── fix/voltage-calculation-bug
+main          ← protected; every change lands via PR with the required `CI OK` check
+├── feat/p2-load-flow
+├── fix/voltage-calculation-bug
+├── ci/shard-tests-automerge
+└── dependabot/…   ← minor/patch auto-merge after CI OK; majors reviewed manually
 ```
 
-**Commit message format:**
+**Commit message format** (Conventional Commits, always in English; scope = module):
 ```
-[P2] Add IEC 60909 short-circuit calculation with Pandapower
+feat(p2): add IEC 60909 short-circuit calculation with Pandapower
 
 - Implement max and min fault current calculations
 - Add bus results extraction with equipment margin check
@@ -708,15 +669,15 @@ Standards: IEC 60909-0:2016
 - [x] RBAC simulation checks user level before executing control commands
 - [x] All PtW state transitions logged with timestamp, user, and role level
 - [ ] WebSocket connections authenticated before data streaming — **planned**
-- [ ] SQL injection prevention via SQLAlchemy ORM (never raw SQL)
-- [ ] CORS restricted to specific frontend origin
-- [ ] Rate limiting on authentication endpoints
-- [ ] Secrets managed via environment variables (never in code)
-- [ ] Docker containers run as non-root user
-- [ ] Dependencies scanned for vulnerabilities (GitHub Dependabot)
+- [x] SQL injection prevention via SQLAlchemy ORM (only raw SQL: `SELECT 1` health check)
+- [x] CORS restricted to configured origins (`settings.cors_origins`)
+- [ ] Rate limiting on authentication endpoints — **planned (with JWT)**
+- [x] Secrets managed via environment variables (never in code, `.env*` gitignored)
+- [~] Docker containers run as non-root user — backend `appuser` ✓, frontend nginx still root
+- [x] Dependencies scanned and pinned (Dependabot + `uv.lock` / `package-lock.json`)
 
 ---
 
 *This SKILL.md defines the engineering and coding standards for the Offshore Wind HV Control Simulation Platform. Every developer (human or AI) working on this project must follow these conventions to ensure the codebase is professional, consistent, and educationally valuable.*
 
-*Version 2.0 — February 2026*
+*Version 2.1 — September 2026 (examples re-verified against the codebase: PyWake 2.6, Pandapower 3.4)*

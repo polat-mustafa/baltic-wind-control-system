@@ -32,14 +32,17 @@ router = APIRouter(prefix="/cable", tags=["M10 Cable DTS Thermal Monitoring"])
 @router.get(
     "/dts/profile",
     response_model=DTSProfileResponse,
-    summary="DTS temperature profile along 45 km export cable",
+    summary="DTS temperature profile along one 45 km export cable circuit",
 )
 async def get_dts_profile(
     current_a: float = 650.0,
     ambient_temp_c: float = 10.0,
 ) -> DTSProfileResponse:
     """
-    Return full Distributed Temperature Sensing profile for the 220 kV export cable.
+    Return the Distributed Temperature Sensing profile of one 220 kV export circuit.
+
+    The farm has 2 parallel circuits (1000 mm² Cu, 950 A each); ``current_a`` is the
+    per-circuit current (≈ 730 A at 510 MW).
 
     **450 measurement points — 1 per 100 m over 45 km route.**
 
@@ -103,7 +106,7 @@ async def get_hotspots(
 @router.get(
     "/dts/dynamic-rating",
     response_model=DynamicRatingResponse,
-    summary="Real-time dynamic thermal rating vs 800 A static",
+    summary="Real-time dynamic thermal rating vs 950 A static (per circuit)",
 )
 async def get_dynamic_rating(
     current_a: float = 650.0,
@@ -115,22 +118,23 @@ async def get_dynamic_rating(
     **Dynamic rating formula (IEC 60287 §5.2):**
     I_dynamic = I_static × sqrt((T_max - T_ambient) / (T_max - T_design_ambient))
 
-    where T_max = 90°C, T_design_ambient = 15°C, I_static = 800 A.
+    where T_max = 90°C, T_design_ambient = 15°C, I_static = 950 A per circuit.
 
     **Practical values for Baltic Wind:**
-    - Winter (T_amb = 4°C):   I_dynamic = 800 × sqrt(86/75) = 856 A (+7%)
-    - Design (T_amb = 15°C):  I_dynamic = 800 A (by definition)
-    - Summer (T_amb = 22°C):  I_dynamic = 800 × sqrt(68/75) = 762 A (-5%)
+    - Winter (T_amb = 4°C):   I_dynamic = 950 × sqrt(86/75) = 1017 A (+7%)
+    - Design (T_amb = 15°C):  I_dynamic = 950 A (by definition)
+    - Summer (T_amb = 22°C):  I_dynamic = 950 × sqrt(68/75) = 905 A (-5%)
 
     **Why this matters for operators:**
-    The static rating of 800 A is the most conservative nameplate value, designed
-    for worst-case summer conditions. In winter, you can safely export 7% more power
-    (an extra ~35 MW at 220 kV). Dynamic line rating (DLR) is becoming standard
+    The static rating of 950 A per circuit is defined at the 15 °C design ambient.
+    In winter each circuit can carry ~7% more current: +67 A × 2 circuits ≈ +51 MVA
+    at 220 kV — most useful after an N-1 cable trip, when one circuit carries everything.
+    Dynamic line rating (DLR) is becoming standard
     practice for export cables to maximise revenue during high-wind periods.
 
     **Integration with PPC (M-08 BESS / Power Plant Controller):**
     The PPC can use the dynamic rating to calculate the maximum available export
-    setpoint: P_export_max = I_dynamic × √3 × 220 kV × cos(φ)
+    setpoint: P_export_max = n_circuits × I_dynamic × √3 × 220 kV × cos(φ)
     """
     result = svc.calculate_dynamic_rating(current_a, ambient_temp_c)
     return DynamicRatingResponse(**result)
@@ -146,9 +150,11 @@ async def simulate_dts(request: DTSSimulationRequest) -> DTSProfileResponse:
     Run DTS simulation with user-specified operating conditions.
 
     Use this endpoint to explore:
-    - Overload scenario: current_a = 880 A (110% rating) → hotspot in J-tube
-    - Winter high-wind: current_a = 850 A, ambient = 4°C → may stay within limits
-    - Summer max-load: current_a = 800 A, ambient = 22°C → critical in J-tube
+    - Full load: current_a = 730 A per circuit (510 MW over 2 circuits) → normal
+    - Summer at rating: current_a = 950 A, ambient = 22°C → ~97 °C in the J-tube (critical)
+    - N-1 cable trip, before runback: current_a = 1360 A on the surviving circuit →
+      far above 90 °C in steady state; the cable's hours-long thermal time constant
+      is what lets the PPC run back in ~16 s (see SCOPF)
 
     The simulation uses the IEC 60287 model with spatial zone factors derived
     from the actual cable route survey (J-tube, open sea, near-shore).

@@ -96,11 +96,14 @@ def calc_short_circuit(
         msg = f"case must be 'max' or 'min', got '{case}'"
         raise ValueError(msg)
 
-    # Build network at full generation (worst case for short-circuit)
+    # Build network at full generation (worst case for short-circuit).
+    # IEC 60909: cable R at 20 °C — Ik''max needs the cold (lowest) resistance;
+    # for the min case pandapower heats R20 to endtemp_degree itself.
     net = build_network(
         export_length_km=export_length_km,
         grid_ssc_mva=grid_ssc_mva,
         generation_fraction=1.0,
+        r_at_operating_temp=False,
     )
 
     # IEC 60909 voltage factor

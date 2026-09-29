@@ -3,7 +3,7 @@
  *
  * KPI cards: static vs dynamic ampacity, headroom, thermal utilisation.
  * Active hotspot severity list.
- * IEC 60287: static 800 A; dynamic = 800 × √((90-T_amb)/(90-15)).
+ * IEC 60287: static 950 A per export circuit (1000 mm² Cu); dynamic = 950 × √((90-T_amb)/(90-15)).
  */
 
 import { useCableDTSStore } from "../../store/cableDtsStore";

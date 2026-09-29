@@ -187,7 +187,7 @@ Bir orkestra konserine hazırlık yapıldığını düşünün: her müzisyen s�
 ### Standartlar Ne Diyor?
 
 - **IEC 62271-100 §4.101**: Kesici işletme sırası O — 0,3s — CO — 3min — CO. 0,3s gecikmesi SF₆ gazı toparlanması içindir. Devreye alma sırasında otomatik hızlı yeniden kapama (auto-reclose) devre dışıdır — her adım PiC onayı gerektirir.
-- **IEC 60287:2023**: Kablo akım hesabı. 45 km XLPE denizaltı kablosunun kapasitansı ~0,25 µF/km → şarj akımı ~89 A/faz.
+- **IEC 60287-1-1:2023**: Kablo akım taşıma kapasitesi hesabı — şarj akımı bu kapasitenin bir kısmını tüketir. Kapasitans üretici verisidir: bu projede 190 nF/km → 45 km'de şarj akımı ~341 A/faz.
 - **IEC 60076-5:2006**: Transformatör ilk enerji verme akımı (inrush current) anma akımının 8 katına ulaşabilir (~100 ms). 2. harmonik içerik (I₂/I₁ > 0,15) koruma rölesi tarafından arızadan ayırt edilir.
 
 ### Ne İnşa Ettik
@@ -420,7 +420,7 @@ Bir bahçe hortumunu düşünün: musluğu açtığınızda su anında ucundan �
 
 ### Standartlar Ne Diyor?
 
-- **IEC 60287:2023**: XLPE kablonun kapasitansı ~0,25 µF/km. 45 km kablo için toplam kapasitans = 11,25 µF.
+- **Kablo kapasitansı** üretici veri sayfasından gelir (IEC 60287 akım taşıma kapasitesini tanımlar, kapasitans değeri vermez). Bu projede 190 nF/km (`EXPORT_CABLE_1000`) → 45 km için toplam 8,55 µF.
 - **IEC 60076-5:2006**: Güç transformatörü ilk enerji verme akımı anma akımının 6-8 katı, süre ~100 ms.
 
 ### Matematiksel Model
@@ -429,12 +429,12 @@ Kablo şarj akımı hesabı:
 
 ```
 I_c = ω × C_total × V_phase
-    = 2π × 50 × (0.25e-6 × 45) × (220e3 / √3)
-    = 314.16 × 11.25e-6 × 127,017
-    ≈ 89 A / faz
+    = 2π × 50 × (190e-9 × 45) × (220e3 / √3)
+    = 314.16 × 8.55e-6 × 127,017
+    ≈ 341 A / faz
 ```
 
-Bu 89 A reaktif akım, sürekli olarak akar ve STATCOM (P2) tarafından kompanze edilmelidir. Program adımı S-016 tam olarak bunu yapar: STATCOM'u voltaj kontrol moduna alır ve S-017'de ~85 MVAR'lık reaktif güç emilimini doğrular.
+Bu 341 A reaktif akım her kabloda (Q = √3 × 220 kV × 341 A ≈ 130 MVAR; iki kablo ≈ 260 MVAR) sürekli olarak akar ve şönt reaktörler (3 × 80 MVAR, N+1) + STATCOM (P2) tarafından kompanze edilmelidir. Program adımı S-016 tam olarak bunu yapar: STATCOM'u voltaj kontrol moduna alır ve S-017'de STATCOM'un küçük bir emilimle (~0–20 MVAR) gerilimi tuttuğunu doğrular — Q'nun büyük kısmını reaktörler alır.
 
 Ferranti etkisi:
 
@@ -465,7 +465,7 @@ I_inrush_peak ≈ 8 × I_rated (ilk 100 ms)
 
     **Analoji:** Bir balon şişirmek gibi — hava (reaktif akım) balonu doldurur (kablo kapasitansını şarj eder) ama iş yapmaz (aktif güç üretmez). STATCOM, bu balondaki fazla havayı emerek dengeyi sağlar.
 
-    **Bu projede:** 45 km kablomuz faz başına 89 A şarj akımı üretir. Bu ~85 MVAR'lık reaktif güce karşılık gelir — tam olarak P2'de boyutlandırdığımız STATCOM'un (±120 MVAR) karşılaması gereken yük.
+    **Bu projede:** 45 km'lik her ihracat kablomuz faz başına ~341 A şarj akımı üretir (≈ 130 MVAR); iki kablo birlikte ~260 MVAR. Bunun 240 MVAR'ını üç şönt reaktör (N+1), kalan ~20 MVAR'ı P2'de boyutlandırdığımız STATCOM (±120 MVAR) karşılar; bir reaktör devre dışıyken STATCOM ~100 MVAR'a çıkar.
 
 ---
 
@@ -476,7 +476,7 @@ I_inrush_peak ≈ 8 × I_rated (ilk 100 ms)
 - **Ekipman durum makinesi** (Bölüm 1) → P5'in devamında React frontend ile gerçek zamanlı SLD (Single Line Diagram) görselleştirmesi yapılacak. Durum değişiklikleri XYFlow grafik düğümleri üzerinde renk değişimi olarak yansıtılacak.
 - **LOTO izolasyon seti** (Bölüm 2) → Veritabanı kalıcılığı (SQLAlchemy) eklendiğinde, LOTO geçmişi zaman serisi olarak TimescaleDB'de saklanacak ve denetim raporları oluşturulabilecek.
 - **PiC karar mantığı** (Bölüm 3) → P3'teki RBAC sistemi (IEC 62443) ile entegre edilecek: yalnızca `commissioning_engineer` veya `pic` rolüne sahip kullanıcılar GO/NO-GO kararı verebilecek.
-- **Kablo şarj akımı** (Bölüm 5) → Ders 007'de (P2 Pandapower) hesaplanan 89 A değeri, burada operasyonel bir doğrulama adımı olarak (S-012) yeniden karşımıza çıkıyor — fizik → kod → operasyon döngüsünün somut örneği.
+- **Kablo şarj akımı** (Bölüm 5) → Ders 007'de (P2 Pandapower) hesaplanan ~341 A değeri, burada operasyonel bir doğrulama adımı olarak (S-012) yeniden karşımıza çıkıyor — fizik → kod → operasyon döngüsünün somut örneği.
 
 ---
 
@@ -522,7 +522,7 @@ graph TB
     P2 --> P3
     P3 --> P4
 
-    STATCOM -.->|"89 A şarj<br/>kompanzasyonu"| SP
+    STATCOM -.->|"341 A şarj<br/>kompanzasyonu"| SP
     GOOSE -.->|"Koruma durumu<br/>doğrulama"| SP
     RBAC -.->|"PiC yetkilendirme"| SP
 
@@ -548,7 +548,7 @@ graph TB
 3. **LOTO yaşam döngüsü** (NOT_APPLIED → APPLIED → REMOVED), her izolasyon noktasının kilidi uygulayan kişiye kadar izlenebilir olmasını sağlar — OSHA 1910.147 zorunluluğu.
 4. **Bekleme noktaları** (hold point), otomasyonun yetersiz kaldığı yerlerde insan yargısını zorunlu kılar — PiC GO/NO-GO kararı geri döndürülemezdir.
 5. **Domain-first geliştirme** yaklaşımı: önce iş kurallarını 66 testle doğrula, sonra API ekle, en son veritabanı — sıfır teknoloji borcu.
-6. **45 km kablo şarj akımı** (~89 A/faz) ve **transformatör inrush akımı** (8× anma), anahtarlama adımlarının arkasındaki fiziksel gerçeklerdir.
+6. **45 km kablo şarj akımı** (~341 A/faz) ve **transformatör inrush akımı** (8× anma), anahtarlama adımlarının arkasındaki fiziksel gerçeklerdir.
 7. **Exception'lar akış kontrolü olarak**: `PiCDecisionRequiredError` bir hata değil, programın tasarlanmış davranışı — API katmanı bunu normal bir yanıt olarak döndürür.
 
 ---

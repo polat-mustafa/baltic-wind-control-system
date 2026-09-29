@@ -2,8 +2,8 @@
 Security-Constrained Optimal Power Flow (SCOPF) for 510 MW offshore wind farm.
 
 Extends OPF to ensure the dispatch remains feasible under N-1 contingencies.
-For each possible single-element outage (cable string or transformer), the
-system must remain within voltage and thermal limits.
+For each screened single-element outage (array string, export cable circuit),
+the system must remain within voltage and thermal limits.
 
 Physics — Security-Constrained OPF
 ------------------------------------
@@ -17,19 +17,30 @@ SCOPF solves:
 
 The iterative approach:
 1. Solve base case OPF
-2. For each contingency, run post-contingency load flow
+2. For each contingency, run the post-contingency load flow INCLUDING automatic
+   controls: the STATCOM voltage controller re-dispatches Q (seconds) and
+   protection intertrips act. Freezing STATCOM Q at its base value shows
+   spurious ~1.051 pu overvoltages and curtails MW for a reactive-power problem.
 3. Check for constraint violations
-4. If violations exist, add preventive constraints and re-solve
-5. Repeat until no violations remain or max iterations reached
+4. Preventive contingencies: if violated, reduce base generation and re-solve.
+   Corrective contingencies: find the post-contingency runback that restores limits.
+5. Repeat until no preventive violations remain or max iterations reached
 
 Contingencies (Baltic Wind Alpha)
 ----------------------------------
-- String outages: 7 strings (S1-S7), each removes 4-5 WTGs (60-75 MW)
-- Export cable outage: removes 220 kV link (catastrophic — full curtailment)
-- Transformer outage: 66/220 kV or 220/400 kV (full curtailment)
-
-For practical screening, only string outages are included (recoverable N-1).
-Cable and transformer outages require full shutdown (non-recoverable N-1).
+- String outages (preventive): 6 strings (S1-S6), each removes 5-6 WTGs (75-90 MW)
+- Export cable circuit outage (corrective): one of the 2 × 220 kV circuits trips.
+  The remaining circuit carries ≈ 362 MVA, so the state right after the trip is
+  ~140 % loaded. Preventive security would cap the farm at ~350 MW permanently;
+  instead (standard for radial offshore connections) protection intertrips the
+  lost cable's shunt reactor and the PPC runs the farm back at the PSE emergency
+  ramp (2 % Pn/s ≈ 10.2 MW/s) — seconds, well inside the cable's thermal time
+  constant (hours). Without the reactor intertrip, 240 MVAR of reactors against
+  130 MVAR of cable Q would drag the OSS voltage down to ~0.93 pu.
+- Transformer outage (corrective): one of the 2 × 300 MVA units at the OSS or
+  onshore — the remaining unit is ~170 % loaded at 510 MW; the PPC runs back to
+  what one 300 MVA unit carries (~300 MW). Transformers tolerate short overloads
+  (IEC 60076-7 thermal time constants of hours), so seconds of runback are fine.
 
 Standard
 --------
@@ -45,12 +56,15 @@ References
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
 
 import pandapower as pp
 
+from app.services.p2.load_flow import auto_statcom_dispatch
 from app.services.p2.network_model import (
     STRING_LAYOUT,
+    TOTAL_CAPACITY_MW,
     TURBINE_RATED_MW,
     build_network,
 )
@@ -66,6 +80,12 @@ from app.services.p2.optimal_power_flow import (
 
 MAX_SCOPF_ITERATIONS: int = 5
 """Maximum number of SCOPF re-dispatch iterations."""
+
+EMERGENCY_RAMP_MW_PER_S: float = 0.02 * TOTAL_CAPACITY_MW
+"""PSE IRiESP emergency ramp: 2 % Pn/s = 10.2 MW/s (corrective runback time)."""
+
+RUNBACK_BISECTION_STEPS: int = 8
+"""Bisection steps for the corrective runback level (resolution 1/256 of dispatch)."""
 
 
 @dataclass(frozen=True)
@@ -117,9 +137,20 @@ class ContingencyResult:
     max_trafo_loading_percent : float
         Maximum transformer loading after contingency [%].
     violations : list[ContingencyViolation]
-        List of constraint violations.
+        List of constraint violations (after corrective action, if any).
     secure : bool
         True if no violations exist.
+    security_type : str
+        "preventive" (base dispatch must survive it) or "corrective"
+        (post-contingency runback allowed).
+    corrective_action : str
+        Automatic/corrective actions applied (empty for preventive).
+    corrective_curtailment_mw : float
+        Generation reduction of the corrective runback [MW].
+    pre_corrective_max_line_loading_percent : float
+        Max cable loading after automatic controls, before the runback [%].
+    pre_corrective_max_trafo_loading_percent : float
+        Max transformer loading after automatic controls, before the runback [%].
     """
 
     name: str
@@ -131,6 +162,11 @@ class ContingencyResult:
     max_trafo_loading_percent: float
     violations: list[ContingencyViolation] = field(default_factory=list)
     secure: bool = True
+    security_type: str = "preventive"
+    corrective_action: str = ""
+    corrective_curtailment_mw: float = 0.0
+    pre_corrective_max_line_loading_percent: float = 0.0
+    pre_corrective_max_trafo_loading_percent: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -193,6 +229,26 @@ def _apply_string_outage(net: pp.pandapowerNet, string_idx: int) -> str:
             net.sgen.at[sgen_idx, "in_service"] = False
 
     return f"String {string_idx + 1} outage ({n_wtgs} WTGs, {mw_lost:.0f} MW lost)"
+
+
+def _apply_export_cable_outage(net: pp.pandapowerNet) -> str:
+    """Trip one export cable circuit and intertrip its shunt reactor.
+
+    The export cables are one pandapower line element with ``parallel=n``;
+    losing a circuit reduces ``parallel`` by one. Reactor 1 belongs to export
+    cable 1 and trips with it (reactor 3 is the N+1 spare).
+
+    Returns
+    -------
+    str
+        Description of the outage.
+    """
+    export_idx = net.line.index[net.line["name"] == "Export_220kV"][0]
+    circuits = int(net.line.at[export_idx, "parallel"])
+    net.line.at[export_idx, "parallel"] = circuits - 1
+    if len(net.shunt):
+        net.shunt.at[net.shunt.index[0], "in_service"] = False
+    return f"Export cable circuit 1 of {circuits} outage (reactor 1 intertripped)"
 
 
 def _check_contingency_violations(
@@ -339,120 +395,43 @@ def run_scopf(
 
         base_result = _extract_opf_results(net, "ac", current_gen_fraction)
 
-        # Step 2: Check all string contingencies
+        # Step 2: Check all string contingencies (preventive)
+        dispatch = _base_dispatch(net)
         contingency_results: list[ContingencyResult] = []
         all_violations: list[ContingencyViolation] = []
 
         for string_idx in range(len(STRING_LAYOUT)):
-            # Build fresh network with base case dispatch
-            cont_net = build_network(
-                export_length_km=export_length_km,
-                grid_ssc_mva=grid_ssc_mva,
-                generation_fraction=current_gen_fraction,
-            )
-
-            # Apply base case dispatch results to generators
-            for sgen_idx in range(len(cont_net.sgen)):
-                if sgen_idx < len(net.res_sgen):
-                    cont_net.sgen.at[sgen_idx, "p_mw"] = float(net.res_sgen.at[sgen_idx, "p_mw"])
-                    cont_net.sgen.at[sgen_idx, "q_mvar"] = float(
-                        net.res_sgen.at[sgen_idx, "q_mvar"]
-                    )
-
-            # Apply contingency
             cont_name = f"String_{string_idx + 1}_outage"
+            cont_net = _base_network(export_length_km, grid_ssc_mva, current_gen_fraction, dispatch)
             description = _apply_string_outage(cont_net, string_idx)
+            result = _post_contingency(cont_net, cont_name, description)
+            all_violations.extend(result.violations)
+            contingency_results.append(result)
 
-            # Run post-contingency load flow
-            try:
-                pp.runpp(cont_net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
-            except Exception:
-                contingency_results.append(
-                    ContingencyResult(
-                        name=cont_name,
-                        description=description,
-                        converged=False,
-                        v_min_pu=0.0,
-                        v_max_pu=0.0,
-                        max_line_loading_percent=0.0,
-                        max_trafo_loading_percent=0.0,
-                        secure=False,
-                    )
-                )
-                continue
-
-            if not cont_net.converged:
-                contingency_results.append(
-                    ContingencyResult(
-                        name=cont_name,
-                        description=description,
-                        converged=False,
-                        v_min_pu=0.0,
-                        v_max_pu=0.0,
-                        max_line_loading_percent=0.0,
-                        max_trafo_loading_percent=0.0,
-                        secure=False,
-                    )
-                )
-                continue
-
-            # Check violations
-            violations = _check_contingency_violations(cont_net, cont_name)
-            all_violations.extend(violations)
-
-            # Extract results
-            slack_buses = set(cont_net.ext_grid["bus"].values)
-            non_slack_vm = [
-                float(cont_net.res_bus.at[i, "vm_pu"])
-                for i in range(len(cont_net.bus))
-                if i not in slack_buses
-            ]
-            v_min = min(non_slack_vm) if non_slack_vm else 1.0
-            v_max = max(non_slack_vm) if non_slack_vm else 1.0
-            max_line = (
-                float(cont_net.res_line["loading_percent"].max())
-                if len(cont_net.res_line) > 0
-                else 0.0
-            )
-            max_trafo = (
-                float(cont_net.res_trafo["loading_percent"].max())
-                if len(cont_net.res_trafo) > 0
-                else 0.0
-            )
-
-            contingency_results.append(
-                ContingencyResult(
-                    name=cont_name,
-                    description=description,
-                    converged=True,
-                    v_min_pu=round(v_min, 4),
-                    v_max_pu=round(v_max, 4),
-                    max_line_loading_percent=round(max_line, 1),
-                    max_trafo_loading_percent=round(max_trafo, 1),
-                    violations=violations,
-                    secure=len(violations) == 0,
-                )
-            )
-
-        # Step 3: Check if N-1 secure
+        # Step 3: Preventive contingencies secure → add the corrective export cable case
         if not all_violations:
-            # All secure — done
             curtailment_for_security = (
-                (generation_fraction - current_gen_fraction) * TURBINE_RATED_MW * len(STRING_LAYOUT)
+                generation_fraction - current_gen_fraction
+            ) * TOTAL_CAPACITY_MW
+            corrective = _corrective_contingencies(
+                export_length_km, grid_ssc_mva, current_gen_fraction, dispatch
             )
+            contingency_results.extend(corrective)
+            insecure = [c.name for c in corrective if not c.secure]
             return SCOPFResult(
                 base_case=base_result,
                 contingency_results=contingency_results,
-                n1_secure=True,
-                num_violations=0,
-                worst_contingency="",
+                n1_secure=not insecure,
+                num_violations=sum(len(c.violations) for c in corrective),
+                worst_contingency=insecure[0] if insecure else "",
                 iterations=iteration,
                 total_curtailment_for_security_mw=round(max(0.0, curtailment_for_security), 2),
             )
 
         # Step 4: Reduce generation to address violations (preventive re-dispatch)
-        # Simple heuristic: reduce by 5% per iteration
-        current_gen_fraction = max(0.1, current_gen_fraction - 0.05)
+        # Simple heuristic: reduce by 5% per iteration (not after the last check)
+        if iteration < MAX_SCOPF_ITERATIONS:
+            current_gen_fraction = max(0.1, current_gen_fraction - 0.05)
 
     # Max iterations reached — return last result with violations
     worst_cont = max(
@@ -461,16 +440,183 @@ def run_scopf(
         default=None,
     )
 
-    curtailment_for_security = (
-        (generation_fraction - current_gen_fraction) * TURBINE_RATED_MW * len(STRING_LAYOUT)
+    curtailment_for_security = (generation_fraction - current_gen_fraction) * TOTAL_CAPACITY_MW
+    corrective = _corrective_contingencies(
+        export_length_km, grid_ssc_mva, current_gen_fraction, dispatch
     )
+    contingency_results.extend(corrective)
 
     return SCOPFResult(
         base_case=base_result,
         contingency_results=contingency_results,
         n1_secure=False,
-        num_violations=len(all_violations),
+        num_violations=len(all_violations) + sum(len(c.violations) for c in corrective),
         worst_contingency=worst_cont.name if worst_cont else "",
         iterations=MAX_SCOPF_ITERATIONS,
         total_curtailment_for_security_mw=round(max(0.0, curtailment_for_security), 2),
     )
+
+
+def _base_dispatch(net: pp.pandapowerNet) -> list[tuple[float, float]]:
+    """(P, Q) of every sgen from the solved base-case OPF."""
+    return [
+        (float(net.res_sgen.at[i, "p_mw"]), float(net.res_sgen.at[i, "q_mvar"]))
+        for i in net.sgen.index
+    ]
+
+
+def _base_network(
+    export_length_km: float,
+    grid_ssc_mva: float,
+    generation_fraction: float,
+    dispatch: list[tuple[float, float]],
+    wtg_scale: float = 1.0,
+) -> pp.pandapowerNet:
+    """Fresh network carrying the base-case dispatch (WTG P scaled by ``wtg_scale``)."""
+    net = build_network(
+        export_length_km=export_length_km,
+        grid_ssc_mva=grid_ssc_mva,
+        generation_fraction=generation_fraction,
+    )
+    for i, (p_mw, q_mvar) in zip(net.sgen.index, dispatch, strict=True):
+        is_statcom = str(net.sgen.at[i, "name"]) == "STATCOM"
+        net.sgen.at[i, "p_mw"] = p_mw if is_statcom else p_mw * wtg_scale
+        net.sgen.at[i, "q_mvar"] = q_mvar
+    return net
+
+
+def _post_contingency(
+    net: pp.pandapowerNet,
+    name: str,
+    description: str,
+) -> ContingencyResult:
+    """Solve the post-contingency state with STATCOM voltage control and check limits."""
+    try:
+        auto_statcom_dispatch(net)
+        converged = bool(net.converged)
+    except Exception:
+        converged = False
+    if not converged:
+        return ContingencyResult(
+            name=name,
+            description=description,
+            converged=False,
+            v_min_pu=0.0,
+            v_max_pu=0.0,
+            max_line_loading_percent=0.0,
+            max_trafo_loading_percent=0.0,
+            secure=False,
+        )
+
+    violations = _check_contingency_violations(net, name)
+    non_slack_vm = net.res_bus["vm_pu"].drop(index=list(net.ext_grid["bus"].values))
+    return ContingencyResult(
+        name=name,
+        description=description,
+        converged=True,
+        v_min_pu=round(float(non_slack_vm.min()), 4),
+        v_max_pu=round(float(non_slack_vm.max()), 4),
+        max_line_loading_percent=round(float(net.res_line["loading_percent"].max()), 1),
+        max_trafo_loading_percent=round(float(net.res_trafo["loading_percent"].max()), 1),
+        violations=violations,
+        secure=len(violations) == 0,
+    )
+
+
+def _corrective_contingency(
+    name: str,
+    apply_outage: Callable[[pp.pandapowerNet], str],
+    automatic_action: str,
+    export_length_km: float,
+    grid_ssc_mva: float,
+    generation_fraction: float,
+    dispatch: list[tuple[float, float]],
+) -> ContingencyResult:
+    """Corrective N-1: apply the outage, then PPC runback until limits hold.
+
+    Bisection on the WTG output scale k ∈ [0, 1] for the highest output whose
+    post-contingency state (automatic actions + STATCOM re-dispatch) has no
+    violations.
+    """
+
+    def solve(scale: float) -> ContingencyResult:
+        net = _base_network(export_length_km, grid_ssc_mva, generation_fraction, dispatch, scale)
+        description = apply_outage(net)
+        return _post_contingency(net, name, description)
+
+    immediate = solve(1.0)
+    scale, final = 1.0, immediate
+    if not immediate.secure:
+        scale, final = 0.0, solve(0.0)
+        if final.secure:
+            low, high = 0.0, 1.0
+            for _ in range(RUNBACK_BISECTION_STEPS):
+                mid = (low + high) / 2.0
+                result = solve(mid)
+                if result.secure:
+                    low, final = mid, result
+                else:
+                    high = mid
+            scale = low
+
+    wtg_mw = sum(p for p, _ in dispatch)  # STATCOM P is 0
+    curtailment_mw = wtg_mw * (1.0 - scale) if final.secure else 0.0
+    action = automatic_action
+    if curtailment_mw > 0.0:
+        runback_s = curtailment_mw / EMERGENCY_RAMP_MW_PER_S
+        action += (
+            f" + PPC emergency runback {wtg_mw:.0f} → {wtg_mw * scale:.0f} MW"
+            f" (~{runback_s:.0f} s at 2 % Pn/s)"
+        )
+    return replace(
+        final,
+        description=immediate.description,
+        security_type="corrective",
+        corrective_action=action,
+        corrective_curtailment_mw=round(curtailment_mw, 1),
+        pre_corrective_max_line_loading_percent=immediate.max_line_loading_percent,
+        pre_corrective_max_trafo_loading_percent=immediate.max_trafo_loading_percent,
+    )
+
+
+def _apply_transformer_outage(trafo_name: str) -> Callable[[pp.pandapowerNet], str]:
+    """Outage of one unit of a parallel transformer element (``parallel`` − 1)."""
+
+    def apply(net: pp.pandapowerNet) -> str:
+        idx = net.trafo.index[net.trafo["name"] == trafo_name][0]
+        units = int(net.trafo.at[idx, "parallel"])
+        net.trafo.at[idx, "parallel"] = units - 1
+        mva = float(net.trafo.at[idx, "sn_mva"])
+        return f"{trafo_name}: unit 1 of {units} × {mva:.0f} MVA outage"
+
+    return apply
+
+
+def _corrective_contingencies(
+    export_length_km: float,
+    grid_ssc_mva: float,
+    generation_fraction: float,
+    dispatch: list[tuple[float, float]],
+) -> list[ContingencyResult]:
+    """Loss of one export circuit, one OSS transformer, one onshore transformer."""
+    args = (export_length_km, grid_ssc_mva, generation_fraction, dispatch)
+    return [
+        _corrective_contingency(
+            "Export_cable_1_outage",
+            _apply_export_cable_outage,
+            "Reactor 1 intertrip + STATCOM voltage control",
+            *args,
+        ),
+        _corrective_contingency(
+            "OSS_transformer_1_outage",
+            _apply_transformer_outage("Trafo_66_220kV"),
+            "STATCOM voltage control",
+            *args,
+        ),
+        _corrective_contingency(
+            "Onshore_transformer_1_outage",
+            _apply_transformer_outage("Trafo_220_400kV"),
+            "STATCOM voltage control",
+            *args,
+        ),
+    ]

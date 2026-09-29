@@ -48,7 +48,7 @@ Pi-modeli, dağıtık parametreli iletim hattını üç yığın (lumped) eleman
 ```
 
 Her kablo segmenti için:
-- **R** [Ω/km]: İletken direnci (kesit alanıyla ters orantılı)
+- **R** [Ω/km]: İletken direnci (kesit alanıyla ters orantılı). Sıcaklık ve AC etkisiyle artar: R_AC,90 = R20 × (1 + 0.00393 × 70) × (1 + y_s + y_p) — 1000 mm² Cu için 0.0176 → 0.0233 Ω/km (+%33). Yük akışı kayıpları 90 °C değeriyle, IEC 60909 kısa devresi 20 °C değeriyle hesaplanır (Ik''max için soğuk = düşük R).
 - **X** [Ω/km]: Endüktif reaktans (manyetik alan)
 - **C** [nF/km]: Faz başına kapasitans (XLPE dielektrik)
 
@@ -113,10 +113,10 @@ Bir şehrin elektrik şebekesini düşünün: santralden fabrikaya giden yolda b
 | Eleman | Sayı | Açıklama |
 |--------|------|----------|
 | **Baralar** | 38 | 1× PSE 400kV + 1× Onshore 220kV + 1× OSS 220kV + 1× OSS 66kV + 34× WTG 66kV |
-| **Kablolar** | 35 | 34× dizi (66 kV, derecelendirilmiş) + 1× ihraç (220 kV, 45 km) |
-| **Trafolar** | 2 | 66/220 kV Dyn11 (OSS) + 220/400 kV YNyn0 (onshore) |
+| **Kablolar** | 35 | 34× dizi (66 kV, derecelendirilmiş) + 1× ihraç elemanı = 2 paralel 220 kV devre (`parallel=2`, 45 km) |
+| **Trafolar** | 2 eleman | 66/220 kV Dyn11 (OSS) + 220/400 kV YNyn0 (onshore); her biri 2 × 300 MVA paralel (`parallel=2`, N-1) |
 | **Jeneratörler** | 35 | 34× WTG (15 MW) + 1× STATCOM (Q kontrol) |
-| **Şönt reaktör** | 1 | 50 MVAR (OSS 220 kV) |
+| **Şönt reaktörler** | 3 | 3 × 80 MVAR (OSS 220 kV, N+1: kablo başına bir + bir yedek) |
 | **Harici şebeke** | 1 | PSE 400 kV, Ssc = 10 GVA |
 
 **String düzeni:** 6 string × 5 WTG + 1 string × 4 WTG = 34 WTG
@@ -147,7 +147,7 @@ Yakınsama kriteri: $\|\Delta P, \Delta Q\| < 10^{-8}$ MVA
 | **Tam yük** | 510 MW (34 × 15 MW) | Kablo termal limitleri |
 | **Kısmi yük** | 255 MW (%50) | Normal çalışma gerilimleri |
 | **Boş yük** | 0 MW | Ferranti gerilim yükselişi |
-| **N-1** | 450 MW (String 7 devre dışı) | Yedeklilik marjları |
+| **N-1** | 435 MW (String 6 devre dışı) | Yedeklilik marjları |
 
 ### Sonuçlar
 
@@ -156,7 +156,7 @@ Tüm dört senaryo yakınsar ve 0.95–1.05 pu gerilim limitlerini karşılar (S
 - **Tam yük:** Kayıplar ~1-3% (5-15 MW), gerilim uyumlu
 - **Kısmi yük:** Daha düşük kayıplar, gerilim uyumlu
 - **Boş yük:** Minimum kayıp (sadece trafo demir kayıpları), Ferranti etkisi kompanze edilmiş
-- **N-1:** 450 MW, yedeklilik doğrulanmış
+- **N-1:** 435 MW, yedeklilik doğrulanmış
 
 ### Kod İncelemesi
 
@@ -170,8 +170,12 @@ def auto_statcom_dispatch(net, target_vm_pu=1.0, tolerance_pu=0.01):
         deviation = target_vm_pu - v_oss
         if abs(deviation) <= tolerance_pu:
             break
-        # Oransal ayarlama: ~5000 MVAR/pu kazanç
-        current_q += deviation * 5000.0
+        # Sekant adımı: dQ/dV ölçülen yanıttan güncellenir. Sabit 5000 MVAR/pu
+        # kazanç, iki kabloyla sertleşen şebekede (~33 MVAR / 0.01 pu) salınıyordu.
+        if prev:
+            dq_dv = (current_q - prev[0]) / (v_oss - prev[1])
+        prev = (current_q, v_oss)
+        current_q += deviation * dq_dv
         # STATCOM ratingi ile sınırla (±120 MVAR)
         current_q = max(-120, min(120, current_q))
 ```
@@ -226,11 +230,13 @@ Yüksüz veya hafif yüklü bir kablonun alıcı ucundaki gerilim, gönderici uc
 
 $$V_{alıcı} \approx \frac{V_{gönderici}}{\cos(\beta L)}$$
 
-45 km, 220 kV kablomuzda Ferranti yükselişi ~2-5% civarındadır. Bu, kompanzasyon olmadan gerilim limitlerini aşabilir.
+İki paralel 45 km, 220 kV kablomuz yüksüzde ~260 MVAR üretir; kompanzasyon olmadan OSS gerilimi ~1.08 pu'ya çıkar (`validate_compensation()`) — ±%5 limitinin üzerinde.
 
 ### Kompanzasyon Stratejisi
 
-1. **Şönt reaktör (50 MVAR):** Sabit endüktif yük, kablo Q'sunun bir kısmını absorbe eder
+1. **Şönt reaktörler (3 × 80 MVAR, N+1):** Sabit endüktif yük, kablo Q'sunun büyük kısmını (240 MVAR) absorbe eder; biri devre dışı kalsa bile STATCOM limit içinde kalır
+
+    > **Dikkat — işaret kuralı:** pandapower'da `create_shunt(q_mvar=...)` **yük** konvansiyonunu kullanır: pozitif `q_mvar` = absorbe (reaktör). Bu model bir dönem `q_mvar=-50` ile kurulmuştu — yani "reaktör" aslında bir kapasitördü ve gerilimi 1.044'ten 1.063 pu'ya çıkarıyordu. Kural 4 (üreten Q pozitif) API çıktıları ve sgen'ler (STATCOM) için geçerlidir, pandapower shunt girdisi için değil.
 2. **STATCOM (±120 MVAR):** Dinamik kompanzasyon, gerilime göre Q üretir/absorbe eder
 
 **Neden STATCOM, SVC değil?**
@@ -243,10 +249,10 @@ $$V_{alıcı} \approx \frac{V_{gönderici}}{\cos(\beta L)}$$
 
 | Metrik | Değer |
 |--------|-------|
-| Kablo Q (220 kV, 45 km) | ~130 MVAR |
-| Şönt reaktör | 50 MVAR |
+| Kablo Q (2 × 220 kV, 45 km) | ~260 MVAR (2 × 130) |
+| Şönt reaktörler | 3 × 80 = 240 MVAR (N+1) |
 | STATCOM rating | ±120 MVAR |
-| Ferranti yükselişi (kompanzasyonsuz) | > 1.0 pu |
+| Kompanzasyonsuz V_max (yüksüz) | ≈ 1.08 pu ✗ |
 | Kompanzasyonlu V_max | ≤ 1.05 pu ✓ |
 
 ---
@@ -288,4 +294,4 @@ Bugün rüzgar çiftliğimizin elektrik şebekesini bilgisayarda inşa ettik —
 
 ## Teknik Açıklama
 
-P2A oturumunda Pandapower ile 66/220/400 kV tam ölçekli şebeke modeli oluşturuldu. 38 baralı, 35 kablolu (pi-model, IEC 60287 parametreleri), 2 trafolulu (Dyn11 + YNyn0) ağda Newton-Raphson yük akışı 4 senaryoda (full, partial, no-load, N-1) yakınsadı ve PSE IRiESP gerilim limitleri (0.95–1.05 pu) STATCOM auto-dispatch ile karşılandı. IEC 60909 kısa devre analizi (3-faz, c_max=1.1, c_min=1.0) tüm baralarda kesici kapasitelerinin altında Ik'' değerleri verdi. STATCOM boyutlandırma, 45 km ihraç kablosunun ~130 MVAR kapasitif Q üretimini, 50 MVAR şönt reaktör + ±120 MVAR STATCOM ile kompanze ederek Ferranti gerilim yükselişini elimine etti. 68 birim testi %100 geçti.
+P2A oturumunda Pandapower ile 66/220/400 kV tam ölçekli şebeke modeli oluşturuldu. 38 baralı, 35 kablolu (pi-model, IEC 60287 parametreleri), 2 trafolulu (Dyn11 + YNyn0) ağda Newton-Raphson yük akışı 4 senaryoda (full, partial, no-load, N-1) yakınsadı ve PSE IRiESP gerilim limitleri (0.95–1.05 pu) STATCOM auto-dispatch ile karşılandı. IEC 60909 kısa devre analizi (3-faz, c_max=1.1, c_min=1.0) tüm baralarda kesici kapasitelerinin altında Ik'' değerleri verdi. Tek 1000 mm² kablo 510 MW'ta ~%140 yüklendiği için ihracat iki paralel kabloya çıkarıldı (~%75). STATCOM boyutlandırma, iki kablonun ~260 MVAR kapasitif Q üretimini 3 × 80 MVAR (N+1) şönt reaktör + ±120 MVAR STATCOM ile kompanze ederek Ferranti gerilim yükselişini elimine etti. 68 birim testi %100 geçti.

@@ -97,7 +97,8 @@ function ProfileChart({ hubWindMs }: { hubWindMs: number }) {
 export default function LIDARDetailPanel({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const kpis = useLandingStore(selectKPIs);
-  const windMs = kpis.averageWindSpeedMs;
+  // Upstream reference → undisturbed freestream, not the waked farm average
+  const windMs = kpis.freestreamWindMs;
   const valid = windMs > 0.5;
   const rews = rotorEquivalentWind(windMs);
 

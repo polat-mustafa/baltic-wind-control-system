@@ -36,6 +36,7 @@ import {
   PSE_GRID_LINE_GEO,
   STRING_COLLECTION_POINTS,
   TURBINE_POSITIONS,
+  turbineIconPx,
 } from "../../constants/windFarmLayout";
 import {
   selectKPIs,
@@ -110,95 +111,58 @@ function AtmosphericPanes() {
   return null;
 }
 
-// ── Status Colors ──────────────────────────────────────────────
+// ── Turbine marker ─────────────────────────────────────────────
+// Front-view rotor on a dark disc: white blades read on any basemap, the
+// status colour sits on the ring and hub. Diameter comes from the CSS var
+// --wtg-size (set per zoom by TurbineZoomScaler), so zooming never rebuilds
+// the icon and the spin animation keeps running. The small tick on the ring
+// is the nacelle heading (compass bearing the rotor faces).
 const STATUS_COLOR: Record<TurbineStatus, string> = {
-  operating: SCADA_COLORS.ENERGIZED,
-  curtailed: SCADA_COLORS.WARNING,
-  fault: SCADA_COLORS.FAULT,
-  offline: SCADA_COLORS.DE_ENERGIZED,
+  operating: "#3ecf6e",
+  curtailed: "#f5a623",
+  fault: "#ef4444",
+  offline: "#8b93a7",
 };
 
-// ── Turbine DivIcon factory ────────────────────────────────────
-// Representative power per status so icon reference is stable across 3s ticks.
-// Real-time power is shown in the tooltip — icon only changes on status change.
-const REPRESENTATIVE_POWER: Record<TurbineStatus, number> = {
-  operating: 12,
-  curtailed: 8,
+/** Seconds per rotor revolution shown on the map (V236 ≈ 7.2 s at 8.33 rpm). */
+const SPIN_SECONDS: Record<TurbineStatus, number> = {
+  operating: 7.2,
+  curtailed: 10,
   fault: 0,
   offline: 0,
 };
+
+const BLADE = "M -2.2,-6 C -4.5,-20 -3.2,-34 0,-44 C 2.2,-34 3.2,-20 2.2,-6 Z";
 
 function createTurbineIcon(
   status: TurbineStatus,
   shortId: string,
   isSelected: boolean,
   yawDeg: number,
-  pitchDeg: number,
 ): L.DivIcon {
   const color = STATUS_COLOR[status];
-  const powerMW = REPRESENTATIVE_POWER[status];
-  const isSpinning = status === "operating" || status === "curtailed";
-  const dur = powerMW <= 0 ? 0 : Math.max(2, 8 - (powerMW / 15) * 6);
-  const fraction = Math.min(powerMW / 15, 1);
-  const rotation = isSpinning
-    ? `<animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="${dur.toFixed(1)}s" repeatCount="indefinite" />`
-    : "";
-  const glow =
-    status === "fault"
-      ? `<circle cx="0" cy="0" r="8" fill="${color}" opacity="0.15"><animate attributeName="opacity" values="0.15;0.3;0.15" dur="1.5s" repeatCount="indefinite" /></circle>`
-      : status === "operating"
-        ? `<circle cx="0" cy="0" r="6" fill="${color}" opacity="0.08"><animate attributeName="opacity" values="0.05;0.18;0.05" dur="3s" repeatCount="indefinite" /></circle>`
-        : "";
+  const spin = SPIN_SECONDS[status];
+  const blades = [0, 120, 240]
+    .map((a) => `<path d="${BLADE}" transform="rotate(${a})"/>`)
+    .join("");
 
-  const BLADE =
-    "M 0,0 C -1.2,-3 -1.8,-8 -1,-13 L 0,-15 L 1,-13 C 1.4,-8 0.8,-3 0,0 Z";
-
-  // Yaw compass — faint dashed ring + N-arrow rotated to nacelle yaw
-  const yawCompass = `
-    <g opacity="0.4">
-      <circle cx="0" cy="0" r="13" fill="none" stroke="#94a3b8" stroke-width="0.4" stroke-dasharray="1.2 2"/>
-      <g transform="rotate(${yawDeg} 0 0)">
-        <path d="M 0,-13 L -1.6,-10.5 L 1.6,-10.5 Z" fill="#cbd5e1"/>
-      </g>
-    </g>`;
-
-  // Pitch arc — small yellow arc near hub, sweeps from 12 o'clock by pitchDeg
-  const pitchClamp = Math.max(0, Math.min(90, pitchDeg));
-  const arcRad = ((pitchClamp - 90) * Math.PI) / 180;
-  const arcEndX = (8 * Math.cos(arcRad)).toFixed(2);
-  const arcEndY = (8 * Math.sin(arcRad)).toFixed(2);
-  const pitchArc =
-    isSpinning && pitchClamp > 0.5
-      ? `<path d="M 0,-8 A 8,8 0 0 1 ${arcEndX},${arcEndY}" fill="none" stroke="#fbbf24" stroke-width="0.9" opacity="0.85"/>`
-      : "";
-
-  const svg = `<svg width="40" height="56" viewBox="-20 -20 40 56" xmlns="http://www.w3.org/2000/svg">
-    ${glow}
-    ${yawCompass}
-    <path d="M -2.5,3 L -3.5,22 L 3.5,22 L 2.5,3 Z" fill="${color}" opacity="0.6" style="transition:fill 0.6s"/>
-    <line x1="-6" y1="22" x2="6" y2="22" stroke="${color}" stroke-width="2" opacity="0.5"/>
-    <line x1="-4.5" y1="24" x2="4.5" y2="24" stroke="${color}" stroke-width="1" opacity="0.3"/>
-    <g class="nacelle-group" style="transform-origin: 0px 0px" transform="rotate(${(yawDeg - 90).toFixed(0)} 0 0)">
-      <circle cx="0" cy="2" r="3" fill="${color}" opacity="0.4"/>
-      <rect x="-5" y="-2" width="10" height="4" rx="2" fill="${color}" opacity="0.85" style="transition:fill 0.6s"/>
-    </g>
-    ${pitchArc}
-    <circle cx="0" cy="0" r="2" fill="${color}" style="transition:fill 0.6s"/>
-    <g>${rotation}
-      <path d="${BLADE}" fill="${color}" opacity="0.75"/>
-      <path d="${BLADE}" fill="${color}" opacity="0.75" transform="rotate(120 0 0)"/>
-      <path d="${BLADE}" fill="${color}" opacity="0.75" transform="rotate(240 0 0)"/>
-    </g>
-    <rect x="-5" y="26" width="10" height="2" rx="0.5" fill="#1e2231" stroke="${color}" stroke-width="0.3" opacity="0.5"/>
-    ${fraction > 0 ? `<rect x="-5" y="26" width="${(10 * fraction).toFixed(1)}" height="2" rx="0.5" fill="${color}" opacity="0.6"/>` : ""}
-    <text x="0" y="34" fill="#6b7490" font-size="6" font-family="JetBrains Mono, monospace" text-anchor="middle">${shortId}</text>
-  </svg>`;
+  const html = `<div class="wtg wtg--${status}${isSelected ? " is-selected" : ""}" style="--wtg-color:${color};--wtg-spin:${spin ? `${spin}s` : "0s"}">
+    <svg class="wtg__svg" viewBox="-50 -50 100 100" aria-hidden="true">
+      <circle class="wtg__disc" r="47"/>
+      <g transform="rotate(${yawDeg})"><path class="wtg__heading" d="M -5,-47 L 0,-39 L 5,-47 Z"/></g>
+      <g class="wtg__blades${spin ? " is-spinning" : ""}">${blades}</g>
+      <circle class="wtg__hub" r="6.5"/>
+    </svg>
+    <span class="wtg__label">${shortId}</span>
+    <span class="sr-only">Turbine WTG-${shortId}, ${status}</span>
+  </div>`;
 
   return L.divIcon({
-    html: svg,
-    className: `leaflet-turbine-marker${isSelected ? " turbine-selected" : ""}`,
-    iconSize: [40, 56],
-    iconAnchor: [20, 20],
+    html,
+    className: "leaflet-turbine-marker",
+    // Zero-size anchor at the turbine position; .wtg centres itself on it.
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
   });
 }
 
@@ -228,21 +192,13 @@ const TurbineMarker = memo(function TurbineMarker({
   const turbine = useLandingStore(selectTurbine(turbineId));
   const shortId = turbineId.replace(/^WTG-/, "");
 
-  // Icon depends on status + selection + quantised yaw/pitch.
-  // Yaw is quantised to 5° steps so the icon doesn't recreate on every 0.1°
-  // wiggle from the yaw controller; pitch to 1° integer for the same reason.
+  // Icon depends on status + selection + yaw quantised to 5° (so the yaw
+  // controller's small wiggles don't rebuild the DOM and restart the spin).
+  // Pitch is shown by TurbineDetailOverlay at zoom ≥ 14.
   const yawQ = Math.round((turbine?.nacellePositionDeg ?? 225) / 5) * 5;
-  const pitchQ = Math.round(turbine?.pitchAngleDeg ?? 0);
   const icon = useMemo(
-    () =>
-      createTurbineIcon(
-        turbine?.status ?? "offline",
-        shortId,
-        isSelected,
-        yawQ,
-        pitchQ,
-      ),
-    [turbine?.status, shortId, isSelected, yawQ, pitchQ],
+    () => createTurbineIcon(turbine?.status ?? "offline", shortId, isSelected, yawQ),
+    [turbine?.status, shortId, isSelected, yawQ],
   );
 
   // Stable event handler object — prevents react-leaflet from unbinding/rebinding
@@ -262,7 +218,7 @@ const TurbineMarker = memo(function TurbineMarker({
     <Marker position={[lat, lon]} icon={icon} eventHandlers={eventHandlers}>
       <Tooltip
         direction="right"
-        offset={[20, 0]}
+        offset={[18, 0]}
         className="leaflet-turbine-tooltip"
         permanent={false}
       >
@@ -677,41 +633,24 @@ function TurbineLabelToggler() {
   return null;
 }
 
-// ── Yaw rotation — sets CSS custom property for nacelle orientation ──
-function YawUpdater() {
-  const map = useMap();
-  const kpis = useLandingStore(selectKPIs);
 
-  useEffect(() => {
-    map
-      .getContainer()
-      .style.setProperty("--wind-yaw", `${kpis.windDirectionDeg}deg`);
-  }, [map, kpis.windDirectionDeg]);
-
-  return null;
-}
-
-// ── Zoom-dependent turbine scale — toggles CSS classes on the map container ──
-// Uses the same DOM class toggle pattern as TurbineLabelToggler.
-// CSS rules in index.css handle SVG-level transform to avoid Leaflet conflicts.
-const ZOOM_FAR_CLASS = "turbine-zoom-far";
-const ZOOM_CLOSE_CLASS = "turbine-zoom-close";
-
+// ── Zoom-dependent turbine size — CSS var on the map container ──
+// --wtg-size drives the marker diameter (index.css .wtg); labels appear from
+// zoom 12, where the 1.4 km turbine spacing leaves room for them.
 function TurbineZoomScaler() {
   const map = useMap();
 
   useEffect(() => {
-    function applyZoomClass() {
+    function apply() {
       const z = map.getZoom();
       const el = map.getContainer();
-      // zoom < 11 → far (small), 11-12 → default, ≥ 13 → close (big)
-      el.classList.toggle(ZOOM_FAR_CLASS, z < 11);
-      el.classList.toggle(ZOOM_CLOSE_CLASS, z >= 13);
+      el.style.setProperty("--wtg-size", `${turbineIconPx(z)}px`);
+      el.classList.toggle("wtg-labels-off", z < 12);
     }
-    applyZoomClass();
-    map.on("zoomend", applyZoomClass);
+    apply();
+    map.on("zoomend", apply);
     return () => {
-      map.off("zoomend", applyZoomClass);
+      map.off("zoomend", apply);
     };
   }, [map]);
 
@@ -799,9 +738,9 @@ function LeafletWindFarmMapInner({
     [isExporting],
   );
   // Floating LIDAR met mast — independent wind reference for resource validation.
-  // Reads farm-level wind from the KPI stream (quantised so the icon is stable).
+  // Reads the freestream (un-waked) wind from the KPI stream, rounded to 0.1 m/s.
   const farmKpis = useLandingStore(selectKPIs);
-  const lidarWindMs = Math.round(farmKpis.averageWindSpeedMs * 10) / 10;
+  const lidarWindMs = Math.round(farmKpis.freestreamWindMs * 10) / 10;
   const lidarWindDir = Math.round(farmKpis.windDirectionDeg / 5) * 5;
   const metMastIcon = useMemo(
     () => createMetMastIcon(lidarWindMs, lidarWindDir),
@@ -908,7 +847,13 @@ function LeafletWindFarmMapInner({
             opacity: 0.9,
             dashArray: "8 12",
             className: "leaflet-export-cable-animated",
+            interactive: false,
           }}
+        />
+        {/* Invisible 18 px hit area — the visible 3 px line is too thin to click */}
+        <Polyline
+          positions={EXPORT_CABLE_PATH}
+          pathOptions={{ color: "#000", weight: 18, opacity: 0 }}
           eventHandlers={cableHandlers}
         />
 
@@ -975,9 +920,6 @@ function LeafletWindFarmMapInner({
           eventHandlers={metMastHandlers}
           zIndexOffset={1100}
         />
-
-        {/* Yaw rotation — updates CSS custom property on map container */}
-        <YawUpdater />
 
         {/* Turbine label visibility (CSS class toggle) */}
         <TurbineLabelToggler />

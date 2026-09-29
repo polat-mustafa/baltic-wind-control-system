@@ -97,8 +97,13 @@ export function wakeConePoly(
 
 export interface WakeLossResult {
   turbineId: string;
-  /** Estimated power loss percentage due to upstream wakes. */
+  /**
+   * Power loss [%] from the cubic law — valid BELOW rated wind only. For the
+   * live loss at the current wind use `wakePowerLossPct` (utils/landingPhysics).
+   */
   lossPct: number;
+  /** Combined velocity deficit Δu/u₀ at this turbine (Katic superposition). */
+  deficit: number;
   /** IDs of upstream turbines casting wakes onto this turbine. */
   upstreamIds: string[];
 }
@@ -146,7 +151,7 @@ export function computeWakeLosses(
       const powerLoss = 1 - (1 - totalDeficit) ** 3; // cubic power law
       const lossPct = Math.round(powerLoss * 100);
       if (lossPct > 1) {
-        results.push({ turbineId: target.id, lossPct, upstreamIds });
+        results.push({ turbineId: target.id, lossPct, deficit: totalDeficit, upstreamIds });
       }
     }
   }

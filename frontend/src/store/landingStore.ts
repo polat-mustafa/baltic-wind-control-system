@@ -27,6 +27,7 @@ import type { TurbineFaultType } from "../types/scada";
 import {
   V236,
   exportCableState,
+  farmWakeDeficits,
   v236PitchDeg,
   v236PowerMW,
   v236RotorRpm,
@@ -258,6 +259,7 @@ function computeKPIs(turbineMap: Record<string, TurbineData>): FarmKPI {
   return {
     totalOutputMW,
     averageWindSpeedMs,
+    freestreamWindMs: _baseWindSpeed,
     availabilityPercent,
     activeAlerts,
     windDirectionDeg: _windDirDeg,
@@ -442,28 +444,42 @@ export const useLandingStore = create<LandingState>((set) => {
           const EWMA_ALPHA = 0.15;
           _windDirDeg = ((1 - EWMA_ALPHA) * _windDirDeg + EWMA_ALPHA * windDirTarget + 360) % 360;
 
-          // Update base wind speed: gradual ramp with ~12s period
+          // Freestream wind: 3-min cycle + 15-min swell (time-compressed but
+          // smooth — 36 ticks per cycle). The old 12 s period was sampled every
+          // 5 s tick (below Nyquist), so the "mean" wind jumped ±3.5 m/s per tick.
           _baseWindSpeed = clamp(
-            11.0 + 3.5 * Math.sin(elapsed * (2 * Math.PI / 12)) + 1.5 * Math.sin(elapsed * (2 * Math.PI / 40)),
+            11.0 + 3.5 * Math.sin(elapsed * (2 * Math.PI / 180)) + 1.5 * Math.sin(elapsed * (2 * Math.PI / 900)),
             7, 15,
           );
+
+          const wakeDeficits = farmWakeDeficits(_windDirDeg);
 
           for (const id of state.turbineIds) {
             const t = state.turbineMap[id];
 
-            // Per-turbine wind varies based on position relative to wind direction (wake effect proxy)
+            // Per-turbine freestream varies slightly with position across the array
             const pos = TURBINE_POSITIONS.find((p) => p.id === id);
             const posOffset = pos ? (pos.x * Math.cos(_windDirDeg * Math.PI / 180) + pos.y * Math.sin(_windDirDeg * Math.PI / 180)) / 800 : 0;
             const turbineBaseWind = _baseWindSpeed + posOffset * 0.5 + rand(-0.15, 0.15);
-            const newWind = clamp(t.windSpeedMs * 0.5 + turbineBaseWind * 0.5, 5, 16);
+            // Smooth the FREESTREAM wind, then apply this turbine's wake deficit
+            // (Jensen/Park, cached per 5° of direction) — the rotor sees u·(1−δ).
+            const deficit = wakeDeficits.get(id) ?? 0;
+            const prevFree = t.windSpeedMs / (1 - deficit);
+            const freeWind = clamp(prevFree * 0.5 + turbineBaseWind * 0.5, 5, 16);
+            const newWind = freeWind * (1 - deficit);
 
             // Compute TARGET values from physics — then ramp-limit for realism
             const targetPower = computePower(newWind, t.status);
             const targetRotor = computeRotorSpeed(newWind, t.status);
             const targetPitch = computePitchAngle(newWind, t.status);
 
-            // Apply ramp rate limits — a 15 MW turbine can't jump instantly
-            const newPower = rampToward(t.powerOutputMW, targetPower, MAX_POWER_RAMP_MW_PER_TICK);
+            // Apply ramp rate limits — a 15 MW turbine can't jump instantly.
+            // Output can never exceed what the current wind supplies, though:
+            // on a lull, power follows the wind down at once (Cp ≤ Betz).
+            const newPower = Math.min(
+              rampToward(t.powerOutputMW, targetPower, MAX_POWER_RAMP_MW_PER_TICK),
+              v236PowerMW(newWind),
+            );
             const newRotor = rampToward(t.rotorSpeedRpm, targetRotor, MAX_ROTOR_RAMP_RPM_PER_TICK);
             const newPitch = rampToward(t.pitchAngleDeg, targetPitch, MAX_PITCH_RAMP_DEG_PER_TICK);
 

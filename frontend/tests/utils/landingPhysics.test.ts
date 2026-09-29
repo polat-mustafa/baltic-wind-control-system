@@ -5,10 +5,13 @@ import {
   STATCOM_RATING_MVAR,
   V236,
   exportCableState,
+  farmWakeDeficits,
+  wakePowerLossPct,
   gustMs,
   reactiveBalance,
   turbulenceIntensity,
   v236PitchDeg,
+  v236PowerChain,
   v236PowerMW,
   v236RotorRpm,
   windAtHeight,
@@ -70,6 +73,40 @@ describe("V236 operating model", () => {
     expect(v236PitchDeg(15)).toBeGreaterThan(5);
     expect(v236PitchDeg(15)).toBeLessThan(v236PitchDeg(20));
     expect(v236PitchDeg(2)).toBe(90);
+  });
+});
+
+describe("v236PowerChain", () => {
+  it("is energy-consistent and physically bounded at rated", () => {
+    const c = v236PowerChain(15, 11.1, 8.33);
+    const losses = c.gearbox.lossMW + c.generator.lossMW + c.converter.lossMW + c.transformer.lossMW;
+    expect(c.rotorMW - losses).toBeCloseTo(15, 9); // energy balance
+    expect(c.rotorMW).toBeCloseTo(16.3, 1); // 15 MW electrical ÷ Πη
+    expect(c.cp).toBeGreaterThan(0.4);
+    expect(c.cp).toBeLessThan(16 / 27); // Betz
+    expect(c.generatorRpm).toBeCloseTo(400, 0); // 8.33 rpm × 48
+    expect(c.rotorTorqueKNm).toBeGreaterThan(18_000);
+    expect(c.rotorTorqueKNm).toBeLessThan(19_500);
+  });
+});
+
+describe("wakes", () => {
+  it("finds waked turbines and caches per 5° direction", () => {
+    const d = farmWakeDeficits(225);
+    expect(d.size).toBeGreaterThan(0);
+    expect(farmWakeDeficits(226)).toBe(d); // same 5° bin → same cached map
+    for (const deficit of d.values()) {
+      expect(deficit).toBeGreaterThan(0);
+      expect(deficit).toBeLessThan(0.6);
+    }
+  });
+
+  it("loses less power above rated than the cubic rule suggests", () => {
+    const deficit = 0.157; // cubic rule: 1 − (1 − δ)³ ≈ 40 %
+    expect(wakePowerLossPct(8, deficit)).toBeCloseTo(40, 0); // below rated: cubic holds
+    expect(wakePowerLossPct(12.1, deficit)).toBeLessThan(30); // above rated: much less
+    expect(wakePowerLossPct(16, deficit)).toBe(0); // 13.5 m/s waked is still ≥ rated
+    expect(wakePowerLossPct(2, deficit)).toBe(0); // below cut-in: nothing to lose
   });
 });
 

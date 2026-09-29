@@ -781,82 +781,43 @@ function ThermalEnvelopeLegend({ x, y }: { x: number; y: number }) {
   );
 }
 
-// ── Detail panel (right side, persistent while a part is selected) ───
+// ── Selection bar (bottom, while a part is selected) ─────────────────
+// The full explanation (overview, formulas, standards) lives once, in the
+// turbine detail panel's part card; this bar only names the selection and
+// keeps what is unique to the schematic: source links and "Open in 3D".
 
 function DetailPanel({
   part, onClose, onOpenIn3D,
 }: { part: SchematicPart; onClose: () => void; onOpenIn3D: () => void }) {
-  const education = TURBINE_PART_EDUCATION.find((e) => e.partId === part.id);
   return (
-    <div className="absolute top-20 right-3 z-20 w-[300px] max-h-[calc(100%-8rem)] overflow-y-auto bg-bg-secondary/95 border border-border-primary rounded-md backdrop-blur-md shadow-xl pointer-events-auto">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary">
-        <div>
-          <div className="text-[11px] font-mono font-bold text-text-primary">{part.label}</div>
-          {part.sublabel && <div className="text-[9px] font-mono text-text-muted">{part.sublabel}</div>}
-        </div>
-        <button onClick={onClose} className="p-1 hover:bg-bg-hover rounded" title="Deselect">
-          <X size={12} className="text-text-muted" />
-        </button>
+    <div className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-3 rounded-lg border border-accent/50 bg-bg-secondary/95 px-3 py-2 shadow-xl backdrop-blur-md pointer-events-auto">
+      <div className="min-w-0">
+        <div className="truncate text-xs font-semibold text-text-primary">{part.label}</div>
+        {part.sublabel && <div className="truncate font-mono text-[10px] text-text-muted">{part.sublabel}</div>}
       </div>
-
-      <div className="p-3 space-y-2.5 text-[10px] font-mono text-text-muted leading-snug">
-        {education?.simpleExplanation && (
-          <div>
-            <div className="text-[9px] text-text-muted/70 uppercase tracking-wider mb-0.5">Overview</div>
-            <div className="text-text-primary text-[10.5px]">{education.simpleExplanation}</div>
-          </div>
-        )}
-
-        {education?.overview && education.overview !== education.simpleExplanation && (
-          <div>
-            <div className="text-[9px] text-text-muted/70 uppercase tracking-wider mb-0.5">Technical</div>
-            <div>{education.overview}</div>
-          </div>
-        )}
-
-        {education?.standards?.length ? (
-          <div>
-            <div className="text-[9px] text-text-muted/70 uppercase tracking-wider mb-1">Standards</div>
-            <div className="flex flex-wrap gap-1">
-              {education.standards.map((s: string) => (
-                <span key={s} className="text-[8.5px] px-1.5 py-0.5 bg-accent/10 text-accent rounded">{s}</span>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {part.cite?.length ? (
-          <div>
-            <div className="text-[9px] text-text-muted/70 uppercase tracking-wider mb-1">References</div>
-            <ul className="space-y-1">
-              {part.cite.map((c) => (
-                <li key={c.url}>
-                  <a
-                    href={c.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-start gap-1 text-accent/90 hover:text-accent underline"
-                  >
-                    <ExternalLink size={9} className="mt-[2px] shrink-0" />
-                    <span className="text-[9.5px] leading-snug">{c.source}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="px-3 py-2 border-t border-border-primary flex items-center justify-between">
-        <button
-          onClick={onOpenIn3D}
-          className="text-[10px] font-mono text-accent hover:underline"
-          title="Close schematic and fly 3D camera to this part"
+      {part.cite?.map((c) => (
+        <a
+          key={c.url}
+          href={c.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={c.source}
+          className="shrink-0 text-accent/80 hover:text-accent"
+          aria-label={`Source: ${c.source}`}
         >
-          Open in 3D →
-        </button>
-        <span className="text-[8px] font-mono text-text-muted">Esc to close</span>
-      </div>
+          <ExternalLink size={13} />
+        </a>
+      ))}
+      <button
+        onClick={onOpenIn3D}
+        className="shrink-0 rounded-md border border-accent/50 px-2 py-1 text-[11px] font-medium text-accent hover:bg-accent-muted"
+        title="Close schematic and fly the 3D camera to this part"
+      >
+        Open in 3D →
+      </button>
+      <button onClick={onClose} className="shrink-0 rounded p-1 hover:bg-bg-hover" title="Deselect" aria-label="Deselect part">
+        <X size={13} className="text-text-muted" />
+      </button>
     </div>
   );
 }

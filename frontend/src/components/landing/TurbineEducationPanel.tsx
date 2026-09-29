@@ -15,7 +15,7 @@
  * 8. Simple vs Technical — collapsible sections
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, ChevronDown, ChevronRight } from "lucide-react";
 
 import {
@@ -43,6 +43,12 @@ export default function TurbineEducationPanel({
   const education = PART_EDUCATION_MAP[partId];
   const [showSimple, setShowSimple] = useState(false);
   const [showTechnical, setShowTechnical] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // The card opens below the power train — bring it into view on each selection.
+  useEffect(() => {
+    rootRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  }, [partId]);
 
   // Determine if this part has an active fault on this turbine
   const faultCategory =
@@ -62,7 +68,8 @@ export default function TurbineEducationPanel({
 
   const panel = (
     <div
-      className="mt-2 overflow-hidden rounded-lg border border-accent/40 bg-bg-secondary/60"
+      ref={rootRef}
+      className="mt-2 scroll-mt-2 overflow-hidden rounded-lg border border-accent/40 bg-bg-secondary/60"
     >
       {/* ── Header ── */}
       <div

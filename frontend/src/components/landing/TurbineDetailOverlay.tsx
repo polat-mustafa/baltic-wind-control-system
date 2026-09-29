@@ -15,7 +15,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 
-import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
+import { TURBINE_POSITIONS, turbineIconPx } from "../../constants/windFarmLayout";
 import { selectTurbine, useLandingStore } from "../../store/landingStore";
 import type { TurbineStatus } from "../../types/landing";
 
@@ -54,28 +54,30 @@ const TurbinePowerBadge = memo(function TurbinePowerBadge({
   turbineId,
   lat,
   lon,
+  iconPx,
 }: {
   turbineId: string;
   lat: number;
   lon: number;
+  iconPx: number;
 }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
-  if (!turbine) return null;
+  const color = turbine ? STATUS_BADGE_COLOR[turbine.status] : "";
+  const powerText = turbine ? turbine.powerOutputMW.toFixed(1) : "";
 
-  const color = STATUS_BADGE_COLOR[turbine.status];
-  const powerText = turbine.powerOutputMW.toFixed(1);
-
+  // Below the marker disc and its 14 px ID label.
   const icon = useMemo(
     () =>
       L.divIcon({
         html: `<span style="color:${color}">${powerText}<small> MW</small></span>`,
         className: "leaflet-turbine-power-badge",
         iconSize: [52, 14],
-        iconAnchor: [26, -40],
+        iconAnchor: [26, -(iconPx / 2 + 18)],
       }),
-    [color, powerText],
+    [color, powerText, iconPx],
   );
 
+  if (!turbine) return null;
   return (
     <Marker
       position={[lat, lon]}
@@ -93,15 +95,15 @@ const TurbinePitchArc = memo(function TurbinePitchArc({
   turbineId,
   lat,
   lon,
+  iconPx,
 }: {
   turbineId: string;
   lat: number;
   lon: number;
+  iconPx: number;
 }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
-  if (!turbine) return null;
-
-  const pitch = turbine.pitchAngleDeg;
+  const pitch = turbine?.pitchAngleDeg ?? 0;
   // Arc sweep: pitch 0→90° maps to 0→180° SVG arc
   const sweep = Math.min((pitch / 90) * 180, 180);
   // Colour: green (fine) → amber (limiting) → red (feathered)
@@ -137,10 +139,12 @@ const TurbinePitchArc = memo(function TurbinePitchArc({
       html: svg,
       className: "leaflet-turbine-pitch-arc",
       iconSize: [20, 20],
-      iconAnchor: [-24, 10],
+      // Right of the marker disc
+      iconAnchor: [-(iconPx / 2 + 4), 10],
     });
-  }, [pitch, sweep, arcColor]);
+  }, [pitch, sweep, arcColor, iconPx]);
 
+  if (!turbine) return null;
   return (
     <Marker
       position={[lat, lon]}
@@ -154,6 +158,7 @@ const TurbinePitchArc = memo(function TurbinePitchArc({
 
 export default function TurbineDetailOverlay() {
   const zoom = useZoom();
+  const iconPx = turbineIconPx(zoom);
 
   return (
     <>
@@ -165,6 +170,7 @@ export default function TurbineDetailOverlay() {
             turbineId={pos.id}
             lat={pos.lat}
             lon={pos.lon}
+            iconPx={iconPx}
           />
         ))}
 
@@ -176,6 +182,7 @@ export default function TurbineDetailOverlay() {
             turbineId={pos.id}
             lat={pos.lat}
             lon={pos.lon}
+            iconPx={iconPx}
           />
         ))}
     </>

@@ -90,6 +90,8 @@ export interface FarmKPI {
   totalOutputMW: number;
   /** Farm-average hub-height wind speed in m/s */
   averageWindSpeedMs: number;
+  /** Undisturbed (upstream, un-waked) hub-height wind in m/s */
+  freestreamWindMs: number;
   /** Turbine availability as percentage (0-100) */
   availabilityPercent: number;
   /** Number of active alarms (fault + curtailed turbines) */

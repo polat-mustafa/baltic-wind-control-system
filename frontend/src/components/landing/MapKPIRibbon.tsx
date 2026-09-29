@@ -45,7 +45,9 @@ function KPIChip({ label, value, unit, icon, color = "#3ecf6e" }: KPIItemProps) 
 
 export default function MapKPIRibbon({ kpis, horizontal = true }: MapKPIRibbonProps) {
   const capacityPct = kpis.capacityFactorPct;
-  const capacityColor = capacityPct > 80 ? "#3ecf6e" : capacityPct > 50 ? "#f5a623" : "#ef4444";
+  // Capacity factor is weather, not a fault — informational blue at any value
+  // (ISA-101: reserve amber/red for abnormal states).
+  const capacityColor = "#3b82f6";
   const alertColor = kpis.activeAlerts === 0 ? "#3ecf6e" : kpis.activeAlerts > 3 ? "#ef4444" : "#f5a623";
   const freqColor = Math.abs(kpis.gridFrequencyHz - 50) < 0.05 ? "#3ecf6e" : "#f5a623";
 

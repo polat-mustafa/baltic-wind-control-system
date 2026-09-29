@@ -7,6 +7,9 @@
  * below mirror it.
  */
 
+import { TURBINE_POSITIONS } from "../constants/windFarmLayout";
+import { computeWakeLosses } from "./wakeModel";
+
 // ── Reactive power balance at the OSS 220 kV busbar ─────────────
 // Sign convention (domain rule 4): generating Q positive, absorbing negative.
 
@@ -139,6 +142,66 @@ export const V236 = {
 
 const inOperatingRange = (v: number) => v >= V236.cutInMs && v <= V236.cutOutMs;
 
+/**
+ * Stage efficiencies of the V236 power chain (same values as the part
+ * education cards). 15 MW nameplate is ELECTRICAL at the 66 kV terminals,
+ * so rated aerodynamic power is 15 / Πη ≈ 16.3 MW.
+ */
+export const V236_ETA = {
+  gearbox: 0.97,
+  generator: 0.975,
+  converter: 0.98,
+  transformer: 0.995,
+} as const;
+
+export interface PowerChainStage {
+  /** Power leaving this stage [MW]. */
+  outMW: number;
+  /** Power lost in this stage [MW]. */
+  lossMW: number;
+}
+
+export interface PowerChain {
+  /** Kinetic power through the rotor disk, ½ρAv³ [MW]. */
+  windMW: number;
+  /** Aerodynamic (rotor shaft) power [MW] and power coefficient Cp. */
+  rotorMW: number;
+  cp: number;
+  gearbox: PowerChainStage;
+  generator: PowerChainStage;
+  converter: PowerChainStage;
+  transformer: PowerChainStage;
+  /** Low-speed shaft torque [kN·m] and generator speed [rpm]. */
+  rotorTorqueKNm: number;
+  generatorRpm: number;
+}
+
+/**
+ * Walk the chain backwards from the measured electrical output, so every
+ * stage is consistent with the MW the turbine reports:
+ * P_el = P_rotor · η_gb · η_gen · η_conv · η_tr.
+ */
+export function v236PowerChain(electricalMW: number, windMs: number, rotorRpm: number): PowerChain {
+  const p = Math.max(0, electricalMW);
+  const trIn = p / V236_ETA.transformer;
+  const convIn = trIn / V236_ETA.converter;
+  const genIn = convIn / V236_ETA.generator;
+  const rotorMW = genIn / V236_ETA.gearbox;
+  const windMW = (0.5 * 1.225 * Math.PI * (ROTOR_DIAMETER_M / 2) ** 2 * Math.max(0, windMs) ** 3) / 1e6;
+  const omega = (rotorRpm * 2 * Math.PI) / 60;
+  return {
+    windMW,
+    rotorMW,
+    cp: windMW > 0 ? Math.min(16 / 27, rotorMW / windMW) : 0,
+    gearbox: { outMW: genIn, lossMW: rotorMW - genIn },
+    generator: { outMW: convIn, lossMW: genIn - convIn },
+    converter: { outMW: trIn, lossMW: convIn - trIn },
+    transformer: { outMW: p, lossMW: trIn - p },
+    rotorTorqueKNm: omega > 0 ? (rotorMW * 1e3) / omega : 0,
+    generatorRpm: rotorRpm * V236.gearRatio,
+  };
+}
+
 /** Electrical output [MW]: cubic below rated, flat at rated to cut-out. */
 export function v236PowerMW(windMs: number): number {
   if (!inOperatingRange(windMs)) return 0;
@@ -160,6 +223,39 @@ export function v236PitchDeg(windMs: number): number {
   if (!inOperatingRange(windMs)) return 90;
   if (windMs <= V236.ratedMs) return 0;
   return Math.min(35, 25 * ((windMs - V236.ratedMs) / (25 - V236.ratedMs)) ** 0.75);
+}
+
+// ── Wakes (Jensen/Park, utils/wakeModel) ──────────────────────────
+
+const WAKE_DIR_STEP_DEG = 5;
+const wakeCache = new Map<number, Map<string, number>>();
+
+/**
+ * Velocity deficit Δu/u₀ per turbine for a wind direction, quantised to 5°
+ * (same step as the map's wake layer) and cached — 34² geometry per step.
+ * ponytail: constant Ct = 0.8; above rated a real rotor pitches and Ct drops,
+ * so high-wind deficits are overstated. Use a Ct(v) table if that matters.
+ */
+export function farmWakeDeficits(windFromDeg: number): Map<string, number> {
+  const dir = ((Math.round(windFromDeg / WAKE_DIR_STEP_DEG) * WAKE_DIR_STEP_DEG) % 360 + 360) % 360;
+  let deficits = wakeCache.get(dir);
+  if (!deficits) {
+    const geo = TURBINE_POSITIONS.map(({ id, lat, lon }) => ({ id, lat, lon }));
+    deficits = new Map(computeWakeLosses(geo, dir).map((w) => [w.turbineId, w.deficit]));
+    wakeCache.set(dir, deficits);
+  }
+  return deficits;
+}
+
+/**
+ * Live wake power loss [%] at a freestream wind: 1 − P(u·(1−δ)) / P(u).
+ * Unlike the cubic rule of thumb this is right above rated too — a waked
+ * turbine at 13 m/s freestream may still reach 15 MW and lose nothing.
+ */
+export function wakePowerLossPct(freestreamMs: number, deficit: number): number {
+  const free = v236PowerMW(freestreamMs);
+  if (free <= 0) return 0;
+  return (1 - v236PowerMW(freestreamMs * (1 - deficit)) / free) * 100;
 }
 
 // ── Offshore wind statistics ──────────────────────────────────────

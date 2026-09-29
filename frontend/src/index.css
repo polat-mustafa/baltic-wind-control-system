@@ -181,58 +181,66 @@ body {
   z-index: 2000 !important;
 }
 
-/* Turbine label visibility toggle (controlled by LayerControlPanel) */
-.hide-turbine-labels .leaflet-turbine-marker text {
-  display: none;
-}
-
-/* Turbine nacelle yaw — rotates only nacelle+blades, tower stays static */
-.leaflet-turbine-marker .nacelle-group {
-  transform: rotate(var(--wind-yaw, 0deg));
-  transition: transform 1s ease;
-}
-@media (prefers-reduced-motion: reduce) {
-  .leaflet-turbine-marker .nacelle-group { transition: none; }
-}
-
-/* Turbine marker hover & selected effects */
+/* ── Turbine marker (.wtg) — see createTurbineIcon ─────────────
+   Centred on a zero-size Leaflet icon; diameter from --wtg-size set on the
+   map container per zoom (TurbineZoomScaler). */
 .leaflet-turbine-marker {
   cursor: pointer;
-  transition: filter 0.2s ease;
 }
-/* Scale the SVG content — NOT the Leaflet wrapper — to avoid
-   transform-origin: 0 0 conflict with .leaflet-zoom-animated
-   which causes hover flicker when the hit-area shifts. */
-.leaflet-turbine-marker svg {
-  transition: transform 0.4s ease;
-  transform-origin: center center;
+.wtg {
+  position: absolute;
+  left: calc(var(--wtg-size, 24px) / -2);
+  top: calc(var(--wtg-size, 24px) / -2);
+  width: var(--wtg-size, 24px);
+  height: var(--wtg-size, 24px);
+  transition: width 0.25s ease, height 0.25s ease, left 0.25s ease, top 0.25s ease;
 }
-.leaflet-turbine-marker:hover svg {
-  transform: scale(1.1);
+.wtg__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+  transition: transform 0.2s ease;
 }
-.leaflet-turbine-marker:hover {
-  filter: brightness(1.25);
-  z-index: 1000 !important;
+.wtg__disc {
+  fill: rgba(10, 14, 22, 0.88);
+  stroke: var(--wtg-color);
+  stroke-width: 5;
 }
-
-/* ── Zoom-dependent turbine scaling ────────────────────────────
-   Class is on the map container (parent), not on the marker itself.
-   SVG-level transform avoids Leaflet transform-origin conflict. */
-.turbine-zoom-far .leaflet-turbine-marker svg {
-  transform: scale(0.7);
+.wtg__heading { fill: var(--wtg-color); }
+.wtg__blades { fill: #e8eaf0; }
+.wtg__blades.is-spinning { animation: wtg-spin var(--wtg-spin) linear infinite; }
+.wtg__hub { fill: var(--wtg-color); stroke: #0f1117; stroke-width: 2; }
+.wtg--offline .wtg__blades,
+.wtg--fault .wtg__blades { fill: #8b93a7; }
+.wtg--fault .wtg__disc { animation: wtg-fault 1.2s ease-in-out infinite; }
+.wtg__label {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(10, 14, 22, 0.85);
+  font: 600 10px/14px var(--font-mono);
+  color: #cbd5e1;
+  white-space: nowrap;
+  pointer-events: none;
 }
-.turbine-zoom-far .leaflet-turbine-marker:hover svg {
-  transform: scale(0.8);
+.wtg-labels-off .wtg__label,
+.hide-turbine-labels .wtg__label { display: none; }
+.leaflet-turbine-marker:hover { z-index: 1000 !important; }
+.leaflet-turbine-marker:hover .wtg__svg { transform: scale(1.15); }
+.wtg.is-selected .wtg__svg {
+  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.9));
+  transform: scale(1.15);
 }
-.turbine-zoom-close .leaflet-turbine-marker svg {
-  transform: scale(1.2);
-}
-.turbine-zoom-close .leaflet-turbine-marker:hover svg {
-  transform: scale(1.3);
-}
-.leaflet-turbine-marker.turbine-selected {
-  filter: brightness(1.4) drop-shadow(0 0 6px rgba(59, 130, 246, 0.7));
-  z-index: 1001 !important;
+.wtg.is-selected .wtg__disc { stroke: #3b82f6; }
+@keyframes wtg-spin { to { transform: rotate(360deg); } }
+@keyframes wtg-fault { 50% { stroke-width: 9; } }
+@media (prefers-reduced-motion: reduce) {
+  .wtg__blades.is-spinning, .wtg--fault .wtg__disc { animation: none; }
 }
 
 /* Dark-themed Leaflet tooltips matching ISA-101 palette */
@@ -420,78 +428,19 @@ body {
   height: 100% !important;
 }
 
-/* ── Turbine Cross-Section Animations ─────────────────────────── */
-
-/* Bearing vibration shake */
-@keyframes vibration-shake {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(-0.8px, 0.5px); }
-  50% { transform: translate(0.8px, -0.5px); }
-  75% { transform: translate(-0.5px, 0.8px); }
+/* ── Turbine power train (TurbinePowerTrain) — energy flowing down the spine ── */
+.powertrain-flow {
+  background: repeating-linear-gradient(180deg, transparent 0 10px, #3ecf6e 10px 18px);
+  background-size: 100% 36px;
+  animation: powertrain-flow linear infinite;
+  opacity: 0.8;
 }
-.vibration-active { animation: vibration-shake 0.15s linear infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .vibration-active { animation: none; outline: 2px solid #ef4444; }
-}
-
-/* Generator power pulse */
-@keyframes generator-glow {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.2); }
-}
-.generator-active { animation: generator-glow 2s ease-in-out infinite; }
-
-/* Thermal alarm pulse */
-@keyframes thermal-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.6; }
-}
-.thermal-alarm { animation: thermal-pulse 1.5s ease-in-out infinite; }
-
-/* ── Cross-Section Click Zones ─────────────────────────────────── */
-
-/* Invisible click targets with pointer cursor */
-.cross-section-zone { cursor: pointer; }
-.cross-section-zone:hover .zone-highlight {
-  stroke: rgba(59, 130, 246, 0.4);
-  stroke-dasharray: 4 3;
-  stroke-width: 1;
-}
-.cross-section-zone-active .zone-highlight {
-  stroke: #3b82f6;
-  stroke-width: 1.5;
-  stroke-dasharray: none;
-}
-
-/* Fault ring on affected part */
-@keyframes fault-ring-pulse {
-  0%, 100% { stroke-opacity: 0.4; }
-  50% { stroke-opacity: 0.9; }
-}
-.cross-section-fault-ring {
-  animation: fault-ring-pulse 1.5s ease-in-out infinite;
-  stroke: #ef4444;
-  stroke-width: 2;
-  fill: none;
-}
-
-/* Curtailment ring on affected part (amber, slower pulse) */
-@keyframes curtail-ring-pulse {
-  0%, 100% { stroke-opacity: 0.3; }
-  50% { stroke-opacity: 0.7; }
-}
-.cross-section-curtail-ring {
-  animation: curtail-ring-pulse 2s ease-in-out infinite;
-  stroke: #f5a623;
-  stroke-width: 1.5;
-  fill: none;
+@keyframes powertrain-flow {
+  from { background-position: 0 0; }
+  to { background-position: 0 36px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .cross-section-curtail-ring {
-    animation: none;
-    stroke-opacity: 0.6;
-    stroke-dasharray: 4 3;
-  }
+  .powertrain-flow { animation: none; }
 }
 
 /* ── 3D Turbine Viewer — annotation markers ──────────────────────

@@ -123,6 +123,20 @@ export const PSE_GRID_LINE_GEO: [
 export const FARM_CENTER_GEO: [number, number] = [54.7, 16.55];
 export const FARM_DEFAULT_ZOOM = 11;
 
+/**
+ * Turbine marker diameter [px] per map zoom. At 54.75° N one pixel is
+ * ≈ 44 m at z11 (halving per zoom step), so the 1,416 m turbine spacing is
+ * 32 px at z11 and 64 px at z12 — sizes stay below that to avoid overlap.
+ */
+export function turbineIconPx(zoom: number): number {
+  if (zoom <= 10) return 16;
+  if (zoom <= 11) return 24;
+  if (zoom <= 12) return 34;
+  if (zoom <= 13) return 46;
+  if (zoom <= 14) return 58;
+  return 70;
+}
+
 // ── 66 kV Array Cable Collection Points ─────────────────────────
 // Each string's last turbine connects to the OSS via 66 kV cable
 

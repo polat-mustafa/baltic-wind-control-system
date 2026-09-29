@@ -22,6 +22,7 @@ import { Marker, Polygon } from "react-leaflet";
 
 import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { selectKPIs, useLandingStore } from "../../store/landingStore";
+import { wakePowerLossPct } from "../../utils/landingPhysics";
 import { computeWakeLosses, wakeConePoly } from "../../utils/wakeModel";
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -79,19 +80,25 @@ function wakeLossIcon(lossPct: number): L.DivIcon {
 export default function WakeEffectLayer() {
   const kpis = useLandingStore(selectKPIs);
   const windDir = quantize(kpis.windDirectionDeg);
+  // Live power loss depends on the freestream speed (none once the waked
+  // wind is still above rated) — rounded to 0.5 m/s to limit recomputes.
+  const freeMs = Math.round(kpis.freestreamWindMs * 2) / 2;
 
   const { cones, losses } = useMemo(() => {
     const cones = TURBINE_GEO.map((t) => ({
       id: t.id,
       poly: wakeConePoly(t.lat, t.lon, windDir),
     }));
-    const allLosses = computeWakeLosses(TURBINE_GEO, windDir);
+    const allLosses = computeWakeLosses(TURBINE_GEO, windDir).map((w) => ({
+      ...w,
+      lossPct: Math.round(wakePowerLossPct(freeMs, w.deficit)),
+    }));
     const losses = allLosses
       .filter((l) => l.lossPct >= WAKE_BADGE_MIN_PCT)
       .sort((a, b) => b.lossPct - a.lossPct)
       .slice(0, MAX_WAKE_BADGES);
     return { cones, losses };
-  }, [windDir]);
+  }, [windDir, freeMs]);
 
   return (
     <>

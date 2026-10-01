@@ -2,43 +2,33 @@ import type { EducationContent } from "../../../types/education";
 
 export const uncertaintyEducation: EducationContent = {
   id: "p1.uncertainty",
-  title: "AEP Uncertainty (IEC 61400-15-2)",
-  subtitle: "How to put a confidence interval on a 25-year energy forecast",
+  title: "AEP Uncertainty",
+  subtitle: "Putting a confidence interval on a long-term energy forecast",
   discipline: "Civil",
 
   overview:
-    "Every AEP figure on this dashboard is a point estimate drawn from a probability distribution. The width of that " +
-    "distribution — the combined uncertainty — controls the gap between P50 (median) and P90 (bankable) energy. Banks " +
-    "lend against P90, so a wider uncertainty literally means less debt and a more expensive project. IEC 61400-15-2 " +
-    "(2022) is the rulebook for how every offshore developer must categorise and combine uncertainties for an investment-grade " +
-    "energy yield assessment.",
+    "Every AEP on this dashboard is a central estimate of an uncertain quantity. The width of its distribution — the " +
+    "combined uncertainty σ — sets the gap between P50 (median) and P90 (bankable). Lenders size debt on P90, so a " +
+    "wider σ means less debt for the same farm. Reducing σ (longer data, LiDAR, validated models) is therefore worth " +
+    "real money, even when it does not change P50 at all.",
 
   simpleExplanation:
-    "Predicting how much energy a wind farm will make over 25 years is hard — the wind varies year-to-year, the wake " +
-    "model is approximate, the cables warm up by different amounts in summer and winter. Every step has a small error. " +
-    "The 'combined uncertainty' adds those errors up using a special rule (root-sum-square) that assumes the errors are " +
-    "independent. The bigger the combined uncertainty, the more cautious banks are about lending.",
+    "Forecasting 25 years of wind is hard: the measurements have errors, the past is not exactly the future, the wake " +
+    "model is approximate. Each step adds a little doubt. 'Combined uncertainty' adds those doubts together with a " +
+    "square-root-of-squares rule, which assumes they are independent. The bigger it is, the more cautious the bank.",
 
   technicalExplanation:
-    "Uncertainty is split into eight categories: wind data, climatology, vertical extrapolation, wake model, blockage, " +
-    "availability, electrical, and curtailment. Each contributor has a typical relative magnitude (1–5%). They combine via " +
-    "σ_combined² = Σ σ_i², assuming independence. Total combined uncertainty for a mature offshore project is typically " +
-    "5.5–8%. The P-value bands then come from the inverse normal distribution: P90 = P50 · (1 − 1.282·σ).",
+    "This platform combines eight sources (σ in % of AEP): wind resource 4.0, wake model 3.0, long-term correction " +
+    "3.0, wind shear 2.0, availability 2.0, power curve 1.5, environmental 1.5, electrical 1.0. RSS gives σ = √47.5 = " +
+    "6.89 %. Note that the sources are energy uncertainties — a speed uncertainty must first be converted through the " +
+    "power curve, and for a low-specific-power turbine like the V236 at a windy site 1 % of speed is only ≈ 1.2 % of " +
+    "energy (much of the year is spent at rated power). Totals of roughly 6–10 % are common for offshore projects.",
 
   standards: [
     {
-      label: "IEC 61400-15-2 — Energy yield assessment uncertainty",
+      label: "IEC 61400-15 (series) — Energy yield assessment and its uncertainty",
       type: "standard",
       url: "https://en.wikipedia.org/wiki/IEC_61400",
-    },
-    {
-      label: "DNV-RP-J103 — Energy yield assessment of offshore wind farms",
-      type: "standard",
-    },
-    {
-      label: "MEASNET — Site Assessment guideline",
-      type: "standard",
-      url: "https://www.measnet.com/procedure/",
     },
     {
       label: "JCGM 100 — Guide to the Expression of Uncertainty in Measurement (GUM)",
@@ -49,110 +39,80 @@ export const uncertaintyEducation: EducationContent = {
 
   formulas: [
     {
-      expression:
-        "σ_combined² = σ_wind² + σ_wake² + σ_blockage² + σ_avail² + σ_elec² + σ_curt²",
+      expression: "σ = √(σ₁² + σ₂² + … + σₙ²)",
       variables: [
-        { symbol: "σ_wind", name: "Wind resource uncertainty (3–5%)", unit: "—" },
-        { symbol: "σ_wake", name: "Wake model uncertainty (1–2%)", unit: "—" },
-        { symbol: "σ_blockage", name: "Blockage uncertainty (0.5–1%)", unit: "—" },
-        { symbol: "σ_avail", name: "Availability uncertainty (1–2%)", unit: "—" },
-        { symbol: "σ_elec", name: "Electrical loss uncertainty (0.5–1%)", unit: "—" },
-        { symbol: "σ_curt", name: "Curtailment uncertainty (0.5–1%)", unit: "—" },
+        { symbol: "σᵢ", name: "Uncertainty of source i, as % of AEP", unit: "%" },
+        { symbol: "σ", name: "Combined (1σ) uncertainty", unit: "%" },
       ],
       explanation:
-        "Root-sum-square combination under the independence assumption. IEC 61400-15-2 lists 30+ sub-contributors that " +
-        "roll up into these six categories. The wind resource term is always dominant — improving it pays back more than " +
-        "improving any of the others.",
-      reference: "IEC 61400-15-2 §6.4",
+        "Root-sum-square: valid for independent sources. Correlated sources (e.g. two parts of the same wind dataset) " +
+        "must be added linearly first.",
     },
     {
-      expression: "P_x = P50 · (1 − z_x · σ_combined)",
+      expression: "P_x = P50 · (1 − z_x · σ)",
       variables: [
-        { symbol: "P_x", name: "x% exceedance AEP", unit: "MWh/yr" },
-        { symbol: "z_x", name: "Standard normal quantile", unit: "—" },
-        { symbol: "σ_combined", name: "Combined relative uncertainty", unit: "—" },
+        { symbol: "z_x", name: "Standard-normal quantile: P75 0.674, P90 1.282, P99 2.326", unit: "—" },
       ],
       explanation:
-        "Linear approximation valid when σ ≪ 1. z_75 = 0.674; z_90 = 1.282; z_95 = 1.645; z_99 = 2.326. For lognormal " +
-        "treatment (more correct in the tails) replace P_x = P50 · exp(−z_x·σ).",
+        "Normal approximation. Some assessors use a lognormal form P_x = P50·exp(−z_x·σ), which is slightly less " +
+        "pessimistic in the far tail.",
     },
     {
-      expression: "σ_inter-annual = σ_long-term / √N_years",
+      expression: "σ_IAV,N = σ_IAV,1 / √N",
       variables: [
-        { symbol: "σ_long-term", name: "Inter-annual variability of mean wind speed (~6%)", unit: "—" },
-        { symbol: "N_years", name: "Years of reference data used", unit: "—" },
+        { symbol: "σ_IAV,1", name: "Year-to-year variability of annual energy", unit: "%" },
+        { symbol: "N", name: "Years averaged", unit: "—" },
       ],
       explanation:
-        "Why long reference periods matter: 30 years of ERA5 reduces inter-annual uncertainty to ~1.1% versus ~6% for a " +
-        "single year of measurements. This is the single highest-leverage step in resource assessment.",
+        "Averaging N independent years shrinks the variability by √N: about 6 % for one year falls to about 1.1 % for " +
+        "a 30-year mean. This is why a long-term reference dataset matters so much.",
     },
   ],
 
   workedExamples: [
     {
-      title: "Combined uncertainty for the Baltic Wind site",
-      scenario:
-        "Mature offshore project with 30-year ERA5 reference, validated wake model (PyWake calibrated against operational " +
-        "SCADA from a sister site), and well-known availability/electrical losses.",
+      title: "This platform's σ and P-values",
+      scenario: "P50 = 2,077 GWh/yr (AEP tab, A = 10.5 m/s, k = 2.2). Eight sources as listed above.",
       steps: [
-        "σ_wind = 4.5% (3.5% climatology + 2.0% vertical extrapolation in quadrature)",
-        "σ_wake = 1.8% (Bastankhah validated)",
-        "σ_blockage = 0.8%",
-        "σ_avail = 1.5%",
-        "σ_elec = 0.7%",
-        "σ_curt = 1.0%",
-        "σ²_combined = 4.5² + 1.8² + 0.8² + 1.5² + 0.7² + 1.0² = 20.25+3.24+0.64+2.25+0.49+1.00 = 27.87",
-        "σ_combined = √27.87 ≈ 5.28%",
+        "Σσᵢ² = 16 + 9 + 9 + 4 + 4 + 2.25 + 2.25 + 1 = 47.5",
+        "σ = √47.5 = 6.89 %",
+        "P75 = 2,077 × (1 − 0.674 × 0.0689) = 1,981 GWh",
+        "P90 = 2,077 × (1 − 1.282 × 0.0689) = 1,894 GWh",
+        "P99 = 2,077 × (1 − 2.326 × 0.0689) = 1,744 GWh",
       ],
       result:
-        "Combined uncertainty ≈ 5.3%. P50 = 2,140 GWh → P90 = 2,140 × (1 − 1.282·0.0528) = 1,995 GWh. " +
-        "P90/P50 ratio = 0.932 — this is the multiplier banks apply when sizing senior debt against energy revenue.",
+        "P90/P50 = 0.912. Halving the wind-resource term (4 → 2 %, e.g. with a year of floating-LiDAR data) gives " +
+        "σ = √35.5 = 5.96 % and lifts P90 to 1,919 GWh — 25 GWh/yr more bankable energy without changing P50.",
     },
   ],
 
   realWorldCases: [
     {
-      title: "Project under-performance — UK Round 2 farms",
+      title: "Why the bias matters as much as the spread",
       description:
-        "A 2018 review of operational data showed several UK farms producing 5–8% below P50 forecast. Root cause: " +
-        "wake models had systematically under-predicted long-distance wakes between adjacent farms (cluster-wake effect).",
-      takeaway:
-        "Inter-array wake uncertainty can be larger than intra-array. New developments cluster around existing farms and " +
-        "must include the upstream wake explicitly.",
-      source: "Renewable Energy Foundation 2018 review",
-    },
-    {
-      title: "Hornsea 2 (UK) — over-performance",
-      description:
-        "Reported 7% above P50 in its first operational year, well outside the P90–P50 band. Driver: better-than-modelled " +
-        "availability (turbine OEM service contract over-delivered).",
-      takeaway:
-        "P90 is a lower bound, not a forecast. The asymmetry between bankable forecasts and operating reality is a feature, " +
-        "not a bug.",
+        "Validation studies compiled across many projects show that historical pre-construction estimates tended to " +
+        "over-predict production; a well-calibrated σ is only meaningful when the P50 itself is unbiased.",
+      takeaway: "Uncertainty describes random error; systematic omissions (missing losses) must be fixed, not widened.",
+      source: "Lee & Fields (2021), Wind Energy Science 6, 311–365",
     },
   ],
 
   furtherReading: [
     {
-      label: "Clifton et al. — IEA Wind Task 43 RP on Uncertainty",
+      label: "Lee & Fields — An overview of wind-energy-production prediction bias, losses, and uncertainties",
       type: "paper",
-      citation: "Wind Energy Science 2022, doi:10.5194/wes-7-2363-2022",
-    },
-    {
-      label: "Lee et al. — Bias in wind energy assessments",
-      type: "paper",
-      citation: "Renewable Energy 161 (2020), doi:10.1016/j.renene.2020.07.088",
+      citation: "Wind Energy Science 6 (2021) 311–365, doi:10.5194/wes-6-311-2021",
     },
   ],
 
   codeReferences: [
     {
-      file: "backend/app/services/p1/uncertainty_quantification.py",
-      description: "Monte Carlo + polynomial chaos UQ for the cascade. Produces full P-value distributions.",
+      file: "backend/app/services/p1/aep_calculator.py",
+      description: "DEFAULT_UNCERTAINTY_SOURCES, compute_rss_uncertainty(), compute_exceedance_values().",
     },
     {
-      file: "backend/app/services/p1/robust_optimization.py",
-      description: "Robust layout design under wind direction and wake parameter uncertainty.",
+      file: "backend/app/services/p1/uncertainty_quantification.py",
+      description: "Polynomial-chaos propagation of input uncertainty with Sobol indices (Research Lab).",
     },
   ],
 

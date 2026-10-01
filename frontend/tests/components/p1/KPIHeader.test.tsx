@@ -52,9 +52,9 @@ describe("KPIHeader", () => {
 
     render(<KPIHeader />);
     expect(screen.getByText("Net AEP (P50)")).toBeDefined();
-    expect(screen.getByText("Wake Loss")).toBeDefined();
-    expect(screen.getByText("Capacity Factor")).toBeDefined();
-    expect(screen.getByText("Uncertainty")).toBeDefined();
+    expect(screen.getByText("Wake loss")).toBeDefined();
+    expect(screen.getByText("Net capacity factor")).toBeDefined();
+    expect(screen.getByText("AEP uncertainty (1σ)")).toBeDefined();
   });
 
   it("shows P90 in subtitle", () => {
@@ -84,6 +84,6 @@ describe("KPIHeader", () => {
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<KPIHeader />);
-    expect(screen.getByText(/P90: 1720.0 GWh/)).toBeDefined();
+    expect(screen.getByText(/P90 1720 GWh/)).toBeDefined();
   });
 });

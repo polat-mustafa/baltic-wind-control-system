@@ -16,12 +16,15 @@ export interface TurbineAvailabilityKPI {
   /** Production-Based Availability [%] — IEC 61400-26-1 */
   pba_pct: number;
   hours_producing: number;
-  hours_downtime: number;
+  hours_scheduled_maintenance: number;
+  hours_unscheduled_maintenance: number;
   hours_force_majeure: number;
+  hours_curtailment: number;
   period_hours: number;
   energy_loss_mwh: number;
   mtbf_hours: number;
-  assessment: string;
+  mttr_hours: number;
+  fault_count: number;
 }
 
 // ── Fleet-level summary ──────────────────────────────────────────
@@ -33,7 +36,10 @@ export interface FarmAvailabilityResponse {
   worst_turbine: string;
   best_turbine: string;
   total_energy_loss_mwh: number;
-  revenue_loss_eur: number;
+  total_revenue_loss_eur: number;
+  fleet_pba_pct: number;
+  fleet_mtbf_hours: number;
+  fleet_mttr_hours: number;
   assessment: string;
 }
 
@@ -45,15 +51,16 @@ export interface DowntimeCategoryBreakdown {
   hours: number;
   energy_loss_mwh: number;
   share_pct: number;
+  revenue_loss_eur: number;
   controllable: boolean;
 }
 
 export interface DowntimeBreakdownResponse {
   scope: string;
   categories: DowntimeCategoryBreakdown[];
-  total_hours: number;
   dominant_category: string;
-  controllable_pct: number;
+  /** Controllable downtime as % of all turbine-hours (not of downtime). */
+  controllable_loss_pct: number;
   period_hours: number;
   assessment: string;
 }

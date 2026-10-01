@@ -1,76 +1,73 @@
 /**
- * KPI summary cards — top-level wind resource metrics.
+ * KPI summary — headline wind-resource numbers, each with its context line.
  *
- * Displays: Net AEP, Wake Loss, Capacity Factor, Revenue, Uncertainty.
- * Domain Rule 10: uncertainty shown on every AEP figure.
+ * No trend arrows: these are single-run results, not time series. Domain
+ * Rule 10: uncertainty is shown next to the AEP figures.
  */
 
-import { useWindResourceStore } from "../../store/windResourceStore";
-import { KPICard } from "../ui/KPICard";
-import { Wind, Gauge, TrendingUp, AlertTriangle, Waves } from "lucide-react";
+import { AlertTriangle, Gauge, TrendingUp, Waves, Wind } from "lucide-react";
+
 import {
   aepCascadeEducation,
-  wakeLossEducation,
   capacityFactorEducation,
   lcoeEducation,
   uncertaintyEducation,
+  wakeLossEducation,
 } from "../../constants/education/p1";
+import { useWindResourceStore } from "../../store/windResourceStore";
+import { KPICard } from "../ui/KPICard";
+
+/** Typical offshore wake losses for large arrays (literature range). */
+const TYPICAL_WAKE = [5, 15] as const;
 
 export default function KPIHeader() {
   const { aepCascade, wakeAnalysis } = useWindResourceStore();
-
   if (!aepCascade || !wakeAnalysis) return null;
 
-  const wakeTrend: "up" | "down" | "flat" =
-    wakeAnalysis.wake_loss_percent > 15
-      ? "up"
-      : wakeAnalysis.wake_loss_percent > 10
-        ? "flat"
-        : "down";
+  const wake = wakeAnalysis.wake_loss_percent;
+  const wakeNote =
+    wake < TYPICAL_WAKE[0] ? "Below typical offshore 5–15 %" : wake > TYPICAL_WAKE[1] ? "Above typical offshore 5–15 %" : "Within typical offshore 5–15 %";
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
       <KPICard
         label="Net AEP (P50)"
-        value={aepCascade.net_aep_gwh.toFixed(1)}
+        value={aepCascade.net_aep_gwh.toFixed(0)}
         unit="GWh/yr"
         icon={<Wind size={16} />}
-        trend="up"
-        trendValue={`P90: ${aepCascade.p90_gwh.toFixed(1)} GWh`}
+        trendValue={`P90 ${aepCascade.p90_gwh.toFixed(0)} GWh/yr`}
         education={aepCascadeEducation}
       />
       <KPICard
-        label="Wake Loss"
-        value={wakeAnalysis.wake_loss_percent.toFixed(1)}
+        label="Wake loss"
+        value={wake.toFixed(1)}
         unit="%"
         icon={<Waves size={16} />}
-        trend={wakeTrend}
-        trendValue={wakeTrend === "up" ? "Above target" : "Within target"}
+        trendValue={wakeNote}
         education={wakeLossEducation}
       />
       <KPICard
-        label="Capacity Factor"
+        label="Net capacity factor"
         value={(aepCascade.capacity_factor * 100).toFixed(1)}
         unit="%"
         icon={<Gauge size={16} />}
+        trendValue={`${((aepCascade.capacity_factor * 8760) | 0).toLocaleString("en")} full-load h/yr`}
         education={capacityFactorEducation}
       />
       <KPICard
         label="Revenue (P50)"
         value={aepCascade.revenue_meur.toFixed(1)}
-        unit={`M\u20AC/yr`}
+        unit="M€/yr"
         icon={<TrendingUp size={16} />}
-        trend="up"
-        trendValue={`@ ${aepCascade.price_eur_mwh} \u20AC/MWh`}
+        trendValue={`at ${aepCascade.price_eur_mwh} €/MWh flat`}
         education={lcoeEducation}
       />
       <KPICard
-        label="Uncertainty"
-        value={`\u00B1${aepCascade.combined_uncertainty_percent.toFixed(1)}`}
+        label="AEP uncertainty (1σ)"
+        value={`±${aepCascade.combined_uncertainty_percent.toFixed(1)}`}
         unit="%"
         icon={<AlertTriangle size={16} />}
-        trend="flat"
-        trendValue="IEC 61400-15 RSS"
+        trendValue="RSS of 8 sources · IEC 61400-15"
         education={uncertaintyEducation}
       />
     </div>

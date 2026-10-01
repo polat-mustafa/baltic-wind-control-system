@@ -14,7 +14,11 @@ optimization jointly optimizes positions, yaw angles, AND axial induction
          0.0 ≤ a_i ≤ 0.33     [induction bounds]
 
 This captures synergies between control and layout that are invisible to
-sequential optimization.
+sequential optimization. IMPLEMENTED HERE: the position part only (gradient-
+free differential evolution on 2n coordinates). Evaluating yaw/derating
+inside the objective needs a PyWake run per (direction, speed) bin and is not
+tractable for 4n variables; their AEP effect is reported by the dedicated
+yaw-optimization-farm and derating endpoints. Control contribution = 0 %.
 
 Physics — PDE-Constrained Optimization (C5)
 ---------------------------------------------
@@ -125,7 +129,7 @@ def run_simultaneous_optimization(
     maxiter: int = 20,
     seed: int = 42,
 ) -> MultiVariableOptResult:
-    """Simultaneously optimize positions, yaw, and derating.
+    """Layout (position) optimisation — the tractable part of the joint problem.
 
     Parameters
     ----------
@@ -161,16 +165,15 @@ def run_simultaneous_optimization(
     x_min, x_max = float(np.min(initial_x)) - margin, float(np.max(initial_x)) + margin
     y_min, y_max = float(np.min(initial_y)) - margin, float(np.max(initial_y)) + margin
 
-    pos_bounds = [(x_min, x_max), (y_min, y_max)] * n
-    yaw_bounds = [(-25.0, 25.0)] * n
-    derate_bounds = [(0.6, 1.0)] * n
-    bounds = pos_bounds + yaw_bounds + derate_bounds
+    # ponytail: positions only. Yaw and derating need per-(direction, speed)
+    # PyWake runs inside the objective — intractable for differential evolution
+    # over 4n variables. Their AEP effect is evaluated by the dedicated
+    # yaw-optimization-farm and derating endpoints instead.
+    bounds = [(x_min, x_max), (y_min, y_max)] * n
 
     def objective(params: NDArray[np.floating]) -> float:
-        x = params[: 2 * n : 2]
-        y = params[1 : 2 * n : 2]
-        _yaw = params[2 * n : 3 * n]
-        _derate = params[3 * n :]
+        x = params[0::2]
+        y = params[1::2]
 
         passes, actual = check_minimum_spacing(np.array(x), np.array(y), MIN_SPACING_M)
         if not passes:
@@ -183,19 +186,11 @@ def run_simultaneous_optimization(
                 site,
                 turbine,
             )
-            # Approximate yaw/derating effect: scale AEP by mean derating
-            mean_derate = float(np.mean(_derate))
-            return -(result.net_aep_gwh * mean_derate)
+            return -result.net_aep_gwh
         except Exception:
             return 1e12
 
-    x0 = np.concatenate(
-        [
-            np.column_stack([initial_x, initial_y]).ravel(),
-            np.zeros(n),
-            np.ones(n),
-        ]
-    )
+    x0 = np.column_stack([initial_x, initial_y]).ravel()
 
     result = differential_evolution(
         objective,
@@ -207,24 +202,20 @@ def run_simultaneous_optimization(
         x0=x0,
     )
 
-    opt_x = result.x[: 2 * n : 2].astype(np.float64)
-    opt_y = result.x[1 : 2 * n : 2].astype(np.float64)
-    opt_yaw = result.x[2 * n : 3 * n].astype(np.float64)
-    opt_derate = result.x[3 * n :].astype(np.float64)
-
-    # Evaluate optimized layout
-    opt_result = run_wake_analysis(opt_x, opt_y, site, turbine)
-    opt_aep = opt_result.net_aep_gwh * float(np.mean(opt_derate))
-
-    # Position-only contribution
-    pos_only = run_wake_analysis(opt_x, opt_y, site, turbine)
-    pos_aep = pos_only.net_aep_gwh
+    opt_x = result.x[0::2].astype(np.float64)
+    opt_y = result.x[1::2].astype(np.float64)
+    opt_aep = run_wake_analysis(opt_x, opt_y, site, turbine).net_aep_gwh
+    if opt_aep < baseline_aep:  # never report a layout worse than the start
+        opt_x, opt_y, opt_aep = (
+            initial_x.astype(np.float64),
+            initial_y.astype(np.float64),
+            baseline_aep,
+        )
 
     gain = (opt_aep - baseline_aep) / baseline_aep * 100.0 if baseline_aep > 0 else 0.0
-    pos_gain = pos_aep - baseline_aep
-    total_gain = opt_aep - baseline_aep
-    pos_contrib = (pos_gain / total_gain * 100.0) if total_gain > 0 else 50.0
-    ctrl_contrib = 100.0 - pos_contrib
+    # All of the gain here comes from positions; control is not co-optimised
+    pos_contrib = 100.0 if gain > 0 else 0.0
+    ctrl_contrib = 0.0
 
     _, min_dist = check_minimum_spacing(opt_x, opt_y)
     area = _compute_layout_area_km2(opt_x, opt_y)
@@ -240,8 +231,8 @@ def run_simultaneous_optimization(
 
     return MultiVariableOptResult(
         layout=layout,
-        optimal_yaw_deg=np.round(opt_yaw, 1),
-        optimal_derating=np.round(opt_derate, 3),
+        optimal_yaw_deg=np.zeros(n),
+        optimal_derating=np.ones(n),
         baseline_aep_gwh=round(baseline_aep, 2),
         optimized_aep_gwh=round(opt_aep, 2),
         gain_percent=round(gain, 2),

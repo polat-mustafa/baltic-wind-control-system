@@ -1,57 +1,60 @@
 /**
  * Farm Comparison Dashboard — M04 Multi-Farm Comparison.
  *
- * Layout:
- *   Header row: title + Compare button + Add Farm button
- *   Farm config cards grid (1–6 farms, editable)
- *   Results panels (AEP/CF grouped bar + LCOE bar + summary table)
- *
- * Pre-loaded with 3 Baltic Wind default configs — user can compare immediately.
+ * Header: title, electricity price, Add design, Compare.
+ * Body: 2–4 design columns (FarmConfigTable) → animated results (FarmComparisonResultsPanel).
+ * Pre-loaded with three Baltic design alternatives so the user can compare immediately.
  */
 
 import { AlertTriangle, BarChart2, PlusCircle } from "lucide-react";
 
-import { useFarmComparisonStore } from "../../store/farmComparisonStore";
+import { MAX_FARMS, NEW_FARM, useFarmComparisonStore } from "../../store/farmComparisonStore";
 import { Button } from "../ui/Button";
-import FarmConfigPanel from "./FarmConfigPanel";
 import FarmComparisonResultsPanel from "./FarmComparisonResultsPanel";
-import type { FarmConfig } from "../../types/farmComparison";
-
-const DEFAULT_NEW_FARM: FarmConfig = {
-  name: "New Farm",
-  n_turbines: 30,
-  turbine_rated_mw: 15.0,
-  weibull_a: 9.5,
-  weibull_k: 2.0,
-  array_voltage_kv: 66,
-  export_length_km: 40,
-};
+import FarmConfigTable from "./FarmConfigTable";
 
 export default function FarmComparisonDashboard() {
-  const { farms, results, loading, error, runComparison, addFarm, clearError } = useFarmComparisonStore();
+  const { farms, results, loading, error, priceEurMwh, runComparison, addFarm, setPrice, clearError } =
+    useFarmComparisonStore();
 
   return (
     <div className="space-y-4">
-      {/* Error banner */}
       {error && (
-        <div className="p-3 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-sm flex justify-between">
-          <span className="text-status-alarm flex items-center gap-2">
-            <AlertTriangle size={14} /> {error}
+        <div className="p-3 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-sm flex justify-between gap-3">
+          <span className="text-status-alarm flex items-start gap-2 min-w-0">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" /> <span className="wrap-break-word">{error}</span>
           </span>
           <Button variant="ghost" size="sm" onClick={clearError}>Dismiss</Button>
         </div>
       )}
 
-      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex items-center gap-2">
-          <BarChart2 size={16} className="text-accent" />
-          <span className="text-sm font-semibold text-text-primary">Multi-Farm Comparison — AEP / LCOE / Capacity Factor</span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <BarChart2 size={16} className="text-accent" />
+            <span className="text-sm font-semibold text-text-primary">Design alternatives — AEP · LCOE · grid</span>
+          </div>
+          <p className="text-xs text-text-muted mt-0.5">
+            Change one thing at a time (spacing, cable length, CAPEX…) and see how it moves energy and cost.
+          </p>
         </div>
-        <div className="flex gap-2">
-          {farms.length < 6 && (
-            <Button variant="ghost" size="sm" onClick={() => addFarm({ ...DEFAULT_NEW_FARM })}>
-              <PlusCircle size={13} className="mr-1" /> Add Farm
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-text-muted" title="Flat electricity price used for revenue, payback and IRR">
+            Price
+            <input
+              type="number"
+              min={20}
+              max={300}
+              step={1}
+              value={priceEurMwh}
+              onChange={(e) => Number.isFinite(e.target.valueAsNumber) && setPrice(e.target.valueAsNumber)}
+              className="w-16 bg-bg-tertiary border border-border-primary rounded px-1.5 py-0.5 text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+            />
+            €/MWh
+          </label>
+          {farms.length < MAX_FARMS && (
+            <Button variant="ghost" size="sm" onClick={() => addFarm({ ...NEW_FARM })}>
+              <PlusCircle size={13} className="mr-1" /> Add design
             </Button>
           )}
           <Button size="sm" onClick={runComparison} disabled={loading || farms.length < 2}>
@@ -60,29 +63,22 @@ export default function FarmComparisonDashboard() {
         </div>
       </div>
 
-      {/* Farm config cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {farms.map((farm, i) => (
-          <FarmConfigPanel key={i} index={i} config={farm} />
-        ))}
-      </div>
+      <FarmConfigTable />
 
-      {/* Instructions if no results yet */}
       {!results && !loading && (
         <div className="text-center py-8 text-text-muted text-sm">
-          Configure your farms above and click <strong className="text-text-primary">Compare</strong> to run AEP and LCOE analysis.
+          Press <strong className="text-text-primary">Compare</strong> to run the wake model, loss cascade and LCOE
+          for each design.
         </div>
       )}
 
-      {/* Loading spinner */}
       {loading && (
         <div className="flex items-center justify-center h-32 text-text-muted text-sm">
           <span className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin mr-2" />
-          Running AEP / LCOE simulation…
+          Running PyWake wake model + loss cascade…
         </div>
       )}
 
-      {/* Results */}
       {results && !loading && <FarmComparisonResultsPanel />}
     </div>
   );

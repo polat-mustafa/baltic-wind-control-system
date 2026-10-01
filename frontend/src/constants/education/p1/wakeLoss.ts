@@ -3,40 +3,36 @@ import type { EducationContent } from "../../../types/education";
 export const wakeLossEducation: EducationContent = {
   id: "p1.wake-loss",
   title: "Wake Losses & Wake Models",
-  subtitle: "How upstream turbines steal energy from downstream ones",
+  subtitle: "How upstream turbines take energy from downstream ones",
   discipline: "Civil",
 
   overview:
-    "When a turbine extracts kinetic energy from the wind it leaves behind a slower, more turbulent wake. Any turbine " +
-    "downstream sits inside that wake and produces less power. The cumulative loss across a 34-turbine farm is typically " +
-    "5–15% of gross AEP — the single largest deduction in the cascade. Wake models trade speed against fidelity: Jensen " +
-    "(1983) is fast and conservative, Bastankhah-Porté-Agel (2014) is the modern industry default, RANS-CFD is reserved " +
-    "for layout optimisation studies.",
+    "A turbine extracts momentum from the wind and leaves a slower, more turbulent wake behind it. Turbines inside " +
+    "that wake produce less. Across a large offshore array this is typically the biggest single loss in the cascade " +
+    "(often 5–15 %). Offshore wakes are long because the sea surface is smooth and ambient turbulence low, so the " +
+    "slowed air mixes back slowly.",
 
   simpleExplanation:
-    "Turbines work by slowing the wind down. The slowed wind carries on for several kilometres before recovering. If you " +
-    "put another turbine in that slow zone, it makes less power. The trick of farm layout is to give downwind turbines " +
-    "enough room to recover — typically 7 rotor diameters across the wind, 10 along the wind direction.",
+    "Turbines work by slowing the wind down. That slow air carries on for kilometres before it recovers. A turbine " +
+    "placed in it makes less power. Layout design is about giving downstream turbines room to recover — more room " +
+    "along the prevailing wind direction than across it.",
 
   technicalExplanation:
-    "Modern wake modelling represents the velocity deficit as a Gaussian function of downstream distance, calibrated by " +
-    "the thrust coefficient Ct. Multiple wakes are superposed (linear, quadratic, or energy-balance methods). For dense " +
-    "farms, blockage (the upstream slowdown caused by the array as a whole) adds another 1–2% loss. Wake steering — " +
-    "yawing upstream turbines a few degrees off the wind — recovers 1–4% of farm energy at the cost of higher loads " +
-    "on the steered machines.",
+    "This platform uses PyWake's Gaussian deficit (Bastankhah & Porté-Agel 2014) with a turbulence-dependent " +
+    "expansion k* = 0.38·TI + 0.004 (Niayifar & Porté-Agel 2016), linear superposition of deficits and the STF2017 " +
+    "wake-added-turbulence model — so more turbulent air (higher TI) means faster recovery and lower wake loss. Older tools used the Jensen (1983) top-hat model with quadratic " +
+    "superposition (Katić et al. 1986). Power ∝ v³ below rated, so a 10 % speed deficit costs ≈ 27 % of power there — " +
+    "but nothing above rated if the waked speed still exceeds 11.1 m/s. That is why wake loss as a share of AEP is " +
+    "much smaller than single-wake power deficits suggest.",
 
   standards: [
     {
-      label: "IEC 61400-12-4 — Numerical site calibration & wake models",
+      label: "IEC 61400-15 (series) — Energy yield assessment (wake loss reporting)",
       type: "standard",
       url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
-      label: "DNV-RP-J103 — Energy yield assessment",
-      type: "standard",
-    },
-    {
-      label: "IEC 61400-1 — Design conditions inside wakes",
+      label: "IEC 61400-1 — Design requirements (wake-added turbulence in load cases)",
       type: "standard",
       url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
@@ -44,92 +40,65 @@ export const wakeLossEducation: EducationContent = {
 
   formulas: [
     {
-      expression: "ΔU/U₀ = (1 − √(1 − Ct/(8(σ/D)²))) · exp(−r²/(2σ²))",
+      expression: "ΔU/U₀ = (1 − √(1 − Ct / (8 (σ/D)²))) · exp(−r² / (2σ²)),   σ = k*·x + ε·D",
       variables: [
-        { symbol: "ΔU/U₀", name: "Velocity deficit (fraction)", unit: "—" },
+        { symbol: "ΔU/U₀", name: "Fractional velocity deficit", unit: "—" },
         { symbol: "Ct", name: "Thrust coefficient", unit: "—" },
-        { symbol: "σ", name: "Wake half-width", unit: "m" },
-        { symbol: "D", name: "Rotor diameter (236 m)", unit: "m" },
+        { symbol: "σ", name: "Gaussian wake width", unit: "m" },
+        { symbol: "k*", name: "Wake expansion rate", unit: "—" },
+        { symbol: "ε", name: "Initial width ≈ 0.2√β, β = ½(1+√(1−Ct))/√(1−Ct)", unit: "—" },
         { symbol: "r", name: "Radial distance from wake centre", unit: "m" },
       ],
-      explanation:
-        "Bastankhah-Porté-Agel Gaussian wake (2014). σ grows linearly with downstream distance: σ = k_w·x + ε_0·D, with " +
-        "wake expansion coefficient k_w ≈ 0.025–0.04 offshore. Replaces the older Jensen top-hat profile in modern tools.",
+      explanation: "Bastankhah–Porté-Agel Gaussian wake: deficit decays and widens with downstream distance x.",
       reference: "Bastankhah & Porté-Agel, Renewable Energy 70 (2014) 116–123",
     },
     {
-      expression: "ΔU_total² = Σ ΔU_i²    (quadratic superposition)",
-      variables: [
-        { symbol: "ΔU_total", name: "Combined deficit at a downstream turbine", unit: "m/s" },
-        { symbol: "ΔU_i", name: "Single-wake deficit from upstream turbine i", unit: "m/s" },
-      ],
+      expression: "Ct = 4a(1 − a)",
+      variables: [{ symbol: "a", name: "Axial induction factor", unit: "—" }],
       explanation:
-        "Katic-Hojstrup-Jensen quadratic superposition is the de facto standard for combining multiple wakes. Linear " +
-        "superposition over-predicts losses; energy-balance is used in research codes.",
-      reference: "Katic, Højstrup, Jensen — EWEC 1986",
-    },
-    {
-      expression: "Ct(v) = 4·a(v)·(1 − a(v)),    a = ½(1 − √(1 − Ct))",
-      variables: [
-        { symbol: "Ct", name: "Thrust coefficient", unit: "—" },
-        { symbol: "a", name: "Axial induction factor", unit: "—" },
-      ],
-      explanation:
-        "Actuator-disc relation between thrust coefficient and axial induction. Ct=8/9 corresponds to the Betz optimum " +
-        "(a=1/3). Modern controllers reduce Ct above rated to limit loads, which slightly relaxes downstream wakes.",
+        "Actuator-disk relation. The Betz optimum a = 1/3 gives Ct = 8/9. Above rated, blade pitch lowers Ct, so wakes " +
+        "are weaker in strong winds.",
     },
   ],
 
   workedExamples: [
     {
-      title: "Single Bastankhah wake at 7D downstream",
-      scenario:
-        "V236 with Ct=0.78 at v=8 m/s, free-stream velocity 8 m/s, downstream distance 7D = 1,652 m, wake expansion k_w = 0.038.",
+      title: "Single wake 7 D behind a V236 (centre line)",
+      scenario: "Ct = 0.78 (≈ 8 m/s), ambient TI = 6 % → k* = 0.38 × 0.06 + 0.004 = 0.0268, x = 7D = 1,652 m.",
       steps: [
-        "σ = k_w · x + ε_0 · D = 0.038·1652 + 0.235·236 ≈ 62.8 + 55.5 = 118.3 m",
-        "σ/D = 118.3 / 236 = 0.501",
-        "(σ/D)² = 0.251",
-        "Inside √: 1 − Ct / (8·0.251) = 1 − 0.78 / 2.011 = 1 − 0.388 = 0.612",
-        "√0.612 = 0.782; 1 − 0.782 = 0.218",
-        "ΔU/U₀ on axis (r=0) ≈ 0.218 → centre-line deficit ≈ 22%",
+        "β = ½(1 + √0.22)/√0.22 = ½ · 1.469 / 0.469 = 1.566;  ε = 0.2·√1.566 = 0.250",
+        "σ = 0.0268 × 1,652 + 0.250 × 236 = 44.3 + 59.0 = 103.3 m  →  σ/D = 0.438",
+        "Ct / (8 (σ/D)²) = 0.78 / 1.532 = 0.509",
+        "Centre-line deficit = 1 − √(1 − 0.509) = 1 − 0.701 = 0.30",
+        "Power ratio at that point ≈ (1 − 0.30)³ = 0.34",
       ],
       result:
-        "A turbine 7D downstream sitting on the wake centreline sees ≈ 22% lower wind speed. Power ∝ v³, so its output is " +
-        "about 0.78³ ≈ 47% of free-stream — roughly half. This is why edge turbines vastly out-produce inner-row turbines.",
+        "A turbine exactly on the centre line 7 D downstream sees ≈ 30 % less wind and ≈ 1/3 of the power, at that " +
+        "wind speed and direction. Averaged over the rotor, all directions and all speeds, the farm wake loss is far " +
+        "smaller — about 5.6 % on the AEP tab.",
     },
   ],
 
   realWorldCases: [
     {
-      title: "Lillgrund (Sweden) — the close-spacing experiment",
+      title: "Horns Rev 1 (Denmark) — wakes made visible",
       description:
-        "Built with 3.3D × 4.3D spacing as a deliberate stress test. Measured wake losses ~23%, vs ~10% for normally-spaced " +
-        "farms. Used to validate Bastankhah and CFD codes for over a decade.",
-      takeaway:
-        "Spacing tighter than 5D crosswind dramatically degrades AEP. The cost of extra inter-array cable for wider " +
-        "spacing is almost always paid back within the first year of operation.",
+        "A 2008 photograph of the 80-turbine farm in humid, cold conditions shows condensation tracing each turbine's " +
+        "wake far downstream.",
+      takeaway: "Offshore wakes are persistent and kilometres long — spacing decisions are worth real energy.",
     },
     {
-      title: "Horns Rev 1 (Denmark) — the iconic wake photograph",
+      title: "Lillgrund (Sweden) — very tight spacing",
       description:
-        "Famous photograph from 2008 showing fog condensing in the wakes of all 80 turbines. Used in every wind energy " +
-        "textbook to motivate why wake models matter.",
-      takeaway:
-        "Wakes are not abstract numbers in a spreadsheet — they are visible, persistent, and extend several kilometres downstream.",
-    },
-    {
-      title: "Wake steering trial — TotalEnergies/SSE Beatrice (Scotland)",
-      description:
-        "Yaw misalignment of 15–20° on upstream turbines recovered 1.4% of farm AEP in trial sectors with no measurable " +
-        "increase in fatigue loads on the steered machines.",
-      takeaway:
-        "Wake steering is moving from research into commercial control products. Expect 1–4% gains as standard within 5 years.",
+        "Built with unusually close spacing (about 3.3 D × 4.3 D). It became a reference data set for wake model " +
+        "validation because its wake losses are much larger than at conventionally spaced farms.",
+      takeaway: "Spacing below ~5 D gives disproportionately large wake losses.",
     },
   ],
 
   furtherReading: [
     {
-      label: "PyWake — open-source wake modelling toolkit (DTU)",
+      label: "PyWake — open-source wake modelling (DTU)",
       type: "website",
       url: "https://topfarm.pages.windenergy.dtu.dk/PyWake/",
     },
@@ -139,24 +108,20 @@ export const wakeLossEducation: EducationContent = {
       citation: "Renewable Energy 70 (2014) 116–123, doi:10.1016/j.renene.2014.01.002",
     },
     {
-      label: "Fleming et al. — Wake steering field campaign",
+      label: "Niayifar & Porté-Agel — Analytical modeling of wind farms: a new approach for power prediction",
       type: "paper",
-      citation: "Wind Energy Science 4 (2019) 273–285, doi:10.5194/wes-4-273-2019",
+      citation: "Energies 9 (2016) 741, doi:10.3390/en9090741",
     },
   ],
 
   codeReferences: [
     {
       file: "backend/app/services/p1/wake_model.py",
-      description: "Jensen + Bastankhah implementations; quadratic superposition; turbine pair-wise loss matrix.",
+      description: "V236 power/Ct curves; PyWake BPA + LinearSum + STF2017 configuration; run_wake_analysis().",
     },
     {
       file: "backend/app/services/p1/wake_models.py",
-      description: "PyWake wrapper used for the canonical layout-vs-wake studies.",
-    },
-    {
-      file: "backend/app/services/p1/yaw_optimizer.py",
-      description: "Wake-steering optimisation by sector — yaw setpoints that maximise farm power.",
+      description: "Jensen / BPA / NOJ / Zong comparison for the Research Lab.",
     },
   ],
 

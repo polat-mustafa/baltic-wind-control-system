@@ -45,7 +45,7 @@ describe("AEPCascadePanel", () => {
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<AEPCascadePanel />);
-    expect(screen.getByText(/AEP Loss Cascade/)).toBeDefined();
+    expect(screen.getByText(/loss cascade/)).toBeDefined();
   });
 
   it("shows total loss and uncertainty in footer", () => {
@@ -67,6 +67,6 @@ describe("AEPCascadePanel", () => {
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<AEPCascadePanel />);
-    expect(screen.getByText(/12.3%/)).toBeDefined();
+    expect(screen.getByText(/12.3 %/)).toBeDefined();
   });
 });

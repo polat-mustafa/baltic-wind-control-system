@@ -29,7 +29,7 @@
 
 ### 1.1 The Unified System Concept
 
-> **Educational Disclaimer:** Results, AEP values, wake losses, and compliance analyses in this document are desk-study estimates produced for educational purposes. They are **not certified engineering outputs**. Specifically: AEP and P90/P75 values use industry-typical uncertainty σ values (per DNV-RP-0203), not site-specific measurement campaigns. Wake-loss and layout-optimisation numbers are illustrative targets, not outputs from a completed PyWake run. FRT compliance is stated as design intent — dynamic verification requires ANDES or PSCAD/EMTDC simulation (not yet executed). Where simulation tool accuracy is cited (e.g. Pandapower vs. DIgSILENT), the figures derive from published tool-validation studies, not from project-specific cross-checks.
+> **Educational Disclaimer:** Results, AEP values, wake losses, and compliance analyses in this document are desk-study estimates produced for educational purposes. They are **not certified engineering outputs**. Specifically: AEP and P90/P75 values use industry-typical uncertainty σ values, not site-specific measurement campaigns. The P1 AEP, wake-loss and layout figures in §2.7–2.8 are outputs of the platform's PyWake run on a synthetic (not measured) wind record. FRT compliance is stated as design intent — dynamic verification requires ANDES or PSCAD/EMTDC simulation (not yet executed). Where simulation tool accuracy is cited (e.g. Pandapower vs. DIgSILENT), the figures derive from published tool-validation studies, not from project-specific cross-checks.
 
 These five projects are not isolated exercises. They represent a **single unified system** — a complete engineering lifecycle for a 510 MW Baltic Sea offshore wind farm, from resource assessment through commissioning. Each project is a layer of the same system, and together they demonstrate the full scope of competence expected from a mid-to-senior level HV Control Engineer.
 
@@ -186,10 +186,11 @@ Design and optimize a 510 MW offshore wind farm layout in the Baltic Sea using r
 **Decision rationale:** BPA provides the best trade-off between accuracy and computational speed for optimization loops. The PyWake BPA model has been validated by DTU against Horns Rev and Lillgrund measurements in published research — this project uses the same model. Results are typically within 1–2% of measured farm data per DTU validation studies; a project-specific cross-check against DIgSILENT PowerFactory has not been performed.
 
 ```python
-# PyWake configuration:
-from py_wake.deficit_models.gaussian import BastankhahGaussianDeficit
+# PyWake configuration (as implemented in services/p1/wake_model.py):
+from py_wake.deficit_models.gaussian import NiayifarGaussianDeficit  # BPA, k* = 0.38·TI + 0.004
 from py_wake.superposition_models import LinearSum
 from py_wake.turbulence_models import STF2017TurbulenceModel
+# Site: 12-sector wind rose (sector Weibull fits) — the same rose the dashboard shows
 
 # Turbine: Vestas V236-15.0 MW
 # - Rated: 15 MW | Diameter: 236 m | Hub: 150 m
@@ -222,9 +223,9 @@ from py_wake.turbulence_models import STF2017TurbulenceModel
 
 Large offshore arrays experience 1–3% power reduction from upstream flow deceleration (blockage). This is a significant AEP overestimation risk if ignored.
 
-- **Reference:** Nygaard et al. (2020), Journal of Physics: Conference Series, 1618
-- **Implementation:** Add wind farm blockage model to PyWake analysis
-- **Expected impact:** -1.5% to -2.5% on gross AEP for 34-turbine array
+- **Reference:** Bleeg et al. (2018), Energies 11(6), 1609 (field evidence, 1–4 % band); Nygaard et al. (2020), J. Phys.: Conf. Ser. 1618
+- **Implementation (`services/p1/blockage.py`):** educational engineering scaling — speed deficit δ(v) = (α/3)·ρ_array·Ct(v) passed through the power curve and Weibull-weighted (no loss above rated). α = 2.5 is a calibration constant, not a published value.
+- **Result:** ≈ 1.6 % AEP for the 34-turbine regular grid (A = 10.5 m/s, k = 2.2)
 
 ### 2.7 Energy Yield & Uncertainty Quantification
 
@@ -241,33 +242,32 @@ Large offshore arrays experience 1–3% power reduction from upstream flow decel
 | Availability | 1.0–3.0 | 2.0 |
 | Environmental | 0.5–2.0 | 1.5 |
 
-**Combined uncertainty (RSS):** σ_total = √(4² + 3² + 2² + 3² + 1.5² + 1² + 2² + 1.5²) = **6.2%**
+**Combined uncertainty (RSS):** σ_total = √(4² + 3² + 2² + 3² + 1.5² + 1² + 2² + 1.5²) = √47.5 = **6.9%**
 
-> **Note:** The individual σ values above are desk-study estimates using industry-typical ranges per DNV-RP-0203 §4. They are not derived from a site-specific measurement campaign (met mast or LiDAR). A real bankable energy assessment would quantify each source against measured data. The 6.2% combined uncertainty and resulting P-values below are therefore illustrative.
+> **Note:** The individual σ values above are desk-study estimates using industry-typical ranges. They are not derived from a site-specific measurement campaign (met mast or LiDAR). A real bankable energy assessment would quantify each source against measured data. The 6.9% combined uncertainty and resulting P-values below are therefore illustrative.
 
 **Exceedance values** *(desk-study estimates — see note above)*:
 
 | P-value | Z-score | AEP (GWh) | Capacity Factor | Annual Revenue (M€) |
 |---------|---------|-----------|-----------------|---------------------|
-| P50 | 0.000 | 2,140 | 47.9% | 154.1 |
-| P75 | 0.674 | 2,050 | 45.9% | 147.6 |
-| P90 | 1.282 | 1,970 | 44.1% | 141.8 |
-| P99 | 2.326 | 1,833 | 41.0% | 131.9 |
+| P50 | 0.000 | 2,077 | 46.5% | 149.6 |
+| P75 | 0.674 | 1,981 | 44.3% | 142.6 |
+| P90 | 1.282 | 1,894 | 42.4% | 136.3 |
+| P99 | 2.326 | 1,744 | 39.0% | 125.6 |
 
-**Revenue difference P50 vs P90: €12.3M/year — this is why uncertainty matters.**
+Platform run (AEP tab defaults: A = 10.5 m/s, k = 2.2, TI = 6 %, regular grid, 72 €/MWh): gross 2,426 GWh → wake 5.56 %, blockage 1.63 %, electrical 2.0 %, availability 5.0 %, environmental 1.0 % (multiplicative) → net P50 2,077 GWh.
+
+**Revenue difference P50 vs P90: €13.2M/year — this is why uncertainty matters.**
 
 ### 2.8 Layout Comparison Results
 
-| Layout | Net AEP (GWh) | Wake Loss | Cable Length (km) | Cable Cost (M€) |
-|--------|--------------|-----------|-------------------|-----------------|
-| Regular Grid | 2,044 | 12.7% | 58 | 42.3 |
-| Staggered | 2,113 | 9.8% | 62 | 44.1 |
-| **Optimized** | **2,140** | **8.7%** | **64** | **45.8** |
-| **Improvement** | **+96 GWh** | **-4.0 pp** | **+6 km** | **+3.5** |
+| Layout | Net AEP P50 (GWh) | Wake Loss | P90 (GWh) | Revenue (M€/yr) |
+|--------|------------------|-----------|-----------|-----------------|
+| Regular Grid | 2,077.2 | 5.56% | 1,893.7 | 149.56 |
+| Staggered | 2,079.5 | 5.54% | 1,895.7 | 149.72 |
+| **Δ (staggered − regular)** | **+2.3** | **−0.02 pp** | **+2.1** | **+0.16** |
 
-> **Illustrative values:** These AEP and wake-loss figures are target estimates based on typical offshore Baltic results for 5D × 8D spacing with a staggered layout. They are not outputs from a completed PyWake differential-evolution optimisation run. Real optimisation results will differ based on actual ERA5 wind rose, bathymetry constraints, and cable routing.
-
-**Trade-off:** +96 GWh/year × €72/MWh = +€6.9M/year revenue vs +€3.5M cable CAPEX → payback in ~6 months. **Clear win for optimized layout.**
+> **Platform output:** both layouts through the same rose, wake model and cascade. Re-arranging turbines inside the same area changes AEP by ~0.1 %; the present value of +0.16 M€/yr over 25 years at 6 % is ≈ 2 M€ — the budget the alternative may spend on extra cable/foundations. Larger gains need more area, a different spacing (see the Farm Comparison tab) or a layout optimiser that includes foundation and cable cost.
 
 ### 2.9 Web UI — Wind Resource Dashboard
 
@@ -295,7 +295,7 @@ backend/app/services/wind/
 
 ### 2.11 CV Sentence
 
-> "Designed a 510 MW Baltic Sea offshore wind farm layout using PyWake Bastankhah-Gaussian wake model with 20-year ERA5 reanalysis data; optimized staggered layout reduced wake losses from 12.7% to 8.7%, yielding +96 GWh/year net AEP improvement with P90 exceedance of 1,970 GWh (CF 44.1%)."
+> "Designed a 510 MW Baltic Sea offshore wind farm layout using PyWake Bastankhah-Gaussian wake model with 20-year ERA5 reanalysis data; modelled wake (5.6 %), blockage and electrical losses through a multiplicative cascade to a P50 of 2,077 GWh/year and a P90 of 1,894 GWh/year (σ = 6.9 %, CF 46.5 %)."
 
 ### 2.12 Lessons Learned
 
@@ -1454,7 +1454,7 @@ baltic-wind-control-system/
 | 6 | Who is Person in Control? | Single authority for all HV switching. GO/NO-GO at every step. Safety decisions |
 | 7 | What is P90? | 90% probability of exceedance — financial minimum guarantee for lenders |
 | 8 | Why 66 kV array? | vs 33kV: fewer cables, 1.2% loss reduction, better for large farms (>300 MW) |
-| 9 | Wake loss mitigation? | Staggered layout aligned to dominant wind, 8D downwind spacing, -4 pp reduction |
+| 9 | Wake loss mitigation? | Wider spacing along the prevailing wind; within a fixed area re-arranging gains only ~0.1 % — spacing and TI matter more |
 | 10 | IEC 62443 RBAC? | 5 access levels, MFA for Level 3+, every action logged for audit trail |
 
 ---
@@ -1603,8 +1603,8 @@ Next-generation turbines (GE Vernova Haliade-X, Vestas V236) are exploring grid-
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
 ║ P1: Wind Resource & Layout                                   ║
-║   PyWake BPA → 510MW → Wake loss 8.7% → AEP 2,140 GWh     ║
-║   P50/P75/P90 → σ=6.2% → Revenue €154M/yr                  ║
+║   PyWake BPA → 510MW → Wake loss 5.6% → AEP 2,077 GWh     ║
+║   P50/P75/P90 → σ=6.9% → Revenue €150M/yr                  ║
 ║   + Environmental constraints + Blockage effect              ║
 ║                                                              ║
 ║ P2: HV Grid Integration                                      ║

@@ -81,30 +81,29 @@ export const p1Guide: TrainingGuideData = {
   purpose:
     "This dashboard simulates the full energy yield assessment pipeline " +
     "that wind farm developers use to estimate Annual Energy Production (AEP). " +
-    "It uses PyWake's BPA Gaussian wake model, Weibull wind distribution fitting, " +
-    "and an industry-standard loss cascade to produce bankable P50/P75/P90 estimates.",
+    "It uses PyWake's Gaussian wake model (Bastankhah–Porté-Agel with TI-dependent expansion), " +
+    "a 12-sector wind rose with Weibull fits, and a multiplicative loss cascade to produce P50/P75/P90 estimates.",
   howToUse: [
     "Adjust the Weibull parameters (A = scale, k = shape) in the Sensitivity Panel to model different wind regimes.",
-    "Set Turbulence Intensity (TI) — higher values increase wake losses.",
-    "Enter the Electricity Price (EUR/MWh) to see LCOE calculations.",
+    "Set Turbulence Intensity (TI) — more turbulent air mixes wakes faster, so higher TI lowers wake losses.",
+    "Enter the Electricity Price (EUR/MWh) to see revenue; LCOE and IRR are in the Farm Comparison tab.",
     "Click 'Run Analysis' to execute the full PyWake simulation on the backend.",
-    "Once analysis completes, the dashboard populates with 6 chart panels.",
+    "Start with the animated 'What is AEP?' explainer, then read the dashboard top-down: wind resource → wakes → cascade → layouts.",
     "Explore each panel by clicking its (i) icon for detailed explanations.",
     "Try different Weibull parameters to see how wind conditions affect AEP and LCOE.",
   ],
   sections: [
-    { name: "KPI Header", description: "Five key metrics: Gross AEP (GWh), P50 AEP, P75 AEP, P90 AEP, and LCOE (EUR/MWh). P90 is the bankable figure used by lenders." },
-    { name: "Farm Layout Map", description: "Bird's-eye view of 34 turbine positions in 6 strings. Colors show per-turbine AEP — edge turbines produce more due to less wake." },
-    { name: "Wind Rose", description: "12-sector directional frequency diagram at 150 m hub height. Shows how often wind blows from each direction and at what speed." },
+    { name: "KPI Header", description: "Net AEP (P50, with P90), wake loss, net capacity factor, revenue at the set price, and the combined (RSS) uncertainty. P90 is the figure lenders size debt on." },
+    { name: "Farm Layout Map", description: "Bird's-eye view of the 34 turbine positions with the prevailing wind. Colour shows per-turbine net AEP — turbines facing the wind produce most." },
+    { name: "Wind Rose", description: "12-sector rose at 150 m hub height, stacked by speed class, with the energy share outline. The same rose drives the wake model." },
     { name: "Weibull Distribution", description: "Statistical fit of wind speed probability. The shape (k) and scale (A) parameters define the curve used for energy calculations." },
-    { name: "Wake Loss Panel", description: "Bar chart showing energy lost per turbine due to upstream wake interference. Inner-row turbines lose 8-15% while edge turbines lose 2-5%." },
-    { name: "AEP Cascade", description: "Waterfall chart from Gross AEP down to Net P50/P90 showing each loss factor: wake, availability, electrical, and curtailment." },
-    { name: "Layout Comparison", description: "Side-by-side comparison of different turbine spacings showing the trade-off between cable cost and wake losses." },
+    { name: "Wake Loss Panel", description: "Per-turbine wake loss, ranked, against the farm-level wake loss. Interior turbines lose most; the most exposed corner loses least." },
+    { name: "AEP Cascade", description: "Waterfall from gross to net P50 (wake, blockage, electrical, availability, environmental) and the exceedance curve with P50/P75/P90/P99." },
+    { name: "Layout Comparison", description: "Regular vs staggered grid through the same models, with the difference in GWh and M€ per year." },
   ],
   standards: [
     { label: "IEC 61400-1/3/12/15 — Wind turbine and wind farm design standards", url: "https://en.wikipedia.org/wiki/IEC_61400" },
     { label: "IEC 61400-12-1 — Power performance measurements", url: "https://en.wikipedia.org/wiki/IEC_61400" },
-    { label: "DNV-RP-J103 — Wind farm layout assessment" },
     { label: "ENTSO-E NC RfG — Requirements for generators (EU Regulation 2016/631)", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0631" },
     { label: "PyWake open-source wake model (DTU Wind Energy)", url: "https://doi.org/10.5194/wes-6-627-2021" },
   ],

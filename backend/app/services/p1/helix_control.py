@@ -25,8 +25,10 @@ be combined for even faster mixing.
 Power Impact
 -------------
 - Upstream turbine: small power loss (~1-3%) from non-optimal pitch
-- Downstream turbines: power gain (5-15%) from faster wake recovery
-- Net farm gain: typically 1-5% depending on spacing and wind conditions
+- LES of a two-turbine case (Frederik et al. 2020) showed a combined power
+  increase of up to ~7.5 %; farm-scale AEP gains are not yet established
+- This module is an EMPIRICAL screening model: helix shortens the wake
+  recovery distance by the factor WAKE_RECOVERY_ENHANCEMENT (assumed 1.5)
 
 Comparison with Yaw Steering
 ------------------------------
@@ -36,10 +38,9 @@ Comparison with Yaw Steering
 
 References
 ----------
-- Frederik, J.A. et al. (2020). Helix approach: wake mixing via dynamic
-  individual pitch control. Wind Energy Science, 5, 1065-1088.
-- Taschner, E. et al. (2023). Dynamic individual pitch control for enhanced
-  wake mixing — experiments and validation.
+- Frederik, J.A., Doekemeijer, B.M., Mulders, S.P. & van Wingerden, J.W.
+  (2020). The helix approach: using dynamic individual pitch control to
+  enhance wake mixing in wind farms. Wind Energy 23(8), 1739–1751.
 """
 
 from __future__ import annotations
@@ -64,7 +65,7 @@ DEFAULT_ROTOR_RPM: float = 7.5
 """Nominal rotor speed for V236-15.0 MW [RPM]."""
 
 WAKE_RECOVERY_ENHANCEMENT: float = 1.5
-"""Factor by which helix control enhances wake recovery rate [-]."""
+"""Assumed factor by which helix shortens wake recovery [-] (empirical, not fitted)."""
 
 UPSTREAM_POWER_PENALTY_FRACTION: float = 0.02
 """Power loss on helix-active turbine as fraction of rated [-]."""

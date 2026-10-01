@@ -1,0 +1,57 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  exceedance,
+  gamma,
+  grossTurbineMWh,
+  HOURS_PER_YEAR,
+  lossCascade,
+  normalCdf,
+  rss,
+  speedBins,
+  UNCERTAINTY_SOURCES,
+  weibullMean,
+} from "../../src/utils/aepMath";
+
+describe("aepMath", () => {
+  it("gamma matches known values", () => {
+    expect(gamma(5)).toBeCloseTo(24, 8);
+    expect(gamma(1.5)).toBeCloseTo(Math.sqrt(Math.PI) / 2, 10);
+    // Rayleigh (k = 2): mean = A·√π/2 ≈ 0.886·A
+    expect(weibullMean(10, 2)).toBeCloseTo(8.862, 3);
+  });
+
+  it("hours per year sum to 8760", () => {
+    const total = speedBins(10.5, 2.2, 40).reduce((s, b) => s + b.hours, 0);
+    expect(total).toBeCloseTo(HOURS_PER_YEAR, 0);
+  });
+
+  it("gross V236 yield is in the backend's PyWake range", () => {
+    // Backend PyWake (no wake) for A = 10.5, k = 2.2: 71.5 GWh per turbine (tabular ≈ cubic curve)
+    const gwh = grossTurbineMWh(10.5, 2.2) / 1000;
+    expect(gwh).toBeGreaterThan(69);
+    expect(gwh).toBeLessThan(74);
+    // Physical bound: never above rated × 8760
+    expect(gwh).toBeLessThan((15 * HOURS_PER_YEAR) / 1000);
+  });
+
+  it("losses are multiplicative, not additive", () => {
+    const steps = lossCascade(100, [
+      ["a", 10],
+      ["b", 10],
+    ]);
+    expect(steps[1].after).toBeCloseTo(81, 10); // not 80
+  });
+
+  it("RSS uncertainty = 6.89 % and P90 = P50·(1 − 1.282σ)", () => {
+    const sigma = rss(UNCERTAINTY_SOURCES.map(([, s]) => s));
+    expect(sigma).toBeCloseTo(Math.sqrt(47.5), 10);
+    expect(exceedance(1000, 6.2, 1.282)).toBeCloseTo(920.5, 1);
+  });
+
+  it("normal CDF matches the exceedance z-scores", () => {
+    expect(normalCdf(0)).toBeCloseTo(0.5, 7);
+    expect(normalCdf(-1.282)).toBeCloseTo(0.1, 3); // P90 ↔ 10 % below
+    expect(normalCdf(2.326)).toBeCloseTo(0.99, 3);
+  });
+});

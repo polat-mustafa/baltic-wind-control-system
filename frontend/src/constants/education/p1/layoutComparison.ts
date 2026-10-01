@@ -2,37 +2,32 @@ import type { EducationContent } from "../../../types/education";
 
 export const layoutComparisonEducation: EducationContent = {
   id: "p1.layout-comparison",
-  title: "Layout Comparison (M04)",
-  subtitle: "Wake loss vs cable cost — the offshore design trade-off",
+  title: "Layout Comparison",
+  subtitle: "Same turbines, different positions — what is it worth?",
   discipline: "Civil",
 
   overview:
-    "M04 compares alternative farm layouts side-by-side on the metrics that matter for the investment decision: gross AEP, " +
-    "wake loss, intra-array cable length, foundation count, total LCOE. The fundamental trade-off is wake-vs-cable: " +
-    "tighter spacing means more energy lost to wakes, looser spacing means more cable cost. The optimum depends on the " +
-    "site-specific cable cost and the wind rose.",
+    "Layout alternatives are compared on the full chain, not on wake loss alone: net AEP, P90, capacity factor and " +
+    "revenue — and, in the Farm Comparison tab, cable losses and LCOE. The core trade-off is wake vs. seabed and " +
+    "cable: tighter spacing loses more energy to wakes; wider spacing needs more area, longer array cables and often " +
+    "more expensive foundations.",
 
   simpleExplanation:
-    "Imagine you have to lay 34 turbines on a sheet of graph paper. Pack them tight and the back rows steal each other's " +
-    "wind. Spread them out and you need much more (very expensive) underwater cable to connect them. The comparison view " +
-    "tries several arrangements and ranks them so you can pick the cheapest electricity per MWh.",
+    "Put 34 turbines on graph paper. Packed tightly, the back rows steal each other's wind. Spread out, you pay for " +
+    "more underwater cable and seabed. The comparison shows how much energy each arrangement delivers so the " +
+    "difference can be weighed against its cost.",
 
   technicalExplanation:
-    "Each candidate layout is scored on gross AEP (PyWake Bastankhah), wake loss %, cable length (Steiner-tree heuristic " +
-    "with capacity constraints), and LCOE delta. The optimisation surface is non-convex — gradient methods get stuck — so " +
-    "TopFarm uses a mix of pseudo-gradient and CMA-ES to explore. Even with global search, the gain over a hand-designed " +
-    "asymmetric grid is only 1–3% in AEP for typical mature sites. The biggest wins come from foundation cost surfaces " +
-    "(avoid expensive seabed) rather than from wake optimisation alone.",
+    "Both layouts here run through identical models: the same 12-sector wind rose, PyWake BPA wakes, blockage and the " +
+    "loss cascade. Staggering rows means a turbine is rarely directly behind its neighbour for the dominant directions, " +
+    "so wake loss drops slightly. Gains from layout changes inside a fixed area are usually small (tenths of a percent " +
+    "to a few percent); larger gains need more area or a different turbine count.",
 
   standards: [
     {
-      label: "IEC 61400-1 — Site classification & wake effects",
+      label: "IEC 61400-15 (series) — Energy yield assessment",
       type: "standard",
       url: "https://en.wikipedia.org/wiki/IEC_61400",
-    },
-    {
-      label: "DNV-RP-J103 — Energy yield assessment of offshore wind farms",
-      type: "standard",
     },
     {
       label: "DNV-ST-0359 — Subsea power cables for wind power plants",
@@ -42,84 +37,50 @@ export const layoutComparisonEducation: EducationContent = {
 
   formulas: [
     {
-      expression: "ΔLCOE = (ΔCAPEX_cable·CRF − ΔRevenue_AEP) / AEP_net",
+      expression: "ΔNPV ≈ ΔAEP · price · AF − ΔCAPEX,    AF = (1 − (1+r)^−n) / r",
       variables: [
-        { symbol: "ΔCAPEX_cable", name: "Change in cable capex between layouts", unit: "EUR" },
-        { symbol: "ΔRevenue_AEP", name: "Change in revenue from AEP gain", unit: "EUR/yr" },
-        { symbol: "CRF", name: "Capital recovery factor", unit: "1/yr" },
+        { symbol: "ΔAEP", name: "Energy difference between layouts", unit: "MWh/yr" },
+        { symbol: "AF", name: "Annuity factor (r = 6 %, n = 25 → 12.78)", unit: "yr" },
+        { symbol: "ΔCAPEX", name: "Extra capital cost (cables, foundations)", unit: "€" },
       ],
       explanation:
-        "Compares two layouts in LCOE terms — the only fair currency for this trade-off. A layout with 1% more AEP and 5% more " +
-        "cable cost is *not* automatically better; the CRF and the strike price decide.",
-    },
-    {
-      expression: "L_min = Σ_(edges in MST) length(edge),  subject to: ΣP_string ≤ S_string_max",
-      variables: [
-        { symbol: "L_min", name: "Minimum cable length", unit: "m" },
-        { symbol: "MST", name: "Minimum spanning tree of the turbine graph", unit: "—" },
-      ],
-      explanation:
-        "Cable routing is a capacity-constrained Steiner-tree problem. Pure MST gives a lower bound; real routing typically " +
-        "adds 10–20% for corridor avoidance (existing cables, archaeology, fishing zones).",
+        "A layout is better only if its extra energy, valued over the project life, pays for its extra cost.",
     },
   ],
 
   workedExamples: [
     {
-      title: "Square grid vs asymmetric grid for Baltic Wind",
-      scenario:
-        "Two candidate 34-turbine layouts: (A) regular 7D × 7D, (B) asymmetric 7D × 10D aligned with prevailing W wind.",
+      title: "Regular vs staggered on this platform",
+      scenario: "Results from the AEP tab: staggered gains ≈ 2.3 GWh/yr net (0.11 %); price 72 €/MWh; r = 6 %, n = 25 yr.",
       steps: [
-        "Layout A: gross AEP 2,210 GWh, wake loss 9.5% → net 2,000 GWh; cable 88 km",
-        "Layout B: gross AEP 2,225 GWh, wake loss 6.5% → net 2,080 GWh; cable 112 km",
-        "ΔAEP = +80 GWh/yr; ΔRevenue at 80 EUR/MWh = +6.4 M EUR/yr",
-        "ΔCable cost = 24 km × 1,000 EUR/m = +24 M EUR (one-off)",
-        "ΔAnnualised cable = 24 × 0.0782 = +1.88 M EUR/yr",
-        "Net annual benefit B over A = 6.4 − 1.88 = 4.52 M EUR/yr",
+        "Extra revenue = 2,260 MWh × 72 € = 0.163 M€/yr",
+        "Present value = 0.163 × 12.78 = 2.1 M€",
+        "→ the staggered layout is worth it if it costs less than ≈ 2 M€ more (≈ 2 km of extra 66 kV cable)",
       ],
       result:
-        "Layout B wins by ~4.5 M EUR/yr despite the extra cable. The wider cross-wind spacing pays for itself in two seasons. " +
-        "This is why offshore developers rarely use square grids any more.",
+        "A 0.1 % AEP gain sounds negligible, but over 25 years it is worth about two million euros — the same order as the " +
+        "cable and installation cost of moving a handful of turbines.",
     },
   ],
 
-  realWorldCases: [
-    {
-      title: "Borssele I+II — TopFarm-optimised layout",
-      description:
-        "Ørsted/Eneco used TopFarm to optimise 94 SG 8.0 MW turbines against the bathymetry-corrected foundation cost surface. " +
-        "Final layout had ~2% more AEP than the consented grid layout while using the same number of turbines.",
-      takeaway:
-        "Layout optimisation only pays back if foundation cost data is included. Pure AEP optimisation produces clusters in " +
-        "expensive seabed zones.",
-    },
-    {
-      title: "Anholt — wind-rose-aligned spacing",
-      description:
-        "111 × Siemens 3.6 MW arranged in a wind-rose-aligned grid. Operational wake losses 8.5% — about 1.5 pp better than a " +
-        "comparable regular grid would have delivered.",
-      takeaway:
-        "Operational data validates that asymmetric grids work. Always check the wind rose before deciding spacing.",
-    },
-  ],
+  realWorldCases: [],
 
   furtherReading: [
     {
-      label: "TopFarm — open-source farm layout optimisation",
+      label: "TopFarm — open-source wind farm layout optimisation (DTU)",
       type: "website",
       url: "https://topfarm.pages.windenergy.dtu.dk/TopFarm2/",
-    },
-    {
-      label: "Pillai et al. — Cable layout optimisation in offshore wind farms",
-      type: "paper",
-      citation: "Renewable Energy 85 (2016), doi:10.1016/j.renene.2015.06.062",
     },
   ],
 
   codeReferences: [
     {
-      file: "backend/app/services/p1/layout_comparison.py",
-      description: "Side-by-side scoring of multiple layouts with PyWake AEP + Steiner cable estimate.",
+      file: "backend/app/services/p1/aep_calculator.py",
+      description: "compare_layouts() — runs each layout through the same cascade.",
+    },
+    {
+      file: "backend/app/services/p1/layout_optimizer.py",
+      description: "Regular / staggered grid generators and the layout optimiser (Research Lab).",
     },
   ],
 

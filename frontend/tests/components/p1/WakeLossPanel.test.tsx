@@ -37,7 +37,7 @@ describe("WakeLossPanel", () => {
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<WakeLossPanel />);
-    expect(screen.getByText("Per-Turbine Wake Loss")).toBeDefined();
+    expect(screen.getByText(/Wake loss per turbine/)).toBeDefined();
   });
 
   it("renders color legend", () => {
@@ -53,6 +53,6 @@ describe("WakeLossPanel", () => {
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<WakeLossPanel />);
-    expect(screen.getByText("10-15%")).toBeDefined();
+    expect(screen.getByText(/Farm wake loss/)).toBeDefined();
   });
 });

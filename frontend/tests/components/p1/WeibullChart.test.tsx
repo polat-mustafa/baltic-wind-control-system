@@ -47,8 +47,8 @@ describe("WeibullChart", () => {
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<WeibullChart />);
-    expect(screen.getByText(/A=10.5/)).toBeDefined();
-    expect(screen.getByText(/k=2.2/)).toBeDefined();
+    expect(screen.getByText(/A = 10.5/)).toBeDefined();
+    expect(screen.getByText(/k = 2.2/)).toBeDefined();
   });
 
   it("shows mean speed in footer", () => {
@@ -73,6 +73,6 @@ describe("WeibullChart", () => {
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<WeibullChart />);
-    expect(screen.getByText(/9.3 m\/s/)).toBeDefined();
+    expect(screen.getByText(/Mean 9.3/)).toBeDefined();
   });
 });

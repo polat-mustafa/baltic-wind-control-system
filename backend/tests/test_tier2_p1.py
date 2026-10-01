@@ -151,6 +151,28 @@ class TestFLOWERS:
         result = compute_flowers_aep(x, y)
         assert len(result.per_turbine_aep_gwh) == 4
 
+    def test_flowers_gross_is_weibull_integral_not_mean_speed(self):
+        """Gross = 8760·∫P·f dv. P(v̄)·8760 gave CF ≈ 84 % — physically impossible here."""
+        from app.services.p1.flowers_aep import compute_flowers_aep
+
+        x, y = _small_layout()
+        result = compute_flowers_aep(x, y, mean_wind_speed_ms=9.3, weibull_k=2.2)
+        per_turbine = result.gross_aep_gwh / len(x)
+        assert 69.0 < per_turbine < 74.0  # PyWake: 71.5 GWh for A = 10.5, k = 2.2
+        assert result.capacity_factor < 0.6
+
+    def test_flowers_wind_direction_convention(self):
+        """Wind only from the north: the southern turbine is waked, the northern one is not."""
+        from app.services.p1.flowers_aep import compute_flowers_aep
+
+        x = np.array([0.0, 0.0])
+        y = np.array([0.0, 7 * 236.0])  # turbine 1 is 7D north of turbine 0
+        freqs = np.zeros(12)
+        freqs[0] = 1.0  # all wind from 0° (north)
+        r = compute_flowers_aep(x, y, sector_frequencies=freqs)
+        south, north = r.per_turbine_aep_gwh
+        assert south < north
+
     def test_flowers_fourier_decomposition(self):
         from app.services.p1.flowers_aep import _fourier_decompose_wind_rose
 

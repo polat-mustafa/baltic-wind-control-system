@@ -7,7 +7,7 @@ POST   /api/v1/wind/farms                    — Create farm configuration
 GET    /api/v1/wind/farms                    — List configurations
 GET    /api/v1/wind/farms/{id}               — Get configuration
 DELETE /api/v1/wind/farms/{id}               — Delete configuration
-POST   /api/v1/wind/farms/compare            — Run comparison (2-4 farms)
+POST   /api/v1/wind/farms/compare            — Run comparison (2-4 farms, by id or inline)
 GET    /api/v1/wind/farms/compare/{id}       — Get comparison results
 
 Enables side-by-side comparison of up to 4 wind farm designs, covering:
@@ -57,9 +57,8 @@ async def create_farm(body: FarmConfigCreate) -> FarmConfigResponse:
     - export_voltage_kv : 220 kV HVAC or 400 kV for large distances
     - export_length_km  : distance from OSS to onshore grid connection
 
-    **Reactive compensation:**
-    - statcom_mvar      : STATCOM rating (required for Type D grid code)
-    - bess_mw / bess_mwh: battery storage (improves flexibility, LCOE)
+    **Layout:**
+    - turbine_spacing_d : grid spacing in rotor diameters (drives wake loss)
 
     **Wind resource:**
     - mean_wind_speed_ms: hub-height mean wind speed
@@ -136,13 +135,15 @@ async def delete_farm(farm_id: uuid.UUID) -> None:
 async def run_comparison(body: FarmComparisonRequest) -> FarmComparisonResponse:
     """Run a side-by-side comparison of 2–4 farm configurations.
 
-    Returns three result tables:
+    Pass either ``farm_ids`` (stored configurations) or ``farms`` (inline,
+    not stored). Returns three result tables:
 
     **AEP comparison:**
-    - Gross AEP (no losses), Net AEP (all losses), P50/P90 exceedance
-    - Wake loss % (Jensen model), total loss %
+    - Gross AEP, Net AEP (multiplicative loss cascade), P50/P90 exceedance
+    - Wake loss % (PyWake BPA Gaussian on a grid at the given spacing),
+      blockage (Nygaard 2020), energy-weighted electrical loss, availability
     - Net capacity factor
-    - Uncertainty model: IEC 61400-15 RSS method, 6.2% total sigma
+    - Uncertainty model: IEC 61400-15 RSS method, 6.89% total sigma
 
     **LCOE comparison:**
     - Levelised Cost of Energy [€/MWh] — Fixed Charge Rate method
@@ -151,18 +152,15 @@ async def run_comparison(body: FarmComparisonRequest) -> FarmComparisonResponse:
     - Simple payback period and approximate IRR
 
     **Grid integration comparison:**
-    - Export and array cable I²R losses (IEC 60287 simplified model)
-    - Net reactive range at POC (STATCOM + cable charging)
-    - Export cable utilisation at rated farm output
-    - ENTSO-E NC RfG Type D compliance (±0.225 pu reactive range)
+    - Export circuits needed (1000 mm² Cu thermal rating), I²R losses at rated
+      and energy-weighted over the year (loss load factor)
+    - Export cable charging Q = ωCU²L (sizes the shunt reactors — see P2)
+    - Export circuit utilisation at rated farm output
 
-    Physics — Why comparing configurations matters:
-    A 10 km longer export cable (55 km vs 45 km) adds ~0.3% cable losses
-    and ~€10M CAPEX, raising LCOE by ~€1–2/MWh. A BESS addition of 50 MW
-    adds CAPEX but can improve market revenue through frequency response
-    and arbitrage, potentially improving the net project IRR.
+    Reactive capability and NC RfG compliance need a load flow — use P2.
     """
     try:
-        return svc.run_comparison(body.farm_ids, body.electricity_price_eur_mwh)
+        farms = svc.resolve_farms(body.farm_ids, body.farms)
+        return svc.run_comparison(farms, body.electricity_price_eur_mwh)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e

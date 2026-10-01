@@ -1,59 +1,65 @@
 /**
- * Zustand store for M04 Multi-Farm Comparison dashboard state.
+ * Zustand store for M04 Multi-Farm Comparison.
  *
- * Manages the list of farm configurations and comparison results.
- * Initialised with 3 default configurations (Baltic Wind Alpha/Beta/Gamma)
- * so the user can run a comparison immediately on first visit.
- *
- * Data flow: user edits FarmConfigCards → runComparison() → POST to API
- * → FarmComparisonPanel shows AEP/LCOE grouped bar chart.
+ * Holds 2–4 editable farm configurations and the last comparison result.
+ * Pre-loaded with three design alternatives for the Baltic site so the
+ * user can compare immediately. Editing any input marks results stale.
  */
 
 import { create } from "zustand";
 
 import * as api from "../services/farmComparisonApi";
-import type {
-  FarmComparisonResponse,
-  FarmConfig,
-} from "../types/farmComparison";
+import type { FarmComparisonResponse, FarmConfig } from "../types/farmComparison";
 
-// ── Default farm configurations ───────────────────────────────────
+export const MAX_FARMS = 4;
 
-const DEFAULT_FARMS: FarmConfig[] = [
+/** One colour per farm slot — config cards and every results chart. */
+export const FARM_COLORS = ["#60a5fa", "#3ecf6e", "#f5a623", "#c084fc"];
+
+/** Shared economics / site defaults (2024–25 European offshore ranges). */
+const BASE: Omit<FarmConfig, "name"> = {
+  turbine_count: 34,
+  turbine_rated_mw: 15.0,
+  mean_wind_speed_ms: 9.3, // Weibull A 10.5, k 2.2 — same site as the AEP tab
+  weibull_k: 2.2,
+  turbine_spacing_d: 7,
+  array_voltage_kv: 66,
+  export_voltage_kv: 220,
+  export_length_km: 45,
+  availability_pct: 95,
+  capex_m_eur_per_mw: 3.2,
+  opex_k_eur_per_mw_year: 75,
+  discount_rate_pct: 6,
+  lifetime_years: 25,
+};
+
+export const DEFAULT_FARMS: FarmConfig[] = [
+  { ...BASE, name: "Baltic Wind Alpha · 7D" },
   {
-    name: "Baltic Wind Alpha",
-    n_turbines: 34,
-    turbine_rated_mw: 15.0,
-    weibull_a: 9.8,
-    weibull_k: 2.1,
-    array_voltage_kv: 66,
-    export_length_km: 45,
-  },
-  {
-    name: "Baltic Wind Beta",
-    n_turbines: 25,
-    turbine_rated_mw: 15.0,
-    weibull_a: 10.5,
-    weibull_k: 2.3,
-    array_voltage_kv: 66,
+    ...BASE,
+    name: "Compact 6D layout",
+    turbine_spacing_d: 6,
     export_length_km: 38,
+    capex_m_eur_per_mw: 3.1,
   },
   {
-    name: "Baltic Wind Gamma",
-    n_turbines: 40,
-    turbine_rated_mw: 12.0,
-    weibull_a: 9.2,
-    weibull_k: 2.0,
-    array_voltage_kv: 66,
-    export_length_km: 52,
+    ...BASE,
+    name: "Far-shore, 9D spacing",
+    mean_wind_speed_ms: 9.8,
+    turbine_spacing_d: 9,
+    export_length_km: 80,
+    capex_m_eur_per_mw: 3.5,
   },
 ];
 
-// ── Store interface ───────────────────────────────────────────────
+export const NEW_FARM: FarmConfig = { ...BASE, name: "New design" };
 
 interface FarmComparisonState {
-  results: FarmComparisonResponse | null;
   farms: FarmConfig[];
+  priceEurMwh: number;
+  results: FarmComparisonResponse | null;
+  /** Inputs changed since the last comparison. */
+  stale: boolean;
   loading: boolean;
   error: string | null;
 
@@ -61,25 +67,24 @@ interface FarmComparisonState {
   addFarm: (config: FarmConfig) => void;
   removeFarm: (index: number) => void;
   updateFarm: (index: number, partial: Partial<FarmConfig>) => void;
+  setPrice: (price: number) => void;
   clearError: () => void;
 }
 
-// ── Store implementation ──────────────────────────────────────────
-
 export const useFarmComparisonStore = create<FarmComparisonState>((set, get) => ({
-  results: null,
   farms: DEFAULT_FARMS,
+  priceEurMwh: 72,
+  results: null,
+  stale: false,
   loading: false,
   error: null,
 
-  // ── Data actions ──────────────────────────────────────────────
-
   runComparison: async () => {
-    const { farms } = get();
+    const { farms, priceEurMwh } = get();
     set({ loading: true, error: null });
     try {
-      const results = await api.compareFarms(farms);
-      set({ results });
+      const results = await api.compareFarms(farms, priceEurMwh);
+      set({ results, stale: false });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -87,24 +92,19 @@ export const useFarmComparisonStore = create<FarmComparisonState>((set, get) => 
     }
   },
 
-  // ── Farm list management ──────────────────────────────────────
+  addFarm: (config) =>
+    set((s) => (s.farms.length >= MAX_FARMS ? s : { farms: [...s.farms, config], stale: true })),
 
-  addFarm: (config: FarmConfig) =>
-    set((state) => ({ farms: [...state.farms, config] })),
+  removeFarm: (index) =>
+    set((s) => ({ farms: s.farms.filter((_, i) => i !== index), stale: true })),
 
-  removeFarm: (index: number) =>
-    set((state) => ({
-      farms: state.farms.filter((_, i) => i !== index),
+  updateFarm: (index, partial) =>
+    set((s) => ({
+      farms: s.farms.map((f, i) => (i === index ? { ...f, ...partial } : f)),
+      stale: true,
     })),
 
-  updateFarm: (index: number, partial: Partial<FarmConfig>) =>
-    set((state) => ({
-      farms: state.farms.map((f, i) =>
-        i === index ? { ...f, ...partial } : f,
-      ),
-    })),
-
-  // ── Utility ───────────────────────────────────────────────────
+  setPrice: (priceEurMwh) => set({ priceEurMwh, stale: true }),
 
   clearError: () => set({ error: null }),
 }));

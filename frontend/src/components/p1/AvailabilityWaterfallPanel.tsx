@@ -3,14 +3,14 @@
  *
  * Y-axis: downtime category (human-readable label)
  * X-axis: hours of downtime
- * Colour: red for uncontrollable categories, amber for controllable.
- * Shows controllable_pct as a KPI badge above the chart.
+ * Colour: full hue for controllable (maintenance), recessive step for external causes.
+ * Shows controllable downtime (% of all turbine-hours) as a badge above the chart.
  */
 
 import Plot from "react-plotly.js";
 
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
-import { SCADA_COLORS } from "../../constants/scadaColors";
+import { useChartPalette } from "../../hooks/useChartPalette";
 import { useAvailabilityStore } from "../../store/availabilityStore";
 import { Badge } from "../ui/Badge";
 import { EducationButton } from "../ui/EducationButton";
@@ -22,6 +22,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   SCHEDULED_MAINTENANCE: "Scheduled Maintenance",
   UNSCHEDULED_MAINTENANCE: "Unscheduled Maintenance",
   GRID_OUTAGE: "Grid Outage",
+  GRID_CURTAILMENT: "Grid Curtailment",
   ENVIRONMENTAL_CURTAILMENT: "Environmental Curtailment",
   FORCE_MAJEURE: "Force Majeure",
   TECHNICAL_STANDBY: "Technical Standby",
@@ -42,19 +43,19 @@ function categoryLabel(code: string): string {
 
 export default function AvailabilityWaterfallPanel() {
   const { breakdown } = useAvailabilityStore();
+  const c = useChartPalette();
 
   if (!breakdown) return null;
 
-  const { categories, controllable_pct, assessment } = breakdown;
+  const { categories, controllable_loss_pct, assessment } = breakdown;
 
   // Sort by hours descending for visual clarity
   const sorted = [...categories].sort((a, b) => b.hours - a.hours);
 
   const labels = sorted.map((c) => categoryLabel(c.category));
   const hours = sorted.map((c) => c.hours);
-  const colors = sorted.map((c) =>
-    c.controllable ? SCADA_COLORS.WARNING : SCADA_COLORS.FAULT,
-  );
+  // Controllable (maintenance) = full hue; external causes = recessive step
+  const colors = sorted.map((cat) => (cat.controllable ? c.blue : c.seq[0]));
   const hoverTexts = sorted.map(
     (c) =>
       `${categoryLabel(c.category)}<br>Hours: ${c.hours.toFixed(1)}<br>Energy loss: ${c.energy_loss_mwh.toFixed(0)} MWh<br>Share: ${c.share_pct.toFixed(1)}%<br>${c.controllable ? "Controllable" : "Uncontrollable"}`,
@@ -70,8 +71,8 @@ export default function AvailabilityWaterfallPanel() {
           </h3>
           <EducationButton content={availabilityWaterfallEducation} />
         </div>
-        <Badge variant={controllable_pct > 50 ? "warning" : "normal"}>
-          {controllable_pct.toFixed(1)}% Controllable
+        <Badge variant={controllable_loss_pct > 2 ? "warning" : "normal"}>
+          Controllable downtime {controllable_loss_pct.toFixed(1)} % of hours (target &lt; 2 %)
         </Badge>
       </div>
 
@@ -86,7 +87,7 @@ export default function AvailabilityWaterfallPanel() {
             marker: { color: colors },
             text: hours.map((h) => `${h.toFixed(1)} h`),
             textposition: "outside",
-            textfont: { size: 11, color: "#9ba3b8" },
+            textfont: { size: 11, color: c.ink },
             hovertemplate: hoverTexts.map((t) => `${t}<extra></extra>`),
           },
         ]}
@@ -95,12 +96,12 @@ export default function AvailabilityWaterfallPanel() {
           height: Math.max(260, sorted.length * 32 + 80),
           xaxis: {
             ...DARK_PLOTLY_LAYOUT.xaxis,
-            title: { text: "Downtime [hours]", font: { color: "#9ba3b8", size: 12 } },
+            title: { text: "Downtime [hours]", font: { size: 12 } },
           },
           yaxis: {
             ...DARK_PLOTLY_LAYOUT.yaxis,
             automargin: true,
-            tickfont: { size: 11, color: "#9ba3b8", family: "'Inter', sans-serif" },
+            tickfont: { size: 11, family: "'Inter', sans-serif" },
           },
           margin: { t: 20, r: 80, b: 56, l: 180 },
         }}
@@ -111,11 +112,11 @@ export default function AvailabilityWaterfallPanel() {
       {/* Legend + assessment */}
       <div className="flex items-center gap-4 mt-2 text-xs text-text-muted flex-wrap">
         <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: SCADA_COLORS.WARNING }} />
+          <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: c.blue }} />
           Controllable
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: SCADA_COLORS.FAULT }} />
+          <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: c.seq[0] }} />
           Uncontrollable
         </span>
       </div>

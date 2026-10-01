@@ -31,7 +31,7 @@ Sources and their standard deviations:
     Wind shear: 2.0%       Power curve: 1.5%    Electrical: 1.0%
     Availability: 2.0%     Environmental: 1.5%
 
-    sigma_total = sqrt(16 + 9 + 9 + 4 + 2.25 + 1 + 4 + 2.25) = 6.2%
+    sigma_total = sqrt(16 + 9 + 9 + 4 + 2.25 + 1 + 4 + 2.25) = sqrt(47.5) = 6.89%
 
 **Exceedance (P-values):**
     P_xx = P50 × (1 - z_xx × sigma/100)

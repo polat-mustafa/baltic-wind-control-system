@@ -1,113 +1,95 @@
 /**
- * AEP cascade panel — waterfall loss cascade + P50/P75/P90/P99 bars.
+ * AEP cascade & exceedance.
  *
- * Left: Waterfall chart showing multiplicative loss cascade
- *       (Gross → wake → blockage → electrical → availability → env → Net).
- * Right: Exceedance probability bars with revenue labels.
- *
- * Domain Rule 10: P90 labeled "Used for financing".
+ * Left — waterfall: gross → each multiplicative loss → net P50. The y-axis is
+ * deliberately truncated (labelled) so 1–7 % losses are visible; each step is
+ * labelled in GWh and %.
+ * Right — exceedance curve: probability that the long-term AEP is at least x,
+ * PoE(x) = 1 − Φ((x − P50)/σ), σ = RSS uncertainty × P50. P50/P75/P90/P99
+ * are points on this one curve, not separate quantities; P90 is the value
+ * lenders size debt on (Domain Rule 10).
  */
 
 import Plot from "react-plotly.js";
-import { useWindResourceStore } from "../../store/windResourceStore";
-import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
-import { SCADA_COLORS } from "../../constants/scadaColors";
-import { EducationButton } from "../ui/EducationButton";
+
 import { aepCascadeEducation } from "../../constants/education/p1";
+import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
+import { useWindResourceStore } from "../../store/windResourceStore";
+import { normalCdf } from "../../utils/aepMath";
 import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function AEPCascadePanel() {
-  const { aepCascade } = useWindResourceStore();
+  const { aepCascade: a } = useWindResourceStore();
+  const c = useChartPalette();
+  if (!a) return null;
 
-  if (!aepCascade) return null;
-
-  // Build waterfall data
-  const waterfallLabels = [
-    "Gross AEP",
-    ...aepCascade.loss_factors.map((lf) => lf.name),
-    "Net AEP",
-  ];
-
-  // Waterfall measures: first is "absolute", losses are "relative", last is "total"
-  const measures = [
-    "absolute",
-    ...aepCascade.loss_factors.map(() => "relative"),
-    "total",
-  ];
-
-  // Compute loss amounts in GWh (sequential from gross)
-  const lossAmounts = aepCascade.loss_factors.reduce<number[]>((acc, lf) => {
-    const prev = acc.length === 0
-      ? aepCascade.gross_aep_gwh
-      : aepCascade.gross_aep_gwh + acc.reduce((s, v) => s + v, 0);
-    const amount = prev * (lf.loss_percent / 100.0);
-    return [...acc, -amount];
+  // ── Waterfall (sequential, multiplicative) ──
+  const steps = a.loss_factors.reduce<{ name: string; lost: number; pct: number; after: number }[]>((acc, lf) => {
+    const before = acc.length ? acc[acc.length - 1].after : a.gross_aep_gwh;
+    const lost = (before * lf.loss_percent) / 100;
+    return [...acc, { name: cap(lf.name), lost, pct: lf.loss_percent, after: before - lost }];
   }, []);
+  const labels = ["Gross", ...steps.map((s) => s.name), "Net (P50)"];
+  const yLo = Math.floor((a.net_aep_gwh * 0.8) / 100) * 100;
 
-  const waterfallValues = [
-    aepCascade.gross_aep_gwh,
-    ...lossAmounts,
-    aepCascade.net_aep_gwh,
-  ];
-
-  // P-value bars
-  const pLabels = ["P50", "P75", "P90", "P99"];
-  const pValues = [
-    aepCascade.p50_gwh,
-    aepCascade.p75_gwh,
-    aepCascade.p90_gwh,
-    aepCascade.p99_gwh,
-  ];
-  const pColors = [
-    "rgb(59, 130, 246)", // blue
-    "rgb(34, 197, 94)", // green
-    "rgb(234, 179, 8)", // amber
-    "rgb(239, 68, 68)", // red
+  // ── Exceedance curve ──
+  const sigma = (a.p50_gwh * a.combined_uncertainty_percent) / 100;
+  const xs = Array.from({ length: 121 }, (_, i) => a.p50_gwh + sigma * (-3.2 + (6.4 * i) / 120));
+  const poe = xs.map((x) => (1 - normalCdf((x - a.p50_gwh) / sigma)) * 100);
+  const meur = (gwh: number) => (gwh * a.price_eur_mwh) / 1000;
+  const marks = [
+    { k: "P50", v: a.p50_gwh, p: 50 },
+    { k: "P75", v: a.p75_gwh, p: 75 },
+    { k: "P90", v: a.p90_gwh, p: 90 },
+    { k: "P99", v: a.p99_gwh, p: 99 },
   ];
 
   return (
     <ChartWrapper
-      title="AEP Loss Cascade & Exceedance (P-values)"
+      title="AEP — loss cascade and exceedance probability"
       headerRight={<EducationButton content={aepCascadeEducation} />}
-      footer={`Total loss: ${aepCascade.total_loss_percent.toFixed(1)}% · Uncertainty: ±${aepCascade.combined_uncertainty_percent.toFixed(1)}% (RSS, IEC 61400-15)`}
+      footer={`Total loss ${a.total_loss_percent.toFixed(1)} % (losses multiply, they don't add) · combined uncertainty ±${a.combined_uncertainty_percent.toFixed(1)} % (RSS, 1σ) · price ${a.price_eur_mwh} €/MWh`}
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Waterfall */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Plot
           data={[
             {
-              type: "waterfall" as const,
+              type: "waterfall",
               orientation: "v",
-              x: waterfallLabels,
-              y: waterfallValues,
-              measure: measures,
-              connector: { line: { color: "rgba(148, 163, 184, 0.3)" } },
-              increasing: { marker: { color: SCADA_COLORS.ENERGIZED } },
-              decreasing: { marker: { color: "rgb(239, 68, 68)" } },
-              totals: { marker: { color: "rgb(59, 130, 246)" } },
-              texttemplate: "%{y:.1f}",
+              x: labels,
+              y: [a.gross_aep_gwh, ...steps.map((s) => -s.lost), a.net_aep_gwh],
+              measure: ["absolute", ...steps.map(() => "relative"), "total"],
+              base: 0,
+              text: [
+                a.gross_aep_gwh.toFixed(0),
+                ...steps.map((s) => `−${s.lost.toFixed(0)}<br>(${s.pct.toFixed(1)} %)`),
+                a.net_aep_gwh.toFixed(0),
+              ],
               textposition: "outside",
-              textfont: { size: 11 },
+              cliponaxis: false,
+              connector: { line: { color: c.ref, width: 1, dash: "dot" } },
+              decreasing: { marker: { color: c.red } },
+              increasing: { marker: { color: c.aqua } },
+              totals: { marker: { color: c.blue } },
+              hovertemplate: "%{x}: %{y:.1f} GWh<extra></extra>",
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any,
           ]}
           layout={{
             ...DARK_PLOTLY_LAYOUT,
-            title: {
-              text: "Gross → Net Cascade",
-              font: { size: 12, color: "rgb(148, 163, 184)" },
-              x: 0.5,
-            },
-            yaxis: {
-              ...DARK_PLOTLY_LAYOUT.yaxis,
-              title: { text: "AEP [GWh/yr]", font: { size: 11 } },
-            },
-            xaxis: {
-              ...DARK_PLOTLY_LAYOUT.xaxis,
-              tickangle: -30,
-              tickfont: { size: 11 },
-            },
-            margin: { t: 40, r: 20, b: 80, l: 60 },
+            transition: CHART_TRANSITION,
+            title: { text: "Gross → net (P50)", font: { size: 13 }, x: 0.02, xanchor: "left" as const },
+            showlegend: false,
+            xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, tickfont: { size: 11 }, tickangle: 0, automargin: true },
+            yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: { text: "AEP [GWh/yr]", font: { size: 12 } }, range: [yLo, a.gross_aep_gwh * 1.07] },
+            annotations: [
+              { xref: "paper", yref: "paper", x: 1, y: 1.01, xanchor: "right", yanchor: "bottom", text: `y-axis starts at ${yLo} GWh`, showarrow: false, font: { size: 10 } } as const,
+            ],
+            margin: { t: 40, r: 12, b: 64, l: 64 },
           }}
           config={PLOTLY_CONFIG}
           useResizeHandler
@@ -115,52 +97,48 @@ export default function AEPCascadePanel() {
           style={{ height: CHART_HEIGHT }}
         />
 
-        {/* P-values */}
         <Plot
           data={[
             {
-              type: "bar",
-              x: pLabels,
-              y: pValues,
-              marker: { color: pColors },
-              text: pValues.map(
-                (v) =>
-                  `${v.toFixed(1)} GWh<br>${(v * 1000 * aepCascade.price_eur_mwh / 1e6).toFixed(1)} M\u20AC`,
-              ),
-              textposition: "outside",
-              textfont: { size: 10 },
-              hovertemplate: "%{x}: %{y:.1f} GWh<extra></extra>",
+              type: "scatter",
+              mode: "lines",
+              x: xs,
+              y: poe,
+              line: { color: c.blue, width: 2.5 },
+              fill: "tozeroy",
+              fillcolor: "rgba(127,127,127,0.06)",
+              hovertemplate: "AEP ≥ %{x:.0f} GWh with %{y:.0f} % probability<extra></extra>",
+            },
+            {
+              type: "scatter",
+              mode: "text+markers",
+              x: marks.map((m) => m.v),
+              y: marks.map((m) => m.p),
+              text: marks.map((m) => `<b>${m.k}</b> ${m.v.toFixed(0)} GWh · ${meur(m.v).toFixed(1)} M€`),
+              textposition: "middle right",
+              textfont: { size: 11, color: c.ink },
+              marker: {
+                size: marks.map((m) => (m.k === "P90" ? 13 : 9)),
+                color: marks.map((m) => (m.k === "P90" ? c.orange : c.blue)),
+                line: { width: 2, color: "rgba(255,255,255,0.8)" },
+              },
+              hovertemplate: "%{text}<extra></extra>",
             },
           ]}
           layout={{
             ...DARK_PLOTLY_LAYOUT,
-            title: {
-              text: "Exceedance Probabilities",
-              font: { size: 12, color: "rgb(148, 163, 184)" },
-              x: 0.5,
-            },
-            yaxis: {
-              ...DARK_PLOTLY_LAYOUT.yaxis,
-              title: { text: "AEP [GWh/yr]", font: { size: 11 } },
-              range: [0, aepCascade.p50_gwh * 1.15],
-            },
-            xaxis: {
-              ...DARK_PLOTLY_LAYOUT.xaxis,
-            },
-            annotations: [
-              {
-                x: "P90",
-                y: aepCascade.p90_gwh,
-                text: "Used for financing",
-                showarrow: true,
-                arrowhead: 2,
-                arrowcolor: "rgb(234, 179, 8)",
-                font: { size: 11, color: "rgb(234, 179, 8)" },
-                ax: 60,
-                ay: -30,
-              },
+            transition: CHART_TRANSITION,
+            title: { text: "Probability the year-average AEP is exceeded", font: { size: 13 }, x: 0.02, xanchor: "left" as const },
+            showlegend: false,
+            xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, title: { text: "Long-term net AEP [GWh/yr]", font: { size: 12 } } },
+            yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: { text: "Probability of exceedance [%]", font: { size: 12 } }, range: [0, 104], dtick: 25 },
+            shapes: [
+              { type: "line", xref: "x", yref: "y", x0: a.p90_gwh, x1: a.p90_gwh, y0: 0, y1: 90, line: { color: c.orange, width: 1.5, dash: "dot" } } as const,
             ],
-            margin: { t: 40, r: 20, b: 50, l: 60 },
+            annotations: [
+              { x: a.p90_gwh, y: 4, xref: "x", yref: "y", xanchor: "right", text: "debt sizing →", showarrow: false, font: { size: 10 } } as const,
+            ],
+            margin: { t: 40, r: 16, b: 52, l: 64 },
           }}
           config={PLOTLY_CONFIG}
           useResizeHandler

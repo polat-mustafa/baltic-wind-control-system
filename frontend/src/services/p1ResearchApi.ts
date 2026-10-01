@@ -58,7 +58,9 @@ export interface MGARequest {
 
 export interface GaussianFLOWERSRequest {
   layout: string;
+  /** Hub-height mean wind speed [m/s] (A = v̄/Γ(1+1/k)). */
   mean_wind_speed_ms: number;
+  weibull_k: number;
   n_fourier_modes: number;
 }
 
@@ -72,7 +74,7 @@ export const RESEARCH_DEFAULTS = {
   adjointSensitivity: { layout: "staggered" } satisfies AdjointSensitivityRequest,
   twoStageStochastic: { layout: "staggered", n_scenarios: 3, maxiter: 3 } satisfies TwoStageStochasticRequest,
   mga: { layout: "staggered", n_alternatives: 3, aep_slack_percent: 2 } satisfies MGARequest,
-  gaussianFlowers: { layout: "staggered", mean_wind_speed_ms: 10.5, n_fourier_modes: 12 } satisfies GaussianFLOWERSRequest,
+  gaussianFlowers: { layout: "staggered", mean_wind_speed_ms: 9.3, weibull_k: 2.2, n_fourier_modes: 12 } satisfies GaussianFLOWERSRequest,
 };
 
 // ── POST wrappers ────────────────────────────────────────────────────

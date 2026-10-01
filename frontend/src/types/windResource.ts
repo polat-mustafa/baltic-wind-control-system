@@ -38,6 +38,10 @@ export interface WindRoseResult {
   dominant_direction_deg: number;
   circular_std_deg: number;
   num_sectors: number;
+  /** Lower edges of the speed classes [m/s]; the last class is open-ended. */
+  speed_bin_edges_ms: number[];
+  /** [sector][speed class] share of all hours — the joint table sums to 1. */
+  sector_speed_frequencies: number[][];
 }
 
 // ── Wake Analysis ───────────────────────────────────────────────

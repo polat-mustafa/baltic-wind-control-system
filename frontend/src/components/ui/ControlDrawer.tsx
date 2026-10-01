@@ -61,7 +61,7 @@ export function ControlDrawer({
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <Dialog.Content
           className={cn(
-            "fixed right-0 top-0 z-50 h-full w-80 sm:w-96",
+            "fixed right-0 top-0 z-50 h-full w-80 max-w-full sm:w-96",
             "border-l border-border-secondary bg-bg-secondary shadow-2xl shadow-black/50",
             "flex flex-col focus:outline-none",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",

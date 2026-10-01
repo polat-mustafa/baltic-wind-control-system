@@ -47,64 +47,66 @@ export default function ConverterComparisonPanel() {
         <InfoButton info={converterComparisonInfo} />
       </div>
 
+      <div className="overflow-x-auto">
       <table className="w-full text-left">
-        <thead>
-          <tr className="border-b border-border-secondary">
-            <th className="py-2 px-3 text-xs text-text-muted font-semibold">Metric</th>
-            <th className="py-2 px-3 text-xs text-center font-semibold" style={{ color: SCADA_COLORS.WARNING }}>
-              GFL (PLL)
-            </th>
-            <th className="py-2 px-3 text-xs text-center font-semibold" style={{ color: SCADA_COLORS.ENERGIZED }}>
-              GFM (VSM)
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="border-b border-border-primary">
-            <td className="py-2 px-3 text-xs text-text-muted">Stable</td>
-            <td className="py-2 px-3 text-sm text-center">
-              <span
-                className="px-2 py-0.5 rounded text-xs font-bold"
-                style={{
-                  backgroundColor: gfl.stable ? "rgba(0,255,0,0.12)" : "rgba(255,0,0,0.12)",
-                  color: gfl.stable ? SCADA_COLORS.ENERGIZED : SCADA_COLORS.FAULT,
-                }}
-              >
-                {gfl.stable ? "YES" : "NO"}
-              </span>
-            </td>
-            <td className="py-2 px-3 text-sm text-center">
-              <span
-                className="px-2 py-0.5 rounded text-xs font-bold"
-                style={{
-                  backgroundColor: gfm.stable ? "rgba(0,255,0,0.12)" : "rgba(255,0,0,0.12)",
-                  color: gfm.stable ? SCADA_COLORS.ENERGIZED : SCADA_COLORS.FAULT,
-                }}
-              >
-                {gfm.stable ? "YES" : "NO"}
-              </span>
-            </td>
-          </tr>
-          <MetricRow
-            label="Voltage Deviation"
-            gflValue={gfl.voltage_deviation_pu.toFixed(4)}
-            gfmValue={gfm.voltage_deviation_pu.toFixed(4)}
-            unit="pu"
-          />
-          <MetricRow
-            label="Settling Time"
-            gflValue={gfl.settling_time_s.toFixed(3)}
-            gfmValue={gfm.settling_time_s.toFixed(3)}
-            unit="s"
-          />
-          <MetricRow
-            label="Frequency Deviation"
-            gflValue={gfl.frequency_deviation_hz.toFixed(4)}
-            gfmValue={gfm.frequency_deviation_hz.toFixed(4)}
-            unit="Hz"
-          />
-        </tbody>
-      </table>
+          <thead>
+            <tr className="border-b border-border-secondary">
+              <th className="py-2 px-3 text-xs text-text-muted font-semibold">Metric</th>
+              <th className="py-2 px-3 text-xs text-center font-semibold" style={{ color: SCADA_COLORS.WARNING }}>
+                GFL (PLL)
+              </th>
+              <th className="py-2 px-3 text-xs text-center font-semibold" style={{ color: SCADA_COLORS.ENERGIZED }}>
+                GFM (VSM)
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-border-primary">
+              <td className="py-2 px-3 text-xs text-text-muted">Stable</td>
+              <td className="py-2 px-3 text-sm text-center">
+                <span
+                  className="px-2 py-0.5 rounded text-xs font-bold"
+                  style={{
+                    backgroundColor: gfl.stable ? "rgba(0,255,0,0.12)" : "rgba(255,0,0,0.12)",
+                    color: gfl.stable ? SCADA_COLORS.ENERGIZED : SCADA_COLORS.FAULT,
+                  }}
+                >
+                  {gfl.stable ? "YES" : "NO"}
+                </span>
+              </td>
+              <td className="py-2 px-3 text-sm text-center">
+                <span
+                  className="px-2 py-0.5 rounded text-xs font-bold"
+                  style={{
+                    backgroundColor: gfm.stable ? "rgba(0,255,0,0.12)" : "rgba(255,0,0,0.12)",
+                    color: gfm.stable ? SCADA_COLORS.ENERGIZED : SCADA_COLORS.FAULT,
+                  }}
+                >
+                  {gfm.stable ? "YES" : "NO"}
+                </span>
+              </td>
+            </tr>
+            <MetricRow
+              label="Voltage Deviation"
+              gflValue={gfl.voltage_deviation_pu.toFixed(4)}
+              gfmValue={gfm.voltage_deviation_pu.toFixed(4)}
+              unit="pu"
+            />
+            <MetricRow
+              label="Settling Time"
+              gflValue={gfl.settling_time_s.toFixed(3)}
+              gfmValue={gfm.settling_time_s.toFixed(3)}
+              unit="s"
+            />
+            <MetricRow
+              label="Frequency Deviation"
+              gflValue={gfl.frequency_deviation_hz.toFixed(4)}
+              gfmValue={gfm.frequency_deviation_hz.toFixed(4)}
+              unit="Hz"
+            />
+          </tbody>
+        </table>
+      </div>
 
       {/* Educational summary */}
       <div className="mt-3 p-3 bg-bg-primary/50 rounded border border-border-primary">

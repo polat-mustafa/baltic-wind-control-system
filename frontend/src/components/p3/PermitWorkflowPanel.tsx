@@ -327,41 +327,43 @@ export default function PermitWorkflowPanel() {
               Audit Trail — {activePermit.ptw_number}
             </h3>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-bg-primary/50">
-              <tr>
-                <th className="text-left px-3 py-1.5 text-text-muted">Time</th>
-                <th className="text-left px-3 py-1.5 text-text-muted">From</th>
-                <th className="text-left px-3 py-1.5 text-text-muted">To</th>
-                <th className="text-left px-3 py-1.5 text-text-muted">By</th>
-                <th className="text-left px-3 py-1.5 text-text-muted">Level</th>
-                <th className="text-left px-3 py-1.5 text-text-muted">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activePermit.transition_log.map((t) => (
-                <tr
-                  key={t.id}
-                  className="border-b border-border-primary/50 hover:bg-bg-tertiary/30"
-                >
-                  <td className="px-3 py-1 font-mono text-text-muted">
-                    {new Date(t.created_at).toLocaleTimeString()}
-                  </td>
-                  <td className="px-3 py-1 text-text-muted">{t.from_status}</td>
-                  <td className="px-3 py-1 text-text-secondary">{t.to_status}</td>
-                  <td className="px-3 py-1 text-text-secondary">
-                    {t.performed_by}
-                  </td>
-                  <td className="px-3 py-1 font-mono text-text-muted">
-                    L{t.user_level}
-                  </td>
-                  <td className="px-3 py-1 text-text-muted">
-                    {t.notes || "—"}
-                  </td>
+              <thead className="bg-bg-primary/50">
+                <tr>
+                  <th className="text-left px-3 py-1.5 text-text-muted">Time</th>
+                  <th className="text-left px-3 py-1.5 text-text-muted">From</th>
+                  <th className="text-left px-3 py-1.5 text-text-muted">To</th>
+                  <th className="text-left px-3 py-1.5 text-text-muted">By</th>
+                  <th className="text-left px-3 py-1.5 text-text-muted">Level</th>
+                  <th className="text-left px-3 py-1.5 text-text-muted">Notes</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {activePermit.transition_log.map((t) => (
+                  <tr
+                    key={t.id}
+                    className="border-b border-border-primary/50 hover:bg-bg-tertiary/30"
+                  >
+                    <td className="px-3 py-1 font-mono text-text-muted">
+                      {new Date(t.created_at).toLocaleTimeString()}
+                    </td>
+                    <td className="px-3 py-1 text-text-muted">{t.from_status}</td>
+                    <td className="px-3 py-1 text-text-secondary">{t.to_status}</td>
+                    <td className="px-3 py-1 text-text-secondary">
+                      {t.performed_by}
+                    </td>
+                    <td className="px-3 py-1 font-mono text-text-muted">
+                      L{t.user_level}
+                    </td>
+                    <td className="px-3 py-1 text-text-muted">
+                      {t.notes || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

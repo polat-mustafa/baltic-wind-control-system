@@ -599,7 +599,7 @@ function WindCompass() {
   const windCardinal = cardinals[Math.round(windDirDeg / 22.5) % 16];
 
   return (
-    <div className="absolute top-14 right-3 z-1000 pointer-events-none">
+    <div className="absolute top-14 right-3 z-1000 pointer-events-none max-md:hidden">
       <svg width="72" height="90" viewBox="-36 -36 72 90">
         <circle
           cx={0}
@@ -1030,7 +1030,7 @@ function ArrayCableCard({
   return (
     <div
       className={cn(
-        "absolute bottom-8 z-1000 w-80 rounded-lg border border-border-primary bg-bg-primary/95 shadow-lg shadow-black/30 backdrop-blur-sm",
+        "absolute bottom-8 z-1000 w-80 max-w-[calc(100%-1.5rem)] rounded-lg border border-border-primary bg-bg-primary/95 shadow-lg shadow-black/30 backdrop-blur-sm",
         drill ? "right-[21.5rem]" : "right-3",
       )}
     >

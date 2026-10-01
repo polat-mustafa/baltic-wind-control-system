@@ -75,7 +75,7 @@ export default function CommissioningDashboard() {
   return (
     <div className="space-y-4">
       {/* Title bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div>
           <h2 className="text-xl font-bold">{activeProgramme.title}</h2>
           <p className="text-xs text-slate-400">

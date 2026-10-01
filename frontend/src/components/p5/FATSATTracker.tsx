@@ -257,7 +257,7 @@ function SATTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div>
           <span className="text-xs text-text-muted">Campaign: </span>
           <span className="text-xs font-mono">{satCampaign.campaign_id}</span>

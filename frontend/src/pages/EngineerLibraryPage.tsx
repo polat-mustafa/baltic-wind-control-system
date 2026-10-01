@@ -124,7 +124,7 @@ export default function EngineerLibraryPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="flex items-start gap-3 min-w-0">
           <div className="mt-0.5 h-9 w-9 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
             <BookOpen size={18} className="text-accent" />

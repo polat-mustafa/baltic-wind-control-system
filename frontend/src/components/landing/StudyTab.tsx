@@ -54,20 +54,22 @@ export default function StudyTab() {
         {byScenario.length === 0 ? (
           <p>No completed drills yet — finished Training drills are recorded here.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full font-mono text-[11.5px]">
-            <tbody>
-              {byScenario.map(([title, scores]) => {
-                const s = summary(scores);
-                return (
-                  <tr key={title}>
-                    <td className="py-0.5 pr-2 font-sans font-semibold text-text-primary">{title}</td>
-                    <td className="text-right">n={s.n}</td>
-                    <td className="text-right">{s.mean.toFixed(0)}{s.n > 1 ? ` ± ${s.sd.toFixed(0)}` : ""}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+              <tbody>
+                {byScenario.map(([title, scores]) => {
+                  const s = summary(scores);
+                  return (
+                    <tr key={title}>
+                      <td className="py-0.5 pr-2 font-sans font-semibold text-text-primary">{title}</td>
+                      <td className="text-right">n={s.n}</td>
+                      <td className="text-right">{s.mean.toFixed(0)}{s.n > 1 ? ` ± ${s.sd.toFixed(0)}` : ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

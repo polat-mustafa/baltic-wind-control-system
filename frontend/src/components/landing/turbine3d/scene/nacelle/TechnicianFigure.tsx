@@ -11,9 +11,15 @@
 
 import { memo } from "react";
 
-export const TechnicianFigure = memo(function TechnicianFigure() {
+export const TechnicianFigure = memo(function TechnicianFigure({
+  position = [0.3, -3.8, 4.0],
+  rotationY = 0,
+}: {
+  position?: [number, number, number];
+  rotationY?: number;
+}) {
   return (
-    <group position={[0.3, -3.8, 4.0]}>
+    <group position={position} rotation={[0, rotationY, 0]}>
       {/* Legs — dark navy work trousers */}
       <mesh position={[-0.1, 0.4, 0]}>
         <cylinderGeometry args={[0.07, 0.07, 0.8, 6]} />

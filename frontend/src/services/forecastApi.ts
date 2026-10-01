@@ -18,6 +18,7 @@ import type {
   RampDetectResponse,
   SCADADatasetSummary,
   SHAPResponse,
+  TrainingLive,
   TFTAttentionResponse,
   TFTPredictResponse,
   TFTTrainResponse,
@@ -317,7 +318,7 @@ export function tftAttention(
 // ── Ensemble Prediction (async background task + polling) ─────
 
 /** Polling interval for ensemble task status checks. */
-const ENSEMBLE_POLL_MS = 3_000;
+const ENSEMBLE_POLL_MS = 2_000;
 
 interface TaskStartResponse {
   task_id: string;
@@ -329,6 +330,12 @@ interface TaskStatusResponse {
   progress: number;
   result: EnsemblePredictResponse | null;
   error: string | null;
+  live?: TrainingLive | null;
+}
+
+/** Snapshot of the live / last model build (stages, losses, log, ETA). */
+export function getTrainingProgress(): Promise<TrainingLive> {
+  return request(`${BASE}/training-progress`);
 }
 
 /**
@@ -345,6 +352,7 @@ export async function predictEnsemble(
   turbineIndex: number,
   horizonSteps: number,
   seed?: number,
+  onProgress?: (progress: number, live: TrainingLive | null) => void,
 ): Promise<EnsemblePredictResponse> {
   // 1. Start background task → 202 Accepted
   const { task_id } = await post<TaskStartResponse>(
@@ -376,6 +384,7 @@ export async function predictEnsemble(
       }
       throw err;
     }
+    onProgress?.(status.progress, status.live ?? null);
     if (status.status === "completed" && status.result) {
       return status.result;
     }

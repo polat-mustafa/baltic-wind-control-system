@@ -64,6 +64,6 @@ describe("MapKPIRibbon", () => {
   it("renders grid frequency", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
     expect(screen.getByText("Freq")).toBeDefined();
-    expect(screen.getByText("50.01")).toBeDefined();
+    expect(screen.getByText("50.010")).toBeDefined();
   });
 });

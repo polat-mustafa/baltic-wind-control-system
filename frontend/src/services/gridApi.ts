@@ -38,6 +38,29 @@ export function runLoadFlowAll(): Promise<LoadFlowResult[]> {
   return request(`${BASE}/load-flow-all`);
 }
 
+/** Grid solution for the live farm operating point (34 WTG powers, MW). */
+export interface LiveLoadFlow {
+  converged: boolean;
+  total_generation_mw: number;
+  poc_p_mw: number;
+  poc_q_mvar: number;
+  total_loss_mw: number;
+  statcom_q_mvar: number;
+  v_poc_pu: number;
+  v_onshore_220_pu: number;
+  v_oss_220_pu: number;
+  v_oss_66_pu: number;
+  export_cable_loading_pct: number;
+  max_array_cable_loading_pct: number;
+  oss_trafo_loading_pct: number;
+  onshore_trafo_loading_pct: number;
+  voltage_compliant: boolean;
+}
+
+export function runLiveLoadFlow(wtgPowerMW: number[]): Promise<LiveLoadFlow> {
+  return post(`${BASE}/live-load-flow`, { wtg_p_mw: wtgPowerMW });
+}
+
 // ── Short-Circuit ─────────────────────────────────────────────
 
 export function calcShortCircuit(

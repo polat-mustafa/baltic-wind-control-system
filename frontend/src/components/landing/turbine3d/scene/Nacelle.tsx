@@ -32,6 +32,7 @@ import { RoundedBox } from "@react-three/drei";
 import type { TurbinePartId } from "../../../../constants/turbinePartEducation";
 import { useLandingStore } from "../../../../store/landingStore";
 import { metalPaintedShell, metalPaintedDetail } from "../materials";
+import { useV236Model } from "../model/useV236Model";
 
 interface NacelleProps {
   viewerMode: "normal" | "cutaway" | "exploded";
@@ -102,18 +103,28 @@ export const Nacelle = memo(function Nacelle({ viewerMode, selectedPart }: Nacel
   const isCutaway = viewerMode === "cutaway" || viewerMode === "exploded";
   const setSelectedPart = useLandingStore((s) => s.setSelectedTurbinePart);
 
-  // One plane shared by every shell mesh. Normal +X — everything with
-  // x > plane.constant is kept, x < plane.constant is clipped away.
-  // constant = 0 cuts at centreline; we animate in from +6.
-  const clipPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(1, 0, 0), 6), []);
-  const ghostPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0), []);
-  const targetConstant = useRef(6);
+  // One plane shared by every shell mesh, defined in the NACELLE frame and
+  // re-projected to world every frame (three.js clipping planes are world
+  // space, so a fixed world plane would cut a different side at every yaw).
+  // The starboard (+x local) half is removed — the side the part fly-to
+  // cameras look from. c = 0 cuts at the centreline; we animate in from 6.
+  const groupRef = useRef<THREE.Group>(null);
+  const clipPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(-1, 0, 0), 6), []);
+  const ghostPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(1, 0, 0), -6), []);
+  const local = useMemo(() => new THREE.Plane(), []);
+  const cut = useRef(6);
 
   useFrame((_, dt) => {
-    targetConstant.current = isCutaway ? 0 : 6;
     const k = 1 - Math.exp(-dt * 8);
-    clipPlane.constant += (targetConstant.current - clipPlane.constant) * k;
-    ghostPlane.constant = -clipPlane.constant;
+    cut.current += ((isCutaway ? 0 : 6) - cut.current) * k;
+    const g = groupRef.current;
+    if (!g) return;
+    local.normal.set(-1, 0, 0);                           // keep x ≤ c
+    local.constant = cut.current;
+    clipPlane.copy(local).applyMatrix4(g.matrixWorld);
+    local.normal.set(1, 0, 0);                            // ghost: x ≥ c
+    local.constant = -cut.current;
+    ghostPlane.copy(local).applyMatrix4(g.matrixWorld);
   });
 
   const clippingPlanes = isCutaway ? [clipPlane] : [];
@@ -128,6 +139,43 @@ export const Nacelle = memo(function Nacelle({ viewerMode, selectedPart }: Nacel
     setSelectedPart("nacelle");
   };
 
+  // Blender shell (single rounded envelope, tapered nose, panel seams,
+  // heli-hoist platform) replaces the box volumes once loaded.
+  const model = useV236Model();
+  const ghostEdges = useMemo(
+    () => (model?.nacelle_shell ? new THREE.EdgesGeometry(model.nacelle_shell, 25) : null),
+    [model],
+  );
+  if (model?.nacelle_shell) {
+    return (
+      <group ref={groupRef} position={[0, 151, -5]}>
+        <mesh geometry={model.nacelle_shell} name="nacelle" castShadow receiveShadow onClick={handleClick}>
+          <meshPhysicalMaterial
+            color={isSelected ? "#7fb1ff" : "#cfd3d1"}
+            roughness={0.42}
+            metalness={0.05}
+            clearcoat={0.5}
+            clearcoatRoughness={0.3}
+            emissive={isSelected ? "#1d4ed8" : "#000000"}
+            emissiveIntensity={isSelected ? 0.18 : 0}
+            clippingPlanes={clippingPlanes}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        {model.nacelle_detail && (
+          <mesh geometry={model.nacelle_detail} castShadow onClick={handleClick}>
+            <meshStandardMaterial color="#9aa1a6" roughness={0.4} metalness={0.8} clippingPlanes={clippingPlanes} />
+          </mesh>
+        )}
+        {isCutaway && ghostEdges && (
+          <lineSegments geometry={ghostEdges}>
+            <lineBasicMaterial color="#7b8698" transparent opacity={0.35} clippingPlanes={ghostPlanes} depthWrite={false} />
+          </lineSegments>
+        )}
+      </group>
+    );
+  }
+
   // Shell dimensions for ghost-edge geometry (must mirror the main mesh boxes).
   const shells: { size: [number, number, number]; position: [number, number, number] }[] = [
     { size: [9, 8, 20],     position: [0, 0, 0] },
@@ -138,7 +186,7 @@ export const Nacelle = memo(function Nacelle({ viewerMode, selectedPart }: Nacel
   ];
 
   return (
-    <group position={[0, 151, -5]}>
+    <group ref={groupRef} position={[0, 151, -5]}>
       {/* Central drivetrain bay — 9 × 8 × 20 m, rounded corners. */}
       <RoundedBox
         args={[9, 8, 20]}

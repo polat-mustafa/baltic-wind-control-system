@@ -124,6 +124,30 @@ export function exportCableState(totalMW: number): CableState {
   };
 }
 
+// ── 66 kV array cables (backend ARRAY_CABLE_500/630/800, graded) ──
+
+export const ARRAY_KV = 66;
+const ARRAY_CABLE_GRADES = [
+  { mm2: 500, ratedA: 715 },
+  { mm2: 630, ratedA: 818 },
+  { mm2: 800, ratedA: 900 },
+] as const;
+
+/**
+ * Cable grade of the k-th segment counted from the OSS (k = 0 is the
+ * OSS-end cable carrying the whole string) — same rule as the backend
+ * `_get_cable_grade`: far third 500 mm², middle 630 mm², near OSS 800 mm².
+ */
+export function arrayCableGrade(segmentFromOss: number, stringLength: number) {
+  const normalised = (stringLength - 1 - segmentFromOss) / Math.max(stringLength - 1, 1);
+  return ARRAY_CABLE_GRADES[normalised < 0.4 ? 0 : normalised < 0.7 ? 1 : 2];
+}
+
+/** Current [A] in a 66 kV cable carrying `mw` at unity power factor. */
+export function arrayCableCurrentA(mw: number): number {
+  return (Math.max(0, mw) * 1e6) / (Math.sqrt(3) * ARRAY_KV * 1e3);
+}
+
 // ── Vestas V236-15.0 MW operating model ─────────────────────────
 // Mirrors the backend: power curve `services/p1/wake_model.py`
 // (P = 15·(v/11.1)³ MW below rated), rotor limits `turbine_physics/rotor_dynamics.py`.
@@ -181,6 +205,48 @@ export interface PowerChain {
  * stage is consistent with the MW the turbine reports:
  * P_el = P_rotor · η_gb · η_gen · η_conv · η_tr.
  */
+/**
+ * Rotor thrust coefficient: ≈ 0.8 below rated (near-optimal induction,
+ * a ≈ 0.28), then pitch sheds load so thrust falls ∝ 1/v above rated
+ * (Ct ∝ (v_r/v)³) — the usual peak-at-rated thrust curve of pitch-
+ * regulated turbines. Zero outside cut-in … cut-out.
+ */
+export function v236ThrustCoefficient(windMs: number): number {
+  if (windMs < V236.cutInMs || windMs > V236.cutOutMs) return 0;
+  return windMs <= V236.ratedMs ? 0.8 : 0.8 * (V236.ratedMs / windMs) ** 3;
+}
+
+/** Rotor thrust T = ½ρAv²·Ct [MN] (2.6 MN at rated). */
+export function v236ThrustMN(windMs: number): number {
+  const area = Math.PI * (ROTOR_DIAMETER_M / 2) ** 2;
+  return (0.5 * 1.225 * area * windMs ** 2 * v236ThrustCoefficient(windMs)) / 1e6;
+}
+
+/** Axial induction from Ct = 4a(1−a) (momentum theory, a ≤ 0.4). */
+export function inductionFromCt(ct: number): number {
+  return (1 - Math.sqrt(Math.max(0, 1 - Math.min(ct, 0.96)))) / 2;
+}
+
+/**
+ * Static tower-top deflection under rotor thrust [m]: cantilever
+ * δ = T·H³/(3·EI), H = 124 m, EI ≈ 2.5·10¹² N·m² (Ø 10 → 6.5 m steel
+ * tube, t ≈ 60 mm), ×1.4 for monopile/soil rotation. ≈ 0.9 m at rated.
+ */
+export function v236TowerTopDeflectionM(thrustMN: number): number {
+  const H = 124;
+  const EI = 2.5e12;
+  return ((thrustMN * 1e6 * H ** 3) / (3 * EI)) * 1.4;
+}
+
+/**
+ * Flapwise blade-tip deflection [m], scaled from ≈ 10 m at rated thrust
+ * (order reported for 15 MW-class 115–120 m blades); the prebend (5 m) is
+ * what keeps the tip clear of the tower.
+ */
+export function v236TipDeflectionM(thrustMN: number): number {
+  return (10 * thrustMN) / v236ThrustMN(V236.ratedMs);
+}
+
 export function v236PowerChain(electricalMW: number, windMs: number, rotorRpm: number): PowerChain {
   const p = Math.max(0, electricalMW);
   const trIn = p / V236_ETA.transformer;
@@ -280,4 +346,34 @@ export function gustMs(windMs: number): number {
 /** Wind speed at height z [m/s] from the hub-height value (power law). */
 export function windAtHeight(hubWindMs: number, heightM: number): number {
   return hubWindMs * Math.pow(heightM / HUB_HEIGHT_M, SHEAR_ALPHA);
+}
+
+// ── Export cable DTS profile (same model as backend services/p2/cable_dts.py) ──
+// IEC 60287 steady state per circuit: T = T_amb + I²·R_AC,90·R_th·zone(km).
+// R_th is calibrated so 950 A at 15 °C design ambient brings the worst spot
+// (OSS J-tube, zone 1.4) to exactly 90 °C. Zones follow the real route:
+// J-tube 0–0.3 km, subsea burial to 31.0 km, HDD landfall 31.0–31.8 km
+// (deep under beach/dunes), land cable to 45 km.
+const DTS_R_AC_OHM_PER_M = 0.0233 / 1000;
+const DTS_J_TUBE_FACTOR = 1.4;
+export const DTS_R_TH = (90 - 15) / (950 ** 2 * DTS_R_AC_OHM_PER_M * DTS_J_TUBE_FACTOR); // ≈ 2.55 K·m/W
+export const DTS_ZONES = { jTubeEndKm: 0.3, hddStartKm: 31.0, hddEndKm: 31.8 } as const;
+
+export function dtsZoneFactor(km: number): number {
+  if (km <= DTS_ZONES.jTubeEndKm) return DTS_J_TUBE_FACTOR;
+  if (km < DTS_ZONES.hddStartKm) return 1 + 0.05 * Math.sin((2 * Math.PI * km) / 8);
+  if (km <= DTS_ZONES.hddEndKm) return 1.3;
+  return 1.1;
+}
+
+export function dtsZoneName(km: number): string {
+  if (km <= DTS_ZONES.jTubeEndKm) return "OSS J-tube (cable in air)";
+  if (km < DTS_ZONES.hddStartKm) return "subsea burial";
+  if (km <= DTS_ZONES.hddEndKm) return "HDD landfall, Zaleskie";
+  return "land cable";
+}
+
+/** Conductor temperature [°C] at km from the OSS, per circuit current [A]. */
+export function dtsTempC(km: number, currentA: number, ambientC: number): number {
+  return ambientC + currentA ** 2 * DTS_R_AC_OHM_PER_M * DTS_R_TH * dtsZoneFactor(km);
 }

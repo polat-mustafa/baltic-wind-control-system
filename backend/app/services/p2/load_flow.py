@@ -49,6 +49,7 @@ import pandapower as pp
 from app.schemas.grid import (
     BusResult,
     LineResult,
+    LiveLoadFlowResponse,
     LoadFlowResponse,
     LoadFlowScenario,
     TransformerResult,
@@ -372,6 +373,84 @@ def _extract_transformer_results(net: pp.pandapowerNet) -> list[TransformerResul
             )
         )
     return results
+
+
+def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
+    """Load flow for the live operating point of the landing simulation.
+
+    Every WTG sgen gets its own active power (WTG_01 … WTG_34 in the
+    STRING_LAYOUT order the frontend uses), the STATCOM is auto-dispatched to
+    hold the OSS 220 kV bus at 1.0 p.u., then Newton-Raphson is solved. The
+    compact result feeds the map's KPI ribbon and the OSS / cable panels, so
+    the P-Q-V shown there is pandapower's, not a browser estimate.
+
+    Parameters
+    ----------
+    wtg_p_mw : list[float]
+        34 active powers [MW] (validated 0 … 15 MW by the request schema).
+    """
+    net = build_network(generation_fraction=0.0)
+    for idx in range(len(net.sgen)):
+        name = str(net.sgen.at[idx, "name"])
+        if name.startswith("WTG_"):
+            net.sgen.at[idx, "p_mw"] = float(wtg_p_mw[int(name[4:]) - 1])
+    statcom_q = auto_statcom_dispatch(net)
+    pp.runpp(net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
+
+    total_gen = float(sum(wtg_p_mw))
+    if not net.converged:
+        return LiveLoadFlowResponse(
+            converged=False,
+            total_generation_mw=round(total_gen, 2),
+            poc_p_mw=0.0,
+            poc_q_mvar=0.0,
+            total_loss_mw=0.0,
+            statcom_q_mvar=round(statcom_q, 1),
+            v_poc_pu=0.0,
+            v_onshore_220_pu=0.0,
+            v_oss_220_pu=0.0,
+            v_oss_66_pu=0.0,
+            export_cable_loading_pct=0.0,
+            max_array_cable_loading_pct=0.0,
+            oss_trafo_loading_pct=0.0,
+            onshore_trafo_loading_pct=0.0,
+            voltage_compliant=False,
+        )
+
+    bus = {str(net.bus.at[i, "name"]): float(net.res_bus.at[i, "vm_pu"]) for i in net.bus.index}
+    line_load = {
+        str(net.line.at[i, "name"]): float(net.res_line.at[i, "loading_percent"])
+        for i in net.line.index
+    }
+    trafo_load = {
+        str(net.trafo.at[i, "name"]): float(net.res_trafo.at[i, "loading_percent"])
+        for i in net.trafo.index
+    }
+    losses = float(net.res_line.pl_mw.sum() + net.res_trafo.pl_mw.sum())
+    # ext_grid absorbs the farm's export: its injection is the negative of what we deliver
+    poc_p = -float(net.res_ext_grid.p_mw.sum())
+    poc_q = -float(net.res_ext_grid.q_mvar.sum())
+    non_slack = [v for name, v in bus.items() if "PSE" not in name]
+
+    return LiveLoadFlowResponse(
+        converged=True,
+        total_generation_mw=round(total_gen, 2),
+        poc_p_mw=round(poc_p, 2),
+        poc_q_mvar=round(poc_q, 2),
+        total_loss_mw=round(losses, 3),
+        statcom_q_mvar=round(statcom_q, 1),
+        v_poc_pu=round(bus["PSE_400kV"], 4),
+        v_onshore_220_pu=round(bus["Onshore_220kV"], 4),
+        v_oss_220_pu=round(bus["OSS_220kV"], 4),
+        v_oss_66_pu=round(bus["OSS_66kV"], 4),
+        export_cable_loading_pct=round(line_load["Export_220kV"], 1),
+        max_array_cable_loading_pct=round(
+            max(v for k, v in line_load.items() if k.startswith("Array_")), 1
+        ),
+        oss_trafo_loading_pct=round(trafo_load["Trafo_66_220kV"], 1),
+        onshore_trafo_loading_pct=round(trafo_load["Trafo_220_400kV"], 1),
+        voltage_compliant=min(non_slack) >= V_MIN_PU and max(non_slack) <= V_MAX_PU,
+    )
 
 
 def run_all_scenarios(

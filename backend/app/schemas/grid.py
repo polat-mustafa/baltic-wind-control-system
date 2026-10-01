@@ -22,7 +22,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ── Enums ─────────────────────────────────────────────────────────
 
@@ -108,6 +108,49 @@ class LoadFlowResponse(BaseModel):
     transformers: list[TransformerResult] = Field(
         default_factory=list, description="Per-transformer results"
     )
+
+
+class LiveLoadFlowRequest(BaseModel):
+    """Live operating point from the landing simulation: P of every WTG."""
+
+    wtg_p_mw: list[float] = Field(
+        min_length=34,
+        max_length=34,
+        description="Active power of WTG_01 … WTG_34 [MW], 0 ≤ P ≤ 15 (V236 rating)",
+    )
+
+    @field_validator("wtg_p_mw")
+    @classmethod
+    def _within_rating(cls, v: list[float]) -> list[float]:
+        # Domain rule 1: 0 ≤ P ≤ P_rated for every turbine
+        if any(p < 0 or p > 15.0 for p in v):
+            msg = "each WTG power must be within 0 … 15 MW"
+            raise ValueError(msg)
+        return v
+
+
+class LiveLoadFlowResponse(BaseModel):
+    """Grid state for the live operating point (pandapower Newton-Raphson).
+
+    Q is positive when generated (domain rule 4); voltages in p.u. of the
+    bus nominal voltage (rule 2).
+    """
+
+    converged: bool
+    total_generation_mw: float = Field(description="Sum of WTG output [MW]")
+    poc_p_mw: float = Field(description="Active power delivered to PSE 400 kV [MW]")
+    poc_q_mvar: float = Field(description="Reactive power delivered to PSE 400 kV [MVAR]")
+    total_loss_mw: float = Field(description="Cable + transformer losses [MW]")
+    statcom_q_mvar: float = Field(description="STATCOM set-point after auto-dispatch [MVAR]")
+    v_poc_pu: float
+    v_onshore_220_pu: float
+    v_oss_220_pu: float
+    v_oss_66_pu: float
+    export_cable_loading_pct: float
+    max_array_cable_loading_pct: float
+    oss_trafo_loading_pct: float
+    onshore_trafo_loading_pct: float
+    voltage_compliant: bool = Field(description="All buses within 0.95–1.05 p.u. (PSE IRiESP)")
 
 
 # ── Short-Circuit Results (IEC 60909) ────────────────────────────

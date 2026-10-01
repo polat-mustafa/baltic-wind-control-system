@@ -231,7 +231,7 @@ export function IEDNode({ data }: { data: IEDNodeData }) {
       className={`rounded border px-2 py-1.5 text-center font-mono relative${pulse ? " animate-pulse" : ""}`}
       style={{
         borderColor: alarmColor ?? color,
-        backgroundColor: alarmColor ? alarmColor + "1a" : "#161924",
+        backgroundColor: alarmColor ? alarmColor + "1a" : "var(--color-bg-secondary)",
         minWidth: hasLiveData ? 100 : 90,
       }}
     >

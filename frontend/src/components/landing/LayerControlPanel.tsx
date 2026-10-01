@@ -25,11 +25,18 @@ const LAYER_ITEMS: {
   { key: "wakeEffects", label: "Wake Cones", color: "#ef4444" },
   { key: "oceanWaves", label: "Ocean Waves", color: "#06b6d4" },
   { key: "arrayCables", label: "Array Cables", color: "#f97316" },
-  { key: "exclusionZone", label: "Exclusion Zone", color: "#3b82f6" },
+  { key: "exclusionZone", label: "Site Boundary", color: "#3b82f6" },
   { key: "foundations", label: "Foundations", color: "#4a5580" },
   { key: "turbineLabels", label: "Turbine Labels", color: "#6b7490" },
   { key: "bathymetry", label: "Bathymetry", color: "#1e3a5f" },
   { key: "dayNightTint", label: "Day / Night", color: "#fbbf24" },
+  { key: "safetyZones", label: "Safety Zones 500 m", color: "#f59e0b" },
+  { key: "navAids", label: "Nav Lights & Buoys", color: "#facc15" },
+  { key: "vessels", label: "O&M Vessels", color: "#7dd3fc" },
+  { key: "gridContext", label: "SwePol & OWF Areas", color: "#a78bfa" },
+  { key: "fibreComms", label: "Fibre / SCADA Comms", color: "#22d3ee" },
+  { key: "aisTraffic", label: "AIS Traffic (live)", color: "#34d399" },
+  { key: "cableDts", label: "Export Cable DTS", color: "#fb7185" },
 ];
 
 // ── Toggle switch ────────────────────────────────────────────────
@@ -54,13 +61,31 @@ export default function LayerControlPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const layers = useLayerStore((s) => s.layers);
   const toggleLayer = useLayerStore((s) => s.toggleLayer);
+  const mapTheme = useLayerStore((s) => s.mapTheme);
+  const setMapTheme = useLayerStore((s) => s.setMapTheme);
+  const storybook = mapTheme === "storybook";
 
   return (
-    <div className="absolute top-24 left-3 z-1000">
+    <div className="absolute top-24 left-3 z-1100">
+      {/* Theme demo switch: ISA-101 control room ↔ hand-drawn storybook */}
+      <button
+        onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}
+        className="mr-1.5 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-colors align-top"
+        style={{
+          backgroundColor: storybook ? "#f3e7c9" : "rgba(15,17,23,0.85)",
+          borderColor: storybook ? "#3a2d20" : "#3d4560",
+          color: storybook ? "#2b2118" : "#9ba3b8",
+        }}
+        title="Switch the map look (demo): control room HMI ↔ hand-drawn storybook"
+        aria-pressed={storybook}
+      >
+        <span aria-hidden>{storybook ? "✎" : "▣"}</span>
+        <span className="text-[11px] font-medium">{storybook ? "Storybook (demo)" : "Control room"}</span>
+      </button>
       {/* Collapsed button */}
       <button
         onClick={() => setIsOpen((o) => !o)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-colors"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-colors align-top"
         style={{
           backgroundColor: isOpen ? "#1e2231" : "rgba(15,17,23,0.85)",
           borderColor: isOpen ? "#3b82f6" : "#3d4560",
@@ -89,7 +114,7 @@ export default function LayerControlPanel() {
             Map Layers
           </div>
 
-          <div className="py-1">
+          <div className="py-1 max-h-[55vh] overflow-y-auto">
             {LAYER_ITEMS.map(({ key, label, color }) => (
               <button
                 key={key}

@@ -17,10 +17,10 @@ const LEGEND_ITEMS: { status: TurbineStatus; label: string; color: string }[] = 
 
 export default function MapLegend() {
   return (
-    <div className="pointer-events-auto bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-1.5">
+    <div className="pointer-events-auto bg-bg-primary/90 border border-border-primary rounded-lg px-3 py-1.5">
       <div className="flex items-center gap-3">
         {LEGEND_ITEMS.map((item) => (
-          <div key={item.status} className="flex items-center gap-1.5 text-[10px] text-slate-300">
+          <div key={item.status} className="flex items-center gap-1.5 text-[10px] text-text-secondary">
             <span
               className="w-2 h-2 rounded-full inline-block"
               style={{ backgroundColor: item.color }}

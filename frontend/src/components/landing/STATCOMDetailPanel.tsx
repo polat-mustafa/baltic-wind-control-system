@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { AudioWaveform } from "lucide-react";
 
 import { selectKPIs, useLandingStore } from "../../store/landingStore";
+import { useStatcomQ } from "../../store/liveGridStore";
 import {
   REACTOR_COUNT,
   REACTOR_UNIT_MVAR,
@@ -53,7 +54,10 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
   const navigate = useNavigate();
   const kpis = useLandingStore(selectKPIs);
   const b = reactiveBalance(kpis.totalOutputMW);
-  const q = Math.round(b.statcomMVAr);
+  // Hero value = the same Q as map and ribbon (pandapower when solved); the
+  // balance rows below stay the simplified textbook breakdown.
+  const statcom = useStatcomQ(kpis.totalOutputMW);
+  const q = Math.round(statcom.q);
 
   const mode = q > 5 ? "INJECTING" : q < -5 ? "ABSORBING" : "FLOATING";
   const modeColor = q > 5 ? INJECT_COLOR : q < -5 ? ABSORB_COLOR : IDLE_COLOR;
@@ -68,7 +72,11 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
       status={{ label: "In service", color: NORMAL_COLOR }}
       onClose={onClose}
       action={{ label: "Open HV Grid · STATCOM sizing", onClick: () => navigate("/hv-grid") }}
-      footnote="IEC 62927 · ENTSO-E NC RfG Type D · PSE IRiESP — simplified live model; full load flow in P2"
+      footnote={
+        statcom.source === "pandapower"
+          ? "IEC 62927 · ENTSO-E NC RfG Type D · PSE IRiESP — Q from the live pandapower load flow; balance rows are the simplified model"
+          : "IEC 62927 · ENTSO-E NC RfG Type D · PSE IRiESP — simplified live model (backend load flow not reachable)"
+      }
     >
       {/* Live Q + capability */}
       <div className="px-4 py-3 border-b border-border-primary/60">

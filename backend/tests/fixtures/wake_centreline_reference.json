@@ -1,0 +1,8 @@
+{
+  "description": "Single V236 rotor (D = 236 m, hub 150 m), constant Ct = 0.8, U = 10 m/s, TI = 6 %: velocity deficit 1 - u/U on the wake centre line at hub height. Shared reference for the backend (PyWake) and the frontend 3D wake model (model/wakeModel.ts).",
+  "model": "PyWake 2.6.19 BastankhahGaussianDeficit(k=0.035), PropagateDownwind, SquaredSum",
+  "ct": 0.8,
+  "k_star": 0.035,
+  "x_over_d": [3, 4, 5, 6, 8, 10, 12, 15],
+  "deficit": [0.53307, 0.41164, 0.32947, 0.27093, 0.19423, 0.14709, 0.11572, 0.08496]
+}

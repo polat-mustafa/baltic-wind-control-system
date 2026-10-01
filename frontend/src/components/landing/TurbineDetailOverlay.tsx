@@ -11,11 +11,11 @@
  * actually changed will re-render (same pattern as TurbineMarker).
  */
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 
-import { TURBINE_POSITIONS, turbineIconPx } from "../../constants/windFarmLayout";
+import { TURBINE_POSITIONS, turbineIconScale } from "../../constants/windFarmLayout";
 import { selectTurbine, useLandingStore } from "../../store/landingStore";
 import type { TurbineStatus } from "../../types/landing";
 
@@ -46,119 +46,122 @@ const STATUS_BADGE_COLOR: Record<TurbineStatus, string> = {
 };
 
 // ── Power Badge (zoom ≥ 13) ─────────────────────────────────────
-// Shows real-time MW output below each turbine icon.
-// DivIcon is recreated when power changes (rounded to 0.1 MW)
-// which is fine — there are no CSS animations to preserve here.
+// Real-time MW under each turbine icon. The DivIcon is built once per zoom
+// scale; the value and colour are written into its DOM each tick, so the
+// 34 badges never get replaced (no flicker on wind changes).
 
 const TurbinePowerBadge = memo(function TurbinePowerBadge({
   turbineId,
   lat,
   lon,
-  iconPx,
+  scale,
 }: {
   turbineId: string;
   lat: number;
   lon: number;
-  iconPx: number;
+  scale: number;
 }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
+  const markerRef = useRef<L.Marker | null>(null);
   const color = turbine ? STATUS_BADGE_COLOR[turbine.status] : "";
   const powerText = turbine ? turbine.powerOutputMW.toFixed(1) : "";
 
-  // Below the marker disc and its 14 px ID label.
+  // Below the icon's ID label (text baseline ≈ 34.5 units under the hub).
   const icon = useMemo(
     () =>
       L.divIcon({
-        html: `<span style="color:${color}">${powerText}<small> MW</small></span>`,
+        html: `<span><b class="wtg-badge-value"></b><small> MW</small></span>`,
         className: "leaflet-turbine-power-badge",
         iconSize: [52, 14],
-        iconAnchor: [26, -(iconPx / 2 + 18)],
+        iconAnchor: [26, -(36 * scale + 3)],
       }),
-    [color, powerText, iconPx],
+    [scale],
   );
 
+  useEffect(() => {
+    const el = markerRef.current?.getElement();
+    if (!el) return;
+    el.style.color = color;
+    const v = el.querySelector(".wtg-badge-value");
+    if (v) v.textContent = powerText;
+  }, [icon, color, powerText]);
+
   if (!turbine) return null;
-  return (
-    <Marker
-      position={[lat, lon]}
-      icon={icon}
-      zIndexOffset={-1000}
-    />
-  );
+  return <Marker ref={markerRef} position={[lat, lon]} icon={icon} zIndexOffset={-1000} />;
 });
 
 // ── Pitch Arc Indicator (zoom ≥ 14) ─────────────────────────────
 // Small arc gauge showing blade pitch angle (0° = fine, 25° = limiting,
 // 90° = feathered/shutdown). Educational: shows how pitch control works.
+// Same pattern: static icon, arc/text/colour updated in place.
+
+const PITCH_R = 7;
+const PITCH_C = 10;
+
+function pitchGaugeArc(pitch: number): string {
+  const sweep = Math.min((Math.max(pitch, 0) / 90) * 180, 180);
+  if (sweep <= 0.5) return "";
+  const end = ((-90 + sweep) * Math.PI) / 180;
+  const x2 = PITCH_C + PITCH_R * Math.cos(end);
+  const y2 = PITCH_C + PITCH_R * Math.sin(end);
+  return `M ${PITCH_C} ${PITCH_C - PITCH_R} A ${PITCH_R} ${PITCH_R} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+}
 
 const TurbinePitchArc = memo(function TurbinePitchArc({
   turbineId,
   lat,
   lon,
-  iconPx,
+  scale,
 }: {
   turbineId: string;
   lat: number;
   lon: number;
-  iconPx: number;
+  scale: number;
 }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
+  const markerRef = useRef<L.Marker | null>(null);
   const pitch = turbine?.pitchAngleDeg ?? 0;
-  // Arc sweep: pitch 0→90° maps to 0→180° SVG arc
-  const sweep = Math.min((pitch / 90) * 180, 180);
   // Colour: green (fine) → amber (limiting) → red (feathered)
-  const arcColor =
-    pitch < 5 ? "#3ecf6e" : pitch < 15 ? "#f5a623" : "#ef4444";
+  const arcColor = pitch < 5 ? "#3ecf6e" : pitch < 15 ? "#f5a623" : "#ef4444";
 
-  const icon = useMemo(() => {
-    const r = 7;
-    const cx = 10;
-    const cy = 10;
+  const icon = useMemo(
+    () =>
+      L.divIcon({
+        html: `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="${PITCH_C}" cy="${PITCH_C}" r="${PITCH_R}" fill="none" stroke="#3d4560" stroke-width="1.5" opacity="0.5"/>
+      <path class="pitch-arc" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+      <circle class="pitch-dot" cx="${PITCH_C}" cy="${PITCH_C - PITCH_R}" r="1.5"/>
+      <text class="pitch-text" x="${PITCH_C}" y="${PITCH_C + 3}" fill="#94a3b8" font-size="5.5" font-family="JetBrains Mono, monospace" text-anchor="middle"></text>
+    </svg>`,
+        className: "leaflet-turbine-pitch-arc",
+        iconSize: [20, 20],
+        // Right of the yaw heading arrow (radius 17 units)
+        iconAnchor: [-(17 * scale + 4), 10],
+      }),
+    [scale],
+  );
 
-    // SVG arc from -90° (top), sweeping clockwise
-    const startRad = (-90 * Math.PI) / 180;
-    const endRad = ((-90 + sweep) * Math.PI) / 180;
-    const x1 = cx + r * Math.cos(startRad);
-    const y1 = cy + r * Math.sin(startRad);
-    const x2 = cx + r * Math.cos(endRad);
-    const y2 = cy + r * Math.sin(endRad);
-    const large = sweep > 180 ? 1 : 0;
-
-    const arcPath =
-      sweep > 0.5
-        ? `<path d="M ${x1.toFixed(1)} ${y1.toFixed(1)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="${arcColor}" stroke-width="2.5" stroke-linecap="round"/>`
-        : `<circle cx="${cx}" cy="${cy - r}" r="1.5" fill="${arcColor}"/>`;
-
-    const svg = `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#3d4560" stroke-width="1.5" opacity="0.5"/>
-      ${arcPath}
-      <text x="${cx}" y="${cy + 3}" fill="#94a3b8" font-size="5.5" font-family="JetBrains Mono, monospace" text-anchor="middle">${pitch.toFixed(0)}°</text>
-    </svg>`;
-
-    return L.divIcon({
-      html: svg,
-      className: "leaflet-turbine-pitch-arc",
-      iconSize: [20, 20],
-      // Right of the marker disc
-      iconAnchor: [-(iconPx / 2 + 4), 10],
-    });
-  }, [pitch, sweep, arcColor, iconPx]);
+  useEffect(() => {
+    const el = markerRef.current?.getElement();
+    if (!el) return;
+    const d = pitchGaugeArc(pitch);
+    const arc = el.querySelector(".pitch-arc");
+    arc?.setAttribute("d", d);
+    arc?.setAttribute("stroke", arcColor);
+    el.querySelector(".pitch-dot")?.setAttribute("fill", d ? "none" : arcColor);
+    const text = el.querySelector(".pitch-text");
+    if (text) text.textContent = `${pitch.toFixed(0)}°`;
+  }, [icon, pitch, arcColor]);
 
   if (!turbine) return null;
-  return (
-    <Marker
-      position={[lat, lon]}
-      icon={icon}
-      zIndexOffset={-1000}
-    />
-  );
+  return <Marker ref={markerRef} position={[lat, lon]} icon={icon} zIndexOffset={-1000} />;
 });
 
 // ── Main Overlay ─────────────────────────────────────────────────
 
 export default function TurbineDetailOverlay() {
   const zoom = useZoom();
-  const iconPx = turbineIconPx(zoom);
+  const scale = turbineIconScale(zoom);
 
   return (
     <>
@@ -170,7 +173,7 @@ export default function TurbineDetailOverlay() {
             turbineId={pos.id}
             lat={pos.lat}
             lon={pos.lon}
-            iconPx={iconPx}
+            scale={scale}
           />
         ))}
 
@@ -182,7 +185,7 @@ export default function TurbineDetailOverlay() {
             turbineId={pos.id}
             lat={pos.lat}
             lon={pos.lon}
-            iconPx={iconPx}
+            scale={scale}
           />
         ))}
     </>

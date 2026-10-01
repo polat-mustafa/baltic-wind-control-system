@@ -32,6 +32,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
 import { selectTurbine, useLandingStore } from "../../../../store/landingStore";
+import { onShaft, PARTS, SHAFT_Z } from "../model/layout";
 
 interface PowerFlowParticlesProps {
   turbineId: string;
@@ -51,25 +52,24 @@ interface Segment {
 
 const SEGMENTS: Segment[] = [
   // Wind → Rotor (hub approach)
-  { colour: "#3b82f6", start: [0, 150,  5.0], end: [0, 150,  1.5], count: 40, spread: 1.2 },
+  { colour: "#3b82f6", start: onShaft(-1.0), end: onShaft(SHAFT_Z.frontBearing), count: 40, spread: 1.2 },
   // Rotor → Gearbox (main shaft)
-  { colour: "#22c55e", start: [0, 150,  1.5], end: [0, 150, -1.5], count: 40, spread: 0.5 },
+  { colour: "#22c55e", start: onShaft(SHAFT_Z.frontBearing), end: onShaft(SHAFT_Z.gearboxStage[0]), count: 40, spread: 0.5 },
   // Gearbox → Generator
-  { colour: "#eab308", start: [0, 150, -1.5], end: [0, 150, -5.5], count: 40, spread: 0.5 },
-  // Generator → Converter port
-  { colour: "#f97316", start: [0, 150, -5.5], end: [-3.5, 149, -3.0], count: 30, spread: 0.3 },
-  // Generator → Converter starboard
-  { colour: "#f97316", start: [0, 150, -5.5], end: [ 3.5, 149, -3.0], count: 30, spread: 0.3 },
+  { colour: "#eab308", start: onShaft(SHAFT_Z.gearboxStage[0]), end: PARTS.generator, count: 40, spread: 0.5 },
+  // Generator → converter (port) → transformer
+  { colour: "#f97316", start: PARTS.generator, end: PARTS.converter, count: 30, spread: 0.3 },
+  { colour: "#ef4444", start: PARTS.converter, end: PARTS.transformer, count: 30, spread: 0.3 },
   // ── Oil-loop circuit (amber #f59e0b) — closed loop gearbox → cooler → HPU → gearbox.
   // Secondary stream representing gear-oil flow; speed ∝ active power (ΔT proxy).
   // Gearbox HS bearing → oil-cooler inlet (up and starboard)
-  { colour: "#f59e0b", start: [0.6, 150.0, -1.5], end: [4.5, 151.3, -3.0], count: 18, spread: 0.18 },
+  { colour: "#f59e0b", start: PARTS.gearbox, end: PARTS.oilCooler, count: 18, spread: 0.18 },
   // Oil-cooler inlet → outlet header (top-run along the cooler)
-  { colour: "#f59e0b", start: [4.5, 151.3, -3.0], end: [4.5, 149.8, -3.0], count: 14, spread: 0.12 },
+  { colour: "#f59e0b", start: PARTS.oilCooler, end: [PARTS.oilCooler[0], PARTS.oilCooler[1] - 1.5, PARTS.oilCooler[2]], count: 14, spread: 0.12 },
   // Cooler outlet → HPU reservoir (return along starboard, downstream)
-  { colour: "#f59e0b", start: [4.5, 149.8, -3.0], end: [3.0, 148.2,  1.8], count: 18, spread: 0.15 },
+  { colour: "#f59e0b", start: [PARTS.oilCooler[0], PARTS.oilCooler[1] - 1.5, PARTS.oilCooler[2]], end: PARTS.hpu, count: 18, spread: 0.15 },
   // HPU → gearbox suction port (close the loop)
-  { colour: "#f59e0b", start: [3.0, 148.2,  1.8], end: [0.6, 150.0, -1.5], count: 18, spread: 0.18 },
+  { colour: "#f59e0b", start: PARTS.hpu, end: PARTS.gearbox, count: 18, spread: 0.18 },
 ];
 
 const TOTAL_COUNT = SEGMENTS.reduce((sum, s) => sum + s.count, 0);

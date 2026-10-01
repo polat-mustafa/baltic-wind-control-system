@@ -19,6 +19,7 @@ import { Suspense, useEffect, useMemo, useRef, useState, useCallback } from "rea
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, PerformanceMonitor } from "@react-three/drei";
 import {
+  DepthOfField,
   EffectComposer,
   Outline,
   Bloom,
@@ -31,6 +32,7 @@ import * as THREE from "three";
 import type { Object3D } from "three";
 
 import {
+  YAW_PAUSE_DEG,
   useLandingStore,
   selectTurbine,
   selectKPIs,
@@ -56,7 +58,6 @@ import type { TurbineData } from "../../../types/landing";
 
 import { V236Turbine } from "./scene/V236Turbine";
 import { SeaPlane } from "./scene/SeaPlane";
-import { WakeParticles } from "./scene/WakeParticles";
 import { ArrayCables } from "./scene/ArrayCables";
 import { HumanScaleFigure } from "./scene/HumanScaleFigure";
 import { MeasurementLayer } from "./scene/MeasurementLayer";
@@ -65,10 +66,21 @@ import { ThermalOverlay } from "./scene/ThermalOverlay";
 import { SensorMarkers, SensorLegend } from "./scene/SensorMarkers";
 import { PowerFlowParticles } from "./scene/PowerFlowParticles";
 import { HealthBadges } from "./scene/HealthBadges";
-import { WindFieldViz, WindDirectionArrow } from "./scene/WindFieldViz";
+import { WindFieldViz } from "./scene/WindFieldViz";
+import { WindCompass, WindFlow } from "./scene/WindFlow";
+import { FarmTurbines } from "./scene/FarmTurbines";
+import { WindProfile } from "./scene/WindProfile";
+import { CameraHeadingProbe } from "./hooks/useCameraHeading";
+import { WakeField } from "./scene/WakeField";
+import { FaultBeacon, ServiceCraft } from "./scene/FaultAndService";
+import { InNacelleFrame } from "./scene/InNacelleFrame";
+import { HUB, SHAFT_TILT } from "./model/layout";
 import { WindTriangle } from "./scene/WindTriangle";
 import { NacelleInteriorDetail } from "./scene/NacelleInteriorDetail";
 import { ViewerControls } from "./ui/ViewerControls";
+import { IllustratedStyle } from "./scene/IllustratedStyle";
+import { PartInfoCard, PartRail } from "./ui/PartInfoCard";
+import { AnalyticsPanel } from "./ui/AnalyticsPanel";
 import { ViewerLegend } from "./ui/ViewerLegend";
 import { LossBreakdownHUD } from "./ui/LossBreakdownHUD";
 import { CpLambdaWidget } from "./ui/CpLambdaWidget";
@@ -115,6 +127,9 @@ interface TurbineSceneProps {
   overrideRpm?: number;
   onSelectPart: (id: TurbinePartId) => void;
   onMetricsReady?: (metresPerPixel: number) => void;
+  illustrated: boolean;
+  /** GPU can't hold the frame rate: skip depth of field and bloom. */
+  lowFx: boolean;
 }
 
 function TurbineScene({
@@ -134,6 +149,8 @@ function TurbineScene({
   overrideRpm,
   onSelectPart,
   onMetricsReady,
+  illustrated,
+  lowFx,
 }: TurbineSceneProps) {
   const selectedPart = useLandingStore(selectTurbinePart);
   const viewerMode = useLandingStore(selectViewerMode);
@@ -148,6 +165,12 @@ function TurbineScene({
 
   // ── Outline glow — find mesh by name matching selectedPart ──────
   const { scene, camera, size } = useThree();
+  const controls = useThree((st) => st.controls);
+  // Dev only: expose camera + controls for scripted visual checks (Chrome MCP)
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    Object.assign(window, { __bwViewer: { camera, controls, scene } });
+  }, [camera, controls, scene]);
   const [outlineTargets, setOutlineTargets] = useState<Object3D[]>([]);
 
   useEffect(() => {
@@ -162,6 +185,15 @@ function TurbineScene({
   useEffect(() => {
     flyTo(selectedPart);
   }, [selectedPart, flyTo]);
+
+  // Entering cutaway/exploded with nothing selected: frame the nacelle so
+  // the opened shell is actually in view.
+  useEffect(() => {
+    const open = viewerMode === "cutaway" || viewerMode === "exploded";
+    if (open && interiorView === "3d" && !useLandingStore.getState().selectedTurbinePart) {
+      flyTo("nacelle");
+    }
+  }, [viewerMode, interiorView, flyTo]);
 
   // ── Scale-bar metric: metres per screen pixel at camera pivot distance
   useEffect(() => {
@@ -189,8 +221,19 @@ function TurbineScene({
 
       {/* Sea */}
       <SeaPlane />
-      <WakeParticles rpm={sceneRpm} />
-      <ArrayCables />
+      <ArrayCables turbineId={turbineId} />
+      {/* The rest of the farm, live: yaw, rpm, pitch per turbine */}
+      <FarmTurbines turbineId={turbineId} />
+
+      {/* Wind: compass ring on the sea, met-mast wind profile in the air,
+          physics-driven flow and wake */}
+      <CameraHeadingProbe />
+      {showWindDirection && <WindCompass windFromDeg={windDirectionDeg} />}
+      {showWindDirection && <WindProfile windMs={manualWindMs} windFromDeg={windDirectionDeg} />}
+      <WakeField turbineId={turbineId} windFromDeg={windDirectionDeg} />
+      {showWindField && (
+        <WindFlow turbineId={turbineId} windMs={manualWindMs} windFromDeg={windDirectionDeg} rotorRpm={sceneRpm} />
+      )}
 
       {/* Turbine */}
       <V236Turbine
@@ -202,7 +245,12 @@ function TurbineScene({
         overrideRpm={overrideRpm}
         windMs={manualWindMs}
         bladeFieldMode={bladeFieldMode}
+        showFlow={showWindField}
       />
+
+      {/* Faulted part pulses red; repair vessel + crew while a job runs */}
+      <FaultBeacon turbineId={turbineId} />
+      <ServiceCraft turbineId={turbineId} />
 
       {/* Human scale figure */}
       {showHumanFigure && <HumanScaleFigure />}
@@ -212,72 +260,56 @@ function TurbineScene({
         <MeasurementLayer annotations={annotations} />
       )}
 
-      {/* D1 — Thermal overlay */}
-      {showThermal && (viewerMode === "cutaway" || viewerMode === "exploded") && (
-        <ThermalOverlay turbineId={turbineId} />
-      )}
-
-      {/* D2 — Sensor markers */}
-      {showSensors && (viewerMode === "cutaway" || viewerMode === "exploded") && (
-        <SensorMarkers onSelectPart={onSelectPart} />
-      )}
-
-      {/* D3 — Power flow animation */}
-      {showPowerFlow && (
-        <SceneErrorBoundary area="power-flow">
-          <PowerFlowParticles turbineId={turbineId} />
-        </SceneErrorBoundary>
-      )}
-
-      {/* Always-on wind-direction arrow — visible in all view modes */}
-      {showWindDirection && (
-        <WindDirectionArrow
-          windMs={manualWindMs}
-          windDirectionDeg={windDirectionDeg}
-        />
-      )}
-
-      {/* D5 — Wind-field visualization (freestream, streamlines, wake, tip-speed) */}
+      {/* D5 — Wind-field visualization (freestream, streamlines, Jensen ribbon, tip speed) */}
       {showWindField && (
         <WindFieldViz
           windMs={manualWindMs}
-          rotorSpeedRpm={turbineForRpm?.rotorSpeedRpm ?? 0}
+          rotorSpeedRpm={sceneRpm}
           yawDeg={windDirectionDeg}
         />
       )}
 
-      {/* D5b — Apparent-wind triangle (Pythagoras) */}
-      {showWindTriangle && (
-        <WindTriangle
-          windMs={manualWindMs}
-          rotorSpeedRpm={turbineForRpm?.rotorSpeedRpm ?? 0}
-          rotorAzimuth={0}
-          pitchDeg={turbineForRpm?.pitchAngleDeg ?? 0}
-          yawDeg={turbineForRpm?.nacellePositionDeg ?? 0}
-        />
-      )}
+      {/* Nacelle-frame overlays: follow yaw + tower lean */}
+      <InNacelleFrame>
+        {showThermal && (viewerMode === "cutaway" || viewerMode === "exploded") && (
+          <ThermalOverlay turbineId={turbineId} />
+        )}
+        {showSensors && (viewerMode === "cutaway" || viewerMode === "exploded") && (
+          <SensorMarkers onSelectPart={onSelectPart} />
+        )}
+        {showPowerFlow && (
+          <SceneErrorBoundary area="power-flow">
+            <PowerFlowParticles turbineId={turbineId} />
+          </SceneErrorBoundary>
+        )}
+        <NacelleInteriorDetail turbineId={turbineId} viewerMode={viewerMode} showLabels={showAnnotations} />
+        {(viewerMode === "cutaway" || viewerMode === "exploded") && <HealthBadges turbineId={turbineId} />}
+        {/* D5b — velocity triangles at three blade stations (shaft frame) */}
+        {showWindTriangle && (
+          <group position={HUB} rotation={[-SHAFT_TILT, 0, 0]}>
+            <WindTriangle
+              windMs={manualWindMs}
+              rotorSpeedRpm={sceneRpm}
+              pitchDeg={overridePitch ?? turbineForRpm?.pitchAngleDeg ?? 0}
+            />
+          </group>
+        )}
+      </InNacelleFrame>
 
-      {/* D6 — Nacelle interior fine-detail (stator slots, end windings, oil loop, labels) */}
-      <NacelleInteriorDetail
-        turbineId={turbineId}
-        viewerMode={viewerMode}
-        showLabels={showAnnotations}
-      />
-
-      {/* D4 — Health badges */}
-      {(viewerMode === "cutaway" || viewerMode === "exploded") && (
-        <HealthBadges turbineId={turbineId} />
-      )}
+      {/* Render style demo: toon + ink edges */}
+      <IllustratedStyle enabled={illustrated} />
 
       {/* Post-processing stack */}
-      <EffectComposer enableNormalPass multisampling={0}>
+      {/* autoClear off: required by the Outline pass (selected-part glow).
+          No normal pass: no effect here reads normals (it re-rendered the
+          whole scene every frame for nothing). */}
+      <EffectComposer multisampling={0} autoClear={false}>
         <SMAA />
-        <Bloom
-          intensity={0.4}
-          luminanceThreshold={0.92}
-          luminanceSmoothing={0.22}
-          mipmapBlur
-        />
+        {/* Mild depth of field: the viewed turbine sharp, the farm behind
+            softly out of focus — reads as distance, like a telephoto shot.
+            Dropped with bloom when the GPU can't hold 50 FPS (lowFx). */}
+        {!lowFx ? <DepthOfField target={[0, 118, 0]} worldFocusRange={520} bokehScale={1.6} resolutionScale={0.5} /> : <></>}
+        {!lowFx ? <Bloom intensity={0.4} luminanceThreshold={0.92} luminanceSmoothing={0.22} mipmapBlur /> : <></>}
         <Outline
           selection={outlineTargets}
           edgeStrength={5}
@@ -303,7 +335,7 @@ function TurbineScene({
         makeDefault
         enableZoom
         minDistance={8}
-        maxDistance={650}
+        maxDistance={2600}
         target={[0, 118, 0]}
         enableDamping
         dampingFactor={0.12}
@@ -322,25 +354,40 @@ function TurbineScene({
 interface TurbineViewer3DProps {
   turbineId: string;
   turbine: TurbineData;
+  /** Full map-area view with the part rail + info card. */
+  expanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
-export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DProps) {
+export default function TurbineViewer3D({ turbineId, turbine, expanded = false, onToggleExpand }: TurbineViewer3DProps) {
   const [webGLOk] = useState(() => isWebGLAvailable());
   const [explodedOffset, setExplodedOffset] = useState(0);
   const [showHumanFigure, setShowHumanFigure] = useState(false);
   const [dpr, setDpr] = useState(Math.min(window.devicePixelRatio, 2));
+  const [lowFx, setLowFx] = useState(false);
   const [manualRun, setManualRun] = useState<boolean | null>(null);
   const [manualWindMs, setManualWindMs] = useState<number>(11);
   const [metresPerPixel, setMetresPerPixel] = useState(0.5);
+  // Realistic by default; the toon + ink look is an opt-in demo
+  const [illustrated, setIllustrated] = useState(false);
+  const [hiddenCardFor, setHiddenCardFor] = useState<TurbinePartId | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
   // V236 model (utils/landingPhysics) drives live rpm & pitch from the slider:
   // rpm tracks wind to 8.33 rpm at rated 11.1 m/s, pitch sheds power above it,
   // feathered (90°) and stopped outside 3–31 m/s.
+  const kpisForYaw = useLandingStore(selectKPIs);
+  const turbineForYaw = useLandingStore(selectTurbine(turbineId));
+  // yaw-error stop: while the nacelle is > 45° off the wind the rotor idles
+  // feathered (same rule as the farm simulation)
+  const yawErrDeg =
+    ((((turbineForYaw?.nacellePositionDeg ?? 225) - (kpisForYaw?.windDirectionDeg ?? 225)) + 540) % 360) - 180;
+  const yawPaused = Math.abs(yawErrDeg) > YAW_PAUSE_DEG;
   const windForSim = manualRun === false ? 0 : manualWindMs;
-  const computedRpm = v236RotorRpm(windForSim);
-  const computedPitch = v236PitchDeg(windForSim);
+  const computedRpm = v236RotorRpm(windForSim) * (yawPaused ? 0.3 : 1);
+  const computedPitch = yawPaused ? 45 : v236PitchDeg(windForSim);
   const overridePitch = computedPitch;
   const overrideRpm   = computedRpm;
 
@@ -378,34 +425,17 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
 
   // Auto-cutaway on interior part
   useEffect(() => {
-    const internalParts: TurbinePartId[] = ["gearbox", "generator", "shaft", "bearing", "brake", "converter"];
+    const internalParts: TurbinePartId[] = [
+      "gearbox", "generator", "shaft", "bearing", "brake", "converter", "transformer",
+      "hpu", "control_cabinet", "oil_cooler", "coupling", "ups", "bedplate",
+    ];
     if (selectedPart && internalParts.includes(selectedPart) && viewerMode === "normal") {
       setViewerMode("cutaway");
     }
   }, [selectedPart, viewerMode, setViewerMode]);
 
-  // Default interior view to the SVG schematic the first time the user enters
-  // cutaway/exploded in this session. The schematic carries the engineering
-  // metadata (standards, resonance, thermal class) far more clearly than the 3D
-  // interior; users who prefer the 3D interior toggle it in the controls and we
-  // preserve that choice via the hasUserChosenInteriorView ref below.
-  const prevViewerModeRef = useRef(viewerMode);
-  const hasUserChosenInteriorViewRef = useRef(false);
-  useEffect(() => {
-    const prev = prevViewerModeRef.current;
-    const entered = (viewerMode === "cutaway" || viewerMode === "exploded")
-                 && (prev !== "cutaway" && prev !== "exploded");
-    if (entered && !hasUserChosenInteriorViewRef.current && interiorView === "3d") {
-      setInteriorView("schematic");
-    }
-    prevViewerModeRef.current = viewerMode;
-  }, [viewerMode, interiorView, setInteriorView]);
-
   const handleInteriorViewChange = useCallback(
-    (next: "3d" | "schematic") => {
-      hasUserChosenInteriorViewRef.current = true;
-      setInteriorView(next);
-    },
+    (next: "3d" | "schematic") => setInteriorView(next),
     [setInteriorView],
   );
 
@@ -480,6 +510,17 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
     setShowPowerFlow(!showPowerFlow);
   }, [showPowerFlow, viewerMode, setViewerMode, setShowPowerFlow]);
 
+  const expandButton = onToggleExpand ? (
+    <button
+      type="button"
+      onClick={onToggleExpand}
+      title={expanded ? "Back to the map (Esc)" : "Expand the 3D simulation to the full map area"}
+      className="rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-[11px] font-semibold text-text-primary hover:bg-bg-hover"
+    >
+      {expanded ? "⤡ Exit full view" : "⤢ Full view"}
+    </button>
+  ) : null;
+
   const compassWind = kpis?.windDirectionDeg ?? 225;
   const nacelleYaw = turbineState?.nacellePositionDeg ?? 225;
 
@@ -511,8 +552,8 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
         camera={{
           position: DEFAULT_CAMERA_TARGET.position,
           fov: 45,
-          near: 0.5,
-          far: 6000,
+          near: 1,
+          far: 16000, // whole farm (~10 km) + horizon
         }}
         shadows={{ type: THREE.PCFShadowMap }}
         gl={glProps}
@@ -520,9 +561,17 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
           gl.localClippingEnabled = true;
         }}
       >
+        {/* Adaptive quality: below ~50 FPS drop to DPR 1 and skip DoF + bloom;
+            restore both when the frame rate recovers */}
         <PerformanceMonitor
-          onDecline={() => setDpr(1)}
-          onIncline={() => setDpr(Math.min(window.devicePixelRatio, 2))}
+          onDecline={() => {
+            setDpr(1);
+            setLowFx(true);
+          }}
+          onIncline={() => {
+            setDpr(Math.min(window.devicePixelRatio, 2));
+            setLowFx(false);
+          }}
         />
         <Suspense fallback={null}>
           <TurbineScene
@@ -542,6 +591,8 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
             overrideRpm={overrideRpm}
             onSelectPart={setSelectedPart}
             onMetricsReady={setMetresPerPixel}
+            illustrated={illustrated}
+            lowFx={lowFx}
           />
         </Suspense>
       </Canvas>
@@ -549,7 +600,7 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
       {/* 2D Isometric schematic — overlaid on top of faded 3D canvas */}
       {interiorView === "schematic" && (
         <div className="absolute inset-0 z-20 pointer-events-none">
-          <NacelleSchematic turbineId={turbineId} />
+          <NacelleSchematic turbineId={turbineId} headerExtra={expandButton} />
         </div>
       )}
 
@@ -621,7 +672,7 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
       {showSensorMarkers && <SensorLegend />}
 
       {/* HUD widgets */}
-      <CompassWidget windDirectionDeg={compassWind} nacelleYawDeg={nacelleYaw} />
+      <CompassWidget windDirectionDeg={compassWind} nacelleYawDeg={nacelleYaw} windMs={manualWindMs} />
       <CameraModeBadge />
       <ScaleBar metresPerPixel={metresPerPixel} />
       <KeyboardHelp />
@@ -631,6 +682,60 @@ export default function TurbineViewer3D({ turbineId, turbine }: TurbineViewer3DP
         <span className="text-[10px] font-mono text-text-muted">{turbineId}</span>
         <span className="text-[9px] font-mono text-text-muted opacity-60 ml-1">· V236-15.0 MW</span>
       </div>
+      {onToggleExpand && interiorView === "3d" && (
+        <div className="absolute left-2 top-9 z-20">{expandButton}</div>
+      )}
+
+      {/* Expanded: component rail + info card for the selected part */}
+      {expanded && interiorView === "3d" && (
+        <>
+          <div className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-20 flex justify-center px-40">
+            <PartRail selected={selectedPart} onSelect={setSelectedPart} />
+          </div>
+          {selectedPart && turbineState && hiddenCardFor !== selectedPart && (
+            <div className="pointer-events-none absolute bottom-28 left-3 top-24 z-20 flex">
+              {/* closing hides the card only — the camera stays on the part */}
+              <PartInfoCard part={selectedPart} turbine={turbineState} onClose={() => setHiddenCardFor(selectedPart)} />
+            </div>
+          )}
+          {/* live trends / power curve / loss waterfall — gives way to the part card */}
+          {!(selectedPart && hiddenCardFor !== selectedPart) &&
+            (showAnalytics ? (
+              <div className="absolute left-[9.25rem] top-12 z-20">
+                <AnalyticsPanel turbineId={turbineId} onClose={() => setShowAnalytics(false)} />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAnalytics(true)}
+                className="absolute left-[9.25rem] top-12 z-20 rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-[11px] font-semibold text-text-primary hover:bg-bg-hover"
+              >
+                📈 Live analytics
+              </button>
+            ))}
+        </>
+      )}
+
+      {/* Legend of the hub-height wake slice */}
+      <div className="pointer-events-none absolute bottom-10 right-2 z-10 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 text-[11px] font-semibold text-text-primary shadow">
+        <div className="mb-1 font-bold">Wake deficit at hub height (150 m)</div>
+        <div className="h-2 w-44 rounded" style={{ background: "linear-gradient(90deg,#fdd95a,#f7731a,#cc1a1a)" }} />
+        <div className="flex justify-between font-mono text-[10px] text-text-secondary">
+          <span>3 %</span>
+          <span>20 %</span>
+          <span>≥ 45 %</span>
+        </div>
+        <div className="text-[10px] text-text-muted">Bastankhah wakes · Katic sum · iso-lines 5 %</div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setIllustrated((v) => !v)}
+        title="Render style (demo): physically based vs toon shading with ink edges"
+        className="absolute bottom-2 right-16 z-10 rounded border border-border-primary bg-bg-secondary/85 px-2 py-0.5 font-mono text-[10px] text-text-secondary hover:bg-bg-hover"
+      >
+        Style: {illustrated ? "Illustrated (demo)" : "Realistic"}
+      </button>
     </div>
   );
 }

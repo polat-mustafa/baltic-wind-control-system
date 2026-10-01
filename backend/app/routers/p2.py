@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from app.core.cache import cached
 from app.core.exceptions import DomainError
@@ -32,6 +33,8 @@ from app.schemas.grid import (
     FrequencyResponseResponse,
     FRTSimulationResponse,
     FRTType,
+    LiveLoadFlowRequest,
+    LiveLoadFlowResponse,
     LoadFlowResponse,
     LoadFlowScenario,
     ShortCircuitResponse,
@@ -62,7 +65,7 @@ from app.services.p2.energy_storage import run_bess_dispatch
 from app.services.p2.flexible_demand import run_flexible_demand_simulation
 from app.services.p2.frequency_response import run_frequency_response
 from app.services.p2.frt_simulation import run_frt_simulation
-from app.services.p2.load_flow import run_all_scenarios, run_load_flow
+from app.services.p2.load_flow import run_all_scenarios, run_live_load_flow, run_load_flow
 from app.services.p2.multi_energy_carrier import run_multi_energy_analysis
 from app.services.p2.network_model import (
     EXPORT_CABLE_LENGTH_KM,
@@ -222,6 +225,23 @@ async def load_flow_scenario(scenario: LoadFlowScenario) -> LoadFlowResponse:
         raise
     except Exception as e:
         raise DomainError(f"Load flow analysis failed: {e}") from e
+
+
+@router.post("/live-load-flow", response_model=LiveLoadFlowResponse)
+async def live_load_flow(body: LiveLoadFlowRequest) -> LiveLoadFlowResponse:
+    """Solve the grid for the live farm operating point (34 WTG powers).
+
+    Polled by the landing map every few seconds: the browser owns the farm
+    simulation (wind, wakes, yaw, faults), the backend owns the network
+    physics (pandapower Newton-Raphson + STATCOM auto-dispatch). Runs in a
+    worker thread so the event loop stays free.
+    """
+    try:
+        return await run_in_threadpool(run_live_load_flow, body.wtg_p_mw)
+    except DomainError:
+        raise
+    except Exception as e:
+        raise DomainError(f"Live load flow failed: {e}") from e
 
 
 @router.get("/load-flow-all", response_model=list[LoadFlowResponse])

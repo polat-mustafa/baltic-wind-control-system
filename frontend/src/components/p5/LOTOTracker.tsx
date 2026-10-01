@@ -32,7 +32,7 @@ function LOTOPointCard({ point }: { point: LOTOPoint }) {
 
   return (
     <div
-      className="bg-slate-700/50 rounded-lg p-3 border flex flex-col items-center gap-2"
+      className="bg-bg-tertiary/50 rounded-lg p-3 border flex flex-col items-center gap-2"
       style={{ borderColor: config.color + "66" }}
     >
       {/* Padlock icon */}
@@ -48,10 +48,10 @@ function LOTOPointCard({ point }: { point: LOTOPoint }) {
         <div className="text-xs font-mono font-medium" style={{ color: config.color }}>
           {point.point_id}
         </div>
-        <div className="text-[10px] text-slate-400 mt-0.5">
+        <div className="text-[10px] text-text-muted mt-0.5">
           {point.equipment_id}
         </div>
-        <div className="text-[10px] text-slate-500">
+        <div className="text-[10px] text-text-muted">
           Tag: {point.tag_number}
         </div>
       </div>
@@ -76,7 +76,7 @@ function LOTOPointCard({ point }: { point: LOTOPoint }) {
         )}
         {point.status === "applied" && (
           <div>
-            <div className="text-[10px] text-slate-400 text-center mb-1">
+            <div className="text-[10px] text-text-muted text-center mb-1">
               By: {point.locked_by}
             </div>
             <button
@@ -88,7 +88,7 @@ function LOTOPointCard({ point }: { point: LOTOPoint }) {
           </div>
         )}
         {point.status === "removed" && (
-          <div className="text-[10px] text-slate-400 text-center">
+          <div className="text-[10px] text-text-muted text-center">
             By: {point.removed_by}
           </div>
         )}
@@ -101,11 +101,11 @@ export default function LOTOTracker() {
   const { lotoSet } = useCommissioningStore();
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-      <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+      <div className="px-4 py-3 border-b border-border-primary flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold">LOTO Tracker</h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-text-muted mt-0.5">
             Lock-Out / Tag-Out Isolation Points
           </p>
         </div>
@@ -127,7 +127,7 @@ export default function LOTOTracker() {
 
       <div className="p-4">
         {!lotoSet || lotoSet.points.length === 0 ? (
-          <div className="text-center text-sm text-slate-500 py-4">
+          <div className="text-center text-sm text-text-muted py-4">
             No LOTO points available
           </div>
         ) : (

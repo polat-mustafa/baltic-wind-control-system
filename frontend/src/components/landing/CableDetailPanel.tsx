@@ -1,5 +1,6 @@
 /**
- * Export cable detail panel — 2 × 45 km 220 kV XLPE submarine circuits.
+ * Export cable detail panel — 2 × 45 km 220 kV XLPE circuits: 31.5 km
+ * subsea (OSS → Zaleskie landfall) + 13.4 km land cable to the onshore SS.
  *
  * Live values come from the shared cable model (utils/landingPhysics):
  * per-circuit current = active current + half the charging current in
@@ -36,7 +37,7 @@ export default function CableDetailPanel({ cable, onClose, onNavigate }: CableDe
     <EquipmentPanel
       icon={Cable}
       tag="EXP-CBL-01/02"
-      subtitle={`2 × ${cable.lengthKm} km · ${cable.voltageRatingKV} kV · 3-core ${cable.crossSectionMm2} mm² XLPE submarine`}
+      subtitle={`2 × ${cable.lengthKm} km (31.5 subsea + 13.4 land) · ${cable.voltageRatingKV} kV · ${cable.crossSectionMm2} mm² XLPE`}
       status={{ label: "Energised", color: NORMAL }}
       onClose={onClose}
       action={{ label: "Open HV Grid · cable loading & DTS", onClick: onNavigate }}
@@ -70,6 +71,7 @@ export default function CableDetailPanel({ cable, onClose, onNavigate }: CableDe
         </div>
         <DataRow label="Seabed ambient" value={EXPORT_CABLE.seabedC} unit="°C" />
         <DataRow label="Burial depth" value={cable.burialDepthM} unit="m" />
+        <DataRow label="Route" value="OSS → Zaleskie (HDD) → Słupsk" />
         <p className="mt-1.5 text-[11px] leading-snug text-text-muted">
           Temperature follows I²: at 73 % current the conductor sits near 55 °C, leaving margin for
           dynamic rating (see DTS in P2).

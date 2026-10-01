@@ -1,9 +1,10 @@
 /**
  * Smoothly animates each blade to the target pitch angle.
  *
- * The V236 pitch actuator moves at ~6°/s (hydraulic/electric).
- * Each blade rotates around its own long axis (Z-axis in blade-local space,
- * which is X in the parent hub frame where blades point radially).
+ * The V236 pitch actuator moves at ~6°/s. Each blade turns about its OWN
+ * long axis — local +y in the blade frame (span direction). Toward feather
+ * (+pitch) the leading edge (local +x) turns into the wind (+z, upwind), which
+ * is a negative rotation about +y.
  *
  * pitchAngleDeg: 0 = fine pitch (max power), 90 = feathered (shutdown).
  */
@@ -20,17 +21,17 @@ export function usePitchAngle(
   blade3Ref: React.RefObject<Group | null>,
   pitchAngleDeg: number,
 ): void {
-  const targetRad = pitchAngleDeg * DEG_TO_RAD;
+  const targetRad = -pitchAngleDeg * DEG_TO_RAD;
 
   useFrame((_state, delta) => {
     for (const bladeRef of [blade1Ref, blade2Ref, blade3Ref]) {
       if (!bladeRef.current) continue;
 
-      const current = bladeRef.current.rotation.z;
+      const current = bladeRef.current.rotation.y;
       const diff = targetRad - current;
       const maxStep = MAX_PITCH_RATE_RAD_PER_S * delta;
       const step = Math.sign(diff) * Math.min(Math.abs(diff), maxStep);
-      bladeRef.current.rotation.z += step;
+      bladeRef.current.rotation.y += step;
     }
   });
 }

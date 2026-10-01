@@ -79,25 +79,28 @@ function wakeLossIcon(lossPct: number): L.DivIcon {
 
 export default function WakeEffectLayer() {
   const kpis = useLandingStore(selectKPIs);
+  // Cones follow the wind in 1° steps (smooth sweep); the wake deficits
+  // behind the loss badges are cached per 5° (utils/landingPhysics).
+  const coneDir = quantize(kpis.windDirectionDeg, 1);
   const windDir = quantize(kpis.windDirectionDeg);
   // Live power loss depends on the freestream speed (none once the waked
   // wind is still above rated) — rounded to 0.5 m/s to limit recomputes.
   const freeMs = Math.round(kpis.freestreamWindMs * 2) / 2;
 
-  const { cones, losses } = useMemo(() => {
-    const cones = TURBINE_GEO.map((t) => ({
-      id: t.id,
-      poly: wakeConePoly(t.lat, t.lon, windDir),
-    }));
+  const cones = useMemo(
+    () => TURBINE_GEO.map((t) => ({ id: t.id, poly: wakeConePoly(t.lat, t.lon, coneDir) })),
+    [coneDir],
+  );
+  const losses = useMemo(() => {
     const allLosses = computeWakeLosses(TURBINE_GEO, windDir).map((w) => ({
       ...w,
       lossPct: Math.round(wakePowerLossPct(freeMs, w.deficit)),
     }));
-    const losses = allLosses
+    return allLosses
       .filter((l) => l.lossPct >= WAKE_BADGE_MIN_PCT)
       .sort((a, b) => b.lossPct - a.lossPct)
-      .slice(0, MAX_WAKE_BADGES);
-    return { cones, losses };
+      .slice(0, MAX_WAKE_BADGES)
+      .map((l) => ({ ...l, icon: wakeLossIcon(l.lossPct) }));
   }, [windDir, freeMs]);
 
   return (
@@ -125,7 +128,7 @@ export default function WakeEffectLayer() {
           <Marker
             key={`loss-${l.turbineId}`}
             position={[pos.lat, pos.lon]}
-            icon={wakeLossIcon(l.lossPct)}
+            icon={l.icon}
             interactive={false}
           />
         );

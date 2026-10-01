@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
+    # Live AIS (aisstream.io, free key) — optional; without it the map shows no traffic
+    aisstream_api_key: str | None = None
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 

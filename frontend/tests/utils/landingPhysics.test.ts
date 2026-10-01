@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  inductionFromCt,
+  v236ThrustMN,
+  v236TowerTopDeflectionM,
+  v236TipDeflectionM,
   EXPORT_CABLE,
+  arrayCableCurrentA,
+  arrayCableGrade,
   STATCOM_RATING_MVAR,
   V236,
   exportCableState,
@@ -90,6 +96,17 @@ describe("v236PowerChain", () => {
   });
 });
 
+describe("array cables", () => {
+  it("grades like the backend and loads the OSS-end cable ≈ 87 % at full output", () => {
+    expect(arrayCableGrade(0, 6).mm2).toBe(800); // OSS end
+    expect(arrayCableGrade(5, 6).mm2).toBe(500); // far end
+    const full = arrayCableCurrentA(6 * 15); // 90 MW string
+    expect(full).toBeCloseTo(787, 0); // backend comment: ≈ 790 A
+    expect(full / arrayCableGrade(0, 6).ratedA).toBeGreaterThan(0.85);
+    expect(full / arrayCableGrade(0, 6).ratedA).toBeLessThan(0.9);
+  });
+});
+
 describe("wakes", () => {
   it("finds waked turbines and caches per 5° direction", () => {
     const d = farmWakeDeficits(225);
@@ -125,5 +142,42 @@ describe("offshore wind statistics", () => {
   it("returns hub wind at hub height and less wind below it", () => {
     expect(windAtHeight(10, 150)).toBeCloseTo(10);
     expect(windAtHeight(10, 40)).toBeLessThan(10);
+  });
+});
+
+describe("export cable DTS profile", () => {
+  it("matches the backend calibration: 950 A at 15 °C → 90 °C in the J-tube", async () => {
+    const { dtsTempC, DTS_R_TH } = await import("../../src/utils/landingPhysics");
+    expect(DTS_R_TH).toBeCloseTo(2.55, 2);
+    expect(dtsTempC(0.1, 950, 15)).toBeCloseTo(90, 6);
+    // HDD landfall is the onshore hotspot, below the J-tube
+    expect(dtsTempC(31.4, 950, 15)).toBeGreaterThan(dtsTempC(20, 950, 15));
+    expect(dtsTempC(31.4, 950, 15)).toBeLessThan(90);
+    // 510 MW → ≈ 730 A per circuit: well below the 70 °C DTS alarm at 10 °C
+    expect(dtsTempC(0.1, 730, 10)).toBeLessThan(70);
+  });
+});
+
+describe("V236 rotor loads", () => {
+  it("thrust peaks at rated (≈ 2.6 MN) and falls above rated", () => {
+    const rated = v236ThrustMN(11.1);
+    expect(rated).toBeGreaterThan(2.5);
+    expect(rated).toBeLessThan(2.8);
+    expect(v236ThrustMN(8)).toBeLessThan(rated);
+    expect(v236ThrustMN(20)).toBeLessThan(rated * 0.6);
+    expect(v236ThrustMN(2)).toBe(0);
+    expect(v236ThrustMN(32)).toBe(0);
+  });
+  it("gives deflections of the right order at rated", () => {
+    const t = v236ThrustMN(11.1);
+    expect(v236TipDeflectionM(t)).toBeCloseTo(10, 5);
+    const top = v236TowerTopDeflectionM(t);
+    expect(top).toBeGreaterThan(0.6);
+    expect(top).toBeLessThan(1.2);
+  });
+  it("inverts Ct = 4a(1−a)", () => {
+    const a = inductionFromCt(0.8);
+    expect(4 * a * (1 - a)).toBeCloseTo(0.8, 6);
+    expect(a).toBeCloseTo(0.276, 2);
   });
 });

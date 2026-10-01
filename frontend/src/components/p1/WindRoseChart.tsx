@@ -1,73 +1,92 @@
 /**
- * Wind rose chart — Plotly scatterpolar showing frequency + energy rose.
+ * Wind rose — stacked by speed class, with the energy rose as an outline.
  *
- * Meteorological convention: N = top, directions are "from".
- * Two traces: frequency (outer) and energy fraction (inner, filled).
+ * Meteorological convention: N at the top, clockwise, direction the wind
+ * blows FROM. Bar length = share of all hours from that sector, split into
+ * speed classes (sequential ramp, darker = faster). The outline is the share
+ * of wind ENERGY (∝ v³) per sector: where it pokes out beyond the bars, that
+ * sector brings stronger winds than its frequency suggests.
  */
 
 import Plot from "react-plotly.js";
-import { useWindResourceStore } from "../../store/windResourceStore";
-import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
-import { EducationButton } from "../ui/EducationButton";
+
 import { windRoseEducation } from "../../constants/education/p1";
+import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { useChartPalette } from "../../hooks/useChartPalette";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { useWindResourceStore } from "../../store/windResourceStore";
 import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
+
+const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 
 export default function WindRoseChart() {
   const { windRose } = useWindResourceStore();
-
+  const c = useChartPalette();
+  const narrow = useMediaQuery("(max-width: 640px)");
   if (!windRose) return null;
 
-  // Close the polygon by appending first value
-  const theta = [...windRose.sector_centres_deg, windRose.sector_centres_deg[0]];
-  const freq = [...windRose.frequencies, windRose.frequencies[0]];
-  const energy = [...windRose.energy_fractions, windRose.energy_fractions[0]];
+  const theta = windRose.sector_centres_deg;
+  const width = 360 / windRose.num_sectors - 2;
+  // Older APIs (before the speed-class table) → one class holding the plain frequencies
+  const hasClasses = (windRose.speed_bin_edges_ms?.length ?? 0) > 0 && !!windRose.sector_speed_frequencies;
+  const edges = hasClasses ? windRose.speed_bin_edges_ms : [0];
+  const table = hasClasses ? windRose.sector_speed_frequencies : windRose.frequencies.map((f) => [f]);
+  const classLabel = (i: number) =>
+    !hasClasses ? "All speeds" : i === edges.length - 1 ? `≥ ${edges[i]} m/s` : `${edges[i]}–${edges[i + 1]} m/s`;
+  const energy = [...windRose.energy_fractions, windRose.energy_fractions[0]].map((e) => e * 100);
+  const dominant = COMPASS[Math.round(windRose.dominant_direction_deg / 45) % 8];
 
   return (
     <ChartWrapper
-      title="Wind Rose — Frequency & Energy"
+      title="Wind rose — direction × speed, with energy share"
       headerRight={<EducationButton content={windRoseEducation} />}
-      footer={`Dominant: ${windRose.dominant_direction_deg}° · Circ. σ: ${windRose.circular_std_deg}°`}
+      footer={`Prevailing from ${windRose.dominant_direction_deg.toFixed(0)}° (${dominant}) · circular σ ${windRose.circular_std_deg.toFixed(0)}° · ${windRose.num_sectors} sectors · direction = where the wind comes FROM`}
     >
       <Plot
         data={[
-          {
-            type: "scatterpolar",
-            r: freq.map((f) => f * 100),
+          ...edges.map((_, k) => ({
+            type: "barpolar" as const,
+            r: table.map((row) => row[k] * 100),
             theta,
-            name: "Frequency (%)",
-            line: { color: "rgb(59, 130, 246)", width: 2 },
-            marker: { size: 4 },
-          },
+            width,
+            name: classLabel(k),
+            marker: { color: c.seq[k] ?? c.seq[c.seq.length - 1], line: { width: 0 } },
+            hovertemplate: `%{theta:.0f}° · ${classLabel(k)}: %{r:.2f} % of hours<extra></extra>`,
+          })),
           {
-            type: "scatterpolar",
-            r: energy.map((e) => e * 100),
-            theta,
-            fill: "toself",
-            fillcolor: "rgba(234, 179, 8, 0.2)",
-            name: "Energy (%)",
-            line: { color: "rgb(234, 179, 8)", width: 2 },
-            marker: { size: 4 },
+            type: "scatterpolar" as const,
+            mode: "lines" as const,
+            r: energy,
+            theta: [...theta, theta[0]],
+            name: "Energy share (∝ v³)",
+            line: { color: c.orange, width: 2.5 },
+            hovertemplate: "%{theta:.0f}°: %{r:.1f} % of energy<extra></extra>",
           },
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
           showlegend: true,
-          legend: { x: 0, y: -0.15, orientation: "h", font: { size: 10 } },
+          // Side legend on wide screens; below the rose on phones so the rose keeps its size
+          legend: narrow
+            ? { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", x: 0, y: -0.08, yanchor: "top", font: { size: 10 } }
+            : { ...DARK_PLOTLY_LAYOUT.legend, x: 1.02, y: 0.5, yanchor: "middle", font: { size: 11 }, title: { text: "Speed class", font: { size: 11 } } },
+          barmode: "stack",
           polar: {
-            bgcolor: "rgb(15, 23, 42)",
-            radialaxis: {
-              gridcolor: "rgba(148, 163, 184, 0.15)",
-              tickfont: { size: 11, color: "rgb(148, 163, 184)" },
-              ticksuffix: "%",
-            },
+            bgcolor: "rgba(0,0,0,0)",
+            radialaxis: { ticksuffix: " %", angle: 90, tickangle: 90, tickfont: { size: 10 }, gridcolor: "rgba(127,127,127,0.25)", linecolor: "rgba(127,127,127,0.3)" },
             angularaxis: {
               direction: "clockwise",
               rotation: 90,
-              gridcolor: "rgba(148, 163, 184, 0.15)",
-              tickfont: { size: 10, color: "rgb(203, 213, 225)" },
+              tickmode: "array",
+              tickvals: [0, 45, 90, 135, 180, 225, 270, 315],
+              ticktext: COMPASS,
+              tickfont: { size: 12 },
+              gridcolor: "rgba(127,127,127,0.25)",
+              linecolor: "rgba(127,127,127,0.4)",
             },
           },
-          margin: { t: 10, r: 30, b: 40, l: 30 },
+          margin: { t: 24, r: 24, b: narrow ? 90 : 24, l: 24 },
         }}
         config={PLOTLY_CONFIG}
         useResizeHandler

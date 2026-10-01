@@ -86,7 +86,8 @@ class TurbineAvailabilityKPI(BaseModel):
     period_hours: float = Field(description="Analysis period duration [hours]")
     tba_pct: float = Field(
         description=(
-            "Time-Based Availability [%] = hours_producing / total_hours * 100. Target: >= 97%"
+            "Time-Based Availability [%] = hours_producing / (total − force majeure − "
+            "curtailment) * 100 — external causes excluded. Target: >= 97%"
         )
     )
     eba_pct: float = Field(
@@ -144,6 +145,7 @@ class DowntimeCategoryBreakdown(BaseModel):
     share_pct: float
     energy_loss_mwh: float
     revenue_loss_eur: float
+    controllable: bool = Field(description="Maintenance (operator/OEM lever) vs external cause")
 
 
 class DowntimeBreakdownResponse(BaseModel):
@@ -155,9 +157,8 @@ class DowntimeBreakdownResponse(BaseModel):
     dominant_category: DowntimeCategory
     controllable_loss_pct: float = Field(
         description=(
-            "Percentage of downtime from controllable causes "
-            "(scheduled + unscheduled maintenance). "
-            "Target: < 2% of annual hours."
+            "Controllable downtime (scheduled + unscheduled maintenance) "
+            "as % of all turbine-hours in the period. Target: < 2 %."
         )
     )
     assessment: str

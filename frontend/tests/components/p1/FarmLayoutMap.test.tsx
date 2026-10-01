@@ -71,7 +71,7 @@ describe("FarmLayoutMap", () => {
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<FarmLayoutMap />);
-    expect(screen.getByText(/900m/)).toBeDefined();
+    expect(screen.getByText(/900 m/)).toBeDefined();
     expect(screen.getByText(/45.2 km/)).toBeDefined();
   });
 });

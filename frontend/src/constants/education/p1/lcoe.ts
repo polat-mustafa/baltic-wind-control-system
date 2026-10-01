@@ -3,41 +3,37 @@ import type { EducationContent } from "../../../types/education";
 export const lcoeEducation: EducationContent = {
   id: "p1.lcoe-revenue",
   title: "Revenue & LCOE",
-  subtitle: "Levelised cost of energy and how it links to project bankability",
+  subtitle: "Levelised cost of energy and what it says about a project",
   discipline: "Finance",
 
   overview:
-    "LCOE (Levelised Cost of Energy) collapses every cost a project will ever incur — capex, opex, decommissioning, " +
-    "financing — into a single €/MWh figure that can be compared against the strike price of a CfD or the captured market " +
-    "price. It is the metric that most directly answers whether a project gets built. For Polish Baltic offshore in 2024 " +
-    "the OZMB CfD strike price is around 80 EUR/MWh; bankable projects target an LCOE in the 50–70 EUR/MWh band.",
+    "LCOE (levelised cost of energy) turns every cost a project incurs — capital, operations, financing — into a " +
+    "single €/MWh: the constant price at which discounted revenues exactly repay discounted costs. Compare it with the " +
+    "price the project will actually receive (a contract-for-difference strike, a PPA or the market): if LCOE is " +
+    "lower, the project earns more than its cost of capital.",
 
   simpleExplanation:
-    "Imagine the wind farm as a 25-year savings account. You deposit a huge amount up front (building it) plus a small " +
-    "amount each year (operating it). It pays you back by generating electricity. LCOE asks: what is the price per MWh " +
-    "that makes the deposits and the payouts exactly balance, including the cost of borrowing the money? If the market " +
-    "or the contract pays more than that, the project makes money.",
+    "Think of the farm as a 25-year loan. You pay a big amount up front (building it) and a smaller amount every year " +
+    "(running it). LCOE is the price per MWh that pays all of it back, including interest. If you can sell for more, " +
+    "you make money; if not, you don't.",
 
   technicalExplanation:
-    "LCOE = (CAPEX·CRF + OPEX_annual) / AEP_net, where CRF (capital recovery factor) translates a lump-sum capex into an " +
-    "equivalent annuity given a discount rate r and project lifetime n. Real LCOE uses real (inflation-adjusted) cash flows " +
-    "and a real discount rate; nominal LCOE uses nominal. Always cite which one. Sensitivity to AEP is direct — using P90 " +
-    "instead of P50 raises LCOE by ~10%, which is exactly why bankers run their financing model on P90.",
+    "Screening form: LCOE = (CAPEX·CRF + OPEX) / AEP_net, with the capital recovery factor CRF = r(1+r)ⁿ / ((1+r)ⁿ − 1). " +
+    "It assumes constant annual energy and costs; full models discount year-by-year cash flows (degradation, major " +
+    "repairs, decommissioning). Use real costs with a real discount rate or nominal with nominal — never mix. LCOE is " +
+    "inversely proportional to AEP: using P90 instead of P50 raises it by the same 8–10 %. When LCOE > price, the " +
+    "project IRR is below the discount rate — the two indicators say the same thing.",
 
   standards: [
     {
-      label: "IEA Wind Task 26 — Cost of Wind Energy",
+      label: "IEA Wind TCP Task 26 — Cost of wind energy",
       type: "standard",
       url: "https://iea-wind.org/task26/",
     },
     {
-      label: "IRENA Renewable Power Generation Costs",
+      label: "IRENA — Renewable Power Generation Costs (annual)",
       type: "website",
-      url: "https://www.irena.org/Publications/2023/Aug/Renewable-Power-Generation-Costs-in-2022",
-    },
-    {
-      label: "DNV — Bankable Energy Yield Assessment",
-      type: "standard",
+      url: "https://www.irena.org/Publications",
     },
   ],
 
@@ -45,100 +41,83 @@ export const lcoeEducation: EducationContent = {
     {
       expression: "LCOE = (CAPEX · CRF + OPEX_annual) / AEP_net",
       variables: [
-        { symbol: "LCOE", name: "Levelised cost of energy", unit: "EUR/MWh" },
-        { symbol: "CAPEX", name: "Total upfront cost", unit: "EUR" },
+        { symbol: "CAPEX", name: "Total upfront investment", unit: "€" },
         { symbol: "CRF", name: "Capital recovery factor", unit: "1/yr" },
-        { symbol: "OPEX_annual", name: "Annual operating cost", unit: "EUR/yr" },
-        { symbol: "AEP_net", name: "Net annual energy production", unit: "MWh/yr" },
+        { symbol: "OPEX_annual", name: "Annual operating cost", unit: "€/yr" },
+        { symbol: "AEP_net", name: "Net annual energy (P50)", unit: "MWh/yr" },
       ],
-      explanation:
-        "Single-period simplification — adequate for screening. Lifetime models use a discounted-cash-flow form that handles " +
-        "year-by-year availability and degradation.",
+      explanation: "Single-period screening form used in the Farm Comparison tab.",
     },
     {
-      expression: "CRF = r·(1+r)^n / ((1+r)^n − 1)",
+      expression: "CRF = r · (1+r)ⁿ / ((1+r)ⁿ − 1)",
       variables: [
         { symbol: "r", name: "Discount rate (WACC)", unit: "—" },
-        { symbol: "n", name: "Project lifetime", unit: "yr" },
+        { symbol: "n", name: "Economic lifetime", unit: "yr" },
       ],
-      explanation:
-        "Annuitises a lump sum. For r = 6%, n = 25 yr → CRF ≈ 0.0782 — every 100 M EUR of capex becomes 7.82 M EUR/yr of " +
-        "equivalent annual payments.",
+      explanation: "r = 6 %, n = 25 yr → CRF = 0.0782: every 100 M€ of CAPEX costs 7.82 M€ per year.",
     },
     {
-      expression:
-        "LCOE_DCF = Σ_t (Cost_t / (1+r)^t) / Σ_t (E_t / (1+r)^t)",
+      expression: "LCOE = Σ_t C_t/(1+r)^t  /  Σ_t E_t/(1+r)^t",
       variables: [
-        { symbol: "Cost_t", name: "Total cost in year t", unit: "EUR" },
-        { symbol: "E_t", name: "Energy produced in year t", unit: "MWh" },
-        { symbol: "t", name: "Year index", unit: "yr" },
+        { symbol: "C_t", name: "Costs in year t", unit: "€" },
+        { symbol: "E_t", name: "Energy in year t", unit: "MWh" },
       ],
-      explanation:
-        "Discounted-cash-flow form used by DNV bankability templates. Handles non-uniform availability and turbine degradation.",
-      reference: "IEA Wind Task 26",
+      explanation: "Discounted-cash-flow form; reduces to the screening form for constant C and E.",
     },
   ],
 
   workedExamples: [
     {
-      title: "Baltic Wind 510 MW LCOE estimate",
+      title: "This platform's base case (Farm Comparison defaults)",
       scenario:
-        "CAPEX 1,800 M EUR (3,529 EUR/kW), OPEX 60 M EUR/yr, AEP P50 2,140 GWh/yr, WACC 6% real, 25-yr lifetime.",
+        "510 MW, CAPEX 3.2 M€/MW = 1,632 M€, OPEX 75 k€/MW·yr = 38.3 M€/yr, net P50 2,111 GWh/yr (Farm Comparison, " +
+        "7 D grid, mean 9.3 m/s), WACC 6 %, 25 yr.",
       steps: [
-        "CRF = 0.06 · 1.06^25 / (1.06^25 − 1) = 0.06 · 4.292 / 3.292 = 0.0782",
-        "Annualised CAPEX = 1,800 × 0.0782 = 140.8 M EUR/yr",
-        "Annual revenue requirement = 140.8 + 60 = 200.8 M EUR/yr",
-        "LCOE = 200,800,000 / 2,140,000 = 93.8 EUR/MWh",
+        "CRF = 0.06 × 1.06²⁵ / (1.06²⁵ − 1) = 0.06 × 4.292 / 3.292 = 0.0782",
+        "Annualised CAPEX = 1,632 × 0.0782 = 127.6 M€/yr",
+        "Annual cost = 127.6 + 38.3 = 165.9 M€/yr",
+        "LCOE = 165.9 M€ / 2,111,000 MWh = 78.6 €/MWh",
       ],
       result:
-        "LCOE ≈ 94 EUR/MWh — above the OZMB CfD strike of ~80 EUR/MWh. This is why CAPEX has to come down, or AEP has to " +
-        "be improved (better wakes, taller hubs), or WACC reduced via debt sculpting before this hypothetical project is " +
-        "actually bankable. Real Polish Baltic projects in 2024 quote 65–75 EUR/MWh by leveraging cheaper debt and economies of scale.",
+        "≈ 79 €/MWh: above a flat 72 €/MWh market price (IRR ≈ 4.8 % < 6 % WACC), so the project needs a higher price " +
+        "— e.g. an indexed CfD — lower CAPEX, or cheaper capital. A 1 pp lower WACC alone brings LCOE to ≈ 73 €/MWh.",
     },
   ],
 
   realWorldCases: [
     {
-      title: "OZMB Polish offshore wind support 2021 round",
+      title: "Poland — offshore CfD, phase I (2021)",
       description:
-        "5.9 GW awarded across 7 projects at strike prices 200–319 PLN/MWh (~46–73 EUR/MWh). 25-year contract length, " +
-        "indexed to inflation. First commissioning by 2026.",
-      takeaway:
-        "Polish CfD strikes are already below the 80 EUR/MWh ceiling. Subsequent rounds have cleared at materially lower " +
-        "prices as the supply chain matures.",
-      source: "URE (Polish Energy Regulator) 2021 auction results",
+        "About 5.9 GW of Baltic projects received two-sided contracts for difference by administrative decision, with " +
+        "a maximum price of 319.60 PLN/MWh, indexed to inflation, for 25 years. Later phases are allocated by auction.",
+      takeaway: "The CfD strike, not the spot market, is the price an LCOE should be compared with in Poland.",
+      source: "Polish Offshore Wind Act (2020) and URE decisions (2021)",
     },
     {
-      title: "UK AR4 (2022) — record-low offshore strikes",
+      title: "UK — AR4 (2022) and AR5 (2023)",
       description:
-        "Cleared at £37.35/MWh (~43 EUR/MWh, 2012 prices). Several projects subsequently asked to renegotiate as supply-chain " +
-        "inflation eroded margins.",
-      takeaway:
-        "LCOE numbers can be unrealistically optimistic when capex is rising faster than AEP gains. The 2022 round taught " +
-        "the market that strike prices need an inflation index.",
+        "Offshore wind cleared AR4 at £37.35/MWh (2012 prices). After steep cost inflation, AR5 attracted no offshore " +
+        "bids at its administrative ceiling, and the ceiling was raised for AR6.",
+      takeaway: "When CAPEX and interest rates rise faster than AEP improves, strike prices must follow — LCOE moves.",
     },
   ],
 
   furtherReading: [
     {
-      label: "IRENA Renewable Power Generation Costs (latest edition)",
+      label: "IRENA — Renewable Power Generation Costs (latest edition)",
       type: "website",
-      url: "https://www.irena.org/Publications/2023/Aug/Renewable-Power-Generation-Costs-in-2022",
-    },
-    {
-      label: "BloombergNEF — New Energy Outlook",
-      type: "website",
+      url: "https://www.irena.org/Publications",
     },
   ],
 
   codeReferences: [
     {
-      file: "backend/app/services/p1/aep_calculator.py",
-      description: "compute_lcoe() — single-period and DCF helpers; sensitivity to AEP, WACC, capex.",
+      file: "backend/app/services/p1/farm_comparison.py",
+      description: "compute_lcoe() and project_irr() — screening LCOE, payback and IRR for each design.",
     },
     {
       file: "backend/app/services/p2/market.py",
-      description: "TGE day-ahead bidding and CfD strike-price comparison logic for the M11 module.",
+      description: "TGE day-ahead market and CfD logic for the M11 module.",
     },
   ],
 

@@ -12,6 +12,7 @@
 import Plot from "react-plotly.js";
 
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { useChartPalette } from "../../hooks/useChartPalette";
 import { useWeatherWindowStore } from "../../store/weatherWindowStore";
 import { Badge } from "../ui/Badge";
 import { EducationButton } from "../ui/EducationButton";
@@ -19,22 +20,24 @@ import { oamCostEducation } from "../../constants/education/p1";
 
 export default function OAMCostPanel() {
   const { oamCost } = useWeatherWindowStore();
+  const c = useChartPalette();
 
   if (!oamCost) return null;
 
   const toM = (v: number) => v / 1_000_000;
 
   const categories = [
-    { label: "Planned Maintenance", value: oamCost.planned_maintenance_eur, color: "#3ecf6e" },
-    { label: "Unplanned Maintenance", value: oamCost.unplanned_maintenance_eur, color: "#ef4444" },
-    { label: "Vessel Charter", value: oamCost.vessel_charter_eur, color: "#3b82f6" },
-    { label: "Heavy Lift", value: oamCost.heavy_lift_eur, color: "#f97316" },
-    { label: "Insurance", value: oamCost.insurance_eur, color: "#6b7280" },
+    { label: "Planned Maintenance", value: oamCost.planned_maintenance_eur },
+    { label: "Unplanned Maintenance", value: oamCost.unplanned_maintenance_eur },
+    { label: "Vessel Charter", value: oamCost.vessel_charter_eur },
+    { label: "Heavy Lift", value: oamCost.heavy_lift_eur },
+    { label: "Insurance", value: oamCost.insurance_eur },
   ];
 
-  const labels = categories.map((c) => c.label);
-  const values = categories.map((c) => toM(c.value));
-  const colors = categories.map((c) => c.color);
+  // One measure across categories → one hue, ranked (largest on top)
+  const ranked = [...categories].sort((a, b) => a.value - b.value);
+  const labels = ranked.map((r) => r.label);
+  const values = ranked.map((r) => toM(r.value));
 
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
@@ -42,7 +45,7 @@ export default function OAMCostPanel() {
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <h3 className="text-base font-semibold text-text-primary">
-            Annual O&amp;M Cost Breakdown
+            Annual maintenance & logistics cost
           </h3>
           <EducationButton content={oamCostEducation} />
         </div>
@@ -63,10 +66,11 @@ export default function OAMCostPanel() {
             orientation: "h",
             y: labels,
             x: values,
-            marker: { color: colors, opacity: 0.85 },
+            marker: { color: c.blue },
             text: values.map((v) => `${v.toFixed(2)} M€`),
             textposition: "outside",
-            textfont: { size: 11, color: "#9ba3b8" },
+            cliponaxis: false,
+            textfont: { size: 11, color: c.ink },
             hovertemplate: "%{y}<br>%{x:.2f} M€<extra></extra>",
           },
         ]}
@@ -75,12 +79,13 @@ export default function OAMCostPanel() {
           height: 280,
           xaxis: {
             ...DARK_PLOTLY_LAYOUT.xaxis,
-            title: { text: "Cost [M€]", font: { color: "#9ba3b8", size: 12 } },
+            title: { text: "Annual cost [M€/yr]", font: { size: 12 } },
+            range: [0, Math.max(...values) * 1.25],
           },
           yaxis: {
             ...DARK_PLOTLY_LAYOUT.yaxis,
             automargin: true,
-            tickfont: { size: 11, color: "#9ba3b8", family: "'Inter', sans-serif" },
+            tickfont: { size: 11, family: "'Inter', sans-serif" },
           },
           margin: { t: 20, r: 80, b: 56, l: 160 },
         }}
@@ -90,7 +95,7 @@ export default function OAMCostPanel() {
 
       {/* Assessment */}
       {oamCost.assessment && (
-        <p className="mt-2 text-xs text-text-muted italic">{oamCost.assessment}</p>
+        <p className="mt-2 text-xs text-text-muted">{oamCost.assessment}</p>
       )}
     </div>
   );

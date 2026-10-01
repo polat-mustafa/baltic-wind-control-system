@@ -6,14 +6,15 @@ Physics
 Wake steering deliberately misaligns (yaws) upstream turbines to deflect
 their wakes away from downstream turbines. The yawed rotor generates a
 lateral force that redirects the wake, reducing deficit at downstream
-positions. The upstream turbine produces slightly less power (cosine loss),
-but the downstream gain outweighs the upstream loss — typical net farm
-gains of 5-15%.
+positions. The upstream turbine produces less power (cosine loss), but the
+downstream gain can outweigh it. Farm power gains of several percent are
+seen at wake-aligned directions and below-rated speeds; annual (AEP) gains
+are much smaller — typically ~0.5–2 % — because most hours are not aligned
+and above rated there is nothing to gain (Fleming 2017; Howland 2019).
 
-The power loss from yaw misalignment follows:
-    P_yaw = P_aligned × cos^p(γ)
-
-where γ is the yaw angle and p ≈ 1.88 (empirical, Howland et al. 2019).
+PyWake models the yaw power loss through the rotor-normal speed v·cos γ,
+i.e. P ∝ cos³γ below rated — more conservative than the field-fitted
+cos^p γ with p ≈ 1.88 (Howland et al. 2019).
 
 Wake deflection follows the Jiménez (2010) model:
     δ(x) = ξ_init × (x/x_0) / (1 + (x/x_0))^2
@@ -54,8 +55,8 @@ from numpy.typing import NDArray
 from scipy.optimize import minimize
 
 from app.services.p1.wake_model import (
+    RATED_SPEED_MS,
     create_v236_wind_turbine,
-    run_wake_analysis,
 )
 
 # ── Yaw Optimization Constants ───────────────────────────────────
@@ -153,7 +154,7 @@ def configure_wake_model_with_deflection(site: object, turbine: object) -> objec
     py_wake.wind_farm_models.WindFarmModel
         Wake model with deflection support.
     """
-    from py_wake.deficit_models.gaussian import BastankhahGaussianDeficit
+    from py_wake.deficit_models.gaussian import NiayifarGaussianDeficit
     from py_wake.deflection_models import JimenezWakeDeflection
     from py_wake.superposition_models import LinearSum
     from py_wake.turbulence_models import STF2017TurbulenceModel
@@ -162,7 +163,7 @@ def configure_wake_model_with_deflection(site: object, turbine: object) -> objec
     return All2AllIterative(
         site=site,
         windTurbines=turbine,
-        wake_deficitModel=BastankhahGaussianDeficit(),
+        wake_deficitModel=NiayifarGaussianDeficit(),
         superpositionModel=LinearSum(),
         turbulenceModel=STF2017TurbulenceModel(),
         deflectionModel=JimenezWakeDeflection(),
@@ -252,7 +253,7 @@ def optimize_yaw_single_direction(
         Baseline vs optimized power, optimal yaw angles, per-turbine breakdown.
     """
     turbine = create_v236_wind_turbine()
-    wf_model = configure_wake_model_with_deflection(site, turbine)
+    wf_model: Any = configure_wake_model_with_deflection(site, turbine)
     n = len(x_positions_m)
 
     # Baseline: zero yaw
@@ -351,9 +352,6 @@ def optimize_yaw_all_directions(
 
     turbine = create_v236_wind_turbine()
 
-    # Compute baseline AEP (no yaw) using full PyWake simulation
-    baseline_result = run_wake_analysis(x_positions_m, y_positions_m, site, turbine)
-
     per_direction_results: list[YawOptimizationResult] = []
     for wd in wind_directions_deg:
         result = optimize_yaw_single_direction(
@@ -367,23 +365,41 @@ def optimize_yaw_all_directions(
         )
         per_direction_results.append(result)
 
-    # Estimate AEP gain from direction-weighted power gains
     gains = [r.power_gain_percent for r in per_direction_results]
     mean_gain = float(np.mean(gains)) if gains else 0.0
     max_gain = float(np.max(gains)) if gains else 0.0
-    best_dir_idx = int(np.argmax(gains)) if gains else 0
-    best_dir = float(wind_directions_deg[best_dir_idx])
+    best_dir = float(wind_directions_deg[int(np.argmax(gains))]) if gains else 0.0
 
-    # Approximate optimized AEP: baseline × (1 + mean_gain/100)
-    optimized_aep = baseline_result.net_aep_gwh * (1.0 + mean_gain / 100.0)
-    aep_gain = (
-        (optimized_aep - baseline_result.net_aep_gwh) / baseline_result.net_aep_gwh * 100.0
-        if baseline_result.net_aep_gwh > 0
-        else 0.0
-    )
+    # AEP with the yaw schedule: each 5° direction uses the set optimised for
+    # its nearest sector centre (so off-centre misalignment is penalised) and
+    # steering is active only below rated. Same deflection model for both runs;
+    # the controller's lookup table keeps zero yaw in bins where steering loses.
+    wf_model: Any = configure_wake_model_with_deflection(site, turbine)
+    wd = np.arange(0.0, 360.0, 5.0)
+    ws = np.arange(3.0, 26.0, 1.0)
+    centres = np.asarray(wind_directions_deg, dtype=np.float64)
+    offset = np.abs((wd[:, None] - centres[None, :] + 180.0) % 360.0 - 180.0)
+    schedule = np.stack(
+        [per_direction_results[i].optimal_yaw_angles_deg for i in np.argmin(offset, axis=1)],
+        axis=1,
+    )  # (n_wt, n_wd)
+    yaw = np.repeat(schedule[:, :, None], len(ws), axis=2).astype(np.float64)
+    yaw[:, :, ws > RATED_SPEED_MS] = 0.0
+
+    def aep_by_bin(yaw_deg: NDArray[np.floating]) -> NDArray[np.floating]:
+        """Farm AEP contribution of each (wd, ws) bin [GWh]."""
+        sim = wf_model(x=x_positions_m, y=y_positions_m, wd=wd, ws=ws, yaw=yaw_deg, tilt=0.0)
+        bins: NDArray[np.floating] = np.asarray(sim.aep().values, dtype=np.float64).sum(axis=0)
+        return bins
+
+    base_bins = aep_by_bin(np.zeros_like(yaw))
+    # Lookup-table controller: a bin uses the steering set only where it pays
+    baseline_aep = float(base_bins.sum())
+    optimized_aep = float(np.maximum(base_bins, aep_by_bin(yaw)).sum())
+    aep_gain = (optimized_aep - baseline_aep) / baseline_aep * 100.0 if baseline_aep > 0 else 0.0
 
     return FarmYawOptimizationResult(
-        baseline_aep_gwh=round(baseline_result.net_aep_gwh, 2),
+        baseline_aep_gwh=round(baseline_aep, 2),
         optimized_aep_gwh=round(optimized_aep, 2),
         aep_gain_percent=round(aep_gain, 2),
         per_direction_results=per_direction_results,

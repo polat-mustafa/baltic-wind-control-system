@@ -14,6 +14,7 @@
 import Plot from "react-plotly.js";
 
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { useChartPalette } from "../../hooks/useChartPalette";
 import { useWeatherWindowStore } from "../../store/weatherWindowStore";
 import { Badge } from "../ui/Badge";
 import { EducationButton } from "../ui/EducationButton";
@@ -21,29 +22,35 @@ import { weatherWindowEducation } from "../../constants/education/p1";
 
 // ── Vessel display config ─────────────────────────────────────────
 
-const VESSEL_CONFIG: Record<string, { label: string; color: string }> = {
-  CTV: { label: "CTV (Crew Transfer)", color: "#3b82f6" },
-  SOV: { label: "SOV (Service Operations)", color: "#3ecf6e" },
-  JACK_UP: { label: "Jack-Up", color: "#f97316" },
-  HELICOPTER: { label: "Helicopter", color: "#a855f7" },
+const VESSEL_LABEL: Record<string, string> = {
+  CTV: "CTV (crew transfer, Hs ≤ 1.5 m)",
+  SOV: "SOV (walk-to-work gangway)",
+  JACK_UP: "Jack-up (heavy lift)",
+  HELICOPTER: "Helicopter",
 };
+const VESSEL_SLOT = ["blue", "orange", "aqua", "yellow"] as const;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function WeatherWindowPanel() {
   const { vesselAccess } = useWeatherWindowStore();
+  const c = useChartPalette();
 
   if (!vesselAccess) return null;
 
-  const traces = vesselAccess.vessels.map((v) => {
-    const cfg = VESSEL_CONFIG[v.vessel] ?? { label: v.vessel, color: "#9ba3b8" };
+  // Seasonality reads best as lines: one per access method, fixed colour slot
+  const traces = vesselAccess.vessels.map((v, i) => {
+    const label = VESSEL_LABEL[v.vessel] ?? v.vessel;
+    const color = c[VESSEL_SLOT[i % VESSEL_SLOT.length]];
     return {
-      type: "bar" as const,
-      name: cfg.label,
+      type: "scatter" as const,
+      mode: "lines+markers" as const,
+      name: label,
       x: MONTHS,
       y: v.monthly_access_pct,
-      marker: { color: cfg.color, opacity: 0.85 },
-      hovertemplate: `${cfg.label}<br>%{x}: %{y:.1f}%<extra></extra>`,
+      line: { color, width: 2 },
+      marker: { color, size: 8 },
+      hovertemplate: `${label}<br>%{x}: %{y:.0f} % of days accessible<extra></extra>`,
     };
   });
 
@@ -53,7 +60,7 @@ export default function WeatherWindowPanel() {
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <h3 className="text-base font-semibold text-text-primary">
-            Monthly Vessel Access Probability by Type
+            Monthly access probability by vessel type
           </h3>
           <EducationButton content={weatherWindowEducation} />
         </div>
@@ -71,14 +78,13 @@ export default function WeatherWindowPanel() {
         layout={{
           ...DARK_PLOTLY_LAYOUT,
           height: 340,
-          barmode: "group",
           xaxis: {
             ...DARK_PLOTLY_LAYOUT.xaxis,
-            title: { text: "Month", font: { color: "#9ba3b8", size: 12 } },
+            title: { text: "Month", font: { size: 12 } },
           },
           yaxis: {
             ...DARK_PLOTLY_LAYOUT.yaxis,
-            title: { text: "Access Probability [%]", font: { color: "#9ba3b8", size: 12 } },
+            title: { text: "Access probability [%]", font: { size: 12 } },
             range: [0, 105],
           },
           legend: {

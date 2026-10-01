@@ -3,9 +3,12 @@ Availability Tracking service — M13 (IEC 61400-26).
 
 Physics layers
 --------------
-1. Time-Based Availability (TBA)
-   TBA = T_producing / T_total * 100 %
-   T_producing = T_total - T_scheduled - T_unscheduled - T_force_majeure
+1. Time-Based Availability (TBA) — technical / contractual form
+   TBA = T_producing / (T_total − T_FM − T_curtailment) · 100 %
+   T_producing = T_total − T_scheduled − T_unscheduled − T_FM − T_curtailment
+   Force majeure and grid curtailment are external causes: excluded from
+   the denominator, so the turbine is not penalised for them (the usual
+   OEM warranty convention within the IEC 61400-26-1 time categories).
 
 2. Energy-Based Availability (EBA)
    EBA = E_actual / E_theoretical * 100 %
@@ -18,7 +21,7 @@ Physics layers
    Most rigorous and used in lender/investor reporting.
 
 4. MTBF / MTTR
-   MTBF = T_total / N_faults  [hours between faults]
+   MTBF = T_operating / N_faults  [operating hours between faults]
    MTTR = sum(T_repair) / N_faults  [hours per repair]
 
 5. Revenue loss
@@ -44,6 +47,7 @@ from typing import Any
 NUM_TURBINES = 34
 TURBINE_RATED_MW = 15.0
 DA_PRICE_EUR_MWH = 75.0  # average price for revenue loss calculation
+CONTROLLABLE = ("SCHEDULED_MAINTENANCE", "UNSCHEDULED_MAINTENANCE")  # operator/OEM levers
 
 # IEC 61400-26 availability benchmarks for offshore wind
 TARGET_TBA_PCT = 97.0
@@ -212,8 +216,8 @@ def get_turbine_availability(turbine_id: str, period_hours: float = 8760.0) -> d
     )
     fault_count = sum(1 for e in events if e["category"] == "UNSCHEDULED_MAINTENANCE")
 
-    # TBA: simple time fraction
-    tba = 100.0 * hours_producing / period_hours
+    # TBA (technical): external causes excluded from the denominator
+    tba = 100.0 * hours_producing / max(1.0, period_hours - hours_fm - hours_curtailment)
 
     # EBA: weighted by theoretical energy production (assume avg CF)
     energy_theoretical = period_hours * TURBINE_RATED_MW * CAPACITY_FACTOR_AVG
@@ -229,7 +233,7 @@ def get_turbine_availability(turbine_id: str, period_hours: float = 8760.0) -> d
     )
     pba = 100.0 * (energy_theoretical - avoidable_loss) / energy_theoretical
 
-    mtbf = period_hours / max(1, fault_count)
+    mtbf = hours_producing / max(1, fault_count)  # operating hours between faults
     mttr = hours_unscheduled / max(1, fault_count)
 
     return {
@@ -287,15 +291,14 @@ def get_downtime_breakdown(scope: str, period_hours: float = 8760.0) -> dict[str
                 "share_pct": round(100.0 * hours / max(1.0, total_downtime), 1),
                 "energy_loss_mwh": round(category_energy.get(cat, 0.0), 1),
                 "revenue_loss_eur": round(revenue_loss, 0),
+                "controllable": cat in CONTROLLABLE,
             }
         )
 
     dominant = categories[0]["category"] if categories else "UNKNOWN"
 
     # Controllable: scheduled + unscheduled (not FM or curtailment)
-    controllable_hours = category_totals.get("SCHEDULED_MAINTENANCE", 0.0) + category_totals.get(
-        "UNSCHEDULED_MAINTENANCE", 0.0
-    )
+    controllable_hours = sum(category_totals.get(c, 0.0) for c in CONTROLLABLE)
     controllable_pct = 100.0 * controllable_hours / max(1.0, total_hours)
 
     if controllable_pct < 2.0:

@@ -7,7 +7,7 @@ against roadmap target values.
 
 Test Strategy
 -------------
-- RSS uncertainty: 6.2% for default sources (exact match)
+- RSS uncertainty: 6.89% for default sources (exact match)
 - P-value ordering: P50 > P75 > P90 > P99
 - Cascade: multiplicative (not additive), known values → ~2140 GWh optimized
 - Revenue: AEP × 1000 × €72/MWh / 1e6
@@ -36,8 +36,8 @@ from app.services.p1.aep_calculator import (
 class TestRSSUncertainty:
     """Tests for root-sum-of-squares uncertainty calculation."""
 
-    def test_default_rss_is_6_2_percent(self):
-        """Combined RSS uncertainty with default sources should be ~6.2%.
+    def test_default_rss_is_6_89_percent(self):
+        """Combined RSS uncertainty with default sources should be √47.5 ≈ 6.89%.
 
         sigma = sqrt(4^2 + 3^2 + 3^2 + 2^2 + 1.5^2 + 1^2 + 2^2 + 1.5^2)
              = sqrt(16 + 9 + 9 + 4 + 2.25 + 1 + 4 + 2.25)

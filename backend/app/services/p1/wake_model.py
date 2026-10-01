@@ -9,11 +9,14 @@ Physics
 -------
 Wake effects reduce downstream wind speed. The Bastankhah-Porté-Agel (BPA)
 Gaussian model assumes the velocity deficit follows a Gaussian profile that
-expands linearly downstream. Wake superposition uses linear summation.
+expands linearly downstream. The Niayifar & Porté-Agel (2016) form used here
+ties the expansion rate to the local turbulence intensity, so higher ambient
+TI (and wake-added TI from STF2017) gives faster wake recovery. Wake
+superposition uses linear summation.
 
 Key equations:
 - Wake deficit: ΔU/U₀ = (1 - √(1 - Ct/(8(σ/D)²)))
-- Wake expansion: σ(x) = k*x + D/√8, where k* = 0.3837·TI + 0.003678
+- Wake expansion: σ(x) = k*·x + ε·D, k* = 0.38·TI + 0.004, ε = 0.2·√β
 - Linear superposition: total deficit = Σ individual deficits
 
 Turbine: Vestas V236-15.0 MW
@@ -25,7 +28,8 @@ Turbine: Vestas V236-15.0 MW
 
 References
 ----------
-- Bastankhah, M. & Porté-Agel, F. (2014). J. Fluid Mech., 781, 706-730.
+- Bastankhah, M. & Porté-Agel, F. (2014). Renewable Energy 70, 116-123.
+- Niayifar, A. & Porté-Agel, F. (2016). Energies 9(9), 741.
 - IEC 61400-12-1: Power performance measurement
 - Vestas V236-15.0 MW specification (public data sheet)
 """
@@ -405,7 +409,8 @@ def configure_wake_model(site: Any, turbine: Any) -> Any:
     """
     Configure PyWake BPA Gaussian wake model with linear superposition.
 
-    Uses the Bastankhah-Porté-Agel (2014) Gaussian deficit model with:
+    Uses the Gaussian deficit with TI-dependent expansion (Niayifar &
+    Porté-Agel 2016, PyWake NiayifarGaussianDeficit) with:
     - LinearSum superposition (industry standard for offshore)
     - STF2017 turbulence model (Frandsen-based, accounts for added TI in wakes)
 
@@ -421,7 +426,7 @@ def configure_wake_model(site: Any, turbine: Any) -> Any:
     py_wake.wind_farm_models.WindFarmModel
         Configured wake model ready for simulation.
     """
-    from py_wake.deficit_models.gaussian import BastankhahGaussianDeficit
+    from py_wake.deficit_models.gaussian import NiayifarGaussianDeficit
     from py_wake.superposition_models import LinearSum
     from py_wake.turbulence_models import STF2017TurbulenceModel
     from py_wake.wind_farm_models import All2AllIterative
@@ -429,7 +434,7 @@ def configure_wake_model(site: Any, turbine: Any) -> Any:
     return All2AllIterative(
         site=site,
         windTurbines=turbine,
-        wake_deficitModel=BastankhahGaussianDeficit(),
+        wake_deficitModel=NiayifarGaussianDeficit(),
         superpositionModel=LinearSum(),
         turbulenceModel=STF2017TurbulenceModel(),
     )

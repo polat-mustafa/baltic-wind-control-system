@@ -72,10 +72,7 @@ class TestBlockageEstimate:
         assert isinstance(result, BlockageResult)
 
     def test_blockage_range_34_turbines(self):
-        """Blockage loss for 34 V236 turbines should be ~1.5-2.5%.
-
-        This is the expected range from Nygaard (2020) for large offshore arrays.
-        """
+        """Blockage loss for 34 V236 turbines should sit in the published 1–4 % band."""
         # Create a realistic grid layout
         cols, rows = 6, 6
         spacing_x = 5 * 236.0  # 5D streamwise
@@ -114,20 +111,32 @@ class TestBlockageEstimate:
         result = estimate_blockage_loss_percent(34, x, y)
         assert result.mean_ct > 0.0
 
-    def test_mean_ct_at_rated(self):
-        """Mean Ct at rated wind speed (11.1 m/s) should be ~0.35."""
+    def test_energy_weighted_ct_below_ct_at_mean_speed(self):
+        """Most energy comes above the mean speed where pitch lowers Ct."""
+        from app.services.p1.wake_model import get_v236_ct_curve
+
         x = np.linspace(0, 10000, 34)
         y = np.zeros(34)
         y[::2] = 1000.0
-        result = estimate_blockage_loss_percent(34, x, y, mean_wind_speed_ms=11.1)
-        assert result.mean_ct == pytest.approx(0.35, abs=0.05)
+        result = estimate_blockage_loss_percent(34, x, y, mean_wind_speed_ms=9.3)
+        ct_at_mean = float(get_v236_ct_curve(np.array([9.3]))[0])
+        assert 0.2 < result.mean_ct < ct_at_mean
+
+    def test_no_loss_from_above_rated_hours(self):
+        """A very windy site runs mostly at rated, where a small deficit costs nothing."""
+        x = np.linspace(0, 10000, 34)
+        y = np.zeros(34)
+        y[::2] = 1000.0
+        calm = estimate_blockage_loss_percent(34, x, y, mean_wind_speed_ms=8.0)
+        windy = estimate_blockage_loss_percent(34, x, y, mean_wind_speed_ms=13.0)
+        assert windy.blockage_loss_percent < calm.blockage_loss_percent
 
     def test_method_name(self):
         """Method should be 'nygaard_2020'."""
         x = np.array([0.0])
         y = np.array([0.0])
         result = estimate_blockage_loss_percent(1, x, y)
-        assert result.method == "nygaard_2020"
+        assert result.method == "density_ct_power_curve"
 
     def test_farm_area_positive_for_valid_layout(self):
         """Farm area should be positive for non-degenerate layouts."""

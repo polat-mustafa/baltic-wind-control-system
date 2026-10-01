@@ -6,6 +6,23 @@
  * /api → localhost:8000; in production nginx handles the proxy.
  */
 
+/**
+ * FastAPI `detail` → readable text. Validation errors (422) arrive as a list
+ * of `{loc, msg}` objects; passing that to `new Error()` printed "[object Object]".
+ */
+export function formatErrorDetail(detail: unknown, status: number): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d: { loc?: (string | number)[]; msg?: string }) => {
+        const field = (d.loc ?? []).filter((p) => p !== "body").join(".");
+        return field ? `${field}: ${d.msg}` : (d.msg ?? JSON.stringify(d));
+      })
+      .join("; ");
+  }
+  return detail == null ? `HTTP ${status}` : JSON.stringify(detail);
+}
+
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
@@ -13,7 +30,7 @@ export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(body.detail ?? `HTTP ${res.status}`);
+    throw new Error(formatErrorDetail(body?.detail, res.status));
   }
   return res.json() as Promise<T>;
 }

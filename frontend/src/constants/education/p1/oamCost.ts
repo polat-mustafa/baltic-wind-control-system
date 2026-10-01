@@ -2,41 +2,36 @@ import type { EducationContent } from "../../../types/education";
 
 export const oamCostEducation: EducationContent = {
   id: "p1.oam-cost",
-  title: "Operations & Maintenance Cost Model",
-  subtitle: "Where the lifetime opex actually goes",
-  discipline: "Finance",
+  title: "Maintenance & Logistics Cost",
+  subtitle: "What it costs to keep an offshore farm running",
+  discipline: "Operations",
 
   overview:
-    "Offshore O&M is 25–35% of LCOE — a far bigger lever than the headline 'turbine price' figure. The cost model splits " +
-    "annual opex into a fixed component (vessel charters, base crews, port lease, insurance) and a variable component " +
-    "scaled by AEP (consumables, transmission charges, royalties). Operators benchmark themselves against £/MW·yr and " +
-    "€/MWh figures to spot inefficiencies before they bleed into LCOE.",
+    "Operations and maintenance is a large share of offshore LCOE — commonly cited around a quarter to a third. Total " +
+    "OPEX is typically quoted as 70–120 €/kW per year, but it bundles very different items: vessels and technicians, " +
+    "spare parts, the OEM service agreement, port and onshore base, insurance, seabed lease and grid charges. This panel " +
+    "models the maintenance & marine logistics part bottom-up and shows it as a share of that range.",
 
   simpleExplanation:
-    "Running an offshore wind farm is mostly about boats, helicopters, and parts. Some costs you pay no matter what " +
-    "(vessel charter, port rent, technicians on payroll). Other costs go up the more electricity you make (grid use of " +
-    "system charges, percentage royalties). The fixed part is the bigger one offshore — about 70% of the bill — which is " +
-    "why getting more energy out of an existing farm is so profitable.",
+    "Keeping turbines at sea running is mostly about boats, people and parts. Some costs you pay whatever happens (a " +
+    "service vessel on contract, insurance); others come with each fault (a call-out, a replacement part, a jack-up " +
+    "vessel for a big component).",
 
   technicalExplanation:
-    "Industry rule of thumb 2024: offshore opex 60–90 €/kW/yr → for a 510 MW farm, 30–46 M€/yr. Major component " +
-    "exchanges (gearbox, blade, generator) are amortised over the warranty period and folded into the variable bucket. " +
-    "OEM full-service contracts shift cost from variable to fixed and trade margin for predictability — banks like that. " +
-    "Onshore opex is typically 25–40 €/kW/yr, less than half of offshore — most of the gap is vessel and logistics cost.",
+    "Bottom-up: planned visits (CTV, scheduled in good weather), unplanned call-outs (mobilisation premium, waiting " +
+    "time, parts), a seasonal SOV charter, heavy-lift campaigns with a jack-up vessel for major components, and " +
+    "insurance as a share of CAPEX. Unplanned work costs more than planned because it cannot wait for the best " +
+    "weather and needs emergency mobilisation. Not modelled here: OEM service fees, permanent staff and base, seabed " +
+    "lease, transmission charges — the reason the result sits below a total-OPEX benchmark.",
 
   standards: [
     {
-      label: "IEC 61400-26-1 — Availability metrics for O&M decisions",
-      type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
-    },
-    {
-      label: "IEA Wind Task 26 — Cost of Wind Energy",
+      label: "IEA Wind TCP Task 26 — Cost of wind energy",
       type: "standard",
       url: "https://iea-wind.org/task26/",
     },
     {
-      label: "G+ Good Practice Guidelines",
+      label: "G+ Global Offshore Wind health & safety good practice",
       type: "standard",
       url: "https://www.gplusoffshorewind.com/resources/publications/",
     },
@@ -44,83 +39,50 @@ export const oamCostEducation: EducationContent = {
 
   formulas: [
     {
-      expression: "OPEX_annual = OPEX_fixed + c_var · AEP_net",
+      expression: "C_event = mobilisation + day-rate · days + crew · rate · days + parts",
       variables: [
-        { symbol: "OPEX_fixed", name: "Annual fixed cost (vessels, crews, insurance)", unit: "EUR/yr" },
-        { symbol: "c_var", name: "Variable cost coefficient", unit: "EUR/MWh" },
-        { symbol: "AEP_net", name: "Net annual energy production", unit: "MWh/yr" },
+        { symbol: "C_event", name: "Cost of one maintenance visit", unit: "€" },
       ],
-      explanation:
-        "Two-part model used in IEA Task 26 reference cases. For offshore: OPEX_fixed dominates (~70%); for onshore the split " +
-        "is closer to 50/50.",
+      explanation: "Per-visit cost; multiplied by visits per turbine per year and the number of turbines.",
     },
     {
-      expression: "OPEX_specific = OPEX_annual / P_rated",
-      variables: [
-        { symbol: "OPEX_specific", name: "Specific opex", unit: "EUR/kW/yr" },
-        { symbol: "P_rated", name: "Installed capacity", unit: "kW" },
-      ],
-      explanation:
-        "The standard offshore benchmarking figure. 80 €/kW/yr is the typical 2024 number for a Baltic-class farm; below " +
-        "60 indicates a very efficient operation, above 100 suggests trouble.",
+      expression: "OPEX_specific = OPEX_annual / P_installed",
+      variables: [{ symbol: "OPEX_specific", name: "Specific OPEX", unit: "€/kW·yr" }],
+      explanation: "The usual benchmarking figure; always say which cost items it includes.",
     },
   ],
 
   workedExamples: [
     {
-      title: "Baltic Wind 510 MW annual O&M budget",
-      scenario:
-        "OEM full-service contract 50 M EUR/yr (5-year), TUOS+royalties at 5 EUR/MWh, P50 AEP 2,140 GWh.",
+      title: "Unplanned CTV call-out (this model's inputs)",
+      scenario: "CTV mobilisation 5 k€ (×2 emergency premium), day rate 4 k€, 3 days, 10 technicians at 800 €/day, parts 8 k€.",
       steps: [
-        "Variable opex = 5 × 2,140,000 = 10,700,000 EUR/yr",
-        "Fixed opex = 50,000,000 EUR/yr (OEM + base costs)",
-        "Total opex = 60,700,000 EUR/yr",
-        "Specific opex = 60,700,000 / 510,000 = 119 EUR/kW/yr",
-        "EUR/MWh = 60,700,000 / 2,140,000 = 28.4 EUR/MWh",
+        "Mobilisation = 2 × 5,000 = 10,000 €",
+        "Vessel = 3 × 4,000 = 12,000 €",
+        "Crew = 10 × 800 = 8,000 €",
+        "Parts = 8,000 €  → 38,000 € per event",
+        "6 events × 34 turbines = 204 events → 7.75 M€/yr",
       ],
       result:
-        "Specific opex = 119 EUR/kW/yr — high end of the offshore range, reflecting a conservative full-service contract. " +
-        "After warranty expiry (year 5+) the operator typically self-services and brings this down to ~85 EUR/kW/yr.",
+        "Unplanned maintenance is the largest bottom-up item — the lever is reliability (fewer faults) and an SOV on " +
+        "station (no mobilisation, shorter waits).",
     },
   ],
 
-  realWorldCases: [
-    {
-      title: "Anholt (Denmark) post-warranty self-service",
-      description:
-        "Ørsted moved Anholt to self-service after the 5-year OEM warranty. Reported opex dropped from ~95 EUR/kW/yr to " +
-        "~75 EUR/kW/yr — savings of ~8 M EUR/yr — by combining spare-part pooling and crew-sharing with adjacent farms.",
-      takeaway:
-        "Self-service after warranty is the single biggest opex lever. It requires investment in in-house engineering and " +
-        "a critical mass of nearby assets.",
-    },
-    {
-      title: "DONG Walney 1+2 vessel pooling",
-      description:
-        "Sharing CTV and SOV charters across adjacent UK farms saved an estimated 12% on combined vessel costs via reduced " +
-        "deadhead miles and joint-rate negotiation.",
-      takeaway:
-        "Cluster strategies multiply value. They are why operators try to co-locate consents and why first-of-cluster project " +
-        "economics are usually tougher than later neighbours.",
-    },
-  ],
+  realWorldCases: [],
 
   furtherReading: [
     {
-      label: "Wind Europe — Offshore Wind in Europe (annual statistics)",
+      label: "IRENA — Renewable Power Generation Costs (latest edition)",
       type: "website",
-      url: "https://windeurope.org/intelligence-platform/product/offshore-wind-in-europe-key-trends-and-statistics-2023/",
-    },
-    {
-      label: "Carbon Trust — Offshore Wind Accelerator",
-      type: "website",
+      url: "https://www.irena.org/Publications",
     },
   ],
 
   codeReferences: [
     {
-      file: "backend/app/services/p1/oam_cost.py",
-      description: "Two-part opex model + per-vessel cost breakdown for the OAMCostPanel.",
+      file: "backend/app/services/p1/weather_window.py",
+      description: "get_oam_cost_breakdown() — bottom-up maintenance & logistics cost (M14).",
     },
   ],
 

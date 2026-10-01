@@ -2,26 +2,24 @@ import type { EducationContent } from "../../../types/education";
 
 export const availabilityWaterfallEducation: EducationContent = {
   id: "p1.availability-waterfall",
-  title: "Availability Waterfall (EBA / PBA)",
-  subtitle: "Where the available hours are lost — by category",
+  title: "Downtime Breakdown",
+  subtitle: "Where the lost hours go — by category",
   discipline: "Operations",
 
   overview:
-    "The waterfall starts at 100% theoretical availability and walks down through every IEC 61400-26 downtime category, " +
-    "ending at the operating PBA delivered to the offtaker. Each step is a category in the IEC taxonomy: scheduled " +
-    "maintenance, forced outages, grid loss, environmental, force majeure, technical standby. The shape of the waterfall " +
-    "tells you immediately whether the fleet is bottlenecked by reliability, by O&M logistics, or by external grid issues.",
+    "The breakdown ranks downtime hours by cause. Controllable categories (scheduled and unscheduled maintenance) are " +
+    "the operator's and OEM's lever; external ones (grid curtailment, force majeure) are not. The share that is " +
+    "controllable tells you whether better O&M can still raise availability.",
 
   simpleExplanation:
-    "Imagine starting with a full bucket of operating hours (100%) and pouring a little out at each step for every reason " +
-    "the turbine wasn't producing power. The pile at the end is what you actually delivered. The biggest spill is the " +
-    "category to fix first.",
+    "Start with every hour of the year and take away each reason a turbine wasn't working. The longest bar is the " +
+    "first thing to fix — if it's something you control.",
 
   technicalExplanation:
-    "EBA and PBA waterfalls share the same category structure but weight time differently — EBA uses theoretical energy, " +
-    "PBA further excludes force-majeure energy. A 'good' offshore waterfall has scheduled maintenance ≈ 2.0%, forced " +
-    "outages ≈ 1.5%, grid loss ≈ 0.5%, environmental ≈ 0.5%, force majeure ≈ 0.5% — leaving PBA above 95%. Step-changes " +
-    "in any single bar between months are the leading indicator that an O&M strategy needs revision.",
+    "Hours alone do not equal energy: an hour of downtime at 13 m/s costs a full 15 MWh, at 5 m/s only ~1.4 MWh. " +
+    "That is why EBA/PBA and the energy-loss column matter for revenue, while hours matter for logistics. Reliability " +
+    "parameters drive the unscheduled bar: MTBF (operating hours between faults) and MTTR (hours to restore), the " +
+    "latter dominated offshore by waiting for a weather window.",
 
   standards: [
     {
@@ -29,85 +27,51 @@ export const availabilityWaterfallEducation: EducationContent = {
       type: "standard",
       url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
-    {
-      label: "IEC 61400-26-2 — Production-based availability",
-      type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
-    },
-    {
-      label: "IEC 61400-26-3 — Information categories for downtime",
-      type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
-    },
   ],
 
   formulas: [
     {
-      expression: "PBA = 1 − Σ_i loss_i / E_potential",
+      expression: "MTBF = T_operating / N_faults,    MTTR = T_repair / N_faults",
       variables: [
-        { symbol: "loss_i", name: "Energy lost to category i (excluding force majeure)", unit: "MWh" },
-        { symbol: "E_potential", name: "Total potential energy", unit: "MWh" },
+        { symbol: "N_faults", name: "Unscheduled stops in the period", unit: "—" },
       ],
-      explanation:
-        "The waterfall is the visual decomposition of this sum. PBA targets in OEM service contracts are typically 96–98%.",
-      reference: "IEC 61400-26-2 §5",
+      explanation: "Unscheduled unavailability ≈ MTTR / (MTBF + MTTR).",
     },
     {
-      expression: "MTBF = T_up / N_failures,    MTTR = T_down / N_failures",
+      expression: "Lost energy ≈ Σ_events P(v_event) · duration",
       variables: [
-        { symbol: "MTBF", name: "Mean time between failures", unit: "h" },
-        { symbol: "MTTR", name: "Mean time to repair", unit: "h" },
-        { symbol: "N_failures", name: "Number of failures in the period", unit: "—" },
+        { symbol: "P(v)", name: "Power the turbine would have produced", unit: "MW" },
       ],
-      explanation:
-        "Reliability inputs that drive the forced-outage bar of the waterfall. Offshore operators want MTBF > 8,000 h " +
-        "and MTTR < 48 h on the dominant failure mode.",
+      explanation: "Energy-weighting is what turns a time breakdown into a revenue breakdown.",
     },
   ],
 
   workedExamples: [
     {
-      title: "Waterfall for the Baltic Wind fleet (synthetic)",
-      scenario:
-        "Total potential energy = 2,250 GWh. Losses: scheduled 45 GWh, forced 35 GWh, grid 10 GWh, environmental 8 GWh, " +
-        "force majeure 12 GWh.",
+      title: "Unscheduled downtime from MTBF and MTTR",
+      scenario: "MTBF 1,400 h, MTTR 30 h (incl. weather wait).",
       steps: [
-        "Sum of operator-controllable losses: 45 + 35 + 10 + 8 = 98 GWh",
-        "PBA = 1 − 98 / 2,250 = 1 − 0.0436 = 0.9564 → 95.64%",
-        "Including force majeure → EBA = 1 − (98 + 12)/2,250 = 95.11%",
+        "Unavailability ≈ 30 / (1,400 + 30) = 2.1 %",
+        "Halving MTTR to 15 h (SOV on station instead of CTV from port): 15 / 1,415 = 1.1 %",
       ],
-      result: "PBA 95.6%, EBA 95.1%. Forced outages dominate — the OEM service strategy should target gearbox reliability.",
+      result: "Getting technicians to the turbine faster is worth about one point of availability here.",
     },
   ],
 
-  realWorldCases: [
-    {
-      title: "Walney Extension (UK) — quarterly waterfall",
-      description:
-        "Q3 2022 waterfall showed a step-change in 'environmental' (cetacean exclusion zone causing daytime curtailment) " +
-        "of ~1.5 percentage points. The visual jump triggered an investigation that recovered 40% of the loss via " +
-        "improved coordination with marine surveyors.",
-      takeaway: "Watch the small bars — they sometimes hide outsized improvements.",
-    },
-  ],
+  realWorldCases: [],
 
   furtherReading: [
     {
-      label: "G+ Global Offshore Wind Health & Safety Organisation",
-      type: "website",
-      url: "https://www.gplusoffshorewind.com/resources/publications/",
-    },
-    {
-      label: "WMEP (Germany) — long-term reliability database",
-      type: "website",
-      url: "https://www.iee.fraunhofer.de/",
+      label: "Tavner — Offshore Wind Turbines: Reliability, Availability and Maintenance",
+      type: "textbook",
+      citation: "IET 2012",
     },
   ],
 
   codeReferences: [
     {
       file: "backend/app/services/p1/availability.py",
-      description: "fleet_waterfall() — splits time and energy losses by IEC 61400-26 categories.",
+      description: "get_downtime_breakdown() — hours, energy loss and controllable share per category.",
     },
   ],
 

@@ -34,14 +34,37 @@ describe("WindRoseChart", () => {
         dominant_direction_deg: 240,
         circular_std_deg: 45,
         num_sectors: 12,
+        speed_bin_edges_ms: [0, 4],
+        sector_speed_frequencies: [[0.05, 0.05], [0.1, 0.1], [0.1, 0.05]],
       },
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<WindRoseChart />);
-    expect(screen.getByText(/Wind Rose/)).toBeDefined();
+    expect(screen.getByText(/Wind rose/)).toBeDefined();
   });
 
   it("shows dominant direction in footer", () => {
+    vi.mocked(useWindResourceStore).mockReturnValue({
+      windRose: {
+        sector_centres_deg: [0, 30, 60],
+        frequencies: [0.1, 0.2, 0.15],
+        energy_fractions: [0.12, 0.25, 0.18],
+        mean_speeds_ms: [8, 10, 9],
+        dominant_direction_deg: 240,
+        circular_std_deg: 45,
+        num_sectors: 12,
+        speed_bin_edges_ms: [0, 4],
+        sector_speed_frequencies: [[0.05, 0.05], [0.1, 0.1], [0.1, 0.05]],
+      },
+    } as unknown as ReturnType<typeof useWindResourceStore>);
+
+    render(<WindRoseChart />);
+    expect(screen.getByText(/240°/)).toBeDefined();
+  });
+});
+
+describe("WindRoseChart with an older API (no speed-class table)", () => {
+  it("falls back to plain frequencies instead of crashing", () => {
     vi.mocked(useWindResourceStore).mockReturnValue({
       windRose: {
         sector_centres_deg: [0, 30, 60],
@@ -55,6 +78,6 @@ describe("WindRoseChart", () => {
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<WindRoseChart />);
-    expect(screen.getByText(/240°/)).toBeDefined();
+    expect(screen.getByText(/Wind rose/)).toBeDefined();
   });
 });

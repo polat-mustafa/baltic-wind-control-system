@@ -63,8 +63,8 @@ describe("LayoutComparison", () => {
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<LayoutComparison />);
-    expect(screen.getByText("Layout Comparison")).toBeDefined();
-    expect(screen.getByText("BEST")).toBeDefined();
+    expect(screen.getByText(/Layout comparison/)).toBeDefined();
+    expect(screen.getByText("better")).toBeDefined();
   });
 
   it("shows improvement percentage", () => {
@@ -79,13 +79,21 @@ describe("LayoutComparison", () => {
             revenue_meur: 133.2,
             p90_gwh: 1720,
           },
+          {
+            name: "staggered",
+            net_aep_gwh: 1870,
+            wake_loss_percent: 7.5,
+            capacity_factor: 0.425,
+            revenue_meur: 134.6,
+            p90_gwh: 1738,
+          },
         ],
-        best_layout: "regular",
+        best_layout: "staggered",
         improvement_percent: 1.08,
       },
     } as unknown as ReturnType<typeof useWindResourceStore>);
 
     render(<LayoutComparison />);
-    expect(screen.getByText(/1.08%/)).toBeDefined();
+    expect(screen.getByText(/1.08 %/)).toBeDefined();
   });
 });

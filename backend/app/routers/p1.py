@@ -20,6 +20,9 @@ as P4's scada_generator.py — physics-correct synthetic data.
 
 from __future__ import annotations
 
+import math
+from typing import Any
+
 import numpy as np
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -70,7 +73,7 @@ from app.services.p1.wake_model import (
     RATED_SPEED_MS,
     ROTOR_DIAMETER_M,
     WakeAnalysisResult,
-    create_uniform_site,
+    create_site_from_wind_rose,
     run_wake_analysis,
 )
 from app.services.p1.wake_models import (
@@ -79,7 +82,11 @@ from app.services.p1.wake_models import (
     WakeDeficitModel,
     compare_wake_models,
 )
-from app.services.p1.wind_analysis import compute_wind_rose
+from app.services.p1.wind_analysis import (
+    WindRoseResult,
+    classify_direction_sector,
+    compute_wind_rose,
+)
 from app.services.p1.yaw_optimizer import (
     optimize_yaw_all_directions,
     optimize_yaw_single_direction,
@@ -156,6 +163,10 @@ class WindRoseResponse(BaseModel):
     dominant_direction_deg: float
     circular_std_deg: float
     num_sectors: int
+    speed_bin_edges_ms: list[float] = Field(description="Speed-class edges [m/s]; last class open")
+    sector_speed_frequencies: list[list[float]] = Field(
+        description="[sector][speed class] share of all hours [-]; sums to 1"
+    )
 
 
 class WakeAnalysisRequest(BaseModel):
@@ -217,7 +228,8 @@ class BlockageRequest(BaseModel):
     """Request for blockage estimation."""
 
     layout: str = Field("regular")
-    mean_wind_speed_ms: float = Field(10.5, ge=3.0, le=20.0)
+    mean_wind_speed_ms: float = Field(9.3, ge=3.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
 
 
 class BlockageResponse(BaseModel):
@@ -348,28 +360,51 @@ class FarmYawOptimizationResponse(BaseModel):
 # ── Helpers ──────────────────────────────────────────────────────
 
 
+# Prevailing-direction speed-up: Baltic SW–W winds are stronger than NE winds
+# (sector mean speeds differ by roughly ±10–15 %). Educational assumption.
+DIRECTIONAL_SPEEDUP = 0.12
+PREVAILING_DIR_DEG = 240.0
+SITE_SAMPLES = 87_600  # 10 synthetic years for stable 12-sector Weibull fits
+
+
 def _generate_synthetic_wind(
     weibull_a: float,
     weibull_k: float,
     n_samples: int,
     seed: int = 42,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Generate synthetic wind speed and direction arrays.
+    """Generate synthetic hub-height wind speed and direction arrays.
 
-    Speeds follow a Weibull(a, k) distribution.
-    Directions follow a wrapped-normal distribution centered on 240 deg (WSW)
-    with 60 deg circular std — typical Polish Baltic Sea.
+    Directions: wrapped normal centred on 240° (WSW), σ = 60° — typical of the
+    Polish Baltic. Speeds: Weibull(k) scaled per direction by
+    1 + 0.12·cos(θ − 240°), normalised to mean 1, so winds from the prevailing
+    sector are also the strongest. That makes the energy rose sharper than the
+    frequency rose, as in real offshore data, while the all-direction
+    distribution stays close to Weibull(A, k).
     """
     rng = np.random.default_rng(seed)
+    directions = rng.normal(loc=PREVAILING_DIR_DEG, scale=60.0, size=n_samples) % 360.0
+    factor = 1.0 + DIRECTIONAL_SPEEDUP * np.cos(np.radians(directions - PREVAILING_DIR_DEG))
+    speeds = weibull_a * (factor / factor.mean()) * rng.weibull(weibull_k, size=n_samples)
+    return np.clip(speeds, 0.0, 40.0).astype(np.float64), directions.astype(np.float64)
 
-    # Weibull samples: scipy parameterisation → scale=a, shape=k
-    speeds = weibull_a * rng.weibull(weibull_k, size=n_samples)
-    speeds = np.clip(speeds, 0.0, 40.0)
 
-    # Directional distribution: dominant WSW (240 deg) with moderate spread
-    directions = rng.normal(loc=240.0, scale=60.0, size=n_samples) % 360.0
+def _site_rose(mean_wind_speed_ms: float, weibull_k: float) -> WindRoseResult:
+    """The dashboard's 12-sector wind rose for a given mean speed and k."""
+    a = mean_wind_speed_ms / math.gamma(1 + 1 / weibull_k)
+    speeds, directions = _generate_synthetic_wind(a, weibull_k, SITE_SAMPLES)
+    return compute_wind_rose(speeds, directions, 12)
 
-    return speeds.astype(np.float64), directions.astype(np.float64)
+
+def _site(weibull_a: float, weibull_k: float, ti: float) -> Any:
+    """PyWake site with the SAME 12-sector wind rose the dashboard shows.
+
+    Sector frequencies and per-sector Weibull fits come from the synthetic
+    record, so wake loss and AEP respond to the prevailing direction.
+    """
+    speeds, directions = _generate_synthetic_wind(weibull_a, weibull_k, SITE_SAMPLES)
+    rose = compute_wind_rose(speeds, directions, 12)
+    return create_site_from_wind_rose(rose, ti)
 
 
 def _get_layout(name: str) -> LayoutResult:
@@ -389,11 +424,13 @@ def _run_wake_for_layout(
     ti: float,
 ) -> WakeAnalysisResult:
     """Run PyWake wake analysis for a layout with given wind parameters."""
-    site = create_uniform_site(weibull_a, weibull_k, ti)
+    site = _site(weibull_a, weibull_k, ti)
     return run_wake_analysis(layout.x_positions, layout.y_positions, site)
 
 
-@cached(prefix="wake", ttl=300)
+# Bump the version suffix whenever the wake model or wind site changes so
+# Redis never serves results computed with an older model.
+@cached(prefix="wake-v2", ttl=300)
 def _cached_wake_analysis(
     layout_name: str,
     weibull_a: float,
@@ -473,6 +510,14 @@ async def wind_rose(request: WindRoseRequest) -> WindRoseResponse:
     # Replace NaN with 0 for JSON serialisation
     mean_speeds = np.nan_to_num(result.mean_speeds_ms, nan=0.0)
 
+    # Joint frequency table (sector × speed class) for a stacked wind rose
+    edges = np.array([0.0, 4.0, 8.0, 12.0, 16.0, 20.0, np.inf])
+    sector = classify_direction_sector(directions, request.num_sectors)
+    speed_class = np.clip(np.digitize(speeds, edges) - 1, 0, len(edges) - 2)
+    joint = np.zeros((request.num_sectors, len(edges) - 1))
+    np.add.at(joint, (sector, speed_class), 1.0)
+    joint /= len(speeds)
+
     return WindRoseResponse(
         sector_centres_deg=result.sector_centres_deg.tolist(),
         frequencies=result.frequencies.tolist(),
@@ -481,6 +526,8 @@ async def wind_rose(request: WindRoseRequest) -> WindRoseResponse:
         dominant_direction_deg=result.dominant_direction_deg,
         circular_std_deg=round(result.circular_std_deg, 1),
         num_sectors=result.num_sectors,
+        speed_bin_edges_ms=edges[:-1].tolist(),
+        sector_speed_frequencies=joint.round(5).tolist(),
     )
 
 
@@ -537,7 +584,8 @@ async def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
         num_turbines=layout.num_turbines,
         x_positions=layout.x_positions,
         y_positions=layout.y_positions,
-        mean_wind_speed_ms=request.weibull_a * 0.886,  # Approx mean from Weibull A
+        mean_wind_speed_ms=request.weibull_a * math.gamma(1 + 1 / request.weibull_k),
+        weibull_k=request.weibull_k,
     )
 
     # AEP cascade
@@ -573,7 +621,7 @@ async def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
 
 @router.post("/blockage", response_model=BlockageResponse)
 async def blockage_estimate(request: BlockageRequest) -> BlockageResponse:
-    """Estimate wind farm blockage loss using Nygaard (2020) model."""
+    """Estimate global-blockage AEP loss (density × Ct deficit through the power curve)."""
     layout = _get_layout(request.layout)
 
     result = estimate_blockage_loss_percent(
@@ -581,6 +629,7 @@ async def blockage_estimate(request: BlockageRequest) -> BlockageResponse:
         x_positions=layout.x_positions,
         y_positions=layout.y_positions,
         mean_wind_speed_ms=request.mean_wind_speed_ms,
+        weibull_k=request.weibull_k,
     )
 
     return BlockageResponse(
@@ -618,7 +667,8 @@ async def layout_comparison(request: LayoutComparisonRequest) -> LayoutCompariso
             num_turbines=layout.num_turbines,
             x_positions=layout.x_positions,
             y_positions=layout.y_positions,
-            mean_wind_speed_ms=request.weibull_a * 0.886,
+            mean_wind_speed_ms=request.weibull_a * math.gamma(1 + 1 / request.weibull_k),
+            weibull_k=request.weibull_k,
         )
 
         cascade = compute_aep_cascade(
@@ -687,7 +737,7 @@ async def yaw_optimization(request: YawOptimizationRequest) -> YawOptimizationRe
     downstream wake deflection gain.
     """
     layout = _get_layout(request.layout)
-    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+    site = _site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
 
     try:
         result = optimize_yaw_single_direction(
@@ -724,7 +774,7 @@ async def yaw_optimization_farm(
     operational improvement for offshore wind farms.
     """
     layout = _get_layout(request.layout)
-    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+    site = _site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
     directions = np.linspace(0, 360 - 360 / request.num_directions, request.num_directions)
 
     try:
@@ -817,8 +867,9 @@ class DeratingResponse(BaseModel):
 
 class FLOWERSRequest(BaseModel):
     layout: str = Field("staggered")
-    mean_wind_speed_ms: float = Field(10.5, ge=5.0, le=20.0)
-    n_fourier_modes: int = Field(12, ge=4, le=24)
+    mean_wind_speed_ms: float = Field(9.3, ge=5.0, le=20.0, description="Hub-height mean [m/s]")
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    n_fourier_modes: int = Field(12, ge=4, le=24, description="Truncated to sectors/2 (Nyquist)")
 
 
 class FLOWERSResponse(BaseModel):
@@ -885,7 +936,7 @@ async def wake_model_comparison(request: WakeModelComparisonRequest) -> WakeMode
     noj (same as Jensen), zong_gaussian (Zong & Porté-Agel LES-based).
     """
     layout = _get_layout(request.layout)
-    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+    site = _site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
     models = [WakeDeficitModel(m) for m in request.models]
     turb_model = TurbulenceModel(request.turbulence_model)
     sup_model = SuperpositionModel(request.superposition_model)
@@ -921,13 +972,13 @@ async def wake_model_comparison(request: WakeModelComparisonRequest) -> WakeMode
 
 @router.post("/derating", response_model=DeratingResponse)
 async def derating_analysis(request: DeratingRequest) -> DeratingResponse:
-    """Optimize turbine derating for wake mitigation.
+    """Front-row derating (axial-induction control) for one wind direction.
 
-    Finds the optimal upstream power reduction that maximizes total farm
-    power by weakening wakes for downstream turbines.
+    Finds the setpoint α that maximises Weibull-averaged farm power, with the
+    derated thrust from actuator-disk theory. α = 1 means derating does not pay.
     """
     layout = _get_layout(request.layout)
-    site = create_uniform_site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
+    site = _site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
 
     try:
         result = optimize_derating(
@@ -935,6 +986,8 @@ async def derating_analysis(request: DeratingRequest) -> DeratingResponse:
             layout.y_positions,
             site,
             wind_direction_deg=request.wind_direction_deg,
+            weibull_a_ms=request.weibull_a,
+            weibull_k=request.weibull_k,
         )
     except Exception as e:
         raise DomainError(f"Derating analysis failed: {e}") from e
@@ -959,11 +1012,15 @@ async def flowers_aep(request: FLOWERSRequest) -> FLOWERSResponse:
     layout = _get_layout(request.layout)
 
     try:
+        rose = _site_rose(request.mean_wind_speed_ms, request.weibull_k)
         result = compute_flowers_aep(
             layout.x_positions,
             layout.y_positions,
+            sector_frequencies=rose.frequencies,
+            sector_directions_deg=rose.sector_centres_deg,
             mean_wind_speed_ms=request.mean_wind_speed_ms,
             n_fourier_modes=request.n_fourier_modes,
+            weibull_k=request.weibull_k,
         )
     except Exception as e:
         raise DomainError(f"FLOWERS AEP failed: {e}") from e
@@ -1169,8 +1226,9 @@ class MGAResponse(BaseModel):
 
 class GaussianFLOWERSRequest(BaseModel):
     layout: str = Field("staggered")
-    mean_wind_speed_ms: float = Field(10.5, ge=5.0, le=20.0)
-    n_fourier_modes: int = Field(12, ge=4, le=24)
+    mean_wind_speed_ms: float = Field(9.3, ge=5.0, le=20.0, description="Hub-height mean [m/s]")
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    n_fourier_modes: int = Field(12, ge=4, le=24, description="Truncated to sectors/2 (Nyquist)")
 
 
 class GaussianFLOWERSResponse(BaseModel):
@@ -1409,11 +1467,15 @@ async def gaussian_flowers_aep(request: GaussianFLOWERSRequest) -> GaussianFLOWE
     """
     layout = _get_layout(request.layout)
     try:
+        rose = _site_rose(request.mean_wind_speed_ms, request.weibull_k)
         result = compute_gaussian_flowers_aep(
             layout.x_positions,
             layout.y_positions,
+            sector_frequencies=rose.frequencies,
+            sector_directions_deg=rose.sector_centres_deg,
             mean_wind_speed_ms=request.mean_wind_speed_ms,
             n_fourier_modes=request.n_fourier_modes,
+            weibull_k=request.weibull_k,
         )
     except Exception as e:
         raise DomainError(f"Gaussian FLOWERS failed: {e}") from e
@@ -1440,11 +1502,7 @@ async def layout_optimization(
     respecting minimum spacing constraints (5D = 1180 m).
     """
     layout = _get_layout(request.layout)
-    site = create_uniform_site(
-        request.weibull_a,
-        request.weibull_k,
-        request.turbulence_intensity,
-    )
+    site = _site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
     algorithm = OptimizationAlgorithm(request.algorithm)
 
     try:

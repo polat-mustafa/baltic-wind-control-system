@@ -276,3 +276,16 @@ class TestWakeModel:
 
         assert result.net_aep_gwh > 0
         assert result.capacity_factor > 0
+
+
+def test_higher_ambient_turbulence_reduces_wake_loss():
+    """Wakes recover faster in more turbulent air (TI-dependent expansion, Niayifar 2016).
+
+    Regression: the plain BPA deficit with a fixed k ignored the TI slider entirely.
+    """
+    from app.routers.p1 import _get_layout, _run_wake_for_layout
+
+    layout = _get_layout("regular")
+    calm = _run_wake_for_layout(layout, 10.5, 2.2, 0.04).wake_loss_percent
+    turbulent = _run_wake_for_layout(layout, 10.5, 2.2, 0.12).wake_loss_percent
+    assert turbulent < calm - 1.0

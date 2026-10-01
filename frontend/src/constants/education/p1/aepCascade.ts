@@ -2,148 +2,126 @@ import type { EducationContent } from "../../../types/education";
 
 export const aepCascadeEducation: EducationContent = {
   id: "p1.aep-cascade",
-  title: "AEP Cascade & P-Value Bands",
-  subtitle: "From gross energy to bankable P50 / P75 / P90",
+  title: "AEP Cascade & P-Values",
+  subtitle: "From gross energy to a bankable P50 / P90",
   discipline: "Civil",
 
   overview:
-    "The AEP cascade is the waterfall that takes you from a turbine's theoretical gross energy to the net energy that " +
-    "actually reaches the grid. Each step is a loss factor: wake, blockage, electrical, availability, environmental, " +
-    "curtailment. The result is a probability distribution — banks finance against P90 (90% exceedance), equity against " +
-    "P50, and PPA buyers price against P75. Misreporting any of these is a financing red flag.",
+    "The AEP cascade takes a farm from its gross energy — every turbine in clean wind, always running — to the net " +
+    "energy delivered to the grid. Each step is a loss: wake, blockage, electrical, availability, environmental (and, " +
+    "where it applies, curtailment). The net result is the P50: the central estimate of long-term annual energy. " +
+    "Because every input is uncertain, the AEP is a probability distribution; P90 is the value exceeded with 90 % " +
+    "probability and is the figure lenders size debt against.",
 
   simpleExplanation:
-    "Imagine pouring water (energy) through a series of sieves. Each sieve catches a little — turbines downwind get less " +
-    "wind (wake), some hours the turbine is broken (availability), the cables warm up and lose a bit (electrical). The " +
-    "water that comes out at the end is the energy you can sell. Banks want to know the answer in a bad year, not an " +
-    "average year — that is what P90 means.",
+    "Think of pouring water through a row of sieves. Each one keeps a little: turbines downwind get weaker wind (wake), " +
+    "the farm slows the incoming wind (blockage), cables warm up (electrical), turbines stop for repairs (availability). " +
+    "What comes out at the end is the energy you can sell. Since nobody knows the future exactly, banks ask: what is " +
+    "the amount we are 90 % sure to beat? That is P90.",
 
   technicalExplanation:
-    "Net AEP = Gross AEP × (1 − wake) × (1 − availability) × (1 − electrical) × (1 − environmental) × (1 − curtailment). " +
-    "Each loss carries an uncertainty; the P-value bands come from combining the wind resource uncertainty with the loss " +
-    "uncertainties via root-sum-square (assuming independence) per IEC 61400-15-2. Typical offshore: P50/P90 ratio ≈ 1.10–1.15. " +
-    "DSCR-driven debt sizing uses P90 cash flows; equity returns are modelled at P50; PPAs are typically priced at P75.",
+    "Losses are multiplicative — each acts on the energy left after the previous one: Net = Gross × Π(1 − Lᵢ). The " +
+    "uncertainty of each input (wind data, long-term correction, shear, wake model, power curve, availability…) is " +
+    "combined by root-sum-square under an independence assumption, giving σ as a fraction of P50. With a normal " +
+    "approximation P_x = P50·(1 − z_x·σ): z = 0.674 (P75), 1.282 (P90), 2.326 (P99). On this platform σ = 6.89 %, " +
+    "so P90 sits 8.8 % below P50. These are long-term (multi-year average) values; a 1-year P90 also includes the " +
+    "year-to-year variability of the wind and is lower.",
 
   standards: [
     {
-      label: "IEC 61400-15-2 — Energy yield assessment uncertainty",
+      label: "IEC 61400-15 (series) — Assessment of site-specific wind conditions and energy yield",
       type: "standard",
       url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
-      label: "DNV-RP-J103 — Energy yield assessment of offshore wind farms",
-      type: "standard",
-    },
-    {
-      label: "MEASNET — Evaluation of Site-Specific Wind Conditions",
+      label: "MEASNET — Evaluation of site-specific wind conditions",
       type: "standard",
       url: "https://www.measnet.com/procedure/",
-    },
-    {
-      label: "IEC 61400-1 — Wind turbine design requirements",
-      type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
   ],
 
   formulas: [
     {
-      expression:
-        "AEP_net = AEP_gross · (1−L_wake) · (1−L_avail) · (1−L_elec) · (1−L_env) · (1−L_curt)",
+      expression: "AEP_net = AEP_gross · (1−L_wake) · (1−L_block) · (1−L_elec) · (1−L_avail) · (1−L_env)",
       variables: [
-        { symbol: "AEP_gross", name: "Gross AEP from Weibull × power curve", unit: "MWh/yr" },
-        { symbol: "L_wake", name: "Wake loss (5–15% offshore)", unit: "—" },
-        { symbol: "L_avail", name: "Availability loss (3–6%)", unit: "—" },
-        { symbol: "L_elec", name: "Electrical losses (1.5–3%)", unit: "—" },
-        { symbol: "L_env", name: "Environmental (icing, soiling) (<1% offshore)", unit: "—" },
-        { symbol: "L_curt", name: "Curtailment (grid, environmental)", unit: "—" },
+        { symbol: "AEP_gross", name: "Gross AEP (Weibull × power curve, clean wind)", unit: "GWh/yr" },
+        { symbol: "L_wake", name: "Wake loss (PyWake BPA here)", unit: "—" },
+        { symbol: "L_block", name: "Global blockage loss", unit: "—" },
+        { symbol: "L_elec", name: "Electrical (cables, transformers) loss", unit: "—" },
+        { symbol: "L_avail", name: "Availability loss", unit: "—" },
+        { symbol: "L_env", name: "Environmental (icing, blade degradation…) loss", unit: "—" },
       ],
       explanation:
-        "Multiplicative loss model — order matters only conceptually. Each L_i is itself uncertain; the loss list is " +
-        "the same one DNV uses in its bankable energy yield templates.",
-      reference: "DNV-RP-J103 §5",
+        "Multiplicative, so the order does not change the result — but adding the percentages would overstate the loss " +
+        "(two 10 % losses leave 81 %, not 80 %).",
     },
     {
-      expression: "P_x = AEP_net · (1 − z_x · σ_combined)",
+      expression: "σ = √(Σ σᵢ²),    P_x = P50 · (1 − z_x · σ)",
       variables: [
-        { symbol: "P_x", name: "x% exceedance AEP", unit: "MWh/yr" },
-        { symbol: "z_x", name: "Standard normal quantile (P90 → 1.282)", unit: "—" },
-        { symbol: "σ_combined", name: "Combined relative uncertainty", unit: "—" },
+        { symbol: "σᵢ", name: "Relative uncertainty of source i", unit: "—" },
+        { symbol: "z_x", name: "Standard-normal quantile (P90 → 1.282)", unit: "—" },
       ],
       explanation:
-        "Linear approximation valid when σ ≪ 1. P50 = AEP_net (z=0); P75 ≈ −0.674·σ; P90 ≈ −1.282·σ; P99 ≈ −2.326·σ.",
-    },
-    {
-      expression:
-        "σ_combined² = σ_wind² + σ_wake² + σ_avail² + σ_elec² + σ_curt²",
-      variables: [
-        { symbol: "σ_wind", name: "Wind resource uncertainty (~3–5%)", unit: "—" },
-        { symbol: "σ_wake", name: "Wake model uncertainty (~1–2%)", unit: "—" },
-        { symbol: "σ_avail", name: "Availability uncertainty (~1–2%)", unit: "—" },
-      ],
-      explanation:
-        "Root-sum-square aggregation under independence assumption. Wind resource always dominates; that is why long-term " +
-        "MCP correction is the highest-leverage step in any energy yield assessment.",
-      reference: "IEC 61400-15-2 §6",
+        "Root-sum-square assumes the sources are independent. The linear form is an approximation valid for σ ≪ 1.",
     },
   ],
 
   workedExamples: [
     {
-      title: "Baltic Wind 510 MW — full cascade",
+      title: "This platform's cascade (A = 10.5 m/s, k = 2.2, regular grid)",
       scenario:
-        "510 MW (34 × V236-15.0 MW), V_mean ≈ 10 m/s, capacity factor ≈ 50%. Gross AEP from Weibull × power curve = 2,520 GWh.",
+        "34 × V236-15.0 MW. Gross AEP from PyWake = 2,425.8 GWh/yr. Losses: wake 5.56 %, blockage 1.63 %, electrical 2.0 %, " +
+        "availability 5.0 %, environmental 1.0 %. Price 72 €/MWh.",
       steps: [
-        "Wake loss 8% → 2,520 × 0.92 = 2,318 GWh",
-        "Availability loss 4% → 2,318 × 0.96 = 2,225 GWh",
-        "Electrical loss 2.5% → 2,225 × 0.975 = 2,170 GWh",
-        "Environmental loss 0.5% → 2,170 × 0.995 = 2,159 GWh",
-        "Curtailment 1% → 2,159 × 0.99 = 2,138 GWh",
+        "After wake: 2,425.8 × 0.9444 = 2,290.9 GWh",
+        "After blockage: 2,290.9 × 0.9837 = 2,253.6 GWh",
+        "After electrical: 2,253.6 × 0.980 = 2,208.5 GWh",
+        "After availability: 2,208.5 × 0.950 = 2,098.1 GWh",
+        "After environmental: 2,098.1 × 0.990 = 2,077.1 GWh  → P50",
+        "σ = √(4² + 3² + 3² + 2² + 2² + 1.5² + 1.5² + 1²) = √47.5 = 6.89 %",
+        "P90 = 2,077 × (1 − 1.282 × 0.0689) = 1,894 GWh",
       ],
       result:
-        "Net AEP P50 ≈ 2,140 GWh/yr; capacity factor 47.9%. Combined σ ≈ 6.5% → P90 ≈ 1,962 GWh; P75 ≈ 2,049 GWh.",
+        "P50 ≈ 2,077 GWh/yr (capacity factor 46.5 %), P90 ≈ 1,894 GWh/yr. At 72 €/MWh the gap is ≈ 13 M€ of revenue per " +
+        "year — the price of uncertainty.",
     },
   ],
 
   realWorldCases: [
     {
-      title: "Borssele I+II (Netherlands, 752 MW)",
+      title: "Industry-wide prediction bias",
       description:
-        "Reported losses (DNV-bankable): wake ~9%, availability ~3.5%, electrical ~2.0%. Capacity factor in operation 50.4% in 2022.",
+        "A review of published validation studies found that pre-construction energy estimates historically over-" +
+        "predicted actual production, with the bias shrinking over the last decade as wake, blockage and availability " +
+        "modelling improved.",
       takeaway:
-        "Real-world operating capacity factor often beats P50 by 1–2 percentage points after the first two operational years " +
-        "thanks to better-than-modelled availability.",
-    },
-    {
-      title: "Walney Extension (UK, 659 MW) — over-performance",
-      description:
-        "Achieved 51% capacity factor in its first full year vs P50 forecast of 47%. Driver: better-than-expected wake " +
-        "calibration (Bastankhah model recalibrated to operational SCADA).",
-      takeaway:
-        "P50 forecasts tend to be conservative on wake; modelled losses are systematically higher than measured for well-spaced layouts.",
+        "P50 is only unbiased if every loss is modelled honestly — omitted losses (e.g. blockage) show up later as " +
+        "under-performance.",
+      source: "Lee & Fields (2021), Wind Energy Science 6, 311–365",
     },
   ],
 
   furtherReading: [
     {
-      label: "DNV — Energy yield assessment best practice",
-      type: "website",
+      label: "Lee & Fields — An overview of wind-energy-production prediction bias, losses, and uncertainties",
+      type: "paper",
+      citation: "Wind Energy Science 6 (2021) 311–365, doi:10.5194/wes-6-311-2021",
     },
     {
-      label: "Clifton et al. — IEA Wind Task 43 Recommended Practice on Uncertainty",
-      type: "paper",
-      citation: "Wind Energy Science 2022, doi:10.5194/wes-7-2363-2022",
+      label: "Burton, Jenkins, Sharpe, Bossanyi — Wind Energy Handbook",
+      type: "textbook",
+      citation: "Wiley, 2nd ed. 2011",
     },
   ],
 
   codeReferences: [
     {
       file: "backend/app/services/p1/aep_calculator.py",
-      description: "compute_aep_cascade() — multiplicative loss model + P-value generation via the IEC 61400-15-2 RSS rule.",
+      description: "compute_aep_cascade() — multiplicative losses, RSS uncertainty, P50/P75/P90/P99, revenue.",
     },
     {
       file: "backend/app/services/p1/uncertainty_quantification.py",
-      description: "Monte Carlo and polynomial chaos UQ for the cascade; produces full P-value distributions.",
+      description: "Polynomial-chaos uncertainty propagation (Research Lab).",
     },
   ],
 

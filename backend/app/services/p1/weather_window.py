@@ -248,10 +248,13 @@ def get_oam_cost_breakdown(
     heavy_lift_events_per_year: float = 2.0,
 ) -> dict[str, Any]:
     """
-    Annual O&M cost model for the wind farm.
+    Bottom-up annual cost of maintenance and marine logistics.
 
-    Industry benchmark: EUR 80–120/MW/year for modern offshore.
-    Planned maintenance 60-80% cheaper than unplanned (no call-out premium).
+    Covers planned/unplanned visits, SOV charter, heavy lifts and insurance.
+    It is a SUBSET of total OPEX: OEM service agreements, port/base, permanent
+    staff, seabed lease and grid charges are not modelled. Total offshore
+    OPEX is typically EUR 70–120k/MW/year (IRENA renewable cost reports), so
+    the result is reported as a share of that range, not judged against it.
     """
     installed_mw = n_turbines * turbine_rated_mw
 
@@ -282,22 +285,19 @@ def get_oam_cost_breakdown(
         + 200_000  # avg parts (bearing/blade section)
     ) * heavy_lift_events_per_year
 
-    # Insurance (0.5% of capex; assume capex = 2000 EUR/kW × installed MW)
-    capex_eur = 2_000 * installed_mw * 1_000
+    # Insurance (0.5 % of CAPEX; CAPEX 3200 EUR/kW as in the M04 comparison)
+    capex_eur = 3_200 * installed_mw * 1_000
     insurance_eur = 0.005 * capex_eur
 
     total_eur = planned_eur + unplanned_eur + sov_charter_eur + jackup_eur + insurance_eur
     per_mw = total_eur / max(1.0, installed_mw)
 
-    if per_mw < 80_000:
-        assessment = "BELOW BENCHMARK -- verify inputs; industry range EUR 80-120k/MW/year"
-    elif per_mw <= 120_000:
-        assessment = f"WITHIN BENCHMARK -- EUR {per_mw / 1000:.0f}k/MW/year (industry: 80-120k)"
-    else:
-        assessment = (
-            f"ABOVE BENCHMARK — EUR {per_mw / 1000:.0f}k/MW/year; "
-            "review vessel strategy or maintenance frequency"
-        )
+    assessment = (
+        f"Maintenance & logistics (bottom-up) EUR {per_mw / 1000:.0f}k/MW/year — "
+        f"{per_mw / 120_000 * 100:.0f}–{per_mw / 70_000 * 100:.0f} % of a typical total "
+        "OPEX of EUR 70–120k/MW/year (service contract, base, staff, lease and grid "
+        "charges not modelled)"
+    )
 
     return {
         "total_oam_eur": round(total_eur, 0),

@@ -66,43 +66,39 @@ export default function AvailabilityDashboard() {
 
   if (!fleetData) return null;
 
-  const revenueLossM = fleetData.revenue_loss_eur / 1_000_000;
+  const revenueLossM = fleetData.total_revenue_loss_eur / 1_000_000;
 
   return (
     <div className="space-y-4">
       {/* KPI summary row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KPICard
-          label="Fleet TBA"
+          label="Fleet TBA (technical)"
           value={fleetData.fleet_tba_pct.toFixed(1)}
           unit="%"
           icon={<Activity size={16} />}
-          trend={fleetData.fleet_tba_pct >= 95 ? "up" : fleetData.fleet_tba_pct >= 90 ? "flat" : "down"}
-          trendValue="IEC 61400-26 target: 95%"
+          trendValue="Contract target ≥ 97 % · external causes excluded"
         />
         <KPICard
-          label="Fleet EBA"
-          value={fleetData.fleet_eba_pct.toFixed(1)}
+          label="Fleet EBA / PBA"
+          value={`${fleetData.fleet_eba_pct.toFixed(1)} / ${fleetData.fleet_pba_pct.toFixed(1)}`}
           unit="%"
           icon={<Zap size={16} />}
-          trend={fleetData.fleet_eba_pct >= 95 ? "up" : "flat"}
-          trendValue="Energy-Based Availability"
+          trendValue="Energy- and production-based"
         />
         <KPICard
-          label="Revenue Loss"
-          value={revenueLossM.toFixed(2)}
-          unit="M€"
+          label="Lost energy · revenue"
+          value={(fleetData.total_energy_loss_mwh / 1000).toFixed(1)}
+          unit="GWh/yr"
           icon={<TrendingDown size={16} />}
-          trend="down"
-          trendValue="Due to downtime events"
+          trendValue={`${revenueLossM.toFixed(2)} M€/yr at 75 €/MWh`}
         />
         <KPICard
-          label="Energy Loss"
-          value={fleetData.total_energy_loss_mwh.toFixed(0)}
-          unit="MWh"
+          label="MTBF · MTTR"
+          value={`${fleetData.fleet_mtbf_hours.toFixed(0)} · ${fleetData.fleet_mttr_hours.toFixed(0)}`}
+          unit="h"
           icon={<AlertTriangle size={16} />}
-          trend="down"
-          trendValue={fleetData.assessment}
+          trendValue="Operating hours between faults · hours to restore"
         />
       </div>
 

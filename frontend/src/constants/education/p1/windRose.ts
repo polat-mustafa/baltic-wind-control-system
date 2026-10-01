@@ -3,115 +3,97 @@ import type { EducationContent } from "../../../types/education";
 export const windRoseEducation: EducationContent = {
   id: "p1.wind-rose",
   title: "Wind Rose & Vertical Shear",
-  subtitle: "Directional distribution of wind frequency, speed and energy",
+  subtitle: "Where the wind comes from, how strong, and how it changes with height",
   discipline: "Civil",
 
   overview:
-    "A wind rose is a polar histogram showing how often the wind blows from each compass sector and at what speed. " +
-    "It is a primary input to layout optimisation: turbines should be spaced wider along the dominant directions to " +
-    "minimise wake losses. The rose is normally complemented by a vertical shear profile that translates measurement " +
-    "height to hub height (150 m for the V236-15.0 MW).",
+    "A wind rose is a polar histogram: for each compass sector, how often the wind blows from it, split into speed " +
+    "classes. It drives layout — turbines need more room along the prevailing direction — and it is an input to the " +
+    "wake model here: the AEP tab's PyWake site uses this same 12-sector rose with a Weibull fit per sector. The " +
+    "energy rose (orange outline) weights each sector by v³, because power scales with the cube of speed.",
 
   simpleExplanation:
-    "Imagine standing in the middle of a clock face. The wind rose tells you, for each clock sector, how often the wind " +
-    "comes from that direction and how strong it is when it does. A long petal pointing southwest means most wind comes " +
-    "from the southwest. The shear profile tells you that wind is faster the higher you measure it, so a number measured " +
-    "at 100 m has to be scaled up to the turbine hub at 150 m before any energy calculation.",
+    "Stand in the middle of a compass. Each petal points to where the wind comes FROM; its length is how often. The " +
+    "darker the colour, the faster the wind. If the orange energy line sticks out beyond a petal, that direction brings " +
+    "stronger winds than average — it matters more for energy than its frequency suggests.",
 
   technicalExplanation:
-    "Direction is binned in 12 × 30° sectors (or 16 × 22.5° for finer studies). Each bin gets its own Weibull fit, then " +
-    "the bins are combined for the omnidirectional fit. The power-law shear V(z)=V_ref·(z/z_ref)^α is the simplest " +
-    "extrapolation; α≈0.10 is typical for offshore (low surface roughness), versus 0.14–0.20 onshore. Monin-Obukhov " +
-    "stability corrections are used when measurements span large height differences or when stability classes vary " +
-    "diurnally (common in coastal Baltic conditions).",
+    "Directions are binned into 12 × 30° sectors centred on N, 30°, 60° … ; each sector gets its own Weibull fit. The " +
+    "synthetic record here is centred on 240° (WSW) with a circular spread of 60°, and wind speeds are scaled by " +
+    "1 + 0.12·cos(θ − 240°): about 12 % above average from the prevailing sector and 12 % below from the opposite " +
+    "one — an educational assumption in line with the westerly-dominated southern Baltic. Hub-height extrapolation commonly uses the power law v(z) = v_ref (z/z_ref)^α with α ≈ 0.1 " +
+    "offshore; the IEC design profiles use α = 0.2 (IEC 61400-1, onshore) and 0.14 (IEC 61400-3-1, offshore).",
 
   standards: [
     {
-      label: "IEC 61400-1 §11 — Wind conditions for design",
+      label: "IEC 61400-1 — Design requirements (normal wind profile)",
       type: "standard",
       url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
-      label: "IEC 61400-12-1 Annex H — Site calibration",
+      label: "IEC 61400-3-1 — Design requirements for fixed offshore wind turbines",
       type: "standard",
       url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
-      label: "MEASNET — Site Assessment guideline",
+      label: "MEASNET — Evaluation of site-specific wind conditions",
       type: "standard",
       url: "https://www.measnet.com/procedure/",
-    },
-    {
-      label: "IEA Wind Task 11 Recommended Practices",
-      type: "standard",
-      url: "https://iea-wind.org/task11/",
     },
   ],
 
   formulas: [
     {
-      expression: "V(z) = V_ref · (z / z_ref)^α",
+      expression: "v(z) = v_ref · (z / z_ref)^α",
       variables: [
-        { symbol: "V(z)", name: "Wind speed at height z", unit: "m/s" },
-        { symbol: "V_ref", name: "Wind speed at reference height", unit: "m/s" },
         { symbol: "z", name: "Target height (hub)", unit: "m" },
-        { symbol: "z_ref", name: "Reference height", unit: "m" },
-        { symbol: "α", name: "Power-law shear exponent", unit: "—" },
+        { symbol: "z_ref", name: "Reference (measurement) height", unit: "m" },
+        { symbol: "α", name: "Shear exponent (≈ 0.1 offshore, stability-dependent)", unit: "—" },
       ],
       explanation:
-        "Power-law extrapolation. α=0.10 typical offshore, 0.14 in IEC standard wind class definitions, 0.20 onshore. " +
-        "This is a steady-state simplification — the true profile depends on atmospheric stability.",
-      reference: "IEC 61400-1 §6.3.1.2",
+        "Simple steady-state profile. Under stable stratification (common over cold water in spring) real shear can be " +
+        "much stronger, so on-site LiDAR is the safer basis for tall hubs.",
     },
     {
-      expression: "V(z) = (u*/κ) · ln(z / z₀)  −  Ψ_m(z/L)",
+      expression: "v(z) = (u* / κ) · [ln(z / z₀) − Ψ_m(z / L)]",
       variables: [
         { symbol: "u*", name: "Friction velocity", unit: "m/s" },
         { symbol: "κ", name: "von Kármán constant ≈ 0.40", unit: "—" },
-        { symbol: "z₀", name: "Roughness length", unit: "m" },
+        { symbol: "z₀", name: "Roughness length (sea ≈ 0.0002 m)", unit: "m" },
         { symbol: "Ψ_m", name: "Stability correction", unit: "—" },
-        { symbol: "L", name: "Monin-Obukhov length", unit: "m" },
+        { symbol: "L", name: "Obukhov length", unit: "m" },
       ],
-      explanation:
-        "Monin-Obukhov surface-layer profile. Reduces to logarithmic form under neutral stability. Required when " +
-        "extrapolating across large height differences in stable (winter) conditions.",
+      explanation: "Monin–Obukhov surface-layer profile; reduces to the log law in neutral conditions (Ψ_m = 0).",
+    },
+    {
+      expression: "Energy share_s ∝ Σ_{hours in s} v³",
+      variables: [{ symbol: "s", name: "Direction sector", unit: "—" }],
+      explanation: "The energy rose; compare it with the frequency rose to see which directions matter most for AEP.",
     },
   ],
 
   workedExamples: [
     {
-      title: "Extrapolate ERA5 100 m wind to V236 hub height",
-      scenario:
-        "ERA5 reports V_100m = 9.50 m/s for a Baltic grid cell. Use offshore shear α=0.10 to obtain hub-height speed at 150 m.",
+      title: "Extrapolating 100 m data to the 150 m hub",
+      scenario: "A dataset gives v̄ = 8.93 m/s at 100 m; offshore α = 0.10; V236 hub at 150 m.",
       steps: [
-        "Ratio: (150 / 100)^0.10 = 1.5^0.10",
-        "ln(1.5) = 0.4055; × 0.10 = 0.04055",
-        "exp(0.04055) ≈ 1.0414",
-        "V_150m = 9.50 × 1.0414 ≈ 9.89 m/s",
+        "(150 / 100)^0.10 = 1.5^0.10 = 1.0414",
+        "v̄(150 m) = 8.93 × 1.0414 = 9.30 m/s",
+        "Gross AEP with the speed scaled by 1.0414 (same k): +4.9 % for the V236 at this site",
       ],
       result:
-        "Hub-height wind ≈ 9.89 m/s — about 4% higher than at 100 m. This single 4% step changes raw P50 energy by ~10%, " +
-        "which is why hub-height extrapolation accuracy is more important than people realise.",
+        "A 4 % speed correction is worth ≈ 5 % energy here. Get the shear wrong by 0.05 in α and the hub speed moves by " +
+        "≈ 2 %, a full uncertainty band of its own.",
     },
   ],
 
   realWorldCases: [
     {
-      title: "Baltic 1 (Germany) — directional asymmetry",
+      title: "Low-level jets over the Baltic",
       description:
-        "Wind rose dominated by SW (35% frequency) and W (22%) sectors. Layout was rotated 12° clockwise from a square grid " +
-        "to align row gaps with the prevailing direction, reducing modelled wake losses by ~1.4%.",
-      takeaway:
-        "Wind rose orientation directly drives layout rotation. Even small rotations matter at GW scale.",
-    },
-    {
-      title: "Stable nocturnal jet over the southern Baltic",
-      description:
-        "Field campaigns (e.g. FINO offshore platforms) regularly measure low-level jets at 100–250 m during stable nights. " +
-        "Power-law extrapolation can underestimate hub-height wind by 5–10% when these jets are present.",
-      takeaway:
-        "When the planned hub is much taller than the reference height, validate with on-site lidar — the cheap power-law " +
-        "model breaks down under stable stratification.",
+        "Over the cold Baltic in spring and early summer, warm air advected over the sea forms stable layers and " +
+        "low-level jets near rotor heights, which a single power-law exponent does not capture.",
+      takeaway: "For 150 m hubs, measure the profile (floating LiDAR) rather than assume it.",
     },
   ],
 
@@ -119,15 +101,10 @@ export const windRoseEducation: EducationContent = {
     {
       label: "Stull — An Introduction to Boundary Layer Meteorology",
       type: "textbook",
-      citation: "Springer 1988, ISBN 978-90-277-2769-5",
+      citation: "Springer 1988",
     },
     {
-      label: "FINO offshore research platforms (Germany)",
-      type: "website",
-      url: "https://www.fino-offshore.de/",
-    },
-    {
-      label: "Copernicus ERA5 reanalysis dataset",
+      label: "Copernicus ERA5 reanalysis",
       type: "website",
       url: "https://cds.climate.copernicus.eu/",
     },
@@ -136,7 +113,11 @@ export const windRoseEducation: EducationContent = {
   codeReferences: [
     {
       file: "backend/app/services/p1/wind_analysis.py",
-      description: "directional_binning() and shear_extrapolate() helpers used by the rose chart and Weibull fitter.",
+      description: "classify_direction_sector(), compute_wind_rose() — sector frequencies, means, Weibull fits, energy rose.",
+    },
+    {
+      file: "backend/app/routers/p1.py",
+      description: "_generate_synthetic_wind() and _site() — the same rose feeds the PyWake site; /wind-rose adds the speed-class table.",
     },
   ],
 

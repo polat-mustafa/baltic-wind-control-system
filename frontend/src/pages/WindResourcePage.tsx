@@ -1,26 +1,29 @@
 /**
  * Wind Resource page — route /wind-resource.
  *
- * Two tabs:
- *   "AEP Analysis"     — original PyWake Weibull analysis (WindResourceDashboard)
+ * Three tabs:
+ *   "AEP Analysis"     — animated AEP explainer + PyWake Weibull analysis (WindResourceDashboard)
  *   "Farm Comparison"  — M04 multi-farm AEP/LCOE comparison (FarmComparisonDashboard)
+ *   "Availability & O&M" — M13 IEC 61400-26 availability + M14 weather windows / O&M cost
  *
  * Controls live in a slide-out drawer (AEP tab only).
  */
 
 import { useEffect, useState } from "react";
-import { BarChart2, Wind } from "lucide-react";
+import { BarChart2, Wrench, Wind } from "lucide-react";
 
+import AEPExplainer from "../components/p1/AEPExplainer";
 import WindResourceDashboard from "../components/p1/WindResourceDashboard";
 import SensitivityPanel from "../components/p1/SensitivityPanel";
 import FarmComparisonDashboard from "../components/p1/FarmComparisonDashboard";
+import OperationsTab from "../components/p1/OperationsTab";
 import { useWindResourceStore } from "../store/windResourceStore";
 import { Button } from "../components/ui/Button";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { ControlDrawer } from "../components/ui/ControlDrawer";
 import { p1Guide } from "../constants/trainingGuideContent";
 
-type Tab = "aep" | "farms";
+type Tab = "aep" | "farms" | "ops";
 
 export default function WindResourcePage() {
   const [activeTab, setActiveTab] = useState<Tab>("aep");
@@ -99,7 +102,7 @@ export default function WindResourcePage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 p-1 bg-bg-secondary rounded-lg border border-border-primary w-fit">
+      <div className="flex gap-1 p-1 bg-bg-secondary rounded-lg border border-border-primary w-fit max-w-full overflow-x-auto">
         <button
           onClick={() => setActiveTab("aep")}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -122,6 +125,17 @@ export default function WindResourcePage() {
           <BarChart2 size={14} />
           Farm Comparison
         </button>
+        <button
+          onClick={() => setActiveTab("ops")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "ops"
+              ? "bg-accent text-white"
+              : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
+          }`}
+        >
+          <Wrench size={14} />
+          Availability &amp; O&amp;M
+        </button>
       </div>
 
       {/* Error banner (AEP tab only) */}
@@ -137,10 +151,11 @@ export default function WindResourcePage() {
       {/* ── AEP Analysis tab ─────────────────────────────────── */}
       {activeTab === "aep" && (
         <>
+          <AEPExplainer />
           {analysisRun ? (
             <WindResourceDashboard />
           ) : (
-            <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
+            <div className="flex items-center justify-center h-48 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
               <div className="text-center">
                 <div className="flex justify-center mb-4">
                   <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
@@ -148,11 +163,11 @@ export default function WindResourcePage() {
                   </div>
                 </div>
                 <p className="text-text-secondary text-base mb-2">
-                  Configure parameters and run analysis
+                  Now run it for the real farm
                 </p>
                 <p className="text-text-muted text-sm max-w-md">
-                  Adjust Weibull A/k, turbulence intensity, and electricity
-                  price, then click &quot;Run Analysis&quot;
+                  &quot;Run Analysis&quot; places all 34 turbines, runs the PyWake
+                  wake model and the full loss cascade with the A/k above.
                 </p>
               </div>
             </div>
@@ -162,6 +177,9 @@ export default function WindResourcePage() {
 
       {/* ── Farm Comparison tab ───────────────────────────────── */}
       {activeTab === "farms" && <FarmComparisonDashboard />}
+
+      {/* ── Availability & O&M tab (M13 + M14) ─────────────────── */}
+      {activeTab === "ops" && <OperationsTab />}
     </div>
   );
 }

@@ -48,7 +48,7 @@ export default function SCADAKPIHeader() {
     activePermits === 0 ? "normal" : activePermits > 5 ? "alarm" : "info";
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border-primary">
+    <div className="flex overflow-x-auto md:grid md:grid-cols-5 gap-px bg-border-primary [&>*]:min-w-[10.5rem] [&>*]:shrink-0 md:[&>*]:min-w-0 [&>*]:flex-1">
       <InfoTile
         label="Total IEDs"
         value={substationSummary.total_devices}

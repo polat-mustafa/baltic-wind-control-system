@@ -43,7 +43,7 @@ export default function CommissioningPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div>
           <h2 className="text-xl font-semibold text-text-primary">
             P5 · HV Commissioning Simulator
@@ -112,13 +112,13 @@ export default function CommissioningPage() {
               {programmes.map((prog) => (
                 <div
                   key={prog.programme_id}
-                  className="flex items-center justify-between p-3 rounded-md border border-border-primary bg-bg-tertiary hover:border-border-secondary transition-colors"
+                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 p-3 rounded-md border border-border-primary bg-bg-tertiary hover:border-border-secondary transition-colors"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 max-w-full">
                     <div className="text-sm font-medium text-text-primary truncate">
                       {prog.title}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
                       <span className="text-xs text-text-muted">
                         PiC: {prog.pic_name}
                       </span>

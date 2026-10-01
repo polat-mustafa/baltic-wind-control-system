@@ -91,8 +91,8 @@ export default function TrainingMonitor() {
     <div className="bw-viz space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border-primary bg-bg-secondary p-4">
-        <Activity size={18} className="text-accent" />
-        <div className="min-w-0 flex-1">
+        <Activity size={18} className="shrink-0 text-accent" />
+        <div className="min-w-[min(100%,14rem)] flex-1">
           <div className="text-base font-semibold text-text-primary">Training monitor</div>
           <div className="text-xs text-text-muted">
             XGBoost + LSTM + TFT · 5-fold TimeSeriesSplit · live from the backend trainers
@@ -141,7 +141,7 @@ export default function TrainingMonitor() {
 
       {/* Pipeline */}
       <div className="rounded-lg border border-border-primary bg-bg-secondary p-3">
-        <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-text-primary">
+        <div className="mb-1 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-text-primary">
           <Layers size={15} /> Pipeline
           <span className="text-xs font-normal text-text-muted">
             data flows left → right · the three models train in parallel · cyan particles = active stage

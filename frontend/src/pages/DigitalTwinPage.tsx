@@ -51,7 +51,7 @@ export default function DigitalTwinPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-text-primary">
             Digital Twin

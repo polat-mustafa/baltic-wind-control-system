@@ -6,6 +6,9 @@
  * - Collapse/expand toggle
  * - Active state with left accent border
  * - System status section at bottom
+ *
+ * Responsive: ≥ lg full width, md–lg an icon rail (user can expand it),
+ * < md an off-canvas drawer opened from the header menu button.
  */
 
 import { useState } from "react";
@@ -22,9 +25,11 @@ import {
   FlaskConical,
   ChevronLeft,
   ChevronRight,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { StatusIndicator } from "../ui/StatusIndicator";
 
 interface NavItem {
@@ -101,29 +106,46 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+interface SidebarProps {
+  /** Drawer state below md (the sidebar is off-canvas there). */
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}
+
+export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
+  const isMd = useMediaQuery("(min-width: 768px)");
+  const isLg = useMediaQuery("(min-width: 1024px)");
+  const [userCollapsed, setUserCollapsed] = useState<boolean | null>(null);
+  // Icon rail between md and lg, full width from lg up; the toggle overrides.
+  // The drawer below md always shows the labels.
+  const collapsed = isMd && (userCollapsed ?? !isLg);
 
   return (
     <nav
+      aria-label="Main navigation"
+      inert={!isMd && !mobileOpen}
       className={cn(
         "flex flex-col border-r border-border-primary bg-bg-secondary shrink-0",
         "transition-all duration-300 ease-in-out",
-        collapsed ? "w-16" : "w-60",
+        "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-[2000] max-md:w-72 max-md:max-w-[85vw] max-md:overflow-y-auto max-md:shadow-2xl",
+        mobileOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full",
+        collapsed ? "md:w-16" : "md:w-60",
       )}
     >
-      {/* Collapse toggle */}
+      {/* Collapse toggle (drawer: close button) */}
       <div className="flex items-center justify-end px-2 py-2 border-b border-border-primary">
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() => (isMd ? setUserCollapsed(!collapsed) : onMobileClose())}
           className={cn(
             "flex items-center justify-center h-7 w-7 rounded-md",
             "text-text-muted hover:text-text-secondary hover:bg-bg-hover",
             "transition-colors duration-150",
           )}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={
+            !isMd ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"
+          }
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {!isMd ? <X size={16} /> : collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
 
@@ -136,6 +158,7 @@ export default function Sidebar() {
               <NavLink
                 to={item.path}
                 end={item.path === "/"}
+                onClick={onMobileClose}
                 className={({ isActive }) =>
                   cn(
                     "group flex items-center gap-3 rounded-md transition-all duration-150",

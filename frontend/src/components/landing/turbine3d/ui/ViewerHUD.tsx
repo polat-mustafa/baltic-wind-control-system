@@ -58,7 +58,7 @@ export const CompassWidget = memo(function CompassWidget({
   const muted = { stroke: "var(--color-text-muted)" };
 
   return (
-    <div className="pointer-events-none absolute left-2 top-14 z-10 w-[132px] select-none">
+    <div className="pointer-events-none absolute left-2 top-14 z-10 w-[132px] select-none @max-lg:hidden">
       <svg viewBox="-60 -60 120 120" className="h-[132px] w-[132px] drop-shadow">
         <circle r="57" style={{ fill: "var(--color-bg-secondary)", stroke: "var(--color-border-primary)", opacity: 0.94 }} strokeWidth="1.5" />
         <g ref={dialRef}>
@@ -135,7 +135,7 @@ export const ScaleBar = memo(function ScaleBar({ metresPerPixel }: ScaleBarProps
   const barPx = barMeters / metresPerPixel;
 
   return (
-    <div className="absolute bottom-20 left-3 z-10 pointer-events-none bg-bg-secondary/70 backdrop-blur-sm rounded px-1.5 py-1 border border-border-primary">
+    <div className="absolute bottom-20 left-3 z-10 pointer-events-none @max-lg:hidden bg-bg-secondary/70 backdrop-blur-sm rounded px-1.5 py-1 border border-border-primary">
       <div
         className="h-1.5 border-l border-r border-t border-text-muted"
         style={{ width: `${Math.min(barPx, 200)}px` }}
@@ -156,7 +156,7 @@ export const CameraModeBadge = memo(function CameraModeBadge() {
   else if (selectedPart) label = `→ ${selectedPart.replace(/_/g, " ")}`;
 
   return (
-    <div className="absolute top-2 left-40 z-10 bg-bg-secondary/80 backdrop-blur-sm rounded px-2 py-0.5 border border-border-primary pointer-events-none">
+    <div className="absolute top-2 left-40 z-10 @max-lg:hidden bg-bg-secondary/80 backdrop-blur-sm rounded px-2 py-0.5 border border-border-primary pointer-events-none">
       <span className="text-[9px] font-mono text-text-muted uppercase tracking-wider">
         {label}
       </span>
@@ -167,7 +167,7 @@ export const CameraModeBadge = memo(function CameraModeBadge() {
 export const KeyboardHelp = memo(function KeyboardHelp() {
   const [open, setOpen] = useState(false);
   return (
-    <div className="absolute bottom-3 right-3 z-10 pointer-events-auto">
+    <div className="absolute bottom-3 right-3 z-10 pointer-events-auto @max-lg:hidden pointer-coarse:hidden">
       <button
         className="flex items-center gap-1 rounded px-2 py-1 bg-bg-secondary/80 border border-border-primary backdrop-blur-sm text-text-muted hover:text-text-primary text-[9px] font-mono"
         onClick={() => setOpen((v) => !v)}

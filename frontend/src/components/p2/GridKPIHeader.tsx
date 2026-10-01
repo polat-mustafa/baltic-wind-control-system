@@ -75,7 +75,7 @@ export default function GridKPIHeader() {
     : SCADA_COLORS.FAULT;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
       <KPICard
         label="Voltage Range"
         value={`${fullLoad.v_min_pu.toFixed(3)}–${fullLoad.v_max_pu.toFixed(3)}`}

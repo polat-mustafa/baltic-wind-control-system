@@ -541,7 +541,8 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full rounded-lg overflow-hidden border border-border-primary bg-bg-primary focus:outline-none"
+      // @container: HUD chrome thins out (@max-lg) when the viewer is narrower than 512 px (phones)
+      className="@container relative w-full h-full rounded-lg overflow-hidden border border-border-primary bg-bg-primary focus:outline-none"
       // Stop wheel events from bubbling to the underlying Leaflet map / page
       // scroller. Without this, scrolling over the canvas also scrolls the
       // farm overview behind it instead of zooming the turbine.
@@ -689,11 +690,11 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
       {/* Expanded: component rail + info card for the selected part */}
       {expanded && interiorView === "3d" && (
         <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-20 flex justify-center px-40">
+          <div className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-20 flex justify-center px-40 @max-lg:px-2">
             <PartRail selected={selectedPart} onSelect={setSelectedPart} />
           </div>
           {selectedPart && turbineState && hiddenCardFor !== selectedPart && (
-            <div className="pointer-events-none absolute bottom-28 left-3 top-24 z-20 flex">
+            <div className="pointer-events-none absolute bottom-28 left-3 top-24 z-20 flex @max-lg:right-3">
               {/* closing hides the card only — the camera stays on the part */}
               <PartInfoCard part={selectedPart} turbine={turbineState} onClose={() => setHiddenCardFor(selectedPart)} />
             </div>
@@ -701,14 +702,14 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
           {/* live trends / power curve / loss waterfall — gives way to the part card */}
           {!(selectedPart && hiddenCardFor !== selectedPart) &&
             (showAnalytics ? (
-              <div className="absolute left-[9.25rem] top-12 z-20">
+              <div className="absolute left-[9.25rem] top-12 z-20 @max-lg:left-2 @max-lg:right-2">
                 <AnalyticsPanel turbineId={turbineId} onClose={() => setShowAnalytics(false)} />
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => setShowAnalytics(true)}
-                className="absolute left-[9.25rem] top-12 z-20 rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-[11px] font-semibold text-text-primary hover:bg-bg-hover"
+                className="absolute left-[9.25rem] top-12 z-20 @max-lg:left-auto @max-lg:right-2 @max-lg:top-24 rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-[11px] font-semibold text-text-primary hover:bg-bg-hover"
               >
                 📈 Live analytics
               </button>
@@ -717,7 +718,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
       )}
 
       {/* Legend of the hub-height wake slice */}
-      <div className="pointer-events-none absolute bottom-10 right-2 z-10 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 text-[11px] font-semibold text-text-primary shadow">
+      <div className="pointer-events-none absolute bottom-10 right-2 z-10 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 @max-lg:hidden text-[11px] font-semibold text-text-primary shadow">
         <div className="mb-1 font-bold">Wake deficit at hub height (150 m)</div>
         <div className="h-2 w-44 rounded" style={{ background: "linear-gradient(90deg,#fdd95a,#f7731a,#cc1a1a)" }} />
         <div className="flex justify-between font-mono text-[10px] text-text-secondary">
@@ -732,7 +733,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
         type="button"
         onClick={() => setIllustrated((v) => !v)}
         title="Render style (demo): physically based vs toon shading with ink edges"
-        className="absolute bottom-2 right-16 z-10 rounded border border-border-primary bg-bg-secondary/85 px-2 py-0.5 font-mono text-[10px] text-text-secondary hover:bg-bg-hover"
+        className="absolute bottom-2 right-16 z-10 @max-lg:hidden rounded border border-border-primary bg-bg-secondary/85 px-2 py-0.5 font-mono text-[10px] text-text-secondary hover:bg-bg-hover"
       >
         Style: {illustrated ? "Illustrated (demo)" : "Realistic"}
       </button>

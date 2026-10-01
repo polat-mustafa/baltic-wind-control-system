@@ -298,7 +298,7 @@ export default function ScenarioCenter() {
   const active = useTrainingStore((s) => s.active);
 
   return (
-    <div className="absolute right-3 top-40 z-1000 flex flex-col items-end">
+    <div className="absolute right-3 top-14 md:top-40 z-1000 flex flex-col items-end">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

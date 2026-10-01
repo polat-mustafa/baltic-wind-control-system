@@ -57,7 +57,7 @@ export default function SensitivityPanel() {
 
   return (
     <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
           Parameters
         </h3>

@@ -11,6 +11,8 @@ import { useEffect, type CSSProperties, type ReactNode } from "react";
 
 import { ArrowRight, X, type LucideIcon } from "lucide-react";
 
+import { useMediaQuery } from "../../hooks/useMediaQuery";
+
 interface EquipmentPanelProps {
   icon: LucideIcon;
   /** Equipment tag, e.g. "TX-OSS-01/02". */
@@ -24,13 +26,15 @@ interface EquipmentPanelProps {
   action?: { label: string; onClick: () => void };
   /** Small print under the action (standards, data source). */
   footnote?: ReactNode;
-  /** Panel width [px] (default 360) and position (default: top-right of the map). */
-  width?: number;
+  /** Panel width [px or CSS length] (default 360) and position (default: top-right of
+   *  the map, a bottom sheet on phones — an explicit `placement` is always honoured). */
+  width?: number | string;
   placement?: CSSProperties;
   children: ReactNode;
 }
 
 const DEFAULT_PLACEMENT: CSSProperties = { right: 16, top: 80 };
+const SHEET_PLACEMENT: CSSProperties = { left: 8, right: 8, bottom: 8 };
 
 export function EquipmentPanel({
   icon: Icon,
@@ -41,9 +45,11 @@ export function EquipmentPanel({
   action,
   footnote,
   width = 360,
-  placement = DEFAULT_PLACEMENT,
+  placement,
   children,
 }: EquipmentPanelProps) {
+  const phone = useMediaQuery("(max-width: 639px)");
+  const sheet = phone && !placement;
   // Esc closes the panel unless an inner handler (registered in the capture
   // phase, e.g. an open education card) already consumed it via preventDefault.
   useEffect(() => {
@@ -60,10 +66,10 @@ export function EquipmentPanel({
       className="absolute flex flex-col rounded-xl border border-border-primary bg-bg-primary/95 backdrop-blur-md shadow-2xl shadow-black/60 overflow-hidden"
       style={{
         zIndex: 1100,
-        width,
-        maxWidth: "calc(100% - 32px)",
-        maxHeight: "calc(100% - 96px)",
-        ...placement,
+        width: sheet ? "auto" : width,
+        maxWidth: sheet ? "none" : "calc(100% - 32px)",
+        maxHeight: sheet ? "68%" : "calc(100% - 96px)",
+        ...(placement ?? (sheet ? SHEET_PLACEMENT : DEFAULT_PLACEMENT)),
         borderTop: `2px solid ${status.color}`,
       }}
     >

@@ -127,7 +127,7 @@ export default function AnomalyInjection() {
         {/* Active anomalies */}
         {anomalies.length > 0 && (
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
               <span className="text-[10px] text-text-muted">Active Anomalies ({anomalies.length})</span>
               <button
                 onClick={clearAllAnomalies}

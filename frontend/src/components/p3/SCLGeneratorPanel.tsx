@@ -64,7 +64,7 @@ export default function SCLGeneratorPanel() {
   return (
     <div className="space-y-3">
       <div className="bg-bg-secondary rounded-lg border border-border-primary p-3 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="flex items-center gap-2">
             <FileCode size={14} className="text-accent" />
             <h3 className="text-sm font-semibold text-text-primary">
@@ -143,7 +143,7 @@ export default function SCLGeneratorPanel() {
 
       {result && (
         <div className="bg-bg-secondary rounded-lg border border-border-primary p-3 space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <div className="text-xs text-text-secondary">
               <span className="font-mono text-text-primary">{result.name}</span>
               <span className="ml-2 text-text-muted">

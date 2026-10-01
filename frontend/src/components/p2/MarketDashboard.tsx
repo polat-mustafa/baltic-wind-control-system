@@ -54,7 +54,7 @@ export default function MarketDashboard() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-2">
           <TrendingUp size={16} className="text-accent" />
           <span className="text-sm font-semibold text-text-primary">Market Integration — TGE / PSE / CfD (OZMB 2024)</span>

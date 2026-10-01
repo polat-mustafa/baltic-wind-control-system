@@ -29,7 +29,7 @@ export default function KPIHeader() {
         : "down";
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
       <KPICard
         label="Net AEP (P50)"
         value={aepCascade.net_aep_gwh.toFixed(1)}

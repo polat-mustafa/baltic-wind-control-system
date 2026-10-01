@@ -61,27 +61,9 @@ export default function LayerControlPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const layers = useLayerStore((s) => s.layers);
   const toggleLayer = useLayerStore((s) => s.toggleLayer);
-  const mapTheme = useLayerStore((s) => s.mapTheme);
-  const setMapTheme = useLayerStore((s) => s.setMapTheme);
-  const storybook = mapTheme === "storybook";
 
   return (
-    <div className="absolute top-24 left-3 z-1100">
-      {/* Theme demo switch: ISA-101 control room ↔ hand-drawn storybook */}
-      <button
-        onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}
-        className="mr-1.5 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-colors align-top"
-        style={{
-          backgroundColor: storybook ? "#f3e7c9" : "rgba(15,17,23,0.85)",
-          borderColor: storybook ? "#3a2d20" : "#3d4560",
-          color: storybook ? "#2b2118" : "#9ba3b8",
-        }}
-        title="Switch the map look (demo): control room HMI ↔ hand-drawn storybook"
-        aria-pressed={storybook}
-      >
-        <span aria-hidden>{storybook ? "✎" : "▣"}</span>
-        <span className="text-[11px] font-medium">{storybook ? "Storybook (demo)" : "Control room"}</span>
-      </button>
+    <div className="absolute top-14 xl:top-24 left-3 z-1100">
       {/* Collapsed button */}
       <button
         onClick={() => setIsOpen((o) => !o)}

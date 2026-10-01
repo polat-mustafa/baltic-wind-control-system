@@ -103,7 +103,7 @@ export default function ForecastKPIHeader() {
       : `${(totalRevenue / 1_000).toFixed(0)}k`;
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
       <KPICard
         label="Best RMSE"
         value={rmseVal.toFixed(2)}

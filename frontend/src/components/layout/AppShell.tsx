@@ -22,6 +22,7 @@ import {
   ChevronRight,
   AlertTriangle,
   Palette,
+  Menu,
 } from "lucide-react";
 
 import Sidebar from "./Sidebar";
@@ -96,6 +97,15 @@ export default function AppShell() {
     document.documentElement.classList.toggle("theme-storybook", storybook);
   }, [storybook]);
 
+  // Off-canvas navigation drawer (phones / narrow tablets, below md)
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = ({ code }: KeyboardEvent) => code === "Escape" && setNavOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
+
   // Simulation clock — updates every second
   const [clock, setClock] = useState(new Date());
   useEffect(() => {
@@ -106,64 +116,79 @@ export default function AppShell() {
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col">
       {/* ── Top Bar ── */}
-      <header className="h-12 bg-bg-secondary border-b border-border-primary flex items-center justify-between px-4 shrink-0">
-        {/* Left: Logo + Breadcrumb */}
-        <div className="flex items-center gap-3">
+      <header className="h-12 bg-bg-secondary border-b border-border-primary flex items-center justify-between gap-2 px-2 sm:px-4 shrink-0">
+        {/* Left: Menu (drawer) + Logo + Breadcrumb */}
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => setNavOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={navOpen}
+            className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover"
+          >
+            <Menu size={18} />
+          </button>
           <Link
             to="/"
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            className="flex shrink-0 items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <div className="flex items-center justify-center h-7 w-7 rounded-md bg-accent/15">
               <Wind size={16} className="text-accent" />
             </div>
-            <span className="font-semibold text-sm tracking-tight text-text-primary">
+            <span className="hidden sm:inline font-semibold text-sm tracking-tight text-text-primary whitespace-nowrap">
               Baltic Wind Alpha
             </span>
           </Link>
 
           {/* Breadcrumb */}
-          <div className="flex items-center gap-1.5 text-text-muted">
-            <ChevronRight size={12} />
-            <span className="text-xs font-medium text-text-secondary">
+          <div className="flex min-w-0 items-center gap-1.5 text-text-muted">
+            <ChevronRight size={12} className="shrink-0" />
+            <span className="truncate text-xs font-medium text-text-secondary">
               {currentLabel}
             </span>
           </div>
         </div>
 
         {/* Right: System info */}
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4">
           {/* Farm spec badge */}
-          <span className="hidden md:inline-flex text-[10px] text-text-muted font-mono tracking-wide">
+          <span className="hidden xl:inline-flex text-[10px] text-text-muted font-mono tracking-wide whitespace-nowrap">
             510 MW · 34×V236 · 66/220/400 kV
           </span>
 
-          {/* Connection status */}
+          {/* Connection status (label hidden on phones) */}
           <div className="flex items-center gap-2">
-            <Signal size={12} className="text-text-muted" />
-            <StatusIndicator status={headerStatus} label={headerLabel} />
+            <Signal size={12} className="hidden sm:block text-text-muted" />
+            <StatusIndicator
+              status={headerStatus}
+              label={headerLabel}
+              className="[&>span:last-child]:max-sm:hidden"
+            />
           </div>
 
           <button
             type="button"
             onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}
             aria-pressed={storybook}
+            aria-label="Switch colour palette"
             title="Switch colour palette"
             className="flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-tertiary px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover"
           >
             <Palette size={13} />
-            {storybook ? "Storybook" : "Control room"}
+            <span className="hidden sm:inline">{storybook ? "Storybook" : "Control room"}</span>
           </button>
 
-          {/* Simulation clock */}
+          {/* Simulation clock (date hidden on phones) */}
           <div
             className={cn(
               "flex items-center gap-1.5 px-2 py-1 rounded-md",
               "bg-bg-tertiary border border-border-primary",
-              "font-mono text-xs text-text-secondary tabular-nums",
+              "font-mono text-xs text-text-secondary tabular-nums whitespace-nowrap",
             )}
           >
-            {clock.toLocaleString("sv-SE", { timeZone: "Europe/Warsaw" })}{" "}
-            <span className="text-text-muted text-[10px]">
+            <span className="hidden md:inline">{clock.toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" })}</span>
+            <span>{clock.toLocaleTimeString("sv-SE", { timeZone: "Europe/Warsaw" })}</span>
+            <span className="hidden sm:inline text-text-muted text-[10px]">
               {clock.toLocaleString("en-GB", { timeZone: "Europe/Warsaw", timeZoneName: "short" }).split(" ").pop()}
             </span>
           </div>
@@ -172,19 +197,19 @@ export default function AppShell() {
 
       {/* ── Global Critical Alarm Banner ── */}
       {criticalCount > 0 && (
-        <div className="shrink-0 px-4 py-1.5 bg-red-900/40 border-b border-red-700/50 flex items-center justify-between animate-pulse">
-          <div className="flex items-center gap-2 text-xs font-mono text-red-400">
-            <AlertTriangle size={14} />
-            <span className="font-bold">
+        <div className="shrink-0 px-2 sm:px-4 py-1.5 bg-red-900/40 border-b border-red-700/50 flex items-center justify-between gap-2 animate-pulse">
+          <div className="flex min-w-0 items-center gap-2 text-xs font-mono text-red-400">
+            <AlertTriangle size={14} className="shrink-0" />
+            <span className="font-bold shrink-0">
               {criticalCount} CRITICAL ALARM{criticalCount > 1 ? "S" : ""} ACTIVE
             </span>
             {firstCriticalText && (
-              <span className="text-red-400/70">— {firstCriticalText}</span>
+              <span className="truncate text-red-400/70">— {firstCriticalText}</span>
             )}
           </div>
           <Link
             to="/scada"
-            className="text-[10px] font-mono text-red-400 hover:text-red-300 underline underline-offset-2"
+            className="shrink-0 text-[10px] font-mono text-red-400 hover:text-red-300 underline underline-offset-2"
           >
             Open SCADA →
           </Link>
@@ -193,8 +218,15 @@ export default function AppShell() {
 
       {/* ── Main Layout: Sidebar + Content ── */}
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-auto p-3">
+        {navOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-[1999] bg-black/60"
+            onClick={() => setNavOpen(false)}
+            aria-hidden
+          />
+        )}
+        <Sidebar mobileOpen={navOpen} onMobileClose={() => setNavOpen(false)} />
+        <main className="min-w-0 flex-1 overflow-auto p-2 sm:p-3">
           {/* Pages are lazy-loaded (App.tsx) */}
           <Suspense fallback={<PageLoading />}>
             <Outlet />

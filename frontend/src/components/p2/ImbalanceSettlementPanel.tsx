@@ -69,7 +69,7 @@ export default function ImbalanceSettlementPanel() {
 
   return (
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-3 space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-text-primary">
             Imbalance Settlement (PSE)

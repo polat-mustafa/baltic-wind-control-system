@@ -46,7 +46,7 @@ export default function BESSDashboard() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-2">
           <Battery size={16} className="text-accent" />
           <span className="text-sm font-semibold text-text-primary">BESS — 50 MW / 200 MWh LFP</span>

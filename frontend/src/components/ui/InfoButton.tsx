@@ -36,7 +36,7 @@ export function InfoButton({ info, className }: InfoButtonProps) {
         <Dialog.Overlay className="fixed inset-0 z-[2000] bg-black/60 backdrop-blur-sm" />
         <Dialog.Content
           className={cn(
-            "fixed left-1/2 top-1/2 z-[2100] w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
+            "fixed left-1/2 top-1/2 z-[2100] w-[calc(100%-1rem)] max-w-lg max-h-[90dvh] overflow-y-auto -translate-x-1/2 -translate-y-1/2",
             "rounded-lg border border-border-secondary bg-bg-secondary shadow-2xl shadow-black/40",
             "p-6 focus:outline-none",
           )}

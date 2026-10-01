@@ -43,7 +43,7 @@ export default function FarmComparisonDashboard() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-2">
           <BarChart2 size={16} className="text-accent" />
           <span className="text-sm font-semibold text-text-primary">Multi-Farm Comparison — AEP / LCOE / Capacity Factor</span>

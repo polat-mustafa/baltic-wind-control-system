@@ -48,6 +48,7 @@ import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { farmOverviewInfo } from "../constants/panelInfo";
 import { landingGuide } from "../constants/trainingGuideContent";
 import { cn } from "../lib/utils";
+import { useElementWidth } from "../hooks/useElementWidth";
 
 // ── Connected detail panel wrappers ─────────────────────────────
 // Defined at module level so React never unmounts/remounts them on parent render.
@@ -57,14 +58,29 @@ import { cn } from "../lib/utils";
 const VIEWER_W = 580;
 const VIEWER_LEFT = 10;
 const VIEWER_TOP = 60;
+const PANEL_W = 440;
 const PANEL_LEFT_WITH_VIEWER = VIEWER_LEFT + VIEWER_W + 10; // 600
+// Map-area width → turbine layout: viewer 580 px + panel 440 px side by side
+// when there is room, a narrower viewer (340 px, compact HUD) beside a panel
+// that takes the rest on tablets / laptops with the sidebar open, and the
+// viewer stacked above the panel on phones.
+const WIDE_MIN_W = PANEL_LEFT_WITH_VIEWER + PANEL_W + 10; // 1050
+const MEDIUM_MIN_W = 720;
+const MEDIUM_VIEWER_W = 340;
+const MEDIUM_PANEL_LEFT = VIEWER_LEFT + MEDIUM_VIEWER_W + 10; // 360
+const STACK_VIEWER_H = "42%";
+type TurbineLayout = "wide" | "medium" | "stacked";
+const STACKED_PANEL_PLACEMENT = { left: 8, right: 8, top: "calc(42% + 16px)", bottom: 8 } as const;
+const MEDIUM_PANEL_PLACEMENT = { left: MEDIUM_PANEL_LEFT, right: 10, top: VIEWER_TOP } as const;
 
 function ConnectedTurbineDetailPanel({
   turbineId,
   onClose,
+  layout,
 }: {
   turbineId: string;
   onClose: () => void;
+  layout: TurbineLayout;
 }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
   // Expanded: the 3D viewer takes the whole map area (same element, so the
@@ -90,13 +106,15 @@ function ConnectedTurbineDetailPanel({
         style={
           expanded
             ? { zIndex: 1300, left: 8, top: 8, width: "calc(100% - 16px)", height: "calc(100% - 16px)" }
-            : {
-                zIndex: 1150,
-                left: VIEWER_LEFT,
-                top: VIEWER_TOP,
-                width: VIEWER_W,
-                height: "calc(100% - 80px)",
-              }
+            : layout === "stacked"
+              ? { zIndex: 1150, left: 8, right: 8, top: 8, height: STACK_VIEWER_H }
+              : {
+                  zIndex: 1150,
+                  left: VIEWER_LEFT,
+                  top: VIEWER_TOP,
+                  width: layout === "wide" ? VIEWER_W : MEDIUM_VIEWER_W,
+                  height: "calc(100% - 80px)",
+                }
         }
       >
         <Suspense
@@ -122,6 +140,13 @@ function ConnectedTurbineDetailPanel({
         turbine={turbine}
         onClose={onClose}
         leftOffset={PANEL_LEFT_WITH_VIEWER}
+        placement={
+          layout === "stacked"
+            ? STACKED_PANEL_PLACEMENT
+            : layout === "medium"
+              ? MEDIUM_PANEL_PLACEMENT
+              : undefined
+        }
       />
     </>
   );
@@ -195,6 +220,10 @@ export default function LandingPage() {
   const stopSimulation = useLandingStore((s) => s.stopSimulation);
   const navigate = useNavigate();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // Width of the map area decides side-by-side vs stacked turbine viewer
+  const [areaRef, areaWidth] = useElementWidth<HTMLDivElement>();
+  const turbineLayout: TurbineLayout =
+    areaWidth === 0 || areaWidth >= WIDE_MIN_W ? "wide" : areaWidth >= MEDIUM_MIN_W ? "medium" : "stacked";
 
   // Panel state — lifted from LeafletWindFarmMap so panels render outside Leaflet DOM
   const [activePanel, setActivePanel] = useState<DetailPanel>(null);
@@ -273,6 +302,7 @@ export default function LandingPage() {
         <ConnectedTurbineDetailPanel
           turbineId={selectedTurbineId}
           onClose={handlePanelClose}
+          layout={turbineLayout}
         />
       )}
     </>
@@ -310,7 +340,7 @@ export default function LandingPage() {
         </button>
 
         {/* Map fills viewport — panels rendered after map, outside Leaflet DOM */}
-        <div className="relative flex-1">
+        <div ref={areaRef} className="relative flex-1">
           <div className="w-full h-full">
             <LeafletWindFarmMap
               totalPowerMW={roundedPower}
@@ -336,12 +366,12 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
+    <div className="flex flex-col h-[calc(100dvh-6.5rem)] min-h-[30rem] sm:h-[calc(100dvh-8rem)]">
       {/* Header row — title + quick access buttons */}
-      <div className="flex items-center justify-between mb-3 shrink-0">
-        <div className="flex items-center gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-2 sm:mb-3 shrink-0">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-semibold text-text-primary">
               Wind Farm Overview
             </h2>
             <p className="text-[10px] text-text-muted font-mono">
@@ -352,7 +382,7 @@ export default function LandingPage() {
         </div>
 
         {/* Quick nav + Training Guide + Control Room Mode button */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <TrainingGuide guide={landingGuide} />
           {QUICK_LINKS.map((link) => {
             const Icon = link.icon;
@@ -376,27 +406,29 @@ export default function LandingPage() {
             );
           })}
 
-          {/* Control Room Mode toggle */}
-          <button
-            onClick={toggleFullscreen}
-            title="Control Room Mode (fullscreen)"
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5",
-              "border border-accent/30 bg-accent/10",
-              "hover:bg-accent/20 hover:border-accent/50",
-              "transition-all duration-150 group",
+          {/* Control Room Mode toggle (iPhone Safari has no Fullscreen API for pages) */}
+          {"requestFullscreen" in document.documentElement && (
+            <button
+              onClick={toggleFullscreen}
+              title="Control Room Mode (fullscreen)"
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1.5",
+                "border border-accent/30 bg-accent/10",
+                "hover:bg-accent/20 hover:border-accent/50",
+                "transition-all duration-150 group",
             )}
           >
             <Maximize2 size={13} className="text-accent" />
-            <span className="text-[10px] font-medium text-accent/80 group-hover:text-accent">
+            <span className="hidden sm:inline text-[10px] font-medium text-accent/80 group-hover:text-accent">
               Control Room
             </span>
           </button>
+          )}
         </div>
       </div>
 
       {/* Main area: Map fills width, KPI + detail panels overlaid */}
-      <div className="relative flex-1 min-h-0">
+      <div ref={areaRef} className="relative flex-1 min-h-0">
         {/* Horizontal KPI ribbon overlay */}
         <div
           className="absolute top-2 left-0 right-0 pointer-events-none"

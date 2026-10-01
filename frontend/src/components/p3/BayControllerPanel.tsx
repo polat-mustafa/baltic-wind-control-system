@@ -100,7 +100,7 @@ export default function BayControllerPanel() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-2">
           <Zap size={16} className="text-accent" />
           <span className="text-sm font-semibold text-text-primary">Bay Controller — OSS ({allBays?.total ?? 0} bays)</span>

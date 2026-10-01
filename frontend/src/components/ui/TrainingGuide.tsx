@@ -53,7 +53,7 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
         <Dialog.Overlay className="fixed inset-0 z-[2000] bg-black/70 backdrop-blur-sm" />
         <Dialog.Content
           className={cn(
-            "fixed left-1/2 top-1/2 z-[2100] w-full max-w-2xl max-h-[85vh] -translate-x-1/2 -translate-y-1/2",
+            "fixed left-1/2 top-1/2 z-[2100] w-[calc(100%-1rem)] max-w-2xl max-h-[85dvh] -translate-x-1/2 -translate-y-1/2",
             "rounded-lg border border-border-secondary bg-bg-secondary shadow-2xl shadow-black/50",
             "flex flex-col focus:outline-none",
           )}
@@ -89,8 +89,8 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
               {guide.purpose}
             </p>
 
-            {/* Tab bar */}
-            <div className="flex gap-1 mt-4">
+            {/* Tab bar (scrolls sideways on phones) */}
+            <div className="flex gap-1 mt-4 overflow-x-auto">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -98,7 +98,7 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                      "flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
                       activeTab === tab.id
                         ? "bg-accent/15 text-accent border border-accent/30"
                         : "text-text-muted hover:text-text-secondary hover:bg-bg-hover border border-transparent",

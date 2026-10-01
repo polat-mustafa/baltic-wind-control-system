@@ -11,6 +11,7 @@
  * Positioned bottom-left above the alarm ticker. ISA-101 dark theme.
  */
 
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { fetchLiveWeather } from "../../services/openMeteoApi";
@@ -68,6 +69,8 @@ export default function EnvironmentPanel() {
   const error = useLiveWeatherFeed();
   const isLive = source === "live" && !!live;
   const bColor = beaufortColor(env.beaufortScale);
+  // Collapsed to its header on phones (it would cover a quarter of the map)
+  const [open, setOpen] = useState(() => window.innerWidth >= 640);
 
   return (
     <div
@@ -83,9 +86,15 @@ export default function EnvironmentPanel() {
         className="flex items-center justify-between px-2.5 py-1 border-b"
         style={{ borderColor: "#2a3040" }}
       >
-        <span className="text-[10px] font-semibold tracking-wider uppercase text-text-muted">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex items-center gap-1 text-[10px] font-semibold tracking-wider uppercase text-text-muted"
+        >
           Environment
-        </span>
+          <span className="sm:hidden">{open ? <ChevronDown size={11} /> : <ChevronUp size={11} />}</span>
+        </button>
         <div className="flex items-center gap-1.5">
           <span
             className="text-[10px] font-mono tabular-nums"
@@ -130,55 +139,59 @@ export default function EnvironmentPanel() {
         </div>
       </div>
 
-      {/* Beaufort badge */}
-      <div
-        className="flex items-center gap-2 px-2.5 py-1.5 border-b"
-        style={{ borderColor: "#2a3040" }}
-      >
-        <span
-          className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
-          style={{
-            backgroundColor: bColor + "22",
-            color: bColor,
-            border: `1px solid ${bColor}44`,
-          }}
-        >
-          {env.beaufortScale}
-        </span>
-        <div>
-          <div className="text-[11px] font-medium" style={{ color: bColor }}>
-            Bft {env.beaufortScale} — {env.beaufortDesc}
+      {open && (
+        <>
+          {/* Beaufort badge */}
+          <div
+            className="flex items-center gap-2 px-2.5 py-1.5 border-b"
+            style={{ borderColor: "#2a3040" }}
+          >
+            <span
+              className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
+              style={{
+                backgroundColor: bColor + "22",
+                color: bColor,
+                border: `1px solid ${bColor}44`,
+              }}
+            >
+              {env.beaufortScale}
+            </span>
+            <div>
+              <div className="text-[11px] font-medium" style={{ color: bColor }}>
+                Bft {env.beaufortScale} — {env.beaufortDesc}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Sea state */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-2.5 py-1.5 text-[10px]">
-        <Row label="Hs" value={`${env.significantWaveHeightM.toFixed(1)} m`} />
-        <Row
-          label={isLive ? "Tm" : "Tp"}
-          value={`${env.wavePeriodS.toFixed(1)} s`}
-        />
-        <Row label="Air" value={`${env.airTemperatureC.toFixed(1)} °C`} />
-        <Row label="Sea" value={`${env.seaTemperatureC.toFixed(1)} °C`} />
-        <Row label="Vis" value={`${env.visibilityKm.toFixed(0)} km`} />
-        <Row label="Cloud" value={`${env.cloudCoverPct}%`} />
-        <Row label="Press" value={`${env.pressureHpa.toFixed(0)} hPa`} />
-        {isLive && (
-          <Row label="Hub" value={`${live.hubWindMs.toFixed(1)} m/s`} />
-        )}
-      </div>
-      {source === "live" && (
-        <div
-          className="border-t px-2.5 py-1 text-[9px] leading-snug text-text-muted"
-          style={{ borderColor: "#2a3040" }}
-        >
-          {error
-            ? `Open-Meteo unavailable (${error}) — using simulation`
-            : live
-              ? `Open-Meteo (CC BY 4.0) · 10 m ${live.wind10Ms.toFixed(1)} m/s ${Math.round(live.windDir10Deg)}° · 100 m ${live.wind100Ms.toFixed(1)} m/s → hub 150 m (α 0.1)`
-              : "loading Open-Meteo…"}
-        </div>
+          {/* Sea state */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-2.5 py-1.5 text-[10px]">
+            <Row label="Hs" value={`${env.significantWaveHeightM.toFixed(1)} m`} />
+            <Row
+              label={isLive ? "Tm" : "Tp"}
+              value={`${env.wavePeriodS.toFixed(1)} s`}
+            />
+            <Row label="Air" value={`${env.airTemperatureC.toFixed(1)} °C`} />
+            <Row label="Sea" value={`${env.seaTemperatureC.toFixed(1)} °C`} />
+            <Row label="Vis" value={`${env.visibilityKm.toFixed(0)} km`} />
+            <Row label="Cloud" value={`${env.cloudCoverPct}%`} />
+            <Row label="Press" value={`${env.pressureHpa.toFixed(0)} hPa`} />
+            {isLive && (
+              <Row label="Hub" value={`${live.hubWindMs.toFixed(1)} m/s`} />
+            )}
+          </div>
+          {source === "live" && (
+            <div
+              className="border-t px-2.5 py-1 text-[9px] leading-snug text-text-muted"
+              style={{ borderColor: "#2a3040" }}
+            >
+              {error
+                ? `Open-Meteo unavailable (${error}) — using simulation`
+                : live
+                  ? `Open-Meteo (CC BY 4.0) · 10 m ${live.wind10Ms.toFixed(1)} m/s ${Math.round(live.windDir10Deg)}° · 100 m ${live.wind100Ms.toFixed(1)} m/s → hub 150 m (α 0.1)`
+                  : "loading Open-Meteo…"}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

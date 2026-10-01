@@ -189,7 +189,7 @@ export function PartInfoCard({
   if (!edu) return null;
   const facts = liveFacts(part, turbine);
   return (
-    <div className="pointer-events-auto flex max-h-full w-[380px] flex-col overflow-hidden rounded-lg border border-border-primary bg-bg-primary/95 shadow-xl shadow-black/40 backdrop-blur-sm">
+    <div className="pointer-events-auto flex max-h-full w-[380px] max-w-full flex-col overflow-hidden rounded-lg border border-border-primary bg-bg-primary/95 shadow-xl shadow-black/40 backdrop-blur-sm">
       <div className="flex items-start justify-between gap-2 border-b border-border-primary px-4 py-3">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">V236-15.0 MW · component</div>

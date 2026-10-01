@@ -15,6 +15,12 @@ describe("LayerControlPanel", () => {
     expect(screen.getByText("Layers")).toBeDefined();
   });
 
+  it("has no theme switch of its own (the header owns the palette toggle)", () => {
+    render(<LayerControlPanel />);
+    expect(screen.queryByText(/storybook/i)).toBeNull();
+    expect(screen.queryByText(/control room/i)).toBeNull();
+  });
+
   it("does not show layer labels when collapsed", () => {
     render(<LayerControlPanel />);
     expect(screen.queryByText("Wind Flow")).toBeNull();

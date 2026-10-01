@@ -225,7 +225,7 @@ export default function HistorianPanel() {
         </div>
 
         {/* Tag selector */}
-        <div className="flex flex-col gap-1 flex-1 min-w-0">
+        <div className="flex flex-col gap-1 flex-1 min-w-[min(100%,18rem)]">
           <span className="text-xs text-text-muted uppercase tracking-wider">
             Tags (max 10)
           </span>

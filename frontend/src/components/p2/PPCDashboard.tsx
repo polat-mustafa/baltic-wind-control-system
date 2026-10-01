@@ -142,7 +142,7 @@ export default function PPCDashboard() {
       </div>
 
       {/* ── KPI Header ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
         <KPI
           label="PPC State"
           value={stateLabel(ppc_state)}

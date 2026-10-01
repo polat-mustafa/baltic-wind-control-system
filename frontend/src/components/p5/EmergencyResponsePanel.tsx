@@ -178,7 +178,7 @@ export default function EmergencyResponsePanel() {
                 key={event.event_id}
                 className={`border rounded p-2 ${SEVERITY_BG[event.severity]}`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                   <span className="text-xs font-bold">
                     {EMERGENCY_LABELS[event.emergency_type]}
                   </span>

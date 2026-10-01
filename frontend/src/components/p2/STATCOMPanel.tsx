@@ -109,7 +109,7 @@ export default function STATCOMPanel() {
           </p>
         </div>
         <div className="text-center">
-          <p className="text-xs text-text-muted">Q = \u03C9CV\u00B2L</p>
+          <p className="text-xs text-text-muted">{"Q = \u03C9CV\u00B2L"}</p>
           <p className="text-sm font-bold text-slate-200">
             {statcomSizing.cable_q_mvar.toFixed(1)} MVAR
           </p>

@@ -36,7 +36,7 @@ export default function AreaTabs() {
   const setArea = useScadaStore((s) => s.setArea);
 
   return (
-    <div className="flex items-stretch border-b border-border-primary bg-bg-tertiary">
+    <div className="flex items-stretch overflow-x-auto border-b border-border-primary bg-bg-tertiary">
       {AREAS.map(({ id, label, icon: Icon }) => {
         const isActive = area === id;
         return (
@@ -45,7 +45,7 @@ export default function AreaTabs() {
             type="button"
             onClick={() => setArea(id)}
             className={cn(
-              "flex items-center gap-2 px-5 py-2.5 text-xs font-semibold uppercase tracking-wider",
+              "flex shrink-0 grow items-center justify-center gap-2 whitespace-nowrap px-3 sm:px-5 py-2.5 text-xs font-semibold uppercase tracking-wider",
               "border-b-2 -mb-px transition-colors",
               isActive
                 ? "text-accent border-accent bg-bg-secondary"

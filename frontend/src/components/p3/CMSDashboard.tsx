@@ -51,7 +51,7 @@ export default function CMSDashboard() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-2">
           <Activity size={16} className="text-accent" />
           <span className="text-sm font-semibold text-text-primary">Condition Monitoring — 34 × V236-15.0 MW</span>

@@ -56,7 +56,12 @@ const MAX_FREQ = Math.max(...CLIMATOLOGY.map((s) => s.reduce((a, b) => a + b, 0)
 
 // Stable default position — y=160 sits below the 2-row KPI ribbon and the
 // Layers button so all three top-left overlays are visually separate.
-const DEFAULT_POS = { x: 8, y: 160 };
+// Start below the Layers button (top-24 = 6 rem): 10 rem keeps that gap when the
+// root font grows on large monitors (160 px at the default 16 px).
+const defaultPos = () => ({
+  x: 8,
+  y: Math.round(10 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16)),
+});
 
 export const WindRoseWidget = memo(function WindRoseWidget() {
   const kpis = useLandingStore(selectKPIs);
@@ -66,8 +71,9 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
   const activeSector = Math.floor(((currentDir + SECTOR_DEG / 2) / SECTOR_DEG) % SECTORS);
 
   // ── Visibility + drag state ─────────────────────────────────────
-  const [isOpen, setIsOpen] = useState(true);
-  const [pos, setPos] = useState(DEFAULT_POS);
+  // Closed by default on phones (it would cover a third of the map)
+  const [isOpen, setIsOpen] = useState(() => window.innerWidth >= 768);
+  const [pos, setPos] = useState(defaultPos);
   const dragStateRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   const onDragMouseDown = useCallback((e: React.MouseEvent) => {

@@ -48,7 +48,7 @@ export const AnalyticsPanel = memo(function AnalyticsPanel({
   const yawErr = ((turbine.nacellePositionDeg - kpis.windDirectionDeg + 540) % 360) - 180;
 
   return (
-    <div className="bw-viz pointer-events-auto w-[396px] rounded-lg border border-border-primary bg-bg-secondary/95 text-text-primary shadow-xl backdrop-blur">
+    <div className="bw-viz pointer-events-auto w-[396px] max-w-full rounded-lg border border-border-primary bg-bg-secondary/95 text-text-primary shadow-xl backdrop-blur">
       <div className="flex items-center gap-2 border-b border-border-primary px-3 py-1.5">
         <div className="text-[12px] font-bold">Live analytics · {turbineId}</div>
         <div className="ml-auto flex overflow-hidden rounded border border-border-primary text-[11px] font-semibold" role="tablist">

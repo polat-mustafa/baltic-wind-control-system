@@ -42,7 +42,7 @@ export default function SecurityDashboard() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-2">
           <Shield size={16} className="text-accent" />
           <span className="text-sm font-semibold text-text-primary">Cybersecurity — IEC 62443-3-3 SL-2</span>

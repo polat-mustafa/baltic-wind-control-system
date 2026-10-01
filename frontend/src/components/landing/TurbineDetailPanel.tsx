@@ -11,7 +11,7 @@
  * then the panel.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -241,12 +241,15 @@ interface TurbineDetailPanelProps {
   onClose: () => void;
   /** Horizontal offset from the map's left edge (≈ 600 when the 3D viewer is shown). */
   leftOffset?: number;
+  /** Explicit placement (wins over leftOffset): used when the 3D viewer is stacked above the panel. */
+  placement?: CSSProperties;
 }
 
 export default function TurbineDetailPanel({
   turbine: t,
   onClose,
   leftOffset = 20,
+  placement,
 }: TurbineDetailPanelProps) {
   const navigate = useNavigate();
   // selectedPart lives in the store so the 3D viewer highlights the same part
@@ -317,8 +320,8 @@ export default function TurbineDetailPanel({
         subtitle={`String ${t.stringNumber} · V236-15.0 MW · hub 150 m · rotor Ø ${ROTOR_DIAMETER_M} m`}
         status={status}
         onClose={onClose}
-        width={440}
-        placement={{ left: leftOffset, top: 60 }}
+        width={placement ? "auto" : 440}
+        placement={placement ?? { left: leftOffset, top: 60 }}
         footnote={
           <button
             onClick={() => setLibraryOpen(true)}

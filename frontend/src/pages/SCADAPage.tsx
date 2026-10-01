@@ -69,7 +69,8 @@ export default function SCADAPage() {
   }, [stopAutoSimulation]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [controlsOpen, setControlsOpen] = useState(true);
+  // Simulation control bar starts collapsed on phones (it is ~170 px tall there)
+  const [controlsOpen, setControlsOpen] = useState(() => window.innerWidth >= 768);
 
   useEffect(() => {
     const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -149,12 +150,12 @@ export default function SCADAPage() {
       {/* ── Collapsible simulation control bar ── */}
       {controlsOpen && (
         <div className="flex items-center gap-3 px-3 py-1.5 border-b border-border-primary bg-bg-tertiary shrink-0 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <Zap size={12} className="text-text-muted" />
+          <div className="flex min-w-0 max-w-full items-center gap-1.5">
+            <Zap size={12} className="shrink-0 text-text-muted" />
             <select
               value={selectedFaultType}
               onChange={(e) => setSelectedFaultType(e.target.value)}
-              className="text-xs bg-bg-secondary border border-border-primary rounded px-2 py-1 text-text-secondary"
+              className="min-w-0 max-w-full text-xs bg-bg-secondary border border-border-primary rounded px-2 py-1 text-text-secondary"
               title="Select a turbine fault scenario to inject"
             >
               {faultScenarios.map((s) => (
@@ -220,16 +221,19 @@ export default function SCADAPage() {
             </select>
           </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={toggleFullscreen}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
-            >
-              <Maximize2 size={10} />
-              Control Room
-            </button>
-            <InfoButton info={controlRoomButtonInfo} />
-          </div>
+          {/* iPhone Safari has no Fullscreen API for pages */}
+          {"requestFullscreen" in document.documentElement && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={toggleFullscreen}
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border bg-bg-secondary border-border-primary text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
+              >
+                <Maximize2 size={10} />
+                Control Room
+              </button>
+              <InfoButton info={controlRoomButtonInfo} />
+            </div>
+          )}
         </div>
       )}
 

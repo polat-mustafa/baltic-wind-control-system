@@ -34,7 +34,7 @@ interface KPIItemProps {
 
 function KPIChip({ label, value, unit, icon, color = "#3ecf6e", title }: KPIItemProps) {
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5" title={title}>
+    <div className="flex shrink-0 items-center gap-1.5 px-2 py-1.5" title={title}>
       <span className="text-text-muted">{icon}</span>
       <div className="flex items-baseline gap-1">
         <span className="text-[10px] text-text-muted uppercase tracking-wider font-medium mr-1">{label}</span>
@@ -113,9 +113,11 @@ export default function MapKPIRibbon({ kpis: baseKpis, horizontal = true }: MapK
   return (
     <div
       className={cn(
-        "flex items-center justify-between flex-wrap gap-y-0.5",
+        // One swipeable row below xl; wraps (max. 2 rows) on wide screens
+        "flex items-center justify-between gap-y-0.5 overflow-x-auto xl:flex-wrap xl:overflow-visible",
+        "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         "bg-bg-secondary/80 backdrop-blur-md border-b border-border-primary",
-        "rounded-b-lg mx-12 shadow-lg shadow-black/20",
+        "rounded-b-lg mx-2 sm:mx-12 shadow-lg shadow-black/20",
         "pointer-events-auto",
       )}
     >
@@ -149,7 +151,7 @@ export default function MapKPIRibbon({ kpis: baseKpis, horizontal = true }: MapK
       />
 
       {/* Capacity factor with mini bar */}
-      <div className="flex items-center gap-2 px-3 py-1.5">
+      <div className="flex shrink-0 items-center gap-2 px-3 py-1.5">
         <span className="text-text-muted"><TrendingUp size={12} /></span>
         <span className="text-[10px] text-text-muted uppercase tracking-wider font-medium">CF</span>
         <div className="w-16 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">

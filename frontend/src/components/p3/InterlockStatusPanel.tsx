@@ -53,7 +53,7 @@ export default function InterlockStatusPanel() {
       {/* Last command result */}
       {lastCommandResult && (
         <div className={`mt-3 p-2 rounded text-xs ${lastCommandResult.success ? "bg-status-success/10 text-status-success" : "bg-status-alarm/10 text-status-alarm"}`}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <span>{lastCommandResult.success ? "✓" : "✗"} {lastCommandResult.equipment_id} → {lastCommandResult.action}</span>
             <Button variant="ghost" size="sm" onClick={clearCommandResult}>×</Button>
           </div>

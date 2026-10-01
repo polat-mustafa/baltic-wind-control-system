@@ -48,6 +48,36 @@
   /* ── Typography ── */
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ── Extra breakpoints for large monitors (default: sm 640 … 2xl 1536) ── */
+  --breakpoint-3xl: 120rem; /* 1920 px — Full HD */
+  --breakpoint-4xl: 160rem; /* 2560 px — QHD / ultrawide */
+}
+
+/* ── Responsive base ──
+   Phones: no text inflation on rotate, no double-tap-zoom delay. Large monitors
+   (QHD and up): the rem scale grows (Tailwind spacing + text-xs…) and the
+   px-sized micro labels get a matching bump, so the HMI stays readable instead
+   of shrinking into a corner. Full HD and below are untouched. */
+select, input, textarea { max-width: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+@media (min-width: 2400px) {
+  html { font-size: 112.5%; }
+  .text-\[8px\] { font-size: 9px; }
+  .text-\[9px\] { font-size: 10px; }
+  .text-\[10px\] { font-size: 11.25px; }
+  .text-\[11px\] { font-size: 12.5px; }
+}
+@media (min-width: 3200px) {
+  html { font-size: 137.5%; }
+  .text-\[8px\] { font-size: 11px; }
+  .text-\[9px\] { font-size: 12.4px; }
+  .text-\[10px\] { font-size: 13.75px; }
+  .text-\[11px\] { font-size: 15px; }
 }
 
 /* ── Base Styles ── */
@@ -624,7 +654,7 @@ body {
   .vessel-hull { transition: none; }
 }
 
-/* ══ Storybook theme (demo) ═══════════════════════════════════════════
+/* ══ Storybook theme ═══════════════════════════════════════════
    Hand-drawn, parchment-and-ink look inspired by illustrated survival games.
    Original art only (no game assets). Scoped to the landing map area via
    .theme-storybook; the ISA-101 control-room theme stays the default.
@@ -647,7 +677,8 @@ body {
   --color-text-secondary: #4d3d2c;
   --color-text-muted: #7a6650;
   --color-accent: #2c6e76;
-  --font-sans: "Patrick Hand", "Inter", ui-sans-serif, sans-serif;
+  --sb-font: "Atkinson Hyperlegible Next", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--sb-font);
   font-family: var(--font-sans);
 }
 /* Land as parchment; the sea is tinted teal by a polygon (StorybookSea). */
@@ -686,10 +717,10 @@ body {
 }
 .theme-storybook .eq-marker__tag {
   color: var(--sb-ink);
-  font-family: "Patrick Hand", sans-serif;
+  font-family: var(--sb-font);
   font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 .theme-storybook .eq-marker__value {
   color: #7a3b14;
@@ -701,7 +732,7 @@ body {
   background: var(--sb-paper) !important;
   color: var(--sb-ink) !important;
   border: 1.5px solid var(--sb-ink) !important;
-  font-family: "Patrick Hand", sans-serif;
+  font-family: var(--sb-font);
   font-size: 13px;
   box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.8) !important;
 }
@@ -711,11 +742,11 @@ body {
   background: var(--sb-paper);
   color: var(--sb-ink);
   border: 1.2px solid var(--sb-ink);
-  font-family: "Patrick Hand", sans-serif;
+  font-family: var(--sb-font);
   font-size: 12px;
 }
 .theme-storybook .wtg-id {
-  font-family: "Patrick Hand", sans-serif;
+  font-family: var(--sb-font);
 }
 .theme-storybook .leaflet-turbine-marker .wtg-svg {
   filter: drop-shadow(1.5px 2px 0 rgba(43, 33, 24, 0.35));
@@ -768,7 +799,7 @@ body {
   white-space: nowrap;
 }
 .theme-storybook .crew-badge__label {
-  font: 13px/1 "Patrick Hand", sans-serif;
+  font: 13px/1 var(--sb-font);
   color: var(--sb-ink);
   background: var(--sb-paper);
   border: 1.2px solid var(--sb-ink);
@@ -862,7 +893,7 @@ body {
   background: var(--sb-paper) !important;
   color: #8a1c1c !important;
   border: 1.2px solid var(--sb-ink) !important;
-  font-family: "Patrick Hand", sans-serif !important;
+  font-family: var(--sb-font) !important;
   font-size: 13px !important;
 }
 

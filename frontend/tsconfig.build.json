@@ -1,0 +1,7 @@
+{
+  // Production build checks app code only: tests may import files outside the
+  // Docker build context (e.g. backend/tests/fixtures). `npm run typecheck`
+  // still covers src + tests.
+  "extends": "./tsconfig.json",
+  "include": ["src"]
+}

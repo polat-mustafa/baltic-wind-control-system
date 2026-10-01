@@ -78,6 +78,7 @@ from numpy.typing import NDArray
 from sklearn.model_selection import TimeSeriesSplit
 
 from app.services.p4.physical_constraints import enforce_physical_constraints
+from app.services.p4.training_progress import PROGRESS
 
 # ── Constants ─────────────────────────────────────────────────────
 
@@ -543,6 +544,8 @@ def _train_single_fold(
     y_val: torch.Tensor,
     n_features: int,
     config: LSTMConfig,
+    fold: int = 0,
+    n_folds: int = 1,
 ) -> tuple[WindPowerLSTM, int]:
     """Train a single LSTM model on one fold.
 
@@ -567,12 +570,15 @@ def _train_single_fold(
     for epoch in range(config.epochs):
         # Training phase
         model.train()
+        train_loss_sum, n_batches = 0.0, 0
         for batch_x, batch_y in train_loader:
             optimizer.zero_grad()
             pred = model(batch_x).squeeze(-1)
             loss = loss_fn(pred, batch_y)
             loss.backward()
             optimizer.step()
+            train_loss_sum += float(loss.item())
+            n_batches += 1
 
         actual_epochs = epoch + 1
 
@@ -581,6 +587,14 @@ def _train_single_fold(
         with torch.no_grad():
             val_pred = model(x_val).squeeze(-1)
             val_loss = loss_fn(val_pred, y_val).item()
+
+        # Live training monitor: loss curves + share of this model's work
+        PROGRESS.epoch("lstm", fold, epoch + 1, train_loss_sum / max(n_batches, 1), val_loss)
+        PROGRESS.fraction(
+            "lstm",
+            (fold + (epoch + 1) / config.epochs) / n_folds,
+            f"fold {fold + 1}/{n_folds} · epoch {epoch + 1} · val MSE {val_loss:.4f}",
+        )
 
         # Early stopping
         if val_loss < best_val_loss:
@@ -639,6 +653,7 @@ def train_lstm(
         raise ValueError(msg)
 
     n_features = features.shape[1]
+    PROGRESS.stage("lstm", "running", f"{x_seq.shape[0]} sequences × lookback {config.lookback}")
 
     # TimeSeriesSplit cross-validation
     tscv = TimeSeriesSplit(n_splits=config.n_cv_splits)
@@ -664,6 +679,8 @@ def train_lstm(
             torch.tensor(y_test_np, dtype=torch.float32),
             n_features,
             config,
+            fold=fold_idx,
+            n_folds=config.n_cv_splits,
         )
 
         # Evaluate (no dropout for fair metrics)
@@ -678,6 +695,7 @@ def train_lstm(
         metrics = _compute_metrics(y_true_mw, y_pred_mw, fold_idx, actual_epochs)
         fold_metrics_list.append(metrics)
         last_model = model
+        PROGRESS.fold("lstm", fold_idx, metrics.rmse_mw, actual_epochs)
 
     assert last_model is not None
 
@@ -709,6 +727,7 @@ def train_lstm(
         architecture_summary=arch_summary,
     )
 
+    PROGRESS.model_done("lstm", cv_result.mean_rmse_mw, cv_result.skill_score_vs_persistence)
     return cv_result, last_model, norm_params
 
 

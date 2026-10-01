@@ -6,14 +6,16 @@
  *   skyPreset   — "overcast" | "golden" | "night"; switches IBL preset + fog + key-light colour
  *
  * Sky/IBL strategy:
- *   - drei <Sky> does atmospheric scattering (Hosek-Wilkie) → no HDRI file required
+ *   - SkyDome: gradient + sun + data-driven clouds (cloud cover %) → no HDRI file required
  *   - drei <Environment preset> provides IBL for PBR materials
  *   - If /hdri/baltic_{preset}_1k.hdr is added to public/ later, swap the Environment
  *     preset prop for `files` in one place (line marked HDRI-SWAP below).
  */
 
 import { memo, useMemo } from "react";
-import { Sky, Environment as DreiEnvironment } from "@react-three/drei";
+import { Environment as DreiEnvironment } from "@react-three/drei";
+
+import { SkyDome, type SkyLook } from "./SkyDome";
 
 export type SkyPreset = "overcast" | "golden" | "night";
 
@@ -38,10 +40,6 @@ function sunVector(hour: number): [number, number, number] {
 }
 
 const SKY_PARAMS: Record<SkyPreset, {
-  rayleigh: number;
-  turbidity: number;
-  mieCoefficient: number;
-  mieDirectionalG: number;
   fogColor: string;
   fogDensity: number;
   ambient: number;
@@ -54,32 +52,21 @@ const SKY_PARAMS: Record<SkyPreset, {
   iblPreset: "dawn" | "sunset" | "night" | "city" | "park";
 }> = {
   overcast: {
-    // Darker, moodier Baltic overcast — coheres with the dark application
-    // chrome and keeps the turbine readable instead of bleaching the scene.
-    // Rayleigh is pushed low and mie high so the Sky shader produces a
-    // hazy, muted grey dome instead of the default bright-blue atmosphere.
-    rayleigh: 0.6,
-    turbidity: 18,
-    mieCoefficient: 0.025,
-    mieDirectionalG: 0.75,
-    fogColor: "#1e2a38",
-    fogDensity: 0.0009,
-    ambient: 0.28,
-    hemiTop: "#4f6070",
-    hemiBottom: "#0a1420",
-    keyIntensity: 0.70,
-    keyColor: "#b9c3d1",
-    rimIntensity: 0.24,
-    iblIntensity: 0.35,
+    // Baltic day under broken cloud; fog = sky horizon colour.
+    fogColor: "#9aa9b8",
+    fogDensity: 0.00022,
+    ambient: 0.3,
+    hemiTop: "#9fb4c8",
+    hemiBottom: "#1f3140",
+    keyIntensity: 1.05,
+    keyColor: "#fff1dc",
+    rimIntensity: 0.25,
+    iblIntensity: 0.5,
     iblPreset: "city",
   },
   golden: {
-    rayleigh: 2,
-    turbidity: 5,
-    mieCoefficient: 0.006,
-    mieDirectionalG: 0.78,
-    fogColor: "#c99868",
-    fogDensity: 0.0006,
+    fogColor: "#e6b88a",
+    fogDensity: 0.00025,
     ambient: 0.40,
     hemiTop: "#ffd7a8",
     hemiBottom: "#5a3020",
@@ -90,12 +77,8 @@ const SKY_PARAMS: Record<SkyPreset, {
     iblPreset: "sunset",
   },
   night: {
-    rayleigh: 0.3,
-    turbidity: 2,
-    mieCoefficient: 0.003,
-    mieDirectionalG: 0.65,
-    fogColor: "#1a2540",
-    fogDensity: 0.0012,
+    fogColor: "#1b2740",
+    fogDensity: 0.0004,
     ambient: 0.30,
     hemiTop: "#1a2844",
     hemiBottom: "#050810",
@@ -105,6 +88,13 @@ const SKY_PARAMS: Record<SkyPreset, {
     iblIntensity: 0.45,
     iblPreset: "night",
   },
+};
+
+/** Sky dome palette per preset; horizon = fog colour so sea meets sky. */
+const SKY_LOOK: Record<SkyPreset, SkyLook> = {
+  overcast: { zenith: "#4f6f93", horizon: "#9aa9b8", sun: "#fff4dc", cloudLit: "#e8ecef", cloudShade: "#7d8894", stars: 0 },
+  golden: { zenith: "#35507e", horizon: "#e6b88a", sun: "#ffd29a", cloudLit: "#ffd6b0", cloudShade: "#8a6a74", stars: 0 },
+  night: { zenith: "#050a18", horizon: "#1b2740", sun: "#9fb3ff", cloudLit: "#3a4660", cloudShade: "#141b2c", stars: 1 },
 };
 
 export const SceneEnvironment = memo(function SceneEnvironment({
@@ -124,14 +114,7 @@ export const SceneEnvironment = memo(function SceneEnvironment({
           through if Sky or fog clips at the frustum edge (rear-view flicker fix). */}
       <color attach="background" args={[params.fogColor]} />
 
-      <Sky
-        distance={4500}
-        sunPosition={sunPos}
-        rayleigh={params.rayleigh}
-        turbidity={params.turbidity}
-        mieCoefficient={params.mieCoefficient}
-        mieDirectionalG={params.mieDirectionalG}
-      />
+      <SkyDome sunDir={sunPos} look={SKY_LOOK[skyPreset]} />
 
       {/* HDRI-SWAP: when /public/hdri/baltic_{preset}_1k.hdr exists, change
           preset={params.iblPreset} → files={`/hdri/baltic_${skyPreset}_1k.hdr`} */}

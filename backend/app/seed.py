@@ -4,10 +4,14 @@ Seed data for the Baltic Wind Alpha reference wind farm.
 Inserts the 34 × V236-15.0 MW wind farm with turbine positions
 if the database is empty. Idempotent — safe to run on every startup.
 
-Layout: 6 strings (6+6+6+6+5+5 = 34 turbines), staggered grid
-- Cross-wind spacing: 1500 m (~6.4D)
-- Along-wind spacing: 2360 m (~10D, for V236 D=236 m)
+Layout: 6 strings (6+6+6+6+5+5 = 34 turbines), same geometry as the map
+(frontend constants/windFarmLayout.ts):
+- Strings run N-S, 8D = 1888 m apart east-west (V236, D = 236 m)
+- Turbines 6D = 1416 m apart along a string (north → south)
+- Even strings staggered 700 m south, so the prevailing SW wind (≈ 225°)
+  does not line turbines up in each other's wake
 - Hub height: 150 m (V236-15.0 MW standard)
+x_m = east, y_m = north, origin at WTG-01 (NW corner).
 
 Deterministic farm UUID for reproducible references.
 """
@@ -28,33 +32,34 @@ logger = logging.getLogger(__name__)
 # Deterministic UUID for the reference wind farm
 FARM_UUID = uuid.UUID("00000000-0000-4000-a000-000000000001")
 
-# Spacing (metres)
-CROSS_WIND_SPACING_M = 1500.0  # ~6.4D cross-wind
-ALONG_WIND_SPACING_M = 2360.0  # ~10D along-wind
-STAGGER_OFFSET_M = 750.0  # Half cross-wind spacing for stagger
+# Spacing (metres) — must match the map layout
+ROTOR_DIAMETER_M = 236.0
+STRING_SPACING_M = 8 * ROTOR_DIAMETER_M  # 1888 m between strings (east-west)
+TURBINE_SPACING_M = 6 * ROTOR_DIAMETER_M  # 1416 m along a string (north-south)
+STAGGER_OFFSET_M = 700.0  # even strings shifted south
 
 
 def _generate_positions() -> list[dict[str, str | float]]:
     """Generate 34 turbine positions on a staggered grid.
 
     Returns a list of dicts with keys: turbine_id, x_m, y_m.
-    Origin at (0, 0) for string 1, turbine 1.
+    Origin at (0, 0) = WTG-01; strings go east, turbines south (y negative).
     """
     positions: list[dict[str, str | float]] = []
     turbine_id = 1
 
     for string_idx, n_turbines in enumerate(STRING_LAYOUT):
-        x_base = string_idx * CROSS_WIND_SPACING_M
+        x_base = string_idx * STRING_SPACING_M
 
-        # Odd strings (0-indexed) are staggered along-wind
-        y_offset = STAGGER_OFFSET_M if string_idx % 2 == 1 else 0.0
+        # Even strings (1-indexed 2, 4, 6) are staggered south
+        y_offset = -STAGGER_OFFSET_M if string_idx % 2 == 1 else 0.0
 
         for turbine_in_string in range(n_turbines):
             positions.append(
                 {
                     "turbine_id": f"WTG-{turbine_id:02d}",
                     "x_m": round(x_base, 1),
-                    "y_m": round(y_offset + turbine_in_string * ALONG_WIND_SPACING_M, 1),
+                    "y_m": round(y_offset - turbine_in_string * TURBINE_SPACING_M, 1),
                 }
             )
             turbine_id += 1
@@ -80,8 +85,10 @@ async def seed_default_farm() -> None:
         farm = WindFarm(
             id=FARM_UUID,
             name="Baltic Wind Alpha",
-            latitude=55.0,
-            longitude=17.5,
+            # Array centroid — same site as the frontend map
+            # (frontend/src/constants/windFarmLayout.ts, EEZ, 29–40 m depth)
+            latitude=54.797,
+            longitude=16.397,
             capacity_mw=510.0,
             num_turbines=34,
             turbine_model="V236-15.0 MW",

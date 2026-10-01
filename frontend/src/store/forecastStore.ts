@@ -16,8 +16,11 @@ import type {
   ModelCompareResponse,
   RampDetectResponse,
   SHAPResponse,
+  TrainingLive,
   TurbineSpec,
 } from "../types/forecast";
+
+export type ForecastTab = "forecast" | "monitor" | "academy" | "map";
 
 // ── Store Interface ────────────────────────────────────────────
 
@@ -45,6 +48,14 @@ interface ForecastState {
   analysisRun: boolean;
   progress: number; // 0-100
   progressMessage: string;
+  /** Live training monitor snapshot (stages, losses, log, ETA). */
+  live: TrainingLive | null;
+  tab: ForecastTab;
+  /** Academy chapter to open (set by the concept map). */
+  chapter: string;
+  setTab: (t: ForecastTab) => void;
+  openChapter: (id: string) => void;
+  fetchTrainingProgress: () => Promise<void>;
 
   // Parameter setters
   setTurbineIndex: (i: number) => void;
@@ -86,13 +97,24 @@ export const useForecastStore = create<ForecastState>((set, get) => ({
   analysisRun: false,
   progress: 0,
   progressMessage: "",
+  live: null,
+  tab: "forecast",
+  chapter: "why",
+  setTab: (tab) => set({ tab }),
+  openChapter: (chapter) => set({ chapter, tab: "academy" }),
+  fetchTrainingProgress: async () => {
+    try {
+      set({ live: await api.getTrainingProgress() });
+    } catch {
+      /* backend not reachable — the monitor shows its empty state */
+    }
+  },
 
   // ── Parameter setters ──────────────────────────────────────
 
   setTurbineIndex: (i) => set({ turbineIndex: i }),
   setHorizonSteps: (h) => set({ horizonSteps: h }),
   setRampThresholdMwHr: (t) => set({ rampThresholdMwHr: t }),
-  // TODO: wire to revenue impact calculation
   setSpotPriceEurMwh: (p) => set({ spotPriceEurMwh: p }),
 
   // ── Data actions ───────────────────────────────────────────
@@ -115,19 +137,30 @@ export const useForecastStore = create<ForecastState>((set, get) => ({
       rampThresholdMwHr,
     } = get();
 
-    set({ loading: true, error: null, progress: 0, progressMessage: "" });
+    set({ loading: true, error: null, progress: 0, progressMessage: "Queued — checking the model cache", tab: "monitor" });
 
     try {
-      // Step 1: Ensemble first — this builds+caches all 3 models on backend.
-      // Subsequent calls will hit the cache and return fast.
-      set({ progress: 5, progressMessage: "Training XGBoost + LSTM + TFT models..." });
+      // Step 1: Ensemble first — builds and caches all 3 models on the
+      // backend (tens of minutes the first time, seconds once cached). The
+      // trainers stream real progress: stage, fold, epoch, losses, ETA.
       const ensembleForecast = await api.predictEnsemble(
         numTurbines,
         numTimesteps,
         turbineIndex,
         horizonSteps,
+        undefined,
+        (progress, live) => {
+          const running = live?.stages.find((st) => st.status === "running");
+          set({
+            progress: Math.min(progress, 90),
+            live: live ?? get().live,
+            progressMessage: live?.active
+              ? `${running?.label ?? "Training"}${running?.detail ? ` — ${running.detail}` : ""}`
+              : "Loading trained models from the cache",
+          });
+        },
       );
-      set({ ensembleForecast, progress: 50, progressMessage: "Models cached. Running analysis..." });
+      set({ ensembleForecast, progress: 92, progressMessage: "Comparing models, SHAP explanations, ramp detection" });
 
       // Step 2: Remaining 3 endpoints run in parallel — all hit cached forecasts
       const [modelComparison, shapResult, rampDetection] = await Promise.all([
@@ -143,7 +176,9 @@ export const useForecastStore = create<ForecastState>((set, get) => ({
         analysisRun: true,
         progress: 100,
         progressMessage: "Analysis complete",
+        tab: "forecast",
       });
+      void get().fetchTrainingProgress();
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
     } finally {

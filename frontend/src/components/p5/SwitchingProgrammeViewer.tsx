@@ -20,10 +20,10 @@ import { InfoButton } from "../ui/InfoButton";
 import { switchingProgrammeInfo } from "../../constants/panelInfo";
 
 const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-slate-600 text-slate-200",
+  pending: "bg-slate-600 text-text-primary",
   in_progress: "bg-amber-600 text-white",
   completed: "bg-green-600 text-white",
-  skipped: "bg-slate-500 text-slate-300",
+  skipped: "bg-slate-500 text-text-secondary",
   hold_point: "bg-red-600 text-white",
 };
 
@@ -54,19 +54,19 @@ function StepRow({
     <>
       <tr
         onClick={() => setExpanded(!expanded)}
-        className={`cursor-pointer border-b border-slate-700/50 transition-colors ${
+        className={`cursor-pointer border-b border-border-primary/50 transition-colors ${
           isCurrent
             ? "bg-amber-900/30"
             : step.status === "completed"
               ? "bg-green-900/10"
-              : "hover:bg-slate-700/30"
+              : "hover:bg-bg-tertiary/30"
         }`}
         style={isCurrent ? { borderLeft: `3px solid ${SCADA_COLORS.WARNING}` } : undefined}
       >
-        <td className="px-3 py-2 text-xs font-mono text-slate-400">{step.step_id}</td>
+        <td className="px-3 py-2 text-xs font-mono text-text-muted">{step.step_id}</td>
         <td className="px-3 py-2 text-xs">{step.step_type}</td>
         <td className="px-3 py-2 text-sm">{step.action}</td>
-        <td className="px-3 py-2 text-xs text-slate-400">{step.responsible}</td>
+        <td className="px-3 py-2 text-xs text-text-muted">{step.responsible}</td>
         <td className="px-3 py-2 text-xs">
           {step.pic_confirmation && (
             <span className="text-amber-400" title="PiC confirmation required">
@@ -92,34 +92,34 @@ function StepRow({
             </button>
           )}
           {step.executed_at && (
-            <span className="text-[10px] text-slate-500">
+            <span className="text-[10px] text-text-muted">
               {new Date(step.executed_at).toLocaleTimeString()}
             </span>
           )}
         </td>
       </tr>
       {expanded && (
-        <tr className="bg-slate-800/50">
+        <tr className="bg-bg-secondary/50">
           <td colSpan={7} className="px-6 py-3">
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-slate-400">Verification: </span>
-                <span className="text-slate-200">{step.verification || "—"}</span>
+                <span className="text-text-muted">Verification: </span>
+                <span className="text-text-primary">{step.verification || "—"}</span>
               </div>
               <div>
-                <span className="text-slate-400">Safety Notes: </span>
-                <span className="text-slate-200">{step.notes || "—"}</span>
+                <span className="text-text-muted">Safety Notes: </span>
+                <span className="text-text-primary">{step.notes || "—"}</span>
               </div>
               {step.equipment_id && (
                 <div>
-                  <span className="text-slate-400">Equipment: </span>
-                  <span className="font-mono text-slate-200">{step.equipment_id}</span>
+                  <span className="text-text-muted">Equipment: </span>
+                  <span className="font-mono text-text-primary">{step.equipment_id}</span>
                 </div>
               )}
               {step.executed_by && (
                 <div>
-                  <span className="text-slate-400">Executed by: </span>
-                  <span className="text-slate-200">{step.executed_by}</span>
+                  <span className="text-text-muted">Executed by: </span>
+                  <span className="text-text-primary">{step.executed_by}</span>
                 </div>
               )}
             </div>
@@ -162,22 +162,22 @@ export default function SwitchingProgrammeViewer() {
               style={{ width: `${progress}%` }}
             />
           </div>
-          <span className="text-xs text-slate-400">{Math.round(progress)}%</span>
+          <span className="text-xs text-text-muted">{Math.round(progress)}%</span>
         </div>
       </div>
 
       {/* Table */}
       <div className="overflow-auto max-h-[600px]">
         <table className="w-full text-left">
-          <thead className="bg-slate-700/50 sticky top-0">
+          <thead className="bg-bg-tertiary/50 sticky top-0">
             <tr>
-              <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Step</th>
-              <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Type</th>
-              <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Action</th>
-              <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">By</th>
-              <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">PiC</th>
-              <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Status</th>
-              <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Action</th>
+              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Step</th>
+              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Type</th>
+              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Action</th>
+              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">By</th>
+              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">PiC</th>
+              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Status</th>
+              <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -185,8 +185,8 @@ export default function SwitchingProgrammeViewer() {
               const phaseSteps = steps.filter((s) => s.phase === phase);
               if (phaseSteps.length === 0) return null;
               return [
-                <tr key={`phase-${phase}`} className="bg-slate-700/30">
-                  <td colSpan={7} className="px-3 py-1.5 text-xs font-semibold text-slate-300">
+                <tr key={`phase-${phase}`} className="bg-bg-tertiary/30">
+                  <td colSpan={7} className="px-3 py-1.5 text-xs font-semibold text-text-secondary">
                     Phase {phase}: {PHASE_LABELS[phase]}
                   </td>
                 </tr>,

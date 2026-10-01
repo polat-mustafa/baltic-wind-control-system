@@ -55,7 +55,7 @@ export default function AnomalyInjection() {
   const template = FAULT_TEMPLATES[selectedTemplate];
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-amber-700/50 overflow-hidden">
+    <div className="bg-bg-secondary rounded-lg border border-amber-700/50 overflow-hidden">
       {/* Header with warning label */}
       <div className="px-4 py-3 border-b border-amber-700/50 bg-amber-900/20">
         <div className="flex items-center gap-2">
@@ -79,7 +79,7 @@ export default function AnomalyInjection() {
             <label
               key={ft.type}
               className={`flex items-start gap-2 p-2 rounded cursor-pointer transition-colors ${
-                selectedTemplate === i ? "bg-slate-700" : "hover:bg-slate-700/50"
+                selectedTemplate === i ? "bg-bg-tertiary" : "hover:bg-bg-tertiary/50"
               }`}
             >
               <input
@@ -91,7 +91,7 @@ export default function AnomalyInjection() {
               />
               <div>
                 <div className="text-xs font-medium">{ft.label}</div>
-                <div className="text-[10px] text-slate-400">{ft.description}</div>
+                <div className="text-[10px] text-text-muted">{ft.description}</div>
               </div>
             </label>
           ))}
@@ -99,12 +99,12 @@ export default function AnomalyInjection() {
 
         {/* Equipment target */}
         <div>
-          <label className="text-[10px] text-slate-400 block mb-1">Target Equipment</label>
+          <label className="text-[10px] text-text-muted block mb-1">Target Equipment</label>
           <input
             type="text"
             value={equipmentId}
             onChange={(e) => setEquipmentId(e.target.value)}
-            className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-xs text-white font-mono focus:outline-none focus:border-amber-500"
+            className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-secondary rounded text-xs text-white font-mono focus:outline-none focus:border-amber-500"
           />
         </div>
 
@@ -128,7 +128,7 @@ export default function AnomalyInjection() {
         {anomalies.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400">Active Anomalies ({anomalies.length})</span>
+              <span className="text-[10px] text-text-muted">Active Anomalies ({anomalies.length})</span>
               <button
                 onClick={clearAllAnomalies}
                 className="text-[10px] text-red-400 hover:text-red-300"
@@ -145,7 +145,7 @@ export default function AnomalyInjection() {
                 <span style={{ color: SCADA_COLORS.FAULT }}>{a.label}</span>
                 <button
                   onClick={() => clearAnomaly(a.id)}
-                  className="text-slate-400 hover:text-white text-[10px]"
+                  className="text-text-muted hover:text-white text-[10px]"
                 >
                   Clear
                 </button>

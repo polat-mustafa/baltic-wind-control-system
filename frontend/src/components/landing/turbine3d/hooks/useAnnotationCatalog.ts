@@ -63,7 +63,7 @@ export function useAnnotationCatalog(turbineId: string): Annotation[] {
         relatedPartId: "blades",
         detail: {
           title: "Rotor speed",
-          value: () => `${t.rotorSpeedRpm.toFixed(2)} rpm (rated 9.55)`,
+          value: () => `${t.rotorSpeedRpm.toFixed(2)} rpm (rated 8.33)`,
           unit: "rpm",
           formula: "ω = 2π · n / 60 (rad/s)",
           source: "Live simulation store",

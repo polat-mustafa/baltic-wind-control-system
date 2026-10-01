@@ -49,7 +49,7 @@ export default function ConverterComparisonPanel() {
 
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-slate-600">
+          <tr className="border-b border-border-secondary">
             <th className="py-2 px-3 text-xs text-text-muted font-semibold">Metric</th>
             <th className="py-2 px-3 text-xs text-center font-semibold" style={{ color: SCADA_COLORS.WARNING }}>
               GFL (PLL)
@@ -107,11 +107,11 @@ export default function ConverterComparisonPanel() {
       </table>
 
       {/* Educational summary */}
-      <div className="mt-3 p-3 bg-slate-900/50 rounded border border-border-primary">
+      <div className="mt-3 p-3 bg-bg-primary/50 rounded border border-border-primary">
         <p className="text-xs text-text-muted uppercase tracking-wider mb-1">
           GFM Advantage
         </p>
-        <p className="text-xs text-slate-300 leading-relaxed">
+        <p className="text-xs text-text-secondary leading-relaxed">
           {gfm_advantage}
         </p>
       </div>

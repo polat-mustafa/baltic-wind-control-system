@@ -91,7 +91,8 @@ describe("runFullAnalysis", () => {
 
     await useForecastStore.getState().runFullAnalysis();
 
-    expect(mockApi.predictEnsemble).toHaveBeenCalledWith(34, 52560, 0, 288);
+    // 5th arg seed (backend default), 6th the live-progress callback
+    expect(mockApi.predictEnsemble).toHaveBeenCalledWith(34, 52560, 0, 288, undefined, expect.any(Function));
     expect(mockApi.compareModels).toHaveBeenCalledWith(34, 52560, 0, 288);
     expect(mockApi.getXGBoostSHAP).toHaveBeenCalledWith(34, 52560, 0);
     expect(mockApi.detectRamps).toHaveBeenCalledWith(34, 52560, 0, 288, 50);

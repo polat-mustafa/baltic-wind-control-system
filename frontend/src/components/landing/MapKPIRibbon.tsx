@@ -10,9 +10,13 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { useGridEventSample } from "../../hooks/useGridEventSample";
+
 import type { FarmKPI } from "../../types/landing";
 import { Zap, Wind, Gauge, AlertTriangle, Activity, TrendingUp, Sigma, Waves, Tornado } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { gustMs as gustFromMean } from "../../utils/landingPhysics";
+import { useLiveGridStore, useStatcomQ } from "../../store/liveGridStore";
 
 interface MapKPIRibbonProps {
   kpis: FarmKPI;
@@ -25,11 +29,12 @@ interface KPIItemProps {
   unit: string;
   icon: React.ReactNode;
   color?: string;
+  title?: string;
 }
 
-function KPIChip({ label, value, unit, icon, color = "#3ecf6e" }: KPIItemProps) {
+function KPIChip({ label, value, unit, icon, color = "#3ecf6e", title }: KPIItemProps) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5">
+    <div className="flex items-center gap-1.5 px-2 py-1.5" title={title}>
       <span className="text-text-muted">{icon}</span>
       <div className="flex items-baseline gap-1">
         <span className="text-[10px] text-text-muted uppercase tracking-wider font-medium mr-1">{label}</span>
@@ -42,21 +47,28 @@ function KPIChip({ label, value, unit, icon, color = "#3ecf6e" }: KPIItemProps) 
   );
 }
 
-export default function MapKPIRibbon({ kpis, horizontal = true }: MapKPIRibbonProps) {
+export default function MapKPIRibbon({ kpis: baseKpis, horizontal = true }: MapKPIRibbonProps) {
+  // During a grid frequency event the ribbon shows the event's frequency.
+  const gridEvent = useGridEventSample();
+  const kpis =
+    gridEvent && gridEvent.s.f !== 50 && !gridEvent.done
+      ? { ...baseKpis, gridFrequencyHz: gridEvent.s.f }
+      : baseKpis;
   const capacityPct = kpis.capacityFactorPct;
-  const capacityColor = capacityPct > 80 ? "#3ecf6e" : capacityPct > 50 ? "#f5a623" : "#ef4444";
+  // Capacity factor is weather, not a fault — informational blue at any value
+  // (ISA-101: reserve amber/red for abnormal states).
+  const capacityColor = "#3b82f6";
   const alertColor = kpis.activeAlerts === 0 ? "#3ecf6e" : kpis.activeAlerts > 3 ? "#ef4444" : "#f5a623";
   const freqColor = Math.abs(kpis.gridFrequencyHz - 50) < 0.05 ? "#3ecf6e" : "#f5a623";
 
-  // Derived operator KPIs (deterministic stubs — store doesn't carry these yet):
-  // Reactive Q: at low generation we boost (capacitive +Q), near rated we
-  //   absorb (inductive −Q). Same formula as the STATCOM marker for visual
-  //   consistency. Quantised to 1 MVAr.
-  const reactiveQ = Math.round(((255 - kpis.totalOutputMW) / 510) * 90);
-  const reactiveColor = Math.abs(reactiveQ) < 30 ? "#3ecf6e" : Math.abs(reactiveQ) < 80 ? "#f5a623" : "#ef4444";
+  // Q = STATCOM output (+ injecting / − absorbing), coloured by use of its ±120 MVAr.
+  // From the backend load flow (pandapower, store/liveGridStore) when it is
+  // reachable, else the browser's reactive-balance estimate (labelled "est.").
+  const grid = useLiveGridStore((s) => s.result);
+  const reactiveQ = Math.round(useStatcomQ(kpis.totalOutputMW).q);
+  const reactiveColor = Math.abs(reactiveQ) < 60 ? "#3ecf6e" : Math.abs(reactiveQ) < 100 ? "#f5a623" : "#ef4444";
 
-  // Gust speed: typical 1.3–1.5 gust factor over 10-minute mean wind.
-  const gustMs = kpis.averageWindSpeedMs * 1.4;
+  const gustMs = gustFromMean(kpis.averageWindSpeedMs);
   const gustColor = gustMs > 28 ? "#ef4444" : gustMs > 22 ? "#f5a623" : "#3ecf6e";
 
   // df/dt — frequency rate of change in mHz/s. Derived by tracking the
@@ -153,7 +165,7 @@ export default function MapKPIRibbon({ kpis, horizontal = true }: MapKPIRibbonPr
 
       <KPIChip
         label="Freq"
-        value={kpis.gridFrequencyHz.toFixed(2)}
+        value={kpis.gridFrequencyHz.toFixed(3)}
         unit="Hz"
         icon={<Activity size={12} />}
         color={freqColor}
@@ -168,10 +180,21 @@ export default function MapKPIRibbon({ kpis, horizontal = true }: MapKPIRibbonPr
       <KPIChip
         label="Q"
         value={`${reactiveQ >= 0 ? "+" : ""}${reactiveQ}`}
-        unit="MVAr"
+        unit={grid?.converged ? "MVAr" : "MVAr est."}
         icon={<Waves size={12} />}
         color={reactiveColor}
+        title={grid?.converged ? "STATCOM set-point from the pandapower load flow (backend)" : "Browser estimate — backend load flow not reachable"}
       />
+      {grid?.converged && (
+        <KPIChip
+          label="Loss"
+          value={grid.total_loss_mw.toFixed(1)}
+          unit="MW"
+          icon={<Zap size={12} />}
+          color={grid.voltage_compliant ? "#3ecf6e" : "#ef4444"}
+          title={`pandapower Newton-Raphson: ${grid.poc_p_mw.toFixed(1)} MW / ${grid.poc_q_mvar.toFixed(1)} MVAr at PSE 400 kV · V_OSS ${grid.v_oss_220_pu.toFixed(3)} pu · export cable ${grid.export_cable_loading_pct.toFixed(0)} %`}
+        />
+      )}
       <KPIChip
         label="Gust"
         value={gustMs.toFixed(1)}

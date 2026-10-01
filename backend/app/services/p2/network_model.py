@@ -147,6 +147,10 @@ TOTAL_CAPACITY_MW = NUM_TURBINES * TURBINE_RATED_MW  # 510 MW
 # 6 × 15 MW = 90 MW ≈ 790 A on the OSS-end cable → 800 mm² (900 A) is ~89 % loaded.
 STRING_LAYOUT = [6, 6, 6, 6, 5, 5]
 NUM_STRINGS = len(STRING_LAYOUT)
+# OSS 66 kV switchboard: strings 1-3 on busbar section A (TX-OSS-01), 4-6 on
+# section B (TX-OSS-02); bus coupler BAY-OSS-66-08 normally open. Each section
+# (270 / 240 MW) stays inside one 300 MVA unit. Mirrors the frontend map.
+STRING_BUSBAR_SECTION: dict[int, str] = {1: "A", 2: "A", 3: "A", 4: "B", 5: "B", 6: "B"}
 
 # Cable lengths
 ARRAY_CABLE_LENGTH_KM = 1.5  # average spacing between WTGs

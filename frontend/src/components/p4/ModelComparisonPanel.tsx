@@ -108,9 +108,9 @@ export default function ModelComparisonPanel() {
         <div className="mt-2 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
           ⚠ Ensemble RMSE ({ensemble?.rmse_mw.toFixed(3)} MW) is higher than the
           best base model. Likely cause: {worstBase.model_name} underperformed
-          ({worstBase.rmse_mw.toFixed(3)} MW) and leaked residual error through
-          the weighted average. Skill-gate + inverse-RMSE weighting mitigate
-          but cannot always eliminate this.
+          ({worstBase.rmse_mw.toFixed(3)} MW) and its larger errors still carry
+          weight in the average. Skill-gate + inverse-RMSE weighting reduce this
+          but cannot always remove it.
         </div>
       )}
 

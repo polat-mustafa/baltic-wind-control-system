@@ -19,6 +19,7 @@ Monorepo: FastAPI (Python 3.13, SQLAlchemy, Pydantic v2) backend + React 19 / Ty
 | Frontend typecheck | `cd frontend && npm run typecheck` |
 | Frontend lint | `cd frontend && npm run lint` |
 | Frontend tests | `cd frontend && npm test` |
+| Frontend e2e (local, system Chrome) | `cd frontend && npm run e2e` (runtime errors + visual baselines; `npm run e2e:update` to accept a new look) |
 | Format all | `make format` |
 | Dev stack | `docker compose up` (or `cd frontend && npm run dev`) |
 

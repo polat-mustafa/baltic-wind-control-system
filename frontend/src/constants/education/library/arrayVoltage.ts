@@ -63,7 +63,7 @@ export const arrayVoltageEducation: EducationContent = {
       ],
       explanation:
         "At 33 kV with I_max = 900 A: P_string = √3 × 33 × 0.9 = 51 MW → need ≥10 strings for 510 MW. " +
-        "At 66 kV with I_max = 900 A: P_string = √3 × 66 × 0.9 = 103 MW → need only 5 strings. " +
+        "At 66 kV with I_max = 900 A: P_string = √3 × 66 × 0.9 = 103 MW → 5 strings minimum; this farm uses 6 (6-6-6-6-5-5 turbines) for thermal margin. " +
         "Halving the string count reduces OSS bays, cable trenching, and installation vessel time.",
     },
     {

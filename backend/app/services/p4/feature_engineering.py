@@ -302,6 +302,13 @@ def compute_wake_direction_indicator(
 # ── Main Feature Engineering Pipeline ─────────────────────────────
 
 
+def _last_observation(x: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Shift a series one step later: row t holds x(t−1), row 0 is NaN."""
+    out = np.full(x.shape, np.nan, dtype=np.float64)
+    out[1:] = x[:-1]
+    return out
+
+
 def engineer_features(
     wind_speed: NDArray[np.float64],
     power: NDArray[np.float64],
@@ -369,22 +376,32 @@ def engineer_features(
     power_lags = compute_power_lags(pwr, config.num_lags)
     wake_indicator = compute_wake_direction_indicator(wd, config.farm_alignment_deg)
 
-    # Build feature names
+    # Causality: row t predicts P(t), so every MEASURED channel enters as its
+    # last observation before t (t−1). Using the same-step measured wind made
+    # the model a power-curve fit (it knew v(t), from which P(t) follows) and
+    # inflated skill vs persistence to ≈ 1.0. Calendar features are known in
+    # advance; the NWP forecast for t is merged later (merge_nwp_features).
+    (ws, ws_mean, ws_std, ti, wd, wd_rate, air_density, temp, humid, wake_indicator) = (
+        _last_observation(x)
+        for x in (ws, ws_mean, ws_std, ti, wd, wd_rate, air_density, temp, humid, wake_indicator)
+    )
+
+    # Build feature names ("_prev" = observed at t−1)
     feature_names = [
-        "wind_speed_ms",
-        "ws_mean_1h",
-        "ws_std_1h",
-        "turbulence_intensity",
-        "wind_direction_deg",
-        "wd_change_rate",
-        "air_density_kg_m3",
-        "temperature_c",
-        "humidity_pct",
+        "wind_speed_ms_prev",
+        "ws_mean_1h_prev",
+        "ws_std_1h_prev",
+        "turbulence_intensity_prev",
+        "wind_direction_deg_prev",
+        "wd_change_rate_prev",
+        "air_density_kg_m3_prev",
+        "temperature_c_prev",
+        "humidity_pct_prev",
         "hour_sin",
         "hour_cos",
         "month_sin",
         "month_cos",
-        "wake_direction_indicator",
+        "wake_direction_indicator_prev",
     ]
     for k in range(config.num_lags):
         feature_names.append(f"power_lag_{k + 1}")

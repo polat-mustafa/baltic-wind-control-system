@@ -1,20 +1,74 @@
 /**
  * AI Forecasting page — route /forecast.
  *
- * Loads turbine spec on mount. Controls live in a slide-out drawer.
- * Once analysis completes, renders the full ForecastDashboard at full width.
+ * Four views of the same forecasting system:
+ *   Forecast          the dashboard (ensemble P10/P50/P90, model comparison,
+ *                     SHAP, accuracy, revenue)
+ *   Training monitor  the models being built, live (stages, epochs, losses)
+ *   AI Academy        the course: from "why forecast" to XGBoost, LSTM, TFT,
+ *                     with interactive illustrations and narration (EN/TR)
+ *   Concept map       how the ideas connect; click → lesson
+ * Controls live in a slide-out drawer.
  */
 
 import { useEffect } from "react";
-import { Brain } from "lucide-react";
+import { Activity, BookOpen, Brain, Network, Play } from "lucide-react";
 
 import ForecastDashboard from "../components/p4/ForecastDashboard";
-import { useForecastStore } from "../store/forecastStore";
+import TrainingMonitor from "../components/p4/academy/TrainingMonitor";
+import AcademyTab from "../components/p4/academy/AcademyTab";
+import ConceptMap from "../components/p4/academy/ConceptMap";
+import { useForecastStore, type ForecastTab } from "../store/forecastStore";
 import { Button } from "../components/ui/Button";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { ControlDrawer } from "../components/ui/ControlDrawer";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { p4Guide } from "../constants/trainingGuideContent";
+
+const TABS: { id: ForecastTab; label: string; Icon: typeof Brain }[] = [
+  { id: "forecast", label: "Forecast", Icon: Brain },
+  { id: "monitor", label: "Training monitor", Icon: Activity },
+  { id: "academy", label: "AI Academy", Icon: BookOpen },
+  { id: "map", label: "Concept map", Icon: Network },
+];
+
+/** Language chosen in the academy (shared with the concept map). */
+function academyLang(): "en" | "tr" {
+  try {
+    return localStorage.getItem("bw.academyLang") === "tr" ? "tr" : "en";
+  } catch {
+    return "en";
+  }
+}
+
+function StartCard({
+  Icon,
+  title,
+  text,
+  action,
+  onClick,
+  disabled = false,
+}: {
+  Icon: typeof Brain;
+  title: string;
+  text: string;
+  action: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-col rounded-lg border border-border-primary bg-bg-secondary p-5">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-accent/15">
+        <Icon size={20} className="text-accent" />
+      </div>
+      <div className="mb-1 text-base font-semibold text-text-primary">{title}</div>
+      <p className="mb-4 flex-1 text-sm leading-relaxed text-text-secondary">{text}</p>
+      <Button onClick={onClick} disabled={disabled} size="sm" className="self-start">
+        {action}
+      </Button>
+    </div>
+  );
+}
 
 const HORIZON_OPTIONS = [
   { value: 144, label: "24 hours (144 steps)" },
@@ -40,6 +94,9 @@ export default function ForecastPage() {
     fetchTurbineSpec,
     runFullAnalysis,
     clearError,
+    tab,
+    setTab,
+    live,
   } = useForecastStore();
 
   useEffect(() => {
@@ -99,8 +156,9 @@ export default function ForecastPage() {
                   Spot prices are synthetic (educational). Revenue figures are illustrative.
                 </p>
                 <p className="text-text-muted italic">
-                  Skill scores above 0.9 are typical only on synthetic SCADA data. Real
-                  operational wind-power forecasts usually achieve 0.2–0.5 vs persistence.
+                  Inputs are causal: SCADA measured up to t−1 plus the NWP forecast for t. A skill
+                  score near 1.0 would indicate leakage; operational 10-min forecasts typically
+                  reach 0.1–0.5 vs persistence.
                 </p>
               </div>
             }
@@ -217,20 +275,6 @@ export default function ForecastPage() {
               )}
             </Button>
 
-            {/* Progress bar during analysis */}
-            {loading && (
-              <div className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2">
-                <div className="w-full h-2 bg-bg-tertiary rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <p className="text-xs text-text-muted text-center font-mono">
-                  {progressMessage || "Initialising pipeline..."}
-                </p>
-              </div>
-            )}
           </ControlDrawer>
           <TrainingGuide guide={p4Guide} />
         </div>
@@ -246,42 +290,77 @@ export default function ForecastPage() {
         </div>
       )}
 
-      {/* Progress bar (visible inline when loading) */}
-      {loading && (
-        <div className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2">
-          <div className="w-full h-2 bg-bg-tertiary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${progress}%` }}
-            />
+      {/* Live progress (compact) — the full view is the training monitor */}
+      {loading && tab !== "monitor" && (
+        <button
+          type="button"
+          onClick={() => setTab("monitor")}
+          className="w-full rounded-lg border border-border-primary bg-bg-secondary p-3 text-left hover:bg-bg-hover"
+        >
+          <div className="mb-1.5 flex justify-between text-xs">
+            <span className="font-semibold text-text-primary">{progressMessage || "Initialising pipeline…"}</span>
+            <span className="font-mono text-text-secondary">
+              {progress} %{live?.eta_s ? ` · ETA ${Math.ceil(live.eta_s / 60)} min` : ""} · open training monitor →
+            </span>
           </div>
-          <p className="text-xs text-text-muted text-center font-mono">
-            {progressMessage || "Initialising pipeline..."}
-          </p>
-        </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-bg-tertiary">
+            <div className="h-full rounded-full bg-accent transition-all duration-700 ease-out" style={{ width: `${progress}%` }} />
+          </div>
+        </button>
       )}
 
-      {/* Full-width dashboard */}
-      {analysisRun ? (
-        <ForecastDashboard />
-      ) : (
-        <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                <Brain size={24} className="text-accent" />
-              </div>
-            </div>
-            <p className="text-text-secondary text-base mb-2">
-              Configure parameters and run forecast analysis
-            </p>
-            <p className="text-text-muted text-sm">
-              Select turbine, forecast horizon, and ramp threshold,
-              then click &quot;Run Forecast Analysis&quot;
-            </p>
+      {/* View tabs */}
+      <div className="flex flex-wrap gap-1 border-b border-border-primary" role="tablist" aria-label="Forecast views">
+        {TABS.map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition-colors ${
+              tab === id ? "border-accent text-text-primary" : "border-transparent text-text-muted hover:text-text-secondary"
+            }`}
+          >
+            <Icon size={15} />
+            {label}
+            {id === "monitor" && loading && <span className="h-2 w-2 animate-pulse rounded-full bg-status-warning" />}
+          </button>
+        ))}
+      </div>
+
+      {tab === "forecast" &&
+        (analysisRun ? (
+          <ForecastDashboard />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <StartCard
+              Icon={Play}
+              title="Run a forecast"
+              text="Trains XGBoost, LSTM and a Temporal Fusion Transformer on causal SCADA + NWP features with 5-fold TimeSeriesSplit, then combines them into a P10/P50/P90 ensemble. First run about 30 min on a CPU server, then cached for a week (seconds)."
+              action="Run forecast"
+              onClick={() => void runFullAnalysis()}
+              disabled={loading}
+            />
+            <StartCard
+              Icon={BookOpen}
+              title="Learn how it works"
+              text="AI Academy: eleven short chapters from why we forecast wind to gradient boosting, LSTM memory gates, attention and uncertainty — interactive, with narration in English or Turkish."
+              action="Open the academy"
+              onClick={() => setTab("academy")}
+            />
+            <StartCard
+              Icon={Network}
+              title="See the big picture"
+              text="The concept map connects data, learning, models, evaluation and grid operation. Hover to see what a concept depends on, click to jump to its lesson."
+              action="Open the concept map"
+              onClick={() => setTab("map")}
+            />
           </div>
-        </div>
-      )}
+        ))}
+      {tab === "monitor" && <TrainingMonitor />}
+      {tab === "academy" && <AcademyTab />}
+      {tab === "map" && <ConceptMap lang={academyLang()} />}
     </div>
   );
 }

@@ -295,3 +295,25 @@ def test_string_layout_matches_p3_p5_feeders():
 
     string_cbs = [e for e in OSS_EQUIPMENT if e.equipment_id.startswith("CB-STR-")]
     assert len(string_cbs) == len(STRING_LAYOUT)
+
+
+def test_string_busbar_sections_fit_one_transformer_each():
+    """Strings 1-3 → section A, 4-6 → B; each section ≤ one 300 MVA unit at unity pf,
+    and the P3 feeder bays / P5 string CBs name the same section."""
+    import re
+
+    from app.services.p2.network_model import STRING_BUSBAR_SECTION, STRING_LAYOUT, TRAFO_66_220_MVA
+    from app.services.p3.bay_controller import _BAY_DEFINITIONS
+    from app.services.p5.equipment_state import OSS_EQUIPMENT
+
+    for section in ("A", "B"):
+        strings = [s for s, sec in STRING_BUSBAR_SECTION.items() if sec == section]
+        n_wtg = sum(STRING_LAYOUT[s - 1] for s in strings)
+        assert n_wtg * 15.0 <= TRAFO_66_220_MVA  # 270 / 240 MW
+
+    feeders = [b for b in _BAY_DEFINITIONS if "Feeds WTG" in b["description"]]
+    for i, bay in enumerate(feeders, start=1):
+        assert re.search(rf"busbar section {STRING_BUSBAR_SECTION[i]}\b", bay["description"])
+    for cb in (e for e in OSS_EQUIPMENT if e.equipment_id.startswith("CB-STR-")):
+        n = int(cb.equipment_id[-2:])
+        assert f"section {STRING_BUSBAR_SECTION[n]}" in cb.location

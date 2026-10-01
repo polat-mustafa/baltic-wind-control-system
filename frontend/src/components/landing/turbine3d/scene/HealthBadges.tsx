@@ -21,6 +21,7 @@ import * as THREE from "three";
 import { useMemo } from "react";
 
 import { selectTurbine, useLandingStore } from "../../../../store/landingStore";
+import { onShaft, PARTS, SHAFT_Z } from "../model/layout";
 
 interface HealthBadgesProps {
   turbineId: string;
@@ -60,11 +61,10 @@ export function HealthBadges({ turbineId }: HealthBadgesProps) {
     const converterHI = 95; // no direct trip data available — nominal
 
     return [
-      { label: "Main Bearing",  position: [ 1.2, 151.5,  1.8],  hi: bearingHI   },
-      { label: "Gearbox",       position: [ 1.5, 151.5, -1.5],  hi: gearboxHI   },
-      { label: "Generator",     position: [ 2.5, 151.5, -5.2],  hi: generatorHI },
-      { label: "Converter (P)", position: [-3.5, 150.5, -2.2],  hi: converterHI },
-      { label: "Converter (S)", position: [ 3.5, 150.5, -2.2],  hi: converterHI },
+      { label: "Main Bearing",  position: onShaft(SHAFT_Z.bearingUnit, 1.5, 2.6),  hi: bearingHI   },
+      { label: "Gearbox",       position: onShaft(SHAFT_Z.gearbox, 1.5, 2.6),      hi: gearboxHI   },
+      { label: "Generator",     position: onShaft(SHAFT_Z.generator, 1.5, 2.8),    hi: generatorHI },
+      { label: "Converter",     position: [PARTS.converter[0], PARTS.converter[1] + 2.0, PARTS.converter[2]], hi: converterHI },
     ];
   }, [turbine]);
 

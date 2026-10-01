@@ -1,245 +1,163 @@
 /**
- * LIDAR met mast detail panel.
+ * Floating LIDAR (FLS) detail panel — independent wind reference for the
+ * wind resource assessment, separate from turbine SCADA anemometry.
  *
- * Shows the floating-LIDAR specs, current 4-beam wind measurements, signal
- * quality + availability stats. Reads farm-level wind from useLandingStore
- * for the live readout — independent of WTG SCADA per IEC 61400-12-1.
+ * The vertical profile spans the whole V236 rotor disk (hub 150 m, tips at
+ * 32–268 m) and reports the rotor-equivalent wind speed (REWS): the speed
+ * that carries the same kinetic energy flux through the disk as the sheared
+ * profile, REWS = (Σ Aᵢ·Uᵢ³ / A)^⅓.
  */
 
-import { X, Activity } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-import { SCADA_COLORS } from "../../constants/scadaColors";
+import { Radar } from "lucide-react";
+
 import { LIDAR_GEO } from "../../constants/windFarmLayout";
 import { selectKPIs, useLandingStore } from "../../store/landingStore";
+import {
+  HUB_HEIGHT_M,
+  ROTOR_DIAMETER_M,
+  SHEAR_ALPHA,
+  gustMs,
+  turbulenceIntensity,
+  windAtHeight,
+} from "../../utils/landingPhysics";
+import { DataRow, EquipmentPanel, HeroValue, PanelSection } from "./EquipmentPanel";
 
-interface LIDARDetailPanelProps {
-  onClose: () => void;
+const NORMAL = "#3ecf6e";
+const PROFILE_COLOR = "#4FC3D8";
+const R = ROTOR_DIAMETER_M / 2;
+const TIP_LOW = HUB_HEIGHT_M - R;
+const TIP_HIGH = HUB_HEIGHT_M + R;
+/** Range gates the LIDAR reports [m]. */
+const GATES = [40, 80, 120, 150, 200, 250];
+
+/** REWS over the rotor disk, 40 horizontal slices weighted by chord area. */
+function rotorEquivalentWind(hubWindMs: number): number {
+  const slices = 40;
+  const dz = ROTOR_DIAMETER_M / slices;
+  let areaSum = 0;
+  let fluxSum = 0;
+  for (let i = 0; i < slices; i++) {
+    const z = TIP_LOW + (i + 0.5) * dz;
+    const area = 2 * Math.sqrt(R * R - (z - HUB_HEIGHT_M) ** 2) * dz;
+    areaSum += area;
+    fluxSum += area * windAtHeight(hubWindMs, z) ** 3;
+  }
+  return Math.cbrt(fluxSum / areaSum);
 }
 
-function Row({
-  label,
-  value,
-  color = "var(--color-text-primary)",
-}: {
-  label: string;
-  value: string;
-  color?: string;
-}) {
+/** Height (y) vs wind speed (x) with the rotor disk shaded. */
+function ProfileChart({ hubWindMs }: { hubWindMs: number }) {
+  const W = 328;
+  const H = 170;
+  const pad = { l: 34, r: 44, t: 8, b: 20 };
+  const zMax = 300;
+  // x-axis spans the profile itself (not from 0) so shear is visible.
+  const uMin = Math.max(0, Math.floor(windAtHeight(hubWindMs, 10)) - 1);
+  const uMax = Math.ceil(windAtHeight(hubWindMs, zMax)) + 1;
+  const x = (u: number) => pad.l + ((u - uMin) / (uMax - uMin)) * (W - pad.l - pad.r);
+  const y = (z: number) => H - pad.b - (z / zMax) * (H - pad.t - pad.b);
+  const curve = Array.from({ length: 30 }, (_, i) => {
+    const z = 10 + (i / 29) * (zMax - 10);
+    return `${i ? "L" : "M"}${x(windAtHeight(hubWindMs, z)).toFixed(1)},${y(z).toFixed(1)}`;
+  }).join(" ");
+
   return (
-    <div className="flex items-center justify-between py-0.5">
-      <span className="text-[11px] text-text-muted">{label}</span>
-      <span
-        className="text-[11px] font-mono tabular-nums font-medium"
-        style={{ color }}
-      >
-        {value}
-      </span>
-    </div>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Vertical wind profile">
+      {/* Rotor disk band */}
+      <rect x={pad.l} y={y(TIP_HIGH)} width={W - pad.l - pad.r} height={y(TIP_LOW) - y(TIP_HIGH)} fill="#3b82f6" opacity={0.08} />
+      <text x={W - pad.r + 4} y={y(TIP_HIGH) + 9} fontSize={9} fill="#6b7490">tip {TIP_HIGH} m</text>
+      <text x={W - pad.r + 4} y={y(TIP_LOW) - 2} fontSize={9} fill="#6b7490">tip {TIP_LOW} m</text>
+      {/* Hub line */}
+      <line x1={pad.l} x2={W - pad.r} y1={y(HUB_HEIGHT_M)} y2={y(HUB_HEIGHT_M)} stroke="#6b7490" strokeDasharray="3 3" />
+      <text x={W - pad.r + 4} y={y(HUB_HEIGHT_M) + 3} fontSize={9} fill="#9ba3b8">hub</text>
+      {/* Axes */}
+      {[0, 100, 200, 300].map((z) => (
+        <text key={z} x={pad.l - 6} y={y(z) + 3} fontSize={9} fill="#6b7490" textAnchor="end" fontFamily="JetBrains Mono, monospace">
+          {z}
+        </text>
+      ))}
+      {[uMin, Math.round((uMin + uMax) / 2), uMax].map((u) => (
+        <text key={u} x={x(u)} y={H - 6} fontSize={9} fill="#6b7490" textAnchor="middle" fontFamily="JetBrains Mono, monospace">
+          {u}
+        </text>
+      ))}
+      <text x={pad.l - 6} y={pad.t + 2} fontSize={8} fill="#6b7490" textAnchor="end">m</text>
+      <text x={W - pad.r} y={H - 6} fontSize={8} fill="#6b7490" textAnchor="start" dx={4}>m/s</text>
+      {/* Profile + range gates */}
+      <path d={curve} fill="none" stroke={PROFILE_COLOR} strokeWidth={1.75} />
+      {GATES.map((z) => (
+        <circle key={z} cx={x(windAtHeight(hubWindMs, z))} cy={y(z)} r={z === HUB_HEIGHT_M ? 3.5 : 2.5} fill={z === HUB_HEIGHT_M ? "#e8eaf0" : PROFILE_COLOR} />
+      ))}
+    </svg>
   );
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="px-3 py-2 border-t border-bg-tertiary">
-      <div className="text-[9px] font-semibold uppercase tracking-widest text-text-muted mb-1">
-        {title}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-export default function LIDARDetailPanel({ onClose }: LIDARDetailPanelProps) {
+export default function LIDARDetailPanel({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
   const kpis = useLandingStore(selectKPIs);
-  const windMs = kpis.averageWindSpeedMs;
-  const dirDeg = kpis.windDirectionDeg;
-
-  // Derived measurement values per IEC 61400-12-1 floating LIDAR spec.
-  // 4 conical beams at 30° tilt → reconstruct U/V/W from line-of-sight projections.
-  const ti = Math.max(0.05, Math.min(0.25, 0.08 + (windMs > 12 ? 0.04 : 0))); // turbulence intensity
-  const gust3s = windMs * 1.4;
-  const shearAlpha = 0.1; // power-law shear exponent (offshore typical)
-  const veerDeg = 2.5; // direction veer 30→200m
-  const dataRate = 99.7; // %
-  const status = windMs > 0.5 ? "VALID" : "STANDBY";
-  const statusColor =
-    status === "VALID" ? SCADA_COLORS.ENERGIZED : "var(--color-text-secondary)";
+  // Upstream reference → undisturbed freestream, not the waked farm average
+  const windMs = kpis.freestreamWindMs;
+  const valid = windMs > 0.5;
+  const rews = rotorEquivalentWind(windMs);
 
   return (
-    <div
-      className="absolute rounded-lg shadow-2xl shadow-black/50 border border-border-primary bg-bg-primary overflow-x-hidden overflow-y-auto"
-      style={{
-        zIndex: 1100,
-        width: 320,
-        maxWidth: "calc(100% - 32px)",
-        maxHeight: "calc(100% - 96px)",
-        right: 16,
-        top: 80,
-      }}
+    <EquipmentPanel
+      icon={Radar}
+      tag="LIDAR-MM-01"
+      subtitle="Floating LiDAR buoy · ZX 300M · independent wind reference"
+      status={valid ? { label: "Valid", color: NORMAL } : { label: "Standby", color: "#9ba3b8" }}
+      onClose={onClose}
+      action={{ label: "Open Wind Resource (P1)", onClick: () => navigate("/wind-resource") }}
+      footnote="Carbon Trust OWA FLS roadmap · IEC 61400-50-2 — reference for P50 / P90 yield"
     >
-      {/* Header */}
-      <div className="px-3 py-2 border-b border-border-primary flex items-center justify-between">
-        <div>
-          <div className="text-sm font-semibold text-text-primary flex items-center gap-2">
-            LIDAR · MM-1
-            <span
-              className="text-[9px] px-1.5 py-0.5 rounded font-bold"
-              style={{
-                backgroundColor: `${statusColor}22`,
-                color: statusColor,
-              }}
-            >
-              {status}
-            </span>
-          </div>
-          <div className="text-[10px] text-text-muted">
-            Floating LIDAR · ZX 300M · IEC 61400-12-1
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-text-muted hover:text-text-primary p-1 rounded hover:bg-bg-tertiary"
-          aria-label="Close LIDAR panel"
-        >
-          <X size={14} />
-        </button>
-      </div>
-
-      {/* Live wind readout */}
-      <div className="px-3 py-2 border-b border-border-primary">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-[9px] uppercase tracking-widest text-text-muted">
-              Hub-Height Wind (90 m)
-            </div>
-            <div
-              className="text-2xl font-bold tabular-nums"
-              style={{ color: statusColor }}
-            >
-              {windMs.toFixed(1)}
-              <span className="text-xs text-text-muted ml-1 font-normal">
-                m/s
-              </span>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-[9px] uppercase tracking-widest text-text-muted">
-              Direction
-            </div>
-            <div className="text-xl font-bold tabular-nums text-text-secondary">
-              {dirDeg.toFixed(0)}°
+      <div className="px-4 py-3 border-b border-border-primary/60">
+        <div className="flex items-end justify-between">
+          <HeroValue caption={`Hub height · ${HUB_HEIGHT_M} m`} value={windMs.toFixed(1)} unit="m/s" color={valid ? PROFILE_COLOR : "#9ba3b8"} />
+          <div className="pb-1 text-right">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">Direction</div>
+            <div className="font-mono text-xl font-semibold tabular-nums text-text-primary">
+              {kpis.windDirectionDeg.toFixed(0)}°
             </div>
           </div>
         </div>
       </div>
 
-      {/* Vertical profile (0 / 30 / 60 / 90 / 120 / 150 / 180 / 210 m) — bars */}
-      <Section title="Vertical Profile">
-        {[180, 150, 120, 90, 60, 30].map((h) => {
-          const u = windMs * Math.pow(h / 90, shearAlpha);
-          const fillPct = Math.min(100, (u / 25) * 100);
-          return (
-            <div key={h} className="flex items-center gap-2 my-0.5">
-              <span className="text-[9px] text-text-muted w-8 text-right tabular-nums font-mono">
-                {h}m
-              </span>
-              <div className="flex-1 h-2.5 bg-bg-tertiary rounded-sm overflow-hidden">
-                <div
-                  className="h-full rounded-sm transition-all duration-700"
-                  style={{
-                    width: `${fillPct}%`,
-                    backgroundColor:
-                      u > 15 ? SCADA_COLORS.WARNING : SCADA_COLORS.ENERGIZED,
-                  }}
-                />
+      <PanelSection title="Vertical profile" aside={`power law α = ${SHEAR_ALPHA.toFixed(2)}`}>
+        <ProfileChart hubWindMs={windMs} />
+        <div className="mt-2 grid grid-cols-6 gap-1 text-center">
+          {GATES.map((z) => (
+            <div key={z}>
+              <div className="font-mono text-[10px] text-text-muted">{z} m</div>
+              <div className="font-mono text-[11px] tabular-nums text-text-primary">
+                {windAtHeight(windMs, z).toFixed(1)}
               </div>
-              <span
-                className="text-[10px] font-mono tabular-nums w-14 text-right"
-                style={{
-                  color:
-                    u > 15
-                      ? SCADA_COLORS.WARNING
-                      : "var(--color-text-secondary)",
-                }}
-              >
-                {u.toFixed(1)} m/s
-              </span>
             </div>
-          );
-        })}
-      </Section>
-
-      {/* Derived quantities */}
-      <Section title="Derived Atmospherics">
-        <Row
-          label="Turbulence Intensity (TI)"
-          value={`${(ti * 100).toFixed(1)} %`}
-        />
-        <Row label="3-second Gust" value={`${gust3s.toFixed(1)} m/s`} />
-        <Row label="Wind Shear (α, power law)" value={shearAlpha.toFixed(2)} />
-        <Row
-          label="Direction Veer (30→200 m)"
-          value={`${veerDeg.toFixed(1)}°`}
-        />
-        <Row
-          label="Atmospheric Stability"
-          value={ti < 0.1 ? "Stable" : ti < 0.15 ? "Neutral" : "Unstable"}
-        />
-      </Section>
-
-      {/* Sensor health */}
-      <Section title="Sensor Health">
-        <Row
-          label="Data Availability (10-min)"
-          value={`${dataRate.toFixed(1)} %`}
-          color={SCADA_COLORS.ENERGIZED}
-        />
-        <Row
-          label="Backscatter SNR"
-          value={`+${(18 + (windMs > 5 ? 4 : 0)).toFixed(0)} dB`}
-        />
-        <Row
-          label="Buoy Heading (yaw)"
-          value={`${(dirDeg + 12).toFixed(0)}°`}
-        />
-        <Row
-          label="Buoy Tilt"
-          value={`${(2.1 + Math.sin(Date.now() / 5000) * 0.4).toFixed(1)}° / ${(1.4 + Math.cos(Date.now() / 6000) * 0.3).toFixed(1)}°`}
-        />
-        <Row
-          label="Battery (solar + wind)"
-          value="98 %"
-          color={SCADA_COLORS.ENERGIZED}
-        />
-        <Row label="Last Calibration" value="2025-11-04" />
-      </Section>
-
-      {/* Specs */}
-      <Section title="Specifications">
-        <Row label="Manufacturer" value="ZX Lidars" />
-        <Row label="Model" value="ZX 300M (Floating)" />
-        <Row label="Range" value="10 – 200 m AGL" />
-        <Row label="Beams" value="4 × VAD conical, 30° tilt" />
-        <Row
-          label="Position"
-          value={`${LIDAR_GEO.lat.toFixed(2)}° N · ${LIDAR_GEO.lon.toFixed(2)}° E`}
-        />
-        <Row label="Water Depth" value="32 m" />
-      </Section>
-
-      {/* Compliance footer */}
-      <div className="px-3 py-2 border-t border-bg-tertiary bg-bg-primary">
-        <div className="flex items-center gap-2 text-[10px] text-text-muted">
-          <Activity size={11} />
-          <span>Reference for P50 / P75 / P90 wind resource validation</span>
+          ))}
         </div>
-      </div>
-    </div>
+      </PanelSection>
+
+      <PanelSection title="Derived (10-min)">
+        <DataRow
+          label="Rotor-equivalent wind (REWS)"
+          value={rews.toFixed(2)}
+          unit="m/s"
+          hint="Speed with the same kinetic-energy flux through the 236 m rotor as the sheared profile"
+        />
+        <DataRow label="Turbulence intensity" value={(turbulenceIntensity(windMs) * 100).toFixed(1)} unit="%" />
+        <DataRow label="3-s gust" value={gustMs(windMs).toFixed(1)} unit="m/s" hint="U · (1 + 3·TI)" />
+        <DataRow label="Speed difference, lower → upper tip" value={(windAtHeight(windMs, TIP_HIGH) - windAtHeight(windMs, TIP_LOW)).toFixed(1)} unit="m/s" />
+      </PanelSection>
+
+      <PanelSection title="System health">
+        <DataRow label="Data availability (30 d)" value="99.7" unit="%" color={NORMAL} />
+        <DataRow label="Motion compensation" value="Active (IMU)" color={NORMAL} />
+        <DataRow label="Power (solar + wind + fuel cell)" value="98" unit="%" color={NORMAL} />
+        <DataRow label="Pre-deployment verification" value="2025-11-04" hint="Side-by-side check against a reference met mast" />
+        <DataRow label="Scan" value="CW, conical 30°" />
+        <DataRow label="Position" value={`${LIDAR_GEO.lat.toFixed(3)}° N  ${LIDAR_GEO.lon.toFixed(3)}° E`} />
+      </PanelSection>
+    </EquipmentPanel>
   );
 }

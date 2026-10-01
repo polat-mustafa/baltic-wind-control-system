@@ -9,7 +9,6 @@
  *   B3  Control cabinets — Main TCS + Safety PLC (IEC 61508 SIL 2)
  *   B4  Transformer      — 784 V / 66 kV, 16 MVA Dyn11 (IEC 60076-1)
  *   B5  Oil cooler       — Gearbox heat exchanger, 500 kW thermal
- *   B6  Coupling         — Flexible disc-pack coupling, Ø1.4 m (ISO 10441)
  *   B7  Crane rail       — 10 t SWL ceiling crane, two I-beam rails (EN 13001)
  *   B8  UPS cabinet      — 6.6 kWh VRLA battery, 15 min backup (IEC 62040-1)
  *   B9  Yaw brakes       — 4 × SAHR hydraulic disc calipers (EN 13849)
@@ -61,100 +60,12 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
 
   return (
     <group>
-      {/* ── B0 Structural Bedplate Frame ──────────────────────────── */}
-      {/* The cast-steel bedplate is what every other component bolts to.
-          Without it visible the interior reads as floating cabinets. We model
-          the ZF-style ladder frame: 2 longitudinal main beams + 5 cross-beams
-          + a bolted main-shaft pedestal cradle. Top of frame at y=147.6
-          (matches transformer skid + HPU base). */}
-      {/* Two main longitudinal I-beams (port + starboard).
-          Length 16 m centred at z=-4 → Z extent −12 to +4 (1 m clear of
-          central-bay front face at z=+5 — no protrusion through nose). */}
-      {([-3.6, 3.6] as number[]).map((bx) => (
-        <group key={`beam-${bx}`}>
-          {/* Top flange */}
-          <mesh position={[bx, 147.65, -4]} castShadow receiveShadow>
-            <boxGeometry args={[0.55, 0.06, 16]} />
-            <meshStandardMaterial color="#2d3543" roughness={0.6} metalness={0.55} />
-          </mesh>
-          {/* Web */}
-          <mesh position={[bx, 147.40, -4]} castShadow>
-            <boxGeometry args={[0.08, 0.45, 16]} />
-            <meshStandardMaterial color="#2d3543" roughness={0.65} metalness={0.5} />
-          </mesh>
-          {/* Bottom flange */}
-          <mesh position={[bx, 147.15, -4]} castShadow>
-            <boxGeometry args={[0.55, 0.06, 16]} />
-            <meshStandardMaterial color="#2d3543" roughness={0.6} metalness={0.55} />
-          </mesh>
-        </group>
-      ))}
-      {/* Cross-beams every 4 m bolting the two longitudinals together */}
-      {[-10.5, -6.5, -2.5, 1.5, 5.5].map((bz) => (
-        <mesh key={`xbeam-${bz}`} position={[0, 147.40, bz]} castShadow>
-          <boxGeometry args={[7.2, 0.4, 0.18]} />
-          <meshStandardMaterial color="#3a4452" roughness={0.6} metalness={0.55} />
-        </mesh>
-      ))}
-      {/* Main-shaft pedestal cradle — diagonal gusset rising to bearing y=151 */}
-      {([-1.5, 1.5] as number[]).map((px) => (
-        <group key={`ped-${px}`}>
-          <mesh position={[px, 149, 1]} castShadow>
-            <boxGeometry args={[0.35, 3.0, 0.5]} />
-            <meshStandardMaterial color="#3a4452" roughness={0.6} metalness={0.5} />
-          </mesh>
-          {/* Diagonal brace */}
-          <mesh position={[px * 1.6, 149, 1]} rotation={[0, 0, px > 0 ? -0.3 : 0.3]}>
-            <boxGeometry args={[0.18, 2.6, 0.18]} />
-            <meshStandardMaterial color="#3a4452" roughness={0.65} metalness={0.5} />
-          </mesh>
-        </group>
-      ))}
-      {/* Aisle floor grating — 1.2 m wide steel grating between the two main
-          beams, gives the catwalk a mounted-to-frame feel.
-          Length 16 m centred at z=-4 to match the bedplate beams. */}
-      <mesh position={[0, 147.7, -4]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[1.2, 16]} />
-        <meshStandardMaterial color="#1f2937" roughness={0.85} metalness={0.45} />
-      </mesh>
-      {/* Steel kickplates flanking the aisle */}
-      {([-0.65, 0.65] as number[]).map((kx) => (
-        <mesh key={`kick-${kx}`} position={[kx, 147.78, -4]} castShadow>
-          <boxGeometry args={[0.04, 0.16, 16]} />
-          <meshStandardMaterial color="#eab308" roughness={0.55} metalness={0.4} />
-        </mesh>
-      ))}
-      {/* Tower-top access ladder removed — the cage previously dropped from
-          y=147 down to y=143 below the central-bay floor (y=147). It was
-          visible floating in space when the tower wasn't opaque from the
-          camera angle. The cable-routing torus + 3 MV cable drops in
-          section B10 already convey "things go down into the tower". */}
-
-      {/* ── B6 Generator Flexible Coupling ───────────────────────── */}
-      {/* Between gearbox (y≈150.5) and generator (y≈148.5) */}
-      <group position={[0, 149.5, 0]} name="coupling" onClick={pick("coupling")}>
-        {/* Main disc — precision-ground, polished */}
-        <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[0.7, 0.7, 0.4, 32]} />
-          <meshPhysicalMaterial
-            {...metalPolished}
-            color={col("coupling", selectedPart, metalPolished.color)}
-            emissive={em("coupling", selectedPart)}
-            emissiveIntensity={emI("coupling", selectedPart)}
-          />
-        </mesh>
-        {/* Disc-pack laminate ring */}
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.55, 0.05, 10, 32]} />
-          <meshPhysicalMaterial {...metalPolished} color="#9ca3af" roughness={0.18} />
-        </mesh>
-        {/* Flange bolts — 12 × M24 */}
-        <BoltRing axis="z" radius={0.55} count={12} boltRadius={0.035} boltLength={0.16} />
-      </group>
+      {/* Bedplate and flexible coupling are part of the Blender drivetrain
+          (Drivetrain.tsx / V236Turbine NacelleFrame). */}
 
       {/* ── B1 Hydraulic Power Unit (HPU) ────────────────────────── */}
-      {/* Nacelle floor, starboard side, forward of gearbox */}
-      <group position={[2.5, 147.8, 2]} name="hpu" onClick={pick("hpu")}>
+      {/* Nacelle floor, starboard side, beside the main-bearing unit */}
+      <group position={[3.35, 147.8, 2.2]} name="hpu" onClick={pick("hpu")}>
         {/* Main pump/reservoir box — RAL 2010 safety orange painted steel */}
         <RoundedBox args={[1.5, 1.0, 1.2]} radius={0.04} smoothness={4} castShadow>
           <meshPhysicalMaterial
@@ -539,7 +450,8 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
 
       {/* ── B10 Cable Routing (nacelle floor → tower) ─────────────── */}
       {/* Bundle of 3 MV power cables + 1 control cable bundle */}
-      <group name="cable_routing" onClick={pick("cable_routing")}>
+      {/* Hangs from the bedplate opening into the tower top, on the yaw axis */}
+      <group name="cable_routing" position={[0, -2.6, 5]} onClick={pick("cable_routing")}>
         {/* Twist loop arc — shows the cable loop for ±3.5 yaw rotations */}
         <mesh position={[0, 148.5, -5]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[0.6, 0.08, 8, 24, Math.PI]} />
@@ -619,7 +531,7 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       {/* 50 mm² copper conductor along nacelle exterior roof */}
       <group name="lightning_conductor" onClick={pick("lightning_conductor")}>
         {/* Horizontal run along nacelle top */}
-        <mesh position={[0, 155.15, -4]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <mesh position={[0, 156.05, -4]} rotation={[Math.PI / 2, 0, 0]} castShadow>
           <cylinderGeometry args={[0.025, 0.025, 18, 6]} />
           <meshStandardMaterial
             color={col("lightning_conductor", selectedPart, "#b45309")}
@@ -630,7 +542,7 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
           />
         </mesh>
         {/* Drop down nacelle aft face to tower entry */}
-        <mesh position={[0.5, 152.5, -15]} castShadow>
+        <mesh position={[0.5, 153.4, -15.5]} castShadow>
           <cylinderGeometry args={[0.025, 0.025, 5.5, 6]} />
           <meshStandardMaterial color="#b45309" roughness={0.3} metalness={0.9} />
         </mesh>

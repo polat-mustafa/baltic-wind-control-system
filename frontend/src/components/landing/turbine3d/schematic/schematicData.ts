@@ -71,7 +71,7 @@ export const NACELLE_SCHEMATIC_PARTS: SchematicPart[] = [
     groups: ["drivetrain"], cite: [CITE_ZF] },
   { id: "coupling",  x: 505, y: 310, w:  60, h:  50, label: "Flexible Coupling",  sublabel: "Torsion-isolating",      tone: "metal",       callout: { x: 535, y: 260 },
     groups: ["drivetrain"] },
-  { id: "generator", x: 570, y: 250, w: 180, h: 170, label: "PMSG Generator",     sublabel: "15 MW · ≈460 rpm @ rated", tone: "winding",   callout: { x: 660, y: 210 },
+  { id: "generator", x: 570, y: 250, w: 180, h: 170, label: "PMSG Generator",     sublabel: "15 MW · 400 rpm @ rated", tone: "winding",   callout: { x: 660, y: 210 },
     groups: ["drivetrain", "electrical"], cite: [CITE_PMSG] },
   { id: "converter", x: 760, y: 260, w: 120, h: 140, label: "Power Converter",    sublabel: "Dual IGBT · 4-quadrant", tone: "cabinet",     callout: { x: 820, y: 220 },
     groups: ["electrical"], cite: [CITE_CONVERTER] },

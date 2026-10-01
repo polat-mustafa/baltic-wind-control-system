@@ -30,8 +30,8 @@ function KPICard({
   color?: string;
 }) {
   return (
-    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-      <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">
+    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+      <p className="text-xs text-text-muted uppercase tracking-wider mb-1">
         {label}
       </p>
       <div className="flex items-baseline">
@@ -41,7 +41,7 @@ function KPICard({
         >
           {value}
         </span>
-        <span className="text-sm font-normal text-slate-400 ml-1">{unit}</span>
+        <span className="text-sm font-normal text-text-muted ml-1">{unit}</span>
       </div>
     </div>
   );

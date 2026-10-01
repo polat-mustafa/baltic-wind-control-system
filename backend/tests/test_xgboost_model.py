@@ -214,10 +214,18 @@ class TestXGBoostTraining:
             prev_test_max = int(np.max(test_idx))
 
     def test_rmse_reasonable(self, trained_result):
-        """Mean RMSE is below 3.0 MW on small synthetic data."""
+        """A causal 10-min forecast beats persistence but is no power-curve fit.
+
+        Features are lagged to t−1 (no same-step measured wind), so the
+        model must earn its skill: positive vs persistence, well below 1.
+        A skill near 1.0 would mean future information leaked in again.
+        """
         cv_result, _ = trained_result
-        assert cv_result.mean_rmse_mw < 3.0, (
-            f"RMSE {cv_result.mean_rmse_mw} MW exceeds 3.0 MW threshold"
+        assert cv_result.mean_rmse_mw < 15.0 * 0.25, (
+            f"RMSE {cv_result.mean_rmse_mw} MW > 25 % of rated"
+        )
+        assert 0.0 < cv_result.skill_score_vs_persistence < 0.9, (
+            f"skill {cv_result.skill_score_vs_persistence} — ≤ 0 is useless, ≥ 0.9 suggests leakage"
         )
 
     def test_r_squared_positive(self, trained_result):

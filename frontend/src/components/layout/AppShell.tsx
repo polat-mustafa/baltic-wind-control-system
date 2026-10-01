@@ -8,24 +8,30 @@
  *
  * The dark background follows ISA-101 High Performance HMI guidelines:
  * operators in dimmed control rooms benefit from a dark UI that makes
- * status colors (green/amber/red) more perceptually prominent.
+ * status colors (green/amber/red) more perceptually prominent. The header
+ * toggle swaps the whole app to the parchment "storybook" palette (training /
+ * presentation look) by putting .theme-storybook on <html>; every page reads
+ * the same CSS tokens, so no page needs to know about it.
  */
 
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import {
   Wind,
   Signal,
   ChevronRight,
   AlertTriangle,
+  Palette,
 } from "lucide-react";
 
 import Sidebar from "./Sidebar";
+import { Skeleton } from "../ui/Skeleton";
 import { StatusIndicator } from "../ui/StatusIndicator";
 import { cn } from "../../lib/utils";
 import { useFaultSync } from "../../hooks/useFaultSync";
 import { useScadaStore } from "../../store/scadaStore";
 import { useLandingStore } from "../../store/landingStore";
+import { useLayerStore } from "../../store/layerStore";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Overview",
@@ -35,8 +41,21 @@ const ROUTE_LABELS: Record<string, string> = {
   "/forecast": "P4 · AI Forecasting",
   "/commissioning": "P5 · HV Commissioning",
   "/digital-twin": "Digital Twin · Condition Monitoring",
+  "/turbine-physics": "Turbine Physics",
+  "/library": "Engineer's Library",
   "/research-lab": "Research Lab · Advanced Wind R&D",
 };
+
+/** Placeholder while a lazy page chunk downloads. */
+function PageLoading() {
+  return (
+    <div className="space-y-3" role="status" aria-label="Loading page">
+      <Skeleton className="h-7 w-64" />
+      <Skeleton className="h-4 w-96" />
+      <Skeleton className="h-[60vh] w-full" />
+    </div>
+  );
+}
 
 export default function AppShell() {
   const location = useLocation();
@@ -68,6 +87,14 @@ export default function AppShell() {
     : landingActiveAlerts > 0
       ? "Degraded"
       : "Normal";
+
+  // App-wide palette: control room (default) or storybook
+  const mapTheme = useLayerStore((s) => s.mapTheme);
+  const setMapTheme = useLayerStore((s) => s.setMapTheme);
+  const storybook = mapTheme === "storybook";
+  useEffect(() => {
+    document.documentElement.classList.toggle("theme-storybook", storybook);
+  }, [storybook]);
 
   // Simulation clock — updates every second
   const [clock, setClock] = useState(new Date());
@@ -116,6 +143,17 @@ export default function AppShell() {
             <StatusIndicator status={headerStatus} label={headerLabel} />
           </div>
 
+          <button
+            type="button"
+            onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}
+            aria-pressed={storybook}
+            title="Switch colour palette"
+            className="flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-tertiary px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+          >
+            <Palette size={13} />
+            {storybook ? "Storybook" : "Control room"}
+          </button>
+
           {/* Simulation clock */}
           <div
             className={cn(
@@ -157,7 +195,10 @@ export default function AppShell() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-auto p-3">
-          <Outlet />
+          {/* Pages are lazy-loaded (App.tsx) */}
+          <Suspense fallback={<PageLoading />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

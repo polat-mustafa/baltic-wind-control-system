@@ -31,7 +31,7 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="px-3 py-2 border-b" style={{ borderColor: "#1e2231" }}>
+    <div className="px-3 py-2 border-b" style={{ borderColor: "var(--color-border-primary)" }}>
       <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">{title}</div>
       {children}
     </div>
@@ -120,10 +120,10 @@ export default function SLDDetailPanel({ nodeData, nodeType, onClose }: SLDDetai
   return (
     <div
       className="absolute right-4 top-12 z-50 rounded-lg shadow-2xl shadow-black/50 border overflow-hidden"
-      style={{ backgroundColor: "#0f1117", borderColor: "#2a3040", width: 260 }}
+      style={{ backgroundColor: "var(--color-bg-primary)", borderColor: "var(--color-border-primary)", width: 260 }}
     >
       {/* Header */}
-      <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "#2a3040" }}>
+      <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "var(--color-border-primary)" }}>
         <span className="text-sm font-semibold text-text-primary font-mono">{label}</span>
         <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors">
           <X size={14} />

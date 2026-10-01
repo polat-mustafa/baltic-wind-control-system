@@ -30,7 +30,7 @@ describe("LayerControlPanel", () => {
     expect(screen.getByText("Wake Cones")).toBeDefined();
     expect(screen.getByText("Ocean Waves")).toBeDefined();
     expect(screen.getByText("Array Cables")).toBeDefined();
-    expect(screen.getByText("Exclusion Zone")).toBeDefined();
+    expect(screen.getByText("Site Boundary")).toBeDefined();
     expect(screen.getByText("Foundations")).toBeDefined();
     expect(screen.getByText("Turbine Labels")).toBeDefined();
     expect(screen.getByText("Bathymetry")).toBeDefined();

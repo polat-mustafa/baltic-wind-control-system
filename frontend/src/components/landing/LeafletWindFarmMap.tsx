@@ -1,7 +1,7 @@
 /**
  * Leaflet-based interactive wind farm map — replaces the SVG WindFarmMap.
  *
- * Uses react-leaflet with CartoDB Dark Matter tiles (matches ISA-101 dark theme).
+ * Uses react-leaflet with OpenStreetMap tiles, CSS-darkened to match the ISA-101 dark theme.
  * Turbines are DivIcon markers with inline SVG, connected by 66 kV array cable
  * polylines. Export cable (220 kV) runs from OSS to onshore substation with
  * animated dash pattern. KPI ribbon overlays at top, alarm ticker at bottom.
@@ -12,7 +12,15 @@
  * DOM tree — so they are never hidden behind GPU-composited translate3d layers.
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   CircleMarker,
   MapContainer,
@@ -22,28 +30,38 @@ import {
   Polygon,
   Tooltip,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
 
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import {
-  EXPORT_CABLE_GEO,
-  FARM_CENTER_GEO,
-  FARM_DEFAULT_ZOOM,
+  EXPORT_CABLE_LAND_GEO,
+  EXPORT_CABLE_SUBSEA_GEO,
+  FARM_VIEW_BOUNDS,
+  LANDFALL_GEO,
   LIDAR_GEO,
   ONSHORE_GEO,
+  OSS_BUSBAR_SECTION,
   OSS_GEO,
   PSE_GRID_LINE_GEO,
-  STRING_COLLECTION_POINTS,
+  PSE_SUBSTATION_GEO,
+  SEA_POLYGON_GEO,
+  SITE_BOUNDARY_GEO,
   TURBINE_POSITIONS,
+  turbineIconScale,
 } from "../../constants/windFarmLayout";
 import {
+  ARRAY_FAULT_ISOLATION_MS,
   selectKPIs,
   selectTurbine,
   useLandingStore,
 } from "../../store/landingStore";
 import { useLayerStore } from "../../store/layerStore";
+import { cn } from "../../lib/utils";
 import type { TurbineStatus } from "../../types/landing";
+import { arrayCableCurrentA, arrayCableGrade } from "../../utils/landingPhysics";
+import { useStatcomQ } from "../../store/liveGridStore";
 
 import AlarmTicker from "./AlarmTicker";
 import BathymetryLayer from "./BathymetryLayer";
@@ -51,6 +69,11 @@ import DayNightOverlay from "./DayNightOverlay";
 import EnvironmentPanel from "./EnvironmentPanel";
 import LayerControlPanel from "./LayerControlPanel";
 import MapLegend from "./MapLegend";
+import { GridContext, NavAids, RepairCrews, SafetyZones, Vessels } from "./MaritimeLayers";
+import AisTraffic from "./AisTraffic";
+import CableDtsLayer from "./CableDtsLayer";
+import ScenarioCenter from "./ScenarioCenter";
+import { useTrainingStore } from "../../store/trainingStore";
 import OceanWaveOverlay from "./OceanWaveOverlay";
 import TurbineDetailOverlay from "./TurbineDetailOverlay";
 import WakeEffectLayer from "./WakeEffectLayer";
@@ -61,6 +84,37 @@ import WindParticleOverlay from "./WindParticleOverlay";
 // overlay-pane = 400). Overlays portaled here render ABOVE tiles
 // but BELOW markers/polylines. Counter-transform keeps the pane
 // viewport-fixed despite Leaflet's translate3d on map-pane.
+/**
+ * Storybook theme: teal sea over parchment land (OSM coastline polygon in
+ * its own pane just above the tiles, inked coastline) + paper grain.
+ */
+function StorybookSurface() {
+  const map = useMap();
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!map.getPane("sbSeaPane")) {
+      const pane = map.createPane("sbSeaPane");
+      pane.style.zIndex = "210";
+      pane.style.pointerEvents = "none";
+    }
+    const atmos = map.getPane("atmosphericPane");
+    const paper = document.createElement("div");
+    paper.className = "sb-paper-overlay";
+    atmos?.appendChild(paper);
+    setReady(true);
+    return () => paper.remove();
+  }, [map]);
+  if (!ready) return null;
+  return (
+    <Polygon
+      positions={SEA_POLYGON_GEO}
+      pane="sbSeaPane"
+      interactive={false}
+      pathOptions={{ color: "#2b2118", weight: 2.2, fillColor: "#3f8d86", fillOpacity: 0.78, lineJoin: "round" }}
+    />
+  );
+}
+
 function AtmosphericPanes() {
   const map = useMap();
   const paneRef = useRef<HTMLElement | null>(null);
@@ -109,109 +163,150 @@ function AtmosphericPanes() {
   return null;
 }
 
-// ── Status Colors ──────────────────────────────────────────────
+// ── Turbine marker ─────────────────────────────────────────────
+// The original icon (translucent tower, nacelle, spinning 3-blade rotor,
+// pitch arc, dashed yaw compass, output bar, ID), made easier to read:
+// scaled per zoom (--wtg-scale, TurbineZoomScaler), higher opacities, a thin
+// dark halo, a larger yaw arrow, and the output bar shows live power.
+//
+// Smooth rendering: the SVG is built once per status. Yaw, nacelle side,
+// rotor speed, pitch and output are then written onto the live DOM each
+// 5 s tick and eased by CSS transitions / the Web Animations playback rate,
+// so a wind change never rebuilds 34 icons (which restarted every rotor).
 const STATUS_COLOR: Record<TurbineStatus, string> = {
-  operating: SCADA_COLORS.ENERGIZED,
-  curtailed: SCADA_COLORS.WARNING,
-  fault: SCADA_COLORS.FAULT,
-  offline: SCADA_COLORS.DE_ENERGIZED,
+  operating: "#3ecf6e",
+  curtailed: "#f5a623",
+  fault: "#ef4444",
+  offline: "#8b93a7",
 };
 
-// ── Turbine DivIcon factory ────────────────────────────────────
-// Representative power per status so icon reference is stable across 3s ticks.
-// Real-time power is shown in the tooltip — icon only changes on status change.
-const REPRESENTATIVE_POWER: Record<TurbineStatus, number> = {
-  operating: 12,
-  curtailed: 8,
-  fault: 0,
-  offline: 0,
-};
+/** V236 rated rotor speed [rpm]; the CSS spin runs at this rate (7.2 s/rev). */
+const RATED_RPM = 8.33;
 
-function createTurbineIcon(
-  status: TurbineStatus,
-  shortId: string,
-  isSelected: boolean,
-  yawDeg: number,
-  pitchDeg: number,
-): L.DivIcon {
+const BLADE =
+  "M 0,0 C -1.2,-3 -1.8,-8 -1,-13 L 0,-15 L 1,-13 C 1.4,-8 0.8,-3 0,0 Z";
+/** Output bar geometry (px in icon units): full width = rated 15 MW. */
+const BAR_W = 12;
+
+function createTurbineIcon(status: TurbineStatus, shortId: string): L.DivIcon {
   const color = STATUS_COLOR[status];
-  const powerMW = REPRESENTATIVE_POWER[status];
-  const isSpinning = status === "operating" || status === "curtailed";
-  const dur = powerMW <= 0 ? 0 : Math.max(2, 8 - (powerMW / 15) * 6);
-  const fraction = Math.min(powerMW / 15, 1);
-  const rotation = isSpinning
-    ? `<animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="${dur.toFixed(1)}s" repeatCount="indefinite" />`
-    : "";
   const glow =
     status === "fault"
-      ? `<circle cx="0" cy="0" r="8" fill="${color}" opacity="0.15"><animate attributeName="opacity" values="0.15;0.3;0.15" dur="1.5s" repeatCount="indefinite" /></circle>`
+      ? `<circle r="8" fill="${color}" opacity="0.2"><animate attributeName="opacity" values="0.15;0.35;0.15" dur="1.5s" repeatCount="indefinite"/></circle>`
       : status === "operating"
-        ? `<circle cx="0" cy="0" r="6" fill="${color}" opacity="0.08"><animate attributeName="opacity" values="0.05;0.18;0.05" dur="3s" repeatCount="indefinite" /></circle>`
+        ? `<circle r="6" fill="${color}" opacity="0.1"><animate attributeName="opacity" values="0.06;0.2;0.06" dur="3s" repeatCount="indefinite"/></circle>`
         : "";
 
-  const BLADE =
-    "M 0,0 C -1.2,-3 -1.8,-8 -1,-13 L 0,-15 L 1,-13 C 1.4,-8 0.8,-3 0,0 Z";
-
-  // Yaw compass — faint dashed ring + N-arrow rotated to nacelle yaw
-  const yawCompass = `
-    <g opacity="0.4">
-      <circle cx="0" cy="0" r="13" fill="none" stroke="#94a3b8" stroke-width="0.4" stroke-dasharray="1.2 2"/>
-      <g transform="rotate(${yawDeg} 0 0)">
-        <path d="M 0,-13 L -1.6,-10.5 L 1.6,-10.5 Z" fill="#cbd5e1"/>
-      </g>
-    </g>`;
-
-  // Pitch arc — small yellow arc near hub, sweeps from 12 o'clock by pitchDeg
-  const pitchClamp = Math.max(0, Math.min(90, pitchDeg));
-  const arcRad = ((pitchClamp - 90) * Math.PI) / 180;
-  const arcEndX = (8 * Math.cos(arcRad)).toFixed(2);
-  const arcEndY = (8 * Math.sin(arcRad)).toFixed(2);
-  const pitchArc =
-    isSpinning && pitchClamp > 0.5
-      ? `<path d="M 0,-8 A 8,8 0 0 1 ${arcEndX},${arcEndY}" fill="none" stroke="#fbbf24" stroke-width="0.9" opacity="0.85"/>`
-      : "";
-
-  const svg = `<svg width="40" height="56" viewBox="-20 -20 40 56" xmlns="http://www.w3.org/2000/svg">
+  // Side elevation: tower under the nacelle, rotor (front view) at the hub.
+  // The nacelle is flipped left/right toward the downwind side and the yaw
+  // compass arrow shows the true heading (both set live in TurbineMarker).
+  const svg = `<svg class="wtg-svg" width="40" height="56" viewBox="-20 -20 40 56" xmlns="http://www.w3.org/2000/svg">
     ${glow}
-    ${yawCompass}
-    <path d="M -2.5,3 L -3.5,22 L 3.5,22 L 2.5,3 Z" fill="${color}" opacity="0.6" style="transition:fill 0.6s"/>
-    <line x1="-6" y1="22" x2="6" y2="22" stroke="${color}" stroke-width="2" opacity="0.5"/>
-    <line x1="-4.5" y1="24" x2="4.5" y2="24" stroke="${color}" stroke-width="1" opacity="0.3"/>
-    <g class="nacelle-group" style="transform-origin: 0px 0px" transform="rotate(${(yawDeg - 90).toFixed(0)} 0 0)">
-      <circle cx="0" cy="2" r="3" fill="${color}" opacity="0.4"/>
-      <rect x="-5" y="-2" width="10" height="4" rx="2" fill="${color}" opacity="0.85" style="transition:fill 0.6s"/>
+    <g opacity="0.75">
+      <circle r="13" fill="none" stroke="#94a3b8" stroke-width="0.6" stroke-dasharray="1.2 2"/>
+      <g class="wtg-yaw"><path d="M 0,-17 L -2.8,-11.2 L 2.8,-11.2 Z" fill="#e2e8f0"/></g>
     </g>
-    ${pitchArc}
-    <circle cx="0" cy="0" r="2" fill="${color}" style="transition:fill 0.6s"/>
-    <g>${rotation}
-      <path d="${BLADE}" fill="${color}" opacity="0.75"/>
-      <path d="${BLADE}" fill="${color}" opacity="0.75" transform="rotate(120 0 0)"/>
-      <path d="${BLADE}" fill="${color}" opacity="0.75" transform="rotate(240 0 0)"/>
+    <path d="M -1.9,2 L -3.4,22 L 3.4,22 L 1.9,2 Z" fill="${color}" opacity="0.75"/>
+    <line x1="-6" y1="22" x2="6" y2="22" stroke="${color}" stroke-width="2" opacity="0.65"/>
+    <line x1="-4.5" y1="24" x2="4.5" y2="24" stroke="${color}" stroke-width="1" opacity="0.4"/>
+    <g class="wtg-nacelle">
+      <rect x="-2.5" y="-2.4" width="10.5" height="4.8" rx="2.2" fill="${color}" opacity="0.95"/>
+      <circle class="wtg-avlight" cx="5.8" cy="-3" r="0.9" fill="#ef4444" style="--av-delay:-${((Date.now() % 2000) / 1000).toFixed(2)}s"/>
     </g>
-    <rect x="-5" y="26" width="10" height="2" rx="0.5" fill="#1e2231" stroke="${color}" stroke-width="0.3" opacity="0.5"/>
-    ${fraction > 0 ? `<rect x="-5" y="26" width="${(10 * fraction).toFixed(1)}" height="2" rx="0.5" fill="${color}" opacity="0.6"/>` : ""}
-    <text x="0" y="34" fill="#6b7490" font-size="6" font-family="JetBrains Mono, monospace" text-anchor="middle">${shortId}</text>
-  </svg>`;
+    <path class="wtg-pitch" d="" fill="none" stroke="#fbbf24" stroke-width="1" opacity="0.9"/>
+    <g class="wtg-rotor">
+      <path d="${BLADE}" fill="${color}" opacity="0.9"/>
+      <path d="${BLADE}" fill="${color}" opacity="0.9" transform="rotate(120)"/>
+      <path d="${BLADE}" fill="${color}" opacity="0.9" transform="rotate(240)"/>
+    </g>
+    <circle r="2.1" fill="${color}"/>
+    <rect x="${-BAR_W / 2}" y="26" width="${BAR_W}" height="2.2" rx="0.6" fill="#1e2231" stroke="${color}" stroke-width="0.35" opacity="0.8"/>
+    <rect class="wtg-power" x="${-BAR_W / 2}" y="26" width="${BAR_W}" height="2.2" rx="0.6" fill="${color}" opacity="0.85"/>
+    <text class="wtg-id" x="0" y="34.5" fill="#aab4c8" font-size="6.5" font-weight="600" font-family="JetBrains Mono, monospace" text-anchor="middle">${shortId}</text>
+  </svg>
+  <span class="sr-only">Turbine WTG-${shortId}, ${status}</span>`;
 
   return L.divIcon({
     html: svg,
-    className: `leaflet-turbine-marker${isSelected ? " turbine-selected" : ""}`,
+    className: "leaflet-turbine-marker",
     iconSize: [40, 56],
-    iconAnchor: [20, 20],
+    iconAnchor: [20, 20], // hub
   });
 }
 
+// ── Storybook (demo) turbine: same parts and live-update hooks, inked ──
+// Monopile with the yellow transition piece real offshore turbines carry
+// (IALA / marking practice), off-white tower and blades, ink outlines,
+// status as a coloured pennant; a red flag + smoke curls on a fault.
+const SB_INK = "#2b2118";
+const SB_STATUS: Record<TurbineStatus, string> = {
+  operating: "#5c8a2e",
+  curtailed: "#c8841e",
+  fault: "#b3261e",
+  offline: "#7a6650",
+};
+const SB_BLADE = "M 0,0 C -1.5,-3 -2.2,-8.5 -1.1,-13.6 L 0,-15.4 L 1.1,-13.4 C 1.7,-8 1,-3 0,0 Z";
+
+function createStorybookTurbineIcon(status: TurbineStatus, shortId: string): L.DivIcon {
+  const c = SB_STATUS[status];
+  const ink = `stroke="${SB_INK}" stroke-width="1.1" stroke-linejoin="round"`;
+  const fault =
+    status === "fault"
+      ? `<path d="M 3.2,16 L 3.2,9.5 L 8.5,11 L 3.2,12.6" fill="${c}" ${ink}/>
+         <path d="M -3,-4 q -3,-3 0,-6 q 3,-3 0,-6" fill="none" stroke="${SB_INK}" stroke-width="0.8" opacity="0.6"><animate attributeName="opacity" values="0.6;0.1;0.6" dur="2s" repeatCount="indefinite"/></path>`
+      : "";
+  const svg = `<svg class="wtg-svg" width="40" height="56" viewBox="-20 -20 40 56" xmlns="http://www.w3.org/2000/svg">
+    <g opacity="0.85">
+      <circle r="13" fill="none" stroke="${SB_INK}" stroke-width="0.7" stroke-dasharray="1.6 2.4"/>
+      <g class="wtg-yaw"><path d="M 0,-17.5 L -3,-11 Q 0,-12.4 3,-11 Z" fill="${SB_INK}"/></g>
+    </g>
+    <ellipse cx="0" cy="23.6" rx="7.5" ry="1.8" fill="#f6eedb" stroke="${SB_INK}" stroke-width="0.6" opacity="0.9"/>
+    <path d="M -2.6,16.5 L -2.9,23.4 L 2.9,23.4 L 2.6,16.5 Z" fill="#e3b33a" ${ink}/>
+    <path d="M -1.8,2 L -2.5,16.6 L 2.5,16.6 L 1.8,2 Z" fill="#efe6d2" ${ink}/>
+    <path d="M -2.5,13.2 L 2.5,13.2" stroke="${SB_INK}" stroke-width="0.5" opacity="0.5"/>
+    <g class="wtg-nacelle">
+      <rect x="-2.6" y="-2.5" width="10.8" height="5" rx="2.4" fill="#efe6d2" ${ink}/>
+      <circle class="wtg-avlight" cx="5.8" cy="-3.1" r="1" fill="#d63a2f" style="--av-delay:-${((Date.now() % 2000) / 1000).toFixed(2)}s"/>
+    </g>
+    <path d="M 2.3,13 L 2.3,6" stroke="${SB_INK}" stroke-width="0.6"/>
+    <path d="M 2.3,6 L 7.4,7.6 L 2.3,9.2 Z" fill="${c}" ${ink}/>
+    ${fault}
+    <path class="wtg-pitch" d="" fill="none" stroke="#c8841e" stroke-width="1.2" stroke-linecap="round"/>
+    <g class="wtg-rotor">
+      <path d="${SB_BLADE}" fill="#f6efdf" ${ink}/>
+      <path d="${SB_BLADE}" fill="#f6efdf" ${ink} transform="rotate(120)"/>
+      <path d="${SB_BLADE}" fill="#f6efdf" ${ink} transform="rotate(240)"/>
+    </g>
+    <circle r="2.2" fill="${c}" ${ink}/>
+    <rect x="${-BAR_W / 2}" y="26.4" width="${BAR_W}" height="2.4" rx="1" fill="#f1e4c3" stroke="${SB_INK}" stroke-width="0.6"/>
+    <rect class="wtg-power" x="${-BAR_W / 2}" y="26.4" width="${BAR_W}" height="2.4" rx="1" fill="${c}"/>
+    <text class="wtg-id" x="0" y="35.2" fill="${SB_INK}" font-size="7.5" text-anchor="middle">${shortId}</text>
+  </svg>
+  <span class="sr-only">Turbine WTG-${shortId}, ${status}</span>`;
+  return L.divIcon({ html: svg, className: "leaflet-turbine-marker", iconSize: [40, 56], iconAnchor: [20, 20] });
+}
+
+/** Pitch arc path: clockwise from 12 o'clock by the pitch angle (r = 8). */
+function pitchArcPath(pitchDeg: number, spinning: boolean): string {
+  const p = Math.max(0, Math.min(90, pitchDeg));
+  if (!spinning || p <= 0.5) return "";
+  const a = ((p - 90) * Math.PI) / 180;
+  return `M 0,-8 A 8,8 0 0 1 ${(8 * Math.cos(a)).toFixed(2)},${(8 * Math.sin(a)).toFixed(2)}`;
+}
+
+/** Shortest-path unwrap so a 359° → 1° step rotates 2°, not −358°. */
+function unwrapDeg(prev: number | null, next: number): number {
+  if (prev === null) return next;
+  return prev + ((((next - prev) % 360) + 540) % 360) - 180;
+}
+
 // ── Single Turbine Marker (connected to store) ─────────────────
-// Icon is keyed ONLY on status + isSelected — never on power/wind.
-// This keeps the L.DivIcon reference stable across 3s ticks so
-// react-leaflet never calls setIcon() → DOM element survives →
-// SVG animations keep spinning, CSS hover persists, click works.
-// Real-time power/wind values are shown in the Tooltip (React-managed).
 const TurbineMarker = memo(function TurbineMarker({
   turbineId,
   lat,
   lon,
   isSelected,
+  focus,
   onHover,
   onLeave,
   onClick,
@@ -220,29 +315,72 @@ const TurbineMarker = memo(function TurbineMarker({
   lat: number;
   lon: number;
   isSelected: boolean;
+  /** Array-cable focus: "feed" = feeds the clicked cable, "dim" = other string. */
+  focus?: "feed" | "dim";
   onHover: (id: string) => void;
   onLeave: () => void;
   onClick: (id: string) => void;
 }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
   const shortId = turbineId.replace(/^WTG-/, "");
+  const markerRef = useRef<L.Marker | null>(null);
+  const yawRef = useRef<number | null>(null);
+  const builtIconRef = useRef<L.DivIcon | null>(null);
+  const status = turbine?.status ?? "offline";
+  const storybook = useLayerStore((s) => s.mapTheme) === "storybook";
 
-  // Icon depends on status + selection + quantised yaw/pitch.
-  // Yaw is quantised to 5° steps so the icon doesn't recreate on every 0.1°
-  // wiggle from the yaw controller; pitch to 1° integer for the same reason.
-  const yawQ = Math.round((turbine?.nacellePositionDeg ?? 225) / 5) * 5;
-  const pitchQ = Math.round(turbine?.pitchAngleDeg ?? 0);
+  // Rebuilt only when the status (colour) or the map theme changes.
   const icon = useMemo(
-    () =>
-      createTurbineIcon(
-        turbine?.status ?? "offline",
-        shortId,
-        isSelected,
-        yawQ,
-        pitchQ,
-      ),
-    [turbine?.status, shortId, isSelected, yawQ, pitchQ],
+    () => (storybook ? createStorybookTurbineIcon(status, shortId) : createTurbineIcon(status, shortId)),
+    [status, shortId, storybook],
   );
+
+  // Live state → DOM. Runs after react-leaflet's setIcon (child effects run
+  // first), and again whenever the icon is rebuilt.
+  const yaw = turbine?.nacellePositionDeg ?? 225;
+  const rpm = turbine?.rotorSpeedRpm ?? 0;
+  const pitch = turbine?.pitchAngleDeg ?? 90;
+  const powerFrac = Math.min(
+    Math.max((turbine?.powerOutputMW ?? 0) / 15, 0),
+    1,
+  );
+  useEffect(() => {
+    const el = markerRef.current?.getElement();
+    if (!el) return;
+    const q = (sel: string) => el.querySelector<SVGElement>(sel);
+    // Fresh SVG (mount / status change): jump to the current state instead
+    // of easing in from zero.
+    const fresh = builtIconRef.current !== icon;
+    builtIconRef.current = icon;
+    if (fresh) el.classList.add("wtg-no-ease");
+
+    const unwrapped = unwrapDeg(yawRef.current, yaw);
+    yawRef.current = unwrapped;
+    q(".wtg-yaw")?.style.setProperty("transform", `rotate(${unwrapped}deg)`);
+    // Nacelle body points downwind: east component of downwind = −sin(yaw)
+    const east = -Math.sin((yaw * Math.PI) / 180);
+    const sx = (east >= 0 ? 1 : -1) * (0.55 + 0.45 * Math.abs(east));
+    q(".wtg-nacelle")?.style.setProperty(
+      "transform",
+      `scaleX(${sx.toFixed(3)})`,
+    );
+    q(".wtg-pitch")?.setAttribute("d", pitchArcPath(pitch, rpm > 0.1));
+    q(".wtg-power")?.style.setProperty(
+      "transform",
+      `scaleX(${powerFrac.toFixed(3)})`,
+    );
+    // Rotor: CSS spin at rated rpm, scaled by the playback rate (keeps phase)
+    for (const anim of q(".wtg-rotor")?.getAnimations?.() ?? []) {
+      anim.updatePlaybackRate(rpm / RATED_RPM);
+    }
+    el.classList.toggle("turbine-selected", isSelected);
+    el.classList.toggle("wtg-feed", focus === "feed");
+    el.classList.toggle("wtg-dim", focus === "dim");
+    if (fresh) {
+      void el.getBoundingClientRect(); // commit the un-eased values first
+      el.classList.remove("wtg-no-ease");
+    }
+  }, [icon, yaw, rpm, pitch, powerFrac, isSelected, focus]);
 
   // Stable event handler object — prevents react-leaflet from unbinding/rebinding
   // listeners on every render (onHover/onLeave/onClick are useCallback([]) in parent)
@@ -258,10 +396,15 @@ const TurbineMarker = memo(function TurbineMarker({
   if (!turbine) return null;
 
   return (
-    <Marker position={[lat, lon]} icon={icon} eventHandlers={eventHandlers}>
+    <Marker
+      ref={markerRef}
+      position={[lat, lon]}
+      icon={icon}
+      eventHandlers={eventHandlers}
+    >
       <Tooltip
         direction="right"
-        offset={[20, 0]}
+        offset={[24, 0]}
         className="leaflet-turbine-tooltip"
         permanent={false}
       >
@@ -316,407 +459,118 @@ const TurbineMarker = memo(function TurbineMarker({
   );
 });
 
-// ── OSS Marker Icon (IEC 60617 HVAC Transformer) ────────────────
+// ── Equipment chip markers (OSS, STATCOM, LIDAR, onshore, switchyard) ──
+// One visual grammar for all plant: a 24 px IEC-style glyph pinned on the
+// geographic point + a label chip (tag / live value) to its right. HTML text
+// (not scaled SVG) keeps labels crisp at ≥ 9.5 px. Styles: `.eq-marker` in
+// index.css. Details live in the panels that open on click.
+const EQ_GREEN = "#3ecf6e";
+const EQ_INJECT = "#f5a623";
+const EQ_ABSORB = "#4FC3D8";
+const EQ_IDLE = "#9ba3b8";
+
+/** Two-winding transformer (IEC 60617): LV circle left, HV circle right. */
+const transformerGlyph = (lv: string, hv: string) =>
+  `<svg width="18" height="14" viewBox="0 0 18 14"><circle cx="6.5" cy="7" r="5" fill="none" stroke="${lv}" stroke-width="1.6"/><circle cx="11.5" cy="7" r="5" fill="none" stroke="${hv}" stroke-width="1.6"/></svg>`;
+
+/** Static converter (IEC 60617): box, diagonal, AC ~ top-left, DC = bottom-right. */
+const converterGlyph = (c: string) =>
+  `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="${c}" stroke-width="1.4"><rect x="1" y="1" width="14" height="14" rx="1.5"/><path d="M1 15 15 1"/><path d="M3 5.5q1-2 2 0t2 0" /><path d="M9 10.5h4M9 12.5h4"/></svg>`;
+
+/** Buoy with a conical scan. */
+const lidarGlyph = (c: string) =>
+  `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="${c}" stroke-width="1.4" stroke-linecap="round"><path d="M8 9 3.5 2M8 9l4.5-7" stroke-dasharray="2 1.6"/><path d="M8 9v3"/><path d="M3.5 12.5h9" stroke-width="2"/></svg>`;
+
+/** Circuit breaker on a busbar: filled = closed, hollow = open. */
+const breakerGlyph = (c: string, closed: boolean) =>
+  `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="${c}" stroke-width="1.4"><path d="M1 8h4M11 8h4"/><rect x="5" y="5" width="6" height="6" fill="${closed ? c : "none"}"/></svg>`;
+
+function createEquipmentIcon(opts: {
+  glyph: string;
+  tag: string;
+  value: string;
+  sub?: string;
+  color: string;
+  live?: boolean;
+  /** Pixel offset of the glyph from the geographic point (e.g. STATCOM on the OSS). */
+  offset?: [number, number];
+  /** Put the label left of the glyph (avoids clashing with a neighbour to the east). */
+  labelLeft?: boolean;
+}): L.DivIcon {
+  const [dx, dy] = opts.offset ?? [0, 0];
+  const html = `<div class="eq-marker${opts.labelLeft ? " eq-marker--left" : ""}" style="--eq-color:${opts.color}">
+    <span class="eq-marker__glyph${opts.live ? " is-live" : ""}">${opts.glyph}</span>
+    <span class="eq-marker__body">
+      <span class="eq-marker__tag">${opts.tag}</span>
+      <span class="eq-marker__value">${opts.value}${opts.sub ? `<span class="eq-marker__sub">${opts.sub}</span>` : ""}</span>
+    </span>
+  </div>`;
+  return L.divIcon({
+    html,
+    className: "leaflet-eq-marker",
+    iconSize: [24, 24],
+    iconAnchor: [12 - dx, 12 - dy],
+  });
+}
+
 function createOSSIcon(powerMW: number): L.DivIcon {
-  const svg = `<svg width="64" height="78" viewBox="-32 -24 64 78" xmlns="http://www.w3.org/2000/svg">
-    <!-- Label -->
-    <text x="0" y="-15" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="600" font-family="Inter, sans-serif" letter-spacing="0.5">OSS</text>
-
-    <!-- Platform deck (offshore structure) -->
-    <rect x="-26" y="-8" width="52" height="28" rx="2" fill="#0d1017" stroke="#2a3040" stroke-width="1"/>
-
-    <!-- Conservator tank (oil expansion) — small horizontal cylinder on top -->
-    <ellipse cx="0" cy="-9" rx="9" ry="2.2" fill="#1a2030" stroke="${SCADA_COLORS.ENERGIZED}" stroke-width="0.5" opacity="0.7"/>
-    <!-- Buchholz relay -->
-    <rect x="-1.6" y="-7" width="3.2" height="2" fill="${SCADA_COLORS.ENERGIZED}" opacity="0.5"/>
-    <!-- Connecting pipe -->
-    <line x1="0" y1="-7" x2="0" y2="-4" stroke="#475569" stroke-width="0.7"/>
-    <!-- LTC motor drive box (left of tank top) -->
-    <rect x="-18" y="-7" width="5" height="3.5" fill="#0d1421" stroke="#94a3b8" stroke-width="0.5"/>
-    <text x="-15.5" y="-4" text-anchor="middle" fill="#cbd5e1" font-size="2.6" font-family="monospace">T7</text>
-
-    <!-- Transformer tank body -->
-    <rect x="-21" y="-4" width="42" height="20" rx="1.5" fill="#151b28" stroke="#3d4560" stroke-width="0.8"/>
-    <!-- Tank top edge highlight (depth) -->
-    <line x1="-20" y1="-3" x2="20" y2="-3" stroke="#283044" stroke-width="0.5"/>
-
-    <!-- Cooling radiator fins (right side of tank) -->
-    <g opacity="0.45" stroke="#4a5580" stroke-width="0.5" fill="${SCADA_COLORS.ENERGIZED}">
-      <rect x="16" y="-1" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="16" y="2.5" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="16" y="6" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="16" y="9.5" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-    </g>
-    <!-- Cooling radiator fins (left side of tank, mirrors the right) -->
-    <g opacity="0.45" stroke="#4a5580" stroke-width="0.5" fill="${SCADA_COLORS.ENERGIZED}">
-      <rect x="-19" y="-1" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="-19" y="2.5" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="-19" y="6" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-      <rect x="-19" y="9.5" width="3" height="2.5" rx="0.3" fill-opacity="0.35"/>
-    </g>
-
-    <!-- HV bushing insulator (left — 66 kV) -->
-    <rect x="-27" y="2" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_66KV}" stroke-width="0.7" opacity="0.8"/>
-    <line x1="-20" y1="4.5" x2="-12" y2="4.5" stroke="${SCADA_COLORS.VOLTAGE_66KV}" stroke-width="1.2" opacity="0.85"/>
-
-    <!-- LV bushing insulator (right — 220 kV) -->
-    <rect x="20" y="2" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="0.7" opacity="0.8"/>
-    <line x1="12" y1="4.5" x2="20" y2="4.5" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.2" opacity="0.85"/>
-
-    <!-- Primary winding — 66 kV (IEC circle with subtle fill) -->
-    <circle cx="-4" cy="5" r="7" fill="${SCADA_COLORS.VOLTAGE_66KV}" opacity="0.06"/>
-    <circle cx="-4" cy="5" r="7" fill="none" stroke="${SCADA_COLORS.VOLTAGE_66KV}" stroke-width="1.4" opacity="0.85"/>
-    <!-- Polarity dot -->
-    <circle cx="-4" cy="-0.5" r="1" fill="${SCADA_COLORS.VOLTAGE_66KV}" opacity="0.65"/>
-
-    <!-- Secondary winding — 220 kV (IEC circle with subtle fill) -->
-    <circle cx="4" cy="5" r="7" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.06"/>
-    <circle cx="4" cy="5" r="7" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.4" opacity="0.85"/>
-    <!-- Polarity dot -->
-    <circle cx="4" cy="-0.5" r="1" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.65"/>
-
-    <!-- Tap changer arrow indicator -->
-    <polygon points="6,10 8,10 7,12.5" fill="#64748b" opacity="0.4"/>
-
-    <!-- Status LED (energized) -->
-    <circle cx="-17" cy="-1" r="1.5" fill="${SCADA_COLORS.ENERGIZED}">
-      <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
-    </circle>
-    <circle cx="-17" cy="-1" r="3.5" fill="${SCADA_COLORS.ENERGIZED}" opacity="0.08"/>
-
-    <!-- Voltage rating -->
-    <text x="0" y="28" text-anchor="middle" fill="#64748b" font-size="7" font-family="JetBrains Mono, monospace">66/220 kV</text>
-    <!-- Power readout -->
-    <text x="0" y="40" text-anchor="middle" fill="#cbd5e1" font-size="9" font-weight="600" font-family="JetBrains Mono, monospace">${powerMW.toFixed(0)} MW</text>
-  </svg>`;
-  return L.divIcon({
-    html: svg,
-    className: "leaflet-oss-marker",
-    iconSize: [64, 78],
-    iconAnchor: [32, 26],
+  return createEquipmentIcon({
+    glyph: transformerGlyph(
+      SCADA_COLORS.VOLTAGE_66KV,
+      SCADA_COLORS.VOLTAGE_220KV,
+    ),
+    tag: "OSS · 66/220 kV",
+    value: `${powerMW.toFixed(0)} MW`,
+    sub: "2 × 300 MVA",
+    color: EQ_GREEN,
   });
 }
 
-// ── Grid Switchyard Icon (IEC 60617 single-line) ────────────────
-// Shows the 400 kV interface to PSE: 3-phase busbar + circuit breaker +
-// disconnector + grounding switch + voltage transformer. Per IEC 60617:2015.
-function createGridSwitchyardIcon(breakerClosed: boolean = true): L.DivIcon {
-  const liveColor = breakerClosed ? SCADA_COLORS.VOLTAGE_400KV : "#475569";
-  const cbFill = breakerClosed ? SCADA_COLORS.VOLTAGE_400KV : "#0d1017";
-  const svg = `<svg width="80" height="62" viewBox="-40 -22 80 62" xmlns="http://www.w3.org/2000/svg">
-    <text x="0" y="-12" text-anchor="middle" fill="#94a3b8" font-size="6.5" font-weight="600" font-family="Inter, sans-serif">SWITCHYARD</text>
-
-    <!-- 3-phase busbar (3 horizontal lines) -->
-    ${[-3, 0, 3].map((dy) => `<line x1="-30" y1="${dy}" x2="30" y2="${dy}" stroke="${liveColor}" stroke-width="1.2" opacity="0.9"/>`).join("")}
-
-    <!-- Voltage transformer (VT) — circle with H winding inside -->
-    <circle cx="-22" cy="0" r="3.5" fill="#0d1017" stroke="${liveColor}" stroke-width="0.8"/>
-    <text x="-22" y="2.2" text-anchor="middle" fill="${liveColor}" font-size="4" font-family="monospace">VT</text>
-
-    <!-- Circuit breaker — filled square (closed) or open square -->
-    <rect x="-12" y="-2.5" width="5" height="5" fill="${cbFill}" stroke="${liveColor}" stroke-width="0.8"/>
-    <text x="-9.5" y="9" text-anchor="middle" fill="#94a3b8" font-size="3.5" font-family="monospace">CB</text>
-
-    <!-- Disconnector blade — knife switch (line at angle) -->
-    <line x1="0" y1="2.5" x2="6" y2="-2.5" stroke="${liveColor}" stroke-width="1.1"/>
-    <circle cx="0" cy="2.5" r="1" fill="${liveColor}"/>
-    <text x="3" y="9" text-anchor="middle" fill="#94a3b8" font-size="3.5" font-family="monospace">DS</text>
-
-    <!-- Grounding switch — line down + earth symbol -->
-    <line x1="14" y1="-2.5" x2="14" y2="6" stroke="#94a3b8" stroke-width="0.8"/>
-    <line x1="11" y1="6" x2="17" y2="6" stroke="#94a3b8" stroke-width="0.8"/>
-    <line x1="12.5" y1="7.5" x2="15.5" y2="7.5" stroke="#94a3b8" stroke-width="0.8"/>
-    <line x1="13.5" y1="9" x2="14.5" y2="9" stroke="#94a3b8" stroke-width="0.8"/>
-    <text x="20" y="9" text-anchor="middle" fill="#94a3b8" font-size="3.5" font-family="monospace">GS</text>
-
-    <!-- Voltage label -->
-    <text x="0" y="20" text-anchor="middle" fill="${liveColor}" font-size="6.5" font-family="JetBrains Mono, monospace" font-weight="600">400 kV · ${breakerClosed ? "ENERGISED" : "OPEN"}</text>
-  </svg>`;
-
-  return L.divIcon({
-    html: svg,
-    className: "leaflet-switchyard-marker",
-    iconSize: [80, 62],
-    iconAnchor: [40, 22],
-  });
-}
-
-// ── STATCOM Marker Icon — containerised industrial design ───────
-// Real ABB SVC Light / Siemens SVC Plus units: a row of valve containers
-// (IGBT MMC modules), a paralleled capacitor bank, and a coupling
-// transformer to the busbar. This icon lays them out as a single-line:
-//
-//   [bus 220 kV] ─┬─ [coupling tx] ─┬─ [filter L] ─┬─ [valves] ─┬─ [cap bank]
-//
-// Q sign convention: positive = injecting (capacitive, leading), negative
-// = absorbing (inductive, lagging). |Q| ≤ 5 reads as idle.
-function createSTATCOMIcon(qMVAR: number): L.DivIcon {
-  const isInjecting = qMVAR > 5;
-  const isAbsorbing = qMVAR < -5;
-  const liveColor = isInjecting
-    ? "#f59e0b"
-    : isAbsorbing
-      ? "#06b6d4"
-      : "#64748b";
-  const dimColor = "#475569";
-  const fillBg = "#0d1017";
-  const qLabel = `${qMVAR >= 0 ? "+" : ""}${qMVAR.toFixed(0)} MVAr`;
-  const modeLabel = isInjecting ? "INJECT" : isAbsorbing ? "ABSORB" : "STANDBY";
-
-  // Q-bar fill: |Q|/120 of the rated capacity, rendered as a horizontal bar
-  // under the readout. Always ±120 MVAr is full scale.
-  const qFrac = Math.min(Math.abs(qMVAR) / 120, 1);
-  const barColor = liveColor;
-
-  const svg = `<svg width="120" height="78" viewBox="-60 -28 120 78" xmlns="http://www.w3.org/2000/svg">
-    <!-- Title strip -->
-    <text x="0" y="-18" text-anchor="middle" fill="#cbd5e1" font-size="7" font-weight="700" font-family="Inter, sans-serif" letter-spacing="1">STATCOM · ±120 MVAr</text>
-
-    <!-- Container outline (steel skid frame) -->
-    <rect x="-55" y="-12" width="110" height="22" rx="2" fill="${fillBg}" stroke="#3d4560" stroke-width="0.8"/>
-
-    <!-- 220 kV busbar tap (left edge) -->
-    <line x1="-55" y1="-1" x2="-50" y2="-1" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.4"/>
-    <text x="-58" y="-13" fill="${SCADA_COLORS.VOLTAGE_220KV}" font-size="3.5" font-family="monospace">220kV</text>
-
-    <!-- Coupling transformer — 2-circle Δ/Y -->
-    <circle cx="-44" cy="-1" r="3.5" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="0.8"/>
-    <circle cx="-39" cy="-1" r="3.5" fill="none" stroke="#94a3b8" stroke-width="0.8"/>
-
-    <!-- Filter reactor coil (3 humps) -->
-    <path d="M -32 -1 q 1.5 -3 3 0 q 1.5 3 3 0 q 1.5 -3 3 0" fill="none" stroke="${liveColor}" stroke-width="0.9"/>
-
-    <!-- IGBT valve container — 4 modules (MMC SM half-bridges) -->
-    <rect x="-18" y="-7" width="20" height="12" rx="1" fill="#0a1018" stroke="${liveColor}" stroke-width="0.7"/>
-    ${[-14, -10, -6, -2]
-      .map(
-        (cx, i) => `
-      <rect x="${cx - 1.5}" y="${-5}" width="3" height="8" fill="${liveColor}" fill-opacity="${isInjecting || isAbsorbing ? 0.55 + i * 0.08 : 0.18}" stroke="${dimColor}" stroke-width="0.3"/>
-    `,
-      )
-      .join("")}
-
-    <!-- Capacitor bank — 4 stacked plates, IEC capacitor pairs -->
-    <g transform="translate(8 -1)">
-      ${[-5, 0, 5]
-        .map(
-          (cy) => `
-        <line x1="-3" y1="${cy - 0.6}" x2="3" y2="${cy - 0.6}" stroke="${liveColor}" stroke-width="0.9"/>
-        <line x1="-3" y1="${cy + 0.6}" x2="3" y2="${cy + 0.6}" stroke="${liveColor}" stroke-width="0.9"/>
-      `,
-        )
-        .join("")}
-      <!-- vertical bus connecting the cap stack -->
-      <line x1="0" y1="-7" x2="0" y2="7" stroke="${liveColor}" stroke-width="0.6" opacity="0.7"/>
-    </g>
-
-    <!-- Shunt reactors (3 × 80 MVAr inductors, N+1) — small coil at right -->
-    <g transform="translate(20 0)">
-      <circle cx="0" cy="-3" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
-      <circle cx="0" cy="0" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
-      <circle cx="0" cy="3" r="1.8" fill="none" stroke="${liveColor}" stroke-width="0.6"/>
-      <text x="0" y="11" text-anchor="middle" fill="#64748b" font-size="3" font-family="monospace">3×80 MVAr L</text>
-    </g>
-
-    <!-- Status LED (solid pulse only when active) -->
-    ${
-      isInjecting || isAbsorbing
-        ? `<circle cx="32" cy="-9" r="1.6" fill="${liveColor}"><animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/></circle>`
-        : `<circle cx="32" cy="-9" r="1.6" fill="${dimColor}" opacity="0.6"/>`
-    }
-
-    <!-- Mode badge -->
-    <rect x="36" y="-12" width="20" height="6" rx="1" fill="${fillBg}" stroke="${liveColor}" stroke-width="0.5"/>
-    <text x="46" y="-7.5" text-anchor="middle" fill="${liveColor}" font-size="4.2" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.5">${modeLabel}</text>
-
-    <!-- Q readout + capability bar -->
-    <text x="-55" y="22" fill="${liveColor}" font-size="8" font-weight="700" font-family="JetBrains Mono, monospace">${qLabel}</text>
-    <!-- Bar background (full ±120 scale, divided at zero) -->
-    <rect x="14" y="16" width="42" height="6" fill="#0a1018" stroke="#3d4560" stroke-width="0.5"/>
-    <line x1="35" y1="16" x2="35" y2="22" stroke="#3d4560" stroke-width="0.4"/>
-    <!-- Q fill: from centre toward injection (right) or absorption (left) -->
-    ${
-      qMVAR > 0
-        ? `<rect x="35" y="16.8" width="${(qFrac * 21).toFixed(1)}" height="4.4" fill="${barColor}" opacity="0.85"/>`
-        : qMVAR < 0
-          ? `<rect x="${(35 - qFrac * 21).toFixed(1)}" y="16.8" width="${(qFrac * 21).toFixed(1)}" height="4.4" fill="${barColor}" opacity="0.85"/>`
-          : ""
-    }
-    <text x="14" y="29" fill="#64748b" font-size="3" font-family="monospace">−120</text>
-    <text x="35" y="29" text-anchor="middle" fill="#64748b" font-size="3" font-family="monospace">0</text>
-    <text x="56" y="29" text-anchor="end" fill="#64748b" font-size="3" font-family="monospace">+120</text>
-  </svg>`;
-
-  return L.divIcon({
-    html: svg,
-    className: "leaflet-statcom-marker",
-    iconSize: [120, 78],
-    iconAnchor: [60, 0],
-  });
-}
-
-// ── Met Mast / LIDAR Buoy Marker Icon ─────────────────────────
-// Floating LIDAR (e.g. ZX 300M / Vaisala WindCube) — used for wind resource
-// validation and turbulence intensity reference, independent of WTG SCADA.
-// Compact map marker — only the buoy + mast + scan head + small label.
-// Detailed measurements (vertical profile, TI, sensor health, etc) live in
-// the LIDARDetailPanel that opens on click. Keeping the marker small lets
-// it sit in the seascape without dwarfing the turbine icons.
-function createMetMastIcon(windMs: number, _windDir: number): L.DivIcon {
-  const speedColor =
-    windMs > 25 ? "#ef4444" : windMs > 15 ? "#f5a623" : "#3ecf6e";
-
-  // 64 × 88 px — sits comfortably between turbine markers (40×56) and the
-  // OSS/onshore substation (~80 px). Pulsing halo draws the eye to clear
-  // water NW of the cluster. Detail (vertical profile, TI, sensor health)
-  // lives in LIDARDetailPanel on click.
-  const svg = `<svg width="64" height="88" viewBox="-32 -32 64 88" xmlns="http://www.w3.org/2000/svg">
-    <!-- Outer attention-getter halo — wide, faint, slow pulse. Pointer events
-         disabled in CSS so it doesn't block clicks on neighbouring markers. -->
-    <circle cx="0" cy="10" r="20" fill="${speedColor}" opacity="0.10" pointer-events="none">
-      <animate attributeName="r" values="16;22;16" dur="3.5s" repeatCount="indefinite"/>
-      <animate attributeName="opacity" values="0.18;0.04;0.18" dur="3.5s" repeatCount="indefinite"/>
-    </circle>
-
-    <!-- Inner halo, slightly tighter for a layered ripple feel -->
-    <circle cx="0" cy="10" r="13" fill="${speedColor}" opacity="0.18" pointer-events="none">
-      <animate attributeName="r" values="11;15;11" dur="2.4s" repeatCount="indefinite"/>
-    </circle>
-
-    <!-- Floating buoy hull — yellow safety paint, with shadow line -->
-    <ellipse cx="0" cy="10" rx="11" ry="3.5" fill="#eab308" stroke="#a16207" stroke-width="1"/>
-    <line x1="-11" y1="10.8" x2="11" y2="10.8" stroke="#7c2d12" stroke-width="0.7"/>
-
-    <!-- Mast riser -->
-    <line x1="0" y1="6.5" x2="0" y2="-14" stroke="#cbd5e1" stroke-width="1.6"/>
-
-    <!-- LIDAR scan head — small instrument box -->
-    <rect x="-4.5" y="-19" width="9" height="5" rx="0.6" fill="#0d1017"
-          stroke="${speedColor}" stroke-width="1"/>
-    <circle cx="0" cy="-16.5" r="1.2" fill="${speedColor}" opacity="0.85">
-      <animate attributeName="opacity" values="0.4;1;0.4" dur="1.6s" repeatCount="indefinite"/>
-    </circle>
-
-    <!-- 4 scan beams (VAD conical scan, IEC 61400-12-1) -->
-    <line x1="0" y1="-19" x2="-7" y2="-26" stroke="${speedColor}" stroke-width="1"
-          stroke-dasharray="3 2" opacity="0.85">
-      <animate attributeName="stroke-dashoffset" values="0;-5" dur="1.4s" repeatCount="indefinite"/>
-    </line>
-    <line x1="0" y1="-19" x2="7" y2="-26" stroke="${speedColor}" stroke-width="1"
-          stroke-dasharray="3 2" opacity="0.85">
-      <animate attributeName="stroke-dashoffset" values="0;-5" dur="1.4s" repeatCount="indefinite"/>
-    </line>
-    <line x1="0" y1="-19" x2="-3.5" y2="-29" stroke="${speedColor}" stroke-width="0.7"
-          stroke-dasharray="2 2" opacity="0.6"/>
-    <line x1="0" y1="-19" x2="3.5" y2="-29" stroke="${speedColor}" stroke-width="0.7"
-          stroke-dasharray="2 2" opacity="0.6"/>
-
-    <!-- Wind readout pill below the buoy -->
-    <rect x="-15" y="18" width="30" height="11" rx="1.5" fill="#0a0d14"
-          stroke="${speedColor}" stroke-width="0.7" opacity="0.92"/>
-    <text x="0" y="26" text-anchor="middle" fill="${speedColor}" font-size="7.5" font-weight="700"
-          font-family="JetBrains Mono, monospace">${windMs.toFixed(1)} m/s</text>
-
-    <!-- Tag label -->
-    <text x="0" y="36" text-anchor="middle" fill="#94a3b8" font-size="5.5" font-weight="700"
-          font-family="Inter, sans-serif" letter-spacing="0.8">LIDAR · MM-1</text>
-  </svg>`;
-
-  return L.divIcon({
-    html: svg,
-    className: "leaflet-metmast-marker",
-    iconSize: [64, 88],
-    iconAnchor: [32, 22], // anchor at the buoy waterline (y=10 + 12 viewBox offset)
-  });
-}
-
-// ── Onshore Substation Marker Icon (IEC 60617 HVAC Transformer) ─
 function createOnshoreIcon(): L.DivIcon {
-  const svg = `<svg width="64" height="82" viewBox="-32 -24 64 82" xmlns="http://www.w3.org/2000/svg">
-    <!-- Label -->
-    <text x="0" y="-15" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="600" font-family="Inter, sans-serif" letter-spacing="0.5">Onshore</text>
+  return createEquipmentIcon({
+    glyph: transformerGlyph(
+      SCADA_COLORS.VOLTAGE_220KV,
+      SCADA_COLORS.VOLTAGE_400KV,
+    ),
+    tag: "Onshore SS · 220/400 kV",
+    value: "2 × 300 MVA",
+    color: EQ_GREEN,
+    labelLeft: true,
+  });
+}
 
-    <!-- Substation fence / perimeter (dashed) -->
-    <rect x="-28" y="-8" width="56" height="30" rx="2" fill="none" stroke="#3d4560" stroke-width="0.6" stroke-dasharray="4 2"/>
+function createGridSwitchyardIcon(breakerClosed: boolean): L.DivIcon {
+  const color = breakerClosed ? EQ_GREEN : EQ_IDLE;
+  return createEquipmentIcon({
+    glyph: breakerGlyph(color, breakerClosed),
+    tag: "PSE Słupsk Wierzbięcino",
+    value: `400 kV · ${breakerClosed ? "CB closed" : "CB open"}`,
+    color,
+  });
+}
 
-    <!-- Building body -->
-    <rect x="-24" y="-6" width="48" height="26" rx="2" fill="#0d1017" stroke="#2a3040" stroke-width="1"/>
+/** Q sign convention (rule 4): + injecting (capacitive), − absorbing (inductive). */
+function createSTATCOMIcon(qMVAR: number): L.DivIcon {
+  const color = qMVAR > 5 ? EQ_INJECT : qMVAR < -5 ? EQ_ABSORB : EQ_IDLE;
+  const sign = qMVAR > 0 ? "+" : qMVAR < 0 ? "−" : "";
+  return createEquipmentIcon({
+    glyph: converterGlyph(color),
+    tag: "STATCOM · OSS 220 kV",
+    value: `${sign}${Math.abs(qMVAR).toFixed(0)} MVAr`,
+    sub: qMVAR > 5 ? "inject" : qMVAR < -5 ? "absorb" : "float",
+    color,
+    offset: [0, -34],
+  });
+}
 
-    <!-- Conservator tank (oil expansion) — small horizontal cylinder on top -->
-    <ellipse cx="0" cy="-7" rx="8" ry="2" fill="#1a2030" stroke="${SCADA_COLORS.ENERGIZED}" stroke-width="0.5" opacity="0.7"/>
-    <!-- Buchholz relay -->
-    <rect x="-1.4" y="-5.2" width="2.8" height="1.8" fill="${SCADA_COLORS.ENERGIZED}" opacity="0.5"/>
-    <!-- Connecting pipe -->
-    <line x1="0" y1="-5.2" x2="0" y2="-2" stroke="#475569" stroke-width="0.6"/>
-    <!-- LTC motor drive box -->
-    <rect x="-16" y="-5" width="4.5" height="3" fill="#0d1421" stroke="#94a3b8" stroke-width="0.4"/>
-    <text x="-13.7" y="-2.5" text-anchor="middle" fill="#cbd5e1" font-size="2.4" font-family="monospace">T9</text>
-
-    <!-- Transformer tank body -->
-    <rect x="-19" y="-2" width="38" height="18" rx="1.5" fill="#151b28" stroke="#3d4560" stroke-width="0.8"/>
-    <!-- Tank top edge highlight (depth) -->
-    <line x1="-18" y1="-1" x2="18" y2="-1" stroke="#283044" stroke-width="0.5"/>
-
-    <!-- Cooling radiator fins (right side of tank) -->
-    <g opacity="0.45" stroke="#4a5580" stroke-width="0.5">
-      <rect x="14" y="1" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-      <rect x="14" y="4.5" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-      <rect x="14" y="8" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-    </g>
-    <!-- Cooling radiator fins (left side of tank — mirror) -->
-    <g opacity="0.45" stroke="#4a5580" stroke-width="0.5">
-      <rect x="-17" y="1" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-      <rect x="-17" y="4.5" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-      <rect x="-17" y="8" width="3" height="2.5" rx="0.3" fill="${SCADA_COLORS.ENERGIZED}" fill-opacity="0.35"/>
-    </g>
-
-    <!-- HV bushing insulator (left — 220 kV) -->
-    <rect x="-25" y="4" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="0.7" opacity="0.8"/>
-    <line x1="-18" y1="6.5" x2="-10" y2="6.5" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.2" opacity="0.85"/>
-
-    <!-- LV bushing insulator (right — 400 kV) -->
-    <rect x="18" y="4" width="7" height="5" rx="1" fill="#111622" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="0.7" opacity="0.8"/>
-    <line x1="10" y1="6.5" x2="18" y2="6.5" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="1.2" opacity="0.85"/>
-
-    <!-- Primary winding — 220 kV (IEC circle with subtle fill) -->
-    <circle cx="-3" cy="7" r="6.5" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.06"/>
-    <circle cx="-3" cy="7" r="6.5" fill="none" stroke="${SCADA_COLORS.VOLTAGE_220KV}" stroke-width="1.4" opacity="0.85"/>
-    <!-- Polarity dot -->
-    <circle cx="-3" cy="2" r="1" fill="${SCADA_COLORS.VOLTAGE_220KV}" opacity="0.65"/>
-
-    <!-- Secondary winding — 400 kV (IEC circle with subtle fill) -->
-    <circle cx="3" cy="7" r="6.5" fill="${SCADA_COLORS.VOLTAGE_400KV}" opacity="0.06"/>
-    <circle cx="3" cy="7" r="6.5" fill="none" stroke="${SCADA_COLORS.VOLTAGE_400KV}" stroke-width="1.4" opacity="0.85"/>
-    <!-- Polarity dot -->
-    <circle cx="3" cy="2" r="1" fill="${SCADA_COLORS.VOLTAGE_400KV}" opacity="0.65"/>
-
-    <!-- Tap changer arrow indicator -->
-    <polygon points="5,11.5 7,11.5 6,14" fill="#64748b" opacity="0.4"/>
-
-    <!-- Status LED (energized) -->
-    <circle cx="-15" cy="1" r="1.5" fill="${SCADA_COLORS.ENERGIZED}">
-      <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
-    </circle>
-    <circle cx="-15" cy="1" r="3.5" fill="${SCADA_COLORS.ENERGIZED}" opacity="0.08"/>
-
-    <!-- Ground symbol -->
-    <g transform="translate(0, 24)" opacity="0.4" stroke="#64748b" stroke-width="0.8" fill="none">
-      <line x1="0" y1="0" x2="0" y2="3"/>
-      <line x1="-4" y1="3" x2="4" y2="3"/>
-      <line x1="-2.5" y1="5" x2="2.5" y2="5"/>
-      <line x1="-1" y1="7" x2="1" y2="7"/>
-    </g>
-
-    <!-- Voltage rating -->
-    <text x="0" y="38" text-anchor="middle" fill="#64748b" font-size="7" font-family="JetBrains Mono, monospace">220/400 kV</text>
-    <!-- PSE Grid label -->
-    <text x="0" y="50" text-anchor="middle" fill="${SCADA_COLORS.VOLTAGE_400KV}" font-size="8" font-weight="600" font-family="Inter, sans-serif" opacity="0.85">PSE Grid</text>
-  </svg>`;
-  return L.divIcon({
-    html: svg,
-    className: "leaflet-onshore-marker",
-    iconSize: [64, 82],
-    iconAnchor: [32, 26],
+function createMetMastIcon(windMs: number, windDirDeg: number): L.DivIcon {
+  return createEquipmentIcon({
+    glyph: lidarGlyph(EQ_ABSORB),
+    tag: "LIDAR MM-01",
+    value: `${windMs.toFixed(1)} m/s`,
+    sub: `${windDirDeg.toFixed(0)}°`,
+    color: EQ_ABSORB,
+    live: true,
   });
 }
 
@@ -842,118 +696,494 @@ function WindCompass() {
   );
 }
 
-// ── Exclusion Zone Polygon (farm boundary) ────────────────────────
-const EXCLUSION_ZONE: [number, number][] = [
-  [54.795, 16.31],
-  [54.795, 16.485],
-  [54.705, 16.485],
-  [54.705, 16.31],
-];
-
-// ── Array cable polylines (66 kV within each string) ──────────────
-// Each cable carries the cumulative power of the upstream turbines on its
-// string. We colour-code by load fraction relative to the cable's continuous
-// rating (3×1×400 mm² Cu XLPE 66 kV ≈ 105 MVA), per IEC 60287:
-//   <60% rating  → green (idle / light)
-//   60–85%       → amber (normal-heavy)
-//   >85%         → red   (overload risk)
-const CABLE_RATING_MVA = 105;
-const FULL_TURBINE_MW = 15.0;
-
+// ── Array cable polylines (66 kV, live) ─────────────────────────
+// Each segment carries the LIVE output of every turbine beyond it on the
+// string (store power), on the backend's graded cable (500/630/800 mm²,
+// utils/landingPhysics arrayCableGrade). Colour by current vs rating
+// (IEC 60287): < 70 % green · 70–95 % amber · ≥ 95 % red. Strings end at
+// their southern turbine, which connects to the OSS.
 function loadColor(loadFrac: number): string {
-  if (loadFrac < 0.6) return "#3ecf6e";
-  if (loadFrac < 0.85) return "#f5a623";
+  if (loadFrac < 0.7) return "#3ecf6e";
+  if (loadFrac < 0.95) return "#f5a623";
   return "#ef4444";
 }
 
-function ArrayCables() {
-  // Compute per-cable load: each segment carries the sum of all turbines
-  // downstream on the string (between this segment and the OSS).
-  const lines: {
-    positions: [number, number][];
-    key: string;
-    loadFrac: number;
-    cumMW: number;
-    isCollector: boolean;
-  }[] = [];
+const STRINGS = [...new Set(TURBINE_POSITIONS.map((t) => t.stringNumber))].map(
+  (n) => TURBINE_POSITIONS.filter((t) => t.stringNumber === n),
+);
 
-  for (const cp of STRING_COLLECTION_POINTS) {
-    const stringTurbines = TURBINE_POSITIONS.filter(
-      (t) => t.stringNumber === cp.stringNumber,
-    );
-    const stringLength = stringTurbines.length;
-    // Within-string cables — segment i carries turbines [0..i-1] toward OSS.
-    // Segment direction: prev → curr, but power flows from turbines toward
-    // the collection point at the FAR end of the string. So segment between
-    // station k and k+1 carries power from all stations <= k that drain
-    // toward the OSS-side end (assume turbines numbered 0..N-1, OSS at end).
-    for (let i = 1; i < stringLength; i++) {
-      const prev = stringTurbines[i - 1];
-      const curr = stringTurbines[i];
-      // Power carried = sum of all turbines from index 0..i-1 (those upstream)
-      const cumMW = i * FULL_TURBINE_MW * 0.78; // typical 78% capacity factor
-      const loadFrac = cumMW / CABLE_RATING_MVA;
-      lines.push({
-        positions: [
-          [prev.lat, prev.lon],
-          [curr.lat, curr.lon],
-        ],
-        key: `cable-${prev.id}-${curr.id}`,
-        loadFrac,
-        cumMW,
-        isCollector: false,
-      });
-    }
-    // String → OSS cable carries the entire string's power.
-    const last = stringTurbines[stringTurbines.length - 1];
-    const stringTotalMW = stringLength * FULL_TURBINE_MW * 0.78;
-    lines.push({
-      positions: [
-        [last.lat, last.lon],
-        [OSS_GEO.lat, OSS_GEO.lon],
-      ],
-      key: `string-${cp.stringNumber}-oss`,
-      loadFrac: stringTotalMW / CABLE_RATING_MVA,
-      cumMW: stringTotalMW,
-      isCollector: true,
-    });
-  }
+/** A clicked array-cable segment: its string and the turbines it carries. */
+interface CableFocus {
+  key: string;
+  stringNumber: number;
+  fromId: string;
+  toId: string; // turbine id or "OSS"
+  /** Turbines whose power (and fibre) runs through this segment, far end first. */
+  feedIds: string[];
+  segmentFromOss: number;
+  lengthKm: number;
+}
+
+/** Radial strings: segment t[i-1] → t[i] carries t[0..i-1]; t[n-1] → OSS carries all. */
+const ARRAY_SEGMENTS: CableFocus[] = STRINGS.flatMap((string) => {
+  const n = string.length;
+  return string.map((t, i) => {
+    const isCollector = i === 0;
+    const from = isCollector ? string[n - 1] : string[i - 1];
+    const to = isCollector ? OSS_GEO : t;
+    return {
+      key: isCollector
+        ? `string-${t.stringNumber}-oss`
+        : `cable-${from.id}-${t.id}`,
+      stringNumber: t.stringNumber,
+      fromId: from.id,
+      toId: isCollector ? "OSS" : t.id,
+      feedIds: string.slice(0, isCollector ? n : i).map((s) => s.id),
+      segmentFromOss: isCollector ? 0 : n - i,
+      lengthKm:
+        L.latLng(from.lat, from.lon).distanceTo([to.lat, to.lon]) / 1000,
+    };
+  });
+});
+const POS_BY_ID = new Map(TURBINE_POSITIONS.map((t) => [t.id, t]));
+const segmentPath = (s: CableFocus): [number, number][] => {
+  const a = POS_BY_ID.get(s.fromId)!;
+  const b = s.toId === "OSS" ? OSS_GEO : POS_BY_ID.get(s.toId)!;
+  return [
+    [a.lat, a.lon],
+    [b.lat, b.lon],
+  ];
+};
+const stringSize = (n: number) => STRINGS[n - 1].length;
+
+function ArrayCables({
+  focus,
+  onSelect,
+}: {
+  focus: CableFocus | null;
+  onSelect: (s: CableFocus) => void;
+}) {
+  const turbineMap = useLandingStore((s) => s.turbineMap);
+  const fault = useLandingStore((s) => s.arrayFault);
+  // De-energised cable: ink on the storybook sea, light grey on the dark HMI map
+  const deadColor = useLayerStore((s) => s.mapTheme) === "storybook" ? "#2b2118" : "#9ca3af";
 
   return (
     <>
-      {lines.map((line) => (
-        <Polyline
-          key={line.key}
-          positions={line.positions}
-          pathOptions={{
-            color: loadColor(line.loadFrac),
-            weight: line.isCollector ? 2.4 : 1.6,
-            opacity: 0.55 + Math.min(line.loadFrac, 0.35),
-            dashArray: line.isCollector ? "6 6" : undefined,
-          }}
-        >
-          <Tooltip
-            direction="top"
-            sticky
-            offset={[0, -2]}
-            className="leaflet-cable-tooltip"
-          >
-            <div className="text-[10px] font-mono text-text-secondary">
-              <div
-                className="font-bold mb-0.5"
-                style={{ color: loadColor(line.loadFrac) }}
+      {ARRAY_SEGMENTS.map((seg) => {
+        // Fault scenario: the whole string is dead until isolation, then only
+        // the faulted section and everything beyond it.
+        // In a manual drill the location is only known after isolation
+        const located = !fault?.manual || fault.stage !== "tripped";
+        const isFaulted = located && fault?.segmentKey === seg.key;
+        const dead =
+          !!fault &&
+          fault.stringNumber === seg.stringNumber &&
+          (fault.stage === "tripped" ||
+            seg.feedIds.every((id) => fault.beyondIds.includes(id)));
+        const carriedMW = seg.feedIds.reduce(
+          (sum, id) => sum + (turbineMap[id]?.powerOutputMW ?? 0),
+          0,
+        );
+        const grade = arrayCableGrade(
+          seg.segmentFromOss,
+          stringSize(seg.stringNumber),
+        );
+        const currentA = arrayCableCurrentA(carriedMW);
+        const loadFrac = currentA / grade.ratedA;
+        const isCollector = seg.toId === "OSS";
+        const inString = focus?.stringNumber === seg.stringNumber;
+        const isFocus = focus?.key === seg.key;
+        const base = 0.55 + Math.min(loadFrac, 1) * 0.35;
+        const path = segmentPath(seg);
+        return (
+          <Fragment key={seg.key}>
+            <Polyline
+              positions={path}
+              pathOptions={{
+                color: isFaulted
+                  ? "#ef4444"
+                  : dead
+                    ? deadColor
+                    : loadColor(loadFrac),
+                weight:
+                  (isCollector ? 2.4 : 1.6) +
+                  (isFocus || isFaulted ? 2.4 : inString ? 1 : 0),
+                opacity:
+                  !focus || inString || isFaulted
+                    ? isFocus || isFaulted || dead
+                      ? 1
+                      : base
+                    : 0.18,
+                dashArray: isFaulted
+                  ? undefined
+                  : dead
+                    ? "3 5"
+                    : isCollector
+                      ? "6 6"
+                      : undefined,
+                className: isFaulted
+                  ? "array-cable-fault"
+                  : isFocus
+                    ? "array-cable-focus"
+                    : undefined,
+                interactive: false,
+              }}
+            />
+            {/* Invisible 14 px hit line — the visible cable is too thin to click */}
+            <Polyline
+              positions={path}
+              pathOptions={{ color: "#000", weight: 14, opacity: 0 }}
+              eventHandlers={{
+                click: (e) => {
+                  L.DomEvent.stopPropagation(e); // keep the map click from clearing it
+                  onSelect(seg);
+                },
+              }}
+            >
+              <Tooltip
+                direction="top"
+                sticky
+                offset={[0, -2]}
+                className="leaflet-cable-tooltip"
               >
-                {line.cumMW.toFixed(1)} MW · {(line.loadFrac * 100).toFixed(0)}%
-              </div>
-              <div className="text-text-muted">
-                {line.isCollector ? "String → OSS" : "Inter-WTG"}
-              </div>
-              <div className="text-text-muted">3×1×400mm² Cu · 66 kV</div>
-            </div>
-          </Tooltip>
-        </Polyline>
-      ))}
+                <div className="text-[10px] font-mono text-text-secondary">
+                  <div
+                    className="font-bold mb-0.5"
+                    style={{ color: loadColor(loadFrac) }}
+                  >
+                    {carriedMW.toFixed(1)} MW · {currentA.toFixed(0)} A ·{" "}
+                    {(loadFrac * 100).toFixed(0)}%
+                  </div>
+                  <div className="text-text-muted">
+                    S{seg.stringNumber} · {seg.fromId} → {seg.toId} ·{" "}
+                    {seg.lengthKm.toFixed(2)} km
+                  </div>
+                  <div className="text-text-muted">
+                    3-core {grade.mm2} mm² Cu XLPE · 66 kV · {grade.ratedA} A
+                  </div>
+                  <div className="text-text-muted">
+                    Click: show the turbines on this cable
+                  </div>
+                </div>
+              </Tooltip>
+            </Polyline>
+          </Fragment>
+        );
+      })}
     </>
+  );
+}
+
+/**
+ * OT fibre network (backend services/p3/network.py, M15): each 66 kV array
+ * cable carries a fibre element that daisy-chains the WTG IEDs back to the
+ * OSS; the export cable carries the OSS ↔ onshore fibre, backed up by a
+ * licensed microwave link.
+ */
+const FIBRE_STYLE = {
+  color: "#22d3ee",
+  weight: 1.3,
+  opacity: 0.9,
+  dashArray: "1 5",
+  interactive: false,
+};
+
+function FibreComms() {
+  return (
+    <>
+      {ARRAY_SEGMENTS.map((seg) => (
+        <Polyline
+          key={`fo-${seg.key}`}
+          positions={segmentPath(seg)}
+          pathOptions={FIBRE_STYLE}
+        />
+      ))}
+      <Polyline
+        positions={[...EXPORT_SUBSEA_PATH, ...EXPORT_LAND_PATH.slice(1)]}
+        pathOptions={{ ...FIBRE_STYLE, interactive: true }}
+      >
+        <Tooltip sticky>
+          Fibre in the export cable (OT only) · 10 Gbps · MPLS over fibre +
+          IPsec · OSS ↔ onshore
+        </Tooltip>
+      </Polyline>
+      <Polyline
+        positions={[
+          [OSS_GEO.lat, OSS_GEO.lon],
+          [ONSHORE_GEO.lat, ONSHORE_GEO.lon],
+        ]}
+        pathOptions={{
+          color: "#22d3ee",
+          weight: 1,
+          opacity: 0.55,
+          dashArray: "8 8",
+        }}
+      >
+        <Tooltip sticky>
+          Licensed microwave backup link · 100 Mbps · OSS ↔ onshore
+        </Tooltip>
+      </Polyline>
+    </>
+  );
+}
+
+/**
+ * Fault passage indicators: the WTG switchgear the fault current flowed
+ * through (OSS side of the fault) shows a yellow flag — the operator finds
+ * the faulted section just beyond the last lit one.
+ */
+const FPI_ICON = L.divIcon({
+  html: `<svg width="16" height="18" viewBox="0 0 16 18"><path d="M3 17V2" stroke="#2b2118" stroke-width="1.4"/><path d="M3 2 14 5 3 8Z" fill="#facc15" stroke="#2b2118" stroke-width="1"/></svg>`,
+  className: "leaflet-fpi",
+  iconSize: [16, 18],
+  iconAnchor: [-10, 30],
+});
+
+function FaultPassageIndicators() {
+  const fault = useLandingStore((s) => s.arrayFault);
+  if (!fault) return null;
+  return (
+    <>
+      {fault.restorableIds.map((id) => {
+        const t = POS_BY_ID.get(id)!;
+        return (
+          <Marker key={`fpi-${id}`} position={[t.lat, t.lon]} icon={FPI_ICON} zIndexOffset={1300}>
+            <Tooltip direction="right">
+              {id} · fault passage indicator lit — fault current flowed through this switchgear
+            </Tooltip>
+          </Marker>
+        );
+      })}
+    </>
+  );
+}
+
+/** Clears the cable focus on a map click or Escape. */
+function CableFocusClearer({ onClear }: { onClear: () => void }) {
+  useMapEvents({ click: onClear });
+  useEffect(() => {
+    const onKey = ({ code }: KeyboardEvent) => {
+      if (code === "Escape") onClear();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClear]);
+  return null;
+}
+
+/** Card for the clicked array cable: live load and the turbines it carries. */
+function ArrayCableCard({
+  seg,
+  onClose,
+  onSelect,
+}: {
+  seg: CableFocus;
+  onClose: () => void;
+  onSelect: (s: CableFocus) => void;
+}) {
+  // Walk the radial string like on the SLD: toward the OSS / toward the far end
+  const step = (d: number) =>
+    ARRAY_SEGMENTS.find(
+      (s) => s.stringNumber === seg.stringNumber && s.segmentFromOss === seg.segmentFromOss + d,
+    );
+  const towardOss = step(-1);
+  const awayFromOss = step(1);
+  const turbineMap = useLandingStore((s) => s.turbineMap);
+  const feeds = seg.feedIds
+    .map((id) => turbineMap[id])
+    .filter((t) => t !== undefined);
+  const carriedMW = feeds.reduce((sum, t) => sum + t.powerOutputMW, 0);
+  const grade = arrayCableGrade(
+    seg.segmentFromOss,
+    stringSize(seg.stringNumber),
+  );
+  const currentA = arrayCableCurrentA(carriedMW);
+  const loadFrac = currentA / grade.ratedA;
+  const n = stringSize(seg.stringNumber);
+  const bay = `BAY-OSS-66-0${seg.stringNumber}`;
+  const section = OSS_BUSBAR_SECTION[seg.stringNumber];
+  const fault = useLandingStore((s) => s.arrayFault);
+  const injectArrayFault = useLandingStore((s) => s.injectArrayFault);
+  const restoreArrayFault = useLandingStore((s) => s.restoreArrayFault);
+  const faultHere = fault?.stringNumber === seg.stringNumber ? fault : null;
+  const faultSeg = faultHere
+    ? ARRAY_SEGMENTS.find((x) => x.key === faultHere.segmentKey)
+    : undefined;
+  const report = useTrainingStore((s) => s.report);
+  const isolateArrayFault = useLandingStore((s) => s.isolateArrayFault);
+  useEffect(() => {
+    report({ type: "cable-selected", stringNumber: seg.stringNumber, segmentKey: seg.key });
+  }, [report, seg.key, seg.stringNumber]);
+  const isolateIn = faultHere
+    ? Math.max(
+        0,
+        Math.ceil(
+          (faultHere.trippedAt + ARRAY_FAULT_ISOLATION_MS - Date.now()) / 1000,
+        ),
+      )
+    : 0;
+
+  // During a drill the Scenario panel owns the right edge — sit beside it
+  const drill = useTrainingStore((s) => s.active !== null);
+
+  return (
+    <div
+      className={cn(
+        "absolute bottom-8 z-1000 w-80 rounded-lg border border-border-primary bg-bg-primary/95 shadow-lg shadow-black/30 backdrop-blur-sm",
+        drill ? "right-[21.5rem]" : "right-3",
+      )}
+    >
+      <div className="flex items-start justify-between border-b border-border-primary/60 px-3 py-2">
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-text-muted">
+            66 kV array cable · String S{seg.stringNumber} ({n} WTG)
+          </div>
+          <div className="font-mono text-xs font-semibold text-text-primary">
+            {seg.fromId} → {seg.toId === "OSS" ? `OSS (${bay})` : seg.toId}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded px-1.5 text-text-muted hover:bg-bg-secondary hover:text-text-primary"
+          aria-label="Close cable details"
+        >
+          ×
+        </button>
+      </div>
+      <div className="flex justify-between gap-2 border-b border-border-primary/60 px-3 py-1 text-[11px]">
+        <button
+          type="button"
+          disabled={!towardOss}
+          onClick={() => towardOss && onSelect(towardOss)}
+          className="rounded px-1.5 text-text-secondary hover:bg-bg-secondary disabled:opacity-30"
+        >
+          ◀ toward OSS
+        </button>
+        <button
+          type="button"
+          disabled={!awayFromOss}
+          onClick={() => awayFromOss && onSelect(awayFromOss)}
+          className="rounded px-1.5 text-text-secondary hover:bg-bg-secondary disabled:opacity-30"
+        >
+          next section out ▶
+        </button>
+      </div>
+      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 px-3 py-2 font-mono text-[11px] tabular-nums whitespace-nowrap">
+        <span className="text-text-muted">Load</span>
+        <span className="text-right" style={{ color: loadColor(loadFrac) }}>
+          {carriedMW.toFixed(1)} MW · {currentA.toFixed(0)} A ·{" "}
+          {(loadFrac * 100).toFixed(0)} %
+        </span>
+        <span className="text-text-muted">Cable</span>
+        <span className="text-right text-text-primary">
+          {grade.mm2} mm² Cu XLPE · {grade.ratedA} A
+        </span>
+        <span className="text-text-muted">Length (straight)</span>
+        <span className="text-right text-text-primary">
+          {seg.lengthKm.toFixed(2)} km
+        </span>
+        <span className="text-text-muted">OSS 66 kV bus</span>
+        <span className="text-right text-text-primary">
+          section {section} · TX-OSS-0{section === "A" ? 1 : 2}
+        </span>
+      </div>
+      <div className="border-t border-border-primary/60 px-3 py-2">
+        <div className="mb-1 text-[10px] uppercase tracking-wider text-text-muted">
+          Carries power + fibre (SCADA / IEC 61850) of {feeds.length} WTG
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {feeds.map((t) => (
+            <span
+              key={t.id}
+              className="rounded border px-1.5 py-0.5 font-mono text-[10px] tabular-nums"
+              style={{
+                borderColor: `${STATUS_COLOR[t.status]}80`,
+                color: STATUS_COLOR[t.status],
+              }}
+            >
+              {t.id.replace("WTG-", "")} · {t.powerOutputMW.toFixed(1)}
+            </span>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[10px] leading-snug text-text-muted">
+          Radial string: each segment carries every turbine beyond it. Feeder CB{" "}
+          {bay} at the OSS 66 kV switchboard trips the whole string.
+        </p>
+      </div>
+      <div className="border-t border-border-primary/60 px-3 py-2">
+        {!fault && (
+          <button
+            type="button"
+            onClick={() =>
+              injectArrayFault({
+                segmentKey: seg.key,
+                stringNumber: seg.stringNumber,
+                stringIds: STRINGS[seg.stringNumber - 1].map((t) => t.id),
+                beyondIds: seg.feedIds,
+              })
+            }
+            className="w-full rounded border border-[#ef4444]/60 px-2 py-1 text-[11px] font-semibold text-[#ef4444] hover:bg-[#ef4444]/10"
+          >
+            Simulate cable fault on this section
+          </button>
+        )}
+        {fault && !faultHere && (
+          <p className="text-[10px] text-text-muted">
+            Cable fault active on string S{fault.stringNumber} — open that
+            string to follow or restore it.
+          </p>
+        )}
+        {faultHere && faultSeg && (
+          <div className="space-y-1 font-mono text-[10px] leading-snug">
+            <div className="text-[#ef4444]">
+              t+0.1 s ·{" "}
+              {faultHere.manual && faultHere.stage === "tripped"
+                ? "earth fault on string"
+                : `fault ${faultSeg.fromId}→${faultSeg.toId}`}
+              : feeder CB {bay}{" "}
+              tripped (50/51, 51N) — all {n} WTG of S{seg.stringNumber} lost the
+              grid
+            </div>
+            {faultHere.stage === "tripped" && faultHere.manual ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const ok = isolateArrayFault(seg.key);
+                  report({ type: "isolate", segmentKey: seg.key, ok });
+                }}
+                className="w-full rounded border border-[#f5a623]/70 px-2 py-1 font-sans text-[11px] font-semibold text-[#f5a623] hover:bg-[#f5a623]/10"
+              >
+                Open switch &amp; isolate this section ({seg.fromId}→{seg.toId})
+              </button>
+            ) : faultHere.stage === "tripped" ? (
+              <div className="text-[#f5a623]">
+                locating fault · isolating section… (≈ {isolateIn} s,
+                time-compressed)
+              </div>
+            ) : (
+              <div className="text-[#3ecf6e]">
+                {faultSeg.toId === "OSS"
+                  ? "fault is on the feeder cable itself — the string stays off until repair"
+                  : `switch at ${faultSeg.toId} opened, CB re-closed: ${faultHere.restorableIds.length} WTG back on line`}
+              </div>
+            )}
+            <div className="text-text-muted">
+              {faultHere.beyondIds.length} WTG beyond the fault out until the
+              cable is repaired (cable-repair vessel job, weeks offshore).
+            </div>
+            <button
+              type="button"
+              onClick={restoreArrayFault}
+              className="mt-1 w-full rounded border border-[#3ecf6e]/60 px-2 py-1 font-sans text-[11px] font-semibold text-[#3ecf6e] hover:bg-[#3ecf6e]/10"
+            >
+              Repair cable & re-energise string
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -981,41 +1211,23 @@ function TurbineLabelToggler() {
   return null;
 }
 
-// ── Yaw rotation — sets CSS custom property for nacelle orientation ──
-function YawUpdater() {
-  const map = useMap();
-  const kpis = useLandingStore(selectKPIs);
-
-  useEffect(() => {
-    map
-      .getContainer()
-      .style.setProperty("--wind-yaw", `${kpis.windDirectionDeg}deg`);
-  }, [map, kpis.windDirectionDeg]);
-
-  return null;
-}
-
-// ── Zoom-dependent turbine scale — toggles CSS classes on the map container ──
-// Uses the same DOM class toggle pattern as TurbineLabelToggler.
-// CSS rules in index.css handle SVG-level transform to avoid Leaflet conflicts.
-const ZOOM_FAR_CLASS = "turbine-zoom-far";
-const ZOOM_CLOSE_CLASS = "turbine-zoom-close";
-
+// ── Zoom-dependent turbine scale — CSS var on the map container ──
+// --wtg-scale drives the icon size (index.css .wtg-svg, scaled about the hub);
+// IDs show once the icon is at least base size (≈ zoom 11.5).
 function TurbineZoomScaler() {
   const map = useMap();
 
   useEffect(() => {
-    function applyZoomClass() {
-      const z = map.getZoom();
+    function apply() {
+      const scale = turbineIconScale(map.getZoom());
       const el = map.getContainer();
-      // zoom < 11 → far (small), 11-12 → default, ≥ 13 → close (big)
-      el.classList.toggle(ZOOM_FAR_CLASS, z < 11);
-      el.classList.toggle(ZOOM_CLOSE_CLASS, z >= 13);
+      el.style.setProperty("--wtg-scale", scale.toFixed(3));
+      el.classList.toggle("wtg-labels-off", scale < 0.9);
     }
-    applyZoomClass();
-    map.on("zoomend", applyZoomClass);
+    apply();
+    map.on("zoomend", apply);
     return () => {
-      map.off("zoomend", applyZoomClass);
+      map.off("zoomend", apply);
     };
   }, [map]);
 
@@ -1058,10 +1270,13 @@ function FoundationLayer() {
 }
 
 // ── Static polyline paths (derived from constants, never change) ─
-const EXPORT_CABLE_PATH: [number, number][] = EXPORT_CABLE_GEO.map((p) => [
+const toLatLng = (p: { lat: number; lon: number }): [number, number] => [
   p.lat,
   p.lon,
-]);
+];
+/** Subsea section (OSS → landfall) and land section (landfall → onshore SS). */
+const EXPORT_SUBSEA_PATH = EXPORT_CABLE_SUBSEA_GEO.map(toLatLng);
+const EXPORT_LAND_PATH = EXPORT_CABLE_LAND_GEO.map(toLatLng);
 const PSE_GRID_PATH: [number, number][] = PSE_GRID_LINE_GEO.map((p) => [
   p.lat,
   p.lon,
@@ -1092,14 +1307,9 @@ function LeafletWindFarmMapInner({
 }: LeafletWindFarmMapProps) {
   const ossIcon = useMemo(() => createOSSIcon(totalPowerMW), [totalPowerMW]);
   const onshoreIcon = useMemo(() => createOnshoreIcon(), []);
-  // STATCOM Q derived from instantaneous total power as a deterministic stub:
-  // at low generation, the unit is in capacitive (boosting) mode to support
-  // voltage; near full output, it absorbs the natural Q overshoot. Quantised
-  // to 5 MVAr so the icon doesn't recreate on every tick.
-  const statcomQRaw =
-    ((255 - totalPowerMW) / 510) * 90;
-  const statcomQ =
-    Math.round(Math.max(-120, Math.min(120, statcomQRaw)) / 5) * 5;
+  // STATCOM Q: pandapower when the backend solves, else the reactive-balance
+  // estimate (store/liveGridStore) — the same number as the ribbon and panel.
+  const statcomQ = Math.round(useStatcomQ(totalPowerMW).q);
   const statcomIcon = useMemo(() => createSTATCOMIcon(statcomQ), [statcomQ]);
   // Grid switchyard breaker is closed whenever the farm is exporting power.
   const isExporting = totalPowerMW > 0.5;
@@ -1108,15 +1318,18 @@ function LeafletWindFarmMapInner({
     [isExporting],
   );
   // Floating LIDAR met mast — independent wind reference for resource validation.
-  // Reads farm-level wind from the KPI stream (quantised so the icon is stable).
+  // Reads the freestream (un-waked) wind from the KPI stream, rounded to 0.1 m/s.
   const farmKpis = useLandingStore(selectKPIs);
-  const lidarWindMs = Math.round(farmKpis.averageWindSpeedMs * 2) / 2;
+  const lidarWindMs = Math.round(farmKpis.freestreamWindMs * 10) / 10;
   const lidarWindDir = Math.round(farmKpis.windDirectionDeg / 5) * 5;
   const metMastIcon = useMemo(
     () => createMetMastIcon(lidarWindMs, lidarWindDir),
     [lidarWindMs, lidarWindDir],
   );
   const layers = useLayerStore((s) => s.layers);
+  const mapTheme = useLayerStore((s) => s.mapTheme);
+  const [cableFocus, setCableFocus] = useState<CableFocus | null>(null);
+  const clearCableFocus = useCallback(() => setCableFocus(null), []);
 
   const handleTurbineHover = useCallback((_id: string) => {}, []);
   const handleTurbineLeave = useCallback(() => {}, []);
@@ -1146,17 +1359,21 @@ function LeafletWindFarmMapInner({
       style={{ minHeight: 450 }}
     >
       <MapContainer
-        center={FARM_CENTER_GEO}
-        zoom={FARM_DEFAULT_ZOOM}
+        bounds={FARM_VIEW_BOUNDS}
+        boundsOptions={{ padding: [24, 24] }}
+        zoomSnap={0.25}
+        zoomDelta={0.5}
         className="w-full h-full"
-        style={{ background: "#0a1628" }}
+        style={{ background: mapTheme === "storybook" ? "#3f8d86" : "#0a1628" }}
         zoomControl={false}
-        attributionControl={false}
       >
         <InvalidateSize />
 
         {/* Custom pane for atmospheric overlays (z: 250, between tiles and markers) */}
         <AtmosphericPanes />
+
+        {/* Storybook theme demo: teal sea, inked coast, paper grain */}
+        {mapTheme === "storybook" && <StorybookSurface />}
 
         {/* Ocean wave texture (Canvas-animated sine wave crests) */}
         {layers.oceanWaves && <OceanWaveOverlay />}
@@ -1167,16 +1384,21 @@ function LeafletWindFarmMapInner({
         {/* Wind particle animation (Windy.com style) */}
         {layers.windParticles && <WindParticleOverlay />}
 
-        {/* CartoDB Dark Matter tiles — dark control room theme */}
+        {/* OpenStreetMap tiles (free, no API key), darkened via CSS filter
+            (.osm-dark-tiles) for the control room theme. ODbL requires the
+            attribution. ponytail: OSM's public tile server is for light use;
+            self-host or switch to OpenFreeMap vector tiles if traffic grows. */}
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          className="osm-dark-tiles"
           maxZoom={19}
         />
 
-        {/* Exclusion zone boundary */}
+        {/* OWF site boundary (turbine envelope + ≈ 500 m safety zone) */}
         {layers.exclusionZone && (
           <Polygon
-            positions={EXCLUSION_ZONE}
+            positions={SITE_BOUNDARY_GEO}
             pathOptions={{
               color: "rgba(59,130,246,0.4)",
               weight: 1.5,
@@ -1190,32 +1412,94 @@ function LeafletWindFarmMapInner({
         {/* Bathymetry contour lines (isobaths) */}
         {layers.bathymetry && <BathymetryLayer />}
 
+        {/* SwePol HVDC + neighbouring planned OWF areas */}
+        {layers.gridContext && <GridContext />}
+
+        {/* 500 m safety zones (UNCLOS Art. 60) */}
+        {layers.safetyZones && <SafetyZones />}
+
         {/* Jensen/Park wake effect cones + loss badges */}
         {layers.wakeEffects && <WakeEffectLayer />}
 
         {/* 66 kV array cables */}
-        {layers.arrayCables && <ArrayCables />}
+        {layers.arrayCables && (
+          <ArrayCables focus={cableFocus} onSelect={setCableFocus} />
+        )}
+        <CableFocusClearer onClear={clearCableFocus} />
 
-        {/* 2 × 220 kV export cables, drawn as one route (animated via CSS) */}
+        {/* Fault passage indicators (array cable fault) */}
+        <FaultPassageIndicators />
+
+        {/* Live AIS traffic + export cable DTS */}
+        {layers.aisTraffic && <AisTraffic />}
+        {layers.cableDts && <CableDtsLayer />}
+
+        {/* Fibre-optic SCADA network */}
+        {layers.fibreComms && <FibreComms />}
+
+        {/* IALA lights on the periphery + cardinal marks */}
+        {layers.navAids && <NavAids />}
+
+        {/* O&M vessels (SOV / CTV) */}
+        {layers.vessels && <Vessels />}
+        {layers.vessels && <RepairCrews />}
+
+        {/* 2 × 220 kV export cables — subsea section (animated dashes) */}
         <Polyline
-          positions={EXPORT_CABLE_PATH}
+          positions={EXPORT_SUBSEA_PATH}
           pathOptions={{
             color: SCADA_COLORS.VOLTAGE_220KV,
             weight: 4,
             opacity: 0.3,
+            interactive: false,
           }}
         />
         <Polyline
-          positions={EXPORT_CABLE_PATH}
+          positions={EXPORT_SUBSEA_PATH}
           pathOptions={{
             color: SCADA_COLORS.VOLTAGE_220KV,
             weight: 3,
             opacity: 0.9,
             dashArray: "8 12",
             className: "leaflet-export-cable-animated",
+            interactive: false,
           }}
-          eventHandlers={cableHandlers}
         />
+        {/* Land section — underground cable, drawn solid-thin */}
+        <Polyline
+          positions={EXPORT_LAND_PATH}
+          pathOptions={{
+            color: SCADA_COLORS.VOLTAGE_220KV,
+            weight: 2.5,
+            opacity: 0.85,
+            dashArray: "2 5",
+            interactive: false,
+          }}
+        />
+        {/* Invisible 18 px hit areas — the visible lines are too thin to click */}
+        {[EXPORT_SUBSEA_PATH, EXPORT_LAND_PATH].map((path, i) => (
+          <Polyline
+            key={i}
+            positions={path}
+            pathOptions={{ color: "#000", weight: 18, opacity: 0 }}
+            eventHandlers={cableHandlers}
+          />
+        ))}
+        {/* Landfall — transition joint pit behind the beach (HDD under the dunes) */}
+        <CircleMarker
+          center={[LANDFALL_GEO.lat, LANDFALL_GEO.lon]}
+          radius={4}
+          pathOptions={{
+            color: "#0a0e15",
+            weight: 1.5,
+            fillColor: SCADA_COLORS.VOLTAGE_220KV,
+            fillOpacity: 1,
+          }}
+        >
+          <Tooltip direction="left" offset={[-6, 0]}>
+            Landfall · Zaleskie beach (HDD) — 31.5 km subsea + 13.4 km land
+          </Tooltip>
+        </CircleMarker>
 
         {/* PSE grid connection line */}
         <Polyline
@@ -1235,11 +1519,10 @@ function LeafletWindFarmMapInner({
           zIndexOffset={1000}
         />
 
-        {/* STATCOM marker — ±120 MVAR + 3 × 80 MVAr shunt reactors (N+1) at the OSS.
-            Placed northeast of OSS so the wide single-line container icon has
-            clear water around it instead of overlapping the substation. */}
+        {/* STATCOM — ±120 MVAr on the OSS 220 kV busbar (same platform), so
+            its chip is anchored on the OSS position, drawn above the OSS chip. */}
         <Marker
-          position={[OSS_GEO.lat + 0.025, OSS_GEO.lon + 0.04]}
+          position={[OSS_GEO.lat, OSS_GEO.lon]}
           icon={statcomIcon}
           eventHandlers={statcomHandlers}
           zIndexOffset={950}
@@ -1253,26 +1536,21 @@ function LeafletWindFarmMapInner({
           zIndexOffset={1000}
         />
 
-        {/* Grid switchyard marker — between onshore SS and PSE Grid label */}
+        {/* PSE 400/110 kV substation "Słupsk Wierzbięcino" (real, OSM) */}
         <Marker
-          position={[ONSHORE_GEO.lat - 0.012, ONSHORE_GEO.lon + 0.085]}
+          position={[PSE_SUBSTATION_GEO.lat, PSE_SUBSTATION_GEO.lon]}
           icon={switchyardIcon}
           zIndexOffset={950}
         />
 
-        {/* Floating LIDAR met mast — placed in clear water northwest of the
-            turbine array, outside the marker swarm and turbine wake field.
-            zIndex above turbines so it remains discoverable.
-            Provides independent wind validation per IEC 61400-12-1. */}
+        {/* Floating LIDAR — 3 km upwind (SW) of the array for the prevailing
+            wind, so it measures freestream, not wakes. */}
         <Marker
           position={[LIDAR_GEO.lat, LIDAR_GEO.lon]}
           icon={metMastIcon}
           eventHandlers={metMastHandlers}
           zIndexOffset={1100}
         />
-
-        {/* Yaw rotation — updates CSS custom property on map container */}
-        <YawUpdater />
 
         {/* Turbine label visibility (CSS class toggle) */}
         <TurbineLabelToggler />
@@ -1294,6 +1572,15 @@ function LeafletWindFarmMapInner({
             lat={pos.lat}
             lon={pos.lon}
             isSelected={selectedTurbineId === pos.id}
+            focus={
+              cableFocus
+                ? cableFocus.feedIds.includes(pos.id)
+                  ? "feed"
+                  : pos.stringNumber === cableFocus.stringNumber
+                    ? undefined
+                    : "dim"
+                : undefined
+            }
             onHover={handleTurbineHover}
             onLeave={handleTurbineLeave}
             onClick={onTurbineClick}
@@ -1310,6 +1597,14 @@ function LeafletWindFarmMapInner({
         <MapLegend />
         <AlarmTicker />
       </div>
+
+      {/* Clicked array cable: load + the turbines it carries */}
+      {cableFocus && layers.arrayCables && (
+        <ArrayCableCard seg={cableFocus} onClose={clearCableFocus} onSelect={setCableFocus} />
+      )}
+
+      {/* Training drills + grid events */}
+      <ScenarioCenter />
 
       {/* Compass overlay */}
       <WindCompass />

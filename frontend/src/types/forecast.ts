@@ -286,3 +286,43 @@ export interface RampDetectResponse {
   grid_alerts: GridAlert[];
   regime_states: string[];
 }
+
+// ── Live training monitor (backend services/p4/training_progress) ──
+
+export type TrainingStageKey = "data" | "features" | "xgboost" | "lstm" | "tft" | "predict" | "ensemble";
+
+export interface TrainingStage {
+  key: TrainingStageKey;
+  label: string;
+  status: "pending" | "running" | "done";
+  /** 0–1 share of this stage's work done. */
+  fraction: number;
+  detail: string;
+}
+
+export interface EpochPoint {
+  fold: number;
+  epoch: number;
+  train: number;
+  val: number;
+}
+
+export interface FoldResult {
+  fold: number;
+  rmse_mw: number;
+  epochs: number;
+}
+
+export interface TrainingLive {
+  active: boolean;
+  /** 0–1 weighted over all stages. */
+  overall: number;
+  elapsed_s: number | null;
+  eta_s: number | null;
+  /** Duration of the last finished build [s] (the cached models). */
+  last_build_s: number | null;
+  stages: TrainingStage[];
+  log: { t: number; msg: string }[];
+  curves: Partial<Record<"lstm" | "tft", EpochPoint[]>>;
+  folds: Partial<Record<"xgboost" | "lstm" | "tft", FoldResult[]>>;
+}

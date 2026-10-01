@@ -25,11 +25,14 @@ Physics layers
      R_th = (90 − 15) / (950² × R_AC,90 [Ω/m] × 1.4) ≈ 2.55 K·m/W
    (per metre — the cable length does not enter the thermal balance)
 
-2. Spatial variation along 45 km route
-   Three zones with different thermal environments:
-   - Zone A (0–5 km): J-tube / landfall → higher ambient, reduced cooling → hotspot risk
-   - Zone B (5–40 km): open sea burial → uniform 12°C sea-floor, good cooling
-   - Zone C (40–45 km): shallow near-shore → seasonal temperature, summer warming
+2. Spatial variation along the real 45 km route (km measured from the OSS)
+   - J-tube on the OSS (0–0.3 km): cable in air inside a steel tube → worst cooling
+   - Subsea burial (0.3–31.0 km): ~1–2 m in seabed sediment, good cooling
+   - HDD landfall at Zaleskie (31.0–31.8 km): drilled 10–15 m under beach and dunes
+     → high soil thermal resistance, the classic onshore hotspot
+   - Land cable (31.8–45 km): direct-buried in soil to the onshore substation;
+     soil drying in summer raises R_th
+   (route geometry: frontend constants/windFarmLayout.ts, 31.5 km subsea + 13.4 km land)
 
 3. Dynamic rating
    I_dynamic = I_static × sqrt((T_max - T_ambient_actual) / (T_max - T_ambient_design))
@@ -82,6 +85,11 @@ T_CRIT = 90.0  # °C — rated limit (derating required)
 # ── Spatial thermal profile ───────────────────────────────────────────────────
 
 
+J_TUBE_END_KM = 0.3
+HDD_START_KM = 31.0
+HDD_END_KM = 31.8
+
+
 def _zone_thermal_factor(km: float) -> float:
     """
     Spatial variation in thermal environment along the 45 km route.
@@ -90,18 +98,17 @@ def _zone_thermal_factor(km: float) -> float:
     > 1.0 means hotter than average (poor cooling).
     < 1.0 means cooler than average (good cooling).
     """
-    if km <= 5.0:
-        # J-tube + landfall zone: concrete encasement, reduced cooling
-        # Linear interpolation from 1.4 at km=0 (surface) to 1.1 at km=5
-        return J_TUBE_ZONE_FACTOR - 0.06 * km
-    elif km <= 40.0:
-        # Open sea: uniform sea-floor burial, optimal cooling
-        # Small sinusoidal variation from seabed micro-topography
+    if km <= J_TUBE_END_KM:
+        # J-tube on the OSS: cable in air in a steel tube — worst spot (calibration point)
+        return J_TUBE_ZONE_FACTOR
+    if km < HDD_START_KM:
+        # Open-sea burial: small variation from seabed micro-topography / burial depth
         return 1.0 + 0.05 * math.sin(2 * math.pi * km / 8.0)
-    else:
-        # Near-shore shallow water: seasonal warming effect
-        # Gradual increase from km=40 to km=45
-        return 1.05 + 0.03 * (km - 40.0)
+    if km <= HDD_END_KM:
+        # HDD landfall: 10–15 m deep under the beach and dunes — onshore hotspot
+        return 1.3
+    # Land section: direct-buried in soil
+    return 1.1
 
 
 def _conductor_temp(
@@ -213,10 +220,12 @@ def detect_hotspots(
                 max_severity = "WARNING"
 
             km = point["distance_km"]
-            if km <= 5.0:
-                cause = "J-tube / landfall thermal bottleneck — limited convective cooling"
-            elif km >= 40.0:
-                cause = "Shallow near-shore burial — seasonal seawater warming"
+            if km <= J_TUBE_END_KM:
+                cause = "OSS J-tube — cable in air, limited convective cooling"
+            elif HDD_START_KM <= km <= HDD_END_KM:
+                cause = "HDD landfall — deep burial under beach/dunes, high soil thermal resistance"
+            elif km > HDD_END_KM:
+                cause = "Land section — soil drying raises thermal resistance"
             else:
                 cause = "Possible local burial depth anomaly or sediment blockage"
 

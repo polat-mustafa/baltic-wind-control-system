@@ -30,6 +30,7 @@ BAY-OSS-66-04: String 4 Feeder  (WTG-19 to WTG-24)
 BAY-OSS-66-05: String 5 Feeder  (WTG-25 to WTG-29)
 BAY-OSS-66-06: String 6 Feeder  (WTG-30 to WTG-34)
 (same 6-6-6-6-5-5 split as network_model.STRING_LAYOUT)
+Strings 1-3 on busbar section A, 4-6 on section B (network_model.STRING_BUSBAR_SECTION)
 BAY-OSS-66-07: Transformer A LV (66 kV side of TX-OSS-01, busbar section A)
 BAY-OSS-66-08: Bus Coupler      (tie CB, requires synchrocheck — ILK-007)
 BAY-OSS-66-09: Transformer B LV (66 kV side of TX-OSS-02, busbar section B)
@@ -71,7 +72,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-01",
         "ds_line_id": "DS-LINE-STR-01",
         "es_id": "ES-STR-01",
-        "description": "Feeds WTG-01 to WTG-06 via 66 kV array cable String 1",
+        "description": "Feeds WTG-01 to WTG-06 via 66 kV array cable String 1 (busbar section A)",
     },
     {
         "bay_id": "BAY-OSS-66-02",
@@ -83,7 +84,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-02",
         "ds_line_id": "DS-LINE-STR-02",
         "es_id": "ES-STR-02",
-        "description": "Feeds WTG-07 to WTG-12 via 66 kV array cable String 2",
+        "description": "Feeds WTG-07 to WTG-12 via 66 kV array cable String 2 (busbar section A)",
     },
     {
         "bay_id": "BAY-OSS-66-03",
@@ -95,7 +96,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-03",
         "ds_line_id": "DS-LINE-STR-03",
         "es_id": "ES-STR-03",
-        "description": "Feeds WTG-13 to WTG-18 via 66 kV array cable String 3",
+        "description": "Feeds WTG-13 to WTG-18 via 66 kV array cable String 3 (busbar section A)",
     },
     {
         "bay_id": "BAY-OSS-66-04",
@@ -107,7 +108,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-04",
         "ds_line_id": "DS-LINE-STR-04",
         "es_id": "ES-STR-04",
-        "description": "Feeds WTG-19 to WTG-24 via 66 kV array cable String 4",
+        "description": "Feeds WTG-19 to WTG-24 via 66 kV array cable String 4 (busbar section B)",
     },
     {
         "bay_id": "BAY-OSS-66-05",
@@ -119,7 +120,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-05",
         "ds_line_id": "DS-LINE-STR-05",
         "es_id": "ES-STR-05",
-        "description": "Feeds WTG-25 to WTG-29 via 66 kV array cable String 5",
+        "description": "Feeds WTG-25 to WTG-29 via 66 kV array cable String 5 (busbar section B)",
     },
     {
         "bay_id": "BAY-OSS-66-06",
@@ -131,7 +132,7 @@ _BAY_DEFINITIONS: list[dict[str, Any]] = [
         "ds_bus_id": "DS-BUS-STR-06",
         "ds_line_id": "DS-LINE-STR-06",
         "es_id": "ES-STR-06",
-        "description": "Feeds WTG-30 to WTG-34 via 66 kV array cable String 6",
+        "description": "Feeds WTG-30 to WTG-34 via 66 kV array cable String 6 (busbar section B)",
     },
     {
         "bay_id": "BAY-OSS-66-07",

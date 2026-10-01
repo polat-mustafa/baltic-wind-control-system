@@ -38,7 +38,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-900 p-8">
+        <div className="flex min-h-screen items-center justify-center bg-bg-primary p-8">
           <div className="max-w-lg rounded-lg border border-red-700 bg-red-900/30 p-6 text-center">
             <h2 className="mb-2 text-xl font-bold text-red-200">
               Something went wrong

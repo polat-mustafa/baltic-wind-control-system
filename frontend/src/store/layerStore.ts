@@ -18,11 +18,39 @@ export interface LayerVisibility {
   turbineLabels: boolean;
   bathymetry: boolean;
   dayNightTint: boolean;
+  /** 500 m safety zones around every structure (UNCLOS Art. 60) */
+  safetyZones: boolean;
+  /** IALA G1162 lights on peripheral turbines + cardinal marks */
+  navAids: boolean;
+  /** O&M vessels (SOV, CTV) — simulated, sea-state limited */
+  vessels: boolean;
+  /** SwePol HVDC link and neighbouring planned OWF areas */
+  gridContext: boolean;
+  /** Fibre-optic SCADA network (array + export FO, microwave backup) */
+  fibreComms: boolean;
+  /** Live AIS traffic (aisstream.io via backend; needs AISSTREAM_API_KEY) */
+  aisTraffic: boolean;
+  /** Export cable DTS temperature profile (IEC 60287 model) */
+  cableDts: boolean;
+}
+
+/** Map look: ISA-101 control room (default) or the hand-drawn "storybook" demo. */
+export type MapTheme = "hmi" | "storybook";
+
+const THEME_KEY = "bw.mapTheme";
+function loadTheme(): MapTheme {
+  try {
+    return localStorage.getItem(THEME_KEY) === "hmi" ? "hmi" : "storybook";
+  } catch {
+    return "storybook";
+  }
 }
 
 interface LayerState {
   layers: LayerVisibility;
   toggleLayer: (key: keyof LayerVisibility) => void;
+  mapTheme: MapTheme;
+  setMapTheme: (t: MapTheme) => void;
 }
 
 export const useLayerStore = create<LayerState>((set) => ({
@@ -36,6 +64,22 @@ export const useLayerStore = create<LayerState>((set) => ({
     turbineLabels: true,
     bathymetry: true,
     dayNightTint: true,
+    safetyZones: true,
+    navAids: true,
+    vessels: true,
+    gridContext: true,
+    fibreComms: false,
+    aisTraffic: true,
+    cableDts: false,
+  },
+  mapTheme: loadTheme(),
+  setMapTheme: (mapTheme) => {
+    try {
+      localStorage.setItem(THEME_KEY, mapTheme);
+    } catch {
+      // private mode / blocked storage: theme just isn't remembered
+    }
+    set({ mapTheme });
   },
   toggleLayer: (key) =>
     set((state) => ({

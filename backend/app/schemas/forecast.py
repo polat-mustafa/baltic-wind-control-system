@@ -8,6 +8,8 @@ constraint enforcement, XGBoost forecasting, and LSTM forecasting.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 # ── Power Curve Schemas ───────────────────────────────────────────
@@ -588,6 +590,10 @@ class TaskStatusResponse(BaseModel):
         default=None, description="Full forecast result when status='completed'"
     )
     error: str | None = Field(default=None, description="Error message when status='failed'")
+    live: dict[str, Any] | None = Field(
+        default=None,
+        description="Live training monitor: stages, losses, log, ETA",
+    )
 
 
 # ── Ramp Detection Schemas ───────────────────────────────────────

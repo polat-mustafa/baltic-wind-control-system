@@ -15,6 +15,7 @@
 
 import type { TurbinePartId } from "../constants/turbinePartEducation";
 import type { TurbineData } from "../types/landing";
+import { v236PowerMW } from "./landingPhysics";
 
 export interface CurtailmentInfo {
   reason: "high_wind" | "grid_dispatch" | "unknown";
@@ -22,16 +23,6 @@ export interface CurtailmentInfo {
   explanation: string;
   affectedPart: TurbinePartId;
   educationalNote: string;
-}
-
-/** Simple power curve approximation for expected output at a given wind speed */
-function expectedPowerMW(windSpeedMs: number): number {
-  if (windSpeedMs < 3) return 0;        // below cut-in
-  if (windSpeedMs > 31) return 0;        // above cut-out
-  if (windSpeedMs >= 12.5) return 15.0;  // rated
-  // Cubic interpolation between cut-in and rated
-  const fraction = (windSpeedMs - 3) / (12.5 - 3);
-  return 15.0 * Math.pow(fraction, 3);
 }
 
 export function inferCurtailment(turbine: TurbineData): CurtailmentInfo | null {
@@ -50,7 +41,7 @@ export function inferCurtailment(turbine: TurbineData): CurtailmentInfo | null {
   }
 
   // 2. Grid dispatch curtailment: power well below expected at moderate wind
-  const expected = expectedPowerMW(turbine.windSpeedMs);
+  const expected = v236PowerMW(turbine.windSpeedMs);
   if (
     turbine.windSpeedMs >= 5 &&
     turbine.windSpeedMs <= 20 &&

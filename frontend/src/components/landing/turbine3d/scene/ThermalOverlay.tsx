@@ -33,6 +33,7 @@ import { useMemo } from "react";
 import * as THREE from "three";
 
 import { selectTurbine, useLandingStore } from "../../../../store/landingStore";
+import { onShaft, PARTS, SHAFT_Z } from "../model/layout";
 import {
   selectNacelleData,
   useNacelleSubsystemsStore,
@@ -84,49 +85,42 @@ interface HotSpot {
 const HOT_SPOTS: HotSpot[] = [
   {
     label: "Main Bearing",
-    position: [0, 150, 1.5],
+    position: onShaft(SHAFT_Z.bearingUnit),
     tMin: 20,
     tRise: 25,
     radius: 1.4,
   },
   {
     label: "Gearbox HS Bearing",
-    position: [0, 150, -1.8],
+    position: onShaft(SHAFT_Z.gearboxStage[2]),
     tMin: 25,
     tRise: 40,
     radius: 1.2,
   },
   {
     label: "Generator Windings",
-    position: [0, 150, -5.2],
+    position: PARTS.generator,
     tMin: 30,
     tRise: 50,
     radius: 2.0,
   },
   {
-    label: "Converter (Port)",
-    position: [-3.5, 149, -3.0],
-    tMin: 25,
-    tRise: 30,
-    radius: 0.9,
-  },
-  {
-    label: "Converter (Stbd)",
-    position: [3.5, 149, -3.0],
+    label: "Converter",
+    position: PARTS.converter,
     tMin: 25,
     tRise: 30,
     radius: 0.9,
   },
   {
     label: "Transformer",
-    position: [0, 148.5, -11.0],
+    position: [PARTS.transformer[0], PARTS.transformer[1] + 0.5, PARTS.transformer[2]],
     tMin: 30,
     tRise: 45,
     radius: 1.3,
   },
   {
     label: "Oil Cooler Inlet",
-    position: [4.6, 151.5, -3.0],
+    position: PARTS.oilCooler,
     tMin: 20,
     tRise: 45,
     radius: 0.8,

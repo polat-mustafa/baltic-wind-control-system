@@ -36,11 +36,11 @@ export default function PiCDecisionPanel() {
   const currentStep = steps[current_step_index] ?? null;
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-700">
+      <div className="px-4 py-3 border-b border-border-primary">
         <h3 className="text-sm font-semibold">PiC Decision Panel</h3>
-        <p className="text-xs text-slate-400 mt-0.5">
+        <p className="text-xs text-text-muted mt-0.5">
           Person in Control: <span className="text-white font-medium">{pic_name}</span>
         </p>
       </div>
@@ -48,7 +48,7 @@ export default function PiCDecisionPanel() {
       <div className="p-4 space-y-4">
         {/* Programme status */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">Programme Status:</span>
+          <span className="text-xs text-text-muted">Programme Status:</span>
           <span
             className="text-xs font-bold uppercase px-2 py-0.5 rounded"
             style={{
@@ -76,7 +76,7 @@ export default function PiCDecisionPanel() {
             <div className="font-medium text-amber-400 mb-1">
               Hold Point — PiC Decision Required
             </div>
-            <div className="text-xs text-slate-300">
+            <div className="text-xs text-text-secondary">
               Step {currentStep.step_id}: {currentStep.action}
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function PiCDecisionPanel() {
           <button
             onClick={() => picDecision("go", pic_name)}
             disabled={!isHold}
-            className="flex-1 py-2 bg-green-700 hover:bg-green-600 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed rounded text-sm font-bold uppercase transition-colors"
+            className="flex-1 py-2 bg-green-700 hover:bg-green-600 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed rounded text-sm font-bold uppercase transition-colors"
           >
             GO
           </button>
@@ -98,7 +98,7 @@ export default function PiCDecisionPanel() {
               onChange={(e) => setNogoReason(e.target.value)}
               placeholder="NO-GO reason..."
               disabled={!isHold}
-              className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-xs text-white placeholder-slate-500 disabled:opacity-50 focus:outline-none focus:border-red-500"
+              className="w-full px-2 py-1 bg-bg-tertiary border border-border-secondary rounded text-xs text-white placeholder-slate-500 disabled:opacity-50 focus:outline-none focus:border-red-500"
             />
             <button
               onClick={() => {
@@ -108,7 +108,7 @@ export default function PiCDecisionPanel() {
                 }
               }}
               disabled={!isHold || !nogoReason.trim()}
-              className="py-2 bg-red-700 hover:bg-red-600 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed rounded text-sm font-bold uppercase transition-colors"
+              className="py-2 bg-red-700 hover:bg-red-600 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed rounded text-sm font-bold uppercase transition-colors"
             >
               NO-GO
             </button>
@@ -129,7 +129,7 @@ export default function PiCDecisionPanel() {
         )}
 
         {/* Emergency Stop — always visible */}
-        <div className="border-t border-slate-700 pt-4">
+        <div className="border-t border-border-primary pt-4">
           {!showEstop ? (
             <button
               onClick={() => setShowEstop(true)}
@@ -169,7 +169,7 @@ export default function PiCDecisionPanel() {
                 </button>
                 <button
                   onClick={() => { setShowEstop(false); setEstopReason(""); }}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm transition-colors"
+                  className="px-4 py-2 bg-bg-tertiary hover:bg-slate-600 rounded text-sm transition-colors"
                 >
                   Cancel
                 </button>

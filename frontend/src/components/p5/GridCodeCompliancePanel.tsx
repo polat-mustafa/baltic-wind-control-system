@@ -113,7 +113,7 @@ function buildNodesAndEdges(
         label: (
           <div className="text-center">
             <div className="font-bold text-sm">{STAGE_LABELS[stage]}</div>
-            <div className="text-[9px] text-slate-400 mt-0.5">
+            <div className="text-[9px] text-text-muted mt-0.5">
               {STAGE_FULL_NAMES[stage]}
             </div>
             <div
@@ -177,7 +177,7 @@ function buildNodesAndEdges(
               />
               <div>
                 <div className="text-[10px] font-medium">{test.test_id}</div>
-                <div className="text-[9px] text-slate-400 truncate max-w-[150px]">
+                <div className="text-[9px] text-text-muted truncate max-w-[150px]">
                   {test.name}
                 </div>
               </div>
@@ -239,7 +239,7 @@ function buildNodesAndEdges(
           <div className="font-bold text-sm">
             {campaign.cod_achieved ? "COD" : "COD"}
           </div>
-          <div className="text-[9px] text-slate-400">
+          <div className="text-[9px] text-text-muted">
             Commercial Operation Date
           </div>
           {campaign.cod_achieved && campaign.cod_date && (
@@ -300,14 +300,14 @@ export default function GridCodeCompliancePanel() {
     : { nodes: [], edges: [] };
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
-      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">
+    <div className="bg-bg-secondary border border-border-primary rounded-lg p-4">
+      <h3 className="text-sm font-bold uppercase tracking-wider text-text-secondary mb-3">
         Grid Code Compliance (EON/ION/FON)
       </h3>
 
       {!complianceCampaign ? (
         <div className="text-center py-6">
-          <p className="text-xs text-slate-500 mb-3">
+          <p className="text-xs text-text-muted mb-3">
             No compliance campaign created yet.
           </p>
           <button
@@ -318,7 +318,7 @@ export default function GridCodeCompliancePanel() {
           </button>
         </div>
       ) : (
-        <div className="h-[450px] bg-slate-900 rounded border border-slate-700">
+        <div className="h-[450px] bg-bg-primary rounded border border-border-primary">
           <ReactFlow
             nodes={nodes}
             edges={edges}

@@ -1,7 +1,7 @@
 /**
  * Tests for the layer visibility Zustand store.
  *
- * Verifies that all 9 layer toggles start true, that toggleLayer
+ * Verifies the 16 layer toggles' defaults (all on except the fibre overlay), that toggleLayer
  * flips a single layer, and that toggling twice restores the original.
  */
 
@@ -19,19 +19,26 @@ const ALL_LAYER_KEYS: (keyof LayerVisibility)[] = [
   "turbineLabels",
   "bathymetry",
   "dayNightTint",
+  "safetyZones",
+  "navAids",
+  "vessels",
+  "gridContext",
+  "aisTraffic",
 ];
 
 describe("initial state", () => {
-  it("has all 9 layers set to true", () => {
+  it("has every layer on except the fibre and DTS overlays", () => {
     const { layers } = useLayerStore.getState();
     for (const key of ALL_LAYER_KEYS) {
       expect(layers[key]).toBe(true);
     }
   });
 
-  it("has exactly 9 layer keys", () => {
+  it("has exactly 16 layer keys", () => {
     const { layers } = useLayerStore.getState();
-    expect(Object.keys(layers)).toHaveLength(9);
+    expect(Object.keys(layers)).toHaveLength(16);
+    expect(layers.fibreComms).toBe(false);
+    expect(layers.cableDts).toBe(false);
   });
 });
 

@@ -7,7 +7,8 @@
  *     (no finite-difference approximation) → correct lighting.
  *   - Fragment shader blends deep-water colour (#041424) with crest colour (#3a5872),
  *     adds Fresnel rim brightness and foam near steep crests.
- *   - Wave amplitude scales with `windSpeed` uniform (live from landingStore).
+ *   - Sea state from landingStore: Hs sets amplitudes (Σa² = Hs²/8), Tp sets the
+ *     peak wavelength (deep water λp = g·Tp²/2π ≈ 56 m at Tp 6 s), waves travel downwind.
  *
  * Performance:
  *   - Plane is 300×300 segments on a 600×600 m patch (~90k verts). With analytic normals
@@ -34,71 +35,71 @@ const SEA_COLORS_BY_PRESET: Record<SkyPreset, { deep: string; shallow: string; c
 
 const VERTEX_SHADER = /* glsl */ `
   uniform float uTime;
-  uniform float uWindSpeed;
+  uniform float uHs;       // significant wave height [m]
+  uniform float uLambdaP;  // peak wavelength [m], deep water: g·Tp²/2π
+  uniform vec2 uDir;       // mean travel direction (downwind), plane-local xy
 
   varying vec3 vWorldPos;
   varying vec3 vNormal;
   varying float vFoam;
+  #include <fog_pars_vertex>
 
-  // Four Gerstner waves. Each is (directionX, directionY, wavelength, steepness, speed).
-  // Directions sum to a mix of perpendicular chop, giving irregular sea.
-  const vec4 W0 = vec4( 0.85,  0.52, 18.0, 0.45);   // long swell from NE
-  const vec4 W1 = vec4(-0.62,  0.78, 10.0, 0.40);   // cross chop
-  const vec4 W2 = vec4( 0.30, -0.95,  5.0, 0.35);   // short wind-wave
-  const vec4 W3 = vec4(-0.95, -0.30,  2.8, 0.32);   // ripple
+  // Four Gerstner components around the spectral peak: (angle off mean
+  // direction [rad], wavelength / λp, amplitude weight). Σ a_i² = Hs²/8
+  // (Hs = 4·σ_η). λ is floored at 22 m: the mesh spacing is 7.5 m, shorter
+  // waves alias into noise (short chop is added as fragment normal detail).
+  const vec3 C0 = vec3( 0.00, 1.00, 0.62);
+  const vec3 C1 = vec3( 0.45, 0.72, 0.48);
+  const vec3 C2 = vec3(-0.55, 0.48, 0.45);
+  const vec3 C3 = vec3( 0.95, 0.30, 0.42);
 
-  vec3 gerstner(vec2 xz, vec4 wave, float amp, float t, inout vec3 nrm) {
-    vec2 dir = normalize(wave.xy);
-    float wavelen = wave.z;
-    float steep = wave.w;
-    float speed = sqrt(9.81 * (6.2831853 / wavelen)); // deep-water dispersion
+  vec3 gerstner(vec2 xz, vec3 c, float aScale, inout vec3 nrm) {
+    float ang = c.x;
+    vec2 dir = vec2(uDir.x * cos(ang) - uDir.y * sin(ang), uDir.x * sin(ang) + uDir.y * cos(ang));
+    float wavelen = max(uLambdaP * c.y, 34.0);
     float k = 6.2831853 / wavelen;
-    float a = amp * steep / k;
-    float f = k * dot(dir, xz) - speed * t;
+    float omega = sqrt(9.81 * k);                 // deep-water dispersion
+    float a = aScale * c.z;
+    float q = min(0.55 / (k * a * 4.0 + 1e-4), 1.0); // Gerstner steepness, no loops
+    float f = k * dot(dir, xz) - omega * uTime;
     float cosF = cos(f);
     float sinF = sin(f);
-
-    vec3 disp = vec3(dir.x * a * cosF, a * sinF, dir.y * a * cosF);
-
-    // Analytic derivative — accumulate into normal
-    nrm.x -= dir.x * k * a * cosF;
-    nrm.z -= dir.y * k * a * cosF;
-    nrm.y -= steep * sinF;
-    return disp;
+    float wa = k * a;
+    nrm.x -= dir.x * wa * cosF;
+    nrm.z -= dir.y * wa * cosF;
+    nrm.y -= q * wa * sinF;
+    return vec3(q * a * dir.x * cosF, a * sinF, q * a * dir.y * cosF);
   }
 
   void main() {
     vec3 pos = position;
-    // Plane is rotated -π/2 around X so local Z becomes world Y (up).
-    // Before rotation, XY are horizontal. We do wave math in horizontal xz plane.
+    // Plane is rotated -π/2 around X: local xy is horizontal, local z is up.
     vec2 xz = pos.xy;
+    // Normalise weights so that Σ a_i² = Hs²/8
+    float aScale = uHs / sqrt(8.0 * (C0.z*C0.z + C1.z*C1.z + C2.z*C2.z + C3.z*C3.z));
 
-    // Wave amplitude scales with wind: 0.3 m at 5 m/s → 2.0 m at 20 m/s.
-    float amp = clamp(uWindSpeed * 0.1, 0.3, 2.0);
-
-    vec3 n = vec3(0.0, 1.0, 0.0);
+    vec3 n = vec3(0.0, 1.0, 0.0);   // (local x, up, local y)
     vec3 disp = vec3(0.0);
-    disp += gerstner(xz, W0, amp,       uTime, n);
-    disp += gerstner(xz, W1, amp * 0.7, uTime, n);
-    disp += gerstner(xz, W2, amp * 0.5, uTime, n);
-    disp += gerstner(xz, W3, amp * 0.3, uTime, n);
+    disp += gerstner(xz, C0, aScale, n);
+    disp += gerstner(xz, C1, aScale, n);
+    disp += gerstner(xz, C2, aScale, n);
+    disp += gerstner(xz, C3, aScale, n);
 
-    // Apply displacement. Local Z is vertical in plane-local space, X/Y are horizontal.
     pos.x += disp.x;
-    pos.y += disp.z;        // horizontal shift along the other axis
-    pos.z += disp.y;        // local Z ← vertical displacement
+    pos.y += disp.z;
+    pos.z += disp.y;
 
     vec4 worldPos = modelMatrix * vec4(pos, 1.0);
     vWorldPos = worldPos.xyz;
+    // local y maps to world -z under the plane rotation
+    vNormal = normalize(vec3(n.x, n.y, -n.z));
 
-    // Rotate analytic normal back to world (the mesh is rotated -π/2 around X).
-    vNormal = normalize(vec3(n.x, n.y, n.z));
-    vNormal = (modelMatrix * vec4(vNormal, 0.0)).xyz;
+    // Foam near crests: elevation above ~0.35 Hs
+    vFoam = smoothstep(0.25, 0.6, disp.y / max(uHs, 0.1));
 
-    // Foam factor — strong when horizontal displacement is high (wave crest)
-    vFoam = smoothstep(0.35, 0.80, length(disp.xz) / max(amp, 0.1));
-
-    gl_Position = projectionMatrix * viewMatrix * worldPos;
+    vec4 mvPosition = viewMatrix * worldPos;
+    gl_Position = projectionMatrix * mvPosition;
+    #include <fog_vertex>
   }
 `;
 
@@ -113,6 +114,7 @@ const FRAGMENT_SHADER = /* glsl */ `
   varying vec3 vWorldPos;
   varying vec3 vNormal;
   varying float vFoam;
+  #include <fog_pars_fragment>
 
   // Cheap 2D hash for foam texture noise
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -125,7 +127,17 @@ const FRAGMENT_SHADER = /* glsl */ `
   }
 
   void main() {
-    vec3 n = normalize(vNormal);
+    // Short wind-sea chop (~2–8 m) as normal detail only: geometry can't
+    // resolve it; fades out with distance to avoid shimmering.
+    vec2 p = vWorldPos.xz;
+    float e = 0.6;
+    vec2 q1 = p * 0.18 + uTime * vec2(0.20, 0.13);
+    vec2 q2 = p * 0.47 - uTime * vec2(0.11, 0.27);
+    float h0 = noise(q1) + 0.5 * noise(q2);
+    float hx = noise(q1 + vec2(e * 0.18, 0.0)) + 0.5 * noise(q2 + vec2(e * 0.47, 0.0));
+    float hz = noise(q1 + vec2(0.0, e * 0.18)) + 0.5 * noise(q2 + vec2(0.0, e * 0.47));
+    float fade = 1.0 - smoothstep(150.0, 700.0, length(uCameraPos - vWorldPos));
+    vec3 n = normalize(vNormal + vec3(h0 - hx, 0.0, h0 - hz) * 0.9 * fade);
     vec3 viewDir = normalize(uCameraPos - vWorldPos);
     vec3 lightDir = normalize(uSunDirection);
 
@@ -148,11 +160,12 @@ const FRAGMENT_SHADER = /* glsl */ `
 
     // Foam at wave crests — animated noise. Kept subtle so the whole surface
     // does not glow white under strong wind.
-    float foamPattern = noise(vWorldPos.xz * 0.4 + uTime * 0.15);
+    float foamPattern = noise(vWorldPos.xz * 0.9 + uTime * 0.15) * noise(vWorldPos.xz * 0.23 - uTime * 0.05) * 1.6;
     float foam = clamp(vFoam * 1.0 - 0.45, 0.0, 1.0) * smoothstep(0.45, 0.90, foamPattern);
-    col = mix(col, vec3(0.82, 0.86, 0.92), foam * 0.7);
+    col = mix(col, vec3(0.82, 0.86, 0.92), foam * 0.3);
 
     gl_FragColor = vec4(col, 0.95);
+    #include <fog_fragment>
   }
 `;
 
@@ -161,7 +174,7 @@ export function SeaPlane() {
   const skyPreset = useLandingStore(selectSkyPreset);
 
   const geometry = useMemo(
-    () => new THREE.PlaneGeometry(900, 900, 220, 220),
+    () => new THREE.PlaneGeometry(7000, 7000, 520, 520),
     [],
   );
 
@@ -170,9 +183,13 @@ export function SeaPlane() {
     return new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
+      fog: true,
       uniforms: {
+        ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
         uTime:          { value: 0 },
-        uWindSpeed:     { value: 11 },
+        uHs:            { value: 1.2 },
+        uLambdaP:       { value: 56 },
+        uDir:           { value: new THREE.Vector2(0.7, 0.7) },
         uDeepColor:     { value: new THREE.Color(initial.deep) },
         uShallowColor:  { value: new THREE.Color(initial.shallow) },
         uCrestColor:    { value: new THREE.Color(initial.crest) },
@@ -198,13 +215,25 @@ export function SeaPlane() {
     matRef.current.uniforms.uTime.value = clock.getElapsedTime();
     matRef.current.uniforms.uCameraPos.value.copy(camera.position);
 
-    // Pull wind speed from env for responsive wave amplitude
-    const env = useLandingStore.getState().environment;
-    matRef.current.uniforms.uWindSpeed.value =
-      (env.significantWaveHeightM * 8.0) || 11.0; // derive from Hs
+    // Sea state from the environment: Hs, Tp → λp = g·Tp²/2π, and waves
+    // travel downwind. Scene yaw convention puts bearing θ at world
+    // (−sin θ, cos θ) in xz; downwind is the opposite, and the plane's
+    // local y is world −z, so local travel direction = (sin θ, cos θ).
+    const { environment: env, kpis } = useLandingStore.getState();
+    const u = matRef.current.uniforms;
+    u.uHs.value = Math.max(env.significantWaveHeightM, 0.1);
+    u.uLambdaP.value = (9.81 * env.wavePeriodS ** 2) / (2 * Math.PI);
+    const th = (kpis.windDirectionDeg * Math.PI) / 180;
+    u.uDir.value.set(Math.sin(th), Math.cos(th));
   });
 
   return (
+    <>
+    {/* Far sea to the horizon: flat, fogged — the wave patch ends at 1.5 km */}
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -6, 0]} renderOrder={-2}>
+      <circleGeometry args={[14000, 96]} />
+      <meshStandardMaterial color="#0d2c3d" roughness={0.35} metalness={0.1} />
+    </mesh>
     <mesh
       geometry={geometry}
       rotation={[-Math.PI / 2, 0, 0]}
@@ -213,5 +242,6 @@ export function SeaPlane() {
     >
       <primitive ref={matRef} object={material} attach="material" />
     </mesh>
+    </>
   );
 }

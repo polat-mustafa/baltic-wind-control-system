@@ -35,6 +35,7 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 
 import type { TurbinePartId } from "../../../../constants/turbinePartEducation";
+import { onShaft, PARTS, SHAFT_Z } from "../model/layout";
 import {
   selectTurbinePart,
   useLandingStore,
@@ -71,22 +72,22 @@ const SENSOR_EMISSIVE: Record<SensorType, string> = {
 };
 
 const SENSORS: Sensor[] = [
-  { id: "ms-bearing-temp",    label: "Main Bearing Temp (PT100)",   type: "temperature", position: [0.8, 151.0,  1.5], partId: "bearing"   },
-  { id: "ms-bearing-vib",     label: "Main Bearing Vibration",      type: "vibration",   position: [-0.8, 151.2, 1.5], partId: "bearing"   },
-  { id: "gb-hs-bear-temp",    label: "Gearbox HS Bearing Temp",     type: "temperature", position: [0.7, 150.8, -1.5], partId: "gearbox"   },
-  { id: "gb-oil-temp",        label: "Gearbox Oil Temp (PT100)",    type: "temperature", position: [-0.7, 150.5, -2.0], partId: "gearbox"  },
-  { id: "gb-vib",             label: "Gearbox Vibration (IEPE)",    type: "vibration",   position: [0.0, 151.0, -1.8], partId: "gearbox"   },
-  { id: "gen-winding-temp",   label: "Gen Winding Temp U-phase",    type: "temperature", position: [1.2, 151.0, -5.0], partId: "generator" },
-  { id: "gen-bearing-temp",   label: "Gen Drive-End Bearing Temp",  type: "temperature", position: [-1.2, 150.8, -5.0], partId: "generator"},
-  { id: "gen-vib",            label: "Gen Housing Vibration",       type: "vibration",   position: [0.0, 151.5, -5.5], partId: "generator" },
-  { id: "hpu-pressure",       label: "HPU Line Pressure",           type: "pressure",    position: [3.0, 148.5,  2.0], partId: "hpu"       },
-  { id: "pitch-pressure",     label: "Pitch Cylinder Pressure",     type: "pressure",    position: [2.0, 149.0,  2.5], partId: "hpu"       },
-  { id: "conv-p-temp",        label: "Converter (Port) Temp",       type: "temperature", position: [-3.5, 150.0, -3.0], partId: "converter"},
-  { id: "conv-s-temp",        label: "Converter (Stbd) Temp",       type: "temperature", position: [ 3.5, 150.0, -3.0], partId: "converter"},
-  { id: "trafo-temp",         label: "Transformer Core Temp",       type: "temperature", position: [0.0, 149.5, -11.5], partId: "transformer"},
+  { id: "ms-bearing-temp",    label: "Main Bearing Temp (PT100)",   type: "temperature", position: onShaft(SHAFT_Z.frontBearing, 0.9, 1.4), partId: "bearing"   },
+  { id: "ms-bearing-vib",     label: "Main Bearing Vibration",      type: "vibration",   position: onShaft(SHAFT_Z.rearBearing, 0.9, 1.3), partId: "bearing"   },
+  { id: "gb-hs-bear-temp",    label: "Gearbox HS Bearing Temp",     type: "temperature", position: onShaft(SHAFT_Z.gearboxStage[2], 1.2, 1.4), partId: "gearbox"   },
+  { id: "gb-oil-temp",        label: "Gearbox Oil Temp (PT100)",    type: "temperature", position: onShaft(SHAFT_Z.gearbox, 0.6, -1.9), partId: "gearbox"  },
+  { id: "gb-vib",             label: "Gearbox Vibration (IEPE)",    type: "vibration",   position: onShaft(SHAFT_Z.gearboxStage[0], 0.4, 1.9), partId: "gearbox"   },
+  { id: "gen-winding-temp",   label: "Gen Winding Temp U-phase",    type: "temperature", position: onShaft(SHAFT_Z.generator, 1.2, 1.5), partId: "generator" },
+  { id: "gen-bearing-temp",   label: "Gen Drive-End Bearing Temp",  type: "temperature", position: onShaft(SHAFT_Z.generator + 0.8, 0.3, 1.9), partId: "generator"},
+  { id: "gen-vib",            label: "Gen Housing Vibration",       type: "vibration",   position: onShaft(SHAFT_Z.generator - 0.6, 0.0, 2.0), partId: "generator" },
+  { id: "hpu-pressure",       label: "HPU Line Pressure",           type: "pressure",    position: [PARTS.hpu[0], PARTS.hpu[1] + 0.8, PARTS.hpu[2]], partId: "hpu"       },
+  { id: "pitch-pressure",     label: "Pitch Cylinder Pressure",     type: "pressure",    position: [PARTS.hpu[0] - 0.8, PARTS.hpu[1] + 0.6, PARTS.hpu[2] + 0.4], partId: "hpu"       },
+  { id: "conv-p-temp",        label: "Converter (Port) Temp",       type: "temperature", position: [PARTS.converter[0] + 0.5, PARTS.converter[1] + 1.3, PARTS.converter[2] + 1.0], partId: "converter"},
+  { id: "conv-s-temp",        label: "Converter (Stbd) Temp",       type: "temperature", position: [PARTS.converter[0] + 0.5, PARTS.converter[1] + 1.3, PARTS.converter[2] - 1.0], partId: "converter"},
+  { id: "trafo-temp",         label: "Transformer Core Temp",       type: "temperature", position: [PARTS.transformer[0], PARTS.transformer[1] + 1.5, PARTS.transformer[2] - 0.5], partId: "transformer"},
   { id: "yaw-encoder",        label: "Nacelle Position Encoder",    type: "encoder",     position: [0.0, 148.0, 3.0],   partId: "yaw"      },
-  { id: "yaw-twist",          label: "Cable Twist Counter",         type: "encoder",     position: [0.5, 148.2, 0.0],   partId: "cable_routing"},
-  { id: "wind-speed",         label: "Nacelle Anemometer",          type: "encoder",     position: [0.0, 157.5, -6.0],  partId: "anemometer"},
+  { id: "yaw-twist",          label: "Cable Twist Counter",         type: "encoder",     position: [0.5, 147.6, 0.0],   partId: "cable_routing"},
+  { id: "wind-speed",         label: "Nacelle Anemometer",          type: "encoder",     position: [0.0, 158.5, -6.0],  partId: "anemometer"},
 ];
 
 /** Callout-leader sensor IDs — always-on labels for key education sensors. */
@@ -99,7 +100,7 @@ const LOD_HIDE = 80;
 const LOD_LABEL = 40;
 
 // Centroid used for the aggregated cluster glyph at long distances.
-const NACELLE_CENTROID: [number, number, number] = [0, 150.6, -3.5];
+const NACELLE_CENTROID: [number, number, number] = PARTS.gearbox;
 
 export function SensorMarkers({ onSelectPart }: SensorMarkersProps) {
   const { camera } = useThree();

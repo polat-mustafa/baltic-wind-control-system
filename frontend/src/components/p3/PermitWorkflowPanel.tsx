@@ -204,8 +204,8 @@ export default function PermitWorkflowPanel() {
         {/* Permit control panel */}
         <div className="space-y-4">
           {/* Create permit form */}
-          <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+          <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
+            <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
               Create New Permit
             </h3>
             <div className="space-y-2">
@@ -214,21 +214,21 @@ export default function PermitWorkflowPanel() {
                 value={workDesc}
                 onChange={(e) => setWorkDesc(e.target.value)}
                 placeholder="Work description"
-                className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-sm text-slate-300 focus:border-blue-500 focus:outline-none"
+                className="w-full bg-bg-primary border border-border-secondary rounded px-3 py-1.5 text-sm text-text-secondary focus:border-blue-500 focus:outline-none"
               />
               <input
                 type="text"
                 value={equipmentId}
                 onChange={(e) => setEquipmentId(e.target.value)}
                 placeholder="Equipment ID"
-                className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-sm text-slate-300 focus:border-blue-500 focus:outline-none"
+                className="w-full bg-bg-primary border border-border-secondary rounded px-3 py-1.5 text-sm text-text-secondary focus:border-blue-500 focus:outline-none"
               />
               <input
                 type="text"
                 value={requestedBy}
                 onChange={(e) => setRequestedBy(e.target.value)}
                 placeholder="Requested by"
-                className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-sm text-slate-300 focus:border-blue-500 focus:outline-none"
+                className="w-full bg-bg-primary border border-border-secondary rounded px-3 py-1.5 text-sm text-text-secondary focus:border-blue-500 focus:outline-none"
               />
               <button
                 onClick={handleCreate}
@@ -241,13 +241,13 @@ export default function PermitWorkflowPanel() {
 
           {/* Active permit detail */}
           {activePermit && (
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
+              <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
                 {activePermit.ptw_number}
               </h3>
               <div className="space-y-1 text-xs mb-3">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Status</span>
+                  <span className="text-text-muted">Status</span>
                   <span
                     className="font-mono font-bold"
                     style={{ color: SCADA_COLORS.WARNING }}
@@ -257,14 +257,14 @@ export default function PermitWorkflowPanel() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Equipment</span>
-                  <span className="text-slate-300 font-mono">
+                  <span className="text-text-muted">Equipment</span>
+                  <span className="text-text-secondary font-mono">
                     {activePermit.equipment_id}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Requested by</span>
-                  <span className="text-slate-300">
+                  <span className="text-text-muted">Requested by</span>
+                  <span className="text-text-secondary">
                     {activePermit.requested_by}
                   </span>
                 </div>
@@ -273,19 +273,19 @@ export default function PermitWorkflowPanel() {
               {/* Transition buttons */}
               {activePermit.next_allowed_transitions.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] text-slate-500 uppercase">
+                  <p className="text-[10px] text-text-muted uppercase">
                     Available Transitions
                   </p>
                   {activePermit.next_allowed_transitions.map((t) => (
                     <button
                       key={t.target_status}
                       onClick={() => handleTransition(t.target_status)}
-                      className="w-full py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs transition-colors text-left px-3"
+                      className="w-full py-1.5 bg-bg-tertiary hover:bg-slate-600 rounded text-xs transition-colors text-left px-3"
                     >
-                      <span className="text-slate-300">
+                      <span className="text-text-secondary">
                         {t.target_status.replace(/_/g, " ")}
                       </span>
-                      <span className="text-slate-500 ml-2">
+                      <span className="text-text-muted ml-2">
                         ({t.required_permission})
                       </span>
                     </button>
@@ -297,20 +297,20 @@ export default function PermitWorkflowPanel() {
 
           {/* Recent permits */}
           {permitList && permitList.permits.length > 0 && (
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
+              <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
                 Recent Permits ({permitList.total})
               </h3>
               <div className="space-y-1 max-h-[120px] overflow-y-auto">
                 {permitList.permits.slice(0, 5).map((p) => (
                   <div
                     key={p.id}
-                    className="flex justify-between text-xs py-1 border-b border-slate-700/50"
+                    className="flex justify-between text-xs py-1 border-b border-border-primary/50"
                   >
-                    <span className="text-slate-400 font-mono">
+                    <span className="text-text-muted font-mono">
                       {p.ptw_number}
                     </span>
-                    <span className="text-slate-500">{p.status}</span>
+                    <span className="text-text-muted">{p.status}</span>
                   </div>
                 ))}
               </div>
@@ -321,41 +321,41 @@ export default function PermitWorkflowPanel() {
 
       {/* Audit trail */}
       {activePermit && activePermit.transition_log.length > 0 && (
-        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-          <div className="px-4 py-2 border-b border-slate-700">
-            <h3 className="text-sm font-semibold text-slate-300">
+        <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+          <div className="px-4 py-2 border-b border-border-primary">
+            <h3 className="text-sm font-semibold text-text-secondary">
               Audit Trail — {activePermit.ptw_number}
             </h3>
           </div>
           <table className="w-full text-xs">
-            <thead className="bg-slate-900/50">
+            <thead className="bg-bg-primary/50">
               <tr>
-                <th className="text-left px-3 py-1.5 text-slate-500">Time</th>
-                <th className="text-left px-3 py-1.5 text-slate-500">From</th>
-                <th className="text-left px-3 py-1.5 text-slate-500">To</th>
-                <th className="text-left px-3 py-1.5 text-slate-500">By</th>
-                <th className="text-left px-3 py-1.5 text-slate-500">Level</th>
-                <th className="text-left px-3 py-1.5 text-slate-500">Notes</th>
+                <th className="text-left px-3 py-1.5 text-text-muted">Time</th>
+                <th className="text-left px-3 py-1.5 text-text-muted">From</th>
+                <th className="text-left px-3 py-1.5 text-text-muted">To</th>
+                <th className="text-left px-3 py-1.5 text-text-muted">By</th>
+                <th className="text-left px-3 py-1.5 text-text-muted">Level</th>
+                <th className="text-left px-3 py-1.5 text-text-muted">Notes</th>
               </tr>
             </thead>
             <tbody>
               {activePermit.transition_log.map((t) => (
                 <tr
                   key={t.id}
-                  className="border-b border-slate-700/50 hover:bg-slate-700/30"
+                  className="border-b border-border-primary/50 hover:bg-bg-tertiary/30"
                 >
-                  <td className="px-3 py-1 font-mono text-slate-400">
+                  <td className="px-3 py-1 font-mono text-text-muted">
                     {new Date(t.created_at).toLocaleTimeString()}
                   </td>
-                  <td className="px-3 py-1 text-slate-400">{t.from_status}</td>
-                  <td className="px-3 py-1 text-slate-300">{t.to_status}</td>
-                  <td className="px-3 py-1 text-slate-300">
+                  <td className="px-3 py-1 text-text-muted">{t.from_status}</td>
+                  <td className="px-3 py-1 text-text-secondary">{t.to_status}</td>
+                  <td className="px-3 py-1 text-text-secondary">
                     {t.performed_by}
                   </td>
-                  <td className="px-3 py-1 font-mono text-slate-400">
+                  <td className="px-3 py-1 font-mono text-text-muted">
                     L{t.user_level}
                   </td>
-                  <td className="px-3 py-1 text-slate-500">
+                  <td className="px-3 py-1 text-text-muted">
                     {t.notes || "—"}
                   </td>
                 </tr>

@@ -15,20 +15,24 @@
  * All routes are wrapped in AppShell (top bar + sidebar + content area).
  */
 
+import { lazy } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import AppShell from "./components/layout/AppShell";
-import CommissioningPage from "./pages/CommissioningPage";
-import EngineerLibraryPage from "./pages/EngineerLibraryPage";
-import ForecastPage from "./pages/ForecastPage";
-import HVGridPage from "./pages/HVGridPage";
-import LandingPage from "./pages/LandingPage";
-import ResearchLab from "./pages/ResearchLab";
-import SCADAPage from "./pages/SCADAPage";
-import DigitalTwinPage from "./pages/DigitalTwinPage";
-import TurbinePhysicsPage from "./pages/TurbinePhysicsPage";
-import WindResourcePage from "./pages/WindResourcePage";
+
+// Route-level code splitting: each page (and its heavy deps — Plotly, three.js,
+// XYFlow, Leaflet) is downloaded on first visit. AppShell holds the <Suspense>.
+const CommissioningPage = lazy(() => import("./pages/CommissioningPage"));
+const DigitalTwinPage = lazy(() => import("./pages/DigitalTwinPage"));
+const EngineerLibraryPage = lazy(() => import("./pages/EngineerLibraryPage"));
+const ForecastPage = lazy(() => import("./pages/ForecastPage"));
+const HVGridPage = lazy(() => import("./pages/HVGridPage"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const ResearchLab = lazy(() => import("./pages/ResearchLab"));
+const SCADAPage = lazy(() => import("./pages/SCADAPage"));
+const TurbinePhysicsPage = lazy(() => import("./pages/TurbinePhysicsPage"));
+const WindResourcePage = lazy(() => import("./pages/WindResourcePage"));
 
 function App() {
   return (

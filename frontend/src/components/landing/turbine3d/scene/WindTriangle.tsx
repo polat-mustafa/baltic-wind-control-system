@@ -1,156 +1,86 @@
 /**
- * Apparent-wind triangle — Pythagorean composition W = V_wind + (−ΩR).
+ * Velocity triangles at three blade stations (r/R = 0.3, 0.6, 0.9), drawn
+ * in the rotor (shaft) frame on the blade at 12 o'clock, BEM-consistent:
  *
- * Drawn at three blade radii (r/R = 0.3, 0.6, 0.9). Each triangle has:
- *   V_wind   (sky-blue, axial +X)        — freestream through the disc
- *   −ΩR      (emerald, tangential)        — blade's own motion opposing air
- *   W        (amber, resultant)           — apparent wind felt by the aerofoil
+ *   axial inflow at the disc      U(1 − a)          (−z, air moves downwind)
+ *   tangential, relative to blade Ωr(1 + a′)        (−x; the blade moves +x)
+ *   relative wind                 W = √(U²(1−a)² + Ω²r²(1+a′)²)
+ *   inflow angle                  φ = atan[U(1−a) / (Ωr(1+a′))]
+ *   angle of attack               α = φ − (β + θ_twist(r))
  *
- * Angle of attack α = arctan(V_wind/(ΩR)) − β    (β = pitch)
- * Inflow angle φ   = arctan(V_wind/(ΩR))
+ * a from the thrust coefficient (Ct = 4a(1−a)), a′ = a(1−a)/λ_r².
+ * At rated (11.1 m/s, 8.33 rpm) this gives α ≈ 3–6° along the outer blade —
+ * where modern airfoils are designed to work.
  *
- * Pure client-side geometry — the backend doesn't expose BEM so we compute
- * the trig directly from wind speed and rpm.
- *
- * Reference: Manwell et al., "Wind Energy Explained" (2nd ed.), §3.5.
+ * Reference: Burton et al., Wind Energy Handbook (3rd ed.), §3.5; Manwell,
+ * Wind Energy Explained (2nd ed.), §3.5.
  */
 
 import { memo, useMemo } from "react";
 import * as THREE from "three";
 import { Html, Line } from "@react-three/drei";
 
-const ROTOR_RADIUS = 118;
-const HUB_HEIGHT = 151;
+import { inductionFromCt, v236ThrustCoefficient } from "../../../../utils/landingPhysics";
+import { PRECONE, ROTOR_RADIUS } from "../model/layout";
+import { bladeTwistDeg } from "./bladeConstants";
+
 const RADII_FRACTION = [0.3, 0.6, 0.9];
+const DEG = 180 / Math.PI;
 
 interface WindTriangleProps {
   windMs: number;
   rotorSpeedRpm: number;
-  /** Rotor azimuth in radians — where the "up" blade currently points. */
-  rotorAzimuth: number;
-  /** Blade pitch in degrees. */
+  /** Collective pitch [°]. */
   pitchDeg: number;
-  /** Nacelle yaw in degrees (0 = +X upstream). Triangle rotates with nacelle. */
-  yawDeg: number;
 }
 
-export const WindTriangle = memo(function WindTriangle({
-  windMs,
-  rotorSpeedRpm,
-  rotorAzimuth,
-  pitchDeg,
-  yawDeg,
-}: WindTriangleProps) {
+export const WindTriangle = memo(function WindTriangle({ windMs, rotorSpeedRpm, pitchDeg }: WindTriangleProps) {
   if (windMs < 0.5 || rotorSpeedRpm < 0.1) return null;
-
   const omega = (rotorSpeedRpm * 2 * Math.PI) / 60;
-  const yawRad = (yawDeg * Math.PI) / 180;
-
+  const a = inductionFromCt(v236ThrustCoefficient(windMs));
   return (
-    <group position={[0, HUB_HEIGHT, 0]} rotation={[0, yawRad, 0]}>
+    <>
       {RADII_FRACTION.map((frac) => (
-        <TriangleAtRadius
-          key={frac}
-          radius={frac * ROTOR_RADIUS}
-          windMs={windMs}
-          omega={omega}
-          azimuth={rotorAzimuth}
-          pitchDeg={pitchDeg}
-          label={`r/R = ${frac.toFixed(1)}`}
-        />
+        <TriangleAtRadius key={frac} r={frac * ROTOR_RADIUS} windMs={windMs} omega={omega} a={a} pitchDeg={pitchDeg} />
       ))}
-    </group>
+    </>
   );
 });
 
-interface TriangleAtRadiusProps {
-  radius: number;
-  windMs: number;
-  omega: number;
-  azimuth: number;
-  pitchDeg: number;
-  label: string;
-}
-
 function TriangleAtRadius({
-  radius,
-  windMs,
-  omega,
-  azimuth,
-  pitchDeg,
-  label,
-}: TriangleAtRadiusProps) {
-  // Blade tangential speed at this radius [m/s].
-  const tangentialSpeed = omega * radius;
+  r, windMs, omega, a, pitchDeg,
+}: { r: number; windMs: number; omega: number; a: number; pitchDeg: number }) {
+  const ua = windMs * (1 - a);
+  const lambdaR = (omega * r) / windMs;
+  const aPrime = (a * (1 - a)) / Math.max(lambdaR * lambdaR, 1e-3);
+  const ut = omega * r * (1 + aPrime);
+  const phi = Math.atan2(ua, ut);
+  const twist = bladeTwistDeg(r);
+  const alpha = phi * DEG - (pitchDeg + twist);
+  const w = Math.hypot(ua, ut);
 
-  // Trig values.
-  const inflowAngle = Math.atan2(windMs, tangentialSpeed);   // φ
-  const alphaDeg = (inflowAngle * 180) / Math.PI - pitchDeg; // α
-
-  const points = useMemo(() => {
-    // All three vectors scale so the triangle is readable — pick ~12 m display size.
-    const maxSpeed = Math.max(windMs, tangentialSpeed);
-    const scale = maxSpeed > 0 ? 14 / maxSpeed : 0;
-
-    // Blade points along +Y (vertical up) at azimuth=0. Rotate around +X by azimuth.
-    // Position the triangle at the blade location and in the rotor plane.
-    const bladeY = radius * Math.cos(azimuth);
-    const bladeZ = radius * Math.sin(azimuth);
-
-    // Local axes at the station:
-    //   axial   = +X (freestream direction)
-    //   tangent = perpendicular to blade, in rotor plane
-    const tangent = new THREE.Vector3(0, -Math.sin(azimuth), Math.cos(azimuth));
-
-    const origin = new THREE.Vector3(0, bladeY, bladeZ);
-    const vWindEnd = origin.clone().add(new THREE.Vector3(windMs * scale, 0, 0));
-    const minusOmegaREnd = origin
-      .clone()
-      .add(tangent.clone().multiplyScalar(tangentialSpeed * scale));
-    const wEnd = origin
-      .clone()
-      .add(new THREE.Vector3(windMs * scale, 0, 0))
-      .add(tangent.clone().multiplyScalar(tangentialSpeed * scale));
-
-    return { origin, vWindEnd, minusOmegaREnd, wEnd };
-  }, [radius, windMs, tangentialSpeed, azimuth]);
+  const pts = useMemo(() => {
+    // Readable size: the longest vector drawn ~16 m
+    const k = 16 / Math.max(ua, ut);
+    const o = new THREE.Vector3(0, r * Math.cos(PRECONE), r * Math.sin(PRECONE));
+    const axial = o.clone().add(new THREE.Vector3(0, 0, -ua * k));
+    const tang = o.clone().add(new THREE.Vector3(-ut * k, 0, 0));
+    const res = o.clone().add(new THREE.Vector3(-ut * k, 0, -ua * k));
+    return { o, axial, tang, res };
+  }, [r, ua, ut]);
 
   return (
     <group>
-      {/* V_wind — sky-blue axial */}
-      <Line
-        points={[points.origin, points.vWindEnd]}
-        color="#38bdf8"
-        lineWidth={2}
-      />
-      {/* −ΩR — emerald tangential */}
-      <Line
-        points={[points.origin, points.minusOmegaREnd]}
-        color="#10b981"
-        lineWidth={2}
-      />
-      {/* Resultant W — amber diagonal */}
-      <Line
-        points={[points.origin, points.wEnd]}
-        color="#f59e0b"
-        lineWidth={2.5}
-      />
-      {/* Closing line to show the triangle (from V_wind tip to W tip) */}
-      <Line
-        points={[points.vWindEnd, points.wEnd]}
-        color="#10b981"
-        lineWidth={1}
-        dashed
-        dashScale={40}
-      />
-
-      {/* Label */}
-      <Html position={[points.wEnd.x + 2, points.wEnd.y + 1, points.wEnd.z]} center>
-        <div className="text-[9px] font-mono bg-black/70 text-amber-200 px-1.5 py-0.5 rounded border border-amber-500/40 whitespace-nowrap leading-tight">
-          <div>{label}</div>
-          <div>φ = {((inflowAngle * 180) / Math.PI).toFixed(1)}°</div>
-          <div>α = {alphaDeg.toFixed(1)}°</div>
-          <div>|W| = {Math.hypot(windMs, tangentialSpeed).toFixed(1)} m/s</div>
+      <Line points={[pts.o, pts.axial]} color="#38bdf8" lineWidth={3} />
+      <Line points={[pts.o, pts.tang]} color="#10b981" lineWidth={3} />
+      <Line points={[pts.o, pts.res]} color="#f59e0b" lineWidth={3.5} />
+      <Line points={[pts.axial, pts.res]} color="#10b981" lineWidth={1} dashed dashScale={2} />
+      <Html position={[pts.res.x - 2, pts.res.y + 2, pts.res.z]} center style={{ pointerEvents: "none" }}>
+        <div className="whitespace-nowrap rounded border border-amber-400/60 bg-slate-900/85 px-2 py-1 text-[12px] font-semibold leading-tight text-amber-100 shadow">
+          <div className="font-bold">r/R = {(r / ROTOR_RADIUS).toFixed(1)}</div>
+          <div><span className="text-sky-300">U(1−a)</span> {ua.toFixed(1)} · <span className="text-emerald-300">Ωr(1+a′)</span> {ut.toFixed(1)} m/s</div>
+          <div>W = {w.toFixed(1)} m/s · φ = {(phi * DEG).toFixed(1)}°</div>
+          <div>α = φ − (β {pitchDeg.toFixed(1)}° + θ {twist.toFixed(1)}°) = <b>{alpha.toFixed(1)}°</b></div>
         </div>
       </Html>
     </group>

@@ -76,6 +76,7 @@ from numpy.typing import NDArray
 from sklearn.model_selection import TimeSeriesSplit
 
 from app.services.p4.physical_constraints import enforce_physical_constraints
+from app.services.p4.training_progress import PROGRESS
 
 # ── Constants ─────────────────────────────────────────────────────
 
@@ -329,6 +330,8 @@ def train_xgboost(
     tscv = TimeSeriesSplit(n_splits=config.n_cv_splits)
     fold_metrics_list: list[FoldMetrics] = []
     last_fold_models: list[xgb.Booster] = []
+    n_jobs = config.n_cv_splits * len(config.quantiles)
+    PROGRESS.stage("xgboost", "running", f"{features.shape[0]} rows × {features.shape[1]} features")
 
     for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(features)):
         x_train = features[train_idx]
@@ -338,7 +341,12 @@ def train_xgboost(
 
         # Train 3 quantile models
         fold_models: list[xgb.Booster] = []
-        for quantile in config.quantiles:
+        for q_idx, quantile in enumerate(config.quantiles):
+            PROGRESS.fraction(
+                "xgboost",
+                (fold_idx * len(config.quantiles) + q_idx) / n_jobs,
+                f"fold {fold_idx + 1}/{config.n_cv_splits} · P{round(quantile * 100)} trees",
+            )
             model = _train_quantile_model(
                 x_train,
                 y_train,
@@ -357,6 +365,7 @@ def train_xgboost(
         metrics = _compute_metrics(y_test, y_pred, fold_idx)
         fold_metrics_list.append(metrics)
         last_fold_models = fold_models
+        PROGRESS.fold("xgboost", fold_idx, metrics.rmse_mw)
 
     # Aggregate metrics across folds
     mean_rmse = float(np.mean([m.rmse_mw for m in fold_metrics_list]))
@@ -377,6 +386,7 @@ def train_xgboost(
         skill_score_vs_persistence=round(skill_score, 4),
     )
 
+    PROGRESS.model_done("xgboost", cv_result.mean_rmse_mw, cv_result.skill_score_vs_persistence)
     return cv_result, last_fold_models
 
 

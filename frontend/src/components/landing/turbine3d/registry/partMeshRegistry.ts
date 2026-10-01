@@ -52,17 +52,19 @@ export const PART_FOCUS: Record<TurbinePartId, PartFocus> = {
   blades:       { kind: "auto", direction: [ 0.6,  0.4,  0.7], distanceMultiplier: 1.6 },
   hub:          { kind: "auto", direction: [ 0.7,  0.3,  0.7], distanceMultiplier: 2.4, minDistance: 12 },
   tower:        { kind: "auto", direction: [ 0.7,  0.1,  0.7], distanceMultiplier: 1.3 },
-  foundation:   { kind: "auto", direction: [ 0.7, -0.2,  0.7], distanceMultiplier: 1.6, minDistance: 25 },
-  nacelle:      { kind: "auto", direction: [ 0.7,  0.3,  0.7], distanceMultiplier: 2.2, minDistance: 22 },
+  foundation:   { kind: "auto", direction: [ 0.75, 0.3,  0.6], distanceMultiplier: 2.6, minDistance: 55 },
+  // Starboard, behind the rotor plane: looks into the cutaway (+x local is cut)
+  nacelle:      { kind: "auto", direction: [ 0.85, 0.45, -0.3], distanceMultiplier: 2.2, minDistance: 22 },
   yaw:          { kind: "auto", direction: [ 0.6,  0.4,  0.7], distanceMultiplier: 2.5, minDistance: 18 },
 
-  // Drivetrain (interior) — camera pulled slightly above, from port side
-  shaft:        { kind: "auto", direction: [ 0.8,  0.25, 0.55], distanceMultiplier: 2.6, minDistance: 8 },
-  bearing:      { kind: "auto", direction: [ 0.8,  0.3,  0.55], distanceMultiplier: 3.2, minDistance: 7 },
-  brake:        { kind: "auto", direction: [ 0.8,  0.3,  0.55], distanceMultiplier: 3.2, minDistance: 7 },
-  gearbox:      { kind: "auto", direction: [ 0.75, 0.3,  0.6 ], distanceMultiplier: 2.4, minDistance: 9 },
-  generator:    { kind: "auto", direction: [ 0.75, 0.3,  0.6 ], distanceMultiplier: 2.4, minDistance: 9 },
-  converter:    { kind: "auto", direction: [ 0.85, 0.25, 0.45], distanceMultiplier: 2.8, minDistance: 7 },
+  // Interior parts — from starboard (the side the cutaway opens, +x local),
+  // a little aft so the spinner and blades are not between camera and part
+  shaft:        { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 2.6, minDistance: 8 },
+  bearing:      { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 3.2, minDistance: 7 },
+  brake:        { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 3.2, minDistance: 7 },
+  gearbox:      { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 2.4, minDistance: 9 },
+  generator:    { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 2.4, minDistance: 9 },
+  converter:    { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 2.8, minDistance: 7 },
   cooler:       { kind: "auto", direction: [ 0.65, 0.55, 0.55], distanceMultiplier: 2.4, minDistance: 8 },
   anemometer:   { kind: "auto", direction: [ 0.55, 0.55, 0.65], distanceMultiplier: 3.0, minDistance: 9 },
 
@@ -71,17 +73,17 @@ export const PART_FOCUS: Record<TurbinePartId, PartFocus> = {
   power_output: { kind: "fixed", position: [ 25, 155,  25], lookAt: [  4, 152,   0] },
 
   // Nacelle interior subsystems — pull camera closer; most are ≤ 2 m
-  bedplate:            { kind: "auto", direction: [ 0.75, 0.25, 0.6 ], distanceMultiplier: 3.0, minDistance: 8 },
-  hpu:                 { kind: "auto", direction: [ 0.75, 0.25, 0.6 ], distanceMultiplier: 3.5, minDistance: 6 },
-  control_cabinet:     { kind: "auto", direction: [-0.7,  0.3,  0.65], distanceMultiplier: 3.5, minDistance: 5 },
-  transformer:         { kind: "auto", direction: [ 0.65, 0.25, 0.7 ], distanceMultiplier: 3.0, minDistance: 6 },
-  oil_cooler:          { kind: "auto", direction: [ 0.75, 0.35, 0.55], distanceMultiplier: 3.5, minDistance: 5 },
-  coupling:            { kind: "auto", direction: [ 0.75, 0.3,  0.6 ], distanceMultiplier: 4.0, minDistance: 5 },
-  ups:                 { kind: "auto", direction: [-0.7,  0.3,  0.65], distanceMultiplier: 3.5, minDistance: 5 },
+  bedplate:            { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 3.0, minDistance: 8 },
+  hpu:                 { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 3.5, minDistance: 6 },
+  control_cabinet:     { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 3.5, minDistance: 5 },
+  transformer:         { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 3.0, minDistance: 6 },
+  oil_cooler:          { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 3.5, minDistance: 5 },
+  coupling:            { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 4.0, minDistance: 5 },
+  ups:                 { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 3.5, minDistance: 5 },
   crane_rail:          { kind: "auto", direction: [ 0.65, 0.55, 0.55], distanceMultiplier: 3.0, minDistance: 8 },
-  yaw_brake:           { kind: "auto", direction: [ 0.75, 0.3,  0.6 ], distanceMultiplier: 4.0, minDistance: 5 },
-  cable_routing:       { kind: "auto", direction: [ 0.7,  0.25, 0.65], distanceMultiplier: 3.5, minDistance: 5 },
-  fire_suppression:    { kind: "auto", direction: [ 0.75, 0.3,  0.6 ], distanceMultiplier: 3.5, minDistance: 5 },
+  yaw_brake:           { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 4.0, minDistance: 5 },
+  cable_routing:       { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 3.5, minDistance: 5 },
+  fire_suppression:    { kind: "auto", direction: [ 0.9,  0.35, -0.25], distanceMultiplier: 3.5, minDistance: 5 },
   lightning_conductor: { kind: "auto", direction: [ 0.65, 0.55, 0.55], distanceMultiplier: 3.0, minDistance: 8 },
 };
 

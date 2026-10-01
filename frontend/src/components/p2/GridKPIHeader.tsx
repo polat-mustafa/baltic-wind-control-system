@@ -18,13 +18,13 @@ interface KPICardProps {
 
 function KPICard({ label, value, unit, color, subtitle }: KPICardProps) {
   return (
-    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-      <p className="text-xs text-slate-400 uppercase tracking-wider">{label}</p>
+    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+      <p className="text-xs text-text-muted uppercase tracking-wider">{label}</p>
       <p className="text-2xl font-bold mt-1" style={color ? { color } : undefined}>
         {value}
-        <span className="text-sm font-normal text-slate-400 ml-1">{unit}</span>
+        <span className="text-sm font-normal text-text-muted ml-1">{unit}</span>
       </p>
-      {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
+      {subtitle && <p className="text-xs text-text-muted mt-1">{subtitle}</p>}
     </div>
   );
 }

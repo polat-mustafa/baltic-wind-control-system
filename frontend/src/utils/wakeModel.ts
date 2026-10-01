@@ -1,13 +1,19 @@
 /**
- * Jensen/Park wake model for offshore wind turbine wake visualization.
+ * Farm wake model — the single engineering wake formula of the frontend
+ * (map wake layer, SCADA/landing simulation, 3D flow and hub-height slice).
  *
- * Reference: N.O. Jensen (1983), "A Note on Wind Generator Interaction"
- * Wake superposition: Katic et al. (1986), sum-of-squares method
+ * Bastankhah & Porté-Agel (2014) Gaussian deficit:
+ *   σ/D  = k*·x/D + ε,   ε = 0.2·√β,   β = ½(1 + √(1−Ct)) / √(1−Ct)
+ *   C(x) = 1 − √(1 − Ct / (8 (σ/D)²))            (centre-line deficit)
+ *   Δu/u(x, r) = C(x) · exp(−r² / 2σ²)
+ * Superposition: Katic et al. (1986) sum of squares.
+ * k* = 0.035 for offshore ambient TI ≈ 6–8 % (k* ≈ 0.38·TI + 0.004).
  *
- * Parameters tuned for Vestas V236-15.0 MW:
- *   D  = 236 m  rotor diameter
- *   Ct = 0.8    thrust coefficient at rated
- *   k  = 0.04   offshore wake decay constant (low ambient turbulence)
+ * Validated against PyWake's BastankhahGaussianDeficit (same Ct, k*):
+ * backend/tests/fixtures/wake_centreline_reference.json, within 2 % from
+ * 3 to 15 D — the residual is PyWake's Madsen a(Ct) polynomial vs the
+ * momentum-theory root used here. It replaced a Jensen/Park top-hat model
+ * (k = 0.04) that overstated far-wake deficits by up to 34 % at 15 D.
  *
  * Geographic conversions assume ~54.75°N latitude (Polish Baltic EEZ).
  */
@@ -16,8 +22,9 @@
 
 export const ROTOR_DIAMETER = 236; // metres
 const ROTOR_RADIUS = ROTOR_DIAMETER / 2;
-const CT = 0.8; // thrust coefficient at rated wind speed
-const K = 0.04; // offshore wake decay constant
+const CT = 0.8; // thrust coefficient below rated
+/** Wake expansion rate k* (offshore). */
+export const K_STAR = 0.035;
 
 // ── Geographic conversion at 54.75°N ─────────────────────────────
 
@@ -26,16 +33,30 @@ const M_PER_DEG_LON = 111_320 * Math.cos((54.75 * Math.PI) / 180);
 
 // ── Core wake math ────────────────────────────────────────────────
 
-/** Wake radius (m) at downstream distance x (m). */
-function wakeRadius(x: number): number {
-  return ROTOR_RADIUS + K * x;
+/** Gaussian wake width σ [m] at x metres downstream. */
+export function wakeSigma(x: number, ct = CT): number {
+  const s = Math.sqrt(1 - Math.min(ct, 0.95));
+  const beta = (0.5 * (1 + s)) / s;
+  return ROTOR_DIAMETER * ((K_STAR * x) / ROTOR_DIAMETER + 0.2 * Math.sqrt(beta));
 }
 
-/** Centre-line velocity deficit fraction at downstream distance x. */
-export function velocityDeficit(x: number): number {
-  const a = 1 - Math.sqrt(1 - CT);
-  const r = 1 + (K * x) / ROTOR_RADIUS;
-  return a / (r * r);
+/**
+ * Velocity deficit Δu/u at x metres downstream, r metres off the wake axis.
+ * The Gaussian form is a far-wake model (valid beyond ≈ 2–3 D); closer in it
+ * is evaluated at 2 D — the farm's spacing is ≥ 6 D, the 3D near wake uses
+ * actuator-disc theory instead (components/landing/turbine3d/model/wakeModel).
+ */
+export function velocityDeficit(x: number, r = 0, ct = CT): number {
+  if (x <= 0 || ct <= 0) return 0;
+  const sig = wakeSigma(Math.max(x, 2 * ROTOR_DIAMETER), ct);
+  const arg = 1 - ct / (8 * (sig / ROTOR_DIAMETER) ** 2);
+  const c = 1 - Math.sqrt(Math.max(0, arg));
+  return c * Math.exp(-(r * r) / (2 * sig * sig));
+}
+
+/** Visible wake half-width [m]: 2σ (Niayifar & Porté-Agel 2016). */
+function wakeRadius(x: number): number {
+  return 2 * wakeSigma(x);
 }
 
 // ── Geo helper ────────────────────────────────────────────────────
@@ -57,10 +78,8 @@ function offsetGeo(
 // ── Wake cone polygon ─────────────────────────────────────────────
 
 /**
- * Generate a wake cone polygon ([lat, lon][]) for one turbine.
- *
- * The cone starts at the rotor plane (width = D) and expands linearly
- * in the downwind direction following r(x) = D/2 + k·x.
+ * Generate a wake outline polygon ([lat, lon][]) for one turbine: the 2σ
+ * envelope of the Gaussian wake, starting at the rotor disc.
  *
  * @param lat        Turbine latitude
  * @param lon        Turbine longitude
@@ -84,7 +103,7 @@ export function wakeConePoly(
 
   for (let i = 0; i <= steps; i++) {
     const x = (i / steps) * lengthM;
-    const r = wakeRadius(x);
+    const r = i === 0 ? ROTOR_RADIUS : Math.max(ROTOR_RADIUS, wakeRadius(x));
     const c = offsetGeo(lat, lon, x, downwind);
     left.push(offsetGeo(c[0], c[1], r, perpL));
     right.push(offsetGeo(c[0], c[1], r, perpR));
@@ -97,17 +116,27 @@ export function wakeConePoly(
 
 export interface WakeLossResult {
   turbineId: string;
-  /** Estimated power loss percentage due to upstream wakes. */
+  /**
+   * Power loss [%] from the cubic law — valid BELOW rated wind only. For the
+   * live loss at the current wind use `wakePowerLossPct` (utils/landingPhysics).
+   */
   lossPct: number;
+  /** Combined velocity deficit Δu/u₀ at this turbine (Katic superposition). */
+  deficit: number;
   /** IDs of upstream turbines casting wakes onto this turbine. */
   upstreamIds: string[];
 }
 
+/** Contributions below this deficit are not counted as "waked by". */
+const MIN_DEFICIT = 0.005;
+
 /**
  * Compute wake-induced power losses for every turbine in the farm.
  *
- * Uses Katic et al. (1986) sum-of-squares superposition for multiple
- * overlapping wakes. Power loss ≈ 1 − (1 − Δu/u₀)³ (cubic law).
+ * Deficit evaluated at the target's hub (centre point, not rotor-averaged),
+ * Katic sum of squares over all upstream rotors. Power loss ≈ 1 − (1 − Δu/u₀)³.
+ * ponytail: point value at the hub — a rotor average (≈ 4–8 sample points)
+ * lowers partial-wake deficits by a few % if that level of detail matters.
  *
  * @returns Only turbines with > 1 % power loss.
  */
@@ -135,9 +164,10 @@ export function computeWakeLosses(
 
       // Perpendicular (cross-wind) distance
       const cross = Math.abs(-dN * Math.sin(downRad) + dE * Math.cos(downRad));
-      if (cross > wakeRadius(along)) continue; // target outside wake cone
+      const d = velocityDeficit(along, cross);
+      if (d < MIN_DEFICIT) continue;
 
-      sqSum += velocityDeficit(along) ** 2;
+      sqSum += d ** 2;
       upstreamIds.push(src.id);
     }
 
@@ -146,7 +176,7 @@ export function computeWakeLosses(
       const powerLoss = 1 - (1 - totalDeficit) ** 3; // cubic power law
       const lossPct = Math.round(powerLoss * 100);
       if (lossPct > 1) {
-        results.push({ turbineId: target.id, lossPct, upstreamIds });
+        results.push({ turbineId: target.id, lossPct, deficit: totalDeficit, upstreamIds });
       }
     }
   }

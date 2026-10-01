@@ -6,11 +6,10 @@
  *   1. Freestream kinetic power   100 %
  *   2. After wake loss             −12.4 % (Horns Rev I baseline)
  *   3. After blockage              −0.5 %
- *   4. Cp (Betz aero coefficient)  ×0.47
- *   5. Gearbox efficiency          ×0.97    (drivetrain.py:71 — 97 %)
- *   6. Generator efficiency        ×0.96    (NREL TP-84919 — MS-PMSG)
- *   7. Converter efficiency        ×0.985   (literature 98–99 %)
- *   8. Transformer efficiency      ×0.993   (IEC 60076-14 ONAN)
+ *   4. Cp at rated                 ×0.44    (V236 power chain: 16.3 MW shaft / 36.6 MW in the disk)
+ *   5–8. Gearbox / generator / converter / transformer efficiencies — the
+ *        same V236_ETA values as the detail panel and the schematic
+ *        (utils/landingPhysics, single source).
  *   9. Availability                ×0.95    (industry target; framework IEC 61400-26)
  *   → Grid power
  *
@@ -25,6 +24,7 @@ import { X, HelpCircle } from "lucide-react";
 
 import { useLandingStore } from "../../../../store/landingStore";
 import type { TurbinePartId } from "../../../../constants/turbinePartEducation";
+import { V236, V236_ETA, v236PowerChain } from "../../../../utils/landingPhysics";
 
 interface LossBreakdownHUDProps {
   onClose: () => void;
@@ -47,11 +47,13 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
     // Published references cited per stage — see the (?) links at runtime.
     const wake = 1 - 0.124;          // Horns Rev I offshore baseline
     const block = wake * (1 - 0.005);
-    const cp = block * 0.47;
-    const gearbox = cp * 0.97;
-    const generator = gearbox * 0.96;  // MS-PMSG per NREL TP-84919
-    const converter = generator * 0.985;
-    const transformer = converter * 0.993;
+    const cpRated = v236PowerChain(V236.ratedMW, V236.ratedMs, V236.ratedRpm).cp;
+    const cp = block * cpRated;
+    const gearbox = cp * V236_ETA.gearbox;
+    const generator = gearbox * V236_ETA.generator;
+    const converter = generator * V236_ETA.converter;
+    const transformer = converter * V236_ETA.transformer;
+    const pct = (x: number) => `${(x * 100).toFixed(1)} %`;
     const availability = transformer * 0.95;
 
     return [
@@ -81,25 +83,21 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
         label: "× Cp (Betz aero)",
         fraction: cp,
         color: "#facc15",
-        note: "0.47 @ rated λ",
+        note: `${cpRated.toFixed(3)} at rated (λ ≈ 9.3) — Betz max 0.593`,
         partId: "blades",
-        citation: {
-          source: "Calculators Conversion — Cp industry reference",
-          url: "https://www.calculatorsconversion.com/en/calculation-of-power-coefficient-cp-in-wind-turbines",
-        },
       },
       {
         label: "× η gearbox",
         fraction: gearbox,
         color: "#f59e0b",
-        note: "97 % — 3-stage planetary",
+        note: `${pct(V236_ETA.gearbox)} — 3-stage planetary`,
         partId: "gearbox",
       },
       {
         label: "× η generator",
         fraction: generator,
         color: "#fb923c",
-        note: "96 % — MS-PMSG",
+        note: `${pct(V236_ETA.generator)} — medium-speed PMSG`,
         partId: "generator",
         citation: {
           source: "NREL TP-84919 — medium-speed PMSG",
@@ -110,7 +108,7 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
         label: "× η converter",
         fraction: converter,
         color: "#f97316",
-        note: "98.5 % (literature 98–99 %)",
+        note: `${pct(V236_ETA.converter)} (literature 98–99 %)`,
         partId: "converter",
         citation: {
           source: "Wiley Wind Energy we.2499",
@@ -121,7 +119,7 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
         label: "× η transformer",
         fraction: transformer,
         color: "#ef4444",
-        note: "99.3 % — IEC 60076-14 ONAN",
+        note: `${pct(V236_ETA.transformer)} — IEC 60076 liquid-filled`,
         partId: "transformer",
         citation: {
           source: "NPC 66 kV / IEC 60076-14 datasheet",

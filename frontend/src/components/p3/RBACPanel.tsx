@@ -38,13 +38,13 @@ export default function RBACPanel() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-slate-900/50">
+            <thead className="bg-bg-primary/50">
               <tr>
-                <th className="text-left px-3 py-1.5 text-slate-500">Level</th>
-                <th className="text-left px-3 py-1.5 text-slate-500">Role</th>
-                <th className="text-left px-3 py-1.5 text-slate-500">SL</th>
-                <th className="text-left px-3 py-1.5 text-slate-500">MFA</th>
-                <th className="text-left px-3 py-1.5 text-slate-500">
+                <th className="text-left px-3 py-1.5 text-text-muted">Level</th>
+                <th className="text-left px-3 py-1.5 text-text-muted">Role</th>
+                <th className="text-left px-3 py-1.5 text-text-muted">SL</th>
+                <th className="text-left px-3 py-1.5 text-text-muted">MFA</th>
+                <th className="text-left px-3 py-1.5 text-text-muted">
                   Permissions
                 </th>
               </tr>
@@ -56,8 +56,8 @@ export default function RBACPanel() {
                 return (
                   <tr
                     key={role.level}
-                    className={`border-b border-slate-700/50 ${
-                      isActive ? "bg-slate-700/40" : "hover:bg-slate-700/20"
+                    className={`border-b border-border-primary/50 ${
+                      isActive ? "bg-bg-tertiary/40" : "hover:bg-bg-tertiary/20"
                     }`}
                   >
                     <td className="px-3 py-2">
@@ -75,11 +75,11 @@ export default function RBACPanel() {
                       >
                         {role.name}
                       </div>
-                      <div className="text-slate-500 text-[10px]">
+                      <div className="text-text-muted text-[10px]">
                         {role.description}
                       </div>
                     </td>
-                    <td className="px-3 py-2 font-mono text-slate-400">
+                    <td className="px-3 py-2 font-mono text-text-muted">
                       SL-{role.security_level}
                     </td>
                     <td className="px-3 py-2">
@@ -94,7 +94,7 @@ export default function RBACPanel() {
                         {role.permissions.map((p) => (
                           <span
                             key={p}
-                            className="bg-slate-900 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-400"
+                            className="bg-bg-primary px-1.5 py-0.5 rounded text-[10px] font-mono text-text-muted"
                           >
                             {p}
                           </span>
@@ -111,9 +111,9 @@ export default function RBACPanel() {
 
       {/* Security zones */}
       {zones.length > 0 && (
-        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-          <div className="px-4 py-2 border-b border-slate-700">
-            <h3 className="text-sm font-semibold text-slate-300">
+        <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+          <div className="px-4 py-2 border-b border-border-primary">
+            <h3 className="text-sm font-semibold text-text-secondary">
               IEC 62443-3-3 Security Zones
             </h3>
           </div>
@@ -134,7 +134,7 @@ export default function RBACPanel() {
                   }}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-mono font-bold text-slate-300">
+                    <span className="text-xs font-mono font-bold text-text-secondary">
                       {zone.zone}
                     </span>
                     <span
@@ -149,7 +149,7 @@ export default function RBACPanel() {
                       {zone.min_access_level}+)
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-[10px] text-text-muted">
                     {zone.description}
                   </p>
                 </div>

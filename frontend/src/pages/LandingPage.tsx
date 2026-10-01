@@ -36,11 +36,13 @@ import {
   selectTurbine,
   useLandingStore,
 } from "../store/landingStore";
+import { useLiveGridPolling } from "../store/liveGridStore";
 
-// Code-split 3D viewer — only downloads when a turbine is clicked
-const TurbineViewer3D = lazy(
-  () => import("../components/landing/turbine3d/TurbineViewer3D"),
-);
+// Code-split 3D viewer (three.js + scene, the largest chunk). It is
+// prefetched once the map is idle, so the first turbine click opens the panel
+// at once instead of after a 2–3 s download (users clicked again and closed it).
+const loadTurbineViewer = () => import("../components/landing/turbine3d/TurbineViewer3D");
+const TurbineViewer3D = lazy(loadTurbineViewer);
 import { InfoButton } from "../components/ui/InfoButton";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { farmOverviewInfo } from "../constants/panelInfo";
@@ -65,19 +67,37 @@ function ConnectedTurbineDetailPanel({
   onClose: () => void;
 }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
+  // Expanded: the 3D viewer takes the whole map area (same element, so the
+  // WebGL scene is kept — only its size changes)
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (!expanded) return;
+    // Esc leaves the full view first (capture phase, before the panel's own Esc)
+    const onEsc = (ev: KeyboardEvent) => {
+      if (ev.code !== "Escape") return;
+      ev.stopImmediatePropagation();
+      setExpanded(false);
+    };
+    window.addEventListener("keydown", onEsc, true);
+    return () => window.removeEventListener("keydown", onEsc, true);
+  }, [expanded]);
   if (!turbine) return null;
   return (
     <>
       {/* 3D Viewer — to the left of the detail panel */}
       <div
         className="absolute"
-        style={{
-          zIndex: 1050,
-          left: VIEWER_LEFT,
-          top: VIEWER_TOP,
-          width: VIEWER_W,
-          height: "calc(100% - 80px)",
-        }}
+        style={
+          expanded
+            ? { zIndex: 1300, left: 8, top: 8, width: "calc(100% - 16px)", height: "calc(100% - 16px)" }
+            : {
+                zIndex: 1150,
+                left: VIEWER_LEFT,
+                top: VIEWER_TOP,
+                width: VIEWER_W,
+                height: "calc(100% - 80px)",
+              }
+        }
       >
         <Suspense
           fallback={
@@ -88,7 +108,12 @@ function ConnectedTurbineDetailPanel({
             </div>
           }
         >
-          <TurbineViewer3D turbineId={turbineId} turbine={turbine} />
+          <TurbineViewer3D
+            turbineId={turbineId}
+            turbine={turbine}
+            expanded={expanded}
+            onToggleExpand={() => setExpanded((v) => !v)}
+          />
         </Suspense>
       </div>
 
@@ -181,6 +206,15 @@ export default function LandingPage() {
     startSimulation();
     return () => stopSimulation();
   }, [startSimulation, stopSimulation]);
+
+  // Grid physics for the live operating point from the backend (pandapower)
+  useLiveGridPolling();
+
+  // Warm the 3D viewer chunk after the map has settled
+  useEffect(() => {
+    const id = setTimeout(() => void loadTurbineViewer(), 2500);
+    return () => clearTimeout(id);
+  }, []);
 
   // Listen for fullscreen change events (Escape key, etc.)
   useEffect(() => {

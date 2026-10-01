@@ -15,6 +15,7 @@ from app.schemas.forecast import (
     TaskStatusResponse,
 )
 from app.services.p4.task_store import register_bg_task, task_get, task_save, task_update
+from app.services.p4.training_progress import PROGRESS
 
 from ._pipeline import _cached_ensemble_predict
 
@@ -61,8 +62,9 @@ async def predict_ensemble_endpoint(
     Poll ``GET /predict-ensemble/status/{task_id}`` for progress and results.
 
     Pipeline: train XGBoost + LSTM + TFT → horizon-dependent weights →
-    physical constraints → ensemble P10/P50/P90.  Uses Redis cache
-    (TTL 120 s) to skip recomputation on repeated requests.
+    physical constraints → ensemble P10/P50/P90.  The trained-model
+    forecasts are cached in Redis for a week (inputs are seeded and
+    deterministic), so only the first request per configuration trains.
 
     Weight schedule per Roadmap §5.6:
         < 6 h:   XGB 0.50 + LSTM 0.30 + TFT 0.20
@@ -98,9 +100,25 @@ async def ensemble_status(task_id: str) -> TaskStatusResponse:
     task = await task_get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    live = PROGRESS.snapshot()
+    progress = task["progress"]
+    if task["status"] == "running" and live["active"]:
+        # real progress from the trainers (10 % reserved for queueing / cache)
+        progress = max(progress, 10 + int(85 * live["overall"]))
     return TaskStatusResponse(
         status=task["status"],
-        progress=task["progress"],
+        progress=progress,
         result=EnsemblePredictResponse(**task["result"]) if task["result"] else None,
         error=task["error"],
+        live=live,
     )
+
+
+@router.get("/training-progress")
+async def training_progress() -> dict[str, object]:
+    """Snapshot of the live model build (stages, losses, log, ETA).
+
+    Also answers when no build is running: ``active`` is false and
+    ``last_build_s`` tells how long the cached models took to train.
+    """
+    return PROGRESS.snapshot()

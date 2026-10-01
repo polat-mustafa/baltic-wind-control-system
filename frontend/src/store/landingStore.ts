@@ -24,14 +24,22 @@ import type {
   TurbineStatus,
 } from "../types/landing";
 import type { TurbineFaultType } from "../types/scada";
+import type { LiveWeather } from "../services/openMeteoApi";
+import { frequencyEvent, voltageDipEvent, type GridEventKind, type GridSample } from "../utils/gridEvents";
+import {
+  V236,
+  exportCableState,
+  farmWakeDeficits,
+  v236PitchDeg,
+  v236PowerMW,
+  v236RotorRpm,
+} from "../utils/landingPhysics";
 
 // ── Constants ──────────────────────────────────────────────────
 
-const RATED_WIND_MS = 12.5;
-const RATED_POWER_MW = 15.0;
-const RATED_ROTOR_RPM = 9.55;
-const CUT_IN_MS = 3.0;
-const CUT_OUT_MS = 31.0;
+// V236 model (power curve, rotor speed, pitch) lives in utils/landingPhysics
+// so the store, detail panel, curtailment inference and 3D viewer agree.
+const RATED_POWER_MW = V236.ratedMW;
 
 // Ramp rate limits per tick (5s) — realistic 15 MW turbine can't jump instantly
 const MAX_POWER_RAMP_MW_PER_TICK = 1.5; // ≈0.30 MW/s
@@ -60,28 +68,32 @@ function rampToward(current: number, target: number, maxStep: number): number {
 
 // ── Physics-based turbine simulation ───────────────────────────
 
-/** Compute rotor speed from wind speed (proportional below rated). */
+/** Rotor speed [rpm] — 0 when stopped (fault/offline). */
+/** Yaw error above which the turbine stops producing and just yaws [°]. */
+export const YAW_PAUSE_DEG = 45;
+
+/** Power fraction at yaw error γ: cos^1.88 γ (Fleming et al. 2017). */
+export function yawPowerFactor(yawErrDeg: number): number {
+  const c = Math.cos((yawErrDeg * Math.PI) / 180);
+  return c > 0 ? c ** 1.88 : 0;
+}
+
 function computeRotorSpeed(windMs: number, status: TurbineStatus): number {
   if (status === "fault" || status === "offline") return 0;
-  if (windMs < CUT_IN_MS || windMs > CUT_OUT_MS) return 0;
-  return clamp((windMs / RATED_WIND_MS) * RATED_ROTOR_RPM, 0, RATED_ROTOR_RPM);
+  return v236RotorRpm(windMs);
 }
 
-/** Compute blade pitch from wind speed (0 below rated, increases above). */
+/** Blade pitch [deg] — feathered (90°) when stopped. */
 function computePitchAngle(windMs: number, status: TurbineStatus): number {
-  if (status === "fault" || status === "offline") return 90; // feathered
-  if (windMs <= RATED_WIND_MS) return 0;
-  // Linear ramp from 0 at rated to 25 at cut-out
-  return clamp(((windMs - RATED_WIND_MS) / (CUT_OUT_MS - RATED_WIND_MS)) * 25, 0, 25);
+  if (status === "fault" || status === "offline") return 90;
+  return v236PitchDeg(windMs);
 }
 
-/** Compute power from wind (cubic below rated, constant above). */
+/** Electrical power [MW] from the V236 curve; curtailed units run at 60 %. */
 function computePower(windMs: number, status: TurbineStatus): number {
   if (status === "fault" || status === "offline") return 0;
-  const ratio = windMs / RATED_WIND_MS;
-  const raw = ratio * ratio * ratio * RATED_POWER_MW;
-  const capped = clamp(raw, 0, RATED_POWER_MW);
-  return status === "curtailed" ? capped * 0.6 : capped;
+  const p = v236PowerMW(windMs);
+  return status === "curtailed" ? p * 0.6 : p;
 }
 
 // ── Beaufort scale lookup ─────────────────────────────────────
@@ -102,14 +114,15 @@ const BEAUFORT: { max: number; desc: string }[] = [
   { max: Infinity, desc: "Hurricane" },
 ];
 
-/** Compute environment / sea state from wind speed + elapsed sim time. */
+/** Compute environment / sea state from the 10 m wind speed + elapsed sim time. */
 function computeEnvironment(windMs: number, elapsedS: number): EnvironmentData {
   // Beaufort scale
   const bIdx = BEAUFORT.findIndex((b) => windMs <= b.max);
   const beaufortScale = bIdx >= 0 ? bIdx : 12;
   const beaufortDesc = BEAUFORT[beaufortScale].desc;
 
-  // Pierson-Moskowitz simplified: Hs ≈ 0.024 × U²
+  // Pierson-Moskowitz (fully developed sea) Hs ≈ 0.024 × U10² — an upper
+  // bound for the fetch-limited Baltic; U10 is the 10 m wind, not hub wind.
   const significantWaveHeightM = round1(0.024 * windMs * windMs);
   // Peak period: Tp ≈ 5.6 × √Hs
   const wavePeriodS = round1(5.6 * Math.sqrt(Math.max(significantWaveHeightM, 0.1)));
@@ -223,7 +236,7 @@ function createInitialTransformers(): Record<string, TransformerData> {
 
 function createInitialCable(): CableData {
   return {
-    type: "2 × 3-core XLPE submarine (parallel circuits)",
+    type: "2 × 3-core XLPE, 31.5 km subsea + 13.4 km land (parallel circuits)",
     voltageRatingKV: 220,
     currentRatingA: 950, // per circuit — matches backend EXPORT_CABLE_1000
     lengthKm: 45,
@@ -249,8 +262,8 @@ function computeKPIs(turbineMap: Record<string, TurbineData>): FarmKPI {
     (t) => t.status === "fault" || t.status === "curtailed",
   ).length;
   const capacityFactorPct = (totalOutputMW / 510) * 100;
-  // Grid frequency: 50 Hz ± small random drift (±0.05 Hz)
-  const gridFrequencyHz = round1(50.0 + (Math.random() - 0.5) * 0.1);
+  // Grid frequency: mean-reverting walk (updated per tick), shown to 1 mHz
+  const gridFrequencyHz = Math.round(_gridFreq * 1000) / 1000;
   // Revenue: spot price ~€80/MWh × energy produced today (sum of turbines)
   const totalEnergyMWh = turbines.reduce((sum, t) => sum + t.energyTodayMWh, 0);
   const revenueTodayEUR = Math.round(totalEnergyMWh * 80);
@@ -258,6 +271,7 @@ function computeKPIs(turbineMap: Record<string, TurbineData>): FarmKPI {
   return {
     totalOutputMW,
     averageWindSpeedMs,
+    freestreamWindMs: _baseWindSpeed,
     availabilityPercent,
     activeAlerts,
     windDirectionDeg: _windDirDeg,
@@ -270,12 +284,132 @@ function computeKPIs(turbineMap: Record<string, TurbineData>): FarmKPI {
 // ── Wind simulation state (module-level for continuity) ─────────
 
 let _simStartTime = Date.now();
+/** Grid frequency [Hz]: slow mean-reverting walk (normal CE operation ±≈ 50 mHz). */
+let _gridFreq = 50;
+/** Δ-reserve held by the power plant controller [% of available]. */
+let _reservePct = 0;
+let _weatherSource: "sim" | "live" = "sim";
+let _live: LiveWeather | null = null;
+/** Instructor / 3D-viewer override of the wind FROM bearing [°], null = sim/live. */
+let _manualWindDir: number | null = null;
+
+/** Beaufort and sea state are defined at 10 m: U10 = U150·(10/150)^0.1. */
+function hubTo10m(hubMs: number): number {
+  return hubMs * (10 / 150) ** 0.1;
+}
+
+/** Environment panel from Open-Meteo data (sim values kept where it has none). */
+function liveEnvironment(sim: EnvironmentData, w: LiveWeather): EnvironmentData {
+  const bIdx = BEAUFORT.findIndex((b) => w.wind10Ms <= b.max);
+  const beaufortScale = bIdx >= 0 ? bIdx : 12;
+  return {
+    ...sim,
+    beaufortScale,
+    beaufortDesc: BEAUFORT[beaufortScale].desc,
+    significantWaveHeightM: w.waveHeightM ?? sim.significantWaveHeightM,
+    wavePeriodS: w.wavePeriodS ?? sim.wavePeriodS,
+    airTemperatureC: round1(w.airTempC),
+    seaTemperatureC: w.seaTempC ?? sim.seaTemperatureC,
+    visibilityKm: round1(w.visibilityKm),
+    cloudCoverPct: Math.round(w.cloudPct),
+    pressureHpa: round1(w.pressureHpa),
+  };
+}
+
+/**
+ * Faults that need technicians on site (component damage / inspection).
+ * The others are cleared by a remote reset from the control room, which is
+ * how most turbine stops are resolved in practice.
+ */
+export const SITE_VISIT_FAULTS: TurbineFaultType[] = ["PITCH_CONTROL_FAULT", "BEARING_OVERTEMP", "GENERATOR_WINDING_TEMP"];
+
+export interface RepairJob {
+  crew: string;
+  startedAt: number;
+  durationMs: number;
+}
+
+export interface GridEventState {
+  kind: GridEventKind;
+  startedAt: number;
+  /** Playback speed: 1 = real time; FRT is shown ×10 slower. */
+  slowMo: number;
+  reservePct: number;
+  traj: GridSample[];
+}
 let _windDirDeg = 225; // current wind direction (meteorological)
 let _baseWindSpeed = 11.0; // farm-level base wind speed
 
 // ── Module-level interval ───────────────────────────────────────
 
 let _tickInterval: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Smoothed FREESTREAM wind per turbine [m/s]. Kept separately because
+ * recovering it as windSpeed / (1 − δ) breaks whenever the wind direction
+ * crosses a 5° wake bin: δ jumps, the "freestream" inflates and a newly
+ * waked turbine keeps near-rated output while its wake badge shows −50 %.
+ */
+const _freeWind = new Map<string, number>();
+
+// ── Array-cable fault scenario ──────────────────────────────────
+// Radial 66 kV string: a cable fault trips the feeder CB at the OSS, so
+// every turbine on the string loses its grid. After the fault is located,
+// the switch on the OSS side of the faulted section is opened and the
+// feeder re-closed: turbines between the OSS and the fault come back,
+// the ones beyond it stay out until the cable is repaired.
+
+/** Fault location + isolation time, time-compressed for the demo [ms]. */
+export const ARRAY_FAULT_ISOLATION_MS = 20_000;
+
+export interface ArrayCableFault {
+  segmentKey: string;
+  stringNumber: number;
+  /** Turbines beyond the fault — out until repair. */
+  beyondIds: string[];
+  /** Turbines between the OSS and the fault — back after isolation. */
+  restorableIds: string[];
+  stage: "tripped" | "isolated";
+  /** Training: isolation is left to the operator. */
+  manual: boolean;
+  /** Epoch ms of the trip / of the re-energisation. */
+  trippedAt: number;
+  isolatedAt: number | null;
+}
+
+/** Turbines held offline by the scenario (tick and random toggler respect it). */
+const _outOfService = new Set<string>();
+let _faultToken = 0;
+
+/** Open the switch on the OSS side of the fault and re-close the feeder CB. */
+function isolate(): void {
+  const f = useLandingStore.getState().arrayFault;
+  if (!f || f.stage !== "tripped") return;
+  for (const id of f.restorableIds) _outOfService.delete(id);
+  useLandingStore.setState((state) => {
+    if (!state.arrayFault) return state;
+    const turbineMap = setStatuses(state.turbineMap, f.restorableIds, "operating", false);
+    return {
+      turbineMap,
+      kpis: computeKPIs(turbineMap),
+      arrayFault: { ...state.arrayFault, stage: "isolated", isolatedAt: Date.now() },
+    };
+  });
+}
+
+function setStatuses(
+  map: Record<string, TurbineData>,
+  ids: Iterable<string>,
+  status: TurbineStatus,
+  zeroPower: boolean,
+): Record<string, TurbineData> {
+  const next = { ...map };
+  for (const id of ids) {
+    const t = next[id];
+    if (t) next[id] = { ...t, status, faultType: undefined, ...(zeroPower ? { powerOutputMW: 0 } : {}) };
+  }
+  return next;
+}
 
 // ── Store Interface ─────────────────────────────────────────────
 
@@ -341,6 +475,47 @@ interface LandingState {
   setTurbineFault: (turbineId: string, faultType: TurbineFaultType) => void;
   /** Clear a turbine fault back to operating (called by faultBus sync from SCADA). */
   clearTurbineFault: (turbineId: string) => void;
+
+  /** Active 66 kV array-cable fault scenario, if any. */
+  arrayFault: ArrayCableFault | null;
+  /** Fault on one array segment: trip the string, isolate, restore the healthy part. */
+  injectArrayFault: (f: {
+    segmentKey: string;
+    stringNumber: number;
+    stringIds: string[];
+    beyondIds: string[];
+    /** Training: no automatic isolation — the operator must find the section. */
+    manual?: boolean;
+  }) => void;
+  /** Cable repaired: re-energise the whole string. */
+  restoreArrayFault: () => void;
+  /** Training: operator opens the switch at a chosen section. True if it was the faulted one. */
+  isolateArrayFault: (segmentKey: string) => boolean;
+
+  /** Weather source: time-compressed simulation or live Open-Meteo data. */
+  weatherSource: "sim" | "live";
+  liveWeather: LiveWeather | null;
+  setWeatherSource: (src: "sim" | "live") => void;
+  setLiveWeather: (w: LiveWeather) => void;
+  /** Force the farm wind direction (°, FROM) — turbines then yaw at ≤ 1 °/s. null = release. */
+  manualWindDirDeg: number | null;
+  setManualWindDir: (deg: number | null) => void;
+
+  /** Δ-reserve [%] held by the PPC (headroom for LFSM-U / FCR). */
+  deltaReservePct: number;
+  setDeltaReserve: (pct: number) => void;
+
+  /** Active grid event (frequency / voltage dip), precomputed trajectory. */
+  gridEvent: GridEventState | null;
+  triggerGridEvent: (kind: GridEventKind) => void;
+  clearGridEvent: () => void;
+
+  /** Technicians working on a turbine (crew on site). */
+  repairs: Record<string, RepairJob>;
+  startRepair: (turbineId: string, crew: string, durationMs: number) => void;
+  completeRepair: (turbineId: string) => void;
+  /** Crew leaves before finishing (weather limit): the fault stays. */
+  cancelRepair: (turbineId: string) => void;
 }
 
 // ── Viewer defaults — single source for the Reset button ───────
@@ -373,7 +548,7 @@ export const useLandingStore = create<LandingState>((set) => {
     transformers: createInitialTransformers(),
     cable: createInitialCable(),
     kpis: computeKPIs(initialMap),
-    environment: computeEnvironment(11.0, 0),
+    environment: computeEnvironment(hubTo10m(11.0), 0),
 
     // ── 3D viewer state ────────────────────────────────────────────
     ...VIEWER_DEFAULTS,
@@ -426,6 +601,106 @@ export const useLandingStore = create<LandingState>((set) => {
         };
       }),
 
+    arrayFault: null,
+
+    injectArrayFault: ({ segmentKey, stringNumber, stringIds, beyondIds, manual }) => {
+      const token = ++_faultToken;
+      _outOfService.clear();
+      for (const id of stringIds) _outOfService.add(id);
+      const restorableIds = stringIds.filter((id) => !beyondIds.includes(id));
+      set((state) => {
+        // Feeder CB trips (50/51, 50N/51N) within ~100 ms: output drops at once
+        const turbineMap = setStatuses(state.turbineMap, stringIds, "offline", true);
+        return {
+          turbineMap,
+          kpis: computeKPIs(turbineMap),
+          arrayFault: {
+            segmentKey,
+            stringNumber,
+            beyondIds,
+            restorableIds,
+            stage: "tripped",
+            manual: !!manual,
+            trippedAt: Date.now(),
+            isolatedAt: null,
+          },
+        };
+      });
+      if (manual) return;
+      setTimeout(() => {
+        if (token !== _faultToken) return; // restored or replaced meanwhile
+        isolate();
+      }, ARRAY_FAULT_ISOLATION_MS);
+    },
+
+    isolateArrayFault: (segmentKey) => {
+      const f = useLandingStore.getState().arrayFault;
+      if (!f || f.stage !== "tripped" || f.segmentKey !== segmentKey) return false;
+      _faultToken++; // cancel any pending auto-isolation
+      isolate();
+      return true;
+    },
+
+    weatherSource: "sim",
+    liveWeather: null,
+    setWeatherSource: (src) => {
+      _weatherSource = src;
+      set({ weatherSource: src });
+    },
+    setLiveWeather: (w) => {
+      _live = w;
+      set({ liveWeather: w });
+    },
+    manualWindDirDeg: null,
+    setManualWindDir: (deg) => {
+      _manualWindDir = deg === null ? null : ((deg % 360) + 360) % 360;
+      set({ manualWindDirDeg: _manualWindDir });
+    },
+
+    deltaReservePct: 0,
+    setDeltaReserve: (pct) => {
+      _reservePct = clamp(pct, 0, 20);
+      set({ deltaReservePct: _reservePct });
+    },
+
+    gridEvent: null,
+    triggerGridEvent: (kind) => {
+      const p = useLandingStore.getState().kpis.totalOutputMW;
+      const traj = kind === "voltage-dip" ? voltageDipEvent(p) : frequencyEvent(kind, p, _reservePct);
+      set({ gridEvent: { kind, startedAt: Date.now(), slowMo: kind === "voltage-dip" ? 10 : 1, reservePct: _reservePct, traj } });
+    },
+    clearGridEvent: () => set({ gridEvent: null }),
+
+    repairs: {},
+    startRepair: (turbineId, crew, durationMs) =>
+      set((state) => ({ repairs: { ...state.repairs, [turbineId]: { crew, startedAt: Date.now(), durationMs } } })),
+    cancelRepair: (turbineId) =>
+      set((state) => {
+        const repairs = { ...state.repairs };
+        delete repairs[turbineId];
+        return { repairs };
+      }),
+    completeRepair: (turbineId) =>
+      set((state) => {
+        const repairs = { ...state.repairs };
+        delete repairs[turbineId];
+        const t = state.turbineMap[turbineId];
+        if (!t || t.status !== "fault") return { repairs };
+        useFaultBus.getState().clearFault(turbineId, "landing");
+        const turbineMap = { ...state.turbineMap, [turbineId]: { ...t, status: "operating" as const, faultType: undefined } };
+        return { repairs, turbineMap, kpis: computeKPIs(turbineMap) };
+      }),
+
+    restoreArrayFault: () => {
+      _faultToken++;
+      const ids = [..._outOfService];
+      _outOfService.clear();
+      set((state) => {
+        const turbineMap = setStatuses(state.turbineMap, ids, "operating", false);
+        return { turbineMap, kpis: computeKPIs(turbineMap), arrayFault: null };
+      });
+    },
+
     startSimulation: () => {
       if (_tickInterval) return; // already running — idempotent
       _simStartTime = Date.now();
@@ -438,32 +713,69 @@ export const useLandingStore = create<LandingState>((set) => {
           // Previous generator (±30°, ±1° jitter, 20s period) produced visible flicker that
           // desynced from the compass/arrow visually. Smoothing keeps all consumers coherent.
           const elapsed = (Date.now() - _simStartTime) / 1000;
-          const windDirTarget = 225 + 8 * Math.sin(elapsed * (2 * Math.PI / 60)) + rand(-0.2, 0.2);
-          const EWMA_ALPHA = 0.15;
-          _windDirDeg = ((1 - EWMA_ALPHA) * _windDirDeg + EWMA_ALPHA * windDirTarget + 360) % 360;
+          const live = _weatherSource === "live" ? _live : null;
+          const windDirTarget = _manualWindDir !== null
+            ? _manualWindDir + rand(-1, 1)
+            : live
+            ? live.windDir100Deg + rand(-2, 2)
+            : 225 + 8 * Math.sin(elapsed * (2 * Math.PI / 60)) + rand(-0.2, 0.2);
+          const EWMA_ALPHA = _manualWindDir !== null ? 0.5 : 0.15; // a forced veer arrives within ~2 ticks
+          // shortest angular step (the old linear EWMA broke across 0°/360°)
+          const dirErr = ((windDirTarget - _windDirDeg + 540) % 360) - 180;
+          _windDirDeg = (_windDirDeg + EWMA_ALPHA * dirErr + 360) % 360;
 
-          // Update base wind speed: gradual ramp with ~12s period
-          _baseWindSpeed = clamp(
-            11.0 + 3.5 * Math.sin(elapsed * (2 * Math.PI / 12)) + 1.5 * Math.sin(elapsed * (2 * Math.PI / 40)),
-            7, 15,
-          );
+          // Grid frequency: mean-reverting random walk, ±≈ 50 mHz in normal operation
+          _gridFreq = clamp(_gridFreq + (50 - _gridFreq) * 0.25 + rand(-0.012, 0.012), 49.95, 50.05);
+
+          // Freestream wind: 3-min cycle + 15-min swell (time-compressed but
+          // smooth — 36 ticks per cycle). The old 12 s period was sampled every
+          // 5 s tick (below Nyquist), so the "mean" wind jumped ±3.5 m/s per tick.
+          _baseWindSpeed = live
+            ? // live: hub wind from Open-Meteo 100 m + short-term turbulence (TI ≈ 6 %)
+              clamp(0.7 * _baseWindSpeed + 0.3 * (live.hubWindMs * (1 + rand(-0.06, 0.06))), 0, 40)
+            : clamp(
+                11.0 + 3.5 * Math.sin(elapsed * (2 * Math.PI / 180)) + 1.5 * Math.sin(elapsed * (2 * Math.PI / 900)),
+                7, 15,
+              );
+
+          const wakeDeficits = farmWakeDeficits(_windDirDeg);
 
           for (const id of state.turbineIds) {
             const t = state.turbineMap[id];
 
-            // Per-turbine wind varies based on position relative to wind direction (wake effect proxy)
+            // Per-turbine freestream varies slightly with position across the array
             const pos = TURBINE_POSITIONS.find((p) => p.id === id);
             const posOffset = pos ? (pos.x * Math.cos(_windDirDeg * Math.PI / 180) + pos.y * Math.sin(_windDirDeg * Math.PI / 180)) / 800 : 0;
             const turbineBaseWind = _baseWindSpeed + posOffset * 0.5 + rand(-0.15, 0.15);
-            const newWind = clamp(t.windSpeedMs * 0.5 + turbineBaseWind * 0.5, 5, 16);
+            // Smooth the FREESTREAM wind, then apply this turbine's wake deficit
+            // (Jensen/Park, cached per 5° of direction) — the rotor sees u·(1−δ).
+            const deficit = wakeDeficits.get(id) ?? 0;
+            const prevFree = _freeWind.get(id) ?? t.windSpeedMs / (1 - deficit);
+            const freeWind = clamp(prevFree * 0.5 + turbineBaseWind * 0.5, 0, 40);
+            _freeWind.set(id, freeWind);
+            const newWind = freeWind * (1 - deficit);
 
             // Compute TARGET values from physics — then ramp-limit for realism
-            const targetPower = computePower(newWind, t.status);
-            const targetRotor = computeRotorSpeed(newWind, t.status);
-            const targetPitch = computePitchAngle(newWind, t.status);
+            // Δ-reserve: the PPC holds back a share of the available power
+            // Yaw misalignment γ between rotor axis and wind: the rotor only
+            // uses the normal component, P ∝ cos^1.88 γ (Fleming et al. 2017,
+            // LES + field fit). Beyond 45° the controller pauses production
+            // (pitch towards feather, rotor idling) until the yaw drive has
+            // caught up — the usual OEM yaw-error stop.
+            const yawErrDeg = ((_windDirDeg - t.nacellePositionDeg + 540) % 360) - 180;
+            const yawPause = Math.abs(yawErrDeg) > YAW_PAUSE_DEG && t.status !== "fault" && t.status !== "offline";
+            const yawFactor = yawPause ? 0 : yawPowerFactor(yawErrDeg);
+            const targetPower = computePower(newWind, t.status) * (1 - _reservePct / 100) * yawFactor;
+            const targetRotor = computeRotorSpeed(newWind, t.status) * (yawPause ? 0.3 : 1);
+            const targetPitch = yawPause ? 45 : computePitchAngle(newWind, t.status);
 
-            // Apply ramp rate limits — a 15 MW turbine can't jump instantly
-            const newPower = rampToward(t.powerOutputMW, targetPower, MAX_POWER_RAMP_MW_PER_TICK);
+            // Apply ramp rate limits — a 15 MW turbine can't jump instantly.
+            // Output can never exceed what the current wind supplies, though:
+            // on a lull, power follows the wind down at once (Cp ≤ Betz).
+            const newPower = Math.min(
+              rampToward(t.powerOutputMW, targetPower, MAX_POWER_RAMP_MW_PER_TICK),
+              v236PowerMW(newWind) * yawFactor,
+            );
             const newRotor = rampToward(t.rotorSpeedRpm, targetRotor, MAX_ROTOR_RAMP_RPM_PER_TICK);
             const newPitch = rampToward(t.pitchAngleDeg, targetPitch, MAX_PITCH_RAMP_DEG_PER_TICK);
 
@@ -537,7 +849,9 @@ export const useLandingStore = create<LandingState>((set) => {
           const target = newMap[targetId];
           const roll = Math.random();
 
-          if (target.status === "operating") {
+          if (_outOfService.has(targetId)) {
+            // held offline by the array-cable fault scenario
+          } else if (target.status === "operating") {
             if (roll < 0.01) {
               // Fault: set status but let ramp rates gradually bring power to 0
               // (computePower returns 0 for fault, ramp will catch up in 2-3 ticks)
@@ -549,7 +863,8 @@ export const useLandingStore = create<LandingState>((set) => {
               newMap[targetId] = { ...target, status: "curtailed" };
             }
           } else if (target.status === "fault") {
-            if (roll < 0.35) {
+            // remote reset works for most faults; component faults wait for the crew
+            if (roll < 0.35 && !(target.faultType && SITE_VISIT_FAULTS.includes(target.faultType))) {
               newMap[targetId] = { ...target, status: "operating", faultType: undefined };
               // Clear from unified fault bus → syncs to SCADA
               useFaultBus.getState().clearFault(targetId, "landing");
@@ -564,14 +879,15 @@ export const useLandingStore = create<LandingState>((set) => {
             }
           }
 
-          // Update transformer loading based on total power
+          // Transformer loading = throughput / installed capacity (units × rating),
+          // throughput ≈ P since the STATCOM keeps Q ≈ 0 at the grid connection.
           const kpis = computeKPIs(newMap);
-          const loadPct = (kpis.totalOutputMW / 510) * 100;
           const txs = { ...state.transformers };
           for (const txId of Object.keys(txs)) {
             const tx = txs[txId];
+            const loadPct = (kpis.totalOutputMW / (tx.units * tx.ratingMVA)) * 100;
             const targetOilTemp = 35 + (loadPct / 100) * 30 + rand(-1, 1);
-            const cooling: TransformerData["coolingStatus"] = loadPct > 90 ? "ONAF-2" : loadPct > 70 ? "ONAF-1" : "ONAN";
+            const cooling: TransformerData["coolingStatus"] = loadPct > 80 ? "ONAF-2" : loadPct > 55 ? "ONAF-1" : "ONAN";
             txs[txId] = {
               ...tx,
               loadPercent: round1(loadPct),
@@ -582,11 +898,12 @@ export const useLandingStore = create<LandingState>((set) => {
             };
           }
 
-          // Cable thermal loading follows power
-          const cableThermal = clamp((kpis.totalOutputMW / 510) * 85, 5, 100);
+          // Export cable current loading (active + half charging current, per circuit)
+          const cableThermal = exportCableState(kpis.totalOutputMW).loadingPct;
 
           // Environment / sea state
-          const environment = computeEnvironment(_baseWindSpeed, elapsed);
+          let environment = computeEnvironment(hubTo10m(_baseWindSpeed), elapsed);
+          if (_weatherSource === "live" && _live) environment = liveEnvironment(environment, _live);
 
           return {
             turbineMap: newMap,

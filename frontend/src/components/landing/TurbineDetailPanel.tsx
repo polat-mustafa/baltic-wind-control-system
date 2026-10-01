@@ -1,34 +1,32 @@
 /**
- * Visual turbine detail panel — animated SVG cross-section replaces data tables.
+ * Turbine detail panel — one WTG, opened by clicking a turbine on the map
+ * (the 3D viewer renders to its left, see LandingPage).
  *
- * Layout (440px wide):
- * - Header: turbine ID + string + status badge + close button
- * - Fault alert (conditional): red-tinted fault with priority/cause/action
- * - SVG cross-section: animated cutaway with data overlaid on parts
- * - Wake cone: educational visualization of downstream wake effects
- * - Sparklines: power + wind history (last 60 seconds)
- * - Health summary: compact availability, energy, hours
- * - Navigation: 6 compact icon buttons (P1-P5 + Physics)
+ * Top to bottom: live power vs rated + key operating values, active fault or
+ * curtailment reason, power-train diagram (click a stage or component → part
+ * education card expands inline, and the 3D viewer flies to the part), 60 s trends, wake loss, operating point on the V236 power
+ * curve, condition data, and links into the project dashboards.
  *
- * A non-engineer should immediately understand what's happening inside the turbine.
+ * Uses the shared EquipmentPanel shell; Esc first closes an open part card,
+ * then the panel.
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import {
-  X,
-  Wind,
-  Zap,
-  Monitor,
-  Brain,
-  ClipboardCheck,
-  Activity,
-  BookOpen,
-  TrendingUp,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import {
+  Activity,
+  BookOpen,
+  Brain,
+  ClipboardCheck,
+  Fan,
+  Monitor,
+  Wind,
+  Zap,
+} from "lucide-react";
+
+import { turbineSelectionEducation } from "../../constants/education/library/turbineSelection";
 import { FAULT_CATEGORIES } from "../../constants/faultCategories";
-import { SCADA_COLORS } from "../../constants/scadaColors";
 import {
   FAULT_TO_PART,
   type TurbinePartId,
@@ -41,235 +39,60 @@ import {
   useLandingStore,
 } from "../../store/landingStore";
 import type { TurbineData, TurbineStatus } from "../../types/landing";
-
 import { inferCurtailment } from "../../utils/curtailmentReason";
+import {
+  ROTOR_DIAMETER_M,
+  V236,
+  v236PowerMW,
+  wakePowerLossPct,
+} from "../../utils/landingPhysics";
 import { computeWakeLosses } from "../../utils/wakeModel";
+import { EducationPanel } from "../ui/EducationPanel";
 
-import TurbineCrossSection from "./TurbineCrossSection";
+import {
+  DataRow,
+  EquipmentPanel,
+  HeroValue,
+  LevelBar,
+  PanelSection,
+} from "./EquipmentPanel";
 import TurbineEducationPanel from "./TurbineEducationPanel";
+import TurbinePowerTrain from "./TurbinePowerTrain";
 import TurbineSparklines from "./TurbineSparklines";
 import TurbineWakeCone from "./TurbineWakeCone";
-import { EducationPanel } from "../ui/EducationPanel";
-import { turbineSelectionEducation } from "../../constants/education/library/turbineSelection";
 
-// ── V236 Published power curve (interpolated from Vestas product card) ──
-// Source: Vestas V236-15.0 MW published specifications
-// Cut-in: 3 m/s, Rated: 11.1 m/s, Cut-out: 31 m/s
-const V236_CURVE: { v: number; p: number }[] = [
-  { v: 3.0, p: 0 },
-  { v: 4.0, p: 0.4 },
-  { v: 5.0, p: 0.95 },
-  { v: 6.0, p: 1.8 },
-  { v: 7.0, p: 3.1 },
-  { v: 8.0, p: 4.9 },
-  { v: 9.0, p: 7.1 },
-  { v: 10.0, p: 10.5 },
-  { v: 11.0, p: 14.5 },
-  { v: 11.1, p: 15.0 },
-  { v: 12.0, p: 15.0 },
-  { v: 25.0, p: 15.0 },
-  { v: 31.0, p: 0 },
+const NORMAL = "#3ecf6e";
+const WARN = "#f5a623";
+const ALARM = "#ef4444";
+const MUTED = "#6b7490";
+const RHO_AIR = 1.225; // kg/m³, ISO standard atmosphere
+const ROTOR_AREA_M2 = Math.PI * (ROTOR_DIAMETER_M / 2) ** 2;
+
+const STATUS: Record<TurbineStatus, { label: string; color: string }> = {
+  operating: { label: "Operating", color: NORMAL },
+  curtailed: { label: "Curtailed", color: WARN },
+  fault: { label: "Fault", color: ALARM },
+  offline: { label: "Offline", color: "#9ba3b8" },
+};
+
+const NAV_ITEMS = [
+  { label: "P1", path: "/wind-resource", icon: Wind, tip: "Wind Resource" },
+  { label: "P2", path: "/hv-grid", icon: Zap, tip: "HV Grid" },
+  { label: "P3", path: "/scada", icon: Monitor, tip: "SCADA" },
+  { label: "P4", path: "/forecast", icon: Brain, tip: "Forecasting" },
+  {
+    label: "P5",
+    path: "/commissioning",
+    icon: ClipboardCheck,
+    tip: "Commissioning",
+  },
+  {
+    label: "Physics",
+    path: "/turbine-physics",
+    icon: Activity,
+    tip: "Turbine Physics",
+  },
 ];
-
-function V236PowerCurve({
-  windSpeedMs,
-  powerOutputMW,
-}: {
-  windSpeedMs: number;
-  powerOutputMW: number;
-}) {
-  const W = 400;
-  const H = 90;
-  const padL = 28;
-  const padR = 4;
-  const padT = 4;
-  const padB = 18;
-  const vMax = 32;
-  const pMax = 16;
-  const toX = (v: number) => padL + (v / vMax) * (W - padL - padR);
-  const toY = (p: number) => padT + (1 - p / pMax) * (H - padT - padB);
-
-  // Build SVG path
-  const pts = V236_CURVE.map(
-    (d) => `${toX(d.v).toFixed(1)},${toY(d.p).toFixed(1)}`,
-  ).join(" ");
-  const polyline = `M ${pts.split(" ").join(" L ")}`;
-
-  // Cp at current operating point
-  const RHO = 1.225;
-  const A = Math.PI * (236 / 2) ** 2;
-  const pWind = (0.5 * RHO * A * Math.pow(Math.max(windSpeedMs, 0.1), 3)) / 1e6;
-  const cp =
-    windSpeedMs > 3 && powerOutputMW > 0
-      ? Math.min(0.593, powerOutputMW / pWind)
-      : 0;
-
-  return (
-    <div className="mt-1.5 mb-1">
-      <svg
-        width="100%"
-        viewBox={`0 0 ${W} ${H}`}
-        style={{ overflow: "visible" }}
-      >
-        {/* Grid lines */}
-        {[0, 5, 10, 15].map((p) => (
-          <line
-            key={p}
-            x1={padL}
-            y1={toY(p)}
-            x2={W - padR}
-            y2={toY(p)}
-            stroke="#2a3040"
-            strokeWidth={0.5}
-          />
-        ))}
-        {[0, 5, 10, 15, 20, 25, 30].map((v) => (
-          <line
-            key={v}
-            x1={toX(v)}
-            y1={padT}
-            x2={toX(v)}
-            y2={H - padB}
-            stroke="#2a3040"
-            strokeWidth={0.5}
-          />
-        ))}
-        {/* Y labels */}
-        {[0, 5, 10, 15].map((p) => (
-          <text
-            key={p}
-            x={padL - 3}
-            y={toY(p) + 3}
-            fontSize={6}
-            fill="#6b7490"
-            textAnchor="end"
-          >
-            {p}
-          </text>
-        ))}
-        {/* X labels */}
-        {[0, 5, 10, 15, 20, 25, 30].map((v) => (
-          <text
-            key={v}
-            x={toX(v)}
-            y={H - padB + 10}
-            fontSize={6}
-            fill="#6b7490"
-            textAnchor="middle"
-          >
-            {v}
-          </text>
-        ))}
-        {/* Axes */}
-        <line
-          x1={padL}
-          y1={padT}
-          x2={padL}
-          y2={H - padB}
-          stroke="#3a4255"
-          strokeWidth={1}
-        />
-        <line
-          x1={padL}
-          y1={H - padB}
-          x2={W - padR}
-          y2={H - padB}
-          stroke="#3a4255"
-          strokeWidth={1}
-        />
-        {/* Power curve */}
-        <path d={polyline} fill="none" stroke="#3b82f6" strokeWidth={1.5} />
-        {/* Rated power line */}
-        <line
-          x1={padL}
-          y1={toY(15)}
-          x2={W - padR}
-          y2={toY(15)}
-          stroke="#22c55e"
-          strokeWidth={0.8}
-          strokeDasharray="3,2"
-          opacity={0.6}
-        />
-        {/* Current operating point */}
-        {windSpeedMs >= 3 && windSpeedMs <= 31 && (
-          <>
-            <line
-              x1={toX(windSpeedMs)}
-              y1={padT}
-              x2={toX(windSpeedMs)}
-              y2={H - padB}
-              stroke="#f59e0b"
-              strokeWidth={1}
-              strokeDasharray="2,2"
-            />
-            <circle
-              cx={toX(windSpeedMs)}
-              cy={toY(powerOutputMW)}
-              r={3.5}
-              fill="#f59e0b"
-              stroke="#0f1117"
-              strokeWidth={1}
-            />
-          </>
-        )}
-        {/* Axis labels */}
-        <text
-          x={W / 2}
-          y={H - 1}
-          fontSize={6}
-          fill="#6b7490"
-          textAnchor="middle"
-        >
-          Wind speed (m/s)
-        </text>
-        <text
-          x={7}
-          y={H / 2}
-          fontSize={6}
-          fill="#6b7490"
-          textAnchor="middle"
-          transform={`rotate(-90, 7, ${H / 2})`}
-        >
-          MW
-        </text>
-      </svg>
-      <div className="flex items-center gap-3 text-[9px] text-text-muted mt-0.5">
-        <span>
-          <span className="text-status-warning">●</span>{" "}
-          {windSpeedMs.toFixed(1)} m/s → {powerOutputMW.toFixed(1)} MW
-        </span>
-        {windSpeedMs > 3 && (
-          <span>Cp = {cp.toFixed(3)} (Betz limit 0.593)</span>
-        )}
-        <span className="opacity-60">
-          Vestas V236 product card (indicative)
-        </span>
-      </div>
-    </div>
-  );
-}
-
-interface TurbineDetailPanelProps {
-  turbine: TurbineData;
-  onClose: () => void;
-  /** Horizontal offset from viewport left edge. Defaults to 20 (standalone).
-   *  Pass ~640 when the 3D viewer is rendered to the left. */
-  leftOffset?: number;
-}
-
-const STATUS_COLOR: Record<TurbineStatus, string> = {
-  operating: SCADA_COLORS.ENERGIZED,
-  curtailed: SCADA_COLORS.WARNING,
-  fault: SCADA_COLORS.FAULT,
-  offline: SCADA_COLORS.DE_ENERGIZED,
-};
-
-const STATUS_LABEL: Record<TurbineStatus, string> = {
-  operating: "Operating",
-  curtailed: "Curtailed",
-  fault: "Fault",
-  offline: "Offline",
-};
 
 /** Stable reference to turbine geographic data (never changes). */
 const TURBINE_GEO = TURBINE_POSITIONS.map((t) => ({
@@ -279,61 +102,146 @@ const TURBINE_GEO = TURBINE_POSITIONS.map((t) => ({
 }));
 
 /** Round wind direction to nearest `step` degrees (matches WakeEffectLayer). */
-function quantizeDir(deg: number, step = 5): number {
-  return Math.round(deg / step) * step;
+const quantizeDir = (deg: number, step = 5) => Math.round(deg / step) * step;
+
+const levelColor = (v: number, warn: number, alarm: number) =>
+  v >= alarm ? ALARM : v >= warn ? WARN : NORMAL;
+
+/** Power coefficient at the operating point, Cp = P / (½ρAv³), capped at Betz. */
+function powerCoefficient(powerMW: number, windMs: number): number {
+  if (windMs <= V236.cutInMs || powerMW <= 0) return 0;
+  const windPowerMW = (0.5 * RHO_AIR * ROTOR_AREA_M2 * windMs ** 3) / 1e6;
+  return Math.min(16 / 27, powerMW / windPowerMW);
 }
 
-/** Wake loss color based on severity threshold. */
-function wakeLossColor(pct: number): string {
-  if (pct > 20) return "#ef4444"; // red
-  if (pct > 10) return "#f97316"; // orange
-  return "#fbbf24"; // yellow
+/** V236 power curve (shared model) with the live operating point. */
+function PowerCurveChart({
+  windMs,
+  powerMW,
+}: {
+  windMs: number;
+  powerMW: number;
+}) {
+  const W = 408;
+  const H = 120;
+  const pad = { l: 30, r: 8, t: 8, b: 24 };
+  const vMax = 32;
+  const pMax = 16;
+  const x = (v: number) => pad.l + (v / vMax) * (W - pad.l - pad.r);
+  const y = (p: number) => pad.t + (1 - p / pMax) * (H - pad.t - pad.b);
+  const curve = Array.from({ length: 129 }, (_, i) => {
+    const v = (i / 128) * vMax;
+    return `${i ? "L" : "M"}${x(v).toFixed(1)},${y(v236PowerMW(v)).toFixed(1)}`;
+  }).join(" ");
+  const inRange = windMs >= V236.cutInMs && windMs <= V236.cutOutMs;
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full"
+      role="img"
+      aria-label="V236 power curve with operating point"
+    >
+      {[0, 5, 10, 15].map((p) => (
+        <g key={p}>
+          <line
+            x1={pad.l}
+            x2={W - pad.r}
+            y1={y(p)}
+            y2={y(p)}
+            stroke="#2a3040"
+            strokeWidth={0.75}
+          />
+          <text
+            x={pad.l - 5}
+            y={y(p) + 3}
+            fontSize={9}
+            fill={MUTED}
+            textAnchor="end"
+            fontFamily="JetBrains Mono, monospace"
+          >
+            {p}
+          </text>
+        </g>
+      ))}
+      {[0, 3, 11.1, 20, 31].map((v) => (
+        <text
+          key={v}
+          x={x(v)}
+          y={H - 10}
+          fontSize={9}
+          fill={MUTED}
+          textAnchor="middle"
+          fontFamily="JetBrains Mono, monospace"
+        >
+          {v}
+        </text>
+      ))}
+      <text x={W - pad.r} y={H - 1} fontSize={9} fill={MUTED} textAnchor="end">
+        wind m/s
+      </text>
+      <text
+        x={pad.l - 5}
+        y={pad.t - 1}
+        fontSize={9}
+        fill={MUTED}
+        textAnchor="end"
+      >
+        MW
+      </text>
+      <path d={curve} fill="none" stroke="#3b82f6" strokeWidth={1.75} />
+      {inRange && (
+        <>
+          <line
+            x1={x(windMs)}
+            x2={x(windMs)}
+            y1={pad.t}
+            y2={H - pad.b}
+            stroke={WARN}
+            strokeDasharray="3 3"
+          />
+          <circle
+            cx={x(windMs)}
+            cy={y(powerMW)}
+            r={4}
+            fill={WARN}
+            stroke="#0f1117"
+            strokeWidth={1.5}
+          />
+        </>
+      )}
+    </svg>
+  );
 }
 
-const NAV_ITEMS = [
-  {
-    label: "P1",
-    path: "/wind-resource",
-    icon: Wind,
-    color: "#3b82f6",
-    tip: "Wind Resource",
-  },
-  {
-    label: "P2",
-    path: "/hv-grid",
-    icon: Zap,
-    color: "#8b5cf6",
-    tip: "HV Grid",
-  },
-  {
-    label: "P3",
-    path: "/scada",
-    icon: Monitor,
-    color: "#10b981",
-    tip: "SCADA",
-  },
-  {
-    label: "P4",
-    path: "/forecast",
-    icon: Brain,
-    color: "#f59e0b",
-    tip: "Forecasting",
-  },
-  {
-    label: "P5",
-    path: "/commissioning",
-    icon: ClipboardCheck,
-    color: "#ef4444",
-    tip: "Commissioning",
-  },
-  {
-    label: "Phys",
-    path: "/turbine-physics",
-    icon: Activity,
-    color: "#06b6d4",
-    tip: "Turbine Physics",
-  },
-];
+function Stat({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+}) {
+  return (
+    <div className="rounded-lg bg-bg-secondary/70 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-wider text-text-muted">
+        {label}
+      </div>
+      <div className="font-mono text-sm font-medium tabular-nums text-text-primary">
+        {value}
+        <span className="ml-0.5 text-[10px] text-text-muted">{unit}</span>
+      </div>
+    </div>
+  );
+}
+
+interface TurbineDetailPanelProps {
+  turbine: TurbineData;
+  onClose: () => void;
+  /** Horizontal offset from the map's left edge (≈ 600 when the 3D viewer is shown). */
+  leftOffset?: number;
+}
 
 export default function TurbineDetailPanel({
   turbine: t,
@@ -341,26 +249,20 @@ export default function TurbineDetailPanel({
   leftOffset = 20,
 }: TurbineDetailPanelProps) {
   const navigate = useNavigate();
-  // selectedPart is lifted into the store so the 3D viewer can subscribe
+  // selectedPart lives in the store so the 3D viewer highlights the same part
   const selectedPart = useLandingStore(selectTurbinePart);
   const setSelectedPart = useLandingStore((s) => s.setSelectedTurbinePart);
-  const [isNarrow, setIsNarrow] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const [showPowerCurve, setShowPowerCurve] = useState(false);
 
-  const sColor = STATUS_COLOR[t.status];
+  const status = STATUS[t.status];
   const faultCategory =
     t.status === "fault" && t.faultType
       ? FAULT_CATEGORIES.find((c) => c.type === t.faultType)
       : null;
-
-  // Compute which part the current fault maps to (for red pulsing ring)
   const faultPartId: TurbinePartId | null =
     t.status === "fault" && t.faultType
       ? (FAULT_TO_PART[t.faultType] ?? null)
       : null;
-
-  // Compute curtailment info (for amber pulsing ring)
   const curtailInfo = inferCurtailment(t);
   const curtailmentPartId: TurbinePartId | null =
     curtailInfo?.affectedPart ?? null;
@@ -370,149 +272,138 @@ export default function TurbineDetailPanel({
     t.windSpeedMs,
   );
 
-  // Wake loss computation — same quantized direction as WakeEffectLayer badges
+  // Wake loss — same quantized direction as the WakeEffectLayer badges
   const kpis = useLandingStore(selectKPIs);
   const windDir = quantizeDir(kpis.windDirectionDeg);
+  // Live power loss at the current freestream (0 when the waked wind is
+  // still above rated) — rounded to 0.5 m/s like the map's wake badges.
+  const freeMs = Math.round(kpis.freestreamWindMs * 2) / 2;
   const wakeLoss = useMemo(() => {
-    const losses = computeWakeLosses(TURBINE_GEO, windDir);
-    return losses.find((l) => l.turbineId === t.id) ?? null;
-  }, [windDir, t.id]);
+    const w = computeWakeLosses(TURBINE_GEO, windDir).find(
+      (l) => l.turbineId === t.id,
+    );
+    return w
+      ? { ...w, lossPct: Math.round(wakePowerLossPct(freeMs, w.deficit)) }
+      : null;
+  }, [windDir, freeMs, t.id]);
 
-  // Toggle part selection (click same part again to close)
   const handlePartClick = useCallback(
-    (partId: TurbinePartId) => {
-      setSelectedPart(selectedPart === partId ? null : partId);
-    },
+    (partId: TurbinePartId) =>
+      setSelectedPart(selectedPart === partId ? null : partId),
     [selectedPart, setSelectedPart],
   );
 
-  // Responsive check: narrow viewport → inline education panel
-  const checkWidth = useCallback(() => {
-    setIsNarrow(window.innerWidth < 880);
-  }, []);
-
+  // Esc closes an open part card first (capture phase runs before the shell's
+  // handler; preventDefault tells the shell not to close the whole panel).
   useEffect(() => {
-    checkWidth();
-    window.addEventListener("resize", checkWidth);
-    return () => window.removeEventListener("resize", checkWidth);
-  }, [checkWidth]);
-
-  // Escape key closes education panel (not the detail panel)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && selectedPart) {
-        e.stopPropagation();
-        setSelectedPart(null);
-      }
+    if (!selectedPart) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "Escape") return;
+      e.preventDefault();
+      setSelectedPart(null);
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedPart]);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [selectedPart, setSelectedPart]);
+
+  const ratedPct = (t.powerOutputMW / V236.ratedMW) * 100;
+  const cp = powerCoefficient(t.powerOutputMW, t.windSpeedMs);
 
   return (
     <>
-      <div
-        className="absolute rounded-lg shadow-2xl shadow-black/50 border border-border-primary bg-bg-primary overflow-y-auto"
-        style={{
-          zIndex: 1100,
-          width: 440,
-          left: leftOffset,
-          top: 60,
-          maxHeight: "calc(100% - 80px)",
-        }}
+      <EquipmentPanel
+        icon={Fan}
+        tag={t.id}
+        subtitle={`String ${t.stringNumber} · V236-15.0 MW · hub 150 m · rotor Ø ${ROTOR_DIAMETER_M} m`}
+        status={status}
+        onClose={onClose}
+        width={440}
+        placement={{ left: leftOffset, top: 60 }}
+        footnote={
+          <button
+            onClick={() => setLibraryOpen(true)}
+            className="inline-flex items-center gap-1 text-accent transition-colors hover:text-accent-hover"
+          >
+            <BookOpen size={11} /> Why the V236-15.0 MW for this site?
+          </button>
+        }
       >
-        {/* ── Header ── */}
-        <div className="px-3 py-2 border-b border-border-primary flex items-center justify-between">
-          <div>
-            <div className="text-sm font-semibold text-text-primary">
-              {t.id}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-text-muted">
-                String {t.stringNumber} · V236-15.0 MW
-              </span>
-              <button
-                onClick={() => setLibraryOpen(true)}
-                className="flex items-center gap-1 text-[9px] text-accent hover:text-accent-hover transition-colors"
-                title="Why was the V236-15.0 MW chosen?"
-              >
-                <BookOpen size={9} />
-                Why V236?
-              </button>
+        {/* Live output */}
+        <div className="border-b border-border-primary/60 px-4 py-3">
+          <div className="flex items-end justify-between">
+            <HeroValue
+              caption="Active power"
+              value={t.powerOutputMW.toFixed(1)}
+              unit="MW"
+              color={status.color}
+            />
+            <div className="pb-1 text-right font-mono text-[11px] tabular-nums text-text-muted">
+              <span className="text-text-primary">{ratedPct.toFixed(0)} %</span>{" "}
+              of {V236.ratedMW} MW
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className="flex items-center gap-1.5 text-xs font-medium"
-              style={{ color: sColor }}
-            >
-              <span
-                className="w-2 h-2 rounded-full inline-block"
-                style={{ backgroundColor: sColor }}
-              />
-              {STATUS_LABEL[t.status]}
-            </span>
-            <button
-              onClick={onClose}
-              className="text-text-muted hover:text-text-primary transition-colors"
-            >
-              <X size={14} />
-            </button>
+          <div className="mt-2.5">
+            <LevelBar
+              value={t.powerOutputMW}
+              max={V236.ratedMW}
+              color={status.color}
+            />
+          </div>
+          <div className="mt-3 grid grid-cols-4 gap-1.5">
+            <Stat label="Wind" value={t.windSpeedMs.toFixed(1)} unit="m/s" />
+            <Stat label="Rotor" value={t.rotorSpeedRpm.toFixed(2)} unit="rpm" />
+            <Stat label="Pitch" value={t.pitchAngleDeg.toFixed(1)} unit="°" />
+            <Stat label="Cp" value={cp.toFixed(2)} unit="" />
           </div>
         </div>
 
-        {/* ── Active Fault (conditional) ── */}
         {faultCategory && (
-          <div
-            className="px-3 py-2 border-b"
-            style={{
-              borderColor: "#2a3040",
-              backgroundColor: "rgba(239,68,68,0.08)",
-            }}
-          >
-            <div className="flex items-center gap-1.5 mb-1">
+          <div className="border-b border-border-primary/60 bg-[#ef44440f] px-4 py-3">
+            <div className="flex items-center gap-2">
               <span
-                className="w-2 h-2 rounded-full animate-pulse"
-                style={{ backgroundColor: SCADA_COLORS.FAULT }}
+                className="size-2 animate-pulse rounded-full"
+                style={{ backgroundColor: ALARM }}
               />
-              <span
-                className="text-[11px] font-semibold"
-                style={{ color: SCADA_COLORS.FAULT }}
-              >
+              <span className="text-xs font-semibold" style={{ color: ALARM }}>
                 {faultCategory.label}
               </span>
               <span
-                className="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded"
+                className="ml-auto rounded px-1.5 py-0.5 font-mono text-[10px] font-bold"
                 style={{
-                  color:
-                    faultCategory.priority === "CRITICAL"
-                      ? SCADA_COLORS.FAULT
-                      : SCADA_COLORS.WARNING,
+                  color: faultCategory.priority === "CRITICAL" ? ALARM : WARN,
                   backgroundColor:
                     faultCategory.priority === "CRITICAL"
-                      ? "rgba(239,68,68,0.15)"
-                      : "rgba(245,166,35,0.15)",
+                      ? `${ALARM}26`
+                      : `${WARN}26`,
                 }}
               >
                 {faultCategory.priority}
               </span>
             </div>
-            <div className="text-[10px] text-text-muted space-y-0.5">
-              <div>
-                <span className="text-text-secondary">Cause:</span>{" "}
-                {faultCategory.probableCause}
-              </div>
-              <div>
-                <span className="text-text-secondary">Action:</span>{" "}
-                {faultCategory.recommendedAction}
-              </div>
-            </div>
+            <p className="mt-1.5 text-[11px] leading-snug text-text-secondary">
+              <span className="text-text-muted">Cause · </span>
+              {faultCategory.probableCause}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+              <span className="text-text-muted">Action · </span>
+              {faultCategory.recommendedAction}
+            </p>
           </div>
         )}
 
-        {/* ── SVG Cross-Section ── */}
-        <div className="px-2 pt-2 border-b" style={{ borderColor: "#1e2231" }}>
-          <TurbineCrossSection
+        {curtailInfo && (
+          <div className="border-b border-border-primary/60 bg-[#f5a6230d] px-4 py-3">
+            <div className="text-xs font-semibold" style={{ color: WARN }}>
+              {curtailInfo.label}
+            </div>
+            <p className="mt-1 text-[11px] leading-snug text-text-secondary">
+              {curtailInfo.explanation}
+            </p>
+          </div>
+        )}
+
+        <PanelSection title="Power train" aside="click a stage to learn">
+          <TurbinePowerTrain
             powerOutputMW={t.powerOutputMW}
             windSpeedMs={t.windSpeedMs}
             rotorSpeedRpm={t.rotorSpeedRpm}
@@ -520,22 +411,14 @@ export default function TurbineDetailPanel({
             bearingTempC={t.bearingTempC}
             vibrationMmS={t.vibrationMmS}
             nacellePositionDeg={t.nacellePositionDeg}
+            stringNumber={t.stringNumber}
             status={t.status}
             onPartClick={handlePartClick}
             activePart={selectedPart}
             faultPartId={faultPartId}
             curtailmentPartId={curtailmentPartId}
           />
-
-          {/* Hint text when no part selected */}
-          {!selectedPart && (
-            <div className="text-center text-[9px] text-text-muted py-1">
-              Click any component to learn more
-            </div>
-          )}
-
-          {/* Inline education panel (narrow viewport only) */}
-          {selectedPart && isNarrow && (
+          {selectedPart && (
             <TurbineEducationPanel
               partId={selectedPart}
               turbine={t}
@@ -543,152 +426,108 @@ export default function TurbineDetailPanel({
               curtailmentInfo={curtailInfo}
             />
           )}
+        </PanelSection>
 
-          {/* Wake cone below cross-section (click opens wind education) */}
-          <div
-            onClick={() => handlePartClick("wind")}
-            className="cursor-pointer"
-            title="Click to learn about wake effects"
-          >
-            <TurbineWakeCone
-              powerOutputMW={t.powerOutputMW}
-              wakeLossPct={wakeLoss?.lossPct}
-            />
-          </div>
-        </div>
-
-        {/* ── Sparklines ── */}
-        <div className="px-3 py-2 border-b border-bg-tertiary">
+        <PanelSection title="Last 60 s">
           <TurbineSparklines
             powerHistory={powerHistory}
             windHistory={windHistory}
             currentPowerMW={t.powerOutputMW}
             currentWindMs={t.windSpeedMs}
           />
-        </div>
+        </PanelSection>
 
-        {/* ── Wake Loss (conditional) ── */}
-        {wakeLoss && (
-          <div className="px-3 py-2 border-b border-bg-tertiary">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: wakeLossColor(wakeLoss.lossPct) }}
-              />
-              <span
-                className="text-[11px] font-semibold"
-                style={{ color: wakeLossColor(wakeLoss.lossPct) }}
-              >
-                Wake Loss: &minus;{wakeLoss.lossPct}%
-              </span>
-            </div>
-            <div className="text-[9px] text-text-muted mb-1">
-              Power loss from upstream turbine wakes (Jensen/Park model)
-            </div>
-            <div className="text-[9px] text-text-secondary">
-              Upstream: {wakeLoss.upstreamIds.join(", ")}
-            </div>
-          </div>
-        )}
-
-        {/* ── Health Summary (compact row) ── */}
-        <div
-          className="px-3 py-2 border-b flex items-center justify-between"
-          style={{ borderColor: "#1e2231" }}
-        >
-          <div className="flex items-center gap-1">
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{
-                backgroundColor:
-                  t.availabilityPct >= 95
-                    ? SCADA_COLORS.ENERGIZED
-                    : SCADA_COLORS.WARNING,
-              }}
-            />
-            <span className="text-[10px] text-text-muted">Avail</span>
-            <span className="text-[10px] font-mono tabular-nums text-text-primary">
-              {t.availabilityPct.toFixed(1)}%
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-text-muted">Energy</span>
-            <span className="text-[10px] font-mono tabular-nums text-text-primary">
-              {t.energyTodayMWh.toFixed(0)} MWh
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-text-muted">Hours</span>
-            <span className="text-[10px] font-mono tabular-nums text-text-primary">
-              {t.operatingHours.toLocaleString()} h
-            </span>
-          </div>
-        </div>
-
-        {/* ── Power Curve toggle ── */}
-        <div className="px-3 py-1 border-b" style={{ borderColor: "#1e2231" }}>
+        <PanelSection title="Wake" aside="Jensen / Park model">
           <button
-            onClick={() => setShowPowerCurve((v) => !v)}
-            className="flex items-center gap-1.5 text-[10px] text-text-muted hover:text-text-primary transition-colors w-full"
+            onClick={() => handlePartClick("wind")}
+            className="block w-full cursor-pointer"
+            title="Learn about wake effects"
           >
-            <TrendingUp size={10} />
-            <span>V236 Power Curve</span>
-            <span className="ml-auto text-[9px]">
-              {showPowerCurve ? "▲" : "▼"}
-            </span>
-          </button>
-          {showPowerCurve && (
-            <V236PowerCurve
-              windSpeedMs={t.windSpeedMs}
+            <TurbineWakeCone
               powerOutputMW={t.powerOutputMW}
+              wakeLossPct={wakeLoss?.lossPct}
             />
+          </button>
+          {wakeLoss && (
+            <>
+              <DataRow
+                label="Loss from upstream wakes"
+                value={`−${wakeLoss.lossPct}`}
+                unit="%"
+                color={levelColor(wakeLoss.lossPct, 10, 20)}
+              />
+              <DataRow
+                label="Upstream turbines"
+                value={wakeLoss.upstreamIds.join(", ")}
+              />
+            </>
           )}
-        </div>
+        </PanelSection>
 
-        {/* ── Compact Navigation Icons ── */}
-        <div className="px-3 py-2 flex items-center gap-1.5">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            return (
+        <PanelSection
+          title="Operating point · V236 power curve"
+          aside={`Betz limit Cp ≤ ${(16 / 27).toFixed(3)}`}
+        >
+          <PowerCurveChart windMs={t.windSpeedMs} powerMW={t.powerOutputMW} />
+          <p className="mt-1 text-[11px] text-text-muted">
+            cut-in {V236.cutInMs} · rated {V236.ratedMs} · cut-out{" "}
+            {V236.cutOutMs} m/s — same curve as the P1 backend
+          </p>
+        </PanelSection>
+
+        <PanelSection title="Condition">
+          <DataRow
+            label="Main bearing temperature"
+            value={t.bearingTempC.toFixed(1)}
+            unit="°C"
+            color={levelColor(t.bearingTempC, 65, 80)}
+          />
+          <DataRow
+            label="Vibration (ISO 10816-21)"
+            value={t.vibrationMmS.toFixed(1)}
+            unit="mm/s"
+            color={levelColor(t.vibrationMmS, 4.5, 7.0)}
+          />
+          <DataRow
+            label="Nacelle heading"
+            value={t.nacellePositionDeg.toFixed(0)}
+            unit="°"
+          />
+          <DataRow
+            label="Availability"
+            value={t.availabilityPct.toFixed(1)}
+            unit="%"
+            color={t.availabilityPct >= 95 ? NORMAL : WARN}
+          />
+          <DataRow
+            label="Energy today"
+            value={t.energyTodayMWh.toFixed(0)}
+            unit="MWh"
+          />
+          <DataRow
+            label="Operating hours"
+            value={t.operatingHours.toLocaleString("en-US")}
+            unit="h"
+          />
+        </PanelSection>
+
+        <PanelSection title="Open in">
+          <div className="grid grid-cols-6 gap-1.5">
+            {NAV_ITEMS.map(({ label, path, icon: Icon, tip }) => (
               <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                title={item.tip}
-                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md border transition-colors"
-                style={{ borderColor: `${item.color}40` }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = `${item.color}1a`;
-                  e.currentTarget.style.borderColor = item.color;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.borderColor = `${item.color}40`;
-                }}
+                key={path}
+                onClick={() => navigate(path)}
+                title={tip}
+                className="flex flex-col items-center gap-0.5 rounded-lg border border-border-primary py-1.5 text-text-secondary transition-colors hover:border-accent/60 hover:bg-accent-muted hover:text-text-primary"
               >
-                <Icon size={12} color={item.color} />
-                <span
-                  className="text-[9px] font-medium"
-                  style={{ color: item.color }}
-                >
-                  {item.label}
-                </span>
+                <Icon size={14} />
+                <span className="text-[10px] font-medium">{label}</span>
               </button>
-            );
-          })}
-        </div>
-      </div>
+            ))}
+          </div>
+        </PanelSection>
+      </EquipmentPanel>
 
-      {/* ── Education Side Panel (wide viewport — rendered outside detail panel) ── */}
-      {selectedPart && !isNarrow && (
-        <TurbineEducationPanel
-          partId={selectedPart}
-          turbine={t}
-          onClose={() => setSelectedPart(null)}
-          curtailmentInfo={curtailInfo}
-        />
-      )}
-
-      {/* ── Library Panel: Turbine Selection Rationale ── */}
       <EducationPanel
         content={turbineSelectionEducation}
         open={libraryOpen}

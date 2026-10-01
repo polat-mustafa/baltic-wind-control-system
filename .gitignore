@@ -72,3 +72,7 @@ ebook/
 
 # CodeGraph local index
 .codegraph/
+
+# Playwright (frontend e2e) run output — baselines in frontend/e2e/*-snapshots are committed
+frontend/test-results/
+frontend/playwright-report/

@@ -264,7 +264,10 @@ export const forecastVsActualInfo: InfoContent = {
   ],
   interpretation:
     "P50 should be unbiased (equal over/under predictions). " +
-    "Actuals falling outside P10-P90 band more than 20% of the time indicates poor calibration.",
+    "Actuals falling outside P10-P90 band more than 20% of the time indicates poor calibration. " +
+    "Causality: every point is a 10-min-ahead forecast from SCADA measured up to t−1 plus the NWP " +
+    "forecast for t — the measured wind at t is never an input. A skill near 1.0 against persistence " +
+    "would mean the model saw the future (it would just be fitting the power curve).",
 };
 
 export const modelComparisonInfo: InfoContent = {

@@ -74,7 +74,7 @@ function ProcedureCard({
       </div>
 
       {/* Responsible */}
-      <p className="text-[11px] text-slate-400 mb-1">
+      <p className="text-[11px] text-text-muted mb-1">
         Responsible: {procedure.responsible}
       </p>
 
@@ -83,12 +83,12 @@ function ProcedureCard({
         <div className="mt-2 space-y-2">
           {/* Immediate actions checklist */}
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+            <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1">
               Immediate Actions
             </p>
             <ol className="list-decimal list-inside space-y-0.5">
               {procedure.immediate_actions.map((action, i) => (
-                <li key={i} className="text-xs text-slate-300">
+                <li key={i} className="text-xs text-text-secondary">
                   {action}
                 </li>
               ))}
@@ -97,7 +97,7 @@ function ProcedureCard({
 
           {/* SCADA actions */}
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+            <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1">
               Automated SCADA Actions
             </p>
             <ul className="list-disc list-inside space-y-0.5">
@@ -110,7 +110,7 @@ function ProcedureCard({
           </div>
 
           {/* Reference */}
-          <p className="text-[10px] text-slate-500">
+          <p className="text-[10px] text-text-muted">
             Ref: {procedure.reference_document}
           </p>
 
@@ -146,14 +146,14 @@ export default function EmergencyResponsePanel() {
   };
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
-      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3">
+    <div className="bg-bg-secondary border border-border-primary rounded-lg p-4">
+      <h3 className="text-sm font-bold uppercase tracking-wider text-text-secondary mb-3">
         Emergency Response
       </h3>
 
       {/* Procedure cards */}
       {emergencyProcedures.length === 0 ? (
-        <p className="text-xs text-slate-500">Loading procedures...</p>
+        <p className="text-xs text-text-muted">Loading procedures...</p>
       ) : (
         <div className="space-y-2 mb-4">
           {emergencyProcedures.map((proc) => (
@@ -169,7 +169,7 @@ export default function EmergencyResponsePanel() {
       {/* Emergency log timeline */}
       {emergencyLog.length > 0 && (
         <div>
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2">
             Event Log
           </h4>
           <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -182,11 +182,11 @@ export default function EmergencyResponsePanel() {
                   <span className="text-xs font-bold">
                     {EMERGENCY_LABELS[event.emergency_type]}
                   </span>
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[10px] text-text-muted">
                     {new Date(event.triggered_at).toLocaleTimeString()}
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-[10px] text-text-muted mt-0.5">
                   Triggered by: {event.triggered_by} · ID: {event.event_id}
                 </p>
                 <div className="mt-1">

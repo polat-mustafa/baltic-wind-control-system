@@ -1,8 +1,8 @@
 /**
  * Shown when WebGL is not available in the user's browser.
  *
- * Renders the existing 2D TurbineCrossSection enlarged as a graceful fallback,
- * with a notice that the 3D viewer requires WebGL.
+ * Renders a short notice as a graceful fallback (the power-train diagram in the
+ * turbine detail panel still works without WebGL).
  */
 
 import type { TurbineData } from "../../../../types/landing";

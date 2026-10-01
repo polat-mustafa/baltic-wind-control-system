@@ -47,15 +47,15 @@ function TestTable({
   return (
     <div className="overflow-auto">
       <table className="w-full text-left">
-        <thead className="bg-slate-700/50">
+        <thead className="bg-bg-tertiary/50">
           <tr>
-            <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Test ID</th>
-            <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Name</th>
-            <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Standard</th>
-            <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Range</th>
-            <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Result</th>
-            <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Verdict</th>
-            <th className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase">Action</th>
+            <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Test ID</th>
+            <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Name</th>
+            <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Standard</th>
+            <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Range</th>
+            <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Result</th>
+            <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Verdict</th>
+            <th className="px-3 py-2 text-[10px] font-semibold text-text-muted uppercase">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -64,11 +64,11 @@ function TestTable({
             const isRecording = recording === spec.test_id;
 
             return (
-              <tr key={spec.test_id} className="border-b border-slate-700/50 hover:bg-slate-700/20">
+              <tr key={spec.test_id} className="border-b border-border-primary/50 hover:bg-bg-tertiary/20">
                 <td className="px-3 py-2 text-xs font-mono">{spec.test_id}</td>
                 <td className="px-3 py-2 text-xs" title={spec.description}>{spec.name}</td>
-                <td className="px-3 py-2 text-[10px] text-slate-400">{spec.standard}</td>
-                <td className="px-3 py-2 text-[10px] text-slate-400">
+                <td className="px-3 py-2 text-[10px] text-text-muted">{spec.standard}</td>
+                <td className="px-3 py-2 text-[10px] text-text-muted">
                   {spec.min_value}–{spec.max_value} {spec.unit}
                 </td>
                 <td className="px-3 py-2 text-xs font-mono">
@@ -86,7 +86,7 @@ function TestTable({
                       {result.verdict}
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-500">Pending</span>
+                    <span className="text-[10px] text-text-muted">Pending</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
@@ -105,7 +105,7 @@ function TestTable({
                         value={value}
                         onChange={(e) => setValue(e.target.value)}
                         placeholder="Value"
-                        className="w-16 px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-[10px] text-white focus:outline-none"
+                        className="w-16 px-1 py-0.5 bg-bg-tertiary border border-border-secondary rounded text-[10px] text-white focus:outline-none"
                         autoFocus
                         step="any"
                       />
@@ -114,7 +114,7 @@ function TestTable({
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         placeholder="Notes"
-                        className="w-20 px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-[10px] text-white focus:outline-none"
+                        className="w-20 px-1 py-0.5 bg-bg-tertiary border border-border-secondary rounded text-[10px] text-white focus:outline-none"
                       />
                       <button
                         onClick={() => {
@@ -126,7 +126,7 @@ function TestTable({
                           }
                         }}
                         disabled={!value}
-                        className="px-1.5 py-0.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 rounded text-[10px] transition-colors"
+                        className="px-1.5 py-0.5 bg-green-600 hover:bg-green-700 disabled:bg-bg-tertiary rounded text-[10px] transition-colors"
                       >
                         Save
                       </button>
@@ -169,12 +169,12 @@ function FATTab() {
           value={equipmentTag}
           onChange={(e) => setEquipmentTag(e.target.value)}
           placeholder="Equipment tag (e.g. TX-OSS-01)"
-          className="flex-1 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          className="flex-1 px-2 py-1.5 bg-bg-tertiary border border-border-secondary rounded text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
         />
         <button
           onClick={() => { if (equipmentTag.trim()) { createFATCampaign(equipmentTag.trim()); setEquipmentTag(""); } }}
           disabled={!equipmentTag.trim()}
-          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded text-xs font-medium transition-colors"
+          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-bg-tertiary disabled:cursor-not-allowed rounded text-xs font-medium transition-colors"
         >
           Create FAT
         </button>
@@ -182,11 +182,11 @@ function FATTab() {
 
       {/* FAT campaigns */}
       {fatCampaigns.map((campaign: FATCampaign) => (
-        <div key={campaign.campaign_id} className="border border-slate-600 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-slate-700/50 flex items-center justify-between">
+        <div key={campaign.campaign_id} className="border border-border-secondary rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-bg-tertiary/50 flex items-center justify-between">
             <div>
               <span className="text-xs font-medium">{campaign.equipment_tag}</span>
-              <span className="text-[10px] text-slate-400 ml-2">
+              <span className="text-[10px] text-text-muted ml-2">
                 {campaign.campaign_id}
               </span>
             </div>
@@ -220,7 +220,7 @@ function FATTab() {
       ))}
 
       {fatCampaigns.length === 0 && (
-        <div className="text-center text-sm text-slate-500 py-4">
+        <div className="text-center text-sm text-text-muted py-4">
           No FAT campaigns created yet
         </div>
       )}
@@ -242,7 +242,7 @@ function SATTab() {
   if (!satCampaign) {
     return (
       <div className="text-center py-8">
-        <p className="text-sm text-slate-400 mb-4">
+        <p className="text-sm text-text-muted mb-4">
           No SAT campaign for this programme
         </p>
         <button
@@ -259,7 +259,7 @@ function SATTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <span className="text-xs text-slate-400">Campaign: </span>
+          <span className="text-xs text-text-muted">Campaign: </span>
           <span className="text-xs font-mono">{satCampaign.campaign_id}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -296,15 +296,15 @@ export default function FATSATTracker() {
   const [activeTab, setActiveTab] = useState<"fat" | "sat">("fat");
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
       {/* Tab header */}
-      <div className="flex border-b border-slate-700">
+      <div className="flex border-b border-border-primary">
         <button
           onClick={() => setActiveTab("fat")}
           className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "fat"
-              ? "bg-slate-700 text-white border-b-2 border-blue-500"
-              : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+              ? "bg-bg-tertiary text-white border-b-2 border-blue-500"
+              : "text-text-muted hover:text-white hover:bg-bg-tertiary/50"
           }`}
         >
           FAT — Factory Acceptance
@@ -313,8 +313,8 @@ export default function FATSATTracker() {
           onClick={() => setActiveTab("sat")}
           className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "sat"
-              ? "bg-slate-700 text-white border-b-2 border-blue-500"
-              : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+              ? "bg-bg-tertiary text-white border-b-2 border-blue-500"
+              : "text-text-muted hover:text-white hover:bg-bg-tertiary/50"
           }`}
         >
           SAT — Site Acceptance

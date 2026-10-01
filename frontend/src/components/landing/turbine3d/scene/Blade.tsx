@@ -9,10 +9,12 @@
  * 6.4 m at r=0.17, sweep onset at r=0.7.
  *
  * Local frame: root at y=0, span along +Y, chord along ±X, thickness along ±Z.
- *   Leading edge = -X, trailing edge = +X.
- *   Suction (upper) side = +Z, pressure (lower) side = -Z.
+ *   The rotor turns clockwise seen from upwind, so blade 1 moves toward +X:
+ *   leading edge = +X, trailing edge = −X; pressure side = +Z (facing the
+ *   wind), suction side = −Z (lift points downwind-and-forward → torque).
  *   Prebend translates the blade along +Z (toward incoming wind, away from tower).
- *   Sweep translates along +X (toward trailing edge — "aft sweep").
+ *   Sweep translates along −X (toward the trailing edge — "aft sweep").
+ *   Twist follows the BEM optimum at λ ≈ 9.3 (α ≈ 5°): ~9.5° at 35 m → ~0° at the tip.
  *
  * Field overlay (fieldMode !== "off"):
  *   Per-vertex colours baked from span fraction (UV.v) — thermal/pressure/strain
@@ -33,6 +35,9 @@ import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 import { useLandingStore } from "../../../../store/landingStore";
 import { metalPaintedShell } from "../materials";
+import { useV236Model } from "../model/useV236Model";
+import { bladeMarkOnBeforeCompile, bladeOnBeforeCompile } from "./bladeShader";
+import { BLADE_LENGTH_M as BLADE_LENGTH, STATIONS } from "./bladeConstants";
 
 type FieldMode = "off" | "thermal" | "pressure" | "strain";
 
@@ -42,7 +47,6 @@ interface BladeProps {
   fieldMode?: FieldMode;
 }
 
-const BLADE_LENGTH = 115.5;
 const N_AIRFOIL = 24; // vertices per airfoil cross-section ring
 
 // ─── Airfoil profile library ──────────────────────────────────────────────
@@ -126,30 +130,6 @@ function airfoilProfile(family: AirfoilFamilyName): Float32Array {
 
 // ─── Spanwise station table — V236-realistic ──────────────────────────────
 
-interface Station {
-  span: number;       // metres along blade axis (0 = root flange, 115.5 = tip)
-  chord: number;      // metres
-  twistDeg: number;   // nose-down rotation about span axis
-  prebend: number;    // forward (+Z) offset
-  sweep: number;      // aft (+X) offset
-  airfoil: AirfoilFamilyName;
-}
-
-const STATIONS: Station[] = [
-  { span:   0.0, chord: 5.4, twistDeg: 13.0, prebend: 0.00, sweep: 0.00, airfoil: "cylinder"   },
-  { span:   3.5, chord: 5.6, twistDeg: 13.0, prebend: 0.02, sweep: 0.00, airfoil: "cylinder"   },
-  { span:  10.0, chord: 6.2, twistDeg: 16.5, prebend: 0.10, sweep: 0.00, airfoil: "transition" },
-  { span:  20.0, chord: 6.4, twistDeg: 22.0, prebend: 0.30, sweep: 0.00, airfoil: "du-thick"   },
-  { span:  35.0, chord: 5.7, twistDeg: 17.0, prebend: 0.65, sweep: 0.00, airfoil: "du-thick"   },
-  { span:  50.0, chord: 4.7, twistDeg: 11.0, prebend: 1.10, sweep: 0.05, airfoil: "du-mid"     },
-  { span:  65.0, chord: 3.8, twistDeg:  7.0, prebend: 1.75, sweep: 0.12, airfoil: "du-mid"     },
-  { span:  80.0, chord: 3.0, twistDeg:  4.5, prebend: 2.55, sweep: 0.30, airfoil: "du-thin"    },
-  { span:  92.0, chord: 2.3, twistDeg:  3.0, prebend: 3.40, sweep: 0.55, airfoil: "du-thin"    },
-  { span: 102.0, chord: 1.7, twistDeg:  2.2, prebend: 4.20, sweep: 0.85, airfoil: "naca64"     },
-  { span: 110.0, chord: 1.1, twistDeg:  1.5, prebend: 4.75, sweep: 1.10, airfoil: "naca64"     },
-  { span: 115.5, chord: 0.4, twistDeg:  1.0, prebend: 5.00, sweep: 1.20, airfoil: "naca64"     },
-];
-
 // ─── Lofter ───────────────────────────────────────────────────────────────
 
 function buildLoftedBladeGeometry(): THREE.BufferGeometry {
@@ -179,9 +159,11 @@ function buildLoftedBladeGeometry(): THREE.BufferGeometry {
       // 3. Translate to station blade-local position.
       //    sweep adds +X (aft), span sets Y, prebend adds +Z (forward / windward).
       const idx = s * N_AIRFOIL + i;
-      positions[idx * 3]     = xT + st.sweep;
+      // Section turned 180° about the span axis (LE +X, pressure side +Z);
+      // prebend stays upwind.
+      positions[idx * 3]     = -(xT + st.sweep);
       positions[idx * 3 + 1] = st.span;
-      positions[idx * 3 + 2] = zT + st.prebend;
+      positions[idx * 3 + 2] = -zT + st.prebend;
       uvs[idx * 2]     = i / (N_AIRFOIL - 1);
       uvs[idx * 2 + 1] = v;
     }
@@ -190,13 +172,13 @@ function buildLoftedBladeGeometry(): THREE.BufferGeometry {
   // Cap centres (root + tip), placed on each section's centroid.
   const rootCapIdx = ringCount * N_AIRFOIL;
   const tipCapIdx = rootCapIdx + 1;
-  positions[rootCapIdx * 3]     = STATIONS[0].sweep;
+  positions[rootCapIdx * 3]     = -STATIONS[0].sweep;
   positions[rootCapIdx * 3 + 1] = STATIONS[0].span;
   positions[rootCapIdx * 3 + 2] = STATIONS[0].prebend;
   uvs[rootCapIdx * 2]     = 0.5;
   uvs[rootCapIdx * 2 + 1] = 0;
 
-  positions[tipCapIdx * 3]     = STATIONS[ringCount - 1].sweep;
+  positions[tipCapIdx * 3]     = -STATIONS[ringCount - 1].sweep;
   positions[tipCapIdx * 3 + 1] = BLADE_LENGTH;
   positions[tipCapIdx * 3 + 2] = STATIONS[ringCount - 1].prebend;
   uvs[tipCapIdx * 2]     = 0.5;
@@ -294,8 +276,8 @@ function sampleFieldColor(mode: Exclude<FieldMode, "off">, r: number, out: THREE
   return out;
 }
 
-function buildFieldGeometry(mode: Exclude<FieldMode, "off">): THREE.BufferGeometry {
-  const geom = BLADE_GEOM_BASE.clone();
+function buildFieldGeometry(mode: Exclude<FieldMode, "off">, base = BLADE_GEOM_BASE): THREE.BufferGeometry {
+  const geom = base.clone();
   const uv = geom.attributes.uv;
   const colors = new Float32Array(uv.count * 3);
   const c = new THREE.Color();
@@ -323,15 +305,19 @@ export const Blade = memo(
     ref,
   ) {
     const setSelectedPart = useLandingStore((s) => s.setSelectedTurbinePart);
+    // Blender blade (96-point DU/NACA-type sections, 72 stations, flatback root)
+    const model = useV236Model();
+    const baseGeom = model?.blade ?? BLADE_GEOM_BASE;
 
     const fieldGeom = useMemo(() => {
+      if (fieldMode === "off") return null;
+      if (model?.blade) return buildFieldGeometry(fieldMode, model.blade);
       switch (fieldMode) {
         case "thermal":  return BLADE_GEOM_THERMAL;
         case "pressure": return BLADE_GEOM_PRESSURE;
-        case "strain":   return BLADE_GEOM_STRAIN;
-        default:         return null;
+        default:         return BLADE_GEOM_STRAIN;
       }
-    }, [fieldMode]);
+    }, [fieldMode, model]);
 
     const renderField = !!fieldGeom;
     const baseColor = isSelected ? "#60a5fa" : metalPaintedShell.color;
@@ -344,10 +330,10 @@ export const Blade = memo(
           name="blades"
           castShadow={!renderField}
           onClick={(e) => { e.stopPropagation(); setSelectedPart("blades"); }}
-          geometry={renderField ? fieldGeom : BLADE_GEOM_BASE}
+          geometry={renderField ? fieldGeom : baseGeom}
         >
           {renderField ? (
-            <meshBasicMaterial vertexColors toneMapped={false} />
+            <meshBasicMaterial vertexColors toneMapped={false} onBeforeCompile={bladeMarkOnBeforeCompile} />
           ) : (
             <meshPhysicalMaterial
               color={baseColor}
@@ -359,6 +345,7 @@ export const Blade = memo(
               envMapIntensity={metalPaintedShell.envMapIntensity}
               emissive={baseEmissive}
               emissiveIntensity={baseEmissiveIntensity}
+              onBeforeCompile={bladeOnBeforeCompile}
             />
           )}
         </mesh>
@@ -369,7 +356,20 @@ export const Blade = memo(
             offset along the local prebend + sweep so they sit ON the blade
             surface as it curves forward. Rendered unlit (toneMapped=false)
             so they stay visibly red even in low-light scenes. */}
-        {!renderField && (
+        {!renderField && model?.blade_marks && (
+          <>
+            {/* Red–white–red 6 m tip bands, painted on the blade surface */}
+            <mesh geometry={model.blade_marks} castShadow={false}>
+              <meshStandardMaterial color="#c1121f" roughness={0.45} onBeforeCompile={bladeMarkOnBeforeCompile} />
+            </mesh>
+            {model.blade_root && (
+              <mesh geometry={model.blade_root}>
+                <meshStandardMaterial color="#3c434a" roughness={0.45} metalness={0.6} />
+              </mesh>
+            )}
+          </>
+        )}
+        {!renderField && !model?.blade_marks && (
           <group>
             {[
               { span: 109.0, chord: 1.15, sweep: 0.95, prebend: 4.55 },
@@ -378,7 +378,7 @@ export const Blade = memo(
             ].map((b, i) => (
               <mesh
                 key={i}
-                position={[b.sweep, b.span, b.prebend]}
+                position={[-b.sweep, b.span, b.prebend]}
                 castShadow={false}
               >
                 {/* x = chord-width, y = band height along span, z = thickness */}

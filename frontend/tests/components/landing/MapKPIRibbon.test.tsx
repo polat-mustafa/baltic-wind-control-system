@@ -17,6 +17,7 @@ describe("MapKPIRibbon", () => {
   const highAvailKPIs: FarmKPI = {
     totalOutputMW: 450,
     averageWindSpeedMs: 11.2,
+    freestreamWindMs: 11.8,
     availabilityPercent: 96.5,
     activeAlerts: 0,
     windDirectionDeg: 225,
@@ -63,6 +64,6 @@ describe("MapKPIRibbon", () => {
   it("renders grid frequency", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
     expect(screen.getByText("Freq")).toBeDefined();
-    expect(screen.getByText("50.01")).toBeDefined();
+    expect(screen.getByText("50.010")).toBeDefined();
   });
 });

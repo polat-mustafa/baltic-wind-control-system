@@ -23,7 +23,7 @@ function Slider({ label, value, min, max, step, unit, onChange }: SliderProps) {
   return (
     <div>
       <div className="flex justify-between text-xs mb-1">
-        <span className="text-slate-400">{label}</span>
+        <span className="text-text-muted">{label}</span>
         <span className="text-white font-mono">
           {value.toFixed(step < 0.1 ? 2 : 1)} {unit}
         </span>
@@ -56,9 +56,9 @@ export default function SensitivityPanel() {
   } = useWindResourceStore();
 
   return (
-    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 space-y-4">
+    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
           Parameters
         </h3>
         <EducationButton content={sensitivityEducation} />
@@ -106,7 +106,7 @@ export default function SensitivityPanel() {
 
       {/* Layout selector */}
       <div>
-        <p className="text-xs text-slate-400 mb-2">Layout</p>
+        <p className="text-xs text-text-muted mb-2">Layout</p>
         <div className="flex gap-2">
           {["regular", "staggered"].map((layout) => (
             <button
@@ -115,7 +115,7 @@ export default function SensitivityPanel() {
               className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                 activeLayout === layout
                   ? "bg-blue-600/20 text-blue-400 border border-blue-500/50"
-                  : "bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600"
+                  : "bg-bg-tertiary text-text-secondary border border-border-secondary hover:bg-slate-600"
               }`}
             >
               {layout.charAt(0).toUpperCase() + layout.slice(1)}

@@ -79,17 +79,18 @@ describe("TurbineDetailPanel", () => {
     expect(screen.getByText("P3")).toBeDefined();
     expect(screen.getByText("P4")).toBeDefined();
     expect(screen.getByText("P5")).toBeDefined();
-    expect(screen.getByText("Phys")).toBeDefined();
+    expect(screen.getByText("Physics")).toBeDefined();
   });
 
-  it("renders health summary row", () => {
+  it("renders the condition section", () => {
     render(
       <MemoryRouter>
         <TurbineDetailPanel turbine={mockTurbine} onClose={vi.fn()} />
       </MemoryRouter>,
     );
-    expect(screen.getByText("Avail")).toBeDefined();
-    expect(screen.getByText("Energy")).toBeDefined();
-    expect(screen.getByText("Hours")).toBeDefined();
+    expect(screen.getByText("Availability")).toBeDefined();
+    expect(screen.getByText("Energy today")).toBeDefined();
+    expect(screen.getByText("Operating hours")).toBeDefined();
+    expect(screen.getByText("Main bearing temperature")).toBeDefined();
   });
 });

@@ -1,7 +1,7 @@
 /**
  * Educational side panel for turbine cross-section parts.
  *
- * Slides in to the right of the 440px detail panel (at left: 472px)
+ * Expands inline inside the turbine detail panel (below the cross-section)
  * when a user clicks a part in the cross-section SVG.
  *
  * Sections (top to bottom):
@@ -13,11 +13,9 @@
  * 6. Efficiency — loss name, typical %, dissipation
  * 7. Standards — badge/chip list
  * 8. Simple vs Technical — collapsible sections
- *
- * Responsive: if viewport < 880px, renders inline (caller handles positioning).
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, ChevronDown, ChevronRight } from "lucide-react";
 
 import {
@@ -45,18 +43,12 @@ export default function TurbineEducationPanel({
   const education = PART_EDUCATION_MAP[partId];
   const [showSimple, setShowSimple] = useState(false);
   const [showTechnical, setShowTechnical] = useState(false);
-  const [isInline, setIsInline] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  // Responsive: inline if viewport < 880px
-  const checkWidth = useCallback(() => {
-    setIsInline(window.innerWidth < 880);
-  }, []);
-
+  // The card opens below the power train — bring it into view on each selection.
   useEffect(() => {
-    checkWidth();
-    window.addEventListener("resize", checkWidth);
-    return () => window.removeEventListener("resize", checkWidth);
-  }, [checkWidth]);
+    rootRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  }, [partId]);
 
   // Determine if this part has an active fault on this turbine
   const faultCategory =
@@ -76,23 +68,8 @@ export default function TurbineEducationPanel({
 
   const panel = (
     <div
-      className={
-        isInline
-          ? "border-t px-3 py-3"
-          : "absolute z-1100 rounded-lg shadow-2xl shadow-black/50 border overflow-y-auto"
-      }
-      style={
-        isInline
-          ? { borderColor: "#2a3040", backgroundColor: "#0f1117" }
-          : {
-              backgroundColor: "#0f1117",
-              borderColor: "#2a3040",
-              width: 360,
-              left: 472,
-              top: 60,
-              maxHeight: "calc(100% - 80px)",
-            }
-      }
+      ref={rootRef}
+      className="mt-2 scroll-mt-2 overflow-hidden rounded-lg border border-accent/40 bg-bg-secondary/60"
     >
       {/* ── Header ── */}
       <div

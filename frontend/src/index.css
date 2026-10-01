@@ -173,83 +173,85 @@ body {
 
 /* Remove default marker shadows and backgrounds for custom DivIcons */
 .leaflet-turbine-marker,
-.leaflet-oss-marker,
-.leaflet-onshore-marker {
+.leaflet-eq-marker {
   background: none !important;
   border: none !important;
 }
-.leaflet-oss-marker,
-.leaflet-onshore-marker {
-  cursor: pointer;
-  transition: filter 0.2s ease;
-}
-.leaflet-oss-marker svg,
-.leaflet-onshore-marker svg {
-  transition: transform 0.2s ease;
-  transform-origin: center center;
-}
-.leaflet-oss-marker:hover svg,
-.leaflet-onshore-marker:hover svg {
-  transform: scale(1.06);
-}
-.leaflet-oss-marker:hover,
-.leaflet-onshore-marker:hover {
-  filter: brightness(1.15);
-  z-index: 1000 !important;
+.leaflet-eq-marker:hover {
+  z-index: 2000 !important;
 }
 
-/* Turbine label visibility toggle (controlled by LayerControlPanel) */
-.hide-turbine-labels .leaflet-turbine-marker text {
-  display: none;
-}
-
-/* Turbine nacelle yaw — rotates only nacelle+blades, tower stays static */
-.leaflet-turbine-marker .nacelle-group {
-  transform: rotate(var(--wind-yaw, 0deg));
-  transition: transform 1s ease;
-}
-@media (prefers-reduced-motion: reduce) {
-  .leaflet-turbine-marker .nacelle-group { transition: none; }
-}
-
-/* Turbine marker hover & selected effects */
+/* ── Turbine marker — see createTurbineIcon ───────────────────
+   The 40 × 56 icon is scaled about the hub (20 px, 20 px) by --wtg-scale,
+   set on the map container per zoom (TurbineZoomScaler). Scaling the SVG,
+   not Leaflet's wrapper, keeps Leaflet's own translate3d untouched. */
 .leaflet-turbine-marker {
   cursor: pointer;
-  transition: filter 0.2s ease;
 }
-/* Scale the SVG content — NOT the Leaflet wrapper — to avoid
-   transform-origin: 0 0 conflict with .leaflet-zoom-animated
-   which causes hover flicker when the hit-area shifts. */
-.leaflet-turbine-marker svg {
-  transition: transform 0.4s ease;
-  transform-origin: center center;
+.leaflet-turbine-marker .wtg-svg {
+  overflow: visible;
+  transform-origin: 20px 20px;
+  transform: scale(var(--wtg-scale, 1));
+  /* Thin dark halo so the translucent icon reads on sea, tiles and cables */
+  filter: drop-shadow(0 0 1.2px rgba(0, 0, 0, 0.9));
+  transition: transform 0.25s ease;
 }
-.leaflet-turbine-marker:hover svg {
-  transform: scale(1.1);
+/* Live parts, eased across the 5 s simulation tick (see TurbineMarker).
+   transform-box view-box + origin 0 0 = the hub (viewBox origin). */
+.wtg-svg .wtg-yaw,
+.wtg-svg .wtg-nacelle,
+.wtg-svg .wtg-rotor {
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+.wtg-svg .wtg-yaw {
+  transition: transform 5s linear;
+}
+.wtg-svg .wtg-nacelle {
+  transition: transform 3s ease-in-out;
+}
+.wtg-svg .wtg-rotor {
+  animation: wtg-spin 7.2s linear infinite; /* 8.33 rpm; rate set per turbine */
+}
+.wtg-svg .wtg-power {
+  transform-box: fill-box;
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 5s linear;
+}
+.wtg-no-ease .wtg-yaw,
+.wtg-no-ease .wtg-nacelle,
+.wtg-no-ease .wtg-power {
+  transition: none !important;
+}
+@keyframes wtg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.leaflet-turbine-marker:hover .wtg-svg {
+  transform: scale(calc(var(--wtg-scale, 1) * 1.15));
 }
 .leaflet-turbine-marker:hover {
-  filter: brightness(1.25);
   z-index: 1000 !important;
 }
-
-/* ── Zoom-dependent turbine scaling ────────────────────────────
-   Class is on the map container (parent), not on the marker itself.
-   SVG-level transform avoids Leaflet transform-origin conflict. */
-.turbine-zoom-far .leaflet-turbine-marker svg {
-  transform: scale(0.7);
-}
-.turbine-zoom-far .leaflet-turbine-marker:hover svg {
-  transform: scale(0.8);
-}
-.turbine-zoom-close .leaflet-turbine-marker svg {
-  transform: scale(1.2);
-}
-.turbine-zoom-close .leaflet-turbine-marker:hover svg {
-  transform: scale(1.3);
+.leaflet-turbine-marker.turbine-selected .wtg-svg {
+  transform: scale(calc(var(--wtg-scale, 1) * 1.15));
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.95));
 }
 .leaflet-turbine-marker.turbine-selected {
-  filter: brightness(1.4) drop-shadow(0 0 6px rgba(59, 130, 246, 0.7));
   z-index: 1001 !important;
+}
+.wtg-labels-off .wtg-id,
+.hide-turbine-labels .wtg-id {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .leaflet-turbine-marker .wtg-svg,
+  .wtg-svg .wtg-yaw,
+  .wtg-svg .wtg-nacelle,
+  .wtg-svg .wtg-power { transition: none; }
+  .wtg-svg .wtg-rotor { animation: none; }
 }
 
 /* Dark-themed Leaflet tooltips matching ISA-101 palette */
@@ -286,6 +288,107 @@ body {
   color: #e8eaf0 !important;
 }
 
+/* ── Equipment chips (OSS, STATCOM, LIDAR, onshore, switchyard) ──
+   The 24 × 24 glyph sits exactly on the geographic point; the label
+   overflows to the right. --eq-color = state/accent colour. */
+.eq-marker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+.eq-marker__glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: rgba(15, 17, 23, 0.92);
+  border: 1.5px solid var(--eq-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--eq-color) 18%, transparent), 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: transform 150ms ease;
+}
+.eq-marker__glyph.is-live::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 8px;
+  border: 1.5px solid var(--eq-color);
+  animation: eq-pulse 2.4s ease-out infinite;
+  pointer-events: none;
+}
+.eq-marker__body {
+  display: flex;
+  flex-direction: column;
+  padding: 3px 7px 3px 6px;
+  border-radius: 5px;
+  background: rgba(15, 17, 23, 0.82);
+  border-left: 2px solid var(--eq-color);
+  backdrop-filter: blur(4px);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.eq-marker__tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #cbd5e1;
+  /* no text-transform: units like "kV" are case-sensitive */
+}
+.eq-marker__value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--eq-color);
+  font-variant-numeric: tabular-nums;
+}
+.eq-marker__sub {
+  font-weight: 400;
+  color: #6b7490;
+  margin-left: 4px;
+}
+/* Label on the left of the glyph (the icon box stays anchored on the glyph) */
+.eq-marker--left {
+  position: absolute;
+  top: 0;
+  right: 0;
+  flex-direction: row-reverse;
+}
+.eq-marker--left .eq-marker__body {
+  border-left: none;
+  border-right: 2px solid var(--eq-color);
+  text-align: right;
+}
+.eq-marker:hover .eq-marker__glyph {
+  transform: scale(1.12);
+}
+@keyframes eq-pulse {
+  from { transform: scale(1); opacity: 0.8; }
+  to { transform: scale(1.7); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eq-marker__glyph.is-live::after { animation: none; }
+}
+
+/* Light OSM tiles → dark control-room basemap */
+.osm-dark-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.4);
+}
+
+/* Dark-themed attribution (required by the OSM licence) */
+.leaflet-control-attribution {
+  background: rgba(15, 17, 23, 0.7) !important;
+  color: #6b7280 !important;
+  font-size: 9px;
+}
+.leaflet-control-attribution a {
+  color: #9ba3b8 !important;
+}
+
 /* Wake loss badge — remove default Leaflet icon styling */
 .leaflet-wake-loss-badge {
   background: none !important;
@@ -300,12 +403,15 @@ body {
 }
 .leaflet-turbine-power-badge span {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: calc(9px * clamp(1, var(--wtg-scale, 1), 1.6));
   font-weight: 600;
   background: rgba(15, 17, 23, 0.75);
   padding: 1px 4px;
   border-radius: 3px;
   white-space: nowrap;
+}
+.leaflet-turbine-power-badge b {
+  font-weight: inherit;
 }
 .leaflet-turbine-power-badge small {
   font-size: 7px;
@@ -318,6 +424,12 @@ body {
   background: none !important;
   border: none !important;
   pointer-events: none !important;
+}
+/* Grow with the turbine icon, pivoting on its left edge next to the ring */
+.leaflet-turbine-pitch-arc svg {
+  transform-origin: 0 50%;
+  transform: scale(clamp(1, var(--wtg-scale, 1), 2));
+  overflow: visible;
 }
 
 /* Bathymetry label tooltip — remove default Leaflet tooltip chrome */
@@ -348,78 +460,19 @@ body {
   height: 100% !important;
 }
 
-/* ── Turbine Cross-Section Animations ─────────────────────────── */
-
-/* Bearing vibration shake */
-@keyframes vibration-shake {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(-0.8px, 0.5px); }
-  50% { transform: translate(0.8px, -0.5px); }
-  75% { transform: translate(-0.5px, 0.8px); }
+/* ── Turbine power train (TurbinePowerTrain) — energy flowing down the spine ── */
+.powertrain-flow {
+  background: repeating-linear-gradient(180deg, transparent 0 10px, #3ecf6e 10px 18px);
+  background-size: 100% 36px;
+  animation: powertrain-flow linear infinite;
+  opacity: 0.8;
 }
-.vibration-active { animation: vibration-shake 0.15s linear infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .vibration-active { animation: none; outline: 2px solid #ef4444; }
-}
-
-/* Generator power pulse */
-@keyframes generator-glow {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.2); }
-}
-.generator-active { animation: generator-glow 2s ease-in-out infinite; }
-
-/* Thermal alarm pulse */
-@keyframes thermal-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.6; }
-}
-.thermal-alarm { animation: thermal-pulse 1.5s ease-in-out infinite; }
-
-/* ── Cross-Section Click Zones ─────────────────────────────────── */
-
-/* Invisible click targets with pointer cursor */
-.cross-section-zone { cursor: pointer; }
-.cross-section-zone:hover .zone-highlight {
-  stroke: rgba(59, 130, 246, 0.4);
-  stroke-dasharray: 4 3;
-  stroke-width: 1;
-}
-.cross-section-zone-active .zone-highlight {
-  stroke: #3b82f6;
-  stroke-width: 1.5;
-  stroke-dasharray: none;
-}
-
-/* Fault ring on affected part */
-@keyframes fault-ring-pulse {
-  0%, 100% { stroke-opacity: 0.4; }
-  50% { stroke-opacity: 0.9; }
-}
-.cross-section-fault-ring {
-  animation: fault-ring-pulse 1.5s ease-in-out infinite;
-  stroke: #ef4444;
-  stroke-width: 2;
-  fill: none;
-}
-
-/* Curtailment ring on affected part (amber, slower pulse) */
-@keyframes curtail-ring-pulse {
-  0%, 100% { stroke-opacity: 0.3; }
-  50% { stroke-opacity: 0.7; }
-}
-.cross-section-curtail-ring {
-  animation: curtail-ring-pulse 2s ease-in-out infinite;
-  stroke: #f5a623;
-  stroke-width: 1.5;
-  fill: none;
+@keyframes powertrain-flow {
+  from { background-position: 0 0; }
+  to { background-position: 0 36px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .cross-section-curtail-ring {
-    animation: none;
-    stroke-opacity: 0.6;
-    stroke-dasharray: 4 3;
-  }
+  .powertrain-flow { animation: none; }
 }
 
 /* ── 3D Turbine Viewer — annotation markers ──────────────────────
@@ -449,4 +502,463 @@ body {
   .annotation-pulse {
     animation: none;
   }
+}
+
+/* Array-cable focus (click a 66 kV cable): turbines feeding it glow,
+   turbines on other strings fade. Classes set in TurbineMarker. */
+.leaflet-turbine-marker.wtg-feed .wtg-svg {
+  filter: brightness(1.35) drop-shadow(0 0 5px rgba(79, 195, 216, 0.95));
+}
+.leaflet-turbine-marker.wtg-feed {
+  z-index: 900 !important;
+}
+.leaflet-turbine-marker.wtg-dim {
+  opacity: 0.3;
+}
+.array-cable-focus {
+  filter: drop-shadow(0 0 4px rgba(79, 195, 216, 0.9));
+}
+/* No browser focus box around clicked SVG paths (cables) */
+.leaflet-container path.leaflet-interactive:focus {
+  outline: none;
+}
+
+/* ── Maritime layers (MaritimeLayers.tsx) ───────────────────────── */
+/* IALA G1162 yellow lights at the transition piece (below the icon base).
+   All lights start together, so SPS flash in sync as required. */
+.leaflet-nav-light {
+  background: none !important;
+  border: none !important;
+}
+.nav-light {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #facc15;
+  box-shadow: 0 0 6px 2px rgba(250, 204, 21, 0.8);
+  transform: translate(calc(-7px * var(--wtg-scale, 1)), calc(22px * var(--wtg-scale, 1)));
+  opacity: 0.15;
+}
+.nav-light--sps {
+  animation: nav-flash 5s steps(1, end) infinite;
+}
+.nav-light--ips {
+  width: 4px;
+  height: 4px;
+  left: -2px;
+  top: -2px;
+  animation: nav-flash 2.5s steps(1, end) infinite;
+}
+@keyframes nav-flash {
+  0% { opacity: 1; }
+  12% { opacity: 0.15; }
+}
+.leaflet-cardinal-mark {
+  background: none !important;
+  border: none !important;
+}
+.cardinal-mark {
+  position: relative;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+}
+.cardinal-mark span {
+  position: absolute;
+  left: 15px;
+  top: 3px;
+  white-space: nowrap;
+  font: 600 9px/1 "JetBrains Mono", monospace;
+  color: #e2e8f0;
+  background: rgba(10, 14, 21, 0.7);
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+.leaflet-vessel {
+  background: none !important;
+  border: none !important;
+}
+.vessel {
+  position: relative;
+  width: 18px;
+  height: 18px;
+}
+.vessel-hull {
+  transform-origin: 9px 9px;
+  transition: transform 0.6s linear;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+}
+.vessel-tag {
+  position: absolute;
+  left: 20px;
+  top: 2px;
+  white-space: nowrap;
+  font: 600 9px/1 "JetBrains Mono", monospace;
+  color: #e0f2fe;
+  background: rgba(10, 14, 21, 0.75);
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+/* ICAO Annex 14 aviation obstruction light (red, medium intensity) on the
+   nacelle roof; synchronised via a shared negative animation delay. */
+.wtg-svg .wtg-avlight {
+  animation: av-flash 2s steps(1, end) infinite;
+  animation-delay: var(--av-delay, 0s);
+}
+@keyframes av-flash {
+  0% { opacity: 1; }
+  40% { opacity: 0.1; }
+}
+/* Array-cable fault scenario */
+.array-cable-fault {
+  animation: cable-fault 0.8s ease-in-out infinite alternate;
+}
+@keyframes cable-fault {
+  from { stroke-opacity: 1; }
+  to { stroke-opacity: 0.25; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-light, .wtg-svg .wtg-avlight, .array-cable-fault { animation: none; opacity: 1; }
+  .vessel-hull { transition: none; }
+}
+
+/* ══ Storybook theme (demo) ═══════════════════════════════════════════
+   Hand-drawn, parchment-and-ink look inspired by illustrated survival games.
+   Original art only (no game assets). Scoped to the landing map area via
+   .theme-storybook; the ISA-101 control-room theme stays the default.
+   ═════════════════════════════════════════════════════════════════════ */
+.theme-storybook {
+  --sb-ink: #2b2118;
+  --sb-paper: #f1e4c3;
+  --sb-paper-dark: #dcc795;
+  --sb-sea: #3f8d86;
+  --sb-sea-deep: #2c6663;
+  --sb-foam: #f6eedb;
+  --color-bg-primary: #f1e4c3;
+  --color-bg-secondary: #e8d8b0;
+  --color-bg-tertiary: #dcc795;
+  --color-bg-elevated: #f7edd4;
+  --color-bg-hover: #e2cf9f;
+  --color-border-primary: #3a2d20;
+  --color-border-secondary: #5a4632;
+  --color-text-primary: #2b2118;
+  --color-text-secondary: #4d3d2c;
+  --color-text-muted: #7a6650;
+  --color-accent: #2c6e76;
+  --font-sans: "Patrick Hand", "Inter", ui-sans-serif, sans-serif;
+  font-family: var(--font-sans);
+}
+/* Land as parchment; the sea is tinted teal by a polygon (StorybookSea). */
+.theme-storybook .osm-dark-tiles {
+  filter: sepia(0.75) saturate(0.85) brightness(0.97) contrast(1.05);
+}
+.theme-storybook .leaflet-container {
+  background: #3f8d86 !important;
+}
+.sb-paper-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse at center, transparent 55%, rgba(43, 33, 24, 0.42) 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.17 0 0 0 0 0.13 0 0 0 0 0.09 0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+/* Plant chips as inked paper tags */
+.theme-storybook .eq-marker__glyph {
+  background: var(--sb-paper);
+  border: 2px solid var(--sb-ink);
+  border-radius: 46% 54% 42% 58% / 55% 45% 55% 45%;
+  box-shadow: 2px 2px 0 var(--sb-ink);
+}
+.theme-storybook .eq-marker__glyph svg * {
+  stroke: var(--sb-ink);
+}
+.theme-storybook .eq-marker__body {
+  background: var(--sb-paper);
+  border: 1.5px solid var(--sb-ink);
+  border-radius: 3px 9px 4px 8px;
+  box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.85);
+  backdrop-filter: none;
+}
+.theme-storybook .eq-marker__tag {
+  color: var(--sb-ink);
+  font-family: "Patrick Hand", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+.theme-storybook .eq-marker__value {
+  color: #7a3b14;
+}
+.theme-storybook .eq-marker__sub {
+  color: #7a6650;
+}
+.theme-storybook .leaflet-tooltip {
+  background: var(--sb-paper) !important;
+  color: var(--sb-ink) !important;
+  border: 1.5px solid var(--sb-ink) !important;
+  font-family: "Patrick Hand", sans-serif;
+  font-size: 13px;
+  box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.8) !important;
+}
+.theme-storybook .leaflet-turbine-power-badge span,
+.theme-storybook .vessel-tag,
+.theme-storybook .cardinal-mark span {
+  background: var(--sb-paper);
+  color: var(--sb-ink);
+  border: 1.2px solid var(--sb-ink);
+  font-family: "Patrick Hand", sans-serif;
+  font-size: 12px;
+}
+.theme-storybook .wtg-id {
+  font-family: "Patrick Hand", sans-serif;
+}
+.theme-storybook .leaflet-turbine-marker .wtg-svg {
+  filter: drop-shadow(1.5px 2px 0 rgba(43, 33, 24, 0.35));
+}
+.theme-storybook .leaflet-control-attribution {
+  background: rgba(241, 228, 195, 0.85) !important;
+  color: #5a4632 !important;
+}
+
+/* Technicians at work (repair jobs) — both themes */
+.leaflet-crew {
+  background: none !important;
+  border: none !important;
+}
+.crew-badge {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  width: max-content;
+  transform: translate(calc(14px * var(--wtg-scale, 1)), calc(4px * var(--wtg-scale, 1)));
+}
+.crew-badge svg .crew-arm {
+  transform-box: fill-box;
+  transform-origin: 0% 100%;
+  animation: crew-wrench 0.9s ease-in-out infinite alternate;
+}
+.crew-badge__bar {
+  position: absolute;
+  left: 0;
+  bottom: -5px;
+  height: 3px;
+  width: 100%;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.crew-badge__bar > i {
+  display: block;
+  height: 100%;
+  background: #f59e0b;
+  transform-origin: left center;
+}
+.crew-badge__label {
+  font: 600 9px/1 "JetBrains Mono", monospace;
+  color: #fde68a;
+  background: rgba(10, 14, 21, 0.8);
+  padding: 2px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.theme-storybook .crew-badge__label {
+  font: 13px/1 "Patrick Hand", sans-serif;
+  color: var(--sb-ink);
+  background: var(--sb-paper);
+  border: 1.2px solid var(--sb-ink);
+}
+@keyframes crew-wrench {
+  from { transform: rotate(-25deg); }
+  to { transform: rotate(20deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crew-badge svg .crew-arm { animation: none; }
+}
+@keyframes crew-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Storybook: re-skin overlays that use inline control-room colours */
+.theme-storybook [style*="rgba(15, 17, 23"],
+.theme-storybook [style*="rgba(15,17,23"],
+.theme-storybook [style*="rgb(30, 34, 49)"] {
+  background-color: var(--sb-paper) !important;
+  border-color: var(--sb-ink) !important;
+  color: var(--sb-ink) !important;
+  box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.75);
+}
+.theme-storybook svg circle[fill="rgba(15,17,23,0.85)"] {
+  fill: var(--sb-paper);
+  stroke: var(--sb-ink);
+  stroke-width: 1.5;
+}
+.theme-storybook svg [fill="#6b7490"],
+.theme-storybook svg [fill="#94a3b8"] {
+  fill: var(--sb-ink);
+}
+.theme-storybook .text-\[\#e8eaf0\],
+.theme-storybook [style*="color: rgb(232, 234, 240)"],
+.theme-storybook [style^="color: rgb(107, 116, 144)"],
+.theme-storybook [style^="color: rgb(155, 163, 184)"] {
+  color: var(--sb-ink) !important;
+}
+.theme-storybook .bg-slate-900\/90 {
+  background-color: var(--sb-paper);
+  border-color: var(--sb-ink);
+  box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.75);
+}
+.theme-storybook .text-slate-300 {
+  color: var(--sb-ink);
+}
+
+/* Storybook readability: small print and pop-up text in bold, and the
+   neon control-room status colours darkened to ink-on-paper contrast
+   (WCAG AA ≥ 4.5:1 on #f1e4c3). */
+.theme-storybook :is(
+    .text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs,
+    .font-mono, .leaflet-tooltip, .eq-marker__tag, .eq-marker__sub, .vessel-tag,
+    .wtg-id, .cardinal-mark span, .leaflet-control-attribution
+  ),
+.theme-storybook :is(.text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs) * {
+  font-weight: 700;
+}
+.theme-storybook {
+  --color-text-secondary: #3d2f21;
+  --color-text-muted: #5e4a36;
+  --color-status-normal: #1f7a3e;
+  --color-status-warning: #9a5a00;
+  --color-status-info: #1d4ed8;
+}
+.theme-storybook :is([style^="color: rgb(62, 207, 110)"], [style*="; color: rgb(62, 207, 110)"], [class*="text-emerald-"], [class*="text-green-"]) {
+  color: #1f7a3e !important;
+}
+.theme-storybook :is([style^="color: rgb(59, 130, 246)"], [style*="; color: rgb(59, 130, 246)"], [class*="text-blue-"], [class*="text-sky-"]) {
+  color: #1d4ed8 !important;
+}
+.theme-storybook :is([style^="color: rgb(6, 182, 212)"], [style*="; color: rgb(6, 182, 212)"], [class*="text-cyan-"], [class*="text-teal-"]) {
+  color: #0e6070 !important;
+}
+.theme-storybook :is([style^="color: rgb(245, 166, 35)"], [style*="; color: rgb(245, 166, 35)"], [class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-4"]) {
+  color: #9a5a00 !important;
+}
+.theme-storybook [class*="text-accent"] {
+  color: #1f5960 !important;
+}
+.theme-storybook :is([class*="text-slate-4"], [class*="text-slate-5"], [class*="text-gray-4"]) {
+  color: #5e4a36 !important;
+}
+/* Translucent accent fills vanish over the dark 3D canvas — make them paper-solid */
+.theme-storybook :is([class^="bg-accent/"], [class*=" bg-accent/"]):not(:hover) {
+  background-color: #cfe1da !important;
+}
+.theme-storybook .leaflet-dts-label span {
+  background: var(--sb-paper) !important;
+  color: #8a1c1c !important;
+  border: 1.2px solid var(--sb-ink) !important;
+  font-family: "Patrick Hand", sans-serif !important;
+  font-size: 13px !important;
+}
+
+/* Storybook: Plotly charts. DARK_PLOTLY_LAYOUT writes inline SVG styles, so
+   the paper palette is applied on top here (one place, ~45 charts). */
+.theme-storybook .js-plotly-plot .main-svg {
+  background: transparent !important;
+}
+.theme-storybook .js-plotly-plot .svg-container {
+  background: var(--sb-paper);
+}
+.theme-storybook .js-plotly-plot :is(.bglayer .bg, .plotbg path) {
+  fill: #f7edd4 !important;
+}
+.theme-storybook .js-plotly-plot .legend .bg {
+  fill: transparent !important;
+}
+.theme-storybook .js-plotly-plot .main-svg text:not(.textpoint text, .hovertext text) {
+  fill: var(--sb-ink) !important;
+  font-weight: 700;
+}
+.theme-storybook .js-plotly-plot :is(.xgrid, .ygrid, .angularaxisgrid path, .radialaxisgrid path) {
+  stroke: rgba(43, 33, 24, 0.14) !important;
+}
+.theme-storybook .js-plotly-plot :is(.xzl, .yzl, .zl) {
+  stroke: rgba(43, 33, 24, 0.45) !important;
+}
+.theme-storybook .js-plotly-plot .hoverlayer .hovertext path {
+  fill: var(--sb-paper) !important;
+  stroke: var(--sb-ink) !important;
+}
+.theme-storybook .js-plotly-plot .hoverlayer .hovertext text {
+  fill: var(--sb-ink) !important;
+}
+
+/* Storybook over the SCADA page: same ISA-101 rule (neutral canvas, colour
+   only for alarms/energised HV), but on paper instead of grey. */
+.theme-storybook .scada-isa101 {
+  --color-bg-primary: #f1e4c3;
+  --color-bg-secondary: #e8d8b0;
+  --color-bg-tertiary: #dcc795;
+  --color-bg-elevated: #f7edd4;
+  --color-bg-hover: #e2cf9f;
+  --color-border-primary: #3a2d20;
+  --color-border-secondary: #5a4632;
+  --color-border-accent: #2b2118;
+  --color-text-primary: #2b2118;
+  --color-text-secondary: #3d2f21;
+  --color-text-muted: #5e4a36;
+  --color-status-normal: #1f7a3e;
+  --color-status-warning: #9a5a00;
+  --color-status-info: #1d4ed8;
+  --color-voltage-lv: #7a6650;
+  --color-accent: #2c6e76;
+}
+
+/* Storybook: the remaining neon text hues, darkened to ink-on-paper contrast */
+.theme-storybook [class*="text-orange-"] {
+  color: #9a4a00 !important;
+}
+.theme-storybook :is([class*="text-indigo-"], [class*="text-purple-"], [class*="text-violet-"], [class*="text-fuchsia-"]) {
+  color: #4c2a85 !important;
+}
+.theme-storybook :is([class*="text-red-"], [class*="text-rose-"]) {
+  color: #9b1c1c !important;
+}
+
+/* Storybook: hover shade of the teal accent (default is control-room blue),
+   and light "-100" label text that sits on solid status fills → ink. */
+.theme-storybook {
+  --color-accent-hover: #1f5960;
+}
+.theme-storybook :is(.text-green-100, .text-emerald-100, .text-amber-100, .text-yellow-100, .text-red-100) {
+  color: var(--sb-ink) !important;
+}
+
+/* Chart series slots (validated categorical palette, dataviz reference):
+   dark steps on the control-room surface, light steps on paper. */
+.bw-viz {
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+}
+.theme-storybook .bw-viz {
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+}
+
+/* Engineering drawings: energised lines march in the power-flow direction */
+.dwg-flow {
+  animation: dwg-march 1.2s linear infinite;
+}
+@keyframes dwg-march {
+  to { stroke-dashoffset: -16; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dwg-flow { animation: none; }
 }

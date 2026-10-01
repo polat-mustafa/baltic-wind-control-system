@@ -186,7 +186,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "shaft",
     title: "Main Shaft (Low-Speed)",
     overview:
-      "The main shaft is a forged steel component that transmits the rotor torque from the hub through the main bearing into the gearbox. It rotates slowly (5\u20139.55 rpm) under enormous torque.",
+      "The main shaft is a forged steel component that transmits the rotor torque from the hub through the main bearing into the gearbox. It rotates slowly (4\u20138.33 rpm) under enormous torque.",
     standards: ["IEC 61400-4", "DIN 743"],
     formulas: [
       {
@@ -197,7 +197,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "P\u2098\u2091\u2092\u2095", name: "Mechanical power", unit: "W" },
         ],
         explanation:
-          "Mechanical power is the product of torque and angular velocity. At rated conditions: Q \u2248 18,350 kN\u00B7m, \u03C9 = 9.55 rpm \u00D7 2\u03C0/60 \u2248 1.0 rad/s, giving P \u2248 18.35 MW aerodynamic (before losses).",
+          "Mechanical power is the product of torque and angular velocity. At rated conditions: \u03C9 = 8.33 rpm \u00D7 2\u03C0/60 \u2248 0.872 rad/s. With \u2248 16.3 MW aerodynamic power (15 MW electrical \u00F7 \u2248 92 % chain efficiency: gearbox 0.97 \u00D7 generator 0.975 \u00D7 converter 0.98 \u00D7 transformer 0.995), Q = P/\u03C9 \u2248 18,650 kN\u00B7m.",
       },
     ],
     design: {
@@ -234,7 +234,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "L\u2081\u2080\u2095", name: "Basic rating life", unit: "hours" },
         ],
         explanation:
-          "ISO 281 bearing life formula. The L\u2081\u2080 life is the number of hours at which 90% of identical bearings will survive. For a 25-year design life at 9.55 rpm, the target is >175,000 hours.",
+          "ISO 281 bearing life formula. The L\u2081\u2080 life is the number of hours at which 90% of identical bearings will survive. For a 25-year design life at 8.33 rpm, the target is >175,000 hours.",
       },
       {
         expression: "Vibration thresholds: Zone A < 2.8, B < 4.5, C < 7.1, D \u2265 7.1 mm/s",
@@ -264,7 +264,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "gearbox",
     title: "Gearbox",
     overview:
-      "The gearbox converts the slow, high-torque rotation from the rotor (5\u20138.33 rpm) into fast rotation suitable for the generator (~400 rpm). The V236 uses a 48:1 gear ratio through a three-stage planetary/helical design.",
+      "The gearbox converts the slow, high-torque rotation from the rotor (4\u20138.33 rpm) into fast rotation suitable for the generator (~400 rpm). The V236 uses a 48:1 gear ratio through a three-stage planetary/helical design.",
     standards: ["IEC 61400-4", "ISO 6336", "AGMA 6006"],
     formulas: [
       {
@@ -318,13 +318,13 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "P\u2091\u2097\u2091\u2092", name: "Electrical power", unit: "MW" },
         ],
         explanation:
-          "Electrical output is mechanical input multiplied by the efficiencies of the gearbox and generator in series. At 15 MW aerodynamic input: 15 \u00D7 0.97 \u00D7 0.975 \u2248 14.19 MW electrical.",
+          "Electrical output is mechanical input multiplied by the efficiencies of the gearbox and generator in series. At rated the rotor delivers \u2248 16.27 MW (the 15 MW nameplate is measured at the 66 kV terminals): 16.27 \u00D7 0.97 \u00D7 0.975 \u2248 15.38 MW at the generator terminals.",
       },
     ],
     design: {
       v236Value: "15 MW PMSG, variable speed via full-scale converter",
       reasoning:
-        "PMSG eliminates rotor windings and slip rings, reducing maintenance. Combined with full-scale converter, it enables wide speed range (5\u20139.55 rpm rotor) and full reactive power control.",
+        "PMSG eliminates rotor windings and slip rings, reducing maintenance. Combined with full-scale converter, it enables wide speed range (4\u20138.33 rpm rotor) and full reactive power control.",
       influencingFactors: ["Winding temperature", "Rare earth magnet supply", "Cooling system", "Insulation class (F/H)"],
     },
     efficiencyNotes: [
@@ -344,7 +344,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "converter",
     title: "Power Converter",
     overview:
-      "The full-scale power converter converts the generator's variable-frequency AC into grid-compatible fixed-frequency AC (50 Hz). It consists of a machine-side rectifier (AC\u2192DC), DC link, and grid-side inverter (DC\u2192AC), enabling full control of active and reactive power. The converter output (690 V) feeds into the turbine's step-up transformer (690 V \u2192 66 kV) before connecting to the array cable. Transformer losses are typically ~0.5% (copper + iron losses), governed by the turns ratio N\u2082/N\u2081 = V\u2082/V\u2081 = 66,000/690 \u2248 95.7:1.",
+      "The full-scale power converter converts the generator's variable-frequency AC into grid-compatible fixed-frequency AC (50 Hz). It consists of a machine-side rectifier (AC\u2192DC), DC link, and grid-side inverter (DC\u2192AC), enabling full control of active and reactive power. The converter output (784 V) feeds into the turbine's step-up transformer (784 V \u2192 66 kV) before connecting to the array cable. Transformer losses are typically ~0.5% (copper + iron losses), governed by the turns ratio N\u2082/N\u2081 = V\u2082/V\u2081 = 66,000/784 \u2248 84.2:1.",
     standards: ["ENTSO-E NC RfG Type D", "PSE IRiESP", "IEC 61400-21"],
     formulas: [
       {
@@ -355,11 +355,11 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "P\u2091\u2063\u2092\u209A", name: "Power to grid", unit: "MW" },
         ],
         explanation:
-          "The converter adds ~2% loss from IGBT switching and conduction losses. At rated: 14.19 MW \u00D7 0.98 \u2248 13.91 MW to the 66 kV array cable.",
+          "The converter adds ~2% loss from IGBT switching and conduction losses. At rated: 15.38 MW \u00D7 0.98 \u2248 15.08 MW to the step-up transformer, which (\u03B7 \u2248 0.995) delivers the 15.0 MW nameplate to the 66 kV array cable.",
       },
     ],
     design: {
-      v236Value: "Full-scale AC/DC/AC, IGBT-based, 690 V generator / 66 kV grid",
+      v236Value: "Full-scale AC/DC/AC, IGBT-based, 784 V LV side / 66 kV via step-up transformer",
       reasoning:
         "Full-scale converter decouples the generator entirely from the grid, enabling FRT compliance and full reactive power control without additional STATCOM at turbine level.",
       influencingFactors: ["IGBT junction temperature", "Cooling system", "DC link voltage", "Grid fault duration"],
@@ -367,7 +367,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     efficiencyNotes: [
       { name: "Switching losses", typicalLossPct: "~1.2%", dissipation: "Heat in IGBT modules (liquid cooled)" },
       { name: "Conduction losses", typicalLossPct: "~0.8%", dissipation: "Resistive heat in power semiconductors" },
-      { name: "Transformer losses (690V→66kV)", typicalLossPct: "~0.5%", dissipation: "Copper (I²R) + iron (hysteresis/eddy) losses in step-up transformer" },
+      { name: "Transformer losses (784 V→66 kV)", typicalLossPct: "~0.5%", dissipation: "Copper (I²R) + iron (hysteresis/eddy) losses in step-up transformer" },
     ],
     simpleExplanation:
       "The converter is like a universal power adapter for your laptop \u2014 it changes the electricity from what the generator produces into what the power grid needs. It also helps the turbine 'ride through' grid disturbances.",
@@ -887,7 +887,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "\u03C9_{HS}", name: "High-speed shaft angular velocity", unit: "rad/s" },
         ],
         explanation:
-          "At rated conditions: P = 15 MW / 0.97 (gearbox efficiency) = 15.46 MW. \u03C9_{HS} = 400 rpm \u00D7 \u03C0/30 = 41.9 rad/s. Rated torque = 15.46\u00D710\u2076 / 41.9 = 369 kN\u00B7m. The coupling is sized for 2\u00D7 rated torque for transient overloads.",
+          "At rated conditions the high-speed shaft carries P = 16.27 MW \u00D7 0.97 (gearbox) \u2248 15.78 MW. \u03C9_{HS} = 400 rpm \u00D7 \u03C0/30 = 41.9 rad/s. Rated torque = 15.78\u00D710\u2076 / 41.9 \u2248 377 kN\u00B7m. The coupling is sized for 2\u00D7 rated torque for transient overloads.",
     },
     ],
     design: {

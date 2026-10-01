@@ -29,6 +29,7 @@ from app.services.p4.nwp_pipeline import NWPConfig, generate_nwp_dataset, merge_
 from app.services.p4.scada_generator import SCADAConfig, generate_scada_dataset
 from app.services.p4.scada_quality_filters import apply_all_quality_filters
 from app.services.p4.tft_model import TFTConfig, predict_tft, train_tft
+from app.services.p4.training_progress import PROGRESS
 from app.services.p4.xgboost_model import XGBoostConfig, predict_xgboost, train_xgboost
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ def _build_xgboost_pipeline(
         num_timesteps=num_timesteps,
         seed=seed,
     )
+    PROGRESS.stage("data", "running", f"{num_turbines} turbines × {num_timesteps} ten-minute steps")
     dataset = generate_scada_dataset(config)
 
     # Quality filtering
@@ -63,7 +65,12 @@ def _build_xgboost_pipeline(
         humidity=dataset.humidity_pct,
     )
 
+    PROGRESS.stage("data", "done", f"{int(filter_result.clean_mask.sum())} clean samples kept")
+
     # Feature engineering
+    PROGRESS.stage(
+        "features", "running", "rolling stats, TI, density, lags — measured channels at t−1"
+    )
     turbine_idx = min(turbine_index, num_turbines - 1)
     eng_features = engineer_features(
         wind_speed=dataset.wind_speed_ms,
@@ -98,8 +105,10 @@ def _build_xgboost_pipeline(
         "nwp_boundary_layer_height_m",
     ]
 
-    # Extract target: wind_speed is column 0 in feature matrix
-    wind_speed = merged_features[:, 0]
+    # Wind for the physical constraints (cut-in / cut-out) and the forecast
+    # plot: the NWP forecast for the target step — the only wind known in
+    # advance (the measured channels are lagged to t−1, see engineer_features).
+    wind_speed = merged_features[:, feature_names.index("nwp_wind_speed_100m_ms")]
 
     # Target power: use the clean, filtered power for this turbine
     clean_power = dataset.power_mw[clean_mask, turbine_idx]
@@ -109,14 +118,29 @@ def _build_xgboost_pipeline(
     # Timestamps for the valid period
     clean_ts = dataset.timestamps[clean_mask]
     timestamps = clean_ts[-n_valid:]
+    PROGRESS.stage(
+        "features", "done", f"{merged_features.shape[0]} rows × {merged_features.shape[1]} features"
+    )
 
     return merged_features, target_power, wind_speed, timestamps, feature_names
 
 
 # ── Cached Pipeline ────────────────────────────────────────────────
 
+# Both caches below are keyed by every input (turbines, timesteps, turbine,
+# horizon, seed) and the synthetic SCADA data is seeded, so a hit is exactly
+# the result a rebuild would give. Training XGBoost + LSTM + TFT takes
+# ~40 min on a CPU-only container (5-fold CV each), so the old 300 s TTL
+# threw that work away before anyone could reuse it and every "Run
+# Forecast" retrained from scratch. A week covers a teaching block; Redis
+# keeps it across backend restarts.
+DETERMINISTIC_TTL_S = 7 * 24 * 3600
+# Bump when features or models change, so week-old results of the previous
+# pipeline are not served (v2: causal features, measured channels at t−1).
+PIPELINE_VERSION = "v2"
 
-@cached(prefix="xgb_pipeline", ttl=300)
+
+@cached(prefix=f"xgb_pipeline_{PIPELINE_VERSION}", ttl=DETERMINISTIC_TTL_S)
 def _cached_xgb_pipeline(
     num_turbines: int,
     num_timesteps: int,
@@ -178,7 +202,24 @@ def _build_all_model_forecasts(
     """Train XGBoost, LSTM, and TFT, then return aligned forecast arrays.
 
     Returns (ModelForecasts, actual_power) for ensemble/evaluation use.
+    Reports every stage to the live training monitor (training_progress).
     """
+    PROGRESS.start()
+    try:
+        return _build_all_model_forecasts_inner(
+            num_turbines, num_timesteps, turbine_index, horizon_steps, seed
+        )
+    finally:
+        PROGRESS.finish()
+
+
+def _build_all_model_forecasts_inner(
+    num_turbines: int,
+    num_timesteps: int,
+    turbine_index: int,
+    horizon_steps: int,
+    seed: int | None,
+) -> tuple[ModelForecasts, np.ndarray]:
     features, target, wind_speed, timestamps, _ = _build_xgboost_pipeline(
         num_turbines=num_turbines,
         num_timesteps=num_timesteps,
@@ -205,6 +246,7 @@ def _build_all_model_forecasts(
     logger.info("Parallel training took %.1fs", time.perf_counter() - t0)
 
     # ── Predict with each model in parallel ──
+    PROGRESS.stage("predict", "running", "P10/P50/P90 from each model (LSTM: Monte-Carlo dropout)")
     horizon = min(horizon_steps, features.shape[0])
     pred_features = features[-horizon:]
     pred_wind = wind_speed[-horizon:]
@@ -238,6 +280,12 @@ def _build_all_model_forecasts(
     xgb_forecast = xgb_pred_f.result()
     lstm_forecast = lstm_pred_f.result()
     tft_forecast = tft_pred_f.result()
+    PROGRESS.stage("predict", "done", f"{horizon} steps ahead")
+    # the ensemble itself (weights, skill gate, 0 ≤ P ≤ Prated) runs right
+    # after the build in milliseconds — shown as the last stage here
+    PROGRESS.stage(
+        "ensemble", "done", "horizon weights · skill gate vs persistence · 0 ≤ P ≤ 15 MW"
+    )
 
     # Align all to same length (min of all outputs)
     n = min(
@@ -269,7 +317,7 @@ def _build_all_model_forecasts(
 _build_lock = asyncio.Lock()
 
 
-@cached(prefix="forecasts", ttl=300)
+@cached(prefix=f"forecasts_{PIPELINE_VERSION}", ttl=DETERMINISTIC_TTL_S)
 def _cached_build_forecasts(
     num_turbines: int,
     num_timesteps: int,

@@ -18,7 +18,7 @@ const PRIORITY_STYLE: Record<string, { label: string; color: string; bg: string;
   CRITICAL: { label: "CRIT", color: "#f87171", bg: "bg-red-900/20", border: "border-red-700/40" },
   HIGH: { label: "HIGH", color: "#fb923c", bg: "bg-orange-900/20", border: "border-orange-700/40" },
   MEDIUM: { label: "MED", color: "#fbbf24", bg: "bg-yellow-900/15", border: "border-yellow-700/30" },
-  LOW: { label: "LOW", color: "#94a3b8", bg: "bg-slate-800/30", border: "border-slate-700/30" },
+  LOW: { label: "LOW", color: "#94a3b8", bg: "bg-bg-secondary/30", border: "border-border-primary/30" },
 };
 
 const PRIORITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];

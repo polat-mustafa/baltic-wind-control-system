@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "../../../../lib/utils";
+import { useLandingStore } from "../../../../store/landingStore";
 import type { SkyPreset } from "../scene/Environment";
 
 interface ViewerControlsProps {
@@ -360,10 +361,49 @@ export function ViewerControls({
             className="flex-1 min-w-0 accent-accent"
           />
           <span className="text-[9px] font-mono text-text-muted w-10 shrink-0 text-right tabular-nums">
-            {(manualWindMs ?? 11).toFixed(1)}
+            {(manualWindMs ?? 11).toFixed(1)} m/s
           </span>
         </div>
+        <WindDirectionControl />
       </Section>
+    </div>
+  );
+}
+
+/**
+ * Force the farm wind direction (FROM bearing). The whole farm then yaws at
+ * the simulated ≤ 1 °/s, so a 90° veer takes ~1.5 min — watch the yaw error
+ * on the compass fall and the wakes swing round. "Auto" hands the direction
+ * back to the simulation / live weather.
+ */
+function WindDirectionControl() {
+  const manual = useLandingStore((s) => s.manualWindDirDeg);
+  const current = useLandingStore((s) => s.kpis.windDirectionDeg);
+  const setManual = useLandingStore((s) => s.setManualWindDir);
+  const value = manual ?? Math.round(current);
+  return (
+    <div className="flex items-center gap-1 bg-bg-secondary/80 border border-border-primary backdrop-blur-sm rounded px-2 py-1">
+      <Navigation size={11} className="text-text-muted shrink-0" style={{ transform: `rotate(${value + 180 - 45}deg)` }} />
+      <input
+        type="range"
+        min={0}
+        max={355}
+        step={5}
+        value={value}
+        onChange={(e) => setManual(parseFloat(e.target.value))}
+        className="flex-1 min-w-0 accent-accent"
+        aria-label="Wind direction (from)"
+        title="Wind direction — FROM bearing"
+      />
+      <button
+        type="button"
+        onClick={() => setManual(null)}
+        disabled={manual === null}
+        title="Hand wind direction back to the simulation"
+        className="w-10 shrink-0 text-right font-mono text-[9px] tabular-nums text-text-muted hover:text-text-primary disabled:hover:text-text-muted"
+      >
+        {manual === null ? `${value}°` : `${value}° ↺`}
+      </button>
     </div>
   );
 }

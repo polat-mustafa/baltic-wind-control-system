@@ -256,3 +256,29 @@ class TestFullPipeline:
         assert len(features.feature_names) == 20
         assert features.valid_timesteps == features.feature_matrix.shape[0]
         assert features.dropped_timesteps >= 0
+
+    def test_measured_channels_are_causal(self) -> None:
+        """Row t sees measured wind at t−1 only (no same-step leakage).
+
+        The target of row t is P(t); if v(t) were a feature the model would
+        just learn the power curve and look near-perfect against persistence.
+        """
+        config = SCADAConfig(num_turbines=1, num_timesteps=300, seed=7)
+        ds = generate_scada_dataset(config)
+        clean = np.ones_like(ds.wind_speed_ms, dtype=bool)
+        f = engineer_features(
+            wind_speed=ds.wind_speed_ms,
+            power=ds.power_mw,
+            wind_direction=ds.wind_direction_deg,
+            temperature=ds.temperature_c,
+            pressure=ds.pressure_pa,
+            humidity=ds.humidity_pct,
+            timestamps=ds.timestamps,
+            clean_mask=clean,
+            turbine_index=0,
+        )
+        ws = ds.wind_speed_ms[:, 0]
+        n = f.valid_timesteps
+        # rows are the last n timesteps; wind column = previous step's measurement
+        np.testing.assert_allclose(f.feature_matrix[:, 0], ws[-n - 1 : -1])
+        assert all(name.endswith("_prev") for name in f.feature_names if "wind_speed" in name)

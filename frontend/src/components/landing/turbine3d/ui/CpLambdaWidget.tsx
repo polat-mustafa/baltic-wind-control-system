@@ -2,7 +2,9 @@
  * Cp(λ) mini-plot — compact canvas widget.
  *
  * Plots the classic Cp–λ curve with:
- *   - Cp_max ≈ 0.48 at λ_opt ≈ 8.1 (V236-like)
+ *   - Cp_max ≈ 0.48 at λ_opt ≈ 9.3: Heier's generic curve peaks at λ ≈ 8.1,
+ *     so λ is rescaled — large modern rotors run λ_opt ≈ 9–10 (V236 at rated:
+ *     103 m/s tip / 11.1 m/s = 9.3; IEA 15 MW RWT λ_opt = 9.0)
  *   - Betz dashed line at 16/27 = 0.593
  *   - Red dot = current operating point (λ, Cp) from wind/rpm
  *
@@ -25,7 +27,10 @@ interface CpLambdaWidgetProps {
   onClose: () => void;
 }
 
-function cpHeier(lambda: number, betaDeg: number): number {
+const LAMBDA_SCALE = 8.1 / 9.3;
+
+function cpHeier(lambdaIn: number, betaDeg: number): number {
+  const lambda = lambdaIn * LAMBDA_SCALE;
   if (lambda <= 0) return 0;
   const beta = betaDeg;
   const invLi = 1 / (lambda + 0.08 * beta) - 0.035 / (beta ** 3 + 1);

@@ -51,13 +51,13 @@ Generic UI primitive: `frontend/src/components/p2/EndpointRunnerCard.tsx`
 | `/api/v1/grid/flexible-demand` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
 | `/api/v1/grid/multi-energy-carrier` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
 
-## Group B — P2 Market Imbalance (1 endpoint)
+## Group B — P2 Market (1 endpoint)
 
 | Endpoint | Method | UI route | Component |
 |---|---|---|---|
-| `/api/v1/grid/market/imbalance` | POST | `/hv-grid` → **Market** tab | `ImbalanceSettlementPanel` |
+| `/api/v1/grid/market/day` | POST | `/hv-grid` → **Market** tab | `MarketDashboard` |
 
-Service: extension of `frontend/src/services/marketApi.ts` (`runImbalanceSettlement`).
+Service: `frontend/src/services/marketApi.ts` (`simMarketDay`).
 
 ## Group C — P3 SCADA SCL Generator (1 endpoint)
 

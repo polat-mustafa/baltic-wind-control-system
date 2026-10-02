@@ -1,132 +1,107 @@
 /**
- * Power Quality store — M06 (IEC 61000-3-6 / IEC 61000-3-7).
- * Manages harmonics, resonance scan, flicker, and filter design.
+ * Power Quality tab store — harmonics, resonance scan, flicker, filter.
+ *
+ * Inputs: the bus to assess, grid strength and a scale on the WTG emission
+ * spectrum. Every study re-runs when an input changes (each is a few ms).
  */
 
 import { create } from "zustand";
+
 import * as api from "../services/powerQualityApi";
 import type {
+  FilterDesignResponse,
+  FlickerResponse,
   HarmonicAnalysisResponse,
   ResonanceScanResponse,
-  FlickerResponse,
-  FilterDesignResponse,
-  HarmonicLimitsResponse,
-  HarmonicSpectrumRequest,
-  ResonanceScanRequest,
-  FlickerRequest,
-  FilterDesignRequest,
 } from "../types/powerQuality";
+
+/** Illustrative full-converter WTG emission [% of rated current] — the V236 report is not public. */
+export const TYPICAL_EMISSION: Record<number, number> = {
+  2: 0.2, 3: 0.3, 5: 1.0, 7: 0.8, 11: 0.5, 13: 0.4, 17: 0.25, 19: 0.2, 23: 0.15, 25: 0.12,
+};
+
+export type PQBus = 400 | 220 | 66;
 
 interface PowerQualityState {
   harmonics: HarmonicAnalysisResponse | null;
   resonance: ResonanceScanResponse | null;
   flicker: FlickerResponse | null;
   filterDesign: FilterDesignResponse | null;
-  limits: HarmonicLimitsResponse | null;
-  // Default input params
-  thd_pct: number;         // Approximated from harmonic magnitudes
-  rated_mw: number;
-  voltage_kv: number;
-  grid_fault_mva: number;
+
+  bus: PQBus;
+  gridSscMva: number;
+  emissionScale: number;
+  filterOrder: number;
+  filterMvar: number;
+
   loading: boolean;
   error: string | null;
 
+  setBus(b: PQBus): void;
+  setGridSscMva(v: number): void;
+  setEmissionScale(v: number): void;
+  setFilterOrder(h: number): void;
+  setFilterMvar(q: number): void;
   runAll(): Promise<void>;
-  runHarmonicAnalysis(req: HarmonicSpectrumRequest): Promise<void>;
-  runResonanceScan(req: ResonanceScanRequest): Promise<void>;
-  computeFlicker(req: FlickerRequest): Promise<void>;
-  designFilter(req: FilterDesignRequest): Promise<void>;
-  fetchLimits(): Promise<void>;
-  setRatedMW(mw: number): void;
-  setVoltageKV(kv: number): void;
-  setGridFaultMVA(mva: number): void;
+  runFilter(): Promise<void>;
   clearError(): void;
 }
 
-const DEFAULT_HARMONICS: HarmonicSpectrumRequest = {
-  harmonic_magnitudes: { 5: 3.2, 7: 2.1, 11: 1.4, 13: 0.9, 17: 0.6, 19: 0.4, 23: 0.3, 25: 0.2 },
-  voltage_kv: 66,
-  rated_mw: 510,
-};
+const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 export const usePowerQualityStore = create<PowerQualityState>((set, get) => ({
   harmonics: null,
   resonance: null,
   flicker: null,
   filterDesign: null,
-  limits: null,
-  thd_pct: 4.1,
-  rated_mw: 510,
-  voltage_kv: 66,
-  grid_fault_mva: 2500,
+
+  bus: 400,
+  gridSscMva: 10000,
+  emissionScale: 1,
+  filterOrder: 17,
+  filterMvar: 10,
+
   loading: false,
   error: null,
 
+  setBus: (b) => set({ bus: b }),
+  setGridSscMva: (v) => set({ gridSscMva: v }),
+  setEmissionScale: (v) => set({ emissionScale: v }),
+  setFilterOrder: (h) => set({ filterOrder: h }),
+  setFilterMvar: (q) => set({ filterMvar: q }),
+
   runAll: async () => {
+    const { bus, gridSscMva, emissionScale } = get();
+    const emission = Object.fromEntries(Object.entries(TYPICAL_EMISSION).map(([h, v]) => [h, v * emissionScale]));
     set({ loading: true, error: null });
     try {
-      const { rated_mw, voltage_kv, grid_fault_mva } = get();
-      const [harmonics, resonance, flicker, limits] = await Promise.all([
-        api.analyzeHarmonics(DEFAULT_HARMONICS),
-        api.runResonanceScan({ cable_length_km: 45, voltage_kv, grid_fault_level_mva: grid_fault_mva, scan_max_hz: 2500 }),
-        api.computeFlicker({ rated_mw, grid_fault_level_mva: grid_fault_mva, grid_impedance_angle_deg: 75, annual_switching_operations: 1200 }),
-        api.getHarmonicLimits(),
+      const [harmonics, resonance, flicker] = await Promise.all([
+        api.analyzeHarmonics({ harmonic_magnitudes: emission, voltage_kv: bus, rated_mw: 510, grid_fault_level_mva: gridSscMva }),
+        api.runResonanceScan({ cable_length_km: 45, voltage_kv: bus, grid_fault_level_mva: gridSscMva, scan_max_hz: 2500 }),
+        api.computeFlicker({ rated_mw: 510, grid_fault_level_mva: gridSscMva, grid_impedance_angle_deg: 84.3, annual_switching_operations: 1000 }),
       ]);
-      set({ harmonics, resonance, flicker, limits });
+      set({ harmonics, resonance, flicker });
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Power quality analysis failed" });
+      set({ error: message(err) });
     } finally {
       set({ loading: false });
     }
   },
 
-  runHarmonicAnalysis: async (req) => {
+  runFilter: async () => {
+    const { filterOrder, filterMvar } = get();
     try {
-      const harmonics = await api.analyzeHarmonics(req);
-      set({ harmonics });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Harmonic analysis failed" });
-    }
-  },
-
-  runResonanceScan: async (req) => {
-    try {
-      const resonance = await api.runResonanceScan(req);
-      set({ resonance });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Resonance scan failed" });
-    }
-  },
-
-  computeFlicker: async (req) => {
-    try {
-      const flicker = await api.computeFlicker(req);
-      set({ flicker });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Flicker computation failed" });
-    }
-  },
-
-  designFilter: async (req) => {
-    try {
-      const filterDesign = await api.designFilter(req);
+      const filterDesign = await api.designFilter({
+        dominant_harmonic_order: filterOrder,
+        harmonic_current_a: 50,
+        system_voltage_kv: 66,
+        rated_mvar: filterMvar,
+      });
       set({ filterDesign });
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Filter design failed" });
+      set({ error: message(err) });
     }
   },
 
-  fetchLimits: async () => {
-    try {
-      const limits = await api.getHarmonicLimits();
-      set({ limits });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Failed to fetch harmonic limits" });
-    }
-  },
-
-  setRatedMW: (mw) => set({ rated_mw: mw }),
-  setVoltageKV: (kv) => set({ voltage_kv: kv }),
-  setGridFaultMVA: (mva) => set({ grid_fault_mva: mva }),
   clearError: () => set({ error: null }),
 }));

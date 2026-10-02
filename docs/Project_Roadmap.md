@@ -469,17 +469,16 @@ U_ret = U_clear = U_rec1 = 0.00 pu, t_clear = t_rec1 = t_rec2 = 0.15 s, U_rec2 =
 
 ### 3.10 Harmonic Analysis
 
-**VSC turbine harmonic spectrum (typical Type-4 WTG):**
+**Model (`services/p2/power_quality.py`):** positive-sequence nodal network per harmonic order — grid Thevenin, both transformer stages (R·√h), the two 45 km export circuits as exact distributed π sections, 3 × 80 MVAR reactors and the array cable charging. WTG emission (% of rated current, illustrative full-converter spectrum — the V236 IEC 61400-21 report is not public) is summed over 34 units with the IEC 61000-3-6 exponents and turned into harmonic voltages through |Z(h)|. Converter impedance, loads and background distortion are not modelled, so resonance peaks are upper bounds.
 
-| Harmonic Order | Current (% of I_fund) | Voltage Distortion at PCC (%) | Limit (%) | Status |
-|---------------|----------------------|-------------------------------|----------|--------|
-| 5th | 3.5% | 0.42% | 1.5% | ✓ |
-| 7th | 2.5% | 0.38% | 1.5% | ✓ |
-| 11th | 1.8% | 0.35% | 1.5% | ✓ |
-| 13th | 1.2% | 0.28% | 1.5% | ✓ |
-| **THD** | — | **0.82%** | **5.0%** | **✓** |
+| Result (10 GVA grid) | Value |
+|---|---|
+| Parallel resonances seen from OSS 66 kV | ≈ 165 Hz (h 3.3, amplification ×16) and ≈ 870 Hz (h 17.4, ×28) |
+| THD at the PSE 400 kV POC | 0.25 % (HV-EHV planning level 3 %) |
+| h17 at OSS 66 kV | 1.49 % > 1.2 % planning level — the internal busbar sits on the h17 resonance |
+| Flicker P_st / P_lt at the POC | 0.002 / 0.002 (planning levels 0.8 / 0.6) |
 
-**Additional P2 analysis:** Harmonic impedance scan (frequency-dependent impedance) to identify cable resonance risks. Flicker assessment (Pst, Plt) per IEC 61000-3-7.
+Planning levels follow IEC TR 61000-3-6:2008 Table 2 (MV / HV-EHV, THD 6.5 % / 3 %); flicker IEC 61000-3-7 HV-EHV. The emission limit PSE would allocate to the plant is a share of the planning level.
 
 ### 3.11 Additional P2 Modules
 

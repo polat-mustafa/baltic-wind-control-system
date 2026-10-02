@@ -14,6 +14,7 @@ import { bessEducation } from "../../constants/education/p2";
 import { FFR_THRESHOLD_HZ, FREQUENCY_EVENTS, type FrequencyEvent, useBESSStore } from "../../store/bessStore";
 import { EducationButton } from "../ui/EducationButton";
 import { KPICard } from "../ui/KPICard";
+import { Slider } from "../ui/Slider";
 import BESSDegradationPanel from "./BESSDegradationPanel";
 import BESSFrequencyPanel from "./BESSFrequencyPanel";
 import BESSRampPanel from "./BESSRampPanel";
@@ -22,27 +23,6 @@ const item = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
 };
-
-interface SliderProps {
-  label: string;
-  value: number;
-  display: string;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-}
-
-function Slider({ label, value, display, min, max, step, onChange }: SliderProps) {
-  return (
-    <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[10rem] flex-1">
-      <span className="flex justify-between">
-        {label} <span className="font-mono text-text-primary">{display}</span>
-      </span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="accent-accent" />
-    </label>
-  );
-}
 
 function DispatchCard() {
   const { dispatch: d, pTargetMw, pAvailableMw, setParams } = useBESSStore();

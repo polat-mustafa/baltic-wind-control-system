@@ -147,14 +147,17 @@ describe("offshore wind statistics", () => {
 
 describe("export cable DTS profile", () => {
   it("matches the backend calibration: 950 A at 15 °C → 90 °C in the J-tube", async () => {
-    const { dtsTempC, DTS_R_TH } = await import("../../src/utils/landingPhysics");
-    expect(DTS_R_TH).toBeCloseTo(2.55, 2);
+    const { dtsTempC, DTS_R_EXT_J_TUBE } = await import("../../src/utils/landingPhysics");
+    expect(DTS_R_EXT_J_TUBE).toBeCloseTo(2.92, 2);
     expect(dtsTempC(0.1, 950, 15)).toBeCloseTo(90, 6);
     // HDD landfall is the onshore hotspot, below the J-tube
     expect(dtsTempC(31.4, 950, 15)).toBeGreaterThan(dtsTempC(20, 950, 15));
     expect(dtsTempC(31.4, 950, 15)).toBeLessThan(90);
     // 510 MW → ≈ 730 A per circuit: well below the 70 °C DTS alarm at 10 °C
     expect(dtsTempC(0.1, 730, 10)).toBeLessThan(70);
+    // same numbers as backend steady_temps(): 730 A → 56.10 °C (J-tube), 950 A → 84.20 °C (HDD)
+    expect(dtsTempC(0.1, 730, 15)).toBeCloseTo(56.1, 1);
+    expect(dtsTempC(31.4, 950, 15)).toBeCloseTo(84.2, 1);
   });
 });
 

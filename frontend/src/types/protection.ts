@@ -1,23 +1,24 @@
 /**
- * TypeScript interfaces for Protection Relay Coordination API responses.
+ * Protection scheme & coordination — API types.
  *
- * All field names use snake_case to match the API JSON directly.
- * Source of truth: backend/app/schemas/protection.py Pydantic schemas.
- * Standards: IEC 60255 (relay characteristics), IEC 60909 (fault currents).
+ * Source of truth: backend/app/schemas/protection.py.
+ * Standards: IEC 60255 (relays), IEC 60909 (fault currents), IEC 62271-100 (breakers).
  */
-
-// ── Relay Definition ──────────────────────────────────────────────
 
 export interface ProtectionRelaySchema {
   id: string;
   setting_id: string;
+  /** IEC 61850 LN class: PTOC / PDIS / PDIF / PTOV / PTUV / PTOF / PTUF. */
   relay_type: string;
   location: string;
   manufacturer: string;
   model: string;
   pickup_value: number;
   pickup_unit: string;
+  /** Definite time [s]; 0 for IDMT stages. */
   time_delay_s: number;
+  /** CT primary [A] for × In pickups (0 if not current-based). */
+  ct_primary_a: number;
   tms: number;
   curve_type: string;
   enabled: boolean;
@@ -33,9 +34,9 @@ export interface RelaySettingsUpdate {
   enabled?: boolean | null;
 }
 
-// ── TCC Curves ────────────────────────────────────────────────────
-
 export interface TCCCurvePoint {
+  /** Primary current at 66 kV [kA]. */
+  current_ka: number;
   current_multiple: number;
   operating_time_s: number;
 }
@@ -46,15 +47,15 @@ export interface TCCCurveSeries {
   curve_type: string;
   pickup_value: number;
   pickup_unit: string;
+  pickup_ka: number;
   tms: number;
   time_delay_s: number;
   points: TCCCurvePoint[];
-  color_hint: string;
 }
 
 export interface FaultMarker {
   current_ka: number;
-  fault_label: string;
+  label: string;
 }
 
 export interface TCCPlotData {
@@ -63,22 +64,23 @@ export interface TCCPlotData {
   fault_markers: FaultMarker[];
 }
 
-// ── Relay Sequence (per fault) ────────────────────────────────────
-
 export interface RelaySequenceEntry {
   relay_id: string;
   relay_location: string;
+  /** "main" | "main 2" | "backup" for this fault. */
+  role: string;
   trip_time_ms: number;
+  /** Trip + 60 ms CB break time. */
+  clearance_time_ms: number;
   fault_current_multiple: number;
   operated: boolean;
 }
-
-// ── Grading Results ───────────────────────────────────────────────
 
 export interface GradingResult {
   pair_id: string;
   downstream_id: string;
   upstream_id: string;
+  /** Operating time at the worst-case fault current [s]. */
   downstream_delay_s: number;
   upstream_delay_s: number;
   actual_margin_ms: number;
@@ -86,24 +88,36 @@ export interface GradingResult {
   selective: boolean;
 }
 
-// ── Coordination Study Request ────────────────────────────────────
+export type FaultLocation = "string_feeder" | "oss_busbar_66kv" | "export_cable" | "oss_busbar_220kv";
 
 export interface CoordinationStudyRequest {
-  fault_location: string;
-  fault_current_ka: number;
+  fault_location: FaultLocation;
+  /** Override; null = IEC 60909 / impedance chain. */
+  fault_current_ka?: number | null;
+  /** Export cable: % from the onshore end. */
+  position_pct?: number | null;
+  fault_type?: "3ph" | "ph_ph";
   include_tcc_data: boolean;
 }
 
-// ── Coordination Study Response ───────────────────────────────────
-
 export interface CoordinationStudyResponse {
   study_id: string;
-  fault_location: string;
+  fault_location: FaultLocation;
   fault_current_ka: number;
   fault_current_description: string;
   relay_sequence: RelaySequenceEntry[];
   first_relay: string;
   first_relay_time_ms: number;
+  main_relay: string;
+  main_clearance_ms: number;
+  backup_margin_ms: number | null;
+  position_pct: number | null;
+  fault_type: string;
+  voltage_kv: number;
+  selective: boolean;
+  fast_enough: boolean;
+  time_limit_s: number;
+  time_criterion: string;
   fully_graded: boolean;
   grading_results: GradingResult[];
   grading_violations: number;
@@ -112,12 +126,11 @@ export interface CoordinationStudyResponse {
   created_at: string;
 }
 
-// ── Fault Clearance ───────────────────────────────────────────────
-
 export interface FaultClearanceRequest {
-  fault_type: string;
-  fault_location: string;
+  fault_type: "3ph" | "ph_ph";
+  fault_location: FaultLocation;
   fault_impedance_ohm: number;
+  position_pct?: number | null;
 }
 
 export interface FaultClearanceResponse {

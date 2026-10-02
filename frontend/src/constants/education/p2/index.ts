@@ -7,3 +7,4 @@ export { shortCircuitEducation } from "./shortCircuit";
 export { reactiveCompensationEducation } from "./reactiveCompensation";
 export { faultRideThroughEducation } from "./faultRideThrough";
 export { gridFormingEducation } from "./gridForming";
+export { powerPlantControllerEducation } from "./powerPlantController";

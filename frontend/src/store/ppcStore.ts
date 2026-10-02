@@ -1,11 +1,9 @@
 /**
- * Zustand store for PPC (Power Plant Controller) dashboard state.
+ * Zustand store for the PPC (Power Plant Controller) tab.
  *
- * Manages TSO setpoint parameters, PPC control modes, simulation
- * results, and loading/error states.
- *
- * Data flow: user configures TSO setpoint + control modes →
- * runSimulation() calls POST /ppc/simulate → results populate panels.
+ * The user sets a TSO command, wind/availability, the reactive mode and an
+ * optional grid event; the dashboard re-runs POST /ppc/simulate (≈ 1200
+ * steps of 0.1 s, a few tens of ms) whenever a control changes.
  */
 
 import { create } from "zustand";
@@ -16,140 +14,153 @@ import type {
   PPCSimulationResponse,
   PPCStatusResponse,
   ReactivePowerMode,
+  TSOSetpoint,
 } from "../types/ppc";
 
-// ── Store Interface ────────────────────────────────────────────
+/** Grid events the simulation can apply at t = 60 s. */
+export type PPCEvent = "none" | "over_frequency" | "under_frequency" | "voltage_dip" | "voltage_rise";
+
+export const PPC_EVENTS: Record<PPCEvent, { label: string; frequency?: number; voltageStep?: number }> = {
+  none: { label: "No grid event" },
+  over_frequency: { label: "Frequency → 50.5 Hz", frequency: 50.5 },
+  under_frequency: { label: "Frequency → 49.7 Hz", frequency: 49.7 },
+  voltage_dip: { label: "Grid voltage −3 %", voltageStep: -0.03 },
+  voltage_rise: { label: "Grid voltage +3 %", voltageStep: 0.03 },
+};
 
 interface PPCState {
-  // Status snapshot
   status: PPCStatusResponse | null;
-
-  // Simulation results
   simulation: PPCSimulationResponse | null;
 
-  // TSO setpoint controls
   powerSetpointMW: number;
   windSpeedMS: number;
   availableTurbines: number;
   initialPowerMW: number;
   deltaReserveMW: number;
   absoluteLimitMW: number;
+  rampRateMWPerMin: number;
   frequencyHz: number;
 
-  // Control modes
   activePowerMode: ActivePowerMode;
   reactivePowerMode: ReactivePowerMode;
+  voltageSetpointPU: number;
+  reactiveSetpointMVAR: number;
+  powerFactor: number;
+  event: PPCEvent;
 
-  // Simulation params
   simulationDurationS: number;
 
-  // UI state
   loading: boolean;
   error: string | null;
   simulationRun: boolean;
 
-  // Setters
   setPowerSetpointMW: (v: number) => void;
   setWindSpeedMS: (v: number) => void;
   setAvailableTurbines: (v: number) => void;
   setDeltaReserveMW: (v: number) => void;
   setAbsoluteLimitMW: (v: number) => void;
+  setRampRateMWPerMin: (v: number) => void;
   setFrequencyHz: (v: number) => void;
   setActivePowerMode: (m: ActivePowerMode) => void;
   setReactivePowerMode: (m: ReactivePowerMode) => void;
+  setVoltageSetpointPU: (v: number) => void;
+  setReactiveSetpointMVAR: (v: number) => void;
+  setPowerFactor: (v: number) => void;
+  setEvent: (e: PPCEvent) => void;
   setSimulationDurationS: (v: number) => void;
 
-  // Actions
   fetchStatus: () => Promise<void>;
   runSimulation: () => Promise<void>;
   clearError: () => void;
 }
 
-// ── Store Implementation ───────────────────────────────────────
+/** TSO command for the selected modes — only the fields that mode uses. */
+export function buildTSOSetpoint(s: PPCState): TSOSetpoint {
+  const tso: TSOSetpoint = {};
+  if (s.activePowerMode === "delta_control") tso.delta_reserve_mw = s.deltaReserveMW;
+  else if (s.activePowerMode === "absolute_limitation") tso.absolute_limit_mw = s.absoluteLimitMW;
+  else tso.active_power_mw = s.powerSetpointMW;
+  if (s.activePowerMode === "ramp_rate_control") tso.ramp_rate_mw_per_min = s.rampRateMWPerMin;
+  if (s.reactivePowerMode === "voltage_control" || s.reactivePowerMode === "q_v_droop")
+    tso.voltage_setpoint_pu = s.voltageSetpointPU;
+  if (s.reactivePowerMode === "reactive_power") tso.reactive_power_mvar = s.reactiveSetpointMVAR;
+  if (s.reactivePowerMode === "power_factor") tso.power_factor = s.powerFactor;
+  return tso;
+}
+
+const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 export const usePPCStore = create<PPCState>((set, get) => ({
-  // Status
   status: null,
-
-  // Simulation
   simulation: null,
 
-  // TSO setpoint defaults
   powerSetpointMW: 300,
-  windSpeedMS: 12.5,
+  windSpeedMS: 12,
   availableTurbines: 34,
   initialPowerMW: 510,
-  deltaReserveMW: 30,
+  deltaReserveMW: 50,
   absoluteLimitMW: 400,
+  rampRateMWPerMin: 100,
   frequencyHz: 50.0,
 
-  // Control modes
   activePowerMode: "power_reference",
   reactivePowerMode: "voltage_control",
+  voltageSetpointPU: 1.0,
+  reactiveSetpointMVAR: 0,
+  powerFactor: 1.0,
+  event: "over_frequency",
 
-  // Simulation params
-  simulationDurationS: 600,
+  simulationDurationS: 120,
 
-  // UI state
   loading: false,
   error: null,
   simulationRun: false,
-
-  // ── Setters ──────────────────────────────────────────────────
 
   setPowerSetpointMW: (v) => set({ powerSetpointMW: v }),
   setWindSpeedMS: (v) => set({ windSpeedMS: v }),
   setAvailableTurbines: (v) => set({ availableTurbines: v }),
   setDeltaReserveMW: (v) => set({ deltaReserveMW: v }),
   setAbsoluteLimitMW: (v) => set({ absoluteLimitMW: v }),
+  setRampRateMWPerMin: (v) => set({ rampRateMWPerMin: v }),
   setFrequencyHz: (v) => set({ frequencyHz: v }),
   setActivePowerMode: (m) => set({ activePowerMode: m }),
   setReactivePowerMode: (m) => set({ reactivePowerMode: m }),
+  setVoltageSetpointPU: (v) => set({ voltageSetpointPU: v }),
+  setReactiveSetpointMVAR: (v) => set({ reactiveSetpointMVAR: v }),
+  setPowerFactor: (v) => set({ powerFactor: v }),
+  setEvent: (e) => set({ event: e }),
   setSimulationDurationS: (v) => set({ simulationDurationS: v }),
-
-  // ── Actions ──────────────────────────────────────────────────
 
   fetchStatus: async () => {
     try {
-      const status = await api.getPPCStatus();
-      set({ status });
+      set({ status: await api.getPPCStatus() });
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
+      set({ error: message(err) });
     }
   },
 
   runSimulation: async () => {
     const s = get();
+    const ev = PPC_EVENTS[s.event];
     set({ loading: true, error: null });
-
     try {
-      // Build TSO setpoint based on active power mode
-      const tsoSetpoint: Record<string, unknown> = {};
-
-      if (s.activePowerMode === "power_reference") {
-        tsoSetpoint.active_power_mw = s.powerSetpointMW;
-      } else if (s.activePowerMode === "delta_control") {
-        tsoSetpoint.delta_reserve_mw = s.deltaReserveMW;
-      } else if (s.activePowerMode === "absolute_limitation") {
-        tsoSetpoint.absolute_limit_mw = s.absoluteLimitMW;
-      } else {
-        tsoSetpoint.active_power_mw = s.powerSetpointMW;
-      }
-
       const simulation = await api.runPPCSimulation({
-        tso_setpoint: tsoSetpoint,
+        tso_setpoint: buildTSOSetpoint(s),
         active_power_mode: s.activePowerMode,
         reactive_power_mode: s.reactivePowerMode,
         wind_speed_ms: s.windSpeedMS,
         available_turbines: s.availableTurbines,
         initial_power_mw: s.initialPowerMW,
         simulation_duration_s: s.simulationDurationS,
-        time_step_s: 1.0,
+        time_step_s: 0.1,
+        setpoint_time_s: 10,
+        frequency_event_hz: ev.frequency ?? null,
+        voltage_step_pu: ev.voltageStep ?? null,
+        event_time_s: 60,
       });
-
       set({ simulation, simulationRun: true });
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
+      set({ error: message(err) });
     } finally {
       set({ loading: false });
     }

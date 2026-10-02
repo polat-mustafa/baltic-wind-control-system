@@ -40,8 +40,6 @@ import { useGridStore } from "../store/gridStore";
 import { usePPCStore } from "../store/ppcStore";
 import { Button } from "../components/ui/Button";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
-import { ControlDrawer } from "../components/ui/ControlDrawer";
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { p2Guide } from "../constants/trainingGuideContent";
 import { EducationPanel } from "../components/ui/EducationPanel";
 import { hvacVsHvdcEducation } from "../constants/education/library/hvacVsHvdc";
@@ -49,7 +47,6 @@ import { statcomSizingEducation } from "../constants/education/library/statcomSi
 import { arrayVoltageEducation } from "../constants/education/library/arrayVoltage";
 import { cableCrossSectionEducation } from "../constants/education/library/cableCrossSection";
 
-import type { ActivePowerMode, ReactivePowerMode } from "../types/ppc";
 
 type Tab =
   | "grid"
@@ -64,7 +61,7 @@ type Tab =
 
 const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }>; tooltip: string }[] = [
   { id: "grid",          label: "Grid Analysis",    Icon: Zap,           tooltip: "Load flow, reactive power vs PSE range, IEC 60909 breaker duty, FRT, GFL vs GFM" },
-  { id: "ppc",           label: "PPC",              Icon: Radio,         tooltip: "Power Plant Controller — TSO active/reactive power dispatch (ENTSO-E NC RfG Type D)" },
+  { id: "ppc",           label: "PPC",              Icon: Radio,         tooltip: "Power Plant Controller — TSO dispatch, LFSM/FSM frequency response, voltage control (PSE NC RfG)" },
   { id: "protection",    label: "Protection",       Icon: ShieldCheck,   tooltip: "Relay coordination, TCC curves, selectivity grading (IEC 60255)" },
   { id: "power-quality", label: "Power Quality",    Icon: Activity,      tooltip: "Harmonics, resonance scan, flicker at 66 kV POC (IEC 61000-3-6 / 3-7)" },
   { id: "bess",          label: "BESS",             Icon: Battery,       tooltip: "Battery Energy Storage System — 50 MW / 200 MWh LFP, FCR/FFR, ramp smoothing" },
@@ -72,20 +69,6 @@ const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }>; tooltip
   { id: "market",        label: "Market",           Icon: TrendingUp,    tooltip: "TGE day-ahead bid, CfD (OZMB 2024), PSE ancillary services (BSP)" },
   { id: "advanced",      label: "Advanced",         Icon: FlaskConical,  tooltip: "Dynamic compliance, OPF/SCOPF, DC PF, SSO screening, ANDES network spec" },
   { id: "planning",      label: "Planning & P2X",   Icon: Network,       tooltip: "Economic dispatch, capacity expansion, sector coupling, electrolyzer, LDES" },
-];
-
-const ACTIVE_POWER_MODES: { value: ActivePowerMode; label: string }[] = [
-  { value: "power_reference", label: "Power Reference (TSO setpoint)" },
-  { value: "delta_control", label: "Delta Control (reserve margin)" },
-  { value: "absolute_limitation", label: "Absolute Limitation (cap)" },
-  { value: "ramp_rate_control", label: "Ramp Rate Control" },
-];
-
-const REACTIVE_POWER_MODES: { value: ReactivePowerMode; label: string }[] = [
-  { value: "voltage_control", label: "Voltage PI Control" },
-  { value: "reactive_power", label: "Direct Q Setpoint" },
-  { value: "power_factor", label: "Power Factor" },
-  { value: "q_v_droop", label: "Q(V) Droop" },
 ];
 
 export default function HVGridPage() {
@@ -105,28 +88,8 @@ export default function HVGridPage() {
     clearError: clearGridError,
   } = useGridStore();
 
-  // PPC store
-  const {
-    loading: ppcLoading,
-    error: ppcError,
-    simulationRun,
-    powerSetpointMW,
-    windSpeedMS,
-    availableTurbines,
-    deltaReserveMW,
-    absoluteLimitMW,
-    activePowerMode,
-    reactivePowerMode,
-    setPowerSetpointMW,
-    setWindSpeedMS,
-    setAvailableTurbines,
-    setDeltaReserveMW,
-    setAbsoluteLimitMW,
-    setActivePowerMode,
-    setReactivePowerMode,
-    runSimulation,
-    clearError: clearPPCError,
-  } = usePPCStore();
+  // PPC store (the PPC tab runs its own simulation; only the error is shown here)
+  const { loading: ppcLoading, error: ppcError, clearError: clearPPCError } = usePPCStore();
 
   const loading =
     activeTab === "grid" ? gridLoading : activeTab === "ppc" ? ppcLoading : false;
@@ -190,125 +153,6 @@ export default function HVGridPage() {
             </>
           )}
 
-          {activeTab === "ppc" && (
-            <>
-              <Button onClick={runSimulation} disabled={loading} size="sm">
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Simulating...
-                  </span>
-                ) : simulationRun ? (
-                  "Re-run"
-                ) : (
-                  "Run PPC"
-                )}
-              </Button>
-              <ControlDrawer
-                title="PPC Controls"
-                subtitle="TSO dispatch & reactive power"
-                footer={
-                  <div className="space-y-1">
-                    <p className="text-xs text-text-muted">
-                      <span className="font-medium text-text-secondary">PPC Control:</span>{" "}
-                      PSE ramp up 10%Pn/min, down 20%Pn/min, accuracy ±5%
-                    </p>
-                    <p className="text-xs text-text-muted">
-                      <span className="font-medium text-text-secondary">Standards:</span>{" "}
-                      ENTSO-E NC RfG Type D, PSE IRiESP, IEC 61400-25
-                    </p>
-                  </div>
-                }
-              >
-                <Card>
-                  <CardHeader><CardTitle>Active Power Mode</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {ACTIVE_POWER_MODES.map((opt) => (
-                        <label key={opt.value} className="flex items-center gap-2 cursor-pointer group">
-                          <input type="radio" name="ap_mode" value={opt.value} checked={activePowerMode === opt.value} onChange={() => setActivePowerMode(opt.value)} className="accent-accent" />
-                          <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">{opt.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader><CardTitle>TSO Setpoint</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {activePowerMode === "power_reference" && (
-                        <div>
-                          <label className="text-xs text-text-muted block mb-1">Power Setpoint [MW]</label>
-                          <input type="range" min={0} max={510} step={10} value={powerSetpointMW} onChange={(e) => setPowerSetpointMW(Number(e.target.value))} className="w-full accent-accent" />
-                          <span className="text-sm font-mono text-text-primary">{powerSetpointMW} MW</span>
-                        </div>
-                      )}
-                      {activePowerMode === "delta_control" && (
-                        <div>
-                          <label className="text-xs text-text-muted block mb-1">Delta Reserve [MW]</label>
-                          <input type="range" min={0} max={100} step={5} value={deltaReserveMW} onChange={(e) => setDeltaReserveMW(Number(e.target.value))} className="w-full accent-accent" />
-                          <span className="text-sm font-mono text-text-primary">{deltaReserveMW} MW</span>
-                        </div>
-                      )}
-                      {activePowerMode === "absolute_limitation" && (
-                        <div>
-                          <label className="text-xs text-text-muted block mb-1">Absolute Limit [MW]</label>
-                          <input type="range" min={0} max={510} step={10} value={absoluteLimitMW} onChange={(e) => setAbsoluteLimitMW(Number(e.target.value))} className="w-full accent-accent" />
-                          <span className="text-sm font-mono text-text-primary">{absoluteLimitMW} MW</span>
-                        </div>
-                      )}
-                      {activePowerMode === "ramp_rate_control" && (
-                        <div>
-                          <label className="text-xs text-text-muted block mb-1">Power Setpoint [MW]</label>
-                          <input type="range" min={0} max={510} step={10} value={powerSetpointMW} onChange={(e) => setPowerSetpointMW(Number(e.target.value))} className="w-full accent-accent" />
-                          <span className="text-sm font-mono text-text-primary">{powerSetpointMW} MW</span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader><CardTitle>Operating Conditions</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs text-text-muted block mb-1">Wind Speed [m/s]</label>
-                        <input type="range" min={0} max={35} step={0.5} value={windSpeedMS} onChange={(e) => setWindSpeedMS(Number(e.target.value))} className="w-full accent-accent" />
-                        <span className="text-sm font-mono text-text-primary">{windSpeedMS} m/s</span>
-                      </div>
-                      <div>
-                        <label className="text-xs text-text-muted block mb-1">Online Turbines</label>
-                        <input type="range" min={0} max={34} step={1} value={availableTurbines} onChange={(e) => setAvailableTurbines(Number(e.target.value))} className="w-full accent-accent" />
-                        <span className="text-sm font-mono text-text-primary">{availableTurbines} / 34</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader><CardTitle>Reactive Power Mode</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {REACTIVE_POWER_MODES.map((opt) => (
-                        <label key={opt.value} className="flex items-center gap-2 cursor-pointer group">
-                          <input type="radio" name="rp_mode" value={opt.value} checked={reactivePowerMode === opt.value} onChange={() => setReactivePowerMode(opt.value)} className="accent-accent" />
-                          <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">{opt.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Button onClick={runSimulation} disabled={loading} className="w-full py-3" size="lg">
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Simulating PPC...
-                    </span>
-                  ) : simulationRun ? "Re-run PPC Simulation" : "Run PPC Simulation"}
-                </Button>
-              </ControlDrawer>
-            </>
-          )}
 
           <TrainingGuide guide={p2Guide} />
         </div>
@@ -375,36 +219,8 @@ export default function HVGridPage() {
         </>
       )}
 
-      {/* ── PPC tab ──────────────────────────────────────────── */}
-      {activeTab === "ppc" && (
-        <>
-          {simulationRun ? (
-            <PPCDashboard />
-          ) : (
-            <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
-              <div className="text-center max-w-sm">
-                <div className="flex justify-center mb-4">
-                  <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                    <Radio size={24} className="text-accent" />
-                  </div>
-                </div>
-                <p className="text-text-secondary text-base mb-2 font-medium">
-                  PPC — Power Plant Controller
-                </p>
-                <ul className="text-text-muted text-xs text-left mb-4 space-y-1 list-disc list-inside">
-                  <li>Active power modes: Reference, Delta, Limit, Ramp</li>
-                  <li>Reactive power: Voltage PI, Q setpoint, PF, Q(V) droop</li>
-                  <li>Pro-rata WTG dispatch across all 34 turbines</li>
-                  <li>PSE ramp-rate compliance check (10%Pn/min ↑)</li>
-                </ul>
-                <Button onClick={runSimulation} disabled={loading} size="sm">
-                  {loading ? "Simulating…" : "Run PPC Simulation"}
-                </Button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+      {/* ── PPC tab (controls + auto-run inside) ─────────────── */}
+      {activeTab === "ppc" && <PPCDashboard />}
 
       {/* ── New module tabs (self-contained dashboards) ───────── */}
       {activeTab === "protection"    && <ProtectionDashboard />}

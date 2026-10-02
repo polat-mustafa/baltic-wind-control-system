@@ -504,19 +504,13 @@ async def ppc_status(request: PPCStatusRequest) -> PPCStatusResponse:
 
 @router.post("/ppc/simulate", response_model=PPCSimulationResponse)
 async def ppc_simulate(request: PPCSimulationRequest) -> PPCSimulationResponse:
-    """Run a PPC control simulation over a time window.
+    """Run a PPC control simulation over a time window (0.1 s steps).
 
-    Simulates the full PPC control loop: TSO dispatch → ramp rate limiter →
-    pro-rata WTG dispatch → voltage/reactive power control → compliance check.
-
-    The simulation models:
-    - Active power ramp rate limiting (PSE IRiESP: 10% Pn/min up, 20% Pn/min down)
-    - Pro-rata power dispatch to 34 WTGs
-    - Voltage PI control, direct Q, power factor, or Q(V) droop mode
-    - STATCOM / WTG reactive power coordination
-    - Frequency response integration (LFSM-O/U/FSM)
-    - Emergency stop (2% Pn/s = 10.2 MW/s)
-    - PSE compliance verdicts (setpoint accuracy ±5%, ramp rates, voltage 0.95-1.05 pu)
+    TSO command at ``setpoint_time_s``; optional grid frequency step and grid
+    voltage step at ``event_time_s``. Models the ramp-limited dispatch,
+    LFSM-O/U and FSM on top of it, slope voltage control / Q / PF / Q(V) droop
+    at the PSE 400 kV POC, and checks PSE's NC RfG requirements: set-point within
+    2 % in 15 min, frequency response vs droop, 90 % of a Q change within 5 s.
     """
     try:
         return run_ppc_simulation(request)

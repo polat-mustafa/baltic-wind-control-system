@@ -89,6 +89,8 @@ services:
         - action: rebuild
           path: ./frontend/tsconfig.json
         - action: rebuild
+          path: ./frontend/tsconfig.build.json
+        - action: rebuild
           path: ./frontend/package.json
         - action: rebuild
           path: ./frontend/package-lock.json
@@ -102,7 +104,8 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      # 127.0.0.1, not localhost: busybox wget resolves localhost to ::1 and nginx listens on IPv4
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3

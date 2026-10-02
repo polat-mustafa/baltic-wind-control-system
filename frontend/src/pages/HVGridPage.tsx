@@ -63,7 +63,7 @@ type Tab =
   | "planning";
 
 const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }>; tooltip: string }[] = [
-  { id: "grid",          label: "Grid Analysis",    Icon: Zap,           tooltip: "Pandapower load-flow, short-circuit (IEC 60909), FRT, STATCOM sizing" },
+  { id: "grid",          label: "Grid Analysis",    Icon: Zap,           tooltip: "Load flow, reactive power vs PSE range, IEC 60909 breaker duty, FRT, GFL vs GFM" },
   { id: "ppc",           label: "PPC",              Icon: Radio,         tooltip: "Power Plant Controller — TSO active/reactive power dispatch (ENTSO-E NC RfG Type D)" },
   { id: "protection",    label: "Protection",       Icon: ShieldCheck,   tooltip: "Relay coordination, TCC curves, selectivity grading (IEC 60255)" },
   { id: "power-quality", label: "Power Quality",    Icon: Activity,      tooltip: "Harmonics, resonance scan, flicker at 66 kV POC (IEC 61000-3-6 / 3-7)" },
@@ -73,23 +73,6 @@ const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }>; tooltip
   { id: "advanced",      label: "Advanced",         Icon: FlaskConical,  tooltip: "Dynamic compliance, OPF/SCOPF, DC PF, SSO screening, ANDES network spec" },
   { id: "planning",      label: "Planning & P2X",   Icon: Network,       tooltip: "Economic dispatch, capacity expansion, sector coupling, electrolyzer, LDES" },
 ];
-
-const SCENARIO_OPTIONS = [
-  { value: "full_load", label: "Full Load (510 MW)" },
-  { value: "partial_load", label: "Partial Load (255 MW)" },
-  { value: "no_load", label: "No Load (Ferranti)" },
-  { value: "n_minus_1", label: "N-1 Contingency" },
-] as const;
-
-const FRT_OPTIONS = [
-  { value: "lvrt", label: "LVRT (Voltage Dip)" },
-  { value: "hvrt", label: "HVRT (Voltage Swell)" },
-] as const;
-
-const CONVERTER_OPTIONS = [
-  { value: "strong_grid", label: "Strong Grid (SCR \u2248 19.6)" },
-  { value: "weak_grid", label: "Weak Grid (SCR \u2248 3.9)" },
-] as const;
 
 const ACTIVE_POWER_MODES: { value: ActivePowerMode; label: string }[] = [
   { value: "power_reference", label: "Power Reference (TSO setpoint)" },
@@ -117,12 +100,6 @@ export default function HVGridPage() {
     loading: gridLoading,
     error: gridError,
     analysisRun,
-    activeScenario,
-    frtType,
-    converterScenario,
-    setActiveScenario,
-    setFrtType,
-    setConverterScenario,
     fetchNetworkSpec,
     runFullAnalysis,
     clearError: clearGridError,
@@ -210,70 +187,6 @@ export default function HVGridPage() {
                   "Run Analysis"
                 )}
               </Button>
-              <ControlDrawer
-                title="Grid Analysis Controls"
-                subtitle="Load flow, FRT & grid strength"
-                footer={
-                  <div className="space-y-1">
-                    <p className="text-xs text-text-muted">
-                      <span className="font-medium text-text-secondary">Standards:</span>{" "}
-                      PSE IRiESP (0.95-1.05 pu), IEC 60909, ENTSO-E NC RfG Type D
-                    </p>
-                    <p className="text-xs text-text-muted">
-                      <span className="font-medium text-text-secondary">Tools:</span>{" "}
-                      Pandapower (steady-state), ANDES (dynamic)
-                    </p>
-                  </div>
-                }
-              >
-                <Card>
-                  <CardHeader><CardTitle>Load Flow Scenario</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {SCENARIO_OPTIONS.map((opt) => (
-                        <label key={opt.value} className="flex items-center gap-2 cursor-pointer group">
-                          <input type="radio" name="scenario" value={opt.value} checked={activeScenario === opt.value} onChange={() => setActiveScenario(opt.value)} className="accent-accent" />
-                          <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">{opt.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader><CardTitle>Fault Ride-Through</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {FRT_OPTIONS.map((opt) => (
-                        <label key={opt.value} className="flex items-center gap-2 cursor-pointer group">
-                          <input type="radio" name="frt" value={opt.value} checked={frtType === opt.value} onChange={() => setFrtType(opt.value)} className="accent-accent" />
-                          <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">{opt.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader><CardTitle>Grid Strength</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {CONVERTER_OPTIONS.map((opt) => (
-                        <label key={opt.value} className="flex items-center gap-2 cursor-pointer group">
-                          <input type="radio" name="converter" value={opt.value} checked={converterScenario === opt.value} onChange={() => setConverterScenario(opt.value)} className="accent-accent" />
-                          <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">{opt.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Button onClick={runFullAnalysis} disabled={loading} className="w-full py-3" size="lg">
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Running Analysis...
-                    </span>
-                  ) : analysisRun ? "Re-run Analysis" : "Run Analysis"}
-                </Button>
-              </ControlDrawer>
             </>
           )}
 
@@ -402,13 +315,13 @@ export default function HVGridPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex flex-wrap gap-1 p-1 bg-bg-secondary rounded-lg border border-border-primary w-fit">
+      <div className="flex gap-1 p-1 bg-bg-secondary rounded-lg border border-border-primary max-w-full overflow-x-auto">
         {TABS.map(({ id, label, Icon, tooltip }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
             title={tooltip}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
               activeTab === id
                 ? "bg-accent text-white"
                 : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
@@ -447,10 +360,11 @@ export default function HVGridPage() {
                   Grid Analysis — Pandapower + IEC 60909
                 </p>
                 <ul className="text-text-muted text-xs text-left mb-4 space-y-1 list-disc list-inside">
-                  <li>Load flow: bus voltages, line loadings, losses</li>
-                  <li>Short-circuit: Ik'' and Ip per bus (IEC 60909)</li>
-                  <li>STATCOM sizing: cable charging Q balance</li>
-                  <li>FRT: LVRT / HVRT dynamic simulation</li>
+                  <li>Load flow in four cases: voltages, loadings, losses</li>
+                  <li>Reactive power: cable charging, reactors, PSE Q range</li>
+                  <li>IEC 60909 fault currents vs breaker ratings</li>
+                  <li>Fault ride-through against the PSE type-D profile</li>
+                  <li>Grid-following vs grid-forming after a phase jump</li>
                 </ul>
                 <Button onClick={runFullAnalysis} disabled={loading} size="sm">
                   {loading ? "Running…" : "Run Analysis"}

@@ -1,105 +1,117 @@
 /**
- * Cable and transformer loading — horizontal bar chart.
+ * Thermal loading of the main power path for one scenario.
  *
- * Y-axis: cable/transformer names
- * X-axis: thermal loading [%]
- * Color: green (<80%), amber (80-100%), red (>100%)
- * Vertical red line at 100% (thermal limit).
+ * Nine elements, not 37: the export circuits, both transformer stages and the
+ * head cable of each string (the most loaded segment — it carries the whole
+ * string). Ranked, single hue, 100 % rating as the reference line.
  */
 
 import Plot from "react-plotly.js";
-import { useGridStore } from "../../store/gridStore";
-import { SCADA_COLORS } from "../../constants/scadaColors";
-import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
-import { InfoButton } from "../ui/InfoButton";
-import { cableLoadingInfo } from "../../constants/panelInfo";
 
-function loadingColor(pct: number): string {
-  if (pct > 100) return SCADA_COLORS.FAULT;
-  if (pct > 80) return SCADA_COLORS.WARNING;
-  return SCADA_COLORS.ENERGIZED;
+import { loadFlowEducation } from "../../constants/education/p2";
+import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
+import { SCENARIO_LABEL } from "../../constants/gridScenarios";
+import { useGridStore } from "../../store/gridStore";
+import type { LoadFlowScenario } from "../../types/grid";
+import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
+
+const ELEMENT_LABEL: Record<string, string> = {
+  Export_220kV: "Export cables 2 × 45 km",
+  Trafo_220_400kV: "Onshore TX 2 × 300 MVA",
+  Trafo_66_220kV: "Offshore TX 2 × 300 MVA",
+};
+
+export function ScenarioTabs() {
+  const { activeScenario, setActiveScenario } = useGridStore();
+  return (
+    <div role="tablist" aria-label="Load-flow scenario" className="flex flex-wrap gap-1">
+      {(Object.keys(SCENARIO_LABEL) as LoadFlowScenario[]).map((s) => (
+        <button
+          key={s}
+          role="tab"
+          aria-selected={activeScenario === s}
+          onClick={() => setActiveScenario(s)}
+          className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+            activeScenario === s ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"
+          }`}
+        >
+          {SCENARIO_LABEL[s]}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export default function CableLoadingPanel() {
   const { loadFlowResults, activeScenario } = useGridStore();
-
-  if (!loadFlowResults) return null;
-
-  const result = loadFlowResults.find((r) => r.scenario === activeScenario);
+  const c = useChartPalette();
+  const result = loadFlowResults?.find((r) => r.scenario === activeScenario);
   if (!result) return null;
 
-  // Combine lines and transformers
   const items = [
-    ...result.lines.map((l) => ({
-      name: l.name,
-      loading: l.loading_percent,
-      loss: l.pl_mw,
-    })),
+    ...result.lines
+      .filter((l) => l.name === "Export_220kV" || /^Array_S\d_T1$/.test(l.name))
+      .map((l) => ({
+        name: ELEMENT_LABEL[l.name] ?? `String ${l.name[7]} head cable`,
+        loading: l.loading_percent,
+        mw: Math.abs(l.p_from_mw),
+        loss: l.pl_mw,
+      })),
     ...result.transformers.map((t) => ({
-      name: t.name,
+      name: ELEMENT_LABEL[t.name] ?? t.name,
       loading: t.loading_percent,
+      mw: Math.abs(t.p_hv_mw),
       loss: t.pl_mw,
     })),
-  ];
+  ].sort((a, b) => a.loading - b.loading); // Plotly draws the first category at the bottom
 
-  // Sort by loading descending, take top 15 for readability
-  items.sort((a, b) => b.loading - a.loading);
-  const top = items.slice(0, 15);
-
-  const names = top.map((i) => i.name);
-  const loadings = top.map((i) => i.loading);
-  const colors = top.map((i) => loadingColor(i.loading));
-
-  const scenarioLabel = activeScenario.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const peak = items[items.length - 1];
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-base font-semibold text-text-primary">
-          Cable &amp; Transformer Loading — {scenarioLabel}
-        </h3>
-        <InfoButton info={cableLoadingInfo} />
-      </div>
+    <ChartWrapper
+      title="Thermal loading of the power path"
+      headerRight={<EducationButton content={loadFlowEducation} />}
+      footer={`${SCENARIO_LABEL[activeScenario]} · highest: ${peak.name} at ${peak.loading.toFixed(0)} % · losses ${result.total_loss_mw.toFixed(2)} MW`}
+    >
+      <ScenarioTabs />
       <Plot
         data={[
           {
             type: "bar",
             orientation: "h",
-            y: names,
-            x: loadings,
-            marker: { color: colors },
-            text: loadings.map((v) => `${v.toFixed(1)}%`),
+            y: items.map((i) => i.name),
+            x: items.map((i) => i.loading),
+            customdata: items.map((i) => [i.mw, i.loss]),
+            marker: { color: c.blue },
+            text: items.map((i) => `${i.loading.toFixed(0)} %`),
             textposition: "outside",
-            textfont: { size: 11, color: "rgb(148, 163, 184)" },
-            hovertemplate: "%{y}<br>Loading: %{x:.1f}%<extra></extra>",
+            textfont: { size: 11, color: c.ink },
+            cliponaxis: false,
+            hovertemplate: "%{y}<br>%{x:.1f} % of rating · %{customdata[0]:.1f} MW · loss %{customdata[1]:.2f} MW<extra></extra>",
           },
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: Math.max(250, top.length * 28 + 80),
-          xaxis: {
-            ...DARK_PLOTLY_LAYOUT.xaxis,
-            title: "Thermal Loading [%]",
-            range: [0, Math.max(110, ...loadings) * 1.15],
-          },
-          yaxis: {
-            ...DARK_PLOTLY_LAYOUT.yaxis,
-            automargin: true,
-            tickfont: { size: 11, color: "rgb(148, 163, 184)" },
-          },
+          transition: CHART_TRANSITION,
+          showlegend: false,
+          bargap: 0.3,
+          xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, title: { text: "Loading [% of rating]", font: { size: 12 } }, range: [0, 115] },
+          yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, type: "category", automargin: true, tickfont: { size: 11 } },
           shapes: [
-            {
-              type: "line",
-              x0: 100, x1: 100,
-              y0: -0.5, y1: top.length - 0.5,
-              line: { color: SCADA_COLORS.FAULT, width: 2, dash: "dash" },
-            },
+            { type: "line", xref: "x", yref: "paper", x0: 100, x1: 100, y0: 0, y1: 1, line: { color: c.ref, width: 1.5, dash: "dash" } } as const,
           ],
-          margin: { ...DARK_PLOTLY_LAYOUT.margin, l: 140 },
+          annotations: [
+            { x: 100, y: 1, xref: "x", yref: "paper", yanchor: "bottom", text: "rating", showarrow: false, font: { size: 11 } } as const,
+          ],
+          margin: { t: 24, r: 24, b: 48, l: 8 },
         }}
         config={PLOTLY_CONFIG}
+        useResizeHandler
         className="w-full"
+        style={{ height: CHART_HEIGHT }}
       />
-    </div>
+    </ChartWrapper>
   );
 }

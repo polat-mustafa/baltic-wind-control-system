@@ -19,7 +19,7 @@ of the 510 MW offshore wind farm network (34 × V236-15.0 MW,
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -51,7 +51,7 @@ from app.schemas.ppc import (
 )
 from app.services.p2.ac_dc_network import compare_export_options
 from app.services.p2.capacity_expansion import plan_capacity_expansion
-from app.services.p2.converter_comparison import get_comparison_response
+from app.services.p2.converter_comparison import SCENARIO_SSC_MVA, get_comparison_response
 from app.services.p2.dc_power_flow import (
     run_dc_contingency_screening,
     run_dc_power_flow,
@@ -145,11 +145,21 @@ class NetworkSpecResponse(BaseModel):
 class FRTRequest(BaseModel):
     """Request for fault ride-through simulation."""
 
-    fault_bus: str = Field("OSS_66kV", description="Bus name where fault is applied")
-    fault_impedance_pu: float = Field(0.05, ge=0.001, le=1.0, description="Fault impedance [p.u.]")
+    fault_bus: str = Field(
+        "PSE_400kV",
+        description="Faulted bus: PSE_400kV, Onshore_220kV, OSS_220kV or OSS_66kV (LVRT)",
+    )
+    fault_impedance_pu: float = Field(
+        0.005, ge=0.0, le=1.0, description="Fault impedance on 100 MVA base [p.u.], 0 = bolted"
+    )
     fault_duration_s: float = Field(0.150, ge=0.050, le=1.0, description="Fault duration [s]")
     generation_fraction: float = Field(
         1.0, ge=0.0, le=1.0, description="Pre-fault generation level [0-1]"
+    )
+    k_factor: float = Field(2.0, ge=2.0, le=10.0, description="PSE fast fault current gain K")
+    swell_pu: float = Field(1.20, ge=1.05, le=1.30, description="Grid voltage during HVRT [p.u.]")
+    p_ramp_pu_s: float = Field(
+        1.0, ge=0.1, le=10.0, description="Post-fault active power ramp [p.u./s]"
     )
 
 
@@ -296,12 +306,12 @@ async def frt_simulation(
     frt_type: FRTType,
     request: FRTRequest,
 ) -> FRTSimulationResponse:
-    """Run fault ride-through simulation using ANDES TDS.
+    """Fault ride-through screening (quasi-static phasor model, 5 ms steps).
 
-    Applies a fault at the specified bus and checks NC RfG compliance:
-    - WTGs stay connected within PSE LVRT/HVRT voltage-time envelope
-    - Reactive current injection: Kqv >= 2.0 per NC RfG Article 21
-    - Active power recovery: >= 90% within 1.0 s after clearance
+    Checks against PSE's NC RfG requirements for a type-D power park module:
+    - POC voltage vs the FRT profile (0 pu for 150 ms, then a ramp to 0.85 pu at 2.5 s)
+    - Fast fault current ΔIq = K·ΔU (K 2–10), PSE Art. 20(2)(b)
+    - Active power back to 90 % within 5 s of clearance, PSE Art. 20(3)(a)
     """
     try:
         return run_frt_simulation(
@@ -310,6 +320,9 @@ async def frt_simulation(
             fault_impedance_pu=request.fault_impedance_pu,
             fault_duration_s=request.fault_duration_s,
             generation_fraction=request.generation_fraction,
+            k_factor=request.k_factor,
+            swell_pu=request.swell_pu,
+            p_ramp_pu_s=request.p_ramp_pu_s,
         )
     except DomainError:
         raise
@@ -321,26 +334,24 @@ async def frt_simulation(
     "/converter-comparison/{scenario}",
     response_model=ConverterComparisonResponse,
 )
-async def converter_comparison(scenario: str) -> ConverterComparisonResponse:
-    """Compare GFL vs GFM converter response at given grid strength.
+async def converter_comparison(
+    scenario: str,
+    phase_jump_deg: float = Query(20.0, ge=5.0, le=60.0, description="Grid phase jump [deg]"),
+) -> ConverterComparisonResponse:
+    """GFL vs GFM after a grid voltage phase jump (SMIB, 50 µs steps).
 
-    Scenario 'strong_grid' (SCR ~19.6) or 'weak_grid' (SCR ~3.9).
-    Shows stability differences and educational GFM advantage summary.
+    Scenarios: strong_grid (10 GVA, SCR ≈ 19.6), weak_grid (2 GVA, SCR ≈ 3.9),
+    very_weak_grid (0.7 GVA, SCR ≈ 1.4) — SCR at the PSE 400 kV POC.
     """
-    if scenario == "strong_grid":
-        grid_ssc = GRID_SSC_MVA
-    elif scenario == "weak_grid":
-        grid_ssc = 2_000.0
-    else:
+    if scenario not in SCENARIO_SSC_MVA:
         raise DomainValidationError(
-            f"Invalid scenario: '{scenario}'. Must be 'strong_grid' or 'weak_grid'."
+            f"Invalid scenario: '{scenario}'. Must be one of {', '.join(SCENARIO_SSC_MVA)}."
         )
-    try:
-        return get_comparison_response(scenario=scenario, grid_ssc_mva=grid_ssc)
-    except DomainError:
-        raise
-    except Exception as e:
-        raise DomainError(f"Converter comparison failed: {e}") from e
+    return get_comparison_response(
+        scenario=scenario,
+        grid_ssc_mva=SCENARIO_SSC_MVA[scenario],
+        phase_jump_deg=phase_jump_deg,
+    )
 
 
 # ── Dynamic Compliance (P2B) ────────────────────────────────────

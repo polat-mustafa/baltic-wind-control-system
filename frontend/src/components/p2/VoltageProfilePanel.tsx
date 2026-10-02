@@ -1,121 +1,87 @@
 /**
- * Voltage profile bar chart — per-bus voltage across scenarios.
+ * Voltage along the connection — PSE 400 kV → onshore → offshore → string 1.
  *
- * X-axis: bus names (PSE_400kV → OSS → WTGs)
- * Y-axis: voltage magnitude [p.u.]
- * Horizontal bands at 0.95 and 1.05 pu (PSE IRiESP limits).
- * Color-coded by voltage level: 400kV=red, 220kV=blue, 66kV=green.
+ * One line per load-flow scenario across the same path, so the reader sees
+ * where voltage rises or drops and why (no load: cable charging lifts the
+ * offshore end; full load: current through the array drops it towards the
+ * last turbine). Shaded band = 0.95–1.05 p.u. planning band.
  */
 
 import Plot from "react-plotly.js";
-import { useGridStore } from "../../store/gridStore";
-import { SCADA_COLORS } from "../../constants/scadaColors";
-import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
-import { InfoButton } from "../ui/InfoButton";
-import { voltageProfileInfo } from "../../constants/panelInfo";
 
-const VOLTAGE_COLORS: Record<number, string> = {
-  400: SCADA_COLORS.VOLTAGE_400KV,
-  220: SCADA_COLORS.VOLTAGE_220KV,
-  66: SCADA_COLORS.VOLTAGE_66KV,
-};
+import { loadFlowEducation } from "../../constants/education/p2";
+import { SCENARIO_LABEL } from "../../constants/gridScenarios";
+import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
+import { useGridStore } from "../../store/gridStore";
+import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
+
+const PATH = [
+  ["PSE_400kV", "PSE 400"],
+  ["Onshore_220kV", "Onshore 220"],
+  ["OSS_220kV", "OSS 220"],
+  ["OSS_66kV", "OSS 66"],
+  ["WTG_01", "T1"],
+  ["WTG_02", "T2"],
+  ["WTG_03", "T3"],
+  ["WTG_04", "T4"],
+  ["WTG_05", "T5"],
+  ["WTG_06", "T6"],
+] as const;
 
 export default function VoltageProfilePanel() {
-  const { loadFlowResults, activeScenario } = useGridStore();
+  const { loadFlowResults } = useGridStore();
+  const c = useChartPalette();
+  if (!loadFlowResults?.length) return null;
 
-  if (!loadFlowResults) return null;
-
-  const result = loadFlowResults.find((r) => r.scenario === activeScenario);
-  if (!result || !result.buses.length) return null;
-
-  // Filter to key buses (skip individual WTGs for readability — show aggregated)
-  const keyBuses = result.buses.filter(
-    (b) => !b.name.startsWith("WTG_") || b.name === "WTG_01" || b.name === "WTG_17" || b.name === "WTG_34"
-  );
-
-  const names = keyBuses.map((b) => b.name);
-  const voltages = keyBuses.map((b) => b.vm_pu);
-  const colors = keyBuses.map((b) => {
-    const level = b.vn_kv >= 300 ? 400 : b.vn_kv >= 100 ? 220 : 66;
-    return VOLTAGE_COLORS[level] ?? SCADA_COLORS.ENERGIZED;
+  const colors = [c.blue, c.orange, c.aqua, c.yellow];
+  const x = PATH.map(([, label]) => label);
+  const all: number[] = [];
+  const traces = loadFlowResults.map((r, i) => {
+    const byName = new Map(r.buses.map((b) => [b.name, b.vm_pu]));
+    const y = PATH.map(([bus]) => byName.get(bus) ?? null);
+    y.forEach((v) => v && all.push(v));
+    return {
+      type: "scatter" as const,
+      mode: "lines+markers" as const,
+      name: SCENARIO_LABEL[r.scenario],
+      x,
+      y,
+      line: { color: colors[i % colors.length], width: 2 },
+      marker: { size: 8, color: colors[i % colors.length] },
+      hovertemplate: `${SCENARIO_LABEL[r.scenario]}<br>%{x}: %{y:.4f} pu<extra></extra>`,
+    };
   });
-
-  const scenarioLabel = activeScenario.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const lo = Math.min(0.94, ...all) - 0.005;
+  const hi = Math.max(1.06, ...all) + 0.005;
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-base font-semibold text-text-primary">
-          Voltage Profile — {scenarioLabel}
-        </h3>
-        <InfoButton info={voltageProfileInfo} />
-      </div>
+    <ChartWrapper
+      title="Voltage along the connection"
+      headerRight={<EducationButton content={loadFlowEducation} />}
+      footer="Grid (slack) → 400/220 kV → 45 km export → 220/66 kV → string 1 turbines · band = 0.95–1.05 pu"
+    >
       <Plot
-        data={[
-          {
-            type: "bar",
-            x: names,
-            y: voltages,
-            marker: { color: colors },
-            hovertemplate: "%{x}<br>V = %{y:.4f} pu<extra></extra>",
-          },
-        ]}
+        data={traces}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 400,
-          yaxis: {
-            ...DARK_PLOTLY_LAYOUT.yaxis,
-            title: "Voltage [p.u.]",
-            range: [0.92, 1.08],
-          },
-          xaxis: {
-            ...DARK_PLOTLY_LAYOUT.xaxis,
-            tickangle: -45,
-            tickfont: { size: 11, color: "rgb(148, 163, 184)" },
-          },
+          transition: CHART_TRANSITION,
+          showlegend: true,
+          legend: { orientation: "h", y: 1.12, x: 0, font: { size: 11 } },
+          xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, type: "category", tickfont: { size: 11 } },
+          yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: { text: "Voltage [pu]", font: { size: 12 } }, range: [lo, hi] },
           shapes: [
-            // PSE upper limit (1.05 pu)
-            {
-              type: "line",
-              x0: -0.5, x1: names.length - 0.5,
-              y0: 1.05, y1: 1.05,
-              line: { color: SCADA_COLORS.FAULT, width: 1.5, dash: "dash" },
-            },
-            // PSE lower limit (0.95 pu)
-            {
-              type: "line",
-              x0: -0.5, x1: names.length - 0.5,
-              y0: 0.95, y1: 0.95,
-              line: { color: SCADA_COLORS.FAULT, width: 1.5, dash: "dash" },
-            },
-            // Nominal (1.0 pu)
-            {
-              type: "line",
-              x0: -0.5, x1: names.length - 0.5,
-              y0: 1.0, y1: 1.0,
-              line: { color: "rgba(148, 163, 184, 0.4)", width: 1, dash: "dot" },
-            },
+            { type: "rect", xref: "paper", x0: 0, x1: 1, y0: 0.95, y1: 1.05, fillcolor: c.band, line: { width: 0 }, layer: "below" } as const,
+            { type: "line", xref: "paper", x0: 0, x1: 1, y0: 1.0, y1: 1.0, line: { color: c.ref, width: 1, dash: "dot" } } as const,
           ],
-          annotations: [
-            {
-              x: names.length - 1, y: 1.05,
-              text: "1.05 pu (PSE max)",
-              showarrow: false,
-              font: { size: 11, color: SCADA_COLORS.FAULT },
-              yshift: 12,
-            },
-            {
-              x: names.length - 1, y: 0.95,
-              text: "0.95 pu (PSE min)",
-              showarrow: false,
-              font: { size: 11, color: SCADA_COLORS.FAULT },
-              yshift: -12,
-            },
-          ],
+          margin: { t: 36, r: 16, b: 48, l: 56 },
         }}
         config={PLOTLY_CONFIG}
+        useResizeHandler
         className="w-full"
+        style={{ height: CHART_HEIGHT }}
       />
-    </div>
+    </ChartWrapper>
   );
 }

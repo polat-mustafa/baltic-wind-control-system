@@ -9,13 +9,14 @@ export const statcomSizingEducation: EducationContent = {
   overview:
     "Baltic Wind Alpha exports 510 MW over two parallel 45 km subsea 220 kV HVAC cables (one cable carries only " +
     "~362 MVA). Each cable behaves like a long capacitor, generating ~130 MVAR — ~260 MVAR in total — that must be " +
-    "absorbed to prevent overvoltage at the offshore busbar (the Ferranti effect). Two fixed 80 MVAR shunt reactors " +
-    "take the constant base load; a ±120 MVAR STATCOM (Static Synchronous Compensator) handles the variable rest and " +
+    "absorbed: pushed through the transformers and grid it would lift the offshore voltage by ≈ 8 % (the Ferranti " +
+    "rise along the cable itself is only ≈ 0.7 %). Three 80 MVAR shunt reactors (N+1) take the constant base load; " +
+    "a ±120 MVAR STATCOM (Static Synchronous Compensator) handles the variable rest and " +
     "fault support. The STATCOM is selected over the older SVC because of its low-voltage performance during faults.",
 
   simpleExplanation:
     "Imagine blowing air through two very long balloon hoses. The hoses inflate and push back — that is what the " +
-    "cables' capacitance does to the grid: it generates reactive power nobody asked for. Two fixed pressure-relief " +
+    "cables' capacitance does to the grid: it generates reactive power nobody asked for. Fixed pressure-relief " +
     "valves (the shunt reactors) always let out the same amount; a smart adjustable valve (the STATCOM) trims the " +
     "rest second by second. Fixed valves are cheap, the smart valve is expensive — so we let the cheap ones do most " +
     "of the work.",
@@ -26,9 +27,11 @@ export const statcomSizingEducation: EducationContent = {
     "so the two export circuits generate ≈ 260 MVAR. Three 80 MVAR shunt reactors (N+1) at the OSS absorb 240 MVAR " +
     "continuously; the STATCOM covers the small remainder and is sized for one reactor out. STATCOM uses VSC (voltage-source " +
     "converter) technology — unlike SVC which uses thyristor-switched capacitors/reactors — and maintains full " +
-    "reactive current capability even at 15% residual voltage (required by the PSE LVRT envelope). SVC output " +
-    "collapses at low voltage (Q ∝ V²), making it unsuitable for FRT support. Limitation: if one reactor is out " +
-    "(N-1), 100 MVAR remain — still inside the STATCOM's 120 MVAR, which is why the third (spare) reactor exists.",
+    "reactive current down to very low voltage (its output falls only ∝ V, an SVC's ∝ V²) — what PSE's fast fault " +
+    "current requirement (ΔIq = K·ΔU, K 2–10) asks for during dips that may reach 0 pu for 150 ms. If one reactor " +
+    "is out (N-1), 100 MVAR remain — inside the STATCOM's 120 MVAR, which is why the third (spare) reactor exists. " +
+    "The steady-state Q range PSE asks at the connection point (−0.35 … +0.40 P_max) is met mainly by the WTGs and " +
+    "reactor switching; the STATCOM adds speed and the N-1 margin.",
 
   standards: [
     {
@@ -40,13 +43,14 @@ export const statcomSizingEducation: EducationContent = {
       type: "standard",
     },
     {
-      label: "PSE IRiESP §7 — Reactive power and voltage requirements for Type D generators",
-      type: "standard",
+      label: "PSE — Wymogi ogólnego stosowania wynikające z NC RfG (18-12-2018), Art. 20(2)(b), 21(3)",
+      type: "regulation",
+      url: "https://www.pse.pl/documents/20182/31216853/20181218_Wymogi_ogolnego_stosowania_OSP_i_OSD.pdf",
     },
     {
-      label: "ENTSO-E NC RfG Art. 20 — Fault-ride-through capability",
-      type: "standard",
-      url: "https://www.entsoe.eu/network_codes/rfg/",
+      label: "Commission Regulation (EU) 2016/631 — NC RfG Art. 20–21 (PPM reactive capability, fast fault current)",
+      type: "regulation",
+      url: "https://eur-lex.europa.eu/eli/reg/2016/631/oj",
     },
   ],
 
@@ -96,8 +100,9 @@ export const statcomSizingEducation: EducationContent = {
         "The STATCOM keeps the fast, variable part: load changes, voltage control and FRT current injection",
       ],
       result:
-        "Selected: ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors. Load flow confirms 0.99–1.01 pu in all " +
-        "scenarios with near-zero reactive exchange at the PSE connection point. " +
+        "Selected: ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors. Load flow keeps every farm bus within " +
+        "0.998–1.008 pu in all four scenarios; the farm then exchanges −42 MVAR (full load) to +35 MVAR (no load) " +
+        "with PSE at 400 kV, well inside the −178.5 … +204 MVAR PSE range. " +
         "Note: in real projects reactors are often placed at both cable ends; this model puts them at the OSS.",
     },
   ],
@@ -113,31 +118,17 @@ export const statcomSizingEducation: EducationContent = {
         "Large HVAC-connected farms split their export over several cables and combine shunt reactors with " +
         "dynamic compensation — the same pattern used in Baltic Wind Alpha.",
     },
-    {
-      title: "Baltic Power (Poland) — STATCOM at OSS",
-      description:
-        "Baltic Power is a nearby Polish Baltic offshore project with 220 kV HVAC export. Its compensation " +
-        "specification is not publicly disclosed, so the Baltic Wind Alpha rating is derived from first principles " +
-        "rather than copied — but the same cable-compensation methodology applies.",
-      takeaway:
-        "Baltic Power provides the closest real-world precedent for the STATCOM sizing methodology used here.",
-    },
   ],
 
   furtherReading: [
     {
-      label: "ABB SVC Light — technical overview",
-      type: "website",
-      url: "https://new.abb.com/facts/svc-light",
-    },
-    {
       label: "CIGRE TB 663 — Guidelines for the procurement and testing of STATCOMs",
-      type: "website",
-      url: "https://www.e-cigre.org/",
+      type: "standard",
+      citation: "CIGRE Technical Brochure 663, 2016",
     },
     {
       label: "Hingorani & Gyugyi — Understanding FACTS (IEEE Press, 2000)",
-      type: "paper",
+      type: "textbook",
       citation: "Hingorani, N.G. & Gyugyi, L. (2000). Understanding FACTS. IEEE Press.",
     },
   ],

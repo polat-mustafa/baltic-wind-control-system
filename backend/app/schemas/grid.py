@@ -57,8 +57,10 @@ class BusResult(BaseModel):
     vn_kv: float = Field(description="Nominal voltage [kV]")
     vm_pu: float = Field(description="Voltage magnitude [p.u.]")
     va_deg: float = Field(description="Voltage angle [deg]")
-    p_mw: float = Field(description="Net active power injection [MW]")
-    q_mvar: float = Field(description="Net reactive power injection [MVAR]")
+    p_mw: float = Field(description="Net active power injection [MW], generating positive")
+    q_mvar: float = Field(
+        description="Net reactive power injection [MVAR], generating positive (Rule 4)"
+    )
 
 
 class LineResult(BaseModel):
@@ -100,6 +102,11 @@ class LoadFlowResponse(BaseModel):
     v_max_pu: float = Field(description="Maximum bus voltage [p.u.]")
     total_loss_mw: float = Field(description="Total network active power losses [MW]")
     total_generation_mw: float = Field(description="Total active power generation [MW]")
+    poc_p_mw: float = Field(0.0, description="Active power delivered to PSE 400 kV [MW]")
+    poc_q_mvar: float = Field(
+        0.0, description="Reactive power delivered to PSE 400 kV [MVAR], generating positive"
+    )
+    statcom_q_mvar: float = Field(0.0, description="STATCOM set-point after auto-dispatch [MVAR]")
     voltage_compliant: bool = Field(
         description="True if all buses within 0.95-1.05 pu per PSE IRiESP"
     )
@@ -168,7 +175,11 @@ class ShortCircuitBusResult(BaseModel):
     vn_kv: float = Field(description="Nominal voltage [kV]")
     ikss_ka: float = Field(description="Initial symmetrical short-circuit current Ik'' [kA]")
     ip_ka: float = Field(description="Peak short-circuit current ip [kA]")
-    skss_mw: float = Field(description="Short-circuit power Sk'' [MVA]")
+    skss_mw: float = Field(description="Short-circuit power Sk'' [MVA] (name kept for API)")
+    breaker_ka: float = Field(0.0, description="Rated short-circuit breaking current [kA]")
+    making_ka: float = Field(
+        0.0, description="Rated making current = 2.5 × breaking (IEC 62271-100, 50 Hz) [kA]"
+    )
 
 
 class ShortCircuitResponse(BaseModel):
@@ -180,7 +191,7 @@ class ShortCircuitResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    case: str = Field(description="'max' (c=1.1) or 'min' (c=0.95)")
+    case: str = Field(description="'max' (c = 1.10) or 'min' (c = 1.00), IEC 60909 HV")
     voltage_factor_c: float = Field(description="IEC 60909 voltage factor c")
     bus_results: list[ShortCircuitBusResult] = Field(
         default_factory=list, description="Per-bus short-circuit results"
@@ -209,7 +220,12 @@ class STATCOMSizingResult(BaseModel):
     )
     reactor_q_mvar: float = Field(description="Shunt reactor absorption capacity [MVAR]")
     ferranti_rise_pu: float = Field(
-        description="Ferranti voltage rise at OSS without compensation [p.u.]"
+        description="Ferranti rise along the open-ended export cable, 1/cos(βL) − 1 [p.u.]"
+    )
+    uncompensated_rise_pu: float = Field(
+        0.0,
+        description="Voltage rise with no reactors/STATCOM at no load (charging current "
+        "through transformers and grid) [p.u.]",
     )
     statcom_rating_mvar: float = Field(description="Required STATCOM rating (±) [MVAR]")
     statcom_q_range_min_mvar: float = Field(
@@ -229,6 +245,18 @@ class STATCOMSizingResult(BaseModel):
     )
     reactor_n1_secure: bool = Field(
         description="True if one reactor out keeps voltage compliant without STATCOM saturation"
+    )
+    poc_q_max_mvar: float = Field(
+        0.0, description="Producing Q deliverable at the POC at P_max [MVAR]"
+    )
+    poc_q_min_mvar: float = Field(
+        0.0, description="Absorbing Q deliverable at the POC at P_max [MVAR]"
+    )
+    pse_q_max_mvar: float = Field(0.0, description="PSE requirement, producing: +0.40·P_max [MVAR]")
+    pse_q_min_mvar: float = Field(0.0, description="PSE requirement, absorbing: −0.35·P_max [MVAR]")
+    pse_q_range_met: bool = Field(False, description="Both PSE limits reached at P_max")
+    wtg_q_capability_mvar: float = Field(
+        0.0, description="Assumed ±Q per WTG at rated power [MVAR]"
     )
 
 
@@ -287,10 +315,10 @@ class FRTType(StrEnum):
     """Fault ride-through event type."""
 
     LVRT = "lvrt"
-    """Low-voltage ride-through: voltage dip to ≤0.15 pu."""
+    """Low-voltage ride-through: balanced fault at a network bus."""
 
     HVRT = "hvrt"
-    """High-voltage ride-through: voltage swell to 1.25 pu."""
+    """High-voltage ride-through: grid voltage swell (illustrative, no PSE profile)."""
 
 
 class FrequencyMode(StrEnum):
@@ -339,10 +367,25 @@ class FRTTimePoint(BaseModel):
     """Single time-series data point from FRT simulation."""
 
     time_s: float = Field(description="Simulation time [s]")
-    voltage_pu: float = Field(description="PCC voltage magnitude [p.u.]")
-    active_power_mw: float = Field(description="Active power at PCC [MW]")
-    reactive_power_mvar: float = Field(description="Reactive power at PCC [MVAR]")
-    reactive_current_pu: float = Field(description="Reactive current injection [p.u.]")
+    voltage_pu: float = Field(description="Voltage at the connection point, PSE 400 kV [p.u.]")
+    terminal_voltage_pu: float = Field(
+        0.0, description="Voltage at the WTG terminals (aggregated at OSS 66 kV) [p.u.]"
+    )
+    active_power_mw: float = Field(description="Active power of the 34 WTGs [MW]")
+    reactive_power_mvar: float = Field(
+        description="Reactive power of the 34 WTGs [MVAR], generating positive"
+    )
+    reactive_current_pu: float = Field(
+        description="WTG reactive current [p.u. of rating], > 0 capacitive"
+    )
+    statcom_q_mvar: float = Field(0.0, description="STATCOM reactive power [MVAR]")
+
+
+class FRTEnvelopePoint(BaseModel):
+    """Vertex of the PSE FRT profile (time in simulation seconds)."""
+
+    time_s: float
+    voltage_pu: float
 
 
 class FRTSimulationResponse(BaseModel):
@@ -357,13 +400,32 @@ class FRTSimulationResponse(BaseModel):
     frt_type: FRTType = Field(description="LVRT or HVRT")
     fault_bus: str = Field(description="Bus where fault was applied")
     fault_duration_s: float = Field(description="Fault duration [s]")
-    stayed_connected: bool = Field(description="WTGs remained connected")
-    reactive_current_compliant: bool = Field(description="dIq >= 2% x dV per NC RfG")
-    reactive_current_gain: float = Field(description="Achieved Kqv gain [%Iq / %ΔV]")
-    recovery_time_s: float = Field(description="Time to recover ≥90% active power [s]")
-    recovery_compliant: bool = Field(description="Recovery within 1s of fault clearance")
+    stayed_connected: bool = Field(
+        description="LVRT: POC voltage stayed on/above the PSE profile (ride-through required). "
+        "HVRT: terminal voltage within the assumed 1.30 pu converter withstand"
+    )
+    reactive_current_compliant: bool = Field(
+        description="Reactive current ≥ 90 % of K·ΔU (capped at rated current), PSE Art. 20(2)(b)"
+    )
+    reactive_current_gain: float = Field(description="Delivered ΔIq/ΔU at the end of the event")
+    recovery_time_s: float = Field(description="Time from clearance to 90 % of pre-fault P [s]")
+    recovery_compliant: bool = Field(description="Recovery within 5 s, PSE Art. 20(3)(a)")
     statcom_peak_q_mvar: float = Field(
-        description="Peak STATCOM reactive power during fault [MVAR]"
+        description="Largest STATCOM reactive power during the event [MVAR]"
+    )
+    k_factor: float = Field(2.0, description="Fast fault current gain K used")
+    retained_voltage_pu: float = Field(
+        0.0, description="Extreme POC voltage during the event (min LVRT, max HVRT) [p.u.]"
+    )
+    terminal_voltage_pu: float = Field(
+        0.0, description="WTG terminal voltage at that instant [p.u.]"
+    )
+    passive_voltage_pu: float = Field(
+        0.0, description="POC voltage with no converter current (shows the voltage support) [p.u.]"
+    )
+    recovery_limit_s: float = Field(5.0, description="PSE recovery limit [s]")
+    envelope: list[FRTEnvelopePoint] = Field(
+        default_factory=list, description="PSE type-D FRT profile at the POC (LVRT only)"
     )
     time_series: list[FRTTimePoint] = Field(
         default_factory=list,
@@ -437,11 +499,30 @@ class ConverterResult(BaseModel):
 
     converter_type: ConverterType = Field(description="GFL or GFM")
     grid_ssc_mva: float = Field(description="Grid short-circuit power [MVA]")
-    scr: float = Field(description="Short-circuit ratio at PCC")
-    stable: bool = Field(description="System remained stable")
-    voltage_deviation_pu: float = Field(description="Max voltage deviation from 1.0 [p.u.]")
-    settling_time_s: float = Field(description="Time to settle within 2% band [s]")
-    frequency_deviation_hz: float = Field(description="Max frequency deviation [Hz]")
+    scr: float = Field(description="Short-circuit ratio at the POC (S_sc / P_n)")
+    scr_terminal: float = Field(0.0, description="SCR at the 66 kV busbar (incl. farm impedance)")
+    stable: bool = Field(description="Kept synchronism and settled back to P_ref within ±2 %")
+    voltage_deviation_pu: float = Field(
+        description="Max terminal voltage change after the jump [p.u.]"
+    )
+    settling_time_s: float = Field(description="Time until P stays within ±2 % of rating [s]")
+    frequency_deviation_hz: float = Field(
+        description="Max frequency excursion seen by the control (PLL or virtual rotor) [Hz]"
+    )
+    peak_current_pu: float = Field(0.0, description="Peak converter current [p.u. of rating]")
+    power_swing_mw: float = Field(0.0, description="Max active power deviation after the jump [MW]")
+
+
+class ConverterTimePoint(BaseModel):
+    """Both converters at one instant (2 ms resolution)."""
+
+    time_s: float
+    gfl_p_mw: float | None = Field(description="None after the converter lost synchronism")
+    gfm_p_mw: float | None
+    gfl_f_hz: float | None
+    gfm_f_hz: float | None
+    gfl_i_pu: float | None
+    gfm_i_pu: float | None
 
 
 class ConverterComparisonResponse(BaseModel):
@@ -456,7 +537,9 @@ class ConverterComparisonResponse(BaseModel):
     scenario: str = Field(description="Test scenario description")
     gfl_result: ConverterResult = Field(description="Grid-following converter result")
     gfm_result: ConverterResult = Field(description="Grid-forming converter result")
-    gfm_advantage: str = Field(description="Educational summary of GFM advantage")
+    gfm_advantage: str = Field(description="Plain summary of what the simulation shows")
+    phase_jump_deg: float = Field(20.0, description="Grid voltage phase jump at t = 0.1 s [deg]")
+    time_series: list[ConverterTimePoint] = Field(default_factory=list)
 
 
 # ── P2B Dynamic Compliance Report ───────────────────────────────

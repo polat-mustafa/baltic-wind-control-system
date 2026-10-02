@@ -10,3 +10,4 @@ export { gridFormingEducation } from "./gridForming";
 export { powerPlantControllerEducation } from "./powerPlantController";
 export { protectionEducation } from "./protection";
 export { powerQualityEducation } from "./powerQuality";
+export { bessEducation } from "./bess";

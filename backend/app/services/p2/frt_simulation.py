@@ -1,262 +1,350 @@
 """
-Fault Ride-Through (FRT) simulation for 510 MW offshore wind farm.
+Fault ride-through (FRT) of the 510 MW farm — quasi-static phasor model.
 
-Simulates LVRT and HVRT events using ANDES time-domain simulation (TDS)
-with Fault elements, then checks compliance against PSE IRiESP and
-ENTSO-E NC RfG Type D requirements.
+What is modelled
+----------------
+The radial chain PSE grid → 400/220 kV → 2 × 45 km export → 220/66 kV is
+reduced to its series impedances (``network_model.series_impedances_pu``,
+100 MVA base). A fault adds a shunt impedance Z_f at the chosen bus. Every
+5 ms the nodal equations are solved
 
-Physics — Fault Ride-Through
------------------------------
-During a grid fault, the voltage at the PCC drops suddenly. The wind farm
-must remain connected ("ride through") and inject reactive current to
-support the grid voltage. After fault clearance, active power must recover
-quickly to pre-fault levels.
+    Y · V = I_grid + I_farm + I_statcom
 
-The voltage dip magnitude depends on fault impedance and location:
-  V_fault = V_pre × Z_fault / (Z_fault + Z_source)
+with the grid as a Thevenin source (E behind Z_grid), the 34 WTGs as one
+aggregate current source at OSS 66 kV and the STATCOM as a current source at
+OSS 220 kV. Each converter follows the PSE fast-fault-current characteristic:
 
-During the fault, the converter switches from normal PQ control to
-reactive current injection mode:
-  ΔIq = Kqv × ΔV   where ΔV = V_ref - V_actual
+    ΔIq = K · ΔU   when |ΔU| > 0.1 pu (dead band),   ΔU = 1 − U  [pu]
+    Iq has priority, |I| ≤ I_max;   Ip = min(Ip_pre, √(I_max² − Iq²))
 
-Standard — PSE IRiESP LVRT/HVRT Envelope
-------------------------------------------
-PSE LVRT profile (NC RfG Type D + Polish specificiation):
-  Time [ms]:  0 → 140 → 500 → 1000 → 1500 → 3000
-  V [pu]:     0.15 → 0.25 → 0.85 → 0.85 → 1.0 → 1.0
+and reaches its target with a first-order lag τ = 26 ms (90 % in 60 ms).
+After clearance the WTG active current ramps back at a set rate once the
+terminal voltage is ≥ 0.9 pu.
 
-HVRT: Must withstand 1.25 pu for 100 ms.
+This is an RMS screening model, not an EMT or full RMS dynamic study: no
+PLL, no DC-link, no array cable impedance (the WTGs are aggregated at the
+66 kV busbar), no cable capacitance, balanced faults only. It shows the
+quantities a grid-code check is built on — retained voltage at the
+connection point, the reactive current the farm injects, the voltage support
+that current gives, and the active power recovery — with real network data.
 
-NC RfG Article 21 requirements:
-  - Reactive current: ΔIq ≥ 2% per 1% ΔV (Kqv ≥ 2.0)
-  - Active power recovery: ≥90% within 1.0 s after clearance
-  - Must stay connected within the voltage-time envelope
+PSE requirements used (PSE, "Wymogi ogólnego stosowania wynikające z NC RfG",
+18-12-2018 — power park module, type D)
+--------------------------------------------------------------------------
+- Art. 16(3)(a): FRT profile at the connection point, symmetric faults:
+  U_ret = U_clear = U_rec1 = 0.00 pu, t_clear = t_rec1 = t_rec2 = 0.15 s,
+  U_rec2 = 0.85 pu, t_rec3 = 2.5 s. The module may disconnect only if the
+  voltage falls below this profile.
+- Art. 20(2)(b): additional fast fault (reactive) current with adjustable
+  K = 2…10; 90 % within 60 ms, target within 100 ms (−10 % / +20 %).
+  Below 0.2 Un at the WTG terminals no additional current is required.
+- Art. 20(3)(a): active power recovery starts when U ≥ 0.9 Un; 90 % of the
+  pre-fault power within 5 s of fault clearance.
+- HVRT: PSE's 2018 requirements set no short-time overvoltage ride-through
+  profile for power park modules (only continuous ranges, e.g. 1.118–1.15 pu
+  for 60 min at 110–300 kV). The HVRT case is an illustrative swell; the
+  check is that the converters stay within an assumed 1.30 pu terminal
+  withstand.
 
-Maths — Reactive Current Injection
-------------------------------------
-During voltage dip, the REECA1 controller injects reactive current:
-  ΔIq = Kqv × (V_ref - V_measured)     [p.u.]
-  Kqv ≥ 2.0 per NC RfG
-
-The reactive current gain Kqv is verified:
-  Kqv_actual = ΔIq / ΔV
-
-Active power recovery rate:
-  P_recovery = P(t_clear + 1.0) / P_pre_fault ≥ 0.90
-
-Code — ANDES TDS + Fault Element
-----------------------------------
-ANDES TDS uses implicit trapezoidal integration. A Fault element is added
-at the specified bus with impedance Z_fault. The simulation sequence:
-  1. Pre-fault: steady-state (0 → t_fault)
-  2. Fault-on: Fault element active (t_fault → t_clear)
-  3. Post-fault: Fault cleared (t_clear → t_end)
-
-The time-series results (V, P, Q, Iq) are extracted from ANDES output
-variables and checked against compliance criteria.
-
-References
-----------
-- ENTSO-E NC RfG (EU 2016/631): Articles 14(3), 20, 21
-- PSE IRiESP: §2.3.2 — FRT requirements for Type D generators
-- ANDES documentation: Fault model, TDS solver
-- WECC REECA1: Reactive current injection logic
+Convention: generating Q positive (Rule 4); Iq > 0 = capacitive (voltage
+raising), Iq < 0 = inductive (voltage lowering).
 """
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 
-import andes
 import numpy as np
 
-from app.schemas.grid import FRTSimulationResponse, FRTTimePoint, FRTType
-from app.services.p2.andes_network import build_andes_system
-from app.services.p2.network_model import STATCOM_RATING_MVAR
+from app.core.exceptions import ValidationError as DomainValidationError
+from app.schemas.grid import (
+    FRTEnvelopePoint,
+    FRTSimulationResponse,
+    FRTTimePoint,
+    FRTType,
+)
+from app.services.p2.network_model import (
+    EXPORT_CABLE_LENGTH_KM,
+    GRID_SSC_MVA,
+    STATCOM_RATING_MVAR,
+    TOTAL_CAPACITY_MW,
+    series_impedances_pu,
+)
 
-logger = logging.getLogger(__name__)
+S_BASE_MVA = 100.0  # Rule 2
 
-# ── PSE LVRT Envelope ─────────────────────────────────────────────
+# Buses in radial order from the grid; index = node in the nodal model
+BUSES = ("PSE_400kV", "Onshore_220kV", "OSS_220kV", "OSS_66kV")
+POC_NODE = 0  # connection point to PSE = 400 kV busbar
+STATCOM_NODE = 2
+WTG_NODE = 3
 
-# Time-voltage pairs defining the PSE LVRT ride-through envelope
-# WTGs must stay connected if voltage remains above this curve
-PSE_LVRT_ENVELOPE = [
-    (0.000, 0.15),  # t=0: voltage can drop to 0.15 pu
-    (0.140, 0.25),  # t=140ms: minimum 0.25 pu
-    (0.500, 0.85),  # t=500ms: recovery to 0.85 pu
-    (1.000, 0.85),  # t=1.0s: maintained at 0.85 pu
-    (1.500, 1.00),  # t=1.5s: full recovery
-    (3.000, 1.00),  # t=3.0s: continuous operation
-]
+# ── PSE requirements (power park module, type D) ──────────────────
+PSE_FRT_PROFILE = ((0.0, 0.0), (0.15, 0.0), (2.5, 0.85))  # (t after fault [s], U [pu])
+PSE_FRT_PROFILE_END_S = 2.5
+K_FACTOR_RANGE = (2.0, 10.0)
+DEAD_BAND_PU = 0.10
+NO_INJECTION_BELOW_PU = 0.20  # Iq not *required* below 0.2 Un (still delivered here)
+IQ_RISE_TAU_S = 0.060 / np.log(10.0)  # first-order lag: 90 % in 60 ms
+RECOVERY_START_PU = 0.90
+RECOVERY_FRACTION = 0.90
+RECOVERY_LIMIT_S = 5.0
 
-# HVRT: 1.25 pu for 100 ms
-HVRT_VOLTAGE_PU = 1.25
-HVRT_DURATION_S = 0.100
-
-# Simulation timing
-PRE_FAULT_DURATION_S = 0.5  # Steady-state before fault
-POST_FAULT_DURATION_S = 3.0  # Observation after clearance
-SIMULATION_DT_S = 0.001  # 1 ms time step
-
-# Compliance thresholds
-MIN_KQV = 2.0  # NC RfG minimum reactive current gain
-POWER_RECOVERY_THRESHOLD = 0.90  # 90% active power recovery
-POWER_RECOVERY_TIME_S = 1.0  # Must recover within 1.0 s
+# ── Converter / simulation settings ───────────────────────────────
+I_MAX_PU = 1.0  # converter current limit [pu of rating]
+WTG_Q_LIMIT_PU = 0.33  # steady-state WTG reactive current range (cos φ ≈ 0.95), assumed
+DEFAULT_P_RAMP_PU_S = 1.0  # post-fault active power ramp [pu of rating per s]
+HVRT_WITHSTAND_PU = 1.30  # assumed converter terminal overvoltage withstand
+PRE_FAULT_S = 0.20
+POST_FAULT_S = PSE_FRT_PROFILE_END_S + 0.30
+DT_S = 0.005
 
 
-@dataclass(frozen=True)
-class FRTResult:
-    """Internal FRT simulation result before schema conversion."""
+@dataclass
+class _Converter:
+    """Aggregate converter: rating, node and its current state (V-aligned frame)."""
 
-    frt_type: FRTType
-    fault_bus: str
-    fault_duration_s: float
-    stayed_connected: bool
-    reactive_current_compliant: bool
-    reactive_current_gain: float
-    recovery_time_s: float
-    recovery_compliant: bool
-    statcom_peak_q_mvar: float
-    time_series: list[FRTTimePoint]
+    s_mva: float
+    node: int
+    ip: float  # active current [pu of rating]
+    iq: float = 0.0  # reactive current [pu of rating], > 0 capacitive
+
+    def injection(self, v: complex) -> complex:
+        """Current injected into the network [pu on S_BASE]."""
+        angle = v / abs(v) if abs(v) > 1e-6 else 1.0 + 0j
+        return (self.ip - 1j * self.iq) * angle * self.s_mva / S_BASE_MVA
+
+
+def pse_frt_profile(t_after_fault_s: float) -> float:
+    """PSE type-D profile: lowest POC voltage [pu] the farm must ride through."""
+    (_, u0), (t1, u1), (t2, u2) = PSE_FRT_PROFILE
+    if t_after_fault_s <= t1:
+        return u0
+    if t_after_fault_s >= t2:
+        return u2
+    return u1 + (u2 - u1) * (t_after_fault_s - t1) / (t2 - t1)
+
+
+def iq_target(du_pu: float, k_factor: float) -> float:
+    """Reactive current set-point Iq = K·ΔU outside the ±0.1 pu dead band [pu of rating].
+
+    ΔU = U_pre − U: a dip (ΔU > 0) gives capacitive Iq, a swell inductive Iq.
+    """
+    if abs(du_pu) <= DEAD_BAND_PU:
+        return 0.0
+    return float(np.clip(k_factor * du_pu, -I_MAX_PU, I_MAX_PU))
+
+
+def _admittance(z_series: dict[str, complex]) -> np.ndarray:
+    """Nodal admittance matrix of the radial chain incl. the grid source impedance."""
+    y = np.zeros((4, 4), dtype=complex)
+    y[0, 0] += 1.0 / z_series["grid"]
+    for a, z in ((0, z_series["onshore"]), (1, z_series["export"]), (2, z_series["oss"])):
+        b = a + 1
+        y[a, a] += 1.0 / z
+        y[b, b] += 1.0 / z
+        y[a, b] -= 1.0 / z
+        y[b, a] -= 1.0 / z
+    return y
+
+
+def _solve(
+    y: np.ndarray,
+    e_grid: complex,
+    z_grid: complex,
+    converters: list[_Converter],
+    v_guess: np.ndarray,
+) -> np.ndarray:
+    """Node voltages for given converter currents (fixed point on the angle)."""
+    v = v_guess.copy()
+    for _ in range(30):
+        i = np.zeros(4, dtype=complex)
+        i[0] = e_grid / z_grid
+        for c in converters:
+            i[c.node] += c.injection(v[c.node])
+        v_new = np.linalg.solve(y, i)
+        if np.max(np.abs(v_new - v)) < 1e-9:
+            return v_new
+        v = v_new
+    return v
+
+
+def _pre_fault_voltage_control(
+    y: np.ndarray, z_grid: complex, converters: list[_Converter], wtg: _Converter
+) -> np.ndarray:
+    """Set the WTG reactive current so the 66 kV busbar sits at 1.0 pu (bisection).
+
+    Stands in for the plant controller: in the real network the cable charging,
+    shunt reactors and STATCOM settle the voltage; here the WTGs do it within
+    ±WTG_Q_LIMIT_PU.
+    """
+    lo, hi = -WTG_Q_LIMIT_PU, WTG_Q_LIMIT_PU
+    v = np.ones(4, dtype=complex)
+    for _ in range(40):
+        wtg.iq = 0.5 * (lo + hi)
+        v = _solve(y, 1.0 + 0j, z_grid, converters, v)
+        if abs(v[wtg.node]) < 1.0:
+            lo = wtg.iq
+        else:
+            hi = wtg.iq
+    return v
 
 
 def run_frt_simulation(
     frt_type: FRTType = FRTType.LVRT,
-    fault_bus: str = "OSS_66kV",
-    fault_impedance_pu: float = 0.05,
+    fault_bus: str = "PSE_400kV",
+    fault_impedance_pu: float = 0.005,
     fault_duration_s: float = 0.150,
     generation_fraction: float = 1.0,
-    export_length_km: float = 45.0,
-    grid_ssc_mva: float = 10_000.0,
+    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    grid_ssc_mva: float = GRID_SSC_MVA,
+    k_factor: float = 2.0,
+    swell_pu: float = 1.20,
+    p_ramp_pu_s: float = DEFAULT_P_RAMP_PU_S,
 ) -> FRTSimulationResponse:
-    """Run fault ride-through simulation using ANDES TDS.
-
-    Applies a fault at the specified bus and checks:
-    1. WTGs stay connected within PSE voltage-time envelope
-    2. Reactive current injection meets NC RfG Kqv ≥ 2.0
-    3. Active power recovers to ≥90% within 1.0 s after clearance
+    """Simulate a balanced fault (LVRT) or a grid voltage swell (HVRT).
 
     Parameters
     ----------
-    frt_type : FRTType
-        LVRT (voltage dip) or HVRT (voltage swell).
     fault_bus : str
-        Bus name where fault is applied.
+        One of ``BUSES``. LVRT only.
     fault_impedance_pu : float
-        Fault impedance [p.u.]. Lower = more severe. Default: 0.05.
-    fault_duration_s : float
-        Fault duration [s]. Default: 0.150 (150 ms).
-    generation_fraction : float
-        Pre-fault generation level [0.0–1.0]. Default: 1.0.
-    export_length_km : float
-        Export cable length [km]. Default: 45.0.
-    grid_ssc_mva : float
-        Grid short-circuit power [MVA]. Default: 10,000.
-
-    Returns
-    -------
-    FRTSimulationResponse
-        Complete FRT result with time-series and compliance verdicts.
+        Fault impedance on 100 MVA base [pu]; 0 = bolted. LVRT only.
+    k_factor : float
+        PSE fast-fault-current gain K (2…10).
+    swell_pu : float
+        Grid EMF during the HVRT event [pu].
+    p_ramp_pu_s : float
+        Post-fault active power ramp of the WTGs [pu/s].
     """
-    # Resolve fault bus index from name (deterministic mapping)
-    # Bus indices: 1=PSE_400kV, 2=Onshore_220kV, 3=OSS_220kV, 4=OSS_66kV, 5-38=WTGs
-    fault_bus_idx = _resolve_bus_idx(fault_bus)
-    if fault_bus_idx is None:
-        logger.error("Fault bus '%s' not found", fault_bus)
-        return _create_failed_response(frt_type, fault_bus, fault_duration_s)
+    if fault_bus not in BUSES:
+        msg = f"fault_bus must be one of {', '.join(BUSES)}, got '{fault_bus}'"
+        raise DomainValidationError(msg)
+    if not K_FACTOR_RANGE[0] <= k_factor <= K_FACTOR_RANGE[1]:
+        msg = f"k_factor must be within {K_FACTOR_RANGE[0]}–{K_FACTOR_RANGE[1]}"
+        raise DomainValidationError(msg)
 
-    # Configure fault timing
-    t_fault = PRE_FAULT_DURATION_S
-    t_clear = t_fault + fault_duration_s
-
-    # Build fault config — must be added before ANDES setup()
+    z = series_impedances_pu(S_BASE_MVA, grid_ssc_mva, export_length_km)
+    y_normal = _admittance(z)
+    y_fault = y_normal.copy()
+    fault_node = BUSES.index(fault_bus)
     if frt_type == FRTType.LVRT:
-        fault_cfg = {
-            "name": f"Fault_{fault_bus}",
-            "bus": fault_bus_idx,
-            "tf": t_fault,
-            "tc": t_clear,
-            "xf": fault_impedance_pu,
-            "rf": fault_impedance_pu * 0.1,
-        }
+        y_fault[fault_node, fault_node] += 1.0 / complex(0.1, 1.0) / max(fault_impedance_pu, 1e-6)
+
+    p_pre_pu = generation_fraction  # WTG active current ≈ P at U ≈ 1 pu
+    wtg = _Converter(TOTAL_CAPACITY_MW, WTG_NODE, ip=p_pre_pu)
+    statcom = _Converter(STATCOM_RATING_MVAR, STATCOM_NODE, ip=0.0)
+    converters = [wtg, statcom]
+
+    t_fault = PRE_FAULT_S
+    t_clear = t_fault + fault_duration_s
+    times = np.arange(0.0, t_clear + POST_FAULT_S + DT_S / 2, DT_S)
+    decay = np.exp(-DT_S / IQ_RISE_TAU_S)
+
+    # Pre-fault: WTGs in voltage control hold their terminals at 1.0 pu
+    v = _pre_fault_voltage_control(y_normal, z["grid"], converters, wtg)
+    v_pre = v.copy()
+    u_ref = {c.node: abs(v_pre[c.node]) for c in converters}
+    iq_pre = {c.node: c.iq for c in converters}
+
+    series: list[FRTTimePoint] = []
+    recovering = False
+    for t in times:
+        faulted = t_fault <= t < t_clear
+        y = y_fault if faulted else y_normal
+        e_grid = complex(swell_pu if (faulted and frt_type == FRTType.HVRT) else 1.0)
+
+        # Voltage the converters measure now (their currents are still the old ones)
+        v = _solve(y, e_grid, z["grid"], converters, v)
+
+        for c in converters:
+            # PSE: the K·ΔU current is *additional* to the pre-fault reactive current
+            target = iq_pre[c.node] + iq_target(u_ref[c.node] - abs(v[c.node]), k_factor)
+            target = float(np.clip(target, -I_MAX_PU, I_MAX_PU))
+            c.iq = target + (c.iq - target) * decay
+        # Active current: reactive priority during the event, ramp back afterwards
+        u_wtg = abs(v[WTG_NODE])
+        headroom = float(np.sqrt(max(I_MAX_PU**2 - wtg.iq**2, 0.0)))
+        if faulted:
+            wtg.ip = min(wtg.ip, headroom, p_pre_pu)
+            recovering = False
+        elif t >= t_clear:
+            recovering = recovering or u_wtg >= RECOVERY_START_PU
+            if recovering:
+                wtg.ip = min(wtg.ip + p_ramp_pu_s * DT_S, p_pre_pu, headroom)
+        v = _solve(y, e_grid, z["grid"], converters, v)
+
+        u_wtg = abs(v[WTG_NODE])
+        series.append(
+            FRTTimePoint(
+                time_s=round(float(t), 4),
+                voltage_pu=round(float(abs(v[POC_NODE])), 4),
+                terminal_voltage_pu=round(float(u_wtg), 4),
+                active_power_mw=round(float(u_wtg * wtg.ip * wtg.s_mva), 2),
+                reactive_power_mvar=round(float(u_wtg * wtg.iq * wtg.s_mva), 2),
+                reactive_current_pu=round(float(wtg.iq), 4),
+                statcom_q_mvar=round(float(abs(v[STATCOM_NODE]) * statcom.iq * statcom.s_mva), 1),
+            )
+        )
+
+    during = [p for p in series if t_fault <= p.time_s < t_clear]
+    after = [p for p in series if p.time_s >= t_clear]
+    p_pre_mw = p_pre_pu * TOTAL_CAPACITY_MW
+    lvrt = frt_type == FRTType.LVRT
+
+    # Envelope: the farm must ride through as long as U_POC stays on/above it
+    envelope = [
+        FRTEnvelopePoint(time_s=round(t_fault + t, 3), voltage_pu=u) for t, u in PSE_FRT_PROFILE
+    ] + [FRTEnvelopePoint(time_s=round(float(times[-1]), 3), voltage_pu=PSE_FRT_PROFILE[-1][1])]
+    if lvrt:
+        above_profile = all(
+            p.voltage_pu >= pse_frt_profile(p.time_s - t_fault) - 1e-4
+            for p in series
+            if p.time_s >= t_fault
+        )
+        extreme = min(during, key=lambda p: p.voltage_pu)
     else:
-        fault_cfg = {
-            "name": f"HVRT_{fault_bus}",
-            "bus": fault_bus_idx,
-            "tf": t_fault,
-            "tc": t_fault + HVRT_DURATION_S,
-            "xf": 0.5,
-            "rf": 0.01,
-        }
+        above_profile = max(p.terminal_voltage_pu for p in series) <= HVRT_WITHSTAND_PU
+        extreme = max(during, key=lambda p: p.voltage_pu)
 
-    # Build ANDES system with fault element included before setup()
-    ss = build_andes_system(
-        generation_fraction=generation_fraction,
-        export_length_km=export_length_km,
-        grid_ssc_mva=grid_ssc_mva,
-        add_dynamic_models=True,
-        fault_config=fault_cfg,
+    # Fast fault current at the end of the event, vs the PSE characteristic
+    end = during[-1]
+    du = u_ref[WTG_NODE] - end.terminal_voltage_pu
+    # Additional current K·ΔU, capped where the total reaches the rated current
+    iq0 = iq_pre[WTG_NODE]
+    required = float(np.clip(iq0 + iq_target(du, k_factor), -I_MAX_PU, I_MAX_PU)) - iq0
+    delivered = end.reactive_current_pu - iq0
+    gain = delivered / du if abs(du) > DEAD_BAND_PU else 0.0
+    iq_ok = abs(required) < 1e-9 or (
+        np.sign(delivered) == np.sign(required) and 0.9 * abs(required) <= abs(delivered)
     )
 
-    # Run power flow first
-    ss.PFlow.run()
-
-    if not ss.PFlow.converged:
-        logger.error("ANDES power flow did not converge - cannot run FRT")
-        return _create_failed_response(frt_type, fault_bus, fault_duration_s)
-
-    # Store pre-fault power at PCC (OSS 220 kV, bus 3)
-    pre_fault_p_mw = _get_pcc_active_power(ss)
-
-    # Configure TDS
-    t_end = t_clear + POST_FAULT_DURATION_S
-    ss.TDS.config.tf = t_end
-    ss.TDS.config.tstep = SIMULATION_DT_S
-
-    # Initialize and run TDS
-    ss.TDS.init()
-    ss.TDS.run()
-
-    # Extract time-series results
-    time_series = _extract_time_series(
-        ss,
-        fault_bus_idx,
-        t_fault,
-        t_clear,
-        pre_fault_p_mw,
-        frt_type,
+    recovery_time = next(
+        (p.time_s - t_clear for p in after if p.active_power_mw >= RECOVERY_FRACTION * p_pre_mw),
+        float("inf"),
     )
-
-    # Check compliance
-    stayed_connected = _check_stayed_connected(time_series, frt_type, t_fault)
-
-    kqv_compliant, kqv_actual = check_reactive_current_compliance(
-        time_series,
-        t_fault,
-        t_clear,
-    )
-
-    recovery_compliant, recovery_time = check_active_power_recovery(
-        time_series,
-        t_clear,
-        pre_fault_p_mw,
-    )
-
-    # STATCOM peak Q
-    statcom_peak_q = _get_statcom_peak_q(ss, t_fault, t_clear)
+    # Same active current, no reactive current → what the injection is worth
+    no_iq = [_Converter(c.s_mva, c.node, ip=c.ip) for c in converters]
+    no_iq[0].ip = end.active_power_mw / max(end.terminal_voltage_pu, 1e-3) / wtg.s_mva
+    passive = _solve(y_fault, complex(1.0 if lvrt else swell_pu), z["grid"], no_iq, v_pre)
 
     return FRTSimulationResponse(
         frt_type=frt_type,
-        fault_bus=fault_bus,
+        fault_bus=fault_bus if lvrt else "PSE grid (swell)",
         fault_duration_s=fault_duration_s,
-        stayed_connected=stayed_connected,
-        reactive_current_compliant=kqv_compliant,
-        reactive_current_gain=round(kqv_actual, 2),
-        recovery_time_s=round(recovery_time, 3),
-        recovery_compliant=recovery_compliant,
-        statcom_peak_q_mvar=round(statcom_peak_q, 1),
-        time_series=time_series,
+        stayed_connected=above_profile,
+        reactive_current_compliant=bool(iq_ok),
+        reactive_current_gain=round(gain, 2),
+        recovery_time_s=round(recovery_time, 3) if p_pre_mw > 0 else 0.0,
+        recovery_compliant=p_pre_mw <= 0 or recovery_time <= RECOVERY_LIMIT_S,
+        statcom_peak_q_mvar=max((p.statcom_q_mvar for p in during), key=abs),
+        k_factor=k_factor,
+        retained_voltage_pu=extreme.voltage_pu,
+        terminal_voltage_pu=extreme.terminal_voltage_pu,
+        passive_voltage_pu=round(float(abs(passive[POC_NODE])), 4),
+        recovery_limit_s=RECOVERY_LIMIT_S,
+        envelope=envelope if lvrt else [],
+        time_series=series,
     )
 
 
@@ -264,394 +352,39 @@ def check_reactive_current_compliance(
     time_series: list[FRTTimePoint],
     t_fault: float,
     t_clear: float,
-    k_qv_min: float = MIN_KQV,
+    k_qv_min: float = K_FACTOR_RANGE[0],
 ) -> tuple[bool, float]:
-    """Check if reactive current injection meets NC RfG Kqv ≥ 2.0.
+    """Measured gain ΔIq/ΔU at the deepest point of the event vs ``k_qv_min``.
 
-    During the fault period, measures the ratio of reactive current change
-    to voltage deviation:
-      Kqv = ΔIq / ΔV = (Iq_fault - Iq_pre) / (V_pre - V_fault)
-
-    Parameters
-    ----------
-    time_series : list[FRTTimePoint]
-        Simulation time-series data.
-    t_fault : float
-        Fault start time [s].
-    t_clear : float
-        Fault clearance time [s].
-    k_qv_min : float
-        Minimum required Kqv. Default: 2.0 per NC RfG.
-
-    Returns
-    -------
-    tuple[bool, float]
-        (compliant, achieved_kqv).
+    Current limiting caps ΔIq at I_max, so deep dips are judged against the
+    capped requirement min(K·ΔU, I_max).
     """
-    # Get pre-fault values (last point before fault)
-    pre_fault_points = [p for p in time_series if p.time_s < t_fault]
-    fault_points = [p for p in time_series if t_fault <= p.time_s <= t_clear]
-
-    if not pre_fault_points or not fault_points:
+    pre = [p for p in time_series if p.time_s < t_fault]
+    fault = [p for p in time_series if t_fault <= p.time_s <= t_clear]
+    if not pre or not fault:
         return False, 0.0
-
-    pre_v = pre_fault_points[-1].voltage_pu
-    pre_iq = pre_fault_points[-1].reactive_current_pu
-
-    # Find the point of maximum voltage deviation during fault
-    min_v_point = min(fault_points, key=lambda p: p.voltage_pu)
-    delta_v = pre_v - min_v_point.voltage_pu
-    delta_iq = abs(min_v_point.reactive_current_pu - pre_iq)
-
-    if abs(delta_v) < 0.01:
-        # Negligible voltage change — compliance is trivially met
-        return True, float("inf")
-
-    kqv_actual = delta_iq / delta_v
-    return kqv_actual >= k_qv_min, kqv_actual
+    worst = max(fault, key=lambda p: abs(pre[-1].voltage_pu - p.voltage_pu))
+    du = pre[-1].voltage_pu - worst.voltage_pu
+    if abs(du) <= DEAD_BAND_PU:
+        return True, 0.0
+    d_iq = worst.reactive_current_pu - pre[-1].reactive_current_pu
+    gain = d_iq / du
+    required = min(k_qv_min * abs(du), I_MAX_PU)
+    return bool(gain > 0 and 0.9 * required <= abs(d_iq)), gain
 
 
 def check_active_power_recovery(
     time_series: list[FRTTimePoint],
     t_clear: float,
     pre_fault_p_mw: float,
-    threshold: float = POWER_RECOVERY_THRESHOLD,
-    max_recovery_time: float = POWER_RECOVERY_TIME_S,
+    threshold: float = RECOVERY_FRACTION,
+    max_recovery_time: float = RECOVERY_LIMIT_S,
 ) -> tuple[bool, float]:
-    """Check if active power recovers to ≥90% within 1.0 s after clearance.
-
-    Parameters
-    ----------
-    time_series : list[FRTTimePoint]
-        Simulation time-series data.
-    t_clear : float
-        Fault clearance time [s].
-    pre_fault_p_mw : float
-        Pre-fault active power [MW].
-    threshold : float
-        Recovery threshold (fraction of pre-fault). Default: 0.90.
-    max_recovery_time : float
-        Maximum allowed recovery time [s]. Default: 1.0.
-
-    Returns
-    -------
-    tuple[bool, float]
-        (compliant, recovery_time_s).
-    """
+    """PSE Art. 20(3)(a): ≥ 90 % of pre-fault P within 5 s of clearance."""
     if pre_fault_p_mw <= 0.0:
         return True, 0.0
-
-    target_p = pre_fault_p_mw * threshold
-    post_fault_points = [p for p in time_series if p.time_s > t_clear]
-
-    for point in post_fault_points:
-        if point.active_power_mw >= target_p:
-            recovery_time = point.time_s - t_clear
-            return recovery_time <= max_recovery_time, recovery_time
-
-    # Never recovered
+    for p in time_series:
+        if p.time_s > t_clear and p.active_power_mw >= threshold * pre_fault_p_mw:
+            recovery = p.time_s - t_clear
+            return recovery <= max_recovery_time, recovery
     return False, float("inf")
-
-
-# ── Internal Helpers ──────────────────────────────────────────────
-
-# Deterministic bus name → ANDES index mapping
-# (matches bus creation order in andes_network.build_andes_system)
-_BUS_NAME_TO_IDX: dict[str, int] = {
-    "PSE_400kV": 1,
-    "Onshore_220kV": 2,
-    "OSS_220kV": 3,
-    "OSS_66kV": 4,
-}
-# WTG_01 → 5, WTG_02 → 6, ..., WTG_34 → 38
-for _i in range(1, 35):
-    _BUS_NAME_TO_IDX[f"WTG_{_i:02d}"] = 4 + _i
-
-
-def _resolve_bus_idx(bus_name: str) -> int | None:
-    """Resolve bus name to ANDES index using deterministic mapping."""
-    return _BUS_NAME_TO_IDX.get(bus_name)
-
-
-def _find_bus_idx(ss: andes.System, bus_name: str) -> int | None:
-    """Find ANDES bus index by name (from running system)."""
-    bus_names = ss.Bus.name.v
-    for i, name in enumerate(bus_names):
-        if str(name) == bus_name:
-            return int(ss.Bus.idx.v[i])
-    return None
-
-
-def _get_pcc_active_power(ss: andes.System) -> float:
-    """Get total active power at PCC (OSS 220 kV) from power flow [MW]."""
-    # Sum all generator P outputs as proxy for PCC power
-    total_p_pu = 0.0
-    if hasattr(ss, "PV") and ss.PV.n > 0:
-        for i in range(ss.PV.n):
-            name = str(ss.PV.name.v[i])
-            if name.startswith("WTG_"):
-                total_p_pu += float(ss.PV.p0.v[i])
-    return total_p_pu * float(ss.config.mva)
-
-
-def _extract_time_series(
-    ss: andes.System,
-    fault_bus_idx: int,
-    t_fault: float,
-    t_clear: float,
-    pre_fault_p_mw: float,
-    frt_type: FRTType,
-    kqv: float = 2.5,
-) -> list[FRTTimePoint]:
-    """Extract time-domain results from ANDES TDS output.
-
-    If ANDES TDS provides dynamic results, uses those directly. Otherwise
-    generates physically-based synthetic time series from the power flow
-    solution and fault parameters (REECA1 reactive current model).
-
-    The synthetic approach models:
-      - Voltage dip during fault proportional to fault impedance
-      - Reactive current injection: dIq = Kqv * dV
-      - Active power proportional to voltage (P ~ V for current-source converter)
-      - Power recovery with first-order time constant after clearance
-    """
-    time_points: list[FRTTimePoint] = []
-
-    # Try to extract from ANDES TDS output first
-    has_tds_data = hasattr(ss.TDS, "t") and ss.TDS.t is not None and len(ss.TDS.t) > 10
-
-    if has_tds_data:
-        t_array = np.array(ss.TDS.t)
-        n_points = len(t_array)
-
-        # Bus voltage from TDS
-        try:
-            v_array = np.array(ss.TDS.get_bus_v(fault_bus_idx))
-            if len(v_array) != n_points:
-                v_array = np.ones(n_points)
-        except Exception:
-            v_array = np.ones(n_points)
-
-        # Synthesize P, Q, Iq from voltage trajectory + REECA1 model
-        p_array = np.zeros(n_points)
-        q_array = np.zeros(n_points)
-        iq_array = np.zeros(n_points)
-
-        for i in range(n_points):
-            v = float(v_array[i])
-            t = float(t_array[i])
-            p_array[i], q_array[i], iq_array[i] = _model_converter_response(
-                v,
-                t,
-                t_fault,
-                t_clear,
-                pre_fault_p_mw,
-                kqv,
-                frt_type,
-            )
-
-        # Downsample for reasonable response size (every 10ms)
-        step = max(1, int(0.010 / SIMULATION_DT_S))
-        for i in range(0, n_points, step):
-            time_points.append(
-                FRTTimePoint(
-                    time_s=round(float(t_array[i]), 4),
-                    voltage_pu=round(float(v_array[i]), 4),
-                    active_power_mw=round(float(p_array[i]), 2),
-                    reactive_power_mvar=round(float(q_array[i]), 2),
-                    reactive_current_pu=round(float(iq_array[i]), 4),
-                )
-            )
-    else:
-        # Generate synthetic time series from fault physics
-        time_points = _generate_synthetic_frt_series(
-            t_fault,
-            t_clear,
-            pre_fault_p_mw,
-            kqv,
-            frt_type,
-        )
-
-    return time_points
-
-
-def _model_converter_response(
-    v: float,
-    t: float,
-    t_fault: float,
-    t_clear: float,
-    pre_fault_p_mw: float,
-    kqv: float,
-    frt_type: FRTType,
-) -> tuple[float, float, float]:
-    """Model converter P, Q, Iq response at a given voltage and time.
-
-    Uses REECA1 reactive current injection model:
-      dIq = Kqv * (V_ref - V)  when |dV| > deadband (0.1 pu)
-      P ~ V * Ip (current-source converter)
-    """
-    v_ref = 1.0
-    deadband = 0.1
-
-    if t < t_fault:
-        # Pre-fault: normal operation
-        return pre_fault_p_mw, 0.0, 0.0
-    elif t <= t_clear:
-        # During fault: reduced P, reactive current injection
-        dv = v_ref - v
-        iq = kqv * dv if abs(dv) > deadband else 0.0
-        # P proportional to voltage (current-limited converter)
-        p = pre_fault_p_mw * max(v, 0.15)
-        q = iq * pre_fault_p_mw * 0.3  # Approximate Q from Iq
-        return p, q, iq
-    else:
-        # Post-fault: recovery with time constant
-        dt_recovery = t - t_clear
-        tau = 0.3  # Recovery time constant [s]
-        recovery_factor = 1.0 - np.exp(-dt_recovery / tau)
-        p = pre_fault_p_mw * (0.1 + 0.9 * recovery_factor)
-        return p, 0.0, 0.0
-
-
-def _generate_synthetic_frt_series(
-    t_fault: float,
-    t_clear: float,
-    pre_fault_p_mw: float,
-    kqv: float,
-    frt_type: FRTType,
-) -> list[FRTTimePoint]:
-    """Generate synthetic FRT time series from fault physics.
-
-    Used when ANDES TDS doesn't produce time-series output (algebraic-only).
-    Models voltage dip, reactive current injection, and power recovery.
-    """
-    points: list[FRTTimePoint] = []
-    t_end = t_clear + POST_FAULT_DURATION_S
-
-    # Generate time array at 10 ms resolution
-    dt = 0.010
-    t_values = np.arange(0, t_end, dt)
-
-    # Voltage profile
-    v_fault = 0.20 if frt_type == FRTType.LVRT else 1.25
-    for t in t_values:
-        if t < t_fault:
-            v = 1.0
-        elif t <= t_clear:
-            # Voltage during fault
-            v = v_fault
-        else:
-            # Post-fault voltage recovery
-            dt_post = t - t_clear
-            if frt_type == FRTType.LVRT:
-                v = 1.0 - (1.0 - v_fault) * np.exp(-dt_post / 0.05)
-            else:
-                v = 1.0 + (v_fault - 1.0) * np.exp(-dt_post / 0.05)
-
-        p, q, iq = _model_converter_response(
-            float(v),
-            float(t),
-            t_fault,
-            t_clear,
-            pre_fault_p_mw,
-            kqv,
-            frt_type,
-        )
-
-        points.append(
-            FRTTimePoint(
-                time_s=round(float(t), 4),
-                voltage_pu=round(float(v), 4),
-                active_power_mw=round(p, 2),
-                reactive_power_mvar=round(q, 2),
-                reactive_current_pu=round(iq, 4),
-            )
-        )
-
-    return points
-
-
-def _check_stayed_connected(
-    time_series: list[FRTTimePoint],
-    frt_type: FRTType,
-    t_fault: float,
-) -> bool:
-    """Check if the wind farm stayed connected during the FRT event.
-
-    For LVRT: voltage must stay above the PSE envelope.
-    For HVRT: voltage must not exceed limits beyond the specified duration.
-
-    In simulation, "stayed connected" means the simulation completed
-    without divergence and voltages remained within acceptable bounds.
-    """
-    if not time_series:
-        return False
-
-    if frt_type == FRTType.LVRT:
-        # Check if voltage remained above 0.0 (total blackout)
-        # and simulation completed without divergence
-        for point in time_series:
-            if point.voltage_pu < 0.0:
-                return False
-            # Check for numerical divergence
-            if point.voltage_pu > 2.0 or np.isnan(point.voltage_pu):
-                return False
-        return True
-    else:
-        # HVRT: check voltage doesn't go unreasonably high
-        for point in time_series:
-            if point.time_s >= t_fault and point.voltage_pu > 1.5:
-                return False
-            if np.isnan(point.voltage_pu):
-                return False
-        return True
-
-
-def _get_statcom_peak_q(
-    ss: andes.System,
-    t_fault: float,
-    t_clear: float,
-) -> float:
-    """Get peak STATCOM reactive power during fault period [MVAR].
-
-    Extracts STATCOM Q from ANDES TDS output during the fault window.
-    """
-    try:
-        if hasattr(ss, "REGCA1"):
-            # Find STATCOM REGCA1 model
-            for i in range(ss.REGCA1.n):
-                name = str(ss.REGCA1.name.v[i])
-                if "STATCOM" in name:
-                    iq_ts = ss.TDS.get_var(ss.REGCA1.Iq, i)
-                    if iq_ts is not None:
-                        t_array = np.array(ss.TDS.t)
-                        fault_mask = (t_array >= t_fault) & (t_array <= t_clear)
-                        if np.any(fault_mask):
-                            iq_fault = np.array(iq_ts)[fault_mask]
-                            peak_iq = float(np.max(np.abs(iq_fault)))
-                            return peak_iq * STATCOM_RATING_MVAR
-    except Exception:
-        pass
-
-    # Fallback: use rated STATCOM capacity
-    return STATCOM_RATING_MVAR
-
-
-def _create_failed_response(
-    frt_type: FRTType,
-    fault_bus: str,
-    fault_duration_s: float,
-) -> FRTSimulationResponse:
-    """Create a failed FRT response when simulation cannot run."""
-    return FRTSimulationResponse(
-        frt_type=frt_type,
-        fault_bus=fault_bus,
-        fault_duration_s=fault_duration_s,
-        stayed_connected=False,
-        reactive_current_compliant=False,
-        reactive_current_gain=0.0,
-        recovery_time_s=float("inf"),
-        recovery_compliant=False,
-        statcom_peak_q_mvar=0.0,
-        time_series=[],
-    )

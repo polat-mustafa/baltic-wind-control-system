@@ -1,93 +1,55 @@
 /**
- * Cable DTS store — M10.
- * Manages distributed temperature sensing profile, hotspots, and dynamic rating.
- * IEC 60287 thermal model, 45 km export cable, J-tube zone factor = 1.4.
+ * Cable DTS store — one 220 kV export circuit. Defaults: 730 A per circuit
+ * (510 MW over two circuits), 1 360 A on the survivor after an N-1 trip.
  */
 
 import { create } from "zustand";
+
 import * as api from "../services/cableDtsApi";
-import type {
-  DTSProfileResponse,
-  HotspotResponse,
-  DynamicRatingResponse,
-} from "../types/cableDts";
+import type { DTSProfileResponse, DTSTransientResponse } from "../types/cableDts";
 
-interface CableDTSState {
-  profile: DTSProfileResponse | null;
-  hotspots: HotspotResponse | null;
-  dynamicRating: DynamicRatingResponse | null;
-  // Controls
+export const N1_CURRENT_A = 1360;
+export const NORMAL_CURRENT_A = 730;
+
+interface Params {
   currentA: number;
-  ambientTempC: number;
-  loading: boolean;
-  error: string | null;
+  ambientC: number;
+  emergencyA: number;
+}
 
-  runAll(): Promise<void>;
-  fetchProfile(): Promise<void>;
-  fetchHotspots(): Promise<void>;
-  fetchDynamicRating(): Promise<void>;
-  setCurrentA(a: number): void;
-  setAmbientTempC(c: number): void;
+interface CableDTSState extends Params {
+  profile: DTSProfileResponse | null;
+  transient: DTSTransientResponse | null;
+  error: string | null;
+  setParams(p: Partial<Params>): void;
+  runProfile(): Promise<void>;
+  runTransient(): Promise<void>;
   clearError(): void;
 }
 
-export const useCableDTSStore = create<CableDTSState>((set, get) => ({
-  profile: null,
-  hotspots: null,
-  dynamicRating: null,
-  currentA: 730, // per circuit at 510 MW (2 × 1000 mm² Cu, 950 A each)
-  ambientTempC: 15,
-  loading: false,
-  error: null,
-
-  runAll: async () => {
-    const { currentA, ambientTempC } = get();
-    set({ loading: true, error: null });
+export const useCableDTSStore = create<CableDTSState>((set, get) => {
+  const guard = async (fn: () => Promise<Partial<CableDTSState>>) => {
     try {
-      const [profile, hotspots, dynamicRating] = await Promise.all([
-        api.getDTSProfile(currentA, ambientTempC),
-        api.getHotspots(currentA, ambientTempC),
-        api.getDynamicRating(currentA, ambientTempC),
-      ]);
-      set({ profile, hotspots, dynamicRating });
+      set(await fn());
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Cable DTS fetch failed" });
-    } finally {
-      set({ loading: false });
+      set({ error: err instanceof Error ? err.message : String(err) });
     }
-  },
-
-  fetchProfile: async () => {
-    const { currentA, ambientTempC } = get();
-    try {
-      const profile = await api.getDTSProfile(currentA, ambientTempC);
-      set({ profile });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "DTS profile fetch failed" });
-    }
-  },
-
-  fetchHotspots: async () => {
-    const { currentA, ambientTempC } = get();
-    try {
-      const hotspots = await api.getHotspots(currentA, ambientTempC);
-      set({ hotspots });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Hotspot fetch failed" });
-    }
-  },
-
-  fetchDynamicRating: async () => {
-    const { currentA, ambientTempC } = get();
-    try {
-      const dynamicRating = await api.getDynamicRating(currentA, ambientTempC);
-      set({ dynamicRating });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Dynamic rating fetch failed" });
-    }
-  },
-
-  setCurrentA: (a) => set({ currentA: a }),
-  setAmbientTempC: (c) => set({ ambientTempC: c }),
-  clearError: () => set({ error: null }),
-}));
+  };
+  return {
+    currentA: NORMAL_CURRENT_A,
+    ambientC: 15,
+    emergencyA: N1_CURRENT_A,
+    profile: null,
+    transient: null,
+    error: null,
+    setParams: (p) => set(p),
+    runProfile: () => guard(async () => ({ profile: await api.getDTSProfile(get().currentA, get().ambientC) })),
+    runTransient: () => {
+      const { currentA, emergencyA, ambientC } = get();
+      return guard(async () => ({
+        transient: await api.simTransient({ prefault_current_a: currentA, emergency_current_a: emergencyA, ambient_temp_c: ambientC }),
+      }));
+    },
+    clearError: () => set({ error: null }),
+  };
+});

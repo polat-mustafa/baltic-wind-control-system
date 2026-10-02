@@ -3,15 +3,15 @@ BESS (Battery Energy Storage System) API endpoints — M08.
 
 Endpoints
 ---------
-GET    /api/v1/grid/bess/status           — Current SOC, power, temperature, mode
-POST   /api/v1/grid/bess/mode             — Set operating mode
-POST   /api/v1/grid/bess/simulate/frequency-response  — FCR/FFR simulation
-POST   /api/v1/grid/bess/simulate/ramp-smoothing      — Ramp smoothing simulation
-POST   /api/v1/grid/bess/degradation      — 20-year degradation projection
-POST   /api/v1/grid/ppc/bess-dispatch     — Enhanced WTG + BESS dispatch
+GET    /api/v1/grid/bess/status                       — SOC, power, temperature, mode
+POST   /api/v1/grid/bess/mode                         — set operating mode
+POST   /api/v1/grid/bess/simulate/frequency-response  — FCR to a frequency trace
+POST   /api/v1/grid/bess/simulate/ramp-smoothing      — ramp-limited POC output
+POST   /api/v1/grid/bess/degradation                  — SOH projection
+POST   /api/v1/grid/ppc/bess-dispatch                 — WTG + BESS dispatch
 
-System: 50 MW / 200 MWh LFP, collocated at Baltic Wind OSS (220 kV).
-C-rate = 0.25 (4-hour discharge) — suitable for FCR, ramp smoothing, arbitrage.
+System: 50 MW / 200 MWh LFP at the OSS (C-rate 0.25, 4 h). Battery power is
+positive when discharging (generator convention).
 """
 
 from __future__ import annotations
@@ -43,234 +43,123 @@ router = APIRouter(tags=["M08 BESS Integration"])
 )
 async def get_bess_status() -> BESSStatusResponse:
     """
-    Return current BESS operating snapshot.
+    Current BESS snapshot.
 
-    **Physics — what SOC means for Baltic Wind:**
-
-    State of Charge (SOC) = remaining energy / total capacity.
-    For 50 MW / 200 MWh at SOC = 60%:
-    - Stored energy: 120 MWh
-    - Available to discharge: 120 - 20 MWh (SOC_min=10%) = 100 MWh
-    - Discharge duration at rated power: 100 / 50 = 2 hours
-
-    **Operating window 10-90% SOC:**
-    LFP chemistry (LiFePO4) allows very deep cycling but limiting to 10-90%
-    (80% DoD) extends cycle life significantly:
-    - At 100% DoD: ~2000 cycles to 80% SOH
-    - At 80% DoD: ~3000 cycles
-    - At 60% DoD: ~5000 cycles
-
-    For a 25-year farm lifetime, ~300 cycles/year x 25 = 7500 cycles.
-    At 80% DoD, LFP achieves EOL in ~10 years — one replacement during farm life.
-
-    **State of Health (SOH):**
-    SOH = current capacity / nameplate capacity. EOL at 80% SOH (20% fade).
-    Baltic Wind BESS at commissioning: SOH ≈ 99.5% (delivered slightly worn in).
+    At SOC 60 % the 200 MWh battery holds 120 MWh; above the 10 % floor
+    100 MWh can be discharged — 2 h at 50 MW. SOH = present capacity /
+    nameplate; end of life is taken at 80 % SOH.
     """
-    result = svc.get_status()
-    return BESSStatusResponse(**result)
+    return BESSStatusResponse(**svc.get_status())
 
 
-@router.post(
-    "/bess/mode",
-    response_model=BESSModeResponse,
-    summary="Set BESS operating mode",
-)
+@router.post("/bess/mode", response_model=BESSModeResponse, summary="Set BESS operating mode")
 async def set_bess_mode(body: BESSModeRequest) -> BESSModeResponse:
     """
-    Change BESS operating mode with transition validation.
+    Change the operating mode.
 
-    **Mode descriptions:**
-
-    | Mode | Description |
-    |------|------------|
-    | STANDBY | Zero power, SOC maintained |
-    | CHARGE | Absorb power from wind surplus or grid |
-    | DISCHARGE | Inject power to grid |
-    | FREQUENCY_RESPONSE | Auto FCR/FFR (ENTSO-E Network Code) |
-    | RAMP_SMOOTHING | Track WTG ramp and fill gaps |
-    | ARBITRAGE | Optimise charge/discharge vs DA price forecast |
-    | TEST | Commissioning mode — capacity test |
-
-    **Transition constraints:**
-    - CHARGE blocked if SOC >= 90%
-    - DISCHARGE blocked if SOC <= 10%
-    - FREQUENCY_RESPONSE requires SOC >= 20% (minimum reserve for FCR window)
-
-    **FCR droop (ENTSO-E NC FCR):**
-    At 5% droop, a 0.5 Hz frequency deviation (1% of 50 Hz) triggers 20% rated
-    power: P_bess = 50 MW * (0.5 Hz / (50 Hz * 0.05)) = 10 MW discharge.
-    Full activation at ±0.5 Hz: P_bess = ±50 MW within 30 seconds.
+    - CHARGE is refused at SOC ≥ 90 %, DISCHARGE at SOC ≤ 10 %.
+    - FREQUENCY_RESPONSE needs ≥ 15 min of full-power energy above the SOC
+      floor — the lower bound of the limited-energy-reservoir time in SO GL
+      Art. 156 (TSOs set 15–30 min).
+    - In FREQUENCY_RESPONSE and RAMP_SMOOTHING the setpoint is automatic.
     """
-    result = svc.set_mode(body.mode, body.power_setpoint_mw, body.soc_target_pct)
-    return BESSModeResponse(**result)
+    return BESSModeResponse(**svc.set_mode(body.mode, body.power_setpoint_mw, body.soc_target_pct))
 
 
 @router.post(
     "/bess/simulate/frequency-response",
     response_model=FrequencyResponseResult,
-    summary="FCR/FFR simulation — frequency event response",
+    summary="FCR response to a frequency trace",
 )
 async def simulate_frequency_response(
     body: FrequencyResponseRequest,
 ) -> FrequencyResponseResult:
     """
-    Simulate BESS response to a grid frequency event (FCR + FFR).
+    Battery response to a 1 s frequency trace.
 
-    **Physics — why frequency response matters:**
+    **FCR, Continental Europe (SO GL, EU 2017/1485):** linear characteristic,
+    full capacity at ±200 mHz, measurement insensitivity ±10 mHz, full
+    activation within 30 s: P = P_FCR · (50 − f) / 0.2 Hz, clamped to ±P_FCR.
 
-    When a large generator trips on the synchronous grid, frequency drops
-    (less generation than load). Under-frequency relays will shed load at:
-    - 49.0 Hz — automatic load shedding (PSE requirement)
-    - 48.5 Hz — mandatory trip of generators
-    - 47.5 Hz — widespread blackout risk
+    **Optional FFR step:** below `ffr_threshold_hz` the battery jumps to full
+    discharge — an example of a fast product as procured by the Nordic TSOs,
+    not a PSE service.
 
-    BESS provides two response layers:
-
-    **FCR (Frequency Containment Reserve):**
-    - Responds proportionally within ±200 mHz deadband to ±500 mHz
-    - Fully activated at ±500 mHz (droop 5% = 20% Prated per % frequency deviation)
-    - Purpose: slow down frequency fall, allow slower primary response (hydro, gas)
-
-    **FFR (Fast Frequency Response):**
-    - Activated below 49.7 Hz (configurable)
-    - BESS responds at full rated power within 200 ms
-    - Purpose: prevent nadir from falling below 49.0 Hz before conventional plants react
-    - LFP BESS response time: 150-200 ms (inverter-limited, not chemistry-limited)
-
-    **Baltic Wind BESS impact:**
-    50 MW FFR injection into 2500 MVA system: Δf recovery ≈ 50/2500 * 50 = 1 Hz/s
-    — significant mitigation of frequency decline rate (RoCoF).
-
-    **Try this:** input [50.0, 49.95, 49.85, 49.7, 49.55, 49.45, 49.5, 49.6, 49.75, 49.9]
-    to simulate a typical Nordic system frequency dip from generator trip.
+    The frequency trace is an input: 50 MW cannot move the frequency of the
+    CE synchronous area, so the battery does not feed back into it.
     """
-    result = svc.simulate_frequency_response(
-        body.frequency_trace_hz,
-        body.fcr_droop_pct,
-        body.ffr_threshold_hz,
-        body.initial_soc_pct,
+    return FrequencyResponseResult(
+        **svc.simulate_frequency_response(
+            body.frequency_trace_hz,
+            body.fcr_capacity_mw,
+            body.ffr_threshold_hz,
+            body.initial_soc_pct,
+        )
     )
-    return FrequencyResponseResult(**result)
 
 
 @router.post(
     "/bess/simulate/ramp-smoothing",
     response_model=RampSmoothingResult,
-    summary="BESS ramp smoothing — PSE IRiESP ramp rate compliance",
+    summary="BESS ramp smoothing at the POC",
 )
 async def simulate_ramp_smoothing(body: RampSmoothingRequest) -> RampSmoothingResult:
     """
-    Simulate BESS ramp smoothing to comply with PSE IRiESP ramp rate limit.
+    Keep the POC output within a ramp-rate limit (1 min steps).
 
-    **Regulation: PSE IRiESP Art. 6.3**
-    Maximum active power ramp rate at the POC: **10% Pn per minute**.
-    For 510 MW Baltic Wind: ramp limit = **51 MW/min**.
-
-    Without BESS, a wind gust ramp of 200 MW/min would cause:
-    - Grid voltage fluctuation (dV/dt stress on transformers)
-    - Frequency deviation (delta_P into grid inertia)
-    - Potential under/over-voltage tripping at 220 kV
-
-    **BESS ramp smoothing algorithm:**
-    1. Target POC follows a ramp-limited trajectory of the WTG output
-    2. BESS provides the difference: P_bess = P_target_poc - P_wtg_actual
-    3. During steep WTG ramp-up: BESS absorbs surplus (charging) to keep POC smooth
-    4. During steep WTG ramp-down: BESS discharges to maintain POC level
-
-    **Try this:** supply a wind trace with a 200 MW/min ramp:
-    [100, 200, 350, 480, 510] — BESS absorbs the ramp, smoothed output stays ~51 MW/min.
+    The limit is a plant setting agreed with the TSO — 51 MW/min (10 % of
+    510 MW per minute) is used as an example. The POC follows a ramp-limited
+    trajectory of the wind output and the battery supplies the difference:
+    it charges while the wind rises faster than allowed and discharges while
+    it falls. When the battery hits 50 MW or an SOC limit, the remaining
+    violation is reported.
     """
-    result = svc.simulate_ramp_smoothing(
-        body.wind_power_trace_mw,
-        body.max_ramp_rate_mw_per_min,
-        body.initial_soc_pct,
+    return RampSmoothingResult(
+        **svc.simulate_ramp_smoothing(
+            body.wind_power_trace_mw,
+            body.max_ramp_rate_mw_per_min,
+            body.initial_soc_pct,
+        )
     )
-    return RampSmoothingResult(**result)
 
 
 @router.post(
     "/bess/degradation",
     response_model=DegradationResponse,
-    summary="20-year BESS degradation projection (LFP model)",
+    summary="BESS state-of-health projection (LFP)",
 )
 async def project_degradation(body: DegradationRequest) -> DegradationResponse:
     """
-    Project BESS State of Health (SOH) over the farm lifetime.
+    SOH over the years — an empirical LFP model with labelled assumptions.
 
-    **LFP degradation mechanisms:**
+    SOH = 100 % − cycle loss − calendar loss, with
+    - cycle loss: 20 % after 3000 equivalent full cycles at 80 % DoD, the
+      cycle count scaled by (80 % / DoD)^1.5;
+    - calendar loss: 0.5 %/year.
 
-    1. **Cycle ageing:** each charge/discharge cycle consumes battery life.
-       LFP is exceptionally durable: ~3000 cycles to 80% SOH at 80% DoD.
-       Vs NMC: ~1500-2000 cycles (but higher energy density).
-       For Baltic Wind: LFP chosen for safety + longevity in offshore environment.
-
-    2. **Calendar ageing:** even without cycling, battery capacity fades.
-       LFP calendar fade: ~0.5% SOH/year at 25°C ambient.
-       For 20-year farm: calendar fade alone ~10% — significant but manageable.
-
-    3. **DoD sensitivity:**
-       N_effective = N_design * (DoD_ref / DoD)^1.5
-       Reducing DoD from 80% to 60% extends cycle life by ~57%.
-       This is why 10-90% SOC window (80% DoD) is carefully chosen.
-
-    **Combined model:** SOH = 100% - max(cycle_loss, calendar_loss).
-
-    **EOL criteria:** SOH < 80% (energy available = 0.8 * 200 MWh = 160 MWh).
-    After EOL, BESS is replaced or repurposed for second-life applications.
-
-    **Commercial note:**
-    LFP replacement cost at EOL (~2036): ~200-250 EUR/kWh = 40-50 M EUR for 200 MWh.
-    This cost must be included in the farm's LCOE calculation.
+    End of life at 80 % SOH. Replacement cost assumes 350 EUR/kWh; it is
+    spread over the energy the battery discharges until then.
     """
-    result = svc.calculate_degradation(
-        body.years,
-        body.annual_cycles,
-        body.avg_dod_pct,
+    return DegradationResponse(
+        **svc.calculate_degradation(body.years, body.annual_cycles, body.avg_dod_pct)
     )
-    return DegradationResponse(**result)
 
 
 @router.post(
     "/ppc/bess-dispatch",
     response_model=BESSDispatchResponse,
-    summary="Enhanced WTG + BESS combined dispatch",
+    summary="WTG + BESS combined dispatch",
 )
 async def bess_dispatch(body: BESSDispatchRequest) -> BESSDispatchResponse:
     """
-    Dispatch WTG + BESS together to meet grid operator power setpoint.
+    Meet the TSO setpoint at the POC with turbines and battery.
 
-    **Extension of PPC pro-rata algorithm (M08 adds BESS layer):**
-
-    The existing PPC (Power Plant Controller) dispatches WTGs pro-rata:
-        P_i = P_target * (P_avail_i / sum(P_avail))
-
-    With BESS, two scenarios:
-
-    **Case 1: Wind curtailment (P_target < P_available_WTG)**
-    - WTGs are curtailed to P_target
-    - BESS can absorb surplus (charge) if SOC < 90%
-    - Benefit: avoid WTG curtailment losses, store for later dispatch
-
-    **Case 2: Wind deficit (P_target > P_available_WTG)**
-    - WTGs run at maximum available
-    - BESS discharges deficit up to 50 MW
-    - Total POC = WTG_max + BESS_discharge
-    - If deficit > 50 MW: shortfall reported (POC < target)
-
-    **Why this matters commercially:**
-    In a 24-hour period with variable wind, BESS allows:
-    - Morning: charge from excess overnight wind (cheap)
-    - Evening peak: discharge during high-price period
-    - Frequency events: always maintain SOC > 30% for FCR reserve
-
-    **PSE contractual value:**
-    BSP (Balancing Service Provider) agreement allows selling FCR capacity:
-    ~8 EUR/MW/h * 50 MW = 3.5 M EUR/year additional revenue.
+    - **Surplus** (P_target < P_available): instead of curtailing, the turbines
+      produce P_target + P_charge and the battery stores P_charge; the POC
+      stays on target.
+    - **Deficit** (P_target > P_available): the turbines run at maximum and
+      the battery discharges up to 50 MW; any shortfall is flagged.
     """
-    result = svc.dispatch_bess(
-        body.p_target_mw,
-        body.p_available_wtg_mw,
-        body.current_soc_pct,
+    return BESSDispatchResponse(
+        **svc.dispatch_bess(body.p_target_mw, body.p_available_wtg_mw, body.current_soc_pct)
     )
-    return BESSDispatchResponse(**result)

@@ -83,7 +83,7 @@ describe("getSTATCOMSizing", () => {
 describe("runFRT", () => {
   it("sends POST with fault parameters", async () => {
     mockJsonResponse({ stayed_connected: true });
-    await api.runFRT("lvrt");
+    await api.runFRT("lvrt", { faultBus: "PSE_400kV", faultImpedancePu: 0.005, faultDurationS: 0.15, kFactor: 2 });
     expect(mockFetch).toHaveBeenCalledWith(
       `${BASE}/frt/lvrt`,
       expect.objectContaining({ method: "POST" }),
@@ -96,7 +96,7 @@ describe("getConverterComparison", () => {
     mockJsonResponse({ scenario: "strong_grid" });
     await api.getConverterComparison("strong_grid");
     expect(mockFetch).toHaveBeenCalledWith(
-      `${BASE}/converter-comparison/strong_grid`,
+      `${BASE}/converter-comparison/strong_grid?phase_jump_deg=20`,
       expect.anything(),
     );
   });

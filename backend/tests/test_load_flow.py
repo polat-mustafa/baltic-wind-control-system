@@ -195,3 +195,29 @@ class TestSTATCOMDispatch:
         q = auto_statcom_dispatch(net)
         statcom = net.sgen.index[net.sgen["name"] == "STATCOM"][0]
         assert float(net.res_sgen.at[statcom, "q_mvar"]) == pytest.approx(q, abs=0.01)
+
+
+def test_rule4_signs_and_poc_quantities():
+    """Bus results are injections, generating positive; POC P equals export minus losses."""
+    from app.schemas.grid import LoadFlowScenario
+    from app.services.p2.load_flow import run_load_flow
+
+    r = run_load_flow(LoadFlowScenario.FULL_LOAD)
+    wtg = next(b for b in r.buses if b.name == "WTG_01")
+    assert wtg.p_mw == pytest.approx(15.0, abs=0.01)  # generator injects +15 MW
+    oss_220 = next(b for b in r.buses if b.name == "OSS_220kV")
+    assert oss_220.q_mvar < 0  # three 80 MVAR reactors absorb more than the STATCOM gives
+    assert r.poc_p_mw == pytest.approx(r.total_generation_mw - r.total_loss_mw, abs=0.05)
+
+
+def test_n_minus_1_string_is_de_energised_not_nan():
+    """The tripped string reports 0 (not NaN) and does not count as a voltage violation."""
+    from app.schemas.grid import LoadFlowScenario
+    from app.services.p2.load_flow import run_load_flow
+
+    r = run_load_flow(LoadFlowScenario.N_MINUS_1)
+    s6 = [ln for ln in r.lines if ln.name.startswith("Array_S6_")]
+    assert len(s6) == 5 and all(ln.loading_percent == 0.0 for ln in s6)
+    assert r.total_generation_mw == pytest.approx(435.0)
+    assert r.voltage_compliant
+    assert "NaN" not in r.model_dump_json()

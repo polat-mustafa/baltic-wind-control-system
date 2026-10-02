@@ -172,6 +172,11 @@ TRAFO_220_400_VKR_PERCENT = 0.20
 TRAFO_220_400_PFE_KW = 50.0  # per unit [kW]
 TRAFO_220_400_I0_PERCENT = 0.04
 
+# On-load tap changers (both stages), HV side: ±10 steps × 1.25 % — typical, not a
+# vendor value. tap_pos = 0 (neutral) everywhere unless a study moves it.
+OLTC_STEPS = 10
+OLTC_STEP_PERCENT = 1.25
+
 # Grid connection
 GRID_SSC_MVA = 10_000.0  # Short-circuit power at PCC [MVA]
 GRID_RX_RATIO = 0.1  # R/X ratio of grid impedance
@@ -183,6 +188,17 @@ STATCOM_RATING_MVAR = 120.0  # ±120 MVAR
 NUM_SHUNT_REACTORS = NUM_EXPORT_CABLES + 1  # one per export cable + one spare
 SHUNT_REACTOR_UNIT_MVAR = 80.0  # absorption per reactor [MVAR]
 SHUNT_REACTOR_MVAR = NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR  # 240 MVAR total
+
+
+_OLTC = {
+    "tap_side": "hv",
+    "tap_changer_type": "Ratio",  # pandapower 3: without it the tap has no effect
+    "tap_neutral": 0,
+    "tap_min": -OLTC_STEPS,
+    "tap_max": OLTC_STEPS,
+    "tap_step_percent": OLTC_STEP_PERCENT,
+    "tap_pos": 0,
+}
 
 
 def _get_cable_grade(position_in_string: int, string_length: int) -> CableSpec:
@@ -300,6 +316,7 @@ def build_network(
         vector_group="YNyn0",
         parallel=NUM_ONSHORE_TRANSFORMERS,
         name="Trafo_220_400kV",
+        **_OLTC,
     )
 
     # 66/220 kV OSS transformer (Dyn11)
@@ -317,6 +334,7 @@ def build_network(
         vector_group="Dyn11",
         parallel=NUM_OSS_TRANSFORMERS,
         name="Trafo_66_220kV",
+        **_OLTC,
     )
 
     # ── Export Cables (2 × 220 kV in parallel, pi-model) ─────────
@@ -410,6 +428,52 @@ def build_network(
             )
 
     return net
+
+
+def series_impedances_pu(
+    s_base_mva: float,
+    grid_ssc_mva: float = GRID_SSC_MVA,
+    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+) -> dict[str, complex]:
+    """Series impedances of the radial grid → OSS chain [p.u. on ``s_base_mva``].
+
+    Same data as ``build_network`` (one source of truth), reduced to the four
+    elements a fault or a converter "sees" between the PSE grid and the 66 kV
+    busbar. Shunt elements (cable C, magnetising branch) are left out, as in
+    IEC 60909 fault calculations. Key = element ending at that bus:
+
+      grid     PSE Thevenin source → PSE_400kV   z = S_base/S_sc, R/X = GRID_RX_RATIO
+      onshore  PSE_400kV → Onshore_220kV         2 × 300 MVA, vk 14 %
+      export   Onshore_220kV → OSS_220kV         2 × 45 km, R at 90 °C
+      oss      OSS_220kV → OSS_66kV              2 × 300 MVA, vk 12.5 %
+    """
+
+    def trafo(vk: float, vkr: float, s_mva: float) -> complex:
+        z = vk / 100.0 * s_base_mva / s_mva
+        r = vkr / 100.0 * s_base_mva / s_mva
+        return complex(r, (z * z - r * r) ** 0.5)
+
+    z_grid = s_base_mva / grid_ssc_mva
+    x_grid = z_grid / (1.0 + GRID_RX_RATIO**2) ** 0.5
+    cable = EXPORT_CABLE_1000
+    z_base_220 = 220.0**2 / s_base_mva
+    return {
+        "grid": complex(GRID_RX_RATIO * x_grid, x_grid),
+        "onshore": trafo(
+            TRAFO_220_400_VK_PERCENT,
+            TRAFO_220_400_VKR_PERCENT,
+            TRAFO_220_400_MVA * NUM_ONSHORE_TRANSFORMERS,
+        ),
+        "export": complex(cable.r_ac_ohm_per_km, cable.x_ohm_per_km)
+        * export_length_km
+        / NUM_EXPORT_CABLES
+        / z_base_220,
+        "oss": trafo(
+            TRAFO_66_220_VK_PERCENT,
+            TRAFO_66_220_VKR_PERCENT,
+            TRAFO_66_220_MVA * NUM_OSS_TRANSFORMERS,
+        ),
+    }
 
 
 def get_bus_count(net: pp.pandapowerNet) -> int:

@@ -331,7 +331,7 @@ Q_cap = ω × C × V_LL² × L = 2π×50 × 190 nF/km × (220 kV)² × 45 km ≈
  ~150–250 nF/km for 220 kV three-core XLPE submarine cable; with 250 nF/km Q ≈ 171 MVAR.)
 ```
 
-Two cables are needed because one 1000 mm² circuit carries only √3 × 220 kV × 0.95 kA ≈ 362 MVA (single-cable load flow: ~140 % loading at 510 MW). Their ~260 MVAR (~50 % of rated power) pushes the offshore busbar voltage above limits (Ferranti effect) — shunt reactors + STATCOM are required.
+Two cables are needed because one 1000 mm² circuit carries only √3 × 220 kV × 0.95 kA ≈ 362 MVA (single-cable load flow: ~140 % loading at 510 MW). Their ~260 MVAR (~50 % of rated power), pushed through the transformers and the grid impedance, lifts the offshore busbar to ≈ 1.08 pu at no load (`validate_compensation()`); the Ferranti rise along the 45 km cable itself is only ≈ 0.7 % (1/cos βL). Shunt reactors + STATCOM are required.
 
 ### 3.3 Network Model — Pandapower (P2A: Steady-State)
 
@@ -359,18 +359,24 @@ Two cables are needed because one 1000 mm² circuit carries only √3 × 220 kV 
 
 | Position in String | Cross-section | Ampacity | Cumulative Power |
 |-------------------|--------------|----------|-----------------|
-| Positions 5-6 (far) | 500 mm² Cu | 590 A | 1-2 × 15 MW |
-| Positions 3-4 (mid) | 630 mm² Cu | 680 A | 3-4 × 15 MW |
-| Positions 1-2 (near OSS) | 800 mm² Cu | 755 A | 5-6 × 15 MW |
+| Far end of string | 500 mm² Cu | 715 A | 1-2 × 15 MW |
+| Mid string | 630 mm² Cu | 818 A | 3-4 × 15 MW |
+| Near OSS | 800 mm² Cu | 900 A | 5-6 × 15 MW |
 
-### 3.4 Dynamic Simulation — ANDES (P2B: Dynamic Grid Compliance)
+*Values = `ARRAY_CABLE_500/630/800` in `services/p2/network_model.py`; both transformer stages also carry ±10 × 1.25 % OLTCs (typical, not vendor data).*
 
-**Why ANDES:** Open-source power system dynamics simulator (Python). Can model Type-4 WTG with converter control, STATCOM, and FRT response. Suitable for educational purposes.
+### 3.4 Dynamic Studies (P2B: Dynamic Grid Compliance)
+
+**What is implemented (Grid Analysis tab):** The ANDES build in `andes_network.py` attaches no converter dynamic models (REGCA1/REECA1 count = 0, "no differential equation detected"), so the FRT and converter studies were re-implemented as transparent, testable models (2026-10):
+- **FRT** (`frt_simulation.py`): quasi-static phasor model of the radial chain (grid Thevenin source, both transformer stages, export cable) with the WTGs aggregated at 66 kV and the STATCOM at 220 kV, 5 ms steps, PSE K-factor characteristic with reactive-current priority and a 1.0 pu current limit.
+- **GFL vs GFM** (`converter_comparison.py`): single-machine-infinite-bus simulation, 50 µs steps — PLL-synchronised current source vs virtual synchronous machine (H = 4 s, 1.2 pu current limit) after a grid phase jump.
+
+Both are screening models (balanced faults, no EMT, no array impedance); a connection application needs RMS/EMT studies in PowerFactory or PSCAD.
 
 **P2B Scope:**
-- FRT simulation with voltage dip profile (PSE LVRT/HVRT curves)
-- Active and reactive current injection during fault (ΔIq ≥ 2% × ΔV)
-- Post-fault active power recovery (≥90% within 1 second)
+- FRT against the PSE type-D profile (§3.9)
+- Fast fault current ΔIq = K·ΔU, K adjustable 2–10 (PSE Art. 20(2)(b))
+- Post-fault active power recovery: 90 % within 5 s (PSE Art. 20(3)(a))
 - STATCOM dynamic response (<5 ms step change)
 - Frequency response: synthetic inertia + FFR from WTG
 - SSO screening via impedance-based stability analysis
@@ -389,7 +395,7 @@ Since Poland adopted NC RfG (Commission Regulation 2016/631), offshore wind farm
 | FSM (frequency sensitive mode) | Type D | Droop-based frequency response | Calculation sheet |
 | Active power controllability | Type D | TSO power setpoint following | Design document |
 | Reactive power capability (P-Q diagram) | Type D | Full P-Q envelope at PCC | P-Q diagram |
-| FRT (LVRT + HVRT) | Type D | Full voltage ride-through profile | ANDES simulation |
+| FRT (LVRT; HVRT illustrative) | Type D | PSE profile 0 pu / 150 ms → 0.85 pu at 2.5 s | Phasor screening model |
 | Power quality (harmonics + flicker) | Type D | THD + Pst/Plt assessment | Harmonic analysis |
 | Robustness (RoCoF) | Type D | RoCoF withstand capability | Design document |
 | Protection & fault detection | Type D | Islanding detection included | Protection study |
@@ -407,16 +413,18 @@ PSE compliance verification follows EON → ION → FON stages before granting o
 
 *Model output of `run_load_flow()` with 2 export cables, 3 × 80 MVAR reactors, auto-dispatched STATCOM and cable resistance at the 90 °C rated conductor temperature (R_AC,90, IEC 60287-1-1 — worst-case losses; with 20 °C DC resistance the full-load loss would read 5.0 MW). Export cable loading at full load: 77 %. Short-circuit results (§3.7) use 20 °C resistance as IEC 60909 requires. (2026-09-28)*
 
-**Key finding:** Without reactive compensation the no-load voltage reaches ~1.08 pu (`validate_compensation()`: 1.081 pu) → violation. With 3 × 80 MVAR reactors + STATCOM the reactive exchange with PSE stays near zero; with one reactor out the STATCOM absorbs ~80 MVAR and stays inside its ±120 MVAR rating (`reactor_n1_secure`).
+**Key finding:** Without reactive compensation the no-load voltage reaches ~1.08 pu (`validate_compensation()`: 1.081 pu) → violation. With 3 × 80 MVAR reactors + STATCOM every farm bus stays within 0.998–1.008 pu and the farm exchanges −42 MVAR (full load) to +35 MVAR (no load) with PSE at 400 kV; with one reactor out the STATCOM absorbs ~80 MVAR and stays inside its ±120 MVAR rating (`reactor_n1_secure`). N-1 opens string 6's feeder (its cables are de-energised, reported as 0).
 
 ### 3.7 Short-Circuit Analysis (IEC 60909)
 
-| Bus | Ik"_max (kA) | Breaker Rating (kA) | Margin (%) | Compliant |
-|-----|-------------|---------------------|-----------|-----------|
-| OSS 220 kV | 18.3 | 40.0 (GIS) | +54.3% | ✓ |
-| OSS 66 kV | 24.7 | 31.5 (GIS) | +21.6% | ✓ |
-| Onshore 220 kV | 22.1 | 40.0 (GIS) | +44.8% | ✓ |
-| PSE Grid 400 kV | 14.5 | 63.0 | +76.9% | ✓ |
+| Bus | Ik''max (kA) | ip (kA) | Breaker I_b / making 2.5·I_b (kA) | Breaking duty | Ik''min (kA) |
+|-----|-------------|---------|-----------------------------------|---------------|--------------|
+| PSE 400 kV | 15.3 | 36.9 | 50 / 125 | 31 % | 11.5 |
+| Onshore 220 kV | 10.3 | 25.3 | 40 / 100 | 26 % | 7.5 |
+| OSS 220 kV | 9.1 | 21.7 | 40 / 100 | 23 % | 6.5 |
+| OSS 66 kV | 21.4 | 50.5 | 25 / 62.5 | 86 % | 14.4 |
+
+*`calc_short_circuit()` (pandapower IEC 60909): max case c = 1.10 with WTG contribution (k = 1), cable R at 20 °C; min case c = 1.00, grid at 8 GVA, no WTG contribution. The 66 kV busbar is the critical one — the two parallel 300 MVA transformers set its fault level.*
 
 ### 3.8 STATCOM Sizing — Decision Analysis
 
@@ -432,48 +440,45 @@ PSE compliance verification follows EON → ION → FON stages before granting o
 | FRT support | Excellent (full Iq at low V) | Limited |
 | Total cost (equipment + platform) | **~€23M** | **~€30M** |
 
-**Decision: STATCOM selected.** Despite higher equipment cost, the compact footprint saves ~€12M in platform costs offshore. Additionally, STATCOM's full reactive current at low voltage is essential for PSE FRT compliance (15% residual voltage for 140 ms).
+**Decision: STATCOM selected.** Despite higher equipment cost, the compact footprint saves ~€12M in platform costs offshore. Additionally, a STATCOM keeps its reactive current down to very low voltage (an SVC's output falls with V²), which matters for PSE's fast fault current requirement during dips that may reach 0 pu for 150 ms.
 
 **Selected rating: ±120 MVAR** (design case N-1, one reactor out: ~260 MVAR from the two export cables − 2 × 80 MVAR ≈ 100 MVAR net STATCOM absorption; × 1.15 for temperature derating + ageing = 115 → 120 MVAR per `size_statcom()`. In normal operation 260 − 240 = 20 MVAR, so the STATCOM keeps nearly its full range for dynamics) **+ 3 × 80 MVAR shunt reactors (N+1)** (one per export cable; cheap continuous base-load compensation that keeps the STATCOM small).
 
-### 3.9 FRT Compliance — PSE IRiESP
+**PSE reactive range (Art. 21(3)(c), −0.35 … +0.40 P_max at the POC = −178.5 / +204 MVAR):** `poc_q_capability()` finds +374 / −423 MVAR at P = 510 MW using WTG capability (±0.33 pu assumed — V236 data not public), the STATCOM, reactor switching and both OLTCs, with every farm bus within 0.90–1.10 pu. The range is met with margin, so the STATCOM rating is set by the reactor N-1 case and fast voltage control, not by the steady-state Q range.
 
-**PSE FRT Envelope:**
+### 3.9 FRT Compliance — PSE type-D power park module
+
+Source: PSE, *Wymogi ogólnego stosowania wynikające z NC RfG* (18-12-2018).
 
 ```
-Voltage (pu)
-1.00 ┌────────────────────────────────────────── Normal Operation
-     │
-0.85 │         ┌────────────────────────────── Recovery Zone
-     │         │
-0.25 │    ┌────┘                                Must Stay Connected
-     │    │
-0.15 │────┘                                      Minimum Residual
-0.00 └─────┬────┬────┬────┬────┬────────────
-     0  140ms 500ms 1.0s 1.5s  3.0s          Time
-
-Requirements during fault:
-- Inject reactive current: ΔIq ≥ 2% × ΔV per 1% voltage deviation
-- Active power recovery: ≥ 90% within 1 second after fault clearance
-- No disconnection within envelope
-- HVRT: withstand 1.25 pu for 100 ms (added per NC RfG Type D)
+Voltage at the connection point (pu)
+0.85 ┤                              ┌──────────── may disconnect only below this line
+     │                         ╱
+     │                    ╱
+     │               ╱
+0.00 ┼──────────┘
+     0       0.15 s                 2.5 s        time after fault inception
+U_ret = U_clear = U_rec1 = 0.00 pu, t_clear = t_rec1 = t_rec2 = 0.15 s, U_rec2 = 0.85 pu, t_rec3 = 2.5 s (Art. 16(3)(a))
 ```
 
-**Design intent:** STATCOM + turbine converter reactive current injection is expected to achieve compliance at all PSE fault scenarios based on the reactive current capability analysis in §3.8. **Dynamic verification via ANDES or PSCAD/EMTDC EMT simulation has not yet been executed** — this is identified as a gap (P2B module). The compliance statement should be interpreted as "analytically supported design intent", not a verified simulation result.
+- Fast fault current: ΔIq = K·ΔU, K adjustable 2–10; 90 % within 60 ms, target within 100 ms (−10 %/+20 %); not required below 0.2 Un at the terminals (Art. 20(2)(b))
+- Active power recovery: starts at U ≥ 0.9 Un, 90 % of pre-fault power within 5 s (Art. 20(3)(a))
+- HVRT: PSE sets no short overvoltage profile for PPMs (only continuous ranges, e.g. 1.118–1.15 pu for 60 min at 110–300 kV) — the tab's swell case is illustrative
+
+**Screening result (`run_frt_simulation()`, defaults):** fault at PSE 400 kV, Z_f = 0.005 pu (100 MVA), 150 ms, K = 2, 510 MW → POC 0.33 pu, WTG terminals lifted from 0.30 to 0.60 pu by the reactive current (Iq ≈ 0.9 pu), active power back to 90 % in 0.46 s → rides through. A bolted 400 kV fault lasting 300 ms falls below the profile (disconnection permitted). These come from a quasi-static phasor model (§3.4); EMT verification remains a gap.
 
 ### 3.10 Harmonic Analysis
 
-**VSC turbine harmonic spectrum (typical Type-4 WTG):**
+**Model (`services/p2/power_quality.py`):** positive-sequence nodal network per harmonic order — grid Thevenin, both transformer stages (R·√h), the two 45 km export circuits as exact distributed π sections, 3 × 80 MVAR reactors and the array cable charging. WTG emission (% of rated current, illustrative full-converter spectrum — the V236 IEC 61400-21 report is not public) is summed over 34 units with the IEC 61000-3-6 exponents and turned into harmonic voltages through |Z(h)|. Converter impedance, loads and background distortion are not modelled, so resonance peaks are upper bounds.
 
-| Harmonic Order | Current (% of I_fund) | Voltage Distortion at PCC (%) | Limit (%) | Status |
-|---------------|----------------------|-------------------------------|----------|--------|
-| 5th | 3.5% | 0.42% | 1.5% | ✓ |
-| 7th | 2.5% | 0.38% | 1.5% | ✓ |
-| 11th | 1.8% | 0.35% | 1.5% | ✓ |
-| 13th | 1.2% | 0.28% | 1.5% | ✓ |
-| **THD** | — | **0.82%** | **5.0%** | **✓** |
+| Result (10 GVA grid) | Value |
+|---|---|
+| Parallel resonances seen from OSS 66 kV | ≈ 165 Hz (h 3.3, amplification ×16) and ≈ 870 Hz (h 17.4, ×28) |
+| THD at the PSE 400 kV POC | 0.25 % (HV-EHV planning level 3 %) |
+| h17 at OSS 66 kV | 1.49 % > 1.2 % planning level — the internal busbar sits on the h17 resonance |
+| Flicker P_st / P_lt at the POC | 0.002 / 0.002 (planning levels 0.8 / 0.6) |
 
-**Additional P2 analysis:** Harmonic impedance scan (frequency-dependent impedance) to identify cable resonance risks. Flicker assessment (Pst, Plt) per IEC 61000-3-7.
+Planning levels follow IEC TR 61000-3-6:2008 Table 2 (MV / HV-EHV, THD 6.5 % / 3 %); flicker IEC 61000-3-7 HV-EHV. The emission limit PSE would allocate to the plant is a share of the planning level.
 
 ### 3.11 Additional P2 Modules
 
@@ -494,13 +499,13 @@ Requirements during fault:
 2. **Scenario Selector** — Dropdown for Full/Partial/No Load/N-1 with instant load flow recalculation.
 3. **Voltage Profile Chart** — Bar chart for all buses with 0.95–1.05 pu compliance band.
 4. **STATCOM Status Panel** — Real-time MVAR output, operating mode (absorb/generate), utilization.
-5. **FRT Compliance Chart** — PSE envelope overlay with simulated voltage trace (ANDES results).
+5. **FRT Compliance Chart** — PSE profile overlay with the simulated POC and terminal voltage (phasor screening model).
 6. **Loss Breakdown** — Sankey diagram showing power flow and losses through each component.
 7. **NC RfG Compliance Dashboard** — Checkable matrix with pass/fail status per requirement.
 
 ### 3.13 CV Sentence
 
-> "Modelled a 510 MW offshore wind farm HV system (66 kV array / 2 × 220 kV export) using Pandapower + ANDES with IEC 60909 short-circuit analysis; sized ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors for 2 × 45 km submarine cable reactive compensation, achieving full NC RfG Type D compliance and PSE IRiESP FRT compliance at 15% residual voltage."
+> "Modelled a 510 MW offshore wind farm HV system (66 kV array / 2 × 220 kV export) using pandapower with IEC 60909 breaker-duty checks; sized ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors for 2 × 45 km submarine cable compensation, verified the PSE reactive range (−0.35 … +0.40 P_max) by OLTC-aware load flows, and screened fault ride-through against PSE's type-D profile and grid-following vs grid-forming stability with transparent dynamic models."
 
 ### 3.14 Standards Applied
 

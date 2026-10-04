@@ -67,7 +67,7 @@ const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }>; tooltip
   { id: "bess",          label: "BESS",             Icon: Battery,       tooltip: "Battery Energy Storage System — 50 MW / 200 MWh LFP, FCR/FFR, ramp smoothing" },
   { id: "cable-dts",     label: "Cable DTS",        Icon: Cable,         tooltip: "Distributed Temperature Sensing — IEC 60287 dynamic ampacity, 45 km export cable" },
   { id: "market",        label: "Market",           Icon: TrendingUp,    tooltip: "One trading day: TGE day-ahead, PSE imbalance (CEN), two-sided CfD, BESS arbitrage" },
-  { id: "advanced",      label: "Advanced",         Icon: FlaskConical,  tooltip: "Dynamic compliance, OPF/SCOPF, DC PF, SSO screening, ANDES network spec" },
+  { id: "advanced",      label: "N-1 Security",     Icon: FlaskConical,  tooltip: "Every single outage of the export system as an AC load flow, with the corrective PPC runback" },
   { id: "planning",      label: "Planning & P2X",   Icon: Network,       tooltip: "Economic dispatch, capacity expansion, sector coupling, electrolyzer, LDES" },
 ];
 

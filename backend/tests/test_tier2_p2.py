@@ -1,62 +1,9 @@
 """
-Tests for Tier 2 P2 features: DC power flow, economic dispatch,
+Tests for Tier 2 P2 features: economic dispatch,
 BESS, AC-DC comparison, and capacity expansion planning.
 """
 
 import numpy as np
-
-# ── DC Power Flow ───────────────────────────────────────────────
-
-
-class TestDCPowerFlow:
-    """Tests for DC (linearized) power flow."""
-
-    def test_dc_power_flow_converges(self):
-        from app.services.p2.dc_power_flow import run_dc_power_flow
-
-        result = run_dc_power_flow(generation_fraction=1.0)
-        assert result.converged is True
-
-    def test_dc_power_flow_generation(self):
-        from app.services.p2.dc_power_flow import run_dc_power_flow
-
-        result = run_dc_power_flow(generation_fraction=1.0)
-        assert result.total_generation_mw > 400.0  # 34 × 15 = 510 MW
-
-    def test_dc_power_flow_half_load(self):
-        from app.services.p2.dc_power_flow import run_dc_power_flow
-
-        result = run_dc_power_flow(generation_fraction=0.5)
-        assert result.converged is True
-        assert result.total_generation_mw < 300.0
-
-    def test_dc_power_flow_line_results(self):
-        from app.services.p2.dc_power_flow import run_dc_power_flow
-
-        result = run_dc_power_flow(generation_fraction=1.0)
-        assert len(result.line_results) > 0
-        assert all(lr.loading_percent >= 0 for lr in result.line_results)
-
-    def test_dc_power_flow_bus_angles(self):
-        from app.services.p2.dc_power_flow import run_dc_power_flow
-
-        result = run_dc_power_flow(generation_fraction=1.0)
-        assert len(result.bus_angles_deg) > 0
-
-    def test_dc_contingency_screening(self):
-        from app.services.p2.dc_power_flow import run_dc_contingency_screening
-
-        result = run_dc_contingency_screening(generation_fraction=1.0)
-        assert result.n_contingencies == 6  # 6 strings
-        assert result.n_secure + result.n_violations == result.n_contingencies
-
-    def test_dc_contingency_worst_case(self):
-        from app.services.p2.dc_power_flow import run_dc_contingency_screening
-
-        result = run_dc_contingency_screening(generation_fraction=1.0)
-        assert result.worst_contingency != ""
-        assert result.worst_loading_percent > 0
-
 
 # ── Economic Dispatch ───────────────────────────────────────────
 

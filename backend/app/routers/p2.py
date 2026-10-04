@@ -28,9 +28,6 @@ from app.core.exceptions import DomainError
 from app.core.exceptions import ValidationError as DomainValidationError
 from app.schemas.grid import (
     ConverterComparisonResponse,
-    DynamicComplianceResponse,
-    FrequencyMode,
-    FrequencyResponseResponse,
     FRTSimulationResponse,
     FRTType,
     LiveLoadFlowRequest,
@@ -38,7 +35,6 @@ from app.schemas.grid import (
     LoadFlowResponse,
     LoadFlowScenario,
     ShortCircuitResponse,
-    SSOScreeningResponse,
     STATCOMSizingResult,
 )
 from app.schemas.ppc import (
@@ -52,18 +48,12 @@ from app.schemas.ppc import (
 from app.services.p2.ac_dc_network import compare_export_options
 from app.services.p2.capacity_expansion import plan_capacity_expansion
 from app.services.p2.converter_comparison import SCENARIO_SSC_MVA, get_comparison_response
-from app.services.p2.dc_power_flow import (
-    run_dc_contingency_screening,
-    run_dc_power_flow,
-)
-from app.services.p2.dynamic_compliance import run_full_compliance_assessment
 from app.services.p2.economic_dispatch import (
     generate_wind_forecast,
     run_economic_dispatch,
 )
 from app.services.p2.energy_storage import run_bess_dispatch
 from app.services.p2.flexible_demand import run_flexible_demand_simulation
-from app.services.p2.frequency_response import run_frequency_response
 from app.services.p2.frt_simulation import run_frt_simulation
 from app.services.p2.load_flow import run_all_scenarios, run_live_load_flow, run_load_flow
 from app.services.p2.multi_energy_carrier import run_multi_energy_analysis
@@ -75,15 +65,12 @@ from app.services.p2.network_model import (
     STRING_LAYOUT,
     TOTAL_CAPACITY_MW,
 )
-from app.services.p2.optimal_power_flow import run_ac_opf, run_dc_opf
 from app.services.p2.pathway_planning import run_pathway_planning
 from app.services.p2.power_plant_controller import get_ppc_status, run_ppc_simulation
 from app.services.p2.power_to_gas import ElectrolyzerType, run_electrolyzer_simulation
-from app.services.p2.scopf import run_scopf
 from app.services.p2.seasonal_storage import StorageTechnology, run_seasonal_storage_simulation
 from app.services.p2.sector_coupling import run_sector_coupling
 from app.services.p2.short_circuit import calc_short_circuit
-from app.services.p2.sso_analysis import run_sso_screening
 from app.services.p2.statcom_sizing import validate_compensation
 
 router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
@@ -112,6 +99,11 @@ router.include_router(_market_router)
 from app.routers.p2_cable_dts import router as _cable_dts_router  # noqa: E402
 
 router.include_router(_cable_dts_router)
+
+# N-1 security of the export system
+from app.routers.p2_security import router as _security_router  # noqa: E402
+
+router.include_router(_security_router)
 
 
 # ── Cached Helpers ───────────────────────────────────────────────
@@ -161,43 +153,6 @@ class FRTRequest(BaseModel):
     p_ramp_pu_s: float = Field(
         1.0, ge=0.1, le=10.0, description="Post-fault active power ramp [p.u./s]"
     )
-
-
-class DynamicComplianceRequest(BaseModel):
-    """Request for full NC RfG Type D dynamic compliance assessment."""
-
-    export_length_km: float = Field(
-        EXPORT_CABLE_LENGTH_KM, ge=1.0, le=200.0, description="Export cable length [km]"
-    )
-    grid_ssc_mva: float = Field(
-        GRID_SSC_MVA, ge=500.0, le=50_000.0, description="Grid short-circuit capacity [MVA]"
-    )
-    generation_fraction: float = Field(
-        1.0, ge=0.0, le=1.0, description="Pre-fault generation level [0-1]"
-    )
-
-
-class FrequencyResponseRequest(BaseModel):
-    """Request for frequency response simulation."""
-
-    mode: FrequencyMode = Field(description="NC RfG frequency response mode")
-    freq_step_hz: float = Field(0.5, ge=0.01, le=2.0, description="Frequency step [Hz]")
-    droop_pct: float = Field(5.0, ge=1.0, le=12.0, description="Droop percentage [%]")
-    generation_fraction: float = Field(
-        0.8, ge=0.0, le=1.0, description="Pre-event generation level [0-1]"
-    )
-
-
-class SSOScreeningRequest(BaseModel):
-    """Request for sub-synchronous oscillation screening."""
-
-    export_length_km: float = Field(
-        EXPORT_CABLE_LENGTH_KM, ge=1.0, le=200.0, description="Export cable length [km]"
-    )
-    grid_ssc_mva: float = Field(
-        GRID_SSC_MVA, ge=500.0, le=50_000.0, description="Grid short-circuit capacity [MVA]"
-    )
-    generation_fraction: float = Field(1.0, ge=0.0, le=1.0, description="Generation level [0-1]")
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -354,94 +309,6 @@ async def converter_comparison(
     )
 
 
-# ── Dynamic Compliance (P2B) ────────────────────────────────────
-
-
-@router.post("/dynamic-compliance", response_model=DynamicComplianceResponse)
-async def dynamic_compliance(
-    request: DynamicComplianceRequest,
-) -> DynamicComplianceResponse:
-    """Run full NC RfG Type D dynamic compliance assessment.
-
-    Aggregates LVRT, HVRT, LFSM-O, LFSM-U, FSM, RoCoF, SSO, and
-    converter comparison into a single compliance verdict.
-    """
-    try:
-        return run_full_compliance_assessment(
-            export_length_km=request.export_length_km,
-            grid_ssc_mva=request.grid_ssc_mva,
-            generation_fraction=request.generation_fraction,
-        )
-    except DomainError:
-        raise
-    except Exception as e:
-        raise DomainError(f"Dynamic compliance assessment failed: {e}") from e
-
-
-@router.post("/frequency-response", response_model=FrequencyResponseResponse)
-async def frequency_response(
-    request: FrequencyResponseRequest,
-) -> FrequencyResponseResponse:
-    """Run NC RfG frequency response simulation for a single mode.
-
-    Modes: LFSM-O (over-frequency), LFSM-U (under-frequency),
-    FSM (frequency-sensitive mode).
-    """
-    try:
-        return run_frequency_response(
-            mode=request.mode,
-            freq_step_hz=request.freq_step_hz,
-            droop_pct=request.droop_pct,
-            generation_fraction=request.generation_fraction,
-        )
-    except DomainError:
-        raise
-    except Exception as e:
-        raise DomainError(f"Frequency response simulation failed: {e}") from e
-
-
-@router.post("/sso-analysis", response_model=SSOScreeningResponse)
-async def sso_analysis(
-    request: SSOScreeningRequest,
-) -> SSOScreeningResponse:
-    """Run sub-synchronous oscillation screening analysis.
-
-    Checks cable resonance frequency, impedance scan, and eigenvalue
-    stability for Type 4 WTG interactions with long export cables.
-    """
-    try:
-        return run_sso_screening(
-            export_length_km=request.export_length_km,
-            grid_ssc_mva=request.grid_ssc_mva,
-            generation_fraction=request.generation_fraction,
-        )
-    except DomainError:
-        raise
-    except Exception as e:
-        raise DomainError(f"SSO analysis failed: {e}") from e
-
-
-@router.get("/andes-network", response_model=NetworkSpecResponse)
-async def get_andes_network() -> NetworkSpecResponse:
-    """Return ANDES dynamic network specification.
-
-    Same network constants as the Pandapower model, confirming
-    consistency between steady-state and dynamic simulation tools.
-    """
-    return NetworkSpecResponse(
-        total_capacity_mw=TOTAL_CAPACITY_MW,
-        num_turbines=34,
-        num_strings=len(STRING_LAYOUT),
-        string_layout=list(STRING_LAYOUT),
-        array_voltage_kv=66.0,
-        export_voltage_kv=220.0,
-        grid_voltage_kv=400.0,
-        export_length_km=EXPORT_CABLE_LENGTH_KM,
-        grid_ssc_mva=GRID_SSC_MVA,
-        statcom_rating_mvar=STATCOM_RATING_MVAR,
-    )
-
-
 # ── Power Plant Controller (PPC) ─────────────────────────────────
 
 
@@ -520,297 +387,7 @@ async def ppc_simulate(request: PPCSimulationRequest) -> PPCSimulationResponse:
         raise DomainError(f"PPC simulation failed: {e}") from e
 
 
-# ── Optimal Power Flow (OPF) ────────────────────────────────────
-
-
-class OPFRequest(BaseModel):
-    """Request for Optimal Power Flow analysis."""
-
-    method: str = Field("ac", description="OPF method: 'ac' (nonlinear) or 'dc' (linearized)")
-    generation_fraction: float = Field(
-        1.0, ge=0.0, le=1.0, description="Available generation fraction [0-1]"
-    )
-    export_length_km: float = Field(
-        EXPORT_CABLE_LENGTH_KM, ge=1.0, le=200.0, description="Export cable length [km]"
-    )
-    grid_ssc_mva: float = Field(
-        GRID_SSC_MVA, ge=500.0, le=50_000.0, description="Grid short-circuit capacity [MVA]"
-    )
-
-
-class GeneratorDispatchSchema(BaseModel):
-    """OPF dispatch result for a single generator."""
-
-    name: str
-    p_mw: float
-    q_mvar: float
-    p_max_mw: float
-    curtailed_mw: float
-    marginal_cost_eur_mwh: float
-
-
-class OPFResponse(BaseModel):
-    """Optimal Power Flow result."""
-
-    converged: bool
-    method: str
-    objective_value_eur_h: float
-    total_generation_mw: float
-    total_curtailment_mw: float
-    curtailment_percent: float
-    total_loss_mw: float
-    v_min_pu: float
-    v_max_pu: float
-    voltage_compliant: bool
-    max_line_loading_percent: float
-    max_trafo_loading_percent: float
-    generators: list[GeneratorDispatchSchema]
-    statcom_q_mvar: float
-    cost_saving_vs_curtailment_eur_h: float
-
-
-class SCOPFRequest(BaseModel):
-    """Request for Security-Constrained OPF analysis."""
-
-    generation_fraction: float = Field(
-        1.0, ge=0.0, le=1.0, description="Available generation fraction [0-1]"
-    )
-    export_length_km: float = Field(
-        EXPORT_CABLE_LENGTH_KM, ge=1.0, le=200.0, description="Export cable length [km]"
-    )
-    grid_ssc_mva: float = Field(
-        GRID_SSC_MVA, ge=500.0, le=50_000.0, description="Grid short-circuit capacity [MVA]"
-    )
-
-
-class ContingencyViolationSchema(BaseModel):
-    """A constraint violation in a post-contingency state."""
-
-    contingency_name: str
-    violation_type: str
-    element_name: str
-    value: float
-    limit: float
-    severity: float
-
-
-class ContingencyResultSchema(BaseModel):
-    """Post-contingency analysis result for a single N-1 scenario."""
-
-    name: str
-    description: str
-    converged: bool
-    v_min_pu: float
-    v_max_pu: float
-    max_line_loading_percent: float
-    max_trafo_loading_percent: float
-    violations: list[ContingencyViolationSchema]
-    secure: bool
-    security_type: str = Field(description="preventive | corrective")
-    corrective_action: str = Field(description="Automatic/corrective actions applied")
-    corrective_curtailment_mw: float = Field(description="Corrective runback [MW]")
-    pre_corrective_max_line_loading_percent: float = Field(
-        description="Max cable loading before the corrective runback [%]"
-    )
-    pre_corrective_max_trafo_loading_percent: float = Field(
-        description="Max transformer loading before the corrective runback [%]"
-    )
-
-
-class SCOPFResponse(BaseModel):
-    """Security-Constrained OPF result."""
-
-    base_case: OPFResponse
-    contingency_results: list[ContingencyResultSchema]
-    n1_secure: bool
-    num_violations: int
-    worst_contingency: str
-    iterations: int
-    total_curtailment_for_security_mw: float
-
-
-@router.post("/opf", response_model=OPFResponse)
-async def optimal_power_flow(request: OPFRequest) -> OPFResponse:
-    """Run Optimal Power Flow to find least-cost dispatch.
-
-    Minimizes curtailment cost while respecting voltage limits (0.95-1.05 pu),
-    cable thermal limits, and transformer loading limits. AC OPF uses interior
-    point method; DC OPF uses linearized power flow for fast screening.
-
-    Physics: min Σ c_i × P_i subject to power balance + network constraints.
-    """
-    try:
-        if request.method == "dc":
-            result = run_dc_opf(
-                generation_fraction=request.generation_fraction,
-                export_length_km=request.export_length_km,
-                grid_ssc_mva=request.grid_ssc_mva,
-            )
-        else:
-            result = run_ac_opf(
-                generation_fraction=request.generation_fraction,
-                export_length_km=request.export_length_km,
-                grid_ssc_mva=request.grid_ssc_mva,
-            )
-    except DomainError:
-        raise
-    except Exception as e:
-        raise DomainError(f"OPF analysis failed: {e}") from e
-
-    return OPFResponse(
-        converged=result.converged,
-        method=result.method,
-        objective_value_eur_h=result.objective_value_eur_h,
-        total_generation_mw=result.total_generation_mw,
-        total_curtailment_mw=result.total_curtailment_mw,
-        curtailment_percent=result.curtailment_percent,
-        total_loss_mw=result.total_loss_mw,
-        v_min_pu=result.v_min_pu,
-        v_max_pu=result.v_max_pu,
-        voltage_compliant=result.voltage_compliant,
-        max_line_loading_percent=result.max_line_loading_percent,
-        max_trafo_loading_percent=result.max_trafo_loading_percent,
-        generators=[
-            GeneratorDispatchSchema(
-                name=g.name,
-                p_mw=g.p_mw,
-                q_mvar=g.q_mvar,
-                p_max_mw=g.p_max_mw,
-                curtailed_mw=g.curtailed_mw,
-                marginal_cost_eur_mwh=g.marginal_cost_eur_mwh,
-            )
-            for g in result.generators
-        ],
-        statcom_q_mvar=result.statcom_q_mvar,
-        cost_saving_vs_curtailment_eur_h=result.cost_saving_vs_curtailment_eur_h,
-    )
-
-
-@router.post("/scopf", response_model=SCOPFResponse)
-async def security_constrained_opf(request: SCOPFRequest) -> SCOPFResponse:
-    """Run Security-Constrained OPF with N-1 contingency analysis.
-
-    Solves AC OPF, then checks all 6 string outage contingencies (preventive):
-    if any post-contingency state (with STATCOM voltage control) violates voltage
-    or thermal limits, reduces generation and re-solves. Finally screens the loss
-    of one export cable circuit and of one OSS / onshore transformer unit
-    (corrective): automatic actions + PPC runback to the remaining capacity.
-
-    Physics: Same as OPF + ∀ contingency k: constraints remain feasible.
-    """
-    try:
-        result = run_scopf(
-            generation_fraction=request.generation_fraction,
-            export_length_km=request.export_length_km,
-            grid_ssc_mva=request.grid_ssc_mva,
-        )
-    except DomainError:
-        raise
-    except Exception as e:
-        raise DomainError(f"SCOPF analysis failed: {e}") from e
-
-    base_resp = OPFResponse(
-        converged=result.base_case.converged,
-        method=result.base_case.method,
-        objective_value_eur_h=result.base_case.objective_value_eur_h,
-        total_generation_mw=result.base_case.total_generation_mw,
-        total_curtailment_mw=result.base_case.total_curtailment_mw,
-        curtailment_percent=result.base_case.curtailment_percent,
-        total_loss_mw=result.base_case.total_loss_mw,
-        v_min_pu=result.base_case.v_min_pu,
-        v_max_pu=result.base_case.v_max_pu,
-        voltage_compliant=result.base_case.voltage_compliant,
-        max_line_loading_percent=result.base_case.max_line_loading_percent,
-        max_trafo_loading_percent=result.base_case.max_trafo_loading_percent,
-        generators=[
-            GeneratorDispatchSchema(
-                name=g.name,
-                p_mw=g.p_mw,
-                q_mvar=g.q_mvar,
-                p_max_mw=g.p_max_mw,
-                curtailed_mw=g.curtailed_mw,
-                marginal_cost_eur_mwh=g.marginal_cost_eur_mwh,
-            )
-            for g in result.base_case.generators
-        ],
-        statcom_q_mvar=result.base_case.statcom_q_mvar,
-        cost_saving_vs_curtailment_eur_h=result.base_case.cost_saving_vs_curtailment_eur_h,
-    )
-
-    cont_results = [
-        ContingencyResultSchema(
-            name=c.name,
-            description=c.description,
-            converged=c.converged,
-            v_min_pu=c.v_min_pu,
-            v_max_pu=c.v_max_pu,
-            max_line_loading_percent=c.max_line_loading_percent,
-            max_trafo_loading_percent=c.max_trafo_loading_percent,
-            violations=[
-                ContingencyViolationSchema(
-                    contingency_name=v.contingency_name,
-                    violation_type=v.violation_type,
-                    element_name=v.element_name,
-                    value=v.value,
-                    limit=v.limit,
-                    severity=v.severity,
-                )
-                for v in c.violations
-            ],
-            secure=c.secure,
-            security_type=c.security_type,
-            corrective_action=c.corrective_action,
-            corrective_curtailment_mw=c.corrective_curtailment_mw,
-            pre_corrective_max_line_loading_percent=c.pre_corrective_max_line_loading_percent,
-            pre_corrective_max_trafo_loading_percent=c.pre_corrective_max_trafo_loading_percent,
-        )
-        for c in result.contingency_results
-    ]
-
-    return SCOPFResponse(
-        base_case=base_resp,
-        contingency_results=cont_results,
-        n1_secure=result.n1_secure,
-        num_violations=result.num_violations,
-        worst_contingency=result.worst_contingency,
-        iterations=result.iterations,
-        total_curtailment_for_security_mw=result.total_curtailment_for_security_mw,
-    )
-
-
 # ── Tier 2 Schemas ────────────────────────────────────────────
-
-
-class DCPowerFlowRequest(BaseModel):
-    """Request for DC (linearized) power flow."""
-
-    generation_fraction: float = Field(1.0, ge=0.0, le=1.0)
-    export_length_km: float = Field(EXPORT_CABLE_LENGTH_KM, ge=1.0, le=200.0)
-    grid_ssc_mva: float = Field(GRID_SSC_MVA, ge=500.0, le=50_000.0)
-
-
-class DCLineResultSchema(BaseModel):
-    name: str
-    p_from_mw: float
-    loading_percent: float
-    overloaded: bool
-
-
-class DCPowerFlowResponse(BaseModel):
-    converged: bool
-    total_generation_mw: float
-    total_export_mw: float
-    max_line_loading_percent: float
-    num_overloaded_lines: int
-    line_results: list[DCLineResultSchema]
-
-
-class DCContingencyResponse(BaseModel):
-    n_contingencies: int
-    n_secure: int
-    n_violations: int
-    worst_contingency: str
-    worst_loading_percent: float
 
 
 class EconomicDispatchRequest(BaseModel):
@@ -926,61 +503,6 @@ class CapacityExpansionResponse(BaseModel):
 
 
 # ── Tier 2 Endpoints ──────────────────────────────────────────
-
-
-@router.post("/dc-power-flow", response_model=DCPowerFlowResponse)
-async def dc_power_flow(request: DCPowerFlowRequest) -> DCPowerFlowResponse:
-    """Run DC (linearized) power flow for fast network screening.
-
-    DC power flow assumes flat voltage profile and lossless lines.
-    100-1000× faster than AC power flow — ideal for contingency screening.
-    """
-    try:
-        result = run_dc_power_flow(
-            generation_fraction=request.generation_fraction,
-            export_length_km=request.export_length_km,
-            grid_ssc_mva=request.grid_ssc_mva,
-        )
-    except Exception as e:
-        raise DomainError(f"DC power flow failed: {e}") from e
-
-    return DCPowerFlowResponse(
-        converged=result.converged,
-        total_generation_mw=result.total_generation_mw,
-        total_export_mw=result.total_export_mw,
-        max_line_loading_percent=result.max_line_loading_percent,
-        num_overloaded_lines=result.num_overloaded_lines,
-        line_results=[
-            DCLineResultSchema(
-                name=lr.name,
-                p_from_mw=lr.p_from_mw,
-                loading_percent=lr.loading_percent,
-                overloaded=lr.overloaded,
-            )
-            for lr in result.line_results
-        ],
-    )
-
-
-@router.post("/dc-contingency-screening", response_model=DCContingencyResponse)
-async def dc_contingency_screening(request: DCPowerFlowRequest) -> DCContingencyResponse:
-    """Screen all N-1 string contingencies using fast DC power flow."""
-    try:
-        result = run_dc_contingency_screening(
-            generation_fraction=request.generation_fraction,
-            export_length_km=request.export_length_km,
-            grid_ssc_mva=request.grid_ssc_mva,
-        )
-    except Exception as e:
-        raise DomainError(f"DC contingency screening failed: {e}") from e
-
-    return DCContingencyResponse(
-        n_contingencies=result.n_contingencies,
-        n_secure=result.n_secure,
-        n_violations=result.n_violations,
-        worst_contingency=result.worst_contingency,
-        worst_loading_percent=result.worst_loading_percent,
-    )
 
 
 @router.post("/economic-dispatch", response_model=EconomicDispatchResponse)

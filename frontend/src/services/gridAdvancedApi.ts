@@ -1,6 +1,5 @@
 /**
- * Grid Advanced API — wrappers for the 18 P2 endpoints that previously
- * had no UI caller (audit 2026-04-20).
+ * Planning & P2X API — wrappers for the P2 planning endpoints.
  *
  * Each endpoint takes a typed request body (matching the FastAPI Pydantic
  * model in backend/app/routers/p2.py) and returns the raw response object.
@@ -8,50 +7,11 @@
  * Plotly hooks, so we don't model each response shape exhaustively here.
  */
 
-import { post, request } from "./apiClient";
+import { post } from "./apiClient";
 
 const BASE = "/api/v1/grid";
 
 // ── Request bodies ──────────────────────────────────────────────────
-
-export interface DynamicComplianceRequest {
-  export_length_km: number;
-  grid_ssc_mva: number;
-  generation_fraction: number;
-}
-
-export type FrequencyMode = "lfsm_o" | "lfsm_u" | "fsm";
-export interface FrequencyResponseRequest {
-  mode: FrequencyMode;
-  freq_step_hz: number;
-  droop_pct: number;
-  generation_fraction: number;
-}
-
-export interface SSOScreeningRequest {
-  export_length_km: number;
-  grid_ssc_mva: number;
-  generation_fraction: number;
-}
-
-export interface OPFRequest {
-  method: "ac" | "dc";
-  generation_fraction: number;
-  export_length_km: number;
-  grid_ssc_mva: number;
-}
-
-export interface SCOPFRequest {
-  generation_fraction: number;
-  export_length_km: number;
-  grid_ssc_mva: number;
-}
-
-export interface DCPowerFlowRequest {
-  generation_fraction: number;
-  export_length_km: number;
-  grid_ssc_mva: number;
-}
 
 export interface EconomicDispatchRequest {
   mean_wind_speed_ms: number;
@@ -116,13 +76,6 @@ export interface MultiEnergyRequest {
 // ── Default bodies (sensible defaults matching backend Field() defaults) ──
 
 export const DEFAULTS = {
-  dynamicCompliance: { export_length_km: 45, grid_ssc_mva: 10000, generation_fraction: 1.0 } satisfies DynamicComplianceRequest,
-  frequencyResponse: { mode: "fsm" as FrequencyMode, freq_step_hz: 0.5, droop_pct: 5.0, generation_fraction: 0.8 } satisfies FrequencyResponseRequest,
-  ssoAnalysis: { export_length_km: 45, grid_ssc_mva: 10000, generation_fraction: 1.0 } satisfies SSOScreeningRequest,
-  opf: { method: "ac" as const, generation_fraction: 1.0, export_length_km: 45, grid_ssc_mva: 10000 } satisfies OPFRequest,
-  scopf: { generation_fraction: 1.0, export_length_km: 45, grid_ssc_mva: 10000 } satisfies SCOPFRequest,
-  dcPowerFlow: { generation_fraction: 1.0, export_length_km: 45, grid_ssc_mva: 10000 } satisfies DCPowerFlowRequest,
-  dcContingency: { generation_fraction: 1.0, export_length_km: 45, grid_ssc_mva: 10000 } satisfies DCPowerFlowRequest,
   economicDispatch: { mean_wind_speed_ms: 10.5, curtailment_order_mw: 0, electricity_price_eur_mwh: 72 } satisfies EconomicDispatchRequest,
   bessDispatch: { mean_wind_speed_ms: 10.5, grid_export_limit_mw: 510, bess_power_mw: 100, bess_energy_mwh: 400 } satisfies BESSDispatchRequest,
   acDcComparison: { cable_length_km: 45, capacity_factor: 0.45 } satisfies ACDCComparisonRequest,
@@ -137,13 +90,6 @@ export const DEFAULTS = {
 
 // ── POST wrappers (return unknown — UI uses generic JSON viewer) ──
 
-export const postDynamicCompliance = (body: DynamicComplianceRequest) => post<unknown>(`${BASE}/dynamic-compliance`, body);
-export const postFrequencyResponse = (body: FrequencyResponseRequest) => post<unknown>(`${BASE}/frequency-response`, body);
-export const postSSOAnalysis = (body: SSOScreeningRequest) => post<unknown>(`${BASE}/sso-analysis`, body);
-export const postOPF = (body: OPFRequest) => post<unknown>(`${BASE}/opf`, body);
-export const postSCOPF = (body: SCOPFRequest) => post<unknown>(`${BASE}/scopf`, body);
-export const postDCPowerFlow = (body: DCPowerFlowRequest) => post<unknown>(`${BASE}/dc-power-flow`, body);
-export const postDCContingency = (body: DCPowerFlowRequest) => post<unknown>(`${BASE}/dc-contingency-screening`, body);
 export const postEconomicDispatch = (body: EconomicDispatchRequest) => post<unknown>(`${BASE}/economic-dispatch`, body);
 export const postBESSDispatch = (body: BESSDispatchRequest) => post<unknown>(`${BASE}/bess-dispatch`, body);
 export const postACDCComparison = (body: ACDCComparisonRequest) => post<unknown>(`${BASE}/ac-dc-comparison`, body);
@@ -154,6 +100,3 @@ export const postElectrolyzer = (body: ElectrolyzerRequest) => post<unknown>(`${
 export const postSeasonalStorage = (body: SeasonalStorageRequest) => post<unknown>(`${BASE}/seasonal-storage`, body);
 export const postFlexibleDemand = (body: FlexibleDemandRequest) => post<unknown>(`${BASE}/flexible-demand`, body);
 export const postMultiEnergy = (body: MultiEnergyRequest) => post<unknown>(`${BASE}/multi-energy-carrier`, body);
-
-// GET — ANDES network spec
-export const getAndesNetwork = () => request<unknown>(`${BASE}/andes-network`);

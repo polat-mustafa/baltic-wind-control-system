@@ -79,7 +79,7 @@ export const frtInfo: InfoContent = {
   title: "FRT Simulation — Fault Ride-Through",
   description:
     "Simulates voltage dip at PCC and verifies the wind farm stays connected " +
-    "per grid code requirements. Uses ANDES dynamic simulation.",
+    "per grid code requirements (phasor model of the farm and grid impedances).",
   standard: "ENTSO-E NC RfG Article 14 — FRT capability for Type D generators",
   parameters: [
     { name: "Voltage dip", description: "0–100% retained voltage at PCC" },

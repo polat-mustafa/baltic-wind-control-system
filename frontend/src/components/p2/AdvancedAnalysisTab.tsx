@@ -1,134 +1,108 @@
 /**
- * P2 Grid · Advanced Analysis tab.
+ * N-1 Security tab — every single outage of the export system as an AC load
+ * flow: which the farm rides through as it is, which needs a PPC runback.
  *
- * Surfaces 8 backend endpoints that were previously orphaned from the UI:
- *   /dynamic-compliance, /frequency-response, /sso-analysis, /andes-network,
- *   /opf, /scopf, /dc-power-flow, /dc-contingency-screening.
- *
- * Each card uses the generic EndpointRunnerCard so the user can edit
- * request bodies and inspect raw responses — sufficient for an educational
- * "every line of code is explainable" simulation platform.
+ *   controls · KPIs
+ *   loading | voltage
+ *   runback
  */
 
-import { useState, useCallback } from "react";
+import { useEffect } from "react";
+import { motion, MotionConfig } from "framer-motion";
 
-import { EndpointRunnerCard } from "./EndpointRunnerCard";
-import { Card, CardHeader, CardTitle, CardContent } from "../ui/Card";
-import { Button } from "../ui/Button";
-import {
-  DEFAULTS,
-  postDynamicCompliance,
-  postFrequencyResponse,
-  postSSOAnalysis,
-  postOPF,
-  postSCOPF,
-  postDCPowerFlow,
-  postDCContingency,
-  getAndesNetwork,
-} from "../../services/gridAdvancedApi";
+import { n1SecurityEducation } from "../../constants/education/p2";
+import { useN1Store } from "../../store/n1SecurityStore";
+import { EducationButton } from "../ui/EducationButton";
+import { KPICard } from "../ui/KPICard";
+import { Slider } from "../ui/Slider";
+import N1LoadingPanel from "./N1LoadingPanel";
+import N1RunbackPanel from "./N1RunbackPanel";
+import N1VoltagePanel from "./N1VoltagePanel";
+
+const item = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
+};
 
 export default function AdvancedAnalysisTab() {
-  return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-      <EndpointRunnerCard
-        title="Dynamic Compliance Assessment"
-        description="Full ENTSO-E NC RfG Type D dynamic assessment: FRT, frequency response, SSO."
-        standard="ENTSO-E NC RfG Type D · ANDES TDS"
-        defaultBody={DEFAULTS.dynamicCompliance}
-        runner={postDynamicCompliance}
-      />
-      <EndpointRunnerCard
-        title="Frequency Response (FSM/LFSM)"
-        description="Active power vs frequency droop response — FSM, LFSM-O, LFSM-U modes."
-        standard="ENTSO-E NC RfG · droop %, deadband ±200 mHz"
-        defaultBody={DEFAULTS.frequencyResponse}
-        runner={postFrequencyResponse}
-      />
-      <EndpointRunnerCard
-        title="Sub-Synchronous Oscillation (SSO) Screening"
-        description="Eigenvalue screening for converter/cable interactions (15–60 Hz risk band)."
-        standard="IEC TR 63227 · NERC-style SSO assessment"
-        defaultBody={DEFAULTS.ssoAnalysis}
-        runner={postSSOAnalysis}
-      />
-      <ANDESNetworkCard />
-      <EndpointRunnerCard
-        title="Optimal Power Flow (OPF)"
-        description="Least-cost dispatch using AC nonlinear or DC linearised OPF."
-        standard="Pandapower OPF · IEC 60909 limits"
-        defaultBody={DEFAULTS.opf}
-        runner={postOPF}
-      />
-      <EndpointRunnerCard
-        title="Security-Constrained OPF (SCOPF)"
-        description="OPF with N-1 security — string outages (preventive) + loss of one export cable (corrective PPC runback)."
-        standard="ENTSO-E SOGL N-1 criterion"
-        defaultBody={DEFAULTS.scopf}
-        runner={postSCOPF}
-      />
-      <EndpointRunnerCard
-        title="DC Power Flow (Linearised)"
-        description="Fast DC approximation for screening — bus angles + line MW flows."
-        standard="MATPOWER-style DC PF · θ-formulation"
-        defaultBody={DEFAULTS.dcPowerFlow}
-        runner={postDCPowerFlow}
-      />
-      <EndpointRunnerCard
-        title="DC Contingency Screening"
-        description="N-1 screening of all string outages using DC PF — fast overload sweep."
-        standard="ENTSO-E SOGL · Bender's-style screening"
-        defaultBody={DEFAULTS.dcContingency}
-        runner={postDCContingency}
-      />
-    </div>
-  );
-}
+  const { study: s, generation_fraction, loading, error, setParams, run, clearError } = useN1Store();
 
-/** Read-only fetch card for ANDES network spec (GET, no body). */
-function ANDESNetworkCard() {
-  const [data, setData] = useState<unknown>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => void run(), 400);
+    return () => clearTimeout(id);
+  }, [generation_fraction, run]);
 
-  const handleFetch = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setData(await getAndesNetwork());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const corrective = s?.contingencies.filter((r) => r.runback_mw > 0) ?? [];
+  const worst = corrective.reduce<(typeof corrective)[number] | null>((w, r) => (!w || r.runback_mw > w.runback_mw ? r : w), null);
+  const vMin = s ? Math.min(...s.contingencies.map((r) => r.after_action?.v_min_pu ?? 1)) : null;
 
   return (
-    <Card>
-      <CardHeader
-        action={
-          <Button size="sm" onClick={handleFetch} disabled={loading}>
-            {loading ? "Fetching…" : "Fetch"}
-          </Button>
-        }
-      >
-        <CardTitle>ANDES Network Spec</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-xs text-text-secondary">
-          Returns the ANDES dynamic network description used for time-domain
-          simulations (buses, lines, generators, exciters, governors).
-        </p>
+    <MotionConfig reducedMotion="user">
+      <motion.div className="space-y-4" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.08 } } }}>
         {error && (
-          <div className="p-2 bg-status-alarm/10 border border-status-alarm/30 rounded text-xs text-status-alarm">
-            {error}
+          <div className="p-3 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-sm flex justify-between">
+            <span className="text-status-alarm">{error}</span>
+            <button className="text-xs text-text-secondary" onClick={clearError}>
+              Dismiss
+            </button>
           </div>
         )}
-        {data !== null && (
-          <pre className="font-mono text-[11px] bg-bg-tertiary border border-border-primary rounded p-2 text-text-primary overflow-auto max-h-80">
-            {JSON.stringify(data, null, 2)}
-          </pre>
-        )}
-      </CardContent>
-    </Card>
+
+        <motion.div variants={item} className="rounded-lg border border-border-primary bg-bg-secondary p-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <Slider
+              label="Available wind output"
+              value={generation_fraction}
+              display={`${(generation_fraction * 510).toFixed(0)} MW`}
+              min={0.1}
+              max={1}
+              step={0.05}
+              onChange={(v) => setParams({ generation_fraction: v })}
+            />
+            <p className="text-xs text-text-secondary max-w-md">
+              9 outages × AC load flow with STATCOM re-dispatch; runback found by bisection.
+              {loading && <span className="ml-1 text-accent">Solving…</span>}
+            </p>
+            <span className="ml-auto">
+              <EducationButton content={n1SecurityEducation} />
+            </span>
+          </div>
+        </motion.div>
+
+        <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KPICard
+            label="Output (base case)"
+            value={s?.base_case ? s.base_case.output_mw.toFixed(0) : "—"}
+            unit="MW"
+            trendValue={s?.base_case ? `${s.base_case.export_mw.toFixed(1)} MW at the POC` : ""}
+          />
+          <KPICard
+            label="N-1 security"
+            value={s ? (s.n1_secure ? "Secure" : "Not secure") : "—"}
+            trendValue={s ? (corrective.length ? `${corrective.length} outages need a runback` : "no runback needed") : ""}
+          />
+          <KPICard
+            label="Firm N-1 output"
+            value={s ? s.firm_output_mw.toFixed(0) : "—"}
+            unit="MW"
+            trendValue={s ? (corrective.length ? "any outage, no runback" : "at least — nothing binds") : ""}
+          />
+          <KPICard
+            label="Largest runback"
+            value={worst ? worst.runback_mw.toFixed(0) : "0"}
+            unit="MW"
+            trendValue={worst ? `${worst.runback_s.toFixed(0)} s · lowest V ${vMin?.toFixed(3)} p.u.` : vMin ? `lowest V ${vMin.toFixed(3)} p.u.` : ""}
+          />
+        </motion.div>
+
+        <motion.div variants={item} className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <N1LoadingPanel />
+          <N1VoltagePanel />
+        </motion.div>
+        <motion.div variants={item}>
+          <N1RunbackPanel />
+        </motion.div>
+      </motion.div>
+    </MotionConfig>
   );
 }

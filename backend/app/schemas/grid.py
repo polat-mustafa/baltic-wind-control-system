@@ -321,35 +321,6 @@ class FRTType(StrEnum):
     """High-voltage ride-through: grid voltage swell (illustrative, no PSE profile)."""
 
 
-class FrequencyMode(StrEnum):
-    """NC RfG Type D frequency response mode."""
-
-    LFSM_O = "lfsm_o"
-    """Limited frequency sensitive mode — overfrequency (>50.2 Hz)."""
-
-    LFSM_U = "lfsm_u"
-    """Limited frequency sensitive mode — underfrequency (<49.8 Hz)."""
-
-    FSM = "fsm"
-    """Frequency sensitive mode — droop-based (R = 5% default)."""
-
-    ROCOF = "rocof"
-    """Rate of change of frequency withstand (2 Hz/s for 500 ms)."""
-
-
-class SSOGRiskLevel(StrEnum):
-    """Sub-synchronous oscillation risk classification."""
-
-    LOW = "low"
-    """Strong grid, high damping — no SSO concern."""
-
-    MEDIUM = "medium"
-    """Moderate damping — monitoring recommended."""
-
-    HIGH = "high"
-    """Weak grid, low damping — mitigation required."""
-
-
 class ConverterType(StrEnum):
     """Converter control strategy."""
 
@@ -433,64 +404,6 @@ class FRTSimulationResponse(BaseModel):
     )
 
 
-# ── P2B Frequency Response ──────────────────────────────────────
-
-
-class FrequencyResponseResponse(BaseModel):
-    """Frequency response simulation result for a single mode.
-
-    Contains the measured power change, expected change from droop formula,
-    and compliance verdict per NC RfG Type D.
-    """
-
-    model_config = {"from_attributes": True}
-
-    mode: FrequencyMode = Field(description="Frequency response mode")
-    frequency_step_hz: float = Field(description="Applied frequency deviation [Hz]")
-    droop_percent: float = Field(description="Droop setting R [%]")
-    initial_power_mw: float = Field(description="Pre-disturbance active power [MW]")
-    final_power_mw: float = Field(description="Post-disturbance active power [MW]")
-    power_change_mw: float = Field(description="Measured ΔP [MW]")
-    expected_power_change_mw: float = Field(description="Expected ΔP from droop formula [MW]")
-    compliant: bool = Field(description="Meets NC RfG Type D requirements")
-    stable: bool = Field(description="System remained stable during event")
-
-
-# ── P2B SSO Screening ───────────────────────────────────────────
-
-
-class EigenvalueMode(BaseModel):
-    """Single eigenvalue mode from ANDES eigenvalue analysis."""
-
-    real: float = Field(description="Real part sigma [1/s]")
-    imaginary: float = Field(description="Imaginary part omega [rad/s]")
-    frequency_hz: float = Field(description="Oscillation frequency [Hz]")
-    damping_ratio: float = Field(description="Damping ratio ζ [-]")
-    is_subsynchronous: bool = Field(description="True if f < 50 Hz")
-
-
-class SSOScreeningResponse(BaseModel):
-    """Sub-synchronous oscillation screening result.
-
-    Contains cable resonance analysis, impedance scan results,
-    eigenvalue modes, and risk classification.
-    """
-
-    model_config = {"from_attributes": True}
-
-    export_length_km: float = Field(description="Export cable length [km]")
-    grid_ssc_mva: float = Field(description="Grid short-circuit power [MVA]")
-    resonance_frequency_hz: float = Field(description="Cable LC resonance frequency [Hz]")
-    phase_margin_deg: float = Field(description="Impedance phase margin at resonance [deg]")
-    stable: bool = Field(description="Re{Z(jω)} > 0 for all sub-synchronous ω")
-    risk_level: SSOGRiskLevel = Field(description="SSO risk classification")
-    minimum_damping_ratio: float = Field(description="Min damping in sub-synchronous range")
-    critical_modes: list[EigenvalueMode] = Field(
-        default_factory=list,
-        description="Eigenvalue modes with damping < 5% in sub-synchronous range",
-    )
-
-
 # ── P2B Converter Comparison ────────────────────────────────────
 
 
@@ -540,25 +453,3 @@ class ConverterComparisonResponse(BaseModel):
     gfm_advantage: str = Field(description="Plain summary of what the simulation shows")
     phase_jump_deg: float = Field(20.0, description="Grid voltage phase jump at t = 0.1 s [deg]")
     time_series: list[ConverterTimePoint] = Field(default_factory=list)
-
-
-# ── P2B Dynamic Compliance Report ───────────────────────────────
-
-
-class DynamicComplianceResponse(BaseModel):
-    """Complete NC RfG Type D dynamic compliance report.
-
-    Aggregates all P2B simulation results into a single compliance verdict.
-    """
-
-    model_config = {"from_attributes": True}
-
-    lvrt: FRTSimulationResponse = Field(description="LVRT simulation result")
-    hvrt: FRTSimulationResponse = Field(description="HVRT simulation result")
-    lfsm_o: FrequencyResponseResponse = Field(description="LFSM-O result")
-    lfsm_u: FrequencyResponseResponse = Field(description="LFSM-U result")
-    fsm: FrequencyResponseResponse = Field(description="FSM droop result")
-    rocof: FrequencyResponseResponse = Field(description="RoCoF withstand result")
-    sso: SSOScreeningResponse = Field(description="SSO screening result")
-    converter_comparison: ConverterComparisonResponse = Field(description="GFL vs GFM comparison")
-    overall_compliant: bool = Field(description="True if ALL checks pass")

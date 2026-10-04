@@ -20,21 +20,16 @@ grep -r "/api/v1/" frontend/src
 
 ---
 
-## Group A — P2 Grid Advanced Analysis (8 endpoints)
+## Group A — P2 N-1 Security (1 endpoint)
 
 | Endpoint | Method | UI route | Component |
 |---|---|---|---|
-| `/api/v1/grid/dynamic-compliance` | POST | `/hv-grid` → **Advanced** tab | `AdvancedAnalysisTab` |
-| `/api/v1/grid/frequency-response` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/sso-analysis` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/andes-network` | GET | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/opf` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/scopf` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/dc-power-flow` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/dc-contingency-screening` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
+| `/api/v1/grid/security/n1` | POST | `/hv-grid` → **N-1 Security** tab | `AdvancedAnalysisTab` |
 
-Service module: `frontend/src/services/gridAdvancedApi.ts`
-Generic UI primitive: `frontend/src/components/p2/EndpointRunnerCard.tsx`
+Store: `frontend/src/store/n1SecurityStore.ts`. The former ANDES-based dynamic
+compliance / frequency response / SSO endpoints, OPF/SCOPF and DC power flow
+were removed (ANDES carried no converter models; the OPF had nothing to trade
+on a radial zero-cost farm). FRT and GFL/GFM live in the Grid tab, LFSM/FSM in the PPC tab.
 
 ## Group A2 — P2 Grid Planning & Sector Coupling (10 endpoints)
 
@@ -113,13 +108,13 @@ Files:
 
 | Group | Endpoints | Status |
 |---|---:|---|
-| A — P2 Grid Advanced | 8 | ✅ wired |
+| A — P2 N-1 Security | 1 | ✅ wired |
 | A2 — P2 Grid Planning & P2X | 10 | ✅ wired |
 | B — P2 Market Imbalance | 1 | ✅ wired |
 | C — P3 SCL Generator | 1 | ✅ wired |
 | D — P1 Research Lab | 8 | ✅ wired |
 | E — Live nacelle subsystems | 4 | ✅ wired (polling) |
-| **Total newly exposed** | **32** | — |
+| **Total newly exposed** | **25** | — |
 
 To keep this audit green, future endpoint additions should ship with at least
 one frontend caller in the same PR.

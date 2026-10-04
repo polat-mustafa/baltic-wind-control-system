@@ -83,8 +83,8 @@ SCENARIOS: dict[str, dict[str, Any]] = {
 
 def farm_mw(wind_ms: np.ndarray) -> np.ndarray:
     """Farm output [MW] from hub-height wind: 34 × V236 curve × losses, 0 ≤ P ≤ 510."""
-    p = N_TURBINES * get_v236_power_curve_kw(wind_ms) / 1000.0 * LOSS_FACTOR
-    return np.clip(p, 0.0, RATED_MW)
+    p = np.asarray(get_v236_power_curve_kw(wind_ms), dtype=float)
+    return np.clip(N_TURBINES * p / 1000.0 * LOSS_FACTOR, 0.0, RATED_MW)
 
 
 def bess_arbitrage(price: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:

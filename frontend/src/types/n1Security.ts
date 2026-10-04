@@ -43,3 +43,40 @@ export interface N1Response {
   runback_mw_per_s: number;
   voltage_band_pu: [number, number];
 }
+
+/** ANDES RMS event — mirror DynamicsRequest / DynamicsResponse. */
+export type DynamicsEvent = "frequency" | "fault";
+
+export interface DynamicsRequest {
+  event: DynamicsEvent;
+  load_trip_mw: number;
+  retained_voltage_pu: number;
+}
+
+export interface DynamicsPoint {
+  t: number;
+  f_hz: number;
+  v_poc: number;
+  p_mw: number;
+  q_mvar: number;
+  iq_pu: number;
+  p_expected_mw: number | null;
+}
+
+export interface DynamicsResponse {
+  event: DynamicsEvent;
+  p0_mw: number;
+  series: DynamicsPoint[];
+  load_trip_mw: number | null;
+  f_max_hz: number | null;
+  f_final_hz: number | null;
+  p_min_mw: number | null;
+  dp_final_mw: number | null;
+  dp_expected_final_mw: number | null;
+  response_delay_s: number | null;
+  retained_voltage_pu: number | null;
+  iq_max_pu: number | null;
+  p_recovery_s: number | null;
+  recovery_limit_s: number | null;
+  stayed_connected: boolean | null;
+}

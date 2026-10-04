@@ -59,7 +59,7 @@ describe("N-1 Security tab", () => {
     expect(screen.getByText("343")).toBeTruthy();
     expect(screen.getByText("167")).toBeTruthy();
 
-    fireEvent.change(screen.getByRole("slider"), { target: { value: "0.5" } });
+    fireEvent.change(screen.getAllByRole("slider")[0], { target: { value: "0.5" } });
     await flush();
     vi.useRealTimers();
     expect(vi.mocked(apiClient.post).mock.lastCall?.[1]).toMatchObject({ generation_fraction: 0.5 });

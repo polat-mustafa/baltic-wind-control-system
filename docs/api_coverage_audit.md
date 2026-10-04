@@ -20,16 +20,18 @@ grep -r "/api/v1/" frontend/src
 
 ---
 
-## Group A — P2 N-1 Security (1 endpoint)
+## Group A — P2 Security & Dynamics (2 endpoints)
 
 | Endpoint | Method | UI route | Component |
 |---|---|---|---|
-| `/api/v1/grid/security/n1` | POST | `/hv-grid` → **N-1 Security** tab | `AdvancedAnalysisTab` |
+| `/api/v1/grid/security/n1` | POST | `/hv-grid` → **Security & Dynamics** tab | `AdvancedAnalysisTab` |
+| `/api/v1/grid/dynamics/andes` | POST | `/hv-grid` → Security & Dynamics | `AndesDynamicsSection` |
 
-Store: `frontend/src/store/n1SecurityStore.ts`. The former ANDES-based dynamic
-compliance / frequency response / SSO endpoints, OPF/SCOPF and DC power flow
-were removed (ANDES carried no converter models; the OPF had nothing to trade
-on a radial zero-cost farm). FRT and GFL/GFM live in the Grid tab, LFSM/FSM in the PPC tab.
+Store: `frontend/src/store/n1SecurityStore.ts`. The ANDES case now carries the
+WECC REGCA1/REECA1/REPCA1 plant model and a synchronous area equivalent (the old
+builder swallowed add() errors and ran with no converter). OPF/SCOPF, DC power
+flow and the passive-network SSO screen were removed: the OPF had nothing to
+trade on a radial zero-cost farm, and SSO needs EMT/vendor models.
 
 ## Group A2 — P2 Grid Planning & Sector Coupling (10 endpoints)
 
@@ -108,13 +110,13 @@ Files:
 
 | Group | Endpoints | Status |
 |---|---:|---|
-| A — P2 N-1 Security | 1 | ✅ wired |
+| A — P2 Security & Dynamics | 2 | ✅ wired |
 | A2 — P2 Grid Planning & P2X | 10 | ✅ wired |
 | B — P2 Market Imbalance | 1 | ✅ wired |
 | C — P3 SCL Generator | 1 | ✅ wired |
 | D — P1 Research Lab | 8 | ✅ wired |
 | E — Live nacelle subsystems | 4 | ✅ wired (polling) |
-| **Total newly exposed** | **25** | — |
+| **Total newly exposed** | **26** | — |
 
 To keep this audit green, future endpoint additions should ship with at least
 one frontend caller in the same PR.

@@ -14,3 +14,4 @@ export { bessEducation } from "./bess";
 export { cableDtsEducation } from "./cableDts";
 export { marketEducation } from "./market";
 export { n1SecurityEducation } from "./n1Security";
+export { andesDynamicsEducation } from "./andesDynamics";

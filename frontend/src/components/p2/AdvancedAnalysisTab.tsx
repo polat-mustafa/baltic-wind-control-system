@@ -1,10 +1,10 @@
 /**
- * N-1 Security tab — every single outage of the export system as an AC load
- * flow: which the farm rides through as it is, which needs a PPC runback.
+ * Security & Dynamics tab.
  *
- *   controls · KPIs
- *   loading | voltage
- *   runback
+ *   N-1 security — every single outage of the export system as an AC load
+ *   flow: which the farm rides through as it is, which needs a PPC runback.
+ *     controls · KPIs · loading | voltage · runback
+ *   Dynamics — ANDES RMS simulation (WECC generic models): LFSM-O and FRT.
  */
 
 import { useEffect } from "react";
@@ -15,6 +15,7 @@ import { useN1Store } from "../../store/n1SecurityStore";
 import { EducationButton } from "../ui/EducationButton";
 import { KPICard } from "../ui/KPICard";
 import { Slider } from "../ui/Slider";
+import AndesDynamicsSection from "./AndesDynamicsSection";
 import N1LoadingPanel from "./N1LoadingPanel";
 import N1RunbackPanel from "./N1RunbackPanel";
 import N1VoltagePanel from "./N1VoltagePanel";
@@ -101,6 +102,9 @@ export default function AdvancedAnalysisTab() {
         </motion.div>
         <motion.div variants={item}>
           <N1RunbackPanel />
+        </motion.div>
+        <motion.div variants={item}>
+          <AndesDynamicsSection />
         </motion.div>
       </motion.div>
     </MotionConfig>

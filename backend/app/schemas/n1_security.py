@@ -56,3 +56,48 @@ class N1Response(BaseModel):
     )
     runback_mw_per_s: float
     voltage_band_pu: list[float]
+
+
+# ── ANDES RMS dynamics ────────────────────────────────────────────
+
+
+class DynamicsRequest(BaseModel):
+    event: Literal["frequency", "fault"] = "frequency"
+    load_trip_mw: float = Field(
+        default=3_000.0, ge=500.0, le=4_000.0, description="Area load lost at t = 1 s [MW]"
+    )
+    retained_voltage_pu: float = Field(
+        default=0.05, ge=0.05, le=0.8, description="POC voltage during the 150 ms fault [p.u.]"
+    )
+
+
+class DynamicsPoint(BaseModel):
+    t: float = Field(description="Time [s]")
+    f_hz: float = Field(description="Frequency at the POC [Hz]")
+    v_poc: float = Field(description="POC voltage [p.u.]")
+    p_mw: float = Field(description="Plant active power [MW]")
+    q_mvar: float = Field(description="Plant reactive power, + generating [MVAR]")
+    iq_pu: float = Field(description="Reactive current, + capacitive [p.u. of plant rating]")
+    p_expected_mw: float | None = Field(
+        default=None, description="Static LFSM-O characteristic of the measured frequency [MW]"
+    )
+
+
+class DynamicsResponse(BaseModel):
+    event: Literal["frequency", "fault"]
+    p0_mw: float
+    series: list[DynamicsPoint]
+    # frequency event
+    load_trip_mw: float | None = None
+    f_max_hz: float | None = None
+    f_final_hz: float | None = None
+    p_min_mw: float | None = None
+    dp_final_mw: float | None = None
+    dp_expected_final_mw: float | None = None
+    response_delay_s: float | None = None
+    # fault event
+    retained_voltage_pu: float | None = None
+    iq_max_pu: float | None = None
+    p_recovery_s: float | None = None
+    recovery_limit_s: float | None = None
+    stayed_connected: bool | None = None

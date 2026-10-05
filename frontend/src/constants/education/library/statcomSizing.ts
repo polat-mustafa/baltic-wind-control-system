@@ -133,5 +133,4 @@ export const statcomSizingEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-009"],
 };

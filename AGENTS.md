@@ -7,5 +7,4 @@ Large reference docs are read **on demand, one section at a time** — never loa
 
 - `docs/SKILL.md` — engineering + coding standards (Critical Domain Rules, Code Style, API patterns, …)
 - `docs/Project_Roadmap.md` — project specification (§2 P1 … §6 P5, §9 Standards Matrix)
-- `docs/Learning_Roadmap.md` — 32-week self-study curriculum
-- `docs/archive/` — historical v1/v2 roadmaps
+- `docs/references.md` — methods, implementation files and primary sources per module

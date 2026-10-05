@@ -48,7 +48,7 @@ interface V236TurbineProps {
   /** Hub-height wind speed (m/s) — thrust → blade and tower deflection. */
   windMs?: number;
   /** Blade surface vertex-color field mode. */
-  bladeFieldMode?: "off" | "thermal" | "pressure" | "strain";
+  bladeFieldMode?: "off" | "thermal" | "pressure" | "bending";
   /** Draw the tip-vortex helices (Wind field overlay). */
   showFlow?: boolean;
 }

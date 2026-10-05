@@ -4,13 +4,12 @@
  * Small coloured disc badges overlaid on each monitored component.
  * Visible in cutaway and exploded modes.
  *
- * Health Index (HI) derivation:
- *   Main bearing:  HI = 100 − max(0, (T_bearing − 45°C) / 0.6) %
- *   Gearbox:       HI = 100 − max(0, (T_oil     − 65°C) / 0.5) %
- *   Generator:     HI = 100 − max(0, (T_gen     − 80°C) / 0.4) %
- *   Converter:     Fixed 95 % (no direct temperature in store — nominal)
+ * Health Index (HI) from the thermal margin (model/nacelleThermal, the same
+ * temperatures as the thermal overlay): 100 at or below the part's rated
+ * temperature on a 15 °C day, 0 at its trip limit, linear in between.
+ *   Main bearing — simulated PT100 · Gearbox — live sump oil (backend)
+ *   Generator / converter — load-loss model
  *
- * Alarm thresholds (IEC 61400-1 / ISO 10816-21):
  *   HI 80–100 → green  (#22c55e)
  *   HI 60–80  → yellow (#eab308)
  *   HI 30–60  → amber  (#f97316)
@@ -18,10 +17,12 @@
  */
 
 import * as THREE from "three";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 import { selectTurbine, useLandingStore } from "../../../../store/landingStore";
+import { selectNacelleData, useNacelleSubsystemsStore } from "../../../../store/nacelleSubsystemsStore";
 import { onShaft, PARTS, SHAFT_Z } from "../model/layout";
+import { nacelleTemperatures, thermalHealthIndex } from "../model/nacelleThermal";
 
 interface HealthBadgesProps {
   turbineId: string;
@@ -34,10 +35,6 @@ function hiToColour(hi: number): string {
   return "#ef4444";
 }
 
-function clamp(val: number, lo: number, hi: number) {
-  return Math.max(lo, Math.min(hi, val));
-}
-
 interface Badge {
   label: string;
   position: [number, number, number];
@@ -46,27 +43,24 @@ interface Badge {
 
 export function HealthBadges({ turbineId }: HealthBadgesProps) {
   const turbine = useLandingStore(selectTurbine(turbineId));
+  const airC = useLandingStore((s) => s.environment.airTemperatureC);
+  const oilC = useNacelleSubsystemsStore(selectNacelleData(turbineId))?.cooling?.oil_temp_c;
 
   const badges: Badge[] = useMemo(() => {
-    const bearingTempC = turbine?.bearingTempC ?? 45;
-    const powerMw      = turbine?.powerOutputMW ?? 0;
-
-    // Derive thermal proxies for components not directly in store
-    const gearboxOilTempC = 25 + 40 * (powerMw / 15.0);  // matches cooling model
-    const genTempC        = 30 + 50 * (powerMw / 15.0);   // matches thermal model
-
-    const bearingHI  = clamp(100 - Math.max(0, (bearingTempC   - 45) / 0.6), 0, 100);
-    const gearboxHI  = clamp(100 - Math.max(0, (gearboxOilTempC - 65) / 0.5), 0, 100);
-    const generatorHI = clamp(100 - Math.max(0, (genTempC       - 80) / 0.4), 0, 100);
-    const converterHI = 95; // no direct trip data available — nominal
-
+    const t = nacelleTemperatures({
+      powerMW: turbine?.powerOutputMW ?? 0,
+      airC,
+      bearingC: turbine?.bearingTempC,
+      oilC,
+    });
+    const hi = (id: keyof typeof t) => thermalHealthIndex(id, t[id].tempC);
     return [
-      { label: "Main Bearing",  position: onShaft(SHAFT_Z.bearingUnit, 1.5, 2.6),  hi: bearingHI   },
-      { label: "Gearbox",       position: onShaft(SHAFT_Z.gearbox, 1.5, 2.6),      hi: gearboxHI   },
-      { label: "Generator",     position: onShaft(SHAFT_Z.generator, 1.5, 2.8),    hi: generatorHI },
-      { label: "Converter",     position: [PARTS.converter[0], PARTS.converter[1] + 2.0, PARTS.converter[2]], hi: converterHI },
+      { label: "Main Bearing", position: onShaft(SHAFT_Z.bearingUnit, 1.5, 2.6), hi: hi("mainBearing") },
+      { label: "Gearbox", position: onShaft(SHAFT_Z.gearbox, 1.5, 2.6), hi: Math.min(hi("gearboxOil"), hi("hsBearing")) },
+      { label: "Generator", position: onShaft(SHAFT_Z.generator, 1.5, 2.8), hi: hi("generator") },
+      { label: "Converter", position: [PARTS.converter[0], PARTS.converter[1] + 2.0, PARTS.converter[2]], hi: hi("converter") },
     ];
-  }, [turbine]);
+  }, [turbine?.powerOutputMW, turbine?.bearingTempC, airC, oilC]);
 
   return (
     <group name="health-badges">
@@ -78,50 +72,55 @@ export function HealthBadges({ turbineId }: HealthBadgesProps) {
 }
 
 function HealthBadge({ badge }: { badge: Badge }) {
-  const colour = hiToColour(badge.hi);
+  const hi = Math.round(badge.hi);
+  const colour = hiToColour(hi);
 
+  // 2× canvas for crisp text; the ring fills with the HI like a gauge.
   const texture = useMemo(() => {
+    const S = 192;
+    const c = S / 2;
     const canvas = document.createElement("canvas");
-    canvas.width = 96;
-    canvas.height = 96;
+    canvas.width = S;
+    canvas.height = S;
     const ctx = canvas.getContext("2d")!;
 
-    // Background circle
     ctx.beginPath();
-    ctx.arc(48, 48, 44, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.arc(c, c, 88, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(10,16,28,0.82)";
     ctx.fill();
 
-    // Coloured ring
+    ctx.lineWidth = 12;
+    ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.arc(48, 48, 44, 0, Math.PI * 2);
+    ctx.arc(c, c, 78, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(148,163,184,0.25)";
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(c, c, 78, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * Math.max(0.01, hi)) / 100);
     ctx.strokeStyle = colour;
-    ctx.lineWidth = 8;
     ctx.stroke();
 
-    // HI number
     ctx.fillStyle = colour;
-    ctx.font = "bold 28px monospace";
+    ctx.font = "bold 56px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(`${Math.round(badge.hi)}`, 48, 40);
+    ctx.fillText(`${hi}`, c, c - 10);
 
-    // "HI" label
     ctx.fillStyle = "#94a3b8";
-    ctx.font = "14px sans-serif";
-    ctx.fillText("HI", 48, 64);
+    ctx.font = "bold 24px sans-serif";
+    ctx.fillText("HI", c, c + 36);
 
-    return new THREE.CanvasTexture(canvas);
-  }, [badge.hi, colour]);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    return tex;
+  }, [hi, colour]);
+
+  useEffect(() => () => texture.dispose(), [texture]);
 
   return (
     <sprite position={badge.position} scale={[0.9, 0.9, 1]}>
-      <spriteMaterial
-        map={texture}
-        transparent
-        opacity={0.92}
-        depthWrite={false}
-      />
+      <spriteMaterial map={texture} transparent opacity={0.95} depthWrite={false} />
     </sprite>
   );
 }

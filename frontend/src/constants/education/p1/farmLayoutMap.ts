@@ -90,5 +90,4 @@ export const farmLayoutMapEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-005", "lesson-006"],
 };

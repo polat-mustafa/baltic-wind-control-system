@@ -1410,8 +1410,7 @@ baltic-wind-control-system/
 ├── README.md                    # System overview + project summaries
 ├── docs/
 │   ├── SKILL.md                 # Engineering & coding standards
-│   ├── Project_Roadmap.md       # This document
-│   └── Learning_Roadmap.md      # 32-week self-study curriculum
+│   └── Project_Roadmap.md       # This document
 ├── backend/                     # FastAPI Python services (all 5 projects)
 ├── frontend/                    # React TypeScript SPA (all 5 projects)
 ├── notebooks/                   # Jupyter exploration notebooks

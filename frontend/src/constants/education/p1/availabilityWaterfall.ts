@@ -75,5 +75,4 @@ export const availabilityWaterfallEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-006"],
 };

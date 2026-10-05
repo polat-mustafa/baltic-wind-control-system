@@ -324,7 +324,8 @@ export interface HistorianQueryRequest {
   tags: string[];
   range_hours: number;
   resolution: string;
-  now_epoch_minutes: number;
+  /** End of the window in Unix minutes (UTC); omitted = now. */
+  now_epoch_minutes?: number;
 }
 
 /** Multi-tag time-series response */

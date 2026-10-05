@@ -1,92 +1,90 @@
 /**
- * Fleet Health Heatmap — M12 CMS.
+ * Fleet health matrix — 5 monitored components × 34 turbines (CMS, M12).
  *
- * Plotly heatmap: 34 turbines (x) × 8 components (y), coloured by health index.
- * Green (>80), Amber (60-80), Red (<60).
- * Click on turbine column → triggers fetchTurbineDetail in CMSDashboard.
+ * ISA-101: healthy cells stay neutral; colour appears only as the health
+ * index leaves the GREEN band (YELLOW < 80, AMBER < 60, RED < 40,
+ * CRITICAL < 20). Each cell carries its number, so colour is never the only
+ * cue. Click a column to open that turbine.
  */
 
-import Plot from "react-plotly.js";
-import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import type { CMSAlertLevel } from "../../types/cms";
 import { useCMSStore } from "../../store/cmsStore";
-
-const COMPONENTS = ["MAIN_BEARING", "GEARBOX", "GENERATOR", "ROTOR_HUB", "PITCH_SYSTEM", "YAW_SYSTEM", "TRANSFORMER", "CONVERTER"];
+import { CMS_COMPONENTS, LEVEL_STYLE, hiLevel } from "../../constants/cmsLevels";
+import { cn } from "../../lib/utils";
 
 export default function FleetHealthPanel() {
-  const { fleetHealth, fetchTurbineDetail } = useCMSStore();
+  const fleet = useCMSStore((s) => s.fleetHealth);
+  const selected = useCMSStore((s) => s.selectedTurbineId);
+  const select = useCMSStore((s) => s.fetchTurbineDetail);
 
-  if (!fleetHealth) return null;
-
-  const turbineIds = fleetHealth.turbines.map((t) => t.turbine_id);
-  // Build 2D matrix: rows = components, cols = turbines
-  // For simplicity, use overall_health_index for all rows (backend returns per-turbine overall)
-  const z = COMPONENTS.map(() => fleetHealth.turbines.map((t) => t.overall_health_index));
-  const text = COMPONENTS.map(() => fleetHealth.turbines.map((t) => `${t.overall_health_index.toFixed(0)}`));
+  if (!fleet) return null;
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-text-primary">Fleet Health Index — 34 WTGs</h3>
-        <div className="flex gap-3 text-xs text-text-muted">
-          <span className="text-status-success">{fleetHealth.fleet_average_hi.toFixed(0)} avg</span>
-          <span className="text-status-warning">{fleetHealth.turbines_in_warning} warning</span>
-          <span className="text-status-alarm">{fleetHealth.turbines_in_alert} alert</span>
-        </div>
+    <section className="bg-bg-secondary rounded-lg border border-border-primary p-3">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-2">
+        <h3 className="text-xs font-semibold text-text-primary">Fleet health index · 34 × V236</h3>
+        <span className="text-[11px] font-mono text-text-muted">
+          fleet mean {fleet.fleet_average_hi.toFixed(0)} · {fleet.turbines_in_alert} amber · {fleet.turbines_in_warning} red/critical
+        </span>
+        <span className="flex-1" />
+        <span className="flex flex-wrap gap-2 text-[10px] text-text-muted">
+          {(Object.keys(LEVEL_STYLE) as CMSAlertLevel[]).map((l) => (
+            <span key={l} className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm border border-border-secondary" style={{ background: LEVEL_STYLE[l].bg }} />
+              {LEVEL_STYLE[l].label}
+            </span>
+          ))}
+        </span>
       </div>
-      <Plot
-        data={[
-          {
-            type: "heatmap",
-            x: turbineIds,
-            y: COMPONENTS.map((c) => c.replace("_", " ")),
-            z,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            text: text as any,
-            texttemplate: "%{text}",
-            textfont: { size: 9, color: "#0f1117" },
-            colorscale: [
-              [0, "#ef4444"],
-              [0.3, "#ef4444"],
-              [0.4, "#f59e0b"],
-              [0.5, "#f59e0b"],
-              [0.6, "#3ecf6e"],
-              [1, "#3ecf6e"],
-            ] as [number, string][],
-            zmin: 0,
-            zmax: 100,
-            showscale: true,
-            colorbar: {
-              title: { text: "HI", font: { color: "#9ba3b8", size: 11 } },
-              tickfont: { color: "#9ba3b8", size: 10 },
-              thickness: 12,
-            },
-            hovertemplate: "%{x} — %{y}<br>Health Index: %{z:.0f}<extra></extra>",
-          },
-        ]}
-        layout={{
-          ...DARK_PLOTLY_LAYOUT,
-          height: 280,
-          xaxis: {
-            ...DARK_PLOTLY_LAYOUT.xaxis,
-            tickfont: { size: 8, color: "#9ba3b8", family: "'JetBrains Mono', monospace" },
-            tickangle: -60,
-          },
-          yaxis: {
-            ...DARK_PLOTLY_LAYOUT.yaxis,
-            tickfont: { size: 9, color: "#9ba3b8" },
-          },
-          margin: { t: 20, r: 60, b: 70, l: 110 },
-        }}
-        config={PLOTLY_CONFIG}
-        onClick={(data) => {
-          if (data.points.length > 0) {
-            const turbineId = data.points[0].x as string;
-            fetchTurbineDetail(turbineId);
-          }
-        }}
-        className="w-full cursor-pointer"
-      />
-      <p className="text-xs text-text-muted mt-1">Click a turbine column to load component detail</p>
-    </div>
+
+      <div className="overflow-x-auto">
+        <table className="border-separate border-spacing-0.5 text-[10px] font-mono">
+          <thead>
+            <tr>
+              <th />
+              {fleet.turbines.map((t) => (
+                <th key={t.turbine_id} className="px-0 font-normal">
+                  <button
+                    type="button"
+                    onClick={() => void select(t.turbine_id)}
+                    className={cn("w-7 rounded-sm", selected === t.turbine_id ? "bg-accent text-white" : "text-text-muted hover:text-text-primary")}
+                    title={`Open ${t.turbine_id}`}
+                  >
+                    {t.turbine_id.slice(4)}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {CMS_COMPONENTS.map((c) => (
+              <tr key={c.id}>
+                <th className="pr-2 text-left font-sans font-normal text-[11px] text-text-secondary whitespace-nowrap">{c.label}</th>
+                {fleet.turbines.map((t) => {
+                  const hi = t.component_health[c.id];
+                  const st = LEVEL_STYLE[hiLevel(hi)];
+                  return (
+                    <td key={t.turbine_id} className="p-0">
+                      <button
+                        type="button"
+                        onClick={() => void select(t.turbine_id)}
+                        title={`${t.turbine_id} ${c.label}: HI ${hi.toFixed(1)}`}
+                        className={cn(
+                          "w-7 h-6 rounded-sm border tabular-nums",
+                          selected === t.turbine_id ? "border-accent" : "border-border-primary",
+                        )}
+                        style={{ background: st.bg, color: st.fg }}
+                      >
+                        {hi.toFixed(0)}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

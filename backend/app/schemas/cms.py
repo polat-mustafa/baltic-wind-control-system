@@ -18,7 +18,7 @@ class ComponentHealthSchema(BaseModel):
     component: str = Field(description="MAIN_BEARING / GEARBOX / GENERATOR / PITCH / YAW")
     health_index: float = Field(description="0-100 (100=new, 0=end-of-life)")
     alert_level: str = Field(description="GREEN / YELLOW / AMBER / RED / CRITICAL")
-    vib_rms_mm_s: float = Field(description="Vibration RMS velocity [mm/s] (ISO 10816-21)")
+    vib_rms_mm_s: float = Field(description="Vibration RMS velocity [mm/s] (ISO 10816-3 zones)")
     temp_celsius: float = Field(description="Component temperature [°C]")
     oil_iso_code: str = Field(description="ISO 4406 oil cleanliness code (gearbox only)")
     rul_days: float = Field(description="Estimated Remaining Useful Life [days]")
@@ -57,6 +57,9 @@ class TurbineHealthSummary(BaseModel):
     overall_alert_level: str
     worst_component: str
     active_alerts: int
+    component_health: dict[str, float] = Field(
+        default_factory=dict, description="Health index per component (heatmap row)"
+    )
 
 
 # ── Vibration spectrum ────────────────────────────────────────────
@@ -70,22 +73,22 @@ class FFTPoint(BaseModel):
 
 
 class VibrationSpectrumResponse(BaseModel):
-    """FFT vibration spectrum for one component.
+    """Velocity spectrum of one drivetrain component with its kinematic fault frequencies.
 
-    The spectrum is used to identify characteristic fault frequencies:
-    - Main bearing: BPFO (ball pass frequency, outer race) = n_balls × shaft_rpm / 60 × 0.4
-    - Gearbox: gear mesh frequency = teeth_count × shaft_rpm / 60
-    - Generator: 2× electrical frequency = 2 × 50 Hz = 100 Hz
-
-    Plotly rendering: x=frequency_hz (0-500 Hz), y=amplitude_mm_s (log scale).
+    Main bearing BPFO/BPFI, gearbox gear-mesh frequencies GMF1-3, generator
+    1×/2× running speed and bearing frequencies — see services/p3/cms.py.
     """
 
     turbine_id: str
     component: str
     timestamp_utc: datetime
-    points: list[FFTPoint] = Field(description="200 frequency-amplitude pairs (0-500 Hz)")
+    points: list[FFTPoint] = Field(
+        description="400 lines: 0-10 Hz for the main bearing, 0-200 Hz for gearbox/generator"
+    )
     dominant_frequency_hz: float = Field(description="Frequency of highest amplitude peak")
     dominant_amplitude_mm_s: float
+    overall_rms_mm_s: float = Field(description="Overall velocity RMS √Σa² [mm/s]")
+    resolution_hz: float = Field(description="Line spacing Δf [Hz]")
     fault_frequency_markers: list[dict[str, float | str]] = Field(
         default_factory=list,
         description="Known fault frequencies to overlay: [{freq_hz: float, label: str}]",

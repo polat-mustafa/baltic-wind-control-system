@@ -46,8 +46,8 @@ export const useCMSStore = create<CMSState>((set, get) => ({
   oilAnalysis: null,
   alerts: [],
   lastFaultInjection: null,
-  selectedTurbineId: "WTG-01",
-  selectedComponent: "GEARBOX",
+  selectedTurbineId: "WTG-07",
+  selectedComponent: "MAIN_BEARING",
   loading: false,
   detailLoading: false,
   error: null,
@@ -75,9 +75,6 @@ export const useCMSStore = create<CMSState>((set, get) => ({
         api.getOilAnalysis(turbineId),
       ]);
       set({ turbineHealth, oilAnalysis });
-      // Also fetch vibration for the selected component
-      const vibration = await api.getVibrationSpectrum(turbineId, get().selectedComponent);
-      set({ vibration });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Failed to fetch turbine detail" });
     } finally {
@@ -86,12 +83,14 @@ export const useCMSStore = create<CMSState>((set, get) => ({
   },
 
   fetchVibration: async (turbineId: string, component: CMSComponent) => {
-    set({ selectedComponent: component });
+    set({ selectedTurbineId: turbineId, selectedComponent: component, detailLoading: true });
     try {
       const vibration = await api.getVibrationSpectrum(turbineId, component);
       set({ vibration });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Failed to fetch vibration" });
+    } finally {
+      set({ detailLoading: false });
     }
   },
 

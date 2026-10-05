@@ -314,8 +314,8 @@ class HistorianQueryRequest(BaseModel):
         default=0,
         ge=0,
         description=(
-            "Minutes from simulation epoch (2026-01-01T00:00:00Z). "
-            "Used to shift the data window for 'live' appearance."
+            "End of the window in Unix minutes (UTC); 0 = now. "
+            "Fixed values give reproducible series."
         ),
     )
 

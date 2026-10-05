@@ -93,13 +93,12 @@ async def get_turbine_health(
 
     Each component shows:
     - Health Index (0–100)
-    - ISO 10816-21 vibration zone (A–D)
+    - ISO 10816-3 vibration zone (A–D)
     - Temperature vs baseline
     - Remaining Useful Life estimate [days]
     - Alert level recommendation
 
-    ISO 10816-21:2015 defines vibration severity zones for wind turbines
-    up to 15 MW (Class I: rigid tower, remote offshore site).
+    Vibration zones: ISO 10816-3 group 2 thresholds (2.3 / 4.5 / 7.1 mm/s).
     """
     tid = _validate_turbine(turbine_id)
     return svc.get_turbine_health(tid)
@@ -117,24 +116,13 @@ async def get_vibration_spectrum(
         description="Component: MAIN_BEARING / GEARBOX / GENERATOR / PITCH / YAW",
     ),
 ) -> VibrationSpectrumResponse:
-    """Return FFT vibration spectrum for one component (0–500 Hz, 200 points).
+    """Velocity spectrum (400 lines) of the main bearing, gearbox or generator.
 
-    The spectrum enables expert identification of fault modes:
-
-    Main bearing faults (BPFO/BPFI):
-    - Outer race defect (BPFO): isolated peak at ~1.24 Hz + harmonics
-    - Inner race defect (BPFI): modulated sidebands at ~1.85 Hz
-
-    Gearbox faults:
-    - Gear mesh frequency (GMF): peak at ~76 Hz
-    - Sidebands at GMF ± shaft speed indicate eccentricity or wear
-
-    Generator faults:
-    - Electrical asymmetry: peaks at 100 Hz (2× supply frequency)
-    - Rotor eccentricity: sidebands at 100 ± f_shaft
-
-    Use Plotly log-log axes: x = frequency [Hz], y = amplitude [mm/s].
-    Fault markers are included for BPFO, BPFI, GMF, and 100 Hz.
+    Main bearing (0–10 Hz): outer/inner race defects at BPFO ≈ 1.38 Hz and
+    BPFI ≈ 1.68 Hz with harmonics. Gearbox (0–200 Hz): gear-mesh frequencies
+    GMF1-3 ≈ 8.8 / 40 / 133 Hz; tooth wear raises GMF harmonics with carrier
+    sidebands. Generator (0–200 Hz): 1×/2× of 400 rpm and its bearing BPFO.
+    Pitch and yaw have no vibration CMS (422).
     """
     tid = _validate_turbine(turbine_id)
     comp = component.upper()
@@ -143,7 +131,10 @@ async def get_vibration_spectrum(
             status_code=422,
             detail=f"Invalid component '{component}'. Must be one of: {sorted(_VALID_COMPONENTS)}",
         )
-    return svc.get_vibration_spectrum(tid, comp)
+    try:
+        return svc.get_vibration_spectrum(tid, comp)
+    except ValueError as err:
+        raise HTTPException(status_code=422, detail=str(err)) from err
 
 
 @router.get(

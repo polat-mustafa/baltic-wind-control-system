@@ -10,7 +10,7 @@ Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are
 | 3a/3b | Open marine data package + site-assessment backend | Merged (PR #219) |
 | 3c | `/develop` "build a farm from scratch" journey | Merged (PR #220) |
 | 4 | Layout canvas: turbines, wake, AEP, array cables, cost | Done on `claude/busy-planck-8vitbx` (PR open) |
-| 5 | Academy: courses and scored missions | Done on `claude/busy-planck-8vitbx` (on top of phase 4) |
+| 5 | Academy: courses and scored missions | Done on `claude/phase5-academy` (stacked on phase 4, own PR) |
 | 6 | Lifecycle: construction, operation hand-over, decommissioning | **Next** |
 
 ## Resume here
@@ -18,7 +18,8 @@ Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are
 1. `git fetch origin && git checkout claude/busy-planck-8vitbx && git pull`
    (if PR #221 is already merged: `git checkout -B claude/busy-planck-8vitbx origin/main`).
 2. PR #221 (Phase 4) — check CI; merge only when the owner says so.
-3. Phase 5 (Academy) is committed on the same branch on top of phase 4 (the session could only push there).
+3. Phase 5 (Academy) is on `claude/phase5-academy`, a PR stacked on PR #221; after #221 is merged, merge
+   `main` into it so the diff shows only phase 5.
 4. Next: **Phase 6 — Lifecycle** (spec below).
 5. Owner to-dos: `cd frontend && npm run e2e:update` (new `layout`, `site-permits` and `academy` baselines),
    rename the GitHub repo to `offshoreforge`, trademark check.

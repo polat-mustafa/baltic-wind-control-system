@@ -37,6 +37,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+import numpy as np
+from numpy.typing import NDArray
+
 from app.services.p4.turbine_power_curve import (
     STANDARD_AIR_DENSITY,
     TurbineSpec,
@@ -150,6 +153,30 @@ def compute_cp(tip_speed_ratio: float, pitch_angle_deg: float) -> float:
 
     # Clamp: Cp cannot be negative or exceed Betz limit
     return max(0.0, min(cp, BETZ_LIMIT))
+
+
+def compute_cp_array(
+    tip_speed_ratio: NDArray[np.float64],
+    pitch_angle_deg: NDArray[np.float64] | float,
+) -> NDArray[np.float64]:
+    """Vectorised :func:`compute_cp` — the same Heier (1998) surface on arrays.
+
+    Element-wise identical to the scalar function (same guards, same Betz
+    clamp); used where many operating points are solved at once, e.g. the
+    digital-twin reference model.
+    """
+    lam = np.asarray(tip_speed_ratio, dtype=np.float64)
+    beta = np.broadcast_to(np.asarray(pitch_angle_deg, dtype=np.float64), lam.shape)
+
+    denom = lam + 0.08 * beta
+    safe_denom = np.where(denom > 0.0, denom, 1.0)
+    beta_term = beta**3 + 1.0
+    safe_beta_term = np.where(beta_term != 0.0, beta_term, 1.0)  # β = −1° is a pole
+    lambda_i_inv = 1.0 / safe_denom - 0.035 / safe_beta_term
+    cp = (_C1 * (_C2 * lambda_i_inv - _C3 * beta - _C4) * np.exp(-_C5 * lambda_i_inv)) + _C6 * lam
+
+    valid = (lam > 0.0) & (denom > 0.0) & (beta_term != 0.0) & (lambda_i_inv > 0.0)
+    return np.where(valid, np.clip(cp, 0.0, BETZ_LIMIT), 0.0)
 
 
 def compute_ct(tip_speed_ratio: float, pitch_angle_deg: float) -> float:

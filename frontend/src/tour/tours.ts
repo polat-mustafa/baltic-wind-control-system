@@ -1,0 +1,429 @@
+/**
+ * Tour content. Every statement here describes what the screen actually
+ * shows or a rule the platform enforces (see CLAUDE.md / docs/SKILL.md);
+ * targets are `data-tour` attributes on the pages.
+ */
+
+import { useDigitalTwinStore } from "../store/digitalTwinStore";
+import { useForecastStore } from "../store/forecastStore";
+import { useGridStore } from "../store/gridStore";
+import { useTurbinePhysicsStore } from "../store/turbinePhysicsStore";
+import { useWindResourceStore } from "../store/windResourceStore";
+import type { Tour } from "./types";
+
+const exists = (selector: string) => () => () => document.querySelector(selector) !== null;
+
+/** Completes once the element has been dragged at least `minPx` from where it started. */
+function moved(target: string, minPx = 24) {
+  return () => {
+    const el = document.querySelector(`[data-tour="${target}"]`);
+    const start = el?.getBoundingClientRect();
+    return () => {
+      const now = document.querySelector(`[data-tour="${target}"]`)?.getBoundingClientRect();
+      if (!start || !now) return false;
+      return Math.hypot(now.left - start.left, now.top - start.top) >= minPx;
+    };
+  };
+}
+
+const controlRoom: Tour = {
+  id: "control-room",
+  title: "Control room",
+  summary: "The overview map, live KPIs and a turbine up close.",
+  stage: "Start",
+  steps: [
+    {
+      id: "welcome",
+      route: "/",
+      title: "Welcome to OffshoreForge",
+      body:
+        "OffshoreForge follows an offshore wind farm through its life: develop, design, build, operate. " +
+        "Its case study is SB-510, a 510 MW farm of 34 Vestas V236-15.0 MW turbines in the southern Baltic. " +
+        "Move with → and ←, leave with Esc.",
+    },
+    {
+      id: "nav",
+      route: "/",
+      target: ["nav", "nav-menu"],
+      title: "Organised by lifecycle stage",
+      body:
+        "The sidebar (the menu button on phones) follows the life of a wind farm, from first wind " +
+        "measurements to daily operation.",
+      points: [
+        { label: "Develop", text: "Wind resource, wakes, layout and energy yield (AEP)." },
+        { label: "Design", text: "Grid connection, protection, power quality and turbine physics." },
+        { label: "Build & Commission", text: "HV switching programmes, isolation and site acceptance tests." },
+        { label: "Operate", text: "Control room, SCADA, forecasting and the digital twin." },
+      ],
+    },
+    {
+      id: "kpis",
+      route: "/",
+      target: "kpi-ribbon",
+      title: "Live KPIs",
+      body:
+        "Farm output, wind, availability, alerts, grid frequency, reactive power and losses, updated on every " +
+        "simulation tick. Output is computed from each turbine's power curve and its wake losses.",
+      caution:
+        "A KPI is only as good as its data. A frozen anemometer or a stale feed looks perfectly normal, " +
+        "so check where a number comes from before acting on it.",
+    },
+    {
+      id: "open-turbine",
+      route: "/",
+      target: "farm-map",
+      title: "Open a turbine",
+      body: "Each marker is one turbine; colour shows its operating state. Lines are the 66 kV array cables.",
+      task: {
+        instruction: "Click any turbine on the map.",
+        watch: exists('[data-tour="turbine-viewer"]'),
+      },
+    },
+    {
+      id: "turbine",
+      route: "/",
+      target: "turbine-viewer",
+      title: "Meet the turbine",
+      body:
+        "This 3D model is driven by the same simulation as the map: rotor speed and pitch follow the live wind. " +
+        "Click a component to read about it, or switch to the engineering drawings.",
+      points: [
+        { label: "Rotor", text: "Three blades, 236 m diameter. Above rated wind the blades pitch to hold 15 MW." },
+        {
+          label: "Nacelle",
+          text: "Drivetrain, generator and converter. Its sensors reach SCADA as IEC 61400-25 logical nodes (WTUR, WROT…).",
+        },
+        { label: "Tower & foundation", text: "Steel tower on a monopile; the array cable enters at the base." },
+      ],
+    },
+    {
+      id: "panel",
+      route: "/",
+      target: "equipment-panel",
+      title: "Equipment data",
+      body:
+        "The panel shows the turbine's live operating point and status. The substation, export cable, STATCOM " +
+        "and LiDAR on the map open a panel like this too.",
+      caution:
+        "Colours follow ISA-101: normal is neutral grey and colour appears only when something is abnormal. " +
+        "A screen full of colour means a plant in trouble.",
+    },
+    {
+      id: "layers",
+      route: "/",
+      target: "layer-control",
+      title: "Map layers",
+      body:
+        "Switch overlays on and off: wind flow, wake cones, bathymetry, 500 m safety zones, navigation aids, " +
+        "O&M vessels, live AIS traffic and the export cable temperature (DTS).",
+    },
+    {
+      id: "wind-rose",
+      route: "/",
+      target: "wind-rose",
+      title: "Wind rose",
+      body:
+        "How often the wind blows from each direction, banded by speed; the current direction is highlighted. " +
+        "The climatology here is illustrative, with the south-westerly prevailing wind typical of the Baltic.",
+      task: { instruction: "Drag the wind rose by its header to move it.", watch: moved("wind-rose") },
+    },
+    {
+      id: "theme",
+      target: "theme-toggle",
+      title: "Two looks",
+      body:
+        "Control room is the high-performance HMI palette operators use; Storybook is a lighter palette for " +
+        "teaching and presentations. The data is the same.",
+    },
+    {
+      id: "tours",
+      target: "tour-button",
+      title: "Replay any time",
+      body: "Every module has its own short tour. Open this menu to replay one or to continue with the next stage.",
+    },
+  ],
+};
+
+const windResource: Tour = {
+  id: "wind-resource",
+  title: "Wind resource & energy yield",
+  summary: "Weibull statistics, wake losses and annual energy production.",
+  stage: "Develop",
+  steps: [
+    {
+      id: "header",
+      route: "/wind-resource",
+      target: "page-header",
+      title: "From wind to energy",
+      body:
+        "This page turns the site's wind statistics into annual energy production (AEP): a Weibull fit of the " +
+        "wind speed, the turbine power curve, and wake losses from a PyWake engineering wake model.",
+    },
+    {
+      id: "tabs",
+      route: "/wind-resource",
+      target: "page-tabs",
+      title: "Three views",
+      body:
+        "AEP Analysis builds the energy estimate. Farm Comparison sets SB-510 against other wind climates. " +
+        "Availability & O&M covers downtime and maintenance (IEC 61400-26).",
+    },
+    {
+      id: "run",
+      route: "/wind-resource",
+      target: "run-button",
+      title: "Run the analysis",
+      body: "The backend runs the wake model for all 34 turbines and builds the loss chain.",
+      task: {
+        instruction: "Press Run Analysis and wait for the results.",
+        watch: () => () => useWindResourceStore.getState().analysisRun,
+      },
+      caution:
+        "AEP is never a single number. Report the losses that lead to it (wake, availability, electrical) " +
+        "and the uncertainty around it.",
+    },
+  ],
+};
+
+const grid: Tour = {
+  id: "grid",
+  title: "Grid integration",
+  summary: "Load flow, short circuit, fault ride-through and the grid code.",
+  stage: "Design",
+  steps: [
+    {
+      id: "header",
+      route: "/hv-grid",
+      target: "page-header",
+      title: "Connecting 510 MW to the grid",
+      body:
+        "66 kV array strings meet at the offshore substation, two 220 kV cables carry the power ashore and the " +
+        "farm connects to the 400 kV transmission grid. The links under the title explain each design choice.",
+    },
+    {
+      id: "tabs",
+      route: "/hv-grid",
+      target: "page-tabs",
+      title: "Studies",
+      body:
+        "Each tab is one study: load flow and short circuit, the power plant controller, protection, power " +
+        "quality, battery storage, cable temperature, the electricity market, N-1 security and export planning.",
+    },
+    {
+      id: "run",
+      route: "/hv-grid",
+      target: "run-button",
+      title: "Run the grid analysis",
+      body: "Load flow and short-circuit results come from pandapower; nothing is hard-coded.",
+      task: {
+        instruction: "Press Run Analysis.",
+        watch: () => () => useGridStore.getState().analysisRun,
+      },
+      caution:
+        "Breaker duty uses the maximum short-circuit case: voltage factor c_max = 1.10 for HV and MV networks " +
+        "(IEC 60909). A lower factor understates the fault current.",
+    },
+  ],
+};
+
+const turbinePhysics: Tour = {
+  id: "turbine-physics",
+  title: "Turbine physics",
+  summary: "Power coefficient, tip-speed ratio, pitch and yaw.",
+  stage: "Design",
+  steps: [
+    {
+      id: "header",
+      route: "/turbine-physics",
+      target: "page-header",
+      title: "Inside the rotor",
+      body:
+        "How much power a rotor extracts depends on the power coefficient Cp, a function of tip-speed ratio λ " +
+        "and blade pitch β. No rotor can exceed the Betz limit, Cp = 16/27 ≈ 0.593.",
+    },
+    {
+      id: "run",
+      route: "/turbine-physics",
+      target: "run-button",
+      title: "Simulate a wind scenario",
+      body: "The simulation steps the rotor, drivetrain and controller through time.",
+      task: {
+        instruction: "Press Run Simulation.",
+        watch: () => () => useTurbinePhysicsStore.getState().analysisRun,
+      },
+      caution:
+        "Power is always between 0 and rated: zero below cut-in (3 m/s) and above cut-out, never more than 15 MW. " +
+        "A model that reports otherwise is wrong, however good it looks.",
+    },
+  ],
+};
+
+const commissioning: Tour = {
+  id: "commissioning",
+  title: "HV commissioning",
+  summary: "Switching programmes, isolation and acceptance tests.",
+  stage: "Build & Commission",
+  steps: [
+    {
+      id: "header",
+      route: "/commissioning",
+      target: "page-header",
+      title: "First energisation",
+      body:
+        "Before the farm exports power, every HV circuit is energised in a controlled order. A 30-step " +
+        "programme takes the offshore substation from isolated to live, followed by site acceptance tests.",
+    },
+    {
+      id: "programme",
+      route: "/commissioning",
+      target: "create-programme",
+      title: "Person in Control",
+      body:
+        "A switching programme belongs to a named Person in Control (PiC), who authorises each step. " +
+        "Enter a name to create one and walk through the steps.",
+      caution:
+        "Isolation comes before work: lock out and tag the isolation points and prove the circuit dead " +
+        "before anyone touches it.",
+    },
+  ],
+};
+
+const scada: Tour = {
+  id: "scada",
+  title: "SCADA & automation",
+  summary: "The operator HMI, IEC 61850 substation automation and alarms.",
+  stage: "Operate",
+  steps: [
+    {
+      id: "overview",
+      route: "/scada",
+      target: "plant-overview",
+      title: "Level 1: plant at a glance",
+      body:
+        "The top banner is the ISA-101 level-1 display: output, reactive power, frequency, voltage, turbines " +
+        "online and alarm counts, always visible.",
+    },
+    {
+      id: "areas",
+      route: "/scada",
+      target: "page-tabs",
+      title: "Level 2: areas",
+      body:
+        "Operations, Equipment, Diagnostics and Engineering. Each area opens level-3 screens: the single-line " +
+        "diagram, alarms and permits under Operations, GOOSE and the sequence-of-events recorder under " +
+        "Diagnostics, OPC UA and SCL files under Engineering.",
+    },
+    {
+      id: "controls",
+      route: "/scada",
+      target: "scada-controls",
+      title: "Simulation controls",
+      body: "Inject a turbine fault, run a GOOSE protection sequence, start auto-simulation or change operator role.",
+      task: {
+        instruction: "Open the Controls bar.",
+        watch: exists('[data-tour="scada-controls"][aria-expanded="true"]'),
+      },
+      caution:
+        "Here GOOSE messages travel over HTTP for teaching. In a real substation GOOSE is Layer-2 Ethernet " +
+        "multicast, and a trip message has to arrive within a few milliseconds (IEC 61850-5).",
+    },
+  ],
+};
+
+const forecast: Tour = {
+  id: "forecast",
+  title: "Power forecasting",
+  summary: "Machine-learning forecasts and how to judge them.",
+  stage: "Operate",
+  steps: [
+    {
+      id: "header",
+      route: "/forecast",
+      target: "page-header",
+      title: "Forecasting output",
+      body:
+        "XGBoost, LSTM and Temporal Fusion Transformer models forecast farm output; an ensemble combines them. " +
+        "Forecasts feed trading and grid scheduling.",
+    },
+    {
+      id: "tabs",
+      route: "/forecast",
+      target: "page-tabs",
+      title: "Learn while it trains",
+      body:
+        "Forecast shows the results, Training monitor follows the models as they learn, AI Academy explains " +
+        "the methods step by step and Concept map links the ideas.",
+    },
+    {
+      id: "run",
+      route: "/forecast",
+      target: "run-button",
+      title: "Train the models",
+      body: "Training runs on the backend and can take a few minutes; the monitor tab shows live progress.",
+      task: {
+        instruction: "Press Run Forecast to start training (or skip this step).",
+        watch: () => () => useForecastStore.getState().analysisRun || useForecastStore.getState().loading,
+      },
+      caution:
+        "Time series are split in time order and never shuffled. Shuffling leaks the future into training " +
+        "and makes a model look better than it is. ML output is still clipped to physics (0 ≤ P ≤ P_rated).",
+    },
+  ],
+};
+
+const digitalTwin: Tour = {
+  id: "digital-twin",
+  title: "Digital twin",
+  summary: "Detect, diagnose and predict turbine faults.",
+  stage: "Operate",
+  steps: [
+    {
+      id: "header",
+      route: "/digital-twin",
+      target: "page-header",
+      title: "A physics model next to every turbine",
+      body:
+        "The twin runs a physics model of the V236 at each 10-minute record's measured wind and compares it " +
+        "with what the turbine reports. It follows the ISO 13374 chain: detect, diagnose, predict.",
+    },
+    {
+      id: "controls",
+      route: "/digital-twin",
+      target: "twin-controls",
+      title: "Choose a scenario",
+      body:
+        "Each scenario injects known faults (icing, pitch misalignment, converter derating, gearbox wear, " +
+        "anemometer drift) so the twin's answers can be checked against the truth.",
+      task: {
+        instruction: "Select the 14 d window.",
+        watch: () => () => useDigitalTwinStore.getState().durationDays === 14,
+      },
+    },
+    {
+      id: "tabs",
+      route: "/digital-twin",
+      target: "page-tabs",
+      title: "Fleet, turbine, model",
+      body:
+        "Fleet overview ranks all turbines by health. Turbine analysis shows the control charts, the diagnosis " +
+        "and remaining useful life. Model & validation scores every injected fault.",
+      caution:
+        "An alarm is evidence, not a diagnosis. The twin names a fault only when one physical fault model " +
+        "explains the data clearly better than the others, and says so when it cannot decide.",
+    },
+  ],
+};
+
+/** All tours in menu order (lifecycle order after the control-room intro). */
+export const TOURS: Tour[] = [
+  controlRoom,
+  windResource,
+  grid,
+  turbinePhysics,
+  commissioning,
+  scada,
+  forecast,
+  digitalTwin,
+];
+
+export const tourById = (id: string) => TOURS.find((t) => t.id === id);

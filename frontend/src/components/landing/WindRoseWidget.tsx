@@ -138,6 +138,7 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
 
   return (
     <div
+      data-tour="wind-rose"
       className="absolute z-1000 select-none pointer-events-auto"
       style={{ left: pos.x, top: pos.y }}
     >

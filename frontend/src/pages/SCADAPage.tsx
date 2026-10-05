@@ -137,6 +137,8 @@ export default function SCADAPage() {
           )}
           <button
             type="button"
+            data-tour="scada-controls"
+            aria-expanded={controlsOpen}
             onClick={() => setControlsOpen((o) => !o)}
             className="flex items-center gap-1 text-[10px] text-text-muted hover:text-text-primary"
             title={controlsOpen ? "Hide simulation controls" : "Show simulation controls"}

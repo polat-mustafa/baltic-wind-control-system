@@ -133,6 +133,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   return (
     <nav
       aria-label="Main navigation"
+      data-tour="nav"
       inert={!isMd && !mobileOpen}
       className={cn(
         "flex flex-col border-r border-border-primary bg-bg-secondary shrink-0",

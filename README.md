@@ -42,8 +42,12 @@ The modules follow a wind farm through its life.
 | | Forecasting | XGBoost, LSTM and TFT models, ensembles, SHAP, with an interactive ML academy |
 | | Digital Twin | Physics-based condition monitoring (ISO 13374): detection, model-based diagnosis, RUL prognosis |
 
-Coming next: a guided tour, a **Site & Permits** journey (open marine data, suitability mapping,
-EU environmental and permitting steps), a layout canvas and an Academy with scored missions.
+New here? On first launch the app offers a **guided tour**: spotlights and arrows walk you through
+the control room, some steps ask you to try things yourself, and every module has its own short
+tour in the header's **Tour** menu.
+
+Coming next: a **Site & Permits** journey (open marine data, suitability mapping, EU environmental
+and permitting steps), a layout canvas and an Academy with scored missions.
 
 ## Quick start
 

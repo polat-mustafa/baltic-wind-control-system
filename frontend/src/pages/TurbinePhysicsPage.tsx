@@ -70,7 +70,7 @@ export default function TurbinePhysicsPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2" data-tour="page-header">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-text-primary">
             Turbine Physics
@@ -84,6 +84,7 @@ export default function TurbinePhysicsPage() {
         <div className="flex items-center gap-2 shrink-0">
           <Button
             onClick={runSimulation}
+            data-tour="run-button"
             disabled={loading}
             size="sm"
           >

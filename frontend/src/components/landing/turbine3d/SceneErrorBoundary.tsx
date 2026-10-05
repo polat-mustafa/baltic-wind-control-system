@@ -4,6 +4,8 @@ import type { ErrorInfo, ReactNode } from "react";
 interface Props {
   area: string;
   children: ReactNode;
+  /** Expected, recoverable failure (e.g. an optional asset offline): log a warning, not an error. */
+  optional?: boolean;
 }
 
 interface State {
@@ -26,6 +28,10 @@ export class SceneErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    if (this.props.optional) {
+      console.warn(`[SceneErrorBoundary:${this.props.area}] skipped:`, error.message);
+      return;
+    }
     console.error(`[SceneErrorBoundary:${this.props.area}]`, error, info.componentStack);
   }
 

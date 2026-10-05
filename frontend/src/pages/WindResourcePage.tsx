@@ -45,7 +45,7 @@ export default function WindResourcePage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2" data-tour="page-header">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-text-primary">
             Wind Resource & AEP
@@ -60,7 +60,7 @@ export default function WindResourcePage() {
         <div className="flex items-center gap-2 shrink-0">
           {activeTab === "aep" && (
             <>
-              <Button onClick={runFullAnalysis} disabled={loading} size="sm">
+              <Button onClick={runFullAnalysis} disabled={loading} size="sm" data-tour="run-button">
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -102,7 +102,10 @@ export default function WindResourcePage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 p-1 bg-bg-secondary rounded-lg border border-border-primary w-fit max-w-full overflow-x-auto">
+      <div
+        className="flex gap-1 p-1 bg-bg-secondary rounded-lg border border-border-primary w-fit max-w-full overflow-x-auto"
+        data-tour="page-tabs"
+      >
         <button
           onClick={() => setActiveTab("aep")}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${

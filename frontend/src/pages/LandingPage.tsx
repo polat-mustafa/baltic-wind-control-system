@@ -103,6 +103,7 @@ function ConnectedTurbineDetailPanel({
       {/* 3D Viewer — to the left of the detail panel */}
       <div
         className="absolute"
+        data-tour="turbine-viewer"
         style={
           expanded
             ? { zIndex: 1300, left: 8, top: 8, width: "calc(100% - 16px)", height: "calc(100% - 16px)" }
@@ -204,13 +205,13 @@ type DetailPanel =
   | null;
 
 const QUICK_LINKS = [
-  { label: "P3", path: "/scada", icon: Monitor, tip: "SCADA" },
-  { label: "P4", path: "/forecast", icon: Brain, tip: "Forecast" },
+  { label: "SCADA", path: "/scada", icon: Monitor, tip: "SCADA & automation" },
+  { label: "Forecast", path: "/forecast", icon: Brain, tip: "Power forecasting" },
   {
-    label: "P5",
+    label: "Commissioning",
     path: "/commissioning",
     icon: ClipboardCheck,
-    tip: "Commissioning",
+    tip: "HV commissioning",
   },
 ] as const;
 
@@ -368,7 +369,10 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col h-[calc(100dvh-6.5rem)] min-h-[30rem] sm:h-[calc(100dvh-8rem)]">
       {/* Header row — title + quick access buttons */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-2 sm:mb-3 shrink-0">
+      <div
+        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-2 sm:mb-3 shrink-0"
+        data-tour="page-header"
+      >
         <div className="flex min-w-0 items-center gap-3">
           <div className="min-w-0">
             <h2 className="text-base sm:text-lg font-semibold text-text-primary">
@@ -390,7 +394,7 @@ export default function LandingPage() {
               <button
                 key={link.path}
                 onClick={() => navigate(link.path)}
-                title={`${link.label} · ${link.tip}`}
+                title={link.tip}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-2.5 py-1.5",
                   "border border-border-primary bg-bg-secondary",
@@ -433,12 +437,13 @@ export default function LandingPage() {
         <div
           className="absolute top-2 left-0 right-0 pointer-events-none"
           style={{ zIndex: 1001 }}
+          data-tour="kpi-ribbon"
         >
           <MapKPIRibbon kpis={kpis} horizontal />
         </div>
 
         {/* Leaflet map — fills remaining space */}
-        <div className="w-full h-full">
+        <div className="w-full h-full" data-tour="farm-map">
           <LeafletWindFarmMap
             totalPowerMW={roundedPower}
             selectedTurbineId={selectedTurbineId}

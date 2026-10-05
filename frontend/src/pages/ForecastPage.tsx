@@ -108,7 +108,7 @@ export default function ForecastPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2" data-tour="page-header">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-text-primary">
             AI Forecasting
@@ -122,6 +122,7 @@ export default function ForecastPage() {
         <div className="flex items-center gap-2 shrink-0">
           <Button
             onClick={runFullAnalysis}
+            data-tour="run-button"
             disabled={loading}
             size="sm"
           >
@@ -307,7 +308,7 @@ export default function ForecastPage() {
       )}
 
       {/* View tabs */}
-      <div className="flex flex-wrap gap-1 border-b border-border-primary" role="tablist" aria-label="Forecast views">
+      <div className="flex flex-wrap gap-1 border-b border-border-primary" role="tablist" aria-label="Forecast views" data-tour="page-tabs">
         {TABS.map(({ id, label, Icon }) => (
           <button
             key={id}

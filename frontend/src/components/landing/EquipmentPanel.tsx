@@ -62,6 +62,7 @@ export function EquipmentPanel({
   return (
     <div
       role="dialog"
+      data-tour="equipment-panel"
       aria-label={`${tag} details`}
       className="absolute flex flex-col rounded-xl border border-border-primary bg-bg-primary/95 backdrop-blur-md shadow-2xl shadow-black/60 overflow-hidden"
       style={{

@@ -100,7 +100,10 @@ export default function PlantOverviewBar() {
   const utc = `${now.toISOString().slice(0, 10)} ${now.toISOString().slice(11, 19)}Z`;
 
   return (
-    <div className="flex items-stretch bg-bg-tertiary border-b-2 border-border-secondary">
+    <div
+      className="flex items-stretch bg-bg-tertiary border-b-2 border-border-secondary"
+      data-tour="plant-overview"
+    >
       {/* Plant identity + clock */}
       <div className="flex flex-col justify-center px-4 py-1.5 border-r border-border-primary min-w-[180px]">
         <span className="text-[10px] uppercase tracking-widest text-text-muted">

@@ -72,7 +72,7 @@ export default function DigitalTwinPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
             <Cpu size={20} className="text-accent" aria-hidden />
@@ -103,6 +103,7 @@ export default function DigitalTwinPage() {
       <div
         role="tablist"
         aria-label="Digital twin views"
+        data-tour="page-tabs"
         className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-border-primary bg-bg-secondary p-1"
       >
         {TABS.map(({ id, label, Icon }) => (

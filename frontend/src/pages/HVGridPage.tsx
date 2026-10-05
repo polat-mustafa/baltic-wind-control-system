@@ -68,7 +68,7 @@ const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }>; tooltip
   { id: "cable-dts",     label: "Cable DTS",        Icon: Cable,         tooltip: "Distributed Temperature Sensing — IEC 60287 dynamic ampacity, 45 km export cable" },
   { id: "market",        label: "Market",           Icon: TrendingUp,    tooltip: "One trading day: TGE day-ahead, PSE imbalance (CEN), two-sided CfD, BESS arbitrage" },
   { id: "advanced",      label: "Security & Dynamics", Icon: FlaskConical, tooltip: "N-1 outages as AC load flows with PPC runback; ANDES RMS simulation of LFSM-O and fault ride-through (WECC generic models)" },
-  { id: "planning",      label: "Planning & P2X",   Icon: Network,       tooltip: "Economic dispatch, capacity expansion, sector coupling, electrolyzer, LDES" },
+  { id: "planning",      label: "Planning & P2X",   Icon: Network,       tooltip: "HVAC vs HVDC export over distance, electrolyser on surplus wind" },
 ];
 
 export default function HVGridPage() {

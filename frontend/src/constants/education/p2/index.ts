@@ -15,3 +15,5 @@ export { cableDtsEducation } from "./cableDts";
 export { marketEducation } from "./market";
 export { n1SecurityEducation } from "./n1Security";
 export { andesDynamicsEducation } from "./andesDynamics";
+export { exportTechEducation } from "./exportTech";
+export { p2xEducation } from "./p2x";

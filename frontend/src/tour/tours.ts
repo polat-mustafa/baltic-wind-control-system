@@ -50,7 +50,7 @@ const controlRoom: Tour = {
         "The sidebar (the menu button on phones) follows the life of a wind farm, from first wind " +
         "measurements to daily operation.",
       points: [
-        { label: "Develop", text: "Wind resource, wakes, layout and energy yield (AEP)." },
+        { label: "Develop", text: "Site selection and permits, wind resource, wakes and energy yield (AEP)." },
         { label: "Design", text: "Grid connection, protection, power quality and turbine physics." },
         { label: "Build & Commission", text: "HV switching programmes, isolation and site acceptance tests." },
         { label: "Operate", text: "Control room, SCADA, forecasting and the digital twin." },
@@ -140,6 +140,61 @@ const controlRoom: Tour = {
       target: "tour-button",
       title: "Replay any time",
       body: "Every module has its own short tour. Open this menu to replay one or to continue with the next stage.",
+    },
+  ],
+};
+
+const sitePermits: Tour = {
+  id: "site-permits",
+  title: "Site & Permits",
+  summary: "Find a site on open data and take it through the permit procedure.",
+  stage: "Develop",
+  steps: [
+    {
+      id: "header",
+      route: "/develop",
+      target: "page-header",
+      title: "Build a farm from scratch",
+      body:
+        "Every wind farm starts with a question: where? This page screens the sea on open data, then follows " +
+        "your site through surveys, environmental studies and the permit procedure.",
+    },
+    {
+      id: "stages",
+      route: "/develop",
+      target: "site-stages",
+      title: "Five stages",
+      body: "Screening, site investigation, environmental studies, consultation and permit, documents. Later stages open once a site is assessed.",
+    },
+    {
+      id: "map",
+      route: "/develop",
+      target: "site-map",
+      title: "Open marine data",
+      body:
+        "Natura 2000 sites, shipping lanes from the maritime spatial plan, other wind farm areas, military areas and " +
+        "the 12 nm limit come from EMODnet, the EEA and Marine Regions. Green cells are where none of them excludes a wind farm.",
+      caution: "Green is not a permit: fisheries, radar, aviation and cultural heritage are not in this screening.",
+    },
+    {
+      id: "draw",
+      route: "/develop",
+      target: "site-draw",
+      title: "Draw your site",
+      body: "Draw a candidate site by clicking its corners, or load the SB-510 boundary to see how the case study fares.",
+      task: {
+        instruction: "Draw a site or load the SB-510 boundary.",
+        watch: exists('[data-tour="site-report"] li'),
+      },
+    },
+    {
+      id: "report",
+      route: "/develop",
+      target: "site-report",
+      title: "The screening report",
+      body:
+        "Area, indicative capacity, depth and foundation type, distances, and a checklist. A failed check means an " +
+        "authority would refuse the site; the permit stage shows you why.",
     },
   ],
 };
@@ -417,6 +472,7 @@ const digitalTwin: Tour = {
 /** All tours in menu order (lifecycle order after the control-room intro). */
 export const TOURS: Tour[] = [
   controlRoom,
+  sitePermits,
   windResource,
   grid,
   turbinePhysics,

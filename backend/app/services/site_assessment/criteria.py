@@ -30,6 +30,7 @@ class Criteria:
     cable_buffer_km: float = 0.5
     owf_buffer_km: float = 0.0
     exclude_protected: bool = True
+    exclude_restricted: bool = True
     min_depth_m: float = 10.0
     max_depth_m: float = 1000.0
 
@@ -109,6 +110,15 @@ CRITERIA_INFO: tuple[CriterionInfo, ...] = (
         ILLUSTRATIVE,
         "Natura 2000 is not an automatic ban: projects there need an appropriate assessment "
         "(Habitats Directive 92/43/EEC, Art. 6(3)). Screening tools commonly exclude them.",
+    ),
+    CriterionInfo(
+        "exclude_restricted",
+        "Exclude military areas and munition dumpsites",
+        "",
+        "exclusion",
+        ILLUSTRATIVE,
+        "Military use may be negotiable with the defence ministry; dumped munitions call for "
+        "UXO surveys and clearance before any seabed work.",
     ),
     CriterionInfo(
         "min_depth_m",

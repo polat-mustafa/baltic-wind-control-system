@@ -41,6 +41,7 @@ REASONS: tuple[str, ...] = (
     "protected",
     "owf_area",
     "shipping",
+    "restricted",
     "cable_buffer",
     "too_shallow",
     "too_deep",
@@ -53,6 +54,7 @@ REASON_LABEL: dict[str, str] = {
     "protected": "Natura 2000 site",
     "owf_area": "Other wind farm area",
     "shipping": "Shipping route",
+    "restricted": "Military area or munition dumpsite",
     "cable_buffer": "Too close to a subsea cable",
     "too_shallow": "Water too shallow",
     "too_deep": "Water too deep",
@@ -163,6 +165,8 @@ def evaluate(pack: RegionPack, crit: Criteria, lon: FloatArray, lat: FloatArray)
     excluded["owf_area"] = owf_km <= crit.owf_buffer_km
     if pack.has("shipping"):
         excluded["shipping"] = points_in_polygons(x, y, pack.polygons("shipping"))
+    if crit.exclude_restricted and pack.has("restricted"):
+        excluded["restricted"] = points_in_polygons(x, y, pack.polygons("restricted"))
     excluded["cable_buffer"] = cable_km < crit.cable_buffer_km
     with np.errstate(invalid="ignore"):
         excluded["too_shallow"] = depth_m < crit.min_depth_m

@@ -24,6 +24,7 @@ class CriteriaOverrides(BaseModel):
     cable_buffer_km: float | None = Field(None, ge=0, le=20)
     owf_buffer_km: float | None = Field(None, ge=0, le=50)
     exclude_protected: bool | None = None
+    exclude_restricted: bool | None = None
     min_depth_m: float | None = Field(None, ge=0, le=200)
     max_depth_m: float | None = Field(None, ge=10, le=3000)
     shore_ideal_km: float | None = Field(None, ge=0, le=300)

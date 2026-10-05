@@ -356,6 +356,30 @@ def _checks(
             )
         )
 
+    if pack.has("restricted"):
+        hit = shares.get("restricted", 0.0)
+        checks.append(
+            Check(
+                "restricted",
+                "Military areas and munitions",
+                "fail" if hit > 0 else "pass",
+                f"{_pct(hit)} of the site lies in a military area or munition dumpsite."
+                if hit > 0
+                else "No military area or recorded munition dumpsite in the site. Unexploded "
+                "ordnance can lie outside recorded sites: plan a UXO survey.",
+                "HELCOM munitions data via EMODnet",
+            )
+        )
+    else:
+        checks.append(
+            Check(
+                "restricted",
+                "Military areas and munitions",
+                "unknown",
+                "Restricted-areas layer not loaded.",
+            )
+        )
+
     if depth.size:
         lo, hi = float(depth.min()), float(depth.max())
         bad = shares.get("too_shallow", 0.0) + shares.get("too_deep", 0.0)

@@ -36,8 +36,14 @@ export interface TurbinePosition {
  * Site checks (2026-09-29, see SITE_SOURCES below): every turbine lies in
  * the Polish EEZ, outside the 12 nm territorial sea (Polish OWFs are only
  * permitted in the EEZ), south of the "Ławica Słupska" Natura 2000 site
- * (starts ≈ 54.842°N), and in 29–40 m of water (EMODnet DTM). The farm is
- * fictional; it does not overlap a real OWF area.
+ * (≈ 3.2 km from the nearest turbine), and in 29–40 m of water (EMODnet
+ * DTM). The farm is fictional; it does not overlap a real OWF area.
+ *
+ * Re-checked 2026-10-05 against the Polish maritime spatial plan (Dz.U. 2021
+ * poz. 935, via EMODnet): 27 of the 34 positions lie in basin PZP_15, whose
+ * priority use is shipping — a real site here would not get a permit. The
+ * Site & Permits screening (backend/app/services/site_assessment) reports it;
+ * the case study keeps the layout as a teaching example.
  */
 export const TURBINE_POSITIONS: TurbinePosition[] = [
   // String 1 (6 turbines) — westernmost
@@ -425,7 +431,8 @@ export const SWEPOL_GEO: [number, number][] = [
 /**
  * Planned offshore wind areas from the Polish maritime spatial plan
  * ("PZP_nn" basins), EMODnet Human Activities `windfarmspoly`, simplified.
- * None overlaps this site (nearest: PZP_43 "Baltex 2", ≈ 3 km NW).
+ * None overlaps this site (nearest: PZP_43 "Baltex 2", ≈ 9 km NW of the
+ * nearest turbine).
  */
 export const NEIGHBOUR_OWF_AREAS: {
   name: string;

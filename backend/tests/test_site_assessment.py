@@ -282,20 +282,43 @@ class TestScreening:
 
 class TestAssess:
     def test_sb510_case_study(self) -> None:
+        """SB-510 against the open data: geometry checks out, the site conflicts with the MSP.
+
+        27 of the 34 fictional turbines lie in basin PZP_15, whose priority use in the
+        Polish maritime spatial plan (Dz.U. 2021 poz. 935) is shipping; the Ławica
+        Słupska Natura 2000 site is ≈ 1 km north. Both are real findings, kept on purpose.
+        """
         pack = load_region("southern-baltic")
         a = assess_site(pack, Criteria(), SB510_SITE)
         # 0.09° × 0.175° at 54.8° N ≈ 10.0 km × 11.2 km
         assert a.area_km2 == pytest.approx(112.3, rel=0.01)
-        assert a.capacity_mw == pytest.approx(505, rel=0.02)  # SB-510 is 510 MW
-        assert a.excluded_fraction == 0.0
         assert a.shore_km is not None and a.shore_km[0] > 22.224  # beyond 12 nm
         assert a.grid_node is not None and "Słupsk" in a.grid_node
         assert 40 < a.grid_km < 50  # type: ignore[operator]  # export route is 44.9 km
+        assert a.depth_m is not None and a.depth_m[0] > 20 and a.depth_m[1] < 45  # EMODnet DTM
+        assert a.foundation == "monopile / jacket"
+        assert 0.6 < a.exclusion_shares["shipping"] < 0.8
+        assert a.capacity_mw == pytest.approx(a.area_km2 * (1 - a.excluded_fraction) * 4.5)
         status = {c.id: c.status for c in a.checks}
-        assert status["territorial_sea"] == "pass" and status["owf"] == "pass"
-        for unknown in ("natura2000", "shipping", "depth", "eez"):
-            assert status[unknown] == "unknown", unknown
-        assert not a.complete
+        assert status["territorial_sea"] == "pass" and status["eez"] == "pass"
+        assert (
+            status["owf"] == "pass" and status["depth"] == "pass" and status["restricted"] == "pass"
+        )
+        assert status["shipping"] == "fail"
+        assert status["natura2000"] == "warn"
+        assert a.protected_km is not None and 0 < a.protected_km < 2
+        assert a.complete
+        # The full boundary at the case-study density gives SB-510's 510 MW
+        assert a.area_km2 * 4.5 == pytest.approx(510, rel=0.02)
+
+    def test_pack_provenance(self) -> None:
+        pack = load_region("southern-baltic")
+        assert pack.missing_roles() == []
+        for layer in pack.layers:
+            assert layer.source and layer.license and layer.retrieved, layer.id
+        assert pack.raster("bathymetry") is not None
+        names = {f.name for layer in pack.by_role("protected") for f in layer.features}
+        assert any("Ławica Słupska" in n for n in names)
 
     def test_flags_overlaps_and_protected_areas(self) -> None:
         pack = synthetic_pack()
@@ -333,13 +356,19 @@ class TestAPI:
         assert [x["region"] for x in r.json()] == ["southern-baltic"]
         body = client.get(f"{API}/layers").json()
         roles = {layer["role"] for layer in body["layers"]}
-        assert {"sea", "shore", "cable", "owf", "grid"} <= roles
-        assert body["complete"] is False
-        assert {m["role"] for m in body["missing"] if m["essential"]} == {
+        assert {
+            "sea",
+            "shore",
+            "cable",
+            "owf",
+            "grid",
             "protected",
             "shipping",
-            "bathymetry",
-        }
+            "restricted",
+        } <= roles
+        assert {"eez", "territorial", "bathymetry"} <= roles
+        assert body["complete"] is True
+        assert not [m for m in body["missing"] if m["essential"]]
         owf = next(layer for layer in body["layers"] if layer["role"] == "owf")
         assert owf["features"][0]["geometry"]["type"] == "Polygon"
         cards = {c["key"]: c for c in body["criteria"]}

@@ -16,6 +16,7 @@ owf         polygon   existing or planned offshore wind areas
 grid        point     onshore grid connection points
 protected   polygon   protected areas (Natura 2000)
 shipping    polygon   shipping routes / high-density traffic areas
+restricted  polygon   military areas, munition dumpsites
 bathymetry  raster    water depth [m, positive down] on a regular lon/lat grid
 """
 
@@ -44,6 +45,7 @@ ROLES = (
     "grid",
     "protected",
     "shipping",
+    "restricted",
     "bathymetry",
 )
 
@@ -58,6 +60,7 @@ MISSING_EFFECT: dict[str, str] = {
     "grid": "No grid-distance score.",
     "protected": "Natura 2000 sites are NOT excluded — areas shown as suitable may be protected.",
     "shipping": "Shipping routes are NOT excluded.",
+    "restricted": "Military areas and munition dumpsites are NOT excluded.",
     "bathymetry": "No water-depth score or depth limits.",
 }
 

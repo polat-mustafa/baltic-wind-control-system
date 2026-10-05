@@ -27,7 +27,7 @@ from app.services.p5.grid_code_testing import (
     submit_notification,
 )
 
-PROGRAMME_ID = "BWA-SP-TEST-001"
+PROGRAMME_ID = "SB5-SP-TEST-001"
 TESTER = "Maria Nowak"
 
 

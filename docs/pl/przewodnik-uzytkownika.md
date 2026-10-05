@@ -1,6 +1,6 @@
 # Przewodnik użytkownika
 
-**Baltic Wind HV Control Platform**: symulacja morskiej farmy wiatrowej 510 MW na Morzu Bałtyckim
+**OffshoreForge**: symulacja morskiej farmy wiatrowej 510 MW na Morzu Bałtyckim
 (34 × Vestas V236-15.0 MW, sieć wewnętrzna 66 kV, kabel eksportowy 220 kV o długości 45 km, sieć PSE 400 kV).
 
 ## 1. Wymagania

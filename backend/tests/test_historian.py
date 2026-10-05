@@ -335,7 +335,7 @@ class TestGenerateTimeSeries:
         """Unknown tag value must raise ValueError."""
         with pytest.raises(ValueError, match="Unknown historian tag"):
             generate_time_series(
-                "BWA.UNKNOWN.FAKE",  # type: ignore[arg-type]
+                "SB5.UNKNOWN.FAKE",  # type: ignore[arg-type]
                 range_hours=1,
                 resolution=TimeResolution.ONE_MINUTE,
             )

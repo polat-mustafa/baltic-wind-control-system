@@ -114,7 +114,7 @@ export default function SCADAPage() {
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-primary bg-bg-secondary shrink-0">
         <div className="flex items-center gap-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-            P3 · SCADA &amp; Automation
+            SCADA &amp; Automation
           </h2>
           <span className="text-[10px] text-text-muted font-mono hidden md:inline">
             {substationSummary

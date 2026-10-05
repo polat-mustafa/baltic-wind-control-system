@@ -55,7 +55,7 @@ async def generate_scl_file(request: SCLGenerateRequest) -> SCLFileResponse:
             )
         root = generate_icd(device)
     elif request.file_type == SCLFileType.SCD:
-        root = generate_scd("Baltic_Wind_Alpha_OSS", devices)
+        root = generate_scd("SB510_OSS", devices)
     else:
         raise HTTPException(
             status_code=422,

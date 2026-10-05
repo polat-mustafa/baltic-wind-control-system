@@ -35,7 +35,7 @@ router = APIRouter(prefix="/api/v1/info", tags=["Project Info"])
     response_model=SensorRegisterResponse,
     summary="Full instrument register",
     description=(
-        "Returns the complete sensor specification register for the Baltic Wind 510 MW platform: "
+        "Returns the complete sensor specification register for the SB-510 (510 MW) platform: "
         "34 turbines x 11 sensors, 6 OSS bays x 5 instruments, 5 export cable instruments. "
         "Total ~409 field instrument tags (process sensors only). "
         "All specifications reference IEC/ISO standards. "

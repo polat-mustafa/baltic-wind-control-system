@@ -33,7 +33,7 @@ class TestPurdueZones:
     """IEC 62443 zone hierarchy."""
 
     def test_six_zones_defined(self):
-        """Baltic Wind must define 6 Purdue levels (0–5)."""
+        """SB-510 must define 6 Purdue levels (0–5)."""
         result = get_zones()
         assert result["total_zones"] == 6
 
@@ -242,7 +242,7 @@ class TestCompliance:
         result = get_compliance()
         assert "IEC 62443" in result["standard"]
 
-    def test_sl2_target_for_baltic_wind(self):
+    def test_sl2_target_for_case_study(self):
         """Target security level must be SL-2 for OT zones."""
         result = get_compliance()
         assert result["target_sl"] == "SL-2"
@@ -259,7 +259,7 @@ class TestCompliance:
         assert result["sl1_score_pct"] >= result["sl2_score_pct"]
 
     def test_open_gaps_positive(self):
-        """Baltic Wind has known open security gaps."""
+        """SB-510 has known open security gaps."""
         result = get_compliance()
         assert result["open_gaps"] > 0
 

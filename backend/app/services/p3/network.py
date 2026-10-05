@@ -3,7 +3,7 @@ Communication Network Architecture service — M15.
 
 Architecture overview
 ---------------------
-Baltic Wind Alpha uses a 3-tier OT network following IEC 61850 / IEC 62443:
+SB-510 uses a 3-tier OT network following IEC 61850 / IEC 62443:
 
   Tier 1 — Field Bus (WTGs):
     34 turbines, each with IEC 61850 IED (bay unit + protection relay)
@@ -30,7 +30,7 @@ Baltic Wind Alpha uses a 3-tier OT network following IEC 61850 / IEC 62443:
 
 OPC-UA address space
 --------------------
-Namespace: urn:baltic-wind:scada
+Namespace: urn:offshoreforge:scada
 Root nodes:
   - WindFarm (Object)
     - WTG-01 ... WTG-34 (Object, one per turbine)
@@ -276,8 +276,8 @@ _LINKS = [
 
 # ── OPC-UA address space ──────────────────────────────────────────────────────
 
-_SERVER_URL = "opc.tcp://10.0.2.10:4840/baltic-wind/"
-_NAMESPACE_URI = "urn:baltic-wind:scada"
+_SERVER_URL = "opc.tcp://10.0.2.10:4840/offshoreforge/"
+_NAMESPACE_URI = "urn:offshoreforge:scada"
 _SECURITY_POLICY = "Basic256Sha256 / SignAndEncrypt"
 
 # Sample nodes: one measurement per turbine category + grid + BESS

@@ -2,7 +2,7 @@
 Unit tests for Pandapower network model (P2A — network_model.py).
 
 Tests validate the 66/220/400 kV network topology, cable grading,
-transformer parameters, and generation capacity against the Baltic Wind
+transformer parameters, and generation capacity against the SB-510
 Alpha specification (34 × V236-15.0 MW = 510 MW).
 
 Test Strategy

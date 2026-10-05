@@ -229,82 +229,6 @@ wheels = [
 ]
 
 [[package]]
-name = "baltic-wind-backend"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "alembic" },
-    { name = "andes" },
-    { name = "asyncpg" },
-    { name = "asyncua" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "numpy" },
-    { name = "pandapower" },
-    { name = "py-wake" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "redis" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "shap" },
-    { name = "sqlalchemy", extra = ["asyncio"] },
-    { name = "structlog" },
-    { name = "torch", version = "2.14.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
-    { name = "torch", version = "2.14.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "xarray" },
-    { name = "xgboost" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "httpx" },
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-split" },
-    { name = "pytest-xdist" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "alembic", specifier = ">=1.18.4" },
-    { name = "andes", specifier = ">=1.10.0" },
-    { name = "asyncpg", specifier = ">=0.30.0" },
-    { name = "asyncua", specifier = ">=1.1.8" },
-    { name = "fastapi", specifier = ">=0.135.3" },
-    { name = "httpx", specifier = ">=0.28.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
-    { name = "numpy", specifier = ">=2.0.0" },
-    { name = "pandapower", specifier = ">=2.14.0" },
-    { name = "py-wake", specifier = ">=2.5.0" },
-    { name = "pydantic", specifier = ">=2.10.0" },
-    { name = "pydantic-settings", specifier = ">=2.7.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.25.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "pytest-split", marker = "extra == 'dev'", specifier = ">=0.10.0" },
-    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6.0" },
-    { name = "redis", specifier = ">=5.2.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
-    { name = "scikit-learn", specifier = ">=1.5" },
-    { name = "scipy", specifier = ">=1.17.1" },
-    { name = "shap", specifier = ">=0.46" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
-    { name = "structlog", specifier = ">=24.0.0" },
-    { name = "torch", marker = "sys_platform != 'linux'", specifier = ">=2.2" },
-    { name = "torch", marker = "sys_platform == 'linux'", specifier = ">=2.2", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
-    { name = "xarray", specifier = ">=2024.1.0" },
-    { name = "xgboost", specifier = ">=2.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "blosc2"
 version = "4.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2145,6 +2069,82 @@ dependencies = [
     { name = "defusedxml" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/97/73/8ade73f6749177003f7ce3304f524774adda96e6aaab30ea79fd8fda7934/odfpy-1.4.1.tar.gz", hash = "sha256:db766a6e59c5103212f3cc92ec8dd50a0f3a02790233ed0b52148b70d3c438ec", size = 717045, upload-time = "2020-01-18T16:55:48.852Z" }
+
+[[package]]
+name = "offshoreforge-backend"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "alembic" },
+    { name = "andes" },
+    { name = "asyncpg" },
+    { name = "asyncua" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "numpy" },
+    { name = "pandapower" },
+    { name = "py-wake" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "redis" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "shap" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "structlog" },
+    { name = "torch", version = "2.14.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
+    { name = "torch", version = "2.14.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "xarray" },
+    { name = "xgboost" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "httpx" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-split" },
+    { name = "pytest-xdist" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alembic", specifier = ">=1.18.4" },
+    { name = "andes", specifier = ">=1.10.0" },
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "asyncua", specifier = ">=1.1.8" },
+    { name = "fastapi", specifier = ">=0.135.3" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28.0" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
+    { name = "numpy", specifier = ">=2.0.0" },
+    { name = "pandapower", specifier = ">=2.14.0" },
+    { name = "py-wake", specifier = ">=2.5.0" },
+    { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "pydantic-settings", specifier = ">=2.7.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.25.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+    { name = "pytest-split", marker = "extra == 'dev'", specifier = ">=0.10.0" },
+    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6.0" },
+    { name = "redis", specifier = ">=5.2.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
+    { name = "scikit-learn", specifier = ">=1.5" },
+    { name = "scipy", specifier = ">=1.17.1" },
+    { name = "shap", specifier = ">=0.46" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
+    { name = "structlog", specifier = ">=24.0.0" },
+    { name = "torch", marker = "sys_platform != 'linux'", specifier = ">=2.2" },
+    { name = "torch", marker = "sys_platform == 'linux'", specifier = ">=2.2", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
+    { name = "xarray", specifier = ">=2024.1.0" },
+    { name = "xgboost", specifier = ">=2.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "openpyxl"

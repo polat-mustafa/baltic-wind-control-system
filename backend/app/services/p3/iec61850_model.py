@@ -39,7 +39,7 @@ IEC 61400-25 extends IEC 61850 with wind-specific logical nodes:
   - WMET: Meteorological data (wind speed, direction, temperature)
   - WNAC: Nacelle conditions (temperature, yaw angle)
 
-Constants (Baltic Wind Alpha)
+Constants (SB-510)
 ------------------------------
 - 34 × V236-15.0 MW = 510 MW total
 - OSS Protection IED: ABB REL670 (XCBR, MMXU, PDIS, PTOC, PTOV, GGIO)
@@ -1074,7 +1074,7 @@ def _build_wnac_ln(instance: int = 1) -> LogicalNode:
     )
 
 
-# ── Factory Functions — Baltic Wind Alpha Device Set ────────────
+# ── Factory Functions — SB-510 Device Set ────────────
 
 
 def build_oss_protection_ied(
@@ -1319,7 +1319,7 @@ def build_oss_goose_control_block(
 
 
 def build_substation_configuration() -> list[PhysicalDevice]:
-    """Build the complete IEC 61850 configuration for Baltic Wind Alpha.
+    """Build the complete IEC 61850 configuration for SB-510.
 
     Returns the full set of IEDs:
     - 1 × OSS Protection IED (ABB REL670)

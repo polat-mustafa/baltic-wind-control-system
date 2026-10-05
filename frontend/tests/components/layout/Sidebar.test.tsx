@@ -48,7 +48,7 @@ describe("Sidebar", () => {
     setViewport(375);
     const onMobileClose = vi.fn();
     renderSidebar({ mobileOpen: true, onMobileClose });
-    fireEvent.click(screen.getByRole("link", { name: /P1 · Wind Resource/ }));
+    fireEvent.click(screen.getByRole("link", { name: /Wind Resource/ }));
     expect(onMobileClose).toHaveBeenCalled();
   });
 

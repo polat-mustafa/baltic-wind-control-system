@@ -6,9 +6,9 @@ build-backend = "setuptools.build_meta"
 include = ["app*"]
 
 [project]
-name = "baltic-wind-backend"
+name = "offshoreforge-backend"
 version = "0.1.0"
-description = "Backend for the 510 MW Baltic Sea Offshore Wind HV Control Simulation Platform"
+description = "OffshoreForge backend — offshore wind engineering simulation and training platform"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.135.3",

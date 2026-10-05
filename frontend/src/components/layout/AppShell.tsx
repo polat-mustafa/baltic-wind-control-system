@@ -35,12 +35,12 @@ import { useLandingStore } from "../../store/landingStore";
 import { useLayerStore } from "../../store/layerStore";
 
 const ROUTE_LABELS: Record<string, string> = {
-  "/": "Overview",
-  "/wind-resource": "P1 · Wind Resource",
-  "/hv-grid": "P2 · HV Grid Integration",
-  "/scada": "P3 · SCADA & Automation",
-  "/forecast": "P4 · AI Forecasting",
-  "/commissioning": "P5 · HV Commissioning",
+  "/": "Control Room",
+  "/wind-resource": "Wind Resource",
+  "/hv-grid": "HV Grid Integration",
+  "/scada": "SCADA & Automation",
+  "/forecast": "AI Forecasting",
+  "/commissioning": "HV Commissioning",
   "/digital-twin": "Digital Twin · Condition Monitoring",
   "/turbine-physics": "Turbine Physics",
 };
@@ -134,7 +134,7 @@ export default function AppShell() {
               <Wind size={16} className="text-accent" />
             </div>
             <span className="hidden sm:inline font-semibold text-sm tracking-tight text-text-primary whitespace-nowrap">
-              Baltic Wind Alpha
+              OffshoreForge
             </span>
           </Link>
 

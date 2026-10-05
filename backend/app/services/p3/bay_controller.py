@@ -21,7 +21,7 @@ This service replicates that behaviour in software:
 
 Standard: IEC 61850-7-4 logical nodes XCBR, XSWI, CSWI, CILO, RREC
 
-OSS Bay Registry (66 kV switchboard — Baltic Wind Alpha)
+OSS Bay Registry (66 kV switchboard — SB-510)
 ---------------------------------------------------------
 BAY-OSS-66-01: String 1 Feeder  (WTG-01 to WTG-06)
 BAY-OSS-66-02: String 2 Feeder  (WTG-07 to WTG-12)

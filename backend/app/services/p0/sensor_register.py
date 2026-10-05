@@ -1,5 +1,5 @@
 """
-Sensor Register Service — static instrument data for Baltic Wind 510 MW.
+Sensor Register Service — static instrument data for SB-510 (510 MW).
 
 Returns the full sensor specification register as defined in:
 - IEC 61400-12-1 (anemometers)
@@ -304,7 +304,7 @@ _TOTAL_TAGS = _TURBINE_TAGS + _OSS_TAGS + _CABLE_TAGS
 
 
 def get_sensor_register() -> SensorRegisterResponse:
-    """Return the complete instrument register for Baltic Wind 510 MW.
+    """Return the complete instrument register for SB-510 (510 MW).
 
     Returns
     -------

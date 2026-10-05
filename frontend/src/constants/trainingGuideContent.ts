@@ -76,7 +76,7 @@ export const landingGuide: TrainingGuideData = {
 // ── P1: Wind Resource & AEP ───────────────────────────────────
 
 export const p1Guide: TrainingGuideData = {
-  title: "P1 · Wind Resource & AEP",
+  title: "Wind Resource & AEP",
   subtitle: "Energy yield assessment using PyWake wake modeling",
   purpose:
     "This dashboard simulates the full energy yield assessment pipeline " +
@@ -119,7 +119,7 @@ export const p1Guide: TrainingGuideData = {
 // ── P2: HV Grid Integration ──────────────────────────────────
 
 export const p2Guide: TrainingGuideData = {
-  title: "P2 · HV Grid Integration",
+  title: "HV Grid Integration",
   subtitle: "Grid-connection studies with pandapower and transparent dynamic models",
   purpose:
     "This dashboard runs the studies a grid-connection application is built on: load flow in four operating " +
@@ -160,7 +160,7 @@ export const p2Guide: TrainingGuideData = {
 // ── P3: SCADA & Automation ────────────────────────────────────
 
 export const p3Guide: TrainingGuideData = {
-  title: "P3 · SCADA & Automation",
+  title: "SCADA & Automation",
   subtitle: "IEC 61850 substation automation and alarm management",
   purpose:
     "This dashboard simulates a full SCADA/HMI system for the offshore substation. " +
@@ -209,7 +209,7 @@ export const p3Guide: TrainingGuideData = {
 // ── P4: AI Forecasting ────────────────────────────────────────
 
 export const p4Guide: TrainingGuideData = {
-  title: "P4 · AI Forecasting",
+  title: "AI Forecasting",
   subtitle: "Wind power prediction using XGBoost, LSTM, and Temporal Fusion Transformer",
   purpose:
     "This dashboard demonstrates a full ML forecasting pipeline for wind power prediction. " +
@@ -251,7 +251,7 @@ export const p4Guide: TrainingGuideData = {
 // ── P5: HV Commissioning ──────────────────────────────────────
 
 export const p5Guide: TrainingGuideData = {
-  title: "P5 · HV Commissioning Simulator",
+  title: "HV Commissioning Simulator",
   subtitle: "30-step switching programme with LOTO, SAT, and Grid Code compliance",
   purpose:
     "This simulator walks through the complete HV commissioning process for the " +

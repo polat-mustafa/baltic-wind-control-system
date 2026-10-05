@@ -420,11 +420,11 @@ PSE compliance verification follows EON → ION → FON stages before granting o
 | Bus | Ik''max (kA) | ip (kA) | Breaker I_b / making 2.5·I_b (kA) | Breaking duty | Ik''min (kA) |
 |-----|-------------|---------|-----------------------------------|---------------|--------------|
 | PSE 400 kV | 15.3 | 36.9 | 50 / 125 | 31 % | 11.5 |
-| Onshore 220 kV | 10.3 | 25.3 | 40 / 100 | 26 % | 7.5 |
-| OSS 220 kV | 9.1 | 21.7 | 40 / 100 | 23 % | 6.5 |
-| OSS 66 kV | 21.4 | 50.5 | 25 / 62.5 | 86 % | 14.4 |
+| Onshore 220 kV | 10.3 | 25.3 | 40 / 100 | 26 % | 7.3 |
+| OSS 220 kV | 9.1 | 21.7 | 40 / 100 | 23 % | 6.4 |
+| OSS 66 kV | 21.4 | 50.5 | 25 / 62.5 | 86 % | 14.1 |
 
-*`calc_short_circuit()` (pandapower IEC 60909): max case c = 1.10 with WTG contribution (k = 1), cable R at 20 °C; min case c = 1.00, grid at 8 GVA, no WTG contribution. The 66 kV busbar is the critical one — the two parallel 300 MVA transformers set its fault level.*
+*`calc_short_circuit()` (pandapower IEC 60909): max case c = 1.10 with WTG contribution (k = 1), cable R at 20 °C; min case c = 1.00, grid at 8 GVA, no WTG contribution, transformer correction K_T only in the max case (IEC 60909-0 §6.3.3; pandapower ≥ 3.5). The 66 kV busbar is the critical one — the two parallel 300 MVA transformers set its fault level.*
 
 ### 3.8 STATCOM Sizing — Decision Analysis
 

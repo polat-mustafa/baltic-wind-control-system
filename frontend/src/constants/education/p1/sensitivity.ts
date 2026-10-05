@@ -91,5 +91,4 @@ export const sensitivityEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-006"],
 };

@@ -120,8 +120,6 @@ export interface EducationContent {
   // ── Real world & further reading ─────────────────────────────
   realWorldCases: RealWorldCase[];
   furtherReading: Reference[];
-  /** Lesson IDs in docs/lessons/, e.g. ["lesson-004", "lesson-005"] */
-  relatedLessons?: string[];
 
   // ── Backwards-compat passthrough (from legacy InfoContent) ───
   parameters?: { name: string; description: string }[];

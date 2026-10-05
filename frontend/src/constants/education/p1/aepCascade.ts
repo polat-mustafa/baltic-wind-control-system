@@ -125,5 +125,4 @@ export const aepCascadeEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-006"],
 };

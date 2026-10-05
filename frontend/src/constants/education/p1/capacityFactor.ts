@@ -87,5 +87,4 @@ export const capacityFactorEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-006"],
 };

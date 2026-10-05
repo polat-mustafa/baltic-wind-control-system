@@ -116,5 +116,4 @@ export const uncertaintyEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-006"],
 };

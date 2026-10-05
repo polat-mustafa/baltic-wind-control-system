@@ -125,5 +125,4 @@ export const wakeLossEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-005", "lesson-006"],
 };

@@ -7,7 +7,7 @@
  *   2. Maths         — formulas (mono expression + variable table) + worked examples
  *   3. Standards     — standards list with type chips and external links
  *   4. Real World    — real-world case cards + further reading
- *   5. Code          — repo file references + linked lessons
+ *   5. Code          — repo file references
  *
  * Accepts either an EducationContent (rich) or a legacy InfoContent (shallow,
  * auto-promoted via promoteInfoContent). Tabs whose content is empty render a
@@ -377,54 +377,22 @@ function CodeReferenceCard({ codeRef }: { codeRef: CodeReference }) {
 }
 
 function CodeTab({ c }: { c: EducationContent }) {
-  const hasCode = c.codeReferences && c.codeReferences.length > 0;
-  const hasLessons = c.relatedLessons && c.relatedLessons.length > 0;
-  if (!hasCode && !hasLessons) {
+  if (!c.codeReferences || c.codeReferences.length === 0) {
     return (
       <EmptyHint>
-        No source files or lessons linked. (Design-rationale primers
-        intentionally omit code references.)
+        No source files linked. (Design-rationale primers intentionally omit
+        code references.)
       </EmptyHint>
     );
   }
   return (
-    <div className="space-y-5">
-      {hasCode && (
-        <div>
-          <SectionLabel>Source Files</SectionLabel>
-          <div className="space-y-2">
-            {c.codeReferences!.map((cr, idx) => (
-              <CodeReferenceCard key={idx} codeRef={cr} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {hasLessons && (
-        <div>
-          <SectionLabel>Related Lessons</SectionLabel>
-          <div className="space-y-1">
-            {c.relatedLessons!.map((lesson) => (
-              <a
-                key={lesson}
-                href={`https://polat-mustafa.github.io/baltic-wind-control-system/en/lessons/${lesson}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-bg-hover transition-colors group"
-              >
-                <BookOpen size={14} className="text-text-muted shrink-0" />
-                <span className="text-sm text-text-secondary group-hover:text-text-primary">
-                  {lesson}
-                </span>
-                <ExternalLink
-                  size={12}
-                  className="ml-auto text-text-muted group-hover:text-accent"
-                />
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+    <div>
+      <SectionLabel>Source Files</SectionLabel>
+      <div className="space-y-2">
+        {c.codeReferences.map((cr, idx) => (
+          <CodeReferenceCard key={idx} codeRef={cr} />
+        ))}
+      </div>
     </div>
   );
 }

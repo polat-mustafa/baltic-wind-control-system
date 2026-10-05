@@ -84,5 +84,4 @@ export const layoutComparisonEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-005", "lesson-006"],
 };

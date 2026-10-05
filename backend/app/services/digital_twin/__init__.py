@@ -1,61 +1,25 @@
-"""Digital Twin module — virtual replica of each turbine for condition monitoring.
+"""Digital twin of the 34 × V236-15.0 MW fleet — condition monitoring per ISO 13374-1.
 
-Compares physics simulator predictions (what SHOULD happen) against SCADA data
-(what ACTUALLY happens) to detect anomalies and assess turbine health per
-ISO 13374-1 (Condition Monitoring and Diagnostics of Machines).
+The twin is a physics reference model of the turbine (``reference_model``),
+evaluated at the measured wind and air density of every 10-min SCADA record.
+What it predicts is compared with what the turbine reports; the differences
+are charted, explained and projected:
 
-Architecture
-────────────
-SCADA Data (Actual)          Physics Simulator (Twin)
-    │                              │
-    ▼                              ▼
-  [wind, power, rpm, pitch]   [run_simulation(wind)]
-    │                              │
-    └───▶ Residual Analysis ◀──────┘
-                │
-         Health Scoring (ISO 13374)
-                │
-         Anomaly Classification
-                │
-         Degradation & RUL
+  DA  plant_simulator   synthetic SCADA of the physical fleet (+ ground truth)
+  DM  detection         twin expectation, five residual channels
+  SD  detection         Phase I calibration, EWMA control charts, events
+  HA  detection         health index;  diagnosis — fault isolation and sizing
+  PA  prognosis         remaining useful life (ISO 13381-1)
+  AG  fault_library     advisories;  pipeline — orchestration and caching
 """
 
-from app.services.digital_twin.anomaly_classification import (
-    AnomalyRecord,
-    classify_anomalies,
-)
-from app.services.digital_twin.health_scoring import (
-    HealthStatus,
-    TurbineHealthScore,
-    compute_farm_health,
-    compute_health_score,
-)
-from app.services.digital_twin.residual_analysis import (
-    ResidualResult,
-    compute_residuals,
-)
-from app.services.digital_twin.scenario_generator import (
-    SCENARIO_DESCRIPTIONS,
-    run_digital_twin_analysis,
-)
-from app.services.digital_twin.twin_engine import (
-    TwinPrediction,
-    build_twin_lookup_table,
-    lookup_twin_prediction,
-)
+from app.services.digital_twin.pipeline import DigitalTwinRun, run_digital_twin
+from app.services.digital_twin.reference_model import FaultParams, evaluate, reference_curve
 
 __all__ = [
-    "SCENARIO_DESCRIPTIONS",
-    "AnomalyRecord",
-    "HealthStatus",
-    "ResidualResult",
-    "TurbineHealthScore",
-    "TwinPrediction",
-    "build_twin_lookup_table",
-    "classify_anomalies",
-    "compute_farm_health",
-    "compute_health_score",
-    "compute_residuals",
-    "lookup_twin_prediction",
-    "run_digital_twin_analysis",
+    "DigitalTwinRun",
+    "FaultParams",
+    "evaluate",
+    "reference_curve",
+    "run_digital_twin",
 ]

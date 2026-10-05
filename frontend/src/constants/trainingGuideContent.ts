@@ -342,39 +342,50 @@ export const turbinePhysicsGuide: TrainingGuideData = {
 
 export const digitalTwinGuide: TrainingGuideData = {
   title: "Digital Twin",
-  subtitle: "ISO 13374-1 condition monitoring and anomaly detection",
+  subtitle: "Physics-based condition monitoring of the 34 × V236 fleet (ISO 13374-1)",
   purpose:
-    "This dashboard implements a digital twin approach to condition monitoring: " +
-    "a physics-based model predicts expected turbine behavior, residuals (actual minus predicted) " +
-    "are tracked with EWMA smoothing, and health scores detect degradation. " +
-    "It follows the ISO 13374-1 pipeline: Data Acquisition → Detection → Assessment → Prognosis.",
+    "The twin is a physics model of the V236-15.0 MW — Heier Cp(λ, β) surface calibrated to the " +
+    "published 11.1 m/s rated wind, K·ω² torque law, 4.0–8.33 rpm speed range, pitch regulation, " +
+    "drivetrain losses and a gearbox thermal model. It is run at the measured wind and air density " +
+    "of every 10-min SCADA record; what it predicts is compared with what each turbine reports. " +
+    "Deviations are charted (EWMA), explained (fault-hypothesis fitting), sized and — for wear " +
+    "faults — projected to a limit, following ISO 13374-1 (DA → DM → SD → HA → PA → AG). " +
+    "The SCADA here is synthetic with known injected faults, so every result is scored against ground truth.",
   howToUse: [
-    "Select a Fault Scenario: Healthy (no faults), Blade Icing, Gearbox Degradation, Pitch Malfunction, Generator Derating, or Sensor Drift.",
-    "Set the number of Timesteps (each = 10 minutes) and Turbines to analyze.",
-    "Click 'Run Analysis' to simulate SCADA data and compare against physics predictions.",
-    "Study the health map to identify which turbines are degrading.",
-    "Use the residual time series to see when anomalies first appear.",
-    "Check Remaining Useful Life (RUL) estimates for degrading components.",
+    "Pick a fault scenario, an analysis window (1–30 days) and a seed, then run the twin. 'Combined faults' puts five different faults on different turbines at once.",
+    "Fleet overview: read the KPIs, find abnormal turbines on the map or in the health heatmap, then the fault register (identified fault, size, confidence, lost energy, RUL).",
+    "Click any turbine (map, heatmap, register or event log) to open Turbine analysis.",
+    "Turbine analysis: the five control charts show when each channel left its limit; 'Measured vs twin' shows the raw signals; the hypothesis test shows why the diagnosis was chosen; 'Fault size over time' compares the estimate with the injected truth and projects wear faults.",
+    "Model & validation: check detection delay and isolation against the injected faults, the twin's steady-state curves against the P1 V236 table, and the model card (calibration, Phase I fidelity, detector settings, standards).",
   ],
   sections: [
-    { name: "KPI Header", description: "Key metrics: farm health score (%), anomaly count, mean residual, worst-case RUL (days), and detection accuracy." },
-    { name: "Farm Health Map", description: "Grid/map view of all turbines colored by health score: green (>80%) = healthy, amber (50-80%) = warning, red (<50%) = alarm. Quickly identifies which turbines need attention." },
-    { name: "Twin Comparison", description: "Side-by-side time series: physics prediction (blue) vs actual SCADA data (orange). Persistent divergence indicates a developing fault." },
-    { name: "Residual Time Series", description: "Actual-minus-predicted residuals with EWMA smoothing (span=24, ~4 hours). Residuals drifting outside ±2σ trigger anomaly detection alerts." },
-    { name: "Health Trend", description: "Health score over time: H = 100 × exp(-|EWMA| / σ). Weighted: 50% power, 30% RPM, 20% pitch. Declining trend indicates progressive degradation." },
-    { name: "Anomaly Classification", description: "Categorizes detected anomalies by type (icing, gearbox, pitch, etc.) and severity. Uses pattern matching on residual signatures." },
+    { name: "Fleet KPIs", description: "Fleet health index (mean, weakest turbine), states now (normal / alert / alarm), identified faults, energy delivered vs twin potential, and detection performance against the injected faults." },
+    { name: "ISO 13374-1 chain", description: "What each processing block produced: records acquired, residual channels, EWMA events, faults identified, RUL estimates, advisories." },
+    { name: "Fleet state map", description: "True layout (6 strings, 8D × 6D). Normal turbines are neutral, alert amber, alarm red (word in the tooltip). A ring marks an identified fault even when it is not visible at the current wind (e.g. a power cap at low wind)." },
+    { name: "Health heatmap", description: "Worst health index per hour for every turbine, with ambient temperature underneath — icing only happens in the cold spell." },
+    { name: "Fault register & event log", description: "Identified fault, estimated size with unit, posterior confidence, share of the misfit explained, first detection, lost energy and RUL with its 90 % interval; every confirmed control-chart event with level, duration and peak deviation." },
+    { name: "Control charts", description: "EWMA of the standardised residual of power, rotor speed, pitch, gearbox temperature and the anemometer-vs-neighbours ratio, with exact time-varying limits widened for autocorrelation (EWMAST). Alert at the limit, alarm at twice it, 1 h persistence." },
+    { name: "Hypothesis test", description: "Each modelled fault is simulated through the twin over the wind the turbine saw and its size fitted by weighted least squares, with the wind-measurement uncertainty propagated (GUM). The best one is accepted only if it explains ≥ 30 % of the misfit and passes a likelihood-ratio test." },
+    { name: "Fault size & prognosis", description: "Fault size in consecutive 12 h windows (±1.96 SE) against the injected truth. For wear faults (gearbox losses) a weighted trend with a one-sided t-test; RUL to the limit with a 90 % delta-method interval (ISO 13381-1). No trend, no RUL." },
   ],
   standards: [
-    { label: "ISO 13374 — Condition monitoring and diagnostics of machines", url: "https://en.wikipedia.org/wiki/Condition_monitoring" },
-    { label: "IEC 61400-25 — Communications for monitoring wind power plants", url: "https://en.wikipedia.org/wiki/IEC_61400" },
-    { label: "Zaher et al. (2009) — Online wind turbine fault detection (survey)", url: "https://doi.org/10.1016/j.rser.2015.12.219" },
+    { label: "ISO 13374-1:2003 — Condition monitoring and diagnostics of machines: data processing (DA, DM, SD, HA, PA, AG)" },
+    { label: "ISO 13379-1:2012 — Data interpretation and diagnostics techniques" },
+    { label: "ISO 13381-1:2015 — Prognostics: general guidelines" },
+    { label: "ISO/IEC 30173:2023 — Digital twin: concepts and terminology" },
+    { label: "DNV-RP-A204 — Qualification and assurance of digital twins" },
+    { label: "IEC 61400-25-2 — Information model for monitoring wind power plants (logical nodes)" },
+    { label: "IEC 61400-12-1 — Power performance measurements" },
+    { label: "JCGM 100:2008 (GUM) — Evaluation of measurement data: guide to the expression of uncertainty" },
+    { label: "Tautz-Weinert & Watson (2017) — Using SCADA data for wind turbine condition monitoring: a review", url: "https://doi.org/10.1049/iet-rpg.2016.0248" },
+    { label: "Zaher et al. (2009) — Online wind turbine fault detection through automated SCADA data analysis", url: "https://doi.org/10.1002/we.319" },
   ],
   learningObjectives: [
-    "Build a digital twin using physics-based predictions vs SCADA data.",
-    "Apply EWMA smoothing to detect slow-developing anomalies.",
-    "Calculate health scores from weighted residual metrics.",
-    "Estimate Remaining Useful Life (RUL) from health degradation trends.",
-    "Classify anomaly types by residual pattern signatures.",
-    "Follow the ISO 13374-1 pipeline: Data → Detection → Assessment → Prognosis.",
+    "Explain why a twin must be a calibrated physics model, and what one calibration constant can and cannot fix.",
+    "Derive why healthy SCADA residuals scatter most where the power curve is steepest (anemometer error × slope).",
+    "Set up an EWMA chart in Phase I and justify its limit for 170 parallel charts and autocorrelated data.",
+    "Tell aerodynamic loss, pitch misalignment, power limitation, gearbox losses and anemometer drift apart by their multi-channel signature.",
+    "Estimate a fault's size and its uncertainty, and refuse a RUL when the trend is not significant.",
+    "Score a monitoring system honestly: detection delay, isolation accuracy, false-alarm rate.",
   ],
 };

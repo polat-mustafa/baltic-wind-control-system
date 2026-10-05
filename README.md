@@ -202,7 +202,7 @@ The platform is split into **five sequential projects (P1 → P5)** plus **fifte
 <details>
 <summary><b>Cross-cutting capabilities</b></summary>
 
-- **Digital Twin** dashboard with real-time turbine state visualisation
+- **Digital Twin** — physics reference model of the V236 run at the measured wind of every SCADA record; EWMA control charts (Phase I calibrated, autocorrelation-corrected), model-based fault isolation and sizing, ISO 13381-1 RUL, scored against injected ground truth (ISO 13374-1 pipeline)
 - **Turbine Physics** explorer — Cp-TSR surfaces, pitch control, V236 power curves
 - **Interactive Landing Map** — Leaflet with wake cones, cable routes, drill-down navigation
 - **3D Nacelle Interior** — V236 9 m × 8 m × 20 m bedplate, 3-stage gearbox, PMSG, 12 subsystem components

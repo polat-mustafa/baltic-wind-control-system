@@ -1,11 +1,9 @@
 /**
- * Zustand store for Digital Twin dashboard state.
+ * Digital Twin store — run parameters, farm run, selected turbine detail.
  *
- * Manages scenario selection, analysis results, selected turbine,
- * and loading/error state.
- *
- * Selector discipline: only destructure primitives to avoid React #185
- * infinite re-render loops (filter/map return new array refs every call).
+ * A run is identified by (scenario, duration, seed); the backend caches it, so
+ * the turbine detail always belongs to the run the overview shows. Responses
+ * that arrive after the user started a newer request are dropped.
  */
 
 import { create } from "zustand";
@@ -13,123 +11,120 @@ import { create } from "zustand";
 import * as api from "../services/digitalTwinApi";
 import type {
   AnalyzeResponse,
-  DigitalTwinConfig,
-  ScenarioInfo,
+  ChannelKey,
+  ModelCard,
+  ReferenceCurve,
+  RunParams,
+  ScenarioName,
+  TurbineDetail,
 } from "../services/digitalTwinApi";
 
-// ── Types ────────────────────────────────────────────────────────
+export type TwinTab = "fleet" | "turbine" | "model";
 
 interface DigitalTwinState {
-  // Data from API
-  config: DigitalTwinConfig | null;
-  scenarios: ScenarioInfo[] | null;
+  modelCard: ModelCard | null;
+  referenceCurve: ReferenceCurve | null;
   analysis: AnalyzeResponse | null;
+  detail: TurbineDetail | null;
 
-  // User selections
-  selectedScenario: string;
+  scenario: ScenarioName;
+  durationDays: number;
+  seed: number;
+  tab: TwinTab;
   selectedTurbineId: number | null;
-  numTimesteps: number;
-  numTurbines: number;
+  selectedChannel: ChannelKey;
 
-  // UI state
   loading: boolean;
+  detailLoading: boolean;
   error: string | null;
-  analysisRun: boolean;
-  progress: number;
-  progressMessage: string;
 
-  // Actions
-  setSelectedScenario: (s: string) => void;
-  setSelectedTurbineId: (id: number | null) => void;
-  setNumTimesteps: (n: number) => void;
-  setNumTurbines: (n: number) => void;
-  fetchConfig: () => Promise<void>;
-  fetchScenarios: () => Promise<void>;
+  setScenario: (s: ScenarioName) => void;
+  setDurationDays: (d: number) => void;
+  setSeed: (s: number) => void;
+  setTab: (t: TwinTab) => void;
+  setSelectedChannel: (c: ChannelKey) => void;
+  loadModel: () => Promise<void>;
   runAnalysis: () => Promise<void>;
+  selectTurbine: (id: number, openTab?: boolean) => Promise<void>;
   clearError: () => void;
 }
 
-// ── Store Implementation ─────────────────────────────────────────
+const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+let analysisToken = 0;
+let detailToken = 0;
 
 export const useDigitalTwinStore = create<DigitalTwinState>((set, get) => ({
-  // Data
-  config: null,
-  scenarios: null,
+  modelCard: null,
+  referenceCurve: null,
   analysis: null,
+  detail: null,
 
-  // User selections
-  selectedScenario: "healthy",
+  scenario: "combined",
+  durationDays: 7,
+  seed: 42,
+  tab: "fleet",
   selectedTurbineId: null,
-  numTimesteps: 144,
-  numTurbines: 34,
+  selectedChannel: "power",
 
-  // UI
   loading: false,
+  detailLoading: false,
   error: null,
-  analysisRun: false,
-  progress: 0,
-  progressMessage: "",
 
-  // ── Setters ─────────────────────────────────────────────────
+  setScenario: (scenario) => set({ scenario }),
+  setDurationDays: (durationDays) => set({ durationDays }),
+  setSeed: (seed) => set({ seed: Number.isFinite(seed) ? Math.max(0, Math.round(seed)) : 0 }),
+  setTab: (tab) => set({ tab }),
+  setSelectedChannel: (selectedChannel) => set({ selectedChannel }),
 
-  setSelectedScenario: (s) => set({ selectedScenario: s }),
-  setSelectedTurbineId: (id) => set({ selectedTurbineId: id }),
-  setNumTimesteps: (n) => set({ numTimesteps: n }),
-  setNumTurbines: (n) => set({ numTurbines: n }),
-
-  // ── Data actions ────────────────────────────────────────────
-
-  fetchConfig: async () => {
+  loadModel: async () => {
+    if (get().modelCard && get().referenceCurve) return;
     try {
-      const config = await api.getConfig();
-      set({ config });
+      const [modelCard, referenceCurve] = await Promise.all([
+        api.getModelCard(),
+        api.getReferenceCurve(),
+      ]);
+      set({ modelCard, referenceCurve });
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  fetchScenarios: async () => {
-    try {
-      const scenarios = await api.getScenarios();
-      set({ scenarios });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
+      set({ error: message(err) });
     }
   },
 
   runAnalysis: async () => {
-    const state = get();
-    set({
-      loading: true,
-      error: null,
-      progress: 10,
-      progressMessage: "Building twin lookup table...",
-    });
-
+    const { scenario, durationDays, seed } = get();
+    const token = ++analysisToken;
+    set({ loading: true, error: null });
     try {
-      set({ progress: 30, progressMessage: "Running digital twin analysis..." });
-
-      const analysis = await api.postAnalyze(
-        state.selectedScenario,
-        state.numTimesteps,
-        state.numTurbines,
-      );
-
-      set({
-        analysis,
-        analysisRun: true,
-        selectedTurbineId: analysis.farm_health.worst_turbine_id,
-        progress: 100,
-        progressMessage: "Analysis complete",
-      });
+      const analysis = await api.postAnalyze({ scenario, duration_days: durationDays, seed });
+      if (token !== analysisToken) return;
+      // Keep the selected turbine if it still exists; otherwise focus the worst one.
+      const worst = [...analysis.turbines].sort((a, b) => a.health_index - b.health_index)[0];
+      const keep = get().selectedTurbineId;
+      set({ analysis, detail: null, loading: false });
+      await get().selectTurbine(keep ?? worst.turbine_id, false);
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    } finally {
-      set({ loading: false });
+      if (token === analysisToken) set({ error: message(err), loading: false });
     }
   },
 
-  // ── Utility ─────────────────────────────────────────────────
+  selectTurbine: async (id, openTab = true) => {
+    const analysis = get().analysis;
+    set({ selectedTurbineId: id, ...(openTab ? { tab: "turbine" as const } : {}) });
+    if (!analysis) return;
+    const params: RunParams = {
+      scenario: analysis.scenario,
+      duration_days: analysis.duration_days,
+      seed: analysis.seed,
+    };
+    const token = ++detailToken;
+    set({ detailLoading: true });
+    try {
+      const detail = await api.postTurbineDetail({ ...params, turbine_id: id });
+      if (token === detailToken) set({ detail, detailLoading: false });
+    } catch (err) {
+      if (token === detailToken) set({ error: message(err), detailLoading: false });
+    }
+  },
 
   clearError: () => set({ error: null }),
 }));

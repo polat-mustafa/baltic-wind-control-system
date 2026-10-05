@@ -25,9 +25,12 @@ export interface NetworkSpec {
 export interface BusResult {
   name: string;
   vn_kv: number;
+  /** 0 when the bus is de-energised (e.g. the tripped string in N-1). */
   vm_pu: number;
   va_deg: number;
+  /** Net injection, generating positive [MW]. */
   p_mw: number;
+  /** Net injection, generating positive [MVAR] (Rule 4). */
   q_mvar: number;
 }
 
@@ -64,6 +67,11 @@ export interface LoadFlowResult {
   v_max_pu: number;
   total_loss_mw: number;
   total_generation_mw: number;
+  /** Delivered to PSE 400 kV [MW]. */
+  poc_p_mw: number;
+  /** Delivered to PSE 400 kV [MVAR], generating positive. */
+  poc_q_mvar: number;
+  statcom_q_mvar: number;
   voltage_compliant: boolean;
   buses: BusResult[];
   lines: LineResult[];
@@ -77,7 +85,12 @@ export interface ShortCircuitBusResult {
   vn_kv: number;
   ikss_ka: number;
   ip_ka: number;
+  /** Short-circuit power Sk'' [MVA] (field name kept from pandapower). */
   skss_mw: number;
+  /** Rated breaking current [kA]. */
+  breaker_ka: number;
+  /** Rated making current = 2.5 × breaking [kA]. */
+  making_ka: number;
 }
 
 export interface ShortCircuitResult {
@@ -94,7 +107,10 @@ export interface ShortCircuitResult {
 export interface STATCOMSizingResult {
   cable_q_mvar: number;
   reactor_q_mvar: number;
+  /** Rise along the open-ended cable itself, 1/cos(βL) − 1. */
   ferranti_rise_pu: number;
+  /** Rise with no compensation: charging current through transformers + grid. */
+  uncompensated_rise_pu: number;
   statcom_rating_mvar: number;
   statcom_q_range_min_mvar: number;
   statcom_q_range_max_mvar: number;
@@ -104,18 +120,45 @@ export interface STATCOMSizingResult {
   reactor_n1_statcom_q_mvar: number;
   /** One reactor out: voltage compliant and STATCOM not saturated */
   reactor_n1_secure: boolean;
+  /** Reactive range deliverable at the PSE 400 kV POC at P_max [MVAR]. */
+  poc_q_max_mvar: number;
+  poc_q_min_mvar: number;
+  /** PSE requirement +0.40 / −0.35 · P_max [MVAR]. */
+  pse_q_max_mvar: number;
+  pse_q_min_mvar: number;
+  pse_q_range_met: boolean;
+  wtg_q_capability_mvar: number;
 }
 
 // ── FRT Simulation ───────────────────────────────────────────────
 
 export type FRTType = "lvrt" | "hvrt";
 
+export type FaultBus = "PSE_400kV" | "Onshore_220kV" | "OSS_220kV" | "OSS_66kV";
+
+export interface FRTParams {
+  faultBus: FaultBus;
+  /** Fault impedance on 100 MVA base [pu], 0 = bolted. */
+  faultImpedancePu: number;
+  faultDurationS: number;
+  kFactor: number;
+}
+
 export interface FRTTimePoint {
   time_s: number;
+  /** Connection point (PSE 400 kV) voltage [pu]. */
   voltage_pu: number;
+  /** WTG terminals (aggregated at OSS 66 kV) [pu]. */
+  terminal_voltage_pu: number;
   active_power_mw: number;
   reactive_power_mvar: number;
   reactive_current_pu: number;
+  statcom_q_mvar: number;
+}
+
+export interface FRTEnvelopePoint {
+  time_s: number;
+  voltage_pu: number;
 }
 
 export interface FRTSimulationResult {
@@ -128,6 +171,13 @@ export interface FRTSimulationResult {
   recovery_time_s: number;
   recovery_compliant: boolean;
   statcom_peak_q_mvar: number;
+  k_factor: number;
+  retained_voltage_pu: number;
+  terminal_voltage_pu: number;
+  passive_voltage_pu: number;
+  recovery_limit_s: number;
+  /** PSE type-D profile in simulation time (LVRT only). */
+  envelope: FRTEnvelopePoint[];
   time_series: FRTTimePoint[];
 }
 
@@ -135,14 +185,32 @@ export interface FRTSimulationResult {
 
 export type ConverterType = "gfl" | "gfm";
 
+export type GridStrength = "strong_grid" | "weak_grid" | "very_weak_grid";
+
 export interface ConverterResult {
   converter_type: ConverterType;
   grid_ssc_mva: number;
+  /** SCR at the PSE 400 kV POC. */
   scr: number;
+  /** SCR at the 66 kV busbar (farm impedance included). */
+  scr_terminal: number;
   stable: boolean;
   voltage_deviation_pu: number;
   settling_time_s: number;
   frequency_deviation_hz: number;
+  peak_current_pu: number;
+  power_swing_mw: number;
+}
+
+/** Values are null after that converter lost synchronism (the trace stops). */
+export interface ConverterTimePoint {
+  time_s: number;
+  gfl_p_mw: number | null;
+  gfm_p_mw: number | null;
+  gfl_f_hz: number | null;
+  gfm_f_hz: number | null;
+  gfl_i_pu: number | null;
+  gfm_i_pu: number | null;
 }
 
 export interface ConverterComparisonResult {
@@ -150,4 +218,6 @@ export interface ConverterComparisonResult {
   gfl_result: ConverterResult;
   gfm_result: ConverterResult;
   gfm_advantage: string;
+  phase_jump_deg: number;
+  time_series: ConverterTimePoint[];
 }

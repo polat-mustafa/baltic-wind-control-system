@@ -1,21 +1,10 @@
 """
-Pydantic schemas for Cable DTS Thermal Monitoring — M10.
+Pydantic schemas for cable DTS thermal monitoring — M10.
 
-Distributed Temperature Sensing (DTS) — Raman backscatter fibre optic thermometry:
-  Spatial resolution: ~1 m along the cable route
-  Temperature resolution: ±0.1 °C
-  Measurement interval: 1-10 minutes for 45 km cable
-
-IEC 60287 cable thermal model:
-  Steady-state conductor temperature = ambient + W * R_thermal
-  W = I² × R_AC  [W/m — conductor losses]
-  R_thermal = thermal resistance of insulation + outer sheath + soil/sea [K·m/W]
-
-IEC 62067 — 220 kV XLPE cable operating limits:
-  Normal: 90 °C conductor
-  Emergency: 105 °C (short duration)
-  Static rating: 950 A per circuit (EXPORT_CABLE_1000: 1000 mm² Cu, 2 circuits)
-  Dynamic rating: ~905 A (22 °C summer) to ~1017 A (4 °C winter) per circuit
+One circuit of the 220 kV export cable (1000 mm² Cu XLPE, 950 A static
+rating, 2 circuits). DTS reads the fibre; the conductor temperature is an
+estimate from the fibre reading, the current and the thermal model.
+Continuous conductor limit 90 °C (XLPE, IEC 62067).
 """
 
 from __future__ import annotations
@@ -24,84 +13,77 @@ from pydantic import BaseModel, Field
 
 
 class DTSProfilePoint(BaseModel):
-    """Single temperature point at a given position along the cable."""
+    distance_km: float = Field(description="Distance from the OSS [km]")
+    zone: str
+    fibre_temp_c: float = Field(description="DTS fibre reading [°C]")
+    conductor_temp_c: float = Field(description="Conductor estimate from the fibre [°C]")
 
-    distance_km: float = Field(description="Distance from OSS [km]")
-    temperature_c: float = Field(description="Conductor temperature [degC]")
-    loading_percent: float = Field(description="% of static thermal rating")
-    is_hotspot: bool = Field(description="True if temp exceeds hotspot threshold")
+
+class DTSZone(BaseModel):
+    name: str
+    start_km: float
+    end_km: float
+    r_ext_k_m_per_w: float = Field(description="Fibre → ambient, per conductor [K·m/W]")
+    max_conductor_c: float
+    max_fibre_c: float
+    rating_a: float = Field(description="Current for 90 °C in this zone at this ambient [A]")
+
+
+class ZoneRating(BaseModel):
+    name: str
+    rating_a: list[float]
+
+
+class RatingCurve(BaseModel):
+    ambient_c: list[float]
+    zones: list[ZoneRating]
 
 
 class DTSProfileResponse(BaseModel):
-    """Full DTS temperature profile along the export cable (450 points for 45 km)."""
-
-    current_a: float = Field(description="Cable current [A] used in simulation")
-    ambient_temp_c: float = Field(description="Ambient (sea/soil) temperature [degC]")
+    current_a: float = Field(description="Per-circuit current [A]")
+    ambient_temp_c: float
     cable_length_km: float
-    n_points: int = Field(description="Number of measurement points")
-    profile: list[DTSProfilePoint]
-    max_temp_c: float = Field(description="Maximum temperature along cable [degC]")
-    max_temp_location_km: float = Field(
-        description="Distance from OSS where maximum temperature occurs [km]",
-    )
-    hotspot_count: int = Field(description="Number of hotspot segments (>70 degC)")
-    static_rating_a: float = Field(description="IEC 60287 static thermal rating [A]")
+    profile: list[DTSProfilePoint] = Field(description="One reading per 100 m")
+    zones: list[DTSZone]
+    max_conductor_c: float
+    max_location_km: float
+    alarm_length_km: float = Field(description="Route length above the 70 °C alarm [km]")
+    joule_loss_w_per_m: float = Field(description="I²R_AC per conductor at the hottest spot")
+    dielectric_loss_w_per_m: float = Field(description="ωCU0² tan δ per conductor")
+    static_rating_a: float = Field(description="Rating at the 15 °C design ambient [A]")
+    rating_at_ambient_a: float = Field(description="Route rating at this ambient [A]")
+    limiting_zone: str
+    export_capability_mva: float = Field(description="Both circuits at the route rating")
+    rating_curve: RatingCurve
     assessment: str
 
 
-class HotspotAlert(BaseModel):
-    """Active DTS hotspot along the cable route."""
-
-    distance_km: float
-    temperature_c: float
-    loading_percent: float
-    severity: str = Field(description="WARNING (>70 degC) or CRITICAL (>90 degC)")
-    cause: str = Field(description="Likely cause: burial depth, soil drying, high current")
-
-
-class HotspotResponse(BaseModel):
-    """All active hotspot alerts along the cable."""
-
-    current_a: float
-    hotspots: list[HotspotAlert]
-    hotspot_count: int
-    max_severity: str = Field(description="NORMAL / WARNING / CRITICAL")
-    assessment: str
-
-
-class DynamicRatingResponse(BaseModel):
-    """Real-time dynamic thermal rating vs static rating."""
-
-    current_a: float = Field(description="Present cable current [A]")
-    ambient_temp_c: float = Field(description="Ambient temperature [degC]")
-    static_rating_a: float = Field(description="IEC 60287 static rating [A]")
-    dynamic_rating_a: float = Field(
-        description=(
-            "Dynamic rating based on real-time thermal state [A]. "
-            "Winter/cool soil: may exceed static. "
-            "Summer/warm: may be below static."
-        ),
-    )
-    headroom_a: float = Field(description="dynamic_rating - current_a [A available]")
-    headroom_pct: float = Field(description="Headroom as % of dynamic rating")
-    thermal_utilisation_pct: float = Field(
-        description="current / dynamic_rating * 100",
-    )
-    assessment: str
-
-
-class DTSSimulationRequest(BaseModel):
-    """Parameters for DTS temperature profile simulation."""
-
-    current_a: float = Field(
-        default=650.0,
+class DTSTransientRequest(BaseModel):
+    prefault_current_a: float = Field(default=730.0, ge=0.0, le=1600.0)
+    emergency_current_a: float = Field(
+        default=1360.0,
         ge=0.0,
-        le=1500.0,
-        description="Per-circuit current [A]. Static rating = 950 A (≈ 730 A at 510 MW).",
+        le=1600.0,
+        description="Current after the step, e.g. the survivor after an N-1 trip [A]",
     )
-    ambient_temp_c: float = Field(
-        default=10.0,
-        ge=-5.0,
-        le=35.0,
-        description="Ambient (sea/soil) temperature [degC]",
-    )
+    ambient_temp_c: float = Field(default=15.0, ge=-5.0, le=35.0)
+    duration_h: float = Field(default=24.0, gt=0.0, le=72.0)
+
+
+class TransientZone(BaseModel):
+    name: str
+    tau_ext_h: float
+    conductor_temp_c: list[float]
+    minutes_to_limit: float | None = Field(description="Time to 90 °C; None if not reached")
+    steady_state_c: float | None = Field(description="Final temperature; None on runaway")
+
+
+class DTSTransientResponse(BaseModel):
+    prefault_current_a: float
+    emergency_current_a: float
+    ambient_temp_c: float
+    time_h: list[float]
+    zones: list[TransientZone]
+    allowed_minutes: float | None
+    limiting_zone: str | None
+    assessment: str

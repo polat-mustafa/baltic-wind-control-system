@@ -1,77 +1,100 @@
 /**
- * Flicker + Filter Design Panel — M06 Power Quality.
- *
- * Left: PST/PLT flicker KPIs vs IEC 61000-3-7 limits.
- * Right: Passive LC filter design output (if analysis was run).
- * 66 kV is IEC HV tier (≥35 kV) — Pst ≤ 1.0, Plt ≤ 0.65.
+ * Flicker at the POC against the IEC 61000-3-7 planning levels, and a
+ * single-tuned filter calculator at OSS 66 kV rated against the network's
+ * own harmonic impedance.
  */
 
-import { usePowerQualityStore } from "../../store/powerQualityStore";
-import { InfoButton } from "../ui/InfoButton";
-import { flickerFilterInfo } from "../../constants/panelInfo";
+import { useEffect } from "react";
 
-function KPI({ label, value, limit, unit }: { label: string; value: number; limit: number; unit: string }) {
-  const ok = value <= limit;
+import { powerQualityEducation } from "../../constants/education/p2";
+import { usePowerQualityStore } from "../../store/powerQualityStore";
+import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
+
+function Meter({ label, value, limit }: { label: string; value: number; limit: number }) {
+  const pct = Math.min(100, (value / limit) * 100);
   return (
-    <div className="bg-bg-tertiary rounded-lg p-3">
-      <p className="text-xs text-text-muted mb-1">{label}</p>
-      <p className={`text-xl font-bold font-mono ${ok ? "text-status-success" : "text-status-alarm"}`}>
-        {value.toFixed(2)} <span className="text-sm font-normal">{unit}</span>
-      </p>
-      <p className="text-xs text-text-muted mt-1">
-        Limit: {limit.toFixed(2)} — {ok ? "Compliant ✓" : "Exceeds limit ✗"}
-      </p>
+    <div>
+      <div className="flex justify-between text-xs">
+        <span className="text-text-secondary">{label}</span>
+        <span className="font-mono text-text-primary">
+          {value.toFixed(4)} <span className="text-text-muted">/ {limit}</span>
+        </span>
+      </div>
+      <div className="mt-1 h-2 rounded bg-bg-tertiary overflow-hidden">
+        <div className="h-2 rounded bg-accent transition-all duration-700" style={{ width: `${Math.max(pct, 0.8)}%` }} />
+      </div>
     </div>
   );
 }
 
-export default function FlickerFilterPanel() {
-  const { flicker, filterDesign } = usePowerQualityStore();
+const ORDERS = [5, 7, 11, 13, 17, 19];
 
-  if (!flicker) {
-    return (
-      <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-        Run analysis to see flicker results
-      </div>
-    );
-  }
+export default function FlickerFilterPanel() {
+  const { flicker, filterDesign, filterOrder, filterMvar, setFilterOrder, setFilterMvar, runFilter } = usePowerQualityStore();
+
+  useEffect(() => {
+    const t = setTimeout(() => void runFilter(), 250);
+    return () => clearTimeout(t);
+  }, [filterOrder, filterMvar, runFilter]);
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-text-primary">Flicker Emission (IEC 61000-3-7)</h3>
-        <InfoButton info={flickerFilterInfo} />
-      </div>
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <KPI label="Short-term flicker Pst" value={flicker.pst} limit={flicker.pst_limit} unit="" />
-        <KPI label="Long-term flicker Plt" value={flicker.plt} limit={flicker.plt_limit} unit="" />
-      </div>
-
-      <p className="text-xs text-text-muted mb-4">{flicker.assessment}</p>
-
-      {filterDesign && (
-        <>
-          <h3 className="text-sm font-semibold text-text-primary mb-2">
-            Passive Filter — H{filterDesign.harmonic_order} ({filterDesign.tuned_frequency_hz.toFixed(0)} Hz)
-          </h3>
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            {[
-              { label: "Capacitor", value: `${filterDesign.capacitor_mvar.toFixed(1)} MVAR`, sub: `${filterDesign.capacitor_uf.toFixed(1)} µF` },
-              { label: "Reactor", value: `${filterDesign.reactor_mh.toFixed(1)} mH`, sub: `Q = ${filterDesign.quality_factor.toFixed(0)}` },
-              { label: "Insertion loss", value: `${filterDesign.insertion_loss_db.toFixed(1)} dB`, sub: `${filterDesign.estimated_loss_kw.toFixed(0)} kW loss` },
-            ].map(({ label, value, sub }) => (
-              <div key={label} className="bg-bg-tertiary rounded p-2">
-                <p className="text-text-muted mb-0.5">{label}</p>
-                <p className="font-mono font-semibold text-text-primary">{value}</p>
-                <p className="text-text-muted">{sub}</p>
-              </div>
+    <ChartWrapper title="Flicker and a harmonic filter" headerRight={<EducationButton content={powerQualityEducation} />}>
+      {flicker && (
+        <div className="space-y-3">
+          <Meter label="P_st (short-term)" value={flicker.pst} limit={flicker.pst_limit} />
+          <Meter label="P_lt (long-term)" value={flicker.plt} limit={flicker.plt_limit} />
+          <p className="text-[11px] text-text-muted">
+            {flicker.pst_compliant && flicker.plt_compliant ? "✓" : "✗"} IEC 61000-3-7 HV-EHV planning levels. Continuous operation{" "}
+            {flicker.pst_continuous.toFixed(4)}, switching {flicker.pst_switching.toFixed(4)} (c = {flicker.flicker_coefficient}, k_f ={" "}
+            {flicker.switching_coefficient} — illustrative full-converter values). Full converters on a strong grid barely flicker.
+          </p>
+        </div>
+      )}
+      <div className="mt-4 border-t border-border-primary pt-3 space-y-2">
+        <p className="text-xs font-semibold text-text-secondary">Single-tuned filter at OSS 66 kV</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div role="tablist" aria-label="Filter order" className="flex gap-1">
+            {ORDERS.map((h) => (
+              <button
+                key={h}
+                role="tab"
+                aria-selected={filterOrder === h}
+                onClick={() => setFilterOrder(h)}
+                className={`rounded px-2 py-1 text-[11px] font-medium ${filterOrder === h ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+              >
+                h{h}
+              </button>
             ))}
           </div>
-          <p className="mt-2 text-xs text-text-muted bg-bg-tertiary rounded p-2">
-            {filterDesign.assessment}
-          </p>
-        </>
-      )}
-    </div>
+          <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[9rem] flex-1">
+            <span className="flex justify-between">
+              Capacitor bank <span className="font-mono text-text-primary">{filterMvar} MVAR</span>
+            </span>
+            <input type="range" min={2} max={40} step={1} value={filterMvar} onChange={(e) => setFilterMvar(Number(e.target.value))} className="accent-accent" />
+          </label>
+        </div>
+        {filterDesign && (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <dt className="text-text-muted">Tuned to</dt>
+            <dd className="font-mono text-right">{filterDesign.tuned_frequency_hz.toFixed(1)} Hz</dd>
+            <dt className="text-text-muted">C / L per phase</dt>
+            <dd className="font-mono text-right">
+              {filterDesign.capacitor_uf.toFixed(2)} µF / {filterDesign.reactor_mh.toFixed(2)} mH
+            </dd>
+            <dt className="text-text-muted">Network |Z| at h{filterDesign.harmonic_order}</dt>
+            <dd className="font-mono text-right">{filterDesign.network_impedance_ohm.toFixed(1)} Ω</dd>
+            <dt className="text-text-muted">Attenuation</dt>
+            <dd className="font-mono text-right">{filterDesign.insertion_loss_db.toFixed(1)} dB</dd>
+            <dt className="text-text-muted">50 Hz reactive power</dt>
+            <dd className="font-mono text-right">+{filterDesign.reactive_contribution_mvar.toFixed(1)} MVAR</dd>
+            <dd className="col-span-2 text-[11px] text-text-secondary">{filterDesign.assessment}</dd>
+          </dl>
+        )}
+        <p className="text-[11px] text-text-muted">
+          A filter adds capacitance — it shifts the other resonances; a real design re-runs the scan with the filter in.
+        </p>
+      </div>
+    </ChartWrapper>
   );
 }

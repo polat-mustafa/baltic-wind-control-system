@@ -58,13 +58,17 @@ export interface PPCConfig {
   ramp_up_pct_per_min: number;
   ramp_down_pct_per_min: number;
   emergency_ramp_pct_per_s: number;
+  /** PSE Art. 15(2)(a): 2 % of the set-point. */
   setpoint_accuracy_pct: number;
   setpoint_deadband_mw: number;
-  voltage_deadband_pu: number;
-  voltage_kp: number;
-  voltage_ki: number;
-  q_v_droop_slope_mvar_per_pu: number;
+  p_response_tau_s: number;
+  /** Voltage-control slope s [%], NC RfG 2–7 %. */
+  voltage_slope_pct: number;
   q_v_droop_deadband_pu: number;
+  q_response_tau_s: number;
+  lfsm_o_threshold_hz: number;
+  lfsm_u_threshold_hz: number;
+  lfsm_droop_pct: number;
   frequency_deadband_hz: number;
   droop_pct: number;
   heartbeat_interval_s: number;
@@ -82,7 +86,14 @@ export interface PPCSimulationRequest {
   initial_power_mw: number;
   simulation_duration_s: number;
   time_step_s: number;
-  config?: PPCConfig;
+  /** When the TSO command arrives [s]. */
+  setpoint_time_s?: number;
+  /** Grid frequency after a step at event_time_s [Hz]. */
+  frequency_event_hz?: number | null;
+  /** Grid voltage step behind the POC at event_time_s [pu]. */
+  voltage_step_pu?: number | null;
+  event_time_s?: number;
+  config?: Partial<PPCConfig>;
 }
 
 // ── PPC Time-Series Output ───────────────────────────────────────
@@ -118,6 +129,13 @@ export interface PPCSimulationResponse {
   setpoint_accuracy_compliant: boolean;
   ramp_rate_compliant: boolean;
   voltage_compliant: boolean;
+  frequency_response_compliant: boolean;
+  frequency_response_expected_mw: number;
+  frequency_response_actual_mw: number;
+  q_response_90_s: number;
+  q_response_compliant: boolean;
+  /** Fast reactive range used [min, max] MVAR. */
+  q_range_mvar: number[];
   overall_compliant: boolean;
   wtg_dispatch: WTGDispatch[];
   time_series: PPCTimePoint[];

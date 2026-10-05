@@ -12,7 +12,7 @@ The initial symmetrical short-circuit current at bus k is:
   Ik'' = c × V_n / (√3 × Z_k)
 
 where:
-  c   = voltage factor (1.1 for max, 0.95 for min per IEC 60909 Table 1)
+  c   = voltage factor (HV: 1.10 for max, 1.00 for min — IEC 60909-0 Table 1)
   V_n = nominal voltage [V]
   Z_k = equivalent short-circuit impedance seen from bus k [Ω]
 
@@ -36,10 +36,10 @@ For our 66/220/400 kV network: c_max = 1.1, c_min = 1.0
 
 Breaker Adequacy
 -----------------
-Circuit breakers must be rated for:
-  - Breaking capacity ≥ Ik'' (symmetrical)
-  - Making capacity ≥ ip (peak)
-Typical ratings: 31.5 kA / 40 kA / 50 kA (IEC 62271-100)
+Circuit breakers must be rated for (IEC 62271-100):
+  - Breaking current ≥ Ik'' (conservative: Ik'' ≥ the breaking current Ib)
+  - Making current ≥ ip, where rated making = 2.5 × rated breaking at 50 Hz
+Typical ratings: 25 / 31.5 / 40 / 50 / 63 kA
 
 References
 ----------
@@ -60,6 +60,8 @@ import pandapower.shortcircuit as sc
 
 from app.schemas.grid import ShortCircuitBusResult, ShortCircuitResponse
 from app.services.p2.network_model import build_network
+
+MAKING_FACTOR = 2.5  # IEC 62271-100: rated making current = 2.5 × Isc at 50 Hz
 
 # Breaker rated breaking current per voltage level [kA]
 BREAKER_RATINGS_KA: dict[float, float] = {
@@ -133,6 +135,7 @@ def calc_short_circuit(
 
         # Short-circuit power: Sk'' = √3 × Vn × Ik''
         skss_mw = 3**0.5 * vn_kv * ikss_ka  # [MVA]
+        breaker_ka = BREAKER_RATINGS_KA.get(vn_kv, 50.0)
 
         bus_results.append(
             ShortCircuitBusResult(
@@ -141,6 +144,8 @@ def calc_short_circuit(
                 ikss_ka=round(ikss_ka, 3),
                 ip_ka=round(ip_ka, 3),
                 skss_mw=round(skss_mw, 1),
+                breaker_ka=breaker_ka,
+                making_ka=breaker_ka * MAKING_FACTOR,
             )
         )
 
@@ -149,9 +154,8 @@ def calc_short_circuit(
             max_ikss = ikss_ka
             max_ikss_bus = bus_name
 
-        # Check breaker adequacy
-        breaker_rating = BREAKER_RATINGS_KA.get(vn_kv, 50.0)
-        if ikss_ka > breaker_rating:
+        # Breaking and making duty
+        if ikss_ka > breaker_ka or ip_ka > breaker_ka * MAKING_FACTOR:
             all_breakers_adequate = False
 
     return ShortCircuitResponse(

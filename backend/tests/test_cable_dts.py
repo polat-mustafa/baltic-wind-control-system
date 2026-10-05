@@ -1,227 +1,121 @@
 """
-Tests for M10 Cable DTS Thermal Monitoring.
-
-Covers:
-- DTS profile has correct number of points
-- Temperature rises with current (physics)
-- Hotspot detection at overload conditions
-- Dynamic rating higher in winter, lower in summer
-- IEC 60287 temperature formula correctness
-- Spec consistency with the network model (EXPORT_CABLE_1000, one circuit)
+Tests for M10 cable DTS — IEC 60287 losses, fibre vs conductor, zone ratings,
+the 950 A calibration and the N-1 transient.
 """
 
 from __future__ import annotations
 
+import math
+
 import pytest
+from fastapi.testclient import TestClient
 
-from app.services.p2.cable_dts import (
-    CABLE_LENGTH_KM,
-    N_POINTS,
-    R_AC_OHM_PER_KM,
-    STATIC_RATING_A,
-    T_CONDUCTOR_MAX,
-    T_CRIT,
-    T_WARN,
-    calculate_dynamic_rating,
-    detect_hotspots,
-    simulate_dts,
-)
+from app.main import app
+from app.services.p2 import cable_dts as m
 from app.services.p2.network_model import EXPORT_CABLE_1000, EXPORT_CABLE_LENGTH_KM
-
-# Currents as fractions of the 950 A per-circuit static rating
-HALF_LOAD_A = 0.5 * STATIC_RATING_A
-OVERLOAD_A = 1.1 * STATIC_RATING_A
-
-
-# ── Cable Spec ─────────────────────────────────────────────────────────────────
 
 
 class TestCableSpec:
-    """The DTS model must describe the same cable as the load flow."""
-
     def test_spec_matches_network_model(self):
         """Regression: DTS once used its own 1×800 mm² Al / 800 A cable."""
-        assert pytest.approx(EXPORT_CABLE_1000.max_i_ka * 1000.0) == STATIC_RATING_A
-        assert pytest.approx(950.0) == STATIC_RATING_A
-        assert CABLE_LENGTH_KM == EXPORT_CABLE_LENGTH_KM
+        assert pytest.approx(950.0) == m.STATIC_RATING_A
+        assert m.CABLE_LENGTH_KM == EXPORT_CABLE_LENGTH_KM
 
     def test_ac_resistance_at_90c(self):
-        """R_AC,90 = 0.0176 × (1 + 0.00393 × 70) × (1 + 0.039) ≈ 0.0233 Ω/km (IEC 60287-1-1)."""
-        assert pytest.approx(0.0233, abs=0.0002) == R_AC_OHM_PER_KM
-        # hotter conductor + AC effects → higher than the 20 °C DC value
-        assert EXPORT_CABLE_1000.r_ohm_per_km < R_AC_OHM_PER_KM
+        """0.0176 × 1.039 × (1 + 0.00393 × 70) ≈ 0.0233 Ω/km, the network model's R_AC."""
+        assert (
+            pytest.approx(EXPORT_CABLE_1000.r_ac_ohm_per_km, rel=1e-3) == m.R_AC90_OHM_PER_M * 1000
+        )
 
+    def test_dielectric_loss(self):
+        """ω·C·U0²·tan δ = 2π·50 · 190 nF/km · (127 kV)² · 0.001 ≈ 0.96 W/m."""
+        assert pytest.approx(0.963, abs=0.005) == m.W_DIELECTRIC
+
+
+class TestSteadyState:
     def test_static_rating_reaches_90c_in_j_tube(self):
-        """Calibration: rated current at 15 °C ambient → 90 °C at the J-tube (±1 °C noise)."""
-        result = simulate_dts(STATIC_RATING_A, 15.0)
-        assert result["max_temp_c"] == pytest.approx(T_CONDUCTOR_MAX, abs=1.0)
-        assert result["max_temp_location_km"] < 1.0
+        t_c, _ = m.steady_temps(950.0, 15.0, m.R_EXT_J_TUBE)
+        assert t_c == pytest.approx(90.0, abs=0.01)
+        assert m.rating_a(15.0, m.R_EXT_J_TUBE) == pytest.approx(950.0, abs=0.1)
 
-    def test_full_farm_load_per_circuit_is_normal(self):
-        """510 MW over 2 circuits ≈ 730 A each → comfortably below 70 °C at 10 °C ambient."""
-        assert simulate_dts(730.0, 10.0)["hotspot_count"] == 0
+    def test_conductor_hotter_than_fibre(self):
+        t_c, t_f = m.steady_temps(730.0, 15.0, m.R_EXT_J_TUBE)
+        assert t_c > t_f > 15.0
 
+    def test_dielectric_loss_heats_unloaded_cable(self):
+        t_c, _ = m.steady_temps(0.0, 15.0, m.R_EXT_J_TUBE)
+        assert 15.0 < t_c < 20.0
 
-# ── DTS Profile ────────────────────────────────────────────────────────────────
+    def test_resistance_rises_with_temperature(self):
+        """Self-consistent R_AC(T): the rise grows faster than I²."""
+        rise = [m.steady_temps(i, 15.0, m.R_EXT_J_TUBE)[0] - 15.0 for i in (500.0, 1000.0)]
+        assert rise[1] / rise[0] > 4.0
 
+    def test_thermal_runaway_has_no_steady_state(self):
+        assert math.isinf(m.steady_temps(3000.0, 15.0, m.R_EXT_J_TUBE)[0])
 
-class TestDTSProfile:
-    """Temperature profile generation and physics validation."""
-
-    def test_profile_has_correct_point_count(self):
-        result = simulate_dts(650.0, 10.0)
-        assert len(result["profile"]) == N_POINTS
-
-    def test_cable_length_correct(self):
-        result = simulate_dts(650.0, 10.0)
-        assert result["cable_length_km"] == CABLE_LENGTH_KM
-
-    def test_all_points_have_required_fields(self):
-        result = simulate_dts(650.0, 10.0)
-        for pt in result["profile"][:10]:  # check first 10
-            assert "distance_km" in pt
-            assert "temperature_c" in pt
-            assert "loading_percent" in pt
-            assert "is_hotspot" in pt
-
-    def test_distance_increases_monotonically(self):
-        result = simulate_dts(650.0, 10.0)
-        distances = [pt["distance_km"] for pt in result["profile"]]
-        for i in range(1, len(distances)):
-            assert distances[i] > distances[i - 1]
-
-    def test_loading_percent_proportional_to_current(self):
-        """Loading % = current / static_rating * 100."""
-        result = simulate_dts(HALF_LOAD_A, 10.0)
-        expected_loading = 100.0 * HALF_LOAD_A / STATIC_RATING_A
-        for pt in result["profile"][:5]:
-            assert abs(pt["loading_percent"] - expected_loading) < 0.1
-
-    def test_higher_current_higher_max_temp(self):
-        """More current → higher conductor temperature (physics check)."""
-        low = simulate_dts(HALF_LOAD_A, 10.0)
-        high = simulate_dts(STATIC_RATING_A, 10.0)
-        assert high["max_temp_c"] > low["max_temp_c"]
-
-    def test_higher_ambient_higher_max_temp(self):
-        """Higher ambient temperature → higher conductor temperature."""
-        cold = simulate_dts(650.0, 4.0)
-        warm = simulate_dts(650.0, 22.0)
-        assert warm["max_temp_c"] > cold["max_temp_c"]
-
-    def test_max_temp_location_within_cable(self):
-        result = simulate_dts(650.0, 10.0)
-        assert 0.0 <= result["max_temp_location_km"] <= CABLE_LENGTH_KM
-
-    def test_assessment_string_non_empty(self):
-        result = simulate_dts(650.0, 10.0)
-        assert len(result["assessment"]) > 0
-
-    def test_normal_load_no_hotspots(self):
-        """At 50% load and cool ambient — should have no hotspots."""
-        result = simulate_dts(HALF_LOAD_A, 5.0)
-        assert result["hotspot_count"] == 0
-
-    def test_overload_creates_hotspots(self):
-        """At 110% load (1045 A) with warm ambient — hotspots should appear."""
-        result = simulate_dts(OVERLOAD_A, 22.0)
-        assert result["hotspot_count"] > 0
-
-    def test_hotspot_flag_consistent_with_temperature(self):
-        """Points flagged as hotspot must have temp >= T_WARN."""
-        result = simulate_dts(750.0, 20.0)
-        for pt in result["profile"]:
-            if pt["is_hotspot"]:
-                assert pt["temperature_c"] >= T_WARN - 0.5  # small tolerance for noise
+    @pytest.mark.parametrize(("ambient", "lo", "hi"), [(4.0, 1010, 1030), (22.0, 895, 910)])
+    def test_rating_follows_ambient(self, ambient, lo, hi):
+        assert lo < m.rating_a(ambient, m.R_EXT_J_TUBE) < hi
 
 
-# ── Hotspot Detection ──────────────────────────────────────────────────────────
+class TestProfile:
+    def test_full_farm_load_is_normal(self):
+        """510 MW over 2 circuits ≈ 730 A each → about 56 °C at the J-tube."""
+        r = m.simulate_dts(730.0, 15.0)
+        assert r["assessment"].startswith("NORMAL")
+        assert r["alarm_length_km"] == 0
+        assert len(r["profile"]) == m.N_POINTS
+
+    def test_j_tube_is_hottest_and_limits_the_route(self):
+        r = m.simulate_dts(950.0, 15.0)
+        assert r["max_location_km"] <= m.J_TUBE_END_KM
+        assert r["limiting_zone"] == "OSS J-tube"
+        assert r["rating_at_ambient_a"] == 950
+        by_name = {z["name"]: z for z in r["zones"]}
+        assert by_name["Subsea burial"]["rating_a"] > by_name["HDD landfall"]["rating_a"] > 950
+
+    def test_export_capability(self):
+        """√3 · 220 kV · 950 A · 2 circuits ≈ 724 MVA."""
+        assert m.simulate_dts(730.0, 15.0)["export_capability_mva"] == pytest.approx(724, abs=1)
+
+    def test_summer_at_rating_is_over_limit(self):
+        r = m.simulate_dts(950.0, 22.0)
+        assert r["assessment"].startswith("OVER LIMIT")
+        assert r["rating_at_ambient_a"] < 950
+
+    def test_rating_curve_falls_with_ambient(self):
+        for z in m.rating_curve()["zones"]:
+            assert all(a > b for a, b in zip(z["rating_a"], z["rating_a"][1:], strict=False))
 
 
-class TestHotspotDetection:
-    """Hotspot classification and severity."""
+class TestTransient:
+    def test_n1_survivor_has_hours_before_limit(self):
+        r = m.simulate_transient(730.0, 1360.0, 15.0)
+        assert r["limiting_zone"] == "OSS J-tube"
+        assert 240 < r["allowed_minutes"] < 720
+        assert r["zones"][0]["conductor_temp_c"][0] == pytest.approx(56.1, abs=0.5)
 
-    def test_normal_conditions_no_hotspots(self):
-        result = detect_hotspots(HALF_LOAD_A, 5.0)
-        assert result["hotspot_count"] == 0
-        assert result["max_severity"] == "NORMAL"
+    def test_below_rating_never_reaches_limit(self):
+        r = m.simulate_transient(730.0, 900.0, 15.0)
+        assert r["allowed_minutes"] is None
+        assert all(z["steady_state_c"] < 90 for z in r["zones"])
 
-    def test_overload_hotspots_detected(self):
-        result = detect_hotspots(OVERLOAD_A, 25.0)
-        assert result["hotspot_count"] > 0
-        assert result["max_severity"] in ("WARNING", "CRITICAL")
-
-    def test_hotspot_fields_present(self):
-        result = detect_hotspots(850.0, 20.0)
-        for hs in result["hotspots"]:
-            assert "distance_km" in hs
-            assert "temperature_c" in hs
-            assert "severity" in hs
-            assert "cause" in hs
-
-    def test_hotspot_severity_matches_temperature(self):
-        result = detect_hotspots(OVERLOAD_A, 25.0)
-        for hs in result["hotspots"]:
-            if hs["severity"] == "CRITICAL":
-                assert hs["temperature_c"] >= T_CRIT - 1.0
-            else:
-                assert hs["temperature_c"] >= T_WARN - 1.0
-
-    def test_assessment_non_empty(self):
-        result = detect_hotspots(650.0, 10.0)
-        assert len(result["assessment"]) > 0
+    def test_cold_ambient_buys_time(self):
+        warm = m.simulate_transient(730.0, 1360.0, 20.0)["allowed_minutes"]
+        cold = m.simulate_transient(730.0, 1360.0, 4.0)["allowed_minutes"]
+        assert cold > warm
 
 
-# ── Dynamic Rating ─────────────────────────────────────────────────────────────
-
-
-class TestDynamicRating:
-    """IEC 60287 dynamic rating calculation."""
-
-    def test_winter_rating_exceeds_static(self):
-        """Cold ambient (4°C) → 950 × √(86/75) ≈ 1017 A > 950 A static."""
-        result = calculate_dynamic_rating(650.0, 4.0)
-        assert result["dynamic_rating_a"] > STATIC_RATING_A
-
-    def test_summer_rating_below_static(self):
-        """Warm ambient (25°C) → 950 × √(65/75) ≈ 884 A < 950 A static."""
-        result = calculate_dynamic_rating(650.0, 25.0)
-        assert result["dynamic_rating_a"] < STATIC_RATING_A
-
-    def test_design_ambient_equals_static(self):
-        """At design ambient (15°C), dynamic rating = static rating."""
-        result = calculate_dynamic_rating(650.0, 15.0)
-        assert abs(result["dynamic_rating_a"] - STATIC_RATING_A) < 5.0
-
-    def test_headroom_positive_when_not_overloaded(self):
-        result = calculate_dynamic_rating(600.0, 10.0)
-        assert result["headroom_a"] > 0.0
-
-    def test_headroom_negative_when_overloaded(self):
-        """At 110% of static in warm ambient, should be over the ~884 A dynamic rating."""
-        result = calculate_dynamic_rating(OVERLOAD_A, 25.0)
-        assert result["headroom_a"] < 0.0
-
-    def test_utilisation_correct(self):
-        """thermal_utilisation_pct = current / dynamic_rating * 100."""
-        result = calculate_dynamic_rating(650.0, 10.0)
-        expected = 100.0 * 650.0 / result["dynamic_rating_a"]
-        assert abs(result["thermal_utilisation_pct"] - expected) < 0.5
-
-    def test_required_fields_present(self):
-        result = calculate_dynamic_rating(650.0, 10.0)
-        for field in (
-            "current_a",
-            "ambient_temp_c",
-            "static_rating_a",
-            "dynamic_rating_a",
-            "headroom_a",
-            "headroom_pct",
-            "thermal_utilisation_pct",
-            "assessment",
-        ):
-            assert field in result
-
-    def test_assessment_non_empty(self):
-        result = calculate_dynamic_rating(650.0, 10.0)
-        assert len(result["assessment"]) > 0
+class TestAPI:
+    def test_endpoints(self):
+        c = TestClient(app)
+        r = c.get("/api/v1/grid/cable/dts/profile", params={"current_a": 730, "ambient_temp_c": 15})
+        assert r.status_code == 200
+        assert r.json()["limiting_zone"] == "OSS J-tube"
+        r = c.post("/api/v1/grid/cable/dts/transient", json={"emergency_current_a": 1360})
+        assert r.status_code == 200
+        assert r.json()["allowed_minutes"] > 0
+        assert (
+            c.get("/api/v1/grid/cable/dts/profile", params={"current_a": 5000}).status_code == 422
+        )

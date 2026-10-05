@@ -1,501 +1,217 @@
 """
-Market Integration service — M11 (TGE day-ahead, ancillary services).
+Market — one trading day of the 510 MW farm on the Polish market (M11).
 
-Physics/economics layers
-------------------------
-1. Day-ahead optimisation
-   Revenue = sum(P_t * price_t * dt) for t = 0..23
-   Optimal bid: produce when price > marginal cost (~0 for wind)
-   Curtailment decision: curtail when price < 0 (avoid imbalance penalty)
+Day-ahead (TGE, coupled in SDAC)
+    The farm offers its forecast for each period at a price of 0; in periods
+    with a negative price it offers nothing and curtails in real time.
+    Periods are hourly here for readability — SDAC has traded 15-minute
+    products since delivery day 1 Oct 2025. Harmonised clearing limits
+    −500 / +4 000 €/MWh.
 
-2. BESS arbitrage (price spread exploitation)
-   Charge during N cheapest hours: delta_SOC = P_charge * eta * dt / E_rated
-   Discharge during M most expensive hours: delta_SOC = -P_discharge * dt / E_rated
-   Arbitrage value = sum(price_sell * E_sell - price_buy * E_buy) * eta
+Imbalance (PSE, since the 14 Jun 2024 balancing-market reform)
+    15-minute settlement at a single imbalance price (CEN) for long and short
+    positions. Settled on deviation = metered − scheduled:
+        cash = dev · CEN
+    Neighbouring wind farms err the same way as this one, so the system tends
+    to be short when the farm is short: CEN rises against the farm. Modelled
+    as CEN = DA − λ·dev (λ an assumption), so the cost of forecast error
+    against selling at DA is λ·Σdev² — it grows with the square of the error.
 
-3. Imbalance settlement (PSE two-price model)
-   Long imbalance (actual > forecast): settled at settlement_price < DA_price
-   Short imbalance (actual < forecast): settled at settlement_price > DA_price
-   Cost = sum(|deviation_t| * |imbalance_price_t - DA_price_t|)
+Two-sided CfD (Polish Offshore Wind Act, 2020)
+    Settled on metered energy against the day-ahead price of each period:
+        settlement = E · (strike − DA)    (> 0 paid to the farm, < 0 paid back)
+    Phase II auction (17 Dec 2025): 476.88–492.32 PLN/MWh, 25 years.
+    No support in negative-price periods (EU CEEAG 2022 §122), which is why
+    the farm curtails there.
 
-4. Ancillary services (ENTSO-E / PSE products)
-   FCR-N (±200 mHz, 30s): ~4-8 EUR/MW/h (symmetric, continuous activation)
-   FCR-D (49.5 Hz, 5s):   ~2-5 EUR/MW/h (downward frequency only)
-   aFRR: ~6-12 EUR/MW/h (automatic, 5-minute activation)
-   mFRR: ~3-8 EUR/MW/h  (manual, 12-minute activation window)
-   RR (Replacement Reserve): ~1-3 EUR/MW/h
+BESS (50 MW / 200 MWh, constants from the BESS tab)
+    Price arbitrage on the day-ahead curve, solved as a linear programme with
+    perfect price foresight — an upper bound on what a real trader earns.
+    Storage is not eligible for the CfD.
 
-5. Contract for Difference (CfD)
-   If market_price < strike: TSO pays (strike - market) per MWh
-   If market_price > strike: developer pays back (market - strike) per MWh
-   Net revenue = market_price + max(0, strike - market) - max(0, market - strike)
-              = max(strike, market) for long-only position
-   Polish OZMB 2024: ~350 PLN/MWh ≈ 80 EUR/MWh @ 1 PLN = 0.23 EUR
-
-References
-----------
-TGE (Polish Power Exchange) — www.tge.pl  (market rules, settlement)
-PSE SA (Polskie Sieci Elektroenergetyczne) — IRiESP Section 9 (balancing)
-ENTSO-E — Network Code on Load-Frequency Control and Reserves (FC/FRR)
-Regulation EU 2019/943 — Internal electricity market
+Synthetic inputs (labelled as such): the price shapes, the hub-height wind of
+each scenario and the forecast error are illustrative, not TGE or ERA5 data.
 """
 
 from __future__ import annotations
 
-import statistics
 from typing import Any
 
-# ── Market constants ──────────────────────────────────────────────────────────
+import numpy as np
+from scipy.optimize import linprog
 
-RATED_MW = 510.0  # Baltic Wind total rated power
-BESS_RATED_MW = 50.0
-BESS_RATED_MWH = 200.0
-BESS_ETA = 0.92  # round-trip efficiency
-LCOE_EUR_MWH = 52.0  # Baltic Wind LCOE (P50 scenario, from P1 calculation)
+from app.services.p1.wake_model import get_v236_power_curve_kw
+from app.services.p2.bess import (
+    RATED_ENERGY_MWH,
+    RATED_POWER_MW,
+    ROUNDTRIP_EFFICIENCY_PCT,
+    SOC_MAX_PCT,
+    SOC_MIN_PCT,
+)
 
-# TGE market parameters (2024 averages)
-TGE_AVG_DA_PRICE_2024 = 75.0  # EUR/MWh
-TGE_PRICE_FLOOR = -50.0  # Negative prices possible during high wind
-TGE_PRICE_CAP = 400.0  # ENTSO-E market price cap
+N_TURBINES = 34
+RATED_MW = 510.0
+LOSS_FACTOR = 0.90  # wake + electrical losses, assumption (P1 computes the real wake loss)
+LAMBDA_PLN_PER_MWH2 = 0.25  # CEN shift per MWh of farm deviation, assumption
+SEED = 7
 
-# PSE imbalance settlement prices (simplified)
-IMBALANCE_LONG_FACTOR = 0.85  # overproduction settled at 85% of DA price
-IMBALANCE_SHORT_FACTOR = 1.15  # underproduction settled at 115% of DA price
+# Illustrative day shapes: day-ahead price [PLN/MWh] and hub-height wind [m/s].
+SCENARIOS: dict[str, dict[str, Any]] = {
+    "windy_spring_sunday": {
+        "label": "Windy spring Sunday — solar pushes midday prices below zero",
+        "price": [380, 360, 340, 330, 330, 340, 330, 250, 120, 20, -40, -80,
+                  -120, -100, -50, 20, 150, 320, 450, 520, 480, 430, 400, 380],
+        "wind": [12.5, 12.8, 13.0, 13.2, 13.0, 12.6, 12.2, 11.8, 11.5, 11.0, 10.6, 10.2,
+                 10.0, 10.1, 10.4, 10.8, 11.2, 11.6, 12.0, 12.3, 12.5, 12.6, 12.4, 12.2],
+    },
+    "winter_weekday": {
+        "label": "Winter weekday — moderate wind, morning and evening peaks",
+        "price": [380, 360, 350, 345, 355, 420, 560, 680, 700, 650, 600, 570,
+                  550, 540, 560, 620, 720, 820, 850, 780, 650, 540, 460, 410],
+        "wind": [8.6, 8.9, 9.2, 9.4, 9.3, 9.0, 8.6, 8.2, 7.8, 7.5, 7.3, 7.2,
+                 7.4, 7.8, 8.3, 8.8, 9.2, 9.5, 9.6, 9.4, 9.1, 8.8, 8.5, 8.3],
+    },
+    "calm_summer_day": {
+        "label": "Calm summer day — little wind, a deep solar dip",
+        "price": [400, 380, 370, 360, 360, 380, 420, 380, 250, 150, 80, 40,
+                  20, 30, 90, 200, 380, 520, 650, 700, 620, 520, 460, 420],
+        "wind": [6.2, 6.0, 5.7, 5.4, 5.1, 4.8, 4.5, 4.3, 4.2, 4.4, 4.7, 5.0,
+                 5.3, 5.6, 5.9, 6.2, 6.5, 6.8, 7.0, 7.1, 7.0, 6.8, 6.6, 6.4],
+    },
+}  # fmt: skip
 
-# BSP ancillary service prices (EUR/MW/h, 2024 Polish market)
-_ANCILLARY_PRICES = {
-    "FCR-N": {"availability": 6.5, "activation": 0.0},  # symmetric, no energy payment
-    "FCR-D": {"availability": 3.5, "activation": 0.0},  # downward only
-    "aFRR": {"availability": 9.0, "activation": 5.0},  # automatic, energy paid
-    "mFRR": {"availability": 5.5, "activation": 8.0},  # manual, high energy price
-    "RR": {"availability": 2.0, "activation": 12.0},  # replacement reserve
-}
+
+def farm_mw(wind_ms: np.ndarray) -> np.ndarray:
+    """Farm output [MW] from hub-height wind: 34 × V236 curve × losses, 0 ≤ P ≤ 510."""
+    p = np.asarray(get_v236_power_curve_kw(wind_ms), dtype=float)
+    return np.clip(N_TURBINES * p / 1000.0 * LOSS_FACTOR, 0.0, RATED_MW)
 
 
-def optimise_da_bid(
-    wind_forecast_mwh: list[float],
-    da_price_eur_mwh: list[float],
-    include_bess_arbitrage: bool,
-    bess_soc_initial_pct: float,
-) -> dict[str, Any]:
+def bess_arbitrage(price: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
     """
-    Optimise day-ahead bid for a 24-hour horizon.
+    Charge c_t / discharge d_t [MW, 1 h periods] maximising Σ price·(d − c).
 
-    Bidding strategy:
-    - Bid 100% of wind forecast when price >= 0 (wind has zero marginal cost)
-    - Bid 0 when price < 0 (curtailment to avoid imbalance penalty)
-    - If BESS arbitrage: charge during N cheapest hours, discharge during M most expensive
-      where N, M are chosen to maximise price spread * efficiency
-
-    Parameters
-    ----------
-    wind_forecast_mwh : list[float]
-        24-hour hourly wind energy forecast [MWh/h].
-    da_price_eur_mwh : list[float]
-        24-hour day-ahead price forecast [EUR/MWh].
-    include_bess_arbitrage : bool
-        Whether to include BESS charge/discharge schedule.
-    bess_soc_initial_pct : float
-        Initial BESS SOC [%].
+    SOC [MWh]: s_t = s_0 + Σ(η·c − d) within 10–90 %, starting and ending at 50 %
+    (η = 92 % on the charge side, the BESS-tab convention).
+    Returns (net battery power, + = discharge, MW), SOC [%] after each period,
+    and the day's arbitrage margin [PLN].
     """
-    hourly_schedule = []
-    total_revenue = 0.0
-    total_energy = 0.0
-    curtailment_hours = 0
-    curtailment_loss = 0.0
-    curtailment_volume = 0.0
-
-    for h in range(24):
-        price = da_price_eur_mwh[h]
-        energy = wind_forecast_mwh[h]
-
-        if price < 0.0:
-            # Curtail: avoid paying imbalance penalty for over-production into negative price
-            curtailment_hours += 1
-            curtailment_loss += abs(price) * energy  # opportunity cost
-            curtailment_volume += energy
-            bid_energy = 0.0
-            revenue = 0.0
-        else:
-            bid_energy = energy
-            revenue = price * energy
-
-        hourly_schedule.append(
-            {
-                "hour": h,
-                "price_eur_mwh": round(price, 2),
-                "volume_mwh": round(bid_energy, 2),
-                "revenue_eur": round(revenue, 2),
-            }
-        )
-        total_revenue += revenue
-        total_energy += bid_energy
-
-    # BESS arbitrage (simplified: charge in 6 cheapest, discharge in 6 most expensive)
-    bess_revenue = 0.0
-    if include_bess_arbitrage:
-        bess_revenue = _compute_bess_arbitrage(da_price_eur_mwh, bess_soc_initial_pct)
-
-    weighted_avg = total_revenue / max(0.001, total_energy)
-
-    if bess_revenue > 0:
-        assessment = f"Optimal. BESS arbitrage adds {bess_revenue:.0f} EUR/day."
-    elif curtailment_hours > 0:
-        assessment = (
-            f"Curtail {curtailment_hours}h of negative prices: save {curtailment_loss:.0f} EUR."
-        )
-    else:
-        assessment = "Bid all production — all hours have positive DA price."
-
-    return {
-        "hourly_schedule": hourly_schedule,
-        "total_revenue_eur": round(total_revenue + bess_revenue, 2),
-        "total_energy_mwh": round(total_energy, 2),
-        "weighted_avg_price_eur_mwh": round(weighted_avg, 2),
-        "bess_arbitrage_revenue_eur": round(bess_revenue, 2),
-        "curtailment_hours": curtailment_hours,
-        "curtailment_loss_eur": round(curtailment_loss, 2),
-        "optimal_curtailment_mwh": round(curtailment_volume, 2),
-        "assessment": assessment,
-    }
-
-
-def calculate_imbalance(
-    forecast_mwh: list[float],
-    actual_mwh: list[float],
-    da_price_eur_mwh: list[float],
-    imbalance_penalty_factor: float,
-) -> dict[str, Any]:
-    """
-    Calculate imbalance settlement for a 24-hour period.
-
-    PSE two-price model:
-    - Short position (actual < forecast): buy back at penalty_factor * DA price
-    - Long position (actual > forecast): sell surplus at (2 - penalty_factor) * DA price
-    Simplified: all deviations settled at |deviation| * |penalty_factor * DA - DA|
-    """
-    hourly_results = []
-    total_da_revenue = 0.0
-    total_imbalance_cost = 0.0
-    long_hours = 0
-    short_hours = 0
-    errors = []
-
-    for h in range(24):
-        forecast = forecast_mwh[h]
-        actual = actual_mwh[h]
-        price = da_price_eur_mwh[h]
-        deviation = actual - forecast
-
-        # DA revenue on forecast (what we committed to)
-        da_revenue = forecast * max(0.0, price)
-        total_da_revenue += da_revenue
-
-        if abs(deviation) < 0.1:  # within 0.1 MWh tolerance
-            direction = "BALANCED"
-            imbalance_cost = 0.0
-        elif deviation > 0:
-            # Long (overproduction) — surplus settled at discounted rate
-            direction = "LONG"
-            settlement_price = price * (2.0 - imbalance_penalty_factor)  # < DA price
-            long_revenue = (actual - forecast) * max(0.0, settlement_price)
-            imbalance_cost = -(long_revenue)  # negative = income reduction
-            total_imbalance_cost -= long_revenue
-            long_hours += 1
-        else:
-            # Short (underproduction) — must buy back at penalty rate
-            direction = "SHORT"
-            shortage = abs(deviation)
-            buyback_cost = shortage * max(0.0, price) * (imbalance_penalty_factor - 1.0)
-            imbalance_cost = buyback_cost
-            total_imbalance_cost += buyback_cost
-            short_hours += 1
-
-        errors.append(abs(deviation))
-        hourly_results.append(
-            {
-                "hour": h,
-                "forecast_mwh": round(forecast, 2),
-                "actual_mwh": round(actual, 2),
-                "deviation_mwh": round(deviation, 2),
-                "da_price": round(price, 2),
-                "imbalance_cost_eur": round(
-                    imbalance_cost if direction == "SHORT" else -imbalance_cost, 2
-                ),
-                "direction": direction,
-            }
-        )
-
-    mae = statistics.mean(errors)
-    mape = 100.0 * mae / max(1.0, statistics.mean(forecast_mwh))
-    net_revenue = total_da_revenue - total_imbalance_cost
-
-    if mape < 5.0:
-        assessment = "EXCELLENT forecast accuracy — imbalance costs minimal"
-    elif mape < 15.0:
-        assessment = "GOOD — typical wind forecast accuracy; imbalance within acceptable range"
-    else:
-        assessment = "REVIEW — high forecast error; consider ML model improvement (P4)"
-
-    return {
-        "hourly_results": hourly_results,
-        "total_da_revenue_eur": round(total_da_revenue, 2),
-        "total_imbalance_cost_eur": round(total_imbalance_cost, 2),
-        "net_revenue_eur": round(net_revenue, 2),
-        "mae_mwh": round(mae, 2),
-        "mape_pct": round(mape, 2),
-        "long_hours": long_hours,
-        "short_hours": short_hours,
-        "assessment": assessment,
-    }
-
-
-def estimate_ancillary_services(
-    bess_power_mw: float,
-    wtg_available_mw: float,
-    reserve_soc_pct: float,
-) -> dict[str, Any]:
-    """
-    Estimate ancillary services revenue portfolio.
-
-    BESS capacity allocation:
-    - FCR-N: requires symmetric response → BESS must maintain 30-70% SOC
-      Available: bess_power_mw * reserve_soc_pct/100 (fraction maintained for FCR)
-    - aFRR: BESS + WTG delta control (withhold 5% capacity headroom)
-    - mFRR: WTG available capacity above minimum
-
-    WTG contribution:
-    - Delta control: WTGs run at P_target - delta, can ramp up on signal
-      delta = min(P_avail * 0.05, 25 MW)  [5% headroom or 25 MW, whichever is less]
-    """
-    services = []
-    total_revenue = 0.0
-
-    # FCR-N: BESS reserves fraction of capacity
-    fcr_capacity = bess_power_mw * (reserve_soc_pct / 100.0)
-    fcr_revenue = (
-        fcr_capacity * _ANCILLARY_PRICES["FCR-N"]["availability"] * 8760.0 / 1e6
-    )  # M EUR/yr
-    services.append(
-        {
-            "service": "FCR-N",
-            "capacity_mw": round(fcr_capacity, 1),
-            "availability_price_eur_mw_h": _ANCILLARY_PRICES["FCR-N"]["availability"],
-            "activation_price_eur_mwh": 0.0,
-            "annual_revenue_eur": round(fcr_revenue * 1e6, 0),
-        }
+    n = len(price)
+    eta = ROUNDTRIP_EFFICIENCY_PCT / 100.0
+    s0 = RATED_ENERGY_MWH / 2
+    lower = np.tril(np.ones((n, n)))  # cumulative sum
+    a_soc = np.hstack([eta * lower, -lower])  # s_t − s_0 for x = [c, d]
+    a_ub = np.vstack([a_soc, -a_soc])
+    b_ub = np.concatenate(
+        [
+            np.full(n, RATED_ENERGY_MWH * SOC_MAX_PCT / 100 - s0),
+            np.full(n, s0 - RATED_ENERGY_MWH * SOC_MIN_PCT / 100),
+        ]
     )
-    total_revenue += fcr_revenue
+    res = linprog(
+        c=np.concatenate([price, -price]),
+        A_ub=a_ub,
+        b_ub=b_ub,
+        A_eq=a_soc[-1:],  # end where it started
+        b_eq=[0.0],
+        bounds=[(0.0, RATED_POWER_MW)] * (2 * n),
+        method="highs",
+    )
+    charge, discharge = res.x[:n], res.x[n:]
+    soc = 100.0 * (s0 + lower @ (eta * charge - discharge)) / RATED_ENERGY_MWH
+    return discharge - charge, soc, float(-res.fun)
 
-    # FCR-D: remaining BESS capacity after FCR-N
-    fcrd_capacity = max(0.0, bess_power_mw - fcr_capacity)
-    fcrd_revenue = fcrd_capacity * _ANCILLARY_PRICES["FCR-D"]["availability"] * 8760.0 / 1e6
-    if fcrd_capacity > 0.1:
-        services.append(
-            {
-                "service": "FCR-D",
-                "capacity_mw": round(fcrd_capacity, 1),
-                "availability_price_eur_mw_h": _ANCILLARY_PRICES["FCR-D"]["availability"],
-                "activation_price_eur_mwh": 0.0,
-                "annual_revenue_eur": round(fcrd_revenue * 1e6, 0),
-            }
+
+def simulate_day(
+    scenario: str = "windy_spring_sunday",
+    strike_pln_mwh: float = 489.0,
+    forecast_sigma_ms: float = 1.0,
+    include_cfd: bool = True,
+    include_bess: bool = True,
+) -> dict[str, Any]:
+    """
+    Schedule, settle and sum one day: day-ahead sales, imbalance at CEN,
+    CfD settlement and BESS arbitrage. All money in PLN, energy in MWh
+    (1 h periods, so MW and MWh/period are numerically equal).
+    """
+    sc = SCENARIOS[scenario]
+    price = np.array(sc["price"], dtype=float)
+    wind_fc = np.array(sc["wind"], dtype=float)
+
+    # Day-ahead wind-speed error: AR(1), φ = 0.8, stationary σ = forecast_sigma_ms.
+    rng = np.random.default_rng(SEED)
+    err = np.zeros(24)
+    for t in range(24):
+        prev = err[t - 1] if t else 0.0
+        err[t] = 0.8 * prev + forecast_sigma_ms * np.sqrt(1 - 0.8**2) * rng.standard_normal()
+    forecast = farm_mw(wind_fc)
+    available = farm_mw(np.maximum(wind_fc + err, 0.0))
+
+    negative = price < 0
+    bid = np.where(negative, 0.0, forecast)
+    metered = np.where(negative, 0.0, available)  # curtailed to the zero schedule
+    dev = metered - bid
+    cen = price - LAMBDA_PLN_PER_MWH2 * dev
+
+    energy_value = float(metered @ price)
+    imbalance = float(dev @ (cen - price))  # = −λ·Σdev², ≤ 0
+    cfd = float(metered @ (strike_pln_mwh - price)) if include_cfd else 0.0
+    bess_mw, soc, bess = bess_arbitrage(price) if include_bess else (np.zeros(24), None, 0.0)
+    total = energy_value + imbalance + cfd + bess
+
+    e_total = float(metered.sum())
+    captured = energy_value / e_total if e_total else 0.0
+    farm_per_mwh = (energy_value + imbalance + cfd) / e_total if e_total else 0.0
+    curtailed = float(available[negative].sum())
+
+    if include_cfd:
+        assessment = (
+            f"The CfD fixes the price: {farm_per_mwh:.0f} PLN/MWh earned against a "
+            f"{strike_pln_mwh:.0f} strike; the gap is the imbalance cost."
         )
-        total_revenue += fcrd_revenue
-
-    # aFRR: WTG delta headroom (5% of available)
-    afrr_capacity = min(25.0, wtg_available_mw * 0.05)
-    afrr_revenue = afrr_capacity * _ANCILLARY_PRICES["aFRR"]["availability"] * 8760.0 / 1e6
-    if afrr_capacity > 0.5:
-        services.append(
-            {
-                "service": "aFRR",
-                "capacity_mw": round(afrr_capacity, 1),
-                "availability_price_eur_mw_h": _ANCILLARY_PRICES["aFRR"]["availability"],
-                "activation_price_eur_mwh": _ANCILLARY_PRICES["aFRR"]["activation"],
-                "annual_revenue_eur": round(afrr_revenue * 1e6, 0),
-            }
+    elif captured < price.mean():
+        assessment = (
+            f"Merchant: the farm captures {captured:.0f} PLN/MWh against a "
+            f"{price.mean():.0f} PLN/MWh day average — wind sells most when power is cheap."
         )
-        total_revenue += afrr_revenue
-
-    # mFRR: larger WTG headroom block (10% of available)
-    mfrr_capacity = min(50.0, wtg_available_mw * 0.10)
-    mfrr_revenue = mfrr_capacity * _ANCILLARY_PRICES["mFRR"]["availability"] * 8760.0 / 1e6
-    if mfrr_capacity > 1.0:
-        services.append(
-            {
-                "service": "mFRR",
-                "capacity_mw": round(mfrr_capacity, 1),
-                "availability_price_eur_mw_h": _ANCILLARY_PRICES["mFRR"]["availability"],
-                "activation_price_eur_mwh": _ANCILLARY_PRICES["mFRR"]["activation"],
-                "annual_revenue_eur": round(mfrr_revenue * 1e6, 0),
-            }
-        )
-        total_revenue += mfrr_revenue
-
-    if total_revenue >= 5.0:
-        assessment = "EXCELLENT — BSP portfolio provides strong ancillary revenue"
-    elif total_revenue >= 2.0:
-        assessment = "GOOD — Ancillary services contribute meaningfully to revenue stack"
     else:
         assessment = (
-            "LIMITED — Consider increasing BESS capacity for better ancillary participation"
+            f"Merchant: {captured:.0f} PLN/MWh captured, above the {price.mean():.0f} PLN/MWh "
+            "day average, because the negative-price hours are curtailed."
         )
 
     return {
-        "services": services,
-        "total_annual_revenue_eur": round(total_revenue * 1e6, 0),
-        "fcr_capacity_mw": round(fcr_capacity, 1),
-        "afrr_capacity_mw": round(afrr_capacity, 1),
-        "mfrr_capacity_mw": round(mfrr_capacity, 1),
-        "bsp_contract_value_m_eur_year": round(total_revenue, 3),
+        "scenario": scenario,
+        "scenario_label": sc["label"],
+        "hours": [
+            {
+                "hour": h,
+                "da_price_pln_mwh": round(float(price[h]), 1),
+                "cen_pln_mwh": round(float(cen[h]), 1),
+                "wind_forecast_ms": round(float(wind_fc[h]), 2),
+                "wind_actual_ms": round(float(max(wind_fc[h] + err[h], 0.0)), 2),
+                "forecast_mwh": round(float(forecast[h]), 1),
+                "bid_mwh": round(float(bid[h]), 1),
+                "metered_mwh": round(float(metered[h]), 1),
+                "curtailed_mwh": round(float(available[h]) if negative[h] else 0.0, 1),
+                "deviation_mwh": round(float(dev[h]), 1),
+                "bess_mw": round(float(bess_mw[h]), 1),
+                "bess_soc_pct": None if soc is None else round(float(soc[h]), 1),
+            }
+            for h in range(24)
+        ],
+        "energy_mwh": round(e_total, 1),
+        "curtailed_mwh": round(curtailed, 1),
+        "negative_hours": int(negative.sum()),
+        "rmse_mwh": round(float(np.sqrt(np.mean(dev**2))), 1),
+        "day_average_price_pln_mwh": round(float(price.mean()), 1),
+        "captured_price_pln_mwh": round(captured, 1),
+        "capture_rate_pct": round(100.0 * captured / float(price.mean()), 1),
+        "farm_price_pln_mwh": round(farm_per_mwh, 1),
+        "energy_value_pln": round(energy_value),
+        "imbalance_pln": round(imbalance),
+        "cfd_settlement_pln": round(cfd),
+        "bess_arbitrage_pln": round(bess),
+        "total_pln": round(total),
         "assessment": assessment,
     }
-
-
-def simulate_annual_revenue(
-    annual_aep_mwh: float,
-    avg_da_price_eur_mwh: float,
-    price_volatility_pct: float,
-    capacity_factor_pct: float,
-    cfd_strike_price_eur_mwh: float,
-    o_and_m_cost_m_eur_year: float,
-) -> dict[str, Any]:
-    """
-    Simulate annual revenue for Baltic Wind across all income streams.
-
-    Revenue components:
-    1. DA energy sales: AEP * avg_price (adjusted for BESS timing)
-    2. CfD support: max(0, (strike - market) * AEP) if CfD in place
-    3. BSP ancillary services: ~3.5 M EUR/year (from ancillary model)
-    4. BESS arbitrage: ~1.5 M EUR/year (modelled from price spread)
-    5. Less imbalance costs: ~1-3% of DA revenue (MAPE ~10%)
-    """
-    # 1. Energy revenue
-    gross_energy_revenue = annual_aep_mwh * avg_da_price_eur_mwh / 1e6  # M EUR
-
-    # 2. CfD support payment
-    cfd_support = max(0.0, (cfd_strike_price_eur_mwh - avg_da_price_eur_mwh)) * annual_aep_mwh / 1e6
-
-    # 3. Ancillary services (approximate — average from model)
-    bsp_revenue = 3.5  # M EUR/year
-
-    # 4. BESS arbitrage (price spread model)
-    # Arbitrage value ~ (price_spread) * BESS_energy * efficiency * days
-    # Price spread ≈ 2 * std_dev (sell high, buy low)
-    price_std = avg_da_price_eur_mwh * (price_volatility_pct / 100.0)
-    price_spread = 2.0 * price_std  # approx daily high-low spread
-    bess_daily_throughput = BESS_RATED_MWH * 0.7  # 70% DoD per cycle
-    bess_arbitrage = price_spread * bess_daily_throughput * BESS_ETA * 365.0 / 1e6
-
-    # 5. Imbalance costs (simplified: ~2% of DA revenue, MAPE ~10%)
-    imbalance_cost = gross_energy_revenue * 0.02
-
-    total_revenue = (
-        gross_energy_revenue + cfd_support + bsp_revenue + bess_arbitrage - imbalance_cost
-    )
-    ebitda = total_revenue - o_and_m_cost_m_eur_year
-    revenue_per_mwh = (total_revenue * 1e6) / max(1.0, annual_aep_mwh)
-
-    # Build breakdown
-    total_positive = gross_energy_revenue + cfd_support + bsp_revenue + bess_arbitrage
-    breakdown = [
-        {
-            "category": "Energy sales (DA market)",
-            "revenue_m_eur": round(gross_energy_revenue, 2),
-            "share_pct": round(100.0 * gross_energy_revenue / total_positive, 1),
-        },
-        {
-            "category": "CfD support payment",
-            "revenue_m_eur": round(cfd_support, 2),
-            "share_pct": round(100.0 * cfd_support / total_positive, 1),
-        },
-        {
-            "category": "BSP ancillary services",
-            "revenue_m_eur": round(bsp_revenue, 2),
-            "share_pct": round(100.0 * bsp_revenue / total_positive, 1),
-        },
-        {
-            "category": "BESS arbitrage",
-            "revenue_m_eur": round(bess_arbitrage, 2),
-            "share_pct": round(100.0 * bess_arbitrage / total_positive, 1),
-        },
-        {
-            "category": "Imbalance settlement (cost)",
-            "revenue_m_eur": round(-imbalance_cost, 2),
-            "share_pct": round(-100.0 * imbalance_cost / total_positive, 1),
-        },
-    ]
-
-    lcoe_comparison = _lcoe_margin_assessment(revenue_per_mwh, LCOE_EUR_MWH)
-
-    if ebitda > 50.0:
-        assessment = "STRONG — EBITDA > 50 M EUR/year; project highly bankable"
-    elif ebitda > 20.0:
-        assessment = "HEALTHY — EBITDA > 20 M EUR/year; project bankable"
-    elif ebitda > 0.0:
-        assessment = "MARGINAL — Positive EBITDA but tight; review O&M costs or CfD strike"
-    else:
-        assessment = "UNVIABLE — Negative EBITDA; project not bankable at these prices"
-
-    return {
-        "gross_revenue_m_eur": round(gross_energy_revenue, 2),
-        "cfd_support_m_eur": round(cfd_support, 2),
-        "ancillary_revenue_m_eur": round(bsp_revenue, 2),
-        "imbalance_cost_m_eur": round(imbalance_cost, 2),
-        "bess_arbitrage_m_eur": round(bess_arbitrage, 2),
-        "total_revenue_m_eur": round(total_revenue, 2),
-        "ebitda_m_eur": round(ebitda, 2),
-        "revenue_per_mwh_eur": round(revenue_per_mwh, 2),
-        "breakdown": breakdown,
-        "lcoe_comparison": lcoe_comparison,
-        "assessment": assessment,
-    }
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-
-def _compute_bess_arbitrage(prices: list[float], initial_soc_pct: float) -> float:
-    """
-    Simple BESS price arbitrage: charge in 6 cheapest hours, discharge in 6 most expensive.
-
-    Returns daily arbitrage revenue [EUR].
-    """
-    soc = initial_soc_pct
-    soc_min = 10.0
-    soc_max = 90.0
-    eta = BESS_ETA
-    e_rated = BESS_RATED_MWH
-    p_rated = BESS_RATED_MW
-
-    # Identify 6 cheapest (charge) and 6 most expensive (discharge) hours
-    indexed = sorted(range(24), key=lambda i: prices[i])
-    charge_hours = set(indexed[:6])
-    discharge_hours = set(indexed[-6:])
-
-    revenue = 0.0
-    for h in range(24):
-        price = prices[h]
-        if h in charge_hours and soc < soc_max and price >= 0:
-            energy = min(p_rated, e_rated * (soc_max - soc) / 100.0)  # MWh in 1h
-            energy = min(energy, p_rated)
-            soc += energy * eta / (e_rated / 100.0)
-            revenue -= price * energy  # cost to charge
-        elif h in discharge_hours and soc > soc_min:
-            energy = min(p_rated, e_rated * (soc - soc_min) / 100.0)
-            energy = min(energy, p_rated)
-            soc -= energy / (e_rated / 100.0)
-            revenue += price * energy  # income from discharge
-
-    return max(0.0, revenue)
-
-
-def _lcoe_margin_assessment(revenue_per_mwh: float, lcoe: float) -> str:
-    margin = revenue_per_mwh - lcoe
-    margin_pct = 100.0 * margin / lcoe if lcoe > 0 else 0.0
-    base = f"Revenue {revenue_per_mwh:.1f} EUR/MWh vs LCOE {lcoe:.1f} EUR/MWh"
-    if margin_pct >= 30.0:
-        return f"{base} — margin {margin_pct:.0f}% above LCOE"
-    if margin_pct >= 0.0:
-        return f"{base} — positive but thin margin"
-    return f"{base} — BELOW LCOE; project not viable at this price"

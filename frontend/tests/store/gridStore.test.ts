@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useGridStore } from "../../src/store/gridStore";
+import { DEFAULT_FRT_PARAMS, useGridStore } from "../../src/store/gridStore";
 import * as api from "../../src/services/gridApi";
 
 vi.mock("../../src/services/gridApi");
@@ -23,8 +23,12 @@ function resetStore() {
     converterComparison: null,
     activeScenario: "full_load",
     frtType: "lvrt",
+    frtParams: DEFAULT_FRT_PARAMS,
     converterScenario: "strong_grid",
+    phaseJumpDeg: 20,
     loading: false,
+    frtLoading: false,
+    converterLoading: false,
     error: null,
     analysisRun: false,
   });
@@ -83,7 +87,8 @@ describe("runFullAnalysis", () => {
     expect(mockApi.runLoadFlowAll).toHaveBeenCalled();
     expect(mockApi.calcShortCircuit).toHaveBeenCalledWith("max");
     expect(mockApi.getSTATCOMSizing).toHaveBeenCalled();
-    expect(mockApi.runFRT).toHaveBeenCalledWith("lvrt");
+    expect(mockApi.runFRT).toHaveBeenCalledWith("lvrt", DEFAULT_FRT_PARAMS);
+    expect(mockApi.getConverterComparison).toHaveBeenCalledWith("strong_grid", 20);
     expect(useGridStore.getState().loading).toBe(false);
     expect(useGridStore.getState().analysisRun).toBe(true);
   });
@@ -107,5 +112,24 @@ describe("clearError", () => {
     useGridStore.setState({ error: "Something went wrong" });
     useGridStore.getState().clearError();
     expect(useGridStore.getState().error).toBeNull();
+  });
+});
+
+describe("single-study re-runs", () => {
+  it("runFrt sends the current parameters and keeps other results", async () => {
+    mockApi.runFRT.mockResolvedValue({ stayed_connected: true } as Awaited<ReturnType<typeof api.runFRT>>);
+    useGridStore.getState().setFrtParams({ kFactor: 4 });
+    await useGridStore.getState().runFrt();
+    expect(mockApi.runFRT).toHaveBeenCalledWith("lvrt", { ...DEFAULT_FRT_PARAMS, kFactor: 4 });
+    expect(useGridStore.getState().frtResult).toEqual({ stayed_connected: true });
+    expect(useGridStore.getState().frtLoading).toBe(false);
+  });
+
+  it("runConverter uses the selected grid strength and phase jump", async () => {
+    mockApi.getConverterComparison.mockResolvedValue({ scenario: "weak_grid" } as Awaited<ReturnType<typeof api.getConverterComparison>>);
+    useGridStore.getState().setConverterScenario("weak_grid");
+    useGridStore.getState().setPhaseJumpDeg(40);
+    await useGridStore.getState().runConverter();
+    expect(mockApi.getConverterComparison).toHaveBeenCalledWith("weak_grid", 40);
   });
 });

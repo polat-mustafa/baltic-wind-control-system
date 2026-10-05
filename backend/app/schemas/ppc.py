@@ -13,7 +13,8 @@ PSE (TSO) ↔ IEC 60870-5-104 ↔ PPC ↔ IEC 61400-25 ↔ 34 × WTG converters 
 Standards
 ---------
 - ENTSO-E NC RfG (EU 2016/631): Type D active/reactive power requirements
-- PSE IRiESP: Polish grid code — ramp rates, voltage limits, setpoint accuracy
+- PSE: Wymogi ogólnego stosowania wynikające z NC RfG (18-12-2018) — the Polish
+  parameter choices (LFSM thresholds, setpoint accuracy, Q dynamics)
 - IEC 61400-25: Wind power plant communication profiles
 - IEC 60870-5-104: Telecontrol companion standard (PPC ↔ TSO)
 """
@@ -73,7 +74,7 @@ class ActivePowerMode(StrEnum):
     POWER_REFERENCE = "power_reference"
     """Direct power setpoint from TSO. P_farm = P_ref [MW].
     Most common mode during normal operation.
-    PSE accuracy requirement: ±5% of Prated (±25.5 MW for 510 MW farm)."""
+    PSE Art. 15(2)(a): new setpoint within 15 min, accuracy 2 % of the setpoint."""
 
     DELTA_CONTROL = "delta_control"
     """Reserve margin mode. P_farm = P_available - delta_mw.
@@ -87,8 +88,8 @@ class ActivePowerMode(StrEnum):
 
     RAMP_RATE_CONTROL = "ramp_rate_control"
     """Gradual power change. Limits dP/dt to specified gradient.
-    PSE IRiESP: ramp up ≤ 10% Pn/min, ramp down ≤ 20% Pn/min.
-    Emergency: ≥ 2% Pn/s (= 10.2 MW/s for 510 MW farm)."""
+    The ramp limit is agreed with the TSO; PSE Art. 15(6)(e) requires wind
+    modules to be *able* to change output at 90–100 % P_max/min."""
 
 
 # ── Reactive Power Control Modes ─────────────────────────────────
@@ -97,16 +98,14 @@ class ActivePowerMode(StrEnum):
 class ReactivePowerMode(StrEnum):
     """Reactive power control modes per ENTSO-E NC RfG Article 21.
 
-    Determines how the PPC manages voltage/reactive power at the PCC
-    (Point of Common Coupling = OSS 220 kV bus). Coordinates WTG
-    converter Q and STATCOM Q to meet the target.
+    Determines how the PPC manages voltage/reactive power at the connection
+    point (PSE 400 kV). Coordinates WTG converter Q and STATCOM Q.
     """
 
     VOLTAGE_CONTROL = "voltage_control"
     """Closed-loop PI controller on PCC voltage.
-    Target: V_ref (typically 1.0 pu). Deadband: ±0.01 pu.
-    Response: < 5 s to 90% of step (ENTSO-E NC RfG Article 21.3d).
-    STATCOM provides fast Q, WTGs provide slow Q adjustment."""
+    Slope characteristic Q = Q_max·(V_ref − V)/s, s = 2–7 % (NC RfG Art. 21(3)(d)).
+    PSE Art. 21(3)(d)(iv): 90 % of the Q change within 5 s, settled within 60 s."""
 
     REACTIVE_POWER = "reactive_power"
     """Direct Q setpoint from TSO. Q_farm = Q_ref [MVAR].
@@ -114,14 +113,13 @@ class ReactivePowerMode(StrEnum):
 
     POWER_FACTOR = "power_factor"
     """Fixed power factor at PCC. cos(φ) = PF_ref.
-    Q_ref = P_actual * tan(arccos(PF_ref)).
-    Range: 0.90 leading to 0.90 lagging per NC RfG Type D."""
+    Q_ref = P_actual * tan(arccos(PF_ref)), limited to the plant Q range.
+    PSE Art. 21(3)(d)(vi): within 5 % of Q_max or 5 MVAR, in ≤ 150 s."""
 
     Q_V_DROOP = "q_v_droop"
     """Q(V) droop characteristic. Reactive power proportional to voltage deviation.
-    Q = Q_base + K_qv * (V_pcc - V_ref) [MVAR].
-    Slope K_qv: typically 50-200 MVAR/pu.
-    Deadband: ±0.02 pu voltage."""
+    Same slope characteristic as voltage control, with a voltage deadband
+    (NC RfG allows 0 to ±5 %)."""
 
 
 # ── TSO Setpoint Command ─────────────────────────────────────────
@@ -207,25 +205,20 @@ class PPCConfig(BaseModel):
         10.0,
         ge=0.1,
         le=100.0,
-        description="Max ramp-up rate [% Pn/min]. PSE IRiESP: 10%/min = 51 MW/min.",
+        description="Ramp limit up [% P_max/min] — plant setting agreed with the TSO "
+        "(PSE Art. 15(6)(e): wind modules must be able to ramp 90–100 %/min).",
     )
     ramp_down_pct_per_min: float = Field(
-        20.0,
-        ge=0.1,
-        le=100.0,
-        description="Max ramp-down rate [% Pn/min]. PSE IRiESP: 20%/min = 102 MW/min.",
+        10.0, ge=0.1, le=100.0, description="Ramp limit down [% P_max/min] — plant setting."
     )
     emergency_ramp_pct_per_s: float = Field(
-        2.0,
-        ge=0.1,
-        le=100.0,
-        description="Emergency ramp rate [% Pn/s]. PSE: ≥2%/s = 10.2 MW/s for 510 MW.",
+        2.0, ge=0.1, le=100.0, description="Emergency shutdown ramp [% P_max/s] — plant setting."
     )
     setpoint_accuracy_pct: float = Field(
-        5.0,
+        2.0,
         ge=0.1,
         le=20.0,
-        description="Setpoint tracking accuracy [% Pn]. PSE: ±5% = ±25.5 MW.",
+        description="Setpoint accuracy [% of setpoint]. PSE Art. 15(2)(a): 2 % for PPMs.",
     )
     setpoint_deadband_mw: float = Field(
         1.0,
@@ -233,52 +226,50 @@ class PPCConfig(BaseModel):
         le=10.0,
         description="Deadband below which no dispatch adjustment is made [MW].",
     )
+    p_response_tau_s: float = Field(
+        0.5, ge=0.05, le=10.0, description="WTG active power response time constant [s]."
+    )
 
     # ── Reactive Power / Voltage Control ──────────────────────
-    voltage_deadband_pu: float = Field(
-        0.01,
-        ge=0.0,
-        le=0.05,
-        description="Voltage control deadband [p.u.]. No action within ±deadband.",
-    )
-    voltage_kp: float = Field(
-        50.0,
-        ge=1.0,
-        le=500.0,
-        description="Voltage PI proportional gain [MVAR/pu]. Typical: 50.",
-    )
-    voltage_ki: float = Field(
-        20.0,
-        ge=0.1,
-        le=200.0,
-        description="Voltage PI integral gain [MVAR/(pu·s)]. Typical: 20.",
-    )
-    q_v_droop_slope_mvar_per_pu: float = Field(
-        100.0,
-        ge=10.0,
-        le=500.0,
-        description="Q(V) droop slope [MVAR/pu]. Typical: 100.",
+    voltage_slope_pct: float = Field(
+        4.0,
+        ge=2.0,
+        le=7.0,
+        description="Voltage-control slope s [%]: ΔV that moves Q by Q_max. NC RfG: 2–7 %.",
     )
     q_v_droop_deadband_pu: float = Field(
-        0.02,
-        ge=0.0,
-        le=0.05,
-        description="Q(V) droop voltage deadband [p.u.].",
+        0.02, ge=0.0, le=0.05, description="Q(V) droop voltage deadband [p.u.]."
+    )
+    q_response_tau_s: float = Field(
+        1.5,
+        ge=0.1,
+        le=20.0,
+        description="Reactive power response time constant [s] (90 % ≈ 2.3 τ; PSE: ≤ 5 s).",
     )
 
-    # ── Frequency Response ────────────────────────────────────
+    # ── Frequency Response (PSE defaults) ─────────────────────
+    lfsm_o_threshold_hz: float = Field(
+        50.2,
+        ge=50.2,
+        le=50.5,
+        description="LFSM-O threshold [Hz]. PSE Art. 13(2)(a): default 50.2.",
+    )
+    lfsm_u_threshold_hz: float = Field(
+        49.8,
+        ge=49.5,
+        le=49.8,
+        description="LFSM-U threshold [Hz]. PSE Art. 15(2)(c): default 49.8.",
+    )
+    lfsm_droop_pct: float = Field(
+        5.0, ge=2.0, le=12.0, description="LFSM-O/U droop [%] on P_max. PSE default 5 %."
+    )
     frequency_deadband_hz: float = Field(
         0.2,
         ge=0.0,
         le=0.5,
-        description="Frequency response deadband [Hz]. ENTSO-E: ±200 mHz default.",
+        description="FSM deadband [Hz] (PSE Art. 15(2)(d): 0–500 mHz, set by the TSO).",
     )
-    droop_pct: float = Field(
-        5.0,
-        ge=2.0,
-        le=12.0,
-        description="Frequency droop R [%]. ENTSO-E NC RfG Type D: 2-12%, default 5%.",
-    )
+    droop_pct: float = Field(5.0, ge=2.0, le=12.0, description="FSM droop [%]. NC RfG: 2–12 %.")
 
     # ── Watchdog & Communication ──────────────────────────────
     heartbeat_interval_s: float = Field(
@@ -321,9 +312,21 @@ class PPCSimulationRequest(BaseModel):
         510.0, ge=0.0, le=510.0, description="Current farm output before dispatch [MW]"
     )
     simulation_duration_s: float = Field(
-        300.0, ge=10.0, le=3600.0, description="Simulation duration [s]"
+        120.0, ge=10.0, le=3600.0, description="Simulation duration [s]"
     )
-    time_step_s: float = Field(1.0, ge=0.1, le=10.0, description="Simulation time step [s]")
+    time_step_s: float = Field(0.1, ge=0.02, le=10.0, description="Simulation time step [s]")
+    setpoint_time_s: float = Field(
+        10.0, ge=0.0, le=3600.0, description="When the TSO command arrives [s]"
+    )
+    frequency_event_hz: float | None = Field(
+        None, ge=47.5, le=51.5, description="Grid frequency after a step event [Hz]; None = 50 Hz"
+    )
+    voltage_step_pu: float | None = Field(
+        None, ge=-0.1, le=0.1, description="Step of the grid voltage behind the POC [p.u.]"
+    )
+    event_time_s: float = Field(
+        60.0, ge=0.0, le=3600.0, description="When the grid event occurs [s]"
+    )
     config: PPCConfig = Field(default_factory=PPCConfig, description="PPC configuration parameters")
 
 
@@ -340,8 +343,8 @@ class PPCTimePoint(BaseModel):
     curtailment_mw: float = Field(description="Total curtailed power [MW]")
     ramp_rate_mw_per_min: float = Field(description="Instantaneous ramp rate [MW/min]")
     q_setpoint_mvar: float = Field(description="PPC reactive power setpoint [MVAR]")
-    q_actual_mvar: float = Field(description="Actual reactive power at PCC [MVAR]")
-    voltage_pcc_pu: float = Field(description="PCC voltage magnitude [p.u.]")
+    q_actual_mvar: float = Field(description="Reactive power delivered at the POC [MVAR]")
+    voltage_pcc_pu: float = Field(description="POC (PSE 400 kV) voltage magnitude [p.u.]")
     frequency_hz: float = Field(description="System frequency [Hz]")
     ppc_state: PPCState = Field(description="PPC operating state")
 
@@ -375,19 +378,38 @@ class PPCSimulationResponse(BaseModel):
     final_voltage_pu: float = Field(description="Final PCC voltage [p.u.]")
     total_available_mw: float = Field(description="Total available wind power [MW]")
     total_curtailment_mw: float = Field(description="Total curtailed power [MW]")
-    ramp_time_s: float = Field(description="Time to reach setpoint within accuracy band [s]")
+    ramp_time_s: float = Field(
+        description="Time from the TSO command to P within the accuracy band [s] "
+        "(from the ramp settings when beyond the simulated window)"
+    )
 
     # ── Compliance Verdicts ───────────────────────────────────
     setpoint_accuracy_compliant: bool = Field(
-        description="Final output within ±5% Pn of setpoint (PSE IRiESP)"
+        description="Setpoint reached within 2 % (of setpoint) inside 15 min — PSE Art. 15(2)(a)"
     )
     ramp_rate_compliant: bool = Field(
-        description="Ramp rate stayed within PSE limits throughout simulation"
+        description="Dispatch ramps within the configured limit (frequency response excluded)"
     )
     voltage_compliant: bool = Field(
-        description="PCC voltage within 0.95-1.05 pu throughout simulation"
+        description="POC voltage within 0.95–1.05 pu throughout the simulation"
     )
-    overall_compliant: bool = Field(description="All compliance checks passed")
+    frequency_response_compliant: bool = Field(
+        True, description="ΔP within 2 % P_max of the LFSM/FSM droop value 30 s after the event"
+    )
+    frequency_response_expected_mw: float = Field(0.0, description="Droop ΔP for the event [MW]")
+    frequency_response_actual_mw: float = Field(
+        0.0, description="Delivered ΔP 30 s after the event [MW]"
+    )
+    q_response_90_s: float = Field(
+        0.0, description="Time to 90 % of the Q change after a voltage step [s]"
+    )
+    q_response_compliant: bool = Field(
+        True, description="90 % of the Q change within 5 s — PSE Art. 21(3)(d)(iv)"
+    )
+    q_range_mvar: list[float] = Field(
+        default_factory=list, description="Fast reactive range used [min, max] [MVAR]"
+    )
+    overall_compliant: bool = Field(description="All applicable checks passed")
 
     # ── Per-WTG Dispatch Table ────────────────────────────────
     wtg_dispatch: list[WTGDispatch] = Field(

@@ -8,18 +8,29 @@
 // ── Harmonic Analysis ─────────────────────────────────────────────
 
 export interface HarmonicSpectrumRequest {
+  /** WTG current emission {order: % of rated current} (IEC 61400-21 style). */
   harmonic_magnitudes: Record<number, number>;
+  /** Assessed bus: 400 = POC, 220 = OSS 220 kV, 66 = OSS 66 kV. */
   voltage_kv: number;
   rated_mw: number;
+  grid_fault_level_mva?: number;
 }
 
 /** HarmonicComponent — matches backend HarmonicComponent schema */
 export interface HarmonicEntry {
   order: number;
-  magnitude_pct: number;
   frequency_hz: number;
-  exceeds_limit: boolean;
+  /** WTG emission [% of rated current]. */
+  current_pct: number;
+  /** Harmonic voltage at the assessed bus [% of U1]. */
+  magnitude_pct: number;
+  voltage_66kv_pct: number;
+  /** |Z(h)| seen from OSS 66 kV [Ω]. */
+  impedance_ohm: number;
+  /** IEC TR 61000-3-6 planning level at the assessed bus [%]. */
   limit_pct: number;
+  utilisation_pct: number;
+  exceeds_limit: boolean;
 }
 
 export interface HarmonicAnalysisResponse {
@@ -30,6 +41,9 @@ export interface HarmonicAnalysisResponse {
   harmonics: HarmonicEntry[];
   compliant: boolean;
   voltage_level: string;
+  bus: string;
+  thd_limit_pct: number;
+  worst_utilisation_pct: number;
   violations: string[];
   assessment: string;
 }
@@ -47,6 +61,8 @@ export interface ResonancePoint {
   frequency_hz: number;
   impedance_ohm: number;
   harmonic_order: number;
+  /** |Z(f)| / (h · |Z(50 Hz)|). */
+  amplification: number;
   risk_level: string;
 }
 
@@ -56,6 +72,7 @@ export interface ResonanceScanResponse {
   resonance_points: ResonancePoint[];
   cable_resonant_freq_hz: number;
   critical_harmonics: number[];
+  viewpoint: string;
   assessment: string;
 }
 
@@ -94,6 +111,10 @@ export interface FlickerResponse {
   plt_limit: number;
   pst_compliant: boolean;
   plt_compliant: boolean;
+  pst_continuous: number;
+  pst_switching: number;
+  flicker_coefficient: number;
+  switching_coefficient: number;
   dominant_source: string;
   assessment: string;
 }
@@ -118,5 +139,6 @@ export interface FilterDesignResponse {
   insertion_loss_db: number;
   reactive_contribution_mvar: number;
   estimated_loss_kw: number;
+  network_impedance_ohm: number;
   assessment: string;
 }

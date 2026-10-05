@@ -1,35 +1,12 @@
 /**
- * TypeScript interfaces for BESS (Battery Energy Storage System) API responses.
- *
- * All field names use snake_case to match the API JSON directly.
- * Source of truth: backend/app/schemas/bess.py Pydantic schemas.
- * Spec: 50 MW / 200 MWh LFP, C-rate 0.25, SOC window 10-90%.
+ * BESS API types — mirror backend/app/schemas/bess.py.
+ * 50 MW / 200 MWh LFP; battery power positive = discharging.
  */
-
-// ── BESS Status ───────────────────────────────────────────────────
-
-export interface BESSStatusResponse {
-  soc_percent: number;
-  power_mw: number;
-  reactive_mvar: number;
-  mode: string;
-  temperature_c: number;
-  soh_percent: number;
-  cycle_count: number;
-  capacity_fade_pct: number;
-  rated_power_mw: number;
-  rated_energy_mwh: number;
-  available_energy_mwh: number;
-  alarms_active: boolean;
-  assessment?: string;
-}
-
-// ── Frequency Response ────────────────────────────────────────────
 
 export interface FrequencyResponseRequest {
   frequency_trace_hz: number[];
-  fcr_droop_pct: number;
-  ffr_threshold_hz: number;
+  fcr_capacity_mw: number;
+  ffr_threshold_hz: number | null;
   initial_soc_pct: number;
 }
 
@@ -41,12 +18,12 @@ export interface FrequencyResponseResult {
   nadir_hz: number;
   nadir_time_s: number;
   energy_delivered_mwh: number;
+  energy_absorbed_mwh: number;
+  fcr_endurance_min: number;
   fcr_activated: boolean;
   ffr_activated: boolean;
   assessment: string;
 }
-
-// ── Ramp Smoothing ────────────────────────────────────────────────
 
 export interface RampSmoothingRequest {
   wind_power_trace_mw: number[];
@@ -66,11 +43,11 @@ export interface RampSmoothingResult {
   assessment: string;
 }
 
-// ── Degradation ───────────────────────────────────────────────────
-
 export interface DegradationYearPoint {
   year: number;
   soh_percent: number;
+  cycle_loss_pct: number;
+  calendar_loss_pct: number;
   cumulative_cycles: number;
   capacity_mwh: number;
 }
@@ -84,31 +61,26 @@ export interface DegradationRequest {
 export interface DegradationResponse {
   projection: DegradationYearPoint[];
   eol_year: number;
+  eol_reached: boolean;
   total_cycles_to_eol: number;
   replacement_cost_m_eur: number;
   lcoe_contribution_eur_mwh: number;
   assessment: string;
 }
 
-// ── Mode Request ──────────────────────────────────────────────────
-
-export interface BESSModeRequest {
-  mode: string;
-  power_setpoint_mw?: number;
-}
-
-// ── Dispatch ──────────────────────────────────────────────────────
-
 export interface BESSDispatchRequest {
-  power_mw: number;
-  duration_s: number;
+  p_target_mw: number;
+  p_available_wtg_mw: number;
+  current_soc_pct: number;
 }
 
 export interface BESSDispatchResponse {
-  dispatched_mw: number;
-  duration_s: number;
-  energy_delivered_mwh: number;
-  soc_start_pct: number;
-  soc_end_pct: number;
-  assessment: string;
+  p_target_mw: number;
+  p_wtg_dispatch_mw: number;
+  p_bess_mw: number;
+  p_poc_mw: number;
+  soc_after_pct: number;
+  bess_mode: string;
+  dispatch_feasible: boolean;
+  notes: string;
 }

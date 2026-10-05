@@ -20,44 +20,43 @@ grep -r "/api/v1/" frontend/src
 
 ---
 
-## Group A — P2 Grid Advanced Analysis (8 endpoints)
+## Group A — P2 Security & Dynamics (2 endpoints)
 
 | Endpoint | Method | UI route | Component |
 |---|---|---|---|
-| `/api/v1/grid/dynamic-compliance` | POST | `/hv-grid` → **Advanced** tab | `AdvancedAnalysisTab` |
-| `/api/v1/grid/frequency-response` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/sso-analysis` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/andes-network` | GET | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/opf` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/scopf` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/dc-power-flow` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
-| `/api/v1/grid/dc-contingency-screening` | POST | `/hv-grid` → Advanced | `AdvancedAnalysisTab` |
+| `/api/v1/grid/security/n1` | POST | `/hv-grid` → **Security & Dynamics** tab | `AdvancedAnalysisTab` |
+| `/api/v1/grid/dynamics/andes` | POST | `/hv-grid` → Security & Dynamics | `AndesDynamicsSection` |
 
-Service module: `frontend/src/services/gridAdvancedApi.ts`
-Generic UI primitive: `frontend/src/components/p2/EndpointRunnerCard.tsx`
+Store: `frontend/src/store/n1SecurityStore.ts`. The ANDES case now carries the
+WECC REGCA1/REECA1/REPCA1 plant model and a synchronous area equivalent (the old
+builder swallowed add() errors and ran with no converter). OPF/SCOPF, DC power
+flow and the passive-network SSO screen were removed: the OPF had nothing to
+trade on a radial zero-cost farm, and SSO needs EMT/vendor models.
 
-## Group A2 — P2 Grid Planning & Sector Coupling (10 endpoints)
+## Group A2 — P2 Planning & P2X (2 endpoints)
 
 | Endpoint | Method | UI route | Component |
 |---|---|---|---|
-| `/api/v1/grid/economic-dispatch` | POST | `/hv-grid` → **Planning & P2X** | `PlanningCouplingTab` |
-| `/api/v1/grid/bess-dispatch` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
-| `/api/v1/grid/ac-dc-comparison` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
-| `/api/v1/grid/capacity-expansion` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
-| `/api/v1/grid/pathway-planning` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
-| `/api/v1/grid/sector-coupling` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
-| `/api/v1/grid/electrolyzer` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
-| `/api/v1/grid/seasonal-storage` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
-| `/api/v1/grid/flexible-demand` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
-| `/api/v1/grid/multi-energy-carrier` | POST | `/hv-grid` → Planning & P2X | `PlanningCouplingTab` |
+| `/api/v1/grid/planning/export` | POST | `/hv-grid` → **Planning & P2X** | `ExportTechSection` |
+| `/api/v1/grid/planning/p2x` | POST | `/hv-grid` → Planning & P2X | `P2XSection` |
 
-## Group B — P2 Market Imbalance (1 endpoint)
+Store: `frontend/src/store/planningStore.ts`. Replaces ten JSON-card endpoints
+(economic dispatch, BESS dispatch, AC/DC comparison, capacity expansion,
+pathway, sector coupling, electrolyser, seasonal storage, flexible demand,
+multi-energy). Dispatch and BESS duplicated the Market and BESS tabs and
+quoted ramp limits that are not PSE values; capacity expansion treated the
+platform modules P1–P5 as five wind farms; the national pathway left out
+coal; flexible demand and multi-energy were not tied to this farm. The two
+studies kept are physics on this farm: AC cable capacity and losses vs HVDC,
+and an electrolyser on the energy above a grid limit.
+
+## Group B — P2 Market (1 endpoint)
 
 | Endpoint | Method | UI route | Component |
 |---|---|---|---|
-| `/api/v1/grid/market/imbalance` | POST | `/hv-grid` → **Market** tab | `ImbalanceSettlementPanel` |
+| `/api/v1/grid/market/day` | POST | `/hv-grid` → **Market** tab | `MarketDashboard` |
 
-Service: extension of `frontend/src/services/marketApi.ts` (`runImbalanceSettlement`).
+Service: `frontend/src/services/marketApi.ts` (`simMarketDay`).
 
 ## Group C — P3 SCADA SCL Generator (1 endpoint)
 
@@ -113,13 +112,13 @@ Files:
 
 | Group | Endpoints | Status |
 |---|---:|---|
-| A — P2 Grid Advanced | 8 | ✅ wired |
-| A2 — P2 Grid Planning & P2X | 10 | ✅ wired |
+| A — P2 Security & Dynamics | 2 | ✅ wired |
+| A2 — P2 Planning & P2X | 2 | ✅ wired |
 | B — P2 Market Imbalance | 1 | ✅ wired |
 | C — P3 SCL Generator | 1 | ✅ wired |
 | D — P1 Research Lab | 8 | ✅ wired |
 | E — Live nacelle subsystems | 4 | ✅ wired (polling) |
-| **Total newly exposed** | **32** | — |
+| **Total newly exposed** | **18** | — |
 
 To keep this audit green, future endpoint additions should ship with at least
 one frontend caller in the same PR.

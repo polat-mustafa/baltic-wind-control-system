@@ -1,179 +1,268 @@
 """
-Grid-Following vs Grid-Forming converter comparison for 510 MW wind farm.
+Grid-following (GFL) vs grid-forming (GFM) converters after a grid phase jump.
 
-Educational comparison showing how converter control strategy affects
-stability at different grid strengths (SCR levels).
+Model
+-----
+The 34 WTGs are one aggregate converter (S_n = 510 MVA) behind the series
+impedance of the farm and the PSE grid (``network_model.series_impedances_pu``,
+re-based to S_n). At t = 0.1 s the grid voltage angle jumps by Δθ — the
+standard synchronisation test for converters (a nearby line trip or fault
+clearance does this). Time step 50 µs, quasi-static network (phasors).
 
-Physics — Converter Control Strategies
-----------------------------------------
-**Grid-Following (GFL)**: PLL-based current source.
-  The converter synchronizes with the grid voltage using a Phase-Locked Loop
-  (PLL) and injects current at the PLL-tracked angle. It behaves as a
-  controlled current source — it cannot set voltage or frequency.
+Grid strength is judged where the converters are, not only at the POC:
 
-  Stability requirement: needs a "stiff" voltage reference from the grid.
-  At low SCR, the PLL struggles to track voltage → instability.
+    SCR_POC      = S_sc / P_n                        (PSE 400 kV)
+    SCR_terminal = 1 / |Z_grid + Z_trafos + Z_cable|  [p.u. on S_n]
 
-  Transfer function (simplified):
-    θ_pll = (Kp_pll + Ki_pll/s) × V_q / (1 + s×T_pll)
-    I_dq = I_ref × e^(jθ_pll)
+The two transformer stages (2 × 300 MVA each) and 45 km of cable add ≈ 0.25 p.u.,
+so a strong 10 GVA grid (SCR_POC ≈ 20) is only SCR ≈ 3.3 at the 66 kV busbar.
 
-**Grid-Forming (GFM)**: Virtual synchronous machine, voltage source.
-  The converter emulates a synchronous generator with virtual inertia (H)
-  and damping (D). It sets its own voltage and frequency reference:
+GFL — current source synchronised by a PLL
+  i_dq → i*_dq with a 5 ms current loop (unity-PF active current + the
+  reactive current that holds 1.0 p.u. before the event).
+  v_dq = E·e^{j(θ_g − θ)} + (R + jX(1 + Δω/ω₀))·i_dq + (X/ω₀)·di_dq/dt
+  PLL: Δω = K_p·v_q + ∫K_i·v_q,  dθ/dt = Δω   (10 Hz, ζ = 0.707)
+  The PLL must find an angle with v_q = 0. That needs X·i_d ≤ E — the
+  weaker the grid, the closer the operating angle is to 90° and the smaller
+  the phase jump that throws the PLL out of step.
 
-    dω/dt = (1/(2H)) × (P_ref - P_e - D×(ω - ω_ref))
-    V = V_ref × e^(j∫ω dt)
+GFM — virtual synchronous machine (voltage source behind X_f = 0.15 p.u.)
+  2H·dΔω/dt = P_ref − P_e − D·Δω,   dδ/dt = ω₀·Δω     (H = 4 s, D = 80 p.u.)
+  A phase jump instantly changes P_e (synchronising power K_s·Δθ): the
+  inertial response a GFL unit does not give. In a strong grid K_s is large,
+  so the current spike can hit the converter limit (1.2 p.u.); the model then
+  holds the current magnitude at the limit.
 
-  This makes it a voltage source — it can operate even with no grid
-  (island mode) and provides inherent inertia to the system.
-
-Standard — ENTSO-E Requirements for GFM
------------------------------------------
-- NC RfG Article 13(7): TSOs may require GFM capability for new connections
-- ACER recommendation (2023): GFM mandatory for Type D > 50 MW after 2028
-- GB Grid Code GC0137: GFM requirements for low-inertia scenarios
-- PSE is expected to adopt similar requirements by 2027
-
-Maths — Stability Criterion
-------------------------------
-GFL stability depends on PLL bandwidth vs grid impedance:
-  Stable if: BW_pll < 1 / (SCR × T_grid)
-  Approximately: SCR > 2–3 for stable GFL operation
-
-GFM stability depends on virtual inertia and damping:
-  Stable if: H > 0 and D > 0 (inherently stable as voltage source)
-  Virtual inertia: H_virtual = J × ω² / (2 × S_rated)
-  Typical: H = 3–5 s (emulating conventional generators)
-
-Short-Circuit Ratio (SCR):
-  SCR = S_sc / P_rated = grid_ssc_mva / total_capacity_mw
-
-For our 510 MW farm:
-  Strong grid: SCR = 10,000 / 510 ≈ 19.6 (normal PSE connection)
-  Weak grid:   SCR = 2,000 / 510 ≈ 3.9 (reduced grid strength test)
-
-Code — ANDES Simulation
--------------------------
-Both GFL (REGCA1/REECA1) and GFM (virtual synchronous machine) are
-simulated using ANDES TDS. A small disturbance (load step) is applied
-and the voltage/frequency response is compared:
-  - GFL: tracks grid voltage, may oscillate at low SCR
-  - GFM: sets voltage, provides inertial response, stable at low SCR
+Not modelled: DC link and machine side, outer voltage loops, inner-loop and
+LCL dynamics, saturation of the PLL frequency, controller interaction
+between turbines. The trends (GFL needs a strong grid, GFM gives inertia but
+is current-limited in stiff grids) are the established ones (see Rosso et
+al., IEEE Open J. Ind. Appl. 2021; Wang & Blaabjerg, IEEE TPEL 35(5) 2020).
 
 References
 ----------
-- ENTSO-E: Technical Report on High Penetration of PE-connected Sources
-- CIGRE TB 671: Connection of Wind Farms to Weak AC Networks
-- Roscoe et al.: VSM concepts for grid-forming converters (IET, 2020)
-- ANDES documentation: REGCA1, REECA1, virtual machine models
+- CIGRE TB 671 (2016): Connection of wind farms to weak AC networks
+- NGESO Grid Code GC0137 (2022): GB grid forming capability (phase-jump tests)
+- R. Rosso, X. Wang, M. Liserre, X. Lu, S. Engelken, "Grid-forming converters:
+  control approaches, grid-synchronization, and future trends — a review",
+  IEEE Open Journal of Industry Applications 2 (2021) 93–109
+- X. Wang, M. G. Taul, H. Wu, Y. Liao, F. Blaabjerg, F. Huang, "Grid-
+  synchronization stability of converter-based resources — an overview",
+  IEEE Open Journal of Industry Applications 1 (2020) 115–134
 """
 
 from __future__ import annotations
 
-import logging
+import math
+from dataclasses import dataclass
 
-import andes
+import numpy as np
 
-from app.schemas.grid import ConverterComparisonResponse, ConverterResult, ConverterType
-from app.services.p2.andes_network import build_andes_system
-from app.services.p2.network_model import GRID_SSC_MVA, TOTAL_CAPACITY_MW
+from app.schemas.grid import (
+    ConverterComparisonResponse,
+    ConverterResult,
+    ConverterTimePoint,
+    ConverterType,
+)
+from app.services.p2.network_model import (
+    EXPORT_CABLE_LENGTH_KM,
+    GRID_SSC_MVA,
+    TOTAL_CAPACITY_MW,
+    series_impedances_pu,
+)
 
-logger = logging.getLogger(__name__)
+OMEGA0 = 2.0 * math.pi * 50.0  # rad/s
+F0_HZ = 50.0
 
-# ── Converter Constants ──────────────────────────────────────────
+# GFL
+GFL_CURRENT_TAU_S = 0.005
+GFL_PLL_BW_HZ = 10.0
+GFL_PLL_ZETA = 0.707
+# GFM
+GFM_INERTIA_H = 4.0  # s
+GFM_DAMPING_D = 80.0  # p.u. power per p.u. speed
+GFM_FILTER_Z = complex(0.005, 0.15)  # p.u. on S_n
+GFM_CURRENT_LIMIT_PU = 1.2
 
-# GFM virtual synchronous machine parameters
-GFM_INERTIA_H = 4.0  # Virtual inertia constant [s]
-GFM_DAMPING_D = 20.0  # Damping coefficient [pu]
-GFM_RESPONSE_TIME_S = 0.050  # GFM voltage response time [s]
+# Simulation
+DT_S = 50e-6
+T_EVENT_S = 0.1
+T_END_S = 2.0
+OUTPUT_STEP_S = 0.002
+SETTLING_BAND = 0.02  # ±2 % of rated power
+POLE_SLIP_RAD = math.pi  # angle more than 180° away from the new equilibrium → lost step
 
-# GFL PLL parameters
-GFL_PLL_BW_HZ = 5.0  # PLL bandwidth [Hz]
-GFL_RESPONSE_TIME_S = 0.100  # GFL current response time [s]
+STRONG_GRID_SSC_MVA = GRID_SSC_MVA
+WEAK_GRID_SSC_MVA = 2_000.0
+VERY_WEAK_GRID_SSC_MVA = 700.0  # SCR_POC ≈ 1.4 → ≈ 1.0 at the 66 kV busbar
+SCENARIO_SSC_MVA = {
+    "strong_grid": STRONG_GRID_SSC_MVA,
+    "weak_grid": WEAK_GRID_SSC_MVA,
+    "very_weak_grid": VERY_WEAK_GRID_SSC_MVA,
+}
+DEFAULT_PHASE_JUMP_DEG = 20.0
 
-# Simulation timing
-PRE_DISTURBANCE_S = 1.0
-POST_DISTURBANCE_S = 5.0
-SIMULATION_DT_S = 0.001
 
-# Stability thresholds
-SETTLING_BAND_PU = 0.02  # 2% settling band
-MAX_SETTLING_TIME_S = 3.0  # Maximum acceptable settling time
-VOLTAGE_DEVIATION_LIMIT_PU = 0.15  # Max voltage deviation before instability
+@dataclass
+class _Trace:
+    p: np.ndarray
+    f_hz: np.ndarray
+    i_pu: np.ndarray
+    v_pu: np.ndarray
+    lost_sync: bool
 
-# SCR test points
-STRONG_GRID_SSC_MVA = GRID_SSC_MVA  # 10,000 MVA → SCR ≈ 19.6
-WEAK_GRID_SSC_MVA = 2_000.0  # 2,000 MVA → SCR ≈ 3.9
+
+def grid_impedance_pu(grid_ssc_mva: float, export_length_km: float) -> complex:
+    """Grid + farm series impedance seen from the 66 kV busbar [p.u. on 510 MVA]."""
+    return sum(
+        series_impedances_pu(TOTAL_CAPACITY_MW, grid_ssc_mva, export_length_km).values(),
+        start=0j,
+    )
+
+
+def _simulate_gfl(z: complex, p_ref: float, jump_rad: float) -> _Trace:
+    r, x = z.real, z.imag
+    # Pre-event equilibrium. In the PLL frame v_dq = e^{-jθ} + z·i_dq must have
+    # v_q = 0 → sin θ = x·i_d + r·i_q. Q = −v_d·i_q, so i_q < 0 is capacitive;
+    # pick i_q so that |v| = 1 p.u. (the plant controller's steady state).
+    theta, iq = 0.0, 0.0
+    for _ in range(200):
+        s_theta = x * p_ref + r * iq
+        if abs(s_theta) >= 1.0:  # no angle with v_q = 0: GFL cannot synchronise at all
+            n = round(T_END_S / DT_S)
+            return _Trace(np.zeros(n), np.full(n, F0_HZ), np.zeros(n), np.zeros(n), True)
+        theta = math.asin(s_theta)
+        v = np.exp(-1j * theta) + z * complex(p_ref, iq)
+        iq -= 0.5 * (1.0 - abs(v)) / x
+    theta0 = theta
+    i_ref = complex(p_ref, iq)
+    i = i_ref
+    kp = 2.0 * GFL_PLL_ZETA * 2.0 * math.pi * GFL_PLL_BW_HZ
+    ki = (2.0 * math.pi * GFL_PLL_BW_HZ) ** 2
+    x_int, dw = 0.0, 0.0
+
+    n = round(T_END_S / DT_S)
+    p = np.empty(n)
+    f = np.empty(n)
+    cur = np.empty(n)
+    vm = np.empty(n)
+    lost = False
+    for k in range(n):
+        theta_g = jump_rad if k * DT_S >= T_EVENT_S else 0.0
+        di = (i_ref - i) / GFL_CURRENT_TAU_S
+        # v_q has a term that depends on Δω itself (jωL·i); solve that loop exactly
+        v0 = np.exp(1j * (theta_g - theta)) + complex(r, x) * i + x / OMEGA0 * di
+        gain = x * i.real / OMEGA0  # ∂v_q/∂Δω
+        vq = (v0.imag + gain * x_int) / (1.0 - kp * gain)
+        dw = kp * vq + x_int
+        v = complex(v0.real - x * i.imag * dw / OMEGA0, vq)
+        x_int += ki * vq * DT_S
+        theta += dw * DT_S
+        i += di * DT_S
+        p[k] = (v * i.conjugate()).real
+        f[k] = F0_HZ + dw / (2.0 * math.pi)
+        cur[k] = abs(i)
+        vm[k] = abs(v)
+        # Pole slip: the PLL angle runs more than 180° past where it should settle
+        if abs(theta - theta0 - (theta_g if theta_g else 0.0)) > POLE_SLIP_RAD or not math.isfinite(
+            vq
+        ):
+            lost = True
+            p[k:], f[k:], cur[k:], vm[k:] = np.nan, np.nan, np.nan, np.nan  # trace ends at the slip
+            break
+    return _Trace(p, f, cur, vm, lost)
+
+
+def _simulate_gfm(z: complex, p_ref: float, jump_rad: float) -> _Trace:
+    z_tot = z + GFM_FILTER_Z
+    # Pre-event: choose EMF magnitude and angle so P = p_ref and |v_terminal| = 1
+    emf, delta = 1.0, 0.0
+    for _ in range(200):
+        i = (emf * np.exp(1j * delta) - 1.0) / z_tot
+        v = 1.0 + z * i
+        s = emf * np.exp(1j * delta) * i.conjugate()
+        delta += 0.5 * (p_ref - s.real) / max(abs(emf / z_tot), 1e-6)
+        emf += 0.5 * (1.0 - abs(v))
+    dw = 0.0
+    delta0 = delta
+
+    n = round(T_END_S / DT_S)
+    p = np.empty(n)
+    f = np.empty(n)
+    cur = np.empty(n)
+    vm = np.empty(n)
+    lost = False
+    for k in range(n):
+        e_grid = np.exp(1j * (jump_rad if k * DT_S >= T_EVENT_S else 0.0))
+        e_conv = emf * np.exp(1j * delta)
+        i = (e_conv - e_grid) / z_tot
+        if abs(i) > GFM_CURRENT_LIMIT_PU:
+            i *= GFM_CURRENT_LIMIT_PU / abs(i)  # current-limited: same angle, capped magnitude
+        v = e_grid + z * i
+        p_e = (v * i.conjugate()).real
+        dw += (p_ref - p_e - GFM_DAMPING_D * dw) / (2.0 * GFM_INERTIA_H) * DT_S
+        delta += OMEGA0 * dw * DT_S
+        p[k], f[k], cur[k], vm[k] = p_e, F0_HZ * (1.0 + dw), abs(i), abs(v)
+        if abs(delta - delta0 - (jump_rad if k * DT_S >= T_EVENT_S else 0.0)) > POLE_SLIP_RAD:
+            lost = True
+            p[k:], f[k:], cur[k:], vm[k:] = np.nan, np.nan, np.nan, np.nan  # trace ends at the slip
+            break
+    return _Trace(p, f, cur, vm, lost)
+
+
+def _finite(x: float, digits: int) -> float | None:
+    """None after a pole slip (the trace stops; the chart shows a gap)."""
+    return round(float(x), digits) if np.isfinite(x) else None
+
+
+def _result(
+    kind: ConverterType, trace: _Trace, p_ref: float, grid_ssc_mva: float, scr_t: float
+) -> ConverterResult:
+    k0 = round(T_EVENT_S / DT_S)
+    after = slice(k0, None)
+    outside = np.flatnonzero(~(np.abs(trace.p[after] - p_ref) <= SETTLING_BAND))
+    settled = not trace.lost_sync and abs(trace.p[-1] - p_ref) <= SETTLING_BAND
+    settling = (outside[-1] + 1) * DT_S if outside.size else 0.0
+    return ConverterResult(
+        converter_type=kind,
+        grid_ssc_mva=grid_ssc_mva,
+        scr=round(grid_ssc_mva / TOTAL_CAPACITY_MW, 2),
+        scr_terminal=round(scr_t, 2),
+        stable=settled,
+        voltage_deviation_pu=round(
+            float(np.nanmax(np.abs(trace.v_pu[after] - trace.v_pu[k0 - 1]))), 4
+        ),
+        settling_time_s=round(settling, 3) if settled else T_END_S - T_EVENT_S,
+        frequency_deviation_hz=round(float(np.nanmax(np.abs(trace.f_hz[after] - F0_HZ))), 3),
+        peak_current_pu=round(float(np.nanmax(trace.i_pu)), 3),
+        power_swing_mw=round(
+            float(np.nanmax(np.abs(trace.p[after] - p_ref))) * TOTAL_CAPACITY_MW, 1
+        ),
+    )
 
 
 def run_converter_comparison(
     scenario: str = "strong_grid",
     grid_ssc_mva: float = STRONG_GRID_SSC_MVA,
     generation_fraction: float = 1.0,
-    export_length_km: float = 45.0,
+    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    phase_jump_deg: float = DEFAULT_PHASE_JUMP_DEG,
 ) -> tuple[ConverterResult, ConverterResult]:
-    """Run GFL vs GFM converter comparison at given grid strength.
-
-    Simulates both converter types with a small disturbance and compares
-    their voltage/frequency response and stability margins.
-
-    Parameters
-    ----------
-    scenario : str
-        Test scenario name (e.g. "strong_grid", "weak_grid").
-    grid_ssc_mva : float
-        Grid short-circuit power [MVA].
-    generation_fraction : float
-        Generation level [0.0–1.0]. Default: 1.0.
-    export_length_km : float
-        Export cable length [km]. Default: 45.0.
-
-    Returns
-    -------
-    tuple[ConverterResult, ConverterResult]
-        (gfl_result, gfm_result) — comparison pair.
-    """
-    scr = grid_ssc_mva / TOTAL_CAPACITY_MW
-
-    # ── GFL Simulation ────────────────────────────────────────────
-    gfl_result = _simulate_gfl(scr, grid_ssc_mva, generation_fraction, export_length_km)
-
-    # ── GFM Simulation ────────────────────────────────────────────
-    gfm_result = _simulate_gfm(scr, grid_ssc_mva, generation_fraction, export_length_km)
-
-    return gfl_result, gfm_result
+    """GFL and GFM results for one grid strength (``scenario`` is a label only)."""
+    response = get_comparison_response(
+        scenario, grid_ssc_mva, generation_fraction, export_length_km, phase_jump_deg
+    )
+    return response.gfl_result, response.gfm_result
 
 
 def run_weak_grid_comparison(
     grid_ssc_mva: float = WEAK_GRID_SSC_MVA,
     generation_fraction: float = 1.0,
-    export_length_km: float = 45.0,
+    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
 ) -> tuple[ConverterResult, ConverterResult]:
-    """Run GFL vs GFM at weak grid conditions (SCR ≈ 3.9).
-
-    This is the key educational test showing GFL degradation at low SCR
-    while GFM maintains stability due to voltage source behaviour.
-
-    Parameters
-    ----------
-    grid_ssc_mva : float
-        Weak grid short-circuit power [MVA]. Default: 2,000.
-    generation_fraction : float
-        Generation level. Default: 1.0.
-    export_length_km : float
-        Export cable length [km]. Default: 45.0.
-
-    Returns
-    -------
-    tuple[ConverterResult, ConverterResult]
-        (gfl_result, gfm_result) at weak grid conditions.
-    """
+    """Same comparison at a 2 GVA grid (SCR_POC ≈ 3.9)."""
     return run_converter_comparison(
-        scenario="weak_grid",
-        grid_ssc_mva=grid_ssc_mva,
-        generation_fraction=generation_fraction,
-        export_length_km=export_length_km,
+        "weak_grid", grid_ssc_mva, generation_fraction, export_length_km
     )
 
 
@@ -181,297 +270,68 @@ def get_comparison_response(
     scenario: str,
     grid_ssc_mva: float = STRONG_GRID_SSC_MVA,
     generation_fraction: float = 1.0,
-    export_length_km: float = 45.0,
+    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    phase_jump_deg: float = DEFAULT_PHASE_JUMP_DEG,
 ) -> ConverterComparisonResponse:
-    """Get full converter comparison response with educational summary.
+    """Simulate both converters and describe what the traces show."""
+    z = grid_impedance_pu(grid_ssc_mva, export_length_km)
+    scr_t = 1.0 / abs(z)
+    p_ref = max(generation_fraction, 0.05)
+    jump = math.radians(phase_jump_deg)
+    gfl = _simulate_gfl(z, p_ref, jump)
+    gfm = _simulate_gfm(z, p_ref, jump)
+    gfl_r = _result(ConverterType.GFL, gfl, p_ref, grid_ssc_mva, scr_t)
+    gfm_r = _result(ConverterType.GFM, gfm, p_ref, grid_ssc_mva, scr_t)
 
-    Parameters
-    ----------
-    scenario : str
-        Test scenario description.
-    grid_ssc_mva : float
-        Grid short-circuit power [MVA].
-    generation_fraction : float
-        Generation level [0.0–1.0].
-    export_length_km : float
-        Export cable length [km].
-
-    Returns
-    -------
-    ConverterComparisonResponse
-        Complete comparison with educational GFM advantage summary.
-    """
-    gfl_result, gfm_result = run_converter_comparison(
-        scenario=scenario,
-        grid_ssc_mva=grid_ssc_mva,
-        generation_fraction=generation_fraction,
-        export_length_km=export_length_km,
-    )
-
-    scr = grid_ssc_mva / TOTAL_CAPACITY_MW
-    advantage = _describe_gfm_advantage(gfl_result, gfm_result, scr)
-
+    step = round(OUTPUT_STEP_S / DT_S)
+    series = [
+        ConverterTimePoint(
+            time_s=round(k * DT_S, 4),
+            gfl_p_mw=_finite(gfl.p[k] * TOTAL_CAPACITY_MW, 1),
+            gfm_p_mw=_finite(gfm.p[k] * TOTAL_CAPACITY_MW, 1),
+            gfl_f_hz=_finite(gfl.f_hz[k], 4),
+            gfm_f_hz=_finite(gfm.f_hz[k], 4),
+            gfl_i_pu=_finite(gfl.i_pu[k], 3),
+            gfm_i_pu=_finite(gfm.i_pu[k], 3),
+        )
+        for k in range(0, len(gfl.p), step)
+    ]
     return ConverterComparisonResponse(
         scenario=scenario,
-        gfl_result=gfl_result,
-        gfm_result=gfm_result,
-        gfm_advantage=advantage,
+        gfl_result=gfl_r,
+        gfm_result=gfm_r,
+        gfm_advantage=_describe(gfl_r, gfm_r, phase_jump_deg),
+        phase_jump_deg=phase_jump_deg,
+        time_series=series,
     )
 
 
-# ── Internal Simulation Helpers ──────────────────────────────────
-
-
-def _simulate_gfl(
-    scr: float,
-    grid_ssc_mva: float,
-    generation_fraction: float,
-    export_length_km: float,
-) -> ConverterResult:
-    """Simulate Grid-Following converter response to disturbance.
-
-    GFL uses REGCA1/REECA1 (PLL-based current source control).
-    At low SCR, PLL tracking degrades → voltage oscillations.
-    """
-    try:
-        ss = build_andes_system(
-            generation_fraction=generation_fraction,
-            export_length_km=export_length_km,
-            grid_ssc_mva=grid_ssc_mva,
-            add_dynamic_models=True,
-        )
-
-        ss.PFlow.run()
-        if not ss.PFlow.converged:
-            return _create_unstable_result(ConverterType.GFL, grid_ssc_mva, scr)
-
-        # Configure TDS
-        t_end = PRE_DISTURBANCE_S + POST_DISTURBANCE_S
-        ss.TDS.config.tf = t_end
-        ss.TDS.config.tstep = SIMULATION_DT_S
-
-        ss.TDS.init()
-        ss.TDS.run()
-
-        # Extract results
-        stable = True
-        v_dev = _get_max_voltage_deviation(ss)
-        settling = _get_settling_time(ss)
-        f_dev = _get_max_frequency_deviation(ss)
-
-        # GFL stability check: at low SCR, expect larger deviations
-        if v_dev > VOLTAGE_DEVIATION_LIMIT_PU:
-            stable = False
-
-        return ConverterResult(
-            converter_type=ConverterType.GFL,
-            grid_ssc_mva=grid_ssc_mva,
-            scr=round(scr, 2),
-            stable=stable,
-            voltage_deviation_pu=round(v_dev, 4),
-            settling_time_s=round(settling, 3),
-            frequency_deviation_hz=round(f_dev, 4),
-        )
-
-    except Exception:
-        logger.exception("GFL simulation failed")
-        return _create_unstable_result(ConverterType.GFL, grid_ssc_mva, scr)
-
-
-def _simulate_gfm(
-    scr: float,
-    grid_ssc_mva: float,
-    generation_fraction: float,
-    export_length_km: float,
-) -> ConverterResult:
-    """Simulate Grid-Forming converter response to disturbance.
-
-    GFM uses virtual synchronous machine control (voltage source).
-    Provides inherent inertia and remains stable even at low SCR.
-
-    Note: ANDES may not have a native GFM model, so we approximate by:
-    1. Using REGCA1 with very fast response (Tg → 0)
-    2. Adding virtual inertia through frequency droop
-    3. Analytically adjusting stability margins for voltage source behaviour
-    """
-    try:
-        ss = build_andes_system(
-            generation_fraction=generation_fraction,
-            export_length_km=export_length_km,
-            grid_ssc_mva=grid_ssc_mva,
-            add_dynamic_models=True,
-        )
-
-        ss.PFlow.run()
-        if not ss.PFlow.converged:
-            return _create_unstable_result(ConverterType.GFM, grid_ssc_mva, scr)
-
-        # Configure TDS
-        t_end = PRE_DISTURBANCE_S + POST_DISTURBANCE_S
-        ss.TDS.config.tf = t_end
-        ss.TDS.config.tstep = SIMULATION_DT_S
-
-        ss.TDS.init()
-        ss.TDS.run()
-
-        # GFM is inherently more stable — model the improvement
-        v_dev_gfl = _get_max_voltage_deviation(ss)
-        settling_gfl = _get_settling_time(ss)
-        f_dev_gfl = _get_max_frequency_deviation(ss)
-
-        # GFM advantage: voltage source behaviour reduces deviations
-        # At low SCR, GFM maintains tighter voltage control
-        gfm_improvement = _calculate_gfm_improvement(scr)
-
-        v_dev = v_dev_gfl * gfm_improvement
-        settling = settling_gfl * gfm_improvement
-        f_dev = f_dev_gfl * gfm_improvement
-
-        # GFM is stable at low SCR (voltage source — doesn't depend on PLL)
-        stable = True
-
-        return ConverterResult(
-            converter_type=ConverterType.GFM,
-            grid_ssc_mva=grid_ssc_mva,
-            scr=round(scr, 2),
-            stable=stable,
-            voltage_deviation_pu=round(v_dev, 4),
-            settling_time_s=round(settling, 3),
-            frequency_deviation_hz=round(f_dev, 4),
-        )
-
-    except Exception:
-        logger.exception("GFM simulation failed")
-        return _create_unstable_result(ConverterType.GFM, grid_ssc_mva, scr)
-
-
-def _calculate_gfm_improvement(scr: float) -> float:
-    """Calculate GFM improvement factor over GFL at given SCR.
-
-    At high SCR (strong grid), both GFL and GFM perform similarly.
-    At low SCR (weak grid), GFM has significant advantage:
-    - SCR > 10: improvement ≈ 0.9 (10% better)
-    - SCR ≈ 5:  improvement ≈ 0.7 (30% better)
-    - SCR ≈ 3:  improvement ≈ 0.5 (50% better)
-    - SCR < 2:  improvement ≈ 0.3 (70% better — GFL likely unstable)
-
-    Returns
-    -------
-    float
-        Improvement factor (0–1). Lower = more improvement.
-    """
-    if scr >= 10.0:
-        return 0.9
-    elif scr >= 5.0:
-        return 0.5 + 0.4 * (scr - 5.0) / 5.0
-    elif scr >= 3.0:
-        return 0.3 + 0.2 * (scr - 3.0) / 2.0
-    else:
-        return 0.3
-
-
-def _get_max_voltage_deviation(ss: andes.System) -> float:
-    """Get maximum voltage deviation from 1.0 pu during simulation."""
-    try:
-        if hasattr(ss.TDS, "t") and ss.TDS.t is not None:
-            # Check PCC voltage (bus 3 = OSS 220 kV)
-            v_ts = ss.TDS.get_bus_v(3)
-            if v_ts is not None:
-                v_array = list(v_ts) if not hasattr(v_ts, "__len__") else v_ts
-                return float(max(abs(v - 1.0) for v in v_array))
-    except Exception:
-        pass
-    return 0.01  # Default small deviation
-
-
-def _get_settling_time(ss: andes.System) -> float:
-    """Get time for voltage to settle within 2% band."""
-    try:
-        if hasattr(ss.TDS, "t") and ss.TDS.t is not None:
-            t_array = list(ss.TDS.t)
-            v_ts = ss.TDS.get_bus_v(3)
-            if v_ts is not None and len(t_array) > 0:
-                v_array = list(v_ts) if not hasattr(v_ts, "__len__") else v_ts
-                # Find last time outside 2% band
-                for i in range(len(t_array) - 1, -1, -1):
-                    if abs(v_array[i] - 1.0) > SETTLING_BAND_PU:
-                        return float(t_array[i])
-    except Exception:
-        pass
-    return 0.5  # Default settling time
-
-
-def _get_max_frequency_deviation(ss: andes.System) -> float:
-    """Get maximum frequency deviation from nominal during simulation."""
-    try:
-        if hasattr(ss, "Bus") and hasattr(ss.Bus, "f"):
-            f_ts = ss.Bus.f.v
-            if f_ts is not None:
-                f_array = list(f_ts) if not hasattr(f_ts, "__len__") else f_ts
-                return float(max(abs(f) for f in f_array))
-    except Exception:
-        pass
-    return 0.01  # Default small deviation
-
-
-def _describe_gfm_advantage(
-    gfl: ConverterResult,
-    gfm: ConverterResult,
-    scr: float,
-) -> str:
-    """Generate educational summary of GFM advantage at given SCR.
-
-    Parameters
-    ----------
-    gfl : ConverterResult
-        GFL simulation result.
-    gfm : ConverterResult
-        GFM simulation result.
-    scr : float
-        Short-circuit ratio at PCC.
-
-    Returns
-    -------
-    str
-        Educational summary of GFM vs GFL comparison.
-    """
-    if scr > 10:
-        return (
-            f"At SCR={scr:.1f} (strong grid), both GFL and GFM are stable. "
-            f"GFM provides "
-            f"{(1 - gfm.voltage_deviation_pu / max(gfl.voltage_deviation_pu, 0.001)) * 100:.0f}% "
-            f"lower voltage deviation due to voltage source behaviour, "
-            f"but the practical difference is small at high SCR."
-        )
-    elif scr > 5:
-        return (
-            f"At SCR={scr:.1f} (moderate grid), GFM shows clear advantage: "
-            f"voltage deviation {gfm.voltage_deviation_pu:.4f} pu vs GFL "
-            f"{gfl.voltage_deviation_pu:.4f} pu. GFM's virtual inertia "
-            f"(H={GFM_INERTIA_H}s) provides frequency support that GFL cannot."
-        )
-    else:
-        stability_note = "GFL is unstable" if not gfl.stable else "GFL is marginally stable"
-        return (
-            f"At SCR={scr:.1f} (weak grid), {stability_note} while GFM "
-            f"remains stable. GFM acts as a voltage source with virtual "
-            f"inertia H={GFM_INERTIA_H}s, independent of PLL tracking. "
-            f"This demonstrates why NC RfG will mandate GFM for weak grid connections."
-        )
-
-
-def _create_unstable_result(
-    converter_type: ConverterType,
-    grid_ssc_mva: float,
-    scr: float,
-) -> ConverterResult:
-    """Create an unstable converter result when simulation fails."""
-    return ConverterResult(
-        converter_type=converter_type,
-        grid_ssc_mva=grid_ssc_mva,
-        scr=round(scr, 2),
-        stable=False,
-        voltage_deviation_pu=VOLTAGE_DEVIATION_LIMIT_PU,
-        settling_time_s=MAX_SETTLING_TIME_S,
-        frequency_deviation_hz=0.5,
+def _describe(gfl: ConverterResult, gfm: ConverterResult, jump_deg: float) -> str:
+    """Plain summary of the simulated behaviour (no claims beyond the traces)."""
+    head = (
+        f"{jump_deg:.0f}° grid phase jump, SCR {gfl.scr:.1f} at the POC → "
+        f"{gfl.scr_terminal:.1f} at the 66 kV busbar. "
     )
+    gfl_txt = (
+        "No GFL operating point: x·P_ref exceeds the grid EMF (SCR at the busbar < 1)."
+        if gfl.peak_current_pu == 0.0
+        else "GFL lost synchronism: its PLL angle slipped a pole after the jump."
+        if not gfl.stable
+        else f"GFL re-synchronised in {gfl.settling_time_s:.2f} s with only a "
+        f"{gfl.power_swing_mw:.0f} MW power swing — a current source gives no inertial response."
+    )
+    if not gfm.stable:
+        gfm_txt = " GFM did not settle within the simulated window."
+    else:
+        limited = gfm.peak_current_pu >= GFM_CURRENT_LIMIT_PU - 1e-3
+        gfm_txt = (
+            f" GFM answered at once with a {gfm.power_swing_mw:.0f} MW synchronising-power "
+            f"swing (virtual inertia H = {GFM_INERTIA_H:.0f} s)"
+            + (
+                f" and hit its {GFM_CURRENT_LIMIT_PU:.1f} p.u. current limit — the stiff-grid "
+                "weakness of voltage-source control."
+                if limited
+                else f"; peak current {gfm.peak_current_pu:.2f} p.u."
+            )
+        )
+    return head + gfl_txt + gfm_txt

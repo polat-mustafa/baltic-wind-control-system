@@ -138,3 +138,15 @@ def test_short_circuit_uses_20c_cable_resistance(monkeypatch):
     monkeypatch.setattr(short_circuit, "build_network", spy)
     calc_short_circuit("max")
     assert seen.get("r_at_operating_temp") is False
+
+
+def test_breaking_and_making_duty_per_bus():
+    """Each bus reports its breaker rating; ip must stay below 2.5 × the breaking rating."""
+    from app.services.p2.short_circuit import MAKING_FACTOR, calc_short_circuit
+
+    r = calc_short_circuit("max")
+    for b in r.bus_results:
+        assert b.making_ka == pytest.approx(MAKING_FACTOR * b.breaker_ka)
+        assert b.ikss_ka < b.breaker_ka
+        assert b.ip_ka < b.making_ka
+    assert r.breaker_adequate

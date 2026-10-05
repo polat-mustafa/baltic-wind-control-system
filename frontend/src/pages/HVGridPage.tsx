@@ -108,7 +108,7 @@ export default function HVGridPage() {
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-text-primary">
-            P2 · HV Grid Integration
+            HV Grid Integration
           </h2>
           <p className="text-xs text-text-muted mt-1 font-mono">
             {networkSpec

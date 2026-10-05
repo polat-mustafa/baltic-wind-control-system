@@ -25,7 +25,7 @@ export function getTopology(): Promise<NetworkTopologyResponse> {
 
 /**
  * Fetch OPC-UA namespace summary.
- * Server: urn:baltic-wind:scada, 185 nodes, Basic256Sha256/SignAndEncrypt.
+ * Server: urn:offshoreforge:scada, 185 nodes, Basic256Sha256/SignAndEncrypt.
  */
 export function getOPCUANamespace(): Promise<OPCUANamespaceResponse> {
   return request(`${BASE}/opcua`);

@@ -48,7 +48,7 @@ export function ElectricalSheet({ turbine, chain, selected, onSelect, string, na
   const flow = online && p > 0.05;
   const sel = { selected, onSelect };
   return (
-    <Sheet title="Single-line diagram" subtitle={`${turbine.id} · generator to 66 kV string`} dwg="BWA-WTG-E-001" sheet="1 / 3" standard="IEC 60617 · IEC 81346">
+    <Sheet title="Single-line diagram" subtitle={`${turbine.id} · generator to 66 kV string`} dwg="SB5-WTG-E-001" sheet="1 / 3" standard="IEC 60617 · IEC 81346">
       {/* location frames */}
       <rect x={56} y={120} width={636} height={262} rx={4} fill="none" stroke="currentColor" strokeDasharray="10 4" strokeWidth={1} strokeOpacity={0.6} />
       <text x={64} y={136} fontSize={11} fontWeight={800} fill="currentColor" fillOpacity={0.75}>+NACELLE</text>
@@ -181,7 +181,7 @@ export function DrivetrainSheet({ turbine, chain, selected, onSelect, nacelle, y
   const s1 = rpm * 4;
   const s2 = s1 * 4;
   return (
-    <Sheet title="Drivetrain & yaw" subtitle={`${turbine.id} · mechanical power path`} dwg="BWA-WTG-M-001" sheet="2 / 3" standard="ISO 3952 · IEC 61400-4">
+    <Sheet title="Drivetrain & yaw" subtitle={`${turbine.id} · mechanical power path`} dwg="SB5-WTG-M-001" sheet="2 / 3" standard="ISO 3952 · IEC 61400-4">
       {/* shaft line */}
       <Wire d="M 146 280 L 426 280" kind="shaft" />
       <Wire d="M 714 280 L 872 280" kind="shaft" />
@@ -275,7 +275,7 @@ export function HydraulicSheet({ turbine, selected, onSelect, nacelle }: SheetPr
   const running = hpu?.pump_running ?? true;
   const fmt = (v: number | undefined, d = 0) => (v === undefined ? "—" : v.toFixed(d));
   return (
-    <Sheet title="Hydraulics & cooling P&ID" subtitle={`${turbine.id} · HPU, brakes, gear-oil and water-glycol loops`} dwg="BWA-WTG-P-001" sheet="3 / 3" standard="ISA-5.1 · ISO 1219">
+    <Sheet title="Hydraulics & cooling P&ID" subtitle={`${turbine.id} · HPU, brakes, gear-oil and water-glycol loops`} dwg="SB5-WTG-P-001" sheet="3 / 3" standard="ISA-5.1 · ISO 1219">
       {/* ── hydraulic power unit ── */}
       <text x={60} y={96} fontSize={12} fontWeight={800} fill="currentColor">HYDRAULIC POWER UNIT</text>
       <Wire d="M 140 540 L 140 464" kind="hydRet" />

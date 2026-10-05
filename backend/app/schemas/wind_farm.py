@@ -50,7 +50,7 @@ class TurbinePositionResponse(BaseModel):
 class WindFarmCreate(BaseModel):
     """Request schema to create a wind farm configuration."""
 
-    name: str = Field(max_length=100, examples=["Baltic Wind Alpha"])
+    name: str = Field(max_length=100, examples=["SB-510"])
     latitude: float = Field(ge=-90, le=90, description="Farm centre latitude [deg]")
     longitude: float = Field(ge=-180, le=180, description="Farm centre longitude [deg]")
     capacity_mw: float = Field(ge=0, le=2000, description="Total installed capacity [MW]")

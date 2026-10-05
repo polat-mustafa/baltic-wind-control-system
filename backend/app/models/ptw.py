@@ -55,7 +55,7 @@ class PermitToWork(Base):
     ptw_number: Mapped[str] = mapped_column(
         String(30),
         unique=True,
-        comment="Human-readable permit number: BWA-PTW-{YEAR}-{SEQ:05d}",
+        comment="Human-readable permit number: SB5-PTW-{YEAR}-{SEQ:05d}",
     )
     status: Mapped[str] = mapped_column(
         String(25),

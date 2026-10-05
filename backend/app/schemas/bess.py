@@ -1,7 +1,7 @@
 """
 Pydantic schemas for BESS (Battery Energy Storage System) API — M08.
 
-50 MW / 200 MWh LFP battery collocated at Baltic Wind OSS (220 kV).
+50 MW / 200 MWh LFP battery collocated at SB-510 OSS (220 kV).
 """
 
 from __future__ import annotations

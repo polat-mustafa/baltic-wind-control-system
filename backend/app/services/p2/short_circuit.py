@@ -48,7 +48,7 @@ References
 - Pandapower: pp.shortcircuit.calc_sc() — built-in IEC 60909
 - Schlabbach, J.: Short-Circuit Currents (IET, 2005)
 
-Constants (Baltic Wind Alpha)
+Constants (SB-510)
 -----------------------------
 - Grid Ssc: 10,000 MVA at 400 kV
 - 66 kV breaker rated: 25 kA

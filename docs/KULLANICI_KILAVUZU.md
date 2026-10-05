@@ -1,6 +1,6 @@
 # Kullanıcı Kılavuzu
 
-**Baltic Wind HV Control Platform**: 510 MW'lık bir Baltık Denizi açık deniz rüzgâr çiftliği simülasyonu
+**OffshoreForge**: 510 MW'lık bir Baltık Denizi açık deniz rüzgâr çiftliği simülasyonu
 (34 × Vestas V236-15.0 MW, 66 kV iç dizi, 45 km 220 kV ihraç kablosu, PSE 400 kV şebekesi).
 
 ## 1. Gereksinimler

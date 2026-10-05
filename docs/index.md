@@ -1,4 +1,4 @@
-# Baltic Wind HV Control Platform
+# OffshoreForge
 
 A production-grade educational simulation platform for a **510 MW Baltic Sea offshore wind farm** — covering the complete engineering lifecycle from wind resource assessment through HV commissioning.
 

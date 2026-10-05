@@ -11,7 +11,7 @@ from app.services.p1 import farm_comparison as svc
 
 client = TestClient(app)
 
-BALTIC = FarmConfigCreate(name="Baltic Wind Alpha", mean_wind_speed_ms=9.3)
+BALTIC = FarmConfigCreate(name="SB-510", mean_wind_speed_ms=9.3)
 
 
 def _eval(**kw: object) -> tuple:

@@ -63,7 +63,7 @@ class BESSConfiguration(Base):
     """
     BESS nameplate and configuration parameters.
 
-    One row per physical BESS installation (only one for Baltic Wind).
+    One row per physical BESS installation (only one for SB-510).
     """
 
     __tablename__ = "bess_configuration"
@@ -71,7 +71,7 @@ class BESSConfiguration(Base):
     id: Mapped[_uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=_uuid.uuid4
     )
-    name: Mapped[str] = mapped_column(String(100), nullable=False, default="Baltic Wind BESS")
+    name: Mapped[str] = mapped_column(String(100), nullable=False, default="SB-510 BESS")
     rated_power_mw: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
     rated_energy_mwh: Mapped[float] = mapped_column(Float, nullable=False, default=200.0)
     # C-rate = rated_power_mw / rated_energy_mwh = 0.25 for 50MW/200MWh

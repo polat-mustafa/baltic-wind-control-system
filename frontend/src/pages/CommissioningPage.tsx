@@ -46,7 +46,7 @@ export default function CommissioningPage() {
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div>
           <h2 className="text-xl font-semibold text-text-primary">
-            P5 · HV Commissioning Simulator
+            HV Commissioning Simulator
           </h2>
           <p className="text-xs text-text-muted mt-1 font-mono">
             30-step switching programme · LOTO isolation · SAT verification

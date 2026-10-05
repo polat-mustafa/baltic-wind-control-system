@@ -75,7 +75,7 @@ async def create_permit_endpoint(
     """Create a new Permit-to-Work in REQUESTED state.
 
     The permit is persisted to the database and assigned a unique
-    BWA-PTW-{YEAR}-{SEQ} number.
+    SB5-PTW-{YEAR}-{SEQ} number.
     """
     # Count existing permits to generate sequence number
     count_result = await session.execute(select(PermitToWork.id))

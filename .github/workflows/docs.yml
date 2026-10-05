@@ -7,6 +7,9 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - "requirements-docs.txt"
+      - ".github/workflows/docs.yml"
+  # Manual redeploy, e.g. after a transient Pages/OIDC failure.
+  workflow_dispatch:
 
 permissions:
   contents: read

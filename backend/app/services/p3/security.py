@@ -2,7 +2,7 @@
 Cybersecurity service — M07 (IEC 62443).
 
 Implements:
-1. Purdue Model (ISA-95) six-level zone hierarchy for Baltic Wind
+1. Purdue Model (ISA-95) six-level zone hierarchy for SB-510
 2. Zone conduits with protocol/encryption/firewall definitions
 3. Five educational attack scenarios with step-by-step narratives
 4. Security event logging (in-memory for simulation)
@@ -62,7 +62,7 @@ _ZONES: list[dict[str, Any]] = [
         "level": 2,
         "description": (
             "Level 2 — Supervisory control. "
-            "Baltic Wind SCADA server, SCADA HMI workstations, OPC-UA server (port 4840), "
+            "SB-510 SCADA server, SCADA HMI workstations, OPC-UA server (port 4840), "
             "PPC (Power Plant Controller), EMS (Energy Management System). "
             "Highest-value attack target: controls all 34 WTGs + OSS. "
             "IEC 62443 SL-2: requires authentication, audit trail, encrypted comms."

@@ -1,4 +1,4 @@
-# Baltic Wind HV Control Platform — English
+# OffshoreForge — English
 
 Simulation of a 510 MW Baltic Sea offshore wind farm: 34 × Vestas V236-15.0 MW, 66 kV array,
 220 kV export (45 km), 400 kV PSE connection.

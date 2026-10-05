@@ -1,1 +1,1 @@
-"""FastAPI routers for the Baltic Wind HV Control Platform."""
+"""FastAPI routers for OffshoreForge."""

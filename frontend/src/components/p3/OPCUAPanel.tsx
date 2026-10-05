@@ -4,7 +4,7 @@
  * Server status KPIs (running, clients, nodes, endpoint URL).
  * Collapsible address space tree (top 2 levels only for performance).
  * OPC-UA: opc.tcp://10.0.2.10:4840, Basic256Sha256/SignAndEncrypt.
- * 185 nodes in urn:baltic-wind:scada namespace.
+ * 185 nodes in urn:offshoreforge:scada namespace.
  */
 
 import { useEffect, useState } from "react";
@@ -104,7 +104,7 @@ export default function OPCUAPanel() {
             <h3 className="text-sm font-semibold text-text-primary">
               Address Space — {addressSpace.total_nodes} nodes
             </h3>
-            <span className="text-xs text-text-muted font-mono">urn:baltic-wind:scada</span>
+            <span className="text-xs text-text-muted font-mono">urn:offshoreforge:scada</span>
           </div>
           <div className="max-h-72 overflow-y-auto">
             {addressSpace.root_nodes.map((node) => (

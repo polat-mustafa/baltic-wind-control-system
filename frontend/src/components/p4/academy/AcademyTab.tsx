@@ -12,6 +12,7 @@ import { BookOpen, ChevronLeft, ChevronRight, Lightbulb, Square, Volume2 } from 
 
 import { useForecastStore } from "../../../store/forecastStore";
 import { useNarrator } from "../../../hooks/useNarrator";
+import { readStored, writeStored } from "../../../lib/storage";
 import { cn } from "../../../lib/utils";
 import { CHAPTERS, type Lang, type Widget } from "./academyContent";
 import BoostingPlayground from "./BoostingPlayground";
@@ -20,7 +21,7 @@ import { AttentionViz, EnsembleViz, LeakageViz, LSTMCellViz, PipelineViz, Quanti
 // three.js scene only when its chapter opens
 const GradientDescent3D = lazy(() => import("./GradientDescent3D"));
 
-const LANG_KEY = "bw.academyLang";
+const LANG_KEY = "of.academyLang";
 
 function WidgetView({ widget, lang }: { widget: Widget; lang: Lang }) {
   switch (widget) {
@@ -56,20 +57,10 @@ function WidgetView({ widget, lang }: { widget: Widget; lang: Lang }) {
 export default function AcademyTab() {
   const chapterId = useForecastStore((s) => s.chapter);
   const openChapter = useForecastStore((s) => s.openChapter);
-  const [lang, setLangState] = useState<Lang>(() => {
-    try {
-      return (localStorage.getItem(LANG_KEY) as Lang) || "en";
-    } catch {
-      return "en";
-    }
-  });
+  const [lang, setLangState] = useState<Lang>(() => (readStored(LANG_KEY) as Lang) || "en");
   const setLang = (l: Lang) => {
     setLangState(l);
-    try {
-      localStorage.setItem(LANG_KEY, l);
-    } catch {
-      /* private mode — keep in memory */
-    }
+    writeStored(LANG_KEY, l); // private mode — keep in memory
   };
   const { supported, speaking, speak, stop } = useNarrator();
   const idx = Math.max(0, CHAPTERS.findIndex((c) => c.id === chapterId));

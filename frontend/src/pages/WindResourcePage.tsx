@@ -48,7 +48,7 @@ export default function WindResourcePage() {
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-text-primary">
-            P1 · Wind Resource & AEP
+            Wind Resource & AEP
           </h2>
           <p className="text-xs text-text-muted mt-1 font-mono">
             34 × V236-15.0 MW · Baltic Sea · PyWake BPA Gaussian ·{" "}

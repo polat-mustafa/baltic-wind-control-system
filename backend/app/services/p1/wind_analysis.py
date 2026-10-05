@@ -21,7 +21,7 @@ References
 - Mardia, K.V. (1972): Statistics of Directional Data
 - European Wind Atlas (Risø, 1989): Wind rose methodology
 
-Constants (Baltic Wind Alpha)
+Constants (SB-510)
 -----------------------------
 - Default sectors: 12 (30° each, industry standard)
 - Expected dominant direction: WSW (~240°) for Polish Baltic Sea

@@ -9,7 +9,7 @@ export const turbineSelectionEducation: EducationContent = {
   overview:
     "Selecting the right turbine for an offshore wind farm is not simply a matter of picking the largest machine. " +
     "It involves balancing rated power, rotor diameter, drive-train technology, grid-code pre-qualification status, " +
-    "supply-chain availability, and site-specific wind conditions. For the Baltic Wind 510 MW project, three 15 MW-class " +
+    "supply-chain availability, and site-specific wind conditions. For the SB-510 (510 MW) project, three 15 MW-class " +
     "machines were evaluated: the Vestas V236-15.0 MW, the Siemens Gamesa SG 14-236 DD, and the GE Haliade-X 13 MW. " +
     "The V236 was selected because it is the only machine with full-scale serial production already underway on the Polish " +
     "Baltic (Baltic Power project, 76 units) and carries PSE grid-code pre-qualification.",
@@ -101,7 +101,7 @@ export const turbineSelectionEducation: EducationContent = {
       description:
         "Operated by ORLEN + Northland Power. All 78 foundations installed by late 2025; turbine installation " +
         "ongoing 2025–2026. First commercial power expected Q2 2026. This project provides direct cost benchmarks, " +
-        "installation vessel availability, and grid-code compliance data for Baltic Wind.",
+        "installation vessel availability, and grid-code compliance data for SB-510.",
       takeaway:
         "Having a reference project with the same turbine model 60 km to the west substantially de-risks the " +
         "turbine selection — foundation loads, cable schedules, and grid-code submissions are directly transferable.",

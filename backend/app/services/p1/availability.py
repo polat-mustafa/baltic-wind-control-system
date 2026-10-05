@@ -132,7 +132,7 @@ def _generate_synthetic_events(turbine_id: str, period_hours: float) -> list[dic
 
 def get_fleet_availability(period_hours: float = 8760.0) -> dict[str, Any]:
     """
-    Compute IEC 61400-26 availability KPIs for the entire Baltic Wind fleet.
+    Compute IEC 61400-26 availability KPIs for the entire SB-510 fleet.
 
     Parameters
     ----------

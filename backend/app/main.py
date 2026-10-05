@@ -1,5 +1,5 @@
 """
-Baltic Wind HV Control Platform — FastAPI Application
+OffshoreForge — FastAPI Application
 
 Entry point for the 510 MW Baltic Sea offshore wind farm simulation
 platform. Manages application lifespan (Redis init, DB seed, shutdown)
@@ -77,8 +77,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Baltic Wind HV Control Platform",
-    description="510 MW Baltic Sea Offshore Wind Farm Simulation",
+    title="OffshoreForge",
+    description="Offshore wind engineering training platform (case study: 510 MW Southern Baltic)",
     version="0.1.0",
     lifespan=lifespan,
 )

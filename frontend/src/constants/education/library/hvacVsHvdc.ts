@@ -75,7 +75,7 @@ export const hvacVsHvdcEducation: EducationContent = {
 
   workedExamples: [
     {
-      title: "Baltic Wind 510 MW — HVAC chosen over HVDC",
+      title: "SB-510 (510 MW) — HVAC chosen over HVDC",
       scenario:
         "510 MW capacity, 45 km to shore, 220 kV three-core copper cable, C' = 200 nF/km, I_th = 800 A.",
       steps: [

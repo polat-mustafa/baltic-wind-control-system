@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     # Application
-    app_name: str = "Baltic Wind HV Control Platform"
+    app_name: str = "OffshoreForge"
     debug: bool = False
 
     # Database (PostgreSQL + TimescaleDB)

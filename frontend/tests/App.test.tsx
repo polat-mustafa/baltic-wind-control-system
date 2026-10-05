@@ -6,7 +6,7 @@ vi.mock("react-plotly.js", () => ({ default: () => null }));
 
 test("renders the landing page heading", () => {
   render(<App />);
-  const headings = screen.getAllByText("Baltic Wind Alpha");
+  const headings = screen.getAllByText("OffshoreForge");
   expect(headings.length).toBeGreaterThanOrEqual(1);
 });
 

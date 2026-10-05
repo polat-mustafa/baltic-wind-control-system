@@ -4,7 +4,7 @@ Pydantic schemas for Communication Network Architecture — M15.
 IEC 62541 OPC-UA unified architecture:
   Server: OSS SCADA gateway exposes all WTG data as OPC-UA nodes
   Security: SignAndEncrypt, Basic256Sha256 (no None mode in production)
-  Namespace: urn:baltic-wind:scada
+  Namespace: urn:offshoreforge:scada
 
 Communication network layers (IEC 61850-90-5 + NERC CIP):
   Level 0 -- Field (WTG IEC 61850 bay units, bay controllers, protection IEDs)

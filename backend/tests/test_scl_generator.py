@@ -72,7 +72,7 @@ class TestSSDGeneration:
         root = generate_ssd()
         substation = root.find(_ns("Substation"))
         assert substation is not None
-        assert substation.get("name") == "Baltic_Wind_Alpha_OSS"
+        assert substation.get("name") == "SB510_OSS"
 
     def test_ssd_voltage_levels(self):
         """SSD must contain 66 kV and 220 kV voltage levels."""
@@ -224,7 +224,7 @@ class TestSCDGeneration:
     def test_scd_has_substation_and_ieds(self):
         """SCD must contain both Substation and IED elements."""
         devices = build_substation_configuration()
-        root = generate_scd("Baltic_Wind_Alpha_OSS", devices)
+        root = generate_scd("SB510_OSS", devices)
         assert root.find(_ns("Substation")) is not None
         ieds = root.findall(_ns("IED"))
         assert len(ieds) > 0
@@ -232,14 +232,14 @@ class TestSCDGeneration:
     def test_scd_contains_all_ieds(self):
         """SCD must contain all 37 IEDs."""
         devices = build_substation_configuration()
-        root = generate_scd("Baltic_Wind_Alpha_OSS", devices)
+        root = generate_scd("SB510_OSS", devices)
         ieds = root.findall(_ns("IED"))
         assert len(ieds) == 37
 
     def test_scd_has_communication_section(self):
         """SCD must contain Communication section."""
         devices = build_substation_configuration()
-        root = generate_scd("Baltic_Wind_Alpha_OSS", devices)
+        root = generate_scd("SB510_OSS", devices)
         comm = root.find(_ns("Communication"))
         assert comm is not None
 
@@ -248,7 +248,7 @@ class TestSCDGeneration:
         devices = build_substation_configuration()
         gcbs = {"OSS_PROT_IED01": [build_oss_goose_control_block()]}
         root = generate_scd(
-            "Baltic_Wind_Alpha_OSS",
+            "SB510_OSS",
             devices,
             goose_control_blocks=gcbs,
         )
@@ -258,7 +258,7 @@ class TestSCDGeneration:
     def test_scd_has_voltage_levels(self):
         """SCD substation section must have 66 kV and 220 kV levels."""
         devices = build_substation_configuration()
-        root = generate_scd("Baltic_Wind_Alpha_OSS", devices)
+        root = generate_scd("SB510_OSS", devices)
         substation = root.find(_ns("Substation"))
         assert substation is not None
         vls = substation.findall(_ns("VoltageLevel"))
@@ -352,7 +352,7 @@ class TestSCLOutput:
     def test_scd_to_string_all_ieds(self):
         """SCD string must contain all 37 IED names."""
         devices = build_substation_configuration()
-        root = generate_scd("Baltic_Wind_Alpha_OSS", devices)
+        root = generate_scd("SB510_OSS", devices)
         xml_string = scl_to_string(root)
 
         assert "OSS_PROT_IED01" in xml_string

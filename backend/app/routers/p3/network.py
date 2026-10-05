@@ -35,7 +35,7 @@ router = APIRouter(tags=["M15 Communication Network"])
 )
 async def get_network_topology() -> NetworkTopologyResponse:
     """
-    Return the complete OT communication network topology for Baltic Wind Alpha.
+    Return the complete OT communication network topology for SB-510.
 
     **Three-tier OT network architecture:**
 
@@ -49,7 +49,7 @@ async def get_network_topology() -> NetworkTopologyResponse:
     Managed Ethernet switches in a ring (RSTP fast spanning tree, <50 ms recovery).
     IEC 61850 GOOSE runs here for protection coordination — 4 ms class P3 latency.
     The OPC-UA server on the OSS gateway aggregates all turbine data and exposes
-    it as a unified address space (urn:baltic-wind:scada).
+    it as a unified address space (urn:offshoreforge:scada).
 
     **Tier 3 — WAN (OSS to Onshore, 45 km):**
     Primary: dedicated OPGW fibre in the export cable jacket.
@@ -73,7 +73,7 @@ async def get_network_topology() -> NetworkTopologyResponse:
 )
 async def get_opcua_namespace() -> OPCUANamespaceResponse:
     """
-    Return OPC-UA address space definition for the Baltic Wind SCADA gateway.
+    Return OPC-UA address space definition for the SB-510 SCADA gateway.
 
     **Why OPC-UA over traditional SCADA protocols?**
 

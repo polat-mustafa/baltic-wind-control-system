@@ -19,7 +19,7 @@ References
 - ECMWF ERA5: Hourly data on single levels (u100, v100, u10, v10)
 - Justus, C.G. et al. (1978): Weibull wind speed distributions
 
-Constants (Baltic Wind Alpha)
+Constants (SB-510)
 -----------------------------
 - Hub height: 150 m
 - ERA5 reference heights: 10 m, 100 m

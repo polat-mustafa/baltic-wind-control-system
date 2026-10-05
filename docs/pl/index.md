@@ -1,4 +1,4 @@
-# Baltic Wind HV Control Platform — Polski
+# OffshoreForge — Polski
 
 Symulacja morskiej farmy wiatrowej 510 MW na Morzu Bałtyckim: 34 × Vestas V236-15.0 MW, sieć wewnętrzna 66 kV,
 eksport 220 kV (45 km), przyłączenie 400 kV PSE.

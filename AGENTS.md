@@ -1,4 +1,4 @@
-# Baltic Wind HV Control Platform
+# OffshoreForge
 
 `CLAUDE.md` is the single source of truth for agent instructions in this repo (session protocol,
 commands, definition of done, architecture map, domain rules, gotchas). Read it first.

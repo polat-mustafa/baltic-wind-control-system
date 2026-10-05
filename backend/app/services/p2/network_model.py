@@ -65,7 +65,7 @@ References
 - PSE IRiESP: Polish transmission grid code
 - ENTSO-E NC RfG: Network Code on Requirements for Generators
 
-Constants (Baltic Wind Alpha)
+Constants (SB-510)
 -----------------------------
 - 34 × V236-15.0 MW = 510 MW total
 - 4 strings × 6 WTGs + 2 strings × 5 WTGs = 34 WTGs (same split as the landing map,
@@ -272,7 +272,7 @@ def build_network(
     pp.pandapowerNet
         Pandapower network ready for load flow or short-circuit analysis.
     """
-    net = pp.create_empty_network(name="Baltic Wind Alpha — 510 MW OWF")
+    net = pp.create_empty_network(name="SB-510 case study — 510 MW OWF")
 
     # ── Buses ─────────────────────────────────────────────────────
     bus_pse_400 = pp.create_bus(net, vn_kv=400.0, name="PSE_400kV")

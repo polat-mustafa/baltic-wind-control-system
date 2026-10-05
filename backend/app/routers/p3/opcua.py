@@ -11,7 +11,7 @@ The actual OPC-UA communication happens on port 4840 via the binary UA
 protocol. These HTTP endpoints expose management and monitoring only.
 
 To connect a UA client (e.g. UaExpert):
-    Endpoint: opc.tcp://localhost:4840/baltic-wind/
+    Endpoint: opc.tcp://localhost:4840/offshoreforge/
     Security Policy: None (development) or Basic256Sha256 (production)
 """
 
@@ -54,7 +54,7 @@ async def get_opcua_status() -> OPCUAStatusResponse:
 async def get_address_space() -> OPCUAAddressSpaceResponse:
     """Return the complete OPC-UA address space as a JSON tree.
 
-    The address space mirrors the Baltic Wind Alpha physical topology:
+    The address space mirrors the SB-510 physical topology:
     - WindFarm/Substation/Bay01..Bay08/ — OSS 66 kV switchboard bays
     - WindFarm/Turbines/WTG01..WTG34/ — individual wind turbine controllers
 

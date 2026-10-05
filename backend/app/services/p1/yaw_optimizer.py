@@ -65,7 +65,7 @@ MAX_YAW_DEG: float = 30.0
 """Maximum yaw misalignment per turbine [degrees]."""
 
 DEFAULT_NUM_TURBINES: int = 34
-"""Number of turbines in Baltic Wind Alpha."""
+"""Number of turbines in SB-510."""
 
 COS_POWER_EXPONENT: float = 1.88
 """Exponent for yaw cosine power loss model (Howland et al. 2019)."""

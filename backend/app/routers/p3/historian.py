@@ -1,7 +1,7 @@
 """P3 sub-router: SCADA Historian time-series endpoints.
 
 Provides read access to synthesised SCADA historian data for the
-510 MW Baltic Wind Alpha offshore wind farm.
+SB-510 offshore wind farm (510 MW).
 
 In a production system these endpoints query TimescaleDB hypertables
 (raw scan data + continuous aggregates). Here, the service layer

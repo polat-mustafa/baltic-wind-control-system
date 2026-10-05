@@ -25,7 +25,7 @@ class FarmConfiguration(Base):
     array voltages, export cable lengths, STATCOM capacities, or BESS sizes
     and then compare their AEP, LCOE, and grid performance side-by-side.
 
-    The Baltic Wind Alpha reference design is hardcoded in the application
+    The SB-510 reference design is hardcoded in the application
     (V236-15.0 MW × 34, 66 kV array, 220 kV export, 45 km). Any parameter
     can be varied in a comparison configuration.
 

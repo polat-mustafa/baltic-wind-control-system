@@ -32,7 +32,7 @@ class SecurityZone(Base):
     4  Business network (enterprise, ERP, remote access)
     5  External network (internet, cloud, remote operations centre)
 
-    Baltic Wind OT/IT boundary: between Level 3 and Level 4.
+    SB-510 OT/IT boundary: between Level 3 and Level 4.
     DMZ (demilitarised zone) sits between Level 3 and Level 4.
     """
 

@@ -144,7 +144,7 @@ class TestOPCUANamespace:
             assert "update_interval_ms" in node
 
     def test_node_ids_use_namespace_2(self):
-        """All nodes should be in namespace 2 (urn:baltic-wind:scada)."""
+        """All nodes should be in namespace 2 (urn:offshoreforge:scada)."""
         result = get_opcua_namespace()
         for node in result["nodes"]:
             assert node["node_id"].startswith("ns=2;")

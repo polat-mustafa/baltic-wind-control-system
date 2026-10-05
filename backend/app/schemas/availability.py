@@ -117,7 +117,7 @@ class TurbineAvailabilityKPI(BaseModel):
 
 
 class FarmAvailabilityResponse(BaseModel):
-    """Fleet-level availability report for Baltic Wind (34 WTGs)."""
+    """Fleet-level availability report for SB-510 (34 WTGs)."""
 
     period_start: str
     period_end: str

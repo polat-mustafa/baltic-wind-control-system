@@ -1,4 +1,4 @@
-# API Coverage Audit — Baltic Wind 510 MW Simulation
+# API Coverage Audit — SB-510 (510 MW) Simulation
 
 **Audit date:** 2026-04-21
 **Branch:** `v236-nacelle-overhaul`

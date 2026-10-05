@@ -1,7 +1,7 @@
 """
 Sensor Architecture & Specification Schemas.
 
-Defines the full sensor register for the Baltic Wind 510 MW platform:
+Defines the full sensor register for the SB-510 (510 MW) platform:
 - Per-turbine instruments (34 × V236-15.0 MW)
 - Offshore substation instruments (6 bays × 5 instruments)
 - Export cable instruments (DTS + joint monitors)
@@ -64,7 +64,7 @@ class CableSensorGroup(BaseModel):
 
 class SensorRegisterResponse(BaseModel):
     """
-    Complete instrument register for the Baltic Wind 510 MW platform.
+    Complete instrument register for the SB-510 (510 MW) platform.
 
     Counts
     ------

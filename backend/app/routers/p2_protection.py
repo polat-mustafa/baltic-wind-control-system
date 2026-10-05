@@ -148,7 +148,7 @@ async def list_relays(
 ) -> list[ProtectionRelaySchema]:
     """Return all protection relay settings from the OSS registry.
 
-    The Baltic Wind Alpha OSS has 8 protection relay settings:
+    The SB-510 OSS has 8 protection relay settings:
     - 2 PTOC (time overcurrent) — string feeder + incomer backup
     - 2 PDIS (distance) — export cable Zone 1 + Zone 2
     - 1 PTOV (overvoltage) — 220 kV bus
@@ -294,7 +294,7 @@ async def simulate_fault_clearance(
 
     IEC 61936-1 requires FCT < 100 ms for 66 kV systems.
     PSE IRiESP requires FCT < 80 ms at 220 kV for Type D generators
-    (the 510 MW Baltic Wind Alpha wind farm exceeds 75 MW — Type D).
+    (the SB-510 wind farm (510 MW) exceeds 75 MW — Type D).
 
     CB opening time: 60 ms per IEC 62271-100 for medium/high-voltage switchgear.
     Arc extinction: ~20 ms (1 power cycle) after CB contacts part.

@@ -87,7 +87,7 @@ All five projects use a consistent reference scenario based on real Baltic Sea p
 
 | Parameter | Value | Source/Justification |
 |-----------|-------|---------------------|
-| Farm Name | Baltic Wind Alpha (fictional) | Based on real Polish Baltic Sea projects |
+| Farm Name | SB-510 (fictional) | Based on real Polish Baltic Sea projects |
 | Location | Baltic Sea, ~40 km north of Ustka, Poland | PGE Baltica reference area |
 | Capacity | 510 MW (scalable to 1.2 GW analysis) | Educational scale aligned with V236-15.0 class |
 | Turbines | 34 × Vestas V236-15.0 MW (15 MW) | Turbine class used in Baltic Power project |

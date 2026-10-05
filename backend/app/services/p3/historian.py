@@ -73,32 +73,32 @@ from enum import StrEnum
 
 
 class HistorianTag(StrEnum):
-    """Available SCADA historian tags for the 510 MW Baltic Wind Alpha OWF.
+    """Available SCADA historian tags for the SB-510 OWF (510 MW).
 
     Tag naming follows IEC 61400-25 / IEC 61850-7-4 conventions:
-      BWA = Baltic Wind Alpha (farm prefix)
+      SB5 = SB-510 (farm prefix)
       OSS = Offshore SubStation
       WTG = Wind Turbine Generator
       Logical node names: MMXU (measurement), WMET (meteorological), etc.
     """
 
     # ── OSS Power System Measurements ─────────────────────────────
-    OSS_TOTAL_POWER_MW = "BWA.OSS.MMXU1.TotW"
-    OSS_REACTIVE_POWER_MVAR = "BWA.OSS.MMXU1.TotVAr"
-    OSS_FREQUENCY_HZ = "BWA.OSS.MMXU1.Hz"
-    OSS_VOLTAGE_PU = "BWA.OSS.MMXU1.PhV.A"
-    OSS_CURRENT_KA = "BWA.OSS.MMXU1.A.phsA"
+    OSS_TOTAL_POWER_MW = "SB5.OSS.MMXU1.TotW"
+    OSS_REACTIVE_POWER_MVAR = "SB5.OSS.MMXU1.TotVAr"
+    OSS_FREQUENCY_HZ = "SB5.OSS.MMXU1.Hz"
+    OSS_VOLTAGE_PU = "SB5.OSS.MMXU1.PhV.A"
+    OSS_CURRENT_KA = "SB5.OSS.MMXU1.A.phsA"
 
     # ── STATCOM Measurements ───────────────────────────────────────
-    STATCOM_Q_MVAR = "BWA.OSS.STATCOM1.TotVAr"
-    STATCOM_UTIL_PCT = "BWA.OSS.STATCOM1.Util"
+    STATCOM_Q_MVAR = "SB5.OSS.STATCOM1.TotVAr"
+    STATCOM_UTIL_PCT = "SB5.OSS.STATCOM1.Util"
 
     # ── Wind Meteorological ────────────────────────────────────────
-    WTG01_WIND_SPEED = "BWA.WTG_01.WMET1.WdSpd"
-    WTG01_POWER_MW = "BWA.WTG_01.WGEN1.TotW"
+    WTG01_WIND_SPEED = "SB5.WTG_01.WMET1.WdSpd"
+    WTG01_POWER_MW = "SB5.WTG_01.WGEN1.TotW"
 
     # ── Array Cable (66 kV) ────────────────────────────────────────
-    ARRAY_CABLE_CURRENT_A = "BWA.OSS.XCBR_66KV.A.phsA"
+    ARRAY_CABLE_CURRENT_A = "SB5.OSS.XCBR_66KV.A.phsA"
 
 
 @dataclass(frozen=True)

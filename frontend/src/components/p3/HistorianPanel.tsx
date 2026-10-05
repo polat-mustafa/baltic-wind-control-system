@@ -16,7 +16,7 @@
  * │  Tag metadata table: nominal, range, unit, description      │
  * └─────────────────────────────────────────────────────────────┘
  *
- * IEC 61400-25 tag naming: BWA.OSS.MMXU1.TotW, etc.
+ * IEC 61400-25 tag naming: SB5.OSS.MMXU1.TotW, etc.
  * ISA-101 dark SCADA theme throughout.
  */
 
@@ -87,9 +87,9 @@ export default function HistorianPanel() {
         const preselect = tags
           .filter((t) =>
             [
-              "BWA.OSS.MMXU1.TotW",
-              "BWA.OSS.MMXU1.Hz",
-              "BWA.OSS.STATCOM1.TotVAr",
+              "SB5.OSS.MMXU1.TotW",
+              "SB5.OSS.MMXU1.Hz",
+              "SB5.OSS.STATCOM1.TotVAr",
             ].includes(t.tag),
           )
           .map((t) => t.tag);

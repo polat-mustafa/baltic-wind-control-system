@@ -113,7 +113,7 @@ class TestTurbineAvailability:
 
 
 class TestFleetAvailability:
-    """Fleet-level KPIs for all 34 Baltic Wind turbines."""
+    """Fleet-level KPIs for all 34 SB-510 turbines."""
 
     def test_fleet_has_34_turbines(self):
         result = get_fleet_availability(period_hours=8760.0)

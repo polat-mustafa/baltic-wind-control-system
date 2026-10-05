@@ -1,5 +1,5 @@
 """
-Seed data for the Baltic Wind Alpha reference wind farm.
+Seed data for the SB-510 reference wind farm.
 
 Inserts the 34 × V236-15.0 MW wind farm with turbine positions
 if the database is empty. Idempotent — safe to run on every startup.
@@ -84,7 +84,7 @@ async def seed_default_farm() -> None:
         # Create the reference wind farm
         farm = WindFarm(
             id=FARM_UUID,
-            name="Baltic Wind Alpha",
+            name="SB-510",
             # Array centroid — same site as the frontend map
             # (frontend/src/constants/windFarmLayout.ts, EEZ, 29–40 m depth)
             latitude=54.797,
@@ -109,6 +109,6 @@ async def seed_default_farm() -> None:
 
         await session.commit()
         logger.info(
-            "Seeded Baltic Wind Alpha: 34 x V236-15.0 MW = 510 MW (UUID: %s)",
+            "Seeded SB-510: 34 x V236-15.0 MW = 510 MW (UUID: %s)",
             FARM_UUID,
         )

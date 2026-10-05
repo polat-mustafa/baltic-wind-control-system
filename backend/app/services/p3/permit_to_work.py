@@ -158,8 +158,8 @@ _TERMINAL_STATES: frozenset[PermitStatus] = frozenset(
     }
 )
 
-# PTW number prefix for the Baltic Wind Alpha project
-_PTW_PREFIX = "BWA-PTW"
+# PTW number prefix for the SB-510 project
+_PTW_PREFIX = "SB5-PTW"
 
 # Step number mapping for each permit status (1-based, CANCELLED=0)
 _STATUS_TO_STEP: dict[PermitStatus, int] = {
@@ -307,7 +307,7 @@ class PermitRecord:
     id : uuid.UUID
         Unique permit identifier.
     ptw_number : str
-        Human-readable permit number (e.g., 'BWA-PTW-2026-00001').
+        Human-readable permit number (e.g., 'SB5-PTW-2026-00001').
     status : PermitStatus
         Current lifecycle state.
     work_description : str
@@ -372,7 +372,7 @@ class TransitionResult:
 def generate_ptw_number(sequence: int = 1) -> str:
     """Generate a human-readable PtW number.
 
-    Format: BWA-PTW-{YEAR}-{SEQUENCE:05d}
+    Format: SB5-PTW-{YEAR}-{SEQUENCE:05d}
 
     Parameters
     ----------
@@ -382,7 +382,7 @@ def generate_ptw_number(sequence: int = 1) -> str:
     Returns
     -------
     str
-        Formatted PtW number, e.g. 'BWA-PTW-2026-00001'.
+        Formatted PtW number, e.g. 'SB5-PTW-2026-00001'.
     """
     year = datetime.now(UTC).year
     return f"{_PTW_PREFIX}-{year}-{sequence:05d}"

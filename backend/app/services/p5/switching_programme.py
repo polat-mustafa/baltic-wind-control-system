@@ -347,11 +347,11 @@ def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
     SwitchingProgramme
         Complete programme with initial equipment state and LOTO set.
     """
-    programme_id = f"BWA-SP-{datetime.now(UTC).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+    programme_id = f"SB5-SP-{datetime.now(UTC).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
     programme = SwitchingProgramme(
         programme_id=programme_id,
-        title="OSS First Energisation — Baltic Wind Alpha 510 MW",
+        title="OSS First Energisation — SB-510 (510 MW)",
         pic_name=pic_name,
         system_state=build_initial_state(),
         loto_set=create_loto_set_for_oss(programme_id),

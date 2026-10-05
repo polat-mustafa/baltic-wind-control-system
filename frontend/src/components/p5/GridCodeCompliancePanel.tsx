@@ -344,7 +344,7 @@ export default function GridCodeCompliancePanel() {
             Commercial Operation Date Achieved
           </p>
           <p className="text-green-300 text-xs mt-1">
-            510 MW Baltic Wind Farm — fully commissioned and grid-compliant
+            SB-510 case-study farm (510 MW) — fully commissioned and grid-compliant
           </p>
           {complianceCampaign.cod_date && (
             <p className="text-green-400/70 text-[10px] mt-1">

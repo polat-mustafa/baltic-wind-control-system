@@ -24,7 +24,7 @@ from app.db import Base
 class IEC61850Device(Base):
     """IEC 61850 Physical Device (IED) registry entry.
 
-    One row per IED in the substation. Baltic Wind Alpha has 37 devices:
+    One row per IED in the substation. SB-510 has 37 devices:
     2 OSS IEDs (protection + measurement) + 1 bay controller + 34 WTG controllers.
     """
 

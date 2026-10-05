@@ -1,5 +1,5 @@
 #!/bin/bash
-# Baltic Wind HV Control Platform — Docker entrypoint
+# OffshoreForge — Docker entrypoint
 #
 # Runs Alembic migrations before starting the application server.
 # This ensures tables exist before uvicorn accepts requests.

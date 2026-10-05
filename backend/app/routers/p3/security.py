@@ -36,7 +36,7 @@ router = APIRouter(tags=["M07 Cybersecurity IEC 62443"])
 )
 async def get_zones() -> ZonesResponse:
     """
-    Return the Baltic Wind Purdue Model zone hierarchy.
+    Return the SB-510 Purdue Model zone hierarchy.
 
     **What is the Purdue Model?**
 
@@ -53,7 +53,7 @@ async def get_zones() -> ZonesResponse:
     Level 0: PHYSICAL PROCESS (turbine sensors, actuators, meters)
     ```
 
-    **Why zones matter for Baltic Wind:**
+    **Why zones matter for SB-510:**
 
     IEC 62443 requires that each zone has a defined Security Level (SL-0 to SL-4).
     The SCADA zone (Level 2) is the highest-value target — it can command
@@ -89,7 +89,7 @@ async def get_conduits() -> ConduitsResponse:
     - Firewall rules (source/dest port, action)
     - Directionality (unidirectional data diodes are the most secure)
 
-    **Key conduits for Baltic Wind:**
+    **Key conduits for SB-510:**
 
     | Conduit | Direction | Encryption |
     |---------|-----------|------------|
@@ -198,7 +198,7 @@ async def get_compliance() -> ComplianceSummaryResponse:
 
     **IEC 62443 Security Levels:**
 
-    | Level | Description | Baltic Wind Target |
+    | Level | Description | SB-510 Target |
     |-------|-------------|-------------------|
     | SL-0  | No security requirements | N/A |
     | SL-1  | Protection against casual/coincidental violation | Level 3-5 zones |
@@ -206,7 +206,7 @@ async def get_compliance() -> ComplianceSummaryResponse:
     | SL-3  | Protection against sophisticated means | Not currently required |
     | SL-4  | Protection against state-sponsored APT | Not in scope |
 
-    **Baltic Wind target: SL-2 for all OT zones (Level 1 + Level 2).**
+    **SB-510 target: SL-2 for all OT zones (Level 1 + Level 2).**
 
     The compliance checklist covers the 7 IEC 62443-3-3 Foundational Requirements:
     - FR1: Identification and Authentication Control
@@ -217,7 +217,7 @@ async def get_compliance() -> ComplianceSummaryResponse:
     - FR6: Timely Response to Events
     - FR7: Resource Availability
 
-    **Key gaps for Baltic Wind (SL-2 target):**
+    **Key gaps for SB-510 (SL-2 target):**
     - SR-1.7: MFA for remote access (not yet implemented)
     - SR-3.1: GOOSE communication integrity (requires IEC 61850 Ed3)
     - SR-6.1: 90-day security log retention (TimescaleDB retention policy needed)

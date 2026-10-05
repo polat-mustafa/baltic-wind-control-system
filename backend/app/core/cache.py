@@ -1,5 +1,5 @@
 """
-Async Redis caching module for the Baltic Wind platform.
+Async Redis caching module for the SB-510 platform.
 
 Provides:
 - Module-level singleton Redis client (not per-request)

@@ -29,7 +29,7 @@ class SecurityZoneResponse(BaseModel):
 
 
 class ZonesResponse(BaseModel):
-    """Complete Purdue Model zone hierarchy for Baltic Wind."""
+    """Complete Purdue Model zone hierarchy for SB-510."""
 
     zones: list[SecurityZoneResponse]
     ot_it_boundary: str = Field(description="Zone name at OT/IT boundary (typically Level 3)")
@@ -166,7 +166,7 @@ class ComplianceSummaryResponse(BaseModel):
     sl1_score_pct: float = Field(description="SL-1 requirements met [%]")
     sl2_score_pct: float = Field(description="SL-2 requirements met [%]")
     sl3_score_pct: float = Field(description="SL-3 requirements met [%]")
-    target_sl: str = Field(description="Target security level for Baltic Wind (SL-2 for OT)")
+    target_sl: str = Field(description="Target security level for SB-510 (SL-2 for OT)")
     checks: list[ComplianceCheckResponse]
     open_gaps: int = Field(description="Requirements not yet met at target SL")
     critical_gaps: list[str] = Field(description="High-risk open gaps")

@@ -39,7 +39,7 @@ from app.services.p5.switching_programme import (
 
 ENGINEER = "Maria Nowak"
 PIC_NAME = "Jan Kowalski"
-PROGRAMME_ID = "BWA-SP-TEST-001"
+PROGRAMME_ID = "SB5-SP-TEST-001"
 
 
 @pytest.fixture

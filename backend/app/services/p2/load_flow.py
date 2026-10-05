@@ -37,7 +37,7 @@ References
 - ENTSO-E NC RfG Type D: Generator performance requirements
 - Glover, Sarma, Overbye: Power Systems Analysis & Design (6th ed.)
 
-Constants (Baltic Wind Alpha)
+Constants (SB-510)
 -----------------------------
 - Rated power: 510 MW (34 × 15 MW)
 - Voltage limits: 0.95–1.05 p.u.

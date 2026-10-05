@@ -13,6 +13,15 @@ Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are
 | 5 | Academy: courses and scored missions | **Next** |
 | 6 | Lifecycle: construction, operation hand-over, decommissioning | Open |
 
+## Resume here
+
+1. `git fetch origin && git checkout claude/busy-planck-8vitbx && git pull`
+   (if PR #221 is already merged: `git checkout -B claude/busy-planck-8vitbx origin/main`).
+2. PR #221 (Phase 4) — check CI; merge only when the owner says so.
+3. Next: **Phase 5 — Academy** (spec below). Open a new PR for it from a branch based on the latest `main`.
+4. Owner to-dos: `cd frontend && npm run e2e:update` (new `layout` and `site-permits` baselines),
+   rename the GitHub repo to `offshoreforge`, trademark check.
+
 ## Working conventions
 
 - One PR per phase. Commits, PR titles/bodies, code, UI text and docs are in **English**.

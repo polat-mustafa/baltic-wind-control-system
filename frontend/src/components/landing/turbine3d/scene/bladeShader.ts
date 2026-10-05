@@ -9,6 +9,10 @@
  *     (tip speed ~100 m/s); drawn as a darker, speckled strip around the LE
  *     (uv.x ≈ 0.5) from ~55 % span outward.
  *
+ *  3. Field overlay (Blade Analysis) — the vertex-colour field also feeds the
+ *     emissive term, so the colour scale stays readable on the shadowed side
+ *     while the lit side still shows the blade's shape.
+ *
  * Requires the loft UVs: u around the section (LE at 0.5), v = span / L.
  */
 
@@ -52,5 +56,13 @@ export function patchBlade(shader: THREE.WebGLProgramParametersWithUniforms, ero
     );
 }
 
+export const bladeFieldOnBeforeCompile = (s: THREE.WebGLProgramParametersWithUniforms) => {
+  patchBlade(s, false);
+  s.fragmentShader = s.fragmentShader.replace(
+    "#include <emissivemap_fragment>",
+    `#include <emissivemap_fragment>
+     totalEmissiveRadiance += diffuseColor.rgb * 0.35;`,
+  );
+};
 export const bladeOnBeforeCompile = (s: THREE.WebGLProgramParametersWithUniforms) => patchBlade(s, true);
 export const bladeMarkOnBeforeCompile = (s: THREE.WebGLProgramParametersWithUniforms) => patchBlade(s, false);

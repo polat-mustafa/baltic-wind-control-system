@@ -79,6 +79,17 @@ Citation rules used here:
 | Prognosis, remaining useful life | `services/digital_twin/prognosis.py` | [S21] |
 | Power-curve residual binning | `services/digital_twin/detection.py` | [S2] |
 
+## 3D turbine viewer — overlays
+
+| Topic | Implementation | Reference |
+|---|---|---|
+| Blade operating point (BEM-lite: induction from Ct, inflow angle, α) | `frontend/.../turbine3d/model/bladeField.ts` | [1] ch. 3, [2] ch. 3 |
+| Blade surface pressure (thin-airfoil loading + thickness, Cp·½ρW²) | `frontend/.../turbine3d/model/bladeField.ts` | [22] ch. 4 |
+| Blade kinetic heating (adiabatic-wall recovery temperature) | `frontend/.../turbine3d/model/bladeField.ts` | [23] ch. 7 |
+| Flapwise bending moment from thrust | `frontend/.../turbine3d/model/bladeField.ts` | [2] ch. 6 |
+| Nacelle component temperatures, thermal limits | `frontend/.../turbine3d/model/nacelleThermal.ts` | [S22], [S23] |
+| Vibration zones (sensor read-outs) | `backend/app/services/turbine_physics/nacelle_subsystems.py` | [S24] |
+
 ## Books and papers
 
 1. Manwell, J. F., McGowan, J. G., Rogers, A. L. *Wind Energy Explained: Theory, Design and Application*, 2nd ed. Wiley, 2009.
@@ -102,6 +113,8 @@ Citation rules used here:
 19. Hyndman, R. J., Athanasopoulos, G. *Forecasting: Principles and Practice*, 3rd ed. OTexts, 2021.
 20. Madsen, H., Pinson, P., Kariniotakis, G., Nielsen, H. A., Nielsen, T. S. "Standardizing the performance evaluation of short-term wind power prediction models." *Wind Engineering* 29(6), 475–489, 2005.
 21. Roberts, S. W. "Control chart tests based on geometric moving averages." *Technometrics* 1(3), 239–250, 1959.
+22. Anderson, J. D. *Fundamentals of Aerodynamics*, 6th ed. McGraw-Hill, 2017.
+23. White, F. M. *Viscous Fluid Flow*, 3rd ed. McGraw-Hill, 2006.
 
 ## Standards and regulations
 
@@ -126,3 +139,6 @@ Citation rules used here:
 - **[S19]** IEEE 1584 — Guide for performing arc-flash hazard calculations.
 - **[S20]** ISO 13374-1:2003 — Condition monitoring and diagnostics of machines — Data processing, communication and presentation — Part 1: General guidelines.
 - **[S21]** ISO 13381-1:2015 — Condition monitoring and diagnostics of machines — Prognostics — Part 1: General guidelines.
+- **[S22]** IEC 60034-1 — Rotating electrical machines — Part 1: Rating and performance (thermal classes).
+- **[S23]** IEC 60076-11 — Power transformers — Part 11: Dry-type transformers.
+- **[S24]** ISO 10816-21:2015 — Mechanical vibration — Evaluation of machine vibration by measurements on non-rotating parts — Part 21: Horizontal axis wind turbines with gearbox.

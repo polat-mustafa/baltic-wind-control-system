@@ -11,6 +11,9 @@
  * Flapwise deflection: tip displacement from thrust (landingPhysics), applied
  * in the blade vertex shader (bladeShader), lagged ~2 s like the first flap
  * mode's aeroelastic response to a mean-thrust change.
+ *
+ * Blade Analysis field: computed once per operating point and shared by the
+ * three blades (axisymmetric inflow — no shear, tower shadow or gravity).
  */
 
 import { forwardRef, memo, useRef } from "react";
@@ -22,8 +25,12 @@ import { selectTurbine, useLandingStore } from "../../../../store/landingStore";
 import { v236ThrustMN, v236TipDeflectionM } from "../../../../utils/landingPhysics";
 import { usePitchAngle } from "../hooks/usePitchAngle";
 import { useRotorSpin } from "../hooks/useRotorSpin";
+import { useBladeFieldGeometry } from "../hooks/useBladeField";
+import type { BladeFieldMode } from "../model/bladeField";
 import { PRECONE } from "../model/layout";
+import { useV236Model } from "../model/useV236Model";
 import { Blade } from "./Blade";
+import { BLADE_GEOM_BASE } from "./bladeGeometry";
 import { bladeDeflection } from "./bladeShader";
 import { Hub } from "./Hub";
 
@@ -40,7 +47,7 @@ interface RotorProps {
   overridePitch?: number;   // degrees: 0=fine pitch, 90=feathered
   overrideRpm?: number;     // rpm: 0=stopped
   windMs?: number;          // hub-height wind [m/s] for the thrust load
-  fieldMode?: "off" | "thermal" | "pressure" | "strain";
+  fieldMode?: BladeFieldMode;
 }
 
 export const Rotor = memo(
@@ -63,6 +70,13 @@ export const Rotor = memo(
     const b2Ref = useRef<Group>(null);
     const b3Ref = useRef<Group>(null);
 
+    const model = useV236Model();
+    const fieldGeom = useBladeFieldGeometry(fieldMode, model?.blade ?? BLADE_GEOM_BASE, {
+      windMs,
+      rpm,
+      pitchDeg: pitch,
+    });
+
     useRotorSpin(rotorRef, rpm);
     usePitchAngle(b1Ref, b2Ref, b3Ref, pitch);
 
@@ -70,7 +84,8 @@ export const Rotor = memo(
     // expressed after the blade's pitch rotation β: (sin β, 0, −cos β).
     const tipRef = useRef(0);
     useFrame((_, dt) => {
-      const target = stopped ? 0 : v236TipDeflectionM(v236ThrustMN(windMs));
+      // no thrust on a stopped (feathered, idling) rotor
+      const target = stopped || rpm <= 0 ? 0 : v236TipDeflectionM(v236ThrustMN(windMs));
       tipRef.current += (target - tipRef.current) * Math.min(1, dt / 2);
       const beta = b1Ref.current?.rotation.y ?? 0;
       bladeDeflection.value.set(Math.sin(beta), 0, -Math.cos(beta)).multiplyScalar(tipRef.current);
@@ -89,7 +104,7 @@ export const Rotor = memo(
             <group key={b} rotation={[0, 0, (b * 2 * Math.PI) / 3]}>
               <group rotation={[PRECONE, 0, 0]}>
                 <group ref={bRef}>
-                  <Blade isSelected={isBladeSelected} statusColor={statusColor} fieldMode={fieldMode} />
+                  <Blade isSelected={isBladeSelected} statusColor={statusColor} fieldGeom={fieldGeom} />
                 </group>
               </group>
             </group>

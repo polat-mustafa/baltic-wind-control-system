@@ -5,7 +5,7 @@
  *   View         — Reset, Mode (Normal/Cutaway/Exploded), Interior (3D/Schematic)
  *   Environment  — Sky preset (Overcast/Golden/Night)
  *   Overlays     — Measurements, Scale, Thermal, Sensors, Power Flow, Wind Field, Triangle
- *   Blade        — Off / Thermal / Pressure / Strain
+ *   Blade        — Off / Thermal / Pressure / Bending (live physics fields)
  *   Data HUDs    — Losses, Cp Curve
  *   Simulation   — Run/Pause + Wind speed slider (only section open by default)
  */
@@ -33,7 +33,7 @@ interface ViewerControlsProps {
   showWindField: boolean;
   showWindDirection: boolean;
   showWindTriangle: boolean;
-  bladeFieldMode: "off" | "thermal" | "pressure" | "strain";
+  bladeFieldMode: "off" | "thermal" | "pressure" | "bending";
   showLossHUD: boolean;
   showCpWidget: boolean;
   onResetCamera: () => void;
@@ -48,7 +48,7 @@ interface ViewerControlsProps {
   onToggleWindField: () => void;
   onToggleWindDirection: () => void;
   onToggleWindTriangle: () => void;
-  onBladeFieldModeChange: (m: "off" | "thermal" | "pressure" | "strain") => void;
+  onBladeFieldModeChange: (m: "off" | "thermal" | "pressure" | "bending") => void;
   onToggleLossHUD: () => void;
   onToggleCpWidget: () => void;
   onToggleRun?: () => void;
@@ -317,16 +317,16 @@ export function ViewerControls({
         {/* Blade Analysis — vertex-color shader modes */}
         <Section title="Blade Analysis" icon={Activity}>
           <div className="grid grid-cols-2 gap-0.5">
-            {(["off", "thermal", "pressure", "strain"] as const).map((m) => (
+            {(["off", "thermal", "pressure", "bending"] as const).map((m) => (
               <button
                 key={m}
                 className={bladeFieldMode === m ? btnActive : btn}
                 onClick={() => onBladeFieldModeChange(m)}
                 title={
                   m === "off"      ? "Blade field: off — no overlay"
-                : m === "thermal"  ? "Blade field: thermal — leading-edge friction, tip cool"
-                : m === "pressure" ? "Blade field: pressure Cp — suction near tip, stagnation near root"
-                :                    "Blade field: strain — max bending at root → zero at tip"
+                : m === "thermal"  ? "Surface temperature from aerodynamic heating, T_air + r·W²/2cp — warmest at the tip leading edge"
+                : m === "pressure" ? "Surface pressure p − p∞ = Cp·½ρW² — suction side blue, stagnation line red; grows with W² toward the tip"
+                :                    "Flapwise bending moment from rotor thrust — maximum at the root, zero at the tip"
                 }
               >
                 <Activity size={11} />

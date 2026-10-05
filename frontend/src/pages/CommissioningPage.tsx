@@ -43,7 +43,7 @@ export default function CommissioningPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
         <div>
           <h2 className="text-xl font-semibold text-text-primary">
             HV Commissioning Simulator
@@ -76,6 +76,7 @@ export default function CommissioningPage() {
             Control (PiC) name to begin.
           </p>
           <form
+            data-tour="create-programme"
             onSubmit={async (e) => {
               e.preventDefault();
               if (!picName.trim()) return;

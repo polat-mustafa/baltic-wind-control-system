@@ -63,7 +63,7 @@ export default function LayerControlPanel() {
   const toggleLayer = useLayerStore((s) => s.toggleLayer);
 
   return (
-    <div className="absolute top-14 xl:top-24 left-3 z-1100">
+    <div className="absolute top-14 xl:top-24 left-3 z-1100" data-tour="layer-control">
       {/* Collapsed button */}
       <button
         onClick={() => setIsOpen((o) => !o)}

@@ -223,6 +223,8 @@ interface ScadaState {
 // Keys are the backend scenario ids (GET /scada/goose/scenarios).
 
 interface ProtectionScenario {
+  /** Master-alarm-database tag of the trip alarm (backend alarm_manager). */
+  tag: string;
   trips: BreakerId[];
   zone: string;
   protection: string;
@@ -232,6 +234,7 @@ interface ProtectionScenario {
 
 const GOOSE_SCENARIOS: Record<string, ProtectionScenario> = {
   busbar_overcurrent: {
+    tag: "OSS-220.87B.TRIP",
     trips: ["cb-oss-e1", "cb-oss-e2", "cb-oss-t1", "cb-oss-t2"],
     zone: "OSS 220 kV busbar",
     protection: "Busbar differential protection (87B)",
@@ -239,6 +242,7 @@ const GOOSE_SCENARIOS: Record<string, ProtectionScenario> = {
     action: "Do not re-energise until the busbar is inspected; check the disturbance record, then restore cable 1 → busbar → transformers",
   },
   transformer_differential: {
+    tag: "TX-OSS-01.87T.TRIP",
     trips: ["cb-oss-t1", "cb-66-a"],
     zone: "TX-OSS-01",
     protection: "Transformer differential (87T)",
@@ -246,6 +250,7 @@ const GOOSE_SCENARIOS: Record<string, ProtectionScenario> = {
     action: "Lock out TX-OSS-01 (Buchholz/DGA check). Restore section A via bus coupler CB-66-08 and limit TX-OSS-02 to 300 MVA",
   },
   cable_earth_fault: {
+    tag: "CABLE-1.87L.TRIP",
     trips: ["cb-ons-e1", "cb-oss-e1"],
     zone: "Export cable 1",
     protection: "Cable differential / directional earth fault (87L / 67N)",
@@ -502,7 +507,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
     // Protection trip alarms return to normal when all their breakers are closed again
     set((st) => ({
       alarms: st.alarms.map((a) => {
-        const scenario = a.tag.endsWith(".TRIP") ? GOOSE_FAULT_TRIPS[a.tag.slice(0, -5)] : undefined;
+        const scenario = a.tag.endsWith(".TRIP") && a.faultType ? GOOSE_FAULT_TRIPS[a.faultType] : undefined;
         const inAlarm = a.state === "ACTIVE" || a.state === "ACKNOWLEDGED";
         return scenario && inAlarm && scenario.every((id) => breakerStates[id] === "CLOSED")
           ? { ...a, state: "RETURN_TO_NORMAL" as const }
@@ -706,7 +711,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
               id: nextAlarmId(),
               timestamp: Date.now(),
               priority: "CRITICAL",
-              tag: `${selectedFaultType}.TRIP`,
+              tag: sc.tag,
               equipment: sc.zone,
               description: `${sc.protection} operated — ${tripped.length} breakers open`,
               value: `${breakerOpen.timestamp_ms.toFixed(0)} ms`,
@@ -809,3 +814,27 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+// ── Alarm journal → backend (EEMUA 191 KPIs, rationalisation) ─────
+// Every alarm state change, whichever action caused it, is reported once.
+
+useScadaStore.subscribe((next, prev) => {
+  if (next.alarms === prev.alarms) return;
+  const before = new Map(prev.alarms.map((a) => [a.id, a]));
+  const send = (a: SCADAAlarm, transition: api.AlarmTransition) =>
+    void api
+      .logAlarmTransition({ tag: a.tag, transition, source_device: a.equipment, operator_id: a.acknowledgedBy })
+      .catch(() => undefined);
+  for (const a of next.alarms) {
+    const b = before.get(a.id);
+    if (!b) {
+      if (a.state === "ACTIVE") send(a, "NORMAL_TO_ACTIVE");
+      continue;
+    }
+    if (b.state === "ACTIVE" && a.state === "ACKNOWLEDGED") send(a, "ACTIVE_TO_ACK");
+    if (a.state === "RETURN_TO_NORMAL" && b.state !== a.state) {
+      send(a, b.state === "ACKNOWLEDGED" ? "ACK_TO_NORMAL" : "ACTIVE_TO_NORMAL");
+    }
+    if (a.shelved !== b.shelved) send(a, a.shelved ? "SHELVED" : "UNSHELVED");
+  }
+});

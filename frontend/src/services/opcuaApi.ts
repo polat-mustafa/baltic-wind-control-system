@@ -9,11 +9,9 @@
 import type {
   OPCUAStatusResponse,
   OPCUAAddressSpaceResponse,
-  OPCUASubscriptionRequest,
-  OPCUASubscriptionResponse,
 } from "../types/opcua";
 
-import { post, request } from "./apiClient";
+import { request } from "./apiClient";
 
 const BASE = "/api/v1/scada/opcua";
 
@@ -24,18 +22,8 @@ export function getOPCUAStatus(): Promise<OPCUAStatusResponse> {
 
 /**
  * Get the full address space as a JSON tree.
- * Returns ~185 nodes for the Baltic Wind farm namespace.
  */
 export function getAddressSpace(): Promise<OPCUAAddressSpaceResponse> {
   return request(`${BASE}/address-space`);
 }
 
-/**
- * Create a monitored item subscription for a list of node IDs.
- * Returns a subscription_id for client tracking.
- */
-export function subscribe(
-  req: OPCUASubscriptionRequest,
-): Promise<OPCUASubscriptionResponse> {
-  return post(`${BASE}/subscribe`, req);
-}

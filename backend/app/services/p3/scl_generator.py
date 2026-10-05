@@ -101,6 +101,12 @@ def _add_header(parent: ET.Element, header_id: str, version: str = "1.0") -> ET.
     return header
 
 
+# OSS bays: 66 kV = bay controller registry (6 strings, 2 incomers, coupler);
+# 220 kV = export cables, transformer HV bays, STATCOM, shunt reactors
+BAYS_66: tuple[str, ...] = tuple(f"BAY-OSS-66-{i:02d}" for i in range(1, 10))
+BAYS_220: tuple[str, ...] = ("Q-E1", "Q-E2", "Q-T1", "Q-T2", "Q-STATCOM", "Q-R1", "Q-R2", "Q-R3")
+
+
 def _add_voltage_level(
     substation: ET.Element,
     name: str,
@@ -119,10 +125,14 @@ def _add_voltage_level(
     voltage_elem.set("unit", "V")
     voltage_elem.text = str(int(voltage_kv))
 
-    # Bays
+    # Bays, each with its primary switchgear (IEC 61850-6 ConductingEquipment)
     for bay_name in bay_names:
         bay = ET.SubElement(vl, _ns("Bay"))
         bay.set("name", bay_name)
+        for eq_name, eq_type in (("QA1", "CBR"), ("QB1", "DIS"), ("QB9", "DIS"), ("QC9", "DIS")):
+            eq = ET.SubElement(bay, _ns("ConductingEquipment"))
+            eq.set("name", eq_name)
+            eq.set("type", eq_type)
 
     return vl
 
@@ -254,8 +264,10 @@ def generate_ssd(
     voltage_levels_kv : tuple[float, ...]
         Voltage levels present in the substation.
     num_bays_per_level : dict[float, int] | None
-        Number of bays per voltage level.
-        Default: {66.0: 7, 220.0: 3}.
+        Number of bays per voltage level (truncates the plant's bay list).
+        Default: all bays — 66 kV: 6 string feeders, 2 transformer incomers and
+        the bus coupler; 220 kV: 2 export cables, 2 transformer HV bays,
+        STATCOM and 3 shunt reactors.
 
     Returns
     -------
@@ -263,9 +275,7 @@ def generate_ssd(
         Root SCL XML element.
     """
     if num_bays_per_level is None:
-        # 66 kV: 7 bays for 7 array cable strings
-        # 220 kV: 3 bays (export, transformer, STATCOM)
-        num_bays_per_level = {66.0: 7, 220.0: 3}
+        num_bays_per_level = {66.0: len(BAYS_66), 220.0: len(BAYS_220)}
 
     root = _create_scl_root()
     _add_header(root, f"{substation_name}_SSD")
@@ -279,10 +289,10 @@ def generate_ssd(
 
         if kv == 66.0:
             level_name = "E66"
-            bay_names = [f"Bay_String{i + 1}" for i in range(n_bays)]
+            bay_names = list(BAYS_66[:n_bays])
         elif kv == 220.0:
             level_name = "E220"
-            bay_names = ["Bay_Export", "Bay_Trafo", "Bay_STATCOM"][:n_bays]
+            bay_names = list(BAYS_220[:n_bays])
         else:
             level_name = f"E{int(kv)}"
             bay_names = [f"Bay_{i + 1}" for i in range(n_bays)]
@@ -392,18 +402,8 @@ def generate_scd(
     substation.set("name", substation_name)
     substation.set("desc", "510 MW Baltic Sea Offshore Wind Farm — Offshore Substation")
 
-    _add_voltage_level(
-        substation,
-        "E66",
-        66.0,
-        [f"Bay_String{i + 1}" for i in range(7)],
-    )
-    _add_voltage_level(
-        substation,
-        "E220",
-        220.0,
-        ["Bay_Export", "Bay_Trafo", "Bay_STATCOM"],
-    )
+    _add_voltage_level(substation, "E66", 66.0, list(BAYS_66))
+    _add_voltage_level(substation, "E220", 220.0, list(BAYS_220))
 
     # Communication section — GOOSE multicast addressing
     comm = ET.SubElement(root, _ns("Communication"))

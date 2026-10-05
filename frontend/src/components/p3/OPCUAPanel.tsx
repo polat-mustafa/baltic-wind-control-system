@@ -1,10 +1,11 @@
 /**
  * OPC-UA Panel — M03.
  *
- * Server status KPIs (running, clients, nodes, endpoint URL).
- * Collapsible address space tree (top 2 levels only for performance).
- * OPC-UA: opc.tcp://10.0.2.10:4840, Basic256Sha256/SignAndEncrypt.
- * 185 nodes in urn:baltic-wind:scada namespace.
+ * Server status and the address space (namespace urn:baltic-wind:scada).
+ * Values are live: switchgear positions from the bay controllers, process
+ * values from the historian's plant model. The binary server (asyncua,
+ * opc.tcp port 4840, Basic256Sha256 SignAndEncrypt) is optional — without
+ * it the same address space is still browsable over REST.
  */
 
 import { useEffect, useState } from "react";
@@ -15,7 +16,7 @@ import { Button } from "../ui/Button";
 import type { OPCUANodeInfo } from "../../types/opcua";
 
 function NodeRow({ node, depth = 0 }: { node: OPCUANodeInfo; depth?: number }) {
-  const [expanded, setExpanded] = useState(depth < 1);
+  const [expanded, setExpanded] = useState(depth < 2);
   const hasChildren = node.children.length > 0;
 
   return (
@@ -70,8 +71,8 @@ export default function OPCUAPanel() {
             <div className="flex items-center gap-2">
               <Database size={14} className="text-accent" />
               <span className="text-sm font-semibold text-text-primary">OPC-UA Server</span>
-              <span className={`text-xs px-2 py-0.5 rounded ${status.running ? "bg-status-success/20 text-status-success" : "bg-status-alarm/20 text-status-alarm"}`}>
-                {status.running ? "Running" : "Stopped"}
+              <span className="text-xs px-2 py-0.5 rounded border border-border-secondary text-text-primary font-mono">
+                {status.running ? "opc.tcp running" : "opc.tcp off · REST browse only"}
               </span>
             </div>
             <Button size="sm" onClick={fetchAll} disabled={loading}>Refresh</Button>
@@ -91,7 +92,7 @@ export default function OPCUAPanel() {
             </div>
             <div className="bg-bg-tertiary rounded p-2">
               <p className="text-text-muted">Security</p>
-              <p className="font-mono text-text-primary text-xs">Basic256Sha256</p>
+              <p className="font-mono text-text-primary text-xs">Basic256Sha256 · SignAndEncrypt</p>
             </div>
           </div>
         </div>
@@ -106,7 +107,7 @@ export default function OPCUAPanel() {
             </h3>
             <span className="text-xs text-text-muted font-mono">urn:baltic-wind:scada</span>
           </div>
-          <div className="max-h-72 overflow-y-auto">
+          <div className="max-h-[560px] overflow-y-auto">
             {addressSpace.root_nodes.map((node) => (
               <NodeRow key={node.node_id} node={node} depth={0} />
             ))}

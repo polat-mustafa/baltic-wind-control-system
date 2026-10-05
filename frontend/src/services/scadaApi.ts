@@ -154,3 +154,22 @@ export function queryHistorian(
 ): Promise<HistorianQueryResponse> {
   return post(`${BASE}/historian/query`, params);
 }
+
+// ── Alarm journal (master alarm database, EEMUA 191 KPIs) ──────
+
+export type AlarmTransition =
+  | "NORMAL_TO_ACTIVE"
+  | "ACTIVE_TO_ACK"
+  | "ACTIVE_TO_NORMAL"
+  | "ACK_TO_NORMAL"
+  | "SHELVED"
+  | "UNSHELVED";
+
+export function logAlarmTransition(body: {
+  tag: string;
+  transition: AlarmTransition;
+  source_device: string;
+  operator_id: string | null;
+}): Promise<unknown> {
+  return post(`${BASE}/alarms/events`, body);
+}

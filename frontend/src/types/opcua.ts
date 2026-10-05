@@ -37,15 +37,3 @@ export interface OPCUAAddressSpaceResponse {
   root_nodes: OPCUANodeInfo[];
   total_nodes: number;
 }
-
-// ── Subscription ──────────────────────────────────────────────────────────────
-
-export interface OPCUASubscriptionRequest {
-  node_ids: string[];
-  publishing_interval_ms: number;
-  queue_size: number;
-}
-
-export interface OPCUASubscriptionResponse {
-  subscription_id: string;
-}

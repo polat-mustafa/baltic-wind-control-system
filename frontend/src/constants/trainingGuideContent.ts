@@ -180,7 +180,7 @@ export const p3Guide: TrainingGuideData = {
   sections: [
     { name: "Substation SLD", description: "Interactive single-line diagram showing busbars (400/220/66 kV), circuit breakers, disconnectors, transformers, and IED connections. Equipment colors follow ISA-101: green = energized, red = de-energized." },
     { name: "Alarm List", description: "Real-time alarms following ISA-18.2 lifecycle: UNACK → ACTIVE → ACK → CLEARED. Priority levels: CRITICAL (red, flashing), HIGH (orange), MEDIUM (yellow), LOW (cyan)." },
-    { name: "GOOSE Simulation", description: "Visualizes IEC 61850 GOOSE publish-subscribe messaging between IEDs. Shows StNum (state changes), SqNum (retransmissions), and sub-4ms latency." },
+    { name: "GOOSE Simulation", description: "Visualizes IEC 61850 GOOSE publish-subscribe messaging between IEDs. Shows StNum (state changes), SqNum (retransmissions), and the ≤ 3 ms trip transfer time (IEC 61850-5 TT6)." },
     { name: "Event Log", description: "Chronological Sequence of Events with millisecond timestamps. Essential for post-disturbance analysis and regulatory reporting." },
     { name: "Permit-to-Work", description: "Digital PTW system: Draft → Submitted → Approved → Active → Closed. Requires LOTO verification before work begins on HV equipment." },
     { name: "RBAC Panel", description: "Role-Based Access Control matrix: Viewer (L1) = read-only, Operator (L2) = control, Engineer (L4) = configure, Admin (L5) = full access." },

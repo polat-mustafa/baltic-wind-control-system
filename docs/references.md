@@ -79,6 +79,16 @@ Citation rules used here:
 | Prognosis, remaining useful life | `services/digital_twin/prognosis.py` | [S21] |
 | Power-curve residual binning | `services/digital_twin/detection.py` | [S2] |
 
+## Site assessment — screening
+
+| Topic | Implementation | Reference |
+|---|---|---|
+| Territorial sea (12 nm) and EEZ | `services/site_assessment/criteria.py` | [S25] |
+| Marine spatial plans (wind farm areas) | `services/site_assessment/data/` | [S26] |
+| Natura 2000 appropriate assessment trigger | `services/site_assessment/assess.py` | [S27] |
+| EIA screening of wind farms (Annex II 3(i)) | `services/site_assessment/assess.py` | [S28] |
+| Weighted linear combination of criteria | `services/site_assessment/suitability.py` | Standard GIS multi-criteria method; thresholds and weights are labelled *illustrative* in the API model card |
+
 ## 3D turbine viewer — overlays
 
 | Topic | Implementation | Reference |
@@ -142,3 +152,7 @@ Citation rules used here:
 - **[S22]** IEC 60034-1 — Rotating electrical machines — Part 1: Rating and performance (thermal classes).
 - **[S23]** IEC 60076-11 — Power transformers — Part 11: Dry-type transformers.
 - **[S24]** ISO 10816-21:2015 — Mechanical vibration — Evaluation of machine vibration by measurements on non-rotating parts — Part 21: Horizontal axis wind turbines with gearbox.
+- **[S25]** United Nations Convention on the Law of the Sea (UNCLOS), 1982 — Art. 3 (territorial sea), Art. 55–57 (exclusive economic zone).
+- **[S26]** Directive 2014/89/EU establishing a framework for maritime spatial planning.
+- **[S27]** Council Directive 92/43/EEC on the conservation of natural habitats and of wild fauna and flora (Habitats Directive), Art. 6(3).
+- **[S28]** Directive 2011/92/EU on the assessment of the effects of certain public and private projects on the environment (EIA Directive), as amended by Directive 2014/52/EU — Annex II, 3(i).

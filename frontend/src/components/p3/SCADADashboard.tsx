@@ -104,7 +104,7 @@ export default function SCADADashboard() {
           <div className="p-3"><GOOSESimPanel /></div>
         )}
         {area === "diagnostics" && active === "soe" && (
-          <div className="p-3"><SOERecorderPanel /></div>
+          <div className="p-2 h-full"><SOERecorderPanel /></div>
         )}
 
         {/* Engineering */}

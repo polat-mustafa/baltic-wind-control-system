@@ -6,7 +6,7 @@ Covers:
 - Redundant links and nodes identified correctly
 - OPC-UA namespace has valid nodes with required fields
 - Latency budgets comply with IEC 61850 performance classes
-- GOOSE path P3 within 4 ms, WAN path P1 within 1000 ms
+- GOOSE trip within TT6 (3 ms), operator display within TT1 (1000 ms)
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ class TestNetworkTopology:
             assert "encryption" in link
 
     def test_wan_link_exists(self):
-        """OPGW fibre or microwave WAN link must exist."""
+        """Export-cable fibre or microwave WAN link must exist."""
         result = get_network_topology()
         wan_links = [
             lnk
@@ -166,23 +166,23 @@ class TestLatencyBudget:
     """IEC 61850 performance class compliance."""
 
     def test_goose_path_compliant(self):
-        """GOOSE (P3): must complete within 4 ms."""
+        """GOOSE trip (type 1A): IEC 61850-5 TT6, 3 ms."""
         result = get_latency_budget(0)
-        assert result["performance_class"] == "P3"
-        assert result["required_latency_ms"] == 4.0
+        assert result["performance_class"] == "TT6"
+        assert result["required_latency_ms"] == 3.0
         assert result["compliant"] is True
 
     def test_measurement_path_compliant(self):
-        """Measurement update (P2): must complete within 100 ms."""
+        """Measurement report (type 2): IEC 61850-5 TT3, 100 ms."""
         result = get_latency_budget(1)
-        assert result["performance_class"] == "P2"
+        assert result["performance_class"] == "TT3"
         assert result["required_latency_ms"] == 100.0
         assert result["compliant"] is True
 
     def test_wan_scada_path_compliant(self):
-        """WAN SCADA poll (P1): must complete within 1000 ms."""
+        """Operator display over the WAN: TT1, 1000 ms."""
         result = get_latency_budget(2)
-        assert result["performance_class"] == "P1"
+        assert result["performance_class"] == "TT1"
         assert result["required_latency_ms"] == 1000.0
         assert result["compliant"] is True
 

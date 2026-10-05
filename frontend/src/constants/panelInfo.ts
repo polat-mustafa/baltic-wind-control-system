@@ -123,19 +123,19 @@ export const substationSldInfo: InfoContent = {
 };
 
 export const gooseSimInfo: InfoContent = {
-  title: "GOOSE Simulation — IEC 61850 Messaging",
+  title: "GOOSE protection — IEC 61850-8-1",
   description:
-    "Simulates GOOSE (Generic Object Oriented Substation Event) protocol messaging " +
-    "between IEDs. Shows publish-subscribe communication with < 4 ms latency.",
-  standard: "IEC 61850-8-1 — GOOSE protocol specification",
+    "A protection IED publishes the trip as a GOOSE message (Ethernet layer 2, multicast); every breaker bay " +
+    "subscribes. The scenarios use IEC 60909 fault currents from the P2 pandapower model (OSS 220 kV Ik'' ≈ 9.1 kA).",
+  standard: "IEC 61850-8-1 (GOOSE) · IEC 61850-5 (transfer time class TT6 ≤ 3 ms) · IEC 60909-0",
   parameters: [
-    { name: "StNum", description: "State number (increments on data change)" },
-    { name: "SqNum", description: "Sequence number (increments on retransmission)" },
-    { name: "TAL", description: "Time allowed to live (retransmit interval)" },
+    { name: "stNum", description: "State number — increments when the dataset changes (the trip)" },
+    { name: "sqNum", description: "Sequence number — increments on every repetition of the same state" },
+    { name: "Retransmission", description: "Sent at once, repeated after T0, 2·T0, 4·T0 … up to T_max (heartbeat)" },
   ],
   interpretation:
-    "Green messages = normal operation. Watch for increasing retransmission intervals " +
-    "which indicate the event has stabilized (no more changes).",
+    "Clearing time = protection operate + GOOSE + trip coil + breaker opening + arcing. The 100 ms main-protection " +
+    "target keeps the plant inside the PSE fault-ride-through profile (0 pu for 150 ms).",
 };
 
 export const alarmListInfo: InfoContent = {

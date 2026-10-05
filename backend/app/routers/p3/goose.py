@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from datetime import UTC, datetime, timedelta
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db import get_session
 from app.schemas.scada import (
     ComplianceCheckSchema,
     FaultScenarioRequest,
@@ -14,6 +18,7 @@ from app.schemas.scada import (
     RetransmissionRequest,
     RetransmissionResponse,
 )
+from app.services.p3 import soe_recorder
 from app.services.p3.goose_simulation import (
     FAULT_CLEARANCE_MAX_MS,
     GOOSE_MAX_LATENCY_MS,
@@ -45,7 +50,9 @@ async def list_fault_scenarios() -> list[FaultScenarioSummary]:
 
 
 @router.post("/goose/simulate", response_model=FaultSimulationResponse)
-async def run_fault_simulation(request: FaultScenarioRequest) -> FaultSimulationResponse:
+async def run_fault_simulation(
+    request: FaultScenarioRequest, db: AsyncSession = Depends(get_session)
+) -> FaultSimulationResponse:
     """Run a GOOSE protection fault simulation.
 
     Simulates a complete protection sequence from fault inception through
@@ -54,6 +61,8 @@ async def run_fault_simulation(request: FaultScenarioRequest) -> FaultSimulation
 
     The timeline is deterministic — identical inputs always produce
     identical outputs. This enables reproducible testing and education.
+    The protection operation and the breaker opening are written to the SOE
+    log with their millisecond offsets from fault inception.
     """
     try:
         fault_type = FaultType(request.fault_type)
@@ -66,6 +75,23 @@ async def run_fault_simulation(request: FaultScenarioRequest) -> FaultSimulation
 
     scenario = create_scenario(fault_type)
     result = simulate_fault(scenario)
+
+    t0 = datetime.now(UTC)
+    soe_types = {
+        "protection_detects": ("PROTECTION_TRIP", "CRITICAL"),
+        "breaker_open": ("CB_OPERATION", "HIGH"),
+    }
+    for e in result.events:
+        if e.event_type.value in soe_types:
+            event_type, severity = soe_types[e.event_type.value]
+            await soe_recorder.record_event(
+                db,
+                event_type=event_type,
+                source_device=e.ied_name or scenario.location.value,
+                description=f"{scenario.protection_function.value} · {e.description}",
+                severity=severity,
+                timestamp_utc=t0 + timedelta(milliseconds=e.timestamp_ms),
+            )
 
     events = [
         ProtectionEventSchema(
@@ -105,7 +131,8 @@ async def run_fault_simulation(request: FaultScenarioRequest) -> FaultSimulation
     return FaultSimulationResponse(
         fault_type=scenario.fault_type.value,
         location=scenario.location.value,
-        fault_current_pu=scenario.fault_current_pu,
+        fault_current_ka=round(scenario.fault_current_ka, 2),
+        load_current_ka=round(scenario.load_current_ka, 3),
         protection_function=scenario.protection_function.value,
         description=scenario.description,
         events=events,

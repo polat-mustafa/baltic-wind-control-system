@@ -207,10 +207,10 @@ class ComplianceCheckSchema(BaseModel):
 
     goose_latency_ms: float = Field(description="GOOSE publisher→subscriber latency [ms]")
     goose_max_allowed_ms: float = Field(description="IEC 61850-8-1 maximum [ms]")
-    goose_compliant: bool = Field(description="True if latency < 4 ms")
+    goose_compliant: bool = Field(description="True if latency ≤ 3 ms (IEC 61850-5 TT6)")
     total_clearance_ms: float = Field(description="Total fault clearance time [ms]")
-    clearance_max_allowed_ms: float = Field(description="IEC 62271-100 maximum [ms]")
-    clearance_compliant: bool = Field(description="True if clearance < 80 ms")
+    clearance_max_allowed_ms: float = Field(description="Main-protection clearing target [ms]")
+    clearance_compliant: bool = Field(description="True if clearance ≤ 100 ms")
 
 
 class FaultSimulationResponse(BaseModel):
@@ -218,7 +218,8 @@ class FaultSimulationResponse(BaseModel):
 
     fault_type: str = Field(description="Fault type simulated")
     location: str = Field(description="Fault location")
-    fault_current_pu: float = Field(description="Fault current [pu of nominal]")
+    fault_current_ka: float = Field(description="Ik'' at the fault, IEC 60909 max case [kA]")
+    load_current_ka: float = Field(description="Load current of the faulted zone at 510 MW [kA]")
     protection_function: str = Field(description="Primary protection function")
     description: str = Field(description="Scenario description")
     events: list[ProtectionEventSchema] = Field(description="Protection timeline")

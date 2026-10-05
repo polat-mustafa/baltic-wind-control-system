@@ -234,7 +234,7 @@ const GOOSE_SCENARIOS: Record<string, ProtectionScenario> = {
   busbar_overcurrent: {
     trips: ["cb-oss-e1", "cb-oss-e2", "cb-oss-t1", "cb-oss-t2"],
     zone: "OSS 220 kV busbar",
-    protection: "Busbar protection (87B / 50)",
+    protection: "Busbar differential protection (87B)",
     cause: "Three-phase fault on the OSS 220 kV busbar — all bays on the busbar opened, the whole farm is disconnected",
     action: "Do not re-energise until the busbar is inspected; check the disturbance record, then restore cable 1 → busbar → transformers",
   },

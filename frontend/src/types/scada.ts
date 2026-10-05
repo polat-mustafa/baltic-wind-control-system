@@ -106,7 +106,10 @@ export interface ComplianceCheck {
 export interface FaultSimulationResult {
   fault_type: string;
   location: string;
-  fault_current_pu: number;
+  /** Ik'' at the fault, IEC 60909 max case [kA] */
+  fault_current_ka: number;
+  /** Load current of the faulted zone at 510 MW [kA] */
+  load_current_ka: number;
   protection_function: string;
   description: string;
   events: ProtectionEvent[];

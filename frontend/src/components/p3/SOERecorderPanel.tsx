@@ -1,151 +1,152 @@
 /**
- * SOE Recorder Panel — M02.
+ * Sequence-of-events recorder (M02) — the persistent, database-backed event
+ * record: protection trips and breaker operations from the GOOSE sequence,
+ * bay-controller commands and interlock refusals.
  *
- * Filterable, sortable event table with:
- *   - Filter by device, event type, severity, unacknowledged only
- *   - Stats row: total events/hr, most active device
- *   - Acknowledge button per event
- *   - CSV export link
- *
- * IEC 61850: ms-precision timestamping via TimescaleDB hypertable.
+ * Time stamps are UTC with milliseconds (IEC 61850 time quality: 1 ms class
+ * with PTP/IRIG-B sync); Δt to the previous event is what a protection
+ * engineer reads first after a trip.
  */
 
-import { useEffect } from "react";
-import { ScrollText } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import { RefreshCw } from "lucide-react";
 
 import { useSOEStore } from "../../store/soeStore";
-import { Button } from "../ui/Button";
-import type { SOESeverity } from "../../types/soe";
+import { PriorityChip } from "./AlarmListPanel";
+import type { SOEEventType, SOESeverity } from "../../types/soe";
+import { cn } from "../../lib/utils";
 
-const SEVERITY_COLOR: Record<SOESeverity, string> = {
-  INFO: "text-text-muted",
-  WARNING: "text-status-warning",
-  ALARM: "text-status-alarm",
-  CRITICAL: "text-status-alarm font-bold",
+const EVENT_TYPES: SOEEventType[] = ["PROTECTION_TRIP", "CB_OPERATION", "OPERATOR_COMMAND", "INTERLOCK_BLOCK", "ALARM_RAISED", "STATE_CHANGE"];
+const SEVERITIES: SOESeverity[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
+
+/** 2026-10-05 06:23:25.831 (UTC) */
+const utcMs = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 23)}`;
 };
 
-export default function SOERecorderPanel() {
-  const {
-    queryResult,
-    stats,
-    filterDevice,
-    filterSeverity,
-    filterUnacknowledgedOnly,
-    loading,
-    fetchSOE,
-    fetchStats,
-    acknowledgeEvent,
-    setFilterDevice,
-    setFilterSeverity,
-    setFilterUnacknowledgedOnly,
-    applyFilters,
-  } = useSOEStore();
+const ctrl = "h-7 text-xs bg-bg-secondary border border-border-primary rounded px-2 text-text-secondary";
 
+export default function SOERecorderPanel() {
+  const queryResult = useSOEStore((s) => s.queryResult);
+  const stats = useSOEStore((s) => s.stats);
+  const filterDevice = useSOEStore((s) => s.filterDevice);
+  const filterEventType = useSOEStore((s) => s.filterEventType);
+  const filterSeverity = useSOEStore((s) => s.filterSeverity);
+  const unackOnly = useSOEStore((s) => s.filterUnacknowledgedOnly);
+  const loading = useSOEStore((s) => s.loading);
+  const error = useSOEStore((s) => s.error);
+  const applyFilters = useSOEStore((s) => s.applyFilters);
+  const acknowledgeEvent = useSOEStore((s) => s.acknowledgeEvent);
+  const setFilterDevice = useSOEStore((s) => s.setFilterDevice);
+  const setFilterEventType = useSOEStore((s) => s.setFilterEventType);
+  const setFilterSeverity = useSOEStore((s) => s.setFilterSeverity);
+  const setUnackOnly = useSOEStore((s) => s.setFilterUnacknowledgedOnly);
+
+  // Server-side filters re-query; the device text filter is applied locally
   useEffect(() => {
-    fetchSOE({ limit: 100 });
-    fetchStats();
-  }, [fetchSOE, fetchStats]);
+    void applyFilters();
+  }, [applyFilters, filterEventType, filterSeverity, unackOnly]);
+
+  const rows = useMemo(() => {
+    const q = filterDevice.toLowerCase();
+    return (queryResult?.events ?? []).filter((e) => !q || e.source_device.toLowerCase().includes(q));
+  }, [queryResult, filterDevice]);
 
   return (
-    <div className="space-y-3">
-      {/* Stats row */}
-      {stats && (
-        <div className="flex items-center gap-4 text-xs text-text-muted flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <ScrollText size={12} />
-            <span>{stats.total_events} events in {stats.window_hours}h</span>
-          </div>
-          <span>{stats.events_per_hour.toFixed(1)} events/hr</span>
-          <span>{stats.unacknowledged_count} unacknowledged</span>
-          {stats.most_active_device && (
-            <span className="font-mono">Most active: {stats.most_active_device}</span>
-          )}
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <input
-          type="text"
-          placeholder="Filter by device…"
-          value={filterDevice}
-          onChange={(e) => setFilterDevice(e.target.value)}
-          className="text-xs bg-bg-tertiary border border-border-primary rounded px-2 py-1 text-text-secondary w-36"
-        />
-        <select
-          value={filterSeverity}
-          onChange={(e) => setFilterSeverity(e.target.value as SOESeverity | "")}
-          className="text-xs bg-bg-tertiary border border-border-primary rounded px-2 py-1 text-text-secondary"
-        >
-          <option value="">All severities</option>
-          <option value="CRITICAL">Critical</option>
-          <option value="ALARM">Alarm</option>
-          <option value="WARNING">Warning</option>
-          <option value="INFO">Info</option>
+    <section className="flex flex-col h-full min-h-[420px] bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border-primary">
+        <h3 className="text-xs font-semibold text-text-primary">SOE recorder</h3>
+        {stats && (
+          <span className="text-[11px] font-mono text-text-muted">
+            {stats.total_events} events / {stats.window_hours} h · {stats.unacknowledged_count} unacknowledged
+            {stats.most_active_device ? ` · most active ${stats.most_active_device}` : ""}
+          </span>
+        )}
+        <span className="flex-1" />
+        <input type="search" placeholder="Device contains…" value={filterDevice} onChange={(e) => setFilterDevice(e.target.value)} className={cn(ctrl, "w-36")} aria-label="Device filter" />
+        <select value={filterEventType} onChange={(e) => setFilterEventType(e.target.value as SOEEventType | "")} className={ctrl} aria-label="Event type">
+          <option value="">All event types</option>
+          {EVENT_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t.replace(/_/g, " ").toLowerCase()}
+            </option>
+          ))}
         </select>
-        <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
-          <input
-            type="checkbox"
-            checked={filterUnacknowledgedOnly}
-            onChange={(e) => setFilterUnacknowledgedOnly(e.target.checked)}
-            className="accent-accent"
-          />
-          Unacked only
+        <select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value as SOESeverity | "")} className={ctrl} aria-label="Severity">
+          <option value="">All severities</option>
+          {SEVERITIES.map((s) => (
+            <option key={s} value={s}>
+              {s.toLowerCase()}
+            </option>
+          ))}
+        </select>
+        <label className="flex items-center gap-1 text-[11px] text-text-secondary">
+          <input type="checkbox" checked={unackOnly} onChange={(e) => setUnackOnly(e.target.checked)} className="accent-accent" /> unacked
         </label>
-        <Button size="sm" onClick={applyFilters} disabled={loading}>Apply</Button>
+        <button type="button" onClick={() => void applyFilters()} className={cn(ctrl, "flex items-center gap-1 hover:bg-bg-hover")}>
+          <RefreshCw size={11} className={loading ? "animate-spin" : undefined} /> Refresh
+        </button>
       </div>
 
-      {/* Event table */}
-      <div className="overflow-x-auto max-h-96 overflow-y-auto">
-        <table className="w-full text-xs text-text-secondary border-collapse">
-          <thead className="sticky top-0 bg-bg-tertiary">
-            <tr className="border-b border-border-primary text-text-muted">
-              <th className="text-left py-2 pr-3 font-medium w-36">Timestamp</th>
-              <th className="text-left py-2 pr-3 font-medium">Device</th>
-              <th className="text-left py-2 pr-3 font-medium">Event</th>
-              <th className="text-left py-2 pr-3 font-medium">Description</th>
-              <th className="text-center py-2 pr-3 font-medium">Sev</th>
-              <th className="text-center py-2 font-medium">Ack</th>
-            </tr>
-          </thead>
-          <tbody>
-            {queryResult?.events.map((event) => (
-              <tr key={event.id} className={`border-b border-border-primary/40 hover:bg-bg-elevated/30 ${!event.acknowledged ? "bg-status-warning/5" : ""}`}>
-                <td className="py-1.5 pr-3 font-mono text-text-muted whitespace-nowrap">
-                  {new Date(event.timestamp_utc).toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 })}
-                </td>
-                <td className="py-1.5 pr-3 font-mono text-text-primary">{event.source_device}</td>
-                <td className="py-1.5 pr-3">{event.event_type.replace(/_/g, " ")}</td>
-                <td className="py-1.5 pr-3 text-text-muted max-w-xs truncate">{event.description}</td>
-                <td className={`py-1.5 pr-3 text-center ${SEVERITY_COLOR[event.severity]}`}>{event.severity[0]}</td>
-                <td className="py-1.5 text-center">
-                  {event.acknowledged ? (
-                    <span className="text-text-muted">✓</span>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => acknowledgeEvent(event.id, "CTRL-1")}
-                      className="text-xs py-0 px-1"
-                    >
-                      Ack
-                    </Button>
-                  )}
-                </td>
+      {error && <p className="px-3 py-1 text-xs text-status-warning">{error}</p>}
+
+      <div className="flex-1 min-h-0 overflow-auto">
+        {rows.length === 0 ? (
+          <p className="p-6 text-center text-xs text-text-muted">
+            No recorded events. Operate a 66 kV bay or inject a protection fault — both are written here.
+          </p>
+        ) : (
+          <table className="w-full text-[11px]">
+            <thead className="sticky top-0 bg-bg-tertiary text-text-muted text-left">
+              <tr>
+                <th className="px-2 py-1 font-medium w-9">Sev</th>
+                <th className="px-2 py-1 font-medium w-48">Time (UTC)</th>
+                <th className="px-2 py-1 font-medium w-20 text-right">Δt</th>
+                <th className="px-2 py-1 font-medium">Device</th>
+                <th className="px-2 py-1 font-medium">Event</th>
+                <th className="px-2 py-1 font-medium">Description</th>
+                <th className="px-2 py-1 font-medium">Change</th>
+                <th className="px-2 py-1 w-12" />
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {!queryResult?.events.length && !loading && (
-          <p className="text-center text-text-muted text-xs py-8">No events found</p>
+            </thead>
+            <tbody>
+              {rows.map((e, i) => {
+                const prev = rows[i + 1];
+                const dt = prev ? new Date(e.timestamp_utc).getTime() - new Date(prev.timestamp_utc).getTime() : null;
+                return (
+                  <tr key={e.id} className={cn("border-b border-border-primary/60 hover:bg-bg-hover", !e.acknowledged && "font-semibold")}>
+                    <td className="px-2 py-0.5">
+                      {e.severity === "INFO" ? <span className="text-[10px] font-mono font-normal text-text-muted">info</span> : <PriorityChip priority={e.severity} />}
+                    </td>
+                    <td className="px-2 py-0.5 font-mono tabular-nums text-text-secondary whitespace-nowrap">{utcMs(e.timestamp_utc)}</td>
+                    <td className="px-2 py-0.5 font-mono tabular-nums text-right text-text-muted whitespace-nowrap">
+                      {dt === null ? "" : dt < 1000 ? `+${dt} ms` : dt < 60_000 ? `+${(dt / 1000).toFixed(1)} s` : `+${Math.round(dt / 60_000)} min`}
+                    </td>
+                    <td className="px-2 py-0.5 font-mono text-text-primary whitespace-nowrap">{e.source_device}</td>
+                    <td className="px-2 py-0.5 text-text-secondary whitespace-nowrap">{e.event_type.replace(/_/g, " ").toLowerCase()}</td>
+                    <td className="px-2 py-0.5 text-text-secondary">{e.description}</td>
+                    <td className="px-2 py-0.5 font-mono text-text-muted whitespace-nowrap">
+                      {e.value_before || e.value_after ? `${e.value_before ?? "—"} → ${e.value_after ?? "—"}` : ""}
+                    </td>
+                    <td className="px-2 py-0.5 text-right">
+                      {!e.acknowledged && (
+                        <button
+                          type="button"
+                          onClick={() => void acknowledgeEvent(e.id, "OPR-1")}
+                          className="px-1.5 rounded border border-border-primary text-[10px] font-semibold text-text-primary hover:bg-bg-hover"
+                        >
+                          ACK
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
-
-      {queryResult?.has_more && (
-        <p className="text-xs text-text-muted text-center">
-          Showing {queryResult.total_returned} events — {queryResult.has_more ? "more available" : "all shown"}
-        </p>
-      )}
-    </div>
+    </section>
   );
 }

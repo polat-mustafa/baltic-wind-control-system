@@ -28,6 +28,7 @@ const ForecastPage = lazy(() => import("./pages/ForecastPage"));
 const HVGridPage = lazy(() => import("./pages/HVGridPage"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const SCADAPage = lazy(() => import("./pages/SCADAPage"));
+const SitePermitsPage = lazy(() => import("./pages/SitePermitsPage"));
 const TurbinePhysicsPage = lazy(() => import("./pages/TurbinePhysicsPage"));
 const WindResourcePage = lazy(() => import("./pages/WindResourcePage"));
 
@@ -38,6 +39,7 @@ function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route index element={<LandingPage />} />
+            <Route path="develop" element={<SitePermitsPage />} />
             <Route path="wind-resource" element={<WindResourcePage />} />
             <Route path="hv-grid" element={<HVGridPage />} />
             <Route path="scada" element={<SCADAPage />} />

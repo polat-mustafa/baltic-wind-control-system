@@ -15,7 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
-logger = structlog.get_logger("baltic_wind.requests")
+logger = structlog.get_logger("offshoreforge.requests")
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):

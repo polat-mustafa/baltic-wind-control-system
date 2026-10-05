@@ -993,3 +993,21 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .dwg-flow { animation: none; }
 }
+
+/* Site & Permits: print only the selected training-specimen document */
+@media print {
+  body:has(.print-doc[data-printing]) * {
+    visibility: hidden !important;
+  }
+  .print-doc[data-printing],
+  .print-doc[data-printing] * {
+    visibility: visible !important;
+  }
+  .print-doc[data-printing] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+  }
+}

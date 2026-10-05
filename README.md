@@ -33,7 +33,8 @@ The modules follow a wind farm through its life.
 
 | Stage | Module | What you work with |
 |---|---|---|
-| **Develop** | Wind Resource | Weibull fits, wake models (PyWake), AEP and loss chain, availability (IEC 61400-26), weather windows |
+| **Develop** | Site & Permits | Open marine data (EMODnet, EEA Natura 2000, Marine Regions), suitability screening, candidate-site report, survey and EIA stages, generic EU permit procedure |
+| | Wind Resource | Weibull fits, wake models (PyWake), AEP and loss chain, availability (IEC 61400-26), weather windows |
 | **Design** | Grid Integration | Load flow, IEC 60909 short circuit, fault ride-through, STATCOM sizing, power quality, cable thermal rating (IEC 60287) |
 | | Turbine Physics | Cp(λ, β) surface, pitch and torque control, yaw |
 | **Build & Commission** | Commissioning | 30-step switching programme, LOTO, FAT/SAT, grid-code compliance tests |
@@ -46,8 +47,7 @@ New here? On first launch the app offers a **guided tour**: spotlights and arrow
 the control room, some steps ask you to try things yourself, and every module has its own short
 tour in the header's **Tour** menu.
 
-Coming next: a **Site & Permits** journey (open marine data, suitability mapping, EU environmental
-and permitting steps), a layout canvas and an Academy with scored missions.
+Coming next: a layout canvas for your own site and an Academy with scored missions.
 
 ## Quick start
 

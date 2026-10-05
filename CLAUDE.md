@@ -61,7 +61,6 @@ These are large (SKILL.md ≈ 28 KB, Project_Roadmap.md ≈ 93 KB). Do NOT read 
   Computation Engine Integration, Testing Strategy, Error Handling, Git Workflow, Security Checklist (IEC 62443)
 - `docs/Project_Roadmap.md` — §2 P1 Layout & Yield · §3 P2 HV Grid · §4 P3 SCADA/IEC 61850 · §5 P4 Forecasting & FRT ·
   §6 P5 Commissioning · §7 Integration Map · §8 Tech Stack/UI · §9 Standards Matrix
-- `docs/Learning_Roadmap.md` — 32-week curriculum (map the session's module to it)
 - `docs/references.md` — method → implementation file → primary source (book, paper, standard) per module
 
 ## Memory files (Claude Code project memory directory)

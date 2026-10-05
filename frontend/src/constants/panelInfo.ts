@@ -139,31 +139,30 @@ export const gooseSimInfo: InfoContent = {
 };
 
 export const alarmListInfo: InfoContent = {
-  title: "Alarm List — ISA-18.2 Alarm Management",
+  title: "Alarm list — ISA-18.2 alarm management",
   description:
-    "Real-time alarm display following ISA-18.2 alarm management lifecycle. " +
-    "Alarms are prioritized by criticality and require operator acknowledgment.",
-  standard: "ISA-18.2 / IEC 62682 — Management of alarm systems for process industries",
+    "Active alarms by priority. Lifecycle: UNACK → ACK → RTN; an alarm returns to normal only when its condition " +
+    "clears (turbine reset, tripped breakers re-closed). Shelving hides a nuisance alarm without acknowledging it.",
+  standard: "ISA-18.2 / IEC 62682 · EEMUA 191",
   parameters: [
-    { name: "CRITICAL", description: "Immediate danger — requires instant action" },
-    { name: "HIGH", description: "Serious deviation — action required within minutes" },
-    { name: "MEDIUM", description: "Warning — trending toward alarm condition" },
-    { name: "LOW", description: "Advisory — informational only" },
+    { name: "P1", description: "Substation protection trip — a busbar section or the whole farm lost" },
+    { name: "P2", description: "Turbine stop needing a crew soon (pitch, hydraulics, vibration)" },
+    { name: "P3", description: "Turbine derating or a local trip with a remote reset" },
+    { name: "P4", description: "Efficiency or ageing issue for the next service visit" },
   ],
   interpretation:
-    "Unacknowledged alarms flash. Critical alarms require immediate attention. " +
-    "Alarm flood (>10 per 10 min) indicates a cascading event.",
+    "Priority follows consequence × time to respond. More than 10 alarms in 10 minutes is an EEMUA 191 flood; " +
+    "every transition is journaled for the KPIs on Engineering → Alarm Rationalisation.",
 };
 
 export const eventLogInfo: InfoContent = {
-  title: "Event Log — Sequence of Events",
+  title: "Event log — sequence of events",
   description:
-    "Chronological record of all events (alarms, status changes, operator actions) " +
-    "with millisecond-resolution timestamps for post-event analysis.",
-  standard: "IEEE C37.233 — Guide for Power System Protection Testing",
+    "Session record of protection steps, breaker operations, interlock refusals and turbine faults with " +
+    "millisecond time stamps. The persistent record is the SOE recorder (Diagnostics).",
+  standard: "IEC 61850-7-2 time stamps (1 ms class) · IEEE C37.232 (record naming)",
   interpretation:
-    "Read bottom-to-top for chronological order. Use timestamps to reconstruct " +
-    "the sequence of events during a disturbance.",
+    "Newest first. A protection sequence lasts < 100 ms, so compare milliseconds, not seconds.",
 };
 
 export const permitWorkflowInfo: InfoContent = {
@@ -184,72 +183,57 @@ export const permitWorkflowInfo: InfoContent = {
 };
 
 export const rbacInfo: InfoContent = {
-  title: "RBAC — Role-Based Access Control",
+  title: "RBAC — role-based access control",
   description:
-    "Defines operator roles and permissions for the SCADA system. " +
-    "Each role has specific capabilities: view, control, configure, administer.",
-  standard: "IEC 62351 — Data and communications security for power systems",
+    "Five roles with explicit permissions. The SCADA enforces them: switchgear needs control_switchgear " +
+    "(L2+), permit approval ptw_approve (L3+), IED configuration config_ied (L4+).",
+  standard: "IEC 62351-8 (roles) · IEC 62443-3-3 SR 2.1 (authorisation enforcement)",
   parameters: [
-    { name: "Viewer", description: "Read-only access to all displays" },
-    { name: "Operator", description: "Can acknowledge alarms and operate switches" },
-    { name: "Engineer", description: "Can modify setpoints and protection settings" },
-    { name: "Admin", description: "Full system configuration access" },
+    { name: "L1 Viewer", description: "Read-only" },
+    { name: "L2 Operator", description: "Acknowledge alarms, operate switchgear" },
+    { name: "L3 Senior operator", description: "Approve permits, isolation, LOTO" },
+    { name: "L4 Engineer", description: "IED configuration, permit lifecycle" },
+    { name: "L5 Administrator", description: "Users and system administration" },
   ],
 };
 
 export const runGooseSimButtonInfo: InfoContent = {
-  title: "Run GOOSE Fault Simulation",
+  title: "Inject a protection fault",
   description:
-    "Injects a synthetic fault event at the selected location and simulates the full IEC 61850 " +
-    "protection response chain: relay pickup → GOOSE publish → breaker trip → SCADA alarm. " +
-    "Results show protection event timeline with millisecond precision and IEC compliance check.",
-  standard: "IEC 61850-8-1 §15 — GOOSE protocol performance classes",
+    "Runs the protection sequence on the backend: fault → differential protection operates → GOOSE trip → " +
+    "breakers open → arc extinguished. The breakers trip on the single-line diagram, one P1 alarm is raised and " +
+    "the SOE log records the operate and opening times.",
+  standard: "IEC 61850-8-1 (GOOSE) · IEC 61850-5 (TT6 ≤ 3 ms) · IEC 60909-0 (fault current)",
   parameters: [
-    { name: "P3 class", description: "≤4 ms GOOSE delivery time (protection class)" },
-    { name: "Retransmission", description: "Exponential backoff schedule per §15.2.2" },
-    { name: "Clearance time", description: "Relay pickup + GOOSE + breaker open (≤80 ms)" },
+    { name: "Busbar fault", description: "87B trips the 4 bays of the OSS 220 kV busbar — farm disconnected" },
+    { name: "Transformer fault", description: "87T trips TX-OSS-01 — section A dead until transferred" },
+    { name: "Cable fault", description: "87L opens both ends of export cable 1 — farm on cable 2" },
   ],
   interpretation:
-    "IEC COMPLIANT badge = GOOSE latency ≤4 ms and clearance ≤80 ms. " +
-    "Fault clearance must be <80 ms for 66 kV array per PSE IRiESP grid code. " +
-    "Run different scenarios from the fault dropdown to test each protection zone.",
+    "Restore by re-closing the breakers on the single-line diagram (the alarm then returns to normal). " +
+    "After the transformer trip, section A can be fed through the bus coupler — watch TX-OSS-02 loading.",
 };
 
 export const autoSimButtonInfo: InfoContent = {
-  title: "Auto-Simulation Mode",
+  title: "Auto-simulation",
   description:
-    "Continuously injects random turbine fault alarms on a 45–90 second interval. " +
-    "Randomly selects a turbine (WTG-01 to WTG-34) and a fault type from 10 categories. " +
-    "Critical faults have a 50% chance of tripping the associated string circuit breaker. " +
-    "Use this to practice alarm management and stress-test the SCADA response.",
-  standard: "ISA-18.2 / IEC 62682 — Alarm management lifecycle",
+    "Injects a random turbine fault every 45–90 s (first one after ~3 s) on top of the farm simulation's own " +
+    "random faults and remote resets. Turbine faults never trip substation breakers.",
+  standard: "ISA-18.2 / IEC 62682 — alarm management practice",
   parameters: [
-    { name: "Fault interval", description: "Random 45–90 s between injections" },
-    { name: "Fault types", description: "10 categories: pitch, vibration, temperature, grid, comms…" },
-    { name: "Breaker trip", description: "50% probability for CRITICAL priority faults" },
-    { name: "First fault", description: "Fires within ~3 s of starting" },
+    { name: "Interval", description: "Random 45–90 s" },
+    { name: "Fault classes", description: "10 turbine classes from the master alarm database" },
   ],
   interpretation:
-    "Watch the alarm table fill up — practice acknowledging and shelving alarms. " +
-    "EEMUA 191 benchmark: ≤1 alarm per 10 min per operator is acceptable. " +
-    "Click 'Stop Auto-Sim' to halt injection. Already-active alarms remain until acknowledged.",
+    "Practise acknowledging and shelving. EEMUA 191 target: about 1 alarm per 10 minutes in steady operation.",
 };
 
 export const controlRoomButtonInfo: InfoContent = {
-  title: "Control Room Mode",
+  title: "Control room mode",
   description:
-    "Enters a fullscreen immersive display designed for the main control room workstation. " +
-    "Shows the Substation Single Line Diagram at full width with live breaker states, " +
-    "a compact alarm sidebar, and a measurement ribbon (400 kV / 220 kV / 66 kV).",
-  standard: "EEMUA 201 — Alarm system usability for process control",
-  parameters: [
-    { name: "SLD", description: "75% width — live substation topology" },
-    { name: "Alarm sidebar", description: "25% width — ISA-18.2 alarm table, compact mode" },
-    { name: "Measurement ribbon", description: "Bottom bar — MW, A, kV per voltage level" },
-  ],
-  interpretation:
-    "Use during incident response or training exercises. " +
-    "Press Esc or click the Exit button to return to normal dashboard view.",
+    "Fullscreen workstation view: plant overview banner, the single-line diagram and a compact alarm list.",
+  standard: "ISA-101 (HMI hierarchy) · EEMUA 201 (control room HMI)",
+  interpretation: "Press Esc or Exit to return to the dashboard.",
 };
 
 // ── P4 Forecasting ──

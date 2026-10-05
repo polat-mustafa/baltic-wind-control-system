@@ -161,48 +161,41 @@ export const p2Guide: TrainingGuideData = {
 
 export const p3Guide: TrainingGuideData = {
   title: "P3 · SCADA & Automation",
-  subtitle: "IEC 61850 substation automation and alarm management",
+  subtitle: "IEC 61850 substation automation, protection, alarm management and OT security",
   purpose:
-    "This dashboard simulates a full SCADA/HMI system for the offshore substation. " +
-    "It features an interactive Single Line Diagram (SLD), IEC 61850 GOOSE messaging " +
-    "simulation, ISA-18.2 alarm management, Permit-to-Work safety system, and " +
-    "Role-Based Access Control — all designed to ISA-101 control room standards.",
+    "An operator HMI for the 510 MW farm built to ISA-101: one live plant state (farm simulation + pandapower " +
+    "load flow) behind the overview bar, mimic and single-line diagram; bay controllers with interlocks; GOOSE " +
+    "protection on IEC 60909 fault currents; ISA-18.2 alarms with an EEMUA 191 journal; IEC 62443 security.",
   howToUse: [
-    "The dashboard loads automatically with the IEC 61850 device registry and alarm system.",
-    "Select a Fault Scenario from the dropdown (e.g., busbar fault, transformer overload).",
-    "Click 'Run GOOSE Sim' to inject the fault and watch GOOSE messages propagate through IEDs.",
-    "Enable 'Auto-Sim' for continuous random fault injection at configurable intervals.",
-    "Change your Role (L1-L5) to see how RBAC restricts access to different operations.",
-    "Click equipment in the SLD to see device details and IEC 61850 logical nodes.",
-    "Use the tab bar to switch between GOOSE Sim, Event Log, Permits, and RBAC panels.",
-    "Click 'Control Room' for fullscreen mode with SLD + alarm sidebar layout.",
+    "Operations → Single-Line: click a breaker, then Execute (select-before-operate). 66 kV breakers go through the bay controllers and their interlocks.",
+    "Inject a protection fault from the toolbar and follow it: SLD trips, P1 alarm, Event Log (ms), SOE recorder.",
+    "Restore by re-closing the tripped breakers; after a transformer trip, close the bus coupler to feed section A.",
+    "Change the role (L1–L5) in the toolbar to see RBAC refuse switching or permit transitions.",
+    "Equipment: condition monitoring (health matrix, P-F curve, spectra) and the historian trends.",
+    "Engineering → Alarm Rationalisation shows the EEMUA 191 KPIs of your own session.",
   ],
   sections: [
-    { name: "Substation SLD", description: "Interactive single-line diagram showing busbars (400/220/66 kV), circuit breakers, disconnectors, transformers, and IED connections. Equipment colors follow ISA-101: green = energized, red = de-energized." },
-    { name: "Alarm List", description: "Real-time alarms following ISA-18.2 lifecycle: UNACK → ACTIVE → ACK → CLEARED. Priority levels: CRITICAL (red, flashing), HIGH (orange), MEDIUM (yellow), LOW (cyan)." },
-    { name: "GOOSE Simulation", description: "Visualizes IEC 61850 GOOSE publish-subscribe messaging between IEDs. Shows StNum (state changes), SqNum (retransmissions), and the ≤ 3 ms trip transfer time (IEC 61850-5 TT6)." },
-    { name: "Event Log", description: "Chronological Sequence of Events with millisecond timestamps. Essential for post-disturbance analysis and regulatory reporting." },
-    { name: "Permit-to-Work", description: "Digital PTW system: Draft → Submitted → Approved → Active → Closed. Requires LOTO verification before work begins on HV equipment." },
-    { name: "RBAC Panel", description: "Role-Based Access Control matrix: Viewer (L1) = read-only, Operator (L2) = control, Engineer (L4) = configure, Admin (L5) = full access." },
-    { name: "KPI Header", description: "Compact metrics: active alarms, GOOSE latency, IED status, system health percentage." },
-    { name: "Control Room Mode", description: "Fullscreen view with SLD (75% width), alarm sidebar (25%), and bottom measurement ribbon showing real-time voltage/current/power per busbar." },
+    { name: "Plant overview", description: "P, Q, U at the PSE 400 kV connection point, frequency, losses, turbines online, alarm tape (click → alarm list)." },
+    { name: "Single-line diagram", description: "2 × onshore and 2 × OSS transformers, 2 × 45 km export cables, split 66 kV switchboard with a normally-open coupler. Filled breaker = closed, hollow = open, red = tripped." },
+    { name: "Alarm list", description: "ISA-18.2 lifecycle UNACK → ACK → RTN; P1–P4 by consequence; shelving; response panel with cause and action." },
+    { name: "GOOSE protection", description: "87B / 87T / 87L scenarios: clearing-time budget against 100 ms, GOOSE ≤ 3 ms (IEC 61850-5 TT6), published PDU and retransmission." },
+    { name: "Permit-to-Work", description: "Requested → risk assessed → approved → isolated → LOTO → active → work complete → LOTO removed → closed; each step needs an RBAC permission." },
+    { name: "Bay control & interlocks", description: "Device-level commands per bay with a dry-run interlock check; 9 bays × 7 rules matrix." },
   ],
   standards: [
     { label: "IEC 61850 — Communication networks for power utility automation", url: "https://en.wikipedia.org/wiki/IEC_61850" },
-    { label: "IEC 61850-8-1 — GOOSE protocol specification", url: "https://en.wikipedia.org/wiki/IEC_61850" },
     { label: "ISA-18.2 / IEC 62682 — Alarm management lifecycle", url: "https://en.wikipedia.org/wiki/Alarm_management" },
     { label: "ISA-101 — Human-machine interface design", url: "https://en.wikipedia.org/wiki/Human-machine_interface" },
     { label: "IEC 62443 — Industrial OT cybersecurity", url: "https://en.wikipedia.org/wiki/IEC_62443" },
     { label: "IEC 62351 — Data and communications security", url: "https://en.wikipedia.org/wiki/IEC_62351" },
-    { label: "BS 6626 — Maintenance of electrical switchgear and controlgear" },
+    { label: "EN 50110-1 — Operation of electrical installations (safety rules)" },
   ],
   learningObjectives: [
-    "Read and interact with a substation Single Line Diagram (SLD).",
-    "Understand IEC 61850 GOOSE messaging and its role in protection.",
-    "Manage alarms using the ISA-18.2 lifecycle (shelve, acknowledge, clear).",
-    "Operate a Permit-to-Work safety system for HV equipment.",
-    "Understand role-based access control in industrial SCADA systems.",
-    "Use Control Room Mode for focused operational monitoring.",
+    "Read and operate a substation single-line diagram with select-before-operate.",
+    "Explain how GOOSE and differential protection clear a fault within 100 ms.",
+    "Restore supply after a transformer trip without paralleling the OSS transformers.",
+    "Manage alarms with the ISA-18.2 lifecycle and judge them against EEMUA 191 KPIs.",
+    "Run a Permit-to-Work under role-based access control.",
   ],
 };
 

@@ -69,13 +69,13 @@ export default function WindFarmMimic() {
   return (
     <div className="flex flex-col h-full bg-bg-primary">
       {/* Header strip */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-primary bg-bg-tertiary shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 px-3 py-1.5 border-b border-border-primary bg-bg-tertiary shrink-0">
         <div className="flex items-center gap-2">
           <Wind size={12} className="text-text-muted" />
           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
             Plant Mimic · Operations
           </h3>
-          <span className="text-[10px] text-text-muted font-mono">
+          <span className="hidden md:inline text-[10px] text-text-muted font-mono">
             34 × V236-15.0 MW · 510 MW · 66 / 220 / 400 kV
           </span>
         </div>

@@ -1,88 +1,75 @@
 /**
- * Resonance Scan Panel — M06 Power Quality.
- *
- * Network impedance vs frequency plot (0–2500 Hz).
- * Parallel resonance peaks marked with annotations.
- * Critical harmonics (where wind farm injects near resonance) flagged in red.
+ * Frequency scan — |Z(f)| seen from the assessed bus, with the converter
+ * characteristic harmonics marked. Where a peak sits on a marker, emission
+ * at that order is amplified.
  */
 
 import Plot from "react-plotly.js";
+
+import { powerQualityEducation } from "../../constants/education/p2";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
 import { usePowerQualityStore } from "../../store/powerQualityStore";
-import type { ResonancePoint } from "../../types/powerQuality";
-import { InfoButton } from "../ui/InfoButton";
-import { resonanceScanInfo } from "../../constants/panelInfo";
+import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
+
+const CHARACTERISTIC = [5, 7, 11, 13, 17, 19, 23, 25];
 
 export default function ResonanceScanPanel() {
   const { resonance } = usePowerQualityStore();
-
-  if (!resonance) {
-    return (
-      <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-        Run analysis to see resonance scan
-      </div>
-    );
-  }
-
-  // Resonance peak annotations — alternate ay to avoid overlap
-  const annotations = resonance.resonance_points.map((pt: ResonancePoint, i: number) => ({
-    x: pt.frequency_hz,
-    y: pt.impedance_ohm,
-    text: `${pt.frequency_hz.toFixed(0)} Hz<br>${pt.risk_level}`,
-    font: { size: 10, color: pt.risk_level === "HIGH" ? "#ef4444" : "#f59e0b" },
-    showarrow: true,
-    arrowcolor: pt.risk_level === "HIGH" ? "#ef4444" : "#f59e0b",
-    arrowsize: 0.8,
-    arrowwidth: 1.5,
-    ax: i % 2 === 0 ? 30 : -30,
-    ay: i % 2 === 0 ? -30 : -50,
-  }));
-
+  const c = useChartPalette();
+  if (!resonance?.frequencies_hz.length) return null;
+  const peaks = resonance.resonance_points;
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1">
-          <h3 className="text-sm font-semibold text-text-primary">Network Impedance Scan</h3>
-          <InfoButton info={resonanceScanInfo} />
-        </div>
-        <span className="text-xs text-text-muted font-mono">
-          Cable resonance: {resonance.cable_resonant_freq_hz.toFixed(0)} Hz
-        </span>
-      </div>
+    <ChartWrapper
+      title={`Network impedance seen from ${resonance.viewpoint}`}
+      headerRight={<EducationButton content={powerQualityEducation} />}
+      footer={resonance.assessment}
+    >
       <Plot
         data={[
           {
             type: "scatter",
+            mode: "lines",
             x: resonance.frequencies_hz,
             y: resonance.impedances_ohm,
-            mode: "lines",
-            name: "|Z| (Ω)",
-            line: { color: "#60a5fa", width: 2 },
-            hovertemplate: "%{x:.0f} Hz → %{y:.2f} Ω<extra></extra>",
+            line: { color: c.blue, width: 2 },
+            hovertemplate: "%{x:.0f} Hz (h %{customdata:.1f}): |Z| %{y:.1f} Ω<extra></extra>",
+            customdata: resonance.frequencies_hz.map((f) => f / 50),
+            name: "|Z(f)|",
           },
+          {
+            type: "scatter",
+            x: peaks.map((p) => p.frequency_hz),
+            y: peaks.map((p) => p.impedance_ohm),
+            marker: { color: c.orange, size: 9, line: { color: c.ink, width: 1 } },
+            text: peaks.map((p) => `h ${p.harmonic_order.toFixed(1)} · ×${p.amplification.toFixed(0)}`),
+            textposition: "top center",
+            textfont: { color: c.ink, size: 10 },
+            mode: "text+markers",
+            hovertemplate: "Resonance at %{x:.0f} Hz: %{y:.0f} Ω (%{text})<extra></extra>",
+            name: "Resonance",
+          } as const,
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 280,
-          annotations,
-          xaxis: {
-            ...DARK_PLOTLY_LAYOUT.xaxis,
-            title: { text: "Frequency (Hz)", font: { color: "#9ba3b8", size: 12 } },
-          },
-          yaxis: {
-            ...DARK_PLOTLY_LAYOUT.yaxis,
-            title: { text: "|Z| (Ω)", font: { color: "#9ba3b8", size: 12 } },
-          },
-          margin: { t: 20, r: 16, b: 56, l: 64 },
+          transition: CHART_TRANSITION,
+          showlegend: false,
+          xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, title: { text: "Frequency [Hz]", font: { size: 12 } }, range: [50, 1400] },
+          yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, type: "log", title: { text: "|Z| [Ω]", font: { size: 12 } }, tickvals: [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000] },
+          shapes: CHARACTERISTIC.map(
+            (h) => ({ type: "line", xref: "x", yref: "paper", x0: h * 50, x1: h * 50, y0: 0, y1: 1, line: { color: c.ref, width: 1, dash: "dot" } }) as const,
+          ),
+          annotations: CHARACTERISTIC.map(
+            (h) => ({ x: h * 50, y: 1, xref: "x", yref: "paper", yanchor: "bottom", text: `h${h}`, showarrow: false, font: { size: 9 } }) as const,
+          ),
+          margin: { t: 28, r: 12, b: 48, l: 60 },
         }}
         config={PLOTLY_CONFIG}
+        useResizeHandler
         className="w-full"
+        style={{ height: 300 }}
       />
-      {resonance.assessment && (
-        <p className="mt-2 text-xs text-text-muted bg-bg-tertiary rounded p-2">
-          {resonance.assessment}
-        </p>
-      )}
-    </div>
+    </ChartWrapper>
   );
 }

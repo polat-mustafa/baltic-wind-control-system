@@ -17,7 +17,7 @@ class BESSMode(str, Enum):  # noqa: UP042
     STANDBY = "STANDBY"  # SOC maintained, zero power
     CHARGE = "CHARGE"  # Actively charging from grid / WTG surplus
     DISCHARGE = "DISCHARGE"  # Actively discharging to grid
-    FREQUENCY_RESPONSE = "FREQUENCY_RESPONSE"  # Automatic FCR/FFR (freq-triggered)
+    FREQUENCY_RESPONSE = "FREQUENCY_RESPONSE"  # Automatic FCR (SO GL characteristic)
     RAMP_SMOOTHING = "RAMP_SMOOTHING"  # Fill/absorb WTG ramp transients
     ARBITRAGE = "ARBITRAGE"  # Optimised charge/discharge vs electricity price
     TEST = "TEST"  # Commissioning / capacity test mode
@@ -30,7 +30,7 @@ class BESSStatusResponse(BaseModel):
         description="State of Charge [0-100 %]. Operating window: 10-90% to limit degradation."
     )
     power_mw: float = Field(
-        description="Active power [MW]. Positive = charging, negative = discharging."
+        description="Active power [MW]. Positive = discharging, negative = charging."
     )
     reactive_mvar: float = Field(
         description="Reactive power injection [MVAR]. Full 4-quadrant PCS capability."
@@ -63,7 +63,7 @@ class BESSModeRequest(BaseModel):
         le=50.0,
         description=(
             "Active power setpoint [MW]. "
-            "Positive = charge, negative = discharge. "
+            "Positive = discharge, negative = charge. "
             "Ignored in FREQUENCY_RESPONSE and RAMP_SMOOTHING modes (auto-controlled)."
         ),
     )
@@ -94,7 +94,7 @@ class FrequencyResponsePoint(BaseModel):
 
     time_s: float
     frequency_hz: float
-    power_mw: float = Field(description="BESS power injection (negative = discharge to grid)")
+    power_mw: float = Field(description="BESS power [MW], positive = discharge to grid")
     soc_percent: float
 
 
@@ -110,20 +110,23 @@ class FrequencyResponseRequest(BaseModel):
         max_length=300,
         examples=[[50.0, 49.95, 49.85, 49.6, 49.45, 49.5, 49.7, 49.85, 49.95, 50.0]],
     )
-    fcr_droop_pct: float = Field(
-        default=5.0,
+    fcr_capacity_mw: float = Field(
+        default=50.0,
         ge=1.0,
-        le=20.0,
+        le=50.0,
         description=(
-            "FCR droop [%]. At 5% droop: a 0.5 Hz deviation (1% of 50 Hz) "
-            "triggers 20% rated power response (0.01/0.05 = 20%)."
+            "FCR capacity offered [MW]. CE characteristic: P = P_FCR · (50 − f) / 0.2 Hz, "
+            "full activation at ±200 mHz, ±10 mHz insensitivity (SO GL)."
         ),
     )
-    ffr_threshold_hz: float = Field(
-        default=49.7,
+    ffr_threshold_hz: float | None = Field(
+        default=None,
         ge=49.0,
         le=49.9,
-        description="FFR activation threshold [Hz]. Below this, full power injected immediately.",
+        description=(
+            "Optional FFR-style step: full discharge below this frequency [Hz]. "
+            "An example product (Nordic FFR), not a PSE service."
+        ),
     )
     initial_soc_pct: float = Field(
         default=60.0,
@@ -138,13 +141,15 @@ class FrequencyResponseResult(BaseModel):
 
     time_s: list[float]
     frequency_hz: list[float]
-    bess_power_mw: list[float] = Field(
-        description="BESS power [MW]. Negative = discharging (injecting to grid)."
-    )
+    bess_power_mw: list[float] = Field(description="BESS power [MW], positive = discharging")
     soc_percent: list[float]
     nadir_hz: float = Field(description="Frequency nadir (minimum) [Hz]")
     nadir_time_s: float = Field(description="Time of nadir [s]")
-    energy_delivered_mwh: float = Field(description="Total energy delivered during event [MWh]")
+    energy_delivered_mwh: float = Field(description="Energy discharged during the event [MWh]")
+    energy_absorbed_mwh: float = Field(description="Energy charged during the event [MWh]")
+    fcr_endurance_min: float = Field(
+        description="Minutes of full FCR left at the final SOC (SO GL Art. 156: 15–30 min)"
+    )
     fcr_activated: bool
     ffr_activated: bool
     assessment: str
@@ -159,7 +164,7 @@ class RampSmoothingRequest(BaseModel):
     wind_power_trace_mw: list[float] = Field(
         description=(
             "Wind farm active power time series [MW], 1-minute resolution. "
-            "The BESS smooths ramps exceeding PSE IRiESP limit (10%/min = 51 MW/min)."
+            "The BESS smooths ramps exceeding the plant's ramp-rate setting."
         ),
         min_length=10,
         max_length=1440,
@@ -170,8 +175,8 @@ class RampSmoothingRequest(BaseModel):
         ge=5.0,
         le=200.0,
         description=(
-            "Maximum allowed ramp rate at POC [MW/min]. "
-            "PSE IRiESP limit: 10% Pn/min = 51 MW/min for 510 MW farm."
+            "Maximum ramp rate at the POC [MW/min] — a setting agreed with the TSO; "
+            "51 MW/min = 10 % of 510 MW per minute (example)."
         ),
     )
     initial_soc_pct: float = Field(default=50.0, ge=10.0, le=90.0)
@@ -209,8 +214,7 @@ class DegradationRequest(BaseModel):
         le=1000.0,
         description=(
             "Equivalent full cycles per year. "
-            "FCR/ramp-smoothing duty: ~250-400 cycles/year. "
-            "Arbitrage duty: ~300-500 cycles/year."
+            "Typical: FCR ~100–300, arbitrage ~300–500 (assumed ranges)."
         ),
     )
     avg_dod_pct: float = Field(
@@ -230,6 +234,8 @@ class DegradationYearPoint(BaseModel):
 
     year: int
     soh_percent: float
+    cycle_loss_pct: float = Field(description="SOH lost to cycling [%]")
+    calendar_loss_pct: float = Field(description="SOH lost to calendar ageing [%]")
     cumulative_cycles: float
     capacity_mwh: float = Field(description="Available energy capacity [MWh]")
 
@@ -238,10 +244,11 @@ class DegradationResponse(BaseModel):
     """20-year BESS degradation projection (LFP model)."""
 
     projection: list[DegradationYearPoint]
-    eol_year: int = Field(description="Year when SOH drops below 80% EOL threshold")
+    eol_year: int = Field(description="Year SOH reaches 80 % (horizon if never)")
+    eol_reached: bool = Field(description="Whether 80 % SOH is reached within the horizon")
     total_cycles_to_eol: float
     replacement_cost_m_eur: float = Field(
-        description="Estimated replacement cost at EOL [M EUR] (2026 prices)"
+        description="Replacement cost at EOL [M EUR] (assumed 350 EUR/kWh system level)"
     )
     lcoe_contribution_eur_mwh: float = Field(description="BESS LCOE contribution to farm [EUR/MWh]")
     assessment: str
@@ -277,7 +284,7 @@ class BESSDispatchResponse(BaseModel):
     p_target_mw: float
     p_wtg_dispatch_mw: float = Field(description="Total WTG active power setpoint [MW]")
     p_bess_mw: float = Field(
-        description="BESS power [MW]. Positive = charge (absorb surplus), negative = discharge."
+        description="BESS power [MW]. Positive = discharge, negative = charge (absorb surplus)."
     )
     p_poc_mw: float = Field(description="Resulting power at POC = WTG + BESS [MW]")
     soc_after_pct: float = Field(description="Estimated SOC after dispatch [%]")

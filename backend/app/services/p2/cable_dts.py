@@ -1,54 +1,58 @@
 """
-Cable DTS Thermal Monitoring service — M10.
+Cable DTS thermal monitoring — M10.
 
-Physics layers
---------------
-1. IEC 60287 steady-state thermal model
-   T_conductor = T_ambient + I² × R_AC × R_thermal_total
-   where R_thermal_total = T1 + T2 + T3 + T4 [K·m/W] (insulation + jacket + soil layers)
+One circuit of the 220 kV export cable (network_model.EXPORT_CABLE_1000: 3-core
+XLPE, 1000 mm² Cu, 950 A static rating, 45 km). The farm has two circuits,
+each with its own fibre, so ``current_a`` is the per-circuit current
+(≈ 730 A per circuit at 510 MW; ≈ 1 360 A on the survivor after an N-1 trip).
 
-   Export cable = network_model.EXPORT_CABLE_1000 (single source of truth):
-   220 kV 3-core XLPE, 1000 mm² Cu, 950 A static rating PER CIRCUIT, 45 km.
-   The farm has 2 parallel circuits; each has its own DTS fibre, so this model
-   simulates ONE circuit and ``current_a`` is the per-circuit current
-   (≈ 730 A per circuit at 510 MW; ~1 360 A on the survivor right after an N-1 trip).
+What DTS measures, and what it does not
+---------------------------------------
+Raman DTS reads the temperature of an optical fibre laid in the cable
+(between the cores, under the armour) — not the conductor. The conductor
+temperature that limits the cable is estimated from the fibre reading plus
+the internal temperature rise, which needs the current and a thermal model.
+That estimate is what real-time thermal rating (RTTR) systems run on.
 
-   R_AC at 90 °C (IEC 60287-1-1 §2.1):
-     R_DC,20 = 0.0176 Ω/km                       (IEC 60228, 1000 mm² Cu)
-     R_DC,90 = R_DC,20 × (1 + 0.00393 × 70)      = 0.02244 Ω/km
-     R_AC,90 = R_DC,90 × (1 + y_s + y_p)          = 0.0233 Ω/km
-       y_s ≈ 0.030 (skin, Milliken conductor k_s = 0.435)
-       y_p ≈ 0.009 (proximity, k_p = 0.37, d_c ≈ 38 mm, core spacing s ≈ 120 mm)
+Steady-state thermal circuit (IEC 60287-1-1 structure, per conductor)
+--------------------------------------------------------------------
+    T_c − T_amb = (W_c + ½W_d)·T_int + (W_c + W_d)·R_ext(zone)
+    T_f − T_amb = (W_c + W_d)·R_ext(zone)                    (fibre)
 
-   R_th is calibrated so the static rating is exactly the current that brings
-   the worst spot (J-tube, zone factor 1.4) to 90 °C at 15 °C design ambient:
-     R_th = (90 − 15) / (950² × R_AC,90 [Ω/m] × 1.4) ≈ 2.55 K·m/W
-   (per metre — the cable length does not enter the thermal balance)
+- W_c = I²·R_AC(T_c): R_DC,20 = 0.0176 Ω/km (IEC 60228), α = 0.00393 /K,
+  skin + proximity factor 1.039 → R_AC,90 = 0.0233 Ω/km. R_AC rises with the
+  conductor temperature, so T_c is solved from a linear equation; when
+  I²·R·α·(T_int + R_ext) ≥ 1 there is no steady state (thermal runaway).
+- W_d = ω·C·U0²·tan δ: dielectric loss, which IEC 60287-1-1 requires for XLPE
+  from U0 = 127 kV — exactly this cable's 220/√3 kV. C = 190 nF/km, tan δ =
+  0.001 (IEC 60287-1-1 Table 3) → ≈ 0.96 W/m per core.
+- T_int = 0.5 K·m/W: conductor → fibre (insulation and screens) — assumption.
+- R_ext(zone): fibre → ambient per unit of one conductor's loss, so it holds
+  the mutual heating of the three cores. Calibrated so that 950 A at the 15 °C
+  design ambient brings the worst zone (OSS J-tube) to exactly 90 °C; the other
+  zones are set relative to it (assumed ratios, not a survey).
 
-2. Spatial variation along the real 45 km route (km measured from the OSS)
-   - J-tube on the OSS (0–0.3 km): cable in air inside a steel tube → worst cooling
-   - Subsea burial (0.3–31.0 km): ~1–2 m in seabed sediment, good cooling
-   - HDD landfall at Zaleskie (31.0–31.8 km): drilled 10–15 m under beach and dunes
-     → high soil thermal resistance, the classic onshore hotspot
-   - Land cable (31.8–45 km): direct-buried in soil to the onshore substation;
-     soil drying in summer raises R_th
-   (route geometry: frontend constants/windFarmLayout.ts, 31.5 km subsea + 13.4 km land)
+Route zones (km from the OSS; geometry: frontend constants/windFarmLayout.ts)
+- J-tube 0–0.3 km: cable in air in a steel tube on the OSS — worst cooling.
+- Subsea burial 0.3–31.0 km: 1–2 m in seabed sediment; ±5 % from burial depth.
+- HDD landfall 31.0–31.8 km at Zaleskie: 10–15 m under beach and dunes.
+- Land cable 31.8–45 km: direct-buried to the onshore substation.
+One ambient temperature applies to the whole route — a simplification (air,
+seabed and soil differ in reality). The current is taken as uniform; in a
+45 km HVAC cable the charging current (≈ 340 A at full length) makes it vary
+along the route, depending on where the shunt reactors sit.
 
-3. Dynamic rating
-   I_dynamic = I_static × sqrt((T_max - T_ambient_actual) / (T_max - T_ambient_design))
-   Winter (T_amb = 4°C vs design 15°C): I_dynamic ≈ 950 × sqrt(86/75) ≈ 1017 A
-   Summer (T_amb = 22°C vs design 15°C): I_dynamic ≈ 950 × sqrt(68/75) ≈ 905 A
+Transient (N-1 emergency loading)
+---------------------------------
+Two-node thermal ladder per zone (conductor, fibre/armour) with thermal
+capacitances, the form IEC 60853-2 reduces a cable to. Time constants are
+assumptions: internal ≈ 1 h (copper + inner insulation ≈ 7 kJ/(m·K) per core
+× T_int); external ≈ 20 h in the J-tube, where only the cable's own outer
+layers (≈ 25 kJ/(m·K) per core) store heat, and longer where soil takes part:
+48 h subsea, 72 h land, 150 h under the deep HDD.
 
-4. Hotspot detection
-   WARNING: T_conductor > 70°C (IEC 60502-2 alarm threshold)
-   CRITICAL: T_conductor > 90°C (rated operating limit — forced derating required)
-
-References
-----------
-IEC 60228:2004     — Conductors of insulated cables (DC resistance at 20 °C)
-IEC 60287-1-1:2014 — Electric cables: current rating
-IEC 60287-2-1:2015 — Thermal resistance
-IEC 62067:2011     — Power cables above 150 kV (our 220 kV cable)
+Limits: 90 °C continuous conductor temperature for XLPE (IEC 62067). The
+70 °C DTS alarm is an operator setting, not a standard value.
 """
 
 from __future__ import annotations
@@ -59,251 +63,241 @@ from typing import Any
 
 from app.services.p2.network_model import EXPORT_CABLE_1000, EXPORT_CABLE_LENGTH_KM
 
-# ── Cable constants — one circuit of EXPORT_CABLE_1000 (220 kV, 1000 mm² Cu) ──
-
 CABLE_LENGTH_KM = EXPORT_CABLE_LENGTH_KM
-N_POINTS = 450  # 1 point per 100 m
+N_POINTS = 450  # one reading per 100 m
 STATIC_RATING_A = EXPORT_CABLE_1000.max_i_ka * 1000.0  # 950 A per circuit
+NUM_CIRCUITS = 2
+U_KV = 220.0
 
-T_CONDUCTOR_MAX = 90.0  # Normal operating limit [°C] — IEC 62067
-T_AMBIENT_DESIGN = 15.0  # Design ambient temperature [°C]
+T_CONDUCTOR_MAX = 90.0  # XLPE continuous limit [°C], IEC 62067
+T_AMBIENT_DESIGN = 15.0  # [°C]
+T_ALARM = 70.0  # DTS alarm — operator setting [°C]
 
-# IEC 60287-1-1 §2.1: AC resistance at the 90 °C operating temperature (≈ 0.0233 Ω/km)
-R_AC_OHM_PER_KM = EXPORT_CABLE_1000.r_ac_ohm_per_km
+ALPHA_CU = 0.00393  # [1/K] at 20 °C
+R_AC20_OHM_PER_M = EXPORT_CABLE_1000.r_ohm_per_km * EXPORT_CABLE_1000.ac_factor / 1000.0
+R_AC90_OHM_PER_M = R_AC20_OHM_PER_M * (1 + ALPHA_CU * (T_CONDUCTOR_MAX - 20.0))
 
-J_TUBE_ZONE_FACTOR = 1.4  # worst thermal environment (J-tube at km 0)
-# Calibration: STATIC_RATING_A at design ambient → exactly 90 °C in the J-tube
-R_THERMAL = (T_CONDUCTOR_MAX - T_AMBIENT_DESIGN) / (
-    STATIC_RATING_A**2 * (R_AC_OHM_PER_KM / 1000.0) * J_TUBE_ZONE_FACTOR
-)  # ≈ 2.55 K·m/W
+TAN_DELTA = 0.001
+U0_V = U_KV * 1e3 / math.sqrt(3)
+W_DIELECTRIC = 2 * math.pi * 50 * EXPORT_CABLE_1000.c_nf_per_km * 1e-12 * U0_V**2 * TAN_DELTA
 
-# Hotspot thresholds
-T_WARN = 70.0  # °C — DTS alarm
-T_CRIT = 90.0  # °C — rated limit (derating required)
-
-
-# ── Spatial thermal profile ───────────────────────────────────────────────────
-
+T_INT = 0.5  # conductor → fibre [K·m/W] — assumption
+TAU_INT_H = 1.0  # internal time constant — assumption
 
 J_TUBE_END_KM = 0.3
 HDD_START_KM = 31.0
 HDD_END_KM = 31.8
 
+# name, start km, end km, R_ext relative to the J-tube, external time constant [h]
+ZONES: tuple[tuple[str, float, float, float, float], ...] = (
+    ("OSS J-tube", 0.0, J_TUBE_END_KM, 1.0, 20.0),
+    ("Subsea burial", J_TUBE_END_KM, HDD_START_KM, 1.0 / 1.4, 48.0),
+    ("HDD landfall", HDD_START_KM, HDD_END_KM, 1.3 / 1.4, 150.0),
+    ("Land cable", HDD_END_KM, CABLE_LENGTH_KM, 1.1 / 1.4, 72.0),
+)
 
-def _zone_thermal_factor(km: float) -> float:
-    """
-    Spatial variation in thermal environment along the 45 km route.
-
-    Returns a multiplier on the conductor temperature rise above ambient.
-    > 1.0 means hotter than average (poor cooling).
-    < 1.0 means cooler than average (good cooling).
-    """
-    if km <= J_TUBE_END_KM:
-        # J-tube on the OSS: cable in air in a steel tube — worst spot (calibration point)
-        return J_TUBE_ZONE_FACTOR
-    if km < HDD_START_KM:
-        # Open-sea burial: small variation from seabed micro-topography / burial depth
-        return 1.0 + 0.05 * math.sin(2 * math.pi * km / 8.0)
-    if km <= HDD_END_KM:
-        # HDD landfall: 10–15 m deep under the beach and dunes — onshore hotspot
-        return 1.3
-    # Land section: direct-buried in soil
-    return 1.1
+# Calibration: 950 A, 15 °C ambient, J-tube → 90 °C
+_W_C_RATED = STATIC_RATING_A**2 * R_AC90_OHM_PER_M
+R_EXT_J_TUBE = (T_CONDUCTOR_MAX - T_AMBIENT_DESIGN - (_W_C_RATED + W_DIELECTRIC / 2) * T_INT) / (
+    _W_C_RATED + W_DIELECTRIC
+)  # ≈ 2.9 K·m/W
 
 
-def _conductor_temp(
-    current_a: float,
-    ambient_temp_c: float,
-    km: float,
-    rng: random.Random,
-) -> float:
-    """
-    IEC 60287 conductor temperature at position km.
-
-    T = T_amb + I² × R_AC × R_th × zone_factor + noise
-    """
-    power_loss_w_per_m = (current_a**2) * (R_AC_OHM_PER_KM / 1000.0)
-    base_rise = power_loss_w_per_m * R_THERMAL
-    zone_factor = _zone_thermal_factor(km)
-    noise = rng.gauss(0.0, 0.3)  # DTS measurement noise ±0.3 °C
-    temp = ambient_temp_c + base_rise * zone_factor + noise
-    return round(temp, 1)
+def _zone(km: float) -> tuple[str, float, float, float, float]:
+    return next((z for z in ZONES if km <= z[2]), ZONES[-1])
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
+def _r_ext(km: float) -> float:
+    name, *_, rel, _tau = _zone(km)
+    r = R_EXT_J_TUBE * rel
+    if name == "Subsea burial":
+        r *= 1 + 0.05 * math.sin(2 * math.pi * km / 8.0)  # burial depth variation
+    return r
 
 
-def simulate_dts(
-    current_a: float = 650.0,
-    ambient_temp_c: float = 10.0,
-) -> dict[str, Any]:
-    """
-    Simulate DTS temperature profile along one 45 km export cable circuit.
+def steady_temps(current_a: float, ambient_c: float, r_ext: float) -> tuple[float, float]:
+    """Conductor and fibre temperature [°C] in steady state; inf on thermal runaway."""
+    a = current_a**2 * R_AC20_OHM_PER_M  # W_c at 20 °C [W/m]
+    k = T_INT + r_ext
+    denom = 1 - a * k * ALPHA_CU
+    if denom <= 0:
+        return math.inf, math.inf
+    t_c = (ambient_c + a * k * (1 - 20 * ALPHA_CU) + W_DIELECTRIC * (T_INT / 2 + r_ext)) / denom
+    w_c = a * (1 + ALPHA_CU * (t_c - 20))
+    return t_c, ambient_c + (w_c + W_DIELECTRIC) * r_ext
 
-    ``current_a`` is the current in that circuit [A] (not the farm total).
-    Returns 450 temperature points (1 per 100 m), hotspot count, and assessment.
-    """
+
+def rating_a(ambient_c: float, r_ext: float) -> float:
+    """Current [A] that holds the conductor at 90 °C (IEC 60287 steady state)."""
+    margin = T_CONDUCTOR_MAX - ambient_c - W_DIELECTRIC * (T_INT / 2 + r_ext)
+    if margin <= 0:
+        return 0.0
+    return math.sqrt(margin / (R_AC90_OHM_PER_M * (T_INT + r_ext)))
+
+
+def _route_rating(ambient_c: float) -> tuple[float, str]:
+    """Route rating = the lowest zone rating, and the zone that sets it."""
+    return min((rating_a(ambient_c, R_EXT_J_TUBE * z[3]), z[0]) for z in ZONES)
+
+
+def export_capability_mva(current_a: float) -> float:
+    """Apparent power both circuits carry at current_a each [MVA]."""
+    return math.sqrt(3) * U_KV * current_a / 1000.0 * NUM_CIRCUITS
+
+
+def simulate_dts(current_a: float = 730.0, ambient_temp_c: float = 15.0) -> dict[str, Any]:
+    """DTS profile of one circuit: fibre reading and conductor estimate every 100 m."""
     rng = random.Random(int(current_a * 100 + ambient_temp_c * 10))
-    step_km = CABLE_LENGTH_KM / N_POINTS
-    profile = []
-    max_temp = -99.0
-    max_temp_km = 0.0
-    hotspot_count = 0
-
+    step = CABLE_LENGTH_KM / N_POINTS
+    profile: list[dict[str, Any]] = []
+    zone_max: dict[str, dict[str, float]] = {}
     for i in range(N_POINTS):
-        km = round(i * step_km + step_km / 2, 3)
-        temp = _conductor_temp(current_a, ambient_temp_c, km, rng)
-        loading = round(100.0 * current_a / STATIC_RATING_A, 1)
-        is_hot = temp >= T_WARN
+        km = round((i + 0.5) * step, 3)
+        name = _zone(km)[0]
+        t_c, t_f = steady_temps(current_a, ambient_temp_c, _r_ext(km))
+        noise = rng.gauss(0.0, 0.3)  # DTS reading noise σ = 0.3 °C (assumed)
+        point: dict[str, Any] = {
+            "distance_km": km,
+            "zone": name,
+            "fibre_temp_c": round(t_f + noise, 1) if math.isfinite(t_f) else 999.0,
+            "conductor_temp_c": round(t_c + noise, 1) if math.isfinite(t_c) else 999.0,
+        }
+        profile.append(point)
+        zm = zone_max.setdefault(name, {"c": -math.inf, "f": -math.inf})
+        zm["c"] = max(zm["c"], point["conductor_temp_c"])
+        zm["f"] = max(zm["f"], point["fibre_temp_c"])
 
-        if is_hot:
-            hotspot_count += 1
-        if temp > max_temp:
-            max_temp = temp
-            max_temp_km = km
+    zones = [
+        {
+            "name": name,
+            "start_km": start,
+            "end_km": end,
+            "r_ext_k_m_per_w": round(R_EXT_J_TUBE * rel, 2),
+            "max_conductor_c": zone_max[name]["c"],
+            "max_fibre_c": zone_max[name]["f"],
+            "rating_a": round(rating_a(ambient_temp_c, R_EXT_J_TUBE * rel), 0),
+        }
+        for name, start, end, rel, _tau in ZONES
+    ]
+    hottest = max(profile, key=lambda p: p["conductor_temp_c"])
+    alarm_km = round(sum(step for p in profile if p["conductor_temp_c"] >= T_ALARM), 1)
+    route_rating, limiting_zone = _route_rating(ambient_temp_c)
+    w_c = current_a**2 * R_AC20_OHM_PER_M * (1 + ALPHA_CU * (hottest["conductor_temp_c"] - 20))
 
-        profile.append(
-            {
-                "distance_km": km,
-                "temperature_c": temp,
-                "loading_percent": loading,
-                "is_hotspot": is_hot,
-            }
-        )
-
-    if max_temp < T_WARN:
-        assessment = f"NORMAL — max {max_temp:.1f} degC at {max_temp_km:.1f} km"
-    elif max_temp < T_CRIT:
-        assessment = (
-            f"WARNING — hotspot {max_temp:.1f} degC at {max_temp_km:.1f} km; inspect burial depth"
-        )
+    t_max = hottest["conductor_temp_c"]
+    where = f"{hottest['zone']} ({hottest['distance_km']:.2f} km)"
+    if t_max >= T_CONDUCTOR_MAX:
+        assessment = f"OVER LIMIT — {t_max:.1f} °C in the {where}; reduce the current"
+    elif t_max >= T_ALARM:
+        assessment = f"ALARM — {t_max:.1f} °C in the {where}, above the {T_ALARM:.0f} °C setting"
     else:
-        assessment = (
-            f"CRITICAL — {max_temp:.1f} degC at {max_temp_km:.1f} km exceeds 90 degC limit; "
-            "derate cable immediately"
-        )
+        assessment = f"NORMAL — hottest {t_max:.1f} °C in the {where}"
 
     return {
         "current_a": current_a,
         "ambient_temp_c": ambient_temp_c,
         "cable_length_km": CABLE_LENGTH_KM,
-        "n_points": N_POINTS,
         "profile": profile,
-        "max_temp_c": round(max_temp, 1),
-        "max_temp_location_km": round(max_temp_km, 3),
-        "hotspot_count": hotspot_count,
+        "zones": zones,
+        "max_conductor_c": t_max,
+        "max_location_km": hottest["distance_km"],
+        "alarm_length_km": alarm_km,
+        "joule_loss_w_per_m": round(w_c, 2),
+        "dielectric_loss_w_per_m": round(W_DIELECTRIC, 2),
         "static_rating_a": STATIC_RATING_A,
+        "rating_at_ambient_a": round(route_rating, 0),
+        "limiting_zone": limiting_zone,
+        "export_capability_mva": round(export_capability_mva(route_rating), 0),
+        "rating_curve": rating_curve(),
         "assessment": assessment,
     }
 
 
-def detect_hotspots(
-    current_a: float = 650.0,
-    ambient_temp_c: float = 10.0,
-) -> dict[str, Any]:
-    """
-    Detect and classify hotspots along the cable.
-
-    Returns only segments above T_WARN (70°C) with severity classification.
-    """
-    dts = simulate_dts(current_a, ambient_temp_c)
-    hotspots = []
-    max_severity = "NORMAL"
-
-    for point in dts["profile"]:
-        if point["is_hotspot"]:
-            temp = point["temperature_c"]
-            severity = "CRITICAL" if temp >= T_CRIT else "WARNING"
-            if severity == "CRITICAL":
-                max_severity = "CRITICAL"
-            elif max_severity == "NORMAL":
-                max_severity = "WARNING"
-
-            km = point["distance_km"]
-            if km <= J_TUBE_END_KM:
-                cause = "OSS J-tube — cable in air, limited convective cooling"
-            elif HDD_START_KM <= km <= HDD_END_KM:
-                cause = "HDD landfall — deep burial under beach/dunes, high soil thermal resistance"
-            elif km > HDD_END_KM:
-                cause = "Land section — soil drying raises thermal resistance"
-            else:
-                cause = "Possible local burial depth anomaly or sediment blockage"
-
-            hotspots.append(
-                {
-                    "distance_km": km,
-                    "temperature_c": temp,
-                    "loading_percent": point["loading_percent"],
-                    "severity": severity,
-                    "cause": cause,
-                }
-            )
-
-    count = len(hotspots)
-    if max_severity == "NORMAL":
-        assessment = "No hotspots detected — cable within thermal limits"
-    elif max_severity == "WARNING":
-        assessment = f"{count} WARNING hotspot(s) — schedule inspection; no immediate derating"
-    else:
-        assessment = (
-            f"{count} CRITICAL hotspot(s) — reduce cable current below dynamic rating immediately"
-        )
-
+def rating_curve() -> dict[str, Any]:
+    """Steady-state rating of each zone against ambient temperature, 0–30 °C."""
+    ambient = list(range(0, 31, 2))
     return {
-        "current_a": current_a,
-        "hotspots": hotspots,
-        "hotspot_count": count,
-        "max_severity": max_severity,
-        "assessment": assessment,
+        "ambient_c": ambient,
+        "zones": [
+            {
+                "name": z[0],
+                "rating_a": [round(rating_a(t, R_EXT_J_TUBE * z[3]), 1) for t in ambient],
+            }
+            for z in ZONES
+        ],
     }
 
 
-def calculate_dynamic_rating(
-    current_a: float = 650.0,
-    ambient_temp_c: float = 10.0,
+def simulate_transient(
+    prefault_current_a: float = 730.0,
+    emergency_current_a: float = 1360.0,
+    ambient_temp_c: float = 15.0,
+    duration_h: float = 24.0,
 ) -> dict[str, Any]:
     """
-    Calculate real-time dynamic thermal rating (IEC 60287 § 5.2).
+    Conductor temperature per zone after a current step at t = 0 (N-1 loading).
 
-    I_dynamic = I_static × sqrt((T_max - T_ambient) / (T_max - T_ambient_design))
-
-    In cool conditions (winter) the cable can carry more than rated current.
-    In warm conditions (summer) the rated current must be derated.
+    Two-node ladder, conductor (C_i) and fibre/armour (C_e):
+        C_i·dT_c/dt = W_c(T_c) + ½W_d − (T_c − T_f)/T_int
+        C_e·dT_f/dt = (T_c − T_f)/T_int + ½W_d − (T_f − T_amb)/R_ext
+    with C_i = τ_int/T_int and C_e = τ_ext/R_ext. Starts from the pre-fault
+    steady state; explicit Euler, 30 s step.
     """
-    temp_margin_actual = T_CONDUCTOR_MAX - ambient_temp_c
-    temp_margin_design = T_CONDUCTOR_MAX - T_AMBIENT_DESIGN
-
-    if temp_margin_actual <= 0.0:
-        dynamic_rating = 0.0
-    else:
-        ratio = temp_margin_actual / temp_margin_design
-        dynamic_rating = round(STATIC_RATING_A * math.sqrt(ratio), 1)
-
-    headroom_a = round(dynamic_rating - current_a, 1)
-    headroom_pct = round(100.0 * headroom_a / max(1.0, dynamic_rating), 1)
-    utilisation = round(100.0 * current_a / max(1.0, dynamic_rating), 1)
-
-    if utilisation <= 70.0:
-        assessment = (
-            f"COMFORTABLE -- {utilisation:.0f}% of dynamic rating; {headroom_a:.0f} A headroom"
+    dt_s = 30.0
+    n = round(duration_h * 3600 / dt_s)
+    every = 20  # report every 10 min
+    time_h = [round(k * dt_s / 3600, 3) for k in range(0, n + 1, every)]
+    zones: list[dict[str, Any]] = []
+    for name, _s, _e, rel, tau_ext_h in ZONES:
+        r_ext = R_EXT_J_TUBE * rel
+        c_i = TAU_INT_H * 3600 / T_INT
+        c_e = tau_ext_h * 3600 / r_ext
+        t_c, t_f = steady_temps(prefault_current_a, ambient_temp_c, r_ext)
+        series, t_limit = [round(t_c, 2)], None
+        for k in range(1, n + 1):
+            w_c = emergency_current_a**2 * R_AC20_OHM_PER_M * (1 + ALPHA_CU * (t_c - 20))
+            q_int = (t_c - t_f) / T_INT
+            t_c += dt_s * (w_c + W_DIELECTRIC / 2 - q_int) / c_i
+            t_f += dt_s * (q_int + W_DIELECTRIC / 2 - (t_f - ambient_temp_c) / r_ext) / c_e
+            if t_limit is None and t_c >= T_CONDUCTOR_MAX:
+                t_limit = round(k * dt_s / 60, 1)
+            if k % every == 0:
+                series.append(round(t_c, 2))
+        final, _ = steady_temps(emergency_current_a, ambient_temp_c, r_ext)
+        zones.append(
+            {
+                "name": name,
+                "tau_ext_h": tau_ext_h,
+                "conductor_temp_c": series,
+                "minutes_to_limit": t_limit,
+                "steady_state_c": round(final, 1) if math.isfinite(final) else None,
+            }
         )
-    elif utilisation <= 90.0:
-        assessment = f"LOADED — {utilisation:.0f}% of dynamic rating; monitor temperature"
-    elif utilisation <= 100.0:
-        assessment = f"HIGH LOAD — {utilisation:.0f}% of dynamic rating; hotspot risk"
-    else:
-        assessment = (
-            f"OVERLOADED — {utilisation:.0f}% of dynamic rating; "
-            "exceeds cable capability — shed load"
-        )
 
+    limits = [z["minutes_to_limit"] for z in zones if z["minutes_to_limit"] is not None]
+    allowed = min(limits) if limits else None
+    if allowed is None:
+        first = None
+        assessment = (
+            f"{emergency_current_a:.0f} A can be carried for {duration_h:.0f} h "
+            "without reaching 90 °C"
+        )
+    else:
+        first = min(
+            (z for z in zones if z["minutes_to_limit"] is not None),
+            key=lambda z: z["minutes_to_limit"],
+        )["name"]
+        assessment = (
+            f"{first} reaches 90 °C after {allowed:.0f} min at {emergency_current_a:.0f} A — "
+            "curtail before then"
+        )
     return {
-        "current_a": current_a,
+        "prefault_current_a": prefault_current_a,
+        "emergency_current_a": emergency_current_a,
         "ambient_temp_c": ambient_temp_c,
-        "static_rating_a": STATIC_RATING_A,
-        "dynamic_rating_a": dynamic_rating,
-        "headroom_a": headroom_a,
-        "headroom_pct": headroom_pct,
-        "thermal_utilisation_pct": utilisation,
+        "time_h": time_h,
+        "zones": zones,
+        "allowed_minutes": allowed,
+        "limiting_zone": first,
         "assessment": assessment,
     }

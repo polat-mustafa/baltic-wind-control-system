@@ -42,6 +42,7 @@ from app.schemas.protection import (
     CoordinationStudyResponse,
     FaultClearanceRequest,
     FaultClearanceResponse,
+    FaultMarker,
     GradingPairResult,
     ProtectionRelaySchema,
     RelaySettingsUpdate,
@@ -59,30 +60,78 @@ router = APIRouter(tags=["M05 Protection Relay Coordination"])
 _relay_overrides: dict[str, dict[str, Any]] = {}
 
 
+MODEL_BY_FUNCTION = {
+    "PTOC": "Feeder protection IED",
+    "PDIS": "Line distance IED",
+    "PDIF": "Differential IED",
+    "PTOV": "Voltage / frequency IED",
+    "PTUV": "Voltage / frequency IED",
+    "PTOF": "Voltage / frequency IED",
+    "PTUF": "Voltage / frequency IED",
+}
+
+
+def _effective_settings() -> tuple[svc.RelaySetting, ...]:
+    """Registry settings with the user's PUT overrides applied."""
+    return svc.apply_overrides(_relay_overrides)
+
+
 def _build_relay_schema(setting_id: str) -> ProtectionRelaySchema:
     """Build a ProtectionRelaySchema from the registry + any overrides."""
-    settings_map = {s.setting_id: s for s in svc.OSS_RELAY_SETTINGS}
+    settings_map = {s.setting_id: s for s in _effective_settings()}
     if setting_id not in settings_map:
         raise HTTPException(status_code=404, detail=f"Relay '{setting_id}' not found")
-
     s = settings_map[setting_id]
-    overrides = _relay_overrides.get(setting_id, {})
-
     return ProtectionRelaySchema(
         id=_uuid.uuid5(_uuid.NAMESPACE_DNS, f"protection-relay-{setting_id}"),
         setting_id=s.setting_id,
         relay_type=s.function.value,
         location=s.location,
-        manufacturer="ABB",
-        model="REL670",
-        pickup_value=float(overrides.get("pickup_value", s.pickup_value)),
+        manufacturer="Generic IEC 61850 IED",
+        model=MODEL_BY_FUNCTION[s.function.value],
+        pickup_value=s.pickup_value,
         pickup_unit=s.pickup_unit,
-        time_delay_s=float(overrides.get("time_delay_s", s.time_delay)),
-        tms=float(overrides.get("tms", 0.1)),
-        curve_type=str(overrides.get("curve_type", "SI" if s.pickup_unit == "xIn" else "DT")),
-        enabled=bool(overrides.get("enabled", True)),
+        time_delay_s=s.time_delay,
+        ct_primary_a=s.ct_primary_a,
+        tms=s.tms,
+        curve_type=s.curve,
+        enabled=bool(_relay_overrides.get(setting_id, {}).get("enabled", True)),
         standard_ref=s.standard,
         description=s.description,
+    )
+
+
+def _tcc(
+    settings: tuple[svc.RelaySetting, ...], study_id: str, relay_ids: list[str] | None = None
+) -> TCCPlotData:
+    i_max, i_min = svc.oss_66kv_fault_levels_ka()
+    return TCCPlotData(
+        study_id=study_id,
+        curves=[
+            TCCCurveSeries(
+                relay_id=c["relay_id"],
+                relay_location=c["location"],
+                curve_type=c["curve_type"],
+                pickup_value=c["pickup_value"],
+                pickup_unit=c["pickup_unit"],
+                tms=c["tms"],
+                time_delay_s=c["time_delay_s"],
+                pickup_ka=c["pickup_ka"],
+                points=[
+                    TCCCurvePoint(
+                        current_ka=p["current_ka"],
+                        current_multiple=p["current_multiple"],
+                        operating_time_s=p["time_s"],
+                    )
+                    for p in c["points"]
+                ],
+            )
+            for c in svc.get_tcc_plot_data(relay_ids, settings)
+        ],
+        fault_markers=[
+            FaultMarker(current_ka=round(i_max, 2), label="Ik'' max (IEC 60909)"),
+            FaultMarker(current_ka=round(i_min, 2), label="Ik'' min (IEC 60909)"),
+        ],
     )
 
 
@@ -184,79 +233,48 @@ async def run_coordination_study(
     - PTOC (overcurrent): minimum 300 ms margin between stages
     - PDIS (distance): minimum 400 ms margin between zones
     """
+    settings = _effective_settings()
     result = svc.run_coordination_study(
         fault_location=body.fault_location,
         fault_current_ka=body.fault_current_ka,
+        position_pct=body.position_pct,
+        settings=settings,
+        fault_type=body.fault_type,
     )
-
-    relay_sequence = [
-        RelayTripEvent(
-            relay_id=ev["relay_id"],
-            relay_location=ev["relay_location"],
-            trip_time_ms=ev["trip_time_ms"],
-            fault_current_multiple=ev["fault_current_multiple"],
-            operated=ev["operated"],
-        )
-        for ev in result["relay_sequence"]
-    ]
-
-    grading_results = [
-        GradingPairResult(
-            pair_id=g["pair_id"],
-            downstream_id=g["downstream_id"],
-            upstream_id=g["upstream_id"],
-            downstream_delay_s=g["downstream_delay_s"],
-            upstream_delay_s=g["upstream_delay_s"],
-            actual_margin_ms=g["actual_margin_ms"],
-            required_margin_ms=g["required_margin_ms"],
-            selective=g["selective"],
-        )
-        for g in result["grading_results"]
-    ]
-
-    tcc_data: TCCPlotData | None = None
-    if body.include_tcc_data:
-        curves_raw = svc.get_tcc_plot_data()
-        tcc_curves = [
-            TCCCurveSeries(
-                relay_id=c["relay_id"],
-                relay_location=c["location"],
-                curve_type=c["curve_type"],
-                pickup_value=c["pickup_value"],
-                pickup_unit=c["pickup_unit"],
-                tms=c["tms"],
-                time_delay_s=c["time_delay_s"],
-                points=[
-                    TCCCurvePoint(
-                        current_multiple=p["current_multiple"],
-                        operating_time_s=p["time_s"],
-                    )
-                    for p in c["points"]
-                ],
-                color_hint=c["color_hint"],
-            )
-            for c in curves_raw
-        ]
-        tcc_data = TCCPlotData(
-            study_id=result["study_id"],
-            curves=tcc_curves,
-        )
-
     return CoordinationStudyResponse(
         study_id=result["study_id"],
         fault_location=result["fault_location"],
         fault_current_ka=result["fault_current_ka"],
-        fault_current_description=(
-            f"{result['fault_location'].replace('_', ' ').title()} — "
-            f"{result['fault_current_ka']:.1f} kA 3-phase fault"
-        ),
-        relay_sequence=relay_sequence,
+        fault_current_description=result["description"],
+        relay_sequence=[RelayTripEvent(**ev) for ev in result["relay_sequence"]],
         first_relay=result["first_relay"],
         first_relay_time_ms=result["first_relay_time_ms"],
+        main_relay=result["main_relay"],
+        main_clearance_ms=result["main_clearance_ms"],
+        backup_margin_ms=result["backup_margin_ms"],
+        position_pct=result["position_pct"],
+        fault_type=result["fault_type"],
+        voltage_kv=result["voltage_kv"],
+        selective=result["selective"],
+        fast_enough=result["fast_enough"],
+        time_limit_s=result["time_limit_s"],
+        time_criterion=result["time_criterion"],
         fully_graded=result["fully_graded"],
-        grading_results=grading_results,
+        grading_results=[
+            GradingPairResult(
+                pair_id=g.pair_id,
+                downstream_id=g.downstream_id,
+                upstream_id=g.upstream_id,
+                downstream_delay_s=g.downstream_delay_s,
+                upstream_delay_s=g.upstream_delay_s,
+                actual_margin_ms=g.actual_margin_ms,
+                required_margin_ms=g.required_margin_ms,
+                selective=g.verdict == svc.SelectivityVerdict.SELECTIVE,
+            )
+            for g in result["grading_results"]
+        ],
         grading_violations=result["grading_violations"],
-        tcc_data=tcc_data,
+        tcc_data=_tcc(settings, result["study_id"]) if body.include_tcc_data else None,
         assessment=result["assessment"],
         created_at=datetime.now(UTC),
     )
@@ -285,18 +303,9 @@ async def simulate_fault_clearance(
         fault_type=body.fault_type,
         fault_location=body.fault_location,
         fault_impedance_ohm=body.fault_impedance_ohm,
+        position_pct=body.position_pct,
     )
-
-    relay_sequence = [
-        RelayTripEvent(
-            relay_id=ev["relay_id"],
-            relay_location=ev["relay_location"],
-            trip_time_ms=ev["trip_time_ms"],
-            fault_current_multiple=ev["fault_current_multiple"],
-            operated=ev["operated"],
-        )
-        for ev in result["relay_sequence"]
-    ]
+    relay_sequence = [RelayTripEvent(**ev) for ev in result["relay_sequence"]]
 
     return FaultClearanceResponse(
         fault_type=result["fault_type"],
@@ -341,28 +350,4 @@ async def get_tcc_data(
     more discrimination at high fault currents — useful when fault current
     varies widely (e.g. at different distances along a long cable).
     """
-    curves_raw = svc.get_tcc_plot_data(relay_ids)
-    tcc_curves = [
-        TCCCurveSeries(
-            relay_id=c["relay_id"],
-            relay_location=c["location"],
-            curve_type=c["curve_type"],
-            pickup_value=c["pickup_value"],
-            pickup_unit=c["pickup_unit"],
-            tms=c["tms"],
-            time_delay_s=c["time_delay_s"],
-            points=[
-                TCCCurvePoint(
-                    current_multiple=p["current_multiple"],
-                    operating_time_s=p["time_s"],
-                )
-                for p in c["points"]
-            ],
-            color_hint=c["color_hint"],
-        )
-        for c in curves_raw
-    ]
-    return TCCPlotData(
-        study_id="default",
-        curves=tcc_curves,
-    )
+    return _tcc(_effective_settings(), "default", relay_ids)

@@ -609,7 +609,7 @@ Implements steady-state and quasi-dynamic power system analysis for a
 Standards Implemented:
 - IEC 60909-0:2016 — Short-circuit current calculation
 - IEC 60287-1-1:2023 — Cable current rating
-- PSE IRiESP — Polish grid code voltage limits (±5% of nominal)
+- PSE NC RfG requirements (2018) — FRT profile, fast fault current, LFSM/FSM, Q range; the 0.95–1.05 pu band is a planning criterion (NC RfG allows 0.90–1.118 pu at 110–300 kV)
 - ENTSO-E RfG (EU 2016/631) — Type D generator requirements
 
 Assumptions:

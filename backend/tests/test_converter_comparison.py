@@ -1,122 +1,80 @@
 """
-Unit tests for GFL vs GFM converter comparison (P2B — converter_comparison.py).
+GFL vs GFM after a grid phase jump (services/p2/converter_comparison.py).
 
-Tests validate that both converter types are stable at high SCR, and that
-GFM shows advantage at low SCR (weak grid conditions).
-
-Test Strategy
--------------
-- Strong grid (SCR ≈ 19.6): both GFL and GFM stable
-- Weak grid (SCR ≈ 3.9): GFM advantage over GFL
-- GFM always stable (voltage source behaviour)
-- Educational summary populated
-- Voltage deviation and settling time reasonable
+The tests pin the established behaviour the SMIB model must reproduce:
+grid strength seen at the converter terminals is far below the POC value,
+a GFL unit gives (almost) no inertial power response but needs a strong
+grid, a GFM unit answers with synchronising power and is current-limited in
+stiff grids.
 """
 
 import pytest
 
 from app.schemas.grid import ConverterType
 from app.services.p2.converter_comparison import (
+    GFM_CURRENT_LIMIT_PU,
+    VERY_WEAK_GRID_SSC_MVA,
     get_comparison_response,
+    grid_impedance_pu,
     run_converter_comparison,
     run_weak_grid_comparison,
 )
-
-# ── Strong Grid Tests ────────────────────────────────────────────
-
-
-class TestStrongGrid:
-    """Tests for converter comparison at strong grid (SCR ≈ 19.6)."""
-
-    @pytest.fixture(scope="class")
-    def strong(self):
-        """Strong-grid simulation (~6 s), computed once for the class; tests only read it."""
-        return run_converter_comparison(scenario="strong_grid", grid_ssc_mva=10_000.0)
-
-    @pytest.fixture(scope="class")
-    def strong_default_scenario(self):
-        """Same grid strength with the function's default scenario."""
-        return run_converter_comparison(grid_ssc_mva=10_000.0)
-
-    def test_gfl_stable_strong_grid(self, strong):
-        """GFL must be stable at strong grid (SCR ≈ 19.6)."""
-        gfl, _ = strong
-        assert gfl.stable, "GFL unstable at strong grid"
-        assert gfl.converter_type == ConverterType.GFL
-
-    def test_gfm_stable_strong_grid(self, strong):
-        """GFM must be stable at strong grid (SCR ≈ 19.6)."""
-        _, gfm = strong
-        assert gfm.stable, "GFM unstable at strong grid"
-        assert gfm.converter_type == ConverterType.GFM
-
-    def test_scr_calculated_correctly(self, strong_default_scenario):
-        """SCR must be correctly calculated as Ssc / P_rated."""
-        gfl, _ = strong_default_scenario
-        expected_scr = 10_000.0 / 510.0
-        assert gfl.scr == pytest.approx(expected_scr, rel=0.01)
-
-    def test_both_have_small_deviations(self, strong_default_scenario):
-        """Both converters should have small voltage deviations at strong grid."""
-        gfl, gfm = strong_default_scenario
-        assert gfl.voltage_deviation_pu < 0.10, "GFL deviation too large at strong grid"
-        assert gfm.voltage_deviation_pu < 0.10, "GFM deviation too large at strong grid"
+from app.services.p2.network_model import TOTAL_CAPACITY_MW
 
 
-# ── Weak Grid Tests ──────────────────────────────────────────────
+@pytest.fixture(scope="module")
+def strong():
+    return run_converter_comparison(grid_ssc_mva=10_000.0)
 
 
-class TestWeakGrid:
-    """Tests for converter comparison at weak grid (SCR ≈ 3.9)."""
-
-    @pytest.fixture(scope="class")
-    def weak(self):
-        """Weak-grid simulation (~6 s), computed once for the class; tests only read it."""
-        return run_weak_grid_comparison(grid_ssc_mva=2_000.0)
-
-    def test_gfm_stable_weak_grid(self, weak):
-        """GFM must remain stable at weak grid (SCR ≈ 3.9)."""
-        _, gfm = weak
-        assert gfm.stable, "GFM should be stable even at weak grid"
-
-    def test_gfm_advantage_at_weak_grid(self, weak):
-        """GFM must show lower voltage deviation than GFL at weak grid."""
-        gfl, gfm = weak
-        assert gfm.voltage_deviation_pu <= gfl.voltage_deviation_pu, (
-            f"GFM deviation ({gfm.voltage_deviation_pu}) should be ≤ "
-            f"GFL deviation ({gfl.voltage_deviation_pu}) at weak grid"
-        )
-
-    def test_gfm_shorter_settling_at_weak_grid(self, weak):
-        """GFM should settle faster than GFL at weak grid."""
-        gfl, gfm = weak
-        assert gfm.settling_time_s <= gfl.settling_time_s, (
-            f"GFM settling ({gfm.settling_time_s}s) should be ≤ "
-            f"GFL settling ({gfl.settling_time_s}s)"
-        )
+@pytest.fixture(scope="module")
+def weak():
+    return run_weak_grid_comparison()
 
 
-# ── Comparison Response Tests ────────────────────────────────────
+def test_scr_at_poc_and_terminals(strong):
+    gfl, _ = strong
+    assert gfl.scr == pytest.approx(10_000 / TOTAL_CAPACITY_MW, rel=0.01)
+    # transformers + cable cost ≈ 0.25 p.u. → SCR ≈ 3.3 at the 66 kV busbar
+    assert 3.0 < gfl.scr_terminal < 3.6
+    assert abs(grid_impedance_pu(10_000.0, 45.0)) == pytest.approx(1 / gfl.scr_terminal, rel=0.01)
 
 
-class TestComparisonResponse:
-    """Tests for the full comparison response with educational summary."""
+def test_both_stable_in_strong_grid(strong):
+    gfl, gfm = strong
+    assert gfl.converter_type == ConverterType.GFL and gfl.stable
+    assert gfm.converter_type == ConverterType.GFM and gfm.stable
 
-    def test_response_has_gfm_advantage(self):
-        """Response must include educational GFM advantage summary."""
-        response = get_comparison_response(
-            scenario="strong_grid",
-            grid_ssc_mva=10_000.0,
-        )
-        assert len(response.gfm_advantage) > 0, "GFM advantage summary is empty"
 
-    def test_response_scenario_populated(self):
-        """Response scenario field must be populated."""
-        response = get_comparison_response(scenario="test_scenario")
-        assert response.scenario == "test_scenario"
+def test_gfm_gives_inertial_power_gfl_does_not(strong):
+    gfl, gfm = strong
+    assert gfm.power_swing_mw > 10 * gfl.power_swing_mw
+    # the PLL estimate spikes, the virtual rotor barely moves
+    assert gfl.frequency_deviation_hz > 10 * gfm.frequency_deviation_hz
 
-    def test_response_has_both_results(self):
-        """Response must contain both GFL and GFM results."""
-        response = get_comparison_response(scenario="test")
-        assert response.gfl_result.converter_type == ConverterType.GFL
-        assert response.gfm_result.converter_type == ConverterType.GFM
+
+def test_gfm_hits_current_limit_in_stiff_grid_for_large_jump():
+    r = get_comparison_response("strong_grid", 10_000.0, phase_jump_deg=40.0)
+    assert r.gfm_result.peak_current_pu == pytest.approx(GFM_CURRENT_LIMIT_PU, abs=1e-3)
+    assert "current limit" in r.gfm_advantage
+
+
+def test_weaker_grid_moves_gfl_voltage_more(strong, weak):
+    assert weak[0].voltage_deviation_pu > strong[0].voltage_deviation_pu
+    assert weak[1].stable
+
+
+def test_gfl_loses_synchronism_in_very_weak_grid_gfm_does_not():
+    r = get_comparison_response("very_weak_grid", VERY_WEAK_GRID_SSC_MVA, phase_jump_deg=40.0)
+    assert not r.gfl_result.stable
+    assert r.gfm_result.stable
+    assert "slipped a pole" in r.gfm_advantage
+
+
+def test_time_series_shape():
+    r = get_comparison_response("strong_grid")
+    assert len(r.time_series) == 1000  # 2 s at 2 ms
+    first = r.time_series[0]
+    assert first.gfl_p_mw == pytest.approx(TOTAL_CAPACITY_MW, rel=0.01)
+    assert first.gfm_p_mw == pytest.approx(TOTAL_CAPACITY_MW, rel=0.01)
+    assert first.gfl_f_hz == pytest.approx(50.0)

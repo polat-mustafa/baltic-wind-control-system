@@ -1,111 +1,81 @@
 /**
- * BESS Degradation Panel — M08.
- *
- * Plotly line: SoH% vs year (20-year horizon).
- * Marks EOL year (SoH = 80%), replacement cost, LCOE contribution.
- * LFP chemistry: 3000 cycles to 80% SoH.
+ * State of health over 25 years: calendar ageing alone against calendar +
+ * cycling, so the gap between the lines is what the duty costs.
  */
 
 import Plot from "react-plotly.js";
+
+import { bessEducation } from "../../constants/education/p2";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
 import { useBESSStore } from "../../store/bessStore";
-import { Button } from "../ui/Button";
-import type { DegradationYearPoint } from "../../types/bess";
-import { InfoButton } from "../ui/InfoButton";
-import { bessDegradationInfo } from "../../constants/panelInfo";
+import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
 
 export default function BESSDegradationPanel() {
-  const { degradation, simLoading, calcDegradation } = useBESSStore();
+  const { degradation: d } = useBESSStore();
+  const c = useChartPalette();
+  if (!d) return null;
+
+  const years = d.projection.map((p) => p.year);
+  const last = d.projection[d.projection.length - 1];
+  const yLo = Math.min(60, Math.floor(last.soh_percent / 5) * 5);
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <div className="flex items-center gap-1">
-            <h3 className="text-sm font-semibold text-text-primary">Battery Degradation (20-year)</h3>
-            <InfoButton info={bessDegradationInfo} />
-          </div>
-          <p className="text-xs text-text-muted">LFP: 3000 cycles → 80% SoH</p>
-        </div>
-        <Button size="sm" onClick={calcDegradation} disabled={simLoading}>
-          {simLoading ? "Calculating…" : degradation ? "Recalculate" : "Calculate"}
-        </Button>
-      </div>
-
-      {degradation ? (
-        <>
-          <Plot
-            data={[
-              {
-                type: "scatter",
-                x: degradation.projection.map((p: DegradationYearPoint) => p.year),
-                y: degradation.projection.map((p: DegradationYearPoint) => p.soh_percent),
-                mode: "lines+markers",
-                name: "SoH (%)",
-                line: { color: "#60a5fa", width: 2 },
-                marker: { size: 5 },
-                hovertemplate: "Year %{x}: SoH %{y:.1f}%<extra></extra>",
-              },
-              {
-                type: "scatter",
-                x: [0, 20],
-                y: [80, 80],
-                mode: "lines",
-                name: "EOL threshold (80%)",
-                line: { color: "#ef4444", width: 1.5, dash: "dot" },
-                hoverinfo: "none",
-              },
-            ]}
-            layout={{
-              ...DARK_PLOTLY_LAYOUT,
-              height: 260,
-              xaxis: {
-                ...DARK_PLOTLY_LAYOUT.xaxis,
-                title: { text: "Year", font: { color: "#9ba3b8", size: 12 } },
-                dtick: 5,
-              },
-              yaxis: {
-                ...DARK_PLOTLY_LAYOUT.yaxis,
-                title: { text: "State of Health (%)", font: { color: "#9ba3b8", size: 12 } },
-                range: [60, 102],
-              },
-              legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", x: 0.5, xanchor: "center", y: 1.04, yanchor: "bottom" },
-              margin: { t: 52, r: 16, b: 24, l: 64 },
-              shapes: [
-                {
-                  type: "line" as const,
-                  x0: degradation.eol_year,
-                  x1: degradation.eol_year,
-                  y0: 60,
-                  y1: 102,
-                  line: { color: "#f59e0b", width: 1.5, dash: "dot" },
-                },
-              ],
-            }}
-            config={PLOTLY_CONFIG}
-            className="w-full"
-          />
-          <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
-            <div className="bg-bg-tertiary rounded p-2">
-              <p className="text-text-muted">EOL year</p>
-              <p className="font-mono font-bold text-status-warning">{degradation.eol_year}</p>
-            </div>
-            <div className="bg-bg-tertiary rounded p-2">
-              <p className="text-text-muted">Replacement</p>
-              <p className="font-mono font-bold text-text-primary">{degradation.replacement_cost_m_eur.toFixed(1)} M€</p>
-            </div>
-            <div className="bg-bg-tertiary rounded p-2">
-              <p className="text-text-muted">LCOE impact</p>
-              <p className="font-mono font-bold text-text-primary">{degradation.lcoe_contribution_eur_mwh.toFixed(1)} €/MWh</p>
-            </div>
-          </div>
-          <p className="mt-2 text-xs text-text-muted bg-bg-tertiary rounded p-2">{degradation.assessment}</p>
-        </>
-      ) : (
-        <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-          Click "Calculate" to project 20-year SoH degradation
-        </div>
-      )}
-    </div>
+    <ChartWrapper
+      title="State of health — LFP ageing"
+      headerRight={<EducationButton content={bessEducation} />}
+      footer={`${d.assessment}. Replacement ${d.replacement_cost_m_eur.toFixed(0)} M€ (assumed 350 €/kWh) spread over the energy discharged until then: ${d.lcoe_contribution_eur_mwh.toFixed(0)} €/MWh. Empirical model, not a vendor curve.`}
+    >
+      <Plot
+        data={[
+          {
+            type: "scatter",
+            mode: "lines",
+            name: "Calendar ageing only",
+            x: years,
+            y: d.projection.map((p) => 100 - p.calendar_loss_pct),
+            line: { color: c.ref, width: 1.5, dash: "dot" },
+            hovertemplate: "Year %{x}: %{y:.1f} % without cycling<extra></extra>",
+          },
+          {
+            type: "scatter",
+            mode: "lines+markers",
+            name: "Calendar + cycling",
+            x: years,
+            y: d.projection.map((p) => p.soh_percent),
+            customdata: d.projection.map((p) => [p.capacity_mwh, p.cumulative_cycles, p.cycle_loss_pct]),
+            line: { color: c.blue, width: 2 },
+            marker: { size: 6, color: c.blue },
+            hovertemplate:
+              "Year %{x}: SOH %{y:.1f} % · %{customdata[0]:.0f} MWh<br>%{customdata[1]:.0f} cycles, %{customdata[2]:.1f} % lost to cycling<extra></extra>",
+          },
+        ]}
+        layout={{
+          ...DARK_PLOTLY_LAYOUT,
+          transition: CHART_TRANSITION,
+          legend: { orientation: "h", y: 1.15, x: 0, font: { size: 11 } },
+          xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, title: { text: "Year in service", font: { size: 12 } }, dtick: 5 },
+          yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: { text: "SOH [%]", font: { size: 12 } }, range: [yLo, 101] },
+          shapes: [
+            { type: "line", xref: "paper", x0: 0, x1: 1, y0: 80, y1: 80, line: { color: c.red, width: 1.5, dash: "dash" } } as const,
+            ...(d.eol_reached
+              ? [{ type: "line", xref: "x", yref: "paper", x0: d.eol_year, x1: d.eol_year, y0: 0, y1: 1, line: { color: c.ref, width: 1, dash: "dot" } } as const]
+              : []),
+          ],
+          annotations: [
+            { xref: "paper", x: 1, y: 80, xanchor: "right", yanchor: "bottom", text: "end of life 80 %", showarrow: false, font: { size: 10 } } as const,
+            ...(d.eol_reached
+              ? [{ x: d.eol_year, y: 0, yref: "paper", xanchor: "left", yanchor: "bottom", text: ` EOL year ${d.eol_year}`, showarrow: false, font: { size: 10 } } as const]
+              : []),
+          ],
+          margin: { t: 36, r: 12, b: 44, l: 60 },
+        }}
+        config={PLOTLY_CONFIG}
+        useResizeHandler
+        className="w-full"
+        style={{ height: 280 }}
+      />
+    </ChartWrapper>
   );
 }

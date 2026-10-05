@@ -16,16 +16,19 @@ where G_ij + jB_ij are elements of the bus admittance matrix Y_bus.
 The Jacobian matrix [∂P/∂θ, ∂P/∂V; ∂Q/∂θ, ∂Q/∂V] is updated each iteration
 until the mismatch vector ||ΔP, ΔQ|| < tolerance (typically 1e-8 MVA).
 
-Scenarios (PSE IRiESP)
------------------------
-1. Full load (510 MW): Maximum active power export, tests cable thermal limits
-2. Partial load (255 MW): Average condition, tests normal operating voltages
-3. No load (0 MW): Tests Ferranti voltage rise on export cable
-4. N-1 (one string out): Tests redundancy, string 7 (4 WTGs = 60 MW) removed
+Scenarios
+---------
+1. Full load (510 MW): maximum export, cable and transformer thermal loading
+2. Partial load (255 MW): typical operating point
+3. No load (0 MW): cable charging only — the reactors and STATCOM hold the voltage
+4. N-1 (array): string 6 (5 WTGs, 75 MW) tripped — feeder breaker open, its
+   cables de-energised. Export-cable and transformer N-1 are in the SCOPF.
 
-Voltage Limits (PSE IRiESP / ENTSO-E NC RfG)
-----------------------------------------------
-All bus voltages must remain within 0.95–1.05 p.u. during normal operation.
+Voltage band
+------------
+The platform checks 0.95–1.05 p.u. at every farm bus — a planning band,
+tighter than the continuous range NC RfG Table 6.1 allows (0.90–1.118 p.u.
+at 110–300 kV, 0.90–1.05 p.u. at 300–400 kV).
 
 References
 ----------
@@ -42,6 +45,7 @@ Constants (Baltic Wind Alpha)
 - Convergence tolerance: 1e-8 MVA
 """
 
+import math
 from dataclasses import dataclass
 
 import pandapower as pp
@@ -117,7 +121,7 @@ SCENARIOS: dict[LoadFlowScenario, ScenarioConfig] = {
 
 
 def _apply_n_minus_1(net: pp.pandapowerNet, disable_string: int) -> None:
-    """Disable all WTGs and cables in a specific string for N-1 analysis.
+    """Trip one array string: its WTGs and cables out of service (feeder breaker open).
 
     Parameters
     ----------
@@ -139,6 +143,8 @@ def _apply_n_minus_1(net: pp.pandapowerNet, disable_string: int) -> None:
         wtg_num = int(name.split("_")[1])
         if start_idx + 1 <= wtg_num <= end_idx:
             net.sgen.at[sgen_idx, "in_service"] = False
+    string_lines = net.line["name"].str.startswith(f"Array_S{disable_string + 1}_")
+    net.line.loc[string_lines, "in_service"] = False
 
 
 def auto_statcom_dispatch(
@@ -292,7 +298,8 @@ def run_load_flow(
     transformers = _extract_transformer_results(net)
 
     # Non-slack bus voltages for compliance check
-    non_slack_vm = [b.vm_pu for b in buses if "PSE" not in b.name]
+    # De-energised buses (vm = 0, e.g. the tripped string) are not voltage violations
+    non_slack_vm = [b.vm_pu for b in buses if "PSE" not in b.name and b.vm_pu > 0]
     v_min = min(non_slack_vm) if non_slack_vm else 0.0
     v_max = max(non_slack_vm) if non_slack_vm else 0.0
 
@@ -307,10 +314,15 @@ def run_load_flow(
     )
 
     voltage_compliant = v_min >= V_MIN_PU and v_max <= V_MAX_PU
+    statcom = net.sgen.index[net.sgen["name"] == "STATCOM"][0]
 
     return LoadFlowResponse(
         scenario=scenario,
         converged=True,
+        # ext_grid absorbs the export: delivered = −(grid injection); Rule 4 sign
+        poc_p_mw=round(-float(net.res_ext_grid.p_mw.sum()), 2),
+        poc_q_mvar=round(-float(net.res_ext_grid.q_mvar.sum()), 2),
+        statcom_q_mvar=round(float(net.res_sgen.at[statcom, "q_mvar"]), 1),
         v_min_pu=round(v_min, 4),
         v_max_pu=round(v_max, 4),
         total_loss_mw=round(total_loss, 2),
@@ -322,18 +334,25 @@ def run_load_flow(
     )
 
 
+def _num(value: object) -> float:
+    """pandapower reports de-energised elements as NaN; the API reports 0."""
+    x = float(value)  # type: ignore[arg-type]
+    return 0.0 if math.isnan(x) else x
+
+
 def _extract_bus_results(net: pp.pandapowerNet) -> list[BusResult]:
-    """Extract per-bus results from converged load flow."""
+    """Per-bus results. pandapower's res_bus uses the load convention; the API
+    reports net injection, generating positive (Rule 4), so the sign is flipped."""
     results = []
     for idx in range(len(net.bus)):
         results.append(
             BusResult(
                 name=str(net.bus.at[idx, "name"]),
                 vn_kv=float(net.bus.at[idx, "vn_kv"]),
-                vm_pu=round(float(net.res_bus.at[idx, "vm_pu"]), 4),
-                va_deg=round(float(net.res_bus.at[idx, "va_degree"]), 2),
-                p_mw=round(float(net.res_bus.at[idx, "p_mw"]), 2),
-                q_mvar=round(float(net.res_bus.at[idx, "q_mvar"]), 2),
+                vm_pu=round(_num(net.res_bus.at[idx, "vm_pu"]), 4),
+                va_deg=round(_num(net.res_bus.at[idx, "va_degree"]), 2),
+                p_mw=round(-_num(net.res_bus.at[idx, "p_mw"]), 2),
+                q_mvar=round(-_num(net.res_bus.at[idx, "q_mvar"]), 2),
             )
         )
     return results
@@ -348,11 +367,11 @@ def _extract_line_results(net: pp.pandapowerNet) -> list[LineResult]:
                 name=str(net.line.at[idx, "name"]),
                 from_bus=str(net.bus.at[int(net.line.at[idx, "from_bus"]), "name"]),
                 to_bus=str(net.bus.at[int(net.line.at[idx, "to_bus"]), "name"]),
-                loading_percent=round(float(net.res_line.at[idx, "loading_percent"]), 1),
-                p_from_mw=round(float(net.res_line.at[idx, "p_from_mw"]), 2),
-                q_from_mvar=round(float(net.res_line.at[idx, "q_from_mvar"]), 2),
-                pl_mw=round(float(net.res_line.at[idx, "pl_mw"]), 2),
-                ql_mvar=round(float(net.res_line.at[idx, "ql_mvar"]), 2),
+                loading_percent=round(_num(net.res_line.at[idx, "loading_percent"]), 1),
+                p_from_mw=round(_num(net.res_line.at[idx, "p_from_mw"]), 2),
+                q_from_mvar=round(_num(net.res_line.at[idx, "q_from_mvar"]), 2),
+                pl_mw=round(_num(net.res_line.at[idx, "pl_mw"]), 2),
+                ql_mvar=round(_num(net.res_line.at[idx, "ql_mvar"]), 2),
             )
         )
     return results
@@ -365,11 +384,11 @@ def _extract_transformer_results(net: pp.pandapowerNet) -> list[TransformerResul
         results.append(
             TransformerResult(
                 name=str(net.trafo.at[idx, "name"]),
-                loading_percent=round(float(net.res_trafo.at[idx, "loading_percent"]), 1),
-                p_hv_mw=round(float(net.res_trafo.at[idx, "p_hv_mw"]), 2),
-                q_hv_mvar=round(float(net.res_trafo.at[idx, "q_hv_mvar"]), 2),
-                pl_mw=round(float(net.res_trafo.at[idx, "pl_mw"]), 2),
-                ql_mvar=round(float(net.res_trafo.at[idx, "ql_mvar"]), 2),
+                loading_percent=round(_num(net.res_trafo.at[idx, "loading_percent"]), 1),
+                p_hv_mw=round(_num(net.res_trafo.at[idx, "p_hv_mw"]), 2),
+                q_hv_mvar=round(_num(net.res_trafo.at[idx, "q_hv_mvar"]), 2),
+                pl_mw=round(_num(net.res_trafo.at[idx, "pl_mw"]), 2),
+                ql_mvar=round(_num(net.res_trafo.at[idx, "ql_mvar"]), 2),
             )
         )
     return results

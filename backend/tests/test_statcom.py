@@ -20,6 +20,7 @@ from app.services.p2 import network_model
 from app.services.p2.network_model import STATCOM_RATING_MVAR
 from app.services.p2.statcom_sizing import (
     calculate_cable_reactive_power,
+    poc_q_capability,
     size_statcom,
     validate_compensation,
 )
@@ -148,8 +149,29 @@ class TestCompensationValidation:
     def test_reactor_n1_detects_insecure_design(self, monkeypatch):
         """With only 2 reactors the N-1 check must fail (STATCOM saturates at −120 MVAR)."""
         monkeypatch.setattr(network_model, "NUM_SHUNT_REACTORS", 2)
-        result = validate_compensation()
+        try:
+            validate_compensation.cache_clear()
+            poc_q_capability.cache_clear()
+            result = validate_compensation()
+        finally:  # results cached under the patched design must not leak into other tests
+            validate_compensation.cache_clear()
+            poc_q_capability.cache_clear()
         assert not result.reactor_n1_secure
+
+    def test_ferranti_vs_uncompensated_rise(self):
+        """Ferranti along 45 km is < 1 %; the 8 % rise comes from charging current via X."""
+        result = validate_compensation()
+        assert 0.005 < result.ferranti_rise_pu < 0.01
+        assert result.uncompensated_rise_pu > 5 * result.ferranti_rise_pu
+
+    def test_pse_reactive_range_at_poc(self):
+        """PSE Art. 21(3)(c): −0.35 … +0.40 P_max at the POC, reached with reactor switching."""
+        result = validate_compensation()
+        assert result.pse_q_max_mvar == pytest.approx(204.0)
+        assert result.pse_q_min_mvar == pytest.approx(-178.5)
+        assert result.poc_q_max_mvar >= result.pse_q_max_mvar
+        assert result.poc_q_min_mvar <= result.pse_q_min_mvar
+        assert result.pse_q_range_met
 
     def test_statcom_range(self):
         """STATCOM Q range must be ±120 MVAR."""

@@ -1,645 +1,459 @@
 """
-Power Quality & Harmonics service — M06 (IEC 61000).
+Power quality of the 510 MW connection — harmonics, resonance, flicker.
 
-Physics layers
---------------
-1. Harmonic distortion (IEC 61000-3-6)
-   THD_V = sqrt(sum(U_h^2, h=2..50)) / U_1 * 100 %
-   Planning levels vary by voltage tier: LV/MV <= 8%, HV >= 35 kV <= 3%
+Harmonic network model (positive sequence, per harmonic order h)
+----------------------------------------------------------------
+Nodes PSE 400 kV — onshore 220 kV — OSS 220 kV — OSS 66 kV, 100 MVA base,
+built from the same data as the load flow (``network_model``):
 
-2. Cable resonance (LC distributed model)
-   Parallel resonance: f_r = 1 / (2*pi*sqrt(L'*C'*l^2))
-   where L' [H/km] and C' [F/km] are distributed cable parameters.
-   For 220 kV XLPE: L' ≈ 0.35 mH/km, C' ≈ 0.22 uF/km
-   Resonance interacts with harmonic current sources (VSC converters at h=5,7,11,13).
+  grid           Thevenin R_g + j h X_g (S_sc, R/X 0.1), shorted source
+  transformers   R·√h + j h X   (√h: skin / stray-loss growth of R)
+  export cable   2 circuits, exact distributed π (γ, Z_c) — the long-cable
+                 capacitance that makes HVAC connections resonate
+  shunt reactors 3 × 80 MVAR at OSS 220 kV (Q ≈ 300)
+  array cables   ≈ 15 MVAR of charging lumped at OSS 66 kV
 
-3. Flicker (IEC 61000-3-7 / IEC 61400-21)
-   Pst = c_f * S_wf / S_k   where c_f = flicker coefficient (turbine type)
-   Plt = Pst / sqrt(N_operations) for switching operations
-   IEC planning levels: Pst <= 1.0, Plt <= 0.65
+The 34 converters are harmonic current sources at OSS 66 kV. Their emission
+(IEC 61400-21 test-report style, % of rated current) is summed with the
+IEC 61000-3-6 exponent α (1 for h < 5, 1.4 for 5 ≤ h ≤ 10, 2 above):
+I_h,Σ = N^(1/α) · I_h. The harmonic voltage at a node is |Z_node,66(h)|·I_h,Σ.
+Not modelled: converter output impedance/filters, loads and background
+distortion of the grid — so resonance peaks are upper bounds (least damping).
 
-4. Passive harmonic filter (single-tuned LC)
-   Tuned frequency f_t = h_t * 50 * (1 - 1/detuning_factor)   [slightly below harmonic]
-   C = Q_filter / (2*pi*f_1*V^2)   [per phase]
-   L = 1 / (2*pi*f_t)^2 / C        [per phase]
-   Quality factor Q = 2*pi*f_t*L / R   [target 30-80]
-   Insertion loss = 20*log10(|Z_sys / (Z_sys || Z_filter)|) at f_t
+Planning levels — IEC TR 61000-3-6:2008, Table 2 (MV; HV-EHV ≥ 35 kV)
+-----------------------------------------------------------------------
+  odd non-triplen: h5 5 / 2, h7 4 / 2, h11 3 / 1.5, h13 2.5 / 1.5,
+                   17 ≤ h ≤ 49: 1.9·17/h − 0.2  /  1.2·17/h
+  odd triplen:     h3 4 / 2, h9 1.2 / 1, h15 0.3 / 0.3, h ≥ 21: 0.2 / 0.2
+  even:            h2 1.8 / 1.4, h4 1 / 0.8, h6 0.5 / 0.4, h8 0.5 / 0.4,
+                   h ≥ 10: 0.25·10/h + 0.22  /  0.19·10/h + 0.16
+  THD: 6.5 % (MV), 3 % (HV-EHV)
+Planning levels bound the *total* distortion; the emission limit PSE would
+allocate to this plant is a share of them, so a result close to the planning
+level already means trouble. Below 1 kV the IEC 61000-2-2 compatibility
+levels are shown instead (there are no LV planning levels).
 
-Standards references
---------------------
-- IEC 61000-3-6:2008+AMD1:2018 — harmonic planning levels
-- IEC 61000-3-7:2008 — flicker emission limits
-- IEC 61400-21:2008 — wind turbine electrical characteristics (c_f table)
-- PSE IRiESP (2023) — 220 kV POC: THD_V <= 3%, individual harmonics per HV column
+Flicker — IEC 61400-21 / IEC 61000-3-7
+---------------------------------------
+  continuous:  P_st = P_lt = c(ψ_k) · √N · S_n / S_k
+  switching:   P_st = 18 · N10^0.31 · k_f · S_n / S_k,
+               P_lt =  8 · N120^0.31 · k_f · S_n / S_k   (per turbine, cubic sum)
+  combined by the cubic law (IEC 61000-3-7). Planning levels HV-EHV:
+  P_st 0.8, P_lt 0.6. c and k_f are illustrative full-converter values — the
+  V236 IEC 61400-21 report is not public.
 """
 
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from typing import Any
 
-# ── IEC 61000-3-6:2008 planning levels (Table 1) ──────────────────────────────
-# Format: order -> (lv_pct, mv_pct, hv_pct)
-# HV applies for Un >= 35 kV in IEC; PSE uses HV limits at 220 kV POC
-_IEC61000_3_6: dict[int, tuple[float, float, float]] = {
-    2: (2.0, 1.8, 1.4),
-    3: (5.0, 4.0, 2.0),
-    4: (1.0, 0.9, 0.8),
-    5: (6.0, 5.0, 2.0),
-    6: (0.5, 0.4, 0.4),
-    7: (5.0, 4.0, 2.0),
-    8: (0.4, 0.3, 0.3),
-    9: (1.5, 1.2, 1.0),
-    10: (0.35, 0.25, 0.25),
-    11: (3.5, 3.0, 1.5),
-    12: (0.3, 0.2, 0.2),
-    13: (3.0, 2.5, 1.5),
-    14: (0.25, 0.18, 0.18),
-    15: (0.4, 0.3, 0.3),
-    16: (0.2, 0.15, 0.15),
-    17: (2.0, 1.6, 1.0),
-    18: (0.18, 0.13, 0.13),
-    19: (1.8, 1.4, 1.0),
-    20: (0.16, 0.12, 0.12),
-    21: (0.2, 0.15, 0.15),
-    22: (0.14, 0.10, 0.10),
-    23: (1.4, 1.2, 0.7),
-    24: (0.13, 0.09, 0.09),
-    25: (1.4, 1.2, 0.7),
-}
-# Orders 26-50: generic planning levels (simplified — not all tabulated in IEC)
-_GENERIC_ODD_HV = 0.7  # IEC 61000-3-6 Table 1 "others" row (HV)
-_GENERIC_ODD_LV = 1.4
-_GENERIC_EVEN_HV = 0.08
-_GENERIC_EVEN_LV = 0.16
+import numpy as np
+
+from app.services.p2.network_model import (
+    EXPORT_CABLE_1000,
+    EXPORT_CABLE_LENGTH_KM,
+    GRID_RX_RATIO,
+    GRID_SSC_MVA,
+    NUM_EXPORT_CABLES,
+    SHUNT_REACTOR_MVAR,
+    TRAFO_66_220_MVA,
+    TRAFO_66_220_VK_PERCENT,
+    TRAFO_66_220_VKR_PERCENT,
+    TRAFO_220_400_MVA,
+    TRAFO_220_400_VK_PERCENT,
+    TRAFO_220_400_VKR_PERCENT,
+    TURBINE_RATED_MW,
+)
+
+S_BASE = 100.0
+F0 = 50.0
+OMEGA0 = 2.0 * math.pi * F0
+NODES = {400.0: 0, 220.0: 2, 66.0: 3}  # viewpoints for the scan (220 → OSS side)
+NODE_NAMES = ("PSE 400 kV (POC)", "Onshore 220 kV", "OSS 220 kV", "OSS 66 kV")
+ARRAY_CHARGING_MVAR = 15.0  # ≈ 51 km of 500–800 mm² array cable at 66 kV
+REACTOR_Q_FACTOR = 300.0
+CHARACTERISTIC = (5, 7, 11, 13, 17, 19, 23, 25)
+
+# Illustrative full-converter WTG emission [% of rated current] (no public V236 report)
+DEFAULT_WTG_EMISSION_PCT: dict[int, float] = {
+    2: 0.2, 3: 0.3, 5: 1.0, 7: 0.8, 11: 0.5, 13: 0.4, 17: 0.25, 19: 0.2, 23: 0.15, 25: 0.12,
+}  # fmt: skip
+
+# IEC 61000-2-2 compatibility levels (LV) — used only below 1 kV
+_LV_COMPAT: dict[int, float] = {
+    2: 2.0, 3: 5.0, 4: 1.0, 5: 6.0, 6: 0.5, 7: 5.0, 8: 0.5, 9: 1.5, 11: 3.5, 13: 3.0, 15: 0.4,
+    17: 2.0, 19: 1.5, 21: 0.3, 23: 1.5, 25: 1.5,
+}  # fmt: skip
+THD_LIMIT = {"LV": 8.0, "MV": 6.5, "HV": 3.0}
 
 
-def _get_limit(order: int, tier: str) -> float:
-    """Return IEC 61000-3-6 planning level for a given harmonic order and voltage tier."""
-    col = {"LV": 0, "MV": 1, "HV": 2}[tier]
-    if order in _IEC61000_3_6:
-        return _IEC61000_3_6[order][col]
-    # Generic for higher orders
-    if order % 2 == 0:
-        return _GENERIC_EVEN_LV if col == 0 else _GENERIC_EVEN_HV
-    return _GENERIC_ODD_LV if col == 0 else _GENERIC_ODD_HV
+# ── Planning levels ──────────────────────────────────────────────
 
 
 def _voltage_tier(voltage_kv: float) -> str:
-    """Map voltage to IEC 61000-3-6 tier."""
     if voltage_kv < 1.0:
         return "LV"
-    if voltage_kv < 35.0:
-        return "MV"
-    return "HV"
+    return "MV" if voltage_kv < 35.0 else "HV"
 
 
 def _harmonic_family(order: int) -> str:
-    """IEC 61000-3-6 harmonic family classification."""
     if order % 2 == 0:
         return "EVEN"
+    return "ODD_TRIPLE" if order % 3 == 0 else "ODD_NON_TRIPLE"
+
+
+def planning_level_pct(order: int, tier: str) -> float:
+    """IEC TR 61000-3-6 Table 2 planning level [% of U1] (LV: 61000-2-2 compatibility)."""
+    if tier == "LV":
+        return _LV_COMPAT.get(order, 0.2 if order % 2 else 0.25 * 10 / order + 0.25)
+    mv = tier == "MV"
+    fixed = {
+        2: (1.8, 1.4), 3: (4.0, 2.0), 4: (1.0, 0.8), 5: (5.0, 2.0), 6: (0.5, 0.4),
+        7: (4.0, 2.0), 8: (0.5, 0.4), 9: (1.2, 1.0), 11: (3.0, 1.5), 13: (2.5, 1.5), 15: (0.3, 0.3),
+    }  # fmt: skip
+    if order in fixed:
+        return fixed[order][0 if mv else 1]
+    if order % 2 == 0:
+        return round(0.25 * 10 / order + 0.22 if mv else 0.19 * 10 / order + 0.16, 3)
     if order % 3 == 0:
-        return "ODD_TRIPLE"
-    return "ODD_NON_TRIPLE"
+        return 0.2
+    return round(1.9 * 17 / order - 0.2 if mv else 1.2 * 17 / order, 3)
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
+# ── Harmonic network ─────────────────────────────────────────────
+
+
+def _admittance(h: float, grid_ssc_mva: float, export_length_km: float) -> np.ndarray:
+    """4 × 4 nodal admittance [pu, 100 MVA] at harmonic order h (may be non-integer)."""
+    y = np.zeros((4, 4), dtype=complex)
+
+    def branch(a: int, b: int, z: complex) -> None:
+        y[a, a] += 1 / z
+        y[b, b] += 1 / z
+        y[a, b] -= 1 / z
+        y[b, a] -= 1 / z
+
+    def trafo(vk: float, vkr: float, s_mva: float) -> complex:
+        z, r = vk / 100 * S_BASE / s_mva, vkr / 100 * S_BASE / s_mva
+        return complex(r * math.sqrt(h), h * math.sqrt(z * z - r * r))
+
+    xg = S_BASE / grid_ssc_mva / math.sqrt(1 + GRID_RX_RATIO**2)
+    y[0, 0] += 1 / complex(GRID_RX_RATIO * xg * math.sqrt(h), h * xg)
+    branch(0, 1, trafo(TRAFO_220_400_VK_PERCENT, TRAFO_220_400_VKR_PERCENT, 2 * TRAFO_220_400_MVA))
+
+    c = EXPORT_CABLE_1000
+    z_km = complex(c.r_ac_ohm_per_km * math.sqrt(h), h * c.x_ohm_per_km)
+    y_km = complex(0.0, h * OMEGA0 * c.c_nf_per_km * 1e-9)
+    gamma, zc = np.sqrt(z_km * y_km), np.sqrt(z_km / y_km)
+    z_base = 220.0**2 / S_BASE
+    gl = gamma * export_length_km
+    branch(1, 2, complex(zc * np.sinh(gl) / NUM_EXPORT_CABLES / z_base))
+    y_end = complex(NUM_EXPORT_CABLES * np.tanh(gl / 2) / zc * z_base)
+    y[1, 1] += y_end
+    y[2, 2] += y_end
+
+    x_r = S_BASE / SHUNT_REACTOR_MVAR
+    y[2, 2] += 1 / complex(h * x_r / REACTOR_Q_FACTOR, h * x_r)
+    branch(2, 3, trafo(TRAFO_66_220_VK_PERCENT, TRAFO_66_220_VKR_PERCENT, 2 * TRAFO_66_220_MVA))
+    y[3, 3] += complex(0.0, h * ARRAY_CHARGING_MVAR / S_BASE)
+    return y
+
+
+@lru_cache(maxsize=4096)
+def _impedance_column(
+    h: float, grid_ssc_mva: float, export_length_km: float
+) -> tuple[complex, complex, complex, complex]:
+    """Z(node, OSS 66 kV) [pu] for all nodes — voltage per unit current injected at 66 kV."""
+    z = np.linalg.inv(_admittance(h, grid_ssc_mva, export_length_km))
+    return tuple(complex(v) for v in z[:, 3])  # type: ignore[return-value]
+
+
+def summation_exponent(order: int) -> float:
+    """IEC 61000-3-6 summation exponent α for harmonic currents of many sources."""
+    return 1.0 if order < 5 else 1.4 if order <= 10 else 2.0
+
+
+# ── Harmonics ────────────────────────────────────────────────────
 
 
 def compute_harmonics(
     harmonic_magnitudes: dict[int, float],
-    voltage_kv: float,
-    rated_mw: float,
+    voltage_kv: float = 400.0,
+    rated_mw: float = 510.0,
+    grid_ssc_mva: float = GRID_SSC_MVA,
+    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
 ) -> dict[str, Any]:
-    """
-    Compute harmonic distortion analysis (IEC 61000-3-6).
+    """Harmonic voltages caused by the farm's emission, judged at one bus.
 
-    Parameters
-    ----------
-    harmonic_magnitudes : {order: magnitude_pct}
-        Harmonic spectrum as percentage of fundamental.
-    voltage_kv : float
-        System voltage — selects applicable planning level tier.
-    rated_mw : float
-        Rated installation power (informational, for context).
-
-    Returns
-    -------
-    dict matching HarmonicAnalysisResponse schema
+    ``harmonic_magnitudes``: WTG current emission {order: % of rated current}.
+    ``voltage_kv`` selects the assessed bus (400 = POC, 220 = OSS 220 kV, 66).
     """
+    node = NODES.get(voltage_kv, 0)
     tier = _voltage_tier(voltage_kv)
+    n_wtg = max(1, round(rated_mw / TURBINE_RATED_MW))
+    i_wtg_pu = TURBINE_RATED_MW / S_BASE
 
-    harmonics = []
-    sum_sq = 0.0
-    dominant_order = 2
-    dominant_pct = 0.0
-
-    for order in range(2, 51):
-        mag_pct = harmonic_magnitudes.get(order, 0.0)
-        if mag_pct <= 0.0:
+    rows = []
+    for order in sorted(h for h in harmonic_magnitudes if 2 <= h <= 50):
+        i_pct = harmonic_magnitudes[order]
+        if i_pct <= 0:
             continue
-        limit = _get_limit(order, tier)
-        exceeds = mag_pct > limit
-        sum_sq += mag_pct**2
-        if mag_pct > dominant_pct:
-            dominant_pct = mag_pct
-            dominant_order = order
-
-        harmonics.append(
+        i_sum = n_wtg ** (1 / summation_exponent(order)) * i_wtg_pu * i_pct / 100
+        z_col = _impedance_column(float(order), grid_ssc_mva, export_length_km)
+        v_pct = abs(z_col[node]) * i_sum * 100
+        v66 = abs(z_col[3]) * i_sum * 100
+        limit = planning_level_pct(order, tier)
+        rows.append(
             {
                 "order": order,
-                "magnitude_pct": round(mag_pct, 3),
-                "frequency_hz": round(order * 50.0, 1),
-                "exceeds_limit": exceeds,
+                "frequency_hz": order * F0,
+                "current_pct": round(i_pct, 3),
+                "magnitude_pct": round(v_pct, 3),
+                "voltage_66kv_pct": round(v66, 3),
+                "impedance_ohm": round(abs(z_col[3]) * 66.0**2 / S_BASE, 2),
                 "limit_pct": limit,
+                "utilisation_pct": round(v_pct / limit * 100, 1),
+                "exceeds_limit": v_pct > limit,
             }
         )
 
-    thd_v = round(math.sqrt(sum_sq), 3)  # THD voltage = same as THD of input magnitudes
-
-    # THD current — approximate: for VSC converters dominant harmonics are 5th, 7th
-    # Weight by harmonic order (current harmonics fall off faster: I_h ~ 1/h)
-    thd_i_sq = sum((harmonic_magnitudes.get(h, 0.0) / h) ** 2 for h in range(2, 51))
-    # Normalise to approximate: THD_I = THD_V / X_h ratio — simplified educational model
-    thd_i = round(math.sqrt(thd_i_sq) * 5.0, 3)  # 5.0 = approximate V/I harmonic ratio
-
-    # IEC 61000-3-6 THD limits
-    thd_limits = {"LV": 8.0, "MV": 8.0, "HV": 3.0}
-    thd_limit = thd_limits[tier]
-
+    thd_v = math.sqrt(sum(r["magnitude_pct"] ** 2 for r in rows))
+    thd_i = math.sqrt(sum(v**2 for h, v in harmonic_magnitudes.items() if 2 <= h <= 50))
+    dominant = max(rows, key=lambda r: r["utilisation_pct"], default=None)
     violations = [
-        f"H{h['order']} ({h['magnitude_pct']:.1f}% > {h['limit_pct']:.1f}%)"
-        for h in harmonics
-        if h["exceeds_limit"]
+        f"H{r['order']}: {r['magnitude_pct']:.2f} % > {r['limit_pct']:.2f} %"
+        for r in rows
+        if r["exceeds_limit"]
     ]
-    compliant = len(violations) == 0 and thd_v <= thd_limit
-
-    if thd_v > thd_limit:
-        violations.insert(0, f"THD_V {thd_v:.1f}% exceeds {thd_limit:.0f}% limit")
-
-    assessment = _assess(thd_v, thd_limit, violations)
-
+    if thd_v > THD_LIMIT[tier]:
+        violations.insert(0, f"THD {thd_v:.2f} % > {THD_LIMIT[tier]} %")
+    worst = max((r["utilisation_pct"] for r in rows), default=0.0)
     return {
-        "thd_voltage_pct": thd_v,
-        "thd_current_pct": thd_i,
-        "dominant_harmonic_order": dominant_order,
-        "dominant_harmonic_pct": round(dominant_pct, 3),
-        "harmonics": harmonics,
-        "compliant": compliant,
+        "thd_voltage_pct": round(thd_v, 3),
+        "thd_current_pct": round(thd_i, 3),
+        "dominant_harmonic_order": dominant["order"] if dominant else 0,
+        "dominant_harmonic_pct": dominant["magnitude_pct"] if dominant else 0.0,
+        "harmonics": rows,
+        "compliant": not violations,
         "voltage_level": tier,
+        "bus": NODE_NAMES[node],
+        "thd_limit_pct": THD_LIMIT[tier],
+        "worst_utilisation_pct": worst,
         "violations": violations,
-        "assessment": assessment,
+        "assessment": "FAIL" if violations else "BORDERLINE" if worst > 50 else "PASS",
     }
+
+
+# ── Resonance scan ───────────────────────────────────────────────
 
 
 def compute_resonance_scan(
-    cable_length_km: float,
-    voltage_kv: float,
-    grid_fault_level_mva: float,
-    scan_max_hz: float,
+    cable_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    voltage_kv: float = 66.0,
+    grid_fault_level_mva: float = GRID_SSC_MVA,
+    scan_max_hz: float = 2500.0,
 ) -> dict[str, Any]:
+    """|Z(f)| seen from a bus, 50 Hz … scan_max, and its parallel resonances.
+
+    Each peak is rated by its amplification: |Z(f)| over what the network's
+    50 Hz short-circuit inductance alone would give at that frequency
+    (h·|Z(50 Hz)|). > 3 medium, > 10 high risk.
     """
-    Frequency scan of network impedance — identifies parallel resonance peaks.
-
-    Model: export cable as lumped pi-section (L-C ladder).
-    Grid is represented as a stiff voltage source with impedance Z_grid = V^2 / S_cc.
-
-    Cable parameters (220 kV XLPE, per km):
-      L' = 0.35 mH/km  (series inductance)
-      C' = 0.22 uF/km  (shunt capacitance to ground)
-      R' = 0.028 Ohm/km (conductor resistance — XLPE 1200 mm2)
-
-    Parallel resonance occurs when X_C = X_L:
-      f_r = 1 / (2*pi*sqrt(L_total*C_total))
-
-    Parameters
-    ----------
-    cable_length_km : float
-    voltage_kv : float
-        Cable rated voltage (selects cable parameters).
-    grid_fault_level_mva : float
-        Grid short-circuit level at POC — determines grid impedance.
-    scan_max_hz : float
-        Maximum frequency for scan.
-
-    Returns
-    -------
-    dict matching ResonanceScanResponse schema
-    """
-    # Cable distributed parameters (voltage-dependent)
-    if voltage_kv >= 100.0:
-        l_prime_mh_per_km = 0.35  # 220 kV XLPE
-        c_prime_uf_per_km = 0.22
-        r_prime_ohm_per_km = 0.028
-    elif voltage_kv >= 60.0:
-        l_prime_mh_per_km = 0.40  # 66 kV XLPE
-        c_prime_uf_per_km = 0.18
-        r_prime_ohm_per_km = 0.045
-    else:
-        l_prime_mh_per_km = 0.45  # 33 kV XLPE
-        c_prime_uf_per_km = 0.15
-        r_prime_ohm_per_km = 0.065
-
-    l_total_h = l_prime_mh_per_km * cable_length_km * 1e-3
-    c_total_f = c_prime_uf_per_km * cable_length_km * 1e-6
-    r_total_ohm = r_prime_ohm_per_km * cable_length_km
-
-    # Cable natural resonant frequency (no grid)
-    f_cable_resonance = 1.0 / (2.0 * math.pi * math.sqrt(l_total_h * c_total_f))
-
-    # Grid impedance at 50 Hz (base impedance from fault level)
-    v_base_v = voltage_kv * 1e3
-    z_base_ohm = v_base_v**2 / (grid_fault_level_mva * 1e6)
-    # Grid X/R ≈ 10 for transmission system
-    r_grid = z_base_ohm / math.sqrt(101.0)
-    x_grid_50 = z_base_ohm * 10.0 / math.sqrt(101.0)
-    l_grid_h = x_grid_50 / (2.0 * math.pi * 50.0)
-
-    # Frequency scan: 50 Hz steps up to scan_max_hz
-    step_hz = max(5.0, scan_max_hz / 500.0)
-    frequencies = [10.0 + i * step_hz for i in range(int((scan_max_hz - 10.0) / step_hz) + 1)]
-
-    impedances: list[float] = []
-    resonance_points: list[dict[str, Any]] = []
-
-    for f in frequencies:
-        omega = 2.0 * math.pi * f
-
-        # Cable impedance (series RL + shunt C pi-section)
-        z_cable_r = r_total_ohm
-        z_cable_x = omega * l_total_h - 1.0 / (omega * c_total_f / 2.0)
-        z_cable_mag = math.sqrt(z_cable_r**2 + z_cable_x**2)
-
-        # Grid impedance at frequency f
-        r_g = r_grid
-        x_g = omega * l_grid_h
-        z_grid_mag = math.sqrt(r_g**2 + x_g**2)
-
-        # Parallel combination (simplified magnitude)
-        if z_cable_mag > 0 and z_grid_mag > 0:
-            # Parallel impedance magnitude approximation
-            z_parallel = (z_cable_mag * z_grid_mag) / math.sqrt(
-                (z_cable_r + r_g) ** 2 + (z_cable_x + x_g) ** 2
-            )
-        else:
-            z_parallel = 0.0
-
-        # Resonance peak detection: impedance >> background
-        # At resonance, parallel reactances cancel: X_L = X_C
-        # Simplified: compute network impedance seen from harmonic source
-        x_cap = 1.0 / (omega * c_total_f) if omega > 0 else 1e9
-        x_ind = omega * (l_total_h + l_grid_h)
-        if abs(x_cap - x_ind) < 0.1 * x_cap:
-            # Near resonance — peak impedance ≈ R_total (damping determines height)
-            z_peak = (r_total_ohm + r_grid) * max(1.0, x_cap / (r_total_ohm + r_grid + 0.01))
-            impedances.append(round(min(z_peak, 10.0 * z_base_ohm), 2))
-        else:
-            impedances.append(round(z_parallel, 2))
-
-    # Find resonance peaks (local maxima above 5 ohm threshold)
-    for i in range(1, len(impedances) - 1):
-        is_local_max = impedances[i] > impedances[i - 1] and impedances[i] > impedances[i + 1]
-        if is_local_max and impedances[i] > 5.0:
-            h_order = frequencies[i] / 50.0
-            risk = _resonance_risk(impedances[i], z_base_ohm)
-            resonance_points.append(
+    node = NODES.get(voltage_kv, 3)
+    z_base = (voltage_kv if voltage_kv in NODES else 66.0) ** 2 / S_BASE
+    freqs = np.arange(F0, scan_max_hz + 1e-9, 5.0)
+    z_pu = np.array(
+        [
+            abs(_impedance_column(float(f) / F0, grid_fault_level_mva, cable_length_km)[node])
+            for f in freqs
+        ]
+    )
+    # Driving-point impedance at the viewpoint bus: column 3 is only exact for the
+    # 66 kV bus, so use the full inverse for the other viewpoints
+    if node != 3:
+        z_pu = np.array(
+            [
+                abs(
+                    np.linalg.inv(
+                        _admittance(float(f) / F0, grid_fault_level_mva, cable_length_km)
+                    )[node, node]
+                )
+                for f in freqs
+            ]
+        )
+    z50 = z_pu[0]
+    points: list[dict[str, Any]] = []
+    for i in range(1, len(freqs) - 1):
+        if z_pu[i] > z_pu[i - 1] and z_pu[i] > z_pu[i + 1]:
+            h = freqs[i] / F0
+            amp = z_pu[i] / (h * z50)
+            if amp < 1.0:
+                continue
+            points.append(
                 {
-                    "frequency_hz": round(frequencies[i], 1),
-                    "impedance_ohm": round(impedances[i], 2),
-                    "harmonic_order": round(h_order, 2),
-                    "risk_level": risk,
+                    "frequency_hz": round(float(freqs[i]), 1),
+                    "impedance_ohm": round(float(z_pu[i] * z_base), 2),
+                    "harmonic_order": round(float(h), 2),
+                    "amplification": round(float(amp), 1),
+                    "risk_level": "HIGH" if amp > 10 else "MEDIUM" if amp > 3 else "LOW",
                 }
             )
-
-    # Critical harmonics: VSC converter generates 5th, 7th, 11th, 13th predominantly
-    characteristic_harmonics = [5, 7, 11, 13, 17, 19, 23, 25]
-    critical = [
-        h
-        for h in characteristic_harmonics
-        if any(abs(rp["harmonic_order"] - h) < 0.5 for rp in resonance_points)
-    ]
-
-    high_risk = any(rp["risk_level"] == "HIGH" for rp in resonance_points)
-    medium_risk = any(rp["risk_level"] == "MEDIUM" for rp in resonance_points)
-    assessment = (
-        "HIGH RISK — harmonic amplification likely, install passive filters"
-        if high_risk
-        else "MEDIUM RISK — monitor and consider detuning"
-        if medium_risk
-        else "LOW RISK — no significant resonance peaks in characteristic harmonic range"
+    near = [p for p in points if p["risk_level"] != "LOW"]
+    critical = sorted(
+        {h for h in CHARACTERISTIC for p in near if abs(p["harmonic_order"] - h) <= 1}
     )
-
+    rank = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
+    worst = max((str(p["risk_level"]) for p in points), key=rank.__getitem__, default="LOW")
+    first = points[0]["frequency_hz"] if points else 0.0
     return {
-        "frequencies_hz": [round(f, 1) for f in frequencies],
-        "impedances_ohm": impedances,
-        "resonance_points": resonance_points,
-        "cable_resonant_freq_hz": round(f_cable_resonance, 1),
+        "frequencies_hz": [round(float(f), 1) for f in freqs],
+        "impedances_ohm": [round(float(z * z_base), 3) for z in z_pu],
+        "resonance_points": points,
+        "cable_resonant_freq_hz": first,
         "critical_harmonics": critical,
-        "assessment": assessment,
+        "viewpoint": NODE_NAMES[node],
+        "assessment": (
+            f"HIGH — {', '.join(f'h{h}' for h in critical)} sit near a weakly damped resonance; "
+            "check converter emission there, consider a damped filter"
+            if worst == "HIGH" and critical
+            else "MEDIUM — resonance near characteristic harmonics; verify with converter models"
+            if critical
+            else "LOW — no amplified resonance near the characteristic harmonics"
+        ),
     }
+
+
+# ── Flicker ──────────────────────────────────────────────────────
+
+_C_TABLE = [(30.0, 0.38), (50.0, 0.27), (70.0, 0.21), (85.0, 0.18)]  # c(ψk), illustrative
+_KF_TABLE = [(30.0, 0.065), (50.0, 0.052), (70.0, 0.042), (85.0, 0.037)]  # k_f(ψk), illustrative
+PST_PLANNING_HV = 0.8
+PLT_PLANNING_HV = 0.6
 
 
 def compute_flicker(
-    rated_mw: float,
-    grid_fault_level_mva: float,
-    grid_impedance_angle_deg: float,
-    annual_switching_operations: int,
+    rated_mw: float = 510.0,
+    grid_fault_level_mva: float = GRID_SSC_MVA,
+    grid_impedance_angle_deg: float = 84.3,
+    annual_switching_operations: int = 1000,
 ) -> dict[str, Any]:
-    """
-    Flicker emission assessment (IEC 61000-3-7 / IEC 61400-21).
+    """P_st / P_lt of the farm at the POC (IEC 61400-21, cubic summation)."""
+    n = max(1, round(rated_mw / TURBINE_RATED_MW))
+    s_n = TURBINE_RATED_MW / 0.95  # MVA at rated power, cos φ 0.95
+    c = _interpolate_table(_C_TABLE, grid_impedance_angle_deg)
+    k_f = _interpolate_table(_KF_TABLE, grid_impedance_angle_deg)
 
-    Continuous operation flicker:
-      Pst = c_f(psi_k) * sqrt(n * S_n / S_k)
-    where:
-      c_f  = flicker coefficient from IEC 61400-21 Table 4 (function of grid angle)
-      n    = number of turbines
-      S_n  = rated apparent power per turbine [MVA]
-      S_k  = grid short-circuit power [MVA]
-
-    Switching operation flicker:
-      Pst_sw = k_f(psi_k) * S_n / S_k * (N_10_min)^0.31
-    where:
-      k_f  = switching flicker coefficient (function of grid angle)
-      N_10 = switching operations per 10 minutes
-
-    Parameters
-    ----------
-    rated_mw : float
-        Total wind farm rated power.
-    grid_fault_level_mva : float
-        Grid short-circuit level at POC.
-    grid_impedance_angle_deg : float
-        Grid impedance angle [degrees] — affects flicker coefficient.
-    annual_switching_operations : int
-        Estimated annual turbine start/stop switching events.
-
-    Returns
-    -------
-    dict matching FlickerResponse schema
-    """
-    # IEC 61400-21 Table 4: c_f (continuous flicker coefficient) vs grid angle
-    # Values for V236-15MW equivalent (MMC-VSC, Type IV full converter — low flicker)
-    # Grid angle 30° -> 85°: c_f interpolated from table
-    _cf_table = [
-        (30.0, 0.38),
-        (50.0, 0.27),
-        (70.0, 0.21),
-        (85.0, 0.18),
-    ]
-    c_f = _interpolate_table(_cf_table, grid_impedance_angle_deg)
-
-    # IEC 61400-21 switching flicker coefficient k_f (per operation)
-    _kf_table = [
-        (30.0, 0.65),
-        (50.0, 0.52),
-        (70.0, 0.42),
-        (85.0, 0.37),
-    ]
-    k_f = _interpolate_table(_kf_table, grid_impedance_angle_deg)
-
-    # Farm parameters (V236-15.0 MW, power factor 0.95)
-    turbine_count = max(1, round(rated_mw / 15.0))
-    s_turbine_mva = 15.0 / 0.95  # rated apparent power per turbine
-
-    # Continuous flicker (tower shadow + turbulence)
-    # Pst_continuous = c_f * sqrt(n) * S_n / S_k
-    pst_continuous = c_f * math.sqrt(turbine_count) * s_turbine_mva / grid_fault_level_mva
-
-    # Switching flicker contribution
-    # Operations per 10 minutes
-    n_10min = annual_switching_operations / (525960.0 / 10.0)  # 525960 min/year
-    pst_switch = k_f * s_turbine_mva / grid_fault_level_mva * (n_10min**0.31)
-
-    # Combined (RSS method per IEC 61000-3-7 Section 5.4.3)
-    pst = math.sqrt(pst_continuous**2 + pst_switch**2)
-
-    # Long-term flicker severity (2-hour aggregation)
-    # Plt = (sum(Pst_i^3) / N)^(1/3) — for variable source, approx = 0.85 * Pst
-    plt = 0.85 * pst
-
-    # IEC 61000-3-7 planning levels
-    pst_limit = 1.0
-    plt_limit = 0.65
-
-    # Dominant source
-    if pst_switch > pst_continuous:
-        dominant_source = "SWITCHING"
-    elif grid_impedance_angle_deg > 70.0:
-        dominant_source = "TOWER_SHADOW"
-    else:
-        dominant_source = "WIND_TURBULENCE"
-
-    pst_r = round(pst, 4)
-    plt_r = round(plt, 4)
-    pst_compliant = pst_r <= pst_limit
-    plt_compliant = plt_r <= plt_limit
-
-    # Borderline: within 10% of limit
-    margin_pst = abs(pst_r - pst_limit) / pst_limit
-    margin_plt = abs(plt_r - plt_limit) / plt_limit
-
-    if pst_compliant and plt_compliant:
-        assessment = "BORDERLINE" if margin_pst < 0.1 or margin_plt < 0.1 else "PASS"
-    else:
-        assessment = "FAIL"
-
+    p_cont = c * math.sqrt(n) * s_n / grid_fault_level_mva
+    ops_per_turbine_year = annual_switching_operations / n
+    n10 = ops_per_turbine_year / (365.25 * 24 * 6)
+    n120 = ops_per_turbine_year / (365.25 * 12)
+    # per turbine, then cubic sum over n turbines: (n · P³)^(1/3)
+    pst_sw = n ** (1 / 3) * 18 * n10**0.31 * k_f * s_n / grid_fault_level_mva if n10 > 0 else 0.0
+    plt_sw = n ** (1 / 3) * 8 * n120**0.31 * k_f * s_n / grid_fault_level_mva if n120 > 0 else 0.0
+    pst = (p_cont**3 + pst_sw**3) ** (1 / 3)
+    plt = (p_cont**3 + plt_sw**3) ** (1 / 3)
+    worst = max(pst / PST_PLANNING_HV, plt / PLT_PLANNING_HV)
     return {
-        "pst": pst_r,
-        "plt": plt_r,
-        "pst_limit": pst_limit,
-        "plt_limit": plt_limit,
-        "pst_compliant": pst_compliant,
-        "plt_compliant": plt_compliant,
-        "dominant_source": dominant_source,
-        "assessment": assessment,
+        "pst": round(pst, 4),
+        "plt": round(plt, 4),
+        "pst_limit": PST_PLANNING_HV,
+        "plt_limit": PLT_PLANNING_HV,
+        "pst_compliant": pst <= PST_PLANNING_HV,
+        "plt_compliant": plt <= PLT_PLANNING_HV,
+        "pst_continuous": round(p_cont, 5),
+        "pst_switching": round(pst_sw, 5),
+        "flicker_coefficient": round(c, 3),
+        "switching_coefficient": round(k_f, 4),
+        "dominant_source": "SWITCHING" if pst_sw > p_cont else "CONTINUOUS_OPERATION",
+        "assessment": "FAIL" if worst > 1 else "BORDERLINE" if worst > 0.5 else "PASS",
     }
+
+
+# ── Filter design ────────────────────────────────────────────────
 
 
 def design_passive_filter(
     dominant_harmonic_order: int,
     harmonic_current_a: float,
-    system_voltage_kv: float,
-    rated_mvar: float,
+    system_voltage_kv: float = 66.0,
+    rated_mvar: float = 10.0,
+    grid_ssc_mva: float = GRID_SSC_MVA,
+    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
 ) -> dict[str, Any]:
+    """Single-tuned filter at the OSS 66 kV bus, tuned 3 % below the target order.
+
+    Insertion loss is evaluated against the network's own harmonic impedance
+    at the tuned frequency (harmonic model above), not a generic S_sc.
     """
-    Size a single-tuned passive LC harmonic filter.
-
-    Design procedure:
-    1. Choose tuning frequency slightly below harmonic:
-       f_t = h * f_1 * (1 - detuning)  where detuning = 0.03..0.05
-    2. Capacitor rating:
-       Q_C = rated_mvar [MVAR] (specified)
-       C = Q_C / (omega_1 * V^2)  [per phase]
-    3. Reactor inductance:
-       L = 1 / (omega_t^2 * C)  [per phase]
-    4. Reactor resistance (quality factor Q = omega_t * L / R):
-       R = omega_t * L / Q_target  where Q_target = 50
-    5. Insertion loss at tuned frequency:
-       IL = 20*log10(Z_sys / |Z_sys || Z_filter|)  [dB]
-       Simplified: Z_sys = V^2/S_sc; Z_filter ~ R (at resonance)
-
-    Parameters
-    ----------
-    dominant_harmonic_order : int
-        Harmonic order to filter (typically 5 or 7 for VSC output).
-    harmonic_current_a : float
-        Peak harmonic current at dominant order [A rms].
-    system_voltage_kv : float
-        System voltage for filter sizing.
-    rated_mvar : float
-        Desired capacitor reactive power contribution at 50 Hz [MVAR].
-
-    Returns
-    -------
-    dict matching FilterDesignResponse schema
-    """
-    omega_1 = 2.0 * math.pi * 50.0
-    v_line_v = system_voltage_kv * 1e3
-    v_phase_v = v_line_v / math.sqrt(3.0)
-
-    # 1. Tuning frequency (3% below harmonic to allow for detuning due to ageing)
     detuning = 0.03
-    h_tune = dominant_harmonic_order * (1.0 - detuning)
-    f_tuned_hz = h_tune * 50.0
-    omega_t = 2.0 * math.pi * f_tuned_hz
-
-    # 2. Capacitor bank (3-phase total MVAR at fundamental)
-    q_mvar = rated_mvar
-    q_var = q_mvar * 1e6
-    # C = Q / (omega_1 * V_line^2)  [3-phase total]
-    # Per phase: C_phase = Q / (3 * omega_1 * V_phase^2) = Q / (omega_1 * V_line^2)
-    c_phase_f = q_var / (omega_1 * v_line_v**2)
-    c_phase_uf = c_phase_f * 1e6
-
-    # 3. Reactor inductance per phase
-    l_phase_h = 1.0 / (omega_t**2 * c_phase_f)
-    l_phase_mh = l_phase_h * 1e3
-
-    # 4. Reactor resistance (Q = omega_t * L / R, target Q = 50)
+    h_t = dominant_harmonic_order * (1 - detuning)
+    omega_t = OMEGA0 * h_t
+    v = system_voltage_kv * 1e3
+    c_f = rated_mvar * 1e6 / (OMEGA0 * v**2)
+    l_h = 1 / (omega_t**2 * c_f)
     q_target = 50.0
-    r_reactor_ohm = (omega_t * l_phase_h) / q_target
-
-    # Actual quality factor
-    q_actual = (omega_t * l_phase_h) / r_reactor_ohm
-
-    # 5. Insertion loss at f_t
-    # Z_filter at resonance = R (purely resistive at f_t)
-    z_filter_at_ft = r_reactor_ohm
-    # System impedance at f_t (approx from fault level, not specified — use typical)
-    # Typical: Z_sys = V^2/S_sc, assume S_sc = 2500 MVA (default scenario)
-    z_sys = (v_line_v**2) / (2500.0 * 1e6) * (h_tune)  # scales with order
-    # Parallel: Z_parallel = (Z_sys * Z_filter) / (Z_sys + Z_filter)
-    z_parallel = (z_sys * z_filter_at_ft) / (z_sys + z_filter_at_ft + 1e-9)
-    il_db = 20.0 * math.log10(z_sys / (z_parallel + 1e-9)) if z_sys > 0 else 0.0
-
-    # 6. Reactive contribution at fundamental frequency
-    # X_C at 50 Hz
-    x_c_50 = 1.0 / (omega_1 * c_phase_f)
-    # X_L at 50 Hz
-    x_l_50 = omega_1 * l_phase_h
-    # Net reactance per phase: X_net = X_C - X_L (capacitive)
-    x_net = x_c_50 - x_l_50
-    # Reactive power per phase: Q = V^2 / X_net
-    q_reactive_var = (v_phase_v**2 / x_net) * 3.0  # 3-phase
-    q_reactive_mvar = q_reactive_var / 1e6
-
-    # 7. Estimated filter losses
-    # Loss in reactor resistance: P = I_h^2 * R * 3 (3 phases)
-    # I_h at tuned frequency flows through filter
-    i_h_phase = harmonic_current_a / math.sqrt(3.0)
-    p_loss_w = 3.0 * i_h_phase**2 * r_reactor_ohm
-    p_loss_kw = p_loss_w / 1e3
-
-    assessment = _filter_assessment(il_db, q_actual)
-
+    r = omega_t * l_h / q_target
+    z_base = system_voltage_kv**2 / S_BASE
+    z_net = _impedance_column(dominant_harmonic_order, grid_ssc_mva, export_length_km)[3] * z_base
+    h = dominant_harmonic_order
+    z_filter = complex(r, h * OMEGA0 * l_h - 1 / (h * OMEGA0 * c_f))
+    z_parallel = z_net * z_filter / (z_net + z_filter)
+    il_db = 20 * math.log10(abs(z_net) / abs(z_parallel))
+    x_net_50 = 1 / (OMEGA0 * c_f) - OMEGA0 * l_h
+    q_50 = v**2 / x_net_50 / 1e6
+    i_ph = harmonic_current_a
+    p_loss_kw = 3 * i_ph**2 * r / 1e3
+    good = il_db >= 20
     return {
-        "harmonic_order": dominant_harmonic_order,
-        "tuned_frequency_hz": round(f_tuned_hz, 2),
-        "capacitor_mvar": round(q_reactive_mvar, 3),
-        "capacitor_uf": round(c_phase_uf, 4),
-        "reactor_mh": round(l_phase_mh, 4),
-        "reactor_resistance_ohm": round(r_reactor_ohm, 5),
-        "quality_factor": round(q_actual, 1),
+        "harmonic_order": h,
+        "tuned_frequency_hz": round(h_t * F0, 2),
+        "capacitor_mvar": round(rated_mvar, 3),
+        "capacitor_uf": round(c_f * 1e6, 4),
+        "reactor_mh": round(l_h * 1e3, 4),
+        "reactor_resistance_ohm": round(r, 5),
+        "quality_factor": q_target,
         "insertion_loss_db": round(il_db, 1),
-        "reactive_contribution_mvar": round(q_reactive_mvar, 3),
+        "reactive_contribution_mvar": round(q_50, 3),
         "estimated_loss_kw": round(p_loss_kw, 2),
-        "assessment": assessment,
-    }
-
-
-def get_harmonic_limits() -> dict[str, Any]:
-    """
-    Return IEC 61000-3-6 harmonic planning levels for all voltage tiers.
-
-    Includes PSE (Polish TSO) additional note for 220 kV POC.
-    """
-    entries = []
-    for order in sorted(_IEC61000_3_6.keys()):
-        lv, mv, hv = _IEC61000_3_6[order]
-        entries.append(
-            {
-                "order": order,
-                "limit_lv_pct": lv,
-                "limit_mv_pct": mv,
-                "limit_hv_pct": hv,
-                "characteristic": _harmonic_family(order),
-            }
-        )
-
-    return {
-        "standard": "IEC 61000-3-6:2008 + Amendment 1:2018",
-        "thd_limit_lv_pct": 8.0,
-        "thd_limit_mv_pct": 8.0,
-        "thd_limit_hv_pct": 3.0,
-        "entries": entries,
-        "pse_additional_note": (
-            "PSE (Polish TSO) applies IEC 61000-3-6 HV limits at the 220 kV POC. "
-            "THD_V <= 3%, individual harmonics as per HV column."
+        "network_impedance_ohm": round(abs(z_net), 2),
+        "assessment": (
+            "GOOD — ≥ 20 dB attenuation at the target order"
+            if good
+            else "ACCEPTABLE — 10–20 dB attenuation"
+            if il_db >= 10
+            else "REVIEW — little attenuation: the network is already low-impedance here"
         ),
     }
 
 
-# ── Internal helpers ───────────────────────────────────────────────────────────
+def get_harmonic_limits() -> dict[str, Any]:
+    """IEC TR 61000-3-6 planning levels (MV, HV-EHV) and LV compatibility levels."""
+    return {
+        "standard": "IEC TR 61000-3-6:2008 Table 2 (planning); IEC 61000-2-2 (LV compatibility)",
+        "thd_limit_lv_pct": THD_LIMIT["LV"],
+        "thd_limit_mv_pct": THD_LIMIT["MV"],
+        "thd_limit_hv_pct": THD_LIMIT["HV"],
+        "entries": [
+            {
+                "order": h,
+                "limit_lv_pct": planning_level_pct(h, "LV"),
+                "limit_mv_pct": planning_level_pct(h, "MV"),
+                "limit_hv_pct": planning_level_pct(h, "HV"),
+                "characteristic": _harmonic_family(h),
+            }
+            for h in range(2, 26)
+        ],
+        "pse_additional_note": (
+            "Planning levels bound the total distortion at a bus. The emission limit a TSO "
+            "allocates to one plant is a share of them (IEC 61000-3-6 stage 2/3), so "
+            "plant contributions near the planning level are already a problem."
+        ),
+    }
 
 
 def _interpolate_table(table: list[tuple[float, float]], x: float) -> float:
-    """Linear interpolation on a sorted (x, y) table. Clamps at bounds."""
-    if x <= table[0][0]:
-        return table[0][1]
-    if x >= table[-1][0]:
-        return table[-1][1]
-    for i in range(len(table) - 1):
-        x0, y0 = table[i]
-        x1, y1 = table[i + 1]
-        if x0 <= x <= x1:
-            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
-    return table[-1][1]
-
-
-def _assess(thd: float, limit: float, violations: list[str]) -> str:
-    """PASS / FAIL / BORDERLINE based on THD and individual violations."""
-    if violations:
-        return "FAIL"
-    margin = (limit - thd) / limit if limit > 0 else 1.0
-    if margin < 0.1:
-        return "BORDERLINE"
-    return "PASS"
-
-
-def _resonance_risk(impedance_ohm: float, z_base_ohm: float) -> str:
-    """Classify resonance peak risk relative to base impedance."""
-    ratio = impedance_ohm / (z_base_ohm + 1e-9)
-    if ratio > 10.0:
-        return "HIGH"
-    if ratio > 3.0:
-        return "MEDIUM"
-    return "LOW"
-
-
-def _filter_assessment(insertion_loss_db: float, quality_factor: float) -> str:
-    """Assess filter design quality."""
-    if insertion_loss_db >= 20.0 and 30.0 <= quality_factor <= 80.0:
-        return "GOOD — target IL > 20 dB and Q in 30-80 range achieved"
-    if insertion_loss_db >= 15.0:
-        return "ACCEPTABLE — marginal IL; consider increasing capacitor MVAR"
-    return "REVIEW — IL below 15 dB target; increase capacitor bank or check system impedance"
+    """Linear interpolation on a sorted (x, y) table, clamped at the ends."""
+    xs, ys = zip(*table, strict=True)
+    return float(np.interp(x, xs, ys))

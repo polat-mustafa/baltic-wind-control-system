@@ -29,7 +29,7 @@ export function updateRelaySettings(
   settingId: string,
   update: RelaySettingsUpdate,
 ): Promise<ProtectionRelaySchema> {
-  return post(`${BASE}/relays/${settingId}/settings`, update);
+  return request(`${BASE}/relays/${settingId}/settings`, { method: "PUT", body: JSON.stringify(update) });
 }
 
 /**

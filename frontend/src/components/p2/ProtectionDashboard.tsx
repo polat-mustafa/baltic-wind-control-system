@@ -1,174 +1,224 @@
 /**
- * Protection Relay Coordination Dashboard — M05.
+ * Protection tab — place a fault, watch the zone's protection clear it.
  *
- * Three-panel layout:
- *   Left: Relay configuration table
- *   Right: TCC log-log overlay (Plotly)
- *   Bottom: Selectivity grading table + fault clearance results
- *
- * Standards: IEC 60255 (relay), IEC 60909 (short-circuit), PSE coordination rules.
+ *   controls (location, cable position, fault type)
+ *   zone diagram with the trip · verdict
+ *   trip timeline (relay time + breaker break time per relay)
+ *   overcurrent TCC with TMS sliders · settings + grading tables
  */
 
 import { useEffect } from "react";
-import { ShieldAlert, Play, AlertTriangle } from "lucide-react";
+import { motion, MotionConfig } from "framer-motion";
+import Plot from "react-plotly.js";
 
+import { protectionEducation } from "../../constants/education/p2";
+import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
 import { useProtectionStore } from "../../store/protectionStore";
-import { Button } from "../ui/Button";
-import TCCCurvePlot from "./TCCCurvePlot";
+import type { FaultLocation } from "../../types/protection";
+import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
+import ProtectionZoneDiagram from "./ProtectionZoneDiagram";
 import RelayCoordinationTable from "./RelayCoordinationTable";
-import { InfoButton } from "../ui/InfoButton";
-import { protectionDashboardInfo, tccCurveInfo, relayCoordinationInfo } from "../../constants/panelInfo";
+import TCCCurvePlot from "./TCCCurvePlot";
 
-const FAULT_LOCATIONS = [
-  { value: "WTG_ARRAY", label: "WTG Array (66 kV)" },
-  { value: "OSS_BUSBAR", label: "OSS Busbar (66 kV)" },
-  { value: "EXPORT_CABLE", label: "Export Cable (220 kV)" },
-  { value: "ONSHORE_SUB", label: "Onshore Substation (220 kV)" },
+const LOCATIONS: [FaultLocation, string][] = [
+  ["string_feeder", "66 kV string feeder"],
+  ["oss_busbar_66kv", "OSS 66 kV busbar"],
+  ["export_cable", "220 kV export cable"],
+  ["oss_busbar_220kv", "OSS 220 kV busbar"],
 ];
 
+const item = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
+};
+
+function Check({ pass, children }: { pass: boolean; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-1.5">
+      <span aria-label={pass ? "pass" : "fail"} className={pass ? "text-status-normal" : "text-status-alarm"}>
+        {pass ? "✓" : "✗"}
+      </span>
+      <span>{children}</span>
+    </li>
+  );
+}
+
+function TripTimeline() {
+  const study = useProtectionStore((s) => s.study);
+  const c = useChartPalette();
+  if (!study) return null;
+  const ev = study.relay_sequence.filter((e) => e.operated).sort((a, b) => b.trip_time_ms - a.trip_time_ms);
+  const y = ev.map((e) => `${e.relay_id} · ${e.role}`);
+  const is220 = study.voltage_kv > 100 || study.fault_location === "oss_busbar_66kv";
+  return (
+    <ChartWrapper
+      title="Trip timeline — relay decision + breaker break time"
+      footer={`Clearance = relay time + 60 ms rated break time (3 cycles, IEC 62271-100). ${study.time_criterion}.`}
+    >
+      <Plot
+        data={[
+          {
+            type: "bar",
+            orientation: "h",
+            name: "Relay operating time",
+            y,
+            x: ev.map((e) => e.trip_time_ms),
+            marker: { color: c.blue },
+            hovertemplate: "%{y}: relay %{x:.0f} ms<extra></extra>",
+          },
+          {
+            type: "bar",
+            orientation: "h",
+            name: "Breaker break time",
+            y,
+            x: ev.map((e) => e.clearance_time_ms - e.trip_time_ms),
+            marker: { color: c.orange },
+            text: ev.map((e) => `${e.clearance_time_ms.toFixed(0)} ms`),
+            textposition: "outside",
+            textfont: { color: c.ink, size: 11 },
+            cliponaxis: false,
+            hovertemplate: "%{y}: cleared at %{text}<extra></extra>",
+          },
+        ]}
+        layout={{
+          ...DARK_PLOTLY_LAYOUT,
+          transition: CHART_TRANSITION,
+          barmode: "stack",
+          bargap: 0.35,
+          legend: { orientation: "h", y: 1.2, x: 0, font: { size: 11 } },
+          xaxis: {
+            ...DARK_PLOTLY_LAYOUT.xaxis,
+            title: { text: "Time after fault inception [ms]", font: { size: 12 } },
+            range: [0, Math.max(200, ...ev.map((e) => e.clearance_time_ms)) * 1.18],
+          },
+          yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, type: "category", automargin: true, tickfont: { size: 11 } },
+          shapes: is220
+            ? [{ type: "line", xref: "x", yref: "paper", x0: 150, x1: 150, y0: 0, y1: 1, line: { color: c.ref, width: 1.5, dash: "dash" } } as const]
+            : [],
+          annotations: is220
+            ? [{ x: 150, y: 1, xref: "x", yref: "paper", yanchor: "bottom", text: "150 ms (PSE FRT t_clear)", showarrow: false, font: { size: 10 } } as const]
+            : [],
+          margin: { t: 40, r: 24, b: 48, l: 8 },
+        }}
+        config={PLOTLY_CONFIG}
+        useResizeHandler
+        className="w-full"
+        style={{ height: Math.max(200, 70 + ev.length * 48) }}
+      />
+    </ChartWrapper>
+  );
+}
+
 export default function ProtectionDashboard() {
-  const {
-    relays,
-    coordinationResult,
-    faultLocation,
-    faultCurrentKA,
-    loading,
-    studyLoading,
-    error,
-    fetchRelays,
-    runCoordinationStudy,
-    setFaultLocation,
-    setFaultCurrentKA,
-    clearError,
-  } = useProtectionStore();
+  const { study, faultLocation, positionPct, faultType, loading, error, setFaultLocation, setPositionPct, setFaultType, runStudy, clearError } =
+    useProtectionStore();
 
   useEffect(() => {
-    fetchRelays();
-  }, [fetchRelays]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-text-muted text-sm">
-        <span className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin mr-2" />
-        Loading relay configuration…
-      </div>
-    );
-  }
+    const t = setTimeout(() => void runStudy(), 250);
+    return () => clearTimeout(t);
+  }, [faultLocation, positionPct, faultType, runStudy]);
 
   return (
-    <div className="space-y-4">
-      {error && (
-        <div className="p-3 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-sm flex justify-between items-center">
-          <span className="text-status-alarm flex items-center gap-2">
-            <AlertTriangle size={14} /> {error}
-          </span>
-          <Button variant="ghost" size="sm" onClick={clearError}>Dismiss</Button>
-        </div>
-      )}
-
-      {/* Controls row */}
-      <div className="flex items-center gap-3 flex-wrap bg-bg-secondary rounded-lg border border-border-primary p-3">
-        <ShieldAlert size={16} className="text-accent shrink-0" />
-        <InfoButton info={protectionDashboardInfo} />
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-text-muted">Fault location:</label>
-          <select
-            className="text-xs bg-bg-tertiary border border-border-primary rounded px-2 py-1 text-text-secondary"
-            value={faultLocation}
-            onChange={(e) => setFaultLocation(e.target.value)}
-          >
-            {FAULT_LOCATIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-text-muted">Fault current (kA):</label>
-          <input
-            type="number"
-            min={1}
-            max={40}
-            step={0.5}
-            value={faultCurrentKA}
-            onChange={(e) => setFaultCurrentKA(parseFloat(e.target.value))}
-            className="w-20 text-xs bg-bg-tertiary border border-border-primary rounded px-2 py-1 text-text-secondary font-mono"
-          />
-        </div>
-        <Button size="sm" onClick={runCoordinationStudy} disabled={studyLoading}>
-          {studyLoading ? (
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Running…
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5"><Play size={12} /> Run Study</span>
-          )}
-        </Button>
-      </div>
-
-      {/* Main content: relay table (left) + TCC plot (right) */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {/* Relay list */}
-        <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-text-primary">Relay Configuration</h3>
-            <InfoButton info={relayCoordinationInfo} />
+    <MotionConfig reducedMotion="user">
+      <motion.div className="space-y-4" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.08 } } }}>
+        {error && (
+          <div className="p-3 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-sm flex justify-between items-center">
+            <span className="text-status-alarm">{error}</span>
+            <button className="text-xs text-text-secondary" onClick={clearError}>
+              Dismiss
+            </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-text-secondary border-collapse">
-              <thead>
-                <tr className="border-b border-border-primary text-text-muted">
-                  <th className="text-left py-2 pr-2 font-medium">Location</th>
-                  <th className="text-left py-2 pr-2 font-medium">Type</th>
-                  <th className="text-right py-2 pr-2 font-medium">Pickup</th>
-                  <th className="text-right py-2 pr-2 font-medium">TMS</th>
-                  <th className="text-right py-2 font-medium">Delay (s)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {relays.map((r) => (
-                  <tr key={r.id} className="border-b border-border-primary/50 hover:bg-bg-elevated/30">
-                    <td className="py-1.5 pr-2 font-mono text-text-primary">{r.location}</td>
-                    <td className="py-1.5 pr-2">{r.relay_type}</td>
-                    <td className="py-1.5 pr-2 text-right font-mono">
-                      {r.pickup_value} {r.pickup_unit}
-                    </td>
-                    <td className="py-1.5 pr-2 text-right font-mono">{r.tms?.toFixed(2) ?? "—"}</td>
-                    <td className="py-1.5 text-right font-mono">{r.time_delay_s.toFixed(3)}</td>
-                  </tr>
+        )}
+
+        <motion.div variants={item} className="rounded-lg border border-border-primary bg-bg-secondary p-4 space-y-3">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-text-secondary">Fault location</p>
+              <div role="tablist" aria-label="Fault location" className="flex flex-wrap gap-1">
+                {LOCATIONS.map(([k, l]) => (
+                  <button
+                    key={k}
+                    role="tab"
+                    aria-selected={faultLocation === k}
+                    onClick={() => setFaultLocation(k)}
+                    className={`rounded px-2 py-1 text-[11px] font-medium ${faultLocation === k ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+                  >
+                    {l}
+                  </button>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
+            {faultLocation === "export_cable" && (
+              <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[12rem]">
+                <span className="flex justify-between">
+                  Position along the cable <span className="font-mono text-text-primary">{positionPct} % from onshore</span>
+                </span>
+                <input type="range" min={0} max={100} step={5} value={positionPct} onChange={(e) => setPositionPct(Number(e.target.value))} className="accent-accent" />
+              </label>
+            )}
+            <div role="tablist" aria-label="Fault type" className="flex gap-1">
+              {(["3ph", "ph_ph"] as const).map((t) => (
+                <button
+                  key={t}
+                  role="tab"
+                  aria-selected={faultType === t}
+                  onClick={() => setFaultType(t)}
+                  className={`rounded px-2 py-1 text-[11px] font-medium ${faultType === t ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+                >
+                  {t === "3ph" ? "3-phase" : "phase-phase"}
+                </button>
+              ))}
+            </div>
+            {loading && <span className="text-[11px] text-text-muted">studying…</span>}
           </div>
-        </div>
+        </motion.div>
 
-        {/* TCC log-log plot */}
-        <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="text-sm font-semibold text-text-primary">TCC Overlay (IEC 60255)</h3>
-            <InfoButton info={tccCurveInfo} />
-          </div>
-          <TCCCurvePlot />
-        </div>
-      </div>
+        {study && (
+          <>
+            <motion.div variants={item} className="grid grid-cols-1 xl:grid-cols-[1fr_20rem] gap-4">
+              <div className="rounded-lg border border-border-primary bg-bg-secondary p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-base font-semibold text-text-primary">Protection zones and the trip</h3>
+                  <EducationButton content={protectionEducation} />
+                </div>
+                <div className="overflow-x-auto">
+                  <ProtectionZoneDiagram study={study} />
+                </div>
+              </div>
+              <div className="rounded-lg border border-border-primary bg-bg-secondary p-4">
+                <h3 className="text-sm font-semibold text-text-primary mb-1">{study.assessment === "PASS" ? "✓ Protection adequate" : "✗ Protection inadequate"}</h3>
+                <p className="text-xs text-text-muted mb-2">{study.fault_current_description}</p>
+                <ul className="space-y-2 text-xs text-text-secondary">
+                  <Check pass={study.first_relay === study.main_relay || study.relay_sequence.find((e) => e.relay_id === study.first_relay)?.role.startsWith("main") === true}>
+                    Zone protection {study.main_relay} trips first
+                  </Check>
+                  <Check pass={study.backup_margin_ms === null || study.backup_margin_ms >= 300}>
+                    Backup {study.backup_margin_ms === null ? "not needed" : `${study.backup_margin_ms.toFixed(0)} ms behind (≥ 300 ms)`}
+                  </Check>
+                  <Check pass={study.fast_enough}>
+                    {study.fault_location === "string_feeder"
+                      ? `Head cable withstands ${study.time_limit_s.toFixed(1)} s at this current — backup clears well within`
+                      : `Main clearance ${study.main_clearance_ms.toFixed(0)} ms ≤ 150 ms`}
+                  </Check>
+                  <Check pass={study.fully_graded}>All grading pairs selective at IEC 60909 currents</Check>
+                </ul>
+              </div>
+            </motion.div>
 
-      {/* Selectivity grading table */}
-      {coordinationResult && (
-        <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-text-primary">
-              Selectivity Grading — {coordinationResult.fault_location} @ {coordinationResult.fault_current_ka.toFixed(1)} kA
-            </h3>
-            <InfoButton info={relayCoordinationInfo} />
-          </div>
-          <RelayCoordinationTable />
-          {coordinationResult.assessment && (
-            <p className="mt-3 text-xs text-text-muted bg-bg-tertiary rounded p-2">
-              {coordinationResult.assessment}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+            <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <TripTimeline />
+              <TCCCurvePlot />
+            </motion.div>
+
+            <motion.div variants={item} className="rounded-lg border border-border-primary bg-bg-secondary p-4">
+              <h3 className="text-sm font-semibold text-text-primary mb-2">Settings and grading</h3>
+              <RelayCoordinationTable />
+            </motion.div>
+          </>
+        )}
+      </motion.div>
+    </MotionConfig>
   );
 }

@@ -120,43 +120,40 @@ export const p1Guide: TrainingGuideData = {
 
 export const p2Guide: TrainingGuideData = {
   title: "P2 · HV Grid Integration",
-  subtitle: "Electrical network analysis with Pandapower and ANDES",
+  subtitle: "Grid-connection studies with pandapower and transparent dynamic models",
   purpose:
-    "This dashboard simulates the HV electrical network connecting the wind farm " +
-    "to the Polish PSE grid. It performs load flow analysis, short-circuit calculations, " +
-    "STATCOM reactive power sizing, and Fault Ride-Through (FRT) dynamic simulation — " +
-    "the same studies required for grid connection approval.",
+    "This dashboard runs the studies a grid-connection application is built on: load flow in four operating " +
+    "cases, reactive compensation against the PSE reactive range, IEC 60909 breaker duty, fault ride-through " +
+    "against PSE's type-D profile and a grid-following vs grid-forming comparison after a phase jump.",
   howToUse: [
-    "Select a Load Flow Scenario: Full Load (510 MW), Partial (255 MW), No Load (Ferranti effect), or N-1 Contingency.",
-    "Choose an FRT type: LVRT (voltage dip) or HVRT (voltage swell).",
-    "Select Grid Strength: Strong (SCR ≈ 19.6) or Weak (SCR ≈ 3.9) to compare converter strategies.",
-    "Click 'Run Analysis' to execute Pandapower steady-state and ANDES dynamic simulations.",
-    "Review all 6 result panels to assess grid code compliance.",
-    "Try the N-1 Contingency scenario to see how the network handles equipment failure.",
+    "Click 'Run Analysis' — all studies run in parallel (a few seconds).",
+    "Use the scenario tabs (diagram or loading panel) to switch between full load, part load, no load and N-1.",
+    "In the FRT panel, place the fault (400 kV grid fault vs internal 66 kV fault), size it and change K — the traces redraw.",
+    "In the grid-strength panel, pick strong / weak / very weak grid and the phase jump; watch the GFL PLL lose step.",
+    "Open the cap icon on any panel for formulas, a worked example with these numbers, and sources.",
   ],
   sections: [
-    { name: "KPI Header", description: "Five key metrics: bus voltage range (pu), max cable loading (%), total losses (MW), short-circuit current (kA), and STATCOM utilization (%)." },
-    { name: "Voltage Profile", description: "Bar chart of per-bus voltage magnitude. Must stay within ±5% (0.95–1.05 pu) per PSE grid code. Color-coded: green = within limits, red = violation." },
-    { name: "Cable Loading", description: "Thermal utilization of each cable segment as percentage of rated ampacity. The 45 km export cable is typically the bottleneck at full load." },
-    { name: "Short Circuit Analysis", description: "Fault current levels at each bus per IEC 60909. Protection relays must be coordinated to trip within these ranges (selectivity)." },
-    { name: "STATCOM Panel", description: "Reactive power compensation sizing: ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors. Shows operating point across power factor range." },
-    { name: "FRT Simulation", description: "Time-domain voltage dip/swell at PCC using ANDES dynamic simulation. The farm must stay connected and inject reactive current during faults." },
-    { name: "Converter Comparison", description: "Grid-Forming vs Grid-Following control strategies. Grid-Forming provides virtual inertia and works in weak grids." },
+    { name: "KPI Header", description: "Power delivered to PSE and losses, farm bus voltage band, worst breaker duty, reactive range at the POC vs PSE, FRT verdict." },
+    { name: "Single-line diagram", description: "The power path with live MW, loading and busbar voltages from the selected load flow; flow speed ∝ MW." },
+    { name: "Voltage along the connection", description: "Voltage from PSE 400 kV to the last turbine of string 1 for all four scenarios, against the 0.95–1.05 pu planning band." },
+    { name: "Thermal loading", description: "Export cables, both transformer stages and each string's head cable as a share of rating." },
+    { name: "Reactive power", description: "No-load balance (260 MVAR cable charging, 240 MVAR reactors, STATCOM range) and the Q range at the POC vs PSE Art. 21(3)(c)." },
+    { name: "Breaker duty", description: "IEC 60909 Ik'' and ip as a share of each busbar's breaking and making rating." },
+    { name: "Fault ride-through", description: "Quasi-static phasor model: POC and terminal voltage vs the PSE profile, K-factor reactive current, power recovery within 5 s." },
+    { name: "Grid-following vs grid-forming", description: "SMIB simulation after a grid phase jump: PLL synchronisation vs virtual-inertia response; SCR at POC vs at the turbines." },
   ],
   standards: [
-    { label: "PSE IRiESP — Polish grid code (voltage limits ±5%)", url: "https://www.pse.pl/en/transmission-system-operator/regulatory-framework/iriesp" },
+    { label: "PSE — Wymogi ogólnego stosowania wynikające z NC RfG (18-12-2018)", url: "https://www.pse.pl/documents/20182/31216853/20181218_Wymogi_ogolnego_stosowania_OSP_i_OSD.pdf" },
+    { label: "Commission Regulation (EU) 2016/631 — NC RfG", url: "https://eur-lex.europa.eu/eli/reg/2016/631/oj" },
     { label: "IEC 60909 — Short-circuit current calculations", url: "https://en.wikipedia.org/wiki/Short-circuit_current" },
-    { label: "IEC 60287 — Current rating of cables in normal operation", url: "https://en.wikipedia.org/wiki/IEC_60287" },
-    { label: "IEC 60038 — Standard voltages", url: "https://en.wikipedia.org/wiki/IEC_60038" },
-    { label: "ENTSO-E NC RfG Type D — Requirements for generators (EU Reg. 2016/631)", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0631" },
+    { label: "IEC 60287 — Current rating of cables", url: "https://en.wikipedia.org/wiki/IEC_60287" },
   ],
   learningObjectives: [
-    "Run load flow analysis and interpret per-unit voltage results.",
-    "Size cable systems and check thermal limits under different scenarios.",
-    "Calculate short-circuit currents and understand protection coordination.",
-    "Size STATCOM for reactive power compensation and voltage control.",
-    "Simulate FRT events and verify grid code compliance.",
-    "Compare grid-forming vs grid-following converter strategies.",
+    "Read a load flow: where voltage rises and drops, and why reactive power moves it in HV networks.",
+    "Explain the difference between the Ferranti effect and the voltage rise from uncompensated charging current.",
+    "Check breaker breaking and making duty from IEC 60909 results.",
+    "Judge a fault ride-through against a grid-code profile, and see what the K factor buys.",
+    "Explain why a strong grid at the POC can be weak at the turbine terminals, and what grid-forming control changes.",
   ],
 };
 

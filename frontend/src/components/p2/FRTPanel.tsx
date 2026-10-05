@@ -1,214 +1,320 @@
 /**
- * Fault Ride-Through simulation panel — LVRT/HVRT time-series.
+ * Fault ride-through — voltage against the PSE profile, then power and
+ * reactive current, for a fault the user places and sizes.
  *
- * Three subplots:
- * - Top: Voltage vs time [pu] with PSE LVRT envelope
- * - Middle: Active power vs time [MW] with 90% recovery threshold
- * - Bottom: Reactive current vs time [pu]
- *
- * Compliance badges: stayed_connected, reactive_current_compliant, recovery_compliant
+ * Changing a control re-runs the (fast) backend model; the new traces are
+ * swept in left to right like an oscilloscope (skipped with reduced motion).
  */
 
+import { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "framer-motion";
 import Plot from "react-plotly.js";
-import { useGridStore } from "../../store/gridStore";
-import { SCADA_COLORS } from "../../constants/scadaColors";
+
+import { faultRideThroughEducation } from "../../constants/education/p2";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
-import { InfoButton } from "../ui/InfoButton";
-import { frtInfo } from "../../constants/panelInfo";
+import { useChartPalette } from "../../hooks/useChartPalette";
+import { useGridStore } from "../../store/gridStore";
+import type { FaultBus } from "../../types/grid";
+import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
 
-// PSE LVRT envelope (time [s], voltage [pu])
-const PSE_LVRT_ENVELOPE = [
-  [0.000, 0.15],
-  [0.140, 0.25],
-  [0.500, 0.85],
-  [1.000, 0.85],
-  [1.500, 1.00],
-  [3.000, 1.00],
+const FAULT_BUSES: [FaultBus, string][] = [
+  ["PSE_400kV", "PSE 400 kV (grid fault)"],
+  ["Onshore_220kV", "Onshore 220 kV"],
+  ["OSS_220kV", "Offshore 220 kV"],
+  ["OSS_66kV", "Offshore 66 kV (internal)"],
 ];
+const SWEEP_MS = 1200;
 
-function ComplianceBadge({ label, ok }: { label: string; ok: boolean }) {
+/** Reveal 0 → n points over SWEEP_MS whenever `key` changes. */
+function useSweep(n: number, key: unknown): number {
+  const reduce = useReducedMotion();
+  const [shown, setShown] = useState(n);
+  const raf = useRef(0);
+  useEffect(() => {
+    if (reduce || n === 0) {
+      setShown(n);
+      return;
+    }
+    const start = performance.now();
+    const tick = (now: number) => {
+      const f = Math.min((now - start) / SWEEP_MS, 1);
+      setShown(Math.max(2, Math.round(f * n)));
+      if (f < 1) raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf.current);
+  }, [key, n, reduce]);
+  return shown;
+}
+
+function Slider(props: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+}) {
   return (
-    <span
-      className="text-xs px-2 py-1 rounded font-semibold"
-      style={{
-        backgroundColor: ok ? "rgba(0, 255, 0, 0.12)" : "rgba(255, 0, 0, 0.12)",
-        color: ok ? SCADA_COLORS.ENERGIZED : SCADA_COLORS.FAULT,
-      }}
-    >
-      {label}: {ok ? "PASS" : "FAIL"}
-    </span>
+    <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[9rem] flex-1">
+      <span className="flex justify-between">
+        {props.label}
+        <span className="font-mono text-text-primary">{props.format(props.value)}</span>
+      </span>
+      <input
+        type="range"
+        min={props.min}
+        max={props.max}
+        step={props.step}
+        value={props.value}
+        onChange={(e) => props.onChange(Number(e.target.value))}
+        className="accent-accent"
+      />
+    </label>
+  );
+}
+
+function Check({ pass, children }: { pass: boolean; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-1.5">
+      <span aria-label={pass ? "pass" : "fail"} className={pass ? "text-status-normal" : "text-status-alarm"}>
+        {pass ? "✓" : "✗"}
+      </span>
+      <span>{children}</span>
+    </li>
   );
 }
 
 export default function FRTPanel() {
-  const { frtResult } = useGridStore();
+  const { frtResult: r, frtType, frtParams, frtLoading, setFrtType, setFrtParams, runFrt } = useGridStore();
+  const c = useChartPalette();
 
-  if (!frtResult || frtResult.time_series.length === 0) return null;
+  // Re-run 300 ms after the last control change
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const id = setTimeout(() => void runFrt(), 300);
+    return () => clearTimeout(id);
+  }, [frtType, frtParams, runFrt]);
 
-  const ts = frtResult.time_series;
-  const times = ts.map((p) => p.time_s);
-  const voltages = ts.map((p) => p.voltage_pu);
-  const powers = ts.map((p) => p.active_power_mw);
-  const iq = ts.map((p) => p.reactive_current_pu);
+  const n = r?.time_series.length ?? 0;
+  const shown = useSweep(n, r);
+  if (!r || n === 0) return null;
 
-  // Pre-fault power for recovery threshold
-  const preFaultP = ts.find((p) => p.time_s < 0.5)?.active_power_mw ?? 510;
-  const recoveryThreshold = preFaultP * 0.9;
-
-  // LVRT envelope offset by fault start (0.5s pre-fault)
-  const faultStart = 0.5;
-  const envelopeTimes = PSE_LVRT_ENVELOPE.map(([t]) => t + faultStart);
-  const envelopeVolts = PSE_LVRT_ENVELOPE.map(([, v]) => v);
-
-  const typeLabel = frtResult.frt_type.toUpperCase();
+  const pts = r.time_series.slice(0, shown);
+  const t = pts.map((p) => p.time_s);
+  const lvrt = r.frt_type === "lvrt";
+  const tEnd = r.time_series[n - 1].time_s;
+  const tFault = r.envelope[0]?.time_s ?? 0.2; // backend pre-fault window is 0.2 s
+  const endOfEvent = [...r.time_series].reverse().find((p) => p.time_s < tFault + r.fault_duration_s);
+  const xaxis = { ...DARK_PLOTLY_LAYOUT.xaxis, range: [0, tEnd], title: { text: "Time [s]", font: { size: 12 } } };
+  const envT = r.envelope.map((e) => e.time_s);
+  const envV = r.envelope.map((e) => e.voltage_pu);
+  const pPre = r.time_series[0].active_power_mw;
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <h3 className="text-base font-semibold text-text-primary">
-          {typeLabel} Simulation — {frtResult.fault_bus}, {(frtResult.fault_duration_s * 1000).toFixed(0)} ms
-        </h3>
-        <div className="flex items-center gap-2">
-          <InfoButton info={frtInfo} />
-          <ComplianceBadge label="Connected" ok={frtResult.stayed_connected} />
-          <ComplianceBadge label={`Kqv\u2265${2.0}`} ok={frtResult.reactive_current_compliant} />
-          <ComplianceBadge label="Recovery" ok={frtResult.recovery_compliant} />
+    <ChartWrapper
+      title={lvrt ? "Fault ride-through — PSE type-D profile" : "Overvoltage ride-through (illustrative)"}
+      headerRight={<EducationButton content={faultRideThroughEducation} />}
+      footer="Quasi-static phasor screening model: radial chain, WTGs aggregated at 66 kV, STATCOM at 220 kV, K-characteristic with Iq priority, 1.0 pu current limit"
+    >
+      <div className="flex flex-wrap items-end gap-3 mb-2" aria-busy={frtLoading}>
+        <div role="tablist" aria-label="Event type" className="flex gap-1">
+          {(["lvrt", "hvrt"] as const).map((k) => (
+            <button
+              key={k}
+              role="tab"
+              aria-selected={frtType === k}
+              onClick={() => setFrtType(k)}
+              className={`rounded px-2 py-1 text-[11px] font-medium ${frtType === k ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+            >
+              {k === "lvrt" ? "LVRT · fault" : "HVRT · swell"}
+            </button>
+          ))}
         </div>
+        {frtType === "lvrt" && (
+          <label className="flex flex-col gap-0.5 text-[11px] text-text-muted">
+            Fault location
+            <select
+              value={frtParams.faultBus}
+              onChange={(e) => setFrtParams({ faultBus: e.target.value as FaultBus })}
+              className="rounded border border-border-primary bg-bg-primary px-1.5 py-1 text-xs text-text-primary"
+            >
+              {FAULT_BUSES.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {frtType === "lvrt" && (
+          <Slider
+            label="Fault impedance (100 MVA)"
+            value={frtParams.faultImpedancePu}
+            min={0}
+            max={0.05}
+            step={0.001}
+            format={(v) => (v === 0 ? "bolted" : `${v.toFixed(3)} pu`)}
+            onChange={(v) => setFrtParams({ faultImpedancePu: v })}
+          />
+        )}
+        <Slider
+          label="Duration"
+          value={frtParams.faultDurationS}
+          min={0.05}
+          max={0.5}
+          step={0.01}
+          format={(v) => `${(v * 1000).toFixed(0)} ms`}
+          onChange={(v) => setFrtParams({ faultDurationS: v })}
+        />
+        <Slider
+          label="K factor (PSE 2–10)"
+          value={frtParams.kFactor}
+          min={2}
+          max={10}
+          step={0.5}
+          format={(v) => v.toFixed(1)}
+          onChange={(v) => setFrtParams({ kFactor: v })}
+        />
+        {frtLoading && <span className="text-[11px] text-text-muted">simulating…</span>}
       </div>
 
-      {/* Voltage subplot */}
-      <Plot
-        data={[
-          {
-            type: "scatter",
-            mode: "lines",
-            name: "PCC Voltage",
-            x: times,
-            y: voltages,
-            line: { color: SCADA_COLORS.VOLTAGE_220KV, width: 2 },
-            hovertemplate: "t=%{x:.3f}s<br>V=%{y:.3f} pu<extra></extra>",
-          },
-          ...(frtResult.frt_type === "lvrt"
-            ? [
-                {
-                  type: "scatter" as const,
-                  mode: "lines" as const,
-                  name: "PSE LVRT Envelope",
-                  x: envelopeTimes,
-                  y: envelopeVolts,
-                  line: { color: SCADA_COLORS.FAULT, width: 1.5, dash: "dash" as const },
-                  fill: "tozeroy" as const,
-                  fillcolor: "rgba(255, 0, 0, 0.05)",
-                },
-              ]
-            : []),
-        ]}
-        layout={{
-          ...DARK_PLOTLY_LAYOUT,
-          height: 340,
-          title: { text: "Voltage [p.u.]", font: { size: 13, color: "rgb(148,163,184)" } },
-          yaxis: {
-            ...DARK_PLOTLY_LAYOUT.yaxis,
-            title: "V [pu]",
-            range: [0, 1.3],
-          },
-          xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, title: "" },
-          legend: { orientation: "h", y: 1.2, font: { size: 11, color: "rgb(148,163,184)" } },
-          margin: { ...DARK_PLOTLY_LAYOUT.margin, b: 20 },
-        }}
-        config={PLOTLY_CONFIG}
-        className="w-full"
-      />
-
-      {/* Active power subplot */}
-      <Plot
-        data={[
-          {
-            type: "scatter",
-            mode: "lines",
-            name: "Active Power",
-            x: times,
-            y: powers,
-            line: { color: SCADA_COLORS.ENERGIZED, width: 2 },
-            hovertemplate: "t=%{x:.3f}s<br>P=%{y:.1f} MW<extra></extra>",
-          },
-        ]}
-        layout={{
-          ...DARK_PLOTLY_LAYOUT,
-          height: 180,
-          title: { text: "Active Power [MW]", font: { size: 11, color: "rgb(148,163,184)" } },
-          yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: "P [MW]" },
-          xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, title: "" },
-          shapes: [
-            {
-              type: "line",
-              x0: times[0], x1: times[times.length - 1],
-              y0: recoveryThreshold, y1: recoveryThreshold,
-              line: { color: SCADA_COLORS.WARNING, width: 1, dash: "dot" },
-            },
-          ],
-          showlegend: false,
-          margin: { ...DARK_PLOTLY_LAYOUT.margin, b: 20, t: 30 },
-        }}
-        config={PLOTLY_CONFIG}
-        className="w-full"
-      />
-
-      {/* Reactive current subplot */}
-      <Plot
-        data={[
-          {
-            type: "scatter",
-            mode: "lines",
-            name: "Reactive Current",
-            x: times,
-            y: iq,
-            line: { color: SCADA_COLORS.ALARM_MEDIUM, width: 2 },
-            hovertemplate: "t=%{x:.3f}s<br>Iq=%{y:.3f} pu<extra></extra>",
-          },
-        ]}
-        layout={{
-          ...DARK_PLOTLY_LAYOUT,
-          height: 160,
-          title: { text: "Reactive Current [p.u.]", font: { size: 11, color: "rgb(148,163,184)" } },
-          yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: "Iq [pu]" },
-          xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, title: "Time [s]" },
-          showlegend: false,
-          margin: { ...DARK_PLOTLY_LAYOUT.margin, t: 30 },
-        }}
-        config={PLOTLY_CONFIG}
-        className="w-full"
-      />
-
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-3 mt-2 text-center">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_16rem] gap-3">
         <div>
-          <p className="text-xs text-text-muted">Kqv Achieved</p>
-          <p className="text-sm font-bold" style={{
-            color: frtResult.reactive_current_gain >= 2.0
-              ? SCADA_COLORS.ENERGIZED
-              : SCADA_COLORS.FAULT,
-          }}>
-            {frtResult.reactive_current_gain.toFixed(1)}
-          </p>
+          <Plot
+            data={[
+              ...(lvrt
+                ? [
+                    {
+                      type: "scatter" as const,
+                      mode: "lines" as const,
+                      name: "PSE profile (may disconnect below)",
+                      x: [...envT, tEnd, envT[0]],
+                      y: [...envV, 0, 0],
+                      fill: "toself" as const,
+                      fillcolor: c.band,
+                      line: { color: c.ink, width: 1.5, dash: "dash" as const },
+                      hoverinfo: "skip" as const,
+                    },
+                  ]
+                : []),
+              {
+                type: "scatter" as const,
+                mode: "lines" as const,
+                name: "POC 400 kV",
+                x: t,
+                y: pts.map((p) => p.voltage_pu),
+                line: { color: c.blue, width: 2 },
+                hovertemplate: "POC %{y:.3f} pu at %{x:.3f} s<extra></extra>",
+              },
+              {
+                type: "scatter" as const,
+                mode: "lines" as const,
+                name: "WTG terminals 66 kV",
+                x: t,
+                y: pts.map((p) => p.terminal_voltage_pu),
+                line: { color: c.orange, width: 2 },
+                hovertemplate: "Terminals %{y:.3f} pu at %{x:.3f} s<extra></extra>",
+              },
+            ]}
+            layout={{
+              ...DARK_PLOTLY_LAYOUT,
+              showlegend: true,
+              legend: { orientation: "h", y: 1.18, x: 0, font: { size: 11 } },
+              xaxis: { ...xaxis, title: undefined },
+              yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: { text: "Voltage [pu]", font: { size: 12 } }, range: [0, lvrt ? 1.3 : 1.45] },
+              shapes: [
+                { type: "line", xref: "x", yref: "paper", x0: tFault, x1: tFault, y0: 0, y1: 1, line: { color: c.ref, width: 1, dash: "dot" } } as const,
+              ],
+              margin: { t: 40, r: 12, b: 24, l: 56 },
+            }}
+            config={PLOTLY_CONFIG}
+            useResizeHandler
+            className="w-full"
+            style={{ height: 260 }}
+          />
+          <Plot
+            data={[
+              {
+                type: "scatter",
+                mode: "lines",
+                name: "WTG active power [MW]",
+                x: t,
+                y: pts.map((p) => p.active_power_mw),
+                line: { color: c.blue, width: 2 },
+                hovertemplate: "P %{y:.0f} MW<extra></extra>",
+              },
+              {
+                type: "scatter",
+                mode: "lines",
+                name: "WTG reactive power [MVAR]",
+                x: t,
+                y: pts.map((p) => p.reactive_power_mvar),
+                line: { color: c.orange, width: 2 },
+                hovertemplate: "Q %{y:.0f} MVAR<extra></extra>",
+              },
+              {
+                type: "scatter",
+                mode: "lines",
+                name: "STATCOM [MVAR]",
+                x: t,
+                y: pts.map((p) => p.statcom_q_mvar),
+                line: { color: c.aqua, width: 2 },
+                hovertemplate: "STATCOM %{y:.0f} MVAR<extra></extra>",
+              },
+            ]}
+            layout={{
+              ...DARK_PLOTLY_LAYOUT,
+              showlegend: true,
+              legend: { orientation: "h", y: 1.2, x: 0, font: { size: 11 } },
+              xaxis,
+              yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: { text: "MW / MVAR", font: { size: 12 } } },
+              shapes: [
+                { type: "line", xref: "paper", x0: 0, x1: 1, y0: 0.9 * pPre, y1: 0.9 * pPre, line: { color: c.ref, width: 1, dash: "dot" } } as const,
+              ],
+              annotations: pPre > 0
+                ? [{ xref: "paper", x: 1, y: 0.9 * pPre, xanchor: "right", yanchor: "bottom", text: "90 % of pre-fault P", showarrow: false, font: { size: 10 } } as const]
+                : [],
+              margin: { t: 40, r: 12, b: 44, l: 56 },
+            }}
+            config={PLOTLY_CONFIG}
+            useResizeHandler
+            className="w-full"
+            style={{ height: 240 }}
+          />
         </div>
-        <div>
-          <p className="text-xs text-text-muted">Recovery Time</p>
-          <p className="text-sm font-bold" style={{
-            color: frtResult.recovery_time_s <= 1.0
-              ? SCADA_COLORS.ENERGIZED
-              : SCADA_COLORS.FAULT,
-          }}>
-            {frtResult.recovery_time_s === Infinity ? "\u221E" : `${frtResult.recovery_time_s.toFixed(3)}s`}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-text-muted">STATCOM Peak Q</p>
-          <p className="text-sm font-bold text-slate-200">
-            {frtResult.statcom_peak_q_mvar.toFixed(1)} MVAR
-          </p>
-        </div>
+        <ul className="space-y-2 text-xs text-text-secondary self-center">
+          {lvrt ? (
+            <Check pass={r.stayed_connected}>
+              POC voltage {r.retained_voltage_pu.toFixed(2)} pu for {(r.fault_duration_s * 1000).toFixed(0)} ms —{" "}
+              {r.stayed_connected ? "above the PSE profile: the farm must ride through" : "below the profile: disconnection permitted"}
+            </Check>
+          ) : (
+            <Check pass={r.stayed_connected}>
+              POC {r.retained_voltage_pu.toFixed(2)} pu, terminals {r.terminal_voltage_pu.toFixed(2)} pu — within the assumed 1.30 pu
+              converter withstand (PSE sets no short HVRT profile)
+            </Check>
+          )}
+          <Check pass={r.reactive_current_compliant}>
+            Fast fault current ΔIq/ΔU = {r.reactive_current_gain.toFixed(2)} (K = {r.k_factor}, capped at rated current) · PSE Art. 20(2)(b)
+          </Check>
+          <Check pass={r.recovery_compliant}>
+            {pPre > 0
+              ? `90 % of ${pPre.toFixed(0)} MW back ${Number.isFinite(r.recovery_time_s) ? `in ${r.recovery_time_s.toFixed(2)} s` : "— never"} (limit ${r.recovery_limit_s} s) · Art. 20(3)(a)`
+              : "No pre-fault power — nothing to recover"}
+          </Check>
+          <li className="pt-1 text-text-muted">
+            End of event: POC {endOfEvent?.voltage_pu.toFixed(3)} pu with reactive current vs {r.passive_voltage_pu.toFixed(3)} pu
+            without; terminals {endOfEvent?.terminal_voltage_pu.toFixed(2)} pu. STATCOM peak {r.statcom_peak_q_mvar.toFixed(0)} MVAR.
+          </li>
+        </ul>
       </div>
-    </div>
+    </ChartWrapper>
   );
 }

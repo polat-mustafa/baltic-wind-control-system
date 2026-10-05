@@ -7,8 +7,10 @@
 
 import type {
   ConverterComparisonResult,
+  FRTParams,
   FRTSimulationResult,
   FRTType,
+  GridStrength,
   LoadFlowResult,
   LoadFlowScenario,
   NetworkSpec,
@@ -77,25 +79,20 @@ export function getSTATCOMSizing(): Promise<STATCOMSizingResult> {
 
 // ── FRT Simulation ────────────────────────────────────────────
 
-export function runFRT(
-  frtType: FRTType,
-  faultBus: string = "OSS_66kV",
-  faultImpedancePu: number = 0.05,
-  faultDurationS: number = 0.15,
-  generationFraction: number = 1.0,
-): Promise<FRTSimulationResult> {
+export function runFRT(frtType: FRTType, params: FRTParams): Promise<FRTSimulationResult> {
   return post(`${BASE}/frt/${frtType}`, {
-    fault_bus: faultBus,
-    fault_impedance_pu: faultImpedancePu,
-    fault_duration_s: faultDurationS,
-    generation_fraction: generationFraction,
+    fault_bus: params.faultBus,
+    fault_impedance_pu: params.faultImpedancePu,
+    fault_duration_s: params.faultDurationS,
+    k_factor: params.kFactor,
   });
 }
 
 // ── Converter Comparison ──────────────────────────────────────
 
 export function getConverterComparison(
-  scenario: "strong_grid" | "weak_grid",
+  scenario: GridStrength,
+  phaseJumpDeg = 20,
 ): Promise<ConverterComparisonResult> {
-  return request(`${BASE}/converter-comparison/${scenario}`);
+  return request(`${BASE}/converter-comparison/${scenario}?phase_jump_deg=${phaseJumpDeg}`);
 }

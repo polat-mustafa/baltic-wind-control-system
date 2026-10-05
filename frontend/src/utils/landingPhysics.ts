@@ -349,21 +349,25 @@ export function windAtHeight(hubWindMs: number, heightM: number): number {
 }
 
 // ── Export cable DTS profile (same model as backend services/p2/cable_dts.py) ──
-// IEC 60287 steady state per circuit: T = T_amb + I²·R_AC,90·R_th·zone(km).
-// R_th is calibrated so 950 A at 15 °C design ambient brings the worst spot
-// (OSS J-tube, zone 1.4) to exactly 90 °C. Zones follow the real route:
-// J-tube 0–0.3 km, subsea burial to 31.0 km, HDD landfall 31.0–31.8 km
-// (deep under beach/dunes), land cable to 45 km.
-const DTS_R_AC_OHM_PER_M = 0.0233 / 1000;
-const DTS_J_TUBE_FACTOR = 1.4;
-export const DTS_R_TH = (90 - 15) / (950 ** 2 * DTS_R_AC_OHM_PER_M * DTS_J_TUBE_FACTOR); // ≈ 2.55 K·m/W
+// IEC 60287 steady state per conductor, R_AC(T) self-consistent, dielectric
+// loss counted (U0 = 127 kV): T_c − T_amb = (W_c + ½W_d)·T_int + (W_c + W_d)·R_ext.
+// R_ext of the OSS J-tube is calibrated so 950 A at 15 °C gives exactly 90 °C;
+// other zones are fixed ratios of it. Zones follow the real route: J-tube
+// 0–0.3 km, subsea burial to 31.0 km, HDD landfall 31.0–31.8 km, land to 45 km.
+const DTS_ALPHA = 0.00393;
+const DTS_R_AC20_OHM_PER_M = (0.0176 * 1.039) / 1000;
+const DTS_R_AC90_OHM_PER_M = DTS_R_AC20_OHM_PER_M * (1 + DTS_ALPHA * 70);
+const DTS_W_D = 2 * Math.PI * 50 * 190e-12 * (220e3 / Math.sqrt(3)) ** 2 * 0.001; // ≈ 0.96 W/m
+const DTS_T_INT = 0.5;
+const DTS_W_C_RATED = 950 ** 2 * DTS_R_AC90_OHM_PER_M;
+export const DTS_R_EXT_J_TUBE = (75 - (DTS_W_C_RATED + DTS_W_D / 2) * DTS_T_INT) / (DTS_W_C_RATED + DTS_W_D); // ≈ 2.92 K·m/W
 export const DTS_ZONES = { jTubeEndKm: 0.3, hddStartKm: 31.0, hddEndKm: 31.8 } as const;
 
-export function dtsZoneFactor(km: number): number {
-  if (km <= DTS_ZONES.jTubeEndKm) return DTS_J_TUBE_FACTOR;
-  if (km < DTS_ZONES.hddStartKm) return 1 + 0.05 * Math.sin((2 * Math.PI * km) / 8);
-  if (km <= DTS_ZONES.hddEndKm) return 1.3;
-  return 1.1;
+function dtsRExt(km: number): number {
+  if (km <= DTS_ZONES.jTubeEndKm) return DTS_R_EXT_J_TUBE;
+  if (km < DTS_ZONES.hddStartKm) return (DTS_R_EXT_J_TUBE / 1.4) * (1 + 0.05 * Math.sin((2 * Math.PI * km) / 8));
+  if (km <= DTS_ZONES.hddEndKm) return (DTS_R_EXT_J_TUBE * 1.3) / 1.4;
+  return (DTS_R_EXT_J_TUBE * 1.1) / 1.4;
 }
 
 export function dtsZoneName(km: number): string {
@@ -373,7 +377,12 @@ export function dtsZoneName(km: number): string {
   return "land cable";
 }
 
-/** Conductor temperature [°C] at km from the OSS, per circuit current [A]. */
+/** Conductor temperature [°C] at km from the OSS, per circuit current [A]; Infinity on thermal runaway. */
 export function dtsTempC(km: number, currentA: number, ambientC: number): number {
-  return ambientC + currentA ** 2 * DTS_R_AC_OHM_PER_M * DTS_R_TH * dtsZoneFactor(km);
+  const a = currentA ** 2 * DTS_R_AC20_OHM_PER_M;
+  const rExt = dtsRExt(km);
+  const k = DTS_T_INT + rExt;
+  const denom = 1 - a * k * DTS_ALPHA;
+  if (denom <= 0) return Infinity;
+  return (ambientC + a * k * (1 - 20 * DTS_ALPHA) + DTS_W_D * (DTS_T_INT / 2 + rExt)) / denom;
 }

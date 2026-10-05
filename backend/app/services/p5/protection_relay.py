@@ -1,70 +1,73 @@
 """
-Protection relay setting registry and selectivity verification.
+Protection scheme of the OSS / export system and its coordination.
 
-Implements protection relay settings for the OSS and verifies
-time-grading coordination between downstream and upstream relays.
+The scheme
+----------
+::
 
-Physics — Why Protection Coordination Matters
------------------------------------------------
-In a 510 MW offshore wind farm, a cable fault on a 66 kV array string
-must be cleared by the string feeder relay (downstream) — NOT by the
-220 kV export cable relay (upstream). If the upstream relay trips first,
-all 34 turbines lose grid connection instead of just 6.
+    66 kV string feeder   PTOC-01  IDMT SI, CT 1000/1, I> 1.2 In, TMS 0.10
+    66 kV incomer (TX LV) PTOC-02  IDMT SI, CT 3000/1, I> 1.2 In, TMS 0.15   backup
+    OSS busbars           PDIF-87B busbar differential, 20 ms               main
+    220 kV export cable   PDIF-87L line differential, 25 ms                 main
+                          PDIS-Z1  distance, 80 % reach, instantaneous      main 2
+                          PDIS-Z2  distance, 120 % reach, 0.4 s             backup
+    220 kV busbar         PTOV / PTUV / PTOF / PTUF  (grid-code ranges)
 
-This is achieved through **time grading**: each upstream relay is set
-with a deliberate time delay margin above its downstream relay. The
-margin must account for:
-- CB operating time (~60 ms per IEC 62271-100)
-- Relay timing error (~5% of setting)
-- CT saturation uncertainty
+Selectivity means the protection of the faulted zone clears the fault and
+everything upstream only backs it up. For inverse-time (IDMT) relays the
+margin must be checked at the fault currents that can actually flow —
+IEC 60909 maximum and minimum at the OSS 66 kV busbar — not on the
+configured delays alone:
 
-Typical grading margins:
-- PTOC (overcurrent): 300 ms between stages
-- PDIS (distance): 400 ms between zones
+    t = TMS · k / ((I / I_p)^α − 1)        IEC 60255-151 (SI: k 0.14, α 0.02)
 
-Standard — IEC 60255 + IEEE C37.112
--------------------------------------
-- IEC 60255-151:2009 — Overcurrent protection (PTOC)
-- IEC 60255-121:2014 — Distance protection (PDIS)
-- IEC 60255-127:2010 — Over/under voltage protection (PTOV/PTUV)
-- IEC 60255-181:2019 — Over/under frequency protection (PTOF/PTUF)
-- IEEE C37.112 — Inverse-time overcurrent relay coordination
+    margin = t_upstream(I) − t_downstream(I) ≥ 300 ms
+    (CB break time 60 ms + relay errors + overshoot + safety)
 
-Maths — Grading Margin Calculation
-------------------------------------
-For two relays in series (downstream D, upstream U):
+Fault clearance time = relay operating time + CB rated break time (3 cycles
+= 60 ms at 50 Hz, IEC 62271-100; the break time already includes arcing).
+Main protection is judged against 150 ms — the fault duration PSE's FRT
+profile is built on (t_clear = 0.15 s); a design target, not a separate
+PSE clearance-time rule.
 
-    actual_margin = (U.time_delay - D.time_delay) × 1000 ms
+Voltage and frequency stages sit outside PSE's ride-through ranges:
+47.5 / 51.5 Hz (NC RfG frequency ranges), 1.15 pu above the 60-min band at
+110–300 kV (1.118–1.15 pu), 0.80 pu after 3 s (beyond the 2.5 s FRT profile).
 
-    verdict = SELECTIVE  if actual_margin >= required_margin
-              NON_SELECTIVE otherwise
+Fault currents: 66 kV from pandapower IEC 60909 (``calc_short_circuit``);
+along the export cable from the series-impedance chain with c = 1.10 plus
+the converters' rated-current infeed (k = 1). Balanced faults only — earth
+faults need zero-sequence data the model does not carry.
 
-Example for PTOC:
-    D: feeder relay at 0.5 s, U: incomer relay at 0.8 s
-    actual_margin = (0.8 - 0.5) × 1000 = 300 ms
-    required_margin = 300 ms → SELECTIVE ✓
-
-Code — Registry + Verification Pattern
-----------------------------------------
-OSS_RELAY_SETTINGS is an immutable tuple of all relay settings.
-GRADING_PAIRS defines which downstream→upstream pairs must be checked.
-verify_selectivity() iterates all pairs and returns pass/fail per pair.
+Standards: IEC 60255-151 (overcurrent), -121 (distance), -127 (voltage),
+-181 (frequency), -187 (differential); IEC 62271-100; IEC 60909-0.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+import uuid
+from dataclasses import dataclass, replace
 from enum import StrEnum
+from functools import lru_cache
 from typing import Any
 
-# ── Enums ──────────────────────────────────────────────────────────
+from app.core.exceptions import ValidationError
+from app.services.p2.network_model import (
+    STATCOM_RATING_MVAR,
+    TOTAL_CAPACITY_MW,
+    series_impedances_pu,
+)
+
+# ── Enums / data ─────────────────────────────────────────────────
 
 
 class ProtectionFunction(StrEnum):
-    """IEC 61850 protection function codes."""
+    """IEC 61850 protection logical-node classes."""
 
     PTOC = "PTOC"  # Time overcurrent
     PDIS = "PDIS"  # Distance
+    PDIF = "PDIF"  # Differential (line, busbar)
     PTOV = "PTOV"  # Overvoltage
     PTUV = "PTUV"  # Undervoltage
     PTOF = "PTOF"  # Overfrequency
@@ -78,31 +81,13 @@ class SelectivityVerdict(StrEnum):
     NON_SELECTIVE = "non_selective"
 
 
-# ── Data Models ────────────────────────────────────────────────────
-
-
 @dataclass(frozen=True)
 class RelaySetting:
-    """Immutable protection relay setting.
+    """One protection stage.
 
-    Attributes
-    ----------
-    setting_id : str
-        Unique identifier (e.g. 'PTOC-01').
-    function : ProtectionFunction
-        IEC 61850 function code.
-    description : str
-        Human-readable description.
-    pickup_value : float
-        Relay pickup threshold.
-    pickup_unit : str
-        Unit of pickup value.
-    time_delay : float
-        Operating time delay in seconds.
-    location : str
-        Relay location (e.g. 'String feeder', 'Incomer').
-    standard : str
-        IEC standard reference.
+    ``time_delay`` is the definite time [s] of DT stages (incl. distance
+    zones); for IDMT stages it is 0 and the time follows the curve with
+    ``tms``. ``ct_primary_a`` turns ``× In`` pickups into amperes.
     """
 
     setting_id: str
@@ -113,25 +98,15 @@ class RelaySetting:
     time_delay: float
     location: str
     standard: str
+    curve: str = "DT"  # "SI" / "VI" / "EI" / "DT"
+    tms: float = 0.0
+    ct_primary_a: float = 0.0
+    operate_ms: float = 25.0  # intrinsic operating time of the numerical relay
 
 
 @dataclass(frozen=True)
 class GradingPair:
-    """A downstream→upstream relay pair that must be coordinated.
-
-    Attributes
-    ----------
-    pair_id : str
-        Unique identifier.
-    downstream_id : str
-        Setting ID of the downstream (faster) relay.
-    upstream_id : str
-        Setting ID of the upstream (slower) relay.
-    required_margin_ms : float
-        Minimum time margin in milliseconds.
-    description : str
-        Human-readable description of the grading pair.
-    """
+    """A downstream → upstream relay pair that must be time-graded."""
 
     pair_id: str
     downstream_id: str
@@ -142,27 +117,7 @@ class GradingPair:
 
 @dataclass(frozen=True)
 class GradingResult:
-    """Result of checking one grading pair.
-
-    Attributes
-    ----------
-    pair_id : str
-        Grading pair checked.
-    downstream_id : str
-        Downstream relay setting ID.
-    upstream_id : str
-        Upstream relay setting ID.
-    downstream_delay_s : float
-        Downstream relay time delay (seconds).
-    upstream_delay_s : float
-        Upstream relay time delay (seconds).
-    actual_margin_ms : float
-        Actual margin in milliseconds.
-    required_margin_ms : float
-        Required margin in milliseconds.
-    verdict : SelectivityVerdict
-        SELECTIVE or NON_SELECTIVE.
-    """
+    """Result of one grading check (times at the worst-case fault current)."""
 
     pair_id: str
     downstream_id: str
@@ -174,264 +129,156 @@ class GradingResult:
     verdict: SelectivityVerdict
 
 
-# ── OSS Relay Settings Registry ──────────────────────────────────
-
 OSS_RELAY_SETTINGS: tuple[RelaySetting, ...] = (
-    # Overcurrent — feeder (downstream)
     RelaySetting(
-        setting_id="PTOC-01",
-        function=ProtectionFunction.PTOC,
-        description="String feeder overcurrent -- 1.2xIn, 0.5 s",
-        pickup_value=1.2,
-        pickup_unit="xIn",
-        time_delay=0.5,
-        location="String feeder",
-        standard="IEC 60255-151",
+        "PTOC-01",
+        ProtectionFunction.PTOC,
+        "String feeder overcurrent — IEC SI, 1.2 × In, TMS 0.10",
+        1.2,
+        "xIn",
+        0.0,
+        "String feeder",
+        "IEC 60255-151",
+        curve="SI",
+        tms=0.10,
+        ct_primary_a=1000.0,
     ),
-    # Overcurrent — incomer (upstream backup)
     RelaySetting(
-        setting_id="PTOC-02",
-        function=ProtectionFunction.PTOC,
-        description="Incomer overcurrent backup -- 1.2xIn, 0.8 s",
-        pickup_value=1.2,
-        pickup_unit="xIn",
-        time_delay=0.8,
-        location="Incomer",
-        standard="IEC 60255-151",
+        "PTOC-02",
+        ProtectionFunction.PTOC,
+        "66 kV incomer overcurrent (backup) — IEC SI, 1.2 × In, TMS 0.15",
+        1.2,
+        "xIn",
+        0.0,
+        "Incomer",
+        "IEC 60255-151",
+        curve="SI",
+        tms=0.15,
+        ct_primary_a=3000.0,
     ),
-    # Distance Zone 1 (downstream)
     RelaySetting(
-        setting_id="PDIS-Z1",
-        function=ProtectionFunction.PDIS,
-        description="Distance Zone 1 — 80% reach, instantaneous",
-        pickup_value=80.0,
-        pickup_unit="%_reach",
-        time_delay=0.0,
-        location="Export cable",
-        standard="IEC 60255-121",
+        "PDIS-Z1",
+        ProtectionFunction.PDIS,
+        "Distance zone 1 — 80 % of the export cable, instantaneous",
+        80.0,
+        "%_reach",
+        0.0,
+        "Export cable",
+        "IEC 60255-121",
     ),
-    # Distance Zone 2 (upstream backup)
     RelaySetting(
-        setting_id="PDIS-Z2",
-        function=ProtectionFunction.PDIS,
-        description="Distance Zone 2 — 120% reach, 0.4 s delay",
-        pickup_value=120.0,
-        pickup_unit="%_reach",
-        time_delay=0.4,
-        location="Export cable",
-        standard="IEC 60255-121",
+        "PDIS-Z2",
+        ProtectionFunction.PDIS,
+        "Distance zone 2 — 120 % reach, 0.4 s",
+        120.0,
+        "%_reach",
+        0.4,
+        "Export cable",
+        "IEC 60255-121",
     ),
-    # Overvoltage
     RelaySetting(
-        setting_id="PTOV-01",
-        function=ProtectionFunction.PTOV,
-        description="Overvoltage stage 1 — 1.15 pu, 1.0 s",
-        pickup_value=1.15,
-        pickup_unit="pu",
-        time_delay=1.0,
-        location="220 kV bus",
-        standard="IEC 60255-127",
+        "PTOV-01",
+        ProtectionFunction.PTOV,
+        "Overvoltage — 1.15 pu, 1.0 s",
+        1.15,
+        "pu",
+        1.0,
+        "220 kV bus",
+        "IEC 60255-127",
     ),
-    # Undervoltage
     RelaySetting(
-        setting_id="PTUV-01",
-        function=ProtectionFunction.PTUV,
-        description="Undervoltage stage 1 — 0.80 pu, 3.0 s",
-        pickup_value=0.80,
-        pickup_unit="pu",
-        time_delay=3.0,
-        location="220 kV bus",
-        standard="IEC 60255-127",
+        "PTUV-01",
+        ProtectionFunction.PTUV,
+        "Undervoltage — 0.80 pu, 3.0 s (beyond the 2.5 s FRT profile)",
+        0.80,
+        "pu",
+        3.0,
+        "220 kV bus",
+        "IEC 60255-127",
     ),
-    # Overfrequency
     RelaySetting(
-        setting_id="PTOF-01",
-        function=ProtectionFunction.PTOF,
-        description="Overfrequency — 51.5 Hz, 0.5 s",
-        pickup_value=51.5,
-        pickup_unit="Hz",
-        time_delay=0.5,
-        location="220 kV bus",
-        standard="IEC 60255-181",
+        "PTOF-01",
+        ProtectionFunction.PTOF,
+        "Overfrequency — 51.5 Hz, 0.5 s",
+        51.5,
+        "Hz",
+        0.5,
+        "220 kV bus",
+        "IEC 60255-181",
     ),
-    # Underfrequency
     RelaySetting(
-        setting_id="PTUF-01",
-        function=ProtectionFunction.PTUF,
-        description="Underfrequency — 47.5 Hz, 0.5 s",
-        pickup_value=47.5,
-        pickup_unit="Hz",
-        time_delay=0.5,
-        location="220 kV bus",
-        standard="IEC 60255-181",
+        "PTUF-01",
+        ProtectionFunction.PTUF,
+        "Underfrequency — 47.5 Hz, 0.5 s",
+        47.5,
+        "Hz",
+        0.5,
+        "220 kV bus",
+        "IEC 60255-181",
+    ),
+    RelaySetting(
+        "PDIF-87L",
+        ProtectionFunction.PDIF,
+        "Export cable line differential — both ends, ≈ 25 ms",
+        0.2,
+        "xIn",
+        0.0,
+        "Export cable",
+        "IEC 60255-187-1",
+    ),
+    RelaySetting(
+        "PDIF-87B",
+        ProtectionFunction.PDIF,
+        "OSS busbar differential (66 and 220 kV) — ≈ 20 ms",
+        0.2,
+        "xIn",
+        0.0,
+        "OSS busbars",
+        "IEC 60255-187-1",
+        operate_ms=20.0,
     ),
 )
-
-
-# ── Grading Pairs ─────────────────────────────────────────────────
 
 GRADING_PAIRS: tuple[GradingPair, ...] = (
     GradingPair(
-        pair_id="GP-001",
-        downstream_id="PTOC-01",
-        upstream_id="PTOC-02",
-        required_margin_ms=300.0,
-        description="Feeder OC (0.5s) → Incomer OC backup (0.8s)",
+        "GP-001",
+        "PTOC-01",
+        "PTOC-02",
+        300.0,
+        "Feeder OC → incomer OC backup at the 66 kV fault level",
     ),
-    GradingPair(
-        pair_id="GP-002",
-        downstream_id="PDIS-Z1",
-        upstream_id="PDIS-Z2",
-        required_margin_ms=400.0,
-        description="Distance Zone 1 (0s) → Zone 2 (0.4s)",
-    ),
+    GradingPair("GP-002", "PDIS-Z1", "PDIS-Z2", 300.0, "Distance zone 1 (inst.) → zone 2 (0.4 s)"),
 )
 
-
-# ── Functions ─────────────────────────────────────────────────────
+IEC_CURVES: dict[str, tuple[float, float]] = {
+    "SI": (0.14, 0.02),
+    "VI": (13.5, 1.0),
+    "EI": (80.0, 2.0),
+}
+CB_BREAK_TIME_MS = 60.0  # 3-cycle breaker, IEC 62271-100 rated break time
+MAIN_CLEARANCE_TARGET_MS = 150.0  # PSE FRT profile t_clear
+CU_XLPE_K = 143.0  # A·√s/mm², Cu, XLPE 90 → 250 °C (IEC 60364-5-54 adiabatic k)
+ARRAY_HEAD_CABLE_MM2 = 800.0  # string head cable cross-section
+LEGACY_LOCATIONS = {  # older API names → (location, % of cable from the onshore end)
+    "export_cable_near": ("export_cable", 89.0),
+    "export_cable_mid": ("export_cable", 50.0),
+    "export_cable_far": ("export_cable", 11.0),
+    "hv_busbar": ("oss_busbar_220kv", 100.0),
+}
+LOCATION_LABEL = {
+    "string_feeder": "66 kV string feeder (OSS end)",
+    "oss_busbar_66kv": "OSS 66 kV busbar",
+    "export_cable": "220 kV export cable",
+    "oss_busbar_220kv": "OSS 220 kV busbar",
+}
 
 
 def get_relay_settings() -> tuple[RelaySetting, ...]:
-    """Return all OSS relay settings.
-
-    Returns
-    -------
-    tuple[RelaySetting, ...]
-        Immutable tuple of all 8 relay settings.
-    """
+    """Return all relay settings of the OSS / export system."""
     return OSS_RELAY_SETTINGS
 
 
-def check_single_grading_pair(
-    pair: GradingPair,
-    settings: dict[str, RelaySetting],
-) -> GradingResult:
-    """Check selectivity for a single downstream→upstream grading pair.
-
-    Parameters
-    ----------
-    pair : GradingPair
-        The pair to check.
-    settings : dict[str, RelaySetting]
-        Settings registry keyed by setting_id.
-
-    Returns
-    -------
-    GradingResult
-        Result with actual margin and verdict.
-
-    Raises
-    ------
-    KeyError
-        If downstream or upstream setting_id not found.
-    """
-    downstream = settings[pair.downstream_id]
-    upstream = settings[pair.upstream_id]
-
-    actual_margin_ms = (upstream.time_delay - downstream.time_delay) * 1000.0
-
-    verdict = (
-        SelectivityVerdict.SELECTIVE
-        if actual_margin_ms >= pair.required_margin_ms
-        else SelectivityVerdict.NON_SELECTIVE
-    )
-
-    return GradingResult(
-        pair_id=pair.pair_id,
-        downstream_id=pair.downstream_id,
-        upstream_id=pair.upstream_id,
-        downstream_delay_s=downstream.time_delay,
-        upstream_delay_s=upstream.time_delay,
-        actual_margin_ms=actual_margin_ms,
-        required_margin_ms=pair.required_margin_ms,
-        verdict=verdict,
-    )
-
-
-def verify_selectivity(
-    settings: tuple[RelaySetting, ...] | None = None,
-    grading_pairs: tuple[GradingPair, ...] | None = None,
-) -> list[GradingResult]:
-    """Verify selectivity for all grading pairs.
-
-    Parameters
-    ----------
-    settings : tuple[RelaySetting, ...] | None
-        Relay settings to check. Defaults to OSS_RELAY_SETTINGS.
-    grading_pairs : tuple[GradingPair, ...] | None
-        Grading pairs to verify. Defaults to GRADING_PAIRS.
-
-    Returns
-    -------
-    list[GradingResult]
-        One result per grading pair with verdict.
-    """
-    if settings is None:
-        settings = OSS_RELAY_SETTINGS
-    if grading_pairs is None:
-        grading_pairs = GRADING_PAIRS
-
-    settings_map = {s.setting_id: s for s in settings}
-
-    return [check_single_grading_pair(pair, settings_map) for pair in grading_pairs]
-
-
-# ── IEC 60255 Overcurrent Curve Equations ─────────────────────────
-#
-# IEC 60255-151 defines four IDMT (Inverse Definite Minimum Time) curve
-# families. Each uses the same formula structure:
-#
-#   t = k × TMS / ((I/Ip)^α - 1)
-#
-# where:
-#   t   = operating time [s]
-#   TMS = Time Multiplier Setting (relay front panel knob)
-#   I   = measured fault current
-#   Ip  = pickup current setting
-#   k,α = curve-family constants
-#
-# The larger α, the more steeply the time decreases as current increases
-# (SI is least sensitive to current level; EI is most sensitive).
-#
-# Definite Time (DT) ignores current magnitude — it always operates at
-# time_delay once current exceeds pickup. Used where IDMT is unnecessary.
-
-# Curve constants (k, alpha) per IEC 60255-151:2009
-_IEC_CURVE_CONSTANTS: dict[str, tuple[float, float]] = {
-    "SI": (0.14, 0.02),  # Standard Inverse
-    "VI": (13.5, 1.0),  # Very Inverse
-    "EI": (80.0, 2.0),  # Extremely Inverse
-}
-
-# Suggested plotting colours (by relay role)
-_CURVE_COLOURS: list[str] = [
-    "#e74c3c",  # red — most downstream
-    "#e67e22",  # orange
-    "#f1c40f",  # yellow
-    "#2ecc71",  # green
-    "#3498db",  # blue
-    "#9b59b6",  # purple
-    "#1abc9c",  # teal
-    "#34495e",  # dark grey
-]
-
-# Fault current at each named location (kA symmetrical 3-phase) for study
-# calculations, based on IEC 60909 short-circuit study results.
-FAULT_LOCATION_CURRENTS: dict[str, float] = {
-    "string_feeder": 8.5,  # 66 kV string feeder, close-in fault [kA]
-    "export_cable_near": 7.2,  # Export cable, 5 km from OSS [kA]
-    "export_cable_mid": 5.1,  # Export cable, 22 km midpoint [kA]
-    "export_cable_far": 2.8,  # Export cable, 40 km from OSS [kA]
-    "hv_busbar": 12.4,  # 220 kV busbar fault [kA]
-}
-
-# CB opening time per IEC 62271-100 for 66 kV / 220 kV switchgear
-CB_OPENING_TIME_MS: float = 60.0  # circuit breaker mechanical open time
-ARC_EXTINCTION_EXTRA_MS: float = 20.0  # ~1 power cycle for arc extinction
-
-# Clearance time limits
-CLEARANCE_LIMIT_66KV_MS: float = 100.0  # IEC 61936-1 / standard HV networks
-CLEARANCE_LIMIT_220KV_MS: float = 80.0  # PSE IRiESP Type D generators
+# ── Operating times ─────────────────────────────────────────────
 
 
 def idmt_operating_time(
@@ -440,198 +287,273 @@ def idmt_operating_time(
     curve_type: str,
     time_delay_fallback_s: float = 0.5,
 ) -> float:
-    """Calculate IDMT relay operating time for a given current multiple.
+    """IEC 60255-151 operating time [s]; ``math.inf`` below pickup.
 
-    Parameters
-    ----------
-    current_multiple : float
-        Fault current / pickup current (I/Ip). Must be > 1.0 for relay to operate.
-    tms : float
-        Time Multiplier Setting (relay dial).
-    curve_type : str
-        'SI' / 'VI' / 'EI' / 'DT'. Defaults to DT if curve_type unknown.
-    time_delay_fallback_s : float
-        Used when curve_type is 'DT' or current_multiple <= 1.0.
-
-    Returns
-    -------
-    float
-        Operating time in seconds. Returns math.inf if I/Ip <= 1.0 (no trip).
+    DT (or an unknown curve) returns ``time_delay_fallback_s`` above pickup.
     """
-    import math
-
     if current_multiple <= 1.0:
         return math.inf
-
-    if curve_type == "DT":
+    if curve_type not in IEC_CURVES:
         return time_delay_fallback_s
-
-    if curve_type not in _IEC_CURVE_CONSTANTS:
-        return time_delay_fallback_s
-
-    k, alpha = _IEC_CURVE_CONSTANTS[curve_type]
-    denominator = (current_multiple**alpha) - 1.0
-    if denominator <= 0.0:
-        return time_delay_fallback_s
-
-    return float(k * tms / denominator)
+    k, alpha = IEC_CURVES[curve_type]
+    return float(k * tms / (current_multiple**alpha - 1.0))
 
 
-def get_tcc_plot_data(
-    relay_ids: list[str] | None = None,
-) -> list[dict[str, Any]]:
-    """Generate TCC curve (I, t) data points for a set of relays.
+def ptoc_time_s(setting: RelaySetting, current_ka: float) -> float:
+    """Operating time of an overcurrent stage for a primary current [kA]."""
+    pickup_ka = setting.pickup_value * setting.ct_primary_a / 1000.0
+    return idmt_operating_time(
+        current_ka / pickup_ka, setting.tms, setting.curve, setting.time_delay
+    )
 
-    Produces 50 log-spaced current multiples from 1.05× to 20× pickup.
-    Suitable for Plotly log-log axis rendering.
 
-    Parameters
-    ----------
-    relay_ids : list[str] | None
-        Relay setting IDs to include. Defaults to all PTOC/PDIS relays.
+@lru_cache(maxsize=1)
+def oss_66kv_fault_levels_ka() -> tuple[float, float]:
+    """IEC 60909 Ik'' (max, min) at the OSS 66 kV busbar [kA] (pandapower)."""
+    from app.services.p2.short_circuit import calc_short_circuit
 
-    Returns
-    -------
-    list[dict]
-        Each element is a curve dict with keys:
-        relay_id, curve_type, tms, pickup_value, pickup_unit, points, color_hint.
+    def at_66(case: str) -> float:
+        res = calc_short_circuit(case)
+        return next(b.ikss_ka for b in res.bus_results if b.bus_name == "OSS_66kV")
+
+    return at_66("max"), at_66("min")
+
+
+def export_cable_fault_ka(position_pct: float, c: float = 1.1) -> tuple[float, float]:
+    """(grid-side, converter) fault current [kA] at a point of the export cable.
+
+    position_pct: 0 = onshore end, 100 = OSS end. Grid side through the
+    series-impedance chain with voltage factor c; converters and STATCOM
+    feed about their rated current (k = 1).
     """
-    import math
+    z = series_impedances_pu(100.0)
+    z_path = z["grid"] + z["onshore"] + z["export"] * position_pct / 100.0
+    grid = c * 100.0 / (math.sqrt(3) * 220.0 * abs(z_path))
+    converters = (TOTAL_CAPACITY_MW + STATCOM_RATING_MVAR) / (math.sqrt(3) * 220.0)
+    return grid, converters
 
-    target_ids = set(relay_ids) if relay_ids else None
-    settings = OSS_RELAY_SETTINGS
 
-    curves = []
-    colour_idx = 0
+# ── Selectivity (P5 commissioning check + P2 study) ─────────────
 
-    for setting in settings:
-        if target_ids and setting.setting_id not in target_ids:
-            continue
-        if setting.function not in (ProtectionFunction.PTOC, ProtectionFunction.PDIS):
-            # Only IDMT/distance relays have meaningful TCC shapes
-            continue
 
-        points = []
-        for i in range(50):
-            # 50 log-spaced multiples from 1.05 to 20
-            multiple = math.exp(math.log(1.05) + i * (math.log(20.0) - math.log(1.05)) / 49.0)
-            t = idmt_operating_time(
-                current_multiple=multiple,
-                tms=0.1,  # default TMS; will be overridden per-relay by service
-                curve_type="SI",  # default; overridden per-relay
-                time_delay_fallback_s=setting.time_delay,
-            )
-            if t < 10.0:  # clip extreme values for chart readability
-                points.append({"current_multiple": round(multiple, 4), "time_s": round(t, 4)})
+def _pair_times(
+    pair: GradingPair, settings: dict[str, RelaySetting], current_ka: float
+) -> tuple[float, float]:
+    down, up = settings[pair.downstream_id], settings[pair.upstream_id]
+    if down.function == ProtectionFunction.PTOC and up.function == ProtectionFunction.PTOC:
+        return ptoc_time_s(down, current_ka), ptoc_time_s(up, current_ka)
+    return down.time_delay, up.time_delay
 
-        curves.append(
-            {
-                "relay_id": setting.setting_id,
-                "location": setting.location,
-                "curve_type": "SI",
-                "tms": 0.1,
-                "pickup_value": setting.pickup_value,
-                "pickup_unit": setting.pickup_unit,
-                "time_delay_s": setting.time_delay,
-                "points": points,
-                "color_hint": _CURVE_COLOURS[colour_idx % len(_CURVE_COLOURS)],
-            }
+
+def check_single_grading_pair(
+    pair: GradingPair,
+    settings: dict[str, RelaySetting],
+    currents_ka: tuple[float, ...] | None = None,
+) -> GradingResult:
+    """Margin of one pair at the worst of the given fault currents.
+
+    IDMT pairs are evaluated at the IEC 60909 max and min 66 kV fault levels
+    (or ``currents_ka``); DT pairs compare their delays.
+    """
+    currents = currents_ka or oss_66kv_fault_levels_ka()
+    margins = []
+    for i_ka in currents:
+        t_down, t_up = _pair_times(pair, settings, i_ka)
+        margins.append(((t_up - t_down) * 1000.0, t_down, t_up))
+    margin_ms, t_down, t_up = min(margins, key=lambda m: m[0])
+    return GradingResult(
+        pair_id=pair.pair_id,
+        downstream_id=pair.downstream_id,
+        upstream_id=pair.upstream_id,
+        downstream_delay_s=round(t_down, 3),
+        upstream_delay_s=round(t_up, 3),
+        actual_margin_ms=round(margin_ms, 1),
+        required_margin_ms=pair.required_margin_ms,
+        verdict=(
+            SelectivityVerdict.SELECTIVE
+            if margin_ms >= pair.required_margin_ms
+            else SelectivityVerdict.NON_SELECTIVE
+        ),
+    )
+
+
+def verify_selectivity(
+    settings: tuple[RelaySetting, ...] | None = None,
+    grading_pairs: tuple[GradingPair, ...] | None = None,
+    currents_ka: tuple[float, ...] | None = None,
+) -> list[GradingResult]:
+    """Check every grading pair (worst case over the fault currents)."""
+    settings_map = {s.setting_id: s for s in (settings or OSS_RELAY_SETTINGS)}
+    return [
+        check_single_grading_pair(pair, settings_map, currents_ka)
+        for pair in (grading_pairs or GRADING_PAIRS)
+    ]
+
+
+def apply_overrides(overrides: dict[str, dict[str, Any]]) -> tuple[RelaySetting, ...]:
+    """Settings with user changes (pickup, delay, TMS, curve) applied."""
+    fields = {
+        "pickup_value": "pickup_value",
+        "time_delay_s": "time_delay",
+        "tms": "tms",
+        "curve_type": "curve",
+    }
+    out = []
+    for s in OSS_RELAY_SETTINGS:
+        ov = overrides.get(s.setting_id, {})
+        out.append(
+            replace(s, **{fields[k]: v for k, v in ov.items() if k in fields and v is not None})
         )
-        colour_idx += 1
+    return tuple(out)
 
-    return curves
+
+# ── Fault study ──────────────────────────────────────────────────
+
+
+def _resolve_location(location: str, position_pct: float | None) -> tuple[str, float]:
+    if location in LEGACY_LOCATIONS:
+        name, pos = LEGACY_LOCATIONS[location]
+        return name, pos if position_pct is None else position_pct
+    if location not in LOCATION_LABEL:
+        msg = f"fault_location must be one of {', '.join(LOCATION_LABEL)}"
+        raise ValidationError(msg)
+    return location, 50.0 if position_pct is None else position_pct
+
+
+def _event(setting: RelaySetting, t_s: float, role: str, multiple: float = 0.0) -> dict[str, Any]:
+    operated = math.isfinite(t_s)
+    relay_ms = t_s * 1000.0 + (setting.operate_ms if setting.curve == "DT" else 0.0)
+    return {
+        "relay_id": setting.setting_id,
+        "relay_location": setting.location,
+        "role": role,
+        "trip_time_ms": round(relay_ms, 1) if operated else 0.0,
+        "clearance_time_ms": round(relay_ms + CB_BREAK_TIME_MS, 1) if operated else 0.0,
+        "fault_current_multiple": round(multiple, 2),
+        "operated": operated,
+    }
 
 
 def run_coordination_study(
     fault_location: str,
     fault_current_ka: float | None = None,
+    position_pct: float | None = None,
+    settings: tuple[RelaySetting, ...] | None = None,
+    fault_type: str = "3ph",
 ) -> dict[str, Any]:
-    """Run a TCC coordination study for a named fault location.
+    """Which relays see a fault, when they trip, and whether it is selective.
 
-    Computes which relays operate, in what order, and checks all grading
-    margins are adequate.
-
-    Parameters
-    ----------
-    fault_location : str
-        One of: 'string_feeder', 'export_cable_near', 'export_cable_mid',
-        'export_cable_far', 'hv_busbar'.
-    fault_current_ka : float | None
-        Override fault current. Defaults to the pre-calculated value for
-        the location from the IEC 60909 short-circuit study.
-
-    Returns
-    -------
-    dict
-        study_id, fault_location, fault_current_ka, relay_sequence (sorted
-        by trip time), fully_graded, grading_results, first_relay details.
+    The study fault current comes from IEC 60909 / the impedance chain unless
+    ``fault_current_ka`` overrides it (useful to walk along a TCC).
     """
-    import math
-    import uuid as _uuid
+    if fault_type not in ("3ph", "ph_ph"):
+        msg = "fault_type must be '3ph' or 'ph_ph' (earth faults need zero-sequence data)"
+        raise ValidationError(msg)
+    factor = 1.0 if fault_type == "3ph" else math.sqrt(3) / 2
+    location, position = _resolve_location(fault_location, position_pct)
+    s = {r.setting_id: r for r in (settings or OSS_RELAY_SETTINGS)}
 
-    if fault_current_ka is None:
-        fault_current_ka = FAULT_LOCATION_CURRENTS.get(fault_location, 5.0)
-
-    relay_events: list[dict[str, Any]] = []
-    for setting in OSS_RELAY_SETTINGS:
-        if setting.pickup_unit != "xIn":
-            # Skip non-overcurrent relays for the basic study
-            # (voltage, frequency, and distance relays assessed separately)
-            continue
-
-        current_multiple = fault_current_ka * 1000.0 / (setting.pickup_value * 1000.0)
-        trip_time_s = idmt_operating_time(
-            current_multiple=current_multiple,
-            tms=0.1,
-            curve_type="SI",
-            time_delay_fallback_s=setting.time_delay,
+    if location in ("string_feeder", "oss_busbar_66kv"):
+        i_max, i_min = oss_66kv_fault_levels_ka()
+        current = (fault_current_ka or i_max) * factor
+        kv = 66.0
+        events = [
+            _event(
+                s["PTOC-02"],
+                ptoc_time_s(s["PTOC-02"], current),
+                "backup",
+                current / (s["PTOC-02"].pickup_value * s["PTOC-02"].ct_primary_a / 1000),
+            )
+        ]
+        if location == "string_feeder":
+            events.append(
+                _event(
+                    s["PTOC-01"],
+                    ptoc_time_s(s["PTOC-01"], current),
+                    "main",
+                    current / (s["PTOC-01"].pickup_value * s["PTOC-01"].ct_primary_a / 1000),
+                )
+            )
+            main_id = "PTOC-01"
+        else:
+            events.append(_event(s["PDIF-87B"], 0.0, "main"))
+            main_id = "PDIF-87B"
+        currents: tuple[float, ...] = (
+            (current,) if fault_current_ka else (i_max * factor, i_min * factor)
         )
-        operated = trip_time_s < math.inf
+    else:
+        kv = 220.0
+        if location == "oss_busbar_220kv":
+            position = 100.0
+        grid, conv = export_cable_fault_ka(position)
+        current = (fault_current_ka or grid + conv) * factor
+        # Distance relay at the onshore end: Z1 covers 80 % of the cable, Z2 (120 %)
+        # backs up the whole cable and the OSS 220 kV busbar
+        events = [_event(s["PDIS-Z2"], s["PDIS-Z2"].time_delay, "backup")]
+        if location == "export_cable" and position <= s["PDIS-Z1"].pickup_value:
+            events.append(_event(s["PDIS-Z1"], s["PDIS-Z1"].time_delay, "main 2"))
+        if location == "export_cable":
+            events.append(_event(s["PDIF-87L"], 0.0, "main"))
+            main_id = "PDIF-87L"
+        else:
+            events.append(_event(s["PDIF-87B"], 0.0, "main"))
+            main_id = "PDIF-87B"
+        currents = (current,)
 
-        relay_events.append(
-            {
-                "relay_id": setting.setting_id,
-                "relay_location": setting.location,
-                "trip_time_ms": round(trip_time_s * 1000.0, 1),
-                "fault_current_multiple": round(current_multiple, 2),
-                "operated": operated,
-            }
-        )
-
-    # Sort by trip time (fastest first); non-operating relays go last
-    relay_events.sort(key=lambda x: float(x["trip_time_ms"]) if x["operated"] else float("inf"))
-
-    grading_results_raw = verify_selectivity()
-    grading_violations = sum(
-        1 for r in grading_results_raw if r.verdict == SelectivityVerdict.NON_SELECTIVE
+    events.sort(key=lambda e: e["trip_time_ms"] if e["operated"] else math.inf)
+    first = next((e for e in events if e["operated"]), None)
+    main = next(e for e in events if e["relay_id"] == main_id)
+    backups = [e for e in events if e["role"] == "backup" and e["operated"]]
+    backup_margin = (
+        min(b["trip_time_ms"] for b in backups) - main["trip_time_ms"]
+        if backups and main["operated"]
+        else math.inf
     )
-    fully_graded = grading_violations == 0
 
-    first = relay_events[0] if relay_events and relay_events[0]["operated"] else None
+    grading = verify_selectivity(tuple(s.values()), currents_ka=currents)
+    violations = sum(r.verdict == SelectivityVerdict.NON_SELECTIVE for r in grading)
+    main_first = first is not None and str(first["role"]).startswith("main")
+    selective = main_first and backup_margin >= 300.0 - 1e-6 and violations == 0
+    if location == "string_feeder":
+        # Internal array fault: the grid barely sees it; the limit is the head
+        # cable's short-circuit withstand, judged on the backup clearance
+        limit_s = (CU_XLPE_K * ARRAY_HEAD_CABLE_MM2 / (current * 1000.0)) ** 2
+        backup_ms = min(
+            (b["clearance_time_ms"] for b in backups), default=main["clearance_time_ms"]
+        )
+        fast = backup_ms / 1000.0 <= limit_s
+    else:
+        limit_s = MAIN_CLEARANCE_TARGET_MS / 1000.0
+        fast = main["operated"] and main["clearance_time_ms"] <= MAIN_CLEARANCE_TARGET_MS
 
     return {
-        "study_id": str(_uuid.uuid4()),
-        "fault_location": fault_location,
-        "fault_current_ka": fault_current_ka,
-        "relay_sequence": relay_events,
+        "study_id": str(uuid.uuid4()),
+        "fault_location": location,
+        "position_pct": position if location == "export_cable" else None,
+        "fault_type": fault_type,
+        "voltage_kv": kv,
+        "fault_current_ka": round(current, 2),
+        "description": f"{LOCATION_LABEL[location]}"
+        + (f" at {position:.0f} % from the onshore end" if location == "export_cable" else "")
+        + f" — {current:.1f} kA {'3-phase' if fault_type == '3ph' else 'phase-phase'}",
+        "relay_sequence": events,
+        "main_relay": main_id,
         "first_relay": first["relay_id"] if first else "NONE",
         "first_relay_time_ms": first["trip_time_ms"] if first else 0.0,
-        "fully_graded": fully_graded,
-        "grading_results": [
-            {
-                "pair_id": r.pair_id,
-                "downstream_id": r.downstream_id,
-                "upstream_id": r.upstream_id,
-                "downstream_delay_s": r.downstream_delay_s,
-                "upstream_delay_s": r.upstream_delay_s,
-                "actual_margin_ms": r.actual_margin_ms,
-                "required_margin_ms": r.required_margin_ms,
-                "selective": r.verdict == SelectivityVerdict.SELECTIVE,
-            }
-            for r in grading_results_raw
-        ],
-        "grading_violations": grading_violations,
-        "assessment": "PASS" if fully_graded else "FAIL",
+        "main_clearance_ms": main["clearance_time_ms"],
+        "backup_margin_ms": round(backup_margin, 1) if math.isfinite(backup_margin) else None,
+        "fully_graded": violations == 0,
+        "grading_results": grading,
+        "grading_violations": violations,
+        "selective": selective,
+        "fast_enough": fast,
+        "time_limit_s": round(limit_s, 3),
+        "time_criterion": (
+            "head-cable I²t withstand (k = 143, 800 mm² Cu) vs backup clearance"
+            if location == "string_feeder"
+            else "main clearance ≤ 150 ms (PSE FRT profile t_clear)"
+        ),
+        "assessment": "PASS" if selective and fast else "FAIL",
     }
 
 
@@ -639,59 +561,76 @@ def simulate_fault_clearance(
     fault_type: str,
     fault_location: str,
     fault_impedance_ohm: float = 0.0,
+    position_pct: float | None = None,
 ) -> dict[str, Any]:
-    """Simulate complete fault clearance sequence including CB operation.
+    """Clearance timeline of the main protection for one fault.
 
-    Fault clearance time (FCT) = relay operate time + CB open time + arc extinction.
-
-    IEC 61936-1 §8 / PSE IRiESP: FCT < 80 ms at 220 kV (Type D generators).
-
-    Parameters
-    ----------
-    fault_type : str
-        '3ph' / 'ph_ph' / 'ph_e' / 'ph_ph_e'.
-    fault_location : str
-        Named location (see FAULT_LOCATION_CURRENTS).
-    fault_impedance_ohm : float
-        Bolted fault = 0.0.
-
-    Returns
-    -------
-    dict
-        Full clearance timing and compliance assessment.
+    A fault impedance Z_f [Ω] is added in series with the source impedance
+    seen at the fault (purely reactive sources, resistive fault — magnitudes).
     """
-    # Fault current magnitude depends on fault type
-    base_ka = FAULT_LOCATION_CURRENTS.get(fault_location, 5.0)
-    fault_type_factor = {
-        "3ph": 1.0,  # highest fault current
-        "ph_ph": 0.866,  # √3/2 × 3ph symmetric
-        "ph_ph_e": 0.9,
-        "ph_e": 0.6,  # single phase — lower in solidly earthed systems
-    }.get(fault_type, 1.0)
-
-    # Apply fault impedance reduction (Ohm's law approximation)
-    fault_current_ka = base_ka * fault_type_factor / max(1.0, 1.0 + fault_impedance_ohm)
-
-    # Run coordination study to get relay operate time
-    study = run_coordination_study(fault_location, fault_current_ka)
-    first_relay_time_ms = float(study["first_relay_time_ms"])
-
-    total_ms = first_relay_time_ms + CB_OPENING_TIME_MS + ARC_EXTINCTION_EXTRA_MS
-
-    is_hv = "export" in fault_location or "busbar" in fault_location
-    limit_ms = CLEARANCE_LIMIT_220KV_MS if is_hv else CLEARANCE_LIMIT_66KV_MS
-
+    location, position = _resolve_location(fault_location, position_pct)
+    base = run_coordination_study(location, position_pct=position, fault_type=fault_type)
+    current = base["fault_current_ka"]
+    if fault_impedance_ohm > 0:
+        kv = base["voltage_kv"]
+        z_source = kv / (math.sqrt(3) * current)  # Ω
+        current = kv / (math.sqrt(3) * math.hypot(z_source, fault_impedance_ohm))
+        base = run_coordination_study(location, current, position, fault_type=fault_type)
+    main = next(e for e in base["relay_sequence"] if e["relay_id"] == base["main_relay"])
     return {
         "fault_type": fault_type,
-        "fault_location": fault_location,
+        "fault_location": location,
         "fault_impedance_ohm": fault_impedance_ohm,
-        "fault_current_ka": round(fault_current_ka, 3),
-        "first_relay_time_ms": first_relay_time_ms,
-        "cb_open_time_ms": CB_OPENING_TIME_MS,
-        "arc_extinction_time_ms": ARC_EXTINCTION_EXTRA_MS,
-        "total_clearance_time_ms": round(total_ms, 1),
-        "compliant": total_ms <= limit_ms,
-        "requirement_ms": limit_ms,
-        "relay_sequence": study["relay_sequence"],
-        "assessment": "PASS" if total_ms <= limit_ms else "FAIL",
+        "fault_current_ka": round(current, 3),
+        "first_relay_time_ms": main["trip_time_ms"],
+        "cb_open_time_ms": CB_BREAK_TIME_MS,
+        "arc_extinction_time_ms": 0.0,  # included in the rated break time
+        "total_clearance_time_ms": main["clearance_time_ms"],
+        "compliant": main["clearance_time_ms"] <= MAIN_CLEARANCE_TARGET_MS,
+        "requirement_ms": MAIN_CLEARANCE_TARGET_MS,
+        "relay_sequence": base["relay_sequence"],
+        "assessment": "PASS" if main["clearance_time_ms"] <= MAIN_CLEARANCE_TARGET_MS else "FAIL",
     }
+
+
+def get_tcc_plot_data(
+    relay_ids: list[str] | None = None,
+    settings: tuple[RelaySetting, ...] | None = None,
+) -> list[dict[str, Any]]:
+    """Time–current curves of the overcurrent stages, in primary kA at 66 kV.
+
+    60 log-spaced currents from 1.05 × pickup to 40 kA; distance and
+    differential stages are not current-graded and are not drawn.
+    """
+    curves = []
+    for s in settings or OSS_RELAY_SETTINGS:
+        if s.function != ProtectionFunction.PTOC or (relay_ids and s.setting_id not in relay_ids):
+            continue
+        pickup_ka = s.pickup_value * s.ct_primary_a / 1000.0
+        lo, hi = math.log(1.05 * pickup_ka), math.log(40.0)
+        points = []
+        for i in range(60):
+            i_ka = math.exp(lo + i * (hi - lo) / 59)
+            t = ptoc_time_s(s, i_ka)
+            if t <= 30.0:
+                points.append(
+                    {
+                        "current_ka": round(i_ka, 3),
+                        "current_multiple": round(i_ka / pickup_ka, 3),
+                        "time_s": round(t, 4),
+                    }
+                )
+        curves.append(
+            {
+                "relay_id": s.setting_id,
+                "location": s.location,
+                "curve_type": s.curve,
+                "tms": s.tms,
+                "pickup_value": s.pickup_value,
+                "pickup_unit": s.pickup_unit,
+                "pickup_ka": round(pickup_ka, 3),
+                "time_delay_s": s.time_delay,
+                "points": points,
+            }
+        )
+    return curves

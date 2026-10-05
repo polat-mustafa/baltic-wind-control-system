@@ -23,13 +23,16 @@ class ProtectionRelaySchema(BaseModel):
 
     id: uuid.UUID
     setting_id: str = Field(description="Registry ID, e.g. 'PTOC-01'")
-    relay_type: str = Field(description="IEC LN class: PTOC / PDIS / PTOV / PTUV / PTOF / PTUF")
+    relay_type: str = Field(
+        description="IEC LN class: PTOC / PDIS / PDIF / PTOV / PTUV / PTOF / PTUF"
+    )
     location: str
     manufacturer: str
     model: str
     pickup_value: float
     pickup_unit: str
-    time_delay_s: float = Field(description="Operating time delay [s]")
+    time_delay_s: float = Field(description="Definite time [s] (0 for IDMT stages)")
+    ct_primary_a: float = Field(0.0, description="CT primary current [A] for × In pickups")
     tms: float = Field(description="Time Multiplier Setting (IDMT curves)")
     curve_type: str = Field(description="SI / VI / EI / DT")
     enabled: bool
@@ -60,6 +63,7 @@ class RelaySettingsUpdate(BaseModel):
 class TCCCurvePoint(BaseModel):
     """A single (current, time) point on a TCC curve."""
 
+    current_ka: float = Field(0.0, description="Primary current at 66 kV [kA]")
     current_multiple: float = Field(description="Fault current / pickup current (I/Ip)")
     operating_time_s: float = Field(description="Relay operating time [s]")
 
@@ -74,10 +78,18 @@ class TCCCurveSeries(BaseModel):
     pickup_unit: str
     tms: float
     time_delay_s: float
+    pickup_ka: float = Field(0.0, description="Pickup in primary kA")
     points: list[TCCCurvePoint] = Field(
-        description="50 (current, time) points from 1.05x to 20x pickup for log-log plot"
+        description="Log-spaced (current, time) points from 1.05 × pickup to 40 kA"
     )
-    color_hint: str = Field(description="Suggested trace color, e.g. '#e74c3c'")
+    color_hint: str = Field("", description="Unused — the client picks colours")
+
+
+class FaultMarker(BaseModel):
+    """A fault current to mark on the TCC chart."""
+
+    current_ka: float
+    label: str
 
 
 class TCCPlotData(BaseModel):
@@ -85,9 +97,8 @@ class TCCPlotData(BaseModel):
 
     study_id: str = Field(description="Study ID or 'default' for current settings")
     curves: list[TCCCurveSeries]
-    fault_markers: list[dict[str, float]] = Field(
-        default_factory=list,
-        description="Optional fault current markers: [{current_ka, fault_label}]",
+    fault_markers: list[FaultMarker] = Field(
+        default_factory=list, description="IEC 60909 max / min fault currents at 66 kV"
     )
 
 
@@ -104,17 +115,21 @@ class CoordinationStudyRequest(BaseModel):
 
     fault_location: str = Field(
         description=(
-            "Named fault location: 'string_feeder' / 'export_cable_near' / "
-            "'export_cable_mid' / 'export_cable_far' / 'hv_busbar'"
+            "'string_feeder' / 'oss_busbar_66kv' / 'export_cable' / 'oss_busbar_220kv' "
+            "(legacy: export_cable_near / _mid / _far, hv_busbar)"
         ),
         examples=["string_feeder"],
     )
-    fault_current_ka: float = Field(
+    fault_current_ka: float | None = Field(
+        default=None,
         ge=0.1,
-        le=50.0,
-        description="Symmetrical 3-phase fault current [kA]",
-        examples=[8.5],
+        le=60.0,
+        description="Override of the fault current [kA]; None = IEC 60909 / impedance chain",
     )
+    position_pct: float | None = Field(
+        default=None, ge=0.0, le=100.0, description="Export cable: % from the onshore end"
+    )
+    fault_type: str = Field(default="3ph", description="'3ph' or 'ph_ph'")
     include_tcc_data: bool = Field(
         default=True,
         description="If True, include TCC plot data in the response",
@@ -139,7 +154,9 @@ class RelayTripEvent(BaseModel):
 
     relay_id: str
     relay_location: str
+    role: str = Field("", description="main / main 2 / backup for this fault")
     trip_time_ms: float = Field(description="Time from fault inception to relay operation [ms]")
+    clearance_time_ms: float = Field(0.0, description="Trip + 60 ms CB break time [ms]")
     fault_current_multiple: float = Field(description="Fault current / relay pickup")
     operated: bool = Field(description="True if relay actually trips for this fault")
 
@@ -158,6 +175,16 @@ class CoordinationStudyResponse(BaseModel):
     )
     first_relay: str = Field(description="Setting ID of the fastest operating relay")
     first_relay_time_ms: float
+    main_relay: str = Field("", description="Protection of the faulted zone")
+    main_clearance_ms: float = Field(0.0, description="Main protection trip + CB break [ms]")
+    backup_margin_ms: float | None = Field(None, description="Backup trip − main trip [ms]")
+    position_pct: float | None = None
+    fault_type: str = "3ph"
+    voltage_kv: float = 0.0
+    selective: bool = Field(False, description="Main protection first, backup ≥ 300 ms later")
+    fast_enough: bool = Field(False, description="Time criterion of this zone met")
+    time_limit_s: float = Field(0.0, description="Time limit of the zone's criterion [s]")
+    time_criterion: str = ""
     fully_graded: bool = Field(description="True if all grading pairs are selective")
     grading_results: list[GradingPairResult]
     grading_violations: int = Field(description="Number of pairs with insufficient margin")
@@ -174,26 +201,26 @@ class CoordinationStudyResponse(BaseModel):
 class FaultClearanceRequest(BaseModel):
     """Request to simulate a fault and produce a clearance time report.
 
-    Fault clearance time (FCT) is the interval from fault inception to
-    the CB arc extinction. IEC 61936-1 requires FCT < 100 ms on 66–220 kV
-    systems. PSE requires FCT < 80 ms at 220 kV for Type D generators.
+    Fault clearance time = relay operating time + CB rated break time (60 ms,
+    arcing included). Judged against 150 ms — the fault duration PSE's FRT
+    profile assumes (a design target, not a PSE clearance rule).
     """
 
     fault_type: str = Field(
-        description=(
-            "Fault type: '3ph' (3-phase), 'ph_ph' (phase-phase), "
-            "'ph_e' (single phase to earth), 'ph_ph_e' (double phase to earth)"
-        ),
+        description="Fault type: '3ph' or 'ph_ph' (earth faults need zero-sequence data)",
         examples=["3ph"],
     )
     fault_location: str = Field(
-        description="Named location: 'string_feeder' / 'export_cable' / 'hv_busbar'",
+        description="'string_feeder' / 'oss_busbar_66kv' / 'export_cable' / 'oss_busbar_220kv'",
         examples=["export_cable"],
     )
     fault_impedance_ohm: float = Field(
         default=0.0,
         ge=0.0,
         description="Fault impedance [ohm] (0 = bolted fault)",
+    )
+    position_pct: float | None = Field(
+        default=None, ge=0.0, le=100.0, description="Export cable: % from the onshore end"
     )
 
 
@@ -205,18 +232,9 @@ class FaultClearanceResponse(BaseModel):
     fault_impedance_ohm: float
     fault_current_ka: float = Field(description="Peak fault current at fault point [kA]")
     first_relay_time_ms: float = Field(description="Time from fault to relay operate signal [ms]")
-    cb_open_time_ms: float = Field(
-        description="Circuit breaker opening time [ms] (IEC 62271-100: ~60 ms)"
-    )
-    arc_extinction_time_ms: float = Field(
-        description="Arc extinction time [ms] (CB opening + 1-2 cycles)"
-    )
-    total_clearance_time_ms: float = Field(
-        description=(
-            "Total fault clearance time: relay + CB + arc [ms]. "
-            "Requirement: < 80 ms (PSE 220 kV) or < 100 ms (66 kV)"
-        )
-    )
+    cb_open_time_ms: float = Field(description="CB rated break time [ms] (3 cycles, arcing incl.)")
+    arc_extinction_time_ms: float = Field(description="0 — included in the break time")
+    total_clearance_time_ms: float = Field(description="Main protection trip + CB break [ms]")
     compliant: bool = Field(
         description="True if total clearance time meets the grid code requirement"
     )

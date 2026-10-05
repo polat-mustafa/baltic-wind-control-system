@@ -1,77 +1,78 @@
 /**
- * Relay Coordination (Selectivity Grading) Table — M05.
- *
- * Shows upstream/downstream relay pairs with actual vs required
- * Coordination Time Interval (CTI). Highlights violations in red.
- * IEC 60255-151: minimum CTI = 80 ms (electromechanical) or 50 ms (numerical).
+ * Relay settings of the scheme and the grading checks, as two compact tables.
  */
 
 import { useProtectionStore } from "../../store/protectionStore";
+import type { ProtectionRelaySchema } from "../../types/protection";
+
+function setting(r: ProtectionRelaySchema): string {
+  if (r.relay_type === "PTOC") return `${r.pickup_value} × In (CT ${r.ct_primary_a.toFixed(0)} A) · IEC ${r.curve_type} · TMS ${r.tms.toFixed(2)}`;
+  if (r.relay_type === "PDIF") return `differential · ${r.description.split("— ").pop()}`;
+  if (r.relay_type === "PDIS") return `${r.pickup_value} % reach · ${r.time_delay_s.toFixed(1)} s`;
+  return `${r.pickup_value} ${r.pickup_unit} · ${r.time_delay_s.toFixed(1)} s`;
+}
 
 export default function RelayCoordinationTable() {
-  const { coordinationResult } = useProtectionStore();
-
-  if (!coordinationResult) return null;
-
-  const { grading_results, relay_sequence, first_relay, first_relay_time_ms, fully_graded } = coordinationResult;
+  const { relays, study } = useProtectionStore();
+  if (!relays.length) return null;
+  const roleOf = new Map(study?.relay_sequence.map((e) => [e.relay_id, e.role]) ?? []);
 
   return (
-    <div className="space-y-3">
-      {/* Trip sequence summary */}
-      <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-text-secondary">First trip</span>
-          <span className={`text-xs font-mono px-2 py-0.5 rounded ${fully_graded ? "bg-status-success/20 text-status-success" : "bg-status-alarm/20 text-status-alarm"}`}>
-            {fully_graded ? "Selective" : "Grading violation"}
-          </span>
-        </div>
-        <p className="text-sm font-mono text-text-primary">
-          {first_relay} — {first_relay_time_ms.toFixed(0)} ms
-        </p>
-        <div className="mt-2 flex flex-wrap gap-1">
-          {relay_sequence.map((event) => (
-            <span key={event.relay_id} className={`text-xs px-2 py-0.5 rounded font-mono ${event.operated ? "bg-status-warning/20 text-status-warning" : "bg-bg-tertiary text-text-muted"}`}>
-              {event.relay_location}: {event.trip_time_ms.toFixed(0)} ms
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Grading pairs table */}
+    <div className="grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-4">
       <div className="overflow-x-auto">
-        <table className="w-full text-xs text-text-secondary border-collapse">
+        <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-border-primary text-text-muted">
-              <th className="text-left py-2 pr-3 font-medium">Upstream</th>
-              <th className="text-left py-2 pr-3 font-medium">Downstream</th>
-              <th className="text-right py-2 pr-3 font-medium">Margin (ms)</th>
-              <th className="text-right py-2 pr-3 font-medium">Required (ms)</th>
-              <th className="text-center py-2 font-medium">Status</th>
+            <tr className="text-text-muted border-b border-border-primary">
+              <th className="text-left font-normal py-1.5 pr-2">Relay</th>
+              <th className="text-left font-normal py-1.5 pr-2">Zone</th>
+              <th className="text-left font-normal py-1.5 pr-2">Setting</th>
+              <th className="text-left font-normal py-1.5">This fault</th>
             </tr>
           </thead>
           <tbody>
-            {grading_results.map((pair) => (
-              <tr key={pair.pair_id} className="border-b border-border-primary/50 hover:bg-bg-elevated/30">
-                <td className="py-1.5 pr-3 font-mono">{pair.upstream_id}</td>
-                <td className="py-1.5 pr-3 font-mono">{pair.downstream_id}</td>
-                <td className={`py-1.5 pr-3 text-right font-mono ${pair.selective ? "text-status-success" : "text-status-alarm"}`}>
-                  {(pair.actual_margin_ms).toFixed(0)}
-                </td>
-                <td className="py-1.5 pr-3 text-right font-mono text-text-muted">
-                  {pair.required_margin_ms.toFixed(0)}
-                </td>
-                <td className="py-1.5 text-center">
-                  {pair.selective ? (
-                    <span className="text-status-success">✓</span>
-                  ) : (
-                    <span className="text-status-alarm font-bold">✗</span>
-                  )}
-                </td>
+            {relays.map((r) => (
+              <tr key={r.setting_id} className="border-b border-border-primary/50">
+                <td className="py-1.5 pr-2 font-mono text-text-primary whitespace-nowrap">{r.setting_id}</td>
+                <td className="py-1.5 pr-2 text-text-secondary">{r.location}</td>
+                <td className="py-1.5 pr-2 text-text-secondary">{setting(r)}</td>
+                <td className="py-1.5 text-text-primary">{roleOf.get(r.setting_id) ?? "—"}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {study && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-text-muted border-b border-border-primary">
+                <th className="text-left font-normal py-1.5 pr-2">Grading pair</th>
+                <th className="text-right font-normal py-1.5 pr-2">t down / up</th>
+                <th className="text-right font-normal py-1.5">Margin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {study.grading_results.map((g) => (
+                <tr key={g.pair_id} className="border-b border-border-primary/50">
+                  <td className="py-1.5 pr-2 font-mono text-text-primary">
+                    {g.downstream_id} → {g.upstream_id}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right font-mono">
+                    {g.downstream_delay_s.toFixed(3)} / {g.upstream_delay_s.toFixed(3)} s
+                  </td>
+                  <td className="py-1.5 text-right font-mono">
+                    <span className={g.selective ? "text-status-normal" : "text-status-alarm"}>{g.selective ? "✓" : "✗"}</span>{" "}
+                    {g.actual_margin_ms.toFixed(0)} ≥ {g.required_margin_ms.toFixed(0)} ms
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-[11px] text-text-muted mt-2">
+            Overcurrent pairs are judged at the IEC 60909 maximum and minimum 66 kV fault currents (worst case shown).
+          </p>
+        </div>
+      )}
     </div>
   );
 }

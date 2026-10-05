@@ -1,11 +1,9 @@
 /**
- * Zustand store for P2 HV Grid dashboard state.
+ * Zustand store for the P2 Grid Analysis tab.
  *
- * Manages computation results from all P2 API endpoints,
- * user-selected scenarios, and loading/error states.
- *
- * Data flow: user clicks "Run Analysis" →
- * runFullAnalysis() calls all endpoints → results populate panels.
+ * "Run Analysis" fetches every study in parallel. FRT and the GFL/GFM
+ * comparison also re-run on their own when their inline controls change —
+ * both are fast (tens of ms server-side), so the charts follow the sliders.
  */
 
 import { create } from "zustand";
@@ -13,126 +11,140 @@ import { create } from "zustand";
 import * as api from "../services/gridApi";
 import type {
   ConverterComparisonResult,
+  FRTParams,
   FRTSimulationResult,
+  FRTType,
+  GridStrength,
   LoadFlowResult,
+  LoadFlowScenario,
   NetworkSpec,
   ShortCircuitResult,
   STATCOMSizingResult,
 } from "../types/grid";
 
-// ── Store Interface ────────────────────────────────────────────
+export const DEFAULT_FRT_PARAMS: FRTParams = {
+  faultBus: "PSE_400kV",
+  faultImpedancePu: 0.005,
+  faultDurationS: 0.15,
+  kFactor: 2,
+};
 
 interface GridState {
-  // Network spec
   networkSpec: NetworkSpec | null;
 
-  // Computation results
   loadFlowResults: LoadFlowResult[] | null;
   shortCircuit: ShortCircuitResult | null;
   statcomSizing: STATCOMSizingResult | null;
   frtResult: FRTSimulationResult | null;
   converterComparison: ConverterComparisonResult | null;
 
-  // User selections
-  activeScenario: "full_load" | "partial_load" | "no_load" | "n_minus_1";
-  frtType: "lvrt" | "hvrt";
-  converterScenario: "strong_grid" | "weak_grid";
+  activeScenario: LoadFlowScenario;
+  frtType: FRTType;
+  frtParams: FRTParams;
+  converterScenario: GridStrength;
+  phaseJumpDeg: number;
 
-  // UI state
   loading: boolean;
+  /** Set while only FRT or only the converter study is re-running. */
+  frtLoading: boolean;
+  converterLoading: boolean;
   error: string | null;
   analysisRun: boolean;
 
-  // Parameter setters
-  setActiveScenario: (s: GridState["activeScenario"]) => void;
-  setFrtType: (t: GridState["frtType"]) => void;
-  setConverterScenario: (s: GridState["converterScenario"]) => void;
+  setActiveScenario: (s: LoadFlowScenario) => void;
+  setFrtType: (t: FRTType) => void;
+  setFrtParams: (p: Partial<FRTParams>) => void;
+  setConverterScenario: (s: GridStrength) => void;
+  setPhaseJumpDeg: (deg: number) => void;
 
-  // Data actions
   fetchNetworkSpec: () => Promise<void>;
   runFullAnalysis: () => Promise<void>;
+  runFrt: () => Promise<void>;
+  runConverter: () => Promise<void>;
 
-  // Utility
   clearError: () => void;
 }
 
-// ── Store Implementation ───────────────────────────────────────
+const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 export const useGridStore = create<GridState>((set, get) => ({
-  // Network spec
   networkSpec: null,
 
-  // Results
   loadFlowResults: null,
   shortCircuit: null,
   statcomSizing: null,
   frtResult: null,
   converterComparison: null,
 
-  // Selections
   activeScenario: "full_load",
   frtType: "lvrt",
+  frtParams: DEFAULT_FRT_PARAMS,
   converterScenario: "strong_grid",
+  phaseJumpDeg: 20,
 
-  // UI
   loading: false,
+  frtLoading: false,
+  converterLoading: false,
   error: null,
   analysisRun: false,
 
-  // ── Parameter setters ──────────────────────────────────────
-
   setActiveScenario: (s) => set({ activeScenario: s }),
   setFrtType: (t) => set({ frtType: t }),
+  setFrtParams: (p) => set({ frtParams: { ...get().frtParams, ...p } }),
   setConverterScenario: (s) => set({ converterScenario: s }),
-
-  // ── Data actions ───────────────────────────────────────────
+  setPhaseJumpDeg: (deg) => set({ phaseJumpDeg: deg }),
 
   fetchNetworkSpec: async () => {
     try {
-      const networkSpec = await api.getNetworkSpec();
-      set({ networkSpec });
+      set({ networkSpec: await api.getNetworkSpec() });
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
+      set({ error: message(err) });
     }
   },
 
   runFullAnalysis: async () => {
-    const { frtType, converterScenario } = get();
-
+    const { frtType, frtParams, converterScenario, phaseJumpDeg } = get();
     set({ loading: true, error: null });
-
     try {
-      // Run all analyses in parallel for speed
-      const [
-        loadFlowResults,
-        shortCircuit,
-        statcomSizing,
-        frtResult,
-        converterComparison,
-      ] = await Promise.all([
-        api.runLoadFlowAll(),
-        api.calcShortCircuit("max"),
-        api.getSTATCOMSizing(),
-        api.runFRT(frtType),
-        api.getConverterComparison(converterScenario),
-      ]);
-
-      set({
-        loadFlowResults,
-        shortCircuit,
-        statcomSizing,
-        frtResult,
-        converterComparison,
-        analysisRun: true,
-      });
+      const [loadFlowResults, shortCircuit, statcomSizing, frtResult, converterComparison] =
+        await Promise.all([
+          api.runLoadFlowAll(),
+          api.calcShortCircuit("max"),
+          api.getSTATCOMSizing(),
+          api.runFRT(frtType, frtParams),
+          api.getConverterComparison(converterScenario, phaseJumpDeg),
+        ]);
+      set({ loadFlowResults, shortCircuit, statcomSizing, frtResult, converterComparison, analysisRun: true });
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
+      set({ error: message(err) });
     } finally {
       set({ loading: false });
     }
   },
 
-  // ── Utility ────────────────────────────────────────────────
+  runFrt: async () => {
+    const { frtType, frtParams } = get();
+    set({ frtLoading: true, error: null });
+    try {
+      set({ frtResult: await api.runFRT(frtType, frtParams) });
+    } catch (err) {
+      set({ error: message(err) });
+    } finally {
+      set({ frtLoading: false });
+    }
+  },
+
+  runConverter: async () => {
+    const { converterScenario, phaseJumpDeg } = get();
+    set({ converterLoading: true, error: null });
+    try {
+      set({ converterComparison: await api.getConverterComparison(converterScenario, phaseJumpDeg) });
+    } catch (err) {
+      set({ error: message(err) });
+    } finally {
+      set({ converterLoading: false });
+    }
+  },
 
   clearError: () => set({ error: null }),
 }));

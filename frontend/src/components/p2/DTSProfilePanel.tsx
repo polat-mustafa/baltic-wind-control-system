@@ -1,106 +1,133 @@
 /**
- * DTS Temperature Profile Panel — M10 Cable DTS.
- *
- * Plotly line chart: distance (km) vs temperature (°C) along 45 km export cable.
- * Hotspot markers (warning > 70°C, critical > 90°C) annotated with vertical lines.
- * IEC 60287 thermal model, J-tube zone factor = 1.4 (hottest section).
+ * DTS profile — fibre reading and conductor estimate along the 45 km route,
+ * zone bands, the 70 °C alarm setting and the 90 °C XLPE limit; zone table.
  */
 
 import Plot from "react-plotly.js";
+
+import { cableDtsEducation } from "../../constants/education/p2";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
 import { useCableDTSStore } from "../../store/cableDtsStore";
-import { InfoButton } from "../ui/InfoButton";
-import { dtsProfileInfo } from "../../constants/panelInfo";
+import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
 
 export default function DTSProfilePanel() {
-  const { profile } = useCableDTSStore();
+  const { profile: p } = useCableDTSStore();
+  const c = useChartPalette();
+  if (!p) return null;
 
-  if (!profile) {
-    return (
-      <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-        Loading DTS profile…
-      </div>
-    );
-  }
-
-  const distances = profile.profile.map((p) => p.distance_km);
-  const temps = profile.profile.map((p) => p.temperature_c);
-
-  // Hotspot vertical lines
-  const hotspotShapes = profile.profile
-    .filter((p) => p.is_hotspot)
-    .map((p) => ({
-      type: "line" as const,
-      x0: p.distance_km,
-      x1: p.distance_km,
-      y0: 0,
-      y1: 100,
-      line: { color: p.temperature_c > 90 ? "#ef4444" : "#f59e0b", width: 1, dash: "dot" as const },
-    }));
+  const km = p.profile.map((x) => x.distance_km);
+  const hot = p.profile.find((x) => x.distance_km === p.max_location_km);
+  const yMax = Math.max(95, p.max_conductor_c + 8);
+  const yMin = Math.max(0, p.ambient_temp_c - 5);
+  const limitLine = (y: number, color: string, dash: "dash" | "dot") =>
+    ({ type: "line", xref: "paper", x0: 0, x1: 1, y0: y, y1: y, line: { color, width: 1, dash } }) as const;
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1">
-          <h3 className="text-sm font-semibold text-text-primary">DTS Temperature Profile (45 km)</h3>
-          <InfoButton info={dtsProfileInfo} />
-        </div>
-        <div className="text-xs text-text-muted">
-          Max: <span className="text-text-primary font-mono">{profile.max_temp_c.toFixed(1)}°C</span>
-          {" "}@ {profile.max_temp_location_km.toFixed(1)} km
-        </div>
-      </div>
+    <ChartWrapper
+      title={`Temperature along one circuit at ${p.current_a} A, ${p.ambient_temp_c} °C ambient`}
+      headerRight={<EducationButton content={cableDtsEducation} />}
+      footer={`${p.assessment}. DTS reads the fibre; the conductor is the fibre plus (W_c + ½W_d)·T_int. Losses per core at the hottest spot: Joule ${p.joule_loss_w_per_m.toFixed(1)} W/m, dielectric ${p.dielectric_loss_w_per_m.toFixed(2)} W/m. Zone thermal resistances are calibrated to 950 A at 15 °C, not surveyed.`}
+    >
       <Plot
         data={[
           {
             type: "scatter",
-            x: distances,
-            y: temps,
             mode: "lines",
-            name: "Temperature (°C)",
-            line: { color: "#60a5fa", width: 2 },
-            hovertemplate: "%{x:.1f} km → %{y:.1f}°C<extra></extra>",
+            name: "Fibre (DTS reading)",
+            x: km,
+            y: p.profile.map((x) => x.fibre_temp_c),
+            line: { color: c.ref, width: 1.5 },
+            hovertemplate: "%{x:.1f} km: fibre %{y:.1f} °C<extra></extra>",
           },
           {
             type: "scatter",
-            x: [0, 45],
-            y: [70, 70],
             mode: "lines",
-            name: "Warning 70°C",
-            line: { color: "#f59e0b", width: 1, dash: "dot" },
-            hoverinfo: "none",
+            name: "Conductor (estimate)",
+            x: km,
+            y: p.profile.map((x) => x.conductor_temp_c),
+            line: { color: c.blue, width: 2 },
+            customdata: p.profile.map((x) => x.zone),
+            hovertemplate: "%{x:.1f} km, %{customdata}: conductor %{y:.1f} °C<extra></extra>",
           },
           {
             type: "scatter",
-            x: [0, 45],
-            y: [90, 90],
-            mode: "lines",
-            name: "Critical 90°C",
-            line: { color: "#ef4444", width: 1, dash: "dot" },
-            hoverinfo: "none",
+            mode: "markers",
+            name: "Hottest",
+            showlegend: false,
+            x: [p.max_location_km],
+            y: [p.max_conductor_c],
+            marker: { color: c.blue, size: 9, line: { color: c.ink, width: 1.5 } },
+            hovertemplate: `hottest %{y:.1f} °C, ${hot?.zone ?? ""}<extra></extra>`,
           },
         ]}
         layout={{
           ...DARK_PLOTLY_LAYOUT,
-          height: 280,
-          shapes: hotspotShapes,
-          xaxis: {
-            ...DARK_PLOTLY_LAYOUT.xaxis,
-            title: { text: "Distance (km)", font: { color: "#9ba3b8", size: 12 } },
-            range: [0, 45],
-          },
-          yaxis: {
-            ...DARK_PLOTLY_LAYOUT.yaxis,
-            title: { text: "Temperature (°C)", font: { color: "#9ba3b8", size: 12 } },
-            range: [0, 100],
-          },
-          legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", x: 0.5, xanchor: "center", y: 1.04, yanchor: "bottom" },
-          margin: { t: 52, r: 16, b: 32, l: 60 },
+          transition: CHART_TRANSITION,
+          legend: { orientation: "h", y: 1.12, x: 0, font: { size: 11 } },
+          margin: { t: 40, r: 12, b: 44, l: 56 },
+          xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, title: { text: "Distance from the OSS [km]", font: { size: 12 } }, range: [0, p.cable_length_km], dtick: 5 },
+          yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: { text: "Temperature [°C]", font: { size: 12 } }, range: [yMin, yMax] },
+          shapes: [
+            ...p.zones
+              .filter((_, i) => i % 2 === 0)
+              .map((z) => ({ type: "rect", xref: "x", yref: "paper", x0: z.start_km, x1: Math.max(z.end_km, z.start_km + 0.4), y0: 0, y1: 1, fillcolor: c.band, line: { width: 0 }, layer: "below" }) as const),
+            limitLine(90, c.red, "dash"),
+            limitLine(70, c.yellow, "dot"),
+          ],
+          annotations: [
+            ...p.zones.map((z) => ({
+              x: z.name === "OSS J-tube" ? 0.4 : (z.start_km + z.end_km) / 2,
+              y: 0,
+              yref: "paper" as const,
+              yanchor: "bottom" as const,
+              xanchor: z.name === "OSS J-tube" ? ("left" as const) : ("center" as const),
+              text: z.name === "OSS J-tube" ? "← J-tube 0–0.3 km" : z.name === "HDD landfall" ? "HDD" : z.name,
+              showarrow: false,
+              font: { size: 10, color: c.ref },
+            })),
+            { x: p.cable_length_km, y: 90, xanchor: "right", yanchor: "bottom", text: "90 °C XLPE limit", showarrow: false, font: { size: 10, color: c.ref } },
+            { x: p.cable_length_km, y: 70, xanchor: "right", yanchor: "bottom", text: "70 °C alarm (setting)", showarrow: false, font: { size: 10, color: c.ref } },
+          ],
         }}
         config={PLOTLY_CONFIG}
+        useResizeHandler
         className="w-full"
+        style={{ height: 300 }}
       />
-      <p className="mt-1 text-xs text-text-muted">{profile.assessment}</p>
-    </div>
+      <div className="overflow-x-auto mt-2">
+        <table className="w-full text-xs">
+          <thead className="text-text-muted">
+            <tr className="text-left">
+              <th className="font-medium py-1">Zone</th>
+              <th className="font-medium">km</th>
+              <th className="font-medium text-right">R_ext [K·m/W]</th>
+              <th className="font-medium text-right">Fibre max</th>
+              <th className="font-medium text-right">Conductor max</th>
+              <th className="font-medium text-right">Rating here</th>
+            </tr>
+          </thead>
+          <tbody className="font-mono text-text-primary">
+            {p.zones.map((z) => (
+              <tr key={z.name} className="border-t border-border-primary/40">
+                <td className="py-1 font-sans text-text-secondary">{z.name}</td>
+                <td>
+                  {z.start_km}–{z.end_km}
+                </td>
+                <td className="text-right">{z.r_ext_k_m_per_w.toFixed(2)}</td>
+                <td className="text-right">{z.max_fibre_c.toFixed(1)} °C</td>
+                <td className="text-right">
+                  {z.max_conductor_c.toFixed(1)} °C {z.max_conductor_c < 90 ? "✓" : "✗"}
+                </td>
+                <td className="text-right">
+                  {z.rating_a.toFixed(0)} A{z.name === p.limiting_zone ? " ◂ limit" : ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </ChartWrapper>
   );
 }

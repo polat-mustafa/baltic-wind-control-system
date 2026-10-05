@@ -1,100 +1,85 @@
 /**
- * Protection Relay store — M05.
- * Manages relay configurations, TCC coordination studies, and fault clearance.
+ * Protection tab store — relay registry, fault study and TMS changes.
+ *
+ * The study re-runs whenever the fault location / cable position / fault
+ * type changes; a TMS change is PUT to the relay registry first so the
+ * grading and the TCC follow the new setting.
  */
 
 import { create } from "zustand";
+
 import * as api from "../services/protectionApi";
 import type {
-  ProtectionRelaySchema,
-  CoordinationStudyRequest,
   CoordinationStudyResponse,
-  FaultClearanceRequest,
-  FaultClearanceResponse,
-  TCCPlotData,
+  FaultLocation,
+  ProtectionRelaySchema,
 } from "../types/protection";
 
 interface ProtectionState {
   relays: ProtectionRelaySchema[];
-  tccData: TCCPlotData | null;
-  coordinationResult: CoordinationStudyResponse | null;
-  faultClearanceResult: FaultClearanceResponse | null;
-  // Coordination study params
-  faultLocation: string;
-  faultCurrentKA: number;
-  includeTCC: boolean;
+  study: CoordinationStudyResponse | null;
+
+  faultLocation: FaultLocation;
+  positionPct: number;
+  faultType: "3ph" | "ph_ph";
+
   loading: boolean;
-  studyLoading: boolean;
   error: string | null;
 
-  fetchRelays(): Promise<void>;
-  runCoordinationStudy(): Promise<void>;
-  runFaultClearance(req: FaultClearanceRequest): Promise<void>;
-  setFaultLocation(loc: string): void;
-  setFaultCurrentKA(ka: number): void;
-  setIncludeTCC(val: boolean): void;
+  setFaultLocation(loc: FaultLocation): void;
+  setPositionPct(pct: number): void;
+  setFaultType(t: "3ph" | "ph_ph"): void;
+  runStudy(): Promise<void>;
+  setTms(settingId: string, tms: number): Promise<void>;
   clearError(): void;
 }
 
+const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
 export const useProtectionStore = create<ProtectionState>((set, get) => ({
   relays: [],
-  tccData: null,
-  coordinationResult: null,
-  faultClearanceResult: null,
-  faultLocation: "WTG_ARRAY",
-  faultCurrentKA: 12.5,
-  includeTCC: true,
+  study: null,
+
+  faultLocation: "string_feeder",
+  positionPct: 50,
+  faultType: "3ph",
+
   loading: false,
-  studyLoading: false,
   error: null,
 
-  fetchRelays: async () => {
+  setFaultLocation: (loc) => set({ faultLocation: loc }),
+  setPositionPct: (pct) => set({ positionPct: pct }),
+  setFaultType: (t) => set({ faultType: t }),
+
+  runStudy: async () => {
+    const { faultLocation, positionPct, faultType } = get();
     set({ loading: true, error: null });
     try {
-      const [relays, tccData] = await Promise.all([
+      const [relays, study] = await Promise.all([
         api.getRelays(),
-        api.getTCCData(),
+        api.runCoordinationStudy({
+          fault_location: faultLocation,
+          position_pct: faultLocation === "export_cable" ? positionPct : null,
+          fault_type: faultType,
+          include_tcc_data: true,
+        }),
       ]);
-      set({ relays, tccData });
+      set({ relays, study });
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Failed to fetch relays" });
+      set({ error: message(err) });
     } finally {
       set({ loading: false });
     }
   },
 
-  runCoordinationStudy: async () => {
-    const { faultLocation, faultCurrentKA, includeTCC } = get();
-    set({ studyLoading: true, error: null });
+  setTms: async (settingId, tms) => {
     try {
-      const req: CoordinationStudyRequest = {
-        fault_location: faultLocation,
-        fault_current_ka: faultCurrentKA,
-        include_tcc_data: includeTCC,
-      };
-      const coordinationResult = await api.runCoordinationStudy(req);
-      set({ coordinationResult });
+      await api.updateRelaySettings(settingId, { tms });
+      await get().runStudy();
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Coordination study failed" });
-    } finally {
-      set({ studyLoading: false });
+      set({ error: message(err) });
     }
   },
 
-  runFaultClearance: async (req: FaultClearanceRequest) => {
-    set({ studyLoading: true, error: null });
-    try {
-      const faultClearanceResult = await api.runFaultClearance(req);
-      set({ faultClearanceResult });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Fault clearance simulation failed" });
-    } finally {
-      set({ studyLoading: false });
-    }
-  },
-
-  setFaultLocation: (loc) => set({ faultLocation: loc }),
-  setFaultCurrentKA: (ka) => set({ faultCurrentKA: ka }),
-  setIncludeTCC: (val) => set({ includeTCC: val }),
   clearError: () => set({ error: null }),
 }));

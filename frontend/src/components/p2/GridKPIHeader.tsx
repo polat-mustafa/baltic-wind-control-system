@@ -1,123 +1,104 @@
 /**
- * KPI summary cards — top-level HV grid metrics.
- *
- * Displays: Voltage Range, Total Losses, Max Ik'', STATCOM Q, FRT Status.
- * Color-coded per ISA-101: green = normal, amber = warning, red = fault.
+ * Grid KPIs — one headline per study, each with the requirement it is judged
+ * against. Status is carried by an icon + word, never colour alone.
  */
 
+import { Activity, Gauge, ShieldCheck, Waves, Zap } from "lucide-react";
+
+import {
+  faultRideThroughEducation,
+  loadFlowEducation,
+  reactiveCompensationEducation,
+  shortCircuitEducation,
+} from "../../constants/education/p2";
 import { useGridStore } from "../../store/gridStore";
-import { SCADA_COLORS } from "../../constants/scadaColors";
+import { KPICard } from "../ui/KPICard";
 
-interface KPICardProps {
-  label: string;
-  value: string;
-  unit: string;
-  color?: string;
-  subtitle?: string;
-}
-
-function KPICard({ label, value, unit, color, subtitle }: KPICardProps) {
-  return (
-    <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
-      <p className="text-xs text-text-muted uppercase tracking-wider">{label}</p>
-      <p className="text-2xl font-bold mt-1" style={color ? { color } : undefined}>
-        {value}
-        <span className="text-sm font-normal text-text-muted ml-1">{unit}</span>
-      </p>
-      {subtitle && <p className="text-xs text-text-muted mt-1">{subtitle}</p>}
-    </div>
-  );
-}
+const ok = (pass: boolean) => (pass ? "✓" : "✗");
 
 export default function GridKPIHeader() {
-  const { loadFlowResults, shortCircuit, statcomSizing, frtResult } =
-    useGridStore();
-
+  const { loadFlowResults, shortCircuit, statcomSizing, frtResult } = useGridStore();
   if (!loadFlowResults || !shortCircuit) return null;
 
-  // Find full-load scenario for primary KPIs
-  const fullLoad = loadFlowResults.find((r) => r.scenario === "full_load");
-  if (!fullLoad) return null;
+  const full = loadFlowResults.find((r) => r.scenario === "full_load");
+  if (!full) return null;
 
-  // Voltage compliance color
+  const energised = loadFlowResults.flatMap((r) =>
+    r.buses.filter((b) => !b.name.startsWith("PSE") && b.vm_pu > 0).map((b) => b.vm_pu),
+  );
+  const vMin = Math.min(...energised);
+  const vMax = Math.max(...energised);
   const allCompliant = loadFlowResults.every((r) => r.voltage_compliant);
-  const voltageColor = allCompliant
-    ? SCADA_COLORS.ENERGIZED
-    : SCADA_COLORS.FAULT;
+  const lossPct = (full.total_loss_mw / full.total_generation_mw) * 100;
 
-  // Loss color (amber if > 2% of generation)
-  const lossPct = fullLoad.total_generation_mw > 0
-    ? (fullLoad.total_loss_mw / fullLoad.total_generation_mw) * 100
-    : 0;
-  const lossColor = lossPct > 3
-    ? SCADA_COLORS.FAULT
-    : lossPct > 2
-      ? SCADA_COLORS.WARNING
-      : SCADA_COLORS.ENERGIZED;
+  const duty = shortCircuit.bus_results
+    .filter((b) => b.breaker_ka > 0)
+    .map((b) => ({ bus: b.bus_name, pct: (b.ikss_ka / b.breaker_ka) * 100 }))
+    .sort((a, b) => b.pct - a.pct)[0];
 
-  // Breaker color
-  const breakerColor = shortCircuit.breaker_adequate
-    ? SCADA_COLORS.ENERGIZED
-    : SCADA_COLORS.FAULT;
-
-  // STATCOM color
-  const statcomColor = statcomSizing?.compensation_adequate
-    ? SCADA_COLORS.ENERGIZED
-    : SCADA_COLORS.WARNING;
-
-  // FRT color
-  const frtCompliant =
-    frtResult?.stayed_connected &&
-    frtResult?.reactive_current_compliant &&
-    frtResult?.recovery_compliant;
-  const frtColor = frtCompliant
-    ? SCADA_COLORS.ENERGIZED
-    : SCADA_COLORS.FAULT;
+  const frtPass =
+    frtResult != null &&
+    frtResult.stayed_connected &&
+    frtResult.reactive_current_compliant &&
+    frtResult.recovery_compliant;
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
       <KPICard
-        label="Voltage Range"
-        value={`${fullLoad.v_min_pu.toFixed(3)}–${fullLoad.v_max_pu.toFixed(3)}`}
-        unit="pu"
-        color={voltageColor}
-        subtitle={allCompliant ? "All scenarios compliant" : "Violation detected"}
-      />
-      <KPICard
-        label="Total Losses"
-        value={fullLoad.total_loss_mw.toFixed(1)}
+        label="Delivered to PSE (full load)"
+        value={full.poc_p_mw.toFixed(0)}
         unit="MW"
-        color={lossColor}
-        subtitle={`${lossPct.toFixed(1)}% of ${fullLoad.total_generation_mw} MW`}
+        icon={<Zap size={16} />}
+        trendValue={`losses ${full.total_loss_mw.toFixed(1)} MW (${lossPct.toFixed(2)} %)`}
+        education={loadFlowEducation}
       />
       <KPICard
-        label={`Max Ik'' (${shortCircuit.max_ikss_bus})`}
-        value={shortCircuit.max_ikss_ka.toFixed(1)}
-        unit="kA"
-        color={breakerColor}
-        subtitle={shortCircuit.breaker_adequate ? "Breakers adequate" : "Breakers undersized"}
+        label="Farm bus voltages"
+        value={`${vMin.toFixed(3)}–${vMax.toFixed(3)}`}
+        unit="pu"
+        icon={<Activity size={16} />}
+        trendValue={`${ok(allCompliant)} 4 scenarios in 0.95–1.05 pu`}
+        education={loadFlowEducation}
       />
       <KPICard
-        label="STATCOM Rating"
-        value={`\u00B1${statcomSizing?.statcom_rating_mvar ?? 120}`}
-        unit="MVAR"
-        color={statcomColor}
-        subtitle={
+        label="Worst breaker duty"
+        value={duty ? duty.pct.toFixed(0) : "—"}
+        unit="%"
+        icon={<ShieldCheck size={16} />}
+        trendValue={
+          duty
+            ? `${ok(shortCircuit.breaker_adequate)} Ik'' ${shortCircuit.max_ikss_ka.toFixed(1)} kA · ${duty.bus.replace("_", " ")}`
+            : "—"
+        }
+        education={shortCircuitEducation}
+      />
+      <KPICard
+        label="Q range at POC"
+        value={
           statcomSizing
-            ? `Ferranti rise: ${(statcomSizing.ferranti_rise_pu * 100).toFixed(1)}%`
-            : "Loading..."
+            ? `+${statcomSizing.poc_q_max_mvar.toFixed(0)} / ${statcomSizing.poc_q_min_mvar.toFixed(0)}`
+            : "—"
         }
+        unit="MVAR"
+        icon={<Waves size={16} />}
+        trendValue={
+          statcomSizing
+            ? `${ok(statcomSizing.pse_q_range_met)} PSE needs +${statcomSizing.pse_q_max_mvar.toFixed(0)} / ${statcomSizing.pse_q_min_mvar.toFixed(0)}`
+            : "—"
+        }
+        education={reactiveCompensationEducation}
       />
       <KPICard
-        label="FRT Status"
-        value={frtCompliant ? "PASS" : frtResult ? "FAIL" : "---"}
+        label="Fault ride-through"
+        value={frtResult ? (frtPass ? "PASS" : "FAIL") : "—"}
         unit=""
-        color={frtColor}
-        subtitle={
+        icon={<Gauge size={16} />}
+        trendValue={
           frtResult
-            ? `Kqv=${frtResult.reactive_current_gain.toFixed(1)}, t_rec=${frtResult.recovery_time_s.toFixed(2)}s`
-            : "Not yet simulated"
+            ? `${ok(frtResult.stayed_connected)} profile · ${ok(frtResult.reactive_current_compliant)} Iq · ${ok(frtResult.recovery_compliant)} recovery`
+            : "not simulated"
         }
+        education={faultRideThroughEducation}
       />
     </div>
   );

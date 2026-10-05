@@ -1,87 +1,93 @@
 /**
- * Harmonic Spectrum Panel — M06 Power Quality.
- *
- * Plotly bar chart: harmonic order vs magnitude %.
- * IEC 61000-3-6 HV planning levels overlaid as horizontal lines.
- * Green = compliant, red = exceeds limit.
+ * From current to voltage: the WTG emission spectrum next to the harmonic
+ * voltage it causes at the assessed bus, as a share of the planning level.
+ * Two single-axis charts, same order axis, so resonance amplification shows
+ * as a bar that grows from left to right.
  */
 
 import Plot from "react-plotly.js";
+
+import { powerQualityEducation } from "../../constants/education/p2";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
 import { usePowerQualityStore } from "../../store/powerQualityStore";
-import { InfoButton } from "../ui/InfoButton";
-import { harmonicSpectrumInfo } from "../../constants/panelInfo";
+import { ChartWrapper } from "../ui/ChartWrapper";
+import { EducationButton } from "../ui/EducationButton";
 
 export default function HarmonicSpectrumPanel() {
   const { harmonics } = usePowerQualityStore();
-
-  if (!harmonics) {
-    return (
-      <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-        Run analysis to see harmonic spectrum
-      </div>
-    );
-  }
-
-  const orders = harmonics.harmonics.map((h) => `H${h.order}`);
-  const magnitudes = harmonics.harmonics.map((h) => h.magnitude_pct);
-  const limits = harmonics.harmonics.map((h) => h.limit_pct);
-  const colors = harmonics.harmonics.map((h) =>
-    h.exceeds_limit ? "#ef4444" : "#3ecf6e"
-  );
-
+  const c = useChartPalette();
+  if (!harmonics?.harmonics.length) return null;
+  const rows = harmonics.harmonics;
+  const x = rows.map((r) => `h${r.order}`);
+  const base = {
+    ...DARK_PLOTLY_LAYOUT,
+    transition: CHART_TRANSITION,
+    showlegend: false,
+    bargap: 0.3,
+    xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, type: "category" as const, title: { text: "Harmonic order", font: { size: 12 } } },
+    margin: { t: 16, r: 12, b: 48, l: 60 },
+  };
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1">
-          <h3 className="text-sm font-semibold text-text-primary">Harmonic Spectrum (IEC 61000-3-6)</h3>
-          <InfoButton info={harmonicSpectrumInfo} />
+    <ChartWrapper
+      title={`Harmonics — WTG emission and the voltage it causes at ${harmonics.bus}`}
+      headerRight={<EducationButton content={powerQualityEducation} />}
+      footer={`THD ${harmonics.thd_voltage_pct.toFixed(2)} % (planning level ${harmonics.thd_limit_pct} %) · ${harmonics.violations.length ? `✗ ${harmonics.violations.join(" · ")}` : "✓ all orders below the IEC TR 61000-3-6 planning levels"} · emission illustrative full-converter, summed over 34 WTGs`}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs text-text-muted mb-1">One WTG's current emission [% of rated current]</p>
+          <Plot
+            data={[
+              {
+                type: "bar",
+                x,
+                y: rows.map((r) => r.current_pct),
+                marker: { color: c.seq[2] },
+                hovertemplate: "%{x}: %{y:.2f} % of rated current<extra></extra>",
+              },
+            ]}
+            layout={{ ...base, yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: { text: "I_h [%]", font: { size: 12 } } } }}
+            config={PLOTLY_CONFIG}
+            useResizeHandler
+            className="w-full"
+            style={{ height: 260 }}
+          />
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className={`px-2 py-0.5 rounded font-mono ${harmonics.compliant ? "bg-status-success/20 text-status-success" : "bg-status-alarm/20 text-status-alarm"}`}>
-            THD {harmonics.thd_voltage_pct.toFixed(1)}% {harmonics.compliant ? "✓" : "✗"}
-          </span>
-          <span className="text-text-muted">{harmonics.voltage_level}</span>
+        <div>
+          <p className="text-xs text-text-muted mb-1">Harmonic voltage as a share of its planning level [%]</p>
+          <Plot
+            data={[
+              {
+                type: "bar",
+                x,
+                y: rows.map((r) => r.utilisation_pct),
+                customdata: rows.map((r) => [r.magnitude_pct, r.limit_pct, r.impedance_ohm]),
+                marker: { color: rows.map((r) => (r.exceeds_limit ? c.red : c.blue)) },
+                text: rows.map((r) => (r.utilisation_pct >= 20 ? `${r.utilisation_pct.toFixed(0)} %` : "")),
+                textposition: "outside",
+                textfont: { color: c.ink, size: 10 },
+                cliponaxis: false,
+                hovertemplate:
+                  "%{x}: %{customdata[0]:.3f} % of U1 vs %{customdata[1]:.2f} % limit<br>|Z| at 66 kV %{customdata[2]:.1f} Ω<extra></extra>",
+              },
+            ]}
+            layout={{
+              ...base,
+              yaxis: {
+                ...DARK_PLOTLY_LAYOUT.yaxis,
+                title: { text: "U_h / planning level [%]", font: { size: 12 } },
+                range: [0, Math.max(110, ...rows.map((r) => r.utilisation_pct)) * 1.12],
+              },
+              shapes: [{ type: "line", xref: "paper", x0: 0, x1: 1, y0: 100, y1: 100, line: { color: c.ref, width: 1.5, dash: "dash" } } as const],
+            }}
+            config={PLOTLY_CONFIG}
+            useResizeHandler
+            className="w-full"
+            style={{ height: 260 }}
+          />
         </div>
       </div>
-      <Plot
-        data={[
-          {
-            type: "bar",
-            x: orders,
-            y: magnitudes,
-            name: "Measured",
-            marker: { color: colors, opacity: 0.85 },
-            hovertemplate: "%{x}: %{y:.2f}%<extra></extra>",
-          },
-          {
-            type: "scatter",
-            x: orders,
-            y: limits,
-            mode: "lines+markers",
-            name: "IEC limit",
-            line: { color: "#f59e0b", width: 1.5, dash: "dot" },
-            marker: { size: 5 },
-            hovertemplate: "Limit %{x}: %{y:.1f}%<extra></extra>",
-          },
-        ]}
-        layout={{
-          ...DARK_PLOTLY_LAYOUT,
-          height: 280,
-          xaxis: {
-            ...DARK_PLOTLY_LAYOUT.xaxis,
-            title: { text: "Harmonic order", font: { color: "#9ba3b8", size: 12 } },
-          },
-          yaxis: {
-            ...DARK_PLOTLY_LAYOUT.yaxis,
-            title: { text: "Magnitude (% of fundamental)", font: { color: "#9ba3b8", size: 12 } },
-          },
-          legend: { ...DARK_PLOTLY_LAYOUT.legend, orientation: "h", x: 0.5, xanchor: "center", y: 1.04, yanchor: "bottom" },
-          margin: { t: 52, r: 16, b: 32, l: 80 },
-        }}
-        config={PLOTLY_CONFIG}
-        className="w-full"
-      />
-    </div>
+    </ChartWrapper>
   );
 }

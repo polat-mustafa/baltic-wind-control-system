@@ -18,7 +18,7 @@ export const sensitivityEducation: EducationContent = {
 
   technicalExplanation:
     "One-at-a-time (OAT) analysis varies each input by ±1σ with the others fixed — cheap and easy to communicate. " +
-    "Global methods (Sobol indices) average over the joint distribution and capture interactions; the Research Lab's " +
+    "Global methods (Sobol indices) average over the joint distribution and capture interactions; the backend's " +
     "polynomial-chaos tool reports Sobol indices. Because the AEP cascade is multiplicative and the losses are small, " +
     "interactions between the loss terms are weak, so OAT ranks them almost the same way. The wind-speed → energy step " +
     "is non-linear and turbine-dependent: for the V236 at this site, +1 % in Weibull A gives only +1.2 % gross AEP.",
@@ -87,7 +87,7 @@ export const sensitivityEducation: EducationContent = {
     },
     {
       file: "backend/app/services/p1/uncertainty_quantification.py",
-      description: "Polynomial-chaos expansion with Sobol indices (Research Lab).",
+      description: "Polynomial-chaos expansion with Sobol indices.",
     },
   ],
 

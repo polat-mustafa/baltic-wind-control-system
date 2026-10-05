@@ -121,7 +121,7 @@ export const aepCascadeEducation: EducationContent = {
     },
     {
       file: "backend/app/services/p1/uncertainty_quantification.py",
-      description: "Polynomial-chaos uncertainty propagation (Research Lab).",
+      description: "Polynomial-chaos uncertainty propagation.",
     },
   ],
 

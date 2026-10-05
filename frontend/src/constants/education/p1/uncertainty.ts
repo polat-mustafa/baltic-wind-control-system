@@ -112,7 +112,7 @@ export const uncertaintyEducation: EducationContent = {
     },
     {
       file: "backend/app/services/p1/uncertainty_quantification.py",
-      description: "Polynomial-chaos propagation of input uncertainty with Sobol indices (Research Lab).",
+      description: "Polynomial-chaos propagation of input uncertainty with Sobol indices.",
     },
   ],
 

@@ -80,7 +80,7 @@ export const layoutComparisonEducation: EducationContent = {
     },
     {
       file: "backend/app/services/p1/layout_optimizer.py",
-      description: "Regular / staggered grid generators and the layout optimiser (Research Lab).",
+      description: "Regular / staggered grid generators and the layout optimiser.",
     },
   ],
 

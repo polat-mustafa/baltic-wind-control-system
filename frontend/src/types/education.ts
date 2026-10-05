@@ -96,7 +96,7 @@ export interface EducationContent {
   title: string;
   /** Optional one-line context shown under the title */
   subtitle?: string;
-  /** Optional discipline tag (used by the Engineer's Library cards) */
+  /** Optional discipline tag (discipline chip on a primer) */
   discipline?: Discipline;
 
   // ── Layer 1: Physics / what it is ────────────────────────────

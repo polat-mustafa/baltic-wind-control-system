@@ -382,7 +382,7 @@ function CodeTab({ c }: { c: EducationContent }) {
   if (!hasCode && !hasLessons) {
     return (
       <EmptyHint>
-        No source files or lessons linked. (Engineer's Library primers
+        No source files or lessons linked. (Design-rationale primers
         intentionally omit code references.)
       </EmptyHint>
     );

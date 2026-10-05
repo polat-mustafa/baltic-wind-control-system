@@ -163,7 +163,7 @@ export default function SCADAPage() {
             className={cn(
               toolBtnCls,
               autoSimEnabled
-                ? "border-status-normal text-status-normal hover:bg-bg-hover"
+                ? "border-accent bg-accent text-white hover:opacity-90"
                 : "bg-bg-secondary border-border-primary text-text-secondary hover:bg-bg-hover",
             )}
           >

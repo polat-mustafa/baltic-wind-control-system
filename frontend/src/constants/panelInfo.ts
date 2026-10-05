@@ -167,19 +167,20 @@ export const eventLogInfo: InfoContent = {
 };
 
 export const permitWorkflowInfo: InfoContent = {
-  title: "Permit to Work — Safety Authorization System",
+  title: "Permit to Work — safety authorisation for HV work",
   description:
-    "Digital permit-to-work system for controlling hazardous work on HV equipment. " +
-    "Follows a multi-step approval workflow with LOTO isolation verification.",
-  standard: "BS 6626 — Maintenance of electrical switchgear and control gear",
+    "Nine-state lifecycle: requested → risk assessed → approved → isolated → LOTO applied → active → " +
+    "work complete → LOTO removed → closed (cancellable while open). Every transition needs an RBAC permission " +
+    "and is written to the audit trail.",
+  standard: "EN 50110-1 (five safety rules) · OSHA 1910.147 (LOTO) · IEC 62351-8 roles",
   parameters: [
-    { name: "PTW states", description: "Draft → Submitted → Approved → Active → Closed" },
-    { name: "LOTO", description: "Lock-Out Tag-Out isolation points" },
-    { name: "PIC", description: "Person In Charge (safety responsibility)" },
+    { name: "Isolation", description: "Disconnect and secure against reconnection before anything else" },
+    { name: "LOTO", description: "Personal locks and danger tags on every isolation point" },
+    { name: "Active", description: "Absence of voltage verified, earthing applied — work may start; validity 12 h" },
   ],
   interpretation:
-    "No work may begin until the permit reaches ACTIVE state. " +
-    "All isolation points must be verified and locked before work starts.",
+    "Buttons the current role may not use stay disabled (switch the role in the toolbar). " +
+    "Approval needs a senior operator, isolation and LOTO an operator with ptw_isolate / ptw_loto.",
 };
 
 export const rbacInfo: InfoContent = {

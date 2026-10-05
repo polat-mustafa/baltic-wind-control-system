@@ -336,7 +336,7 @@ export default function SubstationSLD() {
             {blocked && <span className="text-status-warning">{blocked}</span>}
             <button
               type="button"
-              onClick={() => setBlocked(operateBreaker(selected))}
+              onClick={async () => setBlocked(await operateBreaker(selected))}
               className="h-7 px-3 rounded bg-accent text-white font-medium hover:opacity-90"
             >
               Execute {selState === "CLOSED" ? "OPEN" : "CLOSE"}

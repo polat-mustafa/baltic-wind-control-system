@@ -76,7 +76,7 @@ export default function SCADADashboard() {
           <div className="p-3"><PermitWorkflowPanel /></div>
         )}
         {area === "operations" && active === "events" && (
-          <div className="p-3"><EventLogPanel /></div>
+          <div className="p-2 h-full"><EventLogPanel /></div>
         )}
         {area === "operations" && active === "bays" && (
           <div className="p-3"><BayControllerPanel /></div>

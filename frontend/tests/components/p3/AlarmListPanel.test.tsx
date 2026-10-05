@@ -89,8 +89,8 @@ describe("AlarmListPanel", () => {
     mockStore({ alarms });
     render(<AlarmListPanel />);
     expect(screen.getByText("Alarm List")).toBeDefined();
-    expect(screen.getByText("CRIT")).toBeDefined();
-    expect(screen.getByText("LOW")).toBeDefined();
+    expect(screen.getByText("P1")).toBeDefined();
+    expect(screen.getByText("P4")).toBeDefined();
   });
 
   it("shows column headers", () => {

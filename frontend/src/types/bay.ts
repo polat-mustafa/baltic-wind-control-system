@@ -8,25 +8,16 @@
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
-export type BayType =
-  | "FEEDER"
-  | "BUSBAR"
-  | "TIE"
-  | "TRANSFORMER"
-  | "MEASUREMENT"
-  | "AUXILIARY";
+// Values as serialised by the backend StrEnums (services/p5/equipment_state.py)
+export type BayType = "FEEDER" | "TRANSFORMER" | "BUS_COUPLER" | (string & {});
 
-export type BayMode = "NORMAL" | "LOCAL" | "REMOTE" | "ISOLATED" | "TEST";
+export type BayMode = "local" | "remote" | "maintenance";
 
-export type SwitchPosition =
-  | "OPEN"
-  | "CLOSED"
-  | "INTERMEDIATE"
-  | "UNKNOWN";
+export type SwitchPosition = "open" | "closed" | "tripped" | "failed" | "intermediate";
 
-export type SwitchCommand = "OPEN" | "CLOSE";
+export type SwitchCommand = "open" | "close" | "earth" | "unearth" | "rack_in" | "rack_out";
 
-export type RelayState = "NORMAL" | "PICKUP" | "TRIP" | "LOCKOUT" | "ALARM";
+export type RelayState = "armed" | "tripped" | "blocked" | "test";
 
 // ── Synchrocheck ──────────────────────────────────────────────────────────────
 
@@ -55,6 +46,10 @@ export interface BayStateResponse {
   is_tie_cb: boolean;
   synchrocheck: SynchroCheck | null;
   last_updated: string;        // ISO-8601 UTC
+  cb_id: string;
+  ds_bus_id: string;
+  ds_line_id: string;
+  es_id: string;
 }
 
 export interface AllBaysResponse {

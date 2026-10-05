@@ -72,6 +72,10 @@ class BayStateResponse(BaseModel):
     is_tie_cb: bool
     synchrocheck: SynchroCheckSchema | None = None
     last_updated: datetime
+    cb_id: str = Field(description="Circuit breaker equipment id, e.g. CB-STR-01")
+    ds_bus_id: str = Field(description="Busbar-side disconnector id")
+    ds_line_id: str = Field(description="Line-side disconnector id")
+    es_id: str = Field(description="Earth switch id")
 
 
 class AllBaysResponse(BaseModel):
@@ -183,7 +187,9 @@ class ValidateCommandRequest(BaseModel):
     executes the real command.
     """
 
-    bay_id: uuid.UUID
+    bay_id: str = Field(
+        description="Bay name (BAY-OSS-66-01) or its stable UUID", examples=["BAY-OSS-66-01"]
+    )
     equipment_id: str = Field(examples=["CB-STR-01"])
     action: str = Field(examples=["close"])
     operator_id: str = Field(examples=["operator_kaan"])

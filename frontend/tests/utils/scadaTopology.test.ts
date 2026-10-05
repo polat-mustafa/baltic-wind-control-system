@@ -4,7 +4,8 @@ import {
   deenergisedTurbines,
   energisation,
   initialBreakerStates,
-  interlockReason,
+  BAY_OF,
+  BREAKER_OF_BAY,
 } from "../../src/utils/scadaTopology";
 
 describe("scadaTopology", () => {
@@ -20,7 +21,6 @@ describe("scadaTopology", () => {
     const cb = { ...initialBreakerStates(), "cb-oss-t1": "TRIPPED" as const, "cb-66-a": "TRIPPED" as const };
     expect(energisation(cb).strings).toEqual([false, false, false, true, true, true]);
     expect(deenergisedTurbines(cb)).toHaveLength(18);
-    expect(interlockReason(cb, "cb-66-bc")).toBeNull();
     expect(deenergisedTurbines({ ...cb, "cb-66-bc": "CLOSED" })).toEqual([]);
   });
 
@@ -30,11 +30,8 @@ describe("scadaTopology", () => {
     expect(energisation({ ...one, "cb-oss-e2": "OPEN" }).oss220).toBe(false);
   });
 
-  it("interlock: no parallel operation of the OSS transformers", () => {
-    const cb = initialBreakerStates();
-    expect(interlockReason(cb, "cb-66-bc")).toMatch(/blocked/);
-    const coupled = { ...cb, "cb-66-b": "OPEN" as const, "cb-66-bc": "CLOSED" as const };
-    expect(interlockReason(coupled, "cb-66-b")).toMatch(/blocked/);
-    expect(interlockReason(cb, "cb-str1")).toBeNull(); // opening is always allowed
+  it("every 66 kV breaker maps to its bay controller and back", () => {
+    expect(Object.keys(BAY_OF)).toHaveLength(9);
+    expect(BREAKER_OF_BAY["BAY-OSS-66-08"]).toBe("cb-66-bc");
   });
 });

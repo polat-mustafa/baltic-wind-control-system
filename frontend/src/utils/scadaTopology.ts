@@ -90,23 +90,23 @@ export function deenergisedTurbines(cb: BreakerStates): string[] {
 }
 
 /**
- * Switching interlocks (a reason string blocks the command).
- * The 66 kV sections must never run in parallel through the coupler: two
- * 300 MVA units in parallel raise the 66 kV fault level towards the 25 kA
- * switchgear rating, so the coupler closes only with one incomer open.
+ * 66 kV breakers that belong to a bay controller (BAY-OSS-66-01 … 09): they
+ * are operated through the backend bay controller, which enforces the bay
+ * interlocks (ILK-001 … 007) and writes the SOE log.
  */
-export function interlockReason(cb: BreakerStates, id: BreakerId): string | null {
-  const closing = cb[id] !== "CLOSED";
-  if (!closing) return null;
-  const incomersClosed = cb["cb-66-a"] === "CLOSED" && cb["cb-66-b"] === "CLOSED";
-  if (id === "cb-66-bc" && incomersClosed) {
-    return "Bus coupler blocked: both transformer incomers closed (no parallel operation of TX-OSS-01/02)";
-  }
-  if ((id === "cb-66-a" || id === "cb-66-b") && cb["cb-66-bc"] === "CLOSED") {
-    const other = id === "cb-66-a" ? "cb-66-b" : "cb-66-a";
-    if (cb[other] === "CLOSED") {
-      return "Incomer blocked: bus coupler closed and the other incomer in service";
-    }
-  }
-  return null;
-}
+export const BAY_OF: Partial<Record<BreakerId, { bay: string; cb: string }>> = {
+  "cb-str1": { bay: "BAY-OSS-66-01", cb: "CB-STR-01" },
+  "cb-str2": { bay: "BAY-OSS-66-02", cb: "CB-STR-02" },
+  "cb-str3": { bay: "BAY-OSS-66-03", cb: "CB-STR-03" },
+  "cb-str4": { bay: "BAY-OSS-66-04", cb: "CB-STR-04" },
+  "cb-str5": { bay: "BAY-OSS-66-05", cb: "CB-STR-05" },
+  "cb-str6": { bay: "BAY-OSS-66-06", cb: "CB-STR-06" },
+  "cb-66-a": { bay: "BAY-OSS-66-07", cb: "CB-TX-OSS-LV" },
+  "cb-66-bc": { bay: "BAY-OSS-66-08", cb: "CB-TIE-66-01" },
+  "cb-66-b": { bay: "BAY-OSS-66-09", cb: "CB-TX-OSS-02-LV" },
+};
+
+/** Bay name → SLD breaker id. */
+export const BREAKER_OF_BAY: Record<string, BreakerId> = Object.fromEntries(
+  Object.entries(BAY_OF).map(([id, v]) => [v!.bay, id as BreakerId]),
+);

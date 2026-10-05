@@ -16,8 +16,13 @@ Method (teaching version of a marine-operations campaign simulation):
    activities, ``gate`` = the matching unit of another activity, e.g. a
    turbine needs its foundation) and a long-enough window opens. Time spent
    waiting for that window is waiting on weather (WoW).
-4. Vessels are on charter from their first to their last operation,
-   including WoW and idle time; cost = day rate × charter days + mobilisation.
+4. During installation the cable-lay vessel, which only follows the slower
+   foundation campaign, is mobilised just in time: late enough not to wait
+   for it at twice its calm-weather pace. During removal the vessels follow
+   each other turbine by turbine and wait on site (idle time is paid). It is on charter
+   from the start to the end of its work, including WoW, and stays on hire
+   through gaps of up to 30 days between activities; a longer gap costs a
+   new mobilisation. Cost = day rate × charter days + mobilisations.
 
 All vessel limits, durations and rates are ILLUSTRATIVE teaching values
 (order of magnitude for 15 MW-class projects), returned with the result so
@@ -46,6 +51,9 @@ from app.services.p1.weather_window import (
 Mode = Literal["install", "remove"]
 STEP_H = weather.STEP_HOURS
 HORIZON_YEARS = 6
+KEEP_ON_HIRE_DAYS = 30
+# planning buffer of a just-in-time follower: twice its calm-weather duration
+JIT_BUFFER = 2.0
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
@@ -127,6 +135,8 @@ class Activity:
     after: list[str] = field(default_factory=list)
     gate: Callable[[int, dict[str, NDArray[np.int64]]], int] | None = None
     """Earliest start step of unit k from the unit end times of earlier activities."""
+    jit: bool = False
+    """Mobilise just in time behind the gating activity instead of waiting on site."""
 
 
 @dataclass
@@ -190,6 +200,7 @@ def install_plan(c: CampaignInput) -> list[Activity]:
             n,
             array_op,
             gate=_unit_gate("foundations"),
+            jit=True,
         ),
         Activity(
             "turbines",
@@ -292,6 +303,32 @@ def _steps(hours: float) -> int:
     return max(1, math.ceil(hours / STEP_H))
 
 
+def _charter(
+    start: NDArray[np.float64], end: NDArray[np.float64]
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Charter steps and mobilisations per run for one vessel's activities.
+
+    The vessel stays on hire through gaps up to ``KEEP_ON_HIRE_DAYS``
+    between its activities; a longer gap means demobilise and mobilise again.
+    """
+    keep = KEEP_ON_HIRE_DAYS * weather.STEPS_PER_DAY
+    charter = np.zeros(start.shape[0])
+    mobs = np.ones(start.shape[0])
+    for r in range(start.shape[0]):
+        spans = sorted(zip(start[r], end[r], strict=True))
+        charter[r] = spans[0][1] - spans[0][0]
+        prev = spans[0][1]
+        for s0, s1 in spans[1:]:
+            gap = max(0.0, s0 - prev)
+            if gap > keep:
+                mobs[r] += 1
+            else:
+                charter[r] += gap
+            charter[r] += s1 - max(s0, prev)
+            prev = max(prev, s1)
+    return charter, mobs
+
+
 def run_campaign(c: CampaignInput) -> dict[str, Any]:
     plan = install_plan(c) if c.mode == "install" else remove_plan(c)
     horizon = HORIZON_YEARS * 365 * weather.STEPS_PER_DAY
@@ -332,6 +369,17 @@ def run_campaign(c: CampaignInput) -> dict[str, Any]:
             first: int | None = None
             wow = 0
             ue = np.zeros(a.units, dtype=np.int64)
+            if a.gate is not None and a.jit:
+                # just-in-time mobilisation: start late enough that, at
+                # JIT_BUFFER × its calm-weather pace, no unit waits for its
+                # predecessor
+                lead = 0.0
+                latest = t
+                for k in range(a.units):
+                    lead += JIT_BUFFER * (trip if a.trip_every and k % a.trip_every == 0 else 0)
+                    latest = max(latest, int(a.gate(k, ends) - lead))
+                    lead += JIT_BUFFER * need
+                t = latest
             for k in range(a.units):
                 g = a.gate(k, ends) if a.gate is not None else 0
                 trip_now = trip if a.trip_every and k % a.trip_every == 0 else 0
@@ -376,9 +424,10 @@ def run_campaign(c: CampaignInput) -> dict[str, Any]:
     for vid in vessels_used:
         v = VESSELS[vid]
         idx = [i for i, a in enumerate(plan) if a.vessel == vid]
-        charter = (a_end[:, idx].max(axis=1) - a_start[:, idx].min(axis=1)) / spd
+        charter, mobs = _charter(a_start[:, idx], a_end[:, idx])
+        charter /= spd
         wow_days = a_wow[:, idx].sum(axis=1) / spd
-        vcost = (v.day_rate_keur * charter + v.mobilisation_keur) / 1000.0  # M€
+        vcost = (v.day_rate_keur * charter + v.mobilisation_keur * mobs) / 1000.0  # M€
         cost += vcost
         hs_lim, w_lim = _limits(c, v)
         need = max(_steps(plan[i].op_hours) for i in idx)

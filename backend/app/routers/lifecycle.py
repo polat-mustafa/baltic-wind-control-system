@@ -28,8 +28,9 @@ ASSUMPTIONS = [
     f"scaled with the power law α = {weather.SHEAR_ALPHA} (IEC 61400-3-1 normal wind profile).",
     "Vessel limits, unit durations, deck capacity, day rates and mobilisation are illustrative "
     "teaching values.",
-    "Charter runs from a vessel's first to its last operation, including waiting on weather "
-    "and idle time.",
+    "The array cable vessel is mobilised just in time behind the foundations; charter covers "
+    "the work including waiting on weather, idle time and gaps up to 30 days (a longer gap "
+    "costs a new mobilisation).",
 ]
 
 

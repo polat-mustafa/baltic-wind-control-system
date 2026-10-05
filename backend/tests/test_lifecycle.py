@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.lifecycle import weather
-from app.services.lifecycle.campaign import CampaignInput, install_plan, run_campaign
+from app.services.lifecycle.campaign import CampaignInput, _charter, install_plan, run_campaign
 
 client = TestClient(app)
 URL = "/api/v1/lifecycle/campaign"
@@ -147,6 +147,25 @@ def test_commissioning_waits_for_its_whole_string() -> None:
     ends = {"turbines": np.arange(12), "array": np.array([5, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 9])}
     assert gate(0, ends) == 5  # string 1 waits for its slowest section
     assert gate(6, ends) == 9  # string 2 likewise
+
+
+def test_charter_keeps_short_gaps_and_remobilises_after_long_ones() -> None:
+    spd = weather.STEPS_PER_DAY
+    start = np.array([[0.0, 12.0 * spd], [0.0, 60.0 * spd]])
+    end = np.array([[10.0 * spd, 20.0 * spd], [10.0 * spd, 70.0 * spd]])
+    charter, mobs = _charter(start, end)
+    assert (charter / spd).tolist() == [20.0, 20.0]  # 2-day gap paid, 50-day gap not
+    assert mobs.tolist() == [1.0, 2.0]
+
+
+def test_array_cable_vessel_is_mobilised_just_in_time() -> None:
+    """The CLV does not sit idle behind the slower foundation campaign."""
+    huge = {v: (99.0, 99.0) for v in ("HLV", "WTIV", "CLV", "CTV")}
+    r = run_campaign(_inp(n_turbines=24, strings=[6, 6, 6, 6], limits=huge, alpha=1.0))
+    acts = {a["id"]: a for a in r["activities"]}
+    assert acts["array"]["start_day"] > acts["export"]["end_day"]
+    # it still finishes after the last foundation
+    assert acts["array"]["end_day"] >= acts["foundations"]["end_day"]
 
 
 def test_removal_options_change_scope() -> None:

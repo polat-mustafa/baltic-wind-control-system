@@ -10,6 +10,8 @@
  *   /commissioning   → CommissioningPage (P5 switching programme)
  *   /turbine-physics → TurbinePhysicsPage (dynamic simulation)
  *   /digital-twin    → DigitalTwinPage (condition monitoring)
+ *   /develop         → SitePermitsPage, /develop/layout → LayoutPage
+ *   /academy         → AcademyPage (courses, scored missions)
  *
  * All routes are wrapped in AppShell (top bar + sidebar + content area).
  */
@@ -22,6 +24,7 @@ import AppShell from "./components/layout/AppShell";
 
 // Route-level code splitting: each page (and its heavy deps — Plotly, three.js,
 // XYFlow, Leaflet) is downloaded on first visit. AppShell holds the <Suspense>.
+const AcademyPage = lazy(() => import("./pages/AcademyPage"));
 const CommissioningPage = lazy(() => import("./pages/CommissioningPage"));
 const DigitalTwinPage = lazy(() => import("./pages/DigitalTwinPage"));
 const ForecastPage = lazy(() => import("./pages/ForecastPage"));
@@ -49,6 +52,7 @@ function App() {
             <Route path="commissioning" element={<CommissioningPage />} />
             <Route path="turbine-physics" element={<TurbinePhysicsPage />} />
             <Route path="digital-twin" element={<DigitalTwinPage />} />
+            <Route path="academy" element={<AcademyPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

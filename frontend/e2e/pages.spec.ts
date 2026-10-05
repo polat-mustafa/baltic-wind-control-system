@@ -10,6 +10,7 @@ const ROUTES = [
   ["p4-forecast", "/forecast"],
   ["p5-commissioning", "/commissioning"],
   ["digital-twin", "/digital-twin"],
+  ["academy", "/academy"],
 ] as const;
 
 const THEMES = ["storybook", "hmi"] as const;

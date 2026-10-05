@@ -1,7 +1,7 @@
 # OffshoreForge roadmap and hand-off
 
 Working notes for continuing the OffshoreForge transformation in a new Claude Code session.
-Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are merged, phase 4 is in review.
+Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are merged, phases 4 and 5 are in review.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -10,16 +10,17 @@ Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are
 | 3a/3b | Open marine data package + site-assessment backend | Merged (PR #219) |
 | 3c | `/develop` "build a farm from scratch" journey | Merged (PR #220) |
 | 4 | Layout canvas: turbines, wake, AEP, array cables, cost | Done on `claude/busy-planck-8vitbx` (PR open) |
-| 5 | Academy: courses and scored missions | **Next** |
-| 6 | Lifecycle: construction, operation hand-over, decommissioning | Open |
+| 5 | Academy: courses and scored missions | Done on `claude/busy-planck-8vitbx` (on top of phase 4) |
+| 6 | Lifecycle: construction, operation hand-over, decommissioning | **Next** |
 
 ## Resume here
 
 1. `git fetch origin && git checkout claude/busy-planck-8vitbx && git pull`
    (if PR #221 is already merged: `git checkout -B claude/busy-planck-8vitbx origin/main`).
 2. PR #221 (Phase 4) — check CI; merge only when the owner says so.
-3. Next: **Phase 5 — Academy** (spec below). Open a new PR for it from a branch based on the latest `main`.
-4. Owner to-dos: `cd frontend && npm run e2e:update` (new `layout` and `site-permits` baselines),
+3. Phase 5 (Academy) is committed on the same branch on top of phase 4 (the session could only push there).
+4. Next: **Phase 6 — Lifecycle** (spec below).
+5. Owner to-dos: `cd frontend && npm run e2e:update` (new `layout`, `site-permits` and `academy` baselines),
    rename the GitHub repo to `offshoreforge`, trademark check.
 
 ## Working conventions
@@ -155,7 +156,25 @@ file that other modules can read.
 - Tests: wake-model generalisation (vitest), cable heuristic (vitest: capacity respected, tree
   connects all turbines, MST ≤ Esau–Williams length), projectStore, backend endpoint.
 
-## Phase 5 — Academy
+## Phase 5 — Academy (implemented)
+
+Delivered (route `/academy`, page `frontend/src/pages/AcademyPage.tsx`, sidebar group "Learn"):
+- `frontend/src/academy/` — `courses.ts` (4 tracks, lessons = EducationContent primers or module links,
+  9 missions), `scoring.ts` (site, layout, diagnosis), `frt.ts` (PSE profile + seeded dips), `sequence.ts`
+  (energisation order from the P5 programme), `random.ts` (seeded RNG).
+- Missions: site selection and layout challenge grade the learner's own `siteStore` / `projectStore`
+  (layout always with `DEFAULT_COSTS`); energisation sequence, FRT compliance and Digital Twin diagnosis
+  (backend run, graded against `validation.rows`) are challenges; the four control-room drills open via
+  `/?drill=<scenario>` (ScenarioCenter) and `trainingStore` records their score.
+- `frontend/src/lib/layout/evaluate.ts` — one-shot layout evaluation shared with the layout canvas.
+- `store/academyStore.ts` (`of.academy.v1`): learner, lessons opened, attempts; JSON export.
+  Printable training record (`components/academy/TrainingRecord.tsx`, `.print-doc[data-printing]`).
+- Tour `academy`; tests `tests/academy/`, `tests/store/academyStore.test.ts`, `tests/components/academy/`.
+- Not done (optional in the spec): instructor mission assignment, glossary tooltips.
+- Note: `utils/gridEvents.ts` `PSE_LVRT` (control-room voltage-dip drill) differs from the PSE profile in
+  `services/p2/frt_simulation.py` (0 pu to 0.15 s, line to 0.85 pu at 2.5 s), which the Academy uses.
+
+Original spec, kept for reference:
 
 - Route `/academy`: course map Develop → Design → Build → Operate, built on the existing
   `EducationContent` schema (`frontend/src/types/education.ts`, `components/ui/EducationPanel.tsx`).

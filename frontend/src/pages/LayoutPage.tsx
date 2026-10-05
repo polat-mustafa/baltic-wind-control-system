@@ -16,6 +16,17 @@ import { routeCables, ARRAY_SECTIONS, maxPerString } from "../lib/layout/cables"
 import { COST_LABELS, layoutCost, type CostInputs } from "../lib/layout/cost";
 import { layoutYield, UNIFORM_ROSE, type WindRose } from "../lib/layout/energy";
 import {
+  D,
+  defaultExportKm,
+  exclusionRings,
+  inRing,
+  MIN_SPACING_D,
+  OTHER_LOSSES,
+  RATED_MW,
+  WEIBULL_A,
+  WEIBULL_K,
+} from "../lib/layout/evaluate";
+import {
   centroid,
   dist,
   gridFill,
@@ -35,26 +46,6 @@ import { WatchOut } from "../components/site/Stages";
 import { SECTION_COLOR, type TurbineView } from "../components/layout-canvas/shared";
 
 const LayoutMap = lazy(() => import("../components/layout-canvas/LayoutMap"));
-
-const D = 236; // V236 rotor diameter [m]
-const RATED_MW = 15;
-/** Teaching default for the spacing warning (illustrative; projects use 4–10 D by direction). */
-const MIN_SPACING_D = 4;
-/** Availability + electrical losses applied to the wake-only AEP for the LCOE (illustrative). */
-const OTHER_LOSSES = 0.08;
-const EXCLUDING_ROLES = ["protected", "shipping", "restricted", "owf"];
-
-type Ring = LonLat[];
-
-function inRing(p: LonLat, ring: Ring): boolean {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i];
-    const [xj, yj] = ring[j];
-    if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
-}
 
 function GridTool({ onFill }: { onFill: (o: { along: number; across: number; angle: number; staggered: boolean; avoid: boolean }) => void }) {
   const [along, setAlong] = useState(6);
@@ -166,7 +157,7 @@ export default function LayoutPage() {
   }, [loadLayers, assess]);
   useEffect(() => {
     let live = true;
-    computeWindRose(10.5, 2.2, 87_600, 12)
+    computeWindRose(WEIBULL_A, WEIBULL_K, 87_600, 12)
       .then((r) => {
         if (live) {
           setRose({ directions: r.sector_centres_deg, frequencies: r.frequencies });
@@ -183,19 +174,13 @@ export default function LayoutPage() {
   const siteXY = useMemo(() => site.map(proj.toXY), [site, proj]);
   const areaKm2 = polygonArea(siteXY) / 1e6;
 
-  const exclusions = useMemo(() => {
-    const out: { name: string; role: string; ring: Ring }[] = [];
-    for (const l of layers?.layers ?? [])
-      if (EXCLUDING_ROLES.includes(l.role))
-        for (const f of l.features) if (f.geometry.type === "Polygon") out.push({ name: f.name, role: l.role, ring: f.geometry.coordinates[0] });
-    return out;
-  }, [layers]);
+  const exclusions = useMemo(() => exclusionRings(layers), [layers]);
   const excludedBy = (pt: LonLat) => exclusions.find((e) => inRing(pt, e.ring));
 
   const sig = signature(p.turbines);
   const xy = useMemo(() => p.turbines.map((t) => proj.toXY([t.lon, t.lat])), [p.turbines, proj]);
   // live screening yield, recomputed when the layout (not a drag in progress) changes
-  const yieldRes = useMemo(() => (xy.length ? layoutYield(xy, 10.5, 2.2, rose) : null), [xy, rose]);
+  const yieldRes = useMemo(() => (xy.length ? layoutYield(xy, WEIBULL_A, WEIBULL_K, rose) : null), [xy, rose]);
   const oss = p.oss;
   const cables = useMemo(() => (oss && xy.length ? routeCables(proj.toXY(oss), xy, RATED_MW) : null), [xy, oss, proj]);
   const spacing = minSpacing(xy);
@@ -220,7 +205,7 @@ export default function LayoutPage() {
   const pywakeFresh = p.pywake && p.pywakeFor === sig ? p.pywake : null;
   const wakeOnlyGWh = pywakeFresh?.net_aep_gwh ?? yieldRes?.netGWh ?? 0;
   const netGWh = wakeOnlyGWh * (1 - OTHER_LOSSES);
-  const defaultExport = report?.grid_km != null ? Math.round(report.grid_km * 1.1) : 45;
+  const defaultExport = defaultExportKm(report?.grid_km);
   const expKm = exportKm ?? defaultExport;
   const cost = layoutCost(p.costs, capacity, cables?.totalKm ?? 0, expKm, report?.depth_m?.[1] ?? null, netGWh);
 

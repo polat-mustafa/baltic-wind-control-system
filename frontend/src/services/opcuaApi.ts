@@ -1,7 +1,7 @@
 /**
  * OPC-UA Server API — M03.
  * Maps to backend routers (opcua endpoints in main.py / p3/opcua.py).
- * Endpoints: /api/v1/opcua/*
+ * Endpoints: /api/v1/scada/opcua/*
  *
  * Binary OPC-UA on opc.tcp://10.0.2.10:4840 — REST is supplementary.
  */
@@ -15,7 +15,7 @@ import type {
 
 import { post, request } from "./apiClient";
 
-const BASE = "/api/v1/opcua";
+const BASE = "/api/v1/scada/opcua";
 
 /** Get OPC-UA server runtime status. */
 export function getOPCUAStatus(): Promise<OPCUAStatusResponse> {

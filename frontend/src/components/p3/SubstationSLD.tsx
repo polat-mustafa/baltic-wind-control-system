@@ -1,556 +1,356 @@
 /**
- * Professional Substation Single-Line Diagram — IEC 60617 + IEC 61850.
+ * Single-line diagram of the export system — IEC 60617 symbols, ISA-101 colours.
  *
- * Live features:
- * - Breaker nodes show OPEN/CLOSED/TRIPPED state dynamically
- * - Fault location highlighted with flashing red
- * - Power flow values on busbar measurement points
- * - Click breaker → toggle OPEN/CLOSE (with RBAC check via store)
- * - Animated edges on energized paths
- *
- * Topology:
- *   400 kV PSE Grid ← CB-DS-TX(400/220)-DS-CB → 220 kV Export
- *   220 kV Export ← CB-DS-TX(220/66)-DS-CB → 66 kV Array Busbar
- *   66 kV Busbar → CB-DS per string → 6 strings × WTG IEDs
+ * Topology and energisation come from utils/scadaTopology (2 × onshore and
+ * 2 × OSS transformers, 2 × 45 km export cables, split 66 kV switchboard).
+ * Flows are computed from the live farm: string MW from the turbines,
+ * section → transformer loading, cable current with half the charging
+ * current in quadrature. Operating a breaker is select-before-operate
+ * (IEC 61850-7-2 SBO): click selects, Execute operates — after the RBAC and
+ * interlock checks in the store.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  MarkerType,
-  type Node,
-  type Edge,
-  type NodeTypes,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+import { useMemo, useState } from "react";
 
 import { useScadaStore } from "../../store/scadaStore";
-import { useLandingStore, selectTurbineSLDMap } from "../../store/landingStore";
+import { useLandingStore } from "../../store/landingStore";
+import { usePlantSnapshot } from "../../store/liveGridStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
-import {
-  BusbarNode,
-  CircuitBreakerNode,
-  DisconnectorNode,
-  EarthSwitchNode,
-  IEDNode,
-  TransformerNode,
-} from "../sld/SLDNodes";
-import SLDDetailPanel from "../sld/SLDDetailPanel";
 import { InfoButton } from "../ui/InfoButton";
 import { substationSldInfo } from "../../constants/panelInfo";
+import {
+  BREAKERS,
+  STRING_IDS,
+  energisation,
+  type BreakerId,
+} from "../../utils/scadaTopology";
 import type { BreakerState } from "../../types/scada";
+import {
+  EXPORT_CABLE,
+  REACTOR_UNIT_MVAR,
+  TX_UNIT_MVA,
+  arrayCableCurrentA,
+  exportCableState,
+} from "../../utils/landingPhysics";
+import { cn } from "../../lib/utils";
 
-// ── Equipment type → ISA-101 color mapping ───────────────────
+const DEAD = SCADA_COLORS.DE_ENERGIZED;
+const V400 = SCADA_COLORS.VOLTAGE_400KV;
+const V220 = SCADA_COLORS.VOLTAGE_220KV;
+const V66 = SCADA_COLORS.VOLTAGE_66KV;
 
-const EQUIPMENT_COLOR: Record<string, string> = {
-  protection_ied: SCADA_COLORS.FAULT,
-  measurement_ied: SCADA_COLORS.VOLTAGE_220KV,
-  bay_controller: SCADA_COLORS.ENERGIZED,
-  wtg_controller: SCADA_COLORS.EARTHED,
+// Column x of circuit 1 / circuit 2, string feeders, busbar y levels
+const X1 = 390;
+const X2 = 610;
+const STRING_X = [110, 230, 350, 650, 770, 890];
+const Y = {
+  b400: 50, cb400: 88, txOns: 140, b220on: 195, cbOnsE: 230, cbOssE: 352,
+  b220oss: 390, cbOssT: 428, txOss: 482, cb66: 537, b66: 578, cbStr: 620, str: 662,
+} as const;
+
+/** Fault zones of the GOOSE scenarios, drawn as a dashed red rectangle. */
+const FAULT_ZONE: Record<string, { x: number; y: number; w: number; h: number }> = {
+  busbar_overcurrent: { x: 140, y: Y.b220oss - 14, w: 720, h: 28 },
+  transformer_differential: { x: X1 - 34, y: Y.cbOssT - 16, w: 68, h: Y.cb66 - Y.cbOssT + 32 },
+  cable_earth_fault: { x: X1 - 34, y: Y.cbOnsE - 16, w: 68, h: Y.cbOssE - Y.cbOnsE + 32 },
 };
 
-// ── XYFlow node types — ALL IEC 60617 symbols registered ─────
-
-const nodeTypes: NodeTypes = {
-  ied: IEDNode,
-  busbar: BusbarNode,
-  cb: CircuitBreakerNode,
-  ds: DisconnectorNode,
-  es: EarthSwitchNode,
-  tx: TransformerNode,
-};
-
-// ── Breaker state → color mapping ────────────────────────────
-
-function breakerColor(state: BreakerState): string {
-  switch (state) {
-    case "CLOSED": return SCADA_COLORS.ENERGIZED;
-    case "OPEN": return SCADA_COLORS.DE_ENERGIZED;
-    case "TRIPPED": return SCADA_COLORS.FAULT;
-    case "RACKING": return SCADA_COLORS.WARNING;
-  }
+function Wire({ x1, y1, x2, y2, live, color, w = 2 }: { x1: number; y1: number; x2: number; y2: number; live: boolean; color: string; w?: number }) {
+  return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={live ? color : DEAD} strokeWidth={w} />;
 }
 
-// ── Layout builder — full switchgear topology ────────────────
-
-function buildGraph(
-  devices: {
-    name: string;
-    equipment_type: string;
-    logical_devices: { logical_nodes: unknown[] }[];
-  }[],
-  breakerStates: Record<string, BreakerState>,
-  faultHighlightNodeId: string | null,
-  turbineMap?: Record<string, { powerOutputMW: number; windSpeedMs: number; status: string }>,
-  alarmNodeMap?: Record<string, { priority: string; state: string }>,
-) {
-  const nodes: Node[] = [];
-  const edges: Edge[] = [];
-
-  const green = SCADA_COLORS.ENERGIZED;
-
-  // Helper to get breaker state and color
-  const cbState = (id: string) => breakerStates[id] ?? "CLOSED";
-  const cbColor = (id: string) => breakerColor(cbState(id));
-
-  // ── 400 kV Section ──
-  nodes.push({
-    id: "bb-400kv",
-    type: "busbar",
-    position: { x: 300, y: 0 },
-    data: { label: "400 kV PSE Grid", color: SCADA_COLORS.VOLTAGE_400KV, voltage: 400 },
-  });
-
-  nodes.push({
-    id: "cb-400",
-    type: "cb",
-    position: { x: 360, y: 50 },
-    data: {
-      label: "CB-400",
-      color: cbColor("cb-400"),
-      state: cbState("cb-400"),
-      highlight: faultHighlightNodeId === "cb-400",
-    },
-  });
-  nodes.push({
-    id: "ds-400-1",
-    type: "ds",
-    position: { x: 360, y: 110 },
-    data: { label: "DS-400", color: SCADA_COLORS.VOLTAGE_400KV, state: "CLOSED" },
-  });
-
-  // ── 400/220 kV Transformer ──
-  nodes.push({
-    id: "tx-400-220",
-    type: "tx",
-    position: { x: 355, y: 170 },
-    data: { label: "TX-400/220 ×2", color: green, state: "IN SERVICE", rating: "2 × 300 MVA" },
-  });
-
-  // ES on 400kV side
-  nodes.push({
-    id: "es-400",
-    type: "es",
-    position: { x: 240, y: 80 },
-    data: { label: "ES-400", color: SCADA_COLORS.EARTHED, state: "OPEN" },
-  });
-
-  // ── 220 kV Section ──
-  nodes.push({
-    id: "ds-220-1",
-    type: "ds",
-    position: { x: 360, y: 260 },
-    data: { label: "DS-220", color: SCADA_COLORS.VOLTAGE_220KV, state: "CLOSED" },
-  });
-  nodes.push({
-    id: "cb-220",
-    type: "cb",
-    position: { x: 360, y: 320 },
-    data: {
-      label: "CB-220",
-      color: cbColor("cb-220"),
-      state: cbState("cb-220"),
-      highlight: faultHighlightNodeId === "cb-220",
-    },
-  });
-
-  nodes.push({
-    id: "bb-220kv",
-    type: "busbar",
-    position: { x: 300, y: 390 },
-    data: { label: "2 × 220 kV Export Cables (45 km)", color: SCADA_COLORS.VOLTAGE_220KV, voltage: 220 },
-  });
-
-  // ── 220/66 kV Transformers (2x parallel) ──
-  nodes.push({
-    id: "cb-220-a",
-    type: "cb",
-    position: { x: 260, y: 440 },
-    data: {
-      label: "CB-220A",
-      color: cbColor("cb-220-a"),
-      state: cbState("cb-220-a"),
-      highlight: faultHighlightNodeId === "cb-220-a",
-    },
-  });
-  nodes.push({
-    id: "tx-220-66-a",
-    type: "tx",
-    position: { x: 255, y: 510 },
-    data: { label: "TX-A 220/66", color: green, state: "IN SERVICE", rating: "300 MVA" },
-  });
-  nodes.push({
-    id: "cb-66-a",
-    type: "cb",
-    position: { x: 260, y: 590 },
-    data: {
-      label: "CB-66A",
-      color: cbColor("cb-66-a"),
-      state: cbState("cb-66-a"),
-      highlight: faultHighlightNodeId === "cb-66-a",
-    },
-  });
-
-  nodes.push({
-    id: "cb-220-b",
-    type: "cb",
-    position: { x: 460, y: 440 },
-    data: {
-      label: "CB-220B",
-      color: cbColor("cb-220-b"),
-      state: cbState("cb-220-b"),
-      highlight: faultHighlightNodeId === "cb-220-b",
-    },
-  });
-  nodes.push({
-    id: "tx-220-66-b",
-    type: "tx",
-    position: { x: 455, y: 510 },
-    data: { label: "TX-B 220/66", color: green, state: "IN SERVICE", rating: "300 MVA" },
-  });
-  nodes.push({
-    id: "cb-66-b",
-    type: "cb",
-    position: { x: 460, y: 590 },
-    data: {
-      label: "CB-66B",
-      color: cbColor("cb-66-b"),
-      state: cbState("cb-66-b"),
-      highlight: faultHighlightNodeId === "cb-66-b",
-    },
-  });
-
-  // ── 66 kV Array Busbar ──
-  nodes.push({
-    id: "bb-66kv",
-    type: "busbar",
-    position: { x: 300, y: 660 },
-    data: { label: "66 kV Array Busbar", color: SCADA_COLORS.VOLTAGE_66KV, voltage: 66 },
-  });
-
-  // ── Helper: add power-flow arrow to energized edges ──────────────
-  // Arrow direction = source → target (power flow direction in SLD convention)
-  const flowArrow = (color: string, energized: boolean) =>
-    energized
-      ? { type: MarkerType.ArrowClosed as const, color, width: 12, height: 12 }
-      : undefined;
-
-  // ── Edges: 400kV section ──
-  const cb400Closed = cbState("cb-400") === "CLOSED";
-  const e400Color = cb400Closed ? SCADA_COLORS.VOLTAGE_400KV : SCADA_COLORS.DE_ENERGIZED;
-  edges.push({ id: "e-bb400-cb400", source: "bb-400kv", target: "cb-400", style: { stroke: SCADA_COLORS.VOLTAGE_400KV, strokeWidth: 2 }, animated: cb400Closed, markerEnd: flowArrow(SCADA_COLORS.VOLTAGE_400KV, cb400Closed) });
-  edges.push({ id: "e-cb400-ds400", source: "cb-400", target: "ds-400-1", style: { stroke: e400Color, strokeWidth: 2 } });
-  edges.push({ id: "e-ds400-tx", source: "ds-400-1", target: "tx-400-220", style: { stroke: e400Color, strokeWidth: 2 }, markerEnd: flowArrow(e400Color, cb400Closed) });
-  edges.push({ id: "e-bb400-es400", source: "bb-400kv", target: "es-400", style: { stroke: SCADA_COLORS.EARTHED, strokeWidth: 1, strokeDasharray: "4 4" } });
-
-  // ── Edges: 220kV section ──
-  const cb220Closed = cbState("cb-220") === "CLOSED";
-  const e220Color = cb220Closed ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED;
-  edges.push({ id: "e-tx-ds220", source: "tx-400-220", target: "ds-220-1", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
-  edges.push({ id: "e-ds220-cb220", source: "ds-220-1", target: "cb-220", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb220-bb220", source: "cb-220", target: "bb-220kv", style: { stroke: e220Color, strokeWidth: 2 }, animated: cb220Closed, markerEnd: flowArrow(e220Color, cb220Closed) });
-
-  // ── Edges: 220/66 transformers ──
-  const cb220aOn = cbState("cb-220-a") === "CLOSED";
-  const cb66aOn  = cbState("cb-66-a") === "CLOSED";
-  const cb220bOn = cbState("cb-220-b") === "CLOSED";
-  const cb66bOn  = cbState("cb-66-b") === "CLOSED";
-  edges.push({ id: "e-bb220-cb220a", source: "bb-220kv", target: "cb-220-a", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb220a-txa", source: "cb-220-a", target: "tx-220-66-a", style: { stroke: cb220aOn ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 }, animated: cb220aOn, markerEnd: flowArrow(SCADA_COLORS.VOLTAGE_220KV, cb220aOn) });
-  edges.push({ id: "e-txa-cb66a", source: "tx-220-66-a", target: "cb-66-a", style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb66a-bb66", source: "cb-66-a", target: "bb-66kv", style: { stroke: cb66aOn ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 }, animated: cb66aOn, markerEnd: flowArrow(SCADA_COLORS.VOLTAGE_66KV, cb66aOn) });
-
-  edges.push({ id: "e-bb220-cb220b", source: "bb-220kv", target: "cb-220-b", style: { stroke: SCADA_COLORS.VOLTAGE_220KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb220b-txb", source: "cb-220-b", target: "tx-220-66-b", style: { stroke: cb220bOn ? SCADA_COLORS.VOLTAGE_220KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 }, animated: cb220bOn, markerEnd: flowArrow(SCADA_COLORS.VOLTAGE_220KV, cb220bOn) });
-  edges.push({ id: "e-txb-cb66b", source: "tx-220-66-b", target: "cb-66-b", style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 2 } });
-  edges.push({ id: "e-cb66b-bb66", source: "cb-66-b", target: "bb-66kv", style: { stroke: cb66bOn ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 2 }, animated: cb66bOn, markerEnd: flowArrow(SCADA_COLORS.VOLTAGE_66KV, cb66bOn) });
-
-  // ── Feeder CBs + DS per string off 66 kV busbar ──
-  const stringLayout = [6, 6, 6, 6, 5, 5];
-  const wtgDevices = devices.filter((d) => d.equipment_type === "wtg_controller");
-  const ossDevices = devices.filter((d) => d.equipment_type !== "wtg_controller");
-  let wtgIdx = 0;
-  const feederStartX = 50;
-  const feederY = 740;
-
-  stringLayout.forEach((count, stringNum) => {
-    const feederX = feederStartX + stringNum * 140;
-    const cbId = `cb-str${stringNum + 1}`;
-
-    nodes.push({
-      id: cbId,
-      type: "cb",
-      position: { x: feederX, y: feederY },
-      data: {
-        label: `CB-S${stringNum + 1}`,
-        color: cbColor(cbId),
-        state: cbState(cbId),
-        highlight: faultHighlightNodeId === cbId,
-      },
-    });
-    const strCbClosed = cbState(cbId) === "CLOSED";
-    edges.push({
-      id: `e-bb66-${cbId}`,
-      source: "bb-66kv",
-      target: cbId,
-      style: { stroke: strCbClosed ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 1.5 },
-      animated: strCbClosed,
-      markerEnd: strCbClosed ? { type: MarkerType.ArrowClosed as const, color: SCADA_COLORS.VOLTAGE_66KV, width: 10, height: 10 } : undefined,
-    });
-
-    // String label
-    nodes.push({
-      id: `label-str${stringNum + 1}`,
-      type: "ied",
-      position: { x: feederX - 5, y: feederY + 70 },
-      data: { label: `String ${stringNum + 1}`, type: "string_label", lns: count, color: SCADA_COLORS.VOLTAGE_66KV },
-    });
-    edges.push({
-      id: `e-${cbId}-label`,
-      source: cbId,
-      target: `label-str${stringNum + 1}`,
-      style: { stroke: cbState(cbId) === "CLOSED" ? SCADA_COLORS.VOLTAGE_66KV : SCADA_COLORS.DE_ENERGIZED, strokeWidth: 1 },
-    });
-
-    // WTG IEDs in this string — with live turbine data if available
-    for (let j = 0; j < count && wtgIdx < wtgDevices.length; j++) {
-      const d = wtgDevices[wtgIdx];
-      const lnCount = d.logical_devices.reduce((sum, ld) => sum + ld.logical_nodes.length, 0);
-      const color = EQUIPMENT_COLOR[d.equipment_type] ?? SCADA_COLORS.DE_ENERGIZED;
-      const nodeId = `ied-${d.name}`;
-
-      // Match WTG device name to turbine ID (e.g. "WTG-01_IED" → "WTG-01")
-      const turbineId = d.name.replace(/_IED$/i, "").replace(/_.*$/, "");
-      const turbine = turbineMap?.[turbineId];
-      const statusColorMap: Record<string, string> = {
-        operating: SCADA_COLORS.ENERGIZED,
-        curtailed: SCADA_COLORS.WARNING,
-        fault: SCADA_COLORS.FAULT,
-        offline: SCADA_COLORS.DE_ENERGIZED,
-      };
-
-      const wtgAlarm = alarmNodeMap?.[nodeId];
-      nodes.push({
-        id: nodeId,
-        type: "ied",
-        position: { x: feederX - 5, y: feederY + 130 + j * 55 },
-        data: {
-          label: d.name,
-          type: d.equipment_type,
-          lns: lnCount,
-          color,
-          ...(wtgAlarm && { alarmPriority: wtgAlarm.priority, alarmState: wtgAlarm.state }),
-          ...(turbine && {
-            powerMW: turbine.powerOutputMW,
-            windMs: turbine.windSpeedMs,
-            statusColor: statusColorMap[turbine.status] ?? SCADA_COLORS.DE_ENERGIZED,
-          }),
-        },
-      });
-      if (j === 0) {
-        edges.push({
-          id: `e-label-${d.name}`,
-          source: `label-str${stringNum + 1}`,
-          target: nodeId,
-          style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 1 },
-        });
-      } else {
-        const prevName = wtgDevices[wtgIdx - 1].name;
-        edges.push({
-          id: `e-chain-${prevName}-${d.name}`,
-          source: `ied-${prevName}`,
-          target: nodeId,
-          style: { stroke: SCADA_COLORS.VOLTAGE_66KV, strokeWidth: 1 },
-        });
-      }
-      wtgIdx++;
-    }
-  });
-
-  // OSS IEDs (protection, measurement, bay controller) — beside 66kV busbar
-  ossDevices.forEach((d, i) => {
-    const lnCount = d.logical_devices.reduce((sum, ld) => sum + ld.logical_nodes.length, 0);
-    const color = EQUIPMENT_COLOR[d.equipment_type] ?? SCADA_COLORS.DE_ENERGIZED;
-    const nodeId = `ied-${d.name}`;
-    const ossAlarm = alarmNodeMap?.[nodeId];
-    nodes.push({
-      id: nodeId,
-      type: "ied",
-      position: { x: 900 + i * 120, y: 660 },
-      data: {
-        label: d.name,
-        type: d.equipment_type,
-        lns: lnCount,
-        color,
-        ...(ossAlarm && { alarmPriority: ossAlarm.priority, alarmState: ossAlarm.state }),
-      },
-    });
-    edges.push({
-      id: `e-66-${d.name}`,
-      source: "bb-66kv",
-      target: nodeId,
-      style: { stroke: SCADA_COLORS.DE_ENERGIZED, strokeWidth: 1, strokeDasharray: "3 3" },
-    });
-  });
-
-  return { nodes, edges };
+function Busbar({ x1, x2, y, live, color, label }: { x1: number; x2: number; y: number; live: boolean; color: string; label: string }) {
+  return (
+    <g>
+      <line x1={x1} y1={y} x2={x2} y2={y} stroke={live ? color : DEAD} strokeWidth={6} strokeLinecap="square" />
+      <text x={x1} y={y - 9} className="fill-text-secondary" fontSize={13} fontWeight={600}>
+        {label}
+      </text>
+    </g>
+  );
 }
 
-// ── Alarm priority → numeric rank (higher = worse) ───────────
+/** Two-winding transformer: two overlapping circles (IEC 60617-06-09-01). */
+function Transformer({ x, y, hv, lv, liveHv, liveLv, label, loadPct }: {
+  x: number; y: number; hv: string; lv: string; liveHv: boolean; liveLv: boolean; label: string; loadPct: number;
+}) {
+  const over = loadPct > 100;
+  return (
+    <g>
+      <circle cx={x} cy={y - 10} r={15} fill="none" stroke={liveHv ? hv : DEAD} strokeWidth={2} />
+      <circle cx={x} cy={y + 10} r={15} fill="none" stroke={liveLv ? lv : DEAD} strokeWidth={2} />
+      <text x={x + 24} y={y - 3} className="fill-text-primary" fontSize={13} fontWeight={600}>{label}</text>
+      <text x={x + 24} y={y + 13} fontSize={13} fontFamily="monospace" className={over ? "fill-status-alarm" : "fill-text-secondary"}>
+        {liveLv ? `${loadPct.toFixed(0)} % of ${TX_UNIT_MVA} MVA` : "out of service"}
+      </text>
+    </g>
+  );
+}
 
-const PRIORITY_RANK: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+interface BreakerProps {
+  id: BreakerId;
+  x: number;
+  y: number;
+  color: string;
+  live: boolean;
+  horizontal?: boolean;
+  state: BreakerState;
+  selected: boolean;
+  onSelect: (id: BreakerId) => void;
+}
 
-// ── Main Component ───────────────────────────────────────────
+/** Circuit breaker (IEC 60617-07-13-05): filled = closed, hollow = open, red = tripped. */
+function Breaker({ id, x, y, color, live, horizontal = false, state, selected, onSelect }: BreakerProps) {
+  const closed = state === "CLOSED";
+  const tripped = state === "TRIPPED";
+  const stroke = tripped ? SCADA_COLORS.FAULT : live || closed ? color : DEAD;
+  return (
+    <g
+      role="button"
+      tabIndex={0}
+      aria-label={`${BREAKERS[id].label} ${state}`}
+      className="cursor-pointer focus:outline-none"
+      onClick={() => onSelect(id)}
+      onKeyDown={(ev) => ev.key === "Enter" && onSelect(id)}
+    >
+      {selected && (
+        <rect x={x - 15} y={y - 15} width={30} height={30} rx={3} fill="none" stroke="var(--color-accent)" strokeWidth={2} strokeDasharray="4 2" />
+      )}
+      <rect
+        x={x - 9}
+        y={y - 9}
+        width={18}
+        height={18}
+        rx={1.5}
+        fill={closed ? stroke : "var(--color-bg-secondary)"}
+        stroke={stroke}
+        strokeWidth={2}
+        className={tripped ? "animate-pulse" : undefined}
+      />
+      <text
+        x={horizontal ? x : x + 15}
+        y={horizontal ? y + 24 : y + 4}
+        textAnchor={horizontal ? "middle" : "start"}
+        fontSize={12}
+        fontFamily="monospace"
+        className={tripped ? "fill-status-alarm" : "fill-text-muted"}
+      >
+        {BREAKERS[id].label}
+        {tripped ? " TRIP" : !closed ? " OPEN" : ""}
+      </text>
+    </g>
+  );
+}
 
 export default function SubstationSLD() {
-  const substationSummary = useScadaStore((s) => s.substationSummary);
-  const breakerStates = useScadaStore((s) => s.breakerStates);
-  const faultHighlightNodeId = useScadaStore((s) => s.faultHighlightNodeId);
-  const toggleBreaker = useScadaStore((s) => s.toggleBreaker);
-  const measurements = useScadaStore((s) => s.measurements) ?? [];
-  const alarms = useScadaStore((s) => s.alarms);
-  const [selectedNode, setSelectedNode] = useState<{ data: Record<string, unknown>; type: string } | null>(null);
+  const breakers = useScadaStore((s) => s.breakerStates);
+  const faultZone = useScadaStore((s) => s.faultHighlightNodeId);
+  const operateBreaker = useScadaStore((s) => s.operateBreaker);
+  const turbineMap = useLandingStore((s) => s.turbineMap);
+  const plant = usePlantSnapshot();
+  const [selected, setSelected] = useState<BreakerId | null>(null);
+  const [blocked, setBlocked] = useState<string | null>(null);
 
-  // Start landing simulation so turbine data is available on SCADA page
-  const startSimulation = useLandingStore((s) => s.startSimulation);
-  const stopSimulation = useLandingStore((s) => s.stopSimulation);
-  const turbineSLDMap = useLandingStore(selectTurbineSLDMap);
-  useEffect(() => {
-    startSimulation();
-    return () => stopSimulation();
-  }, [startSimulation, stopSimulation]);
+  const e = useMemo(() => energisation(breakers), [breakers]);
 
-  const alarmNodeMap = useMemo(() => {
-    const map: Record<string, { priority: string; state: string }> = {};
-    for (const alarm of alarms) {
-      if (alarm.state !== "ACTIVE" && alarm.state !== "ACKNOWLEDGED") continue;
-      // Turbine fault: equipment = "WTG-07" → IED node "ied-WTG-07_IED"
-      // GOOSE/OSS fault: equipment = "PROTECT-01" → IED node "ied-PROTECT-01"
-      const candidates = [
-        `ied-${alarm.equipment}_IED`,
-        `ied-${alarm.equipment}`,
-      ];
-      for (const nodeId of candidates) {
-        const existing = map[nodeId];
-        if (!existing || PRIORITY_RANK[alarm.priority] > PRIORITY_RANK[existing.priority]) {
-          map[nodeId] = { priority: alarm.priority, state: alarm.state };
-        }
-      }
-    }
-    return map;
-  }, [alarms]);
-
-  const graph = useMemo(() => {
-    if (!substationSummary?.devices) return { nodes: [], edges: [] };
-    return buildGraph(substationSummary.devices, breakerStates, faultHighlightNodeId, turbineSLDMap, alarmNodeMap);
-  }, [substationSummary, breakerStates, faultHighlightNodeId, turbineSLDMap, alarmNodeMap]);
-
-  const rfRef = useRef<{ fitView: () => void } | null>(null);
-  const sldContainerRef = useRef<HTMLDivElement>(null);
-
-  const onInit = useCallback(
-    (instance: { fitView: () => void }) => {
-      rfRef.current = instance;
-      instance.fitView();
-    },
-    [],
+  // ── Flows from the live farm ──
+  const stringMW = STRING_IDS.map((ids, i) =>
+    e.strings[i] ? ids.reduce((sum, id) => sum + (turbineMap[id]?.powerOutputMW ?? 0), 0) : 0,
   );
+  const sectionMW = (strings: number[]) => strings.reduce((sum, i) => sum + stringMW[i], 0);
+  const mwA = sectionMW([0, 1, 2]);
+  const mwB = sectionMW([3, 4, 5]);
+  const coupled = breakers["cb-66-bc"] === "CLOSED";
+  // With the coupler closed one incomer is open (interlock): it carries both sections
+  const txMW: [number, number] = coupled
+    ? e.txOss[0] && breakers["cb-66-a"] === "CLOSED" ? [mwA + mwB, 0] : [0, mwA + mwB]
+    : [mwA, mwB];
+  const total = mwA + mwB;
+  const liveCables = e.cable.filter(Boolean).length;
+  const chargingHalfA = exportCableState(0).currentA; // I_C/2 per circuit
+  const cablePct = (i: 0 | 1) => {
+    if (!e.cable[i]) return 0;
+    const iActive = (total * 1e6) / (Math.sqrt(3) * EXPORT_CABLE.kV * 1e3 * liveCables);
+    return (Math.hypot(iActive, chargingHalfA) / EXPORT_CABLE.ratedA) * 100;
+  };
+  const onsInService = (["cb-400-1", "cb-400-2"] as const).filter((id) => breakers[id] === "CLOSED").length;
+  const onsPct = onsInService ? (total / (onsInService * TX_UNIT_MVA)) * 100 : 0;
 
-  // Re-fit the diagram when the container resizes (window resize, layout shifts,
-  // tab activation). Without this, ReactFlow's internal viewport stays at the
-  // mount-time dimensions and nodes get clipped or float in dead space.
-  useEffect(() => {
-    const el = sldContainerRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    let firstFire = true;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const observer = new ResizeObserver(() => {
-      if (firstFire) { firstFire = false; return; }
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        if ((sldContainerRef.current?.clientWidth ?? 0) > 0) {
-          rfRef.current?.fitView();
-        }
-      }, 120);
-    });
-    observer.observe(el);
-    return () => {
-      observer.disconnect();
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
-
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    // If it's a circuit breaker, toggle it
-    if (node.type === "cb") {
-      toggleBreaker(node.id);
-    }
-    setSelectedNode({
-      data: node.data as Record<string, unknown>,
-      type: node.type ?? "ied",
-    });
-  }, [toggleBreaker]);
-
-  if (!substationSummary) {
-    return (
-      <div className="bg-bg-secondary rounded-lg border border-border-primary p-6 h-[400px] flex items-center justify-center">
-        <p className="text-text-muted">Loading substation configuration...</p>
-      </div>
-    );
-  }
+  const sel = selected ? BREAKERS[selected] : null;
+  const selState = selected ? breakers[selected] : null;
+  const nReactors = plant.reactorsInService;
+  const bp = (id: BreakerId) => ({
+    id,
+    state: breakers[id],
+    selected: selected === id,
+    onSelect: (b: BreakerId) => {
+      setSelected(b);
+      setBlocked(null);
+    },
+  });
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden relative h-full">
-      <div className="px-3 py-1.5 border-b border-border-primary flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] uppercase tracking-wider text-text-muted font-mono">
-            Operations ·
-          </span>
-          <h3 className="text-xs font-semibold text-text-primary">
-            Single-Line Diagram
-          </h3>
-          <InfoButton info={substationSldInfo} />
-          <p className="text-[9px] text-text-muted font-mono">
-            {substationSummary.total_devices} IEDs · IEC 60617 · Click CB to toggle
-          </p>
-        </div>
-        {/* Live measurements */}
-        <div className="flex gap-3">
-          {measurements.map((m) => (
-            <div key={m.nodeId} className="flex items-center gap-1">
-              <span className="text-[9px] text-text-muted font-mono">{m.voltageKV}kV:</span>
-              <span className="text-[9px] text-text-secondary font-mono tabular-nums">{m.powerMW}MW</span>
-            </div>
+    <div className="flex flex-col h-full bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 border-b border-border-primary shrink-0">
+        <h3 className="text-xs font-semibold text-text-primary">Single-Line Diagram</h3>
+        <InfoButton info={substationSldInfo} />
+        <span className="text-[10px] text-text-muted font-mono">
+          IEC 60617 · click a breaker to select, then execute (SBO)
+        </span>
+        <span className="ml-auto flex items-center gap-3 text-[10px] font-mono text-text-muted">
+          {([["400 kV", V400], ["220 kV", V220], ["66 kV", V66], ["dead", DEAD]] as const).map(([l, c]) => (
+            <span key={l} className="flex items-center gap-1">
+              <span className="inline-block w-3 h-0.5" style={{ background: c }} />
+              {l}
+            </span>
           ))}
-        </div>
-      </div>
-      <div ref={sldContainerRef} style={{ height: "calc(100% - 34px)" }}>
-        <ReactFlow
-          nodes={graph.nodes}
-          edges={graph.edges}
-          nodeTypes={nodeTypes}
-          onInit={onInit}
-          onNodeClick={onNodeClick}
-          fitView
-          minZoom={0.2}
-          maxZoom={2}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background color="#252a3a" gap={20} />
-          <Controls className="!bg-bg-secondary !border-border-primary !rounded [&>button]:!bg-bg-secondary [&>button]:!border-border-primary [&>button]:!text-text-muted [&>button:hover]:!bg-bg-hover" />
-        </ReactFlow>
+        </span>
       </div>
 
-      {/* Equipment detail panel */}
-      {selectedNode && (
-        <SLDDetailPanel
-          nodeData={selectedNode.data}
-          nodeType={selectedNode.type}
-          onClose={() => setSelectedNode(null)}
-        />
-      )}
+      <div className="flex-1 min-h-0 overflow-auto">
+        <svg viewBox="0 0 1000 740" className="w-full h-full min-w-[720px]" preserveAspectRatio="xMidYMin meet" role="img" aria-label="Export system single-line diagram">
+          {faultZone && FAULT_ZONE[faultZone] && (
+            <rect {...{ x: FAULT_ZONE[faultZone].x, y: FAULT_ZONE[faultZone].y, width: FAULT_ZONE[faultZone].w, height: FAULT_ZONE[faultZone].h }}
+              fill={SCADA_COLORS.FAULT} fillOpacity={0.12} stroke={SCADA_COLORS.FAULT} strokeDasharray="6 3" strokeWidth={1.5} className="animate-pulse" />
+          )}
+
+          {/* ── PSE 400 kV ── */}
+          <Busbar x1={280} x2={720} y={Y.b400} live color={V400} label="PSE 400 kV · connection point" />
+          <g fontFamily="monospace" fontSize={13}>
+            <text x={735} y={Y.b400 - 8} className="fill-text-primary">P {plant.pocMW.toFixed(1)} MW</text>
+            <text x={735} y={Y.b400 + 10} className="fill-text-secondary">Q {plant.pocMVAr >= 0 ? "+" : "−"}{Math.abs(plant.pocMVAr).toFixed(0)} MVAr · U {plant.pocKV.toFixed(1)} kV</text>
+          </g>
+
+          {/* ── Onshore transformer bays ── */}
+          {([[X1, "cb-400-1", "TX-ONS-01"], [X2, "cb-400-2", "TX-ONS-02"]] as const).map(([x, cb, name]) => {
+            const on = breakers[cb] === "CLOSED";
+            return (
+              <g key={cb}>
+                <Wire x1={x} y1={Y.b400} x2={x} y2={Y.cb400 - 9} live color={V400} />
+                <Breaker {...bp(cb)} x={x} y={Y.cb400} color={V400} live />
+                <Wire x1={x} y1={Y.cb400 + 9} x2={x} y2={Y.txOns - 25} live={on} color={V400} />
+                <Transformer x={x} y={Y.txOns} hv={V400} lv={V220} liveHv={on} liveLv={on && e.onshore220} label={`${name} 220/400 kV`} loadPct={on ? onsPct : 0} />
+                <Wire x1={x} y1={Y.txOns + 25} x2={x} y2={Y.b220on} live={on} color={V220} />
+              </g>
+            );
+          })}
+          <Busbar x1={280} x2={720} y={Y.b220on} live={e.onshore220} color={V220} label="Onshore 220 kV" />
+
+          {/* ── Export cables ── */}
+          {([[X1, 0, "cb-ons-e1", "cb-oss-e1"], [X2, 1, "cb-ons-e2", "cb-oss-e2"]] as const).map(([x, i, cbOn, cbOff]) => {
+            const live = e.cable[i];
+            const pct = cablePct(i);
+            return (
+              <g key={cbOn}>
+                <Wire x1={x} y1={Y.b220on} x2={x} y2={Y.cbOnsE - 9} live={e.onshore220} color={V220} />
+                <Breaker {...bp(cbOn)} x={x} y={Y.cbOnsE} color={V220} live={e.onshore220} />
+                <Wire x1={x} y1={Y.cbOnsE + 9} x2={x} y2={Y.cbOssE - 9} live={live} color={V220} w={3} />
+                {/* cable sheath marks */}
+                <ellipse cx={x} cy={(Y.cbOnsE + Y.cbOssE) / 2} rx={7} ry={3} fill="none" stroke={live ? V220 : DEAD} strokeWidth={1.5} />
+                <text x={x + 14} y={(Y.cbOnsE + Y.cbOssE) / 2 - 4} fontSize={13} className="fill-text-primary" fontWeight={600}>Export cable {i + 1}</text>
+                <text x={x + 14} y={(Y.cbOnsE + Y.cbOssE) / 2 + 12} fontSize={12} fontFamily="monospace" className={pct > 100 ? "fill-status-alarm" : "fill-text-secondary"}>
+                  {live ? `${pct.toFixed(0)} % of ${EXPORT_CABLE.ratedA} A` : "dead"} · 45 km
+                </text>
+                <Breaker {...bp(cbOff)} x={x} y={Y.cbOssE} color={V220} live={e.oss220} />
+                <Wire x1={x} y1={Y.cbOssE + 9} x2={x} y2={Y.b220oss} live={e.oss220} color={V220} />
+              </g>
+            );
+          })}
+          <Busbar x1={140} x2={860} y={Y.b220oss} live={e.oss220} color={V220} label="OSS 220 kV" />
+
+          {/* Shunt reactors (left) and STATCOM (right) on the OSS 220 kV busbar */}
+          <g>
+            <Wire x1={200} y1={Y.b220oss} x2={200} y2={Y.b220oss + 30} live={e.oss220} color={V220} />
+            <path d={`M200 ${Y.b220oss + 30} q 8 4 0 8 q 8 4 0 8 q 8 4 0 8 q 8 4 0 8`} fill="none" stroke={e.oss220 ? V220 : DEAD} strokeWidth={2} />
+            <text x={212} y={Y.b220oss + 44} fontSize={13} className="fill-text-primary" fontWeight={600}>Shunt reactors</text>
+            <text x={212} y={Y.b220oss + 60} fontSize={12} fontFamily="monospace" className="fill-text-secondary">
+              {e.oss220 ? `${nReactors} × ${REACTOR_UNIT_MVAR} = −${nReactors * REACTOR_UNIT_MVAR} MVAr` : "dead"}
+            </text>
+            <Wire x1={800} y1={Y.b220oss} x2={800} y2={Y.b220oss + 30} live={e.oss220} color={V220} />
+            <rect x={784} y={Y.b220oss + 30} width={32} height={22} rx={2} fill="none" stroke={e.oss220 ? V220 : DEAD} strokeWidth={2} />
+            <text x={800} y={Y.b220oss + 45} textAnchor="middle" fontSize={11} fontFamily="monospace" className="fill-text-secondary">=/~</text>
+            <text x={824} y={Y.b220oss + 44} fontSize={13} className="fill-text-primary" fontWeight={600}>STATCOM</text>
+            <text x={824} y={Y.b220oss + 60} fontSize={12} fontFamily="monospace" className="fill-text-secondary">
+              {e.oss220 ? `${plant.statcomMVAr >= 0 ? "+" : "−"}${Math.abs(plant.statcomMVAr).toFixed(0)} / ±120 MVAr` : "dead"}
+            </text>
+          </g>
+
+          {/* ── OSS transformer bays ── */}
+          {([[X1, 0, "cb-oss-t1", "cb-66-a", "TX-OSS-01"], [X2, 1, "cb-oss-t2", "cb-66-b", "TX-OSS-02"]] as const).map(([x, i, hv, lv, name]) => {
+            const on = e.txOss[i];
+            return (
+              <g key={hv}>
+                <Wire x1={x} y1={Y.b220oss} x2={x} y2={Y.cbOssT - 9} live={e.oss220} color={V220} />
+                <Breaker {...bp(hv)} x={x} y={Y.cbOssT} color={V220} live={e.oss220} />
+                <Wire x1={x} y1={Y.cbOssT + 9} x2={x} y2={Y.txOss - 25} live={on} color={V220} />
+                <Transformer x={x} y={Y.txOss} hv={V220} lv={V66} liveHv={on} liveLv={on} label={`${name} 66/220 kV`} loadPct={(txMW[i] / TX_UNIT_MVA) * 100} />
+                <Wire x1={x} y1={Y.txOss + 25} x2={x} y2={Y.cb66 - 9} live={on} color={V66} />
+                <Breaker {...bp(lv)} x={x} y={Y.cb66} color={V66} live={on} />
+                <Wire x1={x} y1={Y.cb66 + 9} x2={x} y2={Y.b66} live={i === 0 ? e.sectionA : e.sectionB} color={V66} />
+              </g>
+            );
+          })}
+
+          {/* ── 66 kV switchboard: sections A/B + bus coupler ── */}
+          <Busbar x1={60} x2={440} y={Y.b66} live={e.sectionA} color={V66} label="66 kV section A" />
+          <Busbar x1={560} x2={940} y={Y.b66} live={e.sectionB} color={V66} label="66 kV section B" />
+          <Wire x1={440} y1={Y.b66} x2={491} y2={Y.b66} live={e.sectionA} color={V66} />
+          <Wire x1={509} y1={Y.b66} x2={560} y2={Y.b66} live={e.sectionB} color={V66} />
+          <Breaker {...bp("cb-66-bc")} x={500} y={Y.b66} color={V66} live={e.sectionA || e.sectionB} horizontal />
+
+          {/* ── String feeders ── */}
+          {STRING_X.map((x, i) => {
+            const id = `cb-str${i + 1}` as BreakerId;
+            const sectionLive = i < 3 ? e.sectionA : e.sectionB;
+            const live = e.strings[i];
+            const mw = stringMW[i];
+            return (
+              <g key={id}>
+                <Wire x1={x} y1={Y.b66} x2={x} y2={Y.cbStr - 9} live={sectionLive} color={V66} />
+                <Breaker {...bp(id)} x={x} y={Y.cbStr} color={V66} live={sectionLive} />
+                <Wire x1={x} y1={Y.cbStr + 9} x2={x} y2={Y.str} live={live} color={V66} />
+                <rect x={x - 52} y={Y.str} width={104} height={58} rx={3} fill="var(--color-bg-tertiary)" stroke={live ? V66 : DEAD} strokeWidth={1.5} />
+                <text x={x} y={Y.str + 17} textAnchor="middle" fontSize={13} fontWeight={600} className="fill-text-primary">
+                  String {i + 1}
+                </text>
+                <text x={x} y={Y.str + 34} textAnchor="middle" fontSize={13} fontFamily="monospace" className="fill-text-primary">
+                  {live ? `${mw.toFixed(1)} MW` : "de-energised"}
+                </text>
+                <text x={x} y={Y.str + 50} textAnchor="middle" fontSize={12} fontFamily="monospace" className="fill-text-muted">
+                  {STRING_IDS[i].length} WTG{live ? ` · ${arrayCableCurrentA(mw).toFixed(0)} A` : ""}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* ── Select-before-operate panel ── */}
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-t border-border-primary bg-bg-tertiary text-xs shrink-0 min-h-11">
+        {sel && selected && selState ? (
+          <>
+            <span className="font-mono font-semibold text-text-primary">{sel.label}</span>
+            <span className="text-text-muted">{sel.bay} · {sel.kV} kV</span>
+            <span className={cn("font-mono", selState === "TRIPPED" ? "text-status-alarm" : "text-text-secondary")}>{selState}</span>
+            <span className="flex-1" />
+            {blocked && <span className="text-status-warning">{blocked}</span>}
+            <button
+              type="button"
+              onClick={() => setBlocked(operateBreaker(selected))}
+              className="h-7 px-3 rounded bg-accent text-white font-medium hover:opacity-90"
+            >
+              Execute {selState === "CLOSED" ? "OPEN" : "CLOSE"}
+            </button>
+            <button type="button" onClick={() => setSelected(null)} className="h-7 px-3 rounded border border-border-primary text-text-secondary hover:bg-bg-hover">
+              Cancel
+            </button>
+          </>
+        ) : (
+          <span className="text-text-muted">
+            No breaker selected · Σ strings {total.toFixed(1)} MW · TX-OSS-01 {txMW[0].toFixed(0)} MW · TX-OSS-02 {txMW[1].toFixed(0)} MW · bus coupler {coupled ? "CLOSED" : "OPEN (normal)"}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

@@ -105,19 +105,21 @@ export const converterComparisonInfo: InfoContent = {
 // ── P3 SCADA ──
 
 export const substationSldInfo: InfoContent = {
-  title: "Single Line Diagram — Substation Topology",
+  title: "Single-Line Diagram — Export System",
   description:
-    "Interactive visualization of the offshore substation electrical topology. " +
-    "Shows busbars, circuit breakers, transformers, and IEC 61850 IED connections.",
-  standard: "IEC 61850 — Communication networks and systems for power utility automation",
+    "PSE 400 kV connection point → 2 × 300 MVA onshore transformers → 2 × 45 km 220 kV export cables → " +
+    "OSS 220 kV busbar (STATCOM, shunt reactors) → 2 × 300 MVA OSS transformers → split 66 kV switchboard " +
+    "(section A: strings 1–3, section B: strings 4–6, bus coupler normally open).",
+  standard: "IEC 60617 symbols · IEC 61850-7-2 select-before-operate · ISA-101 colours",
   parameters: [
-    { name: "IEDs", description: "Intelligent Electronic Devices (protection, measurement)" },
-    { name: "GOOSE", description: "Generic Object Oriented Substation Event (< 4 ms)" },
-    { name: "MMS", description: "Manufacturing Message Specification (reporting)" },
+    { name: "Breaker", description: "Filled = closed, hollow = open, red = tripped by protection" },
+    { name: "SBO", description: "Click selects a breaker; Execute operates it after the RBAC and interlock checks" },
+    { name: "Interlock", description: "Bus coupler closes only with one incomer open — no parallel operation of the OSS transformers" },
   ],
   interpretation:
-    "Color indicates equipment state: green = energized, red = de-energized, " +
-    "gray = isolated, amber = warning. Click any equipment for details.",
+    "Conductors are coloured by voltage level when live and grey when dead. Opening a feeder or incomer " +
+    "de-energises its strings: the turbines drop to 0 MW and the plant overview follows. After a transformer " +
+    "trip, section A can be restored through the bus coupler — watch the remaining transformer load.",
 };
 
 export const gooseSimInfo: InfoContent = {
@@ -541,7 +543,7 @@ export const powerQualityDashboardInfo: InfoContent = {
 export const harmonicSpectrumInfo: InfoContent = {
   title: "Harmonic Spectrum — IEC 61000-3-6",
   description:
-    "Bar chart of voltage harmonic magnitudes as % of fundamental (50 Hz) at the 66 kV POC. " +
+    "Bar chart of voltage harmonic magnitudes as % of fundamental (50 Hz) at the assessed bus (400 kV POC by default). " +
     "Orange dashed line = IEC planning level limit for each harmonic order.",
   standard: "IEC 61000-3-6 Table 2 — HV planning levels (≥35 kV): THD 3%, H5 2%, H7 2%, H11 1.5%, H13 1.5%",
   parameters: [

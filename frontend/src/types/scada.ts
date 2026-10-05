@@ -286,13 +286,6 @@ export interface FaultCategory {
 /** SLD breaker state */
 export type BreakerState = "CLOSED" | "OPEN" | "TRIPPED" | "RACKING";
 
-/** SLD measurement point */
-export interface SLDMeasurement {
-  nodeId: string;
-  voltageKV: number;
-  currentA: number;
-  powerMW: number;
-}
 
 // ── Historian Types ───────────────────────────────────────────────
 

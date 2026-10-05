@@ -38,17 +38,19 @@ The modules follow a wind farm through its life.
 | | Wind Resource | Weibull fits, wake models (PyWake), AEP and loss chain, availability (IEC 61400-26), weather windows |
 | **Design** | Grid Integration | Load flow, IEC 60909 short circuit, fault ride-through, STATCOM sizing, power quality, cable thermal rating (IEC 60287) |
 | | Turbine Physics | Cp(λ, β) surface, pitch and torque control, yaw |
-| **Build & Commission** | Commissioning | 30-step switching programme, LOTO, FAT/SAT, grid-code compliance tests |
+| **Build & Commission** | Construction | Installation campaign in Baltic weather windows (DNV-ST-N001 α factor): vessels, P10/P50/P90 timeline, waiting on weather, vessel cost |
+| | Commissioning | 30-step switching programme, LOTO, FAT/SAT, grid-code compliance tests |
+| | Hand-over | As-built register of your farm, energisation order per feeder bay, your layout on the control-room map |
 | **Operate** | Control Room | Farm map, live KPIs, 3D turbine with drawing sheets |
 | | SCADA | IEC 61850 data model and GOOSE, bay control, alarms, permit-to-work, OPC UA, IEC 62443 zones |
 | | Forecasting | XGBoost, LSTM and TFT models, ensembles, SHAP, with an interactive ML academy |
 | | Digital Twin | Physics-based condition monitoring (ISO 13374): detection, model-based diagnosis, RUL prognosis |
+| **Decommission** | Decommissioning | Removal options, removal campaign, material and recycling, end-of-life cost, seabed restoration (UNCLOS Art. 60, IMO A.672(16)) |
+| **Learn** | Academy | Courses along the lifecycle and scored missions (site, layout, energisation, FRT, twin diagnosis, control-room drills) |
 
 New here? On first launch the app offers a **guided tour**: spotlights and arrows walk you through
 the control room, some steps ask you to try things yourself, and every module has its own short
 tour in the header's **Tour** menu.
-
-Coming next: a layout canvas for your own site and an Academy with scored missions.
 
 ## Quick start
 

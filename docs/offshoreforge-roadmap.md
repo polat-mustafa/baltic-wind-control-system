@@ -1,7 +1,7 @@
 # OffshoreForge roadmap and hand-off
 
 Working notes for continuing the OffshoreForge transformation in a new Claude Code session.
-Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are merged, phases 4 and 5 are in review.
+Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are merged, phases 4, 5 and 6 are in review.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -11,7 +11,7 @@ Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are
 | 3c | `/develop` "build a farm from scratch" journey | Merged (PR #220) |
 | 4 | Layout canvas: turbines, wake, AEP, array cables, cost | Done on `claude/busy-planck-8vitbx` (PR open) |
 | 5 | Academy: courses and scored missions | Done on `claude/phase5-academy` (stacked on phase 4, own PR) |
-| 6 | Lifecycle: construction, operation hand-over, decommissioning | **Next** |
+| 6 | Lifecycle: construction, operation hand-over, decommissioning | Done on `claude/phase6-lifecycle` (stacked on phase 5, own PR) |
 
 ## Resume here
 
@@ -20,9 +20,20 @@ Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are
 2. PR #221 (Phase 4) — check CI; merge only when the owner says so.
 3. Phase 5 (Academy) is on `claude/phase5-academy`, a PR stacked on PR #221; after #221 is merged, merge
    `main` into it so the diff shows only phase 5.
-4. Next: **Phase 6 — Lifecycle** (spec below).
-5. Owner to-dos: `cd frontend && npm run e2e:update` (new `layout`, `site-permits` and `academy` baselines),
-   rename the GitHub repo to `offshoreforge`, trademark check.
+4. Phase 6 (Lifecycle) is on `claude/phase6-lifecycle`, a PR stacked on the phase 5 PR; merge the
+   phases in order (4 → 5 → 6) and merge `main` into each next branch after its base is merged.
+5. Next: the **open optional items** below (the owner asked to keep them for later).
+6. Owner to-dos: `cd frontend && npm run e2e:update` (new `layout`, `site-permits`, `academy`, `construction`,
+   `handover` and `decommissioning` baselines), rename the GitHub repo to `offshoreforge`, trademark check.
+
+## Open optional items (parked by the owner, do not start without asking)
+
+- Phase 5: instructor mode — extend `store/instructorStore.ts` to assign Academy missions and export a
+  JSON class report.
+- Phase 5: glossary tooltips (Cp, EIA, FRT, …) on the Academy and module pages.
+- Phase 4: IEA-15-240-RWT as a second turbine model, curves from the official IEA Wind Task 37 repository
+  (`IEAWindTask37/IEA-15-240-RWT`), source in `docs/references.md`.
+- Phase 4: hand the layout project to the P1 / P2 pages (they still use the fixed SB-510 constants).
 
 ## Working conventions
 
@@ -171,7 +182,7 @@ Delivered (route `/academy`, page `frontend/src/pages/AcademyPage.tsx`, sidebar 
 - `store/academyStore.ts` (`of.academy.v1`): learner, lessons opened, attempts; JSON export.
   Printable training record (`components/academy/TrainingRecord.tsx`, `.print-doc[data-printing]`).
 - Tour `academy`; tests `tests/academy/`, `tests/store/academyStore.test.ts`, `tests/components/academy/`.
-- Not done (optional in the spec): instructor mission assignment, glossary tooltips.
+- Not done (optional in the spec, parked — see "Open optional items"): instructor mission assignment, glossary tooltips.
 - Note: `utils/gridEvents.ts` `PSE_LVRT` (control-room voltage-dip drill) differs from the PSE profile in
   `services/p2/frt_simulation.py` (0 pu to 0.15 s, line to 0.85 pu at 2.5 s), which the Academy uses.
 
@@ -187,7 +198,34 @@ Original spec, kept for reference:
 - Optional: instructor mode extends `store/instructorStore.ts` (assign missions, JSON report);
   glossary tooltips (Cp, EIA, FRT…).
 
-## Phase 6 — Lifecycle
+## Phase 6 — Lifecycle (implemented)
+
+Delivered (sidebar: "Construction" and "Hand-over" under Build & Commission, new group "Decommission"):
+- Backend `backend/app/services/lifecycle/` — `weather.py` (6-hourly synthetic sea states: Rayleigh Hs and
+  Weibull k = 2 wind around the monthly means of `services/p1/weather_window.py`, AR(1) persistence,
+  wind–wave correlation; hub-height wind with the IEC 61400-3-1 power law) and `campaign.py`
+  (weather-restricted operations after DNV-ST-N001 with OP_WF = α · OP_LIM, vessel scheduling with unit
+  gates, just-in-time array cable vessel, charter and mobilisations; install and remove plans).
+  `POST /api/v1/lifecycle/campaign` (router `routers/lifecycle.py`) → P10/P50/P90 milestones, median-run
+  timeline, WoW, monthly window probabilities, vessel cost. Tests `backend/tests/test_lifecycle.py`.
+- `/build` — Construction page: farm source, start date / α / runs / vessel limits, timeline, milestones,
+  weather-window heat map, vessel table.
+- `/build/handover` — Hand-over: as-built register (printable TRAINING SPECIMEN, CSV / JSON), energisation
+  order per OSS feeder bay, what each operation module takes over. `lib/lifecycle/farm.ts` turns the layout
+  project (or SB-510, keeping its own string numbers) into the register and the campaign request.
+  Practical feeds: Control Room map layer "My Project (hand-over)" (`components/landing/MyProjectLayer.tsx`,
+  `layerStore.myProject`); notes on Commissioning and Digital Twin. The live simulators (Control Room
+  physics, SCADA IEC 61850 model, Digital Twin reference model) stay calibrated on SB-510 — the page says so.
+- `/decommission` — removal options (cut / full foundations, cables and scour rock left or recovered),
+  removal campaign, material inventory and end-of-life cost (`lib/lifecycle/decommissioning.ts`, masses and
+  unit costs *illustrative*), legal frame checked against the primary texts (UNCLOS Art. 60(3), IMO
+  A.672(16) §3.1–3.2, 3.6), seabed restoration steps, sources.
+- Store `store/lifecycleStore.ts` (`of.lifecycle.v1`, inputs only). Tours `construction`, `handover`,
+  `decommissioning` (tour stage "Decommission"); Academy lessons in the Build and Operate tracks.
+  Frontend tests `tests/lib/lifecycle.test.ts`, `tests/store/lifecycleStore.test.ts`,
+  `tests/components/lifecycle/` (fixtures from the real API in `tests/fixtures/campaign-*.json`).
+
+Original spec, kept for reference:
 
 - Construction: installation vessels and weather windows (`backend/app/services/p1/weather_window.py`),
   foundation → turbine installation sequence, timeline.

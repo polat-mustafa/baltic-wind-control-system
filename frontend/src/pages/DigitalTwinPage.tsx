@@ -1,208 +1,98 @@
 /**
- * DigitalTwinPage — route /digital-twin.
+ * Digital Twin — route /digital-twin.
  *
- * Loads config + scenarios on mount. Controls live in a slide-out drawer.
- * DigitalTwinDashboard renders at full width once analysis completes.
+ * Condition monitoring of the 34 × V236 fleet against a physics reference
+ * model, structured by ISO 13374-1 (DA → DM → SD → HA → PA → AG).
+ *
+ *   Fleet     — KPIs, processing chain, map, health heatmap, fault register, events
+ *   Turbine   — diagnosis/advisory/prognosis, control charts, twin vs measured,
+ *               power curve, hypothesis test, fault size over time
+ *   Model     — validation vs injected ground truth, reference curves, model card
+ *
+ * Runs on mount with the default case so the page is never empty.
  */
 
 import { useEffect } from "react";
-import { Cpu } from "lucide-react";
+import { BookOpenCheck, Cpu, LayoutGrid, Wind } from "lucide-react";
 
-import DigitalTwinDashboard from "../components/digital-twin/DigitalTwinDashboard";
-import { useDigitalTwinStore } from "../store/digitalTwinStore";
+import EventLog from "../components/digital-twin/EventLog";
+import FarmMap from "../components/digital-twin/FarmMap";
+import FaultRegister from "../components/digital-twin/FaultRegister";
+import FleetHealthHeatmap from "../components/digital-twin/FleetHealthHeatmap";
+import FleetKPIs from "../components/digital-twin/FleetKPIs";
+import ChannelComparePanel from "../components/digital-twin/ChannelComparePanel";
+import HypothesisPanel from "../components/digital-twin/HypothesisPanel";
+import ModelCardPanel from "../components/digital-twin/ModelCardPanel";
+import PipelineStrip from "../components/digital-twin/PipelineStrip";
+import PowerCurvePanel from "../components/digital-twin/PowerCurvePanel";
+import ReferenceCurvePanel from "../components/digital-twin/ReferenceCurvePanel";
+import ResidualChartsPanel from "../components/digital-twin/ResidualChartsPanel";
+import SeverityTrendPanel from "../components/digital-twin/SeverityTrendPanel";
+import TurbineHeader from "../components/digital-twin/TurbineHeader";
+import TwinControlBar from "../components/digital-twin/TwinControlBar";
+import ValidationPanel from "../components/digital-twin/ValidationPanel";
 import { Button } from "../components/ui/Button";
+import { Skeleton } from "../components/ui/Skeleton";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
-import { ControlDrawer } from "../components/ui/ControlDrawer";
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { digitalTwinGuide } from "../constants/trainingGuideContent";
+import { useDigitalTwinStore, type TwinTab } from "../store/digitalTwinStore";
 
-const SCENARIO_LABELS: Record<string, string> = {
-  healthy: "Healthy Baseline",
-  blade_icing: "Blade Icing",
-  gearbox_degradation: "Gearbox Degradation",
-  pitch_malfunction: "Pitch Malfunction",
-  generator_derating: "Generator Derating",
-  sensor_drift: "Sensor Drift",
-};
+const TABS: { id: TwinTab; label: string; Icon: React.FC<{ size?: number }> }[] = [
+  { id: "fleet", label: "Fleet overview", Icon: LayoutGrid },
+  { id: "turbine", label: "Turbine analysis", Icon: Wind },
+  { id: "model", label: "Model & validation", Icon: BookOpenCheck },
+];
+
+function LoadingBlock({ height = 320 }: { height?: number }) {
+  return (
+    <div style={{ height }}>
+      <Skeleton className="h-full w-full rounded-lg" />
+    </div>
+  );
+}
 
 export default function DigitalTwinPage() {
-  const config = useDigitalTwinStore((s) => s.config);
+  const analysis = useDigitalTwinStore((s) => s.analysis);
+  const detail = useDigitalTwinStore((s) => s.detail);
   const loading = useDigitalTwinStore((s) => s.loading);
+  const detailLoading = useDigitalTwinStore((s) => s.detailLoading);
   const error = useDigitalTwinStore((s) => s.error);
-  const analysisRun = useDigitalTwinStore((s) => s.analysisRun);
-  const progress = useDigitalTwinStore((s) => s.progress);
-  const progressMessage = useDigitalTwinStore((s) => s.progressMessage);
-  const selectedScenario = useDigitalTwinStore((s) => s.selectedScenario);
-  const numTimesteps = useDigitalTwinStore((s) => s.numTimesteps);
-  const numTurbines = useDigitalTwinStore((s) => s.numTurbines);
-  const setSelectedScenario = useDigitalTwinStore((s) => s.setSelectedScenario);
-  const setNumTimesteps = useDigitalTwinStore((s) => s.setNumTimesteps);
-  const setNumTurbines = useDigitalTwinStore((s) => s.setNumTurbines);
-  const fetchConfig = useDigitalTwinStore((s) => s.fetchConfig);
-  const fetchScenarios = useDigitalTwinStore((s) => s.fetchScenarios);
+  const tab = useDigitalTwinStore((s) => s.tab);
+  const setTab = useDigitalTwinStore((s) => s.setTab);
+  const loadModel = useDigitalTwinStore((s) => s.loadModel);
   const runAnalysis = useDigitalTwinStore((s) => s.runAnalysis);
   const clearError = useDigitalTwinStore((s) => s.clearError);
 
   useEffect(() => {
-    fetchConfig();
-    fetchScenarios();
-  }, [fetchConfig, fetchScenarios]);
+    loadModel();
+    if (!useDigitalTwinStore.getState().analysis) runAnalysis();
+  }, [loadModel, runAnalysis]);
+
+  const showDetail = detail != null && !detailLoading;
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-text-primary">
-            Digital Twin
+          <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
+            <Cpu size={20} className="text-accent" aria-hidden />
+            Digital Twin · Condition Monitoring
           </h2>
-          <p className="text-xs text-text-muted mt-1 font-mono">
-            {config
-              ? `ISO 13374-1 Condition Monitoring | EWMA span=${config.ewma_span} | Weights: P=${config.health_weights.power} R=${config.health_weights.rpm} Pi=${config.health_weights.pitch}`
-              : "Loading configuration..."}
+          <p className="mt-1 text-xs text-text-muted">
+            Physics reference model of the V236-15.0 MW run at the measured wind of every 10-min
+            SCADA record · EWMA control charts · model-based fault isolation · ISO 13374-1 / 13381-1
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            onClick={runAnalysis}
-            disabled={loading}
-            size="sm"
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Analyzing...
-              </span>
-            ) : analysisRun ? (
-              "Re-run"
-            ) : (
-              "Run Analysis"
-            )}
-          </Button>
-          <ControlDrawer
-            title="Digital Twin Controls"
-            subtitle="Fault scenario & analysis settings"
-            footer={
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="font-medium text-text-secondary">Digital Twin</span>
-                  <span className="text-text-muted">
-                    {" "}— Virtual replica predicting expected behavior from physics
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-text-secondary">Residual</span>
-                  <span className="text-text-muted">
-                    {" "}— Actual minus predicted. Persistent deviation = fault
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-text-secondary">EWMA</span>
-                  <span className="text-text-muted">
-                    {" "}— Exponentially Weighted Moving Average (span=24, ~4 hours)
-                  </span>
-                </div>
-              </div>
-            }
-          >
-            {/* Scenario selector */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Fault Scenario</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <select
-                  value={selectedScenario}
-                  onChange={(e) => setSelectedScenario(e.target.value)}
-                  className="w-full bg-bg-tertiary border border-border-secondary rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  {Object.entries(SCENARIO_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-text-muted mt-2">
-                  {selectedScenario === "healthy" && "No faults — all turbines operate normally."}
-                  {selectedScenario === "blade_icing" && "WTG-05 to WTG-08: 20-40% power loss from ice."}
-                  {selectedScenario === "gearbox_degradation" && "WTG-12: progressive 5% efficiency loss."}
-                  {selectedScenario === "pitch_malfunction" && "WTG-20: pitch stuck at 5 degrees."}
-                  {selectedScenario === "generator_derating" && "WTG-28: generator capped at 12 MW."}
-                  {selectedScenario === "sensor_drift" && "WTG-15: anemometer reads 8% high."}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Analysis settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Analysis Settings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <NumberInput
-                    label="Timesteps"
-                    unit="× 10min"
-                    value={numTimesteps}
-                    onChange={setNumTimesteps}
-                    min={24}
-                    max={1000}
-                    step={24}
-                  />
-                  <NumberInput
-                    label="Turbines"
-                    unit="WTGs"
-                    value={numTurbines}
-                    onChange={setNumTurbines}
-                    min={5}
-                    max={34}
-                    step={1}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Run Analysis button */}
-            <Button
-              onClick={runAnalysis}
-              disabled={loading}
-              className="w-full py-3"
-              size="lg"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Analyzing...
-                </span>
-              ) : analysisRun ? (
-                "Re-run Analysis"
-              ) : (
-                "Run Analysis"
-              )}
-            </Button>
-
-            {/* Progress bar */}
-            {loading && (
-              <div className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2">
-                <div className="w-full h-2 bg-bg-tertiary rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <p className="text-xs text-text-muted text-center font-mono">
-                  {progressMessage || "Initializing..."}
-                </p>
-              </div>
-            )}
-          </ControlDrawer>
-          <TrainingGuide guide={digitalTwinGuide} />
-        </div>
+        <TrainingGuide guide={digitalTwinGuide} />
       </div>
 
-      {/* Error banner */}
+      <TwinControlBar />
+
       {error && (
-        <div className="p-3 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-sm flex justify-between items-center">
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-lg border border-status-alarm/30 bg-status-alarm/10 p-3 text-sm"
+        >
           <span className="text-status-alarm">{error}</span>
           <Button variant="ghost" size="sm" onClick={clearError}>
             Dismiss
@@ -210,82 +100,88 @@ export default function DigitalTwinPage() {
         </div>
       )}
 
-      {/* Progress bar (visible inline when loading) */}
-      {loading && (
-        <div className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2">
-          <div className="w-full h-2 bg-bg-tertiary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-accent rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <p className="text-xs text-text-muted text-center font-mono">
-            {progressMessage || "Initializing..."}
-          </p>
-        </div>
-      )}
-
-      {/* Full-width dashboard */}
-      {analysisRun ? (
-        <DigitalTwinDashboard />
-      ) : (
-        <div className="flex items-center justify-center h-96 rounded-lg border border-border-primary bg-bg-secondary shadow-lg shadow-black/20">
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                <Cpu size={24} className="text-accent" />
-              </div>
-            </div>
-            <p className="text-text-secondary text-base mb-2">
-              Select a scenario and run analysis
-            </p>
-            <p className="text-text-muted text-sm">
-              The digital twin compares physics predictions against
-              SCADA data to detect anomalies
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Helper: Inline Number Input ─────────────────────────────────
-
-function NumberInput({
-  label,
-  unit,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-}: {
-  label: string;
-  unit: string;
-  value: number;
-  onChange: (v: number) => void;
-  min: number;
-  max: number;
-  step: number;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <label className="text-xs text-text-secondary whitespace-nowrap">
-        {label}
-      </label>
-      <div className="flex items-center gap-1.5">
-        <input
-          type="number"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="w-20 bg-bg-tertiary border border-border-secondary rounded-md px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent font-mono text-right"
-        />
-        <span className="text-[10px] text-text-muted w-12">{unit}</span>
+      <div
+        role="tablist"
+        aria-label="Digital twin views"
+        className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-border-primary bg-bg-secondary p-1"
+      >
+        {TABS.map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+              tab === id
+                ? "bg-accent text-white"
+                : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
+            }`}
+          >
+            <Icon size={13} />
+            {label}
+          </button>
+        ))}
       </div>
+
+      {!analysis ? (
+        loading ? (
+          <div className="space-y-4">
+            <LoadingBlock height={96} />
+            <LoadingBlock height={420} />
+          </div>
+        ) : (
+          <div className="flex h-72 items-center justify-center rounded-lg border border-border-primary bg-bg-secondary">
+            <p className="text-sm text-text-muted">Run the twin to see the fleet.</p>
+          </div>
+        )
+      ) : (
+        <div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"} aria-busy={loading}>
+          {tab === "fleet" && (
+            <div className="space-y-4">
+              <FleetKPIs />
+              <PipelineStrip />
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+                <FarmMap />
+                <FleetHealthHeatmap />
+              </div>
+              <FaultRegister />
+              <EventLog />
+            </div>
+          )}
+
+          {tab === "turbine" && (
+            <div className="space-y-4">
+              <TurbineHeader />
+              {showDetail ? (
+                <>
+                  <ResidualChartsPanel />
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <ChannelComparePanel />
+                    <PowerCurvePanel />
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <HypothesisPanel />
+                    <SeverityTrendPanel />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <LoadingBlock height={620} />
+                  <LoadingBlock height={360} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "model" && (
+            <div className="space-y-4">
+              <ValidationPanel />
+              <ReferenceCurvePanel />
+              <ModelCardPanel />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

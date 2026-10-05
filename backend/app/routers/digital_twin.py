@@ -1,281 +1,564 @@
-"""Digital Twin API endpoints.
+"""Digital Twin API — /api/v1/digital-twin.
 
-Provides REST endpoints for digital twin condition monitoring:
-- GET  /config: Get module configuration (thresholds, weights, scenarios)
-- GET  /scenarios: List available demo scenarios
-- POST /analyze: Run full pipeline for a scenario (farm-wide analysis)
-- POST /single-turbine: Analyze one turbine at one operating point
+  GET  /config            model card: parameters, calibration, detector, fault library
+  GET  /scenarios         fault scenarios with their injections
+  GET  /reference-curve   twin steady-state curves vs. the P1 V236 table
+  POST /analyze           farm-level run (ISO 13374-1 DA → AG)
+  POST /turbine-detail    full-resolution channels of one turbine from the same run
+  POST /operating-point   check one measured operating point against the twin
 
-All endpoints follow: /api/v1/digital-twin/{resource}
+Runs are deterministic per (scenario, duration_days, seed) and cached, so
+``/turbine-detail`` reads exactly the run ``/analyze`` summarised.
 """
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+from fastapi.concurrency import run_in_threadpool
+from numpy.typing import NDArray
 
 from app.schemas.digital_twin import (
+    AmbientSeries,
     AnalyzeRequest,
     AnalyzeResponse,
-    AnomalySchema,
-    DegradationTrendSchema,
-    DigitalTwinConfigResponse,
-    FarmHealthSummarySchema,
+    ChannelCard,
+    ChannelSeries,
+    DiagnosisSchema,
+    EventSchema,
+    FarmSummary,
+    FaultModeCard,
+    HealthTrend,
+    HypothesisSchema,
+    ModelCardResponse,
+    OperatingPointRequest,
+    OperatingPointResponse,
+    PrognosisSchema,
+    ReferenceCurveResponse,
     ScenarioInfo,
-    SingleTurbineRequest,
-    SingleTurbineResponse,
-    TurbineHealthSchema,
-    TwinComparisonSchema,
+    ScenarioInjection,
+    SeverityPointSchema,
+    StandardRef,
+    TruthSeries,
+    TurbineDetailRequest,
+    TurbineDetailResponse,
+    TurbineSummary,
+    ValidationRowSchema,
+    ValidationSchema,
 )
-from app.services.digital_twin.health_scoring import (
-    DEGRADED_THRESHOLD,
-    HEALTHY_THRESHOLD,
-    SIGMA_PITCH,
-    SIGMA_POWER,
-    SIGMA_RPM,
-    WEIGHT_PITCH,
-    WEIGHT_POWER,
-    WEIGHT_RPM,
+from app.services.digital_twin import detection as det_mod
+from app.services.digital_twin import plant_simulator as plant
+from app.services.digital_twin.detection import (
+    CHANNELS,
+    detector_settings,
+    phase_one_calibration,
+    standardise,
+    verification_false_events,
 )
-from app.services.digital_twin.residual_analysis import EWMA_SPAN
-from app.services.digital_twin.scenario_generator import (
-    SCENARIO_DESCRIPTIONS,
-    VALID_SCENARIOS,
-    run_digital_twin_analysis,
+from app.services.digital_twin.fault_library import FAULT_KINDS, FAULT_LIBRARY
+from app.services.digital_twin.pipeline import (
+    DigitalTwinRun,
+    TurbineResult,
+    run_digital_twin,
+    turbine_name,
 )
-from app.services.digital_twin.twin_engine import (
-    build_twin_lookup_table,
-    lookup_twin_prediction,
+from app.services.digital_twin.reference_model import (
+    DEFAULT_PARAMS,
+    REGION_NAMES,
+    calibrate,
+    evaluate,
+    reference_curve,
 )
+from app.services.p4.turbine_power_curve import get_v236_spec
 
-router = APIRouter(
-    prefix="/api/v1/digital-twin",
-    tags=["Digital Twin"],
-)
+router = APIRouter(prefix="/api/v1/digital-twin", tags=["Digital Twin"])
+
+STANDARDS: list[StandardRef] = [
+    StandardRef(
+        code="ISO 13374-1:2003",
+        title="Condition monitoring and diagnostics of machines — Data processing, "
+        "communication and presentation — Part 1: General guidelines",
+        role="Pipeline structure: DA → DM → SD → HA → PA → AG",
+    ),
+    StandardRef(
+        code="ISO 13379-1:2012",
+        title="Condition monitoring and diagnostics of machines — Data interpretation "
+        "and diagnostics techniques — Part 1: General guidelines",
+        role="Model-based diagnosis, fault-symptom reasoning",
+    ),
+    StandardRef(
+        code="ISO 13381-1:2015",
+        title="Condition monitoring and diagnostics of machines — Prognostics — "
+        "Part 1: General guidelines",
+        role="RUL from a degradation descriptor, with confidence",
+    ),
+    StandardRef(
+        code="ISO/IEC 30173:2023",
+        title="Digital twin — Concepts and terminology",
+        role="Vocabulary: physical entity, digital entity, data connection",
+    ),
+    StandardRef(
+        code="DNV-RP-A204 (2020)",
+        title="Qualification and assurance of digital twins",
+        role="Model card: calibration and validation evidence",
+    ),
+    StandardRef(
+        code="IEC 61400-12-1:2022",
+        title="Power performance measurements of electricity producing wind turbines",
+        role="0.5 m/s bins, air density from p and T",
+    ),
+    StandardRef(
+        code="IEC 61400-25-2:2015",
+        title="Communications for monitoring and control of wind power plants — Information model",
+        role="Channel → logical node mapping (WTUR, WROT, WTRM, WMET)",
+    ),
+    StandardRef(
+        code="JCGM 100:2008 (GUM)",
+        title="Evaluation of measurement data — Guide to the expression of uncertainty",
+        role="Propagation of wind-measurement uncertainty through the twin",
+    ),
+]
 
 
-@router.get("/config", response_model=DigitalTwinConfigResponse)
-async def get_config() -> DigitalTwinConfigResponse:
-    """Get digital twin module configuration.
+# ── Helpers ───────────────────────────────────────────────────────
 
-    Returns health scoring weights, thresholds, baseline noise floors,
-    EWMA parameters, and available scenarios. Useful for UI display and
-    educational transparency.
-    """
-    return DigitalTwinConfigResponse(
-        health_weights={"power": WEIGHT_POWER, "rpm": WEIGHT_RPM, "pitch": WEIGHT_PITCH},
-        health_thresholds={"healthy": HEALTHY_THRESHOLD, "degraded": DEGRADED_THRESHOLD},
-        sigma_baselines={"power_pct": SIGMA_POWER, "rpm_pct": SIGMA_RPM, "pitch_pct": SIGMA_PITCH},
-        ewma_span=EWMA_SPAN,
-        available_scenarios=sorted(VALID_SCENARIOS),
+
+def _floats(x: NDArray[np.float64] | NDArray[np.bool_], digits: int = 4) -> list[float]:
+    arr = np.asarray(x, dtype=np.float64)
+    return [float(v) for v in np.round(np.nan_to_num(arr, nan=0.0), digits)]
+
+
+def _finite(x: float) -> float | None:
+    return None if math.isnan(x) or math.isinf(x) else x
+
+
+def _ts(run: DigitalTwinRun, idx: int | None) -> int | None:
+    return None if idx is None else int(run.data.timestamps[idx])
+
+
+def _diagnosis_schema(run: DigitalTwinRun, tr: TurbineResult) -> DiagnosisSchema | None:
+    d = tr.diagnosis
+    if d is None:
+        return None
+    mode = FAULT_LIBRARY[d.kind] if d.kind is not None else None
+    return DiagnosisSchema(
+        kind=d.kind,
+        label=mode.label if mode else "Unexplained deviation",
+        category=mode.category if mode else None,
+        severity=d.severity,
+        unit=mode.unit if mode else None,
+        posterior=d.posterior,
+        explained=d.explained,
+        lr_statistic=d.lr_statistic,
+        cause_hint=d.cause_hint,
+        advisory=mode.advisory if mode else None,
+        window_start=int(run.data.timestamps[d.window_start_idx]),
+        window_end=int(run.data.timestamps[d.window_end_idx]),
+        samples_used=d.samples_used,
+        mean_ambient_c=d.mean_ambient_c,
+        mean_humidity_pct=d.mean_humidity_pct,
+        hypotheses=[
+            HypothesisSchema(
+                kind=h.kind,
+                severity=h.severity,
+                cost=h.cost,
+                explained=h.explained,
+                posterior=h.posterior,
+            )
+            for h in d.hypotheses
+        ],
+    )
+
+
+def _turbine_summary(run: DigitalTwinRun, tr: TurbineResult) -> TurbineSummary:
+    p = tr.prognosis
+    return TurbineSummary(
+        turbine_id=tr.turbine_id,
+        name=tr.name,
+        status=tr.status,
+        health_index=tr.health_index,
+        channel_health=tr.channel_health,
+        worst_channel=tr.worst_channel,
+        event_count=tr.event_count,
+        active_event_count=tr.active_event_count,
+        first_detection=_ts(run, tr.first_detection_idx),
+        last_evidence=_ts(run, tr.last_evidence_idx),
+        diagnosis=_diagnosis_schema(run, tr),
+        prognosis=(
+            PrognosisSchema(
+                kind=p.kind,
+                limit=p.limit,
+                limit_note=p.limit_note,
+                current=_finite(p.current),
+                slope_per_day=p.slope_per_day,
+                slope_std_error=p.slope_std_error,
+                p_value=p.p_value,
+                significant=p.significant,
+                rul_days=p.rul_days,
+                rul_lower_days=p.rul_lower_days,
+                rul_upper_days=p.rul_upper_days,
+                points=p.points,
+                status=p.status,
+            )
+            if p is not None
+            else None
+        ),
+        actual_energy_mwh=tr.actual_energy_mwh,
+        potential_energy_mwh=tr.potential_energy_mwh,
+        lost_energy_mwh=tr.lost_energy_mwh,
+    )
+
+
+def _scenario_info(s: plant.Scenario) -> ScenarioInfo:
+    return ScenarioInfo(
+        name=s.name,
+        title=s.title,
+        description=s.description,
+        injections=[
+            ScenarioInjection(
+                kind=inj.kind,
+                label=FAULT_LIBRARY[inj.kind].label,
+                turbines=[turbine_name(t) for t in inj.turbine_ids],
+                severity=list(inj.severity),
+                unit=FAULT_LIBRARY[inj.kind].unit,
+                onset_fraction=inj.onset,
+                ramp_fraction=inj.ramp,
+                end_fraction=inj.end,
+            )
+            for inj in s.injections
+        ],
+        cold_spell=s.cold_spell,
+    )
+
+
+def _run(req: AnalyzeRequest) -> DigitalTwinRun:
+    return run_digital_twin(req.scenario, req.duration_days, req.seed)
+
+
+# ── Endpoints ─────────────────────────────────────────────────────
+
+
+@router.get("/config", response_model=ModelCardResponse)
+async def get_config() -> ModelCardResponse:
+    """Model card (DNV-RP-A204 style): what the twin assumes and how well it fits."""
+    cal = await run_in_threadpool(phase_one_calibration)
+    verification = await run_in_threadpool(verification_false_events)
+    aero = calibrate()
+    spec = get_v236_spec()
+    p = DEFAULT_PARAMS
+    channels = [
+        ChannelCard(
+            key=c.key,
+            label=c.label,
+            unit=c.unit,
+            logical_node=c.logical_node,
+            sigma_floor=c.sigma_floor,
+            acf_factor=round(float(cal.acf_factor[i]), 3),
+            lag1_autocorr=round(float(cal.lag1_autocorr[i]), 3),
+            rmse=round(float(cal.rmse[i]), 4),
+            bias=round(float(cal.bias[i]), 4),
+            samples=int(cal.samples[i]),
+        )
+        for i, c in enumerate(CHANNELS)
+    ]
+    return ModelCardResponse(
+        turbine={
+            "name": spec.name,
+            "rated_power_mw": p.rated_power_mw,
+            "rotor_diameter_m": 2 * p.rotor_radius_m,
+            "cut_in_ms": p.cut_in_ms,
+            "rated_wind_ms": p.rated_wind_ms,
+            "cut_out_ms": p.cut_out_ms,
+            "min_rotor_rpm": p.min_rotor_rpm,
+            "rated_rotor_rpm": p.rated_rotor_rpm,
+            "gearbox_ratio": p.gearbox_ratio,
+            "gearbox_efficiency": p.gearbox_efficiency,
+            "generator_efficiency": p.generator_efficiency,
+        },
+        aero_calibration={
+            "lambda_opt": round(aero.lambda_opt, 3),
+            "cp_max_heier": round(aero.cp_max_heier, 4),
+            "k_aero": round(aero.k_aero, 4),
+            "cp_max_effective": round(aero.cp_max, 4),
+            "torque_gain_mnm_per_rad_s2": round(aero.torque_gain_nm_s2 / 1e6, 3),
+        },
+        thermal_model={
+            "structure": "1st-order lag",
+            "offset_k": p.gearbox_temp_offset_k,
+            "resistance_k_per_kw": p.gearbox_thermal_resistance_k_per_kw,
+            "time_constant_s": p.gearbox_thermal_time_constant_s,
+            "provenance": "illustrative — no public V236 gearbox thermal data",
+        },
+        measurement_model={
+            "anemometer_sigma": (
+                f"{plant.ANEMOMETER_SIGMA_BASE_MS} + {plant.ANEMOMETER_SIGMA_REL}·v m/s"
+            ),
+            "power_sigma_mw": plant.POWER_SIGMA_MW,
+            "rotor_speed_sigma_rpm": plant.ROTOR_SIGMA_RPM,
+            "pitch_sigma_deg": plant.PITCH_SIGMA_DEG,
+            "gearbox_temp_sigma_k": plant.GEARBOX_TEMP_SIGMA_K,
+            "turbine_wind_sigma": plant.TURBINE_SIGMA,
+            "weibull": f"a = {plant.WEIBULL_A} m/s, k = {plant.WEIBULL_K}",
+        },
+        detector=detector_settings(),
+        phase_one={
+            "days": det_mod.CALIBRATION_DAYS,
+            "turbine_days": cal.turbine_days,
+            "wind_sigma_a_ms": cal.wind_sigma_coef[0],
+            "wind_sigma_b": cal.wind_sigma_coef[1],
+            "in_sample_false_events": cal.false_events,
+            "verification_false_events": verification,
+            "verification_days": det_mod.CALIBRATION_DAYS,
+        },
+        channels=channels,
+        fault_library=[
+            FaultModeCard(
+                kind=m.kind,
+                label=m.label,
+                category=m.category,
+                parameter=m.parameter,
+                unit=m.unit,
+                nominal=m.nominal,
+                search_min=m.search_min,
+                search_max=m.search_max,
+                advisory=m.advisory,
+                references=list(m.references),
+                prognosis_limit=m.prognosis_limit,
+                prognosis_limit_note=m.prognosis_limit_note,
+            )
+            for m in (FAULT_LIBRARY[k] for k in FAULT_KINDS)
+        ],
+        scenarios=[_scenario_info(s) for s in plant.SCENARIOS.values()],
+        standards=STANDARDS,
     )
 
 
 @router.get("/scenarios", response_model=list[ScenarioInfo])
 async def list_scenarios() -> list[ScenarioInfo]:
-    """List available demo scenarios with descriptions.
+    return [_scenario_info(s) for s in plant.SCENARIOS.values()]
 
-    Each scenario injects a known fault type for educational demonstration
-    of how the digital twin detects and classifies anomalies.
-    """
-    return [
-        ScenarioInfo(name=name, description=desc)
-        for name, desc in sorted(SCENARIO_DESCRIPTIONS.items())
-    ]
+
+@router.get("/reference-curve", response_model=ReferenceCurveResponse)
+async def get_reference_curve() -> ReferenceCurveResponse:
+    """Twin steady state at ρ = 1.225 kg/m³, with the P1 V236 table for validation."""
+    rc = reference_curve()
+    dev = np.abs(rc.power_mw - rc.p1_table_power_mw)
+    in_range = (rc.wind_ms >= 6.0) & (rc.wind_ms <= 30.0)
+    return ReferenceCurveResponse(
+        wind_ms=_floats(rc.wind_ms, 2),
+        power_mw=_floats(rc.power_mw),
+        rotor_speed_rpm=_floats(rc.rotor_speed_rpm),
+        pitch_deg=_floats(rc.pitch_deg, 3),
+        tip_speed_ratio=_floats(rc.tip_speed_ratio, 3),
+        cp=_floats(rc.cp),
+        gearbox_loss_kw=_floats(rc.gearbox_loss_kw, 1),
+        region=[int(r) for r in rc.region],
+        region_names=REGION_NAMES,
+        p1_table_power_mw=_floats(rc.p1_table_power_mw),
+        max_deviation_vs_p1_mw=round(float(dev[rc.wind_ms <= 30.0].max()), 3),
+        max_deviation_vs_p1_above_6ms_mw=round(float(dev[in_range].max()), 3),
+    )
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
-    """Run complete digital twin analysis pipeline.
+    """Farm overview: health, events, diagnoses, prognoses, validation vs. ground truth."""
+    run = await run_in_threadpool(_run, req)
+    data = run.data
+    turbines = [_turbine_summary(run, tr) for tr in run.turbines]
+    kind_of = {tr.turbine_id: (tr.diagnosis.kind if tr.diagnosis else None) for tr in run.turbines}
 
-    Generates synthetic SCADA data, injects the selected scenario fault,
-    runs the twin engine, computes residuals, scores health, and classifies
-    anomalies for all turbines.
-
-    This is the main endpoint — it produces all the data needed for the
-    dashboard visualization.
-    """
-    if req.scenario not in VALID_SCENARIOS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown scenario '{req.scenario}'. Valid: {sorted(VALID_SCENARIOS)}",
+    events = [
+        EventSchema(
+            turbine_id=e.turbine_id,
+            turbine_name=turbine_name(e.turbine_id),
+            channel=e.channel,
+            level=e.level,
+            direction=e.direction,
+            onset=int(data.timestamps[e.onset_idx]),
+            confirmed=int(data.timestamps[e.confirmed_idx]),
+            end=_ts(run, e.end_idx),
+            peak_u=e.peak_u,
+            diagnosis=kind_of[e.turbine_id],
         )
+        for e in run.events
+    ]
 
-    # Run the full pipeline
-    result = run_digital_twin_analysis(
-        scenario=req.scenario,
-        num_timesteps=req.num_timesteps,
-        num_turbines=req.num_turbines,
-        seed=req.seed,
-    )
-
-    # ── Build turbine health list ───────────────────────────────
-    turbine_health: list[TurbineHealthSchema] = []
-    all_anomalies: list[AnomalySchema] = []
-    degradation_trends: list[DegradationTrendSchema] = []
-
-    for analysis in result.turbine_analyses:
-        h = analysis.final_health
-        turbine_health.append(
-            TurbineHealthSchema(
-                turbine_id=analysis.turbine_id,
-                turbine_name=analysis.turbine_name,
-                health_power=h.health_power,
-                health_rpm=h.health_rpm,
-                health_pitch=h.health_pitch,
-                health_composite=h.health_composite,
-                status=h.status.value,
-                anomaly_count=len(analysis.anomalies),
-            )
+    rows = [
+        ValidationRowSchema(
+            turbine_id=v.turbine_id,
+            turbine_name=turbine_name(v.turbine_id),
+            injected_kind=v.injected_kind,
+            injected_severity=v.injected_severity,
+            final_severity=v.final_severity,
+            unit=FAULT_LIBRARY[v.injected_kind].unit,
+            onset=int(data.timestamps[v.onset_idx]),
+            detected=v.detected,
+            detection=_ts(run, v.detection_idx),
+            delay_hours=v.delay_hours,
+            diagnosed_kind=v.diagnosed_kind,
+            isolation_correct=v.isolation_correct,
+            estimated_severity=v.estimated_severity,
         )
+        for v in run.validation
+    ]
+    delays = [r.delay_hours for r in rows if r.delay_hours is not None]
 
-        # Anomalies
-        for a in analysis.anomalies:
-            all_anomalies.append(
-                AnomalySchema(
-                    turbine_id=a.turbine_id,
-                    timestep=a.timestep,
-                    category=a.category.value,
-                    severity=a.severity,
-                    description=a.description,
-                    power_ewma_pct=a.power_ewma_pct,
-                    rpm_ewma_pct=a.rpm_ewma_pct,
-                    pitch_ewma_pct=a.pitch_ewma_pct,
-                )
-            )
-
-        # Degradation trend
-        health_values = [s.health_composite for s in analysis.health_timeseries]
-        slope = _compute_degradation_slope(health_values, interval_minutes=10)
-        rul = _estimate_rul(health_values[-1], slope) if slope < -0.01 else None
-
-        degradation_trends.append(
-            DegradationTrendSchema(
-                turbine_id=analysis.turbine_id,
-                turbine_name=analysis.turbine_name,
-                health_values=health_values,
-                slope_pct_per_day=round(slope, 4),
-                rul_days=round(rul, 1) if rul is not None else None,
-            )
-        )
-
-    # ── Farm health summary ─────────────────────────────────────
-    worst_idx = min(
-        range(req.num_turbines),
-        key=lambda i: turbine_health[i].health_composite,
+    hi = np.array([t.health_index for t in run.turbines])
+    actual = sum(t.actual_energy_mwh for t in run.turbines)
+    potential = sum(t.potential_energy_mwh for t in run.turbines)
+    lost = sum(
+        t.lost_energy_mwh
+        for t in run.turbines
+        if t.diagnosis is not None and t.diagnosis.kind not in (None, "anemometer_gain")
     )
-    farm = result.farm_health
-    farm_summary = FarmHealthSummarySchema(
-        farm_health_pct=farm["farm_health_pct"],
-        healthy_count=farm["healthy_count"],
-        degraded_count=farm["degraded_count"],
-        critical_count=farm["critical_count"],
-        worst_turbine_id=worst_idx,
-        worst_turbine_name=f"WTG-{worst_idx + 1:02d}",
-        total_anomalies=len(all_anomalies),
+    farm = FarmSummary(
+        fleet_health_index=round(float(hi.mean()), 2),
+        min_health_index=round(float(hi.min()), 2),
+        normal_count=sum(t.status == "normal" for t in run.turbines),
+        alert_count=sum(t.status == "alert" for t in run.turbines),
+        alarm_count=sum(t.status == "alarm" for t in run.turbines),
+        diagnosed_count=sum(
+            t.diagnosis is not None and t.diagnosis.kind is not None for t in run.turbines
+        ),
+        active_events=sum(e.end_idx is None for e in run.events),
+        total_events=len(run.events),
+        actual_energy_mwh=round(actual, 1),
+        potential_energy_mwh=round(potential, 1),
+        lost_energy_mwh=round(lost, 1),
+        energy_performance_pct=round(100.0 * actual / potential, 2) if potential > 0 else 0.0,
     )
 
-    # ── Comparison data (worst turbine) ─────────────────────────
-    worst_analysis = result.turbine_analyses[worst_idx]
-    residual_mw = (
-        np.array(result.comparison_actual_power) - np.array(result.comparison_twin_power)
-    ).tolist()
-    residual_pct = worst_analysis.residuals.power_residual_pct.tolist()
-    power_ewma = worst_analysis.residuals.power_ewma.tolist()
-
-    comparison = TwinComparisonSchema(
-        timestamps=result.comparison_timestamps,
-        wind_speed_ms=result.comparison_wind,
-        actual_power_mw=result.comparison_actual_power,
-        twin_power_mw=result.comparison_twin_power,
-        residual_mw=residual_mw,
-        residual_pct=residual_pct,
-        power_ewma=power_ewma,
-    )
+    hours = run.health_hourly.shape[0]
+    hour_ts = [int(data.timestamps[0] + (h + 1) * 3600) for h in range(hours)]
+    n_hour = hours * 6
+    farm_wind = np.median(data.wind_ms[:n_hour], axis=1).reshape(hours, 6).mean(axis=1)
 
     return AnalyzeResponse(
-        scenario=result.scenario,
-        num_timesteps=result.num_timesteps,
-        num_turbines=result.num_turbines,
-        farm_health=farm_summary,
-        turbine_health=turbine_health,
-        anomalies=all_anomalies,
-        degradation_trends=degradation_trends,
-        comparison_data=comparison,
+        scenario=req.scenario,
+        title=plant.SCENARIOS[req.scenario].title,
+        duration_days=run.duration_days,
+        seed=run.seed,
+        start=int(data.timestamps[0]),
+        sample_period_s=plant.SAMPLE_PERIOD_S,
+        num_samples=run.num_samples,
+        farm=farm,
+        turbines=turbines,
+        events=events,
+        health_trend=HealthTrend(
+            timestamps=hour_ts,
+            health=[_floats(run.health_hourly[:, i], 1) for i in range(plant.NUM_TURBINES)],
+        ),
+        ambient=AmbientSeries(
+            timestamps=hour_ts,
+            temperature_c=_floats(data.ambient_temp_c[:n_hour].reshape(hours, 6).mean(axis=1), 2),
+            humidity_pct=_floats(data.humidity_pct[:n_hour].reshape(hours, 6).mean(axis=1), 1),
+            farm_wind_ms=_floats(farm_wind, 2),
+        ),
+        validation=ValidationSchema(
+            rows=rows,
+            injected=len(rows),
+            detected=sum(r.detected for r in rows),
+            isolated=sum(r.isolation_correct for r in rows),
+            false_events=run.false_event_count,
+            mean_delay_hours=round(float(np.mean(delays)), 2) if delays else None,
+        ),
     )
 
 
-@router.post("/single-turbine", response_model=SingleTurbineResponse)
-async def single_turbine(req: SingleTurbineRequest) -> SingleTurbineResponse:
-    """Analyze a single turbine at one operating point.
+@router.post("/turbine-detail", response_model=TurbineDetailResponse)
+async def turbine_detail(req: TurbineDetailRequest) -> TurbineDetailResponse:
+    """All five channels of one turbine at full resolution, from the cached run."""
+    run = await run_in_threadpool(_run, req)
+    tid = req.turbine_id
+    data, view, det = run.data, run.view, run.detection
+    tr = run.turbines[tid]
 
-    Compares actual power against twin prediction and returns health score.
-    Useful for quick spot-checks without running full farm analysis.
-    """
-    table = build_twin_lookup_table()
-    pred = lookup_twin_prediction(table, req.wind_speed_ms, req.wind_dir_deg)
+    channels = [
+        ChannelSeries(
+            key=c.key,
+            label=c.label,
+            unit=c.unit,
+            logical_node=c.logical_node,
+            measured=_floats(view.measured[:, tid, i], 3),
+            expected=_floats(view.expected[:, tid, i], 3),
+            ewma=_floats(det.ewma[:, tid, i], 3),
+            limit=_floats(det.ucl[:, tid, i], 3),
+            valid=[bool(v) for v in view.valid[:, tid, i]],
+        )
+        for i, c in enumerate(CHANNELS)
+    ]
+    in_event = np.zeros(data.timestamps.size, dtype=bool)
+    for e in run.events:
+        if e.turbine_id == tid:
+            stop = e.end_idx + 1 if e.end_idx is not None else data.timestamps.size
+            in_event[e.onset_idx : stop] = True
 
-    residual_mw = req.actual_power_mw - pred.power_mw
-    safe_ref = max(abs(pred.power_mw), 0.1)
-    residual_pct = (residual_mw / safe_ref) * 100.0
-
-    from app.services.digital_twin.health_scoring import compute_health_score
-
-    health = compute_health_score(residual_pct, 0.0, 0.0)
-
-    return SingleTurbineResponse(
-        wind_speed_ms=req.wind_speed_ms,
-        wind_dir_deg=req.wind_dir_deg,
-        actual_power_mw=req.actual_power_mw,
-        twin_power_mw=round(pred.power_mw, 4),
-        residual_mw=round(residual_mw, 4),
-        residual_pct=round(residual_pct, 2),
-        health_composite=health.health_composite,
-        status=health.status.value,
+    truth = [
+        TruthSeries(
+            kind=k, unit=FAULT_LIBRARY[k].unit, values=_floats(data.ground_truth[k][:, tid], 3)
+        )
+        for k in FAULT_KINDS
+        if np.any(data.ground_truth[k][:, tid] != FAULT_LIBRARY[k].nominal)
+    ]
+    rc = reference_curve()
+    return TurbineDetailResponse(
+        turbine=_turbine_summary(run, tr),
+        timestamps=[int(t) for t in data.timestamps],
+        wind_ms=_floats(data.wind_ms[:, tid], 3),
+        channels=channels,
+        health=_floats(det.health_turbine[:, tid], 1),
+        in_event=[bool(v) for v in in_event],
+        severity_trend=[
+            SeverityPointSchema(
+                time=int(data.timestamps[p.centre_idx]),
+                severity=p.severity,
+                std_error=p.std_error,
+                samples=p.samples,
+            )
+            for p in tr.severity_trend
+        ],
+        truth=truth,
+        power_curve_wind_ms=_floats(rc.wind_ms, 2),
+        power_curve_mw=_floats(rc.power_mw),
     )
 
 
-# ── Helper functions ──────────────────────────────────────────────
+@router.post("/operating-point", response_model=OperatingPointResponse)
+async def operating_point(req: OperatingPointRequest) -> OperatingPointResponse:
+    """Compare one measured 10-min operating point with the twin (z-scores from Phase I)."""
+    op = evaluate(np.array([req.wind_speed_ms]), req.air_density)
+    cal = await run_in_threadpool(phase_one_calibration)
+    exp = np.array(
+        [float(op.power_mw[0]), float(op.rotor_speed_rpm[0]), float(op.pitch_deg[0]), 0.0, 0.0]
+    )
+    meas = np.array(
+        [
+            req.power_mw,
+            req.rotor_speed_rpm if req.rotor_speed_rpm is not None else np.nan,
+            req.pitch_deg if req.pitch_deg is not None else np.nan,
+            0.0,
+            0.0,
+        ]
+    )
+    z, _ = standardise((meas - exp)[None, None, :], np.array([[req.wind_speed_ms]]), cal)
+    zz = z[0, 0]
+    operating = bool(op.operating[0])
 
+    def opt(x: float) -> float | None:
+        return None if not operating or math.isnan(x) else round(x, 3)
 
-def _compute_degradation_slope(
-    health_values: list[float],
-    interval_minutes: int = 10,
-) -> float:
-    """Compute degradation rate as % per day using linear regression.
-
-    Fits a line to the health timeseries and returns the slope in
-    units of % health per day.
-    """
-    if len(health_values) < 2:
-        return 0.0
-
-    n = len(health_values)
-    # Time in days
-    x = np.arange(n) * interval_minutes / (60.0 * 24.0)
-    y = np.array(health_values)
-
-    # Simple linear regression: slope = cov(x,y) / var(x)
-    x_mean = np.mean(x)
-    y_mean = np.mean(y)
-    slope = float(np.sum((x - x_mean) * (y - y_mean)) / np.sum((x - x_mean) ** 2))
-
-    return slope
-
-
-def _estimate_rul(
-    current_health: float,
-    slope_pct_per_day: float,
-    failure_threshold: float = 40.0,
-) -> float | None:
-    """Estimate Remaining Useful Life in days.
-
-    RUL = (current_health - failure_threshold) / |slope|
-
-    Returns None if health is improving or slope is near zero.
-    """
-    if slope_pct_per_day >= -0.01:
-        return None  # Not degrading
-
-    rul = (current_health - failure_threshold) / abs(slope_pct_per_day)
-    return max(0.0, rul)
+    return OperatingPointResponse(
+        region=REGION_NAMES[int(op.region[0])],
+        expected_power_mw=round(exp[0], 4),
+        expected_rotor_speed_rpm=round(exp[1], 3),
+        expected_pitch_deg=round(exp[2], 3),
+        power_residual_mw=round(float(meas[0] - exp[0]), 4),
+        power_z=opt(float(zz[0])),
+        rotor_speed_residual_rpm=opt(float(meas[1] - exp[1])),
+        rotor_speed_z=opt(float(zz[1])),
+        pitch_residual_deg=opt(float(meas[2] - exp[2])),
+        pitch_z=opt(float(zz[2])),
+    )

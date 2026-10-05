@@ -105,7 +105,7 @@ export default function HVGridPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2" data-tour="page-header">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-text-primary">
             HV Grid Integration
@@ -138,7 +138,7 @@ export default function HVGridPage() {
           {/* Action buttons — only for grid/ppc tabs */}
           {activeTab === "grid" && (
             <>
-              <Button onClick={runFullAnalysis} disabled={loading} size="sm">
+              <Button onClick={runFullAnalysis} disabled={loading} size="sm" data-tour="run-button">
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -159,7 +159,10 @@ export default function HVGridPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 p-1 bg-bg-secondary rounded-lg border border-border-primary max-w-full overflow-x-auto">
+      <div
+        className="flex gap-1 p-1 bg-bg-secondary rounded-lg border border-border-primary max-w-full overflow-x-auto"
+        data-tour="page-tabs"
+      >
         {TABS.map(({ id, label, Icon, tooltip }) => (
           <button
             key={id}

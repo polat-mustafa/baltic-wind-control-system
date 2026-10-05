@@ -29,7 +29,10 @@ export default function TwinControlBar() {
       analysis.seed !== seed);
 
   return (
-    <div className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2.5">
+    <div
+      className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2.5"
+      data-tour="twin-controls"
+    >
       <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
         <label className="flex flex-col gap-1 min-w-[12rem] flex-1 sm:flex-none">
           <span className="text-[10px] font-medium uppercase tracking-wider text-text-muted">

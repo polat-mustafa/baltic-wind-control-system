@@ -26,6 +26,9 @@ import {
 } from "lucide-react";
 
 import Sidebar from "./Sidebar";
+import TourMenu from "../../tour/TourMenu";
+import TourOverlay from "../../tour/TourOverlay";
+import TourWelcome from "../../tour/TourWelcome";
 import { Skeleton } from "../ui/Skeleton";
 import { StatusIndicator } from "../ui/StatusIndicator";
 import { cn } from "../../lib/utils";
@@ -121,6 +124,7 @@ export default function AppShell() {
             type="button"
             onClick={() => setNavOpen(true)}
             aria-label="Open menu"
+            data-tour="nav-menu"
             aria-expanded={navOpen}
             className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover"
           >
@@ -128,6 +132,7 @@ export default function AppShell() {
           </button>
           <Link
             to="/"
+            data-tour="brand"
             className="flex shrink-0 items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <div className="flex items-center justify-center h-7 w-7 rounded-md bg-accent/15">
@@ -164,11 +169,14 @@ export default function AppShell() {
             />
           </div>
 
+          <TourMenu />
+
           <button
             type="button"
             onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}
             aria-pressed={storybook}
             aria-label="Switch colour palette"
+            data-tour="theme-toggle"
             title="Switch colour palette"
             className="flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-tertiary px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover"
           >
@@ -231,6 +239,10 @@ export default function AppShell() {
           </Suspense>
         </main>
       </div>
+
+      {/* Guided tours (portals above everything) */}
+      <TourWelcome />
+      <TourOverlay />
     </div>
   );
 }

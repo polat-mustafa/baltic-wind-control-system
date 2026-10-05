@@ -26,29 +26,10 @@ import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { cn } from "../../lib/utils";
 import type { LayerInfo, LonLat } from "../../services/siteApi";
 import { CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
+import { ROLE_STYLE, type RoleStyle } from "./mapStyles";
 
 type LatLng = [number, number];
 const ll = ([lon, lat]: LonLat): LatLng => [lat, lon];
-
-interface RoleStyle {
-  label: string;
-  color: string;
-  fill: number;
-  dash?: string;
-  on: boolean;
-}
-
-/** Map styling per layer role. Suitability owns green; nothing else uses it. */
-const ROLE_STYLE: Record<string, RoleStyle> = {
-  protected: { label: "Natura 2000", color: "#a855f7", fill: 0.18, on: true },
-  shipping: { label: "Shipping priority (MSP)", color: "#3b82f6", fill: 0.14, dash: "6 4", on: true },
-  owf: { label: "Wind farm areas", color: "#f97316", fill: 0.18, on: true },
-  restricted: { label: "Military / munitions", color: "#ef4444", fill: 0.12, dash: "3 3", on: true },
-  territorial: { label: "12 nm territorial sea", color: "#64748b", fill: 0.1, dash: "8 6", on: true },
-  eez: { label: "EEZ boundary", color: "#334155", fill: 0, dash: "2 6", on: false },
-  cable: { label: "Subsea cables", color: "#e11d48", fill: 0, on: true },
-  grid: { label: "Grid connection", color: "#0f766e", fill: 1, on: true },
-};
 
 const SUITABLE = "#16a34a";
 const MARGINAL = "#d97706";
@@ -78,7 +59,7 @@ function DrawClicks() {
   return null;
 }
 
-const LayerShapes = memo(function LayerShapes({
+export const LayerShapes = memo(function LayerShapes({
   layer,
   style,
   renderer,

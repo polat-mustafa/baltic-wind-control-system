@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const ROUTES = [
   ["overview", "/"],
   ["site-permits", "/develop"],
+  ["layout", "/develop/layout"],
   ["p1-wind-resource", "/wind-resource"],
   ["p2-hv-grid", "/hv-grid"],
   ["p3-scada", "/scada"],

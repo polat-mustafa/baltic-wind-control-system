@@ -24,6 +24,7 @@ import {
   Cpu,
   Fan,
   MapPinned,
+  Grid3x3,
   ChevronLeft,
   ChevronRight,
   X,
@@ -55,6 +56,12 @@ const NAV_GROUPS: NavGroup[] = [
         path: "/develop",
         icon: MapPinned,
         description: "Open data, suitability, EIA, permit",
+      },
+      {
+        label: "Layout",
+        path: "/develop/layout",
+        icon: Grid3x3,
+        description: "Turbines, wakes, cables, cost",
       },
       {
         label: "Wind Resource",
@@ -193,7 +200,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   <li key={item.path}>
                     <NavLink
                       to={item.path}
-                      end={item.path === "/"}
+                      end={item.path === "/" || item.path === "/develop"}
                       onClick={onMobileClose}
                       className={({ isActive }) =>
                         cn(

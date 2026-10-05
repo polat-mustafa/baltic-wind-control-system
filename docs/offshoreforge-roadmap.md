@@ -1,7 +1,7 @@
 # OffshoreForge roadmap and hand-off
 
 Working notes for continuing the OffshoreForge transformation in a new Claude Code session.
-Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are merged.
+Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are merged, phase 4 is in review.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -9,8 +9,8 @@ Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are
 | 2 | Guided tour engine and per-page tours | Merged (PR #218) |
 | 3a/3b | Open marine data package + site-assessment backend | Merged (PR #219) |
 | 3c | `/develop` "build a farm from scratch" journey | Merged (PR #220) |
-| 4 | Layout canvas: turbines, wake, AEP, array cables, cost | **Next** |
-| 5 | Academy: courses and scored missions | Open |
+| 4 | Layout canvas: turbines, wake, AEP, array cables, cost | Done on `claude/busy-planck-8vitbx` (PR open) |
+| 5 | Academy: courses and scored missions | **Next** |
 | 6 | Lifecycle: construction, operation hand-over, decommissioning | Open |
 
 ## Working conventions
@@ -53,7 +53,26 @@ Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are
 - Store `frontend/src/store/siteStore.ts` (persisted as `of.site.v1`): `site` (GeoJSON polygon),
   `report`, `stage`, `done[]`. Phase 4 starts from `site` + `report` of this store.
 
-## Phase 4 — Layout canvas (next)
+## Phase 4 — Layout canvas (implemented)
+
+Delivered (route `/develop/layout`, page `frontend/src/pages/LayoutPage.tsx`):
+- `frontend/src/lib/layout/` — `geometry.ts` (projection, point-in-polygon, grid fill), `cables.ts`
+  (Esau–Williams, 66 kV sections 500/630/800 mm² from the P2 ratings, ≤ 6 × 15 MW per string),
+  `energy.ts` (screening yield with the V236 Ct curve; k* = 0.05 matches PyWake within 0.5 pp),
+  `cost.ts` (CAPEX lines, CRF, LCOE; illustrative editable inputs).
+- `frontend/src/store/projectStore.ts` (`of.project.v1`, `.offshoreforge.json` export/import, schema 1).
+- `frontend/src/components/layout-canvas/` — Leaflet map with draggable turbines and OSS, constraint
+  layers, cables coloured by section, optional wake cones.
+- Backend `POST /api/v1/wind/wake-analysis-custom` (note: the P1 router prefix is `/api/v1/wind`),
+  tests `backend/tests/test_wake_custom.py`. Frontend tests `tests/lib/layout.test.ts`,
+  `tests/store/projectStore.test.ts`. Tour `layout`.
+
+Still open from the original Phase 4 spec (good follow-ups):
+- IEA-15-240-RWT as a second turbine model (curves from the official IEA Wind Task 37 repo; backend
+  `run_wake_analysis` already takes a `turbine` argument).
+- Hand the project to P1/P2 pages (they still use the fixed SB-510 constants).
+
+Original spec, kept for reference:
 
 Goal: inside the site approved in `/develop`, the learner places turbines, sees wake losses live,
 gets AEP, an offshore substation (OSS), array cable routing and a cost estimate, and saves a project
@@ -91,7 +110,7 @@ file that other modules can read.
 - Add `data-tour` attributes and a `layout` tour (drag a turbine; watch-out: spacing vs wake).
 
 ### 4.4 Backend AEP for arbitrary positions
-- `POST /api/v1/p1/wake-analysis-custom` in `backend/app/routers/p1.py`.
+- `POST /api/v1/wind/wake-analysis-custom` in `backend/app/routers/p1.py`.
   Request: positions (lon/lat or local x/y in m), turbine model, Weibull A/k (or the site wind
   rose), turbulence intensity. Convert lon/lat to local metres (equirectangular around the
   centroid, same as `services/site_assessment/geo.py`).

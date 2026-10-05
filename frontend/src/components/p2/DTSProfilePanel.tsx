@@ -83,7 +83,7 @@ export default function DTSProfilePanel() {
               yref: "paper" as const,
               yanchor: "bottom" as const,
               xanchor: z.name === "OSS J-tube" ? ("left" as const) : ("center" as const),
-              text: z.name === "OSS J-tube" ? "← J-tube 0–0.3 km" : z.name === "HDD landfall" ? "HDD" : z.name,
+              text: z.name === "OSS J-tube" ? "← J-tube" : z.name === "HDD landfall" ? "HDD" : z.name,
               showarrow: false,
               font: { size: 10, color: c.ref },
             })),

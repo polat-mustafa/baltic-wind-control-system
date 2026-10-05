@@ -23,6 +23,7 @@ import {
   ClipboardCheck,
   Cpu,
   Fan,
+  MapPinned,
   ChevronLeft,
   ChevronRight,
   X,
@@ -49,6 +50,12 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Develop",
     items: [
+      {
+        label: "Site & Permits",
+        path: "/develop",
+        icon: MapPinned,
+        description: "Open data, suitability, EIA, permit",
+      },
       {
         label: "Wind Resource",
         path: "/wind-resource",

@@ -205,11 +205,11 @@ export default function PPCDashboard() {
   const base = {
     ...DARK_PLOTLY_LAYOUT,
     transition: CHART_TRANSITION,
-    legend: { orientation: "h" as const, y: 1.2, x: 0, font: { size: 11 } },
+    legend: { orientation: "h" as const, y: -0.36, yanchor: "top" as const, x: 0, font: { size: 11 } },
     xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, range: [0, tEnd], title: { text: "Time [s]", font: { size: 12 } } },
     shapes: markers,
     annotations: markerText,
-    margin: { t: 44, r: 12, b: 44, l: 60 },
+    margin: { t: 44, r: 12, b: 64, l: 60 },
   };
   const line = (name: string, y: number[], color: string, unit: string, dash?: "dash" | "dot") => ({
     type: "scatter" as const,
@@ -221,7 +221,7 @@ export default function PPCDashboard() {
     hovertemplate: `${name}: %{y:.2f} ${unit} at %{x:.1f} s<extra></extra>`,
   });
   const ev = PPC_EVENTS[store.event];
-  const plotProps = { config: PLOTLY_CONFIG, useResizeHandler: true, className: "w-full", style: { height: 280 } };
+  const plotProps = { config: PLOTLY_CONFIG, useResizeHandler: true, className: "w-full", style: { height: 320 } };
 
   return (
     <MotionConfig reducedMotion="user">

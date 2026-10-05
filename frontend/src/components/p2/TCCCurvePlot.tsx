@@ -69,14 +69,14 @@ export default function TCCCurvePlot() {
         layout={{
           ...DARK_PLOTLY_LAYOUT,
           transition: CHART_TRANSITION,
-          legend: { orientation: "h", y: 1.15, x: 0, font: { size: 11 } },
+          legend: { orientation: "h", y: 1.02, yanchor: "bottom", x: 0, font: { size: 11 } },
           xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, type: "log", title: { text: "Fault current at 66 kV [kA]", font: { size: 12 } }, range: [Math.log10(1), Math.log10(40)], tickvals: [1, 2, 5, 10, 20, 40] },
           yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, type: "log", title: { text: "Operating time [s]", font: { size: 12 } }, range: [Math.log10(0.05), Math.log10(30)], tickvals: [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20] },
           shapes: tcc.fault_markers.map(
             (m) => ({ type: "line", xref: "x", yref: "paper", x0: m.current_ka, x1: m.current_ka, y0: 0, y1: 1, line: { color: c.ref, width: 1.5, dash: "dash" } }) as const,
           ),
           annotations: tcc.fault_markers.map(
-            (m, i) => ({ x: Math.log10(m.current_ka), y: i ? 0.92 : 1, xref: "x", yref: "paper", xanchor: "right", yanchor: "bottom", text: `${m.label} ${m.current_ka.toFixed(1)} kA`, showarrow: false, font: { size: 10 } }) as const,
+            (m, i) => ({ x: Math.log10(m.current_ka), y: i ? 0.92 : 1, xref: "x", yref: "paper", xanchor: "right", yanchor: "top", text: `${m.label} ${m.current_ka.toFixed(1)} kA`, showarrow: false, font: { size: 10 } }) as const,
           ),
           margin: { t: 40, r: 16, b: 48, l: 60 },
         }}

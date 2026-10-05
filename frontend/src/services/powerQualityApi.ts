@@ -43,7 +43,7 @@ export function runResonanceScan(
 
 /**
  * Compute flicker emission (Pst/Plt) per IEC 61000-3-7.
- * Baltic Wind 66 kV is IEC HV tier (≥35 kV boundary).
+ * SB-510 66 kV is IEC HV tier (≥35 kV boundary).
  */
 export function computeFlicker(req: FlickerRequest): Promise<FlickerResponse> {
   return post(`${BASE}/flicker`, req);

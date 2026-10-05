@@ -24,7 +24,7 @@ export function getOPCUAStatus(): Promise<OPCUAStatusResponse> {
 
 /**
  * Get the full address space as a JSON tree.
- * Returns ~185 nodes for the Baltic Wind farm namespace.
+ * Returns ~185 nodes for the SB-510 case-study farm namespace.
  */
 export function getAddressSpace(): Promise<OPCUAAddressSpaceResponse> {
   return request(`${BASE}/address-space`);

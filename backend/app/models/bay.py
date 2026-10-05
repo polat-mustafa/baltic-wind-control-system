@@ -35,7 +35,7 @@ from app.db import Base
 class Bay(Base):
     """OSS bay registry — one row per switchboard bay.
 
-    Baltic Wind Alpha OSS has 8 bays on the 66 kV switchboard:
+    SB-510 OSS has 8 bays on the 66 kV switchboard:
       BAY-OSS-66-01 to 06: String feeders (each feeding 5–6 WTGs)
       BAY-OSS-66-07: Transformer LV side (66/220 kV step-up)
       BAY-OSS-66-08: Bus coupler (tie CB for parallel busbar operation)

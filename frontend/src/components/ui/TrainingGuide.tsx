@@ -222,7 +222,7 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
           {/* Footer */}
           <div className="shrink-0 px-6 py-3 border-t border-border-primary">
             <p className="text-[10px] text-text-muted text-center">
-              Baltic Wind HV Control Platform — Training Module
+              OffshoreForge — Training Module
             </p>
           </div>
         </Dialog.Content>

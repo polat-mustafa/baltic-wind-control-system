@@ -10,6 +10,7 @@
  */
 
 import { create } from "zustand";
+import { readStored } from "../lib/storage";
 
 export interface StudyRun {
   participant: string;
@@ -66,7 +67,7 @@ export function summary(xs: number[]): { n: number; mean: number; sd: number; ci
   return { n, mean, sd, ci95: n > 1 ? (t * sd) / Math.sqrt(n) : NaN };
 }
 
-const KEY = "bw.study.v1";
+const KEY = "of.study.v1";
 interface Persisted {
   participant: string;
   runs: StudyRun[];
@@ -75,7 +76,7 @@ interface Persisted {
 
 function load(): Persisted {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = readStored(KEY);
     if (raw) return { participant: "", runs: [], sus: [], ...JSON.parse(raw) };
   } catch {
     // blocked storage: start empty

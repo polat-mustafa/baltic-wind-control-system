@@ -72,7 +72,7 @@ References
 - PSE: Wymogi ogólnego stosowania wynikające z NC RfG (18-12-2018), Art. 21(3)(b)–(c)
 - ENTSO-E NC RfG (EU 2016/631) Art. 21: reactive capability of type-D PPMs
 
-Constants (Baltic Wind Alpha)
+Constants (SB-510)
 -----------------------------
 - Export cables: 2 × 220 kV, 45 km, C = 190 nF/km each
 - STATCOM: ±120 MVAR at OSS 220 kV

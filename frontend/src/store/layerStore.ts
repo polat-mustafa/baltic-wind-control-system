@@ -7,6 +7,7 @@
  */
 
 import { create } from "zustand";
+import { readStored, writeStored } from "../lib/storage";
 
 export interface LayerVisibility {
   windParticles: boolean;
@@ -37,13 +38,9 @@ export interface LayerVisibility {
 /** Map look: ISA-101 control room (default) or the hand-drawn "storybook" demo. */
 export type MapTheme = "hmi" | "storybook";
 
-const THEME_KEY = "bw.mapTheme";
+const THEME_KEY = "of.mapTheme";
 function loadTheme(): MapTheme {
-  try {
-    return localStorage.getItem(THEME_KEY) === "hmi" ? "hmi" : "storybook";
-  } catch {
-    return "storybook";
-  }
+  return readStored(THEME_KEY) === "hmi" ? "hmi" : "storybook";
 }
 
 interface LayerState {
@@ -74,11 +71,8 @@ export const useLayerStore = create<LayerState>((set) => ({
   },
   mapTheme: loadTheme(),
   setMapTheme: (mapTheme) => {
-    try {
-      localStorage.setItem(THEME_KEY, mapTheme);
-    } catch {
-      // private mode / blocked storage: theme just isn't remembered
-    }
+    // private mode / blocked storage: theme just isn't remembered
+    writeStored(THEME_KEY, mapTheme);
     set({ mapTheme });
   },
   toggleLayer: (key) =>

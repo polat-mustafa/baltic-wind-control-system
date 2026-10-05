@@ -133,7 +133,7 @@ export function Sheet({
         <line x1={0} x2={tb.w} y1={56} y2={56} stroke="currentColor" strokeWidth={0.8} />
         <line x1={236} x2={236} y1={56} y2={tb.h} stroke="currentColor" strokeWidth={0.8} />
         <line x1={300} x2={300} y1={56} y2={tb.h} stroke="currentColor" strokeWidth={0.8} />
-        <text x={8} y={15} fontSize={10.5} fontWeight={800}>BALTIC WIND ALPHA · 34 × V236-15.0 MW · 510 MW</text>
+        <text x={8} y={15} fontSize={10.5} fontWeight={800}>SB-510 CASE STUDY · 34 × V236-15.0 MW · 510 MW</text>
         <text x={8} y={38} fontSize={13} fontWeight={800}>{title}</text>
         <text x={8} y={51} fontSize={10} fontWeight={600} fillOpacity={0.8}>{subtitle}</text>
         <text x={8} y={69} fontSize={9.5} fontWeight={600}>Dwg <tspan fontWeight={800}>{dwg}</tspan> · {standard}</text>

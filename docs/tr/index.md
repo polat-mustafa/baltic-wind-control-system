@@ -1,4 +1,4 @@
-# Baltic Wind HV Control Platform — Türkçe
+# OffshoreForge — Türkçe
 
 510 MW'lık Baltık Denizi açık deniz rüzgâr çiftliği simülasyonu: 34 × Vestas V236-15.0 MW, 66 kV iç dizi,
 220 kV ihraç kablosu (45 km), 400 kV PSE bağlantısı.

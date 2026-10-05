@@ -2,7 +2,7 @@
 Unit tests for IEC 61850 data model (P3 — iec61850_model.py).
 
 Tests validate the IEC 61850 device hierarchy, logical node structure,
-data object contents, GOOSE control blocks, and the complete Baltic Wind
+data object contents, GOOSE control blocks, and the complete SB-510
 Alpha substation configuration (37 devices: 3 OSS IEDs + 34 WTG controllers).
 
 Test Strategy
@@ -257,7 +257,7 @@ class TestWindTurbineController:
 
 
 class TestSubstationConfiguration:
-    """Tests for the complete Baltic Wind Alpha device set."""
+    """Tests for the complete SB-510 device set."""
 
     def test_total_device_count(self):
         """Must have 37 devices (3 OSS IEDs + 34 WTG controllers)."""

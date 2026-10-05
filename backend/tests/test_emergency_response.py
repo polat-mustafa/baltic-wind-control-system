@@ -22,7 +22,7 @@ from app.services.p5.emergency_response import (
     trigger_emergency,
 )
 
-PROGRAMME_ID = "BWA-SP-TEST-001"
+PROGRAMME_ID = "SB5-SP-TEST-001"
 TRIGGERED_BY = "Jan Kowalski"
 
 

@@ -1,4 +1,4 @@
-# Baltic Wind HV Control Platform — Makefile
+# OffshoreForge — Makefile
 # Universal task runner: make <target>
 
 .PHONY: help install install-backend install-frontend lint lint-backend lint-frontend \
@@ -6,7 +6,7 @@
 
 # Default target
 help: ## Show this help message
-	@echo "Baltic Wind HV Control Platform"
+	@echo "OffshoreForge"
 	@echo "================================"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'

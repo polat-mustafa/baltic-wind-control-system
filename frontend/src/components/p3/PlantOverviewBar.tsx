@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useScadaStore } from "../../store/scadaStore";
 
-const PLANT_NAME = "Baltic Wind 510 MW";
+const PLANT_NAME = "SB-510 (510 MW)";
 const TURBINE_COUNT = 34;
 const NOMINAL_FREQ_HZ = 50.0;
 const NOMINAL_400KV = 400.0;

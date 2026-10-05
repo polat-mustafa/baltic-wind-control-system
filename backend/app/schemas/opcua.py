@@ -33,7 +33,7 @@ class OPCUAStatusResponse(BaseModel):
 
     running: bool = Field(description="True when the server is accepting connections")
     endpoint: str = Field(
-        description="OPC-UA endpoint URL, e.g. 'opc.tcp://0.0.0.0:4840/baltic-wind/'"
+        description="OPC-UA endpoint URL, e.g. 'opc.tcp://0.0.0.0:4840/offshoreforge/'"
     )
     connected_clients: int = Field(description="Number of currently connected UA clients")
     node_count: int = Field(description="Total nodes in the address space")

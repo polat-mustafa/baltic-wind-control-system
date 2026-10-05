@@ -23,6 +23,7 @@ import { Button } from "../components/ui/Button";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { ControlDrawer } from "../components/ui/ControlDrawer";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
+import { readStored } from "../lib/storage";
 import { p4Guide } from "../constants/trainingGuideContent";
 
 const TABS: { id: ForecastTab; label: string; Icon: typeof Brain }[] = [
@@ -34,11 +35,7 @@ const TABS: { id: ForecastTab; label: string; Icon: typeof Brain }[] = [
 
 /** Language chosen in the academy (shared with the concept map). */
 function academyLang(): "en" | "tr" {
-  try {
-    return localStorage.getItem("bw.academyLang") === "tr" ? "tr" : "en";
-  } catch {
-    return "en";
-  }
+  return readStored("of.academyLang") === "tr" ? "tr" : "en";
 }
 
 function StartCard({
@@ -114,7 +111,7 @@ export default function ForecastPage() {
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold text-text-primary">
-            P4 · AI Forecasting
+            AI Forecasting
           </h2>
           <p className="text-xs text-text-muted mt-1 font-mono">
             {turbineSpec

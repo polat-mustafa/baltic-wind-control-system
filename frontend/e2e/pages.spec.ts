@@ -16,7 +16,7 @@ const THEMES = ["storybook", "hmi"] as const;
 const IGNORED = [/Failed to load resource/i, /ERR_CONNECTION_REFUSED/i, /net::ERR_/i, /backend not reachable/i, /status of (4|5)\d\d/i];
 
 async function open(page: Page, path: string, theme: (typeof THEMES)[number]) {
-  await page.addInitScript((t) => localStorage.setItem("bw.mapTheme", t), theme);
+  await page.addInitScript((t) => localStorage.setItem("of.mapTheme", t), theme);
   await page.goto(path);
   await page.waitForLoadState("networkidle").catch(() => undefined);
   await page.evaluate(() => document.fonts.ready);
@@ -37,7 +37,7 @@ test("3D turbine viewer and drawings open without runtime errors", async ({ page
   await page.keyboard.press("s"); // 3D ↔ drawings
   for (const sheet of [/E-01/, /M-01/, /P-01/]) {
     await page.getByRole("tab", { name: sheet }).click();
-    await expect(page.getByText(/BWA-WTG-/)).toBeVisible();
+    await expect(page.getByText(/SB5-WTG-/)).toBeVisible();
   }
   expect(errors, errors.join("\n")).toEqual([]);
 });

@@ -1,6 +1,6 @@
-# Baltic Wind HV Control Platform
+# OffshoreForge
 
-510 MW Baltic Sea offshore wind farm simulation: 34 × V236-15.0 MW, 66 kV array, 220 kV export (45 km), PSE grid.
+Offshore wind engineering training platform. Reference case study SB-510 (Southern Baltic, Polish EEZ): 510 MW, 34 × V236-15.0 MW, 66 kV array, 220 kV export (45 km), PSE grid.
 Monorepo: FastAPI (Python 3.13, SQLAlchemy, Pydantic v2) backend + React 19 / TypeScript / Tailwind v4 / Vite frontend.
 
 ## Working style

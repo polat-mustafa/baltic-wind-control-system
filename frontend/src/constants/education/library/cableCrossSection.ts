@@ -141,5 +141,4 @@ export const cableCrossSectionEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-009"],
 };

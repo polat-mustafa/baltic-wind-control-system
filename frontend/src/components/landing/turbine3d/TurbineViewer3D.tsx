@@ -62,7 +62,7 @@ import { ArrayCables } from "./scene/ArrayCables";
 import { HumanScaleFigure } from "./scene/HumanScaleFigure";
 import { MeasurementLayer } from "./scene/MeasurementLayer";
 import { SceneEnvironment } from "./scene/Environment";
-import { ThermalOverlay } from "./scene/ThermalOverlay";
+import { ThermalLegend, ThermalOverlay } from "./scene/ThermalOverlay";
 import { SensorMarkers, SensorLegend } from "./scene/SensorMarkers";
 import { PowerFlowParticles } from "./scene/PowerFlowParticles";
 import { HealthBadges } from "./scene/HealthBadges";
@@ -82,6 +82,7 @@ import { IllustratedStyle } from "./scene/IllustratedStyle";
 import { PartInfoCard, PartRail } from "./ui/PartInfoCard";
 import { AnalyticsPanel } from "./ui/AnalyticsPanel";
 import { ViewerLegend } from "./ui/ViewerLegend";
+import { BladeFieldLegend } from "./ui/BladeFieldLegend";
 import { LossBreakdownHUD } from "./ui/LossBreakdownHUD";
 import { CpLambdaWidget } from "./ui/CpLambdaWidget";
 import { CompassWidget, ScaleBar, CameraModeBadge, KeyboardHelp } from "./ui/ViewerHUD";
@@ -120,7 +121,7 @@ interface TurbineSceneProps {
   showWindField: boolean;
   showWindDirection: boolean;
   showWindTriangle: boolean;
-  bladeFieldMode: "off" | "thermal" | "pressure" | "strain";
+  bladeFieldMode: "off" | "thermal" | "pressure" | "bending";
   manualWindMs: number;
   windDirectionDeg: number;
   overridePitch?: number;
@@ -275,7 +276,7 @@ function TurbineScene({
           <ThermalOverlay turbineId={turbineId} />
         )}
         {showSensors && (viewerMode === "cutaway" || viewerMode === "exploded") && (
-          <SensorMarkers onSelectPart={onSelectPart} />
+          <SensorMarkers turbineId={turbineId} onSelectPart={onSelectPart} />
         )}
         {showPowerFlow && (
           <SceneErrorBoundary area="power-flow">
@@ -366,7 +367,10 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
   const [dpr, setDpr] = useState(Math.min(window.devicePixelRatio, 2));
   const [lowFx, setLowFx] = useState(false);
   const [manualRun, setManualRun] = useState<boolean | null>(null);
-  const [manualWindMs, setManualWindMs] = useState<number>(11);
+  // Rotor what-if wind: starts at (and resets to) the turbine's live SCADA
+  // wind, so the spinning rotor and the telemetry strip agree on open.
+  const liveWindMs = Math.min(20, Math.max(0, Math.round(turbine.windSpeedMs * 2) / 2));
+  const [manualWindMs, setManualWindMs] = useState<number>(liveWindMs);
   const [metresPerPixel, setMetresPerPixel] = useState(0.5);
   // Realistic by default; the toon + ink look is an opt-in demo
   const [illustrated, setIllustrated] = useState(false);
@@ -457,10 +461,10 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
     // Clearing selectedTurbinePart also triggers the existing fly-to-default-camera effect.
     resetViewerDefaults();
     setManualRun(null);
-    setManualWindMs(11);
+    setManualWindMs(liveWindMs);
     setExplodedOffset(0);
     setShowHumanFigure(false);
-  }, [resetViewerDefaults]);
+  }, [resetViewerDefaults, liveWindMs]);
 
   const handleFitToSelected = useCallback(() => {
     // Trigger a re-run of the fly-to effect by clearing and re-setting the part.
@@ -670,7 +674,14 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
 
       <ViewerLegend turbineId={turbineId} />
 
-      {showSensorMarkers && <SensorLegend />}
+      {/* Colour scales of the active overlays, stacked above the wake legend */}
+      {interiorView === "3d" && (
+        <div className="pointer-events-none absolute bottom-32 right-2 z-10 flex flex-col gap-1.5 @max-lg:hidden">
+          {showSensorMarkers && viewerMode !== "normal" && <SensorLegend />}
+          {showThermalOverlay && viewerMode !== "normal" && <ThermalLegend turbineId={turbineId} />}
+          {bladeFieldMode !== "off" && <BladeFieldLegend />}
+        </div>
+      )}
 
       {/* HUD widgets */}
       <CompassWidget windDirectionDeg={compassWind} nacelleYawDeg={nacelleYaw} windMs={manualWindMs} />

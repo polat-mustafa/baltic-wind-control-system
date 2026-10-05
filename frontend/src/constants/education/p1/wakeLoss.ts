@@ -121,9 +121,8 @@ export const wakeLossEducation: EducationContent = {
     },
     {
       file: "backend/app/services/p1/wake_models.py",
-      description: "Jensen / BPA / NOJ / Zong comparison for the Research Lab.",
+      description: "Jensen / BPA / NOJ / Zong comparison.",
     },
   ],
 
-  relatedLessons: ["lesson-005", "lesson-006"],
 };

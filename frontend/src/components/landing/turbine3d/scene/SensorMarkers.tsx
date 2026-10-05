@@ -21,6 +21,12 @@
  * backend/app/services/p0/sensor_register.py — this subset is a curated
  * visualisation layer, not a desync.
  *
+ * Live read-outs: every sensor with a simulated signal shows its value in the
+ * leader label and hover tooltip — temperatures from model/nacelleThermal
+ * (same numbers as the thermal overlay), vibration + ISO 10816-21 zone, HPU
+ * pressures and cable twist from the backend nacelle subsystems, yaw and
+ * wind from the farm simulation. Out-of-limit values turn amber / red.
+ *
  * Rendering improvements (2026-04-24):
  *   - Shrunk radius 0.40 → 0.12 m (realistic sensor housing)
  *   - Pulsing emissive via useFrame sine (draws the eye to live sensors)
@@ -29,7 +35,7 @@
  *   - Selected-part emphasis: boost radius + emissive for matching sensors
  */
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -37,14 +43,31 @@ import * as THREE from "three";
 import type { TurbinePartId } from "../../../../constants/turbinePartEducation";
 import { onShaft, PARTS, SHAFT_Z } from "../model/layout";
 import {
+  selectTurbine,
   selectTurbinePart,
   useLandingStore,
 } from "../../../../store/landingStore";
+import { selectNacelleData, useNacelleSubsystemsStore } from "../../../../store/nacelleSubsystemsStore";
+import { nacelleTemperatures, type ThermalReading } from "../model/nacelleThermal";
 
 interface SensorMarkersProps {
+  turbineId: string;
   /** Propagate click to the global part-selection system. */
   onSelectPart: (id: TurbinePartId) => void;
 }
+
+/** Live value of one sensor, formatted with its unit. */
+interface SensorReading {
+  text: string;
+  state: "ok" | "alarm" | "trip";
+}
+
+/** Value colour: theme text when in range, amber / red past the limits. */
+const READING_CLASS: Record<SensorReading["state"], string> = {
+  ok: "text-text-primary",
+  alarm: "text-amber-500",
+  trip: "text-red-500",
+};
 
 type SensorType = "temperature" | "vibration" | "pressure" | "encoder";
 
@@ -81,10 +104,10 @@ const SENSORS: Sensor[] = [
   { id: "gen-bearing-temp",   label: "Gen Drive-End Bearing Temp",  type: "temperature", position: onShaft(SHAFT_Z.generator + 0.8, 0.3, 1.9), partId: "generator"},
   { id: "gen-vib",            label: "Gen Housing Vibration",       type: "vibration",   position: onShaft(SHAFT_Z.generator - 0.6, 0.0, 2.0), partId: "generator" },
   { id: "hpu-pressure",       label: "HPU Line Pressure",           type: "pressure",    position: [PARTS.hpu[0], PARTS.hpu[1] + 0.8, PARTS.hpu[2]], partId: "hpu"       },
-  { id: "pitch-pressure",     label: "Pitch Cylinder Pressure",     type: "pressure",    position: [PARTS.hpu[0] - 0.8, PARTS.hpu[1] + 0.6, PARTS.hpu[2] + 0.4], partId: "hpu"       },
+  { id: "pitch-pressure",     label: "Pitch Accumulator Pressure",     type: "pressure",    position: [PARTS.hpu[0] - 0.8, PARTS.hpu[1] + 0.6, PARTS.hpu[2] + 0.4], partId: "hpu"       },
   { id: "conv-p-temp",        label: "Converter (Port) Temp",       type: "temperature", position: [PARTS.converter[0] + 0.5, PARTS.converter[1] + 1.3, PARTS.converter[2] + 1.0], partId: "converter"},
   { id: "conv-s-temp",        label: "Converter (Stbd) Temp",       type: "temperature", position: [PARTS.converter[0] + 0.5, PARTS.converter[1] + 1.3, PARTS.converter[2] - 1.0], partId: "converter"},
-  { id: "trafo-temp",         label: "Transformer Core Temp",       type: "temperature", position: [PARTS.transformer[0], PARTS.transformer[1] + 1.5, PARTS.transformer[2] - 0.5], partId: "transformer"},
+  { id: "trafo-temp",         label: "Transformer Winding Temp",       type: "temperature", position: [PARTS.transformer[0], PARTS.transformer[1] + 1.5, PARTS.transformer[2] - 0.5], partId: "transformer"},
   { id: "yaw-encoder",        label: "Nacelle Position Encoder",    type: "encoder",     position: [0.0, 148.0, 3.0],   partId: "yaw"      },
   { id: "yaw-twist",          label: "Cable Twist Counter",         type: "encoder",     position: [0.5, 147.6, 0.0],   partId: "cable_routing"},
   { id: "wind-speed",         label: "Nacelle Anemometer",          type: "encoder",     position: [0.0, 158.5, -6.0],  partId: "anemometer"},
@@ -102,16 +125,65 @@ const LOD_LABEL = 40;
 // Centroid used for the aggregated cluster glyph at long distances.
 const NACELLE_CENTROID: [number, number, number] = PARTS.gearbox;
 
-export function SensorMarkers({ onSelectPart }: SensorMarkersProps) {
+const CENTROID_V = new THREE.Vector3(...NACELLE_CENTROID);
+
+const tempReading = (r: ThermalReading): SensorReading => ({ text: `${r.tempC.toFixed(1)} °C`, state: r.state });
+
+/** Live readings keyed by sensor id (sensors without a simulated signal are absent). */
+function useSensorReadings(turbineId: string): Record<string, SensorReading> {
+  const t = useLandingStore(selectTurbine(turbineId));
+  const airC = useLandingStore((s) => s.environment.airTemperatureC);
+  const live = useNacelleSubsystemsStore(selectNacelleData(turbineId));
+  return useMemo(() => {
+    const out: Record<string, SensorReading> = {};
+    if (!t) return out;
+    const th = nacelleTemperatures({
+      powerMW: t.powerOutputMW,
+      airC,
+      bearingC: t.bearingTempC,
+      oilC: live?.cooling?.oil_temp_c,
+    });
+    out["ms-bearing-temp"] = tempReading(th.mainBearing);
+    out["gb-hs-bear-temp"] = tempReading(th.hsBearing);
+    out["gb-oil-temp"] = tempReading(th.gearboxOil);
+    out["gen-winding-temp"] = tempReading(th.generator);
+    out["conv-p-temp"] = tempReading(th.converter);
+    out["conv-s-temp"] = tempReading(th.converter);
+    out["trafo-temp"] = tempReading(th.transformer);
+    const zone = live?.safety?.vibration_zone;
+    out["ms-bearing-vib"] = {
+      text: `${t.vibrationMmS.toFixed(1)} mm/s${zone ? ` · zone ${zone}` : ""}`,
+      state: live?.safety?.vibration_trip ? "trip" : live?.safety?.vibration_alarm ? "alarm" : "ok",
+    };
+    if (live?.hpu) {
+      out["hpu-pressure"] = { text: `${live.hpu.line_pressure_bar.toFixed(0)} bar`, state: live.hpu.alarm ? "alarm" : "ok" };
+      out["pitch-pressure"] = {
+        text: `${live.hpu.accumulator_pressure_bar.toFixed(0)} bar · ${live.hpu.accumulator_charge_pct.toFixed(0)} %`,
+        state: live.hpu.alarm ? "alarm" : "ok",
+      };
+    }
+    if (live?.cable_twist) {
+      const ct = live.cable_twist;
+      out["yaw-twist"] = {
+        text: `${ct.twist_turns >= 0 ? "+" : ""}${ct.twist_turns.toFixed(2)} turns`,
+        state: ct.hard_limit_reached ? "trip" : ct.soft_limit_reached ? "alarm" : "ok",
+      };
+    }
+    out["yaw-encoder"] = { text: `${t.nacellePositionDeg.toFixed(0)}°`, state: "ok" };
+    out["wind-speed"] = { text: `${t.windSpeedMs.toFixed(1)} m/s`, state: "ok" };
+    return out;
+  }, [t, airC, live]);
+}
+
+export function SensorMarkers({ turbineId, onSelectPart }: SensorMarkersProps) {
   const { camera } = useThree();
   const distanceRef = useRef(0);
   const [lod, setLod] = useState<"hidden" | "spheres" | "labelled">("labelled");
   const selectedPart = useLandingStore(selectTurbinePart);
+  const readings = useSensorReadings(turbineId);
 
   useFrame(() => {
-    const d = camera.position.distanceTo(
-      new THREE.Vector3(NACELLE_CENTROID[0], NACELLE_CENTROID[1], NACELLE_CENTROID[2]),
-    );
+    const d = camera.position.distanceTo(CENTROID_V);
     distanceRef.current = d;
     const next = d > LOD_HIDE ? "hidden" : d > LOD_LABEL ? "spheres" : "labelled";
     setLod((prev) => (prev === next ? prev : next));
@@ -131,6 +203,7 @@ export function SensorMarkers({ onSelectPart }: SensorMarkersProps) {
         <SensorSphere
           key={s.id}
           sensor={s}
+          reading={readings[s.id]}
           onSelect={onSelectPart}
           enableHover={lod === "labelled"}
           showLeader={lod === "labelled" && LEADER_SENSOR_IDS.has(s.id)}
@@ -177,12 +250,14 @@ function ClusterGlyph({
 
 function SensorSphere({
   sensor,
+  reading,
   onSelect,
   enableHover,
   showLeader,
   selected,
 }: {
   sensor: Sensor;
+  reading?: SensorReading;
   onSelect: (id: TurbinePartId) => void;
   enableHover: boolean;
   showLeader: boolean;
@@ -247,6 +322,11 @@ function SensorSphere({
             style={{ borderLeft: `3px solid ${colour}` }}
           >
             <div className="font-semibold">{sensor.label}</div>
+            {reading && (
+              <div className={`text-[13px] font-bold tabular-nums ${READING_CLASS[reading.state]}`}>
+                {reading.text}
+              </div>
+            )}
             <div className="text-text-muted text-[9px]">
               {sensor.id} · {sensor.type}
             </div>
@@ -271,6 +351,11 @@ function SensorSphere({
               style={{ borderLeft: `2px solid ${colour}` }}
             >
               {sensor.label.split(" (")[0]}
+              {reading && (
+                <span className={`ml-1 font-semibold tabular-nums ${READING_CLASS[reading.state]}`}>
+                  {reading.text}
+                </span>
+              )}
             </div>
           </div>
         </Html>
@@ -292,7 +377,7 @@ export function SensorLegend() {
   ];
 
   return (
-    <div className="absolute top-32 right-2 z-10 flex flex-col gap-0.5 bg-bg-secondary/80 backdrop-blur-sm rounded p-2 border border-border-primary pointer-events-none">
+    <div className="flex w-60 flex-col gap-0.5 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 shadow backdrop-blur-sm">
       <span className="text-[9px] text-text-muted font-mono mb-0.5">Sensors ({SENSORS.length})</span>
       {entries.map(({ type, label, count }) => (
         <div key={type} className="flex items-center gap-1">

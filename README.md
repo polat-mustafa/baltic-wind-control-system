@@ -492,11 +492,10 @@ baltic-wind-control-system/
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── Dockerfile
-├── docs/                       # MkDocs source, lessons, roadmaps
+├── docs/                       # MkDocs source, user guides, references
 │   ├── Project_Roadmap.md      # 1,655-line consolidated spec
-│   ├── Learning_Roadmap.md     # 32-week curriculum
 │   ├── SKILL.md                # Engineering standards
-│   └── lessons/                # Per-module deep-dives
+│   └── references.md           # Methods & primary sources
 ├── docker-compose.yml          # Full stack: PG + Redis + API + UI
 ├── Makefile                    # Universal task runner
 ├── mkdocs.yml                  # Documentation site config
@@ -588,11 +587,10 @@ Every parameter is real or traceable: 66 kV XLPE array cables, 2 × 220 kV HVAC 
 | Resource | What's inside |
 |---|---|
 | [Project Roadmap](docs/Project_Roadmap.md) | 1,655-line consolidated technical specification — the design basis |
-| [Learning Roadmap](docs/Learning_Roadmap.md) | 32-week self-study curriculum (DTU, MIT OCW, IEEE sources) |
 | [Engineering Standards](docs/SKILL.md) | Coding conventions, 10 non-negotiable domain rules, API patterns |
-| [Improvement Project Spec](docs/improvement_project.md) | Full M01–M15 specification |
+| [Methods & References](docs/references.md) | Method, implementation file and primary source per module |
 | [Live MkDocs Site](https://polat-mustafa.github.io/baltic-wind-control-system/) | Auto-deployed via GitHub Pages |
-| [Multilingual lessons](docs/) | EN · PL · TR module deep-dives |
+| User guide | [EN](docs/en/user-guide.md) · [TR](docs/KULLANICI_KILAVUZU.md) · [PL](docs/pl/przewodnik-uzytkownika.md) |
 
 ---
 

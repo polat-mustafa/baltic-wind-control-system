@@ -127,5 +127,4 @@ export const hvacVsHvdcEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-009"],
 };

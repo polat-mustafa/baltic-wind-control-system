@@ -21,8 +21,6 @@ import {
   Brain,
   ClipboardCheck,
   Cpu,
-  BookOpen,
-  FlaskConical,
   ChevronLeft,
   ChevronRight,
   X,
@@ -89,20 +87,6 @@ const NAV_ITEMS: NavItem[] = [
     path: "/digital-twin",
     icon: Cpu,
     description: "Condition monitoring, ISO 13374",
-  },
-  {
-    label: "Engineer's Library",
-    shortLabel: "Lib",
-    path: "/library",
-    icon: BookOpen,
-    description: "Read-only primers (no sim)",
-  },
-  {
-    label: "Research Lab",
-    shortLabel: "Lab",
-    path: "/research-lab",
-    icon: FlaskConical,
-    description: "Advanced wind R&D tools",
   },
 ];
 

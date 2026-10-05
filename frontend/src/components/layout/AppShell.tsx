@@ -43,8 +43,6 @@ const ROUTE_LABELS: Record<string, string> = {
   "/commissioning": "P5 · HV Commissioning",
   "/digital-twin": "Digital Twin · Condition Monitoring",
   "/turbine-physics": "Turbine Physics",
-  "/library": "Engineer's Library",
-  "/research-lab": "Research Lab · Advanced Wind R&D",
 };
 
 /** Placeholder while a lazy page chunk downloads. */

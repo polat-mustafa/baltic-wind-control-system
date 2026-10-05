@@ -134,5 +134,4 @@ export const arrayVoltageEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-009"],
 };

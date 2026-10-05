@@ -96,7 +96,7 @@ export interface EducationContent {
   title: string;
   /** Optional one-line context shown under the title */
   subtitle?: string;
-  /** Optional discipline tag (used by the Engineer's Library cards) */
+  /** Optional discipline tag (discipline chip on a primer) */
   discipline?: Discipline;
 
   // ── Layer 1: Physics / what it is ────────────────────────────
@@ -120,8 +120,6 @@ export interface EducationContent {
   // ── Real world & further reading ─────────────────────────────
   realWorldCases: RealWorldCase[];
   furtherReading: Reference[];
-  /** Lesson IDs in docs/lessons/, e.g. ["lesson-004", "lesson-005"] */
-  relatedLessons?: string[];
 
   // ── Backwards-compat passthrough (from legacy InfoContent) ───
   parameters?: { name: string; description: string }[];

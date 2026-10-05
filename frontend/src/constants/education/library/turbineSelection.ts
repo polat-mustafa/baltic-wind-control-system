@@ -136,5 +136,4 @@ export const turbineSelectionEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-001", "lesson-002"],
 };

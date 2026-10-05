@@ -122,5 +122,4 @@ export const weibullEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-004", "lesson-005"],
 };

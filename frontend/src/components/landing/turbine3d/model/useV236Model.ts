@@ -13,6 +13,11 @@ import { useEffect, useState } from "react";
 import type { BufferGeometry, Mesh } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+import { faceOutward } from "./faceOutward";
+
+/** Lofted blade shells that must face outward (see faceOutward). */
+const BLADE_SHELLS = new Set(["blade", "blade_marks"]);
+
 export type V236Model = Record<string, BufferGeometry>;
 
 /** Bump when public/models/v236.glb is rebuilt so browsers never mix an old
@@ -30,6 +35,7 @@ function load(): Promise<V236Model | null> {
       gltf.scene.traverse((o) => {
         const m = o as Mesh;
         if (!m.isMesh) return;
+        if (BLADE_SHELLS.has(m.name)) faceOutward(m.geometry);
         out[m.name] = m.geometry;
         positions[m.name] = [m.position.x, m.position.y, m.position.z];
       });

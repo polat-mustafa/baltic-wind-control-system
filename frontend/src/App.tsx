@@ -10,7 +10,6 @@
  *   /commissioning   → CommissioningPage (P5 switching programme)
  *   /turbine-physics → TurbinePhysicsPage (dynamic simulation)
  *   /digital-twin    → DigitalTwinPage (condition monitoring)
- *   /library         → EngineerLibraryPage (read-only educational primers)
  *
  * All routes are wrapped in AppShell (top bar + sidebar + content area).
  */
@@ -25,11 +24,9 @@ import AppShell from "./components/layout/AppShell";
 // XYFlow, Leaflet) is downloaded on first visit. AppShell holds the <Suspense>.
 const CommissioningPage = lazy(() => import("./pages/CommissioningPage"));
 const DigitalTwinPage = lazy(() => import("./pages/DigitalTwinPage"));
-const EngineerLibraryPage = lazy(() => import("./pages/EngineerLibraryPage"));
 const ForecastPage = lazy(() => import("./pages/ForecastPage"));
 const HVGridPage = lazy(() => import("./pages/HVGridPage"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
-const ResearchLab = lazy(() => import("./pages/ResearchLab"));
 const SCADAPage = lazy(() => import("./pages/SCADAPage"));
 const TurbinePhysicsPage = lazy(() => import("./pages/TurbinePhysicsPage"));
 const WindResourcePage = lazy(() => import("./pages/WindResourcePage"));
@@ -48,8 +45,6 @@ function App() {
             <Route path="commissioning" element={<CommissioningPage />} />
             <Route path="turbine-physics" element={<TurbinePhysicsPage />} />
             <Route path="digital-twin" element={<DigitalTwinPage />} />
-            <Route path="library" element={<EngineerLibraryPage />} />
-            <Route path="research-lab" element={<ResearchLab />} />
           </Route>
         </Routes>
       </ErrorBoundary>

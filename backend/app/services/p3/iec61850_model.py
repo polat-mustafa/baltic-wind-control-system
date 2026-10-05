@@ -3,7 +3,7 @@ IEC 61850 data model for 510 MW Baltic Sea offshore wind farm.
 
 Implements the complete IEC 61850 device hierarchy used in substation
 automation systems. This is the foundational data model upon which GOOSE
-messaging (Lesson 010), protection simulation, and SCADA communication
+messaging, protection simulation, and SCADA communication
 are built.
 
 Physics — IEC 61850 Is a Data Model, Not a Protocol
@@ -281,7 +281,7 @@ class PhysicalDevice:
     description: str = ""
 
 
-# ── GOOSE Control Block & Dataset (foundation for Lesson 010) ───
+# ── GOOSE Control Block & Dataset ───────────────────────────
 
 
 @dataclass(frozen=True)

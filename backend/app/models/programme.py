@@ -5,12 +5,11 @@ Tables
 ------
 switching_programme : Full programme state with JSONB for nested structures
 fat_campaign : Factory Acceptance Test campaign with JSONB results
-protection_grading_result : Protection relay selectivity results
 
 Design Decision — JSONB vs Relational
 --------------------------------------
 The P5 domain objects (SwitchingProgramme, FATCampaign) contain deeply nested
-state: 30 SwitchingStep dataclasses, LOTO sets with isolation points, audit
+state: the programme steps, LOTO sets with isolation points, audit
 trails, and test results. Normalising these into 10+ relational tables would
 add complexity with no query benefit — we always load and save the entire
 object as a unit (the "aggregate" pattern from DDD).
@@ -21,11 +20,10 @@ allowing indexed queries on the scalar columns (status, pic_name, etc.).
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -90,6 +88,16 @@ class SwitchingProgrammeModel(Base):
         nullable=True,
         comment="Serialised SATCampaign (if created)",
     )
+    compliance_campaign: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="EON/ION/FON grid-code compliance campaign (if created)",
+    )
+    emergency_log: Mapped[list[dict[str, Any]] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Emergency events triggered during the programme",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         comment="UTC creation timestamp",
@@ -117,6 +125,11 @@ class FATCampaignModel(Base):
     equipment_tag: Mapped[str] = mapped_column(
         String(100),
         comment="Equipment under test (e.g. TX-OSS-01)",
+    )
+    equipment_class: Mapped[str | None] = mapped_column(
+        String(40),
+        nullable=True,
+        comment="FAT template: power_transformer, gis_220kv, protection_panel",
     )
     status: Mapped[str] = mapped_column(
         String(25),
@@ -147,32 +160,4 @@ class FATCampaignModel(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         comment="UTC last-modified timestamp",
-    )
-
-
-class ProtectionGradingModel(Base):
-    """Persistent storage for protection relay grading results.
-
-    Each row stores a complete grading run (all relay pairs checked).
-    Results are immutable — a new row is created for each verification run.
-    """
-
-    __tablename__ = "protection_grading_result"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-    results: Mapped[list[dict[str, Any]]] = mapped_column(
-        JSONB,
-        comment="Serialised list of GradingResult dataclasses",
-    )
-    notes: Mapped[str] = mapped_column(
-        Text,
-        default="",
-        comment="Optional notes for this grading run",
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        comment="UTC timestamp of grading run",
     )

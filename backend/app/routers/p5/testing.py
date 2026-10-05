@@ -1,546 +1,304 @@
-"""P5 sub-router: FAT, SAT, and grid code compliance testing endpoints."""
+"""P5 sub-router: FAT, SAT and grid-code compliance (EON / ION / FON)."""
 
 from __future__ import annotations
+
+import math
+from dataclasses import asdict
+from typing import Literal
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, StateTransitionError
-from app.core.exceptions import ValidationError as DomainValidationError
 from app.db import get_session
 from app.schemas.commissioning import (
     ApproveCampaignRequest,
     ComplianceCampaignSchema,
     CreateFATCampaignRequest,
-    CreateSATCampaignRequest,
     FATCampaignSchema,
     GridCodeTestSchema,
     NotificationApplicationSchema,
     RecordComplianceResultRequest,
     RecordTestResultRequest,
     SATCampaignSchema,
-    StageSummarySchema,
-    SubmitNotificationRequest,
     TestResultSchema,
     TestSpecificationSchema,
 )
 from app.services.p5.fat import (
+    EquipmentClass,
     FATCampaign,
-    all_fat_passed,
-    approve_fat_campaign,
+    TestResult,
+    TestSpecification,
+    all_passed,
+    approve_campaign,
     create_fat_campaign,
-    record_fat_result,
+    record_result,
 )
 from app.services.p5.grid_code_testing import (
     ComplianceCampaign,
     ComplianceVerdict,
+    NotificationApplication,
     NotificationStage,
     approve_notification,
     create_compliance_campaign,
-    get_compliance_campaign,
-    get_stage_summary,
     record_test_result,
     submit_notification,
 )
 from app.services.p5.programme_repository import ProgrammeRepository
-from app.services.p5.sat import (
-    SATCampaign,
-    all_sat_passed,
-    approve_sat_campaign,
-    create_sat_campaign,
-    record_sat_result,
-)
+from app.services.p5.sat import SATCampaign, create_sat_campaign
+from app.services.p5.switching_programme import ProgrammeStatus, SwitchingProgramme, add_audit
 
 router = APIRouter()
 
 
-# ── FAT Helper ──────────────────────────────────────────────────
+def _bound(x: float) -> float | None:
+    return None if math.isinf(x) else x
 
 
-def _build_fat_schema(campaign: FATCampaign) -> FATCampaignSchema:
-    """Build a FAT campaign schema from domain object."""
-    specs = [
-        TestSpecificationSchema(
-            test_id=s.test_id,
-            name=s.name,
-            standard=s.standard,
-            description=s.description,
-            unit=s.unit,
-            min_value=s.min_value,
-            max_value=s.max_value,
-        )
-        for s in campaign.specs.values()
-    ]
-    results = [
-        TestResultSchema(
-            test_id=r.test_id,
-            measured_value=r.measured_value,
-            verdict=r.verdict.value,
-            recorded_by=r.recorded_by,
-            recorded_at=r.recorded_at,
-            notes=r.notes,
-        )
-        for r in campaign.results.values()
-    ]
-    return FATCampaignSchema(
-        campaign_id=campaign.campaign_id,
-        equipment_tag=campaign.equipment_tag,
-        status=campaign.status.value,
-        specs=specs,
-        results=results,
-        all_passed=all_fat_passed(campaign),
-        created_at=campaign.created_at,
-        approved_by=campaign.approved_by,
-        approved_at=campaign.approved_at,
+def _spec(s: TestSpecification) -> TestSpecificationSchema:
+    return TestSpecificationSchema(
+        **{**asdict(s), "min_value": _bound(s.min_value), "max_value": _bound(s.max_value)}
     )
 
 
-# ── FAT Endpoints ──────────────────────────────────────────────
+def _result(r: TestResult) -> TestResultSchema:
+    return TestResultSchema(**asdict(r))
+
+
+def _fat(c: FATCampaign) -> FATCampaignSchema:
+    return FATCampaignSchema(
+        campaign_id=c.campaign_id,
+        equipment_tag=c.equipment_tag,
+        equipment_class=c.equipment_class.value,
+        status=c.status.value,
+        specs=[_spec(s) for s in c.specs.values()],
+        results=[_result(r) for r in c.results.values()],
+        all_passed=all_passed(c),
+        created_at=c.created_at,
+        approved_by=c.approved_by,
+        approved_at=c.approved_at,
+    )
+
+
+def _sat(c: SATCampaign) -> SATCampaignSchema:
+    return SATCampaignSchema(
+        campaign_id=c.campaign_id,
+        programme_id=c.programme_id,
+        status=c.status.value,
+        fat_campaign_id=c.fat_campaign_id,
+        specs=[_spec(s) for s in c.specs.values()],
+        results=[_result(r) for r in c.results.values()],
+        all_passed=all_passed(c),
+        created_at=c.created_at,
+        approved_by=c.approved_by,
+        approved_at=c.approved_at,
+    )
+
+
+def _stage(a: NotificationApplication) -> NotificationApplicationSchema:
+    return NotificationApplicationSchema(
+        **{**asdict(a), "tests": [GridCodeTestSchema(**asdict(t)) for t in a.tests]}
+    )
+
+
+def _campaign(c: ComplianceCampaign) -> ComplianceCampaignSchema:
+    return ComplianceCampaignSchema(
+        campaign_id=c.campaign_id,
+        programme_id=c.programme_id,
+        stages={k.value: _stage(v) for k, v in c.stages.items()},
+        created_at=c.created_at,
+        cod_achieved=c.cod_achieved,
+        cod_date=c.cod_date,
+    )
+
+
+# ── FAT ──────────────────────────────────────────────────────────
 
 
 @router.post("/fat", response_model=FATCampaignSchema, status_code=201)
-async def create_fat_campaign_endpoint(
-    request: CreateFATCampaignRequest,
-    session: AsyncSession = Depends(get_session),
+async def create_fat(
+    request: CreateFATCampaignRequest, session: AsyncSession = Depends(get_session)
 ) -> FATCampaignSchema:
-    """Create a new FAT campaign with 8 IEC-standard test specs."""
-    repo = ProgrammeRepository(session)
-    campaign = create_fat_campaign(request.equipment_tag)
-    await repo.save_fat_campaign(campaign)
+    """Open a FAT campaign from the routine-test template of the equipment class."""
+    campaign = create_fat_campaign(request.equipment_tag, EquipmentClass(request.equipment_class))
+    await ProgrammeRepository(session).save_fat_campaign(campaign)
     await session.commit()
-    return _build_fat_schema(campaign)
+    return _fat(campaign)
 
 
 @router.get("/fat", response_model=list[FATCampaignSchema])
-async def list_fat_campaigns(
-    session: AsyncSession = Depends(get_session),
-) -> list[FATCampaignSchema]:
-    """List all FAT campaigns."""
-    repo = ProgrammeRepository(session)
-    campaigns = await repo.list_fat_campaigns()
-    return [_build_fat_schema(c) for c in campaigns]
+async def list_fat(session: AsyncSession = Depends(get_session)) -> list[FATCampaignSchema]:
+    return [_fat(c) for c in await ProgrammeRepository(session).list_fat_campaigns()]
 
 
-@router.get("/fat/{campaign_id}", response_model=FATCampaignSchema)
-async def get_fat_campaign(
-    campaign_id: str,
-    session: AsyncSession = Depends(get_session),
-) -> FATCampaignSchema:
-    """Get FAT campaign detail."""
-    repo = ProgrammeRepository(session)
-    campaign = await repo.get_fat_campaign(campaign_id)
-    return _build_fat_schema(campaign)
-
-
-@router.post(
-    "/fat/{campaign_id}/tests/{test_id}/record",
-    response_model=TestResultSchema,
-)
-async def record_fat_result_endpoint(
+@router.post("/fat/{campaign_id}/tests/{test_id}/record", response_model=FATCampaignSchema)
+async def record_fat(
     campaign_id: str,
     test_id: str,
     request: RecordTestResultRequest,
     session: AsyncSession = Depends(get_session),
-) -> TestResultSchema:
-    """Record a FAT test result. Auto-evaluates pass/fail against spec."""
+) -> FATCampaignSchema:
     repo = ProgrammeRepository(session)
     campaign = await repo.get_fat_campaign(campaign_id)
-    result = record_fat_result(
-        campaign, test_id, request.measured_value, request.recorded_by, request.notes
-    )
+    record_result(campaign, test_id, request.measured_value, request.recorded_by, request.notes)
     await repo.save_fat_campaign(campaign)
     await session.commit()
-
-    return TestResultSchema(
-        test_id=result.test_id,
-        measured_value=result.measured_value,
-        verdict=result.verdict.value,
-        recorded_by=result.recorded_by,
-        recorded_at=result.recorded_at,
-        notes=result.notes,
-    )
+    return _fat(campaign)
 
 
 @router.post("/fat/{campaign_id}/approve", response_model=FATCampaignSchema)
-async def approve_fat_campaign_endpoint(
-    campaign_id: str,
-    request: ApproveCampaignRequest,
-    session: AsyncSession = Depends(get_session),
+async def approve_fat(
+    campaign_id: str, request: ApproveCampaignRequest, session: AsyncSession = Depends(get_session)
 ) -> FATCampaignSchema:
-    """Approve a completed FAT campaign (all tests must pass)."""
     repo = ProgrammeRepository(session)
     campaign = await repo.get_fat_campaign(campaign_id)
-    approve_fat_campaign(campaign, request.approved_by)
+    approve_campaign(campaign, request.approved_by)
     await repo.save_fat_campaign(campaign)
     await session.commit()
-
-    return _build_fat_schema(campaign)
-
-
-# ── SAT Helper ──────────────────────────────────────────────────
+    return _fat(campaign)
 
 
-def _build_sat_schema(campaign: SATCampaign) -> SATCampaignSchema:
-    """Build a SAT campaign schema from domain object."""
-    specs = [
-        TestSpecificationSchema(
-            test_id=s.test_id,
-            name=s.name,
-            standard=s.standard,
-            description=s.description,
-            unit=s.unit,
-            min_value=s.min_value,
-            max_value=s.max_value,
-        )
-        for s in campaign.specs.values()
-    ]
-    results = [
-        TestResultSchema(
-            test_id=r.test_id,
-            measured_value=r.measured_value,
-            verdict=r.verdict.value,
-            recorded_by=r.recorded_by,
-            recorded_at=r.recorded_at,
-            notes=r.notes,
-        )
-        for r in campaign.results.values()
-    ]
-    return SATCampaignSchema(
-        campaign_id=campaign.campaign_id,
-        programme_id=campaign.programme_id,
-        status=campaign.status.value,
-        fat_campaign_id=campaign.fat_campaign_id,
-        specs=specs,
-        results=results,
-        all_passed=all_sat_passed(campaign),
-        created_at=campaign.created_at,
-        approved_by=campaign.approved_by,
-        approved_at=campaign.approved_at,
-    )
+# ── SAT (per programme) ──────────────────────────────────────────
 
 
-# ── SAT Endpoints (nested under programme) ─────────────────────
+def _sat_of(programme: SwitchingProgramme) -> SATCampaign:
+    if programme.sat_campaign is None:
+        raise NotFoundError(f"No SAT campaign for programme {programme.programme_id}.")
+    return programme.sat_campaign
 
 
-@router.post(
-    "/programmes/{programme_id}/sat",
-    response_model=SATCampaignSchema,
-    status_code=201,
-)
-async def create_sat_campaign_endpoint(
-    programme_id: str,
-    request: CreateSATCampaignRequest,
-    session: AsyncSession = Depends(get_session),
+@router.post("/programmes/{programme_id}/sat", response_model=SATCampaignSchema, status_code=201)
+async def create_sat(
+    programme_id: str, session: AsyncSession = Depends(get_session)
 ) -> SATCampaignSchema:
-    """Create a SAT campaign for a switching programme.
-
-    If require_fat=true, the programme must have a linked FAT campaign
-    that is approved.
-    """
+    """Open the SAT of circuit 1 — needs an approved FAT for every equipment class."""
     repo = ProgrammeRepository(session)
     programme = await repo.get_programme(programme_id)
-
     if programme.sat_campaign is not None:
-        raise StateTransitionError(f"Programme '{programme_id}' already has a SAT campaign.")
-
-    fat_campaign = None
-    if request.require_fat:
-        if programme.fat_campaign_id is None:
-            raise DomainValidationError(
-                "require_fat=true but programme has no linked FAT campaign."
-            )
-        fat_campaign = await repo.get_fat_campaign(programme.fat_campaign_id)
-
-    sat = create_sat_campaign(programme_id, fat_campaign)
+        raise StateTransitionError("This programme already has a SAT campaign.")
+    sat = create_sat_campaign(programme_id, await repo.list_fat_campaigns())
     programme.sat_campaign = sat
+    add_audit(programme, "SAT campaign opened", programme.pic_name, details=sat.fat_campaign_id)
     await repo.save_programme(programme)
     await session.commit()
-    return _build_sat_schema(sat)
+    return _sat(sat)
 
 
-@router.get(
-    "/programmes/{programme_id}/sat",
-    response_model=SATCampaignSchema,
-)
-async def get_sat_campaign_endpoint(
-    programme_id: str,
-    session: AsyncSession = Depends(get_session),
+@router.get("/programmes/{programme_id}/sat", response_model=SATCampaignSchema)
+async def get_sat(
+    programme_id: str, session: AsyncSession = Depends(get_session)
 ) -> SATCampaignSchema:
-    """Get SAT campaign status for a programme."""
-    repo = ProgrammeRepository(session)
-    programme = await repo.get_programme(programme_id)
-    if programme.sat_campaign is None:
-        raise NotFoundError(f"No SAT campaign for programme '{programme_id}'.")
-    return _build_sat_schema(programme.sat_campaign)
+    return _sat(_sat_of(await ProgrammeRepository(session).get_programme(programme_id)))
 
 
 @router.post(
-    "/programmes/{programme_id}/sat/tests/{test_id}/record",
-    response_model=TestResultSchema,
+    "/programmes/{programme_id}/sat/tests/{test_id}/record", response_model=SATCampaignSchema
 )
-async def record_sat_result_endpoint(
+async def record_sat(
     programme_id: str,
     test_id: str,
     request: RecordTestResultRequest,
     session: AsyncSession = Depends(get_session),
-) -> TestResultSchema:
-    """Record a SAT test result. Auto-evaluates pass/fail against spec."""
-    repo = ProgrammeRepository(session)
-    programme = await repo.get_programme(programme_id)
-    if programme.sat_campaign is None:
-        raise NotFoundError(f"No SAT campaign for programme '{programme_id}'.")
-
-    result = record_sat_result(
-        programme.sat_campaign,
-        test_id,
-        request.measured_value,
-        request.recorded_by,
-        request.notes,
-    )
-
-    await repo.save_programme(programme)
-    await session.commit()
-    return TestResultSchema(
-        test_id=result.test_id,
-        measured_value=result.measured_value,
-        verdict=result.verdict.value,
-        recorded_by=result.recorded_by,
-        recorded_at=result.recorded_at,
-        notes=result.notes,
-    )
-
-
-@router.post(
-    "/programmes/{programme_id}/sat/approve",
-    response_model=SATCampaignSchema,
-)
-async def approve_sat_campaign_endpoint(
-    programme_id: str,
-    request: ApproveCampaignRequest,
-    session: AsyncSession = Depends(get_session),
 ) -> SATCampaignSchema:
-    """Approve a completed SAT campaign (all tests must pass)."""
     repo = ProgrammeRepository(session)
     programme = await repo.get_programme(programme_id)
-    if programme.sat_campaign is None:
-        raise NotFoundError(f"No SAT campaign for programme '{programme_id}'.")
-
-    approve_sat_campaign(programme.sat_campaign, request.approved_by)
+    sat = _sat_of(programme)
+    record_result(sat, test_id, request.measured_value, request.recorded_by, request.notes)
     await repo.save_programme(programme)
     await session.commit()
-    return _build_sat_schema(programme.sat_campaign)
+    return _sat(sat)
 
 
-# ── Grid Code Compliance ────────────────────────────────────────
+@router.post("/programmes/{programme_id}/sat/approve", response_model=SATCampaignSchema)
+async def approve_sat(
+    programme_id: str, request: ApproveCampaignRequest, session: AsyncSession = Depends(get_session)
+) -> SATCampaignSchema:
+    repo = ProgrammeRepository(session)
+    programme = await repo.get_programme(programme_id)
+    sat = _sat_of(programme)
+    approve_campaign(sat, request.approved_by)
+    add_audit(programme, "SAT approved", request.approved_by)
+    await repo.save_programme(programme)
+    await session.commit()
+    return _sat(sat)
 
 
-def _build_campaign_schema(campaign: ComplianceCampaign) -> ComplianceCampaignSchema:
-    """Convert a ComplianceCampaign dataclass to its Pydantic schema."""
-    stages = {}
-    for stage_key, stage_app in campaign.stages.items():
-        stages[stage_key.value] = NotificationApplicationSchema(
-            stage=stage_app.stage.value,
-            status=stage_app.status.value,
-            tests=[
-                GridCodeTestSchema(
-                    test_id=t.test_id,
-                    stage=t.stage.value,
-                    name=t.name,
-                    description=t.description,
-                    standard=t.standard,
-                    acceptance_criteria=t.acceptance_criteria,
-                    verdict=t.verdict.value,
-                    evidence=t.evidence,
-                    tested_by=t.tested_by,
-                    tested_at=t.tested_at,
-                )
-                for t in stage_app.tests
-            ],
-            submitted_to=stage_app.submitted_to,
-            submitted_at=stage_app.submitted_at,
-            approved_at=stage_app.approved_at,
-        )
-    return ComplianceCampaignSchema(
-        campaign_id=campaign.campaign_id,
-        programme_id=campaign.programme_id,
-        stages=stages,
-        created_at=campaign.created_at,
-        cod_achieved=campaign.cod_achieved,
-        cod_date=campaign.cod_date,
-    )
+# ── Grid-code compliance ─────────────────────────────────────────
+
+
+def _compliance_of(programme: SwitchingProgramme) -> ComplianceCampaign:
+    if programme.compliance_campaign is None:
+        raise NotFoundError("No compliance campaign for this programme.")
+    return programme.compliance_campaign
 
 
 @router.post(
     "/programmes/{programme_id}/compliance",
     response_model=ComplianceCampaignSchema,
-    summary="Create a grid code compliance campaign",
+    status_code=201,
 )
-async def create_programme_compliance(
-    programme_id: str,
-    session: AsyncSession = Depends(get_session),
+async def create_compliance(
+    programme_id: str, session: AsyncSession = Depends(get_session)
 ) -> ComplianceCampaignSchema:
-    """Create a new EON/ION/FON compliance campaign for a programme."""
     repo = ProgrammeRepository(session)
-    await repo.get_programme(programme_id)
-    existing = get_compliance_campaign(programme_id)
-    if existing is not None:
-        raise StateTransitionError("Compliance campaign already exists for this programme")
-    campaign = create_compliance_campaign(programme_id)
-    return _build_campaign_schema(campaign)
+    programme = await repo.get_programme(programme_id)
+    if programme.compliance_campaign is not None:
+        raise StateTransitionError("This programme already has a compliance campaign.")
+    programme.compliance_campaign = create_compliance_campaign(programme_id)
+    await repo.save_programme(programme)
+    await session.commit()
+    return _campaign(programme.compliance_campaign)
 
 
-@router.get(
-    "/programmes/{programme_id}/compliance",
-    response_model=ComplianceCampaignSchema,
-    summary="Get compliance campaign with all stages",
-)
-async def get_programme_compliance(
-    programme_id: str,
-    session: AsyncSession = Depends(get_session),
+@router.get("/programmes/{programme_id}/compliance", response_model=ComplianceCampaignSchema)
+async def get_compliance(
+    programme_id: str, session: AsyncSession = Depends(get_session)
 ) -> ComplianceCampaignSchema:
-    """Return the compliance campaign for a programme."""
-    repo = ProgrammeRepository(session)
-    await repo.get_programme(programme_id)
-    campaign = get_compliance_campaign(programme_id)
-    if campaign is None:
-        raise NotFoundError("No compliance campaign found")
-    return _build_campaign_schema(campaign)
+    programme = await ProgrammeRepository(session).get_programme(programme_id)
+    return _campaign(_compliance_of(programme))
 
 
 @router.post(
     "/programmes/{programme_id}/compliance/tests/{test_id}",
-    response_model=GridCodeTestSchema,
-    summary="Record a compliance test result",
+    response_model=ComplianceCampaignSchema,
 )
-async def record_compliance_test(
+async def record_compliance(
     programme_id: str,
     test_id: str,
     body: RecordComplianceResultRequest,
     session: AsyncSession = Depends(get_session),
-) -> GridCodeTestSchema:
-    """Record the result of a grid code compliance test."""
+) -> ComplianceCampaignSchema:
     repo = ProgrammeRepository(session)
-    await repo.get_programme(programme_id)
-    try:
-        verdict = ComplianceVerdict(body.verdict)
-    except ValueError:
-        raise DomainValidationError(f"Invalid verdict: '{body.verdict}'") from None
-    test = record_test_result(programme_id, test_id, verdict, body.evidence, body.tested_by)
-    return GridCodeTestSchema(
-        test_id=test.test_id,
-        stage=test.stage.value,
-        name=test.name,
-        description=test.description,
-        standard=test.standard,
-        acceptance_criteria=test.acceptance_criteria,
-        verdict=test.verdict.value,
-        evidence=test.evidence,
-        tested_by=test.tested_by,
-        tested_at=test.tested_at,
-    )
+    programme = await repo.get_programme(programme_id)
+    campaign = _compliance_of(programme)
+    verdict = ComplianceVerdict(body.verdict)
+    record_test_result(campaign, test_id, verdict, body.evidence, body.tested_by)
+    await repo.save_programme(programme)
+    await session.commit()
+    return _campaign(campaign)
 
 
 @router.post(
-    "/programmes/{programme_id}/compliance/{stage}/submit",
-    response_model=NotificationApplicationSchema,
-    summary="Submit a notification stage to PSE",
+    "/programmes/{programme_id}/compliance/{stage}/{action}",
+    response_model=ComplianceCampaignSchema,
 )
-async def submit_compliance_notification(
+async def stage_action(
     programme_id: str,
-    stage: str,
-    body: SubmitNotificationRequest,
+    stage: NotificationStage,
+    action: Literal["submit", "approve"],
     session: AsyncSession = Depends(get_session),
-) -> NotificationApplicationSchema:
-    """Submit a notification stage (EON/ION/FON) to PSE for approval."""
+) -> ComplianceCampaignSchema:
+    """``submit`` a stage to PSE, or ``approve`` it (PSE issues it — simulated)."""
     repo = ProgrammeRepository(session)
-    await repo.get_programme(programme_id)
-    try:
-        ns = NotificationStage(stage)
-    except ValueError:
-        raise DomainValidationError(f"Invalid stage: {stage}") from None
-    stage_app = submit_notification(programme_id, ns, body.submitted_by)
-    return NotificationApplicationSchema(
-        stage=stage_app.stage.value,
-        status=stage_app.status.value,
-        tests=[
-            GridCodeTestSchema(
-                test_id=t.test_id,
-                stage=t.stage.value,
-                name=t.name,
-                description=t.description,
-                standard=t.standard,
-                acceptance_criteria=t.acceptance_criteria,
-                verdict=t.verdict.value,
-                evidence=t.evidence,
-                tested_by=t.tested_by,
-                tested_at=t.tested_at,
-            )
-            for t in stage_app.tests
-        ],
-        submitted_to=stage_app.submitted_to,
-        submitted_at=stage_app.submitted_at,
-        approved_at=stage_app.approved_at,
-    )
-
-
-@router.post(
-    "/programmes/{programme_id}/compliance/{stage}/approve",
-    response_model=NotificationApplicationSchema,
-    summary="Approve a notification stage",
-)
-async def approve_compliance_notification(
-    programme_id: str,
-    stage: str,
-    session: AsyncSession = Depends(get_session),
-) -> NotificationApplicationSchema:
-    """Approve a notification stage (simulates PSE approval)."""
-    repo = ProgrammeRepository(session)
-    await repo.get_programme(programme_id)
-    try:
-        ns = NotificationStage(stage)
-    except ValueError:
-        raise DomainValidationError(f"Invalid stage: {stage}") from None
-    stage_app = approve_notification(programme_id, ns)
-    return NotificationApplicationSchema(
-        stage=stage_app.stage.value,
-        status=stage_app.status.value,
-        tests=[
-            GridCodeTestSchema(
-                test_id=t.test_id,
-                stage=t.stage.value,
-                name=t.name,
-                description=t.description,
-                standard=t.standard,
-                acceptance_criteria=t.acceptance_criteria,
-                verdict=t.verdict.value,
-                evidence=t.evidence,
-                tested_by=t.tested_by,
-                tested_at=t.tested_at,
-            )
-            for t in stage_app.tests
-        ],
-        submitted_to=stage_app.submitted_to,
-        submitted_at=stage_app.submitted_at,
-        approved_at=stage_app.approved_at,
-    )
-
-
-@router.get(
-    "/programmes/{programme_id}/compliance/{stage}/summary",
-    response_model=StageSummarySchema,
-    summary="Get stage compliance summary",
-)
-async def get_compliance_stage_summary(
-    programme_id: str,
-    stage: str,
-    session: AsyncSession = Depends(get_session),
-) -> StageSummarySchema:
-    """Return a summary of a stage's compliance status with test counts."""
-    repo = ProgrammeRepository(session)
-    await repo.get_programme(programme_id)
-    try:
-        ns = NotificationStage(stage)
-    except ValueError:
-        raise DomainValidationError(f"Invalid stage: {stage}") from None
-    summary = get_stage_summary(programme_id, ns)
-    return StageSummarySchema(**summary)
+    programme = await repo.get_programme(programme_id)
+    campaign = _compliance_of(programme)
+    name = stage.value.upper()
+    if action == "submit":
+        submit_notification(campaign, stage, programme.status == ProgrammeStatus.COMPLETED)
+        add_audit(programme, f"{name} submitted to PSE", programme.pic_name)
+    else:
+        approve_notification(campaign, stage)
+        add_audit(programme, f"{name} issued by PSE", "PSE S.A.")
+    await repo.save_programme(programme)
+    await session.commit()
+    return _campaign(campaign)

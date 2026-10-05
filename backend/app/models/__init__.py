@@ -10,7 +10,6 @@ from app.models.forecast import ForecastResult
 from app.models.grid import GridNetwork, LoadFlowResult, ShortCircuitResult
 from app.models.programme import (
     FATCampaignModel,
-    ProtectionGradingModel,
     SwitchingProgrammeModel,
 )
 from app.models.ptw import PermitToWork, PTWTransitionLog
@@ -40,7 +39,6 @@ __all__ = [
     "PTWTransitionLog",
     "PerTurbineAEP",
     "PermitToWork",
-    "ProtectionGradingModel",
     "SCLFile",
     "SOEEvent",
     "ShortCircuitResult",

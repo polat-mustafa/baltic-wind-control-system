@@ -1,61 +1,28 @@
 """
-Factory Acceptance Test (FAT) specifications and campaign management.
+Factory acceptance tests (FAT) — routine tests at the manufacturer's works.
 
-Implements IEC-standard FAT test specifications for offshore substation
-equipment, with campaign lifecycle management and automated pass/fail
-evaluation against tolerance bands.
+A FAT campaign is opened per equipment item and uses the template of its class:
 
-Physics — Why Factory Acceptance Testing Matters
---------------------------------------------------
-Before a 220/66 kV transformer, GIS switchgear, or protection relay
-ships to an offshore platform 45 km from shore, it must pass rigorous
-factory tests. Failure at sea means a major vessel mobilisation
-(~EUR 500k/day) and months of delay. FAT catches defects while the
-equipment is still at the manufacturer's premises where repair is
-straightforward.
+- ``power_transformer`` (TX-OSS-01/02, 300 MVA 220/66 kV) — routine tests of
+  IEC 60076-1 §11.1.2 with the tolerances of its Table 1, applied to the design
+  values of ``p2.network_model`` (vk 12.5 %, vkr 0.25 % → load loss 750 kW,
+  P0 60 kW, i0 0.05 %):
+    ratio: the lower of ±0.5 % and ±1/10 of vk (= ±1.25 %) → ±0.5 %
+    impedance (vk ≥ 10 %, principal tap): ±7.5 %
+    each loss component: +15 % (total losses +10 %)
+    no-load current: +30 %
+  and the dielectric tests of IEC 60076-3:2013 (IVPD ≤ 250 pC at 1.58 Ur/√3).
+- ``gis_220kv`` — routine tests of IEC 62271-203 / IEC 62271-1 for Ur = 245 kV
+  (Ud 460 kV, Up 1050 kV; main-circuit resistance ≤ 1.2 Ru).
+- ``protection_panel`` — relay accuracy against the declared class (IEC 60255-151)
+  and GOOSE trip transfer time (IEC 61850-5 class TT6, ≤ 3 ms).
 
-Key physical phenomena tested:
-- **HV withstand** (IEC 60060-1): Apply 460 kV AC for 60 s to verify
-  insulation integrity. Partial discharge must remain < 10 pC.
-- **Transformer ratio** (IEC 60076-1): Verify turns ratio within ±0.5%
-  to ensure correct voltage transformation 220/66 kV.
-- **FRA baseline** (IEC 60076-18): Frequency Response Analysis captures
-  the transformer's electromagnetic fingerprint — any shift after
-  transport indicates core/winding displacement.
-- **GIS gas tightness** (IEC 62271-203): SF6 leakage < 0.5%/year
-  ensures the insulation medium remains effective for 30+ years.
+Limits marked "project" are purchase-specification values, not figures from a
+standard. ``typical_value`` is a realistic passing measurement used to fill a
+demonstration campaign.
 
-Standard — IEC References
---------------------------
-- IEC 60060-1:2010 — High-voltage test techniques (withstand)
-- IEC 60270:2000 — Partial discharge measurements
-- IEC 60076-1:2011 — Power transformers (ratio, impedance)
-- IEC 60076-18:2012 — Frequency response analysis
-- IEC 60567:2011 — Dissolved gas analysis (oil-filled equipment)
-- IEC 60255-1:2022 — Protection relay type testing
-- IEC 62271-203:2022 — GIS gas tightness
-
-Maths — Tolerance Band Evaluation
-------------------------------------
-Each test has a specification with bounds:
-
-    PASS if:  spec.min_value <= measured_value <= spec.max_value
-
-For single-bound tests (e.g. PD < 10 pC):
-    min_value = -inf (no lower bound)
-    max_value = 10.0
-
-For ratio tests (e.g. transformer ratio ±0.5%):
-    nominal = 220/66 = 3.333
-    min_value = 3.333 × (1 - 0.005) = 3.317
-    max_value = 3.333 × (1 + 0.005) = 3.350
-
-Code — Deterministic Finite Automaton Pattern
-----------------------------------------------
-Campaign lifecycle:  CREATED → IN_PROGRESS → COMPLETED → APPROVED
-Each test result triggers an automatic verdict evaluation against the
-spec tolerance band. The campaign can only be approved when all tests
-pass (or receive conditional_pass from the approver).
+Lifecycle: CREATED → IN_PROGRESS (first result) → COMPLETED (all recorded) →
+APPROVED (all passed). A failed test can be re-recorded after repair.
 """
 
 from __future__ import annotations
@@ -64,21 +31,30 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Protocol
 
-# ── Enums ──────────────────────────────────────────────────────────
+from app.core.exceptions import NotFoundError, StateTransitionError, ValidationError
+from app.services.p2.network_model import (
+    TRAFO_66_220_I0_PERCENT,
+    TRAFO_66_220_MVA,
+    TRAFO_66_220_PFE_KW,
+    TRAFO_66_220_VK_PERCENT,
+    TRAFO_66_220_VKR_PERCENT,
+)
+
+PASS_FAIL = "pass/fail"  # unit of a test recorded as 1 (pass) / 0 (fail)
 
 
 class TestVerdict(StrEnum):
-    """Verdict for a single test result."""
+    __test__ = False  # not a pytest class
 
     NOT_TESTED = "not_tested"
     PASS = "pass"
     FAIL = "fail"
-    CONDITIONAL_PASS = "conditional_pass"
 
 
 class TestCampaignStatus(StrEnum):
-    """Campaign lifecycle states."""
+    __test__ = False  # not a pytest class
 
     CREATED = "created"
     IN_PROGRESS = "in_progress"
@@ -86,30 +62,17 @@ class TestCampaignStatus(StrEnum):
     APPROVED = "approved"
 
 
-# ── Shared Types ───────────────────────────────────────────────────
+class EquipmentClass(StrEnum):
+    POWER_TRANSFORMER = "power_transformer"
+    GIS_220KV = "gis_220kv"
+    PROTECTION_PANEL = "protection_panel"
 
 
 @dataclass(frozen=True)
 class TestSpecification:
-    """Immutable test specification with acceptance criteria.
+    """Acceptance criterion: PASS if min_value ≤ measured ≤ max_value."""
 
-    Attributes
-    ----------
-    test_id : str
-        Unique test identifier (e.g. 'FAT-001').
-    name : str
-        Human-readable test name.
-    standard : str
-        IEC/EN standard reference.
-    description : str
-        What the test verifies.
-    unit : str
-        Measurement unit.
-    min_value : float
-        Lower acceptance bound (use float('-inf') for no lower bound).
-    max_value : float
-        Upper acceptance bound (use float('inf') for no upper bound).
-    """
+    __test__ = False
 
     test_id: str
     name: str
@@ -118,27 +81,12 @@ class TestSpecification:
     unit: str
     min_value: float
     max_value: float
+    typical_value: float = 1.0
 
 
 @dataclass
 class TestResult:
-    """Mutable test result recorded during a campaign.
-
-    Attributes
-    ----------
-    test_id : str
-        Matching spec test_id.
-    measured_value : float
-        Recorded measurement.
-    verdict : TestVerdict
-        Auto-evaluated or overridden verdict.
-    recorded_by : str
-        Engineer who recorded the result.
-    recorded_at : datetime
-        UTC timestamp.
-    notes : str
-        Optional observations.
-    """
+    __test__ = False
 
     test_id: str
     measured_value: float
@@ -148,113 +96,199 @@ class TestResult:
     notes: str = ""
 
 
-# ── FAT Specifications ────────────────────────────────────────────
-
-FAT_SPECS: tuple[TestSpecification, ...] = (
-    TestSpecification(
-        test_id="FAT-001",
-        name="HV Withstand Test",
-        standard="IEC 60060-1",
-        description="Apply 460 kV AC for 60 s — no breakdown or flashover",
-        unit="kV",
-        min_value=460.0,
-        max_value=float("inf"),
-    ),
-    TestSpecification(
-        test_id="FAT-002",
-        name="Partial Discharge Measurement",
-        standard="IEC 60270",
-        description="PD level during HV withstand must remain below 10 pC",
-        unit="pC",
-        min_value=float("-inf"),
-        max_value=10.0,
-    ),
-    TestSpecification(
-        test_id="FAT-003",
-        name="Transformer Ratio Test",
-        standard="IEC 60076-1",
-        description="Turns ratio 220/66 kV = 3.333 within ±0.5%",
-        unit="ratio",
-        min_value=3.333 * 0.995,  # 3.317
-        max_value=3.333 * 1.005,  # 3.350
-    ),
-    TestSpecification(
-        test_id="FAT-004",
-        name="Transformer Impedance Test",
-        standard="IEC 60076-1",
-        description="Short-circuit impedance within ±10% of nameplate",
-        unit="%",
-        min_value=12.0 * 0.90,  # 10.8% (nameplate 12%)
-        max_value=12.0 * 1.10,  # 13.2%
-    ),
-    TestSpecification(
-        test_id="FAT-005",
-        name="Frequency Response Analysis (FRA) Baseline",
-        standard="IEC 60076-18",
-        description="Record FRA baseline fingerprint for transport comparison",
-        unit="dB",
-        min_value=float("-inf"),
-        max_value=float("inf"),
-    ),
-    TestSpecification(
-        test_id="FAT-006",
-        name="Dissolved Gas Analysis (DGA) Baseline",
-        standard="IEC 60567",
-        description="Oil DGA baseline — all gas concentrations within normal",
-        unit="ppm",
-        min_value=float("-inf"),
-        max_value=50.0,
-    ),
-    TestSpecification(
-        test_id="FAT-007",
-        name="Protection Relay Type Test",
-        standard="IEC 60255",
-        description="Relay pickup accuracy within ±5% at rated conditions",
-        unit="%_error",
-        min_value=-5.0,
-        max_value=5.0,
-    ),
-    TestSpecification(
-        test_id="FAT-008",
-        name="GIS Gas Tightness",
-        standard="IEC 62271-203",
-        description="SF6 leakage rate < 0.5% per year",
-        unit="%/year",
-        min_value=float("-inf"),
-        max_value=0.5,
-    ),
-)
+def pass_fail_spec(test_id: str, name: str, standard: str, description: str) -> TestSpecification:
+    return TestSpecification(test_id, name, standard, description, PASS_FAIL, 1.0, 1.0, 1.0)
 
 
-# ── FAT Campaign ──────────────────────────────────────────────────
+_P_LOAD_KW = TRAFO_66_220_VKR_PERCENT / 100 * TRAFO_66_220_MVA * 1e3  # 750 kW
+
+FAT_TEMPLATES: dict[EquipmentClass, tuple[TestSpecification, ...]] = {
+    EquipmentClass.POWER_TRANSFORMER: (
+        TestSpecification(
+            "FAT-T01",
+            "Voltage ratio, principal tap",
+            "IEC 60076-1 §11.3, Table 1",
+            "Deviation from 220/66 kV; limit = lower of ±0.5 % and ±vk/10",
+            "%",
+            -0.5,
+            0.5,
+            0.08,
+        ),
+        TestSpecification(
+            "FAT-T02",
+            "Short-circuit impedance, principal tap",
+            "IEC 60076-1 §11.4, Table 1",
+            f"Declared vk {TRAFO_66_220_VK_PERCENT} %, tolerance ±7.5 % (vk ≥ 10 %)",
+            "%",
+            TRAFO_66_220_VK_PERCENT * 0.925,
+            TRAFO_66_220_VK_PERCENT * 1.075,
+            12.62,
+        ),
+        TestSpecification(
+            "FAT-T03",
+            "Load loss at rated current (75 °C)",
+            "IEC 60076-1 §11.4, Table 1",
+            f"Declared {_P_LOAD_KW:.0f} kW, component tolerance +15 % (total +10 %)",
+            "kW",
+            0.0,
+            _P_LOAD_KW * 1.15,
+            738.0,
+        ),
+        TestSpecification(
+            "FAT-T04",
+            "No-load loss at rated voltage",
+            "IEC 60076-1 §11.5, Table 1",
+            f"Declared {TRAFO_66_220_PFE_KW:.0f} kW, component tolerance +15 %",
+            "kW",
+            0.0,
+            TRAFO_66_220_PFE_KW * 1.15,
+            57.4,
+        ),
+        TestSpecification(
+            "FAT-T05",
+            "No-load current at rated voltage",
+            "IEC 60076-1 §11.5, Table 1",
+            f"Design {TRAFO_66_220_I0_PERCENT} % of rated current, tolerance +30 %",
+            "%",
+            0.0,
+            TRAFO_66_220_I0_PERCENT * 1.3,
+            0.047,
+        ),
+        TestSpecification(
+            "FAT-T06",
+            "Induced voltage test with PD (IVPD)",
+            "IEC 60076-3:2013",
+            "Continuous PD level during the 1 h at 1.58 Ur/√3",
+            "pC",
+            0.0,
+            250.0,
+            85.0,
+        ),
+        pass_fail_spec(
+            "FAT-T07",
+            "Lightning impulse test",
+            "IEC 60076-3:2013",
+            "Full-wave LI at 1050 kV peak (Um 245 kV) — no breakdown, waveforms agree",
+        ),
+        pass_fail_spec(
+            "FAT-T08",
+            "FRA fingerprint recorded",
+            "IEC 60076-18:2012",
+            "Sweep-frequency response of all windings stored as the transport baseline",
+        ),
+        pass_fail_spec(
+            "FAT-T09",
+            "Dissolved gas analysis before/after tests",
+            "IEC 60076-1 §11.1.2.2 d)",
+            "No significant gas generation during the test programme (Um > 72.5 kV)",
+        ),
+    ),
+    EquipmentClass.GIS_220KV: (
+        pass_fail_spec(
+            "FAT-G01",
+            "Power-frequency withstand, main circuit",
+            "IEC 62271-203, IEC 62271-1",
+            "460 kV r.m.s. for 1 min (Ur 245 kV) — no disruptive discharge",
+        ),
+        TestSpecification(
+            "FAT-G02",
+            "Partial discharge",
+            "IEC 62271-203, IEC 60270",
+            "PD after the withstand test (project limit 5 pC)",
+            "pC",
+            0.0,
+            5.0,
+            1.8,
+        ),
+        TestSpecification(
+            "FAT-G03",
+            "Main-circuit resistance",
+            "IEC 62271-1",
+            "Ratio to the type-test value Ru; limit 1.2 Ru",
+            "% of Ru",
+            0.0,
+            120.0,
+            96.0,
+        ),
+        TestSpecification(
+            "FAT-G04",
+            "Gas tightness",
+            "IEC 62271-203",
+            "SF6 leakage rate per gas compartment",
+            "%/year",
+            0.0,
+            0.5,
+            0.1,
+        ),
+        pass_fail_spec(
+            "FAT-G05",
+            "Mechanical operating test",
+            "IEC 62271-100, IEC 62271-102",
+            "CB, disconnector and earthing switch operations; interlocks; position signals",
+        ),
+        TestSpecification(
+            "FAT-G06",
+            "CB opening time",
+            "IEC 62271-100",
+            "Fingerprint for SAT (project: manufacturer range 20–30 ms)",
+            "ms",
+            20.0,
+            30.0,
+            24.0,
+        ),
+    ),
+    EquipmentClass.PROTECTION_PANEL: (
+        TestSpecification(
+            "FAT-P01",
+            "Overcurrent pickup accuracy",
+            "IEC 60255-151",
+            "Error at setting (project: declared ±5 %)",
+            "%",
+            -5.0,
+            5.0,
+            1.2,
+        ),
+        TestSpecification(
+            "FAT-P02",
+            "IDMT operate time at 5 × setting",
+            "IEC 60255-151",
+            "Error against the SI curve (project: declared class E5, ±5 %)",
+            "%",
+            -5.0,
+            5.0,
+            2.1,
+        ),
+        TestSpecification(
+            "FAT-P03",
+            "GOOSE trip transfer time",
+            "IEC 61850-5 (TT6)",
+            "Publisher application to subscriber application",
+            "ms",
+            0.0,
+            3.0,
+            1.4,
+        ),
+        pass_fail_spec(
+            "FAT-P04",
+            "IED configuration matches the SCD",
+            "IEC 61850-6",
+            "CID files of every IED consistent with the substation configuration description",
+        ),
+        pass_fail_spec(
+            "FAT-P05",
+            "Trip and interlock logic",
+            "Project specification",
+            "Every trip matrix entry and bay interlock verified with simulated inputs",
+        ),
+    ),
+}
 
 
 @dataclass
 class FATCampaign:
-    """Factory Acceptance Test campaign for a piece of equipment.
-
-    Attributes
-    ----------
-    campaign_id : str
-        Unique campaign identifier.
-    equipment_tag : str
-        Equipment being tested (e.g. 'TX-OSS-01').
-    status : TestCampaignStatus
-        Campaign lifecycle state.
-    specs : dict[str, TestSpecification]
-        Test specifications keyed by test_id.
-    results : dict[str, TestResult]
-        Recorded results keyed by test_id.
-    created_at : datetime
-        UTC timestamp of campaign creation.
-    approved_by : str
-        Who approved the campaign (empty until approved).
-    approved_at : datetime | None
-        UTC timestamp of approval.
-    """
-
     campaign_id: str
     equipment_tag: str
+    equipment_class: EquipmentClass = EquipmentClass.POWER_TRANSFORMER
     status: TestCampaignStatus = TestCampaignStatus.CREATED
     specs: dict[str, TestSpecification] = field(default_factory=dict)
     results: dict[str, TestResult] = field(default_factory=dict)
@@ -263,177 +297,78 @@ class FATCampaign:
     approved_at: datetime | None = None
 
 
-# ── Exceptions ────────────────────────────────────────────────────
+class Campaign(Protocol):
+    """What FAT and SAT campaigns share (SATCampaign lives in sat.py)."""
 
-from app.core.exceptions import DomainError, NotFoundError, StateTransitionError  # noqa: E402
-
-
-class FATError(DomainError):
-    """Base exception for FAT operations."""
+    campaign_id: str
+    status: TestCampaignStatus
+    specs: dict[str, TestSpecification]
+    results: dict[str, TestResult]
+    approved_by: str
+    approved_at: datetime | None
 
 
 class FATCampaignStateError(StateTransitionError):
-    """Campaign is in wrong state for the requested operation."""
+    """Campaign is in the wrong state for the requested operation."""
 
 
 class FATTestNotFoundError(NotFoundError):
-    """Test ID not found in campaign specs."""
-
-
-# ── Pure Functions ────────────────────────────────────────────────
+    """Test ID not in the campaign."""
 
 
 def evaluate_test_verdict(spec: TestSpecification, measured_value: float) -> TestVerdict:
-    """Evaluate pass/fail against specification tolerance band.
-
-    Parameters
-    ----------
-    spec : TestSpecification
-        The test specification with acceptance bounds.
-    measured_value : float
-        The recorded measurement.
-
-    Returns
-    -------
-    TestVerdict
-        PASS if within bounds, FAIL otherwise.
-    """
-    if spec.min_value <= measured_value <= spec.max_value:
-        return TestVerdict.PASS
-    return TestVerdict.FAIL
-
-
-# ── Campaign Functions ────────────────────────────────────────────
-
-
-def create_fat_campaign(equipment_tag: str) -> FATCampaign:
-    """Create a new FAT campaign with all 8 standard specs.
-
-    Parameters
-    ----------
-    equipment_tag : str
-        Equipment identifier (e.g. 'TX-OSS-01').
-
-    Returns
-    -------
-    FATCampaign
-        New campaign in CREATED state with all specs loaded.
-    """
-    campaign_id = f"FAT-{datetime.now(UTC).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-    specs = {spec.test_id: spec for spec in FAT_SPECS}
-
-    return FATCampaign(
-        campaign_id=campaign_id,
-        equipment_tag=equipment_tag,
-        specs=specs,
+    return (
+        TestVerdict.PASS if spec.min_value <= measured_value <= spec.max_value else TestVerdict.FAIL
     )
 
 
-def record_fat_result(
-    campaign: FATCampaign,
+def record_result(
+    campaign: Campaign,
     test_id: str,
     measured_value: float,
     recorded_by: str,
     notes: str = "",
 ) -> TestResult:
-    """Record a test result and auto-evaluate the verdict.
-
-    Parameters
-    ----------
-    campaign : FATCampaign
-        The FAT campaign.
-    test_id : str
-        Test specification ID (e.g. 'FAT-001').
-    measured_value : float
-        Recorded measurement.
-    recorded_by : str
-        Engineer recording the result.
-    notes : str
-        Optional observations.
-
-    Returns
-    -------
-    TestResult
-        The recorded result with auto-evaluated verdict.
-
-    Raises
-    ------
-    FATCampaignStateError
-        If campaign is already APPROVED.
-    FATTestNotFoundError
-        If test_id is not in the campaign specs.
-    """
+    """Record (or re-record) a measurement and update the campaign status."""
     if campaign.status == TestCampaignStatus.APPROVED:
-        raise FATCampaignStateError(
-            f"Cannot record results: campaign '{campaign.campaign_id}' is already approved."
-        )
-
-    if test_id not in campaign.specs:
-        raise FATTestNotFoundError(
-            f"Test '{test_id}' not found in campaign '{campaign.campaign_id}'."
-        )
-
-    spec = campaign.specs[test_id]
-    verdict = evaluate_test_verdict(spec, measured_value)
-
-    result = TestResult(
-        test_id=test_id,
-        measured_value=measured_value,
-        verdict=verdict,
-        recorded_by=recorded_by,
-        notes=notes,
-    )
+        raise FATCampaignStateError(f"{campaign.campaign_id} is approved; results are frozen.")
+    spec = campaign.specs.get(test_id)
+    if spec is None:
+        raise FATTestNotFoundError(f"Test '{test_id}' is not part of {campaign.campaign_id}.")
+    if spec.unit == PASS_FAIL and measured_value not in (0.0, 1.0):
+        raise ValidationError("A pass/fail test is recorded as 1 (pass) or 0 (fail).")
+    result = TestResult(test_id, measured_value, evaluate_test_verdict(spec, measured_value),
+                        recorded_by, notes=notes)  # fmt: skip
     campaign.results[test_id] = result
-
-    # Transition to IN_PROGRESS on first result
-    if campaign.status == TestCampaignStatus.CREATED:
-        campaign.status = TestCampaignStatus.IN_PROGRESS
-
-    # Transition to COMPLETED when all specs have results
-    if len(campaign.results) == len(campaign.specs):
-        campaign.status = TestCampaignStatus.COMPLETED
-
+    campaign.status = (
+        TestCampaignStatus.COMPLETED
+        if len(campaign.results) == len(campaign.specs)
+        else TestCampaignStatus.IN_PROGRESS
+    )
     return result
 
 
-def all_fat_passed(campaign: FATCampaign) -> bool:
-    """Check if all FAT tests passed.
-
-    Returns
-    -------
-    bool
-        True if every spec has a result with PASS or CONDITIONAL_PASS verdict.
-    """
-    if len(campaign.results) < len(campaign.specs):
-        return False
-
-    passing = {TestVerdict.PASS, TestVerdict.CONDITIONAL_PASS}
-    return all(r.verdict in passing for r in campaign.results.values())
+def all_passed(campaign: Campaign) -> bool:
+    return len(campaign.results) == len(campaign.specs) and all(
+        r.verdict == TestVerdict.PASS for r in campaign.results.values()
+    )
 
 
-def approve_fat_campaign(campaign: FATCampaign, approved_by: str) -> None:
-    """Approve a completed FAT campaign.
-
-    Parameters
-    ----------
-    campaign : FATCampaign
-        The campaign to approve.
-    approved_by : str
-        Name of the approver.
-
-    Raises
-    ------
-    FATCampaignStateError
-        If campaign is not COMPLETED or not all tests passed.
-    """
-    if campaign.status != TestCampaignStatus.COMPLETED:
+def approve_campaign(campaign: Campaign, approved_by: str) -> None:
+    if campaign.status != TestCampaignStatus.COMPLETED or not all_passed(campaign):
         raise FATCampaignStateError(
-            f"Cannot approve: campaign is '{campaign.status.value}', must be 'completed'."
+            "Only a completed campaign with every test passed can be approved."
         )
-
-    if not all_fat_passed(campaign):
-        raise FATCampaignStateError("Cannot approve: not all tests passed. Review failing tests.")
-
     campaign.status = TestCampaignStatus.APPROVED
     campaign.approved_by = approved_by
     campaign.approved_at = datetime.now(UTC)
+
+
+def create_fat_campaign(equipment_tag: str, equipment_class: EquipmentClass) -> FATCampaign:
+    specs = FAT_TEMPLATES[equipment_class]
+    return FATCampaign(
+        campaign_id=f"FAT-{datetime.now(UTC):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}",
+        equipment_tag=equipment_tag,
+        equipment_class=equipment_class,
+        specs={s.test_id: s for s in specs},
+    )

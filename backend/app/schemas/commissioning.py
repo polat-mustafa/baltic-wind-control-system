@@ -1,9 +1,4 @@
-"""
-Pydantic schemas for P5 HV Commissioning Simulation.
-
-Request and response models for the equipment state machine,
-switching programme execution, LOTO tracking, and PiC decisions.
-"""
+"""Pydantic schemas for the P5 commissioning API (/api/v1/commissioning)."""
 
 from __future__ import annotations
 
@@ -11,486 +6,294 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-# ── Equipment Schemas ────────────────────────────────────────────
+# ── Plant ────────────────────────────────────────────────────────
 
 
 class EquipmentStateSchema(BaseModel):
-    """Current state of a single piece of equipment."""
-
-    equipment_id: str = Field(description="Equipment identifier")
-    equipment_type: str = Field(description="Equipment type (circuit_breaker, etc.)")
-    voltage_kv: float = Field(description="Rated voltage in kV")
-    location: str = Field(description="Physical location")
-    state: str = Field(description="Current state (open, closed, earthed, etc.)")
-
-
-class InterlockViolationSchema(BaseModel):
-    """A safety interlock violation."""
-
-    interlock_id: str = Field(description="Interlock code (e.g. ILK-001)")
-    description: str = Field(description="Human-readable explanation")
-    blocking_equipment: str = Field(description="Equipment causing the block")
-    blocking_state: str = Field(description="State of the blocking equipment")
+    equipment_id: str
+    equipment_type: str = Field(
+        description="circuit_breaker, disconnector, earth_switch, wtg_group"
+    )
+    voltage_kv: float
+    location: str
+    state: str = Field(description="open | closed (earth switch closed = earthed)")
+    zones: list[str] = Field(description="Zones the device joins (one for an earth switch)")
+    locked: bool = Field(description="Held by an isolation lock")
 
 
-# ── Programme Schemas ────────────────────────────────────────────
+class BusReadingSchema(BaseModel):
+    name: str
+    zone: str
+    vn_kv: float
+    vm_pu: float
+    kv: float
+
+
+class NetworkSnapshotSchema(BaseModel):
+    """Load flow of the live part of circuit 1 (generator convention: Q > 0 generating)."""
+
+    zones: dict[str, str] = Field(description="Zone → live | earthed | dead")
+    buses: list[BusReadingSchema]
+    poc_p_mw: float = Field(description="Active power into PSE 400 kV [MW]")
+    poc_q_mvar: float = Field(description="Reactive power into PSE 400 kV [Mvar]")
+    generation_mw: float
+    cable_i_send_a: float | None = None
+    cable_i_recv_a: float | None = None
+    cable_loading_pct: float | None = None
+    reactor_q_mvar: float | None = None
+    statcom_q_mvar: float | None = None
+    tx1_i_hv_a: float | None = None
+    tx1_loading_pct: float | None = None
+
+
+# ── Programme ────────────────────────────────────────────────────
 
 
 class CreateProgrammeRequest(BaseModel):
-    """Request to create a new switching programme."""
-
-    pic_name: str = Field(
-        min_length=1,
-        description="Person in Control (PiC) name",
-    )
+    pic_name: str = Field(min_length=1, max_length=100, description="Person in Control")
 
 
 class StepSchema(BaseModel):
-    """A single step in the switching programme."""
-
-    step_id: str = Field(description="Step identifier (e.g. S-001)")
-    step_number: int = Field(description="Sequential position")
-    phase: int = Field(description="Programme phase (1-3)")
-    step_type: str = Field(description="Step type (check, switching, etc.)")
-    action: str = Field(description="Action description")
-    equipment_id: str = Field(description="Target equipment (empty if N/A)")
-    responsible: str = Field(description="Who performs (PiC, Local, SCADA)")
-    pic_confirmation: bool = Field(description="PiC confirmation required")
-    verification: str = Field(description="How to verify success")
-    notes: str = Field(description="Safety notes")
-    status: str = Field(description="Execution status")
-    executed_at: datetime | None = Field(default=None, description="Execution timestamp")
-    executed_by: str = Field(default="", description="Who executed")
+    step_id: str = Field(description="phase.sequence, e.g. 2.08")
+    step_number: int
+    phase: int
+    step_type: str = Field(
+        description="check | gate | isolation | switching | verification | hold_point | declaration"
+    )
+    action: str
+    equipment_id: str
+    responsible: str
+    pic_confirmation: bool
+    verification: str
+    notes: str
+    status: str
+    executed_at: datetime | None = None
+    executed_by: str = ""
+    reading: str = Field(default="", description="What was found when the step was executed")
 
 
 class ProgrammeSummarySchema(BaseModel):
-    """Summary of a switching programme for list responses."""
-
-    programme_id: str = Field(description="Programme identifier")
-    title: str = Field(description="Programme title")
-    pic_name: str = Field(description="Person in Control")
-    status: str = Field(description="Programme lifecycle state")
-    total_steps: int = Field(description="Total number of steps")
-    completed_steps: int = Field(description="Steps completed so far")
-    current_step_index: int = Field(description="Next step index (0-based)")
-    created_at: datetime = Field(description="Creation timestamp")
-
-
-class ProgrammeDetailSchema(BaseModel):
-    """Detailed programme view with steps and system state."""
-
-    programme_id: str = Field(description="Programme identifier")
-    title: str = Field(description="Programme title")
-    pic_name: str = Field(description="Person in Control")
-    status: str = Field(description="Programme lifecycle state")
-    steps: list[StepSchema] = Field(description="All programme steps")
-    current_step_index: int = Field(description="Next step index (0-based)")
-    equipment_states: list[EquipmentStateSchema] = Field(
-        description="Current equipment states",
-    )
-    created_at: datetime = Field(description="Creation timestamp")
-
-
-# ── Execution Schemas ────────────────────────────────────────────
-
-
-class ExecuteStepRequest(BaseModel):
-    """Request to execute a step."""
-
-    executed_by: str = Field(
-        min_length=1,
-        description="Person executing the step",
-    )
-    pic_confirmed: bool = Field(
-        default=True,
-        description="PiC has verbally confirmed this step",
-    )
-
-
-class ExecuteStepResponse(BaseModel):
-    """Response after executing a step."""
-
-    success: bool = Field(description="True if step completed")
-    step_id: str = Field(description="Step that was executed")
-    status: str = Field(description="Step status after execution")
-    message: str = Field(description="Human-readable result")
-    programme_status: str = Field(description="Programme status after step")
-
-
-class PiCDecisionRequest(BaseModel):
-    """Request for PiC GO/NO-GO decision at a hold point."""
-
-    pic_name: str = Field(
-        min_length=1,
-        description="PiC making the decision",
-    )
-    decision: str = Field(
-        description="Decision: 'go' or 'nogo'",
-        pattern="^(go|nogo)$",
-    )
-    reason: str = Field(
-        default="",
-        description="Reason (mandatory for NO-GO)",
-    )
-
-
-class PiCDecisionResponse(BaseModel):
-    """Response after PiC decision."""
-
-    decision: str = Field(description="Decision made (go/nogo)")
-    programme_status: str = Field(description="Programme status after decision")
-    message: str = Field(description="Human-readable result")
-
-
-class EmergencyStopRequest(BaseModel):
-    """Request for emergency stop."""
-
-    initiated_by: str = Field(
-        min_length=1,
-        description="Person initiating emergency stop",
-    )
-    reason: str = Field(
-        min_length=1,
-        description="Reason for emergency stop",
-    )
-
-
-class EmergencyStopResponse(BaseModel):
-    """Response after emergency stop."""
-
-    success: bool = Field(description="True if stop was executed")
-    programme_status: str = Field(description="Programme status (aborted)")
-    message: str = Field(description="Human-readable result")
-
-
-# ── LOTO Schemas ─────────────────────────────────────────────────
-
-
-class LOTOPointSchema(BaseModel):
-    """A single LOTO isolation point."""
-
-    point_id: str = Field(description="LOTO point identifier")
-    equipment_id: str = Field(description="Associated earth switch")
-    status: str = Field(description="LOTO status (not_applied, applied, removed)")
-    locked_by: str = Field(default="", description="Who applied the lock")
-    tag_number: str = Field(description="Danger tag number")
-    applied_at: datetime | None = Field(default=None, description="Lock application time")
-    removed_at: datetime | None = Field(default=None, description="Lock removal time")
-    removed_by: str = Field(default="", description="Who removed the lock")
-
-
-class LOTOSetSchema(BaseModel):
-    """LOTO set for a programme."""
-
-    programme_id: str = Field(description="Associated programme")
-    points: list[LOTOPointSchema] = Field(description="All isolation points")
-    all_applied: bool = Field(description="True if all points are APPLIED")
-    all_removed: bool = Field(description="True if all points are REMOVED")
-
-
-class LOTOActionRequest(BaseModel):
-    """Request to apply or remove LOTO."""
-
-    performed_by: str = Field(
-        min_length=1,
-        description="Person performing the action",
-    )
-
-
-class LOTOActionResponse(BaseModel):
-    """Response after LOTO action."""
-
-    success: bool = Field(description="True if action succeeded")
-    point_id: str = Field(description="Affected LOTO point")
-    status: str = Field(description="New LOTO status")
-    message: str = Field(description="Human-readable result")
-
-
-# ── Audit Trail Schema ──────────────────────────────────────────
+    programme_id: str
+    title: str
+    pic_name: str
+    status: str
+    total_steps: int
+    completed_steps: int
+    current_step_index: int
+    created_at: datetime
 
 
 class AuditRecordSchema(BaseModel):
-    """A single audit trail entry."""
-
-    record_id: str = Field(description="Record identifier")
-    timestamp: datetime = Field(description="UTC timestamp")
-    action: str = Field(description="Action description")
-    performed_by: str = Field(description="Who performed")
-    step_id: str = Field(default="", description="Associated step")
-    details: str = Field(default="", description="Additional context")
-
-
-class AuditTrailResponse(BaseModel):
-    """Complete audit trail for a programme."""
-
-    programme_id: str = Field(description="Programme identifier")
-    total_records: int = Field(description="Total audit entries")
-    records: list[AuditRecordSchema] = Field(description="All audit records")
-
-
-# ── FAT / SAT Shared Schemas ─────────────────────────────────────
-
-
-class TestSpecificationSchema(BaseModel):
-    """A single test specification with acceptance criteria."""
-
-    test_id: str = Field(description="Test identifier (e.g. FAT-001)")
-    name: str = Field(description="Human-readable test name")
-    standard: str = Field(description="IEC standard reference")
-    description: str = Field(description="What the test verifies")
-    unit: str = Field(description="Measurement unit")
-    min_value: float = Field(description="Lower acceptance bound")
-    max_value: float = Field(description="Upper acceptance bound")
-
-
-class TestResultSchema(BaseModel):
-    """A recorded test result."""
-
-    test_id: str = Field(description="Matching spec test_id")
-    measured_value: float = Field(description="Recorded measurement")
-    verdict: str = Field(description="Test verdict (pass/fail/not_tested/conditional_pass)")
-    recorded_by: str = Field(description="Engineer who recorded")
-    recorded_at: datetime = Field(description="UTC timestamp")
-    notes: str = Field(default="", description="Optional observations")
-
-
-# ── FAT Schemas ───────────────────────────────────────────────────
-
-
-class CreateFATCampaignRequest(BaseModel):
-    """Request to create a new FAT campaign."""
-
-    equipment_tag: str = Field(
-        min_length=1,
-        description="Equipment being tested (e.g. TX-OSS-01)",
-    )
-
-
-class RecordTestResultRequest(BaseModel):
-    """Request to record a test result."""
-
-    measured_value: float = Field(description="Recorded measurement")
-    recorded_by: str = Field(
-        min_length=1,
-        description="Engineer recording the result",
-    )
-    notes: str = Field(default="", description="Optional observations")
-
-
-class ApproveCampaignRequest(BaseModel):
-    """Request to approve a test campaign."""
-
-    approved_by: str = Field(
-        min_length=1,
-        description="Name of the approver",
-    )
-
-
-class FATCampaignSchema(BaseModel):
-    """FAT campaign detail response."""
-
-    campaign_id: str = Field(description="Campaign identifier")
-    equipment_tag: str = Field(description="Equipment being tested")
-    status: str = Field(description="Campaign lifecycle state")
-    specs: list[TestSpecificationSchema] = Field(description="Test specifications")
-    results: list[TestResultSchema] = Field(description="Recorded results")
-    all_passed: bool = Field(description="True if all tests passed")
-    created_at: datetime = Field(description="Creation timestamp")
-    approved_by: str = Field(default="", description="Approver name")
-    approved_at: datetime | None = Field(default=None, description="Approval timestamp")
-
-
-# ── SAT Schemas ───────────────────────────────────────────────────
-
-
-class CreateSATCampaignRequest(BaseModel):
-    """Request to create a new SAT campaign."""
-
-    require_fat: bool = Field(
-        default=False,
-        description="If true, requires an approved FAT campaign",
-    )
-
-
-class SATCampaignSchema(BaseModel):
-    """SAT campaign detail response."""
-
-    campaign_id: str = Field(description="Campaign identifier")
-    programme_id: str = Field(description="Associated switching programme")
-    status: str = Field(description="Campaign lifecycle state")
-    fat_campaign_id: str = Field(default="", description="Linked FAT campaign")
-    specs: list[TestSpecificationSchema] = Field(description="Test specifications")
-    results: list[TestResultSchema] = Field(description="Recorded results")
-    all_passed: bool = Field(description="True if all tests passed")
-    created_at: datetime = Field(description="Creation timestamp")
-    approved_by: str = Field(default="", description="Approver name")
-    approved_at: datetime | None = Field(default=None, description="Approval timestamp")
-
-
-# ── Protection Relay Schemas ──────────────────────────────────────
-
-
-class RelaySettingSchema(BaseModel):
-    """A single relay setting."""
-
-    setting_id: str = Field(description="Setting identifier")
-    function: str = Field(description="IEC 61850 function code (PTOC, PDIS, etc.)")
-    description: str = Field(description="Human-readable description")
-    pickup_value: float = Field(description="Relay pickup threshold")
-    pickup_unit: str = Field(description="Unit of pickup value")
-    time_delay: float = Field(description="Operating time delay in seconds")
-    location: str = Field(description="Relay location")
-    standard: str = Field(description="IEC standard reference")
-
-
-class GradingPairSchema(BaseModel):
-    """A downstream-upstream relay grading pair."""
-
-    pair_id: str = Field(description="Pair identifier")
-    downstream_id: str = Field(description="Downstream relay setting ID")
-    upstream_id: str = Field(description="Upstream relay setting ID")
-    required_margin_ms: float = Field(description="Required time margin in ms")
-    description: str = Field(description="Human-readable description")
-
-
-class GradingResultSchema(BaseModel):
-    """Result of checking one grading pair."""
-
-    pair_id: str = Field(description="Grading pair checked")
-    downstream_id: str = Field(description="Downstream relay")
-    upstream_id: str = Field(description="Upstream relay")
-    downstream_delay_s: float = Field(description="Downstream time delay (s)")
-    upstream_delay_s: float = Field(description="Upstream time delay (s)")
-    actual_margin_ms: float = Field(description="Actual margin (ms)")
-    required_margin_ms: float = Field(description="Required margin (ms)")
-    verdict: str = Field(description="selective or non_selective")
-
-
-class ProtectionCoordinationSchema(BaseModel):
-    """Complete protection coordination verification result."""
-
-    settings: list[RelaySettingSchema] = Field(description="All relay settings")
-    grading_pairs: list[GradingPairSchema] = Field(description="All grading pairs")
-    results: list[GradingResultSchema] = Field(description="Grading results")
-    all_selective: bool = Field(description="True if all pairs are selective")
-
-
-# ── Emergency Response Schemas ──────────────────────────────────
-
-
-class EmergencyProcedureSchema(BaseModel):
-    """Pre-defined emergency response procedure."""
-
-    emergency_type: str = Field(description="Type of emergency (arc_flash, sf6_leak, etc.)")
-    severity: str = Field(description="Severity level: critical, high, or medium")
-    immediate_actions: list[str] = Field(description="Ordered checklist of immediate actions")
-    responsible: str = Field(description="Responsible person (PiC, Safety Officer, OIM)")
-    reference_document: str = Field(description="Reference standard or procedure document")
-    automated_scada_actions: list[str] = Field(description="SCADA actions triggered automatically")
-    communication_protocol: list[str] = Field(description="Notification chain")
-
-
-class TriggerEmergencyRequest(BaseModel):
-    """Request to trigger an emergency event on a programme."""
-
-    emergency_type: str = Field(
-        description="Type of emergency",
-        pattern="^(arc_flash|sf6_leak|medical|man_overboard|comms_failure|unexpected_voltage)$",
-    )
-    triggered_by: str = Field(description="Person who triggered the emergency", min_length=1)
+    record_id: str
+    timestamp: datetime
+    action: str
+    performed_by: str
+    step_id: str = ""
+    details: str = ""
 
 
 class EmergencyEventSchema(BaseModel):
-    """Record of an emergency event that occurred during a programme."""
-
-    event_id: str = Field(description="Unique emergency event ID")
-    programme_id: str = Field(description="Programme ID")
-    emergency_type: str = Field(description="Type of emergency")
-    severity: str = Field(description="Severity level")
-    triggered_by: str = Field(description="Person who triggered the emergency")
-    triggered_at: str = Field(description="ISO 8601 timestamp")
-    actions_taken: list[str] = Field(description="Immediate actions from procedure")
-    scada_actions_executed: list[str] = Field(description="Automated SCADA actions executed")
-    resolved: bool = Field(description="Whether the emergency has been resolved")
-    resolved_at: str | None = Field(default=None, description="Resolution timestamp")
+    event_id: str
+    emergency_type: str
+    severity: str
+    effect: str = Field(description="trip | suspend")
+    triggered_by: str
+    triggered_at: str
+    breakers_opened: list[str]
+    programme_status: str
 
 
-class EmergencyLogResponse(BaseModel):
-    """List of emergency events for a programme."""
+class ProgrammeDetailSchema(ProgrammeSummarySchema):
+    phases: dict[int, str]
+    steps: list[StepSchema]
+    equipment_states: list[EquipmentStateSchema]
+    network: NetworkSnapshotSchema
+    audit_trail: list[AuditRecordSchema]
+    emergency_log: list[EmergencyEventSchema]
 
-    programme_id: str = Field(description="Programme ID")
-    total_events: int = Field(description="Total number of emergency events")
-    events: list[EmergencyEventSchema] = Field(description="Emergency event history")
+
+class ExecuteStepRequest(BaseModel):
+    executed_by: str = Field(min_length=1, max_length=100)
+    pic_confirmed: bool = Field(default=True, description="PiC has confirmed the step")
 
 
-# ── Grid Code Compliance Schemas ────────────────────────────────
+class ExecuteStepResponse(BaseModel):
+    success: bool
+    step_id: str
+    status: str = Field(description="Step status, or 'hold_point'")
+    message: str
+    programme_status: str
+    reading: str = ""
+
+
+class PiCDecisionRequest(BaseModel):
+    pic_name: str = Field(min_length=1, max_length=100)
+    decision: str = Field(pattern="^(go|nogo)$")
+    reason: str = Field(default="", max_length=500)
+
+
+class PiCDecisionResponse(BaseModel):
+    decision: str
+    programme_status: str
+    message: str
+
+
+class EmergencyStopRequest(BaseModel):
+    initiated_by: str = Field(min_length=1, max_length=100)
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class EmergencyStopResponse(BaseModel):
+    programme_status: str
+    breakers_opened: list[str]
+    message: str
+
+
+# ── Isolation locks ──────────────────────────────────────────────
+
+
+class LOTOPointSchema(BaseModel):
+    point_id: str
+    equipment_id: str
+    secured_state: str = Field(description="Position the lock holds: open (DS) / closed (ES)")
+    status: str = Field(description="applied | removed")
+    tag_number: str
+    locked_by: str = ""
+    applied_at: datetime | None = None
+    removed_by: str = ""
+    removed_at: datetime | None = None
+
+
+class LOTOSetSchema(BaseModel):
+    programme_id: str
+    points: list[LOTOPointSchema]
+    applied_count: int
+
+
+class LOTOActionRequest(BaseModel):
+    performed_by: str = Field(min_length=1, max_length=100)
+
+
+# ── FAT / SAT ────────────────────────────────────────────────────
+
+
+class TestSpecificationSchema(BaseModel):
+    test_id: str
+    name: str
+    standard: str
+    description: str
+    unit: str = Field(description="Measurement unit, or 'pass/fail' (1 = pass, 0 = fail)")
+    min_value: float | None = Field(description="Lower acceptance bound (null = none)")
+    max_value: float | None = Field(description="Upper acceptance bound (null = none)")
+    typical_value: float
+
+
+class TestResultSchema(BaseModel):
+    test_id: str
+    measured_value: float
+    verdict: str = Field(description="pass | fail")
+    recorded_by: str
+    recorded_at: datetime
+    notes: str = ""
+
+
+class CreateFATCampaignRequest(BaseModel):
+    equipment_tag: str = Field(min_length=1, max_length=100, examples=["TX-OSS-01"])
+    equipment_class: str = Field(pattern="^(power_transformer|gis_220kv|protection_panel)$")
+
+
+class RecordTestResultRequest(BaseModel):
+    measured_value: float
+    recorded_by: str = Field(min_length=1, max_length=100)
+    notes: str = Field(default="", max_length=500)
+
+
+class ApproveCampaignRequest(BaseModel):
+    approved_by: str = Field(min_length=1, max_length=100)
+
+
+class FATCampaignSchema(BaseModel):
+    campaign_id: str
+    equipment_tag: str
+    equipment_class: str
+    status: str
+    specs: list[TestSpecificationSchema]
+    results: list[TestResultSchema]
+    all_passed: bool
+    created_at: datetime
+    approved_by: str = ""
+    approved_at: datetime | None = None
+
+
+class SATCampaignSchema(BaseModel):
+    campaign_id: str
+    programme_id: str
+    status: str
+    fat_campaign_id: str = Field(default="", description="Approved FAT campaigns relied upon")
+    specs: list[TestSpecificationSchema]
+    results: list[TestResultSchema]
+    all_passed: bool
+    created_at: datetime
+    approved_by: str = ""
+    approved_at: datetime | None = None
+
+
+# ── Grid-code compliance ─────────────────────────────────────────
 
 
 class GridCodeTestSchema(BaseModel):
-    """A single grid code compliance test."""
-
-    test_id: str = Field(description="Test identifier (e.g. EON-001)")
-    stage: str = Field(description="Notification stage: eon, ion, or fon")
-    name: str = Field(description="Test name")
-    description: str = Field(description="Detailed test description")
-    standard: str = Field(description="Reference standard (e.g. IEC 60255)")
-    acceptance_criteria: str = Field(description="Human-readable pass condition")
-    verdict: str = Field(description="Test verdict: compliant, non_compliant, pending, conditional")
-    evidence: str = Field(default="", description="Link/reference to test evidence")
-    tested_by: str = Field(default="", description="Person who performed the test")
-    tested_at: str | None = Field(default=None, description="ISO 8601 timestamp of test")
+    test_id: str
+    stage: str
+    kind: str = Field(description="document | test | simulation")
+    name: str
+    description: str
+    standard: str
+    acceptance_criteria: str
+    verdict: str = Field(description="pending | compliant | non_compliant")
+    evidence: str = ""
+    tested_by: str = ""
+    tested_at: str | None = None
 
 
 class NotificationApplicationSchema(BaseModel):
-    """Tracks submission and approval of a notification stage."""
-
-    stage: str = Field(description="Notification stage: eon, ion, or fon")
-    status: str = Field(description="Overall stage status")
-    tests: list[GridCodeTestSchema] = Field(description="Tests in this stage")
-    submitted_to: str = Field(default="PSE", description="TSO name")
-    submitted_at: str | None = Field(default=None, description="Submission timestamp")
-    approved_at: str | None = Field(default=None, description="Approval timestamp")
+    stage: str
+    status: str = Field(description="open | submitted | issued")
+    tests: list[GridCodeTestSchema]
+    submitted_to: str
+    submitted_at: str | None = None
+    approved_at: str | None = None
+    valid_until: str | None = Field(default=None, description="ION expiry (NC RfG Art. 35(4))")
 
 
 class ComplianceCampaignSchema(BaseModel):
-    """Full compliance campaign covering EON → ION → FON."""
-
-    campaign_id: str = Field(description="Campaign identifier")
-    programme_id: str = Field(description="Associated programme ID")
-    stages: dict[str, NotificationApplicationSchema] = Field(
-        description="Stages keyed by eon/ion/fon"
-    )
-    created_at: str = Field(description="Campaign creation timestamp")
-    cod_achieved: bool = Field(description="True when FON approved (COD reached)")
-    cod_date: str | None = Field(default=None, description="Commercial Operation Date")
+    campaign_id: str
+    programme_id: str
+    stages: dict[str, NotificationApplicationSchema]
+    created_at: str
+    cod_achieved: bool
+    cod_date: str | None = None
 
 
 class RecordComplianceResultRequest(BaseModel):
-    """Request to record a compliance test result."""
-
-    verdict: str = Field(
-        description="Test verdict",
-        pattern="^(compliant|non_compliant|pending|conditional)$",
-    )
-    evidence: str = Field(description="Reference to test evidence", min_length=1)
-    tested_by: str = Field(description="Person who performed the test", min_length=1)
+    verdict: str = Field(pattern="^(compliant|non_compliant|pending)$")
+    evidence: str = Field(default="", max_length=500)
+    tested_by: str = Field(min_length=1, max_length=100)
 
 
-class SubmitNotificationRequest(BaseModel):
-    """Request to submit a notification stage to PSE."""
-
-    submitted_by: str = Field(description="Person submitting the notification", min_length=1)
+# ── Emergencies ──────────────────────────────────────────────────
 
 
-class StageSummarySchema(BaseModel):
-    """Summary of a notification stage's compliance status."""
+class EmergencyProcedureSchema(BaseModel):
+    emergency_type: str
+    title: str
+    severity: str
+    effect: str = Field(description="trip (all breakers open, programme aborted) | suspend")
+    immediate_actions: list[str]
+    responsible: str
+    reference_document: str
+    communication_protocol: list[str]
 
-    stage: str = Field(description="Notification stage")
-    total_tests: int = Field(description="Total number of tests")
-    compliant: int = Field(description="Number of compliant tests")
-    non_compliant: int = Field(description="Number of non-compliant tests")
-    pending: int = Field(description="Number of pending tests")
-    conditional: int = Field(description="Number of conditional tests")
-    submitted_at: str | None = Field(default=None, description="Submission timestamp")
-    approved_at: str | None = Field(default=None, description="Approval timestamp")
-    overall_status: str = Field(description="Overall stage status")
+
+class TriggerEmergencyRequest(BaseModel):
+    emergency_type: str
+    triggered_by: str = Field(min_length=1, max_length=100)

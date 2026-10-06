@@ -68,6 +68,17 @@ export function runWakeAnalysis(
   });
 }
 
+/** PyWake AEP for arbitrary positions, local metres (x east, y north). */
+export function runCustomWakeAnalysis(
+  x_m: number[],
+  y_m: number[],
+  weibull_a = 10.5,
+  weibull_k = 2.2,
+  turbulence_intensity = 0.06,
+): Promise<WakeAnalysisResult> {
+  return post(`${BASE}/wake-analysis-custom`, { x_m, y_m, weibull_a, weibull_k, turbulence_intensity });
+}
+
 // ── AEP Cascade ─────────────────────────────────────────────────
 
 export function computeAEPCascade(

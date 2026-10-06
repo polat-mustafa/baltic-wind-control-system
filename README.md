@@ -34,6 +34,7 @@ The modules follow a wind farm through its life.
 | Stage | Module | What you work with |
 |---|---|---|
 | **Develop** | Site & Permits | Open marine data (EMODnet, EEA Natura 2000, Marine Regions), suitability screening, candidate-site report, survey and EIA stages, generic EU permit procedure |
+| | Layout | Drag-and-drop turbines in the site, live wake loss, Esau–Williams array cables, PyWake AEP for the exact positions, CAPEX and LCOE |
 | | Wind Resource | Weibull fits, wake models (PyWake), AEP and loss chain, availability (IEC 61400-26), weather windows |
 | **Design** | Grid Integration | Load flow, IEC 60909 short circuit, fault ride-through, STATCOM sizing, power quality, cable thermal rating (IEC 60287) |
 | | Turbine Physics | Cp(λ, β) surface, pitch and torque control, yaw |

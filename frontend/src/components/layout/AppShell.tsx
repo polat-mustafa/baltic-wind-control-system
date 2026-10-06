@@ -40,6 +40,7 @@ import { useLayerStore } from "../../store/layerStore";
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Control Room",
   "/develop": "Site & Permits",
+  "/develop/layout": "Layout",
   "/wind-resource": "Wind Resource",
   "/hv-grid": "HV Grid Integration",
   "/scada": "SCADA & Automation",

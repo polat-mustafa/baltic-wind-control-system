@@ -179,6 +179,21 @@ class WakeAnalysisResponse(BaseModel):
     per_turbine_wake_loss_percent: list[float]
 
 
+class CustomWakeRequest(BaseModel):
+    """Wake analysis for a user-drawn layout (Layout canvas, /develop/layout).
+
+    Positions are local metres: x east, y north, from any origin near the
+    site (the frontend projects lon/lat equirectangularly about the site
+    centroid). Turbine: V236-15.0 MW.
+    """
+
+    x_m: list[float] = Field(min_length=1, max_length=150, description="Turbine x (east) [m]")
+    y_m: list[float] = Field(min_length=1, max_length=150, description="Turbine y (north) [m]")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+
+
 class AEPCascadeRequest(BaseModel):
     """Request for full AEP loss cascade."""
 
@@ -531,6 +546,73 @@ async def wake_analysis(request: WakeAnalysisRequest) -> WakeAnalysisResponse:
     try:
         result = await _cached_wake_analysis(
             request.layout, request.weibull_a, request.weibull_k, request.turbulence_intensity
+        )
+    except DomainError:
+        raise
+    except Exception as e:
+        raise DomainError(f"Wake analysis failed: {e}") from e
+
+    return WakeAnalysisResponse(
+        gross_aep_gwh=round(result["gross_aep_gwh"], 2),
+        net_aep_gwh=round(result["net_aep_gwh"], 2),
+        wake_loss_percent=round(result["wake_loss_percent"], 2),
+        capacity_factor=round(result["capacity_factor"], 4),
+        per_turbine_aep_gwh=[round(float(v), 3) for v in result["per_turbine_aep_gwh"]],
+        per_turbine_wake_loss_percent=[
+            round(float(v), 2) for v in result["per_turbine_wake_loss_percent"]
+        ],
+    )
+
+
+# Bump the version suffix whenever the wake model or wind site changes.
+@cached(prefix="wake-custom-v1", ttl=300)
+def _cached_custom_wake(
+    x_m: list[float],
+    y_m: list[float],
+    weibull_a: float,
+    weibull_k: float,
+    ti: float,
+) -> dict[str, object]:
+    """Cached PyWake run for arbitrary positions [m]."""
+    site = _site(weibull_a, weibull_k, ti)
+    result = run_wake_analysis(
+        np.asarray(x_m, dtype=np.float64), np.asarray(y_m, dtype=np.float64), site
+    )
+    return {
+        "gross_aep_gwh": result.gross_aep_gwh,
+        "net_aep_gwh": result.net_aep_gwh,
+        "wake_loss_percent": result.wake_loss_percent,
+        "capacity_factor": result.capacity_factor,
+        "per_turbine_aep_gwh": [float(v) for v in result.per_turbine_aep_gwh],
+        "per_turbine_wake_loss_percent": [float(v) for v in result.per_turbine_wake_loss_percent],
+    }
+
+
+@router.post("/wake-analysis-custom", response_model=WakeAnalysisResponse)
+async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisResponse:
+    """PyWake wake analysis and AEP for arbitrary turbine positions.
+
+    Same wake model and 12-sector wind rose as /wake-analysis. Turbines
+    closer than one rotor diameter are rejected (rotors would overlap).
+    """
+    if len(request.x_m) != len(request.y_m):
+        raise DomainValidationError("x_m and y_m must have the same length")
+    xy = np.column_stack([request.x_m, request.y_m])
+    if len(xy) > 1:
+        gaps = np.hypot(*(xy[:, None, :] - xy[None, :, :]).transpose(2, 0, 1))
+        np.fill_diagonal(gaps, np.inf)
+        if float(gaps.min()) < ROTOR_DIAMETER_M:
+            raise DomainValidationError(
+                f"Turbines closer than one rotor diameter ({ROTOR_DIAMETER_M:.0f} m): "
+                "rotors would overlap"
+            )
+    try:
+        result = await _cached_custom_wake(
+            [round(v, 1) for v in request.x_m],
+            [round(v, 1) for v in request.y_m],
+            request.weibull_a,
+            request.weibull_k,
+            request.turbulence_intensity,
         )
     except DomainError:
         raise

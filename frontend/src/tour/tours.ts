@@ -6,6 +6,7 @@
 
 import { useDigitalTwinStore } from "../store/digitalTwinStore";
 import { useForecastStore } from "../store/forecastStore";
+import { useProjectStore } from "../store/projectStore";
 import { useGridStore } from "../store/gridStore";
 import { useTurbinePhysicsStore } from "../store/turbinePhysicsStore";
 import { useWindResourceStore } from "../store/windResourceStore";
@@ -195,6 +196,68 @@ const sitePermits: Tour = {
       body:
         "Area, indicative capacity, depth and foundation type, distances, and a checklist. A failed check means an " +
         "authority would refuse the site; the permit stage shows you why.",
+    },
+  ],
+};
+
+const layout: Tour = {
+  id: "layout",
+  title: "Layout",
+  summary: "Place turbines, read the wake losses, route the cables, estimate the cost.",
+  stage: "Develop",
+  steps: [
+    {
+      id: "header",
+      route: "/develop/layout",
+      target: "page-header",
+      title: "From a site to a wind farm",
+      body:
+        "The site from Site & Permits becomes a layout: how many turbines, where, and how they are cabled. " +
+        "Every choice trades capacity against wake losses and cable cost.",
+    },
+    {
+      id: "grid",
+      route: "/develop/layout",
+      target: "layout-grid",
+      title: "Start from a grid",
+      body: "Spacing is set in rotor diameters (D = 236 m). Constraint areas from the open data can be skipped.",
+      task: {
+        instruction: "Press Fill site (or load the SB-510 layout).",
+        watch: () => () => useProjectStore.getState().turbines.length > 0,
+      },
+    },
+    {
+      id: "map",
+      route: "/develop/layout",
+      target: "layout-map",
+      title: "Drag turbines",
+      body:
+        "Drag a turbine or the yellow offshore substation: the wake loss in the tooltip and the cable tree follow. " +
+        "Amber means closer than 4 D, red means outside the site or inside a constraint.",
+      caution: "A tight layout gains megawatts on paper and loses them in energy: check the wake loss, not only the MW.",
+    },
+    {
+      id: "results",
+      route: "/develop/layout",
+      target: "layout-results",
+      title: "Live results",
+      body:
+        "Power density, closest pair, a fast wake model and the array cables: strings of up to six 15 MW turbines on 66 kV, " +
+        "sized by current.",
+    },
+    {
+      id: "pywake",
+      route: "/develop/layout",
+      target: "layout-pywake",
+      title: "Check with PyWake",
+      body: "The backend runs the reference wake model on your exact positions. Use it before you trust an AEP figure.",
+    },
+    {
+      id: "cost",
+      route: "/develop/layout",
+      target: "layout-cost",
+      title: "What does it cost?",
+      body: "CAPEX by line and the levelised cost of energy. The unit costs are illustrative teaching defaults; edit them.",
     },
   ],
 };
@@ -473,6 +536,7 @@ const digitalTwin: Tour = {
 export const TOURS: Tour[] = [
   controlRoom,
   sitePermits,
+  layout,
   windResource,
   grid,
   turbinePhysics,

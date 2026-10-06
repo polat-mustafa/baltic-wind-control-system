@@ -10,7 +10,7 @@ import { TOURS } from "../../src/tour/tours";
 // All app sources as text, to find the data-tour attributes the tours point at.
 const files = import.meta.glob<string>("../../src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true });
 const code = Object.values(files).join("\n");
-const ROUTES = ["/", "/develop", "/wind-resource", "/hv-grid", "/scada", "/forecast", "/commissioning", "/turbine-physics", "/digital-twin"];
+const ROUTES = ["/", "/develop", "/develop/layout", "/wind-resource", "/hv-grid", "/scada", "/forecast", "/commissioning", "/turbine-physics", "/digital-twin"];
 
 describe("tours", () => {
   it("have unique tour and step ids", () => {

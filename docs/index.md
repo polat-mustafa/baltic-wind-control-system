@@ -12,7 +12,7 @@ A production-grade educational simulation platform for a **510 MW Baltic Sea off
 | **P2** | HV Grid Integration & Power System Analysis | Pandapower, ANDES, IEC 60909, FRT, STATCOM |
 | **P3** | SCADA & IEC 61850 Substation Automation | IEC 61850, GOOSE, Permit-to-Work, IEC 62443 |
 | **P4** | AI-Powered Wind Power Forecasting | XGBoost, LSTM, Temporal Fusion Transformer, SHAP |
-| **P5** | HV Commissioning & Switching Programme | 30-step switching programme, LOTO, SAT |
+| **P5** | HV Commissioning & Switching Programme | Circuit 1 energisation (60 steps, load-flow verified), isolation locks, FAT/SAT, EON/ION/FON |
 
 ## Tech Stack
 

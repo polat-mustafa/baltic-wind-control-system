@@ -18,6 +18,8 @@ import { useMemo, useState } from "react";
 import { Cable, Factory, Power, Wind } from "lucide-react";
 
 import { useLandingStore } from "../../store/landingStore";
+import { usePlantSnapshot } from "../../store/liveGridStore";
+import { REACTOR_UNIT_MVAR } from "../../utils/landingPhysics";
 import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { MIMIC_LAYOUT } from "../../constants/mimicLayout";
 
@@ -44,6 +46,8 @@ export default function WindFarmMimic() {
   const transformer = useLandingStore((s) => s.transformers["OSS-TX1"]);
   const onshoreT = useLandingStore((s) => s.transformers["ONS-TX1"]);
   const kpis = useLandingStore((s) => s.kpis);
+  const plant = usePlantSnapshot();
+  const signed = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(0)}`;
 
   const [openTurbine, setOpenTurbine] = useState<string | null>(null);
 
@@ -65,19 +69,19 @@ export default function WindFarmMimic() {
   return (
     <div className="flex flex-col h-full bg-bg-primary">
       {/* Header strip */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-primary bg-bg-tertiary shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 px-3 py-1.5 border-b border-border-primary bg-bg-tertiary shrink-0">
         <div className="flex items-center gap-2">
           <Wind size={12} className="text-text-muted" />
           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
             Plant Mimic · Operations
           </h3>
-          <span className="text-[10px] text-text-muted font-mono">
+          <span className="hidden md:inline text-[10px] text-text-muted font-mono">
             34 × V236-15.0 MW · 510 MW · 66 / 220 / 400 kV
           </span>
         </div>
         <div className="flex items-center gap-3 text-[10px] font-mono text-text-secondary">
           <span>
-            P_total{" "}
+            Σ WTG{" "}
             <span className="text-text-primary">
               {kpis.totalOutputMW.toFixed(1)}
             </span>{" "}
@@ -86,7 +90,7 @@ export default function WindFarmMimic() {
           <span>
             f_grid{" "}
             <span className="text-text-primary">
-              {kpis.gridFrequencyHz.toFixed(2)}
+              {kpis.gridFrequencyHz.toFixed(3)}
             </span>{" "}
             Hz
           </span>
@@ -174,10 +178,8 @@ export default function WindFarmMimic() {
                   unit: "°C",
                 },
                 {
-                  label: "Load",
-                  value: transformer
-                    ? transformer.loadPercent.toFixed(0)
-                    : "—",
+                  label: "TX load",
+                  value: plant.ossTrafoPct.toFixed(0),
                   unit: "%",
                 },
                 {
@@ -190,7 +192,12 @@ export default function WindFarmMimic() {
                     ? `${transformer.tapPosition}/${transformer.totalTaps}`
                     : "—",
                 },
-                { label: "Q-statcom", value: "+45", unit: "MVAR" },
+                { label: "STATCOM", value: signed(plant.statcomMVAr), unit: "MVAr" },
+                {
+                  label: "Reactors",
+                  value: `${plant.reactorsInService} × ${REACTOR_UNIT_MVAR}`,
+                  unit: "MVAr",
+                },
               ]}
               className="w-full max-w-none"
             />
@@ -210,7 +217,7 @@ export default function WindFarmMimic() {
               label="Onshore · 220 / 400 kV"
               voltageStep="220 → 400 kV"
               throughput={{
-                value: kpis.totalOutputMW.toFixed(0),
+                value: plant.pocMW.toFixed(0),
                 unit: "MW",
               }}
               status={exportEnergised ? "energised" : "deenergised"}
@@ -224,21 +231,14 @@ export default function WindFarmMimic() {
                   unit: "°C",
                 },
                 {
-                  label: "Load",
-                  value: onshoreT
-                    ? onshoreT.loadPercent.toFixed(0)
-                    : "—",
+                  label: "TX load",
+                  value: plant.onshoreTrafoPct.toFixed(0),
                   unit: "%",
                 },
                 {
-                  label: "V-bus",
-                  value: "402.1",
-                  unit: "kV",
-                },
-                {
-                  label: "Q-shunt",
-                  value: "-50",
-                  unit: "MVAR",
+                  label: "Export cable",
+                  value: plant.exportCablePct.toFixed(0),
+                  unit: "%",
                 },
               ]}
               className="w-full max-w-none"
@@ -257,20 +257,17 @@ export default function WindFarmMimic() {
           >
             <MimicTerminalNode
               label="PSE Grid · 400 kV"
-              voltageStep="400 kV bus"
+              voltageStep="Connection point"
               throughput={{
-                value: kpis.totalOutputMW.toFixed(0),
+                value: plant.pocMW.toFixed(1),
                 unit: "MW",
               }}
               status={gridEnergised ? "energised" : "deenergised"}
               icon={<Power size={12} />}
               rows={[
-                {
-                  label: "f",
-                  value: kpis.gridFrequencyHz.toFixed(2),
-                  unit: "Hz",
-                },
-                { label: "PoC", value: "Słupsk-Wielkopolska" },
+                { label: "Q", value: signed(plant.pocMVAr), unit: "MVAr" },
+                { label: "U", value: plant.pocKV.toFixed(1), unit: "kV" },
+                { label: "f", value: plant.frequencyHz.toFixed(3), unit: "Hz" },
               ]}
               className="w-full max-w-none"
             />

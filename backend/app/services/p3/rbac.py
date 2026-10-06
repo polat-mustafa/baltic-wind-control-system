@@ -7,10 +7,11 @@ SCADA/EMS platform.
 
 Physics — Why RBAC Exists in HV Systems
 ----------------------------------------
-A 220 kV circuit breaker carries 1,200 A at rated load. An incorrect switching
-operation — opening a loaded breaker without isolating the load — creates an
-arc flash with energy proportional to I² × t. At 220 kV, arc flash incidents
-release 20–40 cal/cm² at 600 mm, enough to cause fatal burns (IEEE 1584).
+A wrong switching operation at 220 kV — opening a disconnector under load, or
+closing onto an earthed section — draws an arc that the disconnector cannot
+interrupt; only the protection clears it. Arc-flash calculation methods such as
+IEEE 1584 cover 208 V–15 kV only, so for HV switchgear the hazard is managed by
+interlocking, internal-arc-classified enclosures and access control.
 
 LOTO (Lock-Out / Tag-Out) prevents this by ensuring only authorised personnel
 can control switchgear. In SCADA systems, RBAC is the digital equivalent of

@@ -39,7 +39,8 @@ export interface SecurityConduitResponse {
   source_zone: string;
   dest_zone: string;
   allowed_protocols: string[];
-  encryption: boolean;
+  /** e.g. "TLS 1.3", "IPsec AES-256", "NONE" */
+  encryption: string;
   bidirectional: boolean;
   criticality: "HIGH" | "MEDIUM" | "LOW";
   firewall_rules: FirewallRule[];

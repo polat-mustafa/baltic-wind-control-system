@@ -14,7 +14,7 @@ import type {
 interface NetworkState {
   topology: NetworkTopologyResponse | null;
   opcuaNamespace: OPCUANamespaceResponse | null;
-  latencyBudgets: LatencyBudgetResponse[];   // [P3 GOOSE, P2 measurement, P1 SCADA poll]
+  latencyBudgets: LatencyBudgetResponse[];   // [TT6 GOOSE trip, TT3 measurement, TT1 operator display]
   loading: boolean;
   error: string | null;
 
@@ -35,14 +35,14 @@ export const useNetworkStore = create<NetworkState>((set) => ({
   fetchAll: async () => {
     set({ loading: true, error: null });
     try {
-      const [topology, opcuaNamespace, p3, p2, p1] = await Promise.all([
+      const [topology, opcuaNamespace, tt6, tt3, tt1] = await Promise.all([
         api.getTopology(),
         api.getOPCUANamespace(),
         api.getLatencyBudget(0),
         api.getLatencyBudget(1),
         api.getLatencyBudget(2),
       ]);
-      set({ topology, opcuaNamespace, latencyBudgets: [p3, p2, p1] });
+      set({ topology, opcuaNamespace, latencyBudgets: [tt6, tt3, tt1] });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Failed to fetch network data" });
     } finally {
@@ -70,12 +70,12 @@ export const useNetworkStore = create<NetworkState>((set) => ({
 
   fetchLatencyBudgets: async () => {
     try {
-      const [p3, p2, p1] = await Promise.all([
+      const [tt6, tt3, tt1] = await Promise.all([
         api.getLatencyBudget(0),
         api.getLatencyBudget(1),
         api.getLatencyBudget(2),
       ]);
-      set({ latencyBudgets: [p3, p2, p1] });
+      set({ latencyBudgets: [tt6, tt3, tt1] });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Failed to fetch latency budgets" });
     }

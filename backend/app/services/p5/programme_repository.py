@@ -16,6 +16,7 @@ Usage in routers::
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any
@@ -26,19 +27,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.models.programme import (
     FATCampaignModel,
-    ProtectionGradingModel,
     SwitchingProgrammeModel,
 )
 from app.services.p5.equipment_state import EquipmentState, SwitchingAction
 from app.services.p5.fat import (
+    EquipmentClass,
     FATCampaign,
     TestCampaignStatus,
     TestResult,
     TestSpecification,
     TestVerdict,
 )
+from app.services.p5.grid_code_testing import (
+    ComplianceCampaign,
+    ComplianceVerdict,
+    GridCodeTest,
+    ItemKind,
+    NotificationApplication,
+    NotificationStage,
+    StageStatus,
+)
 from app.services.p5.loto import IsolationPoint, LOTOSet, LOTOStatus
-from app.services.p5.protection_relay import GradingResult, SelectivityVerdict
 from app.services.p5.sat import SATCampaign
 from app.services.p5.switching_programme import (
     AuditRecord,
@@ -48,6 +57,8 @@ from app.services.p5.switching_programme import (
     SwitchingProgramme,
     SwitchingStep,
 )
+
+logger = logging.getLogger(__name__)
 
 # ── Serialisation Helpers ────────────────────────────────────────
 
@@ -72,12 +83,7 @@ def _serialise_step(step: SwitchingStep) -> dict[str, Any]:
         "action": step.action,
         "equipment_id": step.equipment_id,
         "switching_action": step.switching_action.value if step.switching_action else None,
-        "expected_state_before": (
-            step.expected_state_before.value if step.expected_state_before else None
-        ),
-        "expected_state_after": (
-            step.expected_state_after.value if step.expected_state_after else None
-        ),
+        "check_id": step.check_id,
         "responsible": step.responsible,
         "pic_confirmation": step.pic_confirmation,
         "verification": step.verification,
@@ -85,6 +91,7 @@ def _serialise_step(step: SwitchingStep) -> dict[str, Any]:
         "status": step.status.value,
         "executed_at": _dt_to_iso(step.executed_at),
         "executed_by": step.executed_by,
+        "reading": step.reading,
     }
 
 
@@ -100,12 +107,7 @@ def _deserialise_step(d: dict[str, Any]) -> SwitchingStep:
         switching_action=(
             SwitchingAction(d["switching_action"]) if d.get("switching_action") else None
         ),
-        expected_state_before=(
-            EquipmentState(d["expected_state_before"]) if d.get("expected_state_before") else None
-        ),
-        expected_state_after=(
-            EquipmentState(d["expected_state_after"]) if d.get("expected_state_after") else None
-        ),
+        check_id=d.get("check_id", ""),
         responsible=d.get("responsible", "PiC"),
         pic_confirmation=d.get("pic_confirmation", True),
         verification=d.get("verification", ""),
@@ -113,6 +115,7 @@ def _deserialise_step(d: dict[str, Any]) -> SwitchingStep:
         status=StepStatus(d["status"]),
         executed_at=_iso_to_dt(d.get("executed_at")),
         executed_by=d.get("executed_by", ""),
+        reading=d.get("reading", ""),
     )
 
 
@@ -149,6 +152,7 @@ def _serialise_loto_set(loto: LOTOSet) -> dict[str, Any]:
             pid: {
                 "point_id": pt.point_id,
                 "equipment_id": pt.equipment_id,
+                "secured_state": pt.secured_state.value,
                 "status": pt.status.value,
                 "locked_by": pt.locked_by,
                 "tag_number": pt.tag_number,
@@ -171,9 +175,10 @@ def _deserialise_loto_set(d: dict[str, Any]) -> LOTOSet:
         loto.points[pid] = IsolationPoint(
             point_id=pt_data["point_id"],
             equipment_id=pt_data["equipment_id"],
+            secured_state=EquipmentState(pt_data["secured_state"]),
             status=LOTOStatus(pt_data["status"]),
             locked_by=pt_data.get("locked_by", ""),
-            tag_number=pt_data.get("tag_number", ""),
+            tag_number=pt_data["tag_number"],
             applied_at=_iso_to_dt(pt_data.get("applied_at")),
             removed_at=_iso_to_dt(pt_data.get("removed_at")),
             removed_by=pt_data.get("removed_by", ""),
@@ -191,6 +196,7 @@ def _serialise_test_spec(spec: TestSpecification) -> dict[str, Any]:
         "unit": spec.unit,
         "min_value": spec.min_value,
         "max_value": spec.max_value,
+        "typical_value": spec.typical_value,
     }
 
 
@@ -204,6 +210,7 @@ def _deserialise_test_spec(d: dict[str, Any]) -> TestSpecification:
         unit=d["unit"],
         min_value=d["min_value"],
         max_value=d["max_value"],
+        typical_value=d.get("typical_value", 1.0),
     )
 
 
@@ -261,15 +268,48 @@ def _deserialise_sat_campaign(d: dict[str, Any]) -> SATCampaign:
     )
 
 
+def _deserialise_compliance(d: dict[str, Any]) -> ComplianceCampaign:
+    """Rebuild a ComplianceCampaign stored with ``dataclasses.asdict``."""
+    stages = {}
+    for key, s in d["stages"].items():
+        stage = NotificationStage(key)
+        stages[stage] = NotificationApplication(
+            stage=stage,
+            status=StageStatus(s["status"]),
+            tests=[
+                GridCodeTest(
+                    **{
+                        **t,
+                        "stage": NotificationStage(t["stage"]),
+                        "kind": ItemKind(t["kind"]),
+                        "verdict": ComplianceVerdict(t["verdict"]),
+                    }
+                )
+                for t in s["tests"]
+            ],
+            submitted_to=s["submitted_to"],
+            submitted_at=s["submitted_at"],
+            approved_at=s["approved_at"],
+            valid_until=s.get("valid_until"),
+        )
+    return ComplianceCampaign(
+        campaign_id=d["campaign_id"],
+        programme_id=d["programme_id"],
+        stages=stages,
+        created_at=d["created_at"],
+        cod_achieved=d["cod_achieved"],
+        cod_date=d["cod_date"],
+    )
+
+
 # ── Repository ───────────────────────────────────────────────────
 
 
 class ProgrammeRepository:
     """Async repository for P5 commissioning domain objects.
 
-    Encapsulates all DB access for switching programmes, FAT campaigns,
-    and protection grading results. Each method operates within the
-    caller's session/transaction scope.
+    Encapsulates all DB access for switching programmes and FAT campaigns.
+    Each method operates within the caller's session/transaction scope.
     """
 
     def __init__(self, session: AsyncSession) -> None:
@@ -278,48 +318,30 @@ class ProgrammeRepository:
     # ── Switching Programmes ─────────────────────────────────────
 
     async def save_programme(self, programme: SwitchingProgramme) -> None:
-        """Upsert a switching programme (insert or update)."""
-        now = datetime.now(UTC)
-        existing = await self.session.get(SwitchingProgrammeModel, programme.programme_id)
-
-        if existing:
-            existing.title = programme.title
-            existing.pic_name = programme.pic_name
-            existing.status = programme.status.value
-            existing.current_step_index = programme.current_step_index
-            existing.fat_campaign_id = programme.fat_campaign_id
-            existing.steps = [_serialise_step(s) for s in programme.steps]
-            existing.system_state = {k: v.value for k, v in programme.system_state.items()}
-            existing.loto_set = (
-                _serialise_loto_set(programme.loto_set) if programme.loto_set else None
-            )
-            existing.audit_trail = [_serialise_audit(r) for r in programme.audit_trail]
-            existing.sat_campaign = (
-                _serialise_sat_campaign(programme.sat_campaign) if programme.sat_campaign else None
-            )
-            existing.updated_at = now
-        else:
+        """Upsert a switching programme (the whole aggregate)."""
+        model = await self.session.get(SwitchingProgrammeModel, programme.programme_id)
+        if model is None:
             model = SwitchingProgrammeModel(
-                programme_id=programme.programme_id,
-                title=programme.title,
-                pic_name=programme.pic_name,
-                status=programme.status.value,
-                current_step_index=programme.current_step_index,
-                fat_campaign_id=programme.fat_campaign_id,
-                steps=[_serialise_step(s) for s in programme.steps],
-                system_state={k: v.value for k, v in programme.system_state.items()},
-                loto_set=(_serialise_loto_set(programme.loto_set) if programme.loto_set else None),
-                audit_trail=[_serialise_audit(r) for r in programme.audit_trail],
-                sat_campaign=(
-                    _serialise_sat_campaign(programme.sat_campaign)
-                    if programme.sat_campaign
-                    else None
-                ),
-                created_at=programme.created_at,
-                updated_at=now,
+                programme_id=programme.programme_id, created_at=programme.created_at
             )
             self.session.add(model)
-
+        model.title = programme.title
+        model.pic_name = programme.pic_name
+        model.status = programme.status.value
+        model.current_step_index = programme.current_step_index
+        model.fat_campaign_id = programme.fat_campaign_id
+        model.steps = [_serialise_step(s) for s in programme.steps]
+        model.system_state = {k: v.value for k, v in programme.system_state.items()}
+        model.loto_set = _serialise_loto_set(programme.loto_set) if programme.loto_set else None
+        model.audit_trail = [_serialise_audit(r) for r in programme.audit_trail]
+        model.sat_campaign = (
+            _serialise_sat_campaign(programme.sat_campaign) if programme.sat_campaign else None
+        )
+        model.compliance_campaign = (
+            asdict(programme.compliance_campaign) if programme.compliance_campaign else None
+        )
+        model.emergency_log = list(programme.emergency_log)
+        model.updated_at = datetime.now(UTC)
         await self.session.flush()
 
     async def get_programme(self, programme_id: str) -> SwitchingProgramme:
@@ -327,14 +349,25 @@ class ProgrammeRepository:
         model = await self.session.get(SwitchingProgrammeModel, programme_id)
         if model is None:
             raise NotFoundError(f"Programme '{programme_id}' not found.")
-        return self._to_programme(model)
+        try:
+            return self._to_programme(model)
+        except (KeyError, ValueError):
+            raise NotFoundError(
+                f"Programme '{programme_id}' was stored by an older version — create a new one."
+            ) from None
 
     async def list_programmes(self) -> list[SwitchingProgramme]:
         """Load all switching programmes."""
         result = await self.session.execute(
             select(SwitchingProgrammeModel).order_by(SwitchingProgrammeModel.created_at.desc())
         )
-        return [self._to_programme(m) for m in result.scalars().all()]
+        programmes = []
+        for m in result.scalars().all():
+            try:
+                programmes.append(self._to_programme(m))
+            except (KeyError, ValueError):
+                logger.warning("Skipping programme %s: stored by an older version", m.programme_id)
+        return programmes
 
     async def delete_programme(self, programme_id: str) -> None:
         """Delete a switching programme. Raises NotFoundError if missing."""
@@ -361,37 +394,32 @@ class ProgrammeRepository:
                 _deserialise_sat_campaign(model.sat_campaign) if model.sat_campaign else None
             ),
             fat_campaign_id=model.fat_campaign_id,
+            compliance_campaign=(
+                _deserialise_compliance(model.compliance_campaign)
+                if model.compliance_campaign
+                else None
+            ),
+            emergency_log=list(model.emergency_log or []),
         )
 
     # ── FAT Campaigns ────────────────────────────────────────────
 
     async def save_fat_campaign(self, campaign: FATCampaign) -> None:
         """Upsert a FAT campaign."""
-        now = datetime.now(UTC)
-        existing = await self.session.get(FATCampaignModel, campaign.campaign_id)
-
-        if existing:
-            existing.equipment_tag = campaign.equipment_tag
-            existing.status = campaign.status.value
-            existing.specs = {k: _serialise_test_spec(v) for k, v in campaign.specs.items()}
-            existing.results = {k: _serialise_test_result(v) for k, v in campaign.results.items()}
-            existing.approved_by = campaign.approved_by
-            existing.approved_at = campaign.approved_at
-            existing.updated_at = now
-        else:
+        model = await self.session.get(FATCampaignModel, campaign.campaign_id)
+        if model is None:
             model = FATCampaignModel(
-                campaign_id=campaign.campaign_id,
-                equipment_tag=campaign.equipment_tag,
-                status=campaign.status.value,
-                specs={k: _serialise_test_spec(v) for k, v in campaign.specs.items()},
-                results={k: _serialise_test_result(v) for k, v in campaign.results.items()},
-                approved_by=campaign.approved_by,
-                approved_at=campaign.approved_at,
-                created_at=campaign.created_at,
-                updated_at=now,
+                campaign_id=campaign.campaign_id, created_at=campaign.created_at
             )
             self.session.add(model)
-
+        model.equipment_tag = campaign.equipment_tag
+        model.equipment_class = campaign.equipment_class.value
+        model.status = campaign.status.value
+        model.specs = {k: _serialise_test_spec(v) for k, v in campaign.specs.items()}
+        model.results = {k: _serialise_test_result(v) for k, v in campaign.results.items()}
+        model.approved_by = campaign.approved_by
+        model.approved_at = campaign.approved_at
+        model.updated_at = datetime.now(UTC)
         await self.session.flush()
 
     async def get_fat_campaign(self, campaign_id: str) -> FATCampaign:
@@ -406,13 +434,15 @@ class ProgrammeRepository:
         result = await self.session.execute(
             select(FATCampaignModel).order_by(FATCampaignModel.created_at.desc())
         )
-        return [self._to_fat_campaign(m) for m in result.scalars().all()]
+        # rows without an equipment class predate the class templates
+        return [self._to_fat_campaign(m) for m in result.scalars().all() if m.equipment_class]
 
     def _to_fat_campaign(self, model: FATCampaignModel) -> FATCampaign:
         """Reconstruct a FATCampaign domain object from its DB model."""
         return FATCampaign(
             campaign_id=model.campaign_id,
             equipment_tag=model.equipment_tag,
+            equipment_class=EquipmentClass(model.equipment_class or ""),
             status=TestCampaignStatus(model.status),
             specs={k: _deserialise_test_spec(v) for k, v in model.specs.items()},
             results={k: _deserialise_test_result(v) for k, v in model.results.items()},
@@ -420,39 +450,3 @@ class ProgrammeRepository:
             approved_by=model.approved_by,
             approved_at=model.approved_at,
         )
-
-    # ── Protection Grading ───────────────────────────────────────
-
-    async def save_protection_results(self, results: list[GradingResult]) -> None:
-        """Save a grading run as a new immutable record."""
-        now = datetime.now(UTC)
-        model = ProtectionGradingModel(
-            results=[asdict(r) for r in results],
-            created_at=now,
-        )
-        self.session.add(model)
-        await self.session.flush()
-
-    async def get_latest_protection_results(self) -> list[GradingResult]:
-        """Load the most recent grading run. Returns empty list if none."""
-        result = await self.session.execute(
-            select(ProtectionGradingModel)
-            .order_by(ProtectionGradingModel.created_at.desc())
-            .limit(1)
-        )
-        model = result.scalar_one_or_none()
-        if model is None:
-            return []
-        return [
-            GradingResult(
-                pair_id=r["pair_id"],
-                downstream_id=r["downstream_id"],
-                upstream_id=r["upstream_id"],
-                downstream_delay_s=r["downstream_delay_s"],
-                upstream_delay_s=r["upstream_delay_s"],
-                actual_margin_ms=r["actual_margin_ms"],
-                required_margin_ms=r["required_margin_ms"],
-                verdict=SelectivityVerdict(r["verdict"]),
-            )
-            for r in model.results
-        ]

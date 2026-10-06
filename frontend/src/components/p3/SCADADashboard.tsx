@@ -32,9 +32,6 @@ import NetworkDashboard from "./NetworkDashboard";
 import SCLGeneratorPanel from "./SCLGeneratorPanel";
 import VibrationPanel from "./VibrationPanel";
 import InterlockStatusPanel from "./InterlockStatusPanel";
-import LatencyBudgetPanel from "./LatencyBudgetPanel";
-import FleetHealthPanel from "./FleetHealthPanel";
-import AttackSimPanel from "./AttackSimPanel";
 
 import AreaTabs from "./AreaTabs";
 import SubTabs from "./SubTabs";
@@ -61,12 +58,12 @@ export default function SCADADashboard() {
 
         {/* Operations · SLD — privileged side-by-side layout */}
         {area === "operations" && active === "sld" && (
-          <div className="grid grid-cols-1 xl:grid-cols-5 gap-2 p-2 h-full min-h-[520px]">
-            <div className="xl:col-span-3 min-h-[480px]">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-2 p-2 h-full min-h-[560px]">
+            <div className="min-h-[520px]">
               <SubstationSLD />
             </div>
-            <div className="xl:col-span-2 min-h-[480px]">
-              <AlarmListPanel />
+            <div className="min-h-[320px]">
+              <AlarmListPanel compact />
             </div>
           </div>
         )}
@@ -79,7 +76,7 @@ export default function SCADADashboard() {
           <div className="p-3"><PermitWorkflowPanel /></div>
         )}
         {area === "operations" && active === "events" && (
-          <div className="p-3"><EventLogPanel /></div>
+          <div className="p-2 h-full"><EventLogPanel /></div>
         )}
         {area === "operations" && active === "bays" && (
           <div className="p-3"><BayControllerPanel /></div>
@@ -95,10 +92,10 @@ export default function SCADADashboard() {
         {area === "equipment" && active === "historian" && (
           <div className="p-3"><HistorianPanel /></div>
         )}
-        {area === "equipment" && active === "network" && (
+        {area === "diagnostics" && active === "network" && (
           <div className="p-3"><NetworkDashboard /></div>
         )}
-        {area === "equipment" && active === "interlocks" && (
+        {area === "diagnostics" && active === "interlocks" && (
           <div className="p-3"><InterlockStatusPanel /></div>
         )}
 
@@ -107,16 +104,7 @@ export default function SCADADashboard() {
           <div className="p-3"><GOOSESimPanel /></div>
         )}
         {area === "diagnostics" && active === "soe" && (
-          <div className="p-3"><SOERecorderPanel /></div>
-        )}
-        {area === "diagnostics" && active === "latency" && (
-          <div className="p-3"><LatencyBudgetPanel /></div>
-        )}
-        {area === "diagnostics" && active === "fleet" && (
-          <div className="p-3"><FleetHealthPanel /></div>
-        )}
-        {area === "diagnostics" && active === "attack" && (
-          <div className="p-3"><AttackSimPanel /></div>
+          <div className="p-2 h-full"><SOERecorderPanel /></div>
         )}
 
         {/* Engineering */}

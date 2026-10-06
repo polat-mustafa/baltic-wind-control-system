@@ -52,6 +52,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import zlib
 from datetime import UTC, datetime
 
 from app.schemas.opcua import OPCUAAddressSpaceResponse, OPCUANodeInfo, OPCUAStatusResponse
@@ -85,108 +86,67 @@ def _build_address_space_spec() -> list[OPCUANodeInfo]:
     Returns the tree as plain Python objects so the REST API can serve
     it without requiring asyncua to be running (graceful degradation).
     """
+    # Live values: switchgear from the bay controllers, process values from
+    # the historian's plant model (the same state the historian trends)
+    from app.services.p3 import bay_controller, historian
+
+    def var(path: str, name: str, dtype: str, value: object) -> OPCUANodeInfo:
+        return OPCUANodeInfo(
+            node_id=f"ns=2;s={path}.{name}",
+            browse_name=name,
+            node_class="Variable",
+            data_type=dtype,
+            value=value,
+        )
+
     bay_nodes = []
-    for bay_num in range(1, 9):
-        bay_id = f"BAY-OSS-66-{bay_num:02d}"
+    for bay in sorted(bay_controller.get_all_bays(), key=lambda b: b.bay_id):
+        path = f"WindFarm.Substation.{bay.bay_id}"
         bay_nodes.append(
             OPCUANodeInfo(
-                node_id=f"ns=2;s=WindFarm.Substation.{bay_id}",
-                browse_name=bay_id,
+                node_id=f"ns=2;s={path}",
+                browse_name=bay.bay_id,
                 node_class="Object",
                 children=[
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Substation.{bay_id}.CB_State",
-                        browse_name="CB_State",
-                        node_class="Variable",
-                        data_type="Boolean",
-                        value=False,
-                    ),
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Substation.{bay_id}.DS_Bus_State",
-                        browse_name="DS_Bus_State",
-                        node_class="Variable",
-                        data_type="Boolean",
-                        value=False,
-                    ),
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Substation.{bay_id}.DS_Line_State",
-                        browse_name="DS_Line_State",
-                        node_class="Variable",
-                        data_type="Boolean",
-                        value=False,
-                    ),
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Substation.{bay_id}.ES_State",
-                        browse_name="ES_State",
-                        node_class="Variable",
-                        data_type="Boolean",
-                        value=True,
-                    ),
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Substation.{bay_id}.ActivePower_MW",
-                        browse_name="ActivePower_MW",
-                        node_class="Variable",
-                        data_type="Double",
-                        value=0.0,
-                    ),
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Substation.{bay_id}.BayMode",
-                        browse_name="BayMode",
-                        node_class="Variable",
-                        data_type="String",
-                        value="REMOTE",
-                    ),
+                    var(path, "CB_State", "String", bay.circuit_breaker.value),
+                    var(path, "DS_Bus_State", "String", bay.disconnector_bus.value),
+                    var(path, "DS_Line_State", "String", bay.disconnector_line.value),
+                    var(path, "ES_State", "String", bay.earth_switch.value),
+                    var(path, "BayMode", "String", bay.bay_mode.value),
                 ],
             )
         )
 
+    minute = int(datetime.now(UTC).timestamp() // 60)
+    u = historian.wind_speed(minute)
+    plant = historian.plant_state(minute)
     turbine_nodes = []
+    total_mw = 0.0
     for wtg_num in range(1, 35):
         wtg_id = f"WTG{wtg_num:02d}"
+        path = f"WindFarm.Turbines.{wtg_id}"
+        # deterministic wake deficit 0-12 % per position
+        u_i = u * (1 - (zlib.crc32(wtg_id.encode()) % 13) / 100)
+        p_mw = historian.power_curve_mw(u_i)
+        total_mw += p_mw
+        running = p_mw > 0
+        rpm = min(8.33, max(4.0, 8.33 * u_i / 11.1)) if running else 0.0
         turbine_nodes.append(
             OPCUANodeInfo(
-                node_id=f"ns=2;s=WindFarm.Turbines.{wtg_id}",
+                node_id=f"ns=2;s={path}",
                 browse_name=wtg_id,
                 node_class="Object",
                 children=[
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Turbines.{wtg_id}.ActivePower_MW",
-                        browse_name="ActivePower_MW",
-                        node_class="Variable",
-                        data_type="Double",
-                        value=0.0,
-                    ),
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Turbines.{wtg_id}.ReactivePower_MVAR",
-                        browse_name="ReactivePower_MVAR",
-                        node_class="Variable",
-                        data_type="Double",
-                        value=0.0,
-                    ),
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Turbines.{wtg_id}.WindSpeed_ms",
-                        browse_name="WindSpeed_ms",
-                        node_class="Variable",
-                        data_type="Double",
-                        value=0.0,
-                    ),
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Turbines.{wtg_id}.RotorSpeed_rpm",
-                        browse_name="RotorSpeed_rpm",
-                        node_class="Variable",
-                        data_type="Double",
-                        value=0.0,
-                    ),
-                    OPCUANodeInfo(
-                        node_id=f"ns=2;s=WindFarm.Turbines.{wtg_id}.State",
-                        browse_name="State",
-                        node_class="Variable",
-                        data_type="String",
-                        value="STOPPED",
-                    ),
+                    var(path, "ActivePower_MW", "Double", round(p_mw, 2)),
+                    var(path, "ReactivePower_MVAR", "Double", 0.0),
+                    var(path, "WindSpeed_ms", "Double", round(u_i, 2)),
+                    var(path, "RotorSpeed_rpm", "Double", round(rpm, 2)),
+                    var(path, "State", "String", "RUNNING" if running else "STOPPED"),
                 ],
             )
         )
+    busbar_kv = round(220.0 * plant[historian.HistorianTag.OSS_VOLTAGE_PU], 1)
+    total_mw = round(total_mw, 1)
 
     return [
         OPCUANodeInfo(
@@ -199,13 +159,7 @@ def _build_address_space_spec() -> list[OPCUANodeInfo]:
                     browse_name="Substation",
                     node_class="Object",
                     children=[
-                        OPCUANodeInfo(
-                            node_id="ns=2;s=WindFarm.Substation.Busbar_Voltage_kV",
-                            browse_name="Busbar_Voltage_kV",
-                            node_class="Variable",
-                            data_type="Double",
-                            value=0.0,
-                        ),
+                        var("WindFarm.Substation", "Busbar_Voltage_kV", "Double", busbar_kv),
                         *bay_nodes,
                     ],
                 ),
@@ -214,13 +168,7 @@ def _build_address_space_spec() -> list[OPCUANodeInfo]:
                     browse_name="Turbines",
                     node_class="Object",
                     children=[
-                        OPCUANodeInfo(
-                            node_id="ns=2;s=WindFarm.Turbines.TotalPower_MW",
-                            browse_name="TotalPower_MW",
-                            node_class="Variable",
-                            data_type="Double",
-                            value=0.0,
-                        ),
+                        var("WindFarm.Turbines", "TotalPower_MW", "Double", total_mw),
                         *turbine_nodes,
                     ],
                 ),

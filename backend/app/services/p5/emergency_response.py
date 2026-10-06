@@ -1,40 +1,28 @@
 """
-Emergency Response Procedures — structured response for offshore HV incidents.
+Emergency procedures during the energisation programme.
 
-Physics & Safety Context
-========================
-Offshore substations present unique hazards not found onshore:
+Each procedure has an effect on the programme, not just a checklist:
 
-1. **Arc flash (IEEE 1584)** — At 66 kV with ~8 kA fault current, incident
-   energy can exceed 40 cal/cm². Response: immediate evacuation of the
-   switchgear room, trip all HV CBs via SCADA, activate fire suppression.
+- TRIP — emergency trip: every closed breaker of circuit 1 and every released
+  turbine group opens and the programme is aborted (``emergency_trip``).
+  Used when the hazard is electrical (internal arc, voltage where none should be).
+- SUSPEND — all switching stops until the Person in Control resumes. Used when
+  the plant is safe as it is but the people or the communication are not.
 
-2. **SF₆ gas leak (IEC 62271-4)** — SF₆ is 5× heavier than air and pools in
-   cable basements. Decomposition products (SO₂, HF) are toxic at ppm levels.
-   Response: ventilate, evacuate lower levels, monitor with gas detectors.
+Hazard notes
+------------
+- Internal arc in GIS/switchgear: cleared by the busbar/line differential
+  protection in tens of milliseconds; the hazard to people is the pressure
+  relief and the hot, toxic gases — internal-arc classification of the
+  switchgear (IEC 62271-203 / -200) limits it to the accessible sides. Arc-flash
+  incident-energy methods such as IEEE 1584 apply to 208 V–15 kV only and are
+  not used for 66/220 kV.
+- SF6 loss: SF6 is about five times denser than air (146 vs 29 g/mol) and
+  collects in low rooms and cable basements, displacing oxygen. Gas exposed to
+  arcing contains toxic by-products (SO2, HF, SOF2) — handling per IEC 62271-4.
+  A breaker below its lockout density must not operate.
 
-3. **Man overboard** — Offshore-specific, governed by SOLAS and flag-state
-   rules. Response: MOB alarm, deploy rescue craft, notify MRCC.
-
-4. **Unexpected voltage (IEC 61936-1)** — Induced voltages on isolated
-   conductors via capacitive coupling or backfeed through VTs. Response:
-   prove dead before touch, apply portable earths, trip upstream sources.
-
-5. **Communications failure** — Loss of fibre or SCADA link to shore control.
-   Response: switch to local control mode, activate satellite backup, follow
-   pre-agreed autonomous operating procedures.
-
-6. **Medical emergency** — Offshore first aid and medevac coordination.
-   Response: first aid, notify OIM, arrange helicopter evacuation via MRCC.
-
-Each procedure follows a standardised structure:
-  - Severity classification (Critical / High / Medium)
-  - Ordered immediate-action checklist
-  - Responsible person (PiC, Safety Officer, OIM)
-  - Automated SCADA actions triggered on the switching programme
-  - Communication protocol (who to notify, by what means)
-
-Standards: IEC 61936-1, IEEE 1584, IEC 62271-4, SOLAS, IRiESP §7.
+References: EN 50110-1:2013; IEC 62271-4:2022; IEC 62271-203:2022; SOLAS Ch. III.
 """
 
 from __future__ import annotations
@@ -44,267 +32,161 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 
-# ── Enums ───────────────────────────────────────────────────────
+from app.core.exceptions import NotFoundError
+from app.services.p5.switching_programme import (
+    SwitchingProgramme,
+    emergency_trip,
+    suspend_programme,
+)
 
 
 class EmergencyType(StrEnum):
-    """Categories of offshore substation emergencies."""
-
-    ARC_FLASH = "arc_flash"
-    SF6_LEAK = "sf6_leak"
+    INTERNAL_ARC = "internal_arc"
+    UNEXPECTED_VOLTAGE = "unexpected_voltage"
+    SF6_LOW_DENSITY = "sf6_low_density"
+    COMMS_FAILURE = "comms_failure"
     MEDICAL = "medical"
     MAN_OVERBOARD = "man_overboard"
-    COMMS_FAILURE = "comms_failure"
-    UNEXPECTED_VOLTAGE = "unexpected_voltage"
 
 
 class SeverityLevel(StrEnum):
-    """ISA-18.2 alarm severity mapping for emergency classification."""
-
-    CRITICAL = "critical"  # Immediate life/equipment danger
-    HIGH = "high"  # Potential escalation risk
-    MEDIUM = "medium"  # Operational impact, no immediate danger
+    CRITICAL = "critical"  # danger to life — immediate plant action
+    HIGH = "high"  # escalation possible
+    MEDIUM = "medium"  # operational impact only
 
 
-# ── Data Models ─────────────────────────────────────────────────
+class ProgrammeEffect(StrEnum):
+    TRIP = "trip"
+    SUSPEND = "suspend"
 
 
-@dataclass
+@dataclass(frozen=True)
 class EmergencyProcedure:
-    """Pre-defined response procedure for a specific emergency type."""
-
     emergency_type: EmergencyType
+    title: str
     severity: SeverityLevel
-    immediate_actions: list[str]
+    effect: ProgrammeEffect
+    immediate_actions: tuple[str, ...]
     responsible: str
     reference_document: str
-    automated_scada_actions: list[str]
-    communication_protocol: list[str]
+    communication_protocol: tuple[str, ...]
 
 
-@dataclass
-class EmergencyEvent:
-    """Record of an emergency that was triggered during a programme."""
-
-    event_id: str
-    programme_id: str
-    emergency_type: EmergencyType
-    severity: SeverityLevel
-    triggered_by: str
-    triggered_at: str
-    actions_taken: list[str]
-    scada_actions_executed: list[str]
-    resolved: bool = False
-    resolved_at: str | None = None
-
-
-# ── Procedure Library (Roadmap Table 6.9) ───────────────────────
-
-
+_P = EmergencyProcedure
 EMERGENCY_PROCEDURES: dict[EmergencyType, EmergencyProcedure] = {
-    EmergencyType.ARC_FLASH: EmergencyProcedure(
-        emergency_type=EmergencyType.ARC_FLASH,
-        severity=SeverityLevel.CRITICAL,
-        immediate_actions=[
-            "Evacuate switchgear room immediately",
-            "Account for all personnel at muster point",
-            "Do NOT re-enter until PiC authorises",
-            "Administer first aid to any casualties",
-            "Preserve the scene for investigation",
-        ],
-        responsible="PiC / Safety Officer",
-        reference_document="IEEE 1584 Arc Flash Hazard Assessment",
-        automated_scada_actions=[
-            "Trip all 66 kV feeder CBs",
-            "Trip 220/66 kV transformer CB",
-            "Activate fire suppression system",
-            "Sound general alarm",
-        ],
-        communication_protocol=[
-            "PiC → Shore Control Room (satellite phone if SCADA down)",
-            "Shore Control → PSE Dispatch (grid notification)",
-            "Safety Officer → MRCC if medevac required",
-            "OIM → Vessel master for standby",
-        ],
-    ),
-    EmergencyType.SF6_LEAK: EmergencyProcedure(
-        emergency_type=EmergencyType.SF6_LEAK,
-        severity=SeverityLevel.HIGH,
-        immediate_actions=[
-            "Activate forced ventilation in GIS room",
-            "Evacuate lower levels (SF₆ pools in basements)",
-            "Don SCBA if entering affected area",
-            "Monitor SF₆ concentration with portable detector",
-            "Isolate affected GIS bay if safe to do so",
-        ],
-        responsible="PiC / Safety Officer",
-        reference_document="IEC 62271-4 SF₆ Gas Handling",
-        automated_scada_actions=[
-            "Activate GIS room ventilation fans",
-            "Trigger SF₆ density alarm on affected bay",
-            "Block auto-reclose on affected circuit",
-        ],
-        communication_protocol=[
-            "PiC → Shore Control Room",
-            "Safety Officer → Environmental Officer",
-            "PiC → GIS manufacturer support line",
-        ],
-    ),
-    EmergencyType.MEDICAL: EmergencyProcedure(
-        emergency_type=EmergencyType.MEDICAL,
-        severity=SeverityLevel.HIGH,
-        immediate_actions=[
-            "Provide immediate first aid (trained first-aider)",
-            "Stabilise casualty — do not move if spinal injury suspected",
-            "Prepare helideck for medevac if required",
-            "Complete accident report form",
-        ],
-        responsible="OIM / First Aider",
-        reference_document="Offshore First Aid & Medevac Procedure",
-        automated_scada_actions=[
-            "No automatic SCADA actions — manual response only",
-        ],
-        communication_protocol=[
-            "First Aider → OIM (immediate verbal report)",
-            "OIM → Shore Control → MRCC for helicopter",
-            "OIM → Onshore medical advisor (telemedicine)",
-            "Safety Officer → HSE incident log",
-        ],
-    ),
-    EmergencyType.MAN_OVERBOARD: EmergencyProcedure(
-        emergency_type=EmergencyType.MAN_OVERBOARD,
-        severity=SeverityLevel.CRITICAL,
-        immediate_actions=[
-            "Raise MOB alarm — 3 long blasts",
-            "Deploy lifebuoy with smoke/light",
-            "Maintain visual contact with casualty",
-            "Launch fast rescue craft (FRC)",
-            "Stop all crane and vessel operations",
-        ],
-        responsible="OIM",
-        reference_document="SOLAS Chapter III — Life-Saving Appliances",
-        automated_scada_actions=[
-            "Sound MOB alarm on PA system",
-            "Activate platform perimeter lighting",
-        ],
-        communication_protocol=[
-            "OIM → All personnel via PA (MOB alert)",
-            "OIM → MRCC on Ch. 16 VHF",
-            "OIM → Standby vessel for immediate response",
-            "Shore Control → Coast Guard coordination",
-        ],
-    ),
-    EmergencyType.COMMS_FAILURE: EmergencyProcedure(
-        emergency_type=EmergencyType.COMMS_FAILURE,
-        severity=SeverityLevel.MEDIUM,
-        immediate_actions=[
-            "Switch to satellite phone backup",
-            "Verify fibre optic link status at ODF",
-            "Activate local SCADA control mode",
-            "Follow autonomous operating procedure (AOP)",
-            "Log all switching actions manually",
-        ],
-        responsible="PiC",
-        reference_document="Autonomous Operating Procedure (AOP) — IRiESP §7",
-        automated_scada_actions=[
-            "Switch SCADA to local control mode",
-            "Enable autonomous frequency response",
-            "Disable remote switching commands",
-        ],
-        communication_protocol=[
-            "PiC → Shore Control via satellite phone",
-            "PiC → PSE Dispatch (backup radio channel)",
-            "Comms Engineer → Fibre repair contractor",
-        ],
-    ),
-    EmergencyType.UNEXPECTED_VOLTAGE: EmergencyProcedure(
-        emergency_type=EmergencyType.UNEXPECTED_VOLTAGE,
-        severity=SeverityLevel.CRITICAL,
-        immediate_actions=[
-            "STOP all work — assume all conductors live",
-            "Withdraw all personnel from HV area",
-            "Prove dead at point of work with approved voltage detector",
-            "Apply portable earths if safe to do so",
-            "Identify source of backfeed (VT, capacitive coupling, parallel path)",
-        ],
-        responsible="PiC / SAP",
-        reference_document="IEC 61936-1 Clause 7 — Safety during work",
-        automated_scada_actions=[
-            "Trip upstream source CBs",
-            "Open all disconnectors in the affected section",
-            "Block all auto-reclose functions",
-        ],
-        communication_protocol=[
-            "PiC → All personnel via radio (STOP work)",
-            "PiC → Shore Control (unexpected energisation report)",
-            "Shore Control → PSE Dispatch (backfeed investigation)",
-            "Safety Officer → HSE near-miss report",
-        ],
-    ),
-}
+    p.emergency_type: p
+    for p in (
+        _P(
+            EmergencyType.INTERNAL_ARC, "Internal arc in GIS / switchgear room",
+            SeverityLevel.CRITICAL, ProgrammeEffect.TRIP,
+            (
+                "Confirm the fault is cleared (87B / 87L trip, breaker positions)",
+                "Evacuate the switchgear room and adjoining areas; muster and account for all",
+                "Do not re-enter until the room is ventilated and gas-tested and the PiC allows it",
+                "First aid for burns and inhalation; prepare medevac",
+                "Preserve the scene and the disturbance records",
+            ),
+            "PiC / OIM", "IEC 62271-203 (internal arc classification); site emergency plan",
+            ("PiC → shore control room", "Shore control → PSE dispatch (circuit 1 tripped)",
+             "OIM → MRCC Gdynia if medevac is required"),
+        ),
+        _P(
+            EmergencyType.UNEXPECTED_VOLTAGE, "Voltage detected on isolated equipment",
+            SeverityLevel.CRITICAL, ProgrammeEffect.TRIP,
+            (
+                "Stop all work; treat every conductor in the area as live",
+                "Withdraw all persons from the work area",
+                "Open the source breakers; find the source (backfeed, induction, wrong isolation)",
+                "Re-verify absence of voltage with an approved detector before any earthing",
+                "Report as a dangerous occurrence",
+            ),
+            "PiC", "EN 50110-1 §6.2 (verify absence of voltage)",
+            ("PiC → all parties by radio: STOP", "PiC → shore control → PSE dispatch"),
+        ),
+        _P(
+            EmergencyType.SF6_LOW_DENSITY, "SF6 low-density alarm / gas leak",
+            SeverityLevel.HIGH, ProgrammeEffect.SUSPEND,
+            (
+                "Suspend switching; a breaker below lockout density must not operate",
+                "Start forced ventilation of the GIS room",
+                "Keep out of low-lying rooms and cable basements until O2 and SF6 are measured",
+                "Respiratory protection if the gas may contain arc by-products",
+                "Isolate the compartment once switching is safe; recover gas per IEC 62271-4",
+            ),
+            "PiC / HSE officer", "IEC 62271-4 (SF6 handling)",
+            ("PiC → shore control room", "HSE officer → environmental reporting (F-gas)",
+             "PiC → GIS manufacturer"),
+        ),
+        _P(
+            EmergencyType.COMMS_FAILURE, "Loss of communication PiC ↔ operators / control centre",
+            SeverityLevel.MEDIUM, ProgrammeEffect.SUSPEND,
+            (
+                "Suspend switching — no operation without confirmed communication",
+                "Leave the plant in its present, stable state",
+                "Restore the voice link (VHF / satellite) before any further step",
+                "Re-confirm plant status with every party before resuming",
+            ),
+            "PiC", "EN 50110-1 (agreed communication arrangements)",
+            ("PiC → shore control via backup channel", "Shore control → PSE dispatch"),
+        ),
+        _P(
+            EmergencyType.MEDICAL, "Medical emergency", SeverityLevel.HIGH, ProgrammeEffect.SUSPEND,
+            (
+                "Suspend switching; first aid by the nearest trained first-aider",
+                "Do not move the casualty if a spinal injury is suspected",
+                "Prepare the helideck / vessel transfer for medevac",
+            ),
+            "OIM", "Site emergency response plan",
+            ("First-aider → OIM", "OIM → MRCC Gdynia for helicopter / vessel",
+             "OIM → onshore medical advisor"),
+        ),
+        _P(
+            EmergencyType.MAN_OVERBOARD, "Person overboard", SeverityLevel.CRITICAL,
+            ProgrammeEffect.SUSPEND,
+            (
+                "Raise the alarm; throw a lifebuoy with light and smoke signal",
+                "Keep the person in sight and point continuously",
+                "Launch the rescue boat; stop crane and vessel operations",
+                "Suspend switching — all hands to the emergency",
+            ),
+            "OIM", "SOLAS Ch. III; site emergency response plan",
+            ("OIM → all persons on board (PA)", "OIM → MRCC Gdynia on VHF channel 16",
+             "OIM → standby vessel"),
+        ),
+    )
+}  # fmt: skip
 
 
-# ── In-Memory Event Log ─────────────────────────────────────────
-
-_emergency_logs: dict[str, list[EmergencyEvent]] = {}
-
-
-# ── Public API ──────────────────────────────────────────────────
+class UnknownEmergencyError(NotFoundError):
+    """Unknown emergency type."""
 
 
-def get_all_procedures() -> list[EmergencyProcedure]:
-    """Return all 6 pre-defined emergency procedures."""
-    return list(EMERGENCY_PROCEDURES.values())
-
-
-def get_procedure(emergency_type: EmergencyType) -> EmergencyProcedure:
-    """Return the procedure for a specific emergency type."""
-    procedure = EMERGENCY_PROCEDURES.get(emergency_type)
-    if procedure is None:
-        raise ValueError(f"Unknown emergency type: {emergency_type}")
-    return procedure
+def get_procedure(emergency_type: str) -> EmergencyProcedure:
+    try:
+        return EMERGENCY_PROCEDURES[EmergencyType(emergency_type)]
+    except ValueError:
+        raise UnknownEmergencyError(f"Unknown emergency type '{emergency_type}'.") from None
 
 
 def trigger_emergency(
-    emergency_type: EmergencyType,
-    triggered_by: str,
-    programme_id: str,
-) -> EmergencyEvent:
-    """
-    Trigger an emergency event on a programme.
-
-    Records the event, logs automated SCADA actions that would be
-    executed, and returns the event with a full timeline.
-
-    In a production system, this would send real SCADA commands to the
-    RTU/PLC layer. In our simulation, we record what *would* happen.
-    """
-    procedure = get_procedure(emergency_type)
-    now = datetime.now(UTC).isoformat()
-
-    event = EmergencyEvent(
-        event_id=f"EMR-{uuid.uuid4().hex[:8].upper()}",
-        programme_id=programme_id,
-        emergency_type=emergency_type,
-        severity=procedure.severity,
-        triggered_by=triggered_by,
-        triggered_at=now,
-        actions_taken=list(procedure.immediate_actions),
-        scada_actions_executed=list(procedure.automated_scada_actions),
-    )
-
-    if programme_id not in _emergency_logs:
-        _emergency_logs[programme_id] = []
-    _emergency_logs[programme_id].append(event)
-
+    programme: SwitchingProgramme, emergency_type: str, triggered_by: str
+) -> dict[str, object]:
+    """Apply the procedure's effect to the programme and log the event."""
+    proc = get_procedure(emergency_type)
+    opened: list[str] = []
+    if proc.effect == ProgrammeEffect.TRIP:
+        opened = emergency_trip(programme, triggered_by, proc.title)
+    else:
+        suspend_programme(programme, triggered_by, proc.title)
+    event: dict[str, object] = {
+        "event_id": f"EMR-{uuid.uuid4().hex[:8].upper()}",
+        "emergency_type": proc.emergency_type.value,
+        "severity": proc.severity.value,
+        "effect": proc.effect.value,
+        "triggered_by": triggered_by,
+        "triggered_at": datetime.now(UTC).isoformat(),
+        "breakers_opened": opened,
+        "programme_status": programme.status.value,
+    }
+    programme.emergency_log.append(event)
     return event
-
-
-def get_emergency_log(programme_id: str) -> list[EmergencyEvent]:
-    """Return the emergency event history for a programme."""
-    return _emergency_logs.get(programme_id, [])
-
-
-def clear_logs() -> None:
-    """Reset all emergency logs (for testing)."""
-    _emergency_logs.clear()

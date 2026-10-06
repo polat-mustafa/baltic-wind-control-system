@@ -90,7 +90,7 @@ export default function HandoverPage() {
       name: "Commissioning (P5)",
       to: "/commissioning",
       takes: `Energisation order: export cable → OSS → 66 kV busbar → ${farm.strings.length} feeder bays, one string at a time (list below).`,
-      note: "The 30-step switching programme is written for the SB-510 OSS; the export-system steps are the same for your farm.",
+      note: "The switching programme is written for circuit 1 of the SB-510 export system; the export-system steps are the same for your farm.",
     },
     {
       name: "SCADA (P3)",

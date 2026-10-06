@@ -64,7 +64,7 @@ export default function AttackSimPanel() {
               <p className="text-text-muted">Target zone</p>
               <p className="font-mono text-text-primary">{attackResult.targeted_zone}</p>
             </div>
-            <span className={`px-2 py-1 rounded font-semibold ${attackResult.overall_blocked ? "bg-status-success/20 text-status-success" : "bg-status-alarm/20 text-status-alarm"}`}>
+            <span className={`px-2 py-1 rounded font-semibold ${attackResult.overall_blocked ? "border border-border-secondary text-text-primary" : "bg-[#c8362d] text-white"}`}>
               {attackResult.overall_blocked ? "Blocked" : "Breached"}
             </span>
           </div>
@@ -72,16 +72,16 @@ export default function AttackSimPanel() {
           {/* Step-by-step */}
           <div className="space-y-2">
             {attackResult.steps.map((step) => (
-              <div key={step.step} className={`rounded-lg border p-2.5 text-xs ${step.detected ? "border-status-success/30 bg-status-success/5" : "border-status-alarm/30 bg-status-alarm/5"}`}>
+              <div key={step.step} className={`rounded-lg border p-2.5 text-xs bg-bg-tertiary ${step.detected ? "border-border-primary" : "border-[#c8362d]"}`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="font-mono text-text-muted">Step {step.step}</span>
-                  <span className={step.detected ? "text-status-success" : "text-status-alarm"}>
-                    {step.detected ? "Detected ✓" : "Undetected ✗"}
+                  <span className={`px-1.5 rounded-sm text-[10px] font-mono font-bold ${step.detected ? "border border-border-secondary text-text-secondary" : "bg-[#c8362d] text-white"}`}>
+                    {step.detected ? "DETECTED" : "UNDETECTED"}
                   </span>
                 </div>
                 <p className="text-text-primary mb-1"><span className="text-text-muted">Action: </span>{step.action}</p>
                 <p className="text-text-secondary mb-1"><span className="text-text-muted">Result: </span>{step.result}</p>
-                <p className="text-status-success"><span className="text-text-muted">Control: </span>{step.mitigating_control}</p>
+                <p className="text-text-primary"><span className="text-text-muted">Control: </span>{step.mitigating_control}</p>
               </div>
             ))}
           </div>

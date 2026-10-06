@@ -2,8 +2,13 @@
  * Shared fault category definitions used by both the landing page
  * simulation (landingStore) and the SCADA alarm system (scadaStore).
  *
- * 10 realistic wind turbine fault types matching IEC 61400 alarm lists,
- * each with ISA-18.2 priority, probable cause, and recommended action.
+ * 10 wind turbine fault types matching IEC 61400 alarm lists, each with an
+ * ISA-18.2 priority, probable cause, and recommended action.
+ *
+ * Priority philosophy (ISA-18.2 §10: consequence × time to respond): the
+ * turbine controller already protects itself, so a single-WTG stop costs at
+ * most 15 MW of 510 MW — P2 when it needs a technician soon, P3 otherwise.
+ * P1 is reserved for substation protection trips that lose a whole section.
  */
 
 import type { AlarmPriority, TurbineFaultType } from "../types/scada";
@@ -22,7 +27,7 @@ export const FAULT_CATEGORIES: FaultCategoryDef[] = [
   {
     type: "PITCH_CONTROL_FAULT",
     label: "Pitch Control Fault",
-    priority: "CRITICAL",
+    priority: "HIGH",
     probableCause: "Blade pitch actuator malfunction or sensor failure",
     recommendedAction: "Initiate controlled shutdown, dispatch maintenance crew",
     valueTemplate: () => `${(Math.random() * 20 + 70).toFixed(1)}\u00B0`,
@@ -31,7 +36,7 @@ export const FAULT_CATEGORIES: FaultCategoryDef[] = [
   {
     type: "CONVERTER_OVERTEMP",
     label: "Converter Overtemperature",
-    priority: "HIGH",
+    priority: "MEDIUM",
     probableCause: "Power electronics cooling system degradation",
     recommendedAction: "Reduce power output, check coolant flow and filters",
     valueTemplate: () => `${(Math.random() * 15 + 85).toFixed(0)}\u00B0C`,
@@ -40,7 +45,7 @@ export const FAULT_CATEGORIES: FaultCategoryDef[] = [
   {
     type: "YAW_ERROR",
     label: "Yaw Position Error",
-    priority: "MEDIUM",
+    priority: "LOW",
     probableCause: "Nacelle yaw position deviation exceeds threshold",
     recommendedAction: "Check yaw motor and wind vane alignment",
     valueTemplate: () => `${(Math.random() * 20 + 15).toFixed(1)}\u00B0 deviation`,
@@ -49,7 +54,7 @@ export const FAULT_CATEGORIES: FaultCategoryDef[] = [
   {
     type: "BEARING_OVERTEMP",
     label: "Main Bearing Overtemperature",
-    priority: "HIGH",
+    priority: "MEDIUM",
     probableCause: "Bearing lubrication degradation or excessive load",
     recommendedAction: "Reduce load, schedule bearing inspection",
     valueTemplate: () => `${(Math.random() * 20 + 75).toFixed(0)}\u00B0C`,
@@ -58,7 +63,7 @@ export const FAULT_CATEGORIES: FaultCategoryDef[] = [
   {
     type: "GEARBOX_OIL_TEMP",
     label: "Gearbox Oil Temperature",
-    priority: "MEDIUM",
+    priority: "LOW",
     probableCause: "Gearbox lubrication system alarm \u2014 oil temp elevated",
     recommendedAction: "Check oil level, filters, and cooling circuit",
     valueTemplate: () => `${(Math.random() * 10 + 80).toFixed(0)}\u00B0C`,
@@ -66,17 +71,19 @@ export const FAULT_CATEGORIES: FaultCategoryDef[] = [
   },
   {
     type: "GRID_FREQUENCY_FAULT",
-    label: "Grid Frequency Out of Range",
-    priority: "CRITICAL",
-    probableCause: "Grid frequency deviation exceeds PSE IRiESP limits",
-    recommendedAction: "Activate FRT mode, reduce active power per grid code",
-    valueTemplate: () => `${(49 + Math.random() * 2).toFixed(2)} Hz`,
-    setpoint: "49.5\u201350.5 Hz",
+    label: "Converter Grid Protection Trip",
+    priority: "MEDIUM",
+    probableCause:
+      "Converter line-side protection tripped on local terminal voltage/ROCOF (66 kV string transient); " +
+      "the plant-wide grid frequency is normal, so this is local to the turbine",
+    recommendedAction: "Check the converter event log, then remote reset; recurring trips need a string power-quality check",
+    valueTemplate: () => `${(0.8 + Math.random() * 0.08).toFixed(2)} pu`,
+    setpoint: "0.90\u20131.10 pu",
   },
   {
     type: "GENERATOR_WINDING_TEMP",
     label: "Generator Winding Temperature",
-    priority: "HIGH",
+    priority: "MEDIUM",
     probableCause: "Generator thermal alarm \u2014 winding insulation at risk",
     recommendedAction: "Derate output, inspect cooling system",
     valueTemplate: () => `${(Math.random() * 20 + 140).toFixed(0)}\u00B0C`,
@@ -103,7 +110,7 @@ export const FAULT_CATEGORIES: FaultCategoryDef[] = [
   {
     type: "VIBRATION_ALARM",
     label: "Excessive Vibration",
-    priority: "CRITICAL",
+    priority: "HIGH",
     probableCause: "Nacelle/tower vibration exceeds ISO 10816 limits",
     recommendedAction: "Emergency shutdown, structural inspection required",
     valueTemplate: () => `${(Math.random() * 5 + 6).toFixed(1)} mm/s`,

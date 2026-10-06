@@ -15,9 +15,10 @@ SIPROTEC 5) mounted on the switchboard panel. It:
   4. Communicates state to SCADA via IEC 61850 MMS or OPC-UA
 
 This service replicates that behaviour in software:
-  - Bay state stored in an in-memory dict (Redis-ready)
-  - State persisted to DB (BayStateSnapshot) after every command
-  - All operations flow through check_interlocks() from equipment_state.py
+  - Bay state stored in an in-memory dict, initialised to the running plant
+    (feeders and incomers closed, bus coupler open, earth switches open)
+  - Every command passes the bay's own 7 interlock rules (_violations) —
+    the same rules the interlock status endpoint reports
 
 Standard: IEC 61850-7-4 logical nodes XCBR, XSWI, CSWI, CILO, RREC
 
@@ -45,14 +46,12 @@ from app.core.exceptions import NotFoundError, StateTransitionError
 from app.services.p5.equipment_state import (
     BayController,
     BayMode,
-    EquipmentState,
     InterlockResult,
     RelayState,
     SwitchCommand,
     SwitchingAction,
     SwitchPosition,
     SynchroCheckResult,
-    check_interlocks,
 )
 
 # ── Bay registry ────────────────────────────────────────────────────
@@ -192,11 +191,12 @@ def _initialise_bays() -> None:
             bay_name=defn["display_name"],
             voltage_kv=defn["voltage_kv"],
             bay_mode=BayMode.REMOTE,
-            # Start in safe de-energised state: all OPEN except earth switch CLOSED
-            circuit_breaker=SwitchPosition.OPEN,
-            disconnector_bus=SwitchPosition.OPEN,
-            disconnector_line=SwitchPosition.OPEN,
-            earth_switch=SwitchPosition.CLOSED,
+            # Plant in service: bay connected, earth switch open; the bus
+            # coupler runs open (one transformer per busbar section)
+            circuit_breaker=SwitchPosition.OPEN if defn["is_tie_cb"] else SwitchPosition.CLOSED,
+            disconnector_bus=SwitchPosition.CLOSED,
+            disconnector_line=SwitchPosition.CLOSED,
+            earth_switch=SwitchPosition.OPEN,
             protection_relay=RelayState.ARMED,
             manual_isolation_active=False,
             synchrocheck=None,
@@ -207,47 +207,77 @@ def _initialise_bays() -> None:
 _initialise_bays()
 
 
-# ── Equipment state → SwitchPosition conversion ──────────────────────
+_INCOMERS = ("BAY-OSS-66-07", "BAY-OSS-66-09")
 
 
-def _equipment_state_to_switch_position(state: EquipmentState) -> SwitchPosition:
-    """Map commissioning EquipmentState to bay-level SwitchPosition."""
-    return {
-        EquipmentState.OPEN: SwitchPosition.OPEN,
-        EquipmentState.CLOSED: SwitchPosition.CLOSED,
-        EquipmentState.EARTHED: SwitchPosition.CLOSED,
-        EquipmentState.RACKED_IN: SwitchPosition.OPEN,
-        EquipmentState.RACKED_OUT: SwitchPosition.OPEN,
-    }.get(state, SwitchPosition.INTERMEDIATE)
+def _violations(
+    bay: BayController,
+    meta: dict[str, Any],
+    equipment_id: str,
+    action: SwitchingAction,
+    is_auto_reclose: bool,
+) -> list[tuple[str, str]]:
+    """Bay interlock rules ILK-001…007 → [(rule id, reason)] that block the command."""
+    cb_closed = bay.circuit_breaker == SwitchPosition.CLOSED
+    closing = action in (SwitchingAction.CLOSE, SwitchingAction.EARTH)
+    out: list[tuple[str, str]] = []
+    if equipment_id == meta["cb_id"]:
+        if closing and bay.earth_switch == SwitchPosition.CLOSED:
+            out.append(("ILK-001", f"{meta['es_id']} is CLOSED — closing onto an earthed bay"))
+        if closing and bay.disconnector_bus != SwitchPosition.CLOSED:
+            out.append(("ILK-004", f"{meta['ds_bus_id']} is OPEN — no circuit path"))
+        if action == SwitchingAction.RACK_OUT and cb_closed:
+            out.append(("ILK-005", f"{meta['cb_id']} is CLOSED — cannot rack out under load"))
+        if closing and is_auto_reclose and bay.manual_isolation_active:
+            out.append(("ILK-006", "auto-reclose blocked while a PTW isolation is active"))
+        if closing and bay.protection_relay == RelayState.TRIPPED:
+            out.append(("ILK-006", "protection lockout (86) — reset the relay before closing"))
+        if closing:
+            out.extend(_parallel_violation(bay))
+    elif equipment_id == meta["es_id"]:
+        if closing and cb_closed:
+            out.append(("ILK-002", f"{meta['cb_id']} is CLOSED — earthing a live bay"))
+    elif equipment_id in (meta["ds_bus_id"], meta["ds_line_id"]):
+        if cb_closed:
+            out.append(("ILK-003", f"{meta['cb_id']} is CLOSED — disconnectors do not break load"))
+    return out
 
 
-def _build_system_state(bay: BayController, meta: dict[str, Any]) -> dict[str, EquipmentState]:
-    """Build the flat system_state dict needed by check_interlocks().
+def _parallel_violation(bay: BayController) -> list[tuple[str, str]]:
+    """ILK-007: the 66 kV sections never run in parallel through the coupler.
 
-    The commissioning check_interlocks() expects:
-      equipment_id → EquipmentState (OPEN or CLOSED)
-
-    We only populate the equipment in this bay — the interlock engine
-    only checks equipment associated with the target equipment_id.
+    Two 300 MVA transformers in parallel raise the 66 kV fault level towards
+    the 25 kA switchgear rating. The coupler therefore closes only dead-bus
+    (one incomer open) — the synchrocheck (ANSI 25) dead-bus mode — and an
+    incomer only closes while the coupler is open or the other incomer is open.
     """
-
-    # Map SwitchPosition to EquipmentState for interlock checks
-    def pos_to_state(pos: SwitchPosition) -> EquipmentState:
-        return EquipmentState.CLOSED if pos == SwitchPosition.CLOSED else EquipmentState.OPEN
-
-    return {
-        meta["cb_id"]: pos_to_state(bay.circuit_breaker),
-        meta["ds_bus_id"]: pos_to_state(bay.disconnector_bus),
-        meta["ds_line_id"]: pos_to_state(bay.disconnector_line),
-        meta["es_id"]: pos_to_state(bay.earth_switch),
-    }
+    closed = {b: _bay_state[b].circuit_breaker == SwitchPosition.CLOSED for b in _INCOMERS}
+    coupler = next(b for b in _bay_state.values() if b.is_tie_cb)
+    if bay.is_tie_cb and all(closed.values()):
+        return [
+            (
+                "ILK-007",
+                "both transformer incomers closed — live-live closing would parallel TX-OSS-01/02",
+            )
+        ]
+    if bay.bay_id in _INCOMERS and coupler.circuit_breaker == SwitchPosition.CLOSED:
+        other = next(b for b in _INCOMERS if b != bay.bay_id)
+        if closed[other]:
+            return [
+                (
+                    "ILK-007",
+                    "bus coupler closed and the other incomer in service"
+                    " — would parallel TX-OSS-01/02",
+                )
+            ]
+    return []
 
 
 # ── Public API ──────────────────────────────────────────────────────
 
 
 def get_all_bays() -> list[BayController]:
-    """Return current state of all 8 OSS 66 kV bays.
+    """Return current state of all 9 OSS 66 kV bays.
 
     Used by the fleet overview endpoint.
     """
@@ -371,35 +401,21 @@ def get_interlock_status(bay_id: str) -> list[dict[str, Any]]:
         }
     )
 
-    # ILK-007: Synchrocheck required for tie CB
-    if bay.is_tie_cb:
-        sync_missing = bay.synchrocheck is None
-        sync_failed = bay.synchrocheck is not None and not bay.synchrocheck.is_in_sync
-        sync_active = sync_missing or sync_failed
-        rules.append(
-            {
-                "interlock_id": "ILK-007",
-                "description": (
-                    f"Synchrocheck required before closing tie CB {cb_id}"
-                    " — DV < 5%, Df < 0.1 Hz, Dphi < 10 deg"
-                ),
-                "currently_active": sync_active,
-                "blocking_equipment": cb_id if sync_active else None,
-                "blocking_state": (
-                    "sync_unavailable" if sync_missing else ("out_of_sync" if sync_failed else None)
-                ),
-            }
-        )
-    else:
-        rules.append(
-            {
-                "interlock_id": "ILK-007",
-                "description": "Synchrocheck not applicable — this is not a tie/coupler bay",
-                "currently_active": False,
-                "blocking_equipment": None,
-                "blocking_state": None,
-            }
-        )
+    # ILK-007: no parallel operation of the OSS transformers via the coupler
+    parallel = _parallel_violation(bay) if bay.is_tie_cb or bay_id in _INCOMERS else []
+    rules.append(
+        {
+            "interlock_id": "ILK-007",
+            "description": (
+                "Bus coupler closes dead-bus only — the 66 kV sections never run in parallel"
+                if bay.is_tie_cb or bay_id in _INCOMERS
+                else "Coupler / incomer rule — not applicable to a feeder bay"
+            ),
+            "currently_active": bool(parallel),
+            "blocking_equipment": cb_id if parallel else None,
+            "blocking_state": "parallel_transformers" if parallel else None,
+        }
+    )
 
     return rules
 
@@ -438,8 +454,6 @@ def validate_command(
 
     bay = _bay_state[bay_id]
     meta = _bay_meta[bay_id]
-    system_state = _build_system_state(bay, meta)
-
     try:
         switching_action = SwitchingAction(action.lower())
     except ValueError:
@@ -451,31 +465,13 @@ def validate_command(
             ),
         )
 
-    synchrocheck = None
-    if synchrocheck_data:
-        synchrocheck = SynchroCheckResult(
-            delta_voltage_percent=synchrocheck_data.get("delta_voltage_percent", 999.0),
-            delta_frequency_hz=synchrocheck_data.get("delta_frequency_hz", 999.0),
-            delta_phase_deg=synchrocheck_data.get("delta_phase_deg", 999.0),
-        )
-
-    violations = check_interlocks(
-        equipment_id,
-        switching_action,
-        system_state,
-        is_auto_reclose=is_auto_reclose,
-        manual_isolation_active=bay.manual_isolation_active,
-        is_tie_cb=bay.is_tie_cb,
-        synchrocheck=synchrocheck,
-    )
-
+    violations = _violations(bay, meta, equipment_id, switching_action, is_auto_reclose)
     if not violations:
         return InterlockResult(allowed=True, blocked_by=(), reasons=())
-
     return InterlockResult(
         allowed=False,
-        blocked_by=tuple(v.interlock_id for v in violations),
-        reasons=tuple(v.description for v in violations),
+        blocked_by=tuple(rule for rule, _ in violations),
+        reasons=tuple(reason for _, reason in violations),
     )
 
 
@@ -532,33 +528,16 @@ def execute_command(
             f"Clear PTW and return bay to REMOTE mode before operating."
         )
 
-    system_state = _build_system_state(bay, meta)
-
     try:
         switching_action = SwitchingAction(command.action.lower())
     except ValueError as err:
         raise StateTransitionError(f"Unknown action '{command.action}'.") from err
 
-    synchrocheck = None
-    if synchrocheck_data:
-        synchrocheck = SynchroCheckResult(
-            delta_voltage_percent=synchrocheck_data.get("delta_voltage_percent", 999.0),
-            delta_frequency_hz=synchrocheck_data.get("delta_frequency_hz", 999.0),
-            delta_phase_deg=synchrocheck_data.get("delta_phase_deg", 999.0),
-        )
-
-    # Run interlock check
-    violations = check_interlocks(
-        command.equipment_id,
-        switching_action,
-        system_state,
-        is_auto_reclose=command.is_auto_reclose,
-        manual_isolation_active=bay.manual_isolation_active,
-        is_tie_cb=bay.is_tie_cb,
-        synchrocheck=synchrocheck,
+    violations = _violations(
+        bay, meta, command.equipment_id, switching_action, command.is_auto_reclose
     )
     if violations:
-        reasons = "; ".join(v.description for v in violations)
+        reasons = "; ".join(f"{rule}: {reason}" for rule, reason in violations)
         raise StateTransitionError(
             f"Interlock violation for {command.equipment_id} {command.action}: {reasons}"
         )

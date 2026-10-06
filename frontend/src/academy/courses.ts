@@ -120,7 +120,7 @@ export const TRACKS: Track[] = [
         id: "explore.commissioning",
         title: "HV commissioning",
         route: "/commissioning",
-        note: "Run the 30-step switching programme with LOTO and hold points.",
+        note: "Energise export circuit 1 step by step: isolation locks, interlocks, hold points and load-flow readings.",
       },
       {
         kind: "explore",

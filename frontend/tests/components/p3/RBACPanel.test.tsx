@@ -53,68 +53,70 @@ const mockZones = [
   },
 ];
 
+function mockStore(state: Record<string, unknown>) {
+  vi.mocked(useScadaStore).mockImplementation(((sel: (s: Record<string, unknown>) => unknown) => sel(state)) as never);
+}
+
 describe("RBACPanel", () => {
   it("returns null when roles is empty", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
+    mockStore({
       roles: [],
       zones: [],
       selectedRoleLevel: 4,
-    } as unknown as ReturnType<typeof useScadaStore>);
+    });
 
     const { container } = render(<RBACPanel />);
     expect(container.innerHTML).toBe("");
   });
 
   it("renders role matrix table", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
+    mockStore({
       roles: mockRoles,
       zones: [],
       selectedRoleLevel: 3,
-    } as unknown as ReturnType<typeof useScadaStore>);
+    });
 
     render(<RBACPanel />);
-    expect(screen.getByText("RBAC Role Matrix (IEC 62443)")).toBeDefined();
+    expect(screen.getByText(/RBAC permission matrix/)).toBeDefined();
     expect(screen.getByText("Observer")).toBeDefined();
     expect(screen.getByText("Operator")).toBeDefined();
     expect(screen.getByText("Administrator")).toBeDefined();
   });
 
   it("shows MFA YES badge for roles requiring MFA", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
+    mockStore({
       roles: mockRoles,
       zones: [],
       selectedRoleLevel: 3,
-    } as unknown as ReturnType<typeof useScadaStore>);
+    });
 
     render(<RBACPanel />);
-    expect(screen.getByText("YES")).toBeDefined();
-    expect(screen.getAllByText("No")).toHaveLength(2);
+    expect(screen.getAllByText(/MFA YES/)).toHaveLength(1);
+    expect(screen.getAllByText(/MFA no/)).toHaveLength(2);
   });
 
   it("renders security zones when available", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
+    mockStore({
       roles: mockRoles,
       zones: mockZones,
       selectedRoleLevel: 3,
-    } as unknown as ReturnType<typeof useScadaStore>);
+    });
 
     render(<RBACPanel />);
-    expect(
-      screen.getByText("IEC 62443-3-3 Security Zones"),
-    ).toBeDefined();
+    expect(screen.getByText(/Access zones/)).toBeDefined();
     expect(screen.getByText("Zone_0_Enterprise")).toBeDefined();
     expect(screen.getByText("Zone_3_Protection")).toBeDefined();
   });
 
   it("shows ACCESS/DENIED based on role level", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
+    mockStore({
       roles: mockRoles,
       zones: mockZones,
       selectedRoleLevel: 3,
-    } as unknown as ReturnType<typeof useScadaStore>);
+    });
 
     render(<RBACPanel />);
-    expect(screen.getByText(/ACCESS/)).toBeDefined();
-    expect(screen.getByText(/DENIED/)).toBeDefined();
+    expect(screen.getByText("access")).toBeDefined();
+    expect(screen.getByText("denied")).toBeDefined();
   });
 });

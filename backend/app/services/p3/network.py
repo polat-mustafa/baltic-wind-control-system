@@ -8,7 +8,8 @@ SB-510 uses a 3-tier OT network following IEC 61850 / IEC 62443:
   Tier 1 — Field Bus (WTGs):
     34 turbines, each with IEC 61850 IED (bay unit + protection relay)
     Ring topology on OSS internal LAN — 100 Mbps managed Ethernet switches
-    GOOSE multicast for protection (Class P3: 4 ms), MMS for measurements (P2: 100 ms)
+    GOOSE for protection (IEC 61850-5 transfer time TT6 <= 3 ms), MMS reports for
+    measurements (TT3 <= 100 ms)
 
   Tier 2 — Station Bus (OSS):
     Offshore substation LAN: three managed switches (ring) with redundant uplinks
@@ -18,14 +19,14 @@ SB-510 uses a 3-tier OT network following IEC 61850 / IEC 62443:
     IEC 62443 Zone 2 (OT critical) — Purdue Level 1/2
 
   Tier 3 — WAN (OSS to Onshore):
-    Primary: OPGW fibre in export cable (dedicated to OT) — 10 Gbps, 2 ms propagation
+    Primary: fibre in the export cable (dedicated to OT) — 10 Gbps, 45 km x 5 us/km = 0.23 ms
     Secondary: licensed microwave (MW backup) — 100 Mbps, 0.8 ms
     Protocol: MPLS over fibre, IPsec tunnel
     Onshore firewall (IEC 62443 conduit control) separates OT from IT
 
   Tier 4 — Corporate/PSE:
     Onshore historian (TimescaleDB) receives SCADA data via OPC-UA publisher
-    PSE SCADA access via IEC 61968 MMS (read-only — regulatory requirement)
+    PSE (TSO) data exchange via IEC 60870-5-104 / ICCP (IEC 60870-6 TASE.2)
     ENTSO-E reporting interface via SFTP (daily generation reports)
 
 OPC-UA address space
@@ -116,7 +117,7 @@ _NODES = [
     # WAN layer
     {
         "node_id": "WAN-FIBRE",
-        "name": "OPGW Fibre Link (OSS to onshore, 45 km)",
+        "name": "Export-cable fibre link (OSS to onshore, 45 km)",
         "layer": "WAN",
         "protocol": "MPLS / IP",
         "redundant": True,
@@ -149,9 +150,9 @@ _NODES = [
     },
     {
         "node_id": "ONS-PSE",
-        "name": "PSE SCADA Interface (IEC 61968 MMS read-only)",
+        "name": "PSE (TSO) interface — IEC 60870-5-104 / ICCP, read-only",
         "layer": "CORPORATE",
-        "protocol": "IEC 61968 MMS / ICCP",
+        "protocol": "IEC 60870-5-104 / ICCP",
         "redundant": False,
         "ip_subnet": "10.0.5.0/30",
     },
@@ -364,41 +365,47 @@ _OPCUA_NODES = [
     },
 ]
 
-# IEC 61850 performance class for OPC-UA updates (P2 = 100 ms for measurements)
-_PERF_CLASS = "P2 (100 ms measurement cycle)"
+# IEC 61850-5 transfer time class of the measurement updates exposed via OPC UA
+_PERF_CLASS = "TT3 (≤ 100 ms measurement update)"
 
 # ── Latency budgets ───────────────────────────────────────────────────────────
 
+# IEC 61850-5 transfer time = sender stack + network + receiver stack.
+# Message types / classes: trip (type 1A) TT6 ≤ 3 ms, medium-speed
+# measurement (type 2) TT3 ≤ 100 ms, operator display (low speed) TT1 ≤ 1000 ms.
 _LATENCY_BUDGETS: list[dict[str, Any]] = [
     {
-        "path_description": "GOOSE trip: WTG bay IED -> OSS protection relay",
-        "performance_class": "P3",
-        "required_latency_ms": 4.0,
+        "path_description": "GOOSE trip: 87B protection IED -> bay controllers (OSS station bus)",
+        "performance_class": "TT6",
+        "required_latency_ms": 3.0,
         "budget_breakdown": {
-            "switch_hop_ms": 0.5,
-            "fibre_propagation_ms": 0.3,
-            "processing_ms": 0.5,
+            "publisher_stack_ms": 0.6,
+            "switch_hops_ms": 0.2,  # 4 hops x 50 us, 1 Gbit/s store-and-forward
+            "fibre_propagation_ms": 0.01,  # ~2 km of patch fibre
+            "subscriber_stack_ms": 0.69,
         },
     },
     {
-        "path_description": "Measurement update: WTG IED -> OSS SCADA gateway",
-        "performance_class": "P2",
+        "path_description": "Measurement report: WTG IED -> OSS SCADA gateway (string ring)",
+        "performance_class": "TT3",
         "required_latency_ms": 100.0,
         "budget_breakdown": {
-            "switch_hop_ms": 0.5,
-            "fibre_propagation_ms": 0.3,
-            "processing_ms": 2.0,
+            "report_trigger_ms": 20.0,  # MMS buffered report, data-change trigger
+            "switch_hops_ms": 0.6,  # up to 6 ring hops x 0.1 ms at 100 Mbit/s
+            "fibre_propagation_ms": 0.075,  # 15 km array fibre
+            "gateway_processing_ms": 5.0,
         },
     },
     {
-        "path_description": "SCADA poll: OSS gateway -> onshore historian (45 km WAN)",
-        "performance_class": "P1",
+        "path_description": "Operator display: OSS gateway -> onshore control centre (45 km WAN)",
+        "performance_class": "TT1",
         "required_latency_ms": 1000.0,
         "budget_breakdown": {
-            "switch_hop_ms": 2.0,
-            "fibre_propagation_ms": 0.225,
-            "ipsec_overhead_ms": 1.0,
-            "processing_ms": 5.0,
+            "gateway_iec104_ms": 10.0,  # spontaneous IEC 60870-5-104 transmission
+            "fibre_propagation_ms": 0.225,  # 45 km x 5 us/km
+            "firewall_ipsec_ms": 1.0,
+            "scada_server_ms": 50.0,
+            "hmi_refresh_ms": 250.0,
         },
     },
 ]
@@ -417,7 +424,7 @@ def get_network_topology() -> dict[str, Any]:
     assessment = (
         f"{total_nodes} nodes, {total_links} links "
         f"({redundant_nodes} redundant nodes, {redundant_links} redundant links). "
-        "Primary path: OPGW fibre (OSS->onshore). Backup: licensed microwave. "
+        "Primary path: fibre in the export cable (OSS->onshore). Backup: licensed microwave. "
         "IEC 62443 SL-2: firewalls at OT/WAN and WAN/IT boundaries."
     )
     return {

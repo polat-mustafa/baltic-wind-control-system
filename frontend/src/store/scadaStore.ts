@@ -14,7 +14,19 @@ import { create } from "zustand";
 
 import { FAULT_CATEGORIES } from "../constants/faultCategories";
 import { useFaultBus } from "./faultBus";
+import { useLandingStore } from "./landingStore";
+import {
+  BAY_OF,
+  BREAKERS,
+  BREAKER_OF_BAY,
+  deenergisedTurbines,
+  initialBreakerStates,
+  type BreakerId,
+  type BreakerStates,
+} from "../utils/scadaTopology";
 import * as api from "../services/scadaApi";
+import * as bayApi from "../services/bayApi";
+import type { BayStateResponse } from "../types/bay";
 import type {
   BreakerState,
   FaultScenarioSummary,
@@ -27,7 +39,6 @@ import type {
   SCADAAlarm,
   AlarmPriority,
   AlarmState,
-  SLDMeasurement,
   SubstationSummary,
   TurbineFaultType,
   TransitionResult,
@@ -60,7 +71,7 @@ function nextSOEId(): string {
 }
 
 // ── ISA-101 Navigation Hierarchy ────────────────────────────────
-// Level 2 areas (4) → Level 3 sub-tabs (5 each).
+// Level 2 areas (4) → Level 3 sub-tabs.
 
 export type ScadaArea =
   | "operations"
@@ -80,14 +91,11 @@ export type ScadaSubTab =
   | "cms"
   | "vibration"
   | "historian"
-  | "network"
-  | "interlocks"
   // diagnostics
   | "goose"
   | "soe"
-  | "latency"
-  | "fleet"
-  | "attack"
+  | "interlocks"
+  | "network"
   // engineering
   | "rbac"
   | "security"
@@ -125,8 +133,7 @@ interface ScadaState {
   };
 
   // SLD live state
-  breakerStates: Record<string, BreakerState>;
-  measurements: SLDMeasurement[];
+  breakerStates: BreakerStates;
   faultHighlightNodeId: string | null;
 
   // Persistent event log
@@ -167,8 +174,10 @@ interface ScadaState {
   /** Transition active/acknowledged alarm for turbine to RETURN_TO_NORMAL. */
   transitionAlarmToRTN: (turbineId: string) => void;
 
-  // SLD actions
-  toggleBreaker: (breakerId: string) => void;
+  // SLD actions — resolves to the reason when the command is blocked
+  operateBreaker: (breakerId: BreakerId) => Promise<string | null>;
+  /** Mirror the 66 kV breaker positions reported by the bay controllers. */
+  syncFromBays: (bays: BayStateResponse[]) => void;
 
   // Auto-simulation
   startAutoSimulation: () => void;
@@ -183,6 +192,7 @@ interface ScadaState {
   runGooseSimulation: () => Promise<void>;
   calculateRetransmission: () => Promise<void>;
   fetchPermits: () => Promise<void>;
+  openPermit: (ptwNumber: string) => Promise<void>;
   createPermit: (params: {
     work_description: string;
     equipment_id: string;
@@ -209,44 +219,53 @@ interface ScadaState {
   clearError: () => void;
 }
 
-// ── GOOSE fault → breaker ID mapping ─────────────────────────────
-// Maps each fault scenario to the primary circuit breaker that operates.
-// IDs must match keys in initBreakerStates() exactly.
+// ── GOOSE fault → breakers tripped ───────────────────────────────
+// Keys are the backend scenario ids (GET /scada/goose/scenarios).
 
-const GOOSE_FAULT_BREAKER: Record<string, string> = {
-  busbar_overcurrent:          "cb-66-a",
-  earth_fault_66kv:            "cb-66-b",
-  transformer_diff_protection: "cb-220-a",
-  distance_protection_220kv:   "cb-220",
-  generator_protection:        "cb-str1",
-  arc_flash_detection:         "cb-66-a",
-};
-
-// ── Initial breaker states ──────────────────────────────────────
-
-function initBreakerStates(): Record<string, BreakerState> {
-  return {
-    "cb-400": "CLOSED",
-    "cb-220": "CLOSED",
-    "cb-220-a": "CLOSED",
-    "cb-220-b": "CLOSED",
-    "cb-66-a": "CLOSED",
-    "cb-66-b": "CLOSED",
-    "cb-str1": "CLOSED",
-    "cb-str2": "CLOSED",
-    "cb-str3": "CLOSED",
-    "cb-str4": "CLOSED",
-    "cb-str5": "CLOSED",
-    "cb-str6": "CLOSED",
-  };
+interface ProtectionScenario {
+  /** Master-alarm-database tag of the trip alarm (backend alarm_manager). */
+  tag: string;
+  trips: BreakerId[];
+  zone: string;
+  protection: string;
+  cause: string;
+  action: string;
 }
 
-function initMeasurements(): SLDMeasurement[] {
-  return [
-    { nodeId: "bb-400kv", voltageKV: 400, currentA: 420, powerMW: 290 },
-    { nodeId: "bb-220kv", voltageKV: 220, currentA: 760, powerMW: 290 },
-    { nodeId: "bb-66kv", voltageKV: 66, currentA: 2530, powerMW: 290 },
-  ];
+const GOOSE_SCENARIOS: Record<string, ProtectionScenario> = {
+  busbar_overcurrent: {
+    tag: "OSS-220.87B.TRIP",
+    trips: ["cb-oss-e1", "cb-oss-e2", "cb-oss-t1", "cb-oss-t2"],
+    zone: "OSS 220 kV busbar",
+    protection: "Busbar differential protection (87B)",
+    cause: "Three-phase fault on the OSS 220 kV busbar — all bays on the busbar opened, the whole farm is disconnected",
+    action: "Do not re-energise until the busbar is inspected; check the disturbance record, then restore cable 1 → busbar → transformers",
+  },
+  transformer_differential: {
+    tag: "TX-OSS-01.87T.TRIP",
+    trips: ["cb-oss-t1", "cb-66-a"],
+    zone: "TX-OSS-01",
+    protection: "Transformer differential (87T)",
+    cause: "Internal fault in TX-OSS-01 — both sides opened, 66 kV section A (strings 1–3) is dead",
+    action: "Lock out TX-OSS-01 (Buchholz/DGA check). Restore section A via bus coupler CB-66-08 and limit TX-OSS-02 to 300 MVA",
+  },
+  cable_earth_fault: {
+    tag: "CABLE-1.87L.TRIP",
+    trips: ["cb-ons-e1", "cb-oss-e1"],
+    zone: "Export cable 1",
+    protection: "Cable differential / directional earth fault (87L / 67N)",
+    cause: "Single-phase earth fault on export cable 1 — both ends opened, the farm runs on cable 2",
+    action: "No auto-reclose on cable. Check cable 2 loading against 950 A; arrange fault location before re-energising",
+  },
+};
+
+const GOOSE_FAULT_TRIPS: Record<string, BreakerId[]> = Object.fromEntries(
+  Object.entries(GOOSE_SCENARIOS).map(([k, v]) => [k, v.trips]),
+);
+
+/** Feeders follow the switchgear: dead strings are held offline in the farm sim. */
+function syncFarm(states: BreakerStates): void {
+  useLandingStore.getState().setDeenergised(deenergisedTurbines(states));
 }
 
 // ── Store Implementation ───────────────────────────────────────
@@ -275,8 +294,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
   alarmFilter: { priority: "ALL", state: "ALL", equipment: "" },
 
   // SLD
-  breakerStates: initBreakerStates(),
-  measurements: initMeasurements(),
+  breakerStates: initialBreakerStates(),
   faultHighlightNodeId: null,
 
   // Event log
@@ -343,12 +361,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
 
   clearAllResolved: () =>
     set((s) => ({
-      alarms: s.alarms.filter(
-        (a) =>
-          a.state !== "CLEARED" &&
-          a.state !== "RETURN_TO_NORMAL" &&
-          a.state !== "ACKNOWLEDGED",
-      ),
+      alarms: s.alarms.filter((a) => a.state !== "CLEARED" && a.state !== "RETURN_TO_NORMAL"),
     })),
 
   shelveAlarm: (alarmId) =>
@@ -456,25 +469,72 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
 
   // ── SLD Actions ────────────────────────────────────────────
 
-  toggleBreaker: (breakerId) =>
-    set((s) => {
-      const current = s.breakerStates[breakerId] ?? "CLOSED";
-      const next: BreakerState = current === "CLOSED" ? "OPEN" : "CLOSED";
+  operateBreaker: async (breakerId) => {
+    const s = get();
+    const { label, bay } = BREAKERS[breakerId];
+    const current = s.breakerStates[breakerId];
+    const next: BreakerState = current === "CLOSED" ? "OPEN" : "CLOSED";
+    let reason: string | null =
+      s.selectedRoleLevel < 2 ? "Viewer role has no control rights (control_switchgear needs L2+)" : null;
+    const owner = BAY_OF[breakerId];
+    if (!reason && owner) {
+      // 66 kV: the bay controller enforces the interlocks and logs the SOE
+      try {
+        await bayApi.executeBayCommand(owner.bay, {
+          equipment_id: owner.cb,
+          action: next === "CLOSED" ? "close" : "open",
+          operator_id: `L${s.selectedRoleLevel}-operator`,
+          is_auto_reclose: false,
+          synchrocheck: null,
+        });
+      } catch (err) {
+        reason = (err instanceof Error ? err.message : String(err)).replace(/^.*?Interlock violation for \S+ \w+: /, "");
+      }
+    }
+    if (reason) {
+      s.addEvent({ source: label, type: "interlock_block", description: `${label} command blocked — ${reason}`, priority: "LOW" });
+      return reason;
+    }
+    const breakerStates = { ...get().breakerStates, [breakerId]: next };
+    set({ breakerStates });
+    s.addEvent({
+      source: label,
+      type: "breaker_operation",
+      description: `${label} (${bay}) ${current} → ${next} by L${s.selectedRoleLevel} operator`,
+      priority: "INFO",
+    });
+    syncFarm(breakerStates);
+    // Protection trip alarms return to normal when all their breakers are closed again
+    set((st) => ({
+      alarms: st.alarms.map((a) => {
+        const scenario = a.tag.endsWith(".TRIP") && a.faultType ? GOOSE_FAULT_TRIPS[a.faultType] : undefined;
+        const inAlarm = a.state === "ACTIVE" || a.state === "ACKNOWLEDGED";
+        return scenario && inAlarm && scenario.every((id) => breakerStates[id] === "CLOSED")
+          ? { ...a, state: "RETURN_TO_NORMAL" as const }
+          : a;
+      }),
+    }));
+    return null;
+  },
 
-      const event: SOEEvent = {
-        id: nextSOEId(),
-        timestamp: Date.now(),
-        source: breakerId.toUpperCase(),
-        type: "breaker_operation",
-        description: `${breakerId.toUpperCase()} switched from ${current} to ${next}`,
-        priority: "INFO",
-      };
-
-      return {
-        breakerStates: { ...s.breakerStates, [breakerId]: next },
-        eventLog: [event, ...s.eventLog].slice(0, 200),
-      };
-    }),
+  syncFromBays: (bays) => {
+    const breakerStates = { ...get().breakerStates };
+    let changed = false;
+    for (const b of bays) {
+      const id = BREAKER_OF_BAY[b.name];
+      if (!id) continue;
+      const cur = breakerStates[id];
+      const next: BreakerState = b.circuit_breaker === "closed" ? "CLOSED" : cur === "TRIPPED" ? "TRIPPED" : "OPEN";
+      if (next !== cur) {
+        breakerStates[id] = next;
+        changed = true;
+      }
+    }
+    if (changed) {
+      set({ breakerStates });
+      syncFarm(breakerStates);
+    }
+  },
 
   // ── Auto-Simulation ───────────────────────────────────────
 
@@ -498,30 +558,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
 
         s.injectTurbineFault(turbineId, fault.type);
 
-        // Randomly affect a breaker for critical faults
-        if (fault.priority === "CRITICAL" && Math.random() > 0.5) {
-          const stringNum = Math.ceil(turbineNum / 6);
-          const breakerId = `cb-str${Math.min(stringNum, 6)}`;
-          set((st) => ({
-            breakerStates: { ...st.breakerStates, [breakerId]: "TRIPPED" },
-            faultHighlightNodeId: breakerId,
-          }));
 
-          // Clear highlight after 5s
-          setTimeout(() => {
-            set({ faultHighlightNodeId: null });
-          }, 5000);
-        }
-
-        // Also randomly clear older alarms (simulate RTN)
-        set((st) => ({
-          alarms: st.alarms.map((a) => {
-            if (a.state === "ACKNOWLEDGED" && Date.now() - a.timestamp > 30000 && Math.random() > 0.6) {
-              return { ...a, state: "RETURN_TO_NORMAL" as const };
-            }
-            return a;
-          }),
-        }));
 
         scheduleFault();
       }, delay) as unknown as ReturnType<typeof setInterval>;
@@ -538,12 +575,6 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
             ? { ...a, durationSec: Math.round((Date.now() - a.timestamp) / 1000) }
             : a,
         ),
-        // Slowly update measurements with jitter
-        measurements: s.measurements.map((m) => ({
-          ...m,
-          currentA: Math.round(m.currentA + (Math.random() - 0.5) * 10),
-          powerMW: Math.round(m.powerMW + (Math.random() - 0.5) * 5),
-        })),
       }));
     }, 1000);
     } // end if (!_alarmTickInterval)
@@ -596,6 +627,10 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
         permitList,
         dataLoaded: true,
       });
+      bayApi
+        .getAllBays()
+        .then((r) => get().syncFromBays(r.bays))
+        .catch(() => undefined);
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -613,32 +648,6 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
         api.calculateRetransmission(),
       ]);
 
-      // Convert simulation events to alarms
-      const newAlarms: SCADAAlarm[] = simulationResult.events.map((event) => {
-        const isCritical = event.event_type === "relay_trip" || event.event_type === "breaker_open";
-        const isWarning = event.event_type === "relay_pickup" || event.event_type === "fault_inception";
-        const priority: AlarmPriority = isCritical ? "CRITICAL" : isWarning ? "HIGH" : "LOW";
-
-        return {
-          id: nextAlarmId(),
-          timestamp: Date.now() + event.timestamp_ms,
-          priority,
-          tag: `GOOSE.${event.event_type}`,
-          equipment: event.ied_name || "Substation",
-          description: event.description,
-          value: `${event.timestamp_ms.toFixed(1)} ms`,
-          setpoint: "N/A",
-          state: "ACTIVE" as AlarmState,
-          durationSec: 0,
-          acknowledgedBy: null,
-          acknowledgedAt: null,
-          shelved: false,
-          faultType: selectedFaultType,
-          probableCause: `${selectedFaultType.replace(/_/g, " ")} scenario`,
-          recommendedAction: "Follow protection coordination procedures",
-        };
-      });
-
       // Add to event log
       const newEvents: SOEEvent[] = simulationResult.events.map((event) => ({
         id: nextSOEId(),
@@ -646,13 +655,12 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
         source: event.ied_name || "System",
         type: event.event_type,
         description: event.description,
-        priority: (event.event_type === "relay_trip" ? "CRITICAL" : "INFO") as AlarmPriority | "INFO",
+        priority: "INFO" as const,
       }));
 
       set((s) => ({
         simulationResult,
         retransmissionResult,
-        alarms: [...newAlarms, ...s.alarms],
         eventLog: [...newEvents, ...s.eventLog].slice(0, 200),
       }));
 
@@ -672,52 +680,61 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
       }
 
       // ── SLD Animation (scaled: 1 ms real → 50 ms display) ───
-      // Animates fault → relay pickup → relay trip → breaker open in the SLD.
+      // The fault zone flashes at once; the breakers open (and the P1 alarm
+      // is raised) at the breaker-open time of the backend sequence.
       // Scale of 50× makes a 100 ms protection sequence take ~5 s to animate.
       const SCALE = 50;
-      const breakerId = GOOSE_FAULT_BREAKER[selectedFaultType] ?? "cb-66-a";
-      const relayPickup = simulationResult.events.find((e) => e.event_type === "relay_pickup");
-      const relayTrip   = simulationResult.events.find((e) => e.event_type === "relay_trip");
+      const tripped = GOOSE_FAULT_TRIPS[selectedFaultType] ?? [];
       const breakerOpen = simulationResult.events.find((e) => e.event_type === "breaker_open");
 
-      // t=0: immediately highlight the faulted busbar
-      set({ faultHighlightNodeId: "bb-66kv" });
-
-      if (relayPickup) {
-        setTimeout(() => {
-          get().addEvent({
-            source: relayPickup.ied_name || "Protection IED",
-            type: "relay_pickup",
-            description: `Relay pickup — ${relayPickup.description}`,
-            priority: "HIGH",
-          });
-        }, relayPickup.timestamp_ms * SCALE);
-      }
-
-      if (relayTrip) {
-        setTimeout(() => {
-          get().addEvent({
-            source: relayTrip.ied_name || "Protection IED",
-            type: "relay_trip",
-            description: `Relay trip — ${relayTrip.description}`,
-            priority: "CRITICAL",
-          });
-        }, relayTrip.timestamp_ms * SCALE);
-      }
+      // t=0: highlight the protected zone
+      set({ faultHighlightNodeId: selectedFaultType });
 
       if (breakerOpen) {
         const t = breakerOpen.timestamp_ms * SCALE;
         setTimeout(() => {
-          set((s) => ({
-            breakerStates: { ...s.breakerStates, [breakerId]: "TRIPPED" as BreakerState },
-            faultHighlightNodeId: breakerId,
-          }));
-          get().addEvent({
-            source: breakerId.toUpperCase(),
-            type: "breaker_open",
-            description: `${breakerId.toUpperCase()} tripped — fault cleared`,
-            priority: "CRITICAL",
-          });
+          const breakerStates = { ...get().breakerStates };
+          for (const id of tripped) {
+            breakerStates[id] = "TRIPPED";
+            const owner = BAY_OF[id];
+            if (owner) {
+              void bayApi
+                .executeBayCommand(owner.bay, { equipment_id: owner.cb, action: "open", operator_id: "PROTECTION", is_auto_reclose: false, synchrocheck: null })
+                .catch(() => undefined);
+            }
+          }
+          set({ breakerStates });
+          syncFarm(breakerStates);
+          const sc = GOOSE_SCENARIOS[selectedFaultType];
+          if (sc) {
+            const alarm: SCADAAlarm = {
+              id: nextAlarmId(),
+              timestamp: Date.now(),
+              priority: "CRITICAL",
+              tag: sc.tag,
+              equipment: sc.zone,
+              description: `${sc.protection} operated — ${tripped.length} breakers open`,
+              value: `${breakerOpen.timestamp_ms.toFixed(0)} ms`,
+              setpoint: "≤ 100 ms clearing",
+              state: "ACTIVE",
+              durationSec: 0,
+              acknowledgedBy: null,
+              acknowledgedAt: null,
+              shelved: false,
+              faultType: selectedFaultType,
+              probableCause: sc.cause,
+              recommendedAction: sc.action,
+            };
+            set((st) => ({ alarms: [alarm, ...st.alarms] }));
+          }
+          for (const id of tripped) {
+            get().addEvent({
+              source: BREAKERS[id].label,
+              type: "breaker_open",
+              description: `${BREAKERS[id].label} (${BREAKERS[id].bay}) tripped by GOOSE — fault cleared`,
+              priority: "CRITICAL",
+            });
+          }
         }, t);
         // Clear highlight 5 s after breaker opens; breaker stays TRIPPED for operator to see
         setTimeout(() => set({ faultHighlightNodeId: null }), t + 5000);
@@ -742,6 +759,14 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
     try {
       const permitList = await api.listPermits();
       set({ permitList });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  openPermit: async (ptwNumber) => {
+    try {
+      set({ activePermit: await api.getPermitDetail(ptwNumber) });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
     }
@@ -789,3 +814,27 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+// ── Alarm journal → backend (EEMUA 191 KPIs, rationalisation) ─────
+// Every alarm state change, whichever action caused it, is reported once.
+
+useScadaStore.subscribe((next, prev) => {
+  if (next.alarms === prev.alarms) return;
+  const before = new Map(prev.alarms.map((a) => [a.id, a]));
+  const send = (a: SCADAAlarm, transition: api.AlarmTransition) =>
+    void api
+      .logAlarmTransition({ tag: a.tag, transition, source_device: a.equipment, operator_id: a.acknowledgedBy })
+      .catch(() => undefined);
+  for (const a of next.alarms) {
+    const b = before.get(a.id);
+    if (!b) {
+      if (a.state === "ACTIVE") send(a, "NORMAL_TO_ACTIVE");
+      continue;
+    }
+    if (b.state === "ACTIVE" && a.state === "ACKNOWLEDGED") send(a, "ACTIVE_TO_ACK");
+    if (a.state === "RETURN_TO_NORMAL" && b.state !== a.state) {
+      send(a, b.state === "ACKNOWLEDGED" ? "ACK_TO_NORMAL" : "ACTIVE_TO_NORMAL");
+    }
+    if (a.shelved !== b.shelved) send(a, a.shelved ? "SHELVED" : "UNSHELVED");
+  }
+});

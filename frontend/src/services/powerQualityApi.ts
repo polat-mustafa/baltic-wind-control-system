@@ -22,7 +22,7 @@ import { post, request } from "./apiClient";
 const BASE = "/api/v1/grid/power-quality";
 
 /**
- * Analyse harmonic spectrum at the 66 kV POC.
+ * Analyse harmonic spectrum at the selected bus (400 kV POC by default).
  * Input: harmonic magnitudes dict (order → % of fundamental).
  */
 export function analyzeHarmonics(

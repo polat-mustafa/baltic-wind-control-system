@@ -1,137 +1,200 @@
 /**
- * Cybersecurity Dashboard — M07 (IEC 62443).
+ * Cybersecurity — IEC 62443-3-3 zones & conduits, requirement checklist and
+ * an educational attack walk-through (M07).
  *
- * Two sections:
- *   Top: Purdue Model zones table + compliance score gauge + conduits summary.
- *   Bottom: Attack simulation panel.
- *
- * Target: IEC 62443-3-3 SL-2 for OT zones.
- * Open gaps: SR-1.7 (MFA) and SR-3.1 (GOOSE integrity).
+ * Zones follow the Purdue levels (L0 process … L5 external); every conduit
+ * between zones is listed with its protocols and protection. The checklist
+ * shows each system requirement (SR) with evidence, so the SL scores are
+ * traceable instead of a bare percentage. Target: SL-2 for the OT zones.
  */
 
 import { useEffect } from "react";
-import { Shield, AlertTriangle } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 import { useSecurityStore } from "../../store/securityStore";
-import { Button } from "../ui/Button";
 import AttackSimPanel from "./AttackSimPanel";
+import { cn } from "../../lib/utils";
+
+const Pill = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
+  <span
+    className={cn(
+      "inline-block px-1.5 rounded-sm text-[10px] font-mono font-bold",
+      ok ? "border border-border-secondary text-text-secondary" : "bg-[#c8362d] text-white",
+    )}
+  >
+    {children}
+  </span>
+);
 
 export default function SecurityDashboard() {
-  const { zones, conduits, compliance, loading, error, fetchAll, clearError } = useSecurityStore();
+  const zones = useSecurityStore((s) => s.zones);
+  const conduits = useSecurityStore((s) => s.conduits);
+  const compliance = useSecurityStore((s) => s.compliance);
+  const loading = useSecurityStore((s) => s.loading);
+  const error = useSecurityStore((s) => s.error);
+  const fetchAll = useSecurityStore((s) => s.fetchAll);
 
   useEffect(() => {
-    fetchAll();
+    void fetchAll();
   }, [fetchAll]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-        <span className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin mr-2" />
-        Loading security posture…
-      </div>
-    );
-  }
+  const zoneLevel = new Map((zones?.zones ?? []).map((z) => [z.name, z.level]));
 
   return (
-    <div className="space-y-4">
-      {error && (
-        <div className="p-3 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-sm flex justify-between">
-          <span className="text-status-alarm flex items-center gap-2"><AlertTriangle size={14} /> {error}</span>
-          <Button variant="ghost" size="sm" onClick={clearError}>Dismiss</Button>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex items-center gap-2">
-          <Shield size={16} className="text-accent" />
-          <span className="text-sm font-semibold text-text-primary">Cybersecurity — IEC 62443-3-3 SL-2</span>
-        </div>
-        <Button size="sm" onClick={fetchAll}>Refresh</Button>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-xs font-semibold text-text-primary">Cybersecurity · IEC 62443-3-3 · target SL-2</h3>
+        {compliance && <span className="text-[11px] text-text-secondary">{compliance.overall_assessment}</span>}
+        <span className="flex-1" />
+        <button type="button" onClick={() => void fetchAll()} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-[11px] text-text-secondary hover:bg-bg-hover">
+          <RefreshCw size={11} className={loading ? "animate-spin" : undefined} /> Refresh
+        </button>
       </div>
+      {error && <p className="text-xs text-status-warning">{error}</p>}
 
-      {/* Zones + compliance */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {/* Purdue Model zones */}
-        {zones && (
-          <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-            <h3 className="text-sm font-semibold text-text-primary mb-2">Purdue Model Zones</h3>
-            <p className="text-xs text-text-muted mb-3">{zones.ot_it_boundary}</p>
-            <div className="space-y-1.5">
-              {zones.zones.map((zone) => (
-                <div key={zone.id} className="flex items-center gap-3 p-2 rounded text-xs" style={{ backgroundColor: `${zone.color}10`, borderLeft: `2px solid ${zone.color}` }}>
-                  <span className="font-mono text-text-muted w-6">L{zone.level}</span>
-                  <span className="text-text-primary font-medium flex-1">{zone.name}</span>
-                  <span className="text-text-muted">{zone.device_count} devices</span>
-                  <span className="font-mono" style={{ color: zone.color }}>{zone.security_level_target}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Compliance */}
-        {compliance && (
-          <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-text-primary">IEC 62443 Compliance</h3>
-              <span className="text-xs text-text-muted">{compliance.standard}</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
-              {[
-                { label: "SL-1", value: compliance.sl1_score_pct },
-                { label: "SL-2 (target)", value: compliance.sl2_score_pct },
-                { label: "SL-3", value: compliance.sl3_score_pct },
-              ].map(({ label, value }) => (
-                <div key={label} className="bg-bg-tertiary rounded p-2">
-                  <p className="text-text-muted">{label}</p>
-                  <p className={`font-mono font-bold text-lg ${value >= 80 ? "text-status-success" : value >= 60 ? "text-status-warning" : "text-status-alarm"}`}>
-                    {value.toFixed(0)}%
-                  </p>
-                </div>
-              ))}
-            </div>
-            <div className="text-xs space-y-1">
-              <p className="text-text-muted">{compliance.open_gaps} open gaps — Critical:</p>
-              {compliance.critical_gaps.map((gap, i) => (
-                <p key={i} className="text-status-alarm pl-2">• {gap}</p>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-text-muted">{compliance.overall_assessment}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Conduits summary */}
-      {conduits && (
-        <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-text-primary">Security Conduits ({conduits.total_conduits})</h3>
-            {conduits.unencrypted_count > 0 && (
-              <span className="text-xs text-status-warning">{conduits.unencrypted_count} unencrypted</span>
-            )}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {conduits.conduits.map((c) => (
-              <div key={c.id} className="flex items-center gap-2 text-xs bg-bg-tertiary rounded p-2">
-                <span className="text-text-muted font-mono">{c.source_zone}</span>
-                <span className="text-text-muted">→</span>
-                <span className="text-text-primary">{c.dest_zone}</span>
-                <span className="ml-auto flex items-center gap-1">
-                  {c.encryption ? <span className="text-status-success">🔒</span> : <span className="text-status-warning">⚠</span>}
-                  <span className={`px-1 rounded ${c.criticality === "HIGH" ? "text-status-alarm" : "text-text-muted"}`}>{c.criticality}</span>
-                </span>
+      {compliance && (
+        <div className="grid grid-cols-3 gap-2">
+          {(
+            [
+              ["SL-1", compliance.sl1_score_pct],
+              ["SL-2 (target)", compliance.sl2_score_pct],
+              ["SL-3", compliance.sl3_score_pct],
+            ] as const
+          ).map(([label, pct]) => (
+            <div key={label} className="rounded-lg border border-border-primary bg-bg-secondary p-2.5">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] text-text-muted">{label} requirements met</span>
+                <span className="text-base font-mono font-semibold text-text-primary">{pct.toFixed(0)} %</span>
               </div>
-            ))}
-          </div>
+              <div className="h-2 mt-1 rounded bg-bg-tertiary overflow-hidden">
+                <div className="h-full bg-accent" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Attack simulator */}
-      <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-        <h3 className="text-sm font-semibold text-text-primary mb-3">Attack Scenario Simulator (Educational)</h3>
-        <AttackSimPanel />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        {zones && (
+          <section className="rounded-lg border border-border-primary bg-bg-secondary p-3">
+            <h4 className="text-xs font-semibold text-text-primary mb-1">Zones (Purdue levels)</h4>
+            <table className="w-full text-[11px]">
+              <thead className="text-left text-text-muted">
+                <tr>
+                  <th className="py-1 pr-2 font-medium">Level</th>
+                  <th className="py-1 pr-2 font-medium">Zone</th>
+                  <th className="py-1 pr-2 font-medium text-right">Assets</th>
+                  <th className="py-1 font-medium whitespace-nowrap">SL-T</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...zones.zones]
+                  .sort((a, b) => a.level - b.level)
+                  .map((z) => (
+                    <tr key={z.id} className="border-t border-border-primary/60" title={z.description}>
+                      <td className="py-1 pr-2 font-mono text-text-muted">L{z.level}</td>
+                      <td className="py-1 pr-2 text-text-primary">
+                        {z.name.replace(/_/g, " ").toLowerCase()}
+                        <div className="text-text-muted">{z.description}</div>
+                      </td>
+                      <td className="py-1 pr-2 font-mono text-right text-text-secondary">{z.device_count}</td>
+                      <td className="py-1 font-mono text-text-secondary whitespace-nowrap">{z.security_level_target}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </section>
+        )}
+
+        {conduits && (
+          <section className="rounded-lg border border-border-primary bg-bg-secondary p-3">
+            <h4 className="text-xs font-semibold text-text-primary mb-1">
+              Conduits <span className="font-normal text-text-muted">({conduits.total_conduits}, {conduits.unencrypted_count} unencrypted)</span>
+            </h4>
+            <table className="w-full text-[11px]">
+              <thead className="text-left text-text-muted">
+                <tr>
+                  <th className="py-1 pr-2 font-medium">From → to</th>
+                  <th className="py-1 pr-2 font-medium">Protocols</th>
+                  <th className="py-1 pr-2 font-medium">Protection</th>
+                  <th className="py-1 font-medium">Criticality</th>
+                </tr>
+              </thead>
+              <tbody>
+                {conduits.conduits.map((c) => {
+                  // Purdue rule: control levels (L0-L2) never talk directly to L4/L5
+                  const lv = [zoneLevel.get(c.source_zone) ?? 0, zoneLevel.get(c.dest_zone) ?? 0];
+                  const skip = Math.min(...lv) <= 2 && Math.max(...lv) >= 4;
+                  return (
+                    <tr key={c.id} className="border-t border-border-primary/60 align-top">
+                      <td className="py-1 pr-2 font-mono text-text-primary whitespace-nowrap">
+                        L{zoneLevel.get(c.source_zone)} → L{zoneLevel.get(c.dest_zone)} {c.bidirectional ? "⇄" : "→"}
+                        <div className="font-sans text-text-muted">{c.name}</div>
+                        {skip && <Pill ok={false}>bypasses the DMZ</Pill>}
+                      </td>
+                      <td className="py-1 pr-2 text-text-secondary">{c.allowed_protocols.join(", ")}</td>
+                      <td className="py-1 pr-2">
+                        {c.encryption === "NONE" ? <Pill ok={false}>none</Pill> : <span className="text-text-secondary">{c.encryption}</span>}
+                      </td>
+                      <td className="py-1 font-mono text-text-secondary">{c.criticality.toLowerCase()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <p className="text-[11px] text-text-muted mt-1">
+              "None" is acceptable only inside a physically secured zone (hard-wired process level); it is listed so the
+              exception stays visible.
+            </p>
+          </section>
+        )}
       </div>
+
+      {compliance && (
+        <section className="rounded-lg border border-border-primary bg-bg-secondary p-3">
+          <h4 className="text-xs font-semibold text-text-primary mb-1">
+            System requirements · {compliance.open_gaps} open gaps
+          </h4>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead className="text-left text-text-muted">
+                <tr>
+                  <th className="py-1 pr-2 font-medium">SR</th>
+                  <th className="py-1 pr-2 font-medium">SL</th>
+                  <th className="py-1 pr-2 font-medium">Requirement</th>
+                  <th className="py-1 pr-2 font-medium">Evidence</th>
+                  <th className="py-1 pr-2 font-medium text-right">Risk</th>
+                  <th className="py-1 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...compliance.checks]
+                  .sort((a, b) => Number(a.compliant) - Number(b.compliant) || b.risk_score - a.risk_score)
+                  .map((r) => (
+                    <tr key={r.requirement_id} className="border-t border-border-primary/60 align-top">
+                      <td className="py-1 pr-2 font-mono text-text-primary">{r.requirement_id}</td>
+                      <td className="py-1 pr-2 font-mono text-text-muted">{r.security_level}</td>
+                      <td className="py-1 pr-2 text-text-primary">
+                        {r.description}
+                        <div className="text-text-muted">{r.category}</div>
+                      </td>
+                      <td className="py-1 pr-2 text-text-secondary">{r.evidence ?? "—"}</td>
+                      <td className="py-1 pr-2 font-mono text-right text-text-secondary">{r.risk_score.toFixed(1)}</td>
+                      <td className="py-1">
+                        <Pill ok={r.compliant}>{r.compliant ? "met" : "GAP"}</Pill>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <section className="rounded-lg border border-border-primary bg-bg-secondary p-3">
+        <h4 className="text-xs font-semibold text-text-primary mb-2">Attack walk-through (educational)</h4>
+        <AttackSimPanel />
+      </section>
     </div>
   );
 }

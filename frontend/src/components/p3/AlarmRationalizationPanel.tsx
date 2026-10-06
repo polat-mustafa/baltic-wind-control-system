@@ -1,172 +1,169 @@
 /**
- * Alarm Rationalization Panel — M09 (EEMUA 191 / ISA-18.2).
+ * Alarm management performance — EEMUA 191 / ISA-18.2 (M09).
  *
- * Three sections:
- *   1. EEMUA 191 KPI row (rate/10min, grade, unacked, chattering count)
- *   2. Chattering alarm list + flood events
- *   3. Alarm rationalization database (cause / consequence / operator action)
+ * KPIs come from the alarm journal the HMI writes for every raise,
+ * acknowledgement, return-to-normal and shelve; the master alarm database
+ * documents each alarm class (cause, consequence, operator action,
+ * priority) — the output of ISA-18.2 rationalisation.
  *
- * EEMUA 191 benchmark: ≤1 alarm/10 min steady state, ≤10/10 min upset.
+ * EEMUA 191 benchmarks: average ≤ 1 alarm / 10 min, peak < 10 / 10 min,
+ * no chattering alarms, no floods.
  */
 
-import { useEffect, useState } from "react";
-import { Bell } from "lucide-react";
+import { useEffect } from "react";
+import Plot from "react-plotly.js";
+import { RefreshCw } from "lucide-react";
 
 import { useAlarmStore } from "../../store/alarmStore";
-import { Button } from "../ui/Button";
-
-const GRADE_COLOR: Record<string, string> = {
-  GOOD: "text-status-success",
-  ACCEPTABLE: "text-status-warning",
-  POOR: "text-status-alarm",
-  UNACCEPTABLE: "text-status-alarm font-bold",
-};
+import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
+import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
+import { PriorityChip } from "./AlarmListPanel";
+import { cn } from "../../lib/utils";
 
 export default function AlarmRationalizationPanel() {
-  const { kpi, alarms, chattering, rationalization, loading, fetchAll, shelveAlarm } = useAlarmStore();
-  const [activeTab, setActiveTab] = useState<"kpi" | "chatterers" | "rationalize">("kpi");
+  const kpi = useAlarmStore((s) => s.kpi);
+  const mad = useAlarmStore((s) => s.rationalization);
+  const live = useAlarmStore((s) => s.alarms);
+  const chattering = useAlarmStore((s) => s.chattering);
+  const loading = useAlarmStore((s) => s.loading);
+  const error = useAlarmStore((s) => s.error);
+  const fetchAll = useAlarmStore((s) => s.fetchAll);
+  const c = useChartPalette();
 
   useEffect(() => {
-    fetchAll();
+    void fetchAll();
+    const id = setInterval(() => void fetchAll(), 15_000);
+    return () => clearInterval(id);
   }, [fetchAll]);
 
-  if (loading && !kpi) {
-    return (
-      <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-        <span className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin mr-2" />
-        Loading alarm data…
-      </div>
-    );
-  }
+  const state = new Map(live.map((a) => [a.tag, a]));
+  const tiles: [string, string, string, boolean][] = kpi
+    ? [
+        ["Average rate", `${kpi.average_rate_per_10_min.toFixed(2)} / 10 min`, "≤ 1 (EEMUA 191)", kpi.rate_benchmark_met],
+        ["Peak rate", `${kpi.peak_rate_per_10_min.toFixed(0)} / 10 min`, "< 10 manageable", kpi.peak_benchmark_met],
+        ["Standing", String(kpi.standing_alarms), "active classes now", kpi.standing_alarms < 10],
+        ["Acknowledged ≤ 10 min", `${kpi.pct_acknowledged_within_10min.toFixed(0)} %`, "≥ 80 %", kpi.ack_benchmark_met],
+        ["Chattering", String(kpi.chattering_alarm_count), "> 3 activations / 10 min", kpi.chattering_alarm_count === 0],
+        ["Floods", String(kpi.flood_events_in_window), "> 10 alarms / 10 min", kpi.flood_events_in_window === 0],
+      ]
+    : [];
 
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex items-center gap-2">
-          <Bell size={16} className="text-accent" />
-          <span className="text-sm font-semibold text-text-primary">Alarm Rationalization (EEMUA 191)</span>
-        </div>
-        <Button size="sm" onClick={fetchAll} disabled={loading}>Refresh</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-xs font-semibold text-text-primary">Alarm management performance · EEMUA 191 / ISA-18.2</h3>
+        {kpi && (
+          <span className="text-[11px] font-mono text-text-secondary">
+            last {kpi.window_hours} h · {kpi.total_alarms_in_window} activations · grade <b className="text-text-primary">{kpi.overall_grade}</b>
+          </span>
+        )}
+        <span className="flex-1" />
+        <button type="button" onClick={() => void fetchAll()} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-[11px] text-text-secondary hover:bg-bg-hover">
+          <RefreshCw size={11} className={loading ? "animate-spin" : undefined} /> Refresh
+        </button>
       </div>
+      {error && <p className="text-xs text-status-warning">{error}</p>}
 
-      {/* KPI strip */}
-      {kpi && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-          <div className="bg-bg-tertiary rounded p-2">
-            <p className="text-text-muted">Rate / 10 min</p>
-            <p className={`font-mono font-bold text-lg ${kpi.rate_benchmark_met ? "text-status-success" : "text-status-alarm"}`}>
-              {kpi.average_rate_per_10_min.toFixed(1)}
-            </p>
-            <p className="text-text-muted">benchmark {kpi.rate_benchmark_met ? "met ✓" : "exceeded ✗"}</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
+        {tiles.map(([label, value, target, ok]) => (
+          <div key={label} className="rounded-lg border border-border-primary bg-bg-secondary p-2">
+            <div className="text-[10px] uppercase tracking-wider text-text-muted">{label}</div>
+            <div className="text-base font-mono font-semibold text-text-primary">{value}</div>
+            <div className={cn("text-[11px]", ok ? "text-text-muted" : "text-text-primary font-semibold")}>{ok ? target : `✗ target ${target}`}</div>
           </div>
-          <div className="bg-bg-tertiary rounded p-2">
-            <p className="text-text-muted">Overall grade</p>
-            <p className={`font-bold text-lg ${GRADE_COLOR[kpi.overall_grade]}`}>{kpi.overall_grade}</p>
-          </div>
-          <div className="bg-bg-tertiary rounded p-2">
-            <p className="text-text-muted">Unacknowledged</p>
-            <p className={`font-mono font-bold text-lg ${kpi.unacknowledged_alarms > 0 ? "text-status-warning" : "text-status-success"}`}>
-              {kpi.unacknowledged_alarms}
-            </p>
-          </div>
-          <div className="bg-bg-tertiary rounded p-2">
-            <p className="text-text-muted">Chattering</p>
-            <p className={`font-mono font-bold text-lg ${kpi.chattering_alarm_count > 0 ? "text-status-warning" : "text-status-success"}`}>
-              {kpi.chattering_alarm_count}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border-primary pb-0">
-        {(["kpi", "chatterers", "rationalize"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1.5 text-xs rounded-t transition-colors ${activeTab === tab ? "text-accent border-b-2 border-accent -mb-px" : "text-text-muted hover:text-text-secondary"}`}
-          >
-            {tab === "kpi" ? "Alarm List" : tab === "chatterers" ? "Chattering" : "Rationalization"}
-          </button>
         ))}
       </div>
 
-      {/* Alarm list */}
-      {activeTab === "kpi" && (
-        <div className="max-h-72 overflow-y-auto">
-          <table className="w-full text-xs text-text-secondary border-collapse">
-            <thead className="sticky top-0 bg-bg-tertiary">
-              <tr className="border-b border-border-primary text-text-muted">
-                <th className="text-left py-2 pr-2 font-medium">Tag</th>
-                <th className="text-left py-2 pr-2 font-medium">Priority</th>
-                <th className="text-left py-2 pr-2 font-medium">State</th>
-                <th className="text-left py-2 pr-2 font-medium">Shelved</th>
-                <th className="text-right py-2 font-medium">Action</th>
+      {kpi && kpi.alarm_rate_history.length > 0 && (
+        <section className="rounded-lg border border-border-primary bg-bg-secondary p-3">
+          <h4 className="text-xs font-semibold text-text-primary">Alarm activations per 10 minutes</h4>
+          <Plot
+            data={[
+              {
+                type: "bar",
+                x: kpi.alarm_rate_history.map((p) => p.interval_start_utc),
+                y: kpi.alarm_rate_history.map((p) => p.alarm_count),
+                marker: { color: kpi.alarm_rate_history.map((p) => (p.above_benchmark ? c.red : c.blue)) },
+                hovertemplate: "%{x|%H:%M} UTC · %{y} alarms<extra></extra>",
+              },
+            ]}
+            layout={{
+              ...DARK_PLOTLY_LAYOUT,
+              height: 200,
+              showlegend: false,
+              bargap: 0.15,
+              transition: CHART_TRANSITION,
+              margin: { t: 12, r: 70, b: 36, l: 44 },
+              xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, type: "date", tickformat: "%H:%M" },
+              yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: { text: "Alarms", font: { size: 11 } }, rangemode: "tozero" },
+              shapes: [1, 10].map((y) => ({ type: "line", xref: "paper", x0: 0, x1: 1, y0: y, y1: y, line: { color: c.ref, dash: "dot", width: 1 } })),
+              annotations: [
+                { xref: "paper", x: 1, y: 1, text: "1 · target", showarrow: false, xanchor: "left", font: { size: 10, color: c.ink } },
+                { xref: "paper", x: 1, y: 10, text: "10 · flood", showarrow: false, xanchor: "left", font: { size: 10, color: c.ink } },
+              ],
+            }}
+            config={PLOTLY_CONFIG}
+            className="w-full"
+            useResizeHandler
+            style={{ width: "100%", height: 200 }}
+          />
+        </section>
+      )}
+
+      {chattering && chattering.chattering_alarms.length > 0 && (
+        <section className="rounded-lg border border-status-warning/50 bg-bg-secondary p-3">
+          <h4 className="text-xs font-semibold text-text-primary mb-1">Chattering alarms</h4>
+          {chattering.chattering_alarms.map((a) => (
+            <p key={a.tag} className="text-[11px] text-text-secondary">
+              <span className="font-mono text-text-primary">{a.tag}</span> — {a.transition_count}× in {a.window_minutes} min. {a.recommendation}
+            </p>
+          ))}
+        </section>
+      )}
+
+      <section className="rounded-lg border border-border-primary bg-bg-secondary p-3">
+        <h4 className="text-xs font-semibold text-text-primary mb-1">
+          Master alarm database <span className="font-normal text-text-muted">({mad.length} rationalised classes · WTG.* covers WTG-01…34)</span>
+        </h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead className="text-left text-text-muted">
+              <tr>
+                <th className="py-1 pr-2 font-medium w-9">Pri</th>
+                <th className="py-1 pr-2 font-medium">Tag / alarm</th>
+                <th className="py-1 pr-2 font-medium">Cause</th>
+                <th className="py-1 pr-2 font-medium">Consequence</th>
+                <th className="py-1 pr-2 font-medium">Operator action</th>
+                <th className="py-1 font-medium">State</th>
               </tr>
             </thead>
             <tbody>
-              {alarms.map((alarm) => (
-                <tr key={alarm.id} className="border-b border-border-primary/40 hover:bg-bg-elevated/30">
-                  <td className="py-1.5 pr-2 font-mono">{alarm.tag}</td>
-                  <td className={`py-1.5 pr-2 ${alarm.priority === "CRITICAL" ? "text-status-alarm" : alarm.priority === "HIGH" ? "text-status-warning" : "text-text-muted"}`}>
-                    {alarm.priority}
-                  </td>
-                  <td className="py-1.5 pr-2">{alarm.state}</td>
-                  <td className="py-1.5 pr-2">{alarm.shelved ? `${alarm.shelve_reason.slice(0, 20)}…` : "—"}</td>
-                  <td className="py-1.5 text-right">
-                    {!alarm.shelved && alarm.state !== "CLEARED" && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-xs py-0 px-1"
-                        onClick={() => shelveAlarm(alarm.id, "CTRL-1", "Routine", 4)}
-                      >
-                        Shelve 4h
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {[...mad]
+                .sort((a, b) => ["CRITICAL", "HIGH", "MEDIUM", "LOW"].indexOf(a.priority) - ["CRITICAL", "HIGH", "MEDIUM", "LOW"].indexOf(b.priority))
+                .map((a) => {
+                  const st = state.get(a.tag);
+                  return (
+                    <tr key={a.id} className="border-t border-border-primary/60 align-top">
+                      <td className="py-1 pr-2">
+                        <PriorityChip priority={a.priority} />
+                      </td>
+                      <td className="py-1 pr-2">
+                        <div className="font-mono text-text-primary">{a.tag}</div>
+                        <div className="text-text-muted">{a.display_name}</div>
+                      </td>
+                      <td className="py-1 pr-2 text-text-secondary">{a.cause}</td>
+                      <td className="py-1 pr-2 text-text-secondary">{a.consequence}</td>
+                      <td className="py-1 pr-2 text-text-primary">{a.operator_action}</td>
+                      <td className="py-1 font-mono whitespace-nowrap text-text-muted">
+                        {st ? `${st.state.toLowerCase()}${st.shelved ? " · shelved" : ""}` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>
-      )}
-
-      {/* Chattering */}
-      {activeTab === "chatterers" && chattering && (
-        <div className="space-y-2">
-          {chattering.chattering_alarms.length === 0 ? (
-            <p className="text-xs text-text-muted text-center py-6">No chattering alarms detected</p>
-          ) : chattering.chattering_alarms.map((alarm) => (
-            <div key={alarm.tag} className="bg-bg-tertiary rounded p-2 text-xs">
-              <div className="flex justify-between mb-1">
-                <span className="font-mono text-text-primary">{alarm.tag}</span>
-                <span className="text-status-warning">{alarm.transition_count}× in {alarm.window_minutes} min</span>
-              </div>
-              <p className="text-text-muted">{alarm.recommendation}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Rationalization DB */}
-      {activeTab === "rationalize" && (
-        <div className="max-h-72 overflow-y-auto space-y-2">
-          {rationalization.map((alarm) => (
-            <div key={alarm.id} className="bg-bg-tertiary rounded p-2.5 text-xs">
-              <div className="flex justify-between mb-1.5">
-                <span className="font-mono text-text-primary">{alarm.tag}</span>
-                <span className={`px-1.5 rounded ${alarm.rationalization_status === "RATIONALIZED" ? "bg-status-success/20 text-status-success" : "bg-status-warning/20 text-status-warning"}`}>
-                  {alarm.rationalization_status}
-                </span>
-              </div>
-              <p className="text-text-muted">Cause: <span className="text-text-secondary">{alarm.cause}</span></p>
-              <p className="text-text-muted">Action: <span className="text-text-secondary">{alarm.operator_action}</span></p>
-            </div>
-          ))}
-        </div>
-      )}
+      </section>
     </div>
   );
 }

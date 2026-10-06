@@ -106,7 +106,10 @@ export interface ComplianceCheck {
 export interface FaultSimulationResult {
   fault_type: string;
   location: string;
-  fault_current_pu: number;
+  /** Ik'' at the fault, IEC 60909 max case [kA] */
+  fault_current_ka: number;
+  /** Load current of the faulted zone at 510 MW [kA] */
+  load_current_ka: number;
   protection_function: string;
   description: string;
   events: ProtectionEvent[];
@@ -286,13 +289,6 @@ export interface FaultCategory {
 /** SLD breaker state */
 export type BreakerState = "CLOSED" | "OPEN" | "TRIPPED" | "RACKING";
 
-/** SLD measurement point */
-export interface SLDMeasurement {
-  nodeId: string;
-  voltageKV: number;
-  currentA: number;
-  powerMW: number;
-}
 
 // ── Historian Types ───────────────────────────────────────────────
 
@@ -331,7 +327,8 @@ export interface HistorianQueryRequest {
   tags: string[];
   range_hours: number;
   resolution: string;
-  now_epoch_minutes: number;
+  /** End of the window in Unix minutes (UTC); omitted = now. */
+  now_epoch_minutes?: number;
 }
 
 /** Multi-tag time-series response */

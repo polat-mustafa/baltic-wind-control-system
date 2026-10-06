@@ -2,7 +2,9 @@
  * Site & Permits store: region layers, suitability screening, the site the
  * user draws, its assessment report and the journey stage.
  *
- * Responses that arrive after a newer request was started are dropped.
+ * Responses that arrive after a newer request was started are dropped. A
+ * failed assessment keeps the last good report; `reportFor` records which
+ * site + criteria it belongs to, so the page can mark it out of date.
  */
 
 import { create } from "zustand";
@@ -27,6 +29,10 @@ export const CASE_STUDY_SITE: LonLat[] = [
 ];
 
 const SITE_KEY = "of.site.v1";
+
+/** Identifies the inputs a report was computed from (site corners + criteria). */
+export const reportSignature = (site: LonLat[] | null, criteria: CriteriaOverrides): string =>
+  JSON.stringify([site, Object.entries(criteria).sort(([a], [b]) => a.localeCompare(b))]);
 
 interface Persisted {
   site: LonLat[] | null;
@@ -55,10 +61,14 @@ interface SiteState {
   site: LonLat[] | null;
   drawing: LonLat[] | null; // corners while drawing; null when not drawing
   report: AssessResponse | null;
+  /** reportSignature() of the inputs behind `report`. */
+  reportFor: string | null;
   stage: StageId;
   done: StageId[];
   loading: boolean;
   assessing: boolean;
+  /** Last assessment failure; the previous report (if any) is kept. */
+  assessError: string | null;
   error: string | null;
 
   loadLayers: () => Promise<void>;
@@ -94,10 +104,12 @@ export const useSiteStore = create<SiteState>((set, get) => ({
   site: initial.site,
   drawing: null,
   report: null,
+  reportFor: null,
   stage: initial.stage,
   done: initial.done,
   loading: false,
   assessing: false,
+  assessError: null,
   error: null,
 
   loadLayers: async () => {
@@ -145,7 +157,7 @@ export const useSiteStore = create<SiteState>((set, get) => ({
 
   setSite: async (site) => {
     // A new site invalidates every stage done for the old one.
-    set({ site, report: null, done: [], stage: "screening" });
+    set({ site, report: null, reportFor: null, assessError: null, done: [], stage: "screening" });
     persist(get());
     if (site) await get().assess();
   },
@@ -153,13 +165,14 @@ export const useSiteStore = create<SiteState>((set, get) => ({
   assess: async () => {
     const site = get().site;
     if (!site) return;
+    const criteria = get().criteria;
     const token = ++assessToken;
-    set({ assessing: true, error: null });
+    set({ assessing: true, assessError: null });
     try {
-      const report = await api.postAssess(site, get().criteria);
-      if (token === assessToken) set({ report, assessing: false });
+      const report = await api.postAssess(site, criteria);
+      if (token === assessToken) set({ report, reportFor: reportSignature(site, criteria), assessing: false });
     } catch (err) {
-      if (token === assessToken) set({ error: message(err), assessing: false, report: null });
+      if (token === assessToken) set({ assessError: message(err), assessing: false });
     }
   },
 
@@ -175,7 +188,16 @@ export const useSiteStore = create<SiteState>((set, get) => ({
   },
 
   reset: () => {
-    set({ site: null, report: null, drawing: null, stage: "screening", done: [], criteria: {} });
+    set({
+      site: null,
+      report: null,
+      reportFor: null,
+      assessError: null,
+      drawing: null,
+      stage: "screening",
+      done: [],
+      criteria: {},
+    });
     persist(get());
     void get().runSuitability();
   },

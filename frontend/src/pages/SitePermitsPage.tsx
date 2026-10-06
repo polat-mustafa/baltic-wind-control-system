@@ -9,16 +9,19 @@
 
 import { lazy, Suspense, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, ArrowRight, CheckCircle2, MapPinned, RotateCcw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Gavel, MapPinned, OctagonX, RotateCcw } from "lucide-react";
 
 import { cn } from "../lib/utils";
 import { useSiteStore } from "../store/siteStore";
 import { Button } from "../components/ui/Button";
+import { InfoButton } from "../components/ui/InfoButton";
 import { Skeleton } from "../components/ui/Skeleton";
 import SiteReport from "../components/site/SiteReport";
 import { EnvironmentStage, InvestigationStage, PermitStage, WatchOut } from "../components/site/Stages";
 import DocumentsStage from "../components/site/Documents";
-import { STAGES, decide, type StageId } from "../components/site/journey";
+import DataSources, { ScreeningDisclaimer } from "../components/site/DataSources";
+import { OUTCOME_LABEL, STAGES, decide, type Decision, type StageId } from "../components/site/journey";
+import type { CriterionCard } from "../services/siteApi";
 
 // Leaflet map only when the page opens
 const ScreeningMap = lazy(() => import("../components/site/ScreeningMap"));
@@ -60,7 +63,28 @@ function Stepper() {
   );
 }
 
+/** Provenance of a screening criterion (API model card) behind an info button. */
+function CriterionInfo({ card }: { card: CriterionCard | undefined }) {
+  if (!card) return null;
+  return (
+    <InfoButton
+      className="h-5 w-5 shrink-0"
+      info={{
+        title: card.label,
+        description: card.provenance,
+        parameters: [
+          { name: "default", description: `${String(card.default)}${card.unit ? ` ${card.unit}` : ""}` },
+          { name: "kind", description: card.kind },
+        ],
+        interpretation: card.note || undefined,
+      }}
+    />
+  );
+}
+
 function CriteriaPanel() {
+  const cards = useSiteStore((s) => s.layers?.criteria);
+  const cardByKey: Record<string, CriterionCard> = Object.fromEntries((cards ?? []).map((c) => [c.key, c]));
   const criteria = useSiteStore((s) => s.criteria);
   const setCriteria = useSiteStore((s) => s.setCriteria);
   const suitability = useSiteStore((s) => s.suitability);
@@ -79,21 +103,26 @@ function CriteriaPanel() {
     <div className="space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Screening criteria</h3>
       {toggles.map((t) => (
-        <label key={t.key} className="flex cursor-pointer items-start gap-2 text-[12px]">
-          <input
-            type="checkbox"
-            className="mt-0.5 accent-accent"
-            checked={criteria[t.key] ?? true}
-            onChange={(e) => setCriteria({ [t.key]: e.target.checked })}
-          />
-          <span>
-            <span className="text-text-primary">{t.label}</span>
-            <span className="block text-[10px] text-text-muted">{t.note}</span>
-          </span>
-        </label>
+        <div key={t.key} className="flex items-start justify-between gap-1">
+          <label className="flex cursor-pointer items-start gap-2 text-[12px]">
+            <input
+              type="checkbox"
+              className="mt-0.5 accent-accent"
+              checked={criteria[t.key] ?? true}
+              onChange={(e) => setCriteria({ [t.key]: e.target.checked })}
+            />
+            <span>
+              <span className="text-text-primary">{t.label}</span>
+              <span className="block text-[10px] text-text-muted">{t.note}</span>
+            </span>
+          </label>
+          <CriterionInfo card={cardByKey[t.key]} />
+        </div>
       ))}
       <label className="flex items-center justify-between gap-2 text-[12px] text-text-primary">
-        Cable buffer
+        <span className="flex items-center gap-1">
+          Cable buffer <CriterionInfo card={cardByKey.cable_buffer_km} />
+        </span>
         <select
           value={criteria.cable_buffer_km ?? 0.5}
           onChange={(e) => setCriteria({ cable_buffer_km: Number(e.target.value) })}
@@ -117,6 +146,41 @@ function CriteriaPanel() {
   );
 }
 
+const OUTLOOK_STYLE: Record<Decision["outcome"], { cls: string; Icon: typeof Gavel }> = {
+  refused: { cls: "border-status-alarm/50 bg-status-alarm/10 text-status-alarm", Icon: OctagonX },
+  more_information: { cls: "border-status-warning/50 bg-status-warning/10 text-status-warning", Icon: AlertTriangle },
+  approved_with_conditions: { cls: "border-status-normal/50 bg-status-normal/10 text-status-normal", Icon: Gavel },
+  approved: { cls: "border-status-normal/50 bg-status-normal/10 text-status-normal", Icon: CheckCircle2 },
+};
+
+const OUTLOOK_NOTE: Record<Decision["outcome"], string> = {
+  refused:
+    "You can still walk through the next stages to learn the procedure, but a real project could not take this site on to layout: redraw it clear of the failed checks.",
+  more_information: "Essential data are missing, so the authority would ask for more before deciding.",
+  approved_with_conditions: "No blocking issue; the points marked “Check” would become permit conditions.",
+  approved: "No blocking issue in this screening.",
+};
+
+/** What the permit authority would make of the screened site (simulation). */
+function PermitOutlook({ decision }: { decision: Decision }) {
+  const st = OUTLOOK_STYLE[decision.outcome];
+  return (
+    <div className={cn("rounded-lg border p-3", st.cls)} role="status" data-tour="site-outlook">
+      <h3 className="flex items-center gap-1.5 text-[13px] font-semibold">
+        <st.Icon size={14} aria-hidden /> Permit outlook: {OUTCOME_LABEL[decision.outcome]}
+      </h3>
+      {decision.reasons.length > 0 && (
+        <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-[12px] text-text-secondary">
+          {decision.reasons.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-1.5 text-[12px] text-text-secondary">{OUTLOOK_NOTE[decision.outcome]}</p>
+    </div>
+  );
+}
+
 function ScreeningStage() {
   const report = useSiteStore((s) => s.report);
   const complete = useSiteStore((s) => s.completeStage);
@@ -129,15 +193,15 @@ function ScreeningStage() {
           <ScreeningMap />
         </Suspense>
         <WatchOut text="Green means the open data raise no exclusion here, not that a permit is certain: fisheries, radar, aviation and cultural heritage are not in this screening." />
+        <ScreeningDisclaimer />
       </div>
       <div className="space-y-3">
         <CriteriaPanel />
+        {report && <PermitOutlook decision={decision} />}
         <SiteReport />
+        <DataSources />
         {report && (
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {decision.outcome === "refused" && (
-              <span className="text-[11px] text-status-alarm">This site would be refused; you can continue to see why.</span>
-            )}
             <Button
               size="sm"
               onClick={() => {

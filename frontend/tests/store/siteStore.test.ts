@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as api from "../../src/services/siteApi";
-import { CASE_STUDY_SITE, useSiteStore } from "../../src/store/siteStore";
+import { CASE_STUDY_SITE, reportSignature, useSiteStore } from "../../src/store/siteStore";
 import { report } from "../components/site/fixtures";
 
 vi.mock("../../src/services/siteApi");
@@ -17,7 +17,17 @@ beforeEach(() => {
   localStorage.clear();
   mockApi.postAssess.mockResolvedValue(report());
   mockApi.postSuitability.mockResolvedValue({ class_areas: [] } as unknown as api.SuitabilityResponse);
-  useSiteStore.setState({ site: null, report: null, drawing: null, stage: "screening", done: [], criteria: {}, error: null });
+  useSiteStore.setState({
+    site: null,
+    report: null,
+    reportFor: null,
+    drawing: null,
+    stage: "screening",
+    done: [],
+    criteria: {},
+    error: null,
+    assessError: null,
+  });
 });
 
 describe("drawing", () => {
@@ -70,11 +80,28 @@ describe("site and stages", () => {
     expect(mockApi.postAssess).toHaveBeenCalledWith(CASE_STUDY_SITE, { exclude_protected: false });
   });
 
-  it("reports API errors", async () => {
+  it("reports assessment errors without a global error", async () => {
     mockApi.postAssess.mockRejectedValue(new Error("backend down"));
     await s().setSite(CASE_STUDY_SITE);
-    expect(s().error).toBe("backend down");
+    expect(s().assessError).toBe("backend down");
+    expect(s().error).toBeNull();
     expect(s().report).toBeNull();
+  });
+
+  it("keeps the last good report when an update fails, and retries", async () => {
+    await s().setSite(CASE_STUDY_SITE);
+    const good = s().report;
+    expect(s().reportFor).toBe(reportSignature(CASE_STUDY_SITE, {}));
+    mockApi.postAssess.mockRejectedValueOnce(new Error("timeout"));
+    s().setCriteria({ exclude_protected: false });
+    await vi.waitFor(() => expect(s().assessing).toBe(false));
+    expect(s().report).toBe(good);
+    expect(s().assessError).toBe("timeout");
+    // the kept report belongs to the old criteria: out of date
+    expect(s().reportFor).not.toBe(reportSignature(s().site, s().criteria));
+    await s().assess();
+    expect(s().assessError).toBeNull();
+    expect(s().reportFor).toBe(reportSignature(CASE_STUDY_SITE, { exclude_protected: false }));
   });
 
   it("drops an assessment overtaken by a newer one", async () => {

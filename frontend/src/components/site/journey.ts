@@ -40,11 +40,12 @@ export const STAGES: Stage[] = [
 
 export type ActorId = "engineer" | "technician" | "official" | "consultant" | "fisher";
 
+/** Cast: three women (Ada, Ms Nowicka, Dr Karin Lind) and two men (Tomek, Marek). */
 export const ACTORS: Record<ActorId, { name: string; role: string }> = {
   engineer: { name: "Ada", role: "Project engineer (developer)" },
   technician: { name: "Tomek", role: "Survey technician" },
   official: { name: "Ms Nowicka", role: "Permitting authority (single contact point)" },
-  consultant: { name: "Dr Lind", role: "Environmental consultant" },
+  consultant: { name: "Dr Karin Lind", role: "Environmental consultant" },
   fisher: { name: "Marek", role: "Fisheries representative" },
 };
 

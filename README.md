@@ -190,7 +190,7 @@ The platform is split into **five sequential projects (P1 → P5)** plus **fifte
 <details>
 <summary><b>P5 — Commissioning Simulation</b></summary>
 
-- 30-step switching programme with interlock validation
+- 60-step circuit 1 energisation programme: topology interlocks, load-flow-verified steps, EN 50110-1 isolation locks
 - **Lock-Out / Tag-Out (LOTO)** procedures
 - Factory and Site Acceptance Testing (**FAT / SAT**) tracking
 - Emergency response simulation with anomaly injection
@@ -221,7 +221,7 @@ graph TB
         P2["<b>P2 · HV Grid</b><br/>Pandapower · ANDES<br/>IEC 60909 · FRT<br/>PPC · BESS · DTS"]
         P3["<b>P3 · SCADA</b><br/>IEC 61850 · GOOSE<br/>OPC-UA · Bay Controller<br/>IEC 62443 · CMS"]
         P4["<b>P4 · Forecasting</b><br/>XGBoost · LSTM · TFT<br/>Ensemble · SHAP<br/>Revenue impact"]
-        P5["<b>P5 · Commissioning</b><br/>30-step switching<br/>LOTO · FAT/SAT<br/>Emergency response"]
+        P5["<b>P5 · Commissioning</b><br/>Circuit 1 energisation<br/>Isolation · FAT/SAT<br/>EON / ION / FON"]
     end
 
     subgraph "Frontend"

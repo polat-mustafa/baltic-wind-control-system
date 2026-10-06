@@ -5,7 +5,6 @@ All ORM models are imported here for Alembic auto-detection.
 """
 
 from app.models.alarm import Alarm, AlarmEvent, AlarmFloodEvent
-from app.models.commissioning import CommissioningEvent, SwitchingProgrammeRecord
 from app.models.forecast import ForecastResult
 from app.models.grid import GridNetwork, LoadFlowResult, ShortCircuitResult
 from app.models.programme import (
@@ -28,7 +27,6 @@ __all__ = [
     "Alarm",
     "AlarmEvent",
     "AlarmFloodEvent",
-    "CommissioningEvent",
     "FATCampaignModel",
     "ForecastResult",
     "GOOSEControlBlockRecord",
@@ -43,7 +41,6 @@ __all__ = [
     "SOEEvent",
     "ShortCircuitResult",
     "SwitchingProgrammeModel",
-    "SwitchingProgrammeRecord",
     "TurbinePosition",
     "WindFarm",
     "WindResource",

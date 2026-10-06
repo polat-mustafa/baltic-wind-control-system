@@ -244,50 +244,48 @@ export const p4Guide: TrainingGuideData = {
 // ── P5: HV Commissioning ──────────────────────────────────────
 
 export const p5Guide: TrainingGuideData = {
-  title: "P5 · HV Commissioning Simulator",
-  subtitle: "30-step switching programme with LOTO, SAT, and Grid Code compliance",
+  title: "P5 · Commissioning",
+  subtitle: "First energisation of export circuit 1 — isolation, acceptance tests, grid-code notification",
   purpose:
-    "This simulator walks through the complete HV commissioning process for the " +
-    "offshore substation — from first energization to grid code compliance testing. " +
-    "It includes a 30-step switching programme, Lock-Out Tag-Out (LOTO) safety system, " +
-    "Factory/Site Acceptance Testing (FAT/SAT), anomaly injection, and emergency response procedures.",
+    "Commission export circuit 1 of the 510 MW farm the way it is done on site: the plant " +
+    "starts dead, earthed and locked; factory and site acceptance tests are passed; PSE " +
+    "issues the energisation notification; a Person in Control then energises cable 1, the " +
+    "OSS 220 kV busbar, TX-OSS-01 and strings 1–3 step by step. Every switching operation " +
+    "passes topology-based interlocks, and every verification is evaluated on a load flow " +
+    "of the network that is actually live.",
   howToUse: [
-    "Enter a Person-in-Charge (PiC) name and click 'Create' to generate a new 30-step switching programme.",
-    "Click 'Start' on a created programme to begin the commissioning sequence.",
-    "Once inside the dashboard, the left panel shows the equipment state diagram (SLD) and switching steps.",
-    "Use the PiC Decision Panel (right side) to approve, reject, or add comments to each step.",
-    "Review the LOTO Tracker to verify isolation points are locked before work begins.",
-    "Check the FAT/SAT Tracker for test completion status.",
-    "Use the Anomaly Injection panel to simulate unexpected events (e.g., protection trip during energization).",
-    "The Emergency Response panel provides procedures for emergency shutdown.",
-    "The Grid Code Compliance panel verifies all PSE requirements are met before commercial operation.",
+    "Create a programme with the Person in Control's name and open it.",
+    "FAT / SAT tab: open one FAT campaign per equipment class (transformer, 220 kV GIS, protection panel), record the results and approve; then open, record and approve the SAT of circuit 1. 'Fill typical values' records realistic passing values for a quick run.",
+    "Grid code tab: open the compliance campaign, make the EON items compliant, submit to PSE and let PSE issue it.",
+    "Switching tab: approve & start, then execute the steps in order. Watch the diagram and the network readings change after each switching step.",
+    "At a hold point the Person in Control decides GO or NO-GO. Before the turbines are released the ION must be issued (Grid code tab).",
+    "Try a mistake: re-apply a lock in the Isolation tab and execute the switching step — interlock ILK-004 refuses it and the audit trail records why.",
+    "Emergency tab: an internal arc trips every breaker; a communication loss suspends switching until the PiC resumes.",
+    "When the programme is complete, finish the FON items and submit the FON.",
   ],
   sections: [
-    { name: "Equipment State Diagram", description: "XYFlow-based SLD showing equipment transitioning through states: isolated (gray) → earthed (cyan) → de-energized (amber) → energized (green). Updates as switching steps execute." },
-    { name: "Switching Programme Viewer", description: "30-step sequential procedure. Each step has: action description, interlocks (pre-conditions), PiC authorization, and timestamp. Steps cannot be skipped." },
-    { name: "PiC Decision Panel", description: "The Person-in-Charge approves or rejects each step with mandatory comments. This is the safety gate — no step executes without PiC authorization." },
-    { name: "LOTO Tracker", description: "Lock-Out Tag-Out system. Each isolation point must be locked (physical padlock) and tagged (warning label) before work begins. Verify = test de-energization." },
-    { name: "Audit Trail", description: "Immutable log of all commissioning actions with timestamps, operator identity, and authorization details. Required for SAT sign-off and regulatory compliance." },
-    { name: "FAT/SAT Tracker", description: "Factory Acceptance Test (at manufacturer) and Site Acceptance Test (on-site) completion status for each piece of equipment." },
-    { name: "Anomaly Injection", description: "Simulate unexpected events during commissioning: protection trip, communication failure, earthing fault. Tests operator response to abnormal situations." },
-    { name: "Emergency Response", description: "Emergency shutdown procedures: emergency stop sequence, evacuation protocol, and incident reporting workflow." },
-    { name: "Grid Code Compliance", description: "Automated verification of PSE IRiESP + ENTSO-E NC RfG Type D requirements: FRT, frequency response, reactive power, power quality." },
+    { name: "Switching", description: "Single-line diagram coloured by the backend's zone analysis (live / earthed / isolated), the current step with its controls, load-flow readings and the 60 steps in six phases." },
+    { name: "Isolation", description: "EN 50110-1 register: disconnectors locked open, earth switches locked closed, each with a danger tag. Only the PiC removes a lock." },
+    { name: "FAT / SAT", description: "Routine tests per equipment class with IEC 60076-1 / IEC 62271 / IEC 60255 limits; site tests of circuit 1 after installation." },
+    { name: "Grid code", description: "NC RfG EON → ION → FON for an onshore type D power park module (connection point PSE 400 kV): documents, compliance tests (Art. 47–48), simulations (Art. 54–56)." },
+    { name: "Emergency", description: "Six procedures; electrical hazards trip circuit 1, the others suspend switching." },
+    { name: "Audit trail", description: "Every action, decision and refused step with time, person and reason." },
   ],
   standards: [
-    { label: "BS 6626 — Maintenance of electrical switchgear and controlgear" },
+    { label: "EN 50110-1:2013 — Operation of electrical installations" },
+    { label: "IEC 61936-1:2021 — Power installations exceeding 1 kV AC" },
+    { label: "IEC 60076-1:2011 / -3:2013 — Power transformers (tolerances, dielectric tests)" },
+    { label: "IEC 62067:2022 — Extruded cables above 150 kV (after-installation tests)" },
+    { label: "IEC 62271-203 — Gas-insulated metal-enclosed switchgear" },
     { label: "DNV-ST-0145 — Offshore substations" },
-    { label: "OSHA 29 CFR 1910.147 — Control of hazardous energy (LOTO)", url: "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.147" },
-    { label: "IEC 62271-200 — AC metal-enclosed switchgear", url: "https://en.wikipedia.org/wiki/Switchgear" },
-    { label: "PSE IRiESP — Polish transmission grid operating manual", url: "https://www.pse.pl/en/transmission-system-operator/regulatory-framework/iriesp" },
-    { label: "ENTSO-E NC RfG Type D — Requirements for generators (EU Reg. 2016/631)", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0631" },
+    { label: "Regulation (EU) 2016/631 — NC RfG", url: "https://eur-lex.europa.eu/eli/reg/2016/631/oj" },
   ],
   learningObjectives: [
-    "Execute a 30-step HV switching programme safely and sequentially.",
-    "Apply LOTO procedures for hazardous energy isolation.",
-    "Understand the PiC (Person-in-Charge) authorization workflow.",
-    "Distinguish FAT and SAT testing phases in commissioning.",
-    "Respond to anomalies during HV equipment energization.",
-    "Verify grid code compliance before commercial operation.",
+    "Explain why a cable earthed at its far end must block energisation from the near end, and how a topology interlock catches it.",
+    "Apply the EN 50110-1 safety measures with isolation locks and release them in a controlled order.",
+    "Estimate cable charging current and Ferranti rise and check them against the load flow.",
+    "Relate FAT and SAT acceptance limits to the governing IEC tolerances.",
+    "Describe what the EON, ION and FON each permit under NC RfG and which tests lead to the FON.",
   ],
 };
 

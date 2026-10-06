@@ -11,17 +11,24 @@ from app.core.exceptions import NotFoundError
 from app.core.exceptions import ValidationError as DomainValidationError
 from app.db import get_session
 from app.schemas.commissioning import LOTOActionRequest, LOTOPointSchema, LOTOSetSchema
+from app.services.p5.equipment_state import OSS_EQUIPMENT
 from app.services.p5.loto import LOTOSet, LOTOStatus, apply_loto, remove_loto
 from app.services.p5.programme_repository import ProgrammeRepository
 from app.services.p5.switching_programme import SwitchingProgramme, add_audit
 
 router = APIRouter()
 
+# Register order = plant order (onshore → OSS → strings); JSONB does not keep key order
+_ORDER = {eq.equipment_id: i for i, eq in enumerate(OSS_EQUIPMENT)}
+
 
 def _schema(loto: LOTOSet) -> LOTOSetSchema:
     return LOTOSetSchema(
         programme_id=loto.programme_id,
-        points=[LOTOPointSchema(**asdict(p)) for p in loto.points.values()],
+        points=[
+            LOTOPointSchema(**asdict(p))
+            for p in sorted(loto.points.values(), key=lambda p: _ORDER.get(p.equipment_id, 999))
+        ],
         applied_count=sum(p.status == LOTOStatus.APPLIED for p in loto.points.values()),
     )
 

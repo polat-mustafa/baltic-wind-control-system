@@ -520,7 +520,7 @@ Each layer captures a specific type of error: Router (404/422), Service (409 sta
 
 **Where these concepts will be used in the future:**
 
-- **RBAC permission matrix** → 30-step switching program in P5 Commissioning will require RBAC control at each step
+- **RBAC permission matrix** → switching programme in P5 Commissioning will require RBAC control at each step
 - **PtW state machine** → Real LOTO procedures in P5 will combine this state machine with breaker open/close commands
 - **Audit trail** In the → P3 HMI design (next step), we will show the audit trail in a visual timeline
 - **Security zones** → In the P3 network topology diagram, we will model the data flow between zones

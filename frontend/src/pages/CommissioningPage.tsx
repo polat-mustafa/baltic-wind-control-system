@@ -1,180 +1,242 @@
 /**
- * Commissioning page — route /commissioning.
+ * P5 Commissioning page — route /commissioning.
  *
- * Loads the programme list on mount. If no programmes exist, shows a
- * "Create Programme" form. Once a programme is selected, renders the
- * full CommissioningDashboard.
+ * Without an open programme: create one (Person in Control) or open an
+ * existing one. With a programme open: status strip (progress and the
+ * FAT → SAT → EON → ION → FON gates) and six tabs sharing one store.
  */
 
 import { useEffect, useState } from "react";
-import { Play, FolderOpen, Trash2 } from "lucide-react";
+import { ArrowLeft, ClipboardList, FlaskConical, Landmark, Lock, ScrollText, Siren, Trash2, Zap } from "lucide-react";
 
-import CommissioningDashboard from "../components/p5/CommissioningDashboard";
-import { useCommissioningStore } from "../store/commissioningStore";
 import { Button } from "../components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
-import { Badge } from "../components/ui/Badge";
+import { cn } from "../lib/utils";
 import { p5Guide } from "../constants/trainingGuideContent";
+import { useCommissioningStore } from "../store/commissioningStore";
+import type { ProgrammeDetail, ProgrammeStatus } from "../types/commissioning";
+import SwitchingTab, { type P5Tab } from "../components/p5/SwitchingTab";
+import IsolationTab from "../components/p5/IsolationTab";
+import TestingTab from "../components/p5/TestingTab";
+import GridCodeTab from "../components/p5/GridCodeTab";
+import EmergencyTab from "../components/p5/EmergencyTab";
+import AuditTrail from "../components/p5/AuditTrail";
+
+const TABS: { id: P5Tab; label: string; Icon: React.FC<{ size?: number }> }[] = [
+  { id: "switching", label: "Switching", Icon: Zap },
+  { id: "isolation", label: "Isolation", Icon: Lock },
+  { id: "testing", label: "FAT / SAT", Icon: FlaskConical },
+  { id: "gridcode", label: "Grid code", Icon: Landmark },
+  { id: "emergency", label: "Emergency", Icon: Siren },
+  { id: "audit", label: "Audit trail", Icon: ScrollText },
+];
+
+const STATUS_STYLE: Record<ProgrammeStatus, string> = {
+  created: "bg-bg-tertiary text-text-secondary",
+  approved: "bg-bg-tertiary text-text-secondary",
+  in_progress: "bg-accent/15 text-accent",
+  hold: "bg-status-warning/15 text-status-warning",
+  suspended: "bg-status-warning/15 text-status-warning",
+  completed: "bg-status-normal/15 text-status-normal",
+  aborted: "bg-status-alarm/15 text-status-alarm",
+};
+
+function StatusChip({ status }: { status: ProgrammeStatus }) {
+  return (
+    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide", STATUS_STYLE[status])}>
+      {status.replace("_", " ")}
+    </span>
+  );
+}
+
+function Gate({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
+  return (
+    <span
+      title={detail}
+      className={cn(
+        "flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px]",
+        ok ? "border-status-normal/40 text-status-normal" : "border-border-primary text-text-muted",
+      )}
+    >
+      <span className={cn("h-1.5 w-1.5 rounded-full", ok ? "bg-status-normal" : "bg-text-muted")} />
+      {label}
+    </span>
+  );
+}
+
+function StatusStrip({ programme }: { programme: ProgrammeDetail }) {
+  const { fat, sat, compliance, closeProgramme } = useCommissioningStore();
+  const classes = new Set(fat.filter((f) => f.status === "approved").map((f) => f.equipment_class));
+  const issued = (s: "eon" | "ion" | "fon") => compliance?.stages[s].status === "issued";
+  const pct = (programme.completed_steps / programme.total_steps) * 100;
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+        <Button variant="ghost" size="sm" onClick={closeProgramme}>
+          <ArrowLeft size={12} /> Programmes
+        </Button>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs text-text-primary">{programme.programme_id}</span>
+            <StatusChip status={programme.status} />
+          </div>
+          <div className="text-[11px] text-text-muted">Person in Control: {programme.pic_name}</div>
+        </div>
+        <div className="flex min-w-40 flex-1 items-center gap-2">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+            <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="font-mono text-[11px] text-text-muted">{programme.completed_steps}/{programme.total_steps}</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Gate label={`FAT ${classes.size}/3`} ok={classes.size === 3} detail="Approved FAT per equipment class" />
+          <Gate label="SAT" ok={sat?.status === "approved"} detail="Site acceptance tests of circuit 1" />
+          <Gate label="EON" ok={issued("eon")} detail="Energisation operational notification (NC RfG Art. 34)" />
+          <Gate label="ION" ok={issued("ion")} detail="Interim operational notification (Art. 35)" />
+          <Gate label="FON" ok={issued("fon")} detail="Final operational notification (Art. 36)" />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ProgrammeList() {
+  const { programmes, busy, createProgramme, openProgramme, deleteProgramme } = useCommissioningStore();
+  const [pic, setPic] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <Card>
+        <CardHeader>
+          <CardTitle>New programme</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-text-secondary">
+          <p>
+            First energisation of export circuit 1: cable 1 from shore, the OSS 220 kV busbar
+            with reactor 1 and the STATCOM, TX-OSS-01, 66 kV section A and strings 1–3
+            (18 × 15 MW = 270 MW). Circuit 2 stays isolated and earthed.
+          </p>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pic.trim()) void createProgramme(pic.trim());
+            }}
+          >
+            <input
+              value={pic}
+              onChange={(e) => setPic(e.target.value)}
+              placeholder="Person in Control (name)"
+              aria-label="Person in Control"
+              className="min-w-0 flex-1 rounded-md border border-border-secondary bg-bg-tertiary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <Button type="submit" disabled={busy || !pic.trim()}>Create</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Programmes</CardTitle>
+          <span className="text-xs text-text-muted">{programmes.length}</span>
+        </CardHeader>
+        <CardContent className="p-0" data-e2e-mask>
+          {programmes.length === 0 ? (
+            <p className="px-5 py-4 text-xs text-text-muted">No programmes yet.</p>
+          ) : (
+            <ul>
+              {programmes.map((p) => (
+                <li key={p.programme_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border-primary/50 px-5 py-2.5 first:border-t-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-text-primary">{p.programme_id}</span>
+                      <StatusChip status={p.status} />
+                    </div>
+                    <div className="text-[11px] text-text-muted">
+                      PiC {p.pic_name} · {p.completed_steps}/{p.total_steps} steps · {new Date(p.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="secondary" onClick={() => openProgramme(p.programme_id)}>
+                    <ClipboardList size={12} /> Open
+                  </Button>
+                  {confirmDelete === p.programme_id ? (
+                    <>
+                      <Button size="sm" className="bg-status-alarm hover:bg-status-alarm/90" onClick={() => { void deleteProgramme(p.programme_id); setConfirmDelete(null); }}>
+                        Delete
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>Keep</Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="ghost" aria-label={`Delete ${p.programme_id}`} onClick={() => setConfirmDelete(p.programme_id)}>
+                      <Trash2 size={12} />
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export default function CommissioningPage() {
-  const {
-    programmes,
-    activeProgramme,
-    error,
-    loading,
-    fetchProgrammes,
-    createProgramme,
-    deleteProgramme,
-    selectProgramme,
-    startProgramme,
-    clearError,
-  } = useCommissioningStore();
-
-  const [picName, setPicName] = useState("");
+  const { active, error, fetchProgrammes, clearError } = useCommissioningStore();
+  const [tab, setTab] = useState<P5Tab>("switching");
 
   useEffect(() => {
-    fetchProgrammes();
+    void fetchProgrammes();
   }, [fetchProgrammes]);
 
-  if (activeProgramme) {
-    return <CommissioningDashboard />;
-  }
-
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-        <div>
-          <h2 className="text-xl font-semibold text-text-primary">
-            P5 · HV Commissioning Simulator
-          </h2>
-          <p className="text-xs text-text-muted mt-1 font-mono">
-            30-step switching programme · LOTO isolation · SAT verification
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-text-primary">P5 · Commissioning</h2>
+          <p className="mt-1 font-mono text-xs text-text-muted">
+            Circuit 1 first energisation · isolation (EN 50110-1) · FAT / SAT · EON → ION → FON (NC RfG)
           </p>
         </div>
         <TrainingGuide guide={p5Guide} />
       </div>
 
-      {/* Error banner */}
       {error && (
-        <div className="p-3 bg-status-alarm/10 border border-status-alarm/30 rounded-lg text-sm flex justify-between items-center">
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-status-alarm/30 bg-status-alarm/10 p-3 text-sm">
           <span className="text-status-alarm">{error}</span>
-          <Button variant="ghost" size="sm" onClick={clearError}>
-            Dismiss
-          </Button>
+          <Button variant="ghost" size="sm" onClick={clearError}>Dismiss</Button>
         </div>
       )}
 
-      {/* Create programme form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Create Switching Programme</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-text-secondary mb-4">
-            Create a 30-step OSS first energisation programme. Enter the Person in
-            Control (PiC) name to begin.
-          </p>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!picName.trim()) return;
-              await createProgramme(picName.trim());
-              setPicName("");
-            }}
-            className="flex gap-3"
-          >
-            <input
-              type="text"
-              value={picName}
-              onChange={(e) => setPicName(e.target.value)}
-              placeholder="PiC name (e.g. Jan Kowalski)"
-              className="flex-1 px-3 py-2 bg-bg-tertiary border border-border-secondary rounded-md text-text-primary placeholder-text-muted text-sm focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-            <Button
-              type="submit"
-              disabled={loading || !picName.trim()}
-            >
-              {loading ? "Creating..." : "Create"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Programme list */}
-      {programmes.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Existing Programmes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {programmes.map((prog) => (
-                <div
-                  key={prog.programme_id}
-                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 p-3 rounded-md border border-border-primary bg-bg-tertiary hover:border-border-secondary transition-colors"
-                >
-                  <div className="min-w-0 max-w-full">
-                    <div className="text-sm font-medium text-text-primary truncate">
-                      {prog.title}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-                      <span className="text-xs text-text-muted">
-                        PiC: {prog.pic_name}
-                      </span>
-                      <Badge
-                        variant={
-                          prog.status === "completed"
-                            ? "normal"
-                            : prog.status === "in_progress"
-                              ? "info"
-                              : "neutral"
-                        }
-                      >
-                        {prog.status}
-                      </Badge>
-                      <span className="text-xs text-text-muted font-mono">
-                        {prog.completed_steps}/{prog.total_steps}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    {prog.status === "created" && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => startProgramme(prog.programme_id)}
-                      >
-                        <Play size={12} />
-                        Start
-                      </Button>
-                    )}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => selectProgramme(prog.programme_id)}
-                    >
-                      <FolderOpen size={12} />
-                      Open
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        if (confirm(`Delete programme "${prog.title}"?`)) {
-                          deleteProgramme(prog.programme_id);
-                        }
-                      }}
-                      className="!text-status-alarm hover:!bg-status-alarm/10 !border-status-alarm/30"
-                    >
-                      <Trash2 size={12} />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {!active ? (
+        <ProgrammeList />
+      ) : (
+        <>
+          <StatusStrip programme={active} />
+          <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-border-primary bg-bg-secondary p-1">
+            {TABS.map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors",
+                  tab === id ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary",
+                )}
+              >
+                <Icon size={12} />
+                {label}
+              </button>
+            ))}
+          </div>
+          {tab === "switching" && <SwitchingTab programme={active} onGoto={setTab} />}
+          {tab === "isolation" && <IsolationTab programme={active} />}
+          {tab === "testing" && <TestingTab />}
+          {tab === "gridcode" && <GridCodeTab programme={active} />}
+          {tab === "emergency" && <EmergencyTab programme={active} />}
+          {tab === "audit" && <AuditTrail programme={active} />}
+        </>
       )}
     </div>
   );

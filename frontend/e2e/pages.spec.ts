@@ -68,6 +68,7 @@ for (const [name, path] of ROUTES) {
           page.locator("header"),
           page.locator(".leaflet-container"),
           page.locator("[class*='tabular-nums'], .font-mono"),
+          page.locator("[data-e2e-mask]"), // database-backed lists
         ],
       });
     });

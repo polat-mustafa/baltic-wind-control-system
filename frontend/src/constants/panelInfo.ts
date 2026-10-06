@@ -317,82 +317,128 @@ export const revenueImpactInfo: InfoContent = {
 
 // ── P5 Commissioning ──
 
-export const switchingProgrammeInfo: InfoContent = {
-  title: "Switching Programme — 30-Step HV Energization",
+export const p5SldInfo: InfoContent = {
+  title: "Circuit 1 single-line diagram",
   description:
-    "Step-by-step procedure for safely energizing HV equipment during commissioning. " +
-    "Each step requires Person-In-Charge approval and interlock verification.",
-  standard: "BS 6626 + DNV-ST-0145 — Offshore substations commissioning",
+    "Export circuit 1 from the live onshore 220 kV busbar to strings 1–3. Colours come from " +
+    "the backend's zone analysis: a conductor is live (voltage colour), earthed (magenta) or " +
+    "isolated (grey). Breakers are squares (filled = closed); disconnectors and earth " +
+    "switches are blades (in line = closed). A padlock marks an isolation lock; the pulsing " +
+    "frame marks the device of the current step.",
+  standard: "IEC 60617 (symbols), ISA-101 (HMI colours)",
+  interpretation:
+    "Devices are operated only through the programme, so every operation passes the " +
+    "interlocks. Section B (TX-OSS-02, strings 4–6) stays earthed: it belongs to the circuit 2 " +
+    "programme.",
+};
+
+export const p5StepInfo: InfoContent = {
+  title: "Current step",
+  description:
+    "Steps run strictly in order. Checks and declarations are confirmed by the Person in " +
+    "Control (PiC); isolation steps remove a safety lock; switching steps operate one device " +
+    "through the interlocks; verification steps are evaluated on the load flow of the live " +
+    "network; gates read the SAT and PSE notification status; at a hold point the PiC " +
+    "decides GO or NO-GO.",
   parameters: [
-    { name: "Steps", description: "30 sequential switching operations" },
-    { name: "PIC", description: "Person In Charge — authorizes each step" },
-    { name: "Interlocks", description: "Safety checks before each operation" },
+    { name: "ILK-001", description: "No closing that would connect a live section to an earth (also the earth at the far end of the cable)" },
+    { name: "ILK-002", description: "No earthing of a live section" },
+    { name: "ILK-003", description: "Disconnectors only off-load (series breaker open)" },
+    { name: "ILK-004", description: "A device under an isolation lock cannot be operated" },
+    { name: "ILK-005", description: "Turbines can only be released onto an energised string" },
   ],
   interpretation:
-    "Green steps = completed. Current step = highlighted. " +
-    "Steps cannot be skipped — each depends on the previous one.",
+    "A refused step stays pending and is logged with the interlock or check that stopped it; " +
+    "clear the cause and execute it again. Emergency trip opens every closed breaker.",
 };
 
-export const equipmentSldInfo: InfoContent = {
-  title: "Equipment SLD — Commissioning State Diagram",
+export const p5NetworkInfo: InfoContent = {
+  title: "Network readings",
   description:
-    "Shows the current energization state of all HV equipment during commissioning. " +
-    "Equipment transitions through: isolated → earthed → de-energized → energized.",
-  standard: "IEC 62271-200 — AC metal-enclosed switchgear",
+    "Steady-state load flow (pandapower) of whatever is live after the last step, built from " +
+    "the P2 network data: 2 × 300 MVA onshore transformers, 45 km 1000 mm² cable (190 nF/km), " +
+    "80 Mvar reactor, ±120 Mvar STATCOM at 1.00 pu, TX-OSS-01 (vk 12.5 %, i0 0.05 %), graded " +
+    "66 kV array cables.",
+  parameters: [
+    { name: "Charging", description: "Q = ωCU²l ≈ 130 Mvar at 220 kV → ≈ 341 A per phase at 1 pu, with no load" },
+    { name: "Ferranti", description: "Open end above the sending end by 1/cos(βl) ≈ 1.007 (βl ≈ 0.118 rad)" },
+    { name: "Q sign", description: "Generator convention: + = generating; the reactor reads negative" },
+  ],
   interpretation:
-    "Gray = isolated, cyan = earthed, amber = de-energized, green = energized. " +
-    "Follow the switching programme sequence to energize equipment safely.",
+    "Verification steps use a 0.95–1.05 pu operating band (project); equipment limits are " +
+    "Um = 245 / 72.5 kV. Transients — switching surges and transformer inrush — are not " +
+    "load-flow quantities and are not shown. Released turbines are set to 15 MW each as a " +
+    "loading check; real output follows the wind.",
 };
 
-export const auditTrailInfo: InfoContent = {
-  title: "Audit Trail — Commissioning Event Log",
+export const p5IsolationInfo: InfoContent = {
+  title: "Isolation register",
   description:
-    "Immutable record of all commissioning actions with timestamps, " +
-    "operator identity, and authorization details.",
-  standard: "DNV-ST-0145 — Offshore substations documentation",
+    "While circuit 1 is under construction it is kept dead by the safety measures of " +
+    "EN 50110-1: disconnect, secure against reconnection (disconnectors locked open), verify " +
+    "absence of voltage, earth and short-circuit (earth switches locked closed). Each lock " +
+    "carries a danger tag.",
+  standard: "EN 50110-1:2013 §6.2; IEC 61936-1",
   interpretation:
-    "Every action is logged for regulatory compliance. " +
-    "The audit trail is required for Site Acceptance Test (SAT) sign-off.",
+    "Only the Person in Control may remove a lock — normally through the programme's " +
+    "isolation steps. A lock can be re-applied when its device is back in its secured position.",
 };
 
-export const lotoInfo: InfoContent = {
-  title: "LOTO — Lock-Out Tag-Out Safety System",
+export const p5FatInfo: InfoContent = {
+  title: "Factory acceptance tests",
   description:
-    "Ensures HV equipment is safely isolated before maintenance work begins. " +
-    "Each isolation point must be locked and tagged by authorized personnel.",
-  standard: "OSHA 29 CFR 1910.147 — Control of hazardous energy",
-  parameters: [
-    { name: "Lock", description: "Physical padlock preventing re-energization" },
-    { name: "Tag", description: "Warning label identifying lock owner and reason" },
-    { name: "Verify", description: "Test that equipment is de-energized after isolation" },
-  ],
+    "Routine tests at the manufacturer's works, from the template of the equipment class. " +
+    "Transformer limits are the IEC 60076-1 Table 1 tolerances on the design values: ratio " +
+    "±0.5 %, impedance ±7.5 % (vk ≥ 10 %), each loss +15 %, no-load current +30 %; induced " +
+    "voltage test with PD ≤ 250 pC at 1.58 Ur/√3 (IEC 60076-3).",
+  standard: "IEC 60076-1/-3/-18, IEC 62271-1/-203, IEC 60255-151, IEC 61850-5",
+  interpretation:
+    "Limits marked 'project' are purchase-specification values, not figures from a standard. " +
+    "A failed test can be repeated after repair; a campaign is approved only when every test passes.",
 };
 
-export const protectionSettingsInfo: InfoContent = {
-  title: "Protection Settings — Relay Configuration",
+export const p5SatInfo: InfoContent = {
+  title: "Site acceptance tests — circuit 1",
   description:
-    "Configuration parameters for protective relays (overcurrent, distance, " +
-    "differential) that detect faults and trip circuit breakers.",
-  standard: "IEC 60255 — Measuring relays and protection equipment",
-  parameters: [
-    { name: "Pickup", description: "Current/voltage threshold to start timing" },
-    { name: "Time dial", description: "Delay before tripping (coordination)" },
-    { name: "Curve type", description: "IEC Standard Inverse, Very Inverse, etc." },
-  ],
+    "After installation and before energisation: cables tested in place, the transformer " +
+    "compared with its factory fingerprints (ratio, FRA, DGA), instrument transformers and " +
+    "relays proven by injection, the 87L scheme end-to-end over its channel, GOOSE timing " +
+    "(TT6 ≤ 3 ms), SCADA point by point.",
+  standard: "IEC 60229, IEC 60840, IEC 60076-1/-18, IEC 61869-2/-3, IEC 61850-5, EN 50522",
+  interpretation:
+    "The cable's main-insulation test is done in the programme as IEC 62067's alternative: " +
+    "24 h at U0 = 127 kV. The SAT opens only when every equipment class has an approved FAT.",
 };
 
-export const complianceInfo: InfoContent = {
-  title: "Grid Code Compliance — PSE IRiESP Verification",
+export const p5GridCodeInfo: InfoContent = {
+  title: "Operational notification — EON, ION, FON",
   description:
-    "Automated verification that the wind farm meets all Polish grid code requirements " +
-    "before commercial operation is permitted.",
-  standard: "PSE IRiESP + ENTSO-E NC RfG Type D",
+    "NC RfG (EU) 2016/631. EON (Art. 34): energise the internal network, issued once the " +
+    "protection and control settings are agreed. ION (Art. 35): generate for at most 24 " +
+    "months while the data and study review of Art. 35(3) is completed. FON (Art. 36): " +
+    "normal operation after the compliance tests, with models and studies updated to " +
+    "measured values.",
   parameters: [
-    { name: "FRT", description: "Fault Ride-Through capability" },
-    { name: "Frequency response", description: "Primary frequency regulation" },
-    { name: "Reactive power", description: "Power factor range at PCC" },
-    { name: "Power quality", description: "Harmonics, flicker, voltage steps" },
+    { name: "Classification", description: "Connection point onshore (PSE 400 kV) → onshore type D PPM, Art. 23(1)" },
+    { name: "Tests", description: "Art. 47 + 48(2)–(9): LFSM-O/U, FSM, P control, Q capability, V / Q / PF control" },
+    { name: "Simulations", description: "Art. 54–56: fault-ride-through, fast fault current, post-fault recovery" },
   ],
+  interpretation:
+    "EON is a gate before cable 1 is energised and ION before the turbines are released; " +
+    "FON can only be submitted once the programme is complete. PSE parameters match the P2 studies.",
+};
+
+export const p5EmergencyInfo: InfoContent = {
+  title: "Emergency procedures",
+  description:
+    "Each procedure acts on the programme. TRIP (internal arc, unexpected voltage): every " +
+    "closed breaker and turbine group opens and the programme is aborted. SUSPEND (SF6 loss, " +
+    "communication loss, medical, person overboard): switching stops, the plant stays as it " +
+    "is, and the Person in Control resumes when the cause is cleared.",
+  standard: "EN 50110-1, IEC 62271-4 (SF6 handling), IEC 62271-203, SOLAS Ch. III",
+  interpretation:
+    "IEEE 1584 arc-flash calculations cover 208 V–15 kV only and are not used for the " +
+    "66/220 kV switchgear, whose internal-arc classification limits the hazard instead.",
 };
 
 // ── P2 New Modules ──

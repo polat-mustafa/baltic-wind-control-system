@@ -1,76 +1,62 @@
 /**
- * TypeScript interfaces mirroring backend Pydantic schemas.
- *
- * All field names use snake_case to match the API JSON directly — no
- * transform layer needed. This simplifies debugging: the shape you see
- * in DevTools is the shape you use in code.
- *
- * Source of truth: backend/app/schemas/commissioning.py
+ * P5 commissioning API types — mirror backend/app/schemas/commissioning.py.
  */
-
-// ── Enums (string unions matching backend StrEnum values) ──────
-
-export type EquipmentType =
-  | "circuit_breaker"
-  | "disconnector"
-  | "earth_switch"
-  | "transformer";
-
-export type EquipmentStateValue =
-  | "open"
-  | "closed"
-  | "earthed"
-  | "racked_in"
-  | "racked_out";
 
 export type ProgrammeStatus =
   | "created"
   | "approved"
   | "in_progress"
   | "hold"
+  | "suspended"
   | "completed"
   | "aborted";
 
-export type StepStatus =
-  | "pending"
-  | "in_progress"
-  | "completed"
-  | "skipped"
-  | "hold_point";
-
 export type StepType =
   | "check"
+  | "gate"
+  | "isolation"
   | "switching"
   | "verification"
   | "hold_point"
-  | "communication";
+  | "declaration";
 
-export type LOTOStatus = "not_applied" | "applied" | "removed";
-
-export type TestVerdict = "pass" | "fail" | "not_tested" | "conditional_pass";
-
-export type CampaignStatus = "in_progress" | "completed" | "approved";
-
-export type PiCDecision = "go" | "nogo";
-
-// ── Equipment Schemas ──────────────────────────────────────────
+export type StepStatus = "pending" | "in_progress" | "completed" | "failed";
+export type ZoneStatus = "live" | "earthed" | "dead";
+export type EquipmentType = "circuit_breaker" | "disconnector" | "earth_switch" | "wtg_group";
 
 export interface EquipmentState {
   equipment_id: string;
   equipment_type: EquipmentType;
   voltage_kv: number;
   location: string;
-  state: EquipmentStateValue;
+  state: "open" | "closed";
+  zones: string[];
+  locked: boolean;
 }
 
-export interface InterlockViolation {
-  interlock_id: string;
-  description: string;
-  blocking_equipment: string;
-  blocking_state: string;
+export interface BusReading {
+  name: string;
+  zone: string;
+  vn_kv: number;
+  vm_pu: number;
+  kv: number;
 }
 
-// ── Programme Schemas ──────────────────────────────────────────
+/** Load flow of the live network; reactive power in generator convention (+ = generating). */
+export interface NetworkSnapshot {
+  zones: Record<string, ZoneStatus>;
+  buses: BusReading[];
+  poc_p_mw: number;
+  poc_q_mvar: number;
+  generation_mw: number;
+  cable_i_send_a: number | null;
+  cable_i_recv_a: number | null;
+  cable_loading_pct: number | null;
+  reactor_q_mvar: number | null;
+  statcom_q_mvar: number | null;
+  tx1_i_hv_a: number | null;
+  tx1_loading_pct: number | null;
+}
 
 export interface Step {
   step_id: string;
@@ -86,6 +72,7 @@ export interface Step {
   status: StepStatus;
   executed_at: string | null;
   executed_by: string;
+  reading: string;
 }
 
 export interface ProgrammeSummary {
@@ -99,88 +86,6 @@ export interface ProgrammeSummary {
   created_at: string;
 }
 
-export interface ProgrammeDetail {
-  programme_id: string;
-  title: string;
-  pic_name: string;
-  status: ProgrammeStatus;
-  steps: Step[];
-  current_step_index: number;
-  equipment_states: EquipmentState[];
-  created_at: string;
-}
-
-// ── Execution Schemas ──────────────────────────────────────────
-
-export interface ExecuteStepRequest {
-  executed_by: string;
-  pic_confirmed: boolean;
-}
-
-export interface ExecuteStepResponse {
-  success: boolean;
-  step_id: string;
-  status: string;
-  message: string;
-  programme_status: ProgrammeStatus;
-}
-
-export interface PiCDecisionRequest {
-  pic_name: string;
-  decision: PiCDecision;
-  reason: string;
-}
-
-export interface PiCDecisionResponse {
-  decision: PiCDecision;
-  programme_status: ProgrammeStatus;
-  message: string;
-}
-
-export interface EmergencyStopRequest {
-  initiated_by: string;
-  reason: string;
-}
-
-export interface EmergencyStopResponse {
-  success: boolean;
-  programme_status: ProgrammeStatus;
-  message: string;
-}
-
-// ── LOTO Schemas ───────────────────────────────────────────────
-
-export interface LOTOPoint {
-  point_id: string;
-  equipment_id: string;
-  status: LOTOStatus;
-  locked_by: string;
-  tag_number: string;
-  applied_at: string | null;
-  removed_at: string | null;
-  removed_by: string;
-}
-
-export interface LOTOSet {
-  programme_id: string;
-  points: LOTOPoint[];
-  all_applied: boolean;
-  all_removed: boolean;
-}
-
-export interface LOTOActionRequest {
-  performed_by: string;
-}
-
-export interface LOTOActionResponse {
-  success: boolean;
-  point_id: string;
-  status: LOTOStatus;
-  message: string;
-}
-
-// ── Audit Trail ────────────────────────────────────────────────
-
 export interface AuditRecord {
   record_id: string;
   timestamp: string;
@@ -190,151 +95,111 @@ export interface AuditRecord {
   details: string;
 }
 
-export interface AuditTrailResponse {
-  programme_id: string;
-  total_records: number;
-  records: AuditRecord[];
+export interface EmergencyEvent {
+  event_id: string;
+  emergency_type: string;
+  severity: "critical" | "high" | "medium";
+  effect: "trip" | "suspend";
+  triggered_by: string;
+  triggered_at: string;
+  breakers_opened: string[];
+  programme_status: ProgrammeStatus;
 }
 
-// ── FAT / SAT Schemas ──────────────────────────────────────────
+export interface ProgrammeDetail extends ProgrammeSummary {
+  phases: Record<string, string>;
+  steps: Step[];
+  equipment_states: EquipmentState[];
+  network: NetworkSnapshot;
+  audit_trail: AuditRecord[];
+  emergency_log: EmergencyEvent[];
+}
+
+export interface ExecuteStepResponse {
+  success: boolean;
+  step_id: string;
+  status: string;
+  message: string;
+  programme_status: ProgrammeStatus;
+  reading: string;
+}
+
+// ── Isolation locks ──
+
+export interface LOTOPoint {
+  point_id: string;
+  equipment_id: string;
+  secured_state: "open" | "closed";
+  status: "applied" | "removed";
+  tag_number: string;
+  locked_by: string;
+  applied_at: string | null;
+  removed_by: string;
+  removed_at: string | null;
+}
+
+export interface LOTOSet {
+  programme_id: string;
+  points: LOTOPoint[];
+  applied_count: number;
+}
+
+// ── FAT / SAT ──
+
+export type EquipmentClass = "power_transformer" | "gis_220kv" | "protection_panel";
+export type CampaignStatus = "created" | "in_progress" | "completed" | "approved";
 
 export interface TestSpecification {
   test_id: string;
   name: string;
   standard: string;
   description: string;
+  /** Measurement unit, or "pass/fail" (recorded as 1 / 0). */
   unit: string;
-  min_value: number;
-  max_value: number;
+  min_value: number | null;
+  max_value: number | null;
+  typical_value: number;
 }
 
 export interface TestResult {
   test_id: string;
   measured_value: number;
-  verdict: TestVerdict;
+  verdict: "pass" | "fail";
   recorded_by: string;
   recorded_at: string;
   notes: string;
 }
 
-export interface FATCampaign {
+interface CampaignBase {
   campaign_id: string;
+  status: CampaignStatus;
+  specs: TestSpecification[];
+  results: TestResult[];
+  all_passed: boolean;
+  created_at: string;
+  approved_by: string;
+  approved_at: string | null;
+}
+
+export interface FATCampaign extends CampaignBase {
   equipment_tag: string;
-  status: CampaignStatus;
-  specs: TestSpecification[];
-  results: TestResult[];
-  all_passed: boolean;
-  created_at: string;
-  approved_by: string;
-  approved_at: string | null;
+  equipment_class: EquipmentClass;
 }
 
-export interface SATCampaign {
-  campaign_id: string;
+export interface SATCampaign extends CampaignBase {
   programme_id: string;
-  status: CampaignStatus;
   fat_campaign_id: string;
-  specs: TestSpecification[];
-  results: TestResult[];
-  all_passed: boolean;
-  created_at: string;
-  approved_by: string;
-  approved_at: string | null;
 }
 
-// ── Protection Relay Schemas ───────────────────────────────────
-
-export interface RelaySetting {
-  setting_id: string;
-  function: string;
-  description: string;
-  pickup_value: number;
-  pickup_unit: string;
-  time_delay: number;
-  location: string;
-  standard: string;
-}
-
-export interface GradingPair {
-  pair_id: string;
-  downstream_id: string;
-  upstream_id: string;
-  required_margin_ms: number;
-  description: string;
-}
-
-export interface GradingResult {
-  pair_id: string;
-  downstream_id: string;
-  upstream_id: string;
-  downstream_delay_s: number;
-  upstream_delay_s: number;
-  actual_margin_ms: number;
-  required_margin_ms: number;
-  verdict: "selective" | "non_selective";
-}
-
-export interface ProtectionCoordination {
-  settings: RelaySetting[];
-  grading_pairs: GradingPair[];
-  results: GradingResult[];
-  all_selective: boolean;
-}
-
-// ── Emergency Response Schemas ─────────────────────────────────
-
-export type EmergencyType =
-  | "arc_flash"
-  | "sf6_leak"
-  | "medical"
-  | "man_overboard"
-  | "comms_failure"
-  | "unexpected_voltage";
-
-export type SeverityLevel = "critical" | "high" | "medium";
-
-export interface EmergencyProcedure {
-  emergency_type: EmergencyType;
-  severity: SeverityLevel;
-  immediate_actions: string[];
-  responsible: string;
-  reference_document: string;
-  automated_scada_actions: string[];
-  communication_protocol: string[];
-}
-
-export interface EmergencyEvent {
-  event_id: string;
-  programme_id: string;
-  emergency_type: EmergencyType;
-  severity: SeverityLevel;
-  triggered_by: string;
-  triggered_at: string;
-  actions_taken: string[];
-  scada_actions_executed: string[];
-  resolved: boolean;
-  resolved_at: string | null;
-}
-
-export interface EmergencyLogResponse {
-  programme_id: string;
-  total_events: number;
-  events: EmergencyEvent[];
-}
-
-// ── Grid Code Compliance Schemas ───────────────────────────────
+// ── Grid code ──
 
 export type NotificationStage = "eon" | "ion" | "fon";
-
-export type ComplianceVerdict =
-  | "compliant"
-  | "non_compliant"
-  | "pending"
-  | "conditional";
+export type ComplianceVerdict = "pending" | "compliant" | "non_compliant";
 
 export interface GridCodeTest {
   test_id: string;
   stage: NotificationStage;
+  kind: "document" | "test" | "simulation";
   name: string;
   description: string;
   standard: string;
@@ -347,11 +212,12 @@ export interface GridCodeTest {
 
 export interface NotificationApplication {
   stage: NotificationStage;
-  status: ComplianceVerdict;
+  status: "open" | "submitted" | "issued";
   tests: GridCodeTest[];
   submitted_to: string;
   submitted_at: string | null;
   approved_at: string | null;
+  valid_until: string | null;
 }
 
 export interface ComplianceCampaign {
@@ -363,14 +229,15 @@ export interface ComplianceCampaign {
   cod_date: string | null;
 }
 
-export interface StageSummary {
-  stage: NotificationStage;
-  total_tests: number;
-  compliant: number;
-  non_compliant: number;
-  pending: number;
-  conditional: number;
-  submitted_at: string | null;
-  approved_at: string | null;
-  overall_status: string;
+// ── Emergencies ──
+
+export interface EmergencyProcedure {
+  emergency_type: string;
+  title: string;
+  severity: "critical" | "high" | "medium";
+  effect: "trip" | "suspend";
+  immediate_actions: string[];
+  responsible: string;
+  reference_document: string;
+  communication_protocol: string[];
 }

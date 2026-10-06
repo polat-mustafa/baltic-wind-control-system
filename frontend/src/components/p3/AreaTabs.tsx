@@ -36,7 +36,10 @@ export default function AreaTabs() {
   const setArea = useScadaStore((s) => s.setArea);
 
   return (
-    <div className="flex items-stretch overflow-x-auto border-b border-border-primary bg-bg-tertiary">
+    <div
+      className="flex items-stretch overflow-x-auto border-b border-border-primary bg-bg-tertiary"
+      data-tour="page-tabs"
+    >
       {AREAS.map(({ id, label, icon: Icon }) => {
         const isActive = area === id;
         return (

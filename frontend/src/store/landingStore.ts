@@ -441,8 +441,8 @@ interface LandingState {
   showWindDirection: boolean;
   /** D5 — Pythagorean apparent-wind triangle at blade radii */
   showWindTriangle: boolean;
-  /** D6 — blade surface vertex-color field (off | thermal | pressure-Cp | strain) */
-  bladeFieldMode: "off" | "thermal" | "pressure" | "strain";
+  /** D6 — blade surface vertex-color field (off | thermal | pressure | bending — model/bladeField) */
+  bladeFieldMode: "off" | "thermal" | "pressure" | "bending";
   /** D7 — power-loss cascade HUD (Sankey-style breakdown) */
   showLossHUD: boolean;
   /** D8 — Cp(λ, β) mini-plot */
@@ -461,7 +461,7 @@ interface LandingState {
   setShowWindField: (v: boolean) => void;
   setShowWindDirection: (v: boolean) => void;
   setShowWindTriangle: (v: boolean) => void;
-  setBladeFieldMode: (m: "off" | "thermal" | "pressure" | "strain") => void;
+  setBladeFieldMode: (m: "off" | "thermal" | "pressure" | "bending") => void;
   setShowLossHUD: (v: boolean) => void;
   setShowCpWidget: (v: boolean) => void;
   setTimeOfDay: (hour: number) => void;

@@ -88,5 +88,4 @@ export const weatherWindowEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-006"],
 };

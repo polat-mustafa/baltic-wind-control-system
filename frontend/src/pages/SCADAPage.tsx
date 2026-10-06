@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Maximize2, Minimize2, Play, Square, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, Maximize2, Minimize2, Play, Square, Zap } from "lucide-react";
 
 import SCADADashboard from "../components/p3/SCADADashboard";
 import SubstationSLD from "../components/p3/SubstationSLD";
@@ -79,6 +79,8 @@ export default function SCADAPage() {
 
   useEffect(() => () => stopAutoSimulation(), [stopAutoSimulation]);
 
+  // Collapsible on phones; the SCADA tour asks the user to open it
+  const [controlsOpen, setControlsOpen] = useState(() => window.innerWidth >= 768);
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
     const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -122,11 +124,11 @@ export default function SCADAPage() {
     <div className="scada-isa101 flex flex-col h-full">
       <PlantOverviewBar />
 
-      {/* ── Toolbar: title · fault trigger · auto-sim · role · control room ── */}
+      {/* ── Toolbar: title · controls toggle · fault trigger · auto-sim · role · control room ── */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-1.5 border-b border-border-primary bg-bg-secondary shrink-0">
         <div className="flex items-baseline gap-2 mr-auto min-w-0">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-text-primary whitespace-nowrap">
-            P3 · SCADA &amp; Automation
+            SCADA &amp; Automation
           </h2>
           <span className="hidden 2xl:inline text-[10px] text-text-muted font-mono truncate">
             {substationSummary
@@ -135,70 +137,85 @@ export default function SCADAPage() {
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <Zap size={12} className="shrink-0 text-text-muted" />
-          <select
-            value={selectedFaultType}
-            onChange={(e) => setSelectedFaultType(e.target.value)}
-            className={cn(selectCls, "max-w-48")}
-            title={faultScenarios.find((s) => s.fault_type === selectedFaultType)?.description}
-            aria-label="Protection fault scenario"
-          >
-            {faultScenarios.map((s) => (
-              <option key={s.fault_type} value={s.fault_type} title={s.description}>
-                {scenarioLabel(s.fault_type)}
-              </option>
-            ))}
-          </select>
-          <Button onClick={runGooseSimulation} disabled={loading} size="sm" className="h-7 text-xs">
-            {loading ? "Running…" : "Inject fault"}
-          </Button>
-          <InfoButton info={runGooseSimButtonInfo} />
-        </div>
-
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={autoSimEnabled ? stopAutoSimulation : startAutoSimulation}
-            className={cn(
-              toolBtnCls,
-              autoSimEnabled
-                ? "border-accent bg-accent text-white hover:opacity-90"
-                : "bg-bg-secondary border-border-primary text-text-secondary hover:bg-bg-hover",
-            )}
-          >
-            {autoSimEnabled ? <Square size={10} /> : <Play size={10} />}
-            {autoSimEnabled ? "Stop auto-sim" : "Auto-sim"}
-          </button>
-          <InfoButton info={autoSimButtonInfo} />
-        </div>
-
-        <select
-          value={selectedRoleLevel}
-          onChange={(e) => setSelectedRoleLevel(Number(e.target.value))}
-          className={selectCls}
-          title="Operator role (IEC 62351-8 role-based access control)"
-          aria-label="Operator role"
+        <button
+          type="button"
+          data-tour="scada-controls"
+          aria-expanded={controlsOpen}
+          onClick={() => setControlsOpen((o) => !o)}
+          className="flex items-center gap-1 text-[10px] text-text-muted hover:text-text-primary"
+          title={controlsOpen ? "Hide simulation controls" : "Show simulation controls"}
         >
-          {ROLE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          Controls {controlsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
 
-        {/* iPhone Safari has no Fullscreen API for pages */}
-        {"requestFullscreen" in document.documentElement && (
-          <div className="hidden md:flex items-center gap-1">
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className={cn(toolBtnCls, "bg-bg-secondary border-border-primary text-text-secondary hover:bg-bg-hover")}
+        {controlsOpen && (
+          <>
+            <div className="flex items-center gap-1.5">
+              <Zap size={12} className="shrink-0 text-text-muted" />
+              <select
+                value={selectedFaultType}
+                onChange={(e) => setSelectedFaultType(e.target.value)}
+                className={cn(selectCls, "max-w-48")}
+                title={faultScenarios.find((s) => s.fault_type === selectedFaultType)?.description}
+                aria-label="Protection fault scenario"
+              >
+                {faultScenarios.map((s) => (
+                  <option key={s.fault_type} value={s.fault_type} title={s.description}>
+                    {scenarioLabel(s.fault_type)}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={runGooseSimulation} disabled={loading} size="sm" className="h-7 text-xs">
+                {loading ? "Running…" : "Inject fault"}
+              </Button>
+              <InfoButton info={runGooseSimButtonInfo} />
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={autoSimEnabled ? stopAutoSimulation : startAutoSimulation}
+                className={cn(
+                  toolBtnCls,
+                  autoSimEnabled
+                    ? "border-accent bg-accent text-white hover:opacity-90"
+                    : "bg-bg-secondary border-border-primary text-text-secondary hover:bg-bg-hover",
+                )}
+              >
+                {autoSimEnabled ? <Square size={10} /> : <Play size={10} />}
+                {autoSimEnabled ? "Stop auto-sim" : "Auto-sim"}
+              </button>
+              <InfoButton info={autoSimButtonInfo} />
+            </div>
+
+            <select
+              value={selectedRoleLevel}
+              onChange={(e) => setSelectedRoleLevel(Number(e.target.value))}
+              className={selectCls}
+              title="Operator role (IEC 62351-8 role-based access control)"
+              aria-label="Operator role"
             >
-              <Maximize2 size={10} /> Control room
-            </button>
-            <InfoButton info={controlRoomButtonInfo} />
-          </div>
+              {ROLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            {/* iPhone Safari has no Fullscreen API for pages */}
+            {"requestFullscreen" in document.documentElement && (
+              <div className="hidden md:flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className={cn(toolBtnCls, "bg-bg-secondary border-border-primary text-text-secondary hover:bg-bg-hover")}
+                >
+                  <Maximize2 size={10} /> Control room
+                </button>
+                <InfoButton info={controlRoomButtonInfo} />
+              </div>
+            )}
+          </>
         )}
         <TrainingGuide guide={p3Guide} />
       </div>

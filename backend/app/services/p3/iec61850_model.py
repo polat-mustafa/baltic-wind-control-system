@@ -3,7 +3,7 @@ IEC 61850 data model for 510 MW Baltic Sea offshore wind farm.
 
 Implements the complete IEC 61850 device hierarchy used in substation
 automation systems. This is the foundational data model upon which GOOSE
-messaging (Lesson 010), protection simulation, and SCADA communication
+messaging, protection simulation, and SCADA communication
 are built.
 
 Physics — IEC 61850 Is a Data Model, Not a Protocol
@@ -39,7 +39,7 @@ IEC 61400-25 extends IEC 61850 with wind-specific logical nodes:
   - WMET: Meteorological data (wind speed, direction, temperature)
   - WNAC: Nacelle conditions (temperature, yaw angle)
 
-Constants (Baltic Wind Alpha)
+Constants (SB-510)
 ------------------------------
 - 34 × V236-15.0 MW = 510 MW total
 - OSS Protection IED: ABB REL670 (XCBR, MMXU, PDIS, PTOC, PTOV, GGIO)
@@ -281,7 +281,7 @@ class PhysicalDevice:
     description: str = ""
 
 
-# ── GOOSE Control Block & Dataset (foundation for Lesson 010) ───
+# ── GOOSE Control Block & Dataset ───────────────────────────
 
 
 @dataclass(frozen=True)
@@ -1074,7 +1074,7 @@ def _build_wnac_ln(instance: int = 1) -> LogicalNode:
     )
 
 
-# ── Factory Functions — Baltic Wind Alpha Device Set ────────────
+# ── Factory Functions — SB-510 Device Set ────────────
 
 
 def build_oss_protection_ied(
@@ -1319,7 +1319,7 @@ def build_oss_goose_control_block(
 
 
 def build_substation_configuration() -> list[PhysicalDevice]:
-    """Build the complete IEC 61850 configuration for Baltic Wind Alpha.
+    """Build the complete IEC 61850 configuration for SB-510.
 
     Returns the full set of IEDs:
     - 1 × OSS Protection IED (ABB REL670)

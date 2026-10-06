@@ -1,7 +1,8 @@
 /**
- * Professional SCADA navigation sidebar.
+ * Navigation sidebar, grouped by project lifecycle stage.
  *
  * Features:
+ * - Lifecycle groups: Develop, Design, Build & Commission, Operate, Decommission, then Learn
  * - Lucide icons per module
  * - Collapse/expand toggle
  * - Active state with left accent border
@@ -21,8 +22,13 @@ import {
   Brain,
   ClipboardCheck,
   Cpu,
-  BookOpen,
-  FlaskConical,
+  Fan,
+  MapPinned,
+  Grid3x3,
+  GraduationCap,
+  HardHat,
+  FileCheck2,
+  Recycle,
   ChevronLeft,
   ChevronRight,
   X,
@@ -34,75 +40,131 @@ import { StatusIndicator } from "../ui/StatusIndicator";
 
 interface NavItem {
   label: string;
-  shortLabel: string;
   path: string;
   icon: LucideIcon;
   description: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+/** Pages grouped by project lifecycle stage (develop → design → build → operate). */
+const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Overview",
-    shortLabel: "Overview",
-    path: "/",
-    icon: LayoutDashboard,
-    description: "Wind farm map & KPIs",
+    label: "Develop",
+    items: [
+      {
+        label: "Site & Permits",
+        path: "/develop",
+        icon: MapPinned,
+        description: "Open data, suitability, EIA, permit",
+      },
+      {
+        label: "Layout",
+        path: "/develop/layout",
+        icon: Grid3x3,
+        description: "Turbines, wakes, cables, cost",
+      },
+      {
+        label: "Wind Resource",
+        path: "/wind-resource",
+        icon: Wind,
+        description: "Weibull, wakes, layout, AEP",
+      },
+    ],
   },
   {
-    label: "P1 · Wind Resource",
-    shortLabel: "P1",
-    path: "/wind-resource",
-    icon: Wind,
-    description: "AEP, Weibull, wake losses",
+    label: "Design",
+    items: [
+      {
+        label: "Grid Integration",
+        path: "/hv-grid",
+        icon: Zap,
+        description: "Load flow, FRT, STATCOM",
+      },
+      {
+        label: "Turbine Physics",
+        path: "/turbine-physics",
+        icon: Fan,
+        description: "Cp(λ, β), pitch & yaw control",
+      },
+    ],
   },
   {
-    label: "P2 · HV Grid",
-    shortLabel: "P2",
-    path: "/hv-grid",
-    icon: Zap,
-    description: "Load flow, FRT, STATCOM",
+    label: "Build & Commission",
+    items: [
+      {
+        label: "Construction",
+        path: "/build",
+        icon: HardHat,
+        description: "Vessels, weather windows, timeline",
+      },
+      {
+        label: "Commissioning",
+        path: "/commissioning",
+        icon: ClipboardCheck,
+        description: "Switching, LOTO, SAT",
+      },
+      {
+        label: "Hand-over",
+        path: "/build/handover",
+        icon: FileCheck2,
+        description: "As-built register, to operation",
+      },
+    ],
   },
   {
-    label: "P3 · SCADA",
-    shortLabel: "P3",
-    path: "/scada",
-    icon: Monitor,
-    description: "SLD, GOOSE, permits",
+    label: "Operate",
+    items: [
+      {
+        label: "Control Room",
+        path: "/",
+        icon: LayoutDashboard,
+        description: "Wind farm map & KPIs",
+      },
+      {
+        label: "SCADA",
+        path: "/scada",
+        icon: Monitor,
+        description: "SLD, GOOSE, permits",
+      },
+      {
+        label: "Forecasting",
+        path: "/forecast",
+        icon: Brain,
+        description: "XGBoost, LSTM, TFT",
+      },
+      {
+        label: "Digital Twin",
+        path: "/digital-twin",
+        icon: Cpu,
+        description: "Condition monitoring, ISO 13374",
+      },
+    ],
   },
   {
-    label: "P4 · Forecasting",
-    shortLabel: "P4",
-    path: "/forecast",
-    icon: Brain,
-    description: "XGBoost, LSTM, TFT",
+    label: "Decommission",
+    items: [
+      {
+        label: "Decommissioning",
+        path: "/decommission",
+        icon: Recycle,
+        description: "Removal, recycling, seabed",
+      },
+    ],
   },
   {
-    label: "P5 · Commissioning",
-    shortLabel: "P5",
-    path: "/commissioning",
-    icon: ClipboardCheck,
-    description: "Switching, LOTO, SAT",
-  },
-  {
-    label: "Digital Twin",
-    shortLabel: "DT",
-    path: "/digital-twin",
-    icon: Cpu,
-    description: "Condition monitoring, ISO 13374",
-  },
-  {
-    label: "Engineer's Library",
-    shortLabel: "Lib",
-    path: "/library",
-    icon: BookOpen,
-    description: "Read-only primers (no sim)",
-  },
-  {
-    label: "Research Lab",
-    shortLabel: "Lab",
-    path: "/research-lab",
-    icon: FlaskConical,
-    description: "Advanced wind R&D tools",
+    label: "Learn",
+    items: [
+      {
+        label: "Academy",
+        path: "/academy",
+        icon: GraduationCap,
+        description: "Courses, scored missions",
+      },
+    ],
   },
 ];
 
@@ -123,6 +185,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   return (
     <nav
       aria-label="Main navigation"
+      data-tour="nav"
       inert={!isMd && !mobileOpen}
       className={cn(
         "flex flex-col border-r border-border-primary bg-bg-secondary shrink-0",
@@ -149,46 +212,63 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </button>
       </div>
 
-      {/* Navigation items */}
-      <ul className="flex flex-col gap-0.5 px-2 py-3 flex-1">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          return (
-            <li key={item.path}>
-              <NavLink
-                to={item.path}
-                end={item.path === "/"}
-                onClick={onMobileClose}
-                className={({ isActive }) =>
-                  cn(
-                    "group flex items-center gap-3 rounded-md transition-all duration-150",
-                    collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5",
-                    isActive
-                      ? "bg-accent-muted text-accent border-l-2 border-accent"
-                      : "text-text-secondary hover:text-text-primary hover:bg-bg-hover border-l-2 border-transparent",
-                  )
-                }
-                title={collapsed ? item.label : undefined}
+      {/* Navigation, grouped by lifecycle stage */}
+      <div className="flex flex-1 flex-col gap-3 px-2 py-3">
+        {NAV_GROUPS.map((group, gi) => (
+          <section key={group.label} aria-labelledby={`nav-group-${gi}`}>
+            {collapsed ? (
+              <>
+                {gi > 0 && <div className="mx-2 mb-2 border-t border-border-primary" aria-hidden />}
+                <h2 id={`nav-group-${gi}`} className="sr-only">
+                  {group.label}
+                </h2>
+              </>
+            ) : (
+              <h2
+                id={`nav-group-${gi}`}
+                className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted"
               >
-                <Icon
-                  size={18}
-                  className="shrink-0"
-                />
-                {!collapsed && (
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-medium truncate">
-                      {item.label}
-                    </span>
-                    <span className="text-[10px] text-text-muted truncate">
-                      {item.description}
-                    </span>
-                  </div>
-                )}
-              </NavLink>
-            </li>
-          );
-        })}
-      </ul>
+                {group.label}
+              </h2>
+            )}
+            <ul className="flex flex-col gap-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.path}>
+                    <NavLink
+                      to={item.path}
+                      end={item.path === "/" || item.path === "/develop" || item.path === "/build"}
+                      onClick={onMobileClose}
+                      className={({ isActive }) =>
+                        cn(
+                          "group flex items-center gap-3 rounded-md transition-all duration-150",
+                          collapsed ? "justify-center px-2 py-2" : "px-3 py-2",
+                          isActive
+                            ? "bg-accent-muted text-accent border-l-2 border-accent"
+                            : "text-text-secondary hover:text-text-primary hover:bg-bg-hover border-l-2 border-transparent",
+                        )
+                      }
+                      title={collapsed ? item.label : undefined}
+                      aria-label={collapsed ? item.label : undefined}
+                    >
+                      <Icon size={18} className="shrink-0" />
+                      {!collapsed && (
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-medium truncate">{item.label}</span>
+                          <span className="text-[10px] text-text-muted truncate">
+                            {item.description}
+                          </span>
+                        </div>
+                      )}
+                    </NavLink>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+      </div>
 
       {/* System status footer */}
       <div

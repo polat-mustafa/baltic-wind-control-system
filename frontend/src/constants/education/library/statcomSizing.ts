@@ -7,7 +7,7 @@ export const statcomSizingEducation: EducationContent = {
   discipline: "Electrical",
 
   overview:
-    "Baltic Wind Alpha exports 510 MW over two parallel 45 km subsea 220 kV HVAC cables (one cable carries only " +
+    "SB-510 exports 510 MW over two parallel 45 km subsea 220 kV HVAC cables (one cable carries only " +
     "~362 MVA). Each cable behaves like a long capacitor, generating ~130 MVAR — ~260 MVAR in total — that must be " +
     "absorbed: pushed through the transformers and grid it would lift the offshore voltage by ≈ 8 % (the Ferranti " +
     "rise along the cable itself is only ≈ 0.7 %). Three 80 MVAR shunt reactors (N+1) take the constant base load; " +
@@ -116,7 +116,7 @@ export const statcomSizingEducation: EducationContent = {
         "full output and long cables generate large charging power.",
       takeaway:
         "Large HVAC-connected farms split their export over several cables and combine shunt reactors with " +
-        "dynamic compensation — the same pattern used in Baltic Wind Alpha.",
+        "dynamic compensation — the same pattern used in SB-510.",
     },
   ],
 
@@ -133,5 +133,4 @@ export const statcomSizingEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-009"],
 };

@@ -16,7 +16,7 @@ from app.services.p5.switching_programme import create_oss_energisation_programm
 
 
 def test_every_disconnector_and_earth_switch_is_locked_at_start():
-    loto = create_loto_set_for_oss("BWA-SP-TEST-ABC123", "PiC")
+    loto = create_loto_set_for_oss("SB5-SP-TEST-ABC123", "PiC")
     lockable = [
         eq for eq in OSS_EQUIPMENT
         if eq.equipment_type in (EquipmentType.DISCONNECTOR, EquipmentType.EARTH_SWITCH)
@@ -49,6 +49,6 @@ def test_remove_then_reapply_only_in_secured_position():
 
 
 def test_unknown_point():
-    loto = create_loto_set_for_oss("BWA-SP-TEST-ABC123", "PiC")
+    loto = create_loto_set_for_oss("SB5-SP-TEST-ABC123", "PiC")
     with pytest.raises(LOTOPointNotFoundError):
         remove_loto(loto, "LOTO-NOPE", "PiC")

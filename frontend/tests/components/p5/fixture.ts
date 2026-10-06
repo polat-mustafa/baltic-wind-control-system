@@ -22,7 +22,7 @@ export const step = (over: Partial<Step>): Step => ({
 
 export function programme(over: Partial<ProgrammeDetail> = {}): ProgrammeDetail {
   return {
-    programme_id: "BWA-SP-20261005-ABC123",
+    programme_id: "SB5-SP-20261005-ABC123",
     title: "Circuit 1 first energisation",
     pic_name: "Jan Kowalski",
     status: "in_progress",

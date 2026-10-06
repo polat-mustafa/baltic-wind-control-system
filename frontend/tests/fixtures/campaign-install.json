@@ -1,0 +1,486 @@
+{
+ "mode": "install",
+ "start_date": "2028-04-01",
+ "alpha": 0.8,
+ "runs": 20,
+ "seed": 1,
+ "n_turbines": 12,
+ "strings": [
+  6,
+  6
+ ],
+ "unfinished_runs": 0,
+ "total_days": {
+  "p10": 42.2,
+  "p50": 55.5,
+  "p90": 70.4
+ },
+ "cost_meur": {
+  "p10": 26.8,
+  "p50": 32.6,
+  "p90": 38.0
+ },
+ "milestones": [
+  {
+   "id": "oss",
+   "label": "Offshore substation installed",
+   "days": {
+    "p10": 5.0,
+    "p50": 7.9,
+    "p90": 14.1
+   },
+   "date_p50": "2028-04-08",
+   "date_p90": "2028-04-15"
+  },
+  {
+   "id": "export",
+   "label": "Export cable laid",
+   "days": {
+    "p10": 11.0,
+    "p50": 13.0,
+    "p90": 17.7
+   },
+   "date_p50": "2028-04-14",
+   "date_p90": "2028-04-18"
+  },
+  {
+   "id": "foundations",
+   "label": "All foundations installed",
+   "days": {
+    "p10": 31.2,
+    "p50": 39.6,
+    "p90": 49.2
+   },
+   "date_p50": "2028-05-10",
+   "date_p90": "2028-05-20"
+  },
+  {
+   "id": "first-power",
+   "label": "First power (first turbine commissioned)",
+   "days": {
+    "p10": 21.1,
+    "p50": 28.4,
+    "p90": 39.3
+   },
+   "date_p50": "2028-04-29",
+   "date_p90": "2028-05-10"
+  },
+  {
+   "id": "turbines",
+   "label": "All turbines installed",
+   "days": {
+    "p10": 41.4,
+    "p50": 54.1,
+    "p90": 69.8
+   },
+   "date_p50": "2028-05-25",
+   "date_p90": "2028-06-09"
+  },
+  {
+   "id": "cod",
+   "label": "Full commercial operation",
+   "days": {
+    "p10": 42.2,
+    "p50": 55.5,
+    "p90": 70.4
+   },
+   "date_p50": "2028-05-26",
+   "date_p90": "2028-06-10"
+  }
+ ],
+ "activities": [
+  {
+   "id": "oss",
+   "name": "Offshore substation: jacket and topside lifts",
+   "vessel": "HLV",
+   "units": 2,
+   "op_hours": 36.0,
+   "trip_every": 2,
+   "start_day": 0.0,
+   "end_day": 13.8,
+   "wow_days": 8.8,
+   "end_days": {
+    "p10": 5.0,
+    "p50": 7.9,
+    "p90": 14.1
+   },
+   "wow_share_pct": 31.7,
+   "duration_days": {
+    "p10": 5.0,
+    "p50": 7.9,
+    "p90": 14.1
+   }
+  },
+  {
+   "id": "foundations",
+   "name": "Monopiles and transition pieces",
+   "vessel": "HLV",
+   "units": 12,
+   "op_hours": 30.0,
+   "trip_every": 4,
+   "start_day": 13.8,
+   "end_day": 41.0,
+   "wow_days": 6.2,
+   "end_days": {
+    "p10": 31.2,
+    "p50": 39.6,
+    "p90": 49.2
+   },
+   "wow_share_pct": 30.7,
+   "duration_days": {
+    "p10": 24.5,
+    "p50": 31.4,
+    "p90": 36.8
+   }
+  },
+  {
+   "id": "export",
+   "name": "Export cable: lay, bury, pull in",
+   "vessel": "CLV",
+   "units": 11,
+   "op_hours": 24.0,
+   "trip_every": 0,
+   "start_day": 0.0,
+   "end_day": 19.0,
+   "wow_days": 8.0,
+   "end_days": {
+    "p10": 11.0,
+    "p50": 13.0,
+    "p90": 17.7
+   },
+   "wow_share_pct": 18.3,
+   "duration_days": {
+    "p10": 11.0,
+    "p50": 13.0,
+    "p90": 17.7
+   }
+  },
+  {
+   "id": "array",
+   "name": "Array cables: lay, pull in, bury",
+   "vessel": "CLV",
+   "units": 12,
+   "op_hours": 24.000000000000004,
+   "trip_every": 0,
+   "start_day": 21.2,
+   "end_day": 42.2,
+   "wow_days": 2.0,
+   "end_days": {
+    "p10": 32.5,
+    "p50": 40.9,
+    "p90": 50.4
+   },
+   "wow_share_pct": 9.5,
+   "duration_days": {
+    "p10": 20.9,
+    "p50": 23.2,
+    "p90": 26.8
+   }
+  },
+  {
+   "id": "turbines",
+   "name": "Turbines: tower, nacelle, three blades",
+   "vessel": "WTIV",
+   "units": 12,
+   "op_hours": 36.0,
+   "trip_every": 4,
+   "start_day": 19.2,
+   "end_day": 55.5,
+   "wow_days": 12.2,
+   "end_days": {
+    "p10": 41.4,
+    "p50": 54.1,
+    "p90": 69.8
+   },
+   "wow_share_pct": 38.9,
+   "duration_days": {
+    "p10": 32.0,
+    "p50": 41.6,
+    "p90": 60.1
+   }
+  },
+  {
+   "id": "energise",
+   "name": "Energise export cable, OSS and 66 kV busbar (P5 programme)",
+   "vessel": "CTV",
+   "units": 6,
+   "op_hours": 12.0,
+   "trip_every": 0,
+   "start_day": 19.0,
+   "end_day": 29.0,
+   "wow_days": 7.0,
+   "end_days": {
+    "p10": 15.0,
+    "p50": 19.4,
+    "p90": 28.8
+   },
+   "wow_share_pct": 39.9,
+   "duration_days": {
+    "p10": 3.0,
+    "p50": 5.2,
+    "p90": 10.5
+   }
+  },
+  {
+   "id": "commissioning",
+   "name": "String energisation, turbine commissioning",
+   "vessel": "CTV",
+   "units": 12,
+   "op_hours": 12.0,
+   "trip_every": 0,
+   "start_day": 32.8,
+   "end_day": 56.0,
+   "wow_days": 0.8,
+   "end_days": {
+    "p10": 42.2,
+    "p50": 55.5,
+    "p90": 70.4
+   },
+   "wow_share_pct": 13.8,
+   "duration_days": {
+    "p10": 17.5,
+    "p50": 23.8,
+    "p90": 42.0
+   }
+  }
+ ],
+ "vessels": [
+  {
+   "id": "HLV",
+   "name": "Heavy-lift vessel",
+   "role": "Foundations, offshore substation",
+   "hs_limit_m": 1.5,
+   "wind_limit_ms": 13.0,
+   "wind_reference": "10 m",
+   "day_rate_keur": 300.0,
+   "mobilisation_keur": 1500.0,
+   "workable_pct_by_month": [
+    30.7,
+    30.8,
+    39.5,
+    62.9,
+    78.4,
+    86.2,
+    86.3,
+    82.3,
+    68.9,
+    51.0,
+    37.2,
+    25.4
+   ],
+   "window_hours": 36.0,
+   "window_pct_by_month": [
+    12.1,
+    12.9,
+    17.7,
+    39.8,
+    59.5,
+    70.7,
+    72.6,
+    64.1,
+    46.5,
+    27.5,
+    16.7,
+    9.2
+   ],
+   "charter_days": {
+    "p10": 31.2,
+    "p50": 39.6,
+    "p90": 49.2
+   },
+   "wow_days": {
+    "p10": 5.2,
+    "p50": 13.6,
+    "p90": 23.2
+   },
+   "cost_meur": {
+    "p10": 10.9,
+    "p50": 13.4,
+    "p90": 16.3
+   }
+  },
+  {
+   "id": "CLV",
+   "name": "Cable-lay vessel",
+   "role": "Export and array cables",
+   "hs_limit_m": 2.0,
+   "wind_limit_ms": 15.0,
+   "wind_reference": "10 m",
+   "day_rate_keur": 150.0,
+   "mobilisation_keur": 800.0,
+   "workable_pct_by_month": [
+    47.9,
+    48.9,
+    59.1,
+    81.4,
+    91.0,
+    93.8,
+    93.5,
+    92.5,
+    85.2,
+    70.6,
+    55.2,
+    41.4
+   ],
+   "window_hours": 30.0,
+   "window_pct_by_month": [
+    27.8,
+    28.5,
+    38.4,
+    66.0,
+    81.6,
+    86.9,
+    86.1,
+    83.9,
+    71.6,
+    51.5,
+    34.9,
+    22.2
+   ],
+   "charter_days": {
+    "p10": 32.5,
+    "p50": 40.9,
+    "p90": 50.4
+   },
+   "wow_days": {
+    "p10": 1.2,
+    "p50": 4.6,
+    "p90": 10.2
+   },
+   "cost_meur": {
+    "p10": 5.7,
+    "p50": 6.9,
+    "p90": 8.4
+   }
+  },
+  {
+   "id": "WTIV",
+   "name": "Jack-up installation vessel",
+   "role": "Turbines (tower, nacelle, blades)",
+   "hs_limit_m": 2.0,
+   "wind_limit_ms": 14.0,
+   "wind_reference": "hub height 150 m",
+   "day_rate_keur": 250.0,
+   "mobilisation_keur": 1000.0,
+   "workable_pct_by_month": [
+    33.1,
+    32.7,
+    40.2,
+    55.9,
+    66.4,
+    67.7,
+    68.2,
+    66.8,
+    57.6,
+    47.8,
+    36.8,
+    28.1
+   ],
+   "window_hours": 36.0,
+   "window_pct_by_month": [
+    14.1,
+    14.0,
+    17.8,
+    32.7,
+    45.2,
+    45.7,
+    47.6,
+    44.7,
+    34.2,
+    24.2,
+    17.1,
+    10.4
+   ],
+   "charter_days": {
+    "p10": 32.0,
+    "p50": 41.6,
+    "p90": 60.1
+   },
+   "wow_days": {
+    "p10": 7.3,
+    "p50": 17.6,
+    "p90": 36.1
+   },
+   "cost_meur": {
+    "p10": 9.0,
+    "p50": 11.4,
+    "p90": 16.0
+   }
+  },
+  {
+   "id": "CTV",
+   "name": "Crew transfer vessel",
+   "role": "Commissioning teams, turbine isolation",
+   "hs_limit_m": 1.5,
+   "wind_limit_ms": 10.0,
+   "wind_reference": "10 m",
+   "day_rate_keur": 4.0,
+   "mobilisation_keur": 5.0,
+   "workable_pct_by_month": [
+    26.0,
+    25.8,
+    32.7,
+    51.9,
+    65.9,
+    70.3,
+    70.9,
+    68.1,
+    56.1,
+    42.2,
+    30.5,
+    21.1
+   ],
+   "window_hours": 12.0,
+   "window_pct_by_month": [
+    19.8,
+    19.8,
+    25.6,
+    44.5,
+    59.3,
+    64.0,
+    65.0,
+    61.5,
+    48.5,
+    34.6,
+    24.0,
+    15.6
+   ],
+   "charter_days": {
+    "p10": 29.4,
+    "p50": 38.2,
+    "p90": 57.6
+   },
+   "wow_days": {
+    "p10": 3.0,
+    "p50": 5.9,
+    "p90": 15.9
+   },
+   "cost_meur": {
+    "p10": 0.1,
+    "p50": 0.2,
+    "p90": 0.2
+   }
+  }
+ ],
+ "months": [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec"
+ ],
+ "assumptions": [
+  "Weather-restricted operations after DNV-ST-N001: each unit needs a window in which Hs and wind stay below \u03b1 \u00d7 the operational limit for its whole planned duration.",
+  "Sea states: Rayleigh Hs and Weibull k = 2 wind around the monthly Baltic means of the O&M model, 6-hourly, persistence \u03c1 = 0.9 per step and wind\u2013wave correlation 0.7 (illustrative, not a hindcast).",
+  "Jack-up crane limit applies at hub height (150 m); 10 m wind is scaled with the power law \u03b1 = 0.14 (IEC 61400-3-1 normal wind profile).",
+  "Vessel limits, unit durations, deck capacity, day rates and mobilisation are illustrative teaching values.",
+  "Vessels following another activity are mobilised just in time; charter covers their work including waiting on weather and gaps up to 30 days (longer gaps: a new mobilisation)."
+ ]
+}

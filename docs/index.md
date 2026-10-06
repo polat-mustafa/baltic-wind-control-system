@@ -1,4 +1,4 @@
-# Baltic Wind HV Control Platform
+# OffshoreForge
 
 A production-grade educational simulation platform for a **510 MW Baltic Sea offshore wind farm** — covering the complete engineering lifecycle from wind resource assessment through HV commissioning.
 
@@ -54,8 +54,7 @@ Based on real Polish Baltic Sea offshore wind projects (Baltic Power 1.2 GW, Bal
 
 This platform is an **educational tool** designed to demonstrate the full scope of competence expected from HV Control Engineers in the offshore wind industry. Every line of code is written to be explainable to a junior engineer while maintaining production-grade quality.
 
-## Lessons
+## Documentation
 
-Step-by-step learning log documenting every engineering decision — from project planning through DevOps foundation to internationalization.
-
-[Browse all lessons →](lessons/index.md)
+- User guide: [English](en/user-guide.md) · [Türkçe](KULLANICI_KILAVUZU.md) · [Polski](pl/przewodnik-uzytkownika.md)
+- [Methods & References](references.md): the method, implementation file and primary source (book, paper or standard) behind each module.

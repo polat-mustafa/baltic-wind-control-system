@@ -25,7 +25,7 @@ const RANGES = [
   { label: "7 d", hours: 168, resolution: "1hr" },
 ] as const;
 
-const DEFAULT_TAGS = ["BWA.WTG_01.WMET1.WdSpd", "BWA.OSS.MMXU1.TotW", "BWA.OSS.STATCOM1.TotVAr", "BWA.OSS.MMXU1.Hz"];
+const DEFAULT_TAGS = ["SB5.WTG_01.WMET1.WdSpd", "SB5.OSS.MMXU1.TotW", "SB5.OSS.STATCOM1.TotVAr", "SB5.OSS.MMXU1.Hz"];
 const MAX_TAGS = 6;
 const PANEL_PX = 130;
 

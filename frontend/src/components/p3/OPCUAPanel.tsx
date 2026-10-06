@@ -1,7 +1,7 @@
 /**
  * OPC-UA Panel — M03.
  *
- * Server status and the address space (namespace urn:baltic-wind:scada).
+ * Server status and the address space (namespace urn:offshoreforge:scada).
  * Values are live: switchgear positions from the bay controllers, process
  * values from the historian's plant model. The binary server (asyncua,
  * opc.tcp port 4840, Basic256Sha256 SignAndEncrypt) is optional — without
@@ -105,7 +105,7 @@ export default function OPCUAPanel() {
             <h3 className="text-sm font-semibold text-text-primary">
               Address Space — {addressSpace.total_nodes} nodes
             </h3>
-            <span className="text-xs text-text-muted font-mono">urn:baltic-wind:scada</span>
+            <span className="text-xs text-text-muted font-mono">urn:offshoreforge:scada</span>
           </div>
           <div className="max-h-[560px] overflow-y-auto">
             {addressSpace.root_nodes.map((node) => (

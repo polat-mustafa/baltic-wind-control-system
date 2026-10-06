@@ -2,14 +2,18 @@ import { expect, test, type Page } from "@playwright/test";
 
 const ROUTES = [
   ["overview", "/"],
+  ["site-permits", "/develop"],
+  ["layout", "/develop/layout"],
   ["p1-wind-resource", "/wind-resource"],
   ["p2-hv-grid", "/hv-grid"],
   ["p3-scada", "/scada"],
   ["p4-forecast", "/forecast"],
+  ["construction", "/build"],
   ["p5-commissioning", "/commissioning"],
+  ["handover", "/build/handover"],
   ["digital-twin", "/digital-twin"],
-  ["library", "/library"],
-  ["research-lab", "/research-lab"],
+  ["decommissioning", "/decommission"],
+  ["academy", "/academy"],
 ] as const;
 
 const THEMES = ["storybook", "hmi"] as const;
@@ -17,8 +21,15 @@ const THEMES = ["storybook", "hmi"] as const;
 /** Network failures are expected when the backend (or AIS proxy) is not running. */
 const IGNORED = [/Failed to load resource/i, /ERR_CONNECTION_REFUSED/i, /net::ERR_/i, /backend not reachable/i, /status of (4|5)\d\d/i];
 
-async function open(page: Page, path: string, theme: (typeof THEMES)[number]) {
-  await page.addInitScript((t) => localStorage.setItem("bw.mapTheme", t), theme);
+async function open(page: Page, path: string, theme: (typeof THEMES)[number], welcome = false) {
+  await page.addInitScript(
+    ([t, w]) => {
+      localStorage.setItem("of.mapTheme", t);
+      // The first-visit tour welcome would cover every screenshot.
+      if (!w) localStorage.setItem("of.tour.v1", JSON.stringify({ completed: [], welcomeDismissed: true }));
+    },
+    [theme, welcome] as const,
+  );
   await page.goto(path);
   await page.waitForLoadState("networkidle").catch(() => undefined);
   await page.evaluate(() => document.fonts.ready);
@@ -39,8 +50,27 @@ test("3D turbine viewer and drawings open without runtime errors", async ({ page
   await page.keyboard.press("s"); // 3D ↔ drawings
   for (const sheet of [/E-01/, /M-01/, /P-01/]) {
     await page.getByRole("tab", { name: sheet }).click();
-    await expect(page.getByText(/BWA-WTG-/)).toBeVisible();
+    await expect(page.getByText(/SB5-WTG-/)).toBeVisible();
   }
+  expect(errors, errors.join("\n")).toEqual([]);
+});
+
+test("guided tour: welcome, spotlight, turbine action step", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await open(page, "/", "storybook", true);
+  await page.getByRole("button", { name: /Start the tour/ }).click();
+  await expect(page.getByRole("dialog", { name: /Welcome to OffshoreForge/ })).toBeVisible();
+  await page.keyboard.press("ArrowRight"); // sidebar
+  await expect(page.getByRole("dialog", { name: /Organised by lifecycle stage/ })).toBeVisible();
+  await expect(page.locator("[data-testid=tour-overlay] path[marker-end]")).toBeVisible();
+  await page.keyboard.press("ArrowRight"); // KPIs
+  await page.keyboard.press("ArrowRight"); // action: open a turbine
+  await expect(page.getByText(/Your turn: Click any turbine/)).toBeVisible();
+  await page.locator(".leaflet-turbine-marker").nth(8).click();
+  await expect(page.getByRole("dialog", { name: /Meet the turbine/ })).toBeVisible({ timeout: 10_000 });
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("tour-overlay")).toHaveCount(0);
   expect(errors, errors.join("\n")).toEqual([]);
 });
 

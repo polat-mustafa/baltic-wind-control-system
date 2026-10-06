@@ -12,9 +12,10 @@
  *     preset prop for `files` in one place (line marked HDRI-SWAP below).
  */
 
-import { memo, useMemo } from "react";
+import { memo, Suspense, useMemo } from "react";
 import { Environment as DreiEnvironment } from "@react-three/drei";
 
+import { SceneErrorBoundary } from "../SceneErrorBoundary";
 import { SkyDome, type SkyLook } from "./SkyDome";
 
 export type SkyPreset = "overcast" | "golden" | "night";
@@ -118,11 +119,17 @@ export const SceneEnvironment = memo(function SceneEnvironment({
 
       {/* HDRI-SWAP: when /public/hdri/baltic_{preset}_1k.hdr exists, change
           preset={params.iblPreset} → files={`/hdri/baltic_${skyPreset}_1k.hdr`} */}
-      <DreiEnvironment
-        preset={params.iblPreset}
-        background={false}
-        environmentIntensity={params.iblIntensity}
-      />
+      {/* The preset HDR is fetched from a CDN: offline (classroom, firewall)
+          the scene keeps its analytic lights instead of failing as a whole. */}
+      <SceneErrorBoundary area="ibl" optional>
+        <Suspense fallback={null}>
+          <DreiEnvironment
+            preset={params.iblPreset}
+            background={false}
+            environmentIntensity={params.iblIntensity}
+          />
+        </Suspense>
+      </SceneErrorBoundary>
 
       <fogExp2 attach="fog" args={[params.fogColor, params.fogDensity]} />
 

@@ -121,5 +121,4 @@ export const windRoseEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-004", "lesson-005"],
 };

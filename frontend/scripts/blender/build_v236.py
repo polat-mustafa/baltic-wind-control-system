@@ -373,7 +373,9 @@ def blade_mesh(spans, offset=0.0):
             ]
         ring = [m.add_v(p, (i / (len(sec) - 1), 1 - s / BLADE_L)) for i, p in enumerate(sec)]
         rings.append(ring)
-    ring_strip(m, rings, closed=True, smooth=True)
+    # Sections run clockwise in the blade frame (LE +x after the 180° turn),
+    # so wind the strip over reversed rings to keep the faces outward.
+    ring_strip(m, [r[::-1] for r in rings], closed=True, smooth=True)
     return m, rings
 
 
@@ -384,14 +386,14 @@ blade, rings = blade_mesh(spans)
 root_c = blade.add_v((0.0, 0.0, 0.0), (0.5, 1.0))
 for i in range(len(rings[0])):
     j = (i + 1) % len(rings[0])
-    blade.add_f((root_c, rings[0][j], rings[0][i]), False)
+    blade.add_f((root_c, rings[0][i], rings[0][j]), False)
 tip = section(BLADE_L)
 tip_c = blade.add_v(
     (sum(p[0] for p in tip) / len(tip), BLADE_L + 0.25, sum(p[2] for p in tip) / len(tip)), (0.5, 0.0)
 )
 for i in range(len(rings[-1])):
     j = (i + 1) % len(rings[-1])
-    blade.add_f((rings[-1][i], rings[-1][j], tip_c))
+    blade.add_f((rings[-1][j], rings[-1][i], tip_c))
 blade.build("blade", WHITE, col)
 
 # Tip marking: outer 6 m red, 6 m white, 6 m red (aviation obstacle marking)

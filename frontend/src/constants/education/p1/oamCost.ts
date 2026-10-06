@@ -86,5 +86,4 @@ export const oamCostEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-006"],
 };

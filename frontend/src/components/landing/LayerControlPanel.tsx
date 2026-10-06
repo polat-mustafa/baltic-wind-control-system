@@ -37,6 +37,7 @@ const LAYER_ITEMS: {
   { key: "fibreComms", label: "Fibre / SCADA Comms", color: "#22d3ee" },
   { key: "aisTraffic", label: "AIS Traffic (live)", color: "#34d399" },
   { key: "cableDts", label: "Export Cable DTS", color: "#fb7185" },
+  { key: "myProject", label: "My Project (hand-over)", color: "#e879f9" },
 ];
 
 // ── Toggle switch ────────────────────────────────────────────────
@@ -63,7 +64,7 @@ export default function LayerControlPanel() {
   const toggleLayer = useLayerStore((s) => s.toggleLayer);
 
   return (
-    <div className="absolute top-14 xl:top-24 left-3 z-1100">
+    <div className="absolute top-14 xl:top-24 left-3 z-1100" data-tour="layer-control">
       {/* Collapsed button */}
       <button
         onClick={() => setIsOpen((o) => !o)}

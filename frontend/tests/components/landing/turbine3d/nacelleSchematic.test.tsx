@@ -7,11 +7,11 @@ import { useLandingStore } from "../../../../src/store/landingStore";
 describe("NacelleSchematic", () => {
   it("draws the three engineering sheets with a title block", () => {
     render(<NacelleSchematic turbineId="WTG-09" />);
-    expect(screen.getByText("BWA-WTG-E-001")).toBeDefined();
+    expect(screen.getByText("SB5-WTG-E-001")).toBeDefined();
     fireEvent.click(screen.getByRole("tab", { name: /M-01/ }));
-    expect(screen.getByText("BWA-WTG-M-001")).toBeDefined();
+    expect(screen.getByText("SB5-WTG-M-001")).toBeDefined();
     fireEvent.click(screen.getByRole("tab", { name: /P-01/ }));
-    expect(screen.getByText("BWA-WTG-P-001")).toBeDefined();
+    expect(screen.getByText("SB5-WTG-P-001")).toBeDefined();
   });
 
   it("selects a part from its symbol and offers the 3D fly-to", () => {

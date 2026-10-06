@@ -34,7 +34,7 @@ const BASE: Omit<FarmConfig, "name"> = {
 };
 
 export const DEFAULT_FARMS: FarmConfig[] = [
-  { ...BASE, name: "Baltic Wind Alpha · 7D" },
+  { ...BASE, name: "SB-510 · 7D" },
   {
     ...BASE,
     name: "Compact 6D layout",

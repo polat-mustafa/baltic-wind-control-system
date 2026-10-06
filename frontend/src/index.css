@@ -2,7 +2,7 @@
 @import "leaflet/dist/leaflet.css";
 
 /* ── ISA-101 High Performance HMI Design System ──────────────────
-   Baltic Wind HV Control Platform
+   OffshoreForge
    Color palette follows ISA-101 dark control room variant.
    Typography: Inter (UI) + JetBrains Mono (data values).
    ────────────────────────────────────────────────────────────── */
@@ -992,4 +992,22 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .dwg-flow { animation: none; }
+}
+
+/* Site & Permits: print only the selected training-specimen document */
+@media print {
+  body:has(.print-doc[data-printing]) * {
+    visibility: hidden !important;
+  }
+  .print-doc[data-printing],
+  .print-doc[data-printing] * {
+    visibility: visible !important;
+  }
+  .print-doc[data-printing] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+  }
 }

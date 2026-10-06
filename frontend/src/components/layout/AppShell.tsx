@@ -26,6 +26,9 @@ import {
 } from "lucide-react";
 
 import Sidebar from "./Sidebar";
+import TourMenu from "../../tour/TourMenu";
+import TourOverlay from "../../tour/TourOverlay";
+import TourWelcome from "../../tour/TourWelcome";
 import { Skeleton } from "../ui/Skeleton";
 import { StatusIndicator } from "../ui/StatusIndicator";
 import { cn } from "../../lib/utils";
@@ -35,16 +38,20 @@ import { useLandingStore } from "../../store/landingStore";
 import { useLayerStore } from "../../store/layerStore";
 
 const ROUTE_LABELS: Record<string, string> = {
-  "/": "Overview",
-  "/wind-resource": "P1 · Wind Resource",
-  "/hv-grid": "P2 · HV Grid Integration",
-  "/scada": "P3 · SCADA & Automation",
-  "/forecast": "P4 · AI Forecasting",
-  "/commissioning": "P5 · HV Commissioning",
+  "/": "Control Room",
+  "/develop": "Site & Permits",
+  "/develop/layout": "Layout",
+  "/wind-resource": "Wind Resource",
+  "/hv-grid": "HV Grid Integration",
+  "/scada": "SCADA & Automation",
+  "/forecast": "AI Forecasting",
+  "/commissioning": "HV Commissioning",
   "/digital-twin": "Digital Twin · Condition Monitoring",
   "/turbine-physics": "Turbine Physics",
-  "/library": "Engineer's Library",
-  "/research-lab": "Research Lab · Advanced Wind R&D",
+  "/build": "Construction",
+  "/build/handover": "Hand-over",
+  "/decommission": "Decommissioning",
+  "/academy": "Academy",
 };
 
 /** Placeholder while a lazy page chunk downloads. */
@@ -123,6 +130,7 @@ export default function AppShell() {
             type="button"
             onClick={() => setNavOpen(true)}
             aria-label="Open menu"
+            data-tour="nav-menu"
             aria-expanded={navOpen}
             className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover"
           >
@@ -130,13 +138,14 @@ export default function AppShell() {
           </button>
           <Link
             to="/"
+            data-tour="brand"
             className="flex shrink-0 items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <div className="flex items-center justify-center h-7 w-7 rounded-md bg-accent/15">
               <Wind size={16} className="text-accent" />
             </div>
             <span className="hidden sm:inline font-semibold text-sm tracking-tight text-text-primary whitespace-nowrap">
-              Baltic Wind Alpha
+              OffshoreForge
             </span>
           </Link>
 
@@ -166,11 +175,14 @@ export default function AppShell() {
             />
           </div>
 
+          <TourMenu />
+
           <button
             type="button"
             onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}
             aria-pressed={storybook}
             aria-label="Switch colour palette"
+            data-tour="theme-toggle"
             title="Switch colour palette"
             className="flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-tertiary px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover"
           >
@@ -233,6 +245,10 @@ export default function AppShell() {
           </Suspense>
         </main>
       </div>
+
+      {/* Guided tours (portals above everything) */}
+      <TourWelcome />
+      <TourOverlay />
     </div>
   );
 }

@@ -97,7 +97,7 @@ def _add_header(parent: ET.Element, header_id: str, version: str = "1.0") -> ET.
     header = ET.SubElement(parent, _ns("Header"))
     header.set("id", header_id)
     header.set("version", version)
-    header.set("toolID", "BalticWindAlpha_P3")
+    header.set("toolID", "OffshoreForge_P3")
     return header
 
 
@@ -247,7 +247,7 @@ def _add_data_type_templates(
 
 
 def generate_ssd(
-    substation_name: str = "Baltic_Wind_Alpha_OSS",
+    substation_name: str = "SB510_OSS",
     voltage_levels_kv: tuple[float, ...] = (66.0, 220.0),
     num_bays_per_level: dict[float, int] | None = None,
 ) -> ET.Element:

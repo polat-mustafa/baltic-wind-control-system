@@ -86,10 +86,10 @@ class TestPermitCreation:
         assert permit.status == PermitStatus.REQUESTED
 
     def test_ptw_number_format(self):
-        """PtW number must follow BWA-PTW-{YEAR}-{SEQ:05d} format."""
+        """PtW number must follow SB5-PTW-{YEAR}-{SEQ:05d} format."""
         number = generate_ptw_number(sequence=42)
         year = datetime.now(UTC).year
-        assert number == f"BWA-PTW-{year}-00042"
+        assert number == f"SB5-PTW-{year}-00042"
 
     def test_ptw_number_on_permit(self):
         """Created permit has a properly formatted PtW number."""
@@ -99,7 +99,7 @@ class TestPermitCreation:
             requested_by="user1",
             sequence=7,
         )
-        assert permit.ptw_number.startswith("BWA-PTW-")
+        assert permit.ptw_number.startswith("SB5-PTW-")
         assert "00007" in permit.ptw_number
 
     def test_new_permit_has_no_person_in_charge(self):

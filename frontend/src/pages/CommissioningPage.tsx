@@ -12,6 +12,7 @@ import { ArrowLeft, ClipboardList, FlaskConical, Landmark, Lock, ScrollText, Sir
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
+import ProjectHandoverNote from "../components/lifecycle/ProjectHandoverNote";
 import { cn } from "../lib/utils";
 import { p5Guide } from "../constants/trainingGuideContent";
 import { useCommissioningStore } from "../store/commissioningStore";
@@ -107,34 +108,36 @@ function ProgrammeList() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-      <Card>
-        <CardHeader>
-          <CardTitle>New programme</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm text-text-secondary">
-          <p>
-            First energisation of export circuit 1: cable 1 from shore, the OSS 220 kV busbar
-            with reactor 1 and the STATCOM, TX-OSS-01, 66 kV section A and strings 1–3
-            (18 × 15 MW = 270 MW). Circuit 2 stays isolated and earthed.
-          </p>
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (pic.trim()) void createProgramme(pic.trim());
-            }}
-          >
-            <input
-              value={pic}
-              onChange={(e) => setPic(e.target.value)}
-              placeholder="Person in Control (name)"
-              aria-label="Person in Control"
-              className="min-w-0 flex-1 rounded-md border border-border-secondary bg-bg-tertiary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-            <Button type="submit" disabled={busy || !pic.trim()}>Create</Button>
-          </form>
-        </CardContent>
-      </Card>
+      <div data-tour="create-programme">
+        <Card>
+          <CardHeader>
+            <CardTitle>New programme</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-text-secondary">
+            <p>
+              First energisation of export circuit 1: cable 1 from shore, the OSS 220 kV busbar
+              with reactor 1 and the STATCOM, TX-OSS-01, 66 kV section A and strings 1–3
+              (18 × 15 MW = 270 MW). Circuit 2 stays isolated and earthed.
+            </p>
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (pic.trim()) void createProgramme(pic.trim());
+              }}
+            >
+              <input
+                value={pic}
+                onChange={(e) => setPic(e.target.value)}
+                placeholder="Person in Control (name)"
+                aria-label="Person in Control"
+                className="min-w-0 flex-1 rounded-md border border-border-secondary bg-bg-tertiary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+              <Button type="submit" disabled={busy || !pic.trim()}>Create</Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
@@ -192,15 +195,17 @@ export default function CommissioningPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-text-primary">P5 · Commissioning</h2>
+          <h2 className="text-xl font-semibold text-text-primary">HV Commissioning</h2>
           <p className="mt-1 font-mono text-xs text-text-muted">
             Circuit 1 first energisation · isolation (EN 50110-1) · FAT / SAT · EON → ION → FON (NC RfG)
           </p>
         </div>
         <TrainingGuide guide={p5Guide} />
       </div>
+
+      <ProjectHandoverNote what="This programme energises circuit 1 of the SB-510 export system; for your farm the export-system steps are the same, then one feeder bay per string." />
 
       {error && (
         <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-status-alarm/30 bg-status-alarm/10 p-3 text-sm">

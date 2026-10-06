@@ -11,7 +11,7 @@ export const arrayVoltageEducation: EducationContent = {
     "consequential design choices in an offshore wind project. Too low, and you need many parallel feeder cables " +
     "eating into the OSS busbar space and cable CAPEX. Too high, and nacelle transformers become impractically large " +
     "and heavy. The industry converged on 33 kV before 2010 and has been transitioning to 66 kV for large farms since " +
-    "~2015. For a 510 MW project like Baltic Wind, 66 kV is the clear choice.",
+    "~2015. For a 510 MW project like SB-510, 66 kV is the clear choice.",
 
   simpleExplanation:
     "Power = Voltage × Current. If you double the voltage, you halve the current for the same power — and because " +
@@ -113,10 +113,10 @@ export const arrayVoltageEducation: EducationContent = {
     {
       title: "Baltic Power (Poland, 2025–26) — 66 kV at 76 × V236",
       description:
-        "1.2 GW array using 66 kV. Direct precedent for Baltic Wind Alpha confirming the voltage level, cable " +
+        "1.2 GW array using 66 kV. Direct precedent for SB-510 confirming the voltage level, cable " +
         "cross-sections, and OSS GIS configuration in the same sea area and grid connection point.",
       takeaway:
-        "The 66 kV choice for Baltic Wind Alpha simply follows the established standard demonstrated immediately " +
+        "The 66 kV choice for SB-510 simply follows the established standard demonstrated immediately " +
         "next door by Baltic Power.",
     },
   ],
@@ -134,5 +134,4 @@ export const arrayVoltageEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-009"],
 };

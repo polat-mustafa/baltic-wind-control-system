@@ -10,6 +10,7 @@
 import StudyTab from "./StudyTab";
 import InstructorTab from "./InstructorTab";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { GraduationCap, Volume2, VolumeX, X } from "lucide-react";
 
 import { useLandingStore } from "../../store/landingStore";
@@ -296,6 +297,19 @@ export default function ScenarioCenter() {
   const voice = useTrainingStore((s) => s.voice);
   const setVoice = useTrainingStore((s) => s.setVoice);
   const active = useTrainingStore((s) => s.active);
+  const [params, setParams] = useSearchParams();
+
+  // Academy deep link: /?drill=<scenario id> opens the panel and starts the drill.
+  const drill = params.get("drill");
+  useEffect(() => {
+    if (!drill) return;
+    if (SCENARIOS.some((s) => s.id === drill)) {
+      setOpen(true);
+      setTab("training");
+      useTrainingStore.getState().start(drill);
+    }
+    setParams({}, { replace: true });
+  }, [drill, setParams]);
 
   return (
     <div className="absolute right-3 top-14 md:top-40 z-1000 flex flex-col items-end">

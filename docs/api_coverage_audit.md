@@ -1,4 +1,4 @@
-# API Coverage Audit — Baltic Wind 510 MW Simulation
+# API Coverage Audit — SB-510 (510 MW) Simulation
 
 **Audit date:** 2026-04-21
 **Branch:** `v236-nacelle-overhaul`
@@ -72,20 +72,13 @@ Service: `frontend/src/services/sclApi.ts`
 > by existing panels (`HistorianPanel`, `RBACPanel`, `PermitWorkflowPanel`,
 > `NetworkDashboard`). Only `/scl-generate` was genuinely orphaned.
 
-## Group D — P1 Research Lab (8 endpoints)
+## Group D — removed (2026-10)
 
-| Endpoint | Method | UI route | Component |
-|---|---|---|---|
-| `/api/v1/wind/helix-control` | POST | `/research-lab` | `ResearchLab` |
-| `/api/v1/wind/dynamic-flow` | POST | `/research-lab` | `ResearchLab` |
-| `/api/v1/wind/cfd-simulation` | POST | `/research-lab` | `ResearchLab` |
-| `/api/v1/wind/simultaneous-optimization` | POST | `/research-lab` | `ResearchLab` |
-| `/api/v1/wind/adjoint-sensitivities` | POST | `/research-lab` | `ResearchLab` |
-| `/api/v1/wind/two-stage-stochastic` | POST | `/research-lab` | `ResearchLab` |
-| `/api/v1/wind/mga` | POST | `/research-lab` | `ResearchLab` |
-| `/api/v1/wind/gaussian-flowers-aep` | POST | `/research-lab` | `ResearchLab` |
-
-Service: `frontend/src/services/p1ResearchApi.ts`
+The eight experimental P1 endpoints (`helix-control`, `dynamic-flow`,
+`cfd-simulation`, `simultaneous-optimization`, `adjoint-sensitivities`,
+`two-stage-stochastic`, `mga`, `gaussian-flowers-aep`), their services and
+the `/research-lab` page were deleted: they were analytical stand-ins whose
+labels overstated the method (e.g. "RANS CFD").
 
 ## Group E — Live nacelle subsystems (4 endpoints, partial)
 
@@ -116,9 +109,8 @@ Files:
 | A2 — P2 Planning & P2X | 2 | ✅ wired |
 | B — P2 Market Imbalance | 1 | ✅ wired |
 | C — P3 SCL Generator | 1 | ✅ wired |
-| D — P1 Research Lab | 8 | ✅ wired |
 | E — Live nacelle subsystems | 4 | ✅ wired (polling) |
-| **Total newly exposed** | **18** | — |
+| **Total newly exposed** | **10** | — |
 
 To keep this audit green, future endpoint additions should ship with at least
 one frontend caller in the same PR.

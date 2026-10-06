@@ -28,7 +28,7 @@ describe("commissioningStore", () => {
       reading: "CB-ON-220-01: open → closed",
     });
     await useCommissioningStore.getState().executeCurrentStep();
-    expect(mockApi.executeStep).toHaveBeenCalledWith("BWA-SP-20261005-ABC123", "2.08", "Jan Kowalski");
+    expect(mockApi.executeStep).toHaveBeenCalledWith("SB5-SP-20261005-ABC123", "2.08", "Jan Kowalski");
     const s = useCommissioningStore.getState();
     expect(s.lastResult).toEqual({ stepId: "2.08", ok: true, text: "CB-ON-220-01: open → closed" });
     expect(s.active?.completed_steps).toBe(2);

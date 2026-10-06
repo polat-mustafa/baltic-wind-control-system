@@ -88,5 +88,4 @@ export const availabilityHeatmapEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-006"],
 };

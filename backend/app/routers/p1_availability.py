@@ -34,7 +34,7 @@ router = APIRouter(tags=["M13 Availability Tracking IEC 61400-26"])
 )
 async def get_fleet_availability(period_hours: float = 8760.0) -> FarmAvailabilityResponse:
     """
-    Return IEC 61400-26 availability KPIs for all 34 Baltic Wind turbines.
+    Return IEC 61400-26 availability KPIs for all 34 SB-510 turbines.
 
     **Three availability KPIs (why three? each answers a different question):**
 
@@ -63,7 +63,7 @@ async def get_fleet_availability(period_hours: float = 8760.0) -> FarmAvailabili
     from the denominator — these are not the operator's fault.
     PBA is the most meaningful KPI for lender/investor availability guarantees.
 
-    **Baltic Wind targets (PSE connection agreement):**
+    **SB-510 targets (PSE connection agreement):**
     TBA >= 97%, EBA >= 95%, PBA >= 94%.
     Failure to meet these triggers availability warranty payments from the EPC contractor.
 

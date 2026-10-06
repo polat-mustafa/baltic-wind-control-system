@@ -1,6 +1,6 @@
-# Baltic Wind HV Control Platform
+# OffshoreForge
 
-510 MW Baltic Sea offshore wind farm simulation: 34 × V236-15.0 MW, 66 kV array, 220 kV export (45 km), PSE grid.
+Offshore wind engineering training platform. Reference case study SB-510 (Southern Baltic, Polish EEZ): 510 MW, 34 × V236-15.0 MW, 66 kV array, 220 kV export (45 km), PSE grid.
 Monorepo: FastAPI (Python 3.13, SQLAlchemy, Pydantic v2) backend + React 19 / TypeScript / Tailwind v4 / Vite frontend.
 
 ## Working style
@@ -61,8 +61,8 @@ These are large (SKILL.md ≈ 28 KB, Project_Roadmap.md ≈ 93 KB). Do NOT read 
   Computation Engine Integration, Testing Strategy, Error Handling, Git Workflow, Security Checklist (IEC 62443)
 - `docs/Project_Roadmap.md` — §2 P1 Layout & Yield · §3 P2 HV Grid · §4 P3 SCADA/IEC 61850 · §5 P4 Forecasting & FRT ·
   §6 P5 Commissioning · §7 Integration Map · §8 Tech Stack/UI · §9 Standards Matrix
-- `docs/Learning_Roadmap.md` — 32-week curriculum (map the session's module to it)
-- `docs/archive/` — historical v1/v2 roadmaps
+- `docs/references.md` — method → implementation file → primary source (book, paper, standard) per module
+- `docs/offshoreforge-roadmap.md` — phase status (1–3 merged, 4–6 open), Phase 4–6 specs, hand-off notes; read before continuing the OffshoreForge work
 
 ## Memory files (Claude Code project memory directory)
 

@@ -1,5 +1,5 @@
 """
-Baltic Wind HV Control Platform — FastAPI Application
+OffshoreForge — FastAPI Application
 
 Entry point for the 510 MW Baltic Sea offshore wind farm simulation
 platform. Manages application lifespan (Redis init, DB seed, shutdown)
@@ -27,12 +27,14 @@ from app.services.p3 import opcua_server
 configure_logging(debug=settings.debug)
 from app.db import async_session_factory, engine  # noqa: E402
 from app.routers.digital_twin import router as digital_twin_router  # noqa: E402
+from app.routers.lifecycle import router as lifecycle_router  # noqa: E402
 from app.routers.p0_info import router as p0_info_router  # noqa: E402
 from app.routers.p1 import router as p1_router  # noqa: E402
 from app.routers.p2 import router as p2_router  # noqa: E402
 from app.routers.p3 import router as p3_router  # noqa: E402
 from app.routers.p4 import router as p4_router  # noqa: E402
 from app.routers.p5 import router as p5_router  # noqa: E402
+from app.routers.site_assessment import router as site_assessment_router  # noqa: E402
 from app.routers.turbine_physics import router as turbine_physics_router  # noqa: E402
 from app.routers.turbine_subsystems import router as turbine_subsystems_router  # noqa: E402
 from app.seed import seed_default_farm  # noqa: E402
@@ -80,8 +82,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Baltic Wind HV Control Platform",
-    description="510 MW Baltic Sea Offshore Wind Farm Simulation",
+    title="OffshoreForge",
+    description="Offshore wind engineering training platform (case study: 510 MW Southern Baltic)",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -106,6 +108,8 @@ app.include_router(p5_router)
 app.include_router(turbine_physics_router)
 app.include_router(turbine_subsystems_router)
 app.include_router(digital_twin_router)
+app.include_router(site_assessment_router)
+app.include_router(lifecycle_router)
 
 
 @app.get("/health")

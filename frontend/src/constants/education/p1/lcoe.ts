@@ -121,5 +121,4 @@ export const lcoeEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-006"],
 };

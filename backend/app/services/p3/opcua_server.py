@@ -1,7 +1,7 @@
 """
 OPC-UA server service — M03.
 
-Exposes the Baltic Wind Alpha control system over OPC-UA so that any
+Exposes the SB-510 control system over OPC-UA so that any
 compliant SCADA client (Ignition, WinCC, UaExpert) can browse, read,
 and write tags via the standardised UA binary protocol.
 
@@ -23,7 +23,7 @@ web services (fire-and-forget), OPC-UA provides:
   4. Historical access — OPC-UA HDA lets clients query time-series data
      from the historian without a separate API.
 
-Address Space Layout (Baltic Wind Alpha)
+Address Space Layout (SB-510)
 -----------------------------------------
 WindFarm/
   ├── Substation/
@@ -60,8 +60,8 @@ from app.schemas.opcua import OPCUAAddressSpaceResponse, OPCUANodeInfo, OPCUASta
 log = logging.getLogger(__name__)
 
 # OPC-UA endpoint configuration
-_ENDPOINT = "opc.tcp://0.0.0.0:4840/baltic-wind/"
-_NAMESPACE = "https://baltic-wind-alpha.example.com/scada"
+_ENDPOINT = "opc.tcp://0.0.0.0:4840/offshoreforge/"
+_NAMESPACE = "https://offshoreforge.example.com/scada"
 
 # ── Server singleton state ────────────────────────────────────────
 
@@ -212,7 +212,7 @@ async def _run_ua_server() -> None:
 
     await server.init()
     server.set_endpoint(_ENDPOINT)
-    server.set_server_name("Baltic Wind Alpha SCADA OPC-UA Server")
+    server.set_server_name("SB-510 SCADA OPC-UA Server")
 
     # Register our application namespace
     idx = await server.register_namespace(_NAMESPACE)

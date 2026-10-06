@@ -87,7 +87,7 @@ All five projects use a consistent reference scenario based on real Baltic Sea p
 
 | Parameter | Value | Source/Justification |
 |-----------|-------|---------------------|
-| Farm Name | Baltic Wind Alpha (fictional) | Based on real Polish Baltic Sea projects |
+| Farm Name | SB-510 (fictional) | Based on real Polish Baltic Sea projects |
 | Location | Baltic Sea, ~40 km north of Ustka, Poland | PGE Baltica reference area |
 | Capacity | 510 MW (scalable to 1.2 GW analysis) | Educational scale aligned with V236-15.0 class |
 | Turbines | 34 × Vestas V236-15.0 MW (15 MW) | Turbine class used in Baltic Power project |
@@ -1339,8 +1339,7 @@ baltic-wind-control-system/
 ├── README.md                    # System overview + project summaries
 ├── docs/
 │   ├── SKILL.md                 # Engineering & coding standards
-│   ├── Project_Roadmap.md       # This document
-│   └── Learning_Roadmap.md      # 32-week self-study curriculum
+│   └── Project_Roadmap.md       # This document
 ├── backend/                     # FastAPI Python services (all 5 projects)
 ├── frontend/                    # React TypeScript SPA (all 5 projects)
 ├── notebooks/                   # Jupyter exploration notebooks

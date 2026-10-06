@@ -78,7 +78,7 @@ TECHNICIANS_CTV = 10
 TECHNICIANS_SOV = 20
 TECHNICIANS_JACKUP = 8  # specialised crane crew
 
-LOCATION = "Baltic Wind Alpha — offshore Polish EEZ (54.5°N, 16.0°E)"
+LOCATION = "SB-510 — offshore Polish EEZ (54.5°N, 16.0°E)"
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 

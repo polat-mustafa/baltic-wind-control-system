@@ -30,12 +30,6 @@ from pydantic import BaseModel, Field
 from app.core.cache import cached
 from app.core.exceptions import DomainError
 from app.core.exceptions import ValidationError as DomainValidationError
-from app.services.p1.advanced_optimization import (
-    compute_adjoint_sensitivities,
-    run_mga,
-    run_simultaneous_optimization,
-    run_two_stage_stochastic,
-)
 from app.services.p1.aep_calculator import (
     DEFAULT_PRICE_EUR_MWH,
     MarketWeightedAEPResult,
@@ -45,16 +39,12 @@ from app.services.p1.aep_calculator import (
 from app.services.p1.blockage import (
     estimate_blockage_loss_percent,
 )
-from app.services.p1.cfd_simulation import run_cfd_simulation
 from app.services.p1.data_processing import (
     compute_weibull_pdf,
     fit_weibull,
 )
 from app.services.p1.derating import optimize_derating
-from app.services.p1.dynamic_flow import run_dynamic_flow_simulation
 from app.services.p1.flowers_aep import compute_flowers_aep
-from app.services.p1.gaussian_flowers import compute_gaussian_flowers_aep
-from app.services.p1.helix_control import simulate_helix_control
 from app.services.p1.layout_optimizer import (
     LayoutResult,
     OptimizationAlgorithm,
@@ -187,6 +177,21 @@ class WakeAnalysisResponse(BaseModel):
     capacity_factor: float
     per_turbine_aep_gwh: list[float]
     per_turbine_wake_loss_percent: list[float]
+
+
+class CustomWakeRequest(BaseModel):
+    """Wake analysis for a user-drawn layout (Layout canvas, /develop/layout).
+
+    Positions are local metres: x east, y north, from any origin near the
+    site (the frontend projects lon/lat equirectangularly about the site
+    centroid). Turbine: V236-15.0 MW.
+    """
+
+    x_m: list[float] = Field(min_length=1, max_length=150, description="Turbine x (east) [m]")
+    y_m: list[float] = Field(min_length=1, max_length=150, description="Turbine y (north) [m]")
+    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
+    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
 
 
 class AEPCascadeRequest(BaseModel):
@@ -541,6 +546,73 @@ async def wake_analysis(request: WakeAnalysisRequest) -> WakeAnalysisResponse:
     try:
         result = await _cached_wake_analysis(
             request.layout, request.weibull_a, request.weibull_k, request.turbulence_intensity
+        )
+    except DomainError:
+        raise
+    except Exception as e:
+        raise DomainError(f"Wake analysis failed: {e}") from e
+
+    return WakeAnalysisResponse(
+        gross_aep_gwh=round(result["gross_aep_gwh"], 2),
+        net_aep_gwh=round(result["net_aep_gwh"], 2),
+        wake_loss_percent=round(result["wake_loss_percent"], 2),
+        capacity_factor=round(result["capacity_factor"], 4),
+        per_turbine_aep_gwh=[round(float(v), 3) for v in result["per_turbine_aep_gwh"]],
+        per_turbine_wake_loss_percent=[
+            round(float(v), 2) for v in result["per_turbine_wake_loss_percent"]
+        ],
+    )
+
+
+# Bump the version suffix whenever the wake model or wind site changes.
+@cached(prefix="wake-custom-v1", ttl=300)
+def _cached_custom_wake(
+    x_m: list[float],
+    y_m: list[float],
+    weibull_a: float,
+    weibull_k: float,
+    ti: float,
+) -> dict[str, object]:
+    """Cached PyWake run for arbitrary positions [m]."""
+    site = _site(weibull_a, weibull_k, ti)
+    result = run_wake_analysis(
+        np.asarray(x_m, dtype=np.float64), np.asarray(y_m, dtype=np.float64), site
+    )
+    return {
+        "gross_aep_gwh": result.gross_aep_gwh,
+        "net_aep_gwh": result.net_aep_gwh,
+        "wake_loss_percent": result.wake_loss_percent,
+        "capacity_factor": result.capacity_factor,
+        "per_turbine_aep_gwh": [float(v) for v in result.per_turbine_aep_gwh],
+        "per_turbine_wake_loss_percent": [float(v) for v in result.per_turbine_wake_loss_percent],
+    }
+
+
+@router.post("/wake-analysis-custom", response_model=WakeAnalysisResponse)
+async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisResponse:
+    """PyWake wake analysis and AEP for arbitrary turbine positions.
+
+    Same wake model and 12-sector wind rose as /wake-analysis. Turbines
+    closer than one rotor diameter are rejected (rotors would overlap).
+    """
+    if len(request.x_m) != len(request.y_m):
+        raise DomainValidationError("x_m and y_m must have the same length")
+    xy = np.column_stack([request.x_m, request.y_m])
+    if len(xy) > 1:
+        gaps = np.hypot(*(xy[:, None, :] - xy[None, :, :]).transpose(2, 0, 1))
+        np.fill_diagonal(gaps, np.inf)
+        if float(gaps.min()) < ROTOR_DIAMETER_M:
+            raise DomainValidationError(
+                f"Turbines closer than one rotor diameter ({ROTOR_DIAMETER_M:.0f} m): "
+                "rotors would overlap"
+            )
+    try:
+        result = await _cached_custom_wake(
+            [round(v, 1) for v in request.x_m],
+            [round(v, 1) for v in request.y_m],
+            request.weibull_a,
+            request.weibull_k,
+            request.turbulence_intensity,
         )
     except DomainError:
         raise
@@ -1115,130 +1187,7 @@ async def pce_uncertainty(request: PCEUQRequest) -> PCEUQResponse:
     )
 
 
-# ── Tier 3 Schemas ────────────────────────────────────────────
-
-
-class HelixControlRequest(BaseModel):
-    layout: str = Field("staggered")
-    wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0)
-    wind_speed_ms: float = Field(10.0, ge=3.0, le=25.0)
-    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
-    helix_amplitude_deg: float = Field(2.0, ge=0.5, le=5.0)
-
-
-class HelixControlResponse(BaseModel):
-    baseline_farm_power_mw: float
-    helix_farm_power_mw: float
-    power_gain_percent: float
-    helix_amplitude_deg: float
-    helix_frequency_hz: float
-    upstream_power_loss_mw: float
-    downstream_power_gain_mw: float
-    n_helix_active_turbines: int
-    wake_recovery_distance_d: float
-    natural_recovery_distance_d: float
-
-
-class DynamicFlowRequest(BaseModel):
-    layout: str = Field("staggered")
-    dt_s: float = Field(60.0, ge=10.0, le=600.0)
-    duration_s: float = Field(3600.0, ge=600.0, le=7200.0)
-
-
-class DynamicFlowResponse(BaseModel):
-    mean_farm_power_mw: float
-    power_variability_mw: float
-    max_ramp_rate_mw_s: float
-    steady_state_power_mw: float
-    wake_advection_time_s: float
-    n_timesteps: int
-
-
-class CFDSimulationRequest(BaseModel):
-    layout: str = Field("staggered")
-    wind_speed_ms: float = Field(10.5, ge=3.0, le=25.0)
-    wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0)
-    mesh_resolution: str = Field("coarse", description="coarse, medium, or fine")
-    terrain_type: str = Field("offshore_flat")
-
-
-class CFDSimulationResponse(BaseModel):
-    farm_power_mw: float
-    total_thrust_kn: float
-    mean_tke_m2s2: float
-    mesh_cells: int
-    mesh_resolution: str
-    n_turbines: int
-
-
-class SimultaneousOptRequest(BaseModel):
-    layout: str = Field("staggered")
-    maxiter: int = Field(5, ge=1, le=50)
-
-
-class SimultaneousOptResponse(BaseModel):
-    baseline_aep_gwh: float
-    optimized_aep_gwh: float
-    gain_percent: float
-    position_contribution_percent: float
-    control_contribution_percent: float
-
-
-class AdjointSensitivityRequest(BaseModel):
-    layout: str = Field("staggered")
-
-
-class AdjointSensitivityResponse(BaseModel):
-    most_sensitive_turbine: int
-    least_sensitive_turbine: int
-    total_gradient_norm: float
-    current_aep_gwh: float
-    n_turbines: int
-
-
-class TwoStageStochasticRequest(BaseModel):
-    layout: str = Field("staggered")
-    n_scenarios: int = Field(3, ge=2, le=10)
-    maxiter: int = Field(3, ge=1, le=20)
-
-
-class TwoStageStochasticResponse(BaseModel):
-    expected_aep_gwh: float
-    worst_case_aep_gwh: float
-    best_case_aep_gwh: float
-    value_of_stochastic_solution_gwh: float
-    n_scenarios: int
-
-
-class MGARequest(BaseModel):
-    layout: str = Field("staggered")
-    n_alternatives: int = Field(3, ge=2, le=10)
-    aep_slack_percent: float = Field(2.0, ge=0.5, le=10.0)
-
-
-class MGAResponse(BaseModel):
-    n_alternatives: int
-    diversity_scores: list[float]
-    aep_values_gwh: list[float]
-    optimal_aep_gwh: float
-    aep_slack_percent: float
-
-
-class GaussianFLOWERSRequest(BaseModel):
-    layout: str = Field("staggered")
-    mean_wind_speed_ms: float = Field(9.3, ge=5.0, le=20.0, description="Hub-height mean [m/s]")
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
-    n_fourier_modes: int = Field(12, ge=4, le=24, description="Truncated to sectors/2 (Nyquist)")
-
-
-class GaussianFLOWERSResponse(BaseModel):
-    aep_gwh: float
-    gross_aep_gwh: float
-    wake_loss_percent: float
-    computation_time_ms: float
-    capacity_factor: float
-    jensen_comparison_aep_gwh: float
-    gaussian_vs_jensen_diff_percent: float
+# ── Layout Optimization ───────────────────────────────────────
 
 
 class LayoutOptimizationRequest(BaseModel):
@@ -1259,236 +1208,6 @@ class LayoutOptimizationResponse(BaseModel):
     num_turbines: int
     min_spacing_m: float
     area_km2: float
-
-
-# ── Tier 3 Endpoints ──────────────────────────────────────────
-
-
-@router.post("/helix-control", response_model=HelixControlResponse)
-async def helix_control(request: HelixControlRequest) -> HelixControlResponse:
-    """Simulate helix control (dynamic individual pitch) for wake mixing.
-
-    Helix control uses periodic IPC at the rotor's 1P frequency to excite
-    helical wake instabilities, enhancing wake recovery by ~50%.
-    """
-    layout = _get_layout(request.layout)
-    try:
-        result = simulate_helix_control(
-            layout.x_positions,
-            layout.y_positions,
-            wind_direction_deg=request.wind_direction_deg,
-            wind_speed_ms=request.wind_speed_ms,
-            turbulence_intensity=request.turbulence_intensity,
-            helix_amplitude_deg=request.helix_amplitude_deg,
-        )
-    except Exception as e:
-        raise DomainError(f"Helix control simulation failed: {e}") from e
-
-    return HelixControlResponse(
-        baseline_farm_power_mw=result.baseline_farm_power_mw,
-        helix_farm_power_mw=result.helix_farm_power_mw,
-        power_gain_percent=result.power_gain_percent,
-        helix_amplitude_deg=result.helix_amplitude_deg,
-        helix_frequency_hz=result.helix_frequency_hz,
-        upstream_power_loss_mw=result.upstream_power_loss_mw,
-        downstream_power_gain_mw=result.downstream_power_gain_mw,
-        n_helix_active_turbines=result.n_helix_active_turbines,
-        wake_recovery_distance_d=result.wake_recovery_distance_d,
-        natural_recovery_distance_d=result.natural_recovery_distance_d,
-    )
-
-
-@router.post("/dynamic-flow", response_model=DynamicFlowResponse)
-async def dynamic_flow(request: DynamicFlowRequest) -> DynamicFlowResponse:
-    """Run FLORIDyn-style dynamic flow simulation with time-varying wind.
-
-    Models wake advection delays and time-varying power output as wind
-    speed and direction change throughout the simulation period.
-    """
-    layout = _get_layout(request.layout)
-    try:
-        result = run_dynamic_flow_simulation(
-            layout.x_positions,
-            layout.y_positions,
-            dt_s=request.dt_s,
-            duration_s=request.duration_s,
-        )
-    except Exception as e:
-        raise DomainError(f"Dynamic flow simulation failed: {e}") from e
-
-    return DynamicFlowResponse(
-        mean_farm_power_mw=result.mean_farm_power_mw,
-        power_variability_mw=result.power_variability_mw,
-        max_ramp_rate_mw_s=result.max_ramp_rate_mw_s,
-        steady_state_power_mw=result.steady_state_power_mw,
-        wake_advection_time_s=result.wake_advection_time_s,
-        n_timesteps=len(result.timesteps),
-    )
-
-
-@router.post("/cfd-simulation", response_model=CFDSimulationResponse)
-async def cfd_simulation(request: CFDSimulationRequest) -> CFDSimulationResponse:
-    """Run analytical RANS-approximate CFD simulation.
-
-    Computes a 2D hub-height flow field with actuator disk forces and
-    terrain effects. Analytical approximation — not a full FEM solver.
-    """
-    layout = _get_layout(request.layout)
-    try:
-        result = run_cfd_simulation(
-            layout.x_positions,
-            layout.y_positions,
-            wind_speed_ms=request.wind_speed_ms,
-            wind_direction_deg=request.wind_direction_deg,
-            resolution=request.mesh_resolution,
-            terrain_type=request.terrain_type,
-        )
-    except Exception as e:
-        raise DomainError(f"CFD simulation failed: {e}") from e
-
-    return CFDSimulationResponse(
-        farm_power_mw=result.farm_power_mw,
-        total_thrust_kn=result.total_thrust_kn,
-        mean_tke_m2s2=result.mean_tke_m2s2,
-        mesh_cells=result.mesh.n_cells if result.mesh else 0,
-        mesh_resolution=request.mesh_resolution,
-        n_turbines=len(layout.x_positions),
-    )
-
-
-@router.post("/simultaneous-optimization", response_model=SimultaneousOptResponse)
-async def simultaneous_optimization(request: SimultaneousOptRequest) -> SimultaneousOptResponse:
-    """Joint position + yaw + derating optimization.
-
-    Simultaneously optimizes turbine positions, yaw angles, and derating
-    factors — the most complete farm-level optimization possible.
-    """
-    layout = _get_layout(request.layout)
-    try:
-        result = run_simultaneous_optimization(
-            layout.x_positions,
-            layout.y_positions,
-            maxiter=request.maxiter,
-        )
-    except Exception as e:
-        raise DomainError(f"Simultaneous optimization failed: {e}") from e
-
-    return SimultaneousOptResponse(
-        baseline_aep_gwh=result.baseline_aep_gwh,
-        optimized_aep_gwh=result.optimized_aep_gwh,
-        gain_percent=result.gain_percent,
-        position_contribution_percent=result.position_contribution_percent,
-        control_contribution_percent=result.control_contribution_percent,
-    )
-
-
-@router.post("/adjoint-sensitivities", response_model=AdjointSensitivityResponse)
-async def adjoint_sensitivities(request: AdjointSensitivityRequest) -> AdjointSensitivityResponse:
-    """Compute PDE-constrained adjoint-like layout sensitivities.
-
-    Uses finite-difference gradients dAEP/dx and dAEP/dy for each turbine
-    to identify which turbines benefit most from repositioning.
-    """
-    layout = _get_layout(request.layout)
-    try:
-        result = compute_adjoint_sensitivities(layout.x_positions, layout.y_positions)
-    except Exception as e:
-        raise DomainError(f"Adjoint sensitivity computation failed: {e}") from e
-
-    return AdjointSensitivityResponse(
-        most_sensitive_turbine=result.most_sensitive_turbine,
-        least_sensitive_turbine=result.least_sensitive_turbine,
-        total_gradient_norm=result.total_gradient_norm,
-        current_aep_gwh=result.current_aep_gwh,
-        n_turbines=len(result.sensitivities),
-    )
-
-
-@router.post("/two-stage-stochastic", response_model=TwoStageStochasticResponse)
-async def two_stage_stochastic(request: TwoStageStochasticRequest) -> TwoStageStochasticResponse:
-    """Run two-stage stochastic layout optimization.
-
-    Here-and-now layout decisions + wait-and-see operational adjustments
-    under multiple wind climate scenarios.
-    """
-    layout = _get_layout(request.layout)
-    try:
-        result = run_two_stage_stochastic(
-            layout.x_positions,
-            layout.y_positions,
-            n_scenarios=request.n_scenarios,
-            maxiter=request.maxiter,
-        )
-    except Exception as e:
-        raise DomainError(f"Two-stage stochastic failed: {e}") from e
-
-    return TwoStageStochasticResponse(
-        expected_aep_gwh=result.expected_aep_gwh,
-        worst_case_aep_gwh=result.worst_case_aep_gwh,
-        best_case_aep_gwh=result.best_case_aep_gwh,
-        value_of_stochastic_solution_gwh=result.value_of_stochastic_solution_gwh,
-        n_scenarios=result.n_scenarios,
-    )
-
-
-@router.post("/mga", response_model=MGAResponse)
-async def mga_alternatives(request: MGARequest) -> MGAResponse:
-    """Generate maximally different near-optimal layout alternatives.
-
-    MGA produces layouts that are as different as possible while maintaining
-    AEP within a specified fraction of the best solution.
-    """
-    layout = _get_layout(request.layout)
-    try:
-        result = run_mga(
-            layout.x_positions,
-            layout.y_positions,
-            n_alternatives=request.n_alternatives,
-            aep_slack_percent=request.aep_slack_percent,
-        )
-    except Exception as e:
-        raise DomainError(f"MGA failed: {e}") from e
-
-    return MGAResponse(
-        n_alternatives=len(result.alternatives),
-        diversity_scores=[round(d, 3) for d in result.diversity_scores],
-        aep_values_gwh=[round(a, 2) for a in result.aep_values_gwh],
-        optimal_aep_gwh=result.optimal_aep_gwh,
-        aep_slack_percent=result.aep_slack_percent,
-    )
-
-
-@router.post("/gaussian-flowers-aep", response_model=GaussianFLOWERSResponse)
-async def gaussian_flowers_aep(request: GaussianFLOWERSRequest) -> GaussianFLOWERSResponse:
-    """Compute AEP using Gaussian FLOWERS analytical method.
-
-    Extends FLOWERS with Bastankhah-Porté-Agel Gaussian wake model for
-    improved accuracy (< 1% error vs directional sweeps).
-    """
-    layout = _get_layout(request.layout)
-    try:
-        rose = _site_rose(request.mean_wind_speed_ms, request.weibull_k)
-        result = compute_gaussian_flowers_aep(
-            layout.x_positions,
-            layout.y_positions,
-            sector_frequencies=rose.frequencies,
-            sector_directions_deg=rose.sector_centres_deg,
-            mean_wind_speed_ms=request.mean_wind_speed_ms,
-            n_fourier_modes=request.n_fourier_modes,
-            weibull_k=request.weibull_k,
-        )
-    except Exception as e:
-        raise DomainError(f"Gaussian FLOWERS failed: {e}") from e
-
-    return GaussianFLOWERSResponse(
-        aep_gwh=result.aep_gwh,
-        gross_aep_gwh=result.gross_aep_gwh,
-        wake_loss_percent=result.wake_loss_percent,
-        computation_time_ms=result.computation_time_ms,
-        capacity_factor=result.capacity_factor,
-        jensen_comparison_aep_gwh=result.jensen_comparison_aep_gwh,
-        gaussian_vs_jensen_diff_percent=result.gaussian_vs_jensen_diff_percent,
-    )
 
 
 @router.post("/layout-optimization", response_model=LayoutOptimizationResponse)

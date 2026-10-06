@@ -535,7 +535,7 @@ def _defs() -> list[tuple[int, dict[str, object]]]:
 
 def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
     """New programme in CREATED state, plant in its construction condition."""
-    programme_id = f"BWA-SP-{datetime.now(UTC):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
+    programme_id = f"SB5-SP-{datetime.now(UTC):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
     programme = SwitchingProgramme(
         programme_id=programme_id,
         title="Circuit 1 first energisation — export cable 1, TX-OSS-01, strings 1–3",

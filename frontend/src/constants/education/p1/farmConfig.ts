@@ -99,5 +99,4 @@ export const farmConfigEducation: EducationContent = {
     },
   ],
 
-  relatedLessons: ["lesson-005", "lesson-006"],
 };

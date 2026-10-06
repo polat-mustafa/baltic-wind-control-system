@@ -10,7 +10,10 @@
  *   /commissioning   → CommissioningPage (P5 switching programme)
  *   /turbine-physics → TurbinePhysicsPage (dynamic simulation)
  *   /digital-twin    → DigitalTwinPage (condition monitoring)
- *   /library         → EngineerLibraryPage (read-only educational primers)
+ *   /develop         → SitePermitsPage, /develop/layout → LayoutPage
+ *   /build           → ConstructionPage, /build/handover → HandoverPage
+ *   /decommission    → DecommissioningPage
+ *   /academy         → AcademyPage (courses, scored missions)
  *
  * All routes are wrapped in AppShell (top bar + sidebar + content area).
  */
@@ -23,14 +26,18 @@ import AppShell from "./components/layout/AppShell";
 
 // Route-level code splitting: each page (and its heavy deps — Plotly, three.js,
 // XYFlow, Leaflet) is downloaded on first visit. AppShell holds the <Suspense>.
+const AcademyPage = lazy(() => import("./pages/AcademyPage"));
 const CommissioningPage = lazy(() => import("./pages/CommissioningPage"));
+const ConstructionPage = lazy(() => import("./pages/ConstructionPage"));
+const DecommissioningPage = lazy(() => import("./pages/DecommissioningPage"));
 const DigitalTwinPage = lazy(() => import("./pages/DigitalTwinPage"));
-const EngineerLibraryPage = lazy(() => import("./pages/EngineerLibraryPage"));
 const ForecastPage = lazy(() => import("./pages/ForecastPage"));
+const HandoverPage = lazy(() => import("./pages/HandoverPage"));
 const HVGridPage = lazy(() => import("./pages/HVGridPage"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
-const ResearchLab = lazy(() => import("./pages/ResearchLab"));
 const SCADAPage = lazy(() => import("./pages/SCADAPage"));
+const SitePermitsPage = lazy(() => import("./pages/SitePermitsPage"));
+const LayoutPage = lazy(() => import("./pages/LayoutPage"));
 const TurbinePhysicsPage = lazy(() => import("./pages/TurbinePhysicsPage"));
 const WindResourcePage = lazy(() => import("./pages/WindResourcePage"));
 
@@ -41,15 +48,19 @@ function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route index element={<LandingPage />} />
+            <Route path="develop" element={<SitePermitsPage />} />
+            <Route path="develop/layout" element={<LayoutPage />} />
             <Route path="wind-resource" element={<WindResourcePage />} />
             <Route path="hv-grid" element={<HVGridPage />} />
             <Route path="scada" element={<SCADAPage />} />
             <Route path="forecast" element={<ForecastPage />} />
+            <Route path="build" element={<ConstructionPage />} />
+            <Route path="build/handover" element={<HandoverPage />} />
             <Route path="commissioning" element={<CommissioningPage />} />
             <Route path="turbine-physics" element={<TurbinePhysicsPage />} />
             <Route path="digital-twin" element={<DigitalTwinPage />} />
-            <Route path="library" element={<EngineerLibraryPage />} />
-            <Route path="research-lab" element={<ResearchLab />} />
+            <Route path="decommission" element={<DecommissioningPage />} />
+            <Route path="academy" element={<AcademyPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

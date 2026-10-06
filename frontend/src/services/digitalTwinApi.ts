@@ -1,133 +1,292 @@
 /**
- * Typed fetch wrapper for Digital Twin API endpoints.
+ * Typed client for the Digital Twin API (backend/app/routers/digital_twin.py).
  *
- * Maps 1:1 to backend routes in backend/app/routers/digital_twin.py.
- * Vite dev proxy forwards /api → localhost:8000.
+ * Times are Unix seconds (UTC). Channel order everywhere:
+ * power, rotor_speed, pitch, gearbox_temp, anemometer.
  */
 
 import { post, request } from "./apiClient";
 
 const BASE = "/api/v1/digital-twin";
 
-// ── Response Types ───────────────────────────────────────────────
+export type ScenarioName =
+  | "healthy"
+  | "rotor_icing"
+  | "pitch_misalignment"
+  | "converter_derating"
+  | "gearbox_degradation"
+  | "anemometer_drift"
+  | "combined";
 
-export interface TurbineHealth {
-  turbine_id: number;
-  turbine_name: string;
-  health_power: number;
-  health_rpm: number;
-  health_pitch: number;
-  health_composite: number;
-  status: "healthy" | "degraded" | "critical";
-  anomaly_count: number;
+export type FaultKind =
+  | "aero_efficiency"
+  | "pitch_offset"
+  | "power_limit"
+  | "gearbox_loss"
+  | "anemometer_gain";
+
+export type ChannelKey = "power" | "rotor_speed" | "pitch" | "gearbox_temp" | "anemometer";
+export type HealthStatus = "normal" | "alert" | "alarm";
+
+// ── Model card ───────────────────────────────────────────────────
+
+export interface ChannelCard {
+  key: ChannelKey;
+  label: string;
+  unit: string;
+  logical_node: string;
+  sigma_floor: number;
+  acf_factor: number;
+  lag1_autocorr: number;
+  rmse: number;
+  bias: number;
+  samples: number;
 }
 
-export interface AnomalyRecord {
-  turbine_id: number;
-  timestep: number;
+export interface FaultModeCard {
+  kind: FaultKind;
+  label: string;
   category: string;
-  severity: "low" | "medium" | "high";
-  description: string;
-  power_ewma_pct: number;
-  rpm_ewma_pct: number;
-  pitch_ewma_pct: number;
+  parameter: string;
+  unit: string;
+  nominal: number;
+  search_min: number;
+  search_max: number;
+  advisory: string;
+  references: string[];
+  prognosis_limit: number | null;
+  prognosis_limit_note: string | null;
 }
 
-export interface DegradationTrend {
-  turbine_id: number;
-  turbine_name: string;
-  health_values: number[];
-  slope_pct_per_day: number;
-  rul_days: number | null;
-}
-
-export interface TwinComparison {
-  timestamps: number[];
-  wind_speed_ms: number[];
-  actual_power_mw: number[];
-  twin_power_mw: number[];
-  residual_mw: number[];
-  residual_pct: number[];
-  power_ewma: number[];
-}
-
-export interface FarmHealthSummary {
-  farm_health_pct: number;
-  healthy_count: number;
-  degraded_count: number;
-  critical_count: number;
-  worst_turbine_id: number;
-  worst_turbine_name: string;
-  total_anomalies: number;
-}
-
-export interface AnalyzeResponse {
-  scenario: string;
-  num_timesteps: number;
-  num_turbines: number;
-  farm_health: FarmHealthSummary;
-  turbine_health: TurbineHealth[];
-  anomalies: AnomalyRecord[];
-  degradation_trends: DegradationTrend[];
-  comparison_data: TwinComparison;
+export interface ScenarioInjection {
+  kind: FaultKind;
+  label: string;
+  turbines: string[];
+  severity: number[];
+  unit: string;
+  onset_fraction: number;
+  ramp_fraction: number;
+  end_fraction: number | null;
 }
 
 export interface ScenarioInfo {
-  name: string;
+  name: ScenarioName;
+  title: string;
   description: string;
+  injections: ScenarioInjection[];
+  cold_spell: [number, number] | null;
 }
 
-export interface DigitalTwinConfig {
-  health_weights: Record<string, number>;
-  health_thresholds: Record<string, number>;
-  sigma_baselines: Record<string, number>;
-  ewma_span: number;
-  available_scenarios: string[];
+export interface StandardRef {
+  code: string;
+  title: string;
+  role: string;
 }
 
-export interface SingleTurbineResponse {
-  wind_speed_ms: number;
-  wind_dir_deg: number;
-  actual_power_mw: number;
-  twin_power_mw: number;
-  residual_mw: number;
-  residual_pct: number;
-  health_composite: number;
-  status: string;
+export interface ModelCard {
+  turbine: Record<string, number | string>;
+  aero_calibration: Record<string, number>;
+  thermal_model: Record<string, number | string>;
+  measurement_model: Record<string, number | string>;
+  detector: Record<string, number | string>;
+  phase_one: Record<string, number>;
+  channels: ChannelCard[];
+  fault_library: FaultModeCard[];
+  scenarios: ScenarioInfo[];
+  standards: StandardRef[];
 }
 
-// ── API Functions ────────────────────────────────────────────────
-
-export function getConfig(): Promise<DigitalTwinConfig> {
-  return request(`${BASE}/config`);
+export interface ReferenceCurve {
+  wind_ms: number[];
+  power_mw: number[];
+  rotor_speed_rpm: number[];
+  pitch_deg: number[];
+  tip_speed_ratio: number[];
+  cp: number[];
+  gearbox_loss_kw: number[];
+  region: number[];
+  region_names: Record<string, string>;
+  p1_table_power_mw: number[];
+  max_deviation_vs_p1_mw: number;
+  max_deviation_vs_p1_above_6ms_mw: number;
 }
 
-export function getScenarios(): Promise<ScenarioInfo[]> {
-  return request(`${BASE}/scenarios`);
+// ── Analysis ─────────────────────────────────────────────────────
+
+export interface Hypothesis {
+  kind: FaultKind;
+  severity: number;
+  cost: number;
+  explained: number;
+  posterior: number;
 }
 
-export function postAnalyze(
-  scenario: string,
-  numTimesteps: number = 144,
-  numTurbines: number = 34,
-  seed: number = 42,
-): Promise<AnalyzeResponse> {
-  return post(`${BASE}/analyze`, {
-    scenario,
-    num_timesteps: numTimesteps,
-    num_turbines: numTurbines,
-    seed,
-  });
+export interface Diagnosis {
+  kind: FaultKind | null;
+  label: string;
+  category: string | null;
+  severity: number | null;
+  unit: string | null;
+  posterior: number;
+  explained: number;
+  lr_statistic: number;
+  cause_hint: string;
+  advisory: string | null;
+  window_start: number;
+  window_end: number;
+  samples_used: number;
+  mean_ambient_c: number;
+  mean_humidity_pct: number;
+  hypotheses: Hypothesis[];
 }
 
-export function postSingleTurbine(
-  windSpeedMs: number,
-  windDirDeg: number,
-  actualPowerMw: number,
-): Promise<SingleTurbineResponse> {
-  return post(`${BASE}/single-turbine`, {
-    wind_speed_ms: windSpeedMs,
-    wind_dir_deg: windDirDeg,
-    actual_power_mw: actualPowerMw,
-  });
+export interface Prognosis {
+  kind: FaultKind;
+  limit: number;
+  limit_note: string;
+  current: number | null;
+  slope_per_day: number;
+  slope_std_error: number;
+  p_value: number;
+  significant: boolean;
+  rul_days: number | null;
+  rul_lower_days: number | null;
+  rul_upper_days: number | null;
+  points: number;
+  status: "trend" | "no_trend" | "limit_exceeded" | "insufficient_data";
 }
+
+export interface TurbineSummary {
+  turbine_id: number;
+  name: string;
+  status: HealthStatus;
+  health_index: number;
+  channel_health: Record<ChannelKey, number>;
+  worst_channel: ChannelKey;
+  event_count: number;
+  active_event_count: number;
+  first_detection: number | null;
+  last_evidence: number | null;
+  diagnosis: Diagnosis | null;
+  prognosis: Prognosis | null;
+  actual_energy_mwh: number;
+  potential_energy_mwh: number;
+  lost_energy_mwh: number;
+}
+
+export interface TwinEvent {
+  turbine_id: number;
+  turbine_name: string;
+  channel: ChannelKey;
+  level: "alert" | "alarm";
+  direction: "high" | "low";
+  onset: number;
+  confirmed: number;
+  end: number | null;
+  peak_u: number;
+  diagnosis: FaultKind | null;
+}
+
+export interface ValidationRow {
+  turbine_id: number;
+  turbine_name: string;
+  injected_kind: FaultKind;
+  injected_severity: number;
+  final_severity: number;
+  unit: string;
+  onset: number;
+  detected: boolean;
+  detection: number | null;
+  delay_hours: number | null;
+  diagnosed_kind: FaultKind | null;
+  isolation_correct: boolean;
+  estimated_severity: number | null;
+}
+
+export interface FarmSummary {
+  fleet_health_index: number;
+  min_health_index: number;
+  normal_count: number;
+  alert_count: number;
+  alarm_count: number;
+  diagnosed_count: number;
+  active_events: number;
+  total_events: number;
+  actual_energy_mwh: number;
+  potential_energy_mwh: number;
+  lost_energy_mwh: number;
+  energy_performance_pct: number;
+}
+
+export interface AnalyzeResponse {
+  scenario: ScenarioName;
+  title: string;
+  duration_days: number;
+  seed: number;
+  start: number;
+  sample_period_s: number;
+  num_samples: number;
+  farm: FarmSummary;
+  turbines: TurbineSummary[];
+  events: TwinEvent[];
+  health_trend: { timestamps: number[]; health: number[][] };
+  ambient: {
+    timestamps: number[];
+    temperature_c: number[];
+    humidity_pct: number[];
+    farm_wind_ms: number[];
+  };
+  validation: {
+    rows: ValidationRow[];
+    injected: number;
+    detected: number;
+    isolated: number;
+    false_events: number;
+    mean_delay_hours: number | null;
+  };
+}
+
+export interface ChannelSeries {
+  key: ChannelKey;
+  label: string;
+  unit: string;
+  logical_node: string;
+  measured: number[];
+  expected: number[];
+  ewma: number[];
+  limit: number[];
+  valid: boolean[];
+}
+
+export interface TurbineDetail {
+  turbine: TurbineSummary;
+  timestamps: number[];
+  wind_ms: number[];
+  channels: ChannelSeries[];
+  health: number[];
+  in_event: boolean[];
+  severity_trend: { time: number; severity: number; std_error: number; samples: number }[];
+  truth: { kind: FaultKind; unit: string; values: number[] }[];
+  power_curve_wind_ms: number[];
+  power_curve_mw: number[];
+}
+
+export interface RunParams {
+  scenario: ScenarioName;
+  duration_days: number;
+  seed: number;
+}
+
+// ── Calls ────────────────────────────────────────────────────────
+
+export const getModelCard = (): Promise<ModelCard> => request(`${BASE}/config`);
+
+export const getReferenceCurve = (): Promise<ReferenceCurve> =>
+  request(`${BASE}/reference-curve`);
+
+export const postAnalyze = (params: RunParams): Promise<AnalyzeResponse> =>
+  post(`${BASE}/analyze`, params);
+
+export const postTurbineDetail = (
+  params: RunParams & { turbine_id: number },
+): Promise<TurbineDetail> => post(`${BASE}/turbine-detail`, params);

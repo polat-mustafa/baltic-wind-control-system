@@ -34,10 +34,10 @@ const M_PER_DEG_LON = 111_320 * Math.cos((54.75 * Math.PI) / 180);
 // ── Core wake math ────────────────────────────────────────────────
 
 /** Gaussian wake width σ [m] at x metres downstream. */
-export function wakeSigma(x: number, ct = CT): number {
+export function wakeSigma(x: number, ct = CT, kStar = K_STAR): number {
   const s = Math.sqrt(1 - Math.min(ct, 0.95));
   const beta = (0.5 * (1 + s)) / s;
-  return ROTOR_DIAMETER * ((K_STAR * x) / ROTOR_DIAMETER + 0.2 * Math.sqrt(beta));
+  return ROTOR_DIAMETER * ((kStar * x) / ROTOR_DIAMETER + 0.2 * Math.sqrt(beta));
 }
 
 /**
@@ -45,10 +45,11 @@ export function wakeSigma(x: number, ct = CT): number {
  * The Gaussian form is a far-wake model (valid beyond ≈ 2–3 D); closer in it
  * is evaluated at 2 D — the farm's spacing is ≥ 6 D, the 3D near wake uses
  * actuator-disc theory instead (components/landing/turbine3d/model/wakeModel).
+ * `kStar` overrides the expansion rate (higher turbulence → faster recovery).
  */
-export function velocityDeficit(x: number, r = 0, ct = CT): number {
+export function velocityDeficit(x: number, r = 0, ct = CT, kStar = K_STAR): number {
   if (x <= 0 || ct <= 0) return 0;
-  const sig = wakeSigma(Math.max(x, 2 * ROTOR_DIAMETER), ct);
+  const sig = wakeSigma(Math.max(x, 2 * ROTOR_DIAMETER), ct, kStar);
   const arg = 1 - ct / (8 * (sig / ROTOR_DIAMETER) ** 2);
   const c = 1 - Math.sqrt(Math.max(0, arg));
   return c * Math.exp(-(r * r) / (2 * sig * sig));

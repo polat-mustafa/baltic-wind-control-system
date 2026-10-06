@@ -156,7 +156,7 @@ function TpMarking({ id, side }: { id: string; side: -1 | 1 }) {
       g.textBaseline = "middle";
       g.fillText(id, 512, 110);
       g.font = "bold 44px Arial, sans-serif";
-      g.fillText("BALTIC WIND ALPHA", 512, 215);
+      g.fillText("SB-510 CASE STUDY", 512, 215);
     }
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;

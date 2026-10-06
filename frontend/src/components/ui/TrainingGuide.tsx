@@ -34,6 +34,7 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
     <Dialog.Root>
       <Dialog.Trigger asChild>
         <button
+          data-tour="training-guide"
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5",
             "border border-amber-600/30 bg-amber-500/10",
@@ -222,7 +223,7 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
           {/* Footer */}
           <div className="shrink-0 px-6 py-3 border-t border-border-primary">
             <p className="text-[10px] text-text-muted text-center">
-              Baltic Wind HV Control Platform — Training Module
+              OffshoreForge — Training Module
             </p>
           </div>
         </Dialog.Content>

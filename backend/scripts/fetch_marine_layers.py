@@ -915,6 +915,8 @@ def main() -> None:
         layers = [fresh.pop(lyr["id"], lyr) for lyr in pack["layers"]] + list(fresh.values())
     else:
         layers = build_layers(REGION_BBOX, today)
+        # The wind climate comes from scripts/fetch_wind_climate.py: keep it.
+        layers += [lyr for lyr in pack["layers"] if lyr["role"] in ("wind", "wind_rose")]
     pack.update(
         bbox=list(REGION_BBOX),
         title=REGION_TITLE,

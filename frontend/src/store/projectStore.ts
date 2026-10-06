@@ -14,6 +14,7 @@ import { TURBINE_POSITIONS, OSS_GEO } from "../constants/windFarmLayout";
 import { DEFAULT_COSTS, type CostInputs } from "../lib/layout/cost";
 import type { LonLat } from "../lib/layout/geometry";
 import { readStored, writeStored } from "../lib/storage";
+import { DEFAULT_TURBINE_ID } from "../constants/turbineModels";
 import { runCustomWakeAnalysis } from "../services/windResourceApi";
 import type { WakeAnalysisResult } from "../types/windResource";
 
@@ -30,7 +31,7 @@ export interface Turbine {
 export interface ProjectFile {
   schema: number;
   app: "OffshoreForge";
-  turbineModel: "V236-15.0";
+  turbineModel: string;
   site: LonLat[] | null;
   turbines: Turbine[];
   oss: LonLat | null;
@@ -95,6 +96,12 @@ function load(): Persisted {
   return { turbines: [], oss: null, costs: { ...DEFAULT_COSTS } };
 }
 
+export interface PyWakeWind {
+  weibullA: number;
+  weibullK: number;
+  sectorFrequencies: number[] | null;
+}
+
 interface ProjectState extends Persisted {
   selected: string | null;
   addMode: boolean;
@@ -114,7 +121,8 @@ interface ProjectState extends Persisted {
   resetCosts: () => void;
   loadCaseStudy: () => void;
   clear: () => void;
-  runPyWake: (toXY: (p: LonLat) => { x: number; y: number }) => Promise<void>;
+  /** PyWake AEP of the layout; `wind` = the site climate (default: P1's synthetic rose). */
+  runPyWake: (toXY: (p: LonLat) => { x: number; y: number }, wind?: PyWakeWind) => Promise<void>;
   exportFile: (site: LonLat[] | null) => string;
   importFile: (text: string) => LonLat[] | null;
   clearError: () => void;
@@ -174,7 +182,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       }),
     clear: () => update({ turbines: [], selected: null, pywake: null, pywakeFor: null }),
 
-    runPyWake: async (toXY) => {
+    runPyWake: async (toXY, wind) => {
       const t = get().turbines;
       if (!t.length) return;
       const id = ++request;
@@ -185,6 +193,11 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         const res = await runCustomWakeAnalysis(
           xy.map((p) => Math.round(p.x * 10) / 10),
           xy.map((p) => Math.round(p.y * 10) / 10),
+          wind?.weibullA,
+          wind?.weibullK,
+          undefined,
+          undefined,
+          wind?.sectorFrequencies ?? null,
         );
         if (id === request) set({ pywake: res, pywakeFor: sig, running: false });
       } catch (e) {
@@ -194,7 +207,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     exportFile: (site) => {
       const { turbines, oss, costs } = get();
-      const file: ProjectFile = { schema: PROJECT_SCHEMA, app: "OffshoreForge", turbineModel: "V236-15.0", site, turbines, oss, costs };
+      const file: ProjectFile = { schema: PROJECT_SCHEMA, app: "OffshoreForge", turbineModel: DEFAULT_TURBINE_ID, site, turbines, oss, costs };
       return JSON.stringify(file, null, 2);
     },
 

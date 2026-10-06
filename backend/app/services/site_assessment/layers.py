@@ -19,6 +19,10 @@ protected   polygon   protected areas (Natura 2000)
 shipping    polygon   shipping routes / high-density traffic areas
 restricted  polygon   military areas, munition dumpsites
 bathymetry  raster    water depth [m, positive down] on a regular lon/lat grid
+wind        raster    wind climate at hub height, bands mean [m/s], k [-], A [m/s]
+wind_rose   raster    wind direction frequency, bands f000 … f330 (12 × 30° sectors, wind FROM)
+
+A raster is ``{lon0, lat0, dlon, dlat, values}`` (one band) or ``{…, bands: {name: values}}``.
 """
 
 from __future__ import annotations
@@ -49,6 +53,8 @@ ROLES = (
     "shipping",
     "restricted",
     "bathymetry",
+    "wind",
+    "wind_rose",
 )
 
 #: What a screening loses when a role is missing.
@@ -66,6 +72,8 @@ MISSING_EFFECT: dict[str, str] = {
     "shipping": "Shipping routes are NOT excluded.",
     "restricted": "Military areas and munition dumpsites are NOT excluded.",
     "bathymetry": "No water-depth score or depth limits.",
+    "wind": "No site wind climate: energy uses the regional approximation (A 10.5 m/s, k 2.2).",
+    "wind_rose": "No site wind rose: energy uses the regional approximation.",
 }
 
 
@@ -187,12 +195,14 @@ class RegionPack:
     def has_polygons(self, role: str) -> bool:
         return any(layer.geometry == "polygon" and layer.features for layer in self.by_role(role))
 
-    def raster(self, role: str) -> Raster | None:
+    def raster(self, role: str, band: str | None = None) -> Raster | None:
+        """The raster of this role (``band`` picks one band of a multi-band raster)."""
         for layer in self.by_role(role):
             if layer.raster is not None:
                 r = layer.raster
+                rows = r["bands"][band] if band is not None else r["values"]
                 values = np.array(
-                    [[np.nan if v is None else float(v) for v in row] for row in r["values"]],
+                    [[np.nan if v is None else float(v) for v in row] for row in rows],
                     dtype=float,
                 )
                 return Raster(

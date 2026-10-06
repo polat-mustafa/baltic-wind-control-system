@@ -75,3 +75,28 @@ def test_rejects_unknown_turbine_model() -> None:
     r = client.post(URL, json={"x_m": [0.0], "y_m": [0.0], "turbine_model": "V999"})
     assert r.status_code == 422
     assert "Unknown turbine model" in r.text
+
+
+def test_site_rose_sets_the_wake_direction() -> None:
+    """Wind only from the west: an east–west pair is waked, a north–south pair is not."""
+    west = [0.0] * 12
+    west[9] = 1.0  # sector centred on 270°
+    gap = 6 * D
+    body = {"weibull_a": 10.6, "weibull_k": 2.05, "sector_frequencies": west}
+    ew = client.post(URL, json={"x_m": [0.0, gap], "y_m": [0.0, 0.0], **body}).json()
+    ns = client.post(URL, json={"x_m": [0.0, 0.0], "y_m": [0.0, gap], **body}).json()
+    assert ew["wake_loss_percent"] > 5.0
+    assert ns["wake_loss_percent"] < 0.5
+    # the eastern turbine of the east–west pair is the waked one
+    assert ew["per_turbine_aep_gwh"][1] < ew["per_turbine_aep_gwh"][0]
+
+
+def test_rejects_bad_rose() -> None:
+    assert (
+        client.post(
+            URL, json={"x_m": [0.0], "y_m": [0.0], "sector_frequencies": [0.1] * 5}
+        ).status_code
+        == 422
+    )
+    r = client.post(URL, json={"x_m": [0.0], "y_m": [0.0], "sector_frequencies": [0.0] * 12})
+    assert r.status_code == 422

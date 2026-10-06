@@ -22,7 +22,8 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 1 | Screening follows Polish MSP law: wind only in energy ('E') basins, real projects = warn, whole-EEZ data pack | In review (`feat/site-msp-energy-basins`) |
 | 2 | Site & Permits UX: legend, permit outlook banner, role avatars, data & sources panel, report states (stale / failed / retry) | In review (`feat/site-permits-ux`, stacked on phase 1) |
 | 3 | IEA-15-240-RWT / IEA-22-280-RWT from the official IEA Wind Task 37 tables; P1 wake/AEP, layout canvas and frontend curves on the model registry; CF bug fixed | In review (`feat/turbine-iea-models`, stacked on phase 2) |
-| 4–13 | Site wind climate · project persistence · post-tour choice + locks · FarmSpec/P2 · P5/P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
+| 4 | Site wind climate from real data: NEWA mean + k at 150 m, ERA5 rose; assessment returns it, layout and PyWake use it | In review (`feat/site-wind-climate`, stacked on phase 3) |
+| 5–13 | Project persistence · post-tour choice + locks · FarmSpec/P2 · P5/P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
 
 Phase 1 note: `test_sb510_case_study` expects `msp_energy == "fail"` until phase 9 moves SB-510 into PZP_44.
 Phase 2 note: the permit outlook says a refused site "could not go on to layout" but Layout is not locked yet — the hard lock comes with phase 6.
@@ -31,6 +32,10 @@ Phase 3 notes:
 - P4, the digital twin (`digital_twin/legacy_v236_table.py`), turbine physics (`state_machine` cut-out comes from the caller's spec) and P3 historian keep the legacy V236 curve (3 / 11.1 / 31 m/s) until phase 12.
 - Educational texts that quote the Vestas V236 catalogue (part cards, library `turbineSelection`, P4 academy) are left for phase 12 (provenance pass).
 - SB-510 with the IEA 15 MW: gross 2534 GWh/yr, wake 7.0 %, net P50 2126 GWh/yr, CF 0.476 (A 10.5 m/s, k 2.2).
+Phase 4 notes:
+- `scripts/fetch_wind_climate.py` (rate-limited services: sequential NEWA calls, Open-Meteo 429 back-off, on-disk cache in the temp dir). NEWA is **CC BY-NC 4.0**: fine for this free, non-commercial project; a commercial fork must replace `wind_climate`. NEWA `wind_speed_std` is a long-term statistic (moment fit gives k ≈ 4.5), so k comes from the microscale atlas.
+- SB-510: mean 9.38 m/s, A 10.58 m/s, k 2.04 at 150 m; rose peaks at 270° (18.7 %) and 240° (14.1 %). Regular 34-turbine grid: gross 2506 GWh/yr (−1.1 % vs the old synthetic climate), wake 7.0 %.
+- `/layers` does not send the wind/bathymetry rasters to the browser yet (planned with phase 10's per-turbine depth); the P1 page still runs on its synthetic climate (phase 7 FarmSpec).
 
 ## Resume here
 

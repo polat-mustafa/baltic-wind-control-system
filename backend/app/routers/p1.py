@@ -197,6 +197,16 @@ class CustomWakeRequest(BaseModel):
         DEFAULT_TURBINE_ID,
         description="Turbine model id (IEA-15-240-RWT or IEA-22-280-RWT)",
     )
+    sector_frequencies: list[float] | None = Field(
+        None,
+        min_length=12,
+        max_length=12,
+        description=(
+            "Site wind rose: 12 sectors, wind FROM, centres 0°, 30° … 330° (from the site "
+            "assessment). With it the site is Weibull(A, k) in every sector weighted by these "
+            "frequencies; without it the dashboard's synthetic 12-sector rose is used."
+        ),
+    )
 
 
 class AEPCascadeRequest(BaseModel):
@@ -417,6 +427,17 @@ def _site(weibull_a: float, weibull_k: float, ti: float) -> Any:
     return create_site_from_wind_rose(rose, ti)
 
 
+def _rose_site(weibull_a: float, weibull_k: float, freqs: list[float], ti: float) -> Any:
+    """PyWake site: one Weibull(A, k) for all sectors, weighted by a measured rose."""
+    from py_wake.site import UniformWeibullSite
+
+    p = np.asarray(freqs, dtype=np.float64)
+    if (p < 0).any() or p.sum() <= 0:
+        raise DomainValidationError("sector_frequencies must be ≥ 0 and not all zero")
+    n = len(p)
+    return UniformWeibullSite(p_wd=p / p.sum(), a=[weibull_a] * n, k=[weibull_k] * n, ti=ti)
+
+
 def _get_layout(name: str) -> LayoutResult:
     """Retrieve a pre-computed layout by name."""
     if name == "regular":
@@ -575,7 +596,7 @@ async def wake_analysis(request: WakeAnalysisRequest) -> WakeAnalysisResponse:
 
 
 # Bump the version suffix whenever the wake model or wind site changes.
-@cached(prefix="wake-custom-v2", ttl=300)
+@cached(prefix="wake-custom-v3", ttl=300)
 def _cached_custom_wake(
     x_m: list[float],
     y_m: list[float],
@@ -583,9 +604,14 @@ def _cached_custom_wake(
     weibull_k: float,
     ti: float,
     model_id: str,
+    sector_frequencies: list[float] | None = None,
 ) -> dict[str, object]:
     """Cached PyWake run for arbitrary positions [m]."""
-    site = _site(weibull_a, weibull_k, ti)
+    site = (
+        _site(weibull_a, weibull_k, ti)
+        if sector_frequencies is None
+        else _rose_site(weibull_a, weibull_k, sector_frequencies, ti)
+    )
     result = run_wake_analysis(
         np.asarray(x_m, dtype=np.float64),
         np.asarray(y_m, dtype=np.float64),
@@ -629,6 +655,9 @@ async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisRespon
             request.weibull_k,
             request.turbulence_intensity,
             turbine.id,
+            None
+            if request.sector_frequencies is None
+            else [round(f, 4) for f in request.sector_frequencies],
         )
     except DomainError:
         raise

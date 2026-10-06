@@ -78,8 +78,17 @@ export function runCustomWakeAnalysis(
   weibull_k = 2.2,
   turbulence_intensity = 0.06,
   turbine_model = DEFAULT_TURBINE_ID,
+  sector_frequencies: number[] | null = null,
 ): Promise<WakeAnalysisResult> {
-  return post(`${BASE}/wake-analysis-custom`, { x_m, y_m, weibull_a, weibull_k, turbulence_intensity, turbine_model });
+  return post(`${BASE}/wake-analysis-custom`, {
+    x_m,
+    y_m,
+    weibull_a,
+    weibull_k,
+    turbulence_intensity,
+    turbine_model,
+    sector_frequencies,
+  });
 }
 
 // ── AEP Cascade ─────────────────────────────────────────────────

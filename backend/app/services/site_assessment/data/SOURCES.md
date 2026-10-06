@@ -31,6 +31,8 @@ and the coast from Świnoujście to the Vistula Spit. Retrieved 2026-10-06.
 | `shipping` | shipping | Maritime spatial plans (PL, DK): basins whose priority use is "maritime traffic flows", via EMODnet `mspzoningpoly` | CC BY 4.0 (EMODnet) |
 | `restricted` | restricted | EMODnet `militaryareaspoly` and `munitionspoly` (HELCOM dumpsites) | CC BY 4.0 (EMODnet) |
 | `bathymetry` | bathymetry | EMODnet Digital Bathymetry DTM 2024 (doi:10.12770/cf51df64-56f9-4a99-b1aa-36b8d7b743a1), mean of the 1/16′ cells in 0.01° blocks | EMODnet open data, with attribution; not for navigation |
+| `wind_climate` | wind | Hub height 150 m, 0.05° grid: mean speed from the NEWA Mesoscale Atlas `wind_speed_mean` (WRF 3 km, 1989–2018, doi:10.11583/DTU.14414096.v1); Weibull k from the NEWA Microscale Atlas `weib_k_combined` at 100 and 200 m (0.5° sea points, ln z interpolation to 150 m); A = mean / Γ(1 + 1/k). Built by `scripts/fetch_wind_climate.py` | **CC BY-NC 4.0** (NEWA, DTU Wind Energy) — non-commercial; OffshoreForge is free and non-commercial, a commercial re-user must replace this layer |
+| `wind_rose` | wind_rose | 12-sector direction frequency (wind FROM) of ERA5 hourly 100 m winds 2015–2024, 0.5° grid, via the Open-Meteo archive API | CC BY 4.0 (ERA5: Copernicus Climate Change Service; Open-Meteo) |
 
 Licences were read from each dataset's ISO metadata record (EMODnet
 GeoNetwork), the Marine Regions licence page and the OSM copyright page.

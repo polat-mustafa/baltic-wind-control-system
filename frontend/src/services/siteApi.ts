@@ -102,6 +102,20 @@ export interface SiteCheck {
   reference: string;
 }
 
+/** Hub-height wind climate of a site (NEWA + ERA5, or the labelled approximation). */
+export interface SiteWind {
+  mean_ms: number;
+  weibull_a: number;
+  weibull_k: number;
+  height_m: number;
+  /** 12 sectors, wind FROM, centres 0°, 30° … 330°; null without a site rose. */
+  sector_frequencies: number[] | null;
+  source: string;
+  license: string;
+  /** True: real data not found, closest approximation used. */
+  approximate: boolean;
+}
+
 export interface AssessResponse {
   region: string;
   area_km2: number;
@@ -124,6 +138,7 @@ export interface AssessResponse {
   energy_basins?: string[];
   /** Real wind farm projects inside the site or already holding its energy basins. */
   projects?: string[];
+  wind?: SiteWind | null;
   checks: SiteCheck[];
   complete: boolean;
 }

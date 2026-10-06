@@ -15,6 +15,7 @@ import { cn } from "../lib/utils";
 import { routeCables, ARRAY_SECTIONS, maxPerString } from "../lib/layout/cables";
 import { COST_LABELS, layoutCost, type CostInputs } from "../lib/layout/cost";
 import { layoutYield, UNIFORM_ROSE, type WindRose } from "../lib/layout/energy";
+import { weibullMean } from "../utils/aepMath";
 import {
   D,
   defaultExportKm,
@@ -181,8 +182,23 @@ export default function LayoutPage() {
 
   const sig = signature(p.turbines);
   const xy = useMemo(() => p.turbines.map((t) => proj.toXY([t.lon, t.lat])), [p.turbines, proj]);
+  // Site wind climate from the assessment (NEWA + ERA5); the regional approximation otherwise.
+  const siteWind = report?.wind && !report.wind.approximate ? report.wind : null;
+  const windA = siteWind?.weibull_a ?? WEIBULL_A;
+  const windK = siteWind?.weibull_k ?? WEIBULL_K;
+  const siteRose = useMemo<WindRose | null>(
+    () =>
+      siteWind?.sector_frequencies
+        ? { directions: siteWind.sector_frequencies.map((_, i) => i * 30), frequencies: siteWind.sector_frequencies }
+        : null,
+    [siteWind],
+  );
+  const activeRose = siteRose ?? rose;
   // live screening yield, recomputed when the layout (not a drag in progress) changes
-  const yieldRes = useMemo(() => (xy.length ? layoutYield(xy, WEIBULL_A, WEIBULL_K, rose) : null), [xy, rose]);
+  const yieldRes = useMemo(
+    () => (xy.length ? layoutYield(xy, windA, windK, activeRose) : null),
+    [xy, windA, windK, activeRose],
+  );
   const oss = p.oss;
   const cables = useMemo(() => (oss && xy.length ? routeCables(proj.toXY(oss), xy, RATED_MW) : null), [xy, oss, proj]);
   const spacing = minSpacing(xy);
@@ -370,7 +386,7 @@ export default function LayoutPage() {
               label="Wake loss (live)"
               value={yieldRes ? yieldRes.wakeLossPct.toFixed(1) : "—"}
               unit="%"
-              subtitle={roseReal ? "12-sector site rose" : "uniform rose (API offline)"}
+              subtitle={siteRose ? "site rose (ERA5, 12 sectors)" : roseReal ? "regional synthetic rose" : "uniform rose (API offline)"}
               size="sm"
             />
             <InfoTile
@@ -378,6 +394,14 @@ export default function LayoutPage() {
               value={yieldRes ? yieldRes.netGWh.toFixed(0) : "—"}
               unit="GWh"
               subtitle={yieldRes ? `CF ${(100 * yieldRes.capacityFactor).toFixed(1)} %, wake only` : undefined}
+              size="sm"
+            />
+            <InfoTile
+              label="Wind at 150 m"
+              value={(siteWind?.mean_ms ?? weibullMean(windA, windK)).toFixed(1)}
+              unit="m/s"
+              subtitle={`A ${windA.toFixed(1)} · k ${windK.toFixed(2)} · ${siteWind ? "NEWA + ERA5" : "approximation"}`}
+              priority={siteWind ? "normal" : "warning"}
               size="sm"
             />
             <InfoTile
@@ -402,7 +426,16 @@ export default function LayoutPage() {
           <div className="space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="layout-pywake">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Reference AEP (PyWake)</h3>
-              <Button size="sm" onClick={() => void p.runPyWake(proj.toXY)} disabled={!p.turbines.length || p.running}>
+              <Button
+                size="sm"
+                onClick={() =>
+                  void p.runPyWake(
+                    proj.toXY,
+                    siteWind ? { weibullA: windA, weibullK: windK, sectorFrequencies: siteWind.sector_frequencies } : undefined,
+                  )
+                }
+                disabled={!p.turbines.length || p.running}
+              >
                 <Play size={13} className="mr-1" /> {p.running ? "Running…" : "Run PyWake"}
               </Button>
             </div>

@@ -167,6 +167,21 @@ class CheckSchema(BaseModel):
     reference: str
 
 
+class WindClimateSchema(BaseModel):
+    """Hub-height wind climate of the site (NEWA + ERA5, or the labelled approximation)."""
+
+    mean_ms: float = Field(description="Mean wind speed [m/s]")
+    weibull_a: float = Field(description="Weibull scale A [m/s]")
+    weibull_k: float = Field(description="Weibull shape k [-]")
+    height_m: float
+    sector_frequencies: list[float] | None = Field(
+        None, description="12 sectors, wind FROM, centres 0°, 30° … 330°; sums to 1"
+    )
+    source: str
+    license: str
+    approximate: bool = Field(description="True: real data not found, closest approximation")
+
+
 class AssessResponse(BaseModel):
     region: str
     area_km2: float
@@ -192,5 +207,6 @@ class AssessResponse(BaseModel):
         default_factory=list,
         description="Real wind farm projects inside the site or holding its energy basins",
     )
+    wind: WindClimateSchema | None = None
     checks: list[CheckSchema]
     complete: bool

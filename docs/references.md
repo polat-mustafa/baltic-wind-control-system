@@ -88,6 +88,7 @@ Citation rules used here:
 | Natura 2000 appropriate assessment trigger | `services/site_assessment/assess.py` | [S27] |
 | EIA screening of wind farms (Annex II 3(i)) | `services/site_assessment/assess.py` | [S28] |
 | Weighted linear combination of criteria | `services/site_assessment/suitability.py` | Standard GIS multi-criteria method; thresholds and weights are labelled *illustrative* in the API model card |
+| Site wind climate: mean speed, Weibull k and A at 150 m; 12-sector rose | `services/site_assessment/wind_climate.py`, `scripts/fetch_wind_climate.py`, `routers/p1.py` (`_rose_site`) | [28], [29], [30] |
 
 ## Academy — scored missions
 
@@ -157,6 +158,9 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 25. Topham, E., McMillan, D. "Sustainable decommissioning of an offshore wind farm." *Renewable Energy* 102(B), 470–480, 2017. doi:10.1016/j.renene.2016.10.066
 26. Gaertner, E., et al. *Definition of the IEA 15-Megawatt Offshore Reference Wind Turbine*. NREL/TP-5000-75698, 2020. Tables: github.com/IEAWindTask37/IEA-15-240-RWT, tag v1.1.18, `Documentation/IEA-15-240-RWT_tabular.xlsx` ("Rotor Performance"), Apache-2.0.
 27. Zahle, F., et al. *Definition of the IEA Wind 22-Megawatt Offshore Reference Wind Turbine*. DTU Wind Report E-0243, 2024. https://doi.org/10.11581/DTU.00000317. Tables: github.com/IEAWindTask37/IEA-22-280-RWT, tag v1.1.0 ("Rotor Performance - WISDEM"), Apache-2.0.
+28. Hahmann, A. N., et al. "The making of the New European Wind Atlas — Part 1: Model sensitivity." *Geoscientific Model Development* 13, 5053–5078, 2020; NEWA Mesoscale Atlas doi:10.11583/DTU.14414096.v1 (CC BY-NC 4.0).
+29. Dörenkämper, M., et al. "The making of the New European Wind Atlas — Part 2: Production and evaluation." *Geoscientific Model Development* 13, 5079–5102, 2020 (microscale atlas, Weibull parameters).
+30. Hersbach, H., et al. "The ERA5 global reanalysis." *Quarterly Journal of the Royal Meteorological Society* 146, 1999–2049, 2020; hourly data via the Open-Meteo archive API (CC BY 4.0).
 
 ## Standards and regulations
 

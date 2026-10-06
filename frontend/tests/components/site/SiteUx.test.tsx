@@ -92,6 +92,28 @@ describe("SiteReport states", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/could not be assessed: backend down/);
   });
 
+  it("shows the site wind climate and labels the approximation", () => {
+    const wind = {
+      mean_ms: 9.38,
+      weibull_a: 10.6,
+      weibull_k: 2.05,
+      height_m: 150,
+      sector_frequencies: null,
+      source: "NEWA",
+      license: "CC BY-NC 4.0",
+      approximate: false,
+    };
+    useSiteStore.setState({ report: { ...report(), wind } });
+    const { unmount } = render(<SiteReport />);
+    expect(screen.getByText("Wind at 150 m")).toBeDefined();
+    expect(screen.getByText("9.4")).toBeDefined();
+    expect(screen.getByText(/A 10.6 · k 2.05 · NEWA \+ ERA5/)).toBeDefined();
+    unmount();
+    useSiteStore.setState({ report: { ...report(), wind: { ...wind, approximate: true } } });
+    render(<SiteReport />);
+    expect(screen.getByText(/approximation — real data not found/)).toBeDefined();
+  });
+
   it("is quiet when the report is current", () => {
     render(<SiteReport />);
     expect(screen.queryByText(/Out of date/)).toBeNull();

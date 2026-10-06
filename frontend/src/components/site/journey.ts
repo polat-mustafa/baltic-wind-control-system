@@ -68,7 +68,7 @@ export const STANDARD_CONDITIONS = [
   "Submit a decommissioning plan and financial security before construction starts.",
 ];
 
-const BLOCKING = new Set(["sea", "territorial_sea", "eez", "owf", "cables", "natura2000", "shipping", "restricted", "depth"]);
+const BLOCKING = new Set(["sea", "territorial_sea", "eez", "msp_energy", "owf", "cables", "natura2000", "shipping", "restricted", "depth"]);
 
 /**
  * What a permitting authority would decide on this site (simulation).

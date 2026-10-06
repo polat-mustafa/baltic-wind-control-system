@@ -42,6 +42,7 @@ REASONS: tuple[str, ...] = (
     "owf_area",
     "shipping",
     "restricted",
+    "outside_energy_basin",
     "cable_buffer",
     "too_shallow",
     "too_deep",
@@ -52,9 +53,10 @@ REASON_LABEL: dict[str, str] = {
     "outside_eez": "Outside the EEZ",
     "territorial_sea": "Territorial sea (12 nm)",
     "protected": "Natura 2000 site",
-    "owf_area": "Other wind farm area",
+    "owf_area": "Existing wind farm",
     "shipping": "Shipping route",
     "restricted": "Military area or munition dumpsite",
+    "outside_energy_basin": "Outside the plan's energy basins",
     "cable_buffer": "Too close to a subsea cable",
     "too_shallow": "Water too shallow",
     "too_deep": "Water too deep",
@@ -77,7 +79,7 @@ CLASS_NAMES: dict[int, ClassName] = {
 }
 
 #: Roles that decide whether a screening can be trusted for a green light.
-ESSENTIAL_ROLES = ("sea", "protected", "shipping", "bathymetry")
+ESSENTIAL_ROLES = ("sea", "protected", "shipping", "msp_energy", "bathymetry")
 
 MIN_CELL_KM = 0.5
 MAX_CELL_KM = 10.0
@@ -140,7 +142,7 @@ def evaluate(pack: RegionPack, crit: Criteria, lon: FloatArray, lat: FloatArray)
     )
     owf_km = (
         distance_to_polygons(x, y, pack.polygons("owf"))
-        if pack.has("owf")
+        if pack.has_polygons("owf")
         else np.full(lon.shape, np.inf)
     )
     protected_km = (
@@ -165,6 +167,8 @@ def evaluate(pack: RegionPack, crit: Criteria, lon: FloatArray, lat: FloatArray)
     excluded["owf_area"] = owf_km <= crit.owf_buffer_km
     if pack.has("shipping"):
         excluded["shipping"] = points_in_polygons(x, y, pack.polygons("shipping"))
+    if crit.require_energy_basin and pack.has("msp_energy"):
+        excluded["outside_energy_basin"] = ~points_in_polygons(x, y, pack.polygons("msp_energy"))
     if crit.exclude_restricted and pack.has("restricted"):
         excluded["restricted"] = points_in_polygons(x, y, pack.polygons("restricted"))
     excluded["cable_buffer"] = cable_km < crit.cable_buffer_km
@@ -255,6 +259,7 @@ def missing_layers(pack: RegionPack) -> list[dict[str, str]]:
     role_to_pending = {
         "protected": "protected",
         "shipping": "shipping",
+        "msp_energy": "msp_energy",
         "bathymetry": "bathymetry",
         "eez": "eez",
     }

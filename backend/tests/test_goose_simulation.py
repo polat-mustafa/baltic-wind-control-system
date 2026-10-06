@@ -5,7 +5,7 @@ Tests validate the IEC 61850-8-1 GOOSE protocol simulation including:
 - GOOSE message PDU field correctness
 - Protection fault timelines (event ordering, timing)
 - IEC 61850-8-1 compliance (GOOSE latency < 4 ms)
-- IEC 62271-100 compliance (fault clearance < 80 ms)
+- Fault clearance within the 100 ms main-protection target
 - GOOSE retransmission schedule (exponential backoff)
 - All three fault scenarios produce valid results
 - stNum/sqNum semantics (state vs sequence numbering)
@@ -246,8 +246,8 @@ class TestIECCompliance:
         result = simulate_fault(scenario)
         assert result.goose_compliant is True
 
-    def test_fault_clearance_below_80ms(self):
-        """Total fault clearance must be < 80 ms per IEC 62271-100."""
+    def test_fault_clearance_within_target(self):
+        """Total fault clearance must be within the 100 ms main-protection target."""
         scenario = create_busbar_overcurrent_scenario()
         result = simulate_fault(scenario)
         assert result.total_clearance_ms < FAULT_CLEARANCE_MAX_MS
@@ -269,7 +269,7 @@ class TestIECCompliance:
 
     @pytest.mark.parametrize("fault_type", list(FaultType))
     def test_all_scenarios_are_clearance_compliant(self, fault_type: FaultType):
-        """Every fault scenario must achieve < 80 ms total clearance."""
+        """Every fault scenario must clear within the 100 ms target."""
         scenario = create_scenario(fault_type)
         result = simulate_fault(scenario)
         assert result.clearance_compliant, (
@@ -289,26 +289,27 @@ class TestIECCompliance:
 class TestFaultScenarios:
     """Tests for individual fault scenario configurations."""
 
-    def test_busbar_overcurrent_uses_ptoc(self):
-        """Busbar overcurrent should use PTOC (time overcurrent) protection."""
+    def test_busbar_fault_uses_busbar_differential(self):
+        """A 220 kV busbar fault is cleared by 87B (PDIF), not by overcurrent."""
         scenario = create_busbar_overcurrent_scenario()
-        assert scenario.protection_function == ProtectionFunction.PTOC
+        assert scenario.protection_function == ProtectionFunction.PDIF
 
-    def test_busbar_overcurrent_fault_current(self):
-        """Busbar fault current should be 2.5 pu (250% of nominal)."""
+    def test_busbar_fault_current_is_iec60909_ikss(self):
+        """Ik'' at the OSS 220 kV busbar comes from pandapower (≈ 9.1 kA), ~7 × load."""
         scenario = create_busbar_overcurrent_scenario()
-        assert scenario.fault_current_pu == 2.5
+        assert 8.0 < scenario.fault_current_ka < 10.5
+        assert scenario.fault_current_ka / scenario.load_current_ka > 5
 
     def test_transformer_differential_uses_pdif(self):
         """Transformer fault should use PDIF (differential) protection."""
         scenario = create_transformer_differential_scenario()
         assert scenario.protection_function == ProtectionFunction.PDIF
 
-    def test_transformer_differential_higher_current(self):
-        """Transformer internal fault produces higher fault current than busbar."""
+    def test_transformer_fault_at_most_busbar_ikss(self):
+        """An internal transformer fault cannot draw more than the HV busbar Ik''."""
         bb = create_busbar_overcurrent_scenario()
         tx = create_transformer_differential_scenario()
-        assert tx.fault_current_pu > bb.fault_current_pu
+        assert tx.fault_current_ka <= bb.fault_current_ka
 
     def test_cable_earth_fault_location(self):
         """Cable fault should be located at the export cable."""

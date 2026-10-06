@@ -38,6 +38,7 @@ from app.routers.site_assessment import router as site_assessment_router  # noqa
 from app.routers.turbine_physics import router as turbine_physics_router  # noqa: E402
 from app.routers.turbine_subsystems import router as turbine_subsystems_router  # noqa: E402
 from app.seed import seed_default_farm  # noqa: E402
+from app.services.p3.alarm_manager import seed_master_alarm_database  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     try:
         await seed_default_farm()
+        async with async_session_factory() as session:
+            await seed_master_alarm_database(session)
     except Exception:
         logger.warning("Seed failed — database may not be migrated yet")
 

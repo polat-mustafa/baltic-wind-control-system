@@ -1,371 +1,263 @@
 /**
- * Permit-to-Work workflow panel — 9-state lifecycle visualization.
+ * Permit-to-Work — register, lifecycle stepper and audit trail.
  *
- * Shows:
- * - PtW 9-step flowchart as XYFlow graph
- * - Create new permit form
- * - Active permit detail with transition controls
- * - Audit trail table
+ * The 9 states and their order mirror the backend state machine
+ * (services/p3/permit_to_work.py): request → risk assessment → approval →
+ * isolation → LOTO → active → work complete → LOTO removed → closed, with
+ * cancellation from any open state. Each transition needs an RBAC permission;
+ * buttons the current role cannot use are shown disabled with the reason.
  */
 
-import { useState, useMemo, useCallback } from "react";
-import {
-  ReactFlow,
-  Background,
-  type Node,
-  type Edge,
-  type NodeTypes,
-  Handle,
-  Position,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+import { useState } from "react";
+import { Check, Plus } from "lucide-react";
 
 import { useScadaStore } from "../../store/scadaStore";
-import { SCADA_COLORS } from "../../constants/scadaColors";
 import { InfoButton } from "../ui/InfoButton";
 import { permitWorkflowInfo } from "../../constants/panelInfo";
+import { BREAKERS } from "../../utils/scadaTopology";
+import { cn } from "../../lib/utils";
 
-// ── PtW 9-state definitions ─────────────────────────────────
+const STEPS = [
+  { id: "requested", label: "Requested" },
+  { id: "risk_assessed", label: "Risk assessed" },
+  { id: "approved", label: "Approved" },
+  { id: "isolation_confirmed", label: "Isolated" },
+  { id: "loto_applied", label: "LOTO applied" },
+  { id: "active", label: "Active" },
+  { id: "work_complete", label: "Work complete" },
+  { id: "loto_removed", label: "LOTO removed" },
+  { id: "closed", label: "Closed" },
+] as const;
 
-const PTW_STATES = [
-  { id: "requested", label: "1. Requested", x: 0, y: 0 },
-  { id: "risk_assessed", label: "2. Risk Assessed", x: 0, y: 80 },
-  { id: "approved", label: "3. Approved", x: 0, y: 160 },
-  { id: "issued", label: "4. Issued", x: 0, y: 240 },
-  { id: "active", label: "5. Active", x: 0, y: 320 },
-  { id: "work_complete", label: "6. Work Complete", x: 0, y: 400 },
-  { id: "site_restored", label: "7. Site Restored", x: 0, y: 480 },
-  { id: "closed", label: "8. Closed", x: 0, y: 560 },
-  { id: "cancelled", label: "9. Cancelled", x: 200, y: 280 },
+const EQUIPMENT = [
+  ...Object.values(BREAKERS).map((b) => b.bay.split(" · ")[0]),
+  "TX-OSS-01",
+  "TX-OSS-02",
+  "TX-ONS-01",
+  "TX-ONS-02",
+  "STATCOM",
+  "OSS_PROT_IED01",
 ];
 
-const PTW_TRANSITIONS: [string, string][] = [
-  ["requested", "risk_assessed"],
-  ["risk_assessed", "approved"],
-  ["approved", "issued"],
-  ["issued", "active"],
-  ["active", "work_complete"],
-  ["work_complete", "site_restored"],
-  ["site_restored", "closed"],
-  ["requested", "cancelled"],
-  ["risk_assessed", "cancelled"],
-  ["approved", "cancelled"],
-];
+const statusLabel = (s: string) => STEPS.find((x) => x.id === s)?.label ?? s.replace(/_/g, " ");
 
-// ── Custom Node ─────────────────────────────────────────────
-
-function PtWStepNode({
-  data,
-}: {
-  data: { label: string; active: boolean; completed: boolean };
-}) {
-  const bgColor = data.active
-    ? SCADA_COLORS.WARNING
-    : data.completed
-      ? SCADA_COLORS.ENERGIZED
-      : "#475569";
-  return (
-    <div
-      className="rounded px-3 py-1.5 text-xs font-mono text-center min-w-[140px] border"
-      style={{
-        backgroundColor: `${bgColor}22`,
-        borderColor: bgColor,
-        color: bgColor,
-      }}
-    >
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!bg-slate-500 !w-1.5 !h-1.5"
-      />
-      {data.label}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!bg-slate-500 !w-1.5 !h-1.5"
-      />
-    </div>
-  );
-}
-
-const nodeTypes: NodeTypes = {
-  ptw_step: PtWStepNode,
-};
-
-// ── Main Component ──────────────────────────────────────────
+const inputCls =
+  "w-full h-8 bg-bg-primary border border-border-primary rounded px-2 text-xs text-text-primary focus:border-accent focus:outline-none";
 
 export default function PermitWorkflowPanel() {
-  const {
-    activePermit,
-    permitList,
-    selectedRoleLevel,
-    createPermit,
-    transitionPermit,
-    roles,
-  } = useScadaStore();
+  const activePermit = useScadaStore((s) => s.activePermit);
+  const permitList = useScadaStore((s) => s.permitList);
+  const roleLevel = useScadaStore((s) => s.selectedRoleLevel);
+  const roles = useScadaStore((s) => s.roles);
+  const createPermit = useScadaStore((s) => s.createPermit);
+  const transitionPermit = useScadaStore((s) => s.transitionPermit);
+  const openPermit = useScadaStore((s) => s.openPermit);
 
-  const [workDesc, setWorkDesc] = useState(
-    "Replace CT secondary wiring on OSS 66 kV busbar",
-  );
-  const [equipmentId, setEquipmentId] = useState("OSS_PROT_IED01");
-  const [requestedBy, setRequestedBy] = useState("Control Engineer");
+  const [form, setForm] = useState({
+    work_description: "Replace CT secondary wiring, 66 kV string 3 feeder",
+    equipment_id: "BAY-OSS-66-03",
+    requested_by: "Protection engineer",
+  });
+  const [busy, setBusy] = useState(false);
 
-  // Build flowchart nodes/edges based on active permit state
-  const graph = useMemo(() => {
-    const currentStatus = activePermit?.status;
-    const currentStep = activePermit?.current_step_number ?? 0;
+  const role = roles.find((r) => r.level === roleLevel);
+  const stepIdx = activePermit ? STEPS.findIndex((s) => s.id === activePermit.status) : -1;
+  const cancelled = activePermit?.status === "cancelled";
 
-    const nodes: Node[] = PTW_STATES.map((s) => {
-      const stepNum = PTW_STATES.indexOf(s) + 1;
-      return {
-        id: s.id,
-        type: "ptw_step",
-        position: { x: s.x, y: s.y },
-        data: {
-          label: s.label,
-          active: s.id === currentStatus,
-          completed: currentStep > 0 && stepNum < currentStep,
-        },
-      };
-    });
-
-    const edges: Edge[] = PTW_TRANSITIONS.map(([from, to]) => ({
-      id: `e-${from}-${to}`,
-      source: from,
-      target: to,
-      style: {
-        stroke:
-          to === "cancelled"
-            ? SCADA_COLORS.FAULT
-            : SCADA_COLORS.DE_ENERGIZED,
-        strokeWidth: 1,
-      },
-      animated: from === currentStatus,
-    }));
-
-    return { nodes, edges };
-  }, [activePermit]);
-
-  const handleCreate = useCallback(async () => {
-    await createPermit({
-      work_description: workDesc,
-      equipment_id: equipmentId,
-      requested_by: requestedBy,
-    });
-  }, [createPermit, workDesc, equipmentId, requestedBy]);
-
-  const handleTransition = useCallback(
-    async (targetStatus: string) => {
-      if (!activePermit) return;
-      const currentRole = roles.find((r) => r.level === selectedRoleLevel);
-      await transitionPermit(activePermit.ptw_number, {
-        target_status: targetStatus,
-        performed_by: currentRole?.name ?? "Unknown",
-        user_level: selectedRoleLevel,
-      });
-    },
-    [activePermit, roles, selectedRoleLevel, transitionPermit],
-  );
-
-  const onInit = useCallback((instance: { fitView: () => void }) => {
-    instance.fitView();
-  }, []);
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    await fn();
+    setBusy(false);
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Flowchart + permit form side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* 9-state flowchart */}
-        <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
-          <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
-            <h3 className="text-base font-semibold text-text-primary">
-              PtW 9-State Lifecycle
-            </h3>
-            <InfoButton info={permitWorkflowInfo} />
-          </div>
-          <div className="h-[400px]">
-            <ReactFlow
-              nodes={graph.nodes}
-              edges={graph.edges}
-              nodeTypes={nodeTypes}
-              onInit={onInit}
-              fitView
-              minZoom={0.5}
-              maxZoom={1.2}
-              nodesDraggable={false}
-              nodesConnectable={false}
-              proOptions={{ hideAttribution: true }}
-            >
-              <Background color="#334155" gap={20} />
-            </ReactFlow>
-          </div>
-        </div>
-
-        {/* Permit control panel */}
-        <div className="space-y-4">
-          {/* Create permit form */}
-          <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
-            <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
-              Create New Permit
-            </h3>
-            <div className="space-y-2">
-              <input
-                type="text"
-                value={workDesc}
-                onChange={(e) => setWorkDesc(e.target.value)}
-                placeholder="Work description"
-                className="w-full bg-bg-primary border border-border-secondary rounded px-3 py-1.5 text-sm text-text-secondary focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                type="text"
-                value={equipmentId}
-                onChange={(e) => setEquipmentId(e.target.value)}
-                placeholder="Equipment ID"
-                className="w-full bg-bg-primary border border-border-secondary rounded px-3 py-1.5 text-sm text-text-secondary focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                type="text"
-                value={requestedBy}
-                onChange={(e) => setRequestedBy(e.target.value)}
-                placeholder="Requested by"
-                className="w-full bg-bg-primary border border-border-secondary rounded px-3 py-1.5 text-sm text-text-secondary focus:border-blue-500 focus:outline-none"
-              />
-              <button
-                onClick={handleCreate}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-semibold transition-colors"
-              >
-                Create Permit
-              </button>
-            </div>
-          </div>
-
-          {/* Active permit detail */}
-          {activePermit && (
-            <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
-              <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
-                {activePermit.ptw_number}
-              </h3>
-              <div className="space-y-1 text-xs mb-3">
-                <div className="flex justify-between">
-                  <span className="text-text-muted">Status</span>
-                  <span
-                    className="font-mono font-bold"
-                    style={{ color: SCADA_COLORS.WARNING }}
-                  >
-                    {activePermit.status.toUpperCase()} (Step{" "}
-                    {activePermit.current_step_number})
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-muted">Equipment</span>
-                  <span className="text-text-secondary font-mono">
-                    {activePermit.equipment_id}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-muted">Requested by</span>
-                  <span className="text-text-secondary">
-                    {activePermit.requested_by}
-                  </span>
-                </div>
-              </div>
-
-              {/* Transition buttons */}
-              {activePermit.next_allowed_transitions.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[10px] text-text-muted uppercase">
-                    Available Transitions
-                  </p>
-                  {activePermit.next_allowed_transitions.map((t) => (
-                    <button
-                      key={t.target_status}
-                      onClick={() => handleTransition(t.target_status)}
-                      className="w-full py-1.5 bg-bg-tertiary hover:bg-slate-600 rounded text-xs transition-colors text-left px-3"
-                    >
-                      <span className="text-text-secondary">
-                        {t.target_status.replace(/_/g, " ")}
-                      </span>
-                      <span className="text-text-muted ml-2">
-                        ({t.required_permission})
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Recent permits */}
-          {permitList && permitList.permits.length > 0 && (
-            <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
-              <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
-                Recent Permits ({permitList.total})
-              </h3>
-              <div className="space-y-1 max-h-[120px] overflow-y-auto">
-                {permitList.permits.slice(0, 5).map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex justify-between text-xs py-1 border-b border-border-primary/50"
-                  >
-                    <span className="text-text-muted font-mono">
-                      {p.ptw_number}
-                    </span>
-                    <span className="text-text-muted">{p.status}</span>
-                  </div>
+    <div className="grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] gap-3">
+      {/* ── Register + new permit ── */}
+      <div className="flex flex-col gap-3">
+        <section className="bg-bg-secondary rounded-lg border border-border-primary p-3">
+          <h3 className="text-xs font-semibold text-text-primary mb-2 flex items-center gap-1.5">
+            <Plus size={12} /> New permit
+          </h3>
+          <form
+            className="space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run(() => createPermit(form));
+            }}
+          >
+            <label className="block text-[11px] text-text-muted">
+              Work description
+              <input className={inputCls} value={form.work_description} onChange={(e) => setForm({ ...form, work_description: e.target.value })} required />
+            </label>
+            <label className="block text-[11px] text-text-muted">
+              Equipment
+              <input className={inputCls} list="ptw-equipment" value={form.equipment_id} onChange={(e) => setForm({ ...form, equipment_id: e.target.value })} required />
+              <datalist id="ptw-equipment">
+                {EQUIPMENT.map((e) => (
+                  <option key={e} value={e} />
                 ))}
-              </div>
-            </div>
-          )}
-        </div>
+              </datalist>
+            </label>
+            <label className="block text-[11px] text-text-muted">
+              Requested by
+              <input className={inputCls} value={form.requested_by} onChange={(e) => setForm({ ...form, requested_by: e.target.value })} required />
+            </label>
+            <button type="submit" disabled={busy} className="w-full h-8 rounded bg-accent text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50">
+              Request permit
+            </button>
+          </form>
+        </section>
+
+        <section className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+          <h3 className="text-xs font-semibold text-text-primary px-3 py-2 border-b border-border-primary">
+            Permit register <span className="font-mono font-normal text-text-muted">({permitList?.total ?? 0})</span>
+          </h3>
+          <div className="max-h-[320px] overflow-auto">
+            {!permitList?.permits.length && <p className="p-3 text-xs text-text-muted">No permits issued yet.</p>}
+            {permitList?.permits.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => void openPermit(p.ptw_number)}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 border-b border-border-primary/60 hover:bg-bg-hover",
+                  activePermit?.ptw_number === p.ptw_number && "bg-bg-hover",
+                )}
+              >
+                <div className="flex justify-between text-[11px]">
+                  <span className="font-mono font-semibold text-text-primary">{p.ptw_number}</span>
+                  <span className="text-text-secondary">{statusLabel(p.status)}</span>
+                </div>
+                <div className="text-[11px] text-text-muted truncate">
+                  {p.equipment_id} · {p.work_description}
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
 
-      {/* Audit trail */}
-      {activePermit && activePermit.transition_log.length > 0 && (
-        <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
-          <div className="px-4 py-2 border-b border-border-primary">
-            <h3 className="text-sm font-semibold text-text-secondary">
-              Audit Trail — {activePermit.ptw_number}
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-              <thead className="bg-bg-primary/50">
-                <tr>
-                  <th className="text-left px-3 py-1.5 text-text-muted">Time</th>
-                  <th className="text-left px-3 py-1.5 text-text-muted">From</th>
-                  <th className="text-left px-3 py-1.5 text-text-muted">To</th>
-                  <th className="text-left px-3 py-1.5 text-text-muted">By</th>
-                  <th className="text-left px-3 py-1.5 text-text-muted">Level</th>
-                  <th className="text-left px-3 py-1.5 text-text-muted">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activePermit.transition_log.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="border-b border-border-primary/50 hover:bg-bg-tertiary/30"
-                  >
-                    <td className="px-3 py-1 font-mono text-text-muted">
-                      {new Date(t.created_at).toLocaleTimeString()}
-                    </td>
-                    <td className="px-3 py-1 text-text-muted">{t.from_status}</td>
-                    <td className="px-3 py-1 text-text-secondary">{t.to_status}</td>
-                    <td className="px-3 py-1 text-text-secondary">
-                      {t.performed_by}
-                    </td>
-                    <td className="px-3 py-1 font-mono text-text-muted">
-                      L{t.user_level}
-                    </td>
-                    <td className="px-3 py-1 text-text-muted">
-                      {t.notes || "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* ── Selected permit ── */}
+      <section className="bg-bg-secondary rounded-lg border border-border-primary min-h-[360px]">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border-primary">
+          <h3 className="text-xs font-semibold text-text-primary">Permit lifecycle</h3>
+          <InfoButton info={permitWorkflowInfo} />
+          {activePermit && <span className="font-mono text-xs text-text-secondary">{activePermit.ptw_number}</span>}
+          <span className="flex-1" />
+          <span className="text-[11px] text-text-muted">
+            Acting as <b className="text-text-primary">L{roleLevel} {role?.name ?? ""}</b>
+          </span>
         </div>
-      )}
+
+        {!activePermit ? (
+          <p className="p-6 text-center text-xs text-text-muted">Request a permit or pick one from the register.</p>
+        ) : (
+          <div className="p-3 space-y-4">
+            {/* Stepper */}
+            <ol className="grid grid-cols-9 gap-1" aria-label="Permit state">
+              {STEPS.map((s, i) => {
+                const done = !cancelled && i < stepIdx;
+                const current = i === stepIdx;
+                return (
+                  <li key={s.id} className="flex flex-col items-center text-center gap-1 min-w-0">
+                    <span
+                      className={cn(
+                        "flex items-center justify-center w-6 h-6 rounded-full border-2 text-[10px] font-mono font-bold",
+                        current ? "border-accent bg-accent text-white" : done ? "border-status-normal text-status-normal" : "border-border-secondary text-text-muted",
+                      )}
+                      aria-current={current ? "step" : undefined}
+                    >
+                      {done ? <Check size={12} /> : i + 1}
+                    </span>
+                    <span className={cn("text-[10px] leading-tight", current ? "text-text-primary font-semibold" : "text-text-muted")}>{s.label}</span>
+                  </li>
+                );
+              })}
+            </ol>
+            {cancelled && <p className="text-xs font-semibold text-status-warning">Permit cancelled.</p>}
+
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+              <dt className="text-text-muted">Work</dt>
+              <dd className="text-text-primary">{activePermit.work_description}</dd>
+              <dt className="text-text-muted">Equipment</dt>
+              <dd className="font-mono text-text-primary">{activePermit.equipment_id}</dd>
+              <dt className="text-text-muted">Requested by</dt>
+              <dd className="text-text-secondary">{activePermit.requested_by}</dd>
+              {activePermit.valid_until && (
+                <>
+                  <dt className="text-text-muted">Valid until</dt>
+                  <dd className="font-mono text-text-secondary">{new Date(activePermit.valid_until).toLocaleString("sv-SE", { timeZone: "Europe/Warsaw" })}</dd>
+                </>
+              )}
+            </dl>
+
+            {activePermit.next_allowed_transitions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {activePermit.next_allowed_transitions.map((t) => {
+                  const allowed = role?.permissions.includes(t.required_permission) ?? false;
+                  const isCancel = t.target_status === "cancelled";
+                  return (
+                    <button
+                      key={t.target_status}
+                      type="button"
+                      disabled={busy || !allowed}
+                      title={allowed ? `Needs ${t.required_permission}` : `L${roleLevel} lacks ${t.required_permission}`}
+                      onClick={() =>
+                        void run(() =>
+                          transitionPermit(activePermit.ptw_number, {
+                            target_status: t.target_status,
+                            performed_by: role?.name ?? `L${roleLevel}`,
+                            user_level: roleLevel,
+                          }),
+                        )
+                      }
+                      className={cn(
+                        "h-8 px-3 rounded text-xs font-semibold border disabled:opacity-40 disabled:cursor-not-allowed",
+                        isCancel ? "border-border-primary text-text-secondary hover:bg-bg-hover" : "border-accent bg-accent text-white hover:opacity-90",
+                      )}
+                    >
+                      {isCancel ? "Cancel permit" : `→ ${statusLabel(t.target_status)}`}
+                      <span className="ml-1.5 font-mono font-normal opacity-80">{t.required_permission}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {activePermit.transition_log.length > 0 && (
+              <div className="overflow-x-auto">
+                <h4 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1">Audit trail</h4>
+                <table className="w-full text-[11px]">
+                  <thead className="text-text-muted text-left">
+                    <tr>
+                      <th className="py-1 pr-3 font-medium">Time</th>
+                      <th className="py-1 pr-3 font-medium">Transition</th>
+                      <th className="py-1 pr-3 font-medium">By</th>
+                      <th className="py-1 font-medium">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activePermit.transition_log.map((t) => (
+                      <tr key={t.id} className="border-t border-border-primary/60">
+                        <td className="py-1 pr-3 font-mono text-text-secondary whitespace-nowrap">
+                          {new Date(t.created_at).toLocaleTimeString("sv-SE", { timeZone: "Europe/Warsaw" })}
+                        </td>
+                        <td className="py-1 pr-3 text-text-primary whitespace-nowrap">
+                          {statusLabel(t.from_status)} → {statusLabel(t.to_status)}
+                        </td>
+                        <td className="py-1 pr-3 text-text-secondary whitespace-nowrap">
+                          {t.performed_by} <span className="font-mono text-text-muted">L{t.user_level}</span>
+                        </td>
+                        <td className="py-1 text-text-muted">{t.notes || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

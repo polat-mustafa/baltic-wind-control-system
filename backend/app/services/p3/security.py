@@ -255,9 +255,10 @@ _CONDUITS: list[dict[str, Any]] = [
     {
         "id": str(uuid.UUID("10000000-0000-0000-0000-000000000006")),
         "name": "PSE-WAMS-Telemetry",
-        "source_zone": "SCADA",
+        # Leaves through the L3 site DMZ — never directly from the L2 SCADA zone
+        "source_zone": "SITE_OPERATIONS",
         "dest_zone": "EXTERNAL",
-        "allowed_protocols": ["IEC 61968/61970 (CIM/XML)", "ICCP (TASE.2)", "HTTPS"],
+        "allowed_protocols": ["ICCP (IEC 60870-6 TASE.2)", "IEC 60870-5-104", "HTTPS"],
         "encryption": "TLS 1.3",
         "bidirectional": False,  # Telemetry only outbound; TSO cannot write to farm
         "criticality": "MEDIUM",

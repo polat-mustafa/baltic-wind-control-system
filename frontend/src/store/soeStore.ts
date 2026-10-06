@@ -86,9 +86,9 @@ export const useSOEStore = create<SOEState>((set, get) => ({
   setWindowHours: (hours) => set({ windowHours: hours }),
 
   applyFilters: async () => {
-    const { filterDevice, filterEventType, filterSeverity, filterUnacknowledgedOnly } = get();
+    // Device filter is a partial match applied in the panel (ids are bay/equipment paths)
+    const { filterEventType, filterSeverity, filterUnacknowledgedOnly } = get();
     const params: SOEQueryParams = { limit: 200 };
-    if (filterDevice) params.source_devices = [filterDevice];
     if (filterEventType) params.event_types = [filterEventType];
     if (filterSeverity) params.severities = [filterSeverity];
     if (filterUnacknowledgedOnly) params.unacknowledged_only = true;

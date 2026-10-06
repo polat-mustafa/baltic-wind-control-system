@@ -7,24 +7,21 @@
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
-export type SOESeverity = "INFO" | "WARNING" | "ALARM" | "CRITICAL";
+/** Backend VALID_SEVERITIES (services/p3/soe_recorder.py). */
+export type SOESeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 
+/** Backend VALID_EVENT_TYPES (services/p3/soe_recorder.py). */
 export type SOEEventType =
-  | "BREAKER_OPERATION"
-  | "DISCONNECTOR_OPERATION"
-  | "EARTH_SWITCH_OPERATION"
-  | "RELAY_TRIP"
-  | "RELAY_PICKUP"
-  | "RELAY_RESET"
+  | "PROTECTION_TRIP"
+  | "CB_OPERATION"
   | "ALARM_RAISED"
-  | "ALARM_ACKNOWLEDGED"
   | "ALARM_CLEARED"
-  | "SETPOINT_CHANGE"
-  | "MODE_CHANGE"
-  | "OPERATOR_ACTION"
-  | "AUTO_RECLOSE"
+  | "ALARM_ACKED"
+  | "OPERATOR_COMMAND"
   | "INTERLOCK_BLOCK"
-  | "SYSTEM_EVENT";
+  | "STATE_CHANGE"
+  | "COMMS_LOSS"
+  | "COMMS_RESTORE";
 
 // ── Event ─────────────────────────────────────────────────────────────────────
 

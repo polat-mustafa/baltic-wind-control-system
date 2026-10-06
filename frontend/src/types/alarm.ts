@@ -9,7 +9,8 @@
 // ── Alarm Entry ───────────────────────────────────────────────────────────────
 
 export type AlarmPriority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-export type AlarmState = "ACTIVE" | "ACKNOWLEDGED" | "CLEARED" | "RETURN_TO_NORMAL";
+/** Master alarm database state (backend models/alarm.py). */
+export type AlarmState = "NORMAL" | "ACTIVE" | "ACKNOWLEDGED" | "SUPPRESSED";
 export type RationalizationStatus = "RATIONALIZED" | "PENDING" | "SUPPRESSED" | "DELETED";
 
 export interface AlarmResponse {

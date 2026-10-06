@@ -1,8 +1,8 @@
 /**
- * First-energisation mission: put the key steps of the export system and
- * array energisation in order. Condensed from the 30-step switching
- * programme of P5 Commissioning (backend services/p5/switching_programme.py,
- * steps S-001 … S-030); the step ids below point back to it.
+ * First-energisation mission: put the key stages of the circuit 1 energisation
+ * in order. Condensed from the 60-step switching programme of HV Commissioning
+ * (backend services/p5/switching_programme.py, steps 1.01 … 6.03); the step
+ * ids below point back to it.
  *
  * The learner picks the next step from the remaining cards; a wrong pick is
  * a mistake and shows why that step cannot come yet. Score: the training
@@ -21,51 +21,51 @@ export interface SequenceStep {
 export const ENERGISATION: SequenceStep[] = [
   {
     id: "authorise",
-    title: "Get the TSO dispatch authorisation; the person in charge declares the programme started",
-    steps: "S-001 – S-002",
-    needs: "Nothing is switched before the TSO (PSE) has authorised the energisation and the person in charge has started the programme.",
+    title: "Cancel all permits, confirm the SAT is approved and PSE has issued the EON; PiC gives GO",
+    steps: "1.01 – 1.07",
+    needs: "Nothing is switched while anyone may still be working on the circuit, before the site acceptance tests have passed and before PSE's energisation notification (EON, NC RfG Art. 34).",
   },
   {
     id: "earths",
-    title: "Remove the 220 kV earths and close the onshore disconnector",
-    steps: "S-003 – S-008",
-    needs: "The export circuit is still earthed: closing a breaker onto applied earths is a bolted fault. Earths come off first.",
+    title: "Release the locks, open both cable earth switches and close the onshore disconnector",
+    steps: "2.01 – 2.07",
+    needs: "The export cable is still earthed at both ends: closing a breaker onto an earth — even one 45 km away at the OSS — is a bolted fault. Earths come off first.",
   },
   {
     id: "export-cable",
-    title: "Close the onshore 220 kV breaker: the export cable is live; watch its charging current",
-    steps: "S-009 – S-012",
-    needs: "The export cable is energised from the onshore end first, after the hold point; nothing offshore can be live before it.",
+    title: "Close the onshore 220 kV breaker: the open-ended cable is live — check charging current and Ferranti rise, then soak",
+    steps: "2.08 – 2.11",
+    needs: "The export cable is energised from the onshore end, after its earths are removed; nothing offshore can be live before it.",
   },
   {
     id: "oss-220",
-    title: "Close the OSS 220 kV disconnector and breaker: the offshore 220 kV busbar is live",
-    steps: "S-013 – S-015",
-    needs: "The OSS 220 kV busbar is fed through the export cable, so the cable has to be live and stable first.",
+    title: "Remove the OSS busbar earth, close the OSS disconnector and breaker: the offshore 220 kV busbar is live",
+    steps: "3.01 – 3.06",
+    needs: "The OSS 220 kV busbar is fed through the export cable, so the cable has to be live and soaked first.",
   },
   {
-    id: "statcom",
-    title: "Put the STATCOM in voltage control to absorb the cable charging power",
-    steps: "S-016 – S-017",
-    needs: "The STATCOM regulates the 220 kV busbar it is connected to; that busbar must be live before it can absorb the charging power.",
+    id: "reactive",
+    title: "Switch in shunt reactor 1 and put the STATCOM in voltage control",
+    steps: "3.07 – 3.14",
+    needs: "The reactor and the STATCOM are connected to the OSS 220 kV busbar; it must be live before they can absorb the cable's charging power.",
   },
   {
     id: "transformer",
-    title: "Energise the OSS transformer from the 220 kV side; check the magnetising inrush",
-    steps: "S-018 – S-019",
-    needs: "The transformer is energised from a live, voltage-controlled 220 kV busbar — after the STATCOM holds the voltage.",
+    title: "Energise TX-OSS-01 from the 220 kV side; check the no-load current",
+    steps: "4.01 – 4.04",
+    needs: "The transformer is energised from a live, voltage-controlled 220 kV busbar — after the reactor and STATCOM hold the voltage.",
   },
   {
     id: "oss-66",
-    title: "Remove the 66 kV busbar earth and close the transformer's 66 kV breaker",
-    steps: "S-019A – S-022",
-    needs: "The 66 kV busbar is fed by the transformer, so the transformer must be energised first.",
+    title: "Remove the 66 kV section A earth and close TX-OSS-01's 66 kV breaker",
+    steps: "4.05 – 4.09",
+    needs: "66 kV section A is fed by TX-OSS-01, so the transformer must be energised first.",
   },
   {
     id: "strings",
-    title: "Remove the string earth, close the string feeder breaker, connect the turbines and ramp the power",
-    steps: "S-022A – S-030",
-    needs: "Array strings hang off the 66 kV busbar: it must be live and confirmed at the hold point first.",
+    title: "With the ION issued: remove each string earth, close the feeder breaker and release the turbines",
+    steps: "5.01 – 6.03",
+    needs: "Strings hang off 66 kV section A, which must be live and confirmed at the hold point; generating also needs PSE's ION (NC RfG Art. 35).",
   },
 ];
 

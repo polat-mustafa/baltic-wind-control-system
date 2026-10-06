@@ -1,83 +1,63 @@
 /**
- * Latency Budget Panel — M15 Network Architecture.
+ * IEC 61850-5 transfer-time budgets for three message paths.
  *
- * Three IEC 61850 performance-class latency paths shown as horizontal bar breakdowns:
- *   P3: GOOSE (4 ms budget) — protection tripping
- *   P2: Sampled Values / measurement (100 ms) — metering
- *   P1: SCADA polling (1000 ms) — supervisory
- *
- * All three paths must be compliant for IEC 61850 certification.
+ * Transfer time = sender stack + network + receiver stack. Each bar is drawn
+ * on the scale of its own requirement (100 % = the class limit), so the
+ * unused part is the margin: trip GOOSE TT6 ≤ 3 ms, measurement report
+ * TT3 ≤ 100 ms, operator display over the WAN TT1 ≤ 1000 ms.
  */
 
 import { useNetworkStore } from "../../store/networkStore";
+import { useChartPalette } from "../../hooks/useChartPalette";
 
-const CLASS_COLOR: Record<string, string> = {
-  P3: "#ef4444",    // red — strictest
-  P2: "#f59e0b",    // amber
-  P1: "#3ecf6e",    // green — most relaxed
-};
+const label = (k: string) => k.replace(/_ms$/, "").replace(/_/g, " ");
 
 export default function LatencyBudgetPanel() {
-  const { latencyBudgets } = useNetworkStore();
+  const budgets = useNetworkStore((s) => s.latencyBudgets);
+  const c = useChartPalette();
+  const colors = [c.blue, c.orange, c.aqua, c.yellow, c.red];
 
-  if (latencyBudgets.length === 0) return null;
+  if (!budgets.length) return null;
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-      <h3 className="text-sm font-semibold text-text-primary mb-3">
-        IEC 61850 Latency Budgets
-      </h3>
+    <section className="bg-bg-secondary rounded-lg border border-border-primary p-3">
+      <h3 className="text-xs font-semibold text-text-primary">Transfer-time budgets · IEC 61850-5</h3>
+      <p className="text-[11px] text-text-muted mb-3">Each bar is scaled to its class limit; the empty part is the margin.</p>
       <div className="space-y-4">
-        {latencyBudgets.map((budget) => {
-          const classLabel = budget.performance_class;
-          const color = CLASS_COLOR[classLabel] ?? "#9ba3b8";
-          const breakdown = Object.entries(budget.budget_breakdown);
-
+        {budgets.map((b) => {
+          const parts = Object.entries(b.budget_breakdown);
           return (
-            <div key={budget.performance_class}>
-              <div className="flex items-center justify-between mb-1.5 text-xs">
-                <span className="font-mono font-semibold" style={{ color }}>{classLabel}</span>
-                <span className="text-text-muted">{budget.path_description}</span>
-                <span className={budget.compliant ? "text-status-success" : "text-status-alarm"}>
-                  {budget.total_latency_ms.toFixed(2)} / {budget.required_latency_ms} ms
-                  {budget.compliant ? " ✓" : " ✗"}
+            <div key={b.performance_class}>
+              <div className="flex flex-wrap items-baseline gap-x-3 text-xs mb-1">
+                <span className="font-mono font-semibold text-text-primary">{b.performance_class}</span>
+                <span className="text-text-secondary">{b.path_description}</span>
+                <span className="ml-auto font-mono text-text-primary">
+                  {b.total_latency_ms.toFixed(b.required_latency_ms < 10 ? 2 : 1)} ms
+                  <span className="text-text-muted"> / {b.required_latency_ms} ms · margin {b.margin_ms.toFixed(b.required_latency_ms < 10 ? 2 : 0)} ms</span>
+                  {!b.compliant && <b className="text-status-alarm"> EXCEEDED</b>}
                 </span>
               </div>
-
-              {/* Breakdown bars */}
-              <div className="flex h-4 rounded overflow-hidden mb-1 w-full">
-                {breakdown.map(([segment, ms], i) => {
-                  const pct = (Number(ms) / budget.required_latency_ms) * 100;
-                  const segColors = ["#3ecf6e44", "#60a5fa44", "#f59e0b44", "#a78bfa44", "#fb923c44"];
-                  return (
-                    <div
-                      key={segment}
-                      className="h-full flex items-center justify-center text-[9px] font-mono overflow-hidden"
-                      style={{ width: `${Math.min(pct, 40)}%`, minWidth: 2, backgroundColor: segColors[i % segColors.length], border: `1px solid ${segColors[i % segColors.length].replace("44", "")}` }}
-                      title={`${segment}: ${Number(ms).toFixed(2)} ms`}
-                    >
-                      {pct > 10 ? `${Number(ms).toFixed(1)}ms` : ""}
-                    </div>
-                  );
-                })}
-                {/* Margin */}
-                <div
-                  className="h-full flex-1 text-[9px] flex items-center pl-1"
-                  style={{ backgroundColor: budget.compliant ? "#3ecf6e22" : "#ef444422" }}
-                >
-                  {budget.margin_ms > 0 ? `+${budget.margin_ms.toFixed(1)} ms` : ""}
-                </div>
+              <div className="flex h-5 w-full rounded overflow-hidden border border-border-primary" role="img" aria-label={`${b.performance_class} budget`}>
+                {parts.map(([k, ms], i) => (
+                  <div
+                    key={k}
+                    style={{ width: `${(Number(ms) / b.required_latency_ms) * 100}%`, background: colors[i % colors.length] }}
+                    title={`${label(k)}: ${Number(ms)} ms`}
+                  />
+                ))}
               </div>
-
-              <div className="flex gap-3 flex-wrap text-[10px] text-text-muted">
-                {breakdown.map(([segment, ms]) => (
-                  <span key={segment}><span className="text-text-secondary">{segment}:</span> {Number(ms).toFixed(2)} ms</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-text-muted">
+                {parts.map(([k, ms], i) => (
+                  <span key={k} className="flex items-center gap-1">
+                    <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: colors[i % colors.length] }} />
+                    {label(k)} <span className="font-mono text-text-secondary">{Number(ms)} ms</span>
+                  </span>
                 ))}
               </div>
             </div>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

@@ -206,3 +206,24 @@ class RationalizationUpdateRequest(BaseModel):
         default=None,
         description="RATIONALIZED / PENDING / NEEDS_UPDATE / SUPPRESSED",
     )
+
+
+class AlarmTransitionRequest(BaseModel):
+    """One alarm state transition reported by the HMI (POST /alarms/events)."""
+
+    tag: str = Field(
+        description="Instance tag, e.g. WTG-07.PITCH_CONTROL_FAULT or OSS-220.87B.TRIP"
+    )
+    transition: str = Field(
+        pattern="^(NORMAL_TO_ACTIVE|ACTIVE_TO_ACK|ACTIVE_TO_NORMAL|ACK_TO_NORMAL|SHELVED|UNSHELVED)$"
+    )
+    source_device: str = Field(description="Equipment raising the alarm, e.g. WTG-07")
+    operator_id: str | None = None
+
+
+class AlarmTransitionResponse(BaseModel):
+    id: int
+    timestamp_utc: datetime
+    alarm_tag: str
+    transition: str
+    priority: str

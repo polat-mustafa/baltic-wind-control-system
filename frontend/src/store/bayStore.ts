@@ -1,111 +1,120 @@
 /**
- * Bay Controller store — M01.
- * Manages state for all 8 OSS bays, interlock status, and command validation.
+ * Bay controller store — M01. The backend bay controllers own the 66 kV
+ * switchgear positions; every refresh is mirrored into the SCADA store so
+ * the single-line diagram and the farm simulation follow.
  */
 
 import { create } from "zustand";
+
 import * as api from "../services/bayApi";
+import { useScadaStore } from "./scadaStore";
 import type {
   AllBaysResponse,
-  BayStateResponse,
-  InterlockStatusResponse,
-  SwitchCommandRequest,
-  CommandExecutionResponse,
-  ValidateCommandRequest,
   CommandValidationResponse,
+  InterlockStatusResponse,
+  SwitchCommand,
 } from "../types/bay";
 
 interface BayState {
   allBays: AllBaysResponse | null;
-  selectedBayId: string | null;
-  selectedBayState: BayStateResponse | null;
-  interlockStatus: InterlockStatusResponse | null;
-  lastCommandResult: CommandExecutionResponse | null;
-  validationResult: CommandValidationResponse | null;
-  loading: boolean;
-  commandLoading: boolean;
+  /** Bay name, e.g. "BAY-OSS-66-03". */
+  selectedBay: string | null;
+  interlocks: Record<string, InterlockStatusResponse>;
+  validation: (CommandValidationResponse & { equipment_id: string; action: SwitchCommand }) | null;
+  busy: boolean;
   error: string | null;
 
   fetchAllBays(): Promise<void>;
-  selectBay(bayId: string): Promise<void>;
-  fetchInterlocks(bayId: string): Promise<void>;
-  executeCommand(bayId: string, cmd: SwitchCommandRequest): Promise<void>;
-  validateCommand(req: ValidateCommandRequest): Promise<void>;
-  clearError(): void;
-  clearCommandResult(): void;
+  fetchAllInterlocks(): Promise<void>;
+  selectBay(name: string | null): void;
+  /** Dry run (IEC 61850 select): shows whether the interlocks allow it. */
+  validate(bay: string, equipmentId: string, action: SwitchCommand): Promise<void>;
+  /** Operate after a successful validation. */
+  execute(bay: string, equipmentId: string, action: SwitchCommand): Promise<void>;
+  clearValidation(): void;
 }
+
+const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 export const useBayStore = create<BayState>((set, get) => ({
   allBays: null,
-  selectedBayId: null,
-  selectedBayState: null,
-  interlockStatus: null,
-  lastCommandResult: null,
-  validationResult: null,
-  loading: false,
-  commandLoading: false,
+  selectedBay: null,
+  interlocks: {},
+  validation: null,
+  busy: false,
   error: null,
 
   fetchAllBays: async () => {
-    set({ loading: true, error: null });
     try {
       const allBays = await api.getAllBays();
-      set({ allBays });
+      set({ allBays, error: null });
+      useScadaStore.getState().syncFromBays(allBays.bays);
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Failed to fetch bays" });
+      set({ error: message(err) });
+    }
+  },
+
+  fetchAllInterlocks: async () => {
+    const bays = get().allBays?.bays ?? [];
+    try {
+      const list = await Promise.all(bays.map((b) => api.getBayInterlocks(b.name)));
+      set({ interlocks: Object.fromEntries(bays.map((b, i) => [b.name, list[i]])) });
+    } catch (err) {
+      set({ error: message(err) });
+    }
+  },
+
+  selectBay: (name) => set({ selectedBay: name, validation: null }),
+
+  validate: async (bay, equipment_id, action) => {
+    set({ busy: true, validation: null });
+    try {
+      const v = await api.validateCommand({
+        bay_id: bay,
+        equipment_id,
+        action,
+        operator_id: `L${useScadaStore.getState().selectedRoleLevel}-operator`,
+        is_auto_reclose: false,
+        synchrocheck: null,
+      });
+      set({ validation: { ...v, equipment_id, action } });
+    } catch (err) {
+      set({ error: message(err) });
     } finally {
-      set({ loading: false });
+      set({ busy: false });
     }
   },
 
-  selectBay: async (bayId: string) => {
-    set({ selectedBayId: bayId, loading: true, error: null });
-    try {
-      const [selectedBayState, interlockStatus] = await Promise.all([
-        api.getBayState(bayId),
-        api.getBayInterlocks(bayId),
-      ]);
-      set({ selectedBayState, interlockStatus });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Failed to fetch bay detail" });
-    } finally {
-      set({ loading: false });
+  execute: async (bay, equipment_id, action) => {
+    const level = useScadaStore.getState().selectedRoleLevel;
+    if (level < 2) {
+      set({ error: "Viewer role has no control rights (control_switchgear needs L2+)" });
+      return;
     }
-  },
-
-  fetchInterlocks: async (bayId: string) => {
+    set({ busy: true });
     try {
-      const interlockStatus = await api.getBayInterlocks(bayId);
-      set({ interlockStatus });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Failed to fetch interlocks" });
-    }
-  },
-
-  executeCommand: async (bayId: string, cmd: SwitchCommandRequest) => {
-    set({ commandLoading: true, error: null, lastCommandResult: null });
-    try {
-      const lastCommandResult = await api.executeBayCommand(bayId, cmd);
-      set({ lastCommandResult });
-      // Refresh bay state after command
-      await get().selectBay(bayId);
+      const r = await api.executeBayCommand(bay, {
+        equipment_id,
+        action,
+        operator_id: `L${level}-operator`,
+        is_auto_reclose: false,
+        synchrocheck: null,
+      });
+      useScadaStore.getState().addEvent({
+        source: equipment_id,
+        type: "breaker_operation",
+        description: `${bay} · ${r.message}`,
+        priority: "INFO",
+      });
+      set({ validation: null, error: null });
       await get().fetchAllBays();
+      await get().fetchAllInterlocks();
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Command execution failed" });
+      set({ error: message(err) });
     } finally {
-      set({ commandLoading: false });
+      set({ busy: false });
     }
   },
 
-  validateCommand: async (req: ValidateCommandRequest) => {
-    try {
-      const validationResult = await api.validateCommand(req);
-      set({ validationResult });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Validation failed" });
-    }
-  },
-
-  clearError: () => set({ error: null }),
-  clearCommandResult: () => set({ lastCommandResult: null, validationResult: null }),
+  clearValidation: () => set({ validation: null, error: null }),
 }));

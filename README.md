@@ -39,7 +39,7 @@ The modules follow a wind farm through its life.
 | **Design** | Grid Integration | Load flow, IEC 60909 short circuit, fault ride-through, STATCOM sizing, power quality, cable thermal rating (IEC 60287) |
 | | Turbine Physics | Cp(λ, β) surface, pitch and torque control, yaw |
 | **Build & Commission** | Construction | Installation campaign in Baltic weather windows (DNV-ST-N001 α factor): vessels, P10/P50/P90 timeline, waiting on weather, vessel cost |
-| | Commissioning | 30-step switching programme, LOTO, FAT/SAT, grid-code compliance tests |
+| | Commissioning | Circuit 1 energisation (60 steps, topology interlocks, load-flow-verified readings), isolation locks, FAT/SAT, EON → ION → FON |
 | | Hand-over | As-built register of your farm, energisation order per feeder bay, your layout on the control-room map |
 | **Operate** | Control Room | Farm map, live KPIs, 3D turbine with drawing sheets |
 | | SCADA | IEC 61850 data model and GOOSE, bay control, alarms, permit-to-work, OPC UA, IEC 62443 zones |

@@ -6,14 +6,11 @@ integrated with IEC 62443 RBAC for role-based transition authorisation.
 
 Physics — Why Permits-to-Work Exist
 ------------------------------------
-Offshore 220 kV switchgear carries enough energy to cause fatal arc flash:
-
-  Incident energy = k × V × I_arc × t_arc / D²
-
-At 220 kV with 40 kA fault current, the arc flash boundary (where incident
-energy = 1.2 cal/cm² — the threshold for second-degree burns) extends to
-~8 metres (IEEE 1584-2018). Every person within this boundary during a
-switching error is at risk of fatal injury.
+Offshore HV switchgear can release fatal arc energy. The incident energy
+grows with arc current and clearing time (E ∝ I_arc · t_arc / D^x); at the
+OSS 66 kV switchboard Ik'' ≈ 21 kA (P2, IEC 60909), so even a 100 ms
+protection-cleared arc is lethal at working distance. (IEEE 1584-2018 only
+covers 208 V–15 kV; above that, Lee's method or NFPA 70E tables apply.)
 
 The Permit-to-Work system is the **administrative control** that ensures:
 1. Equipment is correctly identified before isolation

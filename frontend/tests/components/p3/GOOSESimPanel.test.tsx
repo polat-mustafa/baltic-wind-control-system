@@ -1,119 +1,57 @@
 /**
- * Tests for the GOOSESimPanel component.
+ * GOOSESimPanel — scenario cards before a run, clearing-time budget after.
  */
 
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import GOOSESimPanel from "../../../src/components/p3/GOOSESimPanel";
 import { useScadaStore } from "../../../src/store/scadaStore";
+import type { FaultSimulationResult } from "../../../src/types/scada";
 
-vi.mock("../../../src/store/scadaStore");
-vi.mock("react-plotly.js", () => ({ default: () => null }));
+vi.mock("react-plotly.js", () => ({ default: () => <div data-testid="plot" /> }));
+
+const ev = (event_type: string, timestamp_ms: number) => ({ event_type, timestamp_ms, description: event_type, ied_name: "" });
+
+const result = (clearing: number): FaultSimulationResult => ({
+  fault_type: "busbar_overcurrent",
+  location: "220kV_busbar",
+  fault_current_ka: 9.1,
+  load_current_ka: 1.34,
+  protection_function: "PDIF",
+  description: "3-phase fault on the OSS 220 kV busbar",
+  events: [ev("fault_occurs", 0), ev("protection_detects", 12), ev("goose_received", 14), ev("breaker_trip_initiated", 15), ev("breaker_open", 40), ev("arc_extinguished", clearing), ev("scada_alarm", 272)],
+  goose_messages: [],
+  compliance: { goose_latency_ms: 1.5, goose_max_allowed_ms: 3, goose_compliant: true, total_clearance_ms: clearing, clearance_max_allowed_ms: 100, clearance_compliant: clearing <= 100 },
+  retransmission_schedule_ms: [],
+});
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  useScadaStore.setState({
+    simulationResult: null,
+    retransmissionResult: null,
+    faultScenarios: [{ fault_type: "busbar_overcurrent", description: "Ik'' = 9.1 kA" }],
+  });
 });
 
 describe("GOOSESimPanel", () => {
-  it("shows placeholder when simulationResult is null", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      simulationResult: null,
-      retransmissionResult: null,
-    } as unknown as ReturnType<typeof useScadaStore>);
-
+  it("offers the scenarios before a run", () => {
     render(<GOOSESimPanel />);
-    expect(
-      screen.getByText(
-        "Run a GOOSE fault simulation to see the protection timeline",
-      ),
-    ).toBeDefined();
+    expect(screen.getByText("87B busbar differential")).toBeDefined();
+    expect(screen.getByRole("button", { name: /Inject fault/ })).toBeDefined();
   });
 
-  it("renders compliance badge as IEC COMPLIANT when passing", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      simulationResult: {
-        fault_type: "busbar_overcurrent",
-        location: "66 kV Busbar Section 1",
-        fault_current_pu: 8.5,
-        events: [
-          {
-            event_type: "fault_inception",
-            timestamp_ms: 0,
-            description: "Fault inception",
-            ied_name: "",
-          },
-          {
-            event_type: "relay_trip",
-            timestamp_ms: 15,
-            description: "Relay trip",
-            ied_name: "OSS_PROT_IED01",
-          },
-        ],
-        goose_messages: [],
-        compliance: {
-          goose_latency_ms: 2.8,
-          goose_max_allowed_ms: 4.0,
-          goose_compliant: true,
-          total_clearance_ms: 55.0,
-          clearance_max_allowed_ms: 80.0,
-          clearance_compliant: true,
-        },
-      },
-      retransmissionResult: null,
-    } as unknown as ReturnType<typeof useScadaStore>);
-
+  it("shows fault current against load and the clearing time", () => {
+    useScadaStore.setState({ simulationResult: result(50) });
     render(<GOOSESimPanel />);
-    expect(screen.getByText("IEC COMPLIANT")).toBeDefined();
-    expect(screen.getByText(/busbar_overcurrent/)).toBeDefined();
+    expect(screen.getByText("9.1 kA")).toBeDefined();
+    expect(screen.getByText("6.8 × load current")).toBeDefined();
+    expect(screen.getAllByText("50.0 ms").length).toBeGreaterThan(0);
   });
 
-  it("renders NON-COMPLIANT badge when failing", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      simulationResult: {
-        fault_type: "busbar_overcurrent",
-        location: "66 kV Busbar",
-        fault_current_pu: 8.5,
-        events: [],
-        goose_messages: [],
-        compliance: {
-          goose_latency_ms: 6.0,
-          goose_max_allowed_ms: 4.0,
-          goose_compliant: false,
-          total_clearance_ms: 55.0,
-          clearance_max_allowed_ms: 80.0,
-          clearance_compliant: true,
-        },
-      },
-      retransmissionResult: null,
-    } as unknown as ReturnType<typeof useScadaStore>);
-
+  it("flags a clearing time beyond the target", () => {
+    useScadaStore.setState({ simulationResult: result(120) });
     render(<GOOSESimPanel />);
-    expect(screen.getByText("NON-COMPLIANT")).toBeDefined();
-  });
-
-  it("displays GOOSE latency and fault clearance values", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      simulationResult: {
-        fault_type: "busbar_overcurrent",
-        location: "66 kV Busbar",
-        fault_current_pu: 8.5,
-        events: [],
-        goose_messages: [],
-        compliance: {
-          goose_latency_ms: 2.8,
-          goose_max_allowed_ms: 4.0,
-          goose_compliant: true,
-          total_clearance_ms: 55.0,
-          clearance_max_allowed_ms: 80.0,
-          clearance_compliant: true,
-        },
-      },
-      retransmissionResult: null,
-    } as unknown as ReturnType<typeof useScadaStore>);
-
-    render(<GOOSESimPanel />);
-    expect(screen.getByText("GOOSE Latency")).toBeDefined();
-    expect(screen.getByText("Fault Clearance")).toBeDefined();
-    expect(screen.getByText("Fault Current")).toBeDefined();
+    expect(screen.getByText(/NOT MET/)).toBeDefined();
   });
 });

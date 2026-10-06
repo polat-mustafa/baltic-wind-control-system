@@ -6,25 +6,21 @@ messaging for protection fault scenarios in the offshore substation.
 
 Physics — Why GOOSE Exists
 ---------------------------
-When a short-circuit fault occurs on a 220 kV busbar, the arc energy is
-proportional to I²t. At 2.5× nominal current through a 1,200 A busbar,
-every millisecond matters:
-
-  Arc energy ∝ I² × t_clearance
-
-If clearance takes 80 ms instead of 60 ms, the arc energy increases by 33%.
-This can destroy switchgear (IEC 62271-200 rated for specific arc duration),
-damage bus ducts, and cause cascading failures. The protection system must
-detect the fault, communicate the trip command, and mechanically open the
-circuit breaker — all within 80 ms (IEC 62271-100).
+A bolted fault on the OSS 220 kV busbar draws Ik'' ≈ 9.1 kA (IEC 60909
+max case, pandapower — P2), ~7 × the 1.34 kA the busbar carries at 510 MW.
+The arc energy grows with I²·t, so every millisecond of clearing time
+matters, and the fault must be gone before the PSE fault-ride-through
+profile (0 pu for 150 ms) is exceeded. Hard-wired trip contacts are replaced
+by GOOSE: the protection IED publishes the trip once, every breaker bay
+subscribes to it on the station bus.
 
 Standard — IEC 61850-8-1 GOOSE Protocol
 -----------------------------------------
 GOOSE operates at Ethernet Layer 2 (no IP routing, no TCP overhead):
   - Multicast MAC addressing (01:0C:CD:01:xx:xx per IEC 61850-8-1 Annex A)
   - Publish-subscribe model: publisher IED sends, all subscribers receive
-  - Typical latency: < 1 ms on dedicated VLAN
-  - Requirement: < 4 ms end-to-end (publisher → subscriber)
+  - Typical latency: < 1 ms on a dedicated VLAN
+  - Requirement: trip messages ≤ 3 ms transfer time (IEC 61850-5 class TT6)
 
 GOOSE retransmission scheme (IEC 61850-8-1 §15.2.2):
   On state change: send immediately, then retransmit at T0 = min_time
@@ -40,34 +36,27 @@ GOOSE PDU key fields:
   - allData: the actual data values (trip signals, breaker positions)
   - t: timestamp of the state change (UTC, IEEE 1588 precision)
 
-Standard — IEC 62271-100 Fault Clearance
-------------------------------------------
-Maximum fault clearance time for HV circuit breakers:
-  - 220 kV busbar fault: < 80 ms (total protection + breaker operating time)
-  - Breaker mechanical time: 20-60 ms (spring-operated mechanism)
-  - Protection relay operate time: 15-30 ms (digital relay processing)
-  - GOOSE transport: < 4 ms (Layer 2 Ethernet)
+Fault clearing time
+-------------------
+  t_clear = t_protection + t_GOOSE + t_trip-coil + t_opening + t_arcing
 
-Maths — Fault Clearance Timeline
-----------------------------------
-Total clearance = t_detect + t_relay + t_goose + t_breaker
+  protection operate time (numerical relay, incl. measurement):
+      87B busbar differential ≈ 12 ms, 87T transformer differential ≈ 25 ms
+      (2nd-harmonic restraint), 87L cable differential ≈ 30 ms (incl. channel)
+  GOOSE transfer 1.5 ms, trip coil 1 ms
+  220 kV breaker opening time 25 ms + arcing to the next current zero ≤ 10 ms
+  (rated break time 2 cycles = 40 ms, IEC 62271-100)
 
-For 220 kV busbar overcurrent (our reference scenario):
-  t_detect = 2.0 ms (CT secondary current exceeds pickup: I_fault/I_nominal > 2.0)
-  t_relay  = 0.5 ms (digital relay processing after detection)
-  t_goose  = 1.5 ms (GOOSE message Layer 2 transport)
-  t_breaker = 40.0 ms (spring mechanism + arc extinction)
-  t_scada  = 260.0 ms (IEC 60870-5-104 polling delay — NOT used for protection)
-
-  Total = 2.0 + 0.5 + 1.5 + 40.0 = 44.0 ms < 80 ms ✓
+  87B: 12 + 1.5 + 1 + 25 + 10 ≈ 50 ms — well inside the ≤ 100 ms main-
+  protection target typical of TSO requirements at 220 kV.
 
 References
 ----------
 - IEC 61850-8-1: Specific communication service mapping (SCSM) —
   Mappings to MMS and to ISO/IEC 8802-3
 - IEC 62271-100: High-voltage switchgear and controlgear — AC circuit-breakers
-- IEC 62271-200: AC metal-enclosed switchgear and controlgear for rated
-  voltages above 1 kV and up to and including 52 kV
+- IEC 61850-5: Communication requirements for functions and device models
+- IEC 60909-0: Short-circuit currents in three-phase AC systems
 - IEC 61850-7-2: Abstract communication service interface (ACSI)
 - IEC 60870-5-104: Telecontrol equipment and systems — Network access
 """
@@ -78,6 +67,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from functools import lru_cache
 
 from app.services.p3.iec61850_model import build_oss_goose_control_block
 
@@ -85,12 +75,11 @@ from app.services.p3.iec61850_model import build_oss_goose_control_block
 
 
 class FaultType(StrEnum):
-    """Protection fault scenarios for the 220 kV OSS busbar.
+    """Protection fault scenarios of the export system (ids kept for the API).
 
-    Each fault type triggers different protection functions:
-    - Overcurrent (PTOC): I > pickup threshold, fastest for close-in faults
-    - Transformer differential (PDIF): current imbalance across TX windings
-    - Cable earth fault (PTOC + directional): ground fault on export cable
+    - busbar_overcurrent: 3-phase fault on the OSS 220 kV busbar → 87B
+    - transformer_differential: internal fault in TX-OSS-01 → 87T
+    - cable_earth_fault: phase-to-earth fault on export cable 1 → 87L
     """
 
     BUSBAR_OVERCURRENT = "busbar_overcurrent"
@@ -112,7 +101,7 @@ class ProtectionFunction(StrEnum):
     PTOC = "PTOC"  # Time overcurrent
     PDIS = "PDIS"  # Distance protection
     PTOV = "PTOV"  # Overvoltage
-    PDIF = "PDIF"  # Differential (modelled, not in base LN set)
+    PDIF = "PDIF"  # Differential — 87B busbar, 87T transformer, 87L line/cable
 
 
 class EventType(StrEnum):
@@ -136,33 +125,35 @@ class EventType(StrEnum):
 # We use fixed values (not random) so tests are deterministic and students
 # can trace every millisecond of the protection sequence.
 
-# Detection times by fault type [ms]
+# Protection operate time by fault type [ms] (numerical relays, incl. measurement)
 _DETECTION_TIMES_MS: dict[FaultType, float] = {
-    FaultType.BUSBAR_OVERCURRENT: 2.0,  # Fast CT pickup, close-in fault
-    FaultType.TRANSFORMER_DIFFERENTIAL: 5.0,  # Differential comparison
-    FaultType.CABLE_EARTH_FAULT: 8.0,  # Directional element + time delay
+    FaultType.BUSBAR_OVERCURRENT: 12.0,  # 87B low-impedance busbar differential
+    FaultType.TRANSFORMER_DIFFERENTIAL: 25.0,  # 87T with inrush (2nd harmonic) restraint
+    FaultType.CABLE_EARTH_FAULT: 30.0,  # 87L incl. ~5 ms fibre channel delay
 }
 
-# Relay digital processing time after detection [ms]
+# Trip decision → GOOSE publication (output logic) [ms]
 _RELAY_PROCESSING_MS = 0.5
 
 # GOOSE Layer 2 transport time [ms] — publisher to subscriber
 _GOOSE_TRANSPORT_MS = 1.5
 
-# Circuit breaker mechanical operating time [ms]
-# Spring-operated mechanism: 20-60 ms typical (IEC 62271-100)
-_BREAKER_MECHANICAL_MS = 40.0
+# Trip coil energised after GOOSE receipt [ms]
+_TRIP_COIL_MS = 1.0
 
-# Arc extinction time after contact separation [ms]
-_ARC_EXTINCTION_MS = 15.0
+# 220 kV circuit breaker opening time (trip coil → contact separation) [ms]
+_BREAKER_MECHANICAL_MS = 25.0
 
-# SCADA alarm delay via IEC 60870-5-104 polling [ms]
-# This is NOT used for protection — it's the operator notification delay
+# Arcing time until the next current zero (≤ half a cycle at 50 Hz) [ms]
+_ARC_EXTINCTION_MS = 10.0
+
+# SCADA alarm delay via IEC 60870-5-104 (spontaneous report + gateway) [ms]
+# Operator notification only — never part of the protection path.
 _SCADA_POLLING_DELAY_MS = 260.0
 
-# IEC compliance thresholds
-GOOSE_MAX_LATENCY_MS = 4.0  # IEC 61850-8-1 requirement
-FAULT_CLEARANCE_MAX_MS = 80.0  # IEC 62271-100 for 220 kV
+# Compliance thresholds
+GOOSE_MAX_LATENCY_MS = 3.0  # IEC 61850-5 transfer time class TT6 (trip)
+FAULT_CLEARANCE_MAX_MS = 100.0  # main-protection clearing target at 220 kV
 
 
 # ── Data Models ────────────────────────────────────────────────────
@@ -243,10 +234,11 @@ class FaultScenario:
         Type of electrical fault.
     location : FaultLocation
         Physical location within the OSS.
-    fault_current_pu : float
-        Fault current magnitude in per-unit of nominal (e.g., 2.5 = 250%).
-    nominal_current_a : float
-        Nominal current at the fault location [A].
+    fault_current_ka : float
+        Initial symmetrical short-circuit current Ik'' at the fault [kA]
+        (IEC 60909 max case, pandapower).
+    load_current_ka : float
+        Load current through the faulted zone at 510 MW [kA].
     protection_function : ProtectionFunction
         Primary protection function that trips.
     publisher_ied : str
@@ -259,8 +251,8 @@ class FaultScenario:
 
     fault_type: FaultType
     location: FaultLocation
-    fault_current_pu: float
-    nominal_current_a: float
+    fault_current_ka: float
+    load_current_ka: float
     protection_function: ProtectionFunction
     publisher_ied: str
     subscriber_ieds: tuple[str, ...]
@@ -284,9 +276,9 @@ class FaultSimulationResult:
     total_clearance_ms : float
         Total fault clearance time [ms] (fault → arc extinguished).
     goose_compliant : bool
-        True if GOOSE latency < 4 ms (IEC 61850-8-1).
+        True if GOOSE latency ≤ 3 ms (IEC 61850-5 TT6).
     clearance_compliant : bool
-        True if total clearance < 80 ms (IEC 62271-100).
+        True if total clearance ≤ 100 ms (main-protection target).
     retransmission_schedule_ms : tuple[float, ...]
         GOOSE retransmission timestamps [ms] after initial publish.
     """
@@ -304,84 +296,68 @@ class FaultSimulationResult:
 # ── Scenario Builders ──────────────────────────────────────────────
 
 
+@lru_cache(maxsize=1)
+def _ikss_ka() -> dict[str, float]:
+    """IEC 60909 max-case Ik'' per bus [kA] from the P2 pandapower model (Rule 3)."""
+    from app.services.p2.short_circuit import calc_short_circuit
+
+    return {b.bus_name: b.ikss_ka for b in calc_short_circuit("max").bus_results}
+
+
+# Load current through each zone at 510 MW, 220 kV [kA]
+_I_LOAD_220_KA = 510.0 / (3**0.5 * 220.0)
+
+
 def create_busbar_overcurrent_scenario() -> FaultScenario:
-    """Create 220 kV busbar overcurrent fault scenario.
-
-    A three-phase short circuit on the 220 kV busbar produces 2.5× nominal
-    current. PTOC (time overcurrent) is the primary protection function.
-    The protection IED publishes a GOOSE trip to all busbar circuit breakers.
-
-    Returns
-    -------
-    FaultScenario
-        Configured busbar overcurrent scenario.
-    """
+    """Three-phase fault on the OSS 220 kV busbar, cleared by 87B."""
+    ik = _ikss_ka()["OSS_220kV"]
     return FaultScenario(
         fault_type=FaultType.BUSBAR_OVERCURRENT,
         location=FaultLocation.BUSBAR_220KV,
-        fault_current_pu=2.5,
-        nominal_current_a=1200.0,
-        protection_function=ProtectionFunction.PTOC,
+        fault_current_ka=ik,
+        load_current_ka=_I_LOAD_220_KA,
+        protection_function=ProtectionFunction.PDIF,
         publisher_ied="OSS_PROT_IED01",
         subscriber_ieds=("OSS_BAY_CTRL01",),
         description=(
-            "220 kV busbar three-phase overcurrent fault: I = 2.5 pu (3,000 A). "
-            "PTOC1 detects overcurrent, publishes GOOSE trip to all busbar CBs."
+            f"3-phase fault on the OSS 220 kV busbar: Ik'' = {ik:.1f} kA (IEC 60909 max). "
+            "87B busbar differential trips all four busbar bays via GOOSE."
         ),
     )
 
 
 def create_transformer_differential_scenario() -> FaultScenario:
-    """Create OSS transformer differential fault scenario.
-
-    An internal winding fault causes current imbalance between HV and LV
-    sides of the OSS power transformer. Differential protection (PDIF)
-    detects the imbalance and trips both HV and LV circuit breakers.
-
-    Returns
-    -------
-    FaultScenario
-        Configured transformer differential scenario.
-    """
+    """Internal fault in TX-OSS-01 near its HV terminals, cleared by 87T."""
+    ik = _ikss_ka()["OSS_220kV"]
     return FaultScenario(
         fault_type=FaultType.TRANSFORMER_DIFFERENTIAL,
         location=FaultLocation.TRANSFORMER_OSS,
-        fault_current_pu=5.0,
-        nominal_current_a=1200.0,
+        fault_current_ka=ik,
+        load_current_ka=300.0 / (3**0.5 * 220.0),
         protection_function=ProtectionFunction.PDIF,
         publisher_ied="OSS_PROT_IED01",
         subscriber_ieds=("OSS_BAY_CTRL01",),
         description=(
-            "OSS transformer internal winding fault: differential current = 5.0 pu. "
-            "PDIF detects HV/LV current imbalance, trips both sides."
+            f"Internal fault in TX-OSS-01 near the HV terminals: up to {ik:.1f} kA from the "
+            "220 kV side. 87T sees the HV/LV difference and trips both sides."
         ),
     )
 
 
 def create_cable_earth_fault_scenario() -> FaultScenario:
-    """Create 220 kV export cable single-phase earth fault scenario.
-
-    A cable insulation failure on the 45 km export cable causes a
-    single-phase-to-earth fault. Directional overcurrent (PTOC with
-    directional element) detects the fault with a longer detection time
-    due to the directional discrimination requirement.
-
-    Returns
-    -------
-    FaultScenario
-        Configured cable earth fault scenario.
-    """
+    """Phase-to-earth fault on export cable 1, cleared at both ends by 87L."""
+    ik = _ikss_ka()["OSS_220kV"]
     return FaultScenario(
         fault_type=FaultType.CABLE_EARTH_FAULT,
         location=FaultLocation.EXPORT_CABLE,
-        fault_current_pu=1.8,
-        nominal_current_a=1200.0,
-        protection_function=ProtectionFunction.PTOC,
+        fault_current_ka=ik,
+        load_current_ka=_I_LOAD_220_KA / 2,
+        protection_function=ProtectionFunction.PDIF,
         publisher_ied="OSS_PROT_IED01",
         subscriber_ieds=("OSS_BAY_CTRL01",),
         description=(
-            "Export cable single-phase earth fault: I = 1.8 pu (2,160 A). "
-            "Directional PTOC detects fault with cable-end discrimination."
+            f"Phase-to-earth fault on export cable 1 near the OSS: ≈ {ik:.1f} kA "
+            "(solidly earthed, Z0 ≈ Z1 assumed). 87L opens both cable ends; no auto-reclose."
         ),
     )
 
@@ -566,7 +542,6 @@ def simulate_fault(scenario: FaultScenario) -> FaultSimulationResult:
         compliance status, and retransmission schedule.
     """
     detection_ms = _DETECTION_TIMES_MS[scenario.fault_type]
-    fault_current_a = scenario.fault_current_pu * scenario.nominal_current_a
 
     # Build deterministic timeline
     t = 0.0
@@ -578,8 +553,8 @@ def simulate_fault(scenario: FaultScenario) -> FaultSimulationResult:
             event_type=EventType.FAULT_OCCURS,
             timestamp_ms=t,
             description=(
-                f"Fault on {scenario.location.value}: "
-                f"I = {scenario.fault_current_pu:.1f} pu ({fault_current_a:.0f} A)"
+                f"Fault on {scenario.location.value}: Ik'' = {scenario.fault_current_ka:.1f} kA "
+                f"({scenario.fault_current_ka / scenario.load_current_ka:.1f} × load current)"
             ),
         )
     )
@@ -591,7 +566,8 @@ def simulate_fault(scenario: FaultScenario) -> FaultSimulationResult:
             event_type=EventType.PROTECTION_DETECTS,
             timestamp_ms=t,
             description=(
-                f"{scenario.protection_function.value} detects fault current > pickup threshold"
+                f"{scenario.protection_function.value} operates: differential current above "
+                "the restrained pickup"
             ),
             ied_name=scenario.publisher_ied,
         )
@@ -632,7 +608,8 @@ def simulate_fault(scenario: FaultScenario) -> FaultSimulationResult:
             )
         )
 
-    # 6. Breaker trip initiated
+    # 6. Breaker trip coil energised
+    t += _TRIP_COIL_MS
     events.append(
         ProtectionEvent(
             event_type=EventType.BREAKER_TRIP_INITIATED,
@@ -648,7 +625,7 @@ def simulate_fault(scenario: FaultScenario) -> FaultSimulationResult:
         ProtectionEvent(
             event_type=EventType.BREAKER_OPEN,
             timestamp_ms=t,
-            description="Circuit breaker contacts separated (spring mechanism)",
+            description="Breaker contacts separate (opening time 25 ms)",
         )
     )
 
@@ -658,7 +635,7 @@ def simulate_fault(scenario: FaultScenario) -> FaultSimulationResult:
         ProtectionEvent(
             event_type=EventType.ARC_EXTINGUISHED,
             timestamp_ms=t,
-            description="Arc extinguished in SF6 chamber",
+            description="Arc extinguished at current zero in the SF6 interrupter",
         )
     )
 
@@ -667,7 +644,7 @@ def simulate_fault(scenario: FaultScenario) -> FaultSimulationResult:
         ProtectionEvent(
             event_type=EventType.FAULT_CLEARED,
             timestamp_ms=t,
-            description="Fault cleared — power system stable",
+            description="Fault cleared — healthy part of the network keeps running",
         )
     )
 
@@ -679,7 +656,7 @@ def simulate_fault(scenario: FaultScenario) -> FaultSimulationResult:
         ProtectionEvent(
             event_type=EventType.SCADA_ALARM,
             timestamp_ms=scada_ms,
-            description="SCADA alarm at control centre (IEC 60870-5-104 polling)",
+            description="Alarm at the control centre (IEC 60870-5-104 spontaneous report)",
         )
     )
 

@@ -1,138 +1,109 @@
 /**
- * Event log / SOE panel — persistent chronological sequence of events.
+ * Operator event log — the session's chronological record: protection
+ * sequence (GOOSE), breaker operations, interlock blocks, turbine faults.
  *
- * Features:
- * - Persistent event history (last 200 events from store)
- * - Event type color coding
- * - Time-range display
- * - Copy to clipboard as CSV
- * - Priority icons
- *
- * Combines GOOSE simulation events + auto-simulation events + breaker ops.
+ * Time stamps carry milliseconds: a protection sequence lasts < 100 ms and
+ * IEC 61850 time-stamps events to 1 ms, so seconds would merge the whole
+ * sequence into one line. The persistent, database-backed record of the same
+ * kind of events is the SOE Recorder (Diagnostics).
  */
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useState } from "react";
+import { Download, Trash2 } from "lucide-react";
 
 import { useScadaStore, type SOEEvent } from "../../store/scadaStore";
-import { SCADA_COLORS } from "../../constants/scadaColors";
-import { Copy, Trash2, AlertTriangle, AlertCircle, Info, Zap } from "lucide-react";
+import { PriorityChip } from "./AlarmListPanel";
 
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString("sv-SE", { timeZone: "Europe/Warsaw", hour12: false });
+/** HH:MM:SS.mmm in plant time (CET/CEST). */
+function formatTimeMs(ts: number): string {
+  const t = new Date(ts).toLocaleTimeString("sv-SE", { timeZone: "Europe/Warsaw", hour12: false });
+  return `${t}.${String(new Date(ts).getMilliseconds()).padStart(3, "0")}`;
 }
 
-const PRIORITY_ICON: Record<string, React.ReactNode> = {
-  CRITICAL: <AlertTriangle size={10} className="text-red-400" />,
-  HIGH: <AlertCircle size={10} className="text-orange-400" />,
-  MEDIUM: <AlertCircle size={10} className="text-yellow-400" />,
-  LOW: <Info size={10} className="text-cyan-400" />,
-  INFO: <Info size={10} className="text-text-muted" />,
-};
+const CATEGORY: { id: string; label: string; match: (e: SOEEvent) => boolean }[] = [
+  { id: "all", label: "All events", match: () => true },
+  { id: "protection", label: "Protection / GOOSE", match: (e) => /relay|goose|fault_occurs|protection|breaker_open|breaker_trip|arc|fault_cleared|scada_alarm/i.test(e.type) },
+  { id: "switching", label: "Switching / interlocks", match: (e) => /breaker_operation|interlock/.test(e.type) },
+  { id: "turbine", label: "Turbine faults", match: (e) => /^[A-Z_]+$/.test(e.type) },
+];
 
-function typeColor(type: string): string {
-  if (type.includes("FAULT") || type.includes("trip") || type === "relay_trip") return SCADA_COLORS.FAULT;
-  if (type.includes("goose") || type.includes("GOOSE")) return SCADA_COLORS.EARTHED;
-  if (type.includes("breaker")) return SCADA_COLORS.WARNING;
-  return SCADA_COLORS.DE_ENERGIZED;
+function exportCsv(rows: SOEEvent[]) {
+  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const csv = [
+    "time_utc,source,type,priority,description",
+    ...rows.map((e) => [new Date(e.timestamp).toISOString(), esc(e.source), e.type, e.priority, esc(e.description)].join(",")),
+  ].join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `event_log_${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function EventLogPanel() {
   const eventLog = useScadaStore((s) => s.eventLog);
-  const simulationResult = useScadaStore((s) => s.simulationResult);
   const clearEventLog = useScadaStore((s) => s.clearEventLog);
+  const [category, setCategory] = useState("all");
+  const [query, setQuery] = useState("");
 
-  // Merge legacy simulation events if no persistent events yet
-  const entries = useMemo<SOEEvent[]>(() => {
-    if (eventLog.length > 0) return eventLog;
+  // Newest first; ties (same ms) keep insertion order
+  const rows = useMemo(() => {
+    const cat = CATEGORY.find((c) => c.id === category) ?? CATEGORY[0];
+    const q = query.toLowerCase();
+    return [...eventLog]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .filter((e) => cat.match(e) && (!q || `${e.source} ${e.description}`.toLowerCase().includes(q)));
+  }, [eventLog, category, query]);
 
-    // Fallback: convert old simulation result to SOE format
-    if (!simulationResult?.events) return [];
-    return simulationResult.events.map((e, i) => ({
-      id: `legacy-${i}`,
-      timestamp: Date.now() + e.timestamp_ms,
-      source: e.ied_name || "System",
-      type: e.event_type,
-      description: e.description,
-      priority: e.event_type === "relay_trip" ? "CRITICAL" as const : "INFO" as const,
-    }));
-  }, [eventLog, simulationResult]);
-
-  const handleCopyCSV = useCallback(() => {
-    const header = "Timestamp,Source,Type,Priority,Description";
-    const rows = entries.map((e) =>
-      `${formatTime(e.timestamp)},${e.source},${e.type},${e.priority},"${e.description}"`,
-    );
-    const csv = [header, ...rows].join("\n");
-    navigator.clipboard.writeText(csv);
-  }, [entries]);
+  const ctrl = "h-6 text-[11px] bg-bg-secondary border border-border-primary rounded px-1.5 text-text-secondary";
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
-      <div className="px-3 py-1.5 border-b border-border-primary flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="text-xs font-semibold text-text-primary">
-            Event Log / SOE
-          </h3>
-          <span className="text-[9px] text-text-muted font-mono">
-            {entries.length} entries
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={handleCopyCSV}
-            className="text-[9px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted hover:text-text-primary transition-colors flex items-center gap-1"
-            title="Copy as CSV"
-          >
-            <Copy size={9} /> CSV
-          </button>
-          <button
-            onClick={clearEventLog}
-            className="text-[9px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted hover:text-text-primary transition-colors flex items-center gap-1"
-            title="Clear event log"
-          >
-            <Trash2 size={9} /> Clear
-          </button>
-        </div>
+    <div className="flex flex-col h-full min-h-[420px] bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-border-primary shrink-0">
+        <h3 className="text-xs font-semibold text-text-primary">Event Log / SOE</h3>
+        <span className="text-[10px] font-mono text-text-muted">{eventLog.length} entries · 1 ms resolution</span>
+        <span className="flex-1" />
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className={ctrl} aria-label="Event category">
+          {CATEGORY.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Source / text" className={`${ctrl} w-32`} aria-label="Search events" />
+        <button type="button" onClick={() => exportCsv(rows)} disabled={!rows.length} className={`${ctrl} flex items-center gap-1 hover:bg-bg-hover disabled:opacity-40`}>
+          <Download size={11} /> CSV
+        </button>
+        <button type="button" onClick={clearEventLog} disabled={!eventLog.length} className={`${ctrl} flex items-center gap-1 hover:bg-bg-hover disabled:opacity-40`}>
+          <Trash2 size={11} /> Clear
+        </button>
       </div>
-      <div className="max-h-[300px] overflow-y-auto">
-        {entries.length === 0 ? (
-          <div className="p-4 text-center text-text-muted text-sm">
-            No events — start auto-simulation or run a fault scenario
+
+      <div className="flex-1 min-h-0 overflow-auto">
+        {rows.length === 0 ? (
+          <div className="p-6 text-center text-xs text-text-muted">
+            {eventLog.length === 0 ? "No events yet. Inject a fault, operate a breaker or start the auto-simulation." : "No events match the filter."}
           </div>
         ) : (
-          <table className="w-full text-[10px]">
-            <thead className="bg-bg-tertiary sticky top-0">
-              <tr>
-                <th className="text-left px-2 py-1 text-text-muted font-medium w-6"></th>
-                <th className="text-left px-2 py-1 text-text-muted font-medium w-16">Time</th>
-                <th className="text-left px-2 py-1 text-text-muted font-medium w-28">Source</th>
-                <th className="text-left px-2 py-1 text-text-muted font-medium w-24">Type</th>
-                <th className="text-left px-2 py-1 text-text-muted font-medium">Description</th>
+          <table className="w-full text-[11px]">
+            <thead className="sticky top-0 bg-bg-tertiary text-text-muted">
+              <tr className="text-left">
+                <th className="px-2 py-1 font-medium w-9">Pri</th>
+                <th className="px-2 py-1 font-medium w-28">Time</th>
+                <th className="px-2 py-1 font-medium w-36">Source</th>
+                <th className="px-2 py-1 font-medium w-44">Type</th>
+                <th className="px-2 py-1 font-medium">Description</th>
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry) => (
-                <tr
-                  key={entry.id}
-                  className="border-b border-border-primary/50 hover:bg-bg-hover/50 transition-colors"
-                >
-                  <td className="px-2 py-1">
-                    {PRIORITY_ICON[entry.priority] ?? <Zap size={10} className="text-text-muted" />}
-                  </td>
-                  <td className="px-2 py-1 font-mono text-text-secondary">
-                    {formatTime(entry.timestamp)}
-                  </td>
-                  <td className="px-2 py-1 font-mono text-text-secondary">
-                    {entry.source}
-                  </td>
-                  <td className="px-2 py-1">
-                    <span className="font-mono" style={{ color: typeColor(entry.type) }}>
-                      {entry.type}
-                    </span>
-                  </td>
-                  <td className="px-2 py-1 text-text-primary truncate max-w-[300px]" title={entry.description}>
-                    {entry.description}
-                  </td>
+              {rows.map((e) => (
+                <tr key={e.id} className="border-b border-border-primary/60 hover:bg-bg-hover">
+                  <td className="px-2 py-0.5">{e.priority === "INFO" ? <span className="text-[10px] font-mono text-text-muted">info</span> : <PriorityChip priority={e.priority} />}</td>
+                  <td className="px-2 py-0.5 font-mono tabular-nums text-text-secondary whitespace-nowrap">{formatTimeMs(e.timestamp)}</td>
+                  <td className="px-2 py-0.5 font-mono text-text-primary whitespace-nowrap">{e.source}</td>
+                  <td className="px-2 py-0.5 font-mono text-text-muted whitespace-nowrap">{e.type.toLowerCase()}</td>
+                  <td className="px-2 py-0.5 text-text-secondary">{e.description}</td>
                 </tr>
               ))}
             </tbody>

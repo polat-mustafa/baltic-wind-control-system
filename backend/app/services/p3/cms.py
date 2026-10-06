@@ -1,58 +1,50 @@
 """
 Condition Monitoring System (CMS) service — M12.
 
-Manages turbine component health, generates FFT spectra, estimates
-Remaining Useful Life (RUL), and supports fault injection for training.
-
-Physics — Why CMS Prevents €200k–€500k Failures
---------------------------------------------------
-An unplanned main bearing failure on a 15 MW offshore turbine costs:
-  - Component (incl. crane): €150k–€300k
-  - Lost generation (2–6 weeks × 15 MW × €50/MWh): €50k–€300k
-  - Vessel/logistics (jack-up day rate ~€80k): €80k–€200k
-  Total: €280k–€800k per event
-
-A CMS detecting incipient bearing failure 30–60 days in advance enables:
-  - Planned maintenance (CTV access, pre-ordered parts): ~€80k total
-  - Net saving: €200k–€720k per avoided unplanned failure
+Component health, vibration spectra, oil analysis and degradation injection
+for the 34 × V236-15.0 MW fleet.
 
 Health Index Model (simplified ISO 13381-1)
 --------------------------------------------
-The health index (HI) tracks component condition from 100 (new) to 0
-(failed). Degradation is modelled as:
+The health index (HI) tracks condition from 100 (new) to 0 (failed) and
+falls linearly with an injected degradation rate [points/day]; the remaining
+useful life is RUL = HI / rate. A healthy component loses ~0.05 points/day
+(≈ 5 years from 100 to the AMBER boundary).
 
-  dHI/dt = -rate [points/day]
+Vibration severity
+-------------------
+Velocity RMS zones of ISO 10816-3 (group 2, rigid support), used as generic
+thresholds: A/B 2.3 mm/s, B/C 4.5 mm/s, C/D 7.1 mm/s. ISO 10816-21 defines
+component-specific zones for wind turbines (bearing, gearbox, generator,
+nacelle) and frequency bands; a production CMS would apply those.
 
-Where rate depends on the degradation mode:
-  - Bearing fatigue (normal)  : ~0.05–0.1/day (20+ years life)
-  - Early bearing wear        : ~0.3–0.5/day (6–9 months)
-  - Accelerated degradation   : ~1–3/day (weeks to failure)
-  - Spalling / advanced fault : ~5–10/day (days to failure)
+Drivetrain kinematics (V236 at rated speed)
+--------------------------------------------
+Rotor 8.33 rpm → f_r = 0.139 Hz; 3-stage planetary gearbox 48:1 → generator
+400 rpm (f_g = 6.66 Hz), matching services/turbine_physics. Tooth and rolling-
+element counts are ASSUMED (OEM data is confidential) but chosen so the
+stage ratios multiply to 48 (planetary ratio 1 + Z_ring / Z_sun, ring fixed):
 
-ISO 10816-21 Vibration Severity Zones (Wind Turbines, Class I)
----------------------------------------------------------------
-  Zone A (new)       : v_rms < 2.3 mm/s  → HI > 80
-  Zone B (acceptable): 2.3–4.5 mm/s      → HI 60–80
-  Zone C (alert)     : 4.5–7.1 mm/s      → HI 30–60
-  Zone D (danger)    : > 7.1 mm/s        → HI < 30
+  stage 1: Z_sun 21, Z_ring 63 → 4.0   GMF1 = 63 · f_r          = 8.75 Hz
+  stage 2: Z_sun 24, Z_ring 72 → 4.0   GMF2 = 72 · 4 f_r        = 40.0 Hz
+  stage 3: Z_sun 30, Z_ring 60 → 3.0   GMF3 = 60 · 16 f_r       = 133 Hz
 
-FFT Spectrum Generation
-------------------------
-Characteristic fault frequencies for a direct-drive equivalent:
-  - Shaft rotation frequency: f_shaft = RPM / 60
-  - BPFO (main bearing): f_bpfo = n_balls × f_shaft × (1 - d/D × cos α) / 2
-    Approximate: BPFO ≈ 0.4 × n_balls × f_shaft
-  - Gear mesh frequency: f_gm = n_teeth × f_shaft
-  - Twice electrical frequency: 2 × 50 Hz = 100 Hz (generator)
+Bearing defect frequencies (n rolling elements, d/D, contact angle α):
+  BPFO = n/2 · f · (1 − d/D·cos α),   BPFI = n/2 · f · (1 + d/D·cos α)
+Main bearing (spherical roller, n 22, d/D 0.10, α 10°): BPFO 1.38 Hz,
+BPFI 1.68 Hz — far below 10 Hz, so the main-bearing spectrum is taken over
+0–10 Hz at 0.025 Hz resolution (a 0–500 Hz / 2.5 Hz spectrum cannot show it).
 
-Standards: ISO 10816-21, ISO 13373, ISO 13381-1, IEC 61400-4, ISO 4406.
+Standards: ISO 10816-3, ISO 10816-21, ISO 13373, ISO 13381-1, ISO 4406.
 """
 
 from __future__ import annotations
 
+import math
 import random
 import uuid
-from datetime import UTC, datetime
+import zlib
+from datetime import UTC, datetime, timedelta
 
 from app.schemas.cms import (
     CMSAlertResponse,
@@ -68,38 +60,29 @@ from app.schemas.cms import (
     VibrationSpectrumResponse,
 )
 
-# ── Configuration constants ───────────────────────────────────────
+# ── Configuration ─────────────────────────────────────────────────
 
 N_TURBINES: int = 34
+CMS_COMPONENTS: tuple[str, ...] = ("MAIN_BEARING", "GEARBOX", "GENERATOR", "PITCH", "YAW")
+# Pitch and yaw move slowly and intermittently — monitored through hydraulic
+# pressure / motor current, not vibration spectra.
+VIBRATION_COMPONENTS: tuple[str, ...] = ("MAIN_BEARING", "GEARBOX", "GENERATOR")
 
-# ISO 10816-21 Class I wind turbine vibration thresholds [mm/s]
-VIB_ZONE_A: float = 2.3  # Zone A/B boundary
-VIB_ZONE_B: float = 4.5  # Zone B/C boundary
-VIB_ZONE_C: float = 7.1  # Zone C/D boundary
+# ISO 10816-3 group 2 (rigid) velocity zones [mm/s]
+VIB_ZONE_A: float = 2.3
+VIB_ZONE_B: float = 4.5
+VIB_ZONE_C: float = 7.1
 
-# V236-15.0 MW turbine mechanical parameters (approximate)
-MAIN_SHAFT_RPM_RATED: float = 8.5  # rated rotor speed
-GEARBOX_RATIO: float = 100.0  # approximate for high-speed shaft
-MAIN_BEARING_BALLS: int = 22  # main bearing rolling elements
-GEARBOX_TEETH_STAGE1: int = 54  # first stage gear teeth
+# Drivetrain (see module docstring)
+ROTOR_RPM_RATED: float = 8.33
+GEARBOX_RATIO: float = 48.0
+F_ROTOR: float = ROTOR_RPM_RATED / 60.0
+STAGES: tuple[tuple[int, int], ...] = ((21, 63), (24, 72), (30, 60))  # (Z_sun, Z_ring)
 
-# Alert level thresholds (HI boundaries)
-ALERT_THRESHOLDS: dict[str, float] = {
-    "CRITICAL": 20.0,
-    "RED": 40.0,
-    "AMBER": 60.0,
-    "YELLOW": 80.0,
-    "GREEN": 100.0,
-}
+ALERT_THRESHOLDS: dict[str, float] = {"CRITICAL": 20.0, "RED": 40.0, "AMBER": 60.0, "YELLOW": 80.0}
+DEGRADATION_RATES: dict[str, float] = {"MINOR": 0.5, "MODERATE": 2.0, "SEVERE": 5.0}
+NOMINAL_RATE: float = 0.05  # healthy wear [HI points/day]
 
-# Degradation rates per severity level [HI points/day]
-DEGRADATION_RATES: dict[str, float] = {
-    "MINOR": 0.5,
-    "MODERATE": 2.0,
-    "SEVERE": 5.0,
-}
-
-# Typical baseline temperatures per component [°C]
 BASELINE_TEMPS: dict[str, float] = {
     "MAIN_BEARING": 45.0,
     "GEARBOX": 65.0,
@@ -107,46 +90,39 @@ BASELINE_TEMPS: dict[str, float] = {
     "PITCH": 35.0,
     "YAW": 40.0,
 }
-
-# Baseline oil ISO codes
 BASELINE_OIL_CODE: str = "16/14/11"
+TARGET_OIL_CODE: str = "17/15/12"  # gearbox OEM limit (ISO 4406)
+OIL_VISCOSITY_CST: float = 320.0  # ISO VG 320 gear oil at 40 °C
 
-# ── In-memory fleet health state ─────────────────────────────────
-#
-# Production system uses TimescaleDB for historical data and Redis for
-# current state. Here we maintain an in-memory health model.
+# Training fleet: a few components with known, explainable degradation.
+# Everything else starts healthy (HI 86–99).
+SEEDED_DEGRADATION: dict[tuple[str, str], tuple[float, str]] = {
+    ("WTG-07", "MAIN_BEARING"): (64.0, "early outer-race spalling — BPFO and harmonics"),
+    ("WTG-21", "GEARBOX"): (52.0, "stage-3 tooth wear — GMF3 harmonics with carrier sidebands"),
+    ("WTG-29", "GENERATOR"): (73.0, "drive-end bearing wear — generator BPFO"),
+}
 
 # Injected faults: {turbine_id: {component: {rate, start_hi, start_time}}}
 _injected_faults: dict[str, dict[str, dict[str, float]]] = {}
 
 
-def _get_seed(turbine_id: str, component: str) -> int:
-    """Deterministic seed so each turbine/component has stable baseline health."""
-    return hash(f"{turbine_id}-{component}") % (2**31)
+# ── Health model ──────────────────────────────────────────────────
+
+
+def _seed(turbine_id: str, component: str) -> int:
+    """Stable across processes (Python's hash() of str is salted per run)."""
+    return zlib.crc32(f"{turbine_id}-{component}".encode())
 
 
 def _hi_to_alert_level(hi: float) -> str:
-    if hi < ALERT_THRESHOLDS["CRITICAL"]:
-        return "CRITICAL"
-    if hi < ALERT_THRESHOLDS["RED"]:
-        return "RED"
-    if hi < ALERT_THRESHOLDS["AMBER"]:
-        return "AMBER"
-    if hi < ALERT_THRESHOLDS["YELLOW"]:
-        return "YELLOW"
+    for level in ("CRITICAL", "RED", "AMBER", "YELLOW"):
+        if hi < ALERT_THRESHOLDS[level]:
+            return level
     return "GREEN"
 
 
 def _hi_to_vib(hi: float) -> float:
-    """Map health index to vibration RMS velocity [mm/s].
-
-    Inverse of the HI model: as HI drops from 100 → 0, vibration
-    rises from baseline towards Zone D.
-    """
-    # HI 80-100: Zone A (0.5-2.3 mm/s)
-    # HI 60-80:  Zone B (2.3-4.5 mm/s)
-    # HI 30-60:  Zone C (4.5-7.1 mm/s)
-    # HI 0-30:   Zone D (7.1-15 mm/s)
+    """Health index → velocity RMS [mm/s], piecewise linear across the zones."""
     if hi >= 80.0:
         return 0.5 + (100.0 - hi) / 20.0 * (VIB_ZONE_A - 0.5)
     if hi >= 60.0:
@@ -157,71 +133,52 @@ def _hi_to_vib(hi: float) -> float:
 
 
 def _hi_to_temp(component: str, hi: float) -> float:
-    """Map health index to temperature [°C].
+    """Friction losses rise as the component wears: +30 °C at end of life."""
+    return round(BASELINE_TEMPS.get(component, 50.0) + (100.0 - hi) / 100.0 * 30.0, 1)
 
-    Higher temperatures indicate increased friction/load as components degrade.
-    """
-    baseline = BASELINE_TEMPS.get(component, 50.0)
-    # +30°C at end of life
-    delta = (100.0 - hi) / 100.0 * 30.0
-    return round(baseline + delta, 1)
+
+def _baseline_hi(turbine_id: str, component: str) -> float:
+    seeded = SEEDED_DEGRADATION.get((turbine_id, component))
+    if seeded:
+        return seeded[0]
+    return 86.0 + random.Random(_seed(turbine_id, component)).uniform(0.0, 13.0)
 
 
 def _compute_current_hi(turbine_id: str, component: str) -> float:
-    """Compute current health index for a turbine/component.
-
-    Uses deterministic pseudo-random baseline (95–100 HI for healthy
-    components) modified by any injected fault degradation.
-    """
-    rng = random.Random(_get_seed(turbine_id, component))
-    base_hi = 90.0 + rng.uniform(0.0, 10.0)  # 90–100 for healthy fleet
-
     fault = _injected_faults.get(turbine_id, {}).get(component)
-    if fault is not None:
-        elapsed_days = (datetime.now(UTC).timestamp() - fault["start_time"]) / 86400.0
-        degradation = fault["rate"] * elapsed_days
-        base_hi = max(0.0, fault["start_hi"] - degradation)
+    if fault is None:
+        return round(_baseline_hi(turbine_id, component), 1)
+    elapsed_days = (datetime.now(UTC).timestamp() - fault["start_time"]) / 86400.0
+    return round(max(0.0, fault["start_hi"] - fault["rate"] * elapsed_days), 1)
 
-    return round(base_hi, 1)
+
+def _rate(turbine_id: str, component: str) -> float:
+    fault = _injected_faults.get(turbine_id, {}).get(component)
+    if fault:
+        return fault["rate"]
+    seeded = SEEDED_DEGRADATION.get((turbine_id, component))
+    return 0.15 if seeded else NOMINAL_RATE  # a known defect progresses faster
 
 
 def _estimate_rul(turbine_id: str, component: str) -> float:
-    """Estimate remaining useful life in days.
-
-    Uses current degradation rate if a fault is injected.
-    Otherwise assumes healthy fleet with nominal degradation (0.05/day).
-    """
-    hi = _compute_current_hi(turbine_id, component)
-    fault = _injected_faults.get(turbine_id, {}).get(component)
-    rate = fault["rate"] if fault else 0.05  # nominal healthy degradation
-    if rate <= 0.0:
-        return 9999.0
-    return round(hi / rate, 1)
+    """Days until HI reaches 0 at the current degradation rate."""
+    return round(_compute_current_hi(turbine_id, component) / _rate(turbine_id, component), 1)
 
 
 def _compute_component_health(turbine_id: str, component: str) -> ComponentHealthSchema:
     hi = _compute_current_hi(turbine_id, component)
-    vib = round(_hi_to_vib(hi), 2)
-    temp = _hi_to_temp(component, hi)
-    rul = _estimate_rul(turbine_id, component)
-    alert = _hi_to_alert_level(hi)
-
-    # Gearbox gets a simulated oil ISO code
-    if component == "GEARBOX" and hi < 60.0:
-        oil = "18/16/13"  # degraded
-    elif component == "GEARBOX" and hi < 80.0:
-        oil = "17/15/12"  # slightly dirty
+    if component == "GEARBOX":
+        oil = "18/16/13" if hi < 60.0 else "17/15/12" if hi < 80.0 else BASELINE_OIL_CODE
     else:
         oil = BASELINE_OIL_CODE
-
     return ComponentHealthSchema(
         component=component,
         health_index=hi,
-        alert_level=alert,
-        vib_rms_mm_s=vib,
-        temp_celsius=temp,
+        alert_level=_hi_to_alert_level(hi),
+        vib_rms_mm_s=round(_hi_to_vib(hi), 2),
+        temp_celsius=_hi_to_temp(component, hi),
         oil_iso_code=oil,
-        rul_days=rul,
+        rul_days=_estimate_rul(turbine_id, component),
         last_updated=datetime.now(UTC),
     )
 
@@ -230,193 +187,185 @@ def _compute_component_health(turbine_id: str, component: str) -> ComponentHealt
 
 
 def get_turbine_health(turbine_id: str) -> TurbineHealthResponse:
-    """Return per-component health status for one turbine."""
-    from app.models.cms import CMS_COMPONENTS
-
+    """Per-component health of one turbine; overall = worst component."""
     components = [_compute_component_health(turbine_id, c) for c in CMS_COMPONENTS]
     worst_hi = min(c.health_index for c in components)
-    worst_alert = _hi_to_alert_level(worst_hi)
-    active_alerts = sum(1 for c in components if c.alert_level not in ("GREEN", "YELLOW"))
-
     return TurbineHealthResponse(
         turbine_id=turbine_id,
         overall_health_index=round(worst_hi, 1),
-        overall_alert_level=worst_alert,
+        overall_alert_level=_hi_to_alert_level(worst_hi),
         components=components,
-        active_alerts=active_alerts,
+        active_alerts=sum(1 for c in components if c.alert_level not in ("GREEN", "YELLOW")),
         last_updated=datetime.now(UTC),
     )
 
 
 def get_fleet_health() -> FleetHealthResponse:
-    """Return compact health summary for all 34 turbines."""
-    from app.models.cms import CMS_COMPONENTS
-
+    """Health of all 34 turbines, with the per-component HI for the heatmap."""
     summaries: list[TurbineHealthSummary] = []
-    total_hi = 0.0
-
     for n in range(1, N_TURBINES + 1):
         turbine_id = f"WTG-{n:02d}"
         components = [_compute_component_health(turbine_id, c) for c in CMS_COMPONENTS]
         worst = min(components, key=lambda c: c.health_index)
-        active = sum(1 for c in components if c.alert_level not in ("GREEN", "YELLOW"))
         summaries.append(
             TurbineHealthSummary(
                 turbine_id=turbine_id,
-                overall_health_index=round(worst.health_index, 1),
+                overall_health_index=worst.health_index,
                 overall_alert_level=worst.alert_level,
                 worst_component=worst.component,
-                active_alerts=active,
+                active_alerts=sum(
+                    1 for c in components if c.alert_level not in ("GREEN", "YELLOW")
+                ),
+                component_health={c.component: c.health_index for c in components},
             )
         )
-        total_hi += worst.health_index
-
-    in_warning = sum(1 for s in summaries if s.overall_alert_level in ("RED", "CRITICAL"))
-    in_alert = sum(1 for s in summaries if s.overall_alert_level == "AMBER")
-    total_alerts = sum(s.active_alerts for s in summaries)
 
     return FleetHealthResponse(
         turbines=summaries,
-        fleet_average_hi=round(total_hi / N_TURBINES, 1),
-        turbines_in_warning=in_warning,
-        turbines_in_alert=in_alert,
-        active_alerts_total=total_alerts,
+        fleet_average_hi=round(sum(s.overall_health_index for s in summaries) / N_TURBINES, 1),
+        turbines_in_warning=sum(
+            1 for s in summaries if s.overall_alert_level in ("RED", "CRITICAL")
+        ),
+        turbines_in_alert=sum(1 for s in summaries if s.overall_alert_level == "AMBER"),
+        active_alerts_total=sum(s.active_alerts for s in summaries),
         timestamp_utc=datetime.now(UTC),
     )
 
 
+def _bearing(n: int, d_ratio: float, alpha_deg: float, f_shaft: float) -> tuple[float, float]:
+    """(BPFO, BPFI) [Hz] of a rolling bearing on a shaft turning at f_shaft."""
+    k = d_ratio * math.cos(math.radians(alpha_deg))
+    return n / 2 * f_shaft * (1 - k), n / 2 * f_shaft * (1 + k)
+
+
+def characteristic_frequencies(component: str) -> list[tuple[str, float]]:
+    """Kinematic fault frequencies [Hz] at rated speed for one component."""
+    if component == "MAIN_BEARING":
+        bpfo, bpfi = _bearing(22, 0.10, 10.0, F_ROTOR)
+        return [
+            ("1× rotor", F_ROTOR),
+            ("BPFO", bpfo),
+            ("BPFI", bpfi),
+            ("2×BPFO", 2 * bpfo),
+            ("3×BPFO", 3 * bpfo),
+        ]
+    if component == "GEARBOX":
+        out: list[tuple[str, float]] = []
+        f_carrier = F_ROTOR
+        for i, (z_sun, z_ring) in enumerate(STAGES, start=1):
+            out.append((f"GMF{i}", z_ring * f_carrier))
+            f_carrier *= 1 + z_ring / z_sun  # sun of this stage drives the next carrier
+        out.append(("1× HSS", f_carrier))
+        return out
+    if component == "GENERATOR":
+        f_gen = F_ROTOR * GEARBOX_RATIO
+        bpfo, bpfi = _bearing(12, 0.20, 0.0, f_gen)
+        return [("1× gen", f_gen), ("2× gen", 2 * f_gen), ("BPFO", bpfo), ("BPFI", bpfi)]
+    raise ValueError(f"No vibration spectrum for {component}")
+
+
 def get_vibration_spectrum(turbine_id: str, component: str) -> VibrationSpectrumResponse:
-    """Generate a simulated FFT vibration spectrum (0–500 Hz, 200 points).
+    """Simulated velocity spectrum (400 lines) whose overall RMS equals the HI vibration.
 
-    The spectrum shows:
-    - Broad-band noise floor (dependent on HI — higher when degraded)
-    - Shaft rotation harmonics (f_shaft, 2×, 3×)
-    - Bearing fault frequencies (BPFO, BPFI) as isolated peaks
-    - Gear mesh frequency and sidebands (gearbox only)
-
-    Physics — bearing fault frequencies
-    -------------------------------------
-    BPFO = n_balls × f_shaft × (1 - (d/D)×cosα) / 2
-    For V236 main bearing (approximate): BPFO ≈ 0.4 × 22 × (8.5/60) ≈ 1.24 Hz
-
-    At rated speed the fault frequency is in the low-frequency range
-    (< 5 Hz for main bearing) — requires vibration sensors with flat
-    frequency response down to 0.5 Hz (piezoelectric accelerometers).
+    Healthy: 1× running-speed peak + broadband floor (+ gear mesh for the
+    gearbox). Degraded (HI < 80): the defect frequency of the seeded/injected
+    failure mode grows with harmonics (and carrier sidebands for gear wear).
     """
+    if component not in VIBRATION_COMPONENTS:
+        raise ValueError(
+            f"{component} has no vibration CMS (slow, intermittent motion) — "
+            "it is monitored through hydraulic pressure / motor current"
+        )
     hi = _compute_current_hi(turbine_id, component)
-    rng = random.Random(_get_seed(turbine_id, component) + 1)
+    rng = random.Random(_seed(turbine_id, component) + 1)
+    marks = characteristic_frequencies(component)
+    f_max = 10.0 if component == "MAIN_BEARING" else 200.0
+    df = f_max / 400
+    freqs = [(i + 1) * df for i in range(400)]
+    severity = max(0.0, (80.0 - hi) / 80.0)  # 0 healthy … 1 failed
+    # Once a defect exists (HI < 80) its peak outgrows the 1× running-speed line
+    defect = 1.0 + 5.0 * severity if severity > 0 else 0.0
 
-    # Shaft frequency at rated operation
-    f_shaft = MAIN_SHAFT_RPM_RATED / 60.0  # ~0.142 Hz
+    peaks: list[tuple[float, float]] = [(marks[0][1], 1.0)]  # 1× running speed
+    if component == "GEARBOX":
+        peaks += [(f, 0.6) for name, f in marks if name.startswith("GMF")]
+        f_c3 = F_ROTOR * 16  # stage-3 carrier
+        gmf3 = marks[2][1]
+        for h in (1, 2, 3):
+            peaks.append((h * gmf3, defect / h))
+            peaks += [(h * gmf3 + s * f_c3, 0.5 * defect / h) for s in (-1, 1)]
+    else:
+        bpfo = dict(marks)["BPFO"]
+        peaks += [(h * bpfo, defect / h) for h in (1, 2, 3)]
 
-    # Characteristic fault frequencies
-    f_bpfo = 0.4 * MAIN_BEARING_BALLS * f_shaft  # ~1.24 Hz
-    f_bpfi = 0.6 * MAIN_BEARING_BALLS * f_shaft  # ~1.85 Hz
-    f_gm = GEARBOX_TEETH_STAGE1 * f_shaft * GEARBOX_RATIO  # ~76 Hz
-
-    # Noise floor depends on HI (higher noise = worse health)
-    noise_floor = 0.1 + (100.0 - hi) / 100.0 * 0.5
-
-    points: list[FFTPoint] = []
-    dominant_freq = 0.0
-    dominant_amp = 0.0
-
-    for i in range(200):
-        freq = i * 2.5  # 0–497.5 Hz in 2.5 Hz steps
-        amp = noise_floor + rng.uniform(0.0, noise_floor * 0.3)
-
-        # Add shaft harmonics
-        for harmonic in range(1, 5):
-            if abs(freq - harmonic * f_shaft * 1000 / 2.5) < 1.5:
-                amp += 0.5 * (100.0 - hi) / 100.0 + 0.1
-
-        # Add bearing fault frequencies (amplified when HI < 60)
-        degradation_factor = max(0.0, (60.0 - hi) / 60.0)
-        for fault_freq in (f_bpfo, f_bpfi, 2 * f_bpfo, 3 * f_bpfo):
-            if abs(freq - fault_freq) < 3.0:
-                amp += degradation_factor * (VIB_ZONE_C - VIB_ZONE_A) * 0.5
-
-        # Add gear mesh frequency
-        if component == "GEARBOX" and abs(freq - f_gm) < 5.0:
-            amp += (100.0 - hi) / 100.0 * VIB_ZONE_B
-
-        # Add generator electrical frequency (100 Hz)
-        if component == "GENERATOR" and abs(freq - 100.0) < 3.0:
-            amp += 0.3
-
-        amp = max(0.0, amp)
-        if amp > dominant_amp:
-            dominant_amp = amp
-            dominant_freq = freq
-
-        points.append(FFTPoint(frequency_hz=round(freq, 1), amplitude_mm_s=round(amp, 4)))
-
-    fault_markers = [
-        {"freq_hz": round(f_bpfo, 2), "label": "BPFO"},
-        {"freq_hz": round(f_bpfi, 2), "label": "BPFI"},
-        {"freq_hz": round(f_gm, 1), "label": "GMF"},
-        {"freq_hz": 100.0, "label": "2x50Hz"},
-    ]
+    amps = [0.04 + rng.uniform(0.0, 0.03) for _ in freqs]
+    for f_peak, a in peaks:
+        i = round(f_peak / df) - 1
+        if 0 <= i < len(amps):
+            amps[i] += a
+    # Scale so the overall RMS √Σa² matches the health-index vibration level
+    scale = _hi_to_vib(hi) / math.sqrt(sum(a * a for a in amps))
+    amps = [a * scale for a in amps]
+    i_dom = max(range(len(amps)), key=amps.__getitem__)
 
     return VibrationSpectrumResponse(
         turbine_id=turbine_id,
         component=component,
         timestamp_utc=datetime.now(UTC),
-        points=points,
-        dominant_frequency_hz=round(dominant_freq, 2),
-        dominant_amplitude_mm_s=round(dominant_amp, 4),
-        fault_frequency_markers=fault_markers,
+        points=[
+            FFTPoint(frequency_hz=round(f, 4), amplitude_mm_s=round(a, 4))
+            for f, a in zip(freqs, amps, strict=True)
+        ],
+        dominant_frequency_hz=round(freqs[i_dom], 3),
+        dominant_amplitude_mm_s=round(amps[i_dom], 4),
+        overall_rms_mm_s=round(_hi_to_vib(hi), 2),
+        resolution_hz=df,
+        fault_frequency_markers=[{"freq_hz": round(f, 3), "label": name} for name, f in marks],
     )
 
 
 def get_oil_analysis(turbine_id: str) -> OilAnalysisResponse:
-    """Return gearbox oil analysis history (12 monthly data points)."""
+    """Gearbox oil samples, monthly over the last 12 months (oldest first)."""
     hi = _compute_current_hi(turbine_id, "GEARBOX")
-    rng = random.Random(_get_seed(turbine_id, "GEARBOX") + 2)
-
-    history: list[OilAnalysisPoint] = []
+    rng = random.Random(_seed(turbine_id, "GEARBOX") + 2)
     now = datetime.now(UTC)
-
-    for month in range(12, 0, -1):
-        ts = now.replace(month=((now.month - month - 1) % 12) + 1)
-        month_hi = min(100.0, hi + month * 0.5)  # older = slightly better
-        iso = BASELINE_OIL_CODE if month_hi > 80 else ("17/15/12" if month_hi > 60 else "18/16/13")
+    history: list[OilAnalysisPoint] = []
+    for months_ago in range(11, -1, -1):
+        sample_hi = min(100.0, hi + months_ago * 30 * _rate(turbine_id, "GEARBOX"))
+        wear = max(0.0, (90.0 - sample_hi) / 90.0)  # particle counts rise with wear
+        iso = BASELINE_OIL_CODE if sample_hi > 80 else "17/15/12" if sample_hi > 60 else "18/16/13"
         history.append(
             OilAnalysisPoint(
-                timestamp_utc=ts,
+                timestamp_utc=now - timedelta(days=30 * months_ago),
                 iso_code=iso,
-                particle_count_4um=rng.randint(1000, 3000),
-                particle_count_6um=rng.randint(300, 800),
-                particle_count_14um=rng.randint(50, 150),
-                viscosity_cst=round(rng.uniform(95.0, 105.0), 1),
-                water_ppm=round(rng.uniform(20.0, 150.0), 1),
+                particle_count_4um=int(rng.uniform(320, 640) * (1 + 6 * wear)),
+                particle_count_6um=int(rng.uniform(80, 160) * (1 + 6 * wear)),
+                particle_count_14um=int(rng.uniform(10, 20) * (1 + 6 * wear)),
+                viscosity_cst=round(OIL_VISCOSITY_CST * rng.uniform(0.96, 1.03), 1),
+                water_ppm=round(rng.uniform(60.0, 180.0), 1),
             )
         )
 
-    water_alert = history[-1].water_ppm > 200.0
-    current_iso = history[-1].iso_code if history else BASELINE_OIL_CODE
-
     if hi < 60.0:
-        recommendation = "Immediate oil change + particle analysis"
+        recommendation = "Oil change and filter replacement now; send sample for ferrography"
     elif hi < 80.0:
-        recommendation = "Oil change at next scheduled service (within 3 months)"
+        recommendation = "Oil change at the next scheduled service (within 3 months)"
     else:
-        recommendation = "Normal interval — next change at 6-month service"
+        recommendation = "Normal interval — next oil change at the annual service"
 
     return OilAnalysisResponse(
         turbine_id=turbine_id,
         component="GEARBOX",
         history=history,
-        current_iso_code=current_iso,
-        water_ingress_alert=water_alert,
+        current_iso_code=history[-1].iso_code,
+        target_iso_code=TARGET_OIL_CODE,
+        water_ingress_alert=history[-1].water_ppm > 200.0,
         next_oil_change_recommendation=recommendation,
     )
 
 
 def get_active_alerts() -> list[CMSAlertResponse]:
-    """Return all active CMS alerts (non-GREEN, non-YELLOW components)."""
-    from app.models.cms import CMS_COMPONENTS
-
+    """All AMBER / RED / CRITICAL components across the fleet."""
     alerts = []
     for n in range(1, N_TURBINES + 1):
         turbine_id = f"WTG-{n:02d}"
@@ -425,31 +374,26 @@ def get_active_alerts() -> list[CMSAlertResponse]:
             level = _hi_to_alert_level(hi)
             if level in ("GREEN", "YELLOW"):
                 continue
-
             vib = _hi_to_vib(hi)
-            temp = _hi_to_temp(component, hi)
-            rul = _estimate_rul(turbine_id, component)
-
-            if level == "CRITICAL":
-                action = "IMMEDIATE SHUTDOWN — schedule emergency maintenance"
-            elif level == "RED":
-                action = "Inspect within 7 days — arrange vessel and parts"
-            else:
-                action = "Inspect within 30 days at next scheduled maintenance visit"
-
+            zone = "D" if vib > VIB_ZONE_C else "C" if vib > VIB_ZONE_B else "B"
+            seeded = SEEDED_DEGRADATION.get((turbine_id, component))
+            action = {
+                "CRITICAL": "Stop the turbine — emergency maintenance",
+                "RED": "Inspect within 7 days — arrange vessel and parts",
+            }.get(level, "Inspect within 30 days at the next scheduled visit")
             alerts.append(
                 CMSAlertResponse(
-                    id=_alert_uuid(turbine_id, component),
+                    id=uuid.uuid5(uuid.NAMESPACE_DNS, f"cms-alert-{turbine_id}-{component}"),
                     turbine_id=turbine_id,
                     component=component,
                     alert_level=level,
                     health_index=hi,
-                    rul_days=rul,
+                    rul_days=_estimate_rul(turbine_id, component),
                     vib_rms_mm_s=round(vib, 2),
-                    temp_celsius=temp,
+                    temp_celsius=_hi_to_temp(component, hi),
                     description=(
-                        f"{turbine_id} {component}: HI={hi:.0f}, "
-                        f"vib={vib:.1f} mm/s (ISO Zone {'D' if vib > VIB_ZONE_C else 'C'})"
+                        f"{turbine_id} {component}: HI {hi:.0f}, {vib:.1f} mm/s (zone {zone})"
+                        + (f" — {seeded[1]}" if seeded else "")
                     ),
                     recommended_action=action,
                     resolved=False,
@@ -459,63 +403,42 @@ def get_active_alerts() -> list[CMSAlertResponse]:
     return alerts
 
 
-def _alert_uuid(turbine_id: str, component: str) -> uuid.UUID:
-    return uuid.uuid5(uuid.NAMESPACE_DNS, f"cms-alert-{turbine_id}-{component}")
-
-
-def inject_degradation(
-    turbine_id: str,
-    body: FaultInjectionRequest,
-) -> FaultInjectionResponse:
-    """Inject a simulated degradation fault for training scenarios.
-
-    Sets the component on an accelerated degradation trajectory starting
-    from its current health index.
-    """
+def inject_degradation(turbine_id: str, body: FaultInjectionRequest) -> FaultInjectionResponse:
+    """Put a component on an accelerated degradation trajectory (training)."""
     component = body.component
-    severity = body.severity
-
-    rate = body.degradation_rate or DEGRADATION_RATES.get(severity, 2.0)
+    rate = body.degradation_rate or DEGRADATION_RATES.get(body.severity, 2.0)
     current_hi = _compute_current_hi(turbine_id, component)
-
     _injected_faults.setdefault(turbine_id, {})[component] = {
         "rate": rate,
         "start_hi": current_hi,
         "start_time": datetime.now(UTC).timestamp(),
     }
 
-    days_to_amber = max(0.0, (current_hi - 60.0) / rate) if current_hi > 60.0 else 0.0
-    days_to_red = max(0.0, (current_hi - 40.0) / rate) if current_hi > 40.0 else 0.0
-    days_to_crit = max(0.0, (current_hi - 20.0) / rate) if current_hi > 20.0 else 0.0
+    def days_to(level: float) -> float:
+        return round(max(0.0, (current_hi - level) / rate), 1)
 
     return FaultInjectionResponse(
         turbine_id=turbine_id,
         component=component,
-        severity=severity,
+        severity=body.severity,
         degradation_rate_per_day=rate,
         initial_health_index=current_hi,
         current_health_index=current_hi,
-        estimated_days_to_amber=round(days_to_amber, 1),
-        estimated_days_to_red=round(days_to_red, 1),
-        estimated_days_to_critical=round(days_to_crit, 1),
+        estimated_days_to_amber=days_to(60.0),
+        estimated_days_to_red=days_to(40.0),
+        estimated_days_to_critical=days_to(20.0),
         message=(
-            f"Fault injected on {turbine_id}/{component}. "
-            f"HI will degrade from {current_hi:.0f} at {rate:.1f} pts/day. "
-            f"Expected AMBER in {days_to_amber:.0f} days."
+            f"{turbine_id}/{component} degrading from HI {current_hi:.0f} at {rate:.1f} pts/day: "
+            f"AMBER in {days_to(60.0):.0f} d, RED in {days_to(40.0):.0f} d."
         ),
     )
 
 
 def clear_fault_injection(turbine_id: str, component: str | None = None) -> int:
-    """Remove injected faults. Returns number of faults cleared."""
-    cleared = 0
-    if turbine_id not in _injected_faults:
+    """Remove injected faults. Returns the number cleared."""
+    faults = _injected_faults.get(turbine_id)
+    if not faults:
         return 0
     if component:
-        if component in _injected_faults[turbine_id]:
-            del _injected_faults[turbine_id][component]
-            cleared = 1
-    else:
-        cleared = len(_injected_faults[turbine_id])
-        del _injected_faults[turbine_id]
-    return cleared
+        return 1 if faults.pop(component, None) is not None else 0
+    return len(_injected_faults.pop(turbine_id))

@@ -1,66 +1,57 @@
 """
-Equipment state machine for HV commissioning switching operations.
+Switchgear of export circuit 1 and its topology-based interlocking.
 
-Models the state transitions and safety interlocks for all OSS switchgear
-(circuit breakers, disconnectors, earth switches, transformers) during the
-30-step first energisation programme.
+Scope
+-----
+The first-energisation programme (``switching_programme.py``) energises export
+circuit 1 from the already-live onshore 220 kV busbar::
 
-Physics — Why State Machines Matter in HV Switching
-----------------------------------------------------
-Closing a circuit breaker onto an earthed bus creates a bolted three-phase
-short circuit. At 220 kV with 40 kA symmetrical fault current, the peak
-making current reaches:
+    ONS220 ─DS-ON-220-01─ ONS-E1 ─CB-ON-220-01─ CABLE1 (45 km) ─CB-OSS-220-01─ OSS-E1
+           ─DS-OSS-220-01─ OSS220 ┬─CB-SR-01──── SR1    shunt reactor 1, 80 Mvar
+                                  ├─CB-STC-01─── STC    STATCOM ±120 Mvar
+                                  ├─CB-TX-OSS-HV─ TX1 ─CB-TX-OSS-LV─ 66A ─CB-STR-0n─ STRn  n=1…3
+                                  └─CB-TX-OSS-02-HV─ TX2 ─CB-TX-OSS-02-LV─ 66B ─…─ STRn  n=4…6
 
-    I_peak = √2 × κ × I_sc = √2 × 1.8 × 40 kA ≈ 102 kA
+    earth switches: ES-ON-220-01 / ES-OSS-220-01 on the cable (one per end),
+    ES-OSS-220-BB on the OSS 220 kV busbar, ES-SR-01 / ES-STC-01 / ES-TX-OSS-01/-02
+    in the reactor, STATCOM and transformer bays, ES-OSS-66-01/-02 on sections A/B,
+    ES-STR-0n on each string feeder.
+    WTG-GRP-0n: the main breakers of the turbines on string n, operated as one
+    "release for generation" command.
 
-where κ = 1.8 is the peak factor for X/R = 14 (IEC 60909-0 Table 1).
-This 102 kA through-fault would destroy the CB, busbar, and CT within
-one cycle (20 ms at 50 Hz). The equipment state machine prevents this by
-enforcing interlocks: you physically cannot close CB-OSS-220-01 while
-ES-OSS-220-01 remains CLOSED.
+Circuit 2 (TX-OSS-02, section B, strings 4–6) stays earthed in this programme;
+its second export cable, the spare reactors and the 66 kV bus coupler are not
+modelled here. The onshore busbar ONS220 is the only source. The short GIS bay
+sections between disconnector and breaker (ONS-E1, OSS-E1) carry no earth
+switch in this model, so they show as isolated-but-unearthed when open.
 
-Similarly, opening a disconnector under load (even a few hundred amps at
-66 kV) creates an arc that will not self-extinguish in air — the arc
-ionises the SF6/air gap and causes a phase-to-earth fault. This is why
-ILK-003 forbids closing (or opening) a disconnector while its associated
-CB is CLOSED (carrying load current).
+Interlocking — derived from the topology
+----------------------------------------
+Each device joins two zones (an earth switch sits on one zone). A union-find
+over the closed CBs/DSs gives the connected groups; a group is *live* when it
+contains ONS220 and *earthed* when one of its earth switches is closed. From
+that, five rules cover every operation (IEC 61936-1 requires interlocking that
+prevents mal-operation; the rules themselves are the usual station-level
+scheme, not text from the standard):
 
-Standard — IEC 62271-100 & IEC 61936-1
----------------------------------------
-- IEC 62271-100: High-voltage switchgear — AC circuit breakers.
-  Defines CB rated characteristics: rated making capacity (peak),
-  rated breaking capacity (symmetrical), operating sequence (O-0.3s-CO).
-- IEC 61936-1: Power installations exceeding 1 kV AC — Part 1: Common rules.
-  §7.6 Interlocking: "Interlocking shall prevent any switching operation
-  that could lead to a dangerous condition." Our 5 interlocks implement
-  this requirement.
+    ILK-001  a CB/DS may not close if it would join a live group to an earthed
+             group — that is a bolted earth fault made by the switch itself.
+    ILK-002  an earth switch may not close on a live group.
+    ILK-003  a disconnector may only operate with its series CB open — it has
+             no current-breaking or making capability.
+    ILK-004  a device held by an isolation lock (LOTO) cannot be operated.
+    ILK-005  turbines may only be released onto a live string — they are
+             grid-following and cannot energise a dead feeder.
 
-Maths — State Machine Formalism
----------------------------------
-The equipment state machine is a deterministic finite automaton (DFA) with
-preconditions:
-
-    M = (S, Σ, δ, s₀, Pre)
-
-    S   = {OPEN, CLOSED, EARTHED, RACKED_IN, RACKED_OUT}  (state set)
-    Σ   = {OPEN, CLOSE, EARTH, UNEARTH, RACK_IN, RACK_OUT} (input alphabet)
-    δ   : S × Σ → S  (transition function, partial — not all combos valid)
-    s₀  = depends on equipment type (CB: OPEN, ES: CLOSED for first energisation)
-    Pre : S × Σ → bool  (precondition function — checks system-wide interlocks)
-
-    An action a ∈ Σ is executed iff:
-      1. δ(current_state, a) is defined  (valid transition)
-      2. Pre(system_state, equipment_id, a) = True  (interlocks pass)
-
-    If both hold: state[equipment_id] ← δ(current_state, a)
-    If either fails: state unchanged, error returned.
+Because the rule works on groups, the far-end earth of the cable is caught too:
+closing CB-ON-220-01 with ES-OSS-220-01 still closed 45 km away is blocked,
+which a bay-local CB↔ES pairing would miss.
 
 References
 ----------
-- IEC 62271-100:2021 — High-voltage switchgear and controlgear — AC CBs
-- IEC 61936-1:2021 — Power installations exceeding 1 kV AC — Common rules
-- IEC 60909-0:2016 — Short-circuit currents in three-phase AC systems
-- IEEE C37.04-2018 — Rating structure for AC high-voltage circuit breakers
+- IEC 61936-1:2021 — Power installations exceeding 1 kV AC (interlocking)
+- EN 50110-1:2013 — Operation of electrical installations (isolation, earthing)
+- IEC 62271-102:2018 — Disconnectors and earthing switches
 """
 
 from __future__ import annotations
@@ -69,48 +60,31 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from app.core.exceptions import NotFoundError, StateTransitionError
+
 # ── Enums ──────────────────────────────────────────────────────────
 
 
 class EquipmentType(StrEnum):
-    """HV equipment types in the offshore substation.
-
-    Each type has a specific set of valid states and transitions:
-      CIRCUIT_BREAKER:  OPEN ↔ CLOSED, RACKED_IN ↔ RACKED_OUT
-      DISCONNECTOR:     OPEN ↔ CLOSED
-      EARTH_SWITCH:     OPEN ↔ CLOSED (CLOSED = earthed)
-      TRANSFORMER:      OPEN ↔ CLOSED (energised/de-energised)
-    """
+    """Switching devices of circuit 1."""
 
     CIRCUIT_BREAKER = "circuit_breaker"
     DISCONNECTOR = "disconnector"
     EARTH_SWITCH = "earth_switch"
-    TRANSFORMER = "transformer"
+    WTG_GROUP = "wtg_group"  # turbine main breakers of one string
 
 
 class EquipmentState(StrEnum):
-    """Possible states for HV switchgear.
-
-    OPEN:       Contacts separated — no current path
-    CLOSED:     Contacts made — current can flow
-    EARTHED:    Connected to earth (only meaningful for earth switches)
-    RACKED_IN:  CB truck in service position (contacts can engage)
-    RACKED_OUT: CB truck in test/isolated position (contacts cannot engage)
-    """
+    """Contact position. For an earth switch CLOSED = earthed; for a WTG group
+    CLOSED = turbines released and connected."""
 
     OPEN = "open"
     CLOSED = "closed"
-    EARTHED = "earthed"
-    RACKED_IN = "racked_in"
-    RACKED_OUT = "racked_out"
 
 
 class SwitchingAction(StrEnum):
-    """Actions that can be performed on HV equipment.
-
-    Each action maps to a specific state transition in the equipment
-    state machine. Not all actions are valid for all equipment types.
-    """
+    """Switching commands. The programme uses OPEN/CLOSE; the P3 bay
+    controllers also accept EARTH/UNEARTH and the rack commands."""
 
     OPEN = "open"
     CLOSE = "close"
@@ -118,6 +92,371 @@ class SwitchingAction(StrEnum):
     UNEARTH = "unearth"
     RACK_IN = "rack_in"
     RACK_OUT = "rack_out"
+
+
+class ZoneStatus(StrEnum):
+    """Electrical condition of a zone."""
+
+    LIVE = "live"
+    EARTHED = "earthed"
+    DEAD = "dead"  # isolated, not earthed — never safe to touch
+
+
+# ── Registry ───────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class EquipmentDefinition:
+    """One switching device.
+
+    ``zones`` holds the two zones a CB/DS joins, or the single zone an earth
+    switch earths / a WTG group connects to.
+    """
+
+    equipment_id: str
+    equipment_type: EquipmentType
+    voltage_kv: float
+    location: str
+    initial_state: EquipmentState
+    zones: tuple[str, ...]
+
+
+_CB = EquipmentType.CIRCUIT_BREAKER
+_DS = EquipmentType.DISCONNECTOR
+_ES = EquipmentType.EARTH_SWITCH
+_OPEN = EquipmentState.OPEN
+_CLOSED = EquipmentState.CLOSED
+
+
+def _string_devices() -> tuple[EquipmentDefinition, ...]:
+    devices: list[EquipmentDefinition] = []
+    for n in range(1, 7):
+        section = "A" if n <= 3 else "B"
+        bus = "66A" if n <= 3 else "66B"
+        devices += [
+            EquipmentDefinition(
+                f"CB-STR-0{n}",
+                _CB,
+                66.0,
+                f"String {n} feeder CB (66 kV section {section})",
+                _OPEN,
+                (bus, f"STR{n}"),
+            ),
+            EquipmentDefinition(
+                f"ES-STR-0{n}",
+                _ES,
+                66.0,
+                f"String {n} feeder earth switch (cable side)",
+                _CLOSED,
+                (f"STR{n}",),
+            ),
+        ]
+        if n <= 3:
+            devices.append(
+                EquipmentDefinition(
+                    f"WTG-GRP-0{n}",
+                    EquipmentType.WTG_GROUP,
+                    66.0,
+                    f"Main breakers of the 6 turbines on string {n}",
+                    _OPEN,
+                    (f"STR{n}",),
+                )
+            )
+    return tuple(devices)
+
+
+OSS_EQUIPMENT: tuple[EquipmentDefinition, ...] = (
+    # Onshore export bay E1 (220 kV)
+    EquipmentDefinition(
+        "DS-ON-220-01",
+        _DS,
+        220.0,
+        "Onshore bay E1 busbar disconnector",
+        _OPEN,
+        ("ONS220", "ONS-E1"),
+    ),
+    EquipmentDefinition(
+        "CB-ON-220-01", _CB, 220.0, "Onshore bay E1 circuit breaker", _OPEN, ("ONS-E1", "CABLE1")
+    ),
+    EquipmentDefinition(
+        "ES-ON-220-01", _ES, 220.0, "Export cable 1 earth switch, onshore end", _CLOSED, ("CABLE1",)
+    ),
+    # OSS export bay E1 (220 kV)
+    EquipmentDefinition(
+        "ES-OSS-220-01", _ES, 220.0, "Export cable 1 earth switch, OSS end", _CLOSED, ("CABLE1",)
+    ),
+    EquipmentDefinition(
+        "CB-OSS-220-01", _CB, 220.0, "OSS bay E1 circuit breaker", _OPEN, ("CABLE1", "OSS-E1")
+    ),
+    EquipmentDefinition(
+        "DS-OSS-220-01", _DS, 220.0, "OSS bay E1 busbar disconnector", _OPEN, ("OSS-E1", "OSS220")
+    ),
+    EquipmentDefinition(
+        "ES-OSS-220-BB", _ES, 220.0, "OSS 220 kV busbar earth switch", _CLOSED, ("OSS220",)
+    ),
+    # Reactive compensation on the OSS 220 kV busbar
+    EquipmentDefinition(
+        "CB-SR-01",
+        _CB,
+        220.0,
+        "Shunt reactor 1 (80 Mvar) circuit breaker",
+        _OPEN,
+        ("OSS220", "SR1"),
+    ),
+    EquipmentDefinition(
+        "CB-STC-01", _CB, 220.0, "STATCOM (±120 Mvar) circuit breaker", _OPEN, ("OSS220", "STC")
+    ),
+    EquipmentDefinition(
+        "ES-SR-01", _ES, 220.0, "Shunt reactor 1 bay earth switch", _CLOSED, ("SR1",)
+    ),
+    EquipmentDefinition("ES-STC-01", _ES, 220.0, "STATCOM bay earth switch", _CLOSED, ("STC",)),
+    # OSS transformers 220/66 kV, 300 MVA each
+    EquipmentDefinition(
+        "CB-TX-OSS-HV", _CB, 220.0, "TX-OSS-01 HV circuit breaker", _OPEN, ("OSS220", "TX1")
+    ),
+    EquipmentDefinition(
+        "ES-TX-OSS-01", _ES, 220.0, "TX-OSS-01 HV bay earth switch", _CLOSED, ("TX1",)
+    ),
+    EquipmentDefinition(
+        "CB-TX-OSS-LV", _CB, 66.0, "TX-OSS-01 LV incomer, 66 kV section A", _OPEN, ("TX1", "66A")
+    ),
+    EquipmentDefinition(
+        "ES-OSS-66-01", _ES, 66.0, "66 kV busbar section A earth switch", _CLOSED, ("66A",)
+    ),
+    EquipmentDefinition(
+        "CB-TX-OSS-02-HV", _CB, 220.0, "TX-OSS-02 HV circuit breaker", _OPEN, ("OSS220", "TX2")
+    ),
+    EquipmentDefinition(
+        "ES-TX-OSS-02", _ES, 220.0, "TX-OSS-02 HV bay earth switch", _CLOSED, ("TX2",)
+    ),
+    EquipmentDefinition(
+        "CB-TX-OSS-02-LV", _CB, 66.0, "TX-OSS-02 LV incomer, 66 kV section B", _OPEN, ("TX2", "66B")
+    ),
+    EquipmentDefinition(
+        "ES-OSS-66-02", _ES, 66.0, "66 kV busbar section B earth switch", _CLOSED, ("66B",)
+    ),
+    *_string_devices(),
+)
+
+_EQUIPMENT_BY_ID: dict[str, EquipmentDefinition] = {eq.equipment_id: eq for eq in OSS_EQUIPMENT}
+
+SOURCE_ZONE = "ONS220"
+ZONES: tuple[str, ...] = tuple(dict.fromkeys(z for eq in OSS_EQUIPMENT for z in eq.zones))
+
+# Disconnector → the CB in series with it (ILK-003)
+SERIES_CB: dict[str, str] = {"DS-ON-220-01": "CB-ON-220-01", "DS-OSS-220-01": "CB-OSS-220-01"}
+
+
+# ── Results / errors ───────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class InterlockViolation:
+    """One interlock that blocks a command."""
+
+    interlock_id: str
+    description: str
+    blocking_equipment: str
+
+
+@dataclass(frozen=True)
+class SwitchingResult:
+    """Outcome of an executed switching command."""
+
+    equipment_id: str
+    action: SwitchingAction
+    previous_state: EquipmentState
+    new_state: EquipmentState
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+class InvalidTransitionError(StateTransitionError):
+    """The device is already in the commanded position."""
+
+
+class InterlockError(StateTransitionError):
+    """The command is blocked by one or more interlocks."""
+
+    def __init__(self, message: str, violations: tuple[InterlockViolation, ...]) -> None:
+        super().__init__(message)
+        self.violations = violations
+
+
+class EquipmentNotFoundError(NotFoundError):
+    """Unknown equipment ID."""
+
+
+# ── Topology ───────────────────────────────────────────────────────
+
+
+def get_equipment_definition(equipment_id: str) -> EquipmentDefinition:
+    """Registry lookup; raises EquipmentNotFoundError."""
+    try:
+        return _EQUIPMENT_BY_ID[equipment_id]
+    except KeyError:
+        raise EquipmentNotFoundError(
+            f"Equipment '{equipment_id}' is not in the circuit 1 registry."
+        ) from None
+
+
+def build_initial_state() -> dict[str, EquipmentState]:
+    """Construction condition: every earth switch closed, everything else open."""
+    return {eq.equipment_id: eq.initial_state for eq in OSS_EQUIPMENT}
+
+
+def _groups(state: dict[str, EquipmentState], extra_closed: str | None = None) -> dict[str, str]:
+    """Zone → representative of its connected group (union-find over closed CB/DS)."""
+    parent = {z: z for z in ZONES}
+
+    def find(z: str) -> str:
+        while parent[z] != z:
+            parent[z] = parent[parent[z]]
+            z = parent[z]
+        return z
+
+    for eq in OSS_EQUIPMENT:
+        if eq.equipment_type not in (_CB, _DS):
+            continue
+        if state.get(eq.equipment_id) == _CLOSED or eq.equipment_id == extra_closed:
+            a, b = (find(z) for z in eq.zones)
+            parent[a] = b
+    return {z: find(z) for z in ZONES}
+
+
+def zone_status(state: dict[str, EquipmentState]) -> dict[str, ZoneStatus]:
+    """LIVE / EARTHED / DEAD for every zone. Interlocks make live+earthed impossible."""
+    group = _groups(state)
+    live = {group[SOURCE_ZONE]}
+    earthed = {
+        group[eq.zones[0]]
+        for eq in OSS_EQUIPMENT
+        if eq.equipment_type == _ES and state.get(eq.equipment_id) == _CLOSED
+    }
+    return {
+        z: ZoneStatus.LIVE
+        if group[z] in live
+        else ZoneStatus.EARTHED
+        if group[z] in earthed
+        else ZoneStatus.DEAD
+        for z in ZONES
+    }
+
+
+# ── Interlocks ─────────────────────────────────────────────────────
+
+
+def check_interlocks(
+    equipment_id: str,
+    action: SwitchingAction,
+    state: dict[str, EquipmentState],
+    locked: frozenset[str] = frozenset(),
+) -> list[InterlockViolation]:
+    """All interlocks that block ``action`` on ``equipment_id`` (empty = allowed).
+
+    ``locked`` holds the IDs of devices currently secured by an isolation lock.
+    """
+    eq = get_equipment_definition(equipment_id)
+    closing = action == SwitchingAction.CLOSE
+    violations: list[InterlockViolation] = []
+
+    if equipment_id in locked:
+        violations.append(
+            InterlockViolation(
+                "ILK-004",
+                f"{equipment_id} is secured by an isolation lock — the lock must be removed "
+                "under the Person in Control's authority before it can be operated.",
+                equipment_id,
+            )
+        )
+
+    status = zone_status(state)
+    group = _groups(state)
+    if closing and eq.equipment_type in (_CB, _DS):
+        a, b = (status[z] for z in eq.zones)
+        if {a, b} == {ZoneStatus.LIVE, ZoneStatus.EARTHED}:
+            earthed_zone = eq.zones[0] if a == ZoneStatus.EARTHED else eq.zones[1]
+            es = [
+                e.equipment_id
+                for e in OSS_EQUIPMENT
+                if e.equipment_type == _ES
+                and state.get(e.equipment_id) == _CLOSED
+                and group[e.zones[0]] == group[earthed_zone]
+            ]
+            violations.append(
+                InterlockViolation(
+                    "ILK-001",
+                    f"Closing {equipment_id} would connect a live section to earth through "
+                    f"{', '.join(es)} — a bolted three-phase earth fault made by the switch.",
+                    es[0] if es else equipment_id,
+                )
+            )
+
+    if closing and eq.equipment_type == _ES and status[eq.zones[0]] == ZoneStatus.LIVE:
+        violations.append(
+            InterlockViolation(
+                "ILK-002",
+                f"Cannot close earth switch {equipment_id}: zone {eq.zones[0]} is live. "
+                "Isolate it first.",
+                equipment_id,
+            )
+        )
+
+    series_cb = SERIES_CB.get(equipment_id)
+    if series_cb and state.get(series_cb) == _CLOSED:
+        violations.append(
+            InterlockViolation(
+                "ILK-003",
+                f"Disconnector {equipment_id} may only operate off-load: open {series_cb} first.",
+                series_cb,
+            )
+        )
+
+    if (
+        closing
+        and eq.equipment_type == EquipmentType.WTG_GROUP
+        and status[eq.zones[0]] != ZoneStatus.LIVE
+    ):
+        violations.append(
+            InterlockViolation(
+                "ILK-005",
+                f"Turbines on {eq.zones[0]} cannot be released: the string is not energised.",
+                equipment_id,
+            )
+        )
+
+    return violations
+
+
+def execute_switching_action(
+    equipment_id: str,
+    action: SwitchingAction,
+    state: dict[str, EquipmentState],
+    locked: frozenset[str] = frozenset(),
+) -> SwitchingResult:
+    """Validate and execute OPEN/CLOSE on one device; ``state`` is updated in place.
+
+    Raises EquipmentNotFoundError, InvalidTransitionError or InterlockError.
+    """
+    get_equipment_definition(equipment_id)
+    if action not in (SwitchingAction.OPEN, SwitchingAction.CLOSE):
+        raise InvalidTransitionError(f"{action.value} is not a programme command.")
+    current = state[equipment_id]
+    target = _CLOSED if action == SwitchingAction.CLOSE else _OPEN
+    if current == target:
+        raise InvalidTransitionError(f"{equipment_id} is already {current.value}.")
+
+    violations = check_interlocks(equipment_id, action, state, locked)
+    if violations:
+        raise InterlockError(
+            f"{equipment_id} {action.value} blocked: "
+            + "; ".join(f"{v.interlock_id} {v.description}" for v in violations),
+            tuple(violations),
+        )
+    state[equipment_id] = target
+    return SwitchingResult(equipment_id, action, current, target)
+
+
+# ── Bay-controller types (used by the P3 SCADA bay controllers) ─────
 
 
 class BayMode(StrEnum):
@@ -173,105 +512,19 @@ class SwitchPosition(StrEnum):
     INTERMEDIATE = "intermediate"
 
 
-# ── Data Models ────────────────────────────────────────────────────
-
-
-@dataclass(frozen=True)
-class EquipmentDefinition:
-    """Immutable definition of a single piece of HV equipment.
-
-    Attributes
-    ----------
-    equipment_id : str
-        Unique identifier (e.g. 'CB-OSS-220-01').
-    equipment_type : EquipmentType
-        Category of equipment.
-    voltage_kv : float
-        Rated voltage in kV.
-    location : str
-        Physical location description.
-    initial_state : EquipmentState
-        State at programme creation (before any switching).
-    """
-
-    equipment_id: str
-    equipment_type: EquipmentType
-    voltage_kv: float
-    location: str
-    initial_state: EquipmentState
-
-
-@dataclass(frozen=True)
-class InterlockViolation:
-    """Details of a safety interlock violation.
-
-    Attributes
-    ----------
-    interlock_id : str
-        Interlock code (e.g. 'ILK-001').
-    description : str
-        Human-readable explanation of the safety rule.
-    blocking_equipment : str
-        Equipment ID that caused the interlock to trigger.
-    blocking_state : EquipmentState
-        Current state of the blocking equipment.
-    """
-
-    interlock_id: str
-    description: str
-    blocking_equipment: str
-    blocking_state: EquipmentState
-
-
-@dataclass(frozen=True)
-class SwitchingResult:
-    """Immutable result of a switching action attempt.
-
-    Attributes
-    ----------
-    success : bool
-        True if the action was executed.
-    equipment_id : str
-        Equipment that was targeted.
-    action : SwitchingAction
-        Action that was attempted.
-    previous_state : EquipmentState
-        State before the action.
-    new_state : EquipmentState
-        State after the action (same as previous if failed).
-    message : str
-        Human-readable result description.
-    interlock_violations : tuple[InterlockViolation, ...]
-        Any interlock violations that prevented the action.
-    timestamp : datetime
-        UTC time of the action attempt.
-    """
-
-    success: bool
-    equipment_id: str
-    action: SwitchingAction
-    previous_state: EquipmentState
-    new_state: EquipmentState
-    message: str
-    interlock_violations: tuple[InterlockViolation, ...] = ()
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-
 @dataclass(frozen=True)
 class SynchroCheckResult:
-    """Live voltage/frequency/phase measurements for synchrocheck (ILK-007).
+    """Live voltage/frequency/phase difference across a tie CB (synchrocheck, ANSI 25).
 
-    IEC 60909-3 defines synchronising conditions for parallel operation.
-    Before closing a tie CB to parallel two busbars:
+    Before a coupler parallels two live busbars the differences must be small,
+    otherwise the closing current can reach fault level:
 
-      ΔV   = |V_source − V_bus| / V_nom × 100%  →  must be < 5 %
-      Δf   = |f_source − f_bus|                  →  must be < 0.1 Hz
-      Δφ   = |φ_source − φ_bus|                  →  must be < 10°
+      ΔV = |V_a − V_b| / V_nom × 100 %  < 5 %
+      Δf = |f_a − f_b|                   < 0.1 Hz
+      Δφ = |φ_a − φ_b|                   < 10°
 
-    Closing out-of-phase creates a synchronising torque that can destroy
-    the generator and damage the transformer windings.
-
-    Reference: IEC 60909-3, IEC 61936-1 §7.6 synchronising conditions.
+    The limits are typical synchrocheck relay settings (project values), not
+    figures from a standard.
     """
 
     delta_voltage_percent: float
@@ -376,650 +629,3 @@ class BayController:
     manual_isolation_active: bool = False
     synchrocheck: SynchroCheckResult | None = None
     is_tie_cb: bool = False
-
-
-# ── Transition Maps ──────────────────────────────────────────────
-#
-# Each equipment type has a set of valid (state, action) → new_state
-# transitions. Any combination not in the map is an invalid transition.
-
-CB_TRANSITIONS: dict[tuple[EquipmentState, SwitchingAction], EquipmentState] = {
-    (EquipmentState.OPEN, SwitchingAction.CLOSE): EquipmentState.CLOSED,
-    (EquipmentState.CLOSED, SwitchingAction.OPEN): EquipmentState.OPEN,
-    (EquipmentState.OPEN, SwitchingAction.RACK_OUT): EquipmentState.RACKED_OUT,
-    (EquipmentState.RACKED_OUT, SwitchingAction.RACK_IN): EquipmentState.OPEN,
-}
-
-DS_TRANSITIONS: dict[tuple[EquipmentState, SwitchingAction], EquipmentState] = {
-    (EquipmentState.OPEN, SwitchingAction.CLOSE): EquipmentState.CLOSED,
-    (EquipmentState.CLOSED, SwitchingAction.OPEN): EquipmentState.OPEN,
-}
-
-ES_TRANSITIONS: dict[tuple[EquipmentState, SwitchingAction], EquipmentState] = {
-    (EquipmentState.CLOSED, SwitchingAction.OPEN): EquipmentState.OPEN,
-    (EquipmentState.OPEN, SwitchingAction.CLOSE): EquipmentState.CLOSED,
-}
-
-TX_TRANSITIONS: dict[tuple[EquipmentState, SwitchingAction], EquipmentState] = {
-    (EquipmentState.OPEN, SwitchingAction.CLOSE): EquipmentState.CLOSED,
-    (EquipmentState.CLOSED, SwitchingAction.OPEN): EquipmentState.OPEN,
-}
-
-TRANSITION_MAPS: dict[
-    EquipmentType,
-    dict[tuple[EquipmentState, SwitchingAction], EquipmentState],
-] = {
-    EquipmentType.CIRCUIT_BREAKER: CB_TRANSITIONS,
-    EquipmentType.DISCONNECTOR: DS_TRANSITIONS,
-    EquipmentType.EARTH_SWITCH: ES_TRANSITIONS,
-    EquipmentType.TRANSFORMER: TX_TRANSITIONS,
-}
-
-
-# ── Equipment Registry ──────────────────────────────────────────
-#
-# All OSS equipment involved in the 30-step first energisation programme.
-# Initial states reflect the de-energised, earthed, locked-out condition
-# at programme start (pre-energisation).
-
-OSS_EQUIPMENT: tuple[EquipmentDefinition, ...] = (
-    # ── Earth Switches (all CLOSED = earthed at start) ──
-    EquipmentDefinition(
-        equipment_id="ES-ON-220-01",
-        equipment_type=EquipmentType.EARTH_SWITCH,
-        voltage_kv=220.0,
-        location="Onshore substation 220 kV bay",
-        initial_state=EquipmentState.CLOSED,
-    ),
-    EquipmentDefinition(
-        equipment_id="ES-OSS-220-01",
-        equipment_type=EquipmentType.EARTH_SWITCH,
-        voltage_kv=220.0,
-        location="OSS 220 kV busbar",
-        initial_state=EquipmentState.CLOSED,
-    ),
-    EquipmentDefinition(
-        equipment_id="ES-OSS-66-01",
-        equipment_type=EquipmentType.EARTH_SWITCH,
-        voltage_kv=66.0,
-        location="OSS 66 kV busbar section A",
-        initial_state=EquipmentState.CLOSED,
-    ),
-    EquipmentDefinition(
-        equipment_id="ES-OSS-66-02",
-        equipment_type=EquipmentType.EARTH_SWITCH,
-        voltage_kv=66.0,
-        location="OSS 66 kV busbar section B",
-        initial_state=EquipmentState.CLOSED,
-    ),
-    EquipmentDefinition(
-        equipment_id="ES-STR-01",
-        equipment_type=EquipmentType.EARTH_SWITCH,
-        voltage_kv=66.0,
-        location="String 1 feeder bay",
-        initial_state=EquipmentState.CLOSED,
-    ),
-    EquipmentDefinition(
-        equipment_id="ES-STR-02",
-        equipment_type=EquipmentType.EARTH_SWITCH,
-        voltage_kv=66.0,
-        location="String 2 feeder bay",
-        initial_state=EquipmentState.CLOSED,
-    ),
-    EquipmentDefinition(
-        equipment_id="ES-STR-03",
-        equipment_type=EquipmentType.EARTH_SWITCH,
-        voltage_kv=66.0,
-        location="String 3 feeder bay",
-        initial_state=EquipmentState.CLOSED,
-    ),
-    EquipmentDefinition(
-        equipment_id="ES-STR-04",
-        equipment_type=EquipmentType.EARTH_SWITCH,
-        voltage_kv=66.0,
-        location="String 4 feeder bay",
-        initial_state=EquipmentState.CLOSED,
-    ),
-    EquipmentDefinition(
-        equipment_id="ES-STR-05",
-        equipment_type=EquipmentType.EARTH_SWITCH,
-        voltage_kv=66.0,
-        location="String 5 feeder bay",
-        initial_state=EquipmentState.CLOSED,
-    ),
-    EquipmentDefinition(
-        equipment_id="ES-STR-06",
-        equipment_type=EquipmentType.EARTH_SWITCH,
-        voltage_kv=66.0,
-        location="String 6 feeder bay",
-        initial_state=EquipmentState.CLOSED,
-    ),
-    # ── Disconnectors (all OPEN at start) ──
-    EquipmentDefinition(
-        equipment_id="DS-ON-220-01",
-        equipment_type=EquipmentType.DISCONNECTOR,
-        voltage_kv=220.0,
-        location="Onshore substation 220 kV bay",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="DS-OSS-220-01",
-        equipment_type=EquipmentType.DISCONNECTOR,
-        voltage_kv=220.0,
-        location="OSS 220 kV bay",
-        initial_state=EquipmentState.OPEN,
-    ),
-    # ── Circuit Breakers (all OPEN at start) ──
-    EquipmentDefinition(
-        equipment_id="CB-ON-220-01",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=220.0,
-        location="Onshore substation 220 kV bay",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-OSS-220-01",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=220.0,
-        location="OSS 220 kV busbar CB",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-TX-OSS-HV",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=220.0,
-        location="OSS transformer HV side",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-TX-OSS-LV",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=66.0,
-        location="OSS transformer LV side",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-TX-OSS-02-HV",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=220.0,
-        location="OSS transformer 2 HV side",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-TX-OSS-02-LV",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=66.0,
-        location="OSS transformer 2 LV side (66 kV section B)",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-STR-01",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=66.0,
-        location="String 1 feeder CB (66 kV section A)",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-STR-02",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=66.0,
-        location="String 2 feeder CB (66 kV section A)",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-STR-03",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=66.0,
-        location="String 3 feeder CB (66 kV section A)",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-STR-04",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=66.0,
-        location="String 4 feeder CB (66 kV section B)",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-STR-05",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=66.0,
-        location="String 5 feeder CB (66 kV section B)",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="CB-STR-06",
-        equipment_type=EquipmentType.CIRCUIT_BREAKER,
-        voltage_kv=66.0,
-        location="String 6 feeder CB (66 kV section B)",
-        initial_state=EquipmentState.OPEN,
-    ),
-    # ── Transformer (OPEN = de-energised at start) ──
-    EquipmentDefinition(
-        equipment_id="TX-OSS-01",
-        equipment_type=EquipmentType.TRANSFORMER,
-        voltage_kv=220.0,
-        location="OSS power transformer 1, 220/66 kV 300 MVA (66 kV section A)",
-        initial_state=EquipmentState.OPEN,
-    ),
-    EquipmentDefinition(
-        equipment_id="TX-OSS-02",
-        equipment_type=EquipmentType.TRANSFORMER,
-        voltage_kv=220.0,
-        location="OSS power transformer 2, 220/66 kV 300 MVA (66 kV section B)",
-        initial_state=EquipmentState.OPEN,
-    ),
-)
-
-# Lookup for quick access by equipment_id
-_EQUIPMENT_BY_ID: dict[str, EquipmentDefinition] = {eq.equipment_id: eq for eq in OSS_EQUIPMENT}
-
-
-# ── Interlock Definitions ────────────────────────────────────────
-#
-# IEC 61936-1 §7.6: "Interlocking shall prevent any switching operation
-# that could lead to a dangerous condition."
-#
-# Each interlock maps (target_equipment_id, action) → list of equipment
-# that must NOT be in a specific state.
-
-# CB-to-ES pairings for interlocks. Each CB has associated earth switches
-# that must be checked before closing.
-_CB_ES_PAIRS: dict[str, list[str]] = {
-    "CB-ON-220-01": ["ES-ON-220-01"],
-    "CB-OSS-220-01": ["ES-OSS-220-01"],
-    "CB-TX-OSS-HV": ["ES-OSS-220-01"],
-    "CB-TX-OSS-LV": ["ES-OSS-66-01"],
-    "CB-TX-OSS-02-HV": ["ES-OSS-220-01"],
-    "CB-TX-OSS-02-LV": ["ES-OSS-66-02"],
-    "CB-STR-01": ["ES-STR-01"],
-    "CB-STR-02": ["ES-STR-02"],
-    "CB-STR-03": ["ES-STR-03"],
-    "CB-STR-04": ["ES-STR-04"],
-    "CB-STR-05": ["ES-STR-05"],
-    "CB-STR-06": ["ES-STR-06"],
-}
-
-# ES-to-CB pairings (reverse of above)
-_ES_CB_PAIRS: dict[str, list[str]] = {}
-for _cb_id, _es_ids in _CB_ES_PAIRS.items():
-    for _es_id in _es_ids:
-        _ES_CB_PAIRS.setdefault(_es_id, []).append(_cb_id)
-
-# CB-to-DS pairings: which disconnectors must be CLOSED before CB can close
-_CB_DS_PAIRS: dict[str, list[str]] = {
-    "CB-ON-220-01": ["DS-ON-220-01"],
-    "CB-OSS-220-01": ["DS-OSS-220-01"],
-}
-
-# DS-to-CB pairings: which CBs must be OPEN before DS can operate
-_DS_CB_PAIRS: dict[str, list[str]] = {}
-for _cb_id, _ds_ids in _CB_DS_PAIRS.items():
-    for _ds_id in _ds_ids:
-        _DS_CB_PAIRS.setdefault(_ds_id, []).append(_cb_id)
-
-
-# ── Exceptions ───────────────────────────────────────────────────
-
-from app.core.exceptions import NotFoundError, StateTransitionError  # noqa: E402
-
-
-class InvalidTransitionError(StateTransitionError):
-    """Raised when a switching action is not a valid state transition."""
-
-
-class InterlockError(StateTransitionError):
-    """Raised when a switching action violates safety interlocks."""
-
-    def __init__(self, message: str, violations: tuple[InterlockViolation, ...]) -> None:
-        super().__init__(message)
-        self.violations = violations
-
-
-class EquipmentNotFoundError(NotFoundError):
-    """Raised when an equipment ID is not in the registry."""
-
-
-# ── Public Functions ─────────────────────────────────────────────
-
-
-def get_equipment_definition(equipment_id: str) -> EquipmentDefinition:
-    """Look up equipment definition by ID.
-
-    Parameters
-    ----------
-    equipment_id : str
-        Equipment identifier (e.g. 'CB-OSS-220-01').
-
-    Returns
-    -------
-    EquipmentDefinition
-        The equipment definition.
-
-    Raises
-    ------
-    EquipmentNotFoundError
-        If the equipment ID is not in the registry.
-    """
-    if equipment_id not in _EQUIPMENT_BY_ID:
-        raise EquipmentNotFoundError(f"Equipment '{equipment_id}' not found in OSS registry.")
-    return _EQUIPMENT_BY_ID[equipment_id]
-
-
-def build_initial_state() -> dict[str, EquipmentState]:
-    """Build the initial equipment state map for a new programme.
-
-    All earth switches CLOSED (system earthed), all CBs OPEN,
-    all disconnectors OPEN, transformer de-energised.
-
-    Returns
-    -------
-    dict[str, EquipmentState]
-        Equipment ID → initial state.
-    """
-    return {eq.equipment_id: eq.initial_state for eq in OSS_EQUIPMENT}
-
-
-def check_interlocks(
-    equipment_id: str,
-    action: SwitchingAction,
-    system_state: dict[str, EquipmentState],
-    *,
-    is_auto_reclose: bool = False,
-    manual_isolation_active: bool = False,
-    is_tie_cb: bool = False,
-    synchrocheck: SynchroCheckResult | None = None,
-) -> list[InterlockViolation]:
-    """Check all safety interlocks before executing a switching action.
-
-    Implements 7 IEC 61936-1 / IEC 61850 interlocks:
-      ILK-001: Cannot close CB if associated earth switch CLOSED
-      ILK-002: Cannot close earth switch if associated CB CLOSED
-      ILK-003: Cannot close/open disconnector if associated CB CLOSED
-      ILK-004: Cannot close CB if associated disconnector OPEN
-      ILK-005: Cannot rack out CB if CLOSED
-      ILK-006: Auto-reclose BLOCKED if manual isolation (PTW/tag-out) in effect
-      ILK-007: Synchrocheck required before closing tie/coupler CB
-
-    Parameters
-    ----------
-    equipment_id : str
-        Equipment to act on.
-    action : SwitchingAction
-        Proposed switching action.
-    system_state : dict[str, EquipmentState]
-        Current state of all equipment.
-    is_auto_reclose : bool
-        True if command originates from auto-reclose logic (checked by ILK-006).
-    manual_isolation_active : bool
-        True if a PTW or manual isolation tag-out is active (checked by ILK-006).
-    is_tie_cb : bool
-        True if the CB is a bus coupler or tie-line CB (checked by ILK-007).
-    synchrocheck : SynchroCheckResult | None
-        Live ΔV/Δf/Δφ measurements for synchrocheck validation (ILK-007).
-
-    Returns
-    -------
-    list[InterlockViolation]
-        Empty if all interlocks pass; otherwise the violations.
-    """
-    violations: list[InterlockViolation] = []
-    equipment_def = _EQUIPMENT_BY_ID.get(equipment_id)
-    if equipment_def is None:
-        return violations
-
-    eq_type = equipment_def.equipment_type
-
-    # ILK-001: Cannot close CB if earth switch CLOSED
-    if eq_type == EquipmentType.CIRCUIT_BREAKER and action == SwitchingAction.CLOSE:
-        for es_id in _CB_ES_PAIRS.get(equipment_id, []):
-            if system_state.get(es_id) == EquipmentState.CLOSED:
-                violations.append(
-                    InterlockViolation(
-                        interlock_id="ILK-001",
-                        description=(
-                            f"Cannot close {equipment_id}: earth switch "
-                            f"{es_id} is CLOSED. Opening CB onto earthed bus "
-                            f"would cause a bolted three-phase fault."
-                        ),
-                        blocking_equipment=es_id,
-                        blocking_state=EquipmentState.CLOSED,
-                    )
-                )
-
-    # ILK-002: Cannot close earth switch if CB CLOSED
-    if eq_type == EquipmentType.EARTH_SWITCH and action == SwitchingAction.CLOSE:
-        for cb_id in _ES_CB_PAIRS.get(equipment_id, []):
-            if system_state.get(cb_id) == EquipmentState.CLOSED:
-                violations.append(
-                    InterlockViolation(
-                        interlock_id="ILK-002",
-                        description=(
-                            f"Cannot close earth switch {equipment_id}: "
-                            f"circuit breaker {cb_id} is CLOSED. Earthing a "
-                            f"live bus would cause a phase-to-earth fault."
-                        ),
-                        blocking_equipment=cb_id,
-                        blocking_state=EquipmentState.CLOSED,
-                    )
-                )
-
-    # ILK-003: Cannot close or open disconnector if CB CLOSED (no-load switching)
-    if eq_type == EquipmentType.DISCONNECTOR and action in (
-        SwitchingAction.CLOSE,
-        SwitchingAction.OPEN,
-    ):
-        for cb_id in _DS_CB_PAIRS.get(equipment_id, []):
-            if system_state.get(cb_id) == EquipmentState.CLOSED:
-                violations.append(
-                    InterlockViolation(
-                        interlock_id="ILK-003",
-                        description=(
-                            f"Cannot {'close' if action == SwitchingAction.CLOSE else 'open'} "
-                            f"disconnector {equipment_id}: circuit breaker "
-                            f"{cb_id} is CLOSED. Disconnectors must only "
-                            f"operate under no-load conditions."
-                        ),
-                        blocking_equipment=cb_id,
-                        blocking_state=EquipmentState.CLOSED,
-                    )
-                )
-
-    # ILK-004: Cannot close CB if associated disconnector OPEN
-    if eq_type == EquipmentType.CIRCUIT_BREAKER and action == SwitchingAction.CLOSE:
-        for ds_id in _CB_DS_PAIRS.get(equipment_id, []):
-            if system_state.get(ds_id) == EquipmentState.OPEN:
-                violations.append(
-                    InterlockViolation(
-                        interlock_id="ILK-004",
-                        description=(
-                            f"Cannot close {equipment_id}: disconnector "
-                            f"{ds_id} is OPEN. CB must have a closed path "
-                            f"through the disconnector before closing."
-                        ),
-                        blocking_equipment=ds_id,
-                        blocking_state=EquipmentState.OPEN,
-                    )
-                )
-
-    # ILK-005: Cannot rack out CB if CLOSED
-    if (
-        eq_type == EquipmentType.CIRCUIT_BREAKER
-        and action == SwitchingAction.RACK_OUT
-        and system_state.get(equipment_id) == EquipmentState.CLOSED
-    ):
-        violations.append(
-            InterlockViolation(
-                interlock_id="ILK-005",
-                description=(
-                    f"Cannot rack out {equipment_id}: CB is CLOSED. "
-                    f"Open the CB before racking out to avoid arc flash."
-                ),
-                blocking_equipment=equipment_id,
-                blocking_state=EquipmentState.CLOSED,
-            )
-        )
-
-    # ILK-006: Auto-reclose BLOCKED if manual isolation (PTW/tag-out) in effect
-    #
-    # An auto-reclose sequence fires automatically after a protection trip to
-    # restore supply. If a PTW or manual isolation tag-out is active, the section
-    # is isolated for human work — auto-reclose must not re-energise it.
-    # IEC 61850-7-4 RREC logical node: auto-reclose is inhibited when
-    # CSWI.Loc = TRUE (local/isolation mode).
-    if (
-        eq_type == EquipmentType.CIRCUIT_BREAKER
-        and action == SwitchingAction.CLOSE
-        and is_auto_reclose
-        and manual_isolation_active
-    ):
-        violations.append(
-            InterlockViolation(
-                interlock_id="ILK-006",
-                description=(
-                    f"Cannot auto-reclose {equipment_id}: manual isolation "
-                    f"is in effect (PTW or tag-out active on this bay). "
-                    f"Auto-reclose is blocked to prevent re-energising a "
-                    f"section where personnel may be working."
-                ),
-                blocking_equipment=equipment_id,
-                blocking_state=system_state.get(equipment_id, EquipmentState.OPEN),
-            )
-        )
-
-    # ILK-007: Synchrocheck required before closing tie/coupler CB
-    #
-    # A tie CB or bus coupler parallels two live busbars. If the busbars are
-    # not synchronised (same voltage, frequency, phase), closing the CB creates
-    # a synchronising current proportional to the phase difference. A 10° angle
-    # difference at 66 kV produces a surge current of ~40% of rated short-circuit
-    # current. At 90° it is equivalent to a phase-to-phase fault.
-    # IEC 60909-3: synchronising conditions ΔV < 5%, Δf < 0.1 Hz, Δφ < 10°.
-    if eq_type == EquipmentType.CIRCUIT_BREAKER and action == SwitchingAction.CLOSE and is_tie_cb:
-        if synchrocheck is None:
-            violations.append(
-                InterlockViolation(
-                    interlock_id="ILK-007",
-                    description=(
-                        f"Cannot close tie CB {equipment_id}: synchrocheck "
-                        f"measurements not available. Provide ΔV, Δf, Δφ "
-                        f"readings before attempting to parallel busbars."
-                    ),
-                    blocking_equipment=equipment_id,
-                    blocking_state=system_state.get(equipment_id, EquipmentState.OPEN),
-                )
-            )
-        elif not synchrocheck.is_in_sync:
-            violations.append(
-                InterlockViolation(
-                    interlock_id="ILK-007",
-                    description=(
-                        f"Cannot close tie CB {equipment_id}: out-of-sync condition. "
-                        f"ΔV={synchrocheck.delta_voltage_percent:.1f}% (limit 5%), "
-                        f"Δf={synchrocheck.delta_frequency_hz:.3f} Hz (limit 0.1 Hz), "
-                        f"Δφ={synchrocheck.delta_phase_deg:.1f}° (limit 10°). "
-                        f"Closing out-of-phase risks equipment damage."
-                    ),
-                    blocking_equipment=equipment_id,
-                    blocking_state=system_state.get(equipment_id, EquipmentState.OPEN),
-                )
-            )
-
-    return violations
-
-
-def execute_switching_action(
-    equipment_id: str,
-    action: SwitchingAction,
-    system_state: dict[str, EquipmentState],
-    *,
-    is_auto_reclose: bool = False,
-    manual_isolation_active: bool = False,
-    is_tie_cb: bool = False,
-    synchrocheck: SynchroCheckResult | None = None,
-) -> SwitchingResult:
-    """Execute a switching action with full validation and interlock checking.
-
-    Validation chain:
-    1. Equipment exists in registry
-    2. Action is a valid transition for this equipment type and current state
-    3. All 7 safety interlocks pass (ILK-001 through ILK-007)
-    4. State is updated
-
-    Parameters
-    ----------
-    equipment_id : str
-        Equipment to act on.
-    action : SwitchingAction
-        Switching action to perform.
-    system_state : dict[str, EquipmentState]
-        Mutable state map — updated in place on success.
-    is_auto_reclose : bool
-        True if command is from auto-reclose logic (ILK-006 context).
-    manual_isolation_active : bool
-        True if PTW or tag-out is active on the bay (ILK-006 context).
-    is_tie_cb : bool
-        True if CB is a tie/coupler CB requiring synchrocheck (ILK-007).
-    synchrocheck : SynchroCheckResult | None
-        Live synchrocheck measurements for ILK-007 validation.
-
-    Returns
-    -------
-    SwitchingResult
-        Result of the action attempt.
-
-    Raises
-    ------
-    EquipmentNotFoundError
-        If the equipment ID is not in the registry.
-    InvalidTransitionError
-        If the action is not valid for the current state.
-    InterlockError
-        If safety interlocks prevent the action.
-    """
-    # 1. Equipment exists
-    if equipment_id not in _EQUIPMENT_BY_ID:
-        raise EquipmentNotFoundError(f"Equipment '{equipment_id}' not found in OSS registry.")
-
-    equipment_def = _EQUIPMENT_BY_ID[equipment_id]
-    current_state = system_state[equipment_id]
-
-    # 2. Valid transition
-    transition_map = TRANSITION_MAPS[equipment_def.equipment_type]
-    transition_key = (current_state, action)
-
-    if transition_key not in transition_map:
-        raise InvalidTransitionError(
-            f"Invalid transition: {equipment_id} cannot {action.value} "
-            f"from state {current_state.value}."
-        )
-
-    # 3. Interlock check (all 7 rules)
-    violations = check_interlocks(
-        equipment_id,
-        action,
-        system_state,
-        is_auto_reclose=is_auto_reclose,
-        manual_isolation_active=manual_isolation_active,
-        is_tie_cb=is_tie_cb,
-        synchrocheck=synchrocheck,
-    )
-    if violations:
-        msg = f"Interlock violation(s) for {equipment_id} {action.value}: "
-        msg += "; ".join(v.description for v in violations)
-        raise InterlockError(msg, tuple(violations))
-
-    # 4. Execute
-    new_state = transition_map[transition_key]
-    system_state[equipment_id] = new_state
-
-    return SwitchingResult(
-        success=True,
-        equipment_id=equipment_id,
-        action=action,
-        previous_state=current_state,
-        new_state=new_state,
-        message=(
-            f"{equipment_id}: {action.value} executed. {current_state.value} → {new_state.value}"
-        ),
-    )

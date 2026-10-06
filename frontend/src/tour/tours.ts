@@ -389,8 +389,9 @@ const commissioning: Tour = {
       target: "page-header",
       title: "First energisation",
       body:
-        "Before the farm exports power, every HV circuit is energised in a controlled order. A 30-step " +
-        "programme takes the offshore substation from isolated to live, followed by site acceptance tests.",
+        "Before the farm exports power, every HV circuit is energised in a controlled order. After the " +
+        "factory and site acceptance tests and PSE's energisation notification (EON), a 60-step programme " +
+        "takes export circuit 1 from earthed and locked to live, verifying each step on a load flow.",
     },
     {
       id: "programme",
@@ -401,8 +402,8 @@ const commissioning: Tour = {
         "A switching programme belongs to a named Person in Control (PiC), who authorises each step. " +
         "Enter a name to create one and walk through the steps.",
       caution:
-        "Isolation comes before work: lock out and tag the isolation points and prove the circuit dead " +
-        "before anyone touches it.",
+        "The plant starts isolated and earthed with every isolation point locked. Only the PiC releases a " +
+        "lock, and interlocks refuse any operation that would energise an earthed section.",
     },
   ],
 };

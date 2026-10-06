@@ -1011,216 +1011,145 @@ Simulate the complete HV commissioning sequence for the offshore substation firs
 
 ### 6.3 FAT (Factory Acceptance Test) Specification
 
-**Tests performed at manufacturer facility before shipping to site:**
+FAT campaigns are opened per equipment item from the routine-test template of its class
+(`services/p5/fat.py`). Transformer limits are the IEC 60076-1:2011 Table 1 tolerances applied to
+the design values of the P2 network model (300 MVA, vk 12.5 %, vkr 0.25 % → load loss 750 kW,
+P0 60 kW, i0 0.05 %).
 
-| Test | Method | Pass Criteria | Standard |
-|------|--------|--------------|----------|
-| HV withstand (power frequency) | Applied voltage test | No breakdown | IEC 60060-1 |
-| Partial discharge (PD) | PD measurement during HV test | < 10 pC | IEC 60270 |
-| Transformer ratio/polarity | Turns ratio test | Ratio within ±0.5% | IEC 60076-1 |
-| Transformer impedance | Short-circuit impedance test | Within ±10% of nameplate | IEC 60076-1 |
-| Frequency response analysis (FRA) | Sweep frequency test | Baseline fingerprint | IEC 60076-18 |
-| DGA baseline | Dissolved gas analysis of oil | All gases within normal | IEC 60567 |
-| Protection relay type test | All function tests | Per setting schedule | IEC 60255 |
-| GIS gas tightness | SF6 leak rate test | < 0.5% per year | IEC 62271-203 |
+| Class | Test | Pass criterion | Standard |
+|-------|------|----------------|----------|
+| Transformer | Voltage ratio, principal tap | ±0.5 % (lower of ±0.5 % and ±vk/10) | IEC 60076-1 |
+| Transformer | Short-circuit impedance | 12.5 % ±7.5 % (vk ≥ 10 %) | IEC 60076-1 |
+| Transformer | Load loss / no-load loss | each ≤ declared +15 % (total +10 %) | IEC 60076-1 |
+| Transformer | No-load current | ≤ design +30 % | IEC 60076-1 |
+| Transformer | Induced voltage test with PD | ≤ 250 pC at 1.58 Ur/√3 (1 h) | IEC 60076-3:2013 |
+| Transformer | Lightning impulse, FRA fingerprint, DGA before/after | pass / recorded | IEC 60076-3, -18, -1 |
+| 220 kV GIS | Power-frequency withstand | 460 kV, 1 min (Ur 245 kV) | IEC 62271-203 / -1 |
+| 220 kV GIS | Main-circuit resistance | ≤ 1.2 Ru | IEC 62271-1 |
+| 220 kV GIS | Gas tightness | ≤ 0.5 %/year per compartment | IEC 62271-203 |
+| 220 kV GIS | Partial discharge, CB opening time | project limits (5 pC; 20–30 ms) | purchase spec |
+| Protection panel | Pickup / IDMT time accuracy | declared ±5 % | IEC 60255-151 |
+| Protection panel | GOOSE trip transfer time | ≤ 3 ms (TT6) | IEC 61850-5 |
 
-### 6.4 SAT (Site Acceptance Test) Checklist
+### 6.4 SAT (Site Acceptance Test) — Circuit 1
 
-| Test | Method | Pass Criteria | Standard |
-|------|--------|--------------|----------|
-| Insulation resistance | Megger 5 kV | > 100 MΩ | IEC 60229 |
-| Primary injection (CT) | Current injection | Ratio within ±1% | IEC 61869-2 |
-| Primary injection (VT) | Voltage injection | Ratio within ±0.5% | IEC 61869-3 |
-| CB close/open time | Timing relay | Close < 80 ms, Open < 60 ms | IEC 62271-100 |
-| Protection trip test | Secondary injection | Trip time per setting | IEC 60255 |
-| GOOSE trip latency | Network analyzer | < 4 ms publisher → subscriber | IEC 61850-8-1 |
-| SCADA point verification | Point-by-point | 100% of I/O points correct | IEC 60870-5-104 |
-| Transformer tap changer | Full-range test | All positions accessible | IEC 60214 |
-| Fire detection test | Smoke/heat test | Activation within 30 s | EN 54 |
-| Emergency stop | Physical test | Trips all HV CBs | Local SOP |
-| Cable impedance test | Impedance measurement | Match design parameters | IEC 60502 |
-| Dynamic transfer trip | End-to-end comm test | Trip within time setting | Site procedure |
+The SAT opens only when every equipment class has an approved FAT (`services/p5/sat.py`).
+
+| Test | Pass criterion | Standard |
+|------|----------------|----------|
+| Export cable 1 oversheath DC test | withstand | IEC 60229, IEC 62067 |
+| Array cables strings 1–3 after-installation AC test | withstand | IEC 60840 |
+| Export cable 1 positive-sequence impedance | ±5 % of design \|Z1\| ≈ 5.3 Ω (project) | — |
+| TX-OSS-01 ratio / FRA vs FAT / DGA after filling | ±0.5 % / no change / normal | IEC 60076-1, -18, IEC 60599 |
+| TX-OSS-01 OLTC full range | all 21 positions (±10) | IEC 60214-1 |
+| CT ratio (class 5P) / VT ratio (class 0.5) | ±1 % / ±0.5 % | IEC 61869-2 / -3 |
+| CB timing, secondary injection, 87L end-to-end | within FAT/declared tolerances | IEC 62271-100, IEC 60255-151 |
+| GOOSE trip transfer time | ≤ 3 ms (TT6) | IEC 61850-5 |
+| SCADA point-to-point | 100 % | IEC 61850, IEC 60870-5-104 |
+| Earthing, fire detection, emergency trip | pass | EN 50522, EN 54 |
+
+The export cable's main-insulation after-installation test is performed inside the programme as
+IEC 62067's alternative: system voltage U0 = 127 kV for 24 h (the other option is 180 kV for 1 h).
 
 ### 6.5 Protection Relay Setting Verification
 
-**Time-current curve coordination check:**
+Protection settings and coordination are owned by P2 (`services/p5/protection_relay.py`, served at
+`/api/v1/grid/protection`): IDMT grading at IEC 60909 maximum and minimum fault currents,
+87L/87B/87T main protection, distance back-up. P5 consumes them as a pre-energisation check
+(step 1.04) and as SAT items (secondary injection, 87L end-to-end).
 
-| Protection Function | Setting | Grading Margin | Purpose |
-|--------------------|---------|----------------|---------|
-| Overcurrent (PTOC) | 1.2 × In, t = 0.5s | 300 ms to upstream | First line defense |
-| Distance (PDIS) | Zone 1: 80% line, Zone 2: 120% | Zone 2 delayed 400 ms | Cable protection |
-| Overvoltage (PTOV) | 1.15 pu, t = 1.0s | — | Equipment protection |
-| Undervoltage (PTUV) | 0.80 pu, t = 3.0s | — | Motor/auxiliary protection |
-| Frequency (PTOF/PTUF) | 51.5/47.5 Hz, t = 0.5s | — | System protection |
+### 6.6 Switching Programme — Format
 
-**Selectivity verification:** Nearest relay to fault trips first. Backup relay has 200-300 ms grading margin. Non-selective tripping → unnecessary outage.
+Each step carries: step ID (`phase.sequence`, e.g. 2.08), type (check, gate, isolation,
+switching, verification, hold point, declaration), action, equipment, responsible party, how it is
+confirmed, notes, and — once executed — who executed it, when, and the *reading* (the device
+transition, the load-flow values, the gate status, or the reason it was refused).
 
-### 6.6 Switching Programme — Real Format
+### 6.7 Circuit 1 First Energisation — Sequence (60 steps)
 
-**Each switching step contains:**
+Scope: export cable 1 → OSS 220 kV busbar (shunt reactor 1, STATCOM) → TX-OSS-01 → 66 kV section A
+→ strings 1–3 (18 × 15 MW = 270 MW). One circuit cannot carry 510 MW (one cable 362 MVA, one
+transformer 300 MVA); circuit 2 (cable 2, TX-OSS-02, section B, strings 4–6) stays isolated and
+earthed and has its own programme. The onshore 220 kV busbar is already live.
 
-| Field | Description | Example |
-|-------|-------------|---------|
-| Step No. | Sequential step number | S-001 |
-| Time | Expected execution time | 14:00 UTC |
-| Action | Specific switching action | Close CB 220kV Bay 1 |
-| Equipment | Equipment identifier | CB-OSS-220-01 |
-| Expected State (Before) | State before action | OPEN |
-| Expected State (After) | State after action | CLOSED |
-| Verification | How to confirm | SCADA indication + local indicator |
-| Responsible | Who performs | PiC / Local Operator |
-| PiC Confirmation | PiC verbal confirmation required | YES |
-| Notes | Safety notes, special conditions | Check SF6 pressure before close |
+| Phase | Content |
+|-------|---------|
+| 1. Pre-energisation | safety documents cancelled; **gate** SAT approved; **gate** EON issued; protection in service; onshore 220 kV live; communication; hold point |
+| 2. Export cable 1 | remove locks; open both cable earth switches; close DS-ON-220-01; verify cable isolated; close CB-ON-220-01 (open-ended cable); verify charging current and Ferranti rise; 24 h soak at U0; hold point |
+| 3. OSS 220 kV | remove busbar earth; close DS/CB-OSS-220-01; reactor 1 (80 Mvar); STATCOM in voltage control at 1.00 pu — each followed by a load-flow verification |
+| 4. TX-OSS-01 | remove bay earth; energise from 220 kV (inrush, 87T 2nd-harmonic restraint); verify no-load current; energise 66 kV section A; hold point |
+| 5. Strings 1–3 | **gate** ION issued; per string: remove lock, open earth, close feeder CB, verify voltage, release turbines |
+| 6. Rated output | cable and transformer loading at 270 MW; protection/PQ check; declaration |
 
-### 6.7 OSS First Energisation — Complete Sequence
+Verification steps are evaluated on a pandapower load flow of the live network
+(`services/p5/energisation.py`), with a 0.95–1.05 pu operating band (project). Canonical values:
+open-ended cable 353 A sending-end current, open end ×1.0071 (1/cos βl), onshore 220 kV +3.1 %;
+reactor −80 Mvar; STATCOM holds 1.00 pu; TX-OSS-01 no-load 0.39 A; at 270 MW: 266.6 MW at the
+POC, cable 81 % and TX-OSS-01 90 % loaded.
 
-**Phase 1: Pre-Energisation Checks (De-Energised System)**
-
-```
-CHECK-001: Physical inspection — all installation bolts torqued, covers closed
-CHECK-002: Megger test — insulation resistance > 100 MΩ (all HV components)
-CHECK-003: Continuity test — all earthing connections verified
-CHECK-004: SF6 gas pressure — all GIS compartments within limits
-CHECK-005: Transformer oil — DGA (dissolved gas analysis) within normal
-CHECK-006: Protection relay settings — all confirmed per setting schedule
-CHECK-007: SCADA communication — all IEDs responding via IEC 61850 MMS
-CHECK-008: GOOSE subscriptions — publisher-subscriber mapping verified
-CHECK-009: All earthing switches — CLOSED (system is earthed)
-CHECK-010: All circuit breakers — OPEN and racked out
-CHECK-011: All LOTO — applied to maintenance isolation points
-CHECK-012: Emergency stop — tested and functional
-CHECK-013: Fire detection/suppression — tested and armed
-CHECK-014: Communications — VHF radio, satellite phone, PA system verified
-CHECK-015: Personnel — all non-essential persons evacuated from HV areas
-```
-
-**Phase 2: Energisation Switching Programme**
-
-```
-STEP  TIME   ACTION                                    RESPONSIBLE  PiC CONFIRM
-─────────────────────────────────────────────────────────────────────────────
-S-001 14:00  PiC declares: "Begin energisation programme"    PiC      N/A
-S-002 14:02  Confirm PSE dispatch authorisation received     PiC      YES
-S-003 14:05  Open Earth Switch ES-ON-220-01                  Local    YES
-S-004 14:08  Verify: Earth Switch ES-ON-220-01 = OPEN        Local    YES
-S-005 14:10  Open Earth Switch ES-OSS-220-01                 Local    YES
-S-006 14:13  Verify: Earth Switch ES-OSS-220-01 = OPEN       Local    YES
-S-007 14:15  Close Disconnector DS-ON-220-01                 Local    YES
-S-008 14:18  Verify: Disconnector DS-ON-220-01 = CLOSED      Local    YES
-S-009 14:20  HOLD POINT: PiC confirms all checks complete    PiC      YES
-S-010 14:25  Close CB-ON-220-01 (onshore substation)         SCADA    YES
-             → Export cable now energised at 220 kV
-S-011 14:26  Verify: V = 220 kV ±5% at onshore bus          SCADA    YES
-S-012 14:28  Monitor: Cable charging current stable (5 min)  SCADA    YES
-S-013 14:33  Close DS-OSS-220-01 (OSS disconnector)          Local    YES
-S-014 14:36  Close CB-OSS-220-01 (OSS 220 kV CB)             SCADA    YES
-             → OSS 220 kV busbar now energised
-S-015 14:37  Verify: V = 220 kV ±5% at OSS 220 kV bus       SCADA    YES
-S-016 14:38  Activate STATCOM voltage control mode            SCADA    YES
-S-017 14:40  Verify: STATCOM absorbing ~0–20 MVAR           SCADA    YES
-S-018 14:42  Close TX-OSS HV CB (220 kV side)                SCADA    YES
-S-019 14:45  Verify: TX magnetising current normal            SCADA    YES
-S-020 14:47  Close TX-OSS LV CB (66 kV side)                 SCADA    YES
-             → OSS 66 kV busbar now energised
-S-021 14:48  Verify: V = 66 kV ±5% at OSS 66 kV bus         SCADA    YES
-S-022 14:50  HOLD POINT: PiC confirms all voltages normal    PiC      YES
-             → OSS fully energised, ready for turbine connection
-```
-
-**Phase 3: Turbine Connection (String by String)**
-
-```
-S-023 15:00  Close String 1 feeder CB                        SCADA    YES
-S-024 15:05  Energise WTG_01 through WTG_06 (one by one)    SCADA    YES
-             → Each turbine: close array CB → verify voltage →
-               start turbine → ramp to 10% → confirm grid sync
-S-025 15:30  String 1 power ramp to 50%                      SCADA    YES
-S-026 15:45  String 1 power ramp to 100%                     SCADA    YES
-S-027 15:50  Verify: Protection relay operation correct       Local    YES
-S-028 16:00  REPEAT S-023 to S-027 for Strings 2-6          SCADA    YES
-S-029 18:00  ALL STRINGS CONNECTED — Farm at rated power      PiC      YES
-S-030 18:05  PiC declares: "Energisation programme complete"  PiC      N/A
-```
+Interlocking is derived from the topology (union-find over closed devices): ILK-001 no closing
+onto an earth — including the cable's far-end earth 45 km away; ILK-002 no earthing a live zone;
+ILK-003 disconnectors off-load only; ILK-004 no operation under an isolation lock; ILK-005
+turbines only onto a live string.
 
 ### 6.8 Person in Control — Decision Authority
 
-**The PiC is the single point of authority for all HV switching operations:**
-
-| PiC Authority | Description |
-|---------------|-------------|
-| **GO / NO-GO** | Only PiC can authorise proceeding to next step |
-| **Emergency Stop** | PiC can halt the programme at any point |
-| **Step Modification** | PiC can alter step sequence if conditions change |
-| **Communication Hub** | All status reports go through PiC |
-| **Safety Decision** | PiC assesses weather, personnel safety, equipment status |
-| **Documentation** | PiC signs off each step with timestamp |
-
-**PiC Decision Tree (simulated):**
-
-```
-At each step:
-  1. Is the expected pre-condition met?
-     → NO → STOP. Investigate. Do NOT proceed.
-  2. Is it safe to execute?
-     → Check weather (wind < 15 m/s for crane operations)
-     → Check personnel clearance
-     → Check communication link status
-  3. Execute action
-  4. Is the expected post-condition met?
-     → NO → STOP. Execute contingency plan.
-     → YES → Log confirmation. Proceed to next step.
-```
+The PiC approves and starts the programme, removes isolation locks (EN 50110-1: disconnectors
+secured open, earth switches secured closed, each with a danger tag), decides GO / NO-GO at hold
+points, and resumes after a suspension. A refused step stays pending and is logged with the
+interlock or check that stopped it.
 
 ### 6.9 Emergency Response Procedures
 
-| Emergency | Immediate Action | Responsible | Reference |
-|-----------|-----------------|-------------|-----------|
-| Arc flash / fire in GIS | Emergency stop all HV CBs, activate fire suppression | PiC | Fire safety plan |
-| SF6 gas leak | Evacuate area, ventilation, gas monitoring | Safety officer | SF6 handling procedure |
-| Medical emergency | First aid, medevac via CTV/helicopter | Medic / OIM | Emergency response plan |
-| Man overboard | MOB alarm, rescue vessel, Coast Guard | OIM | Maritime safety plan |
-| Communication failure | Halt switching, use backup comms | PiC | Comms contingency plan |
-| Unexpected voltage | Emergency stop, re-check isolation | PiC | Safety procedure |
+| Emergency | Effect on the programme | Reference |
+|-----------|------------------------|-----------|
+| Internal arc in GIS / switchgear | **trip**: every closed breaker opens, programme aborted | IEC 62271-203 (internal arc classification) |
+| Voltage on isolated equipment | **trip** | EN 50110-1 §6.2 |
+| SF6 low density / leak | suspend switching | IEC 62271-4 |
+| Communication loss | suspend switching | EN 50110-1 |
+| Medical emergency | suspend switching | site emergency plan |
+| Person overboard | suspend switching | SOLAS Ch. III |
 
-### 6.10 Grid Code Compliance Testing
+IEEE 1584 incident-energy methods cover 208 V–15 kV only and are not used at 66/220 kV.
 
-**NC RfG verification stages:**
+### 6.10 Grid Code Compliance — Operational Notification
 
-| Stage | Name | Timing | Tests |
-|-------|------|--------|-------|
-| EON | Energisation Operational Notification | Pre-energisation | Protection settings, SCADA comms, SAT results |
-| ION | Interim Operational Notification | First power | Load flow validation, harmonic measurement |
-| FON | Final Operational Notification | Full power | FRT test, frequency response, P-Q capability |
+Regulation (EU) 2016/631. The connection point is PSE's onshore 400 kV busbar, so by Art. 23(1)
+the farm is notified as an onshore type D power park module.
+
+| Stage | Article | Entitles | Content |
+|-------|---------|----------|---------|
+| EON | Art. 34 | energise internal network and auxiliaries | protection/control settings agreed, data exchange, earthing, operating agreement |
+| ION | Art. 35 | generate for ≤ 24 months | data and study review, Art. 35(3)(a)–(f) |
+| FON | Art. 36 | normal operation | compliance tests Art. 47 + 48(2)–(9) (LFSM-O/U, FSM, P control, Q capability, V/Q/PF control); simulations Art. 54–56 (FRT to PSE profile 0 pu 150 ms → 0.85 pu at 2.5 s, fast fault current, post-fault recovery); updated statement of compliance |
+
+EON gates the energisation of cable 1, ION the release of the turbines, and the FON can only be
+submitted once the programme is complete.
 
 ### 6.11 Web UI — Commissioning Simulator
 
-**Technology:** React + TypeScript + FastAPI
-
-**Components:**
-1. **Switching Programme Viewer** — Step-by-step table with current step highlighted. Each step clickable to reveal detailed procedure, safety notes, and expected SCADA indications.
-2. **Equipment State Diagram** — Interactive single-line showing real-time equipment states (open/closed/earthed). Updates as user executes steps.
-3. **PiC Decision Panel** — At each hold point, presents GO/NO-GO decision with conditions checklist. User must confirm all conditions before proceeding.
-4. **LOTO Tracker** — Visual padlock diagram showing which isolation points have LOTO applied. Cannot proceed to energisation until all LOTO removed.
-5. **Audit Trail** — Timestamped log of every action, decision, and verification.
-6. **Anomaly Injection** — Instructor mode: inject faults (SF6 low pressure, communication failure, unexpected voltage) to test PiC response.
-7. **SAT/FAT Tracker** — Checklist view with pass/fail status per test, linked to evidence documents.
+Route `/commissioning`: programme list, then a status strip (progress; FAT → SAT → EON → ION → FON
+gates) and six tabs — **Switching** (IEC 60617 single-line diagram coloured by the backend's
+live/earthed/isolated zones, current step and controls, load-flow readings, step list),
+**Isolation** (lock register), **FAT / SAT**, **Grid code**, **Emergency**, **Audit trail**.
 
 ### 6.12 CV Sentence
 
-> "Developed HV commissioning simulation for 510 MW offshore substation first energisation including FAT/SAT specifications, 30-step Switching Programme per IEC 62271 with Person in Control decision logic, LOTO tracking, protection relay coordination verification, emergency response procedures, and NC RfG EON/ION/FON compliance testing."
+> "Developed HV commissioning simulation for 510 MW offshore substation first energisation including IEC-based FAT/SAT campaigns, a 60-step circuit energisation programme with topology-derived interlocks and load-flow-verified steps, EN 50110-1 isolation locks, Person in Control decision logic, emergency procedures that act on the plant, and the NC RfG EON/ION/FON notification."
 
 ### 6.13 Standards Applied
 
 | Standard | Application |
 |----------|------------|
-| IEC 62271-100 | CB switching time requirements |
-| IEC 62271-200/201 | MV/GIS substation specifications |
-| IEC 61850-8-1 | GOOSE latency requirements |
-| IEC 61936-1 | HV installation operation/maintenance |
-| IEC 60060-1 | HV test techniques |
-| IEC 60255 | Protection relay standards |
-| IEC 60076-1/7/18 | Transformer testing |
-| PSE IRiESP | Grid connection energisation procedure |
+| EN 50110-1 | Isolation, securing against reconnection, earthing |
+| IEC 61936-1 | Power installations > 1 kV AC (interlocking) |
+| IEC 60076-1/-3/-18 | Transformer routine tests, tolerances, FRA |
+| IEC 62271-1/-100/-203 | Switchgear and GIS routine tests |
+| IEC 62067 / IEC 60840 / IEC 60229 | Cable after-installation tests |
+| IEC 61869-2/-3 | Instrument transformer accuracy |
+| IEC 60255-151, IEC 61850-5 | Relay accuracy, GOOSE transfer time |
+| EN 50522 | Earthing of installations > 1 kV |
+| Regulation (EU) 2016/631 | EON / ION / FON, compliance tests and simulations |
 | GWO HV Module | HV safety competency (certification) |
 
 ---
@@ -1627,7 +1556,7 @@ Next-generation turbines (GE Vernova Haliade-X, Vestas V236) are exploring grid-
 ║   Physical constraints → Data quality > model complexity      ║
 ║                                                              ║
 ║ P5: HV Commissioning                                         ║
-║   FAT/SAT specs → 30-step Switching Programme               ║
+║   FAT/SAT campaigns → 60-step circuit 1 programme           ║
 ║   PiC decisions → LOTO → Protection relay verification      ║
 ║   Emergency response → EON/ION/FON grid code testing        ║
 ║                                                              ║

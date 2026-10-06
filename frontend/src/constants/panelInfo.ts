@@ -105,148 +105,135 @@ export const converterComparisonInfo: InfoContent = {
 // ── P3 SCADA ──
 
 export const substationSldInfo: InfoContent = {
-  title: "Single Line Diagram — Substation Topology",
+  title: "Single-Line Diagram — Export System",
   description:
-    "Interactive visualization of the offshore substation electrical topology. " +
-    "Shows busbars, circuit breakers, transformers, and IEC 61850 IED connections.",
-  standard: "IEC 61850 — Communication networks and systems for power utility automation",
+    "PSE 400 kV connection point → 2 × 300 MVA onshore transformers → 2 × 45 km 220 kV export cables → " +
+    "OSS 220 kV busbar (STATCOM, shunt reactors) → 2 × 300 MVA OSS transformers → split 66 kV switchboard " +
+    "(section A: strings 1–3, section B: strings 4–6, bus coupler normally open).",
+  standard: "IEC 60617 symbols · IEC 61850-7-2 select-before-operate · ISA-101 colours",
   parameters: [
-    { name: "IEDs", description: "Intelligent Electronic Devices (protection, measurement)" },
-    { name: "GOOSE", description: "Generic Object Oriented Substation Event (< 4 ms)" },
-    { name: "MMS", description: "Manufacturing Message Specification (reporting)" },
+    { name: "Breaker", description: "Filled = closed, hollow = open, red = tripped by protection" },
+    { name: "SBO", description: "Click selects a breaker; Execute operates it after the RBAC and interlock checks" },
+    { name: "Interlock", description: "Bus coupler closes only with one incomer open — no parallel operation of the OSS transformers" },
   ],
   interpretation:
-    "Color indicates equipment state: green = energized, red = de-energized, " +
-    "gray = isolated, amber = warning. Click any equipment for details.",
+    "Conductors are coloured by voltage level when live and grey when dead. Opening a feeder or incomer " +
+    "de-energises its strings: the turbines drop to 0 MW and the plant overview follows. After a transformer " +
+    "trip, section A can be restored through the bus coupler — watch the remaining transformer load.",
 };
 
 export const gooseSimInfo: InfoContent = {
-  title: "GOOSE Simulation — IEC 61850 Messaging",
+  title: "GOOSE protection — IEC 61850-8-1",
   description:
-    "Simulates GOOSE (Generic Object Oriented Substation Event) protocol messaging " +
-    "between IEDs. Shows publish-subscribe communication with < 4 ms latency.",
-  standard: "IEC 61850-8-1 — GOOSE protocol specification",
+    "A protection IED publishes the trip as a GOOSE message (Ethernet layer 2, multicast); every breaker bay " +
+    "subscribes. The scenarios use IEC 60909 fault currents from the P2 pandapower model (OSS 220 kV Ik'' ≈ 9.1 kA).",
+  standard: "IEC 61850-8-1 (GOOSE) · IEC 61850-5 (transfer time class TT6 ≤ 3 ms) · IEC 60909-0",
   parameters: [
-    { name: "StNum", description: "State number (increments on data change)" },
-    { name: "SqNum", description: "Sequence number (increments on retransmission)" },
-    { name: "TAL", description: "Time allowed to live (retransmit interval)" },
+    { name: "stNum", description: "State number — increments when the dataset changes (the trip)" },
+    { name: "sqNum", description: "Sequence number — increments on every repetition of the same state" },
+    { name: "Retransmission", description: "Sent at once, repeated after T0, 2·T0, 4·T0 … up to T_max (heartbeat)" },
   ],
   interpretation:
-    "Green messages = normal operation. Watch for increasing retransmission intervals " +
-    "which indicate the event has stabilized (no more changes).",
+    "Clearing time = protection operate + GOOSE + trip coil + breaker opening + arcing. The 100 ms main-protection " +
+    "target keeps the plant inside the PSE fault-ride-through profile (0 pu for 150 ms).",
 };
 
 export const alarmListInfo: InfoContent = {
-  title: "Alarm List — ISA-18.2 Alarm Management",
+  title: "Alarm list — ISA-18.2 alarm management",
   description:
-    "Real-time alarm display following ISA-18.2 alarm management lifecycle. " +
-    "Alarms are prioritized by criticality and require operator acknowledgment.",
-  standard: "ISA-18.2 / IEC 62682 — Management of alarm systems for process industries",
+    "Active alarms by priority. Lifecycle: UNACK → ACK → RTN; an alarm returns to normal only when its condition " +
+    "clears (turbine reset, tripped breakers re-closed). Shelving hides a nuisance alarm without acknowledging it.",
+  standard: "ISA-18.2 / IEC 62682 · EEMUA 191",
   parameters: [
-    { name: "CRITICAL", description: "Immediate danger — requires instant action" },
-    { name: "HIGH", description: "Serious deviation — action required within minutes" },
-    { name: "MEDIUM", description: "Warning — trending toward alarm condition" },
-    { name: "LOW", description: "Advisory — informational only" },
+    { name: "P1", description: "Substation protection trip — a busbar section or the whole farm lost" },
+    { name: "P2", description: "Turbine stop needing a crew soon (pitch, hydraulics, vibration)" },
+    { name: "P3", description: "Turbine derating or a local trip with a remote reset" },
+    { name: "P4", description: "Efficiency or ageing issue for the next service visit" },
   ],
   interpretation:
-    "Unacknowledged alarms flash. Critical alarms require immediate attention. " +
-    "Alarm flood (>10 per 10 min) indicates a cascading event.",
+    "Priority follows consequence × time to respond. More than 10 alarms in 10 minutes is an EEMUA 191 flood; " +
+    "every transition is journaled for the KPIs on Engineering → Alarm Rationalisation.",
 };
 
 export const eventLogInfo: InfoContent = {
-  title: "Event Log — Sequence of Events",
+  title: "Event log — sequence of events",
   description:
-    "Chronological record of all events (alarms, status changes, operator actions) " +
-    "with millisecond-resolution timestamps for post-event analysis.",
-  standard: "IEEE C37.233 — Guide for Power System Protection Testing",
+    "Session record of protection steps, breaker operations, interlock refusals and turbine faults with " +
+    "millisecond time stamps. The persistent record is the SOE recorder (Diagnostics).",
+  standard: "IEC 61850-7-2 time stamps (1 ms class) · IEEE C37.232 (record naming)",
   interpretation:
-    "Read bottom-to-top for chronological order. Use timestamps to reconstruct " +
-    "the sequence of events during a disturbance.",
+    "Newest first. A protection sequence lasts < 100 ms, so compare milliseconds, not seconds.",
 };
 
 export const permitWorkflowInfo: InfoContent = {
-  title: "Permit to Work — Safety Authorization System",
+  title: "Permit to Work — safety authorisation for HV work",
   description:
-    "Digital permit-to-work system for controlling hazardous work on HV equipment. " +
-    "Follows a multi-step approval workflow with LOTO isolation verification.",
-  standard: "BS 6626 — Maintenance of electrical switchgear and control gear",
+    "Nine-state lifecycle: requested → risk assessed → approved → isolated → LOTO applied → active → " +
+    "work complete → LOTO removed → closed (cancellable while open). Every transition needs an RBAC permission " +
+    "and is written to the audit trail.",
+  standard: "EN 50110-1 (five safety rules) · OSHA 1910.147 (LOTO) · IEC 62351-8 roles",
   parameters: [
-    { name: "PTW states", description: "Draft → Submitted → Approved → Active → Closed" },
-    { name: "LOTO", description: "Lock-Out Tag-Out isolation points" },
-    { name: "PIC", description: "Person In Charge (safety responsibility)" },
+    { name: "Isolation", description: "Disconnect and secure against reconnection before anything else" },
+    { name: "LOTO", description: "Personal locks and danger tags on every isolation point" },
+    { name: "Active", description: "Absence of voltage verified, earthing applied — work may start; validity 12 h" },
   ],
   interpretation:
-    "No work may begin until the permit reaches ACTIVE state. " +
-    "All isolation points must be verified and locked before work starts.",
+    "Buttons the current role may not use stay disabled (switch the role in the toolbar). " +
+    "Approval needs a senior operator, isolation and LOTO an operator with ptw_isolate / ptw_loto.",
 };
 
 export const rbacInfo: InfoContent = {
-  title: "RBAC — Role-Based Access Control",
+  title: "RBAC — role-based access control",
   description:
-    "Defines operator roles and permissions for the SCADA system. " +
-    "Each role has specific capabilities: view, control, configure, administer.",
-  standard: "IEC 62351 — Data and communications security for power systems",
+    "Five roles with explicit permissions. The SCADA enforces them: switchgear needs control_switchgear " +
+    "(L2+), permit approval ptw_approve (L3+), IED configuration config_ied (L4+).",
+  standard: "IEC 62351-8 (roles) · IEC 62443-3-3 SR 2.1 (authorisation enforcement)",
   parameters: [
-    { name: "Viewer", description: "Read-only access to all displays" },
-    { name: "Operator", description: "Can acknowledge alarms and operate switches" },
-    { name: "Engineer", description: "Can modify setpoints and protection settings" },
-    { name: "Admin", description: "Full system configuration access" },
+    { name: "L1 Viewer", description: "Read-only" },
+    { name: "L2 Operator", description: "Acknowledge alarms, operate switchgear" },
+    { name: "L3 Senior operator", description: "Approve permits, isolation, LOTO" },
+    { name: "L4 Engineer", description: "IED configuration, permit lifecycle" },
+    { name: "L5 Administrator", description: "Users and system administration" },
   ],
 };
 
 export const runGooseSimButtonInfo: InfoContent = {
-  title: "Run GOOSE Fault Simulation",
+  title: "Inject a protection fault",
   description:
-    "Injects a synthetic fault event at the selected location and simulates the full IEC 61850 " +
-    "protection response chain: relay pickup → GOOSE publish → breaker trip → SCADA alarm. " +
-    "Results show protection event timeline with millisecond precision and IEC compliance check.",
-  standard: "IEC 61850-8-1 §15 — GOOSE protocol performance classes",
+    "Runs the protection sequence on the backend: fault → differential protection operates → GOOSE trip → " +
+    "breakers open → arc extinguished. The breakers trip on the single-line diagram, one P1 alarm is raised and " +
+    "the SOE log records the operate and opening times.",
+  standard: "IEC 61850-8-1 (GOOSE) · IEC 61850-5 (TT6 ≤ 3 ms) · IEC 60909-0 (fault current)",
   parameters: [
-    { name: "P3 class", description: "≤4 ms GOOSE delivery time (protection class)" },
-    { name: "Retransmission", description: "Exponential backoff schedule per §15.2.2" },
-    { name: "Clearance time", description: "Relay pickup + GOOSE + breaker open (≤80 ms)" },
+    { name: "Busbar fault", description: "87B trips the 4 bays of the OSS 220 kV busbar — farm disconnected" },
+    { name: "Transformer fault", description: "87T trips TX-OSS-01 — section A dead until transferred" },
+    { name: "Cable fault", description: "87L opens both ends of export cable 1 — farm on cable 2" },
   ],
   interpretation:
-    "IEC COMPLIANT badge = GOOSE latency ≤4 ms and clearance ≤80 ms. " +
-    "Fault clearance must be <80 ms for 66 kV array per PSE IRiESP grid code. " +
-    "Run different scenarios from the fault dropdown to test each protection zone.",
+    "Restore by re-closing the breakers on the single-line diagram (the alarm then returns to normal). " +
+    "After the transformer trip, section A can be fed through the bus coupler — watch TX-OSS-02 loading.",
 };
 
 export const autoSimButtonInfo: InfoContent = {
-  title: "Auto-Simulation Mode",
+  title: "Auto-simulation",
   description:
-    "Continuously injects random turbine fault alarms on a 45–90 second interval. " +
-    "Randomly selects a turbine (WTG-01 to WTG-34) and a fault type from 10 categories. " +
-    "Critical faults have a 50% chance of tripping the associated string circuit breaker. " +
-    "Use this to practice alarm management and stress-test the SCADA response.",
-  standard: "ISA-18.2 / IEC 62682 — Alarm management lifecycle",
+    "Injects a random turbine fault every 45–90 s (first one after ~3 s) on top of the farm simulation's own " +
+    "random faults and remote resets. Turbine faults never trip substation breakers.",
+  standard: "ISA-18.2 / IEC 62682 — alarm management practice",
   parameters: [
-    { name: "Fault interval", description: "Random 45–90 s between injections" },
-    { name: "Fault types", description: "10 categories: pitch, vibration, temperature, grid, comms…" },
-    { name: "Breaker trip", description: "50% probability for CRITICAL priority faults" },
-    { name: "First fault", description: "Fires within ~3 s of starting" },
+    { name: "Interval", description: "Random 45–90 s" },
+    { name: "Fault classes", description: "10 turbine classes from the master alarm database" },
   ],
   interpretation:
-    "Watch the alarm table fill up — practice acknowledging and shelving alarms. " +
-    "EEMUA 191 benchmark: ≤1 alarm per 10 min per operator is acceptable. " +
-    "Click 'Stop Auto-Sim' to halt injection. Already-active alarms remain until acknowledged.",
+    "Practise acknowledging and shelving. EEMUA 191 target: about 1 alarm per 10 minutes in steady operation.",
 };
 
 export const controlRoomButtonInfo: InfoContent = {
-  title: "Control Room Mode",
+  title: "Control room mode",
   description:
-    "Enters a fullscreen immersive display designed for the main control room workstation. " +
-    "Shows the Substation Single Line Diagram at full width with live breaker states, " +
-    "a compact alarm sidebar, and a measurement ribbon (400 kV / 220 kV / 66 kV).",
-  standard: "EEMUA 201 — Alarm system usability for process control",
-  parameters: [
-    { name: "SLD", description: "75% width — live substation topology" },
-    { name: "Alarm sidebar", description: "25% width — ISA-18.2 alarm table, compact mode" },
-    { name: "Measurement ribbon", description: "Bottom bar — MW, A, kV per voltage level" },
-  ],
-  interpretation:
-    "Use during incident response or training exercises. " +
-    "Press Esc or click the Exit button to return to normal dashboard view.",
+    "Fullscreen workstation view: plant overview banner, the single-line diagram and a compact alarm list.",
+  standard: "ISA-101 (HMI hierarchy) · EEMUA 201 (control room HMI)",
+  interpretation: "Press Esc or Exit to return to the dashboard.",
 };
 
 // ── P4 Forecasting ──
@@ -330,82 +317,128 @@ export const revenueImpactInfo: InfoContent = {
 
 // ── P5 Commissioning ──
 
-export const switchingProgrammeInfo: InfoContent = {
-  title: "Switching Programme — 30-Step HV Energization",
+export const p5SldInfo: InfoContent = {
+  title: "Circuit 1 single-line diagram",
   description:
-    "Step-by-step procedure for safely energizing HV equipment during commissioning. " +
-    "Each step requires Person-In-Charge approval and interlock verification.",
-  standard: "BS 6626 + DNV-ST-0145 — Offshore substations commissioning",
+    "Export circuit 1 from the live onshore 220 kV busbar to strings 1–3. Colours come from " +
+    "the backend's zone analysis: a conductor is live (voltage colour), earthed (magenta) or " +
+    "isolated (grey). Breakers are squares (filled = closed); disconnectors and earth " +
+    "switches are blades (in line = closed). A padlock marks an isolation lock; the pulsing " +
+    "frame marks the device of the current step.",
+  standard: "IEC 60617 (symbols), ISA-101 (HMI colours)",
+  interpretation:
+    "Devices are operated only through the programme, so every operation passes the " +
+    "interlocks. Section B (TX-OSS-02, strings 4–6) stays earthed: it belongs to the circuit 2 " +
+    "programme.",
+};
+
+export const p5StepInfo: InfoContent = {
+  title: "Current step",
+  description:
+    "Steps run strictly in order. Checks and declarations are confirmed by the Person in " +
+    "Control (PiC); isolation steps remove a safety lock; switching steps operate one device " +
+    "through the interlocks; verification steps are evaluated on the load flow of the live " +
+    "network; gates read the SAT and PSE notification status; at a hold point the PiC " +
+    "decides GO or NO-GO.",
   parameters: [
-    { name: "Steps", description: "30 sequential switching operations" },
-    { name: "PIC", description: "Person In Charge — authorizes each step" },
-    { name: "Interlocks", description: "Safety checks before each operation" },
+    { name: "ILK-001", description: "No closing that would connect a live section to an earth (also the earth at the far end of the cable)" },
+    { name: "ILK-002", description: "No earthing of a live section" },
+    { name: "ILK-003", description: "Disconnectors only off-load (series breaker open)" },
+    { name: "ILK-004", description: "A device under an isolation lock cannot be operated" },
+    { name: "ILK-005", description: "Turbines can only be released onto an energised string" },
   ],
   interpretation:
-    "Green steps = completed. Current step = highlighted. " +
-    "Steps cannot be skipped — each depends on the previous one.",
+    "A refused step stays pending and is logged with the interlock or check that stopped it; " +
+    "clear the cause and execute it again. Emergency trip opens every closed breaker.",
 };
 
-export const equipmentSldInfo: InfoContent = {
-  title: "Equipment SLD — Commissioning State Diagram",
+export const p5NetworkInfo: InfoContent = {
+  title: "Network readings",
   description:
-    "Shows the current energization state of all HV equipment during commissioning. " +
-    "Equipment transitions through: isolated → earthed → de-energized → energized.",
-  standard: "IEC 62271-200 — AC metal-enclosed switchgear",
+    "Steady-state load flow (pandapower) of whatever is live after the last step, built from " +
+    "the P2 network data: 2 × 300 MVA onshore transformers, 45 km 1000 mm² cable (190 nF/km), " +
+    "80 Mvar reactor, ±120 Mvar STATCOM at 1.00 pu, TX-OSS-01 (vk 12.5 %, i0 0.05 %), graded " +
+    "66 kV array cables.",
+  parameters: [
+    { name: "Charging", description: "Q = ωCU²l ≈ 130 Mvar at 220 kV → ≈ 341 A per phase at 1 pu, with no load" },
+    { name: "Ferranti", description: "Open end above the sending end by 1/cos(βl) ≈ 1.007 (βl ≈ 0.118 rad)" },
+    { name: "Q sign", description: "Generator convention: + = generating; the reactor reads negative" },
+  ],
   interpretation:
-    "Gray = isolated, cyan = earthed, amber = de-energized, green = energized. " +
-    "Follow the switching programme sequence to energize equipment safely.",
+    "Verification steps use a 0.95–1.05 pu operating band (project); equipment limits are " +
+    "Um = 245 / 72.5 kV. Transients — switching surges and transformer inrush — are not " +
+    "load-flow quantities and are not shown. Released turbines are set to 15 MW each as a " +
+    "loading check; real output follows the wind.",
 };
 
-export const auditTrailInfo: InfoContent = {
-  title: "Audit Trail — Commissioning Event Log",
+export const p5IsolationInfo: InfoContent = {
+  title: "Isolation register",
   description:
-    "Immutable record of all commissioning actions with timestamps, " +
-    "operator identity, and authorization details.",
-  standard: "DNV-ST-0145 — Offshore substations documentation",
+    "While circuit 1 is under construction it is kept dead by the safety measures of " +
+    "EN 50110-1: disconnect, secure against reconnection (disconnectors locked open), verify " +
+    "absence of voltage, earth and short-circuit (earth switches locked closed). Each lock " +
+    "carries a danger tag.",
+  standard: "EN 50110-1:2013 §6.2; IEC 61936-1",
   interpretation:
-    "Every action is logged for regulatory compliance. " +
-    "The audit trail is required for Site Acceptance Test (SAT) sign-off.",
+    "Only the Person in Control may remove a lock — normally through the programme's " +
+    "isolation steps. A lock can be re-applied when its device is back in its secured position.",
 };
 
-export const lotoInfo: InfoContent = {
-  title: "LOTO — Lock-Out Tag-Out Safety System",
+export const p5FatInfo: InfoContent = {
+  title: "Factory acceptance tests",
   description:
-    "Ensures HV equipment is safely isolated before maintenance work begins. " +
-    "Each isolation point must be locked and tagged by authorized personnel.",
-  standard: "OSHA 29 CFR 1910.147 — Control of hazardous energy",
-  parameters: [
-    { name: "Lock", description: "Physical padlock preventing re-energization" },
-    { name: "Tag", description: "Warning label identifying lock owner and reason" },
-    { name: "Verify", description: "Test that equipment is de-energized after isolation" },
-  ],
+    "Routine tests at the manufacturer's works, from the template of the equipment class. " +
+    "Transformer limits are the IEC 60076-1 Table 1 tolerances on the design values: ratio " +
+    "±0.5 %, impedance ±7.5 % (vk ≥ 10 %), each loss +15 %, no-load current +30 %; induced " +
+    "voltage test with PD ≤ 250 pC at 1.58 Ur/√3 (IEC 60076-3).",
+  standard: "IEC 60076-1/-3/-18, IEC 62271-1/-203, IEC 60255-151, IEC 61850-5",
+  interpretation:
+    "Limits marked 'project' are purchase-specification values, not figures from a standard. " +
+    "A failed test can be repeated after repair; a campaign is approved only when every test passes.",
 };
 
-export const protectionSettingsInfo: InfoContent = {
-  title: "Protection Settings — Relay Configuration",
+export const p5SatInfo: InfoContent = {
+  title: "Site acceptance tests — circuit 1",
   description:
-    "Configuration parameters for protective relays (overcurrent, distance, " +
-    "differential) that detect faults and trip circuit breakers.",
-  standard: "IEC 60255 — Measuring relays and protection equipment",
-  parameters: [
-    { name: "Pickup", description: "Current/voltage threshold to start timing" },
-    { name: "Time dial", description: "Delay before tripping (coordination)" },
-    { name: "Curve type", description: "IEC Standard Inverse, Very Inverse, etc." },
-  ],
+    "After installation and before energisation: cables tested in place, the transformer " +
+    "compared with its factory fingerprints (ratio, FRA, DGA), instrument transformers and " +
+    "relays proven by injection, the 87L scheme end-to-end over its channel, GOOSE timing " +
+    "(TT6 ≤ 3 ms), SCADA point by point.",
+  standard: "IEC 60229, IEC 60840, IEC 60076-1/-18, IEC 61869-2/-3, IEC 61850-5, EN 50522",
+  interpretation:
+    "The cable's main-insulation test is done in the programme as IEC 62067's alternative: " +
+    "24 h at U0 = 127 kV. The SAT opens only when every equipment class has an approved FAT.",
 };
 
-export const complianceInfo: InfoContent = {
-  title: "Grid Code Compliance — PSE IRiESP Verification",
+export const p5GridCodeInfo: InfoContent = {
+  title: "Operational notification — EON, ION, FON",
   description:
-    "Automated verification that the wind farm meets all Polish grid code requirements " +
-    "before commercial operation is permitted.",
-  standard: "PSE IRiESP + ENTSO-E NC RfG Type D",
+    "NC RfG (EU) 2016/631. EON (Art. 34): energise the internal network, issued once the " +
+    "protection and control settings are agreed. ION (Art. 35): generate for at most 24 " +
+    "months while the data and study review of Art. 35(3) is completed. FON (Art. 36): " +
+    "normal operation after the compliance tests, with models and studies updated to " +
+    "measured values.",
   parameters: [
-    { name: "FRT", description: "Fault Ride-Through capability" },
-    { name: "Frequency response", description: "Primary frequency regulation" },
-    { name: "Reactive power", description: "Power factor range at PCC" },
-    { name: "Power quality", description: "Harmonics, flicker, voltage steps" },
+    { name: "Classification", description: "Connection point onshore (PSE 400 kV) → onshore type D PPM, Art. 23(1)" },
+    { name: "Tests", description: "Art. 47 + 48(2)–(9): LFSM-O/U, FSM, P control, Q capability, V / Q / PF control" },
+    { name: "Simulations", description: "Art. 54–56: fault-ride-through, fast fault current, post-fault recovery" },
   ],
+  interpretation:
+    "EON is a gate before cable 1 is energised and ION before the turbines are released; " +
+    "FON can only be submitted once the programme is complete. PSE parameters match the P2 studies.",
+};
+
+export const p5EmergencyInfo: InfoContent = {
+  title: "Emergency procedures",
+  description:
+    "Each procedure acts on the programme. TRIP (internal arc, unexpected voltage): every " +
+    "closed breaker and turbine group opens and the programme is aborted. SUSPEND (SF6 loss, " +
+    "communication loss, medical, person overboard): switching stops, the plant stays as it " +
+    "is, and the Person in Control resumes when the cause is cleared.",
+  standard: "EN 50110-1, IEC 62271-4 (SF6 handling), IEC 62271-203, SOLAS Ch. III",
+  interpretation:
+    "IEEE 1584 arc-flash calculations cover 208 V–15 kV only and are not used for the " +
+    "66/220 kV switchgear, whose internal-arc classification limits the hazard instead.",
 };
 
 // ── P2 New Modules ──
@@ -541,7 +574,7 @@ export const powerQualityDashboardInfo: InfoContent = {
 export const harmonicSpectrumInfo: InfoContent = {
   title: "Harmonic Spectrum — IEC 61000-3-6",
   description:
-    "Bar chart of voltage harmonic magnitudes as % of fundamental (50 Hz) at the 66 kV POC. " +
+    "Bar chart of voltage harmonic magnitudes as % of fundamental (50 Hz) at the assessed bus (400 kV POC by default). " +
     "Orange dashed line = IEC planning level limit for each harmonic order.",
   standard: "IEC 61000-3-6 Table 2 — HV planning levels (≥35 kV): THD 3%, H5 2%, H7 2%, H11 1.5%, H13 1.5%",
   parameters: [

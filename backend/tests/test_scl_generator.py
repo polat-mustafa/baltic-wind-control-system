@@ -85,24 +85,24 @@ class TestSSDGeneration:
         assert "E220" in vl_names
 
     def test_ssd_66kv_bay_count(self):
-        """66 kV level must have 7 bays (one per array cable string)."""
+        """66 kV level: one bay per bay controller (BAY-OSS-66-01 … 09)."""
         root = generate_ssd()
         substation = root.find(_ns("Substation"))
         assert substation is not None
         vls = substation.findall(_ns("VoltageLevel"))
         e66 = next(vl for vl in vls if vl.get("name") == "E66")
         bays = e66.findall(_ns("Bay"))
-        assert len(bays) == 7
+        assert len(bays) == 9  # 6 strings + 2 incomers + bus coupler
 
     def test_ssd_220kv_bay_count(self):
-        """220 kV level must have 3 bays (export, trafo, STATCOM)."""
+        """220 kV level: export cables, transformer HV bays, STATCOM, reactors."""
         root = generate_ssd()
         substation = root.find(_ns("Substation"))
         assert substation is not None
         vls = substation.findall(_ns("VoltageLevel"))
         e220 = next(vl for vl in vls if vl.get("name") == "E220")
         bays = e220.findall(_ns("Bay"))
-        assert len(bays) == 3
+        assert len(bays) == 8  # 2 cables, 2 transformers, STATCOM, 3 reactors
 
     def test_ssd_220kv_bay_names(self):
         """220 kV bays must be named Export, Trafo, STATCOM."""
@@ -112,7 +112,7 @@ class TestSSDGeneration:
         vls = substation.findall(_ns("VoltageLevel"))
         e220 = next(vl for vl in vls if vl.get("name") == "E220")
         bay_names = {bay.get("name") for bay in e220.findall(_ns("Bay"))}
-        assert bay_names == {"Bay_Export", "Bay_Trafo", "Bay_STATCOM"}
+        assert {"Q-E1", "Q-E2", "Q-T1", "Q-T2", "Q-STATCOM"} <= bay_names
 
     def test_ssd_custom_substation_name(self):
         """generate_ssd must accept a custom substation name."""

@@ -45,6 +45,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import and_, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import NotFoundError
 from app.models.alarm import Alarm, AlarmEvent, AlarmFloodEvent
 from app.schemas.alarm import (
     AlarmFloodEventResponse,
@@ -309,33 +310,33 @@ async def get_kpis(
     window_minutes = window_hours * 60.0
     n_buckets = min(int(window_minutes / 10), 144)  # max 144 buckets (24h)
 
-    rate_history: list[AlarmRateDataPoint] = []
-    peak_rate = 0.0
-    for i in range(n_buckets):
-        bucket_start = window_start + timedelta(minutes=i * 10)
-        bucket_end = bucket_start + timedelta(minutes=10)
-        bucket_q = (
-            select(func.count())
-            .select_from(AlarmEvent)
-            .where(
+    # One query for the window's activations, bucketed in Python (was 144 queries)
+    activations = (
+        await db.execute(
+            select(AlarmEvent.timestamp_utc).where(
                 and_(
-                    AlarmEvent.timestamp_utc >= bucket_start,
-                    AlarmEvent.timestamp_utc < bucket_end,
+                    AlarmEvent.timestamp_utc >= window_start,
                     AlarmEvent.transition == "NORMAL_TO_ACTIVE",
                 )
             )
         )
-        count = (await db.execute(bucket_q)).scalar_one() or 0
-        rate = float(count)
-        peak_rate = max(peak_rate, rate)
-        rate_history.append(
-            AlarmRateDataPoint(
-                interval_start_utc=bucket_start,
-                alarm_count=count,
-                rate_per_10_min=rate,
-                above_benchmark=rate > FLOOD_THRESHOLD_PER_10_MIN,
-            )
+    ).scalars()
+    counts = [0] * n_buckets
+    for ts in activations:
+        i = int((ts - window_start).total_seconds() // 600)
+        if 0 <= i < n_buckets:
+            counts[i] += 1
+
+    rate_history = [
+        AlarmRateDataPoint(
+            interval_start_utc=window_start + timedelta(minutes=i * 10),
+            alarm_count=n,
+            rate_per_10_min=float(n),
+            above_benchmark=n > FLOOD_THRESHOLD_PER_10_MIN,
         )
+        for i, n in enumerate(counts)
+    ]
+    peak_rate = float(max(counts, default=0))
 
     # ── Acknowledgement rate ──────────────────────────────────────
     # Approximate: fraction of alarms in window that have ack_at set
@@ -625,3 +626,169 @@ async def expire_shelved_alarms(db: AsyncSession) -> int:
     result = await db.execute(stmt)
     await db.commit()
     return int(result.rowcount)  # type: ignore[attr-defined]
+
+
+# ── Master alarm database (ISA-18.2 §10 rationalisation) ─────────
+#
+# One documented entry per alarm class: turbine alarms are templated
+# (WTG.<fault> covers WTG-01 … WTG-34), substation alarms are individual.
+# Priorities follow consequence × time to respond and match the HMI
+# (frontend constants/faultCategories.ts and the protection scenarios).
+
+MASTER_ALARM_DATABASE: tuple[tuple[str, str, str, str, str, str, str], ...] = (
+    # (tag, display name, priority, source, cause, consequence, operator action)
+    ("OSS-220.87B.TRIP", "OSS 220 kV busbar protection trip", "CRITICAL", "OSS 220 kV busbar",
+     "Busbar fault cleared by 87B", "Whole farm disconnected (510 MW)",
+     "Do not re-energise before inspection; restore cable, busbar, transformers in turn"),
+    ("TX-OSS-01.87T.TRIP", "TX-OSS-01 differential trip", "CRITICAL", "TX-OSS-01",
+     "Internal transformer fault cleared by 87T", "Section A (strings 1-3) dead",
+     "Lock out TX-OSS-01; transfer section A via the bus coupler within 300 MVA"),
+    ("CABLE-1.87L.TRIP", "Export cable 1 differential trip", "CRITICAL", "Export cable 1",
+     "Cable fault cleared by 87L at both ends", "Farm limited by cable 2 rating (950 A)",
+     "No auto-reclose; check cable 2 loading and arrange fault location"),
+    ("TX-OSS-01.OIL_TEMP", "TX-OSS-01 top-oil temperature high", "HIGH", "TX-OSS-01",
+     "Overload or cooling failure", "Insulation ageing, thermal trip",
+     "Check ONAF fans; reduce farm output via the PPC"),
+    ("STATCOM.TRIP", "STATCOM tripped", "HIGH", "STATCOM",
+     "Converter fault", "Reactive capability lost, POC voltage control at risk",
+     "Switch shunt reactors manually; inform PSE dispatch"),
+    ("CABLE-1.DTS_HOTSPOT", "Export cable 1 DTS hot spot", "MEDIUM", "Export cable 1",
+     "Conductor temperature approaching 90 C", "Accelerated XLPE ageing",
+     "Reduce export current until the hot spot cools"),
+    ("OSS-GW.COMMS_LOSS", "OSS gateway communication loss", "MEDIUM", "OSS-GW",
+     "WAN fibre fault", "Remote control lost; microwave backup carries SCADA",
+     "Confirm failover to microwave; dispatch telecom team"),
+    ("WTG.PITCH_CONTROL_FAULT", "Pitch control fault", "HIGH", "WTG",
+     "Pitch actuator or sensor failure", "Turbine stopped (15 MW)",
+     "Keep turbine stopped; dispatch crew"),
+    ("WTG.HYDRAULIC_PRESSURE_LOW", "Hydraulic pressure low", "HIGH", "WTG",
+     "Pitch hydraulic leak or pump failure", "Accumulator may not feather the blades",
+     "Stop turbine; inspect hydraulic unit"),
+    ("WTG.VIBRATION_ALARM", "Excessive vibration", "HIGH", "WTG",
+     "Drivetrain or rotor imbalance", "Structural damage if operation continues",
+     "Turbine trips automatically; CMS review before restart"),
+    ("WTG.CONVERTER_OVERTEMP", "Converter overtemperature", "MEDIUM", "WTG",
+     "Cooling degradation", "Derating, later converter trip",
+     "Check coolant flow; accept derating"),
+    ("WTG.BEARING_OVERTEMP", "Main bearing overtemperature", "MEDIUM", "WTG",
+     "Lubrication degradation", "Bearing damage if sustained",
+     "Reduce load; schedule inspection"),
+    ("WTG.GENERATOR_WINDING_TEMP", "Generator winding temperature", "MEDIUM", "WTG",
+     "Cooling degradation or overload", "Insulation ageing",
+     "Derate; inspect cooling"),
+    ("WTG.GRID_FREQUENCY_FAULT", "Converter grid protection trip", "MEDIUM", "WTG",
+     "Local voltage / ROCOF trip on the 66 kV string", "Turbine offline until reset",
+     "Check converter log; remote reset"),
+    ("WTG.COMMUNICATION_LOSS", "IED communication timeout", "MEDIUM", "WTG",
+     "Fibre or IED failure", "Turbine not observable from SCADA",
+     "Check ring switch ports"),
+    ("WTG.YAW_ERROR", "Yaw position error", "LOW", "WTG",
+     "Yaw misalignment above 10 degrees", "Energy loss and extra loads",
+     "Check yaw motors and wind vane"),
+    ("WTG.GEARBOX_OIL_TEMP", "Gearbox oil temperature", "LOW", "WTG",
+     "Oil cooler or filter issue", "Accelerated oil ageing",
+     "Check oil level and cooler"),
+)  # fmt: skip
+
+
+async def seed_master_alarm_database(db: AsyncSession) -> int:
+    """Insert missing MAD entries (idempotent). Returns the number added."""
+    existing = set((await db.execute(select(Alarm.tag))).scalars())
+    added = 0
+    for tag, name, prio, src, cause, consequence, action in MASTER_ALARM_DATABASE:
+        if tag in existing:
+            continue
+        db.add(
+            Alarm(
+                tag=tag,
+                display_name=name,
+                priority=prio,
+                source_device=src,
+                state="NORMAL",
+                cause=cause,
+                consequence=consequence,
+                operator_action=action,
+                rationalization_status="RATIONALIZED",
+            )
+        )
+        added += 1
+    await db.commit()
+    return added
+
+
+def mad_tag(tag: str) -> str:
+    """Instance tag to MAD class tag: WTG-07.PITCH_CONTROL_FAULT -> WTG.PITCH_CONTROL_FAULT."""
+    head, _, rest = tag.partition(".")
+    return f"WTG.{rest}" if head.startswith("WTG-") and rest else tag
+
+
+_TRANSITION_STATE = {
+    "NORMAL_TO_ACTIVE": "ACTIVE",
+    "ACTIVE_TO_ACK": "ACKNOWLEDGED",
+    "ACTIVE_TO_NORMAL": "NORMAL",
+    "ACK_TO_NORMAL": "NORMAL",
+}
+
+
+async def record_transition(
+    db: AsyncSession, tag: str, transition: str, source_device: str, operator_id: str | None
+) -> AlarmEvent:
+    """Log one alarm state transition from the HMI and update its MAD entry.
+
+    The event keeps the instance tag (WTG-07.PITCH_CONTROL_FAULT) so rates
+    and chattering are per instance; the MAD class row carries the documented
+    priority, the latest state and the 10-minute activation count.
+    """
+    alarm = (await db.execute(select(Alarm).where(Alarm.tag == mad_tag(tag)))).scalar_one_or_none()
+    if alarm is None:
+        raise NotFoundError(f"Alarm tag '{tag}' is not in the master alarm database")
+    now = datetime.now(UTC)
+    event = AlarmEvent(
+        timestamp_utc=now,
+        alarm_tag=tag,
+        transition=transition,
+        operator_id=operator_id,
+        priority=alarm.priority,
+        source_device=source_device,
+    )
+    db.add(event)
+    if transition in _TRANSITION_STATE:
+        alarm.state = _TRANSITION_STATE[transition]
+    if transition == "NORMAL_TO_ACTIVE":
+        alarm.activated_at = now
+        window_start = now - timedelta(minutes=CHATTERING_WINDOW_MINUTES)
+        recent = await db.execute(
+            select(func.count())
+            .select_from(AlarmEvent)
+            .where(
+                and_(
+                    AlarmEvent.alarm_tag == tag,
+                    AlarmEvent.transition == "NORMAL_TO_ACTIVE",
+                    AlarmEvent.timestamp_utc >= window_start,
+                )
+            )
+        )
+        alarm.chattering_count = int(recent.scalar_one() or 0) + 1
+    elif transition == "ACTIVE_TO_ACK":
+        alarm.ack_at, alarm.ack_by = now, operator_id
+    elif transition in ("ACTIVE_TO_NORMAL", "ACK_TO_NORMAL"):
+        alarm.cleared_at = now
+    elif transition in ("SHELVED", "UNSHELVED"):
+        alarm.shelved = transition == "SHELVED"
+    await db.commit()
+
+    # EEMUA 191 flood: more than 10 activations in 10 min opens a flood record
+    if transition == "NORMAL_TO_ACTIVE" and await detect_flood(db):
+        open_q = select(AlarmFloodEvent).where(AlarmFloodEvent.end_utc == None)  # noqa: E711
+        if (await db.execute(open_q)).scalar_one_or_none() is None:
+            db.add(
+                AlarmFloodEvent(
+                    start_utc=now,
+                    alarm_count=FLOOD_THRESHOLD_PER_10_MIN + 1,
+                    peak_rate_per_minute=(FLOOD_THRESHOLD_PER_10_MIN + 1) / 10,
+                    suppressed_alarms=0,
+                    resolved=False,
+                )
+            )
+            await db.commit()
+    return event

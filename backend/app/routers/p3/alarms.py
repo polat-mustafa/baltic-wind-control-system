@@ -31,6 +31,8 @@ from app.schemas.alarm import (
     AlarmRationalizationDetail,
     AlarmResponse,
     AlarmShelveRequest,
+    AlarmTransitionRequest,
+    AlarmTransitionResponse,
     AlarmUnshelveRequest,
     ChatteringResponse,
     RationalizationUpdateRequest,
@@ -305,4 +307,30 @@ async def get_chatterers(
         db,
         window_minutes=window_minutes,
         threshold=threshold,
+    )
+
+
+@router.post(
+    "/alarms/events",
+    response_model=AlarmTransitionResponse,
+    summary="Record an alarm state transition from the HMI",
+)
+async def record_alarm_event(
+    body: AlarmTransitionRequest, db: AsyncSession = Depends(get_session)
+) -> AlarmTransitionResponse:
+    """Log raise / acknowledge / return-to-normal / shelve of one alarm.
+
+    The tag is resolved against the master alarm database (turbine instances
+    WTG-xx.<fault> map to the WTG.<fault> class). These events feed the
+    EEMUA 191 KPIs: alarm rate, chattering, floods.
+    """
+    ev = await svc.record_transition(
+        db, body.tag, body.transition, body.source_device, body.operator_id
+    )
+    return AlarmTransitionResponse(
+        id=ev.id,
+        timestamp_utc=ev.timestamp_utc,
+        alarm_tag=ev.alarm_tag,
+        transition=ev.transition,
+        priority=ev.priority,
     )

@@ -8,19 +8,13 @@
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
-export type CMSComponent =
-  | "MAIN_BEARING"
-  | "GEARBOX"
-  | "GENERATOR"
-  | "ROTOR_HUB"
-  | "PITCH_SYSTEM"
-  | "YAW_SYSTEM"
-  | "TRANSFORMER"
-  | "CONVERTER";
+/** Components monitored per turbine (backend CMS_COMPONENTS). */
+export type CMSComponent = "MAIN_BEARING" | "GEARBOX" | "GENERATOR" | "PITCH" | "YAW";
 
-export type CMSAlertLevel = "NORMAL" | "WARNING" | "ALARM" | "CRITICAL";
+/** Health-index bands: GREEN ≥ 80 > YELLOW ≥ 60 > AMBER ≥ 40 > RED ≥ 20 > CRITICAL. */
+export type CMSAlertLevel = "GREEN" | "YELLOW" | "AMBER" | "RED" | "CRITICAL";
 
-export type FaultSeverity = "MINOR" | "MODERATE" | "SEVERE" | "CRITICAL";
+export type FaultSeverity = "MINOR" | "MODERATE" | "SEVERE";
 
 // ── Component Health ───────────────────────────────────────────────────────────
 
@@ -50,6 +44,7 @@ export interface TurbineHealthSummary {
   overall_alert_level: CMSAlertLevel;
   worst_component: CMSComponent;
   active_alerts: number;
+  component_health: Record<CMSComponent, number>;
 }
 
 export interface FleetHealthResponse {
@@ -72,10 +67,12 @@ export interface VibrationSpectrumResponse {
   turbine_id: string;
   component: CMSComponent;
   timestamp_utc: string;
-  points: FFTPoint[];               // ~200 points, 0–2000 Hz
+  points: FFTPoint[];               // 400 lines: 0–10 Hz (main bearing) / 0–200 Hz
   dominant_frequency_hz: number;
   dominant_amplitude_mm_s: number;
-  fault_frequency_markers: number[] | null;  // Expected fault frequencies
+  overall_rms_mm_s: number;
+  resolution_hz: number;
+  fault_frequency_markers: { freq_hz: number; label: string }[];
 }
 
 // ── Oil Analysis ───────────────────────────────────────────────────────────────

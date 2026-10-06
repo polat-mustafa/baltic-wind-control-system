@@ -1,14 +1,13 @@
 /**
  * Level-3 sub-tab strip — context-dependent on the active Level-2 area.
  *
- * Operations:  SLD · Alarms · Permits · Events · Bay Control
- * Equipment:   CMS · Vibration · Historian · Network · Interlocks
- * Diagnostics: GOOSE Sim · SOE · Latency · Fleet Health · Attack Sim
- * Engineering: RBAC · Security · OPC-UA · SCL Gen · Alarm Rationalization
+ * Operations:  Mimic · SLD · Alarms · Event Log · Permits · Bay Control
+ * Equipment:   Condition Monitoring · Vibration · Historian
+ * Diagnostics: GOOSE Protection · SOE Recorder · Interlocks · Comms Network
+ * Engineering: RBAC · Cybersecurity · OPC UA · SCL Generator · Alarm Rationalisation
  */
 
 import {
-  Activity,
   AlertTriangle,
   Bell,
   Database,
@@ -25,7 +24,6 @@ import {
   Shield,
   ShieldAlert,
   Stethoscope,
-  Timer,
   Waves,
   Zap,
   type LucideIcon,
@@ -49,30 +47,27 @@ const SUB_TABS: Record<ScadaArea, readonly SubTabDef[]> = {
     { id: "mimic",   label: "Plant Mimic", icon: LayoutGrid },
     { id: "sld",     label: "Single-Line", icon: GitBranch },
     { id: "alarms",  label: "Alarms",      icon: Bell },
-    { id: "permits", label: "Permits",     icon: FileText },
     { id: "events",  label: "Event Log",   icon: ScrollText },
+    { id: "permits", label: "Permits",     icon: FileText },
     { id: "bays",    label: "Bay Control", icon: Layers },
   ],
   equipment: [
-    { id: "cms",        label: "Condition Mon.", icon: Stethoscope },
-    { id: "vibration",  label: "Vibration",      icon: Waves },
-    { id: "historian",  label: "Historian",      icon: Database },
-    { id: "network",    label: "Network",        icon: Network },
-    { id: "interlocks", label: "Interlocks",     icon: Lock },
+    { id: "cms",       label: "Condition Mon.", icon: Stethoscope },
+    { id: "vibration", label: "Vibration",      icon: Waves },
+    { id: "historian", label: "Historian",      icon: Database },
   ],
   diagnostics: [
-    { id: "goose",   label: "GOOSE Sim",     icon: Zap },
-    { id: "soe",     label: "SOE Recorder",  icon: List },
-    { id: "latency", label: "Latency Budget", icon: Timer },
-    { id: "fleet",   label: "Fleet Health",  icon: Activity },
-    { id: "attack",  label: "Attack Sim",    icon: ShieldAlert },
+    { id: "goose",      label: "GOOSE Protection", icon: Zap },
+    { id: "soe",        label: "SOE Recorder",     icon: List },
+    { id: "interlocks", label: "Interlocks",       icon: Lock },
+    { id: "network",    label: "Comms Network",    icon: Network },
   ],
   engineering: [
-    { id: "rbac",     label: "RBAC",        icon: Shield },
-    { id: "security", label: "Security",    icon: Lock },
-    { id: "opcua",    label: "OPC-UA",      icon: Server },
-    { id: "scl",      label: "SCL Gen",     icon: FileCode },
-    { id: "almrat",   label: "Alarm Rat.",  icon: AlertTriangle },
+    { id: "rbac",     label: "RBAC",              icon: Shield },
+    { id: "security", label: "Cybersecurity",     icon: ShieldAlert },
+    { id: "opcua",    label: "OPC UA",            icon: Server },
+    { id: "scl",      label: "SCL Generator",     icon: FileCode },
+    { id: "almrat",   label: "Alarm Rationalisation", icon: AlertTriangle },
   ],
 } as const;
 

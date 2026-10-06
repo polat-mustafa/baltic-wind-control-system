@@ -1,102 +1,56 @@
 /**
- * Tests for the PermitWorkflowPanel component.
+ * PermitWorkflowPanel — states follow the backend state machine and the
+ * transitions respect the acting role's permissions.
  */
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import PermitWorkflowPanel from "../../../src/components/p3/PermitWorkflowPanel";
 import { useScadaStore } from "../../../src/store/scadaStore";
+import type { PermitDetail } from "../../../src/types/scada";
 
-vi.mock("../../../src/store/scadaStore");
-vi.mock("@xyflow/react", () => ({
-  ReactFlow: ({ children }: { children?: React.ReactNode }) => (
-    <div data-testid="reactflow">{children}</div>
-  ),
-  Background: () => null,
-  Handle: () => null,
-  Position: { Top: "top", Bottom: "bottom" },
-}));
+const permit = {
+  ptw_number: "PTW-2026-001",
+  status: "isolation_confirmed",
+  work_description: "Replace CT wiring",
+  equipment_id: "BAY-OSS-66-03",
+  requested_by: "Engineer",
+  valid_until: null,
+  current_step_number: 4,
+  next_allowed_transitions: [
+    { target_status: "loto_applied", required_permission: "ptw_loto" },
+    { target_status: "cancelled", required_permission: "ptw_close" },
+  ],
+  transition_log: [
+    { id: "t1", from_status: "approved", to_status: "isolation_confirmed", performed_by: "Operator", user_level: 2, notes: "", created_at: "2026-10-05T08:00:00Z" },
+  ],
+} as unknown as PermitDetail;
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  useScadaStore.setState({
+    activePermit: null,
+    permitList: { total: 1, permits: [{ id: "1", ptw_number: "PTW-2026-001", status: "isolation_confirmed", work_description: "Replace CT wiring", equipment_id: "BAY-OSS-66-03", requested_by: "Engineer", created_at: "" }] },
+    selectedRoleLevel: 2,
+    roles: [{ level: 2, name: "Operator", description: "", permissions: ["ptw_loto"], mfa_required: false, security_level: 2 }],
+  });
 });
 
 describe("PermitWorkflowPanel", () => {
-  it("renders create permit form", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      activePermit: null,
-      permitList: null,
-      selectedRoleLevel: 4,
-      createPermit: vi.fn(),
-      transitionPermit: vi.fn(),
-      roles: [{ level: 4, name: "Control Engineer" }],
-    } as unknown as ReturnType<typeof useScadaStore>);
-
+  it("lists the register and opens a permit on click", () => {
+    const openPermit = vi.fn().mockResolvedValue(undefined);
+    useScadaStore.setState({ openPermit });
     render(<PermitWorkflowPanel />);
-    expect(screen.getByText("Create New Permit")).toBeDefined();
-    expect(screen.getByText("PtW 9-State Lifecycle")).toBeDefined();
-    expect(screen.getByText("Create Permit")).toBeDefined();
+    fireEvent.click(screen.getByText("PTW-2026-001"));
+    expect(openPermit).toHaveBeenCalledWith("PTW-2026-001");
   });
 
-  it("renders active permit details when present", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      activePermit: {
-        ptw_number: "PtW-2025-001",
-        status: "issued",
-        current_step_number: 4,
-        equipment_id: "OSS_PROT_IED01",
-        requested_by: "Control Engineer",
-        next_allowed_transitions: [
-          { target_status: "active", required_permission: "ptw_issue" },
-        ],
-        transition_log: [],
-      },
-      permitList: {
-        total: 1,
-        permits: [{ id: "1", ptw_number: "PtW-2025-001", status: "issued" }],
-      },
-      selectedRoleLevel: 4,
-      createPermit: vi.fn(),
-      transitionPermit: vi.fn(),
-      roles: [{ level: 4, name: "Control Engineer" }],
-    } as unknown as ReturnType<typeof useScadaStore>);
-
+  it("highlights the backend state and gates transitions by permission", () => {
+    useScadaStore.setState({ activePermit: permit });
     render(<PermitWorkflowPanel />);
-    // PtW number appears in both active permit header and recent permits list
-    expect(screen.getAllByText("PtW-2025-001")).toHaveLength(2);
-    expect(screen.getByText(/ISSUED/)).toBeDefined();
-    expect(screen.getByText("Available Transitions")).toBeDefined();
-  });
-
-  it("renders audit trail when transition log exists", () => {
-    vi.mocked(useScadaStore).mockReturnValue({
-      activePermit: {
-        ptw_number: "PtW-2025-001",
-        status: "active",
-        current_step_number: 5,
-        equipment_id: "OSS_PROT_IED01",
-        requested_by: "Control Engineer",
-        next_allowed_transitions: [],
-        transition_log: [
-          {
-            id: "t1",
-            from_status: "requested",
-            to_status: "risk_assessed",
-            performed_by: "Safety Officer",
-            user_level: 4,
-            notes: "",
-            created_at: "2025-01-01T10:00:00",
-          },
-        ],
-      },
-      permitList: null,
-      selectedRoleLevel: 4,
-      createPermit: vi.fn(),
-      transitionPermit: vi.fn(),
-      roles: [{ level: 4, name: "Control Engineer" }],
-    } as unknown as ReturnType<typeof useScadaStore>);
-
-    render(<PermitWorkflowPanel />);
-    expect(screen.getByText(/Audit Trail/)).toBeDefined();
+    expect(document.querySelector("[aria-current=step]")?.textContent).toBe("4");
+    expect((screen.getByRole("button", { name: /LOTO applied/ }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: /Cancel permit/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Approved → Isolated")).toBeDefined();
   });
 });

@@ -15,9 +15,6 @@ vi.mock("../../../src/components/p3/AreaTabs", () => ({
 vi.mock("../../../src/components/p3/SubTabs", () => ({
   default: () => <div>SubTabs</div>,
 }));
-vi.mock("../../../src/components/p3/SCADAKPIHeader", () => ({
-  default: () => <div>SCADAKPIHeader</div>,
-}));
 vi.mock("../../../src/components/p3/SubstationSLD", () => ({
   default: () => <div>SubstationSLD</div>,
 }));

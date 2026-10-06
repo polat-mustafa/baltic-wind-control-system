@@ -18,9 +18,11 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, StateTransitionError
+from app.db import get_session
 from app.schemas.bay import (
     AllBaysResponse,
     BayStateResponse,
@@ -33,6 +35,7 @@ from app.schemas.bay import (
     ValidateCommandRequest,
 )
 from app.services.p3 import bay_controller as svc
+from app.services.p3 import soe_recorder
 from app.services.p5.equipment_state import BayController, SwitchCommand, SwitchingAction
 
 router = APIRouter(tags=["M01 Bay Controller"])
@@ -69,12 +72,16 @@ def _bay_to_response(bay: BayController, bay_id_str: str) -> BayStateResponse:
         is_tie_cb=bay.is_tie_cb,
         synchrocheck=sync,
         last_updated=datetime.now(UTC),
+        cb_id=meta["cb_id"],
+        ds_bus_id=meta["ds_bus_id"],
+        ds_line_id=meta["ds_line_id"],
+        es_id=meta["es_id"],
     )
 
 
 @router.get("/bays", response_model=AllBaysResponse, summary="Get all bay states")
 async def get_all_bays() -> AllBaysResponse:
-    """Return current state of all 8 OSS 66 kV switchboard bays.
+    """Return current state of all 9 OSS 66 kV switchboard bays.
 
     Physics: Each bay represents one feeder panel on the 66 kV switchboard.
     The bay state shows the position of every switching device (CB, two
@@ -165,13 +172,18 @@ async def get_interlock_status(bay_id: str) -> InterlockStatusResponse:
     response_model=CommandExecutionResponse,
     summary="Execute a switching command",
 )
-async def execute_command(bay_id: str, body: SwitchCommandRequest) -> CommandExecutionResponse:
+async def execute_command(
+    bay_id: str, body: SwitchCommandRequest, db: AsyncSession = Depends(get_session)
+) -> CommandExecutionResponse:
     """Execute a switching command on bay equipment after interlock validation.
 
     The command passes through the full 7-rule interlock engine:
       ILK-001 to ILK-005: classical HV switchgear interlocks
       ILK-006: auto-reclose blocked during manual isolation
-      ILK-007: synchrocheck required for tie CB
+      ILK-007: bus coupler closes dead-bus only (no parallel OSS transformers)
+
+    Every command is written to the SOE log (M02): CB_OPERATION / OPERATOR_COMMAND
+    on success, INTERLOCK_BLOCK when an interlock refuses it.
 
     On interlock violation: HTTP 409 with blocked_by and reasons.
     On invalid transition (e.g. close an already-closed CB): HTTP 409.
@@ -196,7 +208,30 @@ async def execute_command(bay_id: str, body: SwitchCommandRequest) -> CommandExe
         is_auto_reclose=body.is_auto_reclose,
     )
 
-    result = svc.execute_command(bay_id, cmd, synchrocheck_data)
+    try:
+        result = svc.execute_command(bay_id, cmd, synchrocheck_data)
+    except StateTransitionError as err:
+        await soe_recorder.record_event(
+            db,
+            event_type="INTERLOCK_BLOCK",
+            source_device=f"{bay_id}/{body.equipment_id}",
+            description=str(err),
+            severity="LOW",
+            operator_id=body.operator_id,
+        )
+        raise
+    is_cb = body.equipment_id.startswith("CB-")
+    await soe_recorder.record_event(
+        db,
+        event_type="CB_OPERATION" if is_cb else "OPERATOR_COMMAND",
+        source_device=f"{bay_id}/{body.equipment_id}",
+        description=f"{body.equipment_id} {body.action.upper()} by {body.operator_id}",
+        severity="INFO",
+        value_before=result["previous_state"],
+        value_after=result["new_state"],
+        operator_id=body.operator_id,
+        timestamp_utc=result["timestamp"],
+    )
 
     return CommandExecutionResponse(
         success=result["success"],

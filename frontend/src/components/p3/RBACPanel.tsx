@@ -1,162 +1,96 @@
 /**
- * RBAC panel — IEC 62443 role matrix and security zone diagram.
+ * Role-based access control — IEC 62351-8 roles, enforced on the SCADA
+ * actions (switchgear control needs L2, permit approval L3 …).
  *
- * Displays:
- * - 5 role definitions with permissions, MFA requirements, security levels
- * - IEC 62443-3-3 zone definitions with minimum access levels
- *
- * Active role is highlighted based on selectedRoleLevel in store.
+ * Permission matrix: one row per permission, one column per role; the role
+ * selected in the toolbar is highlighted. Below: the minimum role level per
+ * IEC 62443 access zone.
  */
 
+import { Check } from "lucide-react";
+
 import { useScadaStore } from "../../store/scadaStore";
-import { SCADA_COLORS } from "../../constants/scadaColors";
 import { InfoButton } from "../ui/InfoButton";
 import { rbacInfo } from "../../constants/panelInfo";
-
-const ROLE_COLORS: Record<number, string> = {
-  1: SCADA_COLORS.ALARM_LOW,
-  2: SCADA_COLORS.DE_ENERGIZED,
-  3: SCADA_COLORS.WARNING,
-  4: SCADA_COLORS.ENERGIZED,
-  5: SCADA_COLORS.FAULT,
-};
+import { cn } from "../../lib/utils";
 
 export default function RBACPanel() {
-  const { roles, zones, selectedRoleLevel } = useScadaStore();
+  const roles = useScadaStore((s) => s.roles);
+  const zones = useScadaStore((s) => s.zones);
+  const active = useScadaStore((s) => s.selectedRoleLevel);
 
   if (roles.length === 0) return null;
+  const sorted = [...roles].sort((a, b) => a.level - b.level);
+  const permissions = [...new Set(sorted.flatMap((r) => r.permissions))].sort();
+  const col = (level: number) => (level === active ? "bg-accent/10" : undefined);
 
   return (
-    <div className="space-y-4">
-      {/* Role matrix */}
-      <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
-        <div className="px-4 py-2 border-b border-border-primary flex items-center justify-between">
-          <h3 className="text-base font-semibold text-text-primary">
-            RBAC Role Matrix (IEC 62443)
-          </h3>
+    <div className="space-y-3">
+      <section className="bg-bg-secondary rounded-lg border border-border-primary p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <h3 className="text-xs font-semibold text-text-primary">RBAC permission matrix · IEC 62351-8 / IEC 62443</h3>
           <InfoButton info={rbacInfo} />
+          <span className="text-[11px] text-text-muted">acting role highlighted — change it in the toolbar</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-bg-primary/50">
-              <tr>
-                <th className="text-left px-3 py-1.5 text-text-muted">Level</th>
-                <th className="text-left px-3 py-1.5 text-text-muted">Role</th>
-                <th className="text-left px-3 py-1.5 text-text-muted">SL</th>
-                <th className="text-left px-3 py-1.5 text-text-muted">MFA</th>
-                <th className="text-left px-3 py-1.5 text-text-muted">
-                  Permissions
-                </th>
+          <table className="w-full text-[11px] border-collapse">
+            <thead>
+              <tr className="text-left text-text-muted align-bottom">
+                <th className="py-1 pr-3 font-medium">Permission</th>
+                {sorted.map((r) => (
+                  <th key={r.level} className={cn("py-1 px-2 font-medium text-center", col(r.level))} title={r.description}>
+                    <div className="font-mono text-text-primary">L{r.level}</div>
+                    <div className="text-text-secondary">{r.name}</div>
+                    <div className="font-normal">
+                      SL-{r.security_level} · MFA {r.mfa_required ? "YES" : "no"}
+                    </div>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {roles.map((role) => {
-                const isActive = role.level === selectedRoleLevel;
-                const color = ROLE_COLORS[role.level] ?? SCADA_COLORS.DE_ENERGIZED;
-                return (
-                  <tr
-                    key={role.level}
-                    className={`border-b border-border-primary/50 ${
-                      isActive ? "bg-bg-tertiary/40" : "hover:bg-bg-tertiary/20"
-                    }`}
-                  >
-                    <td className="px-3 py-2">
-                      <span
-                        className="font-mono font-bold text-sm"
-                        style={{ color }}
-                      >
-                        L{role.level}
-                      </span>
+              {permissions.map((p) => (
+                <tr key={p} className="border-t border-border-primary/60">
+                  <td className="py-1 pr-3 font-mono text-text-primary">{p}</td>
+                  {sorted.map((r) => (
+                    <td key={r.level} className={cn("py-1 px-2 text-center", col(r.level))}>
+                      {r.permissions.includes(p) ? <Check size={13} className="inline text-text-primary" aria-label="granted" /> : <span className="text-text-muted">·</span>}
                     </td>
-                    <td className="px-3 py-2">
-                      <div
-                        className="font-semibold"
-                        style={{ color: isActive ? color : "#cbd5e1" }}
-                      >
-                        {role.name}
-                      </div>
-                      <div className="text-text-muted text-[10px]">
-                        {role.description}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 font-mono text-text-muted">
-                      SL-{role.security_level}
-                    </td>
-                    <td className="px-3 py-2">
-                      {role.mfa_required ? (
-                        <span className="text-amber-400 font-bold">YES</span>
-                      ) : (
-                        <span className="text-slate-600">No</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {role.permissions.map((p) => (
-                          <span
-                            key={p}
-                            className="bg-bg-primary px-1.5 py-0.5 rounded text-[10px] font-mono text-text-muted"
-                          >
-                            {p}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                  ))}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-      </div>
+        <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-text-secondary">
+          {sorted.map((r) => (
+            <li key={r.level}>
+              <b className="font-mono text-text-primary">L{r.level} {r.name}</b> — {r.description}
+            </li>
+          ))}
+        </ul>
+      </section>
 
-      {/* Security zones */}
       {zones.length > 0 && (
-        <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
-          <div className="px-4 py-2 border-b border-border-primary">
-            <h3 className="text-sm font-semibold text-text-secondary">
-              IEC 62443-3-3 Security Zones
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-            {zones.map((zone) => {
-              const accessible = selectedRoleLevel >= zone.min_access_level;
-              return (
-                <div
-                  key={zone.zone}
-                  className="rounded border p-3"
-                  style={{
-                    borderColor: accessible
-                      ? SCADA_COLORS.ENERGIZED
-                      : SCADA_COLORS.FAULT,
-                    backgroundColor: accessible
-                      ? "rgba(0,255,0,0.05)"
-                      : "rgba(255,0,0,0.05)",
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-mono font-bold text-text-secondary">
-                      {zone.zone}
-                    </span>
-                    <span
-                      className="text-[10px] font-mono"
-                      style={{
-                        color: accessible
-                          ? SCADA_COLORS.ENERGIZED
-                          : SCADA_COLORS.FAULT,
-                      }}
-                    >
-                      {accessible ? "ACCESS" : "DENIED"} (L
-                      {zone.min_access_level}+)
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-text-muted">
-                    {zone.description}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <section className="bg-bg-secondary rounded-lg border border-border-primary p-3">
+          <h4 className="text-xs font-semibold text-text-primary mb-1">Access zones · minimum role</h4>
+          <table className="w-full text-[11px]">
+            <tbody>
+              {[...zones]
+                .sort((a, b) => b.min_access_level - a.min_access_level)
+                .map((z) => (
+                  <tr key={z.zone} className="border-t border-border-primary/60">
+                    <td className="py-1 pr-3 font-mono text-text-primary whitespace-nowrap">{z.zone}</td>
+                    <td className="py-1 pr-3 font-mono whitespace-nowrap text-text-secondary">≥ L{z.min_access_level}</td>
+                    <td className="py-1 text-text-secondary">{z.description}</td>
+                    <td className="py-1 pl-2 text-right whitespace-nowrap font-mono">
+                      {active >= z.min_access_level ? <span className="text-text-secondary">access</span> : <span className="text-text-muted">denied</span>}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </section>
       )}
     </div>
   );

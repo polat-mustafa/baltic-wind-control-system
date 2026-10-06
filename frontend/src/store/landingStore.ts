@@ -379,6 +379,8 @@ export interface ArrayCableFault {
 
 /** Turbines held offline by the scenario (tick and random toggler respect it). */
 const _outOfService = new Set<string>();
+/** Turbines whose feeder is de-energised by SCADA switching (P3 single-line). */
+const _deenergised = new Set<string>();
 let _faultToken = 0;
 
 /** Open the switch on the OSS side of the fault and re-close the feeder CB. */
@@ -475,6 +477,12 @@ interface LandingState {
   setTurbineFault: (turbineId: string, faultType: TurbineFaultType) => void;
   /** Clear a turbine fault back to operating (called by faultBus sync from SCADA). */
   clearTurbineFault: (turbineId: string) => void;
+
+  /**
+   * SCADA switching: the turbines whose 66 kV feeder is currently dead.
+   * They drop to 0 MW and stay offline until the feeder is re-energised.
+   */
+  setDeenergised: (ids: string[]) => void;
 
   /** Active 66 kV array-cable fault scenario, if any. */
   arrayFault: ArrayCableFault | null;
@@ -600,6 +608,20 @@ export const useLandingStore = create<LandingState>((set) => {
           }),
         };
       }),
+
+    setDeenergised: (ids) => {
+      const next = new Set(ids);
+      const restored = [..._deenergised].filter((id) => !next.has(id));
+      const dropped = ids.filter((id) => !_deenergised.has(id));
+      if (!restored.length && !dropped.length) return;
+      _deenergised.clear();
+      for (const id of next) _deenergised.add(id);
+      set((state) => {
+        let turbineMap = setStatuses(state.turbineMap, dropped, "offline", true);
+        turbineMap = setStatuses(turbineMap, restored, "operating", false);
+        return { turbineMap, kpis: computeKPIs(turbineMap) };
+      });
+    },
 
     arrayFault: null,
 
@@ -849,8 +871,8 @@ export const useLandingStore = create<LandingState>((set) => {
           const target = newMap[targetId];
           const roll = Math.random();
 
-          if (_outOfService.has(targetId)) {
-            // held offline by the array-cable fault scenario
+          if (_outOfService.has(targetId) || _deenergised.has(targetId)) {
+            // held offline by the array-cable fault scenario or SCADA switching
           } else if (target.status === "operating") {
             if (roll < 0.01) {
               // Fault: set status but let ramp rates gradually bring power to 0

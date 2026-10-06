@@ -1,81 +1,86 @@
 """
-Grid Code Compliance Testing — EON / ION / FON notification pipeline.
+Operational notification of the wind farm to PSE — EON → ION → FON.
 
-Physics & Regulatory Context
-=============================
-Before a wind farm can export power commercially, the TSO (PSE in Poland)
-requires a staged series of compliance demonstrations:
+Regulation (EU) 2016/631 (NC RfG), Title III, for a type D power park module:
 
-1. **EON — Energisation Operational Notification**
-   First energisation of the export system. Proves:
-   - Protection settings match the PSE-approved settings schedule
-   - SCADA telemetry reaches the National Control Centre
-   - SAT results confirm equipment is fit for service
-   - Earthing system impedance is within design limits
-   Standards: IEC 60255 (protection), IEC 61850 (SCADA), IEC 60364 (earthing)
+- **EON**, Art. 34 — entitles the owner to energise its internal network and
+  auxiliaries through the grid connection; issued once the protection and
+  control settings at the connection point are agreed with the system operator.
+- **ION**, Art. 35 — entitles the owner to operate and *generate* for a limited
+  period, at most 24 months (35(4)); issued after the data and study review of
+  35(3)(a)–(f).
+- **FON**, Art. 36 — entitles normal operation; issued after the incompatibilities
+  found at ION are removed and the statement of compliance, models and studies
+  are updated with values measured during the compliance tests (36(3)).
 
-2. **ION — Interim Operational Notification**
-   Partial generation (typically 10-30% of capacity). Proves:
-   - Steady-state load flow matches the connection agreement
-   - Harmonic emissions comply with IEC 61000-3-6 planning levels
-   - Voltage quality at PCC meets EN 50160
-   - Power quality recorder is installed and logging
-   - Reactive power capability matches the declared P-Q chart
-   Standards: IEC 61400-21-1, EN 50160, IEC 61000-3-6
+Which tests apply: the connection point of this farm is PSE's onshore 400 kV
+busbar, so by Art. 23(1) it is treated as an *onshore* power park module, type D.
+Compliance tests are those of Art. 49 (= Art. 47 + Art. 48(2)–(9)); compliance
+simulations those of Art. 56 (= Art. 54, 55, plus fault-ride-through to Art.
+16(3)(a)). An equipment certificate may replace a test (Art. 48(1)).
 
-3. **FON — Final Operational Notification**
-   Full-capacity operation. Proves:
-   - Fault Ride Through (FRT) matches NC RfG Type D requirements
-   - Frequency response (LFSM-O, LFSM-U) is correctly parameterised
-   - Full P-Q capability curve demonstrated under test conditions
-   - Reactive power range at PCC: 0.95 lead to 0.95 lag (IRiESP)
-   - All commissioning punch-list items are closed
-   Standards: NC RfG (EU 2016/631), IRiESP §B.4, IEC 61400-27-1
+Parameter values are PSE's choices in its requirements of general application
+under NC RfG (2018), the same values the P2 studies use.
 
-Gate Logic (Critical Path):
-  EON → ION: All EON tests COMPLIANT + SAT campaign approved
-  ION → FON: All ION tests COMPLIANT + switching programme completed
-  FON approval = **Commercial Operation Date (COD)**
-
-Standards: NC RfG (EU 2016/631), IRiESP, IEC 61400-21-1, IEC 60255.
+The programme couples to this campaign: EON is a gate before cable 1 is
+energised, ION before the turbines are released, and FON can only be submitted
+once the switching programme is complete.
 """
 
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
-# ── Enums ───────────────────────────────────────────────────────
+from app.core.exceptions import NotFoundError, StateTransitionError
+from app.services.p2.frt_simulation import (
+    PSE_FRT_PROFILE,
+    RECOVERY_FRACTION,
+    RECOVERY_LIMIT_S,
+)
+from app.services.p2.power_plant_controller import (
+    FREQ_RESPONSE_WINDOW_S,
+    Q_RESPONSE_LIMIT_S,
+    SETPOINT_DEADLINE_S,
+)
+from app.services.p2.statcom_sizing import PSE_Q_ABSORB_PU, PSE_Q_PRODUCE_PU
+
+ION_MAX_VALIDITY_DAYS = 730  # NC RfG Art. 35(4): 24 months
 
 
 class NotificationStage(StrEnum):
-    """The three TSO notification stages before COD."""
-
     EON = "eon"
     ION = "ion"
     FON = "fon"
 
 
 class ComplianceVerdict(StrEnum):
-    """Verdict for individual tests and overall stage status."""
-
     COMPLIANT = "compliant"
     NON_COMPLIANT = "non_compliant"
     PENDING = "pending"
-    CONDITIONAL = "conditional"
 
 
-# ── Data Models ─────────────────────────────────────────────────
+class StageStatus(StrEnum):
+    OPEN = "open"
+    SUBMITTED = "submitted"
+    ISSUED = "issued"
+
+
+class ItemKind(StrEnum):
+    DOCUMENT = "document"  # data / agreement reviewed by PSE
+    TEST = "test"  # measured on site
+    SIMULATION = "simulation"  # validated model
 
 
 @dataclass
 class GridCodeTest:
-    """A single compliance test within a notification stage."""
+    """One item of a notification stage."""
 
     test_id: str
     stage: NotificationStage
+    kind: ItemKind
     name: str
     description: str
     standard: str
@@ -88,20 +93,17 @@ class GridCodeTest:
 
 @dataclass
 class NotificationApplication:
-    """Tracks submission and approval of a notification stage to PSE."""
-
     stage: NotificationStage
-    status: ComplianceVerdict = ComplianceVerdict.PENDING
+    status: StageStatus = StageStatus.OPEN
     tests: list[GridCodeTest] = field(default_factory=list)
-    submitted_to: str = "PSE"
+    submitted_to: str = "PSE S.A."
     submitted_at: str | None = None
     approved_at: str | None = None
+    valid_until: str | None = None  # ION only
 
 
 @dataclass
 class ComplianceCampaign:
-    """Full compliance campaign covering all 3 stages (EON → ION → FON)."""
-
     campaign_id: str
     programme_id: str
     stages: dict[NotificationStage, NotificationApplication] = field(default_factory=dict)
@@ -110,357 +112,290 @@ class ComplianceCampaign:
     cod_date: str | None = None
 
 
-# ── Exceptions ──────────────────────────────────────────────────
-
-from app.core.exceptions import DomainError, NotFoundError, StateTransitionError  # noqa: E402
-
-
-class ComplianceError(DomainError):
-    """Base exception for grid code compliance operations."""
-
-
 class ComplianceGateError(StateTransitionError):
-    """Raised when a stage gate prerequisite is not met."""
+    """A stage prerequisite is not met."""
 
 
 class ComplianceTestNotFoundError(NotFoundError):
-    """Raised when a test ID is not found in the campaign."""
+    """Unknown item ID."""
 
 
-# ── Test Specifications (Roadmap Table 6.10) ────────────────────
+_D, _T, _S = ItemKind.DOCUMENT, ItemKind.TEST, ItemKind.SIMULATION
+_FRT_T, _FRT_U = PSE_FRT_PROFILE[1][0] * 1e3, PSE_FRT_PROFILE[2]
 
-EON_TEST_SPECS: list[dict[str, str]] = [
-    {
-        "test_id": "EON-001",
-        "name": "Protection settings verification",
-        "description": "Confirm all relay settings match PSE-approved settings schedule",
-        "standard": "IEC 60255",
-        "acceptance_criteria": "All 12 relay settings within ±2% of approved values",
-    },
-    {
-        "test_id": "EON-002",
-        "name": "SCADA telemetry validation",
-        "description": "Verify all telemetry points reach PSE National Control Centre",
-        "standard": "IEC 61850",
-        "acceptance_criteria": "100% of status and analogue points confirmed at NCC",
-    },
-    {
-        "test_id": "EON-003",
-        "name": "SAT results review",
-        "description": "All Site Acceptance Tests passed and campaign approved",
-        "standard": "IEC 62271-200",
-        "acceptance_criteria": "SAT campaign status = approved, all tests = pass",
-    },
-    {
-        "test_id": "EON-004",
-        "name": "Earthing system impedance",
-        "description": "Measure earth grid impedance at OSS and verify design compliance",
-        "standard": "IEC 60364-4-41",
-        "acceptance_criteria": "Earth impedance ≤ 1 Ω at OSS main earth bar",
-    },
-    {
-        "test_id": "EON-005",
-        "name": "Intertrip scheme test",
-        "description": "Verify intertrip signal path from onshore to offshore CBs",
-        "standard": "IEC 60834",
-        "acceptance_criteria": "Intertrip operates within 100 ms end-to-end",
-    },
-    {
-        "test_id": "EON-006",
-        "name": "Emergency stop function test",
-        "description": "Verify all emergency stop buttons trip the correct HV circuits",
-        "standard": "IEC 61936-1",
-        "acceptance_criteria": "All 4 E-stop stations trip within 200 ms",
-    },
-]
-
-ION_TEST_SPECS: list[dict[str, str]] = [
-    {
-        "test_id": "ION-001",
-        "name": "Steady-state load flow validation",
-        "description": "Compare measured power flow at PCC against Pandapower model",
-        "standard": "IEC 61400-21-1",
-        "acceptance_criteria": "Active power within ±3% of model at 30% generation",
-    },
-    {
-        "test_id": "ION-002",
-        "name": "Harmonic emission measurement",
-        "description": "Measure current harmonics at PCC up to 50th order",
-        "standard": "IEC 61000-3-6",
-        "acceptance_criteria": "All individual harmonics below planning levels (Table 3)",
-    },
-    {
-        "test_id": "ION-003",
-        "name": "Voltage quality at PCC",
-        "description": "7-day power quality recording at the point of connection",
-        "standard": "EN 50160",
-        "acceptance_criteria": "Voltage within ±10% of Un for 95% of 10-min averages",
-    },
-    {
-        "test_id": "ION-004",
-        "name": "Power quality recorder verification",
-        "description": "Confirm IEC 61000-4-30 Class A PQ recorder is installed and logging",
-        "standard": "IEC 61000-4-30",
-        "acceptance_criteria": "Recorder operational, data accessible to PSE via SCADA",
-    },
-    {
-        "test_id": "ION-005",
-        "name": "Reactive power capability (partial)",
-        "description": "Demonstrate Q capability at 30% P as per declared P-Q chart",
-        "standard": "IRiESP §B.4",
-        "acceptance_criteria": "Q range covers 0.95 lead to 0.95 lag at 30% Pn",
-    },
-]
-
-FON_TEST_SPECS: list[dict[str, str]] = [
-    {
-        "test_id": "FON-001",
-        "name": "Fault Ride Through (FRT) test",
-        "description": "Verify voltage-against-time profile compliance during grid faults",
-        "standard": "NC RfG Type D (EU 2016/631)",
-        "acceptance_criteria": "Remain connected for 150 ms at 0.05 pu voltage",
-    },
-    {
-        "test_id": "FON-002",
-        "name": "LFSM-O frequency response",
-        "description": "Verify over-frequency active power reduction (droop = 5%)",
-        "standard": "NC RfG Article 13(2)",
-        "acceptance_criteria": "ΔP/ΔF response within ±0.5% of declared droop",
-    },
-    {
-        "test_id": "FON-003",
-        "name": "LFSM-U frequency response",
-        "description": "Verify under-frequency active power increase capability",
-        "standard": "NC RfG Article 13(2)",
-        "acceptance_criteria": "Response activated within 2 s of frequency deviation",
-    },
-    {
-        "test_id": "FON-004",
-        "name": "Full P-Q capability curve",
-        "description": "Demonstrate complete P-Q operating envelope at rated power",
-        "standard": "IRiESP §B.4",
-        "acceptance_criteria": "8 test points on P-Q boundary, all within declared envelope",
-    },
-    {
-        "test_id": "FON-005",
-        "name": "Full reactive power range at PCC",
-        "description": "Demonstrate 0.95 lead to 0.95 lag at rated active power",
-        "standard": "IRiESP §B.4",
-        "acceptance_criteria": "Q at Prated: -160 MVAR to +160 MVAR demonstrated",
-    },
-    {
-        "test_id": "FON-006",
-        "name": "Commissioning punch-list closure",
-        "description": "Verify all outstanding commissioning items are resolved",
-        "standard": "Project-specific",
-        "acceptance_criteria": "Zero open Category A or B punch-list items",
-    },
-]
-
-
-# ── In-Memory Store ─────────────────────────────────────────────
-
-_campaigns: dict[str, ComplianceCampaign] = {}
-
-
-# ── Helper: Build Tests from Specs ──────────────────────────────
-
-
-def _build_tests(stage: NotificationStage, specs: list[dict[str, str]]) -> list[GridCodeTest]:
-    """Create GridCodeTest instances from specification dicts."""
-    return [
-        GridCodeTest(
-            test_id=spec["test_id"],
-            stage=stage,
-            name=spec["name"],
-            description=spec["description"],
-            standard=spec["standard"],
-            acceptance_criteria=spec["acceptance_criteria"],
-        )
-        for spec in specs
-    ]
-
-
-# ── Public API ──────────────────────────────────────────────────
+# (id, kind, name, reference, description, acceptance)
+_SPECS: dict[NotificationStage, list[tuple[str, ItemKind, str, str, str, str]]] = {
+    NotificationStage.EON: [
+        (
+            "EON-01",
+            _D,
+            "Protection and control settings agreed",
+            "NC RfG Art. 34(2)",
+            "Settings at the connection point agreed between PSE and the owner",
+            "Signed setting schedule for the 400/220 kV connection and export circuits",
+        ),
+        (
+            "EON-02",
+            _T,
+            "Real-time data exchange with PSE",
+            "NC RfG Art. 14(5)(d)",
+            "Telemetry and control signals between the plant and PSE dispatch verified",
+            "All agreed signals verified end-to-end with PSE dispatch",
+        ),
+        (
+            "EON-03",
+            _T,
+            "Earthing system",
+            "EN 50522:2022",
+            "Earth-potential rise, touch and step voltages measured at the OSS and onshore",
+            "Touch voltages within the EN 50522 permissible curve for the fault duration",
+        ),
+        (
+            "EON-04",
+            _D,
+            "Operational agreement",
+            "Connection agreement",
+            "Switching authority, Person in Control and communication with PSE dispatch",
+            "Signed operating agreement and contact list",
+        ),
+    ],
+    NotificationStage.ION: [
+        (
+            "ION-01",
+            _D,
+            "Itemised statement of compliance",
+            "NC RfG Art. 35(3)(a)",
+            "Requirement-by-requirement statement",
+            "Submitted and reviewed",
+        ),
+        (
+            "ION-02",
+            _D,
+            "Detailed technical data",
+            "NC RfG Art. 35(3)(b)",
+            "Technical data of the PPM relevant to the grid connection",
+            "Submitted and reviewed",
+        ),
+        (
+            "ION-03",
+            _D,
+            "Equipment certificates",
+            "NC RfG Art. 35(3)(c)",
+            "Turbine unit certificates from an authorised certifier",
+            "Certificates cover the turbine type and software version installed",
+        ),
+        (
+            "ION-04",
+            _D,
+            "Simulation models",
+            "NC RfG Art. 35(3)(d), 15(6)(c)",
+            "RMS (and EMT if requested) models of turbines, PPC and STATCOM",
+            "Accepted by PSE",
+        ),
+        (
+            "ION-05",
+            _D,
+            "Steady-state and dynamic studies",
+            "NC RfG Art. 35(3)(e)",
+            "Load flow, reactive capability, FRT, power quality (see P2 studies)",
+            "Studies show compliance at the connection point",
+        ),
+        (
+            "ION-06",
+            _D,
+            "Intended compliance tests",
+            "NC RfG Art. 35(3)(f)",
+            "Test programme for the FON stage",
+            "Agreed with PSE",
+        ),
+    ],
+    NotificationStage.FON: [
+        (
+            "FON-01",
+            _T,
+            "LFSM-O response",
+            "NC RfG Art. 47(3), 13(2)",
+            "Frequency steps/ramps causing ≥ 10 % Pmax change, simulated signal injected",
+            "Threshold 50.2 Hz, droop 5 % (PSE); static and dynamic response as required",
+        ),
+        (
+            "FON-02",
+            _T,
+            "Active power controllability",
+            "NC RfG Art. 48(2), 15(2)(a)",
+            "Operation below a PSE setpoint",
+            f"Setpoint reached within {SETPOINT_DEADLINE_S / 60:.0f} min; accuracy as set by PSE",
+        ),
+        (
+            "FON-03",
+            _T,
+            "LFSM-U response",
+            "NC RfG Art. 48(3), 15(2)(c)",
+            "Steps/ramps from ≤ 80 % Pmax causing ≥ 10 % Pmax change",
+            "Threshold 49.8 Hz, droop 5 % (PSE); no undamped oscillation",
+        ),
+        (
+            "FON-04",
+            _T,
+            "FSM response",
+            "NC RfG Art. 48(4), 15(2)(d)",
+            "Full active-power frequency response range, simulated signal injected",
+            f"Full activation ≤ {FREQ_RESPONSE_WINDOW_S:.0f} s; droop and deadband as set by PSE",
+        ),
+        (
+            "FON-05",
+            _T,
+            "Frequency restoration control",
+            "NC RfG Art. 48(5), 15(2)(e)",
+            "Co-operation of FSM and restoration control",
+            "Static and dynamic parameters met",
+        ),
+        (
+            "FON-06",
+            _T,
+            "Reactive power capability",
+            "NC RfG Art. 48(6), 21(3)(b)–(c)",
+            "Max lead and lag Q: > 60 % Pmax for 30 min, 30–50 % for 30 min, 10–20 % for 60 min",
+            f"Q/Pmax from −{PSE_Q_ABSORB_PU:.2f} to +{PSE_Q_PRODUCE_PU:.2f} at the connection "
+            "point (PSE); no protection operation",
+        ),
+        (
+            "FON-07",
+            _T,
+            "Voltage control mode",
+            "NC RfG Art. 48(7), 21(3)(d)",
+            "Slope, deadband, accuracy and Q activation time after a voltage step",
+            f"Insensitivity ≤ 0.01 pu; 90 % of ΔQ within {Q_RESPONSE_LIMIT_S:.0f} s (PSE)",
+        ),
+        (
+            "FON-08",
+            _T,
+            "Reactive power control mode",
+            "NC RfG Art. 48(8), 21(3)(d)(v)",
+            "Setpoint range, increment, accuracy, activation time",
+            "As set by PSE",
+        ),
+        (
+            "FON-09",
+            _T,
+            "Power factor control mode",
+            "NC RfG Art. 48(9), 21(3)(d)(vi)",
+            "Setpoint range, accuracy, Q response to an active-power step",
+            "As set by PSE",
+        ),
+        (
+            "FON-10",
+            _S,
+            "Fault-ride-through",
+            "NC RfG Art. 56, 16(3)(a)",
+            "Validated model against the PSE voltage-against-time profile",
+            f"Stays connected: 0 pu for {_FRT_T:.0f} ms, recovery to {_FRT_U[1]:.2f} pu at "
+            f"{_FRT_U[0]:.1f} s",
+        ),
+        (
+            "FON-11",
+            _S,
+            "Fast fault current injection",
+            "NC RfG Art. 54(3), 20(2)(b)",
+            "Reactive current during symmetrical faults",
+            "Per PSE K-factor requirement",
+        ),
+        (
+            "FON-12",
+            _S,
+            "Post-fault active power recovery",
+            "NC RfG Art. 54(5), 20(3)",
+            "Active power after fault clearance",
+            f"{RECOVERY_FRACTION:.0%} of pre-fault power within {RECOVERY_LIMIT_S:.0f} s (PSE)",
+        ),
+        (
+            "FON-13",
+            _D,
+            "Updated statement of compliance",
+            "NC RfG Art. 36(3)",
+            "Technical data, models and studies updated with measured values",
+            "All ION incompatibilities removed",
+        ),
+    ],
+}
 
 
 def create_compliance_campaign(programme_id: str) -> ComplianceCampaign:
-    """
-    Create a new compliance campaign with all 3 stages and their tests.
-
-    Each stage is initialised with PENDING status and its pre-defined
-    test specifications.
-    """
-    campaign_id = f"GCC-{uuid.uuid4().hex[:8].upper()}"
-    now = datetime.now(UTC).isoformat()
-
-    stages = {
-        NotificationStage.EON: NotificationApplication(
-            stage=NotificationStage.EON,
-            tests=_build_tests(NotificationStage.EON, EON_TEST_SPECS),
-        ),
-        NotificationStage.ION: NotificationApplication(
-            stage=NotificationStage.ION,
-            tests=_build_tests(NotificationStage.ION, ION_TEST_SPECS),
-        ),
-        NotificationStage.FON: NotificationApplication(
-            stage=NotificationStage.FON,
-            tests=_build_tests(NotificationStage.FON, FON_TEST_SPECS),
-        ),
-    }
-
-    campaign = ComplianceCampaign(
-        campaign_id=campaign_id,
+    """Campaign with all three stages open and every item pending."""
+    return ComplianceCampaign(
+        campaign_id=f"GCC-{uuid.uuid4().hex[:8].upper()}",
         programme_id=programme_id,
-        stages=stages,
-        created_at=now,
+        created_at=datetime.now(UTC).isoformat(),
+        stages={
+            stage: NotificationApplication(
+                stage=stage,
+                tests=[
+                    GridCodeTest(tid, stage, kind, name, desc, ref, acc)
+                    for tid, kind, name, ref, desc, acc in specs
+                ],
+            )
+            for stage, specs in _SPECS.items()
+        },
     )
-    _campaigns[programme_id] = campaign
-    return campaign
-
-
-def get_compliance_campaign(programme_id: str) -> ComplianceCampaign | None:
-    """Return the compliance campaign for a programme, or None."""
-    return _campaigns.get(programme_id)
 
 
 def record_test_result(
-    programme_id: str,
+    campaign: ComplianceCampaign,
     test_id: str,
     verdict: ComplianceVerdict,
     evidence: str,
     tested_by: str,
 ) -> GridCodeTest:
-    """
-    Record a compliance test result.
-
-    Finds the test by ID across all stages, updates its verdict,
-    evidence, and tester information.
-    """
-    campaign = _campaigns.get(programme_id)
-    if campaign is None:
-        raise ComplianceError(f"No compliance campaign found for programme {programme_id}")
-
-    for stage_app in campaign.stages.values():
-        for test in stage_app.tests:
+    """Record a verdict; an issued stage is frozen."""
+    for stage in campaign.stages.values():
+        for test in stage.tests:
             if test.test_id == test_id:
-                test.verdict = verdict
-                test.evidence = evidence
-                test.tested_by = tested_by
+                if stage.status != StageStatus.OPEN:
+                    name = stage.stage.value.upper()
+                    raise ComplianceGateError(f"{name} is {stage.status.value}; items are frozen.")
+                test.verdict, test.evidence, test.tested_by = verdict, evidence, tested_by
                 test.tested_at = datetime.now(UTC).isoformat()
                 return test
-
-    raise ComplianceTestNotFoundError(f"Test {test_id} not found in campaign")
+    raise ComplianceTestNotFoundError(f"Item {test_id} not found.")
 
 
 def submit_notification(
-    programme_id: str,
+    campaign: ComplianceCampaign,
     stage: NotificationStage,
-    submitted_by: str,
+    programme_completed: bool,
 ) -> NotificationApplication:
-    """
-    Submit a notification stage to PSE for approval.
-
-    Gate logic enforced:
-    - EON: All EON tests must be COMPLIANT
-    - ION: All ION tests must be COMPLIANT + EON must be approved
-    - FON: All FON tests must be COMPLIANT + ION must be approved
-    """
-    campaign = _campaigns.get(programme_id)
-    if campaign is None:
-        raise ComplianceError(f"No compliance campaign found for programme {programme_id}")
-
-    stage_app = campaign.stages[stage]
-
-    # Check all tests in this stage are compliant
-    non_compliant = [t for t in stage_app.tests if t.verdict != ComplianceVerdict.COMPLIANT]
-    if non_compliant:
-        names = ", ".join(t.test_id for t in non_compliant)
-        raise ComplianceGateError(
-            f"Cannot submit {stage.value.upper()}: tests not compliant: {names}"
-        )
-
-    # Check predecessor stage gates
-    if stage == NotificationStage.ION:
-        eon = campaign.stages[NotificationStage.EON]
-        if eon.approved_at is None:
-            raise ComplianceGateError("Cannot submit ION: EON must be approved first")
-    elif stage == NotificationStage.FON:
-        ion = campaign.stages[NotificationStage.ION]
-        if ion.approved_at is None:
-            raise ComplianceGateError("Cannot submit FON: ION must be approved first")
-
-    stage_app.submitted_at = datetime.now(UTC).isoformat()
-    stage_app.status = ComplianceVerdict.CONDITIONAL
-    return stage_app
+    """Submit a stage to PSE once its items are compliant and the predecessor is issued."""
+    app = campaign.stages[stage]
+    if app.status != StageStatus.OPEN:
+        raise ComplianceGateError(f"{stage.value.upper()} is already {app.status.value}.")
+    open_items = [t.test_id for t in app.tests if t.verdict != ComplianceVerdict.COMPLIANT]
+    if open_items:
+        raise ComplianceGateError(f"Not compliant yet: {', '.join(open_items)}.")
+    order = list(NotificationStage)
+    if stage != NotificationStage.EON:
+        prev = campaign.stages[order[order.index(stage) - 1]]
+        if prev.approved_at is None:
+            raise ComplianceGateError(f"{prev.stage.value.upper()} must be issued first.")
+    if stage == NotificationStage.FON and not programme_completed:
+        raise ComplianceGateError("FON requires the energisation programme to be complete.")
+    app.status = StageStatus.SUBMITTED
+    app.submitted_at = datetime.now(UTC).isoformat()
+    return app
 
 
 def approve_notification(
-    programme_id: str,
-    stage: NotificationStage,
+    campaign: ComplianceCampaign, stage: NotificationStage
 ) -> NotificationApplication:
-    """
-    Approve a notification stage (simulates PSE approval).
-
-    Gate: all tests in stage must be COMPLIANT and stage must be submitted.
-    FON approval triggers COD (Commercial Operation Date).
-    """
-    campaign = _campaigns.get(programme_id)
-    if campaign is None:
-        raise ComplianceError(f"No compliance campaign found for programme {programme_id}")
-
-    stage_app = campaign.stages[stage]
-
-    if stage_app.submitted_at is None:
-        raise ComplianceGateError(f"Cannot approve {stage.value.upper()}: not yet submitted")
-
-    non_compliant = [t for t in stage_app.tests if t.verdict != ComplianceVerdict.COMPLIANT]
-    if non_compliant:
-        raise ComplianceGateError(f"Cannot approve {stage.value.upper()}: not all tests compliant")
-
-    now = datetime.now(UTC).isoformat()
-    stage_app.approved_at = now
-    stage_app.status = ComplianceVerdict.COMPLIANT
-
-    # FON approval = COD
+    """PSE issues the notification (simulated). FON = commercial operation."""
+    app = campaign.stages[stage]
+    if app.status != StageStatus.SUBMITTED:
+        raise ComplianceGateError(f"{stage.value.upper()} has not been submitted.")
+    now = datetime.now(UTC)
+    app.status = StageStatus.ISSUED
+    app.approved_at = now.isoformat()
+    if stage == NotificationStage.ION:
+        app.valid_until = (now + timedelta(days=ION_MAX_VALIDITY_DAYS)).isoformat()
     if stage == NotificationStage.FON:
         campaign.cod_achieved = True
-        campaign.cod_date = now
-
-    return stage_app
-
-
-def get_stage_summary(
-    programme_id: str,
-    stage: NotificationStage,
-) -> dict[str, object]:
-    """
-    Return a summary of a stage's compliance status.
-
-    Includes test counts by verdict and the overall stage status.
-    """
-    campaign = _campaigns.get(programme_id)
-    if campaign is None:
-        raise ComplianceError(f"No compliance campaign found for programme {programme_id}")
-
-    stage_app = campaign.stages[stage]
-    verdicts = {v: 0 for v in ComplianceVerdict}
-    for test in stage_app.tests:
-        verdicts[test.verdict] += 1
-
-    return {
-        "stage": stage.value,
-        "total_tests": len(stage_app.tests),
-        "compliant": verdicts[ComplianceVerdict.COMPLIANT],
-        "non_compliant": verdicts[ComplianceVerdict.NON_COMPLIANT],
-        "pending": verdicts[ComplianceVerdict.PENDING],
-        "conditional": verdicts[ComplianceVerdict.CONDITIONAL],
-        "submitted_at": stage_app.submitted_at,
-        "approved_at": stage_app.approved_at,
-        "overall_status": stage_app.status.value,
-    }
-
-
-def clear_campaigns() -> None:
-    """Reset all campaigns (for testing)."""
-    _campaigns.clear()
+        campaign.cod_date = now.isoformat()
+    return app

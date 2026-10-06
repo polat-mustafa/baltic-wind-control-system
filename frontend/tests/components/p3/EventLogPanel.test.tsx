@@ -64,7 +64,7 @@ describe("EventLogPanel", () => {
     mockStore({ eventLog });
     render(<EventLogPanel />);
     expect(screen.getByText("Event Log / SOE")).toBeDefined();
-    expect(screen.getByText("2 entries")).toBeDefined();
+    expect(screen.getByText(/^2 entries/)).toBeDefined();
   });
 
   it("shows column headers", () => {

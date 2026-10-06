@@ -26,7 +26,8 @@ export interface NetworkLink {
   bandwidth_mbps: number;
   latency_ms: number;
   redundant: boolean;
-  encryption: boolean;
+  /** Encryption on the link, e.g. "IPsec AES-256" or "None (physically secured)" */
+  encryption: string;
 }
 
 export interface NetworkTopologyResponse {

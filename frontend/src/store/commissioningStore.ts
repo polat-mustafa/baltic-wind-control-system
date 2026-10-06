@@ -1,516 +1,233 @@
 /**
- * Zustand store for P5 commissioning state.
+ * P5 commissioning store — one programme open at a time.
  *
- * Single store managing the full switching programme lifecycle:
- * programme list, active programme detail, LOTO set, audit trail,
- * FAT/SAT campaigns, and all async actions that call the API.
- *
- * Future P1-P4 dashboards will get their own store files — this store
- * is scoped exclusively to the commissioning domain.
+ * Every action calls the API and then refreshes the open programme (steps,
+ * equipment, load-flow snapshot, audit trail) together with its isolation
+ * register, SAT, compliance campaign and the FAT list, so all tabs show the
+ * same state. The Person in Control's name is the actor for every action.
  */
 
 import { create } from "zustand";
 
 import * as api from "../services/commissioningApi";
 import type {
-  AuditRecord,
   ComplianceCampaign,
-  EmergencyEvent,
+  ComplianceVerdict,
   EmergencyProcedure,
+  EquipmentClass,
   FATCampaign,
   LOTOSet,
   NotificationStage,
-  PiCDecision,
   ProgrammeDetail,
   ProgrammeSummary,
   SATCampaign,
 } from "../types/commissioning";
 
-// ── Anomaly injection (client-only, educational simulation) ────
-
-export interface AnomalyOverlay {
-  id: string;
-  type: "sf6_leak" | "comms_failure" | "voltage_anomaly";
-  equipment_id: string;
-  label: string;
-  active: boolean;
-}
-
-// ── Store Interface ────────────────────────────────────────────
-
 interface CommissioningState {
-  // Data
   programmes: ProgrammeSummary[];
-  activeProgramme: ProgrammeDetail | null;
-  lotoSet: LOTOSet | null;
-  auditRecords: AuditRecord[];
-  fatCampaigns: FATCampaign[];
-  satCampaign: SATCampaign | null;
-  anomalies: AnomalyOverlay[];
-  emergencyProcedures: EmergencyProcedure[];
-  emergencyLog: EmergencyEvent[];
-  complianceCampaign: ComplianceCampaign | null;
-
-  // UI state
+  active: ProgrammeDetail | null;
+  loto: LOTOSet | null;
+  fat: FATCampaign[];
+  sat: SATCampaign | null;
+  compliance: ComplianceCampaign | null;
+  procedures: EmergencyProcedure[];
+  busy: boolean;
   error: string | null;
-  loading: boolean;
+  /** Result line of the last executed step (or its refusal). */
+  lastResult: { stepId: string; ok: boolean; text: string } | null;
 
-  // Programme lifecycle actions
   fetchProgrammes: () => Promise<void>;
   createProgramme: (picName: string) => Promise<void>;
+  openProgramme: (id: string) => Promise<void>;
+  closeProgramme: () => void;
   deleteProgramme: (id: string) => Promise<void>;
-  selectProgramme: (id: string) => Promise<void>;
-  startProgramme: (id: string) => Promise<void>;
-  refreshActiveProgramme: () => Promise<void>;
-
-  // Step execution
-  executeStep: (stepId: string, executedBy: string) => Promise<void>;
-
-  // PiC decisions
-  picDecision: (decision: PiCDecision, picName: string, reason?: string) => Promise<void>;
-  emergencyStop: (initiatedBy: string, reason: string) => Promise<void>;
-
-  // LOTO
-  fetchLOTO: () => Promise<void>;
-  applyLOTO: (pointId: string, performedBy: string) => Promise<void>;
-  removeLOTO: (pointId: string, performedBy: string) => Promise<void>;
-
-  // Audit trail
-  fetchAuditTrail: () => Promise<void>;
-
-  // FAT/SAT
-  fetchFATCampaigns: () => Promise<void>;
-  createFATCampaign: (equipmentTag: string) => Promise<void>;
-  recordFATResult: (campaignId: string, testId: string, value: number, recordedBy: string, notes?: string) => Promise<void>;
-  approveFATCampaign: (campaignId: string, approvedBy: string) => Promise<void>;
-  createSATCampaign: (requireFat?: boolean) => Promise<void>;
-  fetchSATCampaign: () => Promise<void>;
-  recordSATResult: (testId: string, value: number, recordedBy: string, notes?: string) => Promise<void>;
-  approveSATCampaign: (approvedBy: string) => Promise<void>;
-
-  // Emergency response
-  fetchEmergencyProcedures: () => Promise<void>;
-  triggerEmergency: (emergencyType: string, triggeredBy: string) => Promise<void>;
-  fetchEmergencyLog: () => Promise<void>;
-
-  // Grid code compliance
-  fetchComplianceCampaign: () => Promise<void>;
-  createComplianceCampaign: () => Promise<void>;
-  recordComplianceResult: (testId: string, verdict: string, evidence: string, testedBy: string) => Promise<void>;
-  submitNotification: (stage: NotificationStage, submittedBy: string) => Promise<void>;
-  approveNotification: (stage: NotificationStage) => Promise<void>;
-
-  // Anomaly injection (client-only)
-  injectAnomaly: (anomaly: Omit<AnomalyOverlay, "active">) => void;
-  clearAnomaly: (id: string) => void;
-  clearAllAnomalies: () => void;
-
-  // Utility
+  startProgramme: () => Promise<void>;
+  executeCurrentStep: () => Promise<void>;
+  decide: (decision: "go" | "nogo", reason?: string) => Promise<void>;
+  emergencyStop: (reason: string) => Promise<void>;
+  lockAction: (pointId: string, action: "apply" | "remove") => Promise<void>;
+  createFAT: (tag: string, cls: EquipmentClass) => Promise<void>;
+  recordFAT: (campaignId: string, testId: string, value: number) => Promise<void>;
+  fillFAT: (campaignId: string) => Promise<void>;
+  approveFAT: (campaignId: string) => Promise<void>;
+  createSAT: () => Promise<void>;
+  recordSAT: (testId: string, value: number) => Promise<void>;
+  fillSAT: () => Promise<void>;
+  approveSAT: () => Promise<void>;
+  createCompliance: () => Promise<void>;
+  recordCompliance: (testId: string, verdict: ComplianceVerdict, evidence: string) => Promise<void>;
+  markStageCompliant: (stage: NotificationStage) => Promise<void>;
+  stageAction: (stage: NotificationStage, action: "submit" | "approve") => Promise<void>;
+  triggerEmergency: (type: string) => Promise<void>;
   clearError: () => void;
-  clearActiveProgramme: () => void;
 }
 
-// ── Store Implementation ───────────────────────────────────────
+const orNull = <T,>(p: Promise<T>) => p.catch(() => null);
 
-export const useCommissioningStore = create<CommissioningState>((set, get) => ({
-  // Initial state
-  programmes: [],
-  activeProgramme: null,
-  lotoSet: null,
-  auditRecords: [],
-  fatCampaigns: [],
-  satCampaign: null,
-  anomalies: [],
-  emergencyProcedures: [],
-  emergencyLog: [],
-  complianceCampaign: null,
-  error: null,
-  loading: false,
+export const useCommissioningStore = create<CommissioningState>((set, get) => {
+  const pic = () => get().active?.pic_name ?? "";
+  const id = () => {
+    const a = get().active;
+    if (!a) throw new Error("No programme open");
+    return a.programme_id;
+  };
 
-  // ── Programme lifecycle ──────────────────────────────────────
+  async function refresh() {
+    const a = get().active;
+    if (!a) return;
+    const [detail, loto, sat, compliance, fat] = await Promise.all([
+      api.getProgramme(a.programme_id),
+      orNull(api.getLOTO(a.programme_id)),
+      orNull(api.getSAT(a.programme_id)),
+      orNull(api.getCompliance(a.programme_id)),
+      api.listFAT(),
+    ]);
+    set({ active: detail, loto, sat, compliance, fat });
+  }
 
-  fetchProgrammes: async () => {
+  /** Run an API call, then refresh; surface errors in the banner. */
+  async function run(fn: () => Promise<unknown>) {
+    set({ busy: true, error: null });
     try {
-      const programmes = await api.listProgrammes();
-      set({ programmes });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  createProgramme: async (picName) => {
-    try {
-      set({ loading: true, error: null });
-      await api.createProgramme(picName);
-      await get().fetchProgrammes();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
+      await fn();
+      await refresh();
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
     } finally {
-      set({ loading: false });
+      set({ busy: false });
     }
-  },
+  }
 
-  deleteProgramme: async (id) => {
-    try {
-      set({ loading: true, error: null });
-      const res = await fetch(`/api/v1/commissioning/programmes/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`Delete failed: ${res.statusText}`);
-      await get().fetchProgrammes();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    } finally {
-      set({ loading: false });
-    }
-  },
+  return {
+    programmes: [],
+    active: null,
+    loto: null,
+    fat: [],
+    sat: null,
+    compliance: null,
+    procedures: [],
+    busy: false,
+    error: null,
+    lastResult: null,
 
-  selectProgramme: async (id) => {
-    try {
-      set({ loading: true, error: null });
-      const detail = await api.getProgrammeDetail(id);
-      set({ activeProgramme: detail });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    } finally {
-      set({ loading: false });
-    }
-  },
+    fetchProgrammes: async () => {
+      try {
+        const [programmes, procedures] = await Promise.all([api.listProgrammes(), api.listProcedures()]);
+        set({ programmes, procedures });
+      } catch (e) {
+        set({ error: e instanceof Error ? e.message : String(e) });
+      }
+    },
 
-  startProgramme: async (id) => {
-    try {
-      set({ error: null });
-      await api.startProgramme(id);
-      await get().selectProgramme(id);
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
+    createProgramme: async (picName) => {
+      set({ busy: true, error: null });
+      try {
+        const p = await api.createProgramme(picName);
+        await get().fetchProgrammes();
+        await get().openProgramme(p.programme_id);
+      } catch (e) {
+        set({ error: e instanceof Error ? e.message : String(e) });
+      } finally {
+        set({ busy: false });
+      }
+    },
 
-  refreshActiveProgramme: async () => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      const detail = await api.getProgrammeDetail(prog.programme_id);
-      set({ activeProgramme: detail });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
+    openProgramme: async (programmeId) => {
+      set({ busy: true, error: null, lastResult: null });
+      try {
+        set({ active: await api.getProgramme(programmeId) });
+        await refresh();
+      } catch (e) {
+        set({ error: e instanceof Error ? e.message : String(e) });
+      } finally {
+        set({ busy: false });
+      }
+    },
 
-  // ── Step execution ───────────────────────────────────────────
+    closeProgramme: () => {
+      set({ active: null, loto: null, sat: null, compliance: null, lastResult: null });
+      void get().fetchProgrammes();
+    },
 
-  executeStep: async (stepId, executedBy) => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.executeStep(prog.programme_id, stepId, {
-        executed_by: executedBy,
-        pic_confirmed: true,
-      });
-      await get().refreshActiveProgramme();
-      await get().fetchAuditTrail();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
+    deleteProgramme: async (programmeId) => {
+      try {
+        await api.deleteProgramme(programmeId);
+        await get().fetchProgrammes();
+      } catch (e) {
+        set({ error: e instanceof Error ? e.message : String(e) });
+      }
+    },
 
-  // ── PiC decisions ────────────────────────────────────────────
+    startProgramme: () => run(() => api.startProgramme(id())),
 
-  picDecision: async (decision, picName, reason = "") => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.picDecision(prog.programme_id, {
-        pic_name: picName,
-        decision,
-        reason,
-      });
-      await get().refreshActiveProgramme();
-      await get().fetchAuditTrail();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
+    executeCurrentStep: async () => {
+      const a = get().active;
+      if (!a) return;
+      const step = a.steps[a.current_step_index];
+      if (!step) return;
+      set({ busy: true, error: null });
+      try {
+        const r = await api.executeStep(a.programme_id, step.step_id, a.pic_name);
+        set({
+          lastResult: {
+            stepId: step.step_id,
+            ok: r.success,
+            text: r.success ? r.reading || "Completed" : r.message,
+          },
+        });
+      } catch (e) {
+        // A refused step is not an application error: show it in the step panel
+        set({ lastResult: { stepId: step.step_id, ok: false, text: e instanceof Error ? e.message : String(e) } });
+      }
+      try {
+        await refresh();
+      } finally {
+        set({ busy: false });
+      }
+    },
 
-  emergencyStop: async (initiatedBy, reason) => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.emergencyStop(prog.programme_id, {
-        initiated_by: initiatedBy,
-        reason,
-      });
-      await get().refreshActiveProgramme();
-      await get().fetchAuditTrail();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
+    decide: (decision, reason = "") => run(() => api.picDecision(id(), pic(), decision, reason)),
+    emergencyStop: (reason) => run(() => api.emergencyStop(id(), pic(), reason)),
+    lockAction: (pointId, action) => run(() => api.lotoAction(id(), pointId, action, pic())),
 
-  // ── LOTO ─────────────────────────────────────────────────────
+    createFAT: (tag, cls) => run(() => api.createFAT(tag, cls)),
+    recordFAT: (campaignId, testId, value) => run(() => api.recordFAT(campaignId, testId, value, pic())),
+    fillFAT: (campaignId) =>
+      run(async () => {
+        const c = get().fat.find((f) => f.campaign_id === campaignId);
+        const done = new Set(c?.results.map((r) => r.test_id));
+        for (const s of c?.specs ?? []) {
+          if (!done.has(s.test_id)) await api.recordFAT(campaignId, s.test_id, s.typical_value, pic());
+        }
+      }),
+    approveFAT: (campaignId) => run(() => api.approveFAT(campaignId, pic())),
 
-  fetchLOTO: async () => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      const lotoSet = await api.getLOTOStatus(prog.programme_id);
-      set({ lotoSet });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
+    createSAT: () => run(() => api.createSAT(id())),
+    recordSAT: (testId, value) => run(() => api.recordSAT(id(), testId, value, pic())),
+    fillSAT: () =>
+      run(async () => {
+        const sat = get().sat;
+        const done = new Set(sat?.results.map((r) => r.test_id));
+        for (const s of sat?.specs ?? []) {
+          if (!done.has(s.test_id)) await api.recordSAT(id(), s.test_id, s.typical_value, pic());
+        }
+      }),
+    approveSAT: () => run(() => api.approveSAT(id(), pic())),
 
-  applyLOTO: async (pointId, performedBy) => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.applyLOTO(prog.programme_id, pointId, {
-        performed_by: performedBy,
-      });
-      await get().fetchLOTO();
-      await get().fetchAuditTrail();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
+    createCompliance: () => run(() => api.createCompliance(id())),
+    recordCompliance: (testId, verdict, evidence) =>
+      run(() => api.recordCompliance(id(), testId, verdict, evidence, pic())),
+    markStageCompliant: (stage) =>
+      run(async () => {
+        for (const t of get().compliance?.stages[stage].tests ?? []) {
+          if (t.verdict !== "compliant") {
+            await api.recordCompliance(id(), t.test_id, "compliant", "Demonstration record", pic());
+          }
+        }
+      }),
+    stageAction: (stage, action) => run(() => api.stageAction(id(), stage, action)),
 
-  removeLOTO: async (pointId, performedBy) => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.removeLOTO(prog.programme_id, pointId, {
-        performed_by: performedBy,
-      });
-      await get().fetchLOTO();
-      await get().fetchAuditTrail();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  // ── Audit trail ──────────────────────────────────────────────
-
-  fetchAuditTrail: async () => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      const trail = await api.getAuditTrail(prog.programme_id);
-      set({ auditRecords: trail.records });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  // ── FAT ──────────────────────────────────────────────────────
-
-  fetchFATCampaigns: async () => {
-    try {
-      const fatCampaigns = await api.listFATCampaigns();
-      set({ fatCampaigns });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  createFATCampaign: async (equipmentTag) => {
-    try {
-      set({ error: null });
-      await api.createFATCampaign(equipmentTag);
-      await get().fetchFATCampaigns();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  recordFATResult: async (campaignId, testId, value, recordedBy, notes = "") => {
-    try {
-      set({ error: null });
-      await api.recordFATResult(campaignId, testId, value, recordedBy, notes);
-      await get().fetchFATCampaigns();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  approveFATCampaign: async (campaignId, approvedBy) => {
-    try {
-      set({ error: null });
-      await api.approveFATCampaign(campaignId, approvedBy);
-      await get().fetchFATCampaigns();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  // ── SAT ──────────────────────────────────────────────────────
-
-  createSATCampaign: async (requireFat = false) => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      const sat = await api.createSATCampaign(prog.programme_id, requireFat);
-      set({ satCampaign: sat });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  fetchSATCampaign: async () => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      const sat = await api.getSATCampaign(prog.programme_id);
-      set({ satCampaign: sat });
-    } catch {
-      // 404 is expected when no SAT campaign exists
-      set({ satCampaign: null });
-    }
-  },
-
-  recordSATResult: async (testId, value, recordedBy, notes = "") => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.recordSATResult(prog.programme_id, testId, value, recordedBy, notes);
-      await get().fetchSATCampaign();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  approveSATCampaign: async (approvedBy) => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.approveSATCampaign(prog.programme_id, approvedBy);
-      await get().fetchSATCampaign();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  // ── Emergency response ────────────────────────────────────────
-
-  fetchEmergencyProcedures: async () => {
-    try {
-      const emergencyProcedures = await api.listEmergencyProcedures();
-      set({ emergencyProcedures });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  triggerEmergency: async (emergencyType, triggeredBy) => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.triggerEmergency(prog.programme_id, emergencyType, triggeredBy);
-      await get().fetchEmergencyLog();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  fetchEmergencyLog: async () => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      const response = await api.getEmergencyLog(prog.programme_id);
-      set({ emergencyLog: response.events });
-    } catch {
-      set({ emergencyLog: [] });
-    }
-  },
-
-  // ── Grid code compliance ─────────────────────────────────────
-
-  fetchComplianceCampaign: async () => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      const complianceCampaign = await api.getComplianceCampaign(prog.programme_id);
-      set({ complianceCampaign });
-    } catch {
-      set({ complianceCampaign: null });
-    }
-  },
-
-  createComplianceCampaign: async () => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      const complianceCampaign = await api.createComplianceCampaign(prog.programme_id);
-      set({ complianceCampaign });
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  recordComplianceResult: async (testId, verdict, evidence, testedBy) => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.recordComplianceResult(prog.programme_id, testId, verdict, evidence, testedBy);
-      await get().fetchComplianceCampaign();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  submitNotification: async (stage, submittedBy) => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.submitNotification(prog.programme_id, stage, submittedBy);
-      await get().fetchComplianceCampaign();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  approveNotification: async (stage) => {
-    const prog = get().activeProgramme;
-    if (!prog) return;
-    try {
-      set({ error: null });
-      await api.approveNotification(prog.programme_id, stage);
-      await get().fetchComplianceCampaign();
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) });
-    }
-  },
-
-  // ── Anomaly injection (client-only) ──────────────────────────
-
-  injectAnomaly: (anomaly) => {
-    set((state) => ({
-      anomalies: [...state.anomalies, { ...anomaly, active: true }],
-    }));
-  },
-
-  clearAnomaly: (id) => {
-    set((state) => ({
-      anomalies: state.anomalies.filter((a) => a.id !== id),
-    }));
-  },
-
-  clearAllAnomalies: () => {
-    set({ anomalies: [] });
-  },
-
-  // ── Utility ──────────────────────────────────────────────────
-
-  clearError: () => set({ error: null }),
-  clearActiveProgramme: () => set({ activeProgramme: null }),
-}));
+    triggerEmergency: (type) => run(() => api.triggerEmergency(id(), type, pic())),
+    clearError: () => set({ error: null }),
+  };
+});

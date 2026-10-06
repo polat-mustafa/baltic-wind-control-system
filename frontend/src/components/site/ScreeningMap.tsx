@@ -59,6 +59,16 @@ function DrawClicks() {
   return null;
 }
 
+/** Tooltip text: the feature name plus capacity / status when the data has them. */
+function featureLabel(f: LayerInfo["features"][number]): string {
+  const p = f.properties;
+  const extra = [
+    typeof p.power_mw === "number" ? `${p.power_mw} MW` : "",
+    typeof p.status === "string" ? p.status : "",
+  ].filter(Boolean);
+  return extra.length ? `${f.name} (${extra.join(", ")})` : f.name;
+}
+
 export const LayerShapes = memo(function LayerShapes({
   layer,
   style,
@@ -86,7 +96,7 @@ export const LayerShapes = memo(function LayerShapes({
               }}
               renderer={renderer}
             >
-              <Tooltip sticky>{f.name}</Tooltip>
+              <Tooltip sticky>{featureLabel(f)}</Tooltip>
             </Polygon>
           );
         }
@@ -109,7 +119,7 @@ export const LayerShapes = memo(function LayerShapes({
             radius={6}
             pathOptions={{ color: "#fff", weight: 2, fillColor: style.color, fillOpacity: 1 }}
           >
-            <Tooltip>{f.name}</Tooltip>
+            <Tooltip>{featureLabel(f)}</Tooltip>
           </CircleMarker>
         );
       })}

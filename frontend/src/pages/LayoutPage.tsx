@@ -18,8 +18,9 @@ import { layoutYield, UNIFORM_ROSE, type WindRose } from "../lib/layout/energy";
 import {
   D,
   defaultExportKm,
+  blockedBy,
+  energyRings,
   exclusionRings,
-  inRing,
   MIN_SPACING_D,
   OTHER_LOSSES,
   RATED_MW,
@@ -175,7 +176,8 @@ export default function LayoutPage() {
   const areaKm2 = polygonArea(siteXY) / 1e6;
 
   const exclusions = useMemo(() => exclusionRings(layers), [layers]);
-  const excludedBy = (pt: LonLat) => exclusions.find((e) => inRing(pt, e.ring));
+  const energy = useMemo(() => energyRings(layers), [layers]);
+  const excludedBy = (pt: LonLat) => blockedBy(pt, exclusions, energy);
 
   const sig = signature(p.turbines);
   const xy = useMemo(() => p.turbines.map((t) => proj.toXY([t.lon, t.lat])), [p.turbines, proj]);
@@ -191,7 +193,7 @@ export default function LayoutPage() {
     const loss = yieldRes?.perTurbineLossPct[i];
     const lossNote = loss != null ? `wake loss ${loss.toFixed(1)} %` : "";
     if (!insidePolygon(xy[i], siteXY)) return { ...t, status: "outside", note: "outside the site boundary" };
-    if (ex) return { ...t, status: "excluded", note: `inside ${ex.name}` };
+    if (ex) return { ...t, status: "excluded", note: ex };
     if (near < MIN_SPACING_D * D) return { ...t, status: "close", note: `${(near / D).toFixed(1)} D to the nearest turbine · ${lossNote}` };
     return { ...t, status: "ok", note: lossNote };
   });

@@ -26,6 +26,18 @@ describe("decide", () => {
     expect(d.conditions).toEqual([]);
   });
 
+  it("refuses a site outside the plan's energy basins (Polish location rule)", () => {
+    const d = decide(report({ msp_energy: "fail" }));
+    expect(d.outcome).toBe("refused");
+    expect(d.reasons[0]).toContain("msp_energy");
+  });
+
+  it("consents with a condition when the energy basin is already allocated", () => {
+    const d = decide(report({ owf: "warn" }));
+    expect(d.outcome).toBe("approved_with_conditions");
+    expect(d.conditions[0]).toContain("owf");
+  });
+
   it("asks for more information when an essential check is unknown", () => {
     const d = decide(report({ depth: "unknown" }));
     expect(d.outcome).toBe("more_information");

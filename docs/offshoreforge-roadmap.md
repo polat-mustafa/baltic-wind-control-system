@@ -13,10 +13,22 @@ Read this first, then the CLAUDE.md rules. Six phases in total, all merged (phas
 | 5 | Academy: courses and scored missions | Merged (PR #222) |
 | 6 | Lifecycle: construction, operation hand-over, decommissioning | Merged (PR #223) |
 
+### Own-project programme (approved 2026-10-06, 13 phases, one PR each)
+
+Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's machine).
+
+| Phase | Scope | Status |
+|---|---|---|
+| 1 | Screening follows Polish MSP law: wind only in energy ('E') basins, real projects = warn, whole-EEZ data pack | In review (`feat/site-msp-energy-basins`) |
+| 2 | Site & Permits UX: legend, refusal banner, actors, sources panel, checklist states | Next |
+| 3–13 | IEA-15/22 turbines · site wind climate · project persistence · post-tour choice + locks · FarmSpec/P2 · P5/P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
+
+Phase 1 note: `test_sb510_case_study` expects `msp_energy == "fail"` until phase 9 moves SB-510 into PZP_44.
+
 ## Resume here
 
 1. `git fetch origin && git checkout main && git pull`; all six phases are merged (last: PR #223).
-2. Next: the **open optional items** below (the owner asked to keep them for later).
+2. Next: the **own-project programme** above, phase by phase.
 3. Owner to-dos: `cd frontend && npm run e2e:update` (new `layout`, `site-permits`, `academy`, `construction`,
    `handover` and `decommissioning` baselines), rename the GitHub repo to `offshoreforge`, trademark check.
 

@@ -7,7 +7,7 @@ equirectangular plane around the region centre:
 
 with R = 6371.0088 km (IUGG mean Earth radius). Using cos(φ0) instead of
 cos(φ) scales east-west distances by cos φ / cos φ0: for the Southern
-Baltic region (54.45–55.20 °N about 54.83 °N) that is within ±1 %, well
+Baltic region (53.85–55.95 °N about 54.9 °N) that is within ±2 %, well
 inside the precision of screening criteria. It is not a survey-grade
 projection.
 
@@ -82,48 +82,79 @@ def points_in_polygon(px: FloatArray, py: FloatArray, ring: FloatArray) -> NDArr
 def points_in_polygons(
     px: FloatArray, py: FloatArray, polygons: list[list[FloatArray]]
 ) -> NDArray[np.bool_]:
-    """Inside any polygon; each polygon is [outer ring, hole rings…]."""
-    result = np.zeros(np.asarray(px).shape, dtype=bool)
+    """Inside any polygon; each polygon is [outer ring, hole rings…].
+
+    Only the points inside a polygon's bounding box are tested against it.
+    """
+    px = np.asarray(px, dtype=float)
+    py = np.asarray(py, dtype=float)
+    x, y = px.ravel(), py.ravel()
+    result = np.zeros(x.shape, dtype=bool)
     for rings in polygons:
-        inside = points_in_polygon(px, py, rings[0])
+        outer = rings[0]
+        (x0, y0), (x1, y1) = outer.min(axis=0), outer.max(axis=0)
+        idx = np.nonzero(~result & (x >= x0) & (x <= x1) & (y >= y0) & (y <= y1))[0]
+        if idx.size == 0:
+            continue
+        inside = points_in_polygon(x[idx], y[idx], outer)
         for hole in rings[1:]:
-            inside &= ~points_in_polygon(px, py, hole)
-        result |= inside
-    return result
+            inside &= ~points_in_polygon(x[idx], y[idx], hole)
+        result[idx] |= inside
+    return result.reshape(px.shape)
+
+
+#: Point × segment pairs evaluated at once (bounds the temporary arrays to ≈ 100 MB).
+_PAIRS_PER_CHUNK = 2_000_000
 
 
 def distance_to_polyline(px: FloatArray, py: FloatArray, line: FloatArray) -> FloatArray:
     """Shortest distance [km] from each point to a polyline (n ≥ 1 vertices)."""
-    px = np.asarray(px, dtype=float)[..., None]
-    py = np.asarray(py, dtype=float)[..., None]
+    px = np.asarray(px, dtype=float)
+    py = np.asarray(py, dtype=float)
     if len(line) == 1:
-        return np.asarray(np.hypot(px - line[0, 0], py - line[0, 1])[..., 0], dtype=float)
+        return np.asarray(np.hypot(px - line[0, 0], py - line[0, 1]), dtype=float)
     ax, ay = line[:-1, 0], line[:-1, 1]
     bx, by = line[1:, 0], line[1:, 1]
     dx, dy = bx - ax, by - ay
     seg_len2 = dx * dx + dy * dy
-    with np.errstate(divide="ignore", invalid="ignore"):
-        t = ((px - ax) * dx + (py - ay) * dy) / seg_len2
-    t = np.where(seg_len2 > 0, np.clip(t, 0.0, 1.0), 0.0)
-    cx, cy = ax + t * dx, ay + t * dy
-    return np.asarray(np.min(np.hypot(px - cx, py - cy), axis=-1), dtype=float)
+    x, y = px.ravel(), py.ravel()
+    out = np.empty(x.shape)
+    step = max(1, _PAIRS_PER_CHUNK // len(ax))
+    for k in range(0, x.size, step):
+        cx_, cy_ = x[k : k + step, None], y[k : k + step, None]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            t = ((cx_ - ax) * dx + (cy_ - ay) * dy) / seg_len2
+        t = np.where(seg_len2 > 0, np.clip(t, 0.0, 1.0), 0.0)
+        out[k : k + step] = np.min(np.hypot(cx_ - (ax + t * dx), cy_ - (ay + t * dy)), axis=-1)
+    return out.reshape(px.shape)
 
 
 def distance_to_lines(px: FloatArray, py: FloatArray, lines: list[FloatArray]) -> FloatArray:
-    """Distance [km] to the nearest of several polylines (inf when none)."""
-    d = np.full(np.asarray(px).shape, np.inf)
+    """Distance [km] to the nearest of several polylines (inf when none).
+
+    A line is only measured for the points whose distance to its bounding box
+    is below their current nearest distance (a cheap lower bound).
+    """
+    px = np.asarray(px, dtype=float)
+    x, y = px.ravel(), np.asarray(py, dtype=float).ravel()
+    d = np.full(x.shape, np.inf)
     for line in lines:
-        d = np.minimum(d, distance_to_polyline(px, py, line))
-    return d
+        (x0, y0), (x1, y1) = line.min(axis=0), line.max(axis=0)
+        lower = np.hypot(
+            np.maximum(np.maximum(x0 - x, x - x1), 0.0), np.maximum(np.maximum(y0 - y, y - y1), 0.0)
+        )
+        idx = np.nonzero(lower < d)[0]
+        if idx.size:
+            d[idx] = np.minimum(d[idx], distance_to_polyline(x[idx], y[idx], line))
+    return d.reshape(px.shape)
 
 
 def distance_to_polygons(
     px: FloatArray, py: FloatArray, polygons: list[list[FloatArray]]
 ) -> FloatArray:
     """Distance [km] to the nearest polygon; 0 inside one (inf when none)."""
-    d = np.full(np.asarray(px).shape, np.inf)
-    for rings in polygons:
-        d = np.minimum(d, distance_to_lines(px, py, rings))
+    # One pass over every ring, so the bounding-box pruning carries across polygons.
+    d = distance_to_lines(px, py, [ring for rings in polygons for ring in rings])
     return np.where(points_in_polygons(px, py, polygons), 0.0, d)
 
 

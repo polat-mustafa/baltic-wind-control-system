@@ -1,7 +1,7 @@
 # OffshoreForge roadmap and hand-off
 
 Working notes for continuing the OffshoreForge transformation in a new Claude Code session.
-Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are merged, phases 4, 5 and 6 are in review.
+Read this first, then the CLAUDE.md rules. Six phases in total, all merged (phase 6: PR #223).
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -9,21 +9,15 @@ Read this first, then the CLAUDE.md rules. Six phases in total; phases 1–3 are
 | 2 | Guided tour engine and per-page tours | Merged (PR #218) |
 | 3a/3b | Open marine data package + site-assessment backend | Merged (PR #219) |
 | 3c | `/develop` "build a farm from scratch" journey | Merged (PR #220) |
-| 4 | Layout canvas: turbines, wake, AEP, array cables, cost | Done on `claude/busy-planck-8vitbx` (PR open) |
-| 5 | Academy: courses and scored missions | Done on `claude/phase5-academy` (stacked on phase 4, own PR) |
-| 6 | Lifecycle: construction, operation hand-over, decommissioning | Done on `claude/phase6-lifecycle` (stacked on phase 5, own PR) |
+| 4 | Layout canvas: turbines, wake, AEP, array cables, cost | Merged (PR #221) |
+| 5 | Academy: courses and scored missions | Merged (PR #222) |
+| 6 | Lifecycle: construction, operation hand-over, decommissioning | Merged (PR #223) |
 
 ## Resume here
 
-1. `git fetch origin && git checkout claude/busy-planck-8vitbx && git pull`
-   (if PR #221 is already merged: `git checkout -B claude/busy-planck-8vitbx origin/main`).
-2. PR #221 (Phase 4) — check CI; merge only when the owner says so.
-3. Phase 5 (Academy) is on `claude/phase5-academy`, a PR stacked on PR #221; after #221 is merged, merge
-   `main` into it so the diff shows only phase 5.
-4. Phase 6 (Lifecycle) is on `claude/phase6-lifecycle`, a PR stacked on the phase 5 PR; merge the
-   phases in order (4 → 5 → 6) and merge `main` into each next branch after its base is merged.
-5. Next: the **open optional items** below (the owner asked to keep them for later).
-6. Owner to-dos: `cd frontend && npm run e2e:update` (new `layout`, `site-permits`, `academy`, `construction`,
+1. `git fetch origin && git checkout main && git pull`; all six phases are merged (last: PR #223).
+2. Next: the **open optional items** below (the owner asked to keep them for later).
+3. Owner to-dos: `cd frontend && npm run e2e:update` (new `layout`, `site-permits`, `academy`, `construction`,
    `handover` and `decommissioning` baselines), rename the GitHub repo to `offshoreforge`, trademark check.
 
 ## Open optional items (parked by the owner, do not start without asking)

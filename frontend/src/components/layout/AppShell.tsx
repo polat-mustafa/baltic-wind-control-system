@@ -48,6 +48,9 @@ const ROUTE_LABELS: Record<string, string> = {
   "/commissioning": "HV Commissioning",
   "/digital-twin": "Digital Twin · Condition Monitoring",
   "/turbine-physics": "Turbine Physics",
+  "/build": "Construction",
+  "/build/handover": "Hand-over",
+  "/decommission": "Decommissioning",
   "/academy": "Academy",
 };
 

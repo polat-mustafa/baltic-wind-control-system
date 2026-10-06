@@ -31,6 +31,7 @@ import SeverityTrendPanel from "../components/digital-twin/SeverityTrendPanel";
 import TurbineHeader from "../components/digital-twin/TurbineHeader";
 import TwinControlBar from "../components/digital-twin/TwinControlBar";
 import ValidationPanel from "../components/digital-twin/ValidationPanel";
+import ProjectHandoverNote from "../components/lifecycle/ProjectHandoverNote";
 import { Button } from "../components/ui/Button";
 import { Skeleton } from "../components/ui/Skeleton";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
@@ -99,6 +100,8 @@ export default function DigitalTwinPage() {
           </Button>
         </div>
       )}
+
+      <ProjectHandoverNote what="The twin stays on the 34 SB-510 turbines it is calibrated to; your turbine register is the asset list a new baseline would start from." />
 
       <div
         role="tablist"

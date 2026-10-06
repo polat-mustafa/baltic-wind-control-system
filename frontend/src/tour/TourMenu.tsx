@@ -10,7 +10,7 @@ import { useTourStore } from "./tourStore";
 import { TOURS } from "./tours";
 import type { TourStage } from "./types";
 
-const STAGES: TourStage[] = ["Start", "Develop", "Design", "Build & Commission", "Operate", "Learn"];
+const STAGES: TourStage[] = ["Start", "Develop", "Design", "Build & Commission", "Operate", "Decommission", "Learn"];
 
 export default function TourMenu() {
   const [open, setOpen] = useState(false);

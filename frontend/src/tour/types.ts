@@ -11,7 +11,7 @@
  */
 
 /** Project lifecycle stage a tour belongs to (sidebar order). */
-export type TourStage = "Start" | "Develop" | "Design" | "Build & Commission" | "Operate" | "Learn";
+export type TourStage = "Start" | "Develop" | "Design" | "Build & Commission" | "Operate" | "Decommission" | "Learn";
 
 export interface TourTask {
   /** What the user has to do, e.g. "Click any turbine on the map". */

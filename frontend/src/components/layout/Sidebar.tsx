@@ -2,7 +2,7 @@
  * Navigation sidebar, grouped by project lifecycle stage.
  *
  * Features:
- * - Lifecycle groups: Develop, Design, Build & Commission, Operate, then Learn
+ * - Lifecycle groups: Develop, Design, Build & Commission, Operate, Decommission, then Learn
  * - Lucide icons per module
  * - Collapse/expand toggle
  * - Active state with left accent border
@@ -26,6 +26,9 @@ import {
   MapPinned,
   Grid3x3,
   GraduationCap,
+  HardHat,
+  FileCheck2,
+  Recycle,
   ChevronLeft,
   ChevronRight,
   X,
@@ -93,10 +96,22 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Build & Commission",
     items: [
       {
+        label: "Construction",
+        path: "/build",
+        icon: HardHat,
+        description: "Vessels, weather windows, timeline",
+      },
+      {
         label: "Commissioning",
         path: "/commissioning",
         icon: ClipboardCheck,
         description: "Switching, LOTO, SAT",
+      },
+      {
+        label: "Hand-over",
+        path: "/build/handover",
+        icon: FileCheck2,
+        description: "As-built register, to operation",
       },
     ],
   },
@@ -126,6 +141,17 @@ const NAV_GROUPS: NavGroup[] = [
         path: "/digital-twin",
         icon: Cpu,
         description: "Condition monitoring, ISO 13374",
+      },
+    ],
+  },
+  {
+    label: "Decommission",
+    items: [
+      {
+        label: "Decommissioning",
+        path: "/decommission",
+        icon: Recycle,
+        description: "Removal, recycling, seabed",
       },
     ],
   },
@@ -212,7 +238,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   <li key={item.path}>
                     <NavLink
                       to={item.path}
-                      end={item.path === "/" || item.path === "/develop"}
+                      end={item.path === "/" || item.path === "/develop" || item.path === "/build"}
                       onClick={onMobileClose}
                       className={({ isActive }) =>
                         cn(

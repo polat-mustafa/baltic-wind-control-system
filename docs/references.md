@@ -101,6 +101,22 @@ Mission weights and pass mark (70) are *illustrative* teaching choices, shown on
 | First energisation order | `frontend/src/academy/sequence.ts` (condensed from `services/p5/switching_programme.py`) | [S14] |
 | Digital Twin diagnosis graded against injected faults | `frontend/src/components/academy/DiagnosisMission.tsx` | [S20] |
 
+## Lifecycle — construction, hand-over, decommissioning
+
+Vessel limits, unit durations, deck capacity, day rates, masses and end-of-life unit costs are *illustrative*
+teaching values, listed on the pages and in the API response (`assumptions`, `vessels`).
+
+| Topic | Implementation | Reference |
+|---|---|---|
+| Weather-restricted operations, α factor (OP_WF = α · OP_LIM) | `backend/app/services/lifecycle/campaign.py` | [S29] |
+| Synthetic sea states: Rayleigh Hs, Weibull k = 2 wind, AR(1) persistence, monthly Baltic means | `backend/app/services/lifecycle/weather.py` (monthly means of `services/p1/weather_window.py`) | Marginals as the O&M weather-window model; persistence and wind–wave correlation *illustrative* |
+| Hub-height wind for the jack-up crane limit (power law, α = 0.14) | `backend/app/services/lifecycle/weather.py` | [S30] |
+| As-built register: strings, OSS feeder bays, cable sections | `frontend/src/lib/lifecycle/farm.ts` (cable tree of `lib/layout/cables.ts`) | as the layout canvas |
+| Removal of disused installations; publicity of what stays | `frontend/src/lib/lifecycle/decommissioning.ts` | [S25] Art. 60(3), [S31] §3.1, 3.2, 3.6 |
+| National decommissioning programmes (example regime) | `frontend/src/pages/DecommissioningPage.tsx` | [S32] |
+| Blade end of life, recyclable share of turbine mass | `frontend/src/lib/lifecycle/decommissioning.ts` | [24] |
+| Decommissioning methods and sequence | `backend/app/services/lifecycle/campaign.py` (`remove_plan`) | [25] |
+
 ## 3D turbine viewer — overlays
 
 | Topic | Implementation | Reference |
@@ -137,6 +153,8 @@ Mission weights and pass mark (70) are *illustrative* teaching choices, shown on
 21. Roberts, S. W. "Control chart tests based on geometric moving averages." *Technometrics* 1(3), 239–250, 1959.
 22. Anderson, J. D. *Fundamentals of Aerodynamics*, 6th ed. McGraw-Hill, 2017.
 23. White, F. M. *Viscous Fluid Flow*, 3rd ed. McGraw-Hill, 2006.
+24. WindEurope. "Wind industry calls for Europe-wide ban on landfilling turbine blades." Press release, June 2021. https://windeurope.org/news/wind-industry-calls-for-europe-wide-ban-on-landfilling-turbine-blades/
+25. Topham, E., McMillan, D. "Sustainable decommissioning of an offshore wind farm." *Renewable Energy* 102(B), 470–480, 2017. doi:10.1016/j.renene.2016.10.066
 
 ## Standards and regulations
 
@@ -168,3 +186,7 @@ Mission weights and pass mark (70) are *illustrative* teaching choices, shown on
 - **[S26]** Directive 2014/89/EU establishing a framework for maritime spatial planning.
 - **[S27]** Council Directive 92/43/EEC on the conservation of natural habitats and of wild fauna and flora (Habitats Directive), Art. 6(3).
 - **[S28]** Directive 2011/92/EU on the assessment of the effects of certain public and private projects on the environment (EIA Directive), as amended by Directive 2014/52/EU — Annex II, 3(i).
+- **[S29]** DNV-ST-N001 — Marine operations and marine warranty (weather-restricted operations, operational limits and the α factor).
+- **[S30]** IEC 61400-3-1:2019 — Wind energy generation systems — Part 3-1: Design requirements for fixed offshore wind turbines (normal wind profile).
+- **[S31]** IMO Assembly Resolution A.672(16), 1989 — Guidelines and standards for the removal of offshore installations and structures on the continental shelf and in the exclusive economic zone.
+- **[S32]** UK Energy Act 2004, Part 2 Chapter 3 (ss. 105–114) — decommissioning of offshore renewable energy installations; DECC/DESNZ guidance notes for industry.

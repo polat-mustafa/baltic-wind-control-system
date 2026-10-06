@@ -8,6 +8,7 @@ import { useDigitalTwinStore } from "../store/digitalTwinStore";
 import { useForecastStore } from "../store/forecastStore";
 import { useProjectStore } from "../store/projectStore";
 import { useGridStore } from "../store/gridStore";
+import { useLifecycleStore } from "../store/lifecycleStore";
 import { useTurbinePhysicsStore } from "../store/turbinePhysicsStore";
 import { useWindResourceStore } from "../store/windResourceStore";
 import type { Tour } from "./types";
@@ -578,6 +579,148 @@ const academy: Tour = {
   ],
 };
 
+const construction: Tour = {
+  id: "construction",
+  title: "Construction",
+  summary: "Install the farm in weather windows: vessels, timeline, P50 and P90.",
+  stage: "Build & Commission",
+  steps: [
+    {
+      id: "header",
+      route: "/build",
+      target: "page-header",
+      title: "Building at sea",
+      body:
+        "Every lift, pile and cable pull is a marine operation that needs calm enough sea for its whole duration. " +
+        "The campaign is simulated over many synthetic weather years.",
+    },
+    {
+      id: "source",
+      route: "/build",
+      target: "farm-source",
+      title: "Your farm",
+      body: "Turbines, strings, cable lengths and foundation type come from your layout; without one, the SB-510 farm is used.",
+    },
+    {
+      id: "inputs",
+      route: "/build",
+      target: "campaign-inputs",
+      title: "Start date and α factor",
+      body:
+        "DNV-ST-N001 plans weather-restricted operations against α × the operational limit, because forecasts are uncertain. " +
+        "A lower α is safer and slower.",
+      task: {
+        instruction: "Press Simulate the campaign.",
+        watch: () => () => useLifecycleStore.getState().results.build != null,
+      },
+    },
+    {
+      id: "kpis",
+      route: "/build",
+      target: ["campaign-kpis", "campaign-inputs"],
+      title: "P50 and P90",
+      body: "P50: half the weather years finish earlier. P90: nine in ten do. Grid connection dates and contracts are set on P90.",
+      caution: "Try a start in October: the same work runs into the Baltic winter and waits weeks for windows.",
+    },
+    {
+      id: "gantt",
+      route: "/build",
+      target: ["campaign-gantt", "campaign-inputs"],
+      title: "Timeline",
+      body: "Bars per vessel; the hatched end is waiting on weather. A turbine cannot go up before its foundation, nor a string be energised before its cables.",
+    },
+    {
+      id: "windows",
+      route: "/build",
+      target: ["campaign-windows", "campaign-inputs"],
+      title: "Weather windows",
+      body: "The chance that a window long enough for one operation opens, by month. Long operations suffer most from winter.",
+    },
+  ],
+};
+
+const handover: Tour = {
+  id: "handover",
+  title: "Hand-over",
+  summary: "The as-built register and what each operation module takes over.",
+  stage: "Build & Commission",
+  steps: [
+    {
+      id: "header",
+      route: "/build/handover",
+      target: "page-header",
+      title: "From project to operation",
+      body: "At hand-over the operator receives the farm as built: positions, strings, feeder bays, cables and the open items.",
+    },
+    {
+      id: "modules",
+      route: "/build/handover",
+      target: "handover-modules",
+      title: "Who takes over what",
+      body: "Your layout appears on the Control Room map as a layer; Commissioning, SCADA and the Digital Twin say what carries over and what stays on SB-510.",
+    },
+    {
+      id: "energisation",
+      route: "/build/handover",
+      target: "handover-energisation",
+      title: "Energisation order",
+      body: "Export cable, OSS, 66 kV busbar, then one feeder bay per string — the same order as the P5 switching programme.",
+    },
+    {
+      id: "register",
+      route: "/build/handover",
+      target: "handover-register",
+      title: "As-built register",
+      body: "Print it or export CSV / JSON. It is a training specimen: screening-level positions, not a surveyed record.",
+    },
+  ],
+};
+
+const decommissioning: Tour = {
+  id: "decommissioning",
+  title: "Decommissioning",
+  summary: "Removal options, the removal campaign, material, cost and seabed restoration.",
+  stage: "Decommission",
+  steps: [
+    {
+      id: "header",
+      route: "/decommission",
+      target: "page-header",
+      title: "End of life",
+      body: "After 25–30 years the farm is removed. The law sets the goal (safe navigation, fishing, environment); the programme sets the details.",
+    },
+    {
+      id: "options",
+      route: "/decommission",
+      target: "decom-options",
+      title: "What comes out",
+      body: "Cut piles below the seabed or pull them; recover or leave buried cables and scour rock. Each choice changes vessel time, cost and seabed disturbance.",
+    },
+    {
+      id: "legal",
+      route: "/decommission",
+      target: "decom-legal",
+      title: "Legal frame",
+      body: "UNCLOS Art. 60(3) and IMO A.672(16), turned into a decommissioning programme by national law.",
+      caution: "This is a summary of the international texts. The binding conditions are in the project's own permits.",
+    },
+    {
+      id: "inventory",
+      route: "/decommission",
+      target: "decom-inventory",
+      title: "Material",
+      body: "Most of the mass is steel and is recycled; blades are composite and are the hard part.",
+    },
+    {
+      id: "restoration",
+      route: "/decommission",
+      target: "decom-restoration",
+      title: "Seabed restoration",
+      body: "Survey before and after, clear debris, publish what stays, monitor.",
+    },
+  ],
+};
+
 /** All tours in menu order (lifecycle order after the control-room intro). */
 export const TOURS: Tour[] = [
   controlRoom,
@@ -586,10 +729,13 @@ export const TOURS: Tour[] = [
   windResource,
   grid,
   turbinePhysics,
+  construction,
   commissioning,
+  handover,
   scada,
   forecast,
   digitalTwin,
+  decommissioning,
   academy,
 ];
 

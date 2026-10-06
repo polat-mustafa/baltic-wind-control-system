@@ -1,0 +1,518 @@
+{
+ "mode": "remove",
+ "start_date": "2028-04-01",
+ "alpha": 0.8,
+ "runs": 20,
+ "seed": 1,
+ "n_turbines": 12,
+ "strings": [
+  6,
+  6
+ ],
+ "unfinished_runs": 0,
+ "total_days": {
+  "p10": 52.5,
+  "p50": 60.5,
+  "p90": 71.8
+ },
+ "cost_meur": {
+  "p10": 31.7,
+  "p50": 37.2,
+  "p90": 47.2
+ },
+ "milestones": [
+  {
+   "id": "turbines",
+   "label": "All turbines removed",
+   "days": {
+    "p10": 37.7,
+    "p50": 46.4,
+    "p90": 59.8
+   },
+   "date_p50": "2028-05-17",
+   "date_p90": "2028-05-30"
+  },
+  {
+   "id": "foundations",
+   "label": "Foundations removed",
+   "days": {
+    "p10": 43.0,
+    "p50": 49.4,
+    "p90": 62.5
+   },
+   "date_p50": "2028-05-20",
+   "date_p90": "2028-06-02"
+  },
+  {
+   "id": "oss",
+   "label": "Offshore substation removed",
+   "days": {
+    "p10": 48.0,
+    "p50": 55.4,
+    "p90": 67.5
+   },
+   "date_p50": "2028-05-26",
+   "date_p90": "2028-06-07"
+  },
+  {
+   "id": "survey",
+   "label": "Seabed survey and clearance done",
+   "days": {
+    "p10": 52.5,
+    "p50": 60.5,
+    "p90": 71.8
+   },
+   "date_p50": "2028-05-31",
+   "date_p90": "2028-06-11"
+  }
+ ],
+ "activities": [
+  {
+   "id": "isolate",
+   "name": "Isolate turbines, drain oils and coolants",
+   "vessel": "CTV",
+   "units": 12,
+   "op_hours": 12.0,
+   "trip_every": 0,
+   "start_day": 0.0,
+   "end_day": 13.2,
+   "wow_days": 7.2,
+   "end_days": {
+    "p10": 7.2,
+    "p50": 11.0,
+    "p90": 18.9
+   },
+   "wow_share_pct": 45.2,
+   "duration_days": {
+    "p10": 7.2,
+    "p50": 11.0,
+    "p90": 18.9
+   }
+  },
+  {
+   "id": "turbines",
+   "name": "Remove turbines (reverse installation)",
+   "vessel": "WTIV",
+   "units": 12,
+   "op_hours": 36.0,
+   "trip_every": 4,
+   "start_day": 0.0,
+   "end_day": 40.5,
+   "wow_days": 16.5,
+   "end_days": {
+    "p10": 37.7,
+    "p50": 46.4,
+    "p90": 59.8
+   },
+   "wow_share_pct": 45.7,
+   "duration_days": {
+    "p10": 37.7,
+    "p50": 46.2,
+    "p90": 59.2
+   }
+  },
+  {
+   "id": "array",
+   "name": "Recover array cables",
+   "vessel": "CLV",
+   "units": 12,
+   "op_hours": 24.000000000000004,
+   "trip_every": 0,
+   "start_day": 5.8,
+   "end_day": 42.5,
+   "wow_days": 5.2,
+   "end_days": {
+    "p10": 39.0,
+    "p50": 47.6,
+    "p90": 61.0
+   },
+   "wow_share_pct": 5.9,
+   "duration_days": {
+    "p10": 33.1,
+    "p50": 40.2,
+    "p90": 56.5
+   }
+  },
+  {
+   "id": "foundations",
+   "name": "Cut monopiles",
+   "vessel": "HLV",
+   "units": 12,
+   "op_hours": 36.0,
+   "trip_every": 4,
+   "start_day": 6.2,
+   "end_day": 51.2,
+   "wow_days": 18.5,
+   "end_days": {
+    "p10": 43.0,
+    "p50": 49.4,
+    "p90": 62.5
+   },
+   "wow_share_pct": 24.3,
+   "duration_days": {
+    "p10": 35.6,
+    "p50": 44.8,
+    "p90": 58.8
+   }
+  },
+  {
+   "id": "oss",
+   "name": "Remove offshore substation topside and jacket",
+   "vessel": "HLV",
+   "units": 2,
+   "op_hours": 36.0,
+   "trip_every": 2,
+   "start_day": 51.2,
+   "end_day": 57.0,
+   "wow_days": 0.8,
+   "end_days": {
+    "p10": 48.0,
+    "p50": 55.4,
+    "p90": 67.5
+   },
+   "wow_share_pct": 9.9,
+   "duration_days": {
+    "p10": 5.0,
+    "p50": 5.0,
+    "p90": 6.6
+   }
+  },
+  {
+   "id": "export",
+   "name": "Cut, seal and bury export cable ends",
+   "vessel": "CLV",
+   "units": 2,
+   "op_hours": 12.0,
+   "trip_every": 0,
+   "start_day": 57.0,
+   "end_day": 58.0,
+   "wow_days": 0.0,
+   "end_days": {
+    "p10": 49.0,
+    "p50": 56.4,
+    "p90": 68.5
+   },
+   "wow_share_pct": 1.0,
+   "duration_days": {
+    "p10": 1.0,
+    "p50": 1.0,
+    "p90": 1.0
+   }
+  },
+  {
+   "id": "survey",
+   "name": "Seabed survey and debris clearance",
+   "vessel": "SURVEY",
+   "units": 13,
+   "op_hours": 6.0,
+   "trip_every": 0,
+   "start_day": 58.0,
+   "end_day": 61.2,
+   "wow_days": 0.0,
+   "end_days": {
+    "p10": 52.5,
+    "p50": 60.5,
+    "p90": 71.8
+   },
+   "wow_share_pct": 6.1,
+   "duration_days": {
+    "p10": 3.2,
+    "p50": 3.2,
+    "p90": 4.0
+   }
+  }
+ ],
+ "vessels": [
+  {
+   "id": "CTV",
+   "name": "Crew transfer vessel",
+   "role": "Commissioning teams, turbine isolation",
+   "hs_limit_m": 1.5,
+   "wind_limit_ms": 10.0,
+   "wind_reference": "10 m",
+   "day_rate_keur": 4.0,
+   "mobilisation_keur": 5.0,
+   "workable_pct_by_month": [
+    26.0,
+    25.8,
+    32.7,
+    51.9,
+    65.9,
+    70.3,
+    70.9,
+    68.1,
+    56.1,
+    42.2,
+    30.5,
+    21.1
+   ],
+   "window_hours": 12.0,
+   "window_pct_by_month": [
+    19.8,
+    19.8,
+    25.6,
+    44.5,
+    59.3,
+    64.0,
+    65.0,
+    61.5,
+    48.5,
+    34.6,
+    24.0,
+    15.6
+   ],
+   "charter_days": {
+    "p10": 7.2,
+    "p50": 11.0,
+    "p90": 18.9
+   },
+   "wow_days": {
+    "p10": 1.2,
+    "p50": 5.0,
+    "p90": 12.9
+   },
+   "cost_meur": {
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.1
+   }
+  },
+  {
+   "id": "WTIV",
+   "name": "Jack-up installation vessel",
+   "role": "Turbines (tower, nacelle, blades)",
+   "hs_limit_m": 2.0,
+   "wind_limit_ms": 14.0,
+   "wind_reference": "hub height 150 m",
+   "day_rate_keur": 250.0,
+   "mobilisation_keur": 1000.0,
+   "workable_pct_by_month": [
+    33.1,
+    32.7,
+    40.2,
+    55.9,
+    66.4,
+    67.7,
+    68.2,
+    66.8,
+    57.6,
+    47.8,
+    36.8,
+    28.1
+   ],
+   "window_hours": 36.0,
+   "window_pct_by_month": [
+    14.1,
+    14.0,
+    17.8,
+    32.7,
+    45.2,
+    45.7,
+    47.6,
+    44.7,
+    34.2,
+    24.2,
+    17.1,
+    10.4
+   ],
+   "charter_days": {
+    "p10": 37.7,
+    "p50": 46.2,
+    "p90": 59.2
+   },
+   "wow_days": {
+    "p10": 13.7,
+    "p50": 22.1,
+    "p90": 35.2
+   },
+   "cost_meur": {
+    "p10": 10.4,
+    "p50": 12.6,
+    "p90": 15.8
+   }
+  },
+  {
+   "id": "CLV",
+   "name": "Cable-lay vessel",
+   "role": "Export and array cables",
+   "hs_limit_m": 2.0,
+   "wind_limit_ms": 15.0,
+   "wind_reference": "10 m",
+   "day_rate_keur": 150.0,
+   "mobilisation_keur": 800.0,
+   "workable_pct_by_month": [
+    47.9,
+    48.9,
+    59.1,
+    81.4,
+    91.0,
+    93.8,
+    93.5,
+    92.5,
+    85.2,
+    70.6,
+    55.2,
+    41.4
+   ],
+   "window_hours": 30.0,
+   "window_pct_by_month": [
+    27.8,
+    28.5,
+    38.4,
+    66.0,
+    81.6,
+    86.9,
+    86.1,
+    83.9,
+    71.6,
+    51.5,
+    34.9,
+    22.2
+   ],
+   "charter_days": {
+    "p10": 40.9,
+    "p50": 51.5,
+    "p90": 64.0
+   },
+   "wow_days": {
+    "p10": 0.0,
+    "p50": 2.1,
+    "p90": 5.3
+   },
+   "cost_meur": {
+    "p10": 6.9,
+    "p50": 8.5,
+    "p90": 10.4
+   }
+  },
+  {
+   "id": "HLV",
+   "name": "Heavy-lift vessel",
+   "role": "Foundations, offshore substation",
+   "hs_limit_m": 1.5,
+   "wind_limit_ms": 13.0,
+   "wind_reference": "10 m",
+   "day_rate_keur": 300.0,
+   "mobilisation_keur": 1500.0,
+   "workable_pct_by_month": [
+    30.7,
+    30.8,
+    39.5,
+    62.9,
+    78.4,
+    86.2,
+    86.3,
+    82.3,
+    68.9,
+    51.0,
+    37.2,
+    25.4
+   ],
+   "window_hours": 36.0,
+   "window_pct_by_month": [
+    12.1,
+    12.9,
+    17.7,
+    39.8,
+    59.5,
+    70.7,
+    72.6,
+    64.1,
+    46.5,
+    27.5,
+    16.7,
+    9.2
+   ],
+   "charter_days": {
+    "p10": 40.6,
+    "p50": 50.9,
+    "p90": 63.8
+   },
+   "wow_days": {
+    "p10": 3.2,
+    "p50": 12.0,
+    "p90": 20.8
+   },
+   "cost_meur": {
+    "p10": 13.7,
+    "p50": 16.8,
+    "p90": 20.6
+   }
+  },
+  {
+   "id": "SURVEY",
+   "name": "Survey vessel",
+   "role": "Seabed survey, debris clearance",
+   "hs_limit_m": 2.5,
+   "wind_limit_ms": 15.0,
+   "wind_reference": "10 m",
+   "day_rate_keur": 25.0,
+   "mobilisation_keur": 50.0,
+   "workable_pct_by_month": [
+    59.6,
+    60.7,
+    70.7,
+    86.4,
+    92.3,
+    93.8,
+    93.5,
+    93.0,
+    87.8,
+    79.3,
+    65.8,
+    52.9
+   ],
+   "window_hours": 6.0,
+   "window_pct_by_month": [
+    59.6,
+    60.7,
+    70.7,
+    86.4,
+    92.3,
+    93.8,
+    93.5,
+    93.0,
+    87.8,
+    79.3,
+    65.8,
+    52.9
+   ],
+   "charter_days": {
+    "p10": 3.2,
+    "p50": 3.2,
+    "p90": 4.0
+   },
+   "wow_days": {
+    "p10": 0.0,
+    "p50": 0.0,
+    "p90": 0.8
+   },
+   "cost_meur": {
+    "p10": 0.1,
+    "p50": 0.1,
+    "p90": 0.1
+   }
+  }
+ ],
+ "months": [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec"
+ ],
+ "assumptions": [
+  "Weather-restricted operations after DNV-ST-N001: each unit needs a window in which Hs and wind stay below \u03b1 \u00d7 the operational limit for its whole planned duration.",
+  "Sea states: Rayleigh Hs and Weibull k = 2 wind around the monthly Baltic means of the O&M model, 6-hourly, persistence \u03c1 = 0.9 per step and wind\u2013wave correlation 0.7 (illustrative, not a hindcast).",
+  "Jack-up crane limit applies at hub height (150 m); 10 m wind is scaled with the power law \u03b1 = 0.14 (IEC 61400-3-1 normal wind profile).",
+  "Vessel limits, unit durations, deck capacity, day rates and mobilisation are illustrative teaching values.",
+  "Vessels following another activity are mobilised just in time; charter covers their work including waiting on weather and gaps up to 30 days (longer gaps: a new mobilisation)."
+ ]
+}

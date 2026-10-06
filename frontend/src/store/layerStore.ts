@@ -33,6 +33,8 @@ export interface LayerVisibility {
   aisTraffic: boolean;
   /** Export cable DTS temperature profile (IEC 60287 model) */
   cableDts: boolean;
+  /** The learner's layout project (hand-over preview) over the reference farm */
+  myProject: boolean;
 }
 
 /** Map look: ISA-101 control room (default) or the hand-drawn "storybook" demo. */
@@ -46,6 +48,7 @@ function loadTheme(): MapTheme {
 interface LayerState {
   layers: LayerVisibility;
   toggleLayer: (key: keyof LayerVisibility) => void;
+  setLayer: (key: keyof LayerVisibility, on: boolean) => void;
   mapTheme: MapTheme;
   setMapTheme: (t: MapTheme) => void;
 }
@@ -68,6 +71,7 @@ export const useLayerStore = create<LayerState>((set) => ({
     fibreComms: false,
     aisTraffic: true,
     cableDts: false,
+    myProject: false,
   },
   mapTheme: loadTheme(),
   setMapTheme: (mapTheme) => {
@@ -75,6 +79,7 @@ export const useLayerStore = create<LayerState>((set) => ({
     writeStored(THEME_KEY, mapTheme);
     set({ mapTheme });
   },
+  setLayer: (key, on) => set((state) => ({ layers: { ...state.layers, [key]: on } })),
   toggleLayer: (key) =>
     set((state) => ({
       layers: { ...state.layers, [key]: !state.layers[key] },

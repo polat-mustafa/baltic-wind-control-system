@@ -27,6 +27,7 @@ from app.services.p3 import opcua_server
 configure_logging(debug=settings.debug)
 from app.db import async_session_factory, engine  # noqa: E402
 from app.routers.digital_twin import router as digital_twin_router  # noqa: E402
+from app.routers.lifecycle import router as lifecycle_router  # noqa: E402
 from app.routers.p0_info import router as p0_info_router  # noqa: E402
 from app.routers.p1 import router as p1_router  # noqa: E402
 from app.routers.p2 import router as p2_router  # noqa: E402
@@ -105,6 +106,7 @@ app.include_router(turbine_physics_router)
 app.include_router(turbine_subsystems_router)
 app.include_router(digital_twin_router)
 app.include_router(site_assessment_router)
+app.include_router(lifecycle_router)
 
 
 @app.get("/health")

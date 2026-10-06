@@ -89,6 +89,18 @@ Citation rules used here:
 | EIA screening of wind farms (Annex II 3(i)) | `services/site_assessment/assess.py` | [S28] |
 | Weighted linear combination of criteria | `services/site_assessment/suitability.py` | Standard GIS multi-criteria method; thresholds and weights are labelled *illustrative* in the API model card |
 
+## Academy — scored missions
+
+Mission weights and pass mark (70) are *illustrative* teaching choices, shown on every mission card.
+
+| Topic | Implementation | Reference |
+|---|---|---|
+| Site selection: permit decision, depth bands, grid distance | `frontend/src/academy/scoring.ts` (uses `components/site/journey.ts`, backend `criteria.DEPTH_BANDS`) | [S25]–[S28] |
+| Layout challenge: capacity, wake loss, array cable, LCOE | `frontend/src/lib/layout/evaluate.ts`, `academy/scoring.ts` | as the layout canvas (P1 wake and LCOE rows) |
+| FRT compliance: PSE type-D profile, ΔIq = K·ΔU | `frontend/src/academy/frt.ts` (mirror of `services/p2/frt_simulation.py`) | [S5] Art. 16, 20; [S6] |
+| First energisation order | `frontend/src/academy/sequence.ts` (condensed from `services/p5/switching_programme.py`) | [S14] |
+| Digital Twin diagnosis graded against injected faults | `frontend/src/components/academy/DiagnosisMission.tsx` | [S20] |
+
 ## 3D turbine viewer — overlays
 
 | Topic | Implementation | Reference |

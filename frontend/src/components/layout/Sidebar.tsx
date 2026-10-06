@@ -2,7 +2,7 @@
  * Navigation sidebar, grouped by project lifecycle stage.
  *
  * Features:
- * - Lifecycle groups: Develop, Design, Build & Commission, Operate
+ * - Lifecycle groups: Develop, Design, Build & Commission, Operate, then Learn
  * - Lucide icons per module
  * - Collapse/expand toggle
  * - Active state with left accent border
@@ -25,6 +25,7 @@ import {
   Fan,
   MapPinned,
   Grid3x3,
+  GraduationCap,
   ChevronLeft,
   ChevronRight,
   X,
@@ -125,6 +126,17 @@ const NAV_GROUPS: NavGroup[] = [
         path: "/digital-twin",
         icon: Cpu,
         description: "Condition monitoring, ISO 13374",
+      },
+    ],
+  },
+  {
+    label: "Learn",
+    items: [
+      {
+        label: "Academy",
+        path: "/academy",
+        icon: GraduationCap,
+        description: "Courses, scored missions",
       },
     ],
   },

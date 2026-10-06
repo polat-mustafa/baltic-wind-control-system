@@ -532,6 +532,52 @@ const digitalTwin: Tour = {
   ],
 };
 
+const academy: Tour = {
+  id: "academy",
+  title: "Academy",
+  summary: "Lessons and scored missions along the lifecycle.",
+  stage: "Learn",
+  steps: [
+    {
+      id: "header",
+      route: "/academy",
+      target: "page-header",
+      title: "Learn by doing",
+      body:
+        "Four tracks follow the life of a wind farm: develop, design, build, operate. Each has lessons to read or modules " +
+        "to explore, and missions that give you a score out of 100.",
+    },
+    {
+      id: "tracks",
+      route: "/academy",
+      target: "academy-tracks",
+      title: "Lessons",
+      body: "A book opens a primer (physics, standards, worked examples); a compass takes you to the module itself. Opened lessons get a tick.",
+    },
+    {
+      id: "missions",
+      route: "/academy",
+      target: "academy-missions",
+      title: "Missions",
+      body:
+        "Some missions grade your own project (the site you drew, the layout you built), some generate fresh cases " +
+        "every time, and the drills run on the live farm map.",
+      task: {
+        instruction: "Open any mission.",
+        watch: () => () => new URLSearchParams(window.location.search).has("mission"),
+      },
+      caution: "The weights are teaching choices, shown on every mission. A high score means you used the tools well, not that a real design is right.",
+    },
+    {
+      id: "progress",
+      route: "/academy",
+      target: "academy-progress",
+      title: "Your record",
+      body: "Progress stays in this browser. The training record prints or exports as JSON; it is not a certificate.",
+    },
+  ],
+};
+
 /** All tours in menu order (lifecycle order after the control-room intro). */
 export const TOURS: Tour[] = [
   controlRoom,
@@ -544,6 +590,7 @@ export const TOURS: Tour[] = [
   scada,
   forecast,
   digitalTwin,
+  academy,
 ];
 
 export const tourById = (id: string) => TOURS.find((t) => t.id === id);

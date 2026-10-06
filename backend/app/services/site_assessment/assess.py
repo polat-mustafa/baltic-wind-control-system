@@ -34,6 +34,7 @@ from app.services.site_assessment.suitability import (
     evaluate,
     is_complete,
 )
+from app.services.site_assessment.wind_climate import WindClimate, site_wind
 
 MIN_AREA_KM2 = 1.0
 MAX_AREA_KM2 = 2000.0
@@ -76,6 +77,7 @@ class Assessment:
     foundation: str | None
     energy_basins: list[str]  # plan basins with an energy function the site lies in
     projects: list[str]  # real wind farm projects inside the site or its energy basins
+    wind: WindClimate  # hub-height wind climate over the site
     checks: list[Check]
     complete: bool
 
@@ -224,6 +226,7 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
         foundation=band.foundation if band else None,
         energy_basins=basin_names,
         projects=projects,
+        wind=site_wind(pack, slon, slat),
         checks=checks,
         complete=is_complete(pack),
     )

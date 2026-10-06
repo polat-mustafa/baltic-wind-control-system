@@ -128,6 +128,20 @@ export default function SiteReport() {
           size="sm"
         />
         <InfoTile label="To grid node" value={fmt(report.grid_km, 0)} unit="km" subtitle={report.grid_node ?? undefined} size="sm" />
+        {report.wind && (
+          <InfoTile
+            label={`Wind at ${report.wind.height_m.toFixed(0)} m`}
+            value={report.wind.mean_ms.toFixed(1)}
+            unit="m/s"
+            subtitle={
+              report.wind.approximate
+                ? "approximation — real data not found"
+                : `A ${report.wind.weibull_a.toFixed(1)} · k ${report.wind.weibull_k.toFixed(2)} · NEWA + ERA5`
+            }
+            priority={report.wind.approximate ? "warning" : "normal"}
+            size="sm"
+          />
+        )}
         <InfoTile
           label="Mean score"
           value={report.mean_score == null ? "—" : report.mean_score.toFixed(2)}

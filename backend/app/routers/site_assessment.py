@@ -35,6 +35,7 @@ from app.schemas.site_assessment import (
     RegionInfo,
     SuitabilityRequest,
     SuitabilityResponse,
+    WindClimateSchema,
 )
 from app.services.site_assessment.assess import InvalidSiteError, assess_site
 from app.services.site_assessment.criteria import CRITERIA_INFO, DEPTH_BANDS, Criteria
@@ -235,6 +236,18 @@ async def post_assess(req: AssessRequest) -> AssessResponse:
         foundation=a.foundation,
         energy_basins=a.energy_basins,
         projects=a.projects,
+        wind=WindClimateSchema(
+            mean_ms=round(a.wind.mean_ms, 2),
+            weibull_a=round(a.wind.a_ms, 2),
+            weibull_k=round(a.wind.k, 3),
+            height_m=a.wind.height_m,
+            sector_frequencies=(
+                None if a.wind.frequencies is None else [round(f, 4) for f in a.wind.frequencies]
+            ),
+            source=a.wind.source,
+            license=a.wind.license,
+            approximate=a.wind.approximate,
+        ),
         checks=[
             CheckSchema(
                 id=c.id, title=c.title, status=c.status, detail=c.detail, reference=c.reference

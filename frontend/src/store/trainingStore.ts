@@ -14,6 +14,7 @@ import { useStudyStore } from "./studyStore";
 import { create } from "zustand";
 
 import { SCENARIOS, type Scenario, type TrainingEvent } from "../training/scenarios";
+import { drillMissionId, useAcademyStore } from "./academyStore";
 
 export interface LogLine {
   t: number;
@@ -73,6 +74,11 @@ export const useTrainingStore = create<TrainingState>((set, get) => {
         score,
         timeS: Math.round(timeS),
         mistakes: get().mistakes,
+      });
+      useAcademyStore.getState().record({
+        mission: drillMissionId(sc.id),
+        score,
+        detail: `${get().mistakes} mistake(s) in ${Math.round(timeS)} s (par ${sc.parS} s)`,
       });
       say(`Scenario complete. Score ${score} out of 100. ${sc.debrief}`, "ok");
       sc.teardown?.();

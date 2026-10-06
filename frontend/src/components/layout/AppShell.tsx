@@ -48,6 +48,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/commissioning": "HV Commissioning",
   "/digital-twin": "Digital Twin · Condition Monitoring",
   "/turbine-physics": "Turbine Physics",
+  "/academy": "Academy",
 };
 
 /** Placeholder while a lazy page chunk downloads. */

@@ -8,6 +8,7 @@
  */
 
 import { lazy, Suspense, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, MapPinned, RotateCcw } from "lucide-react";
 
 import { cn } from "../lib/utils";
@@ -241,6 +242,14 @@ export default function SitePermitsPage() {
             <Button size="sm" onClick={() => setStage(next)} disabled={!report || !done.includes(effective)}>
               {done.includes(effective) ? "Next stage" : "Finish this stage first"} <ArrowRight size={13} className="ml-1" />
             </Button>
+          )}
+          {effective === "documents" && (
+            <Link
+              to="/develop/layout"
+              className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-xs font-medium text-white hover:bg-accent-hover"
+            >
+              Continue to layout <ArrowRight size={13} className="ml-1" />
+            </Link>
           )}
         </div>
       )}

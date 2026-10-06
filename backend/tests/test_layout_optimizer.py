@@ -24,6 +24,7 @@ from app.services.p1.layout_optimizer import (
     generate_regular_grid,
     generate_staggered_grid,
 )
+from app.services.p1.wake_model import ROTOR_DIAMETER_M
 
 # Check if PyWake is available for optimization tests
 try:
@@ -154,11 +155,11 @@ class TestRegularGrid:
         result = generate_regular_grid(12)
         # Check x spacing (streamwise): column 0 to column 1
         dx = result.x_positions[1] - result.x_positions[0]
-        assert dx == pytest.approx(5.0 * 236.0, rel=1e-3)
+        assert dx == pytest.approx(5.0 * ROTOR_DIAMETER_M, rel=1e-3)
 
         # Check y spacing (crosswind): row 0 to row 1
         dy = result.y_positions[6] - result.y_positions[0]
-        assert dy == pytest.approx(8.0 * 236.0, rel=1e-3)
+        assert dy == pytest.approx(8.0 * ROTOR_DIAMETER_M, rel=1e-3)
 
 
 # ── Staggered Grid Tests ─────────────────────────────────────────

@@ -8,6 +8,10 @@
 // ── Turbine Spec ────────────────────────────────────────────────
 
 export interface TurbineSpec {
+  model_id: string;
+  name: string;
+  source: string;
+  license: string;
   rotor_diameter_m: number;
   hub_height_m: number;
   rated_power_kw: number;

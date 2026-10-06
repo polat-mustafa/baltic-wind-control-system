@@ -21,8 +21,8 @@ from app.services.p1.wake_model import (
     RATED_POWER_KW,
     RATED_SPEED_MS,
     ROTOR_DIAMETER_M,
-    get_v236_ct_curve,
-    get_v236_power_curve_kw,
+    get_ct_curve,
+    get_power_curve_kw,
 )
 
 # Check if PyWake is available for integration tests
@@ -43,51 +43,51 @@ class TestPowerCurve:
     def test_zero_power_below_cut_in(self):
         """Power must be 0 below cut-in speed (3 m/s)."""
         speeds = np.array([0.0, 1.0, 2.0, 2.9])
-        power = get_v236_power_curve_kw(speeds)
+        power = get_power_curve_kw(speeds)
         np.testing.assert_array_equal(power, 0.0)
 
     def test_zero_power_above_cut_out(self):
         """Power must be 0 above cut-out speed (31 m/s)."""
         speeds = np.array([31.1, 35.0, 50.0])
-        power = get_v236_power_curve_kw(speeds)
+        power = get_power_curve_kw(speeds)
         np.testing.assert_array_equal(power, 0.0)
 
     def test_rated_power_at_rated_speed(self):
         """Power should reach rated (15,000 kW) at rated speed (11.1 m/s)."""
         speeds = np.array([RATED_SPEED_MS])
-        power = get_v236_power_curve_kw(speeds)
+        power = get_power_curve_kw(speeds)
         assert power[0] == pytest.approx(RATED_POWER_KW, abs=100)
 
     def test_rated_power_between_rated_and_cutout(self):
-        """Power should stay at rated between rated speed and cut-out."""
-        speeds = np.array([13.0, 15.0, 20.0, 25.0, 30.0])
-        power = get_v236_power_curve_kw(speeds)
+        """Power should stay at rated between rated speed and cut-out (25 m/s)."""
+        speeds = np.array([11.0, 13.0, 15.0, 20.0, 25.0])
+        power = get_power_curve_kw(speeds)
         for p in power:
             assert p == pytest.approx(RATED_POWER_KW, abs=100)
 
     def test_power_never_negative(self):
         """Rule 1: Power must always be ≥ 0."""
         speeds = np.linspace(-5, 50, 1000)
-        power = get_v236_power_curve_kw(speeds)
+        power = get_power_curve_kw(speeds)
         assert np.all(power >= 0.0)
 
     def test_power_never_exceeds_rated(self):
         """Rule 1: Power must always be ≤ P_rated."""
         speeds = np.linspace(0, 50, 1000)
-        power = get_v236_power_curve_kw(speeds)
+        power = get_power_curve_kw(speeds)
         assert np.all(power <= RATED_POWER_KW)
 
     def test_power_monotonic_below_rated(self):
         """Power should increase monotonically from cut-in to rated speed."""
         speeds = np.linspace(CUT_IN_SPEED_MS, RATED_SPEED_MS, 100)
-        power = get_v236_power_curve_kw(speeds)
+        power = get_power_curve_kw(speeds)
         diffs = np.diff(power)
         assert np.all(diffs >= -1.0), "Power curve not monotonically increasing"
 
     def test_partial_load_at_half_rated(self):
         """Power at ~8 m/s should be partial load (~40-45% of rated)."""
         speeds = np.array([8.0])
-        power = get_v236_power_curve_kw(speeds)
+        power = get_power_curve_kw(speeds)
         assert 4000 < power[0] < 8000, f"Power at 8 m/s = {power[0]} kW"
 
 
@@ -100,38 +100,39 @@ class TestCtCurve:
     def test_ct_in_valid_range(self):
         """Ct must be in [0, 1] across all speeds."""
         speeds = np.linspace(0, 50, 1000)
-        ct = get_v236_ct_curve(speeds)
+        ct = get_ct_curve(speeds)
         assert np.all(ct >= 0.0)
         assert np.all(ct <= 1.0)
 
-    def test_ct_near_rated_speed(self):
-        """Ct at rated speed (11.1 m/s) should be ~0.35 — peak before pitch regulation."""
-        speeds = np.array([RATED_SPEED_MS])
-        ct = get_v236_ct_curve(speeds)
-        assert ct[0] == pytest.approx(0.35, abs=0.05)
+    def test_ct_region2_then_pitch(self):
+        """Ct holds near ~0.78 in region 2 (optimal λ) and drops once pitch control starts."""
+        ct = get_ct_curve(np.array([8.0, RATED_SPEED_MS, 15.0]))
+        assert ct[0] == pytest.approx(0.78, abs=0.03)
+        assert ct[1] == pytest.approx(0.77, abs=0.03)
+        assert ct[2] < 0.25
 
     def test_ct_zero_below_cut_in(self):
         """Ct must be 0 below cut-in speed."""
         speeds = np.array([0.0, 1.0, 2.0, 2.9])
-        ct = get_v236_ct_curve(speeds)
+        ct = get_ct_curve(speeds)
         np.testing.assert_array_equal(ct, 0.0)
 
     def test_ct_zero_above_cut_out(self):
         """Ct must be 0 above cut-out speed."""
         speeds = np.array([31.1, 35.0, 50.0])
-        ct = get_v236_ct_curve(speeds)
+        ct = get_ct_curve(speeds)
         np.testing.assert_array_equal(ct, 0.0)
 
     def test_ct_high_near_cut_in(self):
         """Ct should be highest near cut-in (typical: 0.8-0.9)."""
         speeds = np.array([3.5])
-        ct = get_v236_ct_curve(speeds)
+        ct = get_ct_curve(speeds)
         assert ct[0] > 0.7, f"Ct near cut-in = {ct[0]}"
 
     def test_ct_decreases_with_speed(self):
-        """Ct should generally decrease from cut-in to rated speed."""
-        speeds = np.array([4.0, 8.0, 12.5])
-        ct = get_v236_ct_curve(speeds)
+        """Ct decreases above rated as the blades pitch to feather."""
+        speeds = np.array([11.0, 12.5, 20.0])
+        ct = get_ct_curve(speeds)
         assert ct[0] > ct[1] > ct[2]
 
 
@@ -146,12 +147,12 @@ class TestWakeModel:
         """Single turbine AEP should be ~63-70 GWh for Baltic conditions."""
         from app.services.p1.wake_model import (
             create_uniform_site,
-            create_v236_wind_turbine,
+            create_wind_turbine,
             run_wake_analysis,
         )
 
         site = create_uniform_site(weibull_a_ms=10.5, weibull_k=2.2)
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
         x = np.array([0.0])
         y = np.array([0.0])
 
@@ -165,12 +166,12 @@ class TestWakeModel:
         """Single turbine should have ~0% wake loss."""
         from app.services.p1.wake_model import (
             create_uniform_site,
-            create_v236_wind_turbine,
+            create_wind_turbine,
             run_wake_analysis,
         )
 
         site = create_uniform_site()
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
         result = run_wake_analysis(np.array([0.0]), np.array([0.0]), site, turbine)
 
         assert result.wake_loss_percent == pytest.approx(0.0, abs=0.5)
@@ -179,12 +180,12 @@ class TestWakeModel:
         """Downstream turbine should produce less than upstream (wake effect)."""
         from app.services.p1.wake_model import (
             create_uniform_site,
-            create_v236_wind_turbine,
+            create_wind_turbine,
             run_wake_analysis,
         )
 
         site = create_uniform_site()
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
         # Two turbines aligned E-W, 5D apart
         spacing = 5 * ROTOR_DIAMETER_M
         x = np.array([0.0, spacing])
@@ -203,12 +204,12 @@ class TestWakeModel:
         """
         from app.services.p1.wake_model import (
             create_uniform_site,
-            create_v236_wind_turbine,
+            create_wind_turbine,
             run_wake_analysis,
         )
 
         site = create_uniform_site()
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
         spacing = 5 * ROTOR_DIAMETER_M
         x = np.array([0.0, spacing])
         y = np.array([0.0, 0.0])
@@ -218,30 +219,39 @@ class TestWakeModel:
         assert 0.3 < result.wake_loss_percent < 5.0, f"Wake loss = {result.wake_loss_percent:.1f}%"
 
     def test_capacity_factor_range(self):
-        """Capacity factor should be 0.30-0.55 for Baltic conditions."""
+        """Gross CF of one IEA 15 MW turbine, A = 10.5 m/s, k = 2.2 (mean 9.3 m/s), no losses.
+
+        Low specific rating (328 W/m²) → ≈ 0.57; net CF after wakes and losses is lower.
+        """
         from app.services.p1.wake_model import (
             create_uniform_site,
-            create_v236_wind_turbine,
+            create_wind_turbine,
             run_wake_analysis,
         )
 
         site = create_uniform_site(weibull_a_ms=10.5, weibull_k=2.2)
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
         result = run_wake_analysis(np.array([0.0]), np.array([0.0]), site, turbine)
 
-        assert 0.30 < result.capacity_factor < 0.55, f"CF = {result.capacity_factor:.3f}"
+        assert 0.50 < result.capacity_factor < 0.62, f"CF = {result.capacity_factor:.3f}"
+        # CF uses the rating of the simulated turbine (bug: it used a fixed 15 MW)
+        big = run_wake_analysis(
+            np.array([0.0]), np.array([0.0]), site, create_wind_turbine("IEA-22-280-RWT")
+        )
+        assert big.capacity_factor < 0.65
+        assert big.gross_aep_gwh / (22.0 * 8.76) == pytest.approx(big.capacity_factor, rel=1e-6)
 
     def test_result_structure(self):
         """WakeAnalysisResult should have correct fields and shapes."""
         from app.services.p1.wake_model import (
             WakeAnalysisResult,
             create_uniform_site,
-            create_v236_wind_turbine,
+            create_wind_turbine,
             run_wake_analysis,
         )
 
         site = create_uniform_site()
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
         x = np.array([0.0, 1000.0])
         y = np.array([0.0, 0.0])
 
@@ -258,7 +268,7 @@ class TestWakeModel:
         """Creating a site from WindRoseResult should work with wake analysis."""
         from app.services.p1.wake_model import (
             create_site_from_wind_rose,
-            create_v236_wind_turbine,
+            create_wind_turbine,
             run_wake_analysis,
         )
         from app.services.p1.wind_analysis import compute_wind_rose
@@ -270,7 +280,7 @@ class TestWakeModel:
 
         wind_rose = compute_wind_rose(speeds.astype(np.float64), directions.astype(np.float64))
         site = create_site_from_wind_rose(wind_rose)
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
 
         result = run_wake_analysis(np.array([0.0]), np.array([0.0]), site, turbine)
 

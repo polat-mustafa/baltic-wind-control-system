@@ -90,7 +90,7 @@ const controlRoom: Tour = {
         "This 3D model is driven by the same simulation as the map: rotor speed and pitch follow the live wind. " +
         "Click a component to read about it, or switch to the engineering drawings.",
       points: [
-        { label: "Rotor", text: "Three blades, 236 m diameter. Above rated wind the blades pitch to hold 15 MW." },
+        { label: "Rotor", text: "Three blades, ≈ 240 m diameter. Above rated wind the blades pitch to hold 15 MW." },
         {
           label: "Nacelle",
           text: "Drivetrain, generator and converter. Its sensors reach SCADA as IEC 61400-25 logical nodes (WTUR, WROT…).",
@@ -221,7 +221,7 @@ const layout: Tour = {
       route: "/develop/layout",
       target: "layout-grid",
       title: "Start from a grid",
-      body: "Spacing is set in rotor diameters (D = 236 m). Constraint areas from the open data can be skipped.",
+      body: "Spacing is set in rotor diameters (D = 241 m, IEA 15 MW). Constraint areas from the open data can be skipped.",
       task: {
         instruction: "Press Fill site (or load the SB-510 layout).",
         watch: () => () => useProjectStore.getState().turbines.length > 0,

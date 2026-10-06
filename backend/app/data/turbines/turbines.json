@@ -1,0 +1,30 @@
+[
+  {
+    "id": "IEA-15-240-RWT",
+    "name": "IEA 15 MW reference turbine",
+    "rated_kw": 15000.0,
+    "rotor_diameter_m": 241.35,
+    "hub_height_m": 150.0,
+    "cut_in_ms": 3.0,
+    "rated_ms": 10.6594,
+    "cut_out_ms": 25.0,
+    "source": "github.com/IEAWindTask37/IEA-15-240-RWT @ v1.1.18, Documentation/IEA-15-240-RWT_tabular.xlsx, sheet 'Rotor Performance'",
+    "license": "Apache-2.0",
+    "reference": "Gaertner, E. et al. (2020). Definition of the IEA 15-Megawatt Offshore Reference Wind Turbine. NREL/TP-5000-75698.",
+    "retrieved": "2026-10-06"
+  },
+  {
+    "id": "IEA-22-280-RWT",
+    "name": "IEA 22 MW reference turbine",
+    "rated_kw": 22000.0,
+    "rotor_diameter_m": 284.0,
+    "hub_height_m": 170.0,
+    "cut_in_ms": 3.0,
+    "rated_ms": 11.1349,
+    "cut_out_ms": 25.0,
+    "source": "github.com/IEAWindTask37/IEA-22-280-RWT @ v1.1.0, Documentation/IEA-22-280-RWT_tabular.xlsx, sheet 'Rotor Performance - WISDEM'",
+    "license": "Apache-2.0",
+    "reference": "Zahle, F. et al. (2024). Definition of the IEA Wind 22-Megawatt Offshore Reference Wind Turbine. DTU Wind Energy E-0243.",
+    "retrieved": "2026-10-06"
+  }
+]

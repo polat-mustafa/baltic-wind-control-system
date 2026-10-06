@@ -15,7 +15,7 @@
 
 import type { TurbinePartId } from "../constants/turbinePartEducation";
 import type { TurbineData } from "../types/landing";
-import { v236PowerMW } from "./landingPhysics";
+import { turbinePowerMW } from "./landingPhysics";
 
 export interface CurtailmentInfo {
   reason: "high_wind" | "grid_dispatch" | "unknown";
@@ -36,12 +36,12 @@ export function inferCurtailment(turbine: TurbineData): CurtailmentInfo | null {
       explanation: `Wind speed is ${turbine.windSpeedMs.toFixed(1)} m/s (above 20 m/s threshold). Blades pitched to ${turbine.pitchAngleDeg.toFixed(1)}° to reduce aerodynamic loads and protect the drivetrain.`,
       affectedPart: "blades",
       educationalNote:
-        "Above rated wind speed, the pitch system feathers the blades to limit power and structural loads. This is normal protective behavior per IEC 61400-1. The V236's advanced storm control allows operation up to 31 m/s cut-out, but at reduced output.",
+        "Above rated wind speed, the pitch system feathers the blades to limit power and structural loads. This is normal protective behavior per IEC 61400-1. The turbine holds rated output up to its 25 m/s cut-out, then feathers and stops.",
     };
   }
 
   // 2. Grid dispatch curtailment: power well below expected at moderate wind
-  const expected = v236PowerMW(turbine.windSpeedMs);
+  const expected = turbinePowerMW(turbine.windSpeedMs);
   if (
     turbine.windSpeedMs >= 5 &&
     turbine.windSpeedMs <= 20 &&

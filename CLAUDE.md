@@ -1,6 +1,6 @@
 # OffshoreForge
 
-Offshore wind engineering training platform. Reference case study SB-510 (Southern Baltic, Polish EEZ): 510 MW, 34 × V236-15.0 MW, 66 kV array, 220 kV export (45 km), PSE grid.
+Offshore wind engineering training platform. Reference case study SB-510 (Southern Baltic, Polish EEZ): 510 MW, 34 × 15 MW "V236 class" (modelled with the IEA-15-240-RWT), 66 kV array, 220 kV export (45 km), PSE grid.
 Monorepo: FastAPI (Python 3.13, SQLAlchemy, Pydantic v2) backend + React 19 / TypeScript / Tailwind v4 / Vite frontend.
 
 ## Working style
@@ -45,7 +45,7 @@ This repo is indexed (`.codegraph/`, auto-syncs). For "where is / what calls / h
 
 ## Non-negotiable domain rules (summary — full text: `docs/SKILL.md` § Critical Domain Rules)
 
-1. 0 ≤ P ≤ Prated; zero output below cut-in 3 m/s and above cut-out 31 m/s; ML never overrides physics (`enforce_physical_constraints()`).
+1. 0 ≤ P ≤ Prated; zero output below cut-in and above cut-out — SB-510 turbine = IEA-15-240-RWT ("V236 class"): 3 / 10.66 / 25 m/s, D 241.35 m (`services/p1/turbine_models.py`); P4 / DT / turbine physics still use the legacy V236 curve (3 / 11.1 / 31 m/s) until the final phase. ML never overrides physics (`enforce_physical_constraints()`).
 2. Per-unit consistent: Sbase 100 MVA, Vbase = bus nominal (66/220/400 kV); never mix pu and absolute.
 3. Short-circuit per IEC 60909 via `pandapower.shortcircuit.calc_sc()` (HV/MV: cmax 1.10, cmin 1.00; 0.95 is LV-only) — do not re-implement.
 4. Reactive power: generating Q positive (`reactive_power_mvar`).

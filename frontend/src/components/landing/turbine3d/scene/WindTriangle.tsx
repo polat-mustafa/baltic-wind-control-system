@@ -20,7 +20,7 @@ import { memo, useMemo } from "react";
 import * as THREE from "three";
 import { Html, Line } from "@react-three/drei";
 
-import { inductionFromCt, v236ThrustCoefficient } from "../../../../utils/landingPhysics";
+import { inductionFromCt, turbineThrustCoefficient } from "../../../../utils/landingPhysics";
 import { PRECONE, ROTOR_RADIUS } from "../model/layout";
 import { bladeTwistDeg } from "./bladeConstants";
 
@@ -37,7 +37,7 @@ interface WindTriangleProps {
 export const WindTriangle = memo(function WindTriangle({ windMs, rotorSpeedRpm, pitchDeg }: WindTriangleProps) {
   if (windMs < 0.5 || rotorSpeedRpm < 0.1) return null;
   const omega = (rotorSpeedRpm * 2 * Math.PI) / 60;
-  const a = inductionFromCt(v236ThrustCoefficient(windMs));
+  const a = inductionFromCt(turbineThrustCoefficient(windMs));
   return (
     <>
       {RADII_FRACTION.map((frac) => (

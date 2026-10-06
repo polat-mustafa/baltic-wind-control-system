@@ -44,7 +44,7 @@ export const farmConfigEducation: EducationContent = {
       variables: [
         { symbol: "N", name: "Number of turbines", unit: "—" },
         { symbol: "s_x, s_y", name: "Spacing along / across the wind in rotor diameters", unit: "—" },
-        { symbol: "D", name: "Rotor diameter (236 m)", unit: "m" },
+        { symbol: "D", name: "Rotor diameter (241 m, IEA 15 MW)", unit: "m" },
       ],
       explanation: "Rough farm footprint; 34 × V236 at 7 D × 7 D ≈ 34 × 1.65 km × 1.65 km ≈ 93 km² of cells.",
     },

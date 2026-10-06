@@ -14,7 +14,7 @@ from app.services.p1.yaw_optimizer import (
     YawOptimizationResult,
     compute_farm_power_with_yaw,
     configure_wake_model_with_deflection,
-    create_v236_wind_turbine,
+    create_wind_turbine,
     optimize_yaw_all_directions,
     optimize_yaw_single_direction,
 )
@@ -51,13 +51,13 @@ class TestConfigureWakeModelWithDeflection:
     """Test wake model with Jiménez deflection is properly configured."""
 
     def test_model_creates_successfully(self, site):
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
         model = configure_wake_model_with_deflection(site, turbine)
         assert model is not None
 
     def test_model_accepts_yaw_parameter(self, site, layout):
         """Verify the model can run with yaw angles."""
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
         model = configure_wake_model_with_deflection(site, turbine)
         n = layout.num_turbines
         yaw = np.zeros(n, dtype=np.float64)
@@ -78,7 +78,7 @@ class TestComputeFarmPowerWithYaw:
     """Test farm power computation with yaw angles."""
 
     def test_zero_yaw_gives_positive_power(self, site, layout):
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
         model = configure_wake_model_with_deflection(site, turbine)
         n = layout.num_turbines
         total_mw, _ = compute_farm_power_with_yaw(
@@ -93,7 +93,7 @@ class TestComputeFarmPowerWithYaw:
 
     def test_large_yaw_reduces_upstream_power(self, site, layout):
         """Large yaw misalignment should reduce total power (cosine loss)."""
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
         model = configure_wake_model_with_deflection(site, turbine)
         n = layout.num_turbines
 

@@ -13,7 +13,7 @@ import {
   type BladeOperatingPoint,
 } from "../../../../src/components/landing/turbine3d/model/bladeField";
 import { BLADE_LENGTH_M, STATIONS } from "../../../../src/components/landing/turbine3d/scene/bladeConstants";
-import { v236ThrustMN } from "../../../../src/utils/landingPhysics";
+import { V236, v236ThrustMN } from "../../../../src/utils/landingPhysics";
 
 const RATED: BladeOperatingPoint = { windMs: 11.1, rpm: 8.33, pitchDeg: 0 };
 
@@ -85,10 +85,10 @@ describe("pressure coefficient", () => {
 });
 
 describe("flapwise bending", () => {
-  it("root moment ≈ T/3 · (2R/3 − r_h) ≈ 66 MN·m at rated, zero at the tip", () => {
-    const t = v236ThrustMN(11.1);
-    expect(flapMomentMNm(0, t)).toBeGreaterThan(60);
-    expect(flapMomentMNm(0, t)).toBeLessThan(72);
+  it("root moment ≈ T/3 · (2R/3 − r_h) ≈ 62 MN·m at rated, zero at the tip", () => {
+    const t = v236ThrustMN(V236.ratedMs); // ≈ 2.45 MN
+    expect(flapMomentMNm(0, t)).toBeGreaterThan(55);
+    expect(flapMomentMNm(0, t)).toBeLessThan(70);
     expect(flapMomentMNm(BLADE_LENGTH_M, t)).toBeCloseTo(0, 6);
   });
 

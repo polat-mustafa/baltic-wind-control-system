@@ -253,7 +253,7 @@ export default function LayoutPage() {
           </h2>
           <p className="mt-1 text-xs text-text-muted">
             Place turbines in your site, watch wake losses and the array cables change, then check the energy yield with PyWake
-            and estimate the cost. Turbine: Vestas V236-15.0 MW (D = 236 m).
+            and estimate the cost. Turbine: V236 class, modelled with the IEA 15 MW reference turbine (D = 241 m).
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">

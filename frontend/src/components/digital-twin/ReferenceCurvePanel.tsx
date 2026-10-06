@@ -25,7 +25,7 @@ export default function ReferenceCurvePanel() {
   return (
     <ChartWrapper
       title="Reference model — steady state at ρ = 1.225 kg/m³"
-      footer={`Heier Cp(λ, β) × k_aero, K·ω² torque law, 4.0–8.33 rpm, pitch regulation. Max |ΔP| vs P1 table: ${rc.max_deviation_vs_p1_mw.toFixed(2)} MW (below 6 m/s, where ω_min forces λ > λ_opt); ${rc.max_deviation_vs_p1_above_6ms_mw.toFixed(2)} MW from 6 m/s up.`}
+      footer={`Heier Cp(λ, β) × k_aero, K·ω² torque law, 4.0–8.33 rpm, pitch regulation. Max |ΔP| vs the legacy V236 table: ${rc.max_deviation_vs_p1_mw.toFixed(2)} MW (below 6 m/s, where ω_min forces λ > λ_opt); ${rc.max_deviation_vs_p1_above_6ms_mw.toFixed(2)} MW from 6 m/s up.`}
     >
       <Plot
         data={[
@@ -43,9 +43,9 @@ export default function ReferenceCurvePanel() {
             y: rc.p1_table_power_mw,
             type: "scatter",
             mode: "lines",
-            name: "P1 V236 table",
+            name: "Legacy V236 table",
             line: { color: c.orange, width: 1.5, dash: "dot" },
-            hovertemplate: "%{x:.2f} m/s · %{y:.2f} MW<extra>P1 table</extra>",
+            hovertemplate: "%{x:.2f} m/s · %{y:.2f} MW<extra>Legacy V236 table</extra>",
           },
           {
             x: rc.wind_ms,

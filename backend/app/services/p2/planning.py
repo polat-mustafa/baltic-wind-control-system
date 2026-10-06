@@ -16,7 +16,7 @@ Planning & Power-to-X — two studies on the 510 MW farm.
 
 2. Electrolyser on the energy above a grid connection limit
    The farm's output duration curve: Weibull A from v̄ = 9.3 m/s, k = 2.2
-   as in P1, through a multi-turbine power curve — the V236 curve averaged
+   as in P1, through a multi-turbine power curve — the reference (IEA 15 MW) curve averaged
    over a Gaussian spread of wind speed across the farm (σ = 1 m/s,
    Nørgaard & Holttinen 2004) — times 97 % availability (both assumptions).
    A single-turbine curve would hold all 34 turbines at exactly 510 MW for
@@ -39,7 +39,7 @@ from typing import Any
 import numpy as np
 
 from app.services.p1.farm_comparison import weibull_scale_from_mean
-from app.services.p1.wake_model import get_v236_power_curve_kw
+from app.services.p1.wake_model import get_power_curve_kw
 from app.services.p2.network_model import (
     ALPHA_CU_PER_K,
     EXPORT_CABLE_1000,
@@ -87,7 +87,7 @@ def farm_duration_mw() -> np.ndarray:
     z = np.linspace(-3.0, 3.0, 25)
     w = np.exp(-(z**2) / 2) / np.exp(-(z**2) / 2).sum()
     curve = np.asarray(
-        get_v236_power_curve_kw(np.maximum(v[:, None] + FARM_SPREAD_MS * z, 0.0)), dtype=float
+        get_power_curve_kw(np.maximum(v[:, None] + FARM_SPREAD_MS * z, 0.0)), dtype=float
     )
     p = AVAILABILITY * (curve @ w) / 15_000.0
     return np.sort(np.clip(p, 0.0, 1.0) * TOTAL_CAPACITY_MW)[::-1]

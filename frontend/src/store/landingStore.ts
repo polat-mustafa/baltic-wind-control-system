@@ -31,7 +31,7 @@ import {
   exportCableState,
   farmWakeDeficits,
   v236PitchDeg,
-  v236PowerMW,
+  turbinePowerMW,
   v236RotorRpm,
 } from "../utils/landingPhysics";
 
@@ -92,7 +92,7 @@ function computePitchAngle(windMs: number, status: TurbineStatus): number {
 /** Electrical power [MW] from the V236 curve; curtailed units run at 60 %. */
 function computePower(windMs: number, status: TurbineStatus): number {
   if (status === "fault" || status === "offline") return 0;
-  const p = v236PowerMW(windMs);
+  const p = turbinePowerMW(windMs);
   return status === "curtailed" ? p * 0.6 : p;
 }
 
@@ -796,7 +796,7 @@ export const useLandingStore = create<LandingState>((set) => {
             // on a lull, power follows the wind down at once (Cp ≤ Betz).
             const newPower = Math.min(
               rampToward(t.powerOutputMW, targetPower, MAX_POWER_RAMP_MW_PER_TICK),
-              v236PowerMW(newWind) * yawFactor,
+              turbinePowerMW(newWind) * yawFactor,
             );
             const newRotor = rampToward(t.rotorSpeedRpm, targetRotor, MAX_ROTOR_RAMP_RPM_PER_TICK);
             const newPitch = rampToward(t.pitchAngleDeg, targetPitch, MAX_PITCH_RAMP_DEG_PER_TICK);

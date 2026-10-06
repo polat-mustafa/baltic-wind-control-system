@@ -21,10 +21,16 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 |---|---|---|
 | 1 | Screening follows Polish MSP law: wind only in energy ('E') basins, real projects = warn, whole-EEZ data pack | In review (`feat/site-msp-energy-basins`) |
 | 2 | Site & Permits UX: legend, permit outlook banner, role avatars, data & sources panel, report states (stale / failed / retry) | In review (`feat/site-permits-ux`, stacked on phase 1) |
-| 3–13 | IEA-15/22 turbines · site wind climate · project persistence · post-tour choice + locks · FarmSpec/P2 · P5/P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
+| 3 | IEA-15-240-RWT / IEA-22-280-RWT from the official IEA Wind Task 37 tables; P1 wake/AEP, layout canvas and frontend curves on the model registry; CF bug fixed | In review (`feat/turbine-iea-models`, stacked on phase 2) |
+| 4–13 | Site wind climate · project persistence · post-tour choice + locks · FarmSpec/P2 · P5/P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
 
 Phase 1 note: `test_sb510_case_study` expects `msp_energy == "fail"` until phase 9 moves SB-510 into PZP_44.
 Phase 2 note: the permit outlook says a refused site "could not go on to layout" but Layout is not locked yet — the hard lock comes with phase 6.
+Phase 3 notes:
+- Official tables (tags IEA-15 v1.1.18, IEA-22 v1.1.0) give D 241.35 m and rated 10.66 m/s for the IEA 15 MW — not the 240 m / 10.59 m/s of the 2020 report text; curve and parameters are taken from the same table. Regenerate with `cd backend && python scripts/fetch_turbine_curves.py`.
+- P4, the digital twin (`digital_twin/legacy_v236_table.py`), turbine physics (`state_machine` cut-out comes from the caller's spec) and P3 historian keep the legacy V236 curve (3 / 11.1 / 31 m/s) until phase 12.
+- Educational texts that quote the Vestas V236 catalogue (part cards, library `turbineSelection`, P4 academy) are left for phase 12 (provenance pass).
+- SB-510 with the IEA 15 MW: gross 2534 GWh/yr, wake 7.0 %, net P50 2126 GWh/yr, CF 0.476 (A 10.5 m/s, k 2.2).
 
 ## Resume here
 

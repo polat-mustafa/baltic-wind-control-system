@@ -16,14 +16,16 @@ import type {
   WindRoseResult,
 } from "../types/windResource";
 
+import { DEFAULT_TURBINE_ID } from "../constants/turbineModels";
 import { post, request } from "./apiClient";
 
 const BASE = "/api/v1/wind";
 
 // ── Turbine Spec ────────────────────────────────────────────────
 
-export function getTurbineSpec(): Promise<TurbineSpec> {
-  return request(`${BASE}/turbine-spec`);
+/** Reference turbine specification (default SB-510's IEA 15 MW). */
+export function getTurbineSpec(model?: string): Promise<TurbineSpec> {
+  return request(`${BASE}/turbine-spec${model ? `?model=${encodeURIComponent(model)}` : ""}`);
 }
 
 // ── Weibull Fit ─────────────────────────────────────────────────
@@ -75,8 +77,9 @@ export function runCustomWakeAnalysis(
   weibull_a = 10.5,
   weibull_k = 2.2,
   turbulence_intensity = 0.06,
+  turbine_model = DEFAULT_TURBINE_ID,
 ): Promise<WakeAnalysisResult> {
-  return post(`${BASE}/wake-analysis-custom`, { x_m, y_m, weibull_a, weibull_k, turbulence_intensity });
+  return post(`${BASE}/wake-analysis-custom`, { x_m, y_m, weibull_a, weibull_k, turbulence_intensity, turbine_model });
 }
 
 // ── AEP Cascade ─────────────────────────────────────────────────

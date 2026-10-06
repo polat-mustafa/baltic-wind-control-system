@@ -47,8 +47,8 @@ from numpy.typing import NDArray
 from app.services.p1.wake_model import (
     RATED_POWER_KW,
     ROTOR_DIAMETER_M,
-    get_v236_ct_curve,
-    get_v236_power_curve_kw,
+    get_ct_curve,
+    get_power_curve_kw,
 )
 
 # ── FLOWERS Constants ───────────────────────────────────────────
@@ -152,8 +152,8 @@ def rose_aep(
     )
 
     v, p_v = weibull_bins(mean_wind_speed_ms, weibull_k)
-    power = get_v236_power_curve_kw(v)  # [kW]
-    ct = get_v236_ct_curve(v)
+    power = get_power_curve_kw(v)  # [kW]
+    ct = get_ct_curve(v)
 
     # Pair geometry: i upstream (rows) → j downstream (columns)
     dx = x_positions_m[None, :] - x_positions_m[:, None]
@@ -171,7 +171,7 @@ def rose_aep(
     prob = np.clip(density[:, :, None] * width, 0.0, 1.0)
     prob[r < ROTOR_DIAMETER_M] = 0.0  # self-pairs / overlapping positions
 
-    lost = power[None, None, :] - get_v236_power_curve_kw(v[None, None, :] * (1.0 - deficit))
+    lost = power[None, None, :] - get_power_curve_kw(v[None, None, :] * (1.0 - deficit))
     loss_j = np.minimum((prob * lost).sum(axis=0), power[None, :])  # [n, nv]
 
     gross = float(np.sum(power * p_v)) * 8760.0 / 1e6  # GWh per turbine

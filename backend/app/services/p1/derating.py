@@ -43,9 +43,9 @@ from app.services.p1.wake_model import (
     HUB_HEIGHT_M,
     ROTOR_DIAMETER_M,
     create_uniform_site,
-    create_v236_wind_turbine,
-    get_v236_ct_curve,
-    get_v236_power_curve_kw,
+    create_wind_turbine,
+    get_ct_curve,
+    get_power_curve_kw,
 )
 
 
@@ -129,15 +129,15 @@ def compute_derated_power(
     from py_wake.wind_turbines.power_ct_functions import PowerCtTabular
 
     ws = np.arange(3.0, 26.0, 0.5)
-    ct = get_v236_ct_curve(ws)
-    full = create_v236_wind_turbine()
+    ct = get_ct_curve(ws)
+    full = create_wind_turbine()
     derated = WindTurbine(
-        name="V236 derated",
+        name="IEA-15 derated",
         diameter=ROTOR_DIAMETER_M,
         hub_height=HUB_HEIGHT_M,
         powerCtFunction=PowerCtTabular(
             ws=ws,
-            power=derating_fraction * get_v236_power_curve_kw(ws) * 1e3,
+            power=derating_fraction * get_power_curve_kw(ws) * 1e3,
             power_unit="W",
             ct=derated_ct(ct, derating_fraction),
         ),

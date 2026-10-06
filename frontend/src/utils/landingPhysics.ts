@@ -8,6 +8,7 @@
  */
 
 import { TURBINE_POSITIONS } from "../constants/windFarmLayout";
+import { powerKw, REFERENCE_TURBINE, thrustCoefficient } from "./turbineCurves";
 import { computeWakeLosses } from "./wakeModel";
 
 // ── Reactive power balance at the OSS 220 kV busbar ─────────────
@@ -148,15 +149,18 @@ export function arrayCableCurrentA(mw: number): number {
   return (Math.max(0, mw) * 1e6) / (Math.sqrt(3) * ARRAY_KV * 1e3);
 }
 
-// ── Vestas V236-15.0 MW operating model ─────────────────────────
-// Mirrors the backend: power curve `services/p1/wake_model.py`
-// (P = 15·(v/11.1)³ MW below rated), rotor limits `turbine_physics/rotor_dynamics.py`.
+// ── SB-510 turbine: V236 class, modelled with the IEA-15-240-RWT ──
+// Power and thrust curves and the cut-in / rated / cut-out speeds come from
+// the IEA 15 MW reference turbine (constants/turbineModels.ts, same table as
+// backend services/p1/turbine_models.py) — Vestas publishes no V236 curves.
+// The nacelle model (rotor limits, 48:1 gearbox, efficiencies) stays the
+// V236-class drivetrain of `turbine_physics/rotor_dynamics.py`.
 
 export const V236 = {
-  ratedMW: 15,
-  cutInMs: 3,
-  ratedMs: 11.1,
-  cutOutMs: 31,
+  ratedMW: REFERENCE_TURBINE.ratedKw / 1000,
+  cutInMs: REFERENCE_TURBINE.cutInMs,
+  ratedMs: REFERENCE_TURBINE.ratedMs,
+  cutOutMs: REFERENCE_TURBINE.cutOutMs,
   /** Minimum / rated rotor speed [rpm]; tip speed at rated ≈ 103 m/s. */
   minRpm: 4.0,
   ratedRpm: 8.33,
@@ -206,20 +210,19 @@ export interface PowerChain {
  * P_el = P_rotor · η_gb · η_gen · η_conv · η_tr.
  */
 /**
- * Rotor thrust coefficient: ≈ 0.8 below rated (near-optimal induction,
- * a ≈ 0.28), then pitch sheds load so thrust falls ∝ 1/v above rated
- * (Ct ∝ (v_r/v)³) — the usual peak-at-rated thrust curve of pitch-
- * regulated turbines. Zero outside cut-in … cut-out.
+ * Rotor thrust coefficient from the reference table: ≈ 0.78 below rated
+ * (near-optimal induction, a ≈ 0.27), then pitch sheds load and Ct falls —
+ * the peak-at-rated thrust curve of pitch-regulated turbines. Zero outside
+ * cut-in … cut-out.
  */
-export function v236ThrustCoefficient(windMs: number): number {
-  if (windMs < V236.cutInMs || windMs > V236.cutOutMs) return 0;
-  return windMs <= V236.ratedMs ? 0.8 : 0.8 * (V236.ratedMs / windMs) ** 3;
+export function turbineThrustCoefficient(windMs: number): number {
+  return thrustCoefficient(REFERENCE_TURBINE, windMs);
 }
 
-/** Rotor thrust T = ½ρAv²·Ct [MN] (2.6 MN at rated). */
+/** Rotor thrust T = ½ρAv²·Ct [MN] (≈ 2.5 MN at rated). */
 export function v236ThrustMN(windMs: number): number {
   const area = Math.PI * (ROTOR_DIAMETER_M / 2) ** 2;
-  return (0.5 * 1.225 * area * windMs ** 2 * v236ThrustCoefficient(windMs)) / 1e6;
+  return (0.5 * 1.225 * area * windMs ** 2 * turbineThrustCoefficient(windMs)) / 1e6;
 }
 
 /** Axial induction from Ct = 4a(1−a) (momentum theory, a ≤ 0.4). */
@@ -268,10 +271,9 @@ export function v236PowerChain(electricalMW: number, windMs: number, rotorRpm: n
   };
 }
 
-/** Electrical output [MW]: cubic below rated, flat at rated to cut-out. */
-export function v236PowerMW(windMs: number): number {
-  if (!inOperatingRange(windMs)) return 0;
-  return Math.min(V236.ratedMW, V236.ratedMW * (windMs / V236.ratedMs) ** 3);
+/** Electrical output [MW] from the reference power curve (IEA 15 MW table). */
+export function turbinePowerMW(windMs: number): number {
+  return powerKw(REFERENCE_TURBINE, windMs) / 1000;
 }
 
 /** Rotor speed [rpm]: tracks optimum tip-speed ratio, clamped to 4.0–8.33 rpm. */
@@ -319,17 +321,17 @@ export function farmWakeDeficits(windFromDeg: number): Map<string, number> {
  * turbine at 13 m/s freestream may still reach 15 MW and lose nothing.
  */
 export function wakePowerLossPct(freestreamMs: number, deficit: number): number {
-  const free = v236PowerMW(freestreamMs);
+  const free = turbinePowerMW(freestreamMs);
   if (free <= 0) return 0;
-  return (1 - v236PowerMW(freestreamMs * (1 - deficit)) / free) * 100;
+  return (1 - turbinePowerMW(freestreamMs * (1 - deficit)) / free) * 100;
 }
 
 // ── Offshore wind statistics ──────────────────────────────────────
 
-/** Hub height of the V236-15.0 MW in this project [m] (backend wake_model). */
-export const HUB_HEIGHT_M = 150;
-/** Rotor diameter [m]. */
-export const ROTOR_DIAMETER_M = 236;
+/** Hub height [m] (IEA 15 MW reference, backend wake_model). */
+export const HUB_HEIGHT_M = REFERENCE_TURBINE.hubHeightM;
+/** Rotor diameter [m] (IEA 15 MW reference, 241.35 m; nominal 240 m). */
+export const ROTOR_DIAMETER_M = REFERENCE_TURBINE.rotorDiameterM;
 /** Offshore power-law shear exponent (neutral, low sea roughness). */
 export const SHEAR_ALPHA = 0.1;
 

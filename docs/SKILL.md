@@ -64,6 +64,7 @@ baltic-wind-control-system/
 ### NEVER Violate These Engineering Principles
 
 1. **Physical constraints are non-negotiable.** Power output MUST be ≥ 0 and ≤ Prated. Wind speed below cut-in or above cut-out means zero power. No exceptions. No ML model prediction overrides physics.
+   SB-510's turbine is a "V236 class" machine modelled with the IEA-15-240-RWT (official IEA Wind Task 37 table, `services/p1/turbine_models.py`): cut-in 3 m/s, rated 10.66 m/s, cut-out 25 m/s, D 241.35 m, hub 150 m. P4, the digital twin and turbine physics keep the legacy V236 approximation (3 / 11.1 / 31 m/s) until the final phase of the own-project programme.
 
 2. **Per-unit (pu) system must be consistent.** All voltage values in power system calculations use per-unit. Base voltage = nominal voltage of the bus. Base power = system MVA base (typically 100 MVA). NEVER mix absolute and per-unit values in the same calculation.
 

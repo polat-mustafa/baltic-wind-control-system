@@ -23,7 +23,7 @@ Citation rules used here:
 | Wake-added turbulence | `services/p1/wake_model.py` (PyWake `STF2017TurbulenceModel`) | [8], [S1] |
 | Global blockage | `services/p1/blockage.py` | [9] |
 | AEP loss cascade, P50/P90 | `services/p1/aep_calculator.py` | [1], [2] |
-| Power curve, cut-in/out | `services/p1/wake_model.py` | [S2], [S3] |
+| Power / thrust curve, cut-in/out (IEA 15 MW and 22 MW reference turbines) | `services/p1/turbine_models.py`, `app/data/turbines/`, `scripts/fetch_turbine_curves.py`, `frontend/src/constants/turbineModels.ts` | [S2], [26], [27] |
 
 ## P2 — HV grid integration
 
@@ -57,7 +57,7 @@ Citation rules used here:
 | Explanations (SHAP) | `services/p4/xgboost_model.py` | [17] |
 | Time-ordered cross-validation | `services/p4/` (scikit-learn `TimeSeriesSplit`) | [18], [19] |
 | Forecast error metrics | `services/p4/model_evaluation.py` | [19], [20] |
-| Physical limits on forecasts | `services/p4/physical_constraints.py` | [S3] |
+| Physical limits on forecasts (legacy V236 curve) | `services/p4/physical_constraints.py` | [S3] |
 
 ## P5 — Commissioning
 
@@ -155,12 +155,14 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 23. White, F. M. *Viscous Fluid Flow*, 3rd ed. McGraw-Hill, 2006.
 24. WindEurope. "Wind industry calls for Europe-wide ban on landfilling turbine blades." Press release, June 2021. https://windeurope.org/news/wind-industry-calls-for-europe-wide-ban-on-landfilling-turbine-blades/
 25. Topham, E., McMillan, D. "Sustainable decommissioning of an offshore wind farm." *Renewable Energy* 102(B), 470–480, 2017. doi:10.1016/j.renene.2016.10.066
+26. Gaertner, E., et al. *Definition of the IEA 15-Megawatt Offshore Reference Wind Turbine*. NREL/TP-5000-75698, 2020. Tables: github.com/IEAWindTask37/IEA-15-240-RWT, tag v1.1.18, `Documentation/IEA-15-240-RWT_tabular.xlsx` ("Rotor Performance"), Apache-2.0.
+27. Zahle, F., et al. *Definition of the IEA Wind 22-Megawatt Offshore Reference Wind Turbine*. DTU Wind Report E-0243, 2024. https://doi.org/10.11581/DTU.00000317. Tables: github.com/IEAWindTask37/IEA-22-280-RWT, tag v1.1.0 ("Rotor Performance - WISDEM"), Apache-2.0.
 
 ## Standards and regulations
 
 - **[S1]** IEC 61400-1:2019 — Wind energy generation systems — Part 1: Design requirements.
 - **[S2]** IEC 61400-12-1 — Power performance measurements of electricity producing wind turbines.
-- **[S3]** Vestas V236-15.0 MW product data (rated power, cut-in 3 m/s, cut-out 31 m/s) as used in `services/p1/wake_model.py`.
+- **[S3]** Vestas V236-15.0 MW product data (rated power, cut-in 3 m/s, cut-out 31 m/s) — legacy V236 approximation still used by P4, the digital twin (`digital_twin/legacy_v236_table.py`) and turbine physics.
 - **[S4]** IEC 60909-0:2016 — Short-circuit currents in three-phase a.c. systems — Part 0: Calculation of currents.
 - **[S5]** Commission Regulation (EU) 2016/631 — Network code on requirements for grid connection of generators (RfG).
 - **[S6]** PSE S.A. — *Instrukcja Ruchu i Eksploatacji Sieci Przesyłowej* (IRiESP) and national RfG requirements.

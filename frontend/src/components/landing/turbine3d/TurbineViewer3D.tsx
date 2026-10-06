@@ -380,8 +380,8 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
   const containerRef = useRef<HTMLDivElement>(null);
 
   // V236 model (utils/landingPhysics) drives live rpm & pitch from the slider:
-  // rpm tracks wind to 8.33 rpm at rated 11.1 m/s, pitch sheds power above it,
-  // feathered (90°) and stopped outside 3–31 m/s.
+  // rpm tracks wind to 8.33 rpm at rated (10.66 m/s), pitch sheds power above it,
+  // feathered (90°) and stopped outside 3–25 m/s.
   const kpisForYaw = useLandingStore(selectKPIs);
   const turbineForYaw = useLandingStore(selectTurbine(turbineId));
   // yaw-error stop: while the nacelle is > 45° off the wind the rotor idles

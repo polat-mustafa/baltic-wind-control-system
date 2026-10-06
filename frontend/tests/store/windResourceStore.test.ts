@@ -57,7 +57,11 @@ describe("parameter setters", () => {
 describe("fetchTurbineSpec", () => {
   it("loads turbine spec into state", async () => {
     const mockSpec = {
-      rotor_diameter_m: 236,
+      model_id: "IEA-15-240-RWT",
+      name: "IEA 15 MW reference turbine",
+      source: "test",
+      license: "Apache-2.0",
+      rotor_diameter_m: 241.35,
       hub_height_m: 150,
       rated_power_kw: 15000,
       cut_in_speed_ms: 3,

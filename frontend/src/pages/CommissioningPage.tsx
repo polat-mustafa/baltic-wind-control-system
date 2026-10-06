@@ -16,6 +16,7 @@ import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { p5Guide } from "../constants/trainingGuideContent";
+import ProjectHandoverNote from "../components/lifecycle/ProjectHandoverNote";
 
 export default function CommissioningPage() {
   const {
@@ -54,6 +55,8 @@ export default function CommissioningPage() {
         </div>
         <TrainingGuide guide={p5Guide} />
       </div>
+
+      <ProjectHandoverNote what="This programme energises the SB-510 OSS; the export-system steps are the same for your farm, then one feeder bay per string." />
 
       {/* Error banner */}
       {error && (

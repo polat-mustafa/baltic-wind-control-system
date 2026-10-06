@@ -8,8 +8,11 @@ const ROUTES = [
   ["p2-hv-grid", "/hv-grid"],
   ["p3-scada", "/scada"],
   ["p4-forecast", "/forecast"],
+  ["construction", "/build"],
   ["p5-commissioning", "/commissioning"],
+  ["handover", "/build/handover"],
   ["digital-twin", "/digital-twin"],
+  ["decommissioning", "/decommission"],
   ["academy", "/academy"],
 ] as const;
 

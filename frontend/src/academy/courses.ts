@@ -107,6 +107,13 @@ export const TRACKS: Track[] = [
     goal: "Install in the weather windows and energise safely.",
     lessons: [
       { kind: "read", content: weatherWindowEducation },
+      {
+        kind: "explore",
+        id: "explore.construction",
+        title: "Construction campaign",
+        route: "/build",
+        note: "Install your farm in Baltic weather windows; compare a spring and an autumn start on P50 and P90.",
+      },
       { kind: "read", content: protectionEducation },
       {
         kind: "explore",
@@ -114,6 +121,13 @@ export const TRACKS: Track[] = [
         title: "HV commissioning",
         route: "/commissioning",
         note: "Run the 30-step switching programme with LOTO and hold points.",
+      },
+      {
+        kind: "explore",
+        id: "explore.handover",
+        title: "Hand-over to operation",
+        route: "/build/handover",
+        note: "Print the as-built register and put your farm on the control-room map.",
       },
     ],
   },
@@ -132,6 +146,13 @@ export const TRACKS: Track[] = [
         title: "Digital Twin",
         route: "/digital-twin",
         note: "Detect, diagnose and predict turbine faults against a physics model.",
+      },
+      {
+        kind: "explore",
+        id: "explore.decommissioning",
+        title: "Decommissioning",
+        route: "/decommission",
+        note: "Choose what comes out of the sea at end of life, simulate the removal and restore the seabed.",
       },
     ],
   },

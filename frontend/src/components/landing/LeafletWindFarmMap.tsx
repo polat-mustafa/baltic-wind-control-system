@@ -69,6 +69,7 @@ import DayNightOverlay from "./DayNightOverlay";
 import EnvironmentPanel from "./EnvironmentPanel";
 import LayerControlPanel from "./LayerControlPanel";
 import MapLegend from "./MapLegend";
+import MyProjectLayer from "./MyProjectLayer";
 import { GridContext, NavAids, RepairCrews, SafetyZones, Vessels } from "./MaritimeLayers";
 import AisTraffic from "./AisTraffic";
 import CableDtsLayer from "./CableDtsLayer";
@@ -1433,6 +1434,9 @@ function LeafletWindFarmMapInner({
         {/* Live AIS traffic + export cable DTS */}
         {layers.aisTraffic && <AisTraffic />}
         {layers.cableDts && <CableDtsLayer />}
+
+        {/* The learner's layout project (hand-over preview) */}
+        {layers.myProject && <MyProjectLayer />}
 
         {/* Fibre-optic SCADA network */}
         {layers.fibreComms && <FibreComms />}

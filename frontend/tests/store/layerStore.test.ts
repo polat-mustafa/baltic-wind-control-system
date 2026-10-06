@@ -1,7 +1,7 @@
 /**
  * Tests for the layer visibility Zustand store.
  *
- * Verifies the 16 layer toggles' defaults (all on except the fibre overlay), that toggleLayer
+ * Verifies the 17 layer toggles' defaults (all on except the fibre, DTS and my-project overlays), that toggleLayer
  * flips a single layer, and that toggling twice restores the original.
  */
 
@@ -27,18 +27,28 @@ const ALL_LAYER_KEYS: (keyof LayerVisibility)[] = [
 ];
 
 describe("initial state", () => {
-  it("has every layer on except the fibre and DTS overlays", () => {
+  it("has every layer on except the fibre, DTS and my-project overlays", () => {
     const { layers } = useLayerStore.getState();
     for (const key of ALL_LAYER_KEYS) {
       expect(layers[key]).toBe(true);
     }
   });
 
-  it("has exactly 16 layer keys", () => {
+  it("has exactly 17 layer keys", () => {
     const { layers } = useLayerStore.getState();
-    expect(Object.keys(layers)).toHaveLength(16);
+    expect(Object.keys(layers)).toHaveLength(17);
     expect(layers.fibreComms).toBe(false);
     expect(layers.cableDts).toBe(false);
+    expect(layers.myProject).toBe(false);
+  });
+
+  it("setLayer sets one layer explicitly", () => {
+    useLayerStore.getState().setLayer("myProject", true);
+    expect(useLayerStore.getState().layers.myProject).toBe(true);
+    useLayerStore.getState().setLayer("myProject", true);
+    expect(useLayerStore.getState().layers.myProject).toBe(true);
+    useLayerStore.getState().setLayer("myProject", false);
+    expect(useLayerStore.getState().layers.myProject).toBe(false);
   });
 });
 

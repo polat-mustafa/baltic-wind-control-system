@@ -11,7 +11,7 @@ frequency and voltage control the grid code asks for.
 
 What the simulation does (time step 0.1 s by default)
 ------------------------------------------------------
-1. Available power: V236 power curve (same table as P1) × online turbines.
+1. Available power: reference power curve (IEA 15 MW, same table as P1) × online turbines.
 2. Dispatch target from the active-power mode (reference, delta reserve,
    absolute limit, ramp control). The TSO command arrives at ``setpoint_time_s``.
 3. Ramp limiter on the dispatch target (plant setting agreed with the TSO).
@@ -61,7 +61,7 @@ from app.schemas.ppc import (
     TSOSetpoint,
     WTGDispatch,
 )
-from app.services.p1.wake_model import get_v236_power_curve_kw
+from app.services.p1.wake_model import get_power_curve_kw
 from app.services.p2.network_model import (
     GRID_RX_RATIO,
     GRID_SSC_MVA,
@@ -84,8 +84,8 @@ S_BASE_MVA = 100.0
 
 
 def _turbine_available_power(wind_speed_ms: float) -> float:
-    """V236 available power [MW] at hub-height wind speed (Rule 1: 0 … 15 MW)."""
-    return float(get_v236_power_curve_kw(np.array([wind_speed_ms]))[0]) / 1000.0
+    """Reference-turbine available power [MW] at hub-height wind speed (Rule 1: 0 … 15 MW)."""
+    return float(get_power_curve_kw(np.array([wind_speed_ms]))[0]) / 1000.0
 
 
 def _apply_ramp_limit(

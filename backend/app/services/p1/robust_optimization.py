@@ -55,7 +55,7 @@ from app.services.p1.wake_model import (
     ROTOR_DIAMETER_M,
     WakeAnalysisResult,
     create_uniform_site,
-    create_v236_wind_turbine,
+    create_wind_turbine,
     run_wake_analysis,
 )
 
@@ -125,7 +125,7 @@ def _evaluate_layout_scenarios(
     NDArray
         AEP values [GWh/year]. Shape: (n_scenarios,).
     """
-    turbine = create_v236_wind_turbine()
+    turbine = create_wind_turbine()
     aeps = np.zeros(len(scenarios))
 
     for i, scen in enumerate(scenarios):

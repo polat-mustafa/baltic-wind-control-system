@@ -158,7 +158,7 @@ class TestFLOWERS:
         x, y = _small_layout()
         result = compute_flowers_aep(x, y, mean_wind_speed_ms=9.3, weibull_k=2.2)
         per_turbine = result.gross_aep_gwh / len(x)
-        assert 69.0 < per_turbine < 74.0  # PyWake: 71.5 GWh for A = 10.5, k = 2.2
+        assert 72.0 < per_turbine < 77.0  # PyWake: 74.7 GWh, IEA 15 MW, A = 10.5, k = 2.2
         assert result.capacity_factor < 0.6
 
     def test_flowers_wind_direction_convention(self):

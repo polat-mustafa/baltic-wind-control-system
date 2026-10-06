@@ -22,7 +22,7 @@ export const wakeLossEducation: EducationContent = {
     "expansion k* = 0.38·TI + 0.004 (Niayifar & Porté-Agel 2016), linear superposition of deficits and the STF2017 " +
     "wake-added-turbulence model — so more turbulent air (higher TI) means faster recovery and lower wake loss. Older tools used the Jensen (1983) top-hat model with quadratic " +
     "superposition (Katić et al. 1986). Power ∝ v³ below rated, so a 10 % speed deficit costs ≈ 27 % of power there — " +
-    "but nothing above rated if the waked speed still exceeds 11.1 m/s. That is why wake loss as a share of AEP is " +
+    "but nothing above rated if the waked speed still exceeds rated (10.7 m/s). That is why wake loss as a share of AEP is " +
     "much smaller than single-wake power deficits suggest.",
 
   standards: [

@@ -43,7 +43,7 @@ import { inferCurtailment } from "../../utils/curtailmentReason";
 import {
   ROTOR_DIAMETER_M,
   V236,
-  v236PowerMW,
+  turbinePowerMW,
   wakePowerLossPct,
 } from "../../utils/landingPhysics";
 import { computeWakeLosses } from "../../utils/wakeModel";
@@ -131,7 +131,7 @@ function PowerCurveChart({
   const y = (p: number) => pad.t + (1 - p / pMax) * (H - pad.t - pad.b);
   const curve = Array.from({ length: 129 }, (_, i) => {
     const v = (i / 128) * vMax;
-    return `${i ? "L" : "M"}${x(v).toFixed(1)},${y(v236PowerMW(v)).toFixed(1)}`;
+    return `${i ? "L" : "M"}${x(v).toFixed(1)},${y(turbinePowerMW(v)).toFixed(1)}`;
   }).join(" ");
   const inRange = windMs >= V236.cutInMs && windMs <= V236.cutOutMs;
 
@@ -140,7 +140,7 @@ function PowerCurveChart({
       viewBox={`0 0 ${W} ${H}`}
       className="w-full"
       role="img"
-      aria-label="V236 power curve with operating point"
+      aria-label="Power curve (IEA 15 MW model) with operating point"
     >
       {[0, 5, 10, 15].map((p) => (
         <g key={p}>
@@ -164,7 +164,7 @@ function PowerCurveChart({
           </text>
         </g>
       ))}
-      {[0, 3, 11.1, 20, 31].map((v) => (
+      {[0, V236.cutInMs, Number(V236.ratedMs.toFixed(1)), 20, V236.cutOutMs].map((v) => (
         <text
           key={v}
           x={x(v)}
@@ -317,7 +317,7 @@ export default function TurbineDetailPanel({
       <EquipmentPanel
         icon={Fan}
         tag={t.id}
-        subtitle={`String ${t.stringNumber} · V236-15.0 MW · hub 150 m · rotor Ø ${ROTOR_DIAMETER_M} m`}
+        subtitle={`String ${t.stringNumber} · V236 class (IEA 15 MW model) · hub 150 m · rotor Ø ${ROTOR_DIAMETER_M.toFixed(0)} m`}
         status={status}
         onClose={onClose}
         width={placement ? "auto" : 440}

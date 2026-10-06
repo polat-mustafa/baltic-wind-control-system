@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 
 client = TestClient(app)
 URL = "/api/v1/wind/wake-analysis-custom"
-D = 236.0
+D = 241.35  # IEA-15-240-RWT (default model)
 
 
 def _run(x: list[float], y: list[float]) -> Any:
@@ -58,3 +59,19 @@ def test_rejects_overlapping_rotors() -> None:
 def test_rejects_too_many_turbines() -> None:
     xs = [i * 1000.0 for i in range(151)]
     assert _run(xs, [0.0] * 151).status_code == 422
+
+
+def test_turbine_model_choice() -> None:
+    """IEA 22 MW: bigger rotor and rating → more energy per turbine, CF on its own 22 MW."""
+    base = client.post(URL, json={"x_m": [0.0], "y_m": [0.0]}).json()
+    big = client.post(
+        URL, json={"x_m": [0.0], "y_m": [0.0], "turbine_model": "IEA-22-280-RWT"}
+    ).json()
+    assert big["gross_aep_gwh"] > base["gross_aep_gwh"]
+    assert big["capacity_factor"] == pytest.approx(big["gross_aep_gwh"] / (22.0 * 8.76), abs=1e-3)
+
+
+def test_rejects_unknown_turbine_model() -> None:
+    r = client.post(URL, json={"x_m": [0.0], "y_m": [0.0], "turbine_model": "V999"})
+    assert r.status_code == 422
+    assert "Unknown turbine model" in r.text

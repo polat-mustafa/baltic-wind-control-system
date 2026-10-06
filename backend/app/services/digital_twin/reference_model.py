@@ -32,8 +32,9 @@ solved so the model reaches rated power exactly at the published rated wind
 speed of 11.1 m/s (``TurbineSpec.rated_speed_ms``). k_aero lumps the losses
 the generic surface does not know (blade-specific aerodynamics, converter and
 transformer losses). With that single constant the below-rated curve follows
-the P1 V236 table (P ∝ v³) except below ≈ 6 m/s, where the 4 rpm minimum
-rotor speed forces λ > λ_opt; the deviation is reported in the model card.
+the legacy V236 approximate table (P ∝ v³, legacy_v236_table.py) except below
+≈ 6 m/s, where the 4 rpm minimum rotor speed forces λ > λ_opt; the deviation is
+reported in the model card.
 
 Fault parameters (the same model, perturbed)
 ────────────────────────────────────────────
@@ -61,7 +62,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.signal import lfilter, lfilter_zi
 
-from app.services.p1.wake_model import get_v236_power_curve_kw
+from app.services.digital_twin.legacy_v236_table import legacy_v236_power_kw
 from app.services.p4.turbine_power_curve import (
     STANDARD_AIR_DENSITY,
     compute_swept_area_m2,
@@ -430,7 +431,7 @@ class ReferenceCurve:
     cp: FloatArray
     gearbox_loss_kw: FloatArray
     region: NDArray[np.int8]
-    p1_table_power_mw: FloatArray  # P1 V236 table, for validation
+    p1_table_power_mw: FloatArray  # legacy V236 approximate table (former P1), for validation
 
 
 @lru_cache(maxsize=1)
@@ -447,5 +448,5 @@ def reference_curve(step_ms: float = 0.25) -> ReferenceCurve:
         cp=op.cp,
         gearbox_loss_kw=op.gearbox_loss_kw,
         region=op.region,
-        p1_table_power_mw=np.asarray(get_v236_power_curve_kw(v), dtype=np.float64) / 1e3,
+        p1_table_power_mw=legacy_v236_power_kw(v) / 1e3,
     )

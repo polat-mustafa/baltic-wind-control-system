@@ -32,7 +32,7 @@
 
 import * as THREE from "three";
 
-import { inductionFromCt, v236ThrustCoefficient, v236ThrustMN } from "../../../../utils/landingPhysics";
+import { inductionFromCt, turbineThrustCoefficient, v236ThrustMN } from "../../../../utils/landingPhysics";
 import { BLADE_LENGTH_M, STATIONS, bladeTwistDeg } from "../scene/bladeConstants";
 import { ROTOR_RADIUS } from "./layout";
 
@@ -71,7 +71,7 @@ export function sectionState(span: number, op: BladeOperatingPoint): SectionStat
   const r = HUB_RADIUS + Math.max(0, span);
   const u = Math.max(0, op.windMs);
   const omega = (Math.max(0, op.rpm) * 2 * Math.PI) / 60;
-  const a = u > 0 && omega > 0 ? inductionFromCt(v236ThrustCoefficient(u)) : 0;
+  const a = u > 0 && omega > 0 ? inductionFromCt(turbineThrustCoefficient(u)) : 0;
   const lambdaR = u > 0 ? (omega * r) / u : 0;
   const aPrime = lambdaR > 0 ? (a * (1 - a)) / (lambdaR * lambdaR) : 0;
   const ua = u * (1 - a);

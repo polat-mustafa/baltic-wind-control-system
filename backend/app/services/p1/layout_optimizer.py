@@ -1,5 +1,5 @@
 """
-Wind farm layout generation and optimization for 34 × V236-15.0 MW turbines.
+Wind farm layout generation and optimization for 34 × 15 MW turbines (IEA 15 MW, "V236 class").
 
 Physics
 -------
@@ -363,12 +363,12 @@ def optimize_layout(
     from scipy.optimize import differential_evolution
 
     from app.services.p1.wake_model import (
-        create_v236_wind_turbine,
+        create_wind_turbine,
         run_wake_analysis,
     )
 
     n = len(initial_x)
-    turbine = create_v236_wind_turbine()
+    turbine = create_wind_turbine()
 
     # Bounds: initial bounding box + 2D margin on each side
     margin = 2.0 * ROTOR_DIAMETER_M
@@ -452,11 +452,11 @@ def _make_objective(
         (objective_function, turbine_object).
     """
     from app.services.p1.wake_model import (
-        create_v236_wind_turbine,
+        create_wind_turbine,
         run_wake_analysis,
     )
 
-    turbine = create_v236_wind_turbine()
+    turbine = create_wind_turbine()
 
     def objective(params: NDArray[np.floating]) -> float:
         x = params[0::2]

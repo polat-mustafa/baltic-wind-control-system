@@ -113,13 +113,13 @@ class TestBlockageEstimate:
 
     def test_energy_weighted_ct_below_ct_at_mean_speed(self):
         """Most energy comes above the mean speed where pitch lowers Ct."""
-        from app.services.p1.wake_model import get_v236_ct_curve
+        from app.services.p1.wake_model import get_ct_curve
 
         x = np.linspace(0, 10000, 34)
         y = np.zeros(34)
         y[::2] = 1000.0
         result = estimate_blockage_loss_percent(34, x, y, mean_wind_speed_ms=9.3)
-        ct_at_mean = float(get_v236_ct_curve(np.array([9.3]))[0])
+        ct_at_mean = float(get_ct_curve(np.array([9.3]))[0])
         assert 0.2 < result.mean_ct < ct_at_mean
 
     def test_no_loss_from_above_rated_hours(self):

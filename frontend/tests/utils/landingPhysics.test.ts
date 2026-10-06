@@ -18,7 +18,7 @@ import {
   turbulenceIntensity,
   v236PitchDeg,
   v236PowerChain,
-  v236PowerMW,
+  turbinePowerMW,
   v236RotorRpm,
   windAtHeight,
 } from "../../src/utils/landingPhysics";
@@ -59,16 +59,18 @@ describe("exportCableState", () => {
   });
 });
 
-describe("V236 operating model", () => {
+describe("SB-510 turbine operating model (IEA 15 MW curves)", () => {
   it("follows the backend power curve and domain limits", () => {
-    expect(v236PowerMW(2.9)).toBe(0); // below cut-in
-    expect(v236PowerMW(8)).toBeCloseTo(15 * (8 / 11.1) ** 3); // ≈ 5.55 MW
-    expect(v236PowerMW(11.1)).toBeCloseTo(15);
-    expect(v236PowerMW(20)).toBe(15);
-    expect(v236PowerMW(31.5)).toBe(0); // above cut-out
+    expect([V236.cutInMs, V236.cutOutMs]).toEqual([3, 25]);
+    expect(V236.ratedMs).toBeCloseTo(10.66, 2);
+    expect(turbinePowerMW(2.9)).toBe(0); // below cut-in
+    expect(turbinePowerMW(8)).toBeCloseTo(6.34, 1); // IEA-15 table (Cp ≈ 0.48)
+    expect(turbinePowerMW(V236.ratedMs)).toBeCloseTo(15);
+    expect(turbinePowerMW(20)).toBe(15);
+    expect(turbinePowerMW(25.5)).toBe(0); // above cut-out
     for (let v = 0; v <= 35; v += 0.5) {
-      expect(v236PowerMW(v)).toBeGreaterThanOrEqual(0);
-      expect(v236PowerMW(v)).toBeLessThanOrEqual(V236.ratedMW);
+      expect(turbinePowerMW(v)).toBeGreaterThanOrEqual(0);
+      expect(turbinePowerMW(v)).toBeLessThanOrEqual(V236.ratedMW);
     }
   });
 
@@ -120,7 +122,9 @@ describe("wakes", () => {
 
   it("loses less power above rated than the cubic rule suggests", () => {
     const deficit = 0.157; // cubic rule: 1 − (1 − δ)³ ≈ 40 %
-    expect(wakePowerLossPct(8, deficit)).toBeCloseTo(40, 0); // below rated: cubic holds
+    const below = wakePowerLossPct(8, deficit); // below rated: close to the cubic rule
+    expect(below).toBeGreaterThan(36);
+    expect(below).toBeLessThan(44);
     expect(wakePowerLossPct(12.1, deficit)).toBeLessThan(30); // above rated: much less
     expect(wakePowerLossPct(16, deficit)).toBe(0); // 13.5 m/s waked is still ≥ rated
     expect(wakePowerLossPct(2, deficit)).toBe(0); // below cut-in: nothing to lose
@@ -162,17 +166,17 @@ describe("export cable DTS profile", () => {
 });
 
 describe("V236 rotor loads", () => {
-  it("thrust peaks at rated (≈ 2.6 MN) and falls above rated", () => {
-    const rated = v236ThrustMN(11.1);
-    expect(rated).toBeGreaterThan(2.5);
-    expect(rated).toBeLessThan(2.8);
+  it("thrust peaks at rated (≈ 2.45 MN, IEA 15 MW) and falls above rated", () => {
+    const rated = v236ThrustMN(V236.ratedMs);
+    expect(rated).toBeGreaterThan(2.35);
+    expect(rated).toBeLessThan(2.6);
     expect(v236ThrustMN(8)).toBeLessThan(rated);
     expect(v236ThrustMN(20)).toBeLessThan(rated * 0.6);
     expect(v236ThrustMN(2)).toBe(0);
-    expect(v236ThrustMN(32)).toBe(0);
+    expect(v236ThrustMN(26)).toBe(0);
   });
   it("gives deflections of the right order at rated", () => {
-    const t = v236ThrustMN(11.1);
+    const t = v236ThrustMN(V236.ratedMs);
     expect(v236TipDeflectionM(t)).toBeCloseTo(10, 5);
     const top = v236TowerTopDeflectionM(t);
     expect(top).toBeGreaterThan(0.6);

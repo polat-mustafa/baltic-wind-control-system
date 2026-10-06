@@ -10,9 +10,11 @@ import { routeCables, type CableResult } from "./cables";
 import { layoutCost, type CostInputs, type CostResult } from "./cost";
 import { layoutYield, UNIFORM_ROSE, type WindRose, type YieldResult } from "./energy";
 import { centroid, insidePolygon, minSpacing, projection, type LonLat } from "./geometry";
+import { REFERENCE_TURBINE, turbineById } from "../../utils/turbineCurves";
 
-export const D = 236; // V236 rotor diameter [m]
-export const RATED_MW = 15;
+/** Reference turbine (IEA 15 MW, "V236 class"): rotor diameter [m] and rating [MW]. */
+export const D = REFERENCE_TURBINE.rotorDiameterM;
+export const RATED_MW = REFERENCE_TURBINE.ratedKw / 1000;
 /** Teaching default for the spacing warning (illustrative; projects use 4–10 D by direction). */
 export const MIN_SPACING_D = 4;
 /** Availability + electrical losses applied to the wake-only AEP for the LCOE (illustrative). */
@@ -74,6 +76,8 @@ export interface LayoutInput {
   maxDepthM: number | null;
   exportKm: number;
   rose?: WindRose;
+  /** Turbine model id (constants/turbineModels.ts); default the IEA 15 MW reference. */
+  turbineId?: string;
 }
 
 export interface LayoutEvaluation {
@@ -97,15 +101,18 @@ export function evaluateLayout(i: LayoutInput): LayoutEvaluation {
   const xy = i.turbines.map((t) => proj.toXY([t.lon, t.lat]));
   const rings = exclusionRings(i.layers);
   const energy = energyRings(i.layers);
-  const yieldRes = xy.length ? layoutYield(xy, WEIBULL_A, WEIBULL_K, i.rose ?? UNIFORM_ROSE) : null;
-  const cables = i.oss && xy.length ? routeCables(proj.toXY(i.oss), xy, RATED_MW) : null;
+  const model = turbineById(i.turbineId);
+  const d = model.rotorDiameterM;
+  const ratedMW = model.ratedKw / 1000;
+  const yieldRes = xy.length ? layoutYield(xy, WEIBULL_A, WEIBULL_K, i.rose ?? UNIFORM_ROSE, model) : null;
+  const cables = i.oss && xy.length ? routeCables(proj.toXY(i.oss), xy, ratedMW) : null;
   const spacing = minSpacing(xy);
   let close = 0;
   xy.forEach((p, a) => {
-    if (xy.some((q, b) => b !== a && Math.hypot(p.x - q.x, p.y - q.y) < MIN_SPACING_D * D)) close++;
+    if (xy.some((q, b) => b !== a && Math.hypot(p.x - q.x, p.y - q.y) < MIN_SPACING_D * d)) close++;
   });
   const inside = xy.map((p) => insidePolygon(p, siteXY));
-  const capacityMW = xy.length * RATED_MW;
+  const capacityMW = xy.length * ratedMW;
   const netGWh = (yieldRes?.netGWh ?? 0) * (1 - OTHER_LOSSES);
   return {
     count: xy.length,
@@ -113,7 +120,7 @@ export function evaluateLayout(i: LayoutInput): LayoutEvaluation {
     outside: inside.filter((v) => !v).length,
     excluded: i.turbines.filter((t, k) => inside[k] && blockedBy([t.lon, t.lat], rings, energy) !== null).length,
     close,
-    minSpacingD: spacing ? spacing.m / D : null,
+    minSpacingD: spacing ? spacing.m / d : null,
     yield: yieldRes,
     netGWh,
     cables,

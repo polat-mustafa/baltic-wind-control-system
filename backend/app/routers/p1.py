@@ -2,7 +2,7 @@
 P1 Wind Resource & AEP API endpoints.
 
 Provides REST endpoints for:
-- Turbine specification (V236-15.0 MW constants)
+- Turbine specification (reference models, default IEA 15 MW)
 - Weibull distribution fitting from synthetic wind data
 - Wind rose analysis (frequency + energy rose)
 - Wake analysis via PyWake BPA Gaussian model
@@ -52,18 +52,14 @@ from app.services.p1.layout_optimizer import (
     generate_staggered_grid,
     optimize_layout_multi,
 )
+from app.services.p1.turbine_models import DEFAULT_TURBINE_ID, get_turbine
 from app.services.p1.uncertainty_quantification import (
     run_pce_uncertainty,
 )
 from app.services.p1.wake_model import (
-    CUT_IN_SPEED_MS,
-    CUT_OUT_SPEED_MS,
-    HUB_HEIGHT_M,
-    RATED_POWER_KW,
-    RATED_SPEED_MS,
-    ROTOR_DIAMETER_M,
     WakeAnalysisResult,
     create_site_from_wind_rose,
+    create_wind_turbine,
     run_wake_analysis,
 )
 from app.services.p1.wake_models import (
@@ -104,8 +100,12 @@ router.include_router(_weather_window_router)
 
 
 class TurbineSpecResponse(BaseModel):
-    """V236-15.0 MW turbine specification constants."""
+    """Turbine specification constants of a reference model (default SB-510's)."""
 
+    model_id: str
+    name: str
+    source: str
+    license: str
     rotor_diameter_m: float
     hub_height_m: float
     rated_power_kw: float
@@ -184,7 +184,8 @@ class CustomWakeRequest(BaseModel):
 
     Positions are local metres: x east, y north, from any origin near the
     site (the frontend projects lon/lat equirectangularly about the site
-    centroid). Turbine: V236-15.0 MW.
+    centroid). Turbine: a packaged reference model, default the IEA 15 MW
+    ("V236 class", SB-510).
     """
 
     x_m: list[float] = Field(min_length=1, max_length=150, description="Turbine x (east) [m]")
@@ -192,6 +193,10 @@ class CustomWakeRequest(BaseModel):
     weibull_a: float = Field(10.5, ge=5.0, le=20.0)
     weibull_k: float = Field(2.2, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    turbine_model: str = Field(
+        DEFAULT_TURBINE_ID,
+        description="Turbine model id (IEA-15-240-RWT or IEA-22-280-RWT)",
+    )
 
 
 class AEPCascadeRequest(BaseModel):
@@ -435,7 +440,7 @@ def _run_wake_for_layout(
 
 # Bump the version suffix whenever the wake model or wind site changes so
 # Redis never serves results computed with an older model.
-@cached(prefix="wake-v2", ttl=300)
+@cached(prefix="wake-v3", ttl=300)
 def _cached_wake_analysis(
     layout_name: str,
     weibull_a: float,
@@ -459,15 +464,20 @@ def _cached_wake_analysis(
 
 
 @router.get("/turbine-spec", response_model=TurbineSpecResponse)
-async def get_turbine_spec() -> TurbineSpecResponse:
-    """Return V236-15.0 MW turbine specification constants."""
+async def get_turbine_spec(model: str | None = None) -> TurbineSpecResponse:
+    """Specification of a reference turbine model (default: SB-510's IEA 15 MW)."""
+    t = get_turbine(model)
     return TurbineSpecResponse(
-        rotor_diameter_m=ROTOR_DIAMETER_M,
-        hub_height_m=HUB_HEIGHT_M,
-        rated_power_kw=RATED_POWER_KW,
-        cut_in_speed_ms=CUT_IN_SPEED_MS,
-        rated_speed_ms=RATED_SPEED_MS,
-        cut_out_speed_ms=CUT_OUT_SPEED_MS,
+        model_id=t.id,
+        name=t.name,
+        source=t.source,
+        license=t.license,
+        rotor_diameter_m=t.rotor_diameter_m,
+        hub_height_m=t.hub_height_m,
+        rated_power_kw=t.rated_kw,
+        cut_in_speed_ms=t.cut_in_ms,
+        rated_speed_ms=t.rated_ms,
+        cut_out_speed_ms=t.cut_out_ms,
         num_turbines=34,
     )
 
@@ -565,18 +575,22 @@ async def wake_analysis(request: WakeAnalysisRequest) -> WakeAnalysisResponse:
 
 
 # Bump the version suffix whenever the wake model or wind site changes.
-@cached(prefix="wake-custom-v1", ttl=300)
+@cached(prefix="wake-custom-v2", ttl=300)
 def _cached_custom_wake(
     x_m: list[float],
     y_m: list[float],
     weibull_a: float,
     weibull_k: float,
     ti: float,
+    model_id: str,
 ) -> dict[str, object]:
     """Cached PyWake run for arbitrary positions [m]."""
     site = _site(weibull_a, weibull_k, ti)
     result = run_wake_analysis(
-        np.asarray(x_m, dtype=np.float64), np.asarray(y_m, dtype=np.float64), site
+        np.asarray(x_m, dtype=np.float64),
+        np.asarray(y_m, dtype=np.float64),
+        site,
+        create_wind_turbine(model_id),
     )
     return {
         "gross_aep_gwh": result.gross_aep_gwh,
@@ -597,13 +611,14 @@ async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisRespon
     """
     if len(request.x_m) != len(request.y_m):
         raise DomainValidationError("x_m and y_m must have the same length")
+    turbine = get_turbine(request.turbine_model)  # unknown id → 422
     xy = np.column_stack([request.x_m, request.y_m])
     if len(xy) > 1:
         gaps = np.hypot(*(xy[:, None, :] - xy[None, :, :]).transpose(2, 0, 1))
         np.fill_diagonal(gaps, np.inf)
-        if float(gaps.min()) < ROTOR_DIAMETER_M:
+        if float(gaps.min()) < turbine.rotor_diameter_m:
             raise DomainValidationError(
-                f"Turbines closer than one rotor diameter ({ROTOR_DIAMETER_M:.0f} m): "
+                f"Turbines closer than one rotor diameter ({turbine.rotor_diameter_m:.0f} m): "
                 "rotors would overlap"
             )
     try:
@@ -613,6 +628,7 @@ async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisRespon
             request.weibull_a,
             request.weibull_k,
             request.turbulence_intensity,
+            turbine.id,
         )
     except DomainError:
         raise

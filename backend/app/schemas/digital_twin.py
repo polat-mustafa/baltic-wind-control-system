@@ -128,7 +128,9 @@ class ReferenceCurveResponse(BaseModel):
     gearbox_loss_kw: list[float]
     region: list[int]
     region_names: dict[int, str]
-    p1_table_power_mw: list[float] = Field(description="P1 V236 table, for validation")
+    p1_table_power_mw: list[float] = Field(
+        description="Legacy V236 approximate table (former P1 curve), for validation"
+    )
     max_deviation_vs_p1_mw: float
     max_deviation_vs_p1_above_6ms_mw: float
 

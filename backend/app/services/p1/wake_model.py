@@ -1,9 +1,10 @@
 """
-Wake modeling: V236-15.0 MW turbine definition + PyWake BPA Gaussian wake analysis.
+Wake modeling: reference turbine + PyWake BPA Gaussian wake analysis.
 
-This module defines the Vestas V236-15.0 MW turbine power and thrust curves
-and wraps PyWake to run wake-effect simulations for the 34-turbine Baltic
-Wind Alpha layout.
+This module wraps PyWake to run wake-effect simulations for a wind farm
+layout. The turbine comes from ``turbine_models`` (official IEA Wind Task 37
+tables); SB-510 uses the IEA 15 MW turbine as a "V236-class" machine, since
+Vestas publishes no V236 power or thrust curve.
 
 Physics
 -------
@@ -19,19 +20,18 @@ Key equations:
 - Wake expansion: σ(x) = k*·x + ε·D, k* = 0.38·TI + 0.004, ε = 0.2·√β
 - Linear superposition: total deficit = Σ individual deficits
 
-Turbine: Vestas V236-15.0 MW
------------------------------
-- Rotor diameter: 236 m
-- Hub height: 150 m
-- Cut-in / rated / cut-out: 3 / 11.1 / 31 m/s  (official Vestas spec)
-- Rated power: 15,000 kW (15 MW)
+Default turbine: IEA-15-240-RWT (tag v1.1.18)
+---------------------------------------------
+- Rotor diameter: 241.35 m (nominal 240 m), hub height 150 m
+- Cut-in / rated / cut-out: 3 / 10.66 / 25 m/s
+- Rated power: 15,000 kW
 
 References
 ----------
 - Bastankhah, M. & Porté-Agel, F. (2014). Renewable Energy 70, 116-123.
 - Niayifar, A. & Porté-Agel, F. (2016). Energies 9(9), 741.
+- Gaertner, E. et al. (2020). IEA 15 MW reference turbine. NREL/TP-5000-75698.
 - IEC 61400-12-1: Power performance measurement
-- Vestas V236-15.0 MW specification (public data sheet)
 """
 
 from __future__ import annotations
@@ -42,159 +42,17 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-# ── Turbine Specification Constants ────────────────────────────────
+from app.services.p1.turbine_models import DEFAULT_TURBINE_ID, get_turbine
 
-ROTOR_DIAMETER_M: float = 236.0
-HUB_HEIGHT_M: float = 150.0
-RATED_POWER_KW: float = 15_000.0
-CUT_IN_SPEED_MS: float = 3.0
-RATED_SPEED_MS: float = 11.1  # Official Vestas V236-15.0 MW spec (wind-turbine-models.com)
-CUT_OUT_SPEED_MS: float = 31.0
+# ── Default turbine (SB-510, "V236 class") ─────────────────────────
 
-# Power curve data points [m/s, kW]
-# Based on V236-15.0 MW public specification (simplified for educational use).
-# Rated wind speed corrected to 11.1 m/s (official Vestas spec).
-# Below-rated values recalculated using P ≈ 15000 × (v / 11.1)³ [kW].
-_POWER_CURVE_SPEEDS_MS: NDArray[np.floating] = np.array(
-    [
-        0.0,
-        2.0,
-        3.0,
-        4.0,
-        5.0,
-        6.0,
-        7.0,
-        8.0,
-        9.0,
-        10.0,
-        10.5,
-        11.0,
-        11.1,  # Rated wind speed — power reaches 15 MW here
-        11.5,
-        12.0,
-        12.5,
-        13.0,
-        14.0,
-        15.0,
-        16.0,
-        18.0,
-        20.0,
-        22.0,
-        24.0,
-        26.0,
-        28.0,
-        30.0,
-        31.0,
-        32.0,
-    ],
-    dtype=np.float64,
-)
-
-_POWER_CURVE_KW: NDArray[np.floating] = np.array(
-    [
-        0.0,
-        0.0,
-        200.0,  # v=3.0: ~200 kW (cut-in, minimum self-excited power)
-        700.0,  # v=4.0: 15000 × (4/11.1)³ ≈ 692 kW
-        1400.0,  # v=5.0: 15000 × (5/11.1)³ ≈ 1354 kW
-        2400.0,  # v=6.0: 15000 × (6/11.1)³ ≈ 2347 kW
-        3700.0,  # v=7.0: 15000 × (7/11.1)³ ≈ 3712 kW
-        5600.0,  # v=8.0: 15000 × (8/11.1)³ ≈ 5553 kW
-        7900.0,  # v=9.0: 15000 × (9/11.1)³ ≈ 7904 kW
-        10900.0,  # v=10.0: 15000 × (10/11.1)³ ≈ 10893 kW
-        12600.0,  # v=10.5: 15000 × (10.5/11.1)³ ≈ 12588 kW
-        14500.0,  # v=11.0: 15000 × (11/11.1)³ ≈ 14539 kW
-        15000.0,  # v=11.1: rated power — Region 2/3 transition
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        15000.0,
-        0.0,  # v=31.0: cut-out — safety shutdown
-        0.0,
-    ],
-    dtype=np.float64,
-)
-
-# Thrust coefficient curve data points [m/s, Ct]
-_CT_CURVE_SPEEDS_MS: NDArray[np.floating] = np.array(
-    [
-        0.0,
-        2.0,
-        3.0,
-        4.0,
-        5.0,
-        6.0,
-        7.0,
-        8.0,
-        9.0,
-        10.0,
-        10.5,
-        11.0,
-        11.1,  # Rated wind speed — Ct peaks near here then drops with pitch regulation
-        11.5,
-        12.0,
-        12.5,
-        13.0,
-        14.0,
-        15.0,
-        16.0,
-        18.0,
-        20.0,
-        22.0,
-        24.0,
-        26.0,
-        28.0,
-        30.0,
-        31.0,
-        32.0,
-    ],
-    dtype=np.float64,
-)
-
-_CT_CURVE_VALUES: NDArray[np.floating] = np.array(
-    [
-        0.0,
-        0.0,
-        0.90,
-        0.88,
-        0.85,
-        0.82,
-        0.78,
-        0.72,
-        0.60,
-        0.45,
-        0.40,
-        0.36,
-        0.35,  # v=11.1: rated — pitch regulation begins, Ct starts declining
-        0.33,
-        0.30,
-        0.28,
-        0.25,
-        0.20,
-        0.17,
-        0.14,
-        0.10,
-        0.08,
-        0.06,
-        0.05,
-        0.04,
-        0.04,
-        0.03,
-        0.03,
-        0.0,
-    ],
-    dtype=np.float64,
-)
+_DEFAULT = get_turbine(DEFAULT_TURBINE_ID)
+ROTOR_DIAMETER_M: float = _DEFAULT.rotor_diameter_m
+HUB_HEIGHT_M: float = _DEFAULT.hub_height_m
+RATED_POWER_KW: float = _DEFAULT.rated_kw
+CUT_IN_SPEED_MS: float = _DEFAULT.cut_in_ms
+RATED_SPEED_MS: float = _DEFAULT.rated_ms
+CUT_OUT_SPEED_MS: float = _DEFAULT.cut_out_ms
 
 
 @dataclass(frozen=True)
@@ -228,93 +86,71 @@ class WakeAnalysisResult:
 # ── Pure NumPy Functions (no PyWake dependency) ────────────────────
 
 
-def get_v236_power_curve_kw(
+def get_power_curve_kw(
     wind_speeds_ms: NDArray[np.floating],
+    model_id: str | None = None,
 ) -> NDArray[np.floating]:
     """
-    Compute V236-15.0 MW power output via interpolation + physics clipping.
+    Power output [kW] of a turbine model (default SB-510's) at the given speeds.
 
-    Rule 1 enforced: P ≥ 0 and P ≤ P_rated. Zero power below cut-in
-    and above cut-out.
+    Rule 1 enforced: 0 ≤ P ≤ P_rated, zero below cut-in and above cut-out.
 
     Parameters
     ----------
     wind_speeds_ms : NDArray
-        Wind speed values [m/s].
+        Hub-height wind speed values [m/s].
+    model_id : str, optional
+        Turbine model id (``turbine_models``); default IEA-15-240-RWT.
 
     Returns
     -------
     NDArray
-        Power output [kW]. Clipped to [0, RATED_POWER_KW].
+        Power output [kW].
     """
-    power_kw = np.interp(wind_speeds_ms, _POWER_CURVE_SPEEDS_MS, _POWER_CURVE_KW)
-
-    # Physics clipping (Rule 1: physical constraints are non-negotiable)
-    power_kw = np.clip(power_kw, 0.0, RATED_POWER_KW)
-    power_kw = np.where(wind_speeds_ms < CUT_IN_SPEED_MS, 0.0, power_kw)
-    power_kw = np.where(wind_speeds_ms > CUT_OUT_SPEED_MS, 0.0, power_kw)
-
-    result: NDArray[np.floating] = power_kw.astype(np.float64)
-    return result
+    return get_turbine(model_id).power_curve_kw(wind_speeds_ms)
 
 
-def get_v236_ct_curve(
+def get_ct_curve(
     wind_speeds_ms: NDArray[np.floating],
+    model_id: str | None = None,
 ) -> NDArray[np.floating]:
     """
-    Compute V236-15.0 MW thrust coefficient via interpolation.
+    Thrust coefficient [-] of a turbine model at the given speeds, in [0, 1].
 
     Parameters
     ----------
     wind_speeds_ms : NDArray
-        Wind speed values [m/s].
+        Hub-height wind speed values [m/s].
+    model_id : str, optional
+        Turbine model id; default IEA-15-240-RWT.
 
     Returns
     -------
     NDArray
-        Thrust coefficient [-]. Clamped to [0, 1].
+        Thrust coefficient [-], 0 outside the operating range.
     """
-    ct = np.interp(wind_speeds_ms, _CT_CURVE_SPEEDS_MS, _CT_CURVE_VALUES)
-
-    # Physical constraint: Ct must be in [0, 1]
-    ct = np.clip(ct, 0.0, 1.0)
-
-    # Zero outside operating range
-    ct = np.where(wind_speeds_ms < CUT_IN_SPEED_MS, 0.0, ct)
-    ct = np.where(wind_speeds_ms > CUT_OUT_SPEED_MS, 0.0, ct)
-
-    result: NDArray[np.floating] = ct.astype(np.float64)
-    return result
+    return get_turbine(model_id).ct_curve(wind_speeds_ms)
 
 
 # ── PyWake Integration Functions ───────────────────────────────────
 
 
-def create_v236_wind_turbine() -> Any:
+def create_wind_turbine(model_id: str | None = None) -> Any:
     """
-    Create a PyWake WindTurbine object for the Vestas V236-15.0 MW.
-
-    Uses PowerCtTabular with the hardcoded power and Ct curves.
+    PyWake WindTurbine for a turbine model (default SB-510's IEA 15 MW).
 
     Returns
     -------
     py_wake.wind_turbines.WindTurbine
-        PyWake turbine object.
+        PyWake turbine object built from the tabulated power / Ct curve.
     """
-    from py_wake.wind_turbines import WindTurbine
-    from py_wake.wind_turbines.power_ct_functions import PowerCtTabular
+    return get_turbine(model_id).pywake()
 
-    return WindTurbine(
-        name="V236-15.0",
-        diameter=ROTOR_DIAMETER_M,
-        hub_height=HUB_HEIGHT_M,
-        powerCtFunction=PowerCtTabular(
-            ws=_POWER_CURVE_SPEEDS_MS,
-            power=_POWER_CURVE_KW * 1e3,  # PowerCtTabular expects watts
-            power_unit="W",
-            ct=_CT_CURVE_VALUES,
-        ),
-    )
+
+def rated_power_kw(turbine: Any) -> float:
+    """Rated power [kW] of a PyWake turbine: the maximum of its power curve."""
+    ws = np.linspace(0.0, 40.0, 401)
+    return float(np.max(turbine.power(ws))) / 1e3
 
 
 def create_uniform_site(
@@ -458,7 +294,7 @@ def run_wake_analysis(
     site : py_wake.site.BaseSite
         PyWake site object with wind resource data.
     turbine : py_wake.wind_turbines.WindTurbine, optional
-        PyWake turbine object. If None, creates V236-15.0 MW.
+        PyWake turbine object. If None, the SB-510 default (IEA 15 MW).
 
     Returns
     -------
@@ -466,7 +302,7 @@ def run_wake_analysis(
         Gross/net AEP, wake loss, per-turbine results, capacity factor.
     """
     if turbine is None:
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
 
     wf_model = configure_wake_model(site, turbine)
 
@@ -500,9 +336,10 @@ def run_wake_analysis(
         0.0,
     )
 
-    # Capacity factor: CF = net_AEP / (P_rated × 8760h × n_turbines)
+    # Capacity factor: CF = net_AEP / (P_rated × 8760h × n_turbines), with the rating of
+    # the turbine actually simulated (not a fixed constant).
     n_turbines = len(x_positions_m)
-    theoretical_gwh = RATED_POWER_KW * 1e-6 * 8760.0 * n_turbines  # GWh
+    theoretical_gwh = rated_power_kw(turbine) * 1e-6 * 8760.0 * n_turbines  # GWh
     capacity_factor = total_net_gwh / theoretical_gwh if theoretical_gwh > 0 else 0.0
 
     return WakeAnalysisResult(

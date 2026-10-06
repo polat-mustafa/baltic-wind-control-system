@@ -18,7 +18,7 @@ Fractional free-stream speed deficit seen by the farm:
 
     ρ_array = N · (π/4) · D² / A_farm      (rotor area / convex-hull area)
 
-The deficit is then passed through the V236 power curve and weighted by the
+The deficit is then passed through the reference power curve (IEA 15 MW) and weighted by the
 Weibull distribution, so the AEP loss is
 
     L = 1 − ∫ P(v·(1−δ(v))) f(v) dv / ∫ P(v) f(v) dv
@@ -46,6 +46,8 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+
+from app.services.p1.turbine_models import get_turbine
 
 # Calibration constant (see module docstring) — energy loss per unit
 # array density × Ct for below-rated operation.
@@ -76,6 +78,9 @@ class BlockageResult:
     mean_ct: float
     farm_area_km2: float
     method: str
+
+
+_REFERENCE_D_M: float = get_turbine().rotor_diameter_m  # IEA 15 MW, 241.35 m
 
 
 def compute_array_density(
@@ -146,7 +151,7 @@ def estimate_blockage_loss_percent(
     num_turbines: int,
     x_positions: NDArray[np.floating],
     y_positions: NDArray[np.floating],
-    rotor_diameter_m: float = 236.0,
+    rotor_diameter_m: float = _REFERENCE_D_M,
     mean_wind_speed_ms: float = 9.3,
     weibull_k: float = 2.2,
 ) -> BlockageResult:
@@ -159,7 +164,7 @@ def estimate_blockage_loss_percent(
     x_positions, y_positions : NDArray
         Turbine coordinates [m].
     rotor_diameter_m : float
-        Rotor diameter [m]. Default: 236.0 (V236-15.0).
+        Rotor diameter [m]. Default: the reference turbine (IEA 15 MW, 241.35 m).
     mean_wind_speed_ms : float
         Long-term mean hub-height wind speed [m/s].
     weibull_k : float
@@ -170,13 +175,13 @@ def estimate_blockage_loss_percent(
     BlockageResult
         AEP loss [%], array density, energy-weighted Ct, farm area.
     """
-    from app.services.p1.wake_model import get_v236_ct_curve, get_v236_power_curve_kw
+    from app.services.p1.wake_model import get_ct_curve, get_power_curve_kw
 
     a = mean_wind_speed_ms / math.gamma(1.0 + 1.0 / weibull_k)
     v = np.linspace(0.0, 35.0, 1401)
     pdf = (weibull_k / a) * (v / a) ** (weibull_k - 1) * np.exp(-((v / a) ** weibull_k))
-    ct = get_v236_ct_curve(v)
-    p_free = get_v236_power_curve_kw(v)
+    ct = get_ct_curve(v)
+    p_free = get_power_curve_kw(v)
     e_free = float(np.trapezoid(p_free * pdf, v))
     mean_ct = float(np.trapezoid(ct * p_free * pdf, v) / e_free)
 
@@ -186,7 +191,7 @@ def estimate_blockage_loss_percent(
 
     density = compute_array_density(num_turbines, rotor_diameter_m, farm_area_km2)
     deficit = (_BLOCKAGE_ALPHA / 3.0) * density * ct
-    p_blocked = get_v236_power_curve_kw(v * (1.0 - deficit))
+    p_blocked = get_power_curve_kw(v * (1.0 - deficit))
     loss = 1.0 - float(np.trapezoid(p_blocked * pdf, v)) / e_free
 
     return BlockageResult(

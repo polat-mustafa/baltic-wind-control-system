@@ -2,7 +2,7 @@
 
   GET  /config            model card: parameters, calibration, detector, fault library
   GET  /scenarios         fault scenarios with their injections
-  GET  /reference-curve   twin steady-state curves vs. the P1 V236 table
+  GET  /reference-curve   twin steady-state curves vs. the legacy V236 table
   POST /analyze           farm-level run (ISO 13374-1 DA → AG)
   POST /turbine-detail    full-resolution channels of one turbine from the same run
   POST /operating-point   check one measured operating point against the twin
@@ -342,7 +342,7 @@ async def list_scenarios() -> list[ScenarioInfo]:
 
 @router.get("/reference-curve", response_model=ReferenceCurveResponse)
 async def get_reference_curve() -> ReferenceCurveResponse:
-    """Twin steady state at ρ = 1.225 kg/m³, with the P1 V236 table for validation."""
+    """Twin steady state at ρ = 1.225 kg/m³, with the legacy V236 table for validation."""
     rc = reference_curve()
     dev = np.abs(rc.power_mw - rc.p1_table_power_mw)
     in_range = (rc.wind_ms >= 6.0) & (rc.wind_ms <= 30.0)

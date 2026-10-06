@@ -6,8 +6,9 @@ import { layoutYield } from "../../src/lib/layout/energy";
 import { crf, DEFAULT_COSTS, layoutCost } from "../../src/lib/layout/cost";
 import { blockedBy, energyRings, exclusionRings, OUTSIDE_ENERGY_BASIN } from "../../src/lib/layout/evaluate";
 import type { LayersResponse, LayerInfo, LonLat } from "../../src/services/siteApi";
+import { TURBINE_MODELS } from "../../src/constants/turbineModels";
 
-const D = 236;
+const D = TURBINE_MODELS["IEA-15-240-RWT"].rotorDiameterM; // 241.35 m
 const square = (s: number): XY[] => [
   { x: 0, y: 0 },
   { x: s, y: 0 },
@@ -77,14 +78,24 @@ describe("layout yield", () => {
   });
 
   it("matches PyWake within 1 percentage point on square grids", () => {
-    // PyWake 2.6, backend run_wake_analysis + create_uniform_site(10.5, 2.2, 0.06),
-    // 5 × 5 V236 grid: wake loss 9.80 / 5.37 / 3.46 % at 4 / 6 / 8 D
+    // PyWake 2.6.19, backend run_wake_analysis + create_uniform_site(10.5, 2.2, 0.06),
+    // 5 × 5 grid of the IEA 15 MW reference: wake loss 12.53 / 6.80 / 4.34 % at 4 / 6 / 8 D
     const ref: [number, number][] = [
-      [4, 9.8],
-      [6, 5.37],
-      [8, 3.46],
+      [4, 12.53],
+      [6, 6.8],
+      [8, 4.34],
     ];
     for (const [sd, pct] of ref) expect(Math.abs(layoutYield(grid(5, sd), 10.5, 2.2).wakeLossPct - pct)).toBeLessThan(1);
+    // IEA 22 MW (D = 284 m): 13.17 / 7.23 / 4.69 %
+    const big = TURBINE_MODELS["IEA-22-280-RWT"];
+    const gridBig = (sd: number): XY[] =>
+      Array.from({ length: 25 }, (_, k) => ({ x: (k % 5) * sd * big.rotorDiameterM, y: Math.floor(k / 5) * sd * big.rotorDiameterM }));
+    for (const [sd, pct] of [
+      [4, 13.17],
+      [6, 7.23],
+      [8, 4.69],
+    ] as const)
+      expect(Math.abs(layoutYield(gridBig(sd), 10.5, 2.2, undefined, big).wakeLossPct - pct)).toBeLessThan(1);
   });
 
   it("tighter spacing loses more; P never exceeds rated", () => {
@@ -93,6 +104,8 @@ describe("layout yield", () => {
     expect(wide.wakeLossPct).toBeGreaterThan(0);
     expect(tight.wakeLossPct).toBeGreaterThan(wide.wakeLossPct);
     expect(tight.netGWh).toBeLessThanOrEqual(25 * 15 * 8.76);
+    // gross of one IEA 15 MW at A = 10.5, k = 2.2: PyWake 74.70 GWh
+    expect(layoutYield([{ x: 0, y: 0 }], 10.5, 2.2).grossGWh).toBeCloseTo(74.7, 0);
   });
 });
 

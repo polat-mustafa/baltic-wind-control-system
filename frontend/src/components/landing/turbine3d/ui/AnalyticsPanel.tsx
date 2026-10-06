@@ -20,7 +20,7 @@ import { memo, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 import { YAW_PAUSE_DEG, selectKPIs, selectTurbine, useLandingStore } from "../../../../store/landingStore";
-import { V236, v236PowerChain, v236PowerMW, v236RotorRpm } from "../../../../utils/landingPhysics";
+import { V236, v236PowerChain, turbinePowerMW, v236RotorRpm } from "../../../../utils/landingPhysics";
 import { cn } from "../../../../lib/utils";
 import { HISTORY_SAMPLES, useTurbineHistory, type Sample } from "../hooks/useTurbineHistory";
 import { discPowerMW, lossWaterfall } from "../model/lossWaterfall";
@@ -250,7 +250,7 @@ const CURVES = (() => {
   let p = "";
   let c = "";
   for (let u = 0; u <= U_MAX; u += 0.25) {
-    const pm = v236PowerMW(u);
+    const pm = turbinePowerMW(u);
     p += `${u ? "L" : "M"}${x(u).toFixed(1)},${yP(pm).toFixed(1)}`;
     if (u >= V236.cutInMs && u <= V236.cutOutMs) {
       const cp = v236PowerChain(pm, u, v236RotorRpm(u)).cp;
@@ -383,7 +383,7 @@ function Losses({
           );
         })}
         <text x={LBL} y={steps.length * RH2 + 14} fontSize={9.5} style={{ fill: "var(--color-text-muted)" }}>
-          ½ρA·U³ with U∞ = {freeWindMs.toFixed(1)} m/s → {discPowerMW(freeWindMs).toFixed(1)} MW through the Ø236 m disc
+          ½ρA·U³ with U∞ = {freeWindMs.toFixed(1)} m/s → {discPowerMW(freeWindMs).toFixed(1)} MW through the rotor disc
         </text>
       </svg>
       <Note>

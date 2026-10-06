@@ -143,7 +143,7 @@ export default function LIDARDetailPanel({ onClose }: { onClose: () => void }) {
           label="Rotor-equivalent wind (REWS)"
           value={rews.toFixed(2)}
           unit="m/s"
-          hint="Speed with the same kinetic-energy flux through the 236 m rotor as the sheared profile"
+          hint="Speed with the same kinetic-energy flux through the rotor as the sheared profile"
         />
         <DataRow label="Turbulence intensity" value={(turbulenceIntensity(windMs) * 100).toFixed(1)} unit="%" />
         <DataRow label="3-s gust" value={gustMs(windMs).toFixed(1)} unit="m/s" hint="U · (1 + 3·TI)" />

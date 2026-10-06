@@ -50,7 +50,7 @@ from app.services.p1.wake_model import (
     RATED_POWER_KW,
     WakeAnalysisResult,
     create_uniform_site,
-    create_v236_wind_turbine,
+    create_wind_turbine,
     run_wake_analysis,
 )
 
@@ -278,7 +278,7 @@ def run_pce_uncertainty(
     samples = _generate_lhs_samples(parameters, n_samples, seed)
 
     # Evaluate model at each sample point
-    turbine = create_v236_wind_turbine()
+    turbine = create_wind_turbine()
     aep_values = np.zeros(n_samples)
 
     for i in range(n_samples):

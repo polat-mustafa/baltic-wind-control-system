@@ -23,7 +23,8 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 2 | Site & Permits UX: legend, permit outlook banner, role avatars, data & sources panel, report states (stale / failed / retry) | In review (`feat/site-permits-ux`, stacked on phase 1) |
 | 3 | IEA-15-240-RWT / IEA-22-280-RWT from the official IEA Wind Task 37 tables; P1 wake/AEP, layout canvas and frontend curves on the model registry; CF bug fixed | In review (`feat/turbine-iea-models`, stacked on phase 2) |
 | 4 | Site wind climate from real data: NEWA mean + k at 150 m, ERA5 rose; assessment returns it, layout and PyWake use it | In review (`feat/site-wind-climate`, stacked on phase 3) |
-| 5–13 | Project persistence · post-tour choice + locks · FarmSpec/P2 · P5/P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
+| 5 | Project persistence: `wind_farm` = project table (JSONB document, revision lock, 12-month idle purge, read-only SB-510 row), `/api/v1/projects` + stored PyWake AEP history, anonymous link, auto-save with conflict / offline handling, export/import schema 2 | In review (`feat/project-persistence`, stacked on phase 4) |
+| 6–13 | Post-tour choice + locks · FarmSpec/P2 · P5/P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
 
 Phase 1 note: `test_sb510_case_study` expects `msp_energy == "fail"` until phase 9 moves SB-510 into PZP_44.
 Phase 2 note: the permit outlook says a refused site "could not go on to layout" but Layout is not locked yet — the hard lock comes with phase 6.
@@ -36,6 +37,13 @@ Phase 4 notes:
 - `scripts/fetch_wind_climate.py` (rate-limited services: sequential NEWA calls, Open-Meteo 429 back-off, on-disk cache in the temp dir). NEWA is **CC BY-NC 4.0**: fine for this free, non-commercial project; a commercial fork must replace `wind_climate`. NEWA `wind_speed_std` is a long-term statistic (moment fit gives k ≈ 4.5), so k comes from the microscale atlas.
 - SB-510: mean 9.38 m/s, A 10.58 m/s, k 2.04 at 150 m; rose peaks at 270° (18.7 %) and 240° (14.1 %). Regular 34-turbine grid: gross 2506 GWh/yr (−1.1 % vs the old synthetic climate), wake 7.0 %.
 - `/layers` does not send the wind/bathymetry rasters to the browser yet (planned with phase 10's per-turbine depth); the P1 page still runs on its synthetic climate (phase 7 FarmSpec).
+
+Phase 5 notes:
+- The project document (`frontend/src/lib/project/document.ts` ↔ `backend/app/schemas/project.py`) is built from the three existing stores (site, layout, lifecycle) instead of merging them into one store; their localStorage keys stay, so no migration is needed. Keep the two schemas in step.
+- The project id (uuid4) is the only key: no listing endpoint, no account. Retention purge runs at startup and on every create. Limits: 512 KB body, ≤150 turbines, per-IP counters in the router (single uvicorn worker) + nginx `limit_req` on `/api/v1/projects`.
+- `POST /projects/{id}/aep` runs PyWake on the saved layout; without wind inputs it uses the region-pack climate at the turbines. P-values = P1 loss cascade (blockage 0, not modelled there). The last 20 runs are kept; per-turbine rows survive moves (positions upserted by turbine id).
+- Deferred: `wind_resource` (hourly ERA5 per project) has no consumer yet — fill it when P4 / the report needs it. `mode: reference | own` and the project menu come with phase 6; the "Save online" control sits in the Layout header until then. The document always carries the default turbine model (no model picker yet).
+- SB-510 layout, site climate, server run: gross 2507 GWh/yr, wake 5.7 %, net 2364 GWh/yr, P50 2179 / P90 1986 GWh/yr.
 
 ## Resume here
 

@@ -44,6 +44,7 @@ dev = [
     "mypy>=1.14.0",
     "pytest-xdist>=3.6.0",
     "pytest-split>=0.10.0",
+    "aiosqlite>=0.20.0",  # tests/test_projects.py: in-memory SQLite for the projects API
 ]
 
 # ─── uv (lockfile + CPU-only torch on Linux/CI) ─────────────────

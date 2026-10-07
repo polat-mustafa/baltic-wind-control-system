@@ -41,6 +41,9 @@ import {
 import { computeWindRose } from "../services/windResourceApi";
 import { MAX_TURBINES, signature, useProjectStore } from "../store/projectStore";
 import { CASE_STUDY_SITE, useSiteStore } from "../store/siteStore";
+import { useProjectSync } from "../store/projectSync";
+import { applyDoc, buildDoc, parseDoc } from "../lib/project/document";
+import { SaveOnline } from "../components/project/SaveOnline";
 import { Button } from "../components/ui/Button";
 import { InfoTile } from "../components/ui/InfoTile";
 import { Skeleton } from "../components/ui/Skeleton";
@@ -140,8 +143,9 @@ export default function LayoutPage() {
   const report = useSiteStore((s) => s.report);
   const loadLayers = useSiteStore((s) => s.loadLayers);
   const assess = useSiteStore((s) => s.assess);
-  const setSite = useSiteStore((s) => s.setSite);
   const layers = useSiteStore((s) => s.layers);
+  const syncId = useProjectSync((s) => s.id);
+  const syncName = useProjectSync((s) => s.name);
 
   const p = useProjectStore();
   const [rose, setRose] = useState<WindRose>(UNIFORM_ROSE);
@@ -247,16 +251,19 @@ export default function LayoutPage() {
   };
 
   const download = () => {
-    const blob = new Blob([p.exportFile(siteDrawn)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(buildDoc(syncName), null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "layout.offshoreforge.json";
+    a.download = "project.offshoreforge.json";
     a.click();
     URL.revokeObjectURL(a.href);
   };
   const upload = async (f: File) => {
-    const s = p.importFile(await f.text());
-    if (s) void setSite(s);
+    try {
+      applyDoc(parseDoc(await f.text()));
+    } catch (e) {
+      useProjectStore.setState({ error: e instanceof Error ? e.message : String(e) });
+    }
   };
 
   return (
@@ -272,7 +279,8 @@ export default function LayoutPage() {
             and estimate the cost. Turbine: V236 class, modelled with the IEA 15 MW reference turbine (D = 241 m).
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-start gap-1.5">
+          <SaveOnline />
           <Button variant="ghost" size="sm" onClick={download} disabled={!p.turbines.length}>
             <Download size={13} className="mr-1" /> Export
           </Button>
@@ -432,6 +440,7 @@ export default function LayoutPage() {
                   void p.runPyWake(
                     proj.toXY,
                     siteWind ? { weibullA: windA, weibullK: windK, sectorFrequencies: siteWind.sector_frequencies } : undefined,
+                    syncId ? useProjectSync.getState().runAep : undefined,
                   )
                 }
                 disabled={!p.turbines.length || p.running}

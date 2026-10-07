@@ -18,7 +18,7 @@ import type {
   LonLat,
   SuitabilityResponse,
 } from "../services/siteApi";
-import type { StageId } from "../components/site/journey";
+import { STAGES, type StageId } from "../components/site/journey";
 
 /** SB-510 site boundary (frontend/src/constants/windFarmLayout.ts SITE_BOUNDARY_GEO), [lon, lat]. */
 export const CASE_STUDY_SITE: LonLat[] = [
@@ -34,20 +34,29 @@ const SITE_KEY = "of.site.v1";
 export const reportSignature = (site: LonLat[] | null, criteria: CriteriaOverrides): string =>
   JSON.stringify([site, Object.entries(criteria).sort(([a], [b]) => a.localeCompare(b))]);
 
-interface Persisted {
+export interface SitePersisted {
   site: LonLat[] | null;
   stage: StageId;
   done: StageId[];
 }
 
-function load(): Persisted {
+const isLonLat = (v: unknown): v is LonLat =>
+  Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === "number" && Number.isFinite(n));
+const isStage = (v: unknown): v is StageId => STAGES.some((s) => s.id === v);
+
+function parse(p: Record<string, unknown>): SitePersisted {
+  const site = Array.isArray(p.site) && p.site.length >= 3 && p.site.every(isLonLat) ? (p.site as LonLat[]) : null;
+  return {
+    site,
+    stage: isStage(p.stage) ? p.stage : "screening",
+    done: Array.isArray(p.done) ? p.done.filter(isStage) : [],
+  };
+}
+
+function load(): SitePersisted {
   try {
     const raw = readStored(SITE_KEY);
-    if (raw) {
-      const p = JSON.parse(raw) as Partial<Persisted>;
-      const site = Array.isArray(p.site) && p.site.length >= 3 ? (p.site as LonLat[]) : null;
-      return { site, stage: p.stage ?? "screening", done: Array.isArray(p.done) ? p.done : [] };
-    }
+    if (raw) return parse(JSON.parse(raw) as Record<string, unknown>);
   } catch {
     // corrupt value: start fresh
   }
@@ -83,6 +92,8 @@ interface SiteState {
   assess: () => Promise<void>;
   setStage: (stage: StageId) => void;
   completeStage: (stage: StageId) => void;
+  /** Replace site, stage and done stages (project document) and re-assess. */
+  restore: (p: Record<string, unknown>) => void;
   reset: () => void;
   clearError: () => void;
 }
@@ -185,6 +196,12 @@ export const useSiteStore = create<SiteState>((set, get) => ({
     if (get().done.includes(stage)) return;
     set({ done: [...get().done, stage] });
     persist(get());
+  },
+
+  restore: (p) => {
+    set({ ...parse(p), report: null, reportFor: null, assessError: null, drawing: null });
+    persist(get());
+    if (get().site) void get().assess();
   },
 
   reset: () => {

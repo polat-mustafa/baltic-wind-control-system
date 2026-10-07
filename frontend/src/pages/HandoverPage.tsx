@@ -15,6 +15,7 @@ import { Button } from "../components/ui/Button";
 import { WatchOut } from "../components/site/Stages";
 import AsBuiltRegister from "../components/lifecycle/AsBuiltRegister";
 import FarmSource from "../components/lifecycle/FarmSource";
+import { StageDone } from "../components/project/StageDone";
 
 function save(name: string, text: string, type: string) {
   const blob = new Blob([text], { type });
@@ -133,6 +134,12 @@ export default function HandoverPage() {
       </div>
 
       <FarmSource farm={farm} />
+      <StageDone
+        milestone="handover"
+        title="Hand-over"
+        need={own ? null : "Your layout needs turbines and an offshore substation first."}
+        next={{ path: "/scada", label: "SCADA and the other operation modules" }}
+      />
 
       <section className="space-y-2" data-tour="handover-modules">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Who takes over what</h3>

@@ -17,6 +17,7 @@ import { readStored, writeStored } from "../lib/storage";
 import { ApiError } from "../services/apiClient";
 import { createProject, deleteProject, getProject, runProjectAep, saveProject, type AepRun } from "../services/projectApi";
 import { useLifecycleStore } from "./lifecycleStore";
+import { useModeStore } from "./modeStore";
 import { useProjectStore, type PyWakeWind } from "./projectStore";
 import { useSiteStore } from "./siteStore";
 
@@ -35,7 +36,7 @@ interface SyncStore {
   error: string | null;
   /** First save: creates the online project and starts auto-saving. */
   saveOnline: (name?: string) => Promise<void>;
-  /** Open a saved project by id (replaces the local project). */
+  /** Open a saved project by id (replaces the local project, switches to own-project mode). */
   open: (id: string) => Promise<void>;
   setName: (name: string) => void;
   /** Save now if anything changed. */
@@ -152,6 +153,7 @@ export const useProjectSync = create<SyncStore>((set, get) => {
           error: null,
         });
         remember();
+        useModeStore.getState().setMode("own");
       } catch (e) {
         set({
           error:

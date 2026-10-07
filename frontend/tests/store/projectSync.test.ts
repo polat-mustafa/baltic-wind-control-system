@@ -52,11 +52,12 @@ describe("project document", () => {
     useProjectStore.getState().addTurbine([16.4, 54.8]);
     useProjectStore.getState().setCost("waccPct", 7);
     useLifecycleStore.getState().setBuild({ start: "2029-05-01" });
+    useLifecycleStore.getState().complete("build");
     const text = JSON.stringify(buildDoc("Baltic test"));
 
     useProjectStore.getState().clear();
     useSiteStore.setState({ site: null, stage: "screening", done: [] });
-    useLifecycleStore.getState().setBuild({ start: "2028-04-01" });
+    useLifecycleStore.getState().restore({});
 
     const doc = parseDoc(text);
     expect(doc.name).toBe("Baltic test");
@@ -65,6 +66,7 @@ describe("project document", () => {
     expect(useProjectStore.getState().turbines).toHaveLength(1);
     expect(useProjectStore.getState().costs.waccPct).toBe(7);
     expect(useLifecycleStore.getState().build.start).toBe("2029-05-01");
+    expect(useLifecycleStore.getState().done).toEqual(["build"]);
   });
 
   it("upgrades a schema-1 layout file", () => {

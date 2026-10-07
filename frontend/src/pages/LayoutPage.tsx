@@ -7,9 +7,9 @@
  * POST /api/v1/wind/wake-analysis-custom.
  */
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Grid3x3, MapPinned, MousePointerClick, Play, RotateCcw, Trash2, Upload, Wind } from "lucide-react";
+import { Grid3x3, MapPinned, MousePointerClick, Play, RotateCcw, Trash2, Wind } from "lucide-react";
 
 import { cn } from "../lib/utils";
 import { routeCables, ARRAY_SECTIONS, maxPerString } from "../lib/layout/cables";
@@ -42,8 +42,6 @@ import { computeWindRose } from "../services/windResourceApi";
 import { MAX_TURBINES, signature, useProjectStore } from "../store/projectStore";
 import { CASE_STUDY_SITE, useSiteStore } from "../store/siteStore";
 import { useProjectSync } from "../store/projectSync";
-import { applyDoc, buildDoc, parseDoc } from "../lib/project/document";
-import { SaveOnline } from "../components/project/SaveOnline";
 import { Button } from "../components/ui/Button";
 import { InfoTile } from "../components/ui/InfoTile";
 import { Skeleton } from "../components/ui/Skeleton";
@@ -145,7 +143,6 @@ export default function LayoutPage() {
   const assess = useSiteStore((s) => s.assess);
   const layers = useSiteStore((s) => s.layers);
   const syncId = useProjectSync((s) => s.id);
-  const syncName = useProjectSync((s) => s.name);
 
   const p = useProjectStore();
   const [rose, setRose] = useState<WindRose>(UNIFORM_ROSE);
@@ -154,7 +151,6 @@ export default function LayoutPage() {
   const [wakeFrom, setWakeFrom] = useState(255);
   const [exportKm, setExportKm] = useState<number | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const site = siteDrawn ?? CASE_STUDY_SITE;
   useEffect(() => {
@@ -250,22 +246,6 @@ export default function LayoutPage() {
     }
   };
 
-  const download = () => {
-    const blob = new Blob([JSON.stringify(buildDoc(syncName), null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "project.offshoreforge.json";
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
-  const upload = async (f: File) => {
-    try {
-      applyDoc(parseDoc(await f.text()));
-    } catch (e) {
-      useProjectStore.setState({ error: e instanceof Error ? e.message : String(e) });
-    }
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
@@ -278,26 +258,6 @@ export default function LayoutPage() {
             Place turbines in your site, watch wake losses and the array cables change, then check the energy yield with PyWake
             and estimate the cost. Turbine: V236 class, modelled with the IEA 15 MW reference turbine (D = 241 m).
           </p>
-        </div>
-        <div className="flex flex-wrap items-start gap-1.5">
-          <SaveOnline />
-          <Button variant="ghost" size="sm" onClick={download} disabled={!p.turbines.length}>
-            <Download size={13} className="mr-1" /> Export
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => fileRef.current?.click()}>
-            <Upload size={13} className="mr-1" /> Import
-          </Button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void upload(f);
-              e.target.value = "";
-            }}
-          />
         </div>
       </div>
 

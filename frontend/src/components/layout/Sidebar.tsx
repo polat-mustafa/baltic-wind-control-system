@@ -6,6 +6,7 @@
  * - Lucide icons per module
  * - Collapse/expand toggle
  * - Active state with left accent border
+ * - Lock icon on modules the own project has not reached yet (lib/project/progress.ts)
  * - System status section at bottom
  *
  * Responsive: ≥ lg full width, md–lg an icon rail (user can expand it),
@@ -32,11 +33,13 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { StatusIndicator } from "../ui/StatusIndicator";
+import { useLocks } from "../../lib/project/progress";
 
 interface NavItem {
   label: string;
@@ -181,6 +184,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   // Icon rail between md and lg, full width from lg up; the toggle overrides.
   // The drawer below md always shows the labels.
   const collapsed = isMd && (userCollapsed ?? !isLg);
+  const locks = useLocks();
 
   return (
     <nav
@@ -234,6 +238,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon;
+                const lock = locks[item.path];
                 return (
                   <li key={item.path}>
                     <NavLink
@@ -249,18 +254,19 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                             : "text-text-secondary hover:text-text-primary hover:bg-bg-hover border-l-2 border-transparent",
                         )
                       }
-                      title={collapsed ? item.label : undefined}
-                      aria-label={collapsed ? item.label : undefined}
+                      title={lock ? `${item.label} — locked. First: ${lock.need}` : collapsed ? item.label : undefined}
+                      aria-label={collapsed || lock ? `${item.label}${lock ? " (locked)" : ""}` : undefined}
                     >
                       <Icon size={18} className="shrink-0" />
                       {!collapsed && (
-                        <div className="flex flex-col min-w-0">
+                        <div className="flex flex-col min-w-0 flex-1">
                           <span className="text-sm font-medium truncate">{item.label}</span>
                           <span className="text-[10px] text-text-muted truncate">
                             {item.description}
                           </span>
                         </div>
                       )}
+                      {lock && <Lock size={12} className="shrink-0 text-text-muted" aria-hidden />}
                     </NavLink>
                   </li>
                 );

@@ -26,11 +26,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from app.core.exceptions import NotFoundError, StateTransitionError
-from app.services.p5.equipment_state import (
-    OSS_EQUIPMENT,
-    EquipmentState,
-    EquipmentType,
-)
+from app.services.p2.network_model import SB510, FarmSpec
+from app.services.p5.equipment_state import EquipmentState, EquipmentType, equipment
 
 
 class LOTOStatus(StrEnum):
@@ -82,11 +79,11 @@ def point_id_for(equipment_id: str) -> str:
     return f"LOTO-{equipment_id}"
 
 
-def create_loto_set_for_oss(programme_id: str, locked_by: str) -> LOTOSet:
+def create_loto_set_for_oss(programme_id: str, locked_by: str, spec: FarmSpec = SB510) -> LOTOSet:
     """Isolation established for construction: every disconnector and earth switch locked."""
     now = datetime.now(UTC)
     loto = LOTOSet(programme_id=programme_id, created_at=now)
-    for eq in OSS_EQUIPMENT:
+    for eq in equipment(spec):
         if eq.equipment_type in (EquipmentType.DISCONNECTOR, EquipmentType.EARTH_SWITCH):
             pid = point_id_for(eq.equipment_id)
             loto.points[pid] = IsolationPoint(

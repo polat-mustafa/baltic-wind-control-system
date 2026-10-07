@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.services.p2.network_model import SB510, FarmSpec
 from app.services.p5.fat import EquipmentClass, approve_campaign, create_fat_campaign, record_result
 from app.services.p5.grid_code_testing import (
     ComplianceVerdict,
@@ -53,9 +54,9 @@ def issue(programme: SwitchingProgramme, stage: NotificationStage) -> None:
     approve_notification(campaign, stage)
 
 
-def ready_programme() -> SwitchingProgramme:
+def ready_programme(spec: FarmSpec = SB510) -> SwitchingProgramme:
     """Programme in progress with SAT approved, EON and ION issued."""
-    programme = create_oss_energisation_programme(PIC)
+    programme = create_oss_energisation_programme(PIC, spec)
     sat = create_sat_campaign(programme.programme_id, approved_fats())
     fill_typical(sat)
     approve_campaign(sat, PIC)

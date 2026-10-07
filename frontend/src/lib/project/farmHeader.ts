@@ -1,9 +1,10 @@
 /**
- * The farm the P2 grid endpoints model. In own-project mode with a layout
- * (turbines + OSS) every `/api/v1/grid` request carries it in the `X-Farm`
- * header — strings from the cable tree, mean array section length, export
- * length — and the backend sizes the network for it (routers/farm_spec.py).
- * Otherwise no header: the SB-510 reference.
+ * The farm the P2 grid and P5 commissioning endpoints model. In own-project
+ * mode with a layout (turbines + OSS) every `/api/v1/grid` and
+ * `/api/v1/commissioning` request carries it in the `X-Farm` header — strings
+ * from the cable tree, mean array section length, export length — and the
+ * backend sizes the network for it (routers/farm_spec.py); a switching
+ * programme keeps the farm it was created for. Otherwise no header: SB-510.
  */
 
 import { setRequestHeaders } from "../../services/apiClient";
@@ -44,9 +45,11 @@ export function farmHeader(): string | null {
 /** Same value as `farmHeader`, "sb510" without one — tells when P2 results belong to another farm. */
 export const farmKey = () => farmHeader() ?? "sb510";
 
+const FARM_APIS = ["/api/v1/grid", "/api/v1/commissioning"];
+
 export function initFarmHeader(): void {
   setRequestHeaders((url): Record<string, string> => {
-    const h = url.startsWith("/api/v1/grid") ? farmHeader() : null;
+    const h = FARM_APIS.some((p) => url.startsWith(p)) ? farmHeader() : null;
     return h ? { "X-Farm": h } : {};
   });
 }

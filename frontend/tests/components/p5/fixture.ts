@@ -30,6 +30,18 @@ export function programme(over: Partial<ProgrammeDetail> = {}): ProgrammeDetail 
     completed_steps: 1,
     current_step_index: 1,
     created_at: "2026-10-05T08:00:00Z",
+    farm: {
+      name: "SB-510",
+      string_layout: [6, 6, 6, 6, 5, 5],
+      section_a_strings: 3,
+      export_length_km: 45,
+      oss_trafo_mva: 300,
+      statcom_mvar: 120,
+      reactor_unit_mvar: 80,
+      output_limit_mw: 270,
+      onshore_tap: 0,
+      reactor_energisation: false,
+    },
     phases: { "2": "Export cable 1" },
     steps: [
       step({ step_id: "2.07", step_number: 1, step_type: "verification", equipment_id: "", status: "completed", action: "Verify cable isolated", reading: "Cable 1 dead; CB-OSS-220-01 open" }),

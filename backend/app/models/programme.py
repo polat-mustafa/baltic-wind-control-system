@@ -98,6 +98,11 @@ class SwitchingProgrammeModel(Base):
         nullable=True,
         comment="Emergency events triggered during the programme",
     )
+    farm_spec: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="FarmSpec of the farm (p2.network_model); NULL = SB-510",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         comment="UTC creation timestamp",

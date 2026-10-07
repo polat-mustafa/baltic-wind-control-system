@@ -11,23 +11,23 @@ from app.core.exceptions import NotFoundError
 from app.core.exceptions import ValidationError as DomainValidationError
 from app.db import get_session
 from app.schemas.commissioning import LOTOActionRequest, LOTOPointSchema, LOTOSetSchema
-from app.services.p5.equipment_state import OSS_EQUIPMENT
+from app.services.p5.equipment_state import equipment
 from app.services.p5.loto import LOTOSet, LOTOStatus, apply_loto, remove_loto
 from app.services.p5.programme_repository import ProgrammeRepository
 from app.services.p5.switching_programme import SwitchingProgramme, add_audit
 
 router = APIRouter()
 
-# Register order = plant order (onshore → OSS → strings); JSONB does not keep key order
-_ORDER = {eq.equipment_id: i for i, eq in enumerate(OSS_EQUIPMENT)}
 
-
-def _schema(loto: LOTOSet) -> LOTOSetSchema:
+def _schema(programme: SwitchingProgramme) -> LOTOSetSchema:
+    loto = _loto(programme)
+    # Register order = plant order (onshore → OSS → strings); JSONB does not keep key order
+    order = {eq.equipment_id: i for i, eq in enumerate(equipment(programme.spec))}
     return LOTOSetSchema(
         programme_id=loto.programme_id,
         points=[
             LOTOPointSchema(**asdict(p))
-            for p in sorted(loto.points.values(), key=lambda p: _ORDER.get(p.equipment_id, 999))
+            for p in sorted(loto.points.values(), key=lambda p: order.get(p.equipment_id, 999))
         ],
         applied_count=sum(p.status == LOTOStatus.APPLIED for p in loto.points.values()),
     )
@@ -44,7 +44,7 @@ async def get_loto(
     programme_id: str, session: AsyncSession = Depends(get_session)
 ) -> LOTOSetSchema:
     programme = await ProgrammeRepository(session).get_programme(programme_id)
-    return _schema(_loto(programme))
+    return _schema(programme)
 
 
 @router.post("/programmes/{programme_id}/loto/{point_id}/apply", response_model=LOTOSetSchema)
@@ -62,7 +62,7 @@ async def apply_lock(
                details=point.tag_number)  # fmt: skip
     await repo.save_programme(programme)
     await session.commit()
-    return _schema(_loto(programme))
+    return _schema(programme)
 
 
 @router.post("/programmes/{programme_id}/loto/{point_id}/remove", response_model=LOTOSetSchema)
@@ -84,4 +84,4 @@ async def remove_lock(
                details=point.tag_number)  # fmt: skip
     await repo.save_programme(programme)
     await session.commit()
-    return _schema(_loto(programme))
+    return _schema(programme)

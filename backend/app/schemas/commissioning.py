@@ -103,7 +103,23 @@ class EmergencyEventSchema(BaseModel):
     programme_status: str
 
 
+class ProgrammeFarmSchema(BaseModel):
+    """The farm the programme energises (p2.network_model.FarmSpec)."""
+
+    name: str
+    string_layout: list[int] = Field(description="Turbines per string, string 1 first")
+    section_a_strings: int = Field(description="Strings 1…n on 66 kV section A (circuit 1)")
+    export_length_km: float
+    oss_trafo_mva: float = Field(description="Rating of TX-OSS-01 [MVA]")
+    statcom_mvar: float
+    reactor_unit_mvar: float | None = Field(description="Reactor 1 [Mvar]; null: no reactors")
+    output_limit_mw: float = Field(description="Output with circuit 1 only [MW]")
+    onshore_tap: int = Field(description="Onshore OLTC pre-set (0 = neutral)")
+    reactor_energisation: bool = Field(description="Cable 1 energised with reactor 1")
+
+
 class ProgrammeDetailSchema(ProgrammeSummarySchema):
+    farm: ProgrammeFarmSchema
     phases: dict[int, str]
     steps: list[StepSchema]
     equipment_states: list[EquipmentStateSchema]

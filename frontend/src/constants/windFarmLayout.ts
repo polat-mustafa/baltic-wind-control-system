@@ -129,6 +129,11 @@ export const ONSHORE_GEO = { lat: 54.506, lon: 16.872 };
 /** Beach landfall at Zaleskie (gmina Ustka), on the OSM coastline. */
 export const LANDFALL_GEO = { lat: 54.5698, lon: 16.735 };
 
+/** Export length of the electrical model [km] (backend network_model.EXPORT_CABLE_LENGTH_KM). */
+export const SB510_EXPORT_KM = 45;
+/** Water depth across the turbine positions [m] (EMODnet DTM). */
+export const SB510_DEPTH_M: [number, number] = [29, 40];
+
 /**
  * 2 × 220 kV export route, 44.9 km ≈ the 45 km used by the electrical model:
  * 31.5 km subsea (OSS → landfall; crosses the coastal Natura 2000 bird area

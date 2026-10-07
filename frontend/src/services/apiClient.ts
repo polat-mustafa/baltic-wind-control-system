@@ -33,9 +33,15 @@ export class ApiError extends Error {
   }
 }
 
+/** Extra headers per URL — the own project's farm on the grid endpoints (lib/project/farmHeader.ts). */
+let extraHeaders: (url: string) => Record<string, string> = () => ({});
+export function setRequestHeaders(fn: (url: string) => Record<string, string>): void {
+  extraHeaders = fn;
+}
+
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...extraHeaders(url) },
     ...init,
   });
   if (!res.ok) {

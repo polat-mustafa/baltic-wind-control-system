@@ -44,8 +44,9 @@ from app.services.p2.network_model import (
     ALPHA_CU_PER_K,
     EXPORT_CABLE_1000,
     EXPORT_CABLE_LENGTH_KM,
-    NUM_EXPORT_CABLES,
+    SB510,
     TOTAL_CAPACITY_MW,
+    FarmSpec,
 )
 
 HOURS = 8760
@@ -73,8 +74,8 @@ LIFETIME_Y = 20
 REPOWER_EFFICIENCY = 0.50  # H2 back to power (fuel cell / H2 turbine) — assumption
 
 
-@lru_cache(maxsize=1)
-def farm_duration_mw() -> np.ndarray:
+@lru_cache(maxsize=16)
+def farm_duration_mw(capacity_mw: float = TOTAL_CAPACITY_MW) -> np.ndarray:
     """Farm output for each of the 8760 hours, sorted high to low [MW].
 
     Hour h has wind exceeded with probability (h + ½)/8760 under the site
@@ -90,7 +91,7 @@ def farm_duration_mw() -> np.ndarray:
         get_power_curve_kw(np.maximum(v[:, None] + FARM_SPREAD_MS * z, 0.0)), dtype=float
     )
     p = AVAILABILITY * (curve @ w) / 15_000.0
-    return np.sort(np.clip(p, 0.0, 1.0) * TOTAL_CAPACITY_MW)[::-1]
+    return np.sort(np.clip(p, 0.0, 1.0) * capacity_mw)[::-1]
 
 
 def _crf(rate: float = WACC, years: int = LIFETIME_Y) -> float:
@@ -100,13 +101,16 @@ def _crf(rate: float = WACC, years: int = LIFETIME_Y) -> float:
 # ── 1. Export technology vs distance ──────────────────────────────
 
 
-def export_comparison(design_length_km: float = EXPORT_CABLE_LENGTH_KM) -> dict[str, Any]:
+def export_comparison(
+    design_length_km: float = EXPORT_CABLE_LENGTH_KM, spec: FarmSpec = SB510
+) -> dict[str, Any]:
     """HVAC capacity, compensation and annual losses vs HVDC over 10–200 km."""
-    p_mw = farm_duration_mw()
+    cap_mw = spec.capacity_mw
+    p_mw = farm_duration_mw(cap_mw)
     e_year_mwh = float(p_mw.sum())
     p2_sum = float((p_mw**2).sum())  # Σ P² [MW²·h]
 
-    n = NUM_EXPORT_CABLES
+    n = spec.num_export_cables
     u = U_AC_KV * 1e3
     r_ac = EXPORT_CABLE_1000.r_ac_ohm_per_km
     wc = OMEGA * EXPORT_CABLE_1000.c_nf_per_km * 1e-9  # S/km
@@ -123,15 +127,14 @@ def export_comparison(design_length_km: float = EXPORT_CABLE_LENGTH_KM) -> dict[
         return {
             "capacity_mw": cap,
             "charging_mvar": q,
-            "loss_rated_mw": k_load * TOTAL_CAPACITY_MW**2 + fixed,
+            "loss_rated_mw": k_load * cap_mw**2 + fixed,
             "loss_gwh": (k_load * p2_sum + fixed * HOURS) / 1e3,
         }
 
     def hvdc(length: float) -> dict[str, float]:
         k_cable = 2 * R_DC_OHM_PER_KM * length / (2 * U_DC_KV * 1e3) ** 2 * 1e6
         return {
-            "loss_rated_mw": k_cable * TOTAL_CAPACITY_MW**2
-            + 2 * CONVERTER_LOSS * TOTAL_CAPACITY_MW,
+            "loss_rated_mw": k_cable * cap_mw**2 + 2 * CONVERTER_LOSS * cap_mw,
             "loss_gwh": (k_cable * p2_sum + 2 * CONVERTER_LOSS * e_year_mwh) / 1e3,
         }
 
@@ -148,9 +151,7 @@ def export_comparison(design_length_km: float = EXPORT_CABLE_LENGTH_KM) -> dict[
             }
         )
 
-    capacity_limit = next(
-        (r["length_km"] for r in rows if r["hvac_capacity_mw"] < TOTAL_CAPACITY_MW), None
-    )
+    capacity_limit = next((r["length_km"] for r in rows if r["hvac_capacity_mw"] < cap_mw), None)
     loss_crossover = next(
         (r["length_km"] for r in rows if r["hvdc_loss_gwh"] < r["hvac_loss_gwh"]), None
     )
@@ -158,7 +159,7 @@ def export_comparison(design_length_km: float = EXPORT_CABLE_LENGTH_KM) -> dict[
     return {
         "design_length_km": design_length_km,
         "annual_energy_gwh": round(e_year_mwh / 1e3, 1),
-        "capacity_factor": round(e_year_mwh / (TOTAL_CAPACITY_MW * HOURS), 3),
+        "capacity_factor": round(e_year_mwh / (cap_mw * HOURS), 3),
         "hvac": {k: round(v, 2) for k, v in ac.items()},
         "hvdc": {k: round(v, 2) for k, v in dc.items()},
         "hvac_capacity_limit_km": capacity_limit,
@@ -174,9 +175,10 @@ def p2x_study(
     connection_mw: float = 400.0,
     electrolyser_mw: float = 60.0,
     capex_eur_per_kw: float = 2000.0,
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """Energy above the connection limit, what an electrolyser absorbs, and its LCOH."""
-    p = farm_duration_mw()
+    p = farm_duration_mw(spec.capacity_mw)
     surplus = np.clip(p - connection_mw, 0.0, None)
     absorbed = np.minimum(surplus, electrolyser_mw)
     absorbed[absorbed < MIN_LOAD * electrolyser_mw] = 0.0

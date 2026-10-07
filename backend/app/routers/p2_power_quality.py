@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.power_quality import (
     FilterDesignRequest,
     FilterDesignResponse,
@@ -43,13 +44,19 @@ router = APIRouter(tags=["M06 Power Quality & Harmonics"])
     response_model=HarmonicAnalysisResponse,
     summary="Harmonic voltages from WTG emission (IEC TR 61000-3-6)",
 )
-async def analyse_harmonics(body: HarmonicSpectrumRequest) -> HarmonicAnalysisResponse:
+async def analyse_harmonics(
+    body: HarmonicSpectrumRequest, spec: FarmSpecDep
+) -> HarmonicAnalysisResponse:
     """Sum the 34 WTGs' current emission (IEC 61000-3-6 exponents), pass it
     through the network's harmonic impedance and compare the voltage at the
     chosen bus with the planning levels."""
     return HarmonicAnalysisResponse(
         **svc.compute_harmonics(
-            body.harmonic_magnitudes, body.voltage_kv, body.rated_mw, body.grid_fault_level_mva
+            body.harmonic_magnitudes,
+            body.voltage_kv,
+            body.rated_mw,
+            body.grid_fault_level_mva,
+            spec=spec,
         )
     )
 
@@ -59,12 +66,16 @@ async def analyse_harmonics(body: HarmonicSpectrumRequest) -> HarmonicAnalysisRe
     response_model=ResonanceScanResponse,
     summary="Network frequency scan",
 )
-async def resonance_scan(body: ResonanceScanRequest) -> ResonanceScanResponse:
+async def resonance_scan(body: ResonanceScanRequest, spec: FarmSpecDep) -> ResonanceScanResponse:
     """|Z(f)| seen from OSS 66 kV, OSS 220 kV or the POC, with amplified resonances —
     long HVAC cables + reactors + transformer/grid inductance resonate at low orders."""
     return ResonanceScanResponse(
         **svc.compute_resonance_scan(
-            body.cable_length_km, body.voltage_kv, body.grid_fault_level_mva, body.scan_max_hz
+            body.cable_length_km,
+            body.voltage_kv,
+            body.grid_fault_level_mva,
+            body.scan_max_hz,
+            spec=spec,
         )
     )
 
@@ -91,7 +102,7 @@ async def flicker(body: FlickerRequest) -> FlickerResponse:
     response_model=FilterDesignResponse,
     summary="Single-tuned harmonic filter",
 )
-async def filter_design(body: FilterDesignRequest) -> FilterDesignResponse:
+async def filter_design(body: FilterDesignRequest, spec: FarmSpecDep) -> FilterDesignResponse:
     """Size C and L for a target order (tuned 3 % low) and rate its attenuation
     against the network's harmonic impedance at that order."""
     return FilterDesignResponse(
@@ -100,6 +111,7 @@ async def filter_design(body: FilterDesignRequest) -> FilterDesignResponse:
             body.harmonic_current_a,
             body.system_voltage_kv,
             body.rated_mvar,
+            spec=spec,
         )
     )
 

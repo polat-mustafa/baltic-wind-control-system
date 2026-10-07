@@ -15,6 +15,7 @@ import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
 import { KPICard } from "../ui/KPICard";
 import { Slider } from "../ui/Slider";
+import { useNetwork } from "../../store/gridStore";
 
 const T_EVENT = 1.0;
 // PSE type D FRT profile at the POC (same as the Grid tab): 0 p.u. for 150 ms, 0.85 p.u. at 2.5 s
@@ -44,6 +45,7 @@ function kpis(r: DynamicsResponse) {
 }
 
 export default function AndesDynamicsSection() {
+  const n = useNetwork();
   const { event, load_trip_mw, retained_voltage_pu, result: r, loading, error, setParams, run } = useDynamicsStore();
   const c = useChartPalette();
   const shown = r && r.event === event ? r : null;
@@ -172,7 +174,7 @@ export default function AndesDynamicsSection() {
               />
             </ChartWrapper>
             <ChartWrapper
-              title={isFreq ? "Plant active power" : "Plant response (p.u. of 510 MW)"}
+              title={isFreq ? "Plant active power" : `Plant response (p.u. of ${n.total_capacity_mw.toFixed(0)} MW)`}
               footer={
                 isFreq
                   ? "REPCA1 frequency droop: 5 % of Pmax above 50.2 Hz (PSE). The dashed line is the static droop characteristic of the frequency at each instant — the plant follows it with its plant-controller lag."
@@ -208,7 +210,7 @@ export default function AndesDynamicsSection() {
                           mode: "lines",
                           name: "Active power P",
                           x: t,
-                          y: s.map((p) => p.p_mw / 510),
+                          y: s.map((p) => p.p_mw / n.total_capacity_mw),
                           line: { color: c.blue, width: 2 },
                           hovertemplate: "P %{y:.2f} p.u. at %{x:.3f} s<extra></extra>",
                         },
@@ -231,7 +233,7 @@ export default function AndesDynamicsSection() {
                   xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, title: { text: "Time [s]", font: { size: 12 } }, range: xRange },
                   yaxis: {
                     ...DARK_PLOTLY_LAYOUT.yaxis,
-                    title: { text: isFreq ? "Power [MW]" : "Per unit of 510 MVA", font: { size: 12 } },
+                    title: { text: isFreq ? "Power [MW]" : `Per unit of ${n.total_capacity_mw.toFixed(0)} MVA`, font: { size: 12 } },
                     ...(isFreq ? {} : { range: [-0.1, 1.25] }),
                   },
                 }}

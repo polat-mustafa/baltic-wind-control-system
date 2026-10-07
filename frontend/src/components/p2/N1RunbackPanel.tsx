@@ -6,10 +6,12 @@ import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefault
 import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
 import { useN1Store } from "../../store/n1SecurityStore";
 import { ChartWrapper } from "../ui/ChartWrapper";
+import { useNetwork } from "../../store/gridStore";
 
 const T_END_S = 30;
 
 export default function N1RunbackPanel() {
+  const n = useNetwork();
   const { study: s } = useN1Store();
   const c = useChartPalette();
   if (!s?.base_case) return null;
@@ -24,7 +26,7 @@ export default function N1RunbackPanel() {
       title="Corrective runback"
       footer={
         anyRunback
-          ? `Output falls at ${s.runback_mw_per_s.toFixed(1)} MW/s (2 % of 510 MW per second — an assumed rate; pitch systems can be faster). Seconds of overload are harmless: cable and transformer thermal time constants are hours (see the Cable DTS tab).`
+          ? `Output falls at ${s.runback_mw_per_s.toFixed(1)} MW/s (2 % of ${n.total_capacity_mw.toFixed(0)} MW per second — an assumed rate; pitch systems can be faster). Seconds of overload are harmless: cable and transformer thermal time constants are hours (see the Cable DTS tab).`
           : `At ${p0.toFixed(0)} MW one export circuit or one transformer carries everything — no runback is needed.`
       }
     >

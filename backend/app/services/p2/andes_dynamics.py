@@ -71,14 +71,10 @@ from app.services.p2.frt_simulation import (
     RECOVERY_LIMIT_S,
 )
 from app.services.p2.network_model import (
-    ARRAY_CABLE_LENGTH_KM,
     EXPORT_CABLE_1000,
-    EXPORT_CABLE_LENGTH_KM,
     GRID_SSC_MVA,
-    NUM_EXPORT_CABLES,
-    SHUNT_REACTOR_MVAR,
-    STRING_LAYOUT,
-    TOTAL_CAPACITY_MW,
+    SB510,
+    FarmSpec,
     _get_cable_grade,
     series_impedances_pu,
 )
@@ -102,7 +98,6 @@ GOVERNOR_DROOP = 0.05
 DEFAULT_LOAD_TRIP_MW = 3_000.0
 
 T_EVENT_S = 1.0
-_K_SYS = TOTAL_CAPACITY_MW / S_BASE  # plant rating → system base
 
 # REECA1 voltage-dependent current limits (flat 1.1 p.u.: no derating — typical)
 _VDL = {
@@ -118,22 +113,23 @@ KQV = 2.0  # reactive current gain, PSE range 2–10 (typical lower end)
 Event = Literal["frequency", "fault"]
 
 
-def collector_equivalent_pu() -> tuple[complex, float]:
+def collector_equivalent_pu(spec: FarmSpec = SB510) -> tuple[complex, float]:
     """Series impedance and total charging of the 66 kV array [p.u. on 100 MVA].
 
     Muljadi et al. 2006: Z_eq = Σ Z_k·(n_k/N)², n_k = turbines whose current
     flows through segment k. Charging susceptances simply add.
     """
     z_base = 66.0**2 / S_BASE
-    n_total = sum(STRING_LAYOUT)
+    n_total = spec.num_turbines
+    seg_km = spec.array_cable_length_km
     z_eq, b_eq = 0j, 0.0
-    for length in STRING_LAYOUT:
+    for length in spec.string_layout:
         for pos in range(length):  # pos 0 = segment at the OSS, carries `length` WTGs
-            spec = _get_cable_grade(length - 1 - pos, length)
+            cable = _get_cable_grade(length - 1 - pos, length)
             n_k = length - pos
-            z_seg = complex(spec.r_ac_ohm_per_km, spec.x_ohm_per_km) * ARRAY_CABLE_LENGTH_KM
+            z_seg = complex(cable.r_ac_ohm_per_km, cable.x_ohm_per_km) * seg_km
             z_eq += z_seg / z_base * (n_k / n_total) ** 2
-            b_eq += OMEGA0 * spec.c_nf_per_km * 1e-9 * ARRAY_CABLE_LENGTH_KM * z_base
+            b_eq += OMEGA0 * cable.c_nf_per_km * 1e-9 * seg_km * z_base
     return z_eq, b_eq
 
 
@@ -141,9 +137,13 @@ def build_system(
     grid_ssc_mva: float = GRID_SSC_MVA,
     generation_fraction: float = 1.0,
     load_trip_mw: float = 0.0,
+    spec: FarmSpec = SB510,
 ) -> Any:
     """ANDES system of the farm and the area equivalent (not yet set up)."""
     import andes
+
+    cap = spec.capacity_mw
+    k_sys = cap / S_BASE  # plant rating → system base
 
     ss = andes.System()
     buses = [("AREA_400", 400.0), ("POC_400", 400.0), ("ONS_220", 220.0), ("OSS_220", 220.0),
@@ -151,11 +151,15 @@ def build_system(
     for idx, (name, vn) in enumerate(buses):
         ss.add("Bus", {"idx": idx, "name": name, "Vn": vn, "v0": 1.0})
 
-    z = series_impedances_pu(S_BASE, grid_ssc_mva, EXPORT_CABLE_LENGTH_KM)
+    z = series_impedances_pu(S_BASE, grid_ssc_mva, spec=spec)
     b_export = (
-        OMEGA0 * EXPORT_CABLE_1000.c_nf_per_km * 1e-9 * EXPORT_CABLE_LENGTH_KM * NUM_EXPORT_CABLES
+        OMEGA0
+        * EXPORT_CABLE_1000.c_nf_per_km
+        * 1e-9
+        * spec.export_length_km
+        * spec.num_export_cables
     ) * (220.0**2 / S_BASE)
-    z_col, b_col = collector_equivalent_pu()
+    z_col, b_col = collector_equivalent_pu(spec)
 
     def branch(
         idx: str, b1: int, b2: int, zz: complex, vn1: float, vn2: float, b: float = 0.0
@@ -173,10 +177,13 @@ def build_system(
     branch("EXPORT", 2, 3, z["export"], 220.0, 220.0, b_export)
     branch("TR_OSS", 3, 4, z["oss"], 220.0, 66.0)
     branch("COLLECTOR", 4, 5, z_col, 66.0, 66.0, b_col)
-    ss.add("Shunt", {"idx": "REACTORS", "bus": 3, "Vn": 220.0, "b": -SHUNT_REACTOR_MVAR / S_BASE})
+    if spec.reactor_mvar > 0:
+        ss.add(
+            "Shunt", {"idx": "REACTORS", "bus": 3, "Vn": 220.0, "b": -spec.reactor_mvar / S_BASE}
+        )
 
     # Synchronous area: slack generator → GENCLS + TGOV1, area load
-    p_farm = TOTAL_CAPACITY_MW * generation_fraction
+    p_farm = cap * generation_fraction
     ss.add("Slack", {"idx": "AREA", "bus": 0, "Vn": 400.0, "Sn": AREA_MVA, "v0": 1.0, "a0": 0.0,
                      "p0": (AREA_LOAD_MW - p_farm) / S_BASE})  # fmt: skip
     ss.add("GENCLS", {"idx": "AREA_SM", "bus": 0, "gen": "AREA", "Vn": 400.0, "Sn": AREA_MVA,
@@ -192,16 +199,16 @@ def build_system(
         )
 
     # Aggregated plant
-    ss.add("PV", {"idx": "PLANT", "bus": 5, "Vn": 66.0, "Sn": TOTAL_CAPACITY_MW, "v0": 1.0,
-                  "p0": p_farm / S_BASE, "qmax": 0.33 * TOTAL_CAPACITY_MW / S_BASE,
-                  "qmin": -0.33 * TOTAL_CAPACITY_MW / S_BASE})  # fmt: skip
-    ss.add("REGCA1", {"idx": "PLANT_GC", "bus": 5, "gen": "PLANT", "Sn": TOTAL_CAPACITY_MW,
+    ss.add("PV", {"idx": "PLANT", "bus": 5, "Vn": 66.0, "Sn": cap, "v0": 1.0,
+                  "p0": p_farm / S_BASE, "qmax": 0.33 * cap / S_BASE,
+                  "qmin": -0.33 * cap / S_BASE})  # fmt: skip
+    ss.add("REGCA1", {"idx": "PLANT_GC", "bus": 5, "gen": "PLANT", "Sn": cap,
                       "Tg": 0.02, "Lvplsw": 0, "Iolim": -1.1})  # fmt: skip
-    ss.add("REECA1", {"idx": "PLANT_EC", "reg": "PLANT_GC", "Sn": TOTAL_CAPACITY_MW,
+    ss.add("REECA1", {"idx": "PLANT_EC", "reg": "PLANT_GC", "Sn": cap,
                       "Vdip": 0.85, "Vup": 1.2, "dbd1": -0.1, "dbd2": 0.1, "Trv": 0.02,
                       # ANDES keeps currents on the system base but does not rescale
                       # Kqv and the Iqinj limits: convert them from the plant rating
-                      "Kqv": KQV * _K_SYS, "Iqh1": 1.1 * _K_SYS, "Iql1": -1.1 * _K_SYS,
+                      "Kqv": KQV * k_sys, "Iqh1": 1.1 * k_sys, "Iql1": -1.1 * k_sys,
                       "Imax": 1.1, "PQFLAG": 0,  # reactive-current priority in a dip
                       "PFFLAG": 0, "VFLAG": 0, "QFLAG": 0, "PFLAG": 0, **_VDL,
                       "PMAX": 1.0, "PMIN": 0.0, "dPmax": 1.0, "dPmin": -1.0,
@@ -213,7 +220,7 @@ def build_system(
                       "fdbd1": -(LFSM_O_THRESHOLD_HZ - F0) / F0,
                       "fdbd2": (LFSM_O_THRESHOLD_HZ - F0) / F0,
                       # REPCA1 works on the system base: ΔP[100 MVA] = Ddn·Δf[p.u.]
-                      "Ddn": TOTAL_CAPACITY_MW / S_BASE / DROOP, "Dup": 0.0,
+                      "Ddn": cap / S_BASE / DROOP, "Dup": 0.0,
                       "Kpg": 0.1, "Kig": 0.5, "Tp": 0.05, "Tg": 0.1,
                       # limits on the increment Pext (system base), not on P itself
                       "Pmax": 0.0, "Pmin": -p_farm / S_BASE,
@@ -221,7 +228,7 @@ def build_system(
     return ss
 
 
-def _series(ss: Any, step_s: float) -> dict[str, np.ndarray]:
+def _series(ss: Any, step_s: float, capacity_mw: float) -> dict[str, np.ndarray]:
     """Time series from the TDS result, resampled at ``step_s``."""
     ts = ss.dae.ts
     t = np.asarray(ts.t)
@@ -238,7 +245,7 @@ def _series(ss: Any, step_s: float) -> dict[str, np.ndarray]:
         "p_mw": col(ss.REGCA1.Pe) * S_BASE,
         "q_mvar": col(ss.REGCA1.Qe) * S_BASE,
         # REGCA1 states are on the system base → reactive current on the plant rating
-        "iq_pu": col(ss.REGCA1.S1_y, states=True) * S_BASE / TOTAL_CAPACITY_MW,
+        "iq_pu": col(ss.REGCA1.S1_y, states=True) * S_BASE / capacity_mw,
     }
 
 
@@ -248,12 +255,13 @@ def run_event(
     load_trip_mw: float = DEFAULT_LOAD_TRIP_MW,
     retained_voltage_pu: float = 0.0,
     grid_ssc_mva: float = GRID_SSC_MVA,
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """Simulate one event and compare it with the PSE requirement."""
     import andes
 
     andes.config_logger(stream_level=logging.ERROR)
-    ss = build_system(grid_ssc_mva, 1.0, load_trip_mw if event == "frequency" else 0.0)
+    ss = build_system(grid_ssc_mva, 1.0, load_trip_mw if event == "frequency" else 0.0, spec)
     if event == "frequency":
         ss.add("Toggle", {"model": "PQ", "dev": "TRIP_LOAD", "t": T_EVENT_S})
         t_end, step = 20.0, 0.05
@@ -280,14 +288,14 @@ def run_event(
         msg = f"ANDES time-domain simulation failed (exit code {ss.exit_code})"
         raise RuntimeError(msg)
 
-    s = _series(ss, step)
+    s = _series(ss, step, spec.capacity_mw)
     p0 = float(s["p_mw"][0])
     after = s["t"] >= T_EVENT_S
     out: dict[str, Any] = {"event": event, "p0_mw": round(p0, 1)}
     if event == "frequency":
         # static LFSM-O characteristic of the measured frequency (what the plant should settle to)
         expected = (
-            p0 - TOTAL_CAPACITY_MW / DROOP * np.maximum(s["f_hz"] - LFSM_O_THRESHOLD_HZ, 0.0) / F0
+            p0 - spec.capacity_mw / DROOP * np.maximum(s["f_hz"] - LFSM_O_THRESHOLD_HZ, 0.0) / F0
         )
         above = np.flatnonzero(after & (s["f_hz"] > LFSM_O_THRESHOLD_HZ))
         moved = np.flatnonzero(after & (s["p_mw"] < p0 - 0.01 * p0))

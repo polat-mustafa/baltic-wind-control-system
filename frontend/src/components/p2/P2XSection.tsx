@@ -14,8 +14,10 @@ import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
 import { KPICard } from "../ui/KPICard";
 import { Slider } from "../ui/Slider";
+import { useNetwork } from "../../store/gridStore";
 
 export default function P2XSection() {
+  const n = useNetwork();
   const { connection_mw, electrolyser_mw, capex_eur_per_kw, p2x: r, setParams } = usePlanningStore();
   const c = useChartPalette();
   const hours = r ? r.duration_mw.map((_, i) => i * r.duration_step_h) : [];
@@ -30,14 +32,14 @@ export default function P2XSection() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1">
             <p className="text-xs font-semibold text-text-secondary">Power-to-X · PEM electrolyser on energy above the grid limit</p>
-            <p className="text-[11px] text-text-secondary">What if PSE grants less than 510 MW of connection capacity?</p>
+            <p className="text-[11px] text-text-secondary">What if PSE grants less than {n.total_capacity_mw.toFixed(0)} MW of connection capacity?</p>
           </div>
           <Slider
             label="Grid connection"
             value={connection_mw}
             display={`${connection_mw.toFixed(0)} MW`}
             min={250}
-            max={510}
+            max={n.total_capacity_mw}
             step={10}
             onChange={(v) => setParams({ connection_mw: v })}
           />

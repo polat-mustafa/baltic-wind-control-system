@@ -13,10 +13,12 @@ import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
 import { KPICard } from "../ui/KPICard";
 import { Slider } from "../ui/Slider";
+import { useNetwork } from "../../store/gridStore";
 
-const FARM_MW = 510;
 
 export default function ExportTechSection() {
+  const n = useNetwork();
+  const FARM_MW = n.total_capacity_mw;
   const { design_length_km: L, exportStudy: r, setParams } = usePlanningStore();
   const c = useChartPalette();
   const s = r?.sweep ?? [];
@@ -47,7 +49,7 @@ export default function ExportTechSection() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1">
             <p className="text-xs font-semibold text-text-secondary">Export technology · HVAC 220 kV vs VSC-HVDC ±320 kV</p>
-            <p className="text-[11px] text-text-secondary">This farm: 2 × 1000 mm² 220 kV circuits, 45 km.</p>
+            <p className="text-[11px] text-text-secondary">This farm: {n.num_export_cables} × 1000 mm² 220 kV circuit{n.num_export_cables > 1 ? "s" : ""}, {n.export_length_km} km.</p>
           </div>
           <Slider
             label="Export route length"
@@ -71,7 +73,7 @@ export default function ExportTechSection() {
               label="HVAC capacity"
               value={r.hvac.capacity_mw.toFixed(0)}
               unit="MW"
-              trendValue={r.hvac.capacity_mw >= FARM_MW ? "carries 510 MW" : "below 510 MW — a third circuit or HVDC"}
+              trendValue={r.hvac.capacity_mw >= FARM_MW ? `carries ${FARM_MW.toFixed(0)} MW` : `below ${FARM_MW.toFixed(0)} MW — another circuit or HVDC`}
             />
             <KPICard label="Cable charging" value={r.hvac.charging_mvar.toFixed(0)} unit="Mvar" trendValue="to be absorbed by reactors" />
             <KPICard label="HVAC losses" value={r.hvac.loss_gwh.toFixed(1)} unit="GWh/yr" trendValue={pct(r.hvac.loss_gwh)} />
@@ -80,7 +82,7 @@ export default function ExportTechSection() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <ChartWrapper
               title="What a 220 kV AC export can carry"
-              footer={`Charging current Ic = ωC·L·U/√3 flows even at zero power. Compensated at both ends, each cable end carries √(Ip² + (Ic/2)²) ≤ 950 A, so the active power left falls with length — below 510 MW beyond ${r.hvac_capacity_limit_km ?? ">200"} km. DC cables have no charging current.`}
+              footer={`Charging current Ic = ωC·L·U/√3 flows even at zero power. Compensated at both ends, each cable end carries √(Ip² + (Ic/2)²) ≤ 950 A, so the active power left falls with length — below ${FARM_MW.toFixed(0)} MW beyond ${r.hvac_capacity_limit_km ?? ">200"} km. DC cables have no charging current.`}
             >
               <Plot
                 data={[
@@ -96,7 +98,7 @@ export default function ExportTechSection() {
                   {
                     type: "scatter",
                     mode: "lines",
-                    name: "Farm 510 MW",
+                    name: `Farm ${FARM_MW.toFixed(0)} MW`,
                     x: [x[0], x[x.length - 1]],
                     y: [FARM_MW, FARM_MW],
                     line: { color: c.red, width: 1.5, dash: "dash" },

@@ -1,8 +1,8 @@
 """
 Seed data for the SB-510 reference wind farm.
 
-Inserts the 34 × V236-15.0 MW wind farm with turbine positions
-if the database is empty. Idempotent — safe to run on every startup.
+Inserts the 34 × 15 MW reference wind farm (read-only project row) with turbine
+positions if it is missing. Idempotent — safe to run on every startup.
 
 Layout: 6 strings (6+6+6+6+5+5 = 34 turbines), same geometry as the map
 (frontend constants/windFarmLayout.ts):
@@ -20,8 +20,6 @@ from __future__ import annotations
 
 import logging
 import uuid
-
-from sqlalchemy import func, select
 
 from app.db import async_session_factory
 from app.models.wind_farm import TurbinePosition, WindFarm
@@ -68,20 +66,18 @@ def _generate_positions() -> list[dict[str, str | float]]:
 
 
 async def seed_default_farm() -> None:
-    """Insert the 510 MW reference wind farm if the table is empty.
+    """Insert the 510 MW reference wind farm if its row is missing.
 
-    Checks ``COUNT(*) > 0`` on ``wind_farm`` before inserting.
+    The table also holds user projects (routers/projects.py), so the check is
+    on the reference id, not on an empty table. The row is read-only
+    (``is_reference``); its project data is built by the frontend from
+    ``constants/windFarmLayout.ts``.
     """
     async with async_session_factory() as session:
-        # Check if any farm already exists
-        result = await session.execute(select(func.count()).select_from(WindFarm))
-        count = result.scalar_one()
-
-        if count > 0:
-            logger.info("Wind farm table not empty (%d rows) — skipping seed", count)
+        if await session.get(WindFarm, FARM_UUID) is not None:
+            logger.info("Reference farm SB-510 present — skipping seed")
             return
 
-        # Create the reference wind farm
         farm = WindFarm(
             id=FARM_UUID,
             name="SB-510",
@@ -91,24 +87,21 @@ async def seed_default_farm() -> None:
             longitude=16.397,
             capacity_mw=510.0,
             num_turbines=34,
-            turbine_model="V236-15.0 MW",
+            turbine_model="IEA-15-240-RWT",
+            is_reference=True,
         )
         session.add(farm)
 
-        # Create 34 turbine positions
-        positions = _generate_positions()
-        for pos in positions:
-            tp = TurbinePosition(
-                wind_farm_id=FARM_UUID,
-                turbine_id=pos["turbine_id"],
-                x_m=pos["x_m"],
-                y_m=pos["y_m"],
-                hub_height_m=150.0,
+        for pos in _generate_positions():
+            session.add(
+                TurbinePosition(
+                    wind_farm_id=FARM_UUID,
+                    turbine_id=pos["turbine_id"],
+                    x_m=pos["x_m"],
+                    y_m=pos["y_m"],
+                    hub_height_m=150.0,
+                )
             )
-            session.add(tp)
 
         await session.commit()
-        logger.info(
-            "Seeded SB-510: 34 x V236-15.0 MW = 510 MW (UUID: %s)",
-            FARM_UUID,
-        )
+        logger.info("Seeded SB-510: 34 x 15 MW = 510 MW (UUID: %s)", FARM_UUID)

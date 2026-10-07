@@ -2101,6 +2101,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "aiosqlite" },
     { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
@@ -2113,6 +2114,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiosqlite", marker = "extra == 'dev'", specifier = ">=0.20.0" },
     { name = "alembic", specifier = ">=1.18.4" },
     { name = "andes", specifier = ">=1.10.0" },
     { name = "asyncpg", specifier = ">=0.30.0" },

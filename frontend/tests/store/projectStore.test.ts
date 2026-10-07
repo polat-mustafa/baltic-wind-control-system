@@ -45,25 +45,16 @@ describe("projectStore", () => {
     expect(useProjectStore.getState().error).toMatch(/At most/);
   });
 
-  it("round-trips a project file and rejects foreign files", () => {
+  it("restores a layout and rejects an invalid turbine list", () => {
     const s = useProjectStore.getState();
-    s.loadCaseStudy();
-    s.setCost("waccPct", 7);
-    const site: [number, number][] = [
-      [16.3, 54.75],
-      [16.5, 54.75],
-      [16.5, 54.85],
-    ];
-    const text = s.exportFile(site);
-    reset();
-    expect(useProjectStore.getState().importFile(text)).toEqual(site);
-    expect(useProjectStore.getState().turbines).toHaveLength(34);
-    expect(useProjectStore.getState().oss).not.toBeNull();
-    expect(useProjectStore.getState().costs.waccPct).toBe(7);
-
-    expect(useProjectStore.getState().importFile("{nope")).toBeNull();
-    expect(useProjectStore.getState().importFile(JSON.stringify({ app: "Other", schema: 1 }))).toBeNull();
-    expect(useProjectStore.getState().error).toMatch(/OffshoreForge/);
+    expect(s.restore({ turbines: [{ id: "T01", lon: 16.4, lat: 54.8 }], oss: [16.41, 54.8], costs: { waccPct: 7 } })).toBe(true);
+    const st = useProjectStore.getState();
+    expect(st.turbines).toHaveLength(1);
+    expect(st.oss).toEqual([16.41, 54.8]);
+    expect(st.costs.waccPct).toBe(7);
+    expect(st.costs.lifetimeYears).toBe(DEFAULT_COSTS.lifetimeYears); // missing keys → defaults
+    expect(s.restore({ turbines: [{ id: "T01", lon: "x" }] })).toBe(false);
+    expect(useProjectStore.getState().turbines).toHaveLength(1);
   });
 
   it("keeps the PyWake result with the layout it was computed for", async () => {
@@ -76,6 +67,22 @@ describe("projectStore", () => {
     expect(st.pywakeFor).toBe(signature(st.turbines));
     s.moveTurbine("T01", [16.41, 54.8]);
     expect(useProjectStore.getState().pywakeFor).not.toBe(signature(useProjectStore.getState().turbines));
+  });
+
+  it("runs PyWake on the saved project when a remote runner is given", async () => {
+    const s = useProjectStore.getState();
+    s.addTurbine([16.4, 54.8]);
+    const remote = vi.fn(async () => ({
+      gross_aep_gwh: 70,
+      net_aep_gwh: 70,
+      wake_loss_percent: 0,
+      capacity_factor: 0.5,
+      per_turbine_aep_gwh: [70],
+      per_turbine_wake_loss_percent: [0],
+    }));
+    await s.runPyWake(([lon, lat]) => ({ x: lon, y: lat }), { weibullA: 10.6, weibullK: 2, sectorFrequencies: null }, remote);
+    expect(remote).toHaveBeenCalledWith({ weibullA: 10.6, weibullK: 2, sectorFrequencies: null });
+    expect(useProjectStore.getState().pywake?.net_aep_gwh).toBe(70);
   });
 
   it("ignores invalid cost inputs", () => {

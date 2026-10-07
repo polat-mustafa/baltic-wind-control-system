@@ -14,12 +14,13 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useNetworkStore } from "../../store/networkStore";
 import { useChartPalette } from "../../hooks/useChartPalette";
 import type { NetworkLayer, NetworkNode } from "../../types/network";
+import { useFarmPlan } from "../../hooks/useFarmPlan";
 import LatencyBudgetPanel from "./LatencyBudgetPanel";
 
 const LAYERS: { id: NetworkLayer; label: string }[] = [
   { id: "FIELD", label: "Field · WTG IEDs" },
   { id: "STATION", label: "Station bus · OSS" },
-  { id: "WAN", label: "WAN · 45 km" },
+  { id: "WAN", label: "WAN" },
   { id: "CORPORATE", label: "Onshore · control centre / IT" },
 ];
 const W = 1000;
@@ -37,6 +38,7 @@ export default function NetworkDashboard() {
   const fetchAll = useNetworkStore((s) => s.fetchAll);
   const clearError = useNetworkStore((s) => s.clearError);
   const c = useChartPalette();
+  const exportKm = useFarmPlan().exportKm;
 
   useEffect(() => {
     void fetchAll();
@@ -79,7 +81,7 @@ export default function NetworkDashboard() {
                 <g key={l.id}>
                   {i > 0 && <line x1={i * COL_W} y1={0} x2={i * COL_W} y2={H} stroke={c.ref} strokeDasharray="2 4" />}
                   <text x={i * COL_W + COL_W / 2} y={18} textAnchor="middle" fontSize={13} fontWeight={600} className="fill-text-secondary">
-                    {l.label}
+                    {l.id === "WAN" ? `WAN · ${exportKm.toFixed(0)} km` : l.label}
                   </text>
                 </g>
               ))}

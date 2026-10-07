@@ -27,7 +27,8 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 6 | Post-tour choice (SB-510 reference / own project), stage locks in the sidebar + one AppShell guard with "See it in SB-510", header project menu (name, online copy, new, open by link, import / export), lifecycle milestones | In review (`feat/project-mode-locks`, stacked on phase 5) |
 | 7 | `FarmSpec` + `design()` (golden: SB-510 back exactly), P2 load flow / SC / STATCOM / N-1 / FRT / GFL-GFM / PPC / power quality / planning / ANDES on the farm spec, `X-Farm` header from the own layout, design-freeze gate before Construction | In review (`feat/farm-spec-p2`, stacked on phase 6) |
 | 8a | P5 on the farm spec: circuit-1 switchgear, isolation locks, 60-step switching programme, load-flow checks, FAT/SAT limits; programme keeps its farm (`farm_spec` column) | In review (`feat/farm-spec-p5`, stacked on phase 7) |
-| 8b–13 | P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
+| 8b | P3 SCADA + Digital Twin on the farm spec: bay controllers per string, historian, CMS, IEC 61850 / SCL, OPC UA tree, OT network, security zones; twin on the farm's turbines and site wind | In review (`feat/farm-spec-p3`, stacked on 8a) |
+| 8c–13 | Live control room on the own farm · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
 
 Phase 1 note: `test_sb510_case_study` expects `msp_energy == "fail"` until phase 9 moves SB-510 into PZP_44.
 Phase 2 note: the permit outlook says a refused site "could not go on to layout"; since phase 6 Layout stays locked for such a site in an own project.
@@ -71,6 +72,14 @@ Phase 8a notes:
 - Frontend: `X-Farm` also goes to `/api/v1/commissioning`; `CircuitSLD` draws the programme's farm (wider for > 3 strings on section A); the new-programme text uses `useNetwork()`. `SB510_EXPORT_KM` / `SB510_DEPTH_M` moved from `lib/lifecycle/farm.ts` to `constants/windFarmLayout.ts` (the SB-510 data file phase 9 rewrites).
 - Checked farms (whole programme to COMPLETED): SB-510, 540/75, 1080/45, 300/30, 120/73, 60/20, a no-reactor design. Not changed: protection relay settings (P2 Protection tab, SB-510), the Academy (its missions already use the own site/layout; the sequence drill teaches the SB-510 order).
 - P5 had no API tests; `tests/test_farm_spec_p5.py` runs the router on in-memory SQLite (JSONB compiled as JSON).
+
+Phase 8b notes:
+- `bay_controller.bay_definitions(spec)`: feeder bays 01…n (one per string), incomer A n+1, coupler n+2, incomer B n+3 (SB-510: 07/08/09 unchanged). State is one switchboard per farm (`OrderedDict` LRU of 32, keyed by `FarmSpec`; `# ponytail:` note). All bay functions take `spec`.
+- `X-Farm` now also goes to `/api/v1/scada` and `/api/v1/digital-twin` and may carry the site's hub-height Weibull (`wind_a`, `wind_k`, `routers.farm_spec.farm_wind`). Historian (capacity, cable charging ωCV²L of the design, reactors, STATCOM, string 1, export circuits), CMS (turbine count), IEC 61850 devices / SCL (bays, 220 kV export and reactor bays), OPC UA REST tree, OT network (first/central/last IED, fibre 5 µs/km × export km), security zone counts follow the farm. The asyncua server itself stays SB-510.
+- Digital Twin: `run_digital_twin(..., n_turbines, weibull)`; scenarios are spread over a small farm (`plant_simulator.scenario_for`, 8 SB-510 fault turbines → distinct own turbines); the detector keeps its phase-one calibration on the SB-510 fleet (limits per wind bin, same turbine model). A lone turbine has no neighbour reference (anemometer channel not cross-checked).
+- Not moved yet (phase 8c): the live control room — plant mimic, single-line diagram, alarms, bay control and interlocks run on the landing simulation's 34 SB-510 turbines, so `/api/v1/scada/bays` and `/interlocks` get no header (`farmHeader.sendsFarm`). The SCADA page says so in own-project mode.
+- `useFarmPlan` now follows the mode (reference → SB-510), the same rule as the header; before, reference mode showed the own layout on the lifecycle pages.
+- Known, pre-existing: Plotly `_plots` page error when switching SCADA tabs quickly (also on the code before this phase).
 
 ## Resume here
 

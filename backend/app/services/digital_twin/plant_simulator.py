@@ -14,7 +14,8 @@ Inflow (10-min means, one sample every 600 s)
   Farm wind  Gaussian copula: z = 0.9·sin(2πt/3.5 d + φ₀) + 0.77·AR(1)
              (synoptic cycle + persistence, φ = 0.985 per step, unit variance)
              mapped to the Baltic Weibull marginal a = 10.5 m/s, k = 2.2 (the
-             P4 SCADA parameters) by the probability-integral transform.
+             P4 SCADA parameters; an own project uses its site's hub-height
+             Weibull) by the probability-integral transform.
   Turbine    v_i = V·(1 + δ_i), δ_i AR(1) with σ = 3 %, φ = 0.9 (local
              turbulence / wake meandering; the mean wake deficit is left out).
   Ambient    winter: T ≈ +3 °C with a ±1 K daily cycle, RH ≈ 82 %, p ≈ 1013 hPa;
@@ -35,7 +36,8 @@ SCADA archive cannot give.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 from numpy.typing import NDArray
@@ -148,8 +150,8 @@ SCENARIOS: dict[str, Scenario] = {
             title="Rotor icing",
             description=(
                 "Cold spell (−4 °C, RH ≈ 96 %) from 25 % to 70 % of the window. Ice "
-                "accretes on WTG-05…08 and removes 20–35 % of Cp, then sheds after the "
-                "thaw. Severities are illustrative."
+                "accretes on WTG-05 to WTG-08 and removes 20–35 % of Cp, then sheds after "
+                "the thaw. Severities are illustrative."
             ),
             injections=(_ICING,),
             cold_spell=(0.25, 0.70),
@@ -205,6 +207,37 @@ SCENARIOS: dict[str, Scenario] = {
 }
 
 
+# Every SB-510 turbine a scenario touches (0-based). A smaller farm gets them
+# spread over its own turbines, in this order (icing stays on neighbours).
+_FAULTY: tuple[int, ...] = (4, 5, 6, 7, 11, 14, 19, 27)
+
+
+def _remap(tid: int, n_turbines: int) -> int:
+    """SB-510 turbine index → index in a farm of n turbines (unchanged when it fits)."""
+    if n_turbines > max(_FAULTY):
+        return tid
+    return _FAULTY.index(tid) * n_turbines // len(_FAULTY)
+
+
+def scenario_for(name: str, n_turbines: int = NUM_TURBINES) -> Scenario:
+    """A scenario on a farm of n turbines (SB-510: as defined above)."""
+    s = SCENARIOS[name]
+    if n_turbines > max(_FAULTY):
+        return s
+    injections = []
+    for inj in s.injections:
+        pairs: dict[int, float] = {}
+        for tid, sev in zip(inj.turbine_ids, inj.severity, strict=True):
+            pairs.setdefault(_remap(tid, n_turbines), sev)  # tiny farms: one fault per turbine
+        injections.append(replace(inj, turbine_ids=tuple(pairs), severity=tuple(pairs.values())))
+    description = re.sub(
+        r"WTG-(\d{2})",
+        lambda m: f"WTG-{_remap(int(m[1]) - 1, n_turbines) + 1:02d}",
+        s.description,
+    )
+    return replace(s, injections=tuple(injections), description=description)
+
+
 # ── Data containers ───────────────────────────────────────────────
 
 
@@ -241,7 +274,7 @@ def _ar1(rng: np.random.Generator, phi: float, shape: tuple[int, ...]) -> FloatA
     return out
 
 
-def _farm_wind(rng: np.random.Generator, n_steps: int) -> FloatArray:
+def _farm_wind(rng: np.random.Generator, n_steps: int, weibull: tuple[float, float]) -> FloatArray:
     t_days = np.arange(n_steps) / SAMPLES_PER_DAY
     phase = rng.uniform(0.0, 2.0 * math.pi)
     b = math.sqrt(1.0 - SYNOPTIC_AMPLITUDE**2 / 2.0)
@@ -249,7 +282,8 @@ def _farm_wind(rng: np.random.Generator, n_steps: int) -> FloatArray:
         2.0 * math.pi * t_days / SYNOPTIC_PERIOD_DAYS + phase
     ) + b * _ar1(rng, FARM_AR_PHI, (n_steps,))
     u = np.clip(ndtr(z), 1e-9, 1.0 - 1e-9)
-    return np.asarray(WEIBULL_A * (-np.log1p(-u)) ** (1.0 / WEIBULL_K), dtype=np.float64)
+    a, k = weibull
+    return np.asarray(a * (-np.log1p(-u)) ** (1.0 / k), dtype=np.float64)
 
 
 def _smooth_step(x: FloatArray, edge: float, width: float) -> FloatArray:
@@ -299,11 +333,13 @@ def _schedule(inj: FaultInjection, frac: FloatArray, value: float, nominal: floa
     return nominal + (value - nominal) * level
 
 
-def ground_truth(scenario: Scenario, n_steps: int) -> dict[FaultKind, FloatArray]:
+def ground_truth(
+    scenario: Scenario, n_steps: int, n_turbines: int = NUM_TURBINES
+) -> dict[FaultKind, FloatArray]:
     """Injected fault parameter of every turbine at every sample (library units)."""
     frac = np.arange(n_steps) / max(n_steps - 1, 1)
     truth: dict[FaultKind, FloatArray] = {
-        k: np.full((n_steps, NUM_TURBINES), FAULT_LIBRARY[k].nominal) for k in FAULT_KINDS
+        k: np.full((n_steps, n_turbines), FAULT_LIBRARY[k].nominal) for k in FAULT_KINDS
     }
     for inj in scenario.injections:
         nominal = FAULT_LIBRARY[inj.kind].nominal
@@ -312,19 +348,25 @@ def ground_truth(scenario: Scenario, n_steps: int) -> dict[FaultKind, FloatArray
     return truth
 
 
-def simulate_plant(scenario: Scenario, duration_days: int, seed: int) -> PlantData:
-    """Generate the measured SCADA set for one scenario."""
+def simulate_plant(
+    scenario: Scenario,
+    duration_days: int,
+    seed: int,
+    n_turbines: int = NUM_TURBINES,
+    weibull: tuple[float, float] = (WEIBULL_A, WEIBULL_K),
+) -> PlantData:
+    """Generate the measured SCADA set for one scenario (scenario_for(name, n_turbines))."""
     n = int(duration_days * SAMPLES_PER_DAY)
     rng = np.random.default_rng(seed)
 
-    farm = _farm_wind(rng, n)
-    delta = TURBINE_SIGMA * _ar1(rng, TURBINE_AR_PHI, (n, NUM_TURBINES))
+    farm = _farm_wind(rng, n, weibull)
+    delta = TURBINE_SIGMA * _ar1(rng, TURBINE_AR_PHI, (n, n_turbines))
     v_true = np.maximum(farm[:, None] * (1.0 + delta), 0.0)
 
     temp, rh, pressure = _ambient(rng, n, scenario.cold_spell)
     rho = pressure / (R_DRY * (temp + 273.15))
 
-    truth = ground_truth(scenario, n)
+    truth = ground_truth(scenario, n, n_turbines)
     faults = FaultParams(
         aero_factor=1.0 - truth["aero_efficiency"] / 100.0,
         pitch_offset_deg=truth["pitch_offset"],

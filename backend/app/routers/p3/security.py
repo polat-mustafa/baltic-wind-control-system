@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.security import (
     AttackScenarioRequest,
     AttackSimulationResponse,
@@ -34,7 +35,7 @@ router = APIRouter(tags=["M07 Cybersecurity IEC 62443"])
     response_model=ZonesResponse,
     summary="Purdue Model security zones (IEC 62443)",
 )
-async def get_zones() -> ZonesResponse:
+async def get_zones(spec: FarmSpecDep) -> ZonesResponse:
     """
     Return the SB-510 Purdue Model zone hierarchy.
 
@@ -67,7 +68,7 @@ async def get_zones() -> ZonesResponse:
     because a compromised bay controller can directly trip circuit breakers
     without going through the SCADA layer.
     """
-    result = svc.get_zones()
+    result = svc.get_zones(spec)
     return ZonesResponse(**result)
 
 

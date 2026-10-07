@@ -20,9 +20,12 @@ BSI TR-02102-1      — Cryptographic recommendations (German BSI, relevant for 
 
 from __future__ import annotations
 
+import copy
 import uuid
 from datetime import UTC, datetime
 from typing import Any
+
+from app.services.p2.network_model import SB510, FarmSpec
 
 # ── Purdue Model zone definitions ──────────────────────────────────────────────
 
@@ -653,12 +656,28 @@ _COMPLIANCE_CHECKS: list[dict[str, Any]] = [
 _events: list[dict[str, Any]] = []
 
 
-def get_zones() -> dict[str, Any]:
+def _zones(spec: FarmSpec) -> list[dict[str, Any]]:
+    """Purdue zones with the farm's device counts (turbines, bays)."""
+    zones = copy.deepcopy(_ZONES)
+    n, bays = spec.num_turbines, len(spec.string_layout) + 3
+    zones[0]["device_count"] = n * 5  # 5 sensors per turbine
+    zones[1]["device_count"] = bays + n + 10  # bay controllers + turbine controllers + relays
+    zones[1]["description"] = zones[1]["description"].replace("(8x)", f"({bays}x)")
+    zones[2]["description"] = (
+        zones[2]["description"]
+        .replace("SB-510 SCADA server", f"{spec.name} SCADA server")
+        .replace("all 34 WTGs", f"all {n} WTGs")
+    )
+    return zones
+
+
+def get_zones(spec: FarmSpec = SB510) -> dict[str, Any]:
+    zones = _zones(spec)
     """Return all Purdue Model security zones."""
     return {
-        "zones": _ZONES,
+        "zones": zones,
         "ot_it_boundary": "SITE_OPERATIONS",
-        "total_zones": len(_ZONES),
+        "total_zones": len(zones),
     }
 
 

@@ -16,6 +16,7 @@ import DecommissioningPage from "../../../src/pages/DecommissioningPage";
 import HandoverPage from "../../../src/pages/HandoverPage";
 import { useLayerStore } from "../../../src/store/layerStore";
 import { useLifecycleStore } from "../../../src/store/lifecycleStore";
+import { useModeStore } from "../../../src/store/modeStore";
 import { useProjectStore } from "../../../src/store/projectStore";
 import type { CampaignResult } from "../../../src/types/lifecycle";
 
@@ -34,6 +35,7 @@ const renderAt = (path: string, el: React.ReactNode) =>
 function ownProject() {
   const turbines = Array.from({ length: 8 }, (_, i) => ({ id: `T${String(i + 1).padStart(2, "0")}`, lon: 16.42 + (i % 4) * 0.024, lat: 54.78 + Math.floor(i / 4) * 0.0135 }));
   useProjectStore.setState({ turbines, oss: [16.39, 54.79] });
+  useModeStore.setState({ mode: "own" });
 }
 
 describe("lifecycle pages", () => {
@@ -41,6 +43,7 @@ describe("lifecycle pages", () => {
     localStorage.clear();
     vi.mocked(api.runCampaign).mockReset();
     useProjectStore.setState({ turbines: [], oss: null });
+    useModeStore.setState({ mode: "reference" });
     useLifecycleStore.setState({ results: {}, resultFor: {}, running: {}, error: null });
     useLayerStore.getState().setLayer("myProject", false);
   });

@@ -1,7 +1,7 @@
 /**
  * Digital Twin — route /digital-twin.
  *
- * Condition monitoring of the 34 × V236 fleet against a physics reference
+ * Condition monitoring of the fleet (SB-510 or the own project) against a physics reference
  * model, structured by ISO 13374-1 (DA → DM → SD → HA → PA → AG).
  *
  *   Fleet     — KPIs, processing chain, map, health heatmap, fault register, events
@@ -65,8 +65,8 @@ export default function DigitalTwinPage() {
   const clearError = useDigitalTwinStore((s) => s.clearError);
 
   useEffect(() => {
-    loadModel();
-    if (!useDigitalTwinStore.getState().analysis) runAnalysis();
+    void loadModel(); // clears the run of another farm first
+    if (!useDigitalTwinStore.getState().analysis) void runAnalysis();
   }, [loadModel, runAnalysis]);
 
   const showDetail = detail != null && !detailLoading;
@@ -101,7 +101,7 @@ export default function DigitalTwinPage() {
         </div>
       )}
 
-      <ProjectHandoverNote what="The twin stays on the 34 SB-510 turbines it is calibrated to; your turbine register is the asset list a new baseline would start from." />
+      <ProjectHandoverNote what="The twin watches your turbines on your site's hub-height wind (Weibull A, k from the site report). The detector keeps its phase-one calibration on the SB-510 fleet: same turbine model, limits per wind bin. Fault scenarios are spread over your turbines." />
 
       <div
         role="tablist"

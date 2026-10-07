@@ -1,8 +1,8 @@
-/** The own project's farm travels to the P2 endpoints in the X-Farm header. */
+/** The own project's farm travels to the P2 / P3 / P5 / Digital Twin endpoints in the X-Farm header. */
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { farmHeader, farmInput, initFarmHeader } from "../../src/lib/project/farmHeader";
+import { farmHeader, farmInput, initFarmHeader, sendsFarm } from "../../src/lib/project/farmHeader";
 import { request } from "../../src/services/apiClient";
 import { SB510_NETWORK, useGridStore } from "../../src/store/gridStore";
 import { useModeStore } from "../../src/store/modeStore";
@@ -53,7 +53,24 @@ describe("farm header", () => {
     expect(JSON.parse(decodeURIComponent(farmHeader()!))).toEqual(f);
   });
 
-  it("goes only to the grid and commissioning endpoints", async () => {
+  it("carries the site's hub-height Weibull wind when the site report has one", () => {
+    layOut();
+    expect(farmInput()!.wind_a).toBeUndefined();
+    const wind = { mean_ms: 9.3, weibull_a: 10.4, weibull_k: 2.15, height_m: 150, sector_frequencies: null, source: "NEWA", license: "CC BY", approximate: false };
+    useSiteStore.setState({ report: { grid_km: 30, depth_m: [30, 40], wind } as never });
+    expect(farmInput()).toMatchObject({ wind_a: 10.4, wind_k: 2.15, export_km: expect.any(Number) });
+  });
+
+  it("goes to grid, SCADA, commissioning and twin — not to the SB-510 control room bays", () => {
+    for (const url of ["/api/v1/grid/load-flow", "/api/v1/scada/cms/fleet/overview", "/api/v1/scada/historian/latest", "/api/v1/digital-twin/analyze", "/api/v1/commissioning/programmes"]) {
+      expect(sendsFarm(url)).toBe(true);
+    }
+    for (const url of ["/api/v1/scada/bays", "/api/v1/scada/bays/BAY-OSS-66-07/command", "/api/v1/scada/interlocks/validate", "/api/v1/site/regions", "/api/v1/wind/aep"]) {
+      expect(sendsFarm(url)).toBe(false);
+    }
+  });
+
+  it("is set on the request by the API client", async () => {
     layOut();
     await request("/api/v1/grid/network-spec");
     await request("/api/v1/commissioning/programmes");

@@ -142,6 +142,8 @@ class TwinView:
 def _neighbour_reference(wind: FloatArray) -> FloatArray:
     """Leave-one-out median of the measured wind of all other turbines."""
     n = wind.shape[1]
+    if n == 1:  # a lone turbine has no neighbours: its anemometer cannot be cross-checked
+        return wind.copy()
     ref = np.empty_like(wind)
     for i in range(n):
         ref[:, i] = np.median(np.delete(wind, i, axis=1), axis=1)

@@ -81,6 +81,7 @@ function detail(id: number): TurbineDetail {
 beforeEach(() => {
   vi.resetAllMocks();
   useDigitalTwinStore.setState({
+    farm: "sb510", // farmKey() without an own project
     analysis: null,
     detail: null,
     scenario: "combined",
@@ -137,6 +138,26 @@ describe("runAnalysis", () => {
 
     await useDigitalTwinStore.getState().runAnalysis();
     expect(useDigitalTwinStore.getState().detail?.turbine.turbine_id).toBe(2);
+  });
+
+  it("drops a selection that is not in the new farm", async () => {
+    mockApi.postAnalyze.mockResolvedValue(analysis());
+    mockApi.postTurbineDetail.mockImplementation(async ({ turbine_id }) => detail(turbine_id));
+    useDigitalTwinStore.setState({ selectedTurbineId: 20 });
+
+    await useDigitalTwinStore.getState().runAnalysis();
+    expect(useDigitalTwinStore.getState().detail?.turbine.turbine_id).toBe(1); // worst of 3
+  });
+
+  it("clears the run and model card of another farm", async () => {
+    mockApi.getModelCard.mockResolvedValue({} as never);
+    mockApi.getReferenceCurve.mockResolvedValue({} as never);
+    useDigitalTwinStore.setState({ farm: "another-farm", analysis: analysis(), selectedTurbineId: 2, modelCard: {} as never });
+
+    await useDigitalTwinStore.getState().loadModel();
+    const s = useDigitalTwinStore.getState();
+    expect(s).toMatchObject({ farm: "sb510", analysis: null, selectedTurbineId: null });
+    expect(mockApi.getModelCard).toHaveBeenCalled(); // refetched for this farm
   });
 
   it("reports API errors", async () => {

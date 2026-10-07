@@ -58,6 +58,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from app.services.p2.network_model import SB510, FarmSpec
 from app.services.p3.iec61850_model import (
     Dataset,
     GOOSEControlBlock,
@@ -101,10 +102,30 @@ def _add_header(parent: ET.Element, header_id: str, version: str = "1.0") -> ET.
     return header
 
 
-# OSS bays: 66 kV = bay controller registry (6 strings, 2 incomers, coupler);
-# 220 kV = export cables, transformer HV bays, STATCOM, shunt reactors
-BAYS_66: tuple[str, ...] = tuple(f"BAY-OSS-66-{i:02d}" for i in range(1, 10))
-BAYS_220: tuple[str, ...] = ("Q-E1", "Q-E2", "Q-T1", "Q-T2", "Q-STATCOM", "Q-R1", "Q-R2", "Q-R3")
+# OSS bays: 66 kV = bay controller registry (one feeder per string, 2 incomers,
+# coupler); 220 kV = export cables, transformer HV bays, STATCOM, shunt reactors
+
+
+def bays_66(spec: FarmSpec = SB510) -> tuple[str, ...]:
+    return tuple(f"BAY-OSS-66-{i:02d}" for i in range(1, len(spec.string_layout) + 4))
+
+
+def bays_220(spec: FarmSpec = SB510) -> tuple[str, ...]:
+    return (
+        *(f"Q-E{i}" for i in range(1, spec.num_export_cables + 1)),
+        "Q-T1",
+        "Q-T2",
+        "Q-STATCOM",
+        *(f"Q-R{i}" for i in range(1, spec.num_reactors + 1)),
+    )
+
+
+def _desc(spec: FarmSpec) -> str:
+    return f"{spec.capacity_mw:.0f} MW offshore wind farm ({spec.name}) — Offshore Substation"
+
+
+BAYS_66 = bays_66()  # SB-510: 01 … 09
+BAYS_220 = bays_220()  # SB-510: Q-E1/2, Q-T1/2, Q-STATCOM, Q-R1…3
 
 
 def _add_voltage_level(
@@ -250,6 +271,7 @@ def generate_ssd(
     substation_name: str = "SB510_OSS",
     voltage_levels_kv: tuple[float, ...] = (66.0, 220.0),
     num_bays_per_level: dict[float, int] | None = None,
+    spec: FarmSpec = SB510,
 ) -> ET.Element:
     """Generate a System Specification Description (SSD) SCL file.
 
@@ -275,24 +297,24 @@ def generate_ssd(
         Root SCL XML element.
     """
     if num_bays_per_level is None:
-        num_bays_per_level = {66.0: len(BAYS_66), 220.0: len(BAYS_220)}
+        num_bays_per_level = {66.0: len(bays_66(spec)), 220.0: len(bays_220(spec))}
 
     root = _create_scl_root()
     _add_header(root, f"{substation_name}_SSD")
 
     substation = ET.SubElement(root, _ns("Substation"))
     substation.set("name", substation_name)
-    substation.set("desc", "510 MW Baltic Sea Offshore Wind Farm — Offshore Substation")
+    substation.set("desc", _desc(spec))
 
     for kv in voltage_levels_kv:
         n_bays = num_bays_per_level.get(kv, 1)
 
         if kv == 66.0:
             level_name = "E66"
-            bay_names = list(BAYS_66[:n_bays])
+            bay_names = list(bays_66(spec)[:n_bays])
         elif kv == 220.0:
             level_name = "E220"
-            bay_names = list(BAYS_220[:n_bays])
+            bay_names = list(bays_220(spec)[:n_bays])
         else:
             level_name = f"E{int(kv)}"
             bay_names = [f"Bay_{i + 1}" for i in range(n_bays)]
@@ -364,6 +386,7 @@ def generate_scd(
     devices: list[PhysicalDevice],
     goose_control_blocks: dict[str, list[GOOSEControlBlock]] | None = None,
     datasets: dict[str, list[Dataset]] | None = None,
+    spec: FarmSpec = SB510,
 ) -> ET.Element:
     """Generate a Substation Configuration Description (SCD) SCL file.
 
@@ -400,10 +423,10 @@ def generate_scd(
     # Substation topology (SSD section)
     substation = ET.SubElement(root, _ns("Substation"))
     substation.set("name", substation_name)
-    substation.set("desc", "510 MW Baltic Sea Offshore Wind Farm — Offshore Substation")
+    substation.set("desc", _desc(spec))
 
-    _add_voltage_level(substation, "E66", 66.0, list(BAYS_66))
-    _add_voltage_level(substation, "E220", 220.0, list(BAYS_220))
+    _add_voltage_level(substation, "E66", 66.0, list(bays_66(spec)))
+    _add_voltage_level(substation, "E220", 220.0, list(bays_220(spec)))
 
     # Communication section — GOOSE multicast addressing
     comm = ET.SubElement(root, _ns("Communication"))

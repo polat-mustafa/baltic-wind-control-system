@@ -16,6 +16,7 @@ import { WatchOut } from "../components/site/Stages";
 import CampaignControls from "../components/lifecycle/CampaignControls";
 import { CampaignResultPanels } from "../components/lifecycle/CampaignResults";
 import FarmSource from "../components/lifecycle/FarmSource";
+import { StageDone } from "../components/project/StageDone";
 
 export default function ConstructionPage() {
   const farm = useFarmPlan();
@@ -64,6 +65,18 @@ export default function ConstructionPage() {
         </div>
       )}
 
+      <StageDone
+        milestone="build"
+        title="Construction"
+        need={
+          farm.source !== "project"
+            ? "Your layout needs turbines and an offshore substation first."
+            : !result || stale
+              ? "Simulate the campaign for your farm first."
+              : null
+        }
+        next={{ path: "/commissioning", label: "Commissioning" }}
+      />
       {result ? (
         <div className={stale ? "opacity-60" : undefined}>
           <CampaignResultPanels result={result} finalId="cod" finalLabel="Full operation" />

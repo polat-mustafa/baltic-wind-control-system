@@ -45,7 +45,7 @@ export function buildDoc(name = DEFAULT_NAME): ProjectDoc {
     turbines: p.turbines,
     oss: p.oss,
     costs: p.costs,
-    lifecycle: { build: l.build, decom: l.decom },
+    lifecycle: { build: l.build, decom: l.decom, done: l.done },
   };
 }
 

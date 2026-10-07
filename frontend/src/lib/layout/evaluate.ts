@@ -95,31 +95,41 @@ export interface LayoutEvaluation {
   cost: CostResult;
 }
 
+/** Turbines outside the site, in a constraint area (inside the site) or closer than MIN_SPACING_D. */
+export function layoutProblems(
+  site: LonLat[],
+  turbines: { lon: number; lat: number }[],
+  layers: LayersResponse | null,
+  d = D,
+): { outside: number; excluded: number; close: number } {
+  const proj = projection(centroid(site));
+  const siteXY = site.map(proj.toXY);
+  const xy = turbines.map((t) => proj.toXY([t.lon, t.lat]));
+  const rings = exclusionRings(layers);
+  const energy = energyRings(layers);
+  const inside = xy.map((p) => insidePolygon(p, siteXY));
+  return {
+    outside: inside.filter((v) => !v).length,
+    excluded: turbines.filter((t, k) => inside[k] && blockedBy([t.lon, t.lat], rings, energy) !== null).length,
+    close: xy.filter((p, a) => xy.some((q, b) => b !== a && Math.hypot(p.x - q.x, p.y - q.y) < MIN_SPACING_D * d)).length,
+  };
+}
+
 export function evaluateLayout(i: LayoutInput): LayoutEvaluation {
   const proj = projection(centroid(i.site));
-  const siteXY = i.site.map(proj.toXY);
   const xy = i.turbines.map((t) => proj.toXY([t.lon, t.lat]));
-  const rings = exclusionRings(i.layers);
-  const energy = energyRings(i.layers);
   const model = turbineById(i.turbineId);
   const d = model.rotorDiameterM;
   const ratedMW = model.ratedKw / 1000;
   const yieldRes = xy.length ? layoutYield(xy, WEIBULL_A, WEIBULL_K, i.rose ?? UNIFORM_ROSE, model) : null;
   const cables = i.oss && xy.length ? routeCables(proj.toXY(i.oss), xy, ratedMW) : null;
   const spacing = minSpacing(xy);
-  let close = 0;
-  xy.forEach((p, a) => {
-    if (xy.some((q, b) => b !== a && Math.hypot(p.x - q.x, p.y - q.y) < MIN_SPACING_D * d)) close++;
-  });
-  const inside = xy.map((p) => insidePolygon(p, siteXY));
   const capacityMW = xy.length * ratedMW;
   const netGWh = (yieldRes?.netGWh ?? 0) * (1 - OTHER_LOSSES);
   return {
     count: xy.length,
     capacityMW,
-    outside: inside.filter((v) => !v).length,
-    excluded: i.turbines.filter((t, k) => inside[k] && blockedBy([t.lon, t.lat], rings, energy) !== null).length,
-    close,
+    ...layoutProblems(i.site, i.turbines, i.layers, d),
     minSpacingD: spacing ? spacing.m / d : null,
     yield: yieldRes,
     netGWh,

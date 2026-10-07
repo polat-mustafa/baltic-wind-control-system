@@ -13,6 +13,7 @@ import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import ProjectHandoverNote from "../components/lifecycle/ProjectHandoverNote";
+import { StageDone } from "../components/project/StageDone";
 import { cn } from "../lib/utils";
 import { p5Guide } from "../constants/trainingGuideContent";
 import { useCommissioningStore } from "../store/commissioningStore";
@@ -186,7 +187,8 @@ function ProgrammeList() {
 }
 
 export default function CommissioningPage() {
-  const { active, error, fetchProgrammes, clearError } = useCommissioningStore();
+  const { active, programmes, error, fetchProgrammes, clearError } = useCommissioningStore();
+  const finished = active?.status === "completed" || programmes.some((p) => p.status === "completed");
   const [tab, setTab] = useState<P5Tab>("switching");
 
   useEffect(() => {
@@ -206,6 +208,12 @@ export default function CommissioningPage() {
       </div>
 
       <ProjectHandoverNote what="This programme energises circuit 1 of the SB-510 export system; for your farm the export-system steps are the same, then one feeder bay per string." />
+      <StageDone
+        milestone="commissioning"
+        title="Commissioning"
+        need={finished ? null : "Run a switching programme to the end (status completed) first."}
+        next={{ path: "/build/handover", label: "Hand-over" }}
+      />
 
       {error && (
         <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-status-alarm/30 bg-status-alarm/10 p-3 text-sm">

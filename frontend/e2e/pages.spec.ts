@@ -27,6 +27,8 @@ async function open(page: Page, path: string, theme: (typeof THEMES)[number], we
       localStorage.setItem("of.mapTheme", t);
       // The first-visit tour welcome would cover every screenshot.
       if (!w) localStorage.setItem("of.tour.v1", JSON.stringify({ completed: [], welcomeDismissed: true }));
+      // Reference mode: no project chooser, every module open.
+      localStorage.setItem("of.mode.v1", "reference");
     },
     [theme, welcome] as const,
   );

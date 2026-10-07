@@ -24,10 +24,11 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 3 | IEA-15-240-RWT / IEA-22-280-RWT from the official IEA Wind Task 37 tables; P1 wake/AEP, layout canvas and frontend curves on the model registry; CF bug fixed | In review (`feat/turbine-iea-models`, stacked on phase 2) |
 | 4 | Site wind climate from real data: NEWA mean + k at 150 m, ERA5 rose; assessment returns it, layout and PyWake use it | In review (`feat/site-wind-climate`, stacked on phase 3) |
 | 5 | Project persistence: `wind_farm` = project table (JSONB document, revision lock, 12-month idle purge, read-only SB-510 row), `/api/v1/projects` + stored PyWake AEP history, anonymous link, auto-save with conflict / offline handling, export/import schema 2 | In review (`feat/project-persistence`, stacked on phase 4) |
-| 6–13 | Post-tour choice + locks · FarmSpec/P2 · P5/P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
+| 6 | Post-tour choice (SB-510 reference / own project), stage locks in the sidebar + one AppShell guard with "See it in SB-510", header project menu (name, online copy, new, open by link, import / export), lifecycle milestones | In review (`feat/project-mode-locks`, stacked on phase 5) |
+| 7–13 | FarmSpec/P2 · P5/P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
 
 Phase 1 note: `test_sb510_case_study` expects `msp_energy == "fail"` until phase 9 moves SB-510 into PZP_44.
-Phase 2 note: the permit outlook says a refused site "could not go on to layout" but Layout is not locked yet — the hard lock comes with phase 6.
+Phase 2 note: the permit outlook says a refused site "could not go on to layout"; since phase 6 Layout stays locked for such a site in an own project.
 Phase 3 notes:
 - Official tables (tags IEA-15 v1.1.18, IEA-22 v1.1.0) give D 241.35 m and rated 10.66 m/s for the IEA 15 MW — not the 240 m / 10.59 m/s of the 2020 report text; curve and parameters are taken from the same table. Regenerate with `cd backend && python scripts/fetch_turbine_curves.py`.
 - P4, the digital twin (`digital_twin/legacy_v236_table.py`), turbine physics (`state_machine` cut-out comes from the caller's spec) and P3 historian keep the legacy V236 curve (3 / 11.1 / 31 m/s) until phase 12.
@@ -44,6 +45,13 @@ Phase 5 notes:
 - `POST /projects/{id}/aep` runs PyWake on the saved layout; without wind inputs it uses the region-pack climate at the turbines. P-values = P1 loss cascade (blockage 0, not modelled there). The last 20 runs are kept; per-turbine rows survive moves (positions upserted by turbine id).
 - Deferred: `wind_resource` (hourly ERA5 per project) has no consumer yet — fill it when P4 / the report needs it. `mode: reference | own` and the project menu come with phase 6; the "Save online" control sits in the Layout header until then. The document always carries the default turbine model (no model picker yet).
 - SB-510 layout, site climate, server run: gross 2507 GWh/yr, wake 5.7 %, net 2364 GWh/yr, P50 2179 / P90 1986 GWh/yr.
+
+Phase 6 notes:
+- `store/modeStore.ts` (`of.mode.v1`: `reference | own | null`). `ProjectChooser` opens when no mode is set and neither the welcome nor a tour is showing; opening a saved project (link or ID) switches to `own`. e2e writes `reference`.
+- `lib/project/progress.ts`: `locks(input)` is the pure rule chain (each module also needs the one before it); `useLocks()` feeds the sidebar (lock icon, "(locked)" label, tooltip) and the AppShell guard (`LockedPage` instead of the route, "See it in SB-510" = reference mode). No locks in reference mode or while a tour runs, so tours keep working. Always open: Control Room, Site & Permits, Turbine Physics, Academy. In own mode AppShell loads the constraint layers and the site assessment the rules need.
+- Rules: Wind Resource ← site; Layout ← permit stage done and outcome ≠ refused; Grid ← ≥ 1 turbine, OSS, no turbine outside the site / in a constraint area / < 4 D (`layoutProblems()` in `lib/layout/evaluate.ts`, shared with `evaluateLayout`); Construction ← Grid; Commissioning / Hand-over / operation + decommissioning ← lifecycle milestones `build` / `commissioning` / `handover` (`lifecycleStore.done`, in the project document's opaque `lifecycle` object, so no backend change). `StageDone` marks them: construction needs a fresh campaign for the own layout, commissioning a switching programme with status completed, hand-over an own layout.
+- Deferred: the design-freeze gate before Construction (full-load load flow 0.95–1.05 pu, ≤ 100 % loading) needs P2 on the project — phase 7. "Copy SB-510 into my project" waits for phase 9: today the SB-510 site fails `msp_energy`, so a copy would stop at a refused permit. Reference mode does not swap the Site / Layout stores to SB-510 (they keep the learner's sketch; Layout has "Load SB-510 layout").
+- The Layout header lost Save online / Export / Import — they live in the header project menu now.
 
 ## Resume here
 

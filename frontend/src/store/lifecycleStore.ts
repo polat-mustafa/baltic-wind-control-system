@@ -1,7 +1,8 @@
 /**
- * Lifecycle pages state: construction and decommissioning campaign inputs
- * (persisted as `of.lifecycle.v1`) and the last simulation results (kept for
- * the session, so the hand-over page can quote the construction dates).
+ * Lifecycle pages state: construction and decommissioning campaign inputs and
+ * the stages marked complete (persisted as `of.lifecycle.v1`), and the last
+ * simulation results (kept for the session, so the hand-over page can quote
+ * the construction dates).
  */
 
 import { create } from "zustand";
@@ -23,9 +24,14 @@ export interface CampaignSettings {
   limits: Partial<Record<VesselId, { hs_m: number; wind_ms: number }>>;
 }
 
+/** Stages after design that unlock the next modules in an own project (lib/project/progress.ts). */
+export type Milestone = "build" | "commissioning" | "handover";
+export const MILESTONES: Milestone[] = ["build", "commissioning", "handover"];
+
 export interface LifecyclePersisted {
   build: CampaignSettings;
   decom: CampaignSettings & { options: DecomOptions };
+  done: Milestone[];
 }
 
 export const DEFAULT_BUILD: CampaignSettings = { start: "2028-04-01", alpha: 0.8, runs: 200, limits: {} };
@@ -65,6 +71,7 @@ function parse(p: Record<string, unknown>): LifecyclePersisted {
         removeScour: op.removeScour === true,
       },
     },
+    done: Array.isArray(p.done) ? MILESTONES.filter((m) => (p.done as unknown[]).includes(m)) : [],
   };
 }
 
@@ -75,7 +82,7 @@ function load(): LifecyclePersisted {
   } catch {
     // corrupt value: defaults
   }
-  return { build: { ...DEFAULT_BUILD }, decom: { ...DEFAULT_REMOVE, options: { ...DEFAULT_DECOM } } };
+  return { build: { ...DEFAULT_BUILD }, decom: { ...DEFAULT_REMOVE, options: { ...DEFAULT_DECOM } }, done: [] };
 }
 
 export const limitList = (l: CampaignSettings["limits"]): VesselLimit[] =>
@@ -93,6 +100,8 @@ interface LifecycleState extends LifecyclePersisted {
   setDecom: (p: Partial<LifecyclePersisted["decom"]>) => void;
   setLimit: (mode: Mode, v: VesselId, l: { hs_m: number; wind_ms: number } | null) => void;
   run: (mode: Mode, req: CampaignRequest) => Promise<void>;
+  /** Mark a stage complete (own-project locks). */
+  complete: (m: Milestone) => void;
   /** Replace the campaign inputs (project document); results are dropped. */
   restore: (p: Record<string, unknown>) => void;
   clearError: () => void;
@@ -102,8 +111,8 @@ export const requestSignature = (r: CampaignRequest) => JSON.stringify(r);
 
 export const useLifecycleStore = create<LifecycleState>((set, get) => {
   const save = () => {
-    const { build, decom } = get();
-    writeStored(LIFECYCLE_KEY, JSON.stringify({ build, decom }));
+    const { build, decom, done } = get();
+    writeStored(LIFECYCLE_KEY, JSON.stringify({ build, decom, done }));
   };
   const seq: Record<Mode, number> = { build: 0, decom: 0 };
   return {
@@ -143,6 +152,11 @@ export const useLifecycleStore = create<LifecycleState>((set, get) => {
       } catch (e) {
         if (id === seq[mode]) set({ running: { ...get().running, [mode]: false }, error: e instanceof Error ? e.message : String(e) });
       }
+    },
+    complete: (m) => {
+      if (get().done.includes(m)) return;
+      set({ done: MILESTONES.filter((x) => x === m || get().done.includes(x)) });
+      save();
     },
     restore: (p) => {
       set({ ...parse(p), results: {}, resultFor: {} });

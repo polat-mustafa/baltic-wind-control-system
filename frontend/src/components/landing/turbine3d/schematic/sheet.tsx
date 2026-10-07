@@ -5,6 +5,7 @@
  */
 
 import type { ReactNode } from "react";
+import { useFleet } from "../../../../lib/fleet";
 
 const VB_W = 1200;
 const VB_H = 720;
@@ -87,6 +88,7 @@ export function Sheet({
   const inner = { x: M + Z, y: M + Z, w: VB_W - 2 * (M + Z), h: VB_H - 2 * (M + Z) };
   const cw = (VB_W - 2 * M) / COLS;
   const rh = (VB_H - 2 * M) / ROWS.length;
+  const fleet = useFleet();
   const tb = { x: VB_W - M - Z - 372, y: VB_H - M - Z - 78, w: 372, h: 78 };
   return (
     <svg
@@ -133,7 +135,9 @@ export function Sheet({
         <line x1={0} x2={tb.w} y1={56} y2={56} stroke="currentColor" strokeWidth={0.8} />
         <line x1={236} x2={236} y1={56} y2={tb.h} stroke="currentColor" strokeWidth={0.8} />
         <line x1={300} x2={300} y1={56} y2={tb.h} stroke="currentColor" strokeWidth={0.8} />
-        <text x={8} y={15} fontSize={10.5} fontWeight={800}>SB-510 CASE STUDY · 34 × V236-15.0 MW · 510 MW</text>
+        <text x={8} y={15} fontSize={10.5} fontWeight={800}>
+          {fleet.source === "sb510" ? "SB-510 CASE STUDY" : fleet.name.toUpperCase()} · {fleet.turbines.length} × V236-15.0 MW · {fleet.net.total_capacity_mw.toFixed(0)} MW
+        </text>
         <text x={8} y={38} fontSize={13} fontWeight={800}>{title}</text>
         <text x={8} y={51} fontSize={10} fontWeight={600} fillOpacity={0.8}>{subtitle}</text>
         <text x={8} y={69} fontSize={9.5} fontWeight={600}>Dwg <tspan fontWeight={800}>{dwg}</tspan> · {standard}</text>

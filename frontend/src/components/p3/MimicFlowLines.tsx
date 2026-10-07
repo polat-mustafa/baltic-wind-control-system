@@ -1,7 +1,7 @@
 /**
  * SVG flow-line layer for the Plant Mimic.
  *
- * Six string rows on the left collect into a vertical 66 kV bus, which
+ * One row per string on the left collects into a vertical 66 kV bus, which
  * feeds the OSS. The OSS steps to 220 kV and runs out to the Onshore
  * substation; the onshore yard steps to 400 kV and connects to the
  * PSE grid.
@@ -12,7 +12,7 @@
  */
 
 import { cn } from "../../lib/utils";
-import { MIMIC_LAYOUT } from "../../constants/mimicLayout";
+import type { MimicLayout } from "../../constants/mimicLayout";
 
 interface MimicFlowLinesProps {
   /** Per-string energisation: any operating turbine in the string ⇒ true */
@@ -21,6 +21,9 @@ interface MimicFlowLinesProps {
   exportEnergised: boolean;
   /** Onshore → PSE grid 400 kV connection energised */
   gridEnergised: boolean;
+  layout: MimicLayout;
+  /** Export circuits and route length, for the 220 kV label. */
+  exportLabel: string;
   className?: string;
 }
 
@@ -33,28 +36,19 @@ export default function MimicFlowLines({
   stringEnergised,
   exportEnergised,
   gridEnergised,
+  layout: L,
+  exportLabel,
   className,
 }: MimicFlowLinesProps) {
-  const L = MIMIC_LAYOUT;
-
-  // y-coord of each string row (vertical centre)
-  const stringY = (row: number) =>
-    L.stringStartY + row * (L.cellH + L.rowGapY) + L.cellH / 2;
-
-  // right edge of the last cell in each string
-  // strings 1–4 have 6 turbines; strings 5–6 have 5 turbines (34 total)
-  const stringRightX = (row: number) => {
-    const cellsInRow = row >= 4 ? 5 : 6;
-    return L.stringStartX + cellsInRow * L.cellW + (cellsInRow - 1) * L.cellGapX;
-  };
-
-  // bus segment vertical extents
-  const busTop = stringY(0);
-  const busBottom = stringY(5);
+  const { stringY, stringRightX } = L;
 
   // OSS connection points
   const ossLeftX = L.ossX;
   const ossLeftY = L.ossY + L.ossH / 2;
+
+  // bus segment vertical extents (down to the OSS lateral on a one-string farm)
+  const busTop = Math.min(stringY(0), ossLeftY);
+  const busBottom = Math.max(stringY(stringEnergised.length - 1), ossLeftY);
   const ossBottomX = L.ossX + L.ossW / 2;
   const ossBottomY = L.ossY + L.ossH;
 
@@ -77,7 +71,7 @@ export default function MimicFlowLines({
       role="presentation"
       aria-hidden
     >
-      {/* String 1..6 → bus laterals (66 kV) */}
+      {/* String rows → bus laterals (66 kV) */}
       {stringEnergised.map((live, i) => (
         <g key={`str-${i}`}>
           <path
@@ -119,7 +113,7 @@ export default function MimicFlowLines({
         66 kV
       </text>
 
-      {/* OSS → Onshore — 2 × 220 kV export cables, drawn as one route (animated when energised) */}
+      {/* OSS → Onshore — the 220 kV export cables, drawn as one route (animated when energised) */}
       <path
         d={`M ${ossBottomX} ${ossBottomY} L ${onshoreTopX} ${onshoreTopY}`}
         stroke={exportEnergised ? COLOR_220KV : COLOR_DEEN}
@@ -134,7 +128,7 @@ export default function MimicFlowLines({
         fontSize="9"
         fill={exportEnergised ? COLOR_220KV : COLOR_DEEN}
       >
-        220 kV · 45 km
+        {exportLabel}
       </text>
 
       {/* Arrowhead on energised 220 kV path */}

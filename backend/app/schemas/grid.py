@@ -121,9 +121,10 @@ class LiveLoadFlowRequest(BaseModel):
     """Live operating point from the landing simulation: P of every WTG."""
 
     wtg_p_mw: list[float] = Field(
-        min_length=34,
-        max_length=34,
-        description="Active power of WTG_01 … WTG_34 [MW], 0 ≤ P ≤ 15 (V236 rating)",
+        min_length=1,
+        max_length=150,
+        description="Active power of WTG_01 … WTG_n [MW], one per turbine of the farm "
+        "(SB-510: 34), 0 ≤ P ≤ 15 (V236 rating)",
     )
 
     @field_validator("wtg_p_mw")
@@ -149,6 +150,9 @@ class LiveLoadFlowResponse(BaseModel):
     poc_q_mvar: float = Field(description="Reactive power delivered to PSE 400 kV [MVAR]")
     total_loss_mw: float = Field(description="Cable + transformer losses [MW]")
     statcom_q_mvar: float = Field(description="STATCOM set-point after auto-dispatch [MVAR]")
+    reactors_in_service: int = Field(
+        default=0, description="Shunt reactors in service after reactor switching"
+    )
     v_poc_pu: float
     v_onshore_220_pu: float
     v_oss_220_pu: float

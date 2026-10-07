@@ -15,6 +15,7 @@ import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 
 import { useLandingStore } from "../../../../store/landingStore";
+import { useFleet } from "../../../../lib/fleet";
 import { farmAround } from "../model/farm";
 import { HUB, PRECONE, SHAFT_TILT } from "../model/layout";
 import { useV236Model } from "../model/useV236Model";
@@ -26,7 +27,8 @@ const YAW_RATE_DEG_S = 1; // same as the simulation's yaw drive
 
 export const FarmTurbines = memo(function FarmTurbines({ turbineId }: { turbineId: string }) {
   const model = useV236Model();
-  const others = useMemo(() => farmAround(turbineId).filter((t) => t.id !== turbineId), [turbineId]);
+  const fleet = useFleet();
+  const others = useMemo(() => farmAround(turbineId, fleet).filter((t) => t.id !== turbineId), [turbineId, fleet]);
   const n = others.length;
 
   const towerRef = useRef<THREE.InstancedMesh>(null);

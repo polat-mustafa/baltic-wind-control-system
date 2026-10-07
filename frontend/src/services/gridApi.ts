@@ -48,6 +48,8 @@ export interface LiveLoadFlow {
   poc_q_mvar: number;
   total_loss_mw: number;
   statcom_q_mvar: number;
+  /** Shunt reactors in service after the backend's reactor switching. */
+  reactors_in_service: number;
   v_poc_pu: number;
   v_onshore_220_pu: number;
   v_oss_220_pu: number;

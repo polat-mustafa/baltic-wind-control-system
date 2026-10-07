@@ -18,6 +18,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 
 import { useLandingStore } from "../../../../store/landingStore";
+import { useFleet } from "../../../../lib/fleet";
 import { farmAround } from "../model/farm";
 import { HUB } from "../model/layout";
 import { farmDeficit, wakeSources, type WakeSource } from "../model/wakeModel";
@@ -75,7 +76,8 @@ export const WakeField = memo(function WakeField({
   turbineId: string;
   windFromDeg: number;
 }) {
-  const farm = useMemo(() => farmAround(turbineId), [turbineId]);
+  const fleet = useFleet();
+  const farm = useMemo(() => farmAround(turbineId, fleet), [turbineId, fleet]);
   const dataRef = useRef(new Uint8Array(NX * NZ));
   const data = dataRef.current;
   const texture = useMemo(() => {

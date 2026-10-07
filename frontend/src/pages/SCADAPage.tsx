@@ -125,7 +125,7 @@ export default function SCADAPage() {
     <div className="scada-isa101 flex flex-col h-full">
       <PlantOverviewBar />
       <div className="px-3 pt-2 shrink-0 empty:hidden">
-        <ProjectHandoverNote what="CMS, vibration, historian, IEC 61850 devices / SCL, OPC UA, comms network and cybersecurity follow your farm. The live control room (plant mimic, single-line diagram, alarms, bay control, interlocks) still runs the SB-510 plant." />
+        <ProjectHandoverNote what="Everything here runs your farm: plant mimic, single-line diagram (your feeders, export circuits, reactors), bay control and interlocks, alarms, CMS, historian, IEC 61850 devices / SCL, OPC UA, comms network and cybersecurity." />
       </div>
 
       {/* ── Toolbar: title · controls toggle · fault trigger · auto-sim · role · control room ── */}

@@ -9,7 +9,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { Download, FileCheck2, Map as MapIcon, Printer } from "lucide-react";
 
 import { useFarmPlan } from "../hooks/useFarmPlan";
-import { useLayerStore } from "../store/layerStore";
 import { useLifecycleStore } from "../store/lifecycleStore";
 import { Button } from "../components/ui/Button";
 import { WatchOut } from "../components/site/Stages";
@@ -29,7 +28,6 @@ function save(name: string, text: string, type: string) {
 export default function HandoverPage() {
   const farm = useFarmPlan();
   const build = useLifecycleStore((s) => s.results.build);
-  const setLayer = useLayerStore((s) => s.setLayer);
   const navigate = useNavigate();
   const [printing, setPrinting] = useState(false);
   const own = farm.source === "project";
@@ -75,17 +73,13 @@ export default function HandoverPage() {
     {
       name: "Control Room",
       to: "/",
-      takes: own ? "Your turbines, OSS and cable tree as the “My Project” map layer." : "The SB-510 farm it already shows.",
-      note: "The live simulation (power, faults, protection) stays on SB-510: its strings, relays and alarms are engineered for that farm.",
-      action: own
-        ? {
-            label: "Show on the map",
-            run: () => {
-              setLayer("myProject", true);
-              navigate("/");
-            },
-          }
-        : undefined,
+      takes: own
+        ? "Your turbines, OSS and cable tree run live: power, wakes, faults and the array-cable drill on your layout."
+        : "The SB-510 farm it already shows.",
+      note: own
+        ? "Surveyed-route features of SB-510 (export cable route, landfall, navigation marks, O&M vessels) are not drawn for your farm; the export shows as a straight line to the grid node."
+        : "The live simulation runs the farm the project modules model.",
+      action: own ? { label: "Open the control room", run: () => navigate("/") } : undefined,
     },
     {
       name: "Commissioning (P5)",
@@ -97,7 +91,7 @@ export default function HandoverPage() {
       name: "SCADA (P3)",
       to: "/scada",
       takes: `Bay list ${farm.turbines[0]?.bay ?? ""} … ${farm.strings.length ? farm.turbines.find((t) => t.string === farm.strings.length)?.bay : ""} for the substation single-line diagram.`,
-      note: "The IEC 61850 model (logical nodes, GOOSE) is the SB-510 substation; compare its bays with yours.",
+      note: "The control room runs your switchboard: single-line diagram, bay controllers and interlocks, mimic and alarms.",
     },
     {
       name: "Digital Twin",

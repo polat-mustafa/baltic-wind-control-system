@@ -3,37 +3,47 @@
  *
  * One source for the numbers the map markers, the KPI ribbon and the detail
  * panels all show, so they can never disagree. The full load-flow model is
- * the P2 backend (pandapower, `services/p2/network_model.py`); the constants
- * below mirror it.
+ * the P2 backend (pandapower, `services/p2/network_model.py`); the network
+ * numbers come from its design of the live fleet (lib/fleet.ts: SB-510 or the
+ * own project, GET /grid/network-spec).
  */
 
-import { TURBINE_POSITIONS } from "../constants/windFarmLayout";
+import { liveFleet, type Fleet } from "../lib/fleet";
 import { powerKw, REFERENCE_TURBINE, thrustCoefficient } from "./turbineCurves";
 import { computeWakeLosses } from "./wakeModel";
 
 // ── Reactive power balance at the OSS 220 kV busbar ─────────────
 // Sign convention (domain rule 4): generating Q positive, absorbing negative.
 
-/** Charging of 2 × 45 km 220 kV export cables, Q = ωCV²L [MVAr, generating]. */
-export const CABLE_CHARGING_MVAR = 260;
-/** Shunt reactors: one per export cable + one spare (N+1). */
-export const REACTOR_COUNT = 3;
-export const REACTOR_UNIT_MVAR = 80;
-/** STATCOM rating [±MVAr]. */
-export const STATCOM_RATING_MVAR = 120;
-/** Farm rating [MW] and installed transformer capacity per substation [MVA]. */
-export const FARM_RATED_MW = 510;
-export const TX_UNIT_MVA = 300;
-
 /**
- * Series I²X absorption at rated output [MVAr]: OSS trafos (vk 12.5 %, 600 MVA)
- * ≈ 54, onshore trafos (vk 14 %) ≈ 61, export cables ≈ 16, array cables ≈ 5.
- * Scales with I² ≈ (P / P_rated)² at near-nominal voltage.
+ * SB-510 series I²X absorption at rated output [MVAr]: OSS trafos (vk 12.5 %,
+ * 600 MVA) ≈ 54, onshore trafos (vk 14 %) ≈ 61, export cables ≈ 16, array
+ * cables ≈ 5. Scales with I² ≈ (P / P_rated)² at near-nominal voltage.
  */
-const SERIES_LOSS_AT_RATED_MVAR = 135;
+const SB510_SERIES_LOSS_AT_RATED_MVAR = 135;
 
-/** STATCOM output above which one reactor is switched out, keeping headroom. */
-const REACTOR_SWITCH_OUT_MVAR = 60;
+/** Network of the live fleet (SB-510: 510 MW, 2 × 45 km, 260 MVAr, 3 × 80 MVAr, ±120 MVAr, 2 × 300 MVA). */
+export function plantNet(f: Fleet = liveFleet()) {
+  const n = f.net;
+  return {
+    ratedMW: n.total_capacity_mw,
+    /** Charging of all export circuits, Q = ωCV²L [MVAr, generating]. */
+    chargingMVAr: n.cable_q_mvar,
+    /** Shunt reactors: one per export circuit + one spare (N+1); none on a short export. */
+    reactorCount: n.num_reactors,
+    reactorUnitMVAr: n.reactor_unit_mvar,
+    statcomMVAr: n.statcom_rating_mvar,
+    ossTxMVA: n.oss_trafo_mva,
+    onsTxMVA: n.onshore_trafo_mva,
+    circuits: n.num_export_cables,
+    exportKm: n.export_length_km,
+    // ponytail: scaled with capacity like backend historian (trafos sized ∝ capacity); a load flow is exact
+    seriesLossAtRatedMVAr: (SB510_SERIES_LOSS_AT_RATED_MVAR * n.total_capacity_mw) / 510,
+  };
+}
+
+/** Share of the STATCOM rating above which a reactor is switched out, keeping headroom (SB-510: 60 MVAr). */
+const REACTOR_SWITCH_OUT_SHARE = 0.5;
 
 export interface ReactiveBalance {
   /** Cable charging, generating [MVAr] (positive). */
@@ -51,35 +61,31 @@ export interface ReactiveBalance {
  * Reactive balance that keeps Q ≈ 0 at the grid connection:
  *   Q_cable + Q_statcom − Q_reactors − Q_losses = 0
  * At low output the cable surplus is absorbed; near rated output the series
- * losses dominate, so one reactor is switched out and the STATCOM injects.
+ * losses dominate, so reactors are switched out (while the STATCOM would
+ * inject more than half its rating) and the STATCOM injects.
  */
-export function reactiveBalance(totalMW: number): ReactiveBalance {
-  const p = Math.max(0, Math.min(1, totalMW / FARM_RATED_MW));
-  const loss = SERIES_LOSS_AT_RATED_MVAR * p * p;
-  const statcomFor = (n: number) =>
-    n * REACTOR_UNIT_MVAR + loss - CABLE_CHARGING_MVAR;
+export function reactiveBalance(totalMW: number, net = plantNet()): ReactiveBalance {
+  const p = Math.max(0, Math.min(1, totalMW / net.ratedMW));
+  const loss = net.seriesLossAtRatedMVAr * p * p;
+  const statcomFor = (n: number) => n * net.reactorUnitMVAr + loss - net.chargingMVAr;
 
-  let n = REACTOR_COUNT;
-  if (statcomFor(n) > REACTOR_SWITCH_OUT_MVAR) n -= 1;
-  const statcom = Math.max(
-    -STATCOM_RATING_MVAR,
-    Math.min(STATCOM_RATING_MVAR, statcomFor(n)),
-  );
+  let n = net.reactorCount;
+  // switch out only while it actually relieves the STATCOM (not swinging it past −rating)
+  while (n > 0 && statcomFor(n) > REACTOR_SWITCH_OUT_SHARE * net.statcomMVAr && Math.abs(statcomFor(n - 1)) < statcomFor(n)) n -= 1;
+  const statcom = Math.max(-net.statcomMVAr, Math.min(net.statcomMVAr, statcomFor(n)));
 
   return {
-    cableMVAr: CABLE_CHARGING_MVAR,
-    reactorsMVAr: -n * REACTOR_UNIT_MVAR,
+    cableMVAr: net.chargingMVAr,
+    reactorsMVAr: -n * net.reactorUnitMVAr,
     seriesLossMVAr: -loss,
     statcomMVAr: statcom,
     reactorsInService: n,
   };
 }
 
-// ── 220 kV export cables (backend EXPORT_CABLE_1000, 2 circuits) ──
+// ── 220 kV export cables (backend EXPORT_CABLE_1000; circuits and length from plantNet) ──
 
 export const EXPORT_CABLE = {
-  circuits: 2,
-  lengthKm: 45,
   kV: 220,
   ratedA: 950,
   /** AC resistance at 90 °C [Ω/km]: 0.0176 × 1.039 (skin) × (1 + 0.00393·70). */
@@ -97,30 +103,30 @@ export interface CableState {
   loadingPct: number;
   /** Steady-state conductor temperature [°C], θ = θ_amb + Δθ_rated·(I/I_r)². */
   conductorC: number;
-  /** I²R losses, both circuits [MW]. */
+  /** I²R losses, all circuits [MW]. */
   lossesMW: number;
   /** Charging per circuit, Q = ωCV²L [MVAr]. */
   chargingMVArPerCircuit: number;
 }
 
 /**
- * Export cable state at a given farm output. Each circuit carries half the
- * active current plus (with reactors at both ends) half its charging current
- * in quadrature: I = √(I_P² + (I_C/2)²).
+ * Export cable state at a given farm output. Each of the n circuits carries
+ * 1/n of the active current plus (with reactors at both ends) half its
+ * charging current in quadrature: I = √(I_P² + (I_C/2)²).
  */
-export function exportCableState(totalMW: number): CableState {
+export function exportCableState(totalMW: number, net = plantNet()): CableState {
   const c = EXPORT_CABLE;
   const vLL = c.kV * 1e3;
-  const chargingMVAr = (2 * Math.PI * 50 * c.cNfPerKm * 1e-9 * vLL ** 2 * c.lengthKm) / 1e6;
+  const chargingMVAr = (2 * Math.PI * 50 * c.cNfPerKm * 1e-9 * vLL ** 2 * net.exportKm) / 1e6;
   const iCharging = (chargingMVAr * 1e6) / (Math.sqrt(3) * vLL);
-  const iActive = (Math.max(0, totalMW) * 1e6) / (Math.sqrt(3) * vLL * c.circuits);
+  const iActive = (Math.max(0, totalMW) * 1e6) / (Math.sqrt(3) * vLL * net.circuits);
   const current = Math.hypot(iActive, iCharging / 2);
   const ratio = current / c.ratedA;
   return {
     currentA: current,
     loadingPct: ratio * 100,
     conductorC: c.seabedC + (c.maxConductorC - c.seabedC) * ratio ** 2,
-    lossesMW: (c.circuits * 3 * current ** 2 * c.rOhmPerKm * c.lengthKm) / 1e6,
+    lossesMW: (net.circuits * 3 * current ** 2 * c.rOhmPerKm * net.exportKm) / 1e6,
     chargingMVArPerCircuit: chargingMVAr,
   };
 }
@@ -296,21 +302,23 @@ export function v236PitchDeg(windMs: number): number {
 // ── Wakes (Jensen/Park, utils/wakeModel) ──────────────────────────
 
 const WAKE_DIR_STEP_DEG = 5;
-const wakeCache = new Map<number, Map<string, number>>();
+const wakeCache = new WeakMap<Fleet, Map<number, Map<string, number>>>();
 
 /**
  * Velocity deficit Δu/u₀ per turbine for a wind direction, quantised to 5°
- * (same step as the map's wake layer) and cached — 34² geometry per step.
+ * (same step as the map's wake layer) and cached per fleet — n² geometry per step.
  * ponytail: constant Ct = 0.8; above rated a real rotor pitches and Ct drops,
  * so high-wind deficits are overstated. Use a Ct(v) table if that matters.
  */
-export function farmWakeDeficits(windFromDeg: number): Map<string, number> {
+export function farmWakeDeficits(windFromDeg: number, f: Fleet = liveFleet()): Map<string, number> {
   const dir = ((Math.round(windFromDeg / WAKE_DIR_STEP_DEG) * WAKE_DIR_STEP_DEG) % 360 + 360) % 360;
-  let deficits = wakeCache.get(dir);
+  let byDir = wakeCache.get(f);
+  if (!byDir) wakeCache.set(f, (byDir = new Map()));
+  let deficits = byDir.get(dir);
   if (!deficits) {
-    const geo = TURBINE_POSITIONS.map(({ id, lat, lon }) => ({ id, lat, lon }));
+    const geo = f.turbines.map(({ id, lat, lon }) => ({ id, lat, lon }));
     deficits = new Map(computeWakeLosses(geo, dir).map((w) => [w.turbineId, w.deficit]));
-    wakeCache.set(dir, deficits);
+    byDir.set(dir, deficits);
   }
   return deficits;
 }

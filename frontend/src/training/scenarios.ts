@@ -4,7 +4,8 @@
  * not from scripted numbers, so the trainee sees the same physics as always.
  */
 
-import { TURBINE_POSITIONS } from "../constants/windFarmLayout";
+import { arraySegments, liveFleet, pathToOss } from "../lib/fleet";
+import { bayName } from "../lib/lifecycle/farm";
 import { useLandingStore } from "../store/landingStore";
 
 export type TrainingEvent =
@@ -51,7 +52,6 @@ const pick = <T>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)];
 
 // ── 1. Array cable fault ─────────────────────────────────────────
 
-const STRINGS = [1, 2, 3, 4, 5, 6].map((n) => TURBINE_POSITIONS.filter((t) => t.stringNumber === n).map((t) => t.id));
 let cf: { string: number; segmentKey: string; beyond: string[]; restorable: string[] } = {
   string: 1,
   segmentKey: "",
@@ -60,17 +60,20 @@ let cf: { string: number; segmentKey: string; beyond: string[]; restorable: stri
 };
 
 /**
- * Trip a random inter-turbine section t[i-1] → t[i] (i = 1 … n-2, so both
- * sides have turbines) with isolation left to the operator. Shared by the
- * cable-fault drill and the instructor console.
+ * Trip a random inter-turbine section of the live fleet (not a feeder cable,
+ * so both sides have turbines) with isolation left to the operator. Shared by
+ * the cable-fault drill and the instructor console. `restorable` lists the
+ * lit fault passage indicators, the one next to the fault first.
  */
 export function injectRandomArrayFault(): { string: number; segmentKey: string; beyond: string[]; restorable: string[] } {
-  const n = 1 + Math.floor(Math.random() * 6);
-  const ids = STRINGS[n - 1];
-  const i = 1 + Math.floor(Math.random() * (ids.length - 2));
-  const f = { string: n, segmentKey: `cable-${ids[i - 1]}-${ids[i]}`, beyond: ids.slice(0, i), restorable: ids.slice(i) };
-  store().injectArrayFault({ segmentKey: f.segmentKey, stringNumber: n, stringIds: ids, beyondIds: f.beyond, manual: true });
-  return f;
+  const f = liveFleet();
+  const inner = arraySegments(f).filter((s) => s.toId !== "OSS");
+  // ponytail: a farm of one-turbine strings has no inner section; fall back to a feeder cable
+  const seg = pick(inner.length ? inner : arraySegments(f));
+  const ids = f.strings[seg.stringNumber - 1];
+  const out = { string: seg.stringNumber, segmentKey: seg.key, beyond: seg.feedIds, restorable: seg.toId === "OSS" ? [] : pathToOss(f, seg.toId) };
+  store().injectArrayFault({ segmentKey: seg.key, stringNumber: seg.stringNumber, stringIds: ids, beyondIds: seg.feedIds, manual: true });
+  return out;
 }
 
 const cableFault: Scenario = {
@@ -92,7 +95,7 @@ const cableFault: Scenario = {
       id: "find-string",
       kind: "action",
       say: () =>
-        `Alarm: feeder breaker BAY-OSS-66-0${cf.string} tripped on earth-fault protection. All turbines of string ${cf.string} are off. Click one of string ${cf.string}'s cables on the map.`,
+        `Alarm: feeder breaker ${bayName(cf.string)} tripped on earth-fault protection. All turbines of string ${cf.string} are off. Click one of string ${cf.string}'s cables on the map.`,
       hint: "Tripped turbines are grey. The feeder cable (string head → OSS) is dashed dark — click it.",
       check: (ev) => ev.some((e) => e.type === "cable-selected" && e.stringNumber === cf.string),
       done: "Good, that is the tripped string.",
@@ -158,7 +161,7 @@ function vesselOptions() {
   const best = ctv ? "ctv" : sov ? "sov" : "none";
   const now = `Now Hs ${hs.toFixed(1)} m, 10 m wind ${u10.toFixed(1)} m/s.`;
   return [
-    { label: "Crew transfer vessel from Ustka (Hs ≤ 1.5 m)", correct: best === "ctv", why: `${now} CTV limits: Hs ≤ 1.5 m, wind ≤ 10 m/s.` },
+    { label: `Crew transfer vessel${liveFleet().source === "sb510" ? " from Ustka" : ""} (Hs ≤ 1.5 m)`, correct: best === "ctv", why: `${now} CTV limits: Hs ≤ 1.5 m, wind ≤ 10 m/s.` },
     { label: "Service operation vessel, walk-to-work gangway (Hs ≤ 2.5 m)", correct: best === "sov", why: `${now} SOV limits: Hs ≤ 2.5 m, wind ≤ 15 m/s; CTV is cheaper when it can go.` },
     { label: "No transfer now — wait for a weather window", correct: best === "none", why: `${now} Both vessels are outside their access limits.` },
   ];
@@ -173,8 +176,9 @@ const turbineFault: Scenario = {
   intro: "Scenario: turbine pitch fault.",
   debrief: "Remote reset first, a crew when the fault is a component failure — and the sea state, not the calendar, decides which vessel can go.",
   setup: () => {
-    const healthy = TURBINE_POSITIONS.filter((t) => store().turbineMap[t.id]?.status === "operating");
-    tf = pick(healthy.length ? healthy : TURBINE_POSITIONS).id;
+    const all = liveFleet().turbines;
+    const healthy = all.filter((t) => store().turbineMap[t.id]?.status === "operating");
+    tf = pick(healthy.length ? healthy : all).id;
     store().setTurbineFault(tf, "PITCH_CONTROL_FAULT");
   },
   steps: [

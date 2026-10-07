@@ -16,7 +16,7 @@ import {
   PSE_SUBSTATION_GEO,
   TURBINE_POSITIONS,
 } from "../../src/constants/windFarmLayout";
-import { EXPORT_CABLE } from "../../src/utils/landingPhysics";
+import { plantNet } from "../../src/utils/landingPhysics";
 
 type P = { lat: number; lon: number };
 
@@ -33,8 +33,8 @@ const length = (path: P[]) => path.slice(1).reduce((sum, p, i) => sum + km(path[
 describe("wind farm geography (verified against OSM / EMODnet, 2026-09-29)", () => {
   it("draws the export route at the 45 km the electrical model uses", () => {
     const total = length(EXPORT_CABLE_SUBSEA_GEO) + length(EXPORT_CABLE_LAND_GEO);
-    expect(total).toBeGreaterThan(EXPORT_CABLE.lengthKm - 0.5);
-    expect(total).toBeLessThan(EXPORT_CABLE.lengthKm + 0.5);
+    expect(total).toBeGreaterThan(plantNet().exportKm - 0.5);
+    expect(total).toBeLessThan(plantNet().exportKm + 0.5);
     expect(EXPORT_CABLE_SUBSEA_GEO.at(-1)).toEqual(LANDFALL_GEO);
     expect(EXPORT_CABLE_LAND_GEO[0]).toEqual(LANDFALL_GEO);
     expect(EXPORT_CABLE_SUBSEA_GEO[0]).toEqual(OSS_GEO);

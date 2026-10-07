@@ -1,6 +1,7 @@
 /**
- * Export cable detail panel — 2 × 45 km 220 kV XLPE circuits: 31.5 km
- * subsea (OSS → Zaleskie landfall) + 13.4 km land cable to the onshore SS.
+ * Export cable detail panel — the live fleet's 220 kV XLPE circuits. SB-510:
+ * 2 × 45 km, 31.5 km subsea (OSS → Zaleskie landfall) + 13.4 km land cable to
+ * the onshore SS; an own project: n × its export length (route not surveyed).
  *
  * Live values come from the shared cable model (utils/landingPhysics):
  * per-circuit current = active current + half the charging current in
@@ -10,9 +11,10 @@
 
 import { Cable } from "lucide-react";
 
+import { useFleet } from "../../lib/fleet";
 import { selectKPIs, useLandingStore } from "../../store/landingStore";
 import type { CableData } from "../../types/landing";
-import { EXPORT_CABLE, exportCableState } from "../../utils/landingPhysics";
+import { EXPORT_CABLE, exportCableState, plantNet } from "../../utils/landingPhysics";
 import { DataRow, EquipmentPanel, HeroValue, LevelBar, PanelSection } from "./EquipmentPanel";
 
 interface CableDetailPanelProps {
@@ -29,15 +31,18 @@ const levelColor = (v: number, warn: number, alarm: number) => (v >= alarm ? ALA
 
 export default function CableDetailPanel({ cable, onClose, onNavigate }: CableDetailPanelProps) {
   const kpis = useLandingStore(selectKPIs);
-  const s = exportCableState(kpis.totalOutputMW);
+  const fleet = useFleet();
+  const net = plantNet(fleet);
+  const sb510 = fleet.source === "sb510";
+  const s = exportCableState(kpis.totalOutputMW, net);
   const loadColor = levelColor(s.loadingPct, 80, 100);
   const tempColor = levelColor(s.conductorC, 80, EXPORT_CABLE.maxConductorC);
 
   return (
     <EquipmentPanel
       icon={Cable}
-      tag="EXP-CBL-01/02"
-      subtitle={`2 × ${cable.lengthKm} km (31.5 subsea + 13.4 land) · ${cable.voltageRatingKV} kV · ${cable.crossSectionMm2} mm² XLPE`}
+      tag={["EXP-CBL-01", "EXP-CBL-01/02"][net.circuits - 1] ?? `EXP-CBL-01…0${net.circuits}`}
+      subtitle={`${net.circuits} × ${cable.lengthKm.toFixed(0)} km${sb510 ? " (31.5 subsea + 13.4 land)" : ""} · ${cable.voltageRatingKV} kV · ${cable.crossSectionMm2} mm² XLPE`}
       status={{ label: "Energised", color: NORMAL }}
       onClose={onClose}
       action={{ label: "Open HV Grid · cable loading & DTS", onClick: onNavigate }}
@@ -71,7 +76,7 @@ export default function CableDetailPanel({ cable, onClose, onNavigate }: CableDe
         </div>
         <DataRow label="Seabed ambient" value={EXPORT_CABLE.seabedC} unit="°C" />
         <DataRow label="Burial depth" value={cable.burialDepthM} unit="m" />
-        <DataRow label="Route" value="OSS → Zaleskie (HDD) → Słupsk" />
+        <DataRow label="Route" value={sb510 ? "OSS → Zaleskie (HDD) → Słupsk" : "OSS → grid node (not yet surveyed)"} />
         <p className="mt-1.5 text-[11px] leading-snug text-text-muted">
           Temperature follows I²: at 73 % current the conductor sits near 55 °C, leaving margin for
           dynamic rating (see DTS in P2).
@@ -85,7 +90,7 @@ export default function CableDetailPanel({ cable, onClose, onNavigate }: CableDe
           unit="MVAr"
           hint="Q = ωCV²L — why the OSS needs shunt reactors"
         />
-        <DataRow label="I²R losses (both circuits)" value={s.lossesMW.toFixed(2)} unit="MW" />
+        <DataRow label={["I²R losses", "I²R losses (both circuits)"][net.circuits - 1] ?? "I²R losses (all circuits)"} value={s.lossesMW.toFixed(2)} unit="MW" />
         <DataRow label="R / X / C per km" value={`${EXPORT_CABLE.rOhmPerKm} Ω · ${EXPORT_CABLE.xOhmPerKm} Ω · ${EXPORT_CABLE.cNfPerKm} nF`} />
         <DataRow label="Insulation" value="XLPE" />
         <DataRow label="Supplier (reference)" value={cable.manufacturer} />

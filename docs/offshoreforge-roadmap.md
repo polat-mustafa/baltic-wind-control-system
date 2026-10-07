@@ -26,7 +26,8 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 5 | Project persistence: `wind_farm` = project table (JSONB document, revision lock, 12-month idle purge, read-only SB-510 row), `/api/v1/projects` + stored PyWake AEP history, anonymous link, auto-save with conflict / offline handling, export/import schema 2 | In review (`feat/project-persistence`, stacked on phase 4) |
 | 6 | Post-tour choice (SB-510 reference / own project), stage locks in the sidebar + one AppShell guard with "See it in SB-510", header project menu (name, online copy, new, open by link, import / export), lifecycle milestones | In review (`feat/project-mode-locks`, stacked on phase 5) |
 | 7 | `FarmSpec` + `design()` (golden: SB-510 back exactly), P2 load flow / SC / STATCOM / N-1 / FRT / GFL-GFM / PPC / power quality / planning / ANDES on the farm spec, `X-Farm` header from the own layout, design-freeze gate before Construction | In review (`feat/farm-spec-p2`, stacked on phase 6) |
-| 8–13 | P5/P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
+| 8a | P5 on the farm spec: circuit-1 switchgear, isolation locks, 60-step switching programme, load-flow checks, FAT/SAT limits; programme keeps its farm (`farm_spec` column) | In review (`feat/farm-spec-p5`, stacked on phase 7) |
+| 8b–13 | P3/DT generalised · SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
 
 Phase 1 note: `test_sb510_case_study` expects `msp_energy == "fail"` until phase 9 moves SB-510 into PZP_44.
 Phase 2 note: the permit outlook says a refused site "could not go on to layout"; since phase 6 Layout stays locked for such a site in an own project.
@@ -61,6 +62,15 @@ Phase 7 notes:
 - Frontend: `lib/project/farmHeader.ts` adds the header to every `/api/v1/grid` request in own mode (`apiClient.setRequestHeaders`); `gridStore` keys results to the farm (`farmFor`) and offers `useNetwork()`; P2 panels (SLD, loading, voltage, STATCOM, converter, harmonics, N-1, planning, P2X, ANDES, PPC) read it. Protection, BESS, Cable DTS (burial zones follow SB-510's real route) and Market stay SB-510 and the page says so; live load flow (Control Room) stays SB-510.
 - Design freeze: milestone `design` (lifecycleStore) marked on the HV Grid page once the full-load load flow of the own farm is within 0.95–1.05 p.u. and every branch ≤ 100 %; it opens Construction (`lib/project/progress.ts`).
 - Changed test: `test_statcom.py::test_reactor_n1_detects_insecure_design` monkeypatched a module constant; it now passes a 2-reactor `FarmSpec`. All other existing P2 tests pass unchanged.
+
+Phase 8a notes:
+- `services/p5/equipment_state.py`: `equipment(spec)` builds the circuit-1 registry — strings of section A (1…⌈n/2⌉) with WTG groups, section B strings earthed, IDs `CB-STR-nn`; no reactor bay when the design has no reactors. Every interlock function takes `spec` (default SB-510, so the SB-510 registry, the 60 steps and all existing P5 tests are unchanged).
+- `energisation.network_snapshot(state, spec)`: cable length, transformer / reactor / STATCOM ratings and strings from the spec. Two physics additions found by running every Phase 7 farm through the programme: (1) a long cable lifts the onshore busbar (75 km open-ended: 230 Mvar, 1.054 p.u.), so the onshore OLTC is pre-set (`onshore_tap`, first tap that keeps the busbar and cable end in 0.95–1.05 p.u.; SB-510: tap 0); (2) when no tap is enough (120 MW / 73 km on 2 × 100 MVA onshore transformers) reactor 1 is connected to the dead cable and energised with it (`reactor_energisation`, steps reordered). 3–4 circuit farms: section A exceeds one circuit, so the PPC limits circuit 1 to 90 % of its capability (`circuit1_limit_mw`; 1080 MW: 321 MW, cable 94 %).
+- Transformer no-load losses now scale with the rating (`FarmSpec.oss_pfe_kw` / `onshore_pfe_kw`, SB-510 unchanged); before, a 100 MVA unit had the 300 MVA unit's 60 kW.
+- `switching_programme`: `_defs(spec)`, `phases(spec)`, checks get the spec (STATCOM range, TX i0, rated text); the programme stores its `FarmSpec` (`switching_programme.farm_spec` JSONB, Alembic `d9e0f1a2b3c4`; NULL = SB-510). Create programme / FAT take the `X-Farm` header; later calls use the stored farm. FAT transformer limits follow the rating, SAT the cable length and strings.
+- Frontend: `X-Farm` also goes to `/api/v1/commissioning`; `CircuitSLD` draws the programme's farm (wider for > 3 strings on section A); the new-programme text uses `useNetwork()`. `SB510_EXPORT_KM` / `SB510_DEPTH_M` moved from `lib/lifecycle/farm.ts` to `constants/windFarmLayout.ts` (the SB-510 data file phase 9 rewrites).
+- Checked farms (whole programme to COMPLETED): SB-510, 540/75, 1080/45, 300/30, 120/73, 60/20, a no-reactor design. Not changed: protection relay settings (P2 Protection tab, SB-510), the Academy (its missions already use the own site/layout; the sequence drill teaches the SB-510 order).
+- P5 had no API tests; `tests/test_farm_spec_p5.py` runs the router on in-memory SQLite (JSONB compiled as JSON).
 
 ## Resume here
 

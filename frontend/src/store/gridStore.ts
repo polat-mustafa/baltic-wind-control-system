@@ -12,6 +12,7 @@
 
 import { create } from "zustand";
 
+import { SB510_EXPORT_KM } from "../constants/windFarmLayout";
 import { farmKey } from "../lib/project/farmHeader";
 import * as api from "../services/gridApi";
 import type {
@@ -41,7 +42,7 @@ export const SB510_NETWORK: NetworkSpec = {
   export_voltage_kv: 220,
   grid_voltage_kv: 400,
   array_cable_length_km: 1.5,
-  export_length_km: 45,
+  export_length_km: SB510_EXPORT_KM,
   num_export_cables: 2,
   cable_q_mvar: 260,
   num_oss_transformers: 2,

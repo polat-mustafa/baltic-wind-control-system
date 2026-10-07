@@ -267,6 +267,16 @@ class FarmSpec:
         return self.num_reactors * self.reactor_unit_mvar
 
     @property
+    def oss_pfe_kw(self) -> float:
+        """No-load loss of one OSS transformer, scaled with its rating from SB-510 [kW]."""
+        return TRAFO_66_220_PFE_KW * self.oss_trafo_mva / TRAFO_66_220_MVA
+
+    @property
+    def onshore_pfe_kw(self) -> float:
+        """No-load loss of one onshore transformer, scaled with its rating [kW]."""
+        return TRAFO_220_400_PFE_KW * self.onshore_trafo_mva / TRAFO_220_400_MVA
+
+    @property
     def section_a_strings(self) -> int:
         """Strings 1 … n sit on 66 kV busbar section A (TX-OSS-01), the rest on B."""
         return math.ceil(len(self.string_layout) / 2)
@@ -479,7 +489,7 @@ def build_network(
         vn_lv_kv=220.0,
         vk_percent=TRAFO_220_400_VK_PERCENT,
         vkr_percent=TRAFO_220_400_VKR_PERCENT,
-        pfe_kw=TRAFO_220_400_PFE_KW,
+        pfe_kw=spec.onshore_pfe_kw,
         i0_percent=TRAFO_220_400_I0_PERCENT,
         vector_group="YNyn0",
         parallel=NUM_ONSHORE_TRANSFORMERS,
@@ -497,7 +507,7 @@ def build_network(
         vn_lv_kv=66.0,
         vk_percent=TRAFO_66_220_VK_PERCENT,
         vkr_percent=TRAFO_66_220_VKR_PERCENT,
-        pfe_kw=TRAFO_66_220_PFE_KW,
+        pfe_kw=spec.oss_pfe_kw,
         i0_percent=TRAFO_66_220_I0_PERCENT,
         vector_group="Dyn11",
         parallel=NUM_OSS_TRANSFORMERS,

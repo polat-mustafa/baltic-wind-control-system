@@ -8,7 +8,7 @@
  * campaign (POST /api/v1/lifecycle/campaign).
  */
 
-import { OSS_GEO, TURBINE_POSITIONS } from "../../constants/windFarmLayout";
+import { OSS_GEO, SB510_DEPTH_M, SB510_EXPORT_KM, TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { routeCables, sectionFor, type CableEdge } from "../layout/cables";
 import { defaultExportKm, RATED_MW } from "../layout/evaluate";
 import { centroid, dist, projection, type LonLat, type XY } from "../layout/geometry";
@@ -16,9 +16,6 @@ import type { CampaignRequest } from "../../types/lifecycle";
 
 /** Monopile up to 40 m water depth, jacket beyond (same rule as the layout cost model). */
 export const MONOPILE_MAX_DEPTH_M = 40;
-/** SB-510 water depth range [m] (EMODnet DTM, see constants/windFarmLayout.ts). */
-export const SB510_DEPTH_M: [number, number] = [29, 40];
-export const SB510_EXPORT_KM = 45;
 
 export interface RegisterRow {
   id: string;

@@ -19,6 +19,12 @@ circuit 1 from the already-live onshore 220 kV busbar::
     WTG-GRP-0n: the main breakers of the turbines on string n, operated as one
     "release for generation" command.
 
+The drawing is SB-510. Another farm (``p2.network_model.FarmSpec``) gets the
+same bays with its own strings (section A = strings 1…⌈n/2⌉, IDs CB-STR-nn),
+reactor unit and STATCOM; a design without shunt reactors has no reactor bay.
+``equipment(spec)`` builds the registry; every function takes ``spec``
+(default SB-510).
+
 Circuit 2 (TX-OSS-02, section B, strings 4–6) stays earthed in this programme;
 its second export cable, the spare reactors and the 66 kV bus coupler are not
 modelled here. The onshore busbar ONS220 is the only source. The short GIS bay
@@ -59,8 +65,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from functools import lru_cache
 
 from app.core.exceptions import NotFoundError, StateTransitionError
+from app.services.p2.network_model import SB510, FarmSpec
 
 # ── Enums ──────────────────────────────────────────────────────────
 
@@ -128,14 +136,14 @@ _OPEN = EquipmentState.OPEN
 _CLOSED = EquipmentState.CLOSED
 
 
-def _string_devices() -> tuple[EquipmentDefinition, ...]:
+def _string_devices(spec: FarmSpec) -> list[EquipmentDefinition]:
     devices: list[EquipmentDefinition] = []
-    for n in range(1, 7):
-        section = "A" if n <= 3 else "B"
-        bus = "66A" if n <= 3 else "66B"
+    for n, n_wtg in enumerate(spec.string_layout, start=1):
+        on_a = n <= spec.section_a_strings
+        section, bus = ("A", "66A") if on_a else ("B", "66B")
         devices += [
             EquipmentDefinition(
-                f"CB-STR-0{n}",
+                f"CB-STR-{n:02d}",
                 _CB,
                 66.0,
                 f"String {n} feeder CB (66 kV section {section})",
@@ -143,7 +151,7 @@ def _string_devices() -> tuple[EquipmentDefinition, ...]:
                 (bus, f"STR{n}"),
             ),
             EquipmentDefinition(
-                f"ES-STR-0{n}",
+                f"ES-STR-{n:02d}",
                 _ES,
                 66.0,
                 f"String {n} feeder earth switch (cable side)",
@@ -151,97 +159,153 @@ def _string_devices() -> tuple[EquipmentDefinition, ...]:
                 (f"STR{n}",),
             ),
         ]
-        if n <= 3:
+        if on_a:
             devices.append(
                 EquipmentDefinition(
-                    f"WTG-GRP-0{n}",
+                    f"WTG-GRP-{n:02d}",
                     EquipmentType.WTG_GROUP,
                     66.0,
-                    f"Main breakers of the 6 turbines on string {n}",
+                    f"Main breakers of the {n_wtg} turbines on string {n}",
                     _OPEN,
                     (f"STR{n}",),
                 )
             )
-    return tuple(devices)
+    return devices
 
 
-OSS_EQUIPMENT: tuple[EquipmentDefinition, ...] = (
-    # Onshore export bay E1 (220 kV)
-    EquipmentDefinition(
-        "DS-ON-220-01",
-        _DS,
-        220.0,
-        "Onshore bay E1 busbar disconnector",
-        _OPEN,
-        ("ONS220", "ONS-E1"),
-    ),
-    EquipmentDefinition(
-        "CB-ON-220-01", _CB, 220.0, "Onshore bay E1 circuit breaker", _OPEN, ("ONS-E1", "CABLE1")
-    ),
-    EquipmentDefinition(
-        "ES-ON-220-01", _ES, 220.0, "Export cable 1 earth switch, onshore end", _CLOSED, ("CABLE1",)
-    ),
-    # OSS export bay E1 (220 kV)
-    EquipmentDefinition(
-        "ES-OSS-220-01", _ES, 220.0, "Export cable 1 earth switch, OSS end", _CLOSED, ("CABLE1",)
-    ),
-    EquipmentDefinition(
-        "CB-OSS-220-01", _CB, 220.0, "OSS bay E1 circuit breaker", _OPEN, ("CABLE1", "OSS-E1")
-    ),
-    EquipmentDefinition(
-        "DS-OSS-220-01", _DS, 220.0, "OSS bay E1 busbar disconnector", _OPEN, ("OSS-E1", "OSS220")
-    ),
-    EquipmentDefinition(
-        "ES-OSS-220-BB", _ES, 220.0, "OSS 220 kV busbar earth switch", _CLOSED, ("OSS220",)
-    ),
-    # Reactive compensation on the OSS 220 kV busbar
-    EquipmentDefinition(
-        "CB-SR-01",
-        _CB,
-        220.0,
-        "Shunt reactor 1 (80 Mvar) circuit breaker",
-        _OPEN,
-        ("OSS220", "SR1"),
-    ),
-    EquipmentDefinition(
-        "CB-STC-01", _CB, 220.0, "STATCOM (±120 Mvar) circuit breaker", _OPEN, ("OSS220", "STC")
-    ),
-    EquipmentDefinition(
-        "ES-SR-01", _ES, 220.0, "Shunt reactor 1 bay earth switch", _CLOSED, ("SR1",)
-    ),
-    EquipmentDefinition("ES-STC-01", _ES, 220.0, "STATCOM bay earth switch", _CLOSED, ("STC",)),
-    # OSS transformers 220/66 kV, 300 MVA each
-    EquipmentDefinition(
-        "CB-TX-OSS-HV", _CB, 220.0, "TX-OSS-01 HV circuit breaker", _OPEN, ("OSS220", "TX1")
-    ),
-    EquipmentDefinition(
-        "ES-TX-OSS-01", _ES, 220.0, "TX-OSS-01 HV bay earth switch", _CLOSED, ("TX1",)
-    ),
-    EquipmentDefinition(
-        "CB-TX-OSS-LV", _CB, 66.0, "TX-OSS-01 LV incomer, 66 kV section A", _OPEN, ("TX1", "66A")
-    ),
-    EquipmentDefinition(
-        "ES-OSS-66-01", _ES, 66.0, "66 kV busbar section A earth switch", _CLOSED, ("66A",)
-    ),
-    EquipmentDefinition(
-        "CB-TX-OSS-02-HV", _CB, 220.0, "TX-OSS-02 HV circuit breaker", _OPEN, ("OSS220", "TX2")
-    ),
-    EquipmentDefinition(
-        "ES-TX-OSS-02", _ES, 220.0, "TX-OSS-02 HV bay earth switch", _CLOSED, ("TX2",)
-    ),
-    EquipmentDefinition(
-        "CB-TX-OSS-02-LV", _CB, 66.0, "TX-OSS-02 LV incomer, 66 kV section B", _OPEN, ("TX2", "66B")
-    ),
-    EquipmentDefinition(
-        "ES-OSS-66-02", _ES, 66.0, "66 kV busbar section B earth switch", _CLOSED, ("66B",)
-    ),
-    *_string_devices(),
-)
+@lru_cache(maxsize=32)
+def equipment(spec: FarmSpec = SB510) -> tuple[EquipmentDefinition, ...]:
+    """Switching devices of circuit 1 of ``spec``, in drawing order."""
+    reactor = (
+        EquipmentDefinition(
+            "CB-SR-01",
+            _CB,
+            220.0,
+            f"Shunt reactor 1 ({spec.reactor_unit_mvar:.0f} Mvar) circuit breaker",
+            _OPEN,
+            ("OSS220", "SR1"),
+        ),
+        EquipmentDefinition(
+            "ES-SR-01", _ES, 220.0, "Shunt reactor 1 bay earth switch", _CLOSED, ("SR1",)
+        ),
+    )
+    return (
+        # Onshore export bay E1 (220 kV)
+        EquipmentDefinition(
+            "DS-ON-220-01",
+            _DS,
+            220.0,
+            "Onshore bay E1 busbar disconnector",
+            _OPEN,
+            ("ONS220", "ONS-E1"),
+        ),
+        EquipmentDefinition(
+            "CB-ON-220-01",
+            _CB,
+            220.0,
+            "Onshore bay E1 circuit breaker",
+            _OPEN,
+            ("ONS-E1", "CABLE1"),
+        ),
+        EquipmentDefinition(
+            "ES-ON-220-01",
+            _ES,
+            220.0,
+            "Export cable 1 earth switch, onshore end",
+            _CLOSED,
+            ("CABLE1",),
+        ),
+        # OSS export bay E1 (220 kV)
+        EquipmentDefinition(
+            "ES-OSS-220-01",
+            _ES,
+            220.0,
+            "Export cable 1 earth switch, OSS end",
+            _CLOSED,
+            ("CABLE1",),
+        ),
+        EquipmentDefinition(
+            "CB-OSS-220-01", _CB, 220.0, "OSS bay E1 circuit breaker", _OPEN, ("CABLE1", "OSS-E1")
+        ),
+        EquipmentDefinition(
+            "DS-OSS-220-01",
+            _DS,
+            220.0,
+            "OSS bay E1 busbar disconnector",
+            _OPEN,
+            ("OSS-E1", "OSS220"),
+        ),
+        EquipmentDefinition(
+            "ES-OSS-220-BB", _ES, 220.0, "OSS 220 kV busbar earth switch", _CLOSED, ("OSS220",)
+        ),
+        # Reactive compensation on the OSS 220 kV busbar
+        *(reactor if spec.num_reactors else ()),
+        EquipmentDefinition(
+            "CB-STC-01",
+            _CB,
+            220.0,
+            f"STATCOM (±{spec.statcom_mvar:.0f} Mvar) circuit breaker",
+            _OPEN,
+            ("OSS220", "STC"),
+        ),
+        EquipmentDefinition("ES-STC-01", _ES, 220.0, "STATCOM bay earth switch", _CLOSED, ("STC",)),
+        # OSS transformers 220/66 kV
+        EquipmentDefinition(
+            "CB-TX-OSS-HV", _CB, 220.0, "TX-OSS-01 HV circuit breaker", _OPEN, ("OSS220", "TX1")
+        ),
+        EquipmentDefinition(
+            "ES-TX-OSS-01", _ES, 220.0, "TX-OSS-01 HV bay earth switch", _CLOSED, ("TX1",)
+        ),
+        EquipmentDefinition(
+            "CB-TX-OSS-LV",
+            _CB,
+            66.0,
+            "TX-OSS-01 LV incomer, 66 kV section A",
+            _OPEN,
+            ("TX1", "66A"),
+        ),
+        EquipmentDefinition(
+            "ES-OSS-66-01", _ES, 66.0, "66 kV busbar section A earth switch", _CLOSED, ("66A",)
+        ),
+        EquipmentDefinition(
+            "CB-TX-OSS-02-HV",
+            _CB,
+            220.0,
+            "TX-OSS-02 HV circuit breaker",
+            _OPEN,
+            ("OSS220", "TX2"),
+        ),
+        EquipmentDefinition(
+            "ES-TX-OSS-02", _ES, 220.0, "TX-OSS-02 HV bay earth switch", _CLOSED, ("TX2",)
+        ),
+        EquipmentDefinition(
+            "CB-TX-OSS-02-LV",
+            _CB,
+            66.0,
+            "TX-OSS-02 LV incomer, 66 kV section B",
+            _OPEN,
+            ("TX2", "66B"),
+        ),
+        EquipmentDefinition(
+            "ES-OSS-66-02", _ES, 66.0, "66 kV busbar section B earth switch", _CLOSED, ("66B",)
+        ),
+        *_string_devices(spec),
+    )
 
-_EQUIPMENT_BY_ID: dict[str, EquipmentDefinition] = {eq.equipment_id: eq for eq in OSS_EQUIPMENT}
 
+@lru_cache(maxsize=32)
+def _registry(spec: FarmSpec) -> dict[str, EquipmentDefinition]:
+    return {eq.equipment_id: eq for eq in equipment(spec)}
+
+
+@lru_cache(maxsize=32)
+def zones(spec: FarmSpec = SB510) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(z for eq in equipment(spec) for z in eq.zones))
+
+
+OSS_EQUIPMENT = equipment(SB510)
 SOURCE_ZONE = "ONS220"
-ZONES: tuple[str, ...] = tuple(dict.fromkeys(z for eq in OSS_EQUIPMENT for z in eq.zones))
+ZONES = zones(SB510)
 
 # Disconnector → the CB in series with it (ILK-003)
 SERIES_CB: dict[str, str] = {"DS-ON-220-01": "CB-ON-220-01", "DS-OSS-220-01": "CB-OSS-220-01"}
@@ -289,24 +353,24 @@ class EquipmentNotFoundError(NotFoundError):
 # ── Topology ───────────────────────────────────────────────────────
 
 
-def get_equipment_definition(equipment_id: str) -> EquipmentDefinition:
+def get_equipment_definition(equipment_id: str, spec: FarmSpec = SB510) -> EquipmentDefinition:
     """Registry lookup; raises EquipmentNotFoundError."""
     try:
-        return _EQUIPMENT_BY_ID[equipment_id]
+        return _registry(spec)[equipment_id]
     except KeyError:
         raise EquipmentNotFoundError(
             f"Equipment '{equipment_id}' is not in the circuit 1 registry."
         ) from None
 
 
-def build_initial_state() -> dict[str, EquipmentState]:
+def build_initial_state(spec: FarmSpec = SB510) -> dict[str, EquipmentState]:
     """Construction condition: every earth switch closed, everything else open."""
-    return {eq.equipment_id: eq.initial_state for eq in OSS_EQUIPMENT}
+    return {eq.equipment_id: eq.initial_state for eq in equipment(spec)}
 
 
-def _groups(state: dict[str, EquipmentState], extra_closed: str | None = None) -> dict[str, str]:
+def _groups(state: dict[str, EquipmentState], spec: FarmSpec = SB510) -> dict[str, str]:
     """Zone → representative of its connected group (union-find over closed CB/DS)."""
-    parent = {z: z for z in ZONES}
+    parent = {z: z for z in zones(spec)}
 
     def find(z: str) -> str:
         while parent[z] != z:
@@ -314,22 +378,20 @@ def _groups(state: dict[str, EquipmentState], extra_closed: str | None = None) -
             z = parent[z]
         return z
 
-    for eq in OSS_EQUIPMENT:
-        if eq.equipment_type not in (_CB, _DS):
-            continue
-        if state.get(eq.equipment_id) == _CLOSED or eq.equipment_id == extra_closed:
+    for eq in equipment(spec):
+        if eq.equipment_type in (_CB, _DS) and state.get(eq.equipment_id) == _CLOSED:
             a, b = (find(z) for z in eq.zones)
             parent[a] = b
-    return {z: find(z) for z in ZONES}
+    return {z: find(z) for z in parent}
 
 
-def zone_status(state: dict[str, EquipmentState]) -> dict[str, ZoneStatus]:
+def zone_status(state: dict[str, EquipmentState], spec: FarmSpec = SB510) -> dict[str, ZoneStatus]:
     """LIVE / EARTHED / DEAD for every zone. Interlocks make live+earthed impossible."""
-    group = _groups(state)
+    group = _groups(state, spec)
     live = {group[SOURCE_ZONE]}
     earthed = {
         group[eq.zones[0]]
-        for eq in OSS_EQUIPMENT
+        for eq in equipment(spec)
         if eq.equipment_type == _ES and state.get(eq.equipment_id) == _CLOSED
     }
     return {
@@ -338,7 +400,7 @@ def zone_status(state: dict[str, EquipmentState]) -> dict[str, ZoneStatus]:
         else ZoneStatus.EARTHED
         if group[z] in earthed
         else ZoneStatus.DEAD
-        for z in ZONES
+        for z in group
     }
 
 
@@ -350,12 +412,13 @@ def check_interlocks(
     action: SwitchingAction,
     state: dict[str, EquipmentState],
     locked: frozenset[str] = frozenset(),
+    spec: FarmSpec = SB510,
 ) -> list[InterlockViolation]:
     """All interlocks that block ``action`` on ``equipment_id`` (empty = allowed).
 
     ``locked`` holds the IDs of devices currently secured by an isolation lock.
     """
-    eq = get_equipment_definition(equipment_id)
+    eq = get_equipment_definition(equipment_id, spec)
     closing = action == SwitchingAction.CLOSE
     violations: list[InterlockViolation] = []
 
@@ -369,15 +432,15 @@ def check_interlocks(
             )
         )
 
-    status = zone_status(state)
-    group = _groups(state)
+    status = zone_status(state, spec)
+    group = _groups(state, spec)
     if closing and eq.equipment_type in (_CB, _DS):
         a, b = (status[z] for z in eq.zones)
         if {a, b} == {ZoneStatus.LIVE, ZoneStatus.EARTHED}:
             earthed_zone = eq.zones[0] if a == ZoneStatus.EARTHED else eq.zones[1]
             es = [
                 e.equipment_id
-                for e in OSS_EQUIPMENT
+                for e in equipment(spec)
                 if e.equipment_type == _ES
                 and state.get(e.equipment_id) == _CLOSED
                 and group[e.zones[0]] == group[earthed_zone]
@@ -432,12 +495,13 @@ def execute_switching_action(
     action: SwitchingAction,
     state: dict[str, EquipmentState],
     locked: frozenset[str] = frozenset(),
+    spec: FarmSpec = SB510,
 ) -> SwitchingResult:
     """Validate and execute OPEN/CLOSE on one device; ``state`` is updated in place.
 
     Raises EquipmentNotFoundError, InvalidTransitionError or InterlockError.
     """
-    get_equipment_definition(equipment_id)
+    get_equipment_definition(equipment_id, spec)
     if action not in (SwitchingAction.OPEN, SwitchingAction.CLOSE):
         raise InvalidTransitionError(f"{action.value} is not a programme command.")
     current = state[equipment_id]
@@ -445,7 +509,7 @@ def execute_switching_action(
     if current == target:
         raise InvalidTransitionError(f"{equipment_id} is already {current.value}.")
 
-    violations = check_interlocks(equipment_id, action, state, locked)
+    violations = check_interlocks(equipment_id, action, state, locked, spec)
     if violations:
         raise InterlockError(
             f"{equipment_id} {action.value} blocked: "

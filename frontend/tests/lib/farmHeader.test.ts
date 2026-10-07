@@ -53,13 +53,15 @@ describe("farm header", () => {
     expect(JSON.parse(decodeURIComponent(farmHeader()!))).toEqual(f);
   });
 
-  it("goes only to the grid endpoints", async () => {
+  it("goes only to the grid and commissioning endpoints", async () => {
     layOut();
     await request("/api/v1/grid/network-spec");
+    await request("/api/v1/commissioning/programmes");
     await request("/api/v1/site/regions");
     const headers = fetchMock.mock.calls.map((c) => (c[1] as RequestInit).headers as Record<string, string>);
     expect(headers[0]["X-Farm"]).toBe(farmHeader());
-    expect(headers[1]["X-Farm"]).toBeUndefined();
+    expect(headers[1]["X-Farm"]).toBe(farmHeader()); // a new programme is built for this farm
+    expect(headers[2]["X-Farm"]).toBeUndefined();
   });
 
   it("drops grid results computed for another farm", async () => {

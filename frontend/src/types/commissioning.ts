@@ -106,7 +106,24 @@ export interface EmergencyEvent {
   programme_status: ProgrammeStatus;
 }
 
+/** The farm a programme energises (backend FarmSpec). */
+export interface ProgrammeFarm {
+  name: string;
+  string_layout: number[];
+  section_a_strings: number;
+  export_length_km: number;
+  oss_trafo_mva: number;
+  statcom_mvar: number;
+  /** Reactor 1 [Mvar]; null: the design has no shunt reactors. */
+  reactor_unit_mvar: number | null;
+  /** Output with circuit 1 only [MW] (PPC limit on 3–4 circuit farms). */
+  output_limit_mw: number;
+  onshore_tap: number;
+  reactor_energisation: boolean;
+}
+
 export interface ProgrammeDetail extends ProgrammeSummary {
+  farm: ProgrammeFarm;
   phases: Record<string, string>;
   steps: Step[];
   equipment_states: EquipmentState[];

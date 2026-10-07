@@ -4,7 +4,8 @@ Which farm the P2 grid endpoints model.
 No header → the SB-510 reference design. The learner's own project sends its
 layout in the ``X-Farm`` header (URL-encoded JSON, so names may hold any
 character): strings (turbines per string, from the frontend cable tree), mean
-array section length and export cable length. The backend sizes the rest with
+array section length, export cable length and, when the site has one, its
+hub-height Weibull wind climate (Digital Twin inflow). The backend sizes the rest with
 ``network_model.design`` and checks the reactors with a load flow
 (``statcom_sizing.check_reactors``) — nothing is stored, so a project that only
 lives in the browser works too.
@@ -41,6 +42,8 @@ class FarmInput(BaseModel):
     )
     export_km: float = Field(ge=1.0, le=300.0)
     array_km: float = Field(ge=0.1, le=20.0, description="Mean array section length [km]")
+    wind_a: float | None = Field(None, ge=3.0, le=20.0, description="Weibull A at hub [m/s]")
+    wind_k: float | None = Field(None, ge=1.0, le=5.0, description="Weibull k at hub")
 
     @model_validator(mode="after")
     def _size(self) -> FarmInput:
@@ -49,18 +52,33 @@ class FarmInput(BaseModel):
         return self
 
 
-def farm_spec(x_farm: Annotated[str | None, Header()] = None) -> FarmSpec:
-    """FarmSpec of the request: SB-510, or the design of the farm in ``X-Farm``."""
+def _farm_input(x_farm: str | None) -> FarmInput | None:
     if not x_farm:
-        return SB510
+        return None
     try:
-        farm = FarmInput.model_validate_json(unquote(x_farm))
+        return FarmInput.model_validate_json(unquote(x_farm))
     except ValidationError as e:
         err = e.errors()[0]
         where = ".".join(str(p) for p in err["loc"])
         raise DomainValidationError(f"X-Farm header: {where} {err['msg']}".strip()) from e
+
+
+def farm_spec(x_farm: Annotated[str | None, Header()] = None) -> FarmSpec:
+    """FarmSpec of the request: SB-510, or the design of the farm in ``X-Farm``."""
+    farm = _farm_input(x_farm)
+    if farm is None:
+        return SB510
     spec = design(tuple(farm.strings), round(farm.export_km, 1), round(farm.array_km, 3), farm.name)
     return check_reactors(spec)
 
 
+def farm_wind(x_farm: Annotated[str | None, Header()] = None) -> tuple[float, float] | None:
+    """Hub-height Weibull (A [m/s], k) of the own site, or None (SB-510 / no site wind)."""
+    farm = _farm_input(x_farm)
+    if farm is None or farm.wind_a is None or farm.wind_k is None:
+        return None
+    return round(farm.wind_a, 2), round(farm.wind_k, 2)
+
+
 FarmSpecDep = Annotated[FarmSpec, Depends(farm_spec)]
+FarmWindDep = Annotated[tuple[float, float] | None, Depends(farm_wind)]

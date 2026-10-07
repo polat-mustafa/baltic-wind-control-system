@@ -3,11 +3,13 @@
  *
  * A run is identified by (scenario, duration, seed); the backend caches it, so
  * the turbine detail always belongs to the run the overview shows. Responses
- * that arrive after the user started a newer request are dropped.
+ * that arrive after the user started a newer request are dropped. Results
+ * belong to one farm (farmKey): switching project clears them.
  */
 
 import { create } from "zustand";
 
+import { farmKey } from "../lib/project/farmHeader";
 import * as api from "../services/digitalTwinApi";
 import type {
   AnalyzeResponse,
@@ -22,6 +24,8 @@ import type {
 export type TwinTab = "fleet" | "turbine" | "model";
 
 interface DigitalTwinState {
+  /** farmKey() of the farm the model card and the run belong to. */
+  farm: string | null;
   modelCard: ModelCard | null;
   referenceCurve: ReferenceCurve | null;
   analysis: AnalyzeResponse | null;
@@ -54,7 +58,16 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 let analysisToken = 0;
 let detailToken = 0;
 
-export const useDigitalTwinStore = create<DigitalTwinState>((set, get) => ({
+export const useDigitalTwinStore = create<DigitalTwinState>((set, get) => {
+  /** Drop results of another farm (own project ↔ SB-510, edited layout). */
+  const syncFarm = () => {
+    const key = farmKey();
+    if (get().farm !== key) {
+      set({ farm: key, modelCard: null, analysis: null, detail: null, selectedTurbineId: null });
+    }
+  };
+  return {
+  farm: null,
   modelCard: null,
   referenceCurve: null,
   analysis: null,
@@ -78,6 +91,7 @@ export const useDigitalTwinStore = create<DigitalTwinState>((set, get) => ({
   setSelectedChannel: (selectedChannel) => set({ selectedChannel }),
 
   loadModel: async () => {
+    syncFarm();
     if (get().modelCard && get().referenceCurve) return;
     try {
       const [modelCard, referenceCurve] = await Promise.all([
@@ -91,6 +105,7 @@ export const useDigitalTwinStore = create<DigitalTwinState>((set, get) => ({
   },
 
   runAnalysis: async () => {
+    syncFarm();
     const { scenario, durationDays, seed } = get();
     const token = ++analysisToken;
     set({ loading: true, error: null });
@@ -101,7 +116,7 @@ export const useDigitalTwinStore = create<DigitalTwinState>((set, get) => ({
       const worst = [...analysis.turbines].sort((a, b) => a.health_index - b.health_index)[0];
       const keep = get().selectedTurbineId;
       set({ analysis, detail: null, loading: false });
-      await get().selectTurbine(keep ?? worst.turbine_id, false);
+      await get().selectTurbine(keep != null && keep < analysis.turbines.length ? keep : worst.turbine_id, false);
     } catch (err) {
       if (token === analysisToken) set({ error: message(err), loading: false });
     }
@@ -127,4 +142,5 @@ export const useDigitalTwinStore = create<DigitalTwinState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-}));
+  };
+});

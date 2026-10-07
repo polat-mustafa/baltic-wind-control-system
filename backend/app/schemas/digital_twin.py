@@ -36,7 +36,7 @@ class AnalyzeRequest(BaseModel):
 
 
 class TurbineDetailRequest(AnalyzeRequest):
-    turbine_id: int = Field(ge=0, le=33, description="Turbine index (0 = WTG-01)")
+    turbine_id: int = Field(ge=0, le=149, description="Turbine index (0 = WTG-01)")
 
 
 class OperatingPointRequest(BaseModel):

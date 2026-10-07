@@ -12,6 +12,7 @@ import Plot from "react-plotly.js";
 
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
+import { useFarmPlan } from "../../hooks/useFarmPlan";
 import { useCMSStore } from "../../store/cmsStore";
 import type { CMSComponent } from "../../types/cms";
 
@@ -20,7 +21,6 @@ const COMPONENTS: { value: CMSComponent; label: string }[] = [
   { value: "GEARBOX", label: "Gearbox" },
   { value: "GENERATOR", label: "Generator" },
 ];
-const TURBINES = Array.from({ length: 34 }, (_, i) => `WTG-${String(i + 1).padStart(2, "0")}`);
 const ZONES = [
   { upTo: 2.3, label: "A · new" },
   { upTo: 4.5, label: "B · acceptable" },
@@ -37,6 +37,8 @@ export default function VibrationPanel() {
   const loading = useCMSStore((s) => s.detailLoading);
   const fetchVibration = useCMSStore((s) => s.fetchVibration);
   const c = useChartPalette();
+  const n = useFarmPlan().turbines.length;
+  const turbines = Array.from({ length: n }, (_, i) => `WTG-${String(i + 1).padStart(2, "0")}`);
 
   // Pitch/yaw have no spectrum: fall back to the main bearing
   const comp = COMPONENTS.some((x) => x.value === component) ? component : "MAIN_BEARING";
@@ -52,7 +54,7 @@ export default function VibrationPanel() {
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <h3 className="text-xs font-semibold text-text-primary">Vibration spectrum</h3>
         <select value={turbineId} onChange={(e) => void fetchVibration(e.target.value, comp)} className={selectCls} aria-label="Turbine">
-          {TURBINES.map((t) => (
+          {turbines.map((t) => (
             <option key={t}>{t}</option>
           ))}
         </select>

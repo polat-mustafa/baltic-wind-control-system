@@ -21,6 +21,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, Path, Query
 
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.cms import (
     CMSAlertResponse,
     FaultInjectionRequest,
@@ -37,15 +38,15 @@ router = APIRouter(tags=["M12 Condition Monitoring"])
 _VALID_COMPONENTS = {"MAIN_BEARING", "GEARBOX", "GENERATOR", "PITCH", "YAW"}
 
 
-def _validate_turbine(turbine_id: str) -> str:
-    """Validate turbine ID format WTG-01 to WTG-34."""
-    # Accept WTG-01..WTG-34 and WTG01..WTG34
+def _validate_turbine(turbine_id: str, n_turbines: int) -> str:
+    """Validate turbine ID format WTG-01 … WTG-nn (SB-510: 34)."""
+    # Accept WTG-01 and WTG01
     tid = turbine_id.upper().replace("WTG", "WTG-").replace("--", "-")
     try:
         num = int(tid.split("-")[-1])
     except ValueError as e:
         raise HTTPException(status_code=404, detail=f"Turbine '{turbine_id}' not found") from e
-    if num < 1 or num > 34:
+    if num < 1 or num > n_turbines:
         raise HTTPException(status_code=404, detail=f"Turbine '{turbine_id}' not found")
     return f"WTG-{num:02d}"
 
@@ -55,8 +56,8 @@ def _validate_turbine(turbine_id: str) -> str:
     response_model=FleetHealthResponse,
     summary="Fleet CMS health overview",
 )
-async def get_fleet_overview() -> FleetHealthResponse:
-    """Return health status for all 34 turbines.
+async def get_fleet_overview(spec: FarmSpecDep) -> FleetHealthResponse:
+    """Return health status for every turbine of the farm.
 
     Provides a compact summary per turbine:
     - Overall health index (worst component dominates)
@@ -64,14 +65,14 @@ async def get_fleet_overview() -> FleetHealthResponse:
     - Worst component name (drives the overall status)
     - Number of active alerts
 
-    Use this to populate the 34-turbine fleet grid coloured by
+    Use this to populate the fleet grid coloured by
     health status. Drill into individual turbines for component detail.
 
     Physics: A single degraded main bearing pulling HI to 25 (RED)
     makes the whole turbine RED even if all other 4 components are GREEN.
     The 'worst component' field tells the operator exactly what to inspect.
     """
-    return svc.get_fleet_health()
+    return svc.get_fleet_health(spec.num_turbines)
 
 
 @router.get(
@@ -80,6 +81,7 @@ async def get_fleet_overview() -> FleetHealthResponse:
     summary="Turbine CMS health — all components",
 )
 async def get_turbine_health(
+    spec: FarmSpecDep,
     turbine_id: str = Path(description="Turbine ID, e.g. 'WTG-01' or 'WTG01'"),
 ) -> TurbineHealthResponse:
     """Return per-component health index and vibration for one turbine.
@@ -100,7 +102,7 @@ async def get_turbine_health(
 
     Vibration zones: ISO 10816-3 group 2 thresholds (2.3 / 4.5 / 7.1 mm/s).
     """
-    tid = _validate_turbine(turbine_id)
+    tid = _validate_turbine(turbine_id, spec.num_turbines)
     return svc.get_turbine_health(tid)
 
 
@@ -110,6 +112,7 @@ async def get_turbine_health(
     summary="Turbine vibration FFT spectrum",
 )
 async def get_vibration_spectrum(
+    spec: FarmSpecDep,
     turbine_id: str = Path(description="Turbine ID, e.g. 'WTG-01'"),
     component: str = Query(
         default="MAIN_BEARING",
@@ -124,7 +127,7 @@ async def get_vibration_spectrum(
     sidebands. Generator (0–200 Hz): 1×/2× of 400 rpm and its bearing BPFO.
     Pitch and yaw have no vibration CMS (422).
     """
-    tid = _validate_turbine(turbine_id)
+    tid = _validate_turbine(turbine_id, spec.num_turbines)
     comp = component.upper()
     if comp not in _VALID_COMPONENTS:
         raise HTTPException(
@@ -143,6 +146,7 @@ async def get_vibration_spectrum(
     summary="Gearbox oil analysis trend",
 )
 async def get_oil_analysis(
+    spec: FarmSpecDep,
     turbine_id: str = Path(description="Turbine ID, e.g. 'WTG-01'"),
 ) -> OilAnalysisResponse:
     """Return 12-month gearbox oil analysis trend.
@@ -160,7 +164,7 @@ async def get_oil_analysis(
     Large particles ≥ 14 µm are the most damaging to bearing surfaces.
     Water content > 200 ppm accelerates oxidation and corrosion.
     """
-    tid = _validate_turbine(turbine_id)
+    tid = _validate_turbine(turbine_id, spec.num_turbines)
     return svc.get_oil_analysis(tid)
 
 
@@ -170,6 +174,7 @@ async def get_oil_analysis(
     summary="Active CMS alerts",
 )
 async def get_active_alerts(
+    spec: FarmSpecDep,
     min_level: str = Query(
         default="AMBER",
         description="Minimum alert level to return: YELLOW / AMBER / RED / CRITICAL",
@@ -194,7 +199,7 @@ async def get_active_alerts(
         "CRITICAL": {"CRITICAL"},
     }
     allowed = min_levels.get(min_level.upper(), {"AMBER", "RED", "CRITICAL"})
-    all_alerts = svc.get_active_alerts()
+    all_alerts = svc.get_active_alerts(spec.num_turbines)
     return [a for a in all_alerts if a.alert_level in allowed]
 
 
@@ -204,6 +209,7 @@ async def get_active_alerts(
     summary="Inject a CMS degradation scenario",
 )
 async def simulate_fault(
+    spec: FarmSpecDep,
     turbine_id: Annotated[str, Path(description="Turbine ID, e.g. 'WTG-01'")],
     body: Annotated[FaultInjectionRequest, Body()],
 ) -> FaultInjectionResponse:
@@ -230,7 +236,7 @@ async def simulate_fault(
     detectable vibration signature to catastrophic failure in 6–18 months
     (MINOR), 2–6 months (MODERATE), or 2–6 weeks (SEVERE).
     """
-    tid = _validate_turbine(turbine_id)
+    tid = _validate_turbine(turbine_id, spec.num_turbines)
     comp = body.component.upper()
     if comp not in _VALID_COMPONENTS:
         raise HTTPException(

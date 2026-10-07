@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, StateTransitionError
 from app.db import get_session
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.bay import (
     AllBaysResponse,
     BayStateResponse,
@@ -34,6 +35,7 @@ from app.schemas.bay import (
     SynchroCheckSchema,
     ValidateCommandRequest,
 )
+from app.services.p2.network_model import FarmSpec
 from app.services.p3 import bay_controller as svc
 from app.services.p3 import soe_recorder
 from app.services.p5.equipment_state import BayController, SwitchCommand, SwitchingAction
@@ -41,7 +43,7 @@ from app.services.p5.equipment_state import BayController, SwitchCommand, Switch
 router = APIRouter(tags=["M01 Bay Controller"])
 
 
-def _bay_to_response(bay: BayController, bay_id_str: str) -> BayStateResponse:
+def _bay_to_response(bay: BayController, bay_id_str: str, spec: FarmSpec) -> BayStateResponse:
     """Convert a BayController dataclass to a BayStateResponse schema."""
     sync = None
     if bay.synchrocheck is not None:
@@ -51,8 +53,7 @@ def _bay_to_response(bay: BayController, bay_id_str: str) -> BayStateResponse:
             delta_phase_deg=bay.synchrocheck.delta_phase_deg,
             is_in_sync=bay.synchrocheck.is_in_sync,
         )
-    # Retrieve the UUID from meta (bay_id is used as string key)
-    meta = svc._bay_meta.get(bay_id_str, {})
+    meta = svc.bay_meta(bay_id_str, spec)
     # Generate a stable UUID from the bay_id string for the response
     stable_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, bay_id_str)
 
@@ -80,8 +81,8 @@ def _bay_to_response(bay: BayController, bay_id_str: str) -> BayStateResponse:
 
 
 @router.get("/bays", response_model=AllBaysResponse, summary="Get all bay states")
-async def get_all_bays() -> AllBaysResponse:
-    """Return current state of all 9 OSS 66 kV switchboard bays.
+async def get_all_bays(spec: FarmSpecDep) -> AllBaysResponse:
+    """Return current state of all OSS 66 kV switchboard bays (one feeder per string + 3).
 
     Physics: Each bay represents one feeder panel on the 66 kV switchboard.
     The bay state shows the position of every switching device (CB, two
@@ -89,8 +90,8 @@ async def get_all_bays() -> AllBaysResponse:
 
     Used by the SCADA SLD overview dashboard.
     """
-    bays = svc.get_all_bays()
-    bay_responses = [_bay_to_response(b, b.bay_id) for b in bays]
+    bays = svc.get_all_bays(spec)
+    bay_responses = [_bay_to_response(b, b.bay_id, spec) for b in bays]
 
     energised = sum(1 for b in bays if b.circuit_breaker.value == "closed")
     earthed = sum(1 for b in bays if b.earth_switch.value == "closed")
@@ -110,7 +111,7 @@ async def get_all_bays() -> AllBaysResponse:
     response_model=BayStateResponse,
     summary="Get single bay state",
 )
-async def get_bay_state(bay_id: str) -> BayStateResponse:
+async def get_bay_state(bay_id: str, spec: FarmSpecDep) -> BayStateResponse:
     """Return the current equipment state of a single bay.
 
     Parameters
@@ -121,8 +122,8 @@ async def get_bay_state(bay_id: str) -> BayStateResponse:
     Returns the position of: CB, bus disconnector, line disconnector,
     earth switch, and protection relay arming state.
     """
-    bay = svc.get_bay_state(bay_id)
-    return _bay_to_response(bay, bay_id)
+    bay = svc.get_bay_state(bay_id, spec)
+    return _bay_to_response(bay, bay_id, spec)
 
 
 @router.get(
@@ -130,7 +131,7 @@ async def get_bay_state(bay_id: str) -> BayStateResponse:
     response_model=InterlockStatusResponse,
     summary="Get interlock status for bay",
 )
-async def get_interlock_status(bay_id: str) -> InterlockStatusResponse:
+async def get_interlock_status(bay_id: str, spec: FarmSpecDep) -> InterlockStatusResponse:
     """Return the status of all 7 interlock rules for a bay.
 
     Each rule shows:
@@ -145,8 +146,8 @@ async def get_interlock_status(bay_id: str) -> InterlockStatusResponse:
     IEC 61936-1 §7.6 requires them to prevent equipment destruction and
     personnel death during switching operations.
     """
-    rules_raw = svc.get_interlock_status(bay_id)
-    bay = svc.get_bay_state(bay_id)
+    rules_raw = svc.get_interlock_status(bay_id, spec)
+    bay = svc.get_bay_state(bay_id, spec)
 
     rules = [
         InterlockRuleStatus(
@@ -173,7 +174,10 @@ async def get_interlock_status(bay_id: str) -> InterlockStatusResponse:
     summary="Execute a switching command",
 )
 async def execute_command(
-    bay_id: str, body: SwitchCommandRequest, db: AsyncSession = Depends(get_session)
+    bay_id: str,
+    body: SwitchCommandRequest,
+    spec: FarmSpecDep,
+    db: AsyncSession = Depends(get_session),
 ) -> CommandExecutionResponse:
     """Execute a switching command on bay equipment after interlock validation.
 
@@ -209,7 +213,7 @@ async def execute_command(
     )
 
     try:
-        result = svc.execute_command(bay_id, cmd, synchrocheck_data)
+        result = svc.execute_command(bay_id, cmd, synchrocheck_data, spec)
     except StateTransitionError as err:
         await soe_recorder.record_event(
             db,
@@ -250,7 +254,9 @@ async def execute_command(
     response_model=CommandValidationResponse,
     summary="Dry-run interlock validation (no state change)",
 )
-async def validate_command(body: ValidateCommandRequest) -> CommandValidationResponse:
+async def validate_command(
+    body: ValidateCommandRequest, spec: FarmSpecDep
+) -> CommandValidationResponse:
     """Validate whether a switching command would be allowed without executing it.
 
     Used by the SCADA UI to show green/red equipment before the operator
@@ -268,7 +274,7 @@ async def validate_command(body: ValidateCommandRequest) -> CommandValidationRes
     # Try to find the bay by UUID or by string key
     # The bay_id might be the UUID form of the string bay ID
     bay_id_key = None
-    for key in svc._bay_state:
+    for key in (b.bay_id for b in svc.get_all_bays(spec)):
         if str(uuid.uuid5(uuid.NAMESPACE_DNS, key)) == bay_id_str or key == bay_id_str:
             bay_id_key = key
             break
@@ -290,6 +296,7 @@ async def validate_command(body: ValidateCommandRequest) -> CommandValidationRes
         action=body.action,
         is_auto_reclose=body.is_auto_reclose,
         synchrocheck_data=synchrocheck_data,
+        spec=spec,
     )
 
     return CommandValidationResponse(

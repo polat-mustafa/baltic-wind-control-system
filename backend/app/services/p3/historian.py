@@ -1,16 +1,17 @@
 """
-SCADA historian for the SB-510 OWF (510 MW).
+SCADA historian of the farm (SB-510 or the learner's design, ``FarmSpec``).
 
 A production historian reads TimescaleDB hypertables (raw 90 days, 1-min
 aggregates 2 years, 1-h lifetime). Here the series are synthesised, but from
 ONE physical state so every tag agrees with every other:
 
   wind u(t)  → WTG-01 power P(u) on the V236 curve (cut-in 3, rated 11.1 m/s)
-             → farm generation 34 · P(0.94 u)  (≈ 6 % wake loss)
+             → farm generation N · P(0.94 u)  (≈ 6 % wake loss)
              → OSS export = generation − array/OSS-transformer losses
              → 220 kV current per export circuit  I = √(I_P² + (I_C/2)²)
-             → STATCOM Q closing the reactive balance (cable charging 260 Mvar,
-               3 × 80 Mvar reactors, series I²X absorption)
+             → STATCOM Q closing the reactive balance (cable charging ωCV²L,
+               shunt reactors, series I²X absorption) — SB-510: 260 Mvar,
+               3 × 80 Mvar, ±120 Mvar; other farms: their design() values
   frequency  → Continental Europe: slow load-following swing + 15-min market
                steps, inside ±50 mHz most of the time
 
@@ -28,19 +29,19 @@ import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from functools import lru_cache
 
-# ── Plant constants (mirror network_model / landingPhysics) ──────────
+from app.services.p2.network_model import SB510, FarmSpec
 
-N_WTG = 34
+# ── Plant constants (the rest comes from the FarmSpec) ───────────────
+
 RATED_MW = 15.0
-FARM_MW = N_WTG * RATED_MW
 CUT_IN, RATED_WS, CUT_OUT = 3.0, 11.1, 31.0
 WAKE_FACTOR = 0.94  # farm-average wind relative to the free stream
-STRING1_WTG = 6
-CABLE_CHARGING_MVAR = 260.0  # 2 × 45 km export cables, Q = ωCV²L
-REACTOR_MVAR, REACTORS = 80.0, 3
-SERIES_Q_RATED_MVAR = 135.0  # I²X of transformers + cables at rated output
-STATCOM_MVAR = 120.0
+# SB-510 at rated output: I²X of transformers + cables, array/OSS losses. Other
+# farms scale with capacity (transformers and cables are sized to it).
+SB510_SERIES_Q_MVAR = 135.0
+SB510_LOSS_MW = (0.12, 3.2)  # no-load + load losses at rated
 
 
 class HistorianTag(StrEnum):
@@ -78,17 +79,27 @@ def _meta(
 
 
 T = HistorianTag
-TAG_REGISTRY: dict[HistorianTag, TagMetadata] = {
-    m.tag: m
-    for m in (
+
+
+@lru_cache(maxsize=64)
+def tag_registry(spec: FarmSpec = SB510) -> dict[HistorianTag, TagMetadata]:
+    """Tag metadata of a farm: ranges follow its capacity, STATCOM and string 1."""
+    k1 = spec.string_layout[0]
+    string1_a = k1 * RATED_MW * 1e3 / (math.sqrt(3) * 66.0)
+    return {m.tag: m for m in _tags(spec, k1, max(900.0, 10 * math.ceil(0.12 * string1_a)))}
+
+
+def _tags(spec: FarmSpec, k1: int, string1_max_a: float) -> tuple[TagMetadata, ...]:
+    q = spec.statcom_mvar
+    return (
         _meta(
             T.OSS_TOTAL_POWER_MW,
             "Farm Output",
             "Active power exported at the OSS 220 kV busbar [MMXU1.TotW]",
             "MW",
-            400.0,
+            round(0.78 * spec.capacity_mw),
             0.0,
-            510.0,
+            spec.capacity_mw,
         ),
         _meta(
             T.OSS_REACTIVE_POWER_MVAR,
@@ -96,8 +107,8 @@ TAG_REGISTRY: dict[HistorianTag, TagMetadata] = {
             "Reactive power at the OSS 220 kV busbar, generating + [MMXU1.TotVAr]",
             "MVAr",
             0.0,
-            -120.0,
-            120.0,
+            -q,
+            q,
         ),
         _meta(
             T.OSS_FREQUENCY_HZ,
@@ -132,13 +143,13 @@ TAG_REGISTRY: dict[HistorianTag, TagMetadata] = {
             "STATCOM reactive power, generating + [STATCOM1.TotVAr]",
             "MVAr",
             0.0,
-            -120.0,
-            120.0,
+            -q,
+            q,
         ),
         _meta(
             T.STATCOM_UTIL_PCT,
             "STATCOM Utilisation",
-            "|Q| relative to the ±120 MVAr rating",
+            f"|Q| relative to the ±{q:.0f} MVAr rating",
             "%",
             25.0,
             0.0,
@@ -165,14 +176,16 @@ TAG_REGISTRY: dict[HistorianTag, TagMetadata] = {
         _meta(
             T.ARRAY_CABLE_CURRENT_A,
             "Array Cable Current",
-            "String 1 feeder current at the OSS (6 × V236, 66 kV) [XCBR.A]",
+            f"String 1 feeder current at the OSS ({k1} × V236, 66 kV) [XCBR.A]",
             "A",
-            650.0,
+            round(0.83 * k1 * RATED_MW * 1e3 / (math.sqrt(3) * 66.0), -1),
             0.0,
-            900.0,
+            string1_max_a,
         ),
     )
-}
+
+
+TAG_REGISTRY = tag_registry(SB510)
 
 
 class TimeResolution(StrEnum):
@@ -238,26 +251,32 @@ def frequency_hz(m: float) -> float:
     return 50.0 + _wave(m, ((0.018, 60.0, 0.7), (0.009, 17.0, 2.2), (0.004, 4.1, 5.0))) - step
 
 
-def plant_state(m: float) -> dict[HistorianTag, float]:
+def plant_state(m: float, spec: FarmSpec = SB510) -> dict[HistorianTag, float]:
     """Every tag at minute m (minutes since the Unix epoch, UTC)."""
     u = wind_speed(m)
     p_wtg = power_curve_mw(u)
-    gen = N_WTG * power_curve_mw(WAKE_FACTOR * u)
-    p = gen / FARM_MW
-    oss_export = max(0.0, gen - (0.12 + 3.2 * p * p))  # array + OSS transformer losses
+    gen = spec.num_turbines * power_curve_mw(WAKE_FACTOR * u)
+    p = gen / spec.capacity_mw
+    scale = spec.capacity_mw / SB510.capacity_mw
+    no_load, load = SB510_LOSS_MW
+    oss_export = max(0.0, gen - scale * (no_load + load * p * p))  # array + OSS trafo losses
 
-    # Export circuit current: half the farm active current + half the charging current
-    i_active = oss_export * 1e3 / (math.sqrt(3) * 220.0 * 2)
-    i_charge_half = CABLE_CHARGING_MVAR / 2 * 1e3 / (math.sqrt(3) * 220.0) / 2
+    # Export circuit current: the farm active current + half the charging current,
+    # shared by the circuits
+    n_cct = spec.num_export_cables
+    i_active = oss_export * 1e3 / (math.sqrt(3) * 220.0 * n_cct)
+    i_charge_half = spec.cable_q_mvar / n_cct * 1e3 / (math.sqrt(3) * 220.0) / 2
     i_circuit_ka = math.hypot(i_active, i_charge_half) / 1e3
 
     # Reactive balance at the OSS 220 kV busbar (one reactor out near rated)
-    n_react = REACTORS
-    statcom = n_react * REACTOR_MVAR + SERIES_Q_RATED_MVAR * p * p - CABLE_CHARGING_MVAR
-    if statcom > 60.0:
+    n_react = spec.num_reactors
+    q_max = spec.statcom_mvar
+    absorbed = SB510_SERIES_Q_MVAR * scale * p * p
+    statcom = n_react * spec.reactor_unit_mvar + absorbed - spec.cable_q_mvar
+    if n_react and statcom > q_max / 2:
         n_react -= 1
-        statcom -= REACTOR_MVAR
-    statcom = max(-STATCOM_MVAR, min(STATCOM_MVAR, statcom))
+        statcom -= spec.reactor_unit_mvar
+    statcom = max(-q_max, min(q_max, statcom))
     q_residual = _wave(m, ((3.0, 23.0, 0.5), (1.5, 6.7, 1.9)))  # controller ripple
 
     return {
@@ -267,10 +286,10 @@ def plant_state(m: float) -> dict[HistorianTag, float]:
         T.OSS_VOLTAGE_PU: 1.0 + 0.006 * math.sin(2 * math.pi * m / 600 + 1.3) - 0.01 * p * p,
         T.OSS_CURRENT_KA: i_circuit_ka,
         T.STATCOM_Q_MVAR: statcom,
-        T.STATCOM_UTIL_PCT: abs(statcom) / STATCOM_MVAR * 100,
+        T.STATCOM_UTIL_PCT: abs(statcom) / q_max * 100,
         T.WTG01_WIND_SPEED: u,
         T.WTG01_POWER_MW: p_wtg,
-        T.ARRAY_CABLE_CURRENT_A: STRING1_WTG
+        T.ARRAY_CABLE_CURRENT_A: spec.string_layout[0]
         * power_curve_mw(0.97 * u)
         * 1e3
         / (math.sqrt(3) * 66.0),
@@ -288,9 +307,9 @@ def _iso(m: int) -> str:
 # ── Public API ───────────────────────────────────────────────────────
 
 
-def get_available_tags() -> list[TagMetadata]:
+def get_available_tags(spec: FarmSpec = SB510) -> list[TagMetadata]:
     """Metadata for all historian tags, sorted by display name."""
-    return sorted(TAG_REGISTRY.values(), key=lambda t: t.display_name)
+    return sorted(tag_registry(spec).values(), key=lambda t: t.display_name)
 
 
 def generate_time_series(
@@ -298,14 +317,16 @@ def generate_time_series(
     range_hours: int,
     resolution: TimeResolution,
     now_epoch_minutes: int = 0,
+    spec: FarmSpec = SB510,
 ) -> TagTimeSeries:
     """Series for one tag ending at `now_epoch_minutes` (Unix minutes; 0 → now).
 
     The last point is aligned to the resolution grid, oldest point first.
     """
-    if tag not in TAG_REGISTRY:
+    registry = tag_registry(spec)
+    if tag not in registry:
         raise ValueError(f"Unknown historian tag: '{tag}'")
-    meta = TAG_REGISTRY[tag]
+    meta = registry[tag]
     step = RESOLUTION_MINUTES[resolution]
     end = now_epoch_minutes or _now_minute()
     end -= end % step
@@ -313,7 +334,7 @@ def generate_time_series(
     points = []
     for i in range(n):
         m = end - (n - 1 - i) * step
-        value = max(meta.range_min, min(meta.range_max, plant_state(m)[tag]))
+        value = max(meta.range_min, min(meta.range_max, plant_state(m, spec)[tag]))
         points.append(TimeSeriesPoint(timestamp_iso=_iso(m), value=round(value, 3)))
     return TagTimeSeries(
         tag=tag.value,
@@ -328,7 +349,7 @@ def generate_time_series(
     )
 
 
-def get_latest_values(now_epoch_minutes: int = 0) -> dict[str, float]:
+def get_latest_values(now_epoch_minutes: int = 0, spec: FarmSpec = SB510) -> dict[str, float]:
     """Latest value of every tag (same model, current minute)."""
-    state = plant_state(now_epoch_minutes or _now_minute())
+    state = plant_state(now_epoch_minutes or _now_minute(), spec)
     return {tag.value: round(v, 3) for tag, v in state.items()}

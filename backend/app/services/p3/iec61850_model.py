@@ -1204,6 +1204,7 @@ def build_bay_controller(
 def build_wind_turbine_controller(
     turbine_number: int,
     ip_address: str = "",
+    num_turbines: int = NUM_TURBINES,
 ) -> PhysicalDevice:
     """Build a Wind Turbine Controller IED with IEC 61400-25 logical nodes.
 
@@ -1214,7 +1215,7 @@ def build_wind_turbine_controller(
     Parameters
     ----------
     turbine_number : int
-        Turbine number (1-34). Used for naming: 'WTG_01'.
+        Turbine number (1 … num_turbines; SB-510: 34). Used for naming: 'WTG_01'.
     ip_address : str
         MMS station bus IP. Auto-generated if empty: '192.168.2.{turbine_number}'.
 
@@ -1223,8 +1224,8 @@ def build_wind_turbine_controller(
     PhysicalDevice
         Wind turbine controller with 5 IEC 61400-25 logical nodes.
     """
-    if not 1 <= turbine_number <= NUM_TURBINES:
-        msg = f"Turbine number must be 1-{NUM_TURBINES}, got {turbine_number}"
+    if not 1 <= turbine_number <= num_turbines:
+        msg = f"Turbine number must be 1-{num_turbines}, got {turbine_number}"
         raise ValueError(msg)
 
     if not ip_address:
@@ -1318,27 +1319,27 @@ def build_oss_goose_control_block(
     )
 
 
-def build_substation_configuration() -> list[PhysicalDevice]:
-    """Build the complete IEC 61850 configuration for SB-510.
+def build_substation_configuration(num_turbines: int = NUM_TURBINES) -> list[PhysicalDevice]:
+    """Build the complete IEC 61850 configuration of a farm (SB-510: 34 turbines).
 
     Returns the full set of IEDs:
     - 1 × OSS Protection IED (ABB REL670)
     - 1 × OSS Measurement IED (ABB REC670)
     - 1 × STATCOM Bay Controller (ABB COM600)
-    - 34 × WTG Controllers (Vestas V236-15.0)
+    - num_turbines × WTG Controllers (Vestas V236-15.0)
 
     Returns
     -------
     list[PhysicalDevice]
-        All 37 IEDs in the substation.
+        All IEDs of the farm (SB-510: 37).
     """
     devices: list[PhysicalDevice] = [
         build_oss_protection_ied(),
         build_oss_measurement_ied(),
         build_bay_controller(),
     ]
-    for i in range(1, NUM_TURBINES + 1):
-        devices.append(build_wind_turbine_controller(i))
+    for i in range(1, num_turbines + 1):
+        devices.append(build_wind_turbine_controller(i, num_turbines=num_turbines))
 
     return devices
 

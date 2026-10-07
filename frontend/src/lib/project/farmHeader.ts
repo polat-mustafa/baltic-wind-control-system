@@ -1,10 +1,13 @@
 /**
- * The farm the P2 grid and P5 commissioning endpoints model. In own-project
- * mode with a layout (turbines + OSS) every `/api/v1/grid` and
- * `/api/v1/commissioning` request carries it in the `X-Farm` header — strings
- * from the cable tree, mean array section length, export length — and the
+ * The farm the P2 grid, P3 SCADA, P5 commissioning and Digital Twin endpoints
+ * model. In own-project mode with a layout (turbines + OSS) their requests
+ * carry it in the `X-Farm` header — strings from the cable tree, mean array
+ * section length, export length, the site's hub-height Weibull wind — and the
  * backend sizes the network for it (routers/farm_spec.py); a switching
  * programme keeps the farm it was created for. Otherwise no header: SB-510.
+ *
+ * The live control room (single-line diagram ↔ bay controllers) still runs the
+ * SB-510 plant of the landing simulation, so its bay endpoints get no header.
  */
 
 import { setRequestHeaders } from "../../services/apiClient";
@@ -19,6 +22,9 @@ export interface FarmInput {
   strings: number[];
   export_km: number;
   array_km: number;
+  /** Site Weibull A [m/s] and k at hub height (Digital Twin inflow), when known. */
+  wind_a?: number;
+  wind_k?: number;
 }
 
 /** The own project's farm, or null (reference mode or no layout yet). */
@@ -33,6 +39,7 @@ export function farmInput(): FarmInput | null {
     strings: plan.strings,
     export_km: Math.max(1, plan.exportKm),
     array_km: Math.max(0.1, Math.round((plan.arrayKm / plan.turbines.length) * 1000) / 1000),
+    ...(report?.wind ? { wind_a: report.wind.weibull_a, wind_k: report.wind.weibull_k } : {}),
   };
 }
 
@@ -45,11 +52,15 @@ export function farmHeader(): string | null {
 /** Same value as `farmHeader`, "sb510" without one — tells when P2 results belong to another farm. */
 export const farmKey = () => farmHeader() ?? "sb510";
 
-const FARM_APIS = ["/api/v1/grid", "/api/v1/commissioning"];
+const FARM_APIS = ["/api/v1/grid", "/api/v1/commissioning", "/api/v1/scada", "/api/v1/digital-twin"];
+const SB510_ONLY = ["/api/v1/scada/bays", "/api/v1/scada/interlocks"];
+
+export const sendsFarm = (url: string) =>
+  FARM_APIS.some((p) => url.startsWith(p)) && !SB510_ONLY.some((p) => url.startsWith(p));
 
 export function initFarmHeader(): void {
   setRequestHeaders((url): Record<string, string> => {
-    const h = FARM_APIS.some((p) => url.startsWith(p)) ? farmHeader() : null;
+    const h = sendsFarm(url) ? farmHeader() : null;
     return h ? { "X-Farm": h } : {};
   });
 }

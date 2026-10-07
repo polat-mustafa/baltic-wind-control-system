@@ -103,6 +103,8 @@ SEEDED_DEGRADATION: dict[tuple[str, str], tuple[float, str]] = {
 }
 
 # Injected faults: {turbine_id: {component: {rate, start_hi, start_time}}}
+# ponytail: keyed by turbine ID only — WTG-03 of every farm shares one fault;
+# key by (farm, turbine) if two farms are trained on at the same time.
 _injected_faults: dict[str, dict[str, dict[str, float]]] = {}
 
 
@@ -200,10 +202,10 @@ def get_turbine_health(turbine_id: str) -> TurbineHealthResponse:
     )
 
 
-def get_fleet_health() -> FleetHealthResponse:
-    """Health of all 34 turbines, with the per-component HI for the heatmap."""
+def get_fleet_health(n_turbines: int = N_TURBINES) -> FleetHealthResponse:
+    """Health of every turbine (SB-510: 34), with the per-component HI for the heatmap."""
     summaries: list[TurbineHealthSummary] = []
-    for n in range(1, N_TURBINES + 1):
+    for n in range(1, n_turbines + 1):
         turbine_id = f"WTG-{n:02d}"
         components = [_compute_component_health(turbine_id, c) for c in CMS_COMPONENTS]
         worst = min(components, key=lambda c: c.health_index)
@@ -222,7 +224,7 @@ def get_fleet_health() -> FleetHealthResponse:
 
     return FleetHealthResponse(
         turbines=summaries,
-        fleet_average_hi=round(sum(s.overall_health_index for s in summaries) / N_TURBINES, 1),
+        fleet_average_hi=round(sum(s.overall_health_index for s in summaries) / n_turbines, 1),
         turbines_in_warning=sum(
             1 for s in summaries if s.overall_alert_level in ("RED", "CRITICAL")
         ),
@@ -364,10 +366,10 @@ def get_oil_analysis(turbine_id: str) -> OilAnalysisResponse:
     )
 
 
-def get_active_alerts() -> list[CMSAlertResponse]:
+def get_active_alerts(n_turbines: int = N_TURBINES) -> list[CMSAlertResponse]:
     """All AMBER / RED / CRITICAL components across the fleet."""
     alerts = []
-    for n in range(1, N_TURBINES + 1):
+    for n in range(1, n_turbines + 1):
         turbine_id = f"WTG-{n:02d}"
         for component in CMS_COMPONENTS:
             hi = _compute_current_hi(turbine_id, component)

@@ -31,6 +31,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.scada import (
     HistorianLatestResponse,
     HistorianQueryRequest,
@@ -54,7 +55,7 @@ _VALID_RANGE_HOURS = {1, 4, 24, 168}
 
 
 @router.get("/historian/tags", response_model=list[HistorianTagMetaSchema])
-async def list_historian_tags() -> list[HistorianTagMetaSchema]:
+async def list_historian_tags(spec: FarmSpecDep) -> list[HistorianTagMetaSchema]:
     """List all available SCADA historian tags.
 
     Returns engineering metadata (unit, description, nominal value,
@@ -71,22 +72,24 @@ async def list_historian_tags() -> list[HistorianTagMetaSchema]:
             range_min=meta.range_min,
             range_max=meta.range_max,
         )
-        for meta in get_available_tags()
+        for meta in get_available_tags(spec)
     ]
 
 
 @router.get("/historian/latest", response_model=HistorianLatestResponse)
-async def get_latest_historian_values() -> HistorianLatestResponse:
+async def get_latest_historian_values(spec: FarmSpecDep) -> HistorianLatestResponse:
     """Get the latest synthesised value for every registered historian tag.
 
     Equivalent to a snapshot query at ``now``. Useful for KPI cards and
     live data feeds that don't need full time-series history.
     """
-    return HistorianLatestResponse(values=get_latest_values())
+    return HistorianLatestResponse(values=get_latest_values(spec=spec))
 
 
 @router.post("/historian/query", response_model=HistorianQueryResponse)
-async def query_historian(request: HistorianQueryRequest) -> HistorianQueryResponse:
+async def query_historian(
+    request: HistorianQueryRequest, spec: FarmSpecDep
+) -> HistorianQueryResponse:
     """Query time-series data for one or more historian tags.
 
     Returns a list of time-series, one per requested tag, for the
@@ -136,6 +139,7 @@ async def query_historian(request: HistorianQueryRequest) -> HistorianQueryRespo
             range_hours=request.range_hours,
             resolution=resolution,
             now_epoch_minutes=request.now_epoch_minutes,
+            spec=spec,
         )
 
         series_list.append(

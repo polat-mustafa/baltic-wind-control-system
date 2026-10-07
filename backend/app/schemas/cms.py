@@ -39,7 +39,7 @@ class TurbineHealthResponse(BaseModel):
 
 
 class FleetHealthResponse(BaseModel):
-    """Fleet-wide health overview for all 34 turbines."""
+    """Fleet-wide health overview for every turbine of the farm (SB-510: 34)."""
 
     turbines: list[TurbineHealthSummary]
     fleet_average_hi: float

@@ -50,6 +50,7 @@ from dataclasses import dataclass
 
 import pandapower as pp
 
+from app.core.exceptions import DomainError
 from app.schemas.grid import (
     BusResult,
     LineResult,
@@ -405,11 +406,36 @@ def _extract_transformer_results(net: pp.pandapowerNet) -> list[TransformerResul
     return results
 
 
-def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
+def _dispatch_with_reactor_switching(net: pp.pandapowerNet, rating: float) -> tuple[float, int]:
+    """STATCOM voltage control plus the operator's reactor switching.
+
+    All N+1 reactors start in service (the design case). While the STATCOM
+    injects more than half its rating, one reactor is switched out — kept out
+    only if that relieves the STATCOM (|Q| falls), as the landing estimate
+    does (frontend ``reactiveBalance``). SB-510 never needs it (≤ 56 of
+    120 MVAR); a long single circuit with large reactor units does.
+
+    Returns the STATCOM set-point [MVAR, generating +] and the reactors in service.
+    """
+    reactors = [i for i in net.shunt.index if str(net.shunt.at[i, "name"]).startswith("Reactor_")]
+    q = auto_statcom_dispatch(net)
+    on = len(reactors)
+    while on > 0 and q > 0.5 * rating:
+        net.shunt.at[reactors[on - 1], "in_service"] = False
+        q_out = auto_statcom_dispatch(net)
+        if abs(q_out) >= abs(q):
+            net.shunt.at[reactors[on - 1], "in_service"] = True
+            q = auto_statcom_dispatch(net)
+            break
+        on, q = on - 1, q_out
+    return q, on
+
+
+def run_live_load_flow(wtg_p_mw: list[float], spec: FarmSpec = SB510) -> LiveLoadFlowResponse:
     """Load flow for the live operating point of the landing simulation.
 
-    Every WTG sgen gets its own active power (WTG_01 … WTG_34 in the
-    STRING_LAYOUT order the frontend uses), the STATCOM is auto-dispatched to
+    Every WTG sgen gets its own active power (WTG_01 … WTG_n string by string,
+    the order of the frontend's live fleet), the STATCOM is auto-dispatched to
     hold the OSS 220 kV bus at 1.0 p.u., then Newton-Raphson is solved. The
     compact result feeds the map's KPI ribbon and the OSS / cable panels, so
     the P-Q-V shown there is pandapower's, not a browser estimate.
@@ -417,14 +443,22 @@ def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
     Parameters
     ----------
     wtg_p_mw : list[float]
-        34 active powers [MW] (validated 0 … 15 MW by the request schema).
+        One active power per turbine of ``spec`` [MW] (validated 0 … 15 MW by
+        the request schema).
+    spec : FarmSpec
+        The farm (SB-510 or the learner's design).
     """
-    net = build_network(generation_fraction=0.0)
+    if len(wtg_p_mw) != spec.num_turbines:
+        raise DomainError(
+            f"{spec.name} has {spec.num_turbines} turbines, got {len(wtg_p_mw)} powers.",
+            status_code=422,
+        )
+    net = build_network(generation_fraction=0.0, spec=spec)
     for idx in range(len(net.sgen)):
         name = str(net.sgen.at[idx, "name"])
         if name.startswith("WTG_"):
             net.sgen.at[idx, "p_mw"] = float(wtg_p_mw[int(name[4:]) - 1])
-    statcom_q = auto_statcom_dispatch(net)
+    statcom_q, reactors_on = _dispatch_with_reactor_switching(net, spec.statcom_mvar)
     pp.runpp(net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
 
     total_gen = float(sum(wtg_p_mw))
@@ -436,6 +470,7 @@ def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
             poc_q_mvar=0.0,
             total_loss_mw=0.0,
             statcom_q_mvar=round(statcom_q, 1),
+            reactors_in_service=reactors_on,
             v_poc_pu=0.0,
             v_onshore_220_pu=0.0,
             v_oss_220_pu=0.0,
@@ -469,6 +504,7 @@ def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
         poc_q_mvar=round(poc_q, 2),
         total_loss_mw=round(losses, 3),
         statcom_q_mvar=round(statcom_q, 1),
+        reactors_in_service=reactors_on,
         v_poc_pu=round(bus["PSE_400kV"], 4),
         v_onshore_220_pu=round(bus["Onshore_220kV"], 4),
         v_oss_220_pu=round(bus["OSS_220kV"], 4),

@@ -36,6 +36,7 @@ import { Skeleton } from "../ui/Skeleton";
 import { StatusIndicator } from "../ui/StatusIndicator";
 import { cn } from "../../lib/utils";
 import { useFaultSync } from "../../hooks/useFaultSync";
+import { useLiveFleet } from "../../hooks/useLiveFleet";
 import { useScadaStore } from "../../store/scadaStore";
 import { useLandingStore } from "../../store/landingStore";
 import { useLayerStore } from "../../store/layerStore";
@@ -77,6 +78,8 @@ export default function AppShell() {
 
   // Unified fault synchronization between landing map and SCADA
   useFaultSync();
+  // The live plant (map, control room, alarms) runs on SB-510 or the own project
+  useLiveFleet();
 
   // Own project: modules unlock stage by stage; the locks need the site assessment and constraint layers.
   const mode = useModeStore((s) => s.mode);

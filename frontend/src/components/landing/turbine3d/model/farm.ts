@@ -1,5 +1,6 @@
 /**
  * Wind-farm geometry for the 3D viewer: the other turbines' real positions
+ * (live fleet — SB-510 or the own project)
  * relative to the one being viewed, in the scene's world frame
  * (x = −east, z = north, metres — same convention as the nacelle yaw, where a
  * compass bearing θ points along (−sin θ, 0, cos θ)).
@@ -8,7 +9,7 @@
  * farm extent of ~10 km the error is < 1 m.
  */
 
-import { TURBINE_POSITIONS } from "../../../../constants/windFarmLayout";
+import { liveFleet, type Fleet } from "../../../../lib/fleet";
 
 const M_PER_DEG_LAT = 110_540;
 
@@ -20,15 +21,17 @@ export interface FarmNeighbour {
   z: number;
 }
 
-export function farmAround(turbineId: string): FarmNeighbour[] {
-  const me = TURBINE_POSITIONS.find((t) => t.id === turbineId) ?? TURBINE_POSITIONS[0];
-  const mPerDegLon = 111_320 * Math.cos((me.lat * Math.PI) / 180);
-  return TURBINE_POSITIONS.map((t) => ({
-    id: t.id,
-    stringNumber: t.stringNumber,
-    x: -(t.lon - me.lon) * mPerDegLon,
-    z: (t.lat - me.lat) * M_PER_DEG_LAT,
-  }));
+/** World-frame position [x, z] of a point seen from the viewed turbine. */
+export function worldAround(turbineId: string, p: { lat: number; lon: number }, f: Fleet = liveFleet()): [number, number] {
+  const me = f.turbines.find((t) => t.id === turbineId) ?? f.turbines[0];
+  return [-(p.lon - me.lon) * 111_320 * Math.cos((me.lat * Math.PI) / 180), (p.lat - me.lat) * M_PER_DEG_LAT];
+}
+
+export function farmAround(turbineId: string, f: Fleet = liveFleet()): FarmNeighbour[] {
+  return f.turbines.map((t) => {
+    const [x, z] = worldAround(turbineId, t, f);
+    return { id: t.id, stringNumber: t.stringNumber, x, z };
+  });
 }
 
 /** World vector of a compass bearing (FROM direction for wind) on the sea plane. */

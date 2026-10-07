@@ -14,6 +14,7 @@
 import { memo, useMemo } from "react";
 import * as THREE from "three";
 
+import { useFleet } from "../../../../lib/fleet";
 import { useLandingStore } from "../../../../store/landingStore";
 import { useV236Model } from "../model/useV236Model";
 
@@ -144,6 +145,8 @@ export const Monopile = memo(function Monopile({ isSelected, turbineId = "WTG" }
  * landing (−x), one the opposite side.
  */
 function TpMarking({ id, side }: { id: string; side: -1 | 1 }) {
+  const fleet = useFleet();
+  const farm = fleet.source === "sb510" ? "SB-510 CASE STUDY" : fleet.name.toUpperCase();
   const texture = useMemo(() => {
     const c = document.createElement("canvas");
     c.width = 1024;
@@ -156,13 +159,13 @@ function TpMarking({ id, side }: { id: string; side: -1 | 1 }) {
       g.textBaseline = "middle";
       g.fillText(id, 512, 110);
       g.font = "bold 44px Arial, sans-serif";
-      g.fillText("SB-510 CASE STUDY", 512, 215);
+      g.fillText(farm, 512, 215);
     }
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     return t;
-  }, [id]);
+  }, [id, farm]);
   const arc = 1.3; // rad ≈ 6.4 m of the 4.9 m-radius TP
   const start = side < 0 ? -Math.PI / 2 - arc / 2 : Math.PI / 2 - arc / 2;
   return (

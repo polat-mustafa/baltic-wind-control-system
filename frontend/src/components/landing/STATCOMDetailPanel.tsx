@@ -1,10 +1,12 @@
 /**
- * STATCOM detail panel — ±120 MVAr VSC (MMC) at the OSS 220 kV busbar.
+ * STATCOM detail panel — VSC (MMC) at the OSS 220 kV busbar of the live fleet
+ * (SB-510: ±120 MVAr).
  *
- * Centrepiece is the reactive power balance it closes: 2 × 45 km export
- * cables generate ~260 MVAr, 3 × 80 MVAr shunt reactors (N+1) absorb the
- * bulk, transformer/cable I²X losses absorb more as output rises, and the
- * STATCOM trims the remainder so Q ≈ 0 at the grid connection.
+ * Centrepiece is the reactive power balance it closes: the export cables
+ * generate their charging power (SB-510: 2 × 45 km ≈ 260 MVAr), the shunt
+ * reactors (SB-510: 3 × 80 MVAr, N+1) absorb the bulk, transformer/cable I²X
+ * losses absorb more as output rises, and the STATCOM trims the remainder so
+ * Q ≈ 0 at the grid connection.
  *
  * Q sign convention (domain rule 4): generating/injecting positive.
  */
@@ -13,12 +15,11 @@ import { useNavigate } from "react-router-dom";
 
 import { AudioWaveform } from "lucide-react";
 
+import { useFleet } from "../../lib/fleet";
 import { selectKPIs, useLandingStore } from "../../store/landingStore";
 import { useStatcomQ } from "../../store/liveGridStore";
 import {
-  REACTOR_COUNT,
-  REACTOR_UNIT_MVAR,
-  STATCOM_RATING_MVAR,
+  plantNet,
   reactiveBalance,
 } from "../../utils/landingPhysics";
 import {
@@ -53,7 +54,9 @@ function BalanceRow({ label, q, color }: { label: string; q: number; color: stri
 export default function STATCOMDetailPanel({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const kpis = useLandingStore(selectKPIs);
-  const b = reactiveBalance(kpis.totalOutputMW);
+  const pn = plantNet(useFleet());
+  const b = reactiveBalance(kpis.totalOutputMW, pn);
+  const rating = pn.statcomMVAr;
   // Hero value = the same Q as map and ribbon (pandapower when solved); the
   // balance rows below stay the simplified textbook breakdown.
   const statcom = useStatcomQ(kpis.totalOutputMW);
@@ -61,14 +64,14 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
 
   const mode = q > 5 ? "INJECTING" : q < -5 ? "ABSORBING" : "FLOATING";
   const modeColor = q > 5 ? INJECT_COLOR : q < -5 ? ABSORB_COLOR : IDLE_COLOR;
-  const utilisationPct = (Math.abs(q) / STATCOM_RATING_MVAR) * 100;
+  const utilisationPct = (Math.abs(q) / rating) * 100;
   const net = b.cableMVAr + b.reactorsMVAr + b.seriesLossMVAr + b.statcomMVAr;
 
   return (
     <EquipmentPanel
       icon={AudioWaveform}
       tag="STATCOM-OSS-01"
-      subtitle="VSC · modular multilevel · ±120 MVAr · OSS 220 kV busbar"
+      subtitle={`VSC · modular multilevel · ±${rating} MVAr · OSS 220 kV busbar`}
       status={{ label: "In service", color: NORMAL_COLOR }}
       onClose={onClose}
       action={{ label: "Open HV Grid · STATCOM sizing", onClick: () => navigate("/hv-grid") }}
@@ -92,11 +95,11 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
           </div>
         </div>
         <div className="mt-2.5">
-          <LevelBar value={q} min={-STATCOM_RATING_MVAR} max={STATCOM_RATING_MVAR} color={modeColor} />
+          <LevelBar value={q} min={-rating} max={rating} color={modeColor} />
           <div className="mt-1 flex justify-between font-mono text-[10px] text-text-muted">
-            <span>−120 absorb</span>
+            <span>−{rating} absorb</span>
             <span>0</span>
-            <span>inject +120</span>
+            <span>inject +{rating}</span>
           </div>
         </div>
       </div>
@@ -104,7 +107,7 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
       <PanelSection title="Reactive balance · OSS 220 kV" aside="MVAr">
         <BalanceRow label="Export cable charging" q={b.cableMVAr} color={INJECT_COLOR} />
         <BalanceRow
-          label={`Shunt reactors (${b.reactorsInService}/${REACTOR_COUNT})`}
+          label={`Shunt reactors (${b.reactorsInService}/${pn.reactorCount})`}
           q={b.reactorsMVAr}
           color={ABSORB_COLOR}
         />
@@ -118,9 +121,10 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
         </div>
       </PanelSection>
 
-      <PanelSection title={`Shunt reactors · ${REACTOR_COUNT} × ${REACTOR_UNIT_MVAR} MVAr (N+1)`}>
+      {pn.reactorCount > 0 && (
+      <PanelSection title={`Shunt reactors · ${pn.reactorCount} × ${pn.reactorUnitMVAr} MVAr (N+1)`}>
         <div className="grid grid-cols-3 gap-2">
-          {Array.from({ length: REACTOR_COUNT }, (_, i) => {
+          {Array.from({ length: pn.reactorCount }, (_, i) => {
             const inService = i < b.reactorsInService;
             return (
               <div
@@ -143,16 +147,17 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
           })}
         </div>
         <p className="mt-2 text-[11px] leading-snug text-text-muted">
-          One reactor is switched out near rated output, when I²X losses would
-          otherwise push the STATCOM past +60 MVAr.
+          Reactors are switched out as output rises, when I²X losses would
+          otherwise push the STATCOM past +{rating / 2} MVAr.
         </p>
       </PanelSection>
+      )}
 
       <PanelSection title="Control">
         <DataRow label="Mode" value="Voltage control (V–Q droop)" />
         <DataRow label="Voltage setpoint" value="1.000 pu" unit="220 kV" />
-        <DataRow label="Droop" value="4.0" unit="%" hint="ΔV for full ±120 MVAr" />
-        <DataRow label="Headroom" value={`±${STATCOM_RATING_MVAR - Math.abs(q)}`} unit="MVAr" />
+        <DataRow label="Droop" value="4.0" unit="%" hint={`ΔV for full ±${rating} MVAr`} />
+        <DataRow label="Headroom" value={`±${rating - Math.abs(q)}`} unit="MVAr" />
         <DataRow label="Step response (90 %)" value="< 5" unit="s" />
         <DataRow
           label="IGBT junction, hottest valve"

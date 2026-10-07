@@ -37,7 +37,6 @@ const LAYER_ITEMS: {
   { key: "fibreComms", label: "Fibre / SCADA Comms", color: "#22d3ee" },
   { key: "aisTraffic", label: "AIS Traffic (live)", color: "#34d399" },
   { key: "cableDts", label: "Export Cable DTS", color: "#fb7185" },
-  { key: "myProject", label: "My Project (hand-over)", color: "#e879f9" },
 ];
 
 // ── Toggle switch ────────────────────────────────────────────────

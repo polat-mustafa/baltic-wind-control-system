@@ -1,11 +1,11 @@
 /**
  * Wind Farm Plant Mimic — operator's primary surface in Operations area.
  *
- * Stylised process schematic (NOT geographically accurate):
- *   • 6 string rows of TurbineCells on the left (34 turbines total)
+ * Stylised process schematic of the live fleet (NOT geographically accurate):
+ *   • one row of TurbineCells per string on the left (SB-510: 6 rows, 34 turbines)
  *   • Vertical 66 kV bus collecting all strings
- *   • Offshore Substation (66 / 220 kV, ±120 MVAR STATCOM)
- *   • 2 × 220 kV export cables (45 km, drawn as one route, animated when energised)
+ *   • Offshore Substation (66 / 220 kV, STATCOM, shunt reactors)
+ *   • n × 220 kV export cables (drawn as one route, animated when energised)
  *   • Onshore substation (220 / 400 kV)
  *   • PSE 400 kV grid connection
  *
@@ -19,29 +19,23 @@ import { Cable, Factory, Power, Wind } from "lucide-react";
 
 import { useLandingStore } from "../../store/landingStore";
 import { usePlantSnapshot } from "../../store/liveGridStore";
-import { REACTOR_UNIT_MVAR } from "../../utils/landingPhysics";
-import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
-import { MIMIC_LAYOUT } from "../../constants/mimicLayout";
+import { plantNet } from "../../utils/landingPhysics";
+import { useFleet } from "../../lib/fleet";
+import { mimicLayout } from "../../constants/mimicLayout";
 
 import TurbineCell from "./TurbineCell";
 import TurbineFaceplate from "./TurbineFaceplate";
 import MimicTerminalNode from "./MimicTerminalNode";
 import MimicFlowLines from "./MimicFlowLines";
 
-// ── String groupings — derived once from the layout file ─────────
-
-const TURBINES_BY_STRING: string[][] = (() => {
-  const groups: Record<number, string[]> = {};
-  for (const t of TURBINE_POSITIONS) {
-    if (!groups[t.stringNumber]) groups[t.stringNumber] = [];
-    groups[t.stringNumber].push(t.id);
-  }
-  return [1, 2, 3, 4, 5, 6].map((n) =>
-    (groups[n] ?? []).sort((a, b) => a.localeCompare(b)),
-  );
-})();
-
 export default function WindFarmMimic() {
+  const fleet = useFleet();
+  // One row per string, turbines in id order
+  const TURBINES_BY_STRING = useMemo(
+    () => fleet.strings.map((ids) => [...ids].sort((a, b) => a.localeCompare(b))),
+    [fleet],
+  );
+  const net = plantNet(fleet);
   const turbineMap = useLandingStore((s) => s.turbineMap);
   const transformer = useLandingStore((s) => s.transformers["OSS-TX1"]);
   const onshoreT = useLandingStore((s) => s.transformers["ONS-TX1"]);
@@ -57,14 +51,14 @@ export default function WindFarmMimic() {
       TURBINES_BY_STRING.map((ids) =>
         ids.some((id) => turbineMap[id]?.status === "operating"),
       ),
-    [turbineMap],
+    [turbineMap, TURBINES_BY_STRING],
   );
 
   const anyOperating = stringEnergised.some(Boolean);
   const exportEnergised = anyOperating; // 220 kV live whenever any turbine running
   const gridEnergised = anyOperating;   // 400 kV likewise
 
-  const L = MIMIC_LAYOUT;
+  const L = useMemo(() => mimicLayout(TURBINES_BY_STRING.map((ids) => ids.length)), [TURBINES_BY_STRING]);
 
   return (
     <div className="flex flex-col h-full bg-bg-primary">
@@ -76,7 +70,7 @@ export default function WindFarmMimic() {
             Plant Mimic · Operations
           </h3>
           <span className="hidden md:inline text-[10px] text-text-muted font-mono">
-            34 × V236-15.0 MW · 510 MW · 66 / 220 / 400 kV
+            {fleet.turbines.length} × V236-15.0 MW · {net.ratedMW.toFixed(0)} MW · 66 / 220 / 400 kV
           </span>
         </div>
         <div className="flex items-center gap-3 text-[10px] font-mono text-text-secondary">
@@ -116,6 +110,8 @@ export default function WindFarmMimic() {
             stringEnergised={stringEnergised}
             exportEnergised={exportEnergised}
             gridEnergised={gridEnergised}
+            layout={L}
+            exportLabel={`220 kV · ${net.exportKm.toFixed(0)} km`}
           />
 
           {/* String rows */}
@@ -195,7 +191,7 @@ export default function WindFarmMimic() {
                 { label: "STATCOM", value: signed(plant.statcomMVAr), unit: "MVAr" },
                 {
                   label: "Reactors",
-                  value: `${plant.reactorsInService} × ${REACTOR_UNIT_MVAR}`,
+                  value: `${plant.reactorsInService} × ${net.reactorUnitMVAr}`,
                   unit: "MVAr",
                 },
               ]}

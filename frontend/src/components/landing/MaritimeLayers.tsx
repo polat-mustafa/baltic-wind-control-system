@@ -23,11 +23,12 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 
+import { useFleet } from "../../lib/fleet";
+
 import {
   CARDINAL_MARKS,
   CTV_ROUTE_GEO,
   NEIGHBOUR_OWF_AREAS,
-  OSS_GEO,
   PERIPHERY_RING,
   SAFETY_ZONE_M,
   SPS_TURBINES,
@@ -55,9 +56,10 @@ const ZONE_STYLE = {
 };
 
 export const SafetyZones = memo(function SafetyZones() {
+  const fleet = useFleet();
   return (
     <>
-      {[...TURBINE_POSITIONS, { id: "OSS", ...OSS_GEO }].map((p) => (
+      {[...fleet.turbines, { id: "OSS", ...fleet.oss }].map((p) => (
         <Circle
           key={`sz-${p.id}`}
           center={[p.lat, p.lon]}
@@ -537,7 +539,7 @@ const RepairCrew = memo(function RepairCrew({
 }: { turbineId: string } & RepairJob) {
   const storybook = useLayerStore((s) => s.mapTheme) === "storybook";
   const faultType = useLandingStore((s) => s.turbineMap[turbineId]?.faultType);
-  const pos = TURBINE_POSITIONS.find((t) => t.id === turbineId)!;
+  const pos = useFleet().turbines.find((t) => t.id === turbineId);
   const icon = useMemo(() => {
     const elapsed = Date.now() - startedAt;
     const what = (faultType && FAULT_LABEL[faultType]) ?? "Repair";
@@ -548,6 +550,7 @@ const RepairCrew = memo(function RepairCrew({
       iconAnchor: [0, 0],
     });
   }, [storybook, faultType, crew, startedAt, durationMs]);
+  if (!pos) return null;
   return (
     <Marker
       position={[pos.lat, pos.lon]}

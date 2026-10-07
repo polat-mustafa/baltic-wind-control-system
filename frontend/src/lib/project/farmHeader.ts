@@ -5,9 +5,8 @@
  * section length, export length, the site's hub-height Weibull wind — and the
  * backend sizes the network for it (routers/farm_spec.py); a switching
  * programme keeps the farm it was created for. Otherwise no header: SB-510.
- *
- * The live control room (single-line diagram ↔ bay controllers) still runs the
- * SB-510 plant of the landing simulation, so its bay endpoints get no header.
+ * The live control room runs the same farm (lib/fleet.ts), so the bay
+ * controllers behind its single-line diagram get the header too.
  */
 
 import { setRequestHeaders } from "../../services/apiClient";
@@ -53,10 +52,8 @@ export function farmHeader(): string | null {
 export const farmKey = () => farmHeader() ?? "sb510";
 
 const FARM_APIS = ["/api/v1/grid", "/api/v1/commissioning", "/api/v1/scada", "/api/v1/digital-twin"];
-const SB510_ONLY = ["/api/v1/scada/bays", "/api/v1/scada/interlocks"];
 
-export const sendsFarm = (url: string) =>
-  FARM_APIS.some((p) => url.startsWith(p)) && !SB510_ONLY.some((p) => url.startsWith(p));
+export const sendsFarm = (url: string) => FARM_APIS.some((p) => url.startsWith(p));
 
 export function initFarmHeader(): void {
   setRequestHeaders((url): Record<string, string> => {

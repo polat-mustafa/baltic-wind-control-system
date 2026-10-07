@@ -20,10 +20,10 @@ import { useMemo } from "react";
 import L from "leaflet";
 import { Marker, Polygon } from "react-leaflet";
 
-import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
+import { useFleet } from "../../lib/fleet";
 import { selectKPIs, useLandingStore } from "../../store/landingStore";
-import { wakePowerLossPct } from "../../utils/landingPhysics";
-import { computeWakeLosses, wakeConePoly } from "../../utils/wakeModel";
+import { farmWakeDeficits, wakePowerLossPct } from "../../utils/landingPhysics";
+import { wakeConePoly } from "../../utils/wakeModel";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -31,13 +31,6 @@ import { computeWakeLosses, wakeConePoly } from "../../utils/wakeModel";
 function quantize(deg: number, step = 5): number {
   return Math.round(deg / step) * step;
 }
-
-/** Stable reference to turbine geographic data (never changes). */
-const TURBINE_GEO = TURBINE_POSITIONS.map((t) => ({
-  id: t.id,
-  lat: t.lat,
-  lon: t.lon,
-}));
 
 // ── Wake loss badge icon factory ─────────────────────────────────
 
@@ -86,22 +79,24 @@ export default function WakeEffectLayer() {
   // Live power loss depends on the freestream speed (none once the waked
   // wind is still above rated) — rounded to 0.5 m/s to limit recomputes.
   const freeMs = Math.round(kpis.freestreamWindMs * 2) / 2;
+  const fleet = useFleet();
+  const posById = useMemo(() => new Map(fleet.turbines.map((t) => [t.id, t])), [fleet]);
 
   const cones = useMemo(
-    () => TURBINE_GEO.map((t) => ({ id: t.id, poly: wakeConePoly(t.lat, t.lon, coneDir) })),
-    [coneDir],
+    () => fleet.turbines.map((t) => ({ id: t.id, poly: wakeConePoly(t.lat, t.lon, coneDir) })),
+    [coneDir, fleet],
   );
   const losses = useMemo(() => {
-    const allLosses = computeWakeLosses(TURBINE_GEO, windDir).map((w) => ({
-      ...w,
-      lossPct: Math.round(wakePowerLossPct(freeMs, w.deficit)),
+    const allLosses = [...farmWakeDeficits(windDir, fleet)].map(([turbineId, deficit]) => ({
+      turbineId,
+      lossPct: Math.round(wakePowerLossPct(freeMs, deficit)),
     }));
     return allLosses
       .filter((l) => l.lossPct >= WAKE_BADGE_MIN_PCT)
       .sort((a, b) => b.lossPct - a.lossPct)
       .slice(0, MAX_WAKE_BADGES)
       .map((l) => ({ ...l, icon: wakeLossIcon(l.lossPct) }));
-  }, [windDir, freeMs]);
+  }, [windDir, freeMs, fleet]);
 
   return (
     <>
@@ -122,7 +117,7 @@ export default function WakeEffectLayer() {
 
       {/* Wake loss percentage badges — only for the worst offenders */}
       {losses.map((l) => {
-        const pos = TURBINE_POSITIONS.find((t) => t.id === l.turbineId);
+        const pos = posById.get(l.turbineId);
         if (!pos) return null;
         return (
           <Marker

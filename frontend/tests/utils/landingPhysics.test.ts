@@ -8,7 +8,7 @@ import {
   EXPORT_CABLE,
   arrayCableCurrentA,
   arrayCableGrade,
-  STATCOM_RATING_MVAR,
+  plantNet,
   V236,
   exportCableState,
   farmWakeDeficits,
@@ -29,7 +29,7 @@ describe("reactiveBalance", () => {
       const b = reactiveBalance(mw);
       const net = b.cableMVAr + b.statcomMVAr + b.reactorsMVAr + b.seriesLossMVAr;
       expect(Math.abs(net)).toBeLessThan(1e-9);
-      expect(Math.abs(b.statcomMVAr)).toBeLessThanOrEqual(STATCOM_RATING_MVAR);
+      expect(Math.abs(b.statcomMVAr)).toBeLessThanOrEqual(plantNet().statcomMVAr);
     }
   });
 

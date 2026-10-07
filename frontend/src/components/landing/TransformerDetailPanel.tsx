@@ -9,10 +9,8 @@
 
 import { Zap } from "lucide-react";
 
-import {
-  OSS_BUSBAR_SECTION,
-  TURBINE_POSITIONS,
-} from "../../constants/windFarmLayout";
+import { sectionOf, useFleet } from "../../lib/fleet";
+import { bayName } from "../../lib/lifecycle/farm";
 import { useLandingStore } from "../../store/landingStore";
 import type { TransformerData } from "../../types/landing";
 import {
@@ -82,28 +80,26 @@ function TempRow({
   );
 }
 
-const STRING_NUMBERS = [1, 2, 3, 4, 5, 6];
-
 /**
- * OSS 66 kV switchboard: six string feeders, strings 1–3 on section A
- * (TX-OSS-01), 4–6 on section B (TX-OSS-02), bus coupler normally open —
- * so each OSS transformer carries its own section's strings.
+ * OSS 66 kV switchboard of the live fleet: one feeder per string, the first
+ * strings on section A (TX-OSS-01), the rest on B (TX-OSS-02), bus coupler
+ * normally open — so each OSS transformer carries its own section's strings
+ * (SB-510: strings 1–3 / 4–6, coupler BAY-OSS-66-08).
  */
 function Switchboard66({ stringMW }: { stringMW: number[] }) {
   const fault = useLandingStore((s) => s.arrayFault);
+  const fleet = useFleet();
   return (
-    <PanelSection title="66 kV switchboard" aside="coupler BAY-OSS-66-08 open">
+    <PanelSection title="66 kV switchboard" aside={`coupler ${bayName(fleet.strings.length + 2)} open`}>
       <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-x-3 gap-y-[3px] font-mono text-[11px] tabular-nums">
-        {STRING_NUMBERS.map((n) => {
+        {fleet.strings.map((ids, i) => {
+          const n = i + 1;
           const open = fault?.stringNumber === n && fault.stage === "tripped";
-          const wtg = TURBINE_POSITIONS.filter(
-            (t) => t.stringNumber === n,
-          ).length;
           return (
             <div key={n} className="contents">
-              <span className="text-text-secondary">BAY-OSS-66-0{n}</span>
+              <span className="text-text-secondary">{bayName(n)}</span>
               <span className="text-text-muted">
-                S{n} · {wtg} WTG · {OSS_BUSBAR_SECTION[n]}
+                S{n} · {ids.length} WTG · {sectionOf(fleet, i)}
               </span>
               <span className="text-right text-text-primary">
                 {stringMW[n - 1].toFixed(1)} MW
@@ -130,19 +126,15 @@ export default function TransformerDetailPanel({
   navLabel,
 }: TransformerDetailPanelProps) {
   const turbineMap = useLandingStore((s) => s.turbineMap);
+  const fleet = useFleet();
   const isOss = tx.lvKV === 66;
-  const stringMW = STRING_NUMBERS.map((n) =>
-    TURBINE_POSITIONS.filter((t) => t.stringNumber === n).reduce(
-      (sum, t) => sum + (turbineMap[t.id]?.powerOutputMW ?? 0),
-      0,
-    ),
+  const stringMW = fleet.strings.map((ids) =>
+    ids.reduce((sum, id) => sum + (turbineMap[id]?.powerOutputMW ?? 0), 0),
   );
   // OSS: each unit carries its own 66 kV section (WTGs at ≈ unity pf, so
   // MVA ≈ MW); onshore: the two units share the export equally.
   const sectionMW = (unit: number) =>
-    STRING_NUMBERS.filter(
-      (n) => OSS_BUSBAR_SECTION[n] === (unit === 0 ? "A" : "B"),
-    ).reduce((sum, n) => sum + stringMW[n - 1], 0);
+    stringMW.filter((_, i) => sectionOf(fleet, i) === (unit === 0 ? "A" : "B")).reduce((sum, mw) => sum + mw, 0);
   const installedMVA = tx.units * tx.ratingMVA;
   const throughputMVA = (tx.loadPercent / 100) * installedMVA;
   // N-1: the surviving unit carries at most its own rating; the rest is curtailed.

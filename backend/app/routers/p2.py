@@ -216,8 +216,8 @@ async def load_flow_scenario(scenario: LoadFlowScenario, spec: FarmSpecDep) -> L
 
 
 @router.post("/live-load-flow", response_model=LiveLoadFlowResponse)
-async def live_load_flow(body: LiveLoadFlowRequest) -> LiveLoadFlowResponse:
-    """Solve the grid for the live farm operating point (34 WTG powers).
+async def live_load_flow(body: LiveLoadFlowRequest, spec: FarmSpecDep) -> LiveLoadFlowResponse:
+    """Solve the grid for the live farm operating point (one power per WTG).
 
     Polled by the landing map every few seconds: the browser owns the farm
     simulation (wind, wakes, yaw, faults), the backend owns the network
@@ -225,7 +225,7 @@ async def live_load_flow(body: LiveLoadFlowRequest) -> LiveLoadFlowResponse:
     worker thread so the event loop stays free.
     """
     try:
-        return await run_in_threadpool(run_live_load_flow, body.wtg_p_mw)
+        return await run_in_threadpool(run_live_load_flow, body.wtg_p_mw, spec)
     except DomainError:
         raise
     except Exception as e:

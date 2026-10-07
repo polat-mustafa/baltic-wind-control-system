@@ -1,8 +1,9 @@
 /**
  * Single-line diagram of the export system — IEC 60617 symbols, ISA-101 colours.
  *
- * Topology and energisation come from utils/scadaTopology (2 × onshore and
- * 2 × OSS transformers, 2 × 45 km export cables, split 66 kV switchboard).
+ * Topology and energisation come from utils/scadaTopology for the live fleet
+ * (2 × onshore and 2 × OSS transformers, n export cables, split 66 kV
+ * switchboard with one feeder per string — SB-510: 2 × 45 km, 6 strings).
  * Flows are computed from the live farm: string MW from the turbines,
  * section → transformer loading, cable current with half the charging
  * current in quadrature. Operating a breaker is select-before-operate
@@ -18,19 +19,18 @@ import { usePlantSnapshot } from "../../store/liveGridStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { InfoButton } from "../ui/InfoButton";
 import { substationSldInfo } from "../../constants/panelInfo";
+import { sectionOf, stringsOn, useFleet } from "../../lib/fleet";
 import {
-  BREAKERS,
-  STRING_IDS,
+  breakers as breakersOf,
   energisation,
   type BreakerId,
 } from "../../utils/scadaTopology";
 import type { BreakerState } from "../../types/scada";
 import {
   EXPORT_CABLE,
-  REACTOR_UNIT_MVAR,
-  TX_UNIT_MVA,
   arrayCableCurrentA,
   exportCableState,
+  plantNet,
 } from "../../utils/landingPhysics";
 import { cn } from "../../lib/utils";
 
@@ -39,10 +39,12 @@ const V400 = SCADA_COLORS.VOLTAGE_400KV;
 const V220 = SCADA_COLORS.VOLTAGE_220KV;
 const V66 = SCADA_COLORS.VOLTAGE_66KV;
 
-// Column x of circuit 1 / circuit 2, string feeders, busbar y levels
+// Column x of transformer bays 1 / 2 (export cables spread around them), busbar y levels.
+// Feeders sit 120 apart on their section; more than 3 per section widens the drawing.
 const X1 = 390;
 const X2 = 610;
-const STRING_X = [110, 230, 350, 650, 770, 890];
+const FEEDER_DX = 120;
+const cableX = (i: number, n: number) => 500 + (i - (n - 1) / 2) * (n <= 3 ? 220 : 160);
 const Y = {
   b400: 50, cb400: 88, txOns: 140, b220on: 195, cbOnsE: 230, cbOssE: 352,
   b220oss: 390, cbOssT: 428, txOss: 482, cb66: 537, b66: 578, cbStr: 620, str: 662,
@@ -71,8 +73,8 @@ function Busbar({ x1, x2, y, live, color, label }: { x1: number; x2: number; y: 
 }
 
 /** Two-winding transformer: two overlapping circles (IEC 60617-06-09-01). */
-function Transformer({ x, y, hv, lv, liveHv, liveLv, label, loadPct }: {
-  x: number; y: number; hv: string; lv: string; liveHv: boolean; liveLv: boolean; label: string; loadPct: number;
+function Transformer({ x, y, hv, lv, liveHv, liveLv, label, loadPct, mva }: {
+  x: number; y: number; hv: string; lv: string; liveHv: boolean; liveLv: boolean; label: string; loadPct: number; mva: number;
 }) {
   const over = loadPct > 100;
   return (
@@ -81,7 +83,7 @@ function Transformer({ x, y, hv, lv, liveHv, liveLv, label, loadPct }: {
       <circle cx={x} cy={y + 10} r={15} fill="none" stroke={liveLv ? lv : DEAD} strokeWidth={2} />
       <text x={x + 24} y={y - 3} className="fill-text-primary" fontSize={13} fontWeight={600}>{label}</text>
       <text x={x + 24} y={y + 13} fontSize={13} fontFamily="monospace" className={over ? "fill-status-alarm" : "fill-text-secondary"}>
-        {liveLv ? `${loadPct.toFixed(0)} % of ${TX_UNIT_MVA} MVA` : "out of service"}
+        {liveLv ? `${loadPct.toFixed(0)} % of ${mva} MVA` : "out of service"}
       </text>
     </g>
   );
@@ -89,6 +91,7 @@ function Transformer({ x, y, hv, lv, liveHv, liveLv, label, loadPct }: {
 
 interface BreakerProps {
   id: BreakerId;
+  label: string;
   x: number;
   y: number;
   color: string;
@@ -100,7 +103,7 @@ interface BreakerProps {
 }
 
 /** Circuit breaker (IEC 60617-07-13-05): filled = closed, hollow = open, red = tripped. */
-function Breaker({ id, x, y, color, live, horizontal = false, state, selected, onSelect }: BreakerProps) {
+function Breaker({ id, label, x, y, color, live, horizontal = false, state, selected, onSelect }: BreakerProps) {
   const closed = state === "CLOSED";
   const tripped = state === "TRIPPED";
   const stroke = tripped ? SCADA_COLORS.FAULT : live || closed ? color : DEAD;
@@ -108,7 +111,7 @@ function Breaker({ id, x, y, color, live, horizontal = false, state, selected, o
     <g
       role="button"
       tabIndex={0}
-      aria-label={`${BREAKERS[id].label} ${state}`}
+      aria-label={`${label} ${state}`}
       className="cursor-pointer focus:outline-none"
       onClick={() => onSelect(id)}
       onKeyDown={(ev) => ev.key === "Enter" && onSelect(id)}
@@ -135,7 +138,7 @@ function Breaker({ id, x, y, color, live, horizontal = false, state, selected, o
         fontFamily="monospace"
         className={tripped ? "fill-status-alarm" : "fill-text-muted"}
       >
-        {BREAKERS[id].label}
+        {label}
         {tripped ? " TRIP" : !closed ? " OPEN" : ""}
       </text>
     </g>
@@ -148,18 +151,37 @@ export default function SubstationSLD() {
   const operateBreaker = useScadaStore((s) => s.operateBreaker);
   const turbineMap = useLandingStore((s) => s.turbineMap);
   const plant = usePlantSnapshot();
+  const fleet = useFleet();
+  const BREAKERS = breakersOf(fleet);
+  const net = plantNet(fleet);
   const [selected, setSelected] = useState<BreakerId | null>(null);
   const [blocked, setBlocked] = useState<string | null>(null);
 
-  const e = useMemo(() => energisation(breakers), [breakers]);
+  const e = useMemo(() => energisation(breakers, fleet), [breakers, fleet]);
+
+  // ── Layout for this fleet: section A feeders from the left, B mirrored from the right ──
+  const onA = stringsOn(fleet, "A");
+  const onB = stringsOn(fleet, "B");
+  const W = 1000 + 2 * FEEDER_DX * Math.max(0, Math.max(onA.length, onB.length) - 3);
+  const dx = (W - 1000) / 2;
+  const stringX = fleet.strings.map((_, i) =>
+    sectionOf(fleet, i) === "A" ? 110 + onA.indexOf(i) * FEEDER_DX : W - 110 - (onB.length - 1 - onB.indexOf(i)) * FEEDER_DX,
+  );
+  const cables = Array.from({ length: net.circuits }, (_, i) => ({ x: cableX(i, net.circuits), i }));
+  const busX: [number, number] = [Math.min(280, cables[0].x - 40), Math.max(720, cables[cables.length - 1].x + 40)];
+
+  // GOOSE fault zone; cable 1 sits wherever this fleet's circuits put it
+  const zone = faultZone && FAULT_ZONE[faultZone]
+    ? faultZone === "cable_earth_fault" ? { ...FAULT_ZONE[faultZone], x: cables[0].x - 34 } : FAULT_ZONE[faultZone]
+    : null;
 
   // ── Flows from the live farm ──
-  const stringMW = STRING_IDS.map((ids, i) =>
+  const stringMW = fleet.strings.map((ids, i) =>
     e.strings[i] ? ids.reduce((sum, id) => sum + (turbineMap[id]?.powerOutputMW ?? 0), 0) : 0,
   );
   const sectionMW = (strings: number[]) => strings.reduce((sum, i) => sum + stringMW[i], 0);
-  const mwA = sectionMW([0, 1, 2]);
-  const mwB = sectionMW([3, 4, 5]);
+  const mwA = sectionMW(onA);
+  const mwB = sectionMW(onB);
   const coupled = breakers["cb-66-bc"] === "CLOSED";
   // With the coupler closed one incomer is open (interlock): it carries both sections
   const txMW: [number, number] = coupled
@@ -167,20 +189,21 @@ export default function SubstationSLD() {
     : [mwA, mwB];
   const total = mwA + mwB;
   const liveCables = e.cable.filter(Boolean).length;
-  const chargingHalfA = exportCableState(0).currentA; // I_C/2 per circuit
-  const cablePct = (i: 0 | 1) => {
+  const chargingHalfA = exportCableState(0, net).currentA; // I_C/2 per circuit
+  const cablePct = (i: number) => {
     if (!e.cable[i]) return 0;
     const iActive = (total * 1e6) / (Math.sqrt(3) * EXPORT_CABLE.kV * 1e3 * liveCables);
     return (Math.hypot(iActive, chargingHalfA) / EXPORT_CABLE.ratedA) * 100;
   };
   const onsInService = (["cb-400-1", "cb-400-2"] as const).filter((id) => breakers[id] === "CLOSED").length;
-  const onsPct = onsInService ? (total / (onsInService * TX_UNIT_MVA)) * 100 : 0;
+  const onsPct = onsInService ? (total / (onsInService * net.onsTxMVA)) * 100 : 0;
 
   const sel = selected ? BREAKERS[selected] : null;
   const selState = selected ? breakers[selected] : null;
   const nReactors = plant.reactorsInService;
   const bp = (id: BreakerId) => ({
     id,
+    label: BREAKERS[id].label,
     state: breakers[id],
     selected: selected === id,
     onSelect: (b: BreakerId) => {
@@ -208,17 +231,18 @@ export default function SubstationSLD() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
-        <svg viewBox="0 0 1000 740" className="w-full h-full min-w-[720px]" preserveAspectRatio="xMidYMin meet" role="img" aria-label="Export system single-line diagram">
-          {faultZone && FAULT_ZONE[faultZone] && (
-            <rect {...{ x: FAULT_ZONE[faultZone].x, y: FAULT_ZONE[faultZone].y, width: FAULT_ZONE[faultZone].w, height: FAULT_ZONE[faultZone].h }}
+        <svg viewBox={`0 0 ${W} 740`} className="w-full h-full" style={{ minWidth: W * 0.72 }} preserveAspectRatio="xMidYMin meet" role="img" aria-label="Export system single-line diagram">
+          <g transform={`translate(${dx} 0)`}>
+          {zone && (
+            <rect {...{ x: zone.x, y: zone.y, width: zone.w, height: zone.h }}
               fill={SCADA_COLORS.FAULT} fillOpacity={0.12} stroke={SCADA_COLORS.FAULT} strokeDasharray="6 3" strokeWidth={1.5} className="animate-pulse" />
           )}
 
           {/* ── PSE 400 kV ── */}
-          <Busbar x1={280} x2={720} y={Y.b400} live color={V400} label="PSE 400 kV · connection point" />
+          <Busbar x1={busX[0]} x2={busX[1]} y={Y.b400} live color={V400} label="PSE 400 kV · connection point" />
           <g fontFamily="monospace" fontSize={13}>
-            <text x={735} y={Y.b400 - 8} className="fill-text-primary">P {plant.pocMW.toFixed(1)} MW</text>
-            <text x={735} y={Y.b400 + 10} className="fill-text-secondary">Q {plant.pocMVAr >= 0 ? "+" : "−"}{Math.abs(plant.pocMVAr).toFixed(0)} MVAr · U {plant.pocKV.toFixed(1)} kV</text>
+            <text x={busX[1] + 15} y={Y.b400 - 8} className="fill-text-primary">P {plant.pocMW.toFixed(1)} MW</text>
+            <text x={busX[1] + 15} y={Y.b400 + 10} className="fill-text-secondary">Q {plant.pocMVAr >= 0 ? "+" : "−"}{Math.abs(plant.pocMVAr).toFixed(0)} MVAr · U {plant.pocKV.toFixed(1)} kV</text>
           </g>
 
           {/* ── Onshore transformer bays ── */}
@@ -229,15 +253,17 @@ export default function SubstationSLD() {
                 <Wire x1={x} y1={Y.b400} x2={x} y2={Y.cb400 - 9} live color={V400} />
                 <Breaker {...bp(cb)} x={x} y={Y.cb400} color={V400} live />
                 <Wire x1={x} y1={Y.cb400 + 9} x2={x} y2={Y.txOns - 25} live={on} color={V400} />
-                <Transformer x={x} y={Y.txOns} hv={V400} lv={V220} liveHv={on} liveLv={on && e.onshore220} label={`${name} 220/400 kV`} loadPct={on ? onsPct : 0} />
+                <Transformer x={x} y={Y.txOns} hv={V400} lv={V220} liveHv={on} liveLv={on && e.onshore220} label={`${name} 220/400 kV`} loadPct={on ? onsPct : 0} mva={net.onsTxMVA} />
                 <Wire x1={x} y1={Y.txOns + 25} x2={x} y2={Y.b220on} live={on} color={V220} />
               </g>
             );
           })}
-          <Busbar x1={280} x2={720} y={Y.b220on} live={e.onshore220} color={V220} label="Onshore 220 kV" />
+          <Busbar x1={busX[0]} x2={busX[1]} y={Y.b220on} live={e.onshore220} color={V220} label="Onshore 220 kV" />
 
           {/* ── Export cables ── */}
-          {([[X1, 0, "cb-ons-e1", "cb-oss-e1"], [X2, 1, "cb-ons-e2", "cb-oss-e2"]] as const).map(([x, i, cbOn, cbOff]) => {
+          {cables.map(({ x, i }) => {
+            const cbOn = `cb-ons-e${i + 1}`;
+            const cbOff = `cb-oss-e${i + 1}`;
             const live = e.cable[i];
             const pct = cablePct(i);
             return (
@@ -249,14 +275,14 @@ export default function SubstationSLD() {
                 <ellipse cx={x} cy={(Y.cbOnsE + Y.cbOssE) / 2} rx={7} ry={3} fill="none" stroke={live ? V220 : DEAD} strokeWidth={1.5} />
                 <text x={x + 14} y={(Y.cbOnsE + Y.cbOssE) / 2 - 4} fontSize={13} className="fill-text-primary" fontWeight={600}>Export cable {i + 1}</text>
                 <text x={x + 14} y={(Y.cbOnsE + Y.cbOssE) / 2 + 12} fontSize={12} fontFamily="monospace" className={pct > 100 ? "fill-status-alarm" : "fill-text-secondary"}>
-                  {live ? `${pct.toFixed(0)} % of ${EXPORT_CABLE.ratedA} A` : "dead"} · 45 km
+                  {live ? `${pct.toFixed(0)} % of ${EXPORT_CABLE.ratedA} A` : "dead"} · {net.exportKm.toFixed(0)} km
                 </text>
                 <Breaker {...bp(cbOff)} x={x} y={Y.cbOssE} color={V220} live={e.oss220} />
                 <Wire x1={x} y1={Y.cbOssE + 9} x2={x} y2={Y.b220oss} live={e.oss220} color={V220} />
               </g>
             );
           })}
-          <Busbar x1={140} x2={860} y={Y.b220oss} live={e.oss220} color={V220} label="OSS 220 kV" />
+          <Busbar x1={Math.min(140, busX[0])} x2={Math.max(860, busX[1])} y={Y.b220oss} live={e.oss220} color={V220} label="OSS 220 kV" />
 
           {/* Shunt reactors (left) and STATCOM (right) on the OSS 220 kV busbar */}
           <g>
@@ -264,14 +290,14 @@ export default function SubstationSLD() {
             <path d={`M200 ${Y.b220oss + 30} q 8 4 0 8 q 8 4 0 8 q 8 4 0 8 q 8 4 0 8`} fill="none" stroke={e.oss220 ? V220 : DEAD} strokeWidth={2} />
             <text x={212} y={Y.b220oss + 44} fontSize={13} className="fill-text-primary" fontWeight={600}>Shunt reactors</text>
             <text x={212} y={Y.b220oss + 60} fontSize={12} fontFamily="monospace" className="fill-text-secondary">
-              {e.oss220 ? `${nReactors} × ${REACTOR_UNIT_MVAR} = −${nReactors * REACTOR_UNIT_MVAR} MVAr` : "dead"}
+              {!e.oss220 ? "dead" : net.reactorCount ? `${nReactors} × ${net.reactorUnitMVAr} = −${nReactors * net.reactorUnitMVAr} MVAr` : "none (short export)"}
             </text>
             <Wire x1={800} y1={Y.b220oss} x2={800} y2={Y.b220oss + 30} live={e.oss220} color={V220} />
             <rect x={784} y={Y.b220oss + 30} width={32} height={22} rx={2} fill="none" stroke={e.oss220 ? V220 : DEAD} strokeWidth={2} />
             <text x={800} y={Y.b220oss + 45} textAnchor="middle" fontSize={11} fontFamily="monospace" className="fill-text-secondary">=/~</text>
             <text x={824} y={Y.b220oss + 44} fontSize={13} className="fill-text-primary" fontWeight={600}>STATCOM</text>
             <text x={824} y={Y.b220oss + 60} fontSize={12} fontFamily="monospace" className="fill-text-secondary">
-              {e.oss220 ? `${plant.statcomMVAr >= 0 ? "+" : "−"}${Math.abs(plant.statcomMVAr).toFixed(0)} / ±120 MVAr` : "dead"}
+              {e.oss220 ? `${plant.statcomMVAr >= 0 ? "+" : "−"}${Math.abs(plant.statcomMVAr).toFixed(0)} / ±${net.statcomMVAr} MVAr` : "dead"}
             </text>
           </g>
 
@@ -283,7 +309,7 @@ export default function SubstationSLD() {
                 <Wire x1={x} y1={Y.b220oss} x2={x} y2={Y.cbOssT - 9} live={e.oss220} color={V220} />
                 <Breaker {...bp(hv)} x={x} y={Y.cbOssT} color={V220} live={e.oss220} />
                 <Wire x1={x} y1={Y.cbOssT + 9} x2={x} y2={Y.txOss - 25} live={on} color={V220} />
-                <Transformer x={x} y={Y.txOss} hv={V220} lv={V66} liveHv={on} liveLv={on} label={`${name} 66/220 kV`} loadPct={(txMW[i] / TX_UNIT_MVA) * 100} />
+                <Transformer x={x} y={Y.txOss} hv={V220} lv={V66} liveHv={on} liveLv={on} label={`${name} 66/220 kV`} loadPct={(txMW[i] / net.ossTxMVA) * 100} mva={net.ossTxMVA} />
                 <Wire x1={x} y1={Y.txOss + 25} x2={x} y2={Y.cb66 - 9} live={on} color={V66} />
                 <Breaker {...bp(lv)} x={x} y={Y.cb66} color={V66} live={on} />
                 <Wire x1={x} y1={Y.cb66 + 9} x2={x} y2={Y.b66} live={i === 0 ? e.sectionA : e.sectionB} color={V66} />
@@ -291,17 +317,19 @@ export default function SubstationSLD() {
             );
           })}
 
+          </g>
+
           {/* ── 66 kV switchboard: sections A/B + bus coupler ── */}
-          <Busbar x1={60} x2={440} y={Y.b66} live={e.sectionA} color={V66} label="66 kV section A" />
-          <Busbar x1={560} x2={940} y={Y.b66} live={e.sectionB} color={V66} label="66 kV section B" />
-          <Wire x1={440} y1={Y.b66} x2={491} y2={Y.b66} live={e.sectionA} color={V66} />
-          <Wire x1={509} y1={Y.b66} x2={560} y2={Y.b66} live={e.sectionB} color={V66} />
-          <Breaker {...bp("cb-66-bc")} x={500} y={Y.b66} color={V66} live={e.sectionA || e.sectionB} horizontal />
+          <Busbar x1={60} x2={440 + dx} y={Y.b66} live={e.sectionA} color={V66} label="66 kV section A" />
+          <Busbar x1={560 + dx} x2={W - 60} y={Y.b66} live={e.sectionB} color={V66} label="66 kV section B" />
+          <Wire x1={440 + dx} y1={Y.b66} x2={491 + dx} y2={Y.b66} live={e.sectionA} color={V66} />
+          <Wire x1={509 + dx} y1={Y.b66} x2={560 + dx} y2={Y.b66} live={e.sectionB} color={V66} />
+          <Breaker {...bp("cb-66-bc")} x={500 + dx} y={Y.b66} color={V66} live={e.sectionA || e.sectionB} horizontal />
 
           {/* ── String feeders ── */}
-          {STRING_X.map((x, i) => {
-            const id = `cb-str${i + 1}` as BreakerId;
-            const sectionLive = i < 3 ? e.sectionA : e.sectionB;
+          {stringX.map((x, i) => {
+            const id = `cb-str${i + 1}`;
+            const sectionLive = sectionOf(fleet, i) === "A" ? e.sectionA : e.sectionB;
             const live = e.strings[i];
             const mw = stringMW[i];
             return (
@@ -317,7 +345,7 @@ export default function SubstationSLD() {
                   {live ? `${mw.toFixed(1)} MW` : "de-energised"}
                 </text>
                 <text x={x} y={Y.str + 50} textAnchor="middle" fontSize={12} fontFamily="monospace" className="fill-text-muted">
-                  {STRING_IDS[i].length} WTG{live ? ` · ${arrayCableCurrentA(mw).toFixed(0)} A` : ""}
+                  {fleet.strings[i].length} WTG{live ? ` · ${arrayCableCurrentA(mw).toFixed(0)} A` : ""}
                 </text>
               </g>
             );

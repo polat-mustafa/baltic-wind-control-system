@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Download, Play, Square } from "lucide-react";
 
 import { debriefStats, useInstructorStore, type Injection, type PlantSample } from "../../store/instructorStore";
-import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
+import { useFleet } from "../../lib/fleet";
 import type { TurbineFaultType } from "../../types/scada";
 
 const FAULTS: TurbineFaultType[] = [
@@ -29,7 +29,8 @@ const btn = "rounded border border-border-primary px-2 py-1 text-[11px] font-sem
 
 export default function InstructorTab() {
   const s = useInstructorStore();
-  const [turbine, setTurbine] = useState("WTG-09");
+  const fleet = useFleet();
+  const [turbine, setTurbine] = useState(() => (fleet.turbines[8] ?? fleet.turbines[0]).id);
   const [fault, setFault] = useState<TurbineFaultType>("PITCH_CONTROL_FAULT");
   const stats = debriefStats(s.injections);
 
@@ -63,7 +64,7 @@ export default function InstructorTab() {
         <legend className="px-1 text-[11px] font-bold uppercase tracking-wide text-text-muted">Inject</legend>
         <div className="flex flex-wrap items-center gap-1">
           <select value={turbine} onChange={(e) => setTurbine(e.target.value)} className="rounded border border-border-primary bg-bg-secondary px-1 py-0.5" aria-label="Turbine">
-            {TURBINE_POSITIONS.map((t) => (
+            {fleet.turbines.map((t) => (
               <option key={t.id}>{t.id}</option>
             ))}
           </select>
@@ -133,7 +134,8 @@ function PowerTrace({ samples, injections }: { samples: PlantSample[]; injection
   const H = 70;
   const t1 = Math.max(samples[samples.length - 1].t, 1);
   const x = (t: number) => (t / t1) * W;
-  const y = (mw: number) => H - (Math.min(mw, 520) / 520) * (H - 6);
+  const rated = useFleet().net.total_capacity_mw;
+  const y = (mw: number) => H - (Math.min(mw, rated * 1.02) / (rated * 1.02)) * (H - 6);
   const d = samples.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.mw).toFixed(1)}`).join("");
   return (
     <figure className="bw-viz">
@@ -142,7 +144,7 @@ function PowerTrace({ samples, injections }: { samples: PlantSample[]; injection
         <span className="font-mono tabular-nums">{samples[samples.length - 1].mw.toFixed(0)} MW</span>
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Farm power during the session with injections marked">
-        {[0, 255, 510].map((mw) => (
+        {[0, rated / 2, rated].map((mw) => (
           <line key={mw} x1={0} x2={W} y1={y(mw)} y2={y(mw)} style={{ stroke: "var(--color-border-primary)" }} strokeOpacity={0.35} strokeWidth={0.6} />
         ))}
         {injections.map((i) => (

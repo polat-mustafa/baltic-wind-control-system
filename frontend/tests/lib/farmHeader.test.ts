@@ -61,11 +61,11 @@ describe("farm header", () => {
     expect(farmInput()).toMatchObject({ wind_a: 10.4, wind_k: 2.15, export_km: expect.any(Number) });
   });
 
-  it("goes to grid, SCADA, commissioning and twin — not to the SB-510 control room bays", () => {
-    for (const url of ["/api/v1/grid/load-flow", "/api/v1/scada/cms/fleet/overview", "/api/v1/scada/historian/latest", "/api/v1/digital-twin/analyze", "/api/v1/commissioning/programmes"]) {
+  it("goes to grid, SCADA (control-room bays included), commissioning and twin", () => {
+    for (const url of ["/api/v1/grid/load-flow", "/api/v1/scada/cms/fleet/overview", "/api/v1/scada/historian/latest", "/api/v1/scada/bays/BAY-OSS-66-07/command", "/api/v1/scada/interlocks/validate", "/api/v1/digital-twin/analyze", "/api/v1/commissioning/programmes"]) {
       expect(sendsFarm(url)).toBe(true);
     }
-    for (const url of ["/api/v1/scada/bays", "/api/v1/scada/bays/BAY-OSS-66-07/command", "/api/v1/scada/interlocks/validate", "/api/v1/site/regions", "/api/v1/wind/aep"]) {
+    for (const url of ["/api/v1/site/regions", "/api/v1/wind/aep"]) {
       expect(sendsFarm(url)).toBe(false);
     }
   });

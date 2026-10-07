@@ -31,7 +31,6 @@ import {
   FAULT_TO_PART,
   type TurbinePartId,
 } from "../../constants/turbinePartEducation";
-import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { useTurbineHistory } from "../../hooks/useTurbineHistory";
 import {
   selectKPIs,
@@ -46,6 +45,7 @@ import {
   turbinePowerMW,
   wakePowerLossPct,
 } from "../../utils/landingPhysics";
+import { useFleet } from "../../lib/fleet";
 import { computeWakeLosses } from "../../utils/wakeModel";
 import { EducationPanel } from "../ui/EducationPanel";
 
@@ -93,13 +93,6 @@ const NAV_ITEMS = [
     tip: "Turbine Physics",
   },
 ];
-
-/** Stable reference to turbine geographic data (never changes). */
-const TURBINE_GEO = TURBINE_POSITIONS.map((t) => ({
-  id: t.id,
-  lat: t.lat,
-  lon: t.lon,
-}));
 
 /** Round wind direction to nearest `step` degrees (matches WakeEffectLayer). */
 const quantizeDir = (deg: number, step = 5) => Math.round(deg / step) * step;
@@ -281,14 +274,11 @@ export default function TurbineDetailPanel({
   // Live power loss at the current freestream (0 when the waked wind is
   // still above rated) — rounded to 0.5 m/s like the map's wake badges.
   const freeMs = Math.round(kpis.freestreamWindMs * 2) / 2;
+  const fleet = useFleet();
   const wakeLoss = useMemo(() => {
-    const w = computeWakeLosses(TURBINE_GEO, windDir).find(
-      (l) => l.turbineId === t.id,
-    );
-    return w
-      ? { ...w, lossPct: Math.round(wakePowerLossPct(freeMs, w.deficit)) }
-      : null;
-  }, [windDir, freeMs, t.id]);
+    const w = computeWakeLosses(fleet.turbines, windDir).find((l) => l.turbineId === t.id);
+    return w ? { ...w, lossPct: Math.round(wakePowerLossPct(freeMs, w.deficit)) } : null;
+  }, [windDir, freeMs, t.id, fleet]);
 
   const handlePartClick = useCallback(
     (partId: TurbinePartId) =>

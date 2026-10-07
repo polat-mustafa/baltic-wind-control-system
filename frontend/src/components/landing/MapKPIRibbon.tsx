@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { useFleet } from "../../lib/fleet";
 import { useGridEventSample } from "../../hooks/useGridEventSample";
 
 import type { FarmKPI } from "../../types/landing";
@@ -55,6 +56,7 @@ export default function MapKPIRibbon({ kpis: baseKpis, horizontal = true }: MapK
       ? { ...baseKpis, gridFrequencyHz: gridEvent.s.f }
       : baseKpis;
   const capacityPct = kpis.capacityFactorPct;
+  const fleet = useFleet();
   // Capacity factor is weather, not a fault — informational blue at any value
   // (ISA-101: reserve amber/red for abnormal states).
   const capacityColor = "#3b82f6";
@@ -101,7 +103,7 @@ export default function MapKPIRibbon({ kpis: baseKpis, horizontal = true }: MapK
           <div className="px-3 py-2 border-b border-border-primary">
             <span className="text-text-muted text-[10px]">Total Output</span>
             <div className="font-bold tabular-nums transition-colors duration-700" style={{ color: "#3ecf6e" }}>
-              {kpis.totalOutputMW.toFixed(0)} <span className="text-[10px] text-text-muted">MW / 510</span>
+              {kpis.totalOutputMW.toFixed(0)} <span className="text-[10px] text-text-muted">MW / {fleet.net.total_capacity_mw.toFixed(0)}</span>
             </div>
           </div>
         </div>

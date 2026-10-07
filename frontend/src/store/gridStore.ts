@@ -12,7 +12,7 @@
 
 import { create } from "zustand";
 
-import { SB510_EXPORT_KM } from "../constants/windFarmLayout";
+import { SB510_NETWORK } from "../lib/fleet";
 import { farmKey } from "../lib/project/farmHeader";
 import * as api from "../services/gridApi";
 import type {
@@ -29,32 +29,7 @@ import type {
 } from "../types/grid";
 
 /** SB-510 design (backend network_model.SB510) until /network-spec answers. */
-export const SB510_NETWORK: NetworkSpec = {
-  name: "SB-510",
-  source: "reference",
-  total_capacity_mw: 510,
-  num_turbines: 34,
-  num_strings: 6,
-  string_layout: [6, 6, 6, 6, 5, 5],
-  section_a_strings: 3,
-  max_turbines_per_string: 6,
-  array_voltage_kv: 66,
-  export_voltage_kv: 220,
-  grid_voltage_kv: 400,
-  array_cable_length_km: 1.5,
-  export_length_km: SB510_EXPORT_KM,
-  num_export_cables: 2,
-  cable_q_mvar: 260,
-  num_oss_transformers: 2,
-  oss_trafo_mva: 300,
-  num_onshore_transformers: 2,
-  onshore_trafo_mva: 300,
-  grid_ssc_mva: 10_000,
-  statcom_rating_mvar: 120,
-  num_reactors: 3,
-  reactor_unit_mvar: 80,
-  reactor_total_mvar: 240,
-};
+export { SB510_NETWORK };
 
 export const DEFAULT_FRT_PARAMS: FRTParams = {
   faultBus: "PSE_400kV",

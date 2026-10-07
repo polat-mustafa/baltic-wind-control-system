@@ -14,7 +14,6 @@ import * as api from "../../../src/services/lifecycleApi";
 import ConstructionPage from "../../../src/pages/ConstructionPage";
 import DecommissioningPage from "../../../src/pages/DecommissioningPage";
 import HandoverPage from "../../../src/pages/HandoverPage";
-import { useLayerStore } from "../../../src/store/layerStore";
 import { useLifecycleStore } from "../../../src/store/lifecycleStore";
 import { useModeStore } from "../../../src/store/modeStore";
 import { useProjectStore } from "../../../src/store/projectStore";
@@ -45,7 +44,6 @@ describe("lifecycle pages", () => {
     useProjectStore.setState({ turbines: [], oss: null });
     useModeStore.setState({ mode: "reference" });
     useLifecycleStore.setState({ results: {}, resultFor: {}, running: {}, error: null });
-    useLayerStore.getState().setLayer("myProject", false);
   });
 
   it("construction: runs the campaign for SB-510 and shows the milestones", async () => {
@@ -80,9 +78,8 @@ describe("lifecycle pages", () => {
     const register = screen.getByText("Turbine register").closest("section") as HTMLElement;
     expect(within(register).getAllByRole("row")).toHaveLength(1 + 8);
     expect(screen.getAllByText(/BAY-OSS-66-01/).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: /Show on the map/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Open the control room/ }));
     await waitFor(() => expect(screen.getByText("control room")).toBeTruthy());
-    expect(useLayerStore.getState().layers.myProject).toBe(true);
   });
 
   it("decommissioning: options go into the request and the cost appears", async () => {

@@ -15,14 +15,16 @@ import GridKPIHeader from "../../../src/components/p2/GridKPIHeader";
 import ShortCircuitPanel from "../../../src/components/p2/ShortCircuitPanel";
 import STATCOMPanel from "../../../src/components/p2/STATCOMPanel";
 import VoltageProfilePanel from "../../../src/components/p2/VoltageProfilePanel";
-import { useGridStore } from "../../../src/store/gridStore";
+import { useGridStore, useNetwork } from "../../../src/store/gridStore";
 import { gridState, statcomSizing } from "./gridFixtures";
 
 vi.mock("../../../src/store/gridStore");
+const { SB510_NETWORK } = await vi.importActual<typeof import("../../../src/store/gridStore")>("../../../src/store/gridStore");
 vi.mock("react-plotly.js", () => ({ default: () => null }));
 
 function withState(overrides: Record<string, unknown> = {}) {
   vi.mocked(useGridStore).mockReturnValue({ ...gridState, ...overrides } as unknown as ReturnType<typeof useGridStore>);
+  vi.mocked(useNetwork).mockReturnValue(SB510_NETWORK);
 }
 
 beforeEach(() => {

@@ -45,7 +45,9 @@ class ExportResponse(BaseModel):
 
 
 class P2XRequest(BaseModel):
-    connection_mw: float = Field(default=400.0, ge=250.0, le=510.0, description="Grid limit [MW]")
+    connection_mw: float = Field(
+        default=400.0, ge=10.0, le=2250.0, description="Grid limit [MW] (below the farm rating)"
+    )
     electrolyser_mw: float = Field(default=60.0, ge=5.0, le=250.0, description="Rating [MW]")
     capex_eur_per_kw: float = Field(default=2000.0, ge=500.0, le=4000.0, description="[EUR/kW]")
 

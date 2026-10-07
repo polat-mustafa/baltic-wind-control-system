@@ -14,13 +14,14 @@ Test Strategy
 - Without compensation: voltage violation (validates necessity)
 """
 
+import dataclasses
+
 import pytest
 
 from app.services.p2 import network_model
 from app.services.p2.network_model import STATCOM_RATING_MVAR
 from app.services.p2.statcom_sizing import (
     calculate_cable_reactive_power,
-    poc_q_capability,
     size_statcom,
     validate_compensation,
 )
@@ -146,17 +147,10 @@ class TestCompensationValidation:
         assert result.reactor_n1_secure
         assert -STATCOM_RATING_MVAR < result.reactor_n1_statcom_q_mvar < 0.0
 
-    def test_reactor_n1_detects_insecure_design(self, monkeypatch):
+    def test_reactor_n1_detects_insecure_design(self):
         """With only 2 reactors the N-1 check must fail (STATCOM saturates at −120 MVAR)."""
-        monkeypatch.setattr(network_model, "NUM_SHUNT_REACTORS", 2)
-        try:
-            validate_compensation.cache_clear()
-            poc_q_capability.cache_clear()
-            result = validate_compensation()
-        finally:  # results cached under the patched design must not leak into other tests
-            validate_compensation.cache_clear()
-            poc_q_capability.cache_clear()
-        assert not result.reactor_n1_secure
+        two_reactors = dataclasses.replace(network_model.SB510, num_reactors=2)
+        assert not validate_compensation(spec=two_reactors).reactor_n1_secure
 
     def test_ferranti_vs_uncompensated_rise(self):
         """Ferranti along 45 km is < 1 %; the 8 % rise comes from charging current via X."""

@@ -59,8 +59,9 @@ from app.schemas.grid import (
     TransformerResult,
 )
 from app.services.p2.network_model import (
-    STATCOM_RATING_MVAR,
+    SB510,
     STRING_LAYOUT,
+    FarmSpec,
     build_network,
 )
 
@@ -80,7 +81,7 @@ class ScenarioConfig:
     generation_fraction : float
         Fraction of rated power [0.0–1.0].
     disable_string : int | None
-        If not None, disable all WTGs in this string (0-indexed).
+        If not None, disable all WTGs in this string (0-indexed; −1 = the last).
     description : str
         Human-readable scenario description.
     """
@@ -114,13 +115,15 @@ SCENARIOS: dict[LoadFlowScenario, ScenarioConfig] = {
     LoadFlowScenario.N_MINUS_1: ScenarioConfig(
         scenario=LoadFlowScenario.N_MINUS_1,
         generation_fraction=1.0,
-        disable_string=5,  # String 6 (5 WTGs = 75 MW)
-        description="String 6 out of service (N-1 contingency)",
+        disable_string=-1,  # the last string — SB-510: string 6 (5 WTGs = 75 MW)
+        description="Last string out of service (N-1 contingency)",
     ),
 }
 
 
-def _apply_n_minus_1(net: pp.pandapowerNet, disable_string: int) -> None:
+def _apply_n_minus_1(
+    net: pp.pandapowerNet, disable_string: int, layout: tuple[int, ...] | list[int] = STRING_LAYOUT
+) -> None:
     """Trip one array string: its WTGs and cables out of service (feeder breaker open).
 
     Parameters
@@ -128,18 +131,21 @@ def _apply_n_minus_1(net: pp.pandapowerNet, disable_string: int) -> None:
     net : pp.pandapowerNet
         Network to modify in-place.
     disable_string : int
-        0-indexed string number to disable.
+        0-indexed string number to disable (−1 = the last).
+    layout : sequence of int
+        Turbines per string (default SB-510).
     """
+    disable_string %= len(layout)
     # Calculate WTG range for this string
-    start_idx = sum(STRING_LAYOUT[:disable_string])
-    end_idx = start_idx + STRING_LAYOUT[disable_string]
+    start_idx = sum(layout[:disable_string])
+    end_idx = start_idx + layout[disable_string]
 
     # Disable WTG generators (set P and Q to zero, mark out of service)
     for sgen_idx in range(len(net.sgen)):
         name = str(net.sgen.at[sgen_idx, "name"])
         if name == "STATCOM":
             continue
-        # WTG names are WTG_01 to WTG_34
+        # WTG names are WTG_01 … WTG_nn
         wtg_num = int(name.split("_")[1])
         if start_idx + 1 <= wtg_num <= end_idx:
             net.sgen.at[sgen_idx, "in_service"] = False
@@ -197,6 +203,7 @@ def auto_statcom_dispatch(
         raise ValueError(msg)
 
     current_q = float(net.sgen.at[statcom_idx, "q_mvar"])
+    rating = float(net.sgen.at[statcom_idx, "sn_mva"])  # ± STATCOM rating of this farm
     # Initial guess for dQ/dV [MVAR/pu]; refined each step by the secant method
     # from the measured response, so the step size adapts to the grid strength
     # (e.g. 2 export cables make the OSS bus stiffer: ~33 MVAR per 0.01 pu).
@@ -222,7 +229,7 @@ def auto_statcom_dispatch(
         new_q = current_q + deviation * dq_dv
 
         # Clamp to STATCOM rating
-        new_q = max(-STATCOM_RATING_MVAR, min(STATCOM_RATING_MVAR, new_q))
+        new_q = max(-rating, min(rating, new_q))
         if new_q == current_q:
             break  # saturated at the limit — no further correction possible
         current_q = new_q
@@ -237,8 +244,9 @@ def auto_statcom_dispatch(
 def run_load_flow(
     scenario: LoadFlowScenario,
     auto_dispatch: bool = True,
-    export_length_km: float = 45.0,
+    export_length_km: float | None = None,
     grid_ssc_mva: float = 10_000.0,
+    spec: FarmSpec = SB510,
 ) -> LoadFlowResponse:
     """Run load flow analysis for a specified operating scenario.
 
@@ -251,10 +259,12 @@ def run_load_flow(
         Operating scenario to analyse.
     auto_dispatch : bool
         If True, auto-adjust STATCOM Q before final load flow. Default: True.
-    export_length_km : float
-        Export cable length [km]. Default: 45.0.
+    export_length_km : float | None
+        Export cable length [km]; None = the spec's (SB-510: 45.0).
     grid_ssc_mva : float
         Grid short-circuit power [MVA]. Default: 10,000.
+    spec : FarmSpec
+        Farm design. Default: SB-510.
 
     Returns
     -------
@@ -268,11 +278,12 @@ def run_load_flow(
         export_length_km=export_length_km,
         grid_ssc_mva=grid_ssc_mva,
         generation_fraction=config.generation_fraction,
+        spec=spec,
     )
 
-    # Apply N-1 contingency if needed
-    if config.disable_string is not None:
-        _apply_n_minus_1(net, config.disable_string)
+    # Apply N-1 contingency if needed (a one-string farm has no string N-1 case)
+    if config.disable_string is not None and len(spec.string_layout) > 1:
+        _apply_n_minus_1(net, config.disable_string, spec.string_layout)
 
     # Auto-dispatch STATCOM
     if auto_dispatch:
@@ -474,6 +485,7 @@ def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
 
 def run_all_scenarios(
     auto_dispatch: bool = True,
+    spec: FarmSpec = SB510,
 ) -> list[LoadFlowResponse]:
     """Run load flow for all four standard scenarios.
 
@@ -482,4 +494,7 @@ def run_all_scenarios(
     list[LoadFlowResponse]
         Results for full_load, partial_load, no_load, and n_minus_1.
     """
-    return [run_load_flow(scenario, auto_dispatch=auto_dispatch) for scenario in LoadFlowScenario]
+    return [
+        run_load_flow(scenario, auto_dispatch=auto_dispatch, spec=spec)
+        for scenario in LoadFlowScenario
+    ]

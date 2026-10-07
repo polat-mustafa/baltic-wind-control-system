@@ -36,6 +36,7 @@ import CableDTSDashboard from "../components/p2/CableDTSDashboard";
 import MarketDashboard from "../components/p2/MarketDashboard";
 import AdvancedAnalysisTab from "../components/p2/AdvancedAnalysisTab";
 import PlanningCouplingTab from "../components/p2/PlanningCouplingTab";
+import ProjectGridNote from "../components/p2/ProjectGridNote";
 import { useGridStore } from "../store/gridStore";
 import { usePPCStore } from "../store/ppcStore";
 import { Button } from "../components/ui/Button";
@@ -112,7 +113,7 @@ export default function HVGridPage() {
           </h2>
           <p className="text-xs text-text-muted mt-1 font-mono">
             {networkSpec
-              ? `${networkSpec.total_capacity_mw} MW · ${networkSpec.array_voltage_kv}/${networkSpec.export_voltage_kv}/${networkSpec.grid_voltage_kv} kV · ${networkSpec.export_length_km} km export`
+              ? `${networkSpec.name} · ${networkSpec.total_capacity_mw} MW · ${networkSpec.array_voltage_kv}/${networkSpec.export_voltage_kv}/${networkSpec.grid_voltage_kv} kV · ${networkSpec.num_export_cables} × ${networkSpec.export_length_km} km export`
               : "Loading..."}
           </p>
           {/* Design-rationale cross-links */}
@@ -157,6 +158,8 @@ export default function HVGridPage() {
           <TrainingGuide guide={p2Guide} />
         </div>
       </div>
+
+      <ProjectGridNote />
 
       {/* Tab bar */}
       <div

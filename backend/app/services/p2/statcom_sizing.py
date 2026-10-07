@@ -80,6 +80,7 @@ Constants (SB-510)
 - Voltage limits: 0.95–1.05 p.u.
 """
 
+import dataclasses
 import math
 from functools import lru_cache
 
@@ -94,11 +95,9 @@ from app.services.p2.network_model import (
     GRID_SSC_MVA,
     NUM_EXPORT_CABLES,
     NUM_SHUNT_REACTORS,
-    SHUNT_REACTOR_MVAR,
+    SB510,
     SHUNT_REACTOR_UNIT_MVAR,
-    STATCOM_RATING_MVAR,
-    TOTAL_CAPACITY_MW,
-    TURBINE_RATED_MW,
+    FarmSpec,
     build_network,
 )
 
@@ -213,10 +212,11 @@ def size_statcom(
     return math.ceil(required_rating / 10.0) * 10.0
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=16)
 def validate_compensation(
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    export_length_km: float | None = None,
     grid_ssc_mva: float = 10_000.0,
+    spec: FarmSpec = SB510,
 ) -> STATCOMSizingResult:
     """Validate reactive power compensation by comparing load flow with and without.
 
@@ -228,18 +228,22 @@ def validate_compensation(
 
     Parameters
     ----------
-    export_length_km : float
-        Export cable length [km]. Default: 45.0.
+    export_length_km : float | None
+        Export cable length [km]; None = the spec's (SB-510: 45.0).
     grid_ssc_mva : float
         Grid short-circuit power [MVA]. Default: 10,000.
+    spec : FarmSpec
+        Farm design (STATCOM, reactors, export circuits). Default: SB-510.
 
     Returns
     -------
     STATCOMSizingResult
         Sizing result with cable Q, Ferranti rise, and compensation adequacy.
     """
+    if export_length_km is None:
+        export_length_km = spec.export_length_km
     cable_q = calculate_cable_reactive_power(
-        length_km=export_length_km,
+        length_km=export_length_km, num_cables=spec.num_export_cables
     )
 
     # ── Without compensation: no reactor, no STATCOM ──────────────
@@ -249,6 +253,7 @@ def validate_compensation(
         generation_fraction=0.0,  # No-load (worst Ferranti)
         statcom_q_mvar=0.0,
         enable_reactor=False,
+        spec=spec,
     )
     pp.runpp(net_uncompensated, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
 
@@ -258,27 +263,27 @@ def validate_compensation(
     )
 
     # ── With compensation: reactors + auto-dispatched STATCOM ─────
-    compensation_adequate, _ = _run_compensated(export_length_km, grid_ssc_mva, 0.0, 0)
+    compensation_adequate, _ = _run_compensated(export_length_km, grid_ssc_mva, 0.0, 0, spec)
 
     # ── Reactor N-1: one reactor out, no load (worst) and full load ──
     n1_results = [
-        _run_compensated(export_length_km, grid_ssc_mva, gen, reactors_out=1) for gen in (0.0, 1.0)
+        _run_compensated(export_length_km, grid_ssc_mva, gen, 1, spec) for gen in (0.0, 1.0)
     ]
     n1_statcom_q = max((q for _, q in n1_results), key=abs)
-    reactor_n1_secure = all(ok for ok, _ in n1_results) and abs(n1_statcom_q) < STATCOM_RATING_MVAR
+    reactor_n1_secure = all(ok for ok, _ in n1_results) and abs(n1_statcom_q) < spec.statcom_mvar
 
-    q_max, q_min = poc_q_capability(export_length_km, grid_ssc_mva)
-    required_max = PSE_Q_PRODUCE_PU * TOTAL_CAPACITY_MW
-    required_min = -PSE_Q_ABSORB_PU * TOTAL_CAPACITY_MW
+    q_max, q_min = poc_q_capability(export_length_km, grid_ssc_mva, spec)
+    required_max = PSE_Q_PRODUCE_PU * spec.capacity_mw
+    required_min = -PSE_Q_ABSORB_PU * spec.capacity_mw
 
     return STATCOMSizingResult(
         cable_q_mvar=round(cable_q, 1),
-        reactor_q_mvar=SHUNT_REACTOR_MVAR,
+        reactor_q_mvar=spec.reactor_mvar,
         ferranti_rise_pu=round(ferranti_rise_pu(export_length_km), 4),
         uncompensated_rise_pu=round(without_v_max - 1.0, 4) if without_v_max else 0.0,
-        statcom_rating_mvar=STATCOM_RATING_MVAR,
-        statcom_q_range_min_mvar=-STATCOM_RATING_MVAR,
-        statcom_q_range_max_mvar=STATCOM_RATING_MVAR,
+        statcom_rating_mvar=spec.statcom_mvar,
+        statcom_q_range_min_mvar=-spec.statcom_mvar,
+        statcom_q_range_max_mvar=spec.statcom_mvar,
         compensation_adequate=compensation_adequate,
         without_compensation_v_max_pu=round(without_v_max, 4),
         reactor_n1_statcom_q_mvar=round(n1_statcom_q, 1),
@@ -288,40 +293,44 @@ def validate_compensation(
         pse_q_max_mvar=round(required_max, 1),
         pse_q_min_mvar=round(required_min, 1),
         pse_q_range_met=q_max >= required_max and q_min <= required_min,
-        wtg_q_capability_mvar=round(WTG_Q_CAPABILITY_PU * TURBINE_RATED_MW, 2),
+        wtg_q_capability_mvar=round(WTG_Q_CAPABILITY_PU * spec.turbine_rated_mw, 2),
     )
 
 
-CONTINUOUS_Q_MVAR = WTG_Q_CAPABILITY_PU * TOTAL_CAPACITY_MW + STATCOM_RATING_MVAR
+def continuous_q_mvar(spec: FarmSpec = SB510) -> float:
+    """Q the WTGs and the STATCOM give without switching reactors [MVAR]."""
+    return WTG_Q_CAPABILITY_PU * spec.capacity_mw + spec.statcom_mvar
 
 
 def _poc_q_at(
-    q_inj_mvar: float, export_length_km: float, grid_ssc_mva: float
+    q_inj_mvar: float, export_length_km: float, grid_ssc_mva: float, spec: FarmSpec = SB510
 ) -> tuple[float, bool]:
     """POC reactive power for a requested internal injection, and voltage feasibility.
 
     q_inj > 0 (producing): WTGs and STATCOM first, then shunt reactors are
-    switched out one by one (80 MVAR steps). q_inj < 0: WTGs and STATCOM absorb
-    with all reactors in. Both OLTCs hold their LV busbar at 0.99–1.01 p.u.
+    switched out one by one (SB-510: 80 MVAR steps). q_inj < 0: WTGs and STATCOM
+    absorb with all reactors in. Both OLTCs hold their LV busbar at 0.99–1.01 p.u.
     """
+    cont = continuous_q_mvar(spec)
     reactors_out = 0
-    if q_inj_mvar > CONTINUOUS_Q_MVAR:
+    if q_inj_mvar > cont and spec.num_reactors:
         reactors_out = min(
-            NUM_SHUNT_REACTORS,
-            math.ceil((q_inj_mvar - CONTINUOUS_Q_MVAR) / SHUNT_REACTOR_UNIT_MVAR),
+            spec.num_reactors,
+            math.ceil((q_inj_mvar - cont) / spec.reactor_unit_mvar),
         )
-    q_cont = q_inj_mvar - reactors_out * SHUNT_REACTOR_UNIT_MVAR
-    share = max(min(q_cont / CONTINUOUS_Q_MVAR, 1.0), -1.0)  # same fraction on every source
+    q_cont = q_inj_mvar - reactors_out * spec.reactor_unit_mvar
+    share = max(min(q_cont / cont, 1.0), -1.0)  # same fraction on every source
 
     net = build_network(
         export_length_km=export_length_km,
         grid_ssc_mva=grid_ssc_mva,
         generation_fraction=1.0,
-        statcom_q_mvar=share * STATCOM_RATING_MVAR,
+        statcom_q_mvar=share * spec.statcom_mvar,
+        spec=spec,
     )
     net.shunt.loc[net.shunt.index[:reactors_out], "in_service"] = False
     wtg = net.sgen["name"].str.startswith("WTG_")
-    net.sgen.loc[wtg, "q_mvar"] = share * WTG_Q_CAPABILITY_PU * TURBINE_RATED_MW
+    net.sgen.loc[wtg, "q_mvar"] = share * WTG_Q_CAPABILITY_PU * spec.turbine_rated_mw
     for idx in net.trafo.index:
         DiscreteTapControl(net, idx, vm_lower_pu=0.99, vm_upper_pu=1.01, side="lv")
     pp.runpp(net, run_control=True, max_iteration=100, tolerance_mva=1e-6)
@@ -332,30 +341,30 @@ def _poc_q_at(
     return -float(net.res_ext_grid.q_mvar.sum()), ok  # delivered to PSE, generating +
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=16)
 def poc_q_capability(
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM, grid_ssc_mva: float = GRID_SSC_MVA
+    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    grid_ssc_mva: float = GRID_SSC_MVA,
+    spec: FarmSpec = SB510,
 ) -> tuple[float, float]:
     """Largest producing / absorbing Q at the PSE 400 kV POC at P_max [MVAR].
 
     Bisection on the internal injection; each trial is a load flow with OLTC
     control, accepted only if every farm bus stays within 0.90–1.10 p.u.
     """
-    tops = {
-        +1: CONTINUOUS_Q_MVAR + NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR,
-        -1: CONTINUOUS_Q_MVAR,
-    }
+    cont = continuous_q_mvar(spec)
+    tops = {+1: cont + spec.reactor_mvar, -1: cont}
     result: dict[int, float] = {}
     for sign, top in tops.items():
-        q_top, ok_top = _poc_q_at(sign * top, export_length_km, grid_ssc_mva)
+        q_top, ok_top = _poc_q_at(sign * top, export_length_km, grid_ssc_mva, spec)
         if ok_top:
             result[sign] = q_top
             continue
         lo, hi = 0.0, top
-        best, _ = _poc_q_at(0.0, export_length_km, grid_ssc_mva)
+        best, _ = _poc_q_at(0.0, export_length_km, grid_ssc_mva, spec)
         for _ in range(7):
             mid = 0.5 * (lo + hi)
-            q, ok = _poc_q_at(sign * mid, export_length_km, grid_ssc_mva)
+            q, ok = _poc_q_at(sign * mid, export_length_km, grid_ssc_mva, spec)
             if ok:
                 lo, best = mid, q
             else:
@@ -369,6 +378,7 @@ def _run_compensated(
     grid_ssc_mva: float,
     generation_fraction: float,
     reactors_out: int,
+    spec: FarmSpec = SB510,
 ) -> tuple[bool, float]:
     """Load flow with reactors + auto-dispatched STATCOM.
 
@@ -383,6 +393,7 @@ def _run_compensated(
         generation_fraction=generation_fraction,
         statcom_q_mvar=0.0,
         enable_reactor=True,
+        spec=spec,
     )
     net.shunt.loc[net.shunt.index[:reactors_out], "in_service"] = False
     statcom_q = auto_statcom_dispatch(net)
@@ -390,3 +401,33 @@ def _run_compensated(
         return False, statcom_q
     vm = net.res_bus.vm_pu[~net.bus["name"].str.contains("PSE")]
     return bool(vm.min() >= V_MIN_PU and vm.max() <= V_MAX_PU), statcom_q
+
+
+REACTOR_STEP_MVAR = 10.0
+REACTOR_STEPS = 6
+
+
+@lru_cache(maxsize=64)
+def check_reactors(spec: FarmSpec) -> FarmSpec:
+    """Raise the reactor unit until the reactor-N-1 case keeps the STATCOM off its limit.
+
+    ``network_model.design`` sizes the reactors from the charging-power balance;
+    what the STATCOM really has to absorb is set by voltage regulation at the
+    OSS (dQ/dV through the export and the transformers), which the balance
+    misses for short single-circuit exports. Each step is the same no-load and
+    full-load load flow ``validate_compensation`` uses (one reactor out); the
+    unit grows in 10 MVAR steps, at most six. SB-510 passes as designed.
+    """
+    for _ in range(REACTOR_STEPS):
+        if not spec.num_reactors:
+            return spec
+        runs = [
+            _run_compensated(spec.export_length_km, spec.grid_ssc_mva, g, 1, spec)
+            for g in (0.0, 1.0)
+        ]
+        if all(ok for ok, _ in runs) and max(abs(q) for _, q in runs) < spec.statcom_mvar:
+            return spec
+        spec = dataclasses.replace(
+            spec, reactor_unit_mvar=spec.reactor_unit_mvar + REACTOR_STEP_MVAR
+        )
+    return spec

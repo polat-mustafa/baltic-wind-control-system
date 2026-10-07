@@ -24,9 +24,9 @@ export interface CampaignSettings {
   limits: Partial<Record<VesselId, { hs_m: number; wind_ms: number }>>;
 }
 
-/** Stages after design that unlock the next modules in an own project (lib/project/progress.ts). */
-export type Milestone = "build" | "commissioning" | "handover";
-export const MILESTONES: Milestone[] = ["build", "commissioning", "handover"];
+/** Stages from the design freeze on that unlock the next modules in an own project (lib/project/progress.ts). */
+export type Milestone = "design" | "build" | "commissioning" | "handover";
+export const MILESTONES: Milestone[] = ["design", "build", "commissioning", "handover"];
 
 export interface LifecyclePersisted {
   build: CampaignSettings;

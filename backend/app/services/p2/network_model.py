@@ -78,12 +78,41 @@ Constants (SB-510)
   instead of 0 MW for the 6-12 months an offshore transformer replacement takes
 - Grid Ssc: 10,000 MVA at 400 kV PCC
 - Base MVA: 100 (Rule 2)
+
+Other farms (FarmSpec, design)
+------------------------------
+The constants above are the SB-510 design and stay the defaults. ``FarmSpec``
+describes any farm with the same topology (66 kV radial strings → OSS with two
+66/220 kV units on busbar sections A/B → n × 220 kV export circuits → two
+220/400 kV units → PSE). ``design()`` sizes it with rules that give the SB-510
+numbers back (tests/test_farm_spec.py):
+
+- export circuits: n = ⌈P / P_circuit(L)⌉ with P_circuit = √3·U·√(Imax² − (Ic/2)²),
+  Ic = ωC·L·U/√3 (charging current shared by both cable ends, as in planning.py);
+- OSS transformer unit = larger busbar section (strings 1…⌈n/2⌉ on A) / 0.9,
+  onshore unit = P / 2 / 0.9, both rounded up to 50 MVA (≤ 90 % loading at P_max);
+- STATCOM = ±120 MVAR per 510 MW, rounded up to 10 MVAR (scaled from the SB-510
+  design; ``statcom_sizing.poc_q_capability`` checks the PSE Q range), but at
+  least 1.15·Q_cable/(2n + 1) — see the reactors;
+- shunt reactors, one per export circuit + one spare (N+1), all in service in
+  normal operation: unit u = ⌈(Q_cable − STATCOM/1.15) / n⌉₁₀, so that with one
+  reactor out the STATCOM still covers the rest with its 15 % margin. With all
+  n + 1 in, the reactors over-compensate by ≈ u − STATCOM/1.15, which the STATCOM
+  covers only if u ≤ 2·STATCOM/1.15 — hence its lower bound (SB-510: 60 < 120,
+  a long single circuit is where it bites). No reactors if the STATCOM alone
+  covers Q_cable.
+Branched array strings (the frontend's Esau–Williams trees) are modelled as
+radial chains with the mean section length.
 """
 
+import math
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
 import pandapower as pp
+
+from app.core.exceptions import DomainError
 
 # ── Cable Parameters (IEC 60287) ─────────────────────────────────
 
@@ -190,6 +219,139 @@ SHUNT_REACTOR_UNIT_MVAR = 80.0  # absorption per reactor [MVAR]
 SHUNT_REACTOR_MVAR = NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR  # 240 MVAR total
 
 
+# ── Farm specification (SB-510 or the learner's project) ─────────
+
+TRAFO_MAX_LOADING = 0.9  # design loading of a transformer unit at P_max
+STATCOM_MVAR_PER_MW = STATCOM_RATING_MVAR / TOTAL_CAPACITY_MW  # SB-510 ratio
+STATCOM_MARGIN = 1.15  # temperature 10 % + ageing 5 % (statcom_sizing.size_statcom)
+MAX_EXPORT_CIRCUITS = 4  # beyond this an HVAC export is not a sensible design
+# Most turbines one string carries on the largest array cable (800 mm², 900 A at 66 kV)
+MAX_TURBINES_PER_STRING = math.floor(
+    math.sqrt(3) * 66.0 * ARRAY_CABLE_800.max_i_ka / TURBINE_RATED_MW
+)
+EXPORT_KV = 220.0
+OMEGA = 2.0 * math.pi * 50.0
+
+
+def _round_up(x: float, step: float) -> float:
+    return math.ceil(x / step - 1e-9) * step
+
+
+@dataclass(frozen=True)
+class FarmSpec:
+    """Electrical design of a farm on the SB-510 topology (see module docstring)."""
+
+    name: str
+    string_layout: tuple[int, ...]
+    export_length_km: float
+    array_cable_length_km: float  # mean section length between turbines [km]
+    num_export_cables: int
+    oss_trafo_mva: float  # per unit, NUM_OSS_TRANSFORMERS units
+    onshore_trafo_mva: float  # per unit, NUM_ONSHORE_TRANSFORMERS units
+    statcom_mvar: float
+    num_reactors: int
+    reactor_unit_mvar: float
+    turbine_rated_mw: float = TURBINE_RATED_MW
+    grid_ssc_mva: float = GRID_SSC_MVA
+
+    @property
+    def num_turbines(self) -> int:
+        return sum(self.string_layout)
+
+    @property
+    def capacity_mw(self) -> float:
+        return self.num_turbines * self.turbine_rated_mw
+
+    @property
+    def reactor_mvar(self) -> float:
+        return self.num_reactors * self.reactor_unit_mvar
+
+    @property
+    def section_a_strings(self) -> int:
+        """Strings 1 … n sit on 66 kV busbar section A (TX-OSS-01), the rest on B."""
+        return math.ceil(len(self.string_layout) / 2)
+
+    @property
+    def cable_q_mvar(self) -> float:
+        """Charging power of all export circuits at 220 kV, ωCV²L (Rule 7, positive)."""
+        return export_charging_mvar(self.export_length_km) * self.num_export_cables
+
+
+def export_charging_mvar(length_km: float) -> float:
+    """Charging power of one 220 kV export circuit, ωCV²L [MVAR]."""
+    c_f = EXPORT_CABLE_1000.c_nf_per_km * 1e-9
+    return OMEGA * c_f * (EXPORT_KV * 1e3) ** 2 * length_km / 1e6
+
+
+def export_circuit_capacity_mw(length_km: float) -> float:
+    """Active power one export circuit carries at unity PF with its charging current
+    compensated at both ends: √3·U·√(Imax² − (Ic/2)²) [MW] (as in planning.py)."""
+    u = EXPORT_KV * 1e3
+    ic = OMEGA * EXPORT_CABLE_1000.c_nf_per_km * 1e-9 * length_km * u / math.sqrt(3)
+    i_max = EXPORT_CABLE_1000.max_i_ka * 1e3
+    return math.sqrt(3) * u * math.sqrt(max(i_max**2 - (ic / 2) ** 2, 0.0)) / 1e6
+
+
+@lru_cache(maxsize=64)
+def design(
+    string_layout: tuple[int, ...],
+    export_length_km: float,
+    array_cable_length_km: float = ARRAY_CABLE_LENGTH_KM,
+    name: str = "Own project",
+) -> FarmSpec:
+    """Size export, transformers, STATCOM and reactors of a farm (module docstring)."""
+    if not string_layout or min(string_layout) < 1:
+        raise DomainError(
+            "A farm needs at least one string with at least one turbine.", status_code=422
+        )
+    capacity = sum(string_layout) * TURBINE_RATED_MW
+    p_circuit = export_circuit_capacity_mw(export_length_km)
+    if p_circuit <= 0 or capacity / p_circuit > MAX_EXPORT_CIRCUITS:
+        raise DomainError(
+            f"A 220 kV HVAC export of {export_length_km:.0f} km cannot carry {capacity:.0f} MW "
+            f"on ≤ {MAX_EXPORT_CIRCUITS} circuits — this farm needs HVDC (see the planning study).",
+            status_code=422,
+        )
+    n_export = max(1, math.ceil(capacity / p_circuit - 1e-9))
+    n_a = math.ceil(len(string_layout) / 2)
+    section = max(sum(string_layout[:n_a]), sum(string_layout[n_a:])) * TURBINE_RATED_MW
+    q_cable = export_charging_mvar(export_length_km) * n_export
+    statcom = _round_up(
+        max(capacity * STATCOM_MVAR_PER_MW, STATCOM_MARGIN * q_cable / (2 * n_export + 1)), 10.0
+    )
+    unit = max(_round_up((q_cable - statcom / STATCOM_MARGIN) / n_export, 10.0), 0.0)
+    n_reactors = n_export + 1 if unit > 0 else 0
+    # N-1 design case: one reactor out, the STATCOM covers the rest with its margin
+    left = abs(q_cable - unit * max(n_reactors - 1, 0))
+    statcom = max(statcom, _round_up(left * STATCOM_MARGIN, 10.0))
+    return FarmSpec(
+        name=name,
+        string_layout=tuple(string_layout),
+        export_length_km=export_length_km,
+        array_cable_length_km=array_cable_length_km,
+        num_export_cables=n_export,
+        oss_trafo_mva=_round_up(section / TRAFO_MAX_LOADING, 50.0),
+        onshore_trafo_mva=_round_up(capacity / NUM_ONSHORE_TRANSFORMERS / TRAFO_MAX_LOADING, 50.0),
+        statcom_mvar=statcom,
+        num_reactors=n_reactors,
+        reactor_unit_mvar=unit,
+    )
+
+
+SB510 = FarmSpec(
+    name="SB-510",
+    string_layout=tuple(STRING_LAYOUT),
+    export_length_km=EXPORT_CABLE_LENGTH_KM,
+    array_cable_length_km=ARRAY_CABLE_LENGTH_KM,
+    num_export_cables=NUM_EXPORT_CABLES,
+    oss_trafo_mva=TRAFO_66_220_MVA,
+    onshore_trafo_mva=TRAFO_220_400_MVA,
+    statcom_mvar=STATCOM_RATING_MVAR,
+    num_reactors=NUM_SHUNT_REACTORS,
+    reactor_unit_mvar=SHUNT_REACTOR_UNIT_MVAR,
+)
+
+
 _OLTC = {
     "tap_side": "hv",
     "tap_changer_type": "Ratio",  # pandapower 3: without it the tap has no effect
@@ -231,12 +393,13 @@ def _get_cable_grade(position_in_string: int, string_length: int) -> CableSpec:
 
 
 def build_network(
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    export_length_km: float | None = None,
     grid_ssc_mva: float = GRID_SSC_MVA,
     generation_fraction: float = 1.0,
     statcom_q_mvar: float = 0.0,
     enable_reactor: bool = True,
     r_at_operating_temp: bool = True,
+    spec: FarmSpec = SB510,
 ) -> pp.pandapowerNet:
     """Build the complete 66/220/400 kV offshore wind farm network.
 
@@ -253,8 +416,8 @@ def build_network(
 
     Parameters
     ----------
-    export_length_km : float
-        Export cable length [km]. Default: 45.0.
+    export_length_km : float | None
+        Export cable length [km]; None = the spec's (SB-510: 45.0).
     grid_ssc_mva : float
         Grid short-circuit power at PCC [MVA]. Default: 10,000.
     generation_fraction : float
@@ -266,13 +429,18 @@ def build_network(
     r_at_operating_temp : bool
         True (default): cable R = AC resistance at 90 °C, for load flow and losses.
         False: R = DC resistance at 20 °C, as IEC 60909 short-circuit requires.
+    spec : FarmSpec
+        Farm design (strings, export circuits, transformers, STATCOM, reactors).
+        Default: SB-510; the counts in this docstring are SB-510's.
 
     Returns
     -------
     pp.pandapowerNet
         Pandapower network ready for load flow or short-circuit analysis.
     """
-    net = pp.create_empty_network(name="SB-510 case study — 510 MW OWF")
+    if export_length_km is None:
+        export_length_km = spec.export_length_km
+    net = pp.create_empty_network(name=f"{spec.name} — {spec.capacity_mw:.0f} MW OWF")
 
     # ── Buses ─────────────────────────────────────────────────────
     bus_pse_400 = pp.create_bus(net, vn_kv=400.0, name="PSE_400kV")
@@ -282,7 +450,7 @@ def build_network(
 
     # WTG buses — 34 turbines on 66 kV
     wtg_buses = []
-    for i in range(NUM_TURBINES):
+    for i in range(spec.num_turbines):
         bus_id = pp.create_bus(net, vn_kv=66.0, name=f"WTG_{i + 1:02d}")
         wtg_buses.append(bus_id)
 
@@ -306,7 +474,7 @@ def build_network(
         net,
         hv_bus=bus_pse_400,
         lv_bus=bus_onshore_220,
-        sn_mva=TRAFO_220_400_MVA,
+        sn_mva=spec.onshore_trafo_mva,
         vn_hv_kv=400.0,
         vn_lv_kv=220.0,
         vk_percent=TRAFO_220_400_VK_PERCENT,
@@ -324,7 +492,7 @@ def build_network(
         net,
         hv_bus=bus_oss_220,
         lv_bus=bus_oss_66,
-        sn_mva=TRAFO_66_220_MVA,
+        sn_mva=spec.oss_trafo_mva,
         vn_hv_kv=220.0,
         vn_lv_kv=66.0,
         vk_percent=TRAFO_66_220_VK_PERCENT,
@@ -355,13 +523,13 @@ def build_network(
         c_nf_per_km=cable.c_nf_per_km,
         max_i_ka=cable.max_i_ka,
         endtemp_degree=80.0,  # XLPE max operating temperature for IEC 60909 min case
-        parallel=NUM_EXPORT_CABLES,
+        parallel=spec.num_export_cables,
         name="Export_220kV",
     )
 
     # ── Array Cables (66 kV, graded pi-model) ─────────────────────
     wtg_idx = 0
-    for string_num, string_len in enumerate(STRING_LAYOUT):
+    for string_num, string_len in enumerate(spec.string_layout):
         for pos in range(string_len):
             # Cable from previous element to this WTG
             from_bus = bus_oss_66 if pos == 0 else wtg_buses[wtg_idx - 1]
@@ -376,7 +544,7 @@ def build_network(
                 net,
                 from_bus=from_bus,
                 to_bus=to_bus,
-                length_km=ARRAY_CABLE_LENGTH_KM,
+                length_km=spec.array_cable_length_km,
                 r_ohm_per_km=r_ohm_per_km(cable_spec),
                 x_ohm_per_km=cable_spec.x_ohm_per_km,
                 c_nf_per_km=cable_spec.c_nf_per_km,
@@ -387,7 +555,7 @@ def build_network(
             wtg_idx += 1
 
     # ── WTG Generators (static generators) ────────────────────────
-    p_per_wtg = TURBINE_RATED_MW * generation_fraction
+    p_per_wtg = spec.turbine_rated_mw * generation_fraction
     # WTGs operate at unity power factor (Q = 0) by default
     for i, bus_id in enumerate(wtg_buses):
         pp.create_sgen(
@@ -395,7 +563,7 @@ def build_network(
             bus=bus_id,
             p_mw=p_per_wtg,
             q_mvar=0.0,
-            sn_mva=TURBINE_RATED_MW,  # needed for IEC 60909 short-circuit
+            sn_mva=spec.turbine_rated_mw,  # needed for IEC 60909 short-circuit
             k=1.0,  # ratio of Ik'' to In per IEC 60909 for inverter-based generators
             name=f"WTG_{i + 1:02d}",
         )
@@ -407,7 +575,7 @@ def build_network(
         bus=bus_oss_220,
         p_mw=0.0,
         q_mvar=statcom_q_mvar,
-        sn_mva=STATCOM_RATING_MVAR,  # needed for IEC 60909 short-circuit
+        sn_mva=spec.statcom_mvar,  # needed for IEC 60909 short-circuit
         k=1.0,  # ratio of Ik'' to In for STATCOM (inverter-based)
         name="STATCOM",
     )
@@ -418,13 +586,13 @@ def build_network(
     # (inductive). This is the opposite of Rule 4, which applies to our API
     # outputs and to sgens (STATCOM), not to pandapower shunt inputs.
     if enable_reactor:
-        for n in range(NUM_SHUNT_REACTORS):
+        for n in range(spec.num_reactors):
             pp.create_shunt(
                 net,
                 bus=bus_oss_220,
-                q_mvar=SHUNT_REACTOR_UNIT_MVAR,  # positive = absorbing (load convention)
+                q_mvar=spec.reactor_unit_mvar,  # positive = absorbing (load convention)
                 p_mw=0.0,
-                name=f"Reactor_{n + 1}_{SHUNT_REACTOR_UNIT_MVAR:.0f}MVAR",
+                name=f"Reactor_{n + 1}_{spec.reactor_unit_mvar:.0f}MVAR",
             )
 
     return net
@@ -433,7 +601,8 @@ def build_network(
 def series_impedances_pu(
     s_base_mva: float,
     grid_ssc_mva: float = GRID_SSC_MVA,
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    export_length_km: float | None = None,
+    spec: FarmSpec = SB510,
 ) -> dict[str, complex]:
     """Series impedances of the radial grid → OSS chain [p.u. on ``s_base_mva``].
 
@@ -446,7 +615,11 @@ def series_impedances_pu(
       onshore  PSE_400kV → Onshore_220kV         2 × 300 MVA, vk 14 %
       export   Onshore_220kV → OSS_220kV         2 × 45 km, R at 90 °C
       oss      OSS_220kV → OSS_66kV              2 × 300 MVA, vk 12.5 %
+
+    (SB-510 values; ``spec`` gives another farm's ratings and circuit count.)
     """
+    if export_length_km is None:
+        export_length_km = spec.export_length_km
 
     def trafo(vk: float, vkr: float, s_mva: float) -> complex:
         z = vk / 100.0 * s_base_mva / s_mva
@@ -462,16 +635,16 @@ def series_impedances_pu(
         "onshore": trafo(
             TRAFO_220_400_VK_PERCENT,
             TRAFO_220_400_VKR_PERCENT,
-            TRAFO_220_400_MVA * NUM_ONSHORE_TRANSFORMERS,
+            spec.onshore_trafo_mva * NUM_ONSHORE_TRANSFORMERS,
         ),
         "export": complex(cable.r_ac_ohm_per_km, cable.x_ohm_per_km)
         * export_length_km
-        / NUM_EXPORT_CABLES
+        / spec.num_export_cables
         / z_base_220,
         "oss": trafo(
             TRAFO_66_220_VK_PERCENT,
             TRAFO_66_220_VKR_PERCENT,
-            TRAFO_66_220_MVA * NUM_OSS_TRANSFORMERS,
+            spec.oss_trafo_mva * NUM_OSS_TRANSFORMERS,
         ),
     }
 

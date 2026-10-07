@@ -28,19 +28,22 @@ describe("locks", () => {
     expect(open({ ...site, permitDone: true, outcome: "approved_with_conditions" })).toContain("/develop/layout");
   });
 
-  it("opens Grid and Construction for a complete layout without rule breaches", () => {
+  it("opens Grid for a complete layout without rule breaches, Construction after the design freeze", () => {
     expect(locks({ ...LAID_OUT, oss: false })["/hv-grid"]?.need).toMatch(/offshore substation/);
     expect(locks({ ...LAID_OUT, problems: null })["/hv-grid"]?.need).toMatch(/Checking/);
     expect(locks({ ...LAID_OUT, problems: 2 })["/build"]?.need).toMatch(/2 turbine/);
-    expect(open(LAID_OUT)).toEqual(["/wind-resource", "/develop/layout", "/hv-grid", "/build"]);
+    expect(open(LAID_OUT)).toEqual(["/wind-resource", "/develop/layout", "/hv-grid"]);
+    expect(locks(LAID_OUT)["/build"]).toMatchObject({ go: "/hv-grid", need: expect.stringMatching(/0\.95–1\.05/) });
+    expect(open({ ...LAID_OUT, done: ["design"] })).toContain("/build");
   });
 
-  it("walks construction → commissioning → hand-over → operation", () => {
-    expect(open({ ...LAID_OUT, done: ["build"] })).toContain("/commissioning");
-    expect(open({ ...LAID_OUT, done: ["build", "commissioning"] })).toContain("/build/handover");
-    const all = open({ ...LAID_OUT, done: ["build", "commissioning", "handover"] });
+  it("walks design freeze → construction → commissioning → hand-over → operation", () => {
+    expect(open({ ...LAID_OUT, done: ["build"] })).not.toContain("/commissioning"); // no skipping the freeze
+    expect(open({ ...LAID_OUT, done: ["design", "build"] })).toContain("/commissioning");
+    expect(open({ ...LAID_OUT, done: ["design", "build", "commissioning"] })).toContain("/build/handover");
+    const all = open({ ...LAID_OUT, done: ["design", "build", "commissioning", "handover"] });
     expect(all).toEqual(expect.arrayContaining(["/scada", "/forecast", "/digital-twin", "/decommission"]));
     // a milestone does not skip the stages before it
-    expect(locks({ ...LAID_OUT, problems: 1, done: ["build", "commissioning", "handover"] })["/scada"]?.go).toBe("/develop/layout");
+    expect(locks({ ...LAID_OUT, problems: 1, done: ["design", "build", "commissioning", "handover"] })["/scada"]?.go).toBe("/develop/layout");
   });
 });

@@ -56,15 +56,15 @@ from app.services.p2.network_model import (
     EXPORT_CABLE_LENGTH_KM,
     GRID_RX_RATIO,
     GRID_SSC_MVA,
-    NUM_EXPORT_CABLES,
-    SHUNT_REACTOR_MVAR,
-    TRAFO_66_220_MVA,
+    NUM_ONSHORE_TRANSFORMERS,
+    NUM_OSS_TRANSFORMERS,
+    SB510,
     TRAFO_66_220_VK_PERCENT,
     TRAFO_66_220_VKR_PERCENT,
-    TRAFO_220_400_MVA,
     TRAFO_220_400_VK_PERCENT,
     TRAFO_220_400_VKR_PERCENT,
     TURBINE_RATED_MW,
+    FarmSpec,
 )
 
 S_BASE = 100.0
@@ -72,7 +72,7 @@ F0 = 50.0
 OMEGA0 = 2.0 * math.pi * F0
 NODES = {400.0: 0, 220.0: 2, 66.0: 3}  # viewpoints for the scan (220 → OSS side)
 NODE_NAMES = ("PSE 400 kV (POC)", "Onshore 220 kV", "OSS 220 kV", "OSS 66 kV")
-ARRAY_CHARGING_MVAR = 15.0  # ≈ 51 km of 500–800 mm² array cable at 66 kV
+ARRAY_CHARGING_MVAR_PER_KM = 15.0 / 51.0  # 500–800 mm² array cable at 66 kV (SB-510: 51 km)
 REACTOR_Q_FACTOR = 300.0
 CHARACTERISTIC = (5, 7, 11, 13, 17, 19, 23, 25)
 
@@ -125,7 +125,9 @@ def planning_level_pct(order: int, tier: str) -> float:
 # ── Harmonic network ─────────────────────────────────────────────
 
 
-def _admittance(h: float, grid_ssc_mva: float, export_length_km: float) -> np.ndarray:
+def _admittance(
+    h: float, grid_ssc_mva: float, export_length_km: float, spec: FarmSpec = SB510
+) -> np.ndarray:
     """4 × 4 nodal admittance [pu, 100 MVA] at harmonic order h (may be non-integer)."""
     y = np.zeros((4, 4), dtype=complex)
 
@@ -141,7 +143,8 @@ def _admittance(h: float, grid_ssc_mva: float, export_length_km: float) -> np.nd
 
     xg = S_BASE / grid_ssc_mva / math.sqrt(1 + GRID_RX_RATIO**2)
     y[0, 0] += 1 / complex(GRID_RX_RATIO * xg * math.sqrt(h), h * xg)
-    branch(0, 1, trafo(TRAFO_220_400_VK_PERCENT, TRAFO_220_400_VKR_PERCENT, 2 * TRAFO_220_400_MVA))
+    s_onshore = NUM_ONSHORE_TRANSFORMERS * spec.onshore_trafo_mva
+    branch(0, 1, trafo(TRAFO_220_400_VK_PERCENT, TRAFO_220_400_VKR_PERCENT, s_onshore))
 
     c = EXPORT_CABLE_1000
     z_km = complex(c.r_ac_ohm_per_km * math.sqrt(h), h * c.x_ohm_per_km)
@@ -149,24 +152,28 @@ def _admittance(h: float, grid_ssc_mva: float, export_length_km: float) -> np.nd
     gamma, zc = np.sqrt(z_km * y_km), np.sqrt(z_km / y_km)
     z_base = 220.0**2 / S_BASE
     gl = gamma * export_length_km
-    branch(1, 2, complex(zc * np.sinh(gl) / NUM_EXPORT_CABLES / z_base))
-    y_end = complex(NUM_EXPORT_CABLES * np.tanh(gl / 2) / zc * z_base)
+    n_export = spec.num_export_cables
+    branch(1, 2, complex(zc * np.sinh(gl) / n_export / z_base))
+    y_end = complex(n_export * np.tanh(gl / 2) / zc * z_base)
     y[1, 1] += y_end
     y[2, 2] += y_end
 
-    x_r = S_BASE / SHUNT_REACTOR_MVAR
-    y[2, 2] += 1 / complex(h * x_r / REACTOR_Q_FACTOR, h * x_r)
-    branch(2, 3, trafo(TRAFO_66_220_VK_PERCENT, TRAFO_66_220_VKR_PERCENT, 2 * TRAFO_66_220_MVA))
-    y[3, 3] += complex(0.0, h * ARRAY_CHARGING_MVAR / S_BASE)
+    if spec.reactor_mvar > 0:
+        x_r = S_BASE / spec.reactor_mvar
+        y[2, 2] += 1 / complex(h * x_r / REACTOR_Q_FACTOR, h * x_r)
+    s_oss = NUM_OSS_TRANSFORMERS * spec.oss_trafo_mva
+    branch(2, 3, trafo(TRAFO_66_220_VK_PERCENT, TRAFO_66_220_VKR_PERCENT, s_oss))
+    array_km = spec.num_turbines * spec.array_cable_length_km
+    y[3, 3] += complex(0.0, h * ARRAY_CHARGING_MVAR_PER_KM * array_km / S_BASE)
     return y
 
 
 @lru_cache(maxsize=4096)
 def _impedance_column(
-    h: float, grid_ssc_mva: float, export_length_km: float
+    h: float, grid_ssc_mva: float, export_length_km: float, spec: FarmSpec = SB510
 ) -> tuple[complex, complex, complex, complex]:
     """Z(node, OSS 66 kV) [pu] for all nodes — voltage per unit current injected at 66 kV."""
-    z = np.linalg.inv(_admittance(h, grid_ssc_mva, export_length_km))
+    z = np.linalg.inv(_admittance(h, grid_ssc_mva, export_length_km, spec))
     return tuple(complex(v) for v in z[:, 3])  # type: ignore[return-value]
 
 
@@ -183,13 +190,16 @@ def compute_harmonics(
     voltage_kv: float = 400.0,
     rated_mw: float = 510.0,
     grid_ssc_mva: float = GRID_SSC_MVA,
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    export_length_km: float | None = None,
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """Harmonic voltages caused by the farm's emission, judged at one bus.
 
     ``harmonic_magnitudes``: WTG current emission {order: % of rated current}.
     ``voltage_kv`` selects the assessed bus (400 = POC, 220 = OSS 220 kV, 66).
     """
+    if export_length_km is None:
+        export_length_km = spec.export_length_km
     node = NODES.get(voltage_kv, 0)
     tier = _voltage_tier(voltage_kv)
     n_wtg = max(1, round(rated_mw / TURBINE_RATED_MW))
@@ -201,7 +211,7 @@ def compute_harmonics(
         if i_pct <= 0:
             continue
         i_sum = n_wtg ** (1 / summation_exponent(order)) * i_wtg_pu * i_pct / 100
-        z_col = _impedance_column(float(order), grid_ssc_mva, export_length_km)
+        z_col = _impedance_column(float(order), grid_ssc_mva, export_length_km, spec)
         v_pct = abs(z_col[node]) * i_sum * 100
         v66 = abs(z_col[3]) * i_sum * 100
         limit = planning_level_pct(order, tier)
@@ -254,6 +264,7 @@ def compute_resonance_scan(
     voltage_kv: float = 66.0,
     grid_fault_level_mva: float = GRID_SSC_MVA,
     scan_max_hz: float = 2500.0,
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """|Z(f)| seen from a bus, 50 Hz … scan_max, and its parallel resonances.
 
@@ -266,7 +277,7 @@ def compute_resonance_scan(
     freqs = np.arange(F0, scan_max_hz + 1e-9, 5.0)
     z_pu = np.array(
         [
-            abs(_impedance_column(float(f) / F0, grid_fault_level_mva, cable_length_km)[node])
+            abs(_impedance_column(float(f) / F0, grid_fault_level_mva, cable_length_km, spec)[node])
             for f in freqs
         ]
     )
@@ -277,7 +288,7 @@ def compute_resonance_scan(
             [
                 abs(
                     np.linalg.inv(
-                        _admittance(float(f) / F0, grid_fault_level_mva, cable_length_km)
+                        _admittance(float(f) / F0, grid_fault_level_mva, cable_length_km, spec)
                     )[node, node]
                 )
                 for f in freqs
@@ -380,7 +391,8 @@ def design_passive_filter(
     system_voltage_kv: float = 66.0,
     rated_mvar: float = 10.0,
     grid_ssc_mva: float = GRID_SSC_MVA,
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    export_length_km: float | None = None,
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """Single-tuned filter at the OSS 66 kV bus, tuned 3 % below the target order.
 
@@ -396,7 +408,10 @@ def design_passive_filter(
     q_target = 50.0
     r = omega_t * l_h / q_target
     z_base = system_voltage_kv**2 / S_BASE
-    z_net = _impedance_column(dominant_harmonic_order, grid_ssc_mva, export_length_km)[3] * z_base
+    if export_length_km is None:
+        export_length_km = spec.export_length_km
+    z_col = _impedance_column(dominant_harmonic_order, grid_ssc_mva, export_length_km, spec)
+    z_net = z_col[3] * z_base
     h = dominant_harmonic_order
     z_filter = complex(r, h * OMEGA0 * l_h - 1 / (h * OMEGA0 * c_f))
     z_parallel = z_net * z_filter / (z_net + z_filter)

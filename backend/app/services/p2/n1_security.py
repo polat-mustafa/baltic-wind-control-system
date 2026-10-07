@@ -51,8 +51,8 @@ import pandapower as pp
 from app.services.p2.load_flow import auto_statcom_dispatch
 from app.services.p2.network_model import (
     GRID_SSC_MVA,
-    STRING_LAYOUT,
-    TOTAL_CAPACITY_MW,
+    SB510,
+    FarmSpec,
     build_network,
 )
 
@@ -60,7 +60,8 @@ Outage = Callable[[pp.pandapowerNet], None]
 
 V_MIN_PU = 0.95
 V_MAX_PU = 1.05
-RUNBACK_MW_PER_S = 0.02 * TOTAL_CAPACITY_MW  # assumption, see module docstring
+RUNBACK_PU_PER_S = 0.02  # of the farm capacity per second — assumption, see module docstring
+RUNBACK_MW_PER_S = RUNBACK_PU_PER_S * SB510.capacity_mw
 BISECTION_STEPS = 8  # resolution 1/256 of the output (~2 MW at 510 MW)
 
 
@@ -100,8 +101,12 @@ def _trip_string(n: int) -> Callable[[pp.pandapowerNet], None]:
 
 def _trip_export_circuit(net: pp.pandapowerNet) -> None:
     idx = net.line.index[net.line["name"] == "Export_220kV"][0]
-    net.line.at[idx, "parallel"] -= 1
-    net.shunt.at[net.shunt.index[0], "in_service"] = False  # reactor intertrip
+    if net.line.at[idx, "parallel"] > 1:
+        net.line.at[idx, "parallel"] -= 1
+    else:
+        net.line.at[idx, "in_service"] = False  # single circuit: the farm loses its export
+    if len(net.shunt):
+        net.shunt.at[net.shunt.index[0], "in_service"] = False  # reactor intertrip
 
 
 def _trip_trafo(name: str) -> Callable[[pp.pandapowerNet], None]:
@@ -112,20 +117,27 @@ def _trip_trafo(name: str) -> Callable[[pp.pandapowerNet], None]:
     return apply
 
 
-CONTINGENCIES: list[tuple[str, str, str, Callable[[pp.pandapowerNet], None]]] = [
-    *(
-        (f"string_{i + 1}", f"String {i + 1} ({n} WTGs)", "preventive", _trip_string(i + 1))
-        for i, n in enumerate(STRING_LAYOUT)
-    ),
-    ("export_circuit", "Export circuit 1", "corrective", _trip_export_circuit),
-    ("oss_trafo", "OSS transformer 1", "corrective", _trip_trafo("Trafo_66_220kV")),
-    (
-        "onshore_trafo",
-        "Onshore transformer 1",
-        "corrective",
-        _trip_trafo("Trafo_220_400kV"),
-    ),
-]
+def contingencies(
+    spec: FarmSpec = SB510,
+) -> list[tuple[str, str, str, Callable[[pp.pandapowerNet], None]]]:
+    """Every string (preventive) + export circuit, OSS and onshore transformer (corrective)."""
+    return [
+        *(
+            (f"string_{i + 1}", f"String {i + 1} ({n} WTGs)", "preventive", _trip_string(i + 1))
+            for i, n in enumerate(spec.string_layout)
+        ),
+        ("export_circuit", "Export circuit 1", "corrective", _trip_export_circuit),
+        ("oss_trafo", "OSS transformer 1", "corrective", _trip_trafo("Trafo_66_220kV")),
+        (
+            "onshore_trafo",
+            "Onshore transformer 1",
+            "corrective",
+            _trip_trafo("Trafo_220_400kV"),
+        ),
+    ]
+
+
+CONTINGENCIES = contingencies()
 
 
 def _with_output(base: pp.pandapowerNet, scale: float) -> pp.pandapowerNet:
@@ -136,7 +148,12 @@ def _with_output(base: pp.pandapowerNet, scale: float) -> pp.pandapowerNet:
 
 
 def _contingency(
-    base: pp.pandapowerNet, cid: str, label: str, kind: str, apply: Outage
+    base: pp.pandapowerNet,
+    cid: str,
+    label: str,
+    kind: str,
+    apply: Outage,
+    runback_mw_per_s: float = RUNBACK_MW_PER_S,
 ) -> dict[str, Any]:
     def solve(scale: float) -> dict[str, Any] | None:
         net = _with_output(base, scale)
@@ -165,7 +182,7 @@ def _contingency(
         "immediate": immediate,
         "after_action": final,
         "runback_mw": round(runback, 1),
-        "runback_s": round(runback / RUNBACK_MW_PER_S, 1),
+        "runback_s": round(runback / runback_mw_per_s, 1),
         "secure": bool(final and final["secure"]),
         "output_scale": round(scale, 4),
     }
@@ -173,12 +190,15 @@ def _contingency(
 
 @lru_cache(maxsize=32)
 def run_n1_security(
-    generation_fraction: float = 1.0, grid_ssc_mva: float = GRID_SSC_MVA
+    generation_fraction: float = 1.0, grid_ssc_mva: float = GRID_SSC_MVA, spec: FarmSpec = SB510
 ) -> dict[str, Any]:
     """Base case + every contingency of the list (cached: ~1 s per call)."""
-    base = build_network(generation_fraction=generation_fraction, grid_ssc_mva=grid_ssc_mva)
+    base = build_network(
+        generation_fraction=generation_fraction, grid_ssc_mva=grid_ssc_mva, spec=spec
+    )
     base_case = _solve(base)
-    results = [_contingency(base, *c) for c in CONTINGENCIES]
+    runback = RUNBACK_PU_PER_S * spec.capacity_mw
+    results = [_contingency(base, *c, runback_mw_per_s=runback) for c in contingencies(spec)]
     corrective = [r for r in results if r["kind"] == "corrective" and r["secure"]]
     needs_runback = [r for r in corrective if r["runback_mw"] > 0]
     output = base_case["output_mw"] if base_case else 0.0
@@ -194,6 +214,6 @@ def run_n1_security(
         "firm_output_mw": round(
             min((output - r["runback_mw"] for r in needs_runback), default=output), 1
         ),
-        "runback_mw_per_s": RUNBACK_MW_PER_S,
+        "runback_mw_per_s": runback,
         "voltage_band_pu": [V_MIN_PU, V_MAX_PU],
     }

@@ -14,7 +14,7 @@ import Plot from "react-plotly.js";
 import { reactiveCompensationEducation } from "../../constants/education/p2";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
-import { useGridStore } from "../../store/gridStore";
+import { useGridStore, useNetwork } from "../../store/gridStore";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
 
@@ -62,6 +62,7 @@ function RangeBar({
 }
 
 export default function STATCOMPanel() {
+  const n = useNetwork();
   const { statcomSizing: s } = useGridStore();
   const c = useChartPalette();
   if (!s) return null;
@@ -74,7 +75,7 @@ export default function STATCOMPanel() {
   const waterfall = {
     type: "waterfall" as const,
     orientation: "v",
-    x: ["Cable charging", "3 × 80 MVAR reactors", "Left for STATCOM"],
+    x: ["Cable charging", `${n.num_reactors} × ${n.reactor_unit_mvar} MVAR reactors`, "Left for STATCOM"],
     measure: ["relative", "relative", "total"],
     y: [s.cable_q_mvar, -s.reactor_q_mvar, net],
     text: [`+${s.cable_q_mvar.toFixed(0)}`, `−${s.reactor_q_mvar.toFixed(0)}`, `${net >= 0 ? "+" : ""}${net.toFixed(0)}`],
@@ -100,7 +101,7 @@ export default function STATCOMPanel() {
     <ChartWrapper
       title="Reactive power — compensation and the PSE range"
       headerRight={<EducationButton content={reactiveCompensationEducation} />}
-      footer={`Ferranti rise along 45 km: ${(s.ferranti_rise_pu * 100).toFixed(1)} % · uncompensated rise via transformers + grid: ${(s.uncompensated_rise_pu * 100).toFixed(1)} % · reactor N-1: STATCOM ${s.reactor_n1_statcom_q_mvar.toFixed(0)} MVAR ${s.reactor_n1_secure ? "✓" : "✗"}`}
+      footer={`Ferranti rise along ${n.export_length_km} km: ${(s.ferranti_rise_pu * 100).toFixed(1)} % · uncompensated rise via transformers + grid: ${(s.uncompensated_rise_pu * 100).toFixed(1)} % · reactor N-1: STATCOM ${s.reactor_n1_statcom_q_mvar.toFixed(0)} MVAR ${s.reactor_n1_secure ? "✓" : "✗"}`}
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
@@ -133,7 +134,7 @@ export default function STATCOMPanel() {
         </div>
         <div className="flex flex-col justify-center gap-4 px-1">
           <p className="text-xs text-text-muted">
-            Reactive range at the PSE 400 kV connection point at P = 510 MW (PSE Art. 21(3)(c): −0.35 … +0.40 P<sub>max</sub>)
+            Reactive range at the PSE 400 kV connection point at P = {n.total_capacity_mw.toFixed(0)} MW (PSE Art. 21(3)(c): −0.35 … +0.40 P<sub>max</sub>)
           </p>
           <RangeBar label="PSE requirement" min={s.pse_q_min_mvar} max={s.pse_q_max_mvar} lo={lo} hi={hi} color={c.ink} outline />
           <RangeBar label="Farm capability" min={s.poc_q_min_mvar} max={s.poc_q_max_mvar} lo={lo} hi={hi} color={c.blue} />

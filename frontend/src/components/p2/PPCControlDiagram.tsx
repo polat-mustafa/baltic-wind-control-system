@@ -11,6 +11,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 
 import type { PPCSimulationResponse } from "../../types/ppc";
+import { useNetwork } from "../../store/gridStore";
 
 const W = 940;
 const H = 230;
@@ -64,6 +65,7 @@ const MODE_LABEL: Record<string, string> = {
 };
 
 export default function PPCControlDiagram({ sim }: { sim: PPCSimulationResponse }) {
+  const n = useNetwork();
   const freqActive = Math.abs(sim.frequency_response_expected_mw) > 0.1 || Math.abs(sim.frequency_response_actual_mw) > 0.5;
   const last = sim.time_series[sim.time_series.length - 1];
   return (
@@ -76,7 +78,7 @@ export default function PPCControlDiagram({ sim }: { sim: PPCSimulationResponse 
       <text x={560} y={48} textAnchor="middle" fontSize={15} className="fill-text-primary">
         +
       </text>
-      <Box x={610} y={20} w={150} label="34 × WTG  P" sub={`${last.power_actual_mw.toFixed(0)} MW`} />
+      <Box x={610} y={20} w={150} label={`${n.num_turbines} × WTG  P`} sub={`${last.power_actual_mw.toFixed(0)} MW`} />
       <Box x={370} y={86} w={140} label="LFSM-O/U · FSM" sub={freqActive ? `${sim.frequency_response_actual_mw.toFixed(0)} MW` : "idle (50 Hz)"} active={freqActive} />
       <Wire d="M120 43 H170" active />
       <Wire d="M320 43 H370" active />

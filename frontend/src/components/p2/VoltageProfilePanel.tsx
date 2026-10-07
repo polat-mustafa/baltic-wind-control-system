@@ -10,10 +10,10 @@
 import Plot from "react-plotly.js";
 
 import { loadFlowEducation } from "../../constants/education/p2";
-import { SCENARIO_LABEL } from "../../constants/gridScenarios";
+import { scenarioLabels } from "../../constants/gridScenarios";
 import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
-import { useGridStore } from "../../store/gridStore";
+import { useGridStore, useNetwork } from "../../store/gridStore";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
 
@@ -31,6 +31,8 @@ const PATH = [
 ] as const;
 
 export default function VoltageProfilePanel() {
+  const n = useNetwork();
+  const SCENARIO_LABEL = scenarioLabels(n);
   const { loadFlowResults } = useGridStore();
   const c = useChartPalette();
   if (!loadFlowResults?.length) return null;
@@ -60,7 +62,7 @@ export default function VoltageProfilePanel() {
     <ChartWrapper
       title="Voltage along the connection"
       headerRight={<EducationButton content={loadFlowEducation} />}
-      footer="Grid (slack) → 400/220 kV → 45 km export → 220/66 kV → string 1 turbines · band = 0.95–1.05 pu"
+      footer={`Grid (slack) → 400/220 kV → ${n.export_length_km} km export → 220/66 kV → string 1 turbines · band = 0.95–1.05 pu`}
     >
       <Plot
         data={traces}

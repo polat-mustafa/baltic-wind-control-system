@@ -1,6 +1,6 @@
 /**
  * Own-project locks: a module opens when the stage before it is done, as in a
- * real project — Site → Wind Resource / Layout → Grid → Construction →
+ * real project — Site → Wind Resource / Layout → Grid → design freeze → Construction →
  * Commissioning → Hand-over → operation (SCADA, forecasting, digital twin)
  * and decommissioning. Control Room, Site & Permits, Turbine Physics and the
  * Academy are always open; in reference mode and during a guided tour nothing
@@ -71,8 +71,18 @@ const RULES: [string, string | null, (i: ProgressInput) => Lock | null][] = [
                 }
               : null,
   ],
-  // ponytail: the design-freeze check (full-load load flow 0.95–1.05 pu, ≤ 100 % loading) joins when P2 runs on the project (phase 7).
-  ["/build", "/hv-grid", () => null],
+  [
+    "/build",
+    "/hv-grid",
+    (i) =>
+      i.done.includes("design")
+        ? null
+        : {
+            go: "/hv-grid",
+            label: "Grid Integration",
+            need: "Freeze the electrical design: run the grid analysis — full-load voltages within 0.95–1.05 p.u., every branch ≤ 100 % — and mark it.",
+          },
+  ],
   [
     "/commissioning",
     "/build",

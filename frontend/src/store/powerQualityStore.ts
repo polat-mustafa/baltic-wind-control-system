@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 
+import { currentNetwork } from "./gridStore";
 import * as api from "../services/powerQualityApi";
 import type {
   FilterDesignResponse,
@@ -75,10 +76,12 @@ export const usePowerQualityStore = create<PowerQualityState>((set, get) => ({
     const emission = Object.fromEntries(Object.entries(TYPICAL_EMISSION).map(([h, v]) => [h, v * emissionScale]));
     set({ loading: true, error: null });
     try {
+      const farm = currentNetwork();
+      const ratedMw = farm.total_capacity_mw;
       const [harmonics, resonance, flicker] = await Promise.all([
-        api.analyzeHarmonics({ harmonic_magnitudes: emission, voltage_kv: bus, rated_mw: 510, grid_fault_level_mva: gridSscMva }),
-        api.runResonanceScan({ cable_length_km: 45, voltage_kv: bus, grid_fault_level_mva: gridSscMva, scan_max_hz: 2500 }),
-        api.computeFlicker({ rated_mw: 510, grid_fault_level_mva: gridSscMva, grid_impedance_angle_deg: 84.3, annual_switching_operations: 1000 }),
+        api.analyzeHarmonics({ harmonic_magnitudes: emission, voltage_kv: bus, rated_mw: ratedMw, grid_fault_level_mva: gridSscMva }),
+        api.runResonanceScan({ cable_length_km: farm.export_length_km, voltage_kv: bus, grid_fault_level_mva: gridSscMva, scan_max_hz: 2500 }),
+        api.computeFlicker({ rated_mw: ratedMw, grid_fault_level_mva: gridSscMva, grid_impedance_angle_deg: 84.3, annual_switching_operations: 1000 }),
       ]);
       set({ harmonics, resonance, flicker });
     } catch (err) {

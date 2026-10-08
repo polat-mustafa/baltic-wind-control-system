@@ -83,6 +83,16 @@ export interface LayersResponse {
   seabed_classes?: SeabedClass[];
 }
 
+export interface SitePort {
+  name: string;
+  use: "O&M" | "installation";
+  status: string;
+  /** Shortest sea route to the site [km]; null = no route. */
+  km: number | null;
+  /** Where the port's role comes from. */
+  basis: string;
+}
+
 export interface SeabedClass {
   code: number;
   name: string;
@@ -170,6 +180,8 @@ export interface AssessResponse {
   wind?: SiteWind | null;
   /** Seabed substrate class → share of the mapped site area. */
   seabed?: Record<string, number> | null;
+  /** Offshore wind ports and their sea-route distance to the site, nearest first per use. */
+  ports?: SitePort[];
   checks: SiteCheck[];
   complete: boolean;
 }

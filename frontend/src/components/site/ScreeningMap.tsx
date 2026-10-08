@@ -66,6 +66,7 @@ function DrawClicks() {
 function featureLabel(f: LayerInfo["features"][number]): string {
   const p = f.properties;
   const extra = [
+    typeof p.use === "string" ? `${p.use} port` : "",
     typeof p.power_mw === "number" ? `${p.power_mw} MW` : "",
     typeof p.status === "string" ? p.status : "",
   ].filter(Boolean);

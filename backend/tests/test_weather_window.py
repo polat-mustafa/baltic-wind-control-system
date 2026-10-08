@@ -12,7 +12,12 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
+
+from app.core.exceptions import ValidationError
 from app.services.p1.weather_window import (
+    CTV_SPEED_KMH,
+    WORKDAY_HOURS,
     find_maintenance_window,
     get_all_vessel_access,
     get_oam_cost_breakdown,
@@ -123,6 +128,23 @@ class TestMaintenanceWindow:
         winter = find_maintenance_window("2025-01-15", "CTV", 8.0, "WTG-01")
         # Summer should have shorter or equal wait
         assert summer["wait_days"] <= winter["wait_days"] + 5.0  # allow tolerance
+
+    def test_ctv_transit_from_the_om_port_shortens_the_working_day(self):
+        """WOMBAT: 12 h working day, CTV at 20 kn; a 24 h job from a far port takes longer."""
+        near = find_maintenance_window("2025-06-01", "CTV", 24.0, "WTG-01", port_km=20.0)
+        far = find_maintenance_window("2025-06-01", "CTV", 24.0, "WTG-01", port_km=90.0)
+        assert far["transit_hours"] == pytest.approx(90.0 / CTV_SPEED_KMH, abs=0.01)
+        assert far["work_hours_per_day"] == pytest.approx(
+            WORKDAY_HOURS - 2 * 90.0 / CTV_SPEED_KMH, abs=0.01
+        )
+        # 24 h of work: 3 days at 10.9 h/day near, 4 days at 7.1 h/day far
+        assert far["cost_breakdown"]["labour_eur"] == near["cost_breakdown"]["labour_eur"] * 4 / 3
+        sov = find_maintenance_window("2025-06-01", "SOV", 24.0, "WTG-01", port_km=90.0)
+        assert sov["transit_hours"] == 0.0 and sov["work_hours_per_day"] == WORKDAY_HOURS
+
+    def test_ctv_cannot_work_from_a_port_beyond_its_day(self):
+        with pytest.raises(ValidationError, match="SOV"):
+            find_maintenance_window("2025-06-01", "CTV", 8.0, "WTG-01", port_km=220.0)
 
     def test_cost_estimate_positive(self):
         result = find_maintenance_window("2025-06-01", "CTV", 8.0, "WTG-10")

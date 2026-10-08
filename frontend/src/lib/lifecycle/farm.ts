@@ -12,6 +12,7 @@ import { OSS_GEO, SB510_DEPTH_M, SB510_EXPORT_KM, TURBINE_POSITIONS } from "../.
 import { routeCables, sectionFor, type CableEdge } from "../layout/cables";
 import { defaultExportKm, RATED_MW } from "../layout/evaluate";
 import { centroid, dist, projection, type LonLat, type XY } from "../layout/geometry";
+import type { SitePort } from "../../services/siteApi";
 import type { CampaignRequest } from "../../types/lifecycle";
 
 /** Monopile up to 40 m water depth, jacket beyond (same rule as the layout cost model). */
@@ -48,7 +49,22 @@ export interface FarmPlan {
   foundation: "monopile" | "jacket";
   capacityMW: number;
   crossings: number;
+  /** Nearest installation and O&M port by sea (site assessment); null for SB-510 until assessed. */
+  installPort: { name: string; km: number } | null;
+  omPort: { name: string; km: number } | null;
 }
+
+/** SB-510's ports by sea (backend site assessment, pinned by its tests). */
+export const SB510_PORTS = {
+  installation: { name: "Rønne (DK)", km: 116.7 },
+  om: { name: "Ustka", km: 52.5 },
+} as const;
+
+/** Nearest port of one use with a sea route, from the assessment's list. */
+export const nearestPort = (ports: SitePort[] | undefined, use: SitePort["use"]) => {
+  const p = ports?.find((x) => x.use === use && x.km != null);
+  return p ? { name: p.name, km: p.km! } : null;
+};
 
 export const bayName = (s: number) => `BAY-OSS-66-${String(s).padStart(2, "0")}`;
 
@@ -135,7 +151,7 @@ interface ProjectLike {
 
 interface SiteLike {
   site: LonLat[] | null;
-  report: { grid_km: number | null; depth_m: [number, number] | null } | null;
+  report: { grid_km: number | null; depth_m: [number, number] | null; ports?: SitePort[] } | null;
 }
 
 /** The learner's project when it has turbines and an OSS, else SB-510. */
@@ -178,6 +194,8 @@ export function farmPlan(project: ProjectLike, site: SiteLike): FarmPlan {
     foundation: foundationFor(depthM),
     capacityMW: ids.length * RATED_MW,
     crossings,
+    installPort: own ? nearestPort(site.report?.ports, "installation") : SB510_PORTS.installation,
+    omPort: own ? nearestPort(site.report?.ports, "O&M") : SB510_PORTS.om,
   };
 }
 
@@ -193,6 +211,7 @@ export function campaignRequest(
     array_km: Math.max(0.1, Math.round(f.arrayKm * 10) / 10),
     export_km: Math.min(300, Math.max(1, Math.round(f.exportKm))),
     foundation: f.foundation,
+    ...(f.installPort ? { port_km: Math.round(f.installPort.km * 10) / 10 } : {}),
     ...o,
   };
 }

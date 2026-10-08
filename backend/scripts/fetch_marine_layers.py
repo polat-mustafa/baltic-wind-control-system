@@ -17,6 +17,9 @@ each dataset's metadata when this script was written):
   internal waters of every State in the box — the union is the sea mask.
 * OpenStreetMap via the Overpass API (ODbL 1.0): coastline, submarine cables
   and pipelines, PSE 400 kV substations, offshore wind farm outlines.
+* Offshore wind ports: the role of each port (O&M base, installation terminal)
+  from the operators' and developers' announcements (URLs in the layer), the
+  location from OpenStreetMap (ODbL 1.0).
 * EMODnet Geology WFS (CC BY 4.0): seabed substrate 1:250 000 (Folk 5 classes;
   Polish part = PGI-NRI Geological Map of the Baltic Sea bottom 1:200 000).
 
@@ -545,6 +548,97 @@ def grid_nodes(today: str) -> dict[str, Any]:
     )
 
 
+#: Offshore wind ports of the Polish projects: (name, OSM element, use, status, basis).
+#: Use and status as announced by the operators (read 2026-10-08) — check before relying on them.
+PORTS: tuple[tuple[str, str, str, str, str], ...] = (
+    (
+        "Łeba",
+        "way/767300574",
+        "O&M",
+        "operating",
+        "O&M bases of Baltic Power (opened May 2025, balticpower.pl/news/baltic-power-opens-"
+        "poland-s-first-offshore-wind-service-base/) and Bałtyk 2 / 3 (equinor.com/news/archive/"
+        "20210527-leba-location-operations-maintenance-base)",
+    ),
+    (
+        "Ustka",
+        "way/766572375",
+        "O&M",
+        "under construction",
+        "O&M base of PGE Baltica for Baltica 2 / 3 (construction agreement, offshorewindpoland.pl/"
+        "en/new-milestone-for-baltic-wind-energy-pge-balticas-om-base-construction-agreement-"
+        "signed/)",
+    ),
+    (
+        "Władysławowo",
+        "way/1229512469",
+        "O&M",
+        "under construction",
+        "Service base of Ocean Winds for BC-Wind (oceanwinds.com/news/uncategorized/service-base-"
+        "for-ocean-winds-offshore-wind-farm-to-be-built-in-wladyslawowo-poland/)",
+    ),
+    (
+        "Świnoujście (ORLEN offshore terminal)",
+        "way/202802684",
+        "installation",
+        "operating",
+        "Poland's first offshore installation terminal, in operation since June 2025 "
+        "(balticwind.eu/the-swinoujscie-offshore-terminal-how-polands-first-installation-port-"
+        "works/)",
+    ),
+    (
+        "Gdańsk T5",
+        "way/1188598243",
+        "installation",
+        "under construction",
+        "Installation terminal for Baltica 2, lease from Q4 2026 (baltica.energy/en/news/2024/09/"
+        "pge-and-orsted-to-lease-port-space-in-gdansk-for-baltica-2)",
+    ),
+    (
+        "Rønne (DK)",
+        "way/1038343418",
+        "installation",
+        "operating",
+        "Installation port of Baltic Power (portofroenne.com/press/polish-wind-farm-baltic-power-"
+        "will-use-port-of-roenne/)",
+    ),
+)
+
+
+def ports(today: str) -> dict[str, Any]:
+    """Offshore wind ports: role from the announcements, location from OSM."""
+    print("  OpenStreetMap: offshore wind ports")
+    ids = "".join(f"{kind}({ref});" for kind, ref in (p[1].split("/") for p in PORTS))
+    found = {
+        f"{e['type']}/{e['id']}": e.get("center") or e
+        for e in overpass(f"[out:json][timeout:120];({ids});out center;")
+    }
+    features = []
+    for name, osm, use, status, basis in PORTS:
+        c = found[osm]
+        features.append(
+            {
+                "name": name,
+                "coordinates": [round(float(c["lon"]), 5), round(float(c["lat"]), 5)],
+                "use": use,
+                "status": status,
+                "basis": basis,
+                "osm": osm,
+            }
+        )
+    return layer(
+        "ports",
+        "Offshore wind ports (O&M bases, installation terminals)",
+        "port",
+        "point",
+        "Role: operators' and developers' announcements (see each port's basis); location: "
+        "OpenStreetMap harbour / port areas (Overpass)",
+        OSM_LICENCE,
+        today,
+        features=features,
+    )
+
+
 def stitch(segments: list[list[list[float]]]) -> list[list[list[float]]]:
     """Join open way segments (multipolygon members) end to end into closed rings."""
     rings: list[list[list[float]]] = []
@@ -741,6 +835,7 @@ def build_layers(bbox: tuple[float, float, float, float], today: str) -> list[di
     layers.append(coastline(today))
     layers.append(cables(box, sea, today))
     layers.append(grid_nodes(today))
+    layers.append(ports(today))
 
     n2k = fetch_ha("natura2000areas", box)
     natura = [
@@ -810,6 +905,8 @@ def rebuild_group(group: str, pack: dict[str, Any], today: str) -> list[dict[str
     if group == "wind":
         sea = SeaMask(next(lyr for lyr in pack["layers"] if lyr["id"] == "sea")["features"])
         return wind_projects(box, sea, today)
+    if group == "ports":
+        return [ports(today)]
     return [fetch_seabed(REGION_BBOX, today)]
 
 
@@ -982,7 +1079,7 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--only",
-        choices=("wind", "seabed"),
+        choices=("wind", "seabed", "ports"),
         help="rebuild one group of layers and keep the rest of the pack (needs a full pack)",
     )
     args = parser.parse_args()

@@ -19,6 +19,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from app.services.p1.weather_window import SB510_OM_PORT_KM
+
 
 class VesselType(str, Enum):  # noqa: UP042
     """Offshore access vessel categories."""
@@ -66,6 +68,12 @@ class MaintenanceWindowRequest(BaseModel):
         description="Required uninterrupted work duration [hours]",
     )
     turbine_id: str = Field(description="Affected turbine (e.g., WTG-01)")
+    port_km: float = Field(
+        SB510_OM_PORT_KM,
+        ge=0.0,
+        le=300.0,
+        description="O&M port to the farm by sea [km] (site assessment); default SB-510 (Ustka)",
+    )
 
 
 class MaintenanceWindowResponse(BaseModel):
@@ -85,6 +93,9 @@ class MaintenanceWindowResponse(BaseModel):
     access_probability_pct: float = Field(
         description="Month access probability for the window month [%]",
     )
+    port_km: float = Field(description="O&M port to the farm by sea [km]")
+    transit_hours: float = Field(description="CTV transit one way [h] (0 for offshore vessels)")
+    work_hours_per_day: float = Field(description="12 h working day minus the transits [h]")
     cost_estimate_eur: float = Field(
         description="Total repair cost estimate [EUR] including vessel and labour",
     )

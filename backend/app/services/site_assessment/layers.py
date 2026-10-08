@@ -15,6 +15,7 @@ cable       line      subsea cables and pipelines
 owf         polygon   real offshore wind farm projects (outlines), or point (locations)
 msp_energy  polygon   maritime spatial plan basins where offshore wind is allowed
 grid        point     onshore grid connection points
+port        point     offshore wind ports; ``use`` = "O&M" or "installation"
 protected   polygon   protected areas (Natura 2000)
 shipping    polygon   shipping routes / high-density traffic areas
 restricted  polygon   military areas, munition dumpsites
@@ -52,6 +53,7 @@ ROLES = (
     "owf",
     "msp_energy",
     "grid",
+    "port",
     "protected",
     "shipping",
     "restricted",
@@ -72,6 +74,7 @@ MISSING_EFFECT: dict[str, str] = {
     "msp_energy": "The maritime spatial plan's energy basins are NOT checked — a site outside "
     "them cannot get a Polish location permit.",
     "grid": "No grid-distance score.",
+    "port": "No port distances: construction and O&M use generic transit times.",
     "protected": "Natura 2000 sites are NOT excluded — areas shown as suitable may be protected.",
     "shipping": "Shipping routes are NOT excluded.",
     "restricted": "Military areas and munition dumpsites are NOT excluded.",

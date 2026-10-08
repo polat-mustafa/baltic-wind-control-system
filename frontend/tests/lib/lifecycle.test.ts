@@ -84,6 +84,23 @@ describe("campaignRequest", () => {
     expect(r.array_km).toBeGreaterThan(0);
     expect(r.mode).toBe("install");
   });
+
+  it("sails from the nearest installation port of the site assessment", () => {
+    const ports = [
+      { name: "Ustka", use: "O&M" as const, status: "under construction", km: 40.2, basis: "" },
+      { name: "Far terminal", use: "installation" as const, status: "operating", km: null, basis: "" },
+      { name: "Gdańsk T5", use: "installation" as const, status: "under construction", km: 131.26, basis: "" },
+    ];
+    const own = farmPlan(grid(), { site: null, report: { grid_km: 30, depth_m: [38, 46], ports } });
+    expect(own.installPort).toEqual({ name: "Gdańsk T5", km: 131.26 });
+    expect(own.omPort).toEqual({ name: "Ustka", km: 40.2 });
+    expect(campaignRequest(own, { mode: "install", start_date: "2028-04-01", alpha: 0.8, runs: 50 }).port_km).toBe(131.3);
+    const sb510 = farmPlan({ turbines: [], oss: null }, noSite);
+    expect(sb510.installPort?.name).toBe("Rønne (DK)");
+    expect(campaignRequest(sb510, { mode: "install", start_date: "2028-04-01", alpha: 0.8, runs: 50 }).port_km).toBe(116.7);
+    const unassessed = farmPlan(grid(), { site: null, report: { grid_km: 30, depth_m: [38, 46] } });
+    expect(campaignRequest(unassessed, { mode: "install", start_date: "2028-04-01", alpha: 0.8, runs: 50 }).port_km).toBeUndefined();
+  });
 });
 
 describe("decommissioning", () => {

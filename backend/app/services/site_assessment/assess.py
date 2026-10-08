@@ -18,7 +18,12 @@ from typing import Literal
 import numpy as np
 
 from app.services.site_assessment.criteria import Criteria, depth_band
-from app.services.site_assessment.geo import is_simple, points_in_polygon, polygon_area_km2
+from app.services.site_assessment.geo import (
+    is_simple,
+    points_in_polygon,
+    points_in_polygons,
+    polygon_area_km2,
+)
 from app.services.site_assessment.layers import RegionPack
 from app.services.site_assessment.suitability import (
     CLASS_MARGINAL,
@@ -69,6 +74,8 @@ class Assessment:
     protected_km: float | None
     depth_m: tuple[float, float] | None
     foundation: str | None
+    energy_basins: list[str]  # plan basins with an energy function the site lies in
+    projects: list[str]  # real wind farm projects inside the site or its energy basins
     checks: list[Check]
     complete: bool
 
@@ -163,7 +170,40 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
     capacity = usable_area * crit.power_density_mw_km2
     band = depth_band(float(np.median(depth))) if depth.size else None
 
-    checks = _checks(pack, crit, ev, shares, depth, cable, owf, protected, usable_area, capacity)
+    # Plan basins with an energy function that the site uses, and the real projects that
+    # already hold them (EMODnet locations) or overlap the site (mapped outlines).
+    basins = [
+        (f, rings)
+        for f, rings in pack.named_polygons("msp_energy")
+        if points_in_polygons(sx, sy, [rings]).any()
+    ]
+    projects: list[str] = []
+    for f, rings in pack.named_polygons("owf"):
+        if points_in_polygons(sx, sy, [rings]).any():
+            projects.append(_project_label(f.name, f.props))
+    for f in pack.point_features("owf"):
+        px, py = proj.forward(np.array([f.coordinates[0]]), np.array([f.coordinates[1]]))
+        in_site = bool(points_in_polygon(px, py, ring)[0])
+        in_basin = any(points_in_polygons(px, py, [rings])[0] for _, rings in basins)
+        label = _project_label(f.name, f.props)
+        if (in_site or in_basin) and label not in projects:
+            projects.append(label)
+    basin_names = [str(f.props.get("basin") or f.name) for f, _ in basins]
+
+    checks = _checks(
+        pack,
+        crit,
+        ev,
+        shares,
+        depth,
+        cable,
+        owf,
+        protected,
+        usable_area,
+        capacity,
+        basin_names,
+        projects,
+    )
 
     return Assessment(
         area_km2=area,
@@ -182,6 +222,8 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
         protected_km=float(protected.min()) if protected.size else None,
         depth_m=(float(depth.min()), float(depth.max())) if depth.size else None,
         foundation=band.foundation if band else None,
+        energy_basins=basin_names,
+        projects=projects,
         checks=checks,
         complete=is_complete(pack),
     )
@@ -189,6 +231,21 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
 
 def _pct(f: float) -> str:
     return f"{100 * f:.0f} %"
+
+
+def _project_label(name: str, props: dict[str, object]) -> str:
+    extra = [
+        f"{props['power_mw']:g} MW" if isinstance(props.get("power_mw"), int | float) else "",
+        str(props.get("status") or ""),
+    ]
+    extra = [e for e in extra if e]
+    return f"{name} ({', '.join(extra)})" if extra else name
+
+
+MSP_REFERENCE = (
+    "Polish maritime spatial plan, Dz.U. 2021 poz. 935; Act on the maritime areas, "
+    "Dz.U. 2024 poz. 1125, Art. 23 ust. 1 and Art. 27g ust. 1 pkt 1"
+)
 
 
 def _checks(
@@ -202,6 +259,8 @@ def _checks(
     protected: np.ndarray,
     usable_area: float,
     capacity: float,
+    basins: list[str],
+    projects: list[str],
 ) -> list[Check]:
     checks: list[Check] = []
 
@@ -258,28 +317,88 @@ def _checks(
     else:
         checks.append(Check("eez", "Inside the EEZ", "unknown", "EEZ boundary not loaded yet."))
 
+    if not crit.require_energy_basin:
+        checks.append(
+            Check(
+                "msp_energy",
+                "Inside an energy basin of the maritime spatial plan",
+                "info",
+                "Not applied: the energy-basin rule is switched off (generic study).",
+                MSP_REFERENCE,
+            )
+        )
+    elif pack.has("msp_energy"):
+        out = shares.get("outside_energy_basin", 0.0)
+        where = ", ".join(basins)
+        checks.append(
+            Check(
+                "msp_energy",
+                "Inside an energy basin of the maritime spatial plan",
+                "fail" if out > 0 else "pass",
+                (
+                    f"{_pct(out)} of the site lies outside the basins where the plan allows "
+                    "offshore wind"
+                    + (f" (the rest is in {where})." if where else ".")
+                    + " A location permit could not be granted there."
+                )
+                if out > 0
+                else f"The whole site lies in energy basin {where}.",
+                MSP_REFERENCE,
+            )
+        )
+    else:
+        checks.append(
+            Check(
+                "msp_energy",
+                "Inside an energy basin of the maritime spatial plan",
+                "unknown",
+                "Maritime spatial plan basins not loaded: the location rule is NOT checked.",
+                MSP_REFERENCE,
+            )
+        )
+
     if pack.has("owf"):
         ov = shares.get("owf_area", 0.0)
         near = float(owf.min()) if owf.size else math.inf
+        named = "; ".join(projects)
+        status_owf: CheckStatus
+        if ov > 0:
+            status_owf = "fail"
+            detail_owf = f"{_pct(ov)} of the site overlaps an existing wind farm: {named}."
+        elif projects:
+            status_owf = "warn"
+            detail_owf = (
+                f"Already allocated to: {named}. Permits for this sea area are held by another "
+                "developer — a real project would need their area or a new allocation."
+            )
+        elif near < 5.0:
+            status_owf = "warn"
+            detail_owf = (
+                f"Nearest existing wind farm: {near:.1f} km — expect wake losses between the farms."
+            )
+        else:
+            status_owf = "pass"
+            detail_owf = (
+                f"Nearest mapped wind farm outline: {near:.1f} km."
+                if math.isfinite(near)
+                else "No mapped wind farm nearby."
+            )
         checks.append(
             Check(
                 "owf",
-                "No overlap with other wind farm areas",
-                "fail" if ov > 0 else ("warn" if near < 5.0 else "pass"),
-                f"{_pct(ov)} of the site overlaps a planned wind farm area."
-                if ov > 0
-                else f"Nearest other wind farm area: {near:.1f} km"
-                + (" — expect wake losses between the farms." if near < 5.0 else "."),
-                "Marine spatial plan (Directive 2014/89/EU)",
+                "Real wind farm projects",
+                status_owf,
+                detail_owf,
+                "EMODnet Human Activities 'windfarms'; OpenStreetMap outlines",
             )
         )
     else:
         checks.append(
             Check(
                 "owf",
-                "No overlap with other wind farm areas",
+                "Real wind farm projects",
                 "unknown",
-                "No wind farm areas layer.",
+                "No wind farm projects layer.",
             )
         )
 

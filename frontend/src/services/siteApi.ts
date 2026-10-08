@@ -68,6 +68,7 @@ export interface LayersResponse {
 
 export interface CriteriaOverrides {
   exclude_territorial_sea?: boolean;
+  require_energy_basin?: boolean;
   exclude_protected?: boolean;
   exclude_restricted?: boolean;
   cable_buffer_km?: number;
@@ -119,6 +120,10 @@ export interface AssessResponse {
   protected_km: number | null;
   depth_m: [number, number] | null;
   foundation: string | null;
+  /** Plan basins with an energy function the site lies in (Polish MSP). */
+  energy_basins?: string[];
+  /** Real wind farm projects inside the site or already holding its energy basins. */
+  projects?: string[];
   checks: SiteCheck[];
   complete: boolean;
 }

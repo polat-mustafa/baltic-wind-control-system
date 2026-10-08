@@ -12,7 +12,8 @@ shore       line      coastline, for shore distance and the territorial-sea appr
 territorial polygon   territorial sea (replaces the coastline approximation)
 eez         polygon   the State's EEZ (cells outside it are another jurisdiction)
 cable       line      subsea cables and pipelines
-owf         polygon   existing or planned offshore wind areas
+owf         polygon   real offshore wind farm projects (outlines), or point (locations)
+msp_energy  polygon   maritime spatial plan basins where offshore wind is allowed
 grid        point     onshore grid connection points
 protected   polygon   protected areas (Natura 2000)
 shipping    polygon   shipping routes / high-density traffic areas
@@ -42,6 +43,7 @@ ROLES = (
     "eez",
     "cable",
     "owf",
+    "msp_energy",
     "grid",
     "protected",
     "shipping",
@@ -56,7 +58,9 @@ MISSING_EFFECT: dict[str, str] = {
     "territorial": "Territorial sea approximated from the coastline.",
     "eez": "Jurisdiction (EEZ) not checked.",
     "cable": "Cable buffers not applied.",
-    "owf": "Overlap with other wind farm areas not checked.",
+    "owf": "Overlap with real wind farm projects not checked.",
+    "msp_energy": "The maritime spatial plan's energy basins are NOT checked — a site outside "
+    "them cannot get a Polish location permit.",
     "grid": "No grid-distance score.",
     "protected": "Natura 2000 sites are NOT excluded — areas shown as suitable may be protected.",
     "shipping": "Shipping routes are NOT excluded.",
@@ -143,20 +147,45 @@ class RegionPack:
         return [
             [proj.ring(ring) for ring in f.coordinates]
             for layer in self.by_role(role)
+            if layer.geometry == "polygon"
+            for f in layer.features
+        ]
+
+    def named_polygons(self, role: str) -> list[tuple[Feature, list[NDArray[np.float64]]]]:
+        """(feature, projected rings) of every polygon feature with this role."""
+        proj = self.projection
+        return [
+            (f, [proj.ring(ring) for ring in f.coordinates])
+            for layer in self.by_role(role)
+            if layer.geometry == "polygon"
             for f in layer.features
         ]
 
     def lines(self, role: str) -> list[NDArray[np.float64]]:
         proj = self.projection
-        return [proj.ring(f.coordinates) for layer in self.by_role(role) for f in layer.features]
+        return [
+            proj.ring(f.coordinates)
+            for layer in self.by_role(role)
+            if layer.geometry == "line"
+            for f in layer.features
+        ]
 
     def points(self, role: str) -> list[tuple[str, float, float]]:
         """(name, lon, lat) of every point feature with this role."""
         return [
             (f.name, float(f.coordinates[0]), float(f.coordinates[1]))
             for layer in self.by_role(role)
+            if layer.geometry == "point"
             for f in layer.features
         ]
+
+    def point_features(self, role: str) -> list[Feature]:
+        return [
+            f for layer in self.by_role(role) if layer.geometry == "point" for f in layer.features
+        ]
+
+    def has_polygons(self, role: str) -> bool:
+        return any(layer.geometry == "polygon" and layer.features for layer in self.by_role(role))
 
     def raster(self, role: str) -> Raster | None:
         for layer in self.by_role(role):

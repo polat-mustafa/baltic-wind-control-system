@@ -65,8 +65,13 @@ function CriteriaPanel() {
   const setCriteria = useSiteStore((s) => s.setCriteria);
   const suitability = useSiteStore((s) => s.suitability);
   const area = (name: string) => suitability?.class_areas.find((c) => c.name === name)?.area_km2 ?? 0;
-  const toggles: { key: "exclude_territorial_sea" | "exclude_protected" | "exclude_restricted"; label: string; note: string }[] = [
-    { key: "exclude_territorial_sea", label: "Exclude the 12 nm territorial sea", note: "Polish rule: OWFs only in the EEZ" },
+  const toggles: {
+    key: "exclude_territorial_sea" | "require_energy_basin" | "exclude_protected" | "exclude_restricted";
+    label: string;
+    note: string;
+  }[] = [
+    { key: "exclude_territorial_sea", label: "Exclude the 12 nm territorial sea", note: "Polish law: no offshore wind in internal waters or the territorial sea" },
+    { key: "require_energy_basin", label: "Only the plan's energy basins", note: "Polish law: a location permit needs a basin where the maritime spatial plan allows wind" },
     { key: "exclude_protected", label: "Exclude Natura 2000 sites", note: "Not a legal ban: projects there need an appropriate assessment" },
     { key: "exclude_restricted", label: "Exclude military areas and munition dumpsites", note: "Defence areas may be negotiable; dumpsites need UXO clearance" },
   ];

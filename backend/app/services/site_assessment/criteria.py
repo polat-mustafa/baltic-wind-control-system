@@ -26,6 +26,7 @@ ILLUSTRATIVE = "illustrative"
 class Criteria:
     # ── Hard exclusions ──────────────────────────────────────────
     exclude_territorial_sea: bool = True
+    require_energy_basin: bool = True
     territorial_sea_km: float = TERRITORIAL_SEA_NM * NAUTICAL_MILE_KM
     cable_buffer_km: float = 0.5
     owf_buffer_km: float = 0.0
@@ -73,9 +74,22 @@ CRITERIA_INFO: tuple[CriterionInfo, ...] = (
         "Exclude the territorial sea",
         "",
         "exclusion",
-        "Case study rule: in Poland offshore wind farms may only be built in the EEZ "
-        "(Act on the maritime areas of the Republic of Poland and maritime administration).",
+        "Polish law: offshore wind farms are banned in internal waters and the territorial "
+        "sea (Act on the maritime areas of the Republic of Poland and maritime administration, "
+        "consolidated text Dz.U. 2024 poz. 1125, Art. 23 ust. 1a).",
         "Other Member States allow OWFs in the territorial sea; switch off for a generic study.",
+    ),
+    CriterionInfo(
+        "require_energy_basin",
+        "Only inside the plan's energy basins",
+        "",
+        "exclusion",
+        "Polish maritime spatial plan (Dz.U. 2021 poz. 935): offshore wind is a priority use "
+        "only in the basins with an energy ('E') function. A location permit (PSZW) is granted "
+        "for a defined sea area and is assessed first on consistency with the plan "
+        "(Dz.U. 2024 poz. 1125, Art. 23 ust. 1 and Art. 27g ust. 1 pkt 1).",
+        "Screening simplification: the plan text and its basin rules decide, and every energy "
+        "basin in Poland already has a permit holder. Switch off for a generic study.",
     ),
     CriterionInfo(
         "territorial_sea_km",
@@ -96,11 +110,12 @@ CRITERIA_INFO: tuple[CriterionInfo, ...] = (
     ),
     CriterionInfo(
         "owf_buffer_km",
-        "Buffer around other wind farm areas",
+        "Buffer around existing wind farms",
         "km",
         "exclusion",
         ILLUSTRATIVE,
-        "A wider buffer reduces wake losses between neighbouring farms.",
+        "Applied around the mapped outlines of real wind farms; a wider buffer reduces wake "
+        "losses between neighbouring farms.",
     ),
     CriterionInfo(
         "exclude_protected",

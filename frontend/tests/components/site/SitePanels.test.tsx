@@ -23,7 +23,7 @@ describe("SiteReport", () => {
     expect(screen.getByText("1 blocking issue")).toBeDefined();
     expect(screen.getByText("Fail")).toBeDefined();
     expect(screen.getByText("Check")).toBeDefined();
-    expect(screen.getAllByText("Pass").length).toBe(7);
+    expect(screen.getAllByText("Pass").length).toBe(8);
   });
 
   it("asks for a site first", () => {

@@ -5,6 +5,7 @@ const ROUTES = [
   ["site-permits", "/develop"],
   ["layout", "/develop/layout"],
   ["p1-wind-resource", "/wind-resource"],
+  ["report", "/report"],
   ["p2-hv-grid", "/hv-grid"],
   ["p3-scada", "/scada"],
   ["p4-forecast", "/forecast"],

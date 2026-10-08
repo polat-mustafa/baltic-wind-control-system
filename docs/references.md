@@ -24,6 +24,7 @@ Citation rules used here:
 | Global blockage | `services/p1/blockage.py` | [9] |
 | AEP loss cascade, P50/P90 | `services/p1/aep_calculator.py` | [1], [2] |
 | Power / thrust curve, cut-in/out (IEA 15 MW and 22 MW reference turbines) | `services/p1/turbine_models.py`, `app/data/turbines/`, `scripts/fetch_turbine_curves.py`, `frontend/src/constants/turbineModels.ts` | [S2], [26], [27] |
+| windIO 2.x plant export (site, wind resource, layout, turbine) | `services/p1/windio.py`, `routers/projects.py` (`/projects/{id}/windio.yaml`) | [31] |
 
 ## P2 — HV grid integration
 
@@ -161,6 +162,7 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 28. Hahmann, A. N., et al. "The making of the New European Wind Atlas — Part 1: Model sensitivity." *Geoscientific Model Development* 13, 5053–5078, 2020; NEWA Mesoscale Atlas doi:10.11583/DTU.14414096.v1 (CC BY-NC 4.0).
 29. Dörenkämper, M., et al. "The making of the New European Wind Atlas — Part 2: Production and evaluation." *Geoscientific Model Development* 13, 5079–5102, 2020 (microscale atlas, Weibull parameters).
 30. Hersbach, H., et al. "The ERA5 global reanalysis." *Quarterly Journal of the Royal Meteorological Society* 146, 1999–2049, 2020; hourly data via the Open-Meteo archive API (CC BY 4.0).
+31. IEA Wind Task 37 / IEA Wind Systems. *windIO — data formats for wind energy systems*, `schemas/plant` (wind_energy_system, site, energy_resource, wind_farm, turbine), github.com/IEAWindSystems/windIO (Apache-2.0), checked 2026-10-08.
 
 ## Standards and regulations
 

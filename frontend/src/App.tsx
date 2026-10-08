@@ -11,6 +11,7 @@
  *   /turbine-physics → TurbinePhysicsPage (dynamic simulation)
  *   /digital-twin    → DigitalTwinPage (condition monitoring)
  *   /develop         → SitePermitsPage, /develop/layout → LayoutPage
+ *   /report          → ReportPage (printable project report, JSON, windIO)
  *   /build           → ConstructionPage, /build/handover → HandoverPage
  *   /decommission    → DecommissioningPage
  *   /academy         → AcademyPage (courses, scored missions)
@@ -38,6 +39,7 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 const SCADAPage = lazy(() => import("./pages/SCADAPage"));
 const SitePermitsPage = lazy(() => import("./pages/SitePermitsPage"));
 const LayoutPage = lazy(() => import("./pages/LayoutPage"));
+const ReportPage = lazy(() => import("./pages/ReportPage"));
 const TurbinePhysicsPage = lazy(() => import("./pages/TurbinePhysicsPage"));
 const WindResourcePage = lazy(() => import("./pages/WindResourcePage"));
 
@@ -50,6 +52,7 @@ function App() {
             <Route index element={<LandingPage />} />
             <Route path="develop" element={<SitePermitsPage />} />
             <Route path="develop/layout" element={<LayoutPage />} />
+            <Route path="report" element={<ReportPage />} />
             <Route path="wind-resource" element={<WindResourcePage />} />
             <Route path="hv-grid" element={<HVGridPage />} />
             <Route path="scada" element={<SCADAPage />} />

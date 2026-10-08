@@ -13,11 +13,13 @@ PUT    /{id}               save {revision, data}; stale revision → 409
 DELETE /{id}               delete → 204
 POST   /{id}/aep           PyWake AEP of the stored layout, kept as history
 GET    /{id}/aep           the last runs, newest first
+GET    /{id}/windio.yaml   windIO 2.x plant file (site, wind, layout, turbine)
 """
 
 from __future__ import annotations
 
 import math
+import re
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -42,6 +44,7 @@ from app.schemas.project import (
     ProjectUpdate,
 )
 from app.schemas.site_assessment import DEFAULT_REGION
+from app.services.p1 import windio
 from app.services.p1.aep_calculator import compute_aep_cascade
 from app.services.p1.turbine_models import get_turbine
 from app.services.site_assessment.layers import load_region
@@ -393,3 +396,33 @@ async def project_aep_history(
 ) -> list[AEPRunOut]:
     farm = await _get(session, project_id)
     return await _runs(session, farm, HISTORY)
+
+
+# ── windIO export ────────────────────────────────────────────────
+
+
+@router.get("/{project_id}/windio.yaml", response_class=Response)
+async def project_windio(
+    project_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> Response:
+    """The project as a windIO 2.x ``wind_energy_system`` YAML file.
+
+    Wind = the region-pack climate at the turbines (as the stored PyWake runs).
+    Cost, permit and lifecycle inputs are not windIO: they stay in the
+    project document, downloaded next to it as ``.offshoreforge.json``.
+    """
+    farm = await _get(session, project_id)
+    if farm.data is None:
+        raise ValidationError("The SB-510 reference has no project document to export")
+    data = ProjectData.model_validate(farm.data)
+    if not data.turbines:
+        raise ValidationError("The project has no turbines")
+    lon = np.array([t.lon for t in data.turbines])
+    lat = np.array([t.lat for t in data.turbines])
+    wind = await run_in_threadpool(site_wind, load_region(DEFAULT_REGION), lon, lat)
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", data.name).strip("-").lower() or "project"
+    return Response(
+        windio.dump(data, wind),
+        media_type="application/yaml",
+        headers={"Content-Disposition": f'attachment; filename="{slug}.windio.yaml"'},
+    )

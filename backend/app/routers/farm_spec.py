@@ -4,8 +4,10 @@ Which farm the P2 grid endpoints model.
 No header → the SB-510 reference design. The learner's own project sends its
 layout in the ``X-Farm`` header (URL-encoded JSON, so names may hold any
 character): strings (turbines per string, from the frontend cable tree), mean
-array section length, export cable length and, when the site has one, its
-hub-height Weibull wind climate (Digital Twin inflow). The backend sizes the rest with
+array section length, export cable length and, when the site has them, its
+hub-height Weibull wind climate (Digital Twin inflow), its PSE connection point and
+the short-circuit power there (from the TSO's connection conditions — PSE publishes
+no per-node values). The backend sizes the rest with
 ``network_model.design`` and checks the reactors with a load flow
 (``statcom_sizing.check_reactors``) — nothing is stored, so a project that only
 lives in the browser works too.
@@ -21,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from app.core.exceptions import ValidationError as DomainValidationError
 from app.services.p2.network_model import (
+    GRID_SSC_MAX_MVA,
     MAX_TURBINES_PER_STRING,
     SB510,
     FarmSpec,
@@ -46,6 +49,12 @@ class FarmInput(BaseModel):
     wind_k: float | None = Field(None, ge=1.0, le=5.0, description="Weibull k at hub")
     grid_node: str | None = Field(
         None, min_length=1, max_length=120, description="PSE connection point (site assessment)"
+    )
+    grid_ssc_mva: float | None = Field(
+        None,
+        ge=1_000.0,
+        le=GRID_SSC_MAX_MVA,
+        description="Grid short-circuit power at the connection point [MVA] (TSO data)",
     )
 
     @model_validator(mode="after")
@@ -77,6 +86,7 @@ def farm_spec(x_farm: Annotated[str | None, Header()] = None) -> FarmSpec:
         round(farm.array_km, 3),
         farm.name,
         **({"grid_node": farm.grid_node} if farm.grid_node else {}),
+        **({"grid_ssc_mva": round(farm.grid_ssc_mva, -1)} if farm.grid_ssc_mva else {}),
     )
     return check_reactors(spec)
 

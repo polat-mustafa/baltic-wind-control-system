@@ -34,6 +34,10 @@ export const CASE_STUDY_SITE: LonLat[] = [
   [16.42, 55.0688],
 ];
 
+/** Bounds of a node's short-circuit power [MVA]: backend FarmInput (upper = √3 · 400 kV · 63 kA,
+ * PSE's highest 400 kV switchgear rating). */
+export const GRID_SSC_RANGE_MVA = [1_000, 43_648] as const;
+
 /** SB-510's connection point (backend network_model.SB510_GRID_NODE): PSE Krzemienica, the node
  * PGE announced for Baltica 9+ (site 44.E.1) — not the nearest node. */
 export const CASE_STUDY_GRID_NODE = "Krzemienica 400 kV";
@@ -50,6 +54,8 @@ export interface SitePersisted {
   done: StageId[];
   /** Chosen grid connection point; null = the nearest. */
   gridNode: string | null;
+  /** Short-circuit power at that node [MVA] from the TSO's connection conditions; null = illustrative 10 GVA. */
+  gridSscMva: number | null;
   /** Drawn export route waypoints (landfall, …); null = none drawn. */
   route: LonLat[] | null;
   /** Length of the last checked export route [km]; null = not checked. */
@@ -59,6 +65,9 @@ export interface SitePersisted {
 const isLonLat = (v: unknown): v is LonLat =>
   Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === "number" && Number.isFinite(n));
 const isStage = (v: unknown): v is StageId => STAGES.some((s) => s.id === v);
+/** A short-circuit power inside the accepted range, else null. */
+export const validSsc = (v: unknown): number | null =>
+  typeof v === "number" && v >= GRID_SSC_RANGE_MVA[0] && v <= GRID_SSC_RANGE_MVA[1] ? Math.round(v) : null;
 
 function parse(p: Record<string, unknown>): SitePersisted {
   const site = Array.isArray(p.site) && p.site.length >= 3 && p.site.every(isLonLat) ? (p.site as LonLat[]) : null;
@@ -67,6 +76,7 @@ function parse(p: Record<string, unknown>): SitePersisted {
     stage: isStage(p.stage) ? p.stage : "screening",
     done: Array.isArray(p.done) ? p.done.filter(isStage) : [],
     gridNode: typeof p.gridNode === "string" && p.gridNode ? p.gridNode : null,
+    gridSscMva: validSsc(p.gridSscMva),
     route: Array.isArray(p.route) && p.route.length > 0 && p.route.every(isLonLat) ? (p.route as LonLat[]) : null,
     routeKm: typeof p.routeKm === "number" && Number.isFinite(p.routeKm) && p.routeKm > 0 ? p.routeKm : null,
   };
@@ -79,7 +89,7 @@ function load(): SitePersisted {
   } catch {
     // corrupt value: start fresh
   }
-  return { site: null, stage: "screening", done: [], gridNode: null, route: null, routeKm: null };
+  return { site: null, stage: "screening", done: [], gridNode: null, gridSscMva: null, route: null, routeKm: null };
 }
 
 interface SiteState {
@@ -94,6 +104,7 @@ interface SiteState {
   stage: StageId;
   done: StageId[];
   gridNode: string | null;
+  gridSscMva: number | null;
   route: LonLat[] | null;
   routeKm: number | null;
   /** Waypoints while drawing the export route; null when not drawing. */
@@ -119,6 +130,8 @@ interface SiteState {
   setSite: (site: LonLat[] | null, gridNode?: string | null) => Promise<void>;
   /** Choose the grid connection point (null = the nearest) and re-assess. */
   setGridNode: (name: string | null) => Promise<void>;
+  /** The node's short-circuit power [MVA] (out of range → null: the illustrative default). */
+  setGridSscMva: (mva: number | null) => void;
   startRoute: () => void;
   addRoutePoint: (p: LonLat) => void;
   undoRoutePoint: () => void;
@@ -149,10 +162,10 @@ let routeToken = 0;
 
 const initial = load();
 
-function persist(s: Pick<SiteState, "site" | "stage" | "done" | "gridNode" | "route" | "routeKm">) {
+function persist(s: Pick<SiteState, "site" | "stage" | "done" | "gridNode" | "gridSscMva" | "route" | "routeKm">) {
   writeStored(
     SITE_KEY,
-    JSON.stringify({ site: s.site, stage: s.stage, done: s.done, gridNode: s.gridNode, route: s.route, routeKm: s.routeKm }),
+    JSON.stringify({ site: s.site, stage: s.stage, done: s.done, gridNode: s.gridNode, gridSscMva: s.gridSscMva, route: s.route, routeKm: s.routeKm }),
   );
 }
 
@@ -170,6 +183,7 @@ export const useSiteStore = create<SiteState>((set, get) => ({
   stage: initial.stage,
   done: initial.done,
   gridNode: initial.gridNode,
+  gridSscMva: initial.gridSscMva,
   route: initial.route,
   routeKm: initial.routeKm,
   routeDrawing: null,
@@ -226,15 +240,21 @@ export const useSiteStore = create<SiteState>((set, get) => ({
 
   setSite: async (site, gridNode = null) => {
     // A new site invalidates every stage done for the old one.
-    set({ site, report: null, reportFor: null, assessError: null, done: [], stage: "screening", gridNode, ...NO_ROUTE });
+    set({ site, report: null, reportFor: null, assessError: null, done: [], stage: "screening", gridNode, gridSscMva: null, ...NO_ROUTE });
     persist(get());
     if (site) await get().assess();
   },
 
   setGridNode: async (gridNode) => {
-    set({ gridNode, routeKm: null, routeCheck: null });
+    // another node, another short-circuit power: the TSO's value belongs to its node
+    set({ gridNode, gridSscMva: null, routeKm: null, routeCheck: null });
     persist(get());
     await get().assess();
+  },
+
+  setGridSscMva: (mva) => {
+    set({ gridSscMva: validSsc(mva) });
+    persist(get());
   },
 
   startRoute: () => set({ routeDrawing: [] }),
@@ -322,6 +342,7 @@ export const useSiteStore = create<SiteState>((set, get) => ({
       done: [],
       criteria: {},
       gridNode: null,
+      gridSscMva: null,
       ...NO_ROUTE,
     });
     persist(get());

@@ -75,7 +75,6 @@ import numpy as np
 
 from app.services.p2.network_model import (
     EXPORT_CABLE_1000,
-    EXPORT_CABLE_LENGTH_KM,
     GRID_RX_RATIO,
     GRID_SSC_MVA,
     NUM_ONSHORE_TRANSFORMERS,
@@ -308,7 +307,7 @@ def compute_harmonics(
     harmonic_magnitudes: dict[int, float],
     voltage_kv: float = 400.0,
     rated_mw: float = 510.0,
-    grid_ssc_mva: float = GRID_SSC_MVA,
+    grid_ssc_mva: float | None = None,
     export_length_km: float | None = None,
     spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
@@ -317,6 +316,7 @@ def compute_harmonics(
     ``harmonic_magnitudes``: WTG current emission {order: % of rated current}.
     ``voltage_kv`` selects the assessed bus (400 = POC, 220 = OSS 220 kV, 66).
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     if export_length_km is None:
         export_length_km = spec.export_length_km
     node = NODES.get(voltage_kv, 0)
@@ -379,9 +379,9 @@ def compute_harmonics(
 
 
 def compute_resonance_scan(
-    cable_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    cable_length_km: float | None = None,
     voltage_kv: float = 66.0,
-    grid_fault_level_mva: float = GRID_SSC_MVA,
+    grid_fault_level_mva: float | None = None,
     scan_max_hz: float = 2500.0,
     spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
@@ -391,6 +391,9 @@ def compute_resonance_scan(
     50 Hz short-circuit inductance alone would give at that frequency
     (h·|Z(50 Hz)|). > 3 medium, > 10 high risk.
     """
+    cable_length_km = spec.export_length_km if cable_length_km is None else cable_length_km
+    if grid_fault_level_mva is None:
+        grid_fault_level_mva = spec.grid_ssc_mva
     node = NODES.get(voltage_kv, 3)
     z_base = (voltage_kv if voltage_kv in NODES else 66.0) ** 2 / S_BASE
     freqs = np.arange(F0, scan_max_hz + 1e-9, 5.0)
@@ -509,7 +512,7 @@ def design_passive_filter(
     harmonic_current_a: float,
     system_voltage_kv: float = 66.0,
     rated_mvar: float = 10.0,
-    grid_ssc_mva: float = GRID_SSC_MVA,
+    grid_ssc_mva: float | None = None,
     export_length_km: float | None = None,
     spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
@@ -518,6 +521,7 @@ def design_passive_filter(
     Insertion loss is evaluated against the network's own harmonic impedance
     at the tuned frequency (harmonic model above), not a generic S_sc.
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     detuning = 0.03
     h_t = dominant_harmonic_order * (1 - detuning)
     omega_t = OMEGA0 * h_t

@@ -73,7 +73,7 @@ describe("project document", () => {
     const v1 = { schema: 1, app: "OffshoreForge", turbineModel: "IEA-15-240-RWT", site: SITE, turbines: [], oss: null, costs: {} };
     const doc = parseDoc(JSON.stringify(v1));
     expect(doc.schema).toBe(2);
-    expect(doc.site).toEqual({ polygon: SITE, stage: "screening", done: [], gridNode: null, route: null, routeKm: null });
+    expect(doc.site).toEqual({ polygon: SITE, stage: "screening", done: [], gridNode: null, gridSscMva: null, route: null, routeKm: null });
     expect(doc.lifecycle).toBeNull();
   });
 

@@ -18,13 +18,12 @@ interface N1State extends N1Request {
 
 export const useN1Store = create<N1State>((set, get) => ({
   generation_fraction: 1.0,
-  grid_ssc_mva: 10_000,
   study: null,
   loading: false,
   error: null,
   setParams: (p) => set(p),
   run: async () => {
-    const { generation_fraction, grid_ssc_mva } = get();
+    const { generation_fraction, grid_ssc_mva } = get(); // grid_ssc_mva unset → the farm's
     set({ loading: true });
     try {
       set({ study: await runN1Study({ generation_fraction, grid_ssc_mva }), error: null });

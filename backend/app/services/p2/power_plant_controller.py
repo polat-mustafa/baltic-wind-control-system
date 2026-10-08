@@ -182,9 +182,11 @@ def _grid_impedance_pu(grid_ssc_mva: float = GRID_SSC_MVA) -> tuple[float, float
     return GRID_RX_RATIO * x, x
 
 
-def _poc_voltage(v_grid: float, p_mw: float, q_mvar: float) -> float:
+def _poc_voltage(
+    v_grid: float, p_mw: float, q_mvar: float, grid_ssc_mva: float = GRID_SSC_MVA
+) -> float:
     """V_POC = V_grid + (R·P + X·Q)/S_base — export and generated Q raise it."""
-    r, x = _grid_impedance_pu()
+    r, x = _grid_impedance_pu(grid_ssc_mva)
     return v_grid + (r * p_mw + x * q_mvar) / S_BASE_MVA
 
 
@@ -237,7 +239,7 @@ def run_ppc_simulation(
     v_ref = tso.voltage_setpoint_pu if tso.voltage_setpoint_pu is not None else 1.0
 
     p0 = min(request.initial_power_mw, total_available)
-    v_grid0 = 1.0 - _poc_voltage(0.0, p0, 0.0)  # POC starts at 1.0 pu
+    v_grid0 = 1.0 - _poc_voltage(0.0, p0, 0.0, spec.grid_ssc_mva)  # POC starts at 1.0 pu
     dispatch = p_actual = p0
     q_actual = 0.0
     f_event = request.frequency_event_hz
@@ -271,7 +273,7 @@ def run_ppc_simulation(
         p_actual += (setpoint - p_actual) * (1.0 - math.exp(-dt / cfg.p_response_tau_s))
 
         # Reactive power at the POC
-        v = _poc_voltage(v_grid, p_actual, q_actual)
+        v = _poc_voltage(v_grid, p_actual, q_actual, spec.grid_ssc_mva)
         mode = request.reactive_power_mode
         if mode == ReactivePowerMode.VOLTAGE_CONTROL:
             q_ref = q_max_slope * (v_ref - v) / (cfg.voltage_slope_pct / 100.0)
@@ -285,7 +287,7 @@ def run_ppc_simulation(
             q_ref = tso.reactive_power_mvar or 0.0
         q_ref = max(-q_cap, min(q_cap, q_ref))
         q_actual += (q_ref - q_actual) * (1.0 - math.exp(-dt / cfg.q_response_tau_s))
-        v = _poc_voltage(v_grid, p_actual, q_actual)
+        v = _poc_voltage(v_grid, p_actual, q_actual, spec.grid_ssc_mva)
         voltage_violated |= not V_MIN_PU <= v <= V_MAX_PU
 
         state = (
@@ -422,7 +424,7 @@ def _emergency_stop_response(
     p_avail_wtg = _turbine_available_power(request.wind_speed_ms)
     total_available = p_avail_wtg * n_online
     power = min(request.initial_power_mw, total_available)
-    v_grid0 = 1.0 - _poc_voltage(0.0, power, 0.0)
+    v_grid0 = 1.0 - _poc_voltage(0.0, power, 0.0, spec.grid_ssc_mva)
     series: list[PPCTimePoint] = []
     for k in range(round(request.simulation_duration_s / dt) + 1):
         prev = power
@@ -437,7 +439,7 @@ def _emergency_stop_response(
                 ramp_rate_mw_per_min=round(abs(power - prev) / dt * 60.0, 2),
                 q_setpoint_mvar=0.0,
                 q_actual_mvar=0.0,
-                voltage_pcc_pu=round(_poc_voltage(v_grid0, power, 0.0), 4),
+                voltage_pcc_pu=round(_poc_voltage(v_grid0, power, 0.0, spec.grid_ssc_mva), 4),
                 frequency_hz=NOMINAL_FREQUENCY_HZ,
                 ppc_state=PPCState.EMERGENCY_STOP,
             )
@@ -529,7 +531,7 @@ def get_ppc_status(
         q_setpoint_mvar=round(q, 2),
         q_actual_mvar=round(q, 2),
         voltage_setpoint_pu=round(v_ref, 4),
-        voltage_actual_pu=round(_poc_voltage(1.0, 0.0, q), 4),
+        voltage_actual_pu=round(_poc_voltage(1.0, 0.0, q, spec.grid_ssc_mva), 4),
         frequency_hz=round(frequency_hz, 3),
         frequency_response_active=abs(d_freq) > 0.1,
         frequency_delta_p_mw=round(d_freq, 2),

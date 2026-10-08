@@ -15,8 +15,11 @@ class N1Request(BaseModel):
     generation_fraction: float = Field(
         default=1.0, ge=0.1, le=1.0, description="Available output, fraction of 510 MW"
     )
-    grid_ssc_mva: float = Field(
-        default=10_000.0, ge=1_000.0, le=50_000.0, description="PSE short-circuit power [MVA]"
+    grid_ssc_mva: float | None = Field(
+        default=None,
+        ge=1_000.0,
+        le=50_000.0,
+        description="PSE short-circuit power [MVA]; None = the farm's",
     )
 
 

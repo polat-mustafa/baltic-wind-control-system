@@ -26,13 +26,15 @@ export interface FarmInput {
   wind_k?: number;
   /** PSE connection point of the site assessment. */
   grid_node?: string;
+  /** Short-circuit power at that node [MVA], from the TSO's connection conditions. */
+  grid_ssc_mva?: number;
 }
 
 /** The own project's farm, or null (reference mode or no layout yet). */
 export function farmInput(): FarmInput | null {
   if (useModeStore.getState().mode !== "own") return null;
   const { turbines, oss } = useProjectStore.getState();
-  const { site, report, routeKm } = useSiteStore.getState();
+  const { site, report, routeKm, gridSscMva } = useSiteStore.getState();
   const plan = farmPlan({ turbines, oss }, { site, report, routeKm });
   if (plan.source !== "project") return null;
   return {
@@ -42,6 +44,7 @@ export function farmInput(): FarmInput | null {
     array_km: Math.max(0.1, Math.round((plan.arrayKm / plan.turbines.length) * 1000) / 1000),
     ...(report?.wind ? { wind_a: report.wind.weibull_a, wind_k: report.wind.weibull_k } : {}),
     ...(report?.grid_node ? { grid_node: report.grid_node } : {}),
+    ...(gridSscMva ? { grid_ssc_mva: gridSscMva } : {}),
   };
 }
 

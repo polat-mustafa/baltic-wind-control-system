@@ -323,8 +323,9 @@ async def converter_comparison(
 ) -> ConverterComparisonResponse:
     """GFL vs GFM after a grid voltage phase jump (SMIB, 50 µs steps).
 
-    Scenarios: strong_grid (10 GVA, SCR ≈ 19.6), weak_grid (2 GVA, SCR ≈ 3.9),
-    very_weak_grid (0.7 GVA, SCR ≈ 1.4) — SCR at the PSE 400 kV POC.
+    Scenarios: strong_grid (the farm's grid short-circuit power, SB-510 10 GVA, SCR ≈ 19.6),
+    weak_grid (2 GVA, SCR ≈ 3.9), very_weak_grid (0.75 GVA, SCR ≈ 1.5) — SCR at the PSE
+    400 kV POC.
     """
     if scenario not in SCENARIO_SSC_MVA:
         raise DomainValidationError(
@@ -332,7 +333,7 @@ async def converter_comparison(
         )
     return get_comparison_response(
         scenario=scenario,
-        grid_ssc_mva=SCENARIO_SSC_MVA[scenario],
+        grid_ssc_mva=spec.grid_ssc_mva if scenario == "strong_grid" else SCENARIO_SSC_MVA[scenario],
         phase_jump_deg=phase_jump_deg,
         spec=spec,
     )

@@ -85,12 +85,12 @@ async def resonance_scan(body: ResonanceScanRequest, spec: FarmSpecDep) -> Reson
     response_model=FlickerResponse,
     summary="Flicker severity at the POC (IEC 61400-21)",
 )
-async def flicker(body: FlickerRequest) -> FlickerResponse:
+async def flicker(body: FlickerRequest, spec: FarmSpecDep) -> FlickerResponse:
     """Continuous-operation and switching flicker, cubic sum, vs HV-EHV planning levels."""
     return FlickerResponse(
         **svc.compute_flicker(
             body.rated_mw,
-            body.grid_fault_level_mva,
+            body.grid_fault_level_mva or spec.grid_ssc_mva,
             body.grid_impedance_angle_deg,
             body.annual_switching_operations,
         )

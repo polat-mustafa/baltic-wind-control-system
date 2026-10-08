@@ -21,6 +21,8 @@ from app.main import app
 from app.schemas.grid import LoadFlowScenario
 from app.services.p2.load_flow import run_load_flow
 from app.services.p2.network_model import (
+    GRID_SSC_MAX_MVA,
+    GRID_SSC_MVA,
     SB510,
     SB510_GRID_NODE,
     STRING_LAYOUT,
@@ -182,6 +184,30 @@ class TestFarmHeader:
         assert {k: v for k, v in data.items() if k not in ("grid_node", "name")} == {
             k: v for k, v in plain.items() if k not in ("grid_node", "name")
         }
+
+    def test_header_carries_the_grid_short_circuit_power(self):
+        """The TSO's short-circuit power at the node replaces the illustrative 10 GVA in every
+        study that defaults to the farm's (IEC 60909, N-1, …); 63 kA at 400 kV bounds it."""
+        body = {"strings": [6] * 4, "export_km": 40.0, "array_km": 1.5, "grid_ssc_mva": 4000}
+        weak = {"X-Farm": quote(json.dumps(body))}
+        assert client.get("/api/v1/grid/network-spec", headers=weak).json()["grid_ssc_mva"] == 4000
+        plain = _header([6] * 4, 40.0)
+        assert client.get("/api/v1/grid/network-spec", headers=plain).json()["grid_ssc_mva"] == (
+            GRID_SSC_MVA
+        )
+
+        def pse_ikss(h: dict[str, str]) -> float:
+            buses = client.get("/api/v1/grid/short-circuit/max", headers=h).json()["bus_results"]
+            return next(b["ikss_ka"] for b in buses if b["bus_name"] == "PSE_400kV")
+
+        # Ik'' at the POC ∝ S_sc (the farm's own converter infeed is small)
+        assert pse_ikss(weak) / pse_ikss(plain) == pytest.approx(0.4, abs=0.03)
+        n1 = client.post("/api/v1/grid/security/n1", json={}, headers=weak).json()
+        assert n1["grid_ssc_mva"] == 4000
+        assert pytest.approx(math.sqrt(3) * 400 * 63, abs=1) == GRID_SSC_MAX_MVA
+        for bad in (500, GRID_SSC_MAX_MVA + 100):
+            h = {"X-Farm": quote(json.dumps({**body, "grid_ssc_mva": bad}))}
+            assert client.get("/api/v1/grid/network-spec", headers=h).status_code == 422
 
     def test_load_flow_uses_the_header(self):
         r = client.get("/api/v1/grid/load-flow/full_load", headers=_header([5, 5, 5, 5], 30.0, 1.4))

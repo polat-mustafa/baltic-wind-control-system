@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as api from "../../src/services/siteApi";
-import { CASE_STUDY_SITE, reportSignature, useSiteStore } from "../../src/store/siteStore";
+import { CASE_STUDY_GRID_NODE, CASE_STUDY_SITE, reportSignature, useSiteStore } from "../../src/store/siteStore";
 import { report } from "../components/site/fixtures";
 
 vi.mock("../../src/services/siteApi");
@@ -88,6 +88,19 @@ describe("site and stages", () => {
     expect(JSON.parse(localStorage.getItem("of.site.v1")!).gridNode).toBe("Żarnowiec 400/110 kV");
     await s().setSite([[16.3, 54.8], [16.4, 54.8], [16.4, 54.9]]);
     expect(s().gridNode).toBeNull();
+  });
+
+  it("keeps the node's short-circuit power within 1 GVA … 63 kA at 400 kV, per node", async () => {
+    await s().setSite(CASE_STUDY_SITE, CASE_STUDY_GRID_NODE);
+    expect(s().gridNode).toBe("Krzemienica 400 kV");
+    s().setGridSscMva(7_500);
+    expect(s().gridSscMva).toBe(7_500);
+    expect(JSON.parse(localStorage.getItem("of.site.v1")!).gridSscMva).toBe(7_500);
+    s().setGridSscMva(60_000); // above √3 · 400 kV · 63 kA = 43 648 MVA
+    expect(s().gridSscMva).toBeNull();
+    s().setGridSscMva(7_500);
+    await s().setGridNode("Żarnowiec 400/110 kV"); // the value belongs to the old node
+    expect(s().gridSscMva).toBeNull();
   });
 
   it("reports assessment errors without a global error", async () => {

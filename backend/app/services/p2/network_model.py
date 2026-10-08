@@ -239,7 +239,10 @@ OLTC_STEPS = 10
 OLTC_STEP_PERCENT = 1.25
 
 # Grid connection
-GRID_SSC_MVA = 10_000.0  # Short-circuit power at PCC [MVA] (illustrative, same for every node)
+GRID_SSC_MVA = 10_000.0  # Short-circuit power at PCC [MVA] (illustrative default)
+#: Upper bound of a project's grid short-circuit power: PSE's 400 kV switchgear is rated up to
+#: 63 kA (the highest of its 40 / 50 / 63 kA standard ratings) → √3 · 400 kV · 63 kA.
+GRID_SSC_MAX_MVA = round(math.sqrt(3) * 400.0 * 63.0)
 #: SB-510's PSE connection point (region pack grid node, OSM / PSE).
 SB510_GRID_NODE = "Krzemienica 400 kV"
 GRID_RX_RATIO = 0.1  # R/X ratio of grid impedance
@@ -366,6 +369,7 @@ def design(
     array_cable_length_km: float = ARRAY_CABLE_LENGTH_KM,
     name: str = "Own project",
     grid_node: str = SB510_GRID_NODE,
+    grid_ssc_mva: float = GRID_SSC_MVA,
 ) -> FarmSpec:
     """Size export, transformers, STATCOM and reactors of a farm (module docstring)."""
     if not string_layout or min(string_layout) < 1:
@@ -406,6 +410,7 @@ def design(
         num_reactors=n_reactors,
         reactor_unit_mvar=unit,
         grid_node=grid_node,
+        grid_ssc_mva=grid_ssc_mva,
     )
     # Harmonic filter from the harmonic network of this design (power_quality imports
     # this module, hence the local import).
@@ -478,7 +483,7 @@ def _get_cable_grade(turbines_downstream: int, turbine_mw: float = TURBINE_RATED
 
 def build_network(
     export_length_km: float | None = None,
-    grid_ssc_mva: float = GRID_SSC_MVA,
+    grid_ssc_mva: float | None = None,
     generation_fraction: float = 1.0,
     statcom_q_mvar: float = 0.0,
     enable_reactor: bool = True,
@@ -495,15 +500,15 @@ def build_network(
       66/220 kV Dyn11 (OSS) + 220/400 kV YNyn0 (onshore)
     - 34 static generators (WTGs) with P and Q
     - 1 STATCOM (sgen with Q control at OSS 220 kV)
-    - 4 shunt reactors (4 × 120 MVAR: 2 onshore 220 kV, 2 at OSS 220 kV) if enabled
+    - 4 shunt reactors (4 × 180 MVAR: 2 onshore 220 kV, 2 at OSS 220 kV) if enabled
     - 1 external grid (slack bus) at 400 kV
 
     Parameters
     ----------
     export_length_km : float | None
         Export cable length [km]; None = the spec's (SB-510: 108).
-    grid_ssc_mva : float
-        Grid short-circuit power at PCC [MVA]. Default: 10,000.
+    grid_ssc_mva : float | None
+        Grid short-circuit power at PCC [MVA]; None = the spec's (SB-510: 10,000).
     generation_fraction : float
         Fraction of rated power (0.0–1.0). Default: 1.0 (full load).
     statcom_q_mvar : float
@@ -524,6 +529,7 @@ def build_network(
     """
     if export_length_km is None:
         export_length_km = spec.export_length_km
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     net = pp.create_empty_network(name=f"{spec.name} — {spec.capacity_mw:.0f} MW OWF")
 
     # ── Buses ─────────────────────────────────────────────────────
@@ -695,7 +701,7 @@ def build_network(
 
 def series_impedances_pu(
     s_base_mva: float,
-    grid_ssc_mva: float = GRID_SSC_MVA,
+    grid_ssc_mva: float | None = None,
     export_length_km: float | None = None,
     spec: FarmSpec = SB510,
 ) -> dict[str, complex]:
@@ -715,6 +721,7 @@ def series_impedances_pu(
     """
     if export_length_km is None:
         export_length_km = spec.export_length_km
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
 
     def trafo(vk: float, vkr: float, s_mva: float) -> complex:
         z = vk / 100.0 * s_base_mva / s_mva

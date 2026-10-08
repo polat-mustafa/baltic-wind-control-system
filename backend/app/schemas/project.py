@@ -15,6 +15,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.services.p1.turbine_models import DEFAULT_TURBINE_ID, turbine_models
+from app.services.p2.network_model import GRID_SSC_MAX_MVA
 
 MAX_TURBINES = 150
 MAX_BODY_BYTES = 512 * 1024
@@ -41,6 +42,8 @@ class ProjectSite(_Doc):
     stage: Name = "screening"
     done: list[Name] = Field(default_factory=list, max_length=20)
     grid_node: str | None = Field(None, alias="gridNode", max_length=120)
+    #: Grid short-circuit power at the node [MVA], from the TSO's connection conditions.
+    grid_ssc_mva: float | None = Field(None, alias="gridSscMva", ge=1_000, le=GRID_SSC_MAX_MVA)
     #: Drawn export route waypoints and the checked route length [km] (Site & Permits).
     route: list[tuple[Lon, Lat]] | None = Field(None, min_length=1, max_length=50)
     route_km: float | None = Field(None, alias="routeKm", gt=0, le=1000)

@@ -23,8 +23,8 @@ export const aepCascadeEducation: EducationContent = {
     "Losses are multiplicative — each acts on the energy left after the previous one: Net = Gross × Π(1 − Lᵢ). The " +
     "uncertainty of each input (wind data, long-term correction, shear, wake model, power curve, availability…) is " +
     "combined by root-sum-square under an independence assumption, giving σ as a fraction of P50. With a normal " +
-    "approximation P_x = P50·(1 − z_x·σ): z = 0.674 (P75), 1.282 (P90), 2.326 (P99). On this platform σ = 6.89 %, " +
-    "so P90 sits 8.8 % below P50. These are long-term (multi-year average) values; a 1-year P90 also includes the " +
+    "approximation P_x = P50·(1 − z_x·σ): z = 0.674 (P75), 1.282 (P90), 2.326 (P99). For SB-510 σ = 7.7 % " +
+    "(six sourced components, most of it the wind resource from a model without on-site measurement), so P90 sits 9.9 % below P50. These are long-term (multi-year average) values; a 1-year P90 also includes the " +
     "year-to-year variability of the wind and is lower.",
 
   standards: [
@@ -78,11 +78,11 @@ export const aepCascadeEducation: EducationContent = {
         "After electrical: 2,344.6 × 0.980 = 2,297.7 GWh",
         "After availability: 2,297.7 × 0.950 = 2,182.8 GWh",
         "After environmental: 2,182.8 × 0.990 = 2,161.0 GWh  → P50",
-        "σ = √(4² + 3² + 3² + 2² + 2² + 1.5² + 1.5² + 1²) = √47.5 = 6.89 %",
-        "P90 = 2,161 × (1 − 1.282 × 0.0689) = 1,970 GWh",
+        "σ = √(5.51² + 0.75² + 0.82² + 2.1² + 4.0² + 2.7²) = √59.3 = 7.7 %",
+        "P90 = 2,161 × (1 − 1.282 × 0.077) = 1,948 GWh",
       ],
       result:
-        "P50 ≈ 2,161 GWh/yr (capacity factor 48.4 %), P90 ≈ 1,970 GWh/yr. At 72 €/MWh the gap is ≈ 13.7 M€ of revenue per " +
+        "P50 ≈ 2,161 GWh/yr (capacity factor 48.4 %), P90 ≈ 1,948 GWh/yr. At 72 €/MWh the gap is ≈ 15.4 M€ of revenue per " +
         "year — the price of uncertainty.",
     },
   ],

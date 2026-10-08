@@ -157,6 +157,19 @@ export default function AEPCascadePanel() {
           </li>
         ))}
       </ul>
+      {a.uncertainty && a.uncertainty.length > 0 && (
+        <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-secondary" aria-label="Uncertainty components">
+          <li className="font-medium text-text-primary">Uncertainty (1σ of AEP):</li>
+          {a.uncertainty.map((u) => (
+            <li key={u.name} className="flex items-start gap-1">
+              <span className="whitespace-nowrap">
+                {u.name} {u.sigma_percent.toFixed(1)} %
+              </span>
+              <SourceBadge p={{ quality: u.quality, source: u.source }} />
+            </li>
+          ))}
+        </ul>
+      )}
     </ChartWrapper>
   );
 }

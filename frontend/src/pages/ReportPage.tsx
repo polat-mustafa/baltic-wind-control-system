@@ -33,7 +33,8 @@ import { cn } from "../lib/utils";
 import { runLoadFlow } from "../services/gridApi";
 import { aepHistory, windioUrl, type AepRun } from "../services/projectApi";
 import { postAssess, type AssessResponse } from "../services/siteApi";
-import { checkWakeMoves, runCustomWakeAnalysis } from "../services/windResourceApi";
+import { checkWakeMoves, getUncertainty, runCustomWakeAnalysis } from "../services/windResourceApi";
+import type { UncertaintyResult } from "../types/windResource";
 import { useGridStore } from "../store/gridStore";
 import { limitList, requestSignature, useLifecycleStore } from "../store/lifecycleStore";
 import { useModeStore } from "../store/modeStore";
@@ -234,6 +235,7 @@ export default function ReportPage() {
   const construction = lifecycle.results.build && lifecycle.resultFor.build === requestSignature(req) ? lifecycle.results.build : null;
   const name = reference ? "SB-510 (reference case study)" : syncName;
 
+  const [unc, setUnc] = useState<UncertaintyResult | null>(null);
   const input: ReportInput = {
     name,
     reference,
@@ -249,6 +251,7 @@ export default function ReportPage() {
     depthAt,
     seabedAt,
     pywake,
+    uncertainty: unc,
     external: !reference && p.external && p.externalFor === sig ? { lossPct: p.external.lossPct, farms: p.external.farms.length, turbines: p.external.turbines } : null,
     history,
     moves,
@@ -258,6 +261,21 @@ export default function ReportPage() {
   };
   const rep: ProjectReport = buildReport(input);
   const wind = assessment?.wind && !assessment.wind.approximate ? assessment.wind : null;
+
+  // AEP uncertainty of this farm: its wind, wake loss and turbine (P75 / P90 of the net energy).
+  const wakePct = (rep.energy.pywake ?? rep.energy.screening)?.wake_loss_pct ?? null;
+  const uncKey = `${rep.wind.weibull_a_ms}|${rep.wind.weibull_k}|${wakePct}`;
+  useEffect(() => {
+    if (wakePct == null) return setUnc(null);
+    let live = true;
+    getUncertainty({ weibull_a: rep.wind.weibull_a_ms, weibull_k: rep.wind.weibull_k, wake_loss_percent: wakePct, turbine_model: DEFAULT_TURBINE_ID }).then(
+      (u) => live && setUnc(u),
+      () => live && setUnc(null),
+    );
+    return () => {
+      live = false;
+    };
+  }, [uncKey]); // the key holds the inputs
 
   const act = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
@@ -446,9 +464,21 @@ export default function ReportPage() {
                     : "not estimated — Layout, “Estimate external loss”",
                 ],
                 [`Net after ${e.other_losses_pct} % other losses (${e.basis})`, fmt(e.net_gwh, 0, "GWh/yr")],
+                [
+                  "P50 / P75 / P90",
+                  e.uncertainty
+                    ? `${fmt(e.uncertainty.p50_gwh, 0)} / ${fmt(e.uncertainty.p75_gwh, 0)} / ${fmt(e.uncertainty.p90_gwh, 0)} GWh/yr (σ ${fmt(e.uncertainty.combined_pct, 1, "%")})`
+                    : "—",
+                ],
               ]}
             />
             <p className="text-[11px] text-slate-500">Wind: {rep.wind.source}.</p>
+            {e.uncertainty && (
+              <p className="text-[11px] text-slate-500">
+                Uncertainty (1σ of AEP, root-sum-square):{" "}
+                {e.uncertainty.components.map((c) => `${c.name} ${c.sigma_pct.toFixed(1)} % (${c.source})`).join("; ")}. P_xx = P50 · (1 − z·σ), z = 0.674 / 1.282.
+              </p>
+            )}
             {e.turbines.length > 0 && (
               <Table
                 head={["Turbine", "Lon", "Lat", "Depth m", "Foundation", "Seabed", "Status", "Wake loss %", `Net GWh/yr (${e.pywake ? "PyWake" : "screening"})`]}
@@ -466,7 +496,7 @@ export default function ReportPage() {
             ) : (
               <Muted>{reference ? "Kept for saved own projects." : syncId ? "No stored runs yet — run PyWake." : "Save the project online to keep a history of PyWake runs."}</Muted>
             )}
-            <p className="text-[11px] text-slate-500">P50 / P90 after the P1 loss cascade (electrical 2 %, availability 5 %, environmental 1 %) and its RSS uncertainty.</p>
+            <p className="text-[11px] text-slate-500">P50 / P90 after the P1 loss cascade (electrical 2 %, availability 5 %, environmental 1 %; no blockage in a stored run) and the uncertainty components of the farm (as above).</p>
           </Section>
 
           <Section n={5} title="Suggested turbine moves (PyWake-checked)" action={runButton("moves", "Find moves", runMoves, turbines.length < 2)}>

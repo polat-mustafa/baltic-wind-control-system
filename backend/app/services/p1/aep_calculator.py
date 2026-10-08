@@ -26,12 +26,21 @@ Maths
 **RSS Uncertainty:**
     sigma_total = sqrt(sum(sigma_i^2))
 
-Sources and their standard deviations:
-    Wind resource: 4.0%    Wake model: 3.0%     Long-term corr: 3.0%
-    Wind shear: 2.0%       Power curve: 1.5%    Electrical: 1.0%
-    Availability: 2.0%     Environmental: 1.5%
-
-    sigma_total = sqrt(16 + 9 + 9 + 4 + 2.25 + 1 + 4 + 2.25) = sqrt(47.5) = 6.89%
+Components (``uncertainty_components``), each a standard deviation of the AEP [%]:
+    Wind resource   NEWA mesoscale model, no on-site measurement: mean-speed spread
+                    0.54 m/s (Dörenkämper et al. 2020) × S / v̄
+    Long-term       ERA5 interannual variability 4.20 % (30 years) / √30 × S
+    Future          same IAV / √(lifetime years) × S
+    Wake, blockage  25 % of the modelled loss (Walker et al. 2016)
+    Turbine         4.0 % — median of the turbine-performance values in Lee & Fields
+                    (2021) Table B6 (reference power curve, no warranted curve)
+    Non-wake        2.7 % — median of the non-wake plant-performance values, ibid.
+with S = d ln AEP / d ln v, the AEP sensitivity to the wind speed, computed from
+the power curve and the Weibull wind (Lee & Fields 2021 quote ≈ 1.5–3 for land
+sites; SB-510's 9.6 m/s mean is close to the 10.66 m/s rated speed, so S ≈ 0.98).
+SB-510: 7.7 % in total, P90 = 0.90 × P50 (Lee & Fields: totals typically 6–11 %).
+``DEFAULT_UNCERTAINTY_SOURCES`` (6.89 %) is the old fixed set, kept only for
+explicit overrides.
 
 **Exceedance (P-values):**
     P_xx = P50 × (1 - z_xx × sigma/100)
@@ -90,7 +99,93 @@ LOSS_SOURCES: dict[str, tuple[str, str]] = {
     ),
 }
 
-# ── Default uncertainty sources (sigma in %) ──────────────────────
+# ── Uncertainty components (sources in the module docstring) ─────────
+NEWA_SPREAD_MS = 0.54  # NEWA WRF mean-speed spread, low-RIX masts (Dörenkämper et al. 2020)
+NEWA_YEARS = 30  # NEWA mesoscale atlas period 1989–2018
+ERA5_IAV_PCT = 4.20  # scripts/fetch_wind_climate.py --iav: ERA5 100 m, 1995–2024, SB-510
+LIFETIME_YEARS = 25
+WAKE_REL_UNCERTAINTY = 0.25  # Walker et al. 2016, Wind Energy 19:979
+TURBINE_PERF_PCT = 4.0  # Lee & Fields 2021, Table B6 median (11 values)
+NONWAKE_PCT = 2.7  # Lee & Fields 2021, Table B6 median (5 values)
+LEE_FIELDS = "Lee & Fields 2021, Wind Energ. Sci. 6, 311, Table B6"
+
+
+@dataclass(frozen=True)
+class UncertaintyComponent:
+    name: str
+    sigma_percent: float
+    quality: str  # SourceBadge quality
+    source: str
+
+
+def aep_sensitivity(weibull_a: float, weibull_k: float, turbine_model: str | None = None) -> float:
+    """d ln AEP / d ln v: AEP change per relative change of the wind speed (Weibull scale)."""
+    from app.services.p1.turbine_models import get_turbine
+
+    t = get_turbine(turbine_model)
+    v = np.arange(0.0, 35.0, 0.05)
+    p = t.power_curve_kw(v)
+
+    def aep(a: float) -> float:
+        f = (weibull_k / a) * (v / a) ** (weibull_k - 1) * np.exp(-((v / a) ** weibull_k))
+        return float(np.trapezoid(p * f, v))
+
+    return math.log(aep(weibull_a * 1.01) / aep(weibull_a)) / math.log(1.01)
+
+
+def uncertainty_components(
+    weibull_a: float,
+    weibull_k: float,
+    wake_loss_percent: float,
+    blockage_loss_percent: float = 0.0,
+    turbine_model: str | None = None,
+    lifetime_years: int = LIFETIME_YEARS,
+) -> list[UncertaintyComponent]:
+    """The AEP uncertainty of this farm, component by component (module docstring)."""
+    s = aep_sensitivity(weibull_a, weibull_k, turbine_model)
+    mean = weibull_a * math.gamma(1 + 1 / weibull_k)
+    return [
+        UncertaintyComponent(
+            "Wind resource (NEWA model, no measurement)",
+            s * 100 * NEWA_SPREAD_MS / mean,
+            "literature",
+            f"NEWA mean-speed spread {NEWA_SPREAD_MS} m/s (Dörenkämper et al. 2020) on "
+            f"{mean:.2f} m/s, × AEP sensitivity {s:.2f}",
+        ),
+        UncertaintyComponent(
+            "Long-term period (30-year atlas)",
+            s * ERA5_IAV_PCT / math.sqrt(NEWA_YEARS),
+            "measured",
+            f"ERA5 interannual variability {ERA5_IAV_PCT} % / √{NEWA_YEARS}, × {s:.2f}",
+        ),
+        UncertaintyComponent(
+            f"Future variability ({lifetime_years} years)",
+            s * ERA5_IAV_PCT / math.sqrt(lifetime_years),
+            "measured",
+            f"ERA5 interannual variability {ERA5_IAV_PCT} % / √{lifetime_years}, × {s:.2f}",
+        ),
+        UncertaintyComponent(
+            "Wake and blockage model",
+            WAKE_REL_UNCERTAINTY * (wake_loss_percent + blockage_loss_percent),
+            "literature",
+            "25 % of the modelled loss (Walker et al. 2016, Wind Energy 19:979)",
+        ),
+        UncertaintyComponent(
+            "Turbine performance (reference power curve)",
+            TURBINE_PERF_PCT,
+            "literature",
+            f"{LEE_FIELDS}, median of the turbine-performance values",
+        ),
+        UncertaintyComponent(
+            "Plant non-wake losses",
+            NONWAKE_PCT,
+            "literature",
+            f"{LEE_FIELDS}, median of the non-wake plant-performance values",
+        ),
+    ]
+
+
+#: The old fixed set (6.89 %); only used when a caller passes it explicitly.
 DEFAULT_UNCERTAINTY_SOURCES: dict[str, float] = {
     "wind_resource": 4.0,
     "wake_model": 3.0,
@@ -170,6 +265,7 @@ class AEPCascadeResult:
     revenue_meur: float
     loss_factors: list[LossFactor] = field(default_factory=list)
     price_eur_mwh: float = DEFAULT_PRICE_EUR_MWH
+    uncertainty: list[UncertaintyComponent] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -308,6 +404,9 @@ def compute_aep_cascade(
     rated_power_kw: float = 15_000.0,
     price_eur_mwh: float = DEFAULT_PRICE_EUR_MWH,
     uncertainty_sources: dict[str, float] | None = None,
+    weibull_a: float | None = None,
+    weibull_k: float | None = None,
+    turbine_model: str | None = None,
 ) -> AEPCascadeResult:
     """Compute full gross-to-net AEP cascade with uncertainty and revenue.
 
@@ -332,7 +431,9 @@ def compute_aep_cascade(
     price_eur_mwh : float
         Electricity price [EUR/MWh]. Default: 72.0.
     uncertainty_sources : dict[str, float], optional
-        Uncertainty sources. Uses defaults if None.
+        Fixed uncertainty sources {name: σ %}; None = ``uncertainty_components``.
+    weibull_a, weibull_k, turbine_model : optional
+        Wind and turbine of the farm for the components (default: SB-510).
 
     Returns
     -------
@@ -352,7 +453,19 @@ def compute_aep_cascade(
     # Total loss
     total_loss_pct = (1.0 - net_aep / gross_aep_gwh) * 100.0 if gross_aep_gwh > 0 else 0.0
 
-    # Uncertainty
+    # Uncertainty: the farm's components, unless fixed sources are given
+    components: list[UncertaintyComponent] = []
+    if uncertainty_sources is None:
+        from app.services.site_assessment.wind_climate import SB510_WEIBULL_A, SB510_WEIBULL_K
+
+        components = uncertainty_components(
+            weibull_a if weibull_a is not None else SB510_WEIBULL_A,
+            weibull_k if weibull_k is not None else SB510_WEIBULL_K,
+            100.0 * wake_loss_fraction,
+            100.0 * blockage_loss_fraction,
+            turbine_model,
+        )
+        uncertainty_sources = {c.name: c.sigma_percent for c in components}
     combined_unc = compute_rss_uncertainty(uncertainty_sources)
 
     # Exceedance values (P50 = net AEP)
@@ -378,6 +491,7 @@ def compute_aep_cascade(
         revenue_meur=revenue,
         loss_factors=loss_factors,
         price_eur_mwh=price_eur_mwh,
+        uncertainty=components,
     )
 
 

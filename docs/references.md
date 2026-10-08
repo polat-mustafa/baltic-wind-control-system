@@ -27,6 +27,7 @@ Citation rules used here:
 | windIO 2.x plant export (site, wind resource, layout, turbine) | `services/p1/windio.py`, `routers/projects.py` (`/projects/{id}/windio.yaml`) | [31] |
 | Loss defaults with provenance (electrical, availability, environmental) | `services/p1/aep_calculator.py` (`LOSS_SOURCES`), `components/ui/SourceBadge.tsx` | [35] |
 | Unit-cost defaults (CAPEX lines, OPEX, design life), LCOE | `frontend/src/lib/layout/cost.ts` (`COST_DEFAULTS`), `schemas/farm_config.py` | [32], [33], [36] |
+| AEP uncertainty components (wind resource, long-term, future variability, wake, turbine, non-wake) and P50 / P75 / P90 | `services/p1/aep_calculator.py` (`uncertainty_components`, `aep_sensitivity`), `routers/p1.py` (`/uncertainty`), `scripts/fetch_wind_climate.py --iav` | [29], [30], [43], [44] |
 
 ## P2 — HV grid integration
 
@@ -200,6 +201,8 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 40. NREL WOMBAT (Windfarm Operations and Maintenance cost-Benefit Analysis Tool), github.com/WISDEM/WOMBAT — `library/default/vessels/ctv.yaml` (37.04 km/h), `library/default/project/config/base_osw_fixed.yaml` (workday 07–19); Apache-2.0.
 41. Nygaard, N. G., Poulsen, L., Svensson, E., Pedersen, J. G. "Large-scale benchmarking of wake models for offshore wind farms." *J. Phys.: Conf. Ser.* 2265, 022008, 2022 (TurbOPark; PyWake `Nygaard_2022`).
 42. Platis, A. et al. "First in situ evidence of wakes in the far field behind offshore wind farms." *Scientific Reports* 8, 2163, 2018.
+43. Walker, K., et al. "An evaluation of the predictive accuracy of wake effects models for offshore wind farms." *Wind Energy* 19(5), 979–996, 2016.
+44. Lee, J. C. Y., Fields, M. J. "An overview of wind-energy-production prediction bias, losses, and uncertainties." *Wind Energy Science* 6, 311–365, 2021 (Table B6).
 
 ## Standards and regulations
 

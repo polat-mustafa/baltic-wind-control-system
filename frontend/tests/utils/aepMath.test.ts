@@ -43,9 +43,9 @@ describe("aepMath", () => {
     expect(steps[1].after).toBeCloseTo(81, 10); // not 80
   });
 
-  it("RSS uncertainty = 6.89 % and P90 = P50·(1 − 1.282σ)", () => {
+  it("SB-510 RSS uncertainty = 7.7 % and P90 = P50·(1 − 1.282σ)", () => {
     const sigma = rss(UNCERTAINTY_SOURCES.map(([, s]) => s));
-    expect(sigma).toBeCloseTo(Math.sqrt(47.5), 10);
+    expect(sigma).toBeCloseTo(7.7, 2); // backend test pins the components to aep_calculator
     expect(exceedance(1000, 6.2, 1.282)).toBeCloseTo(920.5, 1);
   });
 

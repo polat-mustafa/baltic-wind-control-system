@@ -16,6 +16,7 @@ import type {
   CriteriaOverrides,
   LayersResponse,
   LonLat,
+  RouteCheckResponse,
   SuitabilityResponse,
 } from "../services/siteApi";
 import { STAGES, type StageId } from "../components/site/journey";
@@ -45,6 +46,10 @@ export interface SitePersisted {
   done: StageId[];
   /** Chosen grid connection point; null = the nearest. */
   gridNode: string | null;
+  /** Drawn export route waypoints (landfall, …); null = none drawn. */
+  route: LonLat[] | null;
+  /** Length of the last checked export route [km]; null = not checked. */
+  routeKm: number | null;
 }
 
 const isLonLat = (v: unknown): v is LonLat =>
@@ -58,6 +63,8 @@ function parse(p: Record<string, unknown>): SitePersisted {
     stage: isStage(p.stage) ? p.stage : "screening",
     done: Array.isArray(p.done) ? p.done.filter(isStage) : [],
     gridNode: typeof p.gridNode === "string" && p.gridNode ? p.gridNode : null,
+    route: Array.isArray(p.route) && p.route.length > 0 && p.route.every(isLonLat) ? (p.route as LonLat[]) : null,
+    routeKm: typeof p.routeKm === "number" && Number.isFinite(p.routeKm) && p.routeKm > 0 ? p.routeKm : null,
   };
 }
 
@@ -68,7 +75,7 @@ function load(): SitePersisted {
   } catch {
     // corrupt value: start fresh
   }
-  return { site: null, stage: "screening", done: [], gridNode: null };
+  return { site: null, stage: "screening", done: [], gridNode: null, route: null, routeKm: null };
 }
 
 interface SiteState {
@@ -83,6 +90,13 @@ interface SiteState {
   stage: StageId;
   done: StageId[];
   gridNode: string | null;
+  route: LonLat[] | null;
+  routeKm: number | null;
+  /** Waypoints while drawing the export route; null when not drawing. */
+  routeDrawing: LonLat[] | null;
+  routeCheck: RouteCheckResponse | null;
+  routing: boolean;
+  routeError: string | null;
   loading: boolean;
   assessing: boolean;
   /** Last assessment failure; the previous report (if any) is kept. */
@@ -100,6 +114,20 @@ interface SiteState {
   setSite: (site: LonLat[] | null) => Promise<void>;
   /** Choose the grid connection point (null = the nearest) and re-assess. */
   setGridNode: (name: string | null) => Promise<void>;
+  startRoute: () => void;
+  addRoutePoint: (p: LonLat) => void;
+  undoRoutePoint: () => void;
+  cancelRoute: () => void;
+  /** End drawing; the caller then runs checkRoute. */
+  finishRoute: () => void;
+  /**
+   * Check the export route from `start` (offshore substation or site edge): the drawn
+   * waypoints then `end` (grid node), or — without waypoints — the automatic sea route.
+   */
+  checkRoute: (start: LonLat, end: LonLat | null) => Promise<void>;
+  clearRoute: () => void;
+  /** Replace the drawn waypoints (e.g. SB-510's surveyed route). */
+  setRoute: (route: LonLat[] | null) => void;
   assess: () => Promise<void>;
   setStage: (stage: StageId) => void;
   completeStage: (stage: StageId) => void;
@@ -112,12 +140,19 @@ interface SiteState {
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 let suitabilityToken = 0;
 let assessToken = 0;
+let routeToken = 0;
 
 const initial = load();
 
-function persist(s: Pick<SiteState, "site" | "stage" | "done" | "gridNode">) {
-  writeStored(SITE_KEY, JSON.stringify({ site: s.site, stage: s.stage, done: s.done, gridNode: s.gridNode }));
+function persist(s: Pick<SiteState, "site" | "stage" | "done" | "gridNode" | "route" | "routeKm">) {
+  writeStored(
+    SITE_KEY,
+    JSON.stringify({ site: s.site, stage: s.stage, done: s.done, gridNode: s.gridNode, route: s.route, routeKm: s.routeKm }),
+  );
 }
+
+/** A new site or grid node makes the checked route stale. */
+const NO_ROUTE = { route: null, routeKm: null, routeCheck: null, routeError: null, routeDrawing: null };
 
 export const useSiteStore = create<SiteState>((set, get) => ({
   layers: null,
@@ -130,6 +165,12 @@ export const useSiteStore = create<SiteState>((set, get) => ({
   stage: initial.stage,
   done: initial.done,
   gridNode: initial.gridNode,
+  route: initial.route,
+  routeKm: initial.routeKm,
+  routeDrawing: null,
+  routeCheck: null,
+  routing: false,
+  routeError: null,
   loading: false,
   assessing: false,
   assessError: null,
@@ -180,15 +221,58 @@ export const useSiteStore = create<SiteState>((set, get) => ({
 
   setSite: async (site) => {
     // A new site invalidates every stage done for the old one.
-    set({ site, report: null, reportFor: null, assessError: null, done: [], stage: "screening", gridNode: null });
+    set({ site, report: null, reportFor: null, assessError: null, done: [], stage: "screening", gridNode: null, ...NO_ROUTE });
     persist(get());
     if (site) await get().assess();
   },
 
   setGridNode: async (gridNode) => {
-    set({ gridNode });
+    set({ gridNode, routeKm: null, routeCheck: null });
     persist(get());
     await get().assess();
+  },
+
+  startRoute: () => set({ routeDrawing: [] }),
+  addRoutePoint: (p) => {
+    const d = get().routeDrawing;
+    if (d) set({ routeDrawing: [...d, p] });
+  },
+  undoRoutePoint: () => {
+    const d = get().routeDrawing;
+    if (d?.length) set({ routeDrawing: d.slice(0, -1) });
+  },
+  cancelRoute: () => set({ routeDrawing: null }),
+  finishRoute: () => {
+    const d = get().routeDrawing;
+    set({ routeDrawing: null, route: d && d.length > 0 ? d : get().route });
+    persist(get());
+  },
+
+  checkRoute: async (start, end) => {
+    const way = get().route;
+    const token = ++routeToken;
+    set({ routing: true, routeError: null });
+    try {
+      const region = get().layers?.region.region;
+      const r = way?.length
+        ? await api.postRouteCheck({ route: [start, ...way, ...(end ? [end] : [])], grid_node: get().report?.grid_node, region })
+        : await api.postRouteCheck({ start, grid_node: get().report?.grid_node, region });
+      if (token !== routeToken) return;
+      set({ routeCheck: r, routeKm: r.total_km, routing: false });
+      persist(get());
+    } catch (err) {
+      if (token === routeToken) set({ routeError: message(err), routing: false });
+    }
+  },
+
+  clearRoute: () => {
+    set({ ...NO_ROUTE });
+    persist(get());
+  },
+
+  setRoute: (route) => {
+    set({ route, routeCheck: null, routeKm: null, routeError: null });
+    persist(get());
   },
 
   assess: async () => {
@@ -217,7 +301,7 @@ export const useSiteStore = create<SiteState>((set, get) => ({
   },
 
   restore: (p) => {
-    set({ ...parse(p), report: null, reportFor: null, assessError: null, drawing: null });
+    set({ ...parse(p), report: null, reportFor: null, assessError: null, drawing: null, routeCheck: null, routeDrawing: null });
     persist(get());
     if (get().site) void get().assess();
   },
@@ -233,6 +317,7 @@ export const useSiteStore = create<SiteState>((set, get) => ({
       done: [],
       criteria: {},
       gridNode: null,
+      ...NO_ROUTE,
     });
     persist(get());
     void get().runSuitability();

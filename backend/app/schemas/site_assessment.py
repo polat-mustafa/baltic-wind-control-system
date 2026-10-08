@@ -64,6 +64,27 @@ class AssessRequest(BaseModel):
     )
 
 
+class RouteCheckRequest(BaseModel):
+    """A drawn export route, or a start point for the automatic route."""
+
+    region: str = DEFAULT_REGION
+    route: list[list[float]] | None = Field(
+        None,
+        min_length=2,
+        max_length=200,
+        description="Drawn route [[lon, lat], …]: offshore substation → waypoints → onshore end",
+    )
+    start: list[float] | None = Field(
+        None,
+        min_length=2,
+        max_length=2,
+        description="Automatic route: start [lon, lat] (offshore substation or site edge)",
+    )
+    grid_node: str | None = Field(
+        None, max_length=120, description="Automatic route: end node (default: the nearest)"
+    )
+
+
 # ── Responses ─────────────────────────────────────────────────────
 
 
@@ -265,3 +286,30 @@ class AssessResponse(BaseModel):
     )
     checks: list[CheckSchema]
     complete: bool
+
+
+class CrossingSchema(BaseModel):
+    name: str
+    angle_deg: float = Field(description="Acute angle to the crossed line, 90 = right angles")
+    at: list[float] = Field(description="[lon, lat]")
+
+
+class AreaLengthSchema(BaseModel):
+    name: str
+    km: float
+
+
+class RouteCheckResponse(BaseModel):
+    route: list[list[float]] = Field(description="[[lon, lat], …] as checked")
+    auto: bool = Field(description="True: the automatic shortest sea route")
+    total_km: float = Field(description="Export cable length [km]")
+    offshore_km: float
+    onshore_km: float
+    landfall: list[float] | None = Field(description="First sea → land point [lon, lat]")
+    grid_node: str | None
+    natura: list[AreaLengthSchema]
+    restricted: list[AreaLengthSchema]
+    shipping: list[CrossingSchema]
+    shipping_km: list[AreaLengthSchema]
+    cables: list[CrossingSchema]
+    checks: list[CheckSchema]

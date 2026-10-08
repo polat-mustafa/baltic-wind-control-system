@@ -110,6 +110,7 @@ Citation rules used here:
 | Weighted linear combination of criteria | `services/site_assessment/suitability.py` | Standard GIS multi-criteria method; thresholds and weights are labelled *illustrative* in the API model card |
 | Seabed substrate check (Folk 5 classes), piling and burial notes, foundation cost factor (*illustrative*) | `services/site_assessment/criteria.py` (`SEABED_CLASSES`), `assess.py`, `scripts/fetch_marine_layers.py` (`fetch_seabed`), `frontend/src/lib/layout/cost.ts` | [38], [S37], [S38] |
 | Ports: announced O&M / installation role, distance by sea (16-neighbour shortest path on the bathymetry grid) | `services/site_assessment/sea_routes.py`, `assess.py` (`_ports_check`), `scripts/fetch_marine_layers.py` (`PORTS`) | operators' announcements (URLs in the pack); OSM locations |
+| Export route check: landfall, Natura 2000 / military km, shipping-basin and cable crossing angles (≥ 45°), automatic shortest sea route | `services/site_assessment/route_check.py`, `sea_routes.py` (`sea_path`), `routers/site_assessment.py` (`/route-check`) | [S39], [S27] |
 | Site wind climate: mean speed, Weibull k and A at 150 m; 12-sector rose | `services/site_assessment/wind_climate.py`, `scripts/fetch_wind_climate.py`, `routers/p1.py` (`_rose_site`) | [28], [29], [30] |
 
 ## Academy — scored missions
@@ -237,3 +238,4 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 - **[S36]** IEEE Std 1531-2020 — Guide for the Application and Specification of Harmonic Filters; J. C. Das, "Passive filters — potentialities and limitations", IEEE Trans. Ind. Appl. 40(1), 2004, pp. 232–241.
 - **[S37]** DNV-RP-C212 — Offshore soil mechanics and geotechnical engineering (pile drivability, boulders).
 - **[S38]** DNV-RP-0360 — Subsea power cables in shallow water (cable burial assessment and protection).
+- **[S39]** ICPC Recommendation No. 2 — Cable routing and reporting criteria (crossings as close to 90° as possible, not below 45°), International Cable Protection Committee.

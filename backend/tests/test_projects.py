@@ -107,13 +107,20 @@ def test_create_open_save_delete(client: TestClient) -> None:
     got = client.get(f"{URL}/{p['id']}").json()
     assert got["data"] == p["data"]
 
-    site = {**_doc()["site"], "gridNode": "Żarnowiec 400/110 kV"}
+    site = {
+        **_doc()["site"],
+        "gridNode": "Żarnowiec 400/110 kV",
+        "route": [[16.4, 54.7], [16.73, 54.57]],
+        "routeKm": 71.3,
+    }
     r = client.put(
         f"{URL}/{p['id']}", json={"revision": 1, "data": _doc(name="Renamed", site=site)}
     )
     assert r.status_code == 200, r.text
     assert r.json()["revision"] == 2 and r.json()["data"]["name"] == "Renamed"
     assert r.json()["data"]["site"]["gridNode"] == "Żarnowiec 400/110 kV"
+    assert r.json()["data"]["site"]["routeKm"] == 71.3
+    assert r.json()["data"]["site"]["route"] == [[16.4, 54.7], [16.73, 54.57]]
 
     stale = client.put(f"{URL}/{p['id']}", json={"revision": 1, "data": _doc()})
     assert stale.status_code == 409

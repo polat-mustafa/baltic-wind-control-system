@@ -247,8 +247,12 @@ export function turbineStats(
   };
 }
 
-/** Export cable length: straight line to the grid node + 10 % routing, SB-510's without a report. */
-export const defaultExportKm = (gridKm: number | null | undefined) => (gridKm != null ? Math.round(gridKm * 1.1) : SB510_EXPORT_KM);
+/**
+ * Export cable length: the checked route (Site & Permits route check), else the straight line
+ * to the grid node + 10 % routing, else SB-510's.
+ */
+export const defaultExportKm = (gridKm: number | null | undefined, routeKm?: number | null) =>
+  routeKm != null ? Math.round(routeKm * 10) / 10 : gridKm != null ? Math.round(gridKm * 1.1) : SB510_EXPORT_KM;
 
 export interface LayoutInput {
   site: LonLat[];

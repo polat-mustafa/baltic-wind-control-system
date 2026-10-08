@@ -5,6 +5,7 @@
   GET  /raster        one raster layer (bathymetry, wind) clipped to a bounding box
   POST /suitability   gridded multi-criteria screening: excluded / poor / marginal / suitable
   POST /assess        report for a candidate site polygon (area, capacity, checklist)
+  POST /route-check   export cable route: length, landfall, Natura, shipping and cable crossings
 
 Screening only: results are as complete as the region's layer pack, and the
 responses say which layers are missing and what that means.
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict
+from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, Query
@@ -22,11 +24,13 @@ from fastapi.concurrency import run_in_threadpool
 from app.core.exceptions import NotFoundError, ValidationError
 from app.schemas.site_assessment import (
     DEFAULT_REGION,
+    AreaLengthSchema,
     AssessRequest,
     AssessResponse,
     CheckSchema,
     ClassArea,
     CriterionCard,
+    CrossingSchema,
     DepthBandCard,
     GridNodeSchema,
     LayerFeature,
@@ -37,6 +41,8 @@ from app.schemas.site_assessment import (
     RasterResponse,
     ReasonArea,
     RegionInfo,
+    RouteCheckRequest,
+    RouteCheckResponse,
     SeabedClassCard,
     SuitabilityRequest,
     SuitabilityResponse,
@@ -50,6 +56,7 @@ from app.services.site_assessment.criteria import (
     Criteria,
 )
 from app.services.site_assessment.layers import Layer, RegionPack, available_regions, load_region
+from app.services.site_assessment.route_check import RouteError, auto_route, check_route
 from app.services.site_assessment.suitability import (
     CLASS_NAMES,
     REASON_LABEL,
@@ -336,4 +343,71 @@ async def post_assess(req: AssessRequest) -> AssessResponse:
             for c in a.checks
         ],
         complete=a.complete,
+    )
+
+
+def _route_for(pack: RegionPack, req: RouteCheckRequest) -> tuple[list[list[float]], str | None]:
+    """The drawn route, or the automatic one to the chosen (else nearest) grid node."""
+    for p in req.route or ([req.start] if req.start else []):
+        if len(p) < 2 or not all(math.isfinite(v) for v in p[:2]):
+            raise ValidationError("Every point must be [lon, lat]")
+    if req.route:
+        return [p[:2] for p in req.route], req.grid_node
+    if not req.start:
+        raise ValidationError("Give a drawn route or a start point")
+    nodes = pack.points("grid")
+    if not nodes:
+        raise ValidationError(f"Region {pack.region!r} has no grid nodes")
+    proj = pack.projection
+    sx, sy = proj.forward(np.array(req.start[0]), np.array(req.start[1]))
+
+    def km(node: tuple[str, float, float]) -> float:
+        x, y = proj.forward(np.array(node[1]), np.array(node[2]))
+        return math.hypot(float(x - sx), float(y - sy))
+
+    if req.grid_node:
+        node = next((n for n in nodes if n[0] == req.grid_node), None)
+        if node is None:
+            raise ValidationError(f"Unknown grid node {req.grid_node!r}")
+    else:
+        node = min(nodes, key=km)
+    route = auto_route(pack, (req.start[0], req.start[1]), (node[1], node[2]))
+    return route, node[0]
+
+
+@router.post("/route-check", response_model=RouteCheckResponse)
+async def post_route_check(req: RouteCheckRequest) -> RouteCheckResponse:
+    """Check an export cable route (drawn, or the automatic shortest sea route)."""
+    pack = _pack(req.region)
+    try:
+        route, node = _route_for(pack, req)
+        r = await run_in_threadpool(check_route, pack, route, req.route is None)
+    except RouteError as exc:
+        raise ValidationError(str(exc)) from exc
+
+    def areas(items: list[Any]) -> list[AreaLengthSchema]:
+        return [AreaLengthSchema(name=a.name, km=round(a.km, 2)) for a in items]
+
+    def crossings(items: list[Any]) -> list[CrossingSchema]:
+        return [CrossingSchema(name=c.name, angle_deg=c.angle_deg, at=list(c.at)) for c in items]
+
+    return RouteCheckResponse(
+        route=r.route,
+        auto=r.auto,
+        total_km=round(r.total_km, 2),
+        offshore_km=round(r.offshore_km, 2),
+        onshore_km=round(r.onshore_km, 2),
+        landfall=None if r.landfall is None else list(r.landfall),
+        grid_node=node,
+        natura=areas(r.natura),
+        restricted=areas(r.restricted),
+        shipping=crossings(r.shipping),
+        shipping_km=areas(r.shipping_km),
+        cables=crossings(r.cables),
+        checks=[
+            CheckSchema(
+                id=c.id, title=c.title, status=c.status, detail=c.detail, reference=c.reference
+            )
+            for c in r.checks
+        ],
     )

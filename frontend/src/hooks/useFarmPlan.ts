@@ -15,5 +15,6 @@ export function useFarmPlan(): FarmPlan {
   const oss = useProjectStore((s) => (own ? s.oss : null));
   const site = useSiteStore((s) => s.site);
   const report = useSiteStore((s) => s.report);
-  return useMemo(() => farmPlan({ turbines, oss }, { site, report }), [turbines, oss, site, report]);
+  const routeKm = useSiteStore((s) => s.routeKm);
+  return useMemo(() => farmPlan({ turbines, oss }, { site, report, routeKm }), [turbines, oss, site, report, routeKm]);
 }

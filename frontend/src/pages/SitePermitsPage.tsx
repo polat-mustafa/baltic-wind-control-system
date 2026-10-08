@@ -16,6 +16,7 @@ import { useSiteStore } from "../store/siteStore";
 import { Button } from "../components/ui/Button";
 import { InfoButton } from "../components/ui/InfoButton";
 import { Skeleton } from "../components/ui/Skeleton";
+import ExportRoute from "../components/site/ExportRoute";
 import SiteReport from "../components/site/SiteReport";
 import { EnvironmentStage, InvestigationStage, PermitStage, WatchOut } from "../components/site/Stages";
 import DocumentsStage from "../components/site/Documents";
@@ -200,6 +201,7 @@ function ScreeningStage() {
         <CriteriaPanel />
         {report && <PermitOutlook decision={decision} />}
         <SiteReport />
+        <ExportRoute />
         <DataSources />
         {report && (
           <div className="flex flex-wrap items-center justify-end gap-2">

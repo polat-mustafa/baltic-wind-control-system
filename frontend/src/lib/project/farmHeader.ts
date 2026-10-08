@@ -32,8 +32,8 @@ export interface FarmInput {
 export function farmInput(): FarmInput | null {
   if (useModeStore.getState().mode !== "own") return null;
   const { turbines, oss } = useProjectStore.getState();
-  const { site, report } = useSiteStore.getState();
-  const plan = farmPlan({ turbines, oss }, { site, report });
+  const { site, report, routeKm } = useSiteStore.getState();
+  const plan = farmPlan({ turbines, oss }, { site, report, routeKm });
   if (plan.source !== "project") return null;
   return {
     name: useProjectSync.getState().name,

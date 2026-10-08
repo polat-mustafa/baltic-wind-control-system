@@ -41,6 +41,9 @@ class ProjectSite(_Doc):
     stage: Name = "screening"
     done: list[Name] = Field(default_factory=list, max_length=20)
     grid_node: str | None = Field(None, alias="gridNode", max_length=120)
+    #: Drawn export route waypoints and the checked route length [km] (Site & Permits).
+    route: list[tuple[Lon, Lat]] | None = Field(None, min_length=1, max_length=50)
+    route_km: float | None = Field(None, alias="routeKm", gt=0, le=1000)
 
 
 class ProjectData(_Doc):

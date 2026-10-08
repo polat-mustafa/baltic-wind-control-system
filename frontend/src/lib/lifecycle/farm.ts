@@ -151,6 +151,8 @@ interface ProjectLike {
 
 interface SiteLike {
   site: LonLat[] | null;
+  /** Length of the checked export route [km], if any. */
+  routeKm?: number | null;
   report: { grid_km: number | null; depth_m: [number, number] | null; ports?: SitePort[] } | null;
 }
 
@@ -189,7 +191,7 @@ export function farmPlan(project: ProjectLike, site: SiteLike): FarmPlan {
     strings,
     arrayKm: edges.reduce((s, e) => s + e.lengthM, 0) / 1000,
     kmBySection,
-    exportKm: own ? defaultExportKm(site.report?.grid_km) : SB510_EXPORT_KM,
+    exportKm: own ? defaultExportKm(site.report?.grid_km, site.routeKm) : SB510_EXPORT_KM,
     depthM,
     foundation: foundationFor(depthM),
     capacityMW: ids.length * RATED_MW,

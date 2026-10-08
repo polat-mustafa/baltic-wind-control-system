@@ -27,6 +27,7 @@ import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { cn } from "../../lib/utils";
 import type { LayerInfo, LonLat } from "../../services/siteApi";
 import { CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
+import { checkExportRoute } from "../../lib/site/exportRoute";
 import { ROLE_STYLE, wideScreen, type RoleStyle } from "./mapStyles";
 
 type LatLng = [number, number];
@@ -51,15 +52,68 @@ function FitBounds({ bbox }: { bbox: [number, number, number, number] }) {
 function DrawClicks() {
   const drawing = useSiteStore((s) => s.drawing);
   const addCorner = useSiteStore((s) => s.addCorner);
+  const routeDrawing = useSiteStore((s) => s.routeDrawing);
+  const addRoutePoint = useSiteStore((s) => s.addRoutePoint);
   const map = useMapEvents({
     click(e) {
-      if (drawing) addCorner([Number(e.latlng.lng.toFixed(5)), Number(e.latlng.lat.toFixed(5))]);
+      const p: LonLat = [Number(e.latlng.lng.toFixed(5)), Number(e.latlng.lat.toFixed(5))];
+      if (drawing) addCorner(p);
+      else if (routeDrawing) addRoutePoint(p);
     },
   });
   useEffect(() => {
-    map.getContainer().style.cursor = drawing ? "crosshair" : "";
-  }, [map, drawing]);
+    map.getContainer().style.cursor = drawing || routeDrawing ? "crosshair" : "";
+  }, [map, drawing, routeDrawing]);
   return null;
+}
+
+const ROUTE_COLOR = "#c2410c";
+
+/** The export route being drawn (dashed) or the checked one, with its landfall. */
+function ExportRouteShapes() {
+  const drawingRoute = useSiteStore((s) => s.routeDrawing);
+  const check = useSiteStore((s) => s.routeCheck);
+  const map = useMap();
+  useEffect(() => {
+    if (check?.route.length) map.fitBounds(check.route.map(ll), { padding: [40, 40] });
+  }, [map, check]);
+  if (drawingRoute) {
+    return (
+      <>
+        {drawingRoute.length > 1 && <Polyline positions={drawingRoute.map(ll)} pathOptions={{ color: ROUTE_COLOR, weight: 2, dashArray: "5 5" }} />}
+        {drawingRoute.map((p, i) => (
+          <CircleMarker key={i} center={ll(p)} radius={4} pathOptions={{ color: "#fff", weight: 2, fillColor: ROUTE_COLOR, fillOpacity: 1 }} />
+        ))}
+      </>
+    );
+  }
+  if (!check) return null;
+  return (
+    <>
+      <Polyline positions={check.route.map(ll)} pathOptions={{ color: ROUTE_COLOR, weight: 3 }}>
+        <Tooltip sticky>
+          Export cable {check.total_km.toFixed(1)} km ({check.auto ? "automatic" : "drawn"})
+        </Tooltip>
+      </Polyline>
+      {check.landfall && (
+        <CircleMarker center={ll(check.landfall)} radius={6} pathOptions={{ color: "#fff", weight: 2, fillColor: ROUTE_COLOR, fillOpacity: 1 }}>
+          <Tooltip>Landfall</Tooltip>
+        </CircleMarker>
+      )}
+      {[...check.shipping, ...check.cables].map((c, i) => (
+        <CircleMarker
+          key={`x${i}`}
+          center={ll(c.at)}
+          radius={4}
+          pathOptions={{ color: c.angle_deg < 45 ? "#dc2626" : "#334155", weight: 2, fillColor: "#fff", fillOpacity: 1 }}
+        >
+          <Tooltip>
+            {c.name}: {c.angle_deg.toFixed(0)}°
+          </Tooltip>
+        </CircleMarker>
+      ))}
+    </>
+  );
 }
 
 /** Tooltip text: the feature name plus capacity / status when the data has them. */
@@ -184,6 +238,10 @@ export default function ScreeningMap() {
   const finishDrawing = useSiteStore((s) => s.finishDrawing);
   const cancelDrawing = useSiteStore((s) => s.cancelDrawing);
   const setSite = useSiteStore((s) => s.setSite);
+  const routeDrawing = useSiteStore((s) => s.routeDrawing);
+  const undoRoutePoint = useSiteStore((s) => s.undoRoutePoint);
+  const finishRoute = useSiteStore((s) => s.finishRoute);
+  const cancelRoute = useSiteStore((s) => s.cancelRoute);
   const [visible, setVisible] = useState<Record<string, boolean>>(() =>
     Object.fromEntries([...Object.entries(ROLE_STYLE).map(([k, v]) => [k, v.on]), ["suitability", true], ["turbines", true]]),
   );
@@ -215,6 +273,7 @@ export default function ScreeningMap() {
         />
         <FitBounds bbox={bbox} />
         <DrawClicks />
+        <ExportRouteShapes />
         {visible.suitability && <SuitabilityCells renderer={renderer} />}
         {shown.map((layer) => (
           <LayerShapes key={layer.id} layer={layer} style={ROLE_STYLE[layer.role]} renderer={renderer} />
@@ -257,7 +316,19 @@ export default function ScreeningMap() {
         className="absolute left-3 top-3 z-[1000] flex max-w-[calc(100%-7.5rem)] flex-wrap gap-1.5"
         data-tour="site-draw"
       >
-        {drawing ? (
+        {routeDrawing ? (
+          <>
+            <span className="rounded-md bg-bg-secondary/95 px-2.5 py-1.5 text-xs text-text-secondary shadow">
+              Click the route: sea, landfall, land ({routeDrawing.length})
+            </span>
+            <ToolButton onClick={undoRoutePoint} disabled={routeDrawing.length === 0} icon={<Undo2 size={13} />} label="Undo" />
+            <ToolButton onClick={() => {
+                finishRoute();
+                void checkExportRoute();
+              }} disabled={routeDrawing.length === 0} icon={<Check size={13} />} label="Finish" primary />
+            <ToolButton onClick={cancelRoute} icon={<X size={13} />} label="Cancel" />
+          </>
+        ) : drawing ? (
           <>
             <span className="rounded-md bg-bg-secondary/95 px-2.5 py-1.5 text-xs text-text-secondary shadow">
               Click the map to add corners ({drawing.length})

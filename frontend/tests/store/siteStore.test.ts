@@ -126,3 +126,40 @@ describe("site and stages", () => {
     expect(s().report?.checks.find((c) => c.id === "shipping")?.status).toBe("fail");
   });
 });
+
+describe("export route", () => {
+  const checked = (total_km: number, auto: boolean) =>
+    ({ route: [], auto, total_km, offshore_km: total_km - 10, onshore_km: 10, landfall: [16.7, 54.57], grid_node: null, natura: [], restricted: [], shipping: [], shipping_km: [], cables: [], checks: [] }) as api.RouteCheckResponse;
+
+  it("draws waypoints, checks start + waypoints + end, and keeps the length", async () => {
+    await s().setSite(CASE_STUDY_SITE);
+    mockApi.postRouteCheck.mockResolvedValue(checked(76.5, false));
+    s().startRoute();
+    s().addRoutePoint([16.4, 54.8]);
+    s().addRoutePoint([16.73, 54.57]);
+    s().undoRoutePoint();
+    s().addRoutePoint([16.735, 54.57]);
+    s().finishRoute();
+    expect(s().routeDrawing).toBeNull();
+    await s().checkRoute([16.44, 55.03], [16.89, 54.5]);
+    expect(mockApi.postRouteCheck.mock.calls[0][0]).toMatchObject({
+      route: [[16.44, 55.03], [16.4, 54.8], [16.735, 54.57], [16.89, 54.5]],
+    });
+    expect(s().routeKm).toBe(76.5);
+    expect(JSON.parse(localStorage.getItem("of.site.v1")!)).toMatchObject({ routeKm: 76.5, route: [[16.4, 54.8], [16.735, 54.57]] });
+  });
+
+  it("asks for the automatic route without waypoints; a new site or grid node forgets the route", async () => {
+    await s().setSite(CASE_STUDY_SITE);
+    mockApi.postRouteCheck.mockResolvedValue(checked(66, true));
+    await s().checkRoute([16.44, 55.03], null);
+    expect(mockApi.postRouteCheck.mock.calls[0][0]).toMatchObject({ start: [16.44, 55.03] });
+    expect(mockApi.postRouteCheck.mock.calls[0][0]).not.toHaveProperty("route");
+    expect(s().routeKm).toBe(66);
+    await s().setGridNode("Żarnowiec 400/110 kV");
+    expect(s().routeKm).toBeNull();
+    s().setRoute([[16.4, 54.8]]);
+    await s().setSite([[16.3, 54.8], [16.4, 54.8], [16.4, 54.9]]);
+    expect(s().route).toBeNull();
+  });
+});

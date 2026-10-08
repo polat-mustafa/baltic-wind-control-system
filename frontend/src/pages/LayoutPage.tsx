@@ -238,7 +238,8 @@ export default function LayoutPage() {
   const pywakeFresh = p.pywake && p.pywakeFor === sig ? p.pywake : null;
   const wakeOnlyGWh = pywakeFresh?.net_aep_gwh ?? yieldRes?.netGWh ?? 0;
   const netGWh = wakeOnlyGWh * (1 - OTHER_LOSSES);
-  const defaultExport = defaultExportKm(report?.grid_km);
+  const routeKm = useSiteStore((s) => s.routeKm);
+  const defaultExport = defaultExportKm(report?.grid_km, routeKm);
   const expKm = exportKm ?? defaultExport;
   const seabedFactor = foundationFactor(p.turbines.map((t) => [t.lon, t.lat]), seabedAt);
   const cost = layoutCost(p.costs, capacity, cables?.totalKm ?? 0, expKm, report?.depth_m?.[1] ?? null, netGWh, seabedFactor);

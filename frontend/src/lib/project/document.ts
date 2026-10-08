@@ -24,7 +24,15 @@ export interface ProjectDoc {
   app: "OffshoreForge";
   name: string;
   turbineModel: string;
-  site: { polygon: LonLat[] | null; stage: string; done: string[]; gridNode?: string | null };
+  site: {
+    polygon: LonLat[] | null;
+    stage: string;
+    done: string[];
+    gridNode?: string | null;
+    /** Drawn export route waypoints and the checked route length [km]. */
+    route?: LonLat[] | null;
+    routeKm?: number | null;
+  };
   turbines: Turbine[];
   oss: LonLat | null;
   costs: CostInputs;
@@ -41,7 +49,7 @@ export function buildDoc(name = DEFAULT_NAME): ProjectDoc {
     app: "OffshoreForge",
     name,
     turbineModel: DEFAULT_TURBINE_ID,
-    site: { polygon: s.site, stage: s.stage, done: s.done, gridNode: s.gridNode },
+    site: { polygon: s.site, stage: s.stage, done: s.done, gridNode: s.gridNode, route: s.route, routeKm: s.routeKm },
     turbines: p.turbines,
     oss: p.oss,
     costs: p.costs,
@@ -59,6 +67,8 @@ export function applyDoc(doc: ProjectDoc): void {
     stage: doc.site.stage,
     done: doc.site.done,
     gridNode: doc.site.gridNode ?? null,
+    route: doc.site.route ?? null,
+    routeKm: doc.site.routeKm ?? null,
   });
 }
 
@@ -88,6 +98,8 @@ export function parseDoc(input: string | unknown): ProjectDoc {
       stage: typeof site.stage === "string" ? site.stage : "screening",
       done: Array.isArray(site.done) ? site.done.filter((d): d is string => typeof d === "string") : [],
       gridNode: typeof site.gridNode === "string" ? site.gridNode.slice(0, 120) : null,
+      route: Array.isArray(site.route) && site.route.length > 0 ? (site.route as LonLat[]).slice(0, 50) : null,
+      routeKm: typeof site.routeKm === "number" && site.routeKm > 0 ? site.routeKm : null,
     },
     turbines,
     oss: (p.oss as LonLat | null) ?? null,

@@ -215,3 +215,32 @@ export const postSuitability = (criteria: CriteriaOverrides, cell_km = 2, region
 /** Site report; `gridNode` picks the connection point (default: the nearest). */
 export const postAssess = (polygon: LonLat[], criteria: CriteriaOverrides, region?: string, gridNode?: string | null): Promise<AssessResponse> =>
   post(`${BASE}/assess`, { polygon, criteria, ...(region ? { region } : {}), ...(gridNode ? { grid_node: gridNode } : {}) });
+
+export interface RouteCrossing {
+  name: string;
+  /** Acute angle to the crossed line [deg], 90 = right angles. */
+  angle_deg: number;
+  at: LonLat;
+}
+
+export interface RouteCheckResponse {
+  route: LonLat[];
+  /** true: the automatic shortest sea route. */
+  auto: boolean;
+  /** Export cable length [km]. */
+  total_km: number;
+  offshore_km: number;
+  onshore_km: number;
+  landfall: LonLat | null;
+  grid_node: string | null;
+  natura: { name: string; km: number }[];
+  restricted: { name: string; km: number }[];
+  shipping: RouteCrossing[];
+  shipping_km: { name: string; km: number }[];
+  cables: RouteCrossing[];
+  checks: SiteCheck[];
+}
+
+/** Check a drawn export route, or build the automatic one from `start` to the grid node. */
+export const postRouteCheck = (body: { route?: LonLat[]; start?: LonLat; grid_node?: string | null; region?: string }): Promise<RouteCheckResponse> =>
+  post(`${BASE}/route-check`, body);

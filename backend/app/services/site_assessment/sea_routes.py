@@ -62,7 +62,7 @@ class SeaGrid:
         ky = EARTH_RADIUS_KM * math.pi / 180
         d = np.hypot((lon_c - lon) * kx, (lat_c - lat) * ky)
         k = int(np.argmin(d))
-        if d[k] > max_km:
+        if d[k] > MAX_SNAP_KM:
             return None
         return int(jj[k] * nx + ii[k]), float(d[k])
 
@@ -174,30 +174,3 @@ def sea_km(
     d = km[j[inside], i[inside]]
     d = d[np.isfinite(d)]
     return float(d.min()) if d.size else None
-
-
-def sea_path(
-    grid: SeaGrid, start: tuple[float, float], end: tuple[float, float]
-) -> list[list[float]] | None:
-    """Shortest sea path (cell centres, [lon, lat]) between the open-sea cells nearest to
-    ``start`` and ``end``; only the turning points are kept. None: no open sea nearby."""
-    a = grid.node(*start)
-    b = grid.node(*end, max_km=math.inf)
-    if a is None or b is None:
-        return None
-    _, pred = dijkstra(grid.graph, directed=False, indices=b[0], return_predecessors=True)
-    nx = grid.sea.shape[1]
-    cells = [a[0]]
-    while cells[-1] != b[0]:
-        k = int(pred[cells[-1]])
-        if k < 0:
-            return None
-        cells.append(k)
-    r = grid.raster
-    pts = np.array([[r.lon0 + (c % nx) * r.dlon, r.lat0 + (c // nx) * r.dlat] for c in cells])
-    if len(pts) <= 2:
-        return [[float(x), float(y)] for x, y in pts]
-    step = np.diff(pts, axis=0)
-    turn = np.any(np.abs(np.diff(step, axis=0)) > 1e-9, axis=1)
-    keep = np.concatenate([[True], turn, [True]])
-    return [[round(float(x), 5), round(float(y), 5)] for x, y in pts[keep]]

@@ -101,7 +101,7 @@ describe("useCameraFlyTo", () => {
 
     // Start well away from the default target so the fallback has somewhere to go.
     mockCamera.position.set(5, 10, 5);
-    act(() => { trigger("gearbox"); });
+    act(() => { trigger("crane_rail"); });
     await flushRaf();
     tickFrames(120);
 

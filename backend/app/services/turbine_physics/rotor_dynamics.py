@@ -7,11 +7,11 @@ Newton's second law for rotation governs rotor acceleration:
     J · dω/dt = Q_aero - Q_gen - Q_friction
 
 where:
-    J         = rotor moment of inertia [kg·m²]
+    J         = rotor + generator-rotor moment of inertia [kg·m²]
     ω         = angular speed [rad/s]
     Q_aero    = aerodynamic torque from wind [N·m]
-    Q_gen     = generator reaction torque [N·m]
-    Q_friction = mechanical friction torque [N·m]
+    Q_gen     = generator air-gap torque [N·m] (direct drive: same shaft, no gearing)
+    Q_friction = bearing friction torque [N·m]
 
 When Q_aero > Q_gen + Q_friction, the rotor accelerates.
 When Q_aero < Q_gen + Q_friction, the rotor decelerates.
@@ -19,13 +19,16 @@ When Q_aero < Q_gen + Q_friction, the rotor decelerates.
 Standards Layer
 ───────────────
 - IEC 61400-1: Design requirements for wind turbines
-- V236-15.0 MW: rotor speed range 4.0–8.33 rpm (variable speed, 48:1 gearbox → 400 rpm gen)
+- IEA 15 MW reference turbine (Gaertner et al. 2020, NREL/TP-5000-75698): low-speed
+  direct drive, rotor 5.0–7.56 rpm (ROSCO VS_MinOMSpd / PC_RefSpd), overspeed
+  shutdown 9.07 rpm (ROSCO SD_MaxGenSpd)
 
 Maths Layer
 ───────────
 - Euler integration: ω(t+dt) = ω(t) + α·dt
 - Kinetic energy: E = ½·J·ω²
-- Speed clamping: ω ∈ [ω_min, ω_max]
+- Speed is only bounded below by standstill (ω ≥ 0); the controllers hold the speed
+  range and the state machine trips on overspeed — no artificial clamp.
 
 Code Layer
 ──────────
@@ -37,35 +40,41 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-# ── V236-15.0 MW rotor constants ────────────────────────────────────────
+from app.services.p1.turbine_models import rosco
 
-ROTOR_INERTIA_KG_M2: float = 160e6
-"""Rotor moment of inertia [kg·m²].
+_, _CONTROL = rosco()
 
-The V236 has 118 m blades with significant mass at the tips.
-J ≈ 160 x 10⁶ kg·m² is representative for this class of turbine.
-For comparison: a car wheel is ~0.5 kg·m², a V236 rotor is 320 million x heavier.
+# ── IEA 15 MW rotor constants ───────────────────────────────────────────
+
+ROTOR_INERTIA_KG_M2: float = _CONTROL.total_inertia_kg_m2
+"""Drivetrain moment of inertia about the shaft [kg·m²] — 3.543 × 10⁸.
+
+Rigid rotor (3 blades + hub) 3.5246 × 10⁸ kg·m² (report §5.7) plus the outer
+generator rotor 1.837 × 10⁶ kg·m² (ElastoDyn GenIner). Direct drive: the generator
+turns at rotor speed, so its inertia is added without the N² gear-ratio factor.
 """
 
-FRICTION_TORQUE_NM: float = 50_000.0
-"""Mechanical friction torque [N·m].
+FRICTION_TORQUE_NM: float = 0.0
+"""Bearing friction torque [N·m].
 
-Accounts for bearing friction and windage losses in the drivetrain.
-Small relative to aerodynamic torque (~20 MN·m at rated) but prevents
-the rotor from spinning indefinitely with zero wind.
+The reference model (ElastoDyn) has no friction term — main-bearing and generator
+losses are inside the generator efficiency. Kept as an explicit input for exercises.
 """
 
-MIN_ROTOR_SPEED_RPM: float = 4.0
-"""Minimum rotor speed [rpm].  Below this, the generator disconnects."""
+MIN_ROTOR_SPEED_RPM: float = _CONTROL.min_speed_rad_s * 30.0 / math.pi
+"""Minimum rotor speed [rpm] — 5.0 (ROSCO VS_MinOMSpd). Below λ_opt·V/R at low wind
+the torque controller holds this speed (region 1.5) to keep the rotor clear of the
+tower's natural frequency (3P exclusion zone)."""
 
-MAX_ROTOR_SPEED_RPM: float = 8.33
-"""Maximum rotor speed [rpm].  V236 rated rotor speed at 11.1 m/s.
+MAX_ROTOR_SPEED_RPM: float = _CONTROL.pitch_ref_speed_rad_s * 30.0 / math.pi
+"""Rated rotor speed [rpm] — 7.56 (ROSCO PC_RefSpd, the pitch-controller reference).
 
-Derived from generator max speed / gearbox ratio:
-    ω_rotor_max = 400 rpm / 48 = 8.333 rpm
-
-Source: Vestas V236-15.0 MW product spec; wind-turbine-models.com.
+The tip-speed limit of 95 m/s gives 7.52 rpm (ROSCO VS_RefSpd, the torque-controller
+reference); the pitch loop regulates slightly above it so the two loops do not fight.
 """
+
+OVERSPEED_SHUTDOWN_RPM: float = _CONTROL.overspeed_shutdown_rpm
+"""Overspeed shutdown [rpm] — 9.07 (ROSCO SD_MaxGenSpd, 1.2 × rated)."""
 
 
 # ── Data containers ────────────────────────────────────────────────────
@@ -87,10 +96,7 @@ class RotorState:
 
 @dataclass(frozen=True)
 class RotorConfig:
-    """Configuration for rotor dynamics integration.
-
-    All parameters have sensible defaults for the V236-15.0 MW.
-    """
+    """Configuration for rotor dynamics integration (IEA 15 MW defaults)."""
 
     inertia_kg_m2: float = ROTOR_INERTIA_KG_M2
     friction_torque_nm: float = FRICTION_TORQUE_NM
@@ -134,7 +140,7 @@ def compute_angular_acceleration(
         aero_torque_nm: Aerodynamic torque from wind [N·m].
         gen_torque_nm: Generator reaction torque [N·m].
         friction_torque_nm: Mechanical friction torque [N·m].
-        inertia_kg_m2: Rotor moment of inertia [kg·m²].
+        inertia_kg_m2: Moment of inertia [kg·m²].
 
     Returns:
         Angular acceleration α [rad/s²].
@@ -151,15 +157,13 @@ def compute_kinetic_energy_mj(
 
     E = ½ · J · ω²
 
-    At rated speed (8.33 rpm ≈ 0.872 rad/s) with J = 160e6 kg·m²:
-    E = ½ × 160e6 × 0.872² ≈ 60.8 MJ ≈ 16.9 kWh
-
-    This stored energy provides short-term ride-through capability
-    during wind gusts and grid disturbances.
+    At rated speed (7.56 rpm ≈ 0.792 rad/s) with J = 3.543 × 10⁸ kg·m²:
+    E = ½ × 3.543e8 × 0.792² ≈ 111 MJ ≈ 31 kWh — 7.4 s of rated power, the
+    reserve behind synthetic inertia and short ride-through.
 
     Args:
         speed_rad_s: Rotor speed [rad/s].
-        inertia_kg_m2: Rotor moment of inertia [kg·m²].
+        inertia_kg_m2: Moment of inertia [kg·m²].
 
     Returns:
         Kinetic energy [MJ].
@@ -178,28 +182,20 @@ def step_rotor_speed(
 
     ω(t + dt) = ω(t) + α · dt
 
-    The result is clamped to [min_speed, max_speed] to prevent
-    unrealistic speeds.  In a real turbine, speed limits are enforced
-    by the pitch controller and mechanical brakes.
+    Only standstill bounds the result (ω ≥ 0): speed limits are the job of the
+    torque and pitch controllers and of the overspeed trip, not of the integrator.
 
     Args:
         current_rpm: Current rotor speed [rpm].
         angular_acceleration: α [rad/s²] from compute_angular_acceleration.
         dt: Timestep [seconds].
-        config: Rotor configuration (defaults to V236 values).
+        config: Rotor configuration (kept for API symmetry).
 
     Returns:
-        New rotor speed [rpm], clamped to configured limits.
+        New rotor speed [rpm], ≥ 0.
     """
-    if config is None:
-        config = RotorConfig()
-
-    current_rad_s = rpm_to_rad_s(current_rpm)
-    new_rad_s = current_rad_s + angular_acceleration * dt
-    new_rpm = rad_s_to_rpm(new_rad_s)
-
-    # Clamp to operating range
-    return max(config.min_speed_rpm, min(new_rpm, config.max_speed_rpm))
+    new_rad_s = rpm_to_rad_s(current_rpm) + angular_acceleration * dt
+    return max(0.0, rad_s_to_rpm(new_rad_s))
 
 
 def compute_rotor_state(
@@ -210,14 +206,11 @@ def compute_rotor_state(
 ) -> RotorState:
     """Compute complete rotor state at one instant.
 
-    Combines speed conversion, acceleration calculation, and energy
-    computation into a single immutable snapshot.
-
     Args:
         speed_rpm: Current rotor speed [rpm].
         aero_torque_nm: Aerodynamic torque [N·m].
         gen_torque_nm: Generator reaction torque [N·m].
-        config: Rotor configuration (defaults to V236 values).
+        config: Rotor configuration (defaults to IEA 15 MW values).
 
     Returns:
         Complete RotorState snapshot.

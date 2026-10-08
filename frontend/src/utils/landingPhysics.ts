@@ -9,7 +9,7 @@
  */
 
 import { liveFleet, type Fleet } from "../lib/fleet";
-import { powerKw, REFERENCE_TURBINE, thrustCoefficient } from "./turbineCurves";
+import { operatingPoint, powerKw, REFERENCE_TURBINE, thrustCoefficient } from "./turbineCurves";
 import { computeWakeLosses } from "./wakeModel";
 
 // ── Reactive power balance at the OSS 220 kV busbar ─────────────
@@ -162,35 +162,34 @@ export function arrayCableCurrentA(mw: number): number {
 }
 
 // ── SB-510 turbine: V236 class, modelled with the IEA-15-240-RWT ──
-// Power and thrust curves and the cut-in / rated / cut-out speeds come from
-// the IEA 15 MW reference turbine (constants/turbineModels.ts, same table as
-// backend services/p1/turbine_models.py) — Vestas publishes no V236 curves.
-// The nacelle model (rotor limits, 48:1 gearbox, efficiencies) stays the
-// V236-class drivetrain of `turbine_physics/rotor_dynamics.py`.
+// Power, thrust, rotor speed and pitch come from the official IEA 15 MW table
+// (constants/turbineModels.ts, same table as backend services/p1/turbine_models.py)
+// — Vestas publishes no V236 data. Low-speed direct drive: no gearbox, the
+// 200-pole PMSG turns at rotor speed (backend services/turbine_physics).
 
 export const V236 = {
   ratedMW: REFERENCE_TURBINE.ratedKw / 1000,
   cutInMs: REFERENCE_TURBINE.cutInMs,
   ratedMs: REFERENCE_TURBINE.ratedMs,
   cutOutMs: REFERENCE_TURBINE.cutOutMs,
-  /** Minimum / rated rotor speed [rpm]; tip speed at rated ≈ 103 m/s. */
-  minRpm: 4.0,
-  ratedRpm: 8.33,
-  /** Gearbox ratio (3-stage planetary) → generator 400 rpm at rated. */
-  gearRatio: 48,
+  /** Minimum / rated rotor speed [rpm] (ROSCO VS_MinOMSpd / PC_RefSpd); tip ≈ 95 m/s at rated. */
+  minRpm: REFERENCE_TURBINE.minRotorRpm,
+  ratedRpm: REFERENCE_TURBINE.maxRotorRpm,
+  /** PMSG pole pairs (200 poles, Gaertner et al. 2020 Table 5-4): f_e = 100·n/60 = 12.6 Hz. */
+  polePairs: 100,
 } as const;
 
-const inOperatingRange = (v: number) => v >= V236.cutInMs && v <= V236.cutOutMs;
-
 /**
- * Stage efficiencies of the V236 power chain (same values as the part
- * education cards). 15 MW nameplate is ELECTRICAL at the 66 kV terminals,
- * so rated aerodynamic power is 15 / Πη ≈ 16.3 MW.
+ * Stage efficiencies of the direct-drive power chain. Generator 96.55 % (report
+ * Table 5-4) × converter 99.18 % = 95.756 %, the mechanical-to-electrical
+ * efficiency behind the official table (ROSCO VS_GenEff): the table's 15 MW is at
+ * the converter terminals, so rated aerodynamic power is 15 / 0.95756 = 15.66 MW.
+ * The nacelle transformer (99.5 %, illustrative — not part of the reference
+ * turbine) steps it up to 66 kV.
  */
 export const V236_ETA = {
-  gearbox: 0.97,
-  generator: 0.975,
-  converter: 0.98,
+  generator: 0.9655,
+  converter: 0.9918,
   transformer: 0.995,
 } as const;
 
@@ -207,20 +206,16 @@ export interface PowerChain {
   /** Aerodynamic (rotor shaft) power [MW] and power coefficient Cp. */
   rotorMW: number;
   cp: number;
-  gearbox: PowerChainStage;
   generator: PowerChainStage;
   converter: PowerChainStage;
   transformer: PowerChainStage;
-  /** Low-speed shaft torque [kN·m] and generator speed [rpm]. */
+  /** Main-shaft torque [kN·m]; the generator turns at rotor speed (direct drive). */
   rotorTorqueKNm: number;
   generatorRpm: number;
+  /** Stator electrical frequency f_e = pole pairs · n / 60 [Hz]. */
+  generatorHz: number;
 }
 
-/**
- * Walk the chain backwards from the measured electrical output, so every
- * stage is consistent with the MW the turbine reports:
- * P_el = P_rotor · η_gb · η_gen · η_conv · η_tr.
- */
 /**
  * Rotor thrust coefficient from the reference table: ≈ 0.78 below rated
  * (near-optimal induction, a ≈ 0.27), then pitch sheds load and Ct falls —
@@ -262,24 +257,27 @@ export function v236TipDeflectionM(thrustMN: number): number {
   return (10 * thrustMN) / v236ThrustMN(V236.ratedMs);
 }
 
+/**
+ * Power chain around the turbine's electrical output P (the official table, at the
+ * converter terminals): backwards to the rotor, P_rotor = P / (η_gen·η_conv), and
+ * forwards through the nacelle transformer to 66 kV, P_66 = P·η_tr.
+ */
 export function v236PowerChain(electricalMW: number, windMs: number, rotorRpm: number): PowerChain {
   const p = Math.max(0, electricalMW);
-  const trIn = p / V236_ETA.transformer;
-  const convIn = trIn / V236_ETA.converter;
-  const genIn = convIn / V236_ETA.generator;
-  const rotorMW = genIn / V236_ETA.gearbox;
+  const genOut = p / V236_ETA.converter;
+  const rotorMW = genOut / V236_ETA.generator;
   const windMW = (0.5 * 1.225 * Math.PI * (ROTOR_DIAMETER_M / 2) ** 2 * Math.max(0, windMs) ** 3) / 1e6;
   const omega = (rotorRpm * 2 * Math.PI) / 60;
   return {
     windMW,
     rotorMW,
     cp: windMW > 0 ? Math.min(16 / 27, rotorMW / windMW) : 0,
-    gearbox: { outMW: genIn, lossMW: rotorMW - genIn },
-    generator: { outMW: convIn, lossMW: genIn - convIn },
-    converter: { outMW: trIn, lossMW: convIn - trIn },
-    transformer: { outMW: p, lossMW: trIn - p },
+    generator: { outMW: genOut, lossMW: rotorMW - genOut },
+    converter: { outMW: p, lossMW: genOut - p },
+    transformer: { outMW: p * V236_ETA.transformer, lossMW: p * (1 - V236_ETA.transformer) },
     rotorTorqueKNm: omega > 0 ? (rotorMW * 1e3) / omega : 0,
-    generatorRpm: rotorRpm * V236.gearRatio,
+    generatorRpm: rotorRpm,
+    generatorHz: (V236.polePairs * rotorRpm) / 60,
   };
 }
 
@@ -288,21 +286,21 @@ export function turbinePowerMW(windMs: number): number {
   return powerKw(REFERENCE_TURBINE, windMs) / 1000;
 }
 
-/** Rotor speed [rpm]: tracks optimum tip-speed ratio, clamped to 4.0–8.33 rpm. */
+/**
+ * Rotor speed [rpm] from the official table: 5.0 rpm (minimum) up to ≈ 7 m/s, then
+ * λ = 9 tracking, 7.52 rpm (95 m/s tip speed) from rated. 0 when parked.
+ */
 export function v236RotorRpm(windMs: number): number {
-  if (!inOperatingRange(windMs)) return 0;
-  return Math.max(V236.minRpm, Math.min(V236.ratedRpm, V236.ratedRpm * (windMs / V236.ratedMs)));
+  return operatingPoint(REFERENCE_TURBINE, windMs).rotorRpm;
 }
 
 /**
- * Collective pitch [deg]: 0° below rated; above rated it pitches to shed
- * the excess aerodynamic power (≈ 10° at 15 m/s, ≈ 18° at 20, ≈ 25° at 25).
- * Feathered (90°) outside the operating range.
+ * Collective pitch [deg] from the official table: 3.9° at cut-in (minimum-pitch
+ * schedule), 0° from ≈ 6.9 m/s to rated, then pitched out to shed power (≈ 11.5° at
+ * 15 m/s, 17.7° at 20, 22.8° at 25). Feathered (90°) outside the operating range.
  */
 export function v236PitchDeg(windMs: number): number {
-  if (!inOperatingRange(windMs)) return 90;
-  if (windMs <= V236.ratedMs) return 0;
-  return Math.min(35, 25 * ((windMs - V236.ratedMs) / (25 - V236.ratedMs)) ** 0.75);
+  return operatingPoint(REFERENCE_TURBINE, windMs).pitchDeg;
 }
 
 // ── Wakes (Jensen/Park, utils/wakeModel) ──────────────────────────

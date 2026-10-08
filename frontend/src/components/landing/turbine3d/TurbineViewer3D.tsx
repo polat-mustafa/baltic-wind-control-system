@@ -1,5 +1,5 @@
 /**
- * Interactive 3D V236-15.0 MW turbine viewer.
+ * Interactive 3D viewer of the SB-510 turbine (15 MW "V236 class", modelled with the IEA 15 MW reference).
  *
  * Top-level canvas component — code-split via React.lazy.
  *
@@ -379,8 +379,8 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // V236 model (utils/landingPhysics) drives live rpm & pitch from the slider:
-  // rpm tracks wind to 8.33 rpm at rated (10.66 m/s), pitch sheds power above it,
+  // Turbine model (utils/landingPhysics, official IEA 15 MW table) drives live rpm & pitch
+  // from the slider: 5.0 rpm minimum, λ = 9 tracking to 7.52 rpm at rated (10.66 m/s), pitch sheds power above it,
   // feathered (90°) and stopped outside 3–25 m/s.
   const kpisForYaw = useLandingStore(selectKPIs);
   const turbineForYaw = useLandingStore(selectTurbine(turbineId));
@@ -430,8 +430,8 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
   // Auto-cutaway on interior part
   useEffect(() => {
     const internalParts: TurbinePartId[] = [
-      "gearbox", "generator", "shaft", "bearing", "brake", "converter", "transformer",
-      "hpu", "control_cabinet", "oil_cooler", "coupling", "ups", "bedplate",
+      "shaft", "bearing", "brake", "converter", "transformer",
+      "hpu", "control_cabinet", "coolant_skid", "ups", "bedplate",
     ];
     if (selectedPart && internalParts.includes(selectedPart) && viewerMode === "normal") {
       setViewerMode("cutaway");
@@ -692,7 +692,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
       {/* Turbine ID badge */}
       <div className="absolute top-2 left-2 z-10 bg-bg-secondary/80 backdrop-blur-sm rounded px-2 py-0.5 border border-border-primary">
         <span className="text-[10px] font-mono text-text-muted">{turbineId}</span>
-        <span className="text-[9px] font-mono text-text-muted opacity-60 ml-1">· V236-15.0 MW</span>
+        <span className="text-[9px] font-mono text-text-muted opacity-60 ml-1">· 15 MW V236 class (IEA 15 MW)</span>
       </div>
       {onToggleExpand && interiorView === "3d" && (
         <div className="absolute left-2 top-9 z-20">{expandButton}</div>

@@ -6,7 +6,10 @@ classifier used by the simulator.
 
 from __future__ import annotations
 
+import pytest
+
 from app.services.turbine_physics.state_machine import (
+    OVERSPEED_FACTOR,
     StateMachineInput,
     TurbineOperatingState,
     classify_wind_state,
@@ -17,9 +20,9 @@ from app.services.turbine_physics.state_machine import (
 S = TurbineOperatingState
 
 # V236-15.0 MW reference values
-RATED_RPM: float = 8.33
+RATED_RPM: float = 7.56  # IEA 15 MW, ROSCO PC_RefSpd
 CUT_IN: float = 3.0
-CUT_OUT: float = 31.0
+CUT_OUT: float = 25.0
 
 
 def _inputs(
@@ -75,19 +78,19 @@ class TestTurbineOperatingStateEnum:
 
 
 class TestIsOverspeed:
-    """Verify overspeed detection at 110 % of rated speed."""
+    """Overspeed trip at 120 % of rated (ROSCO SD_MaxGenSpd: 9.07 rpm)."""
 
     def test_normal_speed_not_overspeed(self) -> None:
-        assert not is_overspeed(8.33, RATED_RPM)
+        assert not is_overspeed(7.56, RATED_RPM)
 
-    def test_at_110pct_is_overspeed(self) -> None:
-        assert is_overspeed(RATED_RPM * 1.10 + 0.01, RATED_RPM)
+    def test_trip_factor_from_rosco(self) -> None:
+        assert pytest.approx(1.2, abs=1e-4) == OVERSPEED_FACTOR
 
-    def test_just_below_110pct_not_overspeed(self) -> None:
-        assert not is_overspeed(RATED_RPM * 1.09, RATED_RPM)
+    def test_above_120pct_is_overspeed(self) -> None:
+        assert is_overspeed(RATED_RPM * 1.20 + 0.01, RATED_RPM)
 
-    def test_hardware_trip_speed_is_overspeed(self) -> None:
-        assert is_overspeed(RATED_RPM * 1.20, RATED_RPM)
+    def test_just_below_120pct_not_overspeed(self) -> None:
+        assert not is_overspeed(RATED_RPM * 1.19, RATED_RPM)
 
     def test_zero_rpm_not_overspeed(self) -> None:
         assert not is_overspeed(0.0, RATED_RPM)
@@ -104,7 +107,7 @@ class TestPowerProductionTransitions:
         assert result == S.POWER_PRODUCTION
 
     def test_overspeed_triggers_emergency_shutdown(self) -> None:
-        result = next_state(S.POWER_PRODUCTION, _inputs(rpm=RATED_RPM * 1.15))
+        result = next_state(S.POWER_PRODUCTION, _inputs(rpm=RATED_RPM * 1.25))
         assert result == S.EMERGENCY_SHUTDOWN
 
     def test_critical_fault_triggers_emergency_shutdown(self) -> None:
@@ -120,7 +123,7 @@ class TestPowerProductionTransitions:
         assert result == S.NORMAL_SHUTDOWN
 
     def test_wind_above_cut_out_triggers_normal_shutdown(self) -> None:
-        result = next_state(S.POWER_PRODUCTION, _inputs(wind=32.0))
+        result = next_state(S.POWER_PRODUCTION, _inputs(wind=26.0))
         assert result == S.NORMAL_SHUTDOWN
 
     def test_operator_shutdown_triggers_normal_shutdown(self) -> None:
@@ -129,7 +132,7 @@ class TestPowerProductionTransitions:
 
     def test_overspeed_takes_priority_over_minor_fault(self) -> None:
         """Overspeed must override fault (priority rule)."""
-        result = next_state(S.POWER_PRODUCTION, _inputs(fault=True, rpm=RATED_RPM * 1.15))
+        result = next_state(S.POWER_PRODUCTION, _inputs(fault=True, rpm=RATED_RPM * 1.25))
         assert result == S.EMERGENCY_SHUTDOWN
 
 
@@ -152,7 +155,7 @@ class TestPowerProductionFaultTransitions:
         assert result == S.EMERGENCY_SHUTDOWN
 
     def test_wind_cutout_goes_to_normal_shutdown(self) -> None:
-        result = next_state(S.POWER_PRODUCTION_FAULT, _inputs(wind=32.0, fault=True))
+        result = next_state(S.POWER_PRODUCTION_FAULT, _inputs(wind=26.0, fault=True))
         assert result == S.NORMAL_SHUTDOWN
 
 
@@ -179,7 +182,7 @@ class TestStartupTransitions:
         assert result == S.EMERGENCY_SHUTDOWN
 
     def test_overspeed_during_startup_goes_to_emergency(self) -> None:
-        result = next_state(S.STARTUP, _inputs(wind=8.0, rpm=RATED_RPM * 1.15))
+        result = next_state(S.STARTUP, _inputs(wind=8.0, rpm=RATED_RPM * 1.25))
         assert result == S.EMERGENCY_SHUTDOWN
 
 
@@ -309,10 +312,10 @@ class TestClassifyWindState:
         assert classify_wind_state(15.0) == S.POWER_PRODUCTION
 
     def test_at_cut_out(self) -> None:
-        assert classify_wind_state(31.0) == S.POWER_PRODUCTION
+        assert classify_wind_state(25.0) == S.POWER_PRODUCTION
 
     def test_above_cut_out(self) -> None:
-        assert classify_wind_state(32.0) == S.NORMAL_SHUTDOWN
+        assert classify_wind_state(26.0) == S.NORMAL_SHUTDOWN
 
     def test_custom_thresholds(self) -> None:
         assert classify_wind_state(4.0, cut_in_ms=5.0) == S.PARKED_STANDBY

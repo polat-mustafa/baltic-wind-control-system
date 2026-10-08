@@ -76,10 +76,13 @@ describe("SB-510 turbine operating model (IEA 15 MW curves)", () => {
     }
   });
 
-  it("reaches rated rpm at rated wind and pitches only above it", () => {
-    expect(v236RotorRpm(11.1)).toBeCloseTo(8.33);
-    expect(v236RotorRpm(3)).toBe(4.0);
+  it("follows the official IEA 15 MW operating table", () => {
+    expect(v236RotorRpm(V236.ratedMs)).toBeCloseTo(7.5176, 3); // 95 m/s tip-speed limit
+    expect(v236RotorRpm(3)).toBe(5.0); // minimum rotor speed
+    expect(v236RotorRpm(8)).toBeCloseTo(5.70, 2); // λ = 9 tracking
+    expect(v236PitchDeg(3)).toBeCloseTo(3.918, 3); // minimum-pitch schedule
     expect(v236PitchDeg(10)).toBe(0);
+    expect(v236PitchDeg(25)).toBeCloseTo(22.83, 2);
     expect(v236PitchDeg(15)).toBeGreaterThan(5);
     expect(v236PitchDeg(15)).toBeLessThan(v236PitchDeg(20));
     expect(v236PitchDeg(2)).toBe(90);
@@ -88,15 +91,14 @@ describe("SB-510 turbine operating model (IEA 15 MW curves)", () => {
 
 describe("v236PowerChain", () => {
   it("is energy-consistent and physically bounded at rated", () => {
-    const c = v236PowerChain(15, 11.1, 8.33);
-    const losses = c.gearbox.lossMW + c.generator.lossMW + c.converter.lossMW + c.transformer.lossMW;
-    expect(c.rotorMW - losses).toBeCloseTo(15, 9); // energy balance
-    expect(c.rotorMW).toBeCloseTo(16.3, 1); // 15 MW electrical ÷ Πη
-    expect(c.cp).toBeGreaterThan(0.4);
-    expect(c.cp).toBeLessThan(16 / 27); // Betz
-    expect(c.generatorRpm).toBeCloseTo(400, 0); // 8.33 rpm × 48
-    expect(c.rotorTorqueKNm).toBeGreaterThan(18_000);
-    expect(c.rotorTorqueKNm).toBeLessThan(19_500);
+    const c = v236PowerChain(15, V236.ratedMs, 7.56);
+    expect(c.rotorMW - c.generator.lossMW - c.converter.lossMW).toBeCloseTo(15, 9); // energy balance
+    expect(c.transformer.outMW + c.transformer.lossMW).toBeCloseTo(15, 9);
+    expect(c.rotorMW).toBeCloseTo(15.665, 2); // 15 MW ÷ 0.95756 (ROSCO VS_GenEff)
+    expect(c.cp).toBeCloseTo(0.461, 2); // table Cp_aero at rated
+    expect(c.generatorRpm).toBe(7.56); // direct drive
+    expect(c.generatorHz).toBeCloseTo(12.6, 2); // 100 pole pairs
+    expect(c.rotorTorqueKNm).toBeCloseTo(19_787, -2); // ROSCO VS_RtTq 19.79 MN·m
   });
 });
 

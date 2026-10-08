@@ -4,14 +4,11 @@ Seed data for the SB-510 reference wind farm.
 Inserts the 34 × 15 MW reference wind farm (read-only project row) with turbine
 positions if it is missing. Idempotent — safe to run on every startup.
 
-Layout: 6 strings (6+6+6+6+5+5 = 34 turbines), same geometry as the map
-(frontend constants/windFarmLayout.ts):
-- Strings run N-S, 8D = 1888 m apart east-west (V236, D = 236 m)
-- Turbines 6D = 1416 m apart along a string (north → south)
-- Even strings staggered 700 m south, so the prevailing SW wind (≈ 225°)
-  does not line turbines up in each other's wake
-- Hub height: 150 m (V236-15.0 MW standard)
-x_m = east, y_m = north, origin at WTG-01 (NW corner).
+Positions: the map layout (``services/p1/sb510_layout.py`` = frontend
+``constants/windFarmLayout.ts``): 6 strings (6-6-6-6-5-5) running N–S in MSP
+energy basin PZP_44, ≈ 8 D = 1.93 km apart along the prevailing 270° wind and
+≈ 6 D = 1.45 km along a string (IEA 15 MW, D = 241.35 m, hub height 150 m).
+x_m = east, y_m = north in metres from WTG-01 (equirectangular, as the canvas).
 
 Deterministic farm UUID for reproducible references.
 """
@@ -23,45 +20,20 @@ import uuid
 
 from app.db import async_session_factory
 from app.models.wind_farm import TurbinePosition, WindFarm
-from app.services.p2.network_model import STRING_LAYOUT  # 6-6-6-6-5-5, single source of truth
+from app.services.p1.sb510_layout import SB510_TURBINES, local_xy_m
 
 logger = logging.getLogger(__name__)
 
 # Deterministic UUID for the reference wind farm
 FARM_UUID = uuid.UUID("00000000-0000-4000-a000-000000000001")
 
-# Spacing (metres) — must match the map layout
-ROTOR_DIAMETER_M = 236.0
-STRING_SPACING_M = 8 * ROTOR_DIAMETER_M  # 1888 m between strings (east-west)
-TURBINE_SPACING_M = 6 * ROTOR_DIAMETER_M  # 1416 m along a string (north-south)
-STAGGER_OFFSET_M = 700.0  # even strings shifted south
-
 
 def _generate_positions() -> list[dict[str, str | float]]:
-    """Generate 34 turbine positions on a staggered grid.
-
-    Returns a list of dicts with keys: turbine_id, x_m, y_m.
-    Origin at (0, 0) = WTG-01; strings go east, turbines south (y negative).
-    """
+    """The 34 SB-510 positions: turbine_id, x_m (east), y_m (north) from WTG-01."""
     positions: list[dict[str, str | float]] = []
-    turbine_id = 1
-
-    for string_idx, n_turbines in enumerate(STRING_LAYOUT):
-        x_base = string_idx * STRING_SPACING_M
-
-        # Even strings (1-indexed 2, 4, 6) are staggered south
-        y_offset = -STAGGER_OFFSET_M if string_idx % 2 == 1 else 0.0
-
-        for turbine_in_string in range(n_turbines):
-            positions.append(
-                {
-                    "turbine_id": f"WTG-{turbine_id:02d}",
-                    "x_m": round(x_base, 1),
-                    "y_m": round(y_offset - turbine_in_string * TURBINE_SPACING_M, 1),
-                }
-            )
-            turbine_id += 1
-
+    for turbine_id, _string, lat, lon in SB510_TURBINES:
+        x, y = local_xy_m(lat, lon)
+        positions.append({"turbine_id": turbine_id, "x_m": round(x, 1), "y_m": round(y, 1)})
     return positions
 
 

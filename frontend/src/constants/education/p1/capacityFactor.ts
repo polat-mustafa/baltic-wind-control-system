@@ -18,7 +18,7 @@ export const capacityFactorEducation: EducationContent = {
 
   technicalExplanation:
     "CF = AEP_net / (P_rated · 8,760 h). A big rotor on a modest generator (low specific power) reaches rated power at " +
-    "a lower wind speed and stays there longer, which raises CF. The V236-15.0 MW has 15,000 kW / 43,744 m² = 343 W/m²; " +
+    "a lower wind speed and stays there longer, which raises CF. The SB-510 turbine (IEA 15 MW) has 15,000 kW / 45,750 m² = 328 W/m²; " +
     "earlier offshore machines were around 400 W/m² (e.g. 3.6 MW on a 107 m rotor: 3,600 / 8,992 = 400 W/m²). Always " +
     "state which AEP the CF refers to (gross, net P50, P90) — they differ by 10–25 %.",
 

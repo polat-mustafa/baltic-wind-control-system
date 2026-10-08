@@ -5,7 +5,7 @@ A production historian reads TimescaleDB hypertables (raw 90 days, 1-min
 aggregates 2 years, 1-h lifetime). Here the series are synthesised, but from
 ONE physical state so every tag agrees with every other:
 
-  wind u(t)  → WTG-01 power P(u) on the V236 curve (cut-in 3, rated 11.1 m/s)
+  wind u(t)  → WTG-01 power P(u) on the official IEA 15 MW curve (3 / 10.66 / 25 m/s)
              → farm generation N · P(0.94 u)  (≈ 6 % wake loss)
              → OSS export = generation − array/OSS-transformer losses
              → 220 kV current per export circuit  I = √(I_P² + (I_C/2)²)
@@ -31,12 +31,14 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from functools import lru_cache
 
+from app.services.p1.turbine_models import get_turbine
 from app.services.p2.network_model import SB510, FarmSpec
 
 # ── Plant constants (the rest comes from the FarmSpec) ───────────────
 
-RATED_MW = 15.0
-CUT_IN, RATED_WS, CUT_OUT = 3.0, 11.1, 31.0
+_TURBINE = get_turbine()
+RATED_MW = _TURBINE.rated_mw
+CUT_IN, RATED_WS, CUT_OUT = _TURBINE.cut_in_ms, _TURBINE.rated_ms, _TURBINE.cut_out_ms
 WAKE_FACTOR = 0.94  # farm-average wind relative to the free stream
 # SB-510 at rated output: net reactive absorption of transformers and cables (I²X)
 # minus the Q the PSE grid supplies at the POC, calibrated so the STATCOM tag matches the
@@ -241,10 +243,8 @@ def wind_speed(m: float) -> float:
 
 
 def power_curve_mw(u: float) -> float:
-    """V236-15.0 MW: cubic between cut-in and rated, flat to cut-out."""
-    if u < CUT_IN or u > CUT_OUT:
-        return 0.0
-    return min(RATED_MW, RATED_MW * ((u**3 - CUT_IN**3) / (RATED_WS**3 - CUT_IN**3)))
+    """SB-510 turbine (IEA 15 MW): the official power table, 0 outside 3–25 m/s."""
+    return float(_TURBINE.power_curve_kw(u)) / 1e3
 
 
 def frequency_hz(m: float) -> float:

@@ -74,7 +74,7 @@ from app.services.digital_twin.reference_model import (
     reference_curve,
 )
 from app.services.p2.network_model import FarmSpec
-from app.services.p4.turbine_power_curve import get_v236_spec
+from app.services.p4.turbine_power_curve import get_turbine_spec
 
 router = APIRouter(prefix="/api/v1/digital-twin", tags=["Digital Twin"])
 
@@ -256,7 +256,7 @@ async def get_config(farm: FarmSpecDep, wind: FarmWindDep) -> ModelCardResponse:
     cal = await run_in_threadpool(phase_one_calibration)
     verification = await run_in_threadpool(verification_false_events)
     aero = calibrate()
-    spec = get_v236_spec()
+    spec = get_turbine_spec()
     p = DEFAULT_PARAMS
     channels = [
         ChannelCard(
@@ -283,23 +283,27 @@ async def get_config(farm: FarmSpecDep, wind: FarmWindDep) -> ModelCardResponse:
             "cut_out_ms": p.cut_out_ms,
             "min_rotor_rpm": p.min_rotor_rpm,
             "rated_rotor_rpm": p.rated_rotor_rpm,
-            "gearbox_ratio": p.gearbox_ratio,
-            "gearbox_efficiency": p.gearbox_efficiency,
+            "drivetrain": "low-speed direct drive (no gearbox), PMSG outer rotor",
             "generator_efficiency": p.generator_efficiency,
+            "converter_efficiency": round(p.converter_efficiency, 5),
+            "tsr_opt": p.tsr_opt,
         },
         aero_calibration={
             "lambda_opt": round(aero.lambda_opt, 3),
-            "cp_max_heier": round(aero.cp_max_heier, 4),
+            "cp_max_surface": round(aero.cp_max_surface, 4),
             "k_aero": round(aero.k_aero, 4),
             "cp_max_effective": round(aero.cp_max, 4),
             "torque_gain_mnm_per_rad_s2": round(aero.torque_gain_nm_s2 / 1e6, 3),
         },
         thermal_model={
             "structure": "1st-order lag",
-            "offset_k": p.gearbox_temp_offset_k,
-            "resistance_k_per_kw": p.gearbox_thermal_resistance_k_per_kw,
-            "time_constant_s": p.gearbox_thermal_time_constant_s,
-            "provenance": "illustrative — no public V236 gearbox thermal data",
+            "offset_k": p.generator_temp_offset_k,
+            "resistance_k_per_kw": p.generator_thermal_resistance_k_per_kw,
+            "time_constant_s": p.generator_thermal_time_constant_s,
+            "provenance": (
+                "illustrative — no public IEA 15 MW generator thermal data; rated rise ≈ 78 K "
+                "(within the IEC 60034-1 class B rise on class F insulation)"
+            ),
         },
         measurement_model={
             "anemometer_sigma": (
@@ -308,7 +312,7 @@ async def get_config(farm: FarmSpecDep, wind: FarmWindDep) -> ModelCardResponse:
             "power_sigma_mw": plant.POWER_SIGMA_MW,
             "rotor_speed_sigma_rpm": plant.ROTOR_SIGMA_RPM,
             "pitch_sigma_deg": plant.PITCH_SIGMA_DEG,
-            "gearbox_temp_sigma_k": plant.GEARBOX_TEMP_SIGMA_K,
+            "generator_temp_sigma_k": plant.GENERATOR_TEMP_SIGMA_K,
             "turbine_wind_sigma": plant.TURBINE_SIGMA,
             "weibull": _weibull_text(wind),
         },
@@ -357,7 +361,7 @@ async def get_reference_curve() -> ReferenceCurveResponse:
     """Twin steady state at ρ = 1.225 kg/m³, with the legacy V236 table for validation."""
     rc = reference_curve()
     dev = np.abs(rc.power_mw - rc.p1_table_power_mw)
-    in_range = (rc.wind_ms >= 6.0) & (rc.wind_ms <= 30.0)
+    in_range = (rc.wind_ms >= 6.0) & (rc.wind_ms <= 25.0)
     return ReferenceCurveResponse(
         wind_ms=_floats(rc.wind_ms, 2),
         power_mw=_floats(rc.power_mw),
@@ -365,11 +369,11 @@ async def get_reference_curve() -> ReferenceCurveResponse:
         pitch_deg=_floats(rc.pitch_deg, 3),
         tip_speed_ratio=_floats(rc.tip_speed_ratio, 3),
         cp=_floats(rc.cp),
-        gearbox_loss_kw=_floats(rc.gearbox_loss_kw, 1),
+        generator_loss_kw=_floats(rc.generator_loss_kw, 1),
         region=[int(r) for r in rc.region],
         region_names=REGION_NAMES,
         p1_table_power_mw=_floats(rc.p1_table_power_mw),
-        max_deviation_vs_p1_mw=round(float(dev[rc.wind_ms <= 30.0].max()), 3),
+        max_deviation_vs_p1_mw=round(float(dev[rc.wind_ms <= 25.0].max()), 3),
         max_deviation_vs_p1_above_6ms_mw=round(float(dev[in_range].max()), 3),
     )
 

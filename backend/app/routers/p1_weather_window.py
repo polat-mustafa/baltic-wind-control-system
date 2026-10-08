@@ -49,7 +49,7 @@ async def get_all_vessel_access(year: int = 2025) -> AllVesselAccessResponse:
 
     **Consequence for O&M planning:**
 
-    A major gearbox failure in January may wait 2–3 weeks for a CTV window.
+    A main-bearing or generator failure in January may wait 2–3 weeks for a CTV window.
     The same fault in July might be repaired within 24 hours.
     This drives O&M cost differences of 3–5× between summer and winter faults.
 
@@ -157,7 +157,7 @@ async def get_oam_cost(
     **Industry benchmark (Bloomberg NEF Offshore Wind O&M 2024):**
     EUR 80,000–120,000 per MW installed per year for modern offshore wind.
 
-    At 510 MW (34 × V236-15.0 MW), that's EUR 40–60 million per year.
+    At 510 MW (34 × 15 MW), that's EUR 40–60 million per year.
 
     **Cost drivers:**
 

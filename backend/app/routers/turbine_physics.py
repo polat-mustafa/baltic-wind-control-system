@@ -12,7 +12,6 @@ All endpoints follow the convention: /api/v1/turbine-physics/{resource}
 
 from __future__ import annotations
 
-import numpy as np
 from fastapi import APIRouter
 
 from app.schemas.turbine_physics import (
@@ -25,25 +24,30 @@ from app.schemas.turbine_physics import (
     StepResponseRequest,
     TurbinePhysicsConfigResponse,
 )
-from app.services.p4.turbine_power_curve import get_v236_spec
+from app.services.p1.turbine_models import rosco
+from app.services.p4.turbine_power_curve import get_turbine_spec
 from app.services.turbine_physics.aerodynamics import (
     BETZ_LIMIT,
     compute_aerodynamic_state,
-    compute_cp,
 )
 from app.services.turbine_physics.drivetrain import (
-    GEARBOX_EFFICIENCY,
-    GEARBOX_RATIO,
+    CONVERTER_EFFICIENCY,
+    DRIVETRAIN,
     GENERATOR_EFFICIENCY,
+    GENERATOR_POLES,
+    GENERATOR_VOLTAGE_V,
+    RATED_TORQUE_NM,
 )
 from app.services.turbine_physics.pitch_control import (
-    KI,
-    KP,
+    GAIN_SCHEDULE_KI,
+    GAIN_SCHEDULE_KP_S,
+    GAIN_SCHEDULE_PITCH_DEG,
     PITCH_RATE_LIMIT_DEG_S,
 )
 from app.services.turbine_physics.rotor_dynamics import (
     MAX_ROTOR_SPEED_RPM,
     MIN_ROTOR_SPEED_RPM,
+    OVERSPEED_SHUTDOWN_RPM,
     ROTOR_INERTIA_KG_M2,
 )
 from app.services.turbine_physics.simulator import (
@@ -197,38 +201,24 @@ async def aerodynamic_state(
 
 @router.get("/cp-surface", response_model=CpSurfaceResponse)
 async def cp_surface() -> CpSurfaceResponse:
-    """Get Cp(λ, β) surface for 3D visualization.
+    """Get the Cp(λ, β) surface of the IEA 15 MW rotor for 3D visualization.
 
-    Returns a matrix of Cp values over a grid of tip-speed ratios
-    (λ = 0 to 18) and pitch angles (β = 0° to 30°).
-
-    This is the core aerodynamic characteristic of the turbine — it
-    determines how efficiently the rotor converts wind energy.
+    The official ROSCO performance table (CCBlade steady BEM): λ 2–14.5 and
+    β 0–30°. Cp_max = 0.469 at λ = 9 — the target of the torque controller.
     """
-    lambdas = np.linspace(0.5, 18.0, 36).tolist()
-    betas = np.linspace(0.0, 30.0, 16).tolist()
-
-    cp_matrix: list[list[float]] = []
-    cp_max_val = 0.0
-    lambda_opt = 0.0
-
-    for beta in betas:
-        row: list[float] = []
-        for lam in lambdas:
-            cp_val = compute_cp(lam, beta)
-            row.append(round(cp_val, 6))
-            if beta == 0.0 and cp_val > cp_max_val:
-                cp_max_val = cp_val
-                lambda_opt = lam
-        cp_matrix.append(row)
+    surface, control = rosco()
+    betas = surface.pitch_deg[surface.pitch_deg >= 0.0]
+    lambdas = surface.tsr
+    cp_matrix = [[round(float(c), 6) for c in surface.cp_array(lambdas, b)] for b in betas]
 
     return CpSurfaceResponse(
-        tip_speed_ratios=lambdas,
-        pitch_angles_deg=betas,
+        tip_speed_ratios=lambdas.tolist(),
+        pitch_angles_deg=betas.tolist(),
         cp_matrix=cp_matrix,
-        cp_max=round(cp_max_val, 4),
-        lambda_opt=round(lambda_opt, 2),
+        cp_max=round(float(surface.cp_array(control.tsr_opt, 0.0)), 4),
+        lambda_opt=control.tsr_opt,
         betz_limit=round(BETZ_LIMIT, 6),
+        source=surface.source,
     )
 
 
@@ -239,7 +229,7 @@ async def get_config() -> TurbinePhysicsConfigResponse:
     Returns all turbine physics constants and controller parameters.
     Useful for UI display, documentation, and educational transparency.
     """
-    spec = get_v236_spec()
+    spec = get_turbine_spec()
 
     return TurbinePhysicsConfigResponse(
         turbine_name=spec.name,
@@ -251,13 +241,20 @@ async def get_config() -> TurbinePhysicsConfigResponse:
         rotor_inertia_kg_m2=ROTOR_INERTIA_KG_M2,
         min_rotor_speed_rpm=MIN_ROTOR_SPEED_RPM,
         max_rotor_speed_rpm=MAX_ROTOR_SPEED_RPM,
-        gearbox_ratio=GEARBOX_RATIO,
-        gearbox_efficiency=GEARBOX_EFFICIENCY,
+        overspeed_shutdown_rpm=OVERSPEED_SHUTDOWN_RPM,
+        drivetrain=DRIVETRAIN,
+        generator_poles=GENERATOR_POLES,
+        generator_voltage_v=GENERATOR_VOLTAGE_V,
         generator_efficiency=GENERATOR_EFFICIENCY,
-        pitch_kp=KP,
-        pitch_ki=KI,
+        converter_efficiency=CONVERTER_EFFICIENCY,
+        rated_torque_nm=RATED_TORQUE_NM,
+        tsr_opt=rosco()[1].tsr_opt,
+        pitch_gain_schedule_deg=GAIN_SCHEDULE_PITCH_DEG.tolist(),
+        pitch_kp_s=GAIN_SCHEDULE_KP_S.tolist(),
+        pitch_ki=GAIN_SCHEDULE_KI.tolist(),
         pitch_rate_limit_deg_s=PITCH_RATE_LIMIT_DEG_S,
         yaw_rate_deg_s=YAW_RATE_DEG_S,
         yaw_deadband_deg=DEADBAND_DEG,
         yaw_power_loss_exponent=POWER_LOSS_EXPONENT,
+        source=rosco()[1].source,
     )

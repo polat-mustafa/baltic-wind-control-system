@@ -12,7 +12,10 @@ export const turbineSelectionEducation: EducationContent = {
     "supply-chain availability, and site-specific wind conditions. For the SB-510 (510 MW) project, three 15 MW-class " +
     "machines were evaluated: the Vestas V236-15.0 MW, the Siemens Gamesa SG 14-236 DD, and the GE Haliade-X 13 MW. " +
     "The V236 was selected because it is the only machine with full-scale serial production already underway on the Polish " +
-    "Baltic (Baltic Power project, 76 units) and carries PSE grid-code pre-qualification.",
+    "Baltic (Baltic Power project, 76 units) and carries PSE grid-code pre-qualification. Vestas publishes no power " +
+    "curve, controller or drivetrain data for the V236, so OffshoreForge models every SB-510 turbine as a " +
+    "'V236-class' machine with the open IEA 15 MW reference turbine (Gaertner et al. 2020): 241.35 m rotor, rated " +
+    "10.66 m/s, low-speed direct drive. Every number in the platform comes from that published model.",
 
   simpleExplanation:
     "Think of turbine selection like choosing a car for a specific road. The V236 is already being built and operated " +
@@ -21,10 +24,11 @@ export const turbineSelectionEducation: EducationContent = {
     "A new or unproven machine, however powerful, would add risk and delay to the project.",
 
   technicalExplanation:
-    "The three key technical filters applied were: (1) capacity factor at Baltic mean wind speed 9.0–9.5 m/s — the V236 " +
-    "reaches rated power at 11.1 m/s, giving ~45% CF, while the SG 14-236 DD reaches rated at 11 m/s (slightly higher CF " +
-    "but lower absolute rated power at 14 MW nominal); (2) nacelle mass — the V236 uses a medium-speed gearbox + PMSG " +
-    "reducing nacelle mass vs. a full direct-drive machine at equivalent rating; (3) grid code — PSE IRiESP Type D " +
+    "The three key technical filters applied were: (1) energy yield at the site — with the modelled turbine (IEA 15 MW, " +
+    "specific power 328 W/m², rated at 10.66 m/s) the SB-510 wind climate (NEWA 150 m: Weibull A 10.80 m/s, k 2.04) gives " +
+    "a gross capacity factor of 57 % before wake and other losses; (2) drivetrain — the real V236 uses a medium-speed " +
+    "gearbox + PMSG, while the open model is a low-speed direct drive (no gearbox, 200-pole PMSG, 369 t generator), so " +
+    "the platform's drivetrain losses and nacelle layout are those of the direct drive; (3) grid code — PSE IRiESP Type D " +
     "pre-qualification requires LVRT to 15% Un for 140 ms + reactive current injection ≥2%/% voltage drop. " +
     "All three candidates can meet this in principle, but the V236 has completed PSE pre-qualification process " +
     "specifically for the Polish grid as demonstrated by the Baltic Power project.",
@@ -60,7 +64,8 @@ export const turbineSelectionEducation: EducationContent = {
       ],
       explanation:
         "Capacity factor is the ratio of actual annual energy to maximum possible energy at full rated power. " +
-        "For Baltic Sea sites with mean wind speed 9.0–9.5 m/s at hub height, offshore turbines typically achieve CF = 42–50%.",
+        "Gross CF (before wake, electrical, availability and other losses) of the IEA 15 MW at the SB-510 site is 57 %; " +
+        "the P1 loss cascade turns it into the net value on the AEP tab.",
     },
     {
       expression: "P_Betz = (16/27) × 0.5 × ρ × A × v³",
@@ -72,24 +77,24 @@ export const turbineSelectionEducation: EducationContent = {
       ],
       explanation:
         "The Betz limit (59.3%) is the theoretical maximum fraction of wind kinetic energy extractable by a rotor. " +
-        "Modern turbines achieve Cp ≈ 0.45–0.50 at design tip-speed ratio — very close to the Betz limit.",
+        "The IEA 15 MW rotor reaches Cp,aero = 0.462 in operation (0.469 peak of the ROSCO table at λ = 9) — about 78 % of Betz.",
     },
   ],
 
   workedExamples: [
     {
-      title: "Capacity factor comparison at 9.2 m/s mean wind",
+      title: "Gross capacity factor of the modelled turbine at the SB-510 site",
       scenario:
-        "Baltic mean wind speed at 150 m hub height ≈ 9.2 m/s (Weibull k = 2.1, ERA5). " +
-        "Compare V236-15.0 vs SG 14-236 DD vs Haliade-X 13 MW.",
+        "SB-510 wind climate at 150 m hub height (NEWA, averaged over the 34 positions): Weibull A = 10.80 m/s, " +
+        "k = 2.04 → mean 9.57 m/s. Turbine: IEA 15 MW official power table (3 / 10.66 / 25 m/s).",
       steps: [
-        "V236: rated at 11.1 m/s, cut-in 3 m/s, cut-out 31 m/s → AEP ≈ 2,140 GWh for 34 units → CF ≈ 45%",
-        "SG 14-236 DD: rated at ~11 m/s, 14 MW → slightly higher CF per turbine but 36.4 units needed for same capacity",
-        "Haliade-X: rated at ~13 m/s, 13 MW → lower CF in Baltic (optimised for North Sea ~10 m/s)",
-        "V236 wins on: serial production in Poland, supply chain certainty, PSE pre-qualification",
+        "f(v) = (k/A)(v/A)^(k−1)·exp(−(v/A)^k)",
+        "Gross AEP = 8760 h × ∫ P(v) f(v) dv = 75.2 GWh per turbine",
+        "34 turbines: 2,557 GWh/yr gross → gross CF = 75.2 GWh / (15 MW × 8760 h) = 57 %",
+        "Wake, blockage, electrical, availability and other losses (P1 loss cascade) reduce it to the net value",
       ],
       result:
-        "V236-15.0 MW is selected. At 34 turbines it exactly fills the 510 MW PSE connection agreement slot, " +
+        "The V236-class turbine is selected. At 34 turbines it exactly fills the 510 MW PSE connection agreement slot, " +
         "it uses the same foundation geometry as Baltic Power (copying structural designs), and Vestas has a " +
         "European manufacturing footprint (blades in Szczecin, Poland from 2026).",
     },

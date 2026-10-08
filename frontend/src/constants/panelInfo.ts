@@ -502,7 +502,7 @@ export const ppcDispatchInfo: InfoContent = {
   parameters: [
     { name: "Dispatched", description: "MW actually commanded to the turbine (green)" },
     { name: "Curtailed", description: "MW withheld to meet TSO setpoint (amber)" },
-    { name: "15 MW line", description: "Rated power per V236-15.0 MW turbine" },
+    { name: "15 MW line", description: "Rated power per 15 MW turbine (IEA 15 MW)" },
   ],
   interpretation:
     "All bars should reach the rated line under full-wind, no-curtailment conditions. " +
@@ -625,7 +625,7 @@ export const flickerFilterInfo: InfoContent = {
 export const farmOverviewInfo: InfoContent = {
   title: "Wind Farm Overview — Real-Time Status Map",
   description:
-    "Interactive map showing all 34 V236-15.0 MW turbines, offshore substation, " +
+    "Interactive map showing all 34 × 15 MW turbines, offshore substation, " +
     "export cable, and onshore connection point. Click any element for details.",
   parameters: [
     { name: "Green turbine", description: "Operating normally" },

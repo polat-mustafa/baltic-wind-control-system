@@ -39,3 +39,29 @@ export function thrustCoefficient(m: TurbineModel, v: number): number {
   if (!operating(m, v)) return 0;
   return Math.min(1, Math.max(0, interp(m, v, 2)));
 }
+
+/** Steady operating point of the official table (WISDEM), interpolated in wind speed. */
+export interface OperatingPoint {
+  /** Collective blade pitch [deg] (90 = feathered when parked). */
+  pitchDeg: number;
+  /** Rotor speed [rpm] (0 when parked). */
+  rotorRpm: number;
+  /** Aerodynamic power coefficient Cp_aero [-] (before generator/converter losses). */
+  cpAero: number;
+  /** Rotor thrust [kN]. */
+  thrustKn: number;
+  /** Rotor (low-speed shaft) torque [kN·m]. */
+  torqueKnm: number;
+}
+
+/** Pitch, rotor speed, Cp, thrust and torque at v [m/s]; parked outside cut-in … cut-out. */
+export function operatingPoint(m: TurbineModel, v: number): OperatingPoint {
+  if (!operating(m, v)) return { pitchDeg: 90, rotorRpm: 0, cpAero: 0, thrustKn: 0, torqueKnm: 0 };
+  const t = m.table;
+  const o = m.operating;
+  let i = 1;
+  while (i < t.length - 1 && v > t[i][0]) i++;
+  const w = Math.min(1, Math.max(0, (v - t[i - 1][0]) / (t[i][0] - t[i - 1][0])));
+  const at = (col: number) => o[i - 1][col] + (o[i][col] - o[i - 1][col]) * w;
+  return { pitchDeg: at(0), rotorRpm: at(1), cpAero: at(2), thrustKn: at(3), torqueKnm: at(4) };
+}

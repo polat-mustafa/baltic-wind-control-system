@@ -388,7 +388,7 @@ export default function LandingPage() {
             </h2>
             <p className="text-[10px] text-text-muted font-mono">
               {fleet.source === "sb510" ? "" : `${fleet.name} · `}
-              {fleet.turbines.length} × V236-15.0 MW · Polish Baltic Sea · Real-time simulation
+              {fleet.turbines.length} × 15 MW V236 class (IEA 15 MW) · Polish Baltic Sea · Real-time simulation
             </p>
           </div>
           <InfoButton info={farmOverviewInfo} />

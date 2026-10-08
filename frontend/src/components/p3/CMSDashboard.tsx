@@ -1,6 +1,6 @@
 /**
  * Condition monitoring (CMS, M12) — fleet health matrix, active findings and
- * the selected turbine: component health, P-F degradation curve, gearbox oil
+ * the selected turbine: component health, P-F degradation curve, hydraulic (pitch) oil
  * trend and training fault injection.
  *
  * P-F curve: health falls linearly at the component's degradation rate
@@ -175,7 +175,7 @@ export default function CMSDashboard() {
             {oil && (
               <div>
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <h4 className="text-xs font-semibold text-text-primary">Gearbox oil · ISO 4406</h4>
+                  <h4 className="text-xs font-semibold text-text-primary">Hydraulic oil (pitch HPU) · ISO 4406</h4>
                   <span className="text-[11px] font-mono text-text-secondary">
                     now {oil.current_iso_code} · limit {oil.target_iso_code}
                   </span>
@@ -212,7 +212,7 @@ export default function CMSDashboard() {
                   style={{ width: "100%" }}
                 />
                 <p className="text-[11px] text-text-muted">
-                  {oil.next_oil_change_recommendation} · viscosity {oil.history.at(-1)!.viscosity_cst.toFixed(0)} cSt (ISO VG 320) · water{" "}
+                  {oil.next_oil_change_recommendation} · viscosity {oil.history.at(-1)!.viscosity_cst.toFixed(0)} cSt (ISO VG 46) · water{" "}
                   {oil.history.at(-1)!.water_ppm.toFixed(0)} ppm
                 </p>
               </div>

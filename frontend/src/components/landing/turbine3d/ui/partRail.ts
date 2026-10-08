@@ -5,7 +5,6 @@ export const PART_RAIL: { id: TurbinePartId; label: string }[] = [
   { id: "blades", label: "Blades" },
   { id: "hub", label: "Hub & pitch" },
   { id: "bearing", label: "Main bearing" },
-  { id: "gearbox", label: "Gearbox" },
   { id: "generator", label: "Generator" },
   { id: "converter", label: "Converter" },
   { id: "transformer", label: "Transformer" },

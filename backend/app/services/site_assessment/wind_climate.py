@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from functools import cache
 
 import numpy as np
 from numpy.typing import NDArray
@@ -101,3 +102,29 @@ def site_wind(pack: RegionPack, lon: NDArray[np.float64], lat: NDArray[np.float6
         license=license_,
         approximate=False,
     )
+
+
+# ── SB-510 reference site ─────────────────────────────────────────────────────
+
+#: Hour-to-hour persistence of the SB-510 wind speed: AR(1) coefficient fitted (least
+#: squares, lags 1–24 h, RMS 0.010) to the autocorrelation of the normal scores of the
+#: ERA5 100 m hourly wind speed 2020–2024 at 55.06 °N 16.52 °E (Copernicus C3S via the
+#: Open-Meteo archive API, CC BY 4.0; read 2026-10-08). Data: lag 1 h 0.972, 6 h 0.782,
+#: 24 h 0.362. Per 10 minutes: 0.9572^(1/6) = 0.99274.
+SB510_PERSISTENCE_1H = 0.9572
+SB510_PERSISTENCE_SOURCE = (
+    "AR(1) fit to ERA5 100 m hourly wind speed 2020–2024 at SB-510 (Copernicus C3S via the "
+    "Open-Meteo archive API, CC BY 4.0)"
+)
+
+
+@cache
+def sb510_wind() -> WindClimate:
+    """Wind climate over the 34 SB-510 turbines (region pack: NEWA 150 m + ERA5 rose)."""
+    from app.schemas.site_assessment import DEFAULT_REGION
+    from app.services.p1.sb510_layout import SB510_TURBINES
+    from app.services.site_assessment.layers import load_region
+
+    lat = np.array([t[2] for t in SB510_TURBINES])
+    lon = np.array([t[3] for t in SB510_TURBINES])
+    return site_wind(load_region(DEFAULT_REGION), lon, lat)

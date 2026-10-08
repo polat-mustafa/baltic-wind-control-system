@@ -1,25 +1,34 @@
-"""Physics reference model of the V236-15.0 MW — the "twin" in digital twin.
+"""Physics reference model of the SB-510 turbine — the "twin" in digital twin.
+
+SB-510's turbines are "V236 class"; Vestas publishes no rotor, control or drivetrain
+data, so the twin is the IEA 15 MW reference turbine (low-speed direct drive):
+official IEA Wind Task 37 data, ``services/p1/turbine_models.py``.
 
 Physics Layer
 ─────────────
 Steady-state (10-min mean) operating point of a variable-speed,
 pitch-regulated turbine, solved from first principles instead of read off a
-power-curve table, so that power, rotor speed, pitch and drivetrain losses are
+power-curve table, so that power, rotor speed, pitch and generator losses are
 mutually consistent and every fault leaves a physically correct signature:
 
   Aerodynamics   P_aero = ½·ρ·A·v³·k_aero·f·Cp(λ, β),   λ = ω·R / v
-                 Cp(λ, β): Heier (1998) surface from ``turbine_physics``.
-  Torque law     Q_gen = K·ω²,  K = ½·ρ₀·π·R⁵·Cp_max / λ_opt³
-                 (optimal-mode gain: Burton et al., Wind Energy Handbook;
-                 Jonkman et al. 2009, NREL/TP-500-38060)
-                 → steady state where ρ·f·Cp(λ, β)/λ³ = ρ₀·Cp_max/λ_opt³.
-  Speed limits   ω_min ≤ ω ≤ ω_rated (4.0 / 8.33 rpm, ``rotor_dynamics``).
+                 Cp(λ, β): ROSCO rotor-performance table of the IEA 15 MW
+                 (CCBlade, λ 2–14.5, β −5…30°; beyond λ 14.5 the WISDEM line).
+  Torque law     Q_gen = K·ω²,  K = ½·ρ₀·π·R⁵·k_aero·Cp(λ*, 0) / λ*³, λ* = 9.0
+                 (ROSCO VS_TSRopt; Jonkman et al. 2009, NREL/TP-500-38060)
+                 → steady state where ρ·f·Cp(λ, β)/λ³ = ρ₀·Cp(λ*, 0)/λ*³.
+  Minimum pitch  β ≥ β_min(v), the ROSCO pitch-saturation schedule (3.44° at
+                 3–4.3 m/s, 0 above 7.2 m/s).
+  Speed limits   ω_min ≤ ω ≤ ω_rated (5.0 rpm; 7.518 rpm = the 95 m/s maximum tip
+                 speed of the workbook Overview, as in the official table).
   Power limit    Constant power P_lim: the rotor first speeds up along the
-                 Cp(λ) curve (λ > λ_opt) until ω_rated, then the pitch
-                 controller sheds the surplus (β > 0).
-  Drivetrain     P_el = P_mech·η_gb·η_gen (0.97 · 0.975, ``drivetrain``);
-                 gearbox loss (1 − η_gb)·P_mech is the heat source of the
-                 gearbox-bearing thermal model (first order, τ = 1 h).
+                 Cp(λ) curve until ω_rated, then the pitch controller sheds the
+                 surplus (β > 0).
+  Drivetrain     Direct drive (no gearbox). P_el = P_mech·η_gen·η_conv with
+                 η_gen = 96.55 % (generator at full load, NREL/TP-5000-75698
+                 Table 5-4) and η_gen·η_conv = 95.756 % (ROSCO VS_GenEff, the
+                 efficiency in the official power table). The generator loss
+                 (1 − η_gen)·P_mech heats the stator winding (first order, τ 1.5 h).
   Density        ρ from measured pressure and temperature (ideal gas), as in
                  IEC 61400-12-1 — no separate density normalisation needed
                  because ρ enters the physics directly.
@@ -27,21 +36,19 @@ mutually consistent and every fault leaves a physically correct signature:
 Calibration (DNV-RP-A204 "qualification of digital twins": a model is only as
 good as its calibration and validation evidence)
 ──────────────────────────────────────────────────
-The Heier surface is generic, not V236-specific. One scale factor k_aero is
-solved so the model reaches rated power exactly at the published rated wind
-speed of 11.1 m/s (``TurbineSpec.rated_speed_ms``). k_aero lumps the losses
-the generic surface does not know (blade-specific aerodynamics, converter and
-transformer losses). With that single constant the below-rated curve follows
-the legacy V236 approximate table (P ∝ v³, legacy_v236_table.py) except below
-≈ 6 m/s, where the 4 rpm minimum rotor speed forces λ > λ_opt; the deviation is
-reported in the model card.
+The ROSCO surface (CCBlade) gives Cp(9, 0°) = 0.469, the WISDEM steady-state
+table behind the official power curve 0.462. One scale factor k_aero (≈ 0.98)
+is solved so the twin reaches rated power exactly at the table's rated wind
+speed, 10.66 m/s (λ = 8.91 there: the tip-speed limit); the whole curve is then
+validated against the official table (``reference_curve``, model card).
 
 Fault parameters (the same model, perturbed)
 ────────────────────────────────────────────
-  aero_factor f          multiplies Cp: icing, soiling, leading-edge erosion
-  pitch_offset_deg       actual blade angle = reported angle + offset
-  power_limit_mw         converter / generator thermal derating
-  gearbox_loss_factor m  gearbox losses m·(1 − η_gb)·P_mech (gear/bearing distress)
+  aero_factor f            multiplies Cp: icing, soiling, leading-edge erosion
+  pitch_offset_deg         actual blade angle = reported angle + offset
+  power_limit_mw           converter / generator thermal derating
+  generator_loss_factor m  generator losses m·(1 − η_gen)·P_mech (winding,
+                           insulation, magnet or bearing distress)
 The anemometer fault lives in the measurement chain, not in the turbine, and
 is applied by the plant simulator.
 
@@ -62,22 +69,8 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.signal import lfilter, lfilter_zi
 
-from app.services.digital_twin.legacy_v236_table import legacy_v236_power_kw
-from app.services.p4.turbine_power_curve import (
-    STANDARD_AIR_DENSITY,
-    compute_swept_area_m2,
-    get_v236_spec,
-)
-from app.services.turbine_physics.aerodynamics import compute_cp_array
-from app.services.turbine_physics.drivetrain import (
-    GEARBOX_EFFICIENCY,
-    GEARBOX_RATIO,
-    GENERATOR_EFFICIENCY,
-)
-from app.services.turbine_physics.rotor_dynamics import (
-    MAX_ROTOR_SPEED_RPM,
-    MIN_ROTOR_SPEED_RPM,
-)
+from app.services.p1.turbine_models import get_turbine, rosco
+from app.services.p4.turbine_power_curve import STANDARD_AIR_DENSITY, compute_swept_area_m2
 
 FloatArray = NDArray[np.float64]
 
@@ -98,6 +91,11 @@ REGION_NAMES: dict[int, str] = {
     REGION_PITCH: "pitch regulated",
 }
 
+_TURBINE = get_turbine()
+_SURFACE, _CONTROL = rosco()
+_GEN = _CONTROL.report["generator"]
+_BETA_QUANTUM_DEG = 0.05  # minimum-pitch values are grouped to this step for the λ solve
+
 _BISECTION_STEPS = 32  # interval shrinks by 2⁻³² — far below sensor resolution
 _PITCH_SEARCH_MAX_DEG = 45.0
 _LAMBDA_SEARCH_MAX = 25.0
@@ -105,28 +103,34 @@ _LAMBDA_SEARCH_MAX = 25.0
 
 @dataclass(frozen=True)
 class ReferenceModelParams:
-    """Parameters of the V236 reference model, with their provenance.
+    """Parameters of the reference model, with their provenance.
 
-    Turbine data come from the shared ``TurbineSpec``/``turbine_physics``
-    constants. The gearbox thermal parameters are *illustrative* (no public
-    V236 data) and are labelled as such in the model card.
+    Turbine, controller and generator data are the IEA 15 MW's (workbook,
+    ROSCO, definition report). The winding thermal parameters are *illustrative*
+    (no public IEA 15 MW thermal data) and are labelled as such in the model card.
     """
 
-    rotor_radius_m: float = get_v236_spec().rotor_diameter_m / 2.0
-    rated_power_mw: float = get_v236_spec().rated_power_mw
-    cut_in_ms: float = get_v236_spec().cut_in_speed_ms
-    rated_wind_ms: float = get_v236_spec().rated_speed_ms
-    cut_out_ms: float = get_v236_spec().cut_out_speed_ms
-    min_rotor_rpm: float = MIN_ROTOR_SPEED_RPM
-    rated_rotor_rpm: float = MAX_ROTOR_SPEED_RPM
-    gearbox_ratio: float = GEARBOX_RATIO
-    gearbox_efficiency: float = GEARBOX_EFFICIENCY
-    generator_efficiency: float = GENERATOR_EFFICIENCY
+    rotor_radius_m: float = _TURBINE.rotor_radius_m
+    rated_power_mw: float = _TURBINE.rated_mw
+    cut_in_ms: float = _TURBINE.cut_in_ms
+    rated_wind_ms: float = _TURBINE.rated_ms
+    cut_out_ms: float = _TURBINE.cut_out_ms
+    min_rotor_rpm: float = _TURBINE.min_rotor_rpm
+    # rated speed of the official table = its 95 m/s maximum tip speed (7.518 rpm); the
+    # ROSCO pitch-controller reference is 7.56 rpm
+    rated_rotor_rpm: float = 95.0 / _TURBINE.rotor_radius_m * 30.0 / math.pi
+    tsr_opt: float = _CONTROL.tsr_opt
+    generator_efficiency: float = float(_GEN["efficiency_full_load"])
+    converter_efficiency: float = _CONTROL.generator_efficiency / float(
+        _GEN["efficiency_full_load"]
+    )
     reference_density: float = STANDARD_AIR_DENSITY
-    # Gearbox-bearing thermal model (illustrative): T = T_amb + ΔT₀ + R_th·P_loss
-    gearbox_temp_offset_k: float = 15.0
-    gearbox_thermal_resistance_k_per_kw: float = 0.0735  # ≈ +35 K at rated losses
-    gearbox_thermal_time_constant_s: float = 3600.0
+    # Stator-winding thermal model (illustrative): T = T_amb + ΔT₀ + R_th·P_loss.
+    # 10 + 0.125 × 540 kW ≈ 78 K above ambient at rated losses (0.54 MW): within the
+    # IEC 60034-1 class-B rise, the usual design margin for class-F (155 °C) insulation.
+    generator_temp_offset_k: float = 10.0
+    generator_thermal_resistance_k_per_kw: float = 0.125
+    generator_thermal_time_constant_s: float = 5400.0
 
     @property
     def swept_area_m2(self) -> float:
@@ -134,21 +138,21 @@ class ReferenceModelParams:
 
     @property
     def drivetrain_efficiency(self) -> float:
-        return self.gearbox_efficiency * self.generator_efficiency
+        return self.generator_efficiency * self.converter_efficiency
 
 
 @dataclass(frozen=True)
 class AeroCalibration:
-    """Result of calibrating the generic Heier surface to the V236."""
+    """Result of calibrating the ROSCO surface to the official power table."""
 
-    lambda_opt: float  # tip-speed ratio of maximum Cp at β = 0
-    cp_max_heier: float  # Heier Cp at (λ_opt, 0)
-    k_aero: float  # scale so P(11.1 m/s) = P_rated
-    torque_gain_nm_s2: float  # K in Q = K·ω² [N·m/(rad/s)²], rotor side
+    lambda_opt: float  # tip-speed ratio the torque law tracks (ROSCO VS_TSRopt)
+    cp_max_surface: float  # ROSCO Cp at (λ_opt, 0)
+    k_aero: float  # scale so P(rated wind of the table) = P_rated
+    torque_gain_nm_s2: float  # K in Q = K·ω² [N·m/(rad/s)²], rotor = generator side
 
     @property
     def cp_max(self) -> float:
-        return self.k_aero * self.cp_max_heier
+        return self.k_aero * self.cp_max_surface
 
 
 @dataclass
@@ -158,7 +162,7 @@ class FaultParams:
     aero_factor: FloatArray | float = 1.0
     pitch_offset_deg: FloatArray | float = 0.0
     power_limit_mw: FloatArray | float = math.inf
-    gearbox_loss_factor: FloatArray | float = 1.0
+    generator_loss_factor: FloatArray | float = 1.0
 
 
 @dataclass(frozen=True)
@@ -172,7 +176,7 @@ class OperatingPoints:
     tip_speed_ratio: FloatArray
     cp: FloatArray  # effective power coefficient k_aero·f·Cp
     mech_power_mw: FloatArray
-    gearbox_loss_kw: FloatArray
+    generator_loss_kw: FloatArray
     region: NDArray[np.int8]
     extra: dict[str, FloatArray] = field(default_factory=dict)
 
@@ -185,26 +189,29 @@ DEFAULT_PARAMS = ReferenceModelParams()
 
 @lru_cache(maxsize=4)
 def calibrate(params: ReferenceModelParams = DEFAULT_PARAMS) -> AeroCalibration:
-    """Find λ_opt, Cp_max and k_aero (cached; pure function of the parameters)."""
-    lam = np.linspace(4.0, 14.0, 10_001)
-    cp = compute_cp_array(lam, 0.0)
-    i = int(np.argmax(cp))
-    lambda_opt = float(lam[i])
-    cp_max = float(cp[i])
-
+    """λ*, Cp(λ*, 0) and k_aero (cached; pure function of the parameters)."""
+    lambda_opt = params.tsr_opt
+    cp_max = float(_SURFACE.cp_array(lambda_opt, 0.0))
+    # rated point of the table: tip-speed-limited rotor speed, ROSCO minimum pitch
+    omega_r = params.rated_rotor_rpm * RPM_TO_RAD_S
+    lam_r = min(lambda_opt, omega_r * params.rotor_radius_m / params.rated_wind_ms)
+    beta_r = round(_CONTROL.minimum_pitch_deg(params.rated_wind_ms) / _BETA_QUANTUM_DEG) * (
+        _BETA_QUANTUM_DEG
+    )  # ROSCO peak shaving starts at rated (0.1°)
+    cp_r = float(_SURFACE.cp_array(lam_r, beta_r))
     p_wind_rated = 0.5 * params.reference_density * params.swept_area_m2 * params.rated_wind_ms**3
-    k_aero = params.rated_power_mw * 1e6 / (params.drivetrain_efficiency * p_wind_rated * cp_max)
+    k_aero = params.rated_power_mw * 1e6 / (params.drivetrain_efficiency * p_wind_rated * cp_r)
     r = params.rotor_radius_m
     gain = 0.5 * params.reference_density * math.pi * r**5 * k_aero * cp_max / lambda_opt**3
     return AeroCalibration(
         lambda_opt=lambda_opt,
-        cp_max_heier=cp_max,
+        cp_max_surface=cp_max,
         k_aero=k_aero,
         torque_gain_nm_s2=gain,
     )
 
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=512)
 def _stable_lambda_floor(pitch_deg: float) -> float:
     """Lower edge of the stable K·ω² branch for a given blade angle.
 
@@ -212,9 +219,10 @@ def _stable_lambda_floor(pitch_deg: float) -> float:
     with λ. Walking left from the Cp peak, the branch ends where that ratio
     stops rising (the stall side lies beyond it).
     """
-    lam = np.linspace(1.0, 14.0, 2_601)
-    ratio = compute_cp_array(lam, pitch_deg) / lam**3
-    i = int(np.argmax(compute_cp_array(lam, pitch_deg)))
+    lam = np.linspace(2.0, 14.5, 2_501)
+    cp = _SURFACE.cp_array(lam, pitch_deg)
+    ratio = cp / lam**3
+    i = int(np.argmax(cp))
     while i > 0 and ratio[i - 1] > ratio[i]:
         i -= 1
     return float(lam[i])
@@ -272,24 +280,34 @@ def evaluate(
     aero_f = np.clip(flat(f.aero_factor), 0.0, 1.5)
     offset = flat(f.pitch_offset_deg)
     p_lim = np.minimum(flat(f.power_limit_mw), params.rated_power_mw)
-    loss_factor = np.maximum(flat(f.gearbox_loss_factor), 0.0)
+    loss_factor = np.maximum(flat(f.generator_loss_factor), 0.0)
+    # ROSCO minimum-pitch schedule (quantised for the grouped λ solve)
+    beta_min = (
+        np.round(
+            np.interp(v, _CONTROL.min_pitch_wind_ms, _CONTROL.min_pitch_deg) / _BETA_QUANTUM_DEG
+        )
+        * _BETA_QUANTUM_DEG
+    )
 
-    eta_gb = np.clip(1.0 - loss_factor * (1.0 - params.gearbox_efficiency), 0.5, 1.0)
-    eta = eta_gb * params.generator_efficiency
+    eta_gen = np.clip(1.0 - loss_factor * (1.0 - params.generator_efficiency), 0.5, 1.0)
+    eta = eta_gen * params.converter_efficiency
     r = params.rotor_radius_m
     v_safe = np.maximum(v, 0.1)
     p_wind_w = 0.5 * rho * params.swept_area_m2 * v_safe**3
     scale = cal.k_aero * aero_f  # effective Cp multiplier
 
     def p_el_mw(idx: NDArray[np.intp], lam: FloatArray, beta: FloatArray) -> FloatArray:
-        return np.asarray(eta[idx] * p_wind_w[idx] * scale[idx] * compute_cp_array(lam, beta) / 1e6)
+        return np.asarray(
+            eta[idx] * p_wind_w[idx] * scale[idx] * _SURFACE.cp_array(lam, beta) / 1e6
+        )
 
     every = np.arange(n)
 
-    # 1. K·ω² equilibrium: ρ·f·k·Cp(λ, β₀)/λ³ = ρ₀·k·Cp_max/λ_opt³
+    # 1. K·ω² equilibrium: ρ·f·k·Cp(λ, β₀)/λ³ = ρ₀·k·Cp_max/λ_opt³, β₀ = β_min + offset
     target = params.reference_density * cal.cp_max / cal.lambda_opt**3
+    beta0 = beta_min + offset
     # λ_eq depends only on (ρ·f, β₀): solve once per distinct pair, then scatter.
-    keys = np.stack([rho * aero_f, offset], axis=1)
+    keys = np.stack([rho * aero_f, beta0], axis=1)
     uniq, inverse = np.unique(keys, axis=0, return_inverse=True)
     inverse = inverse.ravel()
     u_density, u_offset = uniq[:, 0], uniq[:, 1]
@@ -297,7 +315,7 @@ def evaluate(
 
     def torque_balance(lam: FloatArray) -> FloatArray:
         return np.asarray(
-            u_density * cal.k_aero * compute_cp_array(lam, u_offset) / lam**3 - target
+            u_density * cal.k_aero * _SURFACE.cp_array(lam, u_offset) / lam**3 - target
         )
 
     u_lam = _bisect_decreasing(torque_balance, u_floor, np.full(len(uniq), _LAMBDA_SEARCH_MAX))
@@ -312,14 +330,14 @@ def evaluate(
     region = np.where(omega <= omega_min * (1 + 1e-9), REGION_MIN_SPEED, REGION_OPTIMAL).astype(
         np.int8
     )
-    beta_actual = offset.copy()
+    beta_actual = beta0.copy()
     power = p_el_mw(every, lam, beta_actual)
 
     # 2. Power limit: speed up at constant power, then pitch at rated speed.
     lim_idx = np.flatnonzero(power > p_lim)
     if lim_idx.size:
         lam_rated = omega_rated * r / v_safe[lim_idx]
-        off_l = offset[lim_idx]
+        off_l = beta0[lim_idx]
         plim_l = p_lim[lim_idx]
         surplus_at_rated = p_el_mw(lim_idx, lam_rated, off_l) - plim_l
         su = surplus_at_rated <= 0.0  # limit reached before rated rotor speed
@@ -358,9 +376,9 @@ def evaluate(
         np.maximum(beta_actual - offset, 0.0),
         np.where(v > params.cut_out_ms, 90.0, 0.0),  # feathered in storm stop
     )
-    cp_eff = np.where(operating, scale * compute_cp_array(lam, beta_actual), 0.0)
+    cp_eff = np.where(operating, scale * _SURFACE.cp_array(lam, beta_actual), 0.0)
     mech = np.where(operating, power / eta, 0.0)
-    loss_kw = (1.0 - eta_gb) * mech * 1e3
+    loss_kw = (1.0 - eta_gen) * mech * 1e3
     region = np.where(operating, region, REGION_STOPPED).astype(np.int8)
 
     def shaped(x: FloatArray) -> FloatArray:
@@ -374,21 +392,21 @@ def evaluate(
         tip_speed_ratio=shaped(np.where(operating, lam, 0.0)),
         cp=shaped(cp_eff),
         mech_power_mw=shaped(mech),
-        gearbox_loss_kw=shaped(loss_kw),
+        generator_loss_kw=shaped(loss_kw),
         region=region.reshape(shape),
     )
 
 
-# ── Gearbox thermal model ─────────────────────────────────────────
+# ── Generator stator-winding thermal model ────────────────────────
 
 
-def gearbox_temperature(
+def generator_temperature(
     loss_kw: FloatArray,
     ambient_c: FloatArray,
     dt_s: float,
     params: ReferenceModelParams = DEFAULT_PARAMS,
 ) -> FloatArray:
-    """First-order gearbox-bearing temperature along axis 0 (time) [°C].
+    """First-order stator-winding temperature along axis 0 (time) [°C].
 
     T_ss = T_amb + ΔT₀ + R_th·P_loss;  T[k] = T[k−1] + α·(T_ss[k] − T[k−1]),
     α = 1 − exp(−Δt/τ). Starts in thermal equilibrium with the first sample.
@@ -397,10 +415,10 @@ def gearbox_temperature(
     """
     t_ss = (
         np.asarray(ambient_c, dtype=np.float64)
-        + params.gearbox_temp_offset_k
-        + params.gearbox_thermal_resistance_k_per_kw * np.asarray(loss_kw, dtype=np.float64)
+        + params.generator_temp_offset_k
+        + params.generator_thermal_resistance_k_per_kw * np.asarray(loss_kw, dtype=np.float64)
     )
-    return first_order_lag(t_ss, dt_s, params.gearbox_thermal_time_constant_s)
+    return first_order_lag(t_ss, dt_s, params.generator_thermal_time_constant_s)
 
 
 def first_order_lag(x: FloatArray, dt_s: float, tau_s: float) -> FloatArray:
@@ -429,15 +447,15 @@ class ReferenceCurve:
     pitch_deg: FloatArray
     tip_speed_ratio: FloatArray
     cp: FloatArray
-    gearbox_loss_kw: FloatArray
+    generator_loss_kw: FloatArray
     region: NDArray[np.int8]
-    p1_table_power_mw: FloatArray  # legacy V236 approximate table (former P1), for validation
+    p1_table_power_mw: FloatArray  # official IEA 15 MW power table (as P1), for validation
 
 
 @lru_cache(maxsize=1)
 def reference_curve(step_ms: float = 0.25) -> ReferenceCurve:
-    """Twin steady-state curves at ρ₀ = 1.225 kg/m³ over 0–32 m/s."""
-    v = np.round(np.arange(0.0, 32.0 + step_ms / 2, step_ms), 4)
+    """Twin steady-state curves at ρ₀ = 1.225 kg/m³ over 0–27 m/s."""
+    v = np.round(np.arange(0.0, 27.0 + step_ms / 2, step_ms), 4)
     op = evaluate(v)
     return ReferenceCurve(
         wind_ms=v,
@@ -446,7 +464,7 @@ def reference_curve(step_ms: float = 0.25) -> ReferenceCurve:
         pitch_deg=op.pitch_deg,
         tip_speed_ratio=op.tip_speed_ratio,
         cp=op.cp,
-        gearbox_loss_kw=op.gearbox_loss_kw,
+        generator_loss_kw=op.generator_loss_kw,
         region=op.region,
-        p1_table_power_mw=legacy_v236_power_kw(v) / 1e3,
+        p1_table_power_mw=_TURBINE.power_curve_kw(v) / 1e3,
     )

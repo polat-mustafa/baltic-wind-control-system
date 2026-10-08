@@ -42,40 +42,34 @@ export interface SchematicPart {
 /**
  * Nacelle interior schematic — view is from above, port-side cut open.
  *
- * Layout (left = rotor side, right = rear of nacelle):
- *   [Rotor] → [Main bearing] → [Shaft/brake] → [Gearbox] → [Coupling] →
- *   [Generator] → [Converter] → [Transformer]
+ * Layout (left = rotor side, right = rear of nacelle) — IEA 15 MW direct drive:
+ *   [Rotor] → [Main bearings] → [Main shaft] → [Rotor brake] →
+ *   [Direct-drive PMSG, outside the nacelle] → [Converter] → [Transformer]
  *
  * Above the drivetrain: crane rail, lightning conductor, control cabinets.
- * Below:                 HPU, oil cooler, cable routing, yaw brakes, UPS.
+ * Below:                 HPU, coolant skid, cable routing, yaw brakes, UPS.
  */
-const CITE_V236 = { source: "thewindpower.net — V236-15 MW datasheet", url: "https://www.thewindpower.net/turbine_en_1798_vestas_v236-15-0-mw.php" };
-const CITE_ZF = { source: "WindSystemsMag — Vestas/ZF powertrain launch", url: "https://www.windsystemsmag.com/vestas-zf-wind-power-launch-serially-produced-powertrain/" };
-const CITE_PMSG = { source: "NREL TP-84919 — MS-PMSG 96 % η", url: "https://docs.nrel.gov/docs/fy23osti/84919.pdf" };
+const CITE_IEA15 = { source: "Gaertner et al. 2020 — IEA 15 MW reference turbine, NREL/TP-5000-75698", url: "https://docs.nlr.gov/docs/fy20osti/75698.pdf" };
+const CITE_ROSCO = { source: "IEA-15-240-RWT v1.1.18 — ROSCO DISCON.IN / ElastoDyn", url: "https://github.com/IEAWindTask37/IEA-15-240-RWT" };
 const CITE_TRANSFORMER = { source: "IEC 60076-14 — liquid-filled 66 kV transformer", url: "https://www.npcelectric.com/transformers/66kv-69kv-power-transformer.html" };
-const CITE_CONVERTER = { source: "Wiley Wind Energy we.2499 — full-power converter", url: "https://onlinelibrary.wiley.com/doi/full/10.1002/we.2499" };
 const CITE_IEC_61400_24 = { source: "IEC 61400-24 — lightning protection", url: "https://webstore.iec.ch/publication/26327" };
 const CITE_IEC_62040 = { source: "IEC 62040-1 — UPS safety", url: "https://webstore.iec.ch/publication/32136" };
 
 export const NACELLE_SCHEMATIC_PARTS: SchematicPart[] = [
   // ── Main driveline (left → right) ─────────────────────────────
   { id: "hub",       x:  20, y: 260, w:  80, h: 120, label: "Rotor Hub",          sublabel: "Pitch system × 3",       tone: "rotating",    callout: { x:  60, y: 210 },
-    groups: ["drivetrain", "structural"], cite: [CITE_V236] },
-  { id: "bearing",   x: 110, y: 290, w:  55, h:  70, label: "Main Bearing",       sublabel: "SKF TQO spherical",      tone: "rotating",    callout: { x: 138, y: 240 },
-    groups: ["drivetrain"], cite: [CITE_ZF] },
-  { id: "shaft",     x: 170, y: 305, w: 110, h:  40, label: "Main Shaft",         sublabel: "Forged 42CrMo4",         tone: "metal",       callout: { x: 225, y: 265 },
-    groups: ["drivetrain"] },
-  { id: "brake",     x: 285, y: 295, w:  40, h:  60, label: "Rotor Brake",        sublabel: "Hydraulic caliper",      tone: "metal",       callout: { x: 305, y: 250 },
+    groups: ["drivetrain", "structural"], cite: [CITE_IEA15] },
+  { id: "bearing",   x: 110, y: 285, w:  70, h:  80, label: "Main Bearings",      sublabel: "TDO + SRB · 1.2 m apart", tone: "rotating",    callout: { x: 145, y: 240 },
+    groups: ["drivetrain"], cite: [CITE_IEA15] },
+  { id: "shaft",     x: 185, y: 300, w:  70, h:  50, label: "Main Shaft",         sublabel: "Hollow Ø 6 m · 2.2 m",   tone: "metal",       callout: { x: 220, y: 265 },
+    groups: ["drivetrain"], cite: [CITE_IEA15] },
+  { id: "brake",     x: 260, y: 295, w:  40, h:  60, label: "Rotor Brake",        sublabel: "Calipers on rotor disc", tone: "metal",       callout: { x: 280, y: 250 },
     groups: ["drivetrain", "safety", "hydraulic"] },
-  { id: "gearbox",   x: 330, y: 250, w: 170, h: 150, label: "3-Stage Gearbox",    sublabel: "48:1 planetary · ZF",    tone: "rotating",    callout: { x: 415, y: 210 },
-    groups: ["drivetrain"], cite: [CITE_ZF] },
-  { id: "coupling",  x: 505, y: 310, w:  60, h:  50, label: "Flexible Coupling",  sublabel: "Torsion-isolating",      tone: "metal",       callout: { x: 535, y: 260 },
-    groups: ["drivetrain"] },
-  { id: "generator", x: 570, y: 250, w: 180, h: 170, label: "PMSG Generator",     sublabel: "15 MW · 400 rpm @ rated", tone: "winding",   callout: { x: 660, y: 210 },
-    groups: ["drivetrain", "electrical"], cite: [CITE_PMSG] },
-  { id: "converter", x: 760, y: 260, w: 120, h: 140, label: "Power Converter",    sublabel: "Dual IGBT · 4-quadrant", tone: "cabinet",     callout: { x: 820, y: 220 },
-    groups: ["electrical"], cite: [CITE_CONVERTER] },
-  { id: "transformer", x: 890, y: 260, w: 100, h: 140, label: "Step-Up Transformer", sublabel: "0.69 kV → 66 kV · Dyn11", tone: "cabinet", callout: { x: 940, y: 220 },
+  { id: "generator", x: 305, y: 235, w: 255, h: 190, label: "Direct-Drive PMSG",  sublabel: "200 poles · 7.56 rpm · 12.6 Hz · 4.77 kV", tone: "winding", callout: { x: 430, y: 200 },
+    groups: ["drivetrain", "electrical"], cite: [CITE_IEA15] },
+  { id: "converter", x: 570, y: 260, w: 150, h: 140, label: "Full-Power Converter", sublabel: "AC/DC/AC · 12.6 → 50 Hz", tone: "cabinet",   callout: { x: 645, y: 220 },
+    groups: ["electrical"], cite: [CITE_ROSCO] },
+  { id: "transformer", x: 730, y: 260, w: 120, h: 140, label: "Step-Up Transformer", sublabel: "→ 66 kV · Dyn11", tone: "cabinet", callout: { x: 790, y: 220 },
     groups: ["electrical"], cite: [CITE_TRANSFORMER] },
 
   // ── Upper deck — crane, lightning, cabinets ──────────────────
@@ -88,10 +82,10 @@ export const NACELLE_SCHEMATIC_PARTS: SchematicPart[] = [
   { id: "ups",               x: 300, y: 150, w: 100, h:  90, label: "UPS",                     sublabel: "6.6 kWh · 15 min backup", tone: "cabinet",    callout: { x: 350, y: 130 },
     groups: ["electrical", "safety"], cite: [CITE_IEC_62040] },
 
-  // ── Lower deck — HPU, oil cooler, cables, yaw, fire ──────────
-  { id: "hpu",            x: 130, y: 440, w: 140, h:  80, label: "Hydraulic Power Unit",  sublabel: "Pitch + brake + yaw · 210 bar", tone: "tank",    callout: { x: 200, y: 560 },
+  // ── Lower deck — HPU, coolant skid, cables, yaw, fire ────────
+  { id: "hpu",            x: 130, y: 440, w: 140, h:  80, label: "Hydraulic Power Unit",  sublabel: "Pitch + brake + yaw · 220 bar", tone: "tank",    callout: { x: 200, y: 560 },
     groups: ["hydraulic"] },
-  { id: "oil_cooler",     x: 280, y: 440, w: 140, h:  80, label: "Oil Cooler",            sublabel: "Gearbox + gen. coolant",  tone: "cooling", callout: { x: 350, y: 560 },
+  { id: "coolant_skid",   x: 280, y: 440, w: 140, h:  80, label: "Coolant Skid",          sublabel: "Generator + converter",   tone: "cooling", callout: { x: 350, y: 560 },
     groups: ["cooling"] },
   { id: "cable_routing",  x: 430, y: 440, w: 160, h:  80, label: "Cable Routing",         sublabel: "Twist loop ±3½ turns",    tone: "cabinet", callout: { x: 510, y: 560 },
     groups: ["electrical", "maintenance"] },
@@ -127,10 +121,10 @@ export const TONE_STYLES: Record<SchematicPart["tone"], { fill: string; stroke: 
 // ── P&ID-style functional connections ────────────────────────────
 //
 // Colour conventions match plant piping & instrumentation diagrams:
-//   coolant      → cyan   (oil / water cooling circuit)
+//   coolant      → cyan   (water-glycol cooling circuit)
 //   hydraulic    → orange (pressurised oil — pitch / brake / yaw)
 //   electrical_mv → red   (medium voltage, 66 kV class)
-//   electrical_lv → slate (low voltage, 0.69 kV class)
+//   electrical_lv → slate (generator / converter side, 4.77 kV generator)
 //   data         → green  (fiber / CAN bus / IEC 61850 MMS)
 
 export type ConnectionKind =
@@ -147,10 +141,10 @@ export interface SchematicConnection {
 }
 
 export const CONNECTION_STYLES: Record<ConnectionKind, { stroke: string; label: string }> = {
-  hydraulic:    { stroke: "#fb923c", label: "Hydraulic (210 bar)" },
-  electrical_lv:{ stroke: "#94a3b8", label: "LV 0.69 kV" },
+  hydraulic:    { stroke: "#fb923c", label: "Hydraulic (220 bar)" },
+  electrical_lv:{ stroke: "#94a3b8", label: "Generator / converter side" },
   electrical_mv:{ stroke: "#ef4444", label: "MV 66 kV" },
-  coolant:      { stroke: "#22d3ee", label: "Coolant (oil/water)" },
+  coolant:      { stroke: "#22d3ee", label: "Coolant (water-glycol)" },
   data:         { stroke: "#4ade80", label: "Data · IEC 61850" },
 };
 
@@ -160,9 +154,9 @@ export const NACELLE_CONNECTIONS: SchematicConnection[] = [
   { from: "hpu", to: "brake",     kind: "hydraulic" },
   { from: "hpu", to: "yaw_brake", kind: "hydraulic" },
 
-  // Cooling loop — oil cooler services gearbox and generator
-  { from: "oil_cooler", to: "gearbox",   kind: "coolant" },
-  { from: "oil_cooler", to: "generator", kind: "coolant" },
+  // Cooling loop — coolant skid serves the generator stator and the converter
+  { from: "coolant_skid", to: "generator", kind: "coolant" },
+  { from: "coolant_skid", to: "converter", kind: "coolant" },
 
   // Electrical power chain — generator → converter → transformer → MV cable
   { from: "generator",   to: "converter",     kind: "electrical_lv" },

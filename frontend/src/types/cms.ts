@@ -3,13 +3,13 @@
  *
  * Maps to backend schemas/cms.py and routers/p3/cms.py.
  * Covers vibration (FFT), oil analysis, health index, RUL, and fault injection.
- * Fleet of 34 × Vestas V236-15.0 MW turbines.
+ * Fleet of 34 × 15 MW (IEA 15 MW, direct drive) turbines.
  */
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
 /** Components monitored per turbine (backend CMS_COMPONENTS). */
-export type CMSComponent = "MAIN_BEARING" | "GEARBOX" | "GENERATOR" | "PITCH" | "YAW";
+export type CMSComponent = "MAIN_BEARING" | "REAR_BEARING" | "GENERATOR" | "PITCH" | "YAW";
 
 /** Health-index bands: GREEN ≥ 80 > YELLOW ≥ 60 > AMBER ≥ 40 > RED ≥ 20 > CRITICAL. */
 export type CMSAlertLevel = "GREEN" | "YELLOW" | "AMBER" | "RED" | "CRITICAL";

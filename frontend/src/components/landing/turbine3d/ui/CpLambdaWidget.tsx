@@ -1,25 +1,21 @@
 /**
  * Cp(λ) mini-plot — compact canvas widget.
  *
- * Plots the classic Cp–λ curve with:
- *   - Cp_max ≈ 0.48 at λ_opt ≈ 9.3: Heier's generic curve peaks at λ ≈ 8.1,
- *     so λ is rescaled — large modern rotors run λ_opt ≈ 9–10 (V236 at rated:
- *     103 m/s tip / 11.1 m/s = 9.3; IEA 15 MW RWT λ_opt = 9.0)
+ * Plots the Cp–λ curve of the SB-510 rotor (IEA 15 MW) at the current pitch from
+ * the official ROSCO performance table (Cp_Ct_Cq.IEA15MW.txt, CCBlade, λ 2–14.5,
+ * β 0–30°), fetched once from GET /api/v1/turbine-physics/cp-surface and
+ * interpolated bilinearly — the same table the backend simulator uses:
+ *   - Cp_max = 0.469 at λ_opt = 9 (ROSCO VS_TSRopt), β = 0°
  *   - Betz dashed line at 16/27 = 0.593
- *   - Red dot = current operating point (λ, Cp) from wind/rpm
- *
- * We don't hit the backend for every frame — the Cp curve is a reasonable
- * analytical approximation following Heier's exponential form:
- *     Cp(λ, β) = c1·(c2/λ_i − c3·β − c4)·exp(−c5/λ_i) + c6·λ
- *     1/λ_i    = 1/(λ + 0.08β) − 0.035/(β³+1)
+ *   - Red dot = current operating point (λ = ωR/V, Cp) from wind / rpm / pitch
  */
 
-import { useMemo, useRef, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 
+import { getCpSurface, type CpSurfaceResponse } from "../../../../services/turbinePhysicsApi";
 import { useLandingStore, selectTurbine } from "../../../../store/landingStore";
-
-const ROTOR_RADIUS = 118;
+import { ROTOR_RADIUS } from "../model/layout";
 
 interface CpLambdaWidgetProps {
   turbineId: string;
@@ -27,37 +23,54 @@ interface CpLambdaWidgetProps {
   onClose: () => void;
 }
 
-const LAMBDA_SCALE = 8.1 / 9.3;
+let surfaceCache: Promise<CpSurfaceResponse | null> | null = null;
+const loadSurface = () => (surfaceCache ??= getCpSurface().catch(() => null));
 
-function cpHeier(lambdaIn: number, betaDeg: number): number {
-  const lambda = lambdaIn * LAMBDA_SCALE;
-  if (lambda <= 0) return 0;
-  const beta = betaDeg;
-  const invLi = 1 / (lambda + 0.08 * beta) - 0.035 / (beta ** 3 + 1);
-  if (invLi <= 0) return 0;
-  const c1 = 0.5176, c2 = 116, c3 = 0.4, c4 = 5, c5 = 21, c6 = 0.0068;
-  const cp = c1 * (c2 * invLi - c3 * beta - c4) * Math.exp(-c5 * invLi) + c6 * lambda;
-  return Math.max(0, cp);
+/** Linear interpolation index + weight of x in an ascending grid (clamped). */
+function locate(grid: number[], x: number): [number, number] {
+  const v = Math.min(grid[grid.length - 1], Math.max(grid[0], x));
+  let i = 0;
+  while (i < grid.length - 2 && v > grid[i + 1]) i++;
+  return [i, (v - grid[i]) / (grid[i + 1] - grid[i])];
+}
+
+/** Bilinear Cp(λ, β) from the table; 0 outside λ ∈ [2, 14.5]. */
+function cpAt(s: CpSurfaceResponse, lambda: number, betaDeg: number): number {
+  const L = s.tip_speed_ratios;
+  if (lambda < L[0] || lambda > L[L.length - 1]) return 0;
+  const [i, u] = locate(L, lambda);
+  const [j, w] = locate(s.pitch_angles_deg, betaDeg);
+  const c = s.cp_matrix; // [β][λ]
+  return (
+    (1 - u) * (1 - w) * c[j][i] + u * (1 - w) * c[j][i + 1] + (1 - u) * w * c[j + 1][i] + u * w * c[j + 1][i + 1]
+  );
 }
 
 export function CpLambdaWidget({ turbineId, windMs, onClose }: CpLambdaWidgetProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const turbine = useLandingStore(selectTurbine(turbineId));
+  const [surface, setSurface] = useState<CpSurfaceResponse | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadSurface().then((s) => alive && setSurface(s));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const rpm = turbine?.rotorSpeedRpm ?? 0;
   const pitch = turbine?.pitchAngleDeg ?? 0;
   const omega = (rpm * 2 * Math.PI) / 60;
   const tipSpeed = omega * ROTOR_RADIUS;
   const lambda = windMs > 0.5 ? tipSpeed / windMs : 0;
-  const cp = cpHeier(lambda, pitch);
+  const cp = surface ? cpAt(surface, lambda, pitch) : 0;
 
   const curve = useMemo(() => {
     const pts: Array<[number, number]> = [];
-    for (let l = 0.5; l <= 14; l += 0.1) {
-      pts.push([l, cpHeier(l, pitch)]);
-    }
+    if (!surface) return pts;
+    for (let l = 2; l <= 14.5; l += 0.1) pts.push([l, cpAt(surface, l, pitch)]);
     return pts;
-  }, [pitch]);
+  }, [surface, pitch]);
 
   useEffect(() => {
     const cvs = canvasRef.current;
@@ -70,7 +83,7 @@ export function CpLambdaWidget({ turbineId, windMs, onClose }: CpLambdaWidgetPro
     ctx.clearRect(0, 0, W, H);
 
     const pad = { l: 30, r: 8, t: 10, b: 22 };
-    const xMin = 0, xMax = 14;
+    const xMin = 0, xMax = 15;
     const yMin = 0, yMax = 0.6;
     const xToPx = (x: number) => pad.l + ((x - xMin) / (xMax - xMin)) * (W - pad.l - pad.r);
     const yToPx = (y: number) => pad.t + (1 - (y - yMin) / (yMax - yMin)) * (H - pad.t - pad.b);

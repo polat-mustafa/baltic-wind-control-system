@@ -189,9 +189,9 @@ export const WindProfile = memo(function WindProfile({ windMs, windFromDeg }: { 
         </div>
       </Html>
       {[
-        [TIP_HIGH, `tip top ${TIP_HIGH} m · ${uHigh.toFixed(1)} m/s`],
+        [TIP_HIGH, `tip top ${TIP_HIGH.toFixed(1)} m · ${uHigh.toFixed(1)} m/s`],
         [HUB[1], `hub ${HUB[1]} m · ${windMs.toFixed(1)} m/s`],
-        [TIP_LOW, `tip bottom ${TIP_LOW} m · ${uLow.toFixed(1)} m/s`],
+        [TIP_LOW, `tip bottom ${TIP_LOW.toFixed(1)} m · ${uLow.toFixed(1)} m/s`],
       ].map(([z, label]) => (
         <Html key={String(z)} position={[MAST_X, Number(z), MAST_Z + 10]} center zIndexRange={[9, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded border border-border-primary bg-bg-secondary/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-text-primary">

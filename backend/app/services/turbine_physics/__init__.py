@@ -1,10 +1,10 @@
-"""Turbine Physics Module — dynamic simulation of the V236-15.0 MW.
+"""Turbine Physics Module — dynamic simulation of the SB-510 turbine (IEA 15 MW).
 
 This package provides time-stepping physics simulation for a wind turbine:
-- Aerodynamics: Cp(λ,β) surface, tip-speed ratio, aero power/torque
+- Aerodynamics: ROSCO Cp(λ,β) table, tip-speed ratio, aero power/torque
 - Rotor dynamics: Newton's 2nd law for rotation, Euler integration
-- Drivetrain: Gearbox ratio, generator, efficiency losses
-- Pitch control: PI controller for above-rated regulation
+- Drivetrain: direct-drive PMSG, full converter, ROSCO torque controller
+- Pitch control: ROSCO gain-scheduled PI, minimum-pitch schedule
 - Yaw control: Nacelle alignment, cos³ power loss
 
 Usage:
@@ -28,7 +28,7 @@ from app.services.turbine_physics.drivetrain import (
     DrivetrainConfig,
     DrivetrainState,
     compute_drivetrain_state,
-    compute_generator_speed_rpm,
+    compute_generator_frequency_hz,
     compute_generator_torque_nm,
 )
 
@@ -96,7 +96,7 @@ __all__ = [
     "compute_cp",
     "compute_ct",
     "compute_drivetrain_state",
-    "compute_generator_speed_rpm",
+    "compute_generator_frequency_hz",
     "compute_generator_torque_nm",
     "compute_kinetic_energy_mj",
     "compute_pitch_command",

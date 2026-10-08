@@ -29,7 +29,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   EXTERNAL_FACTORS: "External Factors",
   COMMISSIONING: "Commissioning / Testing",
   BLADE_EROSION: "Blade Erosion",
-  GEARBOX: "Gearbox Fault",
   GENERATOR: "Generator Fault",
   CONTROL_SYSTEM: "Control System",
   ICING: "Blade Icing",

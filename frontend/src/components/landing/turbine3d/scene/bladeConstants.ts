@@ -1,4 +1,4 @@
-/** V236 blade length [m] (rotor Ø 236 m minus the hub). */
+/** Drawn blade length [m] (V236-class shape); rendered ×BLADE_DRAW_SCALE to the IEA 15 MW 241.35 m rotor. */
 export const BLADE_LENGTH_M = 115.5;
 
 // ─── Spanwise station table — V236-realistic ──────────────────────────────

@@ -14,7 +14,7 @@ import type { TurbineFaultType } from "../../types/scada";
 const FAULTS: TurbineFaultType[] = [
   "PITCH_CONTROL_FAULT",
   "CONVERTER_OVERTEMP",
-  "GEARBOX_OIL_TEMP",
+  "COOLANT_FLOW_LOW",
   "HYDRAULIC_PRESSURE_LOW",
   "VIBRATION_ALARM",
   "COMMUNICATION_LOSS",

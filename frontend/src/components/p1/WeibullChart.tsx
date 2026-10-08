@@ -4,7 +4,7 @@
  * Bars: share of the year per 1 m/s bin, shown as hours/yr (density × 8760 h).
  * Line: fitted Weibull PDF on the same scale. Shaded bands mark the turbine's
  * operating regions (idle < cut-in, full power rated → cut-out, shaded), so the reader
- * sees how many hours fall where the V236 makes energy.
+ * sees how many hours fall where the turbine (IEA 15 MW curve) makes energy.
  */
 
 import Plot from "react-plotly.js";

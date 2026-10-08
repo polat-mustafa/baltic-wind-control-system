@@ -61,24 +61,30 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         ),
     ),
     SensorSpec(
-        name="Gearbox high-speed (HS) bearing RTD",
+        name="Rear (downwind) main bearing RTD",
         quantity_per_location=1,
         signal_type="PT100 3-wire",
         range="-40 to +120°C",
         accuracy="±0.5°C",
         standard="IEC 60751",
         iec_61850_ln="WTHI1.TmpSv",
-        notes="Oil-lubricated. Alarm at 80°C, trip at 100°C. Monitored with oil level sensor.",
+        notes=(
+            "Spherical roller bearing, non-locating (IEA 15 MW direct drive, report Table 5-2). "
+            "Grease-lubricated; alarm 70°C, trip 90°C as for the upwind bearing."
+        ),
     ),
     SensorSpec(
-        name="Gearbox low-speed (LS) bearing RTD",
+        name="Converter coolant outlet RTD",
         quantity_per_location=1,
         signal_type="PT100 3-wire",
         range="-40 to +120°C",
         accuracy="±0.5°C",
         standard="IEC 60751",
-        iec_61850_ln="WTHI1.TmpSv",
-        notes="Grease-lubricated; lower operating temperature than HS bearing.",
+        iec_61850_ln="WCNV1.TmpSv",
+        notes=(
+            "Liquid-cooled full-power converter (≈ 124 kW losses at rated). "
+            "Coolant outlet temperature guards the IGBT junction temperature."
+        ),
     ),
     SensorSpec(
         name="Generator winding RTD",
@@ -108,17 +114,17 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         ),
     ),
     SensorSpec(
-        name="Gearbox accelerometer (CMS)",
+        name="Generator / rear bearing accelerometer (CMS)",
         quantity_per_location=1,
         signal_type="IEPE (ICP), 4 mA constant current",
-        range="0-5 kHz, 0-100 g pk",
+        range="0-1 kHz, 0-50 g pk",
         accuracy="±5% (ISO 10816-21 Class 1)",
         standard="ISO 10816-21",
         iec_61850_ln="WTUR1.VibVl",
         notes=(
-            "Sensitivity 100 mV/g (higher frequency range for gear mesh frequencies). "
-            "Gearbox mesh frequency ≈ n_LS x Z_teeth. Envelope analysis detects "
-            "early-stage pitting at sub-alarm amplitude."
+            "Direct drive — no gear mesh. Watches the downwind bearing (BPFO ≈ 2.3 Hz) and "
+            "the generator's electrical lines: f_e = 100 pole pairs × 0.126 Hz = 12.6 Hz, "
+            "2·f_e = 25.2 Hz (air-gap eccentricity), slot pass 240 × f_r = 30.2 Hz."
         ),
     ),
     SensorSpec(

@@ -43,11 +43,27 @@ describe("projectStore", () => {
     s.addTurbine([16.4, 54.8]);
     s.addTurbine([16.42, 54.8]);
     const [a, b] = useProjectStore.getState().turbines;
-    expect([a.id, b.id]).toEqual(["T01", "T02"]);
-    s.moveTurbine("T02", [16.43, 54.81]);
-    s.removeTurbine("T01");
-    expect(useProjectStore.getState().turbines).toEqual([{ id: "T02", lon: 16.43, lat: 54.81 }]);
+    expect([a.id, b.id]).toEqual(["WTG-01", "WTG-02"]);
+    s.moveTurbine("WTG-02", [16.43, 54.81]);
+    s.removeTurbine("WTG-01");
+    expect(useProjectStore.getState().turbines).toEqual([{ id: "WTG-02", lon: 16.43, lat: 54.81 }]);
     expect(JSON.parse(localStorage.getItem(PROJECT_KEY)!).turbines).toHaveLength(1);
+  });
+
+  it("keeps tags stable on delete, refills the lowest gap, renumbers only on request", () => {
+    const s = useProjectStore.getState();
+    for (let i = 0; i < 4; i++) s.addTurbine([16.4 + i * 0.02, 54.8]);
+    s.removeTurbine("WTG-02");
+    expect(useProjectStore.getState().turbines.map((t) => t.id)).toEqual(["WTG-01", "WTG-03", "WTG-04"]);
+    s.addTurbine([16.5, 54.9]);
+    expect(useProjectStore.getState().turbines.at(-1)!.id).toBe("WTG-02");
+    s.renumber(["WTG-04", "WTG-03", "WTG-02", "WTG-01"]);
+    expect(useProjectStore.getState().turbines.map((t) => t.id)).toEqual(["WTG-04", "WTG-02", "WTG-01", "WTG-03"]);
+  });
+
+  it("upgrades pre-2026-10 T01 tags to WTG-01", () => {
+    expect(useProjectStore.getState().restore({ turbines: [{ id: "T07", lon: 16.4, lat: 54.8 }], oss: null, costs: {} })).toBe(true);
+    expect(useProjectStore.getState().turbines[0].id).toBe("WTG-07");
   });
 
   it("caps the layout at the backend limit", () => {
@@ -78,7 +94,7 @@ describe("projectStore", () => {
     const st = useProjectStore.getState();
     expect(st.pywake?.net_aep_gwh).toBe(110);
     expect(st.pywakeFor).toBe(signature(st.turbines));
-    s.moveTurbine("T01", [16.41, 54.8]);
+    s.moveTurbine("WTG-01", [16.41, 54.8]);
     expect(useProjectStore.getState().pywakeFor).not.toBe(signature(useProjectStore.getState().turbines));
   });
 

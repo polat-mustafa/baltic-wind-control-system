@@ -54,6 +54,7 @@ describe("project mode", () => {
     expect(screen.getByText(/is locked in your project/)).toBeDefined();
     expect(screen.getByText(/Draw a site/)).toBeDefined();
     expect(screen.getByRole("link", { name: /Grid Integration \(locked\)/ })).toBeDefined();
+    vi.spyOn(window, "confirm").mockReturnValue(true); // "your project is kept in My projects"
     fireEvent.click(screen.getByRole("button", { name: "See it in SB-510" }));
     expect(screen.getByText("grid page")).toBeDefined();
     expect(screen.queryByRole("link", { name: /\(locked\)/ })).toBeNull();

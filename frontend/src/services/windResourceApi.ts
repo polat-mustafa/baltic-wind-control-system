@@ -91,6 +91,25 @@ export function runCustomWakeAnalysis(
   });
 }
 
+export interface WakeMoveResult {
+  index: number;
+  net_aep_gwh: number;
+  delta_gwh: number;
+  delta_percent: number;
+  wake_loss_percent: number;
+}
+
+/** PyWake check of single-turbine moves (≤ 5) against the base layout, same wind. */
+export function checkWakeMoves(
+  x_m: number[],
+  y_m: number[],
+  moves: { index: number; x_m: number; y_m: number }[],
+  wind: { weibull_a: number; weibull_k: number; sector_frequencies: number[] | null },
+  turbine_model = DEFAULT_TURBINE_ID,
+): Promise<{ base_net_aep_gwh: number; moves: WakeMoveResult[] }> {
+  return post(`${BASE}/wake-moves`, { x_m, y_m, moves, turbine_model, ...wind });
+}
+
 // ── AEP Cascade ─────────────────────────────────────────────────
 
 export function computeAEPCascade(

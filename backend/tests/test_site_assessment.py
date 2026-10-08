@@ -529,3 +529,35 @@ class TestAPI:
         assert {c["status"] for c in b["checks"]} <= {"pass", "warn", "fail", "unknown", "info"}
         crossing = [[16.3, 54.8], [16.5, 54.9], [16.5, 54.8], [16.3, 54.9]]
         assert client.post(f"{API}/assess", json={"polygon": crossing}).status_code == 422
+
+
+def test_raster_endpoint_clips_bathymetry_to_the_bbox() -> None:
+    """SB-510 lies in 37–51 m of water; the clip covers the bbox and agrees with sample()."""
+    params = {"role": "bathymetry", "bbox": "16.42,55.0,16.63,55.12"}
+    r = client.get("/api/v1/site/raster", params=params)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    grid = body["bands"]["values"]
+    assert body["lon0"] <= 16.42 and body["lat0"] <= 55.0
+    assert body["lon0"] + (len(grid[0]) - 1) * body["dlon"] >= 16.63 - 1e-9
+    assert body["lat0"] + (len(grid) - 1) * body["dlat"] >= 55.12 - 1e-9
+    assert len(grid) * len(grid[0]) < 400
+    depth = load_region("southern-baltic").raster("bathymetry")
+    assert depth is not None
+    j, i = 3, 4
+    lon, lat = body["lon0"] + i * body["dlon"], body["lat0"] + j * body["dlat"]
+    expected = float(depth.sample(np.array([lon]), np.array([lat]))[0])
+    assert grid[j][i] == pytest.approx(expected, abs=1e-6)
+    assert 30 < grid[j][i] < 60
+    assert body["source"]
+
+
+def test_raster_endpoint_rejects_bad_requests() -> None:
+    def status(role: str, bbox: str) -> int:
+        return client.get("/api/v1/site/raster", params={"role": role, "bbox": bbox}).status_code
+
+    assert status("bathymetry", "16.6,55,16.4,55.1") == 422  # min > max
+    assert status("bathymetry", "a,b,c,d") == 422
+    assert status("bathymetry", "0,0,1,1") == 422  # no overlap
+    assert status("nope", "16.4,55,16.6,55.1") == 404
+    assert status("bathymetry", "10,50,25,60") == 422  # too large

@@ -62,3 +62,6 @@ export const ROLE_STYLE: Record<string, RoleStyle> = {
   cable: { label: "Subsea cables", note: "Existing cables and pipelines, with a safety buffer", color: "#e11d48", fill: 0, on: true },
   grid: { label: "Grid connection", note: "Onshore substations for the export cable", color: "#0f766e", fill: 1, on: true },
 };
+
+/** Map legends open by default on screens ≥ 640 px (Tailwind sm). */
+export const wideScreen = () => typeof window !== "undefined" && window.matchMedia?.("(min-width: 640px)").matches === true;

@@ -636,3 +636,94 @@ export const farmOverviewInfo: InfoContent = {
     "KPI ribbon at top shows farm-level metrics. " +
     "Click a turbine for individual status or navigate to P1-P5 dashboards for detailed analysis.",
 };
+
+// ── Layout canvas (/develop/layout) ──
+
+export const layoutGridToolInfo: InfoContent = {
+  title: "Grid fill — regular or staggered rows",
+  description:
+    "Fills the site with turbines on a grid: spacing along the rows and between them in rotor diameters (D), the row bearing, " +
+    "and an optional half-spacing shift of every other row (staggered). Positions closer than half a rotor to the boundary are dropped; " +
+    "with 'Skip' on, positions in constraint areas or outside the plan's energy basins are left out too.",
+  parameters: [
+    { name: "Along / between rows", description: "Centre-to-centre spacing in D (here D = 241 m, IEA 15 MW reference turbine)" },
+    { name: "Row bearing", description: "Direction of the rows, degrees clockwise from north" },
+  ],
+  interpretation:
+    "Put the wider spacing along the prevailing wind (west–southwest in the southern Baltic): wakes are longest downwind. " +
+    "Typical offshore spacings are 5–10 D; the 4 D warning on the canvas is a teaching default, not a rule.",
+};
+
+export const layoutResultsInfo: InfoContent = {
+  title: "Live results — screening numbers",
+  description:
+    "Recomputed whenever the layout changes. Wake loss and net AEP come from a fast Bastankhah–Gaussian model (k* = 0.05, " +
+    "sum-of-squares superposition, Ct and power from the IEA 15 MW tables) over the site's 12-sector wind rose and Weibull speeds.",
+  standard: "Bastankhah & Porté-Agel (2014); Niayifar & Porté-Agel (2016) for k*",
+  parameters: [
+    { name: "Wake loss", description: "1 − net / (N × one free turbine), wake only [%]" },
+    { name: "Net AEP (live)", description: "Energy after wakes only [GWh/yr]; availability and electrical losses come later" },
+    { name: "Power density", description: "Installed MW per km² of the drawn site" },
+    { name: "Wind at 150 m", description: "Site climate from NEWA + ERA5 when assessed, else a labelled approximation" },
+  ],
+  interpretation:
+    "Within about 0.5 percentage points of PyWake on regular grids (tests/lib/layout.test.ts). Use it to compare options quickly; " +
+    "run PyWake for the reference number.",
+};
+
+export const layoutPyWakeInfo: InfoContent = {
+  title: "Reference AEP — PyWake",
+  description:
+    "Runs DTU's PyWake on the backend for these exact positions: Niayifar Gaussian deficit, STF2017 added turbulence, " +
+    "linear superposition, the same wind rose and turbine. In an online project each run is stored with the project.",
+  standard: "PyWake (DTU Wind Energy, MIT licence)",
+  interpretation:
+    "The run belongs to one layout: after a move it is greyed out until you run it again. The screening model and PyWake " +
+    "should agree within about a percentage point of wake loss.",
+};
+
+export const layoutCostInfo: InfoContent = {
+  title: "Cost estimate and LCOE",
+  description:
+    "CAPEX lines per MW or per km from the editable inputs, foundations by the site's deepest water (jacket beyond 40 m), " +
+    "array cable length from the routed tree and the export cable route length.",
+  parameters: [
+    { name: "LCOE", description: "(CAPEX × CRF + OPEX) / AEP [€/MWh]" },
+    { name: "CRF", description: "r(1 + r)^n / ((1 + r)^n − 1), WACC r over lifetime n" },
+    { name: "AEP", description: "PyWake when fresh, else the live estimate, minus 8 % availability and electrical losses (illustrative)" },
+  ],
+  interpretation: "Teaching defaults, not market prices: replace them with your own data before comparing with real projects.",
+};
+
+export const layoutChecklistInfo: InfoContent = {
+  title: "Layout checklist",
+  description:
+    "Live checks of the layout: the site screening report from Site & Permits and the checks the canvas runs in the browser " +
+    "(site boundary, constraint areas, energy basins of the Polish maritime spatial plan, spacing, substation, cables, water depth, PyWake run).",
+  parameters: [
+    { name: "HV Grid", description: "Checks that open the Grid stage of an own project (≥ 1 turbine, OSS, none outside, in a constraint or < 4 D)" },
+    { name: "Water depth", description: "EMODnet bathymetry at each turbine, mapped to the screening depth bands (monopile / jacket / floating)" },
+  ],
+  interpretation:
+    "Screening only: a pass here is not a permit. Confirm the plan (SIPAM), the 2021 MSP regulation (Dz.U. 2021 poz. 935) and " +
+    "the seabed with the competent authority and site surveys.",
+};
+
+export const layoutSuggestInfo: InfoContent = {
+  title: "Move suggestions",
+  description:
+    "Takes the ten turbines with the highest wake loss and tries moving each by ½, 1 and 2 D in eight compass directions. " +
+    "A move must keep the turbine inside the site, out of constraint areas, inside an energy basin, ≥ 4 D from the others, " +
+    "clear of existing subsea cables by the screening buffer, and its own array cables must not cross others.",
+  parameters: [
+    { name: "AEP change", description: "Exact for the screening model: only the wakes the moved turbine casts and receives are recomputed" },
+    { name: "Cables", description: "Length change of the moved turbine's own cable segments, strings unchanged" },
+    { name: "LCOE change", description: "From the AEP and cable changes with the cost inputs; the best move per turbine is kept" },
+    { name: "PyWake", description: "The top five are re-run with PyWake against the current layout (POST /api/v1/wind/wake-moves)" },
+  ],
+  interpretation:
+    "Gains are a few tenths of a percent each — real money over 25 years, but below the fast model's accuracy (about 0.5 " +
+    "percentage points of wake loss), so PyWake decides: confirmed moves come first, the rest are marked. On a tuned layout such " +
+    "as SB-510 PyWake finds at most a few hundredths of a percent per move. Moves are single-turbine and greedy — after applying " +
+    "one, search again; a full optimiser (e.g. TOPFARM) moves all turbines together.",
+};

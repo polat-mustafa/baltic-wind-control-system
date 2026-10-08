@@ -27,7 +27,7 @@ import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { cn } from "../../lib/utils";
 import type { LayerInfo, LonLat } from "../../services/siteApi";
 import { CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
-import { ROLE_STYLE, type RoleStyle } from "./mapStyles";
+import { ROLE_STYLE, wideScreen, type RoleStyle } from "./mapStyles";
 
 type LatLng = [number, number];
 const ll = ([lon, lat]: LonLat): LatLng => [lat, lon];
@@ -36,8 +36,6 @@ const SUITABLE = "#16a34a";
 // Yellow, not amber: real wind farms are orange and the two must not be confused.
 const MARGINAL = "#eab308";
 
-/** Legend open by default on screens ≥ 640 px (Tailwind sm). */
-const wideScreen = () => typeof window !== "undefined" && window.matchMedia?.("(min-width: 640px)").matches === true;
 
 function FitBounds({ bbox }: { bbox: [number, number, number, number] }) {
   const map = useMap();
@@ -384,12 +382,12 @@ function ToolButton({
   );
 }
 
-function LegendHeading({ children }: { children: React.ReactNode }) {
+export function LegendHeading({ children }: { children: React.ReactNode }) {
   return <h4 className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{children}</h4>;
 }
 
 /** Swatch: fill colour plus the layer's own outline and dash, so the key matches the map. */
-function Swatch({ color, fill = 0.2, dash, swatch2 }: { color: string; fill?: number; dash?: string; swatch2?: string }) {
+export function Swatch({ color, fill = 0.2, dash, swatch2 }: { color: string; fill?: number; dash?: string; swatch2?: string }) {
   const alpha = Math.round(Math.min(1, fill) * 255)
     .toString(16)
     .padStart(2, "0");

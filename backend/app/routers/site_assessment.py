@@ -2,6 +2,7 @@
 
   GET  /regions       available case-study regions
   GET  /layers        region layers (GeoJSON), what is missing, criteria model card
+  GET  /raster        one raster layer (bathymetry, wind) clipped to a bounding box
   POST /suitability   gridded multi-criteria screening: excluded / poor / marginal / suitable
   POST /assess        report for a candidate site polygon (area, capacity, checklist)
 
@@ -15,7 +16,7 @@ import math
 from dataclasses import asdict
 
 import numpy as np
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.concurrency import run_in_threadpool
 
 from app.core.exceptions import NotFoundError, ValidationError
@@ -31,6 +32,7 @@ from app.schemas.site_assessment import (
     LayerInfo,
     LayersResponse,
     MissingLayer,
+    RasterResponse,
     ReasonArea,
     RegionInfo,
     SuitabilityRequest,
@@ -149,6 +151,50 @@ async def get_layers(region: str = DEFAULT_REGION) -> LayersResponse:
             for c in CRITERIA_INFO
         ],
         depth_bands=[DepthBandCard(**asdict(b)) for b in DEPTH_BANDS],
+    )
+
+
+_MAX_RASTER_CELLS = 40_000
+
+
+@router.get("/raster", response_model=RasterResponse)
+async def get_raster(
+    role: str,
+    bbox: str = Query(description="lon_min,lat_min,lon_max,lat_max"),
+    region: str = DEFAULT_REGION,
+) -> RasterResponse:
+    """A raster layer (e.g. bathymetry for per-turbine depth) clipped to ``bbox`` plus one cell."""
+    try:
+        w, s, e, n = (float(v) for v in bbox.split(","))
+    except ValueError as exc:
+        raise ValidationError("bbox must be lon_min,lat_min,lon_max,lat_max") from exc
+    if not all(math.isfinite(v) for v in (w, s, e, n)) or w >= e or s >= n:
+        raise ValidationError("bbox must be lon_min,lat_min,lon_max,lat_max with min < max")
+    layer = next((ly for ly in _pack(region).by_role(role) if ly.raster is not None), None)
+    if layer is None or layer.raster is None:
+        raise NotFoundError(f"Region {region!r} has no {role!r} raster")
+    r = layer.raster
+    bands: dict[str, list[list[float | None]]] = r.get("bands") or {"values": r["values"]}
+    first = next(iter(bands.values()))
+    ny, nx = len(first), len(first[0])
+    i0 = max(0, math.floor((w - r["lon0"]) / r["dlon"]))
+    i1 = min(nx - 1, math.ceil((e - r["lon0"]) / r["dlon"]))
+    j0 = max(0, math.floor((s - r["lat0"]) / r["dlat"]))
+    j1 = min(ny - 1, math.ceil((n - r["lat0"]) / r["dlat"]))
+    if i1 < i0 or j1 < j0:
+        raise ValidationError("bbox does not overlap the raster")
+    if (i1 - i0 + 1) * (j1 - j0 + 1) > _MAX_RASTER_CELLS:
+        raise ValidationError("bbox too large: ask for a smaller area")
+    return RasterResponse(
+        role=role,
+        lon0=round(r["lon0"] + i0 * r["dlon"], 6),
+        lat0=round(r["lat0"] + j0 * r["dlat"], 6),
+        dlon=r["dlon"],
+        dlat=r["dlat"],
+        bands={k: [row[i0 : i1 + 1] for row in v[j0 : j1 + 1]] for k, v in bands.items()},
+        source=layer.source,
+        license=layer.license,
+        retrieved=layer.retrieved,
     )
 
 

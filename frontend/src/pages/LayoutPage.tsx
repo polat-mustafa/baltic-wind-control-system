@@ -1,52 +1,55 @@
 /**
- * Layout canvas (route /develop/layout): place V236 turbines inside the
- * site from Site & Permits, see wake losses and the array cable tree update
- * as they move, run PyWake for the reference AEP and estimate the cost.
+ * Layout canvas (route /develop/layout): place turbines inside the site from
+ * Site & Permits, see wake losses and the array cable tree update as they
+ * move (live while dragging), check the layout, get move suggestions, run
+ * PyWake for the reference AEP and estimate the cost.
  *
- * Engines: lib/layout (geometry, cables, energy, cost). Backend:
- * POST /api/v1/wind/wake-analysis-custom.
+ * Engines: lib/layout (geometry, cables, energy, evaluate, suggest, cost).
+ * Backend: POST /api/v1/wind/wake-analysis-custom and /wake-moves,
+ * GET /api/v1/site/raster (bathymetry → depth per turbine).
  */
 
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Grid3x3, MapPinned, MousePointerClick, Play, RotateCcw, Trash2, Wind } from "lucide-react";
 
 import { cn } from "../lib/utils";
-import { routeCables, ARRAY_SECTIONS, maxPerString } from "../lib/layout/cables";
+import { routeCables, maxPerString } from "../lib/layout/cables";
 import { COST_LABELS, layoutCost, type CostInputs } from "../lib/layout/cost";
-import { layoutYield, UNIFORM_ROSE, type WindRose } from "../lib/layout/energy";
+import { prepareYield, UNIFORM_ROSE, yieldOf, type WindRose } from "../lib/layout/energy";
 import { weibullMean } from "../utils/aepMath";
 import {
   D,
   defaultExportKm,
   blockedBy,
-  energyRings,
-  exclusionRings,
+  foundationFor,
+  layoutContext,
   MIN_SPACING_D,
   OTHER_LOSSES,
   RATED_MW,
+  rasterSampler,
+  statusAt,
+  turbineStats,
   WEIBULL_A,
   WEIBULL_K,
 } from "../lib/layout/evaluate";
-import {
-  centroid,
-  dist,
-  gridFill,
-  insidePolygon,
-  minSpacing,
-  polygonArea,
-  projection,
-  type LonLat,
-} from "../lib/layout/geometry";
-import { computeWindRose } from "../services/windResourceApi";
+import { centroid, gridFill, minSpacing, polygonArea, type LonLat, type XY } from "../lib/layout/geometry";
+import { suggestMoves } from "../lib/layout/suggest";
+import { getRaster, type RasterResponse } from "../services/siteApi";
+import { checkWakeMoves, computeWindRose } from "../services/windResourceApi";
 import { MAX_TURBINES, signature, useProjectStore } from "../store/projectStore";
 import { CASE_STUDY_SITE, useSiteStore } from "../store/siteStore";
 import { useProjectSync } from "../store/projectSync";
 import { Button } from "../components/ui/Button";
 import { InfoTile } from "../components/ui/InfoTile";
 import { Skeleton } from "../components/ui/Skeleton";
+import { InfoButton } from "../components/ui/InfoButton";
 import { WatchOut } from "../components/site/Stages";
-import { SECTION_COLOR, type TurbineView } from "../components/layout-canvas/shared";
+import type { TurbineView } from "../components/layout-canvas/shared";
+import TurbineCard from "../components/layout-canvas/TurbineCard";
+import LayoutChecklist from "../components/layout-canvas/LayoutChecklist";
+import MoveSuggestions from "../components/layout-canvas/MoveSuggestions";
+import { layoutCostInfo, layoutGridToolInfo, layoutPyWakeInfo, layoutResultsInfo } from "../constants/panelInfo";
 
 const LayoutMap = lazy(() => import("../components/layout-canvas/LayoutMap"));
 
@@ -72,7 +75,10 @@ function GridTool({ onFill }: { onFill: (o: { along: number; across: number; ang
   );
   return (
     <div className="space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="layout-grid">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Fill the site with a grid</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Fill the site with a grid</h3>
+        <InfoButton info={layoutGridToolInfo} />
+      </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px] text-text-primary">
         <label className="flex items-center justify-between gap-2">Along rows {num(along, setAlong, 3, 15)} D</label>
         <label className="flex items-center justify-between gap-2">Between rows {num(across, setAcross, 3, 15)} D</label>
@@ -172,13 +178,27 @@ export default function LayoutPage() {
     };
   }, []);
 
-  const proj = useMemo(() => projection(centroid(site)), [site]);
-  const siteXY = useMemo(() => site.map(proj.toXY), [site, proj]);
+  const ctx = useMemo(() => layoutContext(site, layers), [site, layers]);
+  const { proj, siteXY } = ctx;
   const areaKm2 = polygonArea(siteXY) / 1e6;
+  const excludedBy = (pt: LonLat) => blockedBy(pt, ctx.rings, ctx.energy);
 
-  const exclusions = useMemo(() => exclusionRings(layers), [layers]);
-  const energy = useMemo(() => energyRings(layers), [layers]);
-  const excludedBy = (pt: LonLat) => blockedBy(pt, exclusions, energy);
+  // Water depth at each turbine: the bathymetry raster around the site (EMODnet DTM, region pack).
+  const [depthRaster, setDepthRaster] = useState<RasterResponse | null>(null);
+  const siteKey = site.map((q) => q.join(",")).join(";");
+  useEffect(() => {
+    let live = true;
+    const lons = site.map((q) => q[0]);
+    const lats = site.map((q) => q[1]);
+    const m = 0.05; // ° margin: turbines dragged just outside still get a depth
+    getRaster("bathymetry", [Math.min(...lons) - m, Math.min(...lats) - m, Math.max(...lons) + m, Math.max(...lats) + m])
+      .then((r) => live && setDepthRaster(r))
+      .catch(() => live && setDepthRaster(null)); // depth shows "—", the checklist says unknown
+    return () => {
+      live = false;
+    };
+  }, [siteKey]); // refetch only when the outline changes
+  const depthAt = useMemo(() => rasterSampler(depthRaster), [depthRaster]);
 
   const sig = signature(p.turbines);
   const xy = useMemo(() => p.turbines.map((t) => proj.toXY([t.lon, t.lat])), [p.turbines, proj]);
@@ -194,30 +214,32 @@ export default function LayoutPage() {
     [siteWind],
   );
   const activeRose = siteRose ?? rose;
-  // live screening yield, recomputed when the layout (not a drag in progress) changes
-  const yieldRes = useMemo(
-    () => (xy.length ? layoutYield(xy, windA, windK, activeRose) : null),
-    [xy, windA, windK, activeRose],
-  );
+  // Live screening yield, prepared once per committed layout; a drag only costs moveDelta() per frame.
+  const yieldModel = useMemo(() => (xy.length ? prepareYield(xy, windA, windK, activeRose) : null), [xy, windA, windK, activeRose]);
+  const yieldRes = useMemo(() => (yieldModel ? yieldOf(yieldModel) : null), [yieldModel]);
   const oss = p.oss;
   const cables = useMemo(() => (oss && xy.length ? routeCables(proj.toXY(oss), xy, RATED_MW) : null), [xy, oss, proj]);
   const spacing = minSpacing(xy);
+  const ids = useMemo(() => p.turbines.map((t) => t.id), [p.turbines]);
 
   const views: TurbineView[] = p.turbines.map((t, i) => {
-    const ex = excludedBy([t.lon, t.lat]);
-    const near = Math.min(...xy.map((q, j) => (j === i ? Infinity : dist(q, xy[i]))));
+    const st = statusAt(ctx, [t.lon, t.lat], xy.filter((_, j) => j !== i));
     const loss = yieldRes?.perTurbineLossPct[i];
     const lossNote = loss != null ? `wake loss ${loss.toFixed(1)} %` : "";
-    if (!insidePolygon(xy[i], siteXY)) return { ...t, status: "outside", note: "outside the site boundary" };
-    if (ex) return { ...t, status: "excluded", note: ex };
-    if (near < MIN_SPACING_D * D) return { ...t, status: "close", note: `${(near / D).toFixed(1)} D to the nearest turbine · ${lossNote}` };
-    return { ...t, status: "ok", note: lossNote };
+    return { ...t, status: st.status, note: [st.note, st.status === "ok" || st.status === "close" ? lossNote : ""].filter(Boolean).join(" · ") };
   });
-  const problems = {
-    outside: views.filter((v) => v.status === "outside").length,
-    excluded: views.filter((v) => v.status === "excluded").length,
-    close: views.filter((v) => v.status === "close").length,
-  };
+  const count = (k: TurbineView["status"]) => views.filter((v) => v.status === k).length;
+  const problems = { outside: count("outside"), excluded: count("excluded"), basin: count("basin"), close: count("close") };
+  const depths = p.turbines.map((t) => depthAt([t.lon, t.lat]));
+  const foundations = depths.map((dm) => foundationFor(dm, layers?.depth_bands));
+
+  const stats = useCallback(
+    (id: string, at: LonLat | null) => {
+      const i = ids.indexOf(id);
+      return yieldModel && i >= 0 ? turbineStats(ctx, yieldModel, ids, i, at, depthAt, layers?.depth_bands) : null;
+    },
+    [ctx, yieldModel, ids, depthAt, layers],
+  );
 
   const capacity = p.turbines.length * RATED_MW;
   const pywakeFresh = p.pywake && p.pywakeFor === sig ? p.pywake : null;
@@ -226,6 +248,31 @@ export default function LayoutPage() {
   const defaultExport = defaultExportKm(report?.grid_km);
   const expKm = exportKm ?? defaultExport;
   const cost = layoutCost(p.costs, capacity, cables?.totalKm ?? 0, expKm, report?.depth_m?.[1] ?? null, netGWh);
+
+  const pyWind = { weibull_a: windA, weibull_k: windK, sector_frequencies: siteWind?.sector_frequencies ?? null };
+  const subseaCables = useMemo<XY[][]>(
+    () =>
+      (layers?.layers ?? [])
+        .filter((l) => l.role === "cable")
+        .flatMap((l) => l.features.filter((f) => f.geometry.type === "LineString").map((f) => (f.geometry.coordinates as LonLat[]).map(proj.toXY))),
+    [layers, proj],
+  );
+  const cableBufferKm = Number(layers?.criteria.find((c) => c.key === "cable_buffer_km")?.default ?? 0.5);
+  const suggest = () =>
+    yieldModel
+      ? suggestMoves({
+          ctx,
+          model: yieldModel,
+          ids,
+          oss: oss ? proj.toXY(oss) : null,
+          tree: cables,
+          costs: p.costs,
+          exportKm: expKm,
+          maxDepthM: report?.depth_m?.[1] ?? null,
+          cables: subseaCables,
+          cableBufferM: cableBufferKm * 1000,
+        })
+      : [];
 
   const fill = (o: { along: number; across: number; angle: number; staggered: boolean; avoid: boolean }) => {
     let pts = gridFill(siteXY, { along: o.along * D, across: o.across * D, angleDeg: o.angle, staggered: o.staggered, inset: D / 2 }).map(proj.toLonLat);
@@ -311,34 +358,43 @@ export default function LayoutPage() {
             </span>
           </div>
           <Suspense fallback={<Skeleton className="h-[460px] w-full rounded-lg sm:h-[560px]" />}>
-            <LayoutMap site={site} turbines={views} cables={cables} wakeFrom={wakeOn ? wakeFrom : null} />
+            <LayoutMap
+              site={site}
+              turbines={views}
+              cables={cables}
+              wakeFrom={wakeOn ? wakeFrom : null}
+              card={<TurbineCard stats={stats} />}
+            />
           </Suspense>
-          <div className="flex flex-wrap gap-3 text-[11px] text-text-secondary">
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-slate-900 bg-slate-50" /> turbine
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-slate-900 bg-amber-500" /> closer than {MIN_SPACING_D} D
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-slate-900 bg-red-500" /> outside the site or in a constraint
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2.5 w-2.5 rotate-45 border-2 border-slate-900 bg-yellow-400" /> offshore substation
-            </span>
-            {ARRAY_SECTIONS.map((s) => (
-              <span key={s.id} className="flex items-center gap-1">
-                <span className="inline-block h-1 w-4 rounded" style={{ background: SECTION_COLOR[s.id] }} /> {s.label}
-              </span>
-            ))}
-          </div>
-          <WatchOut text="Wake losses grow quickly below about 5 D downwind; a tight layout gains megawatts on paper and loses them in energy. Drag a turbine and watch its wake loss in the tooltip." />
+          <p className="text-[11px] text-text-muted">
+            Click a turbine for its card; drag it to see the farm AEP change live. Turbine IDs appear from zoom 12.
+          </p>
+          <WatchOut text="Wake losses grow quickly below about 5 D downwind; a tight layout gains megawatts on paper and loses them in energy. Drag a turbine and watch the farm AEP change in its card." />
+          <LayoutChecklist
+            siteDrawn={siteDrawn != null}
+            count={p.turbines.length}
+            outside={problems.outside}
+            excluded={problems.excluded}
+            basin={problems.basin}
+            close={problems.close}
+            oss={oss != null}
+            overCapacity={cables?.edges.filter((e) => !e.section).length ?? 0}
+            crossings={cables?.crossings ?? 0}
+            depthUnknown={depths.filter((dm) => dm == null).length}
+            depthOut={depths.filter((dm, i) => dm != null && !foundations[i]).length}
+            floating={foundations.filter((f) => f != null && /floating/.test(f)).length}
+            pywake={pywakeFresh ? "fresh" : p.pywake ? "stale" : "none"}
+          />
         </div>
 
         <div className="space-y-3">
           <GridTool onFill={fill} />
           {fillNote && <p className="text-[12px] text-status-warning">{fillNote}</p>}
 
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Live results</h3>
+            <InfoButton info={layoutResultsInfo} />
+          </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-tour="layout-results">
             <InfoTile label="Turbines" value={p.turbines.length} subtitle={`${capacity} MW`} size="sm" />
             <InfoTile label="Power density" value={areaKm2 > 0 ? (capacity / areaKm2).toFixed(1) : "—"} unit="MW/km²" subtitle={`${areaKm2.toFixed(0)} km² site`} size="sm" />
@@ -381,10 +437,11 @@ export default function LayoutPage() {
               size="sm"
             />
           </div>
-          {(problems.outside > 0 || problems.excluded > 0) && (
+          {(problems.outside > 0 || problems.excluded > 0 || problems.basin > 0) && (
             <p className="text-[12px] text-status-alarm">
               {problems.outside > 0 && `${problems.outside} turbine(s) outside the site. `}
-              {problems.excluded > 0 && `${problems.excluded} turbine(s) inside a constraint area.`}
+              {problems.excluded > 0 && `${problems.excluded} turbine(s) inside a constraint area. `}
+              {problems.basin > 0 && `${problems.basin} turbine(s) outside the plan's energy basins.`}
             </p>
           )}
           {cables && cables.crossings > 0 && (
@@ -393,7 +450,9 @@ export default function LayoutPage() {
 
           <div className="space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="layout-pywake">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Reference AEP (PyWake)</h3>
+              <h3 className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                Reference AEP (PyWake) <InfoButton info={layoutPyWakeInfo} />
+              </h3>
               <Button
                 size="sm"
                 onClick={() =>
@@ -432,8 +491,26 @@ export default function LayoutPage() {
             )}
           </div>
 
+          <MoveSuggestions
+            sig={`${sig}|${oss?.join(",") ?? ""}|${windA}|${windK}|${siteKey}`}
+            disabled={p.turbines.length < 2}
+            suggest={suggest}
+            validate={(moves) =>
+              checkWakeMoves(
+                xy.map((q) => q.x),
+                xy.map((q) => q.y),
+                moves.map((m) => ({ index: m.index, x_m: m.to.x, y_m: m.to.y })),
+                pyWind,
+              ).then((r) => r.moves)
+            }
+            apply={(m) => p.moveTurbine(m.id, proj.toLonLat(m.to))}
+          />
+
           <div className="space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="layout-cost">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Cost estimate</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Cost estimate</h3>
+              <InfoButton info={layoutCostInfo} />
+            </div>
             <label className="flex items-center justify-between gap-2 text-[12px] text-text-primary">
               Export cable route
               <span>

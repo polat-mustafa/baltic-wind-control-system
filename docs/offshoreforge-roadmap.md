@@ -30,7 +30,8 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 8b | P3 SCADA + Digital Twin on the farm spec: bay controllers per string, historian, CMS, IEC 61850 / SCL, OPC UA tree, OT network, security zones; twin on the farm's turbines and site wind | In review (`feat/farm-spec-p3`, stacked on 8a) |
 | 8c | Live control room on the own farm: one live fleet for the map, 3D, mimic, single-line diagram, bay controllers, alarms, drills and plant physics; live load flow with reactor switching | In review (`feat/farm-spec-control-room`, stacked on 8b) |
 | 9 | SB-510 moves into MSP energy basin PZP_44 (site 44.E.1): new layout, OSS, LIDAR, boundary, marks, 76.5 km export round Ławica Słupska, P2 redesigned by `design()` (3 × 170 MVAr), reactor switching in every operating-point study, "From SB-510" project start | In review (`feat/sb510-pzp44`, stacked on 8c) |
-| 10–13 | Layout UX · report + windIO · provenance · pro items | Open |
+| 10 | Layout UX: turbine glyphs by status (+ outside the energy basins), IDs from zoom 12, OSS platform icon, on-map legend; turbine card (net AEP, wake loss, free/waked wind, 2 nearest, depth → foundation, warnings) live while dragging; live checklist; move suggestions checked by PyWake (`/wind/wake-moves`); per-turbine depth (`/site/raster`); info buttons | In review (`feat/layout-ux`, stacked on 9) |
+| 11–13 | Report + windIO · provenance · pro items | Open |
 
 Phase 1 note: `test_sb510_case_study` expected `msp_energy == "fail"` until phase 9 moved SB-510 into PZP_44; it now passes every blocker (owf = warn: allocated, natura2000 = warn: 2 km).
 Phase 2 note: the permit outlook says a refused site "could not go on to layout"; since phase 6 Layout stays locked for such a site in an own project.
@@ -95,6 +96,14 @@ Phase 9 notes:
 - The landing estimate (`reactiveBalance`, POC Q = 0 by construction) keeps 3/3 reactors at no load (+68 MVAr) where pandapower holds the OSS voltage with 2/3 (−48 MVAr, +72 MVAr to PSE); the STATCOM panel therefore shows the load flow's reactors, STATCOM and POC Q when it answers.
 - `docs`, README, CLAUDE.md, education texts and SOURCES.md follow; a vitest guard keeps "45 km / 260 MVA / 3 × 80" out of `src`.
 - Pre-existing, not from this phase: `test_farm_spec_p3::test_bays_api_uses_the_header` needs the Postgres DB (SOE log) and xgboost DLLs are blocked by Windows Application Control on this machine.
+
+Phase 10 notes:
+- `lib/layout/energy.ts`: `prepareYield()` keeps the summed squared deficits per (sector, speed bin, turbine); `moveDelta()` swaps one turbine's contributions in O(N) per case (2.7 ms for SB-510 vs 25 ms full) — exact for the screening model (vitest compares with a full recompute). `layoutYield()` = `yieldOf(prepareYield())`, unchanged numbers.
+- `lib/layout/evaluate.ts`: `layoutContext` + `statusAt` (one rule for the canvas, the card and the suggestions: outside > excluded > basin > close), `rasterSampler` (bilinear, same as the backend `Raster.sample`), `foundationFor`, `nearest`, `turbineStats`. Backend `GET /api/v1/site/raster?role=bathymetry&bbox=…` clips a raster (≤ 40 000 cells); `/layers` still sends no rasters.
+- Drag: the marker publishes its position once per animation frame (`useDrag` in `layout-canvas/shared.ts`); only the card re-renders; the layout commits on drag end.
+- `lib/layout/suggest.ts`: 10 most waked turbines × 8 directions × {½, 1, 2} D, allowed positions only (site, constraints, energy basin, ≥ 4 D, subsea-cable buffer from the criteria, own cables not crossing), score ΔLCOE with the turbine's own cable segments (strings unchanged — re-routing the whole Esau–Williams tree per candidate added heuristic jumps of up to −7 km for a 480 m move). Backend `POST /api/v1/wind/wake-moves` re-runs the top five with PyWake; the UI lists PyWake-confirmed moves first.
+- Finding: on SB-510 PyWake finds at most +0.05 % per single move (1 D north; 28 of 133 tried moves gain). The screening model's along-wind gains (+0.13…+0.22 %) are not confirmed (PyWake −0.07 %): below its accuracy, and not from the superposition (linear sum gives the same sign) but from PyWake's turbulence-dependent recovery (STF2017) that a fixed k* cannot follow. Pure rows agree (3 turbines, 5 D: −0.83 vs −0.86 %). The panel says so when PyWake confirms none. Follow-up (phase 12/13): local-TI k* in the screening model.
+- e2e: the Layout baselines change (legend, card, checklist, suggestions) — `npm run e2e:update` locally.
 
 ## Resume here
 

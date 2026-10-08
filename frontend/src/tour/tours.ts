@@ -233,9 +233,19 @@ const layout: Tour = {
       target: "layout-map",
       title: "Drag turbines",
       body:
-        "Drag a turbine or the yellow offshore substation: the wake loss in the tooltip and the cable tree follow. " +
-        "Amber means closer than 4 D, red means outside the site or inside a constraint.",
+        "Drag a turbine or the yellow offshore substation: the cable tree follows, and the turbine card shows the farm AEP " +
+        "change while you drag. Amber means closer than 4 D, red outside the site, pink in a constraint area, grey outside " +
+        "the energy basins — the legend has them all.",
       caution: "A tight layout gains megawatts on paper and loses them in energy: check the wake loss, not only the MW.",
+    },
+    {
+      id: "checklist",
+      route: "/develop/layout",
+      target: "layout-checklist",
+      title: "Live checklist",
+      body:
+        "The site report and the layout checks update as you move turbines: boundary, constraints, energy basin, spacing, " +
+        "substation, cables, water depth per turbine. The ones marked HV Grid open the next stage of your own project.",
     },
     {
       id: "results",
@@ -252,6 +262,15 @@ const layout: Tour = {
       target: "layout-pywake",
       title: "Check with PyWake",
       body: "The backend runs the reference wake model on your exact positions. Use it before you trust an AEP figure.",
+    },
+    {
+      id: "suggest",
+      route: "/develop/layout",
+      target: "layout-suggest",
+      title: "Move suggestions",
+      body:
+        "Tries small moves of the most waked turbines and lists those that lower the LCOE, each checked with PyWake. " +
+        "Apply one, then search again: the moves are one turbine at a time.",
     },
     {
       id: "cost",

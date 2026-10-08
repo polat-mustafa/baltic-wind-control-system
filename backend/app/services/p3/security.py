@@ -37,7 +37,7 @@ _ZONES: list[dict[str, Any]] = [
         "description": (
             "Level 0 — Physical process layer. "
             "Turbine mechanical components, sensors, actuators, "
-            "blade pitch drives, yaw motors, and gearbox instrumentation. "
+            "blade pitch drives, yaw motors, and generator instrumentation. "
             "Physical protection: fenced turbine nacelles, locked access hatches."
         ),
         "security_level_target": "SL-1",

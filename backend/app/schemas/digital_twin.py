@@ -1,7 +1,7 @@
 """Pydantic schemas for the Digital Twin endpoints (/api/v1/digital-twin).
 
 Units are part of every field name or description. Time is Unix seconds (UTC).
-Channel order everywhere: power, rotor_speed, pitch, gearbox_temp, anemometer.
+Channel order everywhere: power, rotor_speed, pitch, generator_temp, anemometer.
 """
 
 from __future__ import annotations
@@ -15,14 +15,14 @@ ScenarioName = Literal[
     "rotor_icing",
     "pitch_misalignment",
     "converter_derating",
-    "gearbox_degradation",
+    "generator_degradation",
     "anemometer_drift",
     "combined",
 ]
 FaultKindName = Literal[
-    "aero_efficiency", "pitch_offset", "power_limit", "gearbox_loss", "anemometer_gain"
+    "aero_efficiency", "pitch_offset", "power_limit", "generator_loss", "anemometer_gain"
 ]
-ChannelName = Literal["power", "rotor_speed", "pitch", "gearbox_temp", "anemometer"]
+ChannelName = Literal["power", "rotor_speed", "pitch", "generator_temp", "anemometer"]
 StatusName = Literal["normal", "alert", "alarm"]
 
 
@@ -125,7 +125,7 @@ class ReferenceCurveResponse(BaseModel):
     pitch_deg: list[float]
     tip_speed_ratio: list[float]
     cp: list[float]
-    gearbox_loss_kw: list[float]
+    generator_loss_kw: list[float]
     region: list[int]
     region_names: dict[int, str]
     p1_table_power_mw: list[float] = Field(

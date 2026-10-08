@@ -67,7 +67,7 @@ from numpy.typing import NDArray
 
 from app.services.p4.turbine_power_curve import (
     build_power_curve,
-    get_v236_spec,
+    get_turbine_spec,
     interpolate_power_mw,
 )
 
@@ -236,7 +236,7 @@ def detect_power_curve_outliers(
     num_t, num_turb = wind_speed.shape
     flagged = np.zeros((num_t, num_turb), dtype=np.bool_)
 
-    spec = get_v236_spec()
+    spec = get_turbine_spec()
     max_ws = spec.cut_out_speed_ms + 2.0
     bin_edges = np.arange(0.0, max_ws + bin_width_ms, bin_width_ms)
 

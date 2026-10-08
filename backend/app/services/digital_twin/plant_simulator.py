@@ -13,9 +13,9 @@ the power curve — instead of from noise added to power.
 Inflow (10-min means, one sample every 600 s)
   Farm wind  Gaussian copula: z = 0.9·sin(2πt/3.5 d + φ₀) + 0.77·AR(1)
              (synoptic cycle + persistence, φ = 0.985 per step, unit variance)
-             mapped to the Baltic Weibull marginal a = 10.5 m/s, k = 2.2 (the
-             P4 SCADA parameters; an own project uses its site's hub-height
-             Weibull) by the probability-integral transform.
+             mapped to the SB-510 site Weibull at 150 m (NEWA: a = 10.80 m/s,
+             k = 2.04, ``sb510_wind()``, as P4; an own project uses its site's
+             hub-height Weibull) by the probability-integral transform.
   Turbine    v_i = V·(1 + δ_i), δ_i AR(1) with σ = 3 %, φ = 0.9 (local
              turbulence / wake meandering; the mean wake deficit is left out).
   Ambient    winter: T ≈ +3 °C with a ±1 K daily cycle, RH ≈ 82 %, p ≈ 1013 hPa;
@@ -25,7 +25,7 @@ Inflow (10-min means, one sample every 600 s)
 Measurement chain (assumptions, stated in the model card)
   Nacelle anemometer  v_meas = g·v + N(0, 0.15 + 0.02·v) m/s
   Active power        + N(0, 0.03) MW         Rotor speed   + N(0, 0.02) rpm
-  Pitch angle         + N(0, 0.05) °          Gearbox temp. + N(0, 0.4) K
+  Pitch angle         + N(0, 0.05) °          Stator temp.  + N(0, 0.4) K
 
 The whole data set is reproducible from ``seed``. Ground truth (the injected
 fault parameter of every turbine at every sample) is returned alongside, so
@@ -51,9 +51,10 @@ from app.services.digital_twin.fault_library import (
 from app.services.digital_twin.reference_model import (
     FaultParams,
     evaluate,
-    gearbox_temperature,
+    generator_temperature,
 )
 from app.services.p4.turbine_power_curve import R_DRY
+from app.services.site_assessment.wind_climate import sb510_wind
 
 FloatArray = NDArray[np.float64]
 
@@ -63,8 +64,8 @@ NUM_TURBINES: int = 34
 START_EPOCH_S: int = 1_736_726_400  # 2025-01-13 00:00 UTC — a winter week
 
 # Inflow
-WEIBULL_A: float = 10.5
-WEIBULL_K: float = 2.2
+WEIBULL_A: float = round(sb510_wind().a_ms, 2)  # SB-510 site, NEWA 150 m
+WEIBULL_K: float = round(sb510_wind().k, 2)
 SYNOPTIC_PERIOD_DAYS: float = 3.5
 SYNOPTIC_AMPLITUDE: float = 0.9
 FARM_AR_PHI: float = 0.985
@@ -77,7 +78,7 @@ ANEMOMETER_SIGMA_REL: float = 0.02
 POWER_SIGMA_MW: float = 0.03
 ROTOR_SIGMA_RPM: float = 0.02
 PITCH_SIGMA_DEG: float = 0.05
-GEARBOX_TEMP_SIGMA_K: float = 0.4
+GENERATOR_TEMP_SIGMA_K: float = 0.4
 
 # Ambient (winter, Polish Baltic offshore)
 AMBIENT_BASE_C: float = 3.0
@@ -127,8 +128,8 @@ _ICING = FaultInjection(
 )
 _PITCH = FaultInjection(kind="pitch_offset", turbine_ids=(19,), severity=(4.0,), onset=0.30)
 _DERATE = FaultInjection(kind="power_limit", turbine_ids=(27,), severity=(12.0,), onset=0.40)
-_GEARBOX = FaultInjection(
-    kind="gearbox_loss", turbine_ids=(11,), severity=(1.6,), onset=0.15, ramp=0.85
+_GENERATOR = FaultInjection(
+    kind="generator_loss", turbine_ids=(11,), severity=(1.6,), onset=0.15, ramp=0.85
 )
 _ANEMOMETER = FaultInjection(
     kind="anemometer_gain", turbine_ids=(14,), severity=(8.0,), onset=0.20, ramp=0.40
@@ -176,13 +177,13 @@ SCENARIOS: dict[str, Scenario] = {
             injections=(_DERATE,),
         ),
         Scenario(
-            name="gearbox_degradation",
-            title="Gearbox degradation",
+            name="generator_degradation",
+            title="Generator degradation",
             description=(
-                "WTG-12: gearbox losses rise linearly from nominal (3 % of shaft power) "
+                "WTG-12: generator losses rise linearly from nominal (3.45 % of shaft power) "
                 "to 1.6× from 15 % of the window — a progressive fault for prognosis."
             ),
-            injections=(_GEARBOX,),
+            injections=(_GENERATOR,),
         ),
         Scenario(
             name="anemometer_drift",
@@ -200,7 +201,7 @@ SCENARIOS: dict[str, Scenario] = {
                 "All five faults at once, on different turbines, during the cold spell — "
                 "tests whether the twin isolates each one correctly."
             ),
-            injections=(_ICING, _PITCH, _DERATE, _GEARBOX, _ANEMOMETER),
+            injections=(_ICING, _PITCH, _DERATE, _GENERATOR, _ANEMOMETER),
             cold_spell=(0.25, 0.70),
         ),
     )
@@ -250,7 +251,7 @@ class PlantData:
     power_mw: FloatArray
     rotor_speed_rpm: FloatArray
     pitch_deg: FloatArray
-    gearbox_temp_c: FloatArray
+    generator_temp_c: FloatArray
     operating: NDArray[np.bool_]
     ambient_temp_c: FloatArray  # (T,)
     humidity_pct: FloatArray  # (T,)
@@ -371,7 +372,7 @@ def simulate_plant(
         aero_factor=1.0 - truth["aero_efficiency"] / 100.0,
         pitch_offset_deg=truth["pitch_offset"],
         power_limit_mw=truth["power_limit"],
-        gearbox_loss_factor=truth["gearbox_loss"],
+        generator_loss_factor=truth["generator_loss"],
     )
     op = evaluate(v_true, rho[:, None], faults)
 
@@ -384,9 +385,9 @@ def simulate_plant(
     power = np.where(on, op.power_mw + POWER_SIGMA_MW * rng.standard_normal(shape), 0.0)
     rotor = np.where(on, op.rotor_speed_rpm + ROTOR_SIGMA_RPM * rng.standard_normal(shape), 0.0)
     pitch = op.pitch_deg + np.where(on, PITCH_SIGMA_DEG * rng.standard_normal(shape), 0.0)
-    gb_temp = gearbox_temperature(
-        op.gearbox_loss_kw, np.broadcast_to(temp[:, None], shape), SAMPLE_PERIOD_S
-    ) + GEARBOX_TEMP_SIGMA_K * rng.standard_normal(shape)
+    gb_temp = generator_temperature(
+        op.generator_loss_kw, np.broadcast_to(temp[:, None], shape), SAMPLE_PERIOD_S
+    ) + GENERATOR_TEMP_SIGMA_K * rng.standard_normal(shape)
 
     timestamps = START_EPOCH_S + SAMPLE_PERIOD_S * np.arange(n, dtype=np.int64)
     return PlantData(
@@ -395,7 +396,7 @@ def simulate_plant(
         power_mw=np.clip(power, 0.0, None),
         rotor_speed_rpm=np.clip(rotor, 0.0, None),
         pitch_deg=pitch,
-        gearbox_temp_c=gb_temp,
+        generator_temp_c=gb_temp,
         operating=on & (power > 0.0),
         ambient_temp_c=temp,
         humidity_pct=rh,

@@ -6,8 +6,8 @@
  * makes the popup read like a workflow-canvas node rather than a detached card.
  *
  *        ┌──────────────────────┐
- *        │ ● Gearbox            │  ← card
- *        │   48:1 ratio         │
+ *        │ ● Generator          │  ← card
+ *        │   200 poles          │
  *        │   [formula]          │
  *        └──▲───────────────────┘
  *           ╲  ← dashed leader line

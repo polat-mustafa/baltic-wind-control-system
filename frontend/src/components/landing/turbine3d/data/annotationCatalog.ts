@@ -1,5 +1,6 @@
 /**
- * Static annotation catalog for the V236-15.0 MW turbine viewer.
+ * Static annotation catalog for the SB-510 turbine viewer (15 MW "V236 class",
+ * modelled with the IEA 15 MW reference turbine — Gaertner et al. 2020).
  *
  * Annotations are rendered in the 3D scene as circle nodes + optional
  * dimension arrows, clicking opens an AnnotationDetailPopup.
@@ -70,7 +71,7 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
       value: "150 m above mean sea level",
       unit: "m",
       formula: "h_hub = h_tower + h_transition",
-      source: "V236 offshore typical (Vestas, 2024)",
+      source: "IEA 15 MW reference turbine (Gaertner et al. 2020)",
       description:
         "Hub height above sea level. Higher hubs reach faster, more consistent wind — key driver of annual energy production.",
     },
@@ -81,13 +82,13 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
     category: "geometry",
     anchor: [22, 134, 0],
     arrowFrom: [20, 0, 0],
-    arrowTo:   [20, 268, 0],
-    label: "268 m",
+    arrowTo:   [20, 270.7, 0],
+    label: "271 m",
     detail: {
       title: "Total tip height",
-      value: "≈ 268 m (hub 150 + rotor radius 118 m)",
+      value: "≈ 271 m (hub 150 + rotor radius 120.7 m)",
       unit: "m",
-      source: "Derived from V236 spec",
+      source: "Derived from the IEA 15 MW geometry",
       description:
         "Maximum height swept by blade tip — relevant for aviation lighting (ICAO Annex 14) and installation crane reach.",
     },
@@ -97,15 +98,15 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
     kind: "dimension",
     category: "geometry",
     anchor: [0, 150, 25],
-    arrowFrom: [-118, 150, 20],
-    arrowTo:   [ 118, 150, 20],
-    label: "Ø 236 m",
+    arrowFrom: [-120.7, 150, 20],
+    arrowTo:   [ 120.7, 150, 20],
+    label: "Ø 241 m",
     detail: {
       title: "Rotor diameter (wingspan)",
-      value: "236 m",
+      value: "241.35 m",
       unit: "m",
-      formula: "A = π (D/2)² = 43,742 m²",
-      source: "Vestas V236-15.0 MW product card",
+      formula: "A = π (D/2)² = 45,750 m²",
+      source: "IEA-15-240-RWT v1.1.18 tabular data",
       description:
         "Swept area determines how much wind power is available. Doubling diameter quadruples swept area — the single biggest lever on energy yield.",
     },
@@ -116,13 +117,13 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
     category: "geometry",
     anchor: [10, 208, 0],
     arrowFrom: [0, 150, 0],
-    arrowTo:   [0, 265.5, 0],
-    label: "115.5 m",
+    arrowTo:   [0, 267, 0],
+    label: "117 m",
     detail: {
       title: "Blade length",
-      value: "115.5 m",
+      value: "117 m (root Ø 5.2 m, ≈ 65 t)",
       unit: "m",
-      source: "Vestas V236 product card",
+      source: "IEA 15 MW reference turbine (Gaertner et al. 2020, Table 3-1)",
       description:
         "Each carbon/glass-fibre blade is longer than a football pitch. Carbon spar cap keeps mass manageable despite the extreme length.",
     },
@@ -146,35 +147,34 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
   },
   // ── Component callouts (visible in cutaway / exploded) ─────────
   {
-    id: "cmp:gearbox",
-    kind: "component",
-    category: "kinematic",
-    anchor: [-3, 150.5, -2],
-    label: "Medium-speed gearbox 48:1",
-    relatedPartId: "gearbox",
-    visibleInModes: ["cutaway", "exploded"],
-    detail: {
-      title: "Medium-speed gearbox",
-      value: "48:1 ratio (3 planetary stages, 4 · 4 · 3)",
-      source: "Vestas V236 drivetrain",
-      description:
-        "Steps rotor 8.33 rpm up to 400 rpm for the PMSG. Lower ratio than legacy 3-stage = fewer wear parts, smaller oil volume.",
-    },
-  },
-  {
     id: "cmp:pmsg",
     kind: "component",
     category: "electrical",
-    anchor: [3, 148.5, -2],
-    label: "PMSG 15 MW",
+    anchor: [0, 156.5, 7.5],
+    label: "Direct-drive PMSG",
     relatedPartId: "generator",
+    detail: {
+      title: "Direct-drive permanent-magnet generator",
+      value: "200 poles, outer rotor, air gap r 5.08 m, 4.77 kV, 12.6 Hz at 7.56 rpm, η 96.55 %",
+      source: "IEA 15 MW reference turbine (Gaertner et al. 2020, Table 5-4)",
+      description:
+        "No gearbox: the generator turns at rotor speed, so it needs 100 pole pairs and a full-power converter to reach 50 Hz. It sits between the hub and the nacelle.",
+    },
+  },
+  {
+    id: "cmp:main-bearings",
+    kind: "component",
+    category: "kinematic",
+    anchor: [0, 151.5, 8.5],
+    label: "Main bearings ×2",
+    relatedPartId: "bearing",
     visibleInModes: ["cutaway", "exploded"],
     detail: {
-      title: "Permanent Magnet Synchronous Generator",
-      value: "15 MW, 400 rpm at rated, full-power converter",
-      source: "Vestas V236 spec",
+      title: "Main bearings on the turret",
+      value: "Upwind tapered double outer-ring (locating) + downwind spherical roller, 1.2 m apart",
+      source: "IEA 15 MW reference turbine (Gaertner et al. 2020, Table 5-2)",
       description:
-        "Permanent magnets eliminate rotor excitation windings → higher efficiency, lower maintenance vs DFIG. Full converter decouples from grid frequency.",
+        "The hollow main shaft (r 3.0 m, 2.2 m long) turns around the stationary turret on these two bearings; the generator rotor surrounds them.",
     },
   },
   {
@@ -186,10 +186,10 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
     relatedPartId: "yaw",
     detail: {
       title: "Yaw drive assembly",
-      value: "4 electric drives, ~0.5°/s slew rate",
-      source: "V-class typical, IEC 61400-1",
+      value: "Electric drives on a 6.5 m yaw bearing, 0.5°/s, 8° error threshold",
+      source: "IEA 15 MW ROSCO DISCON.IN (Y_Rate, Y_ErrThresh)",
       description:
-        "Rotates the nacelle to face the wind. Slow by design — gyroscopic moments on a 280-tonne nacelle would be destructive at higher speed.",
+        "Rotates the nacelle to face the wind. Slow by design — gyroscopic moments on a ≈ 1,000 t rotor-nacelle assembly would be destructive at higher speed.",
     },
   },
   {
@@ -201,10 +201,10 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
     relatedPartId: "blades",
     detail: {
       title: "Blade pitch bearings",
-      value: "3 × four-point contact ball bearing, Ø ~3.5 m",
-      source: "IEC 61400-4 gearbox/bearing standard",
+      value: "3 × pitch bearing at the 5.2 m blade root",
+      source: "IEA 15 MW reference turbine; ROSCO DISCON.IN (PC_MaxRat)",
       description:
-        "Each blade root rotates independently. Pitch angle 0° at rated wind, feathers to 90° at cut-out. Pitch rate ~6°/s.",
+        "Each blade root rotates independently. Pitch follows the minimum-pitch schedule below rated (≈ 0–3.9°), rises to ≈ 23° at 25 m/s and feathers to 90° to stop. Pitch rate limit 2°/s.",
     },
   },
   {
@@ -217,10 +217,10 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
     visibleInModes: ["cutaway", "exploded"],
     detail: {
       title: "Full-power converter (back-to-back IGBT)",
-      value: "15 MVA, variable-speed decoupling",
-      source: "IEC 61400-21-1",
+      value: "Full power, 12.6 Hz (4.77 kV) generator side → 50 Hz, η ≈ 99.2 %",
+      source: "IEA 15 MW (ROSCO VS_GenEff 95.756 % = generator × converter); IEC 61400-21-1",
       description:
-        "Converts variable-frequency generator output to fixed 50 Hz grid. Enables full FRT compliance and reactive power control.",
+        "Converts the low-frequency direct-drive output to the fixed 50 Hz grid. Enables full FRT compliance and reactive power control.",
     },
   },
 ];

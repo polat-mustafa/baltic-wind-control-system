@@ -71,7 +71,7 @@ References
 
 Constants (SB-510)
 -----------------------------
-- 34 × V236-15.0 MW = 510 MW total
+- 34 × 15 MW ("V236 class", IEA 15 MW reference) = 510 MW total
 - 4 strings × 6 WTGs + 2 strings × 5 WTGs = 34 WTGs (same split as the landing map,
   the DB seed and the 6 string feeder bays in P3/P5)
 - Array cable spacing: 1.5 km average

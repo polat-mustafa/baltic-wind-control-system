@@ -16,24 +16,22 @@ const ROWS = "ABCDEF";
 
 export type WireKind =
   | "mv" // 66 kV
-  | "lv" // 690 V / 400 V
+  | "lv" // generator / converter AC and 400 V auxiliaries
   | "dc"
   | "shaft"
   | "hyd" // hydraulic pressure
   | "hydRet" // hydraulic return
-  | "oil" // gearbox lube / cooling oil
   | "glycol" // water-glycol cooling
   | "signal" // ISA electric signal
   | "data"; // ISA data link / fieldbus
 
 const WIRE: Record<WireKind, { stroke: string; width: number; dash?: string; label: string }> = {
   mv: { stroke: "var(--color-voltage-66kv, #b91c1c)", width: 3, label: "MV 66 kV" },
-  lv: { stroke: "currentColor", width: 2.2, label: "LV 690 / 400 V AC" },
+  lv: { stroke: "currentColor", width: 2.2, label: "AC < 66 kV (generator, converter, aux)" },
   dc: { stroke: "currentColor", width: 2.2, dash: "10 3 2 3", label: "DC link" },
   shaft: { stroke: "currentColor", width: 6, label: "Shaft" },
   hyd: { stroke: "#ea580c", width: 2.4, label: "Hydraulic pressure (P)" },
   hydRet: { stroke: "#ea580c", width: 1.6, dash: "7 4", label: "Hydraulic return (T)" },
-  oil: { stroke: "#b45309", width: 2.4, label: "Gear oil" },
   glycol: { stroke: "#0891b2", width: 2.4, label: "Water-glycol" },
   signal: { stroke: "currentColor", width: 1, dash: "6 3", label: "Electric signal (ISA)" },
   data: { stroke: "var(--color-accent)", width: 1.2, dash: "1.5 3.5", label: "Data link / fieldbus" },
@@ -136,7 +134,7 @@ export function Sheet({
         <line x1={236} x2={236} y1={56} y2={tb.h} stroke="currentColor" strokeWidth={0.8} />
         <line x1={300} x2={300} y1={56} y2={tb.h} stroke="currentColor" strokeWidth={0.8} />
         <text x={8} y={15} fontSize={10.5} fontWeight={800}>
-          {fleet.source === "sb510" ? "SB-510 CASE STUDY" : fleet.name.toUpperCase()} · {fleet.turbines.length} × V236-15.0 MW · {fleet.net.total_capacity_mw.toFixed(0)} MW
+          {fleet.source === "sb510" ? "SB-510 CASE STUDY" : fleet.name.toUpperCase()} · {fleet.turbines.length} × 15 MW (IEA 15 MW) MW · {fleet.net.total_capacity_mw.toFixed(0)} MW
         </text>
         <text x={8} y={38} fontSize={13} fontWeight={800}>{title}</text>
         <text x={8} y={51} fontSize={10} fontWeight={600} fillOpacity={0.8}>{subtitle}</text>

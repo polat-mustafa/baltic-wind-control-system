@@ -80,7 +80,7 @@ export default function DigitalTwinPage() {
             Digital Twin · Condition Monitoring
           </h2>
           <p className="mt-1 text-xs text-text-muted">
-            Physics reference model of the V236-15.0 MW run at the measured wind of every 10-min
+            Physics reference model of the IEA 15 MW turbine (direct drive) run at the measured wind of every 10-min
             SCADA record · EWMA control charts · model-based fault isolation · ISO 13374-1 / 13381-1
           </p>
         </div>

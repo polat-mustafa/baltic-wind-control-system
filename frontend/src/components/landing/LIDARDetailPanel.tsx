@@ -2,8 +2,8 @@
  * Floating LIDAR (FLS) detail panel — independent wind reference for the
  * wind resource assessment, separate from turbine SCADA anemometry.
  *
- * The vertical profile spans the whole V236 rotor disk (hub 150 m, tips at
- * 32–268 m) and reports the rotor-equivalent wind speed (REWS): the speed
+ * The vertical profile spans the whole rotor disk (IEA 15 MW: hub 150 m, tips at
+ * 29–271 m) and reports the rotor-equivalent wind speed (REWS): the speed
  * that carries the same kinetic energy flux through the disk as the sheared
  * profile, REWS = (Σ Aᵢ·Uᵢ³ / A)^⅓.
  */

@@ -41,7 +41,7 @@ IEC 61400-25 extends IEC 61850 with wind-specific logical nodes:
 
 Constants (SB-510)
 ------------------------------
-- 34 × V236-15.0 MW = 510 MW total
+- 34 × 15 MW ("V236 class", IEA 15 MW reference) = 510 MW total
 - OSS Protection IED: ABB REL670 (XCBR, MMXU, PDIS, PTOC, PTOV, GGIO)
 - OSS Measurement IED: ABB REC670
 - 34 × WTG Controllers: Vestas V236-15.0 internal controller

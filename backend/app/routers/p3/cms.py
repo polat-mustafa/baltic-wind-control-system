@@ -6,7 +6,7 @@ Endpoints
 GET  /api/v1/scada/cms/fleet/overview               — 34-turbine health map
 GET  /api/v1/scada/cms/turbines/{id}/health         — Per-component health index
 GET  /api/v1/scada/cms/turbines/{id}/vibration      — FFT vibration spectrum
-GET  /api/v1/scada/cms/turbines/{id}/oil-analysis   — Gearbox oil quality trend
+GET  /api/v1/scada/cms/turbines/{id}/oil-analysis   — Hydraulic (pitch) oil quality trend
 GET  /api/v1/scada/cms/alerts                       — Active CMS alerts
 POST /api/v1/scada/cms/turbines/{id}/simulate-fault — Inject degradation scenario
 
@@ -35,7 +35,7 @@ from app.services.p3 import cms as svc
 
 router = APIRouter(tags=["M12 Condition Monitoring"])
 
-_VALID_COMPONENTS = {"MAIN_BEARING", "GEARBOX", "GENERATOR", "PITCH", "YAW"}
+_VALID_COMPONENTS = {"MAIN_BEARING", "REAR_BEARING", "GENERATOR", "PITCH", "YAW"}
 
 
 def _validate_turbine(turbine_id: str, n_turbines: int) -> str:
@@ -87,10 +87,10 @@ async def get_turbine_health(
     """Return per-component health index and vibration for one turbine.
 
     Returns health data for all 5 monitored components:
-    - MAIN_BEARING : main shaft bearing (most failure-critical)
-    - GEARBOX      : 3-stage gearbox (oil analysis included)
-    - GENERATOR    : DFIG/PMSG windings + bearings
-    - PITCH        : pitch actuator and blade bearing
+    - MAIN_BEARING : upwind tapered double outer-ring bearing (locating)
+    - REAR_BEARING : downwind spherical roller main bearing (non-locating)
+    - GENERATOR    : direct-drive PMSG (200 poles) — windings, magnets, air gap
+    - PITCH        : hydraulic pitch actuator, blade bearing (oil analysis)
     - YAW          : yaw drive motor and slew ring
 
     Each component shows:
@@ -116,15 +116,15 @@ async def get_vibration_spectrum(
     turbine_id: str = Path(description="Turbine ID, e.g. 'WTG-01'"),
     component: str = Query(
         default="MAIN_BEARING",
-        description="Component: MAIN_BEARING / GEARBOX / GENERATOR / PITCH / YAW",
+        description="Component: MAIN_BEARING / REAR_BEARING / GENERATOR / PITCH / YAW",
     ),
 ) -> VibrationSpectrumResponse:
-    """Velocity spectrum (400 lines) of the main bearing, gearbox or generator.
+    """Velocity spectrum (400 lines) of a main bearing or the direct-drive generator.
 
-    Main bearing (0–10 Hz): outer/inner race defects at BPFO ≈ 1.38 Hz and
-    BPFI ≈ 1.68 Hz with harmonics. Gearbox (0–200 Hz): gear-mesh frequencies
-    GMF1-3 ≈ 8.8 / 40 / 133 Hz; tooth wear raises GMF harmonics with carrier
-    sidebands. Generator (0–200 Hz): 1×/2× of 400 rpm and its bearing BPFO.
+    Main bearings (0–12 Hz): outer/inner race defects — upwind BPFO ≈ 3.6 Hz,
+    downwind BPFO ≈ 2.3 Hz — with harmonics. Generator (0–40 Hz, direct drive at
+    7.56 rpm): electrical f_e 12.6 Hz, magnetic pull 2·f_e 25.2 Hz, slot pass
+    30.2 Hz; rotor eccentricity raises 2·f_e with ±1× sidebands. No gearbox.
     Pitch and yaw have no vibration CMS (422).
     """
     tid = _validate_turbine(turbine_id, spec.num_turbines)
@@ -143,16 +143,16 @@ async def get_vibration_spectrum(
 @router.get(
     "/cms/turbines/{turbine_id}/oil-analysis",
     response_model=OilAnalysisResponse,
-    summary="Gearbox oil analysis trend",
+    summary="Hydraulic oil analysis trend",
 )
 async def get_oil_analysis(
     spec: FarmSpecDep,
     turbine_id: str = Path(description="Turbine ID, e.g. 'WTG-01'"),
 ) -> OilAnalysisResponse:
-    """Return 12-month gearbox oil analysis trend.
+    """Return the 12-month hydraulic (pitch/brake) oil analysis trend.
 
     ISO 4406 oil cleanliness codes track contamination over time:
-    - Target for wind turbine gearbox: <= 16/14/11
+    - Target for servo-valve hydraulics: <= 16/14/11
     - Watch level: 17/15/12 — schedule oil change
     - Alert level: 18/16/13 or worse — immediate oil change + analysis
 

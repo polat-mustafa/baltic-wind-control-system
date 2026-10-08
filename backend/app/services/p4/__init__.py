@@ -101,7 +101,7 @@ from app.services.p4.turbine_power_curve import (
     build_power_curve,
     compute_air_density_kg_m3,
     compute_swept_area_m2,
-    get_v236_spec,
+    get_turbine_spec,
     interpolate_power_mw,
 )
 from app.services.p4.xgboost_model import (
@@ -193,7 +193,7 @@ __all__ = [
     "generate_nwp_dataset",
     "generate_scada_dataset",
     "get_horizon_weights",
-    "get_v236_spec",
+    "get_turbine_spec",
     "interpolate_power_mw",
     "merge_nwp_features",
     "predict_lstm",

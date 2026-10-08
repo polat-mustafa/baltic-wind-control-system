@@ -56,6 +56,7 @@ import zlib
 from datetime import UTC, datetime
 
 from app.schemas.opcua import OPCUAAddressSpaceResponse, OPCUANodeInfo, OPCUAStatusResponse
+from app.services.p1.turbine_models import get_turbine
 from app.services.p2.network_model import SB510, FarmSpec
 
 log = logging.getLogger(__name__)
@@ -131,7 +132,7 @@ def _build_address_space_spec(farm: FarmSpec = SB510) -> list[OPCUANodeInfo]:
         p_mw = historian.power_curve_mw(u_i)
         total_mw += p_mw
         running = p_mw > 0
-        rpm = min(8.33, max(4.0, 8.33 * u_i / 11.1)) if running else 0.0
+        rpm = get_turbine().operating_point(u_i)["rotor_rpm"] if running else 0.0
         turbine_nodes.append(
             OPCUANodeInfo(
                 node_id=f"ns=2;s={path}",

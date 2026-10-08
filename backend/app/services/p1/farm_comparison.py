@@ -14,7 +14,7 @@ main P1 analysis uses, run on a near-square grid at the configured spacing
   f(v) = (k/A)(v/A)^(k-1) exp(-(v/A)^k),   A = v̄ / Γ(1 + 1/k)
 
 Turbines other than 15 MW are modelled as the IEA 15 MW reference scaled at constant
-specific power (P_rated / rotor area = 343 W/m²). Under that assumption the
+specific power (P_rated / rotor area = 15 MW / 45,750 m² = 328 W/m²). Under that assumption the
 power curve scales linearly with rating, the rated wind speed is unchanged,
 and wake loss depends only on spacing in rotor diameters — so the reference wake
 fraction applies directly.
@@ -289,8 +289,8 @@ def evaluate_farm(
     """Full AEP → grid → LCOE evaluation for one farm."""
     a = weibull_scale_from_mean(farm.mean_wind_speed_ms, farm.weibull_k)
     a_key, k_key = round(a, 3), round(farm.weibull_k, 3)
-    gross_v236, wake = _wake_run(farm.turbine_count, farm.turbine_spacing_d, a_key, k_key)
-    gross = gross_v236 * farm.turbine_rated_mw / (RATED_POWER_KW / 1e3)
+    gross_ref, wake = _wake_run(farm.turbine_count, farm.turbine_spacing_d, a_key, k_key)
+    gross = gross_ref * farm.turbine_rated_mw / (RATED_POWER_KW / 1e3)
     gross_cf = gross * 1e3 / (farm.installed_mw * 8760.0)
 
     x, y = grid_layout_m(farm.turbine_count, farm.turbine_spacing_d)

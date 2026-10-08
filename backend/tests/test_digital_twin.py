@@ -43,10 +43,11 @@ from app.services.digital_twin.reference_model import (
     FaultParams,
     calibrate,
     evaluate,
-    gearbox_temperature,
+    generator_temperature,
     reference_curve,
 )
-from app.services.turbine_physics.aerodynamics import BETZ_LIMIT, compute_cp, compute_cp_array
+from app.services.p1.turbine_models import get_turbine, rosco
+from app.services.turbine_physics.aerodynamics import BETZ_LIMIT
 
 client = TestClient(app)
 API = "/api/v1/digital-twin"
@@ -57,53 +58,68 @@ API = "/api/v1/digital-twin"
 
 class TestReferenceModel:
     def test_vectorised_cp_matches_scalar(self) -> None:
+        """The twin's vectorised ROSCO lookup equals the scalar one (Cp clipped at 0)."""
+        surface, _ = rosco()
         lam = np.linspace(0.0, 16.0, 81)
         for beta in (0.0, 2.5, 10.0, 30.0):
-            vec = compute_cp_array(lam, beta)
-            ref = np.array([compute_cp(float(x), beta) for x in lam])
+            vec = surface.cp_array(lam, beta)
+            ref = np.array([surface.coefficients(float(x), beta)[0] for x in lam])
             np.testing.assert_allclose(vec, ref, atol=1e-12)
 
     def test_calibration_reaches_rated_at_published_rated_wind(self) -> None:
+        """IEA 15 MW: rated 10.66 m/s; k_aero only closes the 1.6 % gap between the ROSCO
+        surface (Cp 0.469 at λ 9) and the WISDEM table behind the power curve (0.462)."""
         op = evaluate(np.array([DEFAULT_PARAMS.rated_wind_ms]))
         assert op.power_mw[0] == pytest.approx(15.0, abs=1e-3)
         cal = calibrate()
-        assert cal.lambda_opt == pytest.approx(8.1, abs=0.05)  # Heier optimum
-        assert 0.8 < cal.k_aero < 1.0
+        assert cal.lambda_opt == 9.0  # ROSCO VS_TSRopt
+        assert cal.cp_max_surface == pytest.approx(0.469, abs=0.001)
+        assert 0.97 < cal.k_aero < 1.0
 
     def test_power_envelope_rule_1(self) -> None:
         rc = reference_curve()
         assert np.all(rc.power_mw >= 0.0)
         assert np.all(rc.power_mw <= 15.0 + 1e-9)
         assert np.all(rc.power_mw[rc.wind_ms < 3.0] == 0.0)
-        assert np.all(rc.power_mw[rc.wind_ms > 31.0] == 0.0)
+        assert np.all(rc.power_mw[rc.wind_ms > 25.0] == 0.0)
         assert np.all(rc.cp <= BETZ_LIMIT)
 
     def test_power_monotonic_in_operating_range(self) -> None:
         rc = reference_curve()
-        sel = (rc.wind_ms >= 4.0) & (rc.wind_ms <= 31.0)
+        sel = (rc.wind_ms >= 3.0) & (rc.wind_ms <= 25.0)
         assert np.all(np.diff(rc.power_mw[sel]) >= -1e-9)
 
     def test_rotor_speed_and_pitch_within_limits(self) -> None:
-        op = evaluate(np.linspace(3.5, 30.0, 200))
+        """5.0–7.518 rpm (95 m/s tip speed); below rated the blades sit on the ROSCO
+        minimum-pitch schedule (3.45° at 3–4.3 m/s, 0 from 7.2 m/s)."""
+        v = np.linspace(3.5, 25.0, 200)
+        op = evaluate(v)
         on = op.operating
-        assert np.all(op.rotor_speed_rpm[on] >= 4.0 - 1e-9)
-        assert np.all(op.rotor_speed_rpm[on] <= 8.33 + 1e-9)
+        assert np.all(op.rotor_speed_rpm[on] >= 5.0 - 1e-9)
+        assert np.all(op.rotor_speed_rpm[on] <= 7.518 + 1e-3)
         assert np.all(op.pitch_deg[on] >= 0.0)
-        below = on & (np.linspace(3.5, 30.0, 200) < 11.0)
-        assert np.all(op.pitch_deg[below] == 0.0)
+        assert np.all(np.abs(op.pitch_deg[v < 4.2] - 3.45) < 0.03)
+        assert np.all(op.pitch_deg[(v > 7.3) & (v < 10.5)] == 0.0)
 
     def test_pitch_increases_above_rated(self) -> None:
-        v = np.linspace(12.0, 30.0, 40)
+        v = np.linspace(12.0, 25.0, 40)
         op = evaluate(v)
         assert np.all(op.region == REGION_PITCH)
         assert np.all(np.diff(op.pitch_deg) > 0.0)
-        assert 25.0 < op.pitch_deg[-1] < 40.0
+        assert op.pitch_deg[-1] == pytest.approx(22.8, abs=0.5)  # WISDEM table: 22.83°
 
-    def test_partial_load_matches_p1_table(self) -> None:
+    def test_matches_the_official_table(self) -> None:
+        """Whole curve within 60 kW (0.4 % of rated) of the IEA table; rotor speed and
+        pitch within 1 % / 0.6° of the WISDEM operating points."""
         rc = reference_curve()
-        sel = (rc.wind_ms >= 7.0) & (rc.wind_ms <= 11.0)
-        rel = np.abs(rc.power_mw[sel] - rc.p1_table_power_mw[sel]) / rc.p1_table_power_mw[sel]
-        assert rel.max() < 0.03
+        sel = (rc.wind_ms >= 3.0) & (rc.wind_ms <= 25.0)
+        assert np.abs(rc.power_mw[sel] - rc.p1_table_power_mw[sel]).max() < 0.06
+        t = get_turbine()
+        for v in (5.0, 8.0, 9.5, 13.0, 20.0):
+            i = int(np.argmin(np.abs(rc.wind_ms - v)))
+            ref = t.operating_point(float(rc.wind_ms[i]))
+            assert rc.rotor_speed_rpm[i] == pytest.approx(ref["rotor_rpm"], rel=0.01)
+            assert rc.pitch_deg[i] == pytest.approx(ref["pitch_deg"], abs=0.6)
 
     def test_higher_density_more_power_below_rated(self) -> None:
         cold = evaluate(np.array([9.0]), 1.30).power_mw[0]
@@ -132,26 +148,26 @@ class TestReferenceModel:
         assert lim.rotor_speed_rpm[0] == pytest.approx(nom.rotor_speed_rpm[0])
         assert lim.pitch_deg[0] > nom.pitch_deg[0]
 
-    def test_gearbox_loss_signature(self) -> None:
+    def test_generator_loss_signature(self) -> None:
         nom = evaluate(np.array([9.0]))
-        gb = evaluate(np.array([9.0]), faults=FaultParams(gearbox_loss_factor=2.0))
-        assert gb.gearbox_loss_kw[0] == pytest.approx(2.0 * nom.gearbox_loss_kw[0], rel=0.05)
+        gb = evaluate(np.array([9.0]), faults=FaultParams(generator_loss_factor=2.0))
+        assert gb.generator_loss_kw[0] == pytest.approx(2.0 * nom.generator_loss_kw[0], rel=0.05)
         assert gb.power_mw[0] < nom.power_mw[0]
 
-    def test_gearbox_temperature_steady_state(self) -> None:
+    def test_generator_temperature_steady_state(self) -> None:
         loss = np.full((50, 2), 400.0)
         amb = np.full((50, 2), 5.0)
-        t = gearbox_temperature(loss, amb, 600.0)
+        t = generator_temperature(loss, amb, 600.0)
         p = DEFAULT_PARAMS
-        expected = 5.0 + p.gearbox_temp_offset_k + p.gearbox_thermal_resistance_k_per_kw * 400.0
+        expected = 5.0 + p.generator_temp_offset_k + p.generator_thermal_resistance_k_per_kw * 400.0
         np.testing.assert_allclose(t, expected)
 
-    def test_gearbox_temperature_first_order_step(self) -> None:
+    def test_generator_temperature_first_order_step(self) -> None:
         loss = np.concatenate([np.zeros(10), np.full(200, 400.0)])
-        t = gearbox_temperature(loss, np.zeros(210), 600.0)
-        step = DEFAULT_PARAMS.gearbox_thermal_resistance_k_per_kw * 400.0
-        # one time constant (6 samples of 10 min) after the step: 1 − e⁻¹ of the rise
-        rise = t[10 + 5] - t[9]
+        t = generator_temperature(loss, np.zeros(210), 600.0)
+        step = DEFAULT_PARAMS.generator_thermal_resistance_k_per_kw * 400.0
+        # one time constant (τ 1.5 h = 9 samples of 10 min) after the step: 1 − e⁻¹ of the rise
+        rise = t[10 + 8] - t[9]
         assert rise == pytest.approx(step * (1 - math.exp(-1)), rel=0.02)
 
 
@@ -239,7 +255,7 @@ class TestDetection:
         ("pitch_misalignment", 19, "pitch_offset", 4.0, 0.3),
         ("converter_derating", 27, "power_limit", 12.0, 0.1),
         ("anemometer_drift", 14, "anemometer_gain", 7.4, 1.5),
-        ("gearbox_degradation", 11, "gearbox_loss", 1.32, 0.12),
+        ("generator_degradation", 11, "generator_loss", 1.32, 0.12),
         ("rotor_icing", 7, "aero_efficiency", 31.3, 4.0),
     ],
 )
@@ -276,8 +292,8 @@ def test_icing_hint_uses_met_conditions() -> None:
     assert "icing" in diag.cause_hint.lower()
 
 
-def test_gearbox_prognosis_tracks_injected_rate() -> None:
-    run = run_digital_twin("gearbox_degradation", 14, 3)
+def test_generator_prognosis_tracks_injected_rate() -> None:
+    run = run_digital_twin("generator_degradation", 14, 3)
     prog = run.turbines[11].prognosis
     assert prog is not None
     assert prog.status == "trend"
@@ -297,7 +313,7 @@ def test_prognosis_linear_trend() -> None:
     # +0.1 per day (two 12 h points per day) from 1.2 → limit 2.0
     pts = _points([1.2 + 0.05 * i for i in range(10)])
     end = 9 * 72
-    prog = prognose("gearbox_loss", pts, end)
+    prog = prognose("generator_loss", pts, end)
     assert prog is not None and prog.status == "trend"
     assert prog.slope_per_day == pytest.approx(0.1, rel=1e-3)
     assert prog.rul_days == pytest.approx((2.0 - 1.65) / 0.1, rel=1e-3)
@@ -306,7 +322,7 @@ def test_prognosis_linear_trend() -> None:
 def test_prognosis_requires_significant_trend() -> None:
     rng = np.random.default_rng(0)
     pts = _points(list(1.3 + 0.02 * rng.standard_normal(10)))
-    prog = prognose("gearbox_loss", pts, 9 * 72)
+    prog = prognose("generator_loss", pts, 9 * 72)
     assert prog is not None
     assert prog.status == "no_trend"
     assert prog.rul_days is None
@@ -328,7 +344,7 @@ def test_config_model_card() -> None:
         "power",
         "rotor_speed",
         "pitch",
-        "gearbox_temp",
+        "generator_temp",
         "anemometer",
     ]
     assert len(body["fault_library"]) == 5

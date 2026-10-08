@@ -95,14 +95,14 @@ const SENSOR_EMISSIVE: Record<SensorType, string> = {
 };
 
 const SENSORS: Sensor[] = [
-  { id: "ms-bearing-temp",    label: "Main Bearing Temp (PT100)",   type: "temperature", position: onShaft(SHAFT_Z.frontBearing, 0.9, 1.4), partId: "bearing"   },
-  { id: "ms-bearing-vib",     label: "Main Bearing Vibration",      type: "vibration",   position: onShaft(SHAFT_Z.rearBearing, 0.9, 1.3), partId: "bearing"   },
-  { id: "gb-hs-bear-temp",    label: "Gearbox HS Bearing Temp",     type: "temperature", position: onShaft(SHAFT_Z.gearboxStage[2], 1.2, 1.4), partId: "gearbox"   },
-  { id: "gb-oil-temp",        label: "Gearbox Oil Temp (PT100)",    type: "temperature", position: onShaft(SHAFT_Z.gearbox, 0.6, -1.9), partId: "gearbox"  },
-  { id: "gb-vib",             label: "Gearbox Vibration (IEPE)",    type: "vibration",   position: onShaft(SHAFT_Z.gearboxStage[0], 0.4, 1.9), partId: "gearbox"   },
-  { id: "gen-winding-temp",   label: "Gen Winding Temp U-phase",    type: "temperature", position: onShaft(SHAFT_Z.generator, 1.2, 1.5), partId: "generator" },
-  { id: "gen-bearing-temp",   label: "Gen Drive-End Bearing Temp",  type: "temperature", position: onShaft(SHAFT_Z.generator + 0.8, 0.3, 1.9), partId: "generator"},
-  { id: "gen-vib",            label: "Gen Housing Vibration",       type: "vibration",   position: onShaft(SHAFT_Z.generator - 0.6, 0.0, 2.0), partId: "generator" },
+  { id: "ms-bearing-temp",    label: "Main Bearing Temp (PT100)",   type: "temperature", position: onShaft(SHAFT_Z.frontBearing, 0.9, 2.4), partId: "bearing"   },
+  { id: "ms-bearing-vib",     label: "Main Bearing Vibration",      type: "vibration",   position: onShaft(SHAFT_Z.frontBearing, -0.9, 2.4), partId: "bearing"   },
+  { id: "rb-bearing-temp",    label: "Rear Bearing Temp (PT100)",   type: "temperature", position: onShaft(SHAFT_Z.rearBearing, 0.9, 2.4), partId: "bearing"   },
+  { id: "brake-pressure",     label: "Rotor Brake Pressure",        type: "pressure",    position: PARTS.brake, partId: "brake"     },
+  { id: "coolant-pressure",   label: "Coolant Loop Pressure",       type: "pressure",    position: [PARTS.coolantSkid[0] - 0.4, PARTS.coolantSkid[1] + 0.6, PARTS.coolantSkid[2]], partId: "generator" },
+  { id: "gen-winding-temp",   label: "Gen Winding Temp U-phase",    type: "temperature", position: onShaft(SHAFT_Z.generator, 1.2, 4.7), partId: "generator" },
+  { id: "conv-coolant-temp",  label: "Converter Coolant Outlet Temp", type: "temperature", position: [PARTS.converter[0] + 0.5, PARTS.converter[1] + 1.3, PARTS.converter[2] + 2.0], partId: "converter"},
+  { id: "gen-vib",            label: "Generator / Rear Bearing Vibration (IEPE)", type: "vibration", position: onShaft(SHAFT_Z.statorDisc, 0.0, 4.4), partId: "generator" },
   { id: "hpu-pressure",       label: "HPU Line Pressure",           type: "pressure",    position: [PARTS.hpu[0], PARTS.hpu[1] + 0.8, PARTS.hpu[2]], partId: "hpu"       },
   { id: "pitch-pressure",     label: "Pitch Accumulator Pressure",     type: "pressure",    position: [PARTS.hpu[0] - 0.8, PARTS.hpu[1] + 0.6, PARTS.hpu[2] + 0.4], partId: "hpu"       },
   { id: "conv-p-temp",        label: "Converter (Port) Temp",       type: "temperature", position: [PARTS.converter[0] + 0.5, PARTS.converter[1] + 1.3, PARTS.converter[2] + 1.0], partId: "converter"},
@@ -114,7 +114,7 @@ const SENSORS: Sensor[] = [
 ];
 
 /** Callout-leader sensor IDs — always-on labels for key education sensors. */
-const LEADER_SENSOR_IDS = new Set(["ms-bearing-temp", "gb-oil-temp", "gen-winding-temp"]);
+const LEADER_SENSOR_IDS = new Set(["ms-bearing-temp", "gen-winding-temp", "conv-coolant-temp"]);
 
 const RADIUS = 0.12;
 const RADIUS_SELECTED = 0.20;
@@ -123,7 +123,7 @@ const LOD_HIDE = 80;
 const LOD_LABEL = 40;
 
 // Centroid used for the aggregated cluster glyph at long distances.
-const NACELLE_CENTROID: [number, number, number] = PARTS.gearbox;
+const NACELLE_CENTROID: [number, number, number] = onShaft(SHAFT_Z.statorDisc);
 
 const CENTROID_V = new THREE.Vector3(...NACELLE_CENTROID);
 
@@ -141,12 +141,12 @@ function useSensorReadings(turbineId: string): Record<string, SensorReading> {
       powerMW: t.powerOutputMW,
       airC,
       bearingC: t.bearingTempC,
-      oilC: live?.cooling?.oil_temp_c,
+      windingC: live?.cooling?.winding_temp_c,
     });
     out["ms-bearing-temp"] = tempReading(th.mainBearing);
-    out["gb-hs-bear-temp"] = tempReading(th.hsBearing);
-    out["gb-oil-temp"] = tempReading(th.gearboxOil);
+    out["rb-bearing-temp"] = tempReading(th.rearBearing);
     out["gen-winding-temp"] = tempReading(th.generator);
+    out["conv-coolant-temp"] = tempReading(th.converter);
     out["conv-p-temp"] = tempReading(th.converter);
     out["conv-s-temp"] = tempReading(th.converter);
     out["trafo-temp"] = tempReading(th.transformer);

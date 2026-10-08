@@ -39,7 +39,7 @@ import {
 
 // ── Constants ──────────────────────────────────────────────────
 
-// V236 model (power curve, rotor speed, pitch) lives in utils/landingPhysics
+// Turbine model (IEA 15 MW power curve, rotor speed, pitch) lives in utils/landingPhysics
 // so the store, detail panel, curtailment inference and 3D viewer agree.
 const RATED_POWER_MW = V236.ratedMW;
 

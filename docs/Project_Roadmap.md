@@ -90,14 +90,15 @@ All five projects use a consistent reference scenario based on real Baltic Sea p
 | Farm Name | SB-510 (fictional) | Based on real Polish Baltic Sea projects |
 | Location | Polish EEZ, MSP energy basin PZP_44, ~50 km north of Ustka | Real site 44.E.1 (permit PGE / Baltica 9, 2023), used fictionally; moved there 2026-10 from shipping basin PZP_15 |
 | Capacity | 510 MW (scalable to 1.2 GW analysis) | Educational scale aligned with V236-15.0 class |
-| Turbines | 34 × Vestas V236-15.0 MW (15 MW) | Turbine class used in Baltic Power project |
+| Turbines | 34 × 15 MW "V236 class", modelled with the IEA 15 MW reference turbine (Gaertner et al. 2020) | Turbine class used in Baltic Power project; Vestas publishes no curves or drivetrain data |
 | Array Voltage | 66 kV | Industry standard for large OWFs |
 | Export Voltage | 220 kV HVAC | Still AC at 76.5 km (≈ 5 % of the circuit rating lost to charging current) |
 | Export Cable Length | 76.5 km: 63.5 km subsea (round the west end of Ławica Słupska) + 13 km onshore | Route drawn and checked against the Site & Permits layers |
 | Water Depth | 37–51 m at the turbines (EMODnet DTM) | Jacket foundations |
-| Hub Height | 150 m | V236-15.0 specification |
-| Rotor Diameter | 236 m | V236-15.0 specification |
-| Cut-in / Rated / Cut-out | 3 / 11.1 / 31 m/s | V236-15.0 public specifications |
+| Hub Height | 150 m | IEA 15 MW |
+| Rotor Diameter | 241.35 m | IEA 15 MW (official tabular data v1.1.18) |
+| Cut-in / Rated / Cut-out | 3 / 10.66 / 25 m/s | IEA 15 MW official power table |
+| Drivetrain | Low-speed direct drive, 200-pole PMSG, 5.0–7.56 rpm | IEA 15 MW report Tables 5-2 / 5-4; ROSCO controller |
 | Ct at rated | 0.28 | Updated for 15 MW class |
 | Mean Wind Speed | 9.0–9.5 m/s at hub height | ERA5 Baltic Sea data |
 | TSO | PSE S.A. (Polskie Sieci Elektroenergetyczne) | Polish transmission system operator |
@@ -192,10 +193,10 @@ from py_wake.superposition_models import LinearSum
 from py_wake.turbulence_models import STF2017TurbulenceModel
 # Site: 12-sector wind rose (sector Weibull fits) — the same rose the dashboard shows
 
-# Turbine: Vestas V236-15.0 MW
-# - Rated: 15 MW | Diameter: 236 m | Hub: 150 m
-# - Cut-in: 3 m/s | Rated: ~11.1 m/s | Cut-out: 31 m/s
-# - Ct at rated ≈ 0.28 (critical for wake deficit calculation)
+# Turbine: SB-510 "V236 class" = IEA 15 MW reference turbine (official table)
+# - Rated: 15 MW | Diameter: 241.35 m | Hub: 150 m
+# - Cut-in: 3 m/s | Rated: 10.66 m/s | Cut-out: 25 m/s
+# - Ct ≈ 0.78 below rated, 0.77 at rated, 0.044 at cut-out (critical for wake deficits)
 
 # Layout optimization:
 # - Initial: Staggered grid aligned to predominant WSW (255°)

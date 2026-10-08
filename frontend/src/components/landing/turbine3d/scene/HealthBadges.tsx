@@ -7,7 +7,7 @@
  * Health Index (HI) from the thermal margin (model/nacelleThermal, the same
  * temperatures as the thermal overlay): 100 at or below the part's rated
  * temperature on a 15 °C day, 0 at its trip limit, linear in between.
- *   Main bearing — simulated PT100 · Gearbox — live sump oil (backend)
+ *   Main bearings — simulated PT100 · Generator — live winding temperature (backend)
  *   Generator / converter — load-loss model
  *
  *   HI 80–100 → green  (#22c55e)
@@ -44,23 +44,23 @@ interface Badge {
 export function HealthBadges({ turbineId }: HealthBadgesProps) {
   const turbine = useLandingStore(selectTurbine(turbineId));
   const airC = useLandingStore((s) => s.environment.airTemperatureC);
-  const oilC = useNacelleSubsystemsStore(selectNacelleData(turbineId))?.cooling?.oil_temp_c;
+  const windingC = useNacelleSubsystemsStore(selectNacelleData(turbineId))?.cooling?.winding_temp_c;
 
   const badges: Badge[] = useMemo(() => {
     const t = nacelleTemperatures({
       powerMW: turbine?.powerOutputMW ?? 0,
       airC,
       bearingC: turbine?.bearingTempC,
-      oilC,
+      windingC,
     });
     const hi = (id: keyof typeof t) => thermalHealthIndex(id, t[id].tempC);
     return [
-      { label: "Main Bearing", position: onShaft(SHAFT_Z.bearingUnit, 1.5, 2.6), hi: hi("mainBearing") },
-      { label: "Gearbox", position: onShaft(SHAFT_Z.gearbox, 1.5, 2.6), hi: Math.min(hi("gearboxOil"), hi("hsBearing")) },
-      { label: "Generator", position: onShaft(SHAFT_Z.generator, 1.5, 2.8), hi: hi("generator") },
+      { label: "Main Bearings", position: onShaft(SHAFT_Z.bearingUnit, 1.5, 2.8), hi: Math.min(hi("mainBearing"), hi("rearBearing")) },
+      { label: "Generator", position: onShaft(SHAFT_Z.generator, 1.5, 5.9), hi: hi("generator") },
+      { label: "Pitch HPU", position: [PARTS.hpu[0], PARTS.hpu[1] + 1.6, PARTS.hpu[2]], hi: hi("hydraulicOil") },
       { label: "Converter", position: [PARTS.converter[0], PARTS.converter[1] + 2.0, PARTS.converter[2]], hi: hi("converter") },
     ];
-  }, [turbine?.powerOutputMW, turbine?.bearingTempC, airC, oilC]);
+  }, [turbine?.powerOutputMW, turbine?.bearingTempC, airC, windingC]);
 
   return (
     <group name="health-badges">

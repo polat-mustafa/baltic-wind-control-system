@@ -18,7 +18,7 @@ function turbine(id: number, hi: number): TurbineSummary {
     name: `WTG-${String(id + 1).padStart(2, "0")}`,
     status: hi < 40 ? "alarm" : hi < 70 ? "alert" : "normal",
     health_index: hi,
-    channel_health: { power: hi, rotor_speed: 100, pitch: 100, gearbox_temp: 100, anemometer: 100 },
+    channel_health: { power: hi, rotor_speed: 100, pitch: 100, generator_temp: 100, anemometer: 100 },
     worst_channel: "power",
     event_count: 0,
     active_event_count: 0,

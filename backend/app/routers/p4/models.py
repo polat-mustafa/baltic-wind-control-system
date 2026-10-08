@@ -84,7 +84,9 @@ async def train_xgboost_endpoint(
             learning_rate=request.learning_rate,
             seed=request.seed if request.seed is not None else 42,
         )
-        cv_result, _ = train_xgboost(features, target, xgb_config)
+        cv_result, _ = train_xgboost(
+            features, target, xgb_config, persistence_column=feature_names.index("power_lag_1")
+        )
         return cv_result, feature_names, features.shape[0]
 
     cv_result, feature_names, num_samples = await asyncio.to_thread(_train)
@@ -125,7 +127,7 @@ async def predict_xgboost_endpoint(
     Pipeline: generate SCADA → filter → features → NWP → train → predict.
     Returns the last `horizon_steps` of the forecast.
     """
-    features, target, wind_speed, timestamps, _ = await _get_pipeline_data(
+    features, target, wind_speed, timestamps, feature_names = await _get_pipeline_data(
         num_turbines=request.num_turbines,
         num_timesteps=request.num_timesteps,
         turbine_index=request.turbine_index,
@@ -136,7 +138,9 @@ async def predict_xgboost_endpoint(
         xgb_config = XGBoostConfig(
             seed=request.seed if request.seed is not None else 42,
         )
-        _, models = train_xgboost(features, target, xgb_config)
+        _, models = train_xgboost(
+            features, target, xgb_config, persistence_column=feature_names.index("power_lag_1")
+        )
         horizon = min(request.horizon_steps, features.shape[0])
         forecast = predict_xgboost(
             models, features[-horizon:], wind_speed[-horizon:], timestamps[-horizon:]
@@ -177,7 +181,9 @@ async def xgboost_shap_endpoint(
         xgb_config = XGBoostConfig(
             seed=request.seed if request.seed is not None else 42,
         )
-        _, models = train_xgboost(features, target, xgb_config)
+        _, models = train_xgboost(
+            features, target, xgb_config, persistence_column=feature_names.index("power_lag_1")
+        )
         model_p50 = models[1]  # P50 = index 1
         shap_result = compute_shap_values(model_p50, features, feature_names)
         return shap_result, feature_names, features

@@ -3,24 +3,24 @@
  * all live numbers come from the landing simulation and the backend nacelle
  * subsystem model, never from constants in this file:
  *
- *   E-01  single-line diagram (IEC 60617): PMSG → full converter → LV breaker
- *         → 0.69/66 kV transformer → tower-base 66 kV switchgear with the
+ *   E-01  single-line diagram (IEC 60617): direct-drive PMSG (4.77 kV) → full
+ *         converter → breaker → step-up transformer (→ 66 kV) → tower-base 66 kV switchgear with the
  *         in/out string feeders; auxiliary 400 V board below.
  *         Currents at unity power factor: I = P / (√3·U).
- *   M-01  drivetrain: rotor, main bearing, low-speed shaft, rotor brake,
- *         3-stage planetary gearbox (4 · 4 · 3 = 48), coupling, generator;
- *         yaw system. Torque T = P / ω on each shaft.
+ *   M-01  drivetrain: rotor, two main bearings, hollow main shaft, rotor brake,
+ *         direct-drive PMSG (no gearbox, f_e = 100·n/60); yaw system. T = P / ω.
  *   P-01  hydraulics & cooling P&ID (ISA-5.1): HPU, accumulator, pitch /
- *         rotor-brake / yaw-brake circuits; gear-oil and water-glycol loops.
+ *         rotor-brake / yaw-brake circuits; water-glycol loop (no gear oil).
  */
 
 import type { NacelleSubsystemsResponse } from "../../../../services/nacelleSubsystemsApi";
 import type { TurbinePartId } from "../../../../constants/turbinePartEducation";
 import type { TurbineData } from "../../../../types/landing";
 import type { PowerChain } from "../../../../utils/landingPhysics";
+import { REFERENCE_TURBINE } from "../../../../utils/turbineCurves";
 import {
-  Accumulator, Battery, Bearing, BrakeCaliper, Breaker, Bubble, CableEnd, Capacitor, CheckValve, Converter, Coupling, CT,
-  Cylinder, Disconnector, EarthSwitch, Fan, Filter, GearStage, Generator, HeatExchanger, Label, Motor, OffSheet,
+  Accumulator, Battery, Bearing, BrakeCaliper, Breaker, Bubble, CableEnd, Capacitor, CheckValve, Converter, CT,
+  Cylinder, Disconnector, EarthSwitch, Filter, Generator, HeatExchanger, Label, Motor, OffSheet,
   ProportionalValve, Pump, Reading, Relay, ReliefValve, Sym, Tank, Transformer, VT,
 } from "./symbols";
 import { Legend, Sheet, Wire } from "./sheet";
@@ -63,11 +63,11 @@ export function ElectricalSheet({ turbine, chain, selected, onSelect, string, na
       <Wire d="M 737 250 L 790 250" kind="mv" flow={flow} />
       <text x={668} y={272} fontSize={9.5} fontWeight={700} fill="currentColor" fillOpacity={0.7} textAnchor="middle">tower cable</text>
 
-      <Sym x={110} y={250} part="generator" {...sel} title="Permanent-magnet synchronous generator">
+      <Sym x={110} y={250} part="generator" {...sel} title="Direct-drive permanent-magnet synchronous generator (200 poles, 4.77 kV)">
         <Generator />
       </Sym>
-      <Label x={110} y={205} tag="-G1" text="PMSG" />
-      <Reading x={62} y={290} lines={[`${f2(chain.generator.outMW)} MW`, `${chain.generatorRpm.toFixed(0)} rpm`]} />
+      <Label x={110} y={205} tag="-G1" text="PMSG · 4.77 kV" />
+      <Reading x={62} y={290} lines={[`${f2(chain.generator.outMW)} MW`, `${chain.generatorRpm.toFixed(2)} rpm · ${chain.generatorHz.toFixed(1)} Hz`]} />
       <g transform="translate(176 250)"><CT /></g>
       <Label x={176} y={234} tag="-T11" />
 
@@ -140,13 +140,13 @@ export function ElectricalSheet({ turbine, chain, selected, onSelect, string, na
       <g transform="translate(480 330) rotate(90)"><Breaker closed /></g>
       <Label x={496} y={334} anchor="start" tag="-Q3" />
       <g transform="translate(480 420) rotate(90)"><Transformer /></g>
-      <Label x={508} y={424} anchor="start" tag="-T2" text="690 / 400 V aux" />
+      <Label x={508} y={424} anchor="start" tag="-T2" text="aux → 400 V" />
       <Wire d="M 480 452 L 480 480 M 150 480 L 720 480" kind="lv" />
       {(
         [
           [170, "yaw_brake", "-M11…14", "yaw drives"],
           [270, "hpu", "-M21", "HPU pump"],
-          [370, "oil_cooler", "-M31…33", "cooling"],
+          [370, "coolant_skid", "-M31…33", "cooling"],
           [470, "fire_suppression", "-E41", "HVAC / heat"],
         ] as const
       ).map(([x, part, tag, text]) => (
@@ -175,16 +175,11 @@ export function ElectricalSheet({ turbine, chain, selected, onSelect, string, na
 export function DrivetrainSheet({ turbine, chain, selected, onSelect, nacelle, yawErrDeg, windFromDeg }: SheetProps) {
   const sel = { selected, onSelect };
   const rpm = turbine.rotorSpeedRpm;
-  const wGen = (chain.generatorRpm * 2 * Math.PI) / 60;
-  const hssKNm = wGen > 0 ? (chain.gearbox.outMW * 1e3) / wGen : 0;
   const stopped = rpm < 0.2;
-  const s1 = rpm * 4;
-  const s2 = s1 * 4;
   return (
-    <Sheet title="Drivetrain & yaw" subtitle={`${turbine.id} · mechanical power path`} dwg="SB5-WTG-M-001" sheet="2 / 3" standard="ISO 3952 · IEC 61400-4">
-      {/* shaft line */}
-      <Wire d="M 146 280 L 426 280" kind="shaft" />
-      <Wire d="M 714 280 L 872 280" kind="shaft" />
+    <Sheet title="Drivetrain & yaw" subtitle={`${turbine.id} · mechanical power path · direct drive`} dwg="SB5-WTG-M-001" sheet="2 / 3" standard="ISO 3952 · IEC 61400-1">
+      {/* shaft line: hub → main shaft → generator rotor, one speed (no gearbox) */}
+      <Wire d="M 146 280 L 520 280" kind="shaft" />
       <Sym x={110} y={280} part="hub" {...sel} title="Rotor hub with 3 pitch systems" box={[-44, -100, 88, 200]}>
         {[90, 210, 330].map((a) => (
           <line key={a} x1={0} y1={0} x2={92 * Math.cos((a * Math.PI) / 180)} y2={-92 * Math.sin((a * Math.PI) / 180)}
@@ -194,43 +189,34 @@ export function DrivetrainSheet({ turbine, chain, selected, onSelect, nacelle, y
         <text y={-6} textAnchor="middle" fontSize={10} fontWeight={800} fill="currentColor">3 × pitch</text>
         <text y={8} textAnchor="middle" fontSize={10} fontWeight={700} fill="currentColor">{turbine.pitchAngleDeg.toFixed(1)}°</text>
       </Sym>
-      <Label x={110} y={400} tag="-rotor" text="Ø 236 m" />
-      <Sym x={228} y={280} part="bearing" {...sel} title="Main bearing">
+      <Label x={110} y={400} tag="-rotor" text={`Ø ${REFERENCE_TURBINE.rotorDiameterM.toFixed(0)} m`} />
+      <Sym x={200} y={280} part="bearing" {...sel} title="Upwind main bearing — tapered double outer-ring (locating)">
         <Bearing />
       </Sym>
-      <Label x={228} y={240} tag="-MB" text="main bearing" />
-      <Reading x={196} y={318} lines={[`${turbine.bearingTempC.toFixed(0)} °C`, `${turbine.vibrationMmS.toFixed(1)} mm/s`]} />
-      <Sym x={300} y={280} part="shaft" {...sel} title="Low-speed shaft" box={[-30, -20, 60, 40]}>
+      <Label x={200} y={240} tag="-MB1" text="TDO" />
+      <Sym x={285} y={280} part="bearing" {...sel} title="Downwind main bearing — spherical roller (non-locating), 1.2 m aft">
+        <Bearing />
+      </Sym>
+      <Label x={285} y={240} tag="-MB2" text="SRB" />
+      <Reading x={186} y={318} lines={[`${turbine.bearingTempC.toFixed(0)} °C`, `${turbine.vibrationMmS.toFixed(1)} mm/s`]} />
+      <Sym x={350} y={280} part="shaft" {...sel} title="Hollow main shaft (Ø 6 m, 2.2 m) around the stationary turret" box={[-30, -20, 60, 40]}>
         <rect x={-28} y={-6} width={56} height={12} fill="transparent" />
       </Sym>
-      <Reading x={262} y={170} lines={["LSS", `${rpm.toFixed(2)} rpm`, `${(chain.rotorTorqueKNm / 1000).toFixed(1)} MN·m`]} />
-      <Sym x={372} y={280} part="brake" {...sel} title="Rotor brake / lock">
+      <Reading x={316} y={170} lines={["main shaft", `${rpm.toFixed(2)} rpm`, `${(chain.rotorTorqueKNm / 1000).toFixed(1)} MN·m`]} />
+      <Sym x={440} y={280} part="brake" {...sel} title="Rotor brake / lock on the generator rotor disc">
         <BrakeCaliper applied={stopped} />
       </Sym>
-      <Label x={372} y={330} tag="-BR" text={stopped ? "applied" : "released"} />
+      <Label x={440} y={330} tag="-BR" text={stopped ? "applied" : "released"} />
 
-      {/* gearbox */}
-      <Sym x={570} y={280} part="gearbox" {...sel} title="3-stage planetary gearbox, 48:1" box={[-150, -86, 300, 172]}>
-        <rect x={-146} y={-80} width={292} height={160} rx={6} fill="url(#dwg-hatch)" stroke="currentColor" strokeWidth={1.2} strokeDasharray="8 4" />
-        {[-96, 0, 96].map((dx, i) => (
-          <g key={dx} transform={`translate(${dx} 6)`}>
-            <GearStage name={`stage ${i + 1}`} ratio={i === 2 ? "1 : 3" : "1 : 4"} />
-          </g>
-        ))}
-      </Sym>
-      <Label x={570} y={185} tag="-MDK" text="gearbox 48 : 1 (4 · 4 · 3)" />
-      <Reading x={452} y={380} lines={[`n₁ ${s1.toFixed(1)} · n₂ ${s2.toFixed(1)} rpm`, `loss ${f2(chain.gearbox.lossMW)} MW heat`]} />
-
-      <Sym x={772} y={280} part="coupling" {...sel} title="Flexible coupling">
-        <Coupling />
-      </Sym>
-      <Reading x={728} y={170} lines={["HSS", `${chain.generatorRpm.toFixed(0)} rpm`, `${hssKNm.toFixed(0)} kN·m`]} />
-      <Sym x={900} y={280} part="generator" {...sel} title="PMSG">
+      {/* direct-drive generator: outer rotor on the shaft, stator on the turret */}
+      <Sym x={640} y={280} part="generator" {...sel} title="Direct-drive PMSG — 200 poles, outer rotor, air gap r 5.08 m" box={[-120, -86, 240, 172]}>
+        <rect x={-116} y={-80} width={232} height={160} rx={6} fill="url(#dwg-hatch)" stroke="currentColor" strokeWidth={1.2} strokeDasharray="8 4" />
         <Generator />
       </Sym>
-      <Label x={900} y={236} tag="-G1" text="PMSG" />
-      <g transform="translate(944 280)"><OffSheet text="E-01 / B1" /></g>
-      <Reading x={868} y={318} lines={[`${f2(chain.generator.outMW)} MW el.`]} />
+      <Label x={640} y={185} tag="-G1" text="direct-drive PMSG · 200 poles · no gearbox" />
+      <Reading x={530} y={380} lines={[`n = ${rpm.toFixed(2)} rpm (rotor speed)`, `f_e = 100·n/60 = ${chain.generatorHz.toFixed(1)} Hz`, `loss ${f2(chain.generator.lossMW)} MW heat`]} />
+      <g transform="translate(790 280)"><OffSheet text="E-01 / B1" /></g>
+      <Reading x={760} y={318} lines={[`${f2(chain.generator.outMW)} MW el.`]} />
 
       {/* yaw system */}
       <Sym x={300} y={540} part="yaw" {...sel} title="Yaw bearing with drives and brakes" box={[-100, -80, 200, 160]}>
@@ -260,8 +246,8 @@ export function DrivetrainSheet({ turbine, chain, selected, onSelect, nacelle, y
         `cable twist ${nacelle ? nacelle.cable_twist.twist_turns.toFixed(2) : "—"} turns`,
       ]} tone={Math.abs(yawErrDeg) > 45 ? "var(--color-status-warning)" : "var(--color-accent)"} />
       <Legend kinds={["shaft"]} x={790} y={430} />
-      <text x={790} y={480} fontSize={10.5} fontWeight={600} fill="currentColor">T = P / ω on each shaft · n from the rotor speed</text>
-      <text x={790} y={495} fontSize={10.5} fontWeight={600} fill="currentColor">through the stage ratios (planetary i = 1 + Zr/Zs)</text>
+      <text x={790} y={480} fontSize={10.5} fontWeight={600} fill="currentColor">T = P / ω · one shaft speed (direct drive):</text>
+      <text x={790} y={495} fontSize={10.5} fontWeight={600} fill="currentColor">generator n = rotor n, f_e = pole pairs · n / 60</text>
     </Sheet>
   );
 }
@@ -275,7 +261,7 @@ export function HydraulicSheet({ turbine, selected, onSelect, nacelle }: SheetPr
   const running = hpu?.pump_running ?? true;
   const fmt = (v: number | undefined, d = 0) => (v === undefined ? "—" : v.toFixed(d));
   return (
-    <Sheet title="Hydraulics & cooling P&ID" subtitle={`${turbine.id} · HPU, brakes, gear-oil and water-glycol loops`} dwg="SB5-WTG-P-001" sheet="3 / 3" standard="ISA-5.1 · ISO 1219">
+    <Sheet title="Hydraulics & cooling P&ID" subtitle={`${turbine.id} · HPU, brakes and the water-glycol loop (direct drive: no gear oil)`} dwg="SB5-WTG-P-001" sheet="3 / 3" standard="ISA-5.1 · ISO 1219">
       {/* ── hydraulic power unit ── */}
       <text x={60} y={96} fontSize={12} fontWeight={800} fill="currentColor">HYDRAULIC POWER UNIT</text>
       <Wire d="M 140 540 L 140 464" kind="hydRet" />
@@ -336,27 +322,11 @@ export function HydraulicSheet({ turbine, selected, onSelect, nacelle }: SheetPr
       <g transform="translate(660 480)"><Bubble letters="PT" num="103" /></g>
       <Label x={680} y={484} anchor="start" text={`brake ${fmt(hpu?.brake_caliper_pressure_bar)} bar`} />
 
-      {/* ── gear-oil cooling loop ── */}
-      <text x={800} y={96} fontSize={12} fontWeight={800} fill="currentColor">GEAR-OIL LOOP</text>
-      <Wire d="M 866 200 L 922 200 M 954 200 L 988 200 M 1012 200 L 1078 200 M 1118 200 L 1140 200 L 1140 270 L 866 270" kind="oil" flow />
-      <Sym x={830} y={235} part="gearbox" {...sel} title="Gearbox sump" box={[-40, -50, 80, 100]}>
-        <rect x={-36} y={-46} width={72} height={92} rx={4} fill="url(#dwg-hatch)" stroke="currentColor" strokeWidth={1.6} />
-        <text y={4} textAnchor="middle" fontSize={10.5} fontWeight={800} fill="currentColor">gearbox</text>
-      </Sym>
-      <g transform="translate(938 200)"><Pump /></g>
-      <Label x={938} y={228} tag="-P2" />
-      <g transform="translate(1000 200)"><Filter /></g>
-      <Sym x={1098} y={200} part="oil_cooler" {...sel} title="Oil/air cooler" box={[-26, -64, 52, 90]}>
-        <HeatExchanger />
-        <g transform="translate(0 -44)"><Fan spin={(cool?.fan_speed_pct ?? 0) * 3.6} /></g>
-      </Sym>
-      <Label x={1098} y={236} tag="-E1" text="oil cooler" />
-      <g transform="translate(830 150)"><Bubble letters="TT" num="201" panel alarm={cool?.oil_temp_alarm} /></g>
-      <Reading x={850} y={112} lines={[`${fmt(cool?.oil_temp_c, 1)} °C · ${fmt(cool?.viscosity_cst)} cSt`]} tone={cool?.oil_temp_alarm ? "var(--color-status-alarm)" : "var(--color-accent)"} />
-      <Reading x={1000} y={120} lines={[`fan ${fmt(cool?.fan_speed_pct)} %`, `${fmt(cool?.cooler_heat_rejection_kw)} kW`]} />
-
       {/* ── water-glycol loop to the roof cooler ── */}
-      <text x={800} y={330} fontSize={12} fontWeight={800} fill="currentColor">WATER-GLYCOL LOOP</text>
+      <text x={800} y={330} fontSize={12} fontWeight={800} fill="currentColor">WATER-GLYCOL LOOP · generator + converter</text>
+      <g transform="translate(830 360)"><Bubble letters="TT" num="201" panel alarm={cool?.winding_temp_alarm} /></g>
+      <Reading x={800} y={240} lines={[`winding ${fmt(cool?.winding_temp_c, 1)} °C`, `gen ${fmt(cool?.generator_loss_kw)} kW · conv ${fmt(cool?.converter_loss_kw)} kW`]} tone={cool?.winding_temp_alarm ? "var(--color-status-alarm)" : "var(--color-accent)"} />
+      <Reading x={1040} y={240} lines={[`fan ${fmt(cool?.fan_speed_pct)} %`, `${fmt(cool?.cooler_heat_rejection_kw)} kW`]} />
       <Wire d="M 866 400 L 910 400 M 950 400 L 1022 400 M 1054 400 L 1098 400 L 1098 372 M 1098 332 L 1098 320 L 1150 320 L 1150 460 L 830 460 L 830 424" kind="glycol" flow />
       <Sym x={830} y={400} part="generator" {...sel} title="Generator stator jacket" box={[-34, -24, 68, 48]}>
         <rect x={-32} y={-20} width={64} height={40} rx={4} fill="var(--color-bg-primary)" stroke="currentColor" strokeWidth={1.6} />
@@ -372,7 +342,7 @@ export function HydraulicSheet({ turbine, selected, onSelect, nacelle }: SheetPr
       <Label x={1076} y={356} anchor="end" tag="-E2" text="CoolerTop (roof)" />
       <Wire d="M 960 460 L 960 485" kind="signal" />
       <g transform="translate(960 500)"><Bubble letters="TT" num="301" /></g>
-      <Legend kinds={["hyd", "hydRet", "oil", "glycol", "signal"]} x={790} y={520} />
+      <Legend kinds={["hyd", "hydRet", "glycol", "signal"]} x={790} y={520} />
     </Sheet>
   );
 }

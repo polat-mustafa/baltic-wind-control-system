@@ -8,10 +8,10 @@ Physics — Why Constraints Are Non-Negotiable
 ----------------------------------------------
 A wind turbine is a physical machine with hard operating limits:
   - It cannot generate negative power (no motor mode in normal operation)
-  - It cannot exceed its generator rating (15.0 MW for V236)
+  - It cannot exceed its rating (15.0 MW for the SB-510 turbine, IEA 15 MW)
   - Below cut-in wind speed (3.0 m/s), aerodynamic torque is insufficient
     to overcome drivetrain friction — the rotor does not turn
-  - Above cut-out wind speed (31.0 m/s), the turbine shuts down via
+  - Above cut-out wind speed (25.0 m/s), the turbine shuts down via
     blade pitch to feather (90°) to prevent structural damage
   - The total farm output cannot exceed N × P_rated = 34 × 15 = 510 MW
 
@@ -25,7 +25,7 @@ The power curve defines the relationship between wind speed and power
 output. Predictions outside the valid operating envelope are corrected:
   - Region 1 (v < 3.0 m/s): P must be 0 MW
   - Region 3 (v_rated ≤ v ≤ v_cut_out): P ≤ P_rated (15.0 MW)
-  - Region 4 (v > 31.0 m/s): P must be 0 MW
+  - Region 4 (v > 25.0 m/s): P must be 0 MW
 
 Maths — Constraint Equations
 ------------------------------
@@ -53,11 +53,15 @@ from enum import StrEnum
 import numpy as np
 from numpy.typing import NDArray
 
+from app.services.p1.turbine_models import get_turbine
+
 # ── Constants ─────────────────────────────────────────────────────
 
-DEFAULT_RATED_POWER_MW: float = 15.0
-DEFAULT_CUT_IN_MS: float = 3.0
-DEFAULT_CUT_OUT_MS: float = 31.0
+# SB-510 turbine = IEA 15 MW reference turbine (official table, services/p1/turbine_models.py)
+_TURBINE = get_turbine()
+DEFAULT_RATED_POWER_MW: float = _TURBINE.rated_mw
+DEFAULT_CUT_IN_MS: float = _TURBINE.cut_in_ms
+DEFAULT_CUT_OUT_MS: float = _TURBINE.cut_out_ms
 DEFAULT_NUM_TURBINES: int = 34
 DEFAULT_FARM_CAPACITY_MW: float = DEFAULT_NUM_TURBINES * DEFAULT_RATED_POWER_MW  # 510
 

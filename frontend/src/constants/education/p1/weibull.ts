@@ -71,7 +71,7 @@ export const weibullEducation: EducationContent = {
   workedExamples: [
     {
       title: "This platform's site (A = 10.5 m/s, k = 2.2)",
-      scenario: "Weibull inputs of the AEP tab; V236-15.0 MW power curve.",
+      scenario: "Weibull inputs of the AEP tab; IEA 15 MW power curve.",
       steps: [
         "v̄ = 10.5 × Γ(1 + 1/2.2) = 10.5 × 0.8857 = 9.30 m/s",
         "Gross energy per turbine = 8,760 · ∫P·f dv ≈ 71.7 GWh/yr (CF 54.6 %)",

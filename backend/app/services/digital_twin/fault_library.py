@@ -9,14 +9,14 @@ block) and — for progressive faults — the limit used for prognosis
 OEM values; a real deployment takes them from the OEM manual.
 
 Expected residual signatures (derived from the reference model, not
-hand-tuned; P = power, ω = rotor speed, β = reported pitch, T = gearbox
-temperature, v = anemometer vs. neighbours):
+hand-tuned; P = power, ω = rotor speed, β = reported pitch, T = generator
+stator-winding temperature, v = anemometer vs. neighbours):
 
   fault                 partial load (λ tracking)   full load (pitch regulated)
   aero efficiency loss  P↓  ω↓  β 0  T↓  v 0        P 0  ω 0  β↓ (varies with v)
   pitch offset          P↓  ω↓  β 0  T↓  v 0        P 0  ω 0  β↓ (≈ −offset, constant)
   power limitation      P 0 below the limit          P↓  ω 0  β↑
-  gearbox losses        P↓ (small)  T↑↑              P 0  β↓ (small)  T↑↑
+  generator losses      P↓ (small)  T↑↑              P 0  β↓ (small)  T↑↑
   anemometer gain       P↓  ω↓  v↑                   P 0  β↓  v↑
 """
 
@@ -29,7 +29,7 @@ FaultKind = Literal[
     "aero_efficiency",
     "pitch_offset",
     "power_limit",
-    "gearbox_loss",
+    "generator_loss",
     "anemometer_gain",
 ]
 
@@ -37,7 +37,7 @@ FAULT_KINDS: tuple[FaultKind, ...] = (
     "aero_efficiency",
     "pitch_offset",
     "power_limit",
-    "gearbox_loss",
+    "generator_loss",
     "anemometer_gain",
 )
 
@@ -90,7 +90,7 @@ FAULT_LIBRARY: dict[FaultKind, FaultMode] = {
         parameter="blade-angle offset",
         unit="deg",
         nominal=0.0,
-        search_min=0.0,  # the Heier Cp surface is defined for β ≥ 0 only
+        search_min=0.0,  # positive offsets (blades pitched out, power lost) — the usual fault
         search_max=10.0,
         advisory=(
             "Actual blade angle differs from the reported angle by a constant offset. "
@@ -115,29 +115,31 @@ FAULT_LIBRARY: dict[FaultKind, FaultMode] = {
         ),
         references=("IEC 61400-25-2:2015 — Information model (WTUR/WCNV/WGEN logical nodes)",),
     ),
-    "gearbox_loss": FaultMode(
-        kind="gearbox_loss",
-        label="Gearbox loss increase",
-        category="mechanical",
-        parameter="loss factor (1 = nominal 3 %)",
+    "generator_loss": FaultMode(
+        kind="generator_loss",
+        label="Generator loss increase",
+        category="electrical",
+        parameter="loss factor (1 = nominal 3.45 %)",
         unit="×",
         nominal=1.0,
         search_min=0.5,
         search_max=4.0,
         advisory=(
-            "Gearbox converts more power into heat than the twin expects — typical of "
-            "bearing or gear-mesh distress. Take an oil sample (particle count, ferrography), "
-            "review drivetrain vibration spectra against ISO 10816-21 zones, and plan an "
-            "endoscope inspection."
+            "The direct-drive generator converts more power into heat than the twin "
+            "expects — typical of stator-winding insulation ageing or inter-turn faults, "
+            "weakened magnets (more current for the same torque) or main-bearing distress. "
+            "Compare the stator-winding PT100s phase by phase, measure insulation resistance "
+            "and polarisation index, and review main-bearing temperature and vibration."
         ),
         references=(
-            "ISO 10816-21:2015 — Vibration of horizontal-axis wind turbines with gearbox",
+            "IEC 60034-1:2022 — Rotating electrical machines: rating, thermal classes",
+            "IEEE Std 43-2013 — Testing insulation resistance of electric machinery",
             "Tautz-Weinert & Watson (2017), IET Renew. Power Gener. 11(4) 382–394",
         ),
         prognosis_limit=2.0,
         prognosis_limit_note=(
-            "Illustrative end-of-life criterion: gearbox losses doubled "
-            "(≈ +35 K bearing temperature at rated load in this model)."
+            "Illustrative end-of-life criterion: generator losses doubled "
+            "(≈ +68 K stator winding at rated load in this model — beyond the class-F margin)."
         ),
     ),
     "anemometer_gain": FaultMode(

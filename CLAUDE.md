@@ -45,7 +45,7 @@ This repo is indexed (`.codegraph/`, auto-syncs). For "where is / what calls / h
 
 ## Non-negotiable domain rules (summary — full text: `docs/SKILL.md` § Critical Domain Rules)
 
-1. 0 ≤ P ≤ Prated; zero output below cut-in and above cut-out — SB-510 turbine = IEA-15-240-RWT ("V236 class"): 3 / 10.66 / 25 m/s, D 241.35 m (`services/p1/turbine_models.py`); P4 / DT / turbine physics still use the legacy V236 curve (3 / 11.1 / 31 m/s) until the final phase. ML never overrides physics (`enforce_physical_constraints()`).
+1. 0 ≤ P ≤ Prated; zero output below cut-in and above cut-out — SB-510 turbine = IEA-15-240-RWT ("V236 class"): 3 / 10.66 / 25 m/s, D 241.35 m, low-speed direct drive (no gearbox), 5.0–7.56 rpm (`services/p1/turbine_models.py`, ROSCO data via `rosco()`); every module (P1, P3, P4, DT, turbine physics, 3D) uses it. ML never overrides physics (`enforce_physical_constraints()`).
 2. Per-unit consistent: Sbase 100 MVA, Vbase = bus nominal (66/220/400 kV); never mix pu and absolute.
 3. Short-circuit per IEC 60909 via `pandapower.shortcircuit.calc_sc()` (HV/MV: cmax 1.10, cmin 1.00; 0.95 is LV-only) — do not re-implement.
 4. Reactive power: generating Q positive (`reactive_power_mvar`).

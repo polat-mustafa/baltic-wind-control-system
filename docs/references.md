@@ -61,7 +61,10 @@ Citation rules used here:
 | Explanations (SHAP) | `services/p4/xgboost_model.py` | [17] |
 | Time-ordered cross-validation | `services/p4/` (scikit-learn `TimeSeriesSplit`) | [18], [19] |
 | Forecast error metrics | `services/p4/model_evaluation.py` | [19], [20] |
-| Physical limits on forecasts (legacy V236 curve) | `services/p4/physical_constraints.py` | [S3] |
+| Physical limits on forecasts (IEA 15 MW: 3 / 10.66 / 25 m/s) | `services/p4/physical_constraints.py` | [26], [S3] |
+| Power curve with air-density normalisation v·(ρ/ρ₀)^⅓ | `services/p4/turbine_power_curve.py` | [26], [S2] |
+| Synthetic SCADA: Gaussian copula on the site Weibull, ERA5 hourly persistence φ = 0.957, 10-min sampling error (Λ₁ = 42 m) | `services/p4/scada_generator.py` | [28], [30], [S1] |
+| Residual learning on persistence (base margin), early stopping on the last 20 % of each fold | `services/p4/xgboost_model.py` | [12], [20] |
 
 ## P5 — Commissioning
 
@@ -82,6 +85,19 @@ Citation rules used here:
 | EWMA state detection | `services/digital_twin/detection.py` | [21] |
 | Prognosis, remaining useful life | `services/digital_twin/prognosis.py` | [S21] |
 | Power-curve residual binning | `services/digital_twin/detection.py` | [S2] |
+| Reference model: ROSCO Cp(λ, β) table, λ = 9 tracking, minimum-pitch schedule, generator + converter losses | `services/digital_twin/reference_model.py` | [26], [37] |
+| Stator-winding thermal model, insulation classes | `services/digital_twin/reference_model.py`, `services/turbine_physics/nacelle_subsystems.py` | [S22], [S34] |
+
+## Turbine physics — time-domain simulator
+
+| Topic | Implementation | Reference |
+|---|---|---|
+| Rotor aerodynamics: ROSCO Cp/Ct table (CCBlade), braking blades | `services/turbine_physics/aerodynamics.py`, `p1/turbine_models.py` (`RotorSurface`) | [26], [37] |
+| Drivetrain inertia 3.543 × 10⁸ kg·m², direct drive, 200-pole PMSG | `services/turbine_physics/rotor_dynamics.py`, `drivetrain.py` | [26] (§5, Tables 5-2 / 5-4), ElastoDyn |
+| Generator-torque PI (TSR tracking), pitch PI with gain schedule, setpoint smoother, speed filters | `services/turbine_physics/drivetrain.py`, `pitch_control.py`, `simulator.py` | [37] (ROSCO v2.10.1 source, DISCON.IN) |
+| Overspeed trip 9.07 rpm, yaw 0.5 °/s / 8° | `state_machine.py`, `yaw_control.py` | [37], [S1] |
+| Extreme operating gust check | `tests/test_turbine_physics.py` | [S1] §6.3.3.2 |
+| CMS: bearing defect frequencies, generator electrical lines, hydraulic-oil grade | `services/p3/cms.py` | [S24], [S35] |
 
 ## Site assessment — screening
 
@@ -132,6 +148,7 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 | Flapwise bending moment from thrust | `frontend/.../turbine3d/model/bladeField.ts` | [2] ch. 6 |
 | Nacelle component temperatures, thermal limits | `frontend/.../turbine3d/model/nacelleThermal.ts` | [S22], [S23] |
 | Vibration zones (sensor read-outs) | `backend/app/services/turbine_physics/nacelle_subsystems.py` | [S24] |
+| Direct-drive nacelle geometry (overhang 11.35 m, turret flange 5 m from the tower axis, 2.2 m shaft, bearings 1.2 m apart, air-gap r 5.08 m) | `frontend/scripts/blender/build_v236.py`, `turbine3d/model/layout.ts` | [26] Tables 5-2, 5-3, 5-4 |
 
 ## Books and papers
 
@@ -160,7 +177,7 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 23. White, F. M. *Viscous Fluid Flow*, 3rd ed. McGraw-Hill, 2006.
 24. WindEurope. "Wind industry calls for Europe-wide ban on landfilling turbine blades." Press release, June 2021. https://windeurope.org/news/wind-industry-calls-for-europe-wide-ban-on-landfilling-turbine-blades/
 25. Topham, E., McMillan, D. "Sustainable decommissioning of an offshore wind farm." *Renewable Energy* 102(B), 470–480, 2017. doi:10.1016/j.renene.2016.10.066
-26. Gaertner, E., et al. *Definition of the IEA 15-Megawatt Offshore Reference Wind Turbine*. NREL/TP-5000-75698, 2020. Tables: github.com/IEAWindTask37/IEA-15-240-RWT, tag v1.1.18, `Documentation/IEA-15-240-RWT_tabular.xlsx` ("Rotor Performance"), Apache-2.0.
+26. Gaertner, E., et al. *Definition of the IEA 15-Megawatt Offshore Reference Wind Turbine*. NREL/TP-5000-75698, 2020 (https://docs.nlr.gov/docs/fy20osti/75698.pdf): Table 5-2 (main shaft and bearings), 5-3 (bedplate), 5-4 (generator), §5.5 / §5.7 (controller, rotor inertia). Tables and model files: github.com/IEAWindTask37/IEA-15-240-RWT, tag v1.1.18 — `Documentation/IEA-15-240-RWT_tabular.xlsx` ("Overview", "Rotor Performance", "Nacelle Mass Properties"), `OpenFAST/IEA-15-240-RWT/Cp_Ct_Cq.IEA15MW.txt`, `OpenFAST/IEA-15-240-RWT-Monopile/*_DISCON.IN` and `*_ElastoDyn.dat`, Apache-2.0.
 27. Zahle, F., et al. *Definition of the IEA Wind 22-Megawatt Offshore Reference Wind Turbine*. DTU Wind Report E-0243, 2024. https://doi.org/10.11581/DTU.00000317. Tables: github.com/IEAWindTask37/IEA-22-280-RWT, tag v1.1.0 ("Rotor Performance - WISDEM"), Apache-2.0.
 28. Hahmann, A. N., et al. "The making of the New European Wind Atlas — Part 1: Model sensitivity." *Geoscientific Model Development* 13, 5053–5078, 2020; NEWA Mesoscale Atlas doi:10.11583/DTU.14414096.v1 (CC BY-NC 4.0).
 29. Dörenkämper, M., et al. "The making of the New European Wind Atlas — Part 2: Production and evaluation." *Geoscientific Model Development* 13, 5079–5102, 2020 (microscale atlas, Weibull parameters).
@@ -171,12 +188,13 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 34. ABB. *XLPE Submarine Cable Systems — Attachment to XLPE Land Cable Systems User's Guide*, 2GM5007 rev 5, 2010 (now NKT): Tables 33–36 (IEC 60287 ratings), 45 and 49 (66 kV and 220 kV three-core data).
 35. Beiter, P., Musial, W., Smith, A., et al. *A Spatial-Economic Cost-Reduction Pathway Analysis for U.S. Offshore Wind Energy Development from 2015–2030*. NREL/TP-6A20-66579, 2016 (other losses 2 %, availability against distance to port).
 36. European Central Bank. Euro foreign exchange reference rates, USD, annual average 2023 = 1.0813 (data-api.ecb.europa.eu, series EXR.A.USD.EUR.SP00.A).
+37. Abbas, N. J., Zalkind, D. S., Pao, L., Wright, A. "A reference open-source controller for fixed and floating offshore wind turbines." *Wind Energy Science* 7, 53–73, 2022; ROSCO v2.10.1 source (`rosco/controller/src/Controllers.f90`, `ControllerBlocks.f90`), github.com/NREL/ROSCO (Apache-2.0), read 2026-10-08.
 
 ## Standards and regulations
 
 - **[S1]** IEC 61400-1:2019 — Wind energy generation systems — Part 1: Design requirements.
 - **[S2]** IEC 61400-12-1 — Power performance measurements of electricity producing wind turbines.
-- **[S3]** Vestas V236-15.0 MW product data (rated power, cut-in 3 m/s, cut-out 31 m/s) — legacy V236 approximation still used by P4, the digital twin (`digital_twin/legacy_v236_table.py`) and turbine physics.
+- **[S3]** Vestas V236-15.0 MW product data (15 MW, 236 m rotor) — identity of the "V236 class" case-study turbine only; all its numbers come from the IEA 15 MW reference [26] since Vestas publishes no curves or drivetrain data.
 - **[S4]** IEC 60909-0:2016 — Short-circuit currents in three-phase a.c. systems — Part 0: Calculation of currents.
 - **[S5]** Commission Regulation (EU) 2016/631 — Network code on requirements for grid connection of generators (RfG).
 - **[S6]** PSE S.A. — *Instrukcja Ruchu i Eksploatacji Sieci Przesyłowej* (IRiESP) and national RfG requirements.
@@ -207,3 +225,5 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 - **[S31]** IMO Assembly Resolution A.672(16), 1989 — Guidelines and standards for the removal of offshore installations and structures on the continental shelf and in the exclusive economic zone.
 - **[S32]** UK Energy Act 2004, Part 2 Chapter 3 (ss. 105–114) — decommissioning of offshore renewable energy installations; DECC/DESNZ guidance notes for industry.
 - **[S33]** IEC 60228:2004 — Conductors of insulated cables (class 2 maximum DC resistance at 20 °C).
+- **[S34]** IEC 60085:2007 — Electrical insulation — Thermal evaluation and designation (class B 130 °C, class F 155 °C).
+- **[S35]** ISO 3448:1992 — Industrial liquid lubricants — ISO viscosity classification (VG 46: 41.4–50.6 cSt at 40 °C); ISO 4406:2021 — Hydraulic fluid power — Fluids — Method for coding the level of contamination by solid particles.

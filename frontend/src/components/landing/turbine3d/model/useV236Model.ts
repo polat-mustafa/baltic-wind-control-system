@@ -5,8 +5,8 @@
  * `model.<name>` once the file has loaded — and keeps the procedural one as
  * the fallback while loading or if the file is missing.
  *
- * Rotating gear parts are exported with their own origin (node position);
- * `nodePos(name)` returns it so the viewer can spin them about their axes.
+ * Parts exported with their own origin (node position): `nodePos(name)`
+ * returns it so the viewer can spin them about their own axes.
  */
 
 import { useEffect, useState } from "react";
@@ -21,8 +21,8 @@ const BLADE_SHELLS = new Set(["blade", "blade_marks"]);
 export type V236Model = Record<string, BufferGeometry>;
 
 /** Bump when public/models/v236.glb is rebuilt so browsers never mix an old
- *  cached model with new code (the old nacelle floor was 0.4 m higher). */
-export const MODEL_REV = 4;
+ *  cached model with new code (rev 5: direct drive, no gearbox). */
+export const MODEL_REV = 5;
 const URL = `${import.meta.env.BASE_URL}models/v236.glb?rev=${MODEL_REV}`;
 let cache: Promise<V236Model | null> | null = null;
 const positions: Record<string, [number, number, number]> = {};

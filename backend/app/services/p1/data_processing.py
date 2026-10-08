@@ -194,7 +194,7 @@ def extrapolate_wind_speed_ms(
     shear_exponent : float
         Wind shear exponent α [-].
     target_height_m : float
-        Target extrapolation height [m]. Default: 150 m (V236 hub).
+        Target extrapolation height [m]. Default: 150 m (IEA 15 MW hub).
     reference_height_m : float
         Reference measurement height [m]. Default: 100 m (ERA5).
 

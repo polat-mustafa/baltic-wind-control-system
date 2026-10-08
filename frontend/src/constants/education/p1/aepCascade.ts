@@ -70,7 +70,7 @@ export const aepCascadeEducation: EducationContent = {
     {
       title: "This platform's cascade (A = 10.5 m/s, k = 2.2, regular grid)",
       scenario:
-        "34 × V236-15.0 MW. Gross AEP from PyWake = 2,425.8 GWh/yr. Losses: wake 5.56 %, blockage 1.63 %, electrical 2.0 %, " +
+        "34 × 15 MW (IEA 15 MW). Gross AEP from PyWake = 2,425.8 GWh/yr. Losses: wake 5.56 %, blockage 1.63 %, electrical 2.0 %, " +
         "availability 5.0 %, environmental 1.0 %. Price 72 €/MWh.",
       steps: [
         "After wake: 2,425.8 × 0.9444 = 2,290.9 GWh",

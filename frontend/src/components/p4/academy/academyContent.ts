@@ -288,8 +288,8 @@ export const CHAPTERS: Chapter[] = [
         tr: "Skill skoru bir modeli persistence ile karşılaştırır: SS = 1 − MSE_model / MSE_persistence. 0, 'olduğu gibi kalır'dan iyi değil demektir; 1 mükemmel olurdu. Skill'i negatif olan model topluluktan çıkarılır; diğerleri 1/RMSE² ile ve ufka göre ağırlıklandırılır (yakın saatler için XGBoost, uzun ufuklar için TFT).",
       },
       {
-        en: "Finally the physical guard (enforce_physical_constraints): no power below cut-in 3 m/s or above cut-out 31 m/s, never below 0 or above the 15 MW rating, P10 ≤ P50 ≤ P90. Machine learning never overrides physics.",
-        tr: "Son olarak fiziksel koruma (enforce_physical_constraints): 3 m/s devreye girme hızının altında ve 31 m/s devreden çıkma hızının üstünde güç yok, 0'ın altına ya da 15 MW nominalin üstüne asla çıkmaz, P10 ≤ P50 ≤ P90. Makine öğrenmesi fiziği asla geçersiz kılamaz.",
+        en: "Finally the physical guard (enforce_physical_constraints): no power below cut-in 3 m/s or above cut-out 25 m/s, never below 0 or above the 15 MW rating, P10 ≤ P50 ≤ P90. Machine learning never overrides physics.",
+        tr: "Son olarak fiziksel koruma (enforce_physical_constraints): 3 m/s devreye girme hızının altında ve 25 m/s devreden çıkma hızının üstünde güç yok, 0'ın altına ya da 15 MW nominalin üstüne asla çıkmaz, P10 ≤ P50 ≤ P90. Makine öğrenmesi fiziği asla geçersiz kılamaz.",
       },
       {
         en: "SHAP values then explain each forecast: how much every feature pushed the prediction up or down from the average — so an engineer can check the model's reasoning, not just its output.",

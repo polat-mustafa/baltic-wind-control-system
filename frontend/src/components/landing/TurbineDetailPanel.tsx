@@ -4,7 +4,7 @@
  *
  * Top to bottom: live power vs rated + key operating values, active fault or
  * curtailment reason, power-train diagram (click a stage or component → part
- * education card expands inline, and the 3D viewer flies to the part), 60 s trends, wake loss, operating point on the V236 power
+ * education card expands inline, and the 3D viewer flies to the part), 60 s trends, wake loss, operating point on the IEA 15 MW power
  * curve, condition data, and links into the project dashboards.
  *
  * Uses the shared EquipmentPanel shell; Esc first closes an open part card,
@@ -107,7 +107,7 @@ function powerCoefficient(powerMW: number, windMs: number): number {
   return Math.min(16 / 27, powerMW / windPowerMW);
 }
 
-/** V236 power curve (shared model) with the live operating point. */
+/** IEA 15 MW power curve (shared model) with the live operating point. */
 function PowerCurveChart({
   windMs,
   powerMW,
@@ -458,7 +458,7 @@ export default function TurbineDetailPanel({
         </PanelSection>
 
         <PanelSection
-          title="Operating point · V236 power curve"
+          title="Operating point · IEA 15 MW power curve"
           aside={`Betz limit Cp ≤ ${(16 / 27).toFixed(3)}`}
         >
           <PowerCurveChart windMs={t.windSpeedMs} powerMW={t.powerOutputMW} />

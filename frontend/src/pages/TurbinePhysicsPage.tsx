@@ -77,7 +77,7 @@ export default function TurbinePhysicsPage() {
           </h2>
           <p className="text-xs text-text-muted mt-1 font-mono">
             {config
-              ? `${config.turbine_name} · ${config.rated_power_mw} MW · D=${config.rotor_diameter_m}m · Cut-in ${config.cut_in_speed_ms} / Rated ${config.rated_speed_ms} / Cut-out ${config.cut_out_speed_ms} m/s`
+              ? `${config.turbine_name} · ${config.rated_power_mw} MW · D=${config.rotor_diameter_m}m · Cut-in ${config.cut_in_speed_ms} / Rated ${config.rated_speed_ms.toFixed(2)} / Cut-out ${config.cut_out_speed_ms} m/s · ${config.drivetrain}`
               : "Loading turbine config..."}
           </p>
         </div>
@@ -259,7 +259,7 @@ export default function TurbinePhysicsPage() {
                     value={dt}
                     onChange={setDt}
                     min={0.01}
-                    max={10}
+                    max={1}
                     step={0.01}
                   />
                   <NumberInput

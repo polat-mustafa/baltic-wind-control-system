@@ -13,7 +13,7 @@ Provides REST endpoints for:
 All endpoints follow the convention: /api/v1/grid/{resource}
 
 Data approach: uses Pandapower for physics-based simulation
-of the 510 MW offshore wind farm network (34 × V236-15.0 MW,
+of the 510 MW offshore wind farm network (34 × 15 MW "V236 class" = IEA 15 MW,
 66 kV array, 220 kV export, 400 kV PSE grid) — or of the learner's own farm
 when the request carries the ``X-Farm`` header (routers/farm_spec.py).
 """
@@ -362,7 +362,7 @@ class PPCStatusRequest(BaseModel):
 async def ppc_status_default(spec: FarmSpecDep) -> PPCStatusResponse:
     """Get PPC status at default operating conditions.
 
-    Returns a real-time snapshot of the PPC state at rated wind (11.1 m/s),
+    Returns a real-time snapshot of the PPC state above rated wind (12 m/s; rated 10.66 m/s),
     all 34 turbines online, nominal frequency (50 Hz).
     """
     try:

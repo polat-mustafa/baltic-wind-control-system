@@ -58,7 +58,7 @@ import {
 import { useLayerStore } from "../../store/layerStore";
 import { cn } from "../../lib/utils";
 import type { TurbineStatus } from "../../types/landing";
-import { arrayCableCurrentA, arrayCableGrade } from "../../utils/landingPhysics";
+import { arrayCableCurrentA, arrayCableGrade, V236 } from "../../utils/landingPhysics";
 import { useStatcomQ } from "../../store/liveGridStore";
 
 import AlarmTicker from "./AlarmTicker";
@@ -178,8 +178,8 @@ const STATUS_COLOR: Record<TurbineStatus, string> = {
   offline: "#8b93a7",
 };
 
-/** V236 rated rotor speed [rpm]; the CSS spin runs at this rate (7.2 s/rev). */
-const RATED_RPM = 8.33;
+/** Rated rotor speed [rpm] (IEA 15 MW, ROSCO PC_RefSpd); the CSS spin runs at this rate (7.9 s/rev). */
+const RATED_RPM = V236.ratedRpm;
 
 const BLADE =
   "M 0,0 C -1.2,-3 -1.8,-8 -1,-13 L 0,-15 L 1,-13 C 1.4,-8 0.8,-3 0,0 Z";

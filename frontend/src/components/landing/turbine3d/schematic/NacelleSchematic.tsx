@@ -89,7 +89,7 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId, head
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-primary px-4 py-2">
         <div>
-          <div className="text-[15px] font-bold">V236 nacelle · engineering drawings</div>
+          <div className="text-[15px] font-bold">SB-510 nacelle (IEA 15 MW direct drive) · engineering drawings</div>
           <div className="text-[12px] font-semibold text-text-muted">
             {turbineId} · wind {turbine.windSpeedMs.toFixed(1)} m/s · {turbine.powerOutputMW.toFixed(2)} MW · Cp {chain.cp.toFixed(2)}
           </div>

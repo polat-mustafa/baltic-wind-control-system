@@ -26,8 +26,12 @@ class TurbineSpecSchema(BaseModel):
     rated_speed_ms: float = Field(description="Rated wind speed [m/s]")
     cut_out_speed_ms: float = Field(description="Cut-out wind speed [m/s]")
     num_blades: int = Field(description="Number of rotor blades")
-    cp_max: float = Field(description="Maximum power coefficient")
+    cp_max: float = Field(description="Maximum electrical power coefficient of the table")
     ct_rated: float = Field(description="Thrust coefficient at rated speed")
+    drivetrain: str = Field(description='Drivetrain, e.g. "Low speed, Direct drive"')
+    min_rotor_rpm: float = Field(description="Minimum rotor speed [rpm]")
+    max_rotor_rpm: float = Field(description="Maximum (rated) rotor speed [rpm]")
+    source: str = Field(description="Data source of the curve")
 
 
 class PowerCurveRequest(BaseModel):

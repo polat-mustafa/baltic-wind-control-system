@@ -40,7 +40,7 @@ const controlRoom: Tour = {
       title: "Welcome to OffshoreForge",
       body:
         "OffshoreForge follows an offshore wind farm through its life: develop, design, build, operate. " +
-        "Its case study is SB-510, a 510 MW farm of 34 Vestas V236-15.0 MW turbines in the southern Baltic. " +
+        "Its case study is SB-510, a 510 MW farm of 34 × 15 MW \"V236 class\" turbines (modelled with the IEA 15 MW reference turbine) in the southern Baltic. " +
         "Move with → and ←, leave with Esc.",
     },
     {
@@ -531,7 +531,7 @@ const digitalTwin: Tour = {
       target: "twin-controls",
       title: "Choose a scenario",
       body:
-        "Each scenario injects known faults (icing, pitch misalignment, converter derating, gearbox wear, " +
+        "Each scenario injects known faults (icing, pitch misalignment, converter derating, generator wear, " +
         "anemometer drift) so the twin's answers can be checked against the truth.",
       task: {
         instruction: "Select the 14 d window.",

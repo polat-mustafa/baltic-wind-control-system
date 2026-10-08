@@ -6,7 +6,7 @@
  *                power, hub wind vs free stream, rotor speed, pitch, yaw error
  *                with the ±45° yaw-stop band. One y-scale per chart (no dual
  *                axes); a shared time cursor on hover reads every row at once.
- *   Power curve  the V236 curve with regions I / II / III, the recent
+ *   Power curve  the IEA 15 MW curve with regions I / II / III, the recent
  *                operating points and the live one, plus Cp(U) with Betz.
  *                Points below the curve are wake, yaw or reserve losses.
  *   Losses       waterfall from the free wind's kinetic power to MW at
@@ -20,6 +20,7 @@ import { memo, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 import { YAW_PAUSE_DEG, selectKPIs, selectTurbine, useLandingStore } from "../../../../store/landingStore";
+import { ROTOR_RADIUS } from "../model/layout";
 import { V236, v236PowerChain, turbinePowerMW, v236RotorRpm } from "../../../../utils/landingPhysics";
 import { cn } from "../../../../lib/utils";
 import { HISTORY_SAMPLES, useTurbineHistory, type Sample } from "../hooks/useTurbineHistory";
@@ -245,7 +246,7 @@ const x = (u: number) => ML + (Math.min(u, U_MAX) / U_MAX) * PW;
 const yP = (p: number) => 8 + H1 - (p / 16) * H1;
 const yC = (c: number) => H1 + 40 + H2 - (c / 0.6) * H2;
 
-/** Static V236 P(U) and Cp(U) paths (utils/landingPhysics). */
+/** Static P(U) and Cp(U) paths of the IEA 15 MW table (utils/landingPhysics). */
 const CURVES = (() => {
   let p = "";
   let c = "";
@@ -267,7 +268,7 @@ function PowerCurve({
   void version;
   const pts = samples.slice(-60);
   const cpNow = v236PowerChain(powerMW, windMs, rpm).cp;
-  const lambda = windMs > 0.5 ? ((rpm * 2 * Math.PI) / 60) * 118 / windMs : 0;
+  const lambda = windMs > 0.5 ? ((rpm * 2 * Math.PI) / 60) * ROTOR_RADIUS / windMs : 0;
   const regions: [number, number, string][] = [
     [0, V236.cutInMs, ""],
     [V236.cutInMs, V236.ratedMs, "II · max Cp"],
@@ -275,7 +276,7 @@ function PowerCurve({
   ];
   const Hsvg = H1 + H2 + 64;
   return (
-    <svg viewBox={`0 0 ${W} ${Hsvg}`} className="w-full" role="img" aria-label="V236 power curve with operating points and Cp curve">
+    <svg viewBox={`0 0 ${W} ${Hsvg}`} className="w-full" role="img" aria-label="IEA 15 MW power curve with operating points and Cp curve">
       {regions.map(([a, b, l], i) => (
         <g key={a}>
           <rect x={x(a)} width={x(b) - x(a)} y={8} height={H1} style={{ fill: "var(--color-bg-tertiary)" }} opacity={i % 2 ? 0.25 : 0.55} />

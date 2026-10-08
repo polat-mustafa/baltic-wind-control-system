@@ -70,7 +70,7 @@ export default function WindFarmMimic() {
             Plant Mimic · Operations
           </h3>
           <span className="hidden md:inline text-[10px] text-text-muted font-mono">
-            {fleet.turbines.length} × V236-15.0 MW · {net.ratedMW.toFixed(0)} MW · 66 / 220 / 400 kV
+            {fleet.turbines.length} × 15 MW V236 class (IEA 15 MW) · {net.ratedMW.toFixed(0)} MW · 66 / 220 / 400 kV
           </span>
         </div>
         <div className="flex items-center gap-3 text-[10px] font-mono text-text-secondary">

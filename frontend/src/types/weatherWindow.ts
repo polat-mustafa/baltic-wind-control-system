@@ -36,3 +36,33 @@ export interface OAMCostBreakdown {
   insurance_eur: number;
   assessment: string;
 }
+
+// ── Repair window (POST /maintenance-scheduling) ─────────────────
+
+export interface MaintenanceWindowRequest {
+  failure_date_iso: string;
+  vessel_type: VesselType;
+  /** Uninterrupted work needed [h]. */
+  repair_duration_hours: number;
+  turbine_id: string;
+  /** O&M port to the farm by sea [km]; omitted = SB-510's (Ustka). */
+  port_km?: number;
+}
+
+export interface MaintenanceWindowResponse {
+  turbine_id: string;
+  failure_date_iso: string;
+  vessel_type: VesselType;
+  repair_duration_hours: number;
+  estimated_window_start_iso: string;
+  wait_days: number;
+  total_downtime_days: number;
+  access_probability_pct: number;
+  port_km: number;
+  /** CTV transit one way [h] (0 for vessels that stay offshore). */
+  transit_hours: number;
+  /** 12 h working day minus the transits [h]. */
+  work_hours_per_day: number;
+  cost_estimate_eur: number;
+  cost_breakdown: Record<string, number>;
+}

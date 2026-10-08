@@ -5,6 +5,7 @@
  *   IEC 61400-26 fleet availability (TBA / EBA / PBA, downtime breakdown)
  *   Weather windows: monthly access probability per vessel type
  *   Maintenance & logistics cost (bottom-up)
+ *   Repair window: next access and cost of one repair, from the farm's O&M port
  */
 
 import { useEffect } from "react";
@@ -12,6 +13,7 @@ import { useEffect } from "react";
 import { useWeatherWindowStore } from "../../store/weatherWindowStore";
 import AvailabilityDashboard from "./AvailabilityDashboard";
 import OAMCostPanel from "./OAMCostPanel";
+import RepairWindowPanel from "./RepairWindowPanel";
 import WeatherWindowPanel from "./WeatherWindowPanel";
 
 export default function OperationsTab() {
@@ -34,6 +36,7 @@ export default function OperationsTab() {
         <WeatherWindowPanel />
         <OAMCostPanel />
       </div>
+      <RepairWindowPanel />
     </div>
   );
 }

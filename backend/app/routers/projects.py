@@ -341,6 +341,9 @@ async def run_project_aep(
         0.0,
         num_turbines=len(data.turbines),
         rated_power_kw=model.rated_kw,
+        weibull_a=a,
+        weibull_k=k,
+        turbine_model=data.turbine_model,
     )
     result = AEPResult(
         id=uuid.uuid4(),

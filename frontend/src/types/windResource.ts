@@ -89,6 +89,25 @@ export interface AEPCascadeResult {
   revenue_meur: number;
   loss_factors: LossFactor[];
   price_eur_mwh: number;
+  /** AEP uncertainty components of this farm (1σ, % of AEP), each with its source. */
+  uncertainty?: UncertaintyComponent[];
+}
+
+export interface UncertaintyComponent {
+  name: string;
+  sigma_percent: number;
+  quality: "official" | "measured" | "literature" | "approximation" | "illustrative";
+  source: string;
+}
+
+export interface UncertaintyResult {
+  components: UncertaintyComponent[];
+  /** RSS of the components, 1σ [% of AEP]. */
+  combined_percent: number;
+  /** d ln AEP / d ln v of the farm. */
+  sensitivity: number;
+  /** Normal quantiles: P_xx = P50 · (1 − z · σ). */
+  z: Record<"P75" | "P90" | "P99", number>;
 }
 
 // ── Blockage ────────────────────────────────────────────────────

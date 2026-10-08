@@ -312,6 +312,8 @@ def evaluate_farm(
         num_turbines=farm.turbine_count,
         rated_power_kw=farm.turbine_rated_mw * 1e3,
         price_eur_mwh=electricity_price,
+        weibull_a=farm.mean_wind_speed_ms / math.gamma(1 + 1 / farm.weibull_k),
+        weibull_k=farm.weibull_k,
     )
 
     aep = AEPResult(

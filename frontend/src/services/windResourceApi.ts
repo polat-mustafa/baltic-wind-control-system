@@ -11,6 +11,7 @@ import type {
   LayoutComparisonResult,
   LayoutPositions,
   TurbineSpec,
+  UncertaintyResult,
   WakeAnalysisResult,
   WeibullFitResult,
   WindRoseResult,
@@ -161,3 +162,12 @@ export function compareLayouts(
 export function getLayoutPositions(name: string): Promise<LayoutPositions> {
   return request(`${BASE}/layouts/${name}/positions`);
 }
+
+/** AEP uncertainty components of a farm (wind, wake loss, turbine) and their RSS. */
+export const getUncertainty = (body: {
+  weibull_a: number;
+  weibull_k: number;
+  wake_loss_percent: number;
+  blockage_loss_percent?: number;
+  turbine_model?: string;
+}): Promise<UncertaintyResult> => post(`${BASE}/uncertainty`, body);

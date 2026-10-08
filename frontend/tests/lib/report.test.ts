@@ -91,3 +91,19 @@ describe("project report", () => {
     expect(r.moves?.slice(1).every((m) => m.confirmed === false)).toBe(true);
   });
 });
+
+describe("report uncertainty", () => {
+  it("gives P75 / P90 of the net energy from the farm's combined uncertainty", () => {
+    const u = {
+      components: [{ name: "Wind resource", sigma_percent: 5.5, quality: "literature" as const, source: "NEWA" }],
+      combined_percent: 7.7,
+      sensitivity: 0.98,
+      z: { P75: 0.674, P90: 1.282, P99: 2.326 },
+    };
+    const e = buildReport(input({ uncertainty: u })).energy;
+    expect(e.uncertainty!.p50_gwh).toBe(e.net_gwh);
+    expect(e.uncertainty!.p90_gwh / e.net_gwh).toBeCloseTo(1 - 1.282 * 0.077, 3);
+    expect(e.uncertainty!.p75_gwh).toBeGreaterThan(e.uncertainty!.p90_gwh);
+    expect(buildReport(input()).energy.uncertainty).toBeNull();
+  });
+});

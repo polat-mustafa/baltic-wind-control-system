@@ -216,6 +216,30 @@ def era5_roses(points: list[tuple[float, float]]) -> list[FloatArray]:
     return out
 
 
+#: Interannual variability: 30 full years of ERA5 at the SB-510 site (the southern Baltic
+#: varies smoothly; the value is used region-wide by services/p1/aep_calculator.py).
+IAV_YEARS = (1995, 2024)
+IAV_POINT = (16.54, 55.06)
+
+
+def era5_iav(lon: float, lat: float, years: tuple[int, int] = IAV_YEARS) -> tuple[float, int]:
+    """Interannual variability of the annual mean 100 m wind speed [% of the mean], ERA5."""
+    q = {
+        "latitude": f"{lat:.3f}",
+        "longitude": f"{lon:.3f}",
+        "start_date": f"{years[0]}-01-01",
+        "end_date": f"{years[1]}-12-31",
+        "hourly": "wind_speed_100m",
+        "wind_speed_unit": "ms",
+        "models": "era5",
+    }
+    data = json.loads(_get_patient(f"{OPEN_METEO}?{urllib.parse.urlencode(q)}", 900, "Open-Meteo"))
+    ws = np.array(data["hourly"]["wind_speed_100m"], dtype=float)
+    year = np.array([int(t[:4]) for t in data["hourly"]["time"]])
+    means = np.array([np.nanmean(ws[year == y]) for y in range(years[0], years[1] + 1)])
+    return float(100 * means.std(ddof=1) / means.mean()), len(means)
+
+
 # ── Grids ─────────────────────────────────────────────────────────────────────
 
 
@@ -366,7 +390,14 @@ def build(today: str) -> list[dict[str, Any]]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--iav", action="store_true", help="print the ERA5 interannual variability (no pack write)"
+    )
     args = ap.parse_args()
+    if args.iav:
+        iav, n = era5_iav(*IAV_POINT)
+        print(f"ERA5 100 m annual mean wind, {n} years {IAV_YEARS} at {IAV_POINT}: IAV {iav:.2f} %")
+        return
     today = datetime.now(UTC).date().isoformat()
     fresh = build(today)
     for lyr in fresh:

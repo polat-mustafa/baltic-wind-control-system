@@ -33,9 +33,15 @@ from app.core.exceptions import DomainError
 from app.core.exceptions import ValidationError as DomainValidationError
 from app.services.p1.aep_calculator import (
     DEFAULT_PRICE_EUR_MWH,
+    Z_75,
+    Z_90,
+    Z_99,
     MarketWeightedAEPResult,
+    UncertaintyComponent,
+    aep_sensitivity,
     compute_aep_cascade,
     compute_market_weighted_aep,
+    uncertainty_components,
 )
 from app.services.p1.blockage import (
     estimate_blockage_loss_percent,
@@ -266,6 +272,13 @@ class AEPCascadeRequest(BaseModel):
     price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
 
 
+class UncertaintyComponentSchema(BaseModel):
+    name: str
+    sigma_percent: float = Field(description="Standard deviation of the AEP [%]")
+    quality: str
+    source: str
+
+
 class LossFactorSchema(BaseModel):
     """Single loss factor in the cascade."""
 
@@ -293,6 +306,25 @@ class AEPCascadeResponse(BaseModel):
     revenue_meur: float
     loss_factors: list[LossFactorSchema]
     price_eur_mwh: float
+    uncertainty: list[UncertaintyComponentSchema] = Field(default_factory=list)
+
+
+class UncertaintyRequest(BaseModel):
+    """AEP uncertainty of a farm from its wind, wake loss and turbine."""
+
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=3.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=5.0)
+    wake_loss_percent: float = Field(ge=0.0, le=60.0)
+    blockage_loss_percent: float = Field(0.0, ge=0.0, le=20.0)
+    turbine_model: str = Field(DEFAULT_TURBINE_ID)
+    lifetime_years: int = Field(25, ge=1, le=50)
+
+
+class UncertaintyResponse(BaseModel):
+    components: list[UncertaintyComponentSchema]
+    combined_percent: float = Field(description="RSS of the components, 1σ [% of AEP]")
+    sensitivity: float = Field(description="d ln AEP / d ln v of this farm")
+    z: dict[str, float] = Field(description="Normal quantiles: P_xx = P50 · (1 − z · σ)")
 
 
 class BlockageRequest(BaseModel):
@@ -863,6 +895,8 @@ async def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
         wake_loss_fraction=wake_result.wake_loss_percent / 100.0,
         blockage_loss_fraction=blockage.blockage_loss_percent / 100.0,
         price_eur_mwh=request.price_eur_mwh,
+        weibull_a=request.weibull_a,
+        weibull_k=request.weibull_k,
     )
 
     return AEPCascadeResponse(
@@ -887,6 +921,38 @@ async def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
             for lf in cascade.loss_factors
         ],
         price_eur_mwh=cascade.price_eur_mwh,
+        uncertainty=_components(cascade.uncertainty),
+    )
+
+
+def _components(items: list[UncertaintyComponent]) -> list[UncertaintyComponentSchema]:
+    return [
+        UncertaintyComponentSchema(
+            name=c.name, sigma_percent=round(c.sigma_percent, 2), quality=c.quality, source=c.source
+        )
+        for c in items
+    ]
+
+
+@router.post("/uncertainty", response_model=UncertaintyResponse)
+async def aep_uncertainty(request: UncertaintyRequest) -> UncertaintyResponse:
+    """AEP uncertainty components of a farm and their RSS (for P75 / P90 of any P50)."""
+    get_turbine(request.turbine_model)  # unknown id → 422
+    comps = uncertainty_components(
+        request.weibull_a,
+        request.weibull_k,
+        request.wake_loss_percent,
+        request.blockage_loss_percent,
+        request.turbine_model,
+        request.lifetime_years,
+    )
+    return UncertaintyResponse(
+        components=_components(comps),
+        combined_percent=round(math.sqrt(sum(c.sigma_percent**2 for c in comps)), 2),
+        sensitivity=round(
+            aep_sensitivity(request.weibull_a, request.weibull_k, request.turbine_model), 3
+        ),
+        z={"P75": Z_75, "P90": Z_90, "P99": Z_99},
     )
 
 
@@ -947,6 +1013,8 @@ async def layout_comparison(request: LayoutComparisonRequest) -> LayoutCompariso
             wake_loss_fraction=wake.wake_loss_percent / 100.0,
             blockage_loss_fraction=blockage.blockage_loss_percent / 100.0,
             price_eur_mwh=request.price_eur_mwh,
+            weibull_a=request.weibull_a,
+            weibull_k=request.weibull_k,
         )
 
         entries.append(

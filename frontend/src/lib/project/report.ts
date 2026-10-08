@@ -15,7 +15,7 @@ import type { checkWakeMoves, WakeMoveResult } from "../../services/windResource
 import type { Turbine } from "../../store/projectStore";
 import type { LoadFlowResult, NetworkSpec } from "../../types/grid";
 import type { CampaignResult } from "../../types/lifecycle";
-import type { WakeAnalysisResult } from "../../types/windResource";
+import type { UncertaintyResult, WakeAnalysisResult } from "../../types/windResource";
 import { weibullMean } from "../../utils/aepMath";
 import { turbineById } from "../../utils/turbineCurves";
 import { routeCables } from "../layout/cables";
@@ -52,6 +52,8 @@ export interface ReportInput {
   seabedAt?: SeabedAt;
   /** PyWake run for exactly this layout, else null. */
   pywake: WakeAnalysisResult | null;
+  /** AEP uncertainty of this farm (POST /wind/uncertainty), else null. */
+  uncertainty?: UncertaintyResult | null;
   /** External wake loss from the neighbouring farms for this layout (TurbOPark), else null. */
   external?: { lossPct: number; farms: number; turbines: number } | null;
   history: AepRun[];
@@ -207,6 +209,15 @@ export function buildReport(i: ReportInput) {
         : null,
       other_losses_pct: r(100 * OTHER_LOSSES, 1),
       net_gwh: r(netGWh, 0),
+      uncertainty: i.uncertainty
+        ? {
+            combined_pct: r(i.uncertainty.combined_percent, 2),
+            p50_gwh: r(netGWh, 0),
+            p75_gwh: r(netGWh * (1 - (i.uncertainty.z.P75 * i.uncertainty.combined_percent) / 100), 0),
+            p90_gwh: r(netGWh * (1 - (i.uncertainty.z.P90 * i.uncertainty.combined_percent) / 100), 0),
+            components: i.uncertainty.components.map((c) => ({ name: c.name, sigma_pct: r(c.sigma_percent, 2), quality: c.quality, source: c.source })),
+          }
+        : null,
       basis: i.pywake ? "PyWake" : "screening model",
       turbines: i.turbines.map((t, k) => ({
         id: t.id,

@@ -115,7 +115,7 @@ radial chains with the mean section length.
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 
 import numpy as np
@@ -247,6 +247,15 @@ NUM_SHUNT_REACTORS = 2 * NUM_EXPORT_CABLES  # n at the OSS + n onshore
 SHUNT_REACTOR_UNIT_MVAR = 120.0  # absorption per reactor [MVAR]
 SHUNT_REACTOR_MVAR = NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR  # 510 MVAR total
 
+# Harmonic filter at the OSS 66 kV busbar — damped 2nd-order high-pass (C in series with
+# L ∥ R), sized by ``power_quality.size_harmonic_filter``: without it the array-cable
+# capacitance and the OSS transformers resonate at 960 Hz and h19 reaches 108 % of the
+# IEC TR 61000-3-6 planning level at 66 kV. 5 Mvar tuned to h18 (C 3.64 µF, L 8.59 mH,
+# R 72.8 Ω) keeps every harmonic ≤ 50 % of the planning level at 0.5–2 × S_sc and moves
+# the resonance to ≈ 645 Hz, amplification < 3 (power_quality module docstring).
+HARMONIC_FILTER_MVAR = 5.0  # fundamental reactive output [Mvar], generating (Rule 4)
+HARMONIC_FILTER_TUNED_ORDER = 18.0  # 900 Hz
+
 
 # ── Farm specification (SB-510 or the learner's project) ─────────
 
@@ -282,6 +291,8 @@ class FarmSpec:
     reactor_unit_mvar: float
     turbine_rated_mw: float = TURBINE_RATED_MW
     grid_ssc_mva: float = GRID_SSC_MVA
+    harmonic_filter_mvar: float = 0.0  # damped high-pass at OSS 66 kV, 50 Hz output [Mvar]
+    harmonic_filter_tuned_order: float = 0.0
 
     @property
     def num_turbines(self) -> int:
@@ -374,7 +385,7 @@ def design(
     left = abs(q_cable - unit * max(n_reactors - 1, 0))
     over = max(unit * n_reactors - q_cable, 0.0)
     statcom = max(statcom, _round_up(max(left, over) * STATCOM_MARGIN, 10.0))
-    return FarmSpec(
+    spec = FarmSpec(
         name=name,
         string_layout=tuple(string_layout),
         export_length_km=export_length_km,
@@ -386,6 +397,12 @@ def design(
         num_reactors=n_reactors,
         reactor_unit_mvar=unit,
     )
+    # Harmonic filter from the harmonic network of this design (power_quality imports
+    # this module, hence the local import).
+    from app.services.p2.power_quality import size_harmonic_filter
+
+    q_filter, tuned = size_harmonic_filter(spec)
+    return replace(spec, harmonic_filter_mvar=q_filter, harmonic_filter_tuned_order=tuned)
 
 
 SB510 = FarmSpec(
@@ -399,6 +416,8 @@ SB510 = FarmSpec(
     statcom_mvar=STATCOM_RATING_MVAR,
     num_reactors=NUM_SHUNT_REACTORS,
     reactor_unit_mvar=SHUNT_REACTOR_UNIT_MVAR,
+    harmonic_filter_mvar=HARMONIC_FILTER_MVAR,
+    harmonic_filter_tuned_order=HARMONIC_FILTER_TUNED_ORDER,
 )
 
 
@@ -649,6 +668,17 @@ def build_network(
                     p_mw=0.0,
                     name=f"Reactor_{end}_{c + 1}_{spec.reactor_unit_mvar:.0f}MVAR",
                 )
+
+    # Harmonic filter at OSS 66 kV: capacitive at 50 Hz → negative q in the load
+    # convention (it generates Q; losses in the damping resistor are < 1 kW, ignored).
+    if spec.harmonic_filter_mvar > 0:
+        pp.create_shunt(
+            net,
+            bus=bus_oss_66,
+            q_mvar=-spec.harmonic_filter_mvar,
+            p_mw=0.0,
+            name=f"HF_OSS_66_{spec.harmonic_filter_mvar:.0f}MVAR_h{spec.harmonic_filter_tuned_order:.0f}",
+        )
 
     return net
 

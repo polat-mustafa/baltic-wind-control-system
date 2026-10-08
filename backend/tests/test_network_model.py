@@ -257,12 +257,21 @@ class TestGeneration:
     def test_shunt_reactor_present(self):
         """4 × 120 MVAR shunt reactors: one per export circuit at each end."""
         net = build_network(enable_reactor=True)
-        assert len(net.shunt) == NUM_SHUNT_REACTORS == 4
+        reactors = net.shunt[net.shunt["name"].str.startswith("Reactor_")]
+        assert len(reactors) == NUM_SHUNT_REACTORS == 4
         # pandapower shunts use the load convention: q_mvar > 0 = absorbing
-        assert list(net.shunt["q_mvar"]) == pytest.approx([SHUNT_REACTOR_UNIT_MVAR] * 4)
-        ends = net.bus.loc[net.shunt["bus"], "name"].tolist()
+        assert list(reactors["q_mvar"]) == pytest.approx([SHUNT_REACTOR_UNIT_MVAR] * 4)
+        ends = net.bus.loc[reactors["bus"], "name"].tolist()
         assert ends == ["Onshore_220kV"] * 2 + ["OSS_220kV"] * 2
-        assert float(net.shunt["q_mvar"].sum()) == pytest.approx(SHUNT_REACTOR_MVAR)
+        assert float(reactors["q_mvar"].sum()) == pytest.approx(SHUNT_REACTOR_MVAR)
+
+    def test_harmonic_filter_at_oss_66kv(self):
+        """5 Mvar damped high-pass, capacitive at 50 Hz: q < 0 in the load convention."""
+        net = build_network()
+        hf = net.shunt[net.shunt["name"].str.startswith("HF_OSS_66")]
+        assert len(hf) == 1
+        assert float(hf["q_mvar"].iloc[0]) == pytest.approx(-5.0)
+        assert net.bus.loc[hf["bus"].iloc[0], "name"] == "OSS_66kV"
 
     def test_shunt_reactor_lowers_voltage(self):
         """A reactor absorbs Q, so switching it in must LOWER the OSS voltage.
@@ -280,9 +289,9 @@ class TestGeneration:
         assert v_oss(True) < v_oss(False)
 
     def test_no_reactor_when_disabled(self):
-        """Shunt reactor must be absent when disabled."""
+        """Shunt reactors are absent when disabled; the harmonic filter stays."""
         net = build_network(enable_reactor=False)
-        assert len(net.shunt) == 0
+        assert list(net.shunt["name"]) == ["HF_OSS_66_5MVAR_h18"]
 
     def test_string_layout(self):
         """String layout must produce exactly 34 WTGs across 6 strings (6-6-6-6-5-5)."""

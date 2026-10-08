@@ -474,9 +474,10 @@ U_ret = U_clear = U_rec1 = 0.00 pu, t_clear = t_rec1 = t_rec2 = 0.15 s, U_rec2 =
 
 | Result (10 GVA grid) | Value |
 |---|---|
-| Parallel resonances seen from OSS 66 kV | ≈ 130 Hz (h 2.6, amplification ×13), ≈ 725 Hz (h 14.5) and ≈ 960 Hz (h 19.2, ×10) |
-| THD at the PSE 400 kV POC | 0.18 % (HV-EHV planning level 3 %) |
-| h19 at OSS 66 kV | 1.16 % = 108 % of the 1.07 % planning level — FAIL without mitigation: the 960 Hz resonance sits next to h19; a 5 Mvar single-tuned filter at OSS 66 kV (922 Hz, Q 50, `design_passive_filter`) attenuates h19 by ≈ 40 dB |
+| Parallel resonances seen from OSS 66 kV, no filter | ≈ 130 Hz (h 2.6, amplification ×13), ≈ 725 Hz (h 14.5) and ≈ 960 Hz (h 19.2, ×10) |
+| h19 at OSS 66 kV, no filter | 1.16 % = 108 % of the 1.07 % planning level — FAIL: the 960 Hz resonance sits next to h19 |
+| Harmonic filter (in the design) | damped high-pass at OSS 66 kV, 5 Mvar tuned to h18, q 1.5 (C 3.64 µF, L 8.59 mH, R 72.8 Ω) — `size_harmonic_filter`; the 960 Hz peak moves to ≈ 645 Hz (×2.6) |
+| With the filter | h19 0.105 % = 10 % of the planning level; worst order h13 at 50 %; THD 0.98 % at 66 kV, 0.17 % at the PSE 400 kV POC (planning level 3 %) |
 | Flicker P_st / P_lt at the POC | 0.002 / 0.002 (planning levels 0.8 / 0.6) |
 
 Planning levels follow IEC TR 61000-3-6:2008 Table 2 (MV / HV-EHV, THD 6.5 % / 3 %); flicker IEC 61000-3-7 HV-EHV. The emission limit PSE would allocate to the plant is a share of the planning level.

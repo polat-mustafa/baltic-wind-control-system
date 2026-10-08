@@ -8,9 +8,11 @@ Planning levels against IEC TR 61000-3-6 Table 2, the harmonic network model
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 import pytest
 
+from app.services.p2.network_model import SB510
 from app.services.p2.power_quality import (
     DEFAULT_WTG_EMISSION_PCT,
     _impedance_column,
@@ -19,7 +21,10 @@ from app.services.p2.power_quality import (
     compute_resonance_scan,
     design_passive_filter,
     get_harmonic_limits,
+    harmonic_filter_elements,
+    harmonic_filter_impedance_ohm,
     planning_level_pct,
+    size_harmonic_filter,
     summation_exponent,
 )
 
@@ -62,12 +67,24 @@ class TestNetworkModel:
         # |Z(50 Hz)| at 66 kV ≈ grid + both transformers + cable ≈ 0.06 pu on 100 MVA
         assert abs(_impedance_column(1.0, 10_000.0, 45.0)[3]) == pytest.approx(0.06, abs=0.005)
 
-    def test_low_order_cable_resonance_and_h17_peak(self):
-        scan = compute_resonance_scan()
+    def test_low_order_cable_resonance_and_h19_peak_without_filter(self):
+        bare = replace(SB510, harmonic_filter_mvar=0.0, harmonic_filter_tuned_order=0.0)
+        scan = compute_resonance_scan(spec=bare)
         orders = [p["harmonic_order"] for p in scan["resonance_points"]]
         assert any(2.5 <= h <= 3.0 for h in orders)  # cable C vs grid/transformer L
-        assert any(19.0 <= h <= 19.6 for h in orders)
+        assert any(19.0 <= h <= 19.6 for h in orders)  # array C vs OSS transformer L
         assert 19 in scan["critical_harmonics"]
+
+    def test_filter_moves_the_h19_resonance_off_the_characteristic_orders(self):
+        """With the 5 Mvar h18 filter the 960 Hz peak moves to ≈ 645 Hz, amplification < 3."""
+        for factor in (0.5, 1.0, 2.0):
+            scan = compute_resonance_scan(grid_fault_level_mva=10_000.0 * factor)
+            assert scan["critical_harmonics"] == []
+            peak = max(
+                (p for p in scan["resonance_points"] if p["harmonic_order"] > 5),
+                key=lambda p: p["amplification"],
+            )
+            assert 600.0 <= peak["frequency_hz"] <= 700.0 and peak["amplification"] < 3.0
 
     def test_weaker_grid_lowers_the_first_resonance(self):
         strong = compute_resonance_scan(grid_fault_level_mva=10_000.0)["cable_resonant_freq_hz"]
@@ -86,13 +103,39 @@ class TestHarmonics:
         assert r["bus"].startswith("PSE 400")
         assert r["thd_voltage_pct"] < 1.0 and r["compliant"]
 
-    def test_resonance_amplifies_h19_at_66kv(self):
-        r = compute_harmonics(DEFAULT_WTG_EMISSION_PCT, 66.0)
+    def test_resonance_amplifies_h19_at_66kv_without_filter(self):
+        bare = replace(SB510, harmonic_filter_mvar=0.0, harmonic_filter_tuned_order=0.0)
+        r = compute_harmonics(DEFAULT_WTG_EMISSION_PCT, 66.0, spec=bare)
         h19 = next(x for x in r["harmonics"] if x["order"] == 19)
         h5 = next(x for x in r["harmonics"] if x["order"] == 5)
-        # a fifth of the h5 current, but a far larger voltage
+        # a fifth of the h5 current, but a far larger voltage — and above the planning level
         assert h19["magnitude_pct"] > 5 * h5["magnitude_pct"]
         assert h19["impedance_ohm"] > 100.0
+        assert r["assessment"] == "FAIL" and h19["utilisation_pct"] > 100.0
+
+    def test_designed_filter_brings_every_order_to_half_the_planning_level(self):
+        """SB-510: 5 Mvar tuned to h18; ≤ 50 % at the POC, 220 and 66 kV for 0.5–2 × S_sc."""
+        assert (SB510.harmonic_filter_mvar, SB510.harmonic_filter_tuned_order) == (5.0, 18.0)
+        assert size_harmonic_filter(SB510) == (5.0, 18.0)
+        for factor in (0.5, 1.0, 2.0):
+            for kv in (400.0, 220.0, 66.0):
+                r = compute_harmonics(DEFAULT_WTG_EMISSION_PCT, kv, grid_ssc_mva=10_000.0 * factor)
+                assert r["worst_utilisation_pct"] <= 50.0 and r["compliant"]
+        h19 = next(
+            x
+            for x in compute_harmonics(DEFAULT_WTG_EMISSION_PCT, 66.0)["harmonics"]
+            if x["order"] == 19
+        )
+        assert h19["utilisation_pct"] < 15.0
+
+    def test_filter_elements(self):
+        """X_C − X_L = U²/Q, X_L = X_C/h_t², R = q·h_t·ω₀L; 50 Hz output = Q."""
+        c, ind, r = harmonic_filter_elements(5.0, 18.0)
+        assert c * 1e6 == pytest.approx(3.642, abs=0.001)
+        assert ind * 1e3 == pytest.approx(8.585, abs=0.001)
+        assert r == pytest.approx(72.8, abs=0.1)
+        z1 = harmonic_filter_impedance_ohm(1.0, 5.0, 18.0)
+        assert 66.0**2 / -z1.imag == pytest.approx(5.0, rel=0.01)  # capacitive, 5 Mvar
 
     def test_voltage_scales_with_emission_and_summation(self):
         one = compute_harmonics({11: 0.5}, 66.0, rated_mw=15.0)["harmonics"][0]["magnitude_pct"]

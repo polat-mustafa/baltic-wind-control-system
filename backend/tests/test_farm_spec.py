@@ -10,6 +10,7 @@ FarmSpec / design(): the P2 network for any farm on the SB-510 topology.
 
 import json
 import math
+from dataclasses import replace
 from urllib.parse import quote
 
 import pytest
@@ -110,7 +111,7 @@ class TestDesignRules:
         spec = design((5, 5, 5, 5), 30.0, 1.4)
         net = build_network(spec=spec)
         assert len(net.sgen) == 20 + 1  # WTGs + STATCOM
-        assert len(net.shunt) == spec.num_reactors
+        assert len(net.shunt) == spec.num_reactors + (spec.harmonic_filter_mvar > 0)
         export = net.line[net.line["name"] == "Export_220kV"].iloc[0]
         assert export["parallel"] == 1 and export["length_km"] == 30.0
 
@@ -133,10 +134,14 @@ class TestOwnFarmPhysics:
 
     def test_reactor_check_fixes_short_single_circuit(self):
         """30 km, one circuit: the balance rule gives 20 MVAR units; the reactor-N-1 load flow
-        saturates the ±80 MVAR STATCOM until the unit is 30 MVAR."""
+        saturates the ±80 MVAR STATCOM until the unit is 30 MVAR — 40 MVAR once the 10 Mvar
+        (capacitive) h5 harmonic filter of this short export is in."""
         rule = design((5, 5, 5, 5), 30.0, 1.4)
         assert rule.reactor_unit_mvar == 20
-        assert check_reactors(rule).reactor_unit_mvar == 30
+        assert (rule.harmonic_filter_mvar, rule.harmonic_filter_tuned_order) == (10.0, 4.7)
+        bare = replace(rule, harmonic_filter_mvar=0.0, harmonic_filter_tuned_order=0.0)
+        assert check_reactors(bare).reactor_unit_mvar == 30
+        assert check_reactors(rule).reactor_unit_mvar == 40
 
     def test_n_minus_1_trips_the_last_string(self):
         spec = design((5, 5, 5, 4), 30.0, 1.4)

@@ -12,6 +12,7 @@ built from the same data as the load flow (``network_model``):
                  capacitance that makes HVAC connections resonate
   shunt reactors 2 × 120 MVAR at each export end, onshore and OSS 220 kV (SB-510)
   array cables   ≈ 15 MVAR of charging lumped at OSS 66 kV
+  harmonic filter damped 2nd-order high-pass at OSS 66 kV (C in series with L ∥ R)
 
 The 34 converters are harmonic current sources at OSS 66 kV. Their emission
 (IEC 61400-21 test-report style, % of rated current) is summed with the
@@ -33,6 +34,26 @@ allocate to this plant is a share of them, so a result close to the planning
 level already means trouble. Below 1 kV the IEC 61000-2-2 compatibility
 levels are shown instead (there are no LV planning levels).
 
+Harmonic filter — damped 2nd-order high-pass at OSS 66 kV
+----------------------------------------------------------
+Without a filter the array-cable capacitance resonates with the OSS transformer and
+grid inductance at 960 Hz (|Z| amplification 9.6 at OSS 66 kV) and h19 reaches 108 %
+of the 66 kV planning level. Elements for a 50 Hz output Q at tuning order h_t and
+quality factor q (Das, IEEE Trans. Ind. Appl. 40(1), 2004; IEEE Std 1531):
+  X_C − X_L = U² / Q,  X_L = X_C / h_t²  →  C = 1 / (ω₀ X_C),  L = 1 / (h_t² ω₀² C)
+  R = q · h_t ω₀ L       (q 1.5: broad damping, R takes the high-order currents)
+  Z_f(h) = 1 / (jhω₀C) + (jhω₀L ∥ R)
+``size_harmonic_filter``: if any harmonic exceeds 50 % of its planning level at the
+POC, the 220 kV or the 66 kV bus at 0.5, 1 or 2 × S_sc, tune one order below the worst
+order (h5: 4.7) and take the smallest standard size (2–10 Mvar) that brings every harmonic to
+≤ 50 % in all three grid cases without leaving an amplified resonance (> 3) next to a
+characteristic harmonic. SB-510: h19 → tuned h18 (900 Hz), 5 Mvar (C 3.64 µF, L 8.59 mH,
+R 72.8 Ω, 44 A and ≈ 0.6 kW at 50 Hz). The 960 Hz resonance moves to ≈ 645 Hz
+(amplification 2.3–2.9), h19 drops from 108 % to 10 % of the 66 kV planning level, the
+worst harmonic is h13 at 50 %. 2 or 3 Mvar would leave the peak near h13 (amplification
+> 3 at some S_sc); 4 Mvar leaves h13 at 51 %. The 130 Hz low-order resonance (h2.6,
+non-characteristic) is not addressed by this filter.
+
 Flicker — IEC 61400-21 / IEC 61000-3-7
 ---------------------------------------
   continuous:  P_st = P_lt = c(ψ_k) · √N · S_n / S_k
@@ -46,6 +67,7 @@ Flicker — IEC 61400-21 / IEC 61000-3-7
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from functools import lru_cache
 from typing import Any
 
@@ -166,7 +188,103 @@ def _admittance(
     branch(2, 3, trafo(TRAFO_66_220_VK_PERCENT, TRAFO_66_220_VKR_PERCENT, s_oss))
     array_km = spec.num_turbines * spec.array_cable_length_km
     y[3, 3] += complex(0.0, h * ARRAY_CHARGING_MVAR_PER_KM * array_km / S_BASE)
+    if spec.harmonic_filter_mvar > 0:
+        y[3, 3] += (66.0**2 / S_BASE) / harmonic_filter_impedance_ohm(
+            h, spec.harmonic_filter_mvar, spec.harmonic_filter_tuned_order
+        )
     return y
+
+
+# ── Harmonic filter ──────────────────────────────────────────────
+
+HARMONIC_FILTER_Q = 1.5
+# Standard sizes up to what one 66 kV feeder bay carries; a farm that needs more (or two
+# filters, e.g. a C-type at h5 as well) needs its own study — the harmonic study shows it.
+HARMONIC_FILTER_SIZES_MVAR = (2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0)
+FILTER_TARGET_PCT = 50.0  # of the planning level, a plant's share (stage 2 allocation)
+FILTER_SSC_FACTORS = (0.5, 1.0, 2.0)  # weak … strong grid around the design S_sc
+MIN_FILTER_ORDER = 5  # lowest characteristic order of a 6-pulse-equivalent converter
+
+
+def harmonic_filter_elements(
+    q_mvar: float, tuned_order: float, q_factor: float = HARMONIC_FILTER_Q, v_kv: float = 66.0
+) -> tuple[float, float, float]:
+    """(C [F], L [H], R [Ω]) of a damped 2nd-order high-pass with 50 Hz output Q (docstring)."""
+    x_net = (v_kv * 1e3) ** 2 / (q_mvar * 1e6)
+    x_c = x_net / (1.0 - 1.0 / tuned_order**2)
+    c_f = 1.0 / (OMEGA0 * x_c)
+    l_h = 1.0 / ((tuned_order * OMEGA0) ** 2 * c_f)
+    return c_f, l_h, q_factor * tuned_order * OMEGA0 * l_h
+
+
+def harmonic_filter_impedance_ohm(
+    h: float, q_mvar: float, tuned_order: float, q_factor: float = HARMONIC_FILTER_Q
+) -> complex:
+    """Z_f(h) = 1/(jhω₀C) + (jhω₀L ∥ R) [Ω at 66 kV]."""
+    c_f, l_h, r = harmonic_filter_elements(q_mvar, tuned_order, q_factor)
+    z_l = complex(0.0, h * OMEGA0 * l_h)
+    return complex(0.0, -1.0 / (h * OMEGA0 * c_f)) + z_l * r / (z_l + r)
+
+
+def _worst_over_grid_range(spec: FarmSpec) -> tuple[float, int, float]:
+    """Worst utilisation [% of planning level] over buses and S_sc cases:
+    (worst for h ≥ 5, its order, worst for h < 5)."""
+    high, order, low = 0.0, 0, 0.0
+    for factor in FILTER_SSC_FACTORS:
+        for kv in NODES:
+            r = compute_harmonics(
+                DEFAULT_WTG_EMISSION_PCT,
+                voltage_kv=kv,
+                rated_mw=spec.capacity_mw,
+                grid_ssc_mva=spec.grid_ssc_mva * factor,
+                spec=spec,
+            )
+            for row in r["harmonics"]:
+                u = row["utilisation_pct"]
+                if row["order"] < MIN_FILTER_ORDER:
+                    low = max(low, u)
+                elif u > high:
+                    high, order = u, row["order"]
+    return high, order, low
+
+
+def size_harmonic_filter(spec: FarmSpec) -> tuple[float, float]:
+    """(Q [Mvar], tuned order) of the OSS 66 kV filter for a design; (0, 0) if none is needed.
+
+    Needed when a characteristic order (h ≥ 5) exceeds 50 % of its planning level in any
+    bus / S_sc case. Tuned one order below the worst one (h5: 4.7); the smallest standard size that
+    brings every order (low ones included — added capacitance pulls the low-order cable
+    resonance down) to ≤ 50 % and leaves no amplified resonance next to a characteristic
+    harmonic wins, else the size with the lowest overall worst case.
+    Low-order resonance alone (h2–h3, long export cable against the grid) is not
+    something a 66 kV high-pass cures; it stays visible in the harmonic study.
+    """
+    base = replace(spec, harmonic_filter_mvar=0.0, harmonic_filter_tuned_order=0.0)
+    high, order, low = _worst_over_grid_range(base)
+    if high <= FILTER_TARGET_PCT:
+        return 0.0, 0.0
+    tuned = round(max(order - 1.0, 0.94 * order), 2)  # h19 → 18, h5 → 4.7
+    best = (True, max(high, low), 0.0)
+    for q in HARMONIC_FILTER_SIZES_MVAR:
+        candidate = replace(base, harmonic_filter_mvar=q, harmonic_filter_tuned_order=tuned)
+        w, _, w_low = _worst_over_grid_range(candidate)
+        overall, critical = max(w, w_low), _resonance_near_characteristic(candidate)
+        if overall <= FILTER_TARGET_PCT and not critical:
+            return q, tuned
+        best = min(best, (critical, overall, q))
+    return (best[2], tuned) if best[2] else (0.0, 0.0)
+
+
+def _resonance_near_characteristic(spec: FarmSpec) -> bool:
+    """A MEDIUM/HIGH resonance (amplification > 3) within one order of a characteristic
+    harmonic at OSS 66 kV, at any of the S_sc cases — what moving the 960 Hz peak with
+    too small a capacitor does (SB-510 with 2 Mvar: 690 Hz, next to h13)."""
+    return any(
+        compute_resonance_scan(
+            spec.export_length_km, 66.0, spec.grid_ssc_mva * factor, scan_max_hz=1500.0, spec=spec
+        )["critical_harmonics"]
+        for factor in FILTER_SSC_FACTORS
+    )
 
 
 @lru_cache(maxsize=4096)

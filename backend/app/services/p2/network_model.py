@@ -34,14 +34,14 @@ Transformers are modelled by short-circuit impedance (vk%) and copper losses (vk
 The magnetising branch (iron losses) is included as i0% and pfe_kw parameters.
 Vector groups (Dyn11, YNyn0) determine zero-sequence behaviour for fault analysis.
 
-Cable Data (IEC 60287 typical values for submarine XLPE)
+Cable Data (sources and quality: provenance note at the cable constants below)
 ---------------------------------------------------------
 R20 = IEC 60228 DC resistance at 20 °C; R90 = AC resistance at 90 °C (see below).
 
 Array 66 kV cables (3-core, Cu, round compacted conductor):
-  - 500 mm²: R20 = 0.0366, R90 = 0.0493 Ω/km, X = 0.110 Ω/km, C = 200 nF/km, Imax ≈ 715 A
-  - 630 mm²: R20 = 0.0283, R90 = 0.0395 Ω/km, X = 0.105 Ω/km, C = 215 nF/km, Imax ≈ 818 A
-  - 800 mm²: R20 = 0.0221, R90 = 0.0325 Ω/km, X = 0.100 Ω/km, C = 230 nF/km, Imax ≈ 900 A
+  - 500 mm²: R20 = 0.0366, R90 = 0.0493 Ω/km, X = 0.110 Ω/km, C = 290 nF/km, Imax ≈ 715 A
+  - 630 mm²: R20 = 0.0283, R90 = 0.0395 Ω/km, X = 0.105 Ω/km, C = 320 nF/km, Imax ≈ 818 A
+  - 800 mm²: R20 = 0.0221, R90 = 0.0325 Ω/km, X = 0.100 Ω/km, C = 350 nF/km, Imax ≈ 900 A
 
 Export 220 kV cable (per circuit, 2 circuits in parallel, Cu Milliken conductor, 1000 mm²):
   - R20 = 0.0176, R90 = 0.0233 Ω/km, X = 0.116 Ω/km, C = 190 nF/km, Imax ≈ 950 A
@@ -159,10 +159,24 @@ ALPHA_CU_PER_K = 0.00393  # Copper resistance temperature coefficient at 20 °C 
 CONDUCTOR_OPERATING_TEMP_C = 90.0  # XLPE rated conductor temperature [°C]
 
 
+# Provenance (Phase 12; quality as in the frontend SourceBadge):
+# - r_ohm_per_km: IEC 60228 class 2 Cu maximum DC resistance at 20 °C — official.
+# - c_nf_per_km, x_ohm_per_km: ABB "XLPE Submarine Cable Systems", 2GM5007 rev 5
+#   (ABB's cable business is now NKT), Table 45 (66 kV, 3-core: 0.29 / 0.32 / 0.35 µF/km,
+#   0.34 / 0.33 / 0.32 mH/km) and Table 49 (220 kV 1000 mm²: 0.19 µF/km, 0.38 mH/km) —
+#   literature; ORBIT v1.3 XLPE_630mm_66kV (300 nF/km) and XLPE_1000mm_220kV (190 nF/km)
+#   agree. X = ωL within 3 %.
+# - max_i_ka: approximation. The same ABB brochure (Tables 33–34, IEC 60287, one cable
+#   1 m deep in 20 °C seabed of 1.0 K·m/W) gives 655 / 715 / 775 A (66 kV) and 825 A
+#   (220 kV 1000 mm²), ORBIT 775 A (630 mm²) and 825 A — the values here are 9–16 % higher.
+#   They set the 6-turbine strings and the export circuit count, so they are kept until a
+#   project-specific IEC 60287 rating (burial depth, soil resistivity, seabed temperature).
+# - ac_factor: IEC 60287-1-1 skin + proximity method — approximation.
+
 # 66 kV array cables — graded by distance from OSS
-ARRAY_CABLE_500 = CableSpec(500, 0.0366, 0.110, 200, 0.715, ac_factor=1.056)
-ARRAY_CABLE_630 = CableSpec(630, 0.0283, 0.105, 215, 0.818, ac_factor=1.094)
-ARRAY_CABLE_800 = CableSpec(800, 0.0221, 0.100, 230, 0.900, ac_factor=1.153)
+ARRAY_CABLE_500 = CableSpec(500, 0.0366, 0.110, 290, 0.715, ac_factor=1.056)
+ARRAY_CABLE_630 = CableSpec(630, 0.0283, 0.105, 320, 0.818, ac_factor=1.094)
+ARRAY_CABLE_800 = CableSpec(800, 0.0221, 0.100, 350, 0.900, ac_factor=1.153)
 
 # 220 kV export cable (per circuit)
 EXPORT_CABLE_1000 = CableSpec(1000, 0.0176, 0.116, 190, 0.950, ac_factor=1.039)

@@ -5,6 +5,8 @@
  * Source of truth: backend/app/routers/p1.py Pydantic schemas.
  */
 
+import type { Quality } from "../components/ui/SourceBadge";
+
 // ── Turbine Spec ────────────────────────────────────────────────
 
 export interface TurbineSpec {
@@ -65,6 +67,9 @@ export interface LossFactor {
   name: string;
   loss_percent: number;
   uncertainty_percent: number;
+  /** Provenance of the value (SourceBadge). */
+  quality?: Quality;
+  source?: string;
 }
 
 export interface AEPCascadeResult {

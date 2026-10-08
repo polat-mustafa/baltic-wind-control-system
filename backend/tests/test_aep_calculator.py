@@ -155,6 +155,14 @@ class TestLossCascade:
         names = [f.name for f in factors]
         assert names == ["wake", "blockage", "electrical", "availability", "environmental"]
 
+    def test_loss_factors_carry_provenance(self):
+        """Defaults keep their source; an overridden loss becomes the user's input."""
+        _, factors = apply_loss_cascade(2340.0, 0.087, 0.02)
+        assert all(f.source and f.quality in {"literature", "approximation"} for f in factors)
+        _, factors = apply_loss_cascade(2340.0, 0.087, 0.02, availability_loss_fraction=0.03)
+        avail = next(f for f in factors if f.name == "availability")
+        assert (avail.quality, avail.source) == ("illustrative", "Your input")
+
     def test_net_always_less_than_gross(self):
         """Net AEP should always be ≤ gross when losses are positive."""
         gross = 2340.0

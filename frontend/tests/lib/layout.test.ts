@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { gridFill, insidePolygon, minSpacing, polygonArea, projection, type XY } from "../../src/lib/layout/geometry";
 import { maxPerString, mstLength, routeCables, sectionFor, stringCurrent } from "../../src/lib/layout/cables";
 import { layoutYield } from "../../src/lib/layout/energy";
-import { crf, DEFAULT_COSTS, layoutCost } from "../../src/lib/layout/cost";
+import { COST_DEFAULTS, crf, DEFAULT_COSTS, exportCircuits, layoutCost } from "../../src/lib/layout/cost";
 import { blockedBy, energyRings, exclusionRings, OUTSIDE_ENERGY_BASIN } from "../../src/lib/layout/evaluate";
 import type { LayersResponse, LayerInfo, LonLat } from "../../src/services/siteApi";
 import { TURBINE_MODELS } from "../../src/constants/turbineModels";
@@ -116,12 +116,32 @@ describe("cost", () => {
   });
 
   it("gives an LCOE in a sane range for a 510 MW farm", () => {
+    // NREL 2024 fixed-bottom reference: 5 411 $/kW ≈ 5.0 M€/MW, LCOE 117 $/MWh ≈ 108 €/MWh
     const c = layoutCost(DEFAULT_COSTS, 510, 60, 45, 40, 2200);
-    expect(c.capexMEURperMW).toBeGreaterThan(2);
-    expect(c.capexMEURperMW).toBeLessThan(4);
-    expect(c.lcoe!).toBeGreaterThan(40);
-    expect(c.lcoe!).toBeLessThan(120);
+    expect(c.capexMEURperMW).toBeGreaterThan(4.5);
+    expect(c.capexMEURperMW).toBeLessThan(5.5);
+    expect(c.lcoe!).toBeGreaterThan(90);
+    expect(c.lcoe!).toBeLessThan(140);
     expect(layoutCost(DEFAULT_COSTS, 510, 60, 45, 40, 0).lcoe).toBeNull();
+  });
+
+  it("defaults are the NREL / ORBIT values in 2023 € and carry their source", () => {
+    expect(DEFAULT_COSTS.turbineMEURperMW).toBe(1.64); // 1 770 $/kW / 1.0813
+    expect(DEFAULT_COSTS.opexKEURperMWyr).toBe(125); // 135 $/kW-yr / 1.0813
+    expect(DEFAULT_COSTS.exportCircuitMEURperKm).toBe(1.39); // ORBIT 1 500 902 $/km
+    for (const c of Object.values(COST_DEFAULTS)) {
+      expect(c.source).not.toBe("");
+      if (c.quality !== "illustrative") expect(c.license && c.retrieved).toBeTruthy();
+    }
+  });
+
+  it("prices the export cable per circuit with the backend design() rule", () => {
+    expect(exportCircuits(510, 76.5)).toBe(2); // SB-510: 2 × 220 kV
+    expect(exportCircuits(300, 50)).toBe(1);
+    expect(exportCircuits(0, 50)).toBe(0); // no turbines, no export cable
+    expect(exportCircuits(900, 76.5)).toBe(3);
+    const one = layoutCost(DEFAULT_COSTS, 300, 0, 50, 30, 1000).lines.find((l) => l.label.startsWith("Export"))!;
+    expect(one.meur).toBeCloseTo(1.39 * 50, 6);
   });
 });
 

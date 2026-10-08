@@ -19,7 +19,7 @@ import type { WakeAnalysisResult } from "../../types/windResource";
 import { weibullMean } from "../../utils/aepMath";
 import { turbineById } from "../../utils/turbineCurves";
 import { routeCables } from "../layout/cables";
-import { layoutCost, type CostInputs } from "../layout/cost";
+import { COST_DEFAULTS, DEFAULT_COSTS, layoutCost, type CostInputs } from "../layout/cost";
 import { prepareYield, UNIFORM_ROSE, yieldOf, type WindRose } from "../layout/energy";
 import { foundationFor, layoutContext, OTHER_LOSSES, statusAt, WEIBULL_A, WEIBULL_K } from "../layout/evaluate";
 import { minSpacing, polygonArea, type LonLat } from "../layout/geometry";
@@ -28,7 +28,7 @@ import { suggestMoves, type MoveSuggestion } from "../layout/suggest";
 export const REPORT_SCHEMA = "offshoreforge-report/1";
 
 export const REVERIFY_NOTE =
-  "Training output. Open data, reference-turbine curves, screening models and illustrative unit costs — " +
+  "Training output. Open data, reference-turbine curves, screening models and U.S. reference unit costs (2023) — " +
   "re-verify every number against primary data, surveys and vendor information before any real decision.";
 
 export interface ReportInput {
@@ -189,7 +189,7 @@ export function buildReport(i: ReportInput) {
         wake_loss_pct: r(i.pywake.wake_loss_percent, 2),
         capacity_factor: r(i.pywake.capacity_factor, 3),
       },
-      other_losses_pct: 100 * OTHER_LOSSES,
+      other_losses_pct: r(100 * OTHER_LOSSES, 1),
       net_gwh: r(netGWh, 0),
       basis: i.pywake ? "PyWake" : "screening model",
       turbines: i.turbines.map((t, k) => ({
@@ -255,7 +255,7 @@ export function buildReport(i: ReportInput) {
       wacc_pct: i.costs.waccPct,
       lifetime_years: i.costs.lifetimeYears,
       lcoe_eur_mwh: cost.lcoe == null ? null : r(cost.lcoe, 1),
-      source: "Illustrative teaching unit costs (editable on the Layout page), not market data",
+      source: costSource(i.costs),
     },
     construction: i.construction && {
       start: i.construction.start_date,
@@ -267,8 +267,20 @@ export function buildReport(i: ReportInput) {
     sources: [
       ...(i.layers?.layers ?? []).map((l) => ({ data: l.title, source: l.source, license: l.license, retrieved: l.retrieved })),
       { data: "Turbine power and thrust curves", source: model.source, license: model.license, retrieved: "" },
+      ...new Map(
+        Object.values(COST_DEFAULTS)
+          .filter((c) => c.quality !== "illustrative")
+          .map((c) => [c.source, { data: "Unit cost defaults (2023 USD → € at 1.0813 $/€)", source: c.source, license: c.license ?? "", retrieved: c.retrieved ?? "" }]),
+      ).values(),
     ],
   };
+}
+
+/** Which unit costs the report used: the sourced defaults, or the user's own values. */
+export function costSource(c: CostInputs): string {
+  const own = (Object.keys(DEFAULT_COSTS) as (keyof CostInputs)[]).filter((k) => c[k] !== DEFAULT_COSTS[k]);
+  const base = "NREL Cost of Wind Energy Review 2024 + ORBIT cable library (2023 USD → € at 1.0813 $/€; jacket and WACC are teaching assumptions)";
+  return own.length ? `${base}; own values for: ${own.map((k) => COST_DEFAULTS[k].label).join(", ")}` : base;
 }
 
 export type ProjectReport = ReturnType<typeof buildReport>;

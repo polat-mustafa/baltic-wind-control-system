@@ -25,6 +25,8 @@ Citation rules used here:
 | AEP loss cascade, P50/P90 | `services/p1/aep_calculator.py` | [1], [2] |
 | Power / thrust curve, cut-in/out (IEA 15 MW and 22 MW reference turbines) | `services/p1/turbine_models.py`, `app/data/turbines/`, `scripts/fetch_turbine_curves.py`, `frontend/src/constants/turbineModels.ts` | [S2], [26], [27] |
 | windIO 2.x plant export (site, wind resource, layout, turbine) | `services/p1/windio.py`, `routers/projects.py` (`/projects/{id}/windio.yaml`) | [31] |
+| Loss defaults with provenance (electrical, availability, environmental) | `services/p1/aep_calculator.py` (`LOSS_SOURCES`), `components/ui/SourceBadge.tsx` | [35] |
+| Unit-cost defaults (CAPEX lines, OPEX, design life), LCOE | `frontend/src/lib/layout/cost.ts` (`COST_DEFAULTS`), `schemas/farm_config.py` | [32], [33], [36] |
 
 ## P2 — HV grid integration
 
@@ -35,6 +37,7 @@ Citation rules used here:
 | RMS dynamics, FRT | `services/p2/andes_dynamics.py`, `frt_simulation.py` (ANDES) | [4], [11], [S5] |
 | Reactive power / STATCOM sizing | `services/p2/statcom_sizing.py` | [4], [5], [S5], [S6] |
 | Cable current rating | `services/p2/cable_dts.py` | [S7] |
+| Cable R, C, X, ratings (provenance note at the cable constants) | `services/p2/network_model.py` | [S33], [33], [34], [S7] |
 | Power quality | `services/p2/power_quality.py` | [S8], [S9] |
 
 ## P3 — SCADA and substation automation
@@ -163,6 +166,11 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 29. Dörenkämper, M., et al. "The making of the New European Wind Atlas — Part 2: Production and evaluation." *Geoscientific Model Development* 13, 5079–5102, 2020 (microscale atlas, Weibull parameters).
 30. Hersbach, H., et al. "The ERA5 global reanalysis." *Quarterly Journal of the Royal Meteorological Society* 146, 1999–2049, 2020; hourly data via the Open-Meteo archive API (CC BY 4.0).
 31. IEA Wind Task 37 / IEA Wind Systems. *windIO — data formats for wind energy systems*, `schemas/plant` (wind_energy_system, site, energy_resource, wind_farm, turbine), github.com/IEAWindSystems/windIO (Apache-2.0), checked 2026-10-08.
+32. Stehly, T., Duffy, P., Mulas Hernando, D. *Cost of Wind Energy Review: 2024 Edition*. NREL/PR-5000-91775, National Renewable Energy Laboratory, November 2024 (fixed-bottom reference: 600 MW, 12 MW, 34 m, monopiles; CapEx by ORBIT, OpEx by WOMBAT; 2023 USD). https://docs.nlr.gov/docs/fy25osti/91775.pdf
+33. Nunemaker, J., Shields, M., Hammond, R., Duffy, P. *ORBIT: Offshore Renewables Balance-of-system and Installation Tool*. NREL/TP-5000-77081, 2020; cable library `library/cables` (cost per km, capacitance, rating), github.com/WISDEM/ORBIT v1.3 (Apache-2.0), read 2026-10-08.
+34. ABB. *XLPE Submarine Cable Systems — Attachment to XLPE Land Cable Systems User's Guide*, 2GM5007 rev 5, 2010 (now NKT): Tables 33–36 (IEC 60287 ratings), 45 and 49 (66 kV and 220 kV three-core data).
+35. Beiter, P., Musial, W., Smith, A., et al. *A Spatial-Economic Cost-Reduction Pathway Analysis for U.S. Offshore Wind Energy Development from 2015–2030*. NREL/TP-6A20-66579, 2016 (other losses 2 %, availability against distance to port).
+36. European Central Bank. Euro foreign exchange reference rates, USD, annual average 2023 = 1.0813 (data-api.ecb.europa.eu, series EXR.A.USD.EUR.SP00.A).
 
 ## Standards and regulations
 
@@ -198,3 +206,4 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 - **[S30]** IEC 61400-3-1:2019 — Wind energy generation systems — Part 3-1: Design requirements for fixed offshore wind turbines (normal wind profile).
 - **[S31]** IMO Assembly Resolution A.672(16), 1989 — Guidelines and standards for the removal of offshore installations and structures on the continental shelf and in the exclusive economic zone.
 - **[S32]** UK Energy Act 2004, Part 2 Chapter 3 (ss. 105–114) — decommissioning of offshore renewable energy installations; DECC/DESNZ guidance notes for industry.
+- **[S33]** IEC 60228:2004 — Conductors of insulated cables (class 2 maximum DC resistance at 20 °C).

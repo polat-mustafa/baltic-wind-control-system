@@ -15,7 +15,7 @@ import { Grid3x3, MapPinned, MousePointerClick, Play, RotateCcw, Trash2, Wind } 
 
 import { cn } from "../lib/utils";
 import { routeCables, maxPerString } from "../lib/layout/cables";
-import { COST_LABELS, layoutCost, type CostInputs } from "../lib/layout/cost";
+import { COST_DEFAULTS, layoutCost, type CostInputs } from "../lib/layout/cost";
 import { prepareYield, UNIFORM_ROSE, yieldOf, type WindRose } from "../lib/layout/energy";
 import { weibullMean } from "../utils/aepMath";
 import {
@@ -44,6 +44,7 @@ import { Button } from "../components/ui/Button";
 import { InfoTile } from "../components/ui/InfoTile";
 import { Skeleton } from "../components/ui/Skeleton";
 import { InfoButton } from "../components/ui/InfoButton";
+import { SourceBadge } from "../components/ui/SourceBadge";
 import { WatchOut } from "../components/site/Stages";
 import type { TurbineView } from "../components/layout-canvas/shared";
 import TurbineCard from "../components/layout-canvas/TurbineCard";
@@ -111,27 +112,32 @@ function CostPanel({ costs, setCost, reset }: { costs: CostInputs; setCost: (k: 
         aria-expanded={open}
         className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-text-secondary"
       >
-        Cost inputs (illustrative) <span aria-hidden>{open ? "−" : "+"}</span>
+        Cost inputs (sourced, € 2023) <span aria-hidden>{open ? "−" : "+"}</span>
       </button>
       {open && (
         <div className="space-y-1.5 border-t border-border-primary p-3">
-          {(Object.keys(COST_LABELS) as (keyof CostInputs)[]).map((k) => (
-            <label key={k} className="flex items-center justify-between gap-2 text-[12px] text-text-primary">
+          {(Object.keys(COST_DEFAULTS) as (keyof CostInputs)[]).map((k) => (
+            <div key={k} className="flex items-start justify-between gap-2 text-[12px] text-text-primary">
               <span>
-                {COST_LABELS[k].label} <span className="text-text-muted">[{COST_LABELS[k].unit}]</span>
+                <label htmlFor={`cost-${k}`}>
+                  {COST_DEFAULTS[k].label} <span className="text-text-muted">[{COST_DEFAULTS[k].unit}]</span>
+                </label>{" "}
+                <SourceBadge p={COST_DEFAULTS[k]} />
               </span>
               <input
+                id={`cost-${k}`}
                 type="number"
                 min={0}
                 step="any"
                 value={costs[k]}
                 onChange={(e) => setCost(k, Number(e.target.value))}
-                className="w-20 rounded border border-border-primary bg-bg-tertiary px-1.5 py-0.5 text-right text-[12px]"
+                className="w-20 shrink-0 rounded border border-border-primary bg-bg-tertiary px-1.5 py-0.5 text-right text-[12px]"
               />
-            </label>
+            </div>
           ))}
           <p className="text-[10px] text-text-muted">
-            Teaching defaults, not market prices: a ~500 MW Baltic project lands near 2.8 M€/MW. Replace them with your own data.
+            Defaults: NREL Cost of Wind Energy Review 2024 (U.S. fixed-bottom reference) and the ORBIT cable library, 2023 USD at
+            1.0813 $/€. Tap a badge for the source. Replace them with your own quotes.
           </p>
           <Button variant="ghost" size="sm" onClick={reset}>
             Reset to defaults
@@ -546,8 +552,8 @@ export default function LayoutPage() {
               <span className="text-lg font-semibold text-text-primary">{cost.lcoe != null ? `${cost.lcoe.toFixed(0)} €/MWh` : "—"}</span>
             </div>
             <p className="text-[10px] text-text-muted">
-              LCOE = (CAPEX·CRF + OPEX) / AEP. AEP: {pywakeFresh ? "PyWake" : "live estimate"}, minus {100 * OTHER_LOSSES} % availability and
-              electrical losses (illustrative). Foundations by the site's deepest water ({report?.depth_m ? `${report.depth_m[1].toFixed(0)} m` : "not assessed"}).
+              LCOE = (CAPEX·CRF + OPEX) / AEP. AEP: {pywakeFresh ? "PyWake" : "live estimate"}, minus {(100 * OTHER_LOSSES).toFixed(1)} % electrical,
+              availability and environmental losses (P1 cascade defaults). Foundations by the site's deepest water ({report?.depth_m ? `${report.depth_m[1].toFixed(0)} m` : "not assessed"}).
             </p>
           </div>
           <CostPanel costs={p.costs} setCost={p.setCost} reset={p.resetCosts} />

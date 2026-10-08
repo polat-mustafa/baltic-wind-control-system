@@ -16,8 +16,13 @@ angles where possible to shorten the exposure to anchors and the closures
 during installation, and the same 45° floor is used for them here (a teaching
 proxy, not a rule of the maritime authority).
 
-Without a drawn route the check builds one: the shortest path by sea from
-the start to the sea nearest the grid node, then straight over land to it.
+Without a drawn route the check builds one on the bathymetry grid: military
+areas and munition dumpsites are closed, a km inside a Natura 2000 site counts
+as ``NATURA_WEIGHT`` km and inside a shipping basin as ``SHIPPING_WEIGHT`` km
+(closed areas keep a ``CLOSED_BUFFER_KM`` margin)
+(teaching weights, illustrative), and the landfall is the coastal cell outside
+the shipping basins (harbour channels) with the least weighted sea path plus
+straight land distance to the grid node.
 """
 
 from __future__ import annotations
@@ -28,13 +33,22 @@ from itertools import pairwise
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import dijkstra
 
 from app.services.site_assessment.assess import Check
-from app.services.site_assessment.geo import points_in_polygons
+from app.services.site_assessment.geo import (
+    EARTH_RADIUS_KM,
+    distance_to_polygons,
+    points_in_polygons,
+)
 from app.services.site_assessment.layers import RegionPack
-from app.services.site_assessment.sea_routes import sea_grid, sea_path
+from app.services.site_assessment.sea_routes import SeaGrid, sea_grid
 
 STEP_KM = 0.1
+NATURA_WEIGHT = 10.0
+SHIPPING_WEIGHT = 3.0
+CLOSED_BUFFER_KM = 1.0
 MIN_CROSSING_DEG = 45.0
 ICPC = "ICPC Recommendation No. 2 (crossings at 90°, not below 45°)"
 
@@ -117,14 +131,93 @@ def _lengths_inside(
     return [AreaLength(n, km) for n, km in sorted(out.items(), key=lambda x: -x[1])]
 
 
+#: Weighted routing graph and landfall cells by the grid and the layers they are built from;
+#: the value holds those objects so their ids stay unique.
+_WEIGHTED: dict[tuple[int, ...], tuple[tuple[object, ...], csr_matrix, NDArray[np.bool_]]] = {}
+_WEIGHT_ROLES = ("restricted", "protected", "shipping")
+
+
+def _weighted(pack: RegionPack, grid: SeaGrid) -> tuple[csr_matrix, NDArray[np.bool_]]:
+    """Graph with the constraint weights, and the cells a cable may land from."""
+    sources: tuple[object, ...] = (grid, *(ly for r in _WEIGHT_ROLES for ly in pack.by_role(r)))
+    key = tuple(id(o) for o in sources)
+    if key not in _WEIGHTED:
+        r = grid.raster
+        ny, nx = grid.sea.shape
+        gx, gy = np.meshgrid(r.lon0 + r.dlon * np.arange(nx), r.lat0 + r.dlat * np.arange(ny))
+        x, y = pack.projection.forward(gx.ravel(), gy.ravel())
+
+        def inside(role: str) -> NDArray[np.bool_]:
+            polys = pack.polygons(role)
+            return points_in_polygons(x, y, polys) if polys else np.zeros(x.size, dtype=bool)
+
+        shipping = inside("shipping")
+        # closed areas with a buffer, so paths between cell centres keep clear of the edge
+        restricted = pack.polygons("restricted")
+        closed = (
+            distance_to_polygons(x, y, restricted) < CLOSED_BUFFER_KM
+            if restricted
+            else np.zeros(x.size, dtype=bool)
+        )
+        cost = np.where(inside("protected"), NATURA_WEIGHT, 1.0)
+        cost = np.where(shipping, np.maximum(cost, SHIPPING_WEIGHT), cost)
+        cost[closed] = np.inf
+        g = grid.graph.tocoo()
+        w = g.data * (cost[g.row] + cost[g.col]) / 2
+        ok = np.isfinite(w)
+        graph = csr_matrix((w[ok], (g.row[ok], g.col[ok])), shape=grid.graph.shape)
+        # open-sea cells next to a cell that is not open sea (land, coastline); outside the
+        # raster counts as sea, so the region's border is not a coast
+        ny, nx = grid.sea.shape
+        pad = np.pad(grid.sea, 1, constant_values=True)
+        edge = np.zeros_like(grid.sea)
+        for dj in (-1, 0, 1):
+            for di in (-1, 0, 1):
+                edge |= ~pad[1 + dj : 1 + dj + ny, 1 + di : 1 + di + nx]
+        landfall = (grid.sea & edge).ravel() & ~shipping & ~closed
+        _WEIGHTED[key] = (sources, graph, landfall)
+    _, graph, landfall = _WEIGHTED[key]
+    return graph, landfall
+
+
 def auto_route(
     pack: RegionPack, start: tuple[float, float], end: tuple[float, float]
 ) -> list[list[float]]:
-    """Shortest sea path from ``start`` to the sea nearest ``end``, then straight to ``end``."""
+    """Least-weighted sea path from ``start`` to the best landfall, then straight to ``end``."""
     grid = sea_grid(pack)
-    path = None if grid is None else sea_path(grid, start, end)
-    if path is None:
-        raise RouteError("no sea path from the start to the grid node (bathymetry missing?)")
+    first = None if grid is None else grid.node(*start)
+    if grid is None or first is None:
+        raise RouteError("no open sea at the start (bathymetry missing?)")
+    graph, landfall = _weighted(pack, grid)
+    dist, pred = dijkstra(graph, directed=False, indices=first[0], return_predecessors=True)
+    r = grid.raster
+    ny, nx = grid.sea.shape
+    lon = r.lon0 + r.dlon * (np.arange(ny * nx) % nx)
+    lat = r.lat0 + r.dlat * (np.arange(ny * nx) // nx)
+    kx = EARTH_RADIUS_KM * math.cos(math.radians(end[1])) * math.pi / 180
+    land_km = np.hypot((lon - end[0]) * kx, (lat - end[1]) * EARTH_RADIUS_KM * math.pi / 180)
+    total = np.where(landfall & np.isfinite(dist), dist + land_km, np.inf)
+    # best landfall whose straight land leg to ``end`` stays out of closed areas too
+    closed = pack.polygons("restricted")
+    ex, ey = pack.projection.forward(np.array(end[0]), np.array(end[1]))
+    best = None
+    for k in np.argsort(total)[: int(np.isfinite(total).sum())]:
+        lx, ly = pack.projection.forward(np.array(lon[k]), np.array(lat[k]))
+        t = np.linspace(0.0, 1.0, 50)
+        leg_x, leg_y = lx + t * (ex - lx), ly + t * (ey - ly)
+        if not closed or not points_in_polygons(leg_x, leg_y, closed).any():
+            best = int(k)
+            break
+    if best is None:
+        raise RouteError("no landfall reachable by sea and land outside closed areas")
+    cells = [best]
+    while cells[-1] != first[0]:
+        cells.append(int(pred[cells[-1]]))
+    pts = np.column_stack([lon[cells[::-1]], lat[cells[::-1]]])
+    if len(pts) > 2:  # keep the turning points
+        turn = np.any(np.abs(np.diff(np.diff(pts, axis=0), axis=0)) > 1e-9, axis=1)
+        pts = pts[np.concatenate([[True], turn, [True]])]
+    path = [[round(float(a), 5), round(float(b), 5)] for a, b in pts]
     return [list(start), *path[1:], list(end)]
 
 

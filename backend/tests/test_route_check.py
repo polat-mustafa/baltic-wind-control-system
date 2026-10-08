@@ -112,16 +112,72 @@ def test_route_needs_a_landfall_and_the_region() -> None:
         check_route(_pack_with_cable(90.0), [[10.0, 54.5], [16.4, 54.5]])
 
 
-def test_auto_route_runs_by_sea_to_the_grid_node() -> None:
+def test_auto_route_keeps_out_of_closed_areas_and_ławica_słupska() -> None:
+    """From SB-510 the weighted route avoids the military area off Ustka and the Natura
+    bank and lands outside the harbour channels (east of Darłówko)."""
     pack = load_region("southern-baltic")
-    node = next(n for n in pack.points("grid") if n[0].startswith("Słupsk"))
+    node = next(n for n in pack.points("grid") if n[0].startswith("Krzemienica"))
     route = auto_route(pack, (16.442, 55.026), (node[1], node[2]))
     assert route[0] == [16.442, 55.026] and route[-1] == [node[1], node[2]]
     r = check_route(pack, route, auto=True)
-    assert r.landfall is not None
-    # shorter than the surveyed route, which detours round the Natura 2000 bank
-    assert 55 < r.total_km < 76.5
-    assert r.auto
+    assert r.auto and r.restricted == []
+    assert not any("PLC990001" in a.name for a in r.natura)
+    assert r.landfall is not None and r.landfall[0] == pytest.approx(16.40, abs=0.02)
+    assert 95 < r.total_km < 120
+
+
+def test_auto_route_goes_round_a_closed_area() -> None:
+    """A military box across the direct line forces a detour of at least its half-width."""
+    base = _pack_with_cable(90.0)
+    depth = [[None if 53.9 + 0.05 * j <= 54.0 else 30.0] * 21 for j in range(23)]
+    bathy = {
+        "id": "depth",
+        "title": "depth",
+        "role": "bathymetry",
+        "geometry": "raster",
+        "source": "t",
+        "license": "t",
+        "retrieved": "t",
+        "raster": {"lon0": 16.0, "lat0": 53.9, "dlon": 0.05, "dlat": 0.05, "values": depth},
+    }
+    extra = parse_pack(
+        {
+            "region": "t",
+            "title": "t",
+            "bbox": [16.0, 53.9, 17.0, 55.0],
+            "pending": [],
+            "layers": [bathy],
+        }
+    )
+    import dataclasses
+
+    pack = dataclasses.replace(base, layers=base.layers + extra.layers)
+    box = [[16.45, 53.9], [16.55, 53.9], [16.55, 54.9], [16.45, 54.9], [16.45, 53.9]]
+    closed = parse_pack(
+        {
+            "region": "t",
+            "title": "t",
+            "bbox": [16.0, 53.9, 17.0, 55.0],
+            "pending": [],
+            "layers": [
+                {
+                    "id": "mil",
+                    "title": "mil",
+                    "role": "restricted",
+                    "geometry": "polygon",
+                    "source": "t",
+                    "license": "t",
+                    "retrieved": "t",
+                    "features": [{"name": "Military", "coordinates": [box]}],
+                }
+            ],
+        }
+    )
+    walled = dataclasses.replace(pack, layers=pack.layers + closed.layers)
+    straight = auto_route(pack, (16.2, 54.5), (16.8, 53.95))
+    detour = auto_route(walled, (16.2, 54.5), (16.8, 53.95))
+    assert check_route(walled, detour).restricted == []
+    assert check_route(walled, detour).total_km > check_route(pack, straight).total_km + 5
 
 
 def test_route_check_api() -> None:

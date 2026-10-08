@@ -1,6 +1,6 @@
 """
 Tests for M10 cable DTS — IEC 60287 losses, fibre vs conductor, zone ratings,
-the 950 A calibration and the N-1 transient.
+the 825 A datasheet calibration and the N-1 transient.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from app.services.p2.network_model import EXPORT_CABLE_1000, EXPORT_CABLE_LENGTH
 class TestCableSpec:
     def test_spec_matches_network_model(self):
         """Regression: DTS once used its own 1×800 mm² Al / 800 A cable."""
-        assert pytest.approx(950.0) == m.STATIC_RATING_A
+        assert pytest.approx(825.0) == m.STATIC_RATING_A  # ABB/NKT 2GM5007 Table 34
         assert m.CABLE_LENGTH_KM == EXPORT_CABLE_LENGTH_KM
 
     def test_ac_resistance_at_90c(self):
@@ -34,9 +34,10 @@ class TestCableSpec:
 
 class TestSteadyState:
     def test_static_rating_reaches_90c_in_j_tube(self):
-        t_c, _ = m.steady_temps(950.0, 15.0, m.R_EXT_J_TUBE)
+        """Datasheet rating at its 20 °C reference ambient → 90 °C in the worst zone."""
+        t_c, _ = m.steady_temps(825.0, 20.0, m.R_EXT_J_TUBE)
         assert t_c == pytest.approx(90.0, abs=0.01)
-        assert m.rating_a(15.0, m.R_EXT_J_TUBE) == pytest.approx(950.0, abs=0.1)
+        assert m.rating_a(20.0, m.R_EXT_J_TUBE) == pytest.approx(825.0, abs=0.1)
 
     def test_conductor_hotter_than_fibre(self):
         t_c, t_f = m.steady_temps(730.0, 15.0, m.R_EXT_J_TUBE)
@@ -54,35 +55,38 @@ class TestSteadyState:
     def test_thermal_runaway_has_no_steady_state(self):
         assert math.isinf(m.steady_temps(3000.0, 15.0, m.R_EXT_J_TUBE)[0])
 
-    @pytest.mark.parametrize(("ambient", "lo", "hi"), [(4.0, 1010, 1030), (22.0, 895, 910)])
+    @pytest.mark.parametrize(
+        ("ambient", "lo", "hi"), [(4.0, 910, 930), (15.0, 850, 862), (22.0, 805, 820)]
+    )
     def test_rating_follows_ambient(self, ambient, lo, hi):
         assert lo < m.rating_a(ambient, m.R_EXT_J_TUBE) < hi
 
 
 class TestProfile:
     def test_full_farm_load_is_normal(self):
-        """510 MW over 2 circuits ≈ 730 A each → about 56 °C at the J-tube."""
-        r = m.simulate_dts(730.0, 15.0)
+        """510 MW: ≈ 760 A at the OSS end of each circuit → about 72 °C at the J-tube."""
+        r = m.simulate_dts(760.0, 15.0)
+        assert r["max_conductor_c"] == pytest.approx(71.9, abs=0.6)
         assert r["assessment"].startswith("NORMAL")
         assert r["alarm_length_km"] == 0
         assert len(r["profile"]) == m.N_POINTS
 
     def test_j_tube_is_hottest_and_limits_the_route(self):
-        r = m.simulate_dts(950.0, 15.0)
+        r = m.simulate_dts(825.0, 20.0)
         assert r["max_location_km"] <= m.J_TUBE_END_KM
         assert r["limiting_zone"] == "OSS J-tube"
-        assert r["rating_at_ambient_a"] == 950
+        assert r["rating_at_ambient_a"] == 825
         by_name = {z["name"]: z for z in r["zones"]}
-        assert by_name["Subsea burial"]["rating_a"] > by_name["HDD landfall"]["rating_a"] > 950
+        assert by_name["Subsea burial"]["rating_a"] > by_name["HDD landfall"]["rating_a"] > 825
 
     def test_export_capability(self):
-        """√3 · 220 kV · 950 A · 2 circuits ≈ 724 MVA."""
-        assert m.simulate_dts(730.0, 15.0)["export_capability_mva"] == pytest.approx(724, abs=1)
+        """√3 · 220 kV · 856 A (J-tube rating at 15 °C) · 2 circuits ≈ 652 MVA."""
+        assert m.simulate_dts(760.0, 15.0)["export_capability_mva"] == pytest.approx(652, abs=1)
 
     def test_summer_at_rating_is_over_limit(self):
-        r = m.simulate_dts(950.0, 22.0)
+        r = m.simulate_dts(825.0, 22.0)
         assert r["assessment"].startswith("OVER LIMIT")
-        assert r["rating_at_ambient_a"] < 950
+        assert r["rating_at_ambient_a"] < 825
 
     def test_rating_curve_falls_with_ambient(self):
         for z in m.rating_curve()["zones"]:
@@ -91,29 +95,31 @@ class TestProfile:
 
 class TestTransient:
     def test_n1_survivor_has_hours_before_limit(self):
-        r = m.simulate_transient(730.0, 1360.0, 15.0)
+        """1 355 A (164 % of 825 A) from 760 A: ≈ 2.7 h in the J-tube — the PPC runback
+        (≈ 22 s, n1_security) is far inside it."""
+        r = m.simulate_transient(760.0, 1355.0, 15.0)
         assert r["limiting_zone"] == "OSS J-tube"
-        assert 240 < r["allowed_minutes"] < 720
-        assert r["zones"][0]["conductor_temp_c"][0] == pytest.approx(56.1, abs=0.5)
+        assert 120 < r["allowed_minutes"] < 240
+        assert r["zones"][0]["conductor_temp_c"][0] == pytest.approx(71.8, abs=0.5)
 
     def test_below_rating_never_reaches_limit(self):
-        r = m.simulate_transient(730.0, 900.0, 15.0)
+        r = m.simulate_transient(760.0, 800.0, 15.0)
         assert r["allowed_minutes"] is None
         assert all(z["steady_state_c"] < 90 for z in r["zones"])
 
     def test_cold_ambient_buys_time(self):
-        warm = m.simulate_transient(730.0, 1360.0, 20.0)["allowed_minutes"]
-        cold = m.simulate_transient(730.0, 1360.0, 4.0)["allowed_minutes"]
+        warm = m.simulate_transient(760.0, 1355.0, 20.0)["allowed_minutes"]
+        cold = m.simulate_transient(760.0, 1355.0, 4.0)["allowed_minutes"]
         assert cold > warm
 
 
 class TestAPI:
     def test_endpoints(self):
         c = TestClient(app)
-        r = c.get("/api/v1/grid/cable/dts/profile", params={"current_a": 730, "ambient_temp_c": 15})
+        r = c.get("/api/v1/grid/cable/dts/profile", params={"current_a": 760, "ambient_temp_c": 15})
         assert r.status_code == 200
         assert r.json()["limiting_zone"] == "OSS J-tube"
-        r = c.post("/api/v1/grid/cable/dts/transient", json={"emergency_current_a": 1360})
+        r = c.post("/api/v1/grid/cable/dts/transient", json={"emergency_current_a": 1355})
         assert r.status_code == 200
         assert r.json()["allowed_minutes"] > 0
         assert (

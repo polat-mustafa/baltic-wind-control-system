@@ -16,9 +16,11 @@ from app.services.p2.network_model import (
 )
 from app.services.p5.energisation import (
     cable_charging_mvar,
+    circuit1_limit_mw,
     ferranti_ratio,
     network_snapshot,
     onshore_tap,
+    section_a_mw,
 )
 from app.services.p5.equipment_state import EquipmentState, build_initial_state
 
@@ -29,6 +31,8 @@ def state_after(*stages: str) -> dict[str, EquipmentState]:
     s = build_initial_state()
     steps = {
         "cable": {
+            "ES-SR-ON-01": OPENED,
+            "CB-SR-ON-01": SHUT,  # onshore line reactor, energised with the cable
             "ES-ON-220-01": OPENED,
             "ES-OSS-220-01": OPENED,
             "DS-ON-220-01": SHUT,
@@ -50,28 +54,39 @@ def state_after(*stages: str) -> dict[str, EquipmentState]:
 
 def test_analytic_cross_checks():
     assert cable_charging_mvar() == pytest.approx(221.0, abs=0.1)  # 76.5 km
-    assert ferranti_ratio() == pytest.approx(1.0206, abs=1e-4)  # 1 / cos(βl), βl ≈ 0.20 rad
+    # βl = ωl·√(LC) = 314.16 · 76.5 · √(0.38 mH · 190 nF) = 0.204 rad → 1 / cos(βl)
+    assert ferranti_ratio() == pytest.approx(1.0212, abs=1e-4)
 
 
 def test_dead_network_is_flat():
-    """Only the onshore OLTC pre-set (3 steps for the 76.5 km cable) moves the busbar."""
+    """With the onshore line reactor no OLTC pre-set is needed: the busbar sits at 1.0."""
     snap = network_snapshot(build_initial_state())
-    assert onshore_tap() == 3
+    assert onshore_tap() == 0
     tap = 1 + onshore_tap() * OLTC_STEP_PERCENT / 100
     assert snap.bus("ONS220").vm_pu == pytest.approx(1 / tap, abs=1e-3)
     assert snap.cable_i_send_a is None
 
 
-def test_open_ended_cable():
+def test_cable_energised_with_its_onshore_line_reactor():
     snap = network_snapshot(state_after("cable"))
     send, far = snap.bus("ONS220"), snap.bus("CABLE1")
     assert far.vm_pu / send.vm_pu == pytest.approx(ferranti_ratio(), abs=5e-4)
-    # charging current = Q_c(U) / (√3 U) at the actual sending voltage
+    # the cable still carries its full charging current = Q_c(U) / (√3 U) at the sending end
     i_expected = cable_charging_mvar(send.kv) / (math.sqrt(3) * send.kv) * 1e3
     assert snap.cable_i_send_a == pytest.approx(i_expected, rel=0.02)
     assert snap.cable_i_recv_a == pytest.approx(0.0, abs=1e-3)
-    assert snap.poc_q_mvar > 120  # the cable's Mvar flow into PSE
-    assert 1.0 < send.vm_pu < 1.05  # onshore voltage step stays inside the band
+    # the line reactor takes 120 Mvar · U² of it at the onshore end (Rule 4: absorbing < 0)
+    assert snap.reactor_on_q_mvar == pytest.approx(-120.0 * send.vm_pu**2, rel=0.01)
+    assert 80 < snap.poc_q_mvar < 120  # ≈ 221 · U² − 126 Mvar into PSE
+    assert 1.0 < send.vm_pu < 1.05 and far.vm_pu < 1.05  # inside the band at tap 0
+
+
+def test_without_the_line_reactor_the_busbar_leaves_the_band():
+    """Why the onshore reactor is energised with the cable: open-ended at tap 0 the
+    221 Mvar push the onshore busbar above 1.05 pu."""
+    state = state_after("cable")
+    state.update({"ES-SR-ON-01": SHUT, "CB-SR-ON-01": OPENED})
+    assert network_snapshot(state).bus("ONS220").vm_pu > 1.05
 
 
 def test_reactor_and_statcom_bring_the_busbar_to_1pu():
@@ -95,7 +110,14 @@ def test_rated_output_of_section_a():
     snap = network_snapshot(
         state_after(*("cable", "oss", "reactor", "statcom", "tx1", "strings", "wtg"))
     )
-    assert snap.generation_mw == 270.0
+    # Section A is 270 MW, but one circuit carries √3·220 kV·√(825² − (Ic/2)²) ≈ 294 MW at
+    # 76.5 km: the PPC holds circuit 1 at 90 % of that until circuit 2 is in service
+    assert section_a_mw(SB510) == 270.0
+    assert (
+        snap.generation_mw
+        == pytest.approx(circuit1_limit_mw(SB510))
+        == pytest.approx(264.9, abs=0.1)
+    )
     losses = snap.generation_mw - snap.poc_p_mw
     assert 1.0 < losses < 10.0  # array + TX + export cable + onshore TX
     assert 70 < snap.cable_loading_pct < 100

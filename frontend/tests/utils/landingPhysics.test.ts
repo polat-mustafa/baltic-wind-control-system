@@ -101,13 +101,13 @@ describe("v236PowerChain", () => {
 });
 
 describe("array cables", () => {
-  it("grades like the backend and loads the OSS-end cable ≈ 87 % at full output", () => {
-    expect(arrayCableGrade(0, 6).mm2).toBe(800); // OSS end
+  it("grades like the backend and loads the OSS-end cable ≈ 95 % at full output", () => {
+    expect(arrayCableGrade(0, 6).mm2).toBe(1000); // OSS end: 6 turbines, 787 A > 775 A of 800 mm²
+    expect(arrayCableGrade(1, 6).mm2).toBe(630); // 5 turbines, 656 A > 655 A of 500 mm²
     expect(arrayCableGrade(5, 6).mm2).toBe(500); // far end
     const full = arrayCableCurrentA(6 * 15); // 90 MW string
-    expect(full).toBeCloseTo(787, 0); // backend comment: ≈ 790 A
-    expect(full / arrayCableGrade(0, 6).ratedA).toBeGreaterThan(0.85);
-    expect(full / arrayCableGrade(0, 6).ratedA).toBeLessThan(0.9);
+    expect(full).toBeCloseTo(787, 0); // backend string_current_ka(6)
+    expect(full / arrayCableGrade(0, 6).ratedA).toBeCloseTo(0.954, 3); // 787 / 825 A
   });
 });
 
@@ -152,18 +152,18 @@ describe("offshore wind statistics", () => {
 });
 
 describe("export cable DTS profile", () => {
-  it("matches the backend calibration: 950 A at 15 °C → 90 °C in the J-tube", async () => {
+  it("matches the backend calibration: 825 A at 20 °C → 90 °C in the J-tube", async () => {
     const { dtsTempC, DTS_R_EXT_J_TUBE } = await import("../../src/utils/landingPhysics");
-    expect(DTS_R_EXT_J_TUBE).toBeCloseTo(2.92, 2);
-    expect(dtsTempC(0.1, 950, 15)).toBeCloseTo(90, 6);
+    expect(DTS_R_EXT_J_TUBE).toBeCloseTo(3.67, 2);
+    expect(dtsTempC(0.1, 825, 20)).toBeCloseTo(90, 6);
     // HDD landfall is the onshore hotspot, below the J-tube
-    expect(dtsTempC(63.1, 950, 15)).toBeGreaterThan(dtsTempC(20, 950, 15));
-    expect(dtsTempC(63.1, 950, 15)).toBeLessThan(90);
-    // 510 MW → ≈ 730 A per circuit: well below the 70 °C DTS alarm at 10 °C
-    expect(dtsTempC(0.1, 730, 10)).toBeLessThan(70);
-    // same numbers as backend steady_temps(): 730 A → 56.10 °C (J-tube), 950 A → 84.20 °C (HDD)
-    expect(dtsTempC(0.1, 730, 15)).toBeCloseTo(56.1, 1);
-    expect(dtsTempC(63.1, 950, 15)).toBeCloseTo(84.2, 1);
+    expect(dtsTempC(63.1, 825, 20)).toBeGreaterThan(dtsTempC(20, 825, 20));
+    expect(dtsTempC(63.1, 825, 20)).toBeLessThan(90);
+    // 510 MW → ≈ 760 A at the OSS end: below the 80 °C DTS alarm at 10 °C
+    expect(dtsTempC(0.1, 760, 10)).toBeLessThan(80);
+    // same numbers as backend steady_temps(): 760 A → 71.83 °C (J-tube, 15 °C), 825 A → 84.54 °C (HDD, 20 °C)
+    expect(dtsTempC(0.1, 760, 15)).toBeCloseTo(71.83, 1);
+    expect(dtsTempC(63.1, 825, 20)).toBeCloseTo(84.54, 1);
   });
 });
 

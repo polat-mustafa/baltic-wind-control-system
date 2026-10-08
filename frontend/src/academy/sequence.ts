@@ -1,6 +1,6 @@
 /**
  * First-energisation mission: put the key stages of the circuit 1 energisation
- * in order. Condensed from the 60-step switching programme of HV Commissioning
+ * in order. Condensed from the 63-step switching programme of HV Commissioning
  * (backend services/p5/switching_programme.py, steps 1.01 … 6.03); the step
  * ids below point back to it.
  *
@@ -27,14 +27,14 @@ export const ENERGISATION: SequenceStep[] = [
   },
   {
     id: "earths",
-    title: "Release the locks, open both cable earth switches and close the onshore disconnector",
-    steps: "2.01 – 2.07",
+    title: "Release the locks, open both cable earth switches, connect the onshore line reactor to the dead cable and close the onshore disconnector",
+    steps: "2.01 – 2.10",
     needs: "The export cable is still earthed at both ends: closing a breaker onto an earth — even one 76.5 km away at the OSS — is a bolted fault. Earths come off first.",
   },
   {
     id: "export-cable",
-    title: "Close the onshore 220 kV breaker: the open-ended cable is live — check charging current and Ferranti rise, then soak",
-    steps: "2.08 – 2.11",
+    title: "Close the onshore 220 kV breaker: the cable and its line reactor are live, OSS end open — check charging current, onshore voltage and Ferranti rise, then soak",
+    steps: "2.11 – 2.14",
     needs: "The export cable is energised from the onshore end, after its earths are removed; nothing offshore can be live before it.",
   },
   {
@@ -45,9 +45,9 @@ export const ENERGISATION: SequenceStep[] = [
   },
   {
     id: "reactive",
-    title: "Switch in shunt reactor 1 and put the STATCOM in voltage control",
+    title: "Put the STATCOM in voltage control, then switch in OSS reactor 1",
     steps: "3.07 – 3.14",
-    needs: "The reactor and the STATCOM are connected to the OSS 220 kV busbar; it must be live before they can absorb the cable's charging power.",
+    needs: "The STATCOM and the OSS reactor are connected to the OSS 220 kV busbar; it must be live before they can absorb the cable's charging power.",
   },
   {
     id: "transformer",

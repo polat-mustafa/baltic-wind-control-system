@@ -40,7 +40,10 @@ class NetworkSnapshotSchema(BaseModel):
     cable_i_send_a: float | None = None
     cable_i_recv_a: float | None = None
     cable_loading_pct: float | None = None
-    reactor_q_mvar: float | None = None
+    reactor_q_mvar: float | None = Field(default=None, description="OSS reactor 1 [Mvar]")
+    reactor_on_q_mvar: float | None = Field(
+        default=None, description="Onshore line reactor 1 [Mvar]"
+    )
     statcom_q_mvar: float | None = None
     tx1_i_hv_a: float | None = None
     tx1_loading_pct: float | None = None
@@ -112,10 +115,11 @@ class ProgrammeFarmSchema(BaseModel):
     export_length_km: float
     oss_trafo_mva: float = Field(description="Rating of TX-OSS-01 [MVA]")
     statcom_mvar: float
-    reactor_unit_mvar: float | None = Field(description="Reactor 1 [Mvar]; null: no reactors")
+    reactor_unit_mvar: float | None = Field(
+        description="Reactor unit, onshore and OSS [Mvar]; null: no reactors"
+    )
     output_limit_mw: float = Field(description="Output with circuit 1 only [MW]")
     onshore_tap: int = Field(description="Onshore OLTC pre-set (0 = neutral)")
-    reactor_energisation: bool = Field(description="Cable 1 energised with reactor 1")
 
 
 class ProgrammeDetailSchema(ProgrammeSummarySchema):

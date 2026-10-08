@@ -4,7 +4,7 @@
  *
  * Centrepiece is the reactive power balance it closes: the export cables
  * generate their charging power (SB-510: 2 × 76.5 km ≈ 442 MVAr), the shunt
- * reactors (SB-510: 3 × 170 MVAr, N+1) absorb the bulk, transformer/cable I²X
+ * reactors (SB-510: 4 × 120 MVAr, one per export circuit at each end) absorb the bulk, transformer/cable I²X
  * losses absorb more as output rises, and the STATCOM trims the remainder so
  * Q ≈ 0 at the grid connection.
  *
@@ -130,7 +130,7 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
       </PanelSection>
 
       {pn.reactorCount > 0 && (
-      <PanelSection title={`Shunt reactors · ${pn.reactorCount} × ${pn.reactorUnitMVAr} MVAr (N+1)`}>
+      <PanelSection title={`Shunt reactors · ${pn.reactorCount} × ${pn.reactorUnitMVAr} MVAr (onshore + OSS)`}>
         <div className="grid grid-cols-3 gap-2">
           {Array.from({ length: pn.reactorCount }, (_, i) => {
             const inService = i < b.reactorsInService;
@@ -155,8 +155,9 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
           })}
         </div>
         <p className="mt-2 text-[11px] leading-snug text-text-muted">
-          Reactors are switched out as output rises, when I²X losses would
-          otherwise push the STATCOM past +{rating / 2} MVAr.
+          One reactor per export circuit at each cable end, so each end carries
+          about half of the charging current. Reactors are switched out as output
+          rises, when I²X losses would otherwise push the STATCOM past +{rating / 2} MVAr.
         </p>
       </PanelSection>
       )}

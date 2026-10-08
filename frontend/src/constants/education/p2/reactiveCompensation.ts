@@ -3,7 +3,7 @@ import type { EducationContent } from "../../../types/education";
 export const reactiveCompensationEducation: EducationContent = {
   id: "p2.reactive-compensation",
   title: "Reactive Compensation — Reactors, STATCOM and the PSE Q Range",
-  subtitle: "Why a 76.5 km cable needs 3 × 170 MVAR of reactors, and what sizes the STATCOM",
+  subtitle: "Why a 76.5 km cable needs a reactor at each end, and what sizes the STATCOM",
   discipline: "Electrical",
 
   overview:
@@ -20,11 +20,14 @@ export const reactiveCompensationEducation: EducationContent = {
   technicalExplanation:
     "Two effects are often confused. The Ferranti effect is the rise along an open-ended line, V_r = V_s / cos(βL): " +
     "for 76.5 km of this cable ≈ 2 %. Most of the 15 % rise is charging current through the series reactance " +
-    "(ΔV ≈ Q·X). The scheme: 3 × 170 MVAR reactors (N+1) at OSS 220 kV. All three would over-compensate " +
-    "(442 − 510), so the operator keeps the spare out: with two in, the ±120 MVAR STATCOM absorbs ≈ 50 MVAR at no " +
-    "load and ≈ 0 at full output, when the transformers' I²X takes the rest. PSE requires " +
+    "(ΔV ≈ Q·X). The scheme: one 120 MVAR reactor per cable at each end — two at the onshore 220 kV busbar, two at " +
+    "OSS 220 kV — so each cable end carries only about half of its charging current (with all reactors at the OSS, " +
+    "that end would reach 830 A at 510 MW on an 825 A cable). All four in over-compensate by 38 MVAR at no load, " +
+    "which leaves the OSS busbar inside the STATCOM's ±1 % band; near full output the transformers' I²X absorbs " +
+    "more, the operator switches one reactor out and the ±120 MVAR STATCOM sits near 0. PSE requires " +
     "Q/P_max from −0.35 to +0.40 at the connection point for P ≥ 0.1 P_max (−178.5 / +204 MVAR). The check combines " +
-    "WTG reactive capability (assumed ±0.33 p.u. — the V236 data sheet is not public), the STATCOM, switching reactors " +
+    "WTG reactive capability (assumed ±0.33 p.u. — the IEA 15 MW reference turbine defines none), the STATCOM, " +
+    "switching reactors " +
     "and both OLTCs, keeping every farm bus within 0.90–1.10 p.u.",
 
   standards: [
@@ -66,8 +69,8 @@ export const reactiveCompensationEducation: EducationContent = {
       scenario: "P = P_max, OLTCs regulating, farm buses kept within 0.90–1.10 p.u.",
       steps: [
         "Required: +0.40 × 510 = +204 MVAR, −0.35 × 510 = −178.5 MVAR at PSE 400 kV",
-        "Producing: WTGs + STATCOM at full capacitive output, reactors switched out → +543 MVAR",
-        "Absorbing: WTGs + STATCOM inductive with all reactors in → −542 MVAR",
+        "Producing: WTGs + STATCOM at full capacitive output, reactors switched out → +548 MVAR",
+        "Absorbing: WTGs + STATCOM inductive with all reactors in → −502 MVAR",
       ],
       result:
         "The range is met with margin. The STATCOM is therefore not sized by the steady-state Q range; it is sized for " +

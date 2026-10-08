@@ -16,6 +16,7 @@ import { useState } from "react";
 
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import type { EquipmentState, ProgrammeDetail, ZoneStatus } from "../../types/commissioning";
+import { EXPORT_CABLE } from "../../utils/landingPhysics";
 
 const V220 = SCADA_COLORS.VOLTAGE_220KV;
 const V66 = SCADA_COLORS.VOLTAGE_66KV;
@@ -175,14 +176,16 @@ function Transformer({ ctx, x, y, zone, label, mva, left = false }: {
   );
 }
 
-function Reactor({ ctx, x, y, mvar }: { ctx: Ctx; x: number; y: number; mvar: number }) {
-  const c = zoneColor(ctx, "SR1");
+function Reactor({ ctx, x, y, mvar, zone = "SR1", label = "OSS reactor 1", anchor = "middle" }: {
+  ctx: Ctx; x: number; y: number; mvar: number; zone?: string; label?: string; anchor?: "middle" | "start";
+}) {
+  const c = zoneColor(ctx, zone);
   return (
     <g>
       <path d={`M${x} ${y - 18} q 12 6 0 12 q 12 6 0 12 q 12 6 0 12`} fill="none" stroke={c} strokeWidth={2} />
       <W x1={x} y1={y + 18} x2={x} y2={y + 26} c={c} />
       <line x1={x - 8} y1={y + 26} x2={x + 8} y2={y + 26} stroke={c} strokeWidth={2} />
-      <text x={x} y={y + 44} textAnchor="middle" fontSize={12} className="fill-text-secondary">Reactor 1 · {mvar} Mvar</text>
+      <text x={anchor === "start" ? x - 30 : x} y={y + 44} textAnchor={anchor} fontSize={12} className="fill-text-secondary">{label} · {mvar} Mvar</text>
     </g>
   );
 }
@@ -252,6 +255,23 @@ export default function CircuitSLD({ programme }: { programme: ProgrammeDetail }
           <W x1={150} y1={137} x2={150} y2={172} c={zc("CABLE1")} />
           <ES ctx={ctx} id="ES-ON-220-01" x={150} y={172} dir={-1} />
 
+          {/* Onshore line reactor 1: cable side of CB-ON-220-01, energised with the cable */}
+          {eq["CB-SR-ON-01"] && farm.reactor_unit_mvar != null && (
+            <g>
+              <W x1={150} y1={150} x2={60} y2={150} c={zc("CABLE1")} />
+              <W x1={60} y1={150} x2={60} y2={170} c={zc("CABLE1")} />
+              <CB ctx={ctx} id="CB-SR-ON-01" x={60} y={179} labelSide="right" />
+              <W x1={60} y1={188} x2={60} y2={232} c={zc("SRON1")} />
+              <ES ctx={ctx} id="ES-SR-ON-01" x={60} y={200} />
+              <Reactor ctx={ctx} x={60} y={250} mvar={farm.reactor_unit_mvar} zone="SRON1" label="Line reactor 1" anchor="start" />
+              {net.reactor_on_q_mvar != null && (
+                <text x={30} y={310} fontSize={12} fontFamily="monospace" className="fill-text-secondary">
+                  Q {net.reactor_on_q_mvar.toFixed(1)} Mvar
+                </text>
+              )}
+            </g>
+          )}
+
           {/* ── Export cable 1 ── */}
           <W x1={150} y1={172} x2={580} y2={172} c={zc("CABLE1")} w={3.5} />
           {[290, 470].map((cx) => (
@@ -262,7 +282,7 @@ export default function CircuitSLD({ programme }: { programme: ProgrammeDetail }
           </text>
           <text x={380} y={194} textAnchor="middle" fontSize={12} fontFamily="monospace" className="fill-text-secondary">
             {net.cable_i_send_a != null
-              ? `sending end ${net.cable_i_send_a.toFixed(0)} A · ${net.cable_loading_pct?.toFixed(0)} % of 950 A`
+              ? `sending end ${net.cable_i_send_a.toFixed(0)} A · ${net.cable_loading_pct?.toFixed(0)} % of ${EXPORT_CABLE.ratedA} A`
               : net.zones.CABLE1}
           </text>
           {net.zones.CABLE1 === "live" && net.zones.OSS220 !== "live" && (

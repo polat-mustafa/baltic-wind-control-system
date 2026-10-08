@@ -26,7 +26,7 @@ const item = {
 
 const PRESETS: [string, number][] = [
   [`Both circuits, 510 MW — ${NORMAL_CURRENT_A} A`, NORMAL_CURRENT_A],
-  ["Static rating — 950 A", 950],
+  ["Datasheet rating — 825 A", 825],
   [`N-1 survivor — ${N1_CURRENT_A} A`, N1_CURRENT_A],
 ];
 
@@ -103,7 +103,7 @@ export default function CableDTSDashboard() {
             label="Route rating at this ambient"
             value={p ? p.rating_at_ambient_a.toFixed(0) : "—"}
             unit="A"
-            trendValue={p ? `set by the ${p.limiting_zone} · 950 A at 15 °C` : ""}
+            trendValue={p ? `set by the ${p.limiting_zone} · 825 A at 20 °C (datasheet)` : ""}
           />
           <KPICard
             label="Export capability, 2 circuits"

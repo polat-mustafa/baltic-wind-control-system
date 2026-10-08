@@ -20,7 +20,8 @@ export const powerQualityEducation: EducationContent = {
 
   technicalExplanation:
     "Model: positive-sequence nodal network per harmonic order — grid Thevenin, both transformer stages, the two " +
-    "76.5 km export circuits as exact distributed π sections, 3 × 170 MVAR reactors and the array cable charging. " +
+    "76.5 km export circuits as exact distributed π sections, the 4 × 120 MVAR reactors (one per cable at each end) " +
+    "and the array cable charging. " +
     "WTG emission (% of rated current) is summed over 34 units with the IEC 61000-3-6 exponent (α = 2 above the " +
     "10th: √34 ≈ 5.8×) and multiplied by |Z(h)| to give harmonic voltages. Judged against IEC TR 61000-3-6 Table 2 " +
     "planning levels (HV-EHV: h5 2 %, h17 1.2 %, THD 3 %). Planning levels bound the total distortion; the share " +
@@ -65,15 +66,17 @@ export const powerQualityEducation: EducationContent = {
       title: "Where the network rings",
       scenario: "10 GVA grid, 2 × 76.5 km cable, reactors in, typical full-converter emission.",
       steps: [
-        "Scan from OSS 66 kV: parallel resonances at ≈ 135 Hz (h 2.7), ≈ 730 Hz (h 14.6) and ≈ 965 Hz (h 19.3)",
-        "At h19 |Z| ≈ 215 Ω versus ≈ 2.7 Ω at 50 Hz: ≈ 4× more than a plain inductance (2.7 Ω × 19 = 51 Ω)",
-        "0.2 % h19 emission × √34 → 0.87 % at OSS 66 kV, 80 % of the 1.07 % HV planning level",
-        "At the PSE 400 kV POC the same emission gives THD ≈ 0.19 % — the grid side is fine",
+        "Scan from OSS 66 kV: parallel resonances at ≈ 130 Hz (h 2.6), ≈ 725 Hz (h 14.5) and ≈ 960 Hz (h 19.2)",
+        "At h19 |Z| ≈ 288 Ω versus ≈ 2.8 Ω at 50 Hz: ≈ 5.5× more than a plain inductance (2.8 Ω × 19 = 53 Ω)",
+        "0.2 % h19 emission × √34 → 1.16 % at OSS 66 kV, 108 % of the 1.07 % HV planning level — FAIL",
+        "A 5 Mvar single-tuned filter at OSS 66 kV, tuned 3 % below h19 (922 Hz, Q = 50), attenuates h19 by ≈ 40 dB → 0.01 %",
+        "At the PSE 400 kV POC the same emission gives THD ≈ 0.18 % — the grid side is fine",
       ],
       result:
-        "The farm passes, but its own 66 kV busbar uses 80 % of the h19 planning level next to a resonance: the longer " +
-        "cable moved the peak from h17 to h19. A converter-control or damped-filter question, exactly what a " +
-        "real harmonic study would flag for detailed converter models.",
+        "Without mitigation the farm's own 66 kV busbar exceeds the h19 planning level: the 960 Hz resonance sits next " +
+        "to h19 (the long export, the datasheet cable inductance and the reactors at both ends set it). A damped or " +
+        "tuned filter, or a converter emission limit at h19, fixes it — exactly what a real harmonic study would " +
+        "flag before the converter models are final.",
     },
   ],
 

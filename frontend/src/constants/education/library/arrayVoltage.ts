@@ -15,22 +15,18 @@ export const arrayVoltageEducation: EducationContent = {
 
   simpleExplanation:
     "Power = Voltage × Current. If you double the voltage, you halve the current for the same power — and because " +
-    "cables are sized by current, you can carry twice the power through the same size wire. Going from 33 kV to 66 kV " +
-    "means each feeder cable can carry four times more power (double the voltage squared), so you need fewer cables, " +
-    "fewer busbar bays on the OSS, and smaller cable trenches on the seabed. That adds up to millions of euros in savings.",
+    "cables are sized by current, the same cable carries twice the power. Going from 33 kV to 66 kV therefore halves " +
+    "the number of feeder strings, halves the number of switchgear bays at the OSS and cuts the cable losses to a " +
+    "quarter for the same power.",
 
   technicalExplanation:
-    "A three-phase array cable rated I_max carries power P = √3 × V_LL × I_max × cos(φ). Doubling V_LL doubles P " +
-    "for the same cable cross-section and current rating. In practice, moving from 33 kV to 66 kV: " +
-    "(1) reduces the number of feeder strings by ~4× for the same farm capacity, " +
-    "(2) reduces cable losses (I²R losses drop as I halves), " +
-    "(3) reduces the number of OSS HV bays needed. " +
-    "The 66 kV nacelle transformer (step-up from ~0.69 kV or 3.3 kV generator) is heavier than a 33 kV unit, " +
-    "but turbine nacelles at 15 MW class already handle 300+ tonnes — the transformer mass increment is manageable. " +
-    "132 kV is not used because: no standard submarine cable product exists at that voltage for inter-turbine lengths " +
-    "(IEC 60502-2 covers up to 30 kV; IEC 60840 covers 30–150 kV but not as a standard array-cable product); " +
-    "nacelle step-up transformers at 132 kV are bespoke and very heavy; GIS switchgear at 132 kV significantly " +
-    "increases OSS footprint and cost.",
+    "A three-phase array cable rated I_max carries P = √3 × V_LL × I_max × cos φ. Doubling V_LL doubles P for the " +
+    "same cross-section and current rating (the 66 kV ratings of three-core Cu XLPE cables are the same as at " +
+    "33 kV for a given section, ABB/NKT 2GM5007 rev 5 Table 33: 10–90 kV). Moving from 33 kV to 66 kV: (1) halves " +
+    "the number of feeder strings for the same farm, (2) cuts I²R losses to a quarter (I halves), (3) halves the " +
+    "OSS feeder bays. The 66 kV turbine transformer and switchgear in the tower are larger than 33 kV units, which " +
+    "the 15 MW class accommodates. Above 66 kV, three-core array cables, turbine switchgear and transformers become " +
+    "special products rather than series products, so 66 kV is the current industry level.",
 
   standards: [
     {
@@ -40,16 +36,6 @@ export const arrayVoltageEducation: EducationContent = {
     {
       label: "IEC 60840 — Power cables with extruded insulation (30 kV to 150 kV)",
       type: "standard",
-    },
-    {
-      label: "CIGRE TB 610 — 66 kV systems for offshore wind farms",
-      type: "standard",
-      url: "https://www.e-cigre.org/",
-    },
-    {
-      label: "ENTSO-E NC RfG Annex IV — Connection requirements at 66 kV level",
-      type: "standard",
-      url: "https://www.entsoe.eu/network_codes/rfg/",
     },
   ],
 
@@ -62,9 +48,8 @@ export const arrayVoltageEducation: EducationContent = {
         { symbol: "I_max", name: "Cable rated current (thermally limited)", unit: "A" },
       ],
       explanation:
-        "At 33 kV with I_max = 900 A: P_string = √3 × 33 × 0.9 = 51 MW → need ≥10 strings for 510 MW. " +
-        "At 66 kV with I_max = 900 A: P_string = √3 × 66 × 0.9 = 103 MW → 5 strings minimum; this farm uses 6 (6-6-6-6-5-5 turbines) for thermal margin. " +
-        "Halving the string count reduces OSS bays, cable trenching, and installation vessel time.",
+        "Largest section in the model, 1000 mm² Cu at 825 A: at 66 kV P_string = √3 × 66 × 0.825 = 94.3 MW → six " +
+        "15 MW turbines (SB-510: 6-6-6-6-5-5); at 33 kV 47.2 MW → three turbines per string, 12 strings for 34 turbines.",
     },
     {
       expression: "P_loss = 3 × I² × R × L",
@@ -75,62 +60,41 @@ export const arrayVoltageEducation: EducationContent = {
         { symbol: "L", name: "Cable length", unit: "km" },
       ],
       explanation:
-        "Losses scale as I². Halving current (same power, double voltage) reduces losses by 75%. " +
-        "For a 10 km string at 500 mm² Cu: 33 kV loses ~400 kW vs 66 kV losing ~100 kW per string — " +
-        "an energy saving of ~260 GWh over 25 years for the whole farm.",
+        "Losses scale as I². 45 MW through 1.5 km of 630 mm² Cu (R_AC,90 = 0.0395 Ω/km): at 66 kV I = 394 A and " +
+        "P_loss = 3 × 394² × 0.0395 × 1.5 = 27.6 kW; at 33 kV I = 787 A — beyond the 715 A rating — and 110 kW.",
     },
   ],
 
   workedExamples: [
     {
       title: "String count comparison: 510 MW at 33 kV vs 66 kV",
-      scenario:
-        "34 × 15 MW turbines (510 MW), cable I_max = 900 A, power factor 0.95.",
+      scenario: "34 × 15 MW turbines (510 MW), largest cable 1000 mm² Cu (825 A), unity power factor.",
       steps: [
-        "33 kV: P_string = √3 × 33 × 0.9 × 0.95 = 48.7 MW → ceil(510/48.7) = 11 strings",
-        "66 kV: P_string = √3 × 66 × 0.9 × 0.95 = 97.5 MW → ceil(510/97.5) = 6 strings",
-        "OSS feeder bays: 11 (33 kV) vs 6 (66 kV) — 45% fewer bays",
-        "Cable trench length: ~11 × 10 km = 110 km vs ~6 × 10 km = 60 km of array cable",
-        "Array cable cost at €0.8M/km: €88M (33 kV) vs €48M (66 kV) — saving €40M",
+        "33 kV: 131 A × 2 = 262 A per turbine → ⌊825 / 262⌋ = 3 turbines per string → ⌈34 / 3⌉ = 12 strings",
+        "66 kV: 131 A per turbine → ⌊825 / 131⌋ = 6 turbines per string → ⌈34 / 6⌉ = 6 strings",
+        "OSS feeder bays: 12 (33 kV) vs 6 (66 kV)",
+        "Same cable section, half the current per MW: a quarter of the I²R loss for the same power",
       ],
       result:
-        "66 kV saves approximately €40M in array cable CAPEX alone for this 510 MW project, " +
-        "plus OSS platform size reduction (fewer bays) and lower array cable losses over 25 years. " +
-        "The heavier nacelle transformer is justified many times over.",
+        "66 kV halves the strings, the OSS bays and the trenching for the cables to the OSS, and quarters the array " +
+        "losses — the reason the industry moved to it for 10–15 MW turbines.",
     },
   ],
 
   realWorldCases: [
     {
-      title: "Hornsea One (UK, 2019) — First major 66 kV array deployment",
+      title: "Baltic Power (Poland) — 76 × Vestas V236-15.0 MW",
       description:
-        "1.2 GW project using 66 kV inter-array cables — at the time the largest offshore wind farm in the world. " +
-        "Its success proved 66 kV offshore products were commercially mature, triggering widespread industry adoption.",
-      takeaway:
-        "66 kV is now the standard for any new offshore wind project > 300 MW. No major new project has been designed " +
-        "at 33 kV since approximately 2018.",
-    },
-    {
-      title: "Baltic Power (Poland, 2025–26) — 66 kV at 76 × V236",
-      description:
-        "1.2 GW array using 66 kV. Direct precedent for SB-510 confirming the voltage level, cable " +
-        "cross-sections, and OSS GIS configuration in the same sea area and grid connection point.",
-      takeaway:
-        "The 66 kV choice for SB-510 simply follows the established standard demonstrated immediately " +
-        "next door by Baltic Power.",
+        "The ≈ 1.1 GW Polish Baltic project uses the same turbine class as SB-510's reference with a 66 kV array.",
+      takeaway: "66 kV is the array voltage of today's 15 MW-class projects, including in the Polish Baltic.",
     },
   ],
 
   furtherReading: [
     {
-      label: "CIGRE TB 610 — 66 kV systems for offshore wind farms (2015)",
+      label: "ABB (now NKT) — XLPE Submarine Cable Systems, 2GM5007 rev 5 (ratings and data for 10–420 kV)",
       type: "website",
-      url: "https://www.e-cigre.org/",
-    },
-    {
-      label: "Carbon Trust — Offshore Wind Accelerator: 66 kV array systems",
-      type: "website",
-      url: "https://www.carbontrust.com/our-work/projects/offshore-wind-accelerator",
+      url: "https://tethys.pnnl.gov/sites/default/files/publications/ABB_et_al_2019.pdf",
     },
   ],
 

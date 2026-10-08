@@ -1,6 +1,6 @@
 # OffshoreForge
 
-Offshore wind engineering training platform. Reference case study SB-510 (Southern Baltic, Polish EEZ): 510 MW, 34 × 15 MW "V236 class" (modelled with the IEA-15-240-RWT), 66 kV array, 220 kV export (76.5 km, 2 circuits, 3 × 170 MVAr reactors, ±120 MVAr STATCOM), PSE grid; site = MSP energy basin PZP_44 (real site 44.E.1, used fictionally).
+Offshore wind engineering training platform. Reference case study SB-510 (Southern Baltic, Polish EEZ): 510 MW, 34 × 15 MW "V236 class" (modelled with the IEA-15-240-RWT), 66 kV array, 220 kV export (76.5 km, 2 circuits, 4 × 120 MVAr reactors — one per circuit at each end, ±120 MVAr STATCOM), PSE grid; site = MSP energy basin PZP_44 (real site 44.E.1, used fictionally).
 Monorepo: FastAPI (Python 3.13, SQLAlchemy, Pydantic v2) backend + React 19 / TypeScript / Tailwind v4 / Vite frontend.
 
 ## Working style

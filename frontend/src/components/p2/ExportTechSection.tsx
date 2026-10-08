@@ -82,7 +82,7 @@ export default function ExportTechSection() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <ChartWrapper
               title="What a 220 kV AC export can carry"
-              footer={`Charging current Ic = ωC·L·U/√3 flows even at zero power. Compensated at both ends, each cable end carries √(Ip² + (Ic/2)²) ≤ 950 A, so the active power left falls with length — below ${FARM_MW.toFixed(0)} MW beyond ${r.hvac_capacity_limit_km ?? ">200"} km. DC cables have no charging current.`}
+              footer={`Charging current Ic = ωC·L·U/√3 flows even at zero power. Compensated at both ends, each cable end carries √(Ip² + (Ic/2)²) ≤ 825 A, so the active power left falls with length — below ${FARM_MW.toFixed(0)} MW beyond ${r.hvac_capacity_limit_km ?? ">200"} km. DC cables have no charging current.`}
             >
               <Plot
                 data={[

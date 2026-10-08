@@ -22,7 +22,7 @@ export const farmConfigEducation: EducationContent = {
     "Gaussian width (Bastankhah–Porté-Agel); offshore k is small, so recovery is slow. Spacing is usually larger along " +
     "the prevailing wind direction than across it. Turbines other than 15 MW are modelled as the V236 scaled at " +
     "constant specific power (343 W/m²): same rated wind speed, rotor area ∝ rating, so wake loss depends only on " +
-    "spacing in rotor diameters. Export circuits are 1000 mm² Cu XLPE (≈ 950 A each); the number of circuits follows " +
+    "spacing in rotor diameters. Export circuits are 1000 mm² Cu XLPE (825 A each, ABB/NKT datasheet); the number of circuits follows " +
     "the current at rated power, and cable charging Q = ωCU²L grows with length.",
 
   standards: [

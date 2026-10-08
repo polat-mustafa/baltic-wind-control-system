@@ -137,7 +137,7 @@ export const p2Guide: TrainingGuideData = {
     { name: "Single-line diagram", description: "The power path with live MW, loading and busbar voltages from the selected load flow; flow speed ∝ MW." },
     { name: "Voltage along the connection", description: "Voltage from PSE 400 kV to the last turbine of string 1 for all four scenarios, against the 0.95–1.05 pu planning band." },
     { name: "Thermal loading", description: "Export cables, both transformer stages and each string's head cable as a share of rating." },
-    { name: "Reactive power", description: "No-load balance (442 MVAR cable charging, 3 × 170 MVAR reactors, STATCOM range) and the Q range at the POC vs PSE Art. 21(3)(c)." },
+    { name: "Reactive power", description: "No-load balance (442 MVAR cable charging, 4 × 120 MVAR reactors at both cable ends, STATCOM range) and the Q range at the POC vs PSE Art. 21(3)(c)." },
     { name: "Breaker duty", description: "IEC 60909 Ik'' and ip as a share of each busbar's breaking and making rating." },
     { name: "Fault ride-through", description: "Quasi-static phasor model: POC and terminal voltage vs the PSE profile, K-factor reactive current, power recovery within 5 s." },
     { name: "Grid-following vs grid-forming", description: "SMIB simulation after a grid phase jump: PLL synchronisation vs virtual-inertia response; SCR at POC vs at the turbines." },

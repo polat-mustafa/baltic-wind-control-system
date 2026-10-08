@@ -271,6 +271,14 @@ export default function SubstationSLD() {
                 <Wire x1={x} y1={Y.b220on} x2={x} y2={Y.cbOnsE - 9} live={e.onshore220} color={V220} />
                 <Breaker {...bp(cbOn)} x={x} y={Y.cbOnsE} color={V220} live={e.onshore220} />
                 <Wire x1={x} y1={Y.cbOnsE + 9} x2={x} y2={Y.cbOssE - 9} live={live} color={V220} w={3} />
+                {/* onshore line reactor of this cable (cable side of the breaker, switched with it) */}
+                {net.reactorCount > 0 && (
+                  <g>
+                    <Wire x1={x} y1={Y.cbOnsE + 24} x2={x - 24} y2={Y.cbOnsE + 24} live={live} color={V220} />
+                    <path d={`M${x - 24} ${Y.cbOnsE + 24} q 8 4 0 8 q 8 4 0 8 q 8 4 0 8`} fill="none" stroke={live ? V220 : DEAD} strokeWidth={2} />
+                    <line x1={x - 30} y1={Y.cbOnsE + 52} x2={x - 18} y2={Y.cbOnsE + 52} stroke={live ? V220 : DEAD} strokeWidth={2} />
+                  </g>
+                )}
                 {/* cable sheath marks */}
                 <ellipse cx={x} cy={(Y.cbOnsE + Y.cbOssE) / 2} rx={7} ry={3} fill="none" stroke={live ? V220 : DEAD} strokeWidth={1.5} />
                 <text x={x + 14} y={(Y.cbOnsE + Y.cbOssE) / 2 - 4} fontSize={13} className="fill-text-primary" fontWeight={600}>Export cable {i + 1}</text>
@@ -284,13 +292,18 @@ export default function SubstationSLD() {
           })}
           <Busbar x1={Math.min(140, busX[0])} x2={Math.max(860, busX[1])} y={Y.b220oss} live={e.oss220} color={V220} label="OSS 220 kV" />
 
-          {/* Shunt reactors (left) and STATCOM (right) on the OSS 220 kV busbar */}
+          {/* OSS shunt reactors (left) and STATCOM (right) on the OSS 220 kV busbar; the
+              onshore line reactors sit on the cables above */}
           <g>
             <Wire x1={200} y1={Y.b220oss} x2={200} y2={Y.b220oss + 30} live={e.oss220} color={V220} />
             <path d={`M200 ${Y.b220oss + 30} q 8 4 0 8 q 8 4 0 8 q 8 4 0 8 q 8 4 0 8`} fill="none" stroke={e.oss220 ? V220 : DEAD} strokeWidth={2} />
             <text x={212} y={Y.b220oss + 44} fontSize={13} className="fill-text-primary" fontWeight={600}>Shunt reactors</text>
             <text x={212} y={Y.b220oss + 60} fontSize={12} fontFamily="monospace" className="fill-text-secondary">
-              {!e.oss220 ? "dead" : net.reactorCount ? `${nReactors} × ${net.reactorUnitMVAr} = −${nReactors * net.reactorUnitMVAr} MVAr` : "none (short export)"}
+              {!e.oss220
+                ? "dead"
+                : net.reactorCount
+                  ? `${net.reactorCount / 2} OSS + ${net.reactorCount / 2} onshore × ${net.reactorUnitMVAr} · ${nReactors} in = −${nReactors * net.reactorUnitMVAr} MVAr`
+                  : "none (short export)"}
             </text>
             <Wire x1={800} y1={Y.b220oss} x2={800} y2={Y.b220oss + 30} live={e.oss220} color={V220} />
             <rect x={784} y={Y.b220oss + 30} width={32} height={22} rx={2} fill="none" stroke={e.oss220 ? V220 : DEAD} strokeWidth={2} />

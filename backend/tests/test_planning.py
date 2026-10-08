@@ -41,7 +41,8 @@ def test_hvac_capacity_falls_with_length_and_limits_510_mw():
     caps = [p["hvac_capacity_mw"] for p in r["sweep"]]
     assert all(a > b for a, b in pairwise(caps))
     assert r["hvac"]["capacity_mw"] > 510  # the 45 km design carries the farm
-    assert r["hvac_capacity_limit_km"] is not None and 150 <= r["hvac_capacity_limit_km"] <= 220
+    # 2 × √3·220 kV·√(825² − (Ic/2)²) = 510 MW at Ic = 965 A = 7.58 A/km × 127 km
+    assert r["hvac_capacity_limit_km"] is not None and 120 <= r["hvac_capacity_limit_km"] <= 140
 
 
 def test_hvdc_converter_losses_dominate_at_short_distance():

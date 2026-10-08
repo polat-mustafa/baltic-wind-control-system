@@ -97,13 +97,13 @@ export const COST_LABELS = Object.fromEntries(
 /**
  * 220 kV export circuits a farm needs: n = ⌈P / P_circuit(L)⌉,
  * P_circuit = √3·U·√(Imax² − (Ic/2)²), Ic = ωC·L·U/√3 — the backend `design()` rule
- * (services/p2/network_model.py, 1000 mm²: 0.95 kA, 190 nF/km).
+ * (services/p2/network_model.py, 1000 mm²: 825 A, 190 nF/km — ABB/NKT 2GM5007 rev 5).
  */
 export function exportCircuits(capacityMW: number, km: number): number {
   if (capacityMW <= 0) return 0;
   const u = 220e3;
   const ic = 2 * Math.PI * 50 * 190e-9 * km * (u / Math.sqrt(3));
-  const pCircuit = (Math.sqrt(3) * u * Math.sqrt(Math.max(950 ** 2 - (ic / 2) ** 2, 0))) / 1e6;
+  const pCircuit = (Math.sqrt(3) * u * Math.sqrt(Math.max(825 ** 2 - (ic / 2) ** 2, 0))) / 1e6;
   return pCircuit > 0 ? Math.max(1, Math.ceil(capacityMW / pCircuit - 1e-9)) : 1;
 }
 

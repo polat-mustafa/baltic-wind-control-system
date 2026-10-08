@@ -38,20 +38,23 @@ Cable Data (sources and quality: provenance note at the cable constants below)
 ---------------------------------------------------------
 R20 = IEC 60228 DC resistance at 20 °C; R90 = AC resistance at 90 °C (see below).
 
-Array 66 kV cables (3-core, Cu, round compacted conductor):
-  - 500 mm²: R20 = 0.0366, R90 = 0.0493 Ω/km, X = 0.110 Ω/km, C = 290 nF/km, Imax ≈ 715 A
-  - 630 mm²: R20 = 0.0283, R90 = 0.0395 Ω/km, X = 0.105 Ω/km, C = 320 nF/km, Imax ≈ 818 A
-  - 800 mm²: R20 = 0.0221, R90 = 0.0325 Ω/km, X = 0.100 Ω/km, C = 350 nF/km, Imax ≈ 900 A
+Array 66 kV cables (3-core, Cu, round compacted conductor), each segment the smallest
+section that carries the turbines downstream at rated power (``_get_cable_grade``):
+  - 500 mm²:  R20 = 0.0366, R90 = 0.0493 Ω/km, X = 0.107 Ω/km, C = 290 nF/km, Imax 655 A
+  - 630 mm²:  R20 = 0.0283, R90 = 0.0395 Ω/km, X = 0.104 Ω/km, C = 320 nF/km, Imax 715 A
+  - 800 mm²:  R20 = 0.0221, R90 = 0.0325 Ω/km, X = 0.101 Ω/km, C = 350 nF/km, Imax 775 A
+  - 1000 mm²: R20 = 0.0176, R90 = 0.0277 Ω/km, X = 0.097 Ω/km, C = 380 nF/km, Imax 825 A
 
 Export 220 kV cable (per circuit, 2 circuits in parallel, Cu Milliken conductor, 1000 mm²):
-  - R20 = 0.0176, R90 = 0.0233 Ω/km, X = 0.116 Ω/km, C = 190 nF/km, Imax ≈ 950 A
+  - R20 = 0.0176, R90 = 0.0233 Ω/km, X = 0.119 Ω/km, C = 190 nF/km, Imax 825 A
 
 Which resistance where?
 ------------------------
   R_AC,90 = R20 × (1 + α_Cu × (90 − 20)) × (1 + y_s + y_p)      IEC 60287-1-1 §2.1
-  α_Cu = 0.00393 1/K; y_s / y_p = skin / proximity effect (``CableSpec.ac_factor``):
+  α_Cu = 0.00393 1/K; y_s / y_p = skin / proximity effect (``CableSpec.ac_factor``,
+  ``iec60287_ac_factor``):
     round compacted (k_s = 1, k_p = 0.8), core spacing ≈ d_c + 33 mm:
-      500 mm² 1.056 · 630 mm² 1.094 · 800 mm² 1.153
+      500 mm² 1.056 · 630 mm² 1.094 · 800 mm² 1.154 · 1000 mm² 1.236
     Milliken 1000 mm² (k_s = 0.435, k_p = 0.37), d_c ≈ 38 mm, s ≈ 120 mm: 1.039
   - Load flow / OPF / SCOPF / STATCOM / dynamics: R_AC,90 — worst-case (maximum)
     losses at the conductor's rated temperature.
@@ -75,7 +78,8 @@ Constants (SB-510)
 - Export cables: 2 × 76.5 km, 220 kV (site PZP_44 → around the west end of Ławica
   Słupska → landfall Zaleskie → PSE Słupsk-Wierzbięcino; until 2026-10 the farm sat
   45 km from shore). ``design(STRING_LAYOUT, 76.5)`` reproduces every value below.
-- Shunt reactors: 3 × 170 MVAR at OSS 220 kV (N+1: one per export cable + one spare)
+- Shunt reactors: 4 × 120 MVAR, one per export circuit at each cable end (2 at OSS 220 kV,
+  2 at the onshore 220 kV busbar) — the charging current splits between both ends
 - Transformers: 2 × 300 MVA 66/220 kV (OSS, TX-OSS-01/02) + 2 × 300 MVA 220/400 kV
   (onshore). ~86 % loaded each at 510 MW; losing one keeps ~300 MW exporting
   instead of 0 MW for the 6-12 months an offshore transformer replacement takes
@@ -96,14 +100,16 @@ numbers back (tests/test_farm_spec.py):
   onshore unit = P / 2 / 0.9, both rounded up to 50 MVA (≤ 90 % loading at P_max);
 - STATCOM = ±120 MVAR per 510 MW, rounded up to 10 MVAR (scaled from the SB-510
   design; ``statcom_sizing.poc_q_capability`` checks the PSE Q range), but at
-  least 1.15·Q_cable/(2n + 1) — see the reactors;
-- shunt reactors, one per export circuit + one spare (N+1), all in service in
-  normal operation: unit u = ⌈(Q_cable − STATCOM/1.15) / n⌉₁₀, so that with one
-  reactor out the STATCOM still covers the rest with its 15 % margin. With all
-  n + 1 in, the reactors over-compensate by ≈ u − STATCOM/1.15, which the STATCOM
-  covers only if u ≤ 2·STATCOM/1.15 — hence its lower bound (SB-510: 60 < 120,
-  a long single circuit is where it bites). No reactors if the STATCOM alone
-  covers Q_cable.
+  least 1.15·Q_cable/(4n − 1) — see the reactors;
+- shunt reactors, one per export circuit at each cable end (2n units: n at the OSS,
+  n onshore), so each end absorbs about half of the cable's charging current — the
+  assumption behind P_circuit above. With all reactors at the OSS the OSS end carries
+  the whole charging current: on SB-510 that is 830 A on an 825 A cable at 510 MW.
+  Unit u = ⌈(Q_cable − STATCOM/1.15) / (2n − 1)⌉₁₀, so that with one reactor out the
+  STATCOM still covers the rest with its 15 % margin; with all 2n in they
+  over-compensate by 2n·u − Q_cable, which the STATCOM covers if
+  STATCOM ≥ 1.15·Q_cable/(4n − 1) — hence its lower bound. No reactors if the STATCOM
+  alone covers Q_cable.
 Branched array strings (the frontend's Esau–Williams trees) are modelled as
 radial chains with the mean section length.
 """
@@ -161,26 +167,30 @@ CONDUCTOR_OPERATING_TEMP_C = 90.0  # XLPE rated conductor temperature [°C]
 
 # Provenance (Phase 12; quality as in the frontend SourceBadge):
 # - r_ohm_per_km: IEC 60228 class 2 Cu maximum DC resistance at 20 °C — official.
-# - c_nf_per_km, x_ohm_per_km: ABB "XLPE Submarine Cable Systems", 2GM5007 rev 5
-#   (ABB's cable business is now NKT), Table 45 (66 kV, 3-core: 0.29 / 0.32 / 0.35 µF/km,
-#   0.34 / 0.33 / 0.32 mH/km) and Table 49 (220 kV 1000 mm²: 0.19 µF/km, 0.38 mH/km) —
-#   literature; ORBIT v1.3 XLPE_630mm_66kV (300 nF/km) and XLPE_1000mm_220kV (190 nF/km)
-#   agree. X = ωL within 3 %.
-# - max_i_ka: approximation. The same ABB brochure (Tables 33–34, IEC 60287, one cable
-#   1 m deep in 20 °C seabed of 1.0 K·m/W) gives 655 / 715 / 775 A (66 kV) and 825 A
-#   (220 kV 1000 mm²), ORBIT 775 A (630 mm²) and 825 A — the values here are 9–16 % higher.
-#   They set the 6-turbine strings and the export circuit count, so they are kept until a
-#   project-specific IEC 60287 rating (burial depth, soil resistivity, seabed temperature).
-# - ac_factor: IEC 60287-1-1 skin + proximity method — approximation.
+# - c_nf_per_km, x_ohm_per_km (= ωL), max_i_ka: ABB "XLPE Submarine Cable Systems",
+#   2GM5007 rev 5 (ABB's cable business is now NKT) — literature:
+#   66 kV three-core, Table 45: 500 / 630 / 800 / 1000 mm² → 0.29 / 0.32 / 0.35 / 0.38 µF/km,
+#   0.34 / 0.33 / 0.32 / 0.31 mH/km; rating Table 33 (10–90 kV, Cu): 655 / 715 / 775 / 825 A.
+#   220 kV three-core 1000 mm², Table 49: 0.19 µF/km, 0.38 mH/km; rating Table 34: 825 A.
+#   Ratings are IEC 60287 values for one cable 1.0 m deep in a 20 °C seabed of 1.0 K·m/W
+#   (the brochure calls them indicative); ORBIT v1.3 XLPE_630mm_66kV (775 A) and
+#   XLPE_1000mm_220kV (825 A, 190 nF/km, 0.38 mH/km) agree on the 220 kV cable.
+# - ac_factor = 1 + y_s + y_p at 90 °C, IEC 60287-1-1 §2.1 (``iec60287_ac_factor``):
+#   66 kV round compacted Cu (k_s = 1, k_p = 0.8, core spacing d_c + 33 mm, d_c from
+#   Table 45); 220 kV 1000 mm² Milliken (k_s = 0.435, k_p = 0.37, s ≈ 120 mm) — approximation
+#   (the spacing is a geometric estimate; a Milliken 66 kV 1000 mm² would give 1.056).
 
-# 66 kV array cables — graded by distance from OSS
-ARRAY_CABLE_500 = CableSpec(500, 0.0366, 0.110, 290, 0.715, ac_factor=1.056)
-ARRAY_CABLE_630 = CableSpec(630, 0.0283, 0.105, 320, 0.818, ac_factor=1.094)
-ARRAY_CABLE_800 = CableSpec(800, 0.0221, 0.100, 350, 0.900, ac_factor=1.153)
+# 66 kV array cables — the smallest section whose rating carries the turbines downstream
+ARRAY_CABLE_500 = CableSpec(500, 0.0366, 0.1068, 290, 0.655, ac_factor=1.056)
+ARRAY_CABLE_630 = CableSpec(630, 0.0283, 0.1037, 320, 0.715, ac_factor=1.094)
+ARRAY_CABLE_800 = CableSpec(800, 0.0221, 0.1005, 350, 0.775, ac_factor=1.154)
+ARRAY_CABLE_1000 = CableSpec(1000, 0.0176, 0.0974, 380, 0.825, ac_factor=1.236)
+ARRAY_SECTIONS = (ARRAY_CABLE_500, ARRAY_CABLE_630, ARRAY_CABLE_800, ARRAY_CABLE_1000)
+ARRAY_KV = 66.0
 
 # 220 kV export cable (per circuit)
-EXPORT_CABLE_1000 = CableSpec(1000, 0.0176, 0.116, 190, 0.950, ac_factor=1.039)
-NUM_EXPORT_CABLES = 2  # 1 × 362 MVA < 510 MW → two circuits in parallel
+EXPORT_CABLE_1000 = CableSpec(1000, 0.0176, 0.1194, 190, 0.825, ac_factor=1.039)
+NUM_EXPORT_CABLES = 2  # 1 × 314 MVA (√3·220 kV·825 A) < 510 MW → two circuits in parallel
 
 
 # ── Network Constants ─────────────────────────────────────────────
@@ -229,11 +239,12 @@ GRID_RX_RATIO = 0.1  # R/X ratio of grid impedance
 
 # STATCOM and reactors
 STATCOM_RATING_MVAR = 120.0  # ±120 MVAR
-# N+1 reactors: with one out of service, (442 − 2 × 170) × 1.15 = 117 MVAR still fits
-# the ±120 MVAR STATCOM. With only 2 × 170 an outage left 272 MVAR (> 120). In normal
-# operation the spare is switched out (load_flow.dispatch_with_reactor_switching).
-NUM_SHUNT_REACTORS = NUM_EXPORT_CABLES + 1  # one per export cable + one spare
-SHUNT_REACTOR_UNIT_MVAR = 170.0  # absorption per reactor [MVAR]
+# One reactor per export circuit at each cable end. One out of service:
+# (442 − 3 × 120) × 1.15 = 94 MVAR fits the ±120 MVAR STATCOM; all four in
+# over-compensate by 38 MVAR (× 1.15 = 44). At high load the operator switches one out
+# (load_flow.dispatch_with_reactor_switching).
+NUM_SHUNT_REACTORS = 2 * NUM_EXPORT_CABLES  # n at the OSS + n onshore
+SHUNT_REACTOR_UNIT_MVAR = 120.0  # absorption per reactor [MVAR]
 SHUNT_REACTOR_MVAR = NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR  # 510 MVAR total
 
 
@@ -243,9 +254,9 @@ TRAFO_MAX_LOADING = 0.9  # design loading of a transformer unit at P_max
 STATCOM_MVAR_PER_MW = STATCOM_RATING_MVAR / TOTAL_CAPACITY_MW  # SB-510 ratio
 STATCOM_MARGIN = 1.15  # temperature 10 % + ageing 5 % (statcom_sizing.size_statcom)
 MAX_EXPORT_CIRCUITS = 4  # beyond this an HVAC export is not a sensible design
-# Most turbines one string carries on the largest array cable (800 mm², 900 A at 66 kV)
+# Most turbines one string carries on the largest array cable (1000 mm², 825 A at 66 kV)
 MAX_TURBINES_PER_STRING = math.floor(
-    math.sqrt(3) * 66.0 * ARRAY_CABLE_800.max_i_ka / TURBINE_RATED_MW
+    math.sqrt(3) * ARRAY_KV * ARRAY_SECTIONS[-1].max_i_ka / TURBINE_RATED_MW
 )
 EXPORT_KV = 220.0
 OMEGA = 2.0 * math.pi * 50.0
@@ -283,6 +294,15 @@ class FarmSpec:
     @property
     def reactor_mvar(self) -> float:
         return self.num_reactors * self.reactor_unit_mvar
+
+    @property
+    def reactors_per_end(self) -> int:
+        """Reactors at each cable end (OSS and onshore), one per export circuit."""
+        return self.num_reactors // 2
+
+    @property
+    def reactor_mvar_per_end(self) -> float:
+        return self.reactors_per_end * self.reactor_unit_mvar
 
     @property
     def oss_pfe_kw(self) -> float:
@@ -345,13 +365,15 @@ def design(
     section = max(sum(string_layout[:n_a]), sum(string_layout[n_a:])) * TURBINE_RATED_MW
     q_cable = export_charging_mvar(export_length_km) * n_export
     statcom = _round_up(
-        max(capacity * STATCOM_MVAR_PER_MW, STATCOM_MARGIN * q_cable / (2 * n_export + 1)), 10.0
+        max(capacity * STATCOM_MVAR_PER_MW, STATCOM_MARGIN * q_cable / (4 * n_export - 1)), 10.0
     )
-    unit = max(_round_up((q_cable - statcom / STATCOM_MARGIN) / n_export, 10.0), 0.0)
-    n_reactors = n_export + 1 if unit > 0 else 0
-    # N-1 design case: one reactor out, the STATCOM covers the rest with its margin
+    unit = max(_round_up((q_cable - statcom / STATCOM_MARGIN) / (2 * n_export - 1), 10.0), 0.0)
+    n_reactors = 2 * n_export if unit > 0 else 0
+    # N-1 design case: one reactor out; all in: over-compensation. The STATCOM covers
+    # either with its margin.
     left = abs(q_cable - unit * max(n_reactors - 1, 0))
-    statcom = max(statcom, _round_up(left * STATCOM_MARGIN, 10.0))
+    over = max(unit * n_reactors - q_cable, 0.0)
+    statcom = max(statcom, _round_up(max(left, over) * STATCOM_MARGIN, 10.0))
     return FarmSpec(
         name=name,
         string_layout=tuple(string_layout),
@@ -391,33 +413,38 @@ _OLTC = {
 }
 
 
-def _get_cable_grade(position_in_string: int, string_length: int) -> CableSpec:
-    """Select cable cross-section based on position in feeder string.
+def iec60287_ac_factor(
+    r20_ohm_per_km: float, d_c_mm: float, s_mm: float, k_s: float, k_p: float, f_hz: float = 50.0
+) -> float:
+    """1 + y_s + y_p at 90 °C for a three-core cable, IEC 60287-1-1 §2.1.2–2.1.4.
 
-    Cable grading: turbines far from OSS use smaller cables (less cumulative
-    current), turbines near OSS use larger cables (more cumulative current).
-
-    Parameters
-    ----------
-    position_in_string : int
-        0-indexed position (0 = farthest from OSS, N-1 = nearest to OSS).
-    string_length : int
-        Total number of turbines in this string.
-
-    Returns
-    -------
-    CableSpec
-        Cable specification for this segment.
+    x² = 8πf / R' · 10⁻⁷ · k, y = x⁴ / (192 + 0.8 x⁴) (x ≤ 2.8);
+    y_p = F_p · (d_c/s)² · [0.312 (d_c/s)² + 1.18 / (F_p + 0.27)].
     """
-    # Normalise position: 0.0 (far) to 1.0 (near OSS)
-    normalised = position_in_string / max(string_length - 1, 1)
+    r_dc = r20_ohm_per_km * (1.0 + ALPHA_CU_PER_K * (CONDUCTOR_OPERATING_TEMP_C - 20.0)) / 1e3
 
-    if normalised < 0.4:
-        return ARRAY_CABLE_500  # far from OSS — least current
-    elif normalised < 0.7:
-        return ARRAY_CABLE_630  # mid-string
-    else:
-        return ARRAY_CABLE_800  # near OSS — most cumulative current
+    def f(k: float) -> float:
+        x4 = (8.0 * math.pi * f_hz / r_dc * 1e-7 * k) ** 2
+        return x4 / (192.0 + 0.8 * x4)
+
+    q = d_c_mm / s_mm
+    f_p = f(k_p)
+    return 1.0 + f(k_s) + f_p * q * q * (0.312 * q * q + 1.18 / (f_p + 0.27))
+
+
+def string_current_ka(turbines: int, turbine_mw: float = TURBINE_RATED_MW) -> float:
+    """66 kV current [kA] of n turbines at rated power, unity power factor, 1.0 p.u."""
+    return turbines * turbine_mw / (math.sqrt(3) * ARRAY_KV)
+
+
+def _get_cable_grade(turbines_downstream: int, turbine_mw: float = TURBINE_RATED_MW) -> CableSpec:
+    """Smallest 66 kV section whose rating carries ``turbines_downstream`` at rated power.
+
+    SB-510 (15 MW): 1–4 turbines (≤ 525 A) → 500 mm², 5 (656 A) → 630 mm²,
+    6 (787 A) → 1000 mm² (825 A, 95 %). 800 mm² (775 A) is too small for six.
+    """
+    i_ka = string_current_ka(turbines_downstream, turbine_mw)
+    return next((c for c in ARRAY_SECTIONS if c.max_i_ka >= i_ka - 1e-9), ARRAY_SECTIONS[-1])
 
 
 def build_network(
@@ -439,7 +466,7 @@ def build_network(
       66/220 kV Dyn11 (OSS) + 220/400 kV YNyn0 (onshore)
     - 34 static generators (WTGs) with P and Q
     - 1 STATCOM (sgen with Q control at OSS 220 kV)
-    - 3 shunt reactors (3 × 170 MVAR at OSS 220 kV, N+1) if enabled
+    - 4 shunt reactors (4 × 120 MVAR: 2 onshore 220 kV, 2 at OSS 220 kV) if enabled
     - 1 external grid (slack bus) at 400 kV
 
     Parameters
@@ -453,7 +480,7 @@ def build_network(
     statcom_q_mvar : float
         STATCOM reactive power setpoint [MVAR]. Positive = generating (Rule 4).
     enable_reactor : bool
-        If True, include the 3 × 170 MVAR shunt reactors at OSS 220 kV.
+        If True, include the shunt reactors (one per export circuit at each end).
     r_at_operating_temp : bool
         True (default): cable R = AC resistance at 90 °C, for load flow and losses.
         False: R = DC resistance at 20 °C, as IEC 60909 short-circuit requires.
@@ -563,10 +590,8 @@ def build_network(
             from_bus = bus_oss_66 if pos == 0 else wtg_buses[wtg_idx - 1]
             to_bus = wtg_buses[wtg_idx]
 
-            # Cable grading: position 0 = nearest OSS (largest cable)
-            # Reverse position for grading: near OSS gets big cable
-            grade_pos = string_len - 1 - pos
-            cable_spec = _get_cable_grade(grade_pos, string_len)
+            # Segment pos carries the turbines from pos to the string end
+            cable_spec = _get_cable_grade(string_len - pos, spec.turbine_rated_mw)
 
             pp.create_line_from_parameters(
                 net,
@@ -608,20 +633,22 @@ def build_network(
         name="STATCOM",
     )
 
-    # ── Shunt Reactors at OSS 220 kV ─────────────────────────────
-    # Absorb cable capacitive Q — modelled as fixed shunts.
+    # ── Shunt Reactors at both ends of the export ────────────────
+    # Absorb cable capacitive Q — modelled as fixed shunts, one per circuit at each
+    # end: Reactor_ONS_<c> at the onshore 220 kV busbar first, then Reactor_OSS_<c>.
     # pandapower shunts use the LOAD convention: q_mvar > 0 = absorbing
     # (inductive). This is the opposite of Rule 4, which applies to our API
     # outputs and to sgens (STATCOM), not to pandapower shunt inputs.
     if enable_reactor:
-        for n in range(spec.num_reactors):
-            pp.create_shunt(
-                net,
-                bus=bus_oss_220,
-                q_mvar=spec.reactor_unit_mvar,  # positive = absorbing (load convention)
-                p_mw=0.0,
-                name=f"Reactor_{n + 1}_{spec.reactor_unit_mvar:.0f}MVAR",
-            )
+        for end, bus in (("ONS", bus_onshore_220), ("OSS", bus_oss_220)):
+            for c in range(spec.reactors_per_end):
+                pp.create_shunt(
+                    net,
+                    bus=bus,
+                    q_mvar=spec.reactor_unit_mvar,  # positive = absorbing (load convention)
+                    p_mw=0.0,
+                    name=f"Reactor_{end}_{c + 1}_{spec.reactor_unit_mvar:.0f}MVAR",
+                )
 
     return net
 
@@ -693,19 +720,14 @@ def get_cable_grades_summary(net: pp.pandapowerNet) -> dict[str, int]:
     Returns
     -------
     dict[str, int]
-        Keys: '500mm2', '630mm2', '800mm2'. Values: cable count.
+        Keys: '500mm2', '630mm2', '800mm2', '1000mm2'. Values: cable count.
     """
-    counts: dict[str, int] = {"500mm2": 0, "630mm2": 0, "800mm2": 0}
+    counts = {f"{c.cross_section_mm2:.0f}mm2": 0 for c in ARRAY_SECTIONS}
     for _, row in net.line.iterrows():
-        name = str(row["name"])
-        if not name.startswith("Array_"):
+        if not str(row["name"]).startswith("Array_"):
             continue
-        # Identify the grade by its rating — R differs between 20 °C and 90 °C builds
-        i_max = float(row["max_i_ka"])
-        if np.isclose(i_max, ARRAY_CABLE_500.max_i_ka):
-            counts["500mm2"] += 1
-        elif np.isclose(i_max, ARRAY_CABLE_630.max_i_ka):
-            counts["630mm2"] += 1
-        elif np.isclose(i_max, ARRAY_CABLE_800.max_i_ka):
-            counts["800mm2"] += 1
+        # Identify the grade by its capacitance — R differs between 20 °C and 90 °C builds
+        c_nf = float(row["c_nf_per_km"])
+        grade = next(c for c in ARRAY_SECTIONS if np.isclose(c_nf, c.c_nf_per_km))
+        counts[f"{grade.cross_section_mm2:.0f}mm2"] += 1
     return counts

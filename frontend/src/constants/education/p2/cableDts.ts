@@ -58,11 +58,12 @@ export const cableDtsEducation: EducationContent = {
   workedExamples: [
     {
       title: "Why is the J-tube the limit?",
-      scenario: "950 A per circuit, 15 °C ambient. R_ext: J-tube 2.92, subsea 2.09 K·m/W.",
+      scenario:
+        "825 A per circuit (datasheet rating), 20 °C ambient (its reference). R_ext: J-tube 3.67, subsea 2.62 K·m/W.",
       steps: [
-        "W_c at 90 °C = 950² × 0.0233 × 10⁻³ ≈ 21.0 W/m per core",
-        "J-tube: (21.0 + 0.5) × 0.5 + 22.0 × 2.92 ≈ 75 K → 90 °C",
-        "Subsea: R_ext is 1/1.4 of the J-tube's, so the rise is ≈ 56 K → 71 °C",
+        "W_c at 90 °C = 825² × 0.0233 × 10⁻³ ≈ 15.9 W/m per core; W_d ≈ 0.96 W/m",
+        "J-tube: (15.9 + 0.5) × 0.5 + 16.8 × 3.67 ≈ 70 K → 90 °C",
+        "Subsea: R_ext is 1/1.4 of the J-tube's, so the conductor settles at ≈ 69 °C (R_AC solved at that temperature)",
       ],
       result:
         "0.3 km of cable in air limits all 76.5 km. Better J-tube cooling would raise the rating of the whole circuit.",

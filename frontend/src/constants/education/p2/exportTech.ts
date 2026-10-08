@@ -19,9 +19,9 @@ export const exportTechEducation: EducationContent = {
 
   technicalExplanation:
     "Per circuit the charging current is Ic = ωC·L·U/√3 and the reactive power ωC·U²·L. With the compensation " +
-    "split between both ends, the largest current at a cable end is √(Ip² + (Ic/2)²); keeping it below the 950 A " +
-    "rating leaves P_max = √3·U·√(Imax² − (Ic/2)²) per circuit. At 76.5 km this farm's two circuits could carry about " +
-    "690 MW; beyond roughly 180 km they could no longer carry 510 MW. Losses: the AC conductor loss includes the " +
+    "split between both ends, the largest current at a cable end is √(Ip² + (Ic/2)²); keeping it below the 825 A " +
+    "rating (ABB/NKT datasheet, IEC 60287) leaves P_max = √3·U·√(Imax² − (Ic/2)²) per circuit. At 76.5 km this " +
+    "farm's two circuits could carry about 589 MW; beyond roughly 127 km they could no longer carry 510 MW. Losses: the AC conductor loss includes the " +
     "charging current (mean Ic² along the cable = Ic²/12 with compensation at both ends) plus a dielectric loss " +
     "Q·tan δ. HVDC has no charging current and lower cable losses, but its converter losses hardly depend on " +
     "distance, so it loses less only on long routes. The real decision is made on cost — converter platforms against " +
@@ -48,7 +48,7 @@ export const exportTechEducation: EducationContent = {
     {
       expression: "P_max = √3·U·√(Imax² − (Ic/2)²)",
       variables: [
-        { symbol: "Imax", name: "Conductor current rating (950 A)", unit: "A" },
+        { symbol: "Imax", name: "Conductor current rating (825 A, ABB/NKT 2GM5007 Table 34)", unit: "A" },
         { symbol: "Ic", name: "Charging current ωC·L·U/√3", unit: "A" },
       ],
       explanation: "Active power one AC circuit can carry when compensated equally at both ends.",
@@ -58,16 +58,17 @@ export const exportTechEducation: EducationContent = {
   workedExamples: [
     {
       title: "This farm at 76.5 km",
-      scenario: "2 circuits, 220 kV, 190 nF/km, 950 A.",
+      scenario: "2 circuits, 220 kV, 190 nF/km, 825 A.",
       steps: [
         "ωC = 2π·50·190 nF = 59.7 µS/km",
         "Q = 2 · 59.7 µS/km · (220 kV)² · 76.5 km ≈ 442 Mvar — what the shunt reactors and STATCOM absorb",
         "Ic = 59.7 µS/km · 76.5 km · 127 kV ≈ 580 A per circuit; half at each end: 290 A",
-        "P_max = 2 · √3 · 220 kV · √(950² − 290²) A ≈ 690 MW",
+        "P_max = 2 · √3 · 220 kV · √(825² − 290²) A ≈ 589 MW",
       ],
       result:
-        "At 76.5 km the charging current costs ≈ 5 % of the capacity and 442 Mvar of compensation; AC is still the " +
-        "cheaper choice, but the reactors are now large (3 × 170 Mvar).",
+        "At 76.5 km the charging current costs ≈ 6 % of the capacity and 442 Mvar of compensation, split between a " +
+        "reactor at each end of each cable (4 × 120 Mvar) so that both ends carry only half of it; AC is still the " +
+        "cheaper choice.",
     },
   ],
 

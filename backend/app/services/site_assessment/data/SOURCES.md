@@ -81,7 +81,7 @@ Baltica 9 / PGE; SB-510 borrows the area for teaching):
   appropriate-assessment screening question. The 220 kV export goes round its
   west end (≥ 1.2 km clear), crosses shipping basin PZP_15 at right angles and
   lands at Zaleskie: 63.5 km subsea + 13 km land = 76.5 km to PSE
-  Słupsk-Wierzbięcino (2 circuits, 3 × 170 MVAR reactors, ±120 MVAR STATCOM).
+  Słupsk-Wierzbięcino (2 circuits, 4 × 120 MVAR reactors at both cable ends, ±120 MVAR STATCOM).
 
 Until 2026-10 SB-510 sat at 16.31–16.485 °E, 54.755–54.845 °N: outside every
 energy basin and 60–80 % in shipping basin PZP_15 (27 of 34 turbines), so a

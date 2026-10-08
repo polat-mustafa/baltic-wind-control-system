@@ -31,7 +31,6 @@ from app.services.p2.statcom_sizing import check_reactors
 from app.services.p5.energisation import (
     circuit1_limit_mw,
     onshore_tap,
-    reactor_energisation,
     section_a_mw,
 )
 from app.services.p5.equipment_state import OSS_EQUIPMENT, equipment
@@ -67,8 +66,9 @@ def test_sb510_registry_is_unchanged():
         *(f"{d}-STR-0{n}" for d in ("CB", "ES") for n in range(1, 7)),
         *(f"WTG-GRP-0{n}" for n in (1, 2, 3)),
     }
-    # 76.5 km lifts the onshore busbar: the OLTC is pre-set 3 steps, no reactor needed
-    assert onshore_tap(SB510) == 3 and not reactor_energisation(SB510)
+    # the onshore line reactor is energised with the 76.5 km cable: no OLTC pre-set needed
+    assert {"CB-SR-ON-01", "ES-SR-ON-01", "CB-SR-01", "ES-SR-01"} <= _ids(SB510)
+    assert onshore_tap(SB510) == 0
 
 
 def test_four_string_project():
@@ -101,28 +101,31 @@ def test_gw_farm_circuit1_is_limited_by_the_ppc():
     assert "PPC limits the output" in next(s.notes for s in p.steps if s.check_id == "rated")
 
 
-def test_long_cable_presets_the_onshore_oltc():
-    tap = onshore_tap(LONG)
-    assert tap > 0 and not reactor_energisation(LONG)
-    p = _completed(LONG)
-    assert f"tap +{tap}" in p.steps[4].action  # 1.05 onshore busbar check
-    # 75 km, open-ended: ≈ 2× the SB-510 charging current, Ferranti ≈ 1.02
-    reading = _reading(p, "cable_energised")
-    assert "×1.019" in reading or "×1.020" in reading
-
-
-def test_small_onshore_transformers_energise_the_cable_with_its_reactor():
-    assert reactor_energisation(SMALL_LONG)
+def test_long_cable_on_small_onshore_transformers_presets_the_oltc():
+    """73 km behind 2 × 100 MVA: even with the line reactor the busbar needs 2 taps down;
+    behind 2 × 300 MVA (LONG, 75 km) the line reactor alone is enough."""
+    assert onshore_tap(LONG) == 0
+    tap = onshore_tap(SMALL_LONG)
+    assert tap == 2
     p = _completed(SMALL_LONG)
+    assert f"tap +{tap}" in p.steps[4].action  # 1.05 onshore busbar check
+    # Ferranti 1 / cos(βl), βl = 314.16 · 73 km · √(0.38 mH · 190 nF) = 0.195 rad
+    assert "×1.019" in _reading(p, "cable_energised")
+
+
+def test_cable_is_energised_with_its_onshore_line_reactor():
+    p = _completed(LONG)
     order = [s.equipment_id for s in p.steps if s.step_type == StepType.SWITCHING]
-    assert order.index("CB-SR-01") < order.index("CB-ON-220-01")
-    assert next(s for s in p.steps if s.equipment_id == "CB-SR-01").phase == 2
-    assert "OSS 220 kV" in _reading(p, "cable_energised")  # the far end is the busbar
+    assert order.index("CB-SR-ON-01") < order.index("CB-ON-220-01")
+    assert order.index("CB-STC-01") < order.index("CB-SR-01")  # the STATCOM takes the step
+    phase = {s.equipment_id: s.phase for s in p.steps if s.step_type == StepType.SWITCHING}
+    assert (phase["CB-SR-ON-01"], phase["CB-ON-220-01"], phase["CB-SR-01"]) == (2, 2, 3)
+    assert "onshore reactor" in _reading(p, "cable_energised")
 
 
 def test_design_without_reactors_has_no_reactor_bay():
     assert NO_REACTOR.num_reactors == 0
-    assert not {"CB-SR-01", "ES-SR-01"} & _ids(NO_REACTOR)
+    assert not {"CB-SR-01", "ES-SR-01", "CB-SR-ON-01", "ES-SR-ON-01"} & _ids(NO_REACTOR)
     p = _completed(NO_REACTOR)
     assert not any(s.check_id == "reactor" for s in p.steps)
 
@@ -190,5 +193,5 @@ def test_api_without_header_is_sb510(client: TestClient):
     detail = client.get(f"{URL}/{pid}").json()
     assert pid.startswith("SB5-SP-")
     assert detail["farm"]["name"] == "SB-510"
-    assert detail["total_steps"] == 60
-    assert detail["farm"]["reactor_unit_mvar"] == 170
+    assert detail["total_steps"] == 63
+    assert detail["farm"]["reactor_unit_mvar"] == 120

@@ -125,3 +125,13 @@ describe("no text left from the 45 km SB-510 (moved to PZP_44, 76.5 km)", () => 
     expect(hits).toEqual([]);
   });
 });
+
+describe("no text left from the pre-datasheet cables and the one-ended reactors", () => {
+  it("mentions neither 3 × 170 MVAr, 950 / 900 / 818 A ratings nor a 362 MVA cable anywhere in src", () => {
+    const stale = /3 × 170|(?<![\d.])950 ?A\b|(?<![\d.])900 ?A\b|(?<![\d.])818 ?A\b|362 ?MVA|170 ?MVA/i;
+    const hits = Object.entries(SOURCES).flatMap(([file, text]) =>
+      text.split("\n").flatMap((line, i) => (stale.test(line) ? [`${file}:${i + 1}`] : [])),
+    );
+    expect(hits).toEqual([]);
+  });
+});

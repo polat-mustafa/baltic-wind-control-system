@@ -501,7 +501,7 @@ export default function LayoutPage() {
                   }
                   disabled={!p.turbines.length || p.externalRunning}
                 >
-                  <Play size={13} className="mr-1" /> {p.externalRunning ? "Running… (≈ 20 s)" : "Estimate external loss"}
+                  <Play size={13} className="mr-1" /> {p.externalRunning ? "Running… (≈ 1 min)" : "Estimate external loss"}
                 </Button>
               </div>
               {external ? (

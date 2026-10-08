@@ -359,6 +359,35 @@ CLUSTER_WD = np.arange(0.0, 360.0, 5.0)
 CLUSTER_WS = np.arange(3.0, 26.0, 2.0)
 
 
+def _overlap_avg_model() -> Any:
+    """PyWake's GaussianOverlapAvgModel with its own shipped table, read through
+    h5netcdf's pure-Python ``pyfive`` backend. PyWake opens it with h5py, whose compiled
+    HDF5 library is not a dependency here (and Windows application control blocks its
+    DLLs); the table, its spline and the grid interpolation are PyWake's, unchanged."""
+    import h5netcdf  # type: ignore[import-untyped]
+    from py_wake.rotor_avg_models.gaussian_overlap_model import GaussianOverlapAvgModel
+    from py_wake.utils.grid_interpolator import GridInterpolator
+    from scipy.interpolate import RectBivariateSpline
+
+    class OverlapAvg(GaussianOverlapAvgModel):  # type: ignore[misc]
+        @property
+        def overlap_interpolator(self) -> Any:
+            if not hasattr(self, "_overlap_interpolator"):
+                with h5netcdf.File(self.filename, "r", backend="pyfive") as f:
+                    r_tab = np.asarray(f.variables["R_sigma"][...])
+                    cw_tab = np.asarray(f.variables["CW_sigma"][...])
+                    table = np.asarray(f.variables["__xarray_dataarray_variable__"][...])
+                r_sigma = np.arange(0, 20.001, 0.01)
+                cw_sigma = np.arange(0, 10.01, 0.01)
+                dat = RectBivariateSpline(r_tab, cw_tab, table)(r_sigma, cw_sigma)
+                self._overlap_interpolator = GridInterpolator(
+                    [r_sigma, cw_sigma], dat, bounds="limit"
+                )
+            return self._overlap_interpolator
+
+    return OverlapAvg()
+
+
 def run_cluster_wake(
     x_m: NDArray[np.floating],
     y_m: NDArray[np.floating],
@@ -374,10 +403,9 @@ def run_cluster_wake(
     turbulence-optimised Park model, validated on cluster wakes) as PyWake's
     ``Nygaard_2022`` sets it up — TurboGaussianDeficit with ct2a_mom1d, mirrored
     ground, ctlim 0.96, deficit scaled with the downstream turbine's ambient
-    wind, squared-sum superposition — except the rotor average: rotor centre
-    instead of the Gaussian-overlap table (that table needs h5py, not a
-    dependency here). Same direction / speed grid for both runs; their ratio is
-    the external wake loss.
+    wind, squared-sum superposition, Gaussian-overlap rotor average (PyWake's
+    table, ``_overlap_avg_model``). Same direction / speed grid for both runs;
+    their ratio is the external wake loss.
     """
     from py_wake.literature.turbopark import (
         Mirror,
@@ -388,7 +416,10 @@ def run_cluster_wake(
     )
 
     deficit = TurboGaussianDeficit(
-        ct2a=ct2a_mom1d, groundModel=Mirror(superpositionModel=SquaredSum()), ctlim=0.96
+        ct2a=ct2a_mom1d,
+        groundModel=Mirror(superpositionModel=SquaredSum()),
+        rotorAvgModel=_overlap_avg_model(),
+        ctlim=0.96,
     )
     deficit.WS_key = "WS_jlk"
     model = PropagateDownwind(

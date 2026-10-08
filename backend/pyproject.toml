@@ -23,6 +23,9 @@ dependencies = [
     "numpy>=2.0.0",
     "scipy>=1.17.1",
     "py-wake>=2.5.0",
+    # PyWake's Gaussian-overlap table (TurbOPark) read without h5py's compiled HDF5
+    "h5netcdf>=1.8.0",
+    "pyfive>=1.2.0",
     "xarray>=2024.1.0",
     "pandapower>=2.14.0",
     "andes>=1.10.0",

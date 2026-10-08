@@ -794,7 +794,7 @@ async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisRespon
     )
 
 
-@cached(prefix="wake-cluster-v1", ttl=3600)
+@cached(prefix="wake-cluster-v2", ttl=3600)  # v2: Gaussian-overlap rotor average
 def _cached_cluster_wake(
     x_m: list[float],
     y_m: list[float],

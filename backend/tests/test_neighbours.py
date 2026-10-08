@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.p1.wake_model import create_wind_turbine, run_cluster_wake
+from app.services.p1.wake_model import _overlap_avg_model, create_wind_turbine, run_cluster_wake
 from app.services.site_assessment.layers import load_region
 from app.services.site_assessment.neighbours import RADIUS_KM, neighbour_farms
 
@@ -65,6 +65,23 @@ def test_upwind_neighbours_cost_energy_downwind_ones_do_not(west_wind_site) -> N
     assert up["external_wake_loss_percent"] > 1.0
     assert abs(down["external_wake_loss_percent"]) < 0.05  # no blockage model
     assert up["alone_gwh"] == pytest.approx(down["alone_gwh"])
+
+
+@pytest.mark.parametrize(("r", "cw"), [(0.0, 1.0), (0.5, 0.0), (1.0, 1.0), (2.0, 0.5), (3.0, 4.0)])
+def test_overlap_table_is_the_rotor_disc_average_of_the_gaussian(r: float, cw: float) -> None:
+    """PyWake's table read without h5py: the factor on the centre-line deficit is the mean of
+    exp(−ρ²/2σ²) over a rotor of radius R whose centre is cw off the wake axis (σ = 1):
+    (2/R²) ∫₀ᴿ exp(−(s² + cw²)/2) I₀(s·cw) s ds — an independent check of the table."""
+    from scipy.integrate import quad
+    from scipy.special import i0e
+
+    if r == 0.0:
+        expected = float(np.exp(-(cw**2) / 2))
+    else:
+        f = quad(lambda s: np.exp(-((s - cw) ** 2) / 2) * i0e(s * cw) * s, 0.0, r)[0]
+        expected = 2.0 / r**2 * f
+    got = float(_overlap_avg_model().overlap_interpolator(np.array([[r, cw]]))[0])
+    assert got == pytest.approx(expected, abs=2e-3)
 
 
 def test_neighbours_and_custom_wake_api() -> None:

@@ -9,15 +9,22 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
+from typing import Any
 from urllib.parse import quote
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
+from app.db import get_session
 from app.main import app
+from app.models.scada import SOEEvent
 from app.services.digital_twin import plant_simulator as plant
 from app.services.p2.network_model import EXPORT_CABLE_1000, SB510, design
 from app.services.p2.statcom_sizing import check_reactors
@@ -40,8 +47,27 @@ def fresh_bays():
 
 
 @pytest.fixture(scope="module")
-def client() -> TestClient:
-    return TestClient(app)
+def client() -> Iterator[TestClient]:
+    # Bay commands write SOE events; use in-memory SQLite so CI needs no Postgres.
+    engine = create_async_engine(
+        "sqlite+aiosqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+
+    async def _create() -> None:
+        async with engine.begin() as conn:
+            await conn.run_sync(lambda c: SOEEvent.metadata.create_all(c, [SOEEvent.__table__]))
+
+    asyncio.run(_create())
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def _session() -> Any:
+        async with factory() as s:
+            yield s
+
+    app.dependency_overrides[get_session] = _session
+    yield TestClient(app)
+    app.dependency_overrides.pop(get_session, None)
+    asyncio.run(engine.dispose())
 
 
 def test_switchboard_follows_the_strings():

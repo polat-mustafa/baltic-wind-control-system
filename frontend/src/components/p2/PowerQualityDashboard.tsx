@@ -11,6 +11,8 @@ import { useEffect } from "react";
 import { motion, MotionConfig } from "framer-motion";
 
 import { powerQualityEducation } from "../../constants/education/p2";
+import { SB510_NETWORK } from "../../lib/fleet";
+import { useGridStore } from "../../store/gridStore";
 import { type PQBus, usePowerQualityStore } from "../../store/powerQualityStore";
 import { EducationButton } from "../ui/EducationButton";
 import { KPICard } from "../ui/KPICard";
@@ -32,11 +34,14 @@ const item = {
 export default function PowerQualityDashboard() {
   const { harmonics, resonance, flicker, bus, gridSscMva, emissionScale, loading, error, setBus, setGridSscMva, setEmissionScale, runAll, clearError } =
     usePowerQualityStore();
+  // the farm's own S_sc (TSO data or the illustrative 10 GVA) until the slider moves
+  const farmSsc = useGridStore((s) => s.networkSpec?.grid_ssc_mva) ?? SB510_NETWORK.grid_ssc_mva;
+  const ssc = gridSscMva ?? farmSsc;
 
   useEffect(() => {
     const t = setTimeout(() => void runAll(), 250);
     return () => clearTimeout(t);
-  }, [bus, gridSscMva, emissionScale, runAll]);
+  }, [bus, gridSscMva, farmSsc, emissionScale, runAll]);
 
   const worstPeak = resonance?.resonance_points.reduce((a, p) => (p.amplification > a.amplification ? p : a), resonance.resonance_points[0]);
 
@@ -72,9 +77,9 @@ export default function PowerQualityDashboard() {
             </div>
             <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[11rem]">
               <span className="flex justify-between">
-                Grid short-circuit power <span className="font-mono text-text-primary">{(gridSscMva / 1000).toFixed(1)} GVA</span>
+                Grid short-circuit power <span className="font-mono text-text-primary">{(ssc / 1000).toFixed(1)} GVA{gridSscMva == null ? " (farm)" : ""}</span>
               </span>
-              <input type="range" min={1000} max={20000} step={500} value={gridSscMva} onChange={(e) => setGridSscMva(Number(e.target.value))} className="accent-accent" />
+              <input type="range" min={1000} max={Math.max(20000, farmSsc)} step={500} value={ssc} onChange={(e) => setGridSscMva(Number(e.target.value))} className="accent-accent" />
             </label>
             <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[11rem]">
               <span className="flex justify-between">

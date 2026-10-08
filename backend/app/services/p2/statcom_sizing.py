@@ -95,7 +95,6 @@ from app.services.p2.load_flow import V_MAX_PU, V_MIN_PU, auto_statcom_dispatch
 from app.services.p2.network_model import (
     EXPORT_CABLE_1000,
     EXPORT_CABLE_LENGTH_KM,
-    GRID_SSC_MVA,
     NUM_EXPORT_CABLES,
     NUM_SHUNT_REACTORS,
     SB510,
@@ -218,7 +217,7 @@ def size_statcom(
 @lru_cache(maxsize=16)
 def validate_compensation(
     export_length_km: float | None = None,
-    grid_ssc_mva: float = 10_000.0,
+    grid_ssc_mva: float | None = None,
     spec: FarmSpec = SB510,
 ) -> STATCOMSizingResult:
     """Validate reactive power compensation by comparing load flow with and without.
@@ -234,7 +233,7 @@ def validate_compensation(
     export_length_km : float | None
         Export cable length [km]; None = the spec's (SB-510: 108).
     grid_ssc_mva : float
-        Grid short-circuit power [MVA]. Default: 10,000.
+        Grid short-circuit power [MVA]; None = the spec's (SB-510: 10,000).
     spec : FarmSpec
         Farm design (STATCOM, reactors, export circuits). Default: SB-510.
 
@@ -243,6 +242,7 @@ def validate_compensation(
     STATCOMSizingResult
         Sizing result with cable Q, Ferranti rise, and compensation adequacy.
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     if export_length_km is None:
         export_length_km = spec.export_length_km
     cable_q = calculate_cable_reactive_power(
@@ -347,7 +347,7 @@ def _poc_q_at(
 @lru_cache(maxsize=16)
 def poc_q_capability(
     export_length_km: float = EXPORT_CABLE_LENGTH_KM,
-    grid_ssc_mva: float = GRID_SSC_MVA,
+    grid_ssc_mva: float | None = None,
     spec: FarmSpec = SB510,
 ) -> tuple[float, float]:
     """Largest producing / absorbing Q at the PSE 400 kV POC at P_max [MVAR].
@@ -355,6 +355,7 @@ def poc_q_capability(
     Bisection on the internal injection; each trial is a load flow with OLTC
     control, accepted only if every farm bus stays within 0.90–1.10 p.u.
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     cont = continuous_q_mvar(spec)
     tops = {+1: cont + spec.reactor_mvar, -1: cont}
     result: dict[int, float] = {}

@@ -74,7 +74,7 @@ BREAKER_RATINGS_KA: dict[float, float] = {
 def calc_short_circuit(
     case: str = "max",
     export_length_km: float | None = None,
-    grid_ssc_mva: float = 10_000.0,
+    grid_ssc_mva: float | None = None,
     spec: FarmSpec = SB510,
 ) -> ShortCircuitResponse:
     """Run IEC 60909 short-circuit calculation for all buses.
@@ -97,6 +97,7 @@ def calc_short_circuit(
     ShortCircuitResponse
         Per-bus short-circuit results with breaker adequacy assessment.
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     if case not in ("max", "min"):
         msg = f"case must be 'max' or 'min', got '{case}'"
         raise ValueError(msg)

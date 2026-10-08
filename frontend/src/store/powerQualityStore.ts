@@ -30,7 +30,8 @@ interface PowerQualityState {
   filterDesign: FilterDesignResponse | null;
 
   bus: PQBus;
-  gridSscMva: number;
+  /** What-if grid short-circuit power [MVA]; null = the farm's (network spec). */
+  gridSscMva: number | null;
   emissionScale: number;
   filterOrder: number;
   filterMvar: number;
@@ -57,7 +58,7 @@ export const usePowerQualityStore = create<PowerQualityState>((set, get) => ({
   filterDesign: null,
 
   bus: 400,
-  gridSscMva: 10000,
+  gridSscMva: null,
   emissionScale: 1,
   filterOrder: 17,
   filterMvar: 10,
@@ -72,12 +73,13 @@ export const usePowerQualityStore = create<PowerQualityState>((set, get) => ({
   setFilterMvar: (q) => set({ filterMvar: q }),
 
   runAll: async () => {
-    const { bus, gridSscMva, emissionScale } = get();
+    const { bus, emissionScale } = get();
     const emission = Object.fromEntries(Object.entries(TYPICAL_EMISSION).map(([h, v]) => [h, v * emissionScale]));
     set({ loading: true, error: null });
     try {
       const farm = currentNetwork();
       const ratedMw = farm.total_capacity_mw;
+      const gridSscMva = get().gridSscMva ?? farm.grid_ssc_mva;
       const [harmonics, resonance, flicker] = await Promise.all([
         api.analyzeHarmonics({ harmonic_magnitudes: emission, voltage_kv: bus, rated_mw: ratedMw, grid_fault_level_mva: gridSscMva }),
         api.runResonanceScan({ cable_length_km: farm.export_length_km, voltage_kv: bus, grid_fault_level_mva: gridSscMva, scan_max_hz: 2500 }),

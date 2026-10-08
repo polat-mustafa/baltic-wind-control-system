@@ -246,7 +246,7 @@ def run_load_flow(
     scenario: LoadFlowScenario,
     auto_dispatch: bool = True,
     export_length_km: float | None = None,
-    grid_ssc_mva: float = 10_000.0,
+    grid_ssc_mva: float | None = None,
     spec: FarmSpec = SB510,
 ) -> LoadFlowResponse:
     """Run load flow analysis for a specified operating scenario.
@@ -263,7 +263,7 @@ def run_load_flow(
     export_length_km : float | None
         Export cable length [km]; None = the spec's (SB-510: 108).
     grid_ssc_mva : float
-        Grid short-circuit power [MVA]. Default: 10,000.
+        Grid short-circuit power [MVA]; None = the spec's (SB-510: 10,000).
     spec : FarmSpec
         Farm design. Default: SB-510.
 
@@ -272,6 +272,7 @@ def run_load_flow(
     LoadFlowResponse
         Complete load flow results with per-element breakdown.
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     config = SCENARIOS[scenario]
 
     # Build network for this scenario

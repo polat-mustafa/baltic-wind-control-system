@@ -64,7 +64,6 @@ from app.schemas.grid import (
     FRTType,
 )
 from app.services.p2.network_model import (
-    GRID_SSC_MVA,
     SB510,
     FarmSpec,
     series_impedances_pu,
@@ -196,7 +195,7 @@ def run_frt_simulation(
     fault_duration_s: float = 0.150,
     generation_fraction: float = 1.0,
     export_length_km: float | None = None,
-    grid_ssc_mva: float = GRID_SSC_MVA,
+    grid_ssc_mva: float | None = None,
     k_factor: float = 2.0,
     swell_pu: float = 1.20,
     p_ramp_pu_s: float = DEFAULT_P_RAMP_PU_S,
@@ -221,6 +220,7 @@ def run_frt_simulation(
     spec : FarmSpec
         Farm design (capacity, STATCOM, impedances). Default: SB-510.
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     if fault_bus not in BUSES:
         msg = f"fault_bus must be one of {', '.join(BUSES)}, got '{fault_bus}'"
         raise DomainValidationError(msg)

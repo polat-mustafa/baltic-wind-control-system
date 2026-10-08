@@ -72,7 +72,6 @@ from app.services.p2.frt_simulation import (
 )
 from app.services.p2.network_model import (
     EXPORT_CABLE_1000,
-    GRID_SSC_MVA,
     SB510,
     FarmSpec,
     _get_cable_grade,
@@ -134,12 +133,13 @@ def collector_equivalent_pu(spec: FarmSpec = SB510) -> tuple[complex, float]:
 
 
 def build_system(
-    grid_ssc_mva: float = GRID_SSC_MVA,
+    grid_ssc_mva: float | None = None,
     generation_fraction: float = 1.0,
     load_trip_mw: float = 0.0,
     spec: FarmSpec = SB510,
 ) -> Any:
     """ANDES system of the farm and the area equivalent (not yet set up)."""
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     import andes
 
     cap = spec.capacity_mw
@@ -254,10 +254,11 @@ def run_event(
     event: Event,
     load_trip_mw: float = DEFAULT_LOAD_TRIP_MW,
     retained_voltage_pu: float = 0.0,
-    grid_ssc_mva: float = GRID_SSC_MVA,
+    grid_ssc_mva: float | None = None,
     spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """Simulate one event and compare it with the PSE requirement."""
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     import andes
 
     andes.config_logger(stream_level=logging.ERROR)

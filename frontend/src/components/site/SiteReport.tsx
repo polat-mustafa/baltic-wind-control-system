@@ -11,7 +11,7 @@ import { AlertTriangle, CheckCircle2, HelpCircle, Info, Loader2, OctagonX, Refre
 
 import { cn } from "../../lib/utils";
 import type { CheckStatus } from "../../services/siteApi";
-import { reportSignature, useSiteStore } from "../../store/siteStore";
+import { GRID_SSC_RANGE_MVA, reportSignature, useSiteStore } from "../../store/siteStore";
 import { Button } from "../ui/Button";
 import { InfoTile } from "../ui/InfoTile";
 import { Skeleton } from "../ui/Skeleton";
@@ -45,9 +45,10 @@ function GridNodePicker() {
   if (nodes.length < 2) return null;
   const current = nodes.find((n) => n.name === report?.grid_node);
   return (
-    <label className="block rounded-lg border border-border-primary bg-bg-secondary px-3 py-2 text-[12px]" data-tour="site-grid-node">
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-secondary">Grid connection point</span>
+    <div className="block rounded-lg border border-border-primary bg-bg-secondary px-3 py-2 text-[12px]" data-tour="site-grid-node">
+      <span id="grid-node-label" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-secondary">Grid connection point</span>
       <select
+        aria-labelledby="grid-node-label"
         className="w-full rounded border border-border-primary bg-bg-tertiary px-2 py-1 text-[12px] text-text-primary"
         value={chosen ?? ""}
         onChange={(e) => void setGridNode(e.target.value || null)}
@@ -61,7 +62,41 @@ function GridNodePicker() {
       </select>
       {current && current.status !== "existing" && <span className="mt-1 block text-[11px] text-status-warning">{current.basis}</span>}
       <span className="mt-1 block text-[10px] text-text-muted">Straight distance from the site centre; PSE 400 kV stations from OpenStreetMap and PSE's investment pages.</span>
-    </label>
+      <GridSscInput key={report?.grid_node ?? ""} />
+    </div>
+  );
+}
+
+/** The node's short-circuit power: PSE publishes none per node, it comes with the connection conditions. */
+function GridSscInput() {
+  const ssc = useSiteStore((s) => s.gridSscMva);
+  const setSsc = useSiteStore((s) => s.setGridSscMva);
+  const [lo, hi] = GRID_SSC_RANGE_MVA;
+  return (
+    <span className="mt-2 block">
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="text-text-secondary">Short-circuit power at the node</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={lo}
+          max={hi}
+          step={100}
+          defaultValue={ssc ?? ""}
+          placeholder="10000"
+          aria-label="Grid short-circuit power at the node [MVA]"
+          className="w-24 rounded border border-border-primary bg-bg-tertiary px-2 py-0.5 font-mono text-[12px] text-text-primary"
+          onBlur={(e) => setSsc(e.target.value === "" ? null : Number(e.target.value))}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        />
+        <span className="text-text-muted">MVA</span>
+      </span>
+      <span className="mt-1 block text-[10px] text-text-muted">
+        {ssc == null ? "Empty: an illustrative 10 000 MVA. " : `${(ssc / 1000).toFixed(1)} GVA in your project's grid studies. `}
+        Enter the value of the TSO's connection conditions (PSE publishes no per-node values); {lo.toLocaleString("en")}–
+        {hi.toLocaleString("en")} MVA, the upper bound being 63 kA at 400 kV.
+      </span>
+    </span>
   );
 }
 

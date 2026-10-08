@@ -42,8 +42,11 @@ class HarmonicSpectrumRequest(BaseModel):
         description="Bus to assess: 400 = PSE POC, 220 = OSS 220 kV, 66 = OSS 66 kV",
     )
     rated_mw: float = Field(default=510.0, ge=15.0, le=5000.0, description="Farm rating [MW]")
-    grid_fault_level_mva: float = Field(
-        default=10_000.0, ge=100.0, le=50_000.0, description="Grid short-circuit power [MVA]"
+    grid_fault_level_mva: float | None = Field(
+        default=None,
+        ge=100.0,
+        le=50_000.0,
+        description="Grid short-circuit power [MVA]; None: the farm's",
     )
 
 
@@ -80,12 +83,17 @@ class ResonancePoint(BaseModel):
 class ResonanceScanRequest(BaseModel):
     """Network frequency scan."""
 
-    cable_length_km: float = Field(default=108.0, ge=1.0, le=300.0, description="Export cable [km]")
+    cable_length_km: float | None = Field(
+        default=None, ge=1.0, le=300.0, description="Export cable [km]; None = the farm's"
+    )
     voltage_kv: float = Field(
         default=66.0, ge=33.0, le=400.0, description="Viewpoint bus: 66, 220 (OSS) or 400 (POC)"
     )
-    grid_fault_level_mva: float = Field(
-        default=10_000.0, ge=100.0, le=50_000.0, description="Grid short-circuit power [MVA]"
+    grid_fault_level_mva: float | None = Field(
+        default=None,
+        ge=100.0,
+        le=50_000.0,
+        description="Grid short-circuit power [MVA]; None: the farm's",
     )
     scan_max_hz: float = Field(default=2500.0, ge=100.0, le=5000.0, description="Upper frequency")
 
@@ -111,8 +119,10 @@ class FlickerRequest(BaseModel):
     """Flicker assessment inputs (IEC 61400-21)."""
 
     rated_mw: float = Field(default=510.0, ge=1.0, description="Wind farm rated power [MW]")
-    grid_fault_level_mva: float = Field(
-        default=10_000.0, ge=100.0, description="Grid short-circuit power at the POC [MVA]"
+    grid_fault_level_mva: float | None = Field(
+        default=None,
+        ge=100.0,
+        description="Grid short-circuit power at the POC [MVA]; None: the farm's",
     )
     grid_impedance_angle_deg: float = Field(
         default=84.3, ge=30.0, le=90.0, description="Grid impedance angle ψ_k (R/X 0.1 → 84.3°)"

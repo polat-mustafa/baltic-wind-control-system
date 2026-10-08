@@ -51,7 +51,6 @@ import pandapower as pp
 
 from app.services.p2.load_flow import dispatch_with_reactor_switching
 from app.services.p2.network_model import (
-    GRID_SSC_MVA,
     SB510,
     FarmSpec,
     build_network,
@@ -195,9 +194,10 @@ def _contingency(
 
 @lru_cache(maxsize=32)
 def run_n1_security(
-    generation_fraction: float = 1.0, grid_ssc_mva: float = GRID_SSC_MVA, spec: FarmSpec = SB510
+    generation_fraction: float = 1.0, grid_ssc_mva: float | None = None, spec: FarmSpec = SB510
 ) -> dict[str, Any]:
     """Base case + every contingency of the list (cached: ~1 s per call)."""
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     base = build_network(
         generation_fraction=generation_fraction, grid_ssc_mva=grid_ssc_mva, spec=spec
     )

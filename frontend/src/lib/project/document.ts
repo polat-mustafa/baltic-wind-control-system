@@ -12,7 +12,7 @@
 import { DEFAULT_TURBINE_ID, TURBINE_MODELS } from "../../constants/turbineModels";
 import { useLifecycleStore } from "../../store/lifecycleStore";
 import { MAX_TURBINES, useProjectStore, type Turbine } from "../../store/projectStore";
-import { useSiteStore } from "../../store/siteStore";
+import { useSiteStore, validSsc } from "../../store/siteStore";
 import type { CostInputs } from "../layout/cost";
 import type { LonLat } from "../layout/geometry";
 
@@ -29,6 +29,8 @@ export interface ProjectDoc {
     stage: string;
     done: string[];
     gridNode?: string | null;
+    /** Short-circuit power at the node [MVA] (TSO data). */
+    gridSscMva?: number | null;
     /** Drawn export route waypoints and the checked route length [km]. */
     route?: LonLat[] | null;
     routeKm?: number | null;
@@ -49,7 +51,7 @@ export function buildDoc(name = DEFAULT_NAME): ProjectDoc {
     app: "OffshoreForge",
     name,
     turbineModel: DEFAULT_TURBINE_ID,
-    site: { polygon: s.site, stage: s.stage, done: s.done, gridNode: s.gridNode, route: s.route, routeKm: s.routeKm },
+    site: { polygon: s.site, stage: s.stage, done: s.done, gridNode: s.gridNode, gridSscMva: s.gridSscMva, route: s.route, routeKm: s.routeKm },
     turbines: p.turbines,
     oss: p.oss,
     costs: p.costs,
@@ -67,6 +69,7 @@ export function applyDoc(doc: ProjectDoc): void {
     stage: doc.site.stage,
     done: doc.site.done,
     gridNode: doc.site.gridNode ?? null,
+    gridSscMva: doc.site.gridSscMva ?? null,
     route: doc.site.route ?? null,
     routeKm: doc.site.routeKm ?? null,
   });
@@ -98,6 +101,7 @@ export function parseDoc(input: string | unknown): ProjectDoc {
       stage: typeof site.stage === "string" ? site.stage : "screening",
       done: Array.isArray(site.done) ? site.done.filter((d): d is string => typeof d === "string") : [],
       gridNode: typeof site.gridNode === "string" ? site.gridNode.slice(0, 120) : null,
+      gridSscMva: validSsc(site.gridSscMva),
       route: Array.isArray(site.route) && site.route.length > 0 ? (site.route as LonLat[]).slice(0, 50) : null,
       routeKm: typeof site.routeKm === "number" && site.routeKm > 0 ? site.routeKm : null,
     },

@@ -66,6 +66,9 @@ describe("farm header", () => {
     expect(farmInput()!.grid_node).toBeUndefined();
     useSiteStore.setState({ report: { grid_km: 30, depth_m: [30, 40], grid_node: "Krzemienica 400 kV" } as never });
     expect(farmInput()!.grid_node).toBe("Krzemienica 400 kV");
+    expect(farmInput()!.grid_ssc_mva).toBeUndefined(); // backend: illustrative 10 GVA
+    useSiteStore.setState({ gridSscMva: 6_000 });
+    expect(farmInput()!.grid_ssc_mva).toBe(6_000);
   });
 
   it("goes to grid, SCADA (control-room bays included), commissioning and twin", () => {

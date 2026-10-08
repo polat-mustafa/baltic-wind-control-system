@@ -1,7 +1,8 @@
 # OffshoreForge roadmap and hand-off
 
 Working notes for continuing the OffshoreForge transformation in a new Claude Code session.
-Read this first, then the CLAUDE.md rules. Six phases in total, all merged (phase 6: PR #223).
+Read this first, then the CLAUDE.md rules. The first six phases are merged (phase 6: PR #223); the own-project
+programme below is a stack of PRs, one per phase.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -116,10 +117,23 @@ Phase 11 notes:
 
 ## Resume here
 
-1. `git fetch origin && git checkout main && git pull`; all six phases are merged (last: PR #223).
-2. Next: the **own-project programme** above, phase by phase.
-3. Owner to-dos: `cd frontend && npm run e2e:update` (new `layout`, `site-permits`, `academy`, `construction`,
-   `handover` and `decommissioning` baselines), rename the GitHub repo to `offshoreforge`, trademark check.
+1. The own-project programme is a PR stack, one branch per phase, each based on the one before it
+   (phase 1 `feat/site-msp-energy-basins` → … → phase 10 `feat/layout-ux` #237 → phase 11
+   `feat/project-report` #238). Start the next phase from the newest branch:
+   `git fetch origin && git checkout feat/project-report && git pull`, then `git checkout -b <new branch>`
+   and open the PR with that branch as base.
+2. Next: **phase 12** — provenance (`SourceBadge` + `{value, unit, source, license, retrieved, quality}`),
+   sourced cost defaults (ORBIT / NREL ATB 2024 / BVG, year + currency), literature-labelled loss defaults,
+   cable values from datasheets or "typical IEC 60287". Moving P4 / Digital Twin to the IEA 15 MW curve and
+   re-calibrating them is the last step and **needs the owner's approval first**. Then phase 13 (pro items,
+   order 4 → 1 → 2 → 5 → 3 → 6 → 7). Full specs: the plan file named above, sections "Faz 12" / "Faz 13";
+   read the latest "Phase N notes" here before starting.
+3. Known, not ours: 6 old mypy errors under `digital_twin`; the Docker backend image runs old code — check in
+   the browser with a local `uvicorn app.main:app --port 8001` and a temporary Vite proxy target (revert it).
+4. Owner to-dos: `cd frontend && npm run e2e:update` (new baselines incl. `layout`, `site-permits`, `academy`,
+   `construction`, `handover`, `decommissioning`, `report`; the owner's modified snapshot files in the working
+   tree are not committed by Claude), merge the PR stack in order, rename the GitHub repo to `offshoreforge`,
+   trademark check.
 
 ## Open optional items (parked by the owner, do not start without asking)
 

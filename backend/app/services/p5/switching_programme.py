@@ -23,7 +23,7 @@ Sequence (63 steps, 6 phases)
    after-installation AC test), hold point.
 3. OSS 220 kV — remove the busbar earth, close DS/CB, remove the bay earths and
    switch in the STATCOM (voltage control at 1.00 pu), then OSS reactor 1 (SB-510:
-   120 Mvar), whose switching step the STATCOM takes.
+   180 Mvar), whose switching step the STATCOM takes.
 4. TX-OSS-01 — remove its bay earth, energise from the 220 kV side (inrush; 87T
    restrained by the 2nd harmonic), verify magnetising current, energise 66 kV
    section A, hold point.

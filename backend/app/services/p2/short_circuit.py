@@ -86,7 +86,7 @@ def calc_short_circuit(
     case : str
         'max' (c=1.1) for breaker sizing or 'min' (c=1.0) for protection sensitivity.
     export_length_km : float | None
-        Export cable length [km]; None = the spec's (SB-510: 76.5).
+        Export cable length [km]; None = the spec's (SB-510: 108).
     grid_ssc_mva : float
         Grid short-circuit power at PCC [MVA]. Default: 10,000.
     spec : FarmSpec

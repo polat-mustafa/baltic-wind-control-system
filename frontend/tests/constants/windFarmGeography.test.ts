@@ -16,6 +16,7 @@ import {
   ONSHORE_GEO,
   OSS_GEO,
   PSE_SUBSTATION_GEO,
+  SLUPSK_SUBSTATION_GEO,
   TURBINE_POSITIONS,
 } from "../../src/constants/windFarmLayout";
 import { plantNet } from "../../src/utils/landingPhysics";
@@ -102,7 +103,7 @@ describe("wind farm geography (PZP_44, checked against the region pack, 2026-10-
       for (const t of TURBINE_POSITIONS) expect(t.lat < minLat || t.lon > maxLon || t.lon < minLon).toBe(true);
     }
     const [lat, lon] = SWEPOL_GEO[SWEPOL_GEO.length - 1];
-    expect(km({ lat, lon }, PSE_SUBSTATION_GEO)).toBeLessThan(0.5);
+    expect(km({ lat, lon }, SLUPSK_SUBSTATION_GEO)).toBeLessThan(0.5);
   });
 
   it("keeps the turbines and the OSS inside the site in energy basin PZP_44, the LIDAR upwind of it", () => {

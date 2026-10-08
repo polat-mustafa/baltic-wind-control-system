@@ -266,11 +266,11 @@ class TestGeneration:
         assert float(reactors["q_mvar"].sum()) == pytest.approx(SHUNT_REACTOR_MVAR)
 
     def test_harmonic_filter_at_oss_66kv(self):
-        """5 Mvar damped high-pass, capacitive at 50 Hz: q < 0 in the load convention."""
+        """2 Mvar damped high-pass, capacitive at 50 Hz: q < 0 in the load convention."""
         net = build_network()
         hf = net.shunt[net.shunt["name"].str.startswith("HF_OSS_66")]
         assert len(hf) == 1
-        assert float(hf["q_mvar"].iloc[0]) == pytest.approx(-5.0)
+        assert float(hf["q_mvar"].iloc[0]) == pytest.approx(-2.0)
         assert net.bus.loc[hf["bus"].iloc[0], "name"] == "OSS_66kV"
 
     def test_shunt_reactor_lowers_voltage(self):
@@ -291,7 +291,7 @@ class TestGeneration:
     def test_no_reactor_when_disabled(self):
         """Shunt reactors are absent when disabled; the harmonic filter stays."""
         net = build_network(enable_reactor=False)
-        assert list(net.shunt["name"]) == ["HF_OSS_66_5MVAR_h18"]
+        assert list(net.shunt["name"]) == ["HF_OSS_66_2MVAR_h16"]
 
     def test_string_layout(self):
         """String layout must produce exactly 34 WTGs across 6 strings (6-6-6-6-5-5)."""

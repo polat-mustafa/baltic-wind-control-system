@@ -58,8 +58,8 @@ class TestSettings:
 class TestSelectivity:
     def test_fault_levels_from_iec_60909(self):
         i_max, i_min = oss_66kv_fault_levels_ka()
-        assert i_max == pytest.approx(20.5, abs=0.2)
-        assert i_min == pytest.approx(13.3, abs=0.2)  # no K_T in the min case (pandapower ≥ 3.5)
+        assert i_max == pytest.approx(19.5, abs=0.2)  # 108 km export: weaker grid infeed
+        assert i_min == pytest.approx(12.5, abs=0.2)  # no K_T in the min case (pandapower ≥ 3.5)
 
     def test_default_scheme_is_selective_at_real_currents(self):
         results = verify_selectivity()

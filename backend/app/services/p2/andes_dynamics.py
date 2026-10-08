@@ -15,7 +15,7 @@ educational counterpart.
 
 Network (system base 100 MVA, same data as ``network_model``)
 -------------------------------------------------------------
-  GRID 400 kV ── onshore 2 × 300 MVA ── 2 × 76.5 km 220 kV ── OSS 2 × 300 MVA ── OSS 66 kV
+  GRID 400 kV ── onshore 2 × 300 MVA ── 2 × 108 km 220 kV ── OSS 2 × 300 MVA ── OSS 66 kV
       │                                     (C, 2 × 120 MVAR reactors at each end)
   GENCLS + TGOV1 + area load                                    │ collector equivalent
                                                                 WTG 66 kV: 510 MW

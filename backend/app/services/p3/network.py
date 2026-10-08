@@ -19,7 +19,7 @@ SB-510 uses a 3-tier OT network following IEC 61850 / IEC 62443:
     IEC 62443 Zone 2 (OT critical) — Purdue Level 1/2
 
   Tier 3 — WAN (OSS to Onshore):
-    Primary: fibre in the export cable (dedicated to OT) — 10 Gbps, 76.5 km x 5 us/km = 0.38 ms
+    Primary: fibre in the export cable (dedicated to OT) — 10 Gbps, 108 km x 5 us/km = 0.54 ms
     Secondary: licensed microwave (MW backup) — 100 Mbps, 0.8 ms
     Protocol: MPLS over fibre, IPsec tunnel
     Onshore firewall (IEC 62443 conduit control) separates OT from IT
@@ -120,7 +120,7 @@ _NODES = [
     # WAN layer
     {
         "node_id": "WAN-FIBRE",
-        "name": "Export-cable fibre link (OSS to onshore, 76.5 km)",
+        "name": "Export-cable fibre link (OSS to onshore, 108 km)",
         "layer": "WAN",
         "protocol": "MPLS / IP",
         "redundant": True,
@@ -231,7 +231,7 @@ _LINKS = [
         "to_node": "WAN-FIBRE",
         "link_type": "FIBRE_OPTIC",
         "bandwidth_mbps": 10000.0,
-        "latency_ms": 0.383,  # 76.5 km * 5 us/km propagation delay
+        "latency_ms": 0.54,  # 108 km * 5 us/km propagation delay
         "redundant": True,
         "encryption": "IPsec AES-256",
     },
@@ -400,12 +400,12 @@ _LATENCY_BUDGETS: list[dict[str, Any]] = [
         },
     },
     {
-        "path_description": "Operator display: OSS gateway -> onshore control centre (76.5 km WAN)",
+        "path_description": "Operator display: OSS gateway -> onshore control centre (108 km WAN)",
         "performance_class": "TT1",
         "required_latency_ms": 1000.0,
         "budget_breakdown": {
             "gateway_iec104_ms": 10.0,  # spontaneous IEC 60870-5-104 transmission
-            "fibre_propagation_ms": 0.383,  # 76.5 km x 5 us/km
+            "fibre_propagation_ms": 0.54,  # 108 km x 5 us/km
             "firewall_ipsec_ms": 1.0,
             "scada_server_ms": 50.0,
             "hmi_refresh_ms": 250.0,

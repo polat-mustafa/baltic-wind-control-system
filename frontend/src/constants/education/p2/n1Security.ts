@@ -56,11 +56,11 @@ export const n1SecurityEducation: EducationContent = {
       title: "Losing one export circuit at full output",
       scenario: "510 MW, both 220 kV circuits in service, one trips.",
       steps: [
-        "The survivor (√3 × 220 kV × 825 A ≈ 314 MVA, ABB/NKT datasheet) is loaded to ~164 %; the tripped cable's two reactors are intertripped",
+        "The survivor (√3 × 220 kV × 825 A ≈ 314 MVA, ABB/NKT datasheet) is loaded to ~174 % (its own 108 km of charging current adds to the load current); the tripped cable's two reactors are intertripped",
         "The STATCOM re-dispatches reactive power and holds the OSS voltage",
-        "The PPC runs the turbines back by ~221 MW to ~289 MW: 99 % loading, ~22 s at 10.2 MW/s",
+        "The PPC runs the turbines back by ~231 MW to ~279 MW: 99.5 % loading, ~23 s at 10.2 MW/s",
       ],
-      result: "Secure with a corrective runback; preventive security would have cost ~220 MW all the time.",
+      result: "Secure with a corrective runback; preventive security would have cost ~230 MW all the time.",
     },
   ],
 

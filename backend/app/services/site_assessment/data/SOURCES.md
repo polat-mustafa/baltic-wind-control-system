@@ -94,9 +94,13 @@ Baltica 9 / PGE; SB-510 borrows the area for teaching):
   and Sharco Duo);
 - the Natura 2000 site Ławica Słupska (PLC990001) is 2 km south: an
   appropriate-assessment screening question. The 220 kV export goes round its
-  west end (≥ 1.2 km clear), crosses shipping basin PZP_15 at right angles and
-  lands at Zaleskie: 63.5 km subsea + 13 km land = 76.5 km to PSE
-  Słupsk-Wierzbięcino (2 circuits, 4 × 120 MVAR reactors at both cable ends, ±120 MVAR STATCOM).
+  west end (≥ 1.7 km clear), crosses shipping basins PZP_15 / PZP_10 at 62–67°, runs
+  between Darłowo's approach channel PZP_23 and the military National Defence Area
+  (≥ 0.7 km from each) and lands at Darłówko-Wschodnie: 79.3 km subsea + 28.7 km land
+  = 108 km to PSE Krzemienica, the connection point PGE announced for Baltica 9+ (site
+  44.E.1) (2 circuits, 4 × 180 MVAR reactors at both cable ends, ±120 MVAR STATCOM).
+  Until 2026-10-08 it ran 76.5 km to Słupsk-Wierzbięcino, 24.5 km of it through the
+  military area.
 
 Until 2026-10 SB-510 sat at 16.31–16.485 °E, 54.755–54.845 °N: outside every
 energy basin and 60–80 % in shipping basin PZP_15 (27 of 34 turbines), so a

@@ -96,7 +96,7 @@ export default function ProtectionZoneDiagram({ study }: { study: CoordinationSt
       />
       <path d={`M${CABLE[0]} ${Y} H${CABLE[1]}`} stroke="var(--color-border-secondary)" strokeWidth={3} strokeDasharray="10 5" fill="none" />
       <text x={(CABLE[0] + CABLE[1]) / 2} y={Y + 26} textAnchor="middle" fontSize={11} className="fill-text-secondary">
-        export cable 2 × 76.5 km · 220 kV · 87L + distance Z1 80 % / Z2 120 %
+        export cable 2 × 108 km · 220 kV · 87L + distance Z1 80 % / Z2 120 %
       </text>
       {/* transformer */}
       <circle cx={X.tx - 8} cy={Y} r={14} fill="none" stroke="var(--color-text-primary)" strokeWidth={2} />

@@ -25,7 +25,7 @@ export const gridFormingEducation: EducationContent = {
     "machine, H = 4 s, D = 80 p.u., behind 0.15 p.u. filter reactance, current limited to 1.2 p.u. A phase jump Δθ " +
     "instantly changes its power by ≈ K_s·Δθ (synchronising power) — inertial response. In a stiff grid K_s is large, " +
     "so the current can hit the limit: GFM's weakness is the strong grid, GFL's the weak one. Note the grid strength " +
-    "at the turbines: the transformers and 76.5 km cable add ≈ 0.27 p.u., so SCR 19.6 at the POC is only ≈ 3.1 at the " +
+    "at the turbines: the transformers and 108 km cable add ≈ 0.29 p.u., so SCR 19.6 at the POC is only ≈ 2.9 at the " +
     "66 kV busbar. Not modelled: DC link, outer voltage loops, inner-loop/LCL dynamics, controller interaction.",
 
   standards: [

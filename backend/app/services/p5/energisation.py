@@ -8,15 +8,16 @@ computed values instead of a fixed text.
 
 What the numbers show
 ---------------------
-- Cable energised from shore, OSS end open: the 76.5 km cable generates
-  Q_c = ω·C·U²·l = 2π·50 · 190 nF/km · (220 kV)² · 76.5 km ≈ 221 Mvar
-  (I_c = Q_c / (√3·U) ≈ 580 A with zero load), and the open end rises by the
-  Ferranti factor 1/cos(βl) ≈ 1.021 (βl = ωl√(LC) ≈ 0.20 rad).
-- The onshore line reactor of cable 1 (120 Mvar at 1 pu, Q ∝ U²) sits on the cable
-  side of CB-ON-220-01 and is energised with the cable, so only ≈ 100 Mvar flow into
+- Cable energised from shore, OSS end open: the 108 km cable generates
+  Q_c = ω·C·U²·l = 2π·50 · 190 nF/km · (220 kV)² · 108 km ≈ 312 Mvar
+  (I_c = Q_c / (√3·U) ≈ 820 A with zero load — 101 % of the 825 A rating at the shore
+  end for the minutes until the OSS end is live), and the open end rises by the
+  Ferranti factor 1/cos(βl) ≈ 1.043 (βl = ωl√(LC) ≈ 0.29 rad).
+- The onshore line reactor of cable 1 (180 Mvar at 1 pu, Q ∝ U²) sits on the cable
+  side of CB-ON-220-01 and is energised with the cable, so only ≈ 135 Mvar flow into
   the onshore 220 kV busbar and raise its voltage by roughly Q / S_k there
   (S_k ≈ 3 GVA behind the two onshore transformers).
-- OSS shunt reactor 1 (120 Mvar) takes up the OSS end's share once the OSS busbar
+- OSS shunt reactor 1 (180 Mvar) takes up the OSS end's share once the OSS busbar
   is live; the STATCOM then holds the OSS 220 kV busbar at 1.00 pu within ±120 Mvar.
 - TX-OSS-01 on no load draws only its magnetising current (i0 = 0.05 % →
   ≈ 0.4 A at 220 kV).
@@ -30,11 +31,13 @@ The numbers above are SB-510; ``network_snapshot(state, spec)`` builds the same
 model for any ``FarmSpec`` (cable length, transformer and reactor sizes,
 STATCOM, strings of section A).
 
-Onshore OLTC pre-set: a longer cable lifts the onshore busbar further (75 km:
-≈ 230 Mvar, +5 %), so before energising, the onshore transformers are tapped
-down (``onshore_tap``: the first HV tap, 1.25 % per step, that keeps the busbar
-and the open cable end within 0.95–1.05 pu). The tap is then held for the
-whole programme.
+Onshore OLTC pre-set: a longer cable lifts the onshore busbar and its open end
+further, so before energising, the onshore transformers are tapped down
+(``onshore_tap``: the first HV tap, 1.25 % per step, that keeps the busbar and the
+open cable end within 0.95–1.05 pu; SB-510: 3 steps, open end 1.078 → 1.039 pu).
+The tap is then held for the whole programme — which costs circuit-1 capability:
+the onshore busbar sags to 0.97 pu at load and the STATCOM, holding the OSS at
+1.00 pu, sends ≈ 100 Mvar ashore (SB-510: 825 A at 233 MW, not the analytic 273).
 
 Not modelled: switching transients and transformer inrush (they are not
 steady-state quantities), WTG step-up transformers and auxiliary loads, OLTC
@@ -66,7 +69,6 @@ from app.services.p2.network_model import (
     TRAFO_220_400_VKR_PERCENT,
     FarmSpec,
     _get_cable_grade,
-    export_circuit_capacity_mw,
 )
 from app.services.p5.equipment_state import (
     EquipmentState,
@@ -140,21 +142,53 @@ def section_a_mw(spec: FarmSpec = SB510) -> float:
     return sum(spec.string_layout[: spec.section_a_strings]) * spec.turbine_rated_mw
 
 
+@lru_cache(maxsize=32)
+def circuit1_capability_mw(spec: FarmSpec = SB510) -> float:
+    """Section-A output at which the load flow loads export cable 1 to 100 % [MW].
+
+    The analytic √3·U·√(Imax² − (Ic/2)²) (``export_circuit_capacity_mw``) assumes the
+    charging current splits evenly between both cable ends; the real split follows the
+    reactors and the STATCOM, so the load flow decides. Bisection to 0.5 MW; at most
+    twice section A is searched (more never matters for circuit 1).
+    """
+    state = circuit1_live_state(spec)
+
+    def within(mw: float) -> bool:
+        return (network_snapshot(state, spec, output_mw=mw).cable_loading_pct or 0.0) <= 100.0
+
+    lo, hi = 0.0, 2.0 * section_a_mw(spec)
+    if within(hi):
+        return math.inf
+    while hi - lo > 0.5:
+        mid = (lo + hi) / 2
+        if within(mid):
+            lo = mid
+        else:
+            hi = mid
+    return lo
+
+
 def circuit1_limit_mw(spec: FarmSpec = SB510) -> float:
     """Output allowed with only circuit 1 in service [MW]: section A at rated, or 90 %
-    of one export circuit's capability when section A is more (PPC limit)."""
-    return min(section_a_mw(spec), 0.9 * export_circuit_capacity_mw(spec.export_length_km))
+    of circuit 1's load-flow capability when section A is more (PPC limit)."""
+    return min(section_a_mw(spec), 0.9 * circuit1_capability_mw(spec))
 
 
 def network_snapshot(
-    state: dict[str, EquipmentState], spec: FarmSpec = SB510, tap: int | None = None
+    state: dict[str, EquipmentState],
+    spec: FarmSpec = SB510,
+    tap: int | None = None,
+    output_mw: float | None = None,
 ) -> NetworkSnapshot:
     """Solve the load flow of everything that is live in ``state``; onshore OLTC at
-    ``tap`` (default: the pre-set ``onshore_tap(spec)``)."""
+    ``tap`` (default: the pre-set ``onshore_tap(spec)``). Released turbines share
+    ``output_mw`` of section A (default: the PPC limit ``circuit1_limit_mw``)."""
     tap = onshore_tap(spec) if tap is None else tap
     zones = zone_status(state, spec)
     live = {z for z, s in zones.items() if s == ZoneStatus.LIVE}
-    p_wtg = spec.turbine_rated_mw * circuit1_limit_mw(spec) / section_a_mw(spec)
+    p_wtg: float | None = (
+        None if output_mw is None else spec.turbine_rated_mw * output_mw / section_a_mw(spec)
+    )
 
     net = pp.create_empty_network(f_hz=FREQUENCY_HZ)
     b400 = pp.create_bus(net, 400.0, name="PSE 400 kV (POC)")
@@ -226,6 +260,8 @@ def network_snapshot(
                     c_nf_per_km=grade.c_nf_per_km, max_i_ka=grade.max_i_ka,
                 )  # fmt: skip
                 if released:
+                    if p_wtg is None:  # only now: the limit itself runs load flows
+                        p_wtg = spec.turbine_rated_mw * circuit1_limit_mw(spec) / section_a_mw(spec)
                     pp.create_sgen(net, wtg_bus, p_mw=p_wtg, q_mvar=0.0)
                     generation += p_wtg
                 prev = wtg_bus
@@ -271,14 +307,30 @@ def cable_energised_state(spec: FarmSpec = SB510) -> dict[str, EquipmentState]:
     return state
 
 
+def circuit1_live_state(spec: FarmSpec = SB510) -> dict[str, EquipmentState]:
+    """Everything of circuit 1 in service at the end of the programme: export cable 1 with
+    its reactors, OSS busbar, STATCOM, TX-OSS-01, the strings of section A, turbines
+    released (section B stays earthed)."""
+    state = cable_energised_state(spec)
+    opened = ["ES-OSS-220-BB", "ES-OSS-66-01"]
+    closed = ["DS-OSS-220-01", "CB-OSS-220-01", "CB-SR-01", "CB-STC-01"]
+    closed += ["CB-TX-OSS-HV", "CB-TX-OSS-LV"]
+    for n in range(1, spec.section_a_strings + 1):
+        opened.append(f"ES-STR-{n:02d}")
+        closed += [f"CB-STR-{n:02d}", f"WTG-GRP-{n:02d}"]
+    state.update({k: EquipmentState.OPEN for k in opened if k in state})
+    state.update({k: EquipmentState.CLOSED for k in closed if k in state})
+    return state
+
+
 @lru_cache(maxsize=32)
 def onshore_tap(spec: FarmSpec = SB510) -> int:
     """Onshore OLTC position held during the programme (0 = neutral): the first HV tap
     (+ lowers the 220 kV side) at which the cable, energised with its onshore line
     reactor and the OSS end open, leaves the onshore busbar and the cable end inside
     the band. None works → full range (the verification step then fails: a finding).
-    With the line reactor SB-510 needs none; a long cable on small onshore transformers
-    does (2 × 100 MVA, 73 km: 2 steps)."""
+    SB-510 (108 km, 180 Mvar line reactor) needs 3 steps; 2 × 100 MVA onshore on a
+    73 km cable needs 2."""
     lo, hi = V_BAND_PU
     state = cable_energised_state(spec)
     for tap in range(OLTC_STEPS + 1):

@@ -63,12 +63,13 @@ class TestSteadyState:
 
 
 class TestProfile:
-    def test_full_farm_load_is_normal(self):
-        """510 MW: ≈ 760 A at the OSS end of each circuit → about 72 °C at the J-tube."""
-        r = m.simulate_dts(760.0, 15.0)
-        assert r["max_conductor_c"] == pytest.approx(71.9, abs=0.6)
-        assert r["assessment"].startswith("NORMAL")
-        assert r["alarm_length_km"] == 0
+    def test_full_farm_load_alarms_in_the_j_tube(self):
+        """510 MW: ≈ 818 A at the OSS end of each 108 km circuit (99 %) → about 83 °C in the
+        J-tube: past the 80 °C operator alarm, below the 90 °C limit; the rest stays normal."""
+        r = m.simulate_dts(818.0, 15.0)
+        assert r["max_conductor_c"] == pytest.approx(82.9, abs=0.6)
+        assert r["assessment"].startswith("ALARM")
+        assert r["alarm_length_km"] == pytest.approx(m.J_TUBE_END_KM)
         assert len(r["profile"]) == m.N_POINTS
 
     def test_j_tube_is_hottest_and_limits_the_route(self):
@@ -81,7 +82,7 @@ class TestProfile:
 
     def test_export_capability(self):
         """√3 · 220 kV · 856 A (J-tube rating at 15 °C) · 2 circuits ≈ 652 MVA."""
-        assert m.simulate_dts(760.0, 15.0)["export_capability_mva"] == pytest.approx(652, abs=1)
+        assert m.simulate_dts(818.0, 15.0)["export_capability_mva"] == pytest.approx(652, abs=1)
 
     def test_summer_at_rating_is_over_limit(self):
         r = m.simulate_dts(825.0, 22.0)
@@ -95,31 +96,31 @@ class TestProfile:
 
 class TestTransient:
     def test_n1_survivor_has_hours_before_limit(self):
-        """1 355 A (164 % of 825 A) from 760 A: ≈ 2.7 h in the J-tube — the PPC runback
+        """1 438 A (174 % of 825 A) from 818 A: ≈ 37 min in the J-tube — the PPC runback
         (≈ 22 s, n1_security) is far inside it."""
-        r = m.simulate_transient(760.0, 1355.0, 15.0)
+        r = m.simulate_transient(818.0, 1438.0, 15.0)
         assert r["limiting_zone"] == "OSS J-tube"
-        assert 120 < r["allowed_minutes"] < 240
-        assert r["zones"][0]["conductor_temp_c"][0] == pytest.approx(71.8, abs=0.5)
+        assert 25 < r["allowed_minutes"] < 50
+        assert r["zones"][0]["conductor_temp_c"][0] == pytest.approx(82.3, abs=0.5)
 
     def test_below_rating_never_reaches_limit(self):
-        r = m.simulate_transient(760.0, 800.0, 15.0)
+        r = m.simulate_transient(818.0, 840.0, 15.0)  # 15 °C rating 856 A
         assert r["allowed_minutes"] is None
         assert all(z["steady_state_c"] < 90 for z in r["zones"])
 
     def test_cold_ambient_buys_time(self):
-        warm = m.simulate_transient(760.0, 1355.0, 20.0)["allowed_minutes"]
-        cold = m.simulate_transient(760.0, 1355.0, 4.0)["allowed_minutes"]
+        warm = m.simulate_transient(818.0, 1438.0, 20.0)["allowed_minutes"]
+        cold = m.simulate_transient(818.0, 1438.0, 4.0)["allowed_minutes"]
         assert cold > warm
 
 
 class TestAPI:
     def test_endpoints(self):
         c = TestClient(app)
-        r = c.get("/api/v1/grid/cable/dts/profile", params={"current_a": 760, "ambient_temp_c": 15})
+        r = c.get("/api/v1/grid/cable/dts/profile", params={"current_a": 818, "ambient_temp_c": 15})
         assert r.status_code == 200
         assert r.json()["limiting_zone"] == "OSS J-tube"
-        r = c.post("/api/v1/grid/cable/dts/transient", json={"emergency_current_a": 1355})
+        r = c.post("/api/v1/grid/cable/dts/transient", json={"emergency_current_a": 1438})
         assert r.status_code == 200
         assert r.json()["allowed_minutes"] > 0
         assert (

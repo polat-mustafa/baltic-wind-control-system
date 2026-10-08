@@ -40,7 +40,7 @@ import { limitList, requestSignature, useLifecycleStore } from "../store/lifecyc
 import { useModeStore } from "../store/modeStore";
 import { signature, useProjectStore } from "../store/projectStore";
 import { useProjectSync } from "../store/projectSync";
-import { CASE_STUDY_SITE, useSiteStore } from "../store/siteStore";
+import { CASE_STUDY_GRID_NODE, CASE_STUDY_SITE, useSiteStore } from "../store/siteStore";
 import type { LoadFlowResult } from "../types/grid";
 import type { WakeAnalysisResult } from "../types/windResource";
 import { Button } from "../components/ui/Button";
@@ -206,7 +206,7 @@ export default function ReportPage() {
   useEffect(() => {
     void loadLayers();
     void fetchNetworkSpec();
-    if (reference) postAssess(CASE_STUDY_SITE, {}).then(setRefReport, () => setRefReport(null));
+    if (reference) postAssess(CASE_STUDY_SITE, {}, undefined, CASE_STUDY_GRID_NODE).then(setRefReport, () => setRefReport(null));
     else if (useSiteStore.getState().site && !useSiteStore.getState().report) void assess();
   }, [reference, loadLayers, fetchNetworkSpec, assess]);
 

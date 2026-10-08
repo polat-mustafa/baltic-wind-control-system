@@ -33,23 +33,26 @@ describe("reactiveBalance", () => {
     }
   });
 
-  it("switches the N+1 spare: 3 × 170 MVAr against 442 MVAr of charging", () => {
-    // no load: all three over-absorb by 68 MVAr, still less than the −102 two would leave
+  it("switches reactors: 4 × 180 MVAr against 624 MVAr of charging", () => {
+    // no load: all four over-absorb by 96 MVAr (> half the STATCOM), three leave −84 — one goes out.
+    // The backend load flow keeps four (+60 MVAr): there the grid and the Ferranti-raised cable
+    // voltage take part; this estimate ignores both.
     const idle = reactiveBalance(0);
     expect(idle.reactorsInService).toBe(3);
-    expect(idle.statcomMVAr).toBeCloseTo(510 - 442, 0);
+    expect(idle.statcomMVAr).toBeCloseTo(540 - 624, 0);
 
-    // rated: the transformers' and cables' I²X (≈ 146 MVAr) absorbs too — the spare goes out
+    // rated: the transformers' and cables' I²X (≈ 158 MVAr) absorbs too; two would leave −106,
+    // worse than three's +74, so three stay (backend: three, +28 MVAr)
     const full = reactiveBalance(510);
-    expect(full.reactorsInService).toBe(2);
-    expect(full.statcomMVAr).toBeCloseTo(340 + 146 - 442, 0);
+    expect(full.reactorsInService).toBe(3);
+    expect(full.statcomMVAr).toBeCloseTo(540 + 158 - 624, 0);
   });
 });
 
 describe("exportCableState", () => {
   it("matches Q = ωCV²L and stays within the 950 A / 90 °C rating at full output", () => {
     const idle = exportCableState(0);
-    expect(idle.chargingMVArPerCircuit).toBeCloseTo(221, 0); // 76.5 km: 2 × 221 = 442 MVAr
+    expect(idle.chargingMVArPerCircuit).toBeCloseTo(312, 0); // 108 km: 2 × 312 = 624 MVAr
     expect(idle.currentA).toBeGreaterThan(150); // charging current alone
 
     const full = exportCableState(510);
@@ -57,7 +60,7 @@ describe("exportCableState", () => {
     expect(full.loadingPct).toBeLessThan(100);
     expect(full.conductorC).toBeLessThan(EXPORT_CABLE.maxConductorC);
     expect(full.lossesMW).toBeGreaterThan(4);
-    expect(full.lossesMW).toBeLessThan(7); // ≈ 1.1 % of 510 MW over 76.5 km
+    expect(full.lossesMW).toBeLessThan(8); // ≈ 1.3 % of 510 MW over 108 km (backend 6.7 MW)
   });
 });
 
@@ -159,13 +162,13 @@ describe("export cable DTS profile", () => {
     expect(DTS_R_EXT_J_TUBE).toBeCloseTo(3.67, 2);
     expect(dtsTempC(0.1, 825, 20)).toBeCloseTo(90, 6);
     // HDD landfall is the onshore hotspot, below the J-tube
-    expect(dtsTempC(63.1, 825, 20)).toBeGreaterThan(dtsTempC(20, 825, 20));
-    expect(dtsTempC(63.1, 825, 20)).toBeLessThan(90);
-    // 510 MW → ≈ 760 A at the OSS end: below the 80 °C DTS alarm at 10 °C
-    expect(dtsTempC(0.1, 760, 10)).toBeLessThan(80);
-    // same numbers as backend steady_temps(): 760 A → 71.83 °C (J-tube, 15 °C), 825 A → 84.54 °C (HDD, 20 °C)
-    expect(dtsTempC(0.1, 760, 15)).toBeCloseTo(71.83, 1);
-    expect(dtsTempC(63.1, 825, 20)).toBeCloseTo(84.54, 1);
+    expect(dtsTempC(79.1, 825, 20)).toBeGreaterThan(dtsTempC(20, 825, 20));
+    expect(dtsTempC(79.1, 825, 20)).toBeLessThan(90);
+    // 510 MW → ≈ 818 A at the OSS end (99 %): below the 80 °C DTS alarm only in a cold sea
+    expect(dtsTempC(0.1, 818, 10)).toBeLessThan(80);
+    // same numbers as backend steady_temps(): 818 A → 82.34 °C (J-tube, 15 °C), 825 A → 84.54 °C (HDD, 20 °C)
+    expect(dtsTempC(0.1, 818, 15)).toBeCloseTo(82.34, 1);
+    expect(dtsTempC(79.1, 825, 20)).toBeCloseTo(84.54, 1);
   });
 });
 

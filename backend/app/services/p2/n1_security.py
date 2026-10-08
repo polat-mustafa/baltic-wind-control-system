@@ -15,7 +15,7 @@ Contingencies
 - String feeder trip (6, preventive): the feeder breaker opens, the string's
   cables and turbines go dark. Losing generation only unloads the rest.
 - Export circuit trip (corrective): one of the 2 × 220 kV circuits. The
-  remaining circuit (~314 MVA, 825 A) is far overloaded at full output (SB-510: 76.5 km,
+  remaining circuit (~314 MVA, 825 A) is far overloaded at full output (SB-510: 108 km,
   its own charging current adds to the load current). Protection intertrips
   that circuit's two shunt reactors (onshore and OSS) so neither busbar is
   over-compensated.

@@ -519,8 +519,8 @@ def test_wake_deficit_at_8d_downstream():
     assert 0.15 < deficit < 0.20, f"Wake deficit {deficit:.3f} outside expected range"
 
 def test_cable_reactive_power():
-    """One 76.5 km 220 kV export circuit, C = 190 nF/km → Q = ωCV²L ≈ 221 MVAR (three-phase, V = V_LL).
-    The farm has 2 parallel export cables → ≈ 442 MVAR in total (the function's default)."""
+    """One 108 km 220 kV export circuit, C = 190 nF/km → Q = ωCV²L ≈ 312 MVAR (three-phase, V = V_LL).
+    The farm has 2 parallel export cables → ≈ 624 MVAR in total (the function's default)."""
     q_mvar = calculate_cable_reactive_power(
         c_nf_per_km=190.0,
         voltage_kv=220.0,
@@ -605,7 +605,7 @@ Grid Integration Module — HV Power System Analysis
 
 Implements steady-state and quasi-dynamic power system analysis for a
 510 MW offshore wind farm connected to the PSE transmission grid via
-76.5 km 220 kV HVAC export cable.
+108 km 220 kV HVAC export cable.
 
 Standards Implemented:
 - IEC 60909-0:2016 — Short-circuit current calculation

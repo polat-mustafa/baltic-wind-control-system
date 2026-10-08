@@ -76,17 +76,18 @@ export const hvacVsHvdcEducation: EducationContent = {
     {
       title: "SB-510 (510 MW) — HVAC chosen over HVDC",
       scenario:
-        "510 MW capacity, 76.5 km route, 220 kV three-core 1000 mm² Cu cable, C' = 190 nF/km, I_th = 825 A.",
+        "510 MW capacity, 108 km route, 220 kV three-core 1000 mm² Cu cable, C' = 190 nF/km, I_th = 825 A.",
       steps: [
-        "I_c = 2π · 50 · 190e-9 · 220,000/√3 · 76.5 ≈ 580 A, compensated half at each end → 290 A",
-        "P_active = √3 · 220 · √(825² − 290²) ≈ √3 · 220 · 772 = 294 MW per cable",
-        "Two cables → ≈ 589 MW capacity, above the 510 MW farm (one cable alone is not enough)",
-        "4 × 120 MVAR shunt reactors, one per cable at each end, absorb most of the ~442 MVAR charging power",
+        "I_c = 2π · 50 · 190e-9 · 220,000/√3 · 108 ≈ 819 A, compensated half at each end → 410 A",
+        "P_active = √3 · 220 · √(825² − 410²) ≈ √3 · 220 · 716 = 273 MW per cable",
+        "Two cables → ≈ 546 MW capacity, just above the 510 MW farm (one cable alone is not enough)",
+        "4 × 180 MVAR shunt reactors, one per cable at each end, absorb most of the ~624 MVAR charging power",
       ],
       result:
-        "Two parallel 220 kV three-core cables with onshore + offshore reactors carry the 510 MW farm at 92 % of their " +
-        "rating (P2 load flow). HVDC would add two converter stations and ≈ 2 % converter loss for no gain in " +
-        "capacity at this distance.",
+        "Two parallel 220 kV three-core cables with onshore + offshore reactors carry the 510 MW farm at 99 % of their " +
+        "rating (P2 load flow) — at 108 km the charging current already takes 13 % of each cable's capacity. HVDC " +
+        "would still add two converter stations and ≈ 2 % converter loss; a longer route or a bigger farm would " +
+        "need a third circuit, mid-route compensation or HVDC.",
     },
     {
       title: "Counter-example: a 2 GW farm 130 km offshore",

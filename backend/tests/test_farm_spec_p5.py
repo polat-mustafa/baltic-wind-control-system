@@ -29,6 +29,7 @@ from app.models.programme import FATCampaignModel, SwitchingProgrammeModel
 from app.services.p2.network_model import SB510, design, export_circuit_capacity_mw
 from app.services.p2.statcom_sizing import check_reactors
 from app.services.p5.energisation import (
+    circuit1_capability_mw,
     circuit1_limit_mw,
     onshore_tap,
     section_a_mw,
@@ -66,9 +67,10 @@ def test_sb510_registry_is_unchanged():
         *(f"{d}-STR-0{n}" for d in ("CB", "ES") for n in range(1, 7)),
         *(f"WTG-GRP-0{n}" for n in (1, 2, 3)),
     }
-    # the onshore line reactor is energised with the 76.5 km cable: no OLTC pre-set needed
+    # the onshore line reactor is energised with the 108 km cable; the open end still
+    # needs the onshore OLTC 3 steps down
     assert {"CB-SR-ON-01", "ES-SR-ON-01", "CB-SR-01", "ES-SR-01"} <= _ids(SB510)
-    assert onshore_tap(SB510) == 0
+    assert onshore_tap(SB510) == 3
 
 
 def test_four_string_project():
@@ -88,7 +90,9 @@ def test_four_string_project():
 def test_gw_farm_circuit1_is_limited_by_the_ppc():
     assert section_a_mw(GW) == 540
     limit = circuit1_limit_mw(GW)
-    assert limit == pytest.approx(0.9 * export_circuit_capacity_mw(45.0))
+    assert limit == pytest.approx(0.9 * circuit1_capability_mw(GW))
+    # 45 km: the load flow lands close to the analytic even-split capacity
+    assert circuit1_capability_mw(GW) == pytest.approx(export_circuit_capacity_mw(45.0), rel=0.03)
     assert limit < 540
     p = _completed(GW)
     assert (
@@ -194,4 +198,4 @@ def test_api_without_header_is_sb510(client: TestClient):
     assert pid.startswith("SB5-SP-")
     assert detail["farm"]["name"] == "SB-510"
     assert detail["total_steps"] == 63
-    assert detail["farm"]["reactor_unit_mvar"] == 120
+    assert detail["farm"]["reactor_unit_mvar"] == 180

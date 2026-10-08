@@ -3,8 +3,8 @@
  * (SB-510: ±120 MVAr).
  *
  * Centrepiece is the reactive power balance it closes: the export cables
- * generate their charging power (SB-510: 2 × 76.5 km ≈ 442 MVAr), the shunt
- * reactors (SB-510: 4 × 120 MVAr, one per export circuit at each end) absorb the bulk, transformer/cable I²X
+ * generate their charging power (SB-510: 2 × 108 km ≈ 624 MVAr), the shunt
+ * reactors (SB-510: 4 × 180 MVAr, one per export circuit at each end) absorb the bulk, transformer/cable I²X
  * losses absorb more as output rises, and the STATCOM trims the remainder so
  * Q ≈ 0 at the grid connection.
  *

@@ -13,7 +13,7 @@ import { applyDoc, buildDoc, DEFAULT_NAME, parseDoc } from "../../lib/project/do
 import { cn } from "../../lib/utils";
 import { useModeStore, type Mode } from "../../store/modeStore";
 import { useProjectSync } from "../../store/projectSync";
-import { CASE_STUDY_SITE } from "../../store/siteStore";
+import { CASE_STUDY_GRID_NODE, CASE_STUDY_SITE } from "../../store/siteStore";
 import { Button } from "../ui/Button";
 import { SaveOnline } from "./SaveOnline";
 
@@ -84,7 +84,7 @@ export default function ProjectMenu() {
   const fromSb510 = () =>
     startProject("Start from SB-510? Its site and 34-turbine layout are copied; you run the permit stages and the rest.", {
       name: "SB-510 copy",
-      site: { polygon: CASE_STUDY_SITE },
+      site: { polygon: CASE_STUDY_SITE, gridNode: CASE_STUDY_GRID_NODE },
       turbines: TURBINE_POSITIONS.map(({ id, lon, lat }) => ({ id, lon, lat })),
       oss: [OSS_GEO.lon, OSS_GEO.lat],
     });

@@ -67,8 +67,8 @@ def test_full_run_completes_and_leaves_section_b_earthed():
     assert p.loto_set is not None
     assert p.loto_set.points[point_id_for("ES-OSS-66-02")].status == LOTOStatus.APPLIED
     rated = next(s for s in p.steps if s.check_id == "rated")
-    # section A is 270 MW; one 825 A circuit carries ≈ 294 MW at 76.5 km → PPC limit 90 %
-    assert "265 MW" in rated.reading and "PPC limits the output" in rated.notes
+    # section A is 270 MW; one 825 A circuit carries ≈ 233 MW at 108 km → PPC limit 90 %
+    assert "210 MW" in rated.reading and "PPC limits the output" in rated.notes
 
 
 def test_verification_readings_are_recorded():

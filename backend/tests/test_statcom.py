@@ -38,16 +38,16 @@ class TestCableReactivePower:
         assert q > 0, f"Cable Q = {q} MVAR (must be positive)"
 
     def test_cable_q_range(self):
-        """One export circuit: Q = ω × C × V² × L = 314.16 × 190e-9 × (220e3)² × 76.5 ≈ 221 MVAR."""
+        """One export circuit: Q = ω × C × V² × L = 314.16 × 190e-9 × (220e3)² × 108 ≈ 312 MVAR."""
         q = calculate_cable_reactive_power(num_cables=1)
-        assert q == pytest.approx(221.0, abs=0.5), f"Cable Q = {q:.1f} MVAR"
+        assert q == pytest.approx(312.0, abs=0.5), f"Cable Q = {q:.1f} MVAR"
 
     def test_cable_q_two_export_cables(self):
-        """Default = both export circuits: 2 × 221 ≈ 442 MVAR."""
-        assert calculate_cable_reactive_power() == pytest.approx(442.0, abs=1.0)
+        """Default = both export circuits: 2 × 312 ≈ 624 MVAR."""
+        assert calculate_cable_reactive_power() == pytest.approx(624.0, abs=1.0)
 
     def test_statcom_sizing_formula(self):
-        """N-1 design case: (442 − 3 × 120) × 1.15 = 94 → rounded up to 100 MVAR, inside the
+        """N-1 design case: (624 − 3 × 180) × 1.15 = 97 → rounded up to 100 MVAR, inside the
         ±120 MVAR installed (sized by the 120 MVAR per 510 MW capability rule)."""
         assert size_statcom() == pytest.approx(100.0)
         assert size_statcom() <= STATCOM_RATING_MVAR
@@ -95,16 +95,14 @@ class TestSTATCOMSizing:
         assert rating % 10 == 0
 
     def test_statcom_fewer_reactors_larger(self):
-        """More reactors out of service → larger STATCOM needed."""
-        assert (
-            size_statcom(reactors_out=0)
-            < size_statcom(reactors_out=1)
-            < size_statcom(reactors_out=2)
-        )
+        """Two reactors out needs far more than one out: (624 − 360) × 1.15 = 304 → 310 MVAR.
+        All four in over-compensates: (720 − 624) × 1.15 = 110 → 120 MVAR, which is why the
+        operator switches one out at high load (the N-1 case, 100 MVAR, is the smallest)."""
+        assert [size_statcom(reactors_out=k) for k in (0, 1, 2)] == [120.0, 100.0, 310.0]
 
     def test_two_reactor_design_not_n1_secure(self):
-        """Only 2 × 120 (one end compensated): one out → (442 − 120) × 1.15 = 370.3 → 380 MVAR."""
-        assert size_statcom(num_reactors=2) == pytest.approx(380.0)
+        """Only 2 × 180 (one end compensated): one out → (624 − 180) × 1.15 = 510.6 → 520 MVAR."""
+        assert size_statcom(num_reactors=2) == pytest.approx(520.0)
         assert size_statcom(num_reactors=2) > STATCOM_RATING_MVAR
 
 
@@ -139,12 +137,12 @@ class TestCompensationValidation:
         assert result.cable_q_mvar > 0
 
     def test_reactor_q_in_result(self):
-        """Result must include total reactor Q (4 × 120 = 480 MVAR, both ends)."""
+        """Result must include total reactor Q (4 × 180 = 720 MVAR, both ends)."""
         result = validate_compensation()
-        assert result.reactor_q_mvar == pytest.approx(480.0)
+        assert result.reactor_q_mvar == pytest.approx(720.0)
 
     def test_reactor_n1_secure(self):
-        """One reactor out: voltage compliant and STATCOM not saturated (≈ −80 MVAR)."""
+        """One reactor out: voltage compliant and STATCOM not saturated (≈ −67 MVAR)."""
         result = validate_compensation()
         assert result.reactor_n1_secure
         assert -STATCOM_RATING_MVAR < result.reactor_n1_statcom_q_mvar < 0.0
@@ -155,10 +153,10 @@ class TestCompensationValidation:
         assert not validate_compensation(spec=two_reactors).reactor_n1_secure
 
     def test_ferranti_vs_uncompensated_rise(self):
-        """Ferranti along 76.5 km is ≈ 2 % (βL ≈ 0.20 rad); the rest of the rise is
-        charging current through X."""
+        """Ferranti along 108 km is ≈ 4.3 % (βL ≈ 0.29 rad, 1 / cos βL); the rest of the
+        24.5 % uncompensated rise is charging current through X."""
         result = validate_compensation()
-        assert 0.015 < result.ferranti_rise_pu < 0.025
+        assert 0.040 < result.ferranti_rise_pu < 0.046
         assert result.uncompensated_rise_pu > 5 * result.ferranti_rise_pu
 
     def test_pse_reactive_range_at_poc(self):

@@ -21,7 +21,7 @@ export const powerQualityEducation: EducationContent = {
 
   technicalExplanation:
     "Model: positive-sequence nodal network per harmonic order — grid Thevenin, both transformer stages, the two " +
-    "76.5 km export circuits as exact distributed π sections, the 4 × 120 MVAR reactors (one per cable at each end) " +
+    "108 km export circuits as exact distributed π sections, the 4 × 180 MVAR reactors (one per cable at each end) " +
     "and the array cable charging. " +
     "WTG emission (% of rated current) is summed over 34 units with the IEC 61000-3-6 exponent (α = 2 above the " +
     "10th: √34 ≈ 5.8×) and multiplied by |Z(h)| to give harmonic voltages. Judged against IEC TR 61000-3-6 Table 2 " +
@@ -115,24 +115,26 @@ export const powerQualityEducation: EducationContent = {
     {
       title: "Where the network rings — and the filter that fixes it",
       scenario:
-        "10 GVA grid, 2 × 76.5 km cable, reactors in, typical full-converter emission.",
+        "10 GVA grid, 2 × 108 km cable, reactors in, typical full-converter emission.",
       steps: [
-        "Without a filter, scan from OSS 66 kV: parallel resonances at ≈ 130 Hz (h 2.6), ≈ 725 Hz (h 14.5) and ≈ 960 Hz (h 19.2)",
-        "At h19 |Z| ≈ 288 Ω versus ≈ 2.8 Ω at 50 Hz: ≈ 5.5× more than a plain inductance (2.8 Ω × 19 = 53 Ω)",
-        "0.2 % h19 emission × √34 → 1.16 % at OSS 66 kV, 108 % of the 1.07 % HV planning level — FAIL",
-        "Filter design: worst order h19 → tune to h18 (900 Hz); smallest size with every order ≤ 50 % of its planning " +
-          "level at 0.5, 1 and 2 × S_sc and no resonance on h5…h25 = 5 Mvar",
-        "Elements at 66 kV: X_C − X_L = 66²/5 = 871 Ω, X_L = X_C/18² → C = 3.64 µF, L = 8.59 mH, R = 1.5 × 18 × ω₀L = 72.8 Ω",
-        "With the filter: h19 |Z| = 26 Ω, 0.105 % = 9.8 % of the planning level; the 960 Hz peak moves to ≈ 645 Hz (h 12.9) " +
-          "at amplification 2.6; worst order h13 at 50 %, THD 0.98 %",
-        "At the PSE 400 kV POC THD ≈ 0.17 % (0.18 % without) — the grid side was never the problem",
+        "Without a filter, scan from OSS 66 kV: parallel resonances at ≈ 115 Hz (h 2.3), ≈ 545 Hz (h 10.9) and ≈ 880 Hz (h 17.6)",
+        "At h17 |Z| ≈ 178 Ω versus ≈ 2.9 Ω at 50 Hz: ≈ 3.6× more than a plain inductance (2.9 Ω × 17 = 49 Ω)",
+        "0.25 % h17 emission × √34 → 0.89 % at OSS 66 kV, 74.5 % of the 1.2 % HV planning level — within the limit, " +
+          "but past the 50 % a single plant may take",
+        "Filter design: worst order h17 → tune to h16 (800 Hz); every characteristic order ≤ 50 % of its planning " +
+          "level at 0.5, 1 and 2 × S_sc and no resonance on h5…h25: 2 Mvar (larger sizes pull the h2 resonance down)",
+        "Elements at 66 kV: X_C − X_L = 66²/2 = 2 178 Ω, X_L = X_C/16² → C = 1.46 µF, L = 27.2 mH, R = 1.5 × 16 × ω₀L = 205 Ω",
+        "With the filter: h17 |Z| = 75 Ω, 0.38 % = 31.5 % of the planning level; the 880 Hz peak drops to ≈ 840 Hz (h 16.8) " +
+          "at amplification 1.5; worst order h11 at 34 %, THD 0.85 % (1.23 % without)",
+        "At the PSE 400 kV POC THD ≈ 0.14 % (0.15 % without) — the grid side was never the problem",
+        "Left over: the 108 km cable against the grid rings at ≈ 115 Hz (h 2.3, × 12) — a 66 kV high-pass can't move " +
+          "it; h2 stays at ≤ 75 % of its planning level at half the grid strength",
       ],
       result:
-        "The farm's own 66 kV busbar needs the filter: the 960 Hz resonance (array cable capacitance against the OSS " +
-        "transformers and the grid) sits next to h19. A 5 Mvar damped high-pass at OSS 66 kV brings h19 from 108 % to " +
-        "10 % of the planning level. At 50 Hz it is a 5 Mvar capacitor the STATCOM absorbs (−2.8 → −7.8 Mvar at full " +
-        "load). A 2–3 Mvar filter leaves an amplified peak next to h13 at some grid strengths; a real study re-checks it once the converter " +
-        "harmonic models are final.",
+        "The farm's own 66 kV busbar needs the filter: the 880 Hz resonance (array cable capacitance against the OSS " +
+        "transformers and the grid) sits next to h17. A 2 Mvar damped high-pass at OSS 66 kV brings h17 from 74.5 % to " +
+        "31.5 % of the planning level. At 50 Hz it is a 2 Mvar capacitor the STATCOM absorbs (+30.3 → +28.4 Mvar at full " +
+        "load). A real study re-checks it once the converter harmonic models are final.",
     },
   ],
 

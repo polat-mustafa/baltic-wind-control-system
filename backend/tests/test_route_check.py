@@ -13,39 +13,41 @@ from app.services.site_assessment.route_check import RouteError, auto_route, che
 
 client = TestClient(app)
 
-#: SB-510's surveyed export route (frontend constants/windFarmLayout.ts EXPORT_CABLE_GEO):
-#: OSS → round the west end of Ławica Słupska → across PZP_15 → landfall Zaleskie → onshore.
+#: SB-510's export route (frontend constants/windFarmLayout.ts EXPORT_CABLE_GEO): OSS → round the
+#: west end of Ławica Słupska → across PZP_15 / PZP_10 → the corridor between PZP_23 and the
+#: military area → landfall Darłówko-Wschodnie → north of the Wieprza valley → Krzemienica.
 SB510_ROUTE = [
     [16.442, 55.026],
     [16.335, 54.93],
-    [16.37, 54.855],
-    [16.395, 54.745],
-    [16.69, 54.615],
-    [16.735, 54.5698],
-    [16.742, 54.55],
-    [16.76, 54.53],
-    [16.79, 54.516],
-    [16.825, 54.51],
-    [16.85, 54.498],
-    [16.872, 54.506],
+    [16.165, 54.845],
+    [16.10, 54.70],
+    [16.11, 54.605],
+    [16.146, 54.581],
+    [16.25, 54.534],
+    [16.345, 54.491],
+    [16.4073, 54.4589],
+    [16.47, 54.455],
+    [16.60, 54.468],
+    [16.70, 54.478],
+    [16.77, 54.468],
+    [16.835, 54.442],
 ]
 
 
-def test_sb510_route_is_76_5_km_and_crosses_pzp15_at_right_angles() -> None:
+def test_sb510_route_is_108_km_clear_of_closed_areas() -> None:
     r = check_route(load_region("southern-baltic"), SB510_ROUTE)
-    assert r.total_km == pytest.approx(76.5, abs=0.3)  # network_model.EXPORT_CABLE_LENGTH_KM
-    assert r.offshore_km == pytest.approx(63.3, abs=0.5)
-    assert r.onshore_km == pytest.approx(13.2, abs=0.5)
+    assert r.total_km == pytest.approx(108.0, abs=0.3)  # network_model.EXPORT_CABLE_LENGTH_KM
+    assert r.offshore_km == pytest.approx(79.3, abs=0.5)
+    assert r.onshore_km == pytest.approx(28.7, abs=0.5)
     assert r.landfall is not None
-    assert r.landfall == pytest.approx((16.735, 54.5698), abs=0.01)  # Zaleskie
-    pzp15 = [c for c in r.shipping if c.name.startswith("PZP_15")]
-    assert len(pzp15) == 2 and all(c.angle_deg > 85 for c in pzp15)
-    assert r.cables == []
-    names = {a.name for a in r.natura}
-    assert not any("Ławica Słupska" in n for n in names)  # round its west end
-    assert any("PLB990002" in n for n in names)  # the coastal bird area spans the whole coast
+    assert r.landfall == pytest.approx((16.407, 54.459), abs=0.01)  # Darłówko-Wschodnie
+    assert {c.name[:6] for c in r.shipping} == {"PZP_10", "PZP_15"}
+    assert all(c.angle_deg > 60 for c in r.shipping)
+    assert r.cables == [] and r.restricted == []
+    # only the coastal bird area, which spans the whole coast (HDD at the landfall)
+    assert [a.name for a in r.natura] == ["Przybrzeżne wody Bałtyku (PLB990002)"]
     status = {c.id: c.status for c in r.checks}
-    assert status["landfall"] == "info" and status["cables"] == "pass"
+    assert status["restricted"] == "pass" and status["cables"] == "pass"
     assert status["shipping"] == "info"  # every crossing ≥ 45°
 
 
@@ -184,7 +186,7 @@ def test_route_check_api() -> None:
     r = client.post("/api/v1/site/route-check", json={"route": SB510_ROUTE})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["auto"] is False and body["total_km"] == pytest.approx(76.5, abs=0.3)
+    assert body["auto"] is False and body["total_km"] == pytest.approx(108.0, abs=0.3)
     auto = client.post(
         "/api/v1/site/route-check",
         json={"start": [16.442, 55.026], "grid_node": "Słupsk Wierzbięcin 400/110 kV"},

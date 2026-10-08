@@ -8,7 +8,7 @@ Misalignment reduces power by cos^n(γ), where:
     γ = wind direction - nacelle direction  (yaw error)
     n ≈ 3 for power loss (cos³ is the standard approximation)
 
-Yaw motors turn the nacelle slowly (0.3 °/s) to track wind direction.
+Yaw motors turn the nacelle slowly (0.5 °/s) to track wind direction.
 A deadband prevents continuous hunting in turbulent conditions.
 
 Standards Layer
@@ -34,18 +34,21 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from app.services.p1.turbine_models import rosco
+
+_, _CONTROL = rosco()
+
 # ── Yaw system constants ───────────────────────────────────────────────
 
-YAW_RATE_DEG_S: float = 0.3
-"""Maximum yaw rate [deg/s].
+YAW_RATE_DEG_S: float = _CONTROL.yaw_rate_deg_s
+"""Yaw rate [deg/s] — 0.50 (ROSCO Y_Rate 0.0087 rad/s, IEA 15 MW).
 
-The V236 uses electric yaw drives (4 motors) turning the nacelle on a
-yaw bearing.  0.3 °/s is typical — slow to minimize structural loads.
-A full 180° turn takes 10 minutes.
+Electric yaw drives turn the nacelle on a 6.5 m yaw bearing (Gaertner et al. 2020);
+slow to limit gyroscopic loads. A full 180° turn takes 6 minutes.
 """
 
-DEADBAND_DEG: float = 8.0
-"""Yaw deadband [deg].
+DEADBAND_DEG: float = _CONTROL.yaw_error_threshold_deg
+"""Yaw deadband [deg] — 8 (ROSCO Y_ErrThresh).
 
 The yaw system ignores misalignment smaller than ±8°.
 This prevents continuous hunting in turbulent wind conditions
@@ -55,7 +58,9 @@ and reduces mechanical wear on the yaw bearing and drives.
 POWER_LOSS_EXPONENT: float = 3.0
 """Exponent for yaw misalignment power loss.
 
-Power ∝ cos^n(yaw), where n = 3 is the standard approximation.
+Power ∝ cos^n(yaw), n = 3 from the axial-momentum argument (cos γ on the
+normal wind component, cubed); field measurements report n ≈ 1.8–3
+(literature approximation).
 At yaw = 8°:  cos³(8°) = 0.971 → only 2.9% loss (acceptable).
 At yaw = 30°: cos³(30°) = 0.650 → 35% loss (must correct).
 """

@@ -33,8 +33,6 @@ export interface LayerVisibility {
   aisTraffic: boolean;
   /** Export cable DTS temperature profile (IEC 60287 model) */
   cableDts: boolean;
-  /** The learner's layout project (hand-over preview) over the reference farm */
-  myProject: boolean;
 }
 
 /** Map look: ISA-101 control room (default) or the hand-drawn "storybook" demo. */
@@ -71,7 +69,6 @@ export const useLayerStore = create<LayerState>((set) => ({
     fibreComms: false,
     aisTraffic: true,
     cableDts: false,
-    myProject: false,
   },
   mapTheme: loadTheme(),
   setMapTheme: (mapTheme) => {

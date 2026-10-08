@@ -206,8 +206,9 @@ def test_rule4_signs_and_poc_quantities():
     wtg = next(b for b in r.buses if b.name == "WTG_01")
     assert wtg.p_mw == pytest.approx(15.0, abs=0.01)  # generator injects +15 MW
     oss_220 = next(b for b in r.buses if b.name == "OSS_220kV")
-    assert oss_220.q_mvar < 0  # three 80 MVAR reactors absorb more than the STATCOM gives
-    assert r.poc_p_mw == pytest.approx(r.total_generation_mw - r.total_loss_mw, abs=0.05)
+    assert oss_220.q_mvar < 0  # the OSS reactors absorb more than the STATCOM gives
+    # both reported to 0.01 / 0.1 MW
+    assert r.poc_p_mw == pytest.approx(r.total_generation_mw - r.total_loss_mw, abs=0.1)
 
 
 def test_n_minus_1_string_is_de_energised_not_nan():

@@ -13,8 +13,10 @@ import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
 import { usePowerQualityStore } from "../../store/powerQualityStore";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
+import { useNetwork } from "../../store/gridStore";
 
 export default function HarmonicSpectrumPanel() {
+  const n = useNetwork();
   const { harmonics } = usePowerQualityStore();
   const c = useChartPalette();
   if (!harmonics?.harmonics.length) return null;
@@ -32,7 +34,7 @@ export default function HarmonicSpectrumPanel() {
     <ChartWrapper
       title={`Harmonics — WTG emission and the voltage it causes at ${harmonics.bus}`}
       headerRight={<EducationButton content={powerQualityEducation} />}
-      footer={`THD ${harmonics.thd_voltage_pct.toFixed(2)} % (planning level ${harmonics.thd_limit_pct} %) · ${harmonics.violations.length ? `✗ ${harmonics.violations.join(" · ")}` : "✓ all orders below the IEC TR 61000-3-6 planning levels"} · emission illustrative full-converter, summed over 34 WTGs`}
+      footer={`THD ${harmonics.thd_voltage_pct.toFixed(2)} % (planning level ${harmonics.thd_limit_pct} %) · ${harmonics.violations.length ? `✗ ${harmonics.violations.join(" · ")}` : "✓ all orders below the IEC TR 61000-3-6 planning levels"} · emission illustrative full-converter, summed over ${n.num_turbines} WTGs`}
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div>

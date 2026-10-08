@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.network import (
     LatencyBudgetResponse,
     NetworkTopologyResponse,
@@ -33,7 +34,7 @@ router = APIRouter(tags=["M15 Communication Network"])
     response_model=NetworkTopologyResponse,
     summary="Full OT communication network topology",
 )
-async def get_network_topology() -> NetworkTopologyResponse:
+async def get_network_topology(spec: FarmSpecDep) -> NetworkTopologyResponse:
     """
     Return the complete OT communication network topology for SB-510.
 
@@ -51,9 +52,9 @@ async def get_network_topology() -> NetworkTopologyResponse:
     The OPC-UA server on the OSS gateway aggregates all turbine data and exposes
     it as a unified address space (urn:offshoreforge:scada).
 
-    **Tier 3 — WAN (OSS to Onshore, 45 km):**
+    **Tier 3 — WAN (OSS to Onshore, 108 km):**
     Primary: dedicated OPGW fibre in the export cable jacket.
-    Propagation delay: 45 km × 5 µs/km = 0.225 ms.
+    Propagation delay: 108 km × 5 µs/km = 0.54 ms.
     Backup: licensed microwave link (L-band, 100 Mbps, <1 ms path).
     Both paths use IPsec AES-256 tunnels terminating at firewalls (IEC 62443 conduit).
 
@@ -62,7 +63,7 @@ async def get_network_topology() -> NetworkTopologyResponse:
     This is a regulatory requirement under PSE IRiESP — the DSO/TSO must be able
     to monitor real-time generation at the POC.
     """
-    result = svc.get_network_topology()
+    result = svc.get_network_topology(spec)
     return NetworkTopologyResponse(**result)
 
 
@@ -71,7 +72,7 @@ async def get_network_topology() -> NetworkTopologyResponse:
     response_model=OPCUANamespaceResponse,
     summary="OPC-UA address space summary (wind farm SCADA namespace)",
 )
-async def get_opcua_namespace() -> OPCUANamespaceResponse:
+async def get_opcua_namespace(spec: FarmSpecDep) -> OPCUANamespaceResponse:
     """
     Return OPC-UA address space definition for the SB-510 SCADA gateway.
 
@@ -103,7 +104,7 @@ async def get_opcua_namespace() -> OPCUANamespaceResponse:
     The OPC-UA publisher pushes all 100 ms nodes to the onshore historian
     via OPC-UA PubSub (UDP multicast over the IPsec WAN tunnel).
     """
-    result = svc.get_opcua_namespace()
+    result = svc.get_opcua_namespace(spec)
     return OPCUANamespaceResponse(**result)
 
 
@@ -113,6 +114,7 @@ async def get_opcua_namespace() -> OPCUANamespaceResponse:
     summary="IEC 61850 latency budget analysis for a message path",
 )
 async def get_latency_budget(
+    spec: FarmSpecDep,
     path: int = Query(
         default=0,
         ge=0,
@@ -155,5 +157,5 @@ async def get_latency_budget(
     Speed of light in fibre: ~200,000 km/s (refractive index 1.5).
     1 km fibre ≈ 5 µs one-way. For 50 m OSS internal cabling: ~0.25 µs.
     """
-    result = svc.get_latency_budget(path)
+    result = svc.get_latency_budget(path, spec)
     return LatencyBudgetResponse(**result)

@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any
 
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -74,13 +75,32 @@ def test_hub_wind_shear() -> None:
 def test_no_weather_limits_gives_the_planned_duration() -> None:
     """With every limit far above any sea state there is no waiting on weather."""
     huge = {v: (99.0, 99.0) for v in ("HLV", "WTIV", "CLV", "CTV")}
-    r = run_campaign(_inp(limits=huge, alpha=1.0))
+    r = run_campaign(_inp(limits=huge, alpha=1.0, port_km=42.0))
     assert all(a["wow_days"] == 0 for a in r["activities"])
     assert r["total_days"]["p10"] == r["total_days"]["p90"]
-    # HLV: OSS (one trip 2 d + 2 × 36 h) = 5 d,
-    # then 12 monopiles (3 trips × 2 d + 12 × 30 h) = 21 d → 26 d
+    # HLV at 7 km/h: 2 × 42 km = 12 h at sea per round trip (ORBIT).
+    # OSS: one trip (2 × 12 h fastening + 12 h) = 36 h + 2 × 36 h = 108 h;
+    # 12 monopiles: 3 trips × (4 × 20 h + 12 h = 92 h → 96 h in 6 h steps) + 12 × 30 h = 648 h
     found = next(a for a in r["activities"] if a["id"] == "foundations")
-    assert found["end_day"] == 26.0
+    assert found["trip_hours"] == 92.0
+    assert found["end_day"] == (108 + 648) / 24
+
+
+def test_a_far_port_lengthens_the_campaign() -> None:
+    """Every port call sails out and back: transit = 2 × distance / speed (ORBIT speeds)."""
+    huge = {v: (99.0, 99.0) for v in ("HLV", "WTIV", "CLV", "CTV")}
+    near = run_campaign(_inp(limits=huge, alpha=1.0, port_km=50.0))
+    far = run_campaign(_inp(limits=huge, alpha=1.0, port_km=200.0))
+    trip = {a["id"]: a["trip_hours"] for a in far["activities"]}
+    near_trip = {a["id"]: a["trip_hours"] for a in near["activities"]}
+    assert trip["turbines"] - near_trip["turbines"] == pytest.approx(
+        2 * 150 / 10.0, abs=0.1
+    )  # WTIV
+    assert trip["foundations"] - near_trip["foundations"] == pytest.approx(
+        2 * 150 / 7.0, abs=0.1
+    )  # HLV
+    assert far["total_days"]["p50"] > near["total_days"]["p50"]
+    assert {v["id"]: v["transit_kmh"] for v in far["vessels"]}["WTIV"] == 10.0
 
 
 def test_percentiles_are_ordered_and_reproducible() -> None:

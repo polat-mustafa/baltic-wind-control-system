@@ -34,6 +34,8 @@ from app.routers.p2 import router as p2_router  # noqa: E402
 from app.routers.p3 import router as p3_router  # noqa: E402
 from app.routers.p4 import router as p4_router  # noqa: E402
 from app.routers.p5 import router as p5_router  # noqa: E402
+from app.routers.projects import purge_idle_projects  # noqa: E402
+from app.routers.projects import router as projects_router  # noqa: E402
 from app.routers.site_assessment import router as site_assessment_router  # noqa: E402
 from app.routers.turbine_physics import router as turbine_physics_router  # noqa: E402
 from app.routers.turbine_subsystems import router as turbine_subsystems_router  # noqa: E402
@@ -49,7 +51,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     Startup:
     1. Initialise Redis connection (graceful if unavailable)
-    2. Seed the reference wind farm (idempotent)
+    2. Seed the reference wind farm (idempotent), purge projects idle for 12 months
 
     Shutdown:
     1. Close Redis connection
@@ -62,6 +64,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await seed_default_farm()
         async with async_session_factory() as session:
             await seed_master_alarm_database(session)
+            await purge_idle_projects(session)
     except Exception:
         logger.warning("Seed failed — database may not be migrated yet")
 
@@ -110,6 +113,7 @@ app.include_router(turbine_subsystems_router)
 app.include_router(digital_twin_router)
 app.include_router(site_assessment_router)
 app.include_router(lifecycle_router)
+app.include_router(projects_router)
 
 
 @app.get("/health")

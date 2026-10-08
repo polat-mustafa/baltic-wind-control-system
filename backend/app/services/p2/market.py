@@ -40,7 +40,7 @@ from typing import Any
 import numpy as np
 from scipy.optimize import linprog
 
-from app.services.p1.wake_model import get_v236_power_curve_kw
+from app.services.p1.wake_model import get_power_curve_kw
 from app.services.p2.bess import (
     RATED_ENERGY_MWH,
     RATED_POWER_MW,
@@ -82,8 +82,8 @@ SCENARIOS: dict[str, dict[str, Any]] = {
 
 
 def farm_mw(wind_ms: np.ndarray) -> np.ndarray:
-    """Farm output [MW] from hub-height wind: 34 × V236 curve × losses, 0 ≤ P ≤ 510."""
-    p = np.asarray(get_v236_power_curve_kw(wind_ms), dtype=float)
+    """Farm output [MW] from hub-height wind: 34 × reference (IEA 15 MW) curve × losses, 0 ≤ P ≤ 510."""
+    p = np.asarray(get_power_curve_kw(wind_ms), dtype=float)
     return np.clip(N_TURBINES * p / 1000.0 * LOSS_FACTOR, 0.0, RATED_MW)
 
 

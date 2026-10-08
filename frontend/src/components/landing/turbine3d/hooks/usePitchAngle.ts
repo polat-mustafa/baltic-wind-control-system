@@ -1,7 +1,7 @@
 /**
  * Smoothly animates each blade to the target pitch angle.
  *
- * The V236 pitch actuator moves at ~6°/s. Each blade turns about its OWN
+ * The pitch actuator is rate-limited to 2°/s (IEA 15 MW, ROSCO PC_MaxRat). Each blade turns about its OWN
  * long axis — local +y in the blade frame (span direction). Toward feather
  * (+pitch) the leading edge (local +x) turns into the wind (+z, upwind), which
  * is a negative rotation about +y.
@@ -13,7 +13,7 @@ import { useFrame } from "@react-three/fiber";
 import type { Group } from "three";
 
 const DEG_TO_RAD = Math.PI / 180;
-const MAX_PITCH_RATE_RAD_PER_S = 6.0 * DEG_TO_RAD; // 6°/s
+const MAX_PITCH_RATE_RAD_PER_S = 2.0 * DEG_TO_RAD; // 2°/s (ROSCO PC_MaxRat 0.0349 rad/s)
 
 export function usePitchAngle(
   blade1Ref: React.RefObject<Group | null>,

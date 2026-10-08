@@ -102,7 +102,7 @@ class TestSSDGeneration:
         vls = substation.findall(_ns("VoltageLevel"))
         e220 = next(vl for vl in vls if vl.get("name") == "E220")
         bays = e220.findall(_ns("Bay"))
-        assert len(bays) == 8  # 2 cables, 2 transformers, STATCOM, 3 reactors
+        assert len(bays) == 7  # 2 cables, 2 transformers, STATCOM, 2 OSS reactors
 
     def test_ssd_220kv_bay_names(self):
         """220 kV bays must be named Export, Trafo, STATCOM."""

@@ -23,7 +23,26 @@ describe("SiteReport", () => {
     expect(screen.getByText("1 blocking issue")).toBeDefined();
     expect(screen.getByText("Fail")).toBeDefined();
     expect(screen.getByText("Check")).toBeDefined();
-    expect(screen.getAllByText("Pass").length).toBe(8);
+    expect(screen.getAllByText("Pass").length).toBe(9);
+  });
+
+  it("lets the user pick another grid node and flags planned stations with their source", () => {
+    const picked: (string | null)[] = [];
+    const nodes = [
+      { name: "Słupsk Wierzbięcin 400/110 kV", status: "existing" as const, km: 66, voltage_kv: [400, 110], basis: "OSM" },
+      { name: "Krzemienica 400 kV", status: "planned" as const, km: 71, voltage_kv: [400], basis: "PSE investment: Krzemienica (KZE)" },
+    ];
+    useSiteStore.setState({
+      report: { ...report(), grid_node: "Krzemienica 400 kV", grid_nodes: nodes },
+      gridNode: "Krzemienica 400 kV",
+      setGridNode: async (n) => void picked.push(n),
+    });
+    render(<SiteReport />);
+    const select = screen.getByRole("combobox") as HTMLSelectElement;
+    expect(select.value).toBe("Krzemienica 400 kV");
+    expect(screen.getByText("PSE investment: Krzemienica (KZE)")).toBeDefined();
+    fireEvent.change(select, { target: { value: "" } });
+    expect(picked).toEqual([null]);
   });
 
   it("asks for a site first", () => {

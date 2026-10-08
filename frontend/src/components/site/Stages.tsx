@@ -236,13 +236,8 @@ export function EnvironmentStage() {
   const complete = useSiteStore((s) => s.completeStage);
   const report = useSiteStore((s) => s.report);
   const natura = report?.checks.find((c) => c.id === "natura2000");
+  // The learner picks the season; no automatic cycling.
   const [season, setSeason] = useState(0);
-  const reduced = useReducedMotion() ?? false;
-  useEffect(() => {
-    if (reduced) return;
-    const id = window.setInterval(() => setSeason((s) => (s + 1) % SEASONS.length), 2500);
-    return () => window.clearInterval(id);
-  }, [reduced]);
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Survey seasons">

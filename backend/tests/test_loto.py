@@ -21,7 +21,7 @@ def test_every_disconnector_and_earth_switch_is_locked_at_start():
         eq for eq in OSS_EQUIPMENT
         if eq.equipment_type in (EquipmentType.DISCONNECTOR, EquipmentType.EARTH_SWITCH)
     ]  # fmt: skip
-    assert len(loto.points) == len(lockable) == 17  # 2 DS + 15 ES
+    assert len(loto.points) == len(lockable) == 18  # 2 DS + 16 ES (incl. onshore reactor bay)
     assert all(p.status == LOTOStatus.APPLIED for p in loto.points.values())
     ds = loto.points[point_id_for("DS-ON-220-01")]
     es = loto.points[point_id_for("ES-ON-220-01")]

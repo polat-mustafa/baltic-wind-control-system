@@ -18,11 +18,13 @@ export const uncertaintyEducation: EducationContent = {
     "square-root-of-squares rule, which assumes they are independent. The bigger it is, the more cautious the bank.",
 
   technicalExplanation:
-    "This platform combines eight sources (σ in % of AEP): wind resource 4.0, wake model 3.0, long-term correction " +
-    "3.0, wind shear 2.0, availability 2.0, power curve 1.5, environmental 1.5, electrical 1.0. RSS gives σ = √47.5 = " +
-    "6.89 %. Note that the sources are energy uncertainties — a speed uncertainty must first be converted through the " +
-    "power curve, and for a low-specific-power turbine like the V236 at a windy site 1 % of speed is only ≈ 1.2 % of " +
-    "energy (much of the year is spent at rated power). Totals of roughly 6–10 % are common for offshore projects.",
+    "This platform builds σ (in % of AEP) from six sourced components of the farm: the wind resource from the NEWA " +
+    "model with no on-site measurement (its mean-speed spread of 0.54 m/s, Dörenkämper et al. 2020), the 30-year " +
+    "long-term period and the 25-year future variability (ERA5 interannual variability 4.2 %, divided by √N), the wake " +
+    "and blockage model (25 % of the modelled loss, Walker et al. 2016), turbine performance 4.0 % and non-wake plant " +
+    "losses 2.7 % (medians in Lee & Fields 2021). Speed uncertainties are converted through the power curve: at SB-510's " +
+    "9.6 m/s mean, close to the IEA 15 MW's 10.66 m/s rated speed, 1 % of speed is only ≈ 0.98 % of energy. SB-510: " +
+    "σ = √59.3 = 7.7 %. Totals of roughly 6–11 % are common (Lee & Fields 2021).",
 
   standards: [
     {
@@ -72,17 +74,17 @@ export const uncertaintyEducation: EducationContent = {
   workedExamples: [
     {
       title: "This platform's σ and P-values",
-      scenario: "P50 = 2,077 GWh/yr (AEP tab, A = 10.5 m/s, k = 2.2). Eight sources as listed above.",
+      scenario: "P50 = 2,161 GWh/yr (AEP tab, SB-510 site A = 10.80 m/s, k = 2.04). The six components listed above.",
       steps: [
-        "Σσᵢ² = 16 + 9 + 9 + 4 + 4 + 2.25 + 2.25 + 1 = 47.5",
-        "σ = √47.5 = 6.89 %",
-        "P75 = 2,077 × (1 − 0.674 × 0.0689) = 1,981 GWh",
-        "P90 = 2,077 × (1 − 1.282 × 0.0689) = 1,894 GWh",
-        "P99 = 2,077 × (1 − 2.326 × 0.0689) = 1,744 GWh",
+        "Σσᵢ² = 5.51² + 0.75² + 0.82² + 2.1² + 4.0² + 2.7² = 59.3",
+        "σ = √59.3 = 7.7 %",
+        "P75 = 2,161 × (1 − 0.674 × 0.077) = 2,049 GWh",
+        "P90 = 2,161 × (1 − 1.282 × 0.077) = 1,948 GWh",
+        "P99 = 2,161 × (1 − 2.326 × 0.077) = 1,774 GWh",
       ],
       result:
-        "P90/P50 = 0.912. Halving the wind-resource term (4 → 2 %, e.g. with a year of floating-LiDAR data) gives " +
-        "σ = √35.5 = 5.96 % and lifts P90 to 1,919 GWh — 25 GWh/yr more bankable energy without changing P50.",
+        "P90/P50 = 0.901. Halving the wind-resource term (5.5 → 2.75 %, e.g. with a year of floating-LiDAR data) gives " +
+        "σ = 6.04 % and lifts P90 to 1,994 GWh — 46 GWh/yr more bankable energy without changing P50.",
     },
   ],
 
@@ -108,7 +110,7 @@ export const uncertaintyEducation: EducationContent = {
   codeReferences: [
     {
       file: "backend/app/services/p1/aep_calculator.py",
-      description: "DEFAULT_UNCERTAINTY_SOURCES, compute_rss_uncertainty(), compute_exceedance_values().",
+      description: "uncertainty_components(), aep_sensitivity(), compute_rss_uncertainty(), compute_exceedance_values().",
     },
     {
       file: "backend/app/services/p1/uncertainty_quantification.py",

@@ -15,14 +15,16 @@ import GridKPIHeader from "../../../src/components/p2/GridKPIHeader";
 import ShortCircuitPanel from "../../../src/components/p2/ShortCircuitPanel";
 import STATCOMPanel from "../../../src/components/p2/STATCOMPanel";
 import VoltageProfilePanel from "../../../src/components/p2/VoltageProfilePanel";
-import { useGridStore } from "../../../src/store/gridStore";
+import { useGridStore, useNetwork } from "../../../src/store/gridStore";
 import { gridState, statcomSizing } from "./gridFixtures";
 
 vi.mock("../../../src/store/gridStore");
+const { SB510_NETWORK } = await vi.importActual<typeof import("../../../src/store/gridStore")>("../../../src/store/gridStore");
 vi.mock("react-plotly.js", () => ({ default: () => null }));
 
 function withState(overrides: Record<string, unknown> = {}) {
   vi.mocked(useGridStore).mockReturnValue({ ...gridState, ...overrides } as unknown as ReturnType<typeof useGridStore>);
+  vi.mocked(useNetwork).mockReturnValue(SB510_NETWORK);
 }
 
 beforeEach(() => {
@@ -87,8 +89,8 @@ describe("power flow panels", () => {
 describe("reactive power and faults", () => {
   it("reactive panel separates Ferranti from the uncompensated rise and shows the PSE range", () => {
     render(<STATCOMPanel />);
-    expect(screen.getByText(/Ferranti rise along 45 km: 0.7 %/)).toBeTruthy();
-    expect(screen.getByText(/uncompensated rise via transformers \+ grid: 8.1 %/)).toBeTruthy();
+    expect(screen.getByText(/Ferranti rise along 108 km: 4.3 %/)).toBeTruthy();
+    expect(screen.getByText(/uncompensated rise via transformers \+ grid: 24.5 %/)).toBeTruthy();
     expect(screen.getByText(/-179 … \+204 MVAR/)).toBeTruthy();
     expect(screen.getByText(/Requirement met/)).toBeTruthy();
   });

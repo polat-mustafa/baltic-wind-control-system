@@ -1,5 +1,5 @@
 """
-Build the V236-15.0 MW offshore turbine model for the 3D viewer.
+Build the SB-510 turbine model (15 MW "V236 class") for the 3D viewer.
 
     blender --background --factory-startup --python scripts/blender/build_v236.py -- \
         public/models/v236.glb [preview.png]
@@ -14,17 +14,18 @@ frame the React component expects:
                   rotor turns clockwise seen from upwind, so blade 1 moves
                   toward +x), pressure side +z (upwind), prebend toward +z
   spinner, hub*   rotor frame: spin axis +z (upwind), blade 1 along +y
-  dt_*, gb_*,     shaft frame: origin at the hub centre, +z along the main
-  gen_*           shaft toward the rotor (the viewer tilts it 6° nose-up)
+  dt_*, gen_*     shaft frame: origin at the hub centre, +z along the main
+                  shaft toward the rotor (the viewer tilts it 6° nose-up)
   nacelle*        nacelle frame: origin at world (0, 151, -5), front at +z
   everything else world frame: sea level y=0, seabed y=-40, hub height 150 m
 
 Multi-colour parts (CTV, SOV, generator magnets, weathered tower / TP /
 monopile) carry per-vertex colours (glTF COLOR_0).
 
-Sizes follow public V236-15.0 MW data (rotor 236 m, blade 115.5 m, hub 150 m)
-and the IEA 15 MW reference turbine where Vestas does not publish (tower
-Ø 10 → 6.5 m, monopile Ø 9 m in ~40 m water). Colours: RAL 7035 light grey
+The exterior follows public V236-15.0 MW data (rotor 236 m, blade 115.5 m, hub
+150 m); the drivetrain, overhang (11.35 m), tower (Ø 10 → 6.5 m) and monopile
+(Ø 9 m in ~40 m water) follow the IEA 15 MW reference turbine that SB-510 is
+modelled with (low-speed direct drive, no gearbox). Colours: RAL 7035 light grey
 tower and nacelle, RAL 1023 traffic-yellow transition piece (IALA O-139
 marking of offshore structures), red blade-tip bands (ICAO Annex 14 style).
 """
@@ -474,13 +475,14 @@ def rrect(hw, yb, yt, rc, n=10, dome=0.0):
 
 
 def nacelle_section(z):
-    """Envelope at station z: long box with generously rounded edges and a
-    tapered, rounded nose where the main shaft exits (spinner overlaps it)."""
+    """Envelope at station z: long box with generously rounded edges. Direct
+    drive: the generator sits in front of the nacelle, so the front is a rounded
+    face 5 m upwind of the tower axis where the turret flange bolts on."""
     hw, yb, yt, rc = 5.0, -4.4, 4.6, 1.0
-    if z > 7.0:  # nose taper
-        t = min(1.0, (z - 7.0) / 3.4)
+    if z > 9.1:  # front rounding
+        t = min(1.0, (z - 9.1) / 0.9)
         e = 1 - math.cos(t * math.pi / 2)
-        hw, yb, yt, rc = 5.0 - 1.3 * e, -4.4 + 1.0 * e, 4.6 - 1.4 * e, 1.0 + 1.2 * e
+        hw, yb, yt, rc = 5.0 - 0.5 * e, -4.4 + 0.5 * e, 4.6 - 0.5 * e, 1.0 + 0.4 * e
     if z < -9.6:  # rear rounding
         t = min(1.0, (-9.6 - z) / 0.9)
         e = 1 - math.cos(t * math.pi / 2)
@@ -490,13 +492,13 @@ def nacelle_section(z):
 
 nac = Mesh()
 zs = [-10.5 + 0.9 * (1 - math.cos(math.pi / 2 * k / 5)) for k in range(6)]
-zs += [-9.6 + 16.6 * k / 16 for k in range(1, 17)]
-zs += [7.0 + 3.4 * math.sin(math.pi / 2 * k / 8) for k in range(1, 9)]
+zs += [-9.6 + 18.7 * k / 18 for k in range(1, 19)]
+zs += [9.1 + 0.9 * math.sin(math.pi / 2 * k / 5) for k in range(1, 6)]
 nrings = []
 for z in zs:
     nrings.append([nac.add_v((x, y, z)) for x, y in nacelle_section(z)])
 ring_strip(nac, nrings)
-# end caps (rear flat-ish, front with the shaft opening covered by the spinner)
+# end caps (rear flat-ish, front where the turret enters)
 nac.add_f(tuple(reversed(nrings[0])), True)
 nac.add_f(tuple(nrings[-1]), True)
 nac.build("nacelle_shell", GREY, col)
@@ -657,187 +659,121 @@ scour = lathe([(0.0, -39.0), (5.0, -39.2), (9.0, -39.6), (14.0, -40.1), (18.0, -
 scour.build("scour", ROCK, col)
 
 # ══ Drivetrain (shaft frame: hub centre origin, +z toward the rotor) ═══════
-# Medium-speed layout: main shaft on two bearings over the tower, 3-stage
-# planetary gearbox 48:1 (i = 4 · 4 · 3, ring fixed: i = 1 + Z_ring/Z_sun),
-# high-speed shaft with brake disc and coupling, PMSG (20 pole pairs:
-# 400 rpm → 133 Hz, full converter). Static casings are cut at x = 0
-# (port half kept) so the rotating parts stay visible — a section view.
+# IEA 15 MW low-speed direct drive (Gaertner et al. 2020, Tables 5-2 / 5-4).
+# The hub flange drives a short hollow main shaft (2.2 m, r 3.0 / 2.8 m) that
+# turns on two main bearings 1.2 m apart — upwind tapered double outer-ring
+# (locating), downwind spherical roller (non-locating) — around the stationary
+# turret (r 2.2 / 2.0 m). A rotor disc behind the hub carries the outer rotor of
+# a 200-pole radial-flux PMSG (air-gap radius 5.08 m, core 2.17 m, 10 mm gap, 200
+# surface magnets) that surrounds the bearings; the stator (240 slots) sits on a
+# disc bolted to the turret, whose flange meets the bedplate 5 m upwind of the
+# tower axis (report Table 5-3). No gearbox: the generator turns
+# at rotor speed (7.56 rpm → 12.6 Hz, full converter). Roller counts are
+# assumed (OEM data is confidential) and match services/p3/cms.py. Static
+# parts are cut at x = 0 (port half kept) so the rotating parts stay visible.
 PORT = (math.pi / 2, 3 * math.pi / 2)
-
-
-def gear_outline(r_pitch, teeth, internal=False):
-    """Trapezoidal-tooth outline (x, y) around z, module m = 2r/Z."""
-    m_ = 2 * r_pitch / teeth
-    r_root = r_pitch + (1.25 * m_ if internal else -1.25 * m_)
-    r_tip = r_pitch + (-m_ if internal else m_)
-    pts = []
-    P = 2 * math.pi / teeth
-    for k in range(teeth):
-        t0 = k * P
-        for frac, r in ((0.0, r_root), (0.2, r_root), (0.35, r_tip), (0.65, r_tip), (0.8, r_root)):
-            a = t0 + frac * P
-            pts.append((r * math.cos(a), r * math.sin(a)))
-    return pts
-
-
-def extrude_annulus(outer, inner, z0, z1, open_ends=False):
-    """Prism between two equal-length 2-D outlines (x, y), z0 → z1."""
-    m = Mesh()
-    n = len(outer)
-    o0 = [m.add_v((x, y, z0)) for x, y in outer]
-    o1 = [m.add_v((x, y, z1)) for x, y in outer]
-    i0 = [m.add_v((x, y, z0)) for x, y in inner]
-    i1 = [m.add_v((x, y, z1)) for x, y in inner]
-    rng = range(n - 1) if open_ends else range(n)
-    for a in rng:
-        b = (a + 1) % n
-        m.add_f((o0[a], o0[b], o1[b], o1[a]), False)
-        m.add_f((i0[a], i1[a], i1[b], i0[b]), False)
-        m.add_f((o0[a], i0[a], i0[b], o0[b]), False)
-        m.add_f((o1[a], o1[b], i1[b], i1[a]), False)
-    if open_ends:
-        for e in (0, n - 1):
-            m.add_f((o0[e], o1[e], i1[e], i0[e]), False)
-    return m
-
-
-def circle2(r, n, arc=None):
-    if arc:
-        return [(r * math.cos(arc[0] + (arc[1] - arc[0]) * k / (n - 1)),
-                 r * math.sin(arc[0] + (arc[1] - arc[0]) * k / (n - 1))) for k in range(n)]
-    return [(r * math.cos(2 * math.pi * k / n), r * math.sin(2 * math.pi * k / n)) for k in range(n)]
-
-
-def external_gear(r_pitch, teeth, z0, z1, bore):
-    out = gear_outline(r_pitch, teeth)
-    return extrude_annulus(out, circle2(bore, len(out)), z0, z1)
-
-
-def ring_gear_half(r_pitch, teeth, z0, z1, r_out):
-    inner = [p for p in gear_outline(r_pitch, teeth, internal=True) if p[0] <= 0.0]
-    inner.sort(key=lambda p: math.atan2(p[1], p[0]) % (2 * math.pi))
-    outer = circle2(r_out, len(inner), (math.pi / 2, 3 * math.pi / 2))
-    return extrude_annulus(outer, inner, z0, z1, open_ends=True)
-
 
 STEEL = mat("steel_machined", srgb("#aeb4ba"), 0.9, 0.3)
 CAST = mat("cast_iron_painted", srgb("#5b6b7a"), 0.3, 0.55)
 COPPER = mat("copper_winding", srgb("#b8733a"), 0.9, 0.35)
 GEN = mat("generator_paint", srgb("#2f4f6f"), 0.3, 0.45)
 
-# main shaft (rotates): hub flange, rotor-lock disc, stepped shaft
-shaft = lathe([(0.0, -2.4), (1.45, -2.4), (1.45, -2.75), (0.95, -2.75), (0.95, -4.6),
-               (0.72, -8.2), (1.2, -8.2), (1.2, -8.6), (0.0, -8.6)], 48, axis="z", smooth=False)
-shaft.extend(lathe([(0.95, -3.25), (1.55, -3.25), (1.55, -3.37), (0.95, -3.37)], 48, axis="z", smooth=False))
+# main shaft (rotates): hub flange + hollow shaft r 3.0 / 2.8 m, 2.2 m long
+shaft = lathe([(2.8, -2.4), (3.4, -2.4), (3.4, -2.6), (3.0, -2.6), (3.0, -4.6), (2.8, -4.6), (2.8, -2.4)],
+              72, axis="z", smooth=False)
 shaft.build("dt_shaft", STEEL, col)
 
-# main bearings: outer rings (half, static) + rollers (full, turn at cage speed)
+# main bearings: inner rings on the turret (half, static) + rollers (full, cage speed)
+# (z, rows Δz, rollers per row, pitch radius, roller radius, width)
+BEARINGS = ((-2.9, 0.13, 60, 2.5, 0.11, 0.5), (-4.1, 0.11, 40, 2.48, 0.17, 0.42))
 brg = Mesh()
-for z, ri, ro, w in ((-4.2, 1.02, 1.32, 0.5), (-7.4, 0.8, 1.06, 0.42)):
-    brg.extend(lathe([(ri, z + w / 2), (ro, z + w / 2), (ro, z - w / 2), (ri, z - w / 2), (ri, z + w / 2)],
-                     24, axis="z", smooth=False, arc=PORT))
+for z, _dz, _n, _rc, _rr, w in BEARINGS:
+    brg.extend(lathe([(2.2, z + w / 2), (2.32, z + w / 2), (2.32, z - w / 2), (2.2, z - w / 2), (2.2, z + w / 2)],
+                     36, axis="z", smooth=False, arc=PORT))
 brg.build("dt_bearings", STEEL, col)
 rollers = Mesh()
-for z, rc_, n, rr in ((-4.2, 1.0, 26, 0.1), (-7.4, 0.8, 22, 0.08)):
-    for k in range(n):
-        a = 2 * math.pi * k / n
-        c = (rc_ * math.cos(a), rc_ * math.sin(a))
-        rollers.extend(tube((c[0], c[1], z + 0.18), (c[0], c[1], z - 0.18), rr, 8))
+for z, dz, n, rc_, rr, _w in BEARINGS:
+    for row in (-1, 1):
+        for k in range(n):
+            a = 2 * math.pi * (k + 0.5 * (row > 0)) / n
+            c = (rc_ * math.cos(a), rc_ * math.sin(a))
+            zr = z + row * dz
+            rollers.extend(tube((c[0], c[1], zr + 0.09), (c[0], c[1], zr - 0.09), rr, 8))
 rollers.build("dt_rollers", STEEL, col)
 
-# main-bearing housing (half) + feet to the bedplate
-bh = lathe([(1.34, -3.6), (1.75, -3.6), (1.75, -7.9), (1.1, -7.9)], 28, axis="z", smooth=True, arc=PORT)
-for z in (-4.6, -6.6):  # stiffening ribs
-    bh.extend(lathe([(1.75, z + 0.12), (2.0, z + 0.12), (2.0, z - 0.12), (1.75, z - 0.12)],
-                    20, axis="z", smooth=False, arc=PORT))
-bh.extend(box((0, -2.0, -5.75), (3.9, 0.5, 4.2)))
-bh.build("dt_bearing_housing", CAST, col)
+# turret / nose (static, half): r 2.2 / 2.0 m from the hub to the bedplate flange
+# (5 m upwind of the tower axis), with ribs behind the stator support disc
+tur = lathe([(2.0, -2.6), (2.2, -2.6), (2.2, -6.0), (3.3, -6.0), (3.3, -6.38), (2.0, -6.38), (2.0, -2.6)],
+            40, axis="z", smooth=False, arc=PORT)
+for k in range(6):  # radial ribs behind the stator disc
+    a = math.pi / 2 + math.pi * (k + 0.5) / 6
+    ca, sa = math.cos(a), math.sin(a)
+    rib = Mesh()
+    pts = [(2.2, -5.3), (4.4, -5.3), (2.2, -6.0)]
+    ids = [rib.add_v((r * ca + dx * -sa, r * sa + dx * ca, z)) for dx in (-0.06, 0.06) for r, z in pts]
+    rib.add_f((ids[0], ids[1], ids[2]), False)
+    rib.add_f((ids[5], ids[4], ids[3]), False)
+    for u, v in ((0, 1), (1, 2), (2, 0)):
+        rib.add_f((ids[u], ids[v], ids[v + 3], ids[u + 3]), False)
+    tur.extend(rib)
+tur.build("dt_turret", CAST, col)
 
-# gearbox: half housing, torque arms, 3 half ring gears (static)
-gh = lathe([(1.25, -8.4), (1.78, -8.4), (1.78, -11.8), (0.9, -11.8)], 32, axis="z", smooth=True, arc=PORT)
-gh.extend(box((-2.35, 0, -8.95), (1.3, 0.9, 0.7)))
-gh.extend(box((2.35, 0, -8.95), (1.3, 0.9, 0.7)))
-STAGES = [  # (z, r_ring, Z_ring, r_sun, Z_sun, r_planet, Z_planet, face width)
-    (-9.0, 1.5, 63, 0.5, 21, 0.5, 21, 0.5),
-    (-10.1, 1.05, 54, 0.35, 18, 0.35, 18, 0.4),
-    (-11.1, 0.7, 48, 0.35, 24, 0.175, 12, 0.32),
-]
-for z, rr_, zr, *_rest, fw in STAGES:
-    gh.extend(ring_gear_half(rr_, zr, z + fw / 2, z - fw / 2, rr_ + 0.14))
-gh.build("gb_housing", CAST, col)
-
-for i, (z, rr_, zr, rs, zs, rp, zp, fw) in enumerate(STAGES, 1):
-    orbit = rs + rp
-    # planet (one mesh, centred on its own axis; the viewer places 3 per stage)
-    pl = external_gear(rp, zp, fw / 2 - 0.02, -fw / 2 + 0.02, 0.12 * rp / 0.5 + 0.04)
-    ob = pl.build(f"gb_planet{i}", STEEL, col, closed=True)
-    ob.location = B((orbit, 0, z))
-    # sun (rotates with the next stage's carrier / the HSS)
-    sn = external_gear(rs, zs, fw / 2 - 0.02, -fw / 2 + 0.02, 0.1)
-    ob = sn.build(f"gb_sun{i}", STEEL, col, closed=True)
-    ob.location = B((0, 0, z))
-    # carrier: two plates + pins (rotates)
-    cr = Mesh()
-    for dz in (fw / 2 + 0.06, -fw / 2 - 0.06):
-        cr.extend(lathe([(rs * 0.6, dz + 0.04), (orbit + rp * 0.5, dz + 0.04),
-                         (orbit + rp * 0.5, dz - 0.04), (rs * 0.6, dz - 0.04)], 36, axis="z", smooth=False))
-    for k in range(3):
-        a = 2 * math.pi * k / 3
-        cr.extend(tube((orbit * math.cos(a), orbit * math.sin(a), fw / 2 + 0.1),
-                       (orbit * math.cos(a), orbit * math.sin(a), -fw / 2 - 0.1), 0.12 * rp / 0.5 + 0.03, 10))
-    ob = cr.build(f"gb_carrier{i}", DARK, col)
-    ob.location = B((0, 0, z))
-
-# high-speed shaft with brake disc and disc-pack coupling (rotates at 48 ω)
-hss = lathe([(0.0, -11.3), (0.2, -11.3), (0.2, -13.2), (0.0, -13.2)], 24, axis="z", smooth=False)
-hss.extend(lathe([(0.2, -12.12), (0.78, -12.12), (0.78, -12.3), (0.2, -12.3)], 48, axis="z", smooth=False))
-for dz in (-12.6, -12.85):
-    hss.extend(lathe([(0.2, dz + 0.06), (0.48, dz + 0.06), (0.48, dz - 0.06), (0.2, dz - 0.06)], 32, axis="z",
-                     smooth=False))
-hss.build("dt_hss", STEEL, col)
+# brake calipers (static) gripping the generator rotor disc rim — rotor brake / lock
 cal = Mesh()
-for a in (math.pi / 2, math.pi):  # two hydraulic calipers straddling the disc rim
-    cal.extend(box((0.72 * math.cos(a), 0.72 * math.sin(a), -12.21), (0.34, 0.34, 0.42)))
+for a in (math.pi * 0.75, math.pi * 1.25):
+    cal.extend(box((5.2 * math.cos(a), 5.2 * math.sin(a), -2.59), (0.45, 0.45, 0.55)))
 cal.build("dt_calipers", RED, col)
 
-# PMSG generator: half housing with fins, half stator + copper end windings,
-# full rotor with 40 surface magnets (N red / S blue, educational colouring)
-gz0, gz1 = -13.0, -14.8
-gh2 = lathe([(0.35, gz0), (1.82, gz0), (1.82, gz1), (0.35, gz1)], 40, axis="z", smooth=False, arc=PORT)
-for k in range(9):
-    a = math.pi / 2 + math.pi * (k + 0.5) / 9
-    gh2.extend(box((1.92 * math.cos(a), 1.92 * math.sin(a), (gz0 + gz1) / 2), (0.16, 0.16, 1.7)))
-gh2.build("gen_housing", GEN, col)
-stator = lathe([(1.36, -13.3), (1.66, -13.3), (1.66, -14.5), (1.36, -14.5), (1.36, -13.3)], 40, axis="z",
+
+def on_rim(block, a, r):
+    """Move a block centred on the shaft axis to radius r at angle a (shaft frame)."""
+    for vi, (bx, by, bz) in enumerate(block.v):
+        x3, y3, z3 = bx, bz, -by
+        block.v[vi] = B((x3 * math.cos(a) - (y3 + r) * math.sin(a), x3 * math.sin(a) + (y3 + r) * math.cos(a), z3))
+    return block
+
+
+# PMSG outer rotor (rotates with the shaft): rotor disc behind the hub, yoke, 200
+# surface magnets (N red / S blue, educational colouring), core length 2.17 m
+GZ0, GZ1 = -2.78, -4.95  # active length (core) 2.17 m
+rot = Mesh()
+rot.extend(lathe([(3.0, -2.5), (5.33, -2.5), (5.33, -2.68), (3.0, -2.68)], 96, axis="z", smooth=False),
+           color=srgb("#4b5563"))
+rot.extend(lathe([(5.13, -2.68), (5.33, -2.68), (5.33, -5.05), (5.13, -5.05), (5.13, -2.68)], 128, axis="z",
+                 smooth=False), color=srgb("#2f4f6f"))
+for k in range(200):  # magnets on the yoke bore (r = 5.1075 m)
+    c = srgb("#c62828") if k % 2 == 0 else srgb("#1f4fb5")
+    rot.extend(on_rim(box((0, 0, (GZ0 + GZ1) / 2), (0.13, 0.045, GZ0 - GZ1)), 2 * math.pi * k / 200, 5.1075), color=c)
+rot.build("gen_rotor", VCOL, col)
+
+# stator (static, half): laminated core r 4.55 → 5.075 m (10 mm gap) on the support
+# disc, 240 slots shown as teeth on the bore, copper end windings
+stator = lathe([(4.55, GZ0), (5.0, GZ0), (5.0, GZ1), (4.55, GZ1), (4.55, GZ0)], 72, axis="z",
                smooth=False, arc=PORT)
+for k in range(120):  # the port half of the 240 teeth
+    stator.extend(on_rim(box((0, 0, (GZ0 + GZ1) / 2), (0.06, 0.075, GZ0 - GZ1)), math.pi / 2 + math.pi * (k + 0.5) / 120,
+                         5.0375))
+stator.extend(lathe([(2.2, -5.1), (4.55, -5.1), (4.55, -5.3), (2.2, -5.3)], 48, axis="z", smooth=False, arc=PORT))
 stator.build("gen_stator", DARK, col)
 wind = Mesh()
-for zc in (-13.2, -14.6):
-    wind.extend(lathe([(1.4, zc + 0.12), (1.62, zc + 0.12), (1.62, zc - 0.12), (1.4, zc - 0.12), (1.4, zc + 0.12)],
-                      32, axis="z", smooth=True, arc=PORT))
+for zc in (GZ0 + 0.08, GZ1 - 0.08):
+    wind.extend(lathe([(4.62, zc + 0.08), (4.98, zc + 0.08), (4.98, zc - 0.08), (4.62, zc - 0.08), (4.62, zc + 0.08)],
+                      64, axis="z", smooth=True, arc=PORT))
 wind.build("gen_windings", COPPER, col)
-rot = Mesh()
-rot.extend(lathe([(0.2, -13.25), (1.28, -13.25), (1.28, -14.55), (0.2, -14.55)], 48, axis="z", smooth=False),
-           color=srgb("#4b5563"))
-for k in range(40):
-    a = 2 * math.pi * k / 40
-    c = srgb("#c62828") if k % 2 == 0 else srgb("#1f4fb5")
-    mag = box((0, 0, -13.9), (0.17, 0.07, 1.2))
-    # move the magnet block to its pole position on the rim (r = 1.315)
-    for vi, (bx, by, bz) in enumerate(mag.v):
-        x3, y3, z3 = bx, bz, -by
-        xr = x3 * math.cos(a) - (y3 + 1.315) * math.sin(a)
-        yr = x3 * math.sin(a) + (y3 + 1.315) * math.cos(a)
-        mag.v[vi] = B((xr, yr, z3))
-    rot.extend(mag, color=c)
-rot.build("gen_rotor", VCOL, col)
+
+# closed exterior for the normal (non-section) view: full rear end shield of the
+# generator and the full turret nose from the generator to the bedplate flange
+cover = lathe([(2.2, -5.05), (5.33, -5.05), (5.33, -5.35), (2.2, -5.35)], 96, axis="z", smooth=False)
+cover.build("gen_cover", GEN, col)
+nose = lathe([(2.2, -5.35), (2.2, -6.0), (3.3, -6.0), (3.3, -6.38), (2.0, -6.38)], 64, axis="z", smooth=False)
+nose.build("dt_nose", CAST, col)
 
 # ══ Bedplate + converter (world / yaw frame) ═══════════════════════════════
 bed = Mesh()
-bed.extend(box((0, 146.98, 0.6), (4.4, 0.56, 5.4)))  # cast front bedplate under the main bearing
+bed.extend(box((0, 146.98, 0.6), (4.4, 0.56, 5.4)))  # cast bedplate nose from the yaw bearing forward
+bed.extend(box((0, 148.9, 4.55), (5.0, 4.4, 0.5)))  # front bulkhead the turret flange bolts to (5 m)
 for x in (-2.2, 2.2):
     bed.extend(box((x, 147.0, -6.0), (0.5, 0.55, 14.0)))  # welded rear frame
-    bed.extend(box((x * 1.07, 148.0, -2.85), (0.5, 1.9, 0.7)))  # torque-arm supports
 for z in (-2.5, -7.0, -12.5):
     bed.extend(box((0, 147.0, z), (4.9, 0.4, 0.4)))
 bed.build("bedplate", CAST, col)
@@ -926,7 +862,7 @@ if OUT_PNG:
     # three instances of the blade around the rotor for the preview
     import mathutils
 
-    rot_origin = mathutils.Vector(B((0, 150, 6)))
+    rot_origin = mathutils.Vector(B((0, 150, 11.35)))  # IEA 15 MW overhang 11.35 m
     for m in MATS.values():  # workbench shows the viewport colour
         m.diffuse_color = (*m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value[:3], 1)
     for name in ("blade", "blade_marks", "blade_root"):
@@ -966,27 +902,19 @@ if OUT_PNG:
     sc.render.filepath = OUT_PNG.replace(".png", "_tp.png")
     bpy.ops.render.render(write_still=True)
 
-    # interior section view: drivetrain tilted 6° about the hub, 3 planets per
-    # stage, nacelle shell + roof items hidden, camera from starboard
+    # interior section view: drivetrain tilted 6° about the hub, nacelle shell +
+    # roof items hidden, camera from starboard
     tilt = mathutils.Matrix.Translation(rot_origin) @ mathutils.Matrix.Rotation(math.radians(-6), 4, "X")
     for ob in list(col.objects):
-        if ob.name.startswith(("dt_", "gb_", "gen_")):
-            if ob.name.startswith("gb_planet"):
-                for k in range(3):
-                    cp = ob if k == 0 else ob.copy()
-                    if k:
-                        col.objects.link(cp)
-                    local = mathutils.Matrix.Rotation(k * 2 * math.pi / 3, 4, "Y") @ mathutils.Matrix.Translation(ob.location)
-                    cp.matrix_world = tilt @ local
-            else:
-                ob.matrix_world = tilt @ ob.matrix_world
+        if ob.name.startswith(("dt_", "gen_")):
+            ob.matrix_world = tilt @ ob.matrix_world
     for name in ("nacelle_shell", "nacelle_detail", "cooler", "nav_lights"):
         bpy.data.objects[name].hide_render = True
     for ob in col.objects:
         if ob.name.startswith(("blade", "spinner", "hub_detail")):
             ob.hide_render = True
-    cam.location = B((16, 153, -3))
-    target = mathutils.Vector(B((0, 149, -1)))
+    cam.location = B((20, 154, 12))
+    target = mathutils.Vector(B((0, 149.5, 6)))
     cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
     sc.render.filepath = OUT_PNG.replace(".png", "_interior.png")
     bpy.ops.render.render(write_still=True)

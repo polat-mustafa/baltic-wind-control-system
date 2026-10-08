@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.scada import (
     PhysicalDeviceSchema,
     SubstationSummaryResponse,
@@ -18,13 +19,13 @@ router = APIRouter()
 
 
 @router.get("/devices", response_model=SubstationSummaryResponse)
-async def get_substation_summary() -> SubstationSummaryResponse:
+async def get_substation_summary(spec: FarmSpecDep) -> SubstationSummaryResponse:
     """Get the complete IEC 61850 substation configuration summary.
 
-    Returns all 37 IEDs (3 OSS + 34 WTG) with their logical nodes,
+    Returns all IEDs (3 OSS + one per turbine; SB-510: 37) with their logical nodes,
     data objects, and GOOSE control blocks.
     """
-    devices = build_substation_configuration()
+    devices = build_substation_configuration(spec.num_turbines)
     total_lns = get_total_logical_node_count(devices)
 
     device_schemas = []
@@ -110,7 +111,7 @@ async def get_substation_summary() -> SubstationSummaryResponse:
 
 
 @router.get("/devices/{device_name}", response_model=PhysicalDeviceSchema)
-async def get_device_detail(device_name: str) -> PhysicalDeviceSchema:
+async def get_device_detail(device_name: str, spec: FarmSpecDep) -> PhysicalDeviceSchema:
     """Get detailed IEC 61850 configuration for a specific device.
 
     Returns the full logical device → logical node → data object hierarchy.
@@ -120,7 +121,7 @@ async def get_device_detail(device_name: str) -> PhysicalDeviceSchema:
     device_name : str
         IED instance name (e.g., 'OSS_PROT_IED01', 'WTG_01').
     """
-    devices = build_substation_configuration()
+    devices = build_substation_configuration(spec.num_turbines)
     device = get_device_by_name(devices, device_name)
 
     if device is None:

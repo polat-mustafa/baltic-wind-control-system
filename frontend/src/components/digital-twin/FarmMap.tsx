@@ -8,18 +8,17 @@
 
 import { useMemo } from "react";
 
-import { OSS_GEO, TURBINE_POSITIONS } from "../../constants/windFarmLayout";
+import { useFarmPlan } from "../../hooks/useFarmPlan";
 import { useDigitalTwinStore } from "../../store/digitalTwinStore";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { FAULT_SHORT, STATUS_LABEL } from "./twinFormat";
 
-const LAT0 = 54.8;
-const LON0 = 16.4;
 const KM_PER_DEG_LAT = 110.57;
-const KM_PER_DEG_LON = 111.32 * Math.cos((LAT0 * Math.PI) / 180);
 
-function project(lat: number, lon: number) {
-  return { x: (lon - LON0) * KM_PER_DEG_LON, y: -(lat - LAT0) * KM_PER_DEG_LAT };
+/** Local km around (lat0, lon0), north up. */
+function projector(lat0: number, lon0: number) {
+  const kmPerDegLon = 111.32 * Math.cos((lat0 * Math.PI) / 180);
+  return (lat: number, lon: number) => ({ x: (lon - lon0) * kmPerDegLon, y: -(lat - lat0) * KM_PER_DEG_LAT });
 }
 
 const FILL = {
@@ -32,10 +31,15 @@ export default function FarmMap() {
   const analysis = useDigitalTwinStore((s) => s.analysis);
   const selected = useDigitalTwinStore((s) => s.selectedTurbineId);
   const selectTurbine = useDigitalTwinStore((s) => s.selectTurbine);
+  const farm = useFarmPlan();
 
   const geo = useMemo(() => {
-    const pts = TURBINE_POSITIONS.map((t) => ({ ...t, ...project(t.lat, t.lon) }));
-    const oss = project(OSS_GEO.lat, OSS_GEO.lon);
+    const [lon0, lat0] = farm.oss;
+    const project = projector(lat0, lon0);
+    // SB-510 keeps its WTG ids; an own project's register row i is the twin's WTG-(i+1)
+    const name = (id: string, i: number) => (farm.source === "sb510" ? id : `WTG-${String(i + 1).padStart(2, "0")}`);
+    const pts = farm.turbines.map((t, i) => ({ id: name(t.id, i), stringNumber: t.string, ...project(t.lat, t.lon) }));
+    const oss = project(lat0, lon0);
     const xs = [...pts.map((p) => p.x), oss.x];
     const ys = [...pts.map((p) => p.y), oss.y];
     const pad = 0.9;
@@ -49,17 +53,17 @@ export default function FarmMap() {
         h: Math.max(...ys) - Math.min(...ys) + 2 * pad + 0.6,
       },
     };
-  }, []);
+  }, [farm]);
 
   if (!analysis) return null;
   const byName = new Map(analysis.turbines.map((t) => [t.name, t]));
-  const strings = [1, 2, 3, 4, 5, 6].map((s) => geo.pts.filter((p) => p.stringNumber === s));
+  const strings = farm.strings.map((_, i) => geo.pts.filter((p) => p.stringNumber === i + 1)).filter((s) => s.length);
   const r = 0.33;
 
   return (
     <ChartWrapper
       title="Fleet state"
-      footer="Real layout (6 strings, 8D × 6D). Ring = fault identified. Click a turbine for its analysis."
+      footer={`${farm.source === "project" ? "Your layout" : "Real layout"} (${farm.strings.length} strings). Ring = fault identified. Click a turbine for its analysis.`}
     >
       <svg
         viewBox={`${geo.box.x} ${geo.box.y} ${geo.box.w} ${geo.box.h}`}

@@ -26,8 +26,11 @@ ASSUMPTIONS = [
     f"wind–wave correlation {weather.R_WIND_WAVE} (illustrative, not a hindcast).",
     f"Jack-up crane limit applies at hub height ({weather.HUB_HEIGHT_M:.0f} m); 10 m wind is "
     f"scaled with the power law α = {weather.SHEAR_ALPHA} (IEC 61400-3-1 normal wind profile).",
-    "Vessel limits, unit durations, deck capacity, day rates and mobilisation are illustrative "
-    "teaching values.",
+    "Port round trips: units × fastening time at the quay + 2 × port distance / transit "
+    "speed (NREL ORBIT process times and vessel library); the port distance is the sea route "
+    "from the installation port.",
+    "Vessel limits, operation durations, deck capacity, day rates and mobilisation are "
+    "illustrative teaching values.",
     "The array cable vessel is mobilised just in time behind the foundations; charter covers "
     "the work including waiting on weather, idle time and gaps up to 30 days (a longer gap "
     "costs a new mobilisation).",
@@ -65,6 +68,7 @@ async def campaign(req: CampaignRequest) -> CampaignResponse:
         strings=req.strings or _default_strings(req.n_turbines),
         array_km=req.array_km if req.array_km is not None else 1.6 * req.n_turbines,
         export_km=req.export_km,
+        port_km=req.port_km,
         foundation=req.foundation,
         start=req.start_date,
         alpha=req.alpha,

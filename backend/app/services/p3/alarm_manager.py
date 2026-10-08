@@ -685,9 +685,9 @@ MASTER_ALARM_DATABASE: tuple[tuple[str, str, str, str, str, str, str], ...] = (
     ("WTG.YAW_ERROR", "Yaw position error", "LOW", "WTG",
      "Yaw misalignment above 10 degrees", "Energy loss and extra loads",
      "Check yaw motors and wind vane"),
-    ("WTG.GEARBOX_OIL_TEMP", "Gearbox oil temperature", "LOW", "WTG",
-     "Oil cooler or filter issue", "Accelerated oil ageing",
-     "Check oil level and cooler"),
+    ("WTG.COOLANT_FLOW_LOW", "Coolant flow low", "LOW", "WTG",
+     "Coolant pump, level or fan fault", "Generator and converter derate on temperature",
+     "Check coolant level, pump and fans"),
 )  # fmt: skip
 
 

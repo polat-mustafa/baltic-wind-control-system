@@ -22,7 +22,8 @@
 import { memo } from "react";
 import { Html } from "@react-three/drei";
 
-const ROTOR_RADIUS = 118;          // V236 rotor radius [m]
+import { ROTOR_RADIUS } from "../model/layout";
+
 const HUB_HEIGHT = 150;             // hub centre Y [m]
 
 interface WindFieldVizProps {

@@ -26,11 +26,11 @@ describe("aepMath", () => {
     expect(total).toBeCloseTo(HOURS_PER_YEAR, 0);
   });
 
-  it("gross V236 yield is in the backend's PyWake range", () => {
-    // Backend PyWake (no wake) for A = 10.5, k = 2.2: 71.5 GWh per turbine (tabular ≈ cubic curve)
+  it("gross yield of the reference turbine is in the backend's PyWake range", () => {
+    // Backend PyWake (no wake), IEA 15 MW, A = 10.5, k = 2.2: 74.70 GWh per turbine
     const gwh = grossTurbineMWh(10.5, 2.2) / 1000;
-    expect(gwh).toBeGreaterThan(69);
-    expect(gwh).toBeLessThan(74);
+    expect(gwh).toBeGreaterThan(73.7);
+    expect(gwh).toBeLessThan(75.7);
     // Physical bound: never above rated × 8760
     expect(gwh).toBeLessThan((15 * HOURS_PER_YEAR) / 1000);
   });
@@ -43,9 +43,9 @@ describe("aepMath", () => {
     expect(steps[1].after).toBeCloseTo(81, 10); // not 80
   });
 
-  it("RSS uncertainty = 6.89 % and P90 = P50·(1 − 1.282σ)", () => {
+  it("SB-510 RSS uncertainty = 7.7 % and P90 = P50·(1 − 1.282σ)", () => {
     const sigma = rss(UNCERTAINTY_SOURCES.map(([, s]) => s));
-    expect(sigma).toBeCloseTo(Math.sqrt(47.5), 10);
+    expect(sigma).toBeCloseTo(7.7, 2); // backend test pins the components to aep_calculator
     expect(exceedance(1000, 6.2, 1.282)).toBeCloseTo(920.5, 1);
   });
 

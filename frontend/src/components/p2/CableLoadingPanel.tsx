@@ -11,20 +11,21 @@ import Plot from "react-plotly.js";
 import { loadFlowEducation } from "../../constants/education/p2";
 import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
-import { SCENARIO_LABEL } from "../../constants/gridScenarios";
-import { useGridStore } from "../../store/gridStore";
-import type { LoadFlowScenario } from "../../types/grid";
+import { scenarioLabels } from "../../constants/gridScenarios";
+import { useGridStore, useNetwork } from "../../store/gridStore";
+import type { LoadFlowScenario, NetworkSpec } from "../../types/grid";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
 
-const ELEMENT_LABEL: Record<string, string> = {
-  Export_220kV: "Export cables 2 × 45 km",
-  Trafo_220_400kV: "Onshore TX 2 × 300 MVA",
-  Trafo_66_220kV: "Offshore TX 2 × 300 MVA",
-};
+const elementLabel = (n: NetworkSpec): Record<string, string> => ({
+  Export_220kV: `Export cables ${n.num_export_cables} × ${n.export_length_km} km`,
+  Trafo_220_400kV: `Onshore TX ${n.num_onshore_transformers} × ${n.onshore_trafo_mva} MVA`,
+  Trafo_66_220kV: `Offshore TX ${n.num_oss_transformers} × ${n.oss_trafo_mva} MVA`,
+});
 
 export function ScenarioTabs() {
   const { activeScenario, setActiveScenario } = useGridStore();
+  const SCENARIO_LABEL = scenarioLabels(useNetwork());
   return (
     <div role="tablist" aria-label="Load-flow scenario" className="flex flex-wrap gap-1">
       {(Object.keys(SCENARIO_LABEL) as LoadFlowScenario[]).map((s) => (
@@ -47,14 +48,17 @@ export function ScenarioTabs() {
 export default function CableLoadingPanel() {
   const { loadFlowResults, activeScenario } = useGridStore();
   const c = useChartPalette();
+  const n = useNetwork();
+  const ELEMENT_LABEL = elementLabel(n);
+  const SCENARIO_LABEL = scenarioLabels(n);
   const result = loadFlowResults?.find((r) => r.scenario === activeScenario);
   if (!result) return null;
 
   const items = [
     ...result.lines
-      .filter((l) => l.name === "Export_220kV" || /^Array_S\d_T1$/.test(l.name))
+      .filter((l) => l.name === "Export_220kV" || /^Array_S\d+_T1$/.test(l.name))
       .map((l) => ({
-        name: ELEMENT_LABEL[l.name] ?? `String ${l.name[7]} head cable`,
+        name: ELEMENT_LABEL[l.name] ?? `String ${l.name.slice(7, -3)} head cable`,
         loading: l.loading_percent,
         mw: Math.abs(l.p_from_mw),
         loss: l.pl_mw,

@@ -20,7 +20,7 @@ temporal resolution.
 Hub-height wind speed extraction uses the power-law wind profile:
   v(z) = v(z_ref) × (z / z_ref)^α
 
-where α ≈ 0.11 for offshore (IEC 61400-1 Ed.4), z = 150 m (V236 hub height, same as P1 wake_model),
+where α ≈ 0.11 for offshore (IEC 61400-1 Ed.4), z = 150 m (IEA 15 MW hub height, as P1),
 and z_ref = 100 m (typical NWP output level).
 
 Standard — ECMWF HRES Forecast Variables

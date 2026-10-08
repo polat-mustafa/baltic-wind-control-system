@@ -137,9 +137,8 @@ export const ServiceCraft = memo(function ServiceCraft({ turbineId }: { turbineI
 const CREW_AT: Partial<Record<TurbinePartId, [number, number, number]>> = {
   blades: [2.0, 155.95, 2.5], // roof hatch toward the hub
   hub: [2.0, 155.95, 2.5],
-  bearing: [2.3, 147.4, PARTS.mainBearing[2]],
-  gearbox: [2.4, 147.4, PARTS.gearbox[2]],
-  generator: [2.4, 147.4, PARTS.generator[2]],
+  bearing: [1.6, 147.4, 3.5], // inside the nacelle front, at the turret flange
+  generator: [2.4, 147.4, 3.5],
   converter: [-2.2, 147.4, PARTS.converter[2]],
   yaw: [2.6, 147.4, 1.0],
   nacelle: [2.4, 147.4, -2.0],

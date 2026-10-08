@@ -1,6 +1,6 @@
 /**
  * Expanded-viewer part guide: a rail of components (click → camera flies
- * there) and an info card for the selected one — overview, V236 design value,
+ * there) and an info card for the selected one — overview, design value of the modelled turbine,
  * live values from the simulation, governing formulas, standards and the
  * faults that affect it. Content comes from constants/turbinePartEducation.
  */
@@ -13,10 +13,11 @@ import {
   type TurbinePartId,
 } from "../../../../constants/turbinePartEducation";
 import type { TurbineData } from "../../../../types/landing";
+import { ROTOR_RADIUS } from "../model/layout";
 import { PART_RAIL } from "./partRail";
 import { v236PowerChain, v236ThrustMN } from "../../../../utils/landingPhysics";
 
-const R = 118; // m, rotor radius
+const R = ROTOR_RADIUS; // m, rotor radius (IEA 15 MW)
 
 
 /** Live, physics-derived values for a part (units in the label). */
@@ -51,16 +52,10 @@ function liveFacts(part: TurbinePartId, t: TurbineData): [string, string][] {
         ["Vibration", `${t.vibrationMmS.toFixed(1)} mm/s`],
         ["Rotor thrust", `${thrustMN.toFixed(2)} MN`],
       ];
-    case "gearbox":
-      return [
-        ["Input", `${t.rotorSpeedRpm.toFixed(2)} rpm`],
-        ["Output", `${chain.generatorRpm.toFixed(0)} rpm`],
-        ["Loss", `${chain.gearbox.lossMW.toFixed(2)} MW`],
-        ["Input torque", `${torqueMNm.toFixed(1)} MN·m`],
-      ];
     case "generator":
       return [
-        ["Speed", `${chain.generatorRpm.toFixed(0)} rpm`],
+        ["Speed", `${chain.generatorRpm.toFixed(2)} rpm (direct drive)`],
+        ["Frequency", `${chain.generatorHz.toFixed(1)} Hz`],
         ["Output", `${chain.generator.outMW.toFixed(2)} MW`],
         ["Loss (heat)", `${chain.generator.lossMW.toFixed(2)} MW`],
       ];
@@ -192,7 +187,7 @@ export function PartInfoCard({
     <div className="pointer-events-auto flex max-h-full w-[380px] max-w-full flex-col overflow-hidden rounded-lg border border-border-primary bg-bg-primary/95 shadow-xl shadow-black/40 backdrop-blur-sm">
       <div className="flex items-start justify-between gap-2 border-b border-border-primary px-4 py-3">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">V236-15.0 MW · component</div>
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">SB-510 turbine (IEA 15 MW) · component</div>
           <h3 className="text-lg font-bold leading-tight text-text-primary">{edu.title}</h3>
         </div>
         <button type="button" onClick={onClose} aria-label="Close part info" className="rounded p-1 text-text-muted hover:bg-bg-hover">
@@ -212,7 +207,7 @@ export function PartInfoCard({
         </div>
 
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted">V236 design</div>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted">SB-510 design (IEA 15 MW)</div>
           <div className="font-semibold text-text-primary">{edu.design.v236Value}</div>
           <p className="mt-1">{edu.design.reasoning}</p>
         </div>

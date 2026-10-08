@@ -54,7 +54,7 @@ TARGET_TBA_PCT = 97.0
 TARGET_EBA_PCT = 95.0
 TARGET_PBA_PCT = 94.0
 
-# V236-15.0 MW operating characteristics
+# SB-510 turbine (IEA 15 MW) operating characteristics — illustrative fleet average
 CAPACITY_FACTOR_AVG = 0.50  # 50% average capacity factor (Baltic Sea)
 FULL_LOAD_HOURS_YEAR = CAPACITY_FACTOR_AVG * 8760  # 4380 FLH/year
 
@@ -66,7 +66,7 @@ def _generate_synthetic_events(turbine_id: str, period_hours: float) -> list[dic
     """
     Generate realistic synthetic downtime history for a turbine.
 
-    Based on typical offshore V236 SCADA data:
+    Based on typical offshore 15 MW-class SCADA data:
     - Scheduled maintenance: 1×/year (120h turbine downtime) → ~1.4%
     - Unscheduled fault: 4-8/year (avg 8h each) → ~0.4-0.8%
     - Grid curtailment: ~50h/year (PSE congestion management) → ~0.6%

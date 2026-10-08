@@ -1,6 +1,6 @@
 """Tests for nacelle subsystem physics models — A3/A4.
 
-Validates HPU accumulator model, oil cooling thermal equilibrium,
+Validates HPU accumulator model, generator/converter cooling,
 ISO 10816-21 vibration zones, cable twist limits, UPS backup time,
 and the FastAPI nacelle endpoints.
 """
@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 from app.services.turbine_physics.nacelle_subsystems import (
     CABLE_TWIST_HARD_LIMIT_DEG,
     CABLE_TWIST_SOFT_LIMIT_DEG,
-    GEARBOX_OIL_TRIP_TEMP_C,
     HPU_NOMINAL_PRESSURE_BAR,
     HPU_PRECHARGE_PRESSURE_BAR,
     OVERSPEED_HARDWARE_RPM,
@@ -23,11 +22,12 @@ from app.services.turbine_physics.nacelle_subsystems import (
     UPS_DISCHARGE_EFFICIENCY,
     UPS_LOAD_POWER_KW,
     VIBRATION_ZONE_A_MAX_MM_S,
+    WINDING_ALARM_TEMP_C,
+    WINDING_TRIP_TEMP_C,
     compute_cable_twist_state,
     compute_cooling_state,
     compute_hpu_state,
     compute_nacelle_subsystems,
-    compute_oil_viscosity_cst,
     compute_safety_state,
     compute_ups_state,
 )
@@ -92,77 +92,54 @@ class TestHPUState:
         assert state.accumulator_pressure_bar >= HPU_PRECHARGE_PRESSURE_BAR
 
 
-# ── Oil viscosity tests ───────────────────────────────────────────────────────
-
-
-class TestOilViscosity:
-    """Walther equation for ISO VG 320 synthetic gear oil."""
-
-    def test_viscosity_at_40c_near_320_cst(self) -> None:
-        """ISO VG 320 nominal: 320 cSt at 40°C."""
-        nu = compute_oil_viscosity_cst(40.0)
-        assert nu == pytest.approx(320.0, rel=0.15)  # ±15 % — Walther fit
-
-    def test_viscosity_at_100c_near_38_cst(self) -> None:
-        """ISO VG 320 nominal: ~38 cSt at 100°C (VI = 140)."""
-        nu = compute_oil_viscosity_cst(100.0)
-        assert nu == pytest.approx(38.0, rel=0.20)
-
-    def test_viscosity_decreases_with_temperature(self) -> None:
-        """Viscosity must strictly decrease with temperature."""
-        assert compute_oil_viscosity_cst(40.0) > compute_oil_viscosity_cst(65.0)
-        assert compute_oil_viscosity_cst(65.0) > compute_oil_viscosity_cst(100.0)
-
-    def test_viscosity_minimum_clamp(self) -> None:
-        """Viscosity should not go below 5 cSt (physical lower bound)."""
-        assert compute_oil_viscosity_cst(200.0) >= 5.0
-
-
 # ── Cooling state tests ───────────────────────────────────────────────────────
 
 
 class TestCoolingState:
-    """Thermal equilibrium cooling model."""
+    """Direct-drive generator + converter cooling (no gearbox oil circuit)."""
 
-    def test_zero_power_oil_temp_near_ambient(self) -> None:
-        """No heat input → oil temperature ≈ ambient."""
+    def test_zero_power_winding_at_ambient(self) -> None:
         state = compute_cooling_state(power_mw=0.0, ambient_temp_c=15.0)
-        assert state.oil_temp_c == pytest.approx(15.0, abs=2.0)
+        assert state.winding_temp_c == pytest.approx(15.0)
+        assert state.cooler_heat_rejection_kw == 0.0
+        assert state.fan_speed_pct == 0.0
 
-    def test_rated_power_oil_temp_reasonable(self) -> None:
-        """At 15 MW, 15°C ambient → oil should be below trip threshold."""
+    def test_losses_at_rated_from_the_efficiencies(self) -> None:
+        """P_mech = 15 MW / 0.95756 = 15.665 MW → Q_gen 540 kW (3.45 %), Q_conv 124 kW."""
         state = compute_cooling_state(power_mw=15.0, ambient_temp_c=15.0)
-        assert state.oil_temp_c < GEARBOX_OIL_TRIP_TEMP_C
+        assert state.generator_loss_kw == pytest.approx(540.4, abs=0.2)
+        assert state.converter_loss_kw == pytest.approx(124.4, abs=0.2)
+        assert state.cooler_heat_rejection_kw == pytest.approx(664.8, abs=0.3)
 
-    def test_high_ambient_raises_oil_temp(self) -> None:
-        """Hot summer day (35°C) should raise oil temp vs winter (0°C)."""
+    def test_rated_winding_temperature_matches_the_twin(self) -> None:
+        """15 + 10 + 0.125 × 540.4 = 92.6 °C — below the class-B alarm."""
+        state = compute_cooling_state(power_mw=15.0, ambient_temp_c=15.0)
+        assert state.winding_temp_c == pytest.approx(92.6, abs=0.1)
+        assert state.winding_temp_c < WINDING_ALARM_TEMP_C
+
+    def test_high_ambient_raises_winding_temp(self) -> None:
         hot = compute_cooling_state(power_mw=15.0, ambient_temp_c=35.0)
         cold = compute_cooling_state(power_mw=15.0, ambient_temp_c=0.0)
-        assert hot.oil_temp_c > cold.oil_temp_c
+        assert hot.winding_temp_c - cold.winding_temp_c == pytest.approx(35.0, abs=0.2)
 
     def test_alarm_not_set_at_normal_operation(self) -> None:
-        state = compute_cooling_state(power_mw=10.0, ambient_temp_c=15.0)
-        assert not state.oil_temp_alarm
-        assert not state.oil_temp_trip
+        state = compute_cooling_state(power_mw=15.0, ambient_temp_c=35.0)
+        assert not state.winding_temp_alarm
+        assert not state.winding_temp_trip
+
+    def test_insulation_class_limits(self) -> None:
+        assert (WINDING_ALARM_TEMP_C, WINDING_TRIP_TEMP_C) == (130.0, 155.0)
 
     def test_heat_rejection_scales_with_power(self) -> None:
         low = compute_cooling_state(power_mw=5.0)
         high = compute_cooling_state(power_mw=15.0)
-        assert high.cooler_heat_rejection_kw > low.cooler_heat_rejection_kw
+        assert high.cooler_heat_rejection_kw == pytest.approx(3 * low.cooler_heat_rejection_kw)
 
     def test_fan_speed_increases_at_higher_load(self) -> None:
         low = compute_cooling_state(power_mw=2.0)
         high = compute_cooling_state(power_mw=15.0)
-        assert high.fan_speed_pct >= low.fan_speed_pct
-
-    def test_viscosity_populated(self) -> None:
-        state = compute_cooling_state(power_mw=10.0)
-        assert state.viscosity_cst > 0.0
-
-    def test_heat_rejection_at_rated_near_450_kw(self) -> None:
-        """At 15 MW: Q_loss = 15 MW × (1 − 0.97) / total_eta ≈ ~460 kW."""
-        state = compute_cooling_state(power_mw=15.0, ambient_temp_c=15.0)
-        assert state.cooler_heat_rejection_kw == pytest.approx(460.0, rel=0.05)
+        assert low.fan_speed_pct == 20.0
+        assert high.fan_speed_pct == 100.0
 
 
 # ── Safety state tests ────────────────────────────────────────────────────────
@@ -176,23 +153,24 @@ class TestSafetyState:
         assert not state.overspeed_warning
         assert not state.overspeed_hardware
 
-    def test_overspeed_warning_at_110pct(self) -> None:
-        state = compute_safety_state(rotor_speed_rpm=RATED_ROTOR_SPEED_RPM * 1.11)
+    def test_overspeed_warning_at_121pct(self) -> None:
+        state = compute_safety_state(rotor_speed_rpm=RATED_ROTOR_SPEED_RPM * 1.21)
         assert state.overspeed_warning
         assert not state.overspeed_hardware
 
-    def test_overspeed_hardware_at_120pct(self) -> None:
-        state = compute_safety_state(rotor_speed_rpm=RATED_ROTOR_SPEED_RPM * 1.21)
+    def test_overspeed_hardware_at_126pct(self) -> None:
+        state = compute_safety_state(rotor_speed_rpm=RATED_ROTOR_SPEED_RPM * 1.26)
         assert state.overspeed_warning
         assert state.overspeed_hardware
 
     def test_overspeed_warning_threshold_exact(self) -> None:
-        """Warning triggers at > 110% rated (> 9.163 rpm)."""
-        assert pytest.approx(RATED_ROTOR_SPEED_RPM * 1.10, abs=0.01) == OVERSPEED_WARNING_RPM
+        """Controller shutdown at ROSCO SD_MaxGenSpd = 1.2 × 7.56 = 9.07 rpm."""
+        assert pytest.approx(7.56, abs=1e-3) == RATED_ROTOR_SPEED_RPM
+        assert pytest.approx(9.072, abs=0.001) == OVERSPEED_WARNING_RPM
 
     def test_overspeed_hardware_threshold_exact(self) -> None:
-        """Hardware governor triggers at > 120% rated (> 9.996 rpm)."""
-        assert pytest.approx(RATED_ROTOR_SPEED_RPM * 1.20, abs=0.01) == OVERSPEED_HARDWARE_RPM
+        """Illustrative safety-chain trip at 125 % rated (9.45 rpm)."""
+        assert pytest.approx(RATED_ROTOR_SPEED_RPM * 1.25, abs=0.01) == OVERSPEED_HARDWARE_RPM
 
     def test_vibration_zone_a(self) -> None:
         """Vibration ≤ 2.3 mm/s → Zone A (new equipment acceptance)."""
@@ -237,7 +215,7 @@ class TestSafetyState:
 
     def test_vibration_zone_a_at_rated_power(self) -> None:
         """Rated operation with normal vibration stays in Zone A."""
-        state = compute_safety_state(rotor_speed_rpm=8.33, power_mw=15.0, vibration_mm_s=1.5)
+        state = compute_safety_state(rotor_speed_rpm=7.56, power_mw=15.0, vibration_mm_s=1.5)
         assert state.vibration_zone == "A"
 
 
@@ -364,13 +342,13 @@ class TestComputeNacelleSubsystems:
             vibration_mm_s=1.5,
         )
         assert not state.hpu.alarm
-        assert not state.cooling.oil_temp_alarm
+        assert not state.cooling.winding_temp_alarm
         assert not state.safety.overspeed_warning
         assert not state.safety.vibration_alarm
         assert not state.ups.alarm
 
     def test_overspeed_propagates_to_safety(self) -> None:
-        state = compute_nacelle_subsystems(rotor_speed_rpm=RATED_ROTOR_SPEED_RPM * 1.15)
+        state = compute_nacelle_subsystems(rotor_speed_rpm=RATED_ROTOR_SPEED_RPM * 1.22)
         assert state.safety.overspeed_warning
 
     def test_fire_alarm_propagates(self) -> None:
@@ -421,10 +399,10 @@ class TestNacelleAPI:
         response = client.get("/api/v1/turbine-sim/nacelle/cooling")
         assert response.status_code == 200
 
-    def test_cooling_response_has_oil_temp(self, client: TestClient) -> None:
+    def test_cooling_response_has_winding_temp(self, client: TestClient) -> None:
         data = client.get("/api/v1/turbine-sim/nacelle/cooling").json()
-        assert "oil_temp_c" in data
-        assert data["oil_temp_c"] > 0.0
+        assert "winding_temp_c" in data and "oil_temp_c" not in data
+        assert data["winding_temp_c"] > 0.0
 
     def test_safety_endpoint_returns_200(self, client: TestClient) -> None:
         response = client.get("/api/v1/turbine-sim/nacelle/safety")
@@ -437,19 +415,19 @@ class TestNacelleAPI:
 
     def test_safety_overspeed_via_query_param(self, client: TestClient) -> None:
         """Pass overspeed RPM via query parameter and verify warning flag."""
-        speed = RATED_ROTOR_SPEED_RPM * 1.15
+        speed = RATED_ROTOR_SPEED_RPM * 1.22
         data = client.get(f"/api/v1/turbine-sim/nacelle/safety?rotor_speed_rpm={speed}").json()
         assert data["overspeed_warning"] is True
 
     def test_cooling_high_ambient_via_query_param(self, client: TestClient) -> None:
-        """Summer ambient (35°C) should raise oil temp vs default (15°C)."""
+        """Summer ambient (35°C) should raise the winding temperature vs default (15°C)."""
         hot = client.get(
             "/api/v1/turbine-sim/nacelle/cooling?ambient_temp_c=35.0&power_mw=15.0"
         ).json()
         cold = client.get(
             "/api/v1/turbine-sim/nacelle/cooling?ambient_temp_c=0.0&power_mw=15.0"
         ).json()
-        assert hot["oil_temp_c"] > cold["oil_temp_c"]
+        assert hot["winding_temp_c"] > cold["winding_temp_c"]
 
     def test_hpu_feathered_pitch_via_query_param(self, client: TestClient) -> None:
         data = client.get(

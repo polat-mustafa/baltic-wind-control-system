@@ -9,7 +9,8 @@ Covers:
 - Persistence baseline skill score
 - SHAP explainability values and feature importance
 
-Small dataset config: SCADAConfig(num_turbines=2, num_timesteps=500, seed=42)
+Small dataset config: SCADAConfig(num_turbines=2, num_timesteps=2000, seed=42) — 14 days;
+with the site persistence (ERA5) 500 records (83 h) are too few to beat persistence.
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ from app.services.p4.xgboost_model import (
 
 # ── Shared Test Fixtures ──────────────────────────────────────────
 
-SMALL_SCADA_CONFIG = SCADAConfig(num_turbines=2, num_timesteps=500, seed=42)
+SMALL_SCADA_CONFIG = SCADAConfig(num_turbines=2, num_timesteps=2000, seed=42)
 TURBINE_INDEX = 0
 
 
@@ -110,7 +111,7 @@ def feature_names(engineered):
 
 
 @pytest.fixture(scope="module")
-def trained_result(merged_features, target_power):
+def trained_result(merged_features, target_power, engineered):
     """Train XGBoost with small config for fast tests."""
     config = XGBoostConfig(
         n_estimators=50,
@@ -120,7 +121,12 @@ def trained_result(merged_features, target_power):
         n_cv_splits=3,
         seed=42,
     )
-    return train_xgboost(merged_features, target_power, config)
+    return train_xgboost(
+        merged_features,
+        target_power,
+        config,
+        persistence_column=engineered.feature_names.index("power_lag_1"),
+    )
 
 
 # ── TestNWPPipeline ───────────────────────────────────────────────

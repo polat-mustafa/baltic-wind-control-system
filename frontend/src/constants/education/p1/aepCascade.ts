@@ -23,8 +23,8 @@ export const aepCascadeEducation: EducationContent = {
     "Losses are multiplicative — each acts on the energy left after the previous one: Net = Gross × Π(1 − Lᵢ). The " +
     "uncertainty of each input (wind data, long-term correction, shear, wake model, power curve, availability…) is " +
     "combined by root-sum-square under an independence assumption, giving σ as a fraction of P50. With a normal " +
-    "approximation P_x = P50·(1 − z_x·σ): z = 0.674 (P75), 1.282 (P90), 2.326 (P99). On this platform σ = 6.89 %, " +
-    "so P90 sits 8.8 % below P50. These are long-term (multi-year average) values; a 1-year P90 also includes the " +
+    "approximation P_x = P50·(1 − z_x·σ): z = 0.674 (P75), 1.282 (P90), 2.326 (P99). For SB-510 σ = 7.7 % " +
+    "(six sourced components, most of it the wind resource from a model without on-site measurement), so P90 sits 9.9 % below P50. These are long-term (multi-year average) values; a 1-year P90 also includes the " +
     "year-to-year variability of the wind and is lower.",
 
   standards: [
@@ -68,21 +68,21 @@ export const aepCascadeEducation: EducationContent = {
 
   workedExamples: [
     {
-      title: "This platform's cascade (A = 10.5 m/s, k = 2.2, regular grid)",
+      title: "This platform's cascade (SB-510 site: A = 10.80 m/s, k = 2.04, regular grid)",
       scenario:
-        "34 × V236-15.0 MW. Gross AEP from PyWake = 2,425.8 GWh/yr. Losses: wake 5.56 %, blockage 1.63 %, electrical 2.0 %, " +
+        "34 × 15 MW (IEA 15 MW). Gross AEP from PyWake = 2,556.6 GWh/yr. Losses: wake 6.47 %, blockage 1.95 %, electrical 2.0 %, " +
         "availability 5.0 %, environmental 1.0 %. Price 72 €/MWh.",
       steps: [
-        "After wake: 2,425.8 × 0.9444 = 2,290.9 GWh",
-        "After blockage: 2,290.9 × 0.9837 = 2,253.6 GWh",
-        "After electrical: 2,253.6 × 0.980 = 2,208.5 GWh",
-        "After availability: 2,208.5 × 0.950 = 2,098.1 GWh",
-        "After environmental: 2,098.1 × 0.990 = 2,077.1 GWh  → P50",
-        "σ = √(4² + 3² + 3² + 2² + 2² + 1.5² + 1.5² + 1²) = √47.5 = 6.89 %",
-        "P90 = 2,077 × (1 − 1.282 × 0.0689) = 1,894 GWh",
+        "After wake: 2,556.6 × 0.9353 = 2,391.2 GWh",
+        "After blockage: 2,391.2 × 0.9805 = 2,344.6 GWh",
+        "After electrical: 2,344.6 × 0.980 = 2,297.7 GWh",
+        "After availability: 2,297.7 × 0.950 = 2,182.8 GWh",
+        "After environmental: 2,182.8 × 0.990 = 2,161.0 GWh  → P50",
+        "σ = √(5.51² + 0.75² + 0.82² + 2.1² + 4.0² + 2.7²) = √59.3 = 7.7 %",
+        "P90 = 2,161 × (1 − 1.282 × 0.077) = 1,948 GWh",
       ],
       result:
-        "P50 ≈ 2,077 GWh/yr (capacity factor 46.5 %), P90 ≈ 1,894 GWh/yr. At 72 €/MWh the gap is ≈ 13 M€ of revenue per " +
+        "P50 ≈ 2,161 GWh/yr (capacity factor 48.4 %), P90 ≈ 1,948 GWh/yr. At 72 €/MWh the gap is ≈ 15.4 M€ of revenue per " +
         "year — the price of uncertainty.",
     },
   ],

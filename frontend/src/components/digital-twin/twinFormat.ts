@@ -18,7 +18,7 @@ export const SCENARIO_ORDER: ScenarioName[] = [
   "rotor_icing",
   "pitch_misalignment",
   "converter_derating",
-  "gearbox_degradation",
+  "generator_degradation",
   "anemometer_drift",
 ];
 
@@ -28,7 +28,7 @@ export const SCENARIO_TITLE: Record<ScenarioName, string> = {
   rotor_icing: "Rotor icing",
   pitch_misalignment: "Pitch misalignment",
   converter_derating: "Converter derating",
-  gearbox_degradation: "Gearbox degradation",
+  generator_degradation: "Generator degradation",
   anemometer_drift: "Anemometer drift",
 };
 
@@ -38,7 +38,7 @@ export const CHANNEL_META: Record<ChannelKey, { label: string; short: string; un
   power: { label: "Active power", short: "P", unit: "MW" },
   rotor_speed: { label: "Rotor speed", short: "ω", unit: "rpm" },
   pitch: { label: "Pitch angle", short: "β", unit: "°" },
-  gearbox_temp: { label: "Gearbox bearing temp.", short: "T", unit: "°C" },
+  generator_temp: { label: "Generator winding temp.", short: "T", unit: "°C" },
   anemometer: { label: "Nacelle wind vs neighbours", short: "v", unit: "m/s" },
 };
 
@@ -46,7 +46,7 @@ export const CHANNEL_ORDER: ChannelKey[] = [
   "power",
   "rotor_speed",
   "pitch",
-  "gearbox_temp",
+  "generator_temp",
   "anemometer",
 ];
 
@@ -54,7 +54,7 @@ export const FAULT_LABEL: Record<FaultKind, string> = {
   aero_efficiency: "Aerodynamic efficiency loss",
   pitch_offset: "Pitch angle misalignment",
   power_limit: "Uncommanded power limitation",
-  gearbox_loss: "Gearbox loss increase",
+  generator_loss: "Generator loss increase",
   anemometer_gain: "Nacelle anemometer drift",
 };
 
@@ -62,7 +62,7 @@ export const FAULT_SHORT: Record<FaultKind, string> = {
   aero_efficiency: "Aero loss",
   pitch_offset: "Pitch offset",
   power_limit: "Power limit",
-  gearbox_loss: "Gearbox loss",
+  generator_loss: "Generator loss",
   anemometer_gain: "Anemometer",
 };
 
@@ -70,7 +70,7 @@ export const FAULT_CATEGORY: Record<FaultKind, string> = {
   aero_efficiency: "Aerodynamic",
   pitch_offset: "Control",
   power_limit: "Electrical",
-  gearbox_loss: "Mechanical",
+  generator_loss: "Electrical",
   anemometer_gain: "Sensor",
 };
 
@@ -84,7 +84,7 @@ export function formatSeverity(kind: FaultKind, value: number | null): string {
       return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(2)}°`;
     case "power_limit":
       return `${value.toFixed(2)} MW cap`;
-    case "gearbox_loss":
+    case "generator_loss":
       return `${value.toFixed(2)}× losses`;
     case "anemometer_gain":
       return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(1)} % gain`;

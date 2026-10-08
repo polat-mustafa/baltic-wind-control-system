@@ -23,16 +23,32 @@ export function formatErrorDetail(detail: unknown, status: number): string {
   return detail == null ? `HTTP ${status}` : JSON.stringify(detail);
 }
 
+/** HTTP error with its status code (a network failure throws a plain TypeError instead). */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+/** Extra headers per URL — the own project's farm on the grid endpoints (lib/project/farmHeader.ts). */
+let extraHeaders: (url: string) => Record<string, string> = () => ({});
+export function setRequestHeaders(fn: (url: string) => Record<string, string>): void {
+  extraHeaders = fn;
+}
+
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...extraHeaders(url) },
     ...init,
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(formatErrorDetail(body?.detail, res.status));
+    throw new ApiError(formatErrorDetail(body?.detail, res.status), res.status);
   }
-  return res.json() as Promise<T>;
+  return (res.status === 204 ? undefined : res.json()) as Promise<T>;
 }
 
 export function post<T>(url: string, body: unknown): Promise<T> {

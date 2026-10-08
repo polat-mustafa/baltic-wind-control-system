@@ -27,7 +27,7 @@ const renderAt = (path: string) =>
   );
 
 function twinRun(): twinApi.AnalyzeResponse {
-  const health = { power: 100, rotor_speed: 100, pitch: 100, gearbox_temp: 100, anemometer: 100 };
+  const health = { power: 100, rotor_speed: 100, pitch: 100, generator_temp: 100, anemometer: 100 };
   const turbine = (id: number, h = health) => ({
     turbine_id: id,
     name: `WTG-${String(id).padStart(2, "0")}`,
@@ -46,13 +46,13 @@ function twinRun(): twinApi.AnalyzeResponse {
     lost_energy_mwh: 0,
   });
   return {
-    scenario: "gearbox_degradation",
-    title: "Gearbox degradation",
-    turbines: [turbine(11), turbine(12, { ...health, gearbox_temp: 0 })],
-    events: [{ turbine_id: 12, turbine_name: "WTG-12", channel: "gearbox_temp", level: "alarm", direction: "high" }],
+    scenario: "generator_degradation",
+    title: "Generator degradation",
+    turbines: [turbine(11), turbine(12, { ...health, generator_temp: 0 })],
+    events: [{ turbine_id: 12, turbine_name: "WTG-12", channel: "generator_temp", level: "alarm", direction: "high" }],
     ambient: { timestamps: [0], temperature_c: [8], humidity_pct: [80], farm_wind_ms: [9] },
     validation: {
-      rows: [{ turbine_name: "WTG-12", injected_kind: "gearbox_loss" }],
+      rows: [{ turbine_name: "WTG-12", injected_kind: "generator_loss" }],
       injected: 1,
       detected: 1,
       isolated: 1,
@@ -97,7 +97,7 @@ describe("AcademyPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Start a case/ }));
     await waitFor(() => screen.getByLabelText("Flag WTG-12"));
     fireEvent.click(screen.getByLabelText("Flag WTG-12"));
-    fireEvent.change(screen.getByLabelText("Fault on WTG-12"), { target: { value: "gearbox_loss" } });
+    fireEvent.change(screen.getByLabelText("Fault on WTG-12"), { target: { value: "generator_loss" } });
     fireEvent.click(screen.getByRole("button", { name: /Submit diagnosis/ }));
     const card = screen.getAllByRole("status").at(-1)!;
     expect(within(card).getByText("100")).toBeTruthy();

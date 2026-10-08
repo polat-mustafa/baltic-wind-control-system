@@ -17,8 +17,8 @@ describe("NacelleSchematic", () => {
   it("selects a part from its symbol and offers the 3D fly-to", () => {
     render(<NacelleSchematic turbineId="WTG-09" />);
     fireEvent.click(screen.getByRole("tab", { name: /M-01/ }));
-    fireEvent.click(screen.getByTestId("sym-gearbox"));
-    expect(useLandingStore.getState().selectedTurbinePart).toBe("gearbox");
+    fireEvent.click(screen.getByTestId("sym-generator"));
+    expect(useLandingStore.getState().selectedTurbinePart).toBe("generator");
     expect(screen.getByText("Open in 3D →")).toBeDefined();
   });
 });

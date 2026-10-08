@@ -36,9 +36,10 @@ import * as THREE from "three";
 import { Html, Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 
-import { inductionFromCt, turbulenceIntensity, v236ThrustCoefficient } from "../../../../utils/landingPhysics";
+import { inductionFromCt, turbulenceIntensity, turbineThrustCoefficient } from "../../../../utils/landingPhysics";
 import { rotorPhase } from "../hooks/useRotorSpin";
 import { useLandingStore } from "../../../../store/landingStore";
+import { useFleet } from "../../../../lib/fleet";
 import { farmAround } from "../model/farm";
 import { HUB } from "../model/layout";
 import { FIELD, FLOW_TIME_X, turbAt } from "../model/turbulence";
@@ -77,9 +78,10 @@ export const WindFlow = memo(function WindFlow({
   rotorRpm: number;
 }) {
   const frameRef = useRef<THREE.Group>(null);
-  const ct = rotorRpm > 0.1 ? v236ThrustCoefficient(windMs) : 0;
+  const ct = rotorRpm > 0.1 ? turbineThrustCoefficient(windMs) : 0;
   const a = inductionFromCt(ct);
-  const farm = useMemo(() => farmAround(turbineId).filter((t) => t.id !== turbineId), [turbineId]);
+  const fleet = useFleet();
+  const farm = useMemo(() => farmAround(turbineId, fleet).filter((t) => t.id !== turbineId), [turbineId, fleet]);
   const neighbours = useRef<WakeSource[]>([]);
   const [waked, setWaked] = useState<{ id: string; dist: number; deficit: number; ti: number } | null>(null);
   const lastLabel = useRef(0);
@@ -352,7 +354,7 @@ export const TipVortices = memo(function TipVortices({
     }),
     [],
   );
-  const ct = rotorRpm > 0.1 ? v236ThrustCoefficient(windMs) : 0;
+  const ct = rotorRpm > 0.1 ? turbineThrustCoefficient(windMs) : 0;
   const a = inductionFromCt(ct);
   useFrame(() => {
     const mesh = ref.current;

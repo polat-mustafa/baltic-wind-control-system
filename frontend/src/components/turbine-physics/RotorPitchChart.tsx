@@ -3,10 +3,12 @@
  *
  * Left axis: rotor_speed_rpm (green).
  * Right axis: pitch_angle_deg (orange).
- * Reference lines: max rotor speed 8.6 rpm, min 4.0 rpm.
+ * Reference lines (IEA 15 MW, ROSCO): rated 7.56 rpm, minimum 5.0 rpm, overspeed trip 9.07 rpm.
  */
 
 import Plot from "react-plotly.js";
+
+import { V236 } from "../../utils/landingPhysics";
 
 import { ChartWrapper } from "../ui/ChartWrapper";
 import {
@@ -15,6 +17,9 @@ import {
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
 import { useTurbinePhysicsStore } from "../../store/turbinePhysicsStore";
+
+/** Overspeed shutdown [rpm] — ROSCO SD_MaxGenSpd, 1.2 × the 7.56 rpm rated speed. */
+const OVERSPEED_RPM = 1.2 * V236.ratedRpm;
 
 export default function RotorPitchChart() {
   const simulation = useTurbinePhysicsStore((s) => s.simulation);
@@ -49,22 +54,33 @@ export default function RotorPitchChart() {
       yaxis: "y2",
       hovertemplate: "%{y:.1f} deg<extra></extra>",
     },
-    // Max rotor speed reference
+    // Overspeed trip (ROSCO SD_MaxGenSpd = 1.2 × rated)
     {
       x: [time[0], time[time.length - 1]],
-      y: [8.6, 8.6],
-      name: "Max RPM (8.6)",
+      y: [OVERSPEED_RPM, OVERSPEED_RPM],
+      name: `Overspeed trip (${OVERSPEED_RPM.toFixed(2)})`,
       type: "scatter",
       mode: "lines",
       line: { color: "#e74c3c", width: 1, dash: "dash" },
       showlegend: true,
       hoverinfo: "skip",
     },
-    // Min rotor speed reference
+    // Rated rotor speed (pitch-controller reference)
     {
       x: [time[0], time[time.length - 1]],
-      y: [4.0, 4.0],
-      name: "Min RPM (4.0)",
+      y: [V236.ratedRpm, V236.ratedRpm],
+      name: `Rated (${V236.ratedRpm.toFixed(2)})`,
+      type: "scatter",
+      mode: "lines",
+      line: { color: "#22c55e", width: 1, dash: "dot" },
+      showlegend: true,
+      hoverinfo: "skip",
+    },
+    // Minimum rotor speed reference
+    {
+      x: [time[0], time[time.length - 1]],
+      y: [V236.minRpm, V236.minRpm],
+      name: `Min RPM (${V236.minRpm.toFixed(1)})`,
       type: "scatter",
       mode: "lines",
       line: { color: "#9ba3b8", width: 1, dash: "dash" },

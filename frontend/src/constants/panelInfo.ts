@@ -39,7 +39,7 @@ export const cableLoadingInfo: InfoContent = {
     { name: "Derating", description: "Applied for seabed burial depth and grouping" },
   ],
   interpretation:
-    "Bars approaching 100% need attention. The two parallel export cables (45 km) are typically " +
+    "Bars approaching 100% need attention. The two parallel export cables (108 km) are typically " +
     "the most loaded segment under full farm output.",
 };
 
@@ -63,11 +63,12 @@ export const statcomInfo: InfoContent = {
   title: "STATCOM Sizing — Reactive Power Compensation",
   description:
     "Determines the required STATCOM capacity for voltage regulation and grid code compliance. " +
-    "Includes ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors for the ~260 MVAR charging power of the two export cables.",
+    "Includes ±120 MVAR STATCOM + 4 × 180 MVAR shunt reactors (one per export cable at each end) for the ~624 MVAR " +
+    "charging power of the two export cables.",
   standard: "ENTSO-E NC RfG Type D + PSE IRiESP reactive power requirements",
   parameters: [
     { name: "STATCOM", description: "±120 MVAR (full 4-quadrant operation)" },
-    { name: "Shunt reactors", description: "3 × 80 MVAR (N+1: one per export cable + one spare, compensates cable capacitance)" },
+    { name: "Shunt reactors", description: "4 × 180 MVAR: one per export cable onshore and one at the OSS, so each cable end carries half the charging current; sized so one can be out" },
     { name: "Power factor", description: "0.95 lead to 0.95 lag at PCC" },
   ],
   interpretation:
@@ -107,7 +108,7 @@ export const converterComparisonInfo: InfoContent = {
 export const substationSldInfo: InfoContent = {
   title: "Single-Line Diagram — Export System",
   description:
-    "PSE 400 kV connection point → 2 × 300 MVA onshore transformers → 2 × 45 km 220 kV export cables → " +
+    "PSE 400 kV connection point → 2 × 300 MVA onshore transformers → 2 × 108 km 220 kV export cables → " +
     "OSS 220 kV busbar (STATCOM, shunt reactors) → 2 × 300 MVA OSS transformers → split 66 kV switchboard " +
     "(section A: strings 1–3, section B: strings 4–6, bus coupler normally open).",
   standard: "IEC 60617 symbols · IEC 61850-7-2 select-before-operate · ISA-101 colours",
@@ -126,7 +127,7 @@ export const gooseSimInfo: InfoContent = {
   title: "GOOSE protection — IEC 61850-8-1",
   description:
     "A protection IED publishes the trip as a GOOSE message (Ethernet layer 2, multicast); every breaker bay " +
-    "subscribes. The scenarios use IEC 60909 fault currents from the P2 pandapower model (OSS 220 kV Ik'' ≈ 9.1 kA).",
+    "subscribes. The scenarios use IEC 60909 fault currents from the P2 pandapower model (OSS 220 kV Ik'' ≈ 7.8 kA).",
   standard: "IEC 61850-8-1 (GOOSE) · IEC 61850-5 (transfer time class TT6 ≤ 3 ms) · IEC 60909-0",
   parameters: [
     { name: "stNum", description: "State number — increments when the dataset changes (the trip)" },
@@ -356,13 +357,13 @@ export const p5NetworkInfo: InfoContent = {
   title: "Network readings",
   description:
     "Steady-state load flow (pandapower) of whatever is live after the last step, built from " +
-    "the P2 network data: 2 × 300 MVA onshore transformers, 45 km 1000 mm² cable (190 nF/km), " +
-    "80 Mvar reactor, ±120 Mvar STATCOM at 1.00 pu, TX-OSS-01 (vk 12.5 %, i0 0.05 %), graded " +
-    "66 kV array cables.",
+    "the P2 network data (SB-510): 2 × 300 MVA onshore transformers (OLTC pre-set 3 steps down), 108 km 1000 mm² cable " +
+    "(190 nF/km, 825 A) with its 180 Mvar onshore line reactor, 180 Mvar OSS reactor, ±120 Mvar STATCOM at 1.00 pu, " +
+    "TX-OSS-01 (vk 12.5 %, i0 0.05 %), graded 66 kV array cables.",
   parameters: [
-    { name: "Charging", description: "Q = ωCU²l ≈ 130 Mvar at 220 kV → ≈ 341 A per phase at 1 pu, with no load" },
-    { name: "Ferranti", description: "Open end above the sending end by 1/cos(βl) ≈ 1.007 (βl ≈ 0.118 rad)" },
-    { name: "Q sign", description: "Generator convention: + = generating; the reactor reads negative" },
+    { name: "Charging", description: "Q = ωCU²l ≈ 312 Mvar at 220 kV → ≈ 820 A per phase at 1 pu, with no load" },
+    { name: "Ferranti", description: "Open end above the sending end by 1/cos(βl) ≈ 1.043 (βl ≈ 0.29 rad)" },
+    { name: "Q sign", description: "Generator convention: + = generating; the reactors read negative" },
   ],
   interpretation:
     "Verification steps use a 0.95–1.05 pu operating band (project); equipment limits are " +
@@ -501,7 +502,7 @@ export const ppcDispatchInfo: InfoContent = {
   parameters: [
     { name: "Dispatched", description: "MW actually commanded to the turbine (green)" },
     { name: "Curtailed", description: "MW withheld to meet TSO setpoint (amber)" },
-    { name: "15 MW line", description: "Rated power per V236-15.0 MW turbine" },
+    { name: "15 MW line", description: "Rated power per 15 MW turbine (IEA 15 MW)" },
   ],
   interpretation:
     "All bars should reach the rated line under full-wind, no-curtailment conditions. " +
@@ -594,7 +595,7 @@ export const resonanceScanInfo: InfoContent = {
     "Parallel resonance peaks occur where impedance spikes — dangerous if a harmonic source coincides with a peak.",
   standard: "IEC 61000-3-6 Annex B — Impedance-based resonance assessment",
   parameters: [
-    { name: "Cable resonance", description: "π-model cable: f_res = 1/(2π√(LC)) — falls in 200–800 Hz range for 45 km export" },
+    { name: "Cable resonance", description: "π-model cable: f_res = 1/(2π√(LC)) — SB-510 (108 km): ≈ 115 Hz and ≈ 880 Hz seen from OSS 66 kV without the filter" },
     { name: "HIGH risk", description: "Peak aligns with a WTG harmonic injection frequency" },
     { name: "MEDIUM risk", description: "Peak near a harmonic — damping may be insufficient" },
   ],
@@ -624,7 +625,7 @@ export const flickerFilterInfo: InfoContent = {
 export const farmOverviewInfo: InfoContent = {
   title: "Wind Farm Overview — Real-Time Status Map",
   description:
-    "Interactive map showing all 34 V236-15.0 MW turbines, offshore substation, " +
+    "Interactive map showing all 34 × 15 MW turbines, offshore substation, " +
     "export cable, and onshore connection point. Click any element for details.",
   parameters: [
     { name: "Green turbine", description: "Operating normally" },
@@ -635,4 +636,97 @@ export const farmOverviewInfo: InfoContent = {
   interpretation:
     "KPI ribbon at top shows farm-level metrics. " +
     "Click a turbine for individual status or navigate to P1-P5 dashboards for detailed analysis.",
+};
+
+// ── Layout canvas (/develop/layout) ──
+
+export const layoutGridToolInfo: InfoContent = {
+  title: "Grid fill — regular or staggered rows",
+  description:
+    "Fills the site with turbines on a grid: spacing along the rows and between them in rotor diameters (D), the row bearing, " +
+    "and an optional half-spacing shift of every other row (staggered). Positions closer than half a rotor to the boundary are dropped; " +
+    "with 'Skip' on, positions in constraint areas or outside the plan's energy basins are left out too.",
+  parameters: [
+    { name: "Along / between rows", description: "Centre-to-centre spacing in D (here D = 241 m, IEA 15 MW reference turbine)" },
+    { name: "Row bearing", description: "Direction of the rows, degrees clockwise from north" },
+  ],
+  interpretation:
+    "Put the wider spacing along the prevailing wind (west–southwest in the southern Baltic): wakes are longest downwind. " +
+    "Typical offshore spacings are 5–10 D; the 4 D warning on the canvas is a teaching default, not a rule.",
+};
+
+export const layoutResultsInfo: InfoContent = {
+  title: "Live results — screening numbers",
+  description:
+    "Recomputed whenever the layout changes. Wake loss and net AEP come from a fast Bastankhah–Gaussian model (k* = 0.05, " +
+    "sum-of-squares superposition, Ct and power from the IEA 15 MW tables) over the site's 12-sector wind rose and Weibull speeds.",
+  standard: "Bastankhah & Porté-Agel (2014); Niayifar & Porté-Agel (2016) for k*",
+  parameters: [
+    { name: "Wake loss", description: "1 − net / (N × one free turbine), wake only [%]" },
+    { name: "Net AEP (live)", description: "Energy after wakes only [GWh/yr]; availability and electrical losses come later" },
+    { name: "Power density", description: "Installed MW per km² of the drawn site" },
+    { name: "Wind at 150 m", description: "Site climate from NEWA + ERA5 when assessed, else a labelled approximation" },
+  ],
+  interpretation:
+    "Within about 0.5 percentage points of PyWake on regular grids (tests/lib/layout.test.ts). Use it to compare options quickly; " +
+    "run PyWake for the reference number.",
+};
+
+export const layoutPyWakeInfo: InfoContent = {
+  title: "Reference AEP — PyWake",
+  description:
+    "Runs DTU's PyWake on the backend for these exact positions: Niayifar Gaussian deficit, STF2017 added turbulence, " +
+    "linear superposition, the same wind rose and turbine. In an online project each run is stored with the project.",
+  standard: "PyWake (DTU Wind Energy, MIT licence)",
+  interpretation:
+    "The run belongs to one layout: after a move it is greyed out until you run it again. The screening model and PyWake " +
+    "should agree within about a percentage point of wake loss.",
+};
+
+export const layoutCostInfo: InfoContent = {
+  title: "Cost estimate and LCOE",
+  description:
+    "CAPEX lines per MW or per km from the editable inputs, foundations by the site's deepest water (jacket beyond 40 m), " +
+    "array cable length from the routed tree, and the export route length × the 220 kV circuits the farm needs (same rule as the Grid design).",
+  parameters: [
+    { name: "LCOE", description: "(CAPEX × CRF + OPEX) / AEP [€/MWh]" },
+    { name: "CRF", description: "r(1 + r)^n / ((1 + r)^n − 1), WACC r over lifetime n" },
+    { name: "AEP", description: "PyWake when fresh, else the live estimate, minus 7.8 % electrical, availability and environmental losses (P1 cascade defaults)" },
+  ],
+  interpretation:
+    "Defaults are the NREL Cost of Wind Energy Review 2024 fixed-bottom reference (U.S. North Atlantic, 2023 USD) and ORBIT cable prices, " +
+    "converted at 1.0813 $/€; each input shows its source. Replace them with quotes for your market before comparing with real projects.",
+};
+
+export const layoutChecklistInfo: InfoContent = {
+  title: "Layout checklist",
+  description:
+    "Live checks of the layout: the site screening report from Site & Permits and the checks the canvas runs in the browser " +
+    "(site boundary, constraint areas, energy basins of the Polish maritime spatial plan, spacing, substation, cables, water depth, PyWake run).",
+  parameters: [
+    { name: "HV Grid", description: "Checks that open the Grid stage of an own project (≥ 1 turbine, OSS, none outside, in a constraint or < 4 D)" },
+    { name: "Water depth", description: "EMODnet bathymetry at each turbine, mapped to the screening depth bands (monopile / jacket / floating)" },
+  ],
+  interpretation:
+    "Screening only: a pass here is not a permit. Confirm the plan (SIPAM), the 2021 MSP regulation (Dz.U. 2021 poz. 935) and " +
+    "the seabed with the competent authority and site surveys.",
+};
+
+export const layoutSuggestInfo: InfoContent = {
+  title: "Move suggestions",
+  description:
+    "Takes the ten turbines with the highest wake loss and tries moving each by ½, 1 and 2 D in eight compass directions. " +
+    "A move must keep the turbine inside the site, out of constraint areas, inside an energy basin, ≥ 4 D from the others, " +
+    "clear of existing subsea cables by the screening buffer, and its own array cables must not cross others.",
+  parameters: [
+    { name: "AEP change", description: "Exact for the screening model: only the wakes the moved turbine casts and receives are recomputed" },
+    { name: "Cables", description: "Length change of the moved turbine's own cable segments, strings unchanged" },
+    { name: "LCOE change", description: "From the AEP and cable changes with the cost inputs; the best move per turbine is kept" },
+    { name: "PyWake", description: "The top five are re-run with PyWake against the current layout (POST /api/v1/wind/wake-moves)" },
+  ],
+  interpretation:
+    "Gains are a few tenths of a percent each — real money over 25 years, but below the fast model's accuracy (about 0.5 " +
+    "percentage points of wake loss), so PyWake decides: confirmed moves come first, the rest are marked. On a tuned layout such " +
+    "as SB-510 PyWake finds at most a few hundredths of a percent per move. Moves are single-turbine and greedy — after applying " +
+    "one, search again; a full optimiser (e.g. TOPFARM) moves all turbines together.",
 };

@@ -1,6 +1,6 @@
 """Nacelle Subsystems API endpoints — A4 (Nacelle Overhaul).
 
-REST endpoints exposing the V236-15.0 MW nacelle physics models:
+REST endpoints exposing the SB-510 turbine (IEA 15 MW, direct drive) nacelle physics models:
 
   GET  /api/v1/turbine-sim/nacelle/subsystems  — all subsystems (aggregate)
   GET  /api/v1/turbine-sim/nacelle/hpu         — Hydraulic Power Unit only
@@ -13,12 +13,13 @@ return pure deterministic physics — no database calls, no state.
 Physics Layer
 ─────────────
 HPU: adiabatic accumulator model, ISO 4406 fluid cleanliness
-Cooling: thermal equilibrium T_oil = T_amb + Q_loss/UA, Walther viscosity eq.
+Cooling: generator + converter losses, stator winding T = T_amb + 10 K + R_th·Q_gen.
 Safety: IEC 61400-1 overspeed limits, ISO 10816-21 vibration zones
 
 Standards
 ─────────
-- IEC 61400-1 §7.4.2 — overspeed trip thresholds
+- IEC 61400-1 §8.3 — overspeed protection (ROSCO SD_MaxGenSpd 9.07 rpm)
+- IEC 60085 — insulation thermal classes (generator winding alarm/trip)
 - ISO 4406:2021 — hydraulic fluid cleanliness
 - ISO 10816-21 — vibration monitoring zones for wind turbines
 - IEC 62040-1 — UPS requirements (VFI class)
@@ -89,7 +90,7 @@ async def get_subsystems(
     ambient_temp_c: float = Query(
         default=15.0, ge=-30.0, le=50.0, description="Ambient temperature [°C]"
     ),
-    rotor_speed_rpm: float = Query(default=7.5, ge=0.0, le=15.0, description="Rotor speed [rpm]"),
+    rotor_speed_rpm: float = Query(default=7.56, ge=0.0, le=15.0, description="Rotor speed [rpm]"),
     pitch_deg: float = Query(default=5.0, ge=0.0, le=90.0, description="Blade pitch angle [°]"),
     accumulated_yaw_deg: float = Query(
         default=90.0, ge=-1260.0, le=1260.0, description="Accumulated yaw [°]"
@@ -112,7 +113,7 @@ async def get_subsystems(
     given current turbine operating conditions.
 
     Educational use: dashboard panels can display each subsystem live,
-    showing how oil temperature rises with load, how the accumulator
+    showing how the winding temperature rises with load, how the accumulator
     discharge cycle works, and how ISO 10816-21 zones map to vibration levels.
     """
     state = compute_nacelle_subsystems(
@@ -132,8 +133,8 @@ async def get_subsystems(
 
     any_alarm = (
         state.hpu.alarm
-        or state.cooling.oil_temp_alarm
-        or state.cooling.oil_temp_trip
+        or state.cooling.winding_temp_alarm
+        or state.cooling.winding_temp_trip
         or state.safety.overspeed_warning
         or state.safety.vibration_alarm
         or state.safety.ice_detection_active
@@ -180,16 +181,11 @@ async def get_cooling(
         default=15.0, ge=-30.0, le=50.0, description="Ambient temperature [°C]"
     ),
 ) -> CoolingStateResponse:
-    """Return gearbox cooling and lubrication system state.
+    """Return the generator / converter cooling state (direct drive, no gearbox).
 
-    Thermal equilibrium model:
-        T_oil = T_amb + Q_loss / (UA_cooler × fan_factor)
-
-    where Q_loss = P_mech × (1 − η_gearbox) ≈ 450 kW at rated power.
-
-    Fan speed is proportional-controlled to maintain a 65°C oil setpoint.
-    Oil viscosity is computed from the Walther equation (ASTM D341) for
-    ISO VG 320 synthetic gear oil (VI = 140, 320 cSt at 40°C).
+    Losses: Q_gen = P_mech·(1 − η_gen) ≈ 540 kW and Q_conv ≈ 124 kW at rated.
+    Stator winding: T = T_amb + 10 K + 0.125 K/kW · Q_gen (≈ 93 °C at rated, 15 °C).
+    Alarm 130 °C (class B), trip 155 °C (class F, IEC 60085).
     """
     state = compute_cooling_state(power_mw=power_mw, ambient_temp_c=ambient_temp_c)
     return CoolingStateResponse(**state.__dict__)
@@ -197,7 +193,7 @@ async def get_cooling(
 
 @router.get("/safety", response_model=SafetyStateResponse)
 async def get_safety(
-    rotor_speed_rpm: float = Query(default=7.5, ge=0.0, le=15.0, description="Rotor speed [rpm]"),
+    rotor_speed_rpm: float = Query(default=7.56, ge=0.0, le=15.0, description="Rotor speed [rpm]"),
     power_mw: float = Query(default=10.0, ge=0.0, le=15.0, description="Electrical output [MW]"),
     vibration_mm_s: float = Query(
         default=1.5, ge=0.0, le=20.0, description="Vibration velocity RMS [mm/s]"
@@ -209,9 +205,9 @@ async def get_safety(
     """Return nacelle safety systems state.
 
     Checks:
-    - Overspeed (IEC 61400-1 §7.4.2):
-        Warning trip: ω > 110% rated (9.16 rpm) → EMERGENCY_SHUTDOWN
-        Hardware trip: ω > 120% rated (10.0 rpm) → centrifugal governor
+    - Overspeed (IEC 61400-1 §8.3):
+        Controller trip: ω > 120% rated (9.07 rpm, ROSCO) → EMERGENCY_SHUTDOWN
+        Safety chain: ω > 125% rated (9.45 rpm, illustrative)
     - Vibration (ISO 10816-21):
         Zone A ≤ 2.3 mm/s (new equip.), B ≤ 4.5 (unrestricted),
         C ≤ 7.1 (restricted, plan maint.), D > 7.1 (emergency stop)

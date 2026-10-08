@@ -8,6 +8,7 @@
 
 import { create } from "zustand";
 
+import { currentNetwork } from "./gridStore";
 import * as api from "../services/ppcApi";
 import type {
   ActivePowerMode,
@@ -149,8 +150,8 @@ export const usePPCStore = create<PPCState>((set, get) => ({
         active_power_mode: s.activePowerMode,
         reactive_power_mode: s.reactivePowerMode,
         wind_speed_ms: s.windSpeedMS,
-        available_turbines: s.availableTurbines,
-        initial_power_mw: s.initialPowerMW,
+        available_turbines: Math.min(s.availableTurbines, currentNetwork().num_turbines),
+        initial_power_mw: Math.min(s.initialPowerMW, currentNetwork().total_capacity_mw),
         simulation_duration_s: s.simulationDurationS,
         time_step_s: 0.1,
         setpoint_time_s: 10,

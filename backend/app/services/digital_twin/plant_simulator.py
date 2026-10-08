@@ -13,8 +13,9 @@ the power curve — instead of from noise added to power.
 Inflow (10-min means, one sample every 600 s)
   Farm wind  Gaussian copula: z = 0.9·sin(2πt/3.5 d + φ₀) + 0.77·AR(1)
              (synoptic cycle + persistence, φ = 0.985 per step, unit variance)
-             mapped to the Baltic Weibull marginal a = 10.5 m/s, k = 2.2 (the
-             P4 SCADA parameters) by the probability-integral transform.
+             mapped to the SB-510 site Weibull at 150 m (NEWA: a = 10.80 m/s,
+             k = 2.04, ``sb510_wind()``, as P4; an own project uses its site's
+             hub-height Weibull) by the probability-integral transform.
   Turbine    v_i = V·(1 + δ_i), δ_i AR(1) with σ = 3 %, φ = 0.9 (local
              turbulence / wake meandering; the mean wake deficit is left out).
   Ambient    winter: T ≈ +3 °C with a ±1 K daily cycle, RH ≈ 82 %, p ≈ 1013 hPa;
@@ -24,7 +25,7 @@ Inflow (10-min means, one sample every 600 s)
 Measurement chain (assumptions, stated in the model card)
   Nacelle anemometer  v_meas = g·v + N(0, 0.15 + 0.02·v) m/s
   Active power        + N(0, 0.03) MW         Rotor speed   + N(0, 0.02) rpm
-  Pitch angle         + N(0, 0.05) °          Gearbox temp. + N(0, 0.4) K
+  Pitch angle         + N(0, 0.05) °          Stator temp.  + N(0, 0.4) K
 
 The whole data set is reproducible from ``seed``. Ground truth (the injected
 fault parameter of every turbine at every sample) is returned alongside, so
@@ -35,7 +36,8 @@ SCADA archive cannot give.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 from numpy.typing import NDArray
@@ -49,9 +51,10 @@ from app.services.digital_twin.fault_library import (
 from app.services.digital_twin.reference_model import (
     FaultParams,
     evaluate,
-    gearbox_temperature,
+    generator_temperature,
 )
 from app.services.p4.turbine_power_curve import R_DRY
+from app.services.site_assessment.wind_climate import sb510_wind
 
 FloatArray = NDArray[np.float64]
 
@@ -61,8 +64,8 @@ NUM_TURBINES: int = 34
 START_EPOCH_S: int = 1_736_726_400  # 2025-01-13 00:00 UTC — a winter week
 
 # Inflow
-WEIBULL_A: float = 10.5
-WEIBULL_K: float = 2.2
+WEIBULL_A: float = round(sb510_wind().a_ms, 2)  # SB-510 site, NEWA 150 m
+WEIBULL_K: float = round(sb510_wind().k, 2)
 SYNOPTIC_PERIOD_DAYS: float = 3.5
 SYNOPTIC_AMPLITUDE: float = 0.9
 FARM_AR_PHI: float = 0.985
@@ -75,7 +78,7 @@ ANEMOMETER_SIGMA_REL: float = 0.02
 POWER_SIGMA_MW: float = 0.03
 ROTOR_SIGMA_RPM: float = 0.02
 PITCH_SIGMA_DEG: float = 0.05
-GEARBOX_TEMP_SIGMA_K: float = 0.4
+GENERATOR_TEMP_SIGMA_K: float = 0.4
 
 # Ambient (winter, Polish Baltic offshore)
 AMBIENT_BASE_C: float = 3.0
@@ -125,8 +128,8 @@ _ICING = FaultInjection(
 )
 _PITCH = FaultInjection(kind="pitch_offset", turbine_ids=(19,), severity=(4.0,), onset=0.30)
 _DERATE = FaultInjection(kind="power_limit", turbine_ids=(27,), severity=(12.0,), onset=0.40)
-_GEARBOX = FaultInjection(
-    kind="gearbox_loss", turbine_ids=(11,), severity=(1.6,), onset=0.15, ramp=0.85
+_GENERATOR = FaultInjection(
+    kind="generator_loss", turbine_ids=(11,), severity=(1.6,), onset=0.15, ramp=0.85
 )
 _ANEMOMETER = FaultInjection(
     kind="anemometer_gain", turbine_ids=(14,), severity=(8.0,), onset=0.20, ramp=0.40
@@ -148,8 +151,8 @@ SCENARIOS: dict[str, Scenario] = {
             title="Rotor icing",
             description=(
                 "Cold spell (−4 °C, RH ≈ 96 %) from 25 % to 70 % of the window. Ice "
-                "accretes on WTG-05…08 and removes 20–35 % of Cp, then sheds after the "
-                "thaw. Severities are illustrative."
+                "accretes on WTG-05 to WTG-08 and removes 20–35 % of Cp, then sheds after "
+                "the thaw. Severities are illustrative."
             ),
             injections=(_ICING,),
             cold_spell=(0.25, 0.70),
@@ -174,13 +177,13 @@ SCENARIOS: dict[str, Scenario] = {
             injections=(_DERATE,),
         ),
         Scenario(
-            name="gearbox_degradation",
-            title="Gearbox degradation",
+            name="generator_degradation",
+            title="Generator degradation",
             description=(
-                "WTG-12: gearbox losses rise linearly from nominal (3 % of shaft power) "
+                "WTG-12: generator losses rise linearly from nominal (3.45 % of shaft power) "
                 "to 1.6× from 15 % of the window — a progressive fault for prognosis."
             ),
-            injections=(_GEARBOX,),
+            injections=(_GENERATOR,),
         ),
         Scenario(
             name="anemometer_drift",
@@ -198,11 +201,42 @@ SCENARIOS: dict[str, Scenario] = {
                 "All five faults at once, on different turbines, during the cold spell — "
                 "tests whether the twin isolates each one correctly."
             ),
-            injections=(_ICING, _PITCH, _DERATE, _GEARBOX, _ANEMOMETER),
+            injections=(_ICING, _PITCH, _DERATE, _GENERATOR, _ANEMOMETER),
             cold_spell=(0.25, 0.70),
         ),
     )
 }
+
+
+# Every SB-510 turbine a scenario touches (0-based). A smaller farm gets them
+# spread over its own turbines, in this order (icing stays on neighbours).
+_FAULTY: tuple[int, ...] = (4, 5, 6, 7, 11, 14, 19, 27)
+
+
+def _remap(tid: int, n_turbines: int) -> int:
+    """SB-510 turbine index → index in a farm of n turbines (unchanged when it fits)."""
+    if n_turbines > max(_FAULTY):
+        return tid
+    return _FAULTY.index(tid) * n_turbines // len(_FAULTY)
+
+
+def scenario_for(name: str, n_turbines: int = NUM_TURBINES) -> Scenario:
+    """A scenario on a farm of n turbines (SB-510: as defined above)."""
+    s = SCENARIOS[name]
+    if n_turbines > max(_FAULTY):
+        return s
+    injections = []
+    for inj in s.injections:
+        pairs: dict[int, float] = {}
+        for tid, sev in zip(inj.turbine_ids, inj.severity, strict=True):
+            pairs.setdefault(_remap(tid, n_turbines), sev)  # tiny farms: one fault per turbine
+        injections.append(replace(inj, turbine_ids=tuple(pairs), severity=tuple(pairs.values())))
+    description = re.sub(
+        r"WTG-(\d{2})",
+        lambda m: f"WTG-{_remap(int(m[1]) - 1, n_turbines) + 1:02d}",
+        s.description,
+    )
+    return replace(s, injections=tuple(injections), description=description)
 
 
 # ── Data containers ───────────────────────────────────────────────
@@ -217,7 +251,7 @@ class PlantData:
     power_mw: FloatArray
     rotor_speed_rpm: FloatArray
     pitch_deg: FloatArray
-    gearbox_temp_c: FloatArray
+    generator_temp_c: FloatArray
     operating: NDArray[np.bool_]
     ambient_temp_c: FloatArray  # (T,)
     humidity_pct: FloatArray  # (T,)
@@ -241,7 +275,7 @@ def _ar1(rng: np.random.Generator, phi: float, shape: tuple[int, ...]) -> FloatA
     return out
 
 
-def _farm_wind(rng: np.random.Generator, n_steps: int) -> FloatArray:
+def _farm_wind(rng: np.random.Generator, n_steps: int, weibull: tuple[float, float]) -> FloatArray:
     t_days = np.arange(n_steps) / SAMPLES_PER_DAY
     phase = rng.uniform(0.0, 2.0 * math.pi)
     b = math.sqrt(1.0 - SYNOPTIC_AMPLITUDE**2 / 2.0)
@@ -249,7 +283,8 @@ def _farm_wind(rng: np.random.Generator, n_steps: int) -> FloatArray:
         2.0 * math.pi * t_days / SYNOPTIC_PERIOD_DAYS + phase
     ) + b * _ar1(rng, FARM_AR_PHI, (n_steps,))
     u = np.clip(ndtr(z), 1e-9, 1.0 - 1e-9)
-    return np.asarray(WEIBULL_A * (-np.log1p(-u)) ** (1.0 / WEIBULL_K), dtype=np.float64)
+    a, k = weibull
+    return np.asarray(a * (-np.log1p(-u)) ** (1.0 / k), dtype=np.float64)
 
 
 def _smooth_step(x: FloatArray, edge: float, width: float) -> FloatArray:
@@ -299,11 +334,13 @@ def _schedule(inj: FaultInjection, frac: FloatArray, value: float, nominal: floa
     return nominal + (value - nominal) * level
 
 
-def ground_truth(scenario: Scenario, n_steps: int) -> dict[FaultKind, FloatArray]:
+def ground_truth(
+    scenario: Scenario, n_steps: int, n_turbines: int = NUM_TURBINES
+) -> dict[FaultKind, FloatArray]:
     """Injected fault parameter of every turbine at every sample (library units)."""
     frac = np.arange(n_steps) / max(n_steps - 1, 1)
     truth: dict[FaultKind, FloatArray] = {
-        k: np.full((n_steps, NUM_TURBINES), FAULT_LIBRARY[k].nominal) for k in FAULT_KINDS
+        k: np.full((n_steps, n_turbines), FAULT_LIBRARY[k].nominal) for k in FAULT_KINDS
     }
     for inj in scenario.injections:
         nominal = FAULT_LIBRARY[inj.kind].nominal
@@ -312,24 +349,30 @@ def ground_truth(scenario: Scenario, n_steps: int) -> dict[FaultKind, FloatArray
     return truth
 
 
-def simulate_plant(scenario: Scenario, duration_days: int, seed: int) -> PlantData:
-    """Generate the measured SCADA set for one scenario."""
+def simulate_plant(
+    scenario: Scenario,
+    duration_days: int,
+    seed: int,
+    n_turbines: int = NUM_TURBINES,
+    weibull: tuple[float, float] = (WEIBULL_A, WEIBULL_K),
+) -> PlantData:
+    """Generate the measured SCADA set for one scenario (scenario_for(name, n_turbines))."""
     n = int(duration_days * SAMPLES_PER_DAY)
     rng = np.random.default_rng(seed)
 
-    farm = _farm_wind(rng, n)
-    delta = TURBINE_SIGMA * _ar1(rng, TURBINE_AR_PHI, (n, NUM_TURBINES))
+    farm = _farm_wind(rng, n, weibull)
+    delta = TURBINE_SIGMA * _ar1(rng, TURBINE_AR_PHI, (n, n_turbines))
     v_true = np.maximum(farm[:, None] * (1.0 + delta), 0.0)
 
     temp, rh, pressure = _ambient(rng, n, scenario.cold_spell)
     rho = pressure / (R_DRY * (temp + 273.15))
 
-    truth = ground_truth(scenario, n)
+    truth = ground_truth(scenario, n, n_turbines)
     faults = FaultParams(
         aero_factor=1.0 - truth["aero_efficiency"] / 100.0,
         pitch_offset_deg=truth["pitch_offset"],
         power_limit_mw=truth["power_limit"],
-        gearbox_loss_factor=truth["gearbox_loss"],
+        generator_loss_factor=truth["generator_loss"],
     )
     op = evaluate(v_true, rho[:, None], faults)
 
@@ -342,9 +385,9 @@ def simulate_plant(scenario: Scenario, duration_days: int, seed: int) -> PlantDa
     power = np.where(on, op.power_mw + POWER_SIGMA_MW * rng.standard_normal(shape), 0.0)
     rotor = np.where(on, op.rotor_speed_rpm + ROTOR_SIGMA_RPM * rng.standard_normal(shape), 0.0)
     pitch = op.pitch_deg + np.where(on, PITCH_SIGMA_DEG * rng.standard_normal(shape), 0.0)
-    gb_temp = gearbox_temperature(
-        op.gearbox_loss_kw, np.broadcast_to(temp[:, None], shape), SAMPLE_PERIOD_S
-    ) + GEARBOX_TEMP_SIGMA_K * rng.standard_normal(shape)
+    gb_temp = generator_temperature(
+        op.generator_loss_kw, np.broadcast_to(temp[:, None], shape), SAMPLE_PERIOD_S
+    ) + GENERATOR_TEMP_SIGMA_K * rng.standard_normal(shape)
 
     timestamps = START_EPOCH_S + SAMPLE_PERIOD_S * np.arange(n, dtype=np.int64)
     return PlantData(
@@ -353,7 +396,7 @@ def simulate_plant(scenario: Scenario, duration_days: int, seed: int) -> PlantDa
         power_mw=np.clip(power, 0.0, None),
         rotor_speed_rpm=np.clip(rotor, 0.0, None),
         pitch_deg=pitch,
-        gearbox_temp_c=gb_temp,
+        generator_temp_c=gb_temp,
         operating=on & (power > 0.0),
         ambient_temp_c=temp,
         humidity_pct=rh,

@@ -43,7 +43,10 @@ from app.services.digital_twin.plant_simulator import (
     NUM_TURBINES,
     SAMPLE_PERIOD_S,
     SCENARIOS,
+    WEIBULL_A,
+    WEIBULL_K,
     PlantData,
+    scenario_for,
     simulate_plant,
 )
 from app.services.digital_twin.prognosis import Prognosis, prognose
@@ -135,7 +138,18 @@ def _injected(data: PlantData, tid: int) -> list[tuple[FaultKind, int]]:
 
 
 @lru_cache(maxsize=8)
-def run_digital_twin(scenario: str, duration_days: int = 7, seed: int = 42) -> DigitalTwinRun:
+def run_digital_twin(
+    scenario: str,
+    duration_days: int = 7,
+    seed: int = 42,
+    n_turbines: int = NUM_TURBINES,
+    weibull: tuple[float, float] = (WEIBULL_A, WEIBULL_K),
+) -> DigitalTwinRun:
+    """Run DA → DM → SD → HA → PA on one scenario of a farm (SB-510: 34 turbines).
+
+    The detector keeps its phase-one calibration on the SB-510 reference fleet
+    (healthy, same turbine model): its limits are per wind bin, not per farm.
+    """
     if scenario not in SCENARIOS:
         msg = f"Unknown scenario '{scenario}'. Valid: {sorted(SCENARIOS)}"
         raise ValueError(msg)
@@ -144,7 +158,9 @@ def run_digital_twin(scenario: str, duration_days: int = 7, seed: int = 42) -> D
         raise ValueError(msg)
 
     cal = phase_one_calibration()
-    data = simulate_plant(SCENARIOS[scenario], duration_days, seed)  # DA
+    data = simulate_plant(
+        scenario_for(scenario, n_turbines), duration_days, seed, n_turbines, weibull
+    )  # DA
     view = twin_view(data)  # DM
     det = detect(view, data.wind_ms, cal)  # SD + HA (health index)
     n_t = data.timestamps.size
@@ -155,7 +171,7 @@ def run_digital_twin(scenario: str, duration_days: int = 7, seed: int = 42) -> D
         by_turbine.setdefault(ev.turbine_id, []).append(ev)
 
     turbines: list[TurbineResult] = []
-    for tid in range(NUM_TURBINES):
+    for tid in range(n_turbines):
         evs = by_turbine.get(tid, [])
         diag = diagnose_turbine(tid, evs, data, view, det, cal) if evs else None  # HA
         trend: list[SeverityPoint] = []
@@ -240,7 +256,7 @@ def run_digital_twin(scenario: str, duration_days: int = 7, seed: int = 42) -> D
             )
 
     n_hours = n_t // 6
-    health_hourly = det.health_turbine[: n_hours * 6].reshape(n_hours, 6, NUM_TURBINES).min(axis=1)
+    health_hourly = det.health_turbine[: n_hours * 6].reshape(n_hours, 6, n_turbines).min(axis=1)
     return DigitalTwinRun(
         scenario=scenario,
         duration_days=duration_days,

@@ -23,6 +23,9 @@ dependencies = [
     "numpy>=2.0.0",
     "scipy>=1.17.1",
     "py-wake>=2.5.0",
+    # PyWake's Gaussian-overlap table (TurbOPark) read without h5py's compiled HDF5
+    "h5netcdf>=1.8.0",
+    "pyfive>=1.2.0",
     "xarray>=2024.1.0",
     "pandapower>=2.14.0",
     "andes>=1.10.0",
@@ -32,6 +35,7 @@ dependencies = [
     "torch>=2.2",
     "structlog>=24.0.0",
     "asyncua>=1.1.8",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +48,7 @@ dev = [
     "mypy>=1.14.0",
     "pytest-xdist>=3.6.0",
     "pytest-split>=0.10.0",
+    "aiosqlite>=0.20.0",  # tests/test_projects.py: in-memory SQLite for the projects API
 ]
 
 # ─── uv (lockfile + CPU-only torch on Linux/CI) ─────────────────
@@ -116,7 +121,7 @@ disallow_untyped_defs = false
 [[tool.mypy.overrides]]
 module = [
     "scipy.*", "py_wake.*", "xarray.*", "pandapower.*", "andes.*",
-    "xgboost.*", "shap.*", "sklearn.*", "torch.*", "asyncua.*",
+    "xgboost.*", "shap.*", "sklearn.*", "torch.*", "asyncua.*", "yaml.*",
 ]
 ignore_missing_imports = true
 

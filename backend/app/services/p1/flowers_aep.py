@@ -47,9 +47,10 @@ from numpy.typing import NDArray
 from app.services.p1.wake_model import (
     RATED_POWER_KW,
     ROTOR_DIAMETER_M,
-    get_v236_ct_curve,
-    get_v236_power_curve_kw,
+    get_ct_curve,
+    get_power_curve_kw,
 )
+from app.services.site_assessment.wind_climate import SB510_MEAN_MS, SB510_WEIBULL_K
 
 # ── FLOWERS Constants ───────────────────────────────────────────
 
@@ -152,8 +153,8 @@ def rose_aep(
     )
 
     v, p_v = weibull_bins(mean_wind_speed_ms, weibull_k)
-    power = get_v236_power_curve_kw(v)  # [kW]
-    ct = get_v236_ct_curve(v)
+    power = get_power_curve_kw(v)  # [kW]
+    ct = get_ct_curve(v)
 
     # Pair geometry: i upstream (rows) → j downstream (columns)
     dx = x_positions_m[None, :] - x_positions_m[:, None]
@@ -171,7 +172,7 @@ def rose_aep(
     prob = np.clip(density[:, :, None] * width, 0.0, 1.0)
     prob[r < ROTOR_DIAMETER_M] = 0.0  # self-pairs / overlapping positions
 
-    lost = power[None, None, :] - get_v236_power_curve_kw(v[None, None, :] * (1.0 - deficit))
+    lost = power[None, None, :] - get_power_curve_kw(v[None, None, :] * (1.0 - deficit))
     loss_j = np.minimum((prob * lost).sum(axis=0), power[None, :])  # [n, nv]
 
     gross = float(np.sum(power * p_v)) * 8760.0 / 1e6  # GWh per turbine
@@ -208,9 +209,9 @@ def compute_flowers_aep(
     y_positions_m: Array,
     sector_frequencies: Array | None = None,
     sector_directions_deg: Array | None = None,
-    mean_wind_speed_ms: float = 9.3,
+    mean_wind_speed_ms: float = SB510_MEAN_MS,
     n_fourier_modes: int = N_FOURIER_MODES,
-    weibull_k: float = 2.2,
+    weibull_k: float = SB510_WEIBULL_K,
 ) -> FLOWERSResult:
     """AEP by FLOWERS-style rose integration with the Jensen wake model."""
     t0 = time.perf_counter()

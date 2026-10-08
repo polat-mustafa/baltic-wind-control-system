@@ -7,11 +7,13 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException
 
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.scada import (
     SCLFileResponse,
     SCLFileType,
     SCLGenerateRequest,
 )
+from app.services.p2.network_model import SB510
 from app.services.p3.iec61850_model import (
     build_substation_configuration,
     get_device_by_name,
@@ -28,7 +30,7 @@ router = APIRouter()
 
 
 @router.post("/scl-generate", response_model=SCLFileResponse, status_code=201)
-async def generate_scl_file(request: SCLGenerateRequest) -> SCLFileResponse:
+async def generate_scl_file(request: SCLGenerateRequest, spec: FarmSpecDep) -> SCLFileResponse:
     """Generate an IEC 61850-6 SCL configuration file.
 
     Supported file types:
@@ -36,10 +38,11 @@ async def generate_scl_file(request: SCLGenerateRequest) -> SCLFileResponse:
     - ICD: IED Capability Description (single IED logical nodes)
     - SCD: Substation Configuration Description (all IEDs combined)
     """
-    devices = build_substation_configuration()
+    devices = build_substation_configuration(spec.num_turbines)
+    substation = "SB510_OSS" if spec == SB510 else "PRJ_OSS"
 
     if request.file_type == SCLFileType.SSD:
-        root = generate_ssd()
+        root = generate_ssd(substation, spec=spec)
     elif request.file_type == SCLFileType.ICD:
         if request.device_name is None:
             raise HTTPException(
@@ -55,7 +58,7 @@ async def generate_scl_file(request: SCLGenerateRequest) -> SCLFileResponse:
             )
         root = generate_icd(device)
     elif request.file_type == SCLFileType.SCD:
-        root = generate_scd("SB510_OSS", devices)
+        root = generate_scd(substation, devices, spec=spec)
     else:
         raise HTTPException(
             status_code=422,

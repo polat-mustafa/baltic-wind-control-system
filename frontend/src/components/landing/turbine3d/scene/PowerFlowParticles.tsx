@@ -1,22 +1,22 @@
 /**
  * D3 — Power Flow Animation
  *
- * Animated particle trails visualising the energy conversion chain through
- * the drivetrain. Five segments, each with a dedicated colour:
+ * Animated particle trails visualising the energy conversion chain of the
+ * direct drive (no gearbox), each segment in its own colour:
  *
- *   Wind → Rotor         (blue   #3b82f6)  aerodynamic capture
- *   Rotor → Gearbox      (green  #22c55e)  mechanical transmission
- *   Gearbox → Generator  (yellow #eab308)  electromagnetic conversion
- *   Generator → Converter (orange #f97316)  power electronics (split L/R)
- *   Oil loop              (amber  #f59e0b)  4-leg closed circuit:
- *                                             gearbox → cooler → HPU → gearbox
+ *   Wind → Rotor            (blue   #3b82f6)  aerodynamic capture
+ *   Rotor → Generator       (green  #22c55e)  main shaft, rotor speed (7.56 rpm)
+ *   Generator → Converter   (orange #f97316)  12.6 Hz → DC link → 50 Hz
+ *   Converter → Transformer (red    #ef4444)  step-up to 66 kV
+ *   Coolant loop            (amber  #f59e0b)  closed circuit: generator →
+ *                                             coolant skid → converter → generator
  *
  * Particle speed is proportional to electrical power output:
  *   speed = IDLE + SPEED_SCALE × (P / P_rated)
  *
- * The oil-loop stream uses the same speed scaling as a proxy for gearbox heat
- * rejection, so when the turbine is generating more power the oil flow reads
- * as faster — consistent with the backend cooling model's higher ΔT at rated.
+ * The coolant stream uses the same speed scaling as a proxy for the generator
+ * and converter losses (≈ 540 + 124 kW at rated), consistent with the backend
+ * cooling model.
  *
  * Implementation notes
  * --------------------
@@ -53,23 +53,16 @@ interface Segment {
 const SEGMENTS: Segment[] = [
   // Wind → Rotor (hub approach)
   { colour: "#3b82f6", start: onShaft(-1.0), end: onShaft(SHAFT_Z.frontBearing), count: 40, spread: 1.2 },
-  // Rotor → Gearbox (main shaft)
-  { colour: "#22c55e", start: onShaft(SHAFT_Z.frontBearing), end: onShaft(SHAFT_Z.gearboxStage[0]), count: 40, spread: 0.5 },
-  // Gearbox → Generator
-  { colour: "#eab308", start: onShaft(SHAFT_Z.gearboxStage[0]), end: PARTS.generator, count: 40, spread: 0.5 },
+  // Rotor → Generator (main shaft → rotor disc → air gap)
+  { colour: "#22c55e", start: onShaft(SHAFT_Z.frontBearing), end: PARTS.generator, count: 50, spread: 0.6 },
   // Generator → converter (port) → transformer
   { colour: "#f97316", start: PARTS.generator, end: PARTS.converter, count: 30, spread: 0.3 },
   { colour: "#ef4444", start: PARTS.converter, end: PARTS.transformer, count: 30, spread: 0.3 },
-  // ── Oil-loop circuit (amber #f59e0b) — closed loop gearbox → cooler → HPU → gearbox.
-  // Secondary stream representing gear-oil flow; speed ∝ active power (ΔT proxy).
-  // Gearbox HS bearing → oil-cooler inlet (up and starboard)
-  { colour: "#f59e0b", start: PARTS.gearbox, end: PARTS.oilCooler, count: 18, spread: 0.18 },
-  // Oil-cooler inlet → outlet header (top-run along the cooler)
-  { colour: "#f59e0b", start: PARTS.oilCooler, end: [PARTS.oilCooler[0], PARTS.oilCooler[1] - 1.5, PARTS.oilCooler[2]], count: 14, spread: 0.12 },
-  // Cooler outlet → HPU reservoir (return along starboard, downstream)
-  { colour: "#f59e0b", start: [PARTS.oilCooler[0], PARTS.oilCooler[1] - 1.5, PARTS.oilCooler[2]], end: PARTS.hpu, count: 18, spread: 0.15 },
-  // HPU → gearbox suction port (close the loop)
-  { colour: "#f59e0b", start: PARTS.hpu, end: PARTS.gearbox, count: 18, spread: 0.18 },
+  // ── Coolant loop (amber #f59e0b) — generator stator → coolant skid → converter → generator.
+  { colour: "#f59e0b", start: onShaft(SHAFT_Z.statorDisc, 2.5, 2.5), end: PARTS.coolantSkid, count: 18, spread: 0.18 },
+  { colour: "#f59e0b", start: PARTS.coolantSkid, end: [PARTS.coolantSkid[0], PARTS.coolantSkid[1] - 1.5, PARTS.coolantSkid[2]], count: 14, spread: 0.12 },
+  { colour: "#f59e0b", start: [PARTS.coolantSkid[0], PARTS.coolantSkid[1] - 1.5, PARTS.coolantSkid[2]], end: PARTS.converter, count: 18, spread: 0.15 },
+  { colour: "#f59e0b", start: PARTS.converter, end: onShaft(SHAFT_Z.statorDisc, -2.5, 2.5), count: 18, spread: 0.18 },
 ];
 
 const TOTAL_COUNT = SEGMENTS.reduce((sum, s) => sum + s.count, 0);

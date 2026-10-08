@@ -29,7 +29,7 @@ import {
   weibullMean,
   Z,
 } from "../../utils/aepMath";
-import { V236, v236PowerMW } from "../../utils/landingPhysics";
+import { V236, turbinePowerMW } from "../../utils/landingPhysics";
 
 const N_TURBINES = 34;
 const W = 600;
@@ -278,7 +278,7 @@ export default function AEPExplainer() {
 
                 {step === 1 && (() => {
                   const pts = Array.from({ length: 341 }, (_, i) => i / 10);
-                  const d = pts.map((v, i) => `${i ? "L" : "M"}${xOf(v, 34).toFixed(1)},${yOf(v236PowerMW(v), 16).toFixed(1)}`).join(" ");
+                  const d = pts.map((v, i) => `${i ? "L" : "M"}${xOf(v, 34).toFixed(1)},${yOf(turbinePowerMW(v), 16).toFixed(1)}`).join(" ");
                   const band = (a: number, b: number, fill: string, label: string) => (
                     <g>
                       <rect x={xOf(a, 34)} width={xOf(b, 34) - xOf(a, 34)} y={PAD.t} height={PH} fill={fill} fillOpacity={0.07} />
@@ -292,7 +292,7 @@ export default function AEPExplainer() {
                       {band(V236.ratedMs, V236.cutOutMs, C.wind, "rated 15 MW (pitch control)")}
                       {band(V236.cutOutMs, 34, C.loss, "stop")}
                       <Axes xLabel="Wind speed [m/s]" yLabel="Electrical power [MW]" yMax={16}
-                        xTicks={[0, 3, 11.1, 20, 31].map((v) => ({ x: xOf(v, 34), label: `${v}` }))} />
+                        xTicks={[0, V236.cutInMs, Number(V236.ratedMs.toFixed(1)), 20, V236.cutOutMs].map((v) => ({ x: xOf(v, 34), label: `${v}` }))} />
                       <motion.path d={d} fill="none" stroke={C.power} strokeWidth={2.5}
                         initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.6, ease: "easeInOut" }} />
                     </>
@@ -397,12 +397,12 @@ export default function AEPExplainer() {
               )}
               {step === 1 && (
                 <>
-                  <p><b className="text-text-primary">The turbine turns wind into power — non-linearly.</b> Wind power through the rotor is ½ρAv³: double the speed, eight times the power. The V236 starts at 3 m/s, reaches 15 MW at 11.1 m/s, then pitches its blades to hold 15 MW, and shuts down above 31 m/s to protect itself.</p>
+                  <p><b className="text-text-primary">The turbine turns wind into power — non-linearly.</b> Wind power through the rotor is ½ρAv³: double the speed, eight times the power. The SB-510 turbine starts at 3 m/s, reaches 15 MW at {V236.ratedMs.toFixed(1)} m/s, then pitches its blades to hold 15 MW, and shuts down above {V236.cutOutMs} m/s to protect itself.</p>
                   <div className="grid grid-cols-2 gap-2">
                     <Stat label="Rotor swept area" value="43 744" unit="m²" />
                     <Stat label="Cp at rated (electrical)" value="0.41" unit="< Betz 0.593" />
                   </div>
-                  <p className="text-xs text-text-muted">Curve: P = 15·(v/11.1)³ MW below rated — the same simplified V236 curve the backend wake model uses.</p>
+                  <p className="text-xs text-text-muted">Curve: the IEA 15 MW reference turbine (IEA Wind Task 37, Apache-2.0) — the same table the backend wake model uses. SB-510 is a “V236 class” farm; Vestas publishes no V236 curve.</p>
                 </>
               )}
               {step === 2 && (

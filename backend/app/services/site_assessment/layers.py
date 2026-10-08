@@ -15,10 +15,18 @@ cable       line      subsea cables and pipelines
 owf         polygon   real offshore wind farm projects (outlines), or point (locations)
 msp_energy  polygon   maritime spatial plan basins where offshore wind is allowed
 grid        point     onshore grid connection points
+port        point     offshore wind ports; ``use`` = "O&M" or "installation"
 protected   polygon   protected areas (Natura 2000)
 shipping    polygon   shipping routes / high-density traffic areas
 restricted  polygon   military areas, munition dumpsites
 bathymetry  raster    water depth [m, positive down] on a regular lon/lat grid
+wind        raster    wind climate at hub height, bands mean [m/s], k [-], A [m/s]
+wind_rose   raster    wind direction frequency, bands f000 … f330 (12 × 30° sectors, wind FROM)
+seabed      raster    seabed substrate class (EMODnet Folk 5: 1 mud … 5 rock and boulders)
+
+A raster is ``{lon0, lat0, dlon, dlat, values}`` (one band) or ``{…, bands: {name: values}}``.
+A class raster may store ``rows`` instead of ``values``: one digit per cell, "0" = no data,
+with ``classes`` naming the codes; it is decoded to ``values`` on load.
 """
 
 from __future__ import annotations
@@ -45,10 +53,14 @@ ROLES = (
     "owf",
     "msp_energy",
     "grid",
+    "port",
     "protected",
     "shipping",
     "restricted",
     "bathymetry",
+    "wind",
+    "wind_rose",
+    "seabed",
 )
 
 #: What a screening loses when a role is missing.
@@ -62,10 +74,14 @@ MISSING_EFFECT: dict[str, str] = {
     "msp_energy": "The maritime spatial plan's energy basins are NOT checked — a site outside "
     "them cannot get a Polish location permit.",
     "grid": "No grid-distance score.",
+    "port": "No port distances: construction and O&M use generic transit times.",
     "protected": "Natura 2000 sites are NOT excluded — areas shown as suitable may be protected.",
     "shipping": "Shipping routes are NOT excluded.",
     "restricted": "Military areas and munition dumpsites are NOT excluded.",
     "bathymetry": "No water-depth score or depth limits.",
+    "wind": "No site wind climate: energy uses the regional approximation (A 10.5 m/s, k 2.2).",
+    "wind_rose": "No site wind rose: energy uses the regional approximation.",
+    "seabed": "Seabed sediment unknown: no piling or cable-burial warning.",
 }
 
 
@@ -119,6 +135,16 @@ class Raster:
             + v[j1, i1] * tx * ty
         )
         return np.where(inside, out, np.nan)
+
+    def nearest(self, lon: NDArray[np.float64], lat: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Value of the nearest node (class rasters); NaN outside the grid."""
+        ny, nx = self.values.shape
+        i = np.rint((np.asarray(lon, dtype=float) - self.lon0) / self.dlon)
+        j = np.rint((np.asarray(lat, dtype=float) - self.lat0) / self.dlat)
+        inside = (i >= 0) & (j >= 0) & (i <= nx - 1) & (j <= ny - 1)
+        ii = np.clip(i, 0, nx - 1).astype(int)
+        jj = np.clip(j, 0, ny - 1).astype(int)
+        return np.where(inside, self.values[jj, ii], np.nan)
 
 
 @dataclass(frozen=True)
@@ -187,12 +213,14 @@ class RegionPack:
     def has_polygons(self, role: str) -> bool:
         return any(layer.geometry == "polygon" and layer.features for layer in self.by_role(role))
 
-    def raster(self, role: str) -> Raster | None:
+    def raster(self, role: str, band: str | None = None) -> Raster | None:
+        """The raster of this role (``band`` picks one band of a multi-band raster)."""
         for layer in self.by_role(role):
             if layer.raster is not None:
                 r = layer.raster
+                rows = r["bands"][band] if band is not None else r["values"]
                 values = np.array(
-                    [[np.nan if v is None else float(v) for v in row] for row in r["values"]],
+                    [[np.nan if v is None else float(v) for v in row] for row in rows],
                     dtype=float,
                 )
                 return Raster(
@@ -202,6 +230,14 @@ class RegionPack:
 
     def missing_roles(self) -> list[str]:
         return [role for role in ROLES if not self.has(role)]
+
+
+def _decode_rows(raster: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Class raster stored as digit strings → ``values`` (int, None = no data)."""
+    if raster is None or "rows" not in raster:
+        return raster
+    values = [[int(c) or None for c in row] for row in raster["rows"]]
+    return {k: v for k, v in raster.items() if k != "rows"} | {"values": values}
 
 
 def parse_pack(raw: dict[str, Any]) -> RegionPack:
@@ -227,7 +263,7 @@ def parse_pack(raw: dict[str, Any]) -> RegionPack:
                 license=item["license"],
                 retrieved=item["retrieved"],
                 features=features,
-                raster=item.get("raster"),
+                raster=_decode_rows(item.get("raster")),
             )
         )
     bbox = raw["bbox"]

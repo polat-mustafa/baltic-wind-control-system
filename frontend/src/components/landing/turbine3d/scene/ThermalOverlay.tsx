@@ -6,7 +6,7 @@
  * temperature, a bar against the alarm / trip limits, state and data source
  * — is the HTML table in <ThermalLegend/>, which stays readable at any zoom.
  * Temperatures come from model/nacelleThermal: live main-bearing and
- * gearbox-oil telemetry where available, the load-loss model elsewhere.
+ * generator-winding telemetry where available, the load-loss model elsewhere.
  */
 
 import { Html } from "@react-three/drei";
@@ -24,10 +24,10 @@ import {
 
 /** Hot-spot anchor [m, yaw frame] and glow radius [m], numbered 1…6. */
 const HOT_SPOTS: { id: ThermalId; position: [number, number, number]; radius: number }[] = [
-  { id: "mainBearing", position: onShaft(SHAFT_Z.bearingUnit), radius: 2.2 },
-  { id: "hsBearing", position: onShaft(SHAFT_Z.gearboxStage[2]), radius: 1.4 },
-  { id: "gearboxOil", position: onShaft(SHAFT_Z.gearbox, 0, -1.4), radius: 1.6 },
-  { id: "generator", position: PARTS.generator, radius: 2.8 },
+  { id: "mainBearing", position: onShaft(SHAFT_Z.frontBearing, 0, 2.5), radius: 1.4 },
+  { id: "rearBearing", position: onShaft(SHAFT_Z.rearBearing, 0, 2.5), radius: 1.4 },
+  { id: "generator", position: onShaft(SHAFT_Z.generator, 0, 4.8), radius: 2.8 },
+  { id: "hydraulicOil", position: PARTS.hpu, radius: 1.3 },
   { id: "converter", position: PARTS.converter, radius: 1.5 },
   { id: "transformer", position: [PARTS.transformer[0], PARTS.transformer[1] + 0.5, PARTS.transformer[2]], radius: 2.0 },
 ];
@@ -167,7 +167,7 @@ export function ThermalLegend({ turbineId }: { turbineId: string }) {
       </div>
       <div className="mt-1.5 text-[9px] leading-tight text-text-muted">
         bar ticks: alarm (amber) · trip (red) · T = T_air + ΔT_rated·(k₀ + (1−k₀)·pⁿ), n = 2 windings (I²R) · live:
-        main bearing, gearbox oil
+        main bearing, generator winding
       </div>
     </div>
   );

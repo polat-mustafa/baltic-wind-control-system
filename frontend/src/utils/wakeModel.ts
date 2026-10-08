@@ -18,9 +18,12 @@
  * Geographic conversions assume ~54.75°N latitude (Polish Baltic EEZ).
  */
 
+import { REFERENCE_TURBINE } from "./turbineCurves";
+
 // ── Turbine & wake constants ──────────────────────────────────────
 
-export const ROTOR_DIAMETER = 236; // metres
+/** Rotor diameter of the SB-510 reference turbine (IEA 15 MW, 241.35 m). */
+export const ROTOR_DIAMETER = REFERENCE_TURBINE.rotorDiameterM; // metres
 const ROTOR_RADIUS = ROTOR_DIAMETER / 2;
 const CT = 0.8; // thrust coefficient below rated
 /** Wake expansion rate k* (offshore). */
@@ -29,15 +32,15 @@ export const K_STAR = 0.035;
 // ── Geographic conversion at 54.75°N ─────────────────────────────
 
 const M_PER_DEG_LAT = 111_320;
-const M_PER_DEG_LON = 111_320 * Math.cos((54.75 * Math.PI) / 180);
+const M_PER_DEG_LON = 111_320 * Math.cos((55.06 * Math.PI) / 180);
 
 // ── Core wake math ────────────────────────────────────────────────
 
-/** Gaussian wake width σ [m] at x metres downstream. */
-export function wakeSigma(x: number, ct = CT, kStar = K_STAR): number {
+/** Gaussian wake width σ [m] at x metres downstream of a rotor of diameter d [m]. */
+export function wakeSigma(x: number, ct = CT, kStar = K_STAR, d = ROTOR_DIAMETER): number {
   const s = Math.sqrt(1 - Math.min(ct, 0.95));
   const beta = (0.5 * (1 + s)) / s;
-  return ROTOR_DIAMETER * ((kStar * x) / ROTOR_DIAMETER + 0.2 * Math.sqrt(beta));
+  return d * ((kStar * x) / d + 0.2 * Math.sqrt(beta));
 }
 
 /**
@@ -47,10 +50,10 @@ export function wakeSigma(x: number, ct = CT, kStar = K_STAR): number {
  * actuator-disc theory instead (components/landing/turbine3d/model/wakeModel).
  * `kStar` overrides the expansion rate (higher turbulence → faster recovery).
  */
-export function velocityDeficit(x: number, r = 0, ct = CT, kStar = K_STAR): number {
+export function velocityDeficit(x: number, r = 0, ct = CT, kStar = K_STAR, d = ROTOR_DIAMETER): number {
   if (x <= 0 || ct <= 0) return 0;
-  const sig = wakeSigma(Math.max(x, 2 * ROTOR_DIAMETER), ct, kStar);
-  const arg = 1 - ct / (8 * (sig / ROTOR_DIAMETER) ** 2);
+  const sig = wakeSigma(Math.max(x, 2 * d), ct, kStar, d);
+  const arg = 1 - ct / (8 * (sig / d) ** 2);
   const c = 1 - Math.sqrt(Math.max(0, arg));
   return c * Math.exp(-(r * r) / (2 * sig * sig));
 }

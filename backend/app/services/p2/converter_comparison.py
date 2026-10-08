@@ -14,8 +14,8 @@ Grid strength is judged where the converters are, not only at the POC:
     SCR_POC      = S_sc / P_n                        (PSE 400 kV)
     SCR_terminal = 1 / |Z_grid + Z_trafos + Z_cable|  [p.u. on S_n]
 
-The two transformer stages (2 × 300 MVA each) and 45 km of cable add ≈ 0.25 p.u.,
-so a strong 10 GVA grid (SCR_POC ≈ 20) is only SCR ≈ 3.3 at the 66 kV busbar.
+The two transformer stages (2 × 300 MVA each) and 108 km of cable add ≈ 0.29 p.u.,
+so a strong 10 GVA grid (SCR_POC ≈ 20) is only SCR ≈ 2.9 at the 66 kV busbar.
 
 GFL — current source synchronised by a PLL
   i_dq → i*_dq with a 5 ms current loop (unity-PF active current + the
@@ -65,9 +65,9 @@ from app.schemas.grid import (
     ConverterType,
 )
 from app.services.p2.network_model import (
-    EXPORT_CABLE_LENGTH_KM,
     GRID_SSC_MVA,
-    TOTAL_CAPACITY_MW,
+    SB510,
+    FarmSpec,
     series_impedances_pu,
 )
 
@@ -94,7 +94,7 @@ POLE_SLIP_RAD = math.pi  # angle more than 180° away from the new equilibrium �
 
 STRONG_GRID_SSC_MVA = GRID_SSC_MVA
 WEAK_GRID_SSC_MVA = 2_000.0
-VERY_WEAK_GRID_SSC_MVA = 700.0  # SCR_POC ≈ 1.4 → ≈ 1.0 at the 66 kV busbar
+VERY_WEAK_GRID_SSC_MVA = 750.0  # SCR_POC ≈ 1.5 → ≈ 1.03 at the 66 kV busbar (108 km export)
 SCENARIO_SSC_MVA = {
     "strong_grid": STRONG_GRID_SSC_MVA,
     "weak_grid": WEAK_GRID_SSC_MVA,
@@ -112,10 +112,12 @@ class _Trace:
     lost_sync: bool
 
 
-def grid_impedance_pu(grid_ssc_mva: float, export_length_km: float) -> complex:
-    """Grid + farm series impedance seen from the 66 kV busbar [p.u. on 510 MVA]."""
+def grid_impedance_pu(
+    grid_ssc_mva: float, export_length_km: float | None = None, spec: FarmSpec = SB510
+) -> complex:
+    """Grid + farm series impedance seen from the 66 kV busbar [p.u. on the farm rating]."""
     return sum(
-        series_impedances_pu(TOTAL_CAPACITY_MW, grid_ssc_mva, export_length_km).values(),
+        series_impedances_pu(spec.capacity_mw, grid_ssc_mva, export_length_km, spec).values(),
         start=0j,
     )
 
@@ -216,7 +218,12 @@ def _finite(x: float, digits: int) -> float | None:
 
 
 def _result(
-    kind: ConverterType, trace: _Trace, p_ref: float, grid_ssc_mva: float, scr_t: float
+    kind: ConverterType,
+    trace: _Trace,
+    p_ref: float,
+    grid_ssc_mva: float,
+    scr_t: float,
+    capacity_mw: float = SB510.capacity_mw,
 ) -> ConverterResult:
     k0 = round(T_EVENT_S / DT_S)
     after = slice(k0, None)
@@ -226,7 +233,7 @@ def _result(
     return ConverterResult(
         converter_type=kind,
         grid_ssc_mva=grid_ssc_mva,
-        scr=round(grid_ssc_mva / TOTAL_CAPACITY_MW, 2),
+        scr=round(grid_ssc_mva / capacity_mw, 2),
         scr_terminal=round(scr_t, 2),
         stable=settled,
         voltage_deviation_pu=round(
@@ -235,9 +242,7 @@ def _result(
         settling_time_s=round(settling, 3) if settled else T_END_S - T_EVENT_S,
         frequency_deviation_hz=round(float(np.nanmax(np.abs(trace.f_hz[after] - F0_HZ))), 3),
         peak_current_pu=round(float(np.nanmax(trace.i_pu)), 3),
-        power_swing_mw=round(
-            float(np.nanmax(np.abs(trace.p[after] - p_ref))) * TOTAL_CAPACITY_MW, 1
-        ),
+        power_swing_mw=round(float(np.nanmax(np.abs(trace.p[after] - p_ref))) * capacity_mw, 1),
     )
 
 
@@ -245,12 +250,13 @@ def run_converter_comparison(
     scenario: str = "strong_grid",
     grid_ssc_mva: float = STRONG_GRID_SSC_MVA,
     generation_fraction: float = 1.0,
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    export_length_km: float | None = None,
     phase_jump_deg: float = DEFAULT_PHASE_JUMP_DEG,
+    spec: FarmSpec = SB510,
 ) -> tuple[ConverterResult, ConverterResult]:
     """GFL and GFM results for one grid strength (``scenario`` is a label only)."""
     response = get_comparison_response(
-        scenario, grid_ssc_mva, generation_fraction, export_length_km, phase_jump_deg
+        scenario, grid_ssc_mva, generation_fraction, export_length_km, phase_jump_deg, spec
     )
     return response.gfl_result, response.gfm_result
 
@@ -258,7 +264,7 @@ def run_converter_comparison(
 def run_weak_grid_comparison(
     grid_ssc_mva: float = WEAK_GRID_SSC_MVA,
     generation_fraction: float = 1.0,
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    export_length_km: float | None = None,
 ) -> tuple[ConverterResult, ConverterResult]:
     """Same comparison at a 2 GVA grid (SCR_POC ≈ 3.9)."""
     return run_converter_comparison(
@@ -270,25 +276,27 @@ def get_comparison_response(
     scenario: str,
     grid_ssc_mva: float = STRONG_GRID_SSC_MVA,
     generation_fraction: float = 1.0,
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    export_length_km: float | None = None,
     phase_jump_deg: float = DEFAULT_PHASE_JUMP_DEG,
+    spec: FarmSpec = SB510,
 ) -> ConverterComparisonResponse:
     """Simulate both converters and describe what the traces show."""
-    z = grid_impedance_pu(grid_ssc_mva, export_length_km)
+    cap = spec.capacity_mw
+    z = grid_impedance_pu(grid_ssc_mva, export_length_km, spec)
     scr_t = 1.0 / abs(z)
     p_ref = max(generation_fraction, 0.05)
     jump = math.radians(phase_jump_deg)
     gfl = _simulate_gfl(z, p_ref, jump)
     gfm = _simulate_gfm(z, p_ref, jump)
-    gfl_r = _result(ConverterType.GFL, gfl, p_ref, grid_ssc_mva, scr_t)
-    gfm_r = _result(ConverterType.GFM, gfm, p_ref, grid_ssc_mva, scr_t)
+    gfl_r = _result(ConverterType.GFL, gfl, p_ref, grid_ssc_mva, scr_t, cap)
+    gfm_r = _result(ConverterType.GFM, gfm, p_ref, grid_ssc_mva, scr_t, cap)
 
     step = round(OUTPUT_STEP_S / DT_S)
     series = [
         ConverterTimePoint(
             time_s=round(k * DT_S, 4),
-            gfl_p_mw=_finite(gfl.p[k] * TOTAL_CAPACITY_MW, 1),
-            gfm_p_mw=_finite(gfm.p[k] * TOTAL_CAPACITY_MW, 1),
+            gfl_p_mw=_finite(gfl.p[k] * cap, 1),
+            gfm_p_mw=_finite(gfm.p[k] * cap, 1),
             gfl_f_hz=_finite(gfl.f_hz[k], 4),
             gfm_f_hz=_finite(gfm.f_hz[k], 4),
             gfl_i_pu=_finite(gfl.i_pu[k], 3),

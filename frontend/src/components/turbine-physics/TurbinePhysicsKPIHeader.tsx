@@ -6,6 +6,7 @@
  */
 
 import { useTurbinePhysicsStore } from "../../store/turbinePhysicsStore";
+import { V236 } from "../../utils/landingPhysics";
 
 // ── ISA-101 SCADA Colors ────────────────────────────────────────
 
@@ -84,9 +85,9 @@ export default function TurbinePhysicsKPIHeader() {
   const rpmColor =
     peakRotorSpeed === null
       ? SCADA_COLORS.MUTED
-      : peakRotorSpeed <= 8.6
+      : peakRotorSpeed <= 1.1 * V236.ratedRpm
         ? SCADA_COLORS.ENERGIZED
-        : peakRotorSpeed <= 9.0
+        : peakRotorSpeed <= 1.2 * V236.ratedRpm // ROSCO overspeed trip 9.07 rpm
           ? SCADA_COLORS.WARNING
           : SCADA_COLORS.FAULT;
 

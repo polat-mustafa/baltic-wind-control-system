@@ -12,6 +12,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.services.site_assessment.wind_climate import SB510_WEIBULL_A, SB510_WEIBULL_K
+
 # ── Power Curve Schemas ───────────────────────────────────────────
 
 
@@ -26,8 +28,12 @@ class TurbineSpecSchema(BaseModel):
     rated_speed_ms: float = Field(description="Rated wind speed [m/s]")
     cut_out_speed_ms: float = Field(description="Cut-out wind speed [m/s]")
     num_blades: int = Field(description="Number of rotor blades")
-    cp_max: float = Field(description="Maximum power coefficient")
+    cp_max: float = Field(description="Maximum electrical power coefficient of the table")
     ct_rated: float = Field(description="Thrust coefficient at rated speed")
+    drivetrain: str = Field(description='Drivetrain, e.g. "Low speed, Direct drive"')
+    min_rotor_rpm: float = Field(description="Minimum rotor speed [rpm]")
+    max_rotor_rpm: float = Field(description="Maximum (rated) rotor speed [rpm]")
+    source: str = Field(description="Data source of the curve")
 
 
 class PowerCurveRequest(BaseModel):
@@ -78,13 +84,13 @@ class GenerateSCADARequest(BaseModel):
         description="Number of 10-minute intervals (52560 = 1 year)",
     )
     weibull_a: float = Field(
-        default=10.5,
+        default=SB510_WEIBULL_A,
         ge=3.0,
         le=20.0,
         description="Weibull scale parameter [m/s]",
     )
     weibull_k: float = Field(
-        default=2.2,
+        default=SB510_WEIBULL_K,
         ge=1.0,
         le=4.0,
         description="Weibull shape parameter [-]",

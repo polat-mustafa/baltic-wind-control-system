@@ -23,11 +23,13 @@ from app.services.p1.aep_calculator import (
     DEFAULT_UNCERTAINTY_SOURCES,
     AEPCascadeResult,
     LayoutComparisonResult,
+    aep_sensitivity,
     apply_loss_cascade,
     compare_layouts,
     compute_aep_cascade,
     compute_exceedance_values,
     compute_rss_uncertainty,
+    uncertainty_components,
 )
 
 # ── RSS Uncertainty Tests ─────────────────────────────────────────
@@ -155,6 +157,14 @@ class TestLossCascade:
         names = [f.name for f in factors]
         assert names == ["wake", "blockage", "electrical", "availability", "environmental"]
 
+    def test_loss_factors_carry_provenance(self):
+        """Defaults keep their source; an overridden loss becomes the user's input."""
+        _, factors = apply_loss_cascade(2340.0, 0.087, 0.02)
+        assert all(f.source and f.quality in {"literature", "approximation"} for f in factors)
+        _, factors = apply_loss_cascade(2340.0, 0.087, 0.02, availability_loss_fraction=0.03)
+        avail = next(f for f in factors if f.name == "availability")
+        assert (avail.quality, avail.source) == ("illustrative", "Your input")
+
     def test_net_always_less_than_gross(self):
         """Net AEP should always be ≤ gross when losses are positive."""
         gross = 2340.0
@@ -216,10 +226,59 @@ class TestAEPCascade:
         assert result.total_loss_percent > 0
 
     def test_combined_uncertainty_matches_rss(self):
-        """Combined uncertainty should match RSS of default sources."""
+        """Combined uncertainty = RSS of the farm's components (or of fixed sources)."""
         result = compute_aep_cascade(2340.0, 0.087, 0.02)
-        expected = compute_rss_uncertainty()
-        assert result.combined_uncertainty_percent == pytest.approx(expected, rel=1e-6)
+        expected = math.sqrt(sum(c.sigma_percent**2 for c in result.uncertainty))
+        assert result.combined_uncertainty_percent == pytest.approx(expected, rel=1e-9)
+        fixed = compute_aep_cascade(2340.0, 0.087, 0.02, uncertainty_sources={"a": 3.0, "b": 4.0})
+        assert fixed.combined_uncertainty_percent == pytest.approx(5.0)
+        assert fixed.uncertainty == []
+
+
+class TestUncertaintyComponents:
+    """Sourced components (NEWA spread, ERA5 IAV, Walker 2016, Lee & Fields 2021)."""
+
+    def test_sensitivity_from_the_power_curve(self):
+        # windy site near rated speed: AEP grows slower than the wind speed
+        assert aep_sensitivity(10.8, 2.04) == pytest.approx(0.98, abs=0.03)
+        # a weaker site sits on the steep part of the power curve
+        assert aep_sensitivity(7.0, 2.0) > 1.5
+
+    def test_sb510_components_and_total(self):
+        cs = {c.name: c for c in uncertainty_components(10.8, 2.04, 6.47, 1.95)}
+        s = aep_sensitivity(10.8, 2.04)
+        mean = 10.8 * math.gamma(1 + 1 / 2.04)
+        wind = cs["Wind resource (NEWA model, no measurement)"]
+        assert wind.sigma_percent == pytest.approx(s * 100 * 0.54 / mean)
+        assert cs["Long-term period (30-year atlas)"].sigma_percent == pytest.approx(
+            s * 4.20 / math.sqrt(30)
+        )
+        assert cs["Future variability (25 years)"].sigma_percent == pytest.approx(
+            s * 4.20 / math.sqrt(25)
+        )
+        assert cs["Wake and blockage model"].sigma_percent == pytest.approx(0.25 * 8.42)
+        total = math.sqrt(sum(c.sigma_percent**2 for c in cs.values()))
+        assert total == pytest.approx(7.7, abs=0.1)  # %
+        assert all(c.quality in ("measured", "literature") and c.source for c in cs.values())
+
+    def test_frontend_twin_matches(self):
+        """frontend/src/utils/aepMath.ts UNCERTAINTY_SOURCES = SB-510's components."""
+        import re
+        from pathlib import Path
+
+        ts = Path(__file__).parents[2] / "frontend/src/utils/aepMath.ts"
+        if not ts.exists():  # backend-only checkout
+            return
+        block = ts.read_text(encoding="utf-8").split("UNCERTAINTY_SOURCES")[1].split("];")[0]
+        twin = [(n, float(v)) for n, v in re.findall(r'\["([^"]+)", ([\d.]+)\]', block)]
+        comps = uncertainty_components(10.8, 2.04, 6.47, 1.95)
+        assert [n for n, _ in twin] == [c.name for c in comps]
+        assert [v for _, v in twin] == pytest.approx([c.sigma_percent for c in comps], abs=0.01)
+
+    def test_more_wake_loss_means_more_uncertainty(self):
+        low = uncertainty_components(10.8, 2.04, 4.0)
+        high = uncertainty_components(10.8, 2.04, 12.0)
+        assert high[3].sigma_percent == pytest.approx(3 * low[3].sigma_percent)
 
     def test_custom_price(self):
         """Custom electricity price should be reflected in result."""
@@ -321,3 +380,29 @@ class TestLayoutComparison:
         result = compare_layouts(layouts)
         net = result.results[0][1].net_aep_gwh
         assert 1880 < net < 1980, f"Optimized net AEP = {net:.0f} GWh"
+
+
+def test_uncertainty_api_and_cascade_components():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    r = client.post(
+        "/api/v1/wind/uncertainty", json={"wake_loss_percent": 6.47, "blockage_loss_percent": 1.95}
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["combined_percent"] == pytest.approx(7.7, abs=0.1)
+    assert body["z"]["P90"] == pytest.approx(1.282)
+    assert len(body["components"]) == 6
+    cascade = client.post("/api/v1/wind/aep-cascade", json={}).json()
+    assert cascade["combined_uncertainty_percent"] == pytest.approx(
+        math.sqrt(sum(c["sigma_percent"] ** 2 for c in cascade["uncertainty"])), abs=0.02
+    )
+    assert (
+        client.post(
+            "/api/v1/wind/uncertainty", json={"wake_loss_percent": 5, "turbine_model": "x"}
+        ).status_code
+        == 422
+    )

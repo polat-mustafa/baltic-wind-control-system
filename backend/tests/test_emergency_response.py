@@ -24,7 +24,7 @@ def test_electrical_hazards_trip_the_others_suspend():
 
 def test_internal_arc_trips_circuit_1():
     p = ready_programme()
-    run_until(p, "2.09")  # cable 1 energised
+    run_until(p, "2.12")  # cable 1 energised (2.11)
     event = trigger_emergency(p, "internal_arc", PIC)
     assert "CB-ON-220-01" in event["breakers_opened"]
     assert p.system_state["CB-ON-220-01"] == EquipmentState.OPEN

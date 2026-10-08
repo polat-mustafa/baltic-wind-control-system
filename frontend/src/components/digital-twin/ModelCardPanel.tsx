@@ -56,8 +56,9 @@ export default function ModelCardPanel() {
               ["Rotor diameter", `${num(t.rotor_diameter_m)} m`],
               ["Cut-in / rated / cut-out", `${num(t.cut_in_ms)} / ${num(t.rated_wind_ms)} / ${num(t.cut_out_ms)} m/s`],
               ["Rotor speed range", `${num(t.min_rotor_rpm)} – ${num(t.rated_rotor_rpm)} rpm`],
-              ["Gearbox ratio", `1 : ${num(t.gearbox_ratio)}`],
-              ["η gearbox · η generator", `${num(t.gearbox_efficiency)} · ${num(t.generator_efficiency)}`],
+              ["Drivetrain", String(t.drivetrain)],
+              ["η generator · η converter", `${num(t.generator_efficiency, 4)} · ${num(t.converter_efficiency, 4)}`],
+              ["λ_opt (ROSCO VS_TSRopt)", num(t.tsr_opt)],
             ]}
           />
         </Section>
@@ -65,20 +66,20 @@ export default function ModelCardPanel() {
         <Section title="Aerodynamic calibration">
           <Rows
             rows={[
-              ["λ_opt (Heier, β = 0)", num(a.lambda_opt)],
-              ["Cp,max Heier surface", num(a.cp_max_heier, 4)],
-              ["k_aero (rated at 11.1 m/s)", num(a.k_aero, 4)],
+              ["λ_opt (β = 0)", num(a.lambda_opt)],
+              ["Cp,max ROSCO surface", num(a.cp_max_surface, 4)],
+              ["k_aero (rated at 10.66 m/s)", num(a.k_aero, 4)],
               ["Cp,max effective", num(a.cp_max_effective, 4)],
               ["Torque gain K", `${num(a.torque_gain_mnm_per_rad_s2)} MN·m·s²`],
             ]}
           />
           <p className="text-[11px] text-text-muted">
-            One constant fitted to the published rated wind speed; it lumps blade-specific
-            aerodynamics and converter/transformer losses the generic surface does not know.
+            One constant fitted to the official rated point: it closes the 1.6 % gap between
+            the ROSCO Cp table (CCBlade) and the WISDEM table behind the power curve.
           </p>
         </Section>
 
-        <Section title="Gearbox thermal model">
+        <Section title="Generator thermal model (stator winding)">
           <Rows
             rows={[
               ["Structure", String(th.structure)],

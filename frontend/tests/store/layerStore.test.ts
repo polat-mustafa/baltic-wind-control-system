@@ -34,21 +34,20 @@ describe("initial state", () => {
     }
   });
 
-  it("has exactly 17 layer keys", () => {
+  it("has exactly 16 layer keys", () => {
     const { layers } = useLayerStore.getState();
-    expect(Object.keys(layers)).toHaveLength(17);
+    expect(Object.keys(layers)).toHaveLength(16);
     expect(layers.fibreComms).toBe(false);
     expect(layers.cableDts).toBe(false);
-    expect(layers.myProject).toBe(false);
   });
 
   it("setLayer sets one layer explicitly", () => {
-    useLayerStore.getState().setLayer("myProject", true);
-    expect(useLayerStore.getState().layers.myProject).toBe(true);
-    useLayerStore.getState().setLayer("myProject", true);
-    expect(useLayerStore.getState().layers.myProject).toBe(true);
-    useLayerStore.getState().setLayer("myProject", false);
-    expect(useLayerStore.getState().layers.myProject).toBe(false);
+    useLayerStore.getState().setLayer("cableDts", true);
+    expect(useLayerStore.getState().layers.cableDts).toBe(true);
+    useLayerStore.getState().setLayer("cableDts", true);
+    expect(useLayerStore.getState().layers.cableDts).toBe(true);
+    useLayerStore.getState().setLayer("cableDts", false);
+    expect(useLayerStore.getState().layers.cableDts).toBe(false);
   });
 });
 

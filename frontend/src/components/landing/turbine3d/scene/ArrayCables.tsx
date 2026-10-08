@@ -5,39 +5,31 @@
  * model) — plus the OSS itself: four-legged jacket, two-deck topside with
  * the 66/220 kV transformers, helideck and crane.
  *
- * Positions come from constants/windFarmLayout via model/farm (world frame).
+ * Positions and the cable tree come from the live fleet (lib/fleet) via
+ * model/farm (world frame).
  */
 
 import { useMemo } from "react";
 import { Line } from "@react-three/drei";
 
-import { OSS_GEO, TURBINE_POSITIONS } from "../../../../constants/windFarmLayout";
-import { farmAround } from "../model/farm";
+import { arraySegments, useFleet } from "../../../../lib/fleet";
+import { farmAround, worldAround } from "../model/farm";
 
 const SEABED_Y = -39.4;
-const M_PER_DEG_LAT = 110_540;
 
 export function ArrayCables({ turbineId }: { turbineId: string }) {
+  const fleet = useFleet();
   const { segments, oss } = useMemo(() => {
-    const farm = farmAround(turbineId);
-    const byId = new Map(farm.map((t) => [t.id, t]));
-    const me = TURBINE_POSITIONS.find((t) => t.id === turbineId) ?? TURBINE_POSITIONS[0];
-    const ossPos: [number, number] = [
-      -(OSS_GEO.lon - me.lon) * 111_320 * Math.cos((me.lat * Math.PI) / 180),
-      (OSS_GEO.lat - me.lat) * M_PER_DEG_LAT,
-    ];
-    const segs: { key: string; a: [number, number]; b: [number, number]; mine: boolean }[] = [];
-    for (let n = 1; n <= 6; n++) {
-      const s = TURBINE_POSITIONS.filter((t) => t.stringNumber === n);
-      s.forEach((t, i) => {
-        const a = byId.get(t.id)!;
-        const next = s[i + 1] ? byId.get(s[i + 1].id)! : null;
-        const b: [number, number] = next ? [next.x, next.z] : ossPos;
-        segs.push({ key: `${t.id}-${next?.id ?? "OSS"}`, a: [a.x, a.z], b, mine: t.id === turbineId || next?.id === turbineId });
-      });
-    }
+    const byId = new Map(farmAround(turbineId, fleet).map((t) => [t.id, [t.x, t.z] as [number, number]]));
+    const ossPos = worldAround(turbineId, fleet.oss, fleet);
+    const segs = arraySegments(fleet).map((s) => ({
+      key: `${s.fromId}-${s.toId}`,
+      a: byId.get(s.fromId)!,
+      b: s.toId === "OSS" ? ossPos : byId.get(s.toId)!,
+      mine: s.fromId === turbineId || s.toId === turbineId,
+    }));
     return { segments: segs, oss: ossPos };
-  }, [turbineId]);
+  }, [turbineId, fleet]);
 
   return (
     <group>

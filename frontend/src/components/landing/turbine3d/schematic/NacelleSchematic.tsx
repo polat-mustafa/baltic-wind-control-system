@@ -16,7 +16,7 @@ import { ExternalLink, X } from "lucide-react";
 
 import { selectKPIs, selectTurbine, selectTurbinePart, useLandingStore } from "../../../../store/landingStore";
 import { selectNacelleData, useNacelleSubsystemsStore } from "../../../../store/nacelleSubsystemsStore";
-import { TURBINE_POSITIONS } from "../../../../constants/windFarmLayout";
+import { arraySegments, useFleet, type Fleet } from "../../../../lib/fleet";
 import { v236PowerChain } from "../../../../utils/landingPhysics";
 import { cn } from "../../../../lib/utils";
 import { CONNECTION_STYLES, NACELLE_CONNECTIONS, NACELLE_SCHEMATIC_PARTS, type SchematicPart } from "./schematicData";
@@ -37,12 +37,10 @@ const SHEETS = [
 ] as const;
 type SheetId = (typeof SHEETS)[number]["id"];
 
-/** Position of a turbine on its 66 kV string (outer end first, OSS last). */
-function stringOf(turbineId: string) {
-  const me = TURBINE_POSITIONS.find((t) => t.id === turbineId);
-  const s = TURBINE_POSITIONS.filter((t) => t.stringNumber === me?.stringNumber);
-  const i = s.findIndex((t) => t.id === turbineId);
-  return { outer: s.slice(0, Math.max(0, i)).map((t) => t.id), inner: s[i + 1]?.id ?? "OSS" };
+/** Position of a turbine on its 66 kV cable: the turbines beyond it (outer end first) and the next node in. */
+function stringOf(turbineId: string, f: Fleet) {
+  const seg = arraySegments(f).find((s) => s.fromId === turbineId);
+  return { outer: seg?.feedIds.filter((id) => id !== turbineId) ?? [], inner: f.upstream[turbineId] ?? "OSS" };
 }
 
 export const NacelleSchematic = memo(function NacelleSchematic({ turbineId, headerExtra }: NacelleSchematicProps) {
@@ -54,7 +52,8 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId, head
   const kpis = useLandingStore(selectKPIs);
   const turbineMap = useLandingStore((s) => s.turbineMap);
   const nacelle = useNacelleSubsystemsStore(selectNacelleData(turbineId));
-  const pos = useMemo(() => stringOf(turbineId), [turbineId]);
+  const fleet = useFleet();
+  const pos = useMemo(() => stringOf(turbineId, fleet), [turbineId, fleet]);
 
   useEffect(() => {
     const { startPolling, stopPolling } = useNacelleSubsystemsStore.getState();
@@ -90,7 +89,7 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId, head
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-primary px-4 py-2">
         <div>
-          <div className="text-[15px] font-bold">V236 nacelle · engineering drawings</div>
+          <div className="text-[15px] font-bold">SB-510 nacelle (IEA 15 MW direct drive) · engineering drawings</div>
           <div className="text-[12px] font-semibold text-text-muted">
             {turbineId} · wind {turbine.windSpeedMs.toFixed(1)} m/s · {turbine.powerOutputMW.toFixed(2)} MW · Cp {chain.cp.toFixed(2)}
           </div>

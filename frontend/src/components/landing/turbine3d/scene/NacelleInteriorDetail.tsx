@@ -5,8 +5,9 @@
  *
  *   1. Service catwalk along the starboard side of the drivetrain (the side
  *      the cutaway opens), with handrails, kick plates and LED lighting.
- *   2. Gearbox lube-oil loop to the oil cooler, coloured by oil temperature
- *      (live from the nacelle subsystem API when available).
+ *   2. Generator / converter coolant loop to the coolant skid, coloured by the
+ *      stator-winding temperature (live from the nacelle subsystem API when
+ *      available). Direct drive: there is no gearbox oil circuit.
  *   3. Cable trays: generator → converter (LV), converter → transformer (LV),
  *      transformer → tower (66 kV, red sheath).
  *   4. HPU pressure gauge (live line pressure).
@@ -23,7 +24,8 @@ import {
   selectNacelleData,
   useNacelleSubsystemsStore,
 } from "../../../../store/nacelleSubsystemsStore";
-import { PARTS } from "../model/layout";
+import { onShaft, PARTS, SHAFT_Z } from "../model/layout";
+import { generatorWindingC } from "../model/nacelleThermal";
 import { CableTray } from "./nacelle/CableTray";
 
 const RATED_POWER_MW = 15.0;
@@ -44,7 +46,7 @@ export const NacelleInteriorDetail = memo(function NacelleInteriorDetail({
   if (viewerMode === "normal") return null;
   return (
     <group>
-      <OilFlowLoop turbineId={turbineId} />
+      <CoolantLoop turbineId={turbineId} />
       <GeneratorToConverterTray />
       <ConverterToTransformerTray />
       <TransformerToTowerTray />
@@ -232,15 +234,15 @@ function ServiceCatwalk() {
   );
 }
 
-// ── Oil flow loop — animated coolant tube ──────────────────────────
+// ── Coolant loop — animated tube, coloured by the generator winding ─────
 
-function OilFlowLoop({ turbineId }: { turbineId: string }) {
+function CoolantLoop({ turbineId }: { turbineId: string }) {
   const turbine = useLandingStore(selectTurbine(turbineId));
-  const liveOilTempC = useNacelleSubsystemsStore(selectNacelleData(turbineId))?.cooling.oil_temp_c;
-  const powerFrac = Math.min(1, (turbine?.powerOutputMW ?? 0) / RATED_POWER_MW);
-  // Prefer live backend oil temperature; fall back to local steady-state proxy.
-  const tempC = liveOilTempC ?? (55 + powerFrac * 35);
-  const tempFrac = Math.min(1, Math.max(0, (tempC - 55) / 35));
+  const liveWindingC = useNacelleSubsystemsStore(selectNacelleData(turbineId))?.cooling.winding_temp_c;
+  const airC = useLandingStore((s) => s.environment.airTemperatureC);
+  // Prefer the live backend winding temperature; fall back to the same model.
+  const tempC = liveWindingC ?? generatorWindingC(turbine?.powerOutputMW ?? 0, airC);
+  const tempFrac = Math.min(1, Math.max(0, (tempC - 40) / (130 - 40)));
 
   const color = useMemo(() => {
     const c = new THREE.Color().lerpColors(
@@ -258,10 +260,10 @@ function OilFlowLoop({ turbineId }: { turbineId: string }) {
     }
   });
 
-  // Gearbox sump (starboard, below the axis) → oil cooler on the starboard
-  // wall → return to the lube manifold on top of the gearbox.
-  const [gx, gy, gz] = PARTS.gearbox;
-  const [cx, cy, cz] = PARTS.oilCooler;
+  // Stator coolant outlet (through the turret into the nacelle front) → coolant
+  // skid on the starboard wall → return to the stator inlet.
+  const [gx, gy, gz] = onShaft(SHAFT_Z.turretInside, 0.6, -1.4);
+  const [cx, cy, cz] = PARTS.coolantSkid;
   const outbound = useMemo(
     () =>
       new THREE.CatmullRomCurve3([
@@ -310,9 +312,9 @@ function OilFlowLoop({ turbineId }: { turbineId: string }) {
 
 // ── Cable runs ─────────────────────────────────────────────────────
 
-// Generator terminal box (top) → port converter line-up — LV, grey sheath.
+// Generator cables through the turret → port converter line-up, grey sheath.
 function GeneratorToConverterTray() {
-  const [x, y, z] = PARTS.generatorTop;
+  const [x, y, z] = onShaft(SHAFT_Z.turretInside, 0, 1.2);
   const [cx, cy, cz] = PARTS.converter;
   const points = useMemo<[number, number, number][]>(
     () => [
@@ -393,14 +395,14 @@ function HPUPressureGauge({ turbineId }: { turbineId: string }) {
 
 const up = (p: [number, number, number], dy: number): [number, number, number] => [p[0], p[1] + dy, p[2]];
 const LABELS: Array<{ pos: [number, number, number]; text: string }> = [
-  { pos: up(PARTS.mainBearing, 1.2), text: "MAIN BEARINGS" },
-  { pos: up(PARTS.gearboxTop, 0.6), text: "GEARBOX 48:1 · 3-STAGE PLANETARY" },
-  { pos: up(PARTS.brake, 1.4), text: "HSS BRAKE · COUPLING" },
-  { pos: up(PARTS.generatorTop, 0.6), text: "PMSG · 15 MW · 400 rpm" },
+  { pos: up(PARTS.mainBearing, 1.2), text: "MAIN BEARINGS · TDO + SRB" },
+  { pos: up(PARTS.generatorTop, 0.8), text: "DIRECT-DRIVE PMSG · 200 POLES · 7.56 rpm · 12.6 Hz" },
+  { pos: up(PARTS.brake, 1.0), text: "ROTOR BRAKE / LOCK" },
+  { pos: up(onShaft(SHAFT_Z.nacelleFront + 0.8), 2.8), text: "TURRET (STATIONARY)" },
   { pos: up(PARTS.converter, 1.8), text: "FULL-POWER CONVERTER" },
-  { pos: up(PARTS.transformer, 2.2), text: "TRANSFORMER 0.69/66 kV" },
-  { pos: up(PARTS.hpu, 1.3), text: "HPU · 210 bar" },
-  { pos: up(PARTS.oilCooler, 1.3), text: "OIL COOLER" },
+  { pos: up(PARTS.transformer, 2.2), text: "TRANSFORMER → 66 kV" },
+  { pos: up(PARTS.hpu, 1.3), text: "PITCH HPU · 220 bar" },
+  { pos: up(PARTS.coolantSkid, 1.3), text: "COOLANT SKID" },
 ];
 
 function InteriorLabels() {

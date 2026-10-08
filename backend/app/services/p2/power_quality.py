@@ -10,8 +10,9 @@ built from the same data as the load flow (``network_model``):
   transformers   R·√h + j h X   (√h: skin / stray-loss growth of R)
   export cable   2 circuits, exact distributed π (γ, Z_c) — the long-cable
                  capacitance that makes HVAC connections resonate
-  shunt reactors 3 × 80 MVAR at OSS 220 kV (Q ≈ 300)
+  shunt reactors 2 × 120 MVAR at each export end, onshore and OSS 220 kV (SB-510)
   array cables   ≈ 15 MVAR of charging lumped at OSS 66 kV
+  harmonic filter damped 2nd-order high-pass at OSS 66 kV (C in series with L ∥ R)
 
 The 34 converters are harmonic current sources at OSS 66 kV. Their emission
 (IEC 61400-21 test-report style, % of rated current) is summed with the
@@ -33,6 +34,26 @@ allocate to this plant is a share of them, so a result close to the planning
 level already means trouble. Below 1 kV the IEC 61000-2-2 compatibility
 levels are shown instead (there are no LV planning levels).
 
+Harmonic filter — damped 2nd-order high-pass at OSS 66 kV
+----------------------------------------------------------
+Without a filter the array-cable capacitance resonates with the OSS transformer and
+grid inductance at 880 Hz (|Z| amplification 15.7 at OSS 66 kV) and h17 reaches 74.5 %
+of the 66 kV planning level. Elements for a 50 Hz output Q at tuning order h_t and
+quality factor q (Das, IEEE Trans. Ind. Appl. 40(1), 2004; IEEE Std 1531):
+  X_C − X_L = U² / Q,  X_L = X_C / h_t²  →  C = 1 / (ω₀ X_C),  L = 1 / (h_t² ω₀² C)
+  R = q · h_t ω₀ L       (q 1.5: broad damping, R takes the high-order currents)
+  Z_f(h) = 1 / (jhω₀C) + (jhω₀L ∥ R)
+``size_harmonic_filter``: if any harmonic exceeds 50 % of its planning level at the
+POC, the 220 kV or the 66 kV bus at 0.5, 1 or 2 × S_sc, tune one order below the worst
+order (h5: 4.7) and take the smallest standard size (2–10 Mvar) that brings every harmonic to
+≤ 50 % in all three grid cases without leaving an amplified resonance (> 3) next to a
+characteristic harmonic. SB-510 (108 km export): h17 → tuned h16 (800 Hz), 2 Mvar
+(C 1.46 µF, L 27.2 mH, R 205 Ω). The 880 Hz peak is damped to 840 Hz (amplification 1.5),
+h17 drops from 74.5 % to 31.5 % of the 66 kV planning level, the worst characteristic
+harmonic is h11 at 34 %. The low-order cable–grid resonance at 115 Hz (h2.3,
+amplification 12, non-characteristic) is not something a 66 kV high-pass cures: the low
+orders stay at ≤ 75 % of their planning level in every bus / S_sc case.
+
 Flicker — IEC 61400-21 / IEC 61000-3-7
 ---------------------------------------
   continuous:  P_st = P_lt = c(ψ_k) · √N · S_n / S_k
@@ -46,6 +67,7 @@ Flicker — IEC 61400-21 / IEC 61000-3-7
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from functools import lru_cache
 from typing import Any
 
@@ -53,18 +75,17 @@ import numpy as np
 
 from app.services.p2.network_model import (
     EXPORT_CABLE_1000,
-    EXPORT_CABLE_LENGTH_KM,
     GRID_RX_RATIO,
     GRID_SSC_MVA,
-    NUM_EXPORT_CABLES,
-    SHUNT_REACTOR_MVAR,
-    TRAFO_66_220_MVA,
+    NUM_ONSHORE_TRANSFORMERS,
+    NUM_OSS_TRANSFORMERS,
+    SB510,
     TRAFO_66_220_VK_PERCENT,
     TRAFO_66_220_VKR_PERCENT,
-    TRAFO_220_400_MVA,
     TRAFO_220_400_VK_PERCENT,
     TRAFO_220_400_VKR_PERCENT,
     TURBINE_RATED_MW,
+    FarmSpec,
 )
 
 S_BASE = 100.0
@@ -72,7 +93,7 @@ F0 = 50.0
 OMEGA0 = 2.0 * math.pi * F0
 NODES = {400.0: 0, 220.0: 2, 66.0: 3}  # viewpoints for the scan (220 → OSS side)
 NODE_NAMES = ("PSE 400 kV (POC)", "Onshore 220 kV", "OSS 220 kV", "OSS 66 kV")
-ARRAY_CHARGING_MVAR = 15.0  # ≈ 51 km of 500–800 mm² array cable at 66 kV
+ARRAY_CHARGING_MVAR_PER_KM = 15.0 / 51.0  # 500–800 mm² array cable at 66 kV (SB-510: 51 km)
 REACTOR_Q_FACTOR = 300.0
 CHARACTERISTIC = (5, 7, 11, 13, 17, 19, 23, 25)
 
@@ -125,7 +146,9 @@ def planning_level_pct(order: int, tier: str) -> float:
 # ── Harmonic network ─────────────────────────────────────────────
 
 
-def _admittance(h: float, grid_ssc_mva: float, export_length_km: float) -> np.ndarray:
+def _admittance(
+    h: float, grid_ssc_mva: float, export_length_km: float, spec: FarmSpec = SB510
+) -> np.ndarray:
     """4 × 4 nodal admittance [pu, 100 MVA] at harmonic order h (may be non-integer)."""
     y = np.zeros((4, 4), dtype=complex)
 
@@ -141,7 +164,8 @@ def _admittance(h: float, grid_ssc_mva: float, export_length_km: float) -> np.nd
 
     xg = S_BASE / grid_ssc_mva / math.sqrt(1 + GRID_RX_RATIO**2)
     y[0, 0] += 1 / complex(GRID_RX_RATIO * xg * math.sqrt(h), h * xg)
-    branch(0, 1, trafo(TRAFO_220_400_VK_PERCENT, TRAFO_220_400_VKR_PERCENT, 2 * TRAFO_220_400_MVA))
+    s_onshore = NUM_ONSHORE_TRANSFORMERS * spec.onshore_trafo_mva
+    branch(0, 1, trafo(TRAFO_220_400_VK_PERCENT, TRAFO_220_400_VKR_PERCENT, s_onshore))
 
     c = EXPORT_CABLE_1000
     z_km = complex(c.r_ac_ohm_per_km * math.sqrt(h), h * c.x_ohm_per_km)
@@ -149,24 +173,125 @@ def _admittance(h: float, grid_ssc_mva: float, export_length_km: float) -> np.nd
     gamma, zc = np.sqrt(z_km * y_km), np.sqrt(z_km / y_km)
     z_base = 220.0**2 / S_BASE
     gl = gamma * export_length_km
-    branch(1, 2, complex(zc * np.sinh(gl) / NUM_EXPORT_CABLES / z_base))
-    y_end = complex(NUM_EXPORT_CABLES * np.tanh(gl / 2) / zc * z_base)
+    n_export = spec.num_export_cables
+    branch(1, 2, complex(zc * np.sinh(gl) / n_export / z_base))
+    y_end = complex(n_export * np.tanh(gl / 2) / zc * z_base)
     y[1, 1] += y_end
     y[2, 2] += y_end
 
-    x_r = S_BASE / SHUNT_REACTOR_MVAR
-    y[2, 2] += 1 / complex(h * x_r / REACTOR_Q_FACTOR, h * x_r)
-    branch(2, 3, trafo(TRAFO_66_220_VK_PERCENT, TRAFO_66_220_VKR_PERCENT, 2 * TRAFO_66_220_MVA))
-    y[3, 3] += complex(0.0, h * ARRAY_CHARGING_MVAR / S_BASE)
+    if spec.reactor_mvar_per_end > 0:  # one bank at each cable end (onshore 1, OSS 2)
+        x_r = S_BASE / spec.reactor_mvar_per_end
+        for node in (1, 2):
+            y[node, node] += 1 / complex(h * x_r / REACTOR_Q_FACTOR, h * x_r)
+    s_oss = NUM_OSS_TRANSFORMERS * spec.oss_trafo_mva
+    branch(2, 3, trafo(TRAFO_66_220_VK_PERCENT, TRAFO_66_220_VKR_PERCENT, s_oss))
+    array_km = spec.num_turbines * spec.array_cable_length_km
+    y[3, 3] += complex(0.0, h * ARRAY_CHARGING_MVAR_PER_KM * array_km / S_BASE)
+    if spec.harmonic_filter_mvar > 0:
+        y[3, 3] += (66.0**2 / S_BASE) / harmonic_filter_impedance_ohm(
+            h, spec.harmonic_filter_mvar, spec.harmonic_filter_tuned_order
+        )
     return y
+
+
+# ── Harmonic filter ──────────────────────────────────────────────
+
+HARMONIC_FILTER_Q = 1.5
+# Standard sizes up to what one 66 kV feeder bay carries; a farm that needs more (or two
+# filters, e.g. a C-type at h5 as well) needs its own study — the harmonic study shows it.
+HARMONIC_FILTER_SIZES_MVAR = (2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0)
+FILTER_TARGET_PCT = 50.0  # of the planning level, a plant's share (stage 2 allocation)
+FILTER_SSC_FACTORS = (0.5, 1.0, 2.0)  # weak … strong grid around the design S_sc
+MIN_FILTER_ORDER = 5  # lowest characteristic order of a 6-pulse-equivalent converter
+
+
+def harmonic_filter_elements(
+    q_mvar: float, tuned_order: float, q_factor: float = HARMONIC_FILTER_Q, v_kv: float = 66.0
+) -> tuple[float, float, float]:
+    """(C [F], L [H], R [Ω]) of a damped 2nd-order high-pass with 50 Hz output Q (docstring)."""
+    x_net = (v_kv * 1e3) ** 2 / (q_mvar * 1e6)
+    x_c = x_net / (1.0 - 1.0 / tuned_order**2)
+    c_f = 1.0 / (OMEGA0 * x_c)
+    l_h = 1.0 / ((tuned_order * OMEGA0) ** 2 * c_f)
+    return c_f, l_h, q_factor * tuned_order * OMEGA0 * l_h
+
+
+def harmonic_filter_impedance_ohm(
+    h: float, q_mvar: float, tuned_order: float, q_factor: float = HARMONIC_FILTER_Q
+) -> complex:
+    """Z_f(h) = 1/(jhω₀C) + (jhω₀L ∥ R) [Ω at 66 kV]."""
+    c_f, l_h, r = harmonic_filter_elements(q_mvar, tuned_order, q_factor)
+    z_l = complex(0.0, h * OMEGA0 * l_h)
+    return complex(0.0, -1.0 / (h * OMEGA0 * c_f)) + z_l * r / (z_l + r)
+
+
+def _worst_over_grid_range(spec: FarmSpec) -> tuple[float, int, float]:
+    """Worst utilisation [% of planning level] over buses and S_sc cases:
+    (worst for h ≥ 5, its order, worst for h < 5)."""
+    high, order, low = 0.0, 0, 0.0
+    for factor in FILTER_SSC_FACTORS:
+        for kv in NODES:
+            r = compute_harmonics(
+                DEFAULT_WTG_EMISSION_PCT,
+                voltage_kv=kv,
+                rated_mw=spec.capacity_mw,
+                grid_ssc_mva=spec.grid_ssc_mva * factor,
+                spec=spec,
+            )
+            for row in r["harmonics"]:
+                u = row["utilisation_pct"]
+                if row["order"] < MIN_FILTER_ORDER:
+                    low = max(low, u)
+                elif u > high:
+                    high, order = u, row["order"]
+    return high, order, low
+
+
+def size_harmonic_filter(spec: FarmSpec) -> tuple[float, float]:
+    """(Q [Mvar], tuned order) of the OSS 66 kV filter for a design; (0, 0) if none is needed.
+
+    Needed when a characteristic order (h ≥ 5) exceeds 50 % of its planning level in any
+    bus / S_sc case. Tuned one order below the worst one (h5: 4.7); the smallest standard size that
+    brings every order (low ones included — added capacitance pulls the low-order cable
+    resonance down) to ≤ 50 % and leaves no amplified resonance next to a characteristic
+    harmonic wins, else the size with the lowest overall worst case.
+    Low-order resonance alone (h2–h3, long export cable against the grid) is not
+    something a 66 kV high-pass cures; it stays visible in the harmonic study.
+    """
+    base = replace(spec, harmonic_filter_mvar=0.0, harmonic_filter_tuned_order=0.0)
+    high, order, low = _worst_over_grid_range(base)
+    if high <= FILTER_TARGET_PCT:
+        return 0.0, 0.0
+    tuned = round(max(order - 1.0, 0.94 * order), 2)  # h19 → 18, h5 → 4.7
+    best = (True, max(high, low), 0.0)
+    for q in HARMONIC_FILTER_SIZES_MVAR:
+        candidate = replace(base, harmonic_filter_mvar=q, harmonic_filter_tuned_order=tuned)
+        w, _, w_low = _worst_over_grid_range(candidate)
+        overall, critical = max(w, w_low), _resonance_near_characteristic(candidate)
+        if overall <= FILTER_TARGET_PCT and not critical:
+            return q, tuned
+        best = min(best, (critical, overall, q))
+    return (best[2], tuned) if best[2] else (0.0, 0.0)
+
+
+def _resonance_near_characteristic(spec: FarmSpec) -> bool:
+    """A MEDIUM/HIGH resonance (amplification > 3) within one order of a characteristic
+    harmonic at OSS 66 kV, at any of the S_sc cases — what moving the array resonance with
+    too small a capacitor can do (it lands next to a lower characteristic order)."""
+    return any(
+        compute_resonance_scan(
+            spec.export_length_km, 66.0, spec.grid_ssc_mva * factor, scan_max_hz=1500.0, spec=spec
+        )["critical_harmonics"]
+        for factor in FILTER_SSC_FACTORS
+    )
 
 
 @lru_cache(maxsize=4096)
 def _impedance_column(
-    h: float, grid_ssc_mva: float, export_length_km: float
+    h: float, grid_ssc_mva: float, export_length_km: float, spec: FarmSpec = SB510
 ) -> tuple[complex, complex, complex, complex]:
     """Z(node, OSS 66 kV) [pu] for all nodes — voltage per unit current injected at 66 kV."""
-    z = np.linalg.inv(_admittance(h, grid_ssc_mva, export_length_km))
+    z = np.linalg.inv(_admittance(h, grid_ssc_mva, export_length_km, spec))
     return tuple(complex(v) for v in z[:, 3])  # type: ignore[return-value]
 
 
@@ -182,14 +307,18 @@ def compute_harmonics(
     harmonic_magnitudes: dict[int, float],
     voltage_kv: float = 400.0,
     rated_mw: float = 510.0,
-    grid_ssc_mva: float = GRID_SSC_MVA,
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    grid_ssc_mva: float | None = None,
+    export_length_km: float | None = None,
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """Harmonic voltages caused by the farm's emission, judged at one bus.
 
     ``harmonic_magnitudes``: WTG current emission {order: % of rated current}.
     ``voltage_kv`` selects the assessed bus (400 = POC, 220 = OSS 220 kV, 66).
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
+    if export_length_km is None:
+        export_length_km = spec.export_length_km
     node = NODES.get(voltage_kv, 0)
     tier = _voltage_tier(voltage_kv)
     n_wtg = max(1, round(rated_mw / TURBINE_RATED_MW))
@@ -201,7 +330,7 @@ def compute_harmonics(
         if i_pct <= 0:
             continue
         i_sum = n_wtg ** (1 / summation_exponent(order)) * i_wtg_pu * i_pct / 100
-        z_col = _impedance_column(float(order), grid_ssc_mva, export_length_km)
+        z_col = _impedance_column(float(order), grid_ssc_mva, export_length_km, spec)
         v_pct = abs(z_col[node]) * i_sum * 100
         v66 = abs(z_col[3]) * i_sum * 100
         limit = planning_level_pct(order, tier)
@@ -250,10 +379,11 @@ def compute_harmonics(
 
 
 def compute_resonance_scan(
-    cable_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    cable_length_km: float | None = None,
     voltage_kv: float = 66.0,
-    grid_fault_level_mva: float = GRID_SSC_MVA,
+    grid_fault_level_mva: float | None = None,
     scan_max_hz: float = 2500.0,
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """|Z(f)| seen from a bus, 50 Hz … scan_max, and its parallel resonances.
 
@@ -261,12 +391,15 @@ def compute_resonance_scan(
     50 Hz short-circuit inductance alone would give at that frequency
     (h·|Z(50 Hz)|). > 3 medium, > 10 high risk.
     """
+    cable_length_km = spec.export_length_km if cable_length_km is None else cable_length_km
+    if grid_fault_level_mva is None:
+        grid_fault_level_mva = spec.grid_ssc_mva
     node = NODES.get(voltage_kv, 3)
     z_base = (voltage_kv if voltage_kv in NODES else 66.0) ** 2 / S_BASE
     freqs = np.arange(F0, scan_max_hz + 1e-9, 5.0)
     z_pu = np.array(
         [
-            abs(_impedance_column(float(f) / F0, grid_fault_level_mva, cable_length_km)[node])
+            abs(_impedance_column(float(f) / F0, grid_fault_level_mva, cable_length_km, spec)[node])
             for f in freqs
         ]
     )
@@ -277,7 +410,7 @@ def compute_resonance_scan(
             [
                 abs(
                     np.linalg.inv(
-                        _admittance(float(f) / F0, grid_fault_level_mva, cable_length_km)
+                        _admittance(float(f) / F0, grid_fault_level_mva, cable_length_km, spec)
                     )[node, node]
                 )
                 for f in freqs
@@ -379,14 +512,16 @@ def design_passive_filter(
     harmonic_current_a: float,
     system_voltage_kv: float = 66.0,
     rated_mvar: float = 10.0,
-    grid_ssc_mva: float = GRID_SSC_MVA,
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
+    grid_ssc_mva: float | None = None,
+    export_length_km: float | None = None,
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """Single-tuned filter at the OSS 66 kV bus, tuned 3 % below the target order.
 
     Insertion loss is evaluated against the network's own harmonic impedance
     at the tuned frequency (harmonic model above), not a generic S_sc.
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     detuning = 0.03
     h_t = dominant_harmonic_order * (1 - detuning)
     omega_t = OMEGA0 * h_t
@@ -396,7 +531,10 @@ def design_passive_filter(
     q_target = 50.0
     r = omega_t * l_h / q_target
     z_base = system_voltage_kv**2 / S_BASE
-    z_net = _impedance_column(dominant_harmonic_order, grid_ssc_mva, export_length_km)[3] * z_base
+    if export_length_km is None:
+        export_length_km = spec.export_length_km
+    z_col = _impedance_column(dominant_harmonic_order, grid_ssc_mva, export_length_km, spec)
+    z_net = z_col[3] * z_base
     h = dominant_harmonic_order
     z_filter = complex(r, h * OMEGA0 * l_h - 1 / (h * OMEGA0 * c_f))
     z_parallel = z_net * z_filter / (z_net + z_filter)

@@ -2,7 +2,7 @@
 
   GET  /config            model card: parameters, calibration, detector, fault library
   GET  /scenarios         fault scenarios with their injections
-  GET  /reference-curve   twin steady-state curves vs. the P1 V236 table
+  GET  /reference-curve   twin steady-state curves vs. the legacy V236 table
   POST /analyze           farm-level run (ISO 13374-1 DA → AG)
   POST /turbine-detail    full-resolution channels of one turbine from the same run
   POST /operating-point   check one measured operating point against the twin
@@ -20,6 +20,8 @@ from fastapi import APIRouter
 from fastapi.concurrency import run_in_threadpool
 from numpy.typing import NDArray
 
+from app.core.exceptions import NotFoundError
+from app.routers.farm_spec import FarmSpecDep, FarmWindDep
 from app.schemas.digital_twin import (
     AmbientSeries,
     AnalyzeRequest,
@@ -71,7 +73,8 @@ from app.services.digital_twin.reference_model import (
     evaluate,
     reference_curve,
 )
-from app.services.p4.turbine_power_curve import get_v236_spec
+from app.services.p2.network_model import FarmSpec
+from app.services.p4.turbine_power_curve import get_turbine_spec
 
 router = APIRouter(prefix="/api/v1/digital-twin", tags=["Digital Twin"])
 
@@ -233,20 +236,27 @@ def _scenario_info(s: plant.Scenario) -> ScenarioInfo:
     )
 
 
-def _run(req: AnalyzeRequest) -> DigitalTwinRun:
-    return run_digital_twin(req.scenario, req.duration_days, req.seed)
+def _run(req: AnalyzeRequest, spec: FarmSpec, wind: tuple[float, float] | None) -> DigitalTwinRun:
+    weibull = wind or (plant.WEIBULL_A, plant.WEIBULL_K)
+    return run_digital_twin(req.scenario, req.duration_days, req.seed, spec.num_turbines, weibull)
+
+
+def _weibull_text(wind: tuple[float, float] | None) -> str:
+    if wind is None:
+        return f"a = {plant.WEIBULL_A} m/s, k = {plant.WEIBULL_K}"
+    return f"a = {wind[0]} m/s, k = {wind[1]} (own site, hub height)"
 
 
 # ── Endpoints ─────────────────────────────────────────────────────
 
 
 @router.get("/config", response_model=ModelCardResponse)
-async def get_config() -> ModelCardResponse:
+async def get_config(farm: FarmSpecDep, wind: FarmWindDep) -> ModelCardResponse:
     """Model card (DNV-RP-A204 style): what the twin assumes and how well it fits."""
     cal = await run_in_threadpool(phase_one_calibration)
     verification = await run_in_threadpool(verification_false_events)
     aero = calibrate()
-    spec = get_v236_spec()
+    spec = get_turbine_spec()
     p = DEFAULT_PARAMS
     channels = [
         ChannelCard(
@@ -273,23 +283,27 @@ async def get_config() -> ModelCardResponse:
             "cut_out_ms": p.cut_out_ms,
             "min_rotor_rpm": p.min_rotor_rpm,
             "rated_rotor_rpm": p.rated_rotor_rpm,
-            "gearbox_ratio": p.gearbox_ratio,
-            "gearbox_efficiency": p.gearbox_efficiency,
+            "drivetrain": "low-speed direct drive (no gearbox), PMSG outer rotor",
             "generator_efficiency": p.generator_efficiency,
+            "converter_efficiency": round(p.converter_efficiency, 5),
+            "tsr_opt": p.tsr_opt,
         },
         aero_calibration={
             "lambda_opt": round(aero.lambda_opt, 3),
-            "cp_max_heier": round(aero.cp_max_heier, 4),
+            "cp_max_surface": round(aero.cp_max_surface, 4),
             "k_aero": round(aero.k_aero, 4),
             "cp_max_effective": round(aero.cp_max, 4),
             "torque_gain_mnm_per_rad_s2": round(aero.torque_gain_nm_s2 / 1e6, 3),
         },
         thermal_model={
             "structure": "1st-order lag",
-            "offset_k": p.gearbox_temp_offset_k,
-            "resistance_k_per_kw": p.gearbox_thermal_resistance_k_per_kw,
-            "time_constant_s": p.gearbox_thermal_time_constant_s,
-            "provenance": "illustrative — no public V236 gearbox thermal data",
+            "offset_k": p.generator_temp_offset_k,
+            "resistance_k_per_kw": p.generator_thermal_resistance_k_per_kw,
+            "time_constant_s": p.generator_thermal_time_constant_s,
+            "provenance": (
+                "illustrative — no public IEA 15 MW generator thermal data; rated rise ≈ 78 K "
+                "(within the IEC 60034-1 class B rise on class F insulation)"
+            ),
         },
         measurement_model={
             "anemometer_sigma": (
@@ -298,9 +312,9 @@ async def get_config() -> ModelCardResponse:
             "power_sigma_mw": plant.POWER_SIGMA_MW,
             "rotor_speed_sigma_rpm": plant.ROTOR_SIGMA_RPM,
             "pitch_sigma_deg": plant.PITCH_SIGMA_DEG,
-            "gearbox_temp_sigma_k": plant.GEARBOX_TEMP_SIGMA_K,
+            "generator_temp_sigma_k": plant.GENERATOR_TEMP_SIGMA_K,
             "turbine_wind_sigma": plant.TURBINE_SIGMA,
-            "weibull": f"a = {plant.WEIBULL_A} m/s, k = {plant.WEIBULL_K}",
+            "weibull": _weibull_text(wind),
         },
         detector=detector_settings(),
         phase_one={
@@ -330,22 +344,24 @@ async def get_config() -> ModelCardResponse:
             )
             for m in (FAULT_LIBRARY[k] for k in FAULT_KINDS)
         ],
-        scenarios=[_scenario_info(s) for s in plant.SCENARIOS.values()],
+        scenarios=[
+            _scenario_info(plant.scenario_for(n, farm.num_turbines)) for n in plant.SCENARIOS
+        ],
         standards=STANDARDS,
     )
 
 
 @router.get("/scenarios", response_model=list[ScenarioInfo])
-async def list_scenarios() -> list[ScenarioInfo]:
-    return [_scenario_info(s) for s in plant.SCENARIOS.values()]
+async def list_scenarios(spec: FarmSpecDep) -> list[ScenarioInfo]:
+    return [_scenario_info(plant.scenario_for(n, spec.num_turbines)) for n in plant.SCENARIOS]
 
 
 @router.get("/reference-curve", response_model=ReferenceCurveResponse)
 async def get_reference_curve() -> ReferenceCurveResponse:
-    """Twin steady state at ρ = 1.225 kg/m³, with the P1 V236 table for validation."""
+    """Twin steady state at ρ = 1.225 kg/m³, with the legacy V236 table for validation."""
     rc = reference_curve()
     dev = np.abs(rc.power_mw - rc.p1_table_power_mw)
-    in_range = (rc.wind_ms >= 6.0) & (rc.wind_ms <= 30.0)
+    in_range = (rc.wind_ms >= 6.0) & (rc.wind_ms <= 25.0)
     return ReferenceCurveResponse(
         wind_ms=_floats(rc.wind_ms, 2),
         power_mw=_floats(rc.power_mw),
@@ -353,19 +369,19 @@ async def get_reference_curve() -> ReferenceCurveResponse:
         pitch_deg=_floats(rc.pitch_deg, 3),
         tip_speed_ratio=_floats(rc.tip_speed_ratio, 3),
         cp=_floats(rc.cp),
-        gearbox_loss_kw=_floats(rc.gearbox_loss_kw, 1),
+        generator_loss_kw=_floats(rc.generator_loss_kw, 1),
         region=[int(r) for r in rc.region],
         region_names=REGION_NAMES,
         p1_table_power_mw=_floats(rc.p1_table_power_mw),
-        max_deviation_vs_p1_mw=round(float(dev[rc.wind_ms <= 30.0].max()), 3),
+        max_deviation_vs_p1_mw=round(float(dev[rc.wind_ms <= 25.0].max()), 3),
         max_deviation_vs_p1_above_6ms_mw=round(float(dev[in_range].max()), 3),
     )
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
-async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
+async def analyze(req: AnalyzeRequest, spec: FarmSpecDep, wind: FarmWindDep) -> AnalyzeResponse:
     """Farm overview: health, events, diagnoses, prognoses, validation vs. ground truth."""
-    run = await run_in_threadpool(_run, req)
+    run = await run_in_threadpool(_run, req, spec, wind)
     data = run.data
     turbines = [_turbine_summary(run, tr) for tr in run.turbines]
     kind_of = {tr.turbine_id: (tr.diagnosis.kind if tr.diagnosis else None) for tr in run.turbines}
@@ -449,7 +465,7 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         events=events,
         health_trend=HealthTrend(
             timestamps=hour_ts,
-            health=[_floats(run.health_hourly[:, i], 1) for i in range(plant.NUM_TURBINES)],
+            health=[_floats(run.health_hourly[:, i], 1) for i in range(spec.num_turbines)],
         ),
         ambient=AmbientSeries(
             timestamps=hour_ts,
@@ -469,10 +485,14 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
 
 
 @router.post("/turbine-detail", response_model=TurbineDetailResponse)
-async def turbine_detail(req: TurbineDetailRequest) -> TurbineDetailResponse:
+async def turbine_detail(
+    req: TurbineDetailRequest, spec: FarmSpecDep, wind: FarmWindDep
+) -> TurbineDetailResponse:
     """All five channels of one turbine at full resolution, from the cached run."""
-    run = await run_in_threadpool(_run, req)
     tid = req.turbine_id
+    if tid >= spec.num_turbines:
+        raise NotFoundError(f"Turbine index {tid} not in a farm of {spec.num_turbines} turbines")
+    run = await run_in_threadpool(_run, req, spec, wind)
     data, view, det = run.data, run.view, run.detection
     tr = run.turbines[tid]
 

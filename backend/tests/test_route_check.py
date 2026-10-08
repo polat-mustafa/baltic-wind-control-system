@@ -1,0 +1,199 @@
+"""Export cable route check (/api/v1/site/route-check)."""
+
+from __future__ import annotations
+
+import math
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.services.site_assessment.layers import load_region, parse_pack
+from app.services.site_assessment.route_check import RouteError, auto_route, check_route
+
+client = TestClient(app)
+
+#: SB-510's export route (frontend constants/windFarmLayout.ts EXPORT_CABLE_GEO): OSS → round the
+#: west end of Ławica Słupska → across PZP_15 / PZP_10 → the corridor between PZP_23 and the
+#: military area → landfall Darłówko-Wschodnie → north of the Wieprza valley → Krzemienica.
+SB510_ROUTE = [
+    [16.442, 55.026],
+    [16.335, 54.93],
+    [16.165, 54.845],
+    [16.10, 54.70],
+    [16.11, 54.605],
+    [16.146, 54.581],
+    [16.25, 54.534],
+    [16.345, 54.491],
+    [16.4073, 54.4589],
+    [16.47, 54.455],
+    [16.60, 54.468],
+    [16.70, 54.478],
+    [16.77, 54.468],
+    [16.835, 54.442],
+]
+
+
+def test_sb510_route_is_108_km_clear_of_closed_areas() -> None:
+    r = check_route(load_region("southern-baltic"), SB510_ROUTE)
+    assert r.total_km == pytest.approx(108.0, abs=0.3)  # network_model.EXPORT_CABLE_LENGTH_KM
+    assert r.offshore_km == pytest.approx(79.3, abs=0.5)
+    assert r.onshore_km == pytest.approx(28.7, abs=0.5)
+    assert r.landfall is not None
+    assert r.landfall == pytest.approx((16.407, 54.459), abs=0.01)  # Darłówko-Wschodnie
+    assert {c.name[:6] for c in r.shipping} == {"PZP_10", "PZP_15"}
+    assert all(c.angle_deg > 60 for c in r.shipping)
+    assert r.cables == [] and r.restricted == []
+    # only the coastal bird area, which spans the whole coast (HDD at the landfall)
+    assert [a.name for a in r.natura] == ["Przybrzeżne wody Bałtyku (PLB990002)"]
+    status = {c.id: c.status for c in r.checks}
+    assert status["restricted"] == "pass" and status["cables"] == "pass"
+    assert status["shipping"] == "info"  # every crossing ≥ 45°
+
+
+def _pack_with_cable(angle_deg: float):
+    """1° box: sea north of 54.0, a north–south cable at 16.5 °E rotated by ``angle_deg``."""
+    # projected plane: km east = Δlon · cos φ0 (φ0 = 54.45 °N, the bbox centre)
+    dx = (
+        0.15 / math.tan(math.radians(angle_deg)) / math.cos(math.radians(54.45))
+        if angle_deg < 90
+        else 0.0
+    )
+
+    def layer(id_: str, role: str, geometry: str, features: list[dict]) -> dict:  # type: ignore[type-arg]
+        return {
+            "id": id_,
+            "title": id_,
+            "role": role,
+            "geometry": geometry,
+            "source": "t",
+            "license": "t",
+            "retrieved": "t",
+            "features": features,
+        }
+
+    sea = [[16.0, 54.0], [17.0, 54.0], [17.0, 55.0], [16.0, 55.0], [16.0, 54.0]]
+    return parse_pack(
+        {
+            "region": "t",
+            "title": "t",
+            "bbox": [16.0, 53.9, 17.0, 55.0],
+            "pending": [],
+            "layers": [
+                layer("sea", "sea", "polygon", [{"name": "sea", "coordinates": [sea]}]),
+                layer(
+                    "cable",
+                    "cable",
+                    "line",
+                    [
+                        {
+                            "name": "Test cable",
+                            "coordinates": [[16.5 - dx, 54.35], [16.5 + dx, 54.65]],
+                        }
+                    ],
+                ),
+            ],
+        }
+    )
+
+
+@pytest.mark.parametrize(("angle", "status"), [(90.0, "info"), (60.0, "info"), (30.0, "warn")])
+def test_cable_crossing_angle_and_icpc_floor(angle: float, status: str) -> None:
+    route = [[16.2, 54.5], [16.8, 54.5], [16.8, 53.95]]  # east at sea, then south onto land
+    r = check_route(_pack_with_cable(angle), route)
+    assert len(r.cables) == 1
+    assert r.cables[0].angle_deg == pytest.approx(angle, abs=0.5)
+    assert {c.id: c.status for c in r.checks}["cables"] == status
+    assert r.landfall is not None and r.landfall[1] == pytest.approx(54.0, abs=0.01)
+
+
+def test_route_needs_a_landfall_and_the_region() -> None:
+    at_sea = check_route(_pack_with_cable(90.0), [[16.2, 54.5], [16.4, 54.5]])
+    assert {c.id: c.status for c in at_sea.checks}["landfall"] == "fail"
+    with pytest.raises(RouteError, match="inside the region"):
+        check_route(_pack_with_cable(90.0), [[10.0, 54.5], [16.4, 54.5]])
+
+
+def test_auto_route_keeps_out_of_closed_areas_and_ławica_słupska() -> None:
+    """From SB-510 the weighted route avoids the military area off Ustka and the Natura
+    bank and lands outside the harbour channels (east of Darłówko)."""
+    pack = load_region("southern-baltic")
+    node = next(n for n in pack.points("grid") if n[0].startswith("Krzemienica"))
+    route = auto_route(pack, (16.442, 55.026), (node[1], node[2]))
+    assert route[0] == [16.442, 55.026] and route[-1] == [node[1], node[2]]
+    r = check_route(pack, route, auto=True)
+    assert r.auto and r.restricted == []
+    assert not any("PLC990001" in a.name for a in r.natura)
+    assert r.landfall is not None and r.landfall[0] == pytest.approx(16.40, abs=0.02)
+    assert 95 < r.total_km < 120
+
+
+def test_auto_route_goes_round_a_closed_area() -> None:
+    """A military box across the direct line forces a detour of at least its half-width."""
+    base = _pack_with_cable(90.0)
+    depth = [[None if 53.9 + 0.05 * j <= 54.0 else 30.0] * 21 for j in range(23)]
+    bathy = {
+        "id": "depth",
+        "title": "depth",
+        "role": "bathymetry",
+        "geometry": "raster",
+        "source": "t",
+        "license": "t",
+        "retrieved": "t",
+        "raster": {"lon0": 16.0, "lat0": 53.9, "dlon": 0.05, "dlat": 0.05, "values": depth},
+    }
+    extra = parse_pack(
+        {
+            "region": "t",
+            "title": "t",
+            "bbox": [16.0, 53.9, 17.0, 55.0],
+            "pending": [],
+            "layers": [bathy],
+        }
+    )
+    import dataclasses
+
+    pack = dataclasses.replace(base, layers=base.layers + extra.layers)
+    box = [[16.45, 53.9], [16.55, 53.9], [16.55, 54.9], [16.45, 54.9], [16.45, 53.9]]
+    closed = parse_pack(
+        {
+            "region": "t",
+            "title": "t",
+            "bbox": [16.0, 53.9, 17.0, 55.0],
+            "pending": [],
+            "layers": [
+                {
+                    "id": "mil",
+                    "title": "mil",
+                    "role": "restricted",
+                    "geometry": "polygon",
+                    "source": "t",
+                    "license": "t",
+                    "retrieved": "t",
+                    "features": [{"name": "Military", "coordinates": [box]}],
+                }
+            ],
+        }
+    )
+    walled = dataclasses.replace(pack, layers=pack.layers + closed.layers)
+    straight = auto_route(pack, (16.2, 54.5), (16.8, 53.95))
+    detour = auto_route(walled, (16.2, 54.5), (16.8, 53.95))
+    assert check_route(walled, detour).restricted == []
+    assert check_route(walled, detour).total_km > check_route(pack, straight).total_km + 5
+
+
+def test_route_check_api() -> None:
+    r = client.post("/api/v1/site/route-check", json={"route": SB510_ROUTE})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["auto"] is False and body["total_km"] == pytest.approx(108.0, abs=0.3)
+    auto = client.post(
+        "/api/v1/site/route-check",
+        json={"start": [16.442, 55.026], "grid_node": "Słupsk Wierzbięcin 400/110 kV"},
+    ).json()
+    assert auto["auto"] is True and auto["grid_node"] == "Słupsk Wierzbięcin 400/110 kV"
+    assert client.post("/api/v1/site/route-check", json={}).status_code == 422
+    bad = client.post(
+        "/api/v1/site/route-check", json={"start": [16.44, 55.03], "grid_node": "Nowhere"}
+    )
+    assert bad.status_code == 422

@@ -239,7 +239,7 @@ export default function FarmComparisonResultsPanel() {
                   <th className="pb-1.5 px-2 text-right font-medium">P90 GWh</th>
                   <th className="pb-1.5 px-2 text-right font-medium">CAPEX M€</th>
                   <th className="pb-1.5 px-2 text-right font-medium">Payback yr</th>
-                  <th className="pb-1.5 px-2 text-right font-medium" title="Parallel 1000 mm² circuits needed (950 A each)">Export ckts</th>
+                  <th className="pb-1.5 px-2 text-right font-medium" title="Parallel 1000 mm² circuits needed (825 A each)">Export ckts</th>
                   <th className="pb-1.5 px-2 text-right font-medium" title="Export current at rated output / circuit rating">Utilisation %</th>
                   <th className="pb-1.5 px-2 text-right font-medium" title="Q = ωCU²L per circuit — capacitive, absorbed by shunt reactors">Charging MVAr</th>
                   <th className="pb-1.5 px-2 text-right font-medium" title="I²R + transformer losses at rated output">Elec. loss @ rated %</th>

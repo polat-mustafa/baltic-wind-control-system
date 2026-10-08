@@ -51,7 +51,7 @@ export default function WindResourcePage() {
             Wind Resource & AEP
           </h2>
           <p className="text-xs text-text-muted mt-1 font-mono">
-            34 × V236-15.0 MW · Baltic Sea · PyWake BPA Gaussian ·{" "}
+            34 × 15 MW V236 class (IEA 15 MW) · Baltic Sea · PyWake BPA Gaussian ·{" "}
             {turbineSpec
               ? `D=${turbineSpec.rotor_diameter_m}m, H=${turbineSpec.hub_height_m}m`
               : "Loading..."}

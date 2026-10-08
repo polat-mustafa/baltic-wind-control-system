@@ -14,8 +14,8 @@ import * as api from "../../../src/services/lifecycleApi";
 import ConstructionPage from "../../../src/pages/ConstructionPage";
 import DecommissioningPage from "../../../src/pages/DecommissioningPage";
 import HandoverPage from "../../../src/pages/HandoverPage";
-import { useLayerStore } from "../../../src/store/layerStore";
 import { useLifecycleStore } from "../../../src/store/lifecycleStore";
+import { useModeStore } from "../../../src/store/modeStore";
 import { useProjectStore } from "../../../src/store/projectStore";
 import type { CampaignResult } from "../../../src/types/lifecycle";
 
@@ -34,6 +34,7 @@ const renderAt = (path: string, el: React.ReactNode) =>
 function ownProject() {
   const turbines = Array.from({ length: 8 }, (_, i) => ({ id: `T${String(i + 1).padStart(2, "0")}`, lon: 16.42 + (i % 4) * 0.024, lat: 54.78 + Math.floor(i / 4) * 0.0135 }));
   useProjectStore.setState({ turbines, oss: [16.39, 54.79] });
+  useModeStore.setState({ mode: "own" });
 }
 
 describe("lifecycle pages", () => {
@@ -41,8 +42,8 @@ describe("lifecycle pages", () => {
     localStorage.clear();
     vi.mocked(api.runCampaign).mockReset();
     useProjectStore.setState({ turbines: [], oss: null });
+    useModeStore.setState({ mode: "reference" });
     useLifecycleStore.setState({ results: {}, resultFor: {}, running: {}, error: null });
-    useLayerStore.getState().setLayer("myProject", false);
   });
 
   it("construction: runs the campaign for SB-510 and shows the milestones", async () => {
@@ -52,7 +53,7 @@ describe("lifecycle pages", () => {
     fireEvent.click(screen.getByRole("button", { name: /Simulate the campaign/ }));
     await screen.findByText("Full commercial operation");
     const sent = vi.mocked(api.runCampaign).mock.calls[0][0];
-    expect(sent).toMatchObject({ mode: "install", n_turbines: 34, export_km: 45, foundation: "monopile", alpha: 0.8 });
+    expect(sent).toMatchObject({ mode: "install", n_turbines: 34, export_km: 108, foundation: "jacket", alpha: 0.8 });
     expect(sent.strings?.reduce((a, b) => a + b, 0)).toBe(34);
     expect(screen.getByRole("img", { name: /Campaign timeline/ })).toBeTruthy();
     expect(screen.getByText(/Weather windows by month/)).toBeTruthy();
@@ -77,9 +78,8 @@ describe("lifecycle pages", () => {
     const register = screen.getByText("Turbine register").closest("section") as HTMLElement;
     expect(within(register).getAllByRole("row")).toHaveLength(1 + 8);
     expect(screen.getAllByText(/BAY-OSS-66-01/).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: /Show on the map/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Open the control room/ }));
     await waitFor(() => expect(screen.getByText("control room")).toBeTruthy());
-    expect(useLayerStore.getState().layers.myProject).toBe(true);
   });
 
   it("decommissioning: options go into the request and the cost appears", async () => {

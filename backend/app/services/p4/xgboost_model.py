@@ -264,6 +264,16 @@ def _compute_persistence_rmse(target: NDArray[np.float64]) -> float:
     return rmse
 
 
+def _dmatrix(
+    x: NDArray[np.float64], y: NDArray[np.float64] | None, persistence_column: int | None
+) -> xgb.DMatrix:
+    """DMatrix whose base margin is P(t−1) when a persistence column is given: the trees
+    then learn the change from persistence, which they represent far better than the
+    near-identity map from P(t−1) to P(t)."""
+    margin = None if persistence_column is None else x[:, persistence_column]
+    return xgb.DMatrix(x, label=y, base_margin=margin)
+
+
 def _train_quantile_model(
     x_train: NDArray[np.float64],
     y_train: NDArray[np.float64],
@@ -271,10 +281,11 @@ def _train_quantile_model(
     y_val: NDArray[np.float64],
     quantile: float,
     config: XGBoostConfig,
+    persistence_column: int | None = None,
 ) -> xgb.Booster:
     """Train a single XGBoost model for one quantile level."""
-    dtrain = xgb.DMatrix(x_train, label=y_train)
-    dval = xgb.DMatrix(x_val, label=y_val)
+    dtrain = _dmatrix(x_train, y_train, persistence_column)
+    dval = _dmatrix(x_val, y_val, persistence_column)
 
     params: dict[str, object] = {
         "objective": "reg:quantileerror",
@@ -293,8 +304,17 @@ def _train_quantile_model(
         early_stopping_rounds=config.early_stopping_rounds,
         verbose_eval=False,
     )
-
+    if persistence_column is not None:
+        model.set_attr(persistence_column=str(persistence_column))
     return model
+
+
+def _predict(model: xgb.Booster, x: NDArray[np.float64]) -> NDArray[np.float64]:
+    column = model.attr("persistence_column")
+    return np.asarray(
+        model.predict(_dmatrix(x, None, None if column is None else int(column))),
+        dtype=np.float64,
+    )
 
 
 # ── Public API ────────────────────────────────────────────────────
@@ -304,11 +324,16 @@ def train_xgboost(
     features: NDArray[np.float64],
     target_power_mw: NDArray[np.float64],
     config: XGBoostConfig | None = None,
+    persistence_column: int | None = None,
 ) -> tuple[CVResult, list[xgb.Booster]]:
     """Train XGBoost models with TimeSeriesSplit cross-validation.
 
     Trains 3 quantile models (P10/P50/P90) per fold using TimeSeriesSplit.
     Returns CV metrics from all folds and trained models from the last fold.
+    Early stopping uses the last 20 % of each training fold, never the test fold.
+    With ``persistence_column`` (the index of P(t−1), ``power_lag_1``) the models
+    learn the correction to persistence. The skill score compares with persistence
+    on the same test samples.
 
     Parameters
     ----------
@@ -318,6 +343,8 @@ def train_xgboost(
         Target power values [MW], shape (n_samples,).
     config : XGBoostConfig, optional
         Model configuration.
+    persistence_column : int, optional
+        Column of ``features`` holding P(t−1): the base margin of every model.
 
     Returns
     -------
@@ -333,9 +360,12 @@ def train_xgboost(
     n_jobs = config.n_cv_splits * len(config.quantiles)
     PROGRESS.stage("xgboost", "running", f"{features.shape[0]} rows × {features.shape[1]} features")
 
+    persistence_sq: list[float] = []
     for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(features)):
-        x_train = features[train_idx]
-        y_train = target_power_mw[train_idx]
+        n_fit = max(1, int(len(train_idx) * 0.8))
+        fit_idx, stop_idx = train_idx[:n_fit], train_idx[n_fit:]
+        if len(stop_idx) == 0:
+            stop_idx = fit_idx
         x_test = features[test_idx]
         y_test = target_power_mw[test_idx]
 
@@ -348,19 +378,21 @@ def train_xgboost(
                 f"fold {fold_idx + 1}/{config.n_cv_splits} · P{round(quantile * 100)} trees",
             )
             model = _train_quantile_model(
-                x_train,
-                y_train,
-                x_test,
-                y_test,
+                features[fit_idx],
+                target_power_mw[fit_idx],
+                features[stop_idx],
+                target_power_mw[stop_idx],
                 quantile,
                 config,
+                persistence_column,
             )
             fold_models.append(model)
 
         # Evaluate using P50 (median) model
-        dtest = xgb.DMatrix(x_test)
         p50_model = fold_models[1]  # Index 1 = P50 (0.50 quantile)
-        y_pred = p50_model.predict(dtest)
+        y_pred = _predict(p50_model, x_test)
+        # Persistence on the same samples: P̂(t) = P(t−1)
+        persistence_sq.extend((y_test - target_power_mw[test_idx - 1]) ** 2)
 
         metrics = _compute_metrics(y_test, y_pred, fold_idx)
         fold_metrics_list.append(metrics)
@@ -373,9 +405,10 @@ def train_xgboost(
     mean_mape = float(np.mean([m.mape_pct for m in fold_metrics_list]))
     mean_r2 = float(np.mean([m.r_squared for m in fold_metrics_list]))
 
-    # Skill score vs persistence
-    persistence_rmse = _compute_persistence_rmse(target_power_mw)
-    skill_score = 1.0 - mean_rmse / persistence_rmse if persistence_rmse > 0 else 0.0
+    # Skill score vs persistence on the test samples: RMSE over all test samples
+    model_rmse = float(np.sqrt(np.mean([m.rmse_mw**2 for m in fold_metrics_list])))
+    persistence_rmse = float(np.sqrt(np.mean(persistence_sq))) if persistence_sq else 0.0
+    skill_score = 1.0 - model_rmse / persistence_rmse if persistence_rmse > 0 else 0.0
 
     cv_result = CVResult(
         fold_metrics=fold_metrics_list,
@@ -417,14 +450,10 @@ def predict_xgboost(
     ForecastResult
         Probabilistic forecast with physical constraints applied.
     """
-    dmatrix = xgb.DMatrix(features)
     n = features.shape[0]
 
-    # Predict with each quantile model
-    raw_predictions: list[NDArray[np.float64]] = []
-    for model in models:
-        pred = model.predict(dmatrix)
-        raw_predictions.append(pred)
+    # Predict with each quantile model (base margin P(t−1) if it was trained with one)
+    raw_predictions = [_predict(model, features) for model in models]
 
     # Apply physical constraints to each quantile
     constrained: list[NDArray[np.float64]] = []

@@ -7,17 +7,36 @@
 
 // ── Network Spec ──────────────────────────────────────────────────
 
+/** Electrical design of the modelled farm (backend network_model.FarmSpec / design()). */
 export interface NetworkSpec {
+  name: string;
+  /** reference = SB-510; project = the own farm sent in the X-Farm header. */
+  source: "reference" | "project";
   total_capacity_mw: number;
   num_turbines: number;
   num_strings: number;
   string_layout: number[];
+  section_a_strings: number;
+  max_turbines_per_string: number;
   array_voltage_kv: number;
   export_voltage_kv: number;
   grid_voltage_kv: number;
+  array_cable_length_km: number;
   export_length_km: number;
+  num_export_cables: number;
+  /** Charging power of all export circuits, ωCV²L [MVAR]. */
+  cable_q_mvar: number;
+  num_oss_transformers: number;
+  oss_trafo_mva: number;
+  num_onshore_transformers: number;
+  onshore_trafo_mva: number;
   grid_ssc_mva: number;
+  /** PSE 400 kV connection point (site assessment; SB-510: Krzemienica). */
+  grid_node?: string;
   statcom_rating_mvar: number;
+  num_reactors: number;
+  reactor_unit_mvar: number;
+  reactor_total_mvar: number;
 }
 
 // ── Load Flow ─────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ channels are formed, each mapped to its IEC 61400-25-2 logical node:
   power         P_meas − P_twin                       [MW]   WTUR
   rotor_speed   ω_meas − ω_twin                       [rpm]  WROT
   pitch         β_meas − β_twin                       [deg]  WROT
-  gearbox_temp  T_meas − T_twin (thermal NBM)         [K]    WTRM
+  generator_temp T_meas − T_twin (thermal NBM)        [K]    WGEN
   anemometer    v_meas / median(v_meas of others) − 1 [%]    WMET
 
 Samples where the turbine (or the twin) is not producing are excluded — the
@@ -52,7 +52,7 @@ zones in the spirit of the ISO 20816/10816 A–D evaluation zones:
   u > 2  alarm   HI 40 → 0 (0 at u = 4)
 
 Turbine HI = minimum over channels (weakest link) — an average would let a
-healthy power channel hide a gearbox in alarm.
+healthy power channel hide a generator in alarm.
 """
 
 from __future__ import annotations
@@ -76,13 +76,13 @@ from app.services.digital_twin.reference_model import (
     DEFAULT_PARAMS,
     OperatingPoints,
     evaluate,
-    gearbox_temperature,
+    generator_temperature,
 )
 
 FloatArray = NDArray[np.float64]
 BoolArray = NDArray[np.bool_]
 
-ChannelKey = Literal["power", "rotor_speed", "pitch", "gearbox_temp", "anemometer"]
+ChannelKey = Literal["power", "rotor_speed", "pitch", "generator_temp", "anemometer"]
 Level = Literal["alert", "alarm"]
 
 
@@ -99,7 +99,7 @@ CHANNELS: tuple[ChannelSpec, ...] = (
     ChannelSpec("power", "Active power", "MW", "WTUR", 0.03),
     ChannelSpec("rotor_speed", "Rotor speed", "rpm", "WROT", 0.02),
     ChannelSpec("pitch", "Pitch angle", "deg", "WROT", 0.05),
-    ChannelSpec("gearbox_temp", "Gearbox bearing temperature", "°C", "WTRM", 0.4),
+    ChannelSpec("generator_temp", "Generator stator-winding temperature", "°C", "WGEN", 0.4),
     ChannelSpec("anemometer", "Nacelle wind vs. neighbours", "%", "WMET", 0.5),
 )
 ANEMOMETER = 4  # index of the relative channel
@@ -142,6 +142,8 @@ class TwinView:
 def _neighbour_reference(wind: FloatArray) -> FloatArray:
     """Leave-one-out median of the measured wind of all other turbines."""
     n = wind.shape[1]
+    if n == 1:  # a lone turbine has no neighbours: its anemometer cannot be cross-checked
+        return wind.copy()
     ref = np.empty_like(wind)
     for i in range(n):
         ref[:, i] = np.median(np.delete(wind, i, axis=1), axis=1)
@@ -152,22 +154,37 @@ def twin_view(data: PlantData) -> TwinView:
     rho = data.air_density[:, None]
     twin = evaluate(data.wind_ms, rho)
     t_amb = np.broadcast_to(data.ambient_temp_c[:, None], data.wind_ms.shape)
-    twin_temp = gearbox_temperature(twin.gearbox_loss_kw, t_amb, SAMPLE_PERIOD_S)
+    twin_temp = generator_temperature(twin.generator_loss_kw, t_amb, SAMPLE_PERIOD_S)
     wind_ref = _neighbour_reference(data.wind_ms)
 
     measured = np.stack(
-        [data.power_mw, data.rotor_speed_rpm, data.pitch_deg, data.gearbox_temp_c, data.wind_ms],
+        [data.power_mw, data.rotor_speed_rpm, data.pitch_deg, data.generator_temp_c, data.wind_ms],
         axis=-1,
     )
     expected = np.stack(
         [twin.power_mw, twin.rotor_speed_rpm, twin.pitch_deg, twin_temp, wind_ref], axis=-1
     )
     producing = data.operating & twin.operating
+    # The winding-temperature model is only valid once the thermal transient of a stop,
+    # restart or record start has died out: ≥ 2 τ of uninterrupted production.
+    settle = math.ceil(2.0 * DEFAULT_PARAMS.generator_thermal_time_constant_s / SAMPLE_PERIOD_S)
+    settled = _run_length(producing) > settle
     valid = np.stack(
-        [producing, producing, producing, producing, wind_ref >= ANEMOMETER_MIN_WIND_MS],
+        [producing, producing, producing, settled, wind_ref >= ANEMOMETER_MIN_WIND_MS],
         axis=-1,
     )
     return TwinView(measured, expected, valid, twin, wind_ref)
+
+
+def _run_length(mask: NDArray[np.bool_]) -> NDArray[np.int64]:
+    """Consecutive True samples up to and including each sample, along axis 0 (time);
+    the record start counts as a break."""
+    out = np.zeros(mask.shape, dtype=np.int64)
+    run = np.zeros(mask.shape[1:], dtype=np.int64)
+    for k in range(mask.shape[0]):
+        run = np.where(mask[k], run + 1, 0)
+        out[k] = run
+    return out
 
 
 def residuals(view: TwinView) -> FloatArray:
@@ -455,7 +472,7 @@ def detector_settings() -> dict[str, float | int | str]:
         "steady_state_ucl_iid": round(float(ewma_limit(np.array([math.inf]))[0]), 4),
         "calibration_days": CALIBRATION_DAYS,
         "wind_bin_width_ms": float(WIND_BIN_EDGES[1] - WIND_BIN_EDGES[0]),
-        "thermal_time_constant_s": DEFAULT_PARAMS.gearbox_thermal_time_constant_s,
+        "thermal_time_constant_s": DEFAULT_PARAMS.generator_thermal_time_constant_s,
     }
 
 

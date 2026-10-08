@@ -23,7 +23,7 @@ web services (fire-and-forget), OPC-UA provides:
   4. Historical access — OPC-UA HDA lets clients query time-series data
      from the historian without a separate API.
 
-Address Space Layout (SB-510)
+Address Space Layout (SB-510; the REST tree follows the farm, the asyncua server is SB-510)
 -----------------------------------------
 WindFarm/
   ├── Substation/
@@ -56,6 +56,8 @@ import zlib
 from datetime import UTC, datetime
 
 from app.schemas.opcua import OPCUAAddressSpaceResponse, OPCUANodeInfo, OPCUAStatusResponse
+from app.services.p1.turbine_models import get_turbine
+from app.services.p2.network_model import SB510, FarmSpec
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +81,7 @@ _ua_server = None
 # ── Address-space definition ──────────────────────────────────────
 
 
-def _build_address_space_spec() -> list[OPCUANodeInfo]:
+def _build_address_space_spec(farm: FarmSpec = SB510) -> list[OPCUANodeInfo]:
     """
     Build a declarative specification of every node in the address space.
 
@@ -100,7 +102,7 @@ def _build_address_space_spec() -> list[OPCUANodeInfo]:
         )
 
     bay_nodes = []
-    for bay in sorted(bay_controller.get_all_bays(), key=lambda b: b.bay_id):
+    for bay in sorted(bay_controller.get_all_bays(farm), key=lambda b: b.bay_id):
         path = f"WindFarm.Substation.{bay.bay_id}"
         bay_nodes.append(
             OPCUANodeInfo(
@@ -119,10 +121,10 @@ def _build_address_space_spec() -> list[OPCUANodeInfo]:
 
     minute = int(datetime.now(UTC).timestamp() // 60)
     u = historian.wind_speed(minute)
-    plant = historian.plant_state(minute)
+    plant = historian.plant_state(minute, farm)
     turbine_nodes = []
     total_mw = 0.0
-    for wtg_num in range(1, 35):
+    for wtg_num in range(1, farm.num_turbines + 1):
         wtg_id = f"WTG{wtg_num:02d}"
         path = f"WindFarm.Turbines.{wtg_id}"
         # deterministic wake deficit 0-12 % per position
@@ -130,7 +132,7 @@ def _build_address_space_spec() -> list[OPCUANodeInfo]:
         p_mw = historian.power_curve_mw(u_i)
         total_mw += p_mw
         running = p_mw > 0
-        rpm = min(8.33, max(4.0, 8.33 * u_i / 11.1)) if running else 0.0
+        rpm = get_turbine().operating_point(u_i)["rotor_rpm"] if running else 0.0
         turbine_nodes.append(
             OPCUANodeInfo(
                 node_id=f"ns=2;s={path}",
@@ -318,9 +320,9 @@ async def stop_server() -> None:
     log.info("OPC-UA server stopped")
 
 
-def get_status() -> OPCUAStatusResponse:
+def get_status(farm: FarmSpec = SB510) -> OPCUAStatusResponse:
     """Return current OPC-UA server status for the REST API."""
-    spec = _build_address_space_spec()
+    spec = _build_address_space_spec(farm)
     total = _count_nodes(spec)
     return OPCUAStatusResponse(
         running=_server_running,
@@ -332,9 +334,9 @@ def get_status() -> OPCUAStatusResponse:
     )
 
 
-def get_address_space() -> OPCUAAddressSpaceResponse:
+def get_address_space(farm: FarmSpec = SB510) -> OPCUAAddressSpaceResponse:
     """Return the full address space as a JSON tree for REST clients."""
-    spec = _build_address_space_spec()
+    spec = _build_address_space_spec(farm)
     return OPCUAAddressSpaceResponse(
         endpoint=_ENDPOINT,
         root_nodes=spec,

@@ -5,7 +5,8 @@
 
 export interface N1Request {
   generation_fraction: number;
-  grid_ssc_mva: number;
+  /** Omitted: the farm's (SB-510 or the X-Farm project). */
+  grid_ssc_mva?: number;
 }
 
 export interface N1State {

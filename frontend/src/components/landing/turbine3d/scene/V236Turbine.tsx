@@ -1,5 +1,5 @@
 /**
- * Complete V236-15.0 MW turbine scene graph.
+ * Complete SB-510 turbine scene graph (15 MW "V236 class", IEA 15 MW direct drive).
  *
  *   lean group (pivot at the mudline, y = −40 m) — static tower/monopile
  *   bending under rotor thrust (≈ 0.9 m at the tower top at rated) plus the
@@ -10,7 +10,7 @@
  *       bedplate + converter + subsystems (cutaway/exploded)
  *       shaft frame at the hub centre, tilted 6° nose-up
  *         rotor (hub + 3 coned, pitched, deflecting blades)
- *         drivetrain (cutaway/exploded)
+ *         direct-drive generator + shaft (always; bearings, stator sections in cutaway)
  */
 
 import { memo, useRef } from "react";
@@ -131,7 +131,7 @@ export const V236Turbine = memo(function V236Turbine({
                 windMs={windMs}
                 fieldMode={bladeFieldMode}
               />
-              {showInternals && <Drivetrain selectedPart={selectedPart} explodedOffset={explodedOffset} />}
+              <Drivetrain selectedPart={selectedPart} explodedOffset={explodedOffset} internals={showInternals} />
               {showFlow && <TipVortices
                 windMs={windMs}
                 rotorRpm={stopped ? 0 : overrideRpm ?? turbine?.rotorSpeedRpm ?? 0}

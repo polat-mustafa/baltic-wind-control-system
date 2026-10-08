@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 import { gridFill, insidePolygon, minSpacing, polygonArea, projection, type XY } from "../../src/lib/layout/geometry";
 import { maxPerString, mstLength, routeCables, sectionFor, stringCurrent } from "../../src/lib/layout/cables";
 import { layoutYield } from "../../src/lib/layout/energy";
-import { crf, DEFAULT_COSTS, layoutCost } from "../../src/lib/layout/cost";
+import { COST_DEFAULTS, crf, DEFAULT_COSTS, exportCircuits, layoutCost } from "../../src/lib/layout/cost";
 import { blockedBy, energyRings, exclusionRings, OUTSIDE_ENERGY_BASIN } from "../../src/lib/layout/evaluate";
 import type { LayersResponse, LayerInfo, LonLat } from "../../src/services/siteApi";
+import { TURBINE_MODELS } from "../../src/constants/turbineModels";
 
-const D = 236;
+const D = TURBINE_MODELS["IEA-15-240-RWT"].rotorDiameterM; // 241.35 m
 const square = (s: number): XY[] => [
   { x: 0, y: 0 },
   { x: s, y: 0 },
@@ -44,11 +45,12 @@ describe("geometry", () => {
 
 describe("array cables", () => {
   it("sizes strings from the cable rating", () => {
-    // 15 MW at 66 kV, unity pf → 131 A per turbine; 800 mm² (900 A) carries 6
+    // 15 MW at 66 kV, unity pf → 131 A per turbine; 1000 mm² (825 A) carries 6
     expect(stringCurrent(1, 15)).toBeCloseTo(131.2, 1);
     expect(maxPerString(15)).toBe(6);
-    expect(sectionFor(5, 15)!.id).toBe("500");
-    expect(sectionFor(6, 15)!.id).toBe("630");
+    expect(sectionFor(4, 15)!.id).toBe("500"); // 525 A ≤ 655 A
+    expect(sectionFor(5, 15)!.id).toBe("630"); // 656 A > 655 A
+    expect(sectionFor(6, 15)!.id).toBe("1000"); // 787 A > 775 A (800 mm²)
     expect(sectionFor(7, 15)).toBeNull();
   });
 
@@ -77,14 +79,24 @@ describe("layout yield", () => {
   });
 
   it("matches PyWake within 1 percentage point on square grids", () => {
-    // PyWake 2.6, backend run_wake_analysis + create_uniform_site(10.5, 2.2, 0.06),
-    // 5 × 5 V236 grid: wake loss 9.80 / 5.37 / 3.46 % at 4 / 6 / 8 D
+    // PyWake 2.6.19, backend run_wake_analysis + create_uniform_site(10.5, 2.2, 0.06),
+    // 5 × 5 grid of the IEA 15 MW reference: wake loss 12.53 / 6.80 / 4.34 % at 4 / 6 / 8 D
     const ref: [number, number][] = [
-      [4, 9.8],
-      [6, 5.37],
-      [8, 3.46],
+      [4, 12.53],
+      [6, 6.8],
+      [8, 4.34],
     ];
     for (const [sd, pct] of ref) expect(Math.abs(layoutYield(grid(5, sd), 10.5, 2.2).wakeLossPct - pct)).toBeLessThan(1);
+    // IEA 22 MW (D = 284 m): 13.17 / 7.23 / 4.69 %
+    const big = TURBINE_MODELS["IEA-22-280-RWT"];
+    const gridBig = (sd: number): XY[] =>
+      Array.from({ length: 25 }, (_, k) => ({ x: (k % 5) * sd * big.rotorDiameterM, y: Math.floor(k / 5) * sd * big.rotorDiameterM }));
+    for (const [sd, pct] of [
+      [4, 13.17],
+      [6, 7.23],
+      [8, 4.69],
+    ] as const)
+      expect(Math.abs(layoutYield(gridBig(sd), 10.5, 2.2, undefined, big).wakeLossPct - pct)).toBeLessThan(1);
   });
 
   it("tighter spacing loses more; P never exceeds rated", () => {
@@ -93,6 +105,8 @@ describe("layout yield", () => {
     expect(wide.wakeLossPct).toBeGreaterThan(0);
     expect(tight.wakeLossPct).toBeGreaterThan(wide.wakeLossPct);
     expect(tight.netGWh).toBeLessThanOrEqual(25 * 15 * 8.76);
+    // gross of one IEA 15 MW at A = 10.5, k = 2.2: PyWake 74.70 GWh
+    expect(layoutYield([{ x: 0, y: 0 }], 10.5, 2.2).grossGWh).toBeCloseTo(74.7, 0);
   });
 });
 
@@ -103,12 +117,32 @@ describe("cost", () => {
   });
 
   it("gives an LCOE in a sane range for a 510 MW farm", () => {
+    // NREL 2024 fixed-bottom reference: 5 411 $/kW ≈ 5.0 M€/MW, LCOE 117 $/MWh ≈ 108 €/MWh
     const c = layoutCost(DEFAULT_COSTS, 510, 60, 45, 40, 2200);
-    expect(c.capexMEURperMW).toBeGreaterThan(2);
-    expect(c.capexMEURperMW).toBeLessThan(4);
-    expect(c.lcoe!).toBeGreaterThan(40);
-    expect(c.lcoe!).toBeLessThan(120);
+    expect(c.capexMEURperMW).toBeGreaterThan(4.5);
+    expect(c.capexMEURperMW).toBeLessThan(5.5);
+    expect(c.lcoe!).toBeGreaterThan(90);
+    expect(c.lcoe!).toBeLessThan(140);
     expect(layoutCost(DEFAULT_COSTS, 510, 60, 45, 40, 0).lcoe).toBeNull();
+  });
+
+  it("defaults are the NREL / ORBIT values in 2023 € and carry their source", () => {
+    expect(DEFAULT_COSTS.turbineMEURperMW).toBe(1.64); // 1 770 $/kW / 1.0813
+    expect(DEFAULT_COSTS.opexKEURperMWyr).toBe(125); // 135 $/kW-yr / 1.0813
+    expect(DEFAULT_COSTS.exportCircuitMEURperKm).toBe(1.39); // ORBIT 1 500 902 $/km
+    for (const c of Object.values(COST_DEFAULTS)) {
+      expect(c.source).not.toBe("");
+      if (c.quality !== "illustrative") expect(c.license && c.retrieved).toBeTruthy();
+    }
+  });
+
+  it("prices the export cable per circuit with the backend design() rule", () => {
+    expect(exportCircuits(510, 76.5)).toBe(2); // SB-510: 2 × 220 kV
+    expect(exportCircuits(300, 50)).toBe(1);
+    expect(exportCircuits(0, 50)).toBe(0); // no turbines, no export cable
+    expect(exportCircuits(850, 76.5)).toBe(3); // 294 MW per 825 A circuit at 76.5 km
+    const one = layoutCost(DEFAULT_COSTS, 300, 0, 50, 30, 1000).lines.find((l) => l.label.startsWith("Export"))!;
+    expect(one.meur).toBeCloseTo(1.39 * 50, 6);
   });
 });
 

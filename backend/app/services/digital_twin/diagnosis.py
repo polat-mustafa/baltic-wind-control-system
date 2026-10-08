@@ -24,7 +24,7 @@ Gaussian normalisation, so a hypothesis cannot win simply by widening its
 own error bars.
 
 S = samples inside the turbine's detection events; κ_c is the EWMAST
-autocorrelation factor, so strongly autocorrelated channels (gearbox
+autocorrelation factor, so strongly autocorrelated channels (generator
 temperature, anemometer) do not count their samples as independent
 evidence. The hypothesis with the lowest J wins; equal-prior posterior
 weights ∝ exp(−J/2) express how clearly it beats the others; the fraction of
@@ -34,7 +34,7 @@ explained at all. A detection that no hypothesis explains is reported as
 class.
 
 Expectations are taken on a 0.1 m/s wind grid at the median density of S
-and interpolated to every sample; the gearbox-temperature
+and interpolated to every sample; the generator-temperature
 residual goes through the same first-order thermal lag as the twin.
 """
 
@@ -139,7 +139,7 @@ def _wind_kernel(grid: FloatArray, cal: Calibration) -> FloatArray:
 
 
 def _moments(ctx_kernel: FloatArray, op: OperatingPoints) -> tuple[FloatArray, FloatArray]:
-    ys = np.stack([op.power_mw, op.rotor_speed_rpm, op.pitch_deg, op.gearbox_loss_kw], axis=-1)
+    ys = np.stack([op.power_mw, op.rotor_speed_rpm, op.pitch_deg, op.generator_loss_kw], axis=-1)
     mean = ctx_kernel @ ys
     var = np.maximum(ctx_kernel @ ys[:, :3] ** 2 - mean[:, :3] ** 2, 0.0)
     return mean, var
@@ -190,7 +190,7 @@ def _predicted_residuals(
         elif kind == "power_limit":
             fp.power_limit_mw = value
         else:
-            fp.gearbox_loss_factor = value
+            fp.generator_loss_factor = value
         op = evaluate(grid, ctx.rho, fp)
     mean, var = _moments(ctx.kernel, op)
     d_mean = mean - ctx.twin_mean
@@ -201,8 +201,8 @@ def _predicted_residuals(
     for c in (_P, _W, _B):
         out[:, c] = np.interp(v_sel, grid, d_mean[:, c])
     d_loss = np.where(ctx.operating, np.interp(ctx.wind, grid, d_mean[:, _T]), 0.0)
-    d_temp = DEFAULT_PARAMS.gearbox_thermal_resistance_k_per_kw * first_order_lag(
-        d_loss, SAMPLE_PERIOD_S, DEFAULT_PARAMS.gearbox_thermal_time_constant_s
+    d_temp = DEFAULT_PARAMS.generator_thermal_resistance_k_per_kw * first_order_lag(
+        d_loss, SAMPLE_PERIOD_S, DEFAULT_PARAMS.generator_thermal_time_constant_s
     )
     out[:, _T] = d_temp[ctx.sel]
     out[:, ANEMOMETER] = 100.0 * (value - 1.0) if kind == "anemometer_gain" else 0.0
@@ -406,11 +406,11 @@ def _cause_hint(kind: FaultKind | None, severity: float, t_mean: float, rh_mean:
         return f"Blades sit {abs(severity):.1f}° towards {side} relative to the reported angle."
     if kind == "power_limit":
         return f"Output capped at {severity:.1f} MW without a park set-point."
-    if kind == "gearbox_loss":
-        nominal_pct = (1.0 - DEFAULT_PARAMS.gearbox_efficiency) * 100.0
+    if kind == "generator_loss":
+        nominal_pct = (1.0 - DEFAULT_PARAMS.generator_efficiency) * 100.0
         return (
-            f"Gearbox losses ≈ {severity:.2f}× nominal ({severity * nominal_pct:.1f} % of shaft "
+            f"Generator losses ≈ {severity:.2f}× nominal ({severity * nominal_pct:.1f} % of shaft "
             "power instead of "
-            f"{nominal_pct:.0f} %)."
+            f"{nominal_pct:.2f} %)."
         )
     return f"Anemometer reads {severity:+.1f} % against its neighbours."

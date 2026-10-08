@@ -54,7 +54,7 @@ describe("N-1 Security tab", () => {
     render(<AdvancedAnalysisTab />);
     await flush();
 
-    expect(apiClient.post).toHaveBeenCalledWith("/api/v1/grid/security/n1", { generation_fraction: 1, grid_ssc_mva: 10000 });
+    expect(apiClient.post).toHaveBeenCalledWith("/api/v1/grid/security/n1", { generation_fraction: 1, grid_ssc_mva: undefined }); // the farm's S_sc
     expect(screen.getByText("Secure")).toBeTruthy();
     expect(screen.getByText("343")).toBeTruthy();
     expect(screen.getByText("167")).toBeTruthy();

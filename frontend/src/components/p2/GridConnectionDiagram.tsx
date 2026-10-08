@@ -1,7 +1,7 @@
 /**
  * Single-line diagram of the connection, driven by the selected load flow.
  *
- * Turbines → 66 kV array → OSS 66/220 kV → 2 × 45 km export → onshore
+ * Turbines → 66 kV array → OSS 66/220 kV → 2 × 108 km export → onshore
  * 220/400 kV → PSE. Dashes flow towards the grid at a speed proportional to
  * the MW in that element (static with reduced motion); every busbar shows its
  * voltage, every branch its MW and loading. Reactors and STATCOM sit on the
@@ -10,8 +10,8 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 
-import { SCENARIO_LABEL } from "../../constants/gridScenarios";
-import { useGridStore } from "../../store/gridStore";
+import { scenarioLabels } from "../../constants/gridScenarios";
+import { useGridStore, useNetwork } from "../../store/gridStore";
 import { ScenarioTabs } from "./CableLoadingPanel";
 
 const W = 960;
@@ -142,6 +142,8 @@ function Flow({
 
 export default function GridConnectionDiagram() {
   const { loadFlowResults, activeScenario } = useGridStore();
+  const n = useNetwork();
+  const SCENARIO_LABEL = scenarioLabels(n);
   const r = loadFlowResults?.find((x) => x.scenario === activeScenario);
   if (!r) return null;
 
@@ -152,7 +154,7 @@ export default function GridConnectionDiagram() {
   const tOss = trafo("Trafo_66_220kV");
   const tOn = trafo("Trafo_220_400kV");
   const oss220 = r.buses.find((b) => b.name === "OSS_220kV");
-  const strings = r.lines.filter((l) => /^Array_S\d_T1$/.test(l.name));
+  const strings = r.lines.filter((l) => /^Array_S\d+_T1$/.test(l.name));
   const arrayMw = strings.reduce((s, l) => s + Math.abs(l.p_from_mw), 0);
   const maxString = Math.max(0, ...strings.map((l) => l.loading_percent));
 
@@ -160,7 +162,7 @@ export default function GridConnectionDiagram() {
     <div className="rounded-lg border border-border-primary bg-bg-secondary p-4">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
         <h3 className="text-base font-semibold text-text-primary">
-          How 510 MW reach the PSE grid
+          How {n.total_capacity_mw.toFixed(0)} MW reach the PSE grid
         </h3>
         <ScenarioTabs />
       </div>
@@ -175,34 +177,34 @@ export default function GridConnectionDiagram() {
             x1={X[0]}
             x2={X[1]}
             mw={arrayMw}
-            label="6 strings · 66 kV array"
+            label={`${n.num_strings} strings · 66 kV array`}
             loading={maxString}
           />
           <Flow
             x1={X[1]}
             x2={X[2]}
             mw={Math.abs(tOss?.p_hv_mw ?? 0)}
-            label="TX 2 × 300 MVA"
+            label={`TX ${n.num_oss_transformers} × ${n.oss_trafo_mva} MVA`}
             loading={tOss?.loading_percent}
           />
           <Flow
             x1={X[2]}
             x2={X[3]}
             mw={Math.abs(exp?.p_from_mw ?? 0)}
-            label="Export 2 × 45 km · 220 kV"
+            label={`Export ${n.num_export_cables} × ${n.export_length_km} km · 220 kV`}
             loading={exp?.loading_percent}
           />
           <Flow
             x1={X[3]}
             x2={X[4]}
             mw={Math.abs(tOn?.p_hv_mw ?? 0)}
-            label="TX 2 × 300 MVA"
+            label={`TX ${n.num_onshore_transformers} × ${n.onshore_trafo_mva} MVA`}
             loading={tOn?.loading_percent}
           />
           <Bus
             x={X[0]}
             label={`${r.total_generation_mw.toFixed(0)} MW`}
-            kv="34 × V236"
+            kv={`${n.num_turbines} × 15 MW`}
           />
           <Bus x={X[1]} label="OSS" kv="66 kV" v={v("OSS_66kV")} />
           <Bus x={X[2]} label="OSS" kv="220 kV" v={v("OSS_220kV")} />
@@ -224,7 +226,7 @@ export default function GridConnectionDiagram() {
             className="fill-text-secondary"
             fontSize={11}
           >
-            3 × 80 MVAR reactors + STATCOM {r.statcom_q_mvar >= 0 ? "+" : ""}
+            {n.num_reactors} × {n.reactor_unit_mvar} MVAR reactors + STATCOM {r.statcom_q_mvar >= 0 ? "+" : ""}
             {r.statcom_q_mvar.toFixed(0)} MVAR · net{" "}
             {oss220 ? `${oss220.q_mvar.toFixed(0)}` : "—"} MVAR
           </text>
@@ -244,7 +246,7 @@ export default function GridConnectionDiagram() {
       <p className="text-xs text-text-muted">
         {SCENARIO_LABEL[activeScenario]} · losses {r.total_loss_mw.toFixed(2)}{" "}
         MW · reactive power positive = delivered/generated (Rule 4). The export
-        cables generate ≈ 260 MVAR of charging power at any output — the
+        cables generate ≈ {n.cable_q_mvar.toFixed(0)} MVAR of charging power at any output — the
         reactors absorb most of it.
       </p>
     </div>

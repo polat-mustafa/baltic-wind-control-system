@@ -57,6 +57,21 @@ export interface CriterionCard {
   note: string;
 }
 
+/** One raster layer clipped to a bbox: bands[name][j][i] at (lon0 + i·dlon, lat0 + j·dlat), null = no data. */
+export interface RasterResponse {
+  role: string;
+  lon0: number;
+  lat0: number;
+  dlon: number;
+  dlat: number;
+  bands: Record<string, (number | null)[][]>;
+  /** Class rasters (seabed): code → name. */
+  classes?: Record<string, string> | null;
+  source: string;
+  license: string;
+  retrieved: string;
+}
+
 export interface LayersResponse {
   region: RegionInfo;
   layers: LayerInfo[];
@@ -64,6 +79,40 @@ export interface LayersResponse {
   complete: boolean;
   criteria: CriterionCard[];
   depth_bands: { min_m: number; max_m: number; score: number; foundation: string }[];
+  /** Seabed substrate classes (EMODnet Folk 5) and what they mean for piles and cables. */
+  seabed_classes?: SeabedClass[];
+}
+
+export interface GridNode {
+  name: string;
+  status: "existing" | "commissioning" | "planned";
+  /** Straight distance from the site centre [km]. */
+  km: number;
+  voltage_kv: number[];
+  /** Where the node and its status come from. */
+  basis: string;
+}
+
+export interface SitePort {
+  name: string;
+  use: "O&M" | "installation";
+  status: string;
+  /** Shortest sea route to the site [km]; null = no route. */
+  km: number | null;
+  /** Where the port's role comes from. */
+  basis: string;
+}
+
+export interface SeabedClass {
+  code: number;
+  name: string;
+  piling: string;
+  burial: string;
+  /** Foundation cost multiplier, sand = 1.00 (illustrative). */
+  foundation_factor: number;
+  /** Piling or burial needs extra work. */
+  hard: boolean;
+  quality: "illustrative";
 }
 
 export interface CriteriaOverrides {
@@ -102,6 +151,20 @@ export interface SiteCheck {
   reference: string;
 }
 
+/** Hub-height wind climate of a site (NEWA + ERA5, or the labelled approximation). */
+export interface SiteWind {
+  mean_ms: number;
+  weibull_a: number;
+  weibull_k: number;
+  height_m: number;
+  /** 12 sectors, wind FROM, centres 0°, 30° … 330°; null without a site rose. */
+  sector_frequencies: number[] | null;
+  source: string;
+  license: string;
+  /** True: real data not found, closest approximation used. */
+  approximate: boolean;
+}
+
 export interface AssessResponse {
   region: string;
   area_km2: number;
@@ -115,6 +178,8 @@ export interface AssessResponse {
   shore_km: [number, number] | null;
   grid_km: number | null;
   grid_node: string | null;
+  /** Every grid connection point, nearest first; `grid_node` is the chosen one. */
+  grid_nodes?: GridNode[];
   cable_km: number | null;
   owf_km: number | null;
   protected_km: number | null;
@@ -124,15 +189,81 @@ export interface AssessResponse {
   energy_basins?: string[];
   /** Real wind farm projects inside the site or already holding its energy basins. */
   projects?: string[];
+  wind?: SiteWind | null;
+  /** Seabed substrate class → share of the mapped site area. */
+  seabed?: Record<string, number> | null;
+  /** Offshore wind ports and their sea-route distance to the site, nearest first per use. */
+  ports?: SitePort[];
   checks: SiteCheck[];
   complete: boolean;
 }
 
-export const getLayers = (region = "southern-baltic"): Promise<LayersResponse> =>
-  request(`${BASE}/layers?region=${encodeURIComponent(region)}`);
+/** `?region=…` when one is given; without it the backend uses its default region pack. */
+const regionQuery = (region?: string) => (region ? `region=${encodeURIComponent(region)}` : "");
 
-export const postSuitability = (criteria: CriteriaOverrides, cell_km = 2): Promise<SuitabilityResponse> =>
-  post(`${BASE}/suitability`, { criteria, cell_km });
+/** Layers of a region (default: the backend's region pack; `layers.region.region` names it). */
+export const getLayers = (region?: string): Promise<LayersResponse> =>
+  request(`${BASE}/layers${region ? `?${regionQuery(region)}` : ""}`);
 
-export const postAssess = (polygon: LonLat[], criteria: CriteriaOverrides): Promise<AssessResponse> =>
-  post(`${BASE}/assess`, { polygon, criteria });
+/** A raster layer (bathymetry: depth [m, positive down]) clipped to [lon_min, lat_min, lon_max, lat_max]. */
+export const getRaster = (role: string, bbox: [number, number, number, number], region?: string): Promise<RasterResponse> =>
+  request(`${BASE}/raster?role=${encodeURIComponent(role)}&bbox=${bbox.map((v) => v.toFixed(4)).join(",")}${region ? `&${regionQuery(region)}` : ""}`);
+
+export const postSuitability = (criteria: CriteriaOverrides, cell_km = 2, region?: string): Promise<SuitabilityResponse> =>
+  post(`${BASE}/suitability`, { criteria, cell_km, ...(region ? { region } : {}) });
+
+/** Site report; `gridNode` picks the connection point (default: the nearest). */
+export const postAssess = (polygon: LonLat[], criteria: CriteriaOverrides, region?: string, gridNode?: string | null): Promise<AssessResponse> =>
+  post(`${BASE}/assess`, { polygon, criteria, ...(region ? { region } : {}), ...(gridNode ? { grid_node: gridNode } : {}) });
+
+export interface NeighbourFarm {
+  name: string;
+  status: string;
+  power_mw: number;
+  /** "outline": fills the mapped outline; "point": a square of P / density on the point. */
+  source: "outline" | "point";
+  distance_km: number;
+  /** Virtual turbines [lon, lat] — approximate, real coordinates are not published. */
+  turbines: LonLat[];
+}
+
+export interface NeighboursResponse {
+  farms: NeighbourFarm[];
+  density_mw_km2: number;
+  density_basis: string;
+  radius_km: number;
+  note: string;
+}
+
+/** Real wind farms around the site as approximate turbine layouts (cluster wakes). */
+export const postNeighbours = (polygon: LonLat[], turbine_model?: string, region?: string): Promise<NeighboursResponse> =>
+  post(`${BASE}/neighbours`, { polygon, ...(turbine_model ? { turbine_model } : {}), ...(region ? { region } : {}) });
+
+export interface RouteCrossing {
+  name: string;
+  /** Acute angle to the crossed line [deg], 90 = right angles. */
+  angle_deg: number;
+  at: LonLat;
+}
+
+export interface RouteCheckResponse {
+  route: LonLat[];
+  /** true: the automatic shortest sea route. */
+  auto: boolean;
+  /** Export cable length [km]. */
+  total_km: number;
+  offshore_km: number;
+  onshore_km: number;
+  landfall: LonLat | null;
+  grid_node: string | null;
+  natura: { name: string; km: number }[];
+  restricted: { name: string; km: number }[];
+  shipping: RouteCrossing[];
+  shipping_km: { name: string; km: number }[];
+  cables: RouteCrossing[];
+  checks: SiteCheck[];
+}
+
+/** Check a drawn export route, or build the automatic one from `start` to the grid node. */
+export const postRouteCheck = (body: { route?: LonLat[]; start?: LonLat; grid_node?: string | null; region?: string }): Promise<RouteCheckResponse> =>
+  post(`${BASE}/route-check`, body);

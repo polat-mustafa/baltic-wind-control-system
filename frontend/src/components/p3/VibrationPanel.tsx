@@ -2,9 +2,9 @@
  * Vibration spectrum — velocity [mm/s RMS] per line with the component's
  * kinematic fault frequencies marked (CMS, M12).
  *
- * Main bearing 0–10 Hz (BPFO ≈ 1.4 Hz needs fine resolution), gearbox and
- * generator 0–200 Hz (gear-mesh frequencies, generator bearing). The overall
- * RMS is compared with the ISO 10816-3 zones.
+ * Direct drive (IEA 15 MW, no gearbox): main bearings 0–12 Hz (BPFO ≈ 3.6 / 2.3 Hz
+ * need fine resolution), generator 0–40 Hz (electrical f_e 12.6 Hz, 2·f_e 25.2 Hz,
+ * slot pass 30.2 Hz). The overall RMS is compared with the ISO 10816-3 zones.
  */
 
 import { useEffect } from "react";
@@ -12,15 +12,15 @@ import Plot from "react-plotly.js";
 
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
+import { useFarmPlan } from "../../hooks/useFarmPlan";
 import { useCMSStore } from "../../store/cmsStore";
 import type { CMSComponent } from "../../types/cms";
 
 const COMPONENTS: { value: CMSComponent; label: string }[] = [
   { value: "MAIN_BEARING", label: "Main bearing" },
-  { value: "GEARBOX", label: "Gearbox" },
+  { value: "REAR_BEARING", label: "Rear bearing" },
   { value: "GENERATOR", label: "Generator" },
 ];
-const TURBINES = Array.from({ length: 34 }, (_, i) => `WTG-${String(i + 1).padStart(2, "0")}`);
 const ZONES = [
   { upTo: 2.3, label: "A · new" },
   { upTo: 4.5, label: "B · acceptable" },
@@ -37,6 +37,8 @@ export default function VibrationPanel() {
   const loading = useCMSStore((s) => s.detailLoading);
   const fetchVibration = useCMSStore((s) => s.fetchVibration);
   const c = useChartPalette();
+  const n = useFarmPlan().turbines.length;
+  const turbines = Array.from({ length: n }, (_, i) => `WTG-${String(i + 1).padStart(2, "0")}`);
 
   // Pitch/yaw have no spectrum: fall back to the main bearing
   const comp = COMPONENTS.some((x) => x.value === component) ? component : "MAIN_BEARING";
@@ -52,7 +54,7 @@ export default function VibrationPanel() {
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <h3 className="text-xs font-semibold text-text-primary">Vibration spectrum</h3>
         <select value={turbineId} onChange={(e) => void fetchVibration(e.target.value, comp)} className={selectCls} aria-label="Turbine">
-          {TURBINES.map((t) => (
+          {turbines.map((t) => (
             <option key={t}>{t}</option>
           ))}
         </select>
@@ -120,9 +122,9 @@ export default function VibrationPanel() {
         <div className="flex items-center justify-center h-48 text-xs text-text-muted">{loading ? "Loading spectrum…" : "No spectrum"}</div>
       )}
       <p className="text-[11px] text-text-muted mt-1">
-        Dotted lines: kinematic frequencies at rated speed (rotor 8.33 rpm, gearbox 48:1). A defect shows as a
-        peak at its frequency and harmonics; gear wear adds sidebands at the carrier speed. Tooth and roller counts are
-        assumed values, not OEM data.
+        Dotted lines: kinematic and electrical frequencies at rated speed (rotor 7.56 rpm, direct drive, 200 poles). A
+        defect shows as a peak at its frequency and harmonics; rotor eccentricity raises 2·f_e with ±1× sidebands. Roller
+        counts are assumed values, not OEM data.
       </p>
     </section>
   );

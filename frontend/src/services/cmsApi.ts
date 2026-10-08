@@ -2,7 +2,7 @@
  * Condition Monitoring System (CMS) API — M12.
  * Maps to backend routers/p3/cms.py.
  * Endpoints: /api/v1/scada/cms/*
- * Fleet: 34 × Vestas V236-15.0 MW turbines.
+ * Fleet: 34 × 15 MW (IEA 15 MW, direct drive) turbines.
  */
 
 import type {
@@ -41,7 +41,7 @@ export function getVibrationSpectrum(
   return request(`${BASE}/turbines/${turbineId}/vibration?component=${component}`);
 }
 
-/** Fetch gearbox oil analysis history (ISO 4406 cleanliness trend). */
+/** Fetch hydraulic (pitch) oil analysis history (ISO 4406 cleanliness trend). */
 export function getOilAnalysis(turbineId: string): Promise<OilAnalysisResponse> {
   return request(`${BASE}/turbines/${turbineId}/oil-analysis`);
 }

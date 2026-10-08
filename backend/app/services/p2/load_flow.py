@@ -50,6 +50,7 @@ from dataclasses import dataclass
 
 import pandapower as pp
 
+from app.core.exceptions import DomainError
 from app.schemas.grid import (
     BusResult,
     LineResult,
@@ -59,8 +60,9 @@ from app.schemas.grid import (
     TransformerResult,
 )
 from app.services.p2.network_model import (
-    STATCOM_RATING_MVAR,
+    SB510,
     STRING_LAYOUT,
+    FarmSpec,
     build_network,
 )
 
@@ -80,7 +82,7 @@ class ScenarioConfig:
     generation_fraction : float
         Fraction of rated power [0.0–1.0].
     disable_string : int | None
-        If not None, disable all WTGs in this string (0-indexed).
+        If not None, disable all WTGs in this string (0-indexed; −1 = the last).
     description : str
         Human-readable scenario description.
     """
@@ -114,13 +116,15 @@ SCENARIOS: dict[LoadFlowScenario, ScenarioConfig] = {
     LoadFlowScenario.N_MINUS_1: ScenarioConfig(
         scenario=LoadFlowScenario.N_MINUS_1,
         generation_fraction=1.0,
-        disable_string=5,  # String 6 (5 WTGs = 75 MW)
-        description="String 6 out of service (N-1 contingency)",
+        disable_string=-1,  # the last string — SB-510: string 6 (5 WTGs = 75 MW)
+        description="Last string out of service (N-1 contingency)",
     ),
 }
 
 
-def _apply_n_minus_1(net: pp.pandapowerNet, disable_string: int) -> None:
+def _apply_n_minus_1(
+    net: pp.pandapowerNet, disable_string: int, layout: tuple[int, ...] | list[int] = STRING_LAYOUT
+) -> None:
     """Trip one array string: its WTGs and cables out of service (feeder breaker open).
 
     Parameters
@@ -128,18 +132,21 @@ def _apply_n_minus_1(net: pp.pandapowerNet, disable_string: int) -> None:
     net : pp.pandapowerNet
         Network to modify in-place.
     disable_string : int
-        0-indexed string number to disable.
+        0-indexed string number to disable (−1 = the last).
+    layout : sequence of int
+        Turbines per string (default SB-510).
     """
+    disable_string %= len(layout)
     # Calculate WTG range for this string
-    start_idx = sum(STRING_LAYOUT[:disable_string])
-    end_idx = start_idx + STRING_LAYOUT[disable_string]
+    start_idx = sum(layout[:disable_string])
+    end_idx = start_idx + layout[disable_string]
 
     # Disable WTG generators (set P and Q to zero, mark out of service)
     for sgen_idx in range(len(net.sgen)):
         name = str(net.sgen.at[sgen_idx, "name"])
         if name == "STATCOM":
             continue
-        # WTG names are WTG_01 to WTG_34
+        # WTG names are WTG_01 … WTG_nn
         wtg_num = int(name.split("_")[1])
         if start_idx + 1 <= wtg_num <= end_idx:
             net.sgen.at[sgen_idx, "in_service"] = False
@@ -197,6 +204,7 @@ def auto_statcom_dispatch(
         raise ValueError(msg)
 
     current_q = float(net.sgen.at[statcom_idx, "q_mvar"])
+    rating = float(net.sgen.at[statcom_idx, "sn_mva"])  # ± STATCOM rating of this farm
     # Initial guess for dQ/dV [MVAR/pu]; refined each step by the secant method
     # from the measured response, so the step size adapts to the grid strength
     # (e.g. 2 export cables make the OSS bus stiffer: ~33 MVAR per 0.01 pu).
@@ -222,7 +230,7 @@ def auto_statcom_dispatch(
         new_q = current_q + deviation * dq_dv
 
         # Clamp to STATCOM rating
-        new_q = max(-STATCOM_RATING_MVAR, min(STATCOM_RATING_MVAR, new_q))
+        new_q = max(-rating, min(rating, new_q))
         if new_q == current_q:
             break  # saturated at the limit — no further correction possible
         current_q = new_q
@@ -237,8 +245,9 @@ def auto_statcom_dispatch(
 def run_load_flow(
     scenario: LoadFlowScenario,
     auto_dispatch: bool = True,
-    export_length_km: float = 45.0,
-    grid_ssc_mva: float = 10_000.0,
+    export_length_km: float | None = None,
+    grid_ssc_mva: float | None = None,
+    spec: FarmSpec = SB510,
 ) -> LoadFlowResponse:
     """Run load flow analysis for a specified operating scenario.
 
@@ -251,16 +260,19 @@ def run_load_flow(
         Operating scenario to analyse.
     auto_dispatch : bool
         If True, auto-adjust STATCOM Q before final load flow. Default: True.
-    export_length_km : float
-        Export cable length [km]. Default: 45.0.
+    export_length_km : float | None
+        Export cable length [km]; None = the spec's (SB-510: 108).
     grid_ssc_mva : float
-        Grid short-circuit power [MVA]. Default: 10,000.
+        Grid short-circuit power [MVA]; None = the spec's (SB-510: 10,000).
+    spec : FarmSpec
+        Farm design. Default: SB-510.
 
     Returns
     -------
     LoadFlowResponse
         Complete load flow results with per-element breakdown.
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     config = SCENARIOS[scenario]
 
     # Build network for this scenario
@@ -268,15 +280,16 @@ def run_load_flow(
         export_length_km=export_length_km,
         grid_ssc_mva=grid_ssc_mva,
         generation_fraction=config.generation_fraction,
+        spec=spec,
     )
 
-    # Apply N-1 contingency if needed
-    if config.disable_string is not None:
-        _apply_n_minus_1(net, config.disable_string)
+    # Apply N-1 contingency if needed (a one-string farm has no string N-1 case)
+    if config.disable_string is not None and len(spec.string_layout) > 1:
+        _apply_n_minus_1(net, config.disable_string, spec.string_layout)
 
-    # Auto-dispatch STATCOM
+    # Auto-dispatch STATCOM (and switch reactors out where it saturates)
     if auto_dispatch:
-        auto_statcom_dispatch(net)
+        dispatch_with_reactor_switching(net, spec.statcom_mvar)
 
     # Run final load flow
     pp.runpp(net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
@@ -394,11 +407,42 @@ def _extract_transformer_results(net: pp.pandapowerNet) -> list[TransformerResul
     return results
 
 
-def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
+def dispatch_with_reactor_switching(net: pp.pandapowerNet, rating: float) -> tuple[float, int]:
+    """STATCOM voltage control plus the operator's reactor switching.
+
+    All reactors start in service (one per export circuit at each cable end).
+    While the STATCOM injects more than half its rating, the operator switches out
+    the one reactor (onshore or OSS) that relieves the STATCOM most, and keeps it
+    out only if |Q| falls — as the landing estimate does (frontend
+    ``reactiveBalance``). SB-510 (4 × 180 MVAR on 624 MVAR of charging) runs on
+    three at full output. Every operating-point study uses it: Grid tab, N-1, live map.
+
+    Returns the STATCOM set-point [MVAR, generating +] and the reactors in service.
+    """
+    reactors = [i for i in net.shunt.index if str(net.shunt.at[i, "name"]).startswith("Reactor_")]
+    q = auto_statcom_dispatch(net)
+    on = [i for i in reactors if bool(net.shunt.at[i, "in_service"])]
+    while on and q > 0.5 * rating:
+        trials: list[tuple[float, int]] = []
+        for i in {str(net.shunt.at[j, "name"]).split("_")[1]: j for j in on}.values():
+            net.shunt.at[i, "in_service"] = False  # one candidate per cable end
+            trials.append((auto_statcom_dispatch(net), i))
+            net.shunt.at[i, "in_service"] = True
+        q_out, best = min(trials, key=lambda t: abs(t[0]))
+        if abs(q_out) >= abs(q):
+            break
+        net.shunt.at[best, "in_service"] = False
+        on.remove(best)
+        q = q_out
+    q = auto_statcom_dispatch(net)  # results of the chosen state
+    return q, len(on)
+
+
+def run_live_load_flow(wtg_p_mw: list[float], spec: FarmSpec = SB510) -> LiveLoadFlowResponse:
     """Load flow for the live operating point of the landing simulation.
 
-    Every WTG sgen gets its own active power (WTG_01 … WTG_34 in the
-    STRING_LAYOUT order the frontend uses), the STATCOM is auto-dispatched to
+    Every WTG sgen gets its own active power (WTG_01 … WTG_n string by string,
+    the order of the frontend's live fleet), the STATCOM is auto-dispatched to
     hold the OSS 220 kV bus at 1.0 p.u., then Newton-Raphson is solved. The
     compact result feeds the map's KPI ribbon and the OSS / cable panels, so
     the P-Q-V shown there is pandapower's, not a browser estimate.
@@ -406,14 +450,22 @@ def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
     Parameters
     ----------
     wtg_p_mw : list[float]
-        34 active powers [MW] (validated 0 … 15 MW by the request schema).
+        One active power per turbine of ``spec`` [MW] (validated 0 … 15 MW by
+        the request schema).
+    spec : FarmSpec
+        The farm (SB-510 or the learner's design).
     """
-    net = build_network(generation_fraction=0.0)
+    if len(wtg_p_mw) != spec.num_turbines:
+        raise DomainError(
+            f"{spec.name} has {spec.num_turbines} turbines, got {len(wtg_p_mw)} powers.",
+            status_code=422,
+        )
+    net = build_network(generation_fraction=0.0, spec=spec)
     for idx in range(len(net.sgen)):
         name = str(net.sgen.at[idx, "name"])
         if name.startswith("WTG_"):
             net.sgen.at[idx, "p_mw"] = float(wtg_p_mw[int(name[4:]) - 1])
-    statcom_q = auto_statcom_dispatch(net)
+    statcom_q, reactors_on = dispatch_with_reactor_switching(net, spec.statcom_mvar)
     pp.runpp(net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
 
     total_gen = float(sum(wtg_p_mw))
@@ -425,6 +477,7 @@ def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
             poc_q_mvar=0.0,
             total_loss_mw=0.0,
             statcom_q_mvar=round(statcom_q, 1),
+            reactors_in_service=reactors_on,
             v_poc_pu=0.0,
             v_onshore_220_pu=0.0,
             v_oss_220_pu=0.0,
@@ -458,6 +511,7 @@ def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
         poc_q_mvar=round(poc_q, 2),
         total_loss_mw=round(losses, 3),
         statcom_q_mvar=round(statcom_q, 1),
+        reactors_in_service=reactors_on,
         v_poc_pu=round(bus["PSE_400kV"], 4),
         v_onshore_220_pu=round(bus["Onshore_220kV"], 4),
         v_oss_220_pu=round(bus["OSS_220kV"], 4),
@@ -474,6 +528,7 @@ def run_live_load_flow(wtg_p_mw: list[float]) -> LiveLoadFlowResponse:
 
 def run_all_scenarios(
     auto_dispatch: bool = True,
+    spec: FarmSpec = SB510,
 ) -> list[LoadFlowResponse]:
     """Run load flow for all four standard scenarios.
 
@@ -482,4 +537,7 @@ def run_all_scenarios(
     list[LoadFlowResponse]
         Results for full_load, partial_load, no_load, and n_minus_1.
     """
-    return [run_load_flow(scenario, auto_dispatch=auto_dispatch) for scenario in LoadFlowScenario]
+    return [
+        run_load_flow(scenario, auto_dispatch=auto_dispatch, spec=spec)
+        for scenario in LoadFlowScenario
+    ]

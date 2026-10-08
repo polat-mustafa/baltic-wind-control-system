@@ -1,5 +1,5 @@
 /**
- * Nacelle Subsystems API — V236-15.0 MW live physics endpoints.
+ * Nacelle Subsystems API — SB-510 turbine (IEA 15 MW, direct drive) live physics endpoints.
  *
  * Wraps GET /api/v1/turbine-sim/nacelle/{subsystems,hpu,cooling,safety}.
  * Backend computes deterministic physics from operating conditions, so
@@ -20,14 +20,17 @@ export interface HPUState {
   alarm: boolean;
 }
 
+/** Direct-drive generator + converter cooling (no gearbox oil). */
 export interface CoolingState {
-  oil_temp_c: number;
-  oil_temp_alarm: boolean;
-  oil_temp_trip: boolean;
+  /** Generator stator-winding temperature [°C]; alarm 130 (class B), trip 155 (class F). */
+  winding_temp_c: number;
+  winding_temp_alarm: boolean;
+  winding_temp_trip: boolean;
+  generator_loss_kw: number;
+  converter_loss_kw: number;
   cooler_heat_rejection_kw: number;
   fan_speed_pct: number;
   ambient_temp_c: number;
-  viscosity_cst: number;
 }
 
 export interface SafetyState {

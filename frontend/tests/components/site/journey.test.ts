@@ -38,6 +38,12 @@ describe("decide", () => {
     expect(d.conditions[0]).toContain("owf");
   });
 
+  it("keeps engineering findings (seabed) out of the consent conditions", () => {
+    const d = decide(report({ seabed: "warn" }));
+    expect(d.outcome).toBe("approved");
+    expect(d.conditions).toEqual(STANDARD_CONDITIONS);
+  });
+
   it("asks for more information when an essential check is unknown", () => {
     const d = decide(report({ depth: "unknown" }));
     expect(d.outcome).toBe("more_information");

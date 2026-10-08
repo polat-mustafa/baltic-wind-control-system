@@ -14,13 +14,14 @@ Test Strategy
 - Without compensation: voltage violation (validates necessity)
 """
 
+import dataclasses
+
 import pytest
 
 from app.services.p2 import network_model
 from app.services.p2.network_model import STATCOM_RATING_MVAR
 from app.services.p2.statcom_sizing import (
     calculate_cable_reactive_power,
-    poc_q_capability,
     size_statcom,
     validate_compensation,
 )
@@ -37,17 +38,19 @@ class TestCableReactivePower:
         assert q > 0, f"Cable Q = {q} MVAR (must be positive)"
 
     def test_cable_q_range(self):
-        """One export circuit: Q = ω × C × V² × L = 314.16 × 190e-9 × (220e3)² × 45 ≈ 130 MVAR."""
+        """One export circuit: Q = ω × C × V² × L = 314.16 × 190e-9 × (220e3)² × 108 ≈ 312 MVAR."""
         q = calculate_cable_reactive_power(num_cables=1)
-        assert q == pytest.approx(130.0, abs=0.5), f"Cable Q = {q:.1f} MVAR"
+        assert q == pytest.approx(312.0, abs=0.5), f"Cable Q = {q:.1f} MVAR"
 
     def test_cable_q_two_export_cables(self):
-        """Default = both export circuits: 2 × 130 ≈ 260 MVAR."""
-        assert calculate_cable_reactive_power() == pytest.approx(260.0, abs=1.0)
+        """Default = both export circuits: 2 × 312 ≈ 624 MVAR."""
+        assert calculate_cable_reactive_power() == pytest.approx(624.0, abs=1.0)
 
     def test_statcom_sizing_formula(self):
-        """N-1 design case: (260 − 2 × 80) × 1.15 = 115 → rounded up to 120 MVAR."""
-        assert size_statcom() == pytest.approx(120.0)
+        """N-1 design case: (624 − 3 × 180) × 1.15 = 97 → rounded up to 100 MVAR, inside the
+        ±120 MVAR installed (sized by the 120 MVAR per 510 MW capability rule)."""
+        assert size_statcom() == pytest.approx(100.0)
+        assert size_statcom() <= STATCOM_RATING_MVAR
 
     def test_cable_q_proportional_to_length(self):
         """Cable Q must scale linearly with length."""
@@ -82,7 +85,7 @@ class TestSTATCOMSizing:
     def test_statcom_rating_with_margins(self):
         """Rating with margins should exceed net Q after the in-service reactors."""
         cable_q = calculate_cable_reactive_power()
-        net_q = cable_q - 2 * 80.0  # N-1: 2 of 3 reactors in service
+        net_q = cable_q - 3 * network_model.SHUNT_REACTOR_UNIT_MVAR  # N-1: 3 of 4 in service
         rating = size_statcom(cable_q_mvar=cable_q)
         assert rating >= net_q, f"Rating ({rating}) < net Q ({net_q})"
 
@@ -92,16 +95,14 @@ class TestSTATCOMSizing:
         assert rating % 10 == 0
 
     def test_statcom_fewer_reactors_larger(self):
-        """More reactors out of service → larger STATCOM needed."""
-        assert (
-            size_statcom(reactors_out=0)
-            < size_statcom(reactors_out=1)
-            < size_statcom(reactors_out=2)
-        )
+        """Two reactors out needs far more than one out: (624 − 360) × 1.15 = 304 → 310 MVAR.
+        All four in over-compensates: (720 − 624) × 1.15 = 110 → 120 MVAR, which is why the
+        operator switches one out at high load (the N-1 case, 100 MVAR, is the smallest)."""
+        assert [size_statcom(reactors_out=k) for k in (0, 1, 2)] == [120.0, 100.0, 310.0]
 
     def test_two_reactor_design_not_n1_secure(self):
-        """Old 2 × 80 design: one out → (260 − 80) × 1.15 = 207 → 210 MVAR > ±120 MVAR."""
-        assert size_statcom(num_reactors=2) == pytest.approx(210.0)
+        """Only 2 × 180 (one end compensated): one out → (624 − 180) × 1.15 = 510.6 → 520 MVAR."""
+        assert size_statcom(num_reactors=2) == pytest.approx(520.0)
         assert size_statcom(num_reactors=2) > STATCOM_RATING_MVAR
 
 
@@ -136,32 +137,26 @@ class TestCompensationValidation:
         assert result.cable_q_mvar > 0
 
     def test_reactor_q_in_result(self):
-        """Result must include total reactor Q (3 × 80 = 240 MVAR)."""
+        """Result must include total reactor Q (4 × 180 = 720 MVAR, both ends)."""
         result = validate_compensation()
-        assert result.reactor_q_mvar == pytest.approx(240.0)
+        assert result.reactor_q_mvar == pytest.approx(720.0)
 
     def test_reactor_n1_secure(self):
-        """One reactor out: voltage compliant and STATCOM not saturated (≈ −80 MVAR)."""
+        """One reactor out: voltage compliant and STATCOM not saturated (≈ −67 MVAR)."""
         result = validate_compensation()
         assert result.reactor_n1_secure
         assert -STATCOM_RATING_MVAR < result.reactor_n1_statcom_q_mvar < 0.0
 
-    def test_reactor_n1_detects_insecure_design(self, monkeypatch):
+    def test_reactor_n1_detects_insecure_design(self):
         """With only 2 reactors the N-1 check must fail (STATCOM saturates at −120 MVAR)."""
-        monkeypatch.setattr(network_model, "NUM_SHUNT_REACTORS", 2)
-        try:
-            validate_compensation.cache_clear()
-            poc_q_capability.cache_clear()
-            result = validate_compensation()
-        finally:  # results cached under the patched design must not leak into other tests
-            validate_compensation.cache_clear()
-            poc_q_capability.cache_clear()
-        assert not result.reactor_n1_secure
+        two_reactors = dataclasses.replace(network_model.SB510, num_reactors=2)
+        assert not validate_compensation(spec=two_reactors).reactor_n1_secure
 
     def test_ferranti_vs_uncompensated_rise(self):
-        """Ferranti along 45 km is < 1 %; the 8 % rise comes from charging current via X."""
+        """Ferranti along 108 km is ≈ 4.3 % (βL ≈ 0.29 rad, 1 / cos βL); the rest of the
+        24.5 % uncompensated rise is charging current through X."""
         result = validate_compensation()
-        assert 0.005 < result.ferranti_rise_pu < 0.01
+        assert 0.040 < result.ferranti_rise_pu < 0.046
         assert result.uncompensated_rise_pu > 5 * result.ferranti_rise_pu
 
     def test_pse_reactive_range_at_poc(self):

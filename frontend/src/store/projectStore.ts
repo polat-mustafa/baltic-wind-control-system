@@ -1,8 +1,8 @@
 /**
  * Layout project: the turbines, offshore substation and cost inputs the user
  * sets on the layout canvas (route /develop/layout), inside the site from
- * Site & Permits (siteStore). Persisted as `of.project.v1`; exported and
- * imported as a `.offshoreforge.json` file.
+ * Site & Permits (siteStore). Persisted as `of.project.v1`; part of the
+ * project document (lib/project/document.ts) that is exported and saved online.
  *
  * The PyWake result is kept with the layout signature it was computed for,
  * so the page can tell when it is out of date.
@@ -14,11 +14,11 @@ import { TURBINE_POSITIONS, OSS_GEO } from "../constants/windFarmLayout";
 import { DEFAULT_COSTS, type CostInputs } from "../lib/layout/cost";
 import type { LonLat } from "../lib/layout/geometry";
 import { readStored, writeStored } from "../lib/storage";
+import { postNeighbours, type NeighbourFarm } from "../services/siteApi";
 import { runCustomWakeAnalysis } from "../services/windResourceApi";
 import type { WakeAnalysisResult } from "../types/windResource";
 
 export const PROJECT_KEY = "of.project.v1";
-export const PROJECT_SCHEMA = 1;
 export const MAX_TURBINES = 150;
 
 export interface Turbine {
@@ -27,17 +27,7 @@ export interface Turbine {
   lat: number;
 }
 
-export interface ProjectFile {
-  schema: number;
-  app: "OffshoreForge";
-  turbineModel: "V236-15.0";
-  site: LonLat[] | null;
-  turbines: Turbine[];
-  oss: LonLat | null;
-  costs: CostInputs;
-}
-
-interface Persisted {
+export interface Persisted {
   turbines: Turbine[];
   oss: LonLat | null;
   costs: CostInputs;
@@ -55,7 +45,7 @@ function nextId(t: Turbine[]): string {
   }
 }
 
-function validTurbines(v: unknown): Turbine[] | null {
+export function validTurbines(v: unknown): Turbine[] | null {
   if (!Array.isArray(v) || v.length > MAX_TURBINES) return null;
   const out: Turbine[] = [];
   for (const x of v) {
@@ -68,7 +58,7 @@ function validTurbines(v: unknown): Turbine[] | null {
   return out;
 }
 
-const validLonLat = (v: unknown): LonLat | null =>
+export const validLonLat = (v: unknown): LonLat | null =>
   Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === "number" && Number.isFinite(n)) ? [v[0], v[1]] : null;
 
 function validCosts(v: unknown): CostInputs {
@@ -95,12 +85,31 @@ function load(): Persisted {
   return { turbines: [], oss: null, costs: { ...DEFAULT_COSTS } };
 }
 
+export interface PyWakeWind {
+  weibullA: number;
+  weibullK: number;
+  sectorFrequencies: number[] | null;
+}
+
+export interface ExternalWake {
+  lossPct: number;
+  netWithGWh: number;
+  farms: Omit<NeighbourFarm, "turbines">[];
+  turbines: number;
+  note: string;
+  densityBasis: string;
+}
+
 interface ProjectState extends Persisted {
   selected: string | null;
   addMode: boolean;
   pywake: WakeAnalysisResult | null;
   pywakeFor: string | null;
   running: boolean;
+  /** External wake loss from the neighbouring farms, for the layout `externalFor`. */
+  external: ExternalWake | null;
+  externalFor: string | null;
+  externalRunning: boolean;
   error: string | null;
 
   setTurbines: (t: LonLat[]) => void;
@@ -114,9 +123,22 @@ interface ProjectState extends Persisted {
   resetCosts: () => void;
   loadCaseStudy: () => void;
   clear: () => void;
-  runPyWake: (toXY: (p: LonLat) => { x: number; y: number }) => Promise<void>;
-  exportFile: (site: LonLat[] | null) => string;
-  importFile: (text: string) => LonLat[] | null;
+  /**
+   * PyWake AEP of the layout; `wind` = the site climate (default: P1's synthetic rose).
+   * `remote` runs it on the saved project instead (kept as AEP history).
+   */
+  runPyWake: (
+    toXY: (p: LonLat) => { x: number; y: number },
+    wind?: PyWakeWind,
+    remote?: (wind?: PyWakeWind) => Promise<WakeAnalysisResult>,
+  ) => Promise<void>;
+  /**
+   * External wake loss: the real farms within 60 km of the site as approximate layouts
+   * (POST /site/neighbours), PyWake (TurbOPark) with and without them.
+   */
+  runNeighbourWake: (toXY: (p: LonLat) => { x: number; y: number }, site: LonLat[], wind?: PyWakeWind) => Promise<void>;
+  /** Replace turbines, OSS and costs (project document); false if the turbine list is invalid. */
+  restore: (p: Record<string, unknown>) => boolean;
   clearError: () => void;
 }
 
@@ -130,12 +152,16 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     save();
   };
   let request = 0;
+  let externalRequest = 0;
 
   return {
     ...load(),
     selected: null,
     addMode: false,
     pywake: null,
+    external: null,
+    externalFor: null,
+    externalRunning: false,
     pywakeFor: null,
     running: false,
     error: null,
@@ -174,7 +200,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       }),
     clear: () => update({ turbines: [], selected: null, pywake: null, pywakeFor: null }),
 
-    runPyWake: async (toXY) => {
+    runPyWake: async (toXY, wind, remote) => {
       const t = get().turbines;
       if (!t.length) return;
       const id = ++request;
@@ -182,42 +208,63 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       set({ running: true, error: null });
       try {
         const xy = t.map((x) => toXY([x.lon, x.lat]));
-        const res = await runCustomWakeAnalysis(
-          xy.map((p) => Math.round(p.x * 10) / 10),
-          xy.map((p) => Math.round(p.y * 10) / 10),
-        );
+        const res = remote
+          ? await remote(wind)
+          : await runCustomWakeAnalysis(
+              xy.map((p) => Math.round(p.x * 10) / 10),
+              xy.map((p) => Math.round(p.y * 10) / 10),
+              wind?.weibullA,
+              wind?.weibullK,
+              undefined,
+              undefined,
+              wind?.sectorFrequencies ?? null,
+            );
         if (id === request) set({ pywake: res, pywakeFor: sig, running: false });
       } catch (e) {
         if (id === request) set({ running: false, error: e instanceof Error ? e.message : String(e) });
       }
     },
 
-    exportFile: (site) => {
-      const { turbines, oss, costs } = get();
-      const file: ProjectFile = { schema: PROJECT_SCHEMA, app: "OffshoreForge", turbineModel: "V236-15.0", site, turbines, oss, costs };
-      return JSON.stringify(file, null, 2);
+    runNeighbourWake: async (toXY, site, wind) => {
+      const t = get().turbines;
+      if (!t.length) return;
+      const id = ++externalRequest;
+      const sig = signature(t);
+      set({ externalRunning: true, error: null });
+      try {
+        const nb = await postNeighbours(site);
+        const pts = nb.farms.flatMap((f) => f.turbines.map(toXY));
+        const xy = t.map((x) => toXY([x.lon, x.lat]));
+        const r = (v: number) => Math.round(v * 10) / 10;
+        const res = await runCustomWakeAnalysis(
+          xy.map((p) => r(p.x)),
+          xy.map((p) => r(p.y)),
+          wind?.weibullA,
+          wind?.weibullK,
+          undefined,
+          undefined,
+          wind?.sectorFrequencies ?? null,
+          pts.length ? { x_m: pts.map((p) => r(p.x)), y_m: pts.map((p) => r(p.y)) } : null,
+        );
+        const external: ExternalWake = {
+          lossPct: res.external_wake_loss_percent ?? 0,
+          netWithGWh: res.net_aep_with_neighbours_gwh ?? res.net_aep_gwh,
+          farms: nb.farms.map(({ turbines: _, ...f }) => f),
+          turbines: pts.length,
+          note: nb.note,
+          densityBasis: nb.density_basis,
+        };
+        if (id === externalRequest) set({ external, externalFor: sig, externalRunning: false });
+      } catch (e) {
+        if (id === externalRequest) set({ externalRunning: false, error: e instanceof Error ? e.message : String(e) });
+      }
     },
 
-    importFile: (text) => {
-      let p: Record<string, unknown>;
-      try {
-        p = JSON.parse(text) as Record<string, unknown>;
-      } catch {
-        set({ error: "Not a JSON file." });
-        return null;
-      }
-      if (p.app !== "OffshoreForge" || p.schema !== PROJECT_SCHEMA) {
-        set({ error: "Not an OffshoreForge project file (schema 1)." });
-        return null;
-      }
+    restore: (p) => {
       const turbines = validTurbines(p.turbines);
-      if (!turbines) {
-        set({ error: `Invalid turbine list (at most ${MAX_TURBINES}).` });
-        return null;
-      }
+      if (!turbines) return false;
       update({ turbines, oss: validLonLat(p.oss), costs: validCosts(p.costs), selected: null, pywake: null, pywakeFor: null, error: null });
-      const site = Array.isArray(p.site) ? (p.site.map(validLonLat).filter(Boolean) as LonLat[]) : [];
-      return site.length >= 3 ? site : null;
+      return true;
     },
 
     clearError: () => set({ error: null }),

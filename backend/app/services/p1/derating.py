@@ -43,10 +43,11 @@ from app.services.p1.wake_model import (
     HUB_HEIGHT_M,
     ROTOR_DIAMETER_M,
     create_uniform_site,
-    create_v236_wind_turbine,
-    get_v236_ct_curve,
-    get_v236_power_curve_kw,
+    create_wind_turbine,
+    get_ct_curve,
+    get_power_curve_kw,
 )
+from app.services.site_assessment.wind_climate import SB510_WEIBULL_A, SB510_WEIBULL_K
 
 
 @dataclass(frozen=True)
@@ -114,8 +115,8 @@ def compute_derated_power(
     site: object,
     derating_fraction: float,
     wind_direction_deg: float = 240.0,
-    weibull_a_ms: float = 10.5,
-    weibull_k: float = 2.2,
+    weibull_a_ms: float = SB510_WEIBULL_A,
+    weibull_k: float = SB510_WEIBULL_K,
 ) -> tuple[float, NDArray[np.floating]]:
     """Weibull-averaged farm power [MW] for one wind direction, front row derated.
 
@@ -129,15 +130,15 @@ def compute_derated_power(
     from py_wake.wind_turbines.power_ct_functions import PowerCtTabular
 
     ws = np.arange(3.0, 26.0, 0.5)
-    ct = get_v236_ct_curve(ws)
-    full = create_v236_wind_turbine()
+    ct = get_ct_curve(ws)
+    full = create_wind_turbine()
     derated = WindTurbine(
-        name="V236 derated",
+        name="IEA-15 derated",
         diameter=ROTOR_DIAMETER_M,
         hub_height=HUB_HEIGHT_M,
         powerCtFunction=PowerCtTabular(
             ws=ws,
-            power=derating_fraction * get_v236_power_curve_kw(ws) * 1e3,
+            power=derating_fraction * get_power_curve_kw(ws) * 1e3,
             power_unit="W",
             ct=derated_ct(ct, derating_fraction),
         ),
@@ -166,8 +167,8 @@ def optimize_derating(
     y_positions_m: NDArray[np.floating],
     site: object | None = None,
     wind_direction_deg: float = 240.0,
-    weibull_a_ms: float = 10.5,
-    weibull_k: float = 2.2,
+    weibull_a_ms: float = SB510_WEIBULL_A,
+    weibull_k: float = SB510_WEIBULL_K,
     turbulence_intensity: float = 0.06,
 ) -> DeratingResult:
     """Find the front-row setpoint α ∈ [0.5, 1] that maximises farm power.

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { discPowerMW, lossWaterfall } from "../../../../src/components/landing/turbine3d/model/lossWaterfall";
-import { v236PowerMW, v236RotorRpm } from "../../../../src/utils/landingPhysics";
+import { turbinePowerMW, v236RotorRpm } from "../../../../src/utils/landingPhysics";
 
 const base = { freeWindMs: 10, windMs: 9, yawErrDeg: 0, yawPaused: false, rotorRpm: v236RotorRpm(9) };
 
 describe("loss waterfall", () => {
   it("closes exactly on the reported electrical power", () => {
-    const p = v236PowerMW(9);
+    const p = turbinePowerMW(9);
     const steps = lossWaterfall({ ...base, powerMW: p });
     const first = steps[0].levelMW;
     const lost = steps.reduce((a, s) => a + s.lossMW, 0);
@@ -17,7 +17,7 @@ describe("loss waterfall", () => {
   });
 
   it("puts the wake step at ½ρA(U∞³ − u³)", () => {
-    const steps = lossWaterfall({ ...base, powerMW: v236PowerMW(9) });
+    const steps = lossWaterfall({ ...base, powerMW: turbinePowerMW(9) });
     expect(steps.find((s) => s.key === "wake")?.lossMW).toBeCloseTo(discPowerMW(10) - discPowerMW(9), 9);
   });
 
@@ -28,7 +28,7 @@ describe("loss waterfall", () => {
   });
 
   it("keeps the rotor under Betz (aero loss ≥ 40.7 % of the local wind)", () => {
-    const steps = lossWaterfall({ ...base, powerMW: v236PowerMW(9) });
+    const steps = lossWaterfall({ ...base, powerMW: turbinePowerMW(9) });
     const aero = steps.find((s) => s.key === "aero")?.lossMW ?? 0;
     expect(aero / discPowerMW(9)).toBeGreaterThan(1 - 16 / 27);
   });

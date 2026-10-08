@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 
+import { currentNetwork } from "./gridStore";
 import { post } from "../services/apiClient";
 import type { ExportResponse, P2XRequest, P2XResponse } from "../types/planning";
 
@@ -39,7 +40,8 @@ export const usePlanningStore = create<PlanningState>((set, get) => {
       })),
     runP2X: () =>
       guard(async () => {
-        const { connection_mw, electrolyser_mw, capex_eur_per_kw } = get();
+        const { electrolyser_mw, capex_eur_per_kw } = get();
+        const connection_mw = Math.min(get().connection_mw, currentNetwork().total_capacity_mw); // the backend refuses more than the farm
         return { p2x: await post<P2XResponse>("/api/v1/grid/planning/p2x", { connection_mw, electrolyser_mw, capex_eur_per_kw }) };
       }),
     clearError: () => set({ error: null }),

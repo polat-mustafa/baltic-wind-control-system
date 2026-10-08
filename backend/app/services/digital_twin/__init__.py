@@ -1,4 +1,4 @@
-"""Digital twin of the 34 × V236-15.0 MW fleet — condition monitoring per ISO 13374-1.
+"""Digital twin of the 34 × 15 MW fleet ("V236 class", IEA 15 MW) — ISO 13374-1 CMS.
 
 The twin is a physics reference model of the turbine (``reference_model``),
 evaluated at the measured wind and air density of every 10-min SCADA record.

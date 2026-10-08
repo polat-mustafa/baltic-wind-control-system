@@ -27,7 +27,7 @@ import { usePitchAngle } from "../hooks/usePitchAngle";
 import { useRotorSpin } from "../hooks/useRotorSpin";
 import { useBladeFieldGeometry } from "../hooks/useBladeField";
 import type { BladeFieldMode } from "../model/bladeField";
-import { PRECONE } from "../model/layout";
+import { PRECONE, BLADE_DRAW_SCALE } from "../model/layout";
 import { useV236Model } from "../model/useV236Model";
 import { Blade } from "./Blade";
 import { BLADE_GEOM_BASE } from "./bladeGeometry";
@@ -104,7 +104,9 @@ export const Rotor = memo(
             <group key={b} rotation={[0, 0, (b * 2 * Math.PI) / 3]}>
               <group rotation={[PRECONE, 0, 0]}>
                 <group ref={bRef}>
-                  <Blade isSelected={isBladeSelected} statusColor={statusColor} fieldGeom={fieldGeom} />
+                  <group scale={BLADE_DRAW_SCALE}>
+                    <Blade isSelected={isBladeSelected} statusColor={statusColor} fieldGeom={fieldGeom} />
+                  </group>
                 </group>
               </group>
             </group>

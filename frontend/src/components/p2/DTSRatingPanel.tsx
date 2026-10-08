@@ -25,7 +25,7 @@ export default function DTSRatingPanel() {
   return (
     <ChartWrapper
       title="Rating against ambient temperature"
-      footer={`${over ? "✗" : "✓"} ${p.current_a} A ${over ? "exceeds" : "is within"} the ${p.rating_at_ambient_a.toFixed(0)} A route rating at ${p.ambient_temp_c} °C, set by the ${p.limiting_zone}. Steady state (IEC 60287); 950 A at 15 °C is the calibration point.`}
+      footer={`${over ? "✗" : "✓"} ${p.current_a} A ${over ? "exceeds" : "is within"} the ${p.rating_at_ambient_a.toFixed(0)} A route rating at ${p.ambient_temp_c} °C, set by the ${p.limiting_zone}. Steady state (IEC 60287); the 825 A datasheet rating at 20 °C is the calibration point.`}
     >
       <Plot
         data={[

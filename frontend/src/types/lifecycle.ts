@@ -20,6 +20,8 @@ export interface CampaignRequest {
   strings?: number[];
   array_km?: number;
   export_km: number;
+  /** Installation port to the site by sea [km]; backend default = SB-510 (Rønne). */
+  port_km?: number;
   foundation: "monopile" | "jacket";
   start_date: string;
   alpha: number;
@@ -47,6 +49,8 @@ export interface CampaignActivity {
   units: number;
   op_hours: number;
   trip_every: number;
+  /** Port round trip: loading at the quay + sailing out and back [h]. */
+  trip_hours: number;
   start_day: number;
   end_day: number;
   wow_days: number;
@@ -64,6 +68,8 @@ export interface CampaignVessel {
   wind_reference: string;
   day_rate_keur: number;
   mobilisation_keur: number;
+  /** Transit speed [km/h] (NREL ORBIT vessel library, WOMBAT CTV). */
+  transit_kmh: number;
   workable_pct_by_month: (number | null)[];
   window_hours: number;
   window_pct_by_month: (number | null)[];

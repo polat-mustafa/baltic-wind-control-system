@@ -1,31 +1,42 @@
-"""Nacelle subsystem physics models — HPU, cooling, lubrication, safety.
+"""Nacelle subsystem physics models — HPU, generator cooling, safety, UPS.
 
 Physics Layer
 ─────────────
-Models the six major nacelle subsystems that support drivetrain operation:
+Models the nacelle subsystems around the IEA 15 MW direct drive (no gearbox, so no
+gear-oil circuit — the generator and converter are the heat sources):
 
   1. Hydraulic Power Unit (HPU)   — accumulator pressure, pitch/brake circuits
-  2. Lubrication System           — gearbox oil circuit, temperature, viscosity
-  3. Cooling System               — heat balance, radiator capacity, fan control
-  4. Safety Systems               — overspeed, vibration, ice, fire, lightning
-  5. Cable Twist Counter          — yaw revolution tracking, untwist logic
-  6. UPS / Battery                — battery SOC, charge/discharge, backup time
+  2. Cooling System               — generator + converter losses, stator-winding
+                                    temperature, fan control
+  3. Safety Systems               — overspeed, vibration, ice, fire, lightning
+  4. Cable Twist Counter          — yaw revolution tracking, untwist logic
+  5. UPS / Battery                — battery SOC, charge/discharge, backup time
+
+Provenance: overspeed (ROSCO SD_MaxGenSpd), generator and converter efficiencies
+(Gaertner et al. 2020, Table 5-4; ROSCO VS_GenEff) and the insulation-class limits
+(IEC 60085) are sourced. The HPU pressures, accumulator size, cooler, cable-twist
+limits and UPS sizing are illustrative values for a 15 MW class nacelle — the
+reference turbine does not specify them.
 
 Standards Layer
 ───────────────
 - ISO 4413: Hydraulic fluid power safety
 - ISO 4406: Hydraulic fluid cleanliness classification
-- ISO 6743-6: Lubricants for gearboxes (ISO VG 320)
+- IEC 60034-1 / IEC 60085: Rotating machines, thermal classes (B 130 °C, F 155 °C)
 - ISO 10816-21: Vibration monitoring zones for wind turbines
-- IEC 61400-1 §7.4: Safety system trip thresholds
+- IEC 61400-1 §8.3: Protection functions (overspeed)
 - IEC 62305 LPL I: Lightning protection (200 kA design current)
 - IEC 62040-1: UPS requirements
 
 Maths Layer
 ───────────
-Gearbox oil temperature (thermal equilibrium):
-    T_oil = T_amb + Q_loss / (UA_cooler + UA_housing)
-    where Q_loss = P_mech × (1 - η_gearbox)
+Generator and converter losses (direct drive):
+    P_mech = P_elec / (η_gen · η_conv)
+    Q_gen  = P_mech · (1 − η_gen)        ≈ 540 kW at rated (η_gen 96.55 %)
+    Q_conv = P_mech · η_gen · (1 − η_conv) ≈ 124 kW at rated (η_conv 99.18 %)
+
+Stator-winding temperature (same thermal model as the digital twin):
+    T_wdg = T_amb + ΔT₀ + R_th · Q_gen   (ΔT₀ 10 K, R_th 0.125 K/kW)
 
 Accumulator pressure (adiabatic):
     P × V^γ = const  →  P_work = P_pre × (V_0 / V_1)^γ
@@ -44,17 +55,28 @@ All inputs use SI units internally; outputs use practical engineering units.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
-# ── V236-15.0 MW nacelle subsystem constants ─────────────────────────────────
+from app.services.digital_twin.reference_model import DEFAULT_PARAMS
+from app.services.turbine_physics.drivetrain import CONVERTER_EFFICIENCY, GENERATOR_EFFICIENCY
+from app.services.turbine_physics.rotor_dynamics import (
+    MAX_ROTOR_SPEED_RPM,
+    OVERSPEED_SHUTDOWN_RPM,
+)
 
-# Gearbox
-GEARBOX_EFFICIENCY: float = 0.97
-"""Gearbox mechanical efficiency [dimensionless]."""
+# ── IEA 15 MW nacelle subsystem constants ───────────────────────────────────
 
-GEARBOX_LOSS_AT_RATED_W: float = 15_000_000.0 * (1.0 - GEARBOX_EFFICIENCY)
-"""Gearbox heat dissipation at rated power [W] = 15 MW × 3% = 450 kW."""
+RATED_POWER_W: float = 15_000_000.0
+
+# Generator + converter losses at rated output (direct drive)
+_P_MECH_RATED_W: float = RATED_POWER_W / (GENERATOR_EFFICIENCY * CONVERTER_EFFICIENCY)
+GENERATOR_LOSS_AT_RATED_W: float = _P_MECH_RATED_W * (1.0 - GENERATOR_EFFICIENCY)
+"""Generator heat at rated [W] ≈ 540 kW (15.66 MW shaft power × 3.45 %)."""
+
+CONVERTER_LOSS_AT_RATED_W: float = (
+    _P_MECH_RATED_W * GENERATOR_EFFICIENCY * (1.0 - CONVERTER_EFFICIENCY)
+)
+"""Converter heat at rated [W] ≈ 124 kW (15.12 MW × 0.82 %)."""
 
 # HPU
 HPU_NOMINAL_PRESSURE_BAR: float = 220.0
@@ -69,27 +91,19 @@ HPU_ACCUMULATOR_VOLUME_L: float = 50.0
 HPU_ADIABATIC_EXPONENT: float = 1.4
 """Adiabatic exponent for N₂ (γ = 1.4)."""
 
-# Gearbox lubrication
-GEARBOX_OIL_VISCOSITY_INDEX: float = 140.0
-"""ISO VG 320 synthetic gear oil viscosity index."""
+# Stator winding — insulation thermal classes (IEC 60085)
+WINDING_ALARM_TEMP_C: float = 130.0
+"""Alarm: thermal class B (130 °C) — the usual design target for class-F insulation."""
 
-GEARBOX_OIL_NOMINAL_TEMP_C: float = 65.0
-"""Nominal gearbox oil operating temperature [°C]."""
+WINDING_TRIP_TEMP_C: float = 155.0
+"""Trip: thermal class F (155 °C) — insulation limit → EMERGENCY_SHUTDOWN."""
 
-GEARBOX_OIL_ALARM_TEMP_C: float = 75.0
-"""Oil high-temperature alarm threshold [°C]."""
-
-GEARBOX_OIL_TRIP_TEMP_C: float = 85.0
-"""Oil high-temperature trip threshold [°C] → EMERGENCY_SHUTDOWN."""
-
-# Cooling system
-COOLER_UA_W_PER_K: float = 15_000.0
-"""Overall heat transfer coefficient × area for oil cooler [W/K]."""
-
-# Safety systems (IEC 61400-1 §7.4.2)
-RATED_ROTOR_SPEED_RPM: float = 8.33
-OVERSPEED_WARNING_RPM: float = RATED_ROTOR_SPEED_RPM * 1.10  # 9.16 rpm
-OVERSPEED_HARDWARE_RPM: float = RATED_ROTOR_SPEED_RPM * 1.20  # 10.0 rpm
+# Safety systems (IEC 61400-1 §8.3)
+RATED_ROTOR_SPEED_RPM: float = MAX_ROTOR_SPEED_RPM  # 7.56 rpm (ROSCO PC_RefSpd)
+OVERSPEED_WARNING_RPM: float = OVERSPEED_SHUTDOWN_RPM  # 9.07 rpm, controller shutdown
+OVERSPEED_HARDWARE_RPM: float = RATED_ROTOR_SPEED_RPM * 1.25  # 9.45 rpm, illustrative
+"""Independent safety-chain trip — illustrative 125 % of rated, above the controller
+shutdown so it only acts if the controller fails (the reference turbine gives none)."""
 
 # ISO 10816-21 vibration zones (velocity RMS, mm/s)
 VIBRATION_ZONE_A_MAX_MM_S: float = 2.3  # New equipment acceptance
@@ -154,33 +168,36 @@ class HPUState:
 
 @dataclass(frozen=True)
 class CoolingState:
-    """Gearbox cooling system state snapshot.
+    """Generator / converter cooling system state snapshot.
 
     Attributes
     ----------
-    oil_temp_c : float
-        Gearbox oil temperature at cooler inlet [°C].
-    oil_temp_alarm : bool
-        Oil temperature above alarm threshold (75 °C).
-    oil_temp_trip : bool
-        Oil temperature above trip threshold (85 °C) → emergency stop.
+    winding_temp_c : float
+        Generator stator-winding temperature [°C].
+    winding_temp_alarm : bool
+        Winding above thermal class B (130 °C).
+    winding_temp_trip : bool
+        Winding at thermal class F (155 °C) → emergency stop.
+    generator_loss_kw : float
+        Generator losses (copper, iron, magnet) [kW].
+    converter_loss_kw : float
+        Full-power converter losses [kW].
     cooler_heat_rejection_kw : float
-        Heat rejected by oil cooler [kW].
+        Heat rejected by the liquid/air coolers [kW] (generator + converter).
     fan_speed_pct : float
         Cooling fan speed [% of maximum].
     ambient_temp_c : float
         Ambient air temperature [°C].
-    viscosity_cst : float
-        Oil kinematic viscosity at current temperature [cSt].
     """
 
-    oil_temp_c: float
-    oil_temp_alarm: bool
-    oil_temp_trip: bool
+    winding_temp_c: float
+    winding_temp_alarm: bool
+    winding_temp_trip: bool
+    generator_loss_kw: float
+    converter_loss_kw: float
     cooler_heat_rejection_kw: float
     fan_speed_pct: float
     ambient_temp_c: float
-    viscosity_cst: float
 
 
 @dataclass(frozen=True)
@@ -192,9 +209,9 @@ class SafetyState:
     rotor_speed_rpm : float
         Current rotor speed [rpm].
     overspeed_warning : bool
-        Rotor speed > 110 % rated (9.16 rpm) — electrical trip armed.
+        Rotor speed > 120 % rated (9.07 rpm) — controller shutdown (ROSCO SD_MaxGenSpd).
     overspeed_hardware : bool
-        Rotor speed > 120 % rated (10.0 rpm) — centrifugal governor active.
+        Rotor speed > 125 % rated (9.45 rpm, illustrative) — safety chain trips.
     vibration_mm_s : float
         Main bearing housing vibration velocity RMS [mm/s].
     vibration_zone : str
@@ -370,48 +387,19 @@ def compute_hpu_state(
     )
 
 
-def compute_oil_viscosity_cst(temp_c: float) -> float:
-    """Compute ISO VG 320 synthetic gear oil kinematic viscosity [cSt].
-
-    Uses the Walther equation (ASTM D341) for viscosity-temperature:
-        log log(ν + 0.7) = A - B × log(T_K)
-
-    Constants calibrated for ISO VG 320 synthetic (PAO-based):
-        At 40°C: ν ≈ 320 cSt
-        At 100°C: ν ≈ 38 cSt
-        VI ≈ 140 (high VI synthetic oil)
-
-    Args:
-        temp_c: Oil temperature [°C].
-
-    Returns:
-        Kinematic viscosity [cSt].
-    """
-    T_K = temp_c + 273.15
-    # Walther constants fitted to ISO VG 320 synthetic (PAO-based):
-    #   At 40°C  (313.15 K): log10(log10(320.7)) = 0.3990 = A - B×log10(313.15)
-    #   At 100°C (373.15 K): log10(log10( 38.7)) = 0.2008 = A - B×log10(373.15)
-    #   → B = 0.1982 / 0.0762 = 2.600;  A = 0.3990 + 2.600×2.4958 = 6.888
-    A = 6.888
-    B = 2.600
-    log_log_nu = A - B * math.log10(T_K)
-    nu = 10 ** (10**log_log_nu) - 0.7
-    return max(5.0, round(nu, 1))
-
-
 def compute_cooling_state(
     power_mw: float,
     ambient_temp_c: float = 15.0,
 ) -> CoolingState:
-    """Compute gearbox cooling system state at steady-state operating conditions.
+    """Compute the generator/converter cooling state at steady operating conditions.
 
-    Thermal equilibrium model:
-        T_oil = T_amb + Q_loss / UA_cooler
+    Direct drive: the heat comes from the PMSG (η 96.55 %) and the full-power
+    converter (η 99.18 %); there is no gearbox oil circuit. The stator-winding
+    temperature uses the digital twin's thermal model so both agree:
 
-    Gearbox losses scale with input power:
-        Q_loss = P_input × (1 - η_gearbox) = P_mech × 0.03
+        T_wdg = T_amb + 10 K + 0.125 K/kW · Q_gen   → ≈ 92 °C at rated, 15 °C ambient
 
-    Fan speed is controlled to maintain T_oil ≤ 65 °C.
+    The fan runs in proportion to the heat load (20 % minimum while producing).
 
     Args:
         power_mw: Current electrical output [MW].
@@ -420,39 +408,29 @@ def compute_cooling_state(
     Returns:
         CoolingState snapshot.
     """
-    # Gearbox heat loss: account for drivetrain efficiency (P_mech ≈ P_elec / 0.97 / 0.975)
-    eta_total = 0.97 * 0.975
-    p_mech_w = (power_mw * 1e6) / eta_total if power_mw > 0 else 0.0
-    q_loss_w = p_mech_w * (1.0 - GEARBOX_EFFICIENCY)
+    p_elec_w = max(power_mw, 0.0) * 1e6
+    p_mech_w = p_elec_w / (GENERATOR_EFFICIENCY * CONVERTER_EFFICIENCY)
+    q_gen_w = p_mech_w * (1.0 - GENERATOR_EFFICIENCY)
+    q_conv_w = p_mech_w * GENERATOR_EFFICIENCY * (1.0 - CONVERTER_EFFICIENCY)
+    q_total_w = q_gen_w + q_conv_w
 
-    # Steady-state oil temperature
-    oil_temp_c = ambient_temp_c + q_loss_w / COOLER_UA_W_PER_K
-
-    # Fan speed: proportional control to maintain 65 °C setpoint
-    setpoint_c = GEARBOX_OIL_NOMINAL_TEMP_C
-    if oil_temp_c <= ambient_temp_c + 5.0:
-        fan_speed_pct = 0.0  # Below minimum thermal load
-    elif oil_temp_c < setpoint_c:
-        fan_speed_pct = max(
-            20.0,
-            min(100.0, (oil_temp_c - ambient_temp_c) / (setpoint_c - ambient_temp_c) * 100.0),
-        )
-    else:
-        fan_speed_pct = 100.0
-
-    # Actual heat rejection (with fan running, UA increases)
-    fan_factor = 0.6 + 0.4 * fan_speed_pct / 100.0
-    ua_effective = COOLER_UA_W_PER_K * fan_factor
-    oil_temp_c_actual = ambient_temp_c + q_loss_w / ua_effective
+    winding_c = (
+        ambient_temp_c
+        + (DEFAULT_PARAMS.generator_temp_offset_k if p_elec_w > 0 else 0.0)
+        + DEFAULT_PARAMS.generator_thermal_resistance_k_per_kw * q_gen_w / 1e3
+    )
+    load = q_total_w / (GENERATOR_LOSS_AT_RATED_W + CONVERTER_LOSS_AT_RATED_W)
+    fan_speed_pct = 0.0 if q_total_w <= 0 else min(100.0, max(20.0, 100.0 * load))
 
     return CoolingState(
-        oil_temp_c=round(oil_temp_c_actual, 1),
-        oil_temp_alarm=oil_temp_c_actual >= GEARBOX_OIL_ALARM_TEMP_C,
-        oil_temp_trip=oil_temp_c_actual >= GEARBOX_OIL_TRIP_TEMP_C,
-        cooler_heat_rejection_kw=round(q_loss_w / 1000.0, 1),
+        winding_temp_c=round(winding_c, 1),
+        winding_temp_alarm=winding_c >= WINDING_ALARM_TEMP_C,
+        winding_temp_trip=winding_c >= WINDING_TRIP_TEMP_C,
+        generator_loss_kw=round(q_gen_w / 1e3, 1),
+        converter_loss_kw=round(q_conv_w / 1e3, 1),
+        cooler_heat_rejection_kw=round(q_total_w / 1e3, 1),
         fan_speed_pct=round(fan_speed_pct, 1),
         ambient_temp_c=ambient_temp_c,
-        viscosity_cst=compute_oil_viscosity_cst(oil_temp_c_actual),
     )
 
 
@@ -584,7 +562,7 @@ def compute_ups_state(
 def compute_nacelle_subsystems(
     power_mw: float = 10.0,
     ambient_temp_c: float = 15.0,
-    rotor_speed_rpm: float = 7.5,
+    rotor_speed_rpm: float = 7.56,
     pitch_deg: float = 5.0,
     accumulated_yaw_deg: float = 90.0,
     is_operating: bool = True,

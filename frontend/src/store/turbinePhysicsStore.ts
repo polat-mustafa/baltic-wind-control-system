@@ -90,7 +90,7 @@ export const useTurbinePhysicsStore = create<TurbinePhysicsState>(
     constantWindMs: 10,
     stepInitMs: 8,
     stepFinalMs: 14,
-    stepRampS: 10,
+    stepRampS: 30, // 8 → 14 m/s in 30 s peaks ≈ 8.4 rpm, below the 9.07 rpm overspeed trip
     stepTotalS: 120,
     oscMeanMs: 10,
     oscAmplitudeMs: 3,

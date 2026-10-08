@@ -1,8 +1,9 @@
 """
 Condition Monitoring System (CMS) service — M12.
 
-Component health, vibration spectra, oil analysis and degradation injection
-for the 34 × V236-15.0 MW fleet.
+Component health, vibration spectra, hydraulic-oil analysis and degradation
+injection for the 34 × 15 MW fleet (SB-510, IEA 15 MW reference turbine — a
+low-speed direct drive: no gearbox).
 
 Health Index Model (simplified ISO 13381-1)
 --------------------------------------------
@@ -15,27 +16,33 @@ Vibration severity
 -------------------
 Velocity RMS zones of ISO 10816-3 (group 2, rigid support), used as generic
 thresholds: A/B 2.3 mm/s, B/C 4.5 mm/s, C/D 7.1 mm/s. ISO 10816-21 defines
-component-specific zones for wind turbines (bearing, gearbox, generator,
-nacelle) and frequency bands; a production CMS would apply those.
+component-specific zones for wind turbines (bearing, generator, nacelle) and
+frequency bands; a production CMS would apply those.
 
-Drivetrain kinematics (V236 at rated speed)
---------------------------------------------
-Rotor 8.33 rpm → f_r = 0.139 Hz; 3-stage planetary gearbox 48:1 → generator
-400 rpm (f_g = 6.66 Hz), matching services/turbine_physics. Tooth and rolling-
-element counts are ASSUMED (OEM data is confidential) but chosen so the
-stage ratios multiply to 48 (planetary ratio 1 + Z_ring / Z_sun, ring fixed):
+Drivetrain kinematics (IEA 15 MW at rated speed, Gaertner et al. 2020)
+-----------------------------------------------------------------------
+Rotor 7.56 rpm → f_r = 0.126 Hz. Direct drive: the 200-pole PMSG turns with the
+rotor on the two main bearings (Table 5-2: upwind tapered double outer-ring
+bearing, locating; downwind spherical roller bearing, non-locating), so there are
+no gear-mesh frequencies. Generator lines (Table 5-4: 100 pole pairs, 240 slots):
 
-  stage 1: Z_sun 21, Z_ring 63 → 4.0   GMF1 = 63 · f_r          = 8.75 Hz
-  stage 2: Z_sun 24, Z_ring 72 → 4.0   GMF2 = 72 · 4 f_r        = 40.0 Hz
-  stage 3: Z_sun 30, Z_ring 60 → 3.0   GMF3 = 60 · 16 f_r       = 133 Hz
+  electrical frequency  f_e  = 100 · f_r = 12.6 Hz
+  magnetic pull         2 f_e            = 25.2 Hz (eccentricity, magnet damage)
+  slot passing          240 · f_r        = 30.2 Hz
 
-Bearing defect frequencies (n rolling elements, d/D, contact angle α):
+Bearing defect frequencies (n rolling elements per row, d/D, contact angle α):
   BPFO = n/2 · f · (1 − d/D·cos α),   BPFI = n/2 · f · (1 + d/D·cos α)
-Main bearing (spherical roller, n 22, d/D 0.10, α 10°): BPFO 1.38 Hz,
-BPFI 1.68 Hz — far below 10 Hz, so the main-bearing spectrum is taken over
-0–10 Hz at 0.025 Hz resolution (a 0–500 Hz / 2.5 Hz spectrum cannot show it).
+Roller counts and d/D are ASSUMED (OEM data is confidential), sized for the
+6 m main shaft: upwind TDO n 60, d/D 0.05, α 15° → BPFO 3.6 Hz; downwind SRB
+n 40, d/D 0.08, α 10° → BPFO 2.3 Hz. Bearing spectra are taken over 0–12 Hz at
+0.03 Hz resolution (3×BPFO 10.8 Hz), the generator over 0–40 Hz at 0.1 Hz.
 
-Standards: ISO 10816-3, ISO 10816-21, ISO 13373, ISO 13381-1, ISO 4406.
+The hydraulic pitch/brake unit is the oil-filled system: its ISO VG 46 oil
+(ISO 3448: 41.4–50.6 cSt at 40 °C) is sampled for ISO 4406 cleanliness.
+Baseline temperatures are illustrative; the generator's 92 °C is the stator
+winding at rated load from the nacelle thermal model.
+
+Standards: ISO 10816-3, ISO 10816-21, ISO 13373, ISO 13381-1, ISO 4406, ISO 3448.
 """
 
 from __future__ import annotations
@@ -59,14 +66,17 @@ from app.schemas.cms import (
     TurbineHealthSummary,
     VibrationSpectrumResponse,
 )
+from app.services.p1.turbine_models import rosco
+from app.services.turbine_physics.drivetrain import GENERATOR_POLES
+from app.services.turbine_physics.rotor_dynamics import MAX_ROTOR_SPEED_RPM
 
 # ── Configuration ─────────────────────────────────────────────────
 
 N_TURBINES: int = 34
-CMS_COMPONENTS: tuple[str, ...] = ("MAIN_BEARING", "GEARBOX", "GENERATOR", "PITCH", "YAW")
+CMS_COMPONENTS: tuple[str, ...] = ("MAIN_BEARING", "REAR_BEARING", "GENERATOR", "PITCH", "YAW")
 # Pitch and yaw move slowly and intermittently — monitored through hydraulic
 # pressure / motor current, not vibration spectra.
-VIBRATION_COMPONENTS: tuple[str, ...] = ("MAIN_BEARING", "GEARBOX", "GENERATOR")
+VIBRATION_COMPONENTS: tuple[str, ...] = ("MAIN_BEARING", "REAR_BEARING", "GENERATOR")
 
 # ISO 10816-3 group 2 (rigid) velocity zones [mm/s]
 VIB_ZONE_A: float = 2.3
@@ -74,10 +84,15 @@ VIB_ZONE_B: float = 4.5
 VIB_ZONE_C: float = 7.1
 
 # Drivetrain (see module docstring)
-ROTOR_RPM_RATED: float = 8.33
-GEARBOX_RATIO: float = 48.0
+ROTOR_RPM_RATED: float = MAX_ROTOR_SPEED_RPM  # 7.56 rpm, ROSCO PC_RefSpd
 F_ROTOR: float = ROTOR_RPM_RATED / 60.0
-STAGES: tuple[tuple[int, int], ...] = ((21, 63), (24, 72), (30, 60))  # (Z_sun, Z_ring)
+POLE_PAIRS: int = GENERATOR_POLES // 2  # 100
+STATOR_SLOTS: int = int(rosco()[1].report["generator"]["stator_slots"])  # 240
+# (rolling elements, d/D, contact angle °) — ASSUMED, see module docstring
+BEARINGS: dict[str, tuple[int, float, float]] = {
+    "MAIN_BEARING": (60, 0.05, 15.0),
+    "REAR_BEARING": (40, 0.08, 10.0),
+}
 
 ALERT_THRESHOLDS: dict[str, float] = {"CRITICAL": 20.0, "RED": 40.0, "AMBER": 60.0, "YELLOW": 80.0}
 DEGRADATION_RATES: dict[str, float] = {"MINOR": 0.5, "MODERATE": 2.0, "SEVERE": 5.0}
@@ -85,24 +100,26 @@ NOMINAL_RATE: float = 0.05  # healthy wear [HI points/day]
 
 BASELINE_TEMPS: dict[str, float] = {
     "MAIN_BEARING": 45.0,
-    "GEARBOX": 65.0,
-    "GENERATOR": 80.0,
-    "PITCH": 35.0,
+    "REAR_BEARING": 45.0,
+    "GENERATOR": 92.0,  # stator winding at rated, 15 °C ambient (nacelle thermal model)
+    "PITCH": 35.0,  # hydraulic oil
     "YAW": 40.0,
 }
 BASELINE_OIL_CODE: str = "16/14/11"
-TARGET_OIL_CODE: str = "17/15/12"  # gearbox OEM limit (ISO 4406)
-OIL_VISCOSITY_CST: float = 320.0  # ISO VG 320 gear oil at 40 °C
+TARGET_OIL_CODE: str = "17/15/12"  # hydraulic system limit (ISO 4406)
+OIL_VISCOSITY_CST: float = 46.0  # ISO VG 46 hydraulic oil at 40 °C (ISO 3448)
 
 # Training fleet: a few components with known, explainable degradation.
 # Everything else starts healthy (HI 86–99).
 SEEDED_DEGRADATION: dict[tuple[str, str], tuple[float, str]] = {
     ("WTG-07", "MAIN_BEARING"): (64.0, "early outer-race spalling — BPFO and harmonics"),
-    ("WTG-21", "GEARBOX"): (52.0, "stage-3 tooth wear — GMF3 harmonics with carrier sidebands"),
-    ("WTG-29", "GENERATOR"): (73.0, "drive-end bearing wear — generator BPFO"),
+    ("WTG-21", "GENERATOR"): (52.0, "rotor eccentricity — 2·f_e magnetic pull with 1× sidebands"),
+    ("WTG-29", "REAR_BEARING"): (73.0, "downwind bearing outer-race wear — BPFO"),
 }
 
 # Injected faults: {turbine_id: {component: {rate, start_hi, start_time}}}
+# ponytail: keyed by turbine ID only — WTG-03 of every farm shares one fault;
+# key by (farm, turbine) if two farms are trained on at the same time.
 _injected_faults: dict[str, dict[str, dict[str, float]]] = {}
 
 
@@ -167,7 +184,7 @@ def _estimate_rul(turbine_id: str, component: str) -> float:
 
 def _compute_component_health(turbine_id: str, component: str) -> ComponentHealthSchema:
     hi = _compute_current_hi(turbine_id, component)
-    if component == "GEARBOX":
+    if component == "PITCH":
         oil = "18/16/13" if hi < 60.0 else "17/15/12" if hi < 80.0 else BASELINE_OIL_CODE
     else:
         oil = BASELINE_OIL_CODE
@@ -200,10 +217,10 @@ def get_turbine_health(turbine_id: str) -> TurbineHealthResponse:
     )
 
 
-def get_fleet_health() -> FleetHealthResponse:
-    """Health of all 34 turbines, with the per-component HI for the heatmap."""
+def get_fleet_health(n_turbines: int = N_TURBINES) -> FleetHealthResponse:
+    """Health of every turbine (SB-510: 34), with the per-component HI for the heatmap."""
     summaries: list[TurbineHealthSummary] = []
-    for n in range(1, N_TURBINES + 1):
+    for n in range(1, n_turbines + 1):
         turbine_id = f"WTG-{n:02d}"
         components = [_compute_component_health(turbine_id, c) for c in CMS_COMPONENTS]
         worst = min(components, key=lambda c: c.health_index)
@@ -222,7 +239,7 @@ def get_fleet_health() -> FleetHealthResponse:
 
     return FleetHealthResponse(
         turbines=summaries,
-        fleet_average_hi=round(sum(s.overall_health_index for s in summaries) / N_TURBINES, 1),
+        fleet_average_hi=round(sum(s.overall_health_index for s in summaries) / n_turbines, 1),
         turbines_in_warning=sum(
             1 for s in summaries if s.overall_alert_level in ("RED", "CRITICAL")
         ),
@@ -239,9 +256,10 @@ def _bearing(n: int, d_ratio: float, alpha_deg: float, f_shaft: float) -> tuple[
 
 
 def characteristic_frequencies(component: str) -> list[tuple[str, float]]:
-    """Kinematic fault frequencies [Hz] at rated speed for one component."""
-    if component == "MAIN_BEARING":
-        bpfo, bpfi = _bearing(22, 0.10, 10.0, F_ROTOR)
+    """Kinematic / electrical fault frequencies [Hz] at rated speed for one component."""
+    if component in BEARINGS:
+        n, d_ratio, alpha = BEARINGS[component]
+        bpfo, bpfi = _bearing(n, d_ratio, alpha, F_ROTOR)
         return [
             ("1× rotor", F_ROTOR),
             ("BPFO", bpfo),
@@ -249,27 +267,24 @@ def characteristic_frequencies(component: str) -> list[tuple[str, float]]:
             ("2×BPFO", 2 * bpfo),
             ("3×BPFO", 3 * bpfo),
         ]
-    if component == "GEARBOX":
-        out: list[tuple[str, float]] = []
-        f_carrier = F_ROTOR
-        for i, (z_sun, z_ring) in enumerate(STAGES, start=1):
-            out.append((f"GMF{i}", z_ring * f_carrier))
-            f_carrier *= 1 + z_ring / z_sun  # sun of this stage drives the next carrier
-        out.append(("1× HSS", f_carrier))
-        return out
     if component == "GENERATOR":
-        f_gen = F_ROTOR * GEARBOX_RATIO
-        bpfo, bpfi = _bearing(12, 0.20, 0.0, f_gen)
-        return [("1× gen", f_gen), ("2× gen", 2 * f_gen), ("BPFO", bpfo), ("BPFI", bpfi)]
+        f_e = POLE_PAIRS * F_ROTOR
+        return [
+            ("1× rotor", F_ROTOR),
+            ("f_e", f_e),
+            ("2·f_e", 2 * f_e),
+            ("slot pass", STATOR_SLOTS * F_ROTOR),
+        ]
     raise ValueError(f"No vibration spectrum for {component}")
 
 
 def get_vibration_spectrum(turbine_id: str, component: str) -> VibrationSpectrumResponse:
     """Simulated velocity spectrum (400 lines) whose overall RMS equals the HI vibration.
 
-    Healthy: 1× running-speed peak + broadband floor (+ gear mesh for the
-    gearbox). Degraded (HI < 80): the defect frequency of the seeded/injected
-    failure mode grows with harmonics (and carrier sidebands for gear wear).
+    Healthy: 1× running-speed peak + broadband floor (+ electrical lines for the
+    generator). Degraded (HI < 80): the defect frequency of the seeded/injected
+    failure mode grows — bearing BPFO with harmonics, or the generator's 2·f_e
+    magnetic-pull line with ±1× sidebands (eccentricity).
     """
     if component not in VIBRATION_COMPONENTS:
         raise ValueError(
@@ -279,7 +294,7 @@ def get_vibration_spectrum(turbine_id: str, component: str) -> VibrationSpectrum
     hi = _compute_current_hi(turbine_id, component)
     rng = random.Random(_seed(turbine_id, component) + 1)
     marks = characteristic_frequencies(component)
-    f_max = 10.0 if component == "MAIN_BEARING" else 200.0
+    f_max = 12.0 if component in BEARINGS else 40.0
     df = f_max / 400
     freqs = [(i + 1) * df for i in range(400)]
     severity = max(0.0, (80.0 - hi) / 80.0)  # 0 healthy … 1 failed
@@ -287,13 +302,11 @@ def get_vibration_spectrum(turbine_id: str, component: str) -> VibrationSpectrum
     defect = 1.0 + 5.0 * severity if severity > 0 else 0.0
 
     peaks: list[tuple[float, float]] = [(marks[0][1], 1.0)]  # 1× running speed
-    if component == "GEARBOX":
-        peaks += [(f, 0.6) for name, f in marks if name.startswith("GMF")]
-        f_c3 = F_ROTOR * 16  # stage-3 carrier
-        gmf3 = marks[2][1]
-        for h in (1, 2, 3):
-            peaks.append((h * gmf3, defect / h))
-            peaks += [(h * gmf3 + s * f_c3, 0.5 * defect / h) for s in (-1, 1)]
+    if component == "GENERATOR":
+        lines = dict(marks)
+        peaks += [(lines["f_e"], 0.3), (lines["2·f_e"], 0.6), (lines["slot pass"], 0.4)]
+        peaks.append((lines["2·f_e"], defect))
+        peaks += [(lines["2·f_e"] + s * F_ROTOR, 0.5 * defect) for s in (-1, 1)]
     else:
         bpfo = dict(marks)["BPFO"]
         peaks += [(h * bpfo, defect / h) for h in (1, 2, 3)]
@@ -325,13 +338,17 @@ def get_vibration_spectrum(turbine_id: str, component: str) -> VibrationSpectrum
 
 
 def get_oil_analysis(turbine_id: str) -> OilAnalysisResponse:
-    """Gearbox oil samples, monthly over the last 12 months (oldest first)."""
-    hi = _compute_current_hi(turbine_id, "GEARBOX")
-    rng = random.Random(_seed(turbine_id, "GEARBOX") + 2)
+    """Hydraulic pitch/brake oil samples, monthly over 12 months (oldest first).
+
+    Direct drive: no gearbox oil. The hydraulic unit (ISO VG 46) is the oil system
+    whose cleanliness (ISO 4406) protects the pitch proportional valves.
+    """
+    hi = _compute_current_hi(turbine_id, "PITCH")
+    rng = random.Random(_seed(turbine_id, "PITCH") + 2)
     now = datetime.now(UTC)
     history: list[OilAnalysisPoint] = []
     for months_ago in range(11, -1, -1):
-        sample_hi = min(100.0, hi + months_ago * 30 * _rate(turbine_id, "GEARBOX"))
+        sample_hi = min(100.0, hi + months_ago * 30 * _rate(turbine_id, "PITCH"))
         wear = max(0.0, (90.0 - sample_hi) / 90.0)  # particle counts rise with wear
         iso = BASELINE_OIL_CODE if sample_hi > 80 else "17/15/12" if sample_hi > 60 else "18/16/13"
         history.append(
@@ -347,15 +364,15 @@ def get_oil_analysis(turbine_id: str) -> OilAnalysisResponse:
         )
 
     if hi < 60.0:
-        recommendation = "Oil change and filter replacement now; send sample for ferrography"
+        recommendation = "Flush, change oil and filters now; inspect pitch valves and cylinders"
     elif hi < 80.0:
-        recommendation = "Oil change at the next scheduled service (within 3 months)"
+        recommendation = "Filter change and offline filtration at the next service (≤ 3 months)"
     else:
-        recommendation = "Normal interval — next oil change at the annual service"
+        recommendation = "Normal interval — next sample at the annual service"
 
     return OilAnalysisResponse(
         turbine_id=turbine_id,
-        component="GEARBOX",
+        component="PITCH",
         history=history,
         current_iso_code=history[-1].iso_code,
         target_iso_code=TARGET_OIL_CODE,
@@ -364,10 +381,10 @@ def get_oil_analysis(turbine_id: str) -> OilAnalysisResponse:
     )
 
 
-def get_active_alerts() -> list[CMSAlertResponse]:
+def get_active_alerts(n_turbines: int = N_TURBINES) -> list[CMSAlertResponse]:
     """All AMBER / RED / CRITICAL components across the fleet."""
     alerts = []
-    for n in range(1, N_TURBINES + 1):
+    for n in range(1, n_turbines + 1):
         turbine_id = f"WTG-{n:02d}"
         for component in CMS_COMPONENTS:
             hi = _compute_current_hi(turbine_id, component)

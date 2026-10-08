@@ -3,13 +3,13 @@ import type { EducationContent } from "../../../types/education";
 export const reactiveCompensationEducation: EducationContent = {
   id: "p2.reactive-compensation",
   title: "Reactive Compensation — Reactors, STATCOM and the PSE Q Range",
-  subtitle: "Why a 76.5 km cable needs a reactor at each end, and what sizes the STATCOM",
+  subtitle: "Why a 108 km cable needs a reactor at each end, and what sizes the STATCOM",
   discipline: "Electrical",
 
   overview:
-    "An XLPE cable is a long capacitor: at 220 kV the two 76.5 km export circuits generate about 442 MVAR whether the " +
+    "An XLPE cable is a long capacitor: at 220 kV the two 108 km export circuits generate about 624 MVAR whether the " +
     "farm produces or not. Uncompensated, that current flows through the cable, the transformers and the grid and " +
-    "lifts the offshore voltage by about 15 %. Shunt reactors absorb most of it; a STATCOM covers the rest dynamically. The grid " +
+    "lifts the offshore voltage by about 24 %. Shunt reactors absorb most of it; a STATCOM covers the rest dynamically. The grid " +
     "code then asks the farm to deliver a defined reactive range at the connection point.",
 
   simpleExplanation:
@@ -19,12 +19,12 @@ export const reactiveCompensationEducation: EducationContent = {
 
   technicalExplanation:
     "Two effects are often confused. The Ferranti effect is the rise along an open-ended line, V_r = V_s / cos(βL): " +
-    "for 76.5 km of this cable ≈ 2 %. Most of the 15 % rise is charging current through the series reactance " +
-    "(ΔV ≈ Q·X). The scheme: one 120 MVAR reactor per cable at each end — two at the onshore 220 kV busbar, two at " +
+    "for 108 km of this cable ≈ 4 %. Most of the 24 % rise is charging current through the series reactance " +
+    "(ΔV ≈ Q·X). The scheme: one 180 MVAR reactor per cable at each end — two at the onshore 220 kV busbar, two at " +
     "OSS 220 kV — so each cable end carries only about half of its charging current (with all reactors at the OSS, " +
-    "that end would reach 830 A at 510 MW on an 825 A cable). All four in over-compensate by 38 MVAR at no load, " +
-    "which leaves the OSS busbar inside the STATCOM's ±1 % band; near full output the transformers' I²X absorbs " +
-    "more, the operator switches one reactor out and the ±120 MVAR STATCOM sits near 0. PSE requires " +
+    "that end would reach ≈ 1 060 A at 510 MW on an 825 A cable). All four in over-compensate by ≈ 96 MVAR at no " +
+    "load, which the STATCOM balances (≈ +60 MVAR); from half output up the cables' and transformers' I²X absorbs " +
+    "more, the operator switches one reactor out and the ±120 MVAR STATCOM stays between −40 and +30 MVAR. PSE requires " +
     "Q/P_max from −0.35 to +0.40 at the connection point for P ≥ 0.1 P_max (−178.5 / +204 MVAR). The check combines " +
     "WTG reactive capability (assumed ±0.33 p.u. — the IEA 15 MW reference turbine defines none), the STATCOM, " +
     "switching reactors " +
@@ -49,17 +49,17 @@ export const reactiveCompensationEducation: EducationContent = {
       variables: [
         { symbol: "C", name: "Capacitance per km (190 nF/km)", unit: "F/km" },
         { symbol: "V", name: "Line-to-line voltage", unit: "V" },
-        { symbol: "L", name: "Length × circuits (2 × 76.5 km)", unit: "km" },
+        { symbol: "L", name: "Length × circuits (2 × 108 km)", unit: "km" },
       ],
-      explanation: "Charging power (Rule 7: capacitive, positive). 2π·50 × 190e-9 × 220 000² × 153 ≈ 442 MVAR.",
+      explanation: "Charging power (Rule 7: capacitive, positive). 2π·50 × 190e-9 × 220 000² × 216 ≈ 624 MVAR.",
     },
     {
       expression: "V_r / V_s = 1 / cos(βL),   β = ω√(L′C′)",
       variables: [
         { symbol: "L′, C′", name: "Inductance and capacitance per km", unit: "H/km, F/km" },
-        { symbol: "βL", name: "Electrical length (0.20 rad for 76.5 km)", unit: "rad" },
+        { symbol: "βL", name: "Electrical length (0.29 rad for 108 km)", unit: "rad" },
       ],
-      explanation: "Ferranti rise along the open cable: ≈ 2 % here — small compared with the 15 % from charging current.",
+      explanation: "Ferranti rise along the open cable: ≈ 4 % here — small compared with the 24 % from charging current.",
     },
   ],
 
@@ -69,8 +69,8 @@ export const reactiveCompensationEducation: EducationContent = {
       scenario: "P = P_max, OLTCs regulating, farm buses kept within 0.90–1.10 p.u.",
       steps: [
         "Required: +0.40 × 510 = +204 MVAR, −0.35 × 510 = −178.5 MVAR at PSE 400 kV",
-        "Producing: WTGs + STATCOM at full capacitive output, reactors switched out → +548 MVAR",
-        "Absorbing: WTGs + STATCOM inductive with all reactors in → −502 MVAR",
+        "Producing: WTGs + STATCOM at full capacitive output, reactors switched out → +532 MVAR",
+        "Absorbing: WTGs + STATCOM inductive with all reactors in → −590 MVAR",
       ],
       result:
         "The range is met with margin. The STATCOM is therefore not sized by the steady-state Q range; it is sized for " +

@@ -14,8 +14,8 @@ Grid strength is judged where the converters are, not only at the POC:
     SCR_POC      = S_sc / P_n                        (PSE 400 kV)
     SCR_terminal = 1 / |Z_grid + Z_trafos + Z_cable|  [p.u. on S_n]
 
-The two transformer stages (2 × 300 MVA each) and 76.5 km of cable add ≈ 0.27 p.u.,
-so a strong 10 GVA grid (SCR_POC ≈ 20) is only SCR ≈ 3.1 at the 66 kV busbar.
+The two transformer stages (2 × 300 MVA each) and 108 km of cable add ≈ 0.29 p.u.,
+so a strong 10 GVA grid (SCR_POC ≈ 20) is only SCR ≈ 2.9 at the 66 kV busbar.
 
 GFL — current source synchronised by a PLL
   i_dq → i*_dq with a 5 ms current loop (unity-PF active current + the
@@ -94,7 +94,7 @@ POLE_SLIP_RAD = math.pi  # angle more than 180° away from the new equilibrium �
 
 STRONG_GRID_SSC_MVA = GRID_SSC_MVA
 WEAK_GRID_SSC_MVA = 2_000.0
-VERY_WEAK_GRID_SSC_MVA = 700.0  # SCR_POC ≈ 1.4 → ≈ 1.0 at the 66 kV busbar
+VERY_WEAK_GRID_SSC_MVA = 750.0  # SCR_POC ≈ 1.5 → ≈ 1.03 at the 66 kV busbar (108 km export)
 SCENARIO_SSC_MVA = {
     "strong_grid": STRONG_GRID_SSC_MVA,
     "weak_grid": WEAK_GRID_SSC_MVA,

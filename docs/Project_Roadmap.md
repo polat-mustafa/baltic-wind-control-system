@@ -92,8 +92,8 @@ All five projects use a consistent reference scenario based on real Baltic Sea p
 | Capacity | 510 MW (scalable to 1.2 GW analysis) | Educational scale aligned with V236-15.0 class |
 | Turbines | 34 × 15 MW "V236 class", modelled with the IEA 15 MW reference turbine (Gaertner et al. 2020) | Turbine class used in Baltic Power project; Vestas publishes no curves or drivetrain data |
 | Array Voltage | 66 kV | Industry standard for large OWFs |
-| Export Voltage | 220 kV HVAC | Still AC at 76.5 km (≈ 5 % of the circuit rating lost to charging current) |
-| Export Cable Length | 76.5 km: 63.5 km subsea (round the west end of Ławica Słupska) + 13 km onshore | Route drawn and checked against the Site & Permits layers |
+| Export Voltage | 220 kV HVAC | Still AC at 108 km (≈ 13 % of the circuit rating lost to charging current; 99 % loaded at 510 MW) |
+| Export Cable Length | 108 km: 79.3 km subsea (round the west end of Ławica Słupska, across PZP_15 / PZP_10 at 62–67°, between PZP_23 and the military National Defence Area) + 28.7 km onshore from Darłówko-Wschodnie to PSE Krzemienica (Baltica 9+'s announced connection point) | Checked with the route check (2026-10-08); the earlier 76.5 km route to Słupsk crossed 24.5 km of the military area |
 | Water Depth | 37–51 m at the turbines (EMODnet DTM) | Jacket foundations |
 | Hub Height | 150 m | IEA 15 MW |
 | Rotor Diameter | 241.35 m | IEA 15 MW (official tabular data v1.1.18) |
@@ -104,8 +104,8 @@ All five projects use a consistent reference scenario based on real Baltic Sea p
 | TSO | PSE S.A. (Polskie Sieci Elektroenergetyczne) | Polish transmission system operator |
 | Grid Code | PSE IRiESP + ENTSO-E NC RfG Type D | Polish and EU requirements |
 | Offshore Substation | 1 × OSS with GIS switchgear | Standard for 510 MW HVAC |
-| Export cables | 2 × 220 kV XLPE, 1000 mm², 76.5 km, 825 A (ABB/NKT 2GM5007 rev 5) | 1 cable = 314 MVA < 510 MW; 2 cables 92 % loaded at 510 MW |
-| STATCOM | ±120 MVAR + 4 × 120 MVAR shunt reactors (one per circuit at each end) | One reactor out: (442 − 3 × 120) × 1.15 = 94 ≤ 120 MVAR |
+| Export cables | 2 × 220 kV XLPE, 1000 mm², 108 km, 825 A (ABB/NKT 2GM5007 rev 5) | 1 cable = 314 MVA < 510 MW; 2 cables 99 % loaded at 510 MW |
+| STATCOM | ±120 MVAR + 4 × 180 MVAR shunt reactors (one per circuit at each end) | One reactor out: (624 − 3 × 180) × 1.15 = 97; all in: (720 − 624) × 1.15 = 110 ≤ 120 MVAR |
 | Spacing (crosswind) | 5D = 1,180 m | Updated for 236 m rotor |
 | Spacing (downwind) | 8D = 1,888 m | Updated for 236 m rotor |
 | Design Life | 25–30 years | Industry standard |
@@ -323,16 +323,16 @@ Model the complete HV electrical system: 66 kV array cables → offshore substat
 
 ### 3.2 Problem Definition
 
-**Key Engineering Challenge:** Each 76.5 km 220 kV HVAC cable generates ~221 MVAR of capacitive reactive power — ~442 MVAR for the two export cables:
+**Key Engineering Challenge:** Each 108 km 220 kV HVAC cable generates ~312 MVAR of capacitive reactive power — ~624 MVAR for the two export cables:
 
 ```
-Q_cap = ω × C × V_LL² × L = 2π×50 × 190 nF/km × (220 kV)² × 76.5 km ≈ 221 MVAR  (three-phase total)
+Q_cap = ω × C × V_LL² × L = 2π×50 × 190 nF/km × (220 kV)² × 108 km ≈ 312 MVAR  (three-phase total)
 (C = 190 nF/km per phase is the value used in the codebase — EXPORT_CABLE_1000 in
  services/p2/network_model.py. Real capacitance is manufacturer-specific, typically
  ~150–250 nF/km for 220 kV three-core XLPE submarine cable; with 250 nF/km Q ≈ 291 MVAR.)
 ```
 
-Two cables are needed because one 1000 mm² circuit carries only √3 × 220 kV × 0.825 kA ≈ 314 MVA (825 A: ABB/NKT 2GM5007 rev 5 Table 34, IEC 60287, 1 m deep, 20 °C seabed, 1.0 K·m/W; after an N-1 trip the survivor is at 164 % at 510 MW). Their ~442 MVAR (~87 % of rated power) lift the offshore busbar to ≈ 1.15 pu at no load (`validate_compensation()`); the Ferranti rise along the 76.5 km cable itself is ≈ 2 % (1/cos βL). Shunt reactors + STATCOM are required, one reactor per cable at each end: with all of them at the OSS that end would carry the whole charging current next to the load current — 830 A at 510 MW on an 825 A cable.
+Two cables are needed because one 1000 mm² circuit carries only √3 × 220 kV × 0.825 kA ≈ 314 MVA (825 A: ABB/NKT 2GM5007 rev 5 Table 34, IEC 60287, 1 m deep, 20 °C seabed, 1.0 K·m/W; after an N-1 trip the survivor is at 174 % at 510 MW). Their ~624 MVAR (~122 % of rated power) lift the offshore busbar to ≈ 1.24 pu at no load (`validate_compensation()`); the Ferranti rise along the 108 km cable itself is ≈ 4.3 % (1/cos βL). Shunt reactors + STATCOM are required, one reactor per cable at each end: with all of them at the OSS that end would carry the whole charging current next to the load current — ≈ 1 060 A at 510 MW on an 825 A cable.
 
 ### 3.3 Network Model — Pandapower (P2A: Steady-State)
 
@@ -347,7 +347,7 @@ Two cables are needed because one 1000 mm² circuit carries only √3 × 220 kV 
                                                     │
                                           [OSS 220kV Busbar]──[STATCOM ±120 MVAR]
                                                     │         [OSS Shunt Reactors 2 × 120 MVAR]
-                                          [2 × 220kV Export Cables 76.5km]
+                                          [2 × 220kV Export Cables 108 km] 
                                                     │
                                           [Onshore Substation 220kV]
                                                     │
@@ -407,14 +407,14 @@ PSE compliance verification follows EON → ION → FON stages before granting o
 
 | Scenario | V_min (pu) | V_max (pu) | Compliant? | Total Loss (MW) | Loss (%) |
 |----------|-----------|-----------|------------|-----------------|----------|
-| Full Load (510 MW) | 0.999 | 1.007 | ✓ (0.95-1.05) | 8.38 | 1.64% |
-| Partial Load (255 MW) | 0.990 | 1.000 | ✓ | 2.30 | 0.90% |
-| No Load (0 MW) | 0.996 | 1.001 | ✓ | 0.22 | N/A |
-| N-1 (string 6 out, 435 MW) | 1.000 | 1.007 | ✓ | 6.40 | 1.47% |
+| Full Load (510 MW) | 1.006 | 1.015 | ✓ (0.95-1.05) | 10.10 | 1.98% |
+| Partial Load (255 MW) | 1.005 | 1.012 | ✓ | 2.88 | 1.13% |
+| No Load (0 MW) | 0.997 | 1.007 | ✓ | 0.25 | N/A |
+| N-1 (string 6 out, 435 MW) | 1.007 | 1.014 | ✓ | 7.67 | 1.76% |
 
-*Model output of `run_load_flow()` with 2 × 76.5 km export cables, 4 × 120 MVAR reactors at both cable ends (one switched out near full output by `dispatch_with_reactor_switching`), auto-dispatched STATCOM and cable resistance at the 90 °C rated conductor temperature (R_AC,90, IEC 60287-1-1 — worst-case losses). Export cable loading at full load: 92 % of 825 A; the 1000 mm² OSS-end array segments: 95 % of 825 A. Short-circuit results (§3.7) use 20 °C resistance as IEC 60909 requires. (2026-09-28)*
+*Model output of `run_load_flow()` with 2 × 108 km export cables, 4 × 180 MVAR reactors at both cable ends (one switched out from half output up by `dispatch_with_reactor_switching`), auto-dispatched STATCOM and cable resistance at the 90 °C rated conductor temperature (R_AC,90, IEC 60287-1-1 — worst-case losses). Export cable loading at full load: 99 % of 825 A; the 1000 mm² OSS-end array segments: 95 % of 825 A. Short-circuit results (§3.7) use 20 °C resistance as IEC 60909 requires. (2026-09-28)*
 
-**Key finding:** Without reactive compensation the no-load voltage reaches ~1.15 pu (`validate_compensation()`: 1.149 pu) → violation. With the 4 × 120 MVAR reactors (all four in at no and half load, one switched out near full output) + STATCOM every live farm bus stays within 0.990–1.007 pu and the farm exchanges −41 MVAR (full load), −53 MVAR (half load) and −17 MVAR (no load) with PSE at 400 kV; with one reactor out the STATCOM absorbs ~75 MVAR and stays inside its ±120 MVAR rating (`reactor_n1_secure`). The onshore line reactor is energised with the cable, so the onshore OLTC needs no pre-set (`p5.energisation.onshore_tap` = 0). N-1 opens string 6's feeder (its cables are de-energised, reported as 0).
+**Key finding:** Without reactive compensation the no-load voltage reaches ~1.24 pu (`validate_compensation()`: 1.245 pu) → violation. With the 4 × 180 MVAR reactors (all four in at no load, one switched out from half output up) + STATCOM every live farm bus stays within 0.997–1.015 pu and the farm exchanges −13 MVAR (full load), +30 MVAR (half load) and −13 MVAR (no load) with PSE at 400 kV; with one reactor out the STATCOM absorbs ~67 MVAR and stays inside its ±120 MVAR rating (`reactor_n1_secure`). The onshore line reactor is energised with the cable; even so the 108 km cable's open end would reach 1.078 pu, so the onshore OLTC is pre-set 3 steps down (`p5.energisation.onshore_tap` = 3). N-1 opens string 6's feeder (its cables are de-energised, reported as 0).
 
 ### 3.7 Short-Circuit Analysis (IEC 60909)
 
@@ -443,9 +443,9 @@ PSE compliance verification follows EON → ION → FON stages before granting o
 
 **Decision: STATCOM selected.** Despite higher equipment cost, the compact footprint saves ~€12M in platform costs offshore. Additionally, a STATCOM keeps its reactive current down to very low voltage (an SVC's output falls with V²), which matters for PSE's fast fault current requirement during dips that may reach 0 pu for 150 ms.
 
-**Selected rating: ±120 MVAR** (120 MVAR per 510 MW of reactive capability; checked for one reactor out: ~442 MVAR from the two export cables − 3 × 120 MVAR ≈ 82 MVAR net STATCOM absorption; × 1.15 for temperature derating + ageing = 94 → 100 MVAR per `size_statcom()`. In normal operation the STATCOM stays within ≈ ±5 MVAR in the Grid-tab scenarios, keeping its range for dynamics) **+ 4 × 120 MVAR shunt reactors** (one per export cable at each end, so each cable end carries half the charging current; cheap continuous base-load compensation that keeps the STATCOM small).
+**Selected rating: ±120 MVAR** (checked for one reactor out: ~624 MVAR from the two export cables − 3 × 180 MVAR ≈ 84 MVAR net STATCOM absorption, × 1.15 for temperature derating + ageing = 97; and for all four in: (720 − 624) × 1.15 = 110 → 120 MVAR per `design()` / `size_statcom()`. In normal operation the STATCOM stays between −40 and +60 MVAR in the Grid-tab scenarios, keeping its range for dynamics) **+ 4 × 180 MVAR shunt reactors** (one per export cable at each end, so each cable end carries half the charging current; cheap continuous base-load compensation that keeps the STATCOM small).
 
-**PSE reactive range (Art. 21(3)(c), −0.35 … +0.40 P_max at the POC = −178.5 / +204 MVAR):** `poc_q_capability()` finds +548 / −502 MVAR at P = 510 MW using WTG capability (±0.33 pu assumed — the IEA 15 MW reference turbine defines none), the STATCOM, reactor switching and both OLTCs, with every farm bus within 0.90–1.10 pu. The range is met with margin, so the STATCOM rating is set by the reactor N-1 case and fast voltage control, not by the steady-state Q range.
+**PSE reactive range (Art. 21(3)(c), −0.35 … +0.40 P_max at the POC = −178.5 / +204 MVAR):** `poc_q_capability()` finds +532 / −590 MVAR at P = 510 MW using WTG capability (±0.33 pu assumed — the IEA 15 MW reference turbine defines none), the STATCOM, reactor switching and both OLTCs, with every farm bus within 0.90–1.10 pu. The range is met with margin, so the STATCOM rating is set by the reactor N-1 case and fast voltage control, not by the steady-state Q range.
 
 ### 3.9 FRT Compliance — PSE type-D power park module
 
@@ -470,14 +470,14 @@ U_ret = U_clear = U_rec1 = 0.00 pu, t_clear = t_rec1 = t_rec2 = 0.15 s, U_rec2 =
 
 ### 3.10 Harmonic Analysis
 
-**Model (`services/p2/power_quality.py`):** positive-sequence nodal network per harmonic order — grid Thevenin, both transformer stages (R·√h), the two 76.5 km export circuits as exact distributed π sections, the 4 × 120 MVAR reactors at both cable ends and the array cable charging. WTG emission (% of rated current, illustrative full-converter spectrum — the V236 IEC 61400-21 report is not public) is summed over 34 units with the IEC 61000-3-6 exponents and turned into harmonic voltages through |Z(h)|. Converter impedance, loads and background distortion are not modelled, so resonance peaks are upper bounds.
+**Model (`services/p2/power_quality.py`):** positive-sequence nodal network per harmonic order — grid Thevenin, both transformer stages (R·√h), the two 108 km export circuits as exact distributed π sections, the 4 × 180 MVAR reactors at both cable ends and the array cable charging. WTG emission (% of rated current, illustrative full-converter spectrum — the V236 IEC 61400-21 report is not public) is summed over 34 units with the IEC 61000-3-6 exponents and turned into harmonic voltages through |Z(h)|. Converter impedance, loads and background distortion are not modelled, so resonance peaks are upper bounds.
 
 | Result (10 GVA grid) | Value |
 |---|---|
-| Parallel resonances seen from OSS 66 kV, no filter | ≈ 130 Hz (h 2.6, amplification ×13), ≈ 725 Hz (h 14.5) and ≈ 960 Hz (h 19.2, ×10) |
-| h19 at OSS 66 kV, no filter | 1.16 % = 108 % of the 1.07 % planning level — FAIL: the 960 Hz resonance sits next to h19 |
-| Harmonic filter (in the design) | damped high-pass at OSS 66 kV, 5 Mvar tuned to h18, q 1.5 (C 3.64 µF, L 8.59 mH, R 72.8 Ω) — `size_harmonic_filter`; the 960 Hz peak moves to ≈ 645 Hz (×2.6) |
-| With the filter | h19 0.105 % = 10 % of the planning level; worst order h13 at 50 %; THD 0.98 % at 66 kV, 0.17 % at the PSE 400 kV POC (planning level 3 %) |
+| Parallel resonances seen from OSS 66 kV, no filter | ≈ 115 Hz (h 2.3, amplification ×13), ≈ 545 Hz (h 10.9) and ≈ 880 Hz (h 17.6, ×16) |
+| h17 at OSS 66 kV, no filter | 0.89 % = 74.5 % of the 1.2 % planning level — within it, but past the plant's 50 % share: the 880 Hz resonance sits next to h17 |
+| Harmonic filter (in the design) | damped high-pass at OSS 66 kV, 2 Mvar tuned to h16, q 1.5 (C 1.46 µF, L 27.2 mH, R 205 Ω) — `size_harmonic_filter`; the 880 Hz peak drops to ≈ 840 Hz (×1.5) |
+| With the filter | h17 0.38 % = 31.5 % of the planning level; worst characteristic order h11 at 34 %; THD 0.85 % at 66 kV, 0.14 % at the PSE 400 kV POC (planning level 3 %); the h2 cable–grid resonance stays at ≤ 75 % (no 66 kV filter moves it) |
 | Flicker P_st / P_lt at the POC | 0.002 / 0.002 (planning levels 0.8 / 0.6) |
 
 Planning levels follow IEC TR 61000-3-6:2008 Table 2 (MV / HV-EHV, THD 6.5 % / 3 %); flicker IEC 61000-3-7 HV-EHV. The emission limit PSE would allocate to the plant is a share of the planning level.
@@ -507,7 +507,7 @@ Planning levels follow IEC TR 61000-3-6:2008 Table 2 (MV / HV-EHV, THD 6.5 % / 3
 
 ### 3.13 CV Sentence
 
-> "Modelled a 510 MW offshore wind farm HV system (66 kV array / 2 × 220 kV export) using pandapower with IEC 60909 breaker-duty checks; sized ±120 MVAR STATCOM + 4 × 120 MVAR shunt reactors at both cable ends for 2 × 76.5 km export cable compensation, verified the PSE reactive range (−0.35 … +0.40 P_max) by OLTC-aware load flows, and screened fault ride-through against PSE's type-D profile and grid-following vs grid-forming stability with transparent dynamic models."
+> "Modelled a 510 MW offshore wind farm HV system (66 kV array / 2 × 220 kV export) using pandapower with IEC 60909 breaker-duty checks; sized ±120 MVAR STATCOM + 4 × 180 MVAR shunt reactors at both cable ends for 2 × 108 km export cable compensation, verified the PSE reactive range (−0.35 … +0.40 P_max) by OLTC-aware load flows, and screened fault ride-through against PSE's type-D profile and grid-following vs grid-forming stability with transparent dynamic models."
 
 ### 3.14 Standards Applied
 
@@ -1091,7 +1091,7 @@ STATCOM at +15 Mvar; TX-OSS-01 no-load 0.39 A; at 265 MW: 260.6 MW at the POC, c
 TX-OSS-01 88 % loaded.
 
 Interlocking is derived from the topology (union-find over closed devices): ILK-001 no closing
-onto an earth — including the cable's far-end earth 76.5 km away; ILK-002 no earthing a live zone;
+onto an earth — including the cable's far-end earth 108 km away; ILK-002 no earthing a live zone;
 ILK-003 disconnectors off-load only; ILK-004 no operation under an isolation lock; ILK-005
 turbines only onto a live string.
 
@@ -1180,7 +1180,7 @@ Project 5 (Commissioning) validates ALL previous projects in operation
 | Wind farm specification (34 × V236-15.0 MW) | All 5 | Consistent reference |
 | PSE grid code (IRiESP + NC RfG Type D) | P2, P3, P4, P5 | Compliance benchmark |
 | IEC 61850 data model | P3, P5 | Equipment nomenclature |
-| STATCOM parameters (±120 MVAR + 4 × 120 MVAR shunt, both cable ends) | P2, P3, P5 | Reactive compensation |
+| STATCOM parameters (±120 MVAR + 4 × 180 MVAR shunt, both cable ends) | P2, P3, P5 | Reactive compensation |
 | SCADA alarm framework | P3, P4 | Operational integration |
 
 ---
@@ -1545,7 +1545,7 @@ Next-generation turbines (GE Vernova Haliade-X, Vestas V236) are exploring grid-
 ║                                                              ║
 ║ P2: HV Grid Integration                                      ║
 ║   Pandapower + ANDES → 66kV/220kV → IEC 60909              ║
-║   STATCOM ±120 MVAR + 4 × 120 MVAR reactors (both ends)     ║
+║   STATCOM ±120 MVAR + 4 × 180 MVAR reactors (both ends)     ║
 ║   Full NC RfG Type D compliance → FRT + frequency response  ║
 ║                                                              ║
 ║ P3: SCADA & Automation                                       ║
@@ -1571,7 +1571,7 @@ Next-generation turbines (GE Vernova Haliade-X, Vestas V236) are exploring grid-
 ╠══════════════════════════════════════════════════════════════╣
 ║ KEY DECISIONS                                                ║
 ║   STATCOM > SVC (speed + FRT + footprint)                    ║
-║   ±120 MVAR + 4 × 120 MVAR reactors at both cable ends      ║
+║   ±120 MVAR + 4 × 180 MVAR reactors at both cable ends      ║
 ║   Staggered layout > Grid (wake -4pp)                        ║
 ║   66 kV array > 33 kV (loss -1.2%)                          ║
 ║   BPA wake model > Jensen (accuracy ±2% vs ±8%)             ║

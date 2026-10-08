@@ -1,5 +1,5 @@
 /**
- * Export cable DTS layer — conductor temperature along the 76.5 km route
+ * Export cable DTS layer — conductor temperature along the 108 km route
  * (IEC 60287 model shared with backend services/p2/cable_dts.py through
  * utils/landingPhysics.dtsTempC), coloured every 0.5 km, with the two
  * physical hotspots labelled: the OSS J-tube and the HDD landfall.

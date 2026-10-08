@@ -31,7 +31,7 @@ export interface NetworkSpec {
   num_onshore_transformers: number;
   onshore_trafo_mva: number;
   grid_ssc_mva: number;
-  /** PSE 400 kV connection point (site assessment; SB-510: Słupsk Wierzbięcin). */
+  /** PSE 400 kV connection point (site assessment; SB-510: Krzemienica). */
   grid_node?: string;
   statcom_rating_mvar: number;
   num_reactors: number;

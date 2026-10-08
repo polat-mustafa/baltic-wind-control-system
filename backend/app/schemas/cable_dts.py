@@ -59,9 +59,9 @@ class DTSProfileResponse(BaseModel):
 
 
 class DTSTransientRequest(BaseModel):
-    prefault_current_a: float = Field(default=760.0, ge=0.0, le=1600.0)
+    prefault_current_a: float = Field(default=818.0, ge=0.0, le=1600.0)
     emergency_current_a: float = Field(
-        default=1355.0,
+        default=1438.0,
         ge=0.0,
         le=1600.0,
         description="Current after the step, e.g. the survivor after an N-1 trip [A]",

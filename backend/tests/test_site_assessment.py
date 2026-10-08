@@ -367,7 +367,8 @@ class TestAssess:
         assert a.area_km2 == pytest.approx(112.9, rel=0.01)
         assert a.shore_km is not None and a.shore_km[0] > 45  # far beyond 12 nm (22.2 km)
         assert a.grid_node is not None and "Słupsk" in a.grid_node
-        # straight line; the cable runs round the Natura 2000 site: 76.5 km
+        # straight line to the nearest node; SB-510's cable runs round Ławica Słupska and the
+        # military area to Krzemienica: 108 km
         assert 60 < a.grid_km < 70  # type: ignore[operator]
         assert a.depth_m is not None and a.depth_m[0] > 30 and a.depth_m[1] < 57  # EMODnet DTM
         assert a.foundation is not None and "jacket" in a.foundation
@@ -729,18 +730,19 @@ def test_sea_route_goes_round_land() -> None:
 
 
 def test_sb510_grid_nodes_ranked_and_choosable() -> None:
-    """Nearest PSE node = Słupsk Wierzbięcin (existing); Krzemienica is planned (PSE)."""
+    """Nearest PSE node = Słupsk Wierzbięcin (existing); SB-510 connects to the planned
+    Krzemienica (PSE), the real 44.E.1 connection point, chosen explicitly."""
     pack = load_region("southern-baltic")
     a = assess_site(pack, Criteria(), SB510_SITE)
-    assert a.grid_node == SB510_GRID_NODE and a.grid_km == a.grid_nodes[0].km
+    assert a.grid_node.startswith("Słupsk") and a.grid_km == a.grid_nodes[0].km
     assert [n.km for n in a.grid_nodes] == sorted(n.km for n in a.grid_nodes)
     by_name = {n.name: n for n in a.grid_nodes}
     assert by_name["Krzemienica 400 kV"].status == "planned"
     assert "inwestycje.pse.pl" in by_name["Krzemienica 400 kV"].basis
     assert by_name["Choczewo 400 kV"].status == "commissioning"
     assert next(c for c in a.checks if c.id == "grid").status == "info"
-    chosen = assess_site(pack, Criteria(), SB510_SITE, grid_node="Krzemienica 400 kV")
-    assert chosen.grid_node == "Krzemienica 400 kV"
+    chosen = assess_site(pack, Criteria(), SB510_SITE, grid_node=SB510_GRID_NODE)
+    assert chosen.grid_node == SB510_GRID_NODE == "Krzemienica 400 kV"
     assert chosen.grid_km == by_name["Krzemienica 400 kV"].km
     check = next(c for c in chosen.checks if c.id == "grid")
     assert check.status == "warn" and "Bałtyk 1" in check.detail

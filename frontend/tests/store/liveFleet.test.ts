@@ -47,7 +47,7 @@ describe("live fleet switch", () => {
     expect(land.turbineIds).toEqual(turbines.map((t) => t.id));
     expect(Object.keys(land.turbineMap)).toHaveLength(8);
     expect(land.arrayFault).toBeNull();
-    expect(land.cable.lengthKm).toBe(76.5);
+    expect(land.cable.lengthKm).toBe(108);
     const scada = useScadaStore.getState();
     expect(Object.keys(scada.breakerStates)).toContain("cb-str4");
     expect(Object.keys(scada.breakerStates)).not.toContain("cb-str5");

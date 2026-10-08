@@ -3,7 +3,7 @@ Pandapower network model for 510 MW Baltic Sea offshore wind farm.
 
 Builds the complete 66/220/400 kV electrical network as a Pandapower model:
 34 WTGs connected via 66 kV array cables through an offshore substation (OSS),
-two parallel 220 kV HVAC export cables (76.5 km: 63.5 subsea + 13 land), and a 220/400 kV
+two parallel 220 kV HVAC export cables (108 km: 79.3 subsea + 28.7 land), and a 220/400 kV
 onshore transformer
 connecting to the PSE 400 kV grid.
 
@@ -18,8 +18,8 @@ approximated by the lumped pi-model. Each cable has:
 The capacitive charging current generates reactive power (Rule 7):
   Q_cable = ω × C × V² × L  [MVAR]
 
-For one 220 kV, 76.5 km export cable: Q ≈ 2π×50 × 190e-9 × 220000² × 76.5 ≈ 221 MVAR
-For the two parallel export cables: Q ≈ 442 MVAR
+For one 220 kV, 108 km export cable: Q ≈ 2π×50 × 190e-9 × 220000² × 108 ≈ 312 MVAR
+For the two parallel export cables: Q ≈ 624 MVAR
 
 Why two export cables?
 -----------------------
@@ -75,10 +75,15 @@ Constants (SB-510)
 - 4 strings × 6 WTGs + 2 strings × 5 WTGs = 34 WTGs (same split as the landing map,
   the DB seed and the 6 string feeder bays in P3/P5)
 - Array cable spacing: 1.5 km average
-- Export cables: 2 × 76.5 km, 220 kV (site PZP_44 → around the west end of Ławica
-  Słupska → landfall Zaleskie → PSE Słupsk-Wierzbięcino; until 2026-10 the farm sat
-  45 km from shore). ``design(STRING_LAYOUT, 76.5)`` reproduces every value below.
-- Shunt reactors: 4 × 120 MVAR, one per export circuit at each cable end (2 at OSS 220 kV,
+- Export cables: 2 × 108 km, 220 kV (site PZP_44 → round the west end of Ławica
+  Słupska → across shipping basins PZP_15 / PZP_10 at 62–67° → the corridor between
+  Darłowo's approach channel PZP_23 and the military National Defence Area off Ustka →
+  landfall Darłówko-Wschodnie → 28.7 km on land, north of the Natura 2000 site Dolina
+  Wieprzy i Studnicy (PLH220038) → PSE Krzemienica, the real connection point of site
+  44.E.1 (Baltica 9+, PGE). Checked with the route check (2026-10-08); until then the
+  route ran 76.5 km to Słupsk-Wierzbięcino through 24.5 km of the military area).
+  ``design(STRING_LAYOUT, 108.0)`` reproduces every value below.
+- Shunt reactors: 4 × 180 MVAR, one per export circuit at each cable end (2 at OSS 220 kV,
   2 at the onshore 220 kV busbar) — the charging current splits between both ends
 - Transformers: 2 × 300 MVA 66/220 kV (OSS, TX-OSS-01/02) + 2 × 300 MVA 220/400 kV
   (onshore). ~86 % loaded each at 510 MW; losing one keeps ~300 MW exporting
@@ -210,7 +215,7 @@ STRING_BUSBAR_SECTION: dict[int, str] = {1: "A", 2: "A", 3: "A", 4: "B", 5: "B",
 
 # Cable lengths
 ARRAY_CABLE_LENGTH_KM = 1.5  # average spacing between WTGs
-EXPORT_CABLE_LENGTH_KM = 76.5
+EXPORT_CABLE_LENGTH_KM = 108.0
 
 # Transformer parameters — per unit; 2 identical units in parallel at each substation
 # (pandapower parallel=2: same impedance as one 600 MVA unit, but N-1 capable)
@@ -236,27 +241,27 @@ OLTC_STEP_PERCENT = 1.25
 # Grid connection
 GRID_SSC_MVA = 10_000.0  # Short-circuit power at PCC [MVA] (illustrative, same for every node)
 #: SB-510's PSE connection point (region pack grid node, OSM / PSE).
-SB510_GRID_NODE = "Słupsk Wierzbięcin 400/110 kV"
+SB510_GRID_NODE = "Krzemienica 400 kV"
 GRID_RX_RATIO = 0.1  # R/X ratio of grid impedance
 
 # STATCOM and reactors
 STATCOM_RATING_MVAR = 120.0  # ±120 MVAR
 # One reactor per export circuit at each cable end. One out of service:
-# (442 − 3 × 120) × 1.15 = 94 MVAR fits the ±120 MVAR STATCOM; all four in
-# over-compensate by 38 MVAR (× 1.15 = 44). At high load the operator switches one out
+# (624 − 3 × 180) × 1.15 = 97 MVAR fits the ±120 MVAR STATCOM; all four in
+# over-compensate by 96 MVAR (× 1.15 = 110). At high load the operator switches one out
 # (load_flow.dispatch_with_reactor_switching).
 NUM_SHUNT_REACTORS = 2 * NUM_EXPORT_CABLES  # n at the OSS + n onshore
-SHUNT_REACTOR_UNIT_MVAR = 120.0  # absorption per reactor [MVAR]
-SHUNT_REACTOR_MVAR = NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR  # 510 MVAR total
+SHUNT_REACTOR_UNIT_MVAR = 180.0  # absorption per reactor [MVAR]
+SHUNT_REACTOR_MVAR = NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR  # 720 MVAR total
 
 # Harmonic filter at the OSS 66 kV busbar — damped 2nd-order high-pass (C in series with
 # L ∥ R), sized by ``power_quality.size_harmonic_filter``: without it the array-cable
-# capacitance and the OSS transformers resonate at 960 Hz and h19 reaches 108 % of the
-# IEC TR 61000-3-6 planning level at 66 kV. 5 Mvar tuned to h18 (C 3.64 µF, L 8.59 mH,
-# R 72.8 Ω) keeps every harmonic ≤ 50 % of the planning level at 0.5–2 × S_sc and moves
-# the resonance to ≈ 645 Hz, amplification < 3 (power_quality module docstring).
-HARMONIC_FILTER_MVAR = 5.0  # fundamental reactive output [Mvar], generating (Rule 4)
-HARMONIC_FILTER_TUNED_ORDER = 18.0  # 900 Hz
+# capacitance and the OSS transformers resonate at 880 Hz (amplification 15.7) and h17
+# reaches 74.5 % of the IEC TR 61000-3-6 planning level at 66 kV. 2 Mvar tuned to h16
+# (C 1.46 µF, L 27.2 mH, R 205 Ω) damps the peak to 840 Hz, amplification 1.5, h17 31.5 %
+# (power_quality module docstring).
+HARMONIC_FILTER_MVAR = 2.0  # fundamental reactive output [Mvar], generating (Rule 4)
+HARMONIC_FILTER_TUNED_ORDER = 16.0  # 800 Hz
 
 
 # ── Farm specification (SB-510 or the learner's project) ─────────
@@ -496,7 +501,7 @@ def build_network(
     Parameters
     ----------
     export_length_km : float | None
-        Export cable length [km]; None = the spec's (SB-510: 76.5).
+        Export cable length [km]; None = the spec's (SB-510: 108).
     grid_ssc_mva : float
         Grid short-circuit power at PCC [MVA]. Default: 10,000.
     generation_fraction : float
@@ -703,7 +708,7 @@ def series_impedances_pu(
 
       grid     PSE Thevenin source → PSE_400kV   z = S_base/S_sc, R/X = GRID_RX_RATIO
       onshore  PSE_400kV → Onshore_220kV         2 × 300 MVA, vk 14 %
-      export   Onshore_220kV → OSS_220kV         2 × 76.5 km, R at 90 °C
+      export   Onshore_220kV → OSS_220kV         2 × 108 km, R at 90 °C
       oss      OSS_220kV → OSS_66kV              2 × 300 MVA, vk 12.5 %
 
     (SB-510 values; ``spec`` gives another farm's ratings and circuit count.)

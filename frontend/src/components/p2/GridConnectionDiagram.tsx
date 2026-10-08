@@ -1,7 +1,7 @@
 /**
  * Single-line diagram of the connection, driven by the selected load flow.
  *
- * Turbines → 66 kV array → OSS 66/220 kV → 2 × 76.5 km export → onshore
+ * Turbines → 66 kV array → OSS 66/220 kV → 2 × 108 km export → onshore
  * 220/400 kV → PSE. Dashes flow towards the grid at a speed proportional to
  * the MW in that element (static with reduced motion); every busbar shows its
  * voltage, every branch its MW and loading. Reactors and STATCOM sit on the

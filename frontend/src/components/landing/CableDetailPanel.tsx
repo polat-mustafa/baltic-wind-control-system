@@ -1,7 +1,7 @@
 /**
  * Export cable detail panel — the live fleet's 220 kV XLPE circuits. SB-510:
- * 2 × 76.5 km, 63.5 km subsea (OSS → round Ławica Słupska → Zaleskie landfall) +
- * 13 km land cable to the onshore SS; an own project: n × its export length
+ * 2 × 108 km, 79.3 km subsea (OSS → round Ławica Słupska → Darłówko-Wschodnie landfall) +
+ * 28.7 km land cable to the onshore SS; an own project: n × its export length
  * (route not surveyed).
  *
  * Live values come from the shared cable model (utils/landingPhysics):
@@ -77,7 +77,7 @@ export default function CableDetailPanel({ cable, onClose, onNavigate }: CableDe
         </div>
         <DataRow label="Seabed ambient" value={EXPORT_CABLE.seabedC} unit="°C" />
         <DataRow label="Burial depth" value={cable.burialDepthM} unit="m" />
-        <DataRow label="Route" value={sb510 ? "OSS → Zaleskie (HDD) → Słupsk" : "OSS → grid node (not yet surveyed)"} />
+        <DataRow label="Route" value={sb510 ? "OSS → Darłówko (HDD) → Krzemienica" : "OSS → grid node (not yet surveyed)"} />
         <p className="mt-1.5 text-[11px] leading-snug text-text-muted">
           Temperature follows I²: at 73 % current the conductor sits near 55 °C, leaving margin for
           dynamic rating (see DTS in P2).

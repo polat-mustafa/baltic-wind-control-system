@@ -29,7 +29,7 @@ describe("farmPlan", () => {
     const w1 = f.turbines.find((t) => t.id === "WTG-01");
     expect([w1?.string, w1?.bay]).toEqual([1, "BAY-OSS-66-01"]);
     expect(f.capacityMW).toBe(510);
-    expect(f.exportKm).toBe(76.5);
+    expect(f.exportKm).toBe(108);
     expect(f.foundation).toBe("jacket"); // 37–51 m
     // 28 in-string sections of 6D (≈ 1.45 km) ≈ 41 km, plus six gateway runs to the OSS at the
     // south-west corner (≈ 1.9 … 11.6 km, ≈ 40 km together)
@@ -80,7 +80,7 @@ describe("campaignRequest", () => {
     const r = campaignRequest(f, { mode: "install", start_date: "2028-04-01", alpha: 0.8, runs: 100 });
     expect(r.n_turbines).toBe(12);
     expect(r.strings?.reduce((a, b) => a + b, 0)).toBe(12);
-    expect(r.export_km).toBe(77); // no site report → SB-510's 76.5 km, rounded
+    expect(r.export_km).toBe(108); // no site report → SB-510's 108 km
     expect(r.array_km).toBeGreaterThan(0);
     expect(r.mode).toBe("install");
   });

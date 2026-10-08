@@ -17,12 +17,12 @@ import { computeWakeLosses } from "./wakeModel";
 
 /**
  * SB-510 series I²X absorption at rated output [MVAr]: OSS trafos (vk 12.5 %,
- * 600 MVA) ≈ 54, onshore trafos (vk 14 %) ≈ 61, export cables (2 × 76.5 km)
- * ≈ 27, array cables ≈ 5. Scales with I² ≈ (P / P_rated)² at near-nominal voltage.
+ * 600 MVA) ≈ 54, onshore trafos (vk 14 %) ≈ 61, export cables (2 × 108 km)
+ * ≈ 38, array cables ≈ 5. Scales with I² ≈ (P / P_rated)² at near-nominal voltage.
  */
-const SB510_SERIES_LOSS_AT_RATED_MVAR = 146;
+const SB510_SERIES_LOSS_AT_RATED_MVAR = 158;
 
-/** Network of the live fleet (SB-510: 510 MW, 2 × 76.5 km, 442 MVAr, 4 × 120 MVAr, ±120 MVAr, 2 × 300 MVA). */
+/** Network of the live fleet (SB-510: 510 MW, 2 × 108 km, 624 MVAr, 4 × 180 MVAr, ±120 MVAr, 2 × 300 MVA). */
 export function plantNet(f: Fleet = liveFleet()) {
   const n = f.net;
   return {
@@ -129,7 +129,9 @@ export function exportCableState(totalMW: number, net = plantNet()): CableState 
     currentA: current,
     loadingPct: ratio * 100,
     conductorC: c.seabedC + (c.maxConductorC - c.ratedAmbientC) * ratio ** 2,
-    lossesMW: (net.circuits * 3 * current ** 2 * c.rOhmPerKm * net.exportKm) / 1e6,
+    // mean I² along the cable: the charging current grows linearly from the middle to each
+    // compensated end, so its mean square is Ic²/12 (backend farm_comparison does the same)
+    lossesMW: (net.circuits * 3 * (iActive ** 2 + iCharging ** 2 / 12) * c.rOhmPerKm * net.exportKm) / 1e6,
     chargingMVArPerCircuit: chargingMVAr,
   };
 }
@@ -368,7 +370,7 @@ export function windAtHeight(hubWindMs: number, heightM: number): number {
 // R_ext of the OSS J-tube is calibrated so the 825 A datasheet rating at its 20 °C
 // reference gives exactly 90 °C;
 // other zones are fixed ratios of it. Zones follow the real route: J-tube
-// 0–0.3 km, subsea burial to 62.7 km, HDD landfall 62.7–63.5 km, land to 76.5 km.
+// 0–0.3 km, subsea burial to 78.7 km, HDD landfall 78.7–79.5 km, land to 108 km.
 const DTS_ALPHA = 0.00393;
 const DTS_R_AC20_OHM_PER_M = (0.0176 * 1.039) / 1000;
 const DTS_R_AC90_OHM_PER_M = DTS_R_AC20_OHM_PER_M * (1 + DTS_ALPHA * 70);
@@ -377,7 +379,7 @@ const DTS_T_INT = 0.5;
 const DTS_W_C_RATED = EXPORT_CABLE.ratedA ** 2 * DTS_R_AC90_OHM_PER_M;
 export const DTS_R_EXT_J_TUBE =
   (EXPORT_CABLE.maxConductorC - EXPORT_CABLE.ratedAmbientC - (DTS_W_C_RATED + DTS_W_D / 2) * DTS_T_INT) / (DTS_W_C_RATED + DTS_W_D); // ≈ 3.67 K·m/W
-export const DTS_ZONES = { jTubeEndKm: 0.3, hddStartKm: 62.7, hddEndKm: 63.5 } as const;
+export const DTS_ZONES = { jTubeEndKm: 0.3, hddStartKm: 78.7, hddEndKm: 79.5 } as const;
 
 function dtsRExt(km: number): number {
   if (km <= DTS_ZONES.jTubeEndKm) return DTS_R_EXT_J_TUBE;
@@ -389,7 +391,7 @@ function dtsRExt(km: number): number {
 export function dtsZoneName(km: number): string {
   if (km <= DTS_ZONES.jTubeEndKm) return "OSS J-tube (cable in air)";
   if (km < DTS_ZONES.hddStartKm) return "subsea burial";
-  if (km <= DTS_ZONES.hddEndKm) return "HDD landfall, Zaleskie";
+  if (km <= DTS_ZONES.hddEndKm) return "HDD landfall, Darłówko";
   return "land cable";
 }
 

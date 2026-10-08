@@ -295,9 +295,9 @@ class TestFaultScenarios:
         assert scenario.protection_function == ProtectionFunction.PDIF
 
     def test_busbar_fault_current_is_iec60909_ikss(self):
-        """Ik'' at the OSS 220 kV busbar comes from pandapower (≈ 9.1 kA), ~7 × load."""
+        """Ik'' at the OSS 220 kV busbar comes from pandapower (≈ 7.8 kA), ~6 × load."""
         scenario = create_busbar_overcurrent_scenario()
-        assert 8.0 < scenario.fault_current_ka < 10.5
+        assert 7.0 < scenario.fault_current_ka < 9.0
         assert scenario.fault_current_ka / scenario.load_current_ka > 5
 
     def test_transformer_differential_uses_pdif(self):

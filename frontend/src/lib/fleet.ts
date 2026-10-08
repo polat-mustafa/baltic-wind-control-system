@@ -17,6 +17,7 @@ import { create } from "zustand";
 import {
   OSS_GEO,
   PSE_SUBSTATION_GEO,
+  PSE_SUBSTATION_NAME,
   SB510_EXPORT_KM,
   SITE_BOUNDARY_GEO,
   TURBINE_POSITIONS,
@@ -41,16 +42,16 @@ export const SB510_NETWORK: NetworkSpec = {
   array_cable_length_km: 1.5,
   export_length_km: SB510_EXPORT_KM,
   num_export_cables: 2,
-  cable_q_mvar: 442,
+  cable_q_mvar: 624,
   num_oss_transformers: 2,
   oss_trafo_mva: 300,
   num_onshore_transformers: 2,
   onshore_trafo_mva: 300,
   grid_ssc_mva: 10_000,
   statcom_rating_mvar: 120,
-  num_reactors: 3,
-  reactor_unit_mvar: 170,
-  reactor_total_mvar: 510,
+  num_reactors: 4,
+  reactor_unit_mvar: 180,
+  reactor_total_mvar: 720,
 };
 
 export interface Fleet {
@@ -64,7 +65,7 @@ export interface Fleet {
   /** Turbine ids per string (string 1 first). */
   strings: string[][];
   oss: { lat: number; lon: number };
-  /** Grid connection node (SB-510: PSE Słupsk-Wierzbięcino; own: the site report's nearest node, if known). */
+  /** Grid connection node (SB-510: PSE Krzemienica; own: the site report's chosen node, if known). */
   grid: { name: string; lat: number; lon: number } | null;
   /** Site boundary [lat, lon][] (own: the drawn site). */
   boundary: [number, number][];
@@ -136,7 +137,7 @@ export const SB510_FLEET: Fleet = {
     .sort((a, b) => a - b)
     .map((n) => TURBINE_POSITIONS.filter((t) => t.stringNumber === n).map((t) => t.id).sort()),
   oss: OSS_GEO,
-  grid: { name: "PSE Słupsk-Wierzbięcino", ...PSE_SUBSTATION_GEO },
+  grid: { name: PSE_SUBSTATION_NAME, ...PSE_SUBSTATION_GEO },
   boundary: SITE_BOUNDARY_GEO,
   net: SB510_NETWORK,
 };

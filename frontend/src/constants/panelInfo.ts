@@ -39,7 +39,7 @@ export const cableLoadingInfo: InfoContent = {
     { name: "Derating", description: "Applied for seabed burial depth and grouping" },
   ],
   interpretation:
-    "Bars approaching 100% need attention. The two parallel export cables (76.5 km) are typically " +
+    "Bars approaching 100% need attention. The two parallel export cables (108 km) are typically " +
     "the most loaded segment under full farm output.",
 };
 
@@ -63,12 +63,12 @@ export const statcomInfo: InfoContent = {
   title: "STATCOM Sizing — Reactive Power Compensation",
   description:
     "Determines the required STATCOM capacity for voltage regulation and grid code compliance. " +
-    "Includes ±120 MVAR STATCOM + 4 × 120 MVAR shunt reactors (one per export cable at each end) for the ~442 MVAR " +
+    "Includes ±120 MVAR STATCOM + 4 × 180 MVAR shunt reactors (one per export cable at each end) for the ~624 MVAR " +
     "charging power of the two export cables.",
   standard: "ENTSO-E NC RfG Type D + PSE IRiESP reactive power requirements",
   parameters: [
     { name: "STATCOM", description: "±120 MVAR (full 4-quadrant operation)" },
-    { name: "Shunt reactors", description: "4 × 120 MVAR: one per export cable onshore and one at the OSS, so each cable end carries half the charging current; sized so one can be out" },
+    { name: "Shunt reactors", description: "4 × 180 MVAR: one per export cable onshore and one at the OSS, so each cable end carries half the charging current; sized so one can be out" },
     { name: "Power factor", description: "0.95 lead to 0.95 lag at PCC" },
   ],
   interpretation:
@@ -108,7 +108,7 @@ export const converterComparisonInfo: InfoContent = {
 export const substationSldInfo: InfoContent = {
   title: "Single-Line Diagram — Export System",
   description:
-    "PSE 400 kV connection point → 2 × 300 MVA onshore transformers → 2 × 76.5 km 220 kV export cables → " +
+    "PSE 400 kV connection point → 2 × 300 MVA onshore transformers → 2 × 108 km 220 kV export cables → " +
     "OSS 220 kV busbar (STATCOM, shunt reactors) → 2 × 300 MVA OSS transformers → split 66 kV switchboard " +
     "(section A: strings 1–3, section B: strings 4–6, bus coupler normally open).",
   standard: "IEC 60617 symbols · IEC 61850-7-2 select-before-operate · ISA-101 colours",
@@ -127,7 +127,7 @@ export const gooseSimInfo: InfoContent = {
   title: "GOOSE protection — IEC 61850-8-1",
   description:
     "A protection IED publishes the trip as a GOOSE message (Ethernet layer 2, multicast); every breaker bay " +
-    "subscribes. The scenarios use IEC 60909 fault currents from the P2 pandapower model (OSS 220 kV Ik'' ≈ 9.1 kA).",
+    "subscribes. The scenarios use IEC 60909 fault currents from the P2 pandapower model (OSS 220 kV Ik'' ≈ 7.8 kA).",
   standard: "IEC 61850-8-1 (GOOSE) · IEC 61850-5 (transfer time class TT6 ≤ 3 ms) · IEC 60909-0",
   parameters: [
     { name: "stNum", description: "State number — increments when the dataset changes (the trip)" },
@@ -357,12 +357,12 @@ export const p5NetworkInfo: InfoContent = {
   title: "Network readings",
   description:
     "Steady-state load flow (pandapower) of whatever is live after the last step, built from " +
-    "the P2 network data (SB-510): 2 × 300 MVA onshore transformers (OLTC at neutral), 76.5 km 1000 mm² cable " +
-    "(190 nF/km, 825 A) with its 120 Mvar onshore line reactor, 120 Mvar OSS reactor, ±120 Mvar STATCOM at 1.00 pu, " +
+    "the P2 network data (SB-510): 2 × 300 MVA onshore transformers (OLTC pre-set 3 steps down), 108 km 1000 mm² cable " +
+    "(190 nF/km, 825 A) with its 180 Mvar onshore line reactor, 180 Mvar OSS reactor, ±120 Mvar STATCOM at 1.00 pu, " +
     "TX-OSS-01 (vk 12.5 %, i0 0.05 %), graded 66 kV array cables.",
   parameters: [
-    { name: "Charging", description: "Q = ωCU²l ≈ 221 Mvar at 220 kV → ≈ 580 A per phase at 1 pu, with no load" },
-    { name: "Ferranti", description: "Open end above the sending end by 1/cos(βl) ≈ 1.021 (βl ≈ 0.20 rad)" },
+    { name: "Charging", description: "Q = ωCU²l ≈ 312 Mvar at 220 kV → ≈ 820 A per phase at 1 pu, with no load" },
+    { name: "Ferranti", description: "Open end above the sending end by 1/cos(βl) ≈ 1.043 (βl ≈ 0.29 rad)" },
     { name: "Q sign", description: "Generator convention: + = generating; the reactors read negative" },
   ],
   interpretation:
@@ -595,7 +595,7 @@ export const resonanceScanInfo: InfoContent = {
     "Parallel resonance peaks occur where impedance spikes — dangerous if a harmonic source coincides with a peak.",
   standard: "IEC 61000-3-6 Annex B — Impedance-based resonance assessment",
   parameters: [
-    { name: "Cable resonance", description: "π-model cable: f_res = 1/(2π√(LC)) — SB-510 (76.5 km): ≈ 135 Hz and ≈ 965 Hz seen from OSS 66 kV" },
+    { name: "Cable resonance", description: "π-model cable: f_res = 1/(2π√(LC)) — SB-510 (108 km): ≈ 115 Hz and ≈ 880 Hz seen from OSS 66 kV without the filter" },
     { name: "HIGH risk", description: "Peak aligns with a WTG harmonic injection frequency" },
     { name: "MEDIUM risk", description: "Peak near a harmonic — damping may be insufficient" },
   ],

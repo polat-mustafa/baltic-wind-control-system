@@ -21,8 +21,8 @@ The platform ships with one reference project, modelled on the current Polish Ba
 | Turbines | 34 × Vestas V236-15.0 MW = **510 MW** |
 | Array | 66 kV XLPE strings |
 | Site | MSP energy basin PZP_44 (real site 44.E.1, permit PGE / Baltica 9 — used fictionally), 37–51 m, jackets |
-| Export | 2 × 220 kV HVAC, 76.5 km (63.5 subsea round Ławica Słupska + 13 onshore) |
-| Reactive power | ±120 Mvar STATCOM, 4 × 120 Mvar shunt reactors (one per export circuit at each end) |
+| Export | 2 × 220 kV HVAC, 108 km (79.3 subsea round Ławica Słupska, clear of the military area + 28.7 onshore) to PSE Krzemienica |
+| Reactive power | ±120 Mvar STATCOM, 4 × 180 Mvar shunt reactors (one per export circuit at each end) |
 | Storage | 50 MW / 200 MWh BESS |
 | Grid | PSE 400 kV, ENTSO-E NC RfG Type D |
 

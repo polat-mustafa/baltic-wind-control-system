@@ -17,7 +17,7 @@ import { EducationButton } from "../ui/EducationButton";
 const STRENGTH: [GridStrength, string][] = [
   ["strong_grid", "Strong 10 GVA"],
   ["weak_grid", "Weak 2 GVA"],
-  ["very_weak_grid", "Very weak 0.7 GVA"],
+  ["very_weak_grid", "Very weak 0.75 GVA"],
 ];
 
 function Row({ label, gfl, gfm }: { label: string; gfl: string; gfm: string }) {

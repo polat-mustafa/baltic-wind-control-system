@@ -41,19 +41,21 @@ def _header(strings: list[int], export_km: float, array_km: float = 1.5, name: s
 
 class TestDesignRules:
     def test_sb510_golden(self):
-        """design() rebuilds SB-510 from PZP_44, 76.5 km: 2 circuits, 2 × 300 / 2 × 300 MVA,
-        4 × 120 MVAR (one per circuit at each end), ±120 MVAR. The rule on the original
-        45 km export gives 4 × 60 MVAR."""
+        """design() rebuilds SB-510 from PZP_44, 108 km to Krzemienica: 2 circuits,
+        2 × 300 / 2 × 300 MVA, 4 × 180 MVAR (one per circuit at each end), ±120 MVAR. The rule
+        on the original 45 km export gives 4 × 60 MVAR, on the 76.5 km route 4 × 120."""
         old = design(tuple(STRING_LAYOUT), 45.0, 1.5, "SB-510")
         assert (old.num_export_cables, old.oss_trafo_mva, old.onshore_trafo_mva) == (2, 300, 300)
         assert (old.num_reactors, old.reactor_unit_mvar, old.statcom_mvar) == (4, 60, 120)
-        spec = design(tuple(STRING_LAYOUT), 76.5, 1.5, "SB-510")
+        mid = design(tuple(STRING_LAYOUT), 76.5, 1.5, "SB-510")
+        assert (mid.num_reactors, mid.reactor_unit_mvar) == (4, 120)
+        spec = design(tuple(STRING_LAYOUT), 108.0, 1.5, "SB-510", grid_node=SB510_GRID_NODE)
         assert spec == SB510
         assert (spec.num_export_cables, spec.oss_trafo_mva, spec.onshore_trafo_mva) == (2, 300, 300)
-        assert (spec.num_reactors, spec.reactor_unit_mvar, spec.statcom_mvar) == (4, 120, 120)
-        assert spec.reactors_per_end == 2 and spec.reactor_mvar_per_end == 240
-        # one reactor out: (442 − 360) · 1.15 = 94 ≤ 120; all in: (480 − 442) · 1.15 = 44
-        assert (spec.cable_q_mvar - 3 * 120) * 1.15 <= 120 and (480 - spec.cable_q_mvar) > 0
+        assert (spec.num_reactors, spec.reactor_unit_mvar, spec.statcom_mvar) == (4, 180, 120)
+        assert spec.reactors_per_end == 2 and spec.reactor_mvar_per_end == 360
+        # one reactor out: (624 − 540) · 1.15 = 97 ≤ 120; all in: (720 − 624) · 1.15 = 110
+        assert (spec.cable_q_mvar - 3 * 180) * 1.15 <= 120 and (720 - spec.cable_q_mvar) > 0
         assert check_reactors(SB510) == SB510  # the load-flow check keeps the reference design
 
     def test_cable_physics(self):
@@ -154,7 +156,7 @@ class TestFarmHeader:
     def test_no_header_is_sb510(self):
         data = client.get("/api/v1/grid/network-spec").json()
         assert data["source"] == "reference" and data["name"] == "SB-510"
-        assert data["num_reactors"] == 4 and data["reactor_unit_mvar"] == 120
+        assert data["num_reactors"] == 4 and data["reactor_unit_mvar"] == 180
 
     def test_header_gives_the_project_design(self):
         r = client.get(

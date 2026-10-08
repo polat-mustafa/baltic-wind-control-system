@@ -34,6 +34,10 @@ export const CASE_STUDY_SITE: LonLat[] = [
   [16.42, 55.0688],
 ];
 
+/** SB-510's connection point (backend network_model.SB510_GRID_NODE): PSE Krzemienica, the node
+ * PGE announced for Baltica 9+ (site 44.E.1) — not the nearest node. */
+export const CASE_STUDY_GRID_NODE = "Krzemienica 400 kV";
+
 const SITE_KEY = "of.site.v1";
 
 /** Identifies the inputs a report was computed from (site corners + criteria). */
@@ -111,7 +115,8 @@ interface SiteState {
   undoCorner: () => void;
   finishDrawing: () => Promise<void>;
   cancelDrawing: () => void;
-  setSite: (site: LonLat[] | null) => Promise<void>;
+  /** New site; `gridNode` preselects its connection point (default: the nearest). */
+  setSite: (site: LonLat[] | null, gridNode?: string | null) => Promise<void>;
   /** Choose the grid connection point (null = the nearest) and re-assess. */
   setGridNode: (name: string | null) => Promise<void>;
   startRoute: () => void;
@@ -219,9 +224,9 @@ export const useSiteStore = create<SiteState>((set, get) => ({
   },
   cancelDrawing: () => set({ drawing: null }),
 
-  setSite: async (site) => {
+  setSite: async (site, gridNode = null) => {
     // A new site invalidates every stage done for the old one.
-    set({ site, report: null, reportFor: null, assessError: null, done: [], stage: "screening", gridNode: null, ...NO_ROUTE });
+    set({ site, report: null, reportFor: null, assessError: null, done: [], stage: "screening", gridNode, ...NO_ROUTE });
     persist(get());
     if (site) await get().assess();
   },

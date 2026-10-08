@@ -37,7 +37,7 @@ levels are shown instead (there are no LV planning levels).
 Harmonic filter — damped 2nd-order high-pass at OSS 66 kV
 ----------------------------------------------------------
 Without a filter the array-cable capacitance resonates with the OSS transformer and
-grid inductance at 960 Hz (|Z| amplification 9.6 at OSS 66 kV) and h19 reaches 108 %
+grid inductance at 880 Hz (|Z| amplification 15.7 at OSS 66 kV) and h17 reaches 74.5 %
 of the 66 kV planning level. Elements for a 50 Hz output Q at tuning order h_t and
 quality factor q (Das, IEEE Trans. Ind. Appl. 40(1), 2004; IEEE Std 1531):
   X_C − X_L = U² / Q,  X_L = X_C / h_t²  →  C = 1 / (ω₀ X_C),  L = 1 / (h_t² ω₀² C)
@@ -47,12 +47,12 @@ quality factor q (Das, IEEE Trans. Ind. Appl. 40(1), 2004; IEEE Std 1531):
 POC, the 220 kV or the 66 kV bus at 0.5, 1 or 2 × S_sc, tune one order below the worst
 order (h5: 4.7) and take the smallest standard size (2–10 Mvar) that brings every harmonic to
 ≤ 50 % in all three grid cases without leaving an amplified resonance (> 3) next to a
-characteristic harmonic. SB-510: h19 → tuned h18 (900 Hz), 5 Mvar (C 3.64 µF, L 8.59 mH,
-R 72.8 Ω, 44 A and ≈ 0.6 kW at 50 Hz). The 960 Hz resonance moves to ≈ 645 Hz
-(amplification 2.3–2.9), h19 drops from 108 % to 10 % of the 66 kV planning level, the
-worst harmonic is h13 at 50 %. 2 or 3 Mvar would leave the peak near h13 (amplification
-> 3 at some S_sc); 4 Mvar leaves h13 at 51 %. The 130 Hz low-order resonance (h2.6,
-non-characteristic) is not addressed by this filter.
+characteristic harmonic. SB-510 (108 km export): h17 → tuned h16 (800 Hz), 2 Mvar
+(C 1.46 µF, L 27.2 mH, R 205 Ω). The 880 Hz peak is damped to 840 Hz (amplification 1.5),
+h17 drops from 74.5 % to 31.5 % of the 66 kV planning level, the worst characteristic
+harmonic is h11 at 34 %. The low-order cable–grid resonance at 115 Hz (h2.3,
+amplification 12, non-characteristic) is not something a 66 kV high-pass cures: the low
+orders stay at ≤ 75 % of their planning level in every bus / S_sc case.
 
 Flicker — IEC 61400-21 / IEC 61000-3-7
 ---------------------------------------
@@ -277,8 +277,8 @@ def size_harmonic_filter(spec: FarmSpec) -> tuple[float, float]:
 
 def _resonance_near_characteristic(spec: FarmSpec) -> bool:
     """A MEDIUM/HIGH resonance (amplification > 3) within one order of a characteristic
-    harmonic at OSS 66 kV, at any of the S_sc cases — what moving the 960 Hz peak with
-    too small a capacitor does (SB-510 with 2 Mvar: 690 Hz, next to h13)."""
+    harmonic at OSS 66 kV, at any of the S_sc cases — what moving the array resonance with
+    too small a capacitor can do (it lands next to a lower characteristic order)."""
     return any(
         compute_resonance_scan(
             spec.export_length_km, 66.0, spec.grid_ssc_mva * factor, scan_max_hz=1500.0, spec=spec

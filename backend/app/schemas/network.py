@@ -9,7 +9,7 @@ IEC 62541 OPC-UA unified architecture:
 Communication network layers (IEC 61850-90-5 + NERC CIP):
   Level 0 -- Field (WTG IEC 61850 bay units, bay controllers, protection IEDs)
   Level 1 -- Station (OSS LAN, IEC 61850 GOOSE/MMS, 100 Mbps)
-  Level 2 -- Remote (MPLS WAN or microwave, onshore SCADA <- 76.5 km cable route)
+  Level 2 -- Remote (MPLS WAN or microwave, onshore SCADA <- 108 km cable route)
   Level 3 -- Corporate (historian, reporting, DR, MMS connectivity to PSE)
 
 Latency requirements (IEC 61850 performance classes):

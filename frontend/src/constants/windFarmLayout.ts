@@ -1,6 +1,6 @@
 /**
  * Wind farm geography — 34 × 15 MW "V236 class" turbines (IEA 15 MW) in 6 strings (6-6-6-6-5-5),
- * offshore substation, LIDAR, 76.5 km export route and grid connection.
+ * offshore substation, LIDAR, 108 km export route and grid connection.
  *
  * Site: energy basin PZP_44 of the Polish maritime spatial plan (Dz.U. 2021
  * poz. 935) — the real site 44.E.1, whose location permit (9 August 2023) is
@@ -112,48 +112,60 @@ export const LIDAR_GEO = { lat: 55.0405, lon: 16.4169 };
 
 // ── Grid connection (onshore) ───────────────────────────────────
 
-/** PSE 400/110 kV substation "Słupsk Wierzbięcino" (OSM, operator PSE). */
-export const PSE_SUBSTATION_GEO = { lat: 54.5015, lon: 16.8919 };
+/** PSE 400/110 kV substation "Słupsk Wierzbięcino" (OSM, operator PSE) — SwePol's end. */
+export const SLUPSK_SUBSTATION_GEO = { lat: 54.5015, lon: 16.8919 };
 
 /**
- * Farm's own 220/400 kV onshore substation, 1.4 km from PSE Słupsk
- * Wierzbięcino (land, gmina Redzikowo). Same pattern as the real MFW Baltic
- * Power 220/400 kV station beside PSE Choczewo.
+ * PSE 400 kV substation Krzemienica (planned, PSE investment programme; region pack
+ * grid node) — the connection point PGE announced for Baltica 9+ (site 44.E.1), so
+ * SB-510's (backend network_model.SB510_GRID_NODE).
  */
-export const ONSHORE_GEO = { lat: 54.506, lon: 16.872 };
+export const PSE_SUBSTATION_GEO = { lat: 54.4393, lon: 16.8537 };
+export const PSE_SUBSTATION_NAME = "PSE Krzemienica";
 
-/** Beach landfall at Zaleskie (gmina Ustka), on the OSM coastline. */
-export const LANDFALL_GEO = { lat: 54.5698, lon: 16.735 };
+/**
+ * Farm's own 220/400 kV onshore substation, 1.25 km west of PSE Krzemienica (land).
+ * Same pattern as the real MFW Baltic Power 220/400 kV station beside PSE Choczewo.
+ */
+export const ONSHORE_GEO = { lat: 54.442, lon: 16.835 };
+
+/** Beach landfall at Darłówko-Wschodnie (gmina Darłowo), on the OSM coastline. */
+export const LANDFALL_GEO = { lat: 54.4589, lon: 16.4073 };
 
 /** Export length of the electrical model [km] (backend network_model.EXPORT_CABLE_LENGTH_KM). */
-export const SB510_EXPORT_KM = 76.5;
+export const SB510_EXPORT_KM = 108;
 /** Water depth across the turbine positions [m] (EMODnet DTM) — jackets. */
 export const SB510_DEPTH_M: [number, number] = [37, 51];
 
 /**
- * 2 × 220 kV export route, 76.7 km drawn ≈ the 76.5 km of the electrical model:
- * 63.3 km subsea + 13.4 km land cable (cable DTS zones: 63.5 + 13). From the OSS
- * it runs south-west round the west end of the Ławica Słupska Natura 2000 site (≥ 1.2 km clear),
- * crosses shipping basin PZP_15 at right angles (≈ 172° across its 81° axis),
- * then heads for the landfall at Zaleskie (gmina Ustka); the coastal Natura 2000
- * bird area "Przybrzeżne Wody Bałtyku" spans the whole coast — HDD at landfall.
- * Checked against the region pack layers (2026-10-08).
+ * 2 × 220 kV export route, 108.0 km drawn = the electrical model: 79.3 km subsea +
+ * 28.7 km land cable (cable DTS: HDD 78.7–79.5 km). From the OSS it runs south-west
+ * round the west end of the Ławica Słupska Natura 2000 site (≥ 1.7 km clear), crosses
+ * shipping basins PZP_15 and PZP_10 at 62–67° (≥ 45°, ICPC Rec. 2), runs south between
+ * Darłowo's approach channel PZP_23 and the military National Defence Area off Ustka
+ * (≥ 0.7 km from each), lands at Darłówko-Wschodnie and runs east on land north of the
+ * Natura 2000 site Dolina Wieprzy i Studnicy to PSE Krzemienica. The coastal bird area
+ * "Przybrzeżne Wody Bałtyku" spans the whole coast (8.5 km at sea) — HDD at landfall.
+ * Checked with the route check against the region pack (2026-10-08). Until then the
+ * route ran 76.5 km to Słupsk-Wierzbięcino, 24.5 km of it through the military area.
  */
 export const EXPORT_CABLE_SUBSEA_GEO: { lat: number; lon: number }[] = [
   OSS_GEO,
   { lat: 54.93, lon: 16.335 },
-  { lat: 54.855, lon: 16.37 },
-  { lat: 54.745, lon: 16.395 },
-  { lat: 54.615, lon: 16.69 },
+  { lat: 54.845, lon: 16.165 },
+  { lat: 54.7, lon: 16.1 },
+  { lat: 54.605, lon: 16.11 },
+  { lat: 54.581, lon: 16.146 },
+  { lat: 54.534, lon: 16.25 },
+  { lat: 54.491, lon: 16.345 },
   LANDFALL_GEO,
 ];
 export const EXPORT_CABLE_LAND_GEO: { lat: number; lon: number }[] = [
   LANDFALL_GEO,
-  { lat: 54.55, lon: 16.742 },
-  { lat: 54.53, lon: 16.76 },
-  { lat: 54.516, lon: 16.79 },
-  { lat: 54.51, lon: 16.825 },
-  { lat: 54.498, lon: 16.85 },
+  { lat: 54.455, lon: 16.47 },
+  { lat: 54.468, lon: 16.6 },
+  { lat: 54.478, lon: 16.7 },
+  { lat: 54.468, lon: 16.77 },
   ONSHORE_GEO,
 ];
 export const EXPORT_CABLE_GEO = [
@@ -161,7 +173,7 @@ export const EXPORT_CABLE_GEO = [
   ...EXPORT_CABLE_LAND_GEO.slice(1),
 ];
 
-/** 400 kV tie from the farm's onshore substation to PSE Słupsk Wierzbięcino. */
+/** 400 kV tie from the farm's onshore substation to PSE Krzemienica. */
 export const PSE_GRID_LINE_GEO: [
   { lat: number; lon: number },
   { lat: number; lon: number },
@@ -186,7 +198,7 @@ export const SITE_BOUNDARY_GEO: [number, number][] = [
 
 /**
  * Initial map view: the offshore assets (array, OSS/STATCOM, LIDAR) so the
- * turbines are readable; zoom out to see the export route to Słupsk.
+ * turbines are readable; zoom out to see the export route to Krzemienica.
  */
 export const FARM_VIEW_BOUNDS: [[number, number], [number, number]] = [
   [54.995, 16.4],
@@ -415,8 +427,8 @@ export const SEA_POLYGON_GEO: [number, number][] = [
 
 /**
  * SwePol HVDC link (450 kV DC, 600 MW, Stärnö SE ↔ Słupsk-Wierzbięcino PL),
- * OSM ways 1025227913 (subsea) + 251849081 (land). Its landfall is 3 km east
- * of ours and both routes stay apart — no cable crossing needed.
+ * OSM ways 1025227913 (subsea) + 251849081 (land). It lands 27 km east of ours and
+ * both routes stay apart — no cable crossing needed.
  */
 export const SWEPOL_GEO: [number, number][] = [
   [55.3525, 16.2825],
@@ -428,7 +440,7 @@ export const SWEPOL_GEO: [number, number][] = [
   [54.5739, 16.7841],
   [54.5544, 16.7985],
   [54.5316, 16.8905],
-  [PSE_SUBSTATION_GEO.lat, PSE_SUBSTATION_GEO.lon],
+  [SLUPSK_SUBSTATION_GEO.lat, SLUPSK_SUBSTATION_GEO.lon],
 ];
 
 /**

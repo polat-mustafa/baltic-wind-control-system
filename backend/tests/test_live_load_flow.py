@@ -78,15 +78,15 @@ def test_reactor_switching_keeps_statcom_headroom(layout: tuple[int, ...], km: f
 
 
 def test_sb510_switches_one_reactor_out_at_full_output() -> None:
-    """442 MVAR of charging on 4 × 120 MVAR (2 onshore, 2 OSS): all four in at no and half
-    load; at 510 MW the cable and transformers absorb more (I²X) and the operator switches
-    one out. The STATCOM stays inside ±60 MVAR, the export inside 92 % of 825 A."""
-    expected = {0.0: 4, 0.5: 4, 1.0: 3}
+    """624 MVAR of charging on 4 × 180 MVAR (2 onshore, 2 OSS): all four in at no load;
+    from half load the cable and transformers absorb more (I²X) and the operator switches
+    one out. The STATCOM stays inside ±60 MVAR, the export inside 99.5 % of 825 A."""
+    expected = {0.0: 4, 0.5: 3, 1.0: 3}
     for f, n in expected.items():
         r = run_live_load_flow([15.0 * f] * 34)
         assert r.reactors_in_service == n and r.voltage_compliant
         assert abs(r.statcom_q_mvar) < 60.0
-        assert r.export_cable_loading_pct <= 92.5
+        assert r.export_cable_loading_pct <= 99.5
 
 
 def test_api_takes_the_farm_from_the_header() -> None:

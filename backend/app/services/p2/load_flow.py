@@ -261,7 +261,7 @@ def run_load_flow(
     auto_dispatch : bool
         If True, auto-adjust STATCOM Q before final load flow. Default: True.
     export_length_km : float | None
-        Export cable length [km]; None = the spec's (SB-510: 76.5).
+        Export cable length [km]; None = the spec's (SB-510: 108).
     grid_ssc_mva : float
         Grid short-circuit power [MVA]. Default: 10,000.
     spec : FarmSpec
@@ -413,7 +413,7 @@ def dispatch_with_reactor_switching(net: pp.pandapowerNet, rating: float) -> tup
     While the STATCOM injects more than half its rating, the operator switches out
     the one reactor (onshore or OSS) that relieves the STATCOM most, and keeps it
     out only if |Q| falls — as the landing estimate does (frontend
-    ``reactiveBalance``). SB-510 (4 × 120 MVAR on 442 MVAR of charging) runs on
+    ``reactiveBalance``). SB-510 (4 × 180 MVAR on 624 MVAR of charging) runs on
     three at full output. Every operating-point study uses it: Grid tab, N-1, live map.
 
     Returns the STATCOM set-point [MVAR, generating +] and the reactors in service.

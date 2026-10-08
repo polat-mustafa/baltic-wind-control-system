@@ -6,8 +6,8 @@ messaging for protection fault scenarios in the offshore substation.
 
 Physics — Why GOOSE Exists
 ---------------------------
-A bolted fault on the OSS 220 kV busbar draws Ik'' ≈ 9.1 kA (IEC 60909
-max case, pandapower — P2), ~7 × the 1.34 kA the busbar carries at 510 MW.
+A bolted fault on the OSS 220 kV busbar draws Ik'' ≈ 7.8 kA (IEC 60909
+max case, pandapower — P2), ~6 × the 1.34 kA the busbar carries at 510 MW.
 The arc energy grows with I²·t, so every millisecond of clearing time
 matters, and the fault must be gone before the PSE fault-ride-through
 profile (0 pu for 150 ms) is exceeded. Hard-wired trip contacts are replaced

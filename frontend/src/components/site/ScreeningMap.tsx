@@ -26,7 +26,7 @@ import { Layers, PenLine, RotateCcw, Undo2, X, Check, MapPinned } from "lucide-r
 import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { cn } from "../../lib/utils";
 import type { LayerInfo, LonLat } from "../../services/siteApi";
-import { CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
+import { CASE_STUDY_GRID_NODE, CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
 import { checkExportRoute } from "../../lib/site/exportRoute";
 import { ROLE_STYLE, wideScreen, type RoleStyle } from "./mapStyles";
 
@@ -347,7 +347,7 @@ export default function ScreeningMap() {
           <>
             <ToolButton onClick={startDrawing} icon={<PenLine size={13} />} label={site ? "Redraw site" : "Draw site"} primary />
             <ToolButton
-              onClick={() => void setSite(CASE_STUDY_SITE)}
+              onClick={() => void setSite(CASE_STUDY_SITE, CASE_STUDY_GRID_NODE)}
               icon={<MapPinned size={13} />}
               label="SB-510 boundary"
             />

@@ -53,7 +53,7 @@ describe("lifecycle pages", () => {
     fireEvent.click(screen.getByRole("button", { name: /Simulate the campaign/ }));
     await screen.findByText("Full commercial operation");
     const sent = vi.mocked(api.runCampaign).mock.calls[0][0];
-    expect(sent).toMatchObject({ mode: "install", n_turbines: 34, export_km: 77, foundation: "jacket", alpha: 0.8 });
+    expect(sent).toMatchObject({ mode: "install", n_turbines: 34, export_km: 108, foundation: "jacket", alpha: 0.8 });
     expect(sent.strings?.reduce((a, b) => a + b, 0)).toBe(34);
     expect(screen.getByRole("img", { name: /Campaign timeline/ })).toBeTruthy();
     expect(screen.getByText(/Weather windows by month/)).toBeTruthy();

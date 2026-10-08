@@ -44,6 +44,7 @@ import {
   ONSHORE_GEO as SB510_ONSHORE_GEO,
   PSE_GRID_LINE_GEO,
   PSE_SUBSTATION_GEO,
+  PSE_SUBSTATION_NAME,
   SEA_POLYGON_GEO,
   turbineIconScale,
 } from "../../constants/windFarmLayout";
@@ -542,7 +543,7 @@ function createGridSwitchyardIcon(breakerClosed: boolean): L.DivIcon {
   const color = breakerClosed ? EQ_GREEN : EQ_IDLE;
   return createEquipmentIcon({
     glyph: breakerGlyph(color, breakerClosed),
-    tag: "PSE Słupsk Wierzbięcino",
+    tag: PSE_SUBSTATION_NAME,
     value: `400 kV · ${breakerClosed ? "CB closed" : "CB open"}`,
     color,
   });
@@ -1554,7 +1555,7 @@ function LeafletWindFarmMapInner({
           }}
         >
           <Tooltip direction="left" offset={[-6, 0]}>
-            Landfall · Zaleskie beach (HDD) — 63.5 km subsea + 13 km land
+            Landfall · Darłówko-Wschodnie beach (HDD) — 79.3 km subsea + 28.7 km land
           </Tooltip>
         </CircleMarker>
 
@@ -1597,7 +1598,7 @@ function LeafletWindFarmMapInner({
           zIndexOffset={1000}
         />
 
-        {/* PSE 400/110 kV substation "Słupsk Wierzbięcino" (real, OSM) */}
+        {/* PSE 400 kV substation Krzemienica (planned by PSE; Baltica 9+'s connection point) */}
         <Marker
           position={[PSE_SUBSTATION_GEO.lat, PSE_SUBSTATION_GEO.lon]}
           icon={switchyardIcon}

@@ -62,15 +62,15 @@ export const farmConfigEducation: EducationContent = {
   workedExamples: [
     {
       title: "Export cable charging for the base case",
-      scenario: "Two 220 kV circuits, 76.5 km, C = 190 nF/km, 50 Hz.",
+      scenario: "Two 220 kV circuits, 108 km, C = 190 nF/km, 50 Hz.",
       steps: [
         "ω = 2π × 50 = 314.2 rad/s",
-        "Per circuit: 314.2 × 190·10⁻⁹ × (220·10³)² × 76.5 = 221 MVAr",
-        "Two circuits: 442 MVAr",
+        "Per circuit: 314.2 × 190·10⁻⁹ × (220·10³)² × 108 = 312 MVAr",
+        "Two circuits: 624 MVAr",
       ],
       result:
-        "442 MVAr of capacitive reactive power — almost 90 % of the farm's MW rating — which is why HVAC export beyond " +
-        "~80–100 km needs mid-point compensation or HVDC.",
+        "624 MVAr of capacitive reactive power — more than the farm's 510 MW rating — which is why HVAC export beyond " +
+        "~100 km runs its cables near their rating and longer routes need mid-point compensation or HVDC.",
     },
   ],
 

@@ -14,7 +14,7 @@ export const loadFlowEducation: EducationContent = {
 
   simpleExplanation:
     "Power flows from the turbines through 66 kV array cables to the offshore substation, is stepped up to 220 kV, " +
-    "travels 76.5 km to the grid in two cables, and is stepped up again to 400 kV. Every element has a little resistance " +
+    "travels 108 km to the grid in two cables, and is stepped up again to 400 kV. Every element has a little resistance " +
     "(it gets warm — losses) and reactance (the voltage shifts). The load flow calculates those shifts and how close " +
     "each cable and transformer runs to its limit.",
 

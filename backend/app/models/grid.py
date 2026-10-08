@@ -45,7 +45,7 @@ class GridNetwork(Base):
     )
     export_length_km: Mapped[float] = mapped_column(
         Float,
-        default=76.5,
+        default=108.0,
         comment="Export cable length [km]",
     )
     grid_ssc_mva: Mapped[float] = mapped_column(

@@ -18,7 +18,7 @@ import {
   Activity,
   BookOpen,
   Brain,
-  ClipboardCheck,
+  Cpu,
   Fan,
   Monitor,
   Wind,
@@ -75,23 +75,14 @@ const STATUS: Record<TurbineStatus, { label: string; color: string }> = {
   offline: { label: "Offline", color: "#9ba3b8" },
 };
 
+/** Where to look at this turbine next (names as in the sidebar). */
 const NAV_ITEMS = [
-  { label: "P1", path: "/wind-resource", icon: Wind, tip: "Wind Resource" },
-  { label: "P2", path: "/hv-grid", icon: Zap, tip: "HV Grid" },
-  { label: "P3", path: "/scada", icon: Monitor, tip: "SCADA" },
-  { label: "P4", path: "/forecast", icon: Brain, tip: "Forecasting" },
-  {
-    label: "P5",
-    path: "/commissioning",
-    icon: ClipboardCheck,
-    tip: "Commissioning",
-  },
-  {
-    label: "Physics",
-    path: "/turbine-physics",
-    icon: Activity,
-    tip: "Turbine Physics",
-  },
+  { label: "Wind Resource", path: "/wind-resource", icon: Wind, what: "Wake loss and AEP" },
+  { label: "Grid Integration", path: "/hv-grid", icon: Zap, what: "Load flow, FRT, P/Q" },
+  { label: "SCADA", path: "/scada", icon: Monitor, what: "Bay, alarms, IEC 61850" },
+  { label: "Forecasting", path: "/forecast", icon: Brain, what: "Power forecast" },
+  { label: "Digital Twin", path: "/digital-twin", icon: Cpu, what: "Condition, health index" },
+  { label: "Turbine Physics", path: "/turbine-physics", icon: Activity, what: "Cp(λ, β), pitch, yaw" },
 ];
 
 /** Round wind direction to nearest `step` degrees (matches WakeEffectLayer). */
@@ -307,7 +298,7 @@ export default function TurbineDetailPanel({
       <EquipmentPanel
         icon={Fan}
         tag={t.id}
-        subtitle={`String ${t.stringNumber} · V236 class (IEA 15 MW model) · hub 150 m · rotor Ø ${ROTOR_DIAMETER_M.toFixed(0)} m`}
+        subtitle={`String ${t.stringNumber} · IEA-15-240-RWT · direct drive · hub 150 m · rotor Ø ${ROTOR_DIAMETER_M.toFixed(0)} m`}
         status={status}
         onClose={onClose}
         width={placement ? "auto" : 440}
@@ -317,7 +308,7 @@ export default function TurbineDetailPanel({
             onClick={() => setLibraryOpen(true)}
             className="inline-flex items-center gap-1 text-accent transition-colors hover:text-accent-hover"
           >
-            <BookOpen size={11} /> Why the V236-15.0 MW for this site?
+            <BookOpen size={11} /> Why a 15 MW direct-drive turbine here?
           </button>
         }
       >
@@ -505,16 +496,18 @@ export default function TurbineDetailPanel({
         </PanelSection>
 
         <PanelSection title="Open in">
-          <div className="grid grid-cols-6 gap-1.5">
-            {NAV_ITEMS.map(({ label, path, icon: Icon, tip }) => (
+          <div className="grid grid-cols-2 gap-1.5">
+            {NAV_ITEMS.map(({ label, path, icon: Icon, what }) => (
               <button
                 key={path}
                 onClick={() => navigate(path)}
-                title={tip}
-                className="flex flex-col items-center gap-0.5 rounded-lg border border-border-primary py-1.5 text-text-secondary transition-colors hover:border-accent/60 hover:bg-accent-muted hover:text-text-primary"
+                className="group flex items-center gap-2 rounded-lg border border-border-primary px-2.5 py-2 text-left transition-colors hover:border-accent/60 hover:bg-accent-muted"
               >
-                <Icon size={14} />
-                <span className="text-[10px] font-medium">{label}</span>
+                <Icon size={15} className="shrink-0 text-text-muted group-hover:text-accent" aria-hidden />
+                <span className="min-w-0">
+                  <span className="block truncate text-[11px] font-semibold text-text-primary">{label}</span>
+                  <span className="block truncate text-[10px] text-text-muted">{what}</span>
+                </span>
               </button>
             ))}
           </div>

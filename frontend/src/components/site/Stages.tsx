@@ -32,6 +32,17 @@ import {
   type Task,
 } from "./journey";
 
+/** Says what in a stage comes from the user's site and what is a teaching script. */
+function ScriptedNote() {
+  return (
+    <p className="rounded-md border border-border-primary bg-bg-tertiary px-2.5 py-1.5 text-[11px] text-text-muted">
+      <b className="text-text-secondary">Training timeline.</b> Tasks, durations and dialogue are a typical EU sequence, not
+      data for your site. Computed from your site: the screening checks (real open data), the Natura 2000 and restricted-area
+      warnings here, and the permit outcome.
+    </p>
+  );
+}
+
 /** Simulated months per real second between milestones. */
 const MONTHS_PER_SECOND = 2;
 /** Real time the clock holds at each milestone so its step can be read. */
@@ -225,6 +236,7 @@ function TasksStage({
   }, [clock.done]);
   return (
     <div className="space-y-3">
+      <ScriptedNote />
       <p className="text-sm text-text-secondary">{intro}</p>
       <ClockBar clock={clock} end={end} label={label} />
       {children}
@@ -310,6 +322,7 @@ export function PermitStage() {
 
   return (
     <div className="space-y-3">
+      <ScriptedNote />
       <p className="text-sm text-text-secondary">
         A generic EU procedure: one application, one combined environmental assessment, public consultation, then a
         decision within the legal time limit. National procedures differ in detail.

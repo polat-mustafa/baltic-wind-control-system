@@ -18,6 +18,7 @@ import pytest
 
 from app.services.p3.iec61850_model import (
     TOTAL_DEVICES,
+    WTG_VENDOR,
     DataAttributeType,
     EquipmentType,
     FunctionalConstraint,
@@ -212,10 +213,10 @@ class TestWindTurbineController:
         assert wtg.ip_address == "192.168.2.5"
 
     def test_wtg_manufacturer(self):
-        """WTG controller must be Vestas V236-15.0."""
+        """WTG controller nameplate is the modelled IEA-15-240-RWT."""
         wtg = build_wind_turbine_controller(1)
-        assert wtg.manufacturer == "Vestas"
-        assert wtg.model == "V236-15.0"
+        assert wtg.manufacturer == WTG_VENDOR
+        assert wtg.model == "IEA-15-240-RWT"
 
     def test_wtg_equipment_type(self):
         """Must be classified as wtg_controller."""
@@ -308,7 +309,7 @@ class TestSubstationConfiguration:
         devices = build_substation_configuration()
         device = get_device_by_name(devices, "WTG_17")
         assert device is not None
-        assert device.manufacturer == "Vestas"
+        assert device.manufacturer == WTG_VENDOR
 
     def test_get_device_by_name_missing(self):
         """get_device_by_name must return None for non-existent device."""

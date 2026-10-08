@@ -2,8 +2,8 @@ import type { EducationContent } from "../../../types/education";
 
 export const turbineSelectionEducation: EducationContent = {
   id: "library.turbine-selection",
-  title: "Turbine Selection — Why the V236-15.0 MW?",
-  subtitle: "Comparing 15 MW offshore turbine candidates for the Polish Baltic",
+  title: "Turbine Selection — why a 15 MW direct-drive class?",
+  subtitle: "SB-510's \"V236 class\" choice and the open IEA-15-240-RWT model every module uses",
   discipline: "Mechanical",
 
   overview:
@@ -12,7 +12,7 @@ export const turbineSelectionEducation: EducationContent = {
     "supply-chain availability, and site-specific wind conditions. For the SB-510 (510 MW) project, three 15 MW-class " +
     "machines were evaluated: the Vestas V236-15.0 MW, the Siemens Gamesa SG 14-236 DD, and the GE Haliade-X 13 MW. " +
     "The V236 was selected because it is the only machine with full-scale serial production already underway on the Polish " +
-    "Baltic (Baltic Power project, 76 units) and carries PSE grid-code pre-qualification. Vestas publishes no power " +
+    "Baltic (Baltic Power project, 76 units), being connected under PSE's grid code. Vestas publishes no power " +
     "curve, controller or drivetrain data for the V236, so OffshoreForge models every SB-510 turbine as a " +
     "'V236-class' machine with the open IEA 15 MW reference turbine (Gaertner et al. 2020): 241.35 m rotor, rated " +
     "10.66 m/s, low-speed direct drive. Every number in the platform comes from that published model.",
@@ -30,8 +30,8 @@ export const turbineSelectionEducation: EducationContent = {
     "gearbox + PMSG, while the open model is a low-speed direct drive (no gearbox, 200-pole PMSG, 369 t generator), so " +
     "the platform's drivetrain losses and nacelle layout are those of the direct drive; (3) grid code — PSE IRiESP Type D " +
     "pre-qualification requires LVRT to 15% Un for 140 ms + reactive current injection ≥2%/% voltage drop. " +
-    "All three candidates can meet this in principle, but the V236 has completed PSE pre-qualification process " +
-    "specifically for the Polish grid as demonstrated by the Baltic Power project.",
+    "All three candidates can meet this in principle; the V236 is the one being connected to the PSE grid " +
+    "(Baltic Power), which shortens the compliance-simulation work rather than removing it.",
 
   standards: [
     {

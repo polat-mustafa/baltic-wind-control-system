@@ -44,7 +44,7 @@ Constants (SB-510)
 - 34 × 15 MW ("V236 class", IEA 15 MW reference) = 510 MW total
 - OSS Protection IED: ABB REL670 (XCBR, MMXU, PDIS, PTOC, PTOV, GGIO)
 - OSS Measurement IED: ABB REC670
-- 34 × WTG Controllers: Vestas V236-15.0 internal controller
+- 34 × WTG Controllers: IEA-15-240-RWT ("V236 class") turbine controller
 - Bay Controller: ABB COM600 for STATCOM bay
 
 References
@@ -382,6 +382,9 @@ class GOOSEControlBlock:
 
 
 NUM_TURBINES = 34
+# The modelled turbine is an open reference design, so its controller has no real
+# vendor: the nameplate names the model's publisher (IEA Wind TCP Task 37).
+WTG_VENDOR = "IEA Wind Task 37 (reference)"
 NUM_OSS_IEDS = 2  # 1 protection + 1 measurement
 NUM_BAY_CONTROLLERS = 1  # STATCOM bay
 TOTAL_DEVICES = NUM_TURBINES + NUM_OSS_IEDS + NUM_BAY_CONTROLLERS  # 37
@@ -1208,7 +1211,7 @@ def build_wind_turbine_controller(
 ) -> PhysicalDevice:
     """Build a Wind Turbine Controller IED with IEC 61400-25 logical nodes.
 
-    Each V236-15.0 MW turbine has an internal controller that presents
+    Each 15 MW turbine (IEA-15-240-RWT model) has an internal controller that presents
     SCADA data using the IEC 61400-25 data model (WTUR, WROT, WGEN,
     WMET, WNAC).
 
@@ -1234,10 +1237,10 @@ def build_wind_turbine_controller(
     return PhysicalDevice(
         name=f"WTG_{turbine_number:02d}",
         equipment_type=EquipmentType.WTG_CONTROLLER,
-        manufacturer="Vestas",
-        model="V236-15.0",
+        manufacturer=WTG_VENDOR,
+        model="IEA-15-240-RWT",
         ip_address=ip_address,
-        description=f"Vestas V236-15.0 MW turbine controller — WTG #{turbine_number}",
+        description=f"IEA-15-240-RWT 15 MW turbine controller — WTG #{turbine_number}",
         logical_devices=(
             LogicalDevice(
                 inst="LD_Turbine",
@@ -1326,7 +1329,7 @@ def build_substation_configuration(num_turbines: int = NUM_TURBINES) -> list[Phy
     - 1 × OSS Protection IED (ABB REL670)
     - 1 × OSS Measurement IED (ABB REC670)
     - 1 × STATCOM Bay Controller (ABB COM600)
-    - num_turbines × WTG Controllers (Vestas V236-15.0)
+    - num_turbines × WTG Controllers (IEA-15-240-RWT)
 
     Returns
     -------

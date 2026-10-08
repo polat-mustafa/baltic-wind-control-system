@@ -13,9 +13,11 @@ import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import ProjectHandoverNote from "../components/lifecycle/ProjectHandoverNote";
+import { StageDone } from "../components/project/StageDone";
 import { cn } from "../lib/utils";
 import { p5Guide } from "../constants/trainingGuideContent";
 import { useCommissioningStore } from "../store/commissioningStore";
+import { useGridStore, useNetwork } from "../store/gridStore";
 import type { ProgrammeDetail, ProgrammeStatus } from "../types/commissioning";
 import SwitchingTab, { type P5Tab } from "../components/p5/SwitchingTab";
 import IsolationTab from "../components/p5/IsolationTab";
@@ -106,6 +108,13 @@ function ProgrammeList() {
   const { programmes, busy, createProgramme, openProgramme, deleteProgramme } = useCommissioningStore();
   const [pic, setPic] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // the farm a new programme is created for (X-Farm header in own-project mode)
+  const n = useNetwork();
+  useEffect(() => {
+    void useGridStore.getState().fetchNetworkSpec();
+  }, []);
+  const a = n.string_layout.slice(0, n.section_a_strings);
+  const wtg = a.reduce((x, y) => x + y, 0);
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       <div data-tour="create-programme">
@@ -115,9 +124,10 @@ function ProgrammeList() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-text-secondary">
             <p>
-              First energisation of export circuit 1: cable 1 from shore, the OSS 220 kV busbar
-              with reactor 1 and the STATCOM, TX-OSS-01, 66 kV section A and strings 1–3
-              (18 × 15 MW = 270 MW). Circuit 2 stays isolated and earthed.
+              First energisation of export circuit 1 of {n.name}: cable 1 from shore, the OSS
+              220 kV busbar with {n.num_reactors ? "reactor 1 and " : ""}the STATCOM, TX-OSS-01, 66 kV
+              section A and {a.length === 1 ? "string 1" : `strings 1–${a.length}`} ({wtg} × 15 MW
+              = {wtg * 15} MW). Section B (circuit 2) stays isolated and earthed.
             </p>
             <form
               className="flex gap-2"
@@ -186,7 +196,8 @@ function ProgrammeList() {
 }
 
 export default function CommissioningPage() {
-  const { active, error, fetchProgrammes, clearError } = useCommissioningStore();
+  const { active, programmes, error, fetchProgrammes, clearError } = useCommissioningStore();
+  const finished = active?.status === "completed" || programmes.some((p) => p.status === "completed");
   const [tab, setTab] = useState<P5Tab>("switching");
 
   useEffect(() => {
@@ -205,7 +216,13 @@ export default function CommissioningPage() {
         <TrainingGuide guide={p5Guide} />
       </div>
 
-      <ProjectHandoverNote what="This programme energises circuit 1 of the SB-510 export system; for your farm the export-system steps are the same, then one feeder bay per string." />
+      <ProjectHandoverNote what="A new programme is built for your farm: cable length, transformer, reactor and STATCOM ratings from the grid design, one feeder bay per string of section A. Each programme keeps the farm it was created for." />
+      <StageDone
+        milestone="commissioning"
+        title="Commissioning"
+        need={finished ? null : "Run a switching programme to the end (status completed) first."}
+        next={{ path: "/build/handover", label: "Hand-over" }}
+      />
 
       {error && (
         <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-status-alarm/30 bg-status-alarm/10 p-3 text-sm">

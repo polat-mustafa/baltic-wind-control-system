@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ValidationError as DomainValidationError
 from app.db import get_session
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.commissioning import (
     AuditRecordSchema,
     BusReadingSchema,
@@ -23,14 +24,18 @@ from app.schemas.commissioning import (
     PiCDecisionRequest,
     PiCDecisionResponse,
     ProgrammeDetailSchema,
+    ProgrammeFarmSchema,
     ProgrammeSummarySchema,
     StepSchema,
 )
-from app.services.p5.energisation import network_snapshot
+from app.services.p5.energisation import (
+    circuit1_limit_mw,
+    network_snapshot,
+    onshore_tap,
+)
 from app.services.p5.equipment_state import get_equipment_definition
 from app.services.p5.programme_repository import ProgrammeRepository
 from app.services.p5.switching_programme import (
-    PHASES,
     PiCDecisionRequiredError,
     ProgrammeStatus,
     StepExecutionError,
@@ -40,6 +45,7 @@ from app.services.p5.switching_programme import (
     create_oss_energisation_programme,
     emergency_trip,
     execute_step,
+    phases,
     pic_go_decision,
     pic_nogo_decision,
     start_programme,
@@ -63,10 +69,11 @@ def _summary(p: SwitchingProgramme) -> ProgrammeSummarySchema:
 
 def _detail(p: SwitchingProgramme) -> ProgrammeDetailSchema:
     locked = p.locked()
-    snap = network_snapshot(p.system_state)
+    spec = p.spec
+    snap = network_snapshot(p.system_state, spec)
     equipment = []
     for eq_id, state in p.system_state.items():
-        eq = get_equipment_definition(eq_id)
+        eq = get_equipment_definition(eq_id, spec)
         equipment.append(
             EquipmentStateSchema(
                 equipment_id=eq_id,
@@ -80,7 +87,18 @@ def _detail(p: SwitchingProgramme) -> ProgrammeDetailSchema:
         )
     return ProgrammeDetailSchema(
         **_summary(p).model_dump(),
-        phases=PHASES,
+        farm=ProgrammeFarmSchema(
+            name=spec.name,
+            string_layout=list(spec.string_layout),
+            section_a_strings=spec.section_a_strings,
+            export_length_km=spec.export_length_km,
+            oss_trafo_mva=spec.oss_trafo_mva,
+            statcom_mvar=spec.statcom_mvar,
+            reactor_unit_mvar=spec.reactor_unit_mvar if spec.num_reactors else None,
+            output_limit_mw=circuit1_limit_mw(spec),
+            onshore_tap=onshore_tap(spec),
+        ),
+        phases=phases(spec),
         steps=[
             StepSchema(
                 **{k: v for k, v in asdict(s).items() if k in StepSchema.model_fields},
@@ -107,10 +125,11 @@ def _detail(p: SwitchingProgramme) -> ProgrammeDetailSchema:
 
 @router.post("/programmes", response_model=ProgrammeSummarySchema, status_code=201)
 async def create_programme(
-    request: CreateProgrammeRequest, session: AsyncSession = Depends(get_session)
+    request: CreateProgrammeRequest, spec: FarmSpecDep, session: AsyncSession = Depends(get_session)
 ) -> ProgrammeSummarySchema:
-    """Create the circuit 1 first-energisation programme (plant earthed and locked)."""
-    programme = create_oss_energisation_programme(request.pic_name.strip())
+    """Create the circuit 1 first-energisation programme (plant earthed and locked) for
+    the farm in the X-Farm header (SB-510 without it); the programme keeps that farm."""
+    programme = create_oss_energisation_programme(request.pic_name.strip(), spec)
     await ProgrammeRepository(session).save_programme(programme)
     await session.commit()
     return _summary(programme)

@@ -15,10 +15,11 @@ import { create } from "zustand";
 import { FAULT_CATEGORIES } from "../constants/faultCategories";
 import { useFaultBus } from "./faultBus";
 import { useLandingStore } from "./landingStore";
+import { liveFleet, stringsOn, useFleetStore, type Fleet } from "../lib/fleet";
 import {
-  BAY_OF,
-  BREAKERS,
-  BREAKER_OF_BAY,
+  bayOf,
+  breakerOfBay,
+  breakers,
   deenergisedTurbines,
   initialBreakerStates,
   type BreakerId,
@@ -232,36 +233,48 @@ interface ProtectionScenario {
   action: string;
 }
 
-const GOOSE_SCENARIOS: Record<string, ProtectionScenario> = {
-  busbar_overcurrent: {
-    tag: "OSS-220.87B.TRIP",
-    trips: ["cb-oss-e1", "cb-oss-e2", "cb-oss-t1", "cb-oss-t2"],
-    zone: "OSS 220 kV busbar",
-    protection: "Busbar differential protection (87B)",
-    cause: "Three-phase fault on the OSS 220 kV busbar — all bays on the busbar opened, the whole farm is disconnected",
-    action: "Do not re-energise until the busbar is inspected; check the disturbance record, then restore cable 1 → busbar → transformers",
-  },
-  transformer_differential: {
-    tag: "TX-OSS-01.87T.TRIP",
-    trips: ["cb-oss-t1", "cb-66-a"],
-    zone: "TX-OSS-01",
-    protection: "Transformer differential (87T)",
-    cause: "Internal fault in TX-OSS-01 — both sides opened, 66 kV section A (strings 1–3) is dead",
-    action: "Lock out TX-OSS-01 (Buchholz/DGA check). Restore section A via bus coupler CB-66-08 and limit TX-OSS-02 to 300 MVA",
-  },
-  cable_earth_fault: {
-    tag: "CABLE-1.87L.TRIP",
-    trips: ["cb-ons-e1", "cb-oss-e1"],
-    zone: "Export cable 1",
-    protection: "Cable differential / directional earth fault (87L / 67N)",
-    cause: "Single-phase earth fault on export cable 1 — both ends opened, the farm runs on cable 2",
-    action: "No auto-reclose on cable. Check cable 2 loading against 950 A; arrange fault location before re-energising",
-  },
-};
+/** Protection scenarios on the live fleet's switchgear (SB-510: strings 1–3 on A, CB-66-08, 2 cables). */
+function gooseScenarios(f: Fleet = liveFleet()): Record<string, ProtectionScenario> {
+  const n = f.net.num_export_cables;
+  const a = stringsOn(f, "A").map((i) => i + 1);
+  const onA = a.length > 1 ? `strings ${a[0]}–${a[a.length - 1]}` : `string ${a[0]}`;
+  const coupler = breakers(f)["cb-66-bc"].label;
+  const rest = n === 2 ? "cable 2" : `cables 2–${n}`;
+  return {
+    busbar_overcurrent: {
+      tag: "OSS-220.87B.TRIP",
+      trips: [...Array.from({ length: n }, (_, i) => `cb-oss-e${i + 1}`), "cb-oss-t1", "cb-oss-t2"],
+      zone: "OSS 220 kV busbar",
+      protection: "Busbar differential protection (87B)",
+      cause: "Three-phase fault on the OSS 220 kV busbar — all bays on the busbar opened, the whole farm is disconnected",
+      action: "Do not re-energise until the busbar is inspected; check the disturbance record, then restore cable 1 → busbar → transformers",
+    },
+    transformer_differential: {
+      tag: "TX-OSS-01.87T.TRIP",
+      trips: ["cb-oss-t1", "cb-66-a"],
+      zone: "TX-OSS-01",
+      protection: "Transformer differential (87T)",
+      cause: `Internal fault in TX-OSS-01 — both sides opened, 66 kV section A (${onA}) is dead`,
+      action: `Lock out TX-OSS-01 (Buchholz/DGA check). Restore section A via bus coupler ${coupler} and limit TX-OSS-02 to ${f.net.oss_trafo_mva} MVA`,
+    },
+    cable_earth_fault: {
+      tag: "CABLE-1.87L.TRIP",
+      trips: ["cb-ons-e1", "cb-oss-e1"],
+      zone: "Export cable 1",
+      protection: "Cable differential / directional earth fault (87L / 67N)",
+      cause:
+        n > 1
+          ? `Single-phase earth fault on export cable 1 — both ends opened, the farm runs on ${rest}`
+          : "Single-phase earth fault on the only export cable — both ends opened, the farm is disconnected",
+      action:
+        n > 1
+          ? `No auto-reclose on cable. Check ${rest} loading against 825 A; arrange fault location before re-energising`
+          : "No auto-reclose on cable. Arrange fault location; one export circuit has no redundancy (N-0), the farm stays off until the repair",
+    },
+  };
+}
 
-const GOOSE_FAULT_TRIPS: Record<string, BreakerId[]> = Object.fromEntries(
-  Object.entries(GOOSE_SCENARIOS).map(([k, v]) => [k, v.trips]),
-);
+const goose = (faultType: string): ProtectionScenario | undefined => gooseScenarios()[faultType];
 
 /** Feeders follow the switchgear: dead strings are held offline in the farm sim. */
 function syncFarm(states: BreakerStates): void {
@@ -471,12 +484,12 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
 
   operateBreaker: async (breakerId) => {
     const s = get();
-    const { label, bay } = BREAKERS[breakerId];
+    const { label, bay } = breakers()[breakerId];
     const current = s.breakerStates[breakerId];
     const next: BreakerState = current === "CLOSED" ? "OPEN" : "CLOSED";
     let reason: string | null =
       s.selectedRoleLevel < 2 ? "Viewer role has no control rights (control_switchgear needs L2+)" : null;
-    const owner = BAY_OF[breakerId];
+    const owner = bayOf()[breakerId];
     if (!reason && owner) {
       // 66 kV: the bay controller enforces the interlocks and logs the SOE
       try {
@@ -507,7 +520,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
     // Protection trip alarms return to normal when all their breakers are closed again
     set((st) => ({
       alarms: st.alarms.map((a) => {
-        const scenario = a.tag.endsWith(".TRIP") && a.faultType ? GOOSE_FAULT_TRIPS[a.faultType] : undefined;
+        const scenario = a.tag.endsWith(".TRIP") && a.faultType ? goose(a.faultType)?.trips : undefined;
         const inAlarm = a.state === "ACTIVE" || a.state === "ACKNOWLEDGED";
         return scenario && inAlarm && scenario.every((id) => breakerStates[id] === "CLOSED")
           ? { ...a, state: "RETURN_TO_NORMAL" as const }
@@ -521,7 +534,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
     const breakerStates = { ...get().breakerStates };
     let changed = false;
     for (const b of bays) {
-      const id = BREAKER_OF_BAY[b.name];
+      const id = breakerOfBay()[b.name];
       if (!id) continue;
       const cur = breakerStates[id];
       const next: BreakerState = b.circuit_breaker === "closed" ? "CLOSED" : cur === "TRIPPED" ? "TRIPPED" : "OPEN";
@@ -551,8 +564,8 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
         if (!s.autoSimEnabled) return;
 
         // Pick random turbine and fault
-        const turbineNum = Math.floor(Math.random() * 34) + 1;
-        const turbineId = `WTG-${String(turbineNum).padStart(2, "0")}`;
+        const fleetIds = liveFleet().turbines;
+        const turbineId = fleetIds[Math.floor(Math.random() * fleetIds.length)].id;
         const faultIdx = Math.floor(Math.random() * FAULT_CATEGORIES.length);
         const fault = FAULT_CATEGORIES[faultIdx];
 
@@ -684,7 +697,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
       // is raised) at the breaker-open time of the backend sequence.
       // Scale of 50× makes a 100 ms protection sequence take ~5 s to animate.
       const SCALE = 50;
-      const tripped = GOOSE_FAULT_TRIPS[selectedFaultType] ?? [];
+      const tripped = goose(selectedFaultType)?.trips ?? [];
       const breakerOpen = simulationResult.events.find((e) => e.event_type === "breaker_open");
 
       // t=0: highlight the protected zone
@@ -696,7 +709,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
           const breakerStates = { ...get().breakerStates };
           for (const id of tripped) {
             breakerStates[id] = "TRIPPED";
-            const owner = BAY_OF[id];
+            const owner = bayOf()[id];
             if (owner) {
               void bayApi
                 .executeBayCommand(owner.bay, { equipment_id: owner.cb, action: "open", operator_id: "PROTECTION", is_auto_reclose: false, synchrocheck: null })
@@ -705,7 +718,7 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
           }
           set({ breakerStates });
           syncFarm(breakerStates);
-          const sc = GOOSE_SCENARIOS[selectedFaultType];
+          const sc = goose(selectedFaultType);
           if (sc) {
             const alarm: SCADAAlarm = {
               id: nextAlarmId(),
@@ -729,9 +742,9 @@ export const useScadaStore = create<ScadaState>((set, get) => ({
           }
           for (const id of tripped) {
             get().addEvent({
-              source: BREAKERS[id].label,
+              source: breakers()[id].label,
               type: "breaker_open",
-              description: `${BREAKERS[id].label} (${BREAKERS[id].bay}) tripped by GOOSE — fault cleared`,
+              description: `${breakers()[id].label} (${breakers()[id].bay}) tripped by GOOSE — fault cleared`,
               priority: "CRITICAL",
             });
           }
@@ -836,5 +849,12 @@ useScadaStore.subscribe((next, prev) => {
       send(a, b.state === "ACKNOWLEDGED" ? "ACK_TO_NORMAL" : "ACTIVE_TO_NORMAL");
     }
     if (a.shelved !== b.shelved) send(a, a.shelved ? "SHELVED" : "UNSHELVED");
+  }
+});
+
+// A new live fleet brings its own switchboard: breakers back to normal, alarms of the old plant dropped.
+useFleetStore.subscribe((st, prev) => {
+  if (st.fleet !== prev.fleet) {
+    useScadaStore.setState({ breakerStates: initialBreakerStates(st.fleet), alarms: [], faultHighlightNodeId: null });
   }
 });

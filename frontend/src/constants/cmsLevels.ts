@@ -4,7 +4,7 @@ import type { CMSAlertLevel, CMSComponent } from "../types/cms";
 
 export const CMS_COMPONENTS: { id: CMSComponent; label: string }[] = [
   { id: "MAIN_BEARING", label: "Main bearing" },
-  { id: "GEARBOX", label: "Gearbox" },
+  { id: "REAR_BEARING", label: "Rear bearing" },
   { id: "GENERATOR", label: "Generator" },
   { id: "PITCH", label: "Pitch" },
   { id: "YAW", label: "Yaw" },

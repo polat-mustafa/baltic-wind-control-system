@@ -1,5 +1,5 @@
 """
-Wake steering via yaw optimization for 34 × V236-15.0 MW wind farm.
+Wake steering via yaw optimization for the 34 × 15 MW SB-510 farm (IEA 15 MW reference).
 
 Physics
 -------
@@ -56,7 +56,7 @@ from scipy.optimize import minimize
 
 from app.services.p1.wake_model import (
     RATED_SPEED_MS,
-    create_v236_wind_turbine,
+    create_wind_turbine,
 )
 
 # ── Yaw Optimization Constants ───────────────────────────────────
@@ -252,7 +252,7 @@ def optimize_yaw_single_direction(
     YawOptimizationResult
         Baseline vs optimized power, optimal yaw angles, per-turbine breakdown.
     """
-    turbine = create_v236_wind_turbine()
+    turbine = create_wind_turbine()
     wf_model: Any = configure_wake_model_with_deflection(site, turbine)
     n = len(x_positions_m)
 
@@ -350,7 +350,7 @@ def optimize_yaw_all_directions(
     if wind_directions_deg is None:
         wind_directions_deg = np.arange(0, 360, 30, dtype=np.float64)
 
-    turbine = create_v236_wind_turbine()
+    turbine = create_wind_turbine()
 
     per_direction_results: list[YawOptimizationResult] = []
     for wd in wind_directions_deg:

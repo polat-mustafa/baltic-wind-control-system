@@ -6,5 +6,6 @@ export { EducationPanel } from "./EducationPanel";
 export { InfoButton, type InfoContent } from "./InfoButton";
 export { KPICard } from "./KPICard";
 export { Skeleton, SkeletonCard, SkeletonChart } from "./Skeleton";
+export { SourceBadge, type Provenance, type Quality, type Sourced } from "./SourceBadge";
 export { StatusIndicator } from "./StatusIndicator";
 export { Tooltip } from "./Tooltip";

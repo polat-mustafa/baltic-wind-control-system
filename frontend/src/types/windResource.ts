@@ -5,9 +5,15 @@
  * Source of truth: backend/app/routers/p1.py Pydantic schemas.
  */
 
+import type { Quality } from "../components/ui/SourceBadge";
+
 // ── Turbine Spec ────────────────────────────────────────────────
 
 export interface TurbineSpec {
+  model_id: string;
+  name: string;
+  source: string;
+  license: string;
   rotor_diameter_m: number;
   hub_height_m: number;
   rated_power_kw: number;
@@ -53,6 +59,10 @@ export interface WakeAnalysisResult {
   capacity_factor: number;
   per_turbine_aep_gwh: number[];
   per_turbine_wake_loss_percent: number[];
+  /** Loss to the neighbouring farms' wakes [%] (TurbOPark), only when neighbours were sent. */
+  external_wake_loss_percent?: number | null;
+  net_aep_with_neighbours_gwh?: number | null;
+  neighbour_count?: number;
 }
 
 // ── AEP Cascade ─────────────────────────────────────────────────
@@ -61,6 +71,9 @@ export interface LossFactor {
   name: string;
   loss_percent: number;
   uncertainty_percent: number;
+  /** Provenance of the value (SourceBadge). */
+  quality?: Quality;
+  source?: string;
 }
 
 export interface AEPCascadeResult {
@@ -76,6 +89,25 @@ export interface AEPCascadeResult {
   revenue_meur: number;
   loss_factors: LossFactor[];
   price_eur_mwh: number;
+  /** AEP uncertainty components of this farm (1σ, % of AEP), each with its source. */
+  uncertainty?: UncertaintyComponent[];
+}
+
+export interface UncertaintyComponent {
+  name: string;
+  sigma_percent: number;
+  quality: "official" | "measured" | "literature" | "approximation" | "illustrative";
+  source: string;
+}
+
+export interface UncertaintyResult {
+  components: UncertaintyComponent[];
+  /** RSS of the components, 1σ [% of AEP]. */
+  combined_percent: number;
+  /** d ln AEP / d ln v of the farm. */
+  sensitivity: number;
+  /** Normal quantiles: P_xx = P50 · (1 − z · σ). */
+  z: Record<"P75" | "P90" | "P99", number>;
 }
 
 // ── Blockage ────────────────────────────────────────────────────

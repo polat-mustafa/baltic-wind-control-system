@@ -18,6 +18,7 @@ import SCADADashboard from "../components/p3/SCADADashboard";
 import SubstationSLD from "../components/p3/SubstationSLD";
 import AlarmListPanel from "../components/p3/AlarmListPanel";
 import PlantOverviewBar from "../components/p3/PlantOverviewBar";
+import ProjectHandoverNote from "../components/lifecycle/ProjectHandoverNote";
 import { useScadaStore } from "../store/scadaStore";
 import { useLandingStore } from "../store/landingStore";
 import { useLiveGridPolling } from "../store/liveGridStore";
@@ -123,6 +124,9 @@ export default function SCADAPage() {
   return (
     <div className="scada-isa101 flex flex-col h-full">
       <PlantOverviewBar />
+      <div className="px-3 pt-2 shrink-0 empty:hidden">
+        <ProjectHandoverNote what="Everything here runs your farm: plant mimic, single-line diagram (your feeders, export circuits, reactors), bay control and interlocks, alarms, CMS, historian, IEC 61850 devices / SCL, OPC UA, comms network and cybersecurity." />
+      </div>
 
       {/* ── Toolbar: title · controls toggle · fault trigger · auto-sim · role · control room ── */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-1.5 border-b border-border-primary bg-bg-secondary shrink-0">

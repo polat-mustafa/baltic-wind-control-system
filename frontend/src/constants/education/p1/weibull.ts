@@ -19,9 +19,9 @@ export const weibullEducation: EducationContent = {
 
   technicalExplanation:
     "Offshore k is typically about 2–2.4 (k = 2 is the Rayleigh distribution). The mean is v̄ = A·Γ(1 + 1/k) — for " +
-    "k = 2.2 that is 0.886·A. How strongly AEP reacts to A depends on the turbine: below rated P ∝ v³, but above " +
-    "rated P is flat. For the low-specific-power V236 at this windy site, much of the energy comes at rated power, so a " +
-    "1 % change in A moves gross AEP by only ≈ 1.2 % — far less than the 'cubic' rule of thumb suggests.",
+    "k = 2.04 (the SB-510 site) that is 0.886·A. How strongly AEP reacts to A depends on the turbine: below rated P ∝ v³, " +
+    "but above rated P is flat. For the low-specific-power IEA 15 MW (328 W/m²) at this windy site, much of the energy comes " +
+    "at rated power, so a 1 % change in A moves gross AEP by only ≈ 1.0 % — far less than the 'cubic' rule of thumb suggests.",
 
   standards: [
     {
@@ -54,7 +54,7 @@ export const weibullEducation: EducationContent = {
     {
       expression: "v̄ = A · Γ(1 + 1/k)",
       variables: [{ symbol: "Γ", name: "Gamma function", unit: "—" }],
-      explanation: "For k = 2 (Rayleigh): v̄ = A·√π/2 ≈ 0.886·A. For k = 2.2: Γ(1.4545) = 0.8857.",
+      explanation: "For k = 2 (Rayleigh): v̄ = A·√π/2 ≈ 0.886·A. For k = 2.04 (SB-510): Γ(1.4902) = 0.8859.",
     },
     {
       expression: "AEP_gross = 8760 h · ∫ P(v) · f(v) dv",
@@ -70,15 +70,15 @@ export const weibullEducation: EducationContent = {
 
   workedExamples: [
     {
-      title: "This platform's site (A = 10.5 m/s, k = 2.2)",
-      scenario: "Weibull inputs of the AEP tab; V236-15.0 MW power curve.",
+      title: "This platform's site (SB-510: A = 10.80 m/s, k = 2.04)",
+      scenario: "Weibull inputs of the AEP tab (NEWA 150 m, averaged over the 34 turbines); IEA 15 MW power curve.",
       steps: [
-        "v̄ = 10.5 × Γ(1 + 1/2.2) = 10.5 × 0.8857 = 9.30 m/s",
-        "Gross energy per turbine = 8,760 · ∫P·f dv ≈ 71.7 GWh/yr (CF 54.6 %)",
-        "Same integral with A = 10.605 m/s (+1 %): +1.2 % energy",
+        "v̄ = 10.80 × Γ(1 + 1/2.04) = 10.80 × 0.8859 = 9.57 m/s",
+        "Gross energy per turbine = 8,760 · ∫P·f dv ≈ 75.2 GWh/yr (CF 57.2 %)",
+        "Same integral with A = 10.908 m/s (+1 %): +0.98 % energy",
       ],
       result:
-        "A mean of 9.3 m/s at 150 m is a strong Baltic site (IEC wind class I by mean speed, i.e. above class II's " +
+        "A mean of 9.57 m/s at 150 m is a strong Baltic site (IEC wind class I by mean speed, i.e. above class II's " +
         "8.5 m/s). The low AEP sensitivity to A is a property of this turbine–site pair, not a general rule.",
     },
   ],

@@ -1,6 +1,7 @@
 /**
- * Cable DTS store — one 220 kV export circuit. Defaults: 730 A per circuit
- * (510 MW over two circuits), 1 360 A on the survivor after an N-1 trip.
+ * Cable DTS store — one 220 kV export circuit. Defaults: ≈ 820 A at the OSS end of each
+ * circuit at 510 MW (P2 load flow, 99 % of 825 A on the 108 km route), 1 438 A (174 %)
+ * on the survivor after an N-1 trip, before the runback.
  */
 
 import { create } from "zustand";
@@ -8,8 +9,8 @@ import { create } from "zustand";
 import * as api from "../services/cableDtsApi";
 import type { DTSProfileResponse, DTSTransientResponse } from "../types/cableDts";
 
-export const N1_CURRENT_A = 1360;
-export const NORMAL_CURRENT_A = 730;
+export const N1_CURRENT_A = 1438;
+export const NORMAL_CURRENT_A = 818;
 
 interface Params {
   currentA: number;

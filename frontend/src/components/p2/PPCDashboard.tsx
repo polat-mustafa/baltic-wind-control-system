@@ -20,6 +20,7 @@ import type { ActivePowerMode, ReactivePowerMode } from "../../types/ppc";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
 import PPCControlDiagram from "./PPCControlDiagram";
+import { useNetwork } from "../../store/gridStore";
 
 const P_MODES: [ActivePowerMode, string][] = [
   ["power_reference", "P set-point"],
@@ -87,6 +88,7 @@ function Check({ pass, children }: { pass: boolean; children: React.ReactNode })
 }
 
 function Controls() {
+  const n = useNetwork();
   const s = usePPCStore();
   return (
     <div className="rounded-lg border border-border-primary bg-bg-secondary p-4 space-y-3">
@@ -96,21 +98,21 @@ function Controls() {
           <Tabs label="Active power mode" items={P_MODES} value={s.activePowerMode} onChange={s.setActivePowerMode} />
           <div className="flex flex-wrap gap-3">
             {(s.activePowerMode === "power_reference" || s.activePowerMode === "ramp_rate_control") && (
-              <Slider label="Set-point" value={s.powerSetpointMW} min={0} max={510} step={10} unit="MW" onChange={s.setPowerSetpointMW} />
+              <Slider label="Set-point" value={s.powerSetpointMW} min={0} max={n.total_capacity_mw} step={10} unit="MW" onChange={s.setPowerSetpointMW} />
             )}
             {s.activePowerMode === "ramp_rate_control" && (
-              <Slider label="Ramp rate" value={s.rampRateMWPerMin} min={10} max={510} step={10} unit="MW/min" onChange={s.setRampRateMWPerMin} />
+              <Slider label="Ramp rate" value={s.rampRateMWPerMin} min={10} max={n.total_capacity_mw} step={10} unit="MW/min" onChange={s.setRampRateMWPerMin} />
             )}
             {s.activePowerMode === "delta_control" && (
               <Slider label="Reserve held" value={s.deltaReserveMW} min={0} max={100} step={5} unit="MW" onChange={s.setDeltaReserveMW} />
             )}
             {s.activePowerMode === "absolute_limitation" && (
-              <Slider label="Limit" value={s.absoluteLimitMW} min={0} max={510} step={10} unit="MW" onChange={s.setAbsoluteLimitMW} />
+              <Slider label="Limit" value={s.absoluteLimitMW} min={0} max={n.total_capacity_mw} step={10} unit="MW" onChange={s.setAbsoluteLimitMW} />
             )}
           </div>
           <div className="flex flex-wrap gap-3">
             <Slider label="Wind at hub" value={s.windSpeedMS} min={0} max={30} step={0.5} unit="m/s" digits={1} onChange={s.setWindSpeedMS} />
-            <Slider label="Turbines online" value={s.availableTurbines} min={0} max={34} step={1} unit="/ 34" onChange={s.setAvailableTurbines} />
+            <Slider label="Turbines online" value={Math.min(s.availableTurbines, n.num_turbines)} min={0} max={n.num_turbines} step={1} unit={`/ ${n.num_turbines}`} onChange={s.setAvailableTurbines} />
           </div>
         </div>
         <div className="space-y-2">
@@ -167,6 +169,7 @@ const item = {
 };
 
 export default function PPCDashboard() {
+  const n = useNetwork();
   const store = usePPCStore();
   const { simulation: sim, runSimulation } = store;
   const c = useChartPalette();
@@ -327,7 +330,7 @@ export default function PPCDashboard() {
 
         <motion.div variants={item}>
           <ChartWrapper
-            title="Pro-rata dispatch to the 34 turbines (end of simulation)"
+            title={`Pro-rata dispatch to the ${n.num_turbines} turbines (end of simulation)`}
             footer={`${sim.final_power_mw.toFixed(0)} MW dispatched · ${sim.total_curtailment_mw.toFixed(0)} MW curtailed of ${sim.total_available_mw.toFixed(0)} MW available — every turbine curtailed by the same fraction`}
           >
             <Plot

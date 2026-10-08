@@ -3,25 +3,42 @@ Wind farm configuration and AEP result models.
 
 Tables
 ------
-wind_farm : Farm-level configuration (34 × V236-15.0 MW = 510 MW)
-turbine_position : Per-turbine coordinates in local meters
-aep_result : Annual Energy Production with P50/P75/P90 uncertainty
+wind_farm : One row per project. ``data`` holds the whole project (ProjectData,
+    schemas/project.py); the scalar columns summarise it for listing and the
+    12-month retention purge. The SB-510 row (seed.py) is the read-only reference.
+    The row id (uuid4, 122 random bits) is the access key of the anonymous link.
+turbine_position : Per-turbine coordinates in local meters (written on every save)
+aep_result : Annual Energy Production with P50/P75/P90 uncertainty (one per PyWake run)
 per_turbine_aep : Per-turbine AEP breakdown and wake deficit
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
-from typing import TYPE_CHECKING
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 
 if TYPE_CHECKING:
     from app.models.wind_resource import WindResource
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
 
 
 class WindFarm(Base):
@@ -42,6 +59,25 @@ class WindFarm(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=datetime.now,
+    )
+    data: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        nullable=True,
+        comment="Whole project (ProjectData); NULL for the reference farm",
+    )
+    schema_version: Mapped[int] = mapped_column(Integer, default=2, server_default="2")
+    revision: Mapped[int] = mapped_column(
+        Integer, default=1, server_default="1", comment="Optimistic-lock counter"
+    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_opened_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=_now,
+        index=True,
+        comment="Projects idle for 12 months are deleted",
+    )
+    is_reference: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", comment="Read-only reference farm"
     )
 
     # Relationships
@@ -138,6 +174,18 @@ class AEPResult(Base):
     calculated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=datetime.now,
+    )
+    revision: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Project revision the run was computed for"
+    )
+    gross_aep_gwh: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Gross AEP, no losses [GWh]"
+    )
+    net_aep_gwh: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="AEP after wake loss only [GWh]"
+    )
+    capacity_factor: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Net (wake-only) capacity factor [-]"
     )
 
     # Relationships

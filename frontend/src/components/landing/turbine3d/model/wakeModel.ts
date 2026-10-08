@@ -13,7 +13,7 @@
  * radial distance from that rotor's axis.
  */
 
-import { inductionFromCt, v236ThrustCoefficient } from "../../../../utils/landingPhysics";
+import { inductionFromCt, turbineThrustCoefficient } from "../../../../utils/landingPhysics";
 import { K_STAR as FARM_K_STAR, velocityDeficit as farDeficit } from "../../../../utils/wakeModel";
 import type { FarmNeighbour } from "./farm";
 import { HUB, ROTOR_RADIUS } from "./layout";
@@ -80,7 +80,7 @@ export function wakeSources(
     const running = !!st && st.status !== "fault" && st.status !== "offline" && st.rotorSpeedRpm > 0.1;
     const gamma = st?.nacellePositionDeg === undefined ? 0 : (((st.nacellePositionDeg - windFromDeg + 540) % 360) - 180);
     const cg = Math.cos((gamma * Math.PI) / 180);
-    const ct = running && Math.abs(gamma) <= 45 ? v236ThrustCoefficient(st.windSpeedMs) * cg * cg : 0;
+    const ct = running && Math.abs(gamma) <= 45 ? turbineThrustCoefficient(st.windSpeedMs) * cg * cg : 0;
     return { id: t.id, x: t.x * cp + t.z * sp, z: -t.x * sp + t.z * cp + HUB[2], a: inductionFromCt(ct), ct };
   });
 }

@@ -11,7 +11,7 @@ frequency and voltage control the grid code asks for.
 
 What the simulation does (time step 0.1 s by default)
 ------------------------------------------------------
-1. Available power: V236 power curve (same table as P1) × online turbines.
+1. Available power: reference power curve (IEA 15 MW, same table as P1) × online turbines.
 2. Dispatch target from the active-power mode (reference, delta reserve,
    absolute limit, ramp control). The TSO command arrives at ``setpoint_time_s``.
 3. Ramp limiter on the dispatch target (plant setting agreed with the TSO).
@@ -61,14 +61,14 @@ from app.schemas.ppc import (
     TSOSetpoint,
     WTGDispatch,
 )
-from app.services.p1.wake_model import get_v236_power_curve_kw
+from app.services.p1.wake_model import get_power_curve_kw
 from app.services.p2.network_model import (
     GRID_RX_RATIO,
     GRID_SSC_MVA,
-    NUM_TURBINES,
-    STATCOM_RATING_MVAR,
+    SB510,
     TOTAL_CAPACITY_MW,
     TURBINE_RATED_MW,
+    FarmSpec,
 )
 from app.services.p2.statcom_sizing import PSE_Q_PRODUCE_PU, WTG_Q_CAPABILITY_PU
 
@@ -84,8 +84,8 @@ S_BASE_MVA = 100.0
 
 
 def _turbine_available_power(wind_speed_ms: float) -> float:
-    """V236 available power [MW] at hub-height wind speed (Rule 1: 0 … 15 MW)."""
-    return float(get_v236_power_curve_kw(np.array([wind_speed_ms]))[0]) / 1000.0
+    """Reference-turbine available power [MW] at hub-height wind speed (Rule 1: 0 … 15 MW)."""
+    return float(get_power_curve_kw(np.array([wind_speed_ms]))[0]) / 1000.0
 
 
 def _apply_ramp_limit(
@@ -163,14 +163,16 @@ def _pro_rata_dispatch(
     ]
 
 
-def _split_q_statcom_wtg(q_total_mvar: float, num_online_wtgs: int) -> tuple[float, float]:
+def _split_q_statcom_wtg(
+    q_total_mvar: float, num_online_wtgs: int, statcom_mvar: float = SB510.statcom_mvar
+) -> tuple[float, float]:
     """(STATCOM Q, Q per WTG): WTGs first up to their limit, STATCOM the rest."""
     wtg_cap = num_online_wtgs * WTG_Q_LIMIT_MVAR
     if abs(q_total_mvar) <= wtg_cap:
         return 0.0, q_total_mvar / max(num_online_wtgs, 1)
     per_wtg = math.copysign(WTG_Q_LIMIT_MVAR, q_total_mvar)
     statcom = q_total_mvar - math.copysign(wtg_cap, q_total_mvar)
-    return max(-STATCOM_RATING_MVAR, min(STATCOM_RATING_MVAR, statcom)), per_wtg
+    return max(-statcom_mvar, min(statcom_mvar, statcom)), per_wtg
 
 
 def _grid_impedance_pu(grid_ssc_mva: float = GRID_SSC_MVA) -> tuple[float, float]:
@@ -180,20 +182,25 @@ def _grid_impedance_pu(grid_ssc_mva: float = GRID_SSC_MVA) -> tuple[float, float
     return GRID_RX_RATIO * x, x
 
 
-def _poc_voltage(v_grid: float, p_mw: float, q_mvar: float) -> float:
+def _poc_voltage(
+    v_grid: float, p_mw: float, q_mvar: float, grid_ssc_mva: float = GRID_SSC_MVA
+) -> float:
     """V_POC = V_grid + (R·P + X·Q)/S_base — export and generated Q raise it."""
-    r, x = _grid_impedance_pu()
+    r, x = _grid_impedance_pu(grid_ssc_mva)
     return v_grid + (r * p_mw + x * q_mvar) / S_BASE_MVA
 
 
 def _p_target(
-    mode: ActivePowerMode, tso: TSOSetpoint, available_mw: float
+    mode: ActivePowerMode,
+    tso: TSOSetpoint,
+    available_mw: float,
+    capacity_mw: float = TOTAL_CAPACITY_MW,
 ) -> tuple[float, float | None]:
     """Dispatch target [MW] for the mode, and a TSO ramp override [MW/s] if any."""
     if mode == ActivePowerMode.DELTA_CONTROL:
         return max(0.0, available_mw - (tso.delta_reserve_mw or 0.0)), None
     if mode == ActivePowerMode.ABSOLUTE_LIMITATION:
-        limit = tso.absolute_limit_mw if tso.absolute_limit_mw is not None else TOTAL_CAPACITY_MW
+        limit = tso.absolute_limit_mw if tso.absolute_limit_mw is not None else capacity_mw
         return min(available_mw, limit), None
     target = tso.active_power_mw if tso.active_power_mw is not None else available_mw
     override = (
@@ -204,28 +211,35 @@ def _p_target(
     return min(target, available_mw), override
 
 
-def run_ppc_simulation(request: PPCSimulationRequest) -> PPCSimulationResponse:
+def run_ppc_simulation(
+    request: PPCSimulationRequest, spec: FarmSpec = SB510
+) -> PPCSimulationResponse:
     """Simulate the PPC response to a TSO command and optional grid events."""
     cfg = request.config
     tso = request.tso_setpoint
     dt = request.time_step_s
+    cap = spec.capacity_mw
+    n_wtg = spec.num_turbines
+    n_online = (
+        n_wtg if request.available_turbines is None else min(request.available_turbines, n_wtg)
+    )
     if tso.emergency_stop:
-        return _emergency_stop_response(request)
+        return _emergency_stop_response(request, spec)
 
     p_avail_wtg = _turbine_available_power(request.wind_speed_ms)
-    online = [i < request.available_turbines for i in range(NUM_TURBINES)]
+    online = [i < n_online for i in range(n_wtg)]
     available = [p_avail_wtg if on else 0.0 for on in online]
     total_available = sum(available)
-    q_cap = request.available_turbines * WTG_Q_LIMIT_MVAR + STATCOM_RATING_MVAR
-    q_max_slope = PSE_Q_PRODUCE_PU * TOTAL_CAPACITY_MW  # Q_max that defines the slope
+    q_cap = n_online * WTG_Q_LIMIT_MVAR + spec.statcom_mvar
+    q_max_slope = PSE_Q_PRODUCE_PU * cap  # Q_max that defines the slope
 
-    target, ramp_override = _p_target(request.active_power_mode, tso, total_available)
-    ramp_up = ramp_override or cfg.ramp_up_pct_per_min / 100.0 * TOTAL_CAPACITY_MW / 60.0
-    ramp_down = ramp_override or cfg.ramp_down_pct_per_min / 100.0 * TOTAL_CAPACITY_MW / 60.0
+    target, ramp_override = _p_target(request.active_power_mode, tso, total_available, cap)
+    ramp_up = ramp_override or cfg.ramp_up_pct_per_min / 100.0 * cap / 60.0
+    ramp_down = ramp_override or cfg.ramp_down_pct_per_min / 100.0 * cap / 60.0
     v_ref = tso.voltage_setpoint_pu if tso.voltage_setpoint_pu is not None else 1.0
 
     p0 = min(request.initial_power_mw, total_available)
-    v_grid0 = 1.0 - _poc_voltage(0.0, p0, 0.0)  # POC starts at 1.0 pu
+    v_grid0 = 1.0 - _poc_voltage(0.0, p0, 0.0, spec.grid_ssc_mva)  # POC starts at 1.0 pu
     dispatch = p_actual = p0
     q_actual = 0.0
     f_event = request.frequency_event_hz
@@ -251,15 +265,15 @@ def run_ppc_simulation(request: PPCSimulationRequest) -> PPCSimulationResponse:
         ramp_violated |= ramp_mw_min > dispatch_limit
 
         # Frequency response on top (not ramp-limited); FSM only with reserve held
-        d_freq = _lfsm_delta_p(f, cfg)
+        d_freq = _lfsm_delta_p(f, cfg, cap)
         if request.active_power_mode == ActivePowerMode.DELTA_CONTROL:
-            d_freq += _frequency_response_delta_p(f, cfg.frequency_deadband_hz, cfg.droop_pct)
+            d_freq += _frequency_response_delta_p(f, cfg.frequency_deadband_hz, cfg.droop_pct, cap)
         setpoint = max(0.0, min(dispatch + d_freq, total_available))
         dispatch_trace.append(dispatch)
         p_actual += (setpoint - p_actual) * (1.0 - math.exp(-dt / cfg.p_response_tau_s))
 
         # Reactive power at the POC
-        v = _poc_voltage(v_grid, p_actual, q_actual)
+        v = _poc_voltage(v_grid, p_actual, q_actual, spec.grid_ssc_mva)
         mode = request.reactive_power_mode
         if mode == ReactivePowerMode.VOLTAGE_CONTROL:
             q_ref = q_max_slope * (v_ref - v) / (cfg.voltage_slope_pct / 100.0)
@@ -273,7 +287,7 @@ def run_ppc_simulation(request: PPCSimulationRequest) -> PPCSimulationResponse:
             q_ref = tso.reactive_power_mvar or 0.0
         q_ref = max(-q_cap, min(q_cap, q_ref))
         q_actual += (q_ref - q_actual) * (1.0 - math.exp(-dt / cfg.q_response_tau_s))
-        v = _poc_voltage(v_grid, p_actual, q_actual)
+        v = _poc_voltage(v_grid, p_actual, q_actual, spec.grid_ssc_mva)
         voltage_violated |= not V_MIN_PU <= v <= V_MAX_PU
 
         state = (
@@ -315,17 +329,17 @@ def run_ppc_simulation(request: PPCSimulationRequest) -> PPCSimulationResponse:
     pre_event = [p for p in series if p.time_s < request.event_time_s]
     setpoint_ok = reached <= SETPOINT_DEADLINE_S
     if f_event is not None and pre_event:
-        expected = _lfsm_delta_p(f_event, cfg)
+        expected = _lfsm_delta_p(f_event, cfg, cap)
         if request.active_power_mode == ActivePowerMode.DELTA_CONTROL:
             expected += _frequency_response_delta_p(
-                f_event, cfg.frequency_deadband_hz, cfg.droop_pct
+                f_event, cfg.frequency_deadband_hz, cfg.droop_pct, cap
             )
         t_check = request.event_time_s + FREQ_RESPONSE_WINDOW_S
         k_check = min(range(len(series)), key=lambda i: abs(series[i].time_s - t_check))
         base = dispatch_trace[k_check]  # the ramp-limited dispatch the response rides on
         expected = max(-base, min(expected, total_available - base))  # what the wind allows
         actual = series[k_check].power_actual_mw - base
-        freq_ok = abs(actual - expected) <= FREQ_RESPONSE_TOLERANCE * TOTAL_CAPACITY_MW
+        freq_ok = abs(actual - expected) <= FREQ_RESPONSE_TOLERANCE * cap
     else:
         expected = actual = 0.0
         freq_ok = True
@@ -351,7 +365,7 @@ def run_ppc_simulation(request: PPCSimulationRequest) -> PPCSimulationResponse:
 
     final = series[-1]
     dispatched = _pro_rata_dispatch(final.power_actual_mw, available, online)
-    _, per_wtg_q = _split_q_statcom_wtg(final.q_actual_mvar, request.available_turbines)
+    _, per_wtg_q = _split_q_statcom_wtg(final.q_actual_mvar, n_online, spec.statcom_mvar)
     if request.reactive_power_mode == ReactivePowerMode.REACTIVE_POWER:
         q_or_v = tso.reactive_power_mvar or 0.0
     elif request.reactive_power_mode == ReactivePowerMode.POWER_FACTOR:
@@ -390,21 +404,27 @@ def run_ppc_simulation(request: PPCSimulationRequest) -> PPCSimulationResponse:
                 curtailment_mw=round(max(0.0, available[i] - dispatched[i]), 2),
                 is_online=online[i],
             )
-            for i in range(NUM_TURBINES)
+            for i in range(n_wtg)
         ],
         time_series=series,
     )
 
 
-def _emergency_stop_response(request: PPCSimulationRequest) -> PPCSimulationResponse:
+def _emergency_stop_response(
+    request: PPCSimulationRequest, spec: FarmSpec = SB510
+) -> PPCSimulationResponse:
     """All WTGs ramp to zero at the configured emergency rate."""
     cfg = request.config
     dt = request.time_step_s
-    rate = cfg.emergency_ramp_pct_per_s / 100.0 * TOTAL_CAPACITY_MW  # MW/s
+    n_wtg = spec.num_turbines
+    n_online = (
+        n_wtg if request.available_turbines is None else min(request.available_turbines, n_wtg)
+    )
+    rate = cfg.emergency_ramp_pct_per_s / 100.0 * spec.capacity_mw  # MW/s
     p_avail_wtg = _turbine_available_power(request.wind_speed_ms)
-    total_available = p_avail_wtg * request.available_turbines
+    total_available = p_avail_wtg * n_online
     power = min(request.initial_power_mw, total_available)
-    v_grid0 = 1.0 - _poc_voltage(0.0, power, 0.0)
+    v_grid0 = 1.0 - _poc_voltage(0.0, power, 0.0, spec.grid_ssc_mva)
     series: list[PPCTimePoint] = []
     for k in range(round(request.simulation_duration_s / dt) + 1):
         prev = power
@@ -419,12 +439,12 @@ def _emergency_stop_response(request: PPCSimulationRequest) -> PPCSimulationResp
                 ramp_rate_mw_per_min=round(abs(power - prev) / dt * 60.0, 2),
                 q_setpoint_mvar=0.0,
                 q_actual_mvar=0.0,
-                voltage_pcc_pu=round(_poc_voltage(v_grid0, power, 0.0), 4),
+                voltage_pcc_pu=round(_poc_voltage(v_grid0, power, 0.0, spec.grid_ssc_mva), 4),
                 frequency_hz=NOMINAL_FREQUENCY_HZ,
                 ppc_state=PPCState.EMERGENCY_STOP,
             )
         )
-    online = [i < request.available_turbines for i in range(NUM_TURBINES)]
+    online = [i < n_online for i in range(n_wtg)]
     return PPCSimulationResponse(
         active_power_mode=request.active_power_mode,
         reactive_power_mode=request.reactive_power_mode,
@@ -450,7 +470,7 @@ def _emergency_stop_response(request: PPCSimulationRequest) -> PPCSimulationResp
                 curtailment_mw=round(p_avail_wtg if online[i] else 0.0, 2),
                 is_online=online[i],
             )
-            for i in range(NUM_TURBINES)
+            for i in range(n_wtg)
         ],
         time_series=series,
     )
@@ -458,21 +478,25 @@ def _emergency_stop_response(request: PPCSimulationRequest) -> PPCSimulationResp
 
 def get_ppc_status(
     wind_speed_ms: float = 12.0,
-    available_turbines: int = NUM_TURBINES,
+    available_turbines: int | None = None,
     tso_setpoint: TSOSetpoint | None = None,
     active_power_mode: ActivePowerMode = ActivePowerMode.POWER_REFERENCE,
     reactive_power_mode: ReactivePowerMode = ReactivePowerMode.VOLTAGE_CONTROL,
     frequency_hz: float = NOMINAL_FREQUENCY_HZ,
+    spec: FarmSpec = SB510,
 ) -> PPCStatusResponse:
-    """Steady-state snapshot of the PPC for the given conditions."""
+    """Steady-state snapshot of the PPC for the given conditions (all WTGs if None)."""
     tso = tso_setpoint or TSOSetpoint()
     cfg = PPCConfig()
+    cap = spec.capacity_mw
+    n_wtg = spec.num_turbines
+    available_turbines = n_wtg if available_turbines is None else min(available_turbines, n_wtg)
     total_available = _turbine_available_power(wind_speed_ms) * available_turbines
-    p_setpoint, _ = _p_target(active_power_mode, tso, total_available)
-    d_freq = _lfsm_delta_p(frequency_hz, cfg)
+    p_setpoint, _ = _p_target(active_power_mode, tso, total_available, cap)
+    d_freq = _lfsm_delta_p(frequency_hz, cfg, cap)
     if active_power_mode == ActivePowerMode.DELTA_CONTROL:
         d_freq += _frequency_response_delta_p(
-            frequency_hz, cfg.frequency_deadband_hz, cfg.droop_pct
+            frequency_hz, cfg.frequency_deadband_hz, cfg.droop_pct, cap
         )
     p_actual = max(0.0, min(p_setpoint + d_freq, total_available))
 
@@ -484,13 +508,13 @@ def get_ppc_status(
         q = _q_from_power_factor(
             p_actual, tso.power_factor if tso.power_factor is not None else 1.0
         )
-    statcom_q, _ = _split_q_statcom_wtg(q, available_turbines)
+    statcom_q, _ = _split_q_statcom_wtg(q, available_turbines, spec.statcom_mvar)
 
     if tso.emergency_stop:
         state = PPCState.EMERGENCY_STOP
     elif total_available <= 0.0:
         state = PPCState.STOPPED
-    elif available_turbines < NUM_TURBINES or p_actual < 0.95 * total_available:
+    elif available_turbines < n_wtg or p_actual < 0.95 * total_available:
         state = PPCState.DERATED
     else:
         state = PPCState.RUNNING
@@ -507,12 +531,12 @@ def get_ppc_status(
         q_setpoint_mvar=round(q, 2),
         q_actual_mvar=round(q, 2),
         voltage_setpoint_pu=round(v_ref, 4),
-        voltage_actual_pu=round(_poc_voltage(1.0, 0.0, q), 4),
+        voltage_actual_pu=round(_poc_voltage(1.0, 0.0, q, spec.grid_ssc_mva), 4),
         frequency_hz=round(frequency_hz, 3),
         frequency_response_active=abs(d_freq) > 0.1,
         frequency_delta_p_mw=round(d_freq, 2),
         turbines_online=available_turbines,
-        turbines_total=NUM_TURBINES,
+        turbines_total=n_wtg,
         statcom_q_mvar=round(statcom_q, 2),
         tso_comm_ok=True,
         wtg_comm_ok=available_turbines > 0,

@@ -24,10 +24,11 @@ def _c(result: dict, cid: str) -> dict:
 
 
 def test_base_case_is_the_grid_tab_operating_point(full):
-    """510 MW, ~6.4 MW losses, OSS held at 1.0 p.u., everything under 100 %."""
+    """510 MW, ~10.2 MW losses on 108 km, OSS held at 1.0 p.u., everything under 100 %
+    (the export cable at 99 %: the 108 km route uses the circuits to the limit)."""
     base = full["base_case"]
     assert base["output_mw"] == pytest.approx(510.0)
-    assert base["export_mw"] == pytest.approx(503.6, abs=0.5)
+    assert base["export_mw"] == pytest.approx(499.8, abs=0.5)
     assert base["secure"]
     assert base["loading_pct"] < 100.0
 
@@ -46,15 +47,16 @@ def test_string_trip_only_loses_its_generation(full):
 
 
 def test_export_circuit_trip_needs_runback_at_full_output(full):
-    """One circuit left (~362 MVA): ~140 % right after the trip → runback to ~340 MW."""
+    """One circuit left (√3·220 kV·825 A = 314 MVA): 164 % right after the trip → runback by
+    ≈ 221 MW to ≈ 289 MW (its own 221 Mvar of charging current shares the ampacity)."""
     c = _c(full, "export_circuit")
     assert c["immediate"]["limiting_element"] == "Export_220kV"
     assert c["immediate"]["loading_pct"] > 130.0
     assert c["after_action"]["loading_pct"] <= 100.0
     assert c["secure"]
-    assert 140.0 < c["runback_mw"] < 190.0
+    assert 200.0 < c["runback_mw"] < 240.0
     assert c["runback_s"] == pytest.approx(c["runback_mw"] / RUNBACK_MW_PER_S, abs=0.1)
-    # reactor 1 intertripped with the circuit → voltage stays in the band
+    # the circuit's reactors (onshore + OSS) intertripped with it → voltage stays in the band
     assert c["after_action"]["v_min_pu"] >= 0.95
 
 

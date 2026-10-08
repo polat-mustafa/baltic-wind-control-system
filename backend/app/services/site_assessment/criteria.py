@@ -219,3 +219,69 @@ def depth_band(depth_m: float) -> DepthBand | None:
         if band.min_m <= depth_m < band.max_m:
             return band
     return None
+
+
+@dataclass(frozen=True)
+class SeabedClass:
+    """What a seabed substrate class (EMODnet Folk 5) means for piles and cable burial."""
+
+    code: int
+    name: str
+    piling: str
+    burial: str
+    #: Multiplier on the foundation unit cost (sand = 1.00). Illustrative: no
+    #: published premium per sediment class was found.
+    foundation_factor: float
+    hard: bool  # piling or burial needs extra work → the site check warns
+
+
+#: Folk 5-class substrate (EMODnet Geology) → installation consequences.
+#: Qualitative effects after DNV-RP-C212 (offshore soil mechanics) and
+#: DNV-RP-0360 (subsea power cables: burial assessment); factors illustrative.
+SEABED_CLASSES: tuple[SeabedClass, ...] = (
+    SeabedClass(
+        1,
+        "Mud to muddy sand",
+        "Soft soil: low lateral stiffness, longer and heavier piles.",
+        "Easy to bury (jetting), but the cable can settle; check burial depth.",
+        1.10,
+        False,
+    ),
+    SeabedClass(
+        2,
+        "Sand",
+        "Reference case: piles drive well; mobile sand needs scour protection.",
+        "Easy to bury (jetting or ploughing); sand waves can expose the cable.",
+        1.00,
+        False,
+    ),
+    SeabedClass(
+        3,
+        "Coarse-grained sediment",
+        "Dense gravel: high driving resistance, risk of pile refusal.",
+        "Hard to bury: plough or trench instead of jetting; rock placement where shallow.",
+        1.05,
+        True,
+    ),
+    SeabedClass(
+        4,
+        "Mixed sediment",
+        "Gravel, sand and mud — in the Baltic often glacial till with boulders: boulder "
+        "survey and clearance before piling.",
+        "Boulders: pre-lay clearance (grab, plough) and more rock placement.",
+        1.10,
+        True,
+    ),
+    SeabedClass(
+        5,
+        "Rock and boulders",
+        "Piles may not drive: drive-drill-drive or drilled and grouted piles.",
+        "Cannot be buried: protect with rock placement or mattresses.",
+        1.25,
+        True,
+    ),
+)
+
+
+def seabed_class(code: int) -> SeabedClass | None:
+    return next((c for c in SEABED_CLASSES if c.code == code), None)

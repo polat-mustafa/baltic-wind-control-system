@@ -3,7 +3,8 @@ Factory acceptance tests (FAT) — routine tests at the manufacturer's works.
 
 A FAT campaign is opened per equipment item and uses the template of its class:
 
-- ``power_transformer`` (TX-OSS-01/02, 300 MVA 220/66 kV) — routine tests of
+- ``power_transformer`` (TX-OSS-01/02, SB-510: 300 MVA 220/66 kV; another farm:
+  its own rating, ``transformer_tests(spec)``) — routine tests of
   IEC 60076-1 §11.1.2 with the tolerances of its Table 1, applied to the design
   values of ``p2.network_model`` (vk 12.5 %, vkr 0.25 % → load loss 750 kW,
   P0 60 kW, i0 0.05 %):
@@ -35,11 +36,11 @@ from typing import Protocol
 
 from app.core.exceptions import NotFoundError, StateTransitionError, ValidationError
 from app.services.p2.network_model import (
+    SB510,
     TRAFO_66_220_I0_PERCENT,
-    TRAFO_66_220_MVA,
-    TRAFO_66_220_PFE_KW,
     TRAFO_66_220_VK_PERCENT,
     TRAFO_66_220_VKR_PERCENT,
+    FarmSpec,
 )
 
 PASS_FAIL = "pass/fail"  # unit of a test recorded as 1 (pass) / 0 (fail)
@@ -100,10 +101,11 @@ def pass_fail_spec(test_id: str, name: str, standard: str, description: str) -> 
     return TestSpecification(test_id, name, standard, description, PASS_FAIL, 1.0, 1.0, 1.0)
 
 
-_P_LOAD_KW = TRAFO_66_220_VKR_PERCENT / 100 * TRAFO_66_220_MVA * 1e3  # 750 kW
-
-FAT_TEMPLATES: dict[EquipmentClass, tuple[TestSpecification, ...]] = {
-    EquipmentClass.POWER_TRANSFORMER: (
+def transformer_tests(spec: FarmSpec = SB510) -> tuple[TestSpecification, ...]:
+    """Routine tests of an OSS transformer of ``spec``: load and no-load loss limits
+    follow its rating (SB-510: 300 MVA → 750 kW, 60 kW); typical values pass."""
+    p_load = TRAFO_66_220_VKR_PERCENT / 100 * spec.oss_trafo_mva * 1e3
+    return (
         TestSpecification(
             "FAT-T01",
             "Voltage ratio, principal tap",
@@ -128,21 +130,21 @@ FAT_TEMPLATES: dict[EquipmentClass, tuple[TestSpecification, ...]] = {
             "FAT-T03",
             "Load loss at rated current (75 °C)",
             "IEC 60076-1 §11.4, Table 1",
-            f"Declared {_P_LOAD_KW:.0f} kW, component tolerance +15 % (total +10 %)",
+            f"Declared {p_load:.0f} kW, component tolerance +15 % (total +10 %)",
             "kW",
             0.0,
-            _P_LOAD_KW * 1.15,
-            738.0,
+            p_load * 1.15,
+            round(0.984 * p_load, 1),
         ),
         TestSpecification(
             "FAT-T04",
             "No-load loss at rated voltage",
             "IEC 60076-1 §11.5, Table 1",
-            f"Declared {TRAFO_66_220_PFE_KW:.0f} kW, component tolerance +15 %",
+            f"Declared {spec.oss_pfe_kw:.0f} kW, component tolerance +15 %",
             "kW",
             0.0,
-            TRAFO_66_220_PFE_KW * 1.15,
-            57.4,
+            spec.oss_pfe_kw * 1.15,
+            round(0.957 * spec.oss_pfe_kw, 1),
         ),
         TestSpecification(
             "FAT-T05",
@@ -182,7 +184,11 @@ FAT_TEMPLATES: dict[EquipmentClass, tuple[TestSpecification, ...]] = {
             "IEC 60076-1 §11.1.2.2 d)",
             "No significant gas generation during the test programme (Um > 72.5 kV)",
         ),
-    ),
+    )
+
+
+FAT_TEMPLATES: dict[EquipmentClass, tuple[TestSpecification, ...]] = {
+    EquipmentClass.POWER_TRANSFORMER: transformer_tests(),
     EquipmentClass.GIS_220KV: (
         pass_fail_spec(
             "FAT-G01",
@@ -364,8 +370,14 @@ def approve_campaign(campaign: Campaign, approved_by: str) -> None:
     campaign.approved_at = datetime.now(UTC)
 
 
-def create_fat_campaign(equipment_tag: str, equipment_class: EquipmentClass) -> FATCampaign:
-    specs = FAT_TEMPLATES[equipment_class]
+def create_fat_campaign(
+    equipment_tag: str, equipment_class: EquipmentClass, spec: FarmSpec = SB510
+) -> FATCampaign:
+    specs = (
+        transformer_tests(spec)
+        if equipment_class == EquipmentClass.POWER_TRANSFORMER
+        else FAT_TEMPLATES[equipment_class]
+    )
     return FATCampaign(
         campaign_id=f"FAT-{datetime.now(UTC):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}",
         equipment_tag=equipment_tag,

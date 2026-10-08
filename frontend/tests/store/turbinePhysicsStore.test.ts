@@ -21,7 +21,7 @@ describe("initial state", () => {
     expect(state.scenario).toBe("step_response");
     expect(state.stepInitMs).toBe(8);
     expect(state.stepFinalMs).toBe(14);
-    expect(state.stepRampS).toBe(10);
+    expect(state.stepRampS).toBe(30);
     expect(state.stepTotalS).toBe(120);
     expect(state.constantWindMs).toBe(10);
   });

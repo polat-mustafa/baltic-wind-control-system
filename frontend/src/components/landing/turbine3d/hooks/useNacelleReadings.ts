@@ -8,15 +8,15 @@ import { nacelleTemperatures, type ThermalId, type ThermalReading } from "../mod
 export function useNacelleReadings(turbineId: string): Record<ThermalId, ThermalReading> {
   const turbine = useLandingStore(selectTurbine(turbineId));
   const airC = useLandingStore((s) => s.environment.airTemperatureC);
-  const oilC = useNacelleSubsystemsStore(selectNacelleData(turbineId))?.cooling?.oil_temp_c;
+  const windingC = useNacelleSubsystemsStore(selectNacelleData(turbineId))?.cooling?.winding_temp_c;
   return useMemo(
     () =>
       nacelleTemperatures({
         powerMW: turbine?.powerOutputMW ?? 0,
         airC,
         bearingC: turbine?.bearingTempC,
-        oilC,
+        windingC,
       }),
-    [turbine?.powerOutputMW, turbine?.bearingTempC, airC, oilC],
+    [turbine?.powerOutputMW, turbine?.bearingTempC, airC, windingC],
   );
 }

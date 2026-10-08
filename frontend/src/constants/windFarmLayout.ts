@@ -1,12 +1,19 @@
 /**
- * Wind farm geography — 34 × V236-15.0 MW turbines in 6 strings (6-6-6-6-5-5),
- * offshore substation, LIDAR, 45 km export route and grid connection.
+ * Wind farm geography — 34 × 15 MW "V236 class" turbines (IEA 15 MW) in 6 strings (6-6-6-6-5-5),
+ * offshore substation, LIDAR, 108 km export route and grid connection.
  *
- * Strings run N-S, 8D (≈ 1.89 km) apart east-west; turbines 6D (≈ 1.42 km)
- * apart along a string; even strings staggered ≈ 700 m south so the
- * prevailing SW wind (≈ 225°) does not line turbines up in each other's wake.
- * Positions are real WGS84 coordinates checked against OSM and EMODnet
- * (see SITE_SOURCES); `x`/`y` are legacy schematic units used only for the
+ * Site: energy basin PZP_44 of the Polish maritime spatial plan (Dz.U. 2021
+ * poz. 935) — the real site 44.E.1, whose location permit (9 August 2023) is
+ * held by Elektrownia Wiatrowa Baltica 9 (PGE). SB-510 is fictional and uses
+ * the area for teaching. Until 2026-10 it sat 35–40 km off Ustka, mostly in
+ * shipping basin PZP_15, where a real farm could not be permitted.
+ *
+ * Strings run N–S, 8D (≈ 1.93 km, D = 241.35 m) apart east–west: the long
+ * spacing lies along the prevailing wind (site rose: 270° 19 %, 240° 14 %).
+ * Turbines are 6D (≈ 1.45 km) apart along a string; each string sits a little
+ * further north than its western neighbour, following the basin's slanted
+ * southern edge, which also staggers the rows against the westerly wind.
+ * Positions are WGS84; `x`/`y` are legacy schematic units used only for the
  * small per-turbine wind variation in the landing simulation.
  */
 
@@ -22,135 +29,143 @@ export interface TurbinePosition {
 }
 
 /**
- * 34 turbine positions arranged in 6 strings.
- * Strings run roughly N-S, spaced E-W across the wind farm area.
- * Coordinates are in SVG viewBox units.
- */
-/**
- * 34 turbine positions arranged in 6 strings.
+ * 34 turbine positions arranged in 6 strings, numbered north → south.
  *
- * Geographic coordinates: centred ~54.80°N, 16.40°E, 35–40 km off Ustka.
- * String spacing ~1,890 m (8D) east-west ≈ 0.0295° lon at 54.8°N.
- * Turbine spacing ~1,415 m (6D) north-south ≈ 0.01272° lat.
- *
- * Site checks (2026-09-29, see SITE_SOURCES below): every turbine lies in
- * the Polish EEZ, outside the 12 nm territorial sea (Polish OWFs are only
- * permitted in the EEZ), south of the "Ławica Słupska" Natura 2000 site
- * (≈ 3.2 km from the nearest turbine), and in 29–40 m of water (EMODnet
- * DTM). The farm is fictional; it does not overlap a real OWF area.
- *
- * Re-checked 2026-10-05 against the Polish maritime spatial plan (Dz.U. 2021
- * poz. 935, via EMODnet): 27 of the 34 positions lie in basin PZP_15, whose
- * priority use is shipping — a real site here would not get a permit. The
- * Site & Permits screening (backend/app/services/site_assessment) reports it;
- * the case study keeps the layout as a teaching example.
+ * Site checks (2026-10-08, backend/app/services/site_assessment, region pack
+ * southern-baltic): every turbine lies ≥ 0.57 km inside energy basin PZP_44,
+ * ≥ 49 km from shore (EEZ, beyond 12 nm), ≥ 2.5 km north of the Ławica Słupska
+ * Natura 2000 site (PLC990001), outside every shipping basin, military area and
+ * recorded munition dump, in 37–51 m of water (EMODnet DTM) → jacket
+ * foundations. Turbines are ≥ 1,446 m apart.
  */
 export const TURBINE_POSITIONS: TurbinePosition[] = [
-  // String 1 (6 turbines) — westernmost
-  { id: "WTG-01", stringNumber: 1, x: 80, y: 120, lat: 54.8319, lon: 16.323 },
-  { id: "WTG-02", stringNumber: 1, x: 90, y: 200, lat: 54.8192, lon: 16.323 },
-  { id: "WTG-03", stringNumber: 1, x: 100, y: 280, lat: 54.8064, lon: 16.323 },
-  { id: "WTG-04", stringNumber: 1, x: 95, y: 360, lat: 54.7937, lon: 16.323 },
-  { id: "WTG-05", stringNumber: 1, x: 85, y: 440, lat: 54.781, lon: 16.323 },
-  { id: "WTG-06", stringNumber: 1, x: 90, y: 520, lat: 54.7682, lon: 16.323 },
+  // String 1 (6 turbines) — westernmost, nearest the OSS
+  { id: "WTG-01", stringNumber: 1, x: 80, y: 120, lat: 55.0796, lon: 16.464 },
+  { id: "WTG-02", stringNumber: 1, x: 90, y: 200, lat: 55.0665, lon: 16.464 },
+  { id: "WTG-03", stringNumber: 1, x: 100, y: 280, lat: 55.0535, lon: 16.464 },
+  { id: "WTG-04", stringNumber: 1, x: 95, y: 360, lat: 55.0405, lon: 16.464 },
+  { id: "WTG-05", stringNumber: 1, x: 85, y: 440, lat: 55.0275, lon: 16.464 },
+  { id: "WTG-06", stringNumber: 1, x: 90, y: 520, lat: 55.0144, lon: 16.464 },
 
-  // String 2 (6 turbines) — staggered 700 m south
-  { id: "WTG-07", stringNumber: 2, x: 180, y: 100, lat: 54.8256, lon: 16.3525 },
-  { id: "WTG-08", stringNumber: 2, x: 190, y: 180, lat: 54.8129, lon: 16.3525 },
-  { id: "WTG-09", stringNumber: 2, x: 195, y: 260, lat: 54.8001, lon: 16.3525 },
-  { id: "WTG-10", stringNumber: 2, x: 185, y: 340, lat: 54.7874, lon: 16.3525 },
-  { id: "WTG-11", stringNumber: 2, x: 180, y: 420, lat: 54.7747, lon: 16.3525 },
-  { id: "WTG-12", stringNumber: 2, x: 185, y: 500, lat: 54.7619, lon: 16.3525 },
+  // String 2 (6 turbines)
+  { id: "WTG-07", stringNumber: 2, x: 180, y: 100, lat: 55.0886, lon: 16.4943 },
+  { id: "WTG-08", stringNumber: 2, x: 190, y: 180, lat: 55.0755, lon: 16.4943 },
+  { id: "WTG-09", stringNumber: 2, x: 195, y: 260, lat: 55.0625, lon: 16.4943 },
+  { id: "WTG-10", stringNumber: 2, x: 185, y: 340, lat: 55.0495, lon: 16.4943 },
+  { id: "WTG-11", stringNumber: 2, x: 180, y: 420, lat: 55.0365, lon: 16.4943 },
+  { id: "WTG-12", stringNumber: 2, x: 185, y: 500, lat: 55.0234, lon: 16.4943 },
 
   // String 3 (6 turbines)
-  { id: "WTG-13", stringNumber: 3, x: 280, y: 110, lat: 54.8319, lon: 16.382 },
-  { id: "WTG-14", stringNumber: 3, x: 290, y: 190, lat: 54.8192, lon: 16.382 },
-  { id: "WTG-15", stringNumber: 3, x: 285, y: 270, lat: 54.8064, lon: 16.382 },
-  { id: "WTG-16", stringNumber: 3, x: 280, y: 350, lat: 54.7937, lon: 16.382 },
-  { id: "WTG-17", stringNumber: 3, x: 275, y: 430, lat: 54.781, lon: 16.382 },
-  { id: "WTG-18", stringNumber: 3, x: 285, y: 510, lat: 54.7682, lon: 16.382 },
+  { id: "WTG-13", stringNumber: 3, x: 280, y: 110, lat: 55.0956, lon: 16.5246 },
+  { id: "WTG-14", stringNumber: 3, x: 290, y: 190, lat: 55.0825, lon: 16.5246 },
+  { id: "WTG-15", stringNumber: 3, x: 285, y: 270, lat: 55.0695, lon: 16.5246 },
+  { id: "WTG-16", stringNumber: 3, x: 280, y: 350, lat: 55.0565, lon: 16.5246 },
+  { id: "WTG-17", stringNumber: 3, x: 275, y: 430, lat: 55.0435, lon: 16.5246 },
+  { id: "WTG-18", stringNumber: 3, x: 285, y: 510, lat: 55.0304, lon: 16.5246 },
 
-  // String 4 (6 turbines) — staggered 700 m south
-  { id: "WTG-19", stringNumber: 4, x: 380, y: 130, lat: 54.8256, lon: 16.4115 },
-  { id: "WTG-20", stringNumber: 4, x: 390, y: 210, lat: 54.8129, lon: 16.4115 },
-  { id: "WTG-21", stringNumber: 4, x: 385, y: 290, lat: 54.8001, lon: 16.4115 },
-  { id: "WTG-22", stringNumber: 4, x: 380, y: 370, lat: 54.7874, lon: 16.4115 },
-  { id: "WTG-23", stringNumber: 4, x: 375, y: 450, lat: 54.7747, lon: 16.4115 },
-  { id: "WTG-24", stringNumber: 4, x: 380, y: 530, lat: 54.7619, lon: 16.4115 },
+  // String 4 (6 turbines)
+  { id: "WTG-19", stringNumber: 4, x: 380, y: 130, lat: 55.1006, lon: 16.5549 },
+  { id: "WTG-20", stringNumber: 4, x: 390, y: 210, lat: 55.0875, lon: 16.5549 },
+  { id: "WTG-21", stringNumber: 4, x: 385, y: 290, lat: 55.0745, lon: 16.5549 },
+  { id: "WTG-22", stringNumber: 4, x: 380, y: 370, lat: 55.0615, lon: 16.5549 },
+  { id: "WTG-23", stringNumber: 4, x: 375, y: 450, lat: 55.0485, lon: 16.5549 },
+  { id: "WTG-24", stringNumber: 4, x: 380, y: 530, lat: 55.0354, lon: 16.5549 },
 
   // String 5 (5 turbines)
-  { id: "WTG-25", stringNumber: 5, x: 480, y: 140, lat: 54.8319, lon: 16.441 },
-  { id: "WTG-26", stringNumber: 5, x: 490, y: 220, lat: 54.8192, lon: 16.441 },
-  { id: "WTG-27", stringNumber: 5, x: 485, y: 300, lat: 54.8064, lon: 16.441 },
-  { id: "WTG-28", stringNumber: 5, x: 480, y: 380, lat: 54.7937, lon: 16.441 },
-  { id: "WTG-29", stringNumber: 5, x: 475, y: 460, lat: 54.781, lon: 16.441 },
+  { id: "WTG-25", stringNumber: 5, x: 480, y: 140, lat: 55.099, lon: 16.5852 },
+  { id: "WTG-26", stringNumber: 5, x: 490, y: 220, lat: 55.086, lon: 16.5852 },
+  { id: "WTG-27", stringNumber: 5, x: 485, y: 300, lat: 55.073, lon: 16.5852 },
+  { id: "WTG-28", stringNumber: 5, x: 480, y: 380, lat: 55.06, lon: 16.5852 },
+  { id: "WTG-29", stringNumber: 5, x: 475, y: 460, lat: 55.047, lon: 16.5852 },
 
-  // String 6 (5 turbines) — easternmost, staggered 700 m south
-  { id: "WTG-30", stringNumber: 6, x: 570, y: 150, lat: 54.8256, lon: 16.4705 },
-  { id: "WTG-31", stringNumber: 6, x: 580, y: 230, lat: 54.8129, lon: 16.4705 },
-  { id: "WTG-32", stringNumber: 6, x: 575, y: 310, lat: 54.8001, lon: 16.4705 },
-  { id: "WTG-33", stringNumber: 6, x: 570, y: 390, lat: 54.7874, lon: 16.4705 },
-  { id: "WTG-34", stringNumber: 6, x: 565, y: 470, lat: 54.7747, lon: 16.4705 },
+  // String 6 (5 turbines) — easternmost
+  { id: "WTG-30", stringNumber: 6, x: 570, y: 150, lat: 55.103, lon: 16.6156 },
+  { id: "WTG-31", stringNumber: 6, x: 580, y: 230, lat: 55.09, lon: 16.6156 },
+  { id: "WTG-32", stringNumber: 6, x: 575, y: 310, lat: 55.077, lon: 16.6156 },
+  { id: "WTG-33", stringNumber: 6, x: 570, y: 390, lat: 55.064, lon: 16.6156 },
+  { id: "WTG-34", stringNumber: 6, x: 565, y: 470, lat: 55.051, lon: 16.6156 },
 ];
 
 // ── Sources for all geographic values in this file ──────────────
-// - Coastline, PSE substations, protected areas, maritime zones:
-//   OpenStreetMap via Overpass API (queried 2026-09-29).
-// - Water depth / isobaths: EMODnet Bathymetry DTM (depth_sample API),
-//   0.025° × 0.035° grid, contoured 2026-09-29.
+// - Maritime spatial plan basins, Natura 2000, cables, shipping, military
+//   areas: the Site & Permits region pack (EMODnet, EEA, OSM; see
+//   backend/app/services/site_assessment/data/SOURCES.md).
+// - Coastline, PSE substations, landfall: OpenStreetMap via Overpass API.
+// - Water depth / isobaths: EMODnet Bathymetry DTM (region pack, 0.01° grid).
 export const SITE_SOURCES = [
   "OpenStreetMap (Overpass)",
   "EMODnet Bathymetry DTM",
+  "Polish maritime spatial plan (Dz.U. 2021 poz. 935, via EMODnet)",
 ] as const;
 
 // ── Offshore Substation (OSS) ───────────────────────────────────
-// East edge of the array, 1.6 km from the nearest string end (WTG-32),
-// on the side facing the export route. Water depth ≈ 33 m (EMODnet).
-// The ±120 MVAr STATCOM is modelled on its 220 kV busbar (backend P2).
-export const OSS_GEO = { lat: 54.8, lon: 16.495 };
+// South-west corner of the array, 1.9 km from the nearest string end
+// (WTG-06), on the side the export route leaves from; 2.3 km inside PZP_44,
+// ≈ 44 m of water (EMODnet). The ±120 MVAr STATCOM is modelled on its 220 kV
+// busbar (backend P2).
+export const OSS_GEO = { lat: 55.026, lon: 16.442 };
 
-// Floating LIDAR: 3 km SW (bearing 225°) of the SW corner turbine WTG-06,
-// i.e. UPWIND of the prevailing SW wind, so it measures undisturbed
-// freestream rather than turbine wakes. EEZ, ≈ 40 m depth (EMODnet).
-export const LIDAR_GEO = { lat: 54.749, lon: 16.29 };
+// Floating LIDAR: 3 km west (270°) of WTG-04, the middle of string 1, i.e.
+// UPWIND of the prevailing westerly wind, so it measures undisturbed
+// freestream rather than turbine wakes. Inside PZP_44, ≈ 48 m depth (EMODnet).
+export const LIDAR_GEO = { lat: 55.0405, lon: 16.4169 };
 
 // ── Grid connection (onshore) ───────────────────────────────────
 
-/** PSE 400/110 kV substation "Słupsk Wierzbięcino" (OSM, operator PSE). */
-export const PSE_SUBSTATION_GEO = { lat: 54.5015, lon: 16.8919 };
+/** PSE 400/110 kV substation "Słupsk Wierzbięcino" (OSM, operator PSE) — SwePol's end. */
+export const SLUPSK_SUBSTATION_GEO = { lat: 54.5015, lon: 16.8919 };
 
 /**
- * Farm's own 220/400 kV onshore substation, 1.4 km from PSE Słupsk
- * Wierzbięcino (land, gmina Redzikowo). Same pattern as the real MFW Baltic
- * Power 220/400 kV station beside PSE Choczewo.
+ * PSE 400 kV substation Krzemienica (planned, PSE investment programme; region pack
+ * grid node) — the connection point PGE announced for Baltica 9+ (site 44.E.1), so
+ * SB-510's (backend network_model.SB510_GRID_NODE).
  */
-export const ONSHORE_GEO = { lat: 54.506, lon: 16.872 };
-
-/** Beach landfall at Zaleskie (gmina Ustka), on the OSM coastline. */
-export const LANDFALL_GEO = { lat: 54.5698, lon: 16.735 };
+export const PSE_SUBSTATION_GEO = { lat: 54.4393, lon: 16.8537 };
+export const PSE_SUBSTATION_NAME = "PSE Krzemienica";
 
 /**
- * 2 × 220 kV export route, 44.9 km ≈ the 45 km used by the electrical model:
- * 31.5 km subsea (OSS → landfall; crosses the coastal Natura 2000 bird area
- * "Przybrzeżne Wody Bałtyku", which spans the whole coast — HDD at landfall)
- * + 13.4 km land cable (landfall → onshore substation).
+ * Farm's own 220/400 kV onshore substation, 1.25 km west of PSE Krzemienica (land).
+ * Same pattern as the real MFW Baltic Power 220/400 kV station beside PSE Choczewo.
+ */
+export const ONSHORE_GEO = { lat: 54.442, lon: 16.835 };
+
+/** Beach landfall at Darłówko-Wschodnie (gmina Darłowo), on the OSM coastline. */
+export const LANDFALL_GEO = { lat: 54.4589, lon: 16.4073 };
+
+/** Export length of the electrical model [km] (backend network_model.EXPORT_CABLE_LENGTH_KM). */
+export const SB510_EXPORT_KM = 108;
+/** Water depth across the turbine positions [m] (EMODnet DTM) — jackets. */
+export const SB510_DEPTH_M: [number, number] = [37, 51];
+
+/**
+ * 2 × 220 kV export route, 108.0 km drawn = the electrical model: 79.3 km subsea +
+ * 28.7 km land cable (cable DTS: HDD 78.7–79.5 km). From the OSS it runs south-west
+ * round the west end of the Ławica Słupska Natura 2000 site (≥ 1.7 km clear), crosses
+ * shipping basins PZP_15 and PZP_10 at 62–67° (≥ 45°, ICPC Rec. 2), runs south between
+ * Darłowo's approach channel PZP_23 and the military National Defence Area off Ustka
+ * (≥ 0.7 km from each), lands at Darłówko-Wschodnie and runs east on land north of the
+ * Natura 2000 site Dolina Wieprzy i Studnicy to PSE Krzemienica. The coastal bird area
+ * "Przybrzeżne Wody Bałtyku" spans the whole coast (8.5 km at sea) — HDD at landfall.
+ * Checked with the route check against the region pack (2026-10-08). Until then the
+ * route ran 76.5 km to Słupsk-Wierzbięcino, 24.5 km of it through the military area.
  */
 export const EXPORT_CABLE_SUBSEA_GEO: { lat: number; lon: number }[] = [
   OSS_GEO,
-  { lat: 54.792, lon: 16.55 },
-  { lat: 54.76, lon: 16.608 },
-  { lat: 54.708, lon: 16.645 },
-  { lat: 54.655, lon: 16.674 },
-  { lat: 54.605, lon: 16.7 },
+  { lat: 54.93, lon: 16.335 },
+  { lat: 54.845, lon: 16.165 },
+  { lat: 54.7, lon: 16.1 },
+  { lat: 54.605, lon: 16.11 },
+  { lat: 54.581, lon: 16.146 },
+  { lat: 54.534, lon: 16.25 },
+  { lat: 54.491, lon: 16.345 },
   LANDFALL_GEO,
 ];
 export const EXPORT_CABLE_LAND_GEO: { lat: number; lon: number }[] = [
   LANDFALL_GEO,
-  { lat: 54.55, lon: 16.742 },
-  { lat: 54.53, lon: 16.76 },
-  { lat: 54.516, lon: 16.79 },
-  { lat: 54.51, lon: 16.825 },
-  { lat: 54.498, lon: 16.85 },
+  { lat: 54.455, lon: 16.47 },
+  { lat: 54.468, lon: 16.6 },
+  { lat: 54.478, lon: 16.7 },
+  { lat: 54.468, lon: 16.77 },
   ONSHORE_GEO,
 ];
 export const EXPORT_CABLE_GEO = [
@@ -158,45 +173,54 @@ export const EXPORT_CABLE_GEO = [
   ...EXPORT_CABLE_LAND_GEO.slice(1),
 ];
 
-/** 400 kV tie from the farm's onshore substation to PSE Słupsk Wierzbięcino. */
+/** 400 kV tie from the farm's onshore substation to PSE Krzemienica. */
 export const PSE_GRID_LINE_GEO: [
   { lat: number; lon: number },
   { lat: number; lon: number },
 ] = [ONSHORE_GEO, PSE_SUBSTATION_GEO];
 
-/** OWF site boundary (turbine envelope + ≈ 500 m safety zone). */
+/**
+ * OWF site boundary: energy basin PZP_44 between 16.42 and 16.63 °E, 112.9 km²
+ * (≈ 510 MW at the 4.5 MW/km² screening density); the basin's narrow east end
+ * towards the SwePol cable stays outside.
+ */
 export const SITE_BOUNDARY_GEO: [number, number][] = [
-  [54.845, 16.31],
-  [54.845, 16.485],
-  [54.755, 16.485],
-  [54.755, 16.31],
+  [55.099, 16.4978],
+  [55.1059, 16.5452],
+  [55.1083, 16.6056],
+  [55.1139, 16.63],
+  [55.0474, 16.63],
+  [55.0054, 16.4496],
+  [55.0018, 16.4417],
+  [54.9881, 16.42],
+  [55.0688, 16.42],
 ];
 
 /**
  * Initial map view: the offshore assets (array, OSS/STATCOM, LIDAR) so the
- * turbines are readable; zoom out once to see the export route to Słupsk.
+ * turbines are readable; zoom out to see the export route to Krzemienica.
  */
 export const FARM_VIEW_BOUNDS: [[number, number], [number, number]] = [
-  [54.735, 16.265],
-  [54.85, 16.53],
+  [54.995, 16.4],
+  [55.12, 16.645],
 ];
 
 /**
  * Turbine icon scale per map zoom (1 = the 40 × 56 px base icon).
- * At 54.8°N the 1,415 m along-string spacing is 32 px at z11 and doubles per
+ * At 55.06°N the 1,448 m along-string spacing is 33 px at z11 and doubles per
  * zoom step. The icon's vertical extent (heading arrow → ID label) is ≈ 50
  * units, ≈ 62 once the live-MW badge appears (z ≥ 13); the scale keeps that
  * stack within 90 % of the spacing so neighbours never touch, capped at 3.2×.
  */
 export function turbineIconScale(zoom: number): number {
-  const spacingPx = 32 * 2 ** (zoom - 11);
+  const spacingPx = 33 * 2 ** (zoom - 11);
   const extentUnits = zoom >= 13 ? 62 : 50;
   return Math.min(3.2, Math.max(0.45, (0.9 * spacingPx) / extentUnits));
 }
 
 // ── Bathymetry isobaths (EMODnet Bathymetry DTM, real data) ─────
-// Contoured from a 0.025° × 0.035° depth grid over 54.52–54.92°N,
-// 16.12–16.96°E (sampled 2026-09-29). Longest segment per level.
+// Contoured from the region pack's 0.01° EMODnet DTM grid over 54.52–55.17°N,
+// 16.12–16.97°E (2026-10-08): the longest line per level, simplified (0.004°).
 
 export const BATHYMETRY_CONTOURS_GEO: {
   depth: number;
@@ -205,120 +229,111 @@ export const BATHYMETRY_CONTOURS_GEO: {
   {
     depth: 20,
     points: [
-      [54.52, 16.3396],
-      [54.5348, 16.365],
-      [54.545, 16.3835],
-      [54.5533, 16.4],
-      [54.5631, 16.435],
-      [54.5686, 16.47],
-      [54.57, 16.4728],
-      [54.5863, 16.47],
-      [54.595, 16.4683],
-      [54.5968, 16.47],
-      [54.595, 16.4719],
-      [54.5839, 16.505],
-      [54.5928, 16.54],
-      [54.595, 16.55],
-      [54.6087, 16.575],
-      [54.62, 16.5856],
-      [54.6393, 16.61],
-      [54.6419, 16.645],
-      [54.6368, 16.68],
-      [54.6336, 16.715],
-      [54.62, 16.7309],
-      [54.6099, 16.75],
-      [54.6168, 16.785],
-      [54.62, 16.79],
-      [54.6435, 16.82],
-      [54.6378, 16.855],
-      [54.6423, 16.89],
-      [54.645, 16.8945],
-      [54.661, 16.925],
+      [54.946, 16.965],
+      [54.9473, 16.945],
+      [54.9403, 16.925],
+      [54.9043, 16.895],
+      [54.865, 16.8311],
+      [54.855, 16.825],
+      [54.8547, 16.815],
+      [54.878, 16.755],
+      [54.8811, 16.715],
+      [54.8767, 16.655],
+      [54.864, 16.625],
+      [54.8605, 16.565],
+      [54.8625, 16.545],
+      [54.8821, 16.535],
+      [54.8725, 16.515],
+      [54.8758, 16.455],
+      [54.905, 16.4072],
+      [54.935, 16.3987],
+      [54.9408, 16.425],
+      [54.9607, 16.445],
+      [54.9691, 16.465],
+      [54.9595, 16.475],
+      [54.9669, 16.515],
+      [55.0177, 16.625],
+      [55.0102, 16.645],
+      [55.0186, 16.675],
+      [55.005, 16.705],
+      [54.985, 16.6944],
+      [54.979, 16.705],
+      [54.9807, 16.725],
+      [54.9976, 16.765],
+      [54.995, 16.7733],
+      [54.975, 16.775],
+      [54.972, 16.795],
+      [54.9818, 16.835],
+      [54.9769, 16.965],
     ],
   },
   {
     depth: 30,
     points: [
-      [54.52, 16.1805],
-      [54.5272, 16.19],
-      [54.5438, 16.225],
-      [54.545, 16.2279],
-      [54.5553, 16.26],
-      [54.57, 16.2788],
-      [54.5852, 16.295],
-      [54.595, 16.308],
-      [54.6075, 16.33],
-      [54.62, 16.352],
-      [54.6278, 16.365],
-      [54.6447, 16.4],
-      [54.645, 16.4003],
-      [54.6603, 16.435],
-      [54.67, 16.4633],
-      [54.675, 16.47],
-      [54.685, 16.505],
-      [54.6904, 16.54],
-      [54.6917, 16.575],
-      [54.695, 16.6094],
-      [54.6951, 16.61],
-      [54.7066, 16.645],
-      [54.7046, 16.68],
-      [54.7104, 16.715],
-      [54.72, 16.7403],
-      [54.7264, 16.75],
-      [54.7356, 16.785],
-      [54.7316, 16.82],
-      [54.745, 16.8439],
-      [54.7601, 16.855],
-      [54.7668, 16.89],
-      [54.77, 16.8923],
-      [54.7759, 16.89],
-      [54.795, 16.8834],
-      [54.8001, 16.89],
-      [54.8094, 16.925],
+      [54.9125, 16.965],
+      [54.885, 16.8863],
+      [54.8454, 16.825],
+      [54.8471, 16.755],
+      [54.8383, 16.715],
+      [54.805, 16.6725],
+      [54.795, 16.6679],
+      [54.7871, 16.645],
+      [54.7889, 16.605],
+      [54.805, 16.5864],
+      [54.815, 16.5921],
+      [54.8171, 16.585],
+      [54.8258, 16.495],
+      [54.825, 16.4675],
+      [54.815, 16.4759],
+      [54.8003, 16.465],
+      [54.803, 16.365],
+      [54.81, 16.345],
+      [54.835, 16.315],
+      [54.855, 16.3017],
+      [54.885, 16.2974],
+      [54.935, 16.3167],
+      [54.9513, 16.355],
+      [54.9628, 16.365],
+      [55.0728, 16.735],
+      [55.0915, 16.845],
+      [55.0747, 16.945],
+      [55.065, 16.965],
     ],
   },
   {
     depth: 40,
     points: [
-      [54.5587, 16.12],
-      [54.57, 16.1363],
-      [54.595, 16.1519],
-      [54.6129, 16.155],
-      [54.62, 16.1725],
-      [54.6214, 16.19],
-      [54.645, 16.2186],
-      [54.6531, 16.225],
-      [54.67, 16.2561],
-      [54.695, 16.2303],
-      [54.72, 16.2392],
-      [54.7369, 16.26],
-      [54.745, 16.2836],
-      [54.7494, 16.26],
-      [54.7557, 16.225],
-      [54.77, 16.2008],
-      [54.7823, 16.19],
-      [54.77, 16.1636],
-      [54.7679, 16.155],
-      [54.77, 16.1499],
-      [54.795, 16.122],
-      [54.82, 16.1293],
-      [54.845, 16.1543],
-      [54.8454, 16.155],
-      [54.87, 16.1807],
-      [54.8787, 16.19],
-      [54.895, 16.2098],
-      [54.9057, 16.225],
-      [54.92, 16.2457],
+      [54.8273, 16.125],
+      [54.837, 16.145],
+      [54.8617, 16.165],
+      [54.905, 16.22],
+      [54.941, 16.275],
+      [54.9548, 16.315],
+      [54.9845, 16.365],
+      [55.026, 16.475],
+      [55.0495, 16.595],
+      [55.1231, 16.765],
+      [55.155, 16.9132],
+      [55.148, 16.945],
+      [55.118, 16.955],
+      [55.1172, 16.965],
     ],
   },
   {
     depth: 50,
     points: [
-      [54.8803, 16.12],
-      [54.895, 16.1471],
-      [54.8992, 16.155],
-      [54.9191, 16.19],
-      [54.92, 16.1913],
+      [54.8819, 16.125],
+      [54.8842, 16.155],
+      [54.895, 16.1502],
+      [54.8996, 16.155],
+      [54.9954, 16.325],
+      [55.0254, 16.365],
+      [55.0586, 16.455],
+      [55.111, 16.505],
+      [55.1127, 16.585],
+      [55.1422, 16.725],
+      [55.1521, 16.845],
+      [55.165, 16.8988],
     ],
   },
 ];
@@ -412,8 +427,8 @@ export const SEA_POLYGON_GEO: [number, number][] = [
 
 /**
  * SwePol HVDC link (450 kV DC, 600 MW, Stärnö SE ↔ Słupsk-Wierzbięcino PL),
- * OSM ways 1025227913 (subsea) + 251849081 (land). Its landfall is 3 km east
- * of ours and both routes stay apart — no cable crossing needed.
+ * OSM ways 1025227913 (subsea) + 251849081 (land). It lands 27 km east of ours and
+ * both routes stay apart — no cable crossing needed.
  */
 export const SWEPOL_GEO: [number, number][] = [
   [55.3525, 16.2825],
@@ -425,14 +440,14 @@ export const SWEPOL_GEO: [number, number][] = [
   [54.5739, 16.7841],
   [54.5544, 16.7985],
   [54.5316, 16.8905],
-  [PSE_SUBSTATION_GEO.lat, PSE_SUBSTATION_GEO.lon],
+  [SLUPSK_SUBSTATION_GEO.lat, SLUPSK_SUBSTATION_GEO.lon],
 ];
 
 /**
- * Planned offshore wind areas from the Polish maritime spatial plan
- * ("PZP_nn" basins), EMODnet Human Activities `windfarmspoly`, simplified.
- * None overlaps this site (nearest: PZP_43 "Baltex 2", ≈ 9 km NW of the
- * nearest turbine).
+ * The neighbouring energy basins of the Polish maritime spatial plan
+ * ("PZP_nn", EMODnet MSP zoning, simplified). SB-510 itself lies in PZP_44
+ * (drawn by the site boundary); PZP_43 is ≈ 10 km west of string 1, PZP_45
+ * ≈ 8 km east of string 6.
  */
 export const NEIGHBOUR_OWF_AREAS: {
   name: string;
@@ -440,8 +455,8 @@ export const NEIGHBOUR_OWF_AREAS: {
   ring: [number, number][];
 }[] = [
   {
-    name: "PZP_43 (Baltex 2)",
-    mw: 560,
+    name: "PZP_43",
+    mw: null,
     ring: [
       [54.9079, 16.2688],
       [54.8732, 16.1061],
@@ -449,23 +464,6 @@ export const NEIGHBOUR_OWF_AREAS: {
       [54.9951, 16.2309],
       [55.0258, 16.3095],
       [54.9565, 16.3052],
-    ],
-  },
-  {
-    name: "PZP_44",
-    mw: null,
-    ring: [
-      [55.099, 16.4978],
-      [55.1059, 16.5452],
-      [55.1083, 16.6056],
-      [55.1311, 16.7047],
-      [55.114, 16.7289],
-      [55.0926, 16.6787],
-      [55.0755, 16.6671],
-      [55.0478, 16.6319],
-      [55.0054, 16.4496],
-      [54.971, 16.3929],
-      [55.0485, 16.3678],
     ],
   },
   {
@@ -506,13 +504,13 @@ export const NEIGHBOUR_OWF_AREAS: {
 
 /** Port Ustka (OSM "Port Morski Ustka") — nearest port, O&M base for the CTV. */
 export const USTKA_PORT_GEO = { lat: 54.5859, lon: 16.8526 };
-/** CTV track: harbour → breakwater entrance → open sea → site (SE corner). */
+/** CTV track: harbour → breakwater entrance → open sea (over Ławica Słupska) → site (SE corner). */
 export const CTV_ROUTE_GEO: [number, number][] = [
   [54.5859, 16.8526],
   [54.5935, 16.852],
-  [54.62, 16.8],
-  [54.72, 16.56],
-  [54.765, 16.49],
+  [54.68, 16.78],
+  [54.9, 16.68],
+  [55.04, 16.628],
 ];
 
 /** Safety zone radius around each structure [m] — UNCLOS Art. 60(5) maximum. */
@@ -568,10 +566,10 @@ export const CARDINAL_MARKS: {
   lon: number;
   light: string;
 }[] = [
-  { id: "N", kind: "N", lat: 54.8485, lon: 16.397, light: "VQ" },
-  { id: "E", kind: "E", lat: 54.772, lon: 16.4885, light: "VQ(3) 5s" },
-  { id: "S", kind: "S", lat: 54.7515, lon: 16.397, light: "VQ(6)+LFl 10s" },
-  { id: "W", kind: "W", lat: 54.8, lon: 16.3065, light: "VQ(9) 10s" },
+  { id: "N", kind: "N", lat: 55.1115, lon: 16.5398, light: "VQ" },
+  { id: "E", kind: "E", lat: 55.077, lon: 16.6276, light: "VQ(3) 5s" },
+  { id: "S", kind: "S", lat: 55.023, lon: 16.5398, light: "VQ(6)+LFl 10s" },
+  { id: "W", kind: "W", lat: 55.047, lon: 16.452, light: "VQ(9) 10s" },
 ];
 
 /**

@@ -1,7 +1,8 @@
 /**
- * Lifecycle pages state: construction and decommissioning campaign inputs
- * (persisted as `of.lifecycle.v1`) and the last simulation results (kept for
- * the session, so the hand-over page can quote the construction dates).
+ * Lifecycle pages state: construction and decommissioning campaign inputs and
+ * the stages marked complete (persisted as `of.lifecycle.v1`), and the last
+ * simulation results (kept for the session, so the hand-over page can quote
+ * the construction dates).
  */
 
 import { create } from "zustand";
@@ -23,13 +24,18 @@ export interface CampaignSettings {
   limits: Partial<Record<VesselId, { hs_m: number; wind_ms: number }>>;
 }
 
-interface Persisted {
+/** Stages from the design freeze on that unlock the next modules in an own project (lib/project/progress.ts). */
+export type Milestone = "design" | "build" | "commissioning" | "handover";
+export const MILESTONES: Milestone[] = ["design", "build", "commissioning", "handover"];
+
+export interface LifecyclePersisted {
   build: CampaignSettings;
   decom: CampaignSettings & { options: DecomOptions };
+  done: Milestone[];
 }
 
 export const DEFAULT_BUILD: CampaignSettings = { start: "2028-04-01", alpha: 0.8, runs: 200, limits: {} };
-export const DEFAULT_REMOVE: Persisted["decom"] = { start: "2053-04-01", alpha: 0.8, runs: 200, limits: {}, options: { ...DEFAULT_DECOM } };
+export const DEFAULT_REMOVE: LifecyclePersisted["decom"] = { start: "2053-04-01", alpha: 0.8, runs: 200, limits: {}, options: { ...DEFAULT_DECOM } };
 
 const isDate = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
 const clamp = (v: unknown, lo: number, hi: number, d: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
@@ -51,30 +57,32 @@ function settings(v: unknown, d: CampaignSettings): CampaignSettings {
   };
 }
 
-function load(): Persisted {
+function parse(p: Record<string, unknown>): LifecyclePersisted {
+  const dm = (p.decom ?? {}) as Record<string, unknown>;
+  const op = (dm.options ?? {}) as Record<string, unknown>;
+  return {
+    build: settings(p.build, DEFAULT_BUILD),
+    decom: {
+      ...settings(p.decom, DEFAULT_REMOVE),
+      options: {
+        foundations: op.foundations === "full" ? "full" : "cut",
+        removeArray: op.removeArray === true,
+        removeExport: op.removeExport === true,
+        removeScour: op.removeScour === true,
+      },
+    },
+    done: Array.isArray(p.done) ? MILESTONES.filter((m) => (p.done as unknown[]).includes(m)) : [],
+  };
+}
+
+function load(): LifecyclePersisted {
   try {
     const raw = readStored(LIFECYCLE_KEY);
-    if (raw) {
-      const p = JSON.parse(raw) as Record<string, unknown>;
-      const dm = (p.decom ?? {}) as Record<string, unknown>;
-      const op = (dm.options ?? {}) as Record<string, unknown>;
-      return {
-        build: settings(p.build, DEFAULT_BUILD),
-        decom: {
-          ...settings(p.decom, DEFAULT_REMOVE),
-          options: {
-            foundations: op.foundations === "full" ? "full" : "cut",
-            removeArray: op.removeArray === true,
-            removeExport: op.removeExport === true,
-            removeScour: op.removeScour === true,
-          },
-        },
-      };
-    }
+    if (raw) return parse(JSON.parse(raw) as Record<string, unknown>);
   } catch {
     // corrupt value: defaults
   }
-  return { build: { ...DEFAULT_BUILD }, decom: { ...DEFAULT_REMOVE, options: { ...DEFAULT_DECOM } } };
+  return { build: { ...DEFAULT_BUILD }, decom: { ...DEFAULT_REMOVE, options: { ...DEFAULT_DECOM } }, done: [] };
 }
 
 export const limitList = (l: CampaignSettings["limits"]): VesselLimit[] =>
@@ -82,16 +90,20 @@ export const limitList = (l: CampaignSettings["limits"]): VesselLimit[] =>
 
 type Mode = "build" | "decom";
 
-interface LifecycleState extends Persisted {
+interface LifecycleState extends LifecyclePersisted {
   results: Partial<Record<Mode, CampaignResult>>;
   /** Signature of the request each result was computed for. */
   resultFor: Partial<Record<Mode, string>>;
   running: Partial<Record<Mode, boolean>>;
   error: string | null;
   setBuild: (p: Partial<CampaignSettings>) => void;
-  setDecom: (p: Partial<Persisted["decom"]>) => void;
+  setDecom: (p: Partial<LifecyclePersisted["decom"]>) => void;
   setLimit: (mode: Mode, v: VesselId, l: { hs_m: number; wind_ms: number } | null) => void;
   run: (mode: Mode, req: CampaignRequest) => Promise<void>;
+  /** Mark a stage complete (own-project locks). */
+  complete: (m: Milestone) => void;
+  /** Replace the campaign inputs (project document); results are dropped. */
+  restore: (p: Record<string, unknown>) => void;
   clearError: () => void;
 }
 
@@ -99,8 +111,8 @@ export const requestSignature = (r: CampaignRequest) => JSON.stringify(r);
 
 export const useLifecycleStore = create<LifecycleState>((set, get) => {
   const save = () => {
-    const { build, decom } = get();
-    writeStored(LIFECYCLE_KEY, JSON.stringify({ build, decom }));
+    const { build, decom, done } = get();
+    writeStored(LIFECYCLE_KEY, JSON.stringify({ build, decom, done }));
   };
   const seq: Record<Mode, number> = { build: 0, decom: 0 };
   return {
@@ -140,6 +152,15 @@ export const useLifecycleStore = create<LifecycleState>((set, get) => {
       } catch (e) {
         if (id === seq[mode]) set({ running: { ...get().running, [mode]: false }, error: e instanceof Error ? e.message : String(e) });
       }
+    },
+    complete: (m) => {
+      if (get().done.includes(m)) return;
+      set({ done: MILESTONES.filter((x) => x === m || get().done.includes(x)) });
+      save();
+    },
+    restore: (p) => {
+      set({ ...parse(p), results: {}, resultFor: {} });
+      save();
     },
     clearError: () => set({ error: null }),
   };

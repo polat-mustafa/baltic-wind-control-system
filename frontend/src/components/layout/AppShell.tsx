@@ -26,6 +26,9 @@ import {
 } from "lucide-react";
 
 import Sidebar from "./Sidebar";
+import { LockedPage } from "../project/LockedPage";
+import ProjectChooser from "../project/ProjectChooser";
+import ProjectMenu from "../project/ProjectMenu";
 import TourMenu from "../../tour/TourMenu";
 import TourOverlay from "../../tour/TourOverlay";
 import TourWelcome from "../../tour/TourWelcome";
@@ -33,15 +36,20 @@ import { Skeleton } from "../ui/Skeleton";
 import { StatusIndicator } from "../ui/StatusIndicator";
 import { cn } from "../../lib/utils";
 import { useFaultSync } from "../../hooks/useFaultSync";
+import { useLiveFleet } from "../../hooks/useLiveFleet";
 import { useScadaStore } from "../../store/scadaStore";
 import { useLandingStore } from "../../store/landingStore";
 import { useLayerStore } from "../../store/layerStore";
+import { useModeStore } from "../../store/modeStore";
+import { useSiteStore } from "../../store/siteStore";
+import { useLocks } from "../../lib/project/progress";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Control Room",
   "/develop": "Site & Permits",
   "/develop/layout": "Layout",
   "/wind-resource": "Wind Resource",
+  "/report": "Project Report",
   "/hv-grid": "HV Grid Integration",
   "/scada": "SCADA & Automation",
   "/forecast": "AI Forecasting",
@@ -71,6 +79,19 @@ export default function AppShell() {
 
   // Unified fault synchronization between landing map and SCADA
   useFaultSync();
+  // The live plant (map, control room, alarms) runs on SB-510 or the own project
+  useLiveFleet();
+
+  // Own project: modules unlock stage by stage; the locks need the site assessment and constraint layers.
+  const mode = useModeStore((s) => s.mode);
+  const hasSite = useSiteStore((s) => s.site !== null);
+  const lock = useLocks()[location.pathname] ?? null;
+  useEffect(() => {
+    if (mode !== "own") return;
+    const s = useSiteStore.getState();
+    void s.loadLayers();
+    if (s.site && !s.report && !s.assessing) void s.assess();
+  }, [mode, hasSite]);
 
   // Subscribe to alarm/fault state using primitives — never return arrays from
   // Zustand selectors (filter/map return new references → Object.is fails → infinite loop)
@@ -160,10 +181,12 @@ export default function AppShell() {
 
         {/* Right: System info */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-          {/* Farm spec badge */}
-          <span className="hidden xl:inline-flex text-[10px] text-text-muted font-mono tracking-wide whitespace-nowrap">
-            510 MW · 34×V236 · 66/220/400 kV
-          </span>
+          {/* Farm spec badge (the reference case study) */}
+          {mode !== "own" && (
+            <span className="hidden xl:inline-flex text-[10px] text-text-muted font-mono tracking-wide whitespace-nowrap">
+              510 MW · 34×V236 · 66/220/400 kV
+            </span>
+          )}
 
           {/* Connection status (label hidden on phones) */}
           <div className="flex items-center gap-2">
@@ -175,6 +198,7 @@ export default function AppShell() {
             />
           </div>
 
+          <ProjectMenu />
           <TourMenu />
 
           <button
@@ -241,7 +265,7 @@ export default function AppShell() {
         <main className="min-w-0 flex-1 overflow-auto p-2 sm:p-3">
           {/* Pages are lazy-loaded (App.tsx) */}
           <Suspense fallback={<PageLoading />}>
-            <Outlet />
+            {lock ? <LockedPage title={currentLabel} lock={lock} /> : <Outlet />}
           </Suspense>
         </main>
       </div>
@@ -249,6 +273,7 @@ export default function AppShell() {
       {/* Guided tours (portals above everything) */}
       <TourWelcome />
       <TourOverlay />
+      <ProjectChooser />
     </div>
   );
 }

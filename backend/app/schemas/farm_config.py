@@ -9,6 +9,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.services.site_assessment.wind_climate import SB510_MEAN_MS, SB510_WEIBULL_K
+
 # ── Farm configuration ────────────────────────────────────────────
 
 
@@ -21,23 +23,47 @@ class FarmConfigCreate(BaseModel):
     turbine_rated_mw: float = Field(default=15.0, ge=0.5, le=20.0)
     array_voltage_kv: float = Field(default=66.0, ge=33.0, le=132.0)
     export_voltage_kv: float = Field(default=220.0, ge=66.0, le=400.0)
-    export_length_km: float = Field(default=45.0, ge=1.0, le=300.0)
+    export_length_km: float = Field(default=108.0, ge=1.0, le=300.0)
     turbine_spacing_d: float = Field(
         default=7.0, ge=4.0, le=12.0, description="Grid spacing in rotor diameters [D]"
     )
     mean_wind_speed_ms: float = Field(
-        default=9.5, ge=5.0, le=14.0, description="Hub-height mean wind speed [m/s]"
+        default=SB510_MEAN_MS, ge=5.0, le=14.0, description="Hub-height mean wind speed [m/s]"
     )
-    weibull_k: float = Field(default=2.2, ge=1.5, le=3.5, description="Weibull shape parameter")
+    weibull_k: float = Field(
+        default=SB510_WEIBULL_K, ge=1.5, le=3.5, description="Weibull shape parameter"
+    )
     availability_pct: float = Field(default=95.0, ge=70.0, le=99.9)
     capex_m_eur_per_mw: float = Field(
-        default=3.2, ge=1.0, le=6.0, description="CAPEX [M€/MW] — 2024–25 EU offshore ≈ 3–4"
+        default=5.0,
+        ge=1.0,
+        le=8.0,
+        description=(
+            "CAPEX [M€/MW]. Default: NREL Cost of Wind Energy Review 2024 (NREL/PR-5000-91775), "
+            "fixed-bottom reference 5 411 $/kW in 2023 USD at the ECB 2023 average 1.0813 $/€ "
+            "(literature; U.S. North Atlantic, 600 MW, monopiles)"
+        ),
     )
     opex_k_eur_per_mw_year: float = Field(
-        default=75.0, ge=20.0, le=200.0, description="Annual OPEX [k€/MW/year]"
+        default=125.0,
+        ge=20.0,
+        le=200.0,
+        description=(
+            "Annual OPEX [k€/MW/year]. Default: same NREL review, 135 $/kW-yr (WOMBAT, 2023 USD) "
+            "at 1.0813 $/€ (literature)"
+        ),
     )
-    discount_rate_pct: float = Field(default=6.0, ge=2.0, le=15.0, description="WACC [%]")
-    lifetime_years: int = Field(default=25, ge=10, le=35)
+    discount_rate_pct: float = Field(
+        default=6.0,
+        ge=2.0,
+        le=15.0,
+        description=(
+            "WACC [%] (illustrative; NREL uses 4.01 % real / 6.61 % nominal for a U.S. project)"
+        ),
+    )
+    lifetime_years: int = Field(
+        default=25, ge=10, le=35, description="Design life [years] (NREL review: 25)"
+    )
     description: str = Field(default="")
     created_by: str = Field(default="user")
 

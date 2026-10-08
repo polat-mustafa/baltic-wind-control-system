@@ -92,7 +92,7 @@ async def get_turbine_availability(
     **MTBF and MTTR — reliability engineering KPIs:**
 
     MTBF (Mean Time Between Failures) = total_hours / fault_count
-    - V236-15.0 MW target: > 1200 hours (~50 days between faults)
+    - 15 MW-class target: > 1200 hours (~50 days between faults)
     - Industry average offshore: 700-1500 hours MTBF
 
     MTTR (Mean Time To Repair) = total_repair_time / fault_count
@@ -111,7 +111,7 @@ async def get_turbine_availability(
 
     **Fault types:**
     Most offshore faults (55%) are electrical: converter, pitch drive, transformer.
-    Mechanical (25%): gearbox, main bearing, yaw drive.
+    Mechanical (25%): main bearings, yaw drive, pitch hydraulics (direct drive: no gearbox).
     Control/sensor (20%): anemometer, encoders, blade sensors.
     """
     result = svc.get_turbine_availability(turbine_id, period_hours)

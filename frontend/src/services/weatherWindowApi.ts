@@ -7,10 +7,12 @@
 
 import type {
   AllVesselAccessResponse,
+  MaintenanceWindowRequest,
+  MaintenanceWindowResponse,
   OAMCostBreakdown,
 } from "../types/weatherWindow";
 
-import { request } from "./apiClient";
+import { post, request } from "./apiClient";
 
 const BASE = "/api/v1/wind";
 
@@ -31,4 +33,11 @@ export function getOAMCost(
   return request(
     `${BASE}/oam-cost?n_turbines=${nTurbines ?? 34}&turbine_rated_mw=${turbineRatedMw ?? 15.0}`,
   );
+}
+
+// ── Repair window ─────────────────────────────────────────────────
+
+/** Next weather window for a repair and its cost; CTV work per day = 12 h minus the port transit. */
+export function findMaintenanceWindow(body: MaintenanceWindowRequest): Promise<MaintenanceWindowResponse> {
+  return post(`${BASE}/maintenance-scheduling`, body);
 }

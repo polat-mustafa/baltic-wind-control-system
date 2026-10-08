@@ -2,25 +2,27 @@
  * AEP teaching maths — Weibull × power curve, loss cascade, exceedance.
  *
  * Mirrors the backend (services/p1/aep_calculator.py) so the explainer's
- * numbers match the analysis: multiplicative losses, RSS uncertainty √47.5 = 6.89 %,
+ * numbers match the analysis: multiplicative losses, RSS uncertainty (SB-510: 7.7 %),
  * P_xx = P50 · (1 − z·σ). Power curve from utils/landingPhysics (single source).
  */
 
-import { v236PowerMW } from "./landingPhysics";
+import { turbinePowerMW } from "./landingPhysics";
 
 export const HOURS_PER_YEAR = 8760;
 export const Z = { P75: 0.674, P90: 1.282, P99: 2.326 } as const;
 
-/** Backend DEFAULT_UNCERTAINTY_SOURCES [% σ] — RSS = √47.5 = 6.89 %. */
+/**
+ * SB-510's uncertainty components [% σ of AEP] — backend aep_calculator.uncertainty_components
+ * (A 10.80 m/s, k 2.04, wake 6.47 %, blockage 1.95 %); RSS = √59.3 = 7.7 %. Sources: NEWA spread
+ * (Dörenkämper et al. 2020), ERA5 interannual variability, Walker et al. 2016, Lee & Fields 2021.
+ */
 export const UNCERTAINTY_SOURCES: [string, number][] = [
-  ["Wind resource", 4.0],
-  ["Wake model", 3.0],
-  ["Long-term correction", 3.0],
-  ["Wind shear", 2.0],
-  ["Availability", 2.0],
-  ["Power curve", 1.5],
-  ["Environmental", 1.5],
-  ["Electrical", 1.0],
+  ["Wind resource (NEWA model, no measurement)", 5.51],
+  ["Long-term period (30-year atlas)", 0.75],
+  ["Future variability (25 years)", 0.82],
+  ["Wake and blockage model", 2.1],
+  ["Turbine performance (reference power curve)", 4.0],
+  ["Plant non-wake losses", 2.7],
 ];
 
 export const rss = (sigmas: number[]) => Math.sqrt(sigmas.reduce((s, x) => s + x * x, 0));
@@ -59,7 +61,7 @@ export function speedBins(a: number, k: number, maxV = 30): SpeedBin[] {
   const bins: SpeedBin[] = [];
   for (let v = 0; v <= maxV; v++) {
     const hours = HOURS_PER_YEAR * (weibullCdf(v + 0.5, a, k) - weibullCdf(v - 0.5, a, k));
-    const powerMW = v236PowerMW(v);
+    const powerMW = turbinePowerMW(v);
     bins.push({ v, hours, powerMW, energyMWh: hours * powerMW });
   }
   return bins;
@@ -73,7 +75,7 @@ export function grossTurbineMWh(a: number, k: number): number {
   let e = 0;
   const dv = 0.05;
   for (let v = dv / 2; v < 35; v += dv) {
-    e += v236PowerMW(v) * (weibullCdf(v + dv / 2, a, k) - weibullCdf(v - dv / 2, a, k));
+    e += turbinePowerMW(v) * (weibullCdf(v + dv / 2, a, k) - weibullCdf(v - dv / 2, a, k));
   }
   return e * HOURS_PER_YEAR;
 }

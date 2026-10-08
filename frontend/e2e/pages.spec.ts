@@ -5,6 +5,7 @@ const ROUTES = [
   ["site-permits", "/develop"],
   ["layout", "/develop/layout"],
   ["p1-wind-resource", "/wind-resource"],
+  ["report", "/report"],
   ["p2-hv-grid", "/hv-grid"],
   ["p3-scada", "/scada"],
   ["p4-forecast", "/forecast"],
@@ -27,6 +28,8 @@ async function open(page: Page, path: string, theme: (typeof THEMES)[number], we
       localStorage.setItem("of.mapTheme", t);
       // The first-visit tour welcome would cover every screenshot.
       if (!w) localStorage.setItem("of.tour.v1", JSON.stringify({ completed: [], welcomeDismissed: true }));
+      // Reference mode: no project chooser, every module open.
+      localStorage.setItem("of.mode.v1", "reference");
     },
     [theme, welcome] as const,
   );

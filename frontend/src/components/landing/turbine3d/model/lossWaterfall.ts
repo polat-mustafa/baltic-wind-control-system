@@ -7,22 +7,23 @@
  *              (all of it during the > 45° yaw-error stop)
  *   − aero     what the blades do not extract: Betz (≤ 59.3 %), profile /
  *              tip losses and, above rated, pitch shedding the excess
- *   − gearbox / generator / converter / transformer  (V236_ETA chain)
- *   = P_el     at the 66 kV terminals (the SCADA value)
+ *   − generator / converter  (V236_ETA chain; direct drive — no gearbox)
+ *   = P_el     at the converter terminals — the SCADA value and the official
+ *              IEA 15 MW power table (the nacelle transformer comes after it)
  *
  * The steps are built from the same helpers as the rest of the app
  * (utils/landingPhysics), so the waterfall closes exactly on the reported MW.
  */
 
-import { v236PowerChain } from "../../../../utils/landingPhysics";
+import { ROTOR_DIAMETER_M, v236PowerChain } from "../../../../utils/landingPhysics";
 import { yawPowerFactor } from "../../../../store/landingStore";
 
 const RHO = 1.225;
-const AREA = Math.PI * 118 ** 2;
+const AREA = Math.PI * (ROTOR_DIAMETER_M / 2) ** 2;
 export const discPowerMW = (u: number) => (0.5 * RHO * AREA * Math.max(0, u) ** 3) / 1e6;
 
 export interface LossStep {
-  key: "free" | "wake" | "yaw" | "aero" | "gearbox" | "generator" | "converter" | "transformer" | "grid";
+  key: "free" | "wake" | "yaw" | "aero" | "generator" | "converter" | "grid";
   label: string;
   /** MW removed by this step (0 for the first/last bar). */
   lossMW: number;
@@ -53,10 +54,8 @@ export function lossWaterfall(opts: {
   push("wake", "Wake deficit", local);
   push("yaw", yawPaused ? "Yaw-error stop" : "Yaw misalignment", usable);
   push("aero", "Aerodynamic (Cp, pitch)", rotor);
-  push("gearbox", "Gearbox", c.gearbox.outMW);
   push("generator", "Generator", c.generator.outMW);
   push("converter", "Converter", c.converter.outMW);
-  push("transformer", "Transformer", c.transformer.outMW);
-  steps.push({ key: "grid", label: "P at 66 kV", lossMW: 0, levelMW: level });
+  steps.push({ key: "grid", label: "P_el (SCADA)", lossMW: 0, levelMW: level });
   return steps;
 }

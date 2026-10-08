@@ -2,7 +2,7 @@
 Sensor Architecture & Specification Schemas.
 
 Defines the full sensor register for the SB-510 (510 MW) platform:
-- Per-turbine instruments (34 × V236-15.0 MW)
+- Per-turbine instruments (34 × 15 MW, IEA 15 MW direct drive)
 - Offshore substation instruments (6 bays × 5 instruments)
 - Export cable instruments (DTS + joint monitors)
 
@@ -38,9 +38,9 @@ class SensorSpec(BaseModel):
 
 
 class TurbineSensorGroup(BaseModel):
-    """All sensors installed on a single V236-15.0 MW turbine."""
+    """All sensors installed on a single SB-510 turbine (15 MW, direct drive)."""
 
-    turbine_model: str = "Vestas V236-15.0 MW"
+    turbine_model: str = 'IEA 15 MW reference turbine ("V236 class")'
     sensors: list[SensorSpec]
     total_per_turbine: int
 
@@ -54,9 +54,9 @@ class OSSBaySensorGroup(BaseModel):
 
 
 class CableSensorGroup(BaseModel):
-    """Export cable monitoring instruments (45 km, 220 kV three-core)."""
+    """Export cable monitoring instruments (108 km, 220 kV three-core)."""
 
-    cable_length_km: float = 45.0
+    cable_length_km: float = 108.0
     cable_voltage_kv: float = 220.0
     sensors: list[SensorSpec]
     total_cable_instruments: int

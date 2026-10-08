@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.opcua import OPCUAAddressSpaceResponse, OPCUAStatusResponse
 from app.services.p3 import opcua_server as svc
 
@@ -30,7 +31,7 @@ router = APIRouter(tags=["M03 OPC-UA Server"])
     response_model=OPCUAStatusResponse,
     summary="OPC-UA server status",
 )
-async def get_opcua_status() -> OPCUAStatusResponse:
+async def get_opcua_status(spec: FarmSpecDep) -> OPCUAStatusResponse:
     """Return current OPC-UA server runtime status.
 
     Provides:
@@ -43,7 +44,7 @@ async def get_opcua_status() -> OPCUAStatusResponse:
     The REST API continues to work regardless — OPC-UA is an optional
     integration layer on top of the HTTP API.
     """
-    return svc.get_status()
+    return svc.get_status(spec)
 
 
 @router.get(
@@ -51,7 +52,7 @@ async def get_opcua_status() -> OPCUAStatusResponse:
     response_model=OPCUAAddressSpaceResponse,
     summary="Browse OPC-UA address space",
 )
-async def get_address_space() -> OPCUAAddressSpaceResponse:
+async def get_address_space(spec: FarmSpecDep) -> OPCUAAddressSpaceResponse:
     """Return the complete OPC-UA address space as a JSON tree.
 
     The address space mirrors the SB-510 physical topology:
@@ -66,7 +67,7 @@ async def get_address_space() -> OPCUAAddressSpaceResponse:
     IEC 61400-25 specifies the wind turbine information model (WTTR, WTUR,
     WNAC, WROT logical nodes) which this address space approximates.
     """
-    return svc.get_address_space()
+    return svc.get_address_space(spec)
 
 
 @router.post(

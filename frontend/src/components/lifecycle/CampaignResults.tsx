@@ -196,7 +196,7 @@ export function CampaignResultPanels({ result, finalId, finalLabel }: { result: 
             <li key={a}>{a}</li>
           ))}
           <li>
-            Activities: {result.activities.map((a) => `${a.name} — ${a.units} × ${a.op_hours} h${a.trip_every ? `, ${a.trip_every} per port trip` : ""}`).join("; ")}.
+            Activities: {result.activities.map((a) => `${a.name} — ${a.units} × ${a.op_hours} h${a.trip_every ? `, ${a.trip_every} per port trip (${a.trip_hours.toFixed(0)} h loading and sailing)` : ""}`).join("; ")}.
           </li>
         </ul>
       </details>

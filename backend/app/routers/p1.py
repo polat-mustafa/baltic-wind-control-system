@@ -2,7 +2,7 @@
 P1 Wind Resource & AEP API endpoints.
 
 Provides REST endpoints for:
-- Turbine specification (V236-15.0 MW constants)
+- Turbine specification (reference models, default IEA 15 MW)
 - Weibull distribution fitting from synthetic wind data
 - Wind rose analysis (frequency + energy rose)
 - Wake analysis via PyWake BPA Gaussian model
@@ -20,6 +20,7 @@ as P4's scada_generator.py — physics-correct synthetic data.
 
 from __future__ import annotations
 
+import asyncio
 import math
 from typing import Any
 
@@ -32,9 +33,15 @@ from app.core.exceptions import DomainError
 from app.core.exceptions import ValidationError as DomainValidationError
 from app.services.p1.aep_calculator import (
     DEFAULT_PRICE_EUR_MWH,
+    Z_75,
+    Z_90,
+    Z_99,
     MarketWeightedAEPResult,
+    UncertaintyComponent,
+    aep_sensitivity,
     compute_aep_cascade,
     compute_market_weighted_aep,
+    uncertainty_components,
 )
 from app.services.p1.blockage import (
     estimate_blockage_loss_percent,
@@ -52,18 +59,15 @@ from app.services.p1.layout_optimizer import (
     generate_staggered_grid,
     optimize_layout_multi,
 )
+from app.services.p1.turbine_models import DEFAULT_TURBINE_ID, get_turbine
 from app.services.p1.uncertainty_quantification import (
     run_pce_uncertainty,
 )
 from app.services.p1.wake_model import (
-    CUT_IN_SPEED_MS,
-    CUT_OUT_SPEED_MS,
-    HUB_HEIGHT_M,
-    RATED_POWER_KW,
-    RATED_SPEED_MS,
-    ROTOR_DIAMETER_M,
     WakeAnalysisResult,
     create_site_from_wind_rose,
+    create_wind_turbine,
+    run_cluster_wake,
     run_wake_analysis,
 )
 from app.services.p1.wake_models import (
@@ -80,6 +84,11 @@ from app.services.p1.wind_analysis import (
 from app.services.p1.yaw_optimizer import (
     optimize_yaw_all_directions,
     optimize_yaw_single_direction,
+)
+from app.services.site_assessment.wind_climate import (
+    SB510_MEAN_MS,
+    SB510_WEIBULL_A,
+    SB510_WEIBULL_K,
 )
 
 router = APIRouter(prefix="/api/v1/wind", tags=["P1 Wind Resource"])
@@ -104,8 +113,12 @@ router.include_router(_weather_window_router)
 
 
 class TurbineSpecResponse(BaseModel):
-    """V236-15.0 MW turbine specification constants."""
+    """Turbine specification constants of a reference model (default SB-510's)."""
 
+    model_id: str
+    name: str
+    source: str
+    license: str
     rotor_diameter_m: float
     hub_height_m: float
     rated_power_kw: float
@@ -118,8 +131,8 @@ class TurbineSpecResponse(BaseModel):
 class WeibullFitRequest(BaseModel):
     """Request to fit Weibull from synthetic data."""
 
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0, description="Weibull scale A [m/s]")
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0, description="Weibull shape k [-]")
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0, description="Weibull scale A [m/s]")
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0, description="Weibull shape k [-]")
     num_samples: int = Field(8760, ge=1000, le=87600, description="Number of synthetic samples")
 
 
@@ -137,8 +150,8 @@ class WeibullFitResponse(BaseModel):
 class WindRoseRequest(BaseModel):
     """Request for wind rose computation from synthetic data."""
 
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     num_samples: int = Field(8760, ge=1000, le=87600)
     num_sectors: int = Field(12, ge=8, le=36)
 
@@ -163,8 +176,8 @@ class WakeAnalysisRequest(BaseModel):
     """Request for wake analysis on a layout."""
 
     layout: str = Field("regular", description="Layout name: regular, staggered")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
 
 
@@ -177,6 +190,13 @@ class WakeAnalysisResponse(BaseModel):
     capacity_factor: float
     per_turbine_aep_gwh: list[float]
     per_turbine_wake_loss_percent: list[float]
+    external_wake_loss_percent: float | None = Field(
+        None, description="Loss to the neighbouring farms' wakes [%] (only with neighbours)"
+    )
+    net_aep_with_neighbours_gwh: float | None = Field(
+        None, description="Net AEP after the external wake loss [GWh/yr]"
+    )
+    neighbour_count: int = 0
 
 
 class CustomWakeRequest(BaseModel):
@@ -184,24 +204,79 @@ class CustomWakeRequest(BaseModel):
 
     Positions are local metres: x east, y north, from any origin near the
     site (the frontend projects lon/lat equirectangularly about the site
-    centroid). Turbine: V236-15.0 MW.
+    centroid). Turbine: a packaged reference model, default the IEA 15 MW
+    ("V236 class", SB-510).
     """
 
     x_m: list[float] = Field(min_length=1, max_length=150, description="Turbine x (east) [m]")
     y_m: list[float] = Field(min_length=1, max_length=150, description="Turbine y (north) [m]")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    turbine_model: str = Field(
+        DEFAULT_TURBINE_ID,
+        description="Turbine model id (IEA-15-240-RWT or IEA-22-280-RWT)",
+    )
+    sector_frequencies: list[float] | None = Field(
+        None,
+        min_length=12,
+        max_length=12,
+        description=(
+            "Site wind rose: 12 sectors, wind FROM, centres 0°, 30° … 330° (from the site "
+            "assessment). With it the site is Weibull(A, k) in every sector weighted by these "
+            "frequencies; without it the dashboard's synthetic 12-sector rose is used."
+        ),
+    )
+    neighbour_x_m: list[float] | None = Field(
+        None,
+        max_length=1500,
+        description="Neighbouring farms' turbines (approximate layouts, /site/neighbours), x [m]",
+    )
+    neighbour_y_m: list[float] | None = Field(None, max_length=1500, description="… y [m]")
+
+
+class WakeMove(BaseModel):
+    """One turbine of the layout moved to a new position (local metres)."""
+
+    index: int = Field(ge=0, description="Turbine index in x_m / y_m")
+    x_m: float
+    y_m: float
+
+
+class WakeMovesRequest(CustomWakeRequest):
+    """A layout plus up to five single-turbine moves to check with PyWake."""
+
+    moves: list[WakeMove] = Field(min_length=1, max_length=5)
+
+
+class WakeMoveResult(BaseModel):
+    index: int
+    net_aep_gwh: float
+    delta_gwh: float = Field(description="Net AEP change against the base layout [GWh/yr]")
+    delta_percent: float
+    wake_loss_percent: float
+
+
+class WakeMovesResponse(BaseModel):
+    base_net_aep_gwh: float
+    moves: list[WakeMoveResult]
 
 
 class AEPCascadeRequest(BaseModel):
     """Request for full AEP loss cascade."""
 
     layout: str = Field("regular")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
+
+
+class UncertaintyComponentSchema(BaseModel):
+    name: str
+    sigma_percent: float = Field(description="Standard deviation of the AEP [%]")
+    quality: str
+    source: str
 
 
 class LossFactorSchema(BaseModel):
@@ -210,6 +285,10 @@ class LossFactorSchema(BaseModel):
     name: str
     loss_percent: float
     uncertainty_percent: float
+    quality: str = Field(
+        description="official | measured | literature | approximation | illustrative"
+    )
+    source: str
 
 
 class AEPCascadeResponse(BaseModel):
@@ -227,14 +306,33 @@ class AEPCascadeResponse(BaseModel):
     revenue_meur: float
     loss_factors: list[LossFactorSchema]
     price_eur_mwh: float
+    uncertainty: list[UncertaintyComponentSchema] = Field(default_factory=list)
+
+
+class UncertaintyRequest(BaseModel):
+    """AEP uncertainty of a farm from its wind, wake loss and turbine."""
+
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=3.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=5.0)
+    wake_loss_percent: float = Field(ge=0.0, le=60.0)
+    blockage_loss_percent: float = Field(0.0, ge=0.0, le=20.0)
+    turbine_model: str = Field(DEFAULT_TURBINE_ID)
+    lifetime_years: int = Field(25, ge=1, le=50)
+
+
+class UncertaintyResponse(BaseModel):
+    components: list[UncertaintyComponentSchema]
+    combined_percent: float = Field(description="RSS of the components, 1σ [% of AEP]")
+    sensitivity: float = Field(description="d ln AEP / d ln v of this farm")
+    z: dict[str, float] = Field(description="Normal quantiles: P_xx = P50 · (1 − z · σ)")
 
 
 class BlockageRequest(BaseModel):
     """Request for blockage estimation."""
 
     layout: str = Field("regular")
-    mean_wind_speed_ms: float = Field(9.3, ge=3.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    mean_wind_speed_ms: float = Field(SB510_MEAN_MS, ge=3.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
 
 
 class BlockageResponse(BaseModel):
@@ -250,8 +348,8 @@ class BlockageResponse(BaseModel):
 class LayoutComparisonRequest(BaseModel):
     """Request to compare all 3 layouts."""
 
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
 
@@ -295,8 +393,8 @@ class YawOptimizationRequest(BaseModel):
     layout: str = Field("staggered", description="Layout name: regular, staggered")
     wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0, description="Wind direction [deg]")
     wind_speed_ms: float = Field(9.5, ge=3.0, le=25.0, description="Wind speed [m/s]")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     max_yaw_deg: float = Field(30.0, ge=5.0, le=40.0, description="Max yaw angle [deg]")
 
@@ -317,8 +415,8 @@ class FarmYawOptimizationRequest(BaseModel):
     """Request for yaw optimization across all wind directions."""
 
     layout: str = Field("staggered", description="Layout name: regular, staggered")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     wind_speed_ms: float = Field(
         9.5,
@@ -412,6 +510,17 @@ def _site(weibull_a: float, weibull_k: float, ti: float) -> Any:
     return create_site_from_wind_rose(rose, ti)
 
 
+def _rose_site(weibull_a: float, weibull_k: float, freqs: list[float], ti: float) -> Any:
+    """PyWake site: one Weibull(A, k) for all sectors, weighted by a measured rose."""
+    from py_wake.site import UniformWeibullSite
+
+    p = np.asarray(freqs, dtype=np.float64)
+    if (p < 0).any() or p.sum() <= 0:
+        raise DomainValidationError("sector_frequencies must be ≥ 0 and not all zero")
+    n = len(p)
+    return UniformWeibullSite(p_wd=p / p.sum(), a=[weibull_a] * n, k=[weibull_k] * n, ti=ti)
+
+
 def _get_layout(name: str) -> LayoutResult:
     """Retrieve a pre-computed layout by name."""
     if name == "regular":
@@ -435,7 +544,7 @@ def _run_wake_for_layout(
 
 # Bump the version suffix whenever the wake model or wind site changes so
 # Redis never serves results computed with an older model.
-@cached(prefix="wake-v2", ttl=300)
+@cached(prefix="wake-v3", ttl=300)
 def _cached_wake_analysis(
     layout_name: str,
     weibull_a: float,
@@ -459,15 +568,20 @@ def _cached_wake_analysis(
 
 
 @router.get("/turbine-spec", response_model=TurbineSpecResponse)
-async def get_turbine_spec() -> TurbineSpecResponse:
-    """Return V236-15.0 MW turbine specification constants."""
+async def get_turbine_spec(model: str | None = None) -> TurbineSpecResponse:
+    """Specification of a reference turbine model (default: SB-510's IEA 15 MW)."""
+    t = get_turbine(model)
     return TurbineSpecResponse(
-        rotor_diameter_m=ROTOR_DIAMETER_M,
-        hub_height_m=HUB_HEIGHT_M,
-        rated_power_kw=RATED_POWER_KW,
-        cut_in_speed_ms=CUT_IN_SPEED_MS,
-        rated_speed_ms=RATED_SPEED_MS,
-        cut_out_speed_ms=CUT_OUT_SPEED_MS,
+        model_id=t.id,
+        name=t.name,
+        source=t.source,
+        license=t.license,
+        rotor_diameter_m=t.rotor_diameter_m,
+        hub_height_m=t.hub_height_m,
+        rated_power_kw=t.rated_kw,
+        cut_in_speed_ms=t.cut_in_ms,
+        rated_speed_ms=t.rated_ms,
+        cut_out_speed_ms=t.cut_out_ms,
         num_turbines=34,
     )
 
@@ -565,18 +679,27 @@ async def wake_analysis(request: WakeAnalysisRequest) -> WakeAnalysisResponse:
 
 
 # Bump the version suffix whenever the wake model or wind site changes.
-@cached(prefix="wake-custom-v1", ttl=300)
+@cached(prefix="wake-custom-v3", ttl=300)
 def _cached_custom_wake(
     x_m: list[float],
     y_m: list[float],
     weibull_a: float,
     weibull_k: float,
     ti: float,
+    model_id: str,
+    sector_frequencies: list[float] | None = None,
 ) -> dict[str, object]:
     """Cached PyWake run for arbitrary positions [m]."""
-    site = _site(weibull_a, weibull_k, ti)
+    site = (
+        _site(weibull_a, weibull_k, ti)
+        if sector_frequencies is None
+        else _rose_site(weibull_a, weibull_k, sector_frequencies, ti)
+    )
     result = run_wake_analysis(
-        np.asarray(x_m, dtype=np.float64), np.asarray(y_m, dtype=np.float64), site
+        np.asarray(x_m, dtype=np.float64),
+        np.asarray(y_m, dtype=np.float64),
+        site,
+        create_wind_turbine(model_id),
     )
     return {
         "gross_aep_gwh": result.gross_aep_gwh,
@@ -588,6 +711,44 @@ def _cached_custom_wake(
     }
 
 
+def _check_spacing(x_m: list[float], y_m: list[float], rotor_diameter_m: float) -> None:
+    """Reject layouts where two rotors would overlap (closer than one diameter)."""
+    xy = np.column_stack([x_m, y_m])
+    if len(xy) > 1:
+        gaps = np.hypot(*(xy[:, None, :] - xy[None, :, :]).transpose(2, 0, 1))
+        np.fill_diagonal(gaps, np.inf)
+        if float(gaps.min()) < rotor_diameter_m:
+            raise DomainValidationError(
+                f"Turbines closer than one rotor diameter ({rotor_diameter_m:.0f} m): "
+                "rotors would overlap"
+            )
+
+
+async def _run_custom_wake(
+    request: CustomWakeRequest, x_m: list[float], y_m: list[float]
+) -> dict[str, Any]:
+    """Spacing check + cached PyWake run of ``request``'s wind and turbine at these positions."""
+    turbine = get_turbine(request.turbine_model)  # unknown id → 422
+    _check_spacing(x_m, y_m, turbine.rotor_diameter_m)
+    try:
+        result: dict[str, Any] = await _cached_custom_wake(
+            [round(v, 1) for v in x_m],
+            [round(v, 1) for v in y_m],
+            request.weibull_a,
+            request.weibull_k,
+            request.turbulence_intensity,
+            turbine.id,
+            None
+            if request.sector_frequencies is None
+            else [round(f, 4) for f in request.sector_frequencies],
+        )
+    except DomainError:
+        raise
+    except Exception as e:
+        raise DomainError(f"Wake analysis failed: {e}") from e
+    return result
+
+
 @router.post("/wake-analysis-custom", response_model=WakeAnalysisResponse)
 async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisResponse:
     """PyWake wake analysis and AEP for arbitrary turbine positions.
@@ -597,27 +758,24 @@ async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisRespon
     """
     if len(request.x_m) != len(request.y_m):
         raise DomainValidationError("x_m and y_m must have the same length")
-    xy = np.column_stack([request.x_m, request.y_m])
-    if len(xy) > 1:
-        gaps = np.hypot(*(xy[:, None, :] - xy[None, :, :]).transpose(2, 0, 1))
-        np.fill_diagonal(gaps, np.inf)
-        if float(gaps.min()) < ROTOR_DIAMETER_M:
-            raise DomainValidationError(
-                f"Turbines closer than one rotor diameter ({ROTOR_DIAMETER_M:.0f} m): "
-                "rotors would overlap"
-            )
-    try:
-        result = await _cached_custom_wake(
+    nx, ny = request.neighbour_x_m or [], request.neighbour_y_m or []
+    if len(nx) != len(ny):
+        raise DomainValidationError("neighbour_x_m and neighbour_y_m must have the same length")
+    result = await _run_custom_wake(request, request.x_m, request.y_m)
+    cluster: dict[str, float] | None = None
+    if nx:
+        cluster = await _cached_cluster_wake(
             [round(v, 1) for v in request.x_m],
             [round(v, 1) for v in request.y_m],
+            [round(v, 1) for v in nx],
+            [round(v, 1) for v in ny],
             request.weibull_a,
             request.weibull_k,
             request.turbulence_intensity,
+            request.turbine_model,
+            request.sector_frequencies,
         )
-    except DomainError:
-        raise
-    except Exception as e:
-        raise DomainError(f"Wake analysis failed: {e}") from e
+    ext = None if cluster is None else cluster["external_wake_loss_percent"]
 
     return WakeAnalysisResponse(
         gross_aep_gwh=round(result["gross_aep_gwh"], 2),
@@ -627,6 +785,77 @@ async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisRespon
         per_turbine_aep_gwh=[round(float(v), 3) for v in result["per_turbine_aep_gwh"]],
         per_turbine_wake_loss_percent=[
             round(float(v), 2) for v in result["per_turbine_wake_loss_percent"]
+        ],
+        external_wake_loss_percent=None if ext is None else round(ext, 2),
+        net_aep_with_neighbours_gwh=None
+        if ext is None
+        else round(result["net_aep_gwh"] * (1 - ext / 100), 2),
+        neighbour_count=len(nx),
+    )
+
+
+@cached(prefix="wake-cluster-v2", ttl=3600)  # v2: Gaussian-overlap rotor average
+def _cached_cluster_wake(
+    x_m: list[float],
+    y_m: list[float],
+    nx_m: list[float],
+    ny_m: list[float],
+    weibull_a: float,
+    weibull_k: float,
+    ti: float,
+    model_id: str,
+    sector_frequencies: list[float] | None,
+) -> dict[str, float]:
+    """Cached own-alone / own-with-neighbours PyWake pair (``run_cluster_wake``)."""
+    site = (
+        _site(weibull_a, weibull_k, ti)
+        if sector_frequencies is None
+        else _rose_site(weibull_a, weibull_k, sector_frequencies, ti)
+    )
+    return run_cluster_wake(
+        np.asarray(x_m),
+        np.asarray(y_m),
+        np.asarray(nx_m),
+        np.asarray(ny_m),
+        site,
+        create_wind_turbine(model_id),
+    )
+
+
+@router.post("/wake-moves", response_model=WakeMovesResponse)
+async def wake_moves(request: WakeMovesRequest) -> WakeMovesResponse:
+    """PyWake check of single-turbine moves suggested by the layout canvas.
+
+    Each move is run on its own (the base layout with one turbine moved) and
+    compared with the base layout, same wind and turbine.
+    """
+    n = len(request.x_m)
+    if len(request.y_m) != n:
+        raise DomainValidationError("x_m and y_m must have the same length")
+    if any(m.index >= n for m in request.moves):
+        raise DomainValidationError("Move index outside the layout")
+
+    def moved(m: WakeMove) -> tuple[list[float], list[float]]:
+        x, y = list(request.x_m), list(request.y_m)
+        x[m.index], y[m.index] = m.x_m, m.y_m
+        return x, y
+
+    runs = await asyncio.gather(
+        _run_custom_wake(request, request.x_m, request.y_m),
+        *(_run_custom_wake(request, *moved(m)) for m in request.moves),
+    )
+    base = float(runs[0]["net_aep_gwh"])
+    return WakeMovesResponse(
+        base_net_aep_gwh=round(base, 2),
+        moves=[
+            WakeMoveResult(
+                index=m.index,
+                net_aep_gwh=round(float(r["net_aep_gwh"]), 2),
+                delta_gwh=round(float(r["net_aep_gwh"]) - base, 3),
+                delta_percent=round(100 * (float(r["net_aep_gwh"]) - base) / base, 3),
+                wake_loss_percent=round(float(r["wake_loss_percent"]), 2),
+            )
+            for m, r in zip(request.moves, runs[1:], strict=True)
         ],
     )
 
@@ -666,6 +895,8 @@ async def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
         wake_loss_fraction=wake_result.wake_loss_percent / 100.0,
         blockage_loss_fraction=blockage.blockage_loss_percent / 100.0,
         price_eur_mwh=request.price_eur_mwh,
+        weibull_a=request.weibull_a,
+        weibull_k=request.weibull_k,
     )
 
     return AEPCascadeResponse(
@@ -684,10 +915,44 @@ async def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
                 name=lf.name,
                 loss_percent=round(lf.loss_percent, 2),
                 uncertainty_percent=round(lf.uncertainty_percent, 2),
+                quality=lf.quality,
+                source=lf.source,
             )
             for lf in cascade.loss_factors
         ],
         price_eur_mwh=cascade.price_eur_mwh,
+        uncertainty=_components(cascade.uncertainty),
+    )
+
+
+def _components(items: list[UncertaintyComponent]) -> list[UncertaintyComponentSchema]:
+    return [
+        UncertaintyComponentSchema(
+            name=c.name, sigma_percent=round(c.sigma_percent, 2), quality=c.quality, source=c.source
+        )
+        for c in items
+    ]
+
+
+@router.post("/uncertainty", response_model=UncertaintyResponse)
+async def aep_uncertainty(request: UncertaintyRequest) -> UncertaintyResponse:
+    """AEP uncertainty components of a farm and their RSS (for P75 / P90 of any P50)."""
+    get_turbine(request.turbine_model)  # unknown id → 422
+    comps = uncertainty_components(
+        request.weibull_a,
+        request.weibull_k,
+        request.wake_loss_percent,
+        request.blockage_loss_percent,
+        request.turbine_model,
+        request.lifetime_years,
+    )
+    return UncertaintyResponse(
+        components=_components(comps),
+        combined_percent=round(math.sqrt(sum(c.sigma_percent**2 for c in comps)), 2),
+        sensitivity=round(
+            aep_sensitivity(request.weibull_a, request.weibull_k, request.turbine_model), 3
+        ),
+        z={"P75": Z_75, "P90": Z_90, "P99": Z_99},
     )
 
 
@@ -748,6 +1013,8 @@ async def layout_comparison(request: LayoutComparisonRequest) -> LayoutCompariso
             wake_loss_fraction=wake.wake_loss_percent / 100.0,
             blockage_loss_fraction=blockage.blockage_loss_percent / 100.0,
             price_eur_mwh=request.price_eur_mwh,
+            weibull_a=request.weibull_a,
+            weibull_k=request.weibull_k,
         )
 
         entries.append(
@@ -890,8 +1157,8 @@ class WakeModelComparisonRequest(BaseModel):
     """Request to compare multiple wake deficit models."""
 
     layout: str = Field("staggered")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     models: list[str] = Field(
         default=["jensen", "bpa_gaussian", "noj", "zong_gaussian"],
@@ -922,8 +1189,8 @@ class WakeModelComparisonResponse(BaseModel):
 
 class DeratingRequest(BaseModel):
     layout: str = Field("staggered")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0)
 
@@ -939,8 +1206,10 @@ class DeratingResponse(BaseModel):
 
 class FLOWERSRequest(BaseModel):
     layout: str = Field("staggered")
-    mean_wind_speed_ms: float = Field(9.3, ge=5.0, le=20.0, description="Hub-height mean [m/s]")
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    mean_wind_speed_ms: float = Field(
+        SB510_MEAN_MS, ge=5.0, le=20.0, description="Hub-height mean [m/s]"
+    )
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     n_fourier_modes: int = Field(12, ge=4, le=24, description="Truncated to sectors/2 (Nyquist)")
 
 
@@ -955,8 +1224,8 @@ class FLOWERSResponse(BaseModel):
 
 class MarketWeightedAEPRequest(BaseModel):
     layout: str = Field("staggered")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     flat_price_eur_mwh: float = Field(72.0, ge=10.0, le=300.0)
 
@@ -1197,8 +1466,8 @@ class LayoutOptimizationRequest(BaseModel):
         description="Algorithm: differential_evolution, basin_hopping, "
         "genetic_algorithm, or gradient_lbfgsb",
     )
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     maxiter: int = Field(5, ge=1, le=50)
 

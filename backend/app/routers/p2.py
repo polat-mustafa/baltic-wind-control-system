@@ -13,8 +13,9 @@ Provides REST endpoints for:
 All endpoints follow the convention: /api/v1/grid/{resource}
 
 Data approach: uses Pandapower for physics-based simulation
-of the 510 MW offshore wind farm network (34 × V236-15.0 MW,
-66 kV array, 220 kV export, 400 kV PSE grid).
+of the 510 MW offshore wind farm network (34 × 15 MW "V236 class" = IEA 15 MW,
+66 kV array, 220 kV export, 400 kV PSE grid) — or of the learner's own farm
+when the request carries the ``X-Farm`` header (routers/farm_spec.py).
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.cache import cached
 from app.core.exceptions import DomainError
 from app.core.exceptions import ValidationError as DomainValidationError
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.grid import (
     ConverterComparisonResponse,
     FRTSimulationResponse,
@@ -49,12 +51,11 @@ from app.services.p2.converter_comparison import SCENARIO_SSC_MVA, get_compariso
 from app.services.p2.frt_simulation import run_frt_simulation
 from app.services.p2.load_flow import run_all_scenarios, run_live_load_flow, run_load_flow
 from app.services.p2.network_model import (
-    EXPORT_CABLE_LENGTH_KM,
-    GRID_SSC_MVA,
-    NUM_TURBINES,
-    STATCOM_RATING_MVAR,
-    STRING_LAYOUT,
-    TOTAL_CAPACITY_MW,
+    MAX_TURBINES_PER_STRING,
+    NUM_ONSHORE_TRANSFORMERS,
+    NUM_OSS_TRANSFORMERS,
+    SB510,
+    FarmSpec,
 )
 from app.services.p2.power_plant_controller import get_ppc_status, run_ppc_simulation
 from app.services.p2.short_circuit import calc_short_circuit
@@ -102,9 +103,11 @@ router.include_router(_planning_router)
 
 
 @cached(prefix="loadflow", ttl=300)
-def _cached_load_flow(scenario: str, auto_dispatch: bool = True) -> dict[str, object]:
-    """Cached wrapper for load flow — returns Pydantic model as dict."""
-    result = run_load_flow(LoadFlowScenario(scenario), auto_dispatch=auto_dispatch)
+def _cached_load_flow(
+    scenario: str, auto_dispatch: bool = True, spec: FarmSpec = SB510
+) -> dict[str, object]:
+    """Cached wrapper for load flow — returns Pydantic model as dict (the key holds the spec)."""
+    result = run_load_flow(LoadFlowScenario(scenario), auto_dispatch=auto_dispatch, spec=spec)
     return result.model_dump()
 
 
@@ -112,18 +115,33 @@ def _cached_load_flow(scenario: str, auto_dispatch: bool = True) -> dict[str, ob
 
 
 class NetworkSpecResponse(BaseModel):
-    """510 MW offshore wind farm network specification constants."""
+    """Electrical design of the modelled farm: SB-510, or the own project's ``design()``."""
 
+    name: str
+    source: str = Field(description="reference (SB-510) or project (X-Farm header)")
     total_capacity_mw: float
     num_turbines: int
     num_strings: int
     string_layout: list[int]
+    section_a_strings: int = Field(description="Strings 1 … n on 66 kV busbar section A")
+    max_turbines_per_string: int
     array_voltage_kv: float
     export_voltage_kv: float
     grid_voltage_kv: float
+    array_cable_length_km: float
     export_length_km: float
+    num_export_cables: int
+    cable_q_mvar: float = Field(description="Charging power of all export circuits, ωCV²L")
+    num_oss_transformers: int
+    oss_trafo_mva: float
+    num_onshore_transformers: int
+    onshore_trafo_mva: float
     grid_ssc_mva: float
+    grid_node: str = Field(description="PSE 400 kV connection point")
     statcom_rating_mvar: float
+    num_reactors: int
+    reactor_unit_mvar: float
+    reactor_total_mvar: float
 
 
 class FRTRequest(BaseModel):
@@ -151,24 +169,39 @@ class FRTRequest(BaseModel):
 
 
 @router.get("/network-spec", response_model=NetworkSpecResponse)
-async def get_network_spec() -> NetworkSpecResponse:
-    """Return 510 MW offshore wind farm network specification constants."""
+async def get_network_spec(spec: FarmSpecDep) -> NetworkSpecResponse:
+    """Electrical design of the modelled farm (SB-510 unless the X-Farm header is sent)."""
     return NetworkSpecResponse(
-        total_capacity_mw=TOTAL_CAPACITY_MW,
-        num_turbines=34,
-        num_strings=len(STRING_LAYOUT),
-        string_layout=list(STRING_LAYOUT),
+        name=spec.name,
+        source="reference" if spec == SB510 else "project",
+        total_capacity_mw=spec.capacity_mw,
+        num_turbines=spec.num_turbines,
+        num_strings=len(spec.string_layout),
+        string_layout=list(spec.string_layout),
+        section_a_strings=spec.section_a_strings,
+        max_turbines_per_string=MAX_TURBINES_PER_STRING,
         array_voltage_kv=66.0,
         export_voltage_kv=220.0,
         grid_voltage_kv=400.0,
-        export_length_km=EXPORT_CABLE_LENGTH_KM,
-        grid_ssc_mva=GRID_SSC_MVA,
-        statcom_rating_mvar=STATCOM_RATING_MVAR,
+        array_cable_length_km=spec.array_cable_length_km,
+        export_length_km=spec.export_length_km,
+        num_export_cables=spec.num_export_cables,
+        cable_q_mvar=round(spec.cable_q_mvar, 1),
+        num_oss_transformers=NUM_OSS_TRANSFORMERS,
+        oss_trafo_mva=spec.oss_trafo_mva,
+        num_onshore_transformers=NUM_ONSHORE_TRANSFORMERS,
+        onshore_trafo_mva=spec.onshore_trafo_mva,
+        grid_ssc_mva=spec.grid_ssc_mva,
+        grid_node=spec.grid_node,
+        statcom_rating_mvar=spec.statcom_mvar,
+        num_reactors=spec.num_reactors,
+        reactor_unit_mvar=spec.reactor_unit_mvar,
+        reactor_total_mvar=spec.reactor_mvar,
     )
 
 
 @router.get("/load-flow/{scenario}", response_model=LoadFlowResponse)
-async def load_flow_scenario(scenario: LoadFlowScenario) -> LoadFlowResponse:
+async def load_flow_scenario(scenario: LoadFlowScenario, spec: FarmSpecDep) -> LoadFlowResponse:
     """Run Newton-Raphson load flow for a single operating scenario.
 
     Scenarios: full_load, partial_load, no_load, n_minus_1.
@@ -176,7 +209,7 @@ async def load_flow_scenario(scenario: LoadFlowScenario) -> LoadFlowResponse:
     Uses Redis cache (TTL 300s) to avoid recomputing identical requests.
     """
     try:
-        result_dict = await _cached_load_flow(scenario.value)
+        result_dict = await _cached_load_flow(scenario.value, True, spec)
         return LoadFlowResponse(**result_dict)
     except DomainError:
         raise
@@ -185,8 +218,8 @@ async def load_flow_scenario(scenario: LoadFlowScenario) -> LoadFlowResponse:
 
 
 @router.post("/live-load-flow", response_model=LiveLoadFlowResponse)
-async def live_load_flow(body: LiveLoadFlowRequest) -> LiveLoadFlowResponse:
-    """Solve the grid for the live farm operating point (34 WTG powers).
+async def live_load_flow(body: LiveLoadFlowRequest, spec: FarmSpecDep) -> LiveLoadFlowResponse:
+    """Solve the grid for the live farm operating point (one power per WTG).
 
     Polled by the landing map every few seconds: the browser owns the farm
     simulation (wind, wakes, yaw, faults), the backend owns the network
@@ -194,7 +227,7 @@ async def live_load_flow(body: LiveLoadFlowRequest) -> LiveLoadFlowResponse:
     worker thread so the event loop stays free.
     """
     try:
-        return await run_in_threadpool(run_live_load_flow, body.wtg_p_mw)
+        return await run_in_threadpool(run_live_load_flow, body.wtg_p_mw, spec)
     except DomainError:
         raise
     except Exception as e:
@@ -202,13 +235,13 @@ async def live_load_flow(body: LiveLoadFlowRequest) -> LiveLoadFlowResponse:
 
 
 @router.get("/load-flow-all", response_model=list[LoadFlowResponse])
-async def load_flow_all_scenarios() -> list[LoadFlowResponse]:
+async def load_flow_all_scenarios(spec: FarmSpecDep) -> list[LoadFlowResponse]:
     """Run load flow for all four standard PSE IRiESP scenarios.
 
     Returns results for full_load, partial_load, no_load, and n_minus_1.
     """
     try:
-        return run_all_scenarios(auto_dispatch=True)
+        return run_all_scenarios(auto_dispatch=True, spec=spec)
     except DomainError:
         raise
     except Exception as e:
@@ -216,7 +249,7 @@ async def load_flow_all_scenarios() -> list[LoadFlowResponse]:
 
 
 @router.get("/short-circuit/{case}", response_model=ShortCircuitResponse)
-async def short_circuit(case: str) -> ShortCircuitResponse:
+async def short_circuit(case: str, spec: FarmSpecDep) -> ShortCircuitResponse:
     """Run IEC 60909 short-circuit calculation at all buses.
 
     Case 'max' (c=1.1) for breaker sizing, 'min' (c=1.0) for protection
@@ -225,7 +258,7 @@ async def short_circuit(case: str) -> ShortCircuitResponse:
     if case not in ("max", "min"):
         raise DomainValidationError(f"Invalid case: '{case}'. Must be 'max' or 'min'.")
     try:
-        return calc_short_circuit(case=case)
+        return calc_short_circuit(case=case, spec=spec)
     except DomainError:
         raise
     except Exception as e:
@@ -233,7 +266,7 @@ async def short_circuit(case: str) -> ShortCircuitResponse:
 
 
 @router.get("/statcom-sizing", response_model=STATCOMSizingResult)
-async def statcom_sizing() -> STATCOMSizingResult:
+async def statcom_sizing(spec: FarmSpecDep) -> STATCOMSizingResult:
     """Validate STATCOM and reactive power compensation sizing.
 
     Compares load flow with/without compensation to demonstrate
@@ -241,7 +274,7 @@ async def statcom_sizing() -> STATCOMSizingResult:
     generation, reactor absorption, and compensation adequacy.
     """
     try:
-        return validate_compensation()
+        return await run_in_threadpool(validate_compensation, None, 10_000.0, spec)
     except DomainError:
         raise
     except Exception as e:
@@ -252,6 +285,7 @@ async def statcom_sizing() -> STATCOMSizingResult:
 async def frt_simulation(
     frt_type: FRTType,
     request: FRTRequest,
+    spec: FarmSpecDep,
 ) -> FRTSimulationResponse:
     """Fault ride-through screening (quasi-static phasor model, 5 ms steps).
 
@@ -270,6 +304,7 @@ async def frt_simulation(
             k_factor=request.k_factor,
             swell_pu=request.swell_pu,
             p_ramp_pu_s=request.p_ramp_pu_s,
+            spec=spec,
         )
     except DomainError:
         raise
@@ -283,12 +318,14 @@ async def frt_simulation(
 )
 async def converter_comparison(
     scenario: str,
+    spec: FarmSpecDep,
     phase_jump_deg: float = Query(20.0, ge=5.0, le=60.0, description="Grid phase jump [deg]"),
 ) -> ConverterComparisonResponse:
     """GFL vs GFM after a grid voltage phase jump (SMIB, 50 µs steps).
 
-    Scenarios: strong_grid (10 GVA, SCR ≈ 19.6), weak_grid (2 GVA, SCR ≈ 3.9),
-    very_weak_grid (0.7 GVA, SCR ≈ 1.4) — SCR at the PSE 400 kV POC.
+    Scenarios: strong_grid (the farm's grid short-circuit power, SB-510 10 GVA, SCR ≈ 19.6),
+    weak_grid (2 GVA, SCR ≈ 3.9), very_weak_grid (0.75 GVA, SCR ≈ 1.5) — SCR at the PSE
+    400 kV POC.
     """
     if scenario not in SCENARIO_SSC_MVA:
         raise DomainValidationError(
@@ -296,8 +333,9 @@ async def converter_comparison(
         )
     return get_comparison_response(
         scenario=scenario,
-        grid_ssc_mva=SCENARIO_SSC_MVA[scenario],
+        grid_ssc_mva=spec.grid_ssc_mva if scenario == "strong_grid" else SCENARIO_SSC_MVA[scenario],
         phase_jump_deg=phase_jump_deg,
+        spec=spec,
     )
 
 
@@ -308,8 +346,8 @@ class PPCStatusRequest(BaseModel):
     """Request parameters for PPC status snapshot."""
 
     wind_speed_ms: float = Field(12.5, ge=0.0, le=50.0, description="Hub-height wind speed [m/s]")
-    available_turbines: int = Field(
-        NUM_TURBINES, ge=0, le=NUM_TURBINES, description="Number of online turbines"
+    available_turbines: int | None = Field(
+        None, ge=0, le=150, description="Online turbines; None = all of the farm's"
     )
     active_power_mode: ActivePowerMode = Field(
         ActivePowerMode.POWER_REFERENCE, description="Active power control mode"
@@ -324,14 +362,14 @@ class PPCStatusRequest(BaseModel):
 
 
 @router.get("/ppc/status", response_model=PPCStatusResponse)
-async def ppc_status_default() -> PPCStatusResponse:
+async def ppc_status_default(spec: FarmSpecDep) -> PPCStatusResponse:
     """Get PPC status at default operating conditions.
 
-    Returns a real-time snapshot of the PPC state at rated wind (11.1 m/s),
+    Returns a real-time snapshot of the PPC state above rated wind (12 m/s; rated 10.66 m/s),
     all 34 turbines online, nominal frequency (50 Hz).
     """
     try:
-        return get_ppc_status()
+        return get_ppc_status(spec=spec)
     except DomainError:
         raise
     except Exception as e:
@@ -339,7 +377,7 @@ async def ppc_status_default() -> PPCStatusResponse:
 
 
 @router.post("/ppc/status", response_model=PPCStatusResponse)
-async def ppc_status(request: PPCStatusRequest) -> PPCStatusResponse:
+async def ppc_status(request: PPCStatusRequest, spec: FarmSpecDep) -> PPCStatusResponse:
     """Get PPC status at specified operating conditions.
 
     Returns a real-time snapshot of the PPC state for the given wind speed,
@@ -354,6 +392,7 @@ async def ppc_status(request: PPCStatusRequest) -> PPCStatusResponse:
             active_power_mode=request.active_power_mode,
             reactive_power_mode=request.reactive_power_mode,
             frequency_hz=request.frequency_hz,
+            spec=spec,
         )
     except DomainError:
         raise
@@ -362,7 +401,7 @@ async def ppc_status(request: PPCStatusRequest) -> PPCStatusResponse:
 
 
 @router.post("/ppc/simulate", response_model=PPCSimulationResponse)
-async def ppc_simulate(request: PPCSimulationRequest) -> PPCSimulationResponse:
+async def ppc_simulate(request: PPCSimulationRequest, spec: FarmSpecDep) -> PPCSimulationResponse:
     """Run a PPC control simulation over a time window (0.1 s steps).
 
     TSO command at ``setpoint_time_s``; optional grid frequency step and grid
@@ -372,7 +411,7 @@ async def ppc_simulate(request: PPCSimulationRequest) -> PPCSimulationResponse:
     2 % in 15 min, frequency response vs droop, 90 % of a Q change within 5 s.
     """
     try:
-        return run_ppc_simulation(request)
+        return run_ppc_simulation(request, spec)
     except DomainError:
         raise
     except Exception as e:

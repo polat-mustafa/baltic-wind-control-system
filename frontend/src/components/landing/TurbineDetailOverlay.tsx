@@ -15,7 +15,8 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 
-import { TURBINE_POSITIONS, turbineIconScale } from "../../constants/windFarmLayout";
+import { turbineIconScale } from "../../constants/windFarmLayout";
+import { useFleet } from "../../lib/fleet";
 import { selectTurbine, useLandingStore } from "../../store/landingStore";
 import type { TurbineStatus } from "../../types/landing";
 
@@ -162,12 +163,13 @@ const TurbinePitchArc = memo(function TurbinePitchArc({
 export default function TurbineDetailOverlay() {
   const zoom = useZoom();
   const scale = turbineIconScale(zoom);
+  const { turbines } = useFleet();
 
   return (
     <>
       {/* Power output labels (zoom ≥ 13) */}
       {zoom >= 13 &&
-        TURBINE_POSITIONS.map((pos) => (
+        turbines.map((pos) => (
           <TurbinePowerBadge
             key={`power-${pos.id}`}
             turbineId={pos.id}
@@ -179,7 +181,7 @@ export default function TurbineDetailOverlay() {
 
       {/* Pitch angle arc indicators (zoom ≥ 14) */}
       {zoom >= 14 &&
-        TURBINE_POSITIONS.map((pos) => (
+        turbines.map((pos) => (
           <TurbinePitchArc
             key={`pitch-${pos.id}`}
             turbineId={pos.id}

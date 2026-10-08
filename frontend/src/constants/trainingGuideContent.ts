@@ -36,7 +36,7 @@ export const landingGuide: TrainingGuideData = {
   subtitle: "Real-time operational map of the 510 MW Baltic Sea wind farm",
   purpose:
     "The landing page is your control room overview — a single screen showing " +
-    "all 34 turbines, the offshore substation, 45 km export cable, and onshore " +
+    "all 34 turbines, the offshore substation, 108 km export cable, and onshore " +
     "connection point. It mirrors what operators see in real ABB Ability or " +
     "Siemens DEOP control rooms.",
   howToUse: [
@@ -54,7 +54,7 @@ export const landingGuide: TrainingGuideData = {
     { name: "KPI Ribbon", description: "Glassmorphic overlay at top showing total farm power (MW), average wind speed (m/s), farm availability (%), and active turbine count." },
     { name: "Turbine Markers", description: "Color-coded status indicators: green = operating, amber = warning/degraded, red = faulted/tripped, gray = offline. Each shows real-time power output on hover." },
     { name: "Offshore Substation (OSS)", description: "Central collection point where 66 kV array cables meet. Contains 66/220 kV transformer, protection relays, and IEC 61850 IEDs." },
-    { name: "Export Cable", description: "45 km 220 kV submarine cable from OSS to shore. Click to see loading, losses, and thermal data." },
+    { name: "Export Cable", description: "108 km 220 kV export cable (79.3 km subsea) from OSS to the onshore substation. Click to see loading, losses, and thermal data." },
     { name: "Onshore Substation", description: "220/400 kV transformer connecting to the PSE national grid. Includes STATCOM and shunt reactor." },
     { name: "Layer Controls", description: "Toggle overlays: wind particle field, bathymetry depth shading, wake effect cones, ocean wave animation, and day/night cycle." },
     { name: "Alarm Ticker", description: "Scrolling alert feed showing active alarms across the farm with ISA-18.2 priority color coding." },
@@ -137,7 +137,7 @@ export const p2Guide: TrainingGuideData = {
     { name: "Single-line diagram", description: "The power path with live MW, loading and busbar voltages from the selected load flow; flow speed ∝ MW." },
     { name: "Voltage along the connection", description: "Voltage from PSE 400 kV to the last turbine of string 1 for all four scenarios, against the 0.95–1.05 pu planning band." },
     { name: "Thermal loading", description: "Export cables, both transformer stages and each string's head cable as a share of rating." },
-    { name: "Reactive power", description: "No-load balance (260 MVAR cable charging, 240 MVAR reactors, STATCOM range) and the Q range at the POC vs PSE Art. 21(3)(c)." },
+    { name: "Reactive power", description: "No-load balance (624 MVAR cable charging, 4 × 180 MVAR reactors at both cable ends, STATCOM range) and the Q range at the POC vs PSE Art. 21(3)(c)." },
     { name: "Breaker duty", description: "IEC 60909 Ik'' and ip as a share of each busbar's breaking and making rating." },
     { name: "Fault ride-through", description: "Quasi-static phasor model: POC and terminal voltage vs the PSE profile, K-factor reactive current, power recovery within 5 s." },
     { name: "Grid-following vs grid-forming", description: "SMIB simulation after a grid phase jump: PLL synchronisation vs virtual-inertia response; SCR at POC vs at the turbines." },
@@ -300,26 +300,27 @@ export const p5Guide: TrainingGuideData = {
 
 export const turbinePhysicsGuide: TrainingGuideData = {
   title: "Turbine Physics",
-  subtitle: "Dynamic simulation of V236-15.0 MW aerodynamics and control",
+  subtitle: "Dynamic simulation of the SB-510 turbine (IEA 15 MW, direct drive) with its ROSCO controller",
   purpose:
-    "This simulator models the real-time physics of a single V236-15.0 MW turbine: " +
-    "aerodynamic torque from the Cp(TSR, pitch) surface, rotor inertia dynamics, " +
-    "PI pitch controller, and yaw tracking. It lets you explore how wind changes " +
-    "affect power output, rotor speed, and blade pitch angle.",
+    "This simulator models the real-time physics of one SB-510 turbine — the IEA 15 MW reference turbine: " +
+    "aerodynamic torque from the official ROSCO Cp(TSR, pitch) table, the drivetrain inertia (3.54 × 10⁸ kg·m², " +
+    "direct drive), the ROSCO generator-torque controller (TSR tracking, λ = 9), the gain-scheduled pitch PI " +
+    "(2 °/s, minimum-pitch schedule) and yaw tracking (0.5 °/s). It lets you explore how wind changes " +
+    "affect power output, rotor speed, and blade pitch angle. At steady wind it lands on the official table.",
   howToUse: [
     "Select a Wind Scenario: Constant Wind, Step Response, or Oscillating Wind.",
     "For 'Constant Wind': set a single wind speed to observe steady-state behavior.",
     "For 'Step Response': set initial and final wind speeds with ramp duration to study transient response.",
     "For 'Oscillating Wind': set mean, amplitude, and period to simulate gusty conditions.",
-    "Adjust Simulation Settings: timestep (dt), initial rotor speed, and air density.",
+    "Adjust Simulation Settings: timestep (dt ≤ 1 s for a stable explicit integration), initial rotor speed, and air density.",
     "Click 'Run Simulation' to compute the time-domain response.",
     "Study the 4 result charts to understand turbine dynamics and control response.",
   ],
   sections: [
     { name: "KPI Header", description: "Key metrics: average power (MW), max rotor speed (rpm), mean pitch angle (deg), average Cp (power coefficient), and capacity factor (%)." },
-    { name: "Power vs Time", description: "Time series of electrical power output (MW). Shows how the turbine responds to wind changes — ramp-up, rated power plateau, and pitch-limited operation." },
-    { name: "Rotor Speed & Pitch", description: "Dual-axis plot: rotor speed (rpm, left axis) and blade pitch angle (deg, right axis). The PI pitch controller feathers blades above rated wind speed to limit power at 15 MW." },
-    { name: "Cp Surface", description: "3D surface plot of power coefficient Cp as a function of Tip-Speed Ratio (TSR) and pitch angle. The Betz limit (0.593) is shown. Maximum Cp ≈ 0.48 at optimal TSR ≈ 8." },
+    { name: "Power vs Time", description: "Time series of electrical power output (MW). Shows how the turbine responds to wind changes — ramp-up, rated power plateau (15 MW from 10.66 m/s), and pitch-limited operation." },
+    { name: "Rotor Speed & Pitch", description: "Dual-axis plot: rotor speed (rpm, left axis) and blade pitch angle (deg, right axis). Below rated the torque controller holds λ = 9 between 5.0 and 7.52 rpm; above rated the gain-scheduled PI pitches the blades to hold 7.56 rpm and 15 MW." },
+    { name: "Cp Surface", description: "3D surface plot of power coefficient Cp as a function of Tip-Speed Ratio (TSR) and pitch angle. The Betz limit (0.593) is shown. Official ROSCO table: maximum Cp = 0.469 at TSR = 9, β = 0°." },
     { name: "TSR-Cp-Yaw Chart", description: "Shows operating point trajectory on the Cp curve during simulation, plus yaw tracking error. Optimal operation follows the maximum-Cp ridge." },
   ],
   standards: [
@@ -329,7 +330,7 @@ export const turbinePhysicsGuide: TrainingGuideData = {
   ],
   learningObjectives: [
     "Understand the Cp(TSR, pitch) aerodynamic surface and Betz limit.",
-    "Explain how PI pitch control limits power output above rated wind speed.",
+    "Explain how the ROSCO torque and pitch controllers split the work below and above rated wind speed.",
     "Analyze transient response to wind speed step changes.",
     "Relate Tip-Speed Ratio (TSR) to optimal rotor operation.",
     "Understand the relationship between wind speed, rotor speed, pitch, and power.",
@@ -340,11 +341,12 @@ export const turbinePhysicsGuide: TrainingGuideData = {
 
 export const digitalTwinGuide: TrainingGuideData = {
   title: "Digital Twin",
-  subtitle: "Physics-based condition monitoring of the 34 × V236 fleet (ISO 13374-1)",
+  subtitle: "Physics-based condition monitoring of the 34 × 15 MW fleet (ISO 13374-1)",
   purpose:
-    "The twin is a physics model of the V236-15.0 MW — Heier Cp(λ, β) surface calibrated to the " +
-    "published 11.1 m/s rated wind, K·ω² torque law, 4.0–8.33 rpm speed range, pitch regulation, " +
-    "drivetrain losses and a gearbox thermal model. It is run at the measured wind and air density " +
+    "The twin is a physics model of the SB-510 turbine (IEA 15 MW reference, direct drive) — the ROSCO " +
+    "Cp(λ, β) table calibrated to the official 10.66 m/s rated point, λ = 9 tracking between 5.0 and 7.52 rpm, " +
+    "the ROSCO minimum-pitch schedule, pitch regulation, generator + converter losses and a stator-winding " +
+    "thermal model. It is run at the measured wind and air density " +
     "of every 10-min SCADA record; what it predicts is compared with what each turbine reports. " +
     "Deviations are charted (EWMA), explained (fault-hypothesis fitting), sized and — for wear " +
     "faults — projected to a limit, following ISO 13374-1 (DA → DM → SD → HA → PA → AG). " +
@@ -354,7 +356,7 @@ export const digitalTwinGuide: TrainingGuideData = {
     "Fleet overview: read the KPIs, find abnormal turbines on the map or in the health heatmap, then the fault register (identified fault, size, confidence, lost energy, RUL).",
     "Click any turbine (map, heatmap, register or event log) to open Turbine analysis.",
     "Turbine analysis: the five control charts show when each channel left its limit; 'Measured vs twin' shows the raw signals; the hypothesis test shows why the diagnosis was chosen; 'Fault size over time' compares the estimate with the injected truth and projects wear faults.",
-    "Model & validation: check detection delay and isolation against the injected faults, the twin's steady-state curves against the P1 V236 table, and the model card (calibration, Phase I fidelity, detector settings, standards).",
+    "Model & validation: check detection delay and isolation against the injected faults, the twin's steady-state curves against the official IEA 15 MW table, and the model card (calibration, Phase I fidelity, detector settings, standards).",
   ],
   sections: [
     { name: "Fleet KPIs", description: "Fleet health index (mean, weakest turbine), states now (normal / alert / alarm), identified faults, energy delivered vs twin potential, and detection performance against the injected faults." },
@@ -362,9 +364,9 @@ export const digitalTwinGuide: TrainingGuideData = {
     { name: "Fleet state map", description: "True layout (6 strings, 8D × 6D). Normal turbines are neutral, alert amber, alarm red (word in the tooltip). A ring marks an identified fault even when it is not visible at the current wind (e.g. a power cap at low wind)." },
     { name: "Health heatmap", description: "Worst health index per hour for every turbine, with ambient temperature underneath — icing only happens in the cold spell." },
     { name: "Fault register & event log", description: "Identified fault, estimated size with unit, posterior confidence, share of the misfit explained, first detection, lost energy and RUL with its 90 % interval; every confirmed control-chart event with level, duration and peak deviation." },
-    { name: "Control charts", description: "EWMA of the standardised residual of power, rotor speed, pitch, gearbox temperature and the anemometer-vs-neighbours ratio, with exact time-varying limits widened for autocorrelation (EWMAST). Alert at the limit, alarm at twice it, 1 h persistence." },
+    { name: "Control charts", description: "EWMA of the standardised residual of power, rotor speed, pitch, generator winding temperature and the anemometer-vs-neighbours ratio, with exact time-varying limits widened for autocorrelation (EWMAST). Alert at the limit, alarm at twice it, 1 h persistence." },
     { name: "Hypothesis test", description: "Each modelled fault is simulated through the twin over the wind the turbine saw and its size fitted by weighted least squares, with the wind-measurement uncertainty propagated (GUM). The best one is accepted only if it explains ≥ 30 % of the misfit and passes a likelihood-ratio test." },
-    { name: "Fault size & prognosis", description: "Fault size in consecutive 12 h windows (±1.96 SE) against the injected truth. For wear faults (gearbox losses) a weighted trend with a one-sided t-test; RUL to the limit with a 90 % delta-method interval (ISO 13381-1). No trend, no RUL." },
+    { name: "Fault size & prognosis", description: "Fault size in consecutive 12 h windows (±1.96 SE) against the injected truth. For wear faults (generator losses) a weighted trend with a one-sided t-test; RUL to the limit with a 90 % delta-method interval (ISO 13381-1). No trend, no RUL." },
   ],
   standards: [
     { label: "ISO 13374-1:2003 — Condition monitoring and diagnostics of machines: data processing (DA, DM, SD, HA, PA, AG)" },
@@ -382,7 +384,7 @@ export const digitalTwinGuide: TrainingGuideData = {
     "Explain why a twin must be a calibrated physics model, and what one calibration constant can and cannot fix.",
     "Derive why healthy SCADA residuals scatter most where the power curve is steepest (anemometer error × slope).",
     "Set up an EWMA chart in Phase I and justify its limit for 170 parallel charts and autocorrelated data.",
-    "Tell aerodynamic loss, pitch misalignment, power limitation, gearbox losses and anemometer drift apart by their multi-channel signature.",
+    "Tell aerodynamic loss, pitch misalignment, power limitation, generator losses and anemometer drift apart by their multi-channel signature.",
     "Estimate a fault's size and its uncertainty, and refuse a RUL when the trend is not significant.",
     "Score a monitoring system honestly: detection delay, isolation accuracy, false-alarm rate.",
   ],

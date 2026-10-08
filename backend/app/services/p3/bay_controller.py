@@ -15,14 +15,15 @@ SIPROTEC 5) mounted on the switchboard panel. It:
   4. Communicates state to SCADA via IEC 61850 MMS or OPC-UA
 
 This service replicates that behaviour in software:
-  - Bay state stored in an in-memory dict, initialised to the running plant
+  - Bay state stored in an in-memory dict per farm, initialised to the running plant
     (feeders and incomers closed, bus coupler open, earth switches open)
   - Every command passes the bay's own 7 interlock rules (_violations) —
     the same rules the interlock status endpoint reports
 
 Standard: IEC 61850-7-4 logical nodes XCBR, XSWI, CSWI, CILO, RREC
 
-OSS Bay Registry (66 kV switchboard — SB-510)
+OSS Bay Registry (66 kV switchboard) — built from the farm (``bay_definitions``):
+one feeder per string, strings 1…⌈n/2⌉ on section A. SB-510:
 ---------------------------------------------------------
 BAY-OSS-66-01: String 1 Feeder  (WTG-01 to WTG-06)
 BAY-OSS-66-02: String 2 Feeder  (WTG-07 to WTG-12)
@@ -39,10 +40,13 @@ BAY-OSS-66-09: Transformer B LV (66 kV side of TX-OSS-02, busbar section B)
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import Any
 
 from app.core.exceptions import NotFoundError, StateTransitionError
+from app.services.p2.network_model import SB510, FarmSpec
 from app.services.p5.equipment_state import (
     BayController,
     BayMode,
@@ -56,158 +60,157 @@ from app.services.p5.equipment_state import (
 
 # ── Bay registry ────────────────────────────────────────────────────
 #
-# Maps bay_id (str) → (equipment_id_prefix, is_tie_cb)
-# Equipment IDs follow the commissioning programme convention:
-#   CB-STR-01, DS-BUS-STR-01, DS-LINE-STR-01, ES-STR-01, etc.
+# One feeder bay per string (BAY-OSS-66-01 … n), then incomer A (n+1), the bus
+# coupler (n+2) and incomer B (n+3) — SB-510: 01…06, 07, 08, 09. Equipment IDs
+# follow the commissioning programme: CB-STR-01, DS-BUS-STR-01, ES-STR-01, …
 
-_BAY_DEFINITIONS: list[dict[str, Any]] = [
-    {
-        "bay_id": "BAY-OSS-66-01",
-        "display_name": "String 1 Feeder",
+
+def bay_name(n: int) -> str:
+    return f"BAY-OSS-66-{n:02d}"
+
+
+def _bay_def(
+    n: int, name: str, bay_type: str, ids: tuple[str, str, str, str], desc: str
+) -> dict[str, Any]:
+    cb, ds_bus, ds_line, es = ids
+    return {
+        "bay_id": bay_name(n),
+        "display_name": name,
         "voltage_kv": 66.0,
-        "bay_type": "FEEDER",
-        "is_tie_cb": False,
-        "cb_id": "CB-STR-01",
-        "ds_bus_id": "DS-BUS-STR-01",
-        "ds_line_id": "DS-LINE-STR-01",
-        "es_id": "ES-STR-01",
-        "description": "Feeds WTG-01 to WTG-06 via 66 kV array cable String 1 (busbar section A)",
-    },
-    {
-        "bay_id": "BAY-OSS-66-02",
-        "display_name": "String 2 Feeder",
-        "voltage_kv": 66.0,
-        "bay_type": "FEEDER",
-        "is_tie_cb": False,
-        "cb_id": "CB-STR-02",
-        "ds_bus_id": "DS-BUS-STR-02",
-        "ds_line_id": "DS-LINE-STR-02",
-        "es_id": "ES-STR-02",
-        "description": "Feeds WTG-07 to WTG-12 via 66 kV array cable String 2 (busbar section A)",
-    },
-    {
-        "bay_id": "BAY-OSS-66-03",
-        "display_name": "String 3 Feeder",
-        "voltage_kv": 66.0,
-        "bay_type": "FEEDER",
-        "is_tie_cb": False,
-        "cb_id": "CB-STR-03",
-        "ds_bus_id": "DS-BUS-STR-03",
-        "ds_line_id": "DS-LINE-STR-03",
-        "es_id": "ES-STR-03",
-        "description": "Feeds WTG-13 to WTG-18 via 66 kV array cable String 3 (busbar section A)",
-    },
-    {
-        "bay_id": "BAY-OSS-66-04",
-        "display_name": "String 4 Feeder",
-        "voltage_kv": 66.0,
-        "bay_type": "FEEDER",
-        "is_tie_cb": False,
-        "cb_id": "CB-STR-04",
-        "ds_bus_id": "DS-BUS-STR-04",
-        "ds_line_id": "DS-LINE-STR-04",
-        "es_id": "ES-STR-04",
-        "description": "Feeds WTG-19 to WTG-24 via 66 kV array cable String 4 (busbar section B)",
-    },
-    {
-        "bay_id": "BAY-OSS-66-05",
-        "display_name": "String 5 Feeder",
-        "voltage_kv": 66.0,
-        "bay_type": "FEEDER",
-        "is_tie_cb": False,
-        "cb_id": "CB-STR-05",
-        "ds_bus_id": "DS-BUS-STR-05",
-        "ds_line_id": "DS-LINE-STR-05",
-        "es_id": "ES-STR-05",
-        "description": "Feeds WTG-25 to WTG-29 via 66 kV array cable String 5 (busbar section B)",
-    },
-    {
-        "bay_id": "BAY-OSS-66-06",
-        "display_name": "String 6 Feeder",
-        "voltage_kv": 66.0,
-        "bay_type": "FEEDER",
-        "is_tie_cb": False,
-        "cb_id": "CB-STR-06",
-        "ds_bus_id": "DS-BUS-STR-06",
-        "ds_line_id": "DS-LINE-STR-06",
-        "es_id": "ES-STR-06",
-        "description": "Feeds WTG-30 to WTG-34 via 66 kV array cable String 6 (busbar section B)",
-    },
-    {
-        "bay_id": "BAY-OSS-66-07",
-        "display_name": "Transformer A LV Side",
-        "voltage_kv": 66.0,
-        "bay_type": "TRANSFORMER",
-        "is_tie_cb": False,
-        "cb_id": "CB-TX-OSS-LV",
-        "ds_bus_id": "DS-BUS-TX-LV",
-        "ds_line_id": "DS-TX-LV",
-        "es_id": "ES-OSS-66-01",
-        "description": "66 kV LV side of OSS transformer 1 (TX-OSS-01, 220/66 kV 300 MVA)",
-    },
-    {
-        "bay_id": "BAY-OSS-66-08",
-        "display_name": "Bus Coupler",
-        "voltage_kv": 66.0,
-        "bay_type": "BUS_COUPLER",
-        "is_tie_cb": True,  # ILK-007 synchrocheck required
-        "cb_id": "CB-TIE-66-01",
-        "ds_bus_id": "DS-BUS-TIE-A",
-        "ds_line_id": "DS-BUS-TIE-B",
-        "es_id": "ES-TIE-66-01",
-        "description": "Bus coupler — parallels busbar sections A and B. Synchrocheck required.",
-    },
-    {
-        "bay_id": "BAY-OSS-66-09",
-        "display_name": "Transformer B LV Side",
-        "voltage_kv": 66.0,
-        "bay_type": "TRANSFORMER",
-        "is_tie_cb": False,
-        "cb_id": "CB-TX-OSS-02-LV",
-        "ds_bus_id": "DS-BUS-TX2-LV",
-        "ds_line_id": "DS-TX2-LV",
-        "es_id": "ES-OSS-66-02",
-        "description": "66 kV LV side of OSS transformer 2 (TX-OSS-02, 220/66 kV 300 MVA)",
-    },
-]
+        "bay_type": bay_type,
+        "is_tie_cb": bay_type == "BUS_COUPLER",  # ILK-007 synchrocheck required
+        "cb_id": cb,
+        "ds_bus_id": ds_bus,
+        "ds_line_id": ds_line,
+        "es_id": es,
+        "description": desc,
+    }
+
+
+@lru_cache(maxsize=64)
+def bay_definitions(spec: FarmSpec = SB510) -> tuple[dict[str, Any], ...]:
+    """The 66 kV switchboard of a farm: string feeders, two incomers and the coupler."""
+    n = len(spec.string_layout)
+    out = []
+    first = 1
+    for s, k in enumerate(spec.string_layout, start=1):
+        last = first + k - 1
+        wtg = f"WTG-{first:02d}" if k == 1 else f"WTG-{first:02d} to WTG-{last:02d}"
+        section = "A" if s <= spec.section_a_strings else "B"
+        out.append(
+            _bay_def(
+                s,
+                f"String {s} Feeder",
+                "FEEDER",
+                (
+                    f"CB-STR-{s:02d}",
+                    f"DS-BUS-STR-{s:02d}",
+                    f"DS-LINE-STR-{s:02d}",
+                    f"ES-STR-{s:02d}",
+                ),
+                f"Feeds {wtg} via 66 kV array cable String {s} (busbar section {section})",
+            )
+        )
+        first = last + 1
+    mva = f"220/66 kV {spec.oss_trafo_mva:.0f} MVA"
+    out += [
+        _bay_def(
+            n + 1,
+            "Transformer A LV Side",
+            "TRANSFORMER",
+            ("CB-TX-OSS-LV", "DS-BUS-TX-LV", "DS-TX-LV", "ES-OSS-66-01"),
+            f"66 kV LV side of OSS transformer 1 (TX-OSS-01, {mva})",
+        ),
+        _bay_def(
+            n + 2,
+            "Bus Coupler",
+            "BUS_COUPLER",
+            ("CB-TIE-66-01", "DS-BUS-TIE-A", "DS-BUS-TIE-B", "ES-TIE-66-01"),
+            "Bus coupler — parallels busbar sections A and B. Synchrocheck required.",
+        ),
+        _bay_def(
+            n + 3,
+            "Transformer B LV Side",
+            "TRANSFORMER",
+            ("CB-TX-OSS-02-LV", "DS-BUS-TX2-LV", "DS-TX2-LV", "ES-OSS-66-02"),
+            f"66 kV LV side of OSS transformer 2 (TX-OSS-02, {mva})",
+        ),
+    ]
+    return tuple(out)
+
+
+_BAY_DEFINITIONS = bay_definitions(SB510)
+
+
+@lru_cache(maxsize=64)
+def _registry(spec: FarmSpec) -> dict[str, dict[str, Any]]:
+    return {d["bay_id"]: d for d in bay_definitions(spec)}
+
+
+def bay_meta(bay_id: str, spec: FarmSpec = SB510) -> dict[str, Any]:
+    """Registry entry of a bay (equipment IDs, type, description)."""
+    meta = _registry(spec).get(bay_id)
+    if meta is None:
+        raise NotFoundError(f"Bay '{bay_id}' not found in OSS registry.")
+    return meta
+
 
 # ── In-memory state store ───────────────────────────────────────────
 #
-# Keyed by bay_id string. In production, this would be Redis with
-# sub-millisecond read latency. The structure is compatible with Redis
-# hash serialisation — each BayController field maps to a hash key.
+# One switchboard per farm, keyed by its FarmSpec (SB-510 or a learner's
+# design from the X-Farm header). In production, this would be Redis.
+# ponytail: process-local LRU of 32 farms — an evicted farm restarts as the
+# running plant; key by project id in Redis if state must survive restarts.
 
-_bay_state: dict[str, BayController] = {}
-_bay_meta: dict[str, dict[str, Any]] = {}
+_MAX_FARMS = 32
+_farms: OrderedDict[FarmSpec, dict[str, BayController]] = OrderedDict()
+
+
+def _initial_state(defn: dict[str, Any]) -> BayController:
+    return BayController(
+        bay_id=defn["bay_id"],
+        bay_name=defn["display_name"],
+        voltage_kv=defn["voltage_kv"],
+        bay_mode=BayMode.REMOTE,
+        # Plant in service: bay connected, earth switch open; the bus
+        # coupler runs open (one transformer per busbar section)
+        circuit_breaker=SwitchPosition.OPEN if defn["is_tie_cb"] else SwitchPosition.CLOSED,
+        disconnector_bus=SwitchPosition.CLOSED,
+        disconnector_line=SwitchPosition.CLOSED,
+        earth_switch=SwitchPosition.OPEN,
+        protection_relay=RelayState.ARMED,
+        manual_isolation_active=False,
+        synchrocheck=None,
+        is_tie_cb=defn["is_tie_cb"],
+    )
 
 
 def _initialise_bays() -> None:
-    """Build initial bay state from the registry definitions."""
-    for defn in _BAY_DEFINITIONS:
-        bay_id = defn["bay_id"]
-        _bay_meta[bay_id] = defn
-        _bay_state[bay_id] = BayController(
-            bay_id=bay_id,
-            bay_name=defn["display_name"],
-            voltage_kv=defn["voltage_kv"],
-            bay_mode=BayMode.REMOTE,
-            # Plant in service: bay connected, earth switch open; the bus
-            # coupler runs open (one transformer per busbar section)
-            circuit_breaker=SwitchPosition.OPEN if defn["is_tie_cb"] else SwitchPosition.CLOSED,
-            disconnector_bus=SwitchPosition.CLOSED,
-            disconnector_line=SwitchPosition.CLOSED,
-            earth_switch=SwitchPosition.OPEN,
-            protection_relay=RelayState.ARMED,
-            manual_isolation_active=False,
-            synchrocheck=None,
-            is_tie_cb=defn["is_tie_cb"],
-        )
+    """Reset every farm to the running plant (tests, restart)."""
+    _farms.clear()
 
 
-_initialise_bays()
+def _bays(spec: FarmSpec) -> dict[str, BayController]:
+    bays = _farms.get(spec)
+    if bays is None:
+        bays = {d["bay_id"]: _initial_state(d) for d in bay_definitions(spec)}
+        _farms[spec] = bays
+        if len(_farms) > _MAX_FARMS:
+            _farms.popitem(last=False)
+    _farms.move_to_end(spec)
+    return bays
 
 
-_INCOMERS = ("BAY-OSS-66-07", "BAY-OSS-66-09")
+def _bay(spec: FarmSpec, bay_id: str) -> BayController:
+    bay = _bays(spec).get(bay_id)
+    if bay is None:
+        raise NotFoundError(f"Bay '{bay_id}' not found in OSS registry.")
+    return bay
+
+
+def _incomers(spec: FarmSpec) -> tuple[str, str]:
+    a, b = (d["bay_id"] for d in bay_definitions(spec) if d["bay_type"] == "TRANSFORMER")
+    return a, b
 
 
 def _violations(
@@ -216,6 +219,7 @@ def _violations(
     equipment_id: str,
     action: SwitchingAction,
     is_auto_reclose: bool,
+    spec: FarmSpec,
 ) -> list[tuple[str, str]]:
     """Bay interlock rules ILK-001…007 → [(rule id, reason)] that block the command."""
     cb_closed = bay.circuit_breaker == SwitchPosition.CLOSED
@@ -233,7 +237,7 @@ def _violations(
         if closing and bay.protection_relay == RelayState.TRIPPED:
             out.append(("ILK-006", "protection lockout (86) — reset the relay before closing"))
         if closing:
-            out.extend(_parallel_violation(bay))
+            out.extend(_parallel_violation(bay, spec))
     elif equipment_id == meta["es_id"]:
         if closing and cb_closed:
             out.append(("ILK-002", f"{meta['cb_id']} is CLOSED — earthing a live bay"))
@@ -243,16 +247,18 @@ def _violations(
     return out
 
 
-def _parallel_violation(bay: BayController) -> list[tuple[str, str]]:
+def _parallel_violation(bay: BayController, spec: FarmSpec) -> list[tuple[str, str]]:
     """ILK-007: the 66 kV sections never run in parallel through the coupler.
 
-    Two 300 MVA transformers in parallel raise the 66 kV fault level towards
+    Two OSS transformers in parallel raise the 66 kV fault level towards
     the 25 kA switchgear rating. The coupler therefore closes only dead-bus
     (one incomer open) — the synchrocheck (ANSI 25) dead-bus mode — and an
     incomer only closes while the coupler is open or the other incomer is open.
     """
-    closed = {b: _bay_state[b].circuit_breaker == SwitchPosition.CLOSED for b in _INCOMERS}
-    coupler = next(b for b in _bay_state.values() if b.is_tie_cb)
+    state = _bays(spec)
+    incomers = _incomers(spec)
+    closed = {b: state[b].circuit_breaker == SwitchPosition.CLOSED for b in incomers}
+    coupler = next(b for b in state.values() if b.is_tie_cb)
     if bay.is_tie_cb and all(closed.values()):
         return [
             (
@@ -260,8 +266,8 @@ def _parallel_violation(bay: BayController) -> list[tuple[str, str]]:
                 "both transformer incomers closed — live-live closing would parallel TX-OSS-01/02",
             )
         ]
-    if bay.bay_id in _INCOMERS and coupler.circuit_breaker == SwitchPosition.CLOSED:
-        other = next(b for b in _INCOMERS if b != bay.bay_id)
+    if bay.bay_id in incomers and coupler.circuit_breaker == SwitchPosition.CLOSED:
+        other = next(b for b in incomers if b != bay.bay_id)
         if closed[other]:
             return [
                 (
@@ -276,15 +282,15 @@ def _parallel_violation(bay: BayController) -> list[tuple[str, str]]:
 # ── Public API ──────────────────────────────────────────────────────
 
 
-def get_all_bays() -> list[BayController]:
-    """Return current state of all 9 OSS 66 kV bays.
+def get_all_bays(spec: FarmSpec = SB510) -> list[BayController]:
+    """Return current state of all OSS 66 kV bays (strings + 3; SB-510: 9).
 
     Used by the fleet overview endpoint.
     """
-    return list(_bay_state.values())
+    return list(_bays(spec).values())
 
 
-def get_bay_state(bay_id: str) -> BayController:
+def get_bay_state(bay_id: str, spec: FarmSpec = SB510) -> BayController:
     """Return current state of a single bay.
 
     Parameters
@@ -297,12 +303,10 @@ def get_bay_state(bay_id: str) -> BayController:
     NotFoundError
         If bay_id is not in the registry.
     """
-    if bay_id not in _bay_state:
-        raise NotFoundError(f"Bay '{bay_id}' not found in OSS registry.")
-    return _bay_state[bay_id]
+    return _bay(spec, bay_id)
 
 
-def get_interlock_status(bay_id: str) -> list[dict[str, Any]]:
+def get_interlock_status(bay_id: str, spec: FarmSpec = SB510) -> list[dict[str, Any]]:
     """Return the current status of all 7 interlock rules for a bay.
 
     Each rule is evaluated against the current equipment state and
@@ -311,11 +315,8 @@ def get_interlock_status(bay_id: str) -> list[dict[str, Any]]:
 
     Used by the interlock status panel in the SCADA UI.
     """
-    if bay_id not in _bay_state:
-        raise NotFoundError(f"Bay '{bay_id}' not found in OSS registry.")
-
-    bay = _bay_state[bay_id]
-    meta = _bay_meta[bay_id]
+    bay = _bay(spec, bay_id)
+    meta = bay_meta(bay_id, spec)
     cb_id = meta["cb_id"]
     es_id = meta["es_id"]
     ds_bus_id = meta["ds_bus_id"]
@@ -402,13 +403,14 @@ def get_interlock_status(bay_id: str) -> list[dict[str, Any]]:
     )
 
     # ILK-007: no parallel operation of the OSS transformers via the coupler
-    parallel = _parallel_violation(bay) if bay.is_tie_cb or bay_id in _INCOMERS else []
+    coupler_or_incomer = bay.is_tie_cb or bay_id in _incomers(spec)
+    parallel = _parallel_violation(bay, spec) if coupler_or_incomer else []
     rules.append(
         {
             "interlock_id": "ILK-007",
             "description": (
                 "Bus coupler closes dead-bus only — the 66 kV sections never run in parallel"
-                if bay.is_tie_cb or bay_id in _INCOMERS
+                if coupler_or_incomer
                 else "Coupler / incomer rule — not applicable to a feeder bay"
             ),
             "currently_active": bool(parallel),
@@ -426,6 +428,7 @@ def validate_command(
     action: str,
     is_auto_reclose: bool = False,
     synchrocheck_data: dict[str, float] | None = None,
+    spec: FarmSpec = SB510,
 ) -> InterlockResult:
     """Dry-run interlock check — does not change state.
 
@@ -449,11 +452,8 @@ def validate_command(
     InterlockResult
         allowed=True if command would succeed, otherwise blocked_by + reasons.
     """
-    if bay_id not in _bay_state:
-        raise NotFoundError(f"Bay '{bay_id}' not found.")
-
-    bay = _bay_state[bay_id]
-    meta = _bay_meta[bay_id]
+    bay = _bay(spec, bay_id)
+    meta = bay_meta(bay_id, spec)
     try:
         switching_action = SwitchingAction(action.lower())
     except ValueError:
@@ -465,7 +465,7 @@ def validate_command(
             ),
         )
 
-    violations = _violations(bay, meta, equipment_id, switching_action, is_auto_reclose)
+    violations = _violations(bay, meta, equipment_id, switching_action, is_auto_reclose, spec)
     if not violations:
         return InterlockResult(allowed=True, blocked_by=(), reasons=())
     return InterlockResult(
@@ -479,6 +479,7 @@ def execute_command(
     bay_id: str,
     command: SwitchCommand,
     synchrocheck_data: dict[str, float] | None = None,
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """Execute a switching command after full interlock validation.
 
@@ -510,11 +511,8 @@ def execute_command(
     StateTransitionError
         Bay in LOCAL/MAINTENANCE mode, or interlock violation, or invalid transition.
     """
-    if bay_id not in _bay_state:
-        raise NotFoundError(f"Bay '{bay_id}' not found.")
-
-    bay = _bay_state[bay_id]
-    meta = _bay_meta[bay_id]
+    bay = _bay(spec, bay_id)
+    meta = bay_meta(bay_id, spec)
 
     # Mode check: remote commands require REMOTE mode
     if bay.bay_mode == BayMode.LOCAL:
@@ -534,7 +532,7 @@ def execute_command(
         raise StateTransitionError(f"Unknown action '{command.action}'.") from err
 
     violations = _violations(
-        bay, meta, command.equipment_id, switching_action, command.is_auto_reclose
+        bay, meta, command.equipment_id, switching_action, command.is_auto_reclose, spec
     )
     if violations:
         reasons = "; ".join(f"{rule}: {reason}" for rule, reason in violations)
@@ -606,34 +604,34 @@ def execute_command(
     }
 
 
-def set_bay_mode(bay_id: str, mode: str, operator_id: str) -> BayController:
+def set_bay_mode(bay_id: str, mode: str, operator_id: str, spec: FarmSpec = SB510) -> BayController:
     """Change bay operational mode (LOCAL / REMOTE / MAINTENANCE).
 
     Used when an engineer arrives at the local panel (→ LOCAL)
     or when a PTW is issued (→ MAINTENANCE).
     """
-    if bay_id not in _bay_state:
-        raise NotFoundError(f"Bay '{bay_id}' not found.")
+    bay = _bay(spec, bay_id)
     try:
         new_mode = BayMode(mode.lower())
     except ValueError as err:
         raise StateTransitionError(
             f"Unknown bay mode '{mode}'. Valid: local/remote/maintenance"
         ) from err
-    _bay_state[bay_id].bay_mode = new_mode
-    return _bay_state[bay_id]
+    bay.bay_mode = new_mode
+    return bay
 
 
-def set_manual_isolation(bay_id: str, active: bool, operator_id: str) -> BayController:
+def set_manual_isolation(
+    bay_id: str, active: bool, operator_id: str, spec: FarmSpec = SB510
+) -> BayController:
     """Set or clear the manual isolation flag for a bay.
 
     Called when a PTW is issued (active=True) or withdrawn (active=False).
     When active, ILK-006 blocks auto-reclose on this bay.
     """
-    if bay_id not in _bay_state:
-        raise NotFoundError(f"Bay '{bay_id}' not found.")
-    _bay_state[bay_id].manual_isolation_active = active
-    return _bay_state[bay_id]
+    bay = _bay(spec, bay_id)
+    bay.manual_isolation_active = active
+    return bay
 
 
 def update_synchrocheck(
@@ -641,19 +639,19 @@ def update_synchrocheck(
     delta_voltage_percent: float,
     delta_frequency_hz: float,
     delta_phase_deg: float,
+    spec: FarmSpec = SB510,
 ) -> BayController:
     """Update live synchrocheck measurements for a tie CB bay.
 
     Called periodically by the measurement system (every 1–2 s) to
     keep the ILK-007 check current.
     """
-    if bay_id not in _bay_state:
-        raise NotFoundError(f"Bay '{bay_id}' not found.")
-    if not _bay_state[bay_id].is_tie_cb:
+    bay = _bay(spec, bay_id)
+    if not bay.is_tie_cb:
         raise StateTransitionError(f"Bay '{bay_id}' is not a tie CB bay.")
-    _bay_state[bay_id].synchrocheck = SynchroCheckResult(
+    bay.synchrocheck = SynchroCheckResult(
         delta_voltage_percent=delta_voltage_percent,
         delta_frequency_hz=delta_frequency_hz,
         delta_phase_deg=delta_phase_deg,
     )
-    return _bay_state[bay_id]
+    return bay

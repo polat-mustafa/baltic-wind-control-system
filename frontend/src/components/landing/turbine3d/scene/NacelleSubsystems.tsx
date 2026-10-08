@@ -7,8 +7,8 @@
  * Components (IEC / ISO references):
  *   B1  HPU              — Hydraulic Power Unit + accumulator (ISO 4413)
  *   B3  Control cabinets — Main TCS + Safety PLC (IEC 61508 SIL 2)
- *   B4  Transformer      — 784 V / 66 kV, 16 MVA Dyn11 (IEC 60076-1)
- *   B5  Oil cooler       — Gearbox heat exchanger, 500 kW thermal
+ *   B4  Transformer      — converter output → 66 kV, 16 MVA Dyn11 (IEC 60076-1)
+ *   B5  Coolant skid     — generator + converter water-glycol loop, ≈ 665 kW at rated
  *   B7  Crane rail       — 10 t SWL ceiling crane, two I-beam rails (EN 13001)
  *   B8  UPS cabinet      — 6.6 kWh VRLA battery, 15 min backup (IEC 62040-1)
  *   B9  Yaw brakes       — 4 × SAHR hydraulic disc calipers (EN 13849)
@@ -60,7 +60,7 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
 
   return (
     <group>
-      {/* Bedplate and flexible coupling are part of the Blender drivetrain
+      {/* Bedplate and the direct-drive generator are part of the Blender model
           (Drivetrain.tsx / V236Turbine NacelleFrame). */}
 
       {/* ── B1 Hydraulic Power Unit (HPU) ────────────────────────── */}
@@ -195,7 +195,7 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
       </group>
 
       {/* ── B4 Nacelle Transformer ────────────────────────────────── */}
-      {/* 784 V / 66 kV, 16 MVA, Dyn11 — nacelle aft base, sits on a fabricated
+      {/* → 66 kV, 16 MVA, Dyn11 (illustrative) — nacelle aft base, sits on a fabricated
           steel skid so the 16-tonne tank doesn't appear to float in the bay. */}
       <group position={[0, 148.0, -11]} name="transformer" onClick={pick("transformer")}>
         {/* Support skid — 4 longitudinal I-beams + cross-members at y = -1.05 */}
@@ -256,7 +256,7 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
             </mesh>
           ))
         )}
-        {/* LV bushing (784 V) — porcelain + bolt ring at base */}
+        {/* Converter-side bushing — porcelain + bolt ring at base */}
         <mesh position={[0, 1.1, 0.8]}>
           <cylinderGeometry args={[0.09, 0.09, 0.4, 14]} />
           <meshPhysicalMaterial {...rubberSeal} color="#92400e" />
@@ -286,17 +286,18 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
         <Nameplate
           position={[0, -0.6, 1.255]}
           title="TRANSFORMER · 16 MVA"
-          lines={["784 V / 66 kV · Dyn11", "IEC 60076-14 · ONAN", "η 99.3 %"]}
+          lines={["→ 66 kV · Dyn11", "IEC 60076-14 · ONAN", "η 99.5 % (illustrative)"]}
           width={1.15}
           height={0.42}
         />
       </group>
 
-      {/* ── B5 Oil Cooler / Heat Exchanger ────────────────────────── */}
-      {/* Starboard wall mount, gearbox oil circuit. Hung from 4 short brackets
+      {/* ── B5 Coolant skid / Heat Exchanger ──────────────────────── */}
+      {/* Starboard wall mount, generator + converter water-glycol loop (no gear
+          oil in a direct drive). Hung from 4 short brackets
           off the side compartment ceiling so the radiator visibly attaches to
           the nacelle structure rather than floating. */}
-      <group position={[4.85, 151, -3]} name="oil_cooler" onClick={pick("oil_cooler")}>
+      <group position={[4.85, 151, -3]} name="coolant_skid" onClick={pick("coolant_skid")}>
         {/* 4 mounting brackets — stubs reaching back to the inner starboard wall
             at x=4.5. Bracket length 0.30 m → bracket inner face at x=4.5,
             outer face at x=4.8 (just before the cooler at x=4.85±0.18). */}
@@ -310,9 +311,9 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
         <RoundedBox args={[0.3, 1.5, 2.0]} radius={0.03} smoothness={4} castShadow>
           <meshPhysicalMaterial
             {...metalPaintedDetail}
-            color={col("oil_cooler", selectedPart, "#92400e")}
-            emissive={em("oil_cooler", selectedPart)}
-            emissiveIntensity={emI("oil_cooler", selectedPart)}
+            color={col("coolant_skid", selectedPart, "#0e7490")}
+            emissive={em("coolant_skid", selectedPart)}
+            emissiveIntensity={emI("coolant_skid", selectedPart)}
           />
         </RoundedBox>
         {/* Header tank — top horizontal manifold collecting fin returns */}
@@ -336,8 +337,8 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
         <Nameplate
           position={[-0.155, 0.1, 0]}
           rotation={[0, -Math.PI / 2, 0]}
-          title="OIL COOLER · 500 kW"
-          lines={["ISO VG 320", "ΔT 15 K @ rated", "IEC 61400-4"]}
+          title="COOLANT SKID · 665 kW"
+          lines={["water-glycol", "generator + converter", "IEC 60034-1"]}
           width={0.72}
           height={0.32}
         />
@@ -487,8 +488,8 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
           Standardised height + uniform manifold reads as engineered, not random. */}
       {(
         [
-          [1.5,  154.0,  0.8, 150.4],   // Above gearbox — drops to y=150.4
-          [-1.5, 154.0, -2.0, 148.8],   // Above generator
+          [1.5,  154.0,  0.8, 150.4],   // Above the turret / main-bearing access
+          [-1.5, 154.0, -2.0, 148.8],   // Above the generator cable entry
           [3.2,  154.0, -2.5, 149.6],   // Above converter starboard
           [-3.2, 154.0, -2.5, 149.6],   // Above converter port
         ] as [number, number, number, number][]

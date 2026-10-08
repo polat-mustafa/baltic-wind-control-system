@@ -22,6 +22,7 @@ import {
   Minimize2,
 } from "lucide-react";
 
+import { useFleet } from "../lib/fleet";
 import MapKPIRibbon from "../components/landing/MapKPIRibbon";
 import { WindRoseWidget } from "../components/landing/WindRoseWidget";
 import LeafletWindFarmMap from "../components/landing/LeafletWindFarmMap";
@@ -216,6 +217,7 @@ const QUICK_LINKS = [
 ] as const;
 
 export default function LandingPage() {
+  const fleet = useFleet();
   const kpis = useLandingStore((s) => s.kpis);
   const startSimulation = useLandingStore((s) => s.startSimulation);
   const stopSimulation = useLandingStore((s) => s.stopSimulation);
@@ -236,6 +238,12 @@ export default function LandingPage() {
     startSimulation();
     return () => stopSimulation();
   }, [startSimulation, stopSimulation]);
+
+  // A new live fleet (own project ↔ SB-510) closes the panels of the old plant
+  useEffect(() => {
+    setActivePanel(null);
+    setSelectedTurbineId(null);
+  }, [fleet]);
 
   // Grid physics for the live operating point from the backend (pandapower)
   useLiveGridPolling();
@@ -379,7 +387,8 @@ export default function LandingPage() {
               Wind Farm Overview
             </h2>
             <p className="text-[10px] text-text-muted font-mono">
-              34 × V236-15.0 MW · Polish Baltic Sea · Real-time simulation
+              {fleet.source === "sb510" ? "" : `${fleet.name} · `}
+              {fleet.turbines.length} × 15 MW V236 class (IEA 15 MW) · Polish Baltic Sea · Real-time simulation
             </p>
           </div>
           <InfoButton info={farmOverviewInfo} />

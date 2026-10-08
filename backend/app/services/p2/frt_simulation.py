@@ -3,7 +3,7 @@ Fault ride-through (FRT) of the 510 MW farm — quasi-static phasor model.
 
 What is modelled
 ----------------
-The radial chain PSE grid → 400/220 kV → 2 × 45 km export → 220/66 kV is
+The radial chain PSE grid → 400/220 kV → 2 × 108 km export → 220/66 kV is
 reduced to its series impedances (``network_model.series_impedances_pu``,
 100 MVA base). A fault adds a shunt impedance Z_f at the chosen bus. Every
 5 ms the nodal equations are solved
@@ -64,10 +64,8 @@ from app.schemas.grid import (
     FRTType,
 )
 from app.services.p2.network_model import (
-    EXPORT_CABLE_LENGTH_KM,
-    GRID_SSC_MVA,
-    STATCOM_RATING_MVAR,
-    TOTAL_CAPACITY_MW,
+    SB510,
+    FarmSpec,
     series_impedances_pu,
 )
 
@@ -196,11 +194,12 @@ def run_frt_simulation(
     fault_impedance_pu: float = 0.005,
     fault_duration_s: float = 0.150,
     generation_fraction: float = 1.0,
-    export_length_km: float = EXPORT_CABLE_LENGTH_KM,
-    grid_ssc_mva: float = GRID_SSC_MVA,
+    export_length_km: float | None = None,
+    grid_ssc_mva: float | None = None,
     k_factor: float = 2.0,
     swell_pu: float = 1.20,
     p_ramp_pu_s: float = DEFAULT_P_RAMP_PU_S,
+    spec: FarmSpec = SB510,
 ) -> FRTSimulationResponse:
     """Simulate a balanced fault (LVRT) or a grid voltage swell (HVRT).
 
@@ -216,7 +215,12 @@ def run_frt_simulation(
         Grid EMF during the HVRT event [pu].
     p_ramp_pu_s : float
         Post-fault active power ramp of the WTGs [pu/s].
+    export_length_km : float | None
+        Export cable length [km]; None = the spec's.
+    spec : FarmSpec
+        Farm design (capacity, STATCOM, impedances). Default: SB-510.
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     if fault_bus not in BUSES:
         msg = f"fault_bus must be one of {', '.join(BUSES)}, got '{fault_bus}'"
         raise DomainValidationError(msg)
@@ -224,7 +228,7 @@ def run_frt_simulation(
         msg = f"k_factor must be within {K_FACTOR_RANGE[0]}–{K_FACTOR_RANGE[1]}"
         raise DomainValidationError(msg)
 
-    z = series_impedances_pu(S_BASE_MVA, grid_ssc_mva, export_length_km)
+    z = series_impedances_pu(S_BASE_MVA, grid_ssc_mva, export_length_km, spec)
     y_normal = _admittance(z)
     y_fault = y_normal.copy()
     fault_node = BUSES.index(fault_bus)
@@ -232,8 +236,8 @@ def run_frt_simulation(
         y_fault[fault_node, fault_node] += 1.0 / complex(0.1, 1.0) / max(fault_impedance_pu, 1e-6)
 
     p_pre_pu = generation_fraction  # WTG active current ≈ P at U ≈ 1 pu
-    wtg = _Converter(TOTAL_CAPACITY_MW, WTG_NODE, ip=p_pre_pu)
-    statcom = _Converter(STATCOM_RATING_MVAR, STATCOM_NODE, ip=0.0)
+    wtg = _Converter(spec.capacity_mw, WTG_NODE, ip=p_pre_pu)
+    statcom = _Converter(spec.statcom_mvar, STATCOM_NODE, ip=0.0)
     converters = [wtg, statcom]
 
     t_fault = PRE_FAULT_S
@@ -289,7 +293,7 @@ def run_frt_simulation(
 
     during = [p for p in series if t_fault <= p.time_s < t_clear]
     after = [p for p in series if p.time_s >= t_clear]
-    p_pre_mw = p_pre_pu * TOTAL_CAPACITY_MW
+    p_pre_mw = p_pre_pu * spec.capacity_mw
     lvrt = frt_type == FRTType.LVRT
 
     # Envelope: the farm must ride through as long as U_POC stays on/above it

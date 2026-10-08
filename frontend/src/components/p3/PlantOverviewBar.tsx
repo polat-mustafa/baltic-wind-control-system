@@ -13,10 +13,8 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { useScadaStore } from "../../store/scadaStore";
 import { usePlantSnapshot } from "../../store/liveGridStore";
+import { useFleet } from "../../lib/fleet";
 import { cn } from "../../lib/utils";
-
-const PLANT_NAME = "SB-510 (510 MW)";
-const TURBINE_COUNT = 34;
 /** PSE operating band at the 400 kV POC: 380–420 kV (±5 %). */
 const V_POC_MIN_KV = 380;
 const V_POC_MAX_KV = 420;
@@ -66,6 +64,8 @@ const CHIPS = [
 ] as const;
 
 export default function PlantOverviewBar({ trailing }: { trailing?: ReactNode }) {
+  const fleet = useFleet();
+  const TURBINE_COUNT = fleet.turbines.length;
   const alarms = useScadaStore((s) => s.alarms);
   const setArea = useScadaStore((s) => s.setArea);
   const setSubTab = useScadaStore((s) => s.setSubTab);
@@ -83,7 +83,7 @@ export default function PlantOverviewBar({ trailing }: { trailing?: ReactNode })
     >
       <div className="hidden sm:flex flex-col justify-center px-3 border-r border-border-primary">
         <span className="text-xs font-semibold text-text-primary leading-tight whitespace-nowrap">
-          {PLANT_NAME}
+          {fleet.name} ({fleet.net.total_capacity_mw.toFixed(0)} MW)
         </span>
         <span className="text-[10px] font-mono text-text-muted tabular-nums whitespace-nowrap">{utc}</span>
       </div>

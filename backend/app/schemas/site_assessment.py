@@ -59,6 +59,30 @@ class AssessRequest(BaseModel):
         description="Site outline [[lon, lat], …] (closed or open)",
     )
     criteria: CriteriaOverrides = Field(default_factory=CriteriaOverrides)
+    grid_node: str | None = Field(
+        None, max_length=120, description="Chosen grid connection point (default: the nearest)"
+    )
+
+
+class RouteCheckRequest(BaseModel):
+    """A drawn export route, or a start point for the automatic route."""
+
+    region: str = DEFAULT_REGION
+    route: list[list[float]] | None = Field(
+        None,
+        min_length=2,
+        max_length=200,
+        description="Drawn route [[lon, lat], …]: offshore substation → waypoints → onshore end",
+    )
+    start: list[float] | None = Field(
+        None,
+        min_length=2,
+        max_length=2,
+        description="Automatic route: start [lon, lat] (offshore substation or site edge)",
+    )
+    grid_node: str | None = Field(
+        None, max_length=120, description="Automatic route: end node (default: the nearest)"
+    )
 
 
 # ── Responses ─────────────────────────────────────────────────────
@@ -112,6 +136,48 @@ class DepthBandCard(BaseModel):
     foundation: str
 
 
+class SeabedClassCard(BaseModel):
+    code: int
+    name: str
+    piling: str
+    burial: str
+    foundation_factor: float = Field(description="Foundation cost multiplier (sand = 1.00)")
+    hard: bool
+    quality: Literal["illustrative"] = "illustrative"
+
+
+class GridNodeSchema(BaseModel):
+    name: str
+    status: Literal["existing", "commissioning", "planned"]
+    km: float = Field(description="Straight distance from the site centre [km]")
+    voltage_kv: list[int]
+    basis: str = Field(description="Where the node and its status come from")
+
+
+class PortSchema(BaseModel):
+    name: str
+    use: Literal["O&M", "installation"]
+    status: str
+    km: float | None = Field(description="Shortest sea route to the site [km]; null = no route")
+    basis: str = Field(description="Where the port's role comes from")
+
+
+class RasterResponse(BaseModel):
+    """One raster layer clipped to a bounding box: ``bands[name][j][i]`` at
+    (lon0 + i·dlon, lat0 + j·dlat), null = no data."""
+
+    role: str
+    lon0: float
+    lat0: float
+    dlon: float
+    dlat: float
+    bands: dict[str, list[list[float | None]]]
+    classes: dict[str, str] | None = Field(None, description="Class raster: code → name")
+    source: str
+    license: str
+    retrieved: str
+
+
 class LayersResponse(BaseModel):
     region: RegionInfo
     layers: list[LayerInfo]
@@ -119,6 +185,7 @@ class LayersResponse(BaseModel):
     complete: bool
     criteria: list[CriterionCard]
     depth_bands: list[DepthBandCard]
+    seabed_classes: list[SeabedClassCard] = Field(default_factory=list)
 
 
 class ClassArea(BaseModel):
@@ -167,6 +234,21 @@ class CheckSchema(BaseModel):
     reference: str
 
 
+class WindClimateSchema(BaseModel):
+    """Hub-height wind climate of the site (NEWA + ERA5, or the labelled approximation)."""
+
+    mean_ms: float = Field(description="Mean wind speed [m/s]")
+    weibull_a: float = Field(description="Weibull scale A [m/s]")
+    weibull_k: float = Field(description="Weibull shape k [-]")
+    height_m: float
+    sector_frequencies: list[float] | None = Field(
+        None, description="12 sectors, wind FROM, centres 0°, 30° … 330°; sums to 1"
+    )
+    source: str
+    license: str
+    approximate: bool = Field(description="True: real data not found, closest approximation")
+
+
 class AssessResponse(BaseModel):
     region: str
     area_km2: float
@@ -192,5 +274,70 @@ class AssessResponse(BaseModel):
         default_factory=list,
         description="Real wind farm projects inside the site or holding its energy basins",
     )
+    wind: WindClimateSchema | None = None
+    seabed: dict[str, float] | None = Field(
+        None, description="Seabed substrate class → share of the mapped site area"
+    )
+    grid_nodes: list[GridNodeSchema] = Field(
+        default_factory=list, description="Grid connection points, nearest first"
+    )
+    ports: list[PortSchema] = Field(
+        default_factory=list, description="Offshore wind ports, nearest first per use"
+    )
     checks: list[CheckSchema]
     complete: bool
+
+
+class CrossingSchema(BaseModel):
+    name: str
+    angle_deg: float = Field(description="Acute angle to the crossed line, 90 = right angles")
+    at: list[float] = Field(description="[lon, lat]")
+
+
+class AreaLengthSchema(BaseModel):
+    name: str
+    km: float
+
+
+class RouteCheckResponse(BaseModel):
+    route: list[list[float]] = Field(description="[[lon, lat], …] as checked")
+    auto: bool = Field(description="True: the automatic shortest sea route")
+    total_km: float = Field(description="Export cable length [km]")
+    offshore_km: float
+    onshore_km: float
+    landfall: list[float] | None = Field(description="First sea → land point [lon, lat]")
+    grid_node: str | None
+    natura: list[AreaLengthSchema]
+    restricted: list[AreaLengthSchema]
+    shipping: list[CrossingSchema]
+    shipping_km: list[AreaLengthSchema]
+    cables: list[CrossingSchema]
+    checks: list[CheckSchema]
+
+
+class NeighboursRequest(BaseModel):
+    region: str = DEFAULT_REGION
+    polygon: list[list[float]] = Field(
+        ..., min_length=3, max_length=200, description="Site outline"
+    )
+    radius_km: float = Field(60.0, gt=0, le=100, description="Search radius from the site centre")
+    turbine_model: str | None = Field(None, description="Turbine of the virtual layouts")
+
+
+class NeighbourFarmSchema(BaseModel):
+    name: str
+    status: str
+    power_mw: float
+    source: Literal["outline", "point"] = Field(
+        description="Layout fills the mapped outline, or a square of P / density on the point"
+    )
+    distance_km: float
+    turbines: list[list[float]] = Field(description="Virtual turbines [[lon, lat], …]")
+
+
+class NeighboursResponse(BaseModel):
+    farms: list[NeighbourFarmSchema]
+    density_mw_km2: float
+    density_basis: str
+    radius_km: float
+    note: str

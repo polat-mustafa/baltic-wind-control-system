@@ -40,11 +40,12 @@ export const STAGES: Stage[] = [
 
 export type ActorId = "engineer" | "technician" | "official" | "consultant" | "fisher";
 
+/** Cast: three women (Ada, Ms Nowicka, Dr Karin Lind) and two men (Tomek, Marek). */
 export const ACTORS: Record<ActorId, { name: string; role: string }> = {
   engineer: { name: "Ada", role: "Project engineer (developer)" },
   technician: { name: "Tomek", role: "Survey technician" },
   official: { name: "Ms Nowicka", role: "Permitting authority (single contact point)" },
-  consultant: { name: "Dr Lind", role: "Environmental consultant" },
+  consultant: { name: "Dr Karin Lind", role: "Environmental consultant" },
   fisher: { name: "Marek", role: "Fisheries representative" },
 };
 
@@ -77,6 +78,9 @@ const BLOCKING = new Set(["sea", "territorial_sea", "eez", "msp_energy", "owf", 
  * for more information; a nearby Natura 2000 site triggers an appropriate
  * assessment, assumed here to conclude "no adverse effect on integrity".
  */
+/** Engineering and grid findings (design, cost, PSE connection), not consent matters: never a permit condition. */
+const ENGINEERING = new Set(["seabed", "grid"]);
+
 export function decide(report: AssessResponse | null): Decision {
   if (!report) {
     return { outcome: "more_information", reasons: ["No site has been assessed yet."], conditions: [], appropriateAssessment: false };
@@ -109,7 +113,7 @@ export function decide(report: AssessResponse | null): Decision {
     );
   }
   for (const c of report.checks) {
-    if (c.status === "warn" && c.id !== "natura2000") extra.push(`${c.title}: ${c.detail}`);
+    if (c.status === "warn" && c.id !== "natura2000" && !ENGINEERING.has(c.id)) extra.push(`${c.title}: ${c.detail}`);
   }
   return {
     outcome: extra.length > 0 ? "approved_with_conditions" : "approved",

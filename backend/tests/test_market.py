@@ -63,9 +63,15 @@ class TestImbalance:
         assert (gap[dev > 1] < 0).all() and (gap[dev < -1] > 0).all()
 
     def test_bigger_error_costs_more(self):
-        small = m.simulate_day(forecast_sigma_ms=0.5)["imbalance_pln"]
-        big = m.simulate_day(forecast_sigma_ms=2.0)["imbalance_pln"]
+        """Partial-load day: wind errors become power errors (P ∝ v³ below rated)."""
+        small = m.simulate_day("winter_weekday", forecast_sigma_ms=0.5)["imbalance_pln"]
+        big = m.simulate_day("winter_weekday", forecast_sigma_ms=2.0)["imbalance_pln"]
         assert big < small < 0
+
+    def test_full_load_hours_hide_small_wind_errors(self):
+        """Above rated (10.66 m/s) the power curve is flat: a small wind error costs nothing."""
+        r = m.simulate_day("windy_spring_sunday", forecast_sigma_ms=0.5)
+        assert r["imbalance_pln"] == 0
 
 
 class TestCfD:

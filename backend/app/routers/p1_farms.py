@@ -143,7 +143,7 @@ async def run_comparison(body: FarmComparisonRequest) -> FarmComparisonResponse:
     - Wake loss % (PyWake BPA Gaussian on a grid at the given spacing),
       blockage (Nygaard 2020), energy-weighted electrical loss, availability
     - Net capacity factor
-    - Uncertainty model: IEC 61400-15 RSS method, 6.89% total sigma
+    - Uncertainty: RSS of the farm's sourced components (aep_calculator.uncertainty_components)
 
     **LCOE comparison:**
     - Levelised Cost of Energy [€/MWh] — Fixed Charge Rate method

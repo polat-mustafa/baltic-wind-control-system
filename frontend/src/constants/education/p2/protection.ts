@@ -65,13 +65,13 @@ export const protectionEducation: EducationContent = {
   workedExamples: [
     {
       title: "Feeder vs incomer at the 66 kV fault level",
-      scenario: "PTOC-01: CT 1000 A, 1.2 × In = 1.2 kA, TMS 0.10. PTOC-02: CT 3000 A, 3.6 kA, TMS 0.15. Ik''max = 21.4 kA, Ik''min = 14.1 kA (K_T only in the max case).",
+      scenario: "PTOC-01: CT 1000 A, 1.2 × In = 1.2 kA, TMS 0.10. PTOC-02: CT 3000 A, 3.6 kA, TMS 0.15. Ik''max = 19.5 kA, Ik''min = 12.5 kA (K_T only in the max case).",
       steps: [
-        "At 21.4 kA: feeder I/I_p = 17.9 → t = 0.014 / (17.9^0.02 − 1) = 0.236 s; incomer I/I_p = 5.95 → 0.578 s; margin 342 ms",
-        "At 14.1 kA: feeder 0.277 s, incomer 0.759 s; margin 482 ms",
-        "Worst case is the maximum current — 342 ms ≥ 300 ms → selective",
-        "Cut the incomer TMS to 0.05: it trips in 0.193 s, before the feeder → non-selective (the whole 66 kV section is lost)",
-        "Head cable 800 mm²: withstand (143 × 800 / 21 400)² = 28.6 s ≫ 0.64 s backup clearance",
+        "At 19.5 kA: feeder I/I_p = 16.28 → t = 0.014 / (16.28^0.02 − 1) = 0.244 s; incomer I/I_p = 5.43 → 0.610 s; margin 366 ms",
+        "At 12.5 kA: feeder 0.292 s, incomer 0.834 s; margin 542 ms",
+        "Worst case is the maximum current — 366 ms ≥ 300 ms → selective",
+        "Cut the incomer TMS to 0.05: it trips in 0.203 s, before the feeder → non-selective (the whole 66 kV section is lost)",
+        "Head cable 800 mm²: withstand (143 × 800 / 19 531)² = 34.3 s ≫ 0.65 s backup clearance",
       ],
       result: "Selective with margin; try the TMS sliders to see where grading breaks.",
     },

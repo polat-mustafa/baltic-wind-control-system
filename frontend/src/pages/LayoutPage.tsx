@@ -1,50 +1,56 @@
 /**
- * Layout canvas (route /develop/layout): place V236 turbines inside the
- * site from Site & Permits, see wake losses and the array cable tree update
- * as they move, run PyWake for the reference AEP and estimate the cost.
+ * Layout canvas (route /develop/layout): place turbines inside the site from
+ * Site & Permits, see wake losses and the array cable tree update as they
+ * move (live while dragging), check the layout, get move suggestions, run
+ * PyWake for the reference AEP and estimate the cost.
  *
- * Engines: lib/layout (geometry, cables, energy, cost). Backend:
- * POST /api/v1/wind/wake-analysis-custom.
+ * Engines: lib/layout (geometry, cables, energy, evaluate, suggest, cost).
+ * Backend: POST /api/v1/wind/wake-analysis-custom and /wake-moves,
+ * GET /api/v1/site/raster (bathymetry → depth per turbine).
  */
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Grid3x3, MapPinned, MousePointerClick, Play, RotateCcw, Trash2, Upload, Wind } from "lucide-react";
+import { Grid3x3, MapPinned, MousePointerClick, Play, RotateCcw, Trash2, Wind } from "lucide-react";
 
 import { cn } from "../lib/utils";
-import { routeCables, ARRAY_SECTIONS, maxPerString } from "../lib/layout/cables";
-import { COST_LABELS, layoutCost, type CostInputs } from "../lib/layout/cost";
-import { layoutYield, UNIFORM_ROSE, type WindRose } from "../lib/layout/energy";
+import { routeCables, maxPerString } from "../lib/layout/cables";
+import { COST_DEFAULTS, layoutCost, type CostInputs } from "../lib/layout/cost";
+import { prepareYield, UNIFORM_ROSE, yieldOf, type WindRose } from "../lib/layout/energy";
+import { weibullMean } from "../utils/aepMath";
 import {
   D,
   defaultExportKm,
   blockedBy,
-  energyRings,
-  exclusionRings,
+  foundationFor,
+  layoutContext,
   MIN_SPACING_D,
   OTHER_LOSSES,
   RATED_MW,
+  foundationFactor,
+  statusAt,
+  turbineStats,
   WEIBULL_A,
   WEIBULL_K,
 } from "../lib/layout/evaluate";
-import {
-  centroid,
-  dist,
-  gridFill,
-  insidePolygon,
-  minSpacing,
-  polygonArea,
-  projection,
-  type LonLat,
-} from "../lib/layout/geometry";
-import { computeWindRose } from "../services/windResourceApi";
+import { centroid, gridFill, minSpacing, polygonArea, type LonLat, type XY } from "../lib/layout/geometry";
+import { suggestMoves } from "../lib/layout/suggest";
+import { useSiteRasters } from "../hooks/useSiteRasters";
+import { checkWakeMoves, computeWindRose } from "../services/windResourceApi";
 import { MAX_TURBINES, signature, useProjectStore } from "../store/projectStore";
 import { CASE_STUDY_SITE, useSiteStore } from "../store/siteStore";
+import { useProjectSync } from "../store/projectSync";
 import { Button } from "../components/ui/Button";
 import { InfoTile } from "../components/ui/InfoTile";
 import { Skeleton } from "../components/ui/Skeleton";
+import { InfoButton } from "../components/ui/InfoButton";
+import { SourceBadge } from "../components/ui/SourceBadge";
 import { WatchOut } from "../components/site/Stages";
-import { SECTION_COLOR, type TurbineView } from "../components/layout-canvas/shared";
+import type { TurbineView } from "../components/layout-canvas/shared";
+import TurbineCard from "../components/layout-canvas/TurbineCard";
+import LayoutChecklist from "../components/layout-canvas/LayoutChecklist";
+import MoveSuggestions from "../components/layout-canvas/MoveSuggestions";
+import { layoutCostInfo, layoutGridToolInfo, layoutPyWakeInfo, layoutResultsInfo } from "../constants/panelInfo";
 
 const LayoutMap = lazy(() => import("../components/layout-canvas/LayoutMap"));
 
@@ -70,7 +76,10 @@ function GridTool({ onFill }: { onFill: (o: { along: number; across: number; ang
   );
   return (
     <div className="space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="layout-grid">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Fill the site with a grid</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Fill the site with a grid</h3>
+        <InfoButton info={layoutGridToolInfo} />
+      </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px] text-text-primary">
         <label className="flex items-center justify-between gap-2">Along rows {num(along, setAlong, 3, 15)} D</label>
         <label className="flex items-center justify-between gap-2">Between rows {num(across, setAcross, 3, 15)} D</label>
@@ -103,27 +112,32 @@ function CostPanel({ costs, setCost, reset }: { costs: CostInputs; setCost: (k: 
         aria-expanded={open}
         className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-text-secondary"
       >
-        Cost inputs (illustrative) <span aria-hidden>{open ? "−" : "+"}</span>
+        Cost inputs (sourced, € 2023) <span aria-hidden>{open ? "−" : "+"}</span>
       </button>
       {open && (
         <div className="space-y-1.5 border-t border-border-primary p-3">
-          {(Object.keys(COST_LABELS) as (keyof CostInputs)[]).map((k) => (
-            <label key={k} className="flex items-center justify-between gap-2 text-[12px] text-text-primary">
+          {(Object.keys(COST_DEFAULTS) as (keyof CostInputs)[]).map((k) => (
+            <div key={k} className="flex items-start justify-between gap-2 text-[12px] text-text-primary">
               <span>
-                {COST_LABELS[k].label} <span className="text-text-muted">[{COST_LABELS[k].unit}]</span>
+                <label htmlFor={`cost-${k}`}>
+                  {COST_DEFAULTS[k].label} <span className="text-text-muted">[{COST_DEFAULTS[k].unit}]</span>
+                </label>{" "}
+                <SourceBadge p={COST_DEFAULTS[k]} />
               </span>
               <input
+                id={`cost-${k}`}
                 type="number"
                 min={0}
                 step="any"
                 value={costs[k]}
                 onChange={(e) => setCost(k, Number(e.target.value))}
-                className="w-20 rounded border border-border-primary bg-bg-tertiary px-1.5 py-0.5 text-right text-[12px]"
+                className="w-20 shrink-0 rounded border border-border-primary bg-bg-tertiary px-1.5 py-0.5 text-right text-[12px]"
               />
-            </label>
+            </div>
           ))}
           <p className="text-[10px] text-text-muted">
-            Teaching defaults, not market prices: a ~500 MW Baltic project lands near 2.8 M€/MW. Replace them with your own data.
+            Defaults: NREL Cost of Wind Energy Review 2024 (U.S. fixed-bottom reference) and the ORBIT cable library, 2023 USD at
+            1.0813 $/€. Tap a badge for the source. Replace them with your own quotes.
           </p>
           <Button variant="ghost" size="sm" onClick={reset}>
             Reset to defaults
@@ -139,8 +153,8 @@ export default function LayoutPage() {
   const report = useSiteStore((s) => s.report);
   const loadLayers = useSiteStore((s) => s.loadLayers);
   const assess = useSiteStore((s) => s.assess);
-  const setSite = useSiteStore((s) => s.setSite);
   const layers = useSiteStore((s) => s.layers);
+  const syncId = useProjectSync((s) => s.id);
 
   const p = useProjectStore();
   const [rose, setRose] = useState<WindRose>(UNIFORM_ROSE);
@@ -149,7 +163,6 @@ export default function LayoutPage() {
   const [wakeFrom, setWakeFrom] = useState(255);
   const [exportKm, setExportKm] = useState<number | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const site = siteDrawn ?? CASE_STUDY_SITE;
   useEffect(() => {
@@ -171,45 +184,92 @@ export default function LayoutPage() {
     };
   }, []);
 
-  const proj = useMemo(() => projection(centroid(site)), [site]);
-  const siteXY = useMemo(() => site.map(proj.toXY), [site, proj]);
+  const ctx = useMemo(() => layoutContext(site, layers), [site, layers]);
+  const { proj, siteXY } = ctx;
   const areaKm2 = polygonArea(siteXY) / 1e6;
+  const excludedBy = (pt: LonLat) => blockedBy(pt, ctx.rings, ctx.energy);
 
-  const exclusions = useMemo(() => exclusionRings(layers), [layers]);
-  const energy = useMemo(() => energyRings(layers), [layers]);
-  const excludedBy = (pt: LonLat) => blockedBy(pt, exclusions, energy);
+  // Water depth and seabed sediment at each turbine (EMODnet bathymetry and Geology, region pack).
+  const { depthAt, seabedAt } = useSiteRasters(site, layers?.seabed_classes);
+  const siteKey = site.map((q) => q.join(",")).join(";");
 
   const sig = signature(p.turbines);
   const xy = useMemo(() => p.turbines.map((t) => proj.toXY([t.lon, t.lat])), [p.turbines, proj]);
-  // live screening yield, recomputed when the layout (not a drag in progress) changes
-  const yieldRes = useMemo(() => (xy.length ? layoutYield(xy, WEIBULL_A, WEIBULL_K, rose) : null), [xy, rose]);
+  // Site wind climate from the assessment (NEWA + ERA5); the regional approximation otherwise.
+  const siteWind = report?.wind && !report.wind.approximate ? report.wind : null;
+  const windA = siteWind?.weibull_a ?? WEIBULL_A;
+  const windK = siteWind?.weibull_k ?? WEIBULL_K;
+  const siteRose = useMemo<WindRose | null>(
+    () =>
+      siteWind?.sector_frequencies
+        ? { directions: siteWind.sector_frequencies.map((_, i) => i * 30), frequencies: siteWind.sector_frequencies }
+        : null,
+    [siteWind],
+  );
+  const activeRose = siteRose ?? rose;
+  // Live screening yield, prepared once per committed layout; a drag only costs moveDelta() per frame.
+  const yieldModel = useMemo(() => (xy.length ? prepareYield(xy, windA, windK, activeRose) : null), [xy, windA, windK, activeRose]);
+  const yieldRes = useMemo(() => (yieldModel ? yieldOf(yieldModel) : null), [yieldModel]);
   const oss = p.oss;
   const cables = useMemo(() => (oss && xy.length ? routeCables(proj.toXY(oss), xy, RATED_MW) : null), [xy, oss, proj]);
   const spacing = minSpacing(xy);
+  const ids = useMemo(() => p.turbines.map((t) => t.id), [p.turbines]);
 
   const views: TurbineView[] = p.turbines.map((t, i) => {
-    const ex = excludedBy([t.lon, t.lat]);
-    const near = Math.min(...xy.map((q, j) => (j === i ? Infinity : dist(q, xy[i]))));
+    const st = statusAt(ctx, [t.lon, t.lat], xy.filter((_, j) => j !== i));
     const loss = yieldRes?.perTurbineLossPct[i];
     const lossNote = loss != null ? `wake loss ${loss.toFixed(1)} %` : "";
-    if (!insidePolygon(xy[i], siteXY)) return { ...t, status: "outside", note: "outside the site boundary" };
-    if (ex) return { ...t, status: "excluded", note: ex };
-    if (near < MIN_SPACING_D * D) return { ...t, status: "close", note: `${(near / D).toFixed(1)} D to the nearest turbine · ${lossNote}` };
-    return { ...t, status: "ok", note: lossNote };
+    return { ...t, status: st.status, note: [st.note, st.status === "ok" || st.status === "close" ? lossNote : ""].filter(Boolean).join(" · ") };
   });
-  const problems = {
-    outside: views.filter((v) => v.status === "outside").length,
-    excluded: views.filter((v) => v.status === "excluded").length,
-    close: views.filter((v) => v.status === "close").length,
-  };
+  const count = (k: TurbineView["status"]) => views.filter((v) => v.status === k).length;
+  const problems = { outside: count("outside"), excluded: count("excluded"), basin: count("basin"), close: count("close") };
+  const depths = p.turbines.map((t) => depthAt([t.lon, t.lat]));
+  const foundations = depths.map((dm) => foundationFor(dm, layers?.depth_bands));
+
+  const stats = useCallback(
+    (id: string, at: LonLat | null) => {
+      const i = ids.indexOf(id);
+      return yieldModel && i >= 0 ? turbineStats(ctx, yieldModel, ids, i, at, depthAt, layers?.depth_bands, seabedAt) : null;
+    },
+    [ctx, yieldModel, ids, depthAt, seabedAt, layers],
+  );
 
   const capacity = p.turbines.length * RATED_MW;
   const pywakeFresh = p.pywake && p.pywakeFor === sig ? p.pywake : null;
-  const wakeOnlyGWh = pywakeFresh?.net_aep_gwh ?? yieldRes?.netGWh ?? 0;
+  // External wake loss from the neighbouring farms (TurbOPark), when run for this layout.
+  const external = p.external && p.externalFor === sig ? p.external : null;
+  const wakeOnlyGWh = (pywakeFresh?.net_aep_gwh ?? yieldRes?.netGWh ?? 0) * (1 - (external?.lossPct ?? 0) / 100);
   const netGWh = wakeOnlyGWh * (1 - OTHER_LOSSES);
-  const defaultExport = defaultExportKm(report?.grid_km);
+  const routeKm = useSiteStore((s) => s.routeKm);
+  const defaultExport = defaultExportKm(report?.grid_km, routeKm);
   const expKm = exportKm ?? defaultExport;
-  const cost = layoutCost(p.costs, capacity, cables?.totalKm ?? 0, expKm, report?.depth_m?.[1] ?? null, netGWh);
+  const seabedFactor = foundationFactor(p.turbines.map((t) => [t.lon, t.lat]), seabedAt);
+  const cost = layoutCost(p.costs, capacity, cables?.totalKm ?? 0, expKm, report?.depth_m?.[1] ?? null, netGWh, seabedFactor);
+
+  const pyWind = { weibull_a: windA, weibull_k: windK, sector_frequencies: siteWind?.sector_frequencies ?? null };
+  const subseaCables = useMemo<XY[][]>(
+    () =>
+      (layers?.layers ?? [])
+        .filter((l) => l.role === "cable")
+        .flatMap((l) => l.features.filter((f) => f.geometry.type === "LineString").map((f) => (f.geometry.coordinates as LonLat[]).map(proj.toXY))),
+    [layers, proj],
+  );
+  const cableBufferKm = Number(layers?.criteria.find((c) => c.key === "cable_buffer_km")?.default ?? 0.5);
+  const suggest = () =>
+    yieldModel
+      ? suggestMoves({
+          ctx,
+          model: yieldModel,
+          ids,
+          oss: oss ? proj.toXY(oss) : null,
+          tree: cables,
+          costs: p.costs,
+          exportKm: expKm,
+          maxDepthM: report?.depth_m?.[1] ?? null,
+          cables: subseaCables,
+          cableBufferM: cableBufferKm * 1000,
+        })
+      : [];
 
   const fill = (o: { along: number; across: number; angle: number; staggered: boolean; avoid: boolean }) => {
     let pts = gridFill(siteXY, { along: o.along * D, across: o.across * D, angleDeg: o.angle, staggered: o.staggered, inset: D / 2 }).map(proj.toLonLat);
@@ -230,19 +290,6 @@ export default function LayoutPage() {
     }
   };
 
-  const download = () => {
-    const blob = new Blob([p.exportFile(siteDrawn)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "layout.offshoreforge.json";
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
-  const upload = async (f: File) => {
-    const s = p.importFile(await f.text());
-    if (s) void setSite(s);
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
@@ -253,27 +300,8 @@ export default function LayoutPage() {
           </h2>
           <p className="mt-1 text-xs text-text-muted">
             Place turbines in your site, watch wake losses and the array cables change, then check the energy yield with PyWake
-            and estimate the cost. Turbine: Vestas V236-15.0 MW (D = 236 m).
+            and estimate the cost. Turbine: V236 class, modelled with the IEA 15 MW reference turbine (D = 241 m).
           </p>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <Button variant="ghost" size="sm" onClick={download} disabled={!p.turbines.length}>
-            <Download size={13} className="mr-1" /> Export
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => fileRef.current?.click()}>
-            <Upload size={13} className="mr-1" /> Import
-          </Button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void upload(f);
-              e.target.value = "";
-            }}
-          />
         </div>
       </div>
 
@@ -327,34 +355,43 @@ export default function LayoutPage() {
             </span>
           </div>
           <Suspense fallback={<Skeleton className="h-[460px] w-full rounded-lg sm:h-[560px]" />}>
-            <LayoutMap site={site} turbines={views} cables={cables} wakeFrom={wakeOn ? wakeFrom : null} />
+            <LayoutMap
+              site={site}
+              turbines={views}
+              cables={cables}
+              wakeFrom={wakeOn ? wakeFrom : null}
+              card={<TurbineCard stats={stats} />}
+            />
           </Suspense>
-          <div className="flex flex-wrap gap-3 text-[11px] text-text-secondary">
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-slate-900 bg-slate-50" /> turbine
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-slate-900 bg-amber-500" /> closer than {MIN_SPACING_D} D
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-slate-900 bg-red-500" /> outside the site or in a constraint
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2.5 w-2.5 rotate-45 border-2 border-slate-900 bg-yellow-400" /> offshore substation
-            </span>
-            {ARRAY_SECTIONS.map((s) => (
-              <span key={s.id} className="flex items-center gap-1">
-                <span className="inline-block h-1 w-4 rounded" style={{ background: SECTION_COLOR[s.id] }} /> {s.label}
-              </span>
-            ))}
-          </div>
-          <WatchOut text="Wake losses grow quickly below about 5 D downwind; a tight layout gains megawatts on paper and loses them in energy. Drag a turbine and watch its wake loss in the tooltip." />
+          <p className="text-[11px] text-text-muted">
+            Click a turbine for its card; drag it to see the farm AEP change live. Turbine IDs appear from zoom 12.
+          </p>
+          <WatchOut text="Wake losses grow quickly below about 5 D downwind; a tight layout gains megawatts on paper and loses them in energy. Drag a turbine and watch the farm AEP change in its card." />
+          <LayoutChecklist
+            siteDrawn={siteDrawn != null}
+            count={p.turbines.length}
+            outside={problems.outside}
+            excluded={problems.excluded}
+            basin={problems.basin}
+            close={problems.close}
+            oss={oss != null}
+            overCapacity={cables?.edges.filter((e) => !e.section).length ?? 0}
+            crossings={cables?.crossings ?? 0}
+            depthUnknown={depths.filter((dm) => dm == null).length}
+            depthOut={depths.filter((dm, i) => dm != null && !foundations[i]).length}
+            floating={foundations.filter((f) => f != null && /floating/.test(f)).length}
+            pywake={pywakeFresh ? "fresh" : p.pywake ? "stale" : "none"}
+          />
         </div>
 
         <div className="space-y-3">
           <GridTool onFill={fill} />
           {fillNote && <p className="text-[12px] text-status-warning">{fillNote}</p>}
 
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Live results</h3>
+            <InfoButton info={layoutResultsInfo} />
+          </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-tour="layout-results">
             <InfoTile label="Turbines" value={p.turbines.length} subtitle={`${capacity} MW`} size="sm" />
             <InfoTile label="Power density" value={areaKm2 > 0 ? (capacity / areaKm2).toFixed(1) : "—"} unit="MW/km²" subtitle={`${areaKm2.toFixed(0)} km² site`} size="sm" />
@@ -370,7 +407,7 @@ export default function LayoutPage() {
               label="Wake loss (live)"
               value={yieldRes ? yieldRes.wakeLossPct.toFixed(1) : "—"}
               unit="%"
-              subtitle={roseReal ? "12-sector site rose" : "uniform rose (API offline)"}
+              subtitle={siteRose ? "site rose (ERA5, 12 sectors)" : roseReal ? "regional synthetic rose" : "uniform rose (API offline)"}
               size="sm"
             />
             <InfoTile
@@ -378,6 +415,14 @@ export default function LayoutPage() {
               value={yieldRes ? yieldRes.netGWh.toFixed(0) : "—"}
               unit="GWh"
               subtitle={yieldRes ? `CF ${(100 * yieldRes.capacityFactor).toFixed(1)} %, wake only` : undefined}
+              size="sm"
+            />
+            <InfoTile
+              label="Wind at 150 m"
+              value={(siteWind?.mean_ms ?? weibullMean(windA, windK)).toFixed(1)}
+              unit="m/s"
+              subtitle={`A ${windA.toFixed(1)} · k ${windK.toFixed(2)} · ${siteWind ? "NEWA + ERA5" : "approximation"}`}
+              priority={siteWind ? "normal" : "warning"}
               size="sm"
             />
             <InfoTile
@@ -389,10 +434,11 @@ export default function LayoutPage() {
               size="sm"
             />
           </div>
-          {(problems.outside > 0 || problems.excluded > 0) && (
+          {(problems.outside > 0 || problems.excluded > 0 || problems.basin > 0) && (
             <p className="text-[12px] text-status-alarm">
               {problems.outside > 0 && `${problems.outside} turbine(s) outside the site. `}
-              {problems.excluded > 0 && `${problems.excluded} turbine(s) inside a constraint area.`}
+              {problems.excluded > 0 && `${problems.excluded} turbine(s) inside a constraint area. `}
+              {problems.basin > 0 && `${problems.basin} turbine(s) outside the plan's energy basins.`}
             </p>
           )}
           {cables && cables.crossings > 0 && (
@@ -401,8 +447,20 @@ export default function LayoutPage() {
 
           <div className="space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="layout-pywake">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Reference AEP (PyWake)</h3>
-              <Button size="sm" onClick={() => void p.runPyWake(proj.toXY)} disabled={!p.turbines.length || p.running}>
+              <h3 className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                Reference AEP (PyWake) <InfoButton info={layoutPyWakeInfo} />
+              </h3>
+              <Button
+                size="sm"
+                onClick={() =>
+                  void p.runPyWake(
+                    proj.toXY,
+                    siteWind ? { weibullA: windA, weibullK: windK, sectorFrequencies: siteWind.sector_frequencies } : undefined,
+                    syncId ? useProjectSync.getState().runAep : undefined,
+                  )
+                }
+                disabled={!p.turbines.length || p.running}
+              >
                 <Play size={13} className="mr-1" /> {p.running ? "Running…" : "Run PyWake"}
               </Button>
             </div>
@@ -428,10 +486,67 @@ export default function LayoutPage() {
                 within about 0.5 percentage points on regular grids.
               </p>
             )}
+            <div className="space-y-1 border-t border-border-primary pt-2 text-[12px]" data-tour="layout-neighbours">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-text-secondary">Neighbouring wind farms (cluster wake)</span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    void p.runNeighbourWake(
+                      proj.toXY,
+                      site,
+                      siteWind ? { weibullA: windA, weibullK: windK, sectorFrequencies: siteWind.sector_frequencies } : undefined,
+                    )
+                  }
+                  disabled={!p.turbines.length || p.externalRunning}
+                >
+                  <Play size={13} className="mr-1" /> {p.externalRunning ? "Running… (≈ 1 min)" : "Estimate external loss"}
+                </Button>
+              </div>
+              {external ? (
+                <>
+                  <p className="text-text-primary">
+                    <span className="font-semibold">−{external.lossPct.toFixed(1)} %</span> from {external.farms.length} farm
+                    {external.farms.length === 1 ? "" : "s"} within 60 km ({external.turbines} virtual turbines); net AEP after it{" "}
+                    {external.netWithGWh.toFixed(0)} GWh (wake only). The cost estimate includes it.
+                  </p>
+                  <p className="text-[11px] text-text-muted">
+                    {external.farms.map((f) => `${f.name} ${f.power_mw.toFixed(0)} MW, ${f.distance_km.toFixed(0)} km`).join(" · ")}
+                  </p>
+                  <p className="text-[11px] text-status-warning">
+                    {external.note}; point-only projects use {external.densityBasis}. TurbOPark (Nygaard et al. 2022) wakes.
+                  </p>
+                </>
+              ) : (
+                <p className="text-[11px] text-text-muted">
+                  Real projects around the site take wind from it. This places approximate layouts of the farms within 60 km and runs PyWake with and
+                  without them; the live numbers above leave them out.
+                </p>
+              )}
+            </div>
           </div>
 
+          <MoveSuggestions
+            sig={`${sig}|${oss?.join(",") ?? ""}|${windA}|${windK}|${siteKey}`}
+            disabled={p.turbines.length < 2}
+            suggest={suggest}
+            validate={(moves) =>
+              checkWakeMoves(
+                xy.map((q) => q.x),
+                xy.map((q) => q.y),
+                moves.map((m) => ({ index: m.index, x_m: m.to.x, y_m: m.to.y })),
+                pyWind,
+              ).then((r) => r.moves)
+            }
+            apply={(m) => p.moveTurbine(m.id, proj.toLonLat(m.to))}
+          />
+
           <div className="space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="layout-cost">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Cost estimate</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Cost estimate</h3>
+              <InfoButton info={layoutCostInfo} />
+            </div>
             <label className="flex items-center justify-between gap-2 text-[12px] text-text-primary">
               Export cable route
               <span>
@@ -450,7 +565,10 @@ export default function LayoutPage() {
               <tbody>
                 {cost.lines.map((l) => (
                   <tr key={l.label} className="border-b border-border-primary/60">
-                    <td className="py-0.5 text-text-secondary">{l.label}</td>
+                    <td className="py-0.5 text-text-secondary">
+                      {l.label}
+                      {l.source && <SourceBadge p={l.source} className="ml-1" />}
+                    </td>
                     <td className="py-0.5 text-right tabular-nums text-text-primary">{l.meur.toFixed(0)} M€</td>
                   </tr>
                 ))}
@@ -467,8 +585,8 @@ export default function LayoutPage() {
               <span className="text-lg font-semibold text-text-primary">{cost.lcoe != null ? `${cost.lcoe.toFixed(0)} €/MWh` : "—"}</span>
             </div>
             <p className="text-[10px] text-text-muted">
-              LCOE = (CAPEX·CRF + OPEX) / AEP. AEP: {pywakeFresh ? "PyWake" : "live estimate"}, minus {100 * OTHER_LOSSES} % availability and
-              electrical losses (illustrative). Foundations by the site's deepest water ({report?.depth_m ? `${report.depth_m[1].toFixed(0)} m` : "not assessed"}).
+              LCOE = (CAPEX·CRF + OPEX) / AEP. AEP: {pywakeFresh ? "PyWake" : "live estimate"}, minus {(100 * OTHER_LOSSES).toFixed(1)} % electrical,
+              availability and environmental losses (P1 cascade defaults). Foundations by the site's deepest water ({report?.depth_m ? `${report.depth_m[1].toFixed(0)} m` : "not assessed"}).
             </p>
           </div>
           <CostPanel costs={p.costs} setCost={p.setCost} reset={p.resetCosts} />

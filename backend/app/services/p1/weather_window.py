@@ -35,6 +35,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from app.core.exceptions import ValidationError
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 # Baltic Sea monthly mean significant wave height P50 [m] — Jan..Dec
@@ -74,11 +76,19 @@ _VESSEL_MOBILISATION_EUR = {
 }
 
 TECHNICIAN_DAY_RATE_EUR = 800  # offshore day-rate
+
+# Working day and CTV transit — NREL WOMBAT defaults (library/default/project/config/
+# base_osw_fixed.yaml: workday 07–19; vessels/ctv.yaml: speed 37.04 km/h = 20 kn).
+WORKDAY_HOURS = 12.0
+CTV_SPEED_KMH = 37.04
+#: SB-510's O&M port by sea: Ustka, 52.5 km to the nearest turbine of the site
+#: (site assessment, `test_sb510_ports_by_sea`).
+SB510_OM_PORT_KM = 52.5
 TECHNICIANS_CTV = 10
 TECHNICIANS_SOV = 20
 TECHNICIANS_JACKUP = 8  # specialised crane crew
 
-LOCATION = "SB-510 — offshore Polish EEZ (54.5°N, 16.0°E)"
+LOCATION = "SB-510 — offshore Polish EEZ, site PZP_44 (55.06°N, 16.54°E)"
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
@@ -169,9 +179,13 @@ def find_maintenance_window(
     vessel: str,
     repair_duration_hours: float,
     turbine_id: str,
+    port_km: float = SB510_OM_PORT_KM,
 ) -> dict[str, Any]:
     """
     Estimate next weather window for a repair job.
+
+    Work per day = the 12 h working day minus the CTV transit out and back
+    (port_km by sea at 20 kn); vessels that stay offshore lose no transit.
 
     Uses geometric distribution: each day has P(accessible) chance.
     Expected wait = (1 - P) / P days.
@@ -201,8 +215,14 @@ def find_maintenance_window(
     window_start = failure_date + timedelta(days=wait_days)
     total_downtime = wait_days + repair_duration_hours / 24.0
 
-    # Cost estimate
-    repair_calendar_days = math.ceil(repair_duration_hours / 8.0)  # 8h work/day
+    # Cost estimate: work per day after the CTV transit (WOMBAT working day)
+    transit_h = port_km / CTV_SPEED_KMH if vessel == "CTV" else 0.0
+    work_h = WORKDAY_HOURS - 2.0 * transit_h
+    if work_h <= 0.5:
+        raise ValidationError(
+            f"CTV transit {transit_h:.1f} h each way leaves no working time: use an SOV"
+        )
+    repair_calendar_days = math.ceil(repair_duration_hours / work_h)
     vessel_day_rate = _VESSEL_DAY_RATE[vessel]
     mobilisation = _VESSEL_MOBILISATION_EUR[vessel]
 
@@ -230,6 +250,9 @@ def find_maintenance_window(
         "wait_days": wait_days,
         "total_downtime_days": round(total_downtime, 1),
         "access_probability_pct": round(100.0 * p_daily, 1),
+        "port_km": port_km,
+        "transit_hours": round(transit_h, 2),
+        "work_hours_per_day": round(work_h, 2),
         "cost_estimate_eur": round(total_cost, 0),
         "cost_breakdown": {
             "vessel_day_rate_eur": round(vessel_eur, 0),

@@ -19,14 +19,13 @@ export const farmLayoutMapEducation: EducationContent = {
     "Positions are in metres on a flat local grid — never compute wake distances from latitude/longitude directly. " +
     "Electrically the farm is six radial 66 kV strings (6-6-6-6-5-5 turbines) into the offshore substation. A 6-turbine " +
     "string carries 90 MW at its OSS end: I = 90 MW / (√3 · 66 kV) ≈ 787 A at unity power factor, which sets the " +
-    "conductor size of the first section (800 mm² Cu, ≈ 900 A rating, ≈ 87 % loaded); sections further out carry " +
-    "fewer turbines and use smaller conductors.",
+    "conductor size of the first section (1000 mm² Cu, 825 A datasheet rating, 95 % loaded — 800 mm² at 775 A would " +
+    "be overloaded); sections further out carry fewer turbines and use smaller conductors.",
 
   standards: [
     {
       label: "IEC 60287 — Current rating of electric cables",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_60287",
     },
     {
       label: "DNV-ST-0359 — Subsea power cables for wind power plants",
@@ -48,15 +47,17 @@ export const farmLayoutMapEducation: EducationContent = {
 
   workedExamples: [
     {
-      title: "How many V236 per 66 kV string?",
-      scenario: "15 MW per turbine; first-section cable 800 mm² Cu XLPE rated ≈ 900 A (installation-dependent).",
+      title: "How many 15 MW turbines per 66 kV string?",
+      scenario:
+        "15 MW per turbine; first-section cable 1000 mm² Cu XLPE rated 825 A (ABB/NKT 2GM5007 Table 33: 1 m deep, " +
+        "20 °C seabed, 1.0 K·m/W).",
       steps: [
         "Per turbine: 15 MW / (√3 × 66 kV) = 131 A",
-        "6 turbines: 787 A → 87 % of 900 A",
-        "7 turbines: 918 A → over the rating",
+        "6 turbines: 787 A → 95 % of 825 A (800 mm², 775 A, would be overloaded)",
+        "7 turbines: 918 A → over the rating of every section",
       ],
       result:
-        "Six turbines per string is the practical maximum on 800 mm² at 66 kV — hence 34 turbines in six strings " +
+        "Six turbines per string is the maximum on 1000 mm² at 66 kV — hence 34 turbines in six strings " +
         "(6-6-6-6-5-5). Going to 132 kV array voltage would halve the current for the same power.",
     },
   ],

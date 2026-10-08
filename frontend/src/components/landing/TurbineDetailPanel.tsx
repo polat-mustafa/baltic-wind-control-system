@@ -4,7 +4,7 @@
  *
  * Top to bottom: live power vs rated + key operating values, active fault or
  * curtailment reason, power-train diagram (click a stage or component → part
- * education card expands inline, and the 3D viewer flies to the part), 60 s trends, wake loss, operating point on the V236 power
+ * education card expands inline, and the 3D viewer flies to the part), 60 s trends, wake loss, operating point on the IEA 15 MW power
  * curve, condition data, and links into the project dashboards.
  *
  * Uses the shared EquipmentPanel shell; Esc first closes an open part card,
@@ -31,7 +31,6 @@ import {
   FAULT_TO_PART,
   type TurbinePartId,
 } from "../../constants/turbinePartEducation";
-import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { useTurbineHistory } from "../../hooks/useTurbineHistory";
 import {
   selectKPIs,
@@ -43,9 +42,10 @@ import { inferCurtailment } from "../../utils/curtailmentReason";
 import {
   ROTOR_DIAMETER_M,
   V236,
-  v236PowerMW,
+  turbinePowerMW,
   wakePowerLossPct,
 } from "../../utils/landingPhysics";
+import { useFleet } from "../../lib/fleet";
 import { computeWakeLosses } from "../../utils/wakeModel";
 import { EducationPanel } from "../ui/EducationPanel";
 
@@ -94,13 +94,6 @@ const NAV_ITEMS = [
   },
 ];
 
-/** Stable reference to turbine geographic data (never changes). */
-const TURBINE_GEO = TURBINE_POSITIONS.map((t) => ({
-  id: t.id,
-  lat: t.lat,
-  lon: t.lon,
-}));
-
 /** Round wind direction to nearest `step` degrees (matches WakeEffectLayer). */
 const quantizeDir = (deg: number, step = 5) => Math.round(deg / step) * step;
 
@@ -114,7 +107,7 @@ function powerCoefficient(powerMW: number, windMs: number): number {
   return Math.min(16 / 27, powerMW / windPowerMW);
 }
 
-/** V236 power curve (shared model) with the live operating point. */
+/** IEA 15 MW power curve (shared model) with the live operating point. */
 function PowerCurveChart({
   windMs,
   powerMW,
@@ -131,7 +124,7 @@ function PowerCurveChart({
   const y = (p: number) => pad.t + (1 - p / pMax) * (H - pad.t - pad.b);
   const curve = Array.from({ length: 129 }, (_, i) => {
     const v = (i / 128) * vMax;
-    return `${i ? "L" : "M"}${x(v).toFixed(1)},${y(v236PowerMW(v)).toFixed(1)}`;
+    return `${i ? "L" : "M"}${x(v).toFixed(1)},${y(turbinePowerMW(v)).toFixed(1)}`;
   }).join(" ");
   const inRange = windMs >= V236.cutInMs && windMs <= V236.cutOutMs;
 
@@ -140,7 +133,7 @@ function PowerCurveChart({
       viewBox={`0 0 ${W} ${H}`}
       className="w-full"
       role="img"
-      aria-label="V236 power curve with operating point"
+      aria-label="Power curve (IEA 15 MW model) with operating point"
     >
       {[0, 5, 10, 15].map((p) => (
         <g key={p}>
@@ -164,7 +157,7 @@ function PowerCurveChart({
           </text>
         </g>
       ))}
-      {[0, 3, 11.1, 20, 31].map((v) => (
+      {[0, V236.cutInMs, Number(V236.ratedMs.toFixed(1)), 20, V236.cutOutMs].map((v) => (
         <text
           key={v}
           x={x(v)}
@@ -281,14 +274,11 @@ export default function TurbineDetailPanel({
   // Live power loss at the current freestream (0 when the waked wind is
   // still above rated) — rounded to 0.5 m/s like the map's wake badges.
   const freeMs = Math.round(kpis.freestreamWindMs * 2) / 2;
+  const fleet = useFleet();
   const wakeLoss = useMemo(() => {
-    const w = computeWakeLosses(TURBINE_GEO, windDir).find(
-      (l) => l.turbineId === t.id,
-    );
-    return w
-      ? { ...w, lossPct: Math.round(wakePowerLossPct(freeMs, w.deficit)) }
-      : null;
-  }, [windDir, freeMs, t.id]);
+    const w = computeWakeLosses(fleet.turbines, windDir).find((l) => l.turbineId === t.id);
+    return w ? { ...w, lossPct: Math.round(wakePowerLossPct(freeMs, w.deficit)) } : null;
+  }, [windDir, freeMs, t.id, fleet]);
 
   const handlePartClick = useCallback(
     (partId: TurbinePartId) =>
@@ -317,7 +307,7 @@ export default function TurbineDetailPanel({
       <EquipmentPanel
         icon={Fan}
         tag={t.id}
-        subtitle={`String ${t.stringNumber} · V236-15.0 MW · hub 150 m · rotor Ø ${ROTOR_DIAMETER_M} m`}
+        subtitle={`String ${t.stringNumber} · V236 class (IEA 15 MW model) · hub 150 m · rotor Ø ${ROTOR_DIAMETER_M.toFixed(0)} m`}
         status={status}
         onClose={onClose}
         width={placement ? "auto" : 440}
@@ -468,7 +458,7 @@ export default function TurbineDetailPanel({
         </PanelSection>
 
         <PanelSection
-          title="Operating point · V236 power curve"
+          title="Operating point · IEA 15 MW power curve"
           aside={`Betz limit Cp ≤ ${(16 / 27).toFixed(3)}`}
         >
           <PowerCurveChart windMs={t.windSpeedMs} powerMW={t.powerOutputMW} />

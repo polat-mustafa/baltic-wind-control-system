@@ -1,12 +1,16 @@
 /**
- * Nacelle shell — aerodynamic enclosure housing the drivetrain.
+ * Nacelle shell — enclosure behind the direct-drive generator (bedplate,
+ * converter, transformer, cooling, HPU). The Blender shell (rev 5) ends in a
+ * rounded front face where the turret enters; the generator sits outside it,
+ * between the nacelle and the hub (IEA 15 MW overhang 11.35 m). The box
+ * volumes below are only the loading fallback.
  *
  * Shell geometry uses drei's RoundedBox for the four box-like volumes (so
  * corners read as fillets, not 90° edges) and a custom ExtrudeGeometry for
  * the cowling top — a rounded-trapezoid front-view profile extruded along
  * the nacelle Z axis, giving the curved "Vestas helmet" silhouette.
  *
- * Geometry (V236-15.0 MW corrected dimensions, ~520 tonne nacelle):
+ * Fallback geometry (box volumes; the IEA 15 MW nacelle is ≈ 673 t incl. the 369 t generator):
  *   Central bay:           9 m wide × 8 m tall × 20 m long (drivetrain/generator)
  *   Port side compartment: 2 m × 6 m × 12 m (converter, cooling, UPS)
  *   Starboard compartment: 2 m × 6 m × 12 m (converter, switchgear)
@@ -139,7 +143,7 @@ export const Nacelle = memo(function Nacelle({ viewerMode, selectedPart }: Nacel
     setSelectedPart("nacelle");
   };
 
-  // Blender shell (single rounded envelope, tapered nose, panel seams,
+  // Blender shell (single rounded envelope, rounded front face, panel seams,
   // heli-hoist platform) replaces the box volumes once loaded.
   const model = useV236Model();
   const ghostEdges = useMemo(

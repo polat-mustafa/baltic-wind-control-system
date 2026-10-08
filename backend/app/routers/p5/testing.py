@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, StateTransitionError
 from app.db import get_session
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.commissioning import (
     ApproveCampaignRequest,
     ComplianceCampaignSchema,
@@ -117,10 +118,15 @@ def _campaign(c: ComplianceCampaign) -> ComplianceCampaignSchema:
 
 @router.post("/fat", response_model=FATCampaignSchema, status_code=201)
 async def create_fat(
-    request: CreateFATCampaignRequest, session: AsyncSession = Depends(get_session)
+    request: CreateFATCampaignRequest,
+    spec: FarmSpecDep,
+    session: AsyncSession = Depends(get_session),
 ) -> FATCampaignSchema:
-    """Open a FAT campaign from the routine-test template of the equipment class."""
-    campaign = create_fat_campaign(request.equipment_tag, EquipmentClass(request.equipment_class))
+    """Open a FAT campaign from the routine-test template of the equipment class
+    (transformer limits follow the rating of the farm in the X-Farm header)."""
+    campaign = create_fat_campaign(
+        request.equipment_tag, EquipmentClass(request.equipment_class), spec
+    )
     await ProgrammeRepository(session).save_fat_campaign(campaign)
     await session.commit()
     return _fat(campaign)
@@ -176,7 +182,7 @@ async def create_sat(
     programme = await repo.get_programme(programme_id)
     if programme.sat_campaign is not None:
         raise StateTransitionError("This programme already has a SAT campaign.")
-    sat = create_sat_campaign(programme_id, await repo.list_fat_campaigns())
+    sat = create_sat_campaign(programme_id, await repo.list_fat_campaigns(), programme.spec)
     programme.sat_campaign = sat
     add_audit(programme, "SAT campaign opened", programme.pic_name, details=sat.fat_campaign_id)
     await repo.save_programme(programme)

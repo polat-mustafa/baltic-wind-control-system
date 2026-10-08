@@ -1,6 +1,6 @@
 import type { AssessResponse, CheckStatus } from "../../../src/services/siteApi";
 
-const IDS = ["sea", "territorial_sea", "eez", "msp_energy", "owf", "cables", "natura2000", "shipping", "restricted", "depth"] as const;
+const IDS = ["sea", "territorial_sea", "eez", "msp_energy", "owf", "cables", "natura2000", "shipping", "restricted", "depth", "seabed"] as const;
 
 /** A site report with every blocking check passing, then the given overrides. */
 export function report(overrides: Partial<Record<(typeof IDS)[number], CheckStatus>> = {}): AssessResponse {

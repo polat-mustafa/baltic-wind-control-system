@@ -17,7 +17,7 @@ Usage in routers::
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -29,6 +29,7 @@ from app.models.programme import (
     FATCampaignModel,
     SwitchingProgrammeModel,
 )
+from app.services.p2.network_model import SB510, FarmSpec
 from app.services.p5.equipment_state import EquipmentState, SwitchingAction
 from app.services.p5.fat import (
     EquipmentClass,
@@ -117,6 +118,14 @@ def _deserialise_step(d: dict[str, Any]) -> SwitchingStep:
         executed_by=d.get("executed_by", ""),
         reading=d.get("reading", ""),
     )
+
+
+def _deserialise_spec(d: dict[str, Any] | None) -> FarmSpec:
+    """FarmSpec from its JSON dict (lists back to tuples, so it stays hashable)."""
+    if d is None:
+        return SB510
+    spec = FarmSpec(**d)
+    return replace(spec, string_layout=tuple(spec.string_layout))
 
 
 def _serialise_audit(record: AuditRecord) -> dict[str, Any]:
@@ -341,6 +350,7 @@ class ProgrammeRepository:
             asdict(programme.compliance_campaign) if programme.compliance_campaign else None
         )
         model.emergency_log = list(programme.emergency_log)
+        model.farm_spec = None if programme.spec == SB510 else asdict(programme.spec)
         model.updated_at = datetime.now(UTC)
         await self.session.flush()
 
@@ -400,6 +410,7 @@ class ProgrammeRepository:
                 else None
             ),
             emergency_log=list(model.emergency_log or []),
+            spec=_deserialise_spec(model.farm_spec),
         )
 
     # ── FAT Campaigns ────────────────────────────────────────────

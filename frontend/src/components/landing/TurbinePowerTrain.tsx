@@ -1,11 +1,12 @@
 /**
- * V236 power train — the energy conversion chain of one turbine, stage by stage:
- * wind → rotor → main bearing → gearbox → PMSG → converter → step-up
+ * Power train of the SB-510 turbine (IEA 15 MW direct drive) — the energy
+ * conversion chain, stage by stage: wind → rotor → main shaft on two bearings →
+ * 200-pole PMSG at rotor speed (no gearbox) → full converter → step-up
  * transformer → 66 kV array cable.
  *
  * Each stage shows its live operating values, the power leaving it and the
- * loss it adds (from utils/landingPhysics v236PowerChain, walked backwards
- * from the measured electrical output so every number is consistent).
+ * loss it adds (from utils/landingPhysics v236PowerChain, built around the
+ * turbine's electrical output so every number is consistent).
  * Stages and the secondary-component chips are buttons that open the part
  * education card; fault / curtailment / selected parts are highlighted.
  *
@@ -18,7 +19,6 @@ import type { ReactNode } from "react";
 import {
   Cable,
   CircleDot,
-  Cog,
   Cpu,
   Fan,
   Magnet,
@@ -42,11 +42,10 @@ const OTHER_PARTS: TurbinePartId[] = [
   "hub",
   "shaft",
   "brake",
-  "coupling",
   "yaw",
   "yaw_brake",
   "cooler",
-  "oil_cooler",
+  "coolant_skid",
   "hpu",
   "anemometer",
   "control_cabinet",
@@ -64,7 +63,7 @@ const OTHER_PARTS: TurbinePartId[] = [
 /** Short chip labels; the card title comes from PART_EDUCATION_MAP. */
 const CHIP_LABEL: Partial<Record<TurbinePartId, string>> = {
   control_cabinet: "Controller",
-  oil_cooler: "Oil cooler",
+  coolant_skid: "Coolant skid",
   yaw_brake: "Yaw brake",
   cable_routing: "Cabling",
   crane_rail: "Crane",
@@ -234,7 +233,7 @@ export default function TurbinePowerTrain({
         <Stage
           {...stage("bearing")}
           icon={CircleDot}
-          title="Main bearing · low-speed shaft"
+          title="Main shaft · two main bearings"
           detail={
             <>
               <span style={{ color: levelColor(bearingTempC, 65, 80) }}>
@@ -249,18 +248,10 @@ export default function TurbinePowerTrain({
           }
         />
         <Stage
-          {...stage("gearbox")}
-          icon={Cog}
-          title={`Gearbox ${V236.gearRatio}:1`}
-          detail={`${rotorSpeedRpm.toFixed(1)} → ${c.generatorRpm.toFixed(0)} rpm`}
-          power={mw(c.gearbox.outMW)}
-          loss={{ mw: c.gearbox.lossMW, eta: V236_ETA.gearbox }}
-        />
-        <Stage
           {...stage("generator")}
           icon={Magnet}
-          title="Generator · PMSG"
-          detail={`${c.generatorRpm.toFixed(0)} rpm · variable frequency`}
+          title="Direct-drive PMSG · 200 poles"
+          detail={`${c.generatorRpm.toFixed(2)} rpm · ${c.generatorHz.toFixed(1)} Hz · 4.77 kV`}
           power={mw(c.generator.outMW)}
           loss={{ mw: c.generator.lossMW, eta: V236_ETA.generator }}
         />
@@ -276,7 +267,7 @@ export default function TurbinePowerTrain({
           {...stage("transformer")}
           icon={Cable}
           title="Step-up transformer"
-          detail="784 V / 66 kV · Dyn11"
+          detail="→ 66 kV"
           power={mw(c.transformer.outMW)}
           loss={{ mw: c.transformer.lossMW, eta: V236_ETA.transformer }}
         />

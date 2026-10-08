@@ -21,7 +21,7 @@ export default function N1LoadingPanel() {
   return (
     <ChartWrapper
       title="Most loaded branch after each outage"
-      footer="Dashed line: 100 % of rating. String trips only remove generation, so the rest unloads. Losing one of two export circuits (its shunt reactor is intertripped with it) or transformers overloads the survivor; the PPC runs the turbines back until it is at or below 100 %."
+      footer="Dashed line: 100 % of rating. String trips only remove generation, so the rest unloads. Losing one of two export circuits (its two shunt reactors, onshore and OSS, are intertripped with it) or transformers overloads the survivor; the PPC runs the turbines back until it is at or below 100 %."
     >
       <Plot
         data={[

@@ -2,9 +2,12 @@
 Cable DTS thermal monitoring — M10.
 
 One circuit of the 220 kV export cable (network_model.EXPORT_CABLE_1000: 3-core
-XLPE, 1000 mm² Cu, 950 A static rating, 45 km). The farm has two circuits,
+XLPE, 1000 mm² Cu, 825 A static rating — ABB/NKT 2GM5007 rev 5 Table 34, one cable
+1 m deep in a 20 °C seabed of 1.0 K·m/W — 108 km). The farm has two circuits,
 each with its own fibre, so ``current_a`` is the per-circuit current
-(≈ 730 A per circuit at 510 MW; ≈ 1 360 A on the survivor after an N-1 trip).
+(≈ 818 A at the OSS end of each circuit at 510 MW, P2 load flow — 99 % of the
+rating, the charging current of 108 km takes much of it; ≈ 1 438 A on the
+survivor after an N-1 trip, before the runback).
 
 What DTS measures, and what it does not
 ---------------------------------------
@@ -28,18 +31,20 @@ Steady-state thermal circuit (IEC 60287-1-1 structure, per conductor)
   0.001 (IEC 60287-1-1 Table 3) → ≈ 0.96 W/m per core.
 - T_int = 0.5 K·m/W: conductor → fibre (insulation and screens) — assumption.
 - R_ext(zone): fibre → ambient per unit of one conductor's loss, so it holds
-  the mutual heating of the three cores. Calibrated so that 950 A at the 15 °C
-  design ambient brings the worst zone (OSS J-tube) to exactly 90 °C; the other
-  zones are set relative to it (assumed ratios, not a survey).
+  the mutual heating of the three cores. Calibrated so that the datasheet rating
+  (825 A) at its 20 °C reference ambient brings the worst zone (OSS J-tube) to
+  exactly 90 °C; the other zones are set relative to it (assumed ratios, not a
+  survey).
 
 Route zones (km from the OSS; geometry: frontend constants/windFarmLayout.ts)
 - J-tube 0–0.3 km: cable in air in a steel tube on the OSS — worst cooling.
-- Subsea burial 0.3–31.0 km: 1–2 m in seabed sediment; ±5 % from burial depth.
-- HDD landfall 31.0–31.8 km at Zaleskie: 10–15 m under beach and dunes.
-- Land cable 31.8–45 km: direct-buried to the onshore substation.
+- Subsea burial 0.3–78.7 km: 1–2 m in seabed sediment; ±5 % from burial depth.
+- HDD landfall 78.7–79.5 km at Darłówko-Wschodnie (coast at 79.3 km): 10–15 m
+  under beach and dunes.
+- Land cable 79.5–108 km: direct-buried to the onshore substation at Krzemienica.
 One ambient temperature applies to the whole route — a simplification (air,
 seabed and soil differ in reality). The current is taken as uniform; in a
-45 km HVAC cable the charging current (≈ 340 A at full length) makes it vary
+108 km HVAC cable the charging current (≈ 820 A at full length) makes it vary
 along the route, depending on where the shunt reactors sit.
 
 Transient (N-1 emergency loading)
@@ -52,7 +57,9 @@ layers (≈ 25 kJ/(m·K) per core) store heat, and longer where soil takes part:
 48 h subsea, 72 h land, 150 h under the deep HDD.
 
 Limits: 90 °C continuous conductor temperature for XLPE (IEC 62067). The
-70 °C DTS alarm is an operator setting, not a standard value.
+80 °C DTS alarm (10 K below the limit) is an operator setting, not a standard value;
+at full load the J-tube runs at ≈ 82 °C (818 A, 15 °C) —
+above the alarm, below the limit: the 108 km circuits run at 99 % of their rating.
 """
 
 from __future__ import annotations
@@ -64,14 +71,14 @@ from typing import Any
 from app.services.p2.network_model import EXPORT_CABLE_1000, EXPORT_CABLE_LENGTH_KM
 
 CABLE_LENGTH_KM = EXPORT_CABLE_LENGTH_KM
-N_POINTS = 450  # one reading per 100 m
-STATIC_RATING_A = EXPORT_CABLE_1000.max_i_ka * 1000.0  # 950 A per circuit
+N_POINTS = round(CABLE_LENGTH_KM * 10)  # one reading per 100 m
+STATIC_RATING_A = EXPORT_CABLE_1000.max_i_ka * 1000.0  # 825 A per circuit (datasheet)
 NUM_CIRCUITS = 2
 U_KV = 220.0
 
 T_CONDUCTOR_MAX = 90.0  # XLPE continuous limit [°C], IEC 62067
-T_AMBIENT_DESIGN = 15.0  # [°C]
-T_ALARM = 70.0  # DTS alarm — operator setting [°C]
+T_AMBIENT_DESIGN = 20.0  # datasheet reference: seabed 20 °C [°C]
+T_ALARM = 80.0  # DTS alarm — operator setting, 10 K below the limit [°C]
 
 ALPHA_CU = 0.00393  # [1/K] at 20 °C
 R_AC20_OHM_PER_M = EXPORT_CABLE_1000.r_ohm_per_km * EXPORT_CABLE_1000.ac_factor / 1000.0
@@ -85,8 +92,8 @@ T_INT = 0.5  # conductor → fibre [K·m/W] — assumption
 TAU_INT_H = 1.0  # internal time constant — assumption
 
 J_TUBE_END_KM = 0.3
-HDD_START_KM = 31.0
-HDD_END_KM = 31.8
+HDD_START_KM = 78.7
+HDD_END_KM = 79.5
 
 # name, start km, end km, R_ext relative to the J-tube, external time constant [h]
 ZONES: tuple[tuple[str, float, float, float, float], ...] = (
@@ -96,7 +103,7 @@ ZONES: tuple[tuple[str, float, float, float, float], ...] = (
     ("Land cable", HDD_END_KM, CABLE_LENGTH_KM, 1.1 / 1.4, 72.0),
 )
 
-# Calibration: 950 A, 15 °C ambient, J-tube → 90 °C
+# Calibration: 825 A, 20 °C ambient, J-tube → 90 °C
 _W_C_RATED = STATIC_RATING_A**2 * R_AC90_OHM_PER_M
 R_EXT_J_TUBE = (T_CONDUCTOR_MAX - T_AMBIENT_DESIGN - (_W_C_RATED + W_DIELECTRIC / 2) * T_INT) / (
     _W_C_RATED + W_DIELECTRIC
@@ -145,7 +152,7 @@ def export_capability_mva(current_a: float) -> float:
     return math.sqrt(3) * U_KV * current_a / 1000.0 * NUM_CIRCUITS
 
 
-def simulate_dts(current_a: float = 730.0, ambient_temp_c: float = 15.0) -> dict[str, Any]:
+def simulate_dts(current_a: float = 818.0, ambient_temp_c: float = 15.0) -> dict[str, Any]:
     """DTS profile of one circuit: fibre reading and conductor estimate every 100 m."""
     rng = random.Random(int(current_a * 100 + ambient_temp_c * 10))
     step = CABLE_LENGTH_KM / N_POINTS
@@ -229,8 +236,8 @@ def rating_curve() -> dict[str, Any]:
 
 
 def simulate_transient(
-    prefault_current_a: float = 730.0,
-    emergency_current_a: float = 1360.0,
+    prefault_current_a: float = 818.0,
+    emergency_current_a: float = 1438.0,
     ambient_temp_c: float = 15.0,
     duration_h: float = 24.0,
 ) -> dict[str, Any]:

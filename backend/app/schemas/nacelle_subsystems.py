@@ -1,7 +1,7 @@
 """Pydantic v2 schemas for Nacelle Subsystems API — A4 (Nacelle Overhaul).
 
-Covers: HPU, gearbox cooling/lubrication, safety systems, cable twist,
-and UPS for the Vestas V236-15.0 MW offshore turbine.
+Covers: HPU, generator/converter cooling, safety systems, cable twist,
+and UPS for the SB-510 turbine (IEA 15 MW reference, direct drive).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ class NacelleSubsystemsRequest(BaseModel):
     """Query parameters for nacelle subsystem state calculation.
 
     All fields have defaults that represent normal full-load operation
-    (15 MW, 15 °C ambient, 7.5 rpm, pitch 5°).
+    (15 MW, 15 °C ambient, 7.56 rpm, pitch 5°).
     """
 
     power_mw: float = Field(
@@ -31,10 +31,10 @@ class NacelleSubsystemsRequest(BaseModel):
         description="Ambient air temperature at hub height [°C].",
     )
     rotor_speed_rpm: float = Field(
-        default=7.5,
+        default=7.56,
         ge=0.0,
         le=15.0,
-        description="Current rotor speed [rpm]. Rated: 8.33 rpm.",
+        description="Current rotor speed [rpm]. Rated: 7.56 rpm.",
     )
     pitch_deg: float = Field(
         default=5.0,
@@ -137,61 +137,51 @@ class HPUStateResponse(BaseModel):
 
 
 class CoolingStateResponse(BaseModel):
-    """Gearbox oil cooling and lubrication system state.
+    """Generator / converter cooling state (IEA 15 MW direct drive — no gearbox oil).
 
-    Thermal equilibrium model: T_oil = T_amb + Q_loss / UA_cooler.
-    Gearbox losses at rated power: 15 MW × 3% = 450 kW.
+    Losses: Q_gen = P_mech·(1 − η_gen), η_gen 96.55 %; Q_conv = P_mech·η_gen·(1 − η_conv),
+    η_conv 99.18 %. Rated: ≈ 540 kW + 124 kW. Winding: T = T_amb + 10 K + 0.125 K/kW·Q_gen.
     """
 
-    oil_temp_c: float = Field(
+    winding_temp_c: float = Field(
         description=(
-            "Gearbox oil temperature at cooler inlet [°C]. "
-            "Nominal: 65°C. Alarm: 75°C. Trip: 85°C → EMERGENCY_SHUTDOWN."
+            "Generator stator-winding temperature [°C]. ≈ 93 °C at rated, 15 °C ambient. "
+            "Alarm: 130 °C (class B). Trip: 155 °C (class F) → EMERGENCY_SHUTDOWN."
         )
     )
-    oil_temp_alarm: bool = Field(description="Oil temperature ≥ 75°C alarm threshold.")
-    oil_temp_trip: bool = Field(
-        description="Oil temperature ≥ 85°C trip threshold — initiates emergency shutdown."
+    winding_temp_alarm: bool = Field(description="Winding ≥ 130 °C (IEC 60085 class B).")
+    winding_temp_trip: bool = Field(
+        description="Winding ≥ 155 °C (IEC 60085 class F) — initiates emergency shutdown."
     )
+    generator_loss_kw: float = Field(description="Generator losses [kW]. Rated: ≈ 540 kW.")
+    converter_loss_kw: float = Field(description="Converter losses [kW]. Rated: ≈ 124 kW.")
     cooler_heat_rejection_kw: float = Field(
-        description=(
-            "Heat rejected by oil cooler [kW]. "
-            "Equals gearbox losses = P_mech × (1 − η_gb). Rated: ~450 kW."
-        )
+        description="Heat rejected by the coolers [kW] = generator + converter losses."
     )
     fan_speed_pct: float = Field(
-        description=(
-            "Cooling fan speed [% of max]. "
-            "Variable speed drive: proportional control to maintain 65°C setpoint."
-        )
+        description="Cooling fan speed [% of max], proportional to the heat load (min 20 %)."
     )
     ambient_temp_c: float = Field(description="Ambient air temperature used for heat balance [°C].")
-    viscosity_cst: float = Field(
-        description=(
-            "ISO VG 320 gear oil kinematic viscosity at current temperature [cSt]. "
-            "Walther equation (ASTM D341): 320 cSt @ 40°C, 38 cSt @ 100°C, VI=140."
-        )
-    )
 
 
 class SafetyStateResponse(BaseModel):
     """Nacelle safety systems state.
 
-    Monitors: overspeed (IEC 61400-1 §7.4.2), vibration (ISO 10816-21),
+    Monitors: overspeed (IEC 61400-1 §8.3), vibration (ISO 10816-21),
     ice detection, fire detection, and lightning strikes.
     """
 
-    rotor_speed_rpm: float = Field(description="Current rotor speed [rpm]. Rated: 8.33 rpm.")
+    rotor_speed_rpm: float = Field(description="Current rotor speed [rpm]. Rated: 7.56 rpm.")
     overspeed_warning: bool = Field(
         description=(
-            "Rotor speed > 110% rated (9.16 rpm). "
-            "Electrical trip armed — EMERGENCY_SHUTDOWN initiated."
+            "Rotor speed > 120% rated (9.07 rpm, ROSCO SD_MaxGenSpd). "
+            "Controller shutdown — EMERGENCY_SHUTDOWN initiated."
         )
     )
     overspeed_hardware: bool = Field(
         description=(
-            "Rotor speed > 120% rated (10.0 rpm). "
-            "Centrifugal mechanical overspeed governor activated."
+            "Rotor speed > 125% rated (9.45 rpm, illustrative). "
+            "Independent safety chain trips (backs up the controller)."
         )
     )
     vibration_mm_s: float = Field(description="Main bearing housing vibration velocity RMS [mm/s].")
@@ -286,7 +276,7 @@ class NacelleSubsystemsResponse(BaseModel):
     """
 
     hpu: HPUStateResponse = Field(description="Hydraulic Power Unit state.")
-    cooling: CoolingStateResponse = Field(description="Gearbox oil cooling and lubrication state.")
+    cooling: CoolingStateResponse = Field(description="Generator and converter cooling state.")
     safety: SafetyStateResponse = Field(
         description="Safety systems: overspeed, vibration, ice, fire, lightning."
     )

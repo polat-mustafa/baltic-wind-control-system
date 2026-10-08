@@ -1,112 +1,115 @@
 /**
- * Switchgear topology of the export system for the P3 single-line diagram.
+ * Switchgear topology of the export system for the P3 single-line diagram,
+ * built for the live fleet (lib/fleet.ts — SB-510 or the own project):
  *
- *   PSE 400 kV ─ CB-400-1/2 ─ TX-ONS-01/02 (220/400 kV, 2 × 300 MVA) ─ Onshore 220 kV
- *   Onshore 220 kV ─ CB-ONS-E1/E2 ─ 2 × 45 km export cable ─ CB-OSS-E1/E2 ─ OSS 220 kV
- *   OSS 220 kV ─ CB-OSS-T1/T2 ─ TX-OSS-01/02 (66/220 kV) ─ CB-66-A/B ─ 66 kV section A/B
- *   Section A ─ bus coupler CB-66-BC (normally open) ─ section B
- *   Section A: strings 1–3, section B: strings 4–6 (backend STRING_BUSBAR_SECTION)
+ *   PSE 400 kV ─ CB-400-1/2 ─ TX-ONS-01/02 (220/400 kV) ─ Onshore 220 kV
+ *   Onshore 220 kV ─ CB-ONS-E1…En ─ n export cables ─ CB-OSS-E1…En ─ OSS 220 kV
+ *   OSS 220 kV ─ CB-OSS-T1/T2 ─ TX-OSS-01/02 (66/220 kV) ─ incomers A/B ─ 66 kV section A/B
+ *   Section A ─ bus coupler (normally open) ─ section B
+ *   Strings 1…k on section A, the rest on B (backend FarmSpec.section_a_strings)
  *
- * Breaker ids double as keys of the SCADA store's breaker state; bay names
- * for the 66 kV switchboard match the bay controller (BAY-OSS-66-01 … 09).
+ * The 66 kV bays are numbered like the backend bay controller: feeders 01…m,
+ * incomer A m+1, coupler m+2, incomer B m+3 (SB-510: 01–06, 07, 08, 09).
+ * Breaker ids double as keys of the SCADA store's breaker state.
  */
 
-import { OSS_BUSBAR_SECTION, TURBINE_POSITIONS } from "../constants/windFarmLayout";
+import { liveFleet, sectionOf, type Fleet } from "../lib/fleet";
+import { bayName } from "../lib/lifecycle/farm";
 import type { BreakerState } from "../types/scada";
 
-export const BREAKERS = {
-  "cb-400-1": { label: "CB-400-1", bay: "TX-ONS-01 HV", kV: 400 },
-  "cb-400-2": { label: "CB-400-2", bay: "TX-ONS-02 HV", kV: 400 },
-  "cb-ons-e1": { label: "CB-ONS-E1", bay: "Export cable 1 (onshore)", kV: 220 },
-  "cb-ons-e2": { label: "CB-ONS-E2", bay: "Export cable 2 (onshore)", kV: 220 },
-  "cb-oss-e1": { label: "CB-OSS-E1", bay: "Export cable 1 (OSS)", kV: 220 },
-  "cb-oss-e2": { label: "CB-OSS-E2", bay: "Export cable 2 (OSS)", kV: 220 },
-  "cb-oss-t1": { label: "CB-OSS-T1", bay: "TX-OSS-01 HV", kV: 220 },
-  "cb-oss-t2": { label: "CB-OSS-T2", bay: "TX-OSS-02 HV", kV: 220 },
-  "cb-66-a": { label: "CB-66-07", bay: "BAY-OSS-66-07 · TX-OSS-01 LV", kV: 66 },
-  "cb-66-b": { label: "CB-66-09", bay: "BAY-OSS-66-09 · TX-OSS-02 LV", kV: 66 },
-  "cb-66-bc": { label: "CB-66-08", bay: "BAY-OSS-66-08 · bus coupler", kV: 66 },
-  "cb-str1": { label: "CB-66-01", bay: "BAY-OSS-66-01 · string 1", kV: 66 },
-  "cb-str2": { label: "CB-66-02", bay: "BAY-OSS-66-02 · string 2", kV: 66 },
-  "cb-str3": { label: "CB-66-03", bay: "BAY-OSS-66-03 · string 3", kV: 66 },
-  "cb-str4": { label: "CB-66-04", bay: "BAY-OSS-66-04 · string 4", kV: 66 },
-  "cb-str5": { label: "CB-66-05", bay: "BAY-OSS-66-05 · string 5", kV: 66 },
-  "cb-str6": { label: "CB-66-06", bay: "BAY-OSS-66-06 · string 6", kV: 66 },
-} as const;
+export interface BreakerInfo {
+  label: string;
+  bay: string;
+  kV: number;
+}
 
-export type BreakerId = keyof typeof BREAKERS;
+export type BreakerId = string;
 export type BreakerStates = Record<BreakerId, BreakerState>;
 
-export function initialBreakerStates(): BreakerStates {
-  const s = {} as BreakerStates;
-  for (const id of Object.keys(BREAKERS) as BreakerId[]) s[id] = "CLOSED";
+interface Topology {
+  breakers: Record<BreakerId, BreakerInfo>;
+  /** 66 kV breakers operated through a backend bay controller (interlocks ILK-001 … 007, SOE log). */
+  bayOf: Record<BreakerId, { bay: string; cb: string }>;
+  /** Bay name → SLD breaker id. */
+  breakerOfBay: Record<string, BreakerId>;
+}
+
+const nn = (n: number) => String(n).padStart(2, "0");
+
+const cache = new WeakMap<Fleet, Topology>();
+
+function topology(f: Fleet): Topology {
+  const hit = cache.get(f);
+  if (hit) return hit;
+  const m = f.strings.length;
+  const breakers: Record<BreakerId, BreakerInfo> = {
+    "cb-400-1": { label: "CB-400-1", bay: "TX-ONS-01 HV", kV: 400 },
+    "cb-400-2": { label: "CB-400-2", bay: "TX-ONS-02 HV", kV: 400 },
+  };
+  const circuits = Array.from({ length: f.net.num_export_cables }, (_, i) => i + 1);
+  for (const i of circuits) breakers[`cb-ons-e${i}`] = { label: `CB-ONS-E${i}`, bay: `Export cable ${i} (onshore)`, kV: 220 };
+  for (const i of circuits) breakers[`cb-oss-e${i}`] = { label: `CB-OSS-E${i}`, bay: `Export cable ${i} (OSS)`, kV: 220 };
+  breakers["cb-oss-t1"] = { label: "CB-OSS-T1", bay: "TX-OSS-01 HV", kV: 220 };
+  breakers["cb-oss-t2"] = { label: "CB-OSS-T2", bay: "TX-OSS-02 HV", kV: 220 };
+  const bayOf: Topology["bayOf"] = {};
+  const bay66 = (id: BreakerId, n: number, cb: string, what: string) => {
+    breakers[id] = { label: `CB-66-${nn(n)}`, bay: `${bayName(n)} · ${what}`, kV: 66 };
+    bayOf[id] = { bay: bayName(n), cb };
+  };
+  bay66("cb-66-a", m + 1, "CB-TX-OSS-LV", "TX-OSS-01 LV");
+  bay66("cb-66-b", m + 3, "CB-TX-OSS-02-LV", "TX-OSS-02 LV");
+  bay66("cb-66-bc", m + 2, "CB-TIE-66-01", "bus coupler");
+  for (let s = 1; s <= m; s++) bay66(`cb-str${s}`, s, `CB-STR-${nn(s)}`, `string ${s}`);
+  const breakerOfBay = Object.fromEntries(Object.entries(bayOf).map(([id, v]) => [v.bay, id]));
+  const t = { breakers, bayOf, breakerOfBay };
+  cache.set(f, t);
+  return t;
+}
+
+export const breakers = (f: Fleet = liveFleet()) => topology(f).breakers;
+export const bayOf = (f: Fleet = liveFleet()) => topology(f).bayOf;
+export const breakerOfBay = (f: Fleet = liveFleet()) => topology(f).breakerOfBay;
+
+export function initialBreakerStates(f: Fleet = liveFleet()): BreakerStates {
+  const s: BreakerStates = {};
+  for (const id of Object.keys(breakers(f))) s[id] = "CLOSED";
   s["cb-66-bc"] = "OPEN"; // sections run split: one transformer per section
   return s;
 }
 
-export const STRING_IDS: string[][] = [1, 2, 3, 4, 5, 6].map((n) =>
-  TURBINE_POSITIONS.filter((t) => t.stringNumber === n)
-    .map((t) => t.id)
-    .sort(),
-);
-
 export interface Energisation {
   onshore220: boolean;
   oss220: boolean;
-  cable: [boolean, boolean];
+  /** Per export circuit 1…n. */
+  cable: boolean[];
   txOss: [boolean, boolean];
   sectionA: boolean;
   sectionB: boolean;
-  /** Per string 1…6: feeder live (section live and feeder CB closed). */
+  /** Per string 1…m: feeder live (section live and feeder CB closed). */
   strings: boolean[];
 }
 
 /** Which parts of the network are live for a given set of breaker states. */
-export function energisation(cb: BreakerStates): Energisation {
+export function energisation(cb: BreakerStates, f: Fleet = liveFleet()): Energisation {
   const on = (id: BreakerId) => cb[id] === "CLOSED";
   const onshore220 = on("cb-400-1") || on("cb-400-2");
-  const cable: [boolean, boolean] = [
-    onshore220 && on("cb-ons-e1") && on("cb-oss-e1"),
-    onshore220 && on("cb-ons-e2") && on("cb-oss-e2"),
-  ];
-  const oss220 = cable[0] || cable[1];
+  const cable = Array.from(
+    { length: f.net.num_export_cables },
+    (_, i) => onshore220 && on(`cb-ons-e${i + 1}`) && on(`cb-oss-e${i + 1}`),
+  );
+  const oss220 = cable.some(Boolean);
   const txOss: [boolean, boolean] = [oss220 && on("cb-oss-t1"), oss220 && on("cb-oss-t2")];
   const fedA = txOss[0] && on("cb-66-a");
   const fedB = txOss[1] && on("cb-66-b");
   const coupled = on("cb-66-bc");
   const sectionA = fedA || (coupled && fedB);
   const sectionB = fedB || (coupled && fedA);
-  const strings = [1, 2, 3, 4, 5, 6].map((n) => {
-    const live = OSS_BUSBAR_SECTION[n] === "A" ? sectionA : sectionB;
-    return live && on(`cb-str${n}` as BreakerId);
-  });
+  const strings = f.strings.map((_, i) => (sectionOf(f, i) === "A" ? sectionA : sectionB) && on(`cb-str${i + 1}`));
   return { onshore220, oss220, cable, txOss, sectionA, sectionB, strings };
 }
 
 /** Turbines on a dead feeder — they cannot export and are held offline. */
-export function deenergisedTurbines(cb: BreakerStates): string[] {
-  const { strings } = energisation(cb);
-  return STRING_IDS.flatMap((ids, i) => (strings[i] ? [] : ids));
+export function deenergisedTurbines(cb: BreakerStates, f: Fleet = liveFleet()): string[] {
+  const { strings } = energisation(cb, f);
+  return f.strings.flatMap((ids, i) => (strings[i] ? [] : ids));
 }
-
-/**
- * 66 kV breakers that belong to a bay controller (BAY-OSS-66-01 … 09): they
- * are operated through the backend bay controller, which enforces the bay
- * interlocks (ILK-001 … 007) and writes the SOE log.
- */
-export const BAY_OF: Partial<Record<BreakerId, { bay: string; cb: string }>> = {
-  "cb-str1": { bay: "BAY-OSS-66-01", cb: "CB-STR-01" },
-  "cb-str2": { bay: "BAY-OSS-66-02", cb: "CB-STR-02" },
-  "cb-str3": { bay: "BAY-OSS-66-03", cb: "CB-STR-03" },
-  "cb-str4": { bay: "BAY-OSS-66-04", cb: "CB-STR-04" },
-  "cb-str5": { bay: "BAY-OSS-66-05", cb: "CB-STR-05" },
-  "cb-str6": { bay: "BAY-OSS-66-06", cb: "CB-STR-06" },
-  "cb-66-a": { bay: "BAY-OSS-66-07", cb: "CB-TX-OSS-LV" },
-  "cb-66-bc": { bay: "BAY-OSS-66-08", cb: "CB-TIE-66-01" },
-  "cb-66-b": { bay: "BAY-OSS-66-09", cb: "CB-TX-OSS-02-LV" },
-};
-
-/** Bay name → SLD breaker id. */
-export const BREAKER_OF_BAY: Record<string, BreakerId> = Object.fromEntries(
-  Object.entries(BAY_OF).map(([id, v]) => [v!.bay, id as BreakerId]),
-);

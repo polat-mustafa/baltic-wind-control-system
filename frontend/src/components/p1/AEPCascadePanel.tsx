@@ -19,6 +19,7 @@ import { useWindResourceStore } from "../../store/windResourceStore";
 import { normalCdf } from "../../utils/aepMath";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
+import { SourceBadge } from "../ui/SourceBadge";
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -146,6 +147,29 @@ export default function AEPCascadePanel() {
           style={{ height: CHART_HEIGHT }}
         />
       </div>
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-secondary" aria-label="Sources of the loss values">
+        {a.loss_factors.map((lf) => (
+          <li key={lf.name} className="flex items-start gap-1">
+            <span className="whitespace-nowrap">
+              {cap(lf.name)} {lf.loss_percent.toFixed(1)} %
+            </span>
+            {lf.quality && <SourceBadge p={{ quality: lf.quality, source: lf.source ?? "" }} />}
+          </li>
+        ))}
+      </ul>
+      {a.uncertainty && a.uncertainty.length > 0 && (
+        <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-secondary" aria-label="Uncertainty components">
+          <li className="font-medium text-text-primary">Uncertainty (1σ of AEP):</li>
+          {a.uncertainty.map((u) => (
+            <li key={u.name} className="flex items-start gap-1">
+              <span className="whitespace-nowrap">
+                {u.name} {u.sigma_percent.toFixed(1)} %
+              </span>
+              <SourceBadge p={{ quality: u.quality, source: u.source }} />
+            </li>
+          ))}
+        </ul>
+      )}
     </ChartWrapper>
   );
 }

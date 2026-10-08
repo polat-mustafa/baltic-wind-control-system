@@ -70,17 +70,18 @@ export const lcoeEducation: EducationContent = {
     {
       title: "This platform's base case (Farm Comparison defaults)",
       scenario:
-        "510 MW, CAPEX 3.2 M€/MW = 1,632 M€, OPEX 75 k€/MW·yr = 38.3 M€/yr, net P50 2,111 GWh/yr (Farm Comparison, " +
-        "7 D grid, mean 9.3 m/s), WACC 6 %, 25 yr.",
+        "510 MW, CAPEX 5.0 M€/MW = 2,550 M€, OPEX 125 k€/MW·yr = 63.8 M€/yr (NREL Cost of Wind Energy Review 2024 " +
+        "fixed-bottom reference, 2023 USD at 1.0813 $/€), net P50 2,183 GWh/yr (Farm Comparison, 7 D grid, SB-510 site mean 9.57 m/s, k 2.04, " +
+        "108 km export), WACC 6 %, 25 yr.",
       steps: [
         "CRF = 0.06 × 1.06²⁵ / (1.06²⁵ − 1) = 0.06 × 4.292 / 3.292 = 0.0782",
-        "Annualised CAPEX = 1,632 × 0.0782 = 127.6 M€/yr",
-        "Annual cost = 127.6 + 38.3 = 165.9 M€/yr",
-        "LCOE = 165.9 M€ / 2,111,000 MWh = 78.6 €/MWh",
+        "Annualised CAPEX = 2,550 × 0.0782 = 199.5 M€/yr",
+        "Annual cost = 199.5 + 63.8 = 263.3 M€/yr",
+        "LCOE = 263.3 M€ / 2,183,000 MWh = 120.6 €/MWh",
       ],
       result:
-        "≈ 79 €/MWh: above a flat 72 €/MWh market price (IRR ≈ 4.8 % < 6 % WACC), so the project needs a higher price " +
-        "— e.g. an indexed CfD — lower CAPEX, or cheaper capital. A 1 pp lower WACC alone brings LCOE to ≈ 73 €/MWh.",
+        "≈ 120 €/MWh: far above a flat 72 €/MWh market price (payback 28.6 years > the 25-year life, IRR ≈ 0 %), so the " +
+        "project needs a CfD strike near its LCOE, lower CAPEX, or cheaper capital. A 1 pp lower WACC alone brings LCOE to ≈ 112 €/MWh.",
     },
   ],
 

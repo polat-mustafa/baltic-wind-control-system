@@ -24,7 +24,7 @@ Constants (SB-510)
 - Hub height: 150 m
 - ERA5 reference heights: 10 m, 100 m
 - Expected offshore shear exponent: 0.06–0.12
-- Expected Baltic Weibull: A ≈ 10.5 m/s, k ≈ 2.2
+- SB-510 site (NEWA 150 m): A ≈ 10.80 m/s, k ≈ 2.04
 """
 
 from dataclasses import dataclass
@@ -194,7 +194,7 @@ def extrapolate_wind_speed_ms(
     shear_exponent : float
         Wind shear exponent α [-].
     target_height_m : float
-        Target extrapolation height [m]. Default: 150 m (V236 hub).
+        Target extrapolation height [m]. Default: 150 m (IEA 15 MW hub).
     reference_height_m : float
         Reference measurement height [m]. Default: 100 m (ERA5).
 

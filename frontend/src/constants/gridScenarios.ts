@@ -1,9 +1,12 @@
-import type { LoadFlowScenario } from "../types/grid";
+import type { LoadFlowScenario, NetworkSpec } from "../types/grid";
 
-/** Display names of the four P2 load-flow scenarios. */
-export const SCENARIO_LABEL: Record<LoadFlowScenario, string> = {
-  full_load: "Full load 510 MW",
-  partial_load: "Part load 255 MW",
-  no_load: "No load",
-  n_minus_1: "N-1 string 6 out",
-};
+/** Display names of the four P2 load-flow scenarios for the modelled farm. */
+export function scenarioLabels(n: NetworkSpec): Record<LoadFlowScenario, string> {
+  const mw = n.total_capacity_mw;
+  return {
+    full_load: `Full load ${mw.toFixed(0)} MW`,
+    partial_load: `Part load ${(mw / 2).toFixed(0)} MW`,
+    no_load: "No load",
+    n_minus_1: n.num_strings > 1 ? `N-1 string ${n.num_strings} out` : "N-1 (one string: no outage case)",
+  };
+}

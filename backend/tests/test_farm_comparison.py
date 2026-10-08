@@ -20,11 +20,11 @@ def _eval(**kw: object) -> tuple:
 
 
 def test_project_export_matches_p2_network():
-    """510 MW @ 220 kV, 45 km → 2 circuits, Q = ωCU²L × 2 ≈ 260 MVAr (P2 statcom_sizing)."""
+    """510 MW @ 220 kV, 108 km → 2 circuits, Q = ωCU²L × 2 ≈ 624 MVAr (P2 statcom_sizing)."""
     _, _, grid = _eval()
     assert grid.export_circuits == 2
-    assert grid.cable_charging_mvar == pytest.approx(260, abs=2)
-    assert 0 < grid.export_cable_losses_pct < 1.0
+    assert grid.cable_charging_mvar == pytest.approx(624, abs=2)
+    assert 0 < grid.export_cable_losses_pct < 1.5  # 108 km: ≈ 6.7 MW of 510 at full load
     assert grid.export_utilization_pct < 100
 
 

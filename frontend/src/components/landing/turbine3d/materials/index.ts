@@ -70,7 +70,7 @@ export const metalPaintedDetail: PbrPreset = {
 };
 
 /**
- * Raw-cast iron / steel — gearbox housing, bedplate, bearing blocks.
+ * Raw-cast iron / steel — turret, bedplate, bearing housings.
  * High roughness, slight warm tone.
  */
 export const metalRaw: PbrPreset = {

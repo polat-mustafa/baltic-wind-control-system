@@ -7,7 +7,7 @@ export const cableDtsEducation: EducationContent = {
   discipline: "Electrical",
 
   overview:
-    "Each 45 km, 220 kV export circuit carries an optical fibre. A distributed temperature sensing (DTS) " +
+    "Each 108 km, 220 kV export circuit carries an optical fibre. A distributed temperature sensing (DTS) " +
     "interrogator reads its temperature along the whole route. The cable's limit, though, is its conductor " +
     "temperature (90 °C for XLPE), which nobody can measure directly. A thermal model turns the fibre reading " +
     "and the current into a conductor estimate, and from that into a rating that follows the real ambient.",
@@ -23,7 +23,7 @@ export const cableDtsEducation: EducationContent = {
     "that is exactly this cable's 220/√3 kV, and it adds about 1 W/m per core even with no current. The " +
     "conductor runs hotter than the fibre by the loss times the internal thermal resistance. Zones differ only " +
     "in their external resistance. The rating at a given ambient is the current that brings the worst zone to " +
-    "90 °C; here the J-tube sets the rating for the whole 45 km. Above that rating the cable still takes hours " +
+    "90 °C; here the J-tube sets the rating for the whole 108 km. Above that rating the cable still takes tens of minutes " +
     "to heat up, because copper, insulation, armour and the soil around it store heat. IEC 60853 reduces this " +
     "to a thermal ladder. After an N-1 trip, this heat storage is the time the operator has to curtail.",
 
@@ -58,14 +58,17 @@ export const cableDtsEducation: EducationContent = {
   workedExamples: [
     {
       title: "Why is the J-tube the limit?",
-      scenario: "950 A per circuit, 15 °C ambient. R_ext: J-tube 2.92, subsea 2.09 K·m/W.",
+      scenario:
+        "825 A per circuit (datasheet rating), 20 °C ambient (its reference). R_ext: J-tube 3.67, subsea 2.62 K·m/W.",
       steps: [
-        "W_c at 90 °C = 950² × 0.0233 × 10⁻³ ≈ 21.0 W/m per core",
-        "J-tube: (21.0 + 0.5) × 0.5 + 22.0 × 2.92 ≈ 75 K → 90 °C",
-        "Subsea: R_ext is 1/1.4 of the J-tube's, so the rise is ≈ 56 K → 71 °C",
+        "W_c at 90 °C = 825² × 0.0233 × 10⁻³ ≈ 15.9 W/m per core; W_d ≈ 0.96 W/m",
+        "J-tube: (15.9 + 0.5) × 0.5 + 16.8 × 3.67 ≈ 70 K → 90 °C",
+        "Subsea: R_ext is 1/1.4 of the J-tube's, so the conductor settles at ≈ 69 °C (R_AC solved at that temperature)",
       ],
       result:
-        "0.3 km of cable in air limits all 45 km. Better J-tube cooling would raise the rating of the whole circuit.",
+        "0.3 km of cable in air limits all 108 km. At SB-510's full output (≈ 820 A, 99 % of the rating) the J-tube runs at " +
+        "≈ 82 °C at 15 °C ambient — past the 80 °C alarm, below the limit. Better J-tube cooling would raise the rating " +
+        "of the whole circuit.",
     },
   ],
 

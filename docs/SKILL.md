@@ -64,6 +64,7 @@ baltic-wind-control-system/
 ### NEVER Violate These Engineering Principles
 
 1. **Physical constraints are non-negotiable.** Power output MUST be ≥ 0 and ≤ Prated. Wind speed below cut-in or above cut-out means zero power. No exceptions. No ML model prediction overrides physics.
+   SB-510's turbine is a "V236 class" machine modelled with the IEA-15-240-RWT (official IEA Wind Task 37 table, `services/p1/turbine_models.py`): cut-in 3 m/s, rated 10.66 m/s, cut-out 25 m/s, D 241.35 m, hub 150 m. Low-speed direct drive (200-pole PMSG, no gearbox), rotor 5.0–7.56 rpm, overspeed trip 9.07 rpm; P4, the digital twin and turbine physics use the same model (ROSCO Cp/Ct table and controller: `rosco()` in the same module).
 
 2. **Per-unit (pu) system must be consistent.** All voltage values in power system calculations use per-unit. Base voltage = nominal voltage of the bus. Base power = system MVA base (typically 100 MVA). NEVER mix absolute and per-unit values in the same calculation.
 
@@ -518,8 +519,8 @@ def test_wake_deficit_at_8d_downstream():
     assert 0.15 < deficit < 0.20, f"Wake deficit {deficit:.3f} outside expected range"
 
 def test_cable_reactive_power():
-    """One 45 km 220 kV export circuit, C = 190 nF/km → Q = ωCV²L ≈ 130 MVAR (three-phase, V = V_LL).
-    The farm has 2 parallel export cables → ≈ 260 MVAR in total (the function's default)."""
+    """One 108 km 220 kV export circuit, C = 190 nF/km → Q = ωCV²L ≈ 312 MVAR (three-phase, V = V_LL).
+    The farm has 2 parallel export cables → ≈ 624 MVAR in total (the function's default)."""
     q_mvar = calculate_cable_reactive_power(
         c_nf_per_km=190.0,
         voltage_kv=220.0,
@@ -604,7 +605,7 @@ Grid Integration Module — HV Power System Analysis
 
 Implements steady-state and quasi-dynamic power system analysis for a
 510 MW offshore wind farm connected to the PSE transmission grid via
-45 km 220 kV HVAC export cable.
+108 km 220 kV HVAC export cable.
 
 Standards Implemented:
 - IEC 60909-0:2016 — Short-circuit current calculation

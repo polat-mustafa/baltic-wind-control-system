@@ -3,30 +3,39 @@ First-energisation switching programme of export circuit 1.
 
 Scope
 -----
-Circuit 1 = export cable 1 → OSS 220 kV busbar (shunt reactor 1, STATCOM) →
+Circuit 1 = export cable 1 with its onshore line reactor → OSS 220 kV busbar (OSS
+shunt reactor 1, STATCOM) →
 TX-OSS-01 → 66 kV section A → strings 1–3 (18 × 15 MW = 270 MW). The onshore
 220 kV busbar is already live (onshore substation commissioned separately);
 circuit 2 (cable 2, TX-OSS-02, section B, strings 4–6) stays isolated and
 earthed and has its own programme. One circuit can never deliver 510 MW: one
-cable is rated 362 MVA and one OSS transformer 300 MVA.
+cable is rated 314 MVA (825 A) and one OSS transformer 300 MVA.
 
-Sequence (60 steps, 6 phases)
+Sequence (63 steps, 6 phases)
 -----------------------------
 1. Pre-energisation — safety documents cancelled, SAT approved, EON issued by
    PSE (NC RfG Art. 34: protection and control settings agreed), protection in
    service, hold point.
-2. Export cable 1 — release locks, remove both cable earths, close the onshore
-   busbar disconnector, energise the cable open-ended from shore, verify
-   charging current and Ferranti rise, 24 h soak at U0 (IEC 62067's alternative
+2. Export cable 1 — release locks, remove both cable earths, connect the onshore
+   line reactor to the dead cable, close the onshore busbar disconnector,
+   energise cable and reactor from shore (OSS end open), verify charging current,
+   busbar voltage and Ferranti rise, 24 h soak at U0 (IEC 62067's alternative
    after-installation AC test), hold point.
 3. OSS 220 kV — remove the busbar earth, close DS/CB, remove the bay earths and
-   switch in reactor 1 (80 Mvar) and the STATCOM (voltage control at 1.00 pu).
+   switch in the STATCOM (voltage control at 1.00 pu), then OSS reactor 1 (SB-510:
+   180 Mvar), whose switching step the STATCOM takes.
 4. TX-OSS-01 — remove its bay earth, energise from the 220 kV side (inrush; 87T
    restrained by the 2nd harmonic), verify magnetising current, energise 66 kV
    section A, hold point.
 5. Strings 1–3 — ION issued (Art. 35: generation allowed), per string: remove
    lock, remove earth, close feeder CB, verify, release the turbines.
 6. Rated-output check (cable and transformer loading), declaration.
+
+That is the SB-510 programme. For another farm (``FarmSpec``) the steps follow
+its design: the strings of section A (1…⌈n/2⌉) with their turbine counts, the
+reactor unit (no reactor steps when the design has none), STATCOM and
+transformer ratings, the cable length; the rated-output check uses
+``energisation.circuit1_limit_mw``. The programme stores its spec.
 
 Verification steps are evaluated on the steady-state load flow of the live
 network (``energisation.network_snapshot``); a value outside the band fails
@@ -53,8 +62,21 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from app.core.exceptions import DomainError, StateTransitionError, ValidationError
-from app.services.p2.network_model import TRAFO_66_220_I0_PERCENT, TRAFO_66_220_MVA
-from app.services.p5.energisation import NetworkSnapshot, ferranti_ratio, network_snapshot
+from app.services.p2.network_model import (
+    OLTC_STEP_PERCENT,
+    SB510,
+    TRAFO_66_220_I0_PERCENT,
+    FarmSpec,
+)
+from app.services.p5.energisation import (
+    V_BAND_PU,
+    NetworkSnapshot,
+    circuit1_limit_mw,
+    ferranti_ratio,
+    network_snapshot,
+    onshore_tap,
+    section_a_mw,
+)
 from app.services.p5.equipment_state import (
     EquipmentState,
     InterlockError,
@@ -79,9 +101,15 @@ if TYPE_CHECKING:
     from app.services.p5.grid_code_testing import ComplianceCampaign
     from app.services.p5.sat import SATCampaign
 
-V_BAND_PU = (0.95, 1.05)  # project operating band for verification steps
 STATCOM_V_TOL_PU = 0.01
-TX1_I0_A = TRAFO_66_220_I0_PERCENT / 100 * TRAFO_66_220_MVA / (3**0.5 * 220.0) * 1e3  # ≈ 0.39 A
+
+
+def tx1_i0_a(spec: FarmSpec = SB510) -> float:
+    """Design magnetising current of TX-OSS-01 at 220 kV [A] (≈ 0.39 A for 300 MVA)."""
+    return TRAFO_66_220_I0_PERCENT / 100 * spec.oss_trafo_mva / (3**0.5 * 220.0) * 1e3
+
+
+TX1_I0_A = tx1_i0_a()
 
 
 class ProgrammeStatus(StrEnum):
@@ -111,14 +139,23 @@ class StepType(StrEnum):
     DECLARATION = "declaration"
 
 
-PHASES: dict[int, str] = {
-    1: "Pre-energisation",
-    2: "Export cable 1",
-    3: "OSS 220 kV busbar & compensation",
-    4: "TX-OSS-01 & 66 kV section A",
-    5: "Strings 1–3",
-    6: "Rated output & hand-over",
-}
+def strings_label(spec: FarmSpec = SB510) -> str:
+    k = spec.section_a_strings
+    return "string 1" if k == 1 else f"strings 1–{k}"
+
+
+def phases(spec: FarmSpec = SB510) -> dict[int, str]:
+    return {
+        1: "Pre-energisation",
+        2: "Export cable 1",
+        3: "OSS 220 kV busbar & compensation",
+        4: "TX-OSS-01 & 66 kV section A",
+        5: strings_label(spec).capitalize(),
+        6: "Rated output & hand-over",
+    }
+
+
+PHASES = phases()
 
 
 @dataclass
@@ -171,6 +208,7 @@ class SwitchingProgramme:
     fat_campaign_id: str | None = None
     compliance_campaign: ComplianceCampaign | None = None
     emergency_log: list[dict[str, object]] = field(default_factory=list)
+    spec: FarmSpec = SB510
 
     def locked(self) -> frozenset[str]:
         return self.loto_set.locked_equipment() if self.loto_set else frozenset()
@@ -214,73 +252,99 @@ def _band(snap: NetworkSnapshot, zone: str) -> tuple[bool, str]:
     return lo <= bus.vm_pu <= hi, f"{bus.name} {bus.kv:.1f} kV ({bus.vm_pu:.3f} pu)"
 
 
+Check = Callable[[NetworkSnapshot, dict[str, EquipmentState], FarmSpec], tuple[bool, str]]
+
+
 def _check_cable_isolated(
-    snap: NetworkSnapshot, state: dict[str, EquipmentState]
+    snap: NetworkSnapshot, state: dict[str, EquipmentState], _spec: FarmSpec
 ) -> tuple[bool, str]:
-    ok = snap.zones["CABLE1"] == ZoneStatus.DEAD and state["CB-OSS-220-01"] == EquipmentState.OPEN
+    oss_open = state["CB-OSS-220-01"] == EquipmentState.OPEN
+    oss_dead = snap.zones["OSS220"] == ZoneStatus.DEAD
+    ok = snap.zones["CABLE1"] == ZoneStatus.DEAD and (oss_open or oss_dead)
     return ok, (
         f"Cable 1 {snap.zones['CABLE1'].value}; CB-OSS-220-01 {state['CB-OSS-220-01'].value}"
     )
 
 
-def _check_cable_energised(snap: NetworkSnapshot, _: dict[str, EquipmentState]) -> tuple[bool, str]:
+def _check_cable_energised(
+    snap: NetworkSnapshot, _: dict[str, EquipmentState], spec: FarmSpec
+) -> tuple[bool, str]:
     ok1, onshore = _band(snap, "ONS220")
-    ok2, far = _band(snap, "CABLE1")
+    ok2, far = _band(snap, "OSS220" if snap.bus("OSS220") else "CABLE1")
+    reactor = (
+        f"; onshore reactor {snap.reactor_on_q_mvar:.0f} Mvar"
+        if snap.reactor_on_q_mvar is not None
+        else ""
+    )
     return ok1 and ok2 and snap.cable_i_send_a is not None, (
-        f"{onshore}; {far}, rise ×{ferranti_ratio():.4f} (Ferranti); charging current "
-        f"{snap.cable_i_send_a:.0f} A; {snap.poc_q_mvar:.0f} Mvar into PSE 400 kV"
+        f"{onshore}; {far}, rise ×{ferranti_ratio(spec.export_length_km):.4f} (Ferranti); "
+        f"charging current {snap.cable_i_send_a:.0f} A{reactor}; "
+        f"{snap.poc_q_mvar:.0f} Mvar into PSE 400 kV"
     )
 
 
-def _check_oss220(snap: NetworkSnapshot, _: dict[str, EquipmentState]) -> tuple[bool, str]:
+def _check_oss220(
+    snap: NetworkSnapshot, _: dict[str, EquipmentState], _s: FarmSpec
+) -> tuple[bool, str]:
     return _band(snap, "OSS220")
 
 
-def _check_reactor(snap: NetworkSnapshot, state: dict[str, EquipmentState]) -> tuple[bool, str]:
+def _check_reactor(
+    snap: NetworkSnapshot, _: dict[str, EquipmentState], spec: FarmSpec
+) -> tuple[bool, str]:
     ok, v = _band(snap, "OSS220")
-    q = snap.reactor_q_mvar
-    return ok and q is not None, f"Reactor 1 {q:.1f} Mvar; {v}; {snap.poc_q_mvar:.0f} Mvar into PSE"
-
-
-def _check_statcom(snap: NetworkSnapshot, _: dict[str, EquipmentState]) -> tuple[bool, str]:
-    bus, q = snap.bus("OSS220"), snap.statcom_q_mvar
-    if bus is None or q is None:
-        return False, "STATCOM not in service"
-    ok = abs(bus.vm_pu - 1.0) <= STATCOM_V_TOL_PU and abs(q) < 120.0
-    return ok, f"OSS 220 kV {bus.vm_pu:.3f} pu; STATCOM {q:+.1f} Mvar of ±120"
-
-
-def _check_tx1_no_load(snap: NetworkSnapshot, _: dict[str, EquipmentState]) -> tuple[bool, str]:
-    i = snap.tx1_i_hv_a
-    if i is None:
-        return False, "TX-OSS-01 not energised"
-    # IEC 60076-1 Table 1: measured no-load current ≤ design value + 30 %
-    return (
-        i <= 1.3 * TX1_I0_A,
-        f"Magnetising current {i:.2f} A (design i0 {TX1_I0_A:.2f} A, +30 % limit)",
+    q, stc = snap.reactor_q_mvar, snap.statcom_q_mvar
+    if q is None or stc is None:
+        return False, "OSS reactor 1 or STATCOM not in service"
+    return ok and abs(stc) < spec.statcom_mvar, (
+        f"OSS reactor 1 {q:.1f} Mvar; {v}; STATCOM {stc:+.1f} Mvar of ±{spec.statcom_mvar:.0f}; "
+        f"{snap.poc_q_mvar:.0f} Mvar into PSE"
     )
 
 
-def _check_section_a(snap: NetworkSnapshot, _: dict[str, EquipmentState]) -> tuple[bool, str]:
+def _check_statcom(
+    snap: NetworkSnapshot, _: dict[str, EquipmentState], spec: FarmSpec
+) -> tuple[bool, str]:
+    bus, q = snap.bus("OSS220"), snap.statcom_q_mvar
+    if bus is None or q is None:
+        return False, "STATCOM not in service"
+    ok = abs(bus.vm_pu - 1.0) <= STATCOM_V_TOL_PU and abs(q) < spec.statcom_mvar
+    return ok, f"OSS 220 kV {bus.vm_pu:.3f} pu; STATCOM {q:+.1f} Mvar of ±{spec.statcom_mvar:.0f}"
+
+
+def _check_tx1_no_load(
+    snap: NetworkSnapshot, _: dict[str, EquipmentState], spec: FarmSpec
+) -> tuple[bool, str]:
+    i, i0 = snap.tx1_i_hv_a, tx1_i0_a(spec)
+    if i is None:
+        return False, "TX-OSS-01 not energised"
+    # IEC 60076-1 Table 1: measured no-load current ≤ design value + 30 %
+    return i <= 1.3 * i0, f"Magnetising current {i:.2f} A (design i0 {i0:.2f} A, +30 % limit)"
+
+
+def _check_section_a(
+    snap: NetworkSnapshot, _: dict[str, EquipmentState], _s: FarmSpec
+) -> tuple[bool, str]:
     return _band(snap, "66A")
 
 
-def _string_check(
-    n: int,
-) -> Callable[[NetworkSnapshot, dict[str, EquipmentState]], tuple[bool, str]]:
-    return lambda snap, _: _band(snap, f"STR{n}")
+def _string_check(n: int) -> Check:
+    return lambda snap, _state, _spec: _band(snap, f"STR{n}")
 
 
-def _check_rated(snap: NetworkSnapshot, _: dict[str, EquipmentState]) -> tuple[bool, str]:
+def _check_rated(
+    snap: NetworkSnapshot, _: dict[str, EquipmentState], spec: FarmSpec
+) -> tuple[bool, str]:
     cable, tx = snap.cable_loading_pct or 0.0, snap.tx1_loading_pct or 0.0
     ok = snap.generation_mw > 0 and cable < 100 and tx < 100
     return ok, (
         f"{snap.generation_mw:.0f} MW generated, {snap.poc_p_mw:.1f} MW at the POC; "
-        f"cable 1 {cable:.0f} % of rating, TX-OSS-01 {tx:.0f} % of 300 MVA"
+        f"cable 1 {cable:.0f} % of rating, TX-OSS-01 {tx:.0f} % of {spec.oss_trafo_mva:.0f} MVA"
     )
 
 
-CHECKS: dict[str, Callable[[NetworkSnapshot, dict[str, EquipmentState]], tuple[bool, str]]] = {
+# string_n for every string section A can hold (≤ 150 turbines → ≤ 75 strings on A)
+CHECKS: dict[str, Check] = {
     "cable_isolated": _check_cable_isolated,
     "cable_energised": _check_cable_energised,
     "oss220": _check_oss220,
@@ -288,17 +352,15 @@ CHECKS: dict[str, Callable[[NetworkSnapshot, dict[str, EquipmentState]], tuple[b
     "statcom": _check_statcom,
     "tx1_no_load": _check_tx1_no_load,
     "section_a": _check_section_a,
-    "string_1": _string_check(1),
-    "string_2": _string_check(2),
-    "string_3": _string_check(3),
     "rated": _check_rated,
+    **{f"string_{n}": _string_check(n) for n in range(1, 76)},
 }
 
 
 # ── Programme definition ───────────────────────────────────────────
 
 
-def _defs() -> list[tuple[int, dict[str, object]]]:
+def _defs(spec: FarmSpec = SB510) -> list[tuple[int, dict[str, object]]]:
     def check(
         text: str, verification: str, responsible: str = "PiC", notes: str = ""
     ) -> dict[str, object]:
@@ -333,6 +395,13 @@ def _defs() -> list[tuple[int, dict[str, object]]]:
                 "verification": "Logged"}  # fmt: skip
 
     open_, close = SwitchingAction.OPEN, SwitchingAction.CLOSE
+    tap = onshore_tap(spec)
+    oltc = (
+        "OLTCs at neutral"
+        if tap == 0
+        else f"OLTCs pre-set to tap +{tap} (220 kV side {tap * OLTC_STEP_PERCENT:.2f} % lower) "
+        "for the cable's charging power"
+    )
     steps: list[tuple[int, dict[str, object]]] = [
         (
             1,
@@ -367,7 +436,7 @@ def _defs() -> list[tuple[int, dict[str, object]]]:
         (
             1,
             check(
-                "Onshore 220 kV busbar live from PSE 400 kV via TX-ONS-01/02; OLTCs at neutral",
+                f"Onshore 220 kV busbar live from PSE 400 kV via TX-ONS-01/02; {oltc}",
                 "Onshore HMI",
                 responsible="SCADA",
                 notes="Commissioned under the onshore substation programme.",
@@ -382,10 +451,33 @@ def _defs() -> list[tuple[int, dict[str, object]]]:
             ),
         ),
         (1, hold("Pre-energisation review: GO / NO-GO for energising export cable 1")),
+    ]
+    cable_earths = [
         (2, unlock("ES-OSS-220-01")),
         (2, switch("ES-OSS-220-01", open_, "Open earth switch ES-OSS-220-01 (cable 1, OSS end)")),
         (2, unlock("ES-ON-220-01")),
         (2, switch("ES-ON-220-01", open_, "Open earth switch ES-ON-220-01 (cable 1, onshore end)")),
+    ]
+    if spec.num_reactors:
+        cable_earths += [
+            (2, unlock("ES-SR-ON-01")),
+            (
+                2,
+                switch("ES-SR-ON-01", open_, "Open onshore reactor 1 bay earth switch ES-SR-ON-01"),
+            ),
+            (
+                2,
+                switch(
+                    "CB-SR-ON-01",
+                    close,
+                    f"Close CB-SR-ON-01 — onshore line reactor 1 ({spec.reactor_unit_mvar:.0f} "
+                    "Mvar) connected to the dead cable",
+                    notes="Energised together with the cable, it takes up about half of the "
+                    "cable's charging power at the onshore end from the first moment.",
+                ),
+            ),
+        ]
+    energise = [
         (2, unlock("DS-ON-220-01")),
         (
             2,
@@ -397,7 +489,10 @@ def _defs() -> list[tuple[int, dict[str, object]]]:
             2,
             verify(
                 "cable_isolated",
-                "Verify cable 1 is not earthed at either end and the OSS end is open",
+                "Verify cable 1 and its onshore reactor are dead, not earthed at either end, "
+                "and the OSS end is open"
+                if spec.num_reactors
+                else "Verify cable 1 is not earthed at either end and the OSS end is open",
                 notes="Interlock ILK-001 also blocks energising onto an earth.",
             ),
         ),
@@ -406,8 +501,13 @@ def _defs() -> list[tuple[int, dict[str, object]]]:
             switch(
                 "CB-ON-220-01",
                 close,
-                "Close CB-ON-220-01 — export cable 1 energised from shore",
-                notes="The open-ended cable draws its full charging current; the open end "
+                "Close CB-ON-220-01 — export cable 1 energised from shore"
+                + (" with its onshore line reactor" if spec.num_reactors else ""),
+                notes="The cable draws its full charging current; its onshore reactor takes "
+                "about half of it up at the onshore end, and the open end rises above the "
+                "sending end (Ferranti)."
+                if spec.num_reactors
+                else "The open-ended cable draws its full charging current; the open end "
                 "rises above the sending end (Ferranti).",
             ),
         ),
@@ -422,6 +522,8 @@ def _defs() -> list[tuple[int, dict[str, object]]]:
             ),
         ),
         (2, hold("Soak complete: GO / NO-GO for energising the OSS 220 kV busbar")),
+    ]
+    oss_bus = [
         (3, unlock("ES-OSS-220-BB")),
         (3, switch("ES-OSS-220-BB", open_, "Open OSS 220 kV busbar earth switch ES-OSS-220-BB")),
         (3, unlock("DS-OSS-220-01")),
@@ -435,22 +537,39 @@ def _defs() -> list[tuple[int, dict[str, object]]]:
         ),
         (3, switch("CB-OSS-220-01", close, "Close CB-OSS-220-01 — OSS 220 kV busbar energised")),
         (3, verify("oss220", "Verify OSS 220 kV busbar voltage")),
-        (3, unlock("ES-SR-01")),
-        (3, switch("ES-SR-01", open_, "Open shunt reactor 1 bay earth switch ES-SR-01")),
-        (
-            3,
-            switch(
-                "CB-SR-01",
-                close,
-                "Close CB-SR-01 — shunt reactor 1 (80 Mvar) in service",
-                notes="The reactor absorbs most of the cable's charging power.",
+    ]
+    reactor = (
+        [
+            (3, unlock("ES-SR-01")),
+            (3, switch("ES-SR-01", open_, "Open OSS reactor 1 bay earth switch ES-SR-01")),
+            (
+                3,
+                switch(
+                    "CB-SR-01",
+                    close,
+                    f"Close CB-SR-01 — OSS shunt reactor 1 ({spec.reactor_unit_mvar:.0f} Mvar) "
+                    "in service",
+                    notes="It absorbs the OSS end's share of the cable's charging power; "
+                    "the STATCOM takes the switching step.",
+                ),
             ),
-        ),
-        (3, verify("reactor", "Verify reactor absorption and busbar voltage")),
+            (3, verify("reactor", "Verify reactor absorption, busbar voltage and STATCOM")),
+        ]
+        if spec.num_reactors
+        else []
+    )
+    # STATCOM before the OSS reactor: in voltage control it takes the reactor's switching
+    # step (with the line reactor already in, the OSS reactor alone could over-compensate a
+    # short-circuit-weak busbar — 2 × 100 MVA onshore, 73 km: 0.925 pu without the STATCOM)
+    steps += cable_earths + energise + oss_bus
+    steps += [
         (3, unlock("ES-STC-01")),
         (3, switch("ES-STC-01", open_, "Open STATCOM bay earth switch ES-STC-01")),
         (3, switch("CB-STC-01", close, "Close CB-STC-01 — STATCOM in voltage control, 1.00 pu")),
         (3, verify("statcom", "Verify OSS 220 kV regulated to 1.00 pu within STATCOM range")),
+    ]
+    steps += reactor
+    steps += [
         (4, unlock("ES-TX-OSS-01")),
         (4, switch("ES-TX-OSS-01", open_, "Open TX-OSS-01 HV bay earth switch ES-TX-OSS-01")),
         (
@@ -480,37 +599,41 @@ def _defs() -> list[tuple[int, dict[str, object]]]:
             ),
         ),
     ]
-    for n in (1, 2, 3):
+    for n in range(1, spec.section_a_strings + 1):
+        es, cb, wtg = f"ES-STR-{n:02d}", f"CB-STR-{n:02d}", f"WTG-GRP-{n:02d}"
         steps += [
-            (5, unlock(f"ES-STR-0{n}")),
-            (5, switch(f"ES-STR-0{n}", open_, f"Open string {n} earth switch ES-STR-0{n}")),
+            (5, unlock(es)),
+            (5, switch(es, open_, f"Open string {n} earth switch {es}")),
             (
                 5,
-                switch(
-                    f"CB-STR-0{n}",
-                    close,
-                    f"Close CB-STR-0{n} — string {n} cable and WTG transformers energised",
-                ),
+                switch(cb, close, f"Close {cb} — string {n} cable and WTG transformers energised"),
             ),
             (5, verify(f"string_{n}", f"Verify string {n} far-end voltage")),
             (
                 5,
                 switch(
-                    f"WTG-GRP-0{n}",
+                    wtg,
                     close,
-                    f"Release the 6 turbines of string {n} — start-up and "
-                    "synchronisation per the turbine supplier's procedure",
+                    f"Release the {spec.string_layout[n - 1]} turbines of string {n} — start-up "
+                    "and synchronisation per the turbine supplier's procedure",
                 ),
             ),
         ]
+    limit, full = circuit1_limit_mw(spec), section_a_mw(spec)
+    rated_note = (
+        "Design check with every released turbine at 15 MW; the real output follows the wind."
+        if limit >= full
+        else f"Section A is {full:.0f} MW but one export circuit carries about "
+        f"{limit / 0.9:.0f} MW: the PPC limits the output to {limit:.0f} MW (90 %) until the "
+        "other circuits are in service."
+    )
     steps += [
         (
             6,
             verify(
                 "rated",
-                "Verify cable 1 and TX-OSS-01 loading at rated output (270 MW)",
-                notes="Design check with every released turbine at 15 MW; the real output "
-                "follows the wind.",
+                f"Verify cable 1 and TX-OSS-01 loading at rated output ({limit:.0f} MW)",
+                notes=rated_note,
             ),
         ),
         (
@@ -533,19 +656,21 @@ def _defs() -> list[tuple[int, dict[str, object]]]:
     return steps
 
 
-def create_oss_energisation_programme(pic_name: str) -> SwitchingProgramme:
+def create_oss_energisation_programme(pic_name: str, spec: FarmSpec = SB510) -> SwitchingProgramme:
     """New programme in CREATED state, plant in its construction condition."""
-    programme_id = f"SB5-SP-{datetime.now(UTC):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
+    prefix = "SB5" if spec == SB510 else "PRJ"
+    programme_id = f"{prefix}-SP-{datetime.now(UTC):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
     programme = SwitchingProgramme(
         programme_id=programme_id,
-        title="Circuit 1 first energisation — export cable 1, TX-OSS-01, strings 1–3",
+        title=f"Circuit 1 first energisation — export cable 1, TX-OSS-01, {strings_label(spec)}",
         pic_name=pic_name,
+        spec=spec,
     )
-    programme.system_state = build_initial_state()
-    programme.loto_set = create_loto_set_for_oss(programme_id, pic_name)
+    programme.system_state = build_initial_state(spec)
+    programme.loto_set = create_loto_set_for_oss(programme_id, pic_name, spec)
 
     seq: dict[int, int] = {}
-    for number, (phase, d) in enumerate(_defs(), start=1):
+    for number, (phase, d) in enumerate(_defs(spec), start=1):
         seq[phase] = seq.get(phase, 0) + 1
         programme.steps.append(
             SwitchingStep(
@@ -675,6 +800,7 @@ def execute_step(
                     step.switching_action,
                     programme.system_state,
                     programme.locked(),
+                    programme.spec,
                 )
             except (InterlockError, InvalidTransitionError) as exc:
                 raise _fail(programme, step, executed_by, str(exc)) from exc
@@ -683,8 +809,8 @@ def execute_step(
                 f"{step.equipment_id}: {result.previous_state.value} → {result.new_state.value}",
             )  # fmt: skip
         case StepType.VERIFICATION:
-            snap = network_snapshot(programme.system_state)
-            ok, reading = CHECKS[step.check_id](snap, programme.system_state)
+            snap = network_snapshot(programme.system_state, programme.spec)
+            ok, reading = CHECKS[step.check_id](snap, programme.system_state, programme.spec)
             if not ok:
                 raise _fail(programme, step, executed_by, f"Check failed — {reading}")
             _complete(programme, step, executed_by, reading)
@@ -742,7 +868,7 @@ def emergency_trip(programme: SwitchingProgramme, by: str, reason: str) -> list[
     """
     opened = []
     for eq_id, pos in programme.system_state.items():
-        eq_type = get_equipment_definition(eq_id).equipment_type.value
+        eq_type = get_equipment_definition(eq_id, programme.spec).equipment_type.value
         if pos == EquipmentState.CLOSED and eq_type in ("circuit_breaker", "wtg_group"):
             programme.system_state[eq_id] = EquipmentState.OPEN
             opened.append(eq_id)

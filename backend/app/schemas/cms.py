@@ -15,12 +15,14 @@ from pydantic import BaseModel, Field
 class ComponentHealthSchema(BaseModel):
     """Health status of one turbine component."""
 
-    component: str = Field(description="MAIN_BEARING / GEARBOX / GENERATOR / PITCH / YAW")
+    component: str = Field(description="MAIN_BEARING / REAR_BEARING / GENERATOR / PITCH / YAW")
     health_index: float = Field(description="0-100 (100=new, 0=end-of-life)")
     alert_level: str = Field(description="GREEN / YELLOW / AMBER / RED / CRITICAL")
     vib_rms_mm_s: float = Field(description="Vibration RMS velocity [mm/s] (ISO 10816-3 zones)")
     temp_celsius: float = Field(description="Component temperature [°C]")
-    oil_iso_code: str = Field(description="ISO 4406 oil cleanliness code (gearbox only)")
+    oil_iso_code: str = Field(
+        description="ISO 4406 cleanliness code (meaningful for the hydraulic PITCH unit)"
+    )
     rul_days: float = Field(description="Estimated Remaining Useful Life [days]")
     last_updated: datetime | None = None
 
@@ -39,7 +41,7 @@ class TurbineHealthResponse(BaseModel):
 
 
 class FleetHealthResponse(BaseModel):
-    """Fleet-wide health overview for all 34 turbines."""
+    """Fleet-wide health overview for every turbine of the farm (SB-510: 34)."""
 
     turbines: list[TurbineHealthSummary]
     fleet_average_hi: float
@@ -75,7 +77,7 @@ class FFTPoint(BaseModel):
 class VibrationSpectrumResponse(BaseModel):
     """Velocity spectrum of one drivetrain component with its kinematic fault frequencies.
 
-    Main bearing BPFO/BPFI, gearbox gear-mesh frequencies GMF1-3, generator
+    Main/rear bearing BPFO/BPFI, generator electrical lines (f_e, 2·f_e, slot pass),
     1×/2× running speed and bearing frequencies — see services/p3/cms.py.
     """
 
@@ -83,7 +85,7 @@ class VibrationSpectrumResponse(BaseModel):
     component: str
     timestamp_utc: datetime
     points: list[FFTPoint] = Field(
-        description="400 lines: 0-10 Hz for the main bearing, 0-200 Hz for gearbox/generator"
+        description="400 lines: 0-12 Hz for the main bearings, 0-40 Hz for the generator"
     )
     dominant_frequency_hz: float = Field(description="Frequency of highest amplitude peak")
     dominant_amplitude_mm_s: float
@@ -111,7 +113,7 @@ class OilAnalysisPoint(BaseModel):
 
 
 class OilAnalysisResponse(BaseModel):
-    """Gearbox oil analysis trend data."""
+    """Hydraulic (pitch/brake) oil analysis trend data — the turbine has no gearbox."""
 
     turbine_id: str
     component: str
@@ -119,7 +121,7 @@ class OilAnalysisResponse(BaseModel):
     current_iso_code: str
     target_iso_code: str = Field(
         default="16/14/11",
-        description="Target ISO 4406 code per wind turbine gearbox spec",
+        description="Target ISO 4406 code for the hydraulic system",
     )
     water_ingress_alert: bool = Field(description="True if water content > 200 ppm")
     next_oil_change_recommendation: str
@@ -159,7 +161,7 @@ class FaultInjectionRequest(BaseModel):
     """
 
     component: str = Field(
-        description="Component to degrade: MAIN_BEARING / GEARBOX / GENERATOR / PITCH / YAW"
+        description="Component to degrade: MAIN_BEARING / REAR_BEARING / GENERATOR / PITCH / YAW"
     )
     severity: str = Field(
         description="Degradation severity: MINOR / MODERATE / SEVERE",

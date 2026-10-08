@@ -14,6 +14,7 @@ import { useEffect } from "react";
 import Plot from "react-plotly.js";
 import { RefreshCw } from "lucide-react";
 
+import { useFleet } from "../../lib/fleet";
 import { useAlarmStore } from "../../store/alarmStore";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
@@ -21,6 +22,7 @@ import { PriorityChip } from "./AlarmListPanel";
 import { cn } from "../../lib/utils";
 
 export default function AlarmRationalizationPanel() {
+  const fleet = useFleet();
   const kpi = useAlarmStore((s) => s.kpi);
   const mad = useAlarmStore((s) => s.rationalization);
   const live = useAlarmStore((s) => s.alarms);
@@ -123,7 +125,7 @@ export default function AlarmRationalizationPanel() {
 
       <section className="rounded-lg border border-border-primary bg-bg-secondary p-3">
         <h4 className="text-xs font-semibold text-text-primary mb-1">
-          Master alarm database <span className="font-normal text-text-muted">({mad.length} rationalised classes · WTG.* covers WTG-01…34)</span>
+          Master alarm database <span className="font-normal text-text-muted">({mad.length} rationalised classes · WTG.* covers WTG-01…{String(fleet.turbines.length).padStart(2, "0")})</span>
         </h4>
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">

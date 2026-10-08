@@ -11,19 +11,23 @@ import type {
   LayoutComparisonResult,
   LayoutPositions,
   TurbineSpec,
+  UncertaintyResult,
   WakeAnalysisResult,
   WeibullFitResult,
   WindRoseResult,
 } from "../types/windResource";
 
+import { DEFAULT_TURBINE_ID } from "../constants/turbineModels";
 import { post, request } from "./apiClient";
+import { SB510_WIND } from "../constants/sb510Wind";
 
 const BASE = "/api/v1/wind";
 
 // ── Turbine Spec ────────────────────────────────────────────────
 
-export function getTurbineSpec(): Promise<TurbineSpec> {
-  return request(`${BASE}/turbine-spec`);
+/** Reference turbine specification (default SB-510's IEA 15 MW). */
+export function getTurbineSpec(model?: string): Promise<TurbineSpec> {
+  return request(`${BASE}/turbine-spec${model ? `?model=${encodeURIComponent(model)}` : ""}`);
 }
 
 // ── Weibull Fit ─────────────────────────────────────────────────
@@ -72,11 +76,42 @@ export function runWakeAnalysis(
 export function runCustomWakeAnalysis(
   x_m: number[],
   y_m: number[],
-  weibull_a = 10.5,
-  weibull_k = 2.2,
+  weibull_a: number = SB510_WIND.weibullA,
+  weibull_k: number = SB510_WIND.weibullK,
   turbulence_intensity = 0.06,
+  turbine_model = DEFAULT_TURBINE_ID,
+  sector_frequencies: number[] | null = null,
+  neighbours: { x_m: number[]; y_m: number[] } | null = null,
 ): Promise<WakeAnalysisResult> {
-  return post(`${BASE}/wake-analysis-custom`, { x_m, y_m, weibull_a, weibull_k, turbulence_intensity });
+  return post(`${BASE}/wake-analysis-custom`, {
+    x_m,
+    y_m,
+    weibull_a,
+    weibull_k,
+    turbulence_intensity,
+    turbine_model,
+    sector_frequencies,
+    ...(neighbours ? { neighbour_x_m: neighbours.x_m, neighbour_y_m: neighbours.y_m } : {}),
+  });
+}
+
+export interface WakeMoveResult {
+  index: number;
+  net_aep_gwh: number;
+  delta_gwh: number;
+  delta_percent: number;
+  wake_loss_percent: number;
+}
+
+/** PyWake check of single-turbine moves (≤ 5) against the base layout, same wind. */
+export function checkWakeMoves(
+  x_m: number[],
+  y_m: number[],
+  moves: { index: number; x_m: number; y_m: number }[],
+  wind: { weibull_a: number; weibull_k: number; sector_frequencies: number[] | null },
+  turbine_model = DEFAULT_TURBINE_ID,
+): Promise<{ base_net_aep_gwh: number; moves: WakeMoveResult[] }> {
+  return post(`${BASE}/wake-moves`, { x_m, y_m, moves, turbine_model, ...wind });
 }
 
 // ── AEP Cascade ─────────────────────────────────────────────────
@@ -127,3 +162,12 @@ export function compareLayouts(
 export function getLayoutPositions(name: string): Promise<LayoutPositions> {
   return request(`${BASE}/layouts/${name}/positions`);
 }
+
+/** AEP uncertainty components of a farm (wind, wake loss, turbine) and their RSS. */
+export const getUncertainty = (body: {
+  weibull_a: number;
+  weibull_k: number;
+  wake_loss_percent: number;
+  blockage_loss_percent?: number;
+  turbine_model?: string;
+}): Promise<UncertaintyResult> => post(`${BASE}/uncertainty`, body);

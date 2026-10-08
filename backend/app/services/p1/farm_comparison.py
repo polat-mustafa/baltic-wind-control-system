@@ -13,10 +13,10 @@ main P1 analysis uses, run on a near-square grid at the configured spacing
   AEP_gross = 8760 h × Σ_turbines ∫ P(v) f(v; A, k) dv
   f(v) = (k/A)(v/A)^(k-1) exp(-(v/A)^k),   A = v̄ / Γ(1 + 1/k)
 
-Turbines other than 15 MW are modelled as the V236 scaled at constant
-specific power (P_rated / rotor area = 343 W/m²). Under that assumption the
+Turbines other than 15 MW are modelled as the IEA 15 MW reference scaled at constant
+specific power (P_rated / rotor area = 15 MW / 45,750 m² = 328 W/m²). Under that assumption the
 power curve scales linearly with rating, the rated wind speed is unchanged,
-and wake loss depends only on spacing in rotor diameters — so the V236 wake
+and wake loss depends only on spacing in rotor diameters — so the reference wake
 fraction applies directly.
 
 Gross → net follows the shared multiplicative cascade (aep_calculator):
@@ -65,8 +65,8 @@ from app.services.p1.wake_model import (
     RATED_POWER_KW,
     ROTOR_DIAMETER_M,
     create_uniform_site,
-    create_v236_wind_turbine,
-    get_v236_power_curve_kw,
+    create_wind_turbine,
+    get_power_curve_kw,
 )
 from app.services.p2.network_model import (
     EXPORT_CABLE_1000,
@@ -98,7 +98,7 @@ def weibull_scale_from_mean(mean_v: float, k: float) -> float:
 
 
 def loss_load_factor(weibull_a: float, weibull_k: float) -> float:
-    """E[P²] / (P_rated · E[P]) for the V236 curve under Weibull(A, k) [-].
+    """E[P²] / (P_rated · E[P]) for the reference (IEA 15 MW) curve under Weibull(A, k) [-].
 
     Multiplying an I²R loss fraction at rated power by this gives the
     annual energy loss fraction.
@@ -109,7 +109,7 @@ def loss_load_factor(weibull_a: float, weibull_k: float) -> float:
         * (v / weibull_a) ** (weibull_k - 1)
         * np.exp(-((v / weibull_a) ** weibull_k))
     )
-    p = get_v236_power_curve_kw(v) / RATED_POWER_KW  # per-unit
+    p = get_power_curve_kw(v) / RATED_POWER_KW  # per-unit
     return float(np.trapezoid(p**2 * pdf, v) / np.trapezoid(p * pdf, v))
 
 
@@ -123,7 +123,7 @@ def grid_layout_m(n: int, spacing_d: float) -> tuple[np.ndarray, np.ndarray]:
 
 @lru_cache(maxsize=128)
 def _wake_run(n: int, spacing_d: float, weibull_a: float, weibull_k: float) -> tuple[float, float]:
-    """PyWake BPA Gaussian on a grid → (gross AEP of n × V236 [GWh], wake loss fraction).
+    """PyWake BPA Gaussian on a grid → (gross AEP of n × reference [GWh], wake loss fraction).
 
     PropagateDownwind is equivalent to All2AllIterative without a blockage
     deficit model; 5° direction bins match 1° bins to 0.01 pp on a uniform rose.
@@ -136,7 +136,7 @@ def _wake_run(n: int, spacing_d: float, weibull_a: float, weibull_k: float) -> t
     x, y = grid_layout_m(n, spacing_d)
     model = PropagateDownwind(
         create_uniform_site(weibull_a, weibull_k),
-        create_v236_wind_turbine(),
+        create_wind_turbine(),
         wake_deficitModel=NiayifarGaussianDeficit(),
         superpositionModel=LinearSum(),
         turbulenceModel=STF2017TurbulenceModel(),
@@ -289,8 +289,8 @@ def evaluate_farm(
     """Full AEP → grid → LCOE evaluation for one farm."""
     a = weibull_scale_from_mean(farm.mean_wind_speed_ms, farm.weibull_k)
     a_key, k_key = round(a, 3), round(farm.weibull_k, 3)
-    gross_v236, wake = _wake_run(farm.turbine_count, farm.turbine_spacing_d, a_key, k_key)
-    gross = gross_v236 * farm.turbine_rated_mw / (RATED_POWER_KW / 1e3)
+    gross_ref, wake = _wake_run(farm.turbine_count, farm.turbine_spacing_d, a_key, k_key)
+    gross = gross_ref * farm.turbine_rated_mw / (RATED_POWER_KW / 1e3)
     gross_cf = gross * 1e3 / (farm.installed_mw * 8760.0)
 
     x, y = grid_layout_m(farm.turbine_count, farm.turbine_spacing_d)
@@ -312,6 +312,8 @@ def evaluate_farm(
         num_turbines=farm.turbine_count,
         rated_power_kw=farm.turbine_rated_mw * 1e3,
         price_eur_mwh=electricity_price,
+        weibull_a=farm.mean_wind_speed_ms / math.gamma(1 + 1 / farm.weibull_k),
+        weibull_k=farm.weibull_k,
     )
 
     aep = AEPResult(

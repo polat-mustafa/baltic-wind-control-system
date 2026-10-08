@@ -309,28 +309,6 @@ export const Bearing = () => (
   </g>
 );
 
-export const Coupling = () => (
-  <g stroke="currentColor" strokeWidth={SW} fill="none">
-    <line x1={-5} y1={-18} x2={-5} y2={18} strokeWidth={3} />
-    <line x1={5} y1={-18} x2={5} y2={18} strokeWidth={3} />
-    <path d="M -5 -18 Q 0 -24 5 -18 M -5 18 Q 0 24 5 18" />
-  </g>
-);
-
-export const GearStage = ({ name, ratio }: { name: string; ratio: string }) => (
-  <g>
-    <rect x={-40} y={-44} width={80} height={88} rx={3} fill={PAPER} stroke="currentColor" strokeWidth={SW} />
-    {/* ring, planets, sun */}
-    <circle r={30} fill="none" stroke="currentColor" strokeWidth={1.1} />
-    {[0, 120, 240].map((a) => (
-      <circle key={a} cx={18 * Math.cos((a * Math.PI) / 180)} cy={18 * Math.sin((a * Math.PI) / 180)} r={9} fill="none" stroke="currentColor" strokeWidth={1.1} />
-    ))}
-    <circle r={7} fill="currentColor" fillOpacity={0.25} stroke="currentColor" strokeWidth={1.1} />
-    <text y={-50} textAnchor="middle" fontSize={10.5} fontWeight={700} fill="currentColor">{name}</text>
-    <text y={60} textAnchor="middle" fontSize={11} fontWeight={800} fontFamily="ui-monospace, monospace" fill="currentColor">{ratio}</text>
-  </g>
-);
-
 /** Off-sheet connector (continuation arrow) with a reference. */
 export const OffSheet = ({ text }: { text: string }) => (
   <g>

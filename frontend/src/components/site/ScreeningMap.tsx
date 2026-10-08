@@ -1,9 +1,10 @@
 /**
  * Screening map: open-data layers, the suitability grid (green = suitable,
- * amber = marginal; excluded cells stay clear so the layer that excludes
- * them shows through) and the candidate site the user draws.
+ * yellow = marginal; poor and excluded cells stay clear so the layer that
+ * excludes them shows through) and the candidate site the user draws.
  *
  * Drawing: "Draw site" → click the map to add corners → Finish (≥ 3).
+ * Legend: open by default from the sm breakpoint, collapsible on phones.
  */
 
 import { memo, useEffect, useMemo, useState } from "react";
@@ -25,14 +26,17 @@ import { Layers, PenLine, RotateCcw, Undo2, X, Check, MapPinned } from "lucide-r
 import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { cn } from "../../lib/utils";
 import type { LayerInfo, LonLat } from "../../services/siteApi";
-import { CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
-import { ROLE_STYLE, type RoleStyle } from "./mapStyles";
+import { CASE_STUDY_GRID_NODE, CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
+import { checkExportRoute } from "../../lib/site/exportRoute";
+import { ROLE_STYLE, wideScreen, type RoleStyle } from "./mapStyles";
 
 type LatLng = [number, number];
 const ll = ([lon, lat]: LonLat): LatLng => [lat, lon];
 
 const SUITABLE = "#16a34a";
-const MARGINAL = "#d97706";
+// Yellow, not amber: real wind farms are orange and the two must not be confused.
+const MARGINAL = "#eab308";
+
 
 function FitBounds({ bbox }: { bbox: [number, number, number, number] }) {
   const map = useMap();
@@ -48,21 +52,75 @@ function FitBounds({ bbox }: { bbox: [number, number, number, number] }) {
 function DrawClicks() {
   const drawing = useSiteStore((s) => s.drawing);
   const addCorner = useSiteStore((s) => s.addCorner);
+  const routeDrawing = useSiteStore((s) => s.routeDrawing);
+  const addRoutePoint = useSiteStore((s) => s.addRoutePoint);
   const map = useMapEvents({
     click(e) {
-      if (drawing) addCorner([Number(e.latlng.lng.toFixed(5)), Number(e.latlng.lat.toFixed(5))]);
+      const p: LonLat = [Number(e.latlng.lng.toFixed(5)), Number(e.latlng.lat.toFixed(5))];
+      if (drawing) addCorner(p);
+      else if (routeDrawing) addRoutePoint(p);
     },
   });
   useEffect(() => {
-    map.getContainer().style.cursor = drawing ? "crosshair" : "";
-  }, [map, drawing]);
+    map.getContainer().style.cursor = drawing || routeDrawing ? "crosshair" : "";
+  }, [map, drawing, routeDrawing]);
   return null;
+}
+
+const ROUTE_COLOR = "#c2410c";
+
+/** The export route being drawn (dashed) or the checked one, with its landfall. */
+function ExportRouteShapes() {
+  const drawingRoute = useSiteStore((s) => s.routeDrawing);
+  const check = useSiteStore((s) => s.routeCheck);
+  const map = useMap();
+  useEffect(() => {
+    if (check?.route.length) map.fitBounds(check.route.map(ll), { padding: [40, 40] });
+  }, [map, check]);
+  if (drawingRoute) {
+    return (
+      <>
+        {drawingRoute.length > 1 && <Polyline positions={drawingRoute.map(ll)} pathOptions={{ color: ROUTE_COLOR, weight: 2, dashArray: "5 5" }} />}
+        {drawingRoute.map((p, i) => (
+          <CircleMarker key={i} center={ll(p)} radius={4} pathOptions={{ color: "#fff", weight: 2, fillColor: ROUTE_COLOR, fillOpacity: 1 }} />
+        ))}
+      </>
+    );
+  }
+  if (!check) return null;
+  return (
+    <>
+      <Polyline positions={check.route.map(ll)} pathOptions={{ color: ROUTE_COLOR, weight: 3 }}>
+        <Tooltip sticky>
+          Export cable {check.total_km.toFixed(1)} km ({check.auto ? "automatic" : "drawn"})
+        </Tooltip>
+      </Polyline>
+      {check.landfall && (
+        <CircleMarker center={ll(check.landfall)} radius={6} pathOptions={{ color: "#fff", weight: 2, fillColor: ROUTE_COLOR, fillOpacity: 1 }}>
+          <Tooltip>Landfall</Tooltip>
+        </CircleMarker>
+      )}
+      {[...check.shipping, ...check.cables].map((c, i) => (
+        <CircleMarker
+          key={`x${i}`}
+          center={ll(c.at)}
+          radius={4}
+          pathOptions={{ color: c.angle_deg < 45 ? "#dc2626" : "#334155", weight: 2, fillColor: "#fff", fillOpacity: 1 }}
+        >
+          <Tooltip>
+            {c.name}: {c.angle_deg.toFixed(0)}°
+          </Tooltip>
+        </CircleMarker>
+      ))}
+    </>
+  );
 }
 
 /** Tooltip text: the feature name plus capacity / status when the data has them. */
 function featureLabel(f: LayerInfo["features"][number]): string {
   const p = f.properties;
   const extra = [
+    typeof p.use === "string" ? `${p.use} port` : "",
     typeof p.power_mw === "number" ? `${p.power_mw} MW` : "",
     typeof p.status === "string" ? p.status : "",
   ].filter(Boolean);
@@ -180,10 +238,19 @@ export default function ScreeningMap() {
   const finishDrawing = useSiteStore((s) => s.finishDrawing);
   const cancelDrawing = useSiteStore((s) => s.cancelDrawing);
   const setSite = useSiteStore((s) => s.setSite);
+  const routeDrawing = useSiteStore((s) => s.routeDrawing);
+  const undoRoutePoint = useSiteStore((s) => s.undoRoutePoint);
+  const finishRoute = useSiteStore((s) => s.finishRoute);
+  const cancelRoute = useSiteStore((s) => s.cancelRoute);
   const [visible, setVisible] = useState<Record<string, boolean>>(() =>
     Object.fromEntries([...Object.entries(ROLE_STYLE).map(([k, v]) => [k, v.on]), ["suitability", true], ["turbines", true]]),
   );
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(wideScreen);
+  const suitability = useSiteStore((s) => s.suitability);
+  const topReasons = useMemo(
+    () => [...(suitability?.reason_areas ?? [])].sort((a, b) => b.area_km2 - a.area_km2).slice(0, 5),
+    [suitability],
+  );
   const renderer = useMemo(() => L.canvas({ padding: 0.3 }), []);
 
   const bbox = layers?.region.bbox ?? [16.22, 54.45, 17.85, 55.2];
@@ -206,6 +273,7 @@ export default function ScreeningMap() {
         />
         <FitBounds bbox={bbox} />
         <DrawClicks />
+        <ExportRouteShapes />
         {visible.suitability && <SuitabilityCells renderer={renderer} />}
         {shown.map((layer) => (
           <LayerShapes key={layer.id} layer={layer} style={ROLE_STYLE[layer.role]} renderer={renderer} />
@@ -248,7 +316,19 @@ export default function ScreeningMap() {
         className="absolute left-3 top-3 z-[1000] flex max-w-[calc(100%-7.5rem)] flex-wrap gap-1.5"
         data-tour="site-draw"
       >
-        {drawing ? (
+        {routeDrawing ? (
+          <>
+            <span className="rounded-md bg-bg-secondary/95 px-2.5 py-1.5 text-xs text-text-secondary shadow">
+              Click the route: sea, landfall, land ({routeDrawing.length})
+            </span>
+            <ToolButton onClick={undoRoutePoint} disabled={routeDrawing.length === 0} icon={<Undo2 size={13} />} label="Undo" />
+            <ToolButton onClick={() => {
+                finishRoute();
+                void checkExportRoute();
+              }} disabled={routeDrawing.length === 0} icon={<Check size={13} />} label="Finish" primary />
+            <ToolButton onClick={cancelRoute} icon={<X size={13} />} label="Cancel" />
+          </>
+        ) : drawing ? (
           <>
             <span className="rounded-md bg-bg-secondary/95 px-2.5 py-1.5 text-xs text-text-secondary shadow">
               Click the map to add corners ({drawing.length})
@@ -267,7 +347,7 @@ export default function ScreeningMap() {
           <>
             <ToolButton onClick={startDrawing} icon={<PenLine size={13} />} label={site ? "Redraw site" : "Draw site"} primary />
             <ToolButton
-              onClick={() => void setSite(CASE_STUDY_SITE)}
+              onClick={() => void setSite(CASE_STUDY_SITE, CASE_STUDY_GRID_NODE)}
               icon={<MapPinned size={13} />}
               label="SB-510 boundary"
             />
@@ -276,9 +356,9 @@ export default function ScreeningMap() {
         )}
       </div>
 
-      {/* Layer panel + legend */}
+      {/* Legend: screening result + constraint layers (toggles) */}
       <div
-        className="pointer-events-none absolute right-3 top-3 z-[1000] flex flex-col items-end"
+        className="pointer-events-none absolute right-3 top-3 z-[1000] flex max-h-[calc(100%-1.5rem)] flex-col items-end"
         data-tour="site-layers"
       >
         <button
@@ -287,33 +367,55 @@ export default function ScreeningMap() {
           aria-expanded={panelOpen}
           className="pointer-events-auto flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-secondary/95 px-2.5 py-1.5 text-xs font-medium text-text-secondary shadow"
         >
-          <Layers size={13} /> Layers
+          <Layers size={13} /> Legend
         </button>
         {panelOpen && (
-          <div className="pointer-events-auto mt-1.5 w-56 max-w-[70vw] space-y-1 rounded-md border border-border-primary bg-bg-secondary/95 p-2 text-[11px] shadow">
-            <LegendToggle
-              color={SUITABLE}
-              label={loading ? "Suitable / marginal (updating…)" : "Suitable / marginal"}
-              checked={visible.suitability}
-              onChange={(v) => setVisible({ ...visible, suitability: v })}
-              swatch2={MARGINAL}
-            />
-            {Object.entries(ROLE_STYLE).map(([role, st]) => (
+          <div className="pointer-events-auto mt-1.5 w-64 max-w-[75vw] space-y-2 overflow-y-auto rounded-md border border-border-primary bg-bg-secondary/95 p-2 text-[11px] shadow">
+            <section aria-label="Screening result" className="space-y-1">
+              <LegendHeading>{loading ? "Screening result (updating…)" : "Screening result"}</LegendHeading>
               <LegendToggle
-                key={role}
-                color={st.color}
-                label={st.label}
-                dashed={!!st.dash}
-                checked={!!visible[role]}
-                onChange={(v) => setVisible({ ...visible, [role]: v })}
+                color={SUITABLE}
+                label="Show the screening grid"
+                checked={visible.suitability}
+                onChange={(v) => setVisible({ ...visible, suitability: v })}
+                swatch2={MARGINAL}
               />
-            ))}
-            <LegendToggle
-              color="#f8fafc"
-              label="SB-510 turbines"
-              checked={visible.turbines}
-              onChange={(v) => setVisible({ ...visible, turbines: v })}
-            />
+              <LegendKey color={SUITABLE} fill={0.38} label="Suitable" note="no exclusion, good score" />
+              <LegendKey color={MARGINAL} fill={0.28} label="Marginal" note="allowed, weaker score" />
+              <LegendKey color="transparent" label="Poor" note="no shading: allowed but low score" />
+              <LegendKey color="transparent" label="Excluded" note="no shading: the excluding layer shows" />
+              {topReasons.length > 0 && (
+                <ul className="ml-6 space-y-0.5 text-[10px] text-text-muted" aria-label="Main exclusion reasons">
+                  {topReasons.map((r) => (
+                    <li key={r.reason} className="flex justify-between gap-2">
+                      <span className="truncate">{r.label}</span>
+                      <span className="shrink-0 tabular-nums">{r.area_km2.toFixed(0)} km²</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            <section aria-label="Constraints" className="space-y-1 border-t border-border-primary pt-2">
+              <LegendHeading>Constraints</LegendHeading>
+              {Object.entries(ROLE_STYLE).map(([role, st]) => (
+                <LegendToggle
+                  key={role}
+                  color={st.color}
+                  label={st.label}
+                  note={st.note}
+                  dash={st.dash}
+                  checked={!!visible[role]}
+                  onChange={(v) => setVisible({ ...visible, [role]: v })}
+                />
+              ))}
+              <LegendToggle
+                color="#0f172a"
+                label="SB-510 turbines"
+                note="reference case study layout"
+                checked={visible.turbines}
+                onChange={(v) => setVisible({ ...visible, turbines: v })}
+              />
+            </section>
           </div>
         )}
       </div>
@@ -352,30 +454,77 @@ function ToolButton({
   );
 }
 
+export function LegendHeading({ children }: { children: React.ReactNode }) {
+  return <h4 className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{children}</h4>;
+}
+
+/** Swatch: fill colour plus the layer's own outline and dash, so the key matches the map. */
+export function Swatch({ color, fill = 0.2, dash, swatch2 }: { color: string; fill?: number; dash?: string; swatch2?: string }) {
+  const alpha = Math.round(Math.min(1, fill) * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return (
+    <svg width="18" height="12" className="shrink-0" aria-hidden>
+      {swatch2 ? (
+        <>
+          <rect x="0" y="0" width="9" height="12" fill={color} />
+          <rect x="9" y="0" width="9" height="12" fill={swatch2} />
+        </>
+      ) : (
+        <rect
+          x="1"
+          y="1"
+          width="16"
+          height="10"
+          rx="1.5"
+          fill={color === "transparent" ? "none" : `${color}${alpha}`}
+          stroke={color === "transparent" ? "#94a3b8" : color}
+          strokeWidth="1.5"
+          strokeDasharray={color === "transparent" ? "2 2" : dash}
+        />
+      )}
+    </svg>
+  );
+}
+
+function LegendKey({ color, fill, label, note }: { color: string; fill?: number; label: string; note: string }) {
+  return (
+    <div className="ml-6 flex items-center gap-2 text-text-secondary">
+      <Swatch color={color} fill={fill} />
+      <span>
+        <span className="font-medium text-text-primary">{label}</span> <span className="text-text-muted">— {note}</span>
+      </span>
+    </div>
+  );
+}
+
 function LegendToggle({
   color,
   swatch2,
   label,
-  dashed,
+  note,
+  dash,
   checked,
   onChange,
 }: {
   color: string;
   swatch2?: string;
   label: string;
-  dashed?: boolean;
+  note?: string;
+  dash?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-text-secondary">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-accent" />
-      <span
-        className={cn("inline-block h-3 w-4 rounded-sm border", dashed && "border-dashed")}
-        style={{ borderColor: color, background: swatch2 ? `linear-gradient(90deg, ${color} 50%, ${swatch2} 50%)` : `${color}33` }}
-        aria-hidden
-      />
-      <span className="truncate">{label}</span>
+    <label className="flex cursor-pointer items-start gap-2 text-text-secondary">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 accent-accent" />
+      <span className="mt-0.5">
+        <Swatch color={color} dash={dash} swatch2={swatch2} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-text-primary">{label}</span>
+        {note && <span className="block text-[10px] text-text-muted">{note}</span>}
+      </span>
     </label>
   );
 }

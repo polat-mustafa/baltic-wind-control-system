@@ -9,7 +9,7 @@ import Plot from "react-plotly.js";
 import { gridFormingEducation } from "../../constants/education/p2";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
-import { useGridStore } from "../../store/gridStore";
+import { useGridStore, useNetwork } from "../../store/gridStore";
 import type { ConverterResult, GridStrength } from "../../types/grid";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
@@ -17,7 +17,7 @@ import { EducationButton } from "../ui/EducationButton";
 const STRENGTH: [GridStrength, string][] = [
   ["strong_grid", "Strong 10 GVA"],
   ["weak_grid", "Weak 2 GVA"],
-  ["very_weak_grid", "Very weak 0.7 GVA"],
+  ["very_weak_grid", "Very weak 0.75 GVA"],
 ];
 
 function Row({ label, gfl, gfm }: { label: string; gfl: string; gfm: string }) {
@@ -36,6 +36,7 @@ const metric = (r: ConverterResult, v: number, digits: number, unit: string) =>
   r.stable ? `${v.toFixed(digits)} ${unit}` : "—";
 
 export default function ConverterComparisonPanel() {
+  const n = useNetwork();
   const {
     converterComparison: cc,
     converterScenario,
@@ -72,7 +73,7 @@ export default function ConverterComparisonPanel() {
     <ChartWrapper
       title="Grid-following vs grid-forming — response to a grid phase jump"
       headerRight={<EducationButton content={gridFormingEducation} />}
-      footer="Aggregate 510 MW converter behind the farm + grid impedance, 50 µs steps · GFL: 10 Hz PLL, 5 ms current loop · GFM: H = 4 s, D = 80, 1.2 pu current limit"
+      footer={`Aggregate ${n.total_capacity_mw.toFixed(0)} MW converter behind the farm + grid impedance, 50 µs steps · GFL: 10 Hz PLL, 5 ms current loop · GFM: H = 4 s, D = 80, 1.2 pu current limit`}
     >
       <div className="flex flex-wrap items-end gap-3 mb-2" aria-busy={converterLoading}>
         <div role="tablist" aria-label="Grid strength" className="flex flex-wrap gap-1">

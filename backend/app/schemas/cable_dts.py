@@ -1,7 +1,7 @@
 """
 Pydantic schemas for cable DTS thermal monitoring — M10.
 
-One circuit of the 220 kV export cable (1000 mm² Cu XLPE, 950 A static
+One circuit of the 220 kV export cable (1000 mm² Cu XLPE, 825 A static
 rating, 2 circuits). DTS reads the fibre; the conductor temperature is an
 estimate from the fibre reading, the current and the thermal model.
 Continuous conductor limit 90 °C (XLPE, IEC 62067).
@@ -50,7 +50,7 @@ class DTSProfileResponse(BaseModel):
     alarm_length_km: float = Field(description="Route length above the 70 °C alarm [km]")
     joule_loss_w_per_m: float = Field(description="I²R_AC per conductor at the hottest spot")
     dielectric_loss_w_per_m: float = Field(description="ωCU0² tan δ per conductor")
-    static_rating_a: float = Field(description="Rating at the 15 °C design ambient [A]")
+    static_rating_a: float = Field(description="Datasheet rating at 20 °C reference ambient [A]")
     rating_at_ambient_a: float = Field(description="Route rating at this ambient [A]")
     limiting_zone: str
     export_capability_mva: float = Field(description="Both circuits at the route rating")
@@ -59,9 +59,9 @@ class DTSProfileResponse(BaseModel):
 
 
 class DTSTransientRequest(BaseModel):
-    prefault_current_a: float = Field(default=730.0, ge=0.0, le=1600.0)
+    prefault_current_a: float = Field(default=818.0, ge=0.0, le=1600.0)
     emergency_current_a: float = Field(
-        default=1360.0,
+        default=1438.0,
         ge=0.0,
         le=1600.0,
         description="Current after the step, e.g. the survivor after an N-1 trip [A]",

@@ -9,7 +9,7 @@
  *   angle of attack               α = φ − (β + θ_twist(r))
  *
  * a from the thrust coefficient (Ct = 4a(1−a)), a′ = a(1−a)/λ_r².
- * At rated (11.1 m/s, 8.33 rpm) this gives α ≈ 3–6° along the outer blade —
+ * At rated (10.66 m/s, 7.52 rpm) this gives α ≈ 3–6° along the outer blade —
  * where modern airfoils are designed to work.
  *
  * Reference: Burton et al., Wind Energy Handbook (3rd ed.), §3.5; Manwell,
@@ -20,7 +20,7 @@ import { memo, useMemo } from "react";
 import * as THREE from "three";
 import { Html, Line } from "@react-three/drei";
 
-import { inductionFromCt, v236ThrustCoefficient } from "../../../../utils/landingPhysics";
+import { inductionFromCt, turbineThrustCoefficient } from "../../../../utils/landingPhysics";
 import { PRECONE, ROTOR_RADIUS } from "../model/layout";
 import { bladeTwistDeg } from "./bladeConstants";
 
@@ -37,7 +37,7 @@ interface WindTriangleProps {
 export const WindTriangle = memo(function WindTriangle({ windMs, rotorSpeedRpm, pitchDeg }: WindTriangleProps) {
   if (windMs < 0.5 || rotorSpeedRpm < 0.1) return null;
   const omega = (rotorSpeedRpm * 2 * Math.PI) / 60;
-  const a = inductionFromCt(v236ThrustCoefficient(windMs));
+  const a = inductionFromCt(turbineThrustCoefficient(windMs));
   return (
     <>
       {RADII_FRACTION.map((frac) => (

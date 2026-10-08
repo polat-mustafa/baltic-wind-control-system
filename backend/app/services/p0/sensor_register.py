@@ -61,24 +61,30 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         ),
     ),
     SensorSpec(
-        name="Gearbox high-speed (HS) bearing RTD",
+        name="Rear (downwind) main bearing RTD",
         quantity_per_location=1,
         signal_type="PT100 3-wire",
         range="-40 to +120°C",
         accuracy="±0.5°C",
         standard="IEC 60751",
         iec_61850_ln="WTHI1.TmpSv",
-        notes="Oil-lubricated. Alarm at 80°C, trip at 100°C. Monitored with oil level sensor.",
+        notes=(
+            "Spherical roller bearing, non-locating (IEA 15 MW direct drive, report Table 5-2). "
+            "Grease-lubricated; alarm 70°C, trip 90°C as for the upwind bearing."
+        ),
     ),
     SensorSpec(
-        name="Gearbox low-speed (LS) bearing RTD",
+        name="Converter coolant outlet RTD",
         quantity_per_location=1,
         signal_type="PT100 3-wire",
         range="-40 to +120°C",
         accuracy="±0.5°C",
         standard="IEC 60751",
-        iec_61850_ln="WTHI1.TmpSv",
-        notes="Grease-lubricated; lower operating temperature than HS bearing.",
+        iec_61850_ln="WCNV1.TmpSv",
+        notes=(
+            "Liquid-cooled full-power converter (≈ 124 kW losses at rated). "
+            "Coolant outlet temperature guards the IGBT junction temperature."
+        ),
     ),
     SensorSpec(
         name="Generator winding RTD",
@@ -108,17 +114,17 @@ _TURBINE_SENSORS: list[SensorSpec] = [
         ),
     ),
     SensorSpec(
-        name="Gearbox accelerometer (CMS)",
+        name="Generator / rear bearing accelerometer (CMS)",
         quantity_per_location=1,
         signal_type="IEPE (ICP), 4 mA constant current",
-        range="0-5 kHz, 0-100 g pk",
+        range="0-1 kHz, 0-50 g pk",
         accuracy="±5% (ISO 10816-21 Class 1)",
         standard="ISO 10816-21",
         iec_61850_ln="WTUR1.VibVl",
         notes=(
-            "Sensitivity 100 mV/g (higher frequency range for gear mesh frequencies). "
-            "Gearbox mesh frequency ≈ n_LS x Z_teeth. Envelope analysis detects "
-            "early-stage pitting at sub-alarm amplitude."
+            "Direct drive — no gear mesh. Watches the downwind bearing (BPFO ≈ 2.3 Hz) and "
+            "the generator's electrical lines: f_e = 100 pole pairs × 0.126 Hz = 12.6 Hz, "
+            "2·f_e = 25.2 Hz (air-gap eccentricity), slot pass 240 × f_r = 30.2 Hz."
         ),
     ),
     SensorSpec(
@@ -226,10 +232,10 @@ _OSS_BAY_SENSOR_GROUP = OSSBaySensorGroup(
 
 _CABLE_SENSORS: list[SensorSpec] = [
     SensorSpec(
-        name="DTS fibre — section 1 (0-15 km)",
+        name="DTS fibre — section 1 (0-36 km)",
         quantity_per_location=1,
         signal_type="Optical (Raman backscatter)",
-        range="-40 to +120°C, 0-15,000 m",
+        range="-40 to +120°C, 0-36,000 m",
         accuracy="±0.1°C temperature, 1 m spatial resolution",
         standard="IEC 60287 (thermal model validation)",
         iec_61850_ln=None,
@@ -241,30 +247,30 @@ _CABLE_SENSORS: list[SensorSpec] = [
         ),
     ),
     SensorSpec(
-        name="DTS fibre — section 2 (15-30 km)",
+        name="DTS fibre — section 2 (36-72 km)",
         quantity_per_location=1,
         signal_type="Optical (Raman backscatter)",
-        range="-40 to +120°C, 15,000-30,000 m",
+        range="-40 to +120°C, 36,000-72,000 m",
         accuracy="±0.1°C temperature, 1 m spatial resolution",
         standard="IEC 60287",
         iec_61850_ln=None,
         notes="Mid-route section. Typical seabed temperature at 40 m depth: 4-12°C seasonal.",
     ),
     SensorSpec(
-        name="DTS fibre — section 3 (30-45 km)",
+        name="DTS fibre — section 3 (72-108 km)",
         quantity_per_location=1,
         signal_type="Optical (Raman backscatter)",
-        range="-40 to +120°C, 30,000-45,000 m",
+        range="-40 to +120°C, 72,000-108,000 m",
         accuracy="±0.1°C temperature, 1 m spatial resolution",
         standard="IEC 60287",
         iec_61850_ln=None,
         notes=(
-            "Onshore-transition zone (km 43-45). Higher ambient temperature on land; "
+            "Landfall HDD (km 78.7-79.5) and land cable to km 108. Higher ambient on land; "
             "separate thermal derating factor applied for burial in soil vs seabed."
         ),
     ),
     SensorSpec(
-        name="Joint box temperature monitor — km 15",
+        name="Joint box temperature monitor — km 36",
         quantity_per_location=1,
         signal_type="PT100 3-wire, cable piggyback signal pair",
         range="0-80°C",
@@ -272,20 +278,20 @@ _CABLE_SENSORS: list[SensorSpec] = [
         standard="IEC 60840 §14 (joint requirements)",
         iec_61850_ln=None,
         notes=(
-            "Factory joint at 15 km. PT100 installed in potted resin inside the joint body. "
+            "Factory joint at 36 km. PT100 installed in potted resin inside the joint body. "
             "Temperature alarm at 60°C indicates joint degradation or burial problem. "
             "Signal transmitted via spare conductors in the cable sheath."
         ),
     ),
     SensorSpec(
-        name="Joint box temperature monitor — km 30",
+        name="Joint box temperature monitor — km 72",
         quantity_per_location=1,
         signal_type="PT100 3-wire, cable piggyback signal pair",
         range="0-80°C",
         accuracy="±0.5°C",
         standard="IEC 60840 §14",
         iec_61850_ln=None,
-        notes="Factory joint at 30 km. Same specification as km 15 joint monitor.",
+        notes="Factory joint at 72 km. Same specification as the km 36 joint monitor.",
     ),
 ]
 

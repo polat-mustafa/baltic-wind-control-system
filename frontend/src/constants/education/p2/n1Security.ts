@@ -15,19 +15,20 @@ export const n1SecurityEducation: EducationContent = {
 
   simpleExplanation:
     "Two export cables and two transformers per stage share the 510 MW. Lose one, and the other suddenly carries " +
-    "everything: about 140–170 % of its rating. It does not fail at once — it heats up over hours — so the turbines " +
+    "everything: about 165–170 % of its rating. It does not fail at once — it heats up over hours — so the turbines " +
     "have time to turn down to what one cable or one transformer can carry. Losing a string is easy: that power is " +
     "simply gone and the rest of the network has less to carry.",
 
   technicalExplanation:
     "Preventive security means the pre-outage dispatch is already safe for every contingency; corrective security " +
     "allows a remedial action after the outage. For this farm, preventive security against an export-circuit or " +
-    "transformer outage would cap the output at about 300 MW permanently. Corrective security keeps the full 510 MW " +
-    "and accepts a runback of about 170–210 MW, which the PPC executes in seconds — far inside the thermal time " +
+    "transformer outage would cap the output at about 290 MW permanently. Corrective security keeps the full 510 MW " +
+    "and accepts a runback of about 210–220 MW, which the PPC executes in seconds — far inside the thermal time " +
     "constants of cables (hours) and transformers (IEC 60076-7). Because the farm's marginal cost is zero and the " +
     "network is radial, an optimal power flow has nothing to trade: it reproduces this result. The binding " +
     "constraints are the N-1 thermal limits, not cost. The reactor intertrip matters for voltage: without it, " +
-    "240 MVAR of shunt reactors would face only one cable's ~130 MVAR of charging.",
+    "the tripped cable's two 120 MVAR reactors (onshore and OSS) would stay in service against no charging at all, " +
+    "so protection trips them with the cable.",
 
   standards: [
     { label: "Commission Regulation (EU) 2017/1485 (SO GL) — (N-1) criterion, contingency list, remedial actions", type: "regulation" },
@@ -55,11 +56,11 @@ export const n1SecurityEducation: EducationContent = {
       title: "Losing one export circuit at full output",
       scenario: "510 MW, both 220 kV circuits in service, one trips.",
       steps: [
-        "The survivor (~362 MVA) is loaded to ~143 %, and its reactor partner is intertripped",
+        "The survivor (√3 × 220 kV × 825 A ≈ 314 MVA, ABB/NKT datasheet) is loaded to ~174 % (its own 108 km of charging current adds to the load current); the tripped cable's two reactors are intertripped",
         "The STATCOM re-dispatches reactive power and holds the OSS voltage",
-        "The PPC runs the turbines back by ~167 MW to ~343 MW: 100 % loading, ~16 s at 10.2 MW/s",
+        "The PPC runs the turbines back by ~231 MW to ~279 MW: 99.5 % loading, ~23 s at 10.2 MW/s",
       ],
-      result: "Secure with a corrective runback; preventive security would have cost ~170 MW all the time.",
+      result: "Secure with a corrective runback; preventive security would have cost ~230 MW all the time.",
     },
   ],
 

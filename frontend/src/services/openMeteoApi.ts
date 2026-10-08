@@ -13,7 +13,7 @@
 import { HUB_HEIGHT_M, SHEAR_ALPHA } from "../utils/landingPhysics";
 
 /** Site centre (array centroid), WGS84. */
-export const SITE_LATLON = { lat: 54.797, lon: 16.397 };
+export const SITE_LATLON = { lat: 55.063, lon: 16.536 };
 
 export interface LiveWeather {
   fetchedAt: number;

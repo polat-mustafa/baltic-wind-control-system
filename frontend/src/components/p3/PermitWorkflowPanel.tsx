@@ -14,7 +14,8 @@ import { Check, Plus } from "lucide-react";
 import { useScadaStore } from "../../store/scadaStore";
 import { InfoButton } from "../ui/InfoButton";
 import { permitWorkflowInfo } from "../../constants/panelInfo";
-import { BREAKERS } from "../../utils/scadaTopology";
+import { useFleet } from "../../lib/fleet";
+import { breakers } from "../../utils/scadaTopology";
 import { cn } from "../../lib/utils";
 
 const STEPS = [
@@ -29,8 +30,9 @@ const STEPS = [
   { id: "closed", label: "Closed" },
 ] as const;
 
-const EQUIPMENT = [
-  ...Object.values(BREAKERS).map((b) => b.bay.split(" · ")[0]),
+/** Isolation points of the live fleet's switchgear plus the main plant. */
+const equipmentOf = (f: ReturnType<typeof useFleet>) => [
+  ...Object.values(breakers(f)).map((b) => b.bay.split(" · ")[0]),
   "TX-OSS-01",
   "TX-OSS-02",
   "TX-ONS-01",
@@ -59,6 +61,7 @@ export default function PermitWorkflowPanel() {
     requested_by: "Protection engineer",
   });
   const [busy, setBusy] = useState(false);
+  const fleet = useFleet();
 
   const role = roles.find((r) => r.level === roleLevel);
   const stepIdx = activePermit ? STEPS.findIndex((s) => s.id === activePermit.status) : -1;
@@ -93,7 +96,7 @@ export default function PermitWorkflowPanel() {
               Equipment
               <input className={inputCls} list="ptw-equipment" value={form.equipment_id} onChange={(e) => setForm({ ...form, equipment_id: e.target.value })} required />
               <datalist id="ptw-equipment">
-                {EQUIPMENT.map((e) => (
+                {equipmentOf(fleet).map((e) => (
                   <option key={e} value={e} />
                 ))}
               </datalist>

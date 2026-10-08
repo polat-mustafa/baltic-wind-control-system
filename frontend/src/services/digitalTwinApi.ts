@@ -2,7 +2,7 @@
  * Typed client for the Digital Twin API (backend/app/routers/digital_twin.py).
  *
  * Times are Unix seconds (UTC). Channel order everywhere:
- * power, rotor_speed, pitch, gearbox_temp, anemometer.
+ * power, rotor_speed, pitch, generator_temp, anemometer.
  */
 
 import { post, request } from "./apiClient";
@@ -14,7 +14,7 @@ export type ScenarioName =
   | "rotor_icing"
   | "pitch_misalignment"
   | "converter_derating"
-  | "gearbox_degradation"
+  | "generator_degradation"
   | "anemometer_drift"
   | "combined";
 
@@ -22,10 +22,10 @@ export type FaultKind =
   | "aero_efficiency"
   | "pitch_offset"
   | "power_limit"
-  | "gearbox_loss"
+  | "generator_loss"
   | "anemometer_gain";
 
-export type ChannelKey = "power" | "rotor_speed" | "pitch" | "gearbox_temp" | "anemometer";
+export type ChannelKey = "power" | "rotor_speed" | "pitch" | "generator_temp" | "anemometer";
 export type HealthStatus = "normal" | "alert" | "alarm";
 
 // ── Model card ───────────────────────────────────────────────────
@@ -103,7 +103,7 @@ export interface ReferenceCurve {
   pitch_deg: number[];
   tip_speed_ratio: number[];
   cp: number[];
-  gearbox_loss_kw: number[];
+  generator_loss_kw: number[];
   region: number[];
   region_names: Record<string, string>;
   p1_table_power_mw: number[];

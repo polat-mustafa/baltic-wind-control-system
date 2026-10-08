@@ -15,8 +15,9 @@ import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 
 import { useLandingStore } from "../../../../store/landingStore";
+import { useFleet } from "../../../../lib/fleet";
 import { farmAround } from "../model/farm";
-import { HUB, PRECONE, SHAFT_TILT } from "../model/layout";
+import { BLADE_DRAW_SCALE, HUB, PRECONE, SHAFT_TILT } from "../model/layout";
 import { useV236Model } from "../model/useV236Model";
 import { bladeMarkOnBeforeCompile, bladeOnBeforeCompile } from "./bladeShader";
 
@@ -26,7 +27,8 @@ const YAW_RATE_DEG_S = 1; // same as the simulation's yaw drive
 
 export const FarmTurbines = memo(function FarmTurbines({ turbineId }: { turbineId: string }) {
   const model = useV236Model();
-  const others = useMemo(() => farmAround(turbineId).filter((t) => t.id !== turbineId), [turbineId]);
+  const fleet = useFleet();
+  const others = useMemo(() => farmAround(turbineId, fleet).filter((t) => t.id !== turbineId), [turbineId, fleet]);
   const n = others.length;
 
   const towerRef = useRef<THREE.InstancedMesh>(null);
@@ -54,7 +56,7 @@ export const FarmTurbines = memo(function FarmTurbines({ turbineId }: { turbineI
       nacOff: new THREE.Matrix4().makeTranslation(0, 151, -5),
       spin: new THREE.Matrix4(),
       az: new THREE.Matrix4(),
-      cone: new THREE.Matrix4().makeRotationX(PRECONE),
+      cone: new THREE.Matrix4().makeRotationX(PRECONE).multiply(new THREE.Matrix4().makeScale(BLADE_DRAW_SCALE, BLADE_DRAW_SCALE, BLADE_DRAW_SCALE)),
       pitch: new THREE.Matrix4(),
       tmp: new THREE.Matrix4(),
       rotor: new THREE.Matrix4(),

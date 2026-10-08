@@ -47,6 +47,8 @@ export interface CpSurfaceResponse {
   cp_max: number;
   lambda_opt: number;
   betz_limit: number;
+  /** Origin of the Cp table (ROSCO Cp_Ct_Cq.IEA15MW.txt). */
+  source: string;
 }
 
 export interface TurbinePhysicsConfig {
@@ -59,15 +61,24 @@ export interface TurbinePhysicsConfig {
   rotor_inertia_kg_m2: number;
   min_rotor_speed_rpm: number;
   max_rotor_speed_rpm: number;
-  gearbox_ratio: number;
-  gearbox_efficiency: number;
+  overspeed_shutdown_rpm: number;
+  /** "Low speed, Direct drive" — no gearbox. */
+  drivetrain: string;
+  generator_poles: number;
+  generator_voltage_v: number;
   generator_efficiency: number;
-  pitch_kp: number;
-  pitch_ki: number;
+  converter_efficiency: number;
+  rated_torque_nm: number;
+  tsr_opt: number;
+  /** ROSCO pitch gain schedule: pitch [deg] → Kp [s], Ki [-]. */
+  pitch_gain_schedule_deg: number[];
+  pitch_kp_s: number[];
+  pitch_ki: number[];
   pitch_rate_limit_deg_s: number;
   yaw_rate_deg_s: number;
   yaw_deadband_deg: number;
   yaw_power_loss_exponent: number;
+  source: string;
 }
 
 export interface AerodynamicStateResponse {

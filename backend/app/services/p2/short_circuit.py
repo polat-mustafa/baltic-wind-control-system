@@ -59,7 +59,7 @@ Constants (SB-510)
 import pandapower.shortcircuit as sc
 
 from app.schemas.grid import ShortCircuitBusResult, ShortCircuitResponse
-from app.services.p2.network_model import build_network
+from app.services.p2.network_model import SB510, FarmSpec, build_network
 
 MAKING_FACTOR = 2.5  # IEC 62271-100: rated making current = 2.5 × Isc at 50 Hz
 
@@ -73,8 +73,9 @@ BREAKER_RATINGS_KA: dict[float, float] = {
 
 def calc_short_circuit(
     case: str = "max",
-    export_length_km: float = 45.0,
-    grid_ssc_mva: float = 10_000.0,
+    export_length_km: float | None = None,
+    grid_ssc_mva: float | None = None,
+    spec: FarmSpec = SB510,
 ) -> ShortCircuitResponse:
     """Run IEC 60909 short-circuit calculation for all buses.
 
@@ -84,16 +85,19 @@ def calc_short_circuit(
     ----------
     case : str
         'max' (c=1.1) for breaker sizing or 'min' (c=1.0) for protection sensitivity.
-    export_length_km : float
-        Export cable length [km]. Default: 45.0.
+    export_length_km : float | None
+        Export cable length [km]; None = the spec's (SB-510: 108).
     grid_ssc_mva : float
         Grid short-circuit power at PCC [MVA]. Default: 10,000.
+    spec : FarmSpec
+        Farm design. Default: SB-510.
 
     Returns
     -------
     ShortCircuitResponse
         Per-bus short-circuit results with breaker adequacy assessment.
     """
+    grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     if case not in ("max", "min"):
         msg = f"case must be 'max' or 'min', got '{case}'"
         raise ValueError(msg)
@@ -106,6 +110,7 @@ def calc_short_circuit(
         grid_ssc_mva=grid_ssc_mva,
         generation_fraction=1.0,
         r_at_operating_temp=False,
+        spec=spec,
     )
 
     # IEC 60909 voltage factor

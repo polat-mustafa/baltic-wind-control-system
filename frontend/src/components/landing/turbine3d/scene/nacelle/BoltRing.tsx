@@ -3,7 +3,7 @@
  *
  * Used to add engineering detail on component interfaces:
  *   - Main-bearing pillow-block to bedplate
- *   - Gearbox housing flange to torque arms
+ *   - Turret flange to the bedplate
  *   - Transformer bushings
  *   - Yaw-bearing to tower top
  *   - Generator mount to bedplate

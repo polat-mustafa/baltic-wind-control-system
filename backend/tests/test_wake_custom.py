@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 
 client = TestClient(app)
 URL = "/api/v1/wind/wake-analysis-custom"
-D = 236.0
+D = 241.35  # IEA-15-240-RWT (default model)
 
 
 def _run(x: list[float], y: list[float]) -> Any:
@@ -58,3 +59,81 @@ def test_rejects_overlapping_rotors() -> None:
 def test_rejects_too_many_turbines() -> None:
     xs = [i * 1000.0 for i in range(151)]
     assert _run(xs, [0.0] * 151).status_code == 422
+
+
+def test_turbine_model_choice() -> None:
+    """IEA 22 MW: bigger rotor and rating → more energy per turbine, CF on its own 22 MW."""
+    base = client.post(URL, json={"x_m": [0.0], "y_m": [0.0]}).json()
+    big = client.post(
+        URL, json={"x_m": [0.0], "y_m": [0.0], "turbine_model": "IEA-22-280-RWT"}
+    ).json()
+    assert big["gross_aep_gwh"] > base["gross_aep_gwh"]
+    assert big["capacity_factor"] == pytest.approx(big["gross_aep_gwh"] / (22.0 * 8.76), abs=1e-3)
+
+
+def test_rejects_unknown_turbine_model() -> None:
+    r = client.post(URL, json={"x_m": [0.0], "y_m": [0.0], "turbine_model": "V999"})
+    assert r.status_code == 422
+    assert "Unknown turbine model" in r.text
+
+
+def test_site_rose_sets_the_wake_direction() -> None:
+    """Wind only from the west: an east–west pair is waked, a north–south pair is not."""
+    west = [0.0] * 12
+    west[9] = 1.0  # sector centred on 270°
+    gap = 6 * D
+    body = {"weibull_a": 10.6, "weibull_k": 2.05, "sector_frequencies": west}
+    ew = client.post(URL, json={"x_m": [0.0, gap], "y_m": [0.0, 0.0], **body}).json()
+    ns = client.post(URL, json={"x_m": [0.0, 0.0], "y_m": [0.0, gap], **body}).json()
+    assert ew["wake_loss_percent"] > 5.0
+    assert ns["wake_loss_percent"] < 0.5
+    # the eastern turbine of the east–west pair is the waked one
+    assert ew["per_turbine_aep_gwh"][1] < ew["per_turbine_aep_gwh"][0]
+
+
+def test_rejects_bad_rose() -> None:
+    assert (
+        client.post(
+            URL, json={"x_m": [0.0], "y_m": [0.0], "sector_frequencies": [0.1] * 5}
+        ).status_code
+        == 422
+    )
+    r = client.post(URL, json={"x_m": [0.0], "y_m": [0.0], "sector_frequencies": [0.0] * 12})
+    assert r.status_code == 422
+
+
+MOVES = "/api/v1/wind/wake-moves"
+
+
+def test_wake_moves_pulls_a_waked_turbine_out_of_the_row() -> None:
+    """A turbine 4 D behind another, wind only from the west: moving it 4 D sideways gains AEP."""
+    west = [0.0] * 12
+    west[9] = 1.0  # 270°
+    body = {
+        "x_m": [0.0, 4 * D],
+        "y_m": [0.0, 0.0],
+        "sector_frequencies": west,
+        "moves": [{"index": 1, "x_m": 4 * D, "y_m": 4 * D}, {"index": 1, "x_m": 3 * D, "y_m": 0.0}],
+    }
+    r = client.post(MOVES, json=body)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    base = client.post(URL, json={k: body[k] for k in ("x_m", "y_m", "sector_frequencies")}).json()
+    assert out["base_net_aep_gwh"] == base["net_aep_gwh"]
+    sideways, closer = out["moves"]
+    assert sideways["index"] == 1 and sideways["delta_gwh"] > 0
+    assert sideways["wake_loss_percent"] < base["wake_loss_percent"]
+    assert closer["delta_gwh"] < 0  # 3 D behind: deeper in the wake
+    share = 100 * sideways["delta_gwh"] / out["base_net_aep_gwh"]
+    assert sideways["delta_percent"] == pytest.approx(share, abs=0.01)
+
+
+def test_wake_moves_rejects_bad_moves() -> None:
+    base: dict[str, Any] = {"x_m": [0.0, 2000.0], "y_m": [0.0, 0.0]}
+    outside = [{"index": 2, "x_m": 0, "y_m": 0}]
+    overlap = [{"index": 1, "x_m": 50, "y_m": 0}]
+    assert client.post(MOVES, json={**base, "moves": outside}).status_code == 422
+    assert client.post(MOVES, json={**base, "moves": overlap}).status_code == 422
+    assert client.post(MOVES, json={**base, "moves": []}).status_code == 422
+    six = [{"index": 1, "x_m": 3000.0 + i, "y_m": 0.0} for i in range(6)]
+    assert client.post(MOVES, json={**base, "moves": six}).status_code == 422

@@ -19,7 +19,7 @@ SB-510 uses a 3-tier OT network following IEC 61850 / IEC 62443:
     IEC 62443 Zone 2 (OT critical) — Purdue Level 1/2
 
   Tier 3 — WAN (OSS to Onshore):
-    Primary: fibre in the export cable (dedicated to OT) — 10 Gbps, 45 km x 5 us/km = 0.23 ms
+    Primary: fibre in the export cable (dedicated to OT) — 10 Gbps, 108 km x 5 us/km = 0.54 ms
     Secondary: licensed microwave (MW backup) — 100 Mbps, 0.8 ms
     Protocol: MPLS over fibre, IPsec tunnel
     Onshore firewall (IEC 62443 conduit control) separates OT from IT
@@ -51,7 +51,10 @@ Root nodes:
 
 from __future__ import annotations
 
+import copy
 from typing import Any
+
+from app.services.p2.network_model import SB510, FarmSpec
 
 # ── Network topology data ─────────────────────────────────────────────────────
 
@@ -117,7 +120,7 @@ _NODES = [
     # WAN layer
     {
         "node_id": "WAN-FIBRE",
-        "name": "Export-cable fibre link (OSS to onshore, 45 km)",
+        "name": "Export-cable fibre link (OSS to onshore, 108 km)",
         "layer": "WAN",
         "protocol": "MPLS / IP",
         "redundant": True,
@@ -228,7 +231,7 @@ _LINKS = [
         "to_node": "WAN-FIBRE",
         "link_type": "FIBRE_OPTIC",
         "bandwidth_mbps": 10000.0,
-        "latency_ms": 0.225,  # 45 km * 5 us/km propagation delay
+        "latency_ms": 0.54,  # 108 km * 5 us/km propagation delay
         "redundant": True,
         "encryption": "IPsec AES-256",
     },
@@ -397,12 +400,12 @@ _LATENCY_BUDGETS: list[dict[str, Any]] = [
         },
     },
     {
-        "path_description": "Operator display: OSS gateway -> onshore control centre (45 km WAN)",
+        "path_description": "Operator display: OSS gateway -> onshore control centre (108 km WAN)",
         "performance_class": "TT1",
         "required_latency_ms": 1000.0,
         "budget_breakdown": {
             "gateway_iec104_ms": 10.0,  # spontaneous IEC 60870-5-104 transmission
-            "fibre_propagation_ms": 0.225,  # 45 km x 5 us/km
+            "fibre_propagation_ms": 0.54,  # 108 km x 5 us/km
             "firewall_ipsec_ms": 1.0,
             "scada_server_ms": 50.0,
             "hmi_refresh_ms": 250.0,
@@ -414,12 +417,33 @@ _LATENCY_BUDGETS: list[dict[str, Any]] = [
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
-def get_network_topology() -> dict[str, Any]:
+def _fibre_ms(spec: FarmSpec) -> float:
+    """Propagation delay of the export-cable fibre: 5 µs/km [ms]."""
+    return round(spec.export_length_km * 0.005, 3)
+
+
+def _for_farm(spec: FarmSpec) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Nodes and links of the farm: first, central and last turbine IED, export fibre length."""
+    nodes, links = copy.deepcopy(_NODES), copy.deepcopy(_LINKS)
+    n = spec.num_turbines
+    for node, link, k, label in zip(
+        nodes[:3], links[:3], (1, (n + 1) // 2, n), ("", " (central turbine)", ""), strict=True
+    ):
+        node["node_id"] = link["from_node"] = f"WTG-IED-{k:02d}"
+        node["name"] = f"WTG-{k:02d} Bay Unit IED{label}"
+    wan = next(x for x in nodes if x["node_id"] == "WAN-FIBRE")
+    wan["name"] = f"Export-cable fibre link (OSS to onshore, {spec.export_length_km:.0f} km)"
+    next(x for x in links if x["link_id"] == "L07")["latency_ms"] = _fibre_ms(spec)
+    return nodes, links
+
+
+def get_network_topology(spec: FarmSpec = SB510) -> dict[str, Any]:
     """Return the complete communication network topology."""
-    total_nodes = len(_NODES)
-    total_links = len(_LINKS)
-    redundant_links = sum(1 for lnk in _LINKS if lnk["redundant"])
-    redundant_nodes = sum(1 for n in _NODES if n["redundant"])
+    nodes, links = _for_farm(spec)
+    total_nodes = len(nodes)
+    total_links = len(links)
+    redundant_links = sum(1 for lnk in links if lnk["redundant"])
+    redundant_nodes = sum(1 for n in nodes if n["redundant"])
 
     assessment = (
         f"{total_nodes} nodes, {total_links} links "
@@ -428,36 +452,42 @@ def get_network_topology() -> dict[str, Any]:
         "IEC 62443 SL-2: firewalls at OT/WAN and WAN/IT boundaries."
     )
     return {
-        "nodes": _NODES,
-        "links": _LINKS,
+        "nodes": nodes,
+        "links": links,
         "node_count": total_nodes,
         "link_count": total_links,
         "assessment": assessment,
     }
 
 
-def get_opcua_namespace() -> dict[str, Any]:
+def get_opcua_namespace(spec: FarmSpec = SB510) -> dict[str, Any]:
     """Return OPC-UA address space summary."""
-    # Full farm: 34 turbines x 5 tags + 3 grid + 2 BESS + misc = ~180 nodes
-    estimated_total = 34 * 5 + 3 + 2 + 10  # 185 nodes estimated
+    # Full farm: turbines x 5 tags + 3 grid + 2 BESS + misc (SB-510: 185 nodes)
+    estimated_total = spec.num_turbines * 5 + 3 + 2 + 10
     return {
         "server_url": _SERVER_URL,
         "security_policy": _SECURITY_POLICY,
         "namespace_uri": _NAMESPACE_URI,
         "node_count": estimated_total,
-        "nodes": _OPCUA_NODES,  # sample — not all 185
+        "nodes": _OPCUA_NODES,  # sample, not the whole address space
         "performance_class": _PERF_CLASS,
     }
 
 
-def get_latency_budget(path_index: int = 0) -> dict[str, Any]:
+def get_latency_budget(path_index: int = 0, spec: FarmSpec = SB510) -> dict[str, Any]:
     """
     Return latency budget for a specific message path.
 
     path_index: 0=GOOSE, 1=Measurement, 2=SCADA WAN
     """
     path_index = max(0, min(path_index, len(_LATENCY_BUDGETS) - 1))
-    budget = _LATENCY_BUDGETS[path_index].copy()
+    budget = copy.deepcopy(_LATENCY_BUDGETS[path_index])
+    if path_index == 2:  # WAN: export-cable fibre of this farm
+        km = spec.export_length_km
+        budget["path_description"] = (
+            f"Operator display: OSS gateway -> onshore control centre ({km:.0f} km WAN)"
+        )
+        budget["budget_breakdown"]["fibre_propagation_ms"] = _fibre_ms(spec)
     total = sum(budget["budget_breakdown"].values())
     margin = budget["required_latency_ms"] - total
     budget["total_latency_ms"] = round(total, 3)

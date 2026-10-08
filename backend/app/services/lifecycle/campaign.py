@@ -24,7 +24,16 @@ Method (teaching version of a marine-operations campaign simulation):
    through gaps of up to 30 days between activities; a longer gap costs a
    new mobilisation. Cost = day rate × charter days + mobilisations.
 
-All vessel limits, durations and rates are ILLUSTRATIVE teaching values
+5. Port calls: a vessel carrying several units goes back to port after every
+   load. A round trip = units × fastening time at the quay + 2 × port
+   distance / transit speed — NREL ORBIT defaults (process_times.yaml:
+   monopile 12 h + transition piece 8 h, jacket 12 h, OSS jacket / topside
+   12 h, turbine = 2 tower sections × 4 h + nacelle 4 h + 3 blades × 1.5 h;
+   vessels library: HLV 7, WTIV 10, cable-lay 11.5 km/h). The port distance
+   is the shortest sea route from the installation port (site assessment).
+   Removal uses the same times for unloading.
+
+Vessel limits, operation durations and rates are ILLUSTRATIVE teaching values
 (order of magnitude for 15 MW-class projects), returned with the result so
 the page can show them. They are not vendor or market data.
 """
@@ -46,6 +55,7 @@ from app.services.p1.weather_window import (
     _VESSEL_HS_LIMIT,
     _VESSEL_MOBILISATION_EUR,
     _VESSEL_VW_LIMIT,
+    CTV_SPEED_KMH,
 )
 
 Mode = Literal["install", "remove"]
@@ -67,6 +77,22 @@ class Vessel:
     wind_at_hub: bool
     day_rate_keur: float
     mobilisation_keur: float
+    #: Transit speed [km/h]: NREL ORBIT vessel library (example_heavy_lift_vessel 7,
+    #: example_wtiv 10, example_cable_lay_vessel 11.5); CTV 37.04 = 20 kn (WOMBAT).
+    transit_kmh: float = 0.0
+
+
+#: Fastening time per unit at the quay [h] — NREL ORBIT core/defaults/process_times.yaml.
+LOAD_HOURS = {
+    "monopile": 12.0 + 8.0,  # mono_fasten_time + tp_fasten_time
+    "jacket": 12.0,  # jacket_fasten_time
+    "oss": 12.0,  # jacket_fasten_time / topside_fasten_time
+    "turbine": 2 * 4.0 + 4.0 + 3 * 1.5,  # 2 tower sections (ORBIT 15MW_generic) + nacelle + blades
+}
+
+#: SB-510's installation port by sea: Rønne (DK), 116.7 km to the nearest turbine of the
+#: site (site assessment, `test_sb510_install_port_matches_the_assessment`).
+SB510_INSTALL_PORT_KM = 116.7
 
 
 # CTV limits and rates are the ones of the O&M model (services/p1/weather_window.py).
@@ -82,6 +108,7 @@ VESSELS: dict[str, Vessel] = {
             False,
             300.0,
             1500.0,
+            7.0,
         ),
         Vessel(
             "WTIV",
@@ -92,9 +119,18 @@ VESSELS: dict[str, Vessel] = {
             True,
             250.0,
             1000.0,
+            10.0,
         ),
         Vessel(
-            "CLV", "Cable-lay vessel", "Export and array cables", 2.0, 15.0, False, 150.0, 800.0
+            "CLV",
+            "Cable-lay vessel",
+            "Export and array cables",
+            2.0,
+            15.0,
+            False,
+            150.0,
+            800.0,
+            11.5,
         ),
         Vessel(
             "CTV",
@@ -105,6 +141,7 @@ VESSELS: dict[str, Vessel] = {
             False,
             _VESSEL_DAY_RATE["CTV"] / 1000,
             _VESSEL_MOBILISATION_EUR["CTV"] / 1000,
+            CTV_SPEED_KMH,
         ),
         Vessel(
             "SURVEY",
@@ -131,7 +168,7 @@ class Activity:
     trip_every: int = 0
     """Units carried per port round trip (0 = no port calls)."""
     trip_hours: float = 0.0
-    """Port loading + transit per round trip [h], not weather-limited here."""
+    """Port loading + transit per round trip [h] (``round_trip``), not weather-limited here."""
     after: list[str] = field(default_factory=list)
     gate: Callable[[int, dict[str, NDArray[np.int64]]], int] | None = None
     """Earliest start step of unit k from the unit end times of earlier activities."""
@@ -156,6 +193,13 @@ class CampaignInput:
     remove_export: bool = False
     remove_scour: bool = False
     limits: dict[str, tuple[float, float]] = field(default_factory=dict)
+    port_km: float = SB510_INSTALL_PORT_KM
+    """Installation port to the site by sea [km]."""
+
+
+def round_trip(c: CampaignInput, vessel: str, units: int, load: str) -> float:
+    """Port round trip [h]: fasten ``units`` at the quay, sail out and back."""
+    return units * LOAD_HOURS[load] + 2.0 * c.port_km / VESSELS[vessel].transit_kmh
 
 
 def _string_of(strings: list[int]) -> list[int]:
@@ -175,6 +219,8 @@ def install_plan(c: CampaignInput) -> list[Activity]:
     jacket = c.foundation == "jacket"
     export_units = math.ceil(c.export_km / 5.0) + 2  # 5 km lay-and-bury per day + two pull-ins
     array_op = max(12.0, 24.0 * (c.array_km / n) / 1.6)  # 24 h for a 1.6 km section incl. pull-ins
+    found = "jacket" if jacket else "monopile"
+    per_trip = 2 if jacket else 4
 
     def commissioning_gate(k: int, ends: dict[str, NDArray[np.int64]]) -> int:
         s = string_of[k]
@@ -182,15 +228,23 @@ def install_plan(c: CampaignInput) -> list[Activity]:
         return int(max(ends["turbines"][k], max(ends["array"][j] for j in same)))
 
     return [
-        Activity("oss", "Offshore substation: jacket and topside lifts", "HLV", 2, 36.0, 2, 48.0),
+        Activity(
+            "oss",
+            "Offshore substation: jacket and topside lifts",
+            "HLV",
+            2,
+            36.0,
+            2,
+            round_trip(c, "HLV", 2, "oss"),
+        ),
         Activity(
             "foundations",
             "Jackets with pin piles" if jacket else "Monopiles and transition pieces",
             "HLV",
             n,
             48.0 if jacket else 30.0,
-            2 if jacket else 4,
-            48.0,
+            per_trip,
+            round_trip(c, "HLV", per_trip, found),
         ),
         Activity("export", "Export cable: lay, bury, pull in", "CLV", export_units, 24.0),
         Activity(
@@ -209,7 +263,7 @@ def install_plan(c: CampaignInput) -> list[Activity]:
             n,
             36.0,
             4,
-            48.0,
+            round_trip(c, "WTIV", 4, "turbine"),
             gate=_unit_gate("foundations"),
         ),
         # P5 Commissioning: the export system energisation (switching programme S-001 … S-022)
@@ -252,7 +306,7 @@ def remove_plan(c: CampaignInput) -> list[Activity]:
             n,
             36.0,
             4,
-            48.0,
+            round_trip(c, "WTIV", 4, "turbine"),
             gate=_unit_gate("isolate"),
         ),
         Activity(
@@ -272,10 +326,18 @@ def remove_plan(c: CampaignInput) -> list[Activity]:
             n,
             found_op,
             2 if jacket else 4,
-            48.0,
+            round_trip(c, "HLV", 2 if jacket else 4, "jacket" if jacket else "monopile"),
             gate=_unit_gate("array"),
         ),
-        Activity("oss", "Remove offshore substation topside and jacket", "HLV", 2, 36.0, 2, 48.0),
+        Activity(
+            "oss",
+            "Remove offshore substation topside and jacket",
+            "HLV",
+            2,
+            36.0,
+            2,
+            round_trip(c, "HLV", 2, "oss"),
+        ),
         Activity(
             "export",
             "Recover export cable" if c.remove_export else "Cut, seal and bury export cable ends",
@@ -450,6 +512,7 @@ def run_campaign(c: CampaignInput) -> dict[str, Any]:
                 else "10 m",
                 "day_rate_keur": v.day_rate_keur,
                 "mobilisation_keur": v.mobilisation_keur,
+                "transit_kmh": v.transit_kmh,
                 "workable_pct_by_month": work_m,
                 "window_hours": need * STEP_H,
                 "window_pct_by_month": win_m,
@@ -470,6 +533,7 @@ def run_campaign(c: CampaignInput) -> dict[str, Any]:
                 "units": a.units,
                 "op_hours": a.op_hours,
                 "trip_every": a.trip_every,
+                "trip_hours": round(a.trip_hours, 1),
                 "start_day": round(float(a_start[median_run, i] / spd), 1),
                 "end_day": round(float(a_end[median_run, i] / spd), 1),
                 "wow_days": round(float(a_wow[median_run, i] / spd), 1),

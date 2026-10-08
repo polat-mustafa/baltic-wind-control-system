@@ -1,8 +1,9 @@
 /**
  * Zustand store for the wind farm map landing page.
  *
- * Manages simulated live data for 34 turbines, 2 transformers,
- * export cable, and farm KPIs. Uses setInterval to jitter values
+ * Manages simulated live data for the turbines of the live fleet
+ * (lib/fleet.ts: SB-510's 34 or the own project's), 2 transformers,
+ * export cable, and farm KPIs. A new fleet resets the plant. Uses setInterval to jitter values
  * every 5 seconds, creating a "live SCADA" feel without backend.
  *
  * Data is stored as Record<string, TurbineData> with a stable
@@ -13,7 +14,7 @@
 import { create } from "zustand";
 
 import { FAULT_TYPES } from "../constants/faultCategories";
-import { TURBINE_POSITIONS } from "../constants/windFarmLayout";
+import { liveFleet, pathToOss, useFleetStore, type Fleet } from "../lib/fleet";
 import { useFaultBus } from "./faultBus";
 import type {
   CableData,
@@ -30,14 +31,15 @@ import {
   V236,
   exportCableState,
   farmWakeDeficits,
+  plantNet,
   v236PitchDeg,
-  v236PowerMW,
+  turbinePowerMW,
   v236RotorRpm,
 } from "../utils/landingPhysics";
 
 // ── Constants ──────────────────────────────────────────────────
 
-// V236 model (power curve, rotor speed, pitch) lives in utils/landingPhysics
+// Turbine model (IEA 15 MW power curve, rotor speed, pitch) lives in utils/landingPhysics
 // so the store, detail panel, curtailment inference and 3D viewer agree.
 const RATED_POWER_MW = V236.ratedMW;
 
@@ -92,7 +94,7 @@ function computePitchAngle(windMs: number, status: TurbineStatus): number {
 /** Electrical power [MW] from the V236 curve; curtailed units run at 60 %. */
 function computePower(windMs: number, status: TurbineStatus): number {
   if (status === "fault" || status === "offline") return 0;
-  const p = v236PowerMW(windMs);
+  const p = turbinePowerMW(windMs);
   return status === "curtailed" ? p * 0.6 : p;
 }
 
@@ -166,11 +168,9 @@ function computeEnvironment(windMs: number, elapsedS: number): EnvironmentData {
 
 // ── Initial Data ──────────────────────────────────────────────
 
-const TURBINE_IDS = TURBINE_POSITIONS.map((p) => p.id);
-
-function createInitialTurbineMap(): Record<string, TurbineData> {
+function createInitialTurbineMap(f: Fleet): Record<string, TurbineData> {
   const map: Record<string, TurbineData> = {};
-  for (const pos of TURBINE_POSITIONS) {
+  for (const pos of f.turbines) {
     const windMs = rand(10, 12);
     const status: TurbineStatus = "operating";
     map[pos.id] = {
@@ -193,12 +193,12 @@ function createInitialTurbineMap(): Record<string, TurbineData> {
   return map;
 }
 
-function createInitialTransformers(): Record<string, TransformerData> {
+function createInitialTransformers(f: Fleet): Record<string, TransformerData> {
   return {
     "OSS-TX1": {
       name: "TX-OSS-01/02",
       type: "Three-phase ONAN/ONAF",
-      ratingMVA: 300,
+      ratingMVA: f.net.oss_trafo_mva,
       units: 2,
       hvKV: 220,
       lvKV: 66,
@@ -216,7 +216,7 @@ function createInitialTransformers(): Record<string, TransformerData> {
     "ONS-TX1": {
       name: "TX-ON-01/02",
       type: "Three-phase ONAN/ONAF",
-      ratingMVA: 300,
+      ratingMVA: f.net.onshore_trafo_mva,
       units: 2,
       hvKV: 400,
       lvKV: 220,
@@ -234,12 +234,16 @@ function createInitialTransformers(): Record<string, TransformerData> {
   };
 }
 
-function createInitialCable(): CableData {
+function createInitialCable(f: Fleet): CableData {
+  const net = plantNet(f);
   return {
-    type: "2 × 3-core XLPE, 31.5 km subsea + 13.4 km land (parallel circuits)",
+    type:
+      f.source === "sb510"
+        ? "2 × 3-core XLPE, 63.5 km subsea + 13 km land (parallel circuits)"
+        : `${net.circuits} × 3-core XLPE, ${net.exportKm.toFixed(0)} km (parallel circuits, route not yet surveyed)`,
     voltageRatingKV: 220,
-    currentRatingA: 950, // per circuit — matches backend EXPORT_CABLE_1000
-    lengthKm: 45,
+    currentRatingA: 825, // per circuit — matches backend EXPORT_CABLE_1000 (ABB/NKT datasheet)
+    lengthKm: net.exportKm,
     thermalLoadingPct: 68,
     crossSectionMm2: 1000,
     manufacturer: "Nexans",
@@ -261,7 +265,7 @@ function computeKPIs(turbineMap: Record<string, TurbineData>): FarmKPI {
   const activeAlerts = turbines.filter(
     (t) => t.status === "fault" || t.status === "curtailed",
   ).length;
-  const capacityFactorPct = (totalOutputMW / 510) * 100;
+  const capacityFactorPct = (totalOutputMW / (turbines.length * RATED_POWER_MW)) * 100;
   // Grid frequency: mean-reverting walk (updated per tick), shown to 1 mHz
   const gridFrequencyHz = Math.round(_gridFreq * 1000) / 1000;
   // Revenue: spot price ~€80/MWh × energy produced today (sum of turbines)
@@ -367,8 +371,10 @@ export interface ArrayCableFault {
   stringNumber: number;
   /** Turbines beyond the fault — out until repair. */
   beyondIds: string[];
-  /** Turbines between the OSS and the fault — back after isolation. */
+  /** Turbines on the string not beyond the fault — back after isolation. */
   restorableIds: string[];
+  /** Fault passage indicators lit: the switchgear between the fault and the OSS. */
+  litIds: string[];
   stage: "tripped" | "isolated";
   /** Training: isolation is left to the operator. */
   manual: boolean;
@@ -547,15 +553,21 @@ const VIEWER_DEFAULTS = {
 
 // ── Store Implementation ────────────────────────────────────────
 
-export const useLandingStore = create<LandingState>((set) => {
-  const initialMap = createInitialTurbineMap();
-
+/** Fresh plant for a fleet: every turbine running, no scenario, no crews. */
+function plantFor(f: Fleet) {
+  const turbineMap = createInitialTurbineMap(f);
   return {
-    turbineMap: initialMap,
-    turbineIds: TURBINE_IDS,
-    transformers: createInitialTransformers(),
-    cable: createInitialCable(),
-    kpis: computeKPIs(initialMap),
+    turbineMap,
+    turbineIds: f.turbines.map((t) => t.id),
+    transformers: createInitialTransformers(f),
+    cable: createInitialCable(f),
+    kpis: computeKPIs(turbineMap),
+  };
+}
+
+export const useLandingStore = create<LandingState>((set) => {
+  return {
+    ...plantFor(liveFleet()),
     environment: computeEnvironment(hubTo10m(11.0), 0),
 
     // ── 3D viewer state ────────────────────────────────────────────
@@ -630,6 +642,9 @@ export const useLandingStore = create<LandingState>((set) => {
       _outOfService.clear();
       for (const id of stringIds) _outOfService.add(id);
       const restorableIds = stringIds.filter((id) => !beyondIds.includes(id));
+      // fault current flows OSS → fault: along the cable path, not into other branches
+      const onPath = new Set(beyondIds.flatMap((id) => pathToOss(liveFleet(), id)));
+      const litIds = restorableIds.filter((id) => onPath.has(id));
       set((state) => {
         // Feeder CB trips (50/51, 50N/51N) within ~100 ms: output drops at once
         const turbineMap = setStatuses(state.turbineMap, stringIds, "offline", true);
@@ -641,6 +656,7 @@ export const useLandingStore = create<LandingState>((set) => {
             stringNumber,
             beyondIds,
             restorableIds,
+            litIds,
             stage: "tripped",
             manual: !!manual,
             trippedAt: Date.now(),
@@ -761,12 +777,13 @@ export const useLandingStore = create<LandingState>((set) => {
               );
 
           const wakeDeficits = farmWakeDeficits(_windDirDeg);
+          const posById = new Map(liveFleet().turbines.map((p) => [p.id, p]));
 
           for (const id of state.turbineIds) {
             const t = state.turbineMap[id];
 
             // Per-turbine freestream varies slightly with position across the array
-            const pos = TURBINE_POSITIONS.find((p) => p.id === id);
+            const pos = posById.get(id);
             const posOffset = pos ? (pos.x * Math.cos(_windDirDeg * Math.PI / 180) + pos.y * Math.sin(_windDirDeg * Math.PI / 180)) / 800 : 0;
             const turbineBaseWind = _baseWindSpeed + posOffset * 0.5 + rand(-0.15, 0.15);
             // Smooth the FREESTREAM wind, then apply this turbine's wake deficit
@@ -796,7 +813,7 @@ export const useLandingStore = create<LandingState>((set) => {
             // on a lull, power follows the wind down at once (Cp ≤ Betz).
             const newPower = Math.min(
               rampToward(t.powerOutputMW, targetPower, MAX_POWER_RAMP_MW_PER_TICK),
-              v236PowerMW(newWind) * yawFactor,
+              turbinePowerMW(newWind) * yawFactor,
             );
             const newRotor = rampToward(t.rotorSpeedRpm, targetRotor, MAX_ROTOR_RAMP_RPM_PER_TICK);
             const newPitch = rampToward(t.pitchAngleDeg, targetPitch, MAX_PITCH_RAMP_DEG_PER_TICK);
@@ -946,6 +963,18 @@ export const useLandingStore = create<LandingState>((set) => {
 
     resetViewerDefaults: () => set(VIEWER_DEFAULTS),
   };
+});
+
+// A new live fleet (own project ↔ SB-510, edited layout) restarts the plant:
+// scenario holds, crews and the faults of the old turbines are dropped.
+useFleetStore.subscribe((s, prev) => {
+  if (s.fleet === prev.fleet) return;
+  _faultToken++;
+  _outOfService.clear();
+  _deenergised.clear();
+  _freeWind.clear();
+  useFaultBus.setState({ activeFaults: {} });
+  useLandingStore.setState({ ...plantFor(s.fleet), arrayFault: null, repairs: {} });
 });
 
 // ── Selectors ──────────────────────────────────────────────────

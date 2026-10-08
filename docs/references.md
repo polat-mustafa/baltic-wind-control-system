@@ -23,7 +23,11 @@ Citation rules used here:
 | Wake-added turbulence | `services/p1/wake_model.py` (PyWake `STF2017TurbulenceModel`) | [8], [S1] |
 | Global blockage | `services/p1/blockage.py` | [9] |
 | AEP loss cascade, P50/P90 | `services/p1/aep_calculator.py` | [1], [2] |
-| Power curve, cut-in/out | `services/p1/wake_model.py` | [S2], [S3] |
+| Power / thrust curve, cut-in/out (IEA 15 MW and 22 MW reference turbines) | `services/p1/turbine_models.py`, `app/data/turbines/`, `scripts/fetch_turbine_curves.py`, `frontend/src/constants/turbineModels.ts` | [S2], [26], [27] |
+| windIO 2.x plant export (site, wind resource, layout, turbine) | `services/p1/windio.py`, `routers/projects.py` (`/projects/{id}/windio.yaml`) | [31] |
+| Loss defaults with provenance (electrical, availability, environmental) | `services/p1/aep_calculator.py` (`LOSS_SOURCES`), `components/ui/SourceBadge.tsx` | [35] |
+| Unit-cost defaults (CAPEX lines, OPEX, design life), LCOE | `frontend/src/lib/layout/cost.ts` (`COST_DEFAULTS`), `schemas/farm_config.py` | [32], [33], [36] |
+| AEP uncertainty components (wind resource, long-term, future variability, wake, turbine, non-wake) and P50 / P75 / P90 | `services/p1/aep_calculator.py` (`uncertainty_components`, `aep_sensitivity`), `routers/p1.py` (`/uncertainty`), `scripts/fetch_wind_climate.py --iav` | [29], [30], [43], [44] |
 
 ## P2 — HV grid integration
 
@@ -34,7 +38,8 @@ Citation rules used here:
 | RMS dynamics, FRT | `services/p2/andes_dynamics.py`, `frt_simulation.py` (ANDES) | [4], [11], [S5] |
 | Reactive power / STATCOM sizing | `services/p2/statcom_sizing.py` | [4], [5], [S5], [S6] |
 | Cable current rating | `services/p2/cable_dts.py` | [S7] |
-| Power quality | `services/p2/power_quality.py` | [S8], [S9] |
+| Cable R, C, X, ratings (provenance note at the cable constants) | `services/p2/network_model.py` | [S33], [33], [34], [S7] |
+| Power quality (harmonic filter: damped high-pass) | `services/p2/power_quality.py` | [S8], [S9], [S36] |
 
 ## P3 — SCADA and substation automation
 
@@ -57,7 +62,10 @@ Citation rules used here:
 | Explanations (SHAP) | `services/p4/xgboost_model.py` | [17] |
 | Time-ordered cross-validation | `services/p4/` (scikit-learn `TimeSeriesSplit`) | [18], [19] |
 | Forecast error metrics | `services/p4/model_evaluation.py` | [19], [20] |
-| Physical limits on forecasts | `services/p4/physical_constraints.py` | [S3] |
+| Physical limits on forecasts (IEA 15 MW: 3 / 10.66 / 25 m/s) | `services/p4/physical_constraints.py` | [26], [S3] |
+| Power curve with air-density normalisation v·(ρ/ρ₀)^⅓ | `services/p4/turbine_power_curve.py` | [26], [S2] |
+| Synthetic SCADA: Gaussian copula on the site Weibull, ERA5 hourly persistence φ = 0.957, 10-min sampling error (Λ₁ = 42 m) | `services/p4/scada_generator.py` | [28], [30], [S1] |
+| Residual learning on persistence (base margin), early stopping on the last 20 % of each fold | `services/p4/xgboost_model.py` | [12], [20] |
 
 ## P5 — Commissioning
 
@@ -78,6 +86,19 @@ Citation rules used here:
 | EWMA state detection | `services/digital_twin/detection.py` | [21] |
 | Prognosis, remaining useful life | `services/digital_twin/prognosis.py` | [S21] |
 | Power-curve residual binning | `services/digital_twin/detection.py` | [S2] |
+| Reference model: ROSCO Cp(λ, β) table, λ = 9 tracking, minimum-pitch schedule, generator + converter losses | `services/digital_twin/reference_model.py` | [26], [37] |
+| Stator-winding thermal model, insulation classes | `services/digital_twin/reference_model.py`, `services/turbine_physics/nacelle_subsystems.py` | [S22], [S34] |
+
+## Turbine physics — time-domain simulator
+
+| Topic | Implementation | Reference |
+|---|---|---|
+| Rotor aerodynamics: ROSCO Cp/Ct table (CCBlade), braking blades | `services/turbine_physics/aerodynamics.py`, `p1/turbine_models.py` (`RotorSurface`) | [26], [37] |
+| Drivetrain inertia 3.543 × 10⁸ kg·m², direct drive, 200-pole PMSG | `services/turbine_physics/rotor_dynamics.py`, `drivetrain.py` | [26] (§5, Tables 5-2 / 5-4), ElastoDyn |
+| Generator-torque PI (TSR tracking), pitch PI with gain schedule, setpoint smoother, speed filters | `services/turbine_physics/drivetrain.py`, `pitch_control.py`, `simulator.py` | [37] (ROSCO v2.10.1 source, DISCON.IN) |
+| Overspeed trip 9.07 rpm, yaw 0.5 °/s / 8° | `state_machine.py`, `yaw_control.py` | [37], [S1] |
+| Extreme operating gust check | `tests/test_turbine_physics.py` | [S1] §6.3.3.2 |
+| CMS: bearing defect frequencies, generator electrical lines, hydraulic-oil grade | `services/p3/cms.py` | [S24], [S35] |
 
 ## Site assessment — screening
 
@@ -88,6 +109,11 @@ Citation rules used here:
 | Natura 2000 appropriate assessment trigger | `services/site_assessment/assess.py` | [S27] |
 | EIA screening of wind farms (Annex II 3(i)) | `services/site_assessment/assess.py` | [S28] |
 | Weighted linear combination of criteria | `services/site_assessment/suitability.py` | Standard GIS multi-criteria method; thresholds and weights are labelled *illustrative* in the API model card |
+| Seabed substrate check (Folk 5 classes), piling and burial notes, foundation cost factor (*illustrative*) | `services/site_assessment/criteria.py` (`SEABED_CLASSES`), `assess.py`, `scripts/fetch_marine_layers.py` (`fetch_seabed`), `frontend/src/lib/layout/cost.ts` | [38], [S37], [S38] |
+| Ports: announced O&M / installation role, distance by sea (16-neighbour shortest path on the bathymetry grid) | `services/site_assessment/sea_routes.py`, `assess.py` (`_ports_check`), `scripts/fetch_marine_layers.py` (`PORTS`) | operators' announcements (URLs in the pack); OSM locations |
+| Export route check: landfall, Natura 2000 / military km, shipping-basin and cable crossing angles (≥ 45°), automatic shortest sea route | `services/site_assessment/route_check.py`, `sea_routes.py` (`sea_path`), `routers/site_assessment.py` (`/route-check`) | [S39], [S27] |
+| Cluster wakes: approximate neighbour layouts (outline or P / median outline density), external wake loss with TurbOPark | `services/site_assessment/neighbours.py`, `services/p1/wake_model.py` (`run_cluster_wake`), `routers/p1.py` (`wake-analysis-custom` neighbours), `routers/site_assessment.py` (`/neighbours`) | [41], [42] |
+| Site wind climate: mean speed, Weibull k and A at 150 m; 12-sector rose | `services/site_assessment/wind_climate.py`, `scripts/fetch_wind_climate.py`, `routers/p1.py` (`_rose_site`) | [28], [29], [30] |
 
 ## Academy — scored missions
 
@@ -109,6 +135,8 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 | Topic | Implementation | Reference |
 |---|---|---|
 | Weather-restricted operations, α factor (OP_WF = α · OP_LIM) | `backend/app/services/lifecycle/campaign.py` | [S29] |
+| Port round trips: fastening times at the quay, vessel transit speeds | `backend/app/services/lifecycle/campaign.py` (`LOAD_HOURS`, `round_trip`) | [39] |
+| O&M working day and CTV transit from the O&M port | `backend/app/services/p1/weather_window.py` (`find_maintenance_window`) | [40] |
 | Synthetic sea states: Rayleigh Hs, Weibull k = 2 wind, AR(1) persistence, monthly Baltic means | `backend/app/services/lifecycle/weather.py` (monthly means of `services/p1/weather_window.py`) | Marginals as the O&M weather-window model; persistence and wind–wave correlation *illustrative* |
 | Hub-height wind for the jack-up crane limit (power law, α = 0.14) | `backend/app/services/lifecycle/weather.py` | [S30] |
 | As-built register: strings, OSS feeder bays, cable sections | `frontend/src/lib/lifecycle/farm.ts` (cable tree of `lib/layout/cables.ts`) | as the layout canvas |
@@ -127,6 +155,7 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 | Flapwise bending moment from thrust | `frontend/.../turbine3d/model/bladeField.ts` | [2] ch. 6 |
 | Nacelle component temperatures, thermal limits | `frontend/.../turbine3d/model/nacelleThermal.ts` | [S22], [S23] |
 | Vibration zones (sensor read-outs) | `backend/app/services/turbine_physics/nacelle_subsystems.py` | [S24] |
+| Direct-drive nacelle geometry (overhang 11.35 m, turret flange 5 m from the tower axis, 2.2 m shaft, bearings 1.2 m apart, air-gap r 5.08 m) | `frontend/scripts/blender/build_v236.py`, `turbine3d/model/layout.ts` | [26] Tables 5-2, 5-3, 5-4 |
 
 ## Books and papers
 
@@ -155,12 +184,31 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 23. White, F. M. *Viscous Fluid Flow*, 3rd ed. McGraw-Hill, 2006.
 24. WindEurope. "Wind industry calls for Europe-wide ban on landfilling turbine blades." Press release, June 2021. https://windeurope.org/news/wind-industry-calls-for-europe-wide-ban-on-landfilling-turbine-blades/
 25. Topham, E., McMillan, D. "Sustainable decommissioning of an offshore wind farm." *Renewable Energy* 102(B), 470–480, 2017. doi:10.1016/j.renene.2016.10.066
+26. Gaertner, E., et al. *Definition of the IEA 15-Megawatt Offshore Reference Wind Turbine*. NREL/TP-5000-75698, 2020 (https://docs.nlr.gov/docs/fy20osti/75698.pdf): Table 5-2 (main shaft and bearings), 5-3 (bedplate), 5-4 (generator), §5.5 / §5.7 (controller, rotor inertia). Tables and model files: github.com/IEAWindTask37/IEA-15-240-RWT, tag v1.1.18 — `Documentation/IEA-15-240-RWT_tabular.xlsx` ("Overview", "Rotor Performance", "Nacelle Mass Properties"), `OpenFAST/IEA-15-240-RWT/Cp_Ct_Cq.IEA15MW.txt`, `OpenFAST/IEA-15-240-RWT-Monopile/*_DISCON.IN` and `*_ElastoDyn.dat`, Apache-2.0.
+27. Zahle, F., et al. *Definition of the IEA Wind 22-Megawatt Offshore Reference Wind Turbine*. DTU Wind Report E-0243, 2024. https://doi.org/10.11581/DTU.00000317. Tables: github.com/IEAWindTask37/IEA-22-280-RWT, tag v1.1.0 ("Rotor Performance - WISDEM"), Apache-2.0.
+28. Hahmann, A. N., et al. "The making of the New European Wind Atlas — Part 1: Model sensitivity." *Geoscientific Model Development* 13, 5053–5078, 2020; NEWA Mesoscale Atlas doi:10.11583/DTU.14414096.v1 (CC BY-NC 4.0).
+29. Dörenkämper, M., et al. "The making of the New European Wind Atlas — Part 2: Production and evaluation." *Geoscientific Model Development* 13, 5079–5102, 2020 (microscale atlas, Weibull parameters).
+30. Hersbach, H., et al. "The ERA5 global reanalysis." *Quarterly Journal of the Royal Meteorological Society* 146, 1999–2049, 2020; hourly data via the Open-Meteo archive API (CC BY 4.0).
+31. IEA Wind Task 37 / IEA Wind Systems. *windIO — data formats for wind energy systems*, `schemas/plant` (wind_energy_system, site, energy_resource, wind_farm, turbine), github.com/IEAWindSystems/windIO (Apache-2.0), checked 2026-10-08.
+32. Stehly, T., Duffy, P., Mulas Hernando, D. *Cost of Wind Energy Review: 2024 Edition*. NREL/PR-5000-91775, National Renewable Energy Laboratory, November 2024 (fixed-bottom reference: 600 MW, 12 MW, 34 m, monopiles; CapEx by ORBIT, OpEx by WOMBAT; 2023 USD). https://docs.nlr.gov/docs/fy25osti/91775.pdf
+33. Nunemaker, J., Shields, M., Hammond, R., Duffy, P. *ORBIT: Offshore Renewables Balance-of-system and Installation Tool*. NREL/TP-5000-77081, 2020; cable library `library/cables` (cost per km, capacitance, rating), github.com/WISDEM/ORBIT v1.3 (Apache-2.0), read 2026-10-08.
+34. ABB. *XLPE Submarine Cable Systems — Attachment to XLPE Land Cable Systems User's Guide*, 2GM5007 rev 5, 2010 (now NKT): Tables 33–36 (IEC 60287 ratings), 45 and 49 (66 kV and 220 kV three-core data).
+35. Beiter, P., Musial, W., Smith, A., et al. *A Spatial-Economic Cost-Reduction Pathway Analysis for U.S. Offshore Wind Energy Development from 2015–2030*. NREL/TP-6A20-66579, 2016 (other losses 2 %, availability against distance to port).
+36. European Central Bank. Euro foreign exchange reference rates, USD, annual average 2023 = 1.0813 (data-api.ecb.europa.eu, series EXR.A.USD.EUR.SP00.A).
+37. Abbas, N. J., Zalkind, D. S., Pao, L., Wright, A. "A reference open-source controller for fixed and floating offshore wind turbines." *Wind Energy Science* 7, 53–73, 2022; ROSCO v2.10.1 source (`rosco/controller/src/Controllers.f90`, `ControllerBlocks.f90`), github.com/NREL/ROSCO (Apache-2.0), read 2026-10-08.
+38. EMODnet Geology, seabed substrate 1:250 000 (Folk 5-class scheme), https://emodnet.ec.europa.eu/en/geology — CC BY 4.0; Polish waters from Mojski, J. E. (ed.), *Geological Map of the Baltic Sea Bottom 1:200 000*, Polish Geological Institute, 1988–1995.
+39. NREL ORBIT (Offshore Renewables Balance-of-system and Installation Tool), github.com/WISDEM/ORBIT — `ORBIT/core/defaults/process_times.yaml`, `library/vessels` (example_heavy_lift_vessel, example_wtiv, example_cable_lay_vessel), `library/turbines/15MW_generic.yaml`; Apache-2.0.
+40. NREL WOMBAT (Windfarm Operations and Maintenance cost-Benefit Analysis Tool), github.com/WISDEM/WOMBAT — `library/default/vessels/ctv.yaml` (37.04 km/h), `library/default/project/config/base_osw_fixed.yaml` (workday 07–19); Apache-2.0.
+41. Nygaard, N. G., Poulsen, L., Svensson, E., Pedersen, J. G. "Large-scale benchmarking of wake models for offshore wind farms." *J. Phys.: Conf. Ser.* 2265, 022008, 2022 (TurbOPark; PyWake `Nygaard_2022`).
+42. Platis, A. et al. "First in situ evidence of wakes in the far field behind offshore wind farms." *Scientific Reports* 8, 2163, 2018.
+43. Walker, K., et al. "An evaluation of the predictive accuracy of wake effects models for offshore wind farms." *Wind Energy* 19(5), 979–996, 2016.
+44. Lee, J. C. Y., Fields, M. J. "An overview of wind-energy-production prediction bias, losses, and uncertainties." *Wind Energy Science* 6, 311–365, 2021 (Table B6).
 
 ## Standards and regulations
 
 - **[S1]** IEC 61400-1:2019 — Wind energy generation systems — Part 1: Design requirements.
 - **[S2]** IEC 61400-12-1 — Power performance measurements of electricity producing wind turbines.
-- **[S3]** Vestas V236-15.0 MW product data (rated power, cut-in 3 m/s, cut-out 31 m/s) as used in `services/p1/wake_model.py`.
+- **[S3]** Vestas V236-15.0 MW product data (15 MW, 236 m rotor) — identity of the "V236 class" case-study turbine only; all its numbers come from the IEA 15 MW reference [26] since Vestas publishes no curves or drivetrain data.
 - **[S4]** IEC 60909-0:2016 — Short-circuit currents in three-phase a.c. systems — Part 0: Calculation of currents.
 - **[S5]** Commission Regulation (EU) 2016/631 — Network code on requirements for grid connection of generators (RfG).
 - **[S6]** PSE S.A. — *Instrukcja Ruchu i Eksploatacji Sieci Przesyłowej* (IRiESP) and national RfG requirements.
@@ -190,3 +238,10 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 - **[S30]** IEC 61400-3-1:2019 — Wind energy generation systems — Part 3-1: Design requirements for fixed offshore wind turbines (normal wind profile).
 - **[S31]** IMO Assembly Resolution A.672(16), 1989 — Guidelines and standards for the removal of offshore installations and structures on the continental shelf and in the exclusive economic zone.
 - **[S32]** UK Energy Act 2004, Part 2 Chapter 3 (ss. 105–114) — decommissioning of offshore renewable energy installations; DECC/DESNZ guidance notes for industry.
+- **[S33]** IEC 60228:2004 — Conductors of insulated cables (class 2 maximum DC resistance at 20 °C).
+- **[S34]** IEC 60085:2007 — Electrical insulation — Thermal evaluation and designation (class B 130 °C, class F 155 °C).
+- **[S35]** ISO 3448:1992 — Industrial liquid lubricants — ISO viscosity classification (VG 46: 41.4–50.6 cSt at 40 °C); ISO 4406:2021 — Hydraulic fluid power — Fluids — Method for coding the level of contamination by solid particles.
+- **[S36]** IEEE Std 1531-2020 — Guide for the Application and Specification of Harmonic Filters; J. C. Das, "Passive filters — potentialities and limitations", IEEE Trans. Ind. Appl. 40(1), 2004, pp. 232–241.
+- **[S37]** DNV-RP-C212 — Offshore soil mechanics and geotechnical engineering (pile drivability, boulders).
+- **[S38]** DNV-RP-0360 — Subsea power cables in shallow water (cable burial assessment and protection).
+- **[S39]** ICPC Recommendation No. 2 — Cable routing and reporting criteria (crossings as close to 90° as possible, not below 45°), International Cable Protection Committee.

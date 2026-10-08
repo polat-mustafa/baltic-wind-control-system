@@ -25,13 +25,12 @@ Standards Layer
 
 Maths Layer
 ───────────
-Overspeed thresholds (IEC 61400-1 §7.4.2):
-  Warning trip:   ω > 1.10 × ω_rated  →  EMERGENCY_SHUTDOWN (electrical trip)
-  Hardware trip:  ω > 1.20 × ω_rated  →  EMERGENCY_SHUTDOWN (mechanical brake)
+Overspeed trip (IEC 61400-1 §8.3 leaves the activation speed to the designer;
+the IEA 15 MW reference controller sets it at ROSCO SD_MaxGenSpd):
+  ω > 1.20 × ω_rated  →  EMERGENCY_SHUTDOWN
 
-For V236-15.0 MW (rated 8.33 rpm):
-  Warning:   8.33 × 1.10 = 9.16 rpm
-  Hardware:  8.33 × 1.20 = 10.0 rpm
+For the SB-510 turbine (IEA 15 MW, rated 7.56 rpm = ROSCO PC_RefSpd):
+  Trip:  7.56 × 1.20 = 9.07 rpm
 
 Code Layer
 ──────────
@@ -41,8 +40,11 @@ given a current state and inputs, it returns the next state.  No side effects.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import StrEnum
+
+from app.services.p1.turbine_models import rosco
 
 # ── State enum ─────────────────────────────────────────────────────────────
 
@@ -63,7 +65,7 @@ class TurbineOperatingState(StrEnum):
 
     Turbine continues to generate power but a fault has been latched.
     The TCS schedules a maintenance shutdown at the next convenient wind lull.
-    Examples: gearbox oil temperature high, vibration level marginal.
+    Examples: generator winding temperature high, vibration level marginal.
     """
 
     STARTUP = "startup"
@@ -84,7 +86,7 @@ class TurbineOperatingState(StrEnum):
     EMERGENCY_SHUTDOWN = "emergency_shutdown"
     """Immediate pitch-to-feather + mechanical brake (DLC 5.x).
 
-    Activated by: overspeed (>110 % rated), grid loss, critical fault,
+    Activated by: overspeed (>120 % rated), grid loss, critical fault,
     vibration Zone D, fire detection.
     Brake-to-rest time: <5 s (IEC 61400-1 DLC 5.1).
     """
@@ -127,11 +129,11 @@ class StateMachineInput:
     rotor_speed_rpm : float
         Current rotor speed [rpm].
     rated_rotor_speed_rpm : float
-        Rated rotor speed [rpm] (V236: 8.33 rpm).
+        Rated rotor speed [rpm] (IEA 15 MW: 7.56 rpm).
     cut_in_speed_ms : float
-        Cut-in wind speed [m/s] (V236: 3.0 m/s).
+        Cut-in wind speed [m/s] (IEA 15 MW: 3.0 m/s).
     cut_out_speed_ms : float
-        Cut-out wind speed [m/s] (V236: 31.0 m/s).
+        Cut-out wind speed [m/s] (IEA 15 MW: 25.0 m/s).
     fault_active : bool
         Any minor (non-critical) fault is active.
     critical_fault : bool
@@ -161,16 +163,17 @@ class StateMachineInput:
 
 # ── Pure transition function ────────────────────────────────────────────────
 
-# Overspeed trip thresholds (IEC 61400-1 §7.4.2)
-_OVERSPEED_WARNING_FACTOR: float = 1.10  # 110 % rated → electrical trip
-_OVERSPEED_HARDWARE_FACTOR: float = 1.20  # 120 % rated → mechanical brake
+# Overspeed trip: ROSCO SD_MaxGenSpd / PC_RefSpd of the IEA 15 MW (0.95002 / 0.79168)
+_, _CONTROL = rosco()
+OVERSPEED_FACTOR: float = _CONTROL.overspeed_shutdown_rpm / (
+    _CONTROL.pitch_ref_speed_rad_s * 30.0 / math.pi
+)
 
 
 def is_overspeed(rotor_speed_rpm: float, rated_rpm: float) -> bool:
-    """Return True if rotor speed exceeds IEC 61400-1 overspeed warning limit.
+    """Return True if rotor speed exceeds the overspeed shutdown limit.
 
-    Warning trip at 110 % of rated speed.  Used to trigger EMERGENCY_SHUTDOWN
-    before the mechanical centrifugal overspeed governor activates at 120 %.
+    Trip at 120 % of rated speed (IEA 15 MW: 9.07 rpm, ROSCO SD_MaxGenSpd).
 
     Args:
         rotor_speed_rpm: Current rotor speed [rpm].
@@ -179,7 +182,7 @@ def is_overspeed(rotor_speed_rpm: float, rated_rpm: float) -> bool:
     Returns:
         True if in overspeed condition.
     """
-    return rotor_speed_rpm > rated_rpm * _OVERSPEED_WARNING_FACTOR
+    return rotor_speed_rpm > rated_rpm * OVERSPEED_FACTOR
 
 
 def next_state(
@@ -291,7 +294,7 @@ def next_state(
 def classify_wind_state(
     wind_speed_ms: float,
     cut_in_ms: float = 3.0,
-    cut_out_ms: float = 31.0,
+    cut_out_ms: float = 25.0,
 ) -> TurbineOperatingState:
     """Simplified state classifier using wind speed only (no fault/command inputs).
 

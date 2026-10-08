@@ -40,7 +40,7 @@ const controlRoom: Tour = {
       title: "Welcome to OffshoreForge",
       body:
         "OffshoreForge follows an offshore wind farm through its life: develop, design, build, operate. " +
-        "Its case study is SB-510, a 510 MW farm of 34 Vestas V236-15.0 MW turbines in the southern Baltic. " +
+        "Its case study is SB-510, a 510 MW farm of 34 × 15 MW \"V236 class\" turbines (modelled with the IEA 15 MW reference turbine) in the southern Baltic. " +
         "Move with → and ←, leave with Esc.",
     },
     {
@@ -90,7 +90,7 @@ const controlRoom: Tour = {
         "This 3D model is driven by the same simulation as the map: rotor speed and pitch follow the live wind. " +
         "Click a component to read about it, or switch to the engineering drawings.",
       points: [
-        { label: "Rotor", text: "Three blades, 236 m diameter. Above rated wind the blades pitch to hold 15 MW." },
+        { label: "Rotor", text: "Three blades, ≈ 240 m diameter. Above rated wind the blades pitch to hold 15 MW." },
         {
           label: "Nacelle",
           text: "Drivetrain, generator and converter. Its sensors reach SCADA as IEC 61400-25 logical nodes (WTUR, WROT…).",
@@ -221,7 +221,7 @@ const layout: Tour = {
       route: "/develop/layout",
       target: "layout-grid",
       title: "Start from a grid",
-      body: "Spacing is set in rotor diameters (D = 236 m). Constraint areas from the open data can be skipped.",
+      body: "Spacing is set in rotor diameters (D = 241 m, IEA 15 MW). Constraint areas from the open data can be skipped.",
       task: {
         instruction: "Press Fill site (or load the SB-510 layout).",
         watch: () => () => useProjectStore.getState().turbines.length > 0,
@@ -233,9 +233,19 @@ const layout: Tour = {
       target: "layout-map",
       title: "Drag turbines",
       body:
-        "Drag a turbine or the yellow offshore substation: the wake loss in the tooltip and the cable tree follow. " +
-        "Amber means closer than 4 D, red means outside the site or inside a constraint.",
+        "Drag a turbine or the yellow offshore substation: the cable tree follows, and the turbine card shows the farm AEP " +
+        "change while you drag. Amber means closer than 4 D, red outside the site, pink in a constraint area, grey outside " +
+        "the energy basins — the legend has them all.",
       caution: "A tight layout gains megawatts on paper and loses them in energy: check the wake loss, not only the MW.",
+    },
+    {
+      id: "checklist",
+      route: "/develop/layout",
+      target: "layout-checklist",
+      title: "Live checklist",
+      body:
+        "The site report and the layout checks update as you move turbines: boundary, constraints, energy basin, spacing, " +
+        "substation, cables, water depth per turbine. The ones marked HV Grid open the next stage of your own project.",
     },
     {
       id: "results",
@@ -252,6 +262,15 @@ const layout: Tour = {
       target: "layout-pywake",
       title: "Check with PyWake",
       body: "The backend runs the reference wake model on your exact positions. Use it before you trust an AEP figure.",
+    },
+    {
+      id: "suggest",
+      route: "/develop/layout",
+      target: "layout-suggest",
+      title: "Move suggestions",
+      body:
+        "Tries small moves of the most waked turbines and lists those that lower the LCOE, each checked with PyWake. " +
+        "Apply one, then search again: the moves are one turbine at a time.",
     },
     {
       id: "cost",
@@ -512,7 +531,7 @@ const digitalTwin: Tour = {
       target: "twin-controls",
       title: "Choose a scenario",
       body:
-        "Each scenario injects known faults (icing, pitch misalignment, converter derating, gearbox wear, " +
+        "Each scenario injects known faults (icing, pitch misalignment, converter derating, generator wear, " +
         "anemometer drift) so the twin's answers can be checked against the truth.",
       task: {
         instruction: "Select the 14 d window.",

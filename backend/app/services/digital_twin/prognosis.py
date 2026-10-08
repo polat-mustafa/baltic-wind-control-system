@@ -2,7 +2,7 @@
 
 ISO 13381-1:2015 frames prognosis as projecting a degradation descriptor to
 an end-of-life criterion with an explicit confidence statement. Here the
-descriptor is the *identified fault parameter* (e.g. gearbox loss factor),
+descriptor is the *identified fault parameter* (e.g. generator loss factor),
 estimated in 12-hour windows by ``diagnosis.severity_trend``:
 
   1. weighted least-squares line θ(t) = a + b·t (weights 1/SE²);

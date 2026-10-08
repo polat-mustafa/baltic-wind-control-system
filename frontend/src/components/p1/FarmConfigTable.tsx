@@ -47,7 +47,7 @@ const GROUPS: { title: string; fields: FieldSpec[] }[] = [
     title: "Electrical",
     fields: [
       { key: "array_voltage_kv", label: "Array", unit: "kV", min: 33, max: 132, step: 33, hint: "Collection voltage. I²R loss ∝ 1/U² for the same conductor." },
-      { key: "export_voltage_kv", label: "Export", unit: "kV", min: 66, max: 400, step: 1, hint: "HVAC export voltage. Model uses 1000 mm² Cu XLPE circuits (950 A each)." },
+      { key: "export_voltage_kv", label: "Export", unit: "kV", min: 66, max: 400, step: 1, hint: "HVAC export voltage. Model uses 1000 mm² Cu XLPE circuits (825 A each, ABB/NKT datasheet)." },
       { key: "export_length_km", label: "Export length", unit: "km", min: 1, max: 300, step: 1, hint: "OSS → onshore. Charging Q = ωCU²L grows with length — the HVAC distance limit." },
       { key: "availability_pct", label: "Availability", unit: "%", min: 70, max: 99.9, step: 0.5, hint: "Time-based availability. Offshore typical 94–97 % (weather-limited access)." },
     ],
@@ -55,8 +55,8 @@ const GROUPS: { title: string; fields: FieldSpec[] }[] = [
   {
     title: "Economics",
     fields: [
-      { key: "capex_m_eur_per_mw", label: "CAPEX", unit: "M€/MW", min: 1, max: 6, step: 0.1, hint: "Installed cost incl. foundations, cables, substations. EU offshore 2024–25 ≈ 3–4 M€/MW." },
-      { key: "opex_k_eur_per_mw_year", label: "OPEX", unit: "k€/MW·yr", min: 20, max: 200, step: 5, hint: "Annual operations & maintenance cost." },
+      { key: "capex_m_eur_per_mw", label: "CAPEX", unit: "M€/MW", min: 1, max: 8, step: 0.1, hint: "Installed cost incl. foundations, cables, substations, installation and soft costs. Default 5.0 M€/MW = NREL Cost of Wind Energy Review 2024 fixed-bottom reference (5 411 $/kW, 2023 USD)." },
+      { key: "opex_k_eur_per_mw_year", label: "OPEX", unit: "k€/MW·yr", min: 20, max: 200, step: 5, hint: "Annual operations & maintenance cost. Default 125 k€/MW·yr = NREL review, 135 $/kW-yr (2023 USD)." },
       { key: "discount_rate_pct", label: "WACC", unit: "%", min: 2, max: 15, step: 0.5, hint: "Discount rate in the capital recovery factor. +1 pp WACC ≈ +6–8 % LCOE." },
       { key: "lifetime_years", label: "Lifetime", unit: "yr", min: 10, max: 35, step: 1, hint: "Economic life used to annualise CAPEX." },
     ],

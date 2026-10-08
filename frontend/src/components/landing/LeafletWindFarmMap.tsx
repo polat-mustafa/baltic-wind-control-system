@@ -6,7 +6,7 @@
  * polylines. Export cable (220 kV) runs from OSS to onshore substation with
  * animated dash pattern. KPI ribbon overlays at top, alarm ticker at bottom.
  *
- * Geographic coordinates: centered ~54.70°N, 16.55°E (Polish Baltic EEZ).
+ * Geographic coordinates: SB-510 array ~55.06°N, 16.54°E (Polish Baltic EEZ, PZP_44).
  *
  * Detail panels are rendered by the parent (LandingPage) — OUTSIDE Leaflet's
  * DOM tree — so they are never hidden behind GPU-composited translate3d layers.
@@ -41,16 +41,15 @@ import {
   FARM_VIEW_BOUNDS,
   LANDFALL_GEO,
   LIDAR_GEO,
-  ONSHORE_GEO,
-  OSS_BUSBAR_SECTION,
-  OSS_GEO,
+  ONSHORE_GEO as SB510_ONSHORE_GEO,
   PSE_GRID_LINE_GEO,
   PSE_SUBSTATION_GEO,
+  PSE_SUBSTATION_NAME,
   SEA_POLYGON_GEO,
-  SITE_BOUNDARY_GEO,
-  TURBINE_POSITIONS,
   turbineIconScale,
 } from "../../constants/windFarmLayout";
+import { arraySegments, sectionOf, useFleet, type ArraySegment, type Fleet } from "../../lib/fleet";
+import { bayName } from "../../lib/lifecycle/farm";
 import {
   ARRAY_FAULT_ISOLATION_MS,
   selectKPIs,
@@ -60,7 +59,7 @@ import {
 import { useLayerStore } from "../../store/layerStore";
 import { cn } from "../../lib/utils";
 import type { TurbineStatus } from "../../types/landing";
-import { arrayCableCurrentA, arrayCableGrade } from "../../utils/landingPhysics";
+import { arrayCableCurrentA, arrayCableGrade, V236 } from "../../utils/landingPhysics";
 import { useStatcomQ } from "../../store/liveGridStore";
 
 import AlarmTicker from "./AlarmTicker";
@@ -69,7 +68,6 @@ import DayNightOverlay from "./DayNightOverlay";
 import EnvironmentPanel from "./EnvironmentPanel";
 import LayerControlPanel from "./LayerControlPanel";
 import MapLegend from "./MapLegend";
-import MyProjectLayer from "./MyProjectLayer";
 import { GridContext, NavAids, RepairCrews, SafetyZones, Vessels } from "./MaritimeLayers";
 import AisTraffic from "./AisTraffic";
 import CableDtsLayer from "./CableDtsLayer";
@@ -181,8 +179,8 @@ const STATUS_COLOR: Record<TurbineStatus, string> = {
   offline: "#8b93a7",
 };
 
-/** V236 rated rotor speed [rpm]; the CSS spin runs at this rate (7.2 s/rev). */
-const RATED_RPM = 8.33;
+/** Rated rotor speed [rpm] (IEA 15 MW, ROSCO PC_RefSpd); the CSS spin runs at this rate (7.9 s/rev). */
+const RATED_RPM = V236.ratedRpm;
 
 const BLADE =
   "M 0,0 C -1.2,-3 -1.8,-8 -1,-13 L 0,-15 L 1,-13 C 1.4,-8 0.8,-3 0,0 Z";
@@ -514,7 +512,7 @@ function createEquipmentIcon(opts: {
   });
 }
 
-function createOSSIcon(powerMW: number): L.DivIcon {
+function createOSSIcon(powerMW: number, mva: number, labelLeft: boolean): L.DivIcon {
   return createEquipmentIcon({
     glyph: transformerGlyph(
       SCADA_COLORS.VOLTAGE_66KV,
@@ -522,19 +520,20 @@ function createOSSIcon(powerMW: number): L.DivIcon {
     ),
     tag: "OSS · 66/220 kV",
     value: `${powerMW.toFixed(0)} MW`,
-    sub: "2 × 300 MVA",
+    sub: `2 × ${mva} MVA`,
     color: EQ_GREEN,
+    labelLeft,
   });
 }
 
-function createOnshoreIcon(): L.DivIcon {
+function createOnshoreIcon(mva: number): L.DivIcon {
   return createEquipmentIcon({
     glyph: transformerGlyph(
       SCADA_COLORS.VOLTAGE_220KV,
       SCADA_COLORS.VOLTAGE_400KV,
     ),
     tag: "Onshore SS · 220/400 kV",
-    value: "2 × 300 MVA",
+    value: `2 × ${mva} MVA`,
     color: EQ_GREEN,
     labelLeft: true,
   });
@@ -544,14 +543,14 @@ function createGridSwitchyardIcon(breakerClosed: boolean): L.DivIcon {
   const color = breakerClosed ? EQ_GREEN : EQ_IDLE;
   return createEquipmentIcon({
     glyph: breakerGlyph(color, breakerClosed),
-    tag: "PSE Słupsk Wierzbięcino",
+    tag: PSE_SUBSTATION_NAME,
     value: `400 kV · ${breakerClosed ? "CB closed" : "CB open"}`,
     color,
   });
 }
 
 /** Q sign convention (rule 4): + injecting (capacitive), − absorbing (inductive). */
-function createSTATCOMIcon(qMVAR: number): L.DivIcon {
+function createSTATCOMIcon(qMVAR: number, labelLeft: boolean): L.DivIcon {
   const color = qMVAR > 5 ? EQ_INJECT : qMVAR < -5 ? EQ_ABSORB : EQ_IDLE;
   const sign = qMVAR > 0 ? "+" : qMVAR < 0 ? "−" : "";
   return createEquipmentIcon({
@@ -561,6 +560,7 @@ function createSTATCOMIcon(qMVAR: number): L.DivIcon {
     sub: qMVAR > 5 ? "inject" : qMVAR < -5 ? "absorb" : "float",
     color,
     offset: [0, -34],
+    labelLeft,
   });
 }
 
@@ -701,7 +701,8 @@ function WindCompass() {
 // Each segment carries the LIVE output of every turbine beyond it on the
 // string (store power), on the backend's graded cable (500/630/800 mm²,
 // utils/landingPhysics arrayCableGrade). Colour by current vs rating
-// (IEC 60287): < 70 % green · 70–95 % amber · ≥ 95 % red. Strings end at
+// (IEC 60287): < 70 % green · 70–95 % amber · ≥ 95 % red. The cable
+// tree is the live fleet's (lib/fleet arraySegments): SB-510's strings end at
 // their southern turbine, which connects to the OSS.
 function loadColor(loadFrac: number): string {
   if (loadFrac < 0.7) return "#3ecf6e";
@@ -709,53 +710,43 @@ function loadColor(loadFrac: number): string {
   return "#ef4444";
 }
 
-const STRINGS = [...new Set(TURBINE_POSITIONS.map((t) => t.stringNumber))].map(
-  (n) => TURBINE_POSITIONS.filter((t) => t.stringNumber === n),
-);
-
 /** A clicked array-cable segment: its string and the turbines it carries. */
-interface CableFocus {
-  key: string;
-  stringNumber: number;
-  fromId: string;
-  toId: string; // turbine id or "OSS"
-  /** Turbines whose power (and fibre) runs through this segment, far end first. */
-  feedIds: string[];
-  segmentFromOss: number;
+interface CableFocus extends ArraySegment {
   lengthKm: number;
 }
 
-/** Radial strings: segment t[i-1] → t[i] carries t[0..i-1]; t[n-1] → OSS carries all. */
-const ARRAY_SEGMENTS: CableFocus[] = STRINGS.flatMap((string) => {
-  const n = string.length;
-  return string.map((t, i) => {
-    const isCollector = i === 0;
-    const from = isCollector ? string[n - 1] : string[i - 1];
-    const to = isCollector ? OSS_GEO : t;
-    return {
-      key: isCollector
-        ? `string-${t.stringNumber}-oss`
-        : `cable-${from.id}-${t.id}`,
-      stringNumber: t.stringNumber,
-      fromId: from.id,
-      toId: isCollector ? "OSS" : t.id,
-      feedIds: string.slice(0, isCollector ? n : i).map((s) => s.id),
-      segmentFromOss: isCollector ? 0 : n - i,
-      lengthKm:
-        L.latLng(from.lat, from.lon).distanceTo([to.lat, to.lon]) / 1000,
-    };
-  });
-});
-const POS_BY_ID = new Map(TURBINE_POSITIONS.map((t) => [t.id, t]));
-const segmentPath = (s: CableFocus): [number, number][] => {
-  const a = POS_BY_ID.get(s.fromId)!;
-  const b = s.toId === "OSS" ? OSS_GEO : POS_BY_ID.get(s.toId)!;
-  return [
-    [a.lat, a.lon],
-    [b.lat, b.lon],
-  ];
-};
-const stringSize = (n: number) => STRINGS[n - 1].length;
+interface CableTree {
+  segments: CableFocus[];
+  pos: Map<string, { lat: number; lon: number }>;
+  path: (s: CableFocus) => [number, number][];
+  stringSize: (n: number) => number;
+}
+
+const treeCache = new WeakMap<Fleet, CableTree>();
+
+/** Array cable sections of a fleet with their map geometry (cached per fleet). */
+function cableTree(f: Fleet): CableTree {
+  const hit = treeCache.get(f);
+  if (hit) return hit;
+  const pos = new Map<string, { lat: number; lon: number }>(f.turbines.map((t) => [t.id, t]));
+  pos.set("OSS", f.oss);
+  const at = (id: string) => pos.get(id)!;
+  const segments = arraySegments(f).map((s) => ({
+    ...s,
+    lengthKm: L.latLng(at(s.fromId).lat, at(s.fromId).lon).distanceTo([at(s.toId).lat, at(s.toId).lon]) / 1000,
+  }));
+  const tree = {
+    segments,
+    pos,
+    path: (s: CableFocus): [number, number][] => [
+      [at(s.fromId).lat, at(s.fromId).lon],
+      [at(s.toId).lat, at(s.toId).lon],
+    ],
+    stringSize: (n: number) => f.strings[n - 1]?.length ?? 1,
+  };
+  treeCache.set(f, tree);
+  return tree;
+}
 
 function ArrayCables({
   focus,
@@ -766,12 +757,13 @@ function ArrayCables({
 }) {
   const turbineMap = useLandingStore((s) => s.turbineMap);
   const fault = useLandingStore((s) => s.arrayFault);
+  const { segments, path: segmentPath, stringSize } = cableTree(useFleet());
   // De-energised cable: ink on the storybook sea, light grey on the dark HMI map
   const deadColor = useLayerStore((s) => s.mapTheme) === "storybook" ? "#2b2118" : "#9ca3af";
 
   return (
     <>
-      {ARRAY_SEGMENTS.map((seg) => {
+      {segments.map((seg) => {
         // Fault scenario: the whole string is dead until isolation, then only
         // the faulted section and everything beyond it.
         // In a manual drill the location is only known after isolation
@@ -891,15 +883,19 @@ const FIBRE_STYLE = {
 };
 
 function FibreComms() {
+  const fleet = useFleet();
+  const { segments, path: segmentPath } = cableTree(fleet);
   return (
     <>
-      {ARRAY_SEGMENTS.map((seg) => (
+      {segments.map((seg) => (
         <Polyline
           key={`fo-${seg.key}`}
           positions={segmentPath(seg)}
           pathOptions={FIBRE_STYLE}
         />
       ))}
+      {fleet.source === "sb510" && (
+      <>
       <Polyline
         positions={[...EXPORT_SUBSEA_PATH, ...EXPORT_LAND_PATH.slice(1)]}
         pathOptions={{ ...FIBRE_STYLE, interactive: true }}
@@ -911,8 +907,8 @@ function FibreComms() {
       </Polyline>
       <Polyline
         positions={[
-          [OSS_GEO.lat, OSS_GEO.lon],
-          [ONSHORE_GEO.lat, ONSHORE_GEO.lon],
+          [fleet.oss.lat, fleet.oss.lon],
+          [SB510_ONSHORE_GEO.lat, SB510_ONSHORE_GEO.lon],
         ]}
         pathOptions={{
           color: "#22d3ee",
@@ -925,6 +921,8 @@ function FibreComms() {
           Licensed microwave backup link · 100 Mbps · OSS ↔ onshore
         </Tooltip>
       </Polyline>
+      </>
+      )}
     </>
   );
 }
@@ -943,11 +941,13 @@ const FPI_ICON = L.divIcon({
 
 function FaultPassageIndicators() {
   const fault = useLandingStore((s) => s.arrayFault);
+  const { pos } = cableTree(useFleet());
   if (!fault) return null;
   return (
     <>
-      {fault.restorableIds.map((id) => {
-        const t = POS_BY_ID.get(id)!;
+      {fault.litIds.map((id) => {
+        const t = pos.get(id);
+        if (!t) return null;
         return (
           <Marker key={`fpi-${id}`} position={[t.lat, t.lon]} icon={FPI_ICON} zIndexOffset={1300}>
             <Tooltip direction="right">
@@ -983,13 +983,10 @@ function ArrayCableCard({
   onClose: () => void;
   onSelect: (s: CableFocus) => void;
 }) {
-  // Walk the radial string like on the SLD: toward the OSS / toward the far end
-  const step = (d: number) =>
-    ARRAY_SEGMENTS.find(
-      (s) => s.stringNumber === seg.stringNumber && s.segmentFromOss === seg.segmentFromOss + d,
-    );
-  const towardOss = step(-1);
-  const awayFromOss = step(1);
+  // Walk the cable like on the SLD: toward the OSS / toward the far end (first branch)
+  const { segments, stringSize } = cableTree(useFleet());
+  const towardOss = segments.find((s) => s.fromId === seg.toId);
+  const awayFromOss = segments.find((s) => s.toId === seg.fromId);
   const turbineMap = useLandingStore((s) => s.turbineMap);
   const feeds = seg.feedIds
     .map((id) => turbineMap[id])
@@ -1002,14 +999,15 @@ function ArrayCableCard({
   const currentA = arrayCableCurrentA(carriedMW);
   const loadFrac = currentA / grade.ratedA;
   const n = stringSize(seg.stringNumber);
-  const bay = `BAY-OSS-66-0${seg.stringNumber}`;
-  const section = OSS_BUSBAR_SECTION[seg.stringNumber];
+  const fleet = useFleet();
+  const bay = bayName(seg.stringNumber);
+  const section = sectionOf(fleet, seg.stringNumber - 1);
   const fault = useLandingStore((s) => s.arrayFault);
   const injectArrayFault = useLandingStore((s) => s.injectArrayFault);
   const restoreArrayFault = useLandingStore((s) => s.restoreArrayFault);
   const faultHere = fault?.stringNumber === seg.stringNumber ? fault : null;
   const faultSeg = faultHere
-    ? ARRAY_SEGMENTS.find((x) => x.key === faultHere.segmentKey)
+    ? segments.find((x) => x.key === faultHere.segmentKey)
     : undefined;
   const report = useTrainingStore((s) => s.report);
   const isolateArrayFault = useLandingStore((s) => s.isolateArrayFault);
@@ -1121,7 +1119,7 @@ function ArrayCableCard({
               injectArrayFault({
                 segmentKey: seg.key,
                 stringNumber: seg.stringNumber,
-                stringIds: STRINGS[seg.stringNumber - 1].map((t) => t.id),
+                stringIds: fleet.strings[seg.stringNumber - 1],
                 beyondIds: seg.feedIds,
               })
             }
@@ -1248,11 +1246,12 @@ function FoundationLayer() {
     };
   }, [map]);
 
+  const fleet = useFleet();
   if (zoom < 14) return null;
 
   return (
     <>
-      {TURBINE_POSITIONS.map((pos) => (
+      {fleet.turbines.map((pos) => (
         <CircleMarker
           key={`foundation-${pos.id}`}
           center={[pos.lat, pos.lon]}
@@ -1283,6 +1282,36 @@ const PSE_GRID_PATH: [number, number][] = PSE_GRID_LINE_GEO.map((p) => [
   p.lon,
 ]);
 
+/** View of an own fleet: turbines and OSS, ≈ 2 km margin (the export line may leave the view). */
+function fleetBounds(f: Fleet): [[number, number], [number, number]] {
+  const pts = [...f.turbines, f.oss];
+  const lats = pts.map((p) => p.lat);
+  const lons = pts.map((p) => p.lon);
+  return [
+    [Math.min(...lats) - 0.02, Math.min(...lons) - 0.03],
+    [Math.max(...lats) + 0.02, Math.max(...lons) + 0.03],
+  ];
+}
+
+/** Re-frame the map when the live fleet changes (own project ↔ SB-510). */
+function FitFleet() {
+  const map = useMap();
+  const fleet = useFleet();
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false; // the container's bounds already frame it
+      return;
+    }
+    // top padding clears the KPI strip drawn over the map
+    map.fitBounds(fleet.source === "sb510" ? FARM_VIEW_BOUNDS : fleetBounds(fleet), {
+      paddingTopLeft: [24, 130],
+      paddingBottomRight: [24, 24],
+    });
+  }, [map, fleet]);
+  return null;
+}
+
 // ── Props ────────────────────────────────────────────────────────
 interface LeafletWindFarmMapProps {
   totalPowerMW: number;
@@ -1306,12 +1335,15 @@ function LeafletWindFarmMapInner({
   onSTATCOMClick,
   onLIDARClick,
 }: LeafletWindFarmMapProps) {
-  const ossIcon = useMemo(() => createOSSIcon(totalPowerMW), [totalPowerMW]);
-  const onshoreIcon = useMemo(() => createOnshoreIcon(), []);
+  const fleet = useFleet();
+  // labels face away from the array: an OSS on its west side (SB-510) labels to the left
+  const ossWest = useMemo(() => fleet.oss.lon < fleet.turbines.reduce((a, t) => a + t.lon, 0) / fleet.turbines.length, [fleet]);
+  const ossIcon = useMemo(() => createOSSIcon(totalPowerMW, fleet.net.oss_trafo_mva, ossWest), [totalPowerMW, fleet, ossWest]);
+  const onshoreIcon = useMemo(() => createOnshoreIcon(fleet.net.onshore_trafo_mva), [fleet]);
   // STATCOM Q: pandapower when the backend solves, else the reactive-balance
   // estimate (store/liveGridStore) — the same number as the ribbon and panel.
   const statcomQ = Math.round(useStatcomQ(totalPowerMW).q);
-  const statcomIcon = useMemo(() => createSTATCOMIcon(statcomQ), [statcomQ]);
+  const statcomIcon = useMemo(() => createSTATCOMIcon(statcomQ, ossWest), [statcomQ, ossWest]);
   // Grid switchyard breaker is closed whenever the farm is exporting power.
   const isExporting = totalPowerMW > 0.5;
   const switchyardIcon = useMemo(
@@ -1329,8 +1361,13 @@ function LeafletWindFarmMapInner({
   );
   const layers = useLayerStore((s) => s.layers);
   const mapTheme = useLayerStore((s) => s.mapTheme);
+  // SB-510's surveyed export route, landfall, onshore yard and met mast; an own project has none yet
+  const sb510 = fleet.source === "sb510";
+  const ossAt: [number, number] = [fleet.oss.lat, fleet.oss.lon];
   const [cableFocus, setCableFocus] = useState<CableFocus | null>(null);
   const clearCableFocus = useCallback(() => setCableFocus(null), []);
+  // a focus belongs to one fleet
+  useEffect(() => setCableFocus(null), [fleet]);
 
   const handleTurbineHover = useCallback((_id: string) => {}, []);
   const handleTurbineLeave = useCallback(() => {}, []);
@@ -1360,8 +1397,8 @@ function LeafletWindFarmMapInner({
       style={{ minHeight: 450 }}
     >
       <MapContainer
-        bounds={FARM_VIEW_BOUNDS}
-        boundsOptions={{ padding: [24, 24] }}
+        bounds={sb510 ? FARM_VIEW_BOUNDS : fleetBounds(fleet)}
+        boundsOptions={{ paddingTopLeft: [24, 130], paddingBottomRight: [24, 24] }}
         zoomSnap={0.25}
         zoomDelta={0.5}
         className="w-full h-full"
@@ -1369,6 +1406,7 @@ function LeafletWindFarmMapInner({
         zoomControl={false}
       >
         <InvalidateSize />
+        <FitFleet />
 
         {/* Custom pane for atmospheric overlays (z: 250, between tiles and markers) */}
         <AtmosphericPanes />
@@ -1396,10 +1434,10 @@ function LeafletWindFarmMapInner({
           maxZoom={19}
         />
 
-        {/* OWF site boundary (turbine envelope + ≈ 500 m safety zone) */}
-        {layers.exclusionZone && (
+        {/* OWF site boundary (turbine envelope + ≈ 500 m safety zone; own project: the drawn site) */}
+        {layers.exclusionZone && fleet.boundary.length > 2 && (
           <Polygon
-            positions={SITE_BOUNDARY_GEO}
+            positions={fleet.boundary}
             pathOptions={{
               color: "rgba(59,130,246,0.4)",
               weight: 1.5,
@@ -1433,21 +1471,37 @@ function LeafletWindFarmMapInner({
 
         {/* Live AIS traffic + export cable DTS */}
         {layers.aisTraffic && <AisTraffic />}
-        {layers.cableDts && <CableDtsLayer />}
-
-        {/* The learner's layout project (hand-over preview) */}
-        {layers.myProject && <MyProjectLayer />}
+        {layers.cableDts && sb510 && <CableDtsLayer />}
 
         {/* Fibre-optic SCADA network */}
         {layers.fibreComms && <FibreComms />}
 
         {/* IALA lights on the periphery + cardinal marks */}
-        {layers.navAids && <NavAids />}
+        {layers.navAids && sb510 && <NavAids />}
 
         {/* O&M vessels (SOV / CTV) */}
-        {layers.vessels && <Vessels />}
+        {layers.vessels && sb510 && <Vessels />}
         {layers.vessels && <RepairCrews />}
 
+        {/* Own project: straight line to the grid node — the route is not surveyed yet */}
+        {!sb510 && fleet.grid && (
+          <Polyline
+            positions={[ossAt, [fleet.grid.lat, fleet.grid.lon]]}
+            pathOptions={{ color: SCADA_COLORS.VOLTAGE_220KV, weight: 3, opacity: 0.85, dashArray: "8 12" }}
+            eventHandlers={cableHandlers}
+          >
+            <Tooltip sticky>
+              {fleet.net.num_export_cables} × 220 kV export · {fleet.net.export_length_km.toFixed(0)} km design length ·
+              straight line to {fleet.grid.name} (route not yet surveyed)
+            </Tooltip>
+          </Polyline>
+        )}
+        {!sb510 && fleet.grid && (
+          <Marker position={[fleet.grid.lat, fleet.grid.lon]} icon={onshoreIcon} eventHandlers={onshoreHandlers} zIndexOffset={1000} />
+        )}
+
+        {sb510 && (
+        <>
         {/* 2 × 220 kV export cables — subsea section (animated dashes) */}
         <Polyline
           positions={EXPORT_SUBSEA_PATH}
@@ -1501,7 +1555,7 @@ function LeafletWindFarmMapInner({
           }}
         >
           <Tooltip direction="left" offset={[-6, 0]}>
-            Landfall · Zaleskie beach (HDD) — 31.5 km subsea + 13.4 km land
+            Landfall · Darłówko-Wschodnie beach (HDD) — 79.3 km subsea + 28.7 km land
           </Tooltip>
         </CircleMarker>
 
@@ -1514,10 +1568,12 @@ function LeafletWindFarmMapInner({
             opacity: 0.7,
           }}
         />
+        </>
+        )}
 
         {/* Offshore Substation marker (z above turbines) */}
         <Marker
-          position={[OSS_GEO.lat, OSS_GEO.lon]}
+          position={ossAt}
           icon={ossIcon}
           eventHandlers={ossHandlers}
           zIndexOffset={1000}
@@ -1526,21 +1582,23 @@ function LeafletWindFarmMapInner({
         {/* STATCOM — ±120 MVAr on the OSS 220 kV busbar (same platform), so
             its chip is anchored on the OSS position, drawn above the OSS chip. */}
         <Marker
-          position={[OSS_GEO.lat, OSS_GEO.lon]}
+          position={ossAt}
           icon={statcomIcon}
           eventHandlers={statcomHandlers}
           zIndexOffset={950}
         />
 
+        {sb510 && (
+        <>
         {/* Onshore Substation marker (z above turbines) */}
         <Marker
-          position={[ONSHORE_GEO.lat, ONSHORE_GEO.lon]}
+          position={[SB510_ONSHORE_GEO.lat, SB510_ONSHORE_GEO.lon]}
           icon={onshoreIcon}
           eventHandlers={onshoreHandlers}
           zIndexOffset={1000}
         />
 
-        {/* PSE 400/110 kV substation "Słupsk Wierzbięcino" (real, OSM) */}
+        {/* PSE 400 kV substation Krzemienica (planned by PSE; Baltica 9+'s connection point) */}
         <Marker
           position={[PSE_SUBSTATION_GEO.lat, PSE_SUBSTATION_GEO.lon]}
           icon={switchyardIcon}
@@ -1555,6 +1613,8 @@ function LeafletWindFarmMapInner({
           eventHandlers={metMastHandlers}
           zIndexOffset={1100}
         />
+        </>
+        )}
 
         {/* Turbine label visibility (CSS class toggle) */}
         <TurbineLabelToggler />
@@ -1569,7 +1629,7 @@ function LeafletWindFarmMapInner({
         <TurbineDetailOverlay />
 
         {/* Turbine markers */}
-        {TURBINE_POSITIONS.map((pos) => (
+        {fleet.turbines.map((pos) => (
           <TurbineMarker
             key={pos.id}
             turbineId={pos.id}

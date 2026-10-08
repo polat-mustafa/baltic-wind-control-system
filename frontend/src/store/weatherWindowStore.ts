@@ -13,6 +13,8 @@ import { create } from "zustand";
 import * as api from "../services/weatherWindowApi";
 import type {
   AllVesselAccessResponse,
+  MaintenanceWindowRequest,
+  MaintenanceWindowResponse,
   OAMCostBreakdown,
 } from "../types/weatherWindow";
 
@@ -23,8 +25,12 @@ interface WeatherWindowState {
   oamCost: OAMCostBreakdown | null;
   loading: boolean;
   error: string | null;
+  /** Last repair-window estimate and its error (e.g. a CTV transit that leaves no working time). */
+  repair: MaintenanceWindowResponse | null;
+  repairError: string | null;
 
   fetchAll: () => Promise<void>;
+  findRepairWindow: (req: MaintenanceWindowRequest) => Promise<void>;
   clearError: () => void;
 }
 
@@ -35,6 +41,8 @@ export const useWeatherWindowStore = create<WeatherWindowState>((set) => ({
   oamCost: null,
   loading: false,
   error: null,
+  repair: null,
+  repairError: null,
 
   // ── Data actions ──────────────────────────────────────────────
 
@@ -51,6 +59,14 @@ export const useWeatherWindowStore = create<WeatherWindowState>((set) => ({
       set({ error: err instanceof Error ? err.message : String(err) });
     } finally {
       set({ loading: false });
+    }
+  },
+
+  findRepairWindow: async (req) => {
+    try {
+      set({ repair: await api.findMaintenanceWindow(req), repairError: null });
+    } catch (err) {
+      set({ repair: null, repairError: err instanceof Error ? err.message : String(err) });
     }
   },
 

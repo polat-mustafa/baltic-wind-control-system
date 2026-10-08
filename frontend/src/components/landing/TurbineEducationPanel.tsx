@@ -9,7 +9,7 @@
  * 2. Fault Diagnostic (conditional, red-tinted)
  * 3. Overview — plain-language description
  * 4. Formulas — mono-font boxes with variable lists
- * 5. V236 Design — specific value, reasoning, factors
+ * 5. Design — value of the modelled turbine (IEA 15 MW), reasoning, factors
  * 6. Efficiency — loss name, typical %, dissipation
  * 7. Standards — badge/chip list
  * 8. Simple vs Technical — collapsible sections
@@ -210,8 +210,8 @@ export default function TurbineEducationPanel({
           </Section>
         )}
 
-        {/* ── V236 Design ── */}
-        <Section title="V236-15.0 Design">
+        {/* ── Design (modelled turbine) ── */}
+        <Section title="SB-510 design (IEA 15 MW)">
           <div className="space-y-1.5">
             <div
               className="rounded px-2 py-1.5 text-[11px] font-mono text-text-primary"

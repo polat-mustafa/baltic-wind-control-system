@@ -6,9 +6,9 @@
  *   1. Freestream kinetic power   100 %
  *   2. After wake loss             −12.4 % (Horns Rev I baseline)
  *   3. After blockage              −0.5 %
- *   4. Cp at rated                 ×0.44    (V236 power chain: 16.3 MW shaft / 36.6 MW in the disk)
- *   5–8. Gearbox / generator / converter / transformer efficiencies — the
- *        same V236_ETA values as the detail panel and the schematic
+ *   4. Cp at rated                 ×0.42    (IEA 15 MW table: 15.66 MW shaft / 37.3 MW in the disk)
+ *   5–7. Generator / converter / transformer efficiencies (direct drive, no
+ *        gearbox) — the same V236_ETA values as the detail panel and the schematic
  *        (utils/landingPhysics, single source).
  *   9. Availability                ×0.95    (industry target; framework IEC 61400-26)
  *   → Grid power
@@ -49,8 +49,7 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
     const block = wake * (1 - 0.005);
     const cpRated = v236PowerChain(V236.ratedMW, V236.ratedMs, V236.ratedRpm).cp;
     const cp = block * cpRated;
-    const gearbox = cp * V236_ETA.gearbox;
-    const generator = gearbox * V236_ETA.generator;
+    const generator = cp * V236_ETA.generator;
     const converter = generator * V236_ETA.converter;
     const transformer = converter * V236_ETA.transformer;
     const pct = (x: number) => `${(x * 100).toFixed(1)} %`;
@@ -83,43 +82,36 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
         label: "× Cp (Betz aero)",
         fraction: cp,
         color: "#facc15",
-        note: `${cpRated.toFixed(3)} at rated (λ ≈ 9.3) — Betz max 0.593`,
+        note: `${cpRated.toFixed(3)} at rated (IEA 15 MW table) — Betz max 0.593`,
         partId: "blades",
-      },
-      {
-        label: "× η gearbox",
-        fraction: gearbox,
-        color: "#f59e0b",
-        note: `${pct(V236_ETA.gearbox)} — 3-stage planetary`,
-        partId: "gearbox",
       },
       {
         label: "× η generator",
         fraction: generator,
         color: "#fb923c",
-        note: `${pct(V236_ETA.generator)} — medium-speed PMSG`,
+        note: `${pct(V236_ETA.generator)} — direct-drive PMSG, no gearbox`,
         partId: "generator",
         citation: {
-          source: "NREL TP-84919 — medium-speed PMSG",
-          url: "https://docs.nrel.gov/docs/fy23osti/84919.pdf",
+          source: "Gaertner et al. 2020, NREL/TP-5000-75698, Table 5-4",
+          url: "https://docs.nlr.gov/docs/fy20osti/75698.pdf",
         },
       },
       {
         label: "× η converter",
         fraction: converter,
         color: "#f97316",
-        note: `${pct(V236_ETA.converter)} (literature 98–99 %)`,
+        note: `${pct(V236_ETA.converter)} — η_gen·η_conv = 95.756 % (ROSCO VS_GenEff)`,
         partId: "converter",
         citation: {
-          source: "Wiley Wind Energy we.2499",
-          url: "https://onlinelibrary.wiley.com/doi/full/10.1002/we.2499",
+          source: "IEA-15-240-RWT v1.1.18, ROSCO DISCON.IN",
+          url: "https://github.com/IEAWindTask37/IEA-15-240-RWT",
         },
       },
       {
         label: "× η transformer",
         fraction: transformer,
         color: "#ef4444",
-        note: `${pct(V236_ETA.transformer)} — IEC 60076 liquid-filled`,
+        note: `${pct(V236_ETA.transformer)} — illustrative (IEC 60076 liquid-filled)`,
         partId: "transformer",
         citation: {
           source: "NPC 66 kV / IEC 60076-14 datasheet",
@@ -149,7 +141,7 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary">
         <div>
           <div className="text-[11px] font-semibold text-text-primary">Power Loss Cascade</div>
-          <div className="text-[9px] text-text-muted font-mono">V236 · P_grid / P_wind = {(grid * 100).toFixed(1)} %</div>
+          <div className="text-[9px] text-text-muted font-mono">IEA 15 MW · P_grid / P_wind = {(grid * 100).toFixed(1)} %</div>
         </div>
         <button onClick={onClose} className="p-1 hover:bg-bg-hover rounded" title="Close">
           <X size={12} className="text-text-muted" />

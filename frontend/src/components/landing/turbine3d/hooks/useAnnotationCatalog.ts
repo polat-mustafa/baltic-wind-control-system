@@ -51,7 +51,7 @@ export function useAnnotationCatalog(turbineId: string): Annotation[] {
           unit: "m/s",
           source: "Cup anemometer (live)",
           description:
-            "Wind speed at hub height (150 m MSL). Rated wind speed is 11.1 m/s — the turbine produces full 15 MW above this.",
+            "Wind speed at hub height (150 m MSL). Rated wind speed is 10.7 m/s (IEA 15 MW curve) — the turbine produces full 15 MW above this, up to the 25 m/s cut-out.",
         },
       },
       {
@@ -63,7 +63,7 @@ export function useAnnotationCatalog(turbineId: string): Annotation[] {
         relatedPartId: "blades",
         detail: {
           title: "Rotor speed",
-          value: () => `${t.rotorSpeedRpm.toFixed(2)} rpm (rated 8.33)`,
+          value: () => `${t.rotorSpeedRpm.toFixed(2)} rpm (rated 7.56)`,
           unit: "rpm",
           formula: "ω = 2π · n / 60 (rad/s)",
           source: "Live simulation store",

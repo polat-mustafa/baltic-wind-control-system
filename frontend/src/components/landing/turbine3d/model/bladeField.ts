@@ -32,9 +32,9 @@
 
 import * as THREE from "three";
 
-import { inductionFromCt, v236ThrustCoefficient, v236ThrustMN } from "../../../../utils/landingPhysics";
+import { inductionFromCt, turbineThrustCoefficient, v236ThrustMN } from "../../../../utils/landingPhysics";
 import { BLADE_LENGTH_M, STATIONS, bladeTwistDeg } from "../scene/bladeConstants";
-import { ROTOR_RADIUS } from "./layout";
+import { BLADE_DRAW_SCALE, ROTOR_RADIUS } from "./layout";
 
 export type BladeFieldMode = "off" | "thermal" | "pressure" | "bending";
 export type ActiveBladeField = Exclude<BladeFieldMode, "off">;
@@ -44,7 +44,8 @@ const CP_AIR = 1005; // J/(kg·K)
 const RECOVERY_TURBULENT = 0.89; // Pr^(1/3), Pr = 0.71
 const ALPHA_MIN_DEG = -8;
 const ALPHA_MAX_DEG = 12; // ≈ stall onset of thick DU-type sections
-const HUB_RADIUS = ROTOR_RADIUS - BLADE_LENGTH_M; // 2.5 m
+// Span stations are in the drawn blade's frame; physical radius r = HUB_RADIUS + k·span.
+const HUB_RADIUS = ROTOR_RADIUS - BLADE_LENGTH_M * BLADE_DRAW_SCALE; // 2.56 m
 
 export interface BladeOperatingPoint {
   /** Hub-height free-stream wind [m/s]. */
@@ -68,10 +69,10 @@ export interface SectionState {
 
 /** Relative wind, dynamic pressure and angle of attack at a span station. */
 export function sectionState(span: number, op: BladeOperatingPoint): SectionState {
-  const r = HUB_RADIUS + Math.max(0, span);
+  const r = HUB_RADIUS + Math.max(0, span) * BLADE_DRAW_SCALE;
   const u = Math.max(0, op.windMs);
   const omega = (Math.max(0, op.rpm) * 2 * Math.PI) / 60;
-  const a = u > 0 && omega > 0 ? inductionFromCt(v236ThrustCoefficient(u)) : 0;
+  const a = u > 0 && omega > 0 ? inductionFromCt(turbineThrustCoefficient(u)) : 0;
   const lambdaR = u > 0 ? (omega * r) / u : 0;
   const aPrime = lambdaR > 0 ? (a * (1 - a)) / (lambdaR * lambdaR) : 0;
   const ua = u * (1 - a);
@@ -172,7 +173,7 @@ export function pressureCoefficient(xi: number, suction: boolean, alphaDeg: numb
 export function flapMomentMNm(span: number, thrustMN: number): number {
   const R = ROTOR_RADIUS;
   const rh = HUB_RADIUS;
-  const r = Math.min(R, HUB_RADIUS + Math.max(0, span));
+  const r = Math.min(R, HUB_RADIUS + Math.max(0, span) * BLADE_DRAW_SCALE);
   const k = (2 * (thrustMN / 3)) / (R * R - rh * rh);
   return Math.max(0, k * (R ** 3 / 3 - (r * R * R) / 2 + r ** 3 / 6));
 }
@@ -329,7 +330,7 @@ export function evaluateBladeField(
   }
 
   const tipSec = sectionState(BLADE_LENGTH_M, op);
-  const s75 = sectionState(0.75 * ROTOR_RADIUS - HUB_RADIUS, op);
+  const s75 = sectionState((0.75 * ROTOR_RADIUS - HUB_RADIUS) / BLADE_DRAW_SCALE, op);
   const root =
     mode === "bending" ? flapMomentMNm(0, thrust) : mode === "thermal" ? aeroHeatingK(sectionState(0, op).w, 0) : 0;
   const tip = mode === "bending" ? 0 : mode === "thermal" ? aeroHeatingK(tipSec.w, 0) : tipSec.q / 1000;

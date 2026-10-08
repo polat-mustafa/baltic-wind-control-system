@@ -55,9 +55,10 @@ from app.services.p1.wake_model import (
     ROTOR_DIAMETER_M,
     WakeAnalysisResult,
     create_uniform_site,
-    create_v236_wind_turbine,
+    create_wind_turbine,
     run_wake_analysis,
 )
+from app.services.site_assessment.wind_climate import SB510_WEIBULL_A, SB510_WEIBULL_K
 
 
 @dataclass(frozen=True)
@@ -125,7 +126,7 @@ def _evaluate_layout_scenarios(
     NDArray
         AEP values [GWh/year]. Shape: (n_scenarios,).
     """
-    turbine = create_v236_wind_turbine()
+    turbine = create_wind_turbine()
     aeps = np.zeros(len(scenarios))
 
     for i, scen in enumerate(scenarios):
@@ -145,9 +146,9 @@ def _evaluate_layout_scenarios(
 
 def _generate_scenarios(
     n_scenarios: int = 20,
-    weibull_a_mean: float = 10.5,
+    weibull_a_mean: float = SB510_WEIBULL_A,
     weibull_a_std: float = 0.5,
-    weibull_k_mean: float = 2.2,
+    weibull_k_mean: float = SB510_WEIBULL_K,
     weibull_k_std: float = 0.15,
     ti_mean: float = 0.06,
     ti_std: float = 0.01,

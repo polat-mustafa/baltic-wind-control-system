@@ -22,7 +22,7 @@ export const farmConfigEducation: EducationContent = {
     "Gaussian width (Bastankhah–Porté-Agel); offshore k is small, so recovery is slow. Spacing is usually larger along " +
     "the prevailing wind direction than across it. Turbines other than 15 MW are modelled as the V236 scaled at " +
     "constant specific power (343 W/m²): same rated wind speed, rotor area ∝ rating, so wake loss depends only on " +
-    "spacing in rotor diameters. Export circuits are 1000 mm² Cu XLPE (≈ 950 A each); the number of circuits follows " +
+    "spacing in rotor diameters. Export circuits are 1000 mm² Cu XLPE (825 A each, ABB/NKT datasheet); the number of circuits follows " +
     "the current at rated power, and cable charging Q = ωCU²L grows with length.",
 
   standards: [
@@ -44,7 +44,7 @@ export const farmConfigEducation: EducationContent = {
       variables: [
         { symbol: "N", name: "Number of turbines", unit: "—" },
         { symbol: "s_x, s_y", name: "Spacing along / across the wind in rotor diameters", unit: "—" },
-        { symbol: "D", name: "Rotor diameter (236 m)", unit: "m" },
+        { symbol: "D", name: "Rotor diameter (241 m, IEA 15 MW)", unit: "m" },
       ],
       explanation: "Rough farm footprint; 34 × V236 at 7 D × 7 D ≈ 34 × 1.65 km × 1.65 km ≈ 93 km² of cells.",
     },
@@ -62,15 +62,15 @@ export const farmConfigEducation: EducationContent = {
   workedExamples: [
     {
       title: "Export cable charging for the base case",
-      scenario: "Two 220 kV circuits, 45 km, C = 190 nF/km, 50 Hz.",
+      scenario: "Two 220 kV circuits, 108 km, C = 190 nF/km, 50 Hz.",
       steps: [
         "ω = 2π × 50 = 314.2 rad/s",
-        "Per circuit: 314.2 × 190·10⁻⁹ × (220·10³)² × 45 = 130 MVAr",
-        "Two circuits: 260 MVAr",
+        "Per circuit: 314.2 × 190·10⁻⁹ × (220·10³)² × 108 = 312 MVAr",
+        "Two circuits: 624 MVAr",
       ],
       result:
-        "260 MVAr of capacitive reactive power — half of the farm's MW rating — which is why HVAC export beyond " +
-        "~80–100 km needs mid-point compensation or HVDC.",
+        "624 MVAr of capacitive reactive power — more than the farm's 510 MW rating — which is why HVAC export beyond " +
+        "~100 km runs its cables near their rating and longer routes need mid-point compensation or HVDC.",
     },
   ],
 

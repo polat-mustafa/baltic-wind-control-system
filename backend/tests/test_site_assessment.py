@@ -10,7 +10,10 @@ Rules checked here (see app/services/site_assessment):
 
 from __future__ import annotations
 
+import dataclasses
 import math
+import re
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -18,6 +21,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.lifecycle.campaign import SB510_INSTALL_PORT_KM
+from app.services.p1.weather_window import SB510_OM_PORT_KM
+from app.services.p2.network_model import SB510_GRID_NODE
 from app.services.site_assessment.assess import InvalidSiteError, assess_site
 from app.services.site_assessment.criteria import Criteria, depth_band
 from app.services.site_assessment.geo import (
@@ -32,6 +38,7 @@ from app.services.site_assessment.geo import (
     polygon_area_km2,
 )
 from app.services.site_assessment.layers import load_region, parse_pack
+from app.services.site_assessment.sea_routes import sea_grid, sea_km
 from app.services.site_assessment.suitability import (
     CLASS_EXCLUDED,
     CLASS_MARGINAL,
@@ -47,7 +54,18 @@ client = TestClient(app)
 API = "/api/v1/site"
 
 SQUARE = np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]])
-SB510_SITE = [[16.31, 54.845], [16.485, 54.845], [16.485, 54.755], [16.31, 54.755]]
+# SB-510 = energy basin PZP_44 between 16.42 and 16.63 °E (frontend SITE_BOUNDARY_GEO)
+SB510_SITE = [
+    [16.4978, 55.099],
+    [16.5452, 55.1059],
+    [16.6056, 55.1083],
+    [16.63, 55.1139],
+    [16.63, 55.0474],
+    [16.4496, 55.0054],
+    [16.4417, 55.0018],
+    [16.42, 54.9881],
+    [16.42, 55.0688],
+]
 
 
 # ── Synthetic region with every layer role ───────────────────────
@@ -336,34 +354,34 @@ class TestScreening:
 
 class TestAssess:
     def test_sb510_case_study(self) -> None:
-        """The current SB-510 boundary against the open data: geometry checks out, the MSP does not.
+        """SB-510 in energy basin PZP_44 (= site 44.E.1) against the open data.
 
-        It lies outside every energy basin of the Polish maritime spatial plan
-        (Dz.U. 2021 poz. 935) and 60–80 % inside shipping-priority basin PZP_15; the Ławica
-        Słupska Natura 2000 site is ≈ 1 km north. Real findings: SB-510 moves into energy
-        basin PZP_44 (a later phase of the own-project programme) and this test follows it.
+        Every legal blocker passes: inside the basin, beyond 12 nm, no shipping basin,
+        military area or munition dump, cables > 4 km away. What stays: the area is
+        already allocated (44.E.1, PGE / Baltica 9, 2023 — SB-510 is a fictional use of
+        it) and the Ławica Słupska Natura 2000 site is 2 km south (appropriate
+        assessment). 34–54 m of water → jackets.
         """
         pack = load_region("southern-baltic")
         a = assess_site(pack, Criteria(), SB510_SITE)
-        # 0.09° × 0.175° at 54.8° N ≈ 10.0 km × 11.2 km
-        assert a.area_km2 == pytest.approx(112.3, rel=0.01)
-        assert a.shore_km is not None and a.shore_km[0] > 22.224  # beyond 12 nm
+        assert a.area_km2 == pytest.approx(112.9, rel=0.01)
+        assert a.shore_km is not None and a.shore_km[0] > 45  # far beyond 12 nm (22.2 km)
         assert a.grid_node is not None and "Słupsk" in a.grid_node
-        assert 40 < a.grid_km < 50  # type: ignore[operator]  # export route is 44.9 km
-        assert a.depth_m is not None and a.depth_m[0] > 20 and a.depth_m[1] < 45  # EMODnet DTM
-        assert a.foundation == "monopile / jacket"
-        assert 0.6 < a.exclusion_shares["shipping"] < 0.8
+        # straight line to the nearest node; SB-510's cable runs round Ławica Słupska and the
+        # military area to Krzemienica: 108 km
+        assert 60 < a.grid_km < 70  # type: ignore[operator]
+        assert a.depth_m is not None and a.depth_m[0] > 30 and a.depth_m[1] < 57  # EMODnet DTM
+        assert a.foundation is not None and "jacket" in a.foundation
+        assert a.excluded_fraction == 0
         assert a.capacity_mw == pytest.approx(a.area_km2 * (1 - a.excluded_fraction) * 4.5)
         status = {c.id: c.status for c in a.checks}
         assert status["territorial_sea"] == "pass" and status["eez"] == "pass"
-        assert (
-            status["owf"] == "pass" and status["depth"] == "pass" and status["restricted"] == "pass"
-        )
-        assert status["shipping"] == "fail"
-        assert status["msp_energy"] == "fail" and a.energy_basins == []
-        assert status["owf"] == "pass" and a.projects == []
+        assert status["depth"] == "pass" and status["restricted"] == "pass"
+        assert status["shipping"] == "pass" and status["cables"] == "pass"
+        assert status["msp_energy"] == "pass" and a.energy_basins == ["PZP_44"]
+        assert status["owf"] == "warn" and any("Baltica 9" in p for p in a.projects)
         assert status["natura2000"] == "warn"
-        assert a.protected_km is not None and 0 < a.protected_km < 2
+        assert a.protected_km is not None and 1.5 < a.protected_km < 2.5
         assert a.complete
         # The full boundary at the case-study density gives SB-510's 510 MW
         assert a.area_km2 * 4.5 == pytest.approx(510, rel=0.02)
@@ -515,7 +533,229 @@ class TestAPI:
         r = client.post(f"{API}/assess", json={"polygon": SB510_SITE})
         assert r.status_code == 200
         b = r.json()
-        assert b["area_km2"] == pytest.approx(112.3, rel=0.01)
+        assert b["area_km2"] == pytest.approx(112.9, rel=0.01)
         assert {c["status"] for c in b["checks"]} <= {"pass", "warn", "fail", "unknown", "info"}
         crossing = [[16.3, 54.8], [16.5, 54.9], [16.5, 54.8], [16.3, 54.9]]
         assert client.post(f"{API}/assess", json={"polygon": crossing}).status_code == 422
+
+
+def test_raster_endpoint_clips_bathymetry_to_the_bbox() -> None:
+    """SB-510 lies in 37–51 m of water; the clip covers the bbox and agrees with sample()."""
+    params = {"role": "bathymetry", "bbox": "16.42,55.0,16.63,55.12"}
+    r = client.get("/api/v1/site/raster", params=params)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    grid = body["bands"]["values"]
+    assert body["lon0"] <= 16.42 and body["lat0"] <= 55.0
+    assert body["lon0"] + (len(grid[0]) - 1) * body["dlon"] >= 16.63 - 1e-9
+    assert body["lat0"] + (len(grid) - 1) * body["dlat"] >= 55.12 - 1e-9
+    assert len(grid) * len(grid[0]) < 400
+    depth = load_region("southern-baltic").raster("bathymetry")
+    assert depth is not None
+    j, i = 3, 4
+    lon, lat = body["lon0"] + i * body["dlon"], body["lat0"] + j * body["dlat"]
+    expected = float(depth.sample(np.array([lon]), np.array([lat]))[0])
+    assert grid[j][i] == pytest.approx(expected, abs=1e-6)
+    assert 30 < grid[j][i] < 60
+    assert body["source"]
+
+
+def test_raster_endpoint_rejects_bad_requests() -> None:
+    def status(role: str, bbox: str) -> int:
+        return client.get("/api/v1/site/raster", params={"role": role, "bbox": bbox}).status_code
+
+    assert status("bathymetry", "16.6,55,16.4,55.1") == 422  # min > max
+    assert status("bathymetry", "a,b,c,d") == 422
+    assert status("bathymetry", "0,0,1,1") == 422  # no overlap
+    assert status("nope", "16.4,55,16.6,55.1") == 404
+    assert status("bathymetry", "10,50,25,60") == 422  # too large
+
+
+# ── Seabed substrate (EMODnet Geology, Folk 5) ──────────────────
+
+
+def _with_seabed(rows: list[str]) -> Any:
+    """The synthetic pack plus a class raster stored as digit rows (0.05° grid from 16.0 / 54.0)."""
+    base = synthetic_pack()
+    seabed = parse_pack(
+        {
+            "region": "t",
+            "title": "t",
+            "bbox": [16.0, 53.9, 17.0, 55.0],
+            "pending": [],
+            "layers": [
+                {
+                    "id": "seabed",
+                    "title": "seabed",
+                    "role": "seabed",
+                    "geometry": "raster",
+                    "source": "test",
+                    "license": "test",
+                    "retrieved": "2026-01-01",
+                    "raster": {
+                        "lon0": 16.0,
+                        "lat0": 54.0,
+                        "dlon": 0.05,
+                        "dlat": 0.05,
+                        "rows": rows,
+                    },
+                }
+            ],
+        }
+    )
+    return dataclasses.replace(base, layers=base.layers + seabed.layers)
+
+
+def test_seabed_rows_decode_to_classes_with_no_data() -> None:
+    pack = _with_seabed(["0123", "4500"])
+    r = pack.raster("seabed")
+    assert r is not None
+    assert np.isnan(r.values[0, 0]) and r.values[0, 3] == 3 and r.values[1, 1] == 5
+    # nearest node, not an interpolated class
+    assert r.nearest(np.array([16.074]), np.array([54.0]))[0] == 1
+    assert r.nearest(np.array([16.076]), np.array([54.0]))[0] == 2
+    assert np.isnan(r.nearest(np.array([15.9]), np.array([54.0]))[0])
+
+
+def test_seabed_check_passes_on_sand_and_warns_on_rock() -> None:
+    site = [[16.4, 54.3], [16.6, 54.3], [16.6, 54.5], [16.4, 54.5]]
+    sand = assess_site(_with_seabed(["2" * 21] * 21), Criteria(), site)
+    assert sand.seabed == {"Sand": 1.0}
+    assert next(c for c in sand.checks if c.id == "seabed").status == "pass"
+    rock = assess_site(_with_seabed(["2" * 21] * 8 + ["5" * 21] * 13), Criteria(), site)
+    assert rock.seabed is not None and 0 < rock.seabed["Rock and boulders"] < 1
+    check = next(c for c in rock.checks if c.id == "seabed")
+    assert check.status == "warn" and "drive-drill-drive" in check.detail
+    no_layer = assess_site(synthetic_pack(), Criteria(), site)
+    assert no_layer.seabed is None
+    assert next(c for c in no_layer.checks if c.id == "seabed").status == "unknown"
+
+
+def test_sb510_seabed_is_till_gravel_and_sand() -> None:
+    """EMODnet / PGI-NRI 1:200 000: the Słupsk Bank area is mixed sediment and gravel."""
+    a = assess_site(load_region("southern-baltic"), Criteria(), SB510_SITE)
+    assert a.seabed is not None
+    assert sum(a.seabed.values()) == pytest.approx(1.0)
+    assert a.seabed["Mixed sediment"] == pytest.approx(0.40, abs=0.05)
+    assert a.seabed["Coarse-grained sediment"] == pytest.approx(0.31, abs=0.05)
+    assert a.seabed["Sand"] == pytest.approx(0.29, abs=0.05)
+    assert next(c for c in a.checks if c.id == "seabed").status == "warn"
+
+
+def test_seabed_raster_and_class_cards_over_the_api() -> None:
+    r = client.get(
+        "/api/v1/site/raster", params={"role": "seabed", "bbox": "16.42,55.0,16.63,55.12"}
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["classes"]["5"] == "Rock and boulders"
+    codes = {v for row in body["bands"]["values"] for v in row if v is not None}
+    assert codes <= {1, 2, 3, 4, 5} and {3, 4} <= codes
+    cards = client.get(f"{API}/layers").json()["seabed_classes"]
+    assert [c["code"] for c in cards] == [1, 2, 3, 4, 5]
+    assert next(c for c in cards if c["name"] == "Sand")["foundation_factor"] == 1.0
+    assert all(c["quality"] == "illustrative" for c in cards)
+
+
+# ── Ports and sea routes ─────────────────────────────────────────
+
+
+def test_sb510_ports_by_sea() -> None:
+    """Ustka (PGE Baltica O&M base) is the nearest O&M port, Rønne the nearest installation
+    port; routes stay at sea (Gdańsk goes round the Hel peninsula)."""
+    a = assess_site(load_region("southern-baltic"), Criteria(), SB510_SITE)
+    km = {p.name: p.km for p in a.ports}
+    om = [p for p in a.ports if p.use == "O&M"]
+    inst = [p for p in a.ports if p.use == "installation"]
+    assert om[0].name == "Ustka" and om[0].km == pytest.approx(SB510_OM_PORT_KM, abs=0.05)
+    assert inst[0].name == "Rønne (DK)"
+    assert inst[0].km == pytest.approx(SB510_INSTALL_PORT_KM, abs=0.05)
+    # the straight line Gdańsk T5 → SB-510 is ≈ 150 km; round Hel it is longer
+    assert km["Gdańsk T5"] is not None and km["Gdańsk T5"] > 175
+    assert km["Łeba"] == pytest.approx(71.2, abs=1.0)
+    check = next(c for c in a.checks if c.id == "ports")
+    assert check.status == "info" and "Ustka" in check.detail and "CTV" in check.detail
+    # the frontend twin (lib/lifecycle/farm.ts SB510_PORTS)
+    ts = Path(__file__).parents[2] / "frontend/src/lib/lifecycle/farm.ts"
+    if ts.exists():  # backend-only checkout
+        twin = re.findall(r'name: "([^"]+)", km: ([\d.]+)', ts.read_text(encoding="utf-8"))
+        assert twin == [
+            (inst[0].name, str(SB510_INSTALL_PORT_KM)),
+            (om[0].name, str(SB510_OM_PORT_KM)),
+        ]
+
+
+def test_sea_route_goes_round_land() -> None:
+    """A wall of land across the synthetic sea forces a detour around its end."""
+    pack = synthetic_pack()
+    grid = sea_grid(pack)
+    assert grid is not None
+    port = (16.05, 54.5)
+    lon, lat = np.array([16.95]), np.array([54.5])
+    straight = sea_km(pack, port, lon, lat)
+    assert straight == pytest.approx(0.9 * 111.19 * math.cos(math.radians(54.95)), rel=0.05)
+    wall = dataclasses.replace(
+        pack,
+        layers=pack.layers
+        + parse_pack(
+            {
+                "region": "t",
+                "title": "t",
+                "bbox": [16.0, 53.9, 17.0, 55.0],
+                "pending": [],
+                "layers": [
+                    {
+                        "id": "wall",
+                        "title": "wall",
+                        "role": "shore",
+                        "geometry": "line",
+                        "source": "t",
+                        "license": "t",
+                        "retrieved": "t",
+                        "features": [{"name": "spit", "coordinates": [[16.5, 54.0], [16.5, 54.8]]}],
+                    }
+                ],
+            }
+        ).layers,
+    )
+    detour = sea_km(wall, port, lon, lat)
+    assert detour is not None and straight is not None
+    # shortest way round: up to the end of the spit (54.8 °N) and down again
+    kx = 111.19 * math.cos(math.radians(54.95))
+    round_end = 2 * math.hypot(0.45 * kx, 0.3 * 111.19)
+    assert round_end * 0.98 < detour < round_end * 1.2
+
+
+# ── Grid connection points ───────────────────────────────────────
+
+
+def test_sb510_grid_nodes_ranked_and_choosable() -> None:
+    """Nearest PSE node = Słupsk Wierzbięcin (existing); SB-510 connects to the planned
+    Krzemienica (PSE), the real 44.E.1 connection point, chosen explicitly."""
+    pack = load_region("southern-baltic")
+    a = assess_site(pack, Criteria(), SB510_SITE)
+    assert a.grid_node.startswith("Słupsk") and a.grid_km == a.grid_nodes[0].km
+    assert [n.km for n in a.grid_nodes] == sorted(n.km for n in a.grid_nodes)
+    by_name = {n.name: n for n in a.grid_nodes}
+    assert by_name["Krzemienica 400 kV"].status == "planned"
+    assert "inwestycje.pse.pl" in by_name["Krzemienica 400 kV"].basis
+    assert by_name["Choczewo 400 kV"].status == "commissioning"
+    assert next(c for c in a.checks if c.id == "grid").status == "info"
+    chosen = assess_site(pack, Criteria(), SB510_SITE, grid_node=SB510_GRID_NODE)
+    assert chosen.grid_node == SB510_GRID_NODE == "Krzemienica 400 kV"
+    assert chosen.grid_km == by_name["Krzemienica 400 kV"].km
+    check = next(c for c in chosen.checks if c.id == "grid")
+    assert check.status == "warn" and "Bałtyk 1" in check.detail
+    with pytest.raises(InvalidSiteError, match="unknown grid node"):
+        assess_site(pack, Criteria(), SB510_SITE, grid_node="Nowhere 400 kV")
+
+
+def test_grid_node_over_the_api() -> None:
+    body = {"polygon": SB510_SITE, "grid_node": "Żarnowiec 400/110 kV"}
+    r = client.post(f"{API}/assess", json=body)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["grid_node"] == "Żarnowiec 400/110 kV"
+    assert {n["status"] for n in data["grid_nodes"]} == {"existing", "commissioning", "planned"}
+    bad = client.post(f"{API}/assess", json={**body, "grid_node": "Nowhere"})
+    assert bad.status_code == 422

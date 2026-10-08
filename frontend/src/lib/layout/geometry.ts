@@ -88,7 +88,7 @@ export interface GridOptions {
   inset: number;
 }
 
-function distToSegment(p: XY, a: XY, b: XY): number {
+export function distToSegment(p: XY, a: XY, b: XY): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
@@ -100,6 +100,25 @@ export function distToBoundary(p: XY, poly: XY[]): number {
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) m = Math.min(m, distToSegment(p, poly[j], poly[i]));
   return m;
 }
+
+/** Point of the polygon outline nearest to p. */
+export function nearestOnBoundary(p: XY, poly: XY[]): XY {
+  let best = poly[0];
+  let m = Infinity;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[j];
+    const dx = poly[i].x - a.x;
+    const dy = poly[i].y - a.y;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+    const q = { x: a.x + t * dx, y: a.y + t * dy };
+    const d = dist(p, q);
+    if (d < m) [m, best] = [d, q];
+  }
+  return best;
+}
+
+/** Bearing from a to b, degrees clockwise from north. */
+export const bearing = (a: XY, b: XY) => ((Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI + 360) % 360;
 
 /** Regular (or staggered) grid clipped to the polygon. */
 export function gridFill(poly: XY[], o: GridOptions): XY[] {

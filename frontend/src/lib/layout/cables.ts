@@ -11,8 +11,9 @@
  *
  * A join that would cross an existing cable is skipped.
  *
- * Cable sections: 66 kV 3-core Cu XLPE, ratings from the P2 network model
- * (backend/app/services/p2/network_model.py, IEC 60287 typical values).
+ * Cable sections: 66 kV 3-core Cu XLPE, the P2 network model's ARRAY_SECTIONS
+ * (backend/app/services/p2/network_model.py): ABB/NKT 2GM5007 rev 5 Table 33, IEC 60287
+ * ratings for one cable 1 m deep in a 20 °C seabed of 1.0 K·m/W (literature).
  * Current at unity power factor: I = n·P / (√3·U).
  */
 
@@ -26,9 +27,10 @@ export interface CableSection {
 }
 
 export const ARRAY_SECTIONS: CableSection[] = [
-  { id: "500", label: "66 kV 500 mm²", imax: 715 },
-  { id: "630", label: "66 kV 630 mm²", imax: 818 },
-  { id: "800", label: "66 kV 800 mm²", imax: 900 },
+  { id: "500", label: "66 kV 500 mm²", imax: 655 },
+  { id: "630", label: "66 kV 630 mm²", imax: 715 },
+  { id: "800", label: "66 kV 800 mm²", imax: 775 },
+  { id: "1000", label: "66 kV 1000 mm²", imax: 825 },
 ];
 
 export const ARRAY_KV = 66;

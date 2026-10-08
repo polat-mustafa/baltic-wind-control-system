@@ -1,3 +1,5 @@
+import { turbinePowerMW } from "../../../utils/landingPhysics";
+
 /**
  * Gradient boosting with regression trees, small enough to read in one go —
  * the same idea XGBoost implements at scale (XGBoost adds second-order
@@ -36,8 +38,8 @@ export function rng(seed: number) {
   };
 }
 
-/** V236 power curve [MW] (cubic to rated 11.1 m/s, flat to cut-out). */
-export const powerCurve = (u: number) => (u < 3 || u > 31 ? 0 : Math.min(15, 15 * (u / 11.1) ** 3));
+/** SB-510 power curve [MW] — the official IEA 15 MW table (3 / 10.66 / 25 m/s). */
+export const powerCurve = (u: number) => turbinePowerMW(u);
 
 /** Noisy "SCADA" samples: wind 0–25 m/s, Gaussian noise σ [MW], 0 ≤ P ≤ 15. */
 export function makeData(n: number, seed: number, sigma = 0.9): Sample[] {

@@ -23,7 +23,7 @@ const SCENARIOS: ScenarioName[] = [
   "rotor_icing",
   "pitch_misalignment",
   "converter_derating",
-  "gearbox_degradation",
+  "generator_degradation",
   "anemometer_drift",
 ];
 const DAYS = 7;
@@ -32,7 +32,7 @@ const CHANNELS: { key: ChannelKey; short: string }[] = [
   { key: "power", short: "P" },
   { key: "rotor_speed", short: "ω" },
   { key: "pitch", short: "β" },
-  { key: "gearbox_temp", short: "T_gb" },
+  { key: "generator_temp", short: "T_gb" },
   { key: "anemometer", short: "v" },
 ];
 
@@ -54,9 +54,9 @@ const FAULTS: { kind: FaultKind; label: string; signature: string }[] = [
     signature: "Power capped at high wind; the turbine pitches out (pitch high) to shed the surplus.",
   },
   {
-    kind: "gearbox_loss",
-    label: "Gearbox loss increase",
-    signature: "Gearbox temperature high for the load; power barely changes.",
+    kind: "generator_loss",
+    label: "Generator loss increase",
+    signature: "Generator winding temperature high for the load; power barely changes.",
   },
   {
     kind: "anemometer_gain",
@@ -235,7 +235,7 @@ export default function DiagnosisMission() {
         </table>
       </div>
       <p className="text-[11px] text-text-muted">
-        Channel health 0–100 per channel (P power, ω rotor speed, β pitch, T_gb gearbox temperature, v anemometer); rows sorted by
+        Channel health 0–100 per channel (P power, ω rotor speed, β pitch, T generator winding temperature, v anemometer); rows sorted by
         health. Events: ↑ / ↓ measured above / below the twin's expectation, ! alarm level.
       </p>
       <div className="flex flex-wrap justify-end gap-2">

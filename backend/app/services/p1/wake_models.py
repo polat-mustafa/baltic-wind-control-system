@@ -54,7 +54,7 @@ from numpy.typing import NDArray
 from app.services.p1.wake_model import (
     RATED_POWER_KW,
     WakeAnalysisResult,
-    create_v236_wind_turbine,
+    create_wind_turbine,
 )
 
 
@@ -205,7 +205,7 @@ def configure_wake_model_flexible(
     site : py_wake.site.BaseSite
         PyWake site object.
     turbine : py_wake.wind_turbines.WindTurbine, optional
-        PyWake turbine. If None, creates V236-15.0 MW.
+        PyWake turbine. If None, the SB-510 reference (IEA 15 MW).
     deficit_model : WakeDeficitModel
         Wake deficit model. Default: BPA Gaussian.
     turbulence_model : TurbulenceModel
@@ -221,7 +221,7 @@ def configure_wake_model_flexible(
     from py_wake.wind_farm_models import All2AllIterative
 
     if turbine is None:
-        turbine = create_v236_wind_turbine()
+        turbine = create_wind_turbine()
 
     return All2AllIterative(
         site=site,
@@ -262,7 +262,7 @@ def run_wake_analysis_flexible(
     WakeAnalysisResult
         Wake analysis result.
     """
-    turbine = create_v236_wind_turbine()
+    turbine = create_wind_turbine()
     wf_model = configure_wake_model_flexible(
         site,
         turbine,

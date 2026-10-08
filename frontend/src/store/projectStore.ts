@@ -14,6 +14,7 @@ import { TURBINE_POSITIONS, OSS_GEO } from "../constants/windFarmLayout";
 import { DEFAULT_COSTS, type CostInputs } from "../lib/layout/cost";
 import type { LonLat } from "../lib/layout/geometry";
 import { readStored, writeStored } from "../lib/storage";
+import { postNeighbours, type NeighbourFarm } from "../services/siteApi";
 import { runCustomWakeAnalysis } from "../services/windResourceApi";
 import type { WakeAnalysisResult } from "../types/windResource";
 
@@ -90,12 +91,25 @@ export interface PyWakeWind {
   sectorFrequencies: number[] | null;
 }
 
+export interface ExternalWake {
+  lossPct: number;
+  netWithGWh: number;
+  farms: Omit<NeighbourFarm, "turbines">[];
+  turbines: number;
+  note: string;
+  densityBasis: string;
+}
+
 interface ProjectState extends Persisted {
   selected: string | null;
   addMode: boolean;
   pywake: WakeAnalysisResult | null;
   pywakeFor: string | null;
   running: boolean;
+  /** External wake loss from the neighbouring farms, for the layout `externalFor`. */
+  external: ExternalWake | null;
+  externalFor: string | null;
+  externalRunning: boolean;
   error: string | null;
 
   setTurbines: (t: LonLat[]) => void;
@@ -118,6 +132,11 @@ interface ProjectState extends Persisted {
     wind?: PyWakeWind,
     remote?: (wind?: PyWakeWind) => Promise<WakeAnalysisResult>,
   ) => Promise<void>;
+  /**
+   * External wake loss: the real farms within 60 km of the site as approximate layouts
+   * (POST /site/neighbours), PyWake (TurbOPark) with and without them.
+   */
+  runNeighbourWake: (toXY: (p: LonLat) => { x: number; y: number }, site: LonLat[], wind?: PyWakeWind) => Promise<void>;
   /** Replace turbines, OSS and costs (project document); false if the turbine list is invalid. */
   restore: (p: Record<string, unknown>) => boolean;
   clearError: () => void;
@@ -133,12 +152,16 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     save();
   };
   let request = 0;
+  let externalRequest = 0;
 
   return {
     ...load(),
     selected: null,
     addMode: false,
     pywake: null,
+    external: null,
+    externalFor: null,
+    externalRunning: false,
     pywakeFor: null,
     running: false,
     error: null,
@@ -199,6 +222,41 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         if (id === request) set({ pywake: res, pywakeFor: sig, running: false });
       } catch (e) {
         if (id === request) set({ running: false, error: e instanceof Error ? e.message : String(e) });
+      }
+    },
+
+    runNeighbourWake: async (toXY, site, wind) => {
+      const t = get().turbines;
+      if (!t.length) return;
+      const id = ++externalRequest;
+      const sig = signature(t);
+      set({ externalRunning: true, error: null });
+      try {
+        const nb = await postNeighbours(site);
+        const pts = nb.farms.flatMap((f) => f.turbines.map(toXY));
+        const xy = t.map((x) => toXY([x.lon, x.lat]));
+        const r = (v: number) => Math.round(v * 10) / 10;
+        const res = await runCustomWakeAnalysis(
+          xy.map((p) => r(p.x)),
+          xy.map((p) => r(p.y)),
+          wind?.weibullA,
+          wind?.weibullK,
+          undefined,
+          undefined,
+          wind?.sectorFrequencies ?? null,
+          pts.length ? { x_m: pts.map((p) => r(p.x)), y_m: pts.map((p) => r(p.y)) } : null,
+        );
+        const external: ExternalWake = {
+          lossPct: res.external_wake_loss_percent ?? 0,
+          netWithGWh: res.net_aep_with_neighbours_gwh ?? res.net_aep_gwh,
+          farms: nb.farms.map(({ turbines: _, ...f }) => f),
+          turbines: pts.length,
+          note: nb.note,
+          densityBasis: nb.density_basis,
+        };
+        if (id === externalRequest) set({ external, externalFor: sig, externalRunning: false });
+      } catch (e) {
+        if (id === externalRequest) set({ externalRunning: false, error: e instanceof Error ? e.message : String(e) });
       }
     },
 

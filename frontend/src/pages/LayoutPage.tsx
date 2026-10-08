@@ -236,7 +236,9 @@ export default function LayoutPage() {
 
   const capacity = p.turbines.length * RATED_MW;
   const pywakeFresh = p.pywake && p.pywakeFor === sig ? p.pywake : null;
-  const wakeOnlyGWh = pywakeFresh?.net_aep_gwh ?? yieldRes?.netGWh ?? 0;
+  // External wake loss from the neighbouring farms (TurbOPark), when run for this layout.
+  const external = p.external && p.externalFor === sig ? p.external : null;
+  const wakeOnlyGWh = (pywakeFresh?.net_aep_gwh ?? yieldRes?.netGWh ?? 0) * (1 - (external?.lossPct ?? 0) / 100);
   const netGWh = wakeOnlyGWh * (1 - OTHER_LOSSES);
   const routeKm = useSiteStore((s) => s.routeKm);
   const defaultExport = defaultExportKm(report?.grid_km, routeKm);
@@ -484,6 +486,45 @@ export default function LayoutPage() {
                 within about 0.5 percentage points on regular grids.
               </p>
             )}
+            <div className="space-y-1 border-t border-border-primary pt-2 text-[12px]" data-tour="layout-neighbours">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-text-secondary">Neighbouring wind farms (cluster wake)</span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    void p.runNeighbourWake(
+                      proj.toXY,
+                      site,
+                      siteWind ? { weibullA: windA, weibullK: windK, sectorFrequencies: siteWind.sector_frequencies } : undefined,
+                    )
+                  }
+                  disabled={!p.turbines.length || p.externalRunning}
+                >
+                  <Play size={13} className="mr-1" /> {p.externalRunning ? "Running… (≈ 20 s)" : "Estimate external loss"}
+                </Button>
+              </div>
+              {external ? (
+                <>
+                  <p className="text-text-primary">
+                    <span className="font-semibold">−{external.lossPct.toFixed(1)} %</span> from {external.farms.length} farm
+                    {external.farms.length === 1 ? "" : "s"} within 60 km ({external.turbines} virtual turbines); net AEP after it{" "}
+                    {external.netWithGWh.toFixed(0)} GWh (wake only). The cost estimate includes it.
+                  </p>
+                  <p className="text-[11px] text-text-muted">
+                    {external.farms.map((f) => `${f.name} ${f.power_mw.toFixed(0)} MW, ${f.distance_km.toFixed(0)} km`).join(" · ")}
+                  </p>
+                  <p className="text-[11px] text-status-warning">
+                    {external.note}; point-only projects use {external.densityBasis}. TurbOPark (Nygaard et al. 2022) wakes.
+                  </p>
+                </>
+              ) : (
+                <p className="text-[11px] text-text-muted">
+                  Real projects around the site take wind from it. This places approximate layouts of the farms within 60 km and runs PyWake with and
+                  without them; the live numbers above leave them out.
+                </p>
+              )}
+            </div>
           </div>
 
           <MoveSuggestions

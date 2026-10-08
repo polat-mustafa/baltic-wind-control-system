@@ -80,6 +80,7 @@ export function runCustomWakeAnalysis(
   turbulence_intensity = 0.06,
   turbine_model = DEFAULT_TURBINE_ID,
   sector_frequencies: number[] | null = null,
+  neighbours: { x_m: number[]; y_m: number[] } | null = null,
 ): Promise<WakeAnalysisResult> {
   return post(`${BASE}/wake-analysis-custom`, {
     x_m,
@@ -89,6 +90,7 @@ export function runCustomWakeAnalysis(
     turbulence_intensity,
     turbine_model,
     sector_frequencies,
+    ...(neighbours ? { neighbour_x_m: neighbours.x_m, neighbour_y_m: neighbours.y_m } : {}),
   });
 }
 

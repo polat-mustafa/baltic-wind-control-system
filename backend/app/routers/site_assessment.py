@@ -6,6 +6,7 @@
   POST /suitability   gridded multi-criteria screening: excluded / poor / marginal / suitable
   POST /assess        report for a candidate site polygon (area, capacity, checklist)
   POST /route-check   export cable route: length, landfall, Natura, shipping and cable crossings
+  POST /neighbours    approximate layouts of the real wind farms around a site (cluster wakes)
 
 Screening only: results are as complete as the region's layer pack, and the
 responses say which layers are missing and what that means.
@@ -37,6 +38,9 @@ from app.schemas.site_assessment import (
     LayerInfo,
     LayersResponse,
     MissingLayer,
+    NeighbourFarmSchema,
+    NeighboursRequest,
+    NeighboursResponse,
     PortSchema,
     RasterResponse,
     ReasonArea,
@@ -48,6 +52,7 @@ from app.schemas.site_assessment import (
     SuitabilityResponse,
     WindClimateSchema,
 )
+from app.services.p1.turbine_models import get_turbine
 from app.services.site_assessment.assess import InvalidSiteError, assess_site
 from app.services.site_assessment.criteria import (
     CRITERIA_INFO,
@@ -56,6 +61,7 @@ from app.services.site_assessment.criteria import (
     Criteria,
 )
 from app.services.site_assessment.layers import Layer, RegionPack, available_regions, load_region
+from app.services.site_assessment.neighbours import neighbour_farms
 from app.services.site_assessment.route_check import RouteError, auto_route, check_route
 from app.services.site_assessment.suitability import (
     CLASS_NAMES,
@@ -410,4 +416,34 @@ async def post_route_check(req: RouteCheckRequest) -> RouteCheckResponse:
             )
             for c in r.checks
         ],
+    )
+
+
+@router.post("/neighbours", response_model=NeighboursResponse)
+async def post_neighbours(req: NeighboursRequest) -> NeighboursResponse:
+    """Real wind farms within the radius, as approximate turbine layouts (cluster wakes)."""
+    pack = _pack(req.region)
+    for corner in req.polygon:
+        if len(corner) < 2 or not all(math.isfinite(v) for v in corner[:2]):
+            raise ValidationError("Every corner must be [lon, lat]")
+    rated_mw = get_turbine(req.turbine_model).rated_mw
+    n = await run_in_threadpool(
+        neighbour_farms, pack, [c[:2] for c in req.polygon], rated_mw, req.radius_km
+    )
+    return NeighboursResponse(
+        farms=[
+            NeighbourFarmSchema(
+                name=f.name,
+                status=f.status,
+                power_mw=f.power_mw,
+                source="outline" if f.source == "outline" else "point",
+                distance_km=f.distance_km,
+                turbines=f.turbines,
+            )
+            for f in n.farms
+        ],
+        density_mw_km2=round(n.density_mw_km2, 2),
+        density_basis=n.density_basis,
+        radius_km=n.radius_km,
+        note=n.note,
     )

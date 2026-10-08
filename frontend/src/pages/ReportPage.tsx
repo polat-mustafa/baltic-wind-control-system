@@ -249,6 +249,7 @@ export default function ReportPage() {
     depthAt,
     seabedAt,
     pywake,
+    external: !reference && p.external && p.externalFor === sig ? { lossPct: p.external.lossPct, farms: p.external.farms.length, turbines: p.external.turbines } : null,
     history,
     moves,
     network: networkSpec,
@@ -438,6 +439,12 @@ export default function ReportPage() {
                 ["PyWake (Niayifar Gaussian, STF2017)", e.pywake ? `${fmt(e.pywake.net_wake_gwh, 0, "GWh/yr")}, wake ${fmt(e.pywake.wake_loss_pct, 1, "%")}` : "not run for this layout"],
                 ["Gross (no wakes)", fmt((e.pywake ?? e.screening)?.gross_gwh, 0, "GWh/yr")],
                 ["Capacity factor (wake only)", fmt(100 * ((e.pywake ?? e.screening)?.capacity_factor ?? 0), 1, "%")],
+                [
+                  "External wake loss (neighbouring farms)",
+                  e.external_wake
+                    ? `${fmt(e.external_wake.loss_pct, 1, "%")} from ${e.external_wake.farms} farms (TurbOPark, approximate layouts)`
+                    : "not estimated — Layout, “Estimate external loss”",
+                ],
                 [`Net after ${e.other_losses_pct} % other losses (${e.basis})`, fmt(e.net_gwh, 0, "GWh/yr")],
               ]}
             />

@@ -5,11 +5,12 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { BookOpen, Copy, Download, FilePlus2, FolderOpen, Upload } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { BookOpen, Copy, Download, FilePlus2, FolderOpen, Library, Upload } from "lucide-react";
 import { OSS_GEO, TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 
-import { applyDoc, buildDoc, DEFAULT_NAME, parseDoc } from "../../lib/project/document";
+import { buildDoc, DEFAULT_NAME, parseDoc } from "../../lib/project/document";
+import { confirmReference, createProject, switchMode } from "../../lib/project/library";
 import { cn } from "../../lib/utils";
 import { useModeStore, type Mode } from "../../store/modeStore";
 import { useProjectSync } from "../../store/projectSync";
@@ -29,7 +30,6 @@ export default function ProjectMenu() {
   const [link, setLink] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const mode = useModeStore((s) => s.mode);
-  const setMode = useModeStore((s) => s.setMode);
   const name = useProjectSync((s) => s.name);
   const setName = useProjectSync((s) => s.setName);
   const navigate = useNavigate();
@@ -61,20 +61,15 @@ export default function ProjectMenu() {
   const importFile = async (f: File) => {
     try {
       const doc = parseDoc(await f.text());
-      applyDoc(doc);
-      setName(doc.name);
-      setNote(`Imported “${doc.name}”.`);
+      createProject(doc);
+      setNote(`Imported “${doc.name}” — your previous project is in My projects.`);
     } catch (e) {
       setNote(e instanceof Error ? e.message : String(e));
     }
   };
   const startProject = (question: string, content: Record<string, unknown>) => {
-    if (!window.confirm(`${question} The current one is replaced in this browser; an online copy stays reachable by its link.`))
-      return;
-    useProjectSync.getState().detach();
-    const doc = parseDoc({ schema: 2, app: "OffshoreForge", turbines: [], ...content });
-    applyDoc(doc);
-    setName(doc.name);
+    if (!window.confirm(`${question} The current project is kept in My projects.`)) return;
+    createProject(parseDoc({ schema: 2, app: "OffshoreForge", turbines: [], ...content }));
     setNote(null);
     setOpen(false);
     navigate("/develop");
@@ -125,7 +120,7 @@ export default function ProjectMenu() {
                 type="button"
                 role="radio"
                 aria-checked={mode === m.id}
-                onClick={() => setMode(m.id)}
+                onClick={() => (m.id === "own" || confirmReference()) && switchMode(m.id)}
                 className={cn(
                   "rounded-md border px-2 py-1.5 text-left",
                   mode === m.id ? "border-accent bg-accent/10" : "border-border-primary hover:bg-bg-hover",
@@ -151,6 +146,13 @@ export default function ProjectMenu() {
                 />
               </label>
               <SaveOnline />
+              <Link
+                to="/projects"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
+              >
+                <Library size={13} /> My projects — open, compare, export
+              </Link>
               <div className="flex flex-wrap gap-1.5 border-t border-border-primary pt-2">
                 <Button variant="ghost" size="sm" onClick={newProject}>
                   <FilePlus2 size={13} className="mr-1" /> New
@@ -203,7 +205,11 @@ export default function ProjectMenu() {
             </>
           ) : (
             <p className="text-[11px] text-text-muted">
-              SB-510 is a fictional 510 MW case study in energy basin PZP_44 of the Polish Baltic (the real site 44.E.1, permit: PGE / Baltica 9, 2023). Your own project stays in this browser while you explore it.
+              SB-510 is a fictional 510 MW case study in energy basin PZP_44 of the Polish Baltic (the real site 44.E.1, permit: PGE / Baltica 9, 2023). Changes here are not saved. Your own projects are kept in{" "}
+              <Link to="/projects" onClick={() => setOpen(false)} className="text-accent hover:underline">
+                My projects
+              </Link>
+              ; choose “My project” above to return to the last one.
             </p>
           )}
         </div>

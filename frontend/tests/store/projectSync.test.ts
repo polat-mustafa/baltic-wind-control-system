@@ -9,6 +9,7 @@ import { ApiError } from "../../src/services/apiClient";
 import * as projectApi from "../../src/services/projectApi";
 import * as siteApi from "../../src/services/siteApi";
 import { useLifecycleStore } from "../../src/store/lifecycleStore";
+import { useModeStore } from "../../src/store/modeStore";
 import { useProjectStore } from "../../src/store/projectStore";
 import { CLOUD_KEY, initProjectSync, SAVE_DELAY_MS, useProjectSync } from "../../src/store/projectSync";
 import { useSiteStore } from "../../src/store/siteStore";
@@ -39,6 +40,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(siteApi).postAssess.mockResolvedValue(report());
   localStorage.clear();
+  useModeStore.setState({ mode: "own" }); // only the own project is saved online
   sync().detach();
   useProjectStore.getState().clear();
   useSiteStore.setState({ site: null, stage: "screening", done: [] });

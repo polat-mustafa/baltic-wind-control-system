@@ -50,6 +50,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/develop/layout": "Layout",
   "/wind-resource": "Wind Resource",
   "/report": "Project Report",
+  "/projects": "My Projects",
   "/hv-grid": "HV Grid Integration",
   "/scada": "SCADA & Automation",
   "/forecast": "AI Forecasting",

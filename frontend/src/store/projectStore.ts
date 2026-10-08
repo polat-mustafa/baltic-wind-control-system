@@ -37,12 +37,27 @@ const round5 = (v: number) => Number(v.toFixed(5));
 
 export const signature = (t: Turbine[]) => t.map((x) => `${x.lon.toFixed(5)},${x.lat.toFixed(5)}`).join(";");
 
+/** Turbine tag: WTG-01 … (the format SCADA, P5 and the control room use). */
+export const wtgId = (n: number) => `WTG-${String(n).padStart(2, "0")}`;
+
+/**
+ * Lowest free tag. Tags are stable: deleting a turbine leaves a gap rather than
+ * renaming the others (drawings, permits and SCADA refer to them); `renumber`
+ * closes the gaps on purpose, e.g. at design freeze.
+ */
 function nextId(t: Turbine[]): string {
   const used = new Set(t.map((x) => x.id));
-  for (let i = 1; ; i++) {
-    const id = `T${String(i).padStart(2, "0")}`;
-    if (!used.has(id)) return id;
-  }
+  for (let i = 1; ; i++) if (!used.has(wtgId(i))) return wtgId(i);
+}
+
+/** Pre-2026-10 layouts used T01 …: same number, WTG- tag (unless that tag is taken). */
+function migrateIds(t: Turbine[]): Turbine[] {
+  const used = new Set(t.map((x) => x.id));
+  return t.map((x) => {
+    const m = /^T(\d+)$/.exec(x.id);
+    const id = m ? wtgId(Number(m[1])) : x.id;
+    return id !== x.id && !used.has(id) ? { ...x, id } : x;
+  });
 }
 
 export function validTurbines(v: unknown): Turbine[] | null {
@@ -55,7 +70,7 @@ export function validTurbines(v: unknown): Turbine[] | null {
     if (!Number.isFinite(lon) || !Number.isFinite(lat) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
     out.push({ id, lon, lat });
   }
-  return out;
+  return migrateIds(out);
 }
 
 export const validLonLat = (v: unknown): LonLat | null =>
@@ -123,6 +138,8 @@ interface ProjectState extends Persisted {
   resetCosts: () => void;
   loadCaseStudy: () => void;
   clear: () => void;
+  /** Rename to WTG-01 … in the given order (the operational register: string by string). */
+  renumber: (order: string[]) => void;
   /**
    * PyWake AEP of the layout; `wind` = the site climate (default: P1's synthetic rose).
    * `remote` runs it on the saved project instead (kept as AEP history).
@@ -168,7 +185,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     setTurbines: (pts) =>
       update({
-        turbines: pts.slice(0, MAX_TURBINES).map(([lon, lat], i) => ({ id: `T${String(i + 1).padStart(2, "0")}`, lon: round5(lon), lat: round5(lat) })),
+        turbines: pts.slice(0, MAX_TURBINES).map(([lon, lat], i) => ({ id: wtgId(i + 1), lon: round5(lon), lat: round5(lat) })),
         selected: null,
       }),
     addTurbine: ([lon, lat]) => {
@@ -199,6 +216,14 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         selected: null,
       }),
     clear: () => update({ turbines: [], selected: null, pywake: null, pywakeFor: null }),
+    renumber: (order) => {
+      const tag = new Map(order.map((id, i) => [id, wtgId(i + 1)]));
+      const sel = get().selected;
+      update({
+        turbines: get().turbines.map((t) => ({ ...t, id: tag.get(t.id) ?? t.id })),
+        selected: sel ? (tag.get(sel) ?? sel) : null,
+      });
+    },
 
     runPyWake: async (toXY, wind, remote) => {
       const t = get().turbines;

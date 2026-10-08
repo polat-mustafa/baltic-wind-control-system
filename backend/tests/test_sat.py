@@ -32,7 +32,7 @@ def test_typical_results_pass_and_approve():
 
 
 def test_design_values_come_from_the_network_model():
-    assert pytest.approx(9.05, abs=0.02) == CABLE1_Z1_OHM  # 76.5 km × (0.0233 + j0.116) Ω/km
+    assert pytest.approx(9.31, abs=0.02) == CABLE1_Z1_OHM  # 76.5 km × |0.0233 + j0.1194| Ω/km
     assert OLTC_POSITIONS == 21  # ±10 steps
     ids = [s.test_id for s in SAT_SPECS]
     assert len(ids) == len(set(ids)) == 17

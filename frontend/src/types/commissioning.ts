@@ -52,7 +52,10 @@ export interface NetworkSnapshot {
   cable_i_send_a: number | null;
   cable_i_recv_a: number | null;
   cable_loading_pct: number | null;
+  /** OSS reactor 1 [Mvar]. */
   reactor_q_mvar: number | null;
+  /** Onshore line reactor 1 [Mvar]. */
+  reactor_on_q_mvar: number | null;
   statcom_q_mvar: number | null;
   tx1_i_hv_a: number | null;
   tx1_loading_pct: number | null;
@@ -119,7 +122,6 @@ export interface ProgrammeFarm {
   /** Output with circuit 1 only [MW] (PPC limit on 3–4 circuit farms). */
   output_limit_mw: number;
   onshore_tap: number;
-  reactor_energisation: boolean;
 }
 
 export interface ProgrammeDetail extends ProgrammeSummary {

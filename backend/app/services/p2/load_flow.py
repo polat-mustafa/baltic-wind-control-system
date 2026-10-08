@@ -409,27 +409,32 @@ def _extract_transformer_results(net: pp.pandapowerNet) -> list[TransformerResul
 def dispatch_with_reactor_switching(net: pp.pandapowerNet, rating: float) -> tuple[float, int]:
     """STATCOM voltage control plus the operator's reactor switching.
 
-    All N+1 reactors start in service (the design case). While the STATCOM
-    injects more than half its rating, one reactor is switched out — kept out
-    only if that relieves the STATCOM (|Q| falls), as the landing estimate
-    does (frontend ``reactiveBalance``). SB-510 (3 × 170 MVAR on 442 MVAR of
-    charging) runs on two at full output; so does a long single circuit.
-    Every operating-point study uses it: Grid tab, N-1, live map.
+    All reactors start in service (one per export circuit at each cable end).
+    While the STATCOM injects more than half its rating, the operator switches out
+    the one reactor (onshore or OSS) that relieves the STATCOM most, and keeps it
+    out only if |Q| falls — as the landing estimate does (frontend
+    ``reactiveBalance``). SB-510 (4 × 120 MVAR on 442 MVAR of charging) runs on
+    three at full output. Every operating-point study uses it: Grid tab, N-1, live map.
 
     Returns the STATCOM set-point [MVAR, generating +] and the reactors in service.
     """
     reactors = [i for i in net.shunt.index if str(net.shunt.at[i, "name"]).startswith("Reactor_")]
     q = auto_statcom_dispatch(net)
-    on = len(reactors)
-    while on > 0 and q > 0.5 * rating:
-        net.shunt.at[reactors[on - 1], "in_service"] = False
-        q_out = auto_statcom_dispatch(net)
+    on = [i for i in reactors if bool(net.shunt.at[i, "in_service"])]
+    while on and q > 0.5 * rating:
+        trials: list[tuple[float, int]] = []
+        for i in {str(net.shunt.at[j, "name"]).split("_")[1]: j for j in on}.values():
+            net.shunt.at[i, "in_service"] = False  # one candidate per cable end
+            trials.append((auto_statcom_dispatch(net), i))
+            net.shunt.at[i, "in_service"] = True
+        q_out, best = min(trials, key=lambda t: abs(t[0]))
         if abs(q_out) >= abs(q):
-            net.shunt.at[reactors[on - 1], "in_service"] = True
-            q = auto_statcom_dispatch(net)
             break
-        on, q = on - 1, q_out
-    return q, on
+        net.shunt.at[best, "in_service"] = False
+        on.remove(best)
+        q = q_out
+    q = auto_statcom_dispatch(net)  # results of the chosen state
+    return q, len(on)
 
 
 def run_live_load_flow(wtg_p_mw: list[float], spec: FarmSpec = SB510) -> LiveLoadFlowResponse:

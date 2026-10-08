@@ -63,11 +63,12 @@ export const statcomInfo: InfoContent = {
   title: "STATCOM Sizing — Reactive Power Compensation",
   description:
     "Determines the required STATCOM capacity for voltage regulation and grid code compliance. " +
-    "Includes ±120 MVAR STATCOM + 3 × 170 MVAR (N+1) shunt reactors for the ~442 MVAR charging power of the two export cables.",
+    "Includes ±120 MVAR STATCOM + 4 × 120 MVAR shunt reactors (one per export cable at each end) for the ~442 MVAR " +
+    "charging power of the two export cables.",
   standard: "ENTSO-E NC RfG Type D + PSE IRiESP reactive power requirements",
   parameters: [
     { name: "STATCOM", description: "±120 MVAR (full 4-quadrant operation)" },
-    { name: "Shunt reactors", description: "3 × 170 MVAR (N+1: one per export cable + one spare, compensates cable capacitance)" },
+    { name: "Shunt reactors", description: "4 × 120 MVAR: one per export cable onshore and one at the OSS, so each cable end carries half the charging current; sized so one can be out" },
     { name: "Power factor", description: "0.95 lead to 0.95 lag at PCC" },
   ],
   interpretation:
@@ -356,13 +357,13 @@ export const p5NetworkInfo: InfoContent = {
   title: "Network readings",
   description:
     "Steady-state load flow (pandapower) of whatever is live after the last step, built from " +
-    "the P2 network data (SB-510): 2 × 300 MVA onshore transformers (OLTC pre-set 3 steps), 76.5 km 1000 mm² cable " +
-    "(190 nF/km), 170 Mvar reactor, ±120 Mvar STATCOM at 1.00 pu, TX-OSS-01 (vk 12.5 %, i0 0.05 %), graded " +
-    "66 kV array cables.",
+    "the P2 network data (SB-510): 2 × 300 MVA onshore transformers (OLTC at neutral), 76.5 km 1000 mm² cable " +
+    "(190 nF/km, 825 A) with its 120 Mvar onshore line reactor, 120 Mvar OSS reactor, ±120 Mvar STATCOM at 1.00 pu, " +
+    "TX-OSS-01 (vk 12.5 %, i0 0.05 %), graded 66 kV array cables.",
   parameters: [
     { name: "Charging", description: "Q = ωCU²l ≈ 221 Mvar at 220 kV → ≈ 580 A per phase at 1 pu, with no load" },
     { name: "Ferranti", description: "Open end above the sending end by 1/cos(βl) ≈ 1.021 (βl ≈ 0.20 rad)" },
-    { name: "Q sign", description: "Generator convention: + = generating; the reactor reads negative" },
+    { name: "Q sign", description: "Generator convention: + = generating; the reactors read negative" },
   ],
   interpretation:
     "Verification steps use a 0.95–1.05 pu operating band (project); equipment limits are " +

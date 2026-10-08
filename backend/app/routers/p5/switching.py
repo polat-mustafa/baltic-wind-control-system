@@ -32,7 +32,6 @@ from app.services.p5.energisation import (
     circuit1_limit_mw,
     network_snapshot,
     onshore_tap,
-    reactor_energisation,
 )
 from app.services.p5.equipment_state import get_equipment_definition
 from app.services.p5.programme_repository import ProgrammeRepository
@@ -98,7 +97,6 @@ def _detail(p: SwitchingProgramme) -> ProgrammeDetailSchema:
             reactor_unit_mvar=spec.reactor_unit_mvar if spec.num_reactors else None,
             output_limit_mw=circuit1_limit_mw(spec),
             onshore_tap=onshore_tap(spec),
-            reactor_energisation=reactor_energisation(spec),
         ),
         phases=phases(spec),
         steps=[

@@ -15,9 +15,10 @@ Contingencies
 - String feeder trip (6, preventive): the feeder breaker opens, the string's
   cables and turbines go dark. Losing generation only unloads the rest.
 - Export circuit trip (corrective): one of the 2 × 220 kV circuits. The
-  remaining circuit (~362 MVA) is ~160 % loaded at full output (SB-510: 76.5 km,
+  remaining circuit (~314 MVA, 825 A) is far overloaded at full output (SB-510: 76.5 km,
   its own charging current adds to the load current). Protection intertrips
-  that circuit's shunt reactor so the OSS busbar is not over-compensated.
+  that circuit's two shunt reactors (onshore and OSS) so neither busbar is
+  over-compensated.
 - One OSS or onshore transformer (corrective): one of 2 × 300 MVA; the other
   unit is ~170 % loaded at full output.
 
@@ -106,8 +107,11 @@ def _trip_export_circuit(net: pp.pandapowerNet) -> None:
         net.line.at[idx, "parallel"] -= 1
     else:
         net.line.at[idx, "in_service"] = False  # single circuit: the farm loses its export
-    if len(net.shunt):
-        net.shunt.at[net.shunt.index[0], "in_service"] = False  # reactor intertrip
+    # Reactor intertrip: the tripped circuit's reactor at each end (the last circuit)
+    for end in ("ONS", "OSS"):
+        own = net.shunt.index[net.shunt["name"].str.startswith(f"Reactor_{end}_")]
+        if len(own):
+            net.shunt.at[own[-1], "in_service"] = False
 
 
 def _trip_trafo(name: str) -> Callable[[pp.pandapowerNet], None]:

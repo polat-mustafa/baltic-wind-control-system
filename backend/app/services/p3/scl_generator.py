@@ -116,7 +116,8 @@ def bays_220(spec: FarmSpec = SB510) -> tuple[str, ...]:
         "Q-T1",
         "Q-T2",
         "Q-STATCOM",
-        *(f"Q-R{i}" for i in range(1, spec.num_reactors + 1)),
+        # OSS shunt reactors (one per export circuit; their onshore twins are onshore bays)
+        *(f"Q-R{i}" for i in range(1, spec.reactors_per_end + 1)),
     )
 
 
@@ -125,7 +126,7 @@ def _desc(spec: FarmSpec) -> str:
 
 
 BAYS_66 = bays_66()  # SB-510: 01 … 09
-BAYS_220 = bays_220()  # SB-510: Q-E1/2, Q-T1/2, Q-STATCOM, Q-R1…3
+BAYS_220 = bays_220()  # SB-510: Q-E1/2, Q-T1/2, Q-STATCOM, Q-R1/2
 
 
 def _add_voltage_level(

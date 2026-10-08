@@ -242,7 +242,7 @@ function createInitialCable(f: Fleet): CableData {
         ? "2 × 3-core XLPE, 63.5 km subsea + 13 km land (parallel circuits)"
         : `${net.circuits} × 3-core XLPE, ${net.exportKm.toFixed(0)} km (parallel circuits, route not yet surveyed)`,
     voltageRatingKV: 220,
-    currentRatingA: 950, // per circuit — matches backend EXPORT_CABLE_1000
+    currentRatingA: 825, // per circuit — matches backend EXPORT_CABLE_1000 (ABB/NKT datasheet)
     lengthKm: net.exportKm,
     thermalLoadingPct: 68,
     crossSectionMm2: 1000,

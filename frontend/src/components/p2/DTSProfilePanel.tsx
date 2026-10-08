@@ -1,6 +1,6 @@
 /**
  * DTS profile — fibre reading and conductor estimate along the 76.5 km route,
- * zone bands, the 70 °C alarm setting and the 90 °C XLPE limit; zone table.
+ * zone bands, the 80 °C alarm setting and the 90 °C XLPE limit; zone table.
  */
 
 import Plot from "react-plotly.js";
@@ -28,7 +28,7 @@ export default function DTSProfilePanel() {
     <ChartWrapper
       title={`Temperature along one circuit at ${p.current_a} A, ${p.ambient_temp_c} °C ambient`}
       headerRight={<EducationButton content={cableDtsEducation} />}
-      footer={`${p.assessment}. DTS reads the fibre; the conductor is the fibre plus (W_c + ½W_d)·T_int. Losses per core at the hottest spot: Joule ${p.joule_loss_w_per_m.toFixed(1)} W/m, dielectric ${p.dielectric_loss_w_per_m.toFixed(2)} W/m. Zone thermal resistances are calibrated to 950 A at 15 °C, not surveyed.`}
+      footer={`${p.assessment}. DTS reads the fibre; the conductor is the fibre plus (W_c + ½W_d)·T_int. Losses per core at the hottest spot: Joule ${p.joule_loss_w_per_m.toFixed(1)} W/m, dielectric ${p.dielectric_loss_w_per_m.toFixed(2)} W/m. Zone thermal resistances are calibrated to the 825 A datasheet rating at 20 °C, not surveyed.`}
     >
       <Plot
         data={[
@@ -74,7 +74,7 @@ export default function DTSProfilePanel() {
               .filter((_, i) => i % 2 === 0)
               .map((z) => ({ type: "rect", xref: "x", yref: "paper", x0: z.start_km, x1: Math.max(z.end_km, z.start_km + 0.4), y0: 0, y1: 1, fillcolor: c.band, line: { width: 0 }, layer: "below" }) as const),
             limitLine(90, c.red, "dash"),
-            limitLine(70, c.yellow, "dot"),
+            limitLine(80, c.yellow, "dot"),
           ],
           annotations: [
             ...p.zones.map((z) => ({
@@ -88,7 +88,7 @@ export default function DTSProfilePanel() {
               font: { size: 10, color: c.ref },
             })),
             { x: p.cable_length_km, y: 90, xanchor: "right", yanchor: "bottom", text: "90 °C XLPE limit", showarrow: false, font: { size: 10, color: c.ref } },
-            { x: p.cable_length_km, y: 70, xanchor: "right", yanchor: "bottom", text: "70 °C alarm (setting)", showarrow: false, font: { size: 10, color: c.ref } },
+            { x: p.cable_length_km, y: 80, xanchor: "right", yanchor: "bottom", text: "80 °C alarm (setting)", showarrow: false, font: { size: 10, color: c.ref } },
           ],
         }}
         config={PLOTLY_CONFIG}

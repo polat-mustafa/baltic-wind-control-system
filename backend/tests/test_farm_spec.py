@@ -39,37 +39,43 @@ def _header(strings: list[int], export_km: float, array_km: float = 1.5, name: s
 
 class TestDesignRules:
     def test_sb510_golden(self):
-        """design() rebuilds both SB-510 designs: the original 45 km export (2 circuits,
-        2 × 300 MVA, 3 × 80 MVAR, ±120 MVAR) and, from PZP_44, 76.5 km (3 × 170 MVAR)."""
+        """design() rebuilds SB-510 from PZP_44, 76.5 km: 2 circuits, 2 × 300 / 2 × 300 MVA,
+        4 × 120 MVAR (one per circuit at each end), ±120 MVAR. The rule on the original
+        45 km export gives 4 × 60 MVAR."""
         old = design(tuple(STRING_LAYOUT), 45.0, 1.5, "SB-510")
         assert (old.num_export_cables, old.oss_trafo_mva, old.onshore_trafo_mva) == (2, 300, 300)
-        assert (old.num_reactors, old.reactor_unit_mvar, old.statcom_mvar) == (3, 80, 120)
+        assert (old.num_reactors, old.reactor_unit_mvar, old.statcom_mvar) == (4, 60, 120)
         spec = design(tuple(STRING_LAYOUT), 76.5, 1.5, "SB-510")
         assert spec == SB510
         assert (spec.num_export_cables, spec.oss_trafo_mva, spec.onshore_trafo_mva) == (2, 300, 300)
-        assert (spec.num_reactors, spec.reactor_unit_mvar, spec.statcom_mvar) == (3, 170, 120)
+        assert (spec.num_reactors, spec.reactor_unit_mvar, spec.statcom_mvar) == (4, 120, 120)
+        assert spec.reactors_per_end == 2 and spec.reactor_mvar_per_end == 240
+        # one reactor out: (442 − 360) · 1.15 = 94 ≤ 120; all in: (480 − 442) · 1.15 = 44
+        assert (spec.cable_q_mvar - 3 * 120) * 1.15 <= 120 and (480 - spec.cable_q_mvar) > 0
         assert check_reactors(SB510) == SB510  # the load-flow check keeps the reference design
 
     def test_cable_physics(self):
-        """Q = ωCV²L ≈ 130 MVAR per 45 km circuit; P_circuit = √3·U·√(Imax² − (Ic/2)²) ≈ 356 MW."""
+        """Q = ωCV²L ≈ 130 MVAR per 45 km circuit; P_circuit = √3·U·√(Imax² − (Ic/2)²) ≈ 308 MW
+        with the 825 A datasheet rating (ABB/NKT 2GM5007 Table 34)."""
         assert export_charging_mvar(45.0) == pytest.approx(130.0, abs=0.1)
         ic = 2 * math.pi * 50 * 190e-9 * 45 * 220e3 / math.sqrt(3)  # ≈ 341 A
         assert export_circuit_capacity_mw(45.0) == pytest.approx(
-            math.sqrt(3) * 220e3 * math.sqrt(950**2 - (ic / 2) ** 2) / 1e6
+            math.sqrt(3) * 220e3 * math.sqrt(825**2 - (ic / 2) ** 2) / 1e6
         )
         assert export_circuit_capacity_mw(75.0) < export_circuit_capacity_mw(45.0)
 
     def test_long_export_grows_reactors(self):
-        """540 MW over 75 km: still 2 circuits, Q ≈ 433 MVAR → 3 × 170 MVAR (N+1)."""
+        """540 MW over 75 km: still 2 circuits (P_circuit 295 MW), Q ≈ 433 MVAR → 4 × 110
+        MVAR, one per circuit at each end."""
         spec = design((6,) * 6, 75.0)
         assert spec.num_export_cables == 2
         assert spec.cable_q_mvar == pytest.approx(433.3, abs=0.5)
-        assert (spec.num_reactors, spec.reactor_unit_mvar) == (3, 170)
+        assert (spec.num_reactors, spec.reactor_unit_mvar) == (4, 110)
         # one reactor out: the STATCOM covers the rest with its 15 % margin
-        assert (spec.cable_q_mvar - 2 * 170) * 1.15 <= spec.statcom_mvar
+        assert (spec.cable_q_mvar - 3 * 110) * 1.15 <= spec.statcom_mvar
 
     def test_gigawatt_farm(self):
-        """1080 MW at 45 km: ⌈1080 / 356⌉ = 4 circuits; 540 MW sections → 2 × 600 MVA."""
+        """1080 MW at 45 km: ⌈1080 / 308⌉ = 4 circuits; 540 MW sections → 2 × 600 MVA."""
         spec = design((6,) * 12, 45.0)
         assert spec.num_export_cables == 4
         assert spec.oss_trafo_mva == 600 and spec.onshore_trafo_mva == 600
@@ -81,11 +87,11 @@ class TestDesignRules:
         assert spec.num_turbines == 20 and spec.capacity_mw == 300
         assert spec.num_export_cables == 1
         assert spec.oss_trafo_mva == 200  # 150 / 0.9 = 167 → 200
-        assert spec.num_reactors == 2  # one circuit + one spare
+        assert spec.num_reactors == 2  # one circuit: a reactor at each end
 
     def test_long_single_circuit_statcom_bound(self):
-        """120 MW over 73 km, one circuit: Q ≈ 211 MVAR. With both N+1 reactors in, they
-        over-compensate by ≈ u − S/1.15; the STATCOM covers that only if S ≥ 1.15·Q/3."""
+        """120 MW over 73 km, one circuit: Q ≈ 211 MVAR. With both reactors in (one per end),
+        they over-compensate by 2u − Q; the STATCOM covers that only if S ≥ 1.15·Q/(4n − 1)."""
         spec = design((4, 4), 73.0, 1.15)
         assert spec.num_export_cables == 1 and spec.num_reactors == 2
         assert (
@@ -142,7 +148,7 @@ class TestFarmHeader:
     def test_no_header_is_sb510(self):
         data = client.get("/api/v1/grid/network-spec").json()
         assert data["source"] == "reference" and data["name"] == "SB-510"
-        assert data["num_reactors"] == 3 and data["reactor_unit_mvar"] == 170
+        assert data["num_reactors"] == 4 and data["reactor_unit_mvar"] == 120
 
     def test_header_gives_the_project_design(self):
         r = client.get(
@@ -152,7 +158,7 @@ class TestFarmHeader:
         data = r.json()
         assert data["source"] == "project" and data["name"] == "Bałtyk test"  # any character
         assert data["total_capacity_mw"] == 540 and data["num_export_cables"] == 2
-        assert data["reactor_unit_mvar"] == 170 and data["cable_q_mvar"] == pytest.approx(
+        assert data["reactor_unit_mvar"] == 110 and data["cable_q_mvar"] == pytest.approx(
             433.3, abs=0.1
         )
 

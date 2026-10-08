@@ -2,9 +2,11 @@
 Cable DTS thermal monitoring — M10.
 
 One circuit of the 220 kV export cable (network_model.EXPORT_CABLE_1000: 3-core
-XLPE, 1000 mm² Cu, 950 A static rating, 76.5 km). The farm has two circuits,
+XLPE, 1000 mm² Cu, 825 A static rating — ABB/NKT 2GM5007 rev 5 Table 34, one cable
+1 m deep in a 20 °C seabed of 1.0 K·m/W — 76.5 km). The farm has two circuits,
 each with its own fibre, so ``current_a`` is the per-circuit current
-(≈ 730 A per circuit at 510 MW; ≈ 1 370 A on the survivor after an N-1 trip).
+(≈ 760 A at the OSS end of each circuit at 510 MW, P2 load flow; ≈ 1 355 A on the
+survivor after an N-1 trip, before the runback).
 
 What DTS measures, and what it does not
 ---------------------------------------
@@ -28,9 +30,10 @@ Steady-state thermal circuit (IEC 60287-1-1 structure, per conductor)
   0.001 (IEC 60287-1-1 Table 3) → ≈ 0.96 W/m per core.
 - T_int = 0.5 K·m/W: conductor → fibre (insulation and screens) — assumption.
 - R_ext(zone): fibre → ambient per unit of one conductor's loss, so it holds
-  the mutual heating of the three cores. Calibrated so that 950 A at the 15 °C
-  design ambient brings the worst zone (OSS J-tube) to exactly 90 °C; the other
-  zones are set relative to it (assumed ratios, not a survey).
+  the mutual heating of the three cores. Calibrated so that the datasheet rating
+  (825 A) at its 20 °C reference ambient brings the worst zone (OSS J-tube) to
+  exactly 90 °C; the other zones are set relative to it (assumed ratios, not a
+  survey).
 
 Route zones (km from the OSS; geometry: frontend constants/windFarmLayout.ts)
 - J-tube 0–0.3 km: cable in air in a steel tube on the OSS — worst cooling.
@@ -52,7 +55,8 @@ layers (≈ 25 kJ/(m·K) per core) store heat, and longer where soil takes part:
 48 h subsea, 72 h land, 150 h under the deep HDD.
 
 Limits: 90 °C continuous conductor temperature for XLPE (IEC 62067). The
-70 °C DTS alarm is an operator setting, not a standard value.
+80 °C DTS alarm (10 K below the limit) is an operator setting, not a standard value;
+at full load the J-tube runs at ≈ 72 °C (760 A, 15 °C).
 """
 
 from __future__ import annotations
@@ -65,13 +69,13 @@ from app.services.p2.network_model import EXPORT_CABLE_1000, EXPORT_CABLE_LENGTH
 
 CABLE_LENGTH_KM = EXPORT_CABLE_LENGTH_KM
 N_POINTS = round(CABLE_LENGTH_KM * 10)  # one reading per 100 m
-STATIC_RATING_A = EXPORT_CABLE_1000.max_i_ka * 1000.0  # 950 A per circuit
+STATIC_RATING_A = EXPORT_CABLE_1000.max_i_ka * 1000.0  # 825 A per circuit (datasheet)
 NUM_CIRCUITS = 2
 U_KV = 220.0
 
 T_CONDUCTOR_MAX = 90.0  # XLPE continuous limit [°C], IEC 62067
-T_AMBIENT_DESIGN = 15.0  # [°C]
-T_ALARM = 70.0  # DTS alarm — operator setting [°C]
+T_AMBIENT_DESIGN = 20.0  # datasheet reference: seabed 20 °C [°C]
+T_ALARM = 80.0  # DTS alarm — operator setting, 10 K below the limit [°C]
 
 ALPHA_CU = 0.00393  # [1/K] at 20 °C
 R_AC20_OHM_PER_M = EXPORT_CABLE_1000.r_ohm_per_km * EXPORT_CABLE_1000.ac_factor / 1000.0
@@ -96,7 +100,7 @@ ZONES: tuple[tuple[str, float, float, float, float], ...] = (
     ("Land cable", HDD_END_KM, CABLE_LENGTH_KM, 1.1 / 1.4, 72.0),
 )
 
-# Calibration: 950 A, 15 °C ambient, J-tube → 90 °C
+# Calibration: 825 A, 20 °C ambient, J-tube → 90 °C
 _W_C_RATED = STATIC_RATING_A**2 * R_AC90_OHM_PER_M
 R_EXT_J_TUBE = (T_CONDUCTOR_MAX - T_AMBIENT_DESIGN - (_W_C_RATED + W_DIELECTRIC / 2) * T_INT) / (
     _W_C_RATED + W_DIELECTRIC
@@ -145,7 +149,7 @@ def export_capability_mva(current_a: float) -> float:
     return math.sqrt(3) * U_KV * current_a / 1000.0 * NUM_CIRCUITS
 
 
-def simulate_dts(current_a: float = 730.0, ambient_temp_c: float = 15.0) -> dict[str, Any]:
+def simulate_dts(current_a: float = 760.0, ambient_temp_c: float = 15.0) -> dict[str, Any]:
     """DTS profile of one circuit: fibre reading and conductor estimate every 100 m."""
     rng = random.Random(int(current_a * 100 + ambient_temp_c * 10))
     step = CABLE_LENGTH_KM / N_POINTS
@@ -229,8 +233,8 @@ def rating_curve() -> dict[str, Any]:
 
 
 def simulate_transient(
-    prefault_current_a: float = 730.0,
-    emergency_current_a: float = 1360.0,
+    prefault_current_a: float = 760.0,
+    emergency_current_a: float = 1355.0,
     ambient_temp_c: float = 15.0,
     duration_h: float = 24.0,
 ) -> dict[str, Any]:

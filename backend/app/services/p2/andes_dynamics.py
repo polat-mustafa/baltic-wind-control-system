@@ -16,7 +16,7 @@ educational counterpart.
 Network (system base 100 MVA, same data as ``network_model``)
 -------------------------------------------------------------
   GRID 400 kV ── onshore 2 × 300 MVA ── 2 × 76.5 km 220 kV ── OSS 2 × 300 MVA ── OSS 66 kV
-      │                                     (C, 3 × 170 MVAR reactors at OSS 220 kV)
+      │                                     (C, 2 × 120 MVAR reactors at each end)
   GENCLS + TGOV1 + area load                                    │ collector equivalent
                                                                 WTG 66 kV: 510 MW
                                                                 REGCA1/REECA1/REPCA1
@@ -125,7 +125,7 @@ def collector_equivalent_pu(spec: FarmSpec = SB510) -> tuple[complex, float]:
     z_eq, b_eq = 0j, 0.0
     for length in spec.string_layout:
         for pos in range(length):  # pos 0 = segment at the OSS, carries `length` WTGs
-            cable = _get_cable_grade(length - 1 - pos, length)
+            cable = _get_cable_grade(length - pos, spec.turbine_rated_mw)
             n_k = length - pos
             z_seg = complex(cable.r_ac_ohm_per_km, cable.x_ohm_per_km) * seg_km
             z_eq += z_seg / z_base * (n_k / n_total) ** 2
@@ -177,10 +177,10 @@ def build_system(
     branch("EXPORT", 2, 3, z["export"], 220.0, 220.0, b_export)
     branch("TR_OSS", 3, 4, z["oss"], 220.0, 66.0)
     branch("COLLECTOR", 4, 5, z_col, 66.0, 66.0, b_col)
-    if spec.reactor_mvar > 0:
-        ss.add(
-            "Shunt", {"idx": "REACTORS", "bus": 3, "Vn": 220.0, "b": -spec.reactor_mvar / S_BASE}
-        )
+    if spec.reactor_mvar_per_end > 0:  # one bank at each export end: onshore 2, OSS 3
+        b_end = -spec.reactor_mvar_per_end / S_BASE
+        for shunt, bus in (("REACTORS_ONS", 2), ("REACTORS_OSS", 3)):
+            ss.add("Shunt", {"idx": shunt, "bus": bus, "Vn": 220.0, "b": b_end})
 
     # Synchronous area: slack generator → GENCLS + TGOV1, area load
     p_farm = cap * generation_fraction

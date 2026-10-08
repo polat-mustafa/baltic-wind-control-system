@@ -268,7 +268,7 @@ function gooseScenarios(f: Fleet = liveFleet()): Record<string, ProtectionScenar
           : "Single-phase earth fault on the only export cable — both ends opened, the farm is disconnected",
       action:
         n > 1
-          ? `No auto-reclose on cable. Check ${rest} loading against 950 A; arrange fault location before re-energising`
+          ? `No auto-reclose on cable. Check ${rest} loading against 825 A; arrange fault location before re-energising`
           : "No auto-reclose on cable. Arrange fault location; one export circuit has no redundancy (N-0), the farm stays off until the repair",
     },
   };

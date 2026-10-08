@@ -3,24 +3,27 @@ First-energisation switching programme of export circuit 1.
 
 Scope
 -----
-Circuit 1 = export cable 1 → OSS 220 kV busbar (shunt reactor 1, STATCOM) →
+Circuit 1 = export cable 1 with its onshore line reactor → OSS 220 kV busbar (OSS
+shunt reactor 1, STATCOM) →
 TX-OSS-01 → 66 kV section A → strings 1–3 (18 × 15 MW = 270 MW). The onshore
 220 kV busbar is already live (onshore substation commissioned separately);
 circuit 2 (cable 2, TX-OSS-02, section B, strings 4–6) stays isolated and
 earthed and has its own programme. One circuit can never deliver 510 MW: one
-cable is rated 362 MVA and one OSS transformer 300 MVA.
+cable is rated 314 MVA (825 A) and one OSS transformer 300 MVA.
 
-Sequence (60 steps, 6 phases)
+Sequence (63 steps, 6 phases)
 -----------------------------
 1. Pre-energisation — safety documents cancelled, SAT approved, EON issued by
    PSE (NC RfG Art. 34: protection and control settings agreed), protection in
    service, hold point.
-2. Export cable 1 — release locks, remove both cable earths, close the onshore
-   busbar disconnector, energise the cable open-ended from shore, verify
-   charging current and Ferranti rise, 24 h soak at U0 (IEC 62067's alternative
+2. Export cable 1 — release locks, remove both cable earths, connect the onshore
+   line reactor to the dead cable, close the onshore busbar disconnector,
+   energise cable and reactor from shore (OSS end open), verify charging current,
+   busbar voltage and Ferranti rise, 24 h soak at U0 (IEC 62067's alternative
    after-installation AC test), hold point.
 3. OSS 220 kV — remove the busbar earth, close DS/CB, remove the bay earths and
-   switch in reactor 1 (SB-510: 170 Mvar) and the STATCOM (voltage control at 1.00 pu).
+   switch in the STATCOM (voltage control at 1.00 pu), then OSS reactor 1 (SB-510:
+   120 Mvar), whose switching step the STATCOM takes.
 4. TX-OSS-01 — remove its bay earth, energise from the 220 kV side (inrush; 87T
    restrained by the 2nd harmonic), verify magnetising current, energise 66 kV
    section A, hold point.
@@ -68,12 +71,10 @@ from app.services.p2.network_model import (
 from app.services.p5.energisation import (
     V_BAND_PU,
     NetworkSnapshot,
-    cable_charging_mvar,
     circuit1_limit_mw,
     ferranti_ratio,
     network_snapshot,
     onshore_tap,
-    reactor_energisation,
     section_a_mw,
 )
 from app.services.p5.equipment_state import (
@@ -270,9 +271,15 @@ def _check_cable_energised(
 ) -> tuple[bool, str]:
     ok1, onshore = _band(snap, "ONS220")
     ok2, far = _band(snap, "OSS220" if snap.bus("OSS220") else "CABLE1")
+    reactor = (
+        f"; onshore reactor {snap.reactor_on_q_mvar:.0f} Mvar"
+        if snap.reactor_on_q_mvar is not None
+        else ""
+    )
     return ok1 and ok2 and snap.cable_i_send_a is not None, (
         f"{onshore}; {far}, rise ×{ferranti_ratio(spec.export_length_km):.4f} (Ferranti); "
-        f"charging current {snap.cable_i_send_a:.0f} A; {snap.poc_q_mvar:.0f} Mvar into PSE 400 kV"
+        f"charging current {snap.cable_i_send_a:.0f} A{reactor}; "
+        f"{snap.poc_q_mvar:.0f} Mvar into PSE 400 kV"
     )
 
 
@@ -283,11 +290,16 @@ def _check_oss220(
 
 
 def _check_reactor(
-    snap: NetworkSnapshot, _: dict[str, EquipmentState], _s: FarmSpec
+    snap: NetworkSnapshot, _: dict[str, EquipmentState], spec: FarmSpec
 ) -> tuple[bool, str]:
     ok, v = _band(snap, "OSS220")
-    q = snap.reactor_q_mvar
-    return ok and q is not None, f"Reactor 1 {q:.1f} Mvar; {v}; {snap.poc_q_mvar:.0f} Mvar into PSE"
+    q, stc = snap.reactor_q_mvar, snap.statcom_q_mvar
+    if q is None or stc is None:
+        return False, "OSS reactor 1 or STATCOM not in service"
+    return ok and abs(stc) < spec.statcom_mvar, (
+        f"OSS reactor 1 {q:.1f} Mvar; {v}; STATCOM {stc:+.1f} Mvar of ±{spec.statcom_mvar:.0f}; "
+        f"{snap.poc_q_mvar:.0f} Mvar into PSE"
+    )
 
 
 def _check_statcom(
@@ -440,66 +452,31 @@ def _defs(spec: FarmSpec = SB510) -> list[tuple[int, dict[str, object]]]:
         ),
         (1, hold("Pre-energisation review: GO / NO-GO for energising export cable 1")),
     ]
-    # Long cable whose charging power the onshore OLTC cannot absorb: reactor 1 is
-    # connected to the dead cable first and energised with it (energisation.reactor_energisation)
-    rc = reactor_energisation(spec)
-    oss_phase = 2 if rc else 3
     cable_earths = [
         (2, unlock("ES-OSS-220-01")),
         (2, switch("ES-OSS-220-01", open_, "Open earth switch ES-OSS-220-01 (cable 1, OSS end)")),
         (2, unlock("ES-ON-220-01")),
         (2, switch("ES-ON-220-01", open_, "Open earth switch ES-ON-220-01 (cable 1, onshore end)")),
     ]
-    oss_bus = [
-        (oss_phase, unlock("ES-OSS-220-BB")),
-        (
-            oss_phase,
-            switch("ES-OSS-220-BB", open_, "Open OSS 220 kV busbar earth switch ES-OSS-220-BB"),
-        ),
-        (oss_phase, unlock("DS-OSS-220-01")),
-        (
-            oss_phase,
-            switch(
-                "DS-OSS-220-01",
-                close,
-                "Close busbar disconnector DS-OSS-220-01 (off-load, CB open)",
-            ),
-        ),
-        (
-            oss_phase,
-            switch(
-                "CB-OSS-220-01",
-                close,
-                "Close CB-OSS-220-01 — OSS 220 kV busbar connected to the dead cable"
-                if rc
-                else "Close CB-OSS-220-01 — OSS 220 kV busbar energised",
-            ),
-        ),
-    ]
-    reactor = (
-        [
-            (oss_phase, unlock("ES-SR-01")),
+    if spec.num_reactors:
+        cable_earths += [
+            (2, unlock("ES-SR-ON-01")),
             (
-                oss_phase,
-                switch("ES-SR-01", open_, "Open shunt reactor 1 bay earth switch ES-SR-01"),
+                2,
+                switch("ES-SR-ON-01", open_, "Open onshore reactor 1 bay earth switch ES-SR-ON-01"),
             ),
             (
-                oss_phase,
+                2,
                 switch(
-                    "CB-SR-01",
+                    "CB-SR-ON-01",
                     close,
-                    f"Close CB-SR-01 — shunt reactor 1 ({spec.reactor_unit_mvar:.0f} Mvar) "
-                    + ("connected to the dead cable" if rc else "in service"),
-                    notes="The reactor absorbs most of the cable's charging power.",
+                    f"Close CB-SR-ON-01 — onshore line reactor 1 ({spec.reactor_unit_mvar:.0f} "
+                    "Mvar) connected to the dead cable",
+                    notes="Energised together with the cable, it takes up about half of the "
+                    "cable's charging power at the onshore end from the first moment.",
                 ),
             ),
         ]
-        if spec.num_reactors
-        else []
-    )
-    verify_reactor = [
-        (oss_phase, verify("reactor", "Verify reactor absorption and busbar voltage")),
-    ]
     energise = [
         (2, unlock("DS-ON-220-01")),
         (
@@ -512,8 +489,9 @@ def _defs(spec: FarmSpec = SB510) -> list[tuple[int, dict[str, object]]]:
             2,
             verify(
                 "cable_isolated",
-                "Verify cable 1, the OSS busbar and reactor 1 are dead and not earthed"
-                if rc
+                "Verify cable 1 and its onshore reactor are dead, not earthed at either end, "
+                "and the OSS end is open"
+                if spec.num_reactors
                 else "Verify cable 1 is not earthed at either end and the OSS end is open",
                 notes="Interlock ILK-001 also blocks energising onto an earth.",
             ),
@@ -524,20 +502,16 @@ def _defs(spec: FarmSpec = SB510) -> list[tuple[int, dict[str, object]]]:
                 "CB-ON-220-01",
                 close,
                 "Close CB-ON-220-01 — export cable 1 energised from shore"
-                + (" with reactor 1 at its far end" if rc else ""),
-                notes=(
-                    f"Open-ended, the {spec.export_length_km:g} km cable would push "
-                    f"{cable_charging_mvar(length_km=spec.export_length_km):.0f} Mvar into the "
-                    "onshore busbar — more than the onshore OLTC can offset — so it is "
-                    "energised with its reactor."
-                )
-                if rc
+                + (" with its onshore line reactor" if spec.num_reactors else ""),
+                notes="The cable draws its full charging current; its onshore reactor takes "
+                "about half of it up at the onshore end, and the open end rises above the "
+                "sending end (Ferranti)."
+                if spec.num_reactors
                 else "The open-ended cable draws its full charging current; the open end "
                 "rises above the sending end (Ferranti).",
             ),
         ),
         (2, verify("cable_energised", "Verify onshore and cable-end voltage, charging current")),
-        *(verify_reactor if rc else []),
         (
             2,
             check(
@@ -547,26 +521,55 @@ def _defs(spec: FarmSpec = SB510) -> list[tuple[int, dict[str, object]]]:
                 notes="IEC 62067 after-installation AC test: 180 kV for 1 h, or U0 for 24 h.",
             ),
         ),
+        (2, hold("Soak complete: GO / NO-GO for energising the OSS 220 kV busbar")),
+    ]
+    oss_bus = [
+        (3, unlock("ES-OSS-220-BB")),
+        (3, switch("ES-OSS-220-BB", open_, "Open OSS 220 kV busbar earth switch ES-OSS-220-BB")),
+        (3, unlock("DS-OSS-220-01")),
         (
-            2,
-            hold(
-                "Soak complete: GO / NO-GO for the STATCOM"
-                if rc
-                else "Soak complete: GO / NO-GO for energising the OSS 220 kV busbar"
+            3,
+            switch(
+                "DS-OSS-220-01",
+                close,
+                "Close busbar disconnector DS-OSS-220-01 (off-load, CB open)",
             ),
         ),
+        (3, switch("CB-OSS-220-01", close, "Close CB-OSS-220-01 — OSS 220 kV busbar energised")),
+        (3, verify("oss220", "Verify OSS 220 kV busbar voltage")),
     ]
-    if rc:
-        steps += cable_earths + oss_bus + reactor + energise
-    else:
-        steps += cable_earths + energise + oss_bus
-        steps += [(3, verify("oss220", "Verify OSS 220 kV busbar voltage"))]
-        steps += reactor + (verify_reactor if reactor else [])
+    reactor = (
+        [
+            (3, unlock("ES-SR-01")),
+            (3, switch("ES-SR-01", open_, "Open OSS reactor 1 bay earth switch ES-SR-01")),
+            (
+                3,
+                switch(
+                    "CB-SR-01",
+                    close,
+                    f"Close CB-SR-01 — OSS shunt reactor 1 ({spec.reactor_unit_mvar:.0f} Mvar) "
+                    "in service",
+                    notes="It absorbs the OSS end's share of the cable's charging power; "
+                    "the STATCOM takes the switching step.",
+                ),
+            ),
+            (3, verify("reactor", "Verify reactor absorption, busbar voltage and STATCOM")),
+        ]
+        if spec.num_reactors
+        else []
+    )
+    # STATCOM before the OSS reactor: in voltage control it takes the reactor's switching
+    # step (with the line reactor already in, the OSS reactor alone could over-compensate a
+    # short-circuit-weak busbar — 2 × 100 MVA onshore, 73 km: 0.925 pu without the STATCOM)
+    steps += cable_earths + energise + oss_bus
     steps += [
         (3, unlock("ES-STC-01")),
         (3, switch("ES-STC-01", open_, "Open STATCOM bay earth switch ES-STC-01")),
         (3, switch("CB-STC-01", close, "Close CB-STC-01 — STATCOM in voltage control, 1.00 pu")),
         (3, verify("statcom", "Verify OSS 220 kV regulated to 1.00 pu within STATCOM range")),
+    ]
+    steps += reactor
+    steps += [
         (4, unlock("ES-TX-OSS-01")),
         (4, switch("ES-TX-OSS-01", open_, "Open TX-OSS-01 HV bay earth switch ES-TX-OSS-01")),
         (

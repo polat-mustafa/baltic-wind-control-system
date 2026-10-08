@@ -47,7 +47,7 @@ const GROUPS: { title: string; fields: FieldSpec[] }[] = [
     title: "Electrical",
     fields: [
       { key: "array_voltage_kv", label: "Array", unit: "kV", min: 33, max: 132, step: 33, hint: "Collection voltage. I²R loss ∝ 1/U² for the same conductor." },
-      { key: "export_voltage_kv", label: "Export", unit: "kV", min: 66, max: 400, step: 1, hint: "HVAC export voltage. Model uses 1000 mm² Cu XLPE circuits (950 A each)." },
+      { key: "export_voltage_kv", label: "Export", unit: "kV", min: 66, max: 400, step: 1, hint: "HVAC export voltage. Model uses 1000 mm² Cu XLPE circuits (825 A each, ABB/NKT datasheet)." },
       { key: "export_length_km", label: "Export length", unit: "km", min: 1, max: 300, step: 1, hint: "OSS → onshore. Charging Q = ωCU²L grows with length — the HVAC distance limit." },
       { key: "availability_pct", label: "Availability", unit: "%", min: 70, max: 99.9, step: 0.5, hint: "Time-based availability. Offshore typical 94–97 % (weather-limited access)." },
     ],

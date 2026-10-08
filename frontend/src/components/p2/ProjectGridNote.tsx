@@ -32,14 +32,14 @@ export default function ProjectGridNote() {
     `${n.num_turbines} × 15 MW = ${n.total_capacity_mw.toFixed(0)} MW on ${n.num_strings} strings (${n.string_layout.join("-")})`,
     `export ${n.num_export_cables} × 220 kV, ${n.export_length_km} km (charging ${n.cable_q_mvar.toFixed(0)} MVAR)`,
     `OSS ${n.num_oss_transformers} × ${n.oss_trafo_mva} MVA · onshore ${n.num_onshore_transformers} × ${n.onshore_trafo_mva} MVA`,
-    `STATCOM ±${n.statcom_rating_mvar} MVAR · reactors ${n.num_reactors ? `${n.num_reactors} × ${n.reactor_unit_mvar} MVAR (N+1)` : "none"}`,
+    `STATCOM ±${n.statcom_rating_mvar} MVAR · reactors ${n.num_reactors ? `${n.num_reactors} × ${n.reactor_unit_mvar} MVAR (one per circuit at each end)` : "none"}`,
   ];
   return (
     <div className="space-y-2">
       <div className="rounded-lg border border-border-primary bg-bg-secondary px-3 py-2 text-[12px] text-text-secondary">
         <p>
           <span className="font-semibold text-text-primary">Your project — {n.name}.</span> Sized from your layout with the rules that give
-          the SB-510 design (export circuits from the cable's charging current, transformers at ≤ 90 % loading, reactors N+1, checked by a
+          the SB-510 design (export circuits from the cable's charging current, transformers at ≤ 90 % loading, reactors at both cable ends sized for one out, checked by a
           reactor-outage load flow):
         </p>
         <ul className="mt-1 list-disc space-y-0.5 pl-5 font-mono text-[11px]">

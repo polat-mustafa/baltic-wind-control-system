@@ -25,7 +25,7 @@ router = APIRouter(prefix="/cable", tags=["M10 Cable DTS Thermal Monitoring"])
     summary="DTS profile and steady-state rating of one export circuit",
 )
 async def get_dts_profile(
-    current_a: float = Query(730.0, ge=0.0, le=1600.0),
+    current_a: float = Query(760.0, ge=0.0, le=1600.0),
     ambient_temp_c: float = Query(15.0, ge=-5.0, le=35.0),
 ) -> DTSProfileResponse:
     """
@@ -36,7 +36,7 @@ async def get_dts_profile(
     temperature, and the dielectric loss counts because U0 = 127 kV.
 
     The rating at the given ambient is the current that holds the worst zone
-    at 90 °C; the OSS J-tube (cable in air) sets it. 950 A at 15 °C is the
+    at 90 °C; the OSS J-tube (cable in air) sets it. 825 A at 20 °C (datasheet) is the
     calibration point.
     """
     return DTSProfileResponse(**svc.simulate_dts(current_a, ambient_temp_c))

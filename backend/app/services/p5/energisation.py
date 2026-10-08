@@ -8,14 +8,16 @@ computed values instead of a fixed text.
 
 What the numbers show
 ---------------------
-- Cable energised open-ended from shore: the 76.5 km cable generates
-  Q_c = ω·C·U²·l = 2π·50 · 190 nF/km · (220 kV)² · 76.5 km ≈ 221 Mvar, so the
-  sending-end current is I_c = Q_c / (√3·U) ≈ 580 A with zero load, and the open
-  end rises by the Ferranti factor 1/cos(βl) ≈ 1.021 (βl = ωl√(LC) ≈ 0.20 rad).
-  The 221 Mvar flow into the onshore 220 kV busbar and raise its voltage by
-  roughly Q_c / S_k there (S_k ≈ 3 GVA behind the two onshore transformers).
-- Shunt reactor 1 (170 Mvar at 1 pu, Q ∝ U²) takes most of that back; the STATCOM
-  then holds the OSS 220 kV busbar at 1.00 pu within ±120 Mvar.
+- Cable energised from shore, OSS end open: the 76.5 km cable generates
+  Q_c = ω·C·U²·l = 2π·50 · 190 nF/km · (220 kV)² · 76.5 km ≈ 221 Mvar
+  (I_c = Q_c / (√3·U) ≈ 580 A with zero load), and the open end rises by the
+  Ferranti factor 1/cos(βl) ≈ 1.021 (βl = ωl√(LC) ≈ 0.20 rad).
+- The onshore line reactor of cable 1 (120 Mvar at 1 pu, Q ∝ U²) sits on the cable
+  side of CB-ON-220-01 and is energised with the cable, so only ≈ 100 Mvar flow into
+  the onshore 220 kV busbar and raise its voltage by roughly Q / S_k there
+  (S_k ≈ 3 GVA behind the two onshore transformers).
+- OSS shunt reactor 1 (120 Mvar) takes up the OSS end's share once the OSS busbar
+  is live; the STATCOM then holds the OSS 220 kV busbar at 1.00 pu within ±120 Mvar.
 - TX-OSS-01 on no load draws only its magnetising current (i0 = 0.05 % →
   ≈ 0.4 A at 220 kV).
 - Released turbines are dispatched at rated output (15 MW, unity power factor):
@@ -32,9 +34,7 @@ Onshore OLTC pre-set: a longer cable lifts the onshore busbar further (75 km:
 ≈ 230 Mvar, +5 %), so before energising, the onshore transformers are tapped
 down (``onshore_tap``: the first HV tap, 1.25 % per step, that keeps the busbar
 and the open cable end within 0.95–1.05 pu). The tap is then held for the
-whole programme; SB-510 (76.5 km) needs 3 steps. When no tap is enough (a long
-cable on small onshore transformers), reactor 1 is connected to the dead cable
-and energised with it (``reactor_energisation``).
+whole programme.
 
 Not modelled: switching transients and transformer inrush (they are not
 steady-state quantities), WTG step-up transformers and auxiliary loads, OLTC
@@ -110,7 +110,8 @@ class NetworkSnapshot:
     cable_i_send_a: float | None = None
     cable_i_recv_a: float | None = None
     cable_loading_pct: float | None = None
-    reactor_q_mvar: float | None = None
+    reactor_q_mvar: float | None = None  # OSS reactor 1
+    reactor_on_q_mvar: float | None = None  # onshore line reactor 1
     statcom_q_mvar: float | None = None
     tx1_i_hv_a: float | None = None
     tx1_loading_pct: float | None = None
@@ -170,7 +171,7 @@ def network_snapshot(
         (b220, "Onshore 220 kV", "ONS220"),
     ]
 
-    cable_line = reactor = statcom = tx1 = None
+    cable_line = reactor = reactor_on = statcom = tx1 = None
     b_oss = b66 = None
     generation = 0.0
     if "CABLE1" in live:
@@ -181,6 +182,10 @@ def network_snapshot(
             r_ohm_per_km=cable.r_ac_ohm_per_km, x_ohm_per_km=cable.x_ohm_per_km,
             c_nf_per_km=cable.c_nf_per_km, max_i_ka=cable.max_i_ka, name="Export cable 1",
         )  # fmt: skip
+        if "SRON1" in live:
+            # pandapower shunt: load convention, q_mvar > 0 absorbs (at 1 pu)
+            # (the cable's onshore end is the onshore busbar node once CB-ON-220-01 is closed)
+            reactor_on = pp.create_shunt(net, b220, q_mvar=spec.reactor_unit_mvar, name="SR-ON-1")
         on_bus = "OSS220" in live
         buses.append(
             (
@@ -213,7 +218,7 @@ def network_snapshot(
             released = state.get(f"WTG-GRP-{n:02d}") == EquipmentState.CLOSED
             prev, n_wtg = b66, spec.string_layout[n - 1]
             for pos in range(n_wtg):
-                grade = _get_cable_grade(n_wtg - 1 - pos, n_wtg)  # biggest cable at the OSS
+                grade = _get_cable_grade(n_wtg - pos, spec.turbine_rated_mw)  # downstream I
                 wtg_bus = pp.create_bus(net, 66.0, name=f"String {n} WTG {pos + 1}")
                 pp.create_line_from_parameters(
                     net, prev, wtg_bus, length_km=spec.array_cable_length_km,
@@ -244,6 +249,7 @@ def network_snapshot(
         cable_i_recv_a=opt("res_line", cable_line, "i_to_ka", 1e3),
         cable_loading_pct=opt("res_line", cable_line, "loading_percent"),
         reactor_q_mvar=opt("res_shunt", reactor, "q_mvar", -1.0),
+        reactor_on_q_mvar=opt("res_shunt", reactor_on, "q_mvar", -1.0),
         statcom_q_mvar=opt("res_gen", statcom, "q_mvar"),
         tx1_i_hv_a=opt("res_trafo", tx1, "i_hv_ka", 1e3),
         tx1_loading_pct=opt("res_trafo", tx1, "loading_percent"),
@@ -251,44 +257,32 @@ def network_snapshot(
     )
 
 
-def cable_energised_state(
-    spec: FarmSpec = SB510, with_reactor: bool = False
-) -> dict[str, EquipmentState]:
-    """Export cable 1 energised from shore, open-ended or with reactor 1 (and the OSS
-    busbar) connected at its far end; everything else as built."""
+def cable_energised_state(spec: FarmSpec = SB510) -> dict[str, EquipmentState]:
+    """Export cable 1 energised from shore with its onshore line reactor (if the design
+    has reactors), OSS end open; everything else as built."""
     state = build_initial_state(spec)
     opened = ["ES-ON-220-01", "ES-OSS-220-01"]
     closed = ["DS-ON-220-01", "CB-ON-220-01"]
-    if with_reactor:
-        opened += ["ES-OSS-220-BB", "ES-SR-01"]
-        closed += ["DS-OSS-220-01", "CB-OSS-220-01", "CB-SR-01"]
+    if spec.num_reactors:
+        opened += ["ES-SR-ON-01"]
+        closed += ["CB-SR-ON-01"]
     state.update(dict.fromkeys(opened, EquipmentState.OPEN))
     state.update(dict.fromkeys(closed, EquipmentState.CLOSED))
     return state
 
 
 @lru_cache(maxsize=32)
-def _energisation_plan(spec: FarmSpec) -> tuple[int, bool]:
-    """(onshore tap, energise with reactor 1): the first tap at which the cable,
-    open-ended, leaves the onshore busbar and the cable end inside the band; failing
-    that, the same with reactor 1 connected (if the design has reactors). Taps are
-    HV-side, + lowers the 220 kV side. Neither works → full range, open-ended (the
-    verification step then fails: a finding)."""
-    lo, hi = V_BAND_PU
-    for with_reactor in (False, True)[: 1 + bool(spec.num_reactors)]:
-        state = cable_energised_state(spec, with_reactor)
-        for tap in range(OLTC_STEPS + 1):
-            snap = network_snapshot(state, spec, tap)
-            if all(lo <= b.vm_pu <= hi for b in snap.buses if b.zone != "PSE400"):
-                return tap, with_reactor
-    return OLTC_STEPS, False
-
-
 def onshore_tap(spec: FarmSpec = SB510) -> int:
-    """Onshore OLTC position held during the programme (0 = neutral)."""
-    return _energisation_plan(spec)[0]
-
-
-def reactor_energisation(spec: FarmSpec = SB510) -> bool:
-    """True when cable 1 is energised together with reactor 1."""
-    return _energisation_plan(spec)[1]
+    """Onshore OLTC position held during the programme (0 = neutral): the first HV tap
+    (+ lowers the 220 kV side) at which the cable, energised with its onshore line
+    reactor and the OSS end open, leaves the onshore busbar and the cable end inside
+    the band. None works → full range (the verification step then fails: a finding).
+    With the line reactor SB-510 needs none; a long cable on small onshore transformers
+    does (2 × 100 MVA, 73 km: 2 steps)."""
+    lo, hi = V_BAND_PU
+    state = cable_energised_state(spec)
+    for tap in range(OLTC_STEPS + 1):
+        snap = network_snapshot(state, spec, tap)
+        if all(lo <= b.vm_pu <= hi for b in snap.buses if b.zone != "PSE400"):
+            return tap
+    return OLTC_STEPS

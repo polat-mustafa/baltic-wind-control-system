@@ -19,6 +19,7 @@ export const SECTION_COLOR: Record<string, string> = {
   "500": "#0ea5e9",
   "630": "#6366f1",
   "800": "#a855f7",
+  "1000": "#d946ef",
   over: "#ef4444",
 };
 

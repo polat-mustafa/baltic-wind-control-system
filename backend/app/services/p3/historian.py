@@ -38,9 +38,11 @@ from app.services.p2.network_model import SB510, FarmSpec
 RATED_MW = 15.0
 CUT_IN, RATED_WS, CUT_OUT = 3.0, 11.1, 31.0
 WAKE_FACTOR = 0.94  # farm-average wind relative to the free stream
-# SB-510 at rated output: I²X of transformers + cables, array/OSS losses. Other
-# farms scale with capacity (transformers and cables are sized to it).
-SB510_SERIES_Q_MVAR = 135.0
+# SB-510 at rated output: net reactive absorption of transformers and cables (I²X)
+# minus the Q the PSE grid supplies at the POC, calibrated so the STATCOM tag matches the
+# P2 Grid-tab load flow (3 of 4 reactors in, ≈ −3 MVAR); array/OSS losses. Other farms
+# scale with capacity (transformers and cables are sized to it).
+SB510_SERIES_Q_MVAR = 80.0
 SB510_LOSS_MW = (0.12, 3.2)  # no-load + load losses at rated
 
 
@@ -268,7 +270,7 @@ def plant_state(m: float, spec: FarmSpec = SB510) -> dict[HistorianTag, float]:
     i_charge_half = spec.cable_q_mvar / n_cct * 1e3 / (math.sqrt(3) * 220.0) / 2
     i_circuit_ka = math.hypot(i_active, i_charge_half) / 1e3
 
-    # Reactive balance at the OSS 220 kV busbar (one reactor out near rated)
+    # Reactive balance of the export system, reactors at both ends (one out near rated)
     n_react = spec.num_reactors
     q_max = spec.statcom_mvar
     absorbed = SB510_SERIES_Q_MVAR * scale * p * p

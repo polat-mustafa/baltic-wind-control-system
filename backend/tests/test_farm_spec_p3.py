@@ -114,7 +114,8 @@ def test_cms_devices_scl_follow_the_turbines(client: TestClient):
     root = ET.fromstring(scd.json()["xml_content"])
     bays = {b.get("name") for b in root.iter() if b.tag.endswith("}Bay")}
     assert "BAY-OSS-66-07" in bays and "BAY-OSS-66-08" not in bays
-    assert {f"Q-R{i}" for i in range(1, FOUR.num_reactors + 1)} <= bays
+    # OSS reactors only (one per export circuit); their onshore twins are onshore bays
+    assert {f"Q-R{i}" for i in range(1, FOUR.reactors_per_end + 1)} <= bays
 
 
 def test_network_security_opcua_follow_the_farm(client: TestClient):

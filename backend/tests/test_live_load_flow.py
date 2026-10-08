@@ -65,24 +65,28 @@ def test_own_farm_solves_its_own_turbines() -> None:
     ("layout", "km"), [((2, 2, 2, 2), 20.0), ((5,) * 5, 75.0), ((2,) * 4, 73.0)]
 )
 def test_reactor_switching_keeps_statcom_headroom(layout: tuple[int, ...], km: float) -> None:
-    """All N+1 reactors in would pin the STATCOM at +rating on these designs."""
+    """Reactors at both ends plus the operator's switching keep the STATCOM off its limit
+    and the export inside its 825 A rating at every output."""
     spec = check_reactors(design(layout, km, 1.5))
     for f in (0.0, 0.5, 1.0):
         r = run_live_load_flow([15.0 * f] * spec.num_turbines, spec)
         assert r.converged and r.voltage_compliant
         assert abs(r.statcom_q_mvar) < spec.statcom_mvar  # not saturated [MVAR]
         assert abs(r.v_oss_220_pu - 1.0) <= 0.011  # STATCOM holds the OSS bus
-        assert r.reactors_in_service < spec.num_reactors
+        assert 0 < r.reactors_in_service <= spec.num_reactors
+        assert r.export_cable_loading_pct < 100.0
 
 
-def test_sb510_runs_on_two_reactors_and_keeps_the_spare() -> None:
-    """442 MVAR of charging: with all 3 × 170 in, the STATCOM would generate over 60 MVAR,
-    so the N+1 spare is switched out at every output and the STATCOM stays inside ±60."""
-    for f in (0.0, 0.5, 1.0):
+def test_sb510_switches_one_reactor_out_at_full_output() -> None:
+    """442 MVAR of charging on 4 × 120 MVAR (2 onshore, 2 OSS): all four in at no and half
+    load; at 510 MW the cable and transformers absorb more (I²X) and the operator switches
+    one out. The STATCOM stays inside ±60 MVAR, the export inside 92 % of 825 A."""
+    expected = {0.0: 4, 0.5: 4, 1.0: 3}
+    for f, n in expected.items():
         r = run_live_load_flow([15.0 * f] * 34)
-        assert r.reactors_in_service == 2 and r.voltage_compliant
+        assert r.reactors_in_service == n and r.voltage_compliant
         assert abs(r.statcom_q_mvar) < 60.0
-        assert r.export_cable_loading_pct < 90.0
+        assert r.export_cable_loading_pct <= 92.5
 
 
 def test_api_takes_the_farm_from_the_header() -> None:

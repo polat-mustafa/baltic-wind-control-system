@@ -28,8 +28,8 @@ from tests.p5_support import PIC, issue, ready_programme, run_until
 
 def test_programme_structure():
     p = create_oss_energisation_programme(PIC)
-    assert len(p.steps) == 60
-    assert [s.step_number for s in p.steps] == list(range(1, 61))
+    assert len(p.steps) == 63  # 60 + the onshore line reactor (lock, earth switch, CB)
+    assert [s.step_number for s in p.steps] == list(range(1, 64))
     assert {s.phase for s in p.steps} == set(PHASES)
     assert len({s.step_id for s in p.steps}) == len(p.steps)
     for s in p.steps:
@@ -67,7 +67,8 @@ def test_full_run_completes_and_leaves_section_b_earthed():
     assert p.loto_set is not None
     assert p.loto_set.points[point_id_for("ES-OSS-66-02")].status == LOTOStatus.APPLIED
     rated = next(s for s in p.steps if s.check_id == "rated")
-    assert "270 MW" in rated.reading
+    # section A is 270 MW; one 825 A circuit carries ≈ 294 MW at 76.5 km → PPC limit 90 %
+    assert "265 MW" in rated.reading and "PPC limits the output" in rated.notes
 
 
 def test_verification_readings_are_recorded():

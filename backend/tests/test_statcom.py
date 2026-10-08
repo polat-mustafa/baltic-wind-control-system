@@ -47,8 +47,10 @@ class TestCableReactivePower:
         assert calculate_cable_reactive_power() == pytest.approx(442.0, abs=1.0)
 
     def test_statcom_sizing_formula(self):
-        """N-1 design case: (442 − 2 × 170) × 1.15 = 117 → rounded up to 120 MVAR."""
-        assert size_statcom() == pytest.approx(120.0)
+        """N-1 design case: (442 − 3 × 120) × 1.15 = 94 → rounded up to 100 MVAR, inside the
+        ±120 MVAR installed (sized by the 120 MVAR per 510 MW capability rule)."""
+        assert size_statcom() == pytest.approx(100.0)
+        assert size_statcom() <= STATCOM_RATING_MVAR
 
     def test_cable_q_proportional_to_length(self):
         """Cable Q must scale linearly with length."""
@@ -83,7 +85,7 @@ class TestSTATCOMSizing:
     def test_statcom_rating_with_margins(self):
         """Rating with margins should exceed net Q after the in-service reactors."""
         cable_q = calculate_cable_reactive_power()
-        net_q = cable_q - 2 * network_model.SHUNT_REACTOR_UNIT_MVAR  # N-1: 2 of 3 in service
+        net_q = cable_q - 3 * network_model.SHUNT_REACTOR_UNIT_MVAR  # N-1: 3 of 4 in service
         rating = size_statcom(cable_q_mvar=cable_q)
         assert rating >= net_q, f"Rating ({rating}) < net Q ({net_q})"
 
@@ -101,8 +103,8 @@ class TestSTATCOMSizing:
         )
 
     def test_two_reactor_design_not_n1_secure(self):
-        """2 × 170 design: one out → (442 − 170) × 1.15 = 313 → 320 MVAR > ±120 MVAR."""
-        assert size_statcom(num_reactors=2) == pytest.approx(320.0)
+        """Only 2 × 120 (one end compensated): one out → (442 − 120) × 1.15 = 370.3 → 380 MVAR."""
+        assert size_statcom(num_reactors=2) == pytest.approx(380.0)
         assert size_statcom(num_reactors=2) > STATCOM_RATING_MVAR
 
 
@@ -137,9 +139,9 @@ class TestCompensationValidation:
         assert result.cable_q_mvar > 0
 
     def test_reactor_q_in_result(self):
-        """Result must include total reactor Q (3 × 170 = 510 MVAR)."""
+        """Result must include total reactor Q (4 × 120 = 480 MVAR, both ends)."""
         result = validate_compensation()
-        assert result.reactor_q_mvar == pytest.approx(510.0)
+        assert result.reactor_q_mvar == pytest.approx(480.0)
 
     def test_reactor_n1_secure(self):
         """One reactor out: voltage compliant and STATCOM not saturated (≈ −80 MVAR)."""

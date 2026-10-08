@@ -27,8 +27,11 @@ from app.services.p2.network_model import (
     ARRAY_CABLE_500,
     ARRAY_CABLE_630,
     ARRAY_CABLE_800,
+    ARRAY_CABLE_1000,
+    ARRAY_SECTIONS,
     EXPORT_CABLE_1000,
     EXPORT_CABLE_LENGTH_KM,
+    MAX_TURBINES_PER_STRING,
     NUM_EXPORT_CABLES,
     NUM_SHUNT_REACTORS,
     NUM_STRINGS,
@@ -40,10 +43,13 @@ from app.services.p2.network_model import (
     TRAFO_66_220_MVA,
     TRAFO_66_220_VK_PERCENT,
     TRAFO_220_400_MVA,
+    _get_cable_grade,
     build_network,
     get_bus_count,
     get_cable_grades_summary,
     get_total_generation_mw,
+    iec60287_ac_factor,
+    string_current_ka,
 )
 
 # ── Topology Tests ────────────────────────────────────────────────
@@ -121,15 +127,22 @@ class TestNetworkTopology:
 
 
 class TestCableGrading:
-    """Tests for array cable cross-section grading by OSS distance."""
+    """Tests for array cable cross-section grading by the current downstream."""
 
     def test_cable_grades_present(self):
-        """All three cable grades must be used in array cables."""
-        net = build_network()
-        grades = get_cable_grades_summary(net)
-        assert grades["500mm2"] > 0, "No 500 mm² cables found"
-        assert grades["630mm2"] > 0, "No 630 mm² cables found"
-        assert grades["800mm2"] > 0, "No 800 mm² cables found"
+        """6-6-6-6-5-5: the 4 six-turbine OSS segments (787 A) need 1000 mm² (825 A), the
+        5-turbine segments (656 A) 630 mm² (715 A), 1–4 turbines (≤ 525 A) 500 mm²
+        (655 A); 800 mm² (775 A) carries neither six nor is needed for five."""
+        grades = get_cable_grades_summary(build_network())
+        assert grades == {"500mm2": 24, "630mm2": 6, "800mm2": 0, "1000mm2": 4}
+
+    def test_grade_is_the_smallest_section_that_carries_the_current(self):
+        for n in range(1, MAX_TURBINES_PER_STRING + 1):
+            cable = _get_cable_grade(n)
+            assert cable.max_i_ka >= string_current_ka(n)
+            smaller = [c for c in ARRAY_SECTIONS if c.cross_section_mm2 < cable.cross_section_mm2]
+            assert all(c.max_i_ka < string_current_ka(n) for c in smaller)
+        assert MAX_TURBINES_PER_STRING == 6  # 7 × 131 A = 918 A > 825 A
 
     def test_total_array_cables(self):
         """Total graded cables must equal 34 (one per WTG)."""
@@ -142,7 +155,7 @@ class TestCableGrading:
     def test_cable_resistance_ranges(self, operating):
         """Cable R values must match the specified grades (90 °C AC or 20 °C DC build)."""
         net = build_network(r_at_operating_temp=operating)
-        specs = (ARRAY_CABLE_500, ARRAY_CABLE_630, ARRAY_CABLE_800, EXPORT_CABLE_1000)
+        specs = (*ARRAY_SECTIONS, EXPORT_CABLE_1000)
         valid_r = {c.r_ac_ohm_per_km if operating else c.r_ohm_per_km for c in specs}
         for idx in range(len(net.line)):
             r = float(net.line.at[idx, "r_ohm_per_km"])
@@ -156,13 +169,14 @@ class TestCableGrading:
             (ARRAY_CABLE_500, 0.0493),
             (ARRAY_CABLE_630, 0.0395),
             (ARRAY_CABLE_800, 0.0325),
+            (ARRAY_CABLE_1000, 0.0277),
             (EXPORT_CABLE_1000, 0.0233),
         ],
     )
     def test_ac_resistance_at_90c(self, spec, expected_r90):
         """R_AC,90 = R20 × (1 + 0.00393 × 70) × (1 + y_s + y_p)  (IEC 60287-1-1 §2.1)."""
         assert spec.r_ac_ohm_per_km == pytest.approx(expected_r90, abs=0.0002)
-        assert 1.3 < spec.r_ac_ohm_per_km / spec.r_ohm_per_km < 1.5
+        assert 1.3 < spec.r_ac_ohm_per_km / spec.r_ohm_per_km < 1.6
 
     def test_hot_resistance_raises_losses(self):
         """Same dispatch, 90 °C cables → more active power losses than 20 °C cables."""
@@ -241,11 +255,13 @@ class TestGeneration:
         assert float(statcom.iloc[0]["p_mw"]) == pytest.approx(0.0)
 
     def test_shunt_reactor_present(self):
-        """3 × 80 MVAR shunt reactors (N+1) must be present at OSS 220 kV."""
+        """4 × 120 MVAR shunt reactors: one per export circuit at each end."""
         net = build_network(enable_reactor=True)
-        assert len(net.shunt) == NUM_SHUNT_REACTORS == 3
+        assert len(net.shunt) == NUM_SHUNT_REACTORS == 4
         # pandapower shunts use the load convention: q_mvar > 0 = absorbing
-        assert list(net.shunt["q_mvar"]) == pytest.approx([SHUNT_REACTOR_UNIT_MVAR] * 3)
+        assert list(net.shunt["q_mvar"]) == pytest.approx([SHUNT_REACTOR_UNIT_MVAR] * 4)
+        ends = net.bus.loc[net.shunt["bus"], "name"].tolist()
+        assert ends == ["Onshore_220kV"] * 2 + ["OSS_220kV"] * 2
         assert float(net.shunt["q_mvar"].sum()) == pytest.approx(SHUNT_REACTOR_MVAR)
 
     def test_shunt_reactor_lowers_voltage(self):
@@ -326,15 +342,26 @@ def test_string_busbar_sections_fit_one_transformer_each():
 
 
 @pytest.mark.parametrize(
-    ("cable", "c_uf_per_km", "l_mh_per_km"),
+    ("cable", "c_uf_per_km", "l_mh_per_km", "rating_a"),
     [
-        (ARRAY_CABLE_500, 0.29, 0.34),
-        (ARRAY_CABLE_630, 0.32, 0.33),
-        (ARRAY_CABLE_800, 0.35, 0.32),
-        (EXPORT_CABLE_1000, 0.19, 0.38),
+        (ARRAY_CABLE_500, 0.29, 0.34, 655),
+        (ARRAY_CABLE_630, 0.32, 0.33, 715),
+        (ARRAY_CABLE_800, 0.35, 0.32, 775),
+        (ARRAY_CABLE_1000, 0.38, 0.31, 825),
+        (EXPORT_CABLE_1000, 0.19, 0.38, 825),
     ],
 )
-def test_cable_c_and_x_match_the_datasheet(cable, c_uf_per_km, l_mh_per_km):
-    """C and X = ωL follow ABB/NKT 2GM5007 rev 5, Tables 45 and 49 (provenance note)."""
+def test_cable_data_match_the_datasheet(cable, c_uf_per_km, l_mh_per_km, rating_a):
+    """C, X = ωL and the rating follow ABB/NKT 2GM5007 rev 5, Tables 33/34, 45 and 49."""
     assert cable.c_nf_per_km == pytest.approx(c_uf_per_km * 1000, rel=1e-9)
-    assert cable.x_ohm_per_km == pytest.approx(2 * math.pi * 50 * l_mh_per_km * 1e-3, rel=0.03)
+    assert cable.x_ohm_per_km == pytest.approx(2 * math.pi * 50 * l_mh_per_km * 1e-3, abs=6e-5)
+    assert cable.max_i_ka * 1000 == pytest.approx(rating_a)
+
+
+def test_ac_factor_follows_iec_60287():
+    """1 + y_s + y_p from the conductor geometry reproduces every CableSpec.ac_factor."""
+    for cable, d_c in zip(ARRAY_SECTIONS, (26.2, 29.8, 33.7, 37.9), strict=True):
+        f = iec60287_ac_factor(cable.r_ohm_per_km, d_c, d_c + 33.0, 1.0, 0.8)
+        assert f == pytest.approx(cable.ac_factor, abs=6e-4)
+    f = iec60287_ac_factor(EXPORT_CABLE_1000.r_ohm_per_km, 38.0, 120.0, 0.435, 0.37)
+    assert f == pytest.approx(EXPORT_CABLE_1000.ac_factor, abs=6e-4)

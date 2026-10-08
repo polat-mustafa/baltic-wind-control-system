@@ -22,14 +22,14 @@ import { computeWakeLosses } from "./wakeModel";
  */
 const SB510_SERIES_LOSS_AT_RATED_MVAR = 146;
 
-/** Network of the live fleet (SB-510: 510 MW, 2 × 76.5 km, 442 MVAr, 3 × 170 MVAr, ±120 MVAr, 2 × 300 MVA). */
+/** Network of the live fleet (SB-510: 510 MW, 2 × 76.5 km, 442 MVAr, 4 × 120 MVAr, ±120 MVAr, 2 × 300 MVA). */
 export function plantNet(f: Fleet = liveFleet()) {
   const n = f.net;
   return {
     ratedMW: n.total_capacity_mw,
     /** Charging of all export circuits, Q = ωCV²L [MVAr, generating]. */
     chargingMVAr: n.cable_q_mvar,
-    /** Shunt reactors: one per export circuit + one spare (N+1); none on a short export. */
+    /** Shunt reactors: one per export circuit at each cable end (onshore + OSS); none on a short export. */
     reactorCount: n.num_reactors,
     reactorUnitMVAr: n.reactor_unit_mvar,
     statcomMVAr: n.statcom_rating_mvar,
@@ -87,10 +87,13 @@ export function reactiveBalance(totalMW: number, net = plantNet()): ReactiveBala
 
 export const EXPORT_CABLE = {
   kV: 220,
-  ratedA: 950,
+  /** ABB/NKT 2GM5007 rev 5 Table 34: one cable 1 m deep, 20 °C seabed, 1.0 K·m/W. */
+  ratedA: 825,
+  ratedAmbientC: 20,
   /** AC resistance at 90 °C [Ω/km]: 0.0176 × 1.039 (skin) × (1 + 0.00393·70). */
   rOhmPerKm: 0.0233,
-  xOhmPerKm: 0.116,
+  /** ωL, L = 0.38 mH/km (Table 49). */
+  xOhmPerKm: 0.1194,
   cNfPerKm: 190,
   /** XLPE conductor limit and seabed ambient [°C]. */
   maxConductorC: 90,
@@ -101,7 +104,7 @@ export interface CableState {
   /** Per-circuit current at the loaded end [A]. */
   currentA: number;
   loadingPct: number;
-  /** Steady-state conductor temperature [°C], θ = θ_amb + Δθ_rated·(I/I_r)². */
+  /** Steady-state conductor temperature [°C], θ = θ_amb + (90 − 20 °C)·(I/I_r)². */
   conductorC: number;
   /** I²R losses, all circuits [MW]. */
   lossesMW: number;
@@ -125,29 +128,32 @@ export function exportCableState(totalMW: number, net = plantNet()): CableState 
   return {
     currentA: current,
     loadingPct: ratio * 100,
-    conductorC: c.seabedC + (c.maxConductorC - c.seabedC) * ratio ** 2,
+    conductorC: c.seabedC + (c.maxConductorC - c.ratedAmbientC) * ratio ** 2,
     lossesMW: (net.circuits * 3 * current ** 2 * c.rOhmPerKm * net.exportKm) / 1e6,
     chargingMVArPerCircuit: chargingMVAr,
   };
 }
 
-// ── 66 kV array cables (backend ARRAY_CABLE_500/630/800, graded) ──
+// ── 66 kV array cables (backend ARRAY_SECTIONS, graded by current) ──
+// Ratings: ABB/NKT 2GM5007 rev 5 Table 33 (one cable 1 m deep, 20 °C seabed, 1.0 K·m/W).
 
 export const ARRAY_KV = 66;
 const ARRAY_CABLE_GRADES = [
-  { mm2: 500, ratedA: 715 },
-  { mm2: 630, ratedA: 818 },
-  { mm2: 800, ratedA: 900 },
+  { mm2: 500, ratedA: 655 },
+  { mm2: 630, ratedA: 715 },
+  { mm2: 800, ratedA: 775 },
+  { mm2: 1000, ratedA: 825 },
 ] as const;
 
 /**
  * Cable grade of the k-th segment counted from the OSS (k = 0 is the
  * OSS-end cable carrying the whole string) — same rule as the backend
- * `_get_cable_grade`: far third 500 mm², middle 630 mm², near OSS 800 mm².
+ * `_get_cable_grade`: the smallest section whose rating carries the turbines
+ * downstream at rated power (SB-510: 1–4 → 500 mm², 5 → 630 mm², 6 → 1000 mm²).
  */
 export function arrayCableGrade(segmentFromOss: number, stringLength: number) {
-  const normalised = (stringLength - 1 - segmentFromOss) / Math.max(stringLength - 1, 1);
-  return ARRAY_CABLE_GRADES[normalised < 0.4 ? 0 : normalised < 0.7 ? 1 : 2];
+  const amps = arrayCableCurrentA((stringLength - segmentFromOss) * V236.ratedMW);
+  return ARRAY_CABLE_GRADES.find((g) => g.ratedA >= amps - 1e-6) ?? ARRAY_CABLE_GRADES[ARRAY_CABLE_GRADES.length - 1];
 }
 
 /** Current [A] in a 66 kV cable carrying `mw` at unity power factor. */
@@ -361,7 +367,8 @@ export function windAtHeight(hubWindMs: number, heightM: number): number {
 // ── Export cable DTS profile (same model as backend services/p2/cable_dts.py) ──
 // IEC 60287 steady state per conductor, R_AC(T) self-consistent, dielectric
 // loss counted (U0 = 127 kV): T_c − T_amb = (W_c + ½W_d)·T_int + (W_c + W_d)·R_ext.
-// R_ext of the OSS J-tube is calibrated so 950 A at 15 °C gives exactly 90 °C;
+// R_ext of the OSS J-tube is calibrated so the 825 A datasheet rating at its 20 °C
+// reference gives exactly 90 °C;
 // other zones are fixed ratios of it. Zones follow the real route: J-tube
 // 0–0.3 km, subsea burial to 62.7 km, HDD landfall 62.7–63.5 km, land to 76.5 km.
 const DTS_ALPHA = 0.00393;
@@ -369,8 +376,9 @@ const DTS_R_AC20_OHM_PER_M = (0.0176 * 1.039) / 1000;
 const DTS_R_AC90_OHM_PER_M = DTS_R_AC20_OHM_PER_M * (1 + DTS_ALPHA * 70);
 const DTS_W_D = 2 * Math.PI * 50 * 190e-12 * (220e3 / Math.sqrt(3)) ** 2 * 0.001; // ≈ 0.96 W/m
 const DTS_T_INT = 0.5;
-const DTS_W_C_RATED = 950 ** 2 * DTS_R_AC90_OHM_PER_M;
-export const DTS_R_EXT_J_TUBE = (75 - (DTS_W_C_RATED + DTS_W_D / 2) * DTS_T_INT) / (DTS_W_C_RATED + DTS_W_D); // ≈ 2.92 K·m/W
+const DTS_W_C_RATED = EXPORT_CABLE.ratedA ** 2 * DTS_R_AC90_OHM_PER_M;
+export const DTS_R_EXT_J_TUBE =
+  (EXPORT_CABLE.maxConductorC - EXPORT_CABLE.ratedAmbientC - (DTS_W_C_RATED + DTS_W_D / 2) * DTS_T_INT) / (DTS_W_C_RATED + DTS_W_D); // ≈ 3.67 K·m/W
 export const DTS_ZONES = { jTubeEndKm: 0.3, hddStartKm: 62.7, hddEndKm: 63.5 } as const;
 
 function dtsRExt(km: number): number {

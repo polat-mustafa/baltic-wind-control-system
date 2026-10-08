@@ -7,11 +7,12 @@ export const hvacVsHvdcEducation: EducationContent = {
   discipline: "Electrical",
 
   overview:
-    "For offshore wind, the choice of export technology comes down to a single question: how far is the project from " +
-    "shore? HVAC submarine cables suffer from charging current that grows linearly with length and quadratically with " +
-    "voltage — beyond ~70 km the active power capacity drops to nearly zero unless reactive compensation is added " +
-    "mid-route. HVDC has none of this problem but pays a fixed cost of two converter stations (~€700–900 M for a 1 GW " +
-    "link). The break-even distance for ≥1 GW projects is now ~70–90 km.",
+    "For offshore wind, the choice of export technology starts with one question: how far is the project from " +
+    "shore? An HVAC submarine cable is a long capacitor: its charging current grows linearly with length and uses up " +
+    "the conductor's current rating, so each extra kilometre leaves less room for active power and needs more " +
+    "reactive compensation. HVDC has no charging current but needs a converter station at each end, a large fixed " +
+    "cost and about 1 % loss per station. Where the two cross depends on power, distance and prices — this platform " +
+    "computes the physics (capacity, compensation, losses), not the converter prices.",
 
   simpleExplanation:
     "Imagine pumping water through a leaky hose. The longer the hose, the less water comes out the far end because more " +
@@ -20,23 +21,22 @@ export const hvacVsHvdcEducation: EducationContent = {
     "doesn't leak), and at some distance the DC option becomes cheaper overall.",
 
   technicalExplanation:
-    "Three-phase HVAC submarine cable is dominated by capacitance C ≈ 200 nF/km. Charging current I_c = 2π·f·C·U·L grows " +
-    "with length L, eating into the conductor's thermal budget I_th. For a 220 kV three-core cable rated 800 A: at 50 km " +
-    "I_c ≈ 230 A leaves 770 A for active power; at 100 km I_c ≈ 460 A leaves only 660 A. HVDC LCC (line-commutated " +
-    "converter) needs reactive compensation and a strong AC system at both ends; HVDC VSC (voltage-source converter, used " +
-    "for all modern offshore links) provides black-start capability and decoupled P/Q control but is more expensive per " +
-    "MVA. The break-even has shifted in HVDC's favour as VSC technology matures.",
+    "A 220 kV three-core 1000 mm² Cu XLPE cable has C' = 190 nF/km and an IEC 60287 rating of 825 A (ABB/NKT " +
+    "2GM5007 rev 5, Tables 34 and 49). Its charging current is I_c = ωC'·U/√3 = 7.58 A per km. With reactors at both " +
+    "ends each end carries I_c/2: at 50 km that is 190 A and leaves √(825² − 190²) = 803 A for active power; at " +
+    "100 km 379 A and 733 A. The AC critical length — no active power left — is where I_c/2 = I_th: 2 × 825 / 7.58 " +
+    "≈ 218 km (half that with compensation at one end only). HVDC LCC (line-commutated converter) needs reactive " +
+    "compensation and a strong AC system at both ends; HVDC VSC (voltage-source converter, used for modern offshore " +
+    "links) provides black-start capability and decoupled P/Q control but costs more per MVA.",
 
   standards: [
     {
-      label: "IEC 62747 — Terminology for voltage-sourced converters (HVDC)",
+      label: "IEC 62747 — Terminology for voltage-sourced converters (VSC) for HVDC systems",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/High-voltage_direct_current",
     },
     {
-      label: "CIGRE TB 533 — HVDC grid feasibility study (free summaries)",
+      label: "IEC 60287-1-1 — Current rating of cables (conductor and dielectric losses)",
       type: "standard",
-      url: "https://www.e-cigre.org/",
     },
     {
       label: "Bahrman & Johnson (2007) — ABCs of HVDC transmission (IEEE P&E, open access)",
@@ -56,8 +56,8 @@ export const hvacVsHvdcEducation: EducationContent = {
         { symbol: "L", name: "Cable length", unit: "km" },
       ],
       explanation:
-        "Linear in length and frequency, linear in voltage. Active capacity P_active = √3 · U · √(I_th² − I_c²) drops to " +
-        "zero when I_c = I_th — the AC critical length.",
+        "Linear in length, frequency and voltage. Compensated at both ends, P_active = √3 · U · √(I_th² − (I_c/2)²) per " +
+        "circuit; it falls to zero when I_c/2 = I_th — the AC critical length.",
     },
     {
       expression: "L_break ≈ (CAPEX_HVDC,fixed − CAPEX_AC,comp) / (CAPEX_AC,km − CAPEX_HVDC,km)",
@@ -67,9 +67,8 @@ export const hvacVsHvdcEducation: EducationContent = {
         { symbol: "CAPEX_AC,comp", name: "AC compensation (shunt reactors etc.)", unit: "EUR" },
       ],
       explanation:
-        "First-order trade-off. CIGRE TB 533 reports L_break ≈ 70–90 km for ≥ 1 GW links in 2020s costs; for smaller " +
-        "links HVAC remains cheaper to several hundred km because the converter station overhead is too large.",
-      reference: "CIGRE TB 533 §6",
+        "First-order trade-off: the converter stations are a fixed cost, the AC option pays per km for more circuits " +
+        "and compensation. The result depends on prices that change by project and year; use quotes, not a rule of thumb.",
     },
   ],
 
@@ -77,40 +76,42 @@ export const hvacVsHvdcEducation: EducationContent = {
     {
       title: "SB-510 (510 MW) — HVAC chosen over HVDC",
       scenario:
-        "510 MW capacity, 76.5 km route, 220 kV three-core copper cable, C' = 190 nF/km, I_th = 950 A.",
+        "510 MW capacity, 76.5 km route, 220 kV three-core 1000 mm² Cu cable, C' = 190 nF/km, I_th = 825 A.",
       steps: [
         "I_c = 2π · 50 · 190e-9 · 220,000/√3 · 76.5 ≈ 580 A, compensated half at each end → 290 A",
-        "P_active = √3 · 220 · √(950² − 290²) ≈ √3 · 220 · 905 = 345 MW per cable",
-        "Two cables → ≈ 690 MW capacity, comfortably above 510 MW gross",
-        "Add 3 × 170 MVAR shunt reactors (one per cable + one spare, N+1) at the OSS to absorb most of the ~442 MVAR charging power",
+        "P_active = √3 · 220 · √(825² − 290²) ≈ √3 · 220 · 772 = 294 MW per cable",
+        "Two cables → ≈ 589 MW capacity, above the 510 MW farm (one cable alone is not enough)",
+        "4 × 120 MVAR shunt reactors, one per cable at each end, absorb most of the ~442 MVAR charging power",
       ],
       result:
-        "Two parallel 220 kV three-core cables with onshore + offshore reactor banks comfortably handle the 510 MW farm. " +
-        "HVDC would have added €700+ M of converter cost — uneconomic at this distance and capacity.",
+        "Two parallel 220 kV three-core cables with onshore + offshore reactors carry the 510 MW farm at 92 % of their " +
+        "rating (P2 load flow). HVDC would add two converter stations and ≈ 2 % converter loss for no gain in " +
+        "capacity at this distance.",
     },
     {
       title: "Counter-example: a 2 GW farm 130 km offshore",
-      scenario:
-        "Hypothetical 2 GW Baltic project 130 km from shore; HVAC option requires multiple cables and large compensation.",
+      scenario: "Hypothetical 2 GW Baltic project 130 km from shore, same 220 kV cable.",
       steps: [
-        "Per-cable HVAC capacity at 130 km drops to ~150 MVA → need ≥ 14 cables",
-        "Cable cost ~14 × 60 M EUR = 840 M EUR; compensation cost ~150 M EUR",
-        "HVDC VSC bipole 2 GW: ~900 M EUR for converters + 1 cable pair (~360 M EUR) = 1.26 G EUR",
+        "I_c = 7.58 A/km × 130 km = 986 A; half at each end: 493 A",
+        "Per cable: √3 · 220 kV · √(825² − 493²) A ≈ 252 MW → 8 cables for 2 GW",
+        "Charging power ωC'U²L ≈ 376 MVAR per cable → about 3 GVAR of reactors over the 8 cables",
+        "HVDC: one ±320 kV (or ±525 kV) link and two converter stations carry the same power with no charging current",
       ],
       result:
-        "HVDC wins decisively at this scale and distance. Reality check: this is exactly why the German North Sea (BorWin, " +
-        "DolWin clusters) is HVDC and the Polish Baltic (closer to shore, smaller individual farms) is HVAC.",
+        "Eight AC cables with 3 GVAR of compensation against one DC link: at this scale and distance HVDC is the usual " +
+        "choice — why the German North Sea clusters far from shore are HVDC, while the Polish Baltic projects, closer " +
+        "to shore and smaller, export by HVAC.",
     },
   ],
 
   realWorldCases: [
     {
-      title: "BorWin 5 (Germany) — 900 MW HVDC VSC at 130 km",
+      title: "BorWin / DolWin (Germany) — HVDC VSC clusters",
       description:
-        "Siemens Energy + Petrofac contract worth ~€2.2 G for the offshore platform, converter station and cables. " +
-        "Commissioning 2026.",
+        "TenneT connects the German North Sea farms far from shore through ±320 kV HVDC VSC links of roughly " +
+        "0.8–0.9 GW each, each with an offshore converter platform.",
       takeaway:
-        "HVDC has become the default for North Sea projects > 1 GW and > 80 km from shore.",
+        "HVDC becomes the default once the AC option would need many cables and gigavars of compensation.",
     },
   ],
 

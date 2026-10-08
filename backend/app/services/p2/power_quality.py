@@ -10,7 +10,7 @@ built from the same data as the load flow (``network_model``):
   transformers   R·√h + j h X   (√h: skin / stray-loss growth of R)
   export cable   2 circuits, exact distributed π (γ, Z_c) — the long-cable
                  capacitance that makes HVAC connections resonate
-  shunt reactors 3 × 170 MVAR at OSS 220 kV (SB-510)
+  shunt reactors 2 × 120 MVAR at each export end, onshore and OSS 220 kV (SB-510)
   array cables   ≈ 15 MVAR of charging lumped at OSS 66 kV
 
 The 34 converters are harmonic current sources at OSS 66 kV. Their emission
@@ -158,9 +158,10 @@ def _admittance(
     y[1, 1] += y_end
     y[2, 2] += y_end
 
-    if spec.reactor_mvar > 0:
-        x_r = S_BASE / spec.reactor_mvar
-        y[2, 2] += 1 / complex(h * x_r / REACTOR_Q_FACTOR, h * x_r)
+    if spec.reactor_mvar_per_end > 0:  # one bank at each cable end (onshore 1, OSS 2)
+        x_r = S_BASE / spec.reactor_mvar_per_end
+        for node in (1, 2):
+            y[node, node] += 1 / complex(h * x_r / REACTOR_Q_FACTOR, h * x_r)
     s_oss = NUM_OSS_TRANSFORMERS * spec.oss_trafo_mva
     branch(2, 3, trafo(TRAFO_66_220_VK_PERCENT, TRAFO_66_220_VKR_PERCENT, s_oss))
     array_km = spec.num_turbines * spec.array_cable_length_km

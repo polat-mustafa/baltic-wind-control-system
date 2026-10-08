@@ -6,27 +6,31 @@ Scope
 The first-energisation programme (``switching_programme.py``) energises export
 circuit 1 from the already-live onshore 220 kV busbar::
 
+                                             ┌─CB-SR-ON-01─ SRON1  onshore reactor 1, 120 Mvar
     ONS220 ─DS-ON-220-01─ ONS-E1 ─CB-ON-220-01─ CABLE1 (76.5 km) ─CB-OSS-220-01─ OSS-E1
-           ─DS-OSS-220-01─ OSS220 ┬─CB-SR-01──── SR1    shunt reactor 1, 170 Mvar
+           ─DS-OSS-220-01─ OSS220 ┬─CB-SR-01──── SR1    OSS shunt reactor 1, 120 Mvar
                                   ├─CB-STC-01─── STC    STATCOM ±120 Mvar
                                   ├─CB-TX-OSS-HV─ TX1 ─CB-TX-OSS-LV─ 66A ─CB-STR-0n─ STRn  n=1…3
                                   └─CB-TX-OSS-02-HV─ TX2 ─CB-TX-OSS-02-LV─ 66B ─…─ STRn  n=4…6
 
     earth switches: ES-ON-220-01 / ES-OSS-220-01 on the cable (one per end),
-    ES-OSS-220-BB on the OSS 220 kV busbar, ES-SR-01 / ES-STC-01 / ES-TX-OSS-01/-02
-    in the reactor, STATCOM and transformer bays, ES-OSS-66-01/-02 on sections A/B,
+    ES-OSS-220-BB on the OSS 220 kV busbar, ES-SR-ON-01 / ES-SR-01 / ES-STC-01 /
+    ES-TX-OSS-01/-02 in the reactor, STATCOM and transformer bays, ES-OSS-66-01/-02 on sections A/B,
     ES-STR-0n on each string feeder.
     WTG-GRP-0n: the main breakers of the turbines on string n, operated as one
     "release for generation" command.
 
 The drawing is SB-510. Another farm (``p2.network_model.FarmSpec``) gets the
 same bays with its own strings (section A = strings 1…⌈n/2⌉, IDs CB-STR-nn),
-reactor unit and STATCOM; a design without shunt reactors has no reactor bay.
+reactor unit and STATCOM; a design without shunt reactors has no reactor bays.
+Each export circuit has a reactor at both ends (``network_model``): the onshore one
+is a line reactor on the cable side of CB-ON-220-01, so it is energised together
+with the cable and takes up about half of its charging power from the first moment.
 ``equipment(spec)`` builds the registry; every function takes ``spec``
 (default SB-510).
 
 Circuit 2 (TX-OSS-02, section B, strings 4–6) stays earthed in this programme;
-its second export cable, the spare reactors and the 66 kV bus coupler are not
+its second export cable, the circuit-2 reactors and the 66 kV bus coupler are not
 modelled here. The onshore busbar ONS220 is the only source. The short GIS bay
 sections between disconnector and breaker (ONS-E1, OSS-E1) carry no earth
 switch in this model, so they show as isolated-but-unearthed when open.
@@ -176,17 +180,36 @@ def _string_devices(spec: FarmSpec) -> list[EquipmentDefinition]:
 @lru_cache(maxsize=32)
 def equipment(spec: FarmSpec = SB510) -> tuple[EquipmentDefinition, ...]:
     """Switching devices of circuit 1 of ``spec``, in drawing order."""
+    reactor_onshore = (
+        EquipmentDefinition(
+            "CB-SR-ON-01",
+            _CB,
+            220.0,
+            f"Onshore shunt reactor 1 ({spec.reactor_unit_mvar:.0f} Mvar) circuit breaker, "
+            "cable side of CB-ON-220-01",
+            _OPEN,
+            ("CABLE1", "SRON1"),
+        ),
+        EquipmentDefinition(
+            "ES-SR-ON-01",
+            _ES,
+            220.0,
+            "Onshore shunt reactor 1 bay earth switch",
+            _CLOSED,
+            ("SRON1",),
+        ),
+    )
     reactor = (
         EquipmentDefinition(
             "CB-SR-01",
             _CB,
             220.0,
-            f"Shunt reactor 1 ({spec.reactor_unit_mvar:.0f} Mvar) circuit breaker",
+            f"OSS shunt reactor 1 ({spec.reactor_unit_mvar:.0f} Mvar) circuit breaker",
             _OPEN,
             ("OSS220", "SR1"),
         ),
         EquipmentDefinition(
-            "ES-SR-01", _ES, 220.0, "Shunt reactor 1 bay earth switch", _CLOSED, ("SR1",)
+            "ES-SR-01", _ES, 220.0, "OSS shunt reactor 1 bay earth switch", _CLOSED, ("SR1",)
         ),
     )
     return (
@@ -215,6 +238,8 @@ def equipment(spec: FarmSpec = SB510) -> tuple[EquipmentDefinition, ...]:
             _CLOSED,
             ("CABLE1",),
         ),
+        # Onshore line reactor of cable 1
+        *(reactor_onshore if spec.num_reactors else ()),
         # OSS export bay E1 (220 kV)
         EquipmentDefinition(
             "ES-OSS-220-01",

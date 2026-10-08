@@ -45,11 +45,12 @@ describe("geometry", () => {
 
 describe("array cables", () => {
   it("sizes strings from the cable rating", () => {
-    // 15 MW at 66 kV, unity pf → 131 A per turbine; 800 mm² (900 A) carries 6
+    // 15 MW at 66 kV, unity pf → 131 A per turbine; 1000 mm² (825 A) carries 6
     expect(stringCurrent(1, 15)).toBeCloseTo(131.2, 1);
     expect(maxPerString(15)).toBe(6);
-    expect(sectionFor(5, 15)!.id).toBe("500");
-    expect(sectionFor(6, 15)!.id).toBe("630");
+    expect(sectionFor(4, 15)!.id).toBe("500"); // 525 A ≤ 655 A
+    expect(sectionFor(5, 15)!.id).toBe("630"); // 656 A > 655 A
+    expect(sectionFor(6, 15)!.id).toBe("1000"); // 787 A > 775 A (800 mm²)
     expect(sectionFor(7, 15)).toBeNull();
   });
 
@@ -139,7 +140,7 @@ describe("cost", () => {
     expect(exportCircuits(510, 76.5)).toBe(2); // SB-510: 2 × 220 kV
     expect(exportCircuits(300, 50)).toBe(1);
     expect(exportCircuits(0, 50)).toBe(0); // no turbines, no export cable
-    expect(exportCircuits(900, 76.5)).toBe(3);
+    expect(exportCircuits(850, 76.5)).toBe(3); // 294 MW per 825 A circuit at 76.5 km
     const one = layoutCost(DEFAULT_COSTS, 300, 0, 50, 30, 1000).lines.find((l) => l.label.startsWith("Export"))!;
     expect(one.meur).toBeCloseTo(1.39 * 50, 6);
   });

@@ -12,7 +12,9 @@
  * A join that would cross an existing cable is skipped.
  *
  * Cable sections: 66 kV 3-core Cu XLPE, ratings from the P2 network model
- * (backend/app/services/p2/network_model.py, IEC 60287 typical values).
+ * (backend/app/services/p2/network_model.py). Quality: approximation — 9–16 % above
+ * the ABB/NKT brochure's indicative IEC 60287 ratings (655 / 715 / 775 A for one
+ * cable 1 m deep, 20 °C, 1.0 K·m/W); see the provenance note there.
  * Current at unity power factor: I = n·P / (√3·U).
  */
 

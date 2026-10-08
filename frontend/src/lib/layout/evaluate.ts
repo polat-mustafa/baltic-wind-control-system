@@ -18,8 +18,12 @@ export const D = REFERENCE_TURBINE.rotorDiameterM;
 export const RATED_MW = REFERENCE_TURBINE.ratedKw / 1000;
 /** Teaching default for the spacing warning (illustrative; projects use 4–10 D by direction). */
 export const MIN_SPACING_D = 4;
-/** Availability + electrical losses applied to the wake-only AEP for the LCOE (illustrative). */
-export const OTHER_LOSSES = 0.08;
+/**
+ * Losses after wake for the LCOE: the P1 cascade defaults (backend
+ * `aep_calculator.LOSS_SOURCES`: electrical 2 %, availability 5 %, environmental 1 %),
+ * multiplied — 1 − 0.98 · 0.95 · 0.99 = 7.8 %. Blockage is not modelled here.
+ */
+export const OTHER_LOSSES = 1 - (1 - 0.02) * (1 - 0.05) * (1 - 0.01);
 /** Site Weibull used by the canvas (P1 SB-510 hub-height fit). */
 export const WEIBULL_A = 10.5;
 export const WEIBULL_K = 2.2;

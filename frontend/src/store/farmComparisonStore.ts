@@ -25,10 +25,11 @@ const BASE: Omit<FarmConfig, "name"> = {
   turbine_spacing_d: 7,
   array_voltage_kv: 66,
   export_voltage_kv: 220,
-  export_length_km: 45,
+  export_length_km: 76.5,
   availability_pct: 95,
-  capex_m_eur_per_mw: 3.2,
-  opex_k_eur_per_mw_year: 75,
+  // NREL Cost of Wind Energy Review 2024, fixed-bottom reference (2023 USD → € at 1.0813 $/€)
+  capex_m_eur_per_mw: 5.0,
+  opex_k_eur_per_mw_year: 125,
   discount_rate_pct: 6,
   lifetime_years: 25,
 };
@@ -40,15 +41,15 @@ export const DEFAULT_FARMS: FarmConfig[] = [
     name: "Compact 6D layout",
     turbine_spacing_d: 6,
     export_length_km: 38,
-    capex_m_eur_per_mw: 3.1,
+    capex_m_eur_per_mw: 4.9,
   },
   {
     ...BASE,
     name: "Far-shore, 9D spacing",
     mean_wind_speed_ms: 9.8,
     turbine_spacing_d: 9,
-    export_length_km: 80,
-    capex_m_eur_per_mw: 3.5,
+    export_length_km: 110,
+    capex_m_eur_per_mw: 5.4,
   },
 ];
 

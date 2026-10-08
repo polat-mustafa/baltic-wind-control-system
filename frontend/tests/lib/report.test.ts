@@ -67,7 +67,7 @@ describe("project report", () => {
       }),
     );
     expect(r.energy.basis).toBe("PyWake");
-    expect(r.energy.net_gwh).toBe(2162); // 2350 × 0.92
+    expect(r.energy.net_gwh).toBe(2166); // 2350 × (1 − 7.83 %)
     expect(r.energy.turbines[5].net_gwh).toBe(60);
   });
 

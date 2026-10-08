@@ -686,13 +686,15 @@ export const layoutCostInfo: InfoContent = {
   title: "Cost estimate and LCOE",
   description:
     "CAPEX lines per MW or per km from the editable inputs, foundations by the site's deepest water (jacket beyond 40 m), " +
-    "array cable length from the routed tree and the export cable route length.",
+    "array cable length from the routed tree, and the export route length × the 220 kV circuits the farm needs (same rule as the Grid design).",
   parameters: [
     { name: "LCOE", description: "(CAPEX × CRF + OPEX) / AEP [€/MWh]" },
     { name: "CRF", description: "r(1 + r)^n / ((1 + r)^n − 1), WACC r over lifetime n" },
-    { name: "AEP", description: "PyWake when fresh, else the live estimate, minus 8 % availability and electrical losses (illustrative)" },
+    { name: "AEP", description: "PyWake when fresh, else the live estimate, minus 7.8 % electrical, availability and environmental losses (P1 cascade defaults)" },
   ],
-  interpretation: "Teaching defaults, not market prices: replace them with your own data before comparing with real projects.",
+  interpretation:
+    "Defaults are the NREL Cost of Wind Energy Review 2024 fixed-bottom reference (U.S. North Atlantic, 2023 USD) and ORBIT cable prices, " +
+    "converted at 1.0813 $/€; each input shows its source. Replace them with quotes for your market before comparing with real projects.",
 };
 
 export const layoutChecklistInfo: InfoContent = {

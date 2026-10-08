@@ -33,7 +33,8 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 9 | SB-510 moves into MSP energy basin PZP_44 (site 44.E.1): new layout, OSS, LIDAR, boundary, marks, 76.5 km export round Ławica Słupska, P2 redesigned by `design()` (3 × 170 MVAr), reactor switching in every operating-point study, "From SB-510" project start | In review (`feat/sb510-pzp44`, stacked on 8c) |
 | 10 | Layout UX: turbine glyphs by status (+ outside the energy basins), IDs from zoom 12, OSS platform icon, on-map legend; turbine card (net AEP, wake loss, free/waked wind, 2 nearest, depth → foundation, warnings) live while dragging; live checklist; move suggestions checked by PyWake (`/wind/wake-moves`); per-turbine depth (`/site/raster`); info buttons | In review (PR #237, `feat/layout-ux`, stacked on 9) |
 | 11 | Project report `/report` (site checks + sources, permit outlook, SVG mini map, energy: screening + PyWake, per-turbine table, AEP history; PyWake-checked moves; electrical design + full-load load flow; cost / LCOE; construction P50 / P90; data sources + "re-verify" note), print → PDF, JSON download; `GET /projects/{id}/windio.yaml` (windIO 2.x) + `.offshoreforge.json` sidecar | In review (PR #238, `feat/project-report`, stacked on 10) |
-| 12–13 | Provenance · pro items | Open |
+| 12 | Provenance: `SourceBadge` (official / measured / literature / approximation / illustrative); Layout cost inputs, P1 loss cascade and report carry their source; cost defaults from NREL Cost of Wind Energy Review 2024 + ORBIT cable library (2023 USD → €), export priced per circuit; 66 kV cable capacitance from the ABB/NKT datasheet. P4 / DT on IEA 15 MW still open (needs the owner's approval) | In review (`feat/provenance`, stacked on 11) |
+| 13 | Pro items | Open |
 
 Phase 1 note: `test_sb510_case_study` expected `msp_energy == "fail"` until phase 9 moved SB-510 into PZP_44; it now passes every blocker (owf = warn: allocated, natura2000 = warn: 2 km).
 Phase 2 note: the permit outlook says a refused site "could not go on to layout"; since phase 6 Layout stays locked for such a site in an own project.
@@ -115,19 +116,25 @@ Phase 11 notes:
 - SB-510 (reference, site climate A 10.8 m/s, k 2.04 at 150 m): screening net 2452 GWh/yr (wake 4.2 %), PyWake gross 2560 / net 2407 GWh/yr (wake 6.0 %, CF 0.539 wake only), 2214 GWh/yr after 8 % other losses; CAPEX 1633 M€ (3.20 M€/MW), LCOE 75 €/MWh (illustrative costs); full load 0.998–1.005 p.u., export 87 %, losses 8.63 MW, POC −14.7 MVAr; campaign P50 / P90 167 / 201 days. The Layout page's Esau–Williams routing gives SB-510 8 strings / 83.7 km where the electrical design uses 6-6-6-6-5-5 — the report labels both.
 - e2e: new `report` route in `e2e/pages.spec.ts` → new baselines (`npm run e2e:update` locally).
 
+Phase 12 notes:
+- `components/ui/SourceBadge.tsx`: `Provenance {source, license?, retrieved?, quality, note?}`, `Sourced = Provenance & {value, unit}`; a native `<details>` (click / tap / keyboard, no hover) so it works at 390 px.
+- Costs (`lib/layout/cost.ts` `COST_DEFAULTS` → `DEFAULT_COSTS`, `COST_LABELS`): NREL/PR-5000-91775 fixed-bottom reference (turbine 1 770, substructure + scour 789, OSS 243, installation + development + lease + soft costs 2 132 $/kW; OpEx 135 $/kW-yr; 25 yr) and ORBIT v1.3 cables (66 kV 630 mm² 650 000 $/km, 220 kV 1000 mm² 1 500 902 $/km per circuit, supply only), ÷ 1.0813 $/€ (ECB 2023). Jacket (+25 % over monopile) and WACC 6 % are labelled illustrative. The export line is now `km × circuits` with the backend `design()` rule (`exportCircuits`, SB-510 → 2); the key was renamed `exportCircuitMEURperKm` so old saved projects take the new default instead of a per-route value. The lease line is the U.S. auction price — a Polish project would replace it.
+- SB-510 (reference, screening): CAPEX 2 680 M€ (5.26 M€/MW with jackets), LCOE 121 €/MWh (was 1 633 M€, 75 €/MWh with the illustrative set); NREL's own reference is 117 $/MWh ≈ 108 €/MWh at a 6.76 % real FCR vs our 7.82 % CRF. Academy `LCOE_RANGE` scaled by the same ratio to [132, 115] €/MWh so scores are unchanged. Farm Comparison defaults 5.0 M€/MW / 125 k€/MW·yr (`schemas/farm_config.py`, store, hints; base export 45 → 76.5 km, far-shore 80 → 110 km); the LCOE worked example now gives 121.8 €/MWh (IRR ≈ 0 % at 72 €/MWh).
+- Losses (`aep_calculator.LOSS_SOURCES`, P1 `/aep-cascade` → `quality` + `source` per step, badges under the waterfall): values unchanged (electrical 2 %, availability 5 %, environmental 1 %), all "approximation"; Beiter et al. 2016 use 2 % for the environmental/other group. An overridden loss becomes "illustrative · Your input". Layout/report `OTHER_LOSSES` = the same three multiplied (7.83 % instead of a flat 8 %).
+- Cables (`network_model.py` provenance note): R = IEC 60228 (official); C, X from ABB 2GM5007 rev 5 (NKT) Tables 45/49 — the 66 kV capacitances were 200 / 215 / 230 nF/km, the datasheet says 290 / 320 / 350, now used (test `test_cable_c_and_x_match_the_datasheet`). Effect on SB-510: array charging +8 MVAr, STATCOM over the scenarios −56 … +1 MVAr (was −48 … +9), losses 8.63 MW and 0.999–1.005 p.u. unchanged, resonance still h19. Ratings stay (labelled approximation): they are 9–16 % above the brochure's indicative IEC 60287 values (655 / 715 / 775 A; 825 A for 220 kV) — with 775 A the 800 mm² string would carry only 5 × 15 MW, so changing them redesigns SB-510's 6-turbine strings; left for an owner decision with a project-specific IEC 60287 rating.
+- Not done in this phase: P4 / digital twin / turbine physics on the IEA 15 MW curve (owner approval first); the education texts that quote the Vestas V236 catalogue.
+
 ## Resume here
 
 1. The own-project programme is a PR stack, one branch per phase, each based on the one before it
    (phase 1 `feat/site-msp-energy-basins` → … → phase 10 `feat/layout-ux` #237 → phase 11
-   `feat/project-report` #238). Start the next phase from the newest branch:
-   `git fetch origin && git checkout feat/project-report && git pull`, then `git checkout -b <new branch>`
+   `feat/project-report` #238 → phase 12 `feat/provenance`). Start the next phase from the newest branch:
+   `git fetch origin && git checkout feat/provenance && git pull`, then `git checkout -b <new branch>`
    and open the PR with that branch as base.
-2. Next: **phase 12** — provenance (`SourceBadge` + `{value, unit, source, license, retrieved, quality}`),
-   sourced cost defaults (ORBIT / NREL ATB 2024 / BVG, year + currency), literature-labelled loss defaults,
-   cable values from datasheets or "typical IEC 60287". Moving P4 / Digital Twin to the IEA 15 MW curve and
-   re-calibrating them is the last step and **needs the owner's approval first**. Then phase 13 (pro items,
-   order 4 → 1 → 2 → 5 → 3 → 6 → 7). Full specs: the plan file named above, sections "Faz 12" / "Faz 13";
-   read the latest "Phase N notes" here before starting.
+2. Next: the open part of phase 12 — moving P4 / Digital Twin / turbine physics to the IEA 15 MW curve and
+   re-calibrating them — **needs the owner's approval first**; also decide on the array cable ratings (Phase 12
+   notes). Then phase 13 (pro items, order 4 → 1 → 2 → 5 → 3 → 6 → 7). Full specs: the plan file named above,
+   sections "Faz 12" / "Faz 13"; read the latest "Phase N notes" here before starting.
 3. Known, not ours: 6 old mypy errors under `digital_twin`; the Docker backend image runs old code — check in
    the browser with a local `uvicorn app.main:app --port 8001` and a temporary Vite proxy target (revert it).
 4. Owner to-dos: `cd frontend && npm run e2e:update` (new baselines incl. `layout`, `site-permits`, `academy`,

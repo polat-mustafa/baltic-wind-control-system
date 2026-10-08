@@ -31,13 +31,35 @@ class FarmConfigCreate(BaseModel):
     weibull_k: float = Field(default=2.2, ge=1.5, le=3.5, description="Weibull shape parameter")
     availability_pct: float = Field(default=95.0, ge=70.0, le=99.9)
     capex_m_eur_per_mw: float = Field(
-        default=3.2, ge=1.0, le=6.0, description="CAPEX [M€/MW] — 2024–25 EU offshore ≈ 3–4"
+        default=5.0,
+        ge=1.0,
+        le=8.0,
+        description=(
+            "CAPEX [M€/MW]. Default: NREL Cost of Wind Energy Review 2024 (NREL/PR-5000-91775), "
+            "fixed-bottom reference 5 411 $/kW in 2023 USD at the ECB 2023 average 1.0813 $/€ "
+            "(literature; U.S. North Atlantic, 600 MW, monopiles)"
+        ),
     )
     opex_k_eur_per_mw_year: float = Field(
-        default=75.0, ge=20.0, le=200.0, description="Annual OPEX [k€/MW/year]"
+        default=125.0,
+        ge=20.0,
+        le=200.0,
+        description=(
+            "Annual OPEX [k€/MW/year]. Default: same NREL review, 135 $/kW-yr (WOMBAT, 2023 USD) "
+            "at 1.0813 $/€ (literature)"
+        ),
     )
-    discount_rate_pct: float = Field(default=6.0, ge=2.0, le=15.0, description="WACC [%]")
-    lifetime_years: int = Field(default=25, ge=10, le=35)
+    discount_rate_pct: float = Field(
+        default=6.0,
+        ge=2.0,
+        le=15.0,
+        description=(
+            "WACC [%] (illustrative; NREL uses 4.01 % real / 6.61 % nominal for a U.S. project)"
+        ),
+    )
+    lifetime_years: int = Field(
+        default=25, ge=10, le=35, description="Design life [years] (NREL review: 25)"
+    )
     description: str = Field(default="")
     created_by: str = Field(default="user")
 

@@ -16,6 +16,8 @@ Test Strategy
 - Export: 2 × 1000 mm² circuits, < 100 % loaded at full 510 MW
 """
 
+import math
+
 import numpy as np
 import pandapower as pp
 import pytest
@@ -321,3 +323,18 @@ def test_string_busbar_sections_fit_one_transformer_each():
     for cb in (e for e in OSS_EQUIPMENT if e.equipment_id.startswith("CB-STR-")):
         n = int(cb.equipment_id[-2:])
         assert f"section {STRING_BUSBAR_SECTION[n]}" in cb.location
+
+
+@pytest.mark.parametrize(
+    ("cable", "c_uf_per_km", "l_mh_per_km"),
+    [
+        (ARRAY_CABLE_500, 0.29, 0.34),
+        (ARRAY_CABLE_630, 0.32, 0.33),
+        (ARRAY_CABLE_800, 0.35, 0.32),
+        (EXPORT_CABLE_1000, 0.19, 0.38),
+    ],
+)
+def test_cable_c_and_x_match_the_datasheet(cable, c_uf_per_km, l_mh_per_km):
+    """C and X = ωL follow ABB/NKT 2GM5007 rev 5, Tables 45 and 49 (provenance note)."""
+    assert cable.c_nf_per_km == pytest.approx(c_uf_per_km * 1000, rel=1e-9)
+    assert cable.x_ohm_per_km == pytest.approx(2 * math.pi * 50 * l_mh_per_km * 1e-3, rel=0.03)

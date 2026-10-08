@@ -63,10 +63,32 @@ Z_99: float = 2.326
 # ── Default electricity price ─────────────────────────────────────
 DEFAULT_PRICE_EUR_MWH: float = 72.0
 
-# ── Default loss factors (from Roadmap Section 2.7) ───────────────
+# ── Default loss factors ──────────────────────────────────────────
 DEFAULT_ELECTRICAL_LOSS: float = 0.02  # 2.0%
 DEFAULT_AVAILABILITY_LOSS: float = 0.05  # 5.0%
 DEFAULT_ENVIRONMENTAL_LOSS: float = 0.01  # 1.0%
+
+# Provenance of each cascade step: (quality, source). Quality is one of
+# official | measured | literature | approximation | illustrative (frontend SourceBadge).
+ORCA = "Beiter et al. 2016, NREL/TP-6A20-66579"
+LOSS_SOURCES: dict[str, tuple[str, str]] = {
+    "wake": ("literature", "PyWake Gaussian wake (Niayifar & Porté-Agel 2016) on this layout"),
+    "blockage": ("literature", "Global blockage after Nygaard et al. 2020"),
+    "electrical": (
+        "approximation",
+        "Typical annual value; the P2 load flow of SB-510 loses 8.6 MW at 510 MW "
+        "(1.7 % at full load, less averaged over the year)",
+    ),
+    "availability": (
+        "approximation",
+        f"Typical planning value (95 % availability); {ORCA} model it against distance to port",
+    ),
+    "environmental": (
+        "approximation",
+        f"{ORCA} assume 2 % for temperature shutdown, icing, hysteresis and lightning; "
+        "this default keeps 1 %",
+    ),
+}
 
 # ── Default uncertainty sources (sigma in %) ──────────────────────
 DEFAULT_UNCERTAINTY_SOURCES: dict[str, float] = {
@@ -93,11 +115,15 @@ class LossFactor:
         Loss as percentage [%].
     uncertainty_percent : float
         Standard deviation of this loss [%]. 0 if not applicable.
+    quality, source : str
+        Provenance of the default (``LOSS_SOURCES``).
     """
 
     name: str
     loss_percent: float
     uncertainty_percent: float = 0.0
+    quality: str = "illustrative"
+    source: str = ""
 
 
 @dataclass(frozen=True)
@@ -249,12 +275,19 @@ def apply_loss_cascade(
     tuple[float, list[LossFactor]]
         (net_aep_gwh, list of LossFactor entries)
     """
+
+    def step(name: str, fraction: float, sigma: float, default: float | None = None) -> LossFactor:
+        quality, source = LOSS_SOURCES[name]
+        if default is not None and not np.isclose(fraction, default):
+            quality, source = "illustrative", "Your input"
+        return LossFactor(name, fraction * 100.0, sigma, quality, source)
+
     losses = [
-        LossFactor("wake", wake_loss_fraction * 100.0, uncertainty_percent=3.0),
-        LossFactor("blockage", blockage_loss_fraction * 100.0),
-        LossFactor("electrical", electrical_loss_fraction * 100.0, uncertainty_percent=1.0),
-        LossFactor("availability", availability_loss_fraction * 100.0, uncertainty_percent=2.0),
-        LossFactor("environmental", environmental_loss_fraction * 100.0, uncertainty_percent=1.5),
+        step("wake", wake_loss_fraction, 3.0),
+        step("blockage", blockage_loss_fraction, 0.0),
+        step("electrical", electrical_loss_fraction, 1.0, DEFAULT_ELECTRICAL_LOSS),
+        step("availability", availability_loss_fraction, 2.0, DEFAULT_AVAILABILITY_LOSS),
+        step("environmental", environmental_loss_fraction, 1.5, DEFAULT_ENVIRONMENTAL_LOSS),
     ]
 
     net = gross_aep_gwh

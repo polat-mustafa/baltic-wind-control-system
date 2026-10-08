@@ -253,6 +253,10 @@ class LossFactorSchema(BaseModel):
     name: str
     loss_percent: float
     uncertainty_percent: float
+    quality: str = Field(
+        description="official | measured | literature | approximation | illustrative"
+    )
+    source: str
 
 
 class AEPCascadeResponse(BaseModel):
@@ -808,6 +812,8 @@ async def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
                 name=lf.name,
                 loss_percent=round(lf.loss_percent, 2),
                 uncertainty_percent=round(lf.uncertainty_percent, 2),
+                quality=lf.quality,
+                source=lf.source,
             )
             for lf in cascade.loss_factors
         ],

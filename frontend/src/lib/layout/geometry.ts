@@ -88,7 +88,7 @@ export interface GridOptions {
   inset: number;
 }
 
-function distToSegment(p: XY, a: XY, b: XY): number {
+export function distToSegment(p: XY, a: XY, b: XY): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
@@ -100,6 +100,9 @@ export function distToBoundary(p: XY, poly: XY[]): number {
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) m = Math.min(m, distToSegment(p, poly[j], poly[i]));
   return m;
 }
+
+/** Bearing from a to b, degrees clockwise from north. */
+export const bearing = (a: XY, b: XY) => ((Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI + 360) % 360;
 
 /** Regular (or staggered) grid clipped to the polygon. */
 export function gridFill(poly: XY[], o: GridOptions): XY[] {

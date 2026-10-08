@@ -20,6 +20,7 @@ as P4's scada_generator.py — physics-correct synthetic data.
 
 from __future__ import annotations
 
+import asyncio
 import math
 from typing import Any
 
@@ -207,6 +208,33 @@ class CustomWakeRequest(BaseModel):
             "frequencies; without it the dashboard's synthetic 12-sector rose is used."
         ),
     )
+
+
+class WakeMove(BaseModel):
+    """One turbine of the layout moved to a new position (local metres)."""
+
+    index: int = Field(ge=0, description="Turbine index in x_m / y_m")
+    x_m: float
+    y_m: float
+
+
+class WakeMovesRequest(CustomWakeRequest):
+    """A layout plus up to five single-turbine moves to check with PyWake."""
+
+    moves: list[WakeMove] = Field(min_length=1, max_length=5)
+
+
+class WakeMoveResult(BaseModel):
+    index: int
+    net_aep_gwh: float
+    delta_gwh: float = Field(description="Net AEP change against the base layout [GWh/yr]")
+    delta_percent: float
+    wake_loss_percent: float
+
+
+class WakeMovesResponse(BaseModel):
+    base_net_aep_gwh: float
+    moves: list[WakeMoveResult]
 
 
 class AEPCascadeRequest(BaseModel):
@@ -628,29 +656,29 @@ def _cached_custom_wake(
     }
 
 
-@router.post("/wake-analysis-custom", response_model=WakeAnalysisResponse)
-async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisResponse:
-    """PyWake wake analysis and AEP for arbitrary turbine positions.
-
-    Same wake model and 12-sector wind rose as /wake-analysis. Turbines
-    closer than one rotor diameter are rejected (rotors would overlap).
-    """
-    if len(request.x_m) != len(request.y_m):
-        raise DomainValidationError("x_m and y_m must have the same length")
-    turbine = get_turbine(request.turbine_model)  # unknown id → 422
-    xy = np.column_stack([request.x_m, request.y_m])
+def _check_spacing(x_m: list[float], y_m: list[float], rotor_diameter_m: float) -> None:
+    """Reject layouts where two rotors would overlap (closer than one diameter)."""
+    xy = np.column_stack([x_m, y_m])
     if len(xy) > 1:
         gaps = np.hypot(*(xy[:, None, :] - xy[None, :, :]).transpose(2, 0, 1))
         np.fill_diagonal(gaps, np.inf)
-        if float(gaps.min()) < turbine.rotor_diameter_m:
+        if float(gaps.min()) < rotor_diameter_m:
             raise DomainValidationError(
-                f"Turbines closer than one rotor diameter ({turbine.rotor_diameter_m:.0f} m): "
+                f"Turbines closer than one rotor diameter ({rotor_diameter_m:.0f} m): "
                 "rotors would overlap"
             )
+
+
+async def _run_custom_wake(
+    request: CustomWakeRequest, x_m: list[float], y_m: list[float]
+) -> dict[str, Any]:
+    """Spacing check + cached PyWake run of ``request``'s wind and turbine at these positions."""
+    turbine = get_turbine(request.turbine_model)  # unknown id → 422
+    _check_spacing(x_m, y_m, turbine.rotor_diameter_m)
     try:
-        result = await _cached_custom_wake(
-            [round(v, 1) for v in request.x_m],
-            [round(v, 1) for v in request.y_m],
+        result: dict[str, Any] = await _cached_custom_wake(
+            [round(v, 1) for v in x_m],
+            [round(v, 1) for v in y_m],
             request.weibull_a,
             request.weibull_k,
             request.turbulence_intensity,
@@ -663,6 +691,19 @@ async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisRespon
         raise
     except Exception as e:
         raise DomainError(f"Wake analysis failed: {e}") from e
+    return result
+
+
+@router.post("/wake-analysis-custom", response_model=WakeAnalysisResponse)
+async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisResponse:
+    """PyWake wake analysis and AEP for arbitrary turbine positions.
+
+    Same wake model and 12-sector wind rose as /wake-analysis. Turbines
+    closer than one rotor diameter are rejected (rotors would overlap).
+    """
+    if len(request.x_m) != len(request.y_m):
+        raise DomainValidationError("x_m and y_m must have the same length")
+    result = await _run_custom_wake(request, request.x_m, request.y_m)
 
     return WakeAnalysisResponse(
         gross_aep_gwh=round(result["gross_aep_gwh"], 2),
@@ -672,6 +713,44 @@ async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisRespon
         per_turbine_aep_gwh=[round(float(v), 3) for v in result["per_turbine_aep_gwh"]],
         per_turbine_wake_loss_percent=[
             round(float(v), 2) for v in result["per_turbine_wake_loss_percent"]
+        ],
+    )
+
+
+@router.post("/wake-moves", response_model=WakeMovesResponse)
+async def wake_moves(request: WakeMovesRequest) -> WakeMovesResponse:
+    """PyWake check of single-turbine moves suggested by the layout canvas.
+
+    Each move is run on its own (the base layout with one turbine moved) and
+    compared with the base layout, same wind and turbine.
+    """
+    n = len(request.x_m)
+    if len(request.y_m) != n:
+        raise DomainValidationError("x_m and y_m must have the same length")
+    if any(m.index >= n for m in request.moves):
+        raise DomainValidationError("Move index outside the layout")
+
+    def moved(m: WakeMove) -> tuple[list[float], list[float]]:
+        x, y = list(request.x_m), list(request.y_m)
+        x[m.index], y[m.index] = m.x_m, m.y_m
+        return x, y
+
+    runs = await asyncio.gather(
+        _run_custom_wake(request, request.x_m, request.y_m),
+        *(_run_custom_wake(request, *moved(m)) for m in request.moves),
+    )
+    base = float(runs[0]["net_aep_gwh"])
+    return WakeMovesResponse(
+        base_net_aep_gwh=round(base, 2),
+        moves=[
+            WakeMoveResult(
+                index=m.index,
+                net_aep_gwh=round(float(r["net_aep_gwh"]), 2),
+                delta_gwh=round(float(r["net_aep_gwh"]) - base, 3),
+                delta_percent=round(100 * (float(r["net_aep_gwh"]) - base) / base, 3),
+                wake_loss_percent=round(float(r["wake_loss_percent"]), 2),
+            )
+            for m, r in zip(request.moves, runs[1:], strict=True)
         ],
     )
 

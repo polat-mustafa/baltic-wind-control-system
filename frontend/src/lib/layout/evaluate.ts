@@ -5,11 +5,11 @@
  * it scores exactly what the canvas displays.
  */
 
-import type { LayersResponse } from "../../services/siteApi";
+import type { LayersResponse, RasterResponse } from "../../services/siteApi";
 import { routeCables, type CableResult } from "./cables";
 import { layoutCost, type CostInputs, type CostResult } from "./cost";
-import { layoutYield, UNIFORM_ROSE, type WindRose, type YieldResult } from "./energy";
-import { centroid, insidePolygon, minSpacing, projection, type LonLat } from "./geometry";
+import { layoutYield, moveDelta, UNIFORM_ROSE, type WindRose, type YieldModel, type YieldResult } from "./energy";
+import { bearing, centroid, dist, insidePolygon, minSpacing, projection, type LonLat, type Projection, type XY } from "./geometry";
 import { SB510_EXPORT_KM } from "../../constants/windFarmLayout";
 import { REFERENCE_TURBINE, turbineById } from "../../utils/turbineCurves";
 
@@ -62,6 +62,146 @@ export function blockedBy(p: LonLat, rings: { name: string; ring: Ring }[], ener
   if (hit) return `inside ${hit.name}`;
   if (energy.length > 0 && !energy.some((r) => inRing(p, r))) return OUTSIDE_ENERGY_BASIN;
   return null;
+}
+
+/** Turbine position state on the canvas, worst first: outside > excluded > basin > close > ok. */
+export type TurbineStatus = "ok" | "close" | "outside" | "excluded" | "basin";
+
+/** What a position is checked against: site, constraint areas, energy basins, rotor diameter. */
+export interface LayoutContext {
+  proj: Projection;
+  siteXY: XY[];
+  rings: { name: string; role: string; ring: Ring }[];
+  energy: Ring[];
+  d: number;
+}
+
+export function layoutContext(site: LonLat[], layers: LayersResponse | null, d = D): LayoutContext {
+  const proj = projection(centroid(site));
+  return { proj, siteXY: site.map(proj.toXY), rings: exclusionRings(layers), energy: energyRings(layers), d };
+}
+
+/** Status of a turbine at `p` given the other turbines (local metres), with a one-line reason. */
+export function statusAt(ctx: LayoutContext, p: LonLat, others: XY[]): { status: TurbineStatus; note: string; nearestM: number } {
+  const xy = ctx.proj.toXY(p);
+  const nearestM = Math.min(Infinity, ...others.map((q) => dist(q, xy)));
+  if (!insidePolygon(xy, ctx.siteXY)) return { status: "outside", note: "outside the site boundary", nearestM };
+  const why = blockedBy(p, ctx.rings, ctx.energy);
+  if (why === OUTSIDE_ENERGY_BASIN) return { status: "basin", note: why, nearestM };
+  if (why) return { status: "excluded", note: why, nearestM };
+  if (nearestM < MIN_SPACING_D * ctx.d) return { status: "close", note: `${(nearestM / ctx.d).toFixed(1)} D to the nearest turbine`, nearestM };
+  return { status: "ok", note: "", nearestM };
+}
+
+/** Bilinear sampler of a raster band (null outside the grid or next to no-data), like the backend's Raster.sample. */
+export function rasterSampler(r: RasterResponse | null, band = "values"): (p: LonLat) => number | null {
+  const v = r?.bands[band];
+  if (!r || !v?.length) return () => null;
+  const ny = v.length;
+  const nx = v[0].length;
+  return ([lon, lat]) => {
+    const fx = (lon - r.lon0) / r.dlon;
+    const fy = (lat - r.lat0) / r.dlat;
+    if (fx < 0 || fy < 0 || fx > nx - 1 || fy > ny - 1) return null;
+    const i = Math.min(Math.floor(fx), Math.max(nx - 2, 0));
+    const j = Math.min(Math.floor(fy), Math.max(ny - 2, 0));
+    const tx = fx - i;
+    const ty = fy - j;
+    const c = [v[j][i], v[j][i + 1] ?? null, v[j + 1]?.[i] ?? null, v[j + 1]?.[i + 1] ?? null];
+    if (c.some((x) => x == null)) return null;
+    const [a, b, e, f] = c as number[];
+    return a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + e * (1 - tx) * ty + f * tx * ty;
+  };
+}
+
+/** Foundation type for a water depth from the criteria's depth bands (null outside them). */
+export function foundationFor(depthM: number | null, bands: LayersResponse["depth_bands"] | undefined): string | null {
+  if (depthM == null) return null;
+  return bands?.find((b) => b.min_m <= depthM && depthM < b.max_m)?.foundation ?? null;
+}
+
+const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+export const compass = (deg: number) => COMPASS[Math.round(deg / 45) % 8];
+
+export interface Neighbour {
+  id: string;
+  m: number;
+  d: number;
+  /** Bearing from the turbine to the neighbour [° from north]. */
+  bearing: number;
+}
+
+/** The `n` nearest other turbines of `p`. */
+export function nearest(p: XY, xy: XY[], ids: string[], skip: number, d: number, n = 2): Neighbour[] {
+  return xy
+    .map((q, j) => ({ id: ids[j], m: dist(p, q), d: dist(p, q) / d, bearing: bearing(p, q), j }))
+    .filter((x) => x.j !== skip)
+    .sort((a, b) => a.m - b.m)
+    .slice(0, n)
+    .map(({ id, m, d: dd, bearing: b }) => ({ id, m, d: dd, bearing: b }));
+}
+
+/** Teaching threshold for a "heavily waked" turbine (illustrative). */
+export const HIGH_WAKE_LOSS_PCT = 12;
+
+/** Warnings for one turbine: its position status, depth band and wake loss. */
+export function turbineWarnings(status: { status: TurbineStatus; note: string }, depthM: number | null, foundation: string | null, lossPct: number): string[] {
+  const w: string[] = [];
+  if (status.status !== "ok") w.push(status.note);
+  if (depthM == null) w.push("water depth unknown here");
+  else if (!foundation) w.push(`${depthM.toFixed(0)} m is outside the screening depth bands`);
+  else if (/floating/.test(foundation)) w.push(`${depthM.toFixed(0)} m: floating foundation`);
+  if (lossPct > HIGH_WAKE_LOSS_PCT) w.push(`wake loss above ${HIGH_WAKE_LOSS_PCT} %: a move may pay`);
+  return w;
+}
+
+export interface TurbineStats {
+  id: string;
+  status: TurbineStatus;
+  /** Net AEP, wake only [GWh/yr]; wake loss [%]. */
+  netGWh: number;
+  lossPct: number;
+  /** Farm net AEP change of a move in progress [GWh/yr], null when not moving. */
+  deltaGWh: number | null;
+  /** Mean hub-height speed: free stream and in the farm's wakes [m/s]. */
+  freeMs: number;
+  wakedMs: number;
+  neighbours: Neighbour[];
+  depthM: number | null;
+  foundation: string | null;
+  warnings: string[];
+}
+
+/** Card data for turbine `i`, at its place or (while dragged) at `at`. */
+export function turbineStats(
+  ctx: LayoutContext,
+  model: YieldModel,
+  ids: string[],
+  i: number,
+  at: LonLat | null,
+  depthAt: (p: LonLat) => number | null,
+  bands: LayersResponse["depth_bands"] | undefined,
+): TurbineStats {
+  const p = at ?? ctx.proj.toLonLat(model.t[i]);
+  const xy = ctx.proj.toXY(p);
+  const move = at ? moveDelta(model, i, xy) : null;
+  const lossPct = move ? move.turbineLossPct : model.grossOneMWh > 0 ? 100 * (1 - model.netMWh[i] / model.grossOneMWh) : 0;
+  const st = statusAt(ctx, p, model.t.filter((_, j) => j !== i));
+  const depthM = depthAt(p);
+  const foundation = foundationFor(depthM, bands);
+  return {
+    id: ids[i],
+    status: st.status,
+    netGWh: move ? move.turbineGWh : model.netMWh[i] / 1000,
+    lossPct,
+    deltaGWh: move ? move.deltaGWh : null,
+    freeMs: model.freeMeanMs,
+    wakedMs: move ? move.turbineMeanMs : model.meanMs[i],
+    neighbours: nearest(xy, model.t, ids, i, ctx.d),
+    depthM,
+    foundation,
+    warnings: turbineWarnings(st, depthM, foundation, lossPct),
+  };
 }
 
 /** Export cable length: straight line to the grid node + 10 % routing, SB-510's without a report. */

@@ -57,6 +57,19 @@ export interface CriterionCard {
   note: string;
 }
 
+/** One raster layer clipped to a bbox: bands[name][j][i] at (lon0 + i·dlon, lat0 + j·dlat), null = no data. */
+export interface RasterResponse {
+  role: string;
+  lon0: number;
+  lat0: number;
+  dlon: number;
+  dlat: number;
+  bands: Record<string, (number | null)[][]>;
+  source: string;
+  license: string;
+  retrieved: string;
+}
+
 export interface LayersResponse {
   region: RegionInfo;
   layers: LayerInfo[];
@@ -145,6 +158,10 @@ export interface AssessResponse {
 
 export const getLayers = (region = "southern-baltic"): Promise<LayersResponse> =>
   request(`${BASE}/layers?region=${encodeURIComponent(region)}`);
+
+/** A raster layer (bathymetry: depth [m, positive down]) clipped to [lon_min, lat_min, lon_max, lat_max]. */
+export const getRaster = (role: string, bbox: [number, number, number, number], region = "southern-baltic"): Promise<RasterResponse> =>
+  request(`${BASE}/raster?role=${encodeURIComponent(role)}&bbox=${bbox.map((v) => v.toFixed(4)).join(",")}&region=${encodeURIComponent(region)}`);
 
 export const postSuitability = (criteria: CriteriaOverrides, cell_km = 2): Promise<SuitabilityResponse> =>
   post(`${BASE}/suitability`, { criteria, cell_km });

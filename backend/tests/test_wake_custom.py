@@ -100,3 +100,40 @@ def test_rejects_bad_rose() -> None:
     )
     r = client.post(URL, json={"x_m": [0.0], "y_m": [0.0], "sector_frequencies": [0.0] * 12})
     assert r.status_code == 422
+
+
+MOVES = "/api/v1/wind/wake-moves"
+
+
+def test_wake_moves_pulls_a_waked_turbine_out_of_the_row() -> None:
+    """A turbine 4 D behind another, wind only from the west: moving it 4 D sideways gains AEP."""
+    west = [0.0] * 12
+    west[9] = 1.0  # 270°
+    body = {
+        "x_m": [0.0, 4 * D],
+        "y_m": [0.0, 0.0],
+        "sector_frequencies": west,
+        "moves": [{"index": 1, "x_m": 4 * D, "y_m": 4 * D}, {"index": 1, "x_m": 3 * D, "y_m": 0.0}],
+    }
+    r = client.post(MOVES, json=body)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    base = client.post(URL, json={k: body[k] for k in ("x_m", "y_m", "sector_frequencies")}).json()
+    assert out["base_net_aep_gwh"] == base["net_aep_gwh"]
+    sideways, closer = out["moves"]
+    assert sideways["index"] == 1 and sideways["delta_gwh"] > 0
+    assert sideways["wake_loss_percent"] < base["wake_loss_percent"]
+    assert closer["delta_gwh"] < 0  # 3 D behind: deeper in the wake
+    share = 100 * sideways["delta_gwh"] / out["base_net_aep_gwh"]
+    assert sideways["delta_percent"] == pytest.approx(share, abs=0.01)
+
+
+def test_wake_moves_rejects_bad_moves() -> None:
+    base: dict[str, Any] = {"x_m": [0.0, 2000.0], "y_m": [0.0, 0.0]}
+    outside = [{"index": 2, "x_m": 0, "y_m": 0}]
+    overlap = [{"index": 1, "x_m": 50, "y_m": 0}]
+    assert client.post(MOVES, json={**base, "moves": outside}).status_code == 422
+    assert client.post(MOVES, json={**base, "moves": overlap}).status_code == 422
+    assert client.post(MOVES, json={**base, "moves": []}).status_code == 422
+    six = [{"index": 1, "x_m": 3000.0 + i, "y_m": 0.0} for i in range(6)]
+    assert client.post(MOVES, json={**base, "moves": six}).status_code == 422

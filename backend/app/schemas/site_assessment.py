@@ -112,6 +112,21 @@ class DepthBandCard(BaseModel):
     foundation: str
 
 
+class RasterResponse(BaseModel):
+    """One raster layer clipped to a bounding box: ``bands[name][j][i]`` at
+    (lon0 + i·dlon, lat0 + j·dlat), null = no data."""
+
+    role: str
+    lon0: float
+    lat0: float
+    dlon: float
+    dlat: float
+    bands: dict[str, list[list[float | None]]]
+    source: str
+    license: str
+    retrieved: str
+
+
 class LayersResponse(BaseModel):
     region: RegionInfo
     layers: list[LayerInfo]

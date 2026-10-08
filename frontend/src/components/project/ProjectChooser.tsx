@@ -46,7 +46,7 @@ export default function ProjectChooser() {
             <span>
               <span className="block text-sm font-semibold">Explore SB-510</span>
               <span className="block text-[12px] text-text-secondary">
-                The reference case study, a fictional 510 MW Baltic farm. Every module is open and filled.
+                The reference case study, a fictional 510 MW farm on the real Baltic site 44.E.1 (permit: PGE, 2023). Every module is open and filled.
               </span>
             </span>
           </button>

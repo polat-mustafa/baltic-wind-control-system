@@ -24,10 +24,10 @@ def _c(result: dict, cid: str) -> dict:
 
 
 def test_base_case_is_the_grid_tab_operating_point(full):
-    """510 MW, ~6.4 MW losses, OSS held at 1.0 p.u., everything under 100 %."""
+    """510 MW, ~8.6 MW losses on 76.5 km, OSS held at 1.0 p.u., everything under 100 %."""
     base = full["base_case"]
     assert base["output_mw"] == pytest.approx(510.0)
-    assert base["export_mw"] == pytest.approx(503.6, abs=0.5)
+    assert base["export_mw"] == pytest.approx(501.4, abs=0.5)
     assert base["secure"]
     assert base["loading_pct"] < 100.0
 

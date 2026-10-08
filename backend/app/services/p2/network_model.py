@@ -3,7 +3,8 @@ Pandapower network model for 510 MW Baltic Sea offshore wind farm.
 
 Builds the complete 66/220/400 kV electrical network as a Pandapower model:
 34 WTGs connected via 66 kV array cables through an offshore substation (OSS),
-two parallel 220 kV HVAC export cables (45 km subsea), and a 220/400 kV onshore transformer
+two parallel 220 kV HVAC export cables (76.5 km: 63.5 subsea + 13 land), and a 220/400 kV
+onshore transformer
 connecting to the PSE 400 kV grid.
 
 Physics — Cable Pi-Model
@@ -17,8 +18,8 @@ approximated by the lumped pi-model. Each cable has:
 The capacitive charging current generates reactive power (Rule 7):
   Q_cable = ω × C × V² × L  [MVAR]
 
-For one 220 kV, 45 km export cable: Q ≈ 2π×50 × 190e-9 × 220000² × 45 ≈ 130 MVAR
-For the two parallel export cables: Q ≈ 260 MVAR
+For one 220 kV, 76.5 km export cable: Q ≈ 2π×50 × 190e-9 × 220000² × 76.5 ≈ 221 MVAR
+For the two parallel export cables: Q ≈ 442 MVAR
 
 Why two export cables?
 -----------------------
@@ -71,8 +72,10 @@ Constants (SB-510)
 - 4 strings × 6 WTGs + 2 strings × 5 WTGs = 34 WTGs (same split as the landing map,
   the DB seed and the 6 string feeder bays in P3/P5)
 - Array cable spacing: 1.5 km average
-- Export cables: 2 × 45 km, 220 kV
-- Shunt reactors: 3 × 80 MVAR at OSS 220 kV (N+1: one per export cable + one spare)
+- Export cables: 2 × 76.5 km, 220 kV (site PZP_44 → around the west end of Ławica
+  Słupska → landfall Zaleskie → PSE Słupsk-Wierzbięcino; until 2026-10 the farm sat
+  45 km from shore). ``design(STRING_LAYOUT, 76.5)`` reproduces every value below.
+- Shunt reactors: 3 × 170 MVAR at OSS 220 kV (N+1: one per export cable + one spare)
 - Transformers: 2 × 300 MVA 66/220 kV (OSS, TX-OSS-01/02) + 2 × 300 MVA 220/400 kV
   (onshore). ~86 % loaded each at 510 MW; losing one keeps ~300 MW exporting
   instead of 0 MW for the 6-12 months an offshore transformer replacement takes
@@ -183,7 +186,7 @@ STRING_BUSBAR_SECTION: dict[int, str] = {1: "A", 2: "A", 3: "A", 4: "B", 5: "B",
 
 # Cable lengths
 ARRAY_CABLE_LENGTH_KM = 1.5  # average spacing between WTGs
-EXPORT_CABLE_LENGTH_KM = 45.0
+EXPORT_CABLE_LENGTH_KM = 76.5
 
 # Transformer parameters — per unit; 2 identical units in parallel at each substation
 # (pandapower parallel=2: same impedance as one 600 MVA unit, but N-1 capable)
@@ -212,11 +215,12 @@ GRID_RX_RATIO = 0.1  # R/X ratio of grid impedance
 
 # STATCOM and reactors
 STATCOM_RATING_MVAR = 120.0  # ±120 MVAR
-# N+1 reactors: with one out of service, (260 − 2 × 80) × 1.15 = 115 MVAR still fits
-# the ±120 MVAR STATCOM. With only 2 × 80 an outage left 180 MVAR (> 120).
+# N+1 reactors: with one out of service, (442 − 2 × 170) × 1.15 = 117 MVAR still fits
+# the ±120 MVAR STATCOM. With only 2 × 170 an outage left 272 MVAR (> 120). In normal
+# operation the spare is switched out (load_flow.dispatch_with_reactor_switching).
 NUM_SHUNT_REACTORS = NUM_EXPORT_CABLES + 1  # one per export cable + one spare
-SHUNT_REACTOR_UNIT_MVAR = 80.0  # absorption per reactor [MVAR]
-SHUNT_REACTOR_MVAR = NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR  # 240 MVAR total
+SHUNT_REACTOR_UNIT_MVAR = 170.0  # absorption per reactor [MVAR]
+SHUNT_REACTOR_MVAR = NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR  # 510 MVAR total
 
 
 # ── Farm specification (SB-510 or the learner's project) ─────────
@@ -421,13 +425,13 @@ def build_network(
       66/220 kV Dyn11 (OSS) + 220/400 kV YNyn0 (onshore)
     - 34 static generators (WTGs) with P and Q
     - 1 STATCOM (sgen with Q control at OSS 220 kV)
-    - 3 shunt reactors (3 × 80 MVAR at OSS 220 kV, N+1) if enabled
+    - 3 shunt reactors (3 × 170 MVAR at OSS 220 kV, N+1) if enabled
     - 1 external grid (slack bus) at 400 kV
 
     Parameters
     ----------
     export_length_km : float | None
-        Export cable length [km]; None = the spec's (SB-510: 45.0).
+        Export cable length [km]; None = the spec's (SB-510: 76.5).
     grid_ssc_mva : float
         Grid short-circuit power at PCC [MVA]. Default: 10,000.
     generation_fraction : float
@@ -435,7 +439,7 @@ def build_network(
     statcom_q_mvar : float
         STATCOM reactive power setpoint [MVAR]. Positive = generating (Rule 4).
     enable_reactor : bool
-        If True, include the 3 × 80 MVAR shunt reactors at OSS 220 kV.
+        If True, include the 3 × 170 MVAR shunt reactors at OSS 220 kV.
     r_at_operating_temp : bool
         True (default): cable R = AC resistance at 90 °C, for load flow and losses.
         False: R = DC resistance at 20 °C, as IEC 60909 short-circuit requires.
@@ -623,7 +627,7 @@ def series_impedances_pu(
 
       grid     PSE Thevenin source → PSE_400kV   z = S_base/S_sc, R/X = GRID_RX_RATIO
       onshore  PSE_400kV → Onshore_220kV         2 × 300 MVA, vk 14 %
-      export   Onshore_220kV → OSS_220kV         2 × 45 km, R at 90 °C
+      export   Onshore_220kV → OSS_220kV         2 × 76.5 km, R at 90 °C
       oss      OSS_220kV → OSS_66kV              2 × 300 MVA, vk 12.5 %
 
     (SB-510 values; ``spec`` gives another farm's ratings and circuit count.)

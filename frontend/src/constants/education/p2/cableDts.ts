@@ -7,7 +7,7 @@ export const cableDtsEducation: EducationContent = {
   discipline: "Electrical",
 
   overview:
-    "Each 45 km, 220 kV export circuit carries an optical fibre. A distributed temperature sensing (DTS) " +
+    "Each 76.5 km, 220 kV export circuit carries an optical fibre. A distributed temperature sensing (DTS) " +
     "interrogator reads its temperature along the whole route. The cable's limit, though, is its conductor " +
     "temperature (90 °C for XLPE), which nobody can measure directly. A thermal model turns the fibre reading " +
     "and the current into a conductor estimate, and from that into a rating that follows the real ambient.",
@@ -23,7 +23,7 @@ export const cableDtsEducation: EducationContent = {
     "that is exactly this cable's 220/√3 kV, and it adds about 1 W/m per core even with no current. The " +
     "conductor runs hotter than the fibre by the loss times the internal thermal resistance. Zones differ only " +
     "in their external resistance. The rating at a given ambient is the current that brings the worst zone to " +
-    "90 °C; here the J-tube sets the rating for the whole 45 km. Above that rating the cable still takes hours " +
+    "90 °C; here the J-tube sets the rating for the whole 76.5 km. Above that rating the cable still takes hours " +
     "to heat up, because copper, insulation, armour and the soil around it store heat. IEC 60853 reduces this " +
     "to a thermal ladder. After an N-1 trip, this heat storage is the time the operator has to curtail.",
 
@@ -65,7 +65,7 @@ export const cableDtsEducation: EducationContent = {
         "Subsea: R_ext is 1/1.4 of the J-tube's, so the rise is ≈ 56 K → 71 °C",
       ],
       result:
-        "0.3 km of cable in air limits all 45 km. Better J-tube cooling would raise the rating of the whole circuit.",
+        "0.3 km of cable in air limits all 76.5 km. Better J-tube cooling would raise the rating of the whole circuit.",
     },
   ],
 

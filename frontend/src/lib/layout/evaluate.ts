@@ -10,6 +10,7 @@ import { routeCables, type CableResult } from "./cables";
 import { layoutCost, type CostInputs, type CostResult } from "./cost";
 import { layoutYield, UNIFORM_ROSE, type WindRose, type YieldResult } from "./energy";
 import { centroid, insidePolygon, minSpacing, projection, type LonLat } from "./geometry";
+import { SB510_EXPORT_KM } from "../../constants/windFarmLayout";
 import { REFERENCE_TURBINE, turbineById } from "../../utils/turbineCurves";
 
 /** Reference turbine (IEA 15 MW, "V236 class"): rotor diameter [m] and rating [MW]. */
@@ -63,8 +64,8 @@ export function blockedBy(p: LonLat, rings: { name: string; ring: Ring }[], ener
   return null;
 }
 
-/** Export cable length: straight line to the grid node + 10 % routing, 45 km (SB-510) without a report. */
-export const defaultExportKm = (gridKm: number | null | undefined) => (gridKm != null ? Math.round(gridKm * 1.1) : 45);
+/** Export cable length: straight line to the grid node + 10 % routing, SB-510's without a report. */
+export const defaultExportKm = (gridKm: number | null | undefined) => (gridKm != null ? Math.round(gridKm * 1.1) : SB510_EXPORT_KM);
 
 export interface LayoutInput {
   site: LonLat[];

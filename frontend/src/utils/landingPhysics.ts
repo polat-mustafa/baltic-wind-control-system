@@ -17,12 +17,12 @@ import { computeWakeLosses } from "./wakeModel";
 
 /**
  * SB-510 series I²X absorption at rated output [MVAr]: OSS trafos (vk 12.5 %,
- * 600 MVA) ≈ 54, onshore trafos (vk 14 %) ≈ 61, export cables ≈ 16, array
- * cables ≈ 5. Scales with I² ≈ (P / P_rated)² at near-nominal voltage.
+ * 600 MVA) ≈ 54, onshore trafos (vk 14 %) ≈ 61, export cables (2 × 76.5 km)
+ * ≈ 27, array cables ≈ 5. Scales with I² ≈ (P / P_rated)² at near-nominal voltage.
  */
-const SB510_SERIES_LOSS_AT_RATED_MVAR = 135;
+const SB510_SERIES_LOSS_AT_RATED_MVAR = 146;
 
-/** Network of the live fleet (SB-510: 510 MW, 2 × 45 km, 260 MVAr, 3 × 80 MVAr, ±120 MVAr, 2 × 300 MVA). */
+/** Network of the live fleet (SB-510: 510 MW, 2 × 76.5 km, 442 MVAr, 3 × 170 MVAr, ±120 MVAr, 2 × 300 MVA). */
 export function plantNet(f: Fleet = liveFleet()) {
   const n = f.net;
   return {
@@ -363,7 +363,7 @@ export function windAtHeight(hubWindMs: number, heightM: number): number {
 // loss counted (U0 = 127 kV): T_c − T_amb = (W_c + ½W_d)·T_int + (W_c + W_d)·R_ext.
 // R_ext of the OSS J-tube is calibrated so 950 A at 15 °C gives exactly 90 °C;
 // other zones are fixed ratios of it. Zones follow the real route: J-tube
-// 0–0.3 km, subsea burial to 31.0 km, HDD landfall 31.0–31.8 km, land to 45 km.
+// 0–0.3 km, subsea burial to 62.7 km, HDD landfall 62.7–63.5 km, land to 76.5 km.
 const DTS_ALPHA = 0.00393;
 const DTS_R_AC20_OHM_PER_M = (0.0176 * 1.039) / 1000;
 const DTS_R_AC90_OHM_PER_M = DTS_R_AC20_OHM_PER_M * (1 + DTS_ALPHA * 70);
@@ -371,7 +371,7 @@ const DTS_W_D = 2 * Math.PI * 50 * 190e-12 * (220e3 / Math.sqrt(3)) ** 2 * 0.001
 const DTS_T_INT = 0.5;
 const DTS_W_C_RATED = 950 ** 2 * DTS_R_AC90_OHM_PER_M;
 export const DTS_R_EXT_J_TUBE = (75 - (DTS_W_C_RATED + DTS_W_D / 2) * DTS_T_INT) / (DTS_W_C_RATED + DTS_W_D); // ≈ 2.92 K·m/W
-export const DTS_ZONES = { jTubeEndKm: 0.3, hddStartKm: 31.0, hddEndKm: 31.8 } as const;
+export const DTS_ZONES = { jTubeEndKm: 0.3, hddStartKm: 62.7, hddEndKm: 63.5 } as const;
 
 function dtsRExt(km: number): number {
   if (km <= DTS_ZONES.jTubeEndKm) return DTS_R_EXT_J_TUBE;

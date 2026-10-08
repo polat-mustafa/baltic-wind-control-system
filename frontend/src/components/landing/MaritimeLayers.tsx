@@ -448,7 +448,7 @@ function nextJob(): { id: string; repair: boolean } {
 }
 
 const PORT: LatLon = [USTKA_PORT_GEO.lat, USTKA_PORT_GEO.lon];
-const SOV_STANDBY: LatLon = [54.791, 16.478]; // DP hold near the OSS
+const SOV_STANDBY: LatLon = [55.018, 16.455]; // DP hold near the OSS
 
 /** Back along the CTV route from wherever the boat is, to its berth. */
 function routeHome(pos: LatLon): LatLon[] {

@@ -3,8 +3,8 @@
  * (SB-510: ±120 MVAr).
  *
  * Centrepiece is the reactive power balance it closes: the export cables
- * generate their charging power (SB-510: 2 × 45 km ≈ 260 MVAr), the shunt
- * reactors (SB-510: 3 × 80 MVAr, N+1) absorb the bulk, transformer/cable I²X
+ * generate their charging power (SB-510: 2 × 76.5 km ≈ 442 MVAr), the shunt
+ * reactors (SB-510: 3 × 170 MVAr, N+1) absorb the bulk, transformer/cable I²X
  * losses absorb more as output rises, and the STATCOM trims the remainder so
  * Q ≈ 0 at the grid connection.
  *
@@ -17,7 +17,7 @@ import { AudioWaveform } from "lucide-react";
 
 import { useFleet } from "../../lib/fleet";
 import { selectKPIs, useLandingStore } from "../../store/landingStore";
-import { useStatcomQ } from "../../store/liveGridStore";
+import { usePlantSnapshot } from "../../store/liveGridStore";
 import {
   plantNet,
   reactiveBalance,
@@ -55,17 +55,25 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
   const navigate = useNavigate();
   const kpis = useLandingStore(selectKPIs);
   const pn = plantNet(useFleet());
-  const b = reactiveBalance(kpis.totalOutputMW, pn);
   const rating = pn.statcomMVAr;
-  // Hero value = the same Q as map and ribbon (pandapower when solved); the
-  // balance rows below stay the simplified textbook breakdown.
-  const statcom = useStatcomQ(kpis.totalOutputMW);
+  // Hero value, reactors in service and STATCOM row = the same as map, ribbon and
+  // SLD (pandapower when solved); cable charging and I²X stay the textbook estimate.
+  const plant = usePlantSnapshot();
+  const est = reactiveBalance(kpis.totalOutputMW, pn);
+  const b = {
+    ...est,
+    reactorsInService: plant.reactorsInService,
+    reactorsMVAr: -plant.reactorsInService * pn.reactorUnitMVAr,
+    statcomMVAr: plant.statcomMVAr,
+  };
+  const statcom = { q: plant.statcomMVAr, source: plant.source };
   const q = Math.round(statcom.q);
 
   const mode = q > 5 ? "INJECTING" : q < -5 ? "ABSORBING" : "FLOATING";
   const modeColor = q > 5 ? INJECT_COLOR : q < -5 ? ABSORB_COLOR : IDLE_COLOR;
   const utilisationPct = (Math.abs(q) / rating) * 100;
-  const net = b.cableMVAr + b.reactorsMVAr + b.seriesLossMVAr + b.statcomMVAr;
+  // load flow: what really reaches PSE; estimate: the rows close to 0 by construction
+  const net = plant.source === "pandapower" ? plant.pocMVAr : b.cableMVAr + b.reactorsMVAr + b.seriesLossMVAr + b.statcomMVAr;
 
   return (
     <EquipmentPanel

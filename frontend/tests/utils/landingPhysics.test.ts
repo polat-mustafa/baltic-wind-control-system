@@ -33,29 +33,31 @@ describe("reactiveBalance", () => {
     }
   });
 
-  it("absorbs cable surplus at no load and injects near rated output", () => {
+  it("switches the N+1 spare: 3 × 170 MVAr against 442 MVAr of charging", () => {
+    // no load: all three over-absorb by 68 MVAr, still less than the −102 two would leave
     const idle = reactiveBalance(0);
-    expect(idle.statcomMVAr).toBeLessThan(0);
     expect(idle.reactorsInService).toBe(3);
+    expect(idle.statcomMVAr).toBeCloseTo(510 - 442, 0);
 
+    // rated: the transformers' and cables' I²X (≈ 146 MVAr) absorbs too — the spare goes out
     const full = reactiveBalance(510);
-    expect(full.statcomMVAr).toBeGreaterThan(0);
     expect(full.reactorsInService).toBe(2);
+    expect(full.statcomMVAr).toBeCloseTo(340 + 146 - 442, 0);
   });
 });
 
 describe("exportCableState", () => {
   it("matches Q = ωCV²L and stays within the 950 A / 90 °C rating at full output", () => {
     const idle = exportCableState(0);
-    expect(idle.chargingMVArPerCircuit).toBeCloseTo(130, 0); // 2 × 130 = 260 MVAr
+    expect(idle.chargingMVArPerCircuit).toBeCloseTo(221, 0); // 76.5 km: 2 × 221 = 442 MVAr
     expect(idle.currentA).toBeGreaterThan(150); // charging current alone
 
     const full = exportCableState(510);
     expect(full.currentA).toBeGreaterThan(669); // 510 MW / (√3·220 kV·2) = 669 A active
     expect(full.loadingPct).toBeLessThan(100);
     expect(full.conductorC).toBeLessThan(EXPORT_CABLE.maxConductorC);
-    expect(full.lossesMW).toBeGreaterThan(2);
-    expect(full.lossesMW).toBeLessThan(4); // ≈ 0.6 % of 510 MW
+    expect(full.lossesMW).toBeGreaterThan(4);
+    expect(full.lossesMW).toBeLessThan(7); // ≈ 1.1 % of 510 MW over 76.5 km
   });
 });
 
@@ -155,13 +157,13 @@ describe("export cable DTS profile", () => {
     expect(DTS_R_EXT_J_TUBE).toBeCloseTo(2.92, 2);
     expect(dtsTempC(0.1, 950, 15)).toBeCloseTo(90, 6);
     // HDD landfall is the onshore hotspot, below the J-tube
-    expect(dtsTempC(31.4, 950, 15)).toBeGreaterThan(dtsTempC(20, 950, 15));
-    expect(dtsTempC(31.4, 950, 15)).toBeLessThan(90);
+    expect(dtsTempC(63.1, 950, 15)).toBeGreaterThan(dtsTempC(20, 950, 15));
+    expect(dtsTempC(63.1, 950, 15)).toBeLessThan(90);
     // 510 MW → ≈ 730 A per circuit: well below the 70 °C DTS alarm at 10 °C
     expect(dtsTempC(0.1, 730, 10)).toBeLessThan(70);
     // same numbers as backend steady_temps(): 730 A → 56.10 °C (J-tube), 950 A → 84.20 °C (HDD)
     expect(dtsTempC(0.1, 730, 15)).toBeCloseTo(56.1, 1);
-    expect(dtsTempC(31.4, 950, 15)).toBeCloseTo(84.2, 1);
+    expect(dtsTempC(63.1, 950, 15)).toBeCloseTo(84.2, 1);
   });
 });
 

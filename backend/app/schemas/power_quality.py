@@ -80,7 +80,7 @@ class ResonancePoint(BaseModel):
 class ResonanceScanRequest(BaseModel):
     """Network frequency scan."""
 
-    cable_length_km: float = Field(default=45.0, ge=1.0, le=300.0, description="Export cable [km]")
+    cable_length_km: float = Field(default=76.5, ge=1.0, le=300.0, description="Export cable [km]")
     voltage_kv: float = Field(
         default=66.0, ge=33.0, le=400.0, description="Viewpoint bus: 66, 220 (OSS) or 400 (POC)"
     )

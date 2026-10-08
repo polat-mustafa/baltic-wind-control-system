@@ -89,8 +89,8 @@ describe("power flow panels", () => {
 describe("reactive power and faults", () => {
   it("reactive panel separates Ferranti from the uncompensated rise and shows the PSE range", () => {
     render(<STATCOMPanel />);
-    expect(screen.getByText(/Ferranti rise along 45 km: 0.7 %/)).toBeTruthy();
-    expect(screen.getByText(/uncompensated rise via transformers \+ grid: 8.1 %/)).toBeTruthy();
+    expect(screen.getByText(/Ferranti rise along 76.5 km: 2.1 %/)).toBeTruthy();
+    expect(screen.getByText(/uncompensated rise via transformers \+ grid: 14.9 %/)).toBeTruthy();
     expect(screen.getByText(/-179 … \+204 MVAR/)).toBeTruthy();
     expect(screen.getByText(/Requirement met/)).toBeTruthy();
   });

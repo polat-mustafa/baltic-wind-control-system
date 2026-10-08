@@ -64,17 +64,25 @@ simplified excerpt for screening, and the script re-downloads it.
   PZP_44) are not published as open GIS data.
 - Seabed substrate and ports are not in the pack yet.
 
-### What the data says about SB-510 (current boundary)
+### What the data says about SB-510
 
-The case-study farm is fictional. Its current boundary (16.31–16.485 °E,
-54.755–54.845 °N):
+The case-study farm is fictional. Since 2026-10 it uses energy basin PZP_44
+between 16.42 and 16.63 °E (112.9 km², the west and middle of the basin, which
+is the real site 44.E.1 — location permit 9 August 2023, Elektrownia Wiatrowa
+Baltica 9 / PGE; SB-510 borrows the area for teaching):
 
-- lies beyond 12 nm, inside the Polish EEZ, in 23–40 m of water;
-- lies **outside every energy basin** and 60–80 % inside shipping basin
-  PZP_15 (27 of the 34 turbines): a real project could not be permitted
-  there;
-- has the Natura 2000 site Ławica Słupska (PLC990001) ≈ 1 km from the
-  boundary: an appropriate-assessment screening question.
+- inside the energy basin, beyond 12 nm (≥ 49 km from shore), no shipping
+  basin, military area or recorded munition dump in it; the SwePol HVDC cable
+  is 4.6 km east of the boundary;
+- 34–54 m of water over the boundary, 37–51 m at the 34 turbines → jackets;
+- already allocated (warning: Baltica 9, and the EMODnet points FEW Baltic II
+  and Sharco Duo);
+- the Natura 2000 site Ławica Słupska (PLC990001) is 2 km south: an
+  appropriate-assessment screening question. The 220 kV export goes round its
+  west end (≥ 1.2 km clear), crosses shipping basin PZP_15 at right angles and
+  lands at Zaleskie: 63.5 km subsea + 13 km land = 76.5 km to PSE
+  Słupsk-Wierzbięcino (2 circuits, 3 × 170 MVAR reactors, ±120 MVAR STATCOM).
 
-SB-510 is being moved into energy basin PZP_44 (own-project programme,
-phase 9); this section changes with it.
+Until 2026-10 SB-510 sat at 16.31–16.485 °E, 54.755–54.845 °N: outside every
+energy basin and 60–80 % in shipping basin PZP_15 (27 of 34 turbines), so a
+real project could not have been permitted there.

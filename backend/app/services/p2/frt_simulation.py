@@ -3,7 +3,7 @@ Fault ride-through (FRT) of the 510 MW farm — quasi-static phasor model.
 
 What is modelled
 ----------------
-The radial chain PSE grid → 400/220 kV → 2 × 45 km export → 220/66 kV is
+The radial chain PSE grid → 400/220 kV → 2 × 76.5 km export → 220/66 kV is
 reduced to its series impedances (``network_model.series_impedances_pu``,
 100 MVA base). A fault adds a shunt impedance Z_f at the chosen bus. Every
 5 ms the nodal equations are solved

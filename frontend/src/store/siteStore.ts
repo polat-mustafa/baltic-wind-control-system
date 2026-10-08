@@ -22,10 +22,15 @@ import { STAGES, type StageId } from "../components/site/journey";
 
 /** SB-510 site boundary (frontend/src/constants/windFarmLayout.ts SITE_BOUNDARY_GEO), [lon, lat]. */
 export const CASE_STUDY_SITE: LonLat[] = [
-  [16.31, 54.845],
-  [16.485, 54.845],
-  [16.485, 54.755],
-  [16.31, 54.755],
+  [16.4978, 55.099],
+  [16.5452, 55.1059],
+  [16.6056, 55.1083],
+  [16.63, 55.1139],
+  [16.63, 55.0474],
+  [16.4496, 55.0054],
+  [16.4417, 55.0018],
+  [16.42, 54.9881],
+  [16.42, 55.0688],
 ];
 
 const SITE_KEY = "of.site.v1";

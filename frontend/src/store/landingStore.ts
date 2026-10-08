@@ -239,7 +239,7 @@ function createInitialCable(f: Fleet): CableData {
   return {
     type:
       f.source === "sb510"
-        ? "2 × 3-core XLPE, 31.5 km subsea + 13.4 km land (parallel circuits)"
+        ? "2 × 3-core XLPE, 63.5 km subsea + 13 km land (parallel circuits)"
         : `${net.circuits} × 3-core XLPE, ${net.exportKm.toFixed(0)} km (parallel circuits, route not yet surveyed)`,
     voltageRatingKV: 220,
     currentRatingA: 950, // per circuit — matches backend EXPORT_CABLE_1000

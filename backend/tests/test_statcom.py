@@ -38,16 +38,16 @@ class TestCableReactivePower:
         assert q > 0, f"Cable Q = {q} MVAR (must be positive)"
 
     def test_cable_q_range(self):
-        """One export circuit: Q = ω × C × V² × L = 314.16 × 190e-9 × (220e3)² × 45 ≈ 130 MVAR."""
+        """One export circuit: Q = ω × C × V² × L = 314.16 × 190e-9 × (220e3)² × 76.5 ≈ 221 MVAR."""
         q = calculate_cable_reactive_power(num_cables=1)
-        assert q == pytest.approx(130.0, abs=0.5), f"Cable Q = {q:.1f} MVAR"
+        assert q == pytest.approx(221.0, abs=0.5), f"Cable Q = {q:.1f} MVAR"
 
     def test_cable_q_two_export_cables(self):
-        """Default = both export circuits: 2 × 130 ≈ 260 MVAR."""
-        assert calculate_cable_reactive_power() == pytest.approx(260.0, abs=1.0)
+        """Default = both export circuits: 2 × 221 ≈ 442 MVAR."""
+        assert calculate_cable_reactive_power() == pytest.approx(442.0, abs=1.0)
 
     def test_statcom_sizing_formula(self):
-        """N-1 design case: (260 − 2 × 80) × 1.15 = 115 → rounded up to 120 MVAR."""
+        """N-1 design case: (442 − 2 × 170) × 1.15 = 117 → rounded up to 120 MVAR."""
         assert size_statcom() == pytest.approx(120.0)
 
     def test_cable_q_proportional_to_length(self):
@@ -83,7 +83,7 @@ class TestSTATCOMSizing:
     def test_statcom_rating_with_margins(self):
         """Rating with margins should exceed net Q after the in-service reactors."""
         cable_q = calculate_cable_reactive_power()
-        net_q = cable_q - 2 * 80.0  # N-1: 2 of 3 reactors in service
+        net_q = cable_q - 2 * network_model.SHUNT_REACTOR_UNIT_MVAR  # N-1: 2 of 3 in service
         rating = size_statcom(cable_q_mvar=cable_q)
         assert rating >= net_q, f"Rating ({rating}) < net Q ({net_q})"
 
@@ -101,8 +101,8 @@ class TestSTATCOMSizing:
         )
 
     def test_two_reactor_design_not_n1_secure(self):
-        """Old 2 × 80 design: one out → (260 − 80) × 1.15 = 207 → 210 MVAR > ±120 MVAR."""
-        assert size_statcom(num_reactors=2) == pytest.approx(210.0)
+        """2 × 170 design: one out → (442 − 170) × 1.15 = 313 → 320 MVAR > ±120 MVAR."""
+        assert size_statcom(num_reactors=2) == pytest.approx(320.0)
         assert size_statcom(num_reactors=2) > STATCOM_RATING_MVAR
 
 
@@ -137,9 +137,9 @@ class TestCompensationValidation:
         assert result.cable_q_mvar > 0
 
     def test_reactor_q_in_result(self):
-        """Result must include total reactor Q (3 × 80 = 240 MVAR)."""
+        """Result must include total reactor Q (3 × 170 = 510 MVAR)."""
         result = validate_compensation()
-        assert result.reactor_q_mvar == pytest.approx(240.0)
+        assert result.reactor_q_mvar == pytest.approx(510.0)
 
     def test_reactor_n1_secure(self):
         """One reactor out: voltage compliant and STATCOM not saturated (≈ −80 MVAR)."""
@@ -153,9 +153,10 @@ class TestCompensationValidation:
         assert not validate_compensation(spec=two_reactors).reactor_n1_secure
 
     def test_ferranti_vs_uncompensated_rise(self):
-        """Ferranti along 45 km is < 1 %; the 8 % rise comes from charging current via X."""
+        """Ferranti along 76.5 km is ≈ 2 % (βL ≈ 0.20 rad); the rest of the rise is
+        charging current through X."""
         result = validate_compensation()
-        assert 0.005 < result.ferranti_rise_pu < 0.01
+        assert 0.015 < result.ferranti_rise_pu < 0.025
         assert result.uncompensated_rise_pu > 5 * result.ferranti_rise_pu
 
     def test_pse_reactive_range_at_poc(self):

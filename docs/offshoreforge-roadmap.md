@@ -29,9 +29,10 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 8a | P5 on the farm spec: circuit-1 switchgear, isolation locks, 60-step switching programme, load-flow checks, FAT/SAT limits; programme keeps its farm (`farm_spec` column) | In review (`feat/farm-spec-p5`, stacked on phase 7) |
 | 8b | P3 SCADA + Digital Twin on the farm spec: bay controllers per string, historian, CMS, IEC 61850 / SCL, OPC UA tree, OT network, security zones; twin on the farm's turbines and site wind | In review (`feat/farm-spec-p3`, stacked on 8a) |
 | 8c | Live control room on the own farm: one live fleet for the map, 3D, mimic, single-line diagram, bay controllers, alarms, drills and plant physics; live load flow with reactor switching | In review (`feat/farm-spec-control-room`, stacked on 8b) |
-| 9–13 | SB-510 → PZP_44 · Layout UX · report + windIO · provenance · pro items | Open |
+| 9 | SB-510 moves into MSP energy basin PZP_44 (site 44.E.1): new layout, OSS, LIDAR, boundary, marks, 76.5 km export round Ławica Słupska, P2 redesigned by `design()` (3 × 170 MVAr), reactor switching in every operating-point study, "From SB-510" project start | In review (`feat/sb510-pzp44`, stacked on 8c) |
+| 10–13 | Layout UX · report + windIO · provenance · pro items | Open |
 
-Phase 1 note: `test_sb510_case_study` expects `msp_energy == "fail"` until phase 9 moves SB-510 into PZP_44.
+Phase 1 note: `test_sb510_case_study` expected `msp_energy == "fail"` until phase 9 moved SB-510 into PZP_44; it now passes every blocker (owf = warn: allocated, natura2000 = warn: 2 km).
 Phase 2 note: the permit outlook says a refused site "could not go on to layout"; since phase 6 Layout stays locked for such a site in an own project.
 Phase 3 notes:
 - Official tables (tags IEA-15 v1.1.18, IEA-22 v1.1.0) give D 241.35 m and rated 10.66 m/s for the IEA 15 MW — not the 240 m / 10.59 m/s of the 2020 report text; curve and parameters are taken from the same table. Regenerate with `cd backend && python scripts/fetch_turbine_curves.py`.
@@ -87,6 +88,13 @@ Phase 8c notes:
 - Fleet-driven: landing simulation and KPIs, map (turbines, cables, fibre, wakes, safety zones, crews, OSS, site boundary; own export drawn straight to the site report's grid node), 3D farm / cables / schematic, mimic (`mimicLayout(strings)`), SLD (`utils/scadaTopology`: n feeders, n export circuits, bays numbered like the backend), GOOSE scenario texts, permits list, instructor and drills (`injectRandomArrayFault` on any inner section; fault passage indicators on the path to the OSS, `litIds`), `landingPhysics.plantNet()` (charging, reactors, STATCOM, transformers, export length). `X-Farm` now also goes to `/scada/bays` and `/interlocks`.
 - SB-510-only map features stay hidden for an own farm: surveyed export route, landfall, onshore yard / PSE line, LIDAR, navigation marks, O&M vessels, DTS. The "My Project" preview layer is gone (the fleet is the project).
 - Backend: `POST /grid/live-load-flow` takes the farm (`wtg_p_mw` 1…150, length = turbines of the spec) and switches reactors like an operator (`_dispatch_with_reactor_switching`: out while the STATCOM injects > ½ rating and it helps; returns `reactors_in_service`). Before, all N+1 reactors stayed in and long single-circuit designs pinned the STATCOM at +rating (120 MW/73 km: +90/±90, V_OSS 0.98) — now −50…−38 MVAr, V_OSS 1.004–1.006. SB-510 unchanged (3/3 in, ≤ +56 MVAr). The browser estimate uses the same rule (threshold ½ rating; SB-510: 60 MVAr as before).
+
+Phase 9 notes:
+- Geometry (`constants/windFarmLayout.ts`, checked with the region pack): 34 turbines in N–S strings, 8D (1.93 km) apart along the 270° prevailing wind, 6D along a string, each string following the basin's slanted south edge; ≥ 0.57 km inside PZP_44, 37–51 m (jackets), Natura 2000 Ławica Słupska ≥ 2.5 km. Site = PZP_44 between 16.42 and 16.63 °E (112.9 km²; the basin's east tip by SwePol stays out). OSS at the south-west corner, LIDAR 3 km west. Export: OSS → round the west end of Ławica Słupska (≥ 1.2 km) → across PZP_15 at right angles → landfall Zaleskie → onshore SS: 63.3 + 13.4 km drawn, 76.5 km in the model. Bathymetry contours re-drawn from the pack's EMODnet grid.
+- P2: `SB510 == design(STRING_LAYOUT, 76.5)` (golden test keeps the 45 km design too): 2 circuits, 2 × 300 / 2 × 300 MVA, ±120 MVAr, 3 × 170 MVAr, Q_cable 442 MVAr, Ferranti 2.1 %, uncompensated rise 15 %. All three reactors in would over-compensate, so `load_flow.dispatch_with_reactor_switching` (phase 8c, live map) now also runs in the Grid tab load flow and N-1: the spare is out, STATCOM −48 … +9 MVAr, export 87 % loaded at 510 MW, losses 8.6 MW. N-1 export trip: 162 % → runback to 321 MW. IEC 60909 at OSS 66 kV: 20.5 / 13.3 kA. Resonance moved from h17 to h19 (0.87 % = 80 % of the planning level). P5: onshore OLTC pre-set 3 steps. Cable DTS: HDD 62.7–63.5 km, 765 points.
+- The landing estimate (`reactiveBalance`, POC Q = 0 by construction) keeps 3/3 reactors at no load (+68 MVAr) where pandapower holds the OSS voltage with 2/3 (−48 MVAr, +72 MVAr to PSE); the STATCOM panel therefore shows the load flow's reactors, STATCOM and POC Q when it answers.
+- `docs`, README, CLAUDE.md, education texts and SOURCES.md follow; a vitest guard keeps "45 km / 260 MVA / 3 × 80" out of `src`.
+- Pre-existing, not from this phase: `test_farm_spec_p3::test_bays_api_uses_the_header` needs the Postgres DB (SOE log) and xgboost DLLs are blocked by Windows Application Control on this machine.
 
 ## Resume here
 
@@ -313,11 +321,10 @@ Original spec, kept for reference:
 - Leaflet controls on phones: keep panels collapsed by default and give overlays
   `pointer-events-none` with interactive children `pointer-events-auto`.
 - e2e visual baselines were recorded on Windows: run `npm run e2e:update` locally after UI changes.
-- SB-510 deliberately conflicts with the open data (27 of 34 turbines in Polish MSP basin PZP_15,
-  Ławica Słupska Natura 2000 ≈ 3.2 km away); it is kept as a teaching example.
+- SB-510 sits in MSP energy basin PZP_44 (phase 9; before that 27 of 34 turbines were in shipping
+  basin PZP_15). The area is the real site 44.E.1 (permit PGE / Baltica 9), used fictionally.
 
 ## Owner actions (outside the code)
 
 - Rename the GitHub repository to `offshoreforge`; check the name for trademark conflicts.
 - Run `npm run e2e:update` locally to accept the new visual baselines.
-- Decide whether SB-510 should be relocated out of PZP_15 (currently kept as a teaching case).

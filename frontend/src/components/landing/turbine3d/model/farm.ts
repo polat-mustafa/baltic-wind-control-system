@@ -5,7 +5,7 @@
  * (x = −east, z = north, metres — same convention as the nacelle yaw, where a
  * compass bearing θ points along (−sin θ, 0, cos θ)).
  *
- * Equirectangular projection around the viewed turbine: at 54.8° N and a
+ * Equirectangular projection around the viewed turbine: at 55° N and a
  * farm extent of ~10 km the error is < 1 m.
  */
 

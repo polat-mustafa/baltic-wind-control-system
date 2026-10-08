@@ -226,10 +226,10 @@ _OSS_BAY_SENSOR_GROUP = OSSBaySensorGroup(
 
 _CABLE_SENSORS: list[SensorSpec] = [
     SensorSpec(
-        name="DTS fibre — section 1 (0-15 km)",
+        name="DTS fibre — section 1 (0-25.5 km)",
         quantity_per_location=1,
         signal_type="Optical (Raman backscatter)",
-        range="-40 to +120°C, 0-15,000 m",
+        range="-40 to +120°C, 0-25,500 m",
         accuracy="±0.1°C temperature, 1 m spatial resolution",
         standard="IEC 60287 (thermal model validation)",
         iec_61850_ln=None,
@@ -241,30 +241,30 @@ _CABLE_SENSORS: list[SensorSpec] = [
         ),
     ),
     SensorSpec(
-        name="DTS fibre — section 2 (15-30 km)",
+        name="DTS fibre — section 2 (25.5-51 km)",
         quantity_per_location=1,
         signal_type="Optical (Raman backscatter)",
-        range="-40 to +120°C, 15,000-30,000 m",
+        range="-40 to +120°C, 25,500-51,000 m",
         accuracy="±0.1°C temperature, 1 m spatial resolution",
         standard="IEC 60287",
         iec_61850_ln=None,
         notes="Mid-route section. Typical seabed temperature at 40 m depth: 4-12°C seasonal.",
     ),
     SensorSpec(
-        name="DTS fibre — section 3 (30-45 km)",
+        name="DTS fibre — section 3 (51-76.5 km)",
         quantity_per_location=1,
         signal_type="Optical (Raman backscatter)",
-        range="-40 to +120°C, 30,000-45,000 m",
+        range="-40 to +120°C, 51,000-76,500 m",
         accuracy="±0.1°C temperature, 1 m spatial resolution",
         standard="IEC 60287",
         iec_61850_ln=None,
         notes=(
-            "Onshore-transition zone (km 43-45). Higher ambient temperature on land; "
+            "Landfall HDD (km 62.7-63.5) and land cable to km 76.5. Higher ambient on land; "
             "separate thermal derating factor applied for burial in soil vs seabed."
         ),
     ),
     SensorSpec(
-        name="Joint box temperature monitor — km 15",
+        name="Joint box temperature monitor — km 25.5",
         quantity_per_location=1,
         signal_type="PT100 3-wire, cable piggyback signal pair",
         range="0-80°C",
@@ -272,20 +272,20 @@ _CABLE_SENSORS: list[SensorSpec] = [
         standard="IEC 60840 §14 (joint requirements)",
         iec_61850_ln=None,
         notes=(
-            "Factory joint at 15 km. PT100 installed in potted resin inside the joint body. "
+            "Factory joint at 25.5 km. PT100 installed in potted resin inside the joint body. "
             "Temperature alarm at 60°C indicates joint degradation or burial problem. "
             "Signal transmitted via spare conductors in the cable sheath."
         ),
     ),
     SensorSpec(
-        name="Joint box temperature monitor — km 30",
+        name="Joint box temperature monitor — km 51",
         quantity_per_location=1,
         signal_type="PT100 3-wire, cable piggyback signal pair",
         range="0-80°C",
         accuracy="±0.5°C",
         standard="IEC 60840 §14",
         iec_61850_ln=None,
-        notes="Factory joint at 30 km. Same specification as km 15 joint monitor.",
+        notes="Factory joint at 51 km. Same specification as the km 25.5 joint monitor.",
     ),
 ]
 

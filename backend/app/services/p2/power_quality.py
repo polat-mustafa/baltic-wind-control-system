@@ -10,7 +10,7 @@ built from the same data as the load flow (``network_model``):
   transformers   R·√h + j h X   (√h: skin / stray-loss growth of R)
   export cable   2 circuits, exact distributed π (γ, Z_c) — the long-cable
                  capacitance that makes HVAC connections resonate
-  shunt reactors 3 × 80 MVAR at OSS 220 kV (Q ≈ 300)
+  shunt reactors 3 × 170 MVAR at OSS 220 kV (SB-510)
   array cables   ≈ 15 MVAR of charging lumped at OSS 66 kV
 
 The 34 converters are harmonic current sources at OSS 66 kV. Their emission

@@ -23,11 +23,11 @@ export const n1SecurityEducation: EducationContent = {
     "Preventive security means the pre-outage dispatch is already safe for every contingency; corrective security " +
     "allows a remedial action after the outage. For this farm, preventive security against an export-circuit or " +
     "transformer outage would cap the output at about 300 MW permanently. Corrective security keeps the full 510 MW " +
-    "and accepts a runback of about 170–210 MW, which the PPC executes in seconds — far inside the thermal time " +
+    "and accepts a runback of about 190–210 MW, which the PPC executes in seconds — far inside the thermal time " +
     "constants of cables (hours) and transformers (IEC 60076-7). Because the farm's marginal cost is zero and the " +
     "network is radial, an optimal power flow has nothing to trade: it reproduces this result. The binding " +
     "constraints are the N-1 thermal limits, not cost. The reactor intertrip matters for voltage: without it, " +
-    "240 MVAR of shunt reactors would face only one cable's ~130 MVAR of charging.",
+    "the two 170 MVAR reactors in service would face only one cable's ~221 MVAR of charging.",
 
   standards: [
     { label: "Commission Regulation (EU) 2017/1485 (SO GL) — (N-1) criterion, contingency list, remedial actions", type: "regulation" },

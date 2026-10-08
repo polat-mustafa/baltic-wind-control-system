@@ -77,12 +77,12 @@ export const hvacVsHvdcEducation: EducationContent = {
     {
       title: "SB-510 (510 MW) — HVAC chosen over HVDC",
       scenario:
-        "510 MW capacity, 45 km to shore, 220 kV three-core copper cable, C' = 200 nF/km, I_th = 800 A.",
+        "510 MW capacity, 76.5 km route, 220 kV three-core copper cable, C' = 190 nF/km, I_th = 950 A.",
       steps: [
-        "I_c = 2π · 50 · 200e-9 · 220,000/√3 · 45 ≈ 360 A",
-        "P_active = √3 · 220 · √(800² − 360²) ≈ √3 · 220 · 716 = 273 MVA per cable",
-        "Two cables → 546 MVA capacity, comfortably above 510 MW gross",
-        "Add 3 × 80 MVAR shunt reactors (one per cable + one spare, N+1) at the OSS to absorb most of the ~260 MVAR charging power",
+        "I_c = 2π · 50 · 190e-9 · 220,000/√3 · 76.5 ≈ 580 A, compensated half at each end → 290 A",
+        "P_active = √3 · 220 · √(950² − 290²) ≈ √3 · 220 · 905 = 345 MW per cable",
+        "Two cables → ≈ 690 MW capacity, comfortably above 510 MW gross",
+        "Add 3 × 170 MVAR shunt reactors (one per cable + one spare, N+1) at the OSS to absorb most of the ~442 MVAR charging power",
       ],
       result:
         "Two parallel 220 kV three-core cables with onshore + offshore reactor banks comfortably handle the 510 MW farm. " +

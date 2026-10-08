@@ -8,7 +8,8 @@ import AppShell from "../../../src/components/layout/AppShell";
 import { useLifecycleStore } from "../../../src/store/lifecycleStore";
 import { MODE_KEY, useModeStore } from "../../../src/store/modeStore";
 import { useProjectStore } from "../../../src/store/projectStore";
-import { useSiteStore } from "../../../src/store/siteStore";
+import { CASE_STUDY_SITE, useSiteStore } from "../../../src/store/siteStore";
+import { OSS_GEO } from "../../../src/constants/windFarmLayout";
 import { useTourStore } from "../../../src/tour/tourStore";
 
 vi.mock("../../../src/services/siteApi");
@@ -56,6 +57,19 @@ describe("project mode", () => {
     fireEvent.click(screen.getByRole("button", { name: "See it in SB-510" }));
     expect(screen.getByText("grid page")).toBeDefined();
     expect(screen.queryByRole("link", { name: /\(locked\)/ })).toBeNull();
+  });
+
+  it("starts an own project from SB-510: its site in PZP_44 and its layout, permit stages still to run", () => {
+    useModeStore.setState({ mode: "own" });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderAt("/");
+    fireEvent.click(screen.getByRole("button", { name: /Untitled project|Project/ }));
+    fireEvent.click(screen.getByRole("button", { name: /From SB-510/ }));
+    expect(useSiteStore.getState().site).toEqual(CASE_STUDY_SITE);
+    expect(useSiteStore.getState().done).toEqual([]);
+    expect(useProjectStore.getState().turbines).toHaveLength(34);
+    expect(useProjectStore.getState().oss).toEqual([OSS_GEO.lon, OSS_GEO.lat]);
+    expect(screen.getByText("site page")).toBeDefined();
   });
 
   it("lifts the locks during a guided tour", () => {

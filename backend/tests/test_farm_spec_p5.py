@@ -67,7 +67,8 @@ def test_sb510_registry_is_unchanged():
         *(f"{d}-STR-0{n}" for d in ("CB", "ES") for n in range(1, 7)),
         *(f"WTG-GRP-0{n}" for n in (1, 2, 3)),
     }
-    assert onshore_tap(SB510) == 0 and not reactor_energisation(SB510)
+    # 76.5 km lifts the onshore busbar: the OLTC is pre-set 3 steps, no reactor needed
+    assert onshore_tap(SB510) == 3 and not reactor_energisation(SB510)
 
 
 def test_four_string_project():
@@ -190,4 +191,4 @@ def test_api_without_header_is_sb510(client: TestClient):
     assert pid.startswith("SB5-SP-")
     assert detail["farm"]["name"] == "SB-510"
     assert detail["total_steps"] == 60
-    assert detail["farm"]["reactor_unit_mvar"] == 80
+    assert detail["farm"]["reactor_unit_mvar"] == 170

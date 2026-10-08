@@ -65,9 +65,9 @@ class TestNetworkModel:
     def test_low_order_cable_resonance_and_h17_peak(self):
         scan = compute_resonance_scan()
         orders = [p["harmonic_order"] for p in scan["resonance_points"]]
-        assert any(3.0 <= h <= 3.6 for h in orders)  # cable C vs grid/transformer L
-        assert any(17.0 <= h <= 17.8 for h in orders)
-        assert 17 in scan["critical_harmonics"]
+        assert any(2.5 <= h <= 3.0 for h in orders)  # cable C vs grid/transformer L
+        assert any(19.0 <= h <= 19.6 for h in orders)
+        assert 19 in scan["critical_harmonics"]
 
     def test_weaker_grid_lowers_the_first_resonance(self):
         strong = compute_resonance_scan(grid_fault_level_mva=10_000.0)["cable_resonant_freq_hz"]
@@ -86,13 +86,13 @@ class TestHarmonics:
         assert r["bus"].startswith("PSE 400")
         assert r["thd_voltage_pct"] < 1.0 and r["compliant"]
 
-    def test_resonance_amplifies_h17_at_66kv(self):
+    def test_resonance_amplifies_h19_at_66kv(self):
         r = compute_harmonics(DEFAULT_WTG_EMISSION_PCT, 66.0)
-        h17 = next(x for x in r["harmonics"] if x["order"] == 17)
+        h19 = next(x for x in r["harmonics"] if x["order"] == 19)
         h5 = next(x for x in r["harmonics"] if x["order"] == 5)
-        # a quarter of the h5 current, but a far larger voltage
-        assert h17["magnitude_pct"] > 5 * h5["magnitude_pct"]
-        assert h17["impedance_ohm"] > 100.0
+        # a fifth of the h5 current, but a far larger voltage
+        assert h19["magnitude_pct"] > 5 * h5["magnitude_pct"]
+        assert h19["impedance_ohm"] > 100.0
 
     def test_voltage_scales_with_emission_and_summation(self):
         one = compute_harmonics({11: 0.5}, 66.0, rated_mw=15.0)["harmonics"][0]["magnitude_pct"]

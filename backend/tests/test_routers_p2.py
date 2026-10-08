@@ -36,7 +36,7 @@ def test_network_spec():
     assert data["array_voltage_kv"] == 66.0
     assert data["export_voltage_kv"] == 220.0
     assert data["grid_voltage_kv"] == 400.0
-    assert data["export_length_km"] == 45.0
+    assert data["export_length_km"] == 76.5
 
 
 # ── Load Flow ────────────────────────────────────────────────────

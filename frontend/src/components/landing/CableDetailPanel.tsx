@@ -1,7 +1,8 @@
 /**
  * Export cable detail panel — the live fleet's 220 kV XLPE circuits. SB-510:
- * 2 × 45 km, 31.5 km subsea (OSS → Zaleskie landfall) + 13.4 km land cable to
- * the onshore SS; an own project: n × its export length (route not surveyed).
+ * 2 × 76.5 km, 63.5 km subsea (OSS → round Ławica Słupska → Zaleskie landfall) +
+ * 13 km land cable to the onshore SS; an own project: n × its export length
+ * (route not surveyed).
  *
  * Live values come from the shared cable model (utils/landingPhysics):
  * per-circuit current = active current + half the charging current in

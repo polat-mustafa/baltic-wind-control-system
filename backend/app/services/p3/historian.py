@@ -10,8 +10,8 @@ ONE physical state so every tag agrees with every other:
              → OSS export = generation − array/OSS-transformer losses
              → 220 kV current per export circuit  I = √(I_P² + (I_C/2)²)
              → STATCOM Q closing the reactive balance (cable charging ωCV²L,
-               shunt reactors, series I²X absorption) — SB-510: 260 Mvar,
-               3 × 80 Mvar, ±120 Mvar; other farms: their design() values
+               shunt reactors, series I²X absorption) — SB-510: 442 Mvar,
+               3 × 170 Mvar, ±120 Mvar; other farms: their design() values
   frequency  → Continental Europe: slow load-following swing + 15-min market
                steps, inside ±50 mHz most of the time
 

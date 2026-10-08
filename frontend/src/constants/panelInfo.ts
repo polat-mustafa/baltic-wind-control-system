@@ -39,7 +39,7 @@ export const cableLoadingInfo: InfoContent = {
     { name: "Derating", description: "Applied for seabed burial depth and grouping" },
   ],
   interpretation:
-    "Bars approaching 100% need attention. The two parallel export cables (45 km) are typically " +
+    "Bars approaching 100% need attention. The two parallel export cables (76.5 km) are typically " +
     "the most loaded segment under full farm output.",
 };
 
@@ -63,11 +63,11 @@ export const statcomInfo: InfoContent = {
   title: "STATCOM Sizing — Reactive Power Compensation",
   description:
     "Determines the required STATCOM capacity for voltage regulation and grid code compliance. " +
-    "Includes ±120 MVAR STATCOM + 3 × 80 MVAR (N+1) shunt reactors for the ~260 MVAR charging power of the two export cables.",
+    "Includes ±120 MVAR STATCOM + 3 × 170 MVAR (N+1) shunt reactors for the ~442 MVAR charging power of the two export cables.",
   standard: "ENTSO-E NC RfG Type D + PSE IRiESP reactive power requirements",
   parameters: [
     { name: "STATCOM", description: "±120 MVAR (full 4-quadrant operation)" },
-    { name: "Shunt reactors", description: "3 × 80 MVAR (N+1: one per export cable + one spare, compensates cable capacitance)" },
+    { name: "Shunt reactors", description: "3 × 170 MVAR (N+1: one per export cable + one spare, compensates cable capacitance)" },
     { name: "Power factor", description: "0.95 lead to 0.95 lag at PCC" },
   ],
   interpretation:
@@ -107,7 +107,7 @@ export const converterComparisonInfo: InfoContent = {
 export const substationSldInfo: InfoContent = {
   title: "Single-Line Diagram — Export System",
   description:
-    "PSE 400 kV connection point → 2 × 300 MVA onshore transformers → 2 × 45 km 220 kV export cables → " +
+    "PSE 400 kV connection point → 2 × 300 MVA onshore transformers → 2 × 76.5 km 220 kV export cables → " +
     "OSS 220 kV busbar (STATCOM, shunt reactors) → 2 × 300 MVA OSS transformers → split 66 kV switchboard " +
     "(section A: strings 1–3, section B: strings 4–6, bus coupler normally open).",
   standard: "IEC 60617 symbols · IEC 61850-7-2 select-before-operate · ISA-101 colours",
@@ -356,12 +356,12 @@ export const p5NetworkInfo: InfoContent = {
   title: "Network readings",
   description:
     "Steady-state load flow (pandapower) of whatever is live after the last step, built from " +
-    "the P2 network data: 2 × 300 MVA onshore transformers, 45 km 1000 mm² cable (190 nF/km), " +
-    "80 Mvar reactor, ±120 Mvar STATCOM at 1.00 pu, TX-OSS-01 (vk 12.5 %, i0 0.05 %), graded " +
+    "the P2 network data (SB-510): 2 × 300 MVA onshore transformers (OLTC pre-set 3 steps), 76.5 km 1000 mm² cable " +
+    "(190 nF/km), 170 Mvar reactor, ±120 Mvar STATCOM at 1.00 pu, TX-OSS-01 (vk 12.5 %, i0 0.05 %), graded " +
     "66 kV array cables.",
   parameters: [
-    { name: "Charging", description: "Q = ωCU²l ≈ 130 Mvar at 220 kV → ≈ 341 A per phase at 1 pu, with no load" },
-    { name: "Ferranti", description: "Open end above the sending end by 1/cos(βl) ≈ 1.007 (βl ≈ 0.118 rad)" },
+    { name: "Charging", description: "Q = ωCU²l ≈ 221 Mvar at 220 kV → ≈ 580 A per phase at 1 pu, with no load" },
+    { name: "Ferranti", description: "Open end above the sending end by 1/cos(βl) ≈ 1.021 (βl ≈ 0.20 rad)" },
     { name: "Q sign", description: "Generator convention: + = generating; the reactor reads negative" },
   ],
   interpretation:
@@ -594,7 +594,7 @@ export const resonanceScanInfo: InfoContent = {
     "Parallel resonance peaks occur where impedance spikes — dangerous if a harmonic source coincides with a peak.",
   standard: "IEC 61000-3-6 Annex B — Impedance-based resonance assessment",
   parameters: [
-    { name: "Cable resonance", description: "π-model cable: f_res = 1/(2π√(LC)) — falls in 200–800 Hz range for 45 km export" },
+    { name: "Cable resonance", description: "π-model cable: f_res = 1/(2π√(LC)) — SB-510 (76.5 km): ≈ 135 Hz and ≈ 965 Hz seen from OSS 66 kV" },
     { name: "HIGH risk", description: "Peak aligns with a WTG harmonic injection frequency" },
     { name: "MEDIUM risk", description: "Peak near a harmonic — damping may be insufficient" },
   ],

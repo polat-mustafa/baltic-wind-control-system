@@ -39,11 +39,15 @@ def _header(strings: list[int], export_km: float, array_km: float = 1.5, name: s
 
 class TestDesignRules:
     def test_sb510_golden(self):
-        """design(SB-510 @ 45 km) = 2 circuits, 2 × 300 MVA, 3 × 80 MVAR, ±120 MVAR."""
-        spec = design(tuple(STRING_LAYOUT), 45.0, 1.5, "SB-510")
+        """design() rebuilds both SB-510 designs: the original 45 km export (2 circuits,
+        2 × 300 MVA, 3 × 80 MVAR, ±120 MVAR) and, from PZP_44, 76.5 km (3 × 170 MVAR)."""
+        old = design(tuple(STRING_LAYOUT), 45.0, 1.5, "SB-510")
+        assert (old.num_export_cables, old.oss_trafo_mva, old.onshore_trafo_mva) == (2, 300, 300)
+        assert (old.num_reactors, old.reactor_unit_mvar, old.statcom_mvar) == (3, 80, 120)
+        spec = design(tuple(STRING_LAYOUT), 76.5, 1.5, "SB-510")
         assert spec == SB510
         assert (spec.num_export_cables, spec.oss_trafo_mva, spec.onshore_trafo_mva) == (2, 300, 300)
-        assert (spec.num_reactors, spec.reactor_unit_mvar, spec.statcom_mvar) == (3, 80, 120)
+        assert (spec.num_reactors, spec.reactor_unit_mvar, spec.statcom_mvar) == (3, 170, 120)
         assert check_reactors(SB510) == SB510  # the load-flow check keeps the reference design
 
     def test_cable_physics(self):
@@ -138,7 +142,7 @@ class TestFarmHeader:
     def test_no_header_is_sb510(self):
         data = client.get("/api/v1/grid/network-spec").json()
         assert data["source"] == "reference" and data["name"] == "SB-510"
-        assert data["num_reactors"] == 3 and data["reactor_unit_mvar"] == 80
+        assert data["num_reactors"] == 3 and data["reactor_unit_mvar"] == 170
 
     def test_header_gives_the_project_design(self):
         r = client.get(

@@ -15,9 +15,9 @@ Contingencies
 - String feeder trip (6, preventive): the feeder breaker opens, the string's
   cables and turbines go dark. Losing generation only unloads the rest.
 - Export circuit trip (corrective): one of the 2 × 220 kV circuits. The
-  remaining circuit (~362 MVA) is ~140 % loaded at full output. Protection
-  intertrips that circuit's shunt reactor — without it 240 MVAR of reactors
-  against 130 MVAR of cable would drag the OSS voltage to ~0.93 p.u.
+  remaining circuit (~362 MVA) is ~160 % loaded at full output (SB-510: 76.5 km,
+  its own charging current adds to the load current). Protection intertrips
+  that circuit's shunt reactor so the OSS busbar is not over-compensated.
 - One OSS or onshore transformer (corrective): one of 2 × 300 MVA; the other
   unit is ~170 % loaded at full output.
 
@@ -48,7 +48,7 @@ from typing import Any
 
 import pandapower as pp
 
-from app.services.p2.load_flow import auto_statcom_dispatch
+from app.services.p2.load_flow import dispatch_with_reactor_switching
 from app.services.p2.network_model import (
     GRID_SSC_MVA,
     SB510,
@@ -68,7 +68,8 @@ BISECTION_STEPS = 8  # resolution 1/256 of the output (~2 MW at 510 MW)
 def _solve(net: pp.pandapowerNet) -> dict[str, Any] | None:
     """AC load flow with STATCOM re-dispatch → loading, voltages and violations."""
     try:
-        auto_statcom_dispatch(net)
+        rating = float(net.sgen.loc[net.sgen["name"] == "STATCOM", "sn_mva"].iloc[0])
+        dispatch_with_reactor_switching(net, rating)
     except Exception:
         return None
     if not net.converged:

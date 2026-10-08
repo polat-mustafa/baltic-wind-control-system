@@ -14,8 +14,8 @@ Grid strength is judged where the converters are, not only at the POC:
     SCR_POC      = S_sc / P_n                        (PSE 400 kV)
     SCR_terminal = 1 / |Z_grid + Z_trafos + Z_cable|  [p.u. on S_n]
 
-The two transformer stages (2 × 300 MVA each) and 45 km of cable add ≈ 0.25 p.u.,
-so a strong 10 GVA grid (SCR_POC ≈ 20) is only SCR ≈ 3.3 at the 66 kV busbar.
+The two transformer stages (2 × 300 MVA each) and 76.5 km of cable add ≈ 0.27 p.u.,
+so a strong 10 GVA grid (SCR_POC ≈ 20) is only SCR ≈ 3.1 at the 66 kV busbar.
 
 GFL — current source synchronised by a PLL
   i_dq → i*_dq with a 5 ms current loop (unity-PF active current + the

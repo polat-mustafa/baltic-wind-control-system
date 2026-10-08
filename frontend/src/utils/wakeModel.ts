@@ -32,7 +32,7 @@ export const K_STAR = 0.035;
 // ── Geographic conversion at 54.75°N ─────────────────────────────
 
 const M_PER_DEG_LAT = 111_320;
-const M_PER_DEG_LON = 111_320 * Math.cos((54.75 * Math.PI) / 180);
+const M_PER_DEG_LON = 111_320 * Math.cos((55.06 * Math.PI) / 180);
 
 // ── Core wake math ────────────────────────────────────────────────
 

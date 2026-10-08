@@ -108,6 +108,7 @@ Citation rules used here:
 | Natura 2000 appropriate assessment trigger | `services/site_assessment/assess.py` | [S27] |
 | EIA screening of wind farms (Annex II 3(i)) | `services/site_assessment/assess.py` | [S28] |
 | Weighted linear combination of criteria | `services/site_assessment/suitability.py` | Standard GIS multi-criteria method; thresholds and weights are labelled *illustrative* in the API model card |
+| Seabed substrate check (Folk 5 classes), piling and burial notes, foundation cost factor (*illustrative*) | `services/site_assessment/criteria.py` (`SEABED_CLASSES`), `assess.py`, `scripts/fetch_marine_layers.py` (`fetch_seabed`), `frontend/src/lib/layout/cost.ts` | [38], [S37], [S38] |
 | Site wind climate: mean speed, Weibull k and A at 150 m; 12-sector rose | `services/site_assessment/wind_climate.py`, `scripts/fetch_wind_climate.py`, `routers/p1.py` (`_rose_site`) | [28], [29], [30] |
 
 ## Academy — scored missions
@@ -189,6 +190,7 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 35. Beiter, P., Musial, W., Smith, A., et al. *A Spatial-Economic Cost-Reduction Pathway Analysis for U.S. Offshore Wind Energy Development from 2015–2030*. NREL/TP-6A20-66579, 2016 (other losses 2 %, availability against distance to port).
 36. European Central Bank. Euro foreign exchange reference rates, USD, annual average 2023 = 1.0813 (data-api.ecb.europa.eu, series EXR.A.USD.EUR.SP00.A).
 37. Abbas, N. J., Zalkind, D. S., Pao, L., Wright, A. "A reference open-source controller for fixed and floating offshore wind turbines." *Wind Energy Science* 7, 53–73, 2022; ROSCO v2.10.1 source (`rosco/controller/src/Controllers.f90`, `ControllerBlocks.f90`), github.com/NREL/ROSCO (Apache-2.0), read 2026-10-08.
+38. EMODnet Geology, seabed substrate 1:250 000 (Folk 5-class scheme), https://emodnet.ec.europa.eu/en/geology — CC BY 4.0; Polish waters from Mojski, J. E. (ed.), *Geological Map of the Baltic Sea Bottom 1:200 000*, Polish Geological Institute, 1988–1995.
 
 ## Standards and regulations
 
@@ -228,3 +230,5 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 - **[S34]** IEC 60085:2007 — Electrical insulation — Thermal evaluation and designation (class B 130 °C, class F 155 °C).
 - **[S35]** ISO 3448:1992 — Industrial liquid lubricants — ISO viscosity classification (VG 46: 41.4–50.6 cSt at 40 °C); ISO 4406:2021 — Hydraulic fluid power — Fluids — Method for coding the level of contamination by solid particles.
 - **[S36]** IEEE Std 1531-2020 — Guide for the Application and Specification of Harmonic Filters; J. C. Das, "Passive filters — potentialities and limitations", IEEE Trans. Ind. Appl. 40(1), 2004, pp. 232–241.
+- **[S37]** DNV-RP-C212 — Offshore soil mechanics and geotechnical engineering (pile drivability, boulders).
+- **[S38]** DNV-RP-0360 — Subsea power cables in shallow water (cable burial assessment and protection).

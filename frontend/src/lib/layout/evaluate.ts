@@ -5,7 +5,7 @@
  * it scores exactly what the canvas displays.
  */
 
-import type { LayersResponse, RasterResponse } from "../../services/siteApi";
+import type { LayersResponse, RasterResponse, SeabedClass } from "../../services/siteApi";
 import { routeCables, type CableResult } from "./cables";
 import { layoutCost, type CostInputs, type CostResult } from "./cost";
 import { layoutYield, moveDelta, UNIFORM_ROSE, type WindRose, type YieldModel, type YieldResult } from "./energy";
@@ -119,6 +119,33 @@ export function rasterSampler(r: RasterResponse | null, band = "values"): (p: Lo
   };
 }
 
+/** Nearest-node sampler of a class raster (seabed): the class code, null outside the grid or no data. */
+export function classSampler(r: RasterResponse | null): (p: LonLat) => number | null {
+  const v = r?.bands.values;
+  if (!r || !v?.length) return () => null;
+  return ([lon, lat]) => {
+    const i = Math.round((lon - r.lon0) / r.dlon);
+    const j = Math.round((lat - r.lat0) / r.dlat);
+    return v[j]?.[i] ?? null;
+  };
+}
+
+export type SeabedAt = (p: LonLat) => SeabedClass | null;
+
+/** Seabed class card at a point (codes from `classSampler`, cards from /layers). */
+export const seabedLookup =
+  (codeAt: (p: LonLat) => number | null, classes: SeabedClass[] | undefined): SeabedAt =>
+  (p) => {
+    const code = codeAt(p);
+    return code == null ? null : (classes?.find((c) => c.code === code) ?? null);
+  };
+
+/** Mean seabed factor on the foundation cost over the turbines; unknown sediment counts as 1. */
+export function foundationFactor(points: LonLat[], seabedAt: SeabedAt): number {
+  if (!points.length) return 1;
+  return points.reduce((s, p) => s + (seabedAt(p)?.foundation_factor ?? 1), 0) / points.length;
+}
+
 /** Foundation type for a water depth from the criteria's depth bands (null outside them). */
 export function foundationFor(depthM: number | null, bands: LayersResponse["depth_bands"] | undefined): string | null {
   if (depthM == null) return null;
@@ -150,12 +177,19 @@ export function nearest(p: XY, xy: XY[], ids: string[], skip: number, d: number,
 export const HIGH_WAKE_LOSS_PCT = 12;
 
 /** Warnings for one turbine: its position status, depth band and wake loss. */
-export function turbineWarnings(status: { status: TurbineStatus; note: string }, depthM: number | null, foundation: string | null, lossPct: number): string[] {
+export function turbineWarnings(
+  status: { status: TurbineStatus; note: string },
+  depthM: number | null,
+  foundation: string | null,
+  lossPct: number,
+  seabed: SeabedClass | null = null,
+): string[] {
   const w: string[] = [];
   if (status.status !== "ok") w.push(status.note);
   if (depthM == null) w.push("water depth unknown here");
   else if (!foundation) w.push(`${depthM.toFixed(0)} m is outside the screening depth bands`);
   else if (/floating/.test(foundation)) w.push(`${depthM.toFixed(0)} m: floating foundation`);
+  if (seabed?.hard) w.push(`${seabed.name.toLowerCase()}: ${seabed.piling.charAt(0).toLowerCase()}${seabed.piling.slice(1, -1)}`);
   if (lossPct > HIGH_WAKE_LOSS_PCT) w.push(`wake loss above ${HIGH_WAKE_LOSS_PCT} %: a move may pay`);
   return w;
 }
@@ -174,6 +208,7 @@ export interface TurbineStats {
   neighbours: Neighbour[];
   depthM: number | null;
   foundation: string | null;
+  seabed: SeabedClass | null;
   warnings: string[];
 }
 
@@ -186,6 +221,7 @@ export function turbineStats(
   at: LonLat | null,
   depthAt: (p: LonLat) => number | null,
   bands: LayersResponse["depth_bands"] | undefined,
+  seabedAt: SeabedAt = () => null,
 ): TurbineStats {
   const p = at ?? ctx.proj.toLonLat(model.t[i]);
   const xy = ctx.proj.toXY(p);
@@ -194,6 +230,7 @@ export function turbineStats(
   const st = statusAt(ctx, p, model.t.filter((_, j) => j !== i));
   const depthM = depthAt(p);
   const foundation = foundationFor(depthM, bands);
+  const seabed = seabedAt(p);
   return {
     id: ids[i],
     status: st.status,
@@ -205,7 +242,8 @@ export function turbineStats(
     neighbours: nearest(xy, model.t, ids, i, ctx.d),
     depthM,
     foundation,
-    warnings: turbineWarnings(st, depthM, foundation, lossPct),
+    seabed,
+    warnings: turbineWarnings(st, depthM, foundation, lossPct, seabed),
   };
 }
 

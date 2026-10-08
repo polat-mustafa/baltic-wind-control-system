@@ -78,6 +78,9 @@ const BLOCKING = new Set(["sea", "territorial_sea", "eez", "msp_energy", "owf", 
  * for more information; a nearby Natura 2000 site triggers an appropriate
  * assessment, assumed here to conclude "no adverse effect on integrity".
  */
+/** Engineering findings (design and cost), not consent matters: never a permit condition. */
+const ENGINEERING = new Set(["seabed"]);
+
 export function decide(report: AssessResponse | null): Decision {
   if (!report) {
     return { outcome: "more_information", reasons: ["No site has been assessed yet."], conditions: [], appropriateAssessment: false };
@@ -110,7 +113,7 @@ export function decide(report: AssessResponse | null): Decision {
     );
   }
   for (const c of report.checks) {
-    if (c.status === "warn" && c.id !== "natura2000") extra.push(`${c.title}: ${c.detail}`);
+    if (c.status === "warn" && c.id !== "natura2000" && !ENGINEERING.has(c.id)) extra.push(`${c.title}: ${c.detail}`);
   }
   return {
     outcome: extra.length > 0 ? "approved_with_conditions" : "approved",

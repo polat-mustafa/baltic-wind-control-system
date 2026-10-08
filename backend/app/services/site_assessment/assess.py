@@ -17,7 +17,7 @@ from typing import Literal
 
 import numpy as np
 
-from app.services.site_assessment.criteria import Criteria, depth_band
+from app.services.site_assessment.criteria import SEABED_CLASSES, Criteria, depth_band
 from app.services.site_assessment.geo import (
     is_simple,
     points_in_polygon,
@@ -78,6 +78,7 @@ class Assessment:
     energy_basins: list[str]  # plan basins with an energy function the site lies in
     projects: list[str]  # real wind farm projects inside the site or its energy basins
     wind: WindClimate  # hub-height wind climate over the site
+    seabed: dict[str, float] | None  # substrate class name → share of the site (mapped part)
     checks: list[Check]
     complete: bool
 
@@ -191,6 +192,7 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
         if (in_site or in_basin) and label not in projects:
             projects.append(label)
     basin_names = [str(f.props.get("basin") or f.name) for f, _ in basins]
+    seabed = _seabed_shares(pack, slon, slat)
 
     checks = _checks(
         pack,
@@ -205,6 +207,7 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
         capacity,
         basin_names,
         projects,
+        seabed,
     )
 
     return Assessment(
@@ -227,9 +230,24 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
         energy_basins=basin_names,
         projects=projects,
         wind=site_wind(pack, slon, slat),
+        seabed=seabed,
         checks=checks,
         complete=is_complete(pack),
     )
+
+
+def _seabed_shares(pack: RegionPack, lon: np.ndarray, lat: np.ndarray) -> dict[str, float] | None:
+    """Share of each substrate class over the mapped samples; None without the layer."""
+    raster = pack.raster("seabed")
+    if raster is None:
+        return None
+    codes = raster.nearest(lon, lat)
+    mapped = codes[np.isfinite(codes)]
+    if mapped.size == 0:
+        return {}
+    return {
+        c.name: float((mapped == c.code).mean()) for c in SEABED_CLASSES if (mapped == c.code).any()
+    }
 
 
 def _pct(f: float) -> str:
@@ -251,6 +269,33 @@ MSP_REFERENCE = (
 )
 
 
+SEABED_REFERENCE = (
+    "EMODnet Geology seabed substrate 1:250 000; DNV-RP-C212 (piles), DNV-RP-0360 (cable burial)"
+)
+
+
+def _seabed_check(seabed: dict[str, float] | None) -> Check:
+    title = "Seabed sediment"
+    if seabed is None:
+        return Check("seabed", title, "unknown", "Seabed substrate layer not loaded.")
+    if not seabed:
+        return Check("seabed", title, "unknown", "No substrate mapped under the site.")
+    mix = ", ".join(f"{name} {_pct(f)}" for name, f in sorted(seabed.items(), key=lambda x: -x[1]))
+    hard = [c for c in SEABED_CLASSES if c.hard and seabed.get(c.name, 0.0) > 0]
+    if not hard:
+        return Check(
+            "seabed", title, "pass", f"{mix}: piles drive and cables bury.", SEABED_REFERENCE
+        )
+    worst = hard[-1]  # classes are ordered soft → hard
+    return Check(
+        "seabed",
+        title,
+        "warn",
+        f"{mix}. {worst.name}: {worst.piling} {worst.burial} A geotechnical survey decides.",
+        SEABED_REFERENCE,
+    )
+
+
 def _checks(
     pack: RegionPack,
     crit: Criteria,
@@ -264,6 +309,7 @@ def _checks(
     capacity: float,
     basins: list[str],
     projects: list[str],
+    seabed: dict[str, float] | None,
 ) -> list[Check]:
     checks: list[Check] = []
 
@@ -520,6 +566,8 @@ def _checks(
         )
     else:
         checks.append(Check("depth", "Water depth", "unknown", "Bathymetry not loaded yet."))
+
+    checks.append(_seabed_check(seabed))
 
     checks.append(
         Check(

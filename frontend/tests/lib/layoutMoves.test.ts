@@ -2,12 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import { TURBINE_MODELS } from "../../src/constants/turbineModels";
 import { routeCables } from "../../src/lib/layout/cables";
-import { DEFAULT_COSTS } from "../../src/lib/layout/cost";
+import { DEFAULT_COSTS, layoutCost } from "../../src/lib/layout/cost";
 import { layoutYield, moveDelta, prepareYield, yieldOf, type WindRose } from "../../src/lib/layout/energy";
-import { foundationFor, layoutContext, nearest, rasterSampler, statusAt } from "../../src/lib/layout/evaluate";
+import {
+  classSampler,
+  foundationFactor,
+  foundationFor,
+  layoutContext,
+  nearest,
+  rasterSampler,
+  seabedLookup,
+  statusAt,
+  turbineWarnings,
+} from "../../src/lib/layout/evaluate";
 import type { LonLat, XY } from "../../src/lib/layout/geometry";
 import { suggestMoves } from "../../src/lib/layout/suggest";
-import type { LayersResponse, RasterResponse } from "../../src/services/siteApi";
+import type { LayersResponse, RasterResponse, SeabedClass } from "../../src/services/siteApi";
 
 const D = TURBINE_MODELS["IEA-15-240-RWT"].rotorDiameterM;
 const WEST: WindRose = { directions: [270], frequencies: [1] };
@@ -186,5 +196,51 @@ describe("move suggestions", () => {
     ];
     const s = suggestMoves({ ctx, model, ids: ["A", "B"], oss: null, tree: null, costs: DEFAULT_COSTS, exportKm: 50, maxDepthM: 40, cables: fence, cableBufferM: 2.5 * D });
     for (const m of s) expect(Math.abs(m.to.y)).toBeGreaterThan(100 + 2.5 * D);
+  });
+});
+
+describe("seabed sediment", () => {
+  const classes: SeabedClass[] = [
+    { code: 2, name: "Sand", piling: "Drives well.", burial: "Easy.", foundation_factor: 1, hard: false, quality: "illustrative" },
+    { code: 5, name: "Rock and boulders", piling: "Piles may not drive.", burial: "Rock placement.", foundation_factor: 1.25, hard: true, quality: "illustrative" },
+  ];
+  const r: RasterResponse = {
+    role: "seabed",
+    lon0: 16,
+    lat0: 55,
+    dlon: 0.01,
+    dlat: 0.01,
+    bands: { values: [[2, 5, null]] },
+    classes: { "2": "Sand", "5": "Rock and boulders" },
+    source: "t",
+    license: "t",
+    retrieved: "t",
+  };
+
+  it("takes the class of the nearest cell, never an interpolated code", () => {
+    const at = seabedLookup(classSampler(r), classes);
+    expect(at([16.004, 55])?.name).toBe("Sand");
+    expect(at([16.006, 55])?.name).toBe("Rock and boulders");
+    expect(at([16.02, 55])).toBeNull(); // no data
+    expect(at([15.9, 55])).toBeNull(); // outside
+  });
+
+  it("scales the foundation cost by the mean factor over the turbines", () => {
+    const at = seabedLookup(classSampler(r), classes);
+    const f = foundationFactor([[16, 55], [16.01, 55], [16.02, 55]], at); // sand, rock, unknown
+    expect(f).toBeCloseTo((1 + 1.25 + 1) / 3, 12);
+    const plain = layoutCost(DEFAULT_COSTS, 510, 80, 76.5, 45, 2200);
+    const rocky = layoutCost(DEFAULT_COSTS, 510, 80, 76.5, 45, 2200, f);
+    const found = (c: typeof plain) => c.lines.find((l) => l.label.startsWith("Foundations"))!;
+    expect(found(rocky).meur).toBeCloseTo(found(plain).meur * f, 6);
+    expect(found(rocky).label).toBe("Foundations (jacket, seabed × 1.08)");
+    expect(found(rocky).source?.quality).toBe("illustrative");
+    expect(found(plain).source).toBeUndefined();
+    expect(rocky.capexMEUR - plain.capexMEUR).toBeCloseTo(found(plain).meur * (f - 1), 6);
+  });
+
+  it("warns on hard ground in the turbine card", () => {
+    expect(turbineWarnings({ status: "ok", note: "" }, 45, "jacket", 5, classes[1])).toContain("rock and boulders: piles may not drive");
+    expect(turbineWarnings({ status: "ok", note: "" }, 45, "jacket", 5, classes[0])).toEqual([]);
   });
 });

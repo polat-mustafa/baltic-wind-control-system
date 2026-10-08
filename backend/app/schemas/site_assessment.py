@@ -112,6 +112,16 @@ class DepthBandCard(BaseModel):
     foundation: str
 
 
+class SeabedClassCard(BaseModel):
+    code: int
+    name: str
+    piling: str
+    burial: str
+    foundation_factor: float = Field(description="Foundation cost multiplier (sand = 1.00)")
+    hard: bool
+    quality: Literal["illustrative"] = "illustrative"
+
+
 class RasterResponse(BaseModel):
     """One raster layer clipped to a bounding box: ``bands[name][j][i]`` at
     (lon0 + i·dlon, lat0 + j·dlat), null = no data."""
@@ -122,6 +132,7 @@ class RasterResponse(BaseModel):
     dlon: float
     dlat: float
     bands: dict[str, list[list[float | None]]]
+    classes: dict[str, str] | None = Field(None, description="Class raster: code → name")
     source: str
     license: str
     retrieved: str
@@ -134,6 +145,7 @@ class LayersResponse(BaseModel):
     complete: bool
     criteria: list[CriterionCard]
     depth_bands: list[DepthBandCard]
+    seabed_classes: list[SeabedClassCard] = Field(default_factory=list)
 
 
 class ClassArea(BaseModel):
@@ -223,5 +235,8 @@ class AssessResponse(BaseModel):
         description="Real wind farm projects inside the site or holding its energy basins",
     )
     wind: WindClimateSchema | None = None
+    seabed: dict[str, float] | None = Field(
+        None, description="Seabed substrate class → share of the mapped site area"
+    )
     checks: list[CheckSchema]
     complete: bool

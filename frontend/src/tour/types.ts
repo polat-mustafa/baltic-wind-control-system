@@ -48,6 +48,11 @@ export interface TourStep {
   caution?: string;
   /** Draw the node arrow from the target to the card (default: true). */
   arrow?: boolean;
+  /**
+   * Lift the target above sibling overlays for this step (e.g. the wind rose
+   * under an open 3D turbine viewer), so the spotlit element gets the clicks.
+   */
+  raise?: boolean;
 }
 
 export interface Tour {

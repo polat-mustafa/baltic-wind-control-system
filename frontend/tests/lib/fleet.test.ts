@@ -79,3 +79,42 @@ describe("plant physics on the fleet's network", () => {
     expect(s.loadingPct).toBeLessThan(40);
   });
 });
+
+describe("SB-510 feeder routing", () => {
+  // Equirectangular metres around 55° N — plenty for 100 m-scale checks.
+  const xy = (p: { lat: number; lon: number }) => [p.lon * 111_320 * Math.cos((55 * Math.PI) / 180), p.lat * 110_570];
+  const distToLeg = (p: number[], a: number[], b: number[]) => {
+    const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)));
+    return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+  };
+  const route = (s: ReturnType<typeof arraySegments>[number]) => {
+    const at = (id: string) => (id === "OSS" ? SB510_FLEET.oss : SB510_FLEET.turbines.find((t) => t.id === id)!);
+    return [at(s.fromId), ...s.via, at(s.toId)].map(xy);
+  };
+
+  it("keeps every feeder at least 300 m from the turbines of other strings", () => {
+    for (const s of arraySegments(SB510_FLEET).filter((x) => x.toId === "OSS")) {
+      const pts = route(s);
+      for (const t of SB510_FLEET.turbines.filter((o) => o.stringNumber !== s.stringNumber)) {
+        const d = Math.min(...pts.slice(1).map((b, i) => distToLeg(xy(t), pts[i], b)));
+        expect(d, `string ${s.stringNumber} feeder vs ${t.id}`).toBeGreaterThan(250);
+      }
+    }
+  });
+
+  it("never lets two feeders cross before the OSS", () => {
+    const legs = arraySegments(SB510_FLEET)
+      .filter((x) => x.toId === "OSS")
+      .map((s) => ({ n: s.stringNumber, pts: route(s) }));
+    const cross = (a: number[], b: number[], c: number[], d: number[]) => {
+      const o = (p: number[], q: number[], r: number[]) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+      return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+    };
+    for (const f of legs)
+      for (const g of legs.filter((x) => x.n > f.n))
+        for (let i = 1; i < f.pts.length; i++)
+          for (let j = 1; j < g.pts.length; j++)
+            expect(cross(f.pts[i - 1], f.pts[i], g.pts[j - 1], g.pts[j]), `S${f.n} × S${g.n}`).toBe(false);
+  });
+});

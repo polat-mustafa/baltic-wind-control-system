@@ -24,8 +24,11 @@ export function ArrayCables({ turbineId }: { turbineId: string }) {
     const ossPos = worldAround(turbineId, fleet.oss, fleet);
     const segs = arraySegments(fleet).map((s) => ({
       key: `${s.fromId}-${s.toId}`,
-      a: byId.get(s.fromId)!,
-      b: s.toId === "OSS" ? ossPos : byId.get(s.toId)!,
+      pts: [
+        byId.get(s.fromId)!,
+        ...s.via.map((p) => worldAround(turbineId, p, fleet)),
+        s.toId === "OSS" ? ossPos : byId.get(s.toId)!,
+      ],
       mine: s.fromId === turbineId || s.toId === turbineId,
     }));
     return { segments: segs, oss: ossPos };
@@ -36,10 +39,7 @@ export function ArrayCables({ turbineId }: { turbineId: string }) {
       {segments.map((sg) => (
         <Line
           key={sg.key}
-          points={[
-            [sg.a[0], SEABED_Y, sg.a[1]],
-            [sg.b[0], SEABED_Y, sg.b[1]],
-          ]}
+          points={sg.pts.map(([x, z]) => [x, SEABED_Y, z] as [number, number, number])}
           color={sg.mine ? "#f59e0b" : "#b45309"}
           lineWidth={sg.mine ? 2.5 : 1.2}
           transparent

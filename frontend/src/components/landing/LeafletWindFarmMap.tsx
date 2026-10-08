@@ -731,17 +731,17 @@ function cableTree(f: Fleet): CableTree {
   const pos = new Map<string, { lat: number; lon: number }>(f.turbines.map((t) => [t.id, t]));
   pos.set("OSS", f.oss);
   const at = (id: string) => pos.get(id)!;
-  const segments = arraySegments(f).map((s) => ({
-    ...s,
-    lengthKm: L.latLng(at(s.fromId).lat, at(s.fromId).lon).distanceTo([at(s.toId).lat, at(s.toId).lon]) / 1000,
-  }));
+  const route = (s: ArraySegment): [number, number][] =>
+    [at(s.fromId), ...s.via, at(s.toId)].map((p) => [p.lat, p.lon]);
+  const segments = arraySegments(f).map((s) => {
+    const pts = route(s);
+    const m = pts.slice(1).reduce((sum, p, i) => sum + L.latLng(pts[i]).distanceTo(p), 0);
+    return { ...s, lengthKm: m / 1000 };
+  });
   const tree = {
     segments,
     pos,
-    path: (s: CableFocus): [number, number][] => [
-      [at(s.fromId).lat, at(s.fromId).lon],
-      [at(s.toId).lat, at(s.toId).lon],
-    ],
+    path: route,
     stringSize: (n: number) => f.strings[n - 1]?.length ?? 1,
   };
   treeCache.set(f, tree);

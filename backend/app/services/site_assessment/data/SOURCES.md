@@ -11,6 +11,7 @@ Regenerate every layer with (network access, a few minutes):
     cd backend && python scripts/fetch_marine_layers.py
     cd backend && python scripts/fetch_marine_layers.py --only wind     # wind farm layers only
     cd backend && python scripts/fetch_marine_layers.py --only seabed   # seabed substrate only
+    cd backend && python scripts/fetch_marine_layers.py --only ports    # offshore wind ports only
 
 ## southern_baltic.json — Southern Baltic, the whole Polish EEZ
 
@@ -25,6 +26,7 @@ and the coast from Świnoujście to the Vistula Spit. Retrieved 2026-10-06.
 | `coastline` | shore | OpenStreetMap `natural=coastline` (Overpass), Świnoujście → Vistula Spit; Bornholm excluded so shore distance means the Polish coast | ODbL 1.0 © OpenStreetMap contributors |
 | `cables` | cable | OpenStreetMap submarine power/telecom cables and pipelines (SwePol, NordBalt, Baltic Pipe, Nord Stream 1/2, C-Lion 1, Bornholm cables …) plus EMODnet Human Activities `pipelines` (Petrobaltic field lines) | ODbL 1.0; CC BY 4.0 (EMODnet) |
 | `grid_nodes` | grid | OpenStreetMap PSE 400 kV substations near the coast: Słupsk-Wierzbięcino, Żarnowiec, Choczewo, Dunowo, Żydowo-Kierzkowo, Gdańsk I / Błonia / Przyjaźń, Pelplin; Krzemienica marked *planned* | ODbL 1.0 |
+| `ports` | port | Offshore wind ports with their announced role — O&M: Łeba (Baltic Power, Bałtyk 2 / 3), Ustka (PGE Baltica), Władysławowo (Ocean Winds, BC-Wind); installation: Świnoujście (ORLEN terminal, in operation June 2025), Gdańsk T5 (Baltica 2, lease from Q4 2026), Rønne DK (Baltic Power). Role and status from the operators' announcements (URL per port, read 2026-10-08); location = the OSM port area | ODbL 1.0 (OSM locations); roles are facts from public announcements |
 | `natura2000` | protected | EEA Natura 2000 (release 2023-12) via EMODnet Human Activities `natura2000areas`, marine and coastal sites | CC BY 4.0 (EMODnet) |
 | `owf_outlines` | owf | OpenStreetMap offshore wind farm outlines (`power=plant` / `construction:power=plant`): Baltic Power, Bałtyk II, Baltica 2, Wikinger, Arkonabecken Südost | ODbL 1.0 |
 | `owf_projects` | owf (points) | EMODnet Human Activities `windfarms`: locations, status and capacity of 34 projects (Baltic Power, Baltica 1–9, Bałtyk I–III, BC-Wind, Orlen Neptun, Bornholm …) | CC BY 4.0 (EMODnet) |
@@ -64,6 +66,9 @@ simplified excerpt for screening, and the script re-downloads it.
 - Outlines of most permitted projects (only five are mapped in OSM); the others
   are EMODnet points. The individual permit areas (e.g. 44.E.1 inside basin
   PZP_44) are not published as open GIS data.
+- Ports: the roles and statuses change as terminals open — re-read the announcements.
+  Distances are sea routes on the 0.01° bathymetry grid (16-neighbour shortest path,
+  coastline cells blocked, ≤ ≈ 3 % longer than the true water route).
 - Seabed substrate is a 1:250 000 compilation of 1988–1995 mapping: it says what a
   site investigation will probably meet, not what a pile will meet. The foundation
   cost factors per class are teaching assumptions (no published premium found).
@@ -82,6 +87,8 @@ Baltica 9 / PGE; SB-510 borrows the area for teaching):
 - seabed (EMODnet Geology / PGI-NRI): mixed sediment 40 %, coarse-grained 31 %,
   sand 29 % of the site — glacial till and gravel of the Słupsk Bank area, so the
   screening warns about boulders and pile driving;
+- ports by sea: O&M Ustka 52.5 km (Łeba 71 km), installation Rønne 116.7 km
+  (Świnoujście 188 km, Gdańsk T5 188 km round the Hel peninsula);
 - already allocated (warning: Baltica 9, and the EMODnet points FEW Baltic II
   and Sharco Duo);
 - the Natura 2000 site Ławica Słupska (PLC990001) is 2 km south: an

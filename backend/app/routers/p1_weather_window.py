@@ -135,6 +135,7 @@ async def find_maintenance_window(
         request.vessel_type.value,
         request.repair_duration_hours,
         request.turbine_id,
+        request.port_km,
     )
     return MaintenanceWindowResponse(**result)
 

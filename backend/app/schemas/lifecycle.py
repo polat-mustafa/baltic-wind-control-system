@@ -12,6 +12,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.services.lifecycle.campaign import SB510_INSTALL_PORT_KM
+
 VesselId = Literal["HLV", "WTIV", "CLV", "CTV", "SURVEY"]
 
 
@@ -31,6 +33,12 @@ class CampaignRequest(BaseModel):
         None, gt=0, le=600, description="Total array cable length [km]; default 1.6 km per turbine"
     )
     export_km: float = Field(76.5, ge=1, le=300)
+    port_km: float = Field(
+        SB510_INSTALL_PORT_KM,
+        ge=0,
+        le=1000,
+        description="Installation port to the site by sea [km] (site assessment); default SB-510",
+    )
     foundation: Literal["monopile", "jacket"] = "monopile"
     start_date: date = date(2028, 4, 1)
     alpha: float = Field(
@@ -75,6 +83,9 @@ class ActivitySchema(BaseModel):
     units: int
     op_hours: float
     trip_every: int
+    trip_hours: float = Field(
+        ..., description="Port round trip: loading + transit out and back [h]"
+    )
     start_day: float = Field(..., description="Median run")
     end_day: float = Field(..., description="Median run")
     wow_days: float = Field(..., description="Waiting on weather in the median run")
@@ -92,6 +103,7 @@ class VesselSchema(BaseModel):
     wind_reference: str
     day_rate_keur: float
     mobilisation_keur: float
+    transit_kmh: float = Field(..., description="Transit speed [km/h] (NREL ORBIT / WOMBAT)")
     workable_pct_by_month: list[float | None]
     window_hours: float
     window_pct_by_month: list[float | None]

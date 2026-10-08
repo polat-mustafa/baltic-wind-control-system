@@ -12,6 +12,8 @@ export default function FarmSource({ farm }: { farm: FarmPlan }) {
     ["Export cable", `${farm.exportKm} km`],
     ["Water depth", farm.depthM ? `${farm.depthM[0].toFixed(0)}–${farm.depthM[1].toFixed(0)} m` : "not assessed"],
     ["Foundations", farm.foundation === "jacket" ? "jackets (> 40 m)" : "monopiles (≤ 40 m)"],
+    ["Installation port", farm.installPort ? `${farm.installPort.name}, ${farm.installPort.km.toFixed(0)} km by sea` : "not assessed"],
+    ["O&M port", farm.omPort ? `${farm.omPort.name}, ${farm.omPort.km.toFixed(0)} km by sea` : "not assessed"],
   ];
   return (
     <div className="rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="farm-source">

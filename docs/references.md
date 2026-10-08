@@ -109,6 +109,7 @@ Citation rules used here:
 | EIA screening of wind farms (Annex II 3(i)) | `services/site_assessment/assess.py` | [S28] |
 | Weighted linear combination of criteria | `services/site_assessment/suitability.py` | Standard GIS multi-criteria method; thresholds and weights are labelled *illustrative* in the API model card |
 | Seabed substrate check (Folk 5 classes), piling and burial notes, foundation cost factor (*illustrative*) | `services/site_assessment/criteria.py` (`SEABED_CLASSES`), `assess.py`, `scripts/fetch_marine_layers.py` (`fetch_seabed`), `frontend/src/lib/layout/cost.ts` | [38], [S37], [S38] |
+| Ports: announced O&M / installation role, distance by sea (16-neighbour shortest path on the bathymetry grid) | `services/site_assessment/sea_routes.py`, `assess.py` (`_ports_check`), `scripts/fetch_marine_layers.py` (`PORTS`) | operators' announcements (URLs in the pack); OSM locations |
 | Site wind climate: mean speed, Weibull k and A at 150 m; 12-sector rose | `services/site_assessment/wind_climate.py`, `scripts/fetch_wind_climate.py`, `routers/p1.py` (`_rose_site`) | [28], [29], [30] |
 
 ## Academy — scored missions
@@ -131,6 +132,8 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 | Topic | Implementation | Reference |
 |---|---|---|
 | Weather-restricted operations, α factor (OP_WF = α · OP_LIM) | `backend/app/services/lifecycle/campaign.py` | [S29] |
+| Port round trips: fastening times at the quay, vessel transit speeds | `backend/app/services/lifecycle/campaign.py` (`LOAD_HOURS`, `round_trip`) | [39] |
+| O&M working day and CTV transit from the O&M port | `backend/app/services/p1/weather_window.py` (`find_maintenance_window`) | [40] |
 | Synthetic sea states: Rayleigh Hs, Weibull k = 2 wind, AR(1) persistence, monthly Baltic means | `backend/app/services/lifecycle/weather.py` (monthly means of `services/p1/weather_window.py`) | Marginals as the O&M weather-window model; persistence and wind–wave correlation *illustrative* |
 | Hub-height wind for the jack-up crane limit (power law, α = 0.14) | `backend/app/services/lifecycle/weather.py` | [S30] |
 | As-built register: strings, OSS feeder bays, cable sections | `frontend/src/lib/lifecycle/farm.ts` (cable tree of `lib/layout/cables.ts`) | as the layout canvas |
@@ -191,6 +194,8 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 36. European Central Bank. Euro foreign exchange reference rates, USD, annual average 2023 = 1.0813 (data-api.ecb.europa.eu, series EXR.A.USD.EUR.SP00.A).
 37. Abbas, N. J., Zalkind, D. S., Pao, L., Wright, A. "A reference open-source controller for fixed and floating offshore wind turbines." *Wind Energy Science* 7, 53–73, 2022; ROSCO v2.10.1 source (`rosco/controller/src/Controllers.f90`, `ControllerBlocks.f90`), github.com/NREL/ROSCO (Apache-2.0), read 2026-10-08.
 38. EMODnet Geology, seabed substrate 1:250 000 (Folk 5-class scheme), https://emodnet.ec.europa.eu/en/geology — CC BY 4.0; Polish waters from Mojski, J. E. (ed.), *Geological Map of the Baltic Sea Bottom 1:200 000*, Polish Geological Institute, 1988–1995.
+39. NREL ORBIT (Offshore Renewables Balance-of-system and Installation Tool), github.com/WISDEM/ORBIT — `ORBIT/core/defaults/process_times.yaml`, `library/vessels` (example_heavy_lift_vessel, example_wtiv, example_cable_lay_vessel), `library/turbines/15MW_generic.yaml`; Apache-2.0.
+40. NREL WOMBAT (Windfarm Operations and Maintenance cost-Benefit Analysis Tool), github.com/WISDEM/WOMBAT — `library/default/vessels/ctv.yaml` (37.04 km/h), `library/default/project/config/base_osw_fixed.yaml` (workday 07–19); Apache-2.0.
 
 ## Standards and regulations
 

@@ -32,6 +32,7 @@ from app.schemas.site_assessment import (
     LayerInfo,
     LayersResponse,
     MissingLayer,
+    PortSchema,
     RasterResponse,
     ReasonArea,
     RegionInfo,
@@ -303,6 +304,16 @@ async def post_assess(req: AssessRequest) -> AssessResponse:
             approximate=a.wind.approximate,
         ),
         seabed=None if a.seabed is None else {k: round(v, 4) for k, v in a.seabed.items()},
+        ports=[
+            PortSchema(
+                name=p.name,
+                use="O&M" if p.use == "O&M" else "installation",
+                status=p.status,
+                km=None if p.km is None else round(p.km, 1),
+                basis=p.basis,
+            )
+            for p in a.ports
+        ],
         checks=[
             CheckSchema(
                 id=c.id, title=c.title, status=c.status, detail=c.detail, reference=c.reference

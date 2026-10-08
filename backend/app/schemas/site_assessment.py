@@ -122,6 +122,14 @@ class SeabedClassCard(BaseModel):
     quality: Literal["illustrative"] = "illustrative"
 
 
+class PortSchema(BaseModel):
+    name: str
+    use: Literal["O&M", "installation"]
+    status: str
+    km: float | None = Field(description="Shortest sea route to the site [km]; null = no route")
+    basis: str = Field(description="Where the port's role comes from")
+
+
 class RasterResponse(BaseModel):
     """One raster layer clipped to a bounding box: ``bands[name][j][i]`` at
     (lon0 + i·dlon, lat0 + j·dlat), null = no data."""
@@ -237,6 +245,9 @@ class AssessResponse(BaseModel):
     wind: WindClimateSchema | None = None
     seabed: dict[str, float] | None = Field(
         None, description="Seabed substrate class → share of the mapped site area"
+    )
+    ports: list[PortSchema] = Field(
+        default_factory=list, description="Offshore wind ports, nearest first per use"
     )
     checks: list[CheckSchema]
     complete: bool

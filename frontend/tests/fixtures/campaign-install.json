@@ -11,21 +11,21 @@
  ],
  "unfinished_runs": 0,
  "total_days": {
-  "p10": 42.2,
-  "p50": 55.5,
-  "p90": 70.4
+  "p10": 51.2,
+  "p50": 63.1,
+  "p90": 75.0
  },
  "cost_meur": {
-  "p10": 26.8,
-  "p50": 32.6,
-  "p90": 38.0
+  "p10": 32.5,
+  "p50": 36.9,
+  "p90": 42.2
  },
  "milestones": [
   {
    "id": "oss",
    "label": "Offshore substation installed",
    "days": {
-    "p10": 5.0,
+    "p10": 5.5,
     "p50": 7.9,
     "p90": 14.1
    },
@@ -47,45 +47,45 @@
    "id": "foundations",
    "label": "All foundations installed",
    "days": {
-    "p10": 31.2,
-    "p50": 39.6,
-    "p90": 49.2
+    "p10": 40.0,
+    "p50": 46.0,
+    "p90": 55.4
    },
-   "date_p50": "2028-05-10",
-   "date_p90": "2028-05-20"
+   "date_p50": "2028-05-17",
+   "date_p90": "2028-05-26"
   },
   {
    "id": "first-power",
    "label": "First power (first turbine commissioned)",
    "days": {
-    "p10": 21.1,
-    "p50": 28.4,
-    "p90": 39.3
+    "p10": 28.3,
+    "p50": 35.2,
+    "p90": 43.3
    },
-   "date_p50": "2028-04-29",
-   "date_p90": "2028-05-10"
+   "date_p50": "2028-05-06",
+   "date_p90": "2028-05-14"
   },
   {
    "id": "turbines",
    "label": "All turbines installed",
    "days": {
-    "p10": 41.4,
-    "p50": 54.1,
-    "p90": 69.8
+    "p10": 50.5,
+    "p50": 61.9,
+    "p90": 74.5
    },
-   "date_p50": "2028-05-25",
-   "date_p90": "2028-06-09"
+   "date_p50": "2028-06-01",
+   "date_p90": "2028-06-14"
   },
   {
    "id": "cod",
    "label": "Full commercial operation",
    "days": {
-    "p10": 42.2,
-    "p50": 55.5,
-    "p90": 70.4
+    "p10": 51.2,
+    "p50": 63.1,
+    "p90": 75.0
    },
-   "date_p50": "2028-05-26",
-   "date_p90": "2028-06-10"
+   "date_p50": "2028-06-03",
+   "date_p90": "2028-06-15"
   }
  ],
  "activities": [
@@ -96,17 +96,18 @@
    "units": 2,
    "op_hours": 36.0,
    "trip_every": 2,
+   "trip_hours": 57.3,
    "start_day": 0.0,
-   "end_day": 13.8,
-   "wow_days": 8.8,
+   "end_day": 11.5,
+   "wow_days": 6.0,
    "end_days": {
-    "p10": 5.0,
+    "p10": 5.5,
     "p50": 7.9,
     "p90": 14.1
    },
-   "wow_share_pct": 31.7,
+   "wow_share_pct": 28.1,
    "duration_days": {
-    "p10": 5.0,
+    "p10": 5.5,
     "p50": 7.9,
     "p90": 14.1
    }
@@ -118,19 +119,20 @@
    "units": 12,
    "op_hours": 30.0,
    "trip_every": 4,
-   "start_day": 13.8,
-   "end_day": 41.0,
-   "wow_days": 6.2,
+   "trip_hours": 113.3,
+   "start_day": 11.5,
+   "end_day": 59.0,
+   "wow_days": 18.2,
    "end_days": {
-    "p10": 31.2,
-    "p50": 39.6,
-    "p90": 49.2
+    "p10": 40.0,
+    "p50": 46.0,
+    "p90": 55.4
    },
-   "wow_share_pct": 30.7,
+   "wow_share_pct": 22.7,
    "duration_days": {
-    "p10": 24.5,
-    "p50": 31.4,
-    "p90": 36.8
+    "p10": 32.4,
+    "p50": 37.4,
+    "p90": 47.6
    }
   },
   {
@@ -140,9 +142,10 @@
    "units": 11,
    "op_hours": 24.0,
    "trip_every": 0,
+   "trip_hours": 0.0,
    "start_day": 0.0,
-   "end_day": 19.0,
-   "wow_days": 8.0,
+   "end_day": 14.0,
+   "wow_days": 3.0,
    "end_days": {
     "p10": 11.0,
     "p50": 13.0,
@@ -162,19 +165,20 @@
    "units": 12,
    "op_hours": 24.000000000000004,
    "trip_every": 0,
-   "start_day": 21.2,
-   "end_day": 42.2,
-   "wow_days": 2.0,
+   "trip_hours": 0.0,
+   "start_day": 35.2,
+   "end_day": 60.2,
+   "wow_days": 2.2,
    "end_days": {
-    "p10": 32.5,
-    "p50": 40.9,
-    "p90": 50.4
+    "p10": 42.8,
+    "p50": 47.5,
+    "p90": 56.7
    },
-   "wow_share_pct": 9.5,
+   "wow_share_pct": 10.5,
    "duration_days": {
-    "p10": 20.9,
-    "p50": 23.2,
-    "p90": 26.8
+    "p10": 25.0,
+    "p50": 25.0,
+    "p90": 27.5
    }
   },
   {
@@ -184,19 +188,20 @@
    "units": 12,
    "op_hours": 36.0,
    "trip_every": 4,
-   "start_day": 19.2,
-   "end_day": 55.5,
-   "wow_days": 12.2,
+   "trip_hours": 89.3,
+   "start_day": 24.0,
+   "end_day": 61.2,
+   "wow_days": 0.0,
    "end_days": {
-    "p10": 41.4,
-    "p50": 54.1,
-    "p90": 69.8
+    "p10": 50.5,
+    "p50": 61.9,
+    "p90": 74.5
    },
-   "wow_share_pct": 38.9,
+   "wow_share_pct": 35.2,
    "duration_days": {
-    "p10": 32.0,
-    "p50": 41.6,
-    "p90": 60.1
+    "p10": 38.5,
+    "p50": 47.8,
+    "p90": 59.1
    }
   },
   {
@@ -206,9 +211,10 @@
    "units": 6,
    "op_hours": 12.0,
    "trip_every": 0,
-   "start_day": 19.0,
-   "end_day": 29.0,
-   "wow_days": 7.0,
+   "trip_hours": 0.0,
+   "start_day": 14.0,
+   "end_day": 28.8,
+   "wow_days": 11.8,
    "end_days": {
     "p10": 15.0,
     "p50": 19.4,
@@ -228,19 +234,20 @@
    "units": 12,
    "op_hours": 12.0,
    "trip_every": 0,
-   "start_day": 32.8,
-   "end_day": 56.0,
-   "wow_days": 0.8,
+   "trip_hours": 0.0,
+   "start_day": 45.5,
+   "end_day": 63.2,
+   "wow_days": 0.0,
    "end_days": {
-    "p10": 42.2,
-    "p50": 55.5,
-    "p90": 70.4
+    "p10": 51.2,
+    "p50": 63.1,
+    "p90": 75.0
    },
-   "wow_share_pct": 13.8,
+   "wow_share_pct": 9.9,
    "duration_days": {
     "p10": 17.5,
-    "p50": 23.8,
-    "p90": 42.0
+    "p50": 27.0,
+    "p90": 41.3
    }
   }
  ],
@@ -254,6 +261,7 @@
    "wind_reference": "10 m",
    "day_rate_keur": 300.0,
    "mobilisation_keur": 1500.0,
+   "transit_kmh": 7.0,
    "workable_pct_by_month": [
     30.7,
     30.8,
@@ -284,19 +292,19 @@
     9.2
    ],
    "charter_days": {
-    "p10": 31.2,
-    "p50": 39.6,
-    "p90": 49.2
+    "p10": 40.0,
+    "p50": 46.0,
+    "p90": 55.4
    },
    "wow_days": {
     "p10": 5.2,
-    "p50": 13.6,
-    "p90": 23.2
+    "p50": 11.2,
+    "p90": 20.7
    },
    "cost_meur": {
-    "p10": 10.9,
-    "p50": 13.4,
-    "p90": 16.3
+    "p10": 13.5,
+    "p50": 15.3,
+    "p90": 18.1
    }
   },
   {
@@ -308,6 +316,7 @@
    "wind_reference": "10 m",
    "day_rate_keur": 150.0,
    "mobilisation_keur": 800.0,
+   "transit_kmh": 11.5,
    "workable_pct_by_month": [
     47.9,
     48.9,
@@ -338,19 +347,19 @@
     22.2
    ],
    "charter_days": {
-    "p10": 32.5,
-    "p50": 40.9,
-    "p90": 50.4
+    "p10": 42.8,
+    "p50": 47.5,
+    "p90": 56.7
    },
    "wow_days": {
-    "p10": 1.2,
-    "p50": 4.6,
-    "p90": 10.2
+    "p10": 1.9,
+    "p50": 5.0,
+    "p90": 9.5
    },
    "cost_meur": {
-    "p10": 5.7,
-    "p50": 6.9,
-    "p90": 8.4
+    "p10": 7.2,
+    "p50": 7.9,
+    "p90": 9.3
    }
   },
   {
@@ -362,6 +371,7 @@
    "wind_reference": "hub height 150 m",
    "day_rate_keur": 250.0,
    "mobilisation_keur": 1000.0,
+   "transit_kmh": 10.0,
    "workable_pct_by_month": [
     33.1,
     32.7,
@@ -392,19 +402,19 @@
     10.4
    ],
    "charter_days": {
-    "p10": 32.0,
-    "p50": 41.6,
-    "p90": 60.1
+    "p10": 38.5,
+    "p50": 47.8,
+    "p90": 59.1
    },
    "wow_days": {
-    "p10": 7.3,
-    "p50": 17.6,
-    "p90": 36.1
+    "p10": 4.9,
+    "p50": 18.1,
+    "p90": 29.8
    },
    "cost_meur": {
-    "p10": 9.0,
-    "p50": 11.4,
-    "p90": 16.0
+    "p10": 10.6,
+    "p50": 12.9,
+    "p90": 15.8
    }
   },
   {
@@ -416,6 +426,7 @@
    "wind_reference": "10 m",
    "day_rate_keur": 4.0,
    "mobilisation_keur": 5.0,
+   "transit_kmh": 37.04,
    "workable_pct_by_month": [
     26.0,
     25.8,
@@ -446,17 +457,17 @@
     15.6
    ],
    "charter_days": {
-    "p10": 29.4,
-    "p50": 38.2,
-    "p90": 57.6
+    "p10": 39.0,
+    "p50": 47.9,
+    "p90": 60.4
    },
    "wow_days": {
-    "p10": 3.0,
-    "p50": 5.9,
-    "p90": 15.9
+    "p10": 1.2,
+    "p50": 5.8,
+    "p90": 11.9
    },
    "cost_meur": {
-    "p10": 0.1,
+    "p10": 0.2,
     "p50": 0.2,
     "p90": 0.2
    }
@@ -477,10 +488,11 @@
   "Dec"
  ],
  "assumptions": [
-  "Weather-restricted operations after DNV-ST-N001: each unit needs a window in which Hs and wind stay below \u03b1 \u00d7 the operational limit for its whole planned duration.",
-  "Sea states: Rayleigh Hs and Weibull k = 2 wind around the monthly Baltic means of the O&M model, 6-hourly, persistence \u03c1 = 0.9 per step and wind\u2013wave correlation 0.7 (illustrative, not a hindcast).",
-  "Jack-up crane limit applies at hub height (150 m); 10 m wind is scaled with the power law \u03b1 = 0.14 (IEC 61400-3-1 normal wind profile).",
-  "Vessel limits, unit durations, deck capacity, day rates and mobilisation are illustrative teaching values.",
-  "Vessels following another activity are mobilised just in time; charter covers their work including waiting on weather and gaps up to 30 days (longer gaps: a new mobilisation)."
+  "Weather-restricted operations after DNV-ST-N001: each unit needs a window in which Hs and wind stay below α × the operational limit for its whole planned duration.",
+  "Sea states: Rayleigh Hs and Weibull k = 2 wind around the monthly Baltic means of the O&M model, 6-hourly, persistence ρ = 0.9 per step and wind–wave correlation 0.7 (illustrative, not a hindcast).",
+  "Jack-up crane limit applies at hub height (150 m); 10 m wind is scaled with the power law α = 0.14 (IEC 61400-3-1 normal wind profile).",
+  "Port round trips: units × fastening time at the quay + 2 × port distance / transit speed (NREL ORBIT process times and vessel library); the port distance is the sea route from the installation port.",
+  "Vessel limits, operation durations, deck capacity, day rates and mobilisation are illustrative teaching values.",
+  "The array cable vessel is mobilised just in time behind the foundations; charter covers the work including waiting on weather, idle time and gaps up to 30 days (a longer gap costs a new mobilisation)."
  ]
 }

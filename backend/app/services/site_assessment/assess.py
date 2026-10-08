@@ -17,6 +17,7 @@ from typing import Literal
 
 import numpy as np
 
+from app.services.p1.weather_window import CTV_SPEED_KMH
 from app.services.site_assessment.criteria import SEABED_CLASSES, Criteria, depth_band
 from app.services.site_assessment.geo import (
     is_simple,
@@ -25,6 +26,7 @@ from app.services.site_assessment.geo import (
     polygon_area_km2,
 )
 from app.services.site_assessment.layers import RegionPack
+from app.services.site_assessment.sea_routes import sea_km
 from app.services.site_assessment.suitability import (
     CLASS_MARGINAL,
     CLASS_POOR,
@@ -58,6 +60,17 @@ class Check:
 
 
 @dataclass(frozen=True)
+class PortReach:
+    """An offshore wind port and its distance to the site by sea."""
+
+    name: str
+    use: str  # "O&M" | "installation"
+    status: str
+    km: float | None  # shortest sea route to the nearest point of the site (None: no route)
+    basis: str
+
+
+@dataclass(frozen=True)
 class Assessment:
     area_km2: float
     centroid: tuple[float, float]  # lon, lat
@@ -79,6 +92,7 @@ class Assessment:
     projects: list[str]  # real wind farm projects inside the site or its energy basins
     wind: WindClimate  # hub-height wind climate over the site
     seabed: dict[str, float] | None  # substrate class name → share of the site (mapped part)
+    ports: list[PortReach]  # nearest first within each use
     checks: list[Check]
     complete: bool
 
@@ -193,6 +207,20 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
             projects.append(label)
     basin_names = [str(f.props.get("basin") or f.name) for f, _ in basins]
     seabed = _seabed_shares(pack, slon, slat)
+    all_lon, all_lat = np.concatenate([slon, blon]), np.concatenate([slat, blat])
+    ports = sorted(
+        (
+            PortReach(
+                f.name,
+                str(f.props.get("use", "")),
+                str(f.props.get("status", "")),
+                sea_km(pack, (float(f.coordinates[0]), float(f.coordinates[1])), all_lon, all_lat),
+                str(f.props.get("basis", "")),
+            )
+            for f in pack.point_features("port")
+        ),
+        key=lambda p: (p.use, math.inf if p.km is None else p.km),
+    )
 
     checks = _checks(
         pack,
@@ -208,6 +236,7 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
         basin_names,
         projects,
         seabed,
+        ports,
     )
 
     return Assessment(
@@ -231,6 +260,7 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
         projects=projects,
         wind=site_wind(pack, slon, slat),
         seabed=seabed,
+        ports=ports,
         checks=checks,
         complete=is_complete(pack),
     )
@@ -296,6 +326,30 @@ def _seabed_check(seabed: dict[str, float] | None) -> Check:
     )
 
 
+def _ports_check(pack: RegionPack, ports: list[PortReach]) -> Check:
+    title = "Ports"
+    if not pack.has("port"):
+        return Check("ports", title, "unknown", "No ports layer loaded.")
+    parts = []
+    for use in ("O&M", "installation"):
+        best = next((p for p in ports if p.use == use and p.km is not None), None)
+        if best is None or best.km is None:
+            parts.append(f"no {use} port reachable by sea")
+            continue
+        extra = f", CTV {best.km / CTV_SPEED_KMH:.1f} h each way at 20 kn" if use == "O&M" else ""
+        parts.append(
+            f"nearest {use} port {best.name} ({best.status}) {best.km:.0f} km by sea{extra}"
+        )
+    text = "; ".join(parts)
+    return Check(
+        "ports",
+        title,
+        "info",
+        text[0].upper() + text[1:] + ".",
+        "Port roles: operators' announcements; sea route on the EMODnet bathymetry grid",
+    )
+
+
 def _checks(
     pack: RegionPack,
     crit: Criteria,
@@ -310,6 +364,7 @@ def _checks(
     basins: list[str],
     projects: list[str],
     seabed: dict[str, float] | None,
+    ports: list[PortReach],
 ) -> list[Check]:
     checks: list[Check] = []
 
@@ -568,6 +623,7 @@ def _checks(
         checks.append(Check("depth", "Water depth", "unknown", "Bathymetry not loaded yet."))
 
     checks.append(_seabed_check(seabed))
+    checks.append(_ports_check(pack, ports))
 
     checks.append(
         Check(

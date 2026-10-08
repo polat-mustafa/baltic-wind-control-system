@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import re
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -19,6 +21,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.lifecycle.campaign import SB510_INSTALL_PORT_KM
+from app.services.p1.weather_window import SB510_OM_PORT_KM
 from app.services.site_assessment.assess import InvalidSiteError, assess_site
 from app.services.site_assessment.criteria import Criteria, depth_band
 from app.services.site_assessment.geo import (
@@ -33,6 +37,7 @@ from app.services.site_assessment.geo import (
     polygon_area_km2,
 )
 from app.services.site_assessment.layers import load_region, parse_pack
+from app.services.site_assessment.sea_routes import sea_grid, sea_km
 from app.services.site_assessment.suitability import (
     CLASS_EXCLUDED,
     CLASS_MARGINAL,
@@ -648,3 +653,72 @@ def test_seabed_raster_and_class_cards_over_the_api() -> None:
     assert [c["code"] for c in cards] == [1, 2, 3, 4, 5]
     assert next(c for c in cards if c["name"] == "Sand")["foundation_factor"] == 1.0
     assert all(c["quality"] == "illustrative" for c in cards)
+
+
+# ── Ports and sea routes ─────────────────────────────────────────
+
+
+def test_sb510_ports_by_sea() -> None:
+    """Ustka (PGE Baltica O&M base) is the nearest O&M port, Rønne the nearest installation
+    port; routes stay at sea (Gdańsk goes round the Hel peninsula)."""
+    a = assess_site(load_region("southern-baltic"), Criteria(), SB510_SITE)
+    km = {p.name: p.km for p in a.ports}
+    om = [p for p in a.ports if p.use == "O&M"]
+    inst = [p for p in a.ports if p.use == "installation"]
+    assert om[0].name == "Ustka" and om[0].km == pytest.approx(SB510_OM_PORT_KM, abs=0.05)
+    assert inst[0].name == "Rønne (DK)"
+    assert inst[0].km == pytest.approx(SB510_INSTALL_PORT_KM, abs=0.05)
+    # the straight line Gdańsk T5 → SB-510 is ≈ 150 km; round Hel it is longer
+    assert km["Gdańsk T5"] is not None and km["Gdańsk T5"] > 175
+    assert km["Łeba"] == pytest.approx(71.2, abs=1.0)
+    check = next(c for c in a.checks if c.id == "ports")
+    assert check.status == "info" and "Ustka" in check.detail and "CTV" in check.detail
+    # the frontend twin (lib/lifecycle/farm.ts SB510_PORTS)
+    ts = Path(__file__).parents[2] / "frontend/src/lib/lifecycle/farm.ts"
+    if ts.exists():  # backend-only checkout
+        twin = re.findall(r'name: "([^"]+)", km: ([\d.]+)', ts.read_text(encoding="utf-8"))
+        assert twin == [
+            (inst[0].name, str(SB510_INSTALL_PORT_KM)),
+            (om[0].name, str(SB510_OM_PORT_KM)),
+        ]
+
+
+def test_sea_route_goes_round_land() -> None:
+    """A wall of land across the synthetic sea forces a detour around its end."""
+    pack = synthetic_pack()
+    grid = sea_grid(pack)
+    assert grid is not None
+    port = (16.05, 54.5)
+    lon, lat = np.array([16.95]), np.array([54.5])
+    straight = sea_km(pack, port, lon, lat)
+    assert straight == pytest.approx(0.9 * 111.19 * math.cos(math.radians(54.95)), rel=0.05)
+    wall = dataclasses.replace(
+        pack,
+        layers=pack.layers
+        + parse_pack(
+            {
+                "region": "t",
+                "title": "t",
+                "bbox": [16.0, 53.9, 17.0, 55.0],
+                "pending": [],
+                "layers": [
+                    {
+                        "id": "wall",
+                        "title": "wall",
+                        "role": "shore",
+                        "geometry": "line",
+                        "source": "t",
+                        "license": "t",
+                        "retrieved": "t",
+                        "features": [{"name": "spit", "coordinates": [[16.5, 54.0], [16.5, 54.8]]}],
+                    }
+                ],
+            }
+        ).layers,
+    )
+    detour = sea_km(wall, port, lon, lat)
+    assert detour is not None and straight is not None
+    # shortest way round: up to the end of the spit (54.8 °N) and down again
+    kx = 111.19 * math.cos(math.radians(54.95))
+    round_end = 2 * math.hypot(0.45 * kx, 0.3 * 111.19)
+    assert round_end * 0.98 < detour < round_end * 1.2

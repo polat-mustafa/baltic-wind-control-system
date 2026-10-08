@@ -42,3 +42,7 @@ export const saveProject = (id: string, revision: number, data: ProjectDoc) =>
   });
 export const deleteProject = (id: string) => request<void>(`${BASE}/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const runProjectAep = (id: string, wind: AepWind) => post<AepRun>(`${BASE}/${encodeURIComponent(id)}/aep`, wind);
+/** Stored PyWake runs of a saved project, newest first (≤ 20). */
+export const aepHistory = (id: string) => request<AepRun[]>(`${BASE}/${encodeURIComponent(id)}/aep`);
+/** windIO 2.x plant file of the saved project (YAML text). */
+export const windioUrl = (id: string) => `${BASE}/${encodeURIComponent(id)}/windio.yaml`;

@@ -32,6 +32,7 @@ dependencies = [
     "torch>=2.2",
     "structlog>=24.0.0",
     "asyncua>=1.1.8",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -117,7 +118,7 @@ disallow_untyped_defs = false
 [[tool.mypy.overrides]]
 module = [
     "scipy.*", "py_wake.*", "xarray.*", "pandapower.*", "andes.*",
-    "xgboost.*", "shap.*", "sklearn.*", "torch.*", "asyncua.*",
+    "xgboost.*", "shap.*", "sklearn.*", "torch.*", "asyncua.*", "yaml.*",
 ]
 ignore_missing_imports = true
 

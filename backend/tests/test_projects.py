@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -239,3 +240,48 @@ def test_aep_runs_are_stored_with_p_values(client: TestClient) -> None:
 def test_aep_needs_turbines(client: TestClient) -> None:
     pid = client.post(URL, json=_doc(turbines=[])).json()["id"]
     assert client.post(f"{URL}/{pid}/aep", json={}).status_code == 422
+
+
+def test_windio_export(client: TestClient) -> None:
+    """windIO 2.x plant file: round-trips through YAML, carries the schema's required keys."""
+    doc = _doc()
+    pid = client.post(URL, json=doc).json()["id"]
+    r = client.get(f"{URL}/{pid}/windio.yaml")
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"].startswith("application/yaml")
+    assert 'filename="my-farm.windio.yaml"' in r.headers["content-disposition"]
+    assert r.text.startswith("# windIO 2.x")
+    assert "&id" not in r.text  # no YAML anchors: other tools read it as plain data
+    w = yaml.safe_load(r.text)
+    assert yaml.safe_load(yaml.safe_dump(w)) == w  # plain data only (no Python tags)
+
+    # Required keys (windIO schemas/plant: wind_energy_system, site, energy_resource,
+    # wind_farm, turbine)
+    assert {"name", "site", "wind_farm"} <= w.keys()
+    site, farm = w["site"], w["wind_farm"]
+    assert {"name", "boundaries", "energy_resource"} <= site.keys()
+    res = site["energy_resource"]["wind_resource"]
+    assert {"weibull_a", "weibull_k", "sector_probability"} <= res.keys()
+    assert sum(res["sector_probability"]["data"]) == pytest.approx(1.0, abs=1e-3)
+    assert 5 < res["weibull_a"]["data"][0] < 15  # m/s at 150 m, southern Baltic
+    assert {"name", "layouts"} <= farm.keys()
+    turbine = farm["turbines"]
+    assert {"name", "performance", "hub_height", "rotor_diameter"} <= turbine.keys()
+    assert turbine["rotor_diameter"] == pytest.approx(D)
+    perf = turbine["performance"]
+    assert perf["rated_power"] == 15e6  # W
+    assert max(perf["power_curve"]["power_values"]) <= perf["rated_power"]  # domain rule 1
+
+    # Layout: metres about the turbine centroid, 6 D spacing east-west, ids kept
+    xy = farm["layouts"][0]["coordinates"]
+    assert farm["layouts"][0]["turbine_identifiers"] == ["T01", "T02", "T03"]
+    assert sum(xy["x"]) == pytest.approx(0, abs=1) and sum(xy["y"]) == pytest.approx(0, abs=1)
+    assert xy["x"][1] - xy["x"][0] == pytest.approx(6 * D, rel=0.002)
+    assert xy["crs"].startswith("+proj=eqc")
+    assert len(site["boundaries"]["polygons"][0]["x"]) == 4
+    assert farm["electrical_substations"][0]["electrical_substation"]["coordinates"]["x"]
+
+
+def test_windio_needs_turbines(client: TestClient) -> None:
+    pid = client.post(URL, json=_doc(turbines=[])).json()["id"]
+    assert client.get(f"{URL}/{pid}/windio.yaml").status_code == 422

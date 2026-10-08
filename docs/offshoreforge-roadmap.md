@@ -151,24 +151,24 @@ Phase 13 notes (order 4 → 1 → 2 → 5 → 3 → 6 → 7, one commit each):
   `SB510_OM_PORT_KM` / `SB510_INSTALL_PORT_KM`, frontend twin `SB510_PORTS`, all pinned by tests). Campaign trips =
   units × ORBIT fastening time + 2 × distance / ORBIT speed (HLV 7, WTIV 10, CLV 11.5 km/h) instead of a fixed 48 h →
   SB-510 campaign P50 day 180 / P90 day 227 (was 167 / 201). O&M maintenance window: WOMBAT 07–19 working day minus the
-  CTV transit at 37.04 km/h (SB-510 9.2 h of work); no frontend calls that endpoint yet.
+  CTV transit at 37.04 km/h (SB-510 9.2 h of work); the P1 Availability & O&M tab calls it (follow-ups below).
 - 5 Grid nodes: short names, `status` existing / commissioning (Choczewo) / planned (Krzemienica, Bałtyk 1) with PSE's
   investment pages as `basis`. Assessment ranks every node, takes `grid_node` (unknown → 422) and checks it (planned /
   commissioning warns; a grid matter, not a permit condition). Picker in the site report; the choice lives in the site
-  store and the project document (`site.gridNode`) and goes into `X-Farm` → `FarmSpec.grid_node`. The grid
-  short-circuit power stays the illustrative 10 GVA for every node — per-node fault levels would need PSE data.
+  store and the project document (`site.gridNode`) and goes into `X-Farm` → `FarmSpec.grid_node`. Per-node
+  short-circuit power: see the follow-ups below.
 - 3 Route check: `POST /site/route-check` (`route_check.py`): drawn route or automatic shortest sea path to the node;
   km subsea / land, landfall, Natura / military km, shipping-basin and cable crossings with angles (< 45° warns, ICPC
   Rec. 2; 45° is a teaching proxy for shipping lanes). SB-510's surveyed route = 76.5 km (63.4 + 13.1), PZP_15 at
   89°, no cable crossing; findings: 11.1 km of the coastal bird area (HDD), 1.5 km of Jezioro Wicko on land, and
-  24.5 km through a military National Defence Area — the SB-510 route was NOT re-drawn (owner's call). The checked
+  24.5 km through a military National Defence Area — re-drawn afterwards (follow-ups below). The checked
   length (`site.route`, `site.routeKm`) is the farm's export length in Layout cost, `X-Farm` and construction.
 - 6 Cluster wakes: `POST /site/neighbours` (60 km, Platis et al. 2018) → virtual turbines of the site's model; outlines
   filled, point-only projects a square of P / median outline density (10.5 MW/km²), points inside outlines dropped,
   same-location points merged, projects holding the site's own area left out. `wake-analysis-custom` takes neighbour
   positions; external loss = TurbOPark (Nygaard et al. 2022) alone vs with neighbours on a 5° × 2 m/s grid,
-  PropagateDownwind, rotor-centre averaging (PyWake's overlap table needs h5py — not added). SB-510: 9 farms, 646
-  virtual turbines, −4.8 % (site climate; −4.1 % with Layout's regional rose), ≈ 20 s. The Gaussian model gives
+  PropagateDownwind, at first rotor-centre averaging (−4.8 %, ≈ 20 s), now the full model (follow-ups below). The
+  Gaussian model gives
   −0.96 % for the same farms. Layout button "Estimate external loss"; LCOE and the report's net energy include it.
 - 7 Uncertainty: `uncertainty_components()` — NEWA spread 0.54 m/s × AEP sensitivity (computed, SB-510 0.98), ERA5
   IAV 4.20 % (`fetch_wind_climate.py --iav`, 1995–2024) / √30 and / √25, wake + blockage 25 % of the loss (Walker et
@@ -181,6 +181,37 @@ Phase 13 notes (order 4 → 1 → 2 → 5 → 3 → 6 → 7, one commit each):
 - e2e: Site & Permits (route panel, grid picker), Layout (card seabed row, neighbour block), Report (seabed column,
   P-values) and Construction (ports) change their look → `npm run e2e:update` locally.
 
+Phase 13 follow-ups (owner's decision 2026-10-08: re-route with real data, finish the open items), one commit each:
+- SB-510 re-route: OSS → round the west end of Ławica Słupska (≥ 1.7 km) → PZP_15 / PZP_10 at 62–67° → between
+  Darłowo's approach channel PZP_23 and the military National Defence Area (≥ 0.7 km from each) → landfall
+  Darłówko-Wschodnie → 28.7 km on land north of Dolina Wieprzy i Studnicy (PLH220038) → PSE Krzemienica, the
+  connection point PGE announced for Baltica 9+ (44.E.1; Słupsk-Wierzbięcino serves Bałtyk II/III). Route check:
+  108.0 km (79.3 + 28.7), no military / munitions / cable, only PLB990002 (8.5 km at sea, HDD). The automatic route
+  (`auto_route`) now closes military + munitions (1 km buffer), weights Natura × 10 and shipping × 3, lands outside
+  harbour channels and checks the land leg. `design(STRING_LAYOUT, 108)`: Q_cable 624 Mvar, 4 × 180 Mvar reactors,
+  ±120 Mvar, filter 2 Mvar h16 (array resonance 880 Hz, h17 74.5 % → 31.5 %; the 115 Hz cable–grid resonance stays
+  ≤ 75 %). Load flow: export 99 % at 510 MW, losses 10.1 MW, buses 0.997–1.015 pu; N-1 export trip 174 % → runback
+  to 279 MW; Ferranti 4.3 %, uncompensated rise 24.5 %; IEC 60909 OSS 66 kV 19.5 / 12.5 kA, OSS 220 kV 7.8 kA;
+  terminal SCR 2.9 (very-weak scenario 0.75 GVA so GFL still has an operating point). P5: onshore OLTC pre-set 3
+  steps; circuit-1 PPC limit from a load-flow capability (`circuit1_capability_mw`, 233 MW → 210 MW; the held tap
+  sags the onshore busbar to 0.97 pu, the STATCOM sends ≈ 100 Mvar ashore — the analytic 273 MW is too high);
+  energising from shore loads cable 1 to 101 % for the minutes until the OSS end is live. DTS: HDD 78.7–79.5 km,
+  818 A at full load → J-tube ≈ 82 °C (alarm, below 90 °C), N-1 1 438 A → 37 min. The SB-510 site preselects
+  Krzemienica (`CASE_STUDY_GRID_NODE`). Frontend `SB510_NETWORK` was still 3 × 170 / 442 → fixed; landing cable
+  losses use the mean I² along the cable (Ic²/12).
+- Per-node short-circuit power: PSE publishes none (not in PRSP 2025–2034 or elsewhere; only the 40 / 50 / 63 kA
+  station standard), so it is a project input from the TSO's connection conditions: site report field next to the
+  node → site store / project document `site.gridSscMva` → `X-Farm.grid_ssc_mva` → `FarmSpec.grid_ssc_mva`, 1 GVA …
+  √3·400 kV·63 kA = 43 648 MVA; empty = illustrative 10 GVA, a new node clears it. All P2 studies default to the
+  farm's value (load flow, IEC 60909, STATCOM / PSE Q range, N-1, FRT, ANDES, PPC, harmonics, GFM strong grid).
+- O&M repair window: P1 Availability & O&M tab, `RepairWindowPanel` → `POST /wind/maintenance-scheduling` with the
+  farm's O&M port distance (SB-510 Ustka 52.5 km: 9.2 h of CTV work per day).
+- Full TurbOPark: PyWake's `Nygaard_2022` set-up incl. `GaussianOverlapAvgModel`; its table is read through
+  h5netcdf's pure-Python `pyfive` backend (h5py's DLLs are blocked by Windows application control here and h5py is
+  not a dependency); checked against the analytic disc average (Bessel I0). SB-510: −4.6 % (site climate), ≈ 55 s;
+  cache key `wake-cluster-v2`. New deps: h5netcdf ≥ 1.8, pyfive ≥ 1.2.
+- e2e: the landing map, Grid, Commissioning, Site & Permits, Wind Resource (O&M tab) change their look.
+
 ## Resume here
 
 1. The own-project programme is a PR stack, one branch per phase, each based on the one before it
@@ -188,10 +219,9 @@ Phase 13 notes (order 4 → 1 → 2 → 5 → 3 → 6 → 7, one commit each):
    `feat/project-report` #238 → phase 12 `feat/provenance` #239 → phase 13 `feat/pro-items`). The
    13-phase programme is complete; new work starts from the newest branch
    (`git fetch origin && git checkout feat/pro-items && git pull`) or from `main` once the stack is merged.
-2. Next: nothing planned. Candidate follow-ups from phase 13: re-draw SB-510's export route clear of the
-   military National Defence Area (owner's call), per-node grid fault levels from PSE data, a frontend
-   caller for the O&M maintenance window (it already takes the O&M port distance), neighbour layouts on
-   the Layout map.
+2. Next: nothing planned. Candidate follow-ups: neighbour layouts on the Layout map; SB-510's export at
+   99 % suggests a study of a larger export conductor or mid-route compensation (no datasheet values for
+   1200 / 1600 mm² in the model yet).
 3. Known, not ours: 6 old mypy errors under `digital_twin`; the Docker backend image runs old code — check in
    the browser with a local `uvicorn app.main:app --port 8001` and a temporary Vite proxy target (revert it).
 4. Owner to-dos: `cd frontend && npm run e2e:update` (new baselines incl. `layout`, `site-permits`, `academy`,

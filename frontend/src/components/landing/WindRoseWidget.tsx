@@ -76,7 +76,7 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
   const [pos, setPos] = useState(defaultPos);
   const dragStateRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
-  const onDragMouseDown = useCallback((e: React.MouseEvent) => {
+  const onDragPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     dragStateRef.current = {
       startX: e.clientX,
@@ -87,7 +87,7 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
   }, [pos.x, pos.y]);
 
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       const ds = dragStateRef.current;
       if (!ds) return;
       // Clamp to viewport so the panel doesn't disappear off-screen
@@ -96,11 +96,13 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
       setPos({ x: newX, y: newY });
     };
     const onUp = () => { dragStateRef.current = null; };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
   }, []);
 
@@ -128,6 +130,7 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
         className="absolute z-1000 flex items-center gap-1.5 px-2 py-1.5 bg-bg-secondary/85 backdrop-blur-md border border-border-primary rounded-md shadow-lg shadow-black/30 hover:bg-bg-hover transition-colors pointer-events-auto"
         style={{ left: pos.x, top: pos.y }}
         aria-label="Open wind rose"
+        data-tour="wind-rose-collapsed"
         title="Open wind rose"
       >
         <Wind size={12} className="text-cyan-400" />
@@ -145,15 +148,15 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
       <div className="bg-bg-secondary/85 backdrop-blur-md border border-border-primary rounded-lg shadow-lg shadow-black/30">
         {/* Drag handle + title + close */}
         <div
-          className="flex items-center justify-between px-2 py-1 border-b border-border-primary cursor-grab active:cursor-grabbing"
-          onMouseDown={onDragMouseDown}
+          className="flex items-center justify-between px-2 py-1 border-b border-border-primary cursor-grab active:cursor-grabbing touch-none"
+          onPointerDown={onDragPointerDown}
         >
           <div className="flex items-center gap-1">
             <GripVertical size={10} className="text-text-muted" />
-            <span className="text-[9px] text-text-muted font-mono uppercase tracking-widest">Wind Rose · 30-day</span>
+            <span className="text-[9px] text-text-muted font-mono uppercase tracking-widest">Wind Rose · illustrative</span>
           </div>
           <button
-            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setIsOpen(false)}
             className="text-text-muted hover:text-text-primary p-0.5 rounded hover:bg-bg-hover ml-1"
             aria-label="Close wind rose"

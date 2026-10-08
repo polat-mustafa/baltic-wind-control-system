@@ -95,7 +95,7 @@ const controlRoom: Tour = {
           label: "Nacelle",
           text: "Drivetrain, generator and converter. Its sensors reach SCADA as IEC 61400-25 logical nodes (WTUR, WROT…).",
         },
-        { label: "Tower & foundation", text: "Steel tower on a monopile; the array cable enters at the base." },
+        { label: "Tower & foundation", text: "Steel tower on a four-legged jacket (37–51 m of water); the array cable enters at the base." },
       ],
     },
     {
@@ -122,12 +122,14 @@ const controlRoom: Tour = {
     {
       id: "wind-rose",
       route: "/",
-      target: "wind-rose",
+      target: ["wind-rose", "wind-rose-collapsed"],
       title: "Wind rose",
       body:
         "How often the wind blows from each direction, banded by speed; the current direction is highlighted. " +
         "The climatology here is illustrative, with the south-westerly prevailing wind typical of the Baltic.",
       task: { instruction: "Drag the wind rose by its header to move it.", watch: moved("wind-rose") },
+      // The turbine viewer from the "turbine" step may still be open on top of it.
+      raise: true,
     },
     {
       id: "theme",
@@ -181,7 +183,9 @@ const sitePermits: Tour = {
     {
       id: "draw",
       route: "/develop",
-      target: "site-draw",
+      // The whole map, not just the toolbar: corners are clicked on the map,
+      // and the overlay blocks every click outside the spotlight.
+      target: "site-map",
       title: "Draw your site",
       body: "Draw a candidate site by clicking its corners, or load the SB-510 boundary to see how the case study fares.",
       task: {
@@ -624,7 +628,7 @@ const construction: Tour = {
     {
       id: "inputs",
       route: "/build",
-      target: "campaign-inputs",
+      target: ["campaign-setup", "campaign-inputs"],
       title: "Start date and α factor",
       body:
         "DNV-ST-N001 plans weather-restricted operations against α × the operational limit, because forecasts are uncertain. " +

@@ -15,6 +15,7 @@
 import { create } from "zustand";
 
 import {
+  FEEDER_WAYPOINTS,
   OSS_GEO,
   PSE_SUBSTATION_GEO,
   PSE_SUBSTATION_NAME,
@@ -70,6 +71,8 @@ export interface Fleet {
   /** Site boundary [lat, lon][] (own: the drawn site). */
   boundary: [number, number][];
   net: NetworkSpec;
+  /** Bend points of a string's feeder cable (string number → points, gateway to OSS). */
+  feederVia?: Record<number, { lat: number; lon: number }[]>;
 }
 
 export interface FleetSite {
@@ -140,6 +143,7 @@ export const SB510_FLEET: Fleet = {
   grid: { name: PSE_SUBSTATION_NAME, ...PSE_SUBSTATION_GEO },
   boundary: SITE_BOUNDARY_GEO,
   net: SB510_NETWORK,
+  feederVia: FEEDER_WAYPOINTS,
 };
 
 interface FleetState {
@@ -171,6 +175,8 @@ export interface ArraySegment {
   feedIds: string[];
   /** Sections between it and the OSS (0 = feeder cable). */
   segmentFromOss: number;
+  /** Bend points between fromId and toId (feeder routing), else empty. */
+  via: { lat: number; lon: number }[];
 }
 
 const segCache = new WeakMap<Fleet, ArraySegment[]>();
@@ -200,6 +206,7 @@ export function arraySegments(f: Fleet = liveFleet()): ArraySegment[] {
       toId: to,
       feedIds,
       segmentFromOss: depth.get(t.id)!,
+      via: to === "OSS" ? (f.feederVia?.[t.stringNumber] ?? []) : [],
     };
   });
   segCache.set(f, segs);

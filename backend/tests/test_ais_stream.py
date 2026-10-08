@@ -61,3 +61,19 @@ async def test_endpoint_is_disabled_without_key(monkeypatch):
         body = (await client.get("/api/v1/info/ais")).json()
     assert body["enabled"] is False
     assert body["vessels"] == []
+
+
+def test_server_error_message_is_raised_not_swallowed():
+    with pytest.raises(ais_stream.AisServerError, match="Api Key Is Not Valid"):
+        ais_stream.ingest({"error": "Api Key Is Not Valid"})
+
+
+def test_box_covers_the_sb510_site():
+    (lat0, lon0), (lat1, lon1) = ais_stream.BBOX
+    assert lat0 < 55.06 < lat1 and lon0 < 16.54 < lon1  # PZP_44
+
+
+def test_settings_read_backend_env_regardless_of_cwd():
+    from app.config import ENV_FILE
+
+    assert ENV_FILE.name == ".env" and ENV_FILE.parent.name == "backend"

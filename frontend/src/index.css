@@ -1,6 +1,26 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* Tailwind v4 dropped the pointer cursor on buttons — restore it for
+   everything clickable so users can tell what reacts to a click. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  a[href],
+  label[for],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="range"]:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 /* ── ISA-101 High Performance HMI Design System ──────────────────
    OffshoreForge
    Color palette follows ISA-101 dark control room variant.

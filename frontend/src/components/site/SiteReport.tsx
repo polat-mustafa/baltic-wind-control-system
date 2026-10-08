@@ -34,6 +34,37 @@ export function StatusMark({ status }: { status: CheckStatus }) {
   );
 }
 
+const NODE_STATUS = { existing: "existing", commissioning: "being commissioned", planned: "planned" } as const;
+
+/** Choose the PSE connection point: the nearest by default; planned stations say so (with PSE's source). */
+function GridNodePicker() {
+  const report = useSiteStore((s) => s.report);
+  const chosen = useSiteStore((s) => s.gridNode);
+  const setGridNode = useSiteStore((s) => s.setGridNode);
+  const nodes = report?.grid_nodes ?? [];
+  if (nodes.length < 2) return null;
+  const current = nodes.find((n) => n.name === report?.grid_node);
+  return (
+    <label className="block rounded-lg border border-border-primary bg-bg-secondary px-3 py-2 text-[12px]" data-tour="site-grid-node">
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-secondary">Grid connection point</span>
+      <select
+        className="w-full rounded border border-border-primary bg-bg-tertiary px-2 py-1 text-[12px] text-text-primary"
+        value={chosen ?? ""}
+        onChange={(e) => void setGridNode(e.target.value || null)}
+      >
+        <option value="">Nearest ({nodes[0].name}, {nodes[0].km.toFixed(0)} km)</option>
+        {nodes.map((n) => (
+          <option key={n.name} value={n.name}>
+            {n.name} · {n.km.toFixed(0)} km · {NODE_STATUS[n.status]}
+          </option>
+        ))}
+      </select>
+      {current && current.status !== "existing" && <span className="mt-1 block text-[11px] text-status-warning">{current.basis}</span>}
+      <span className="mt-1 block text-[10px] text-text-muted">Straight distance from the site centre; PSE 400 kV stations from OpenStreetMap and PSE's investment pages.</span>
+    </label>
+  );
+}
+
 const fmt = (v: number | null | undefined, digits = 1) => (v == null ? "—" : v.toFixed(digits));
 
 function RetryNote({ tone, text }: { tone: "alarm" | "warning"; text: string }) {
@@ -149,6 +180,8 @@ export default function SiteReport() {
           size="sm"
         />
       </div>
+
+      <GridNodePicker />
 
       <div className="rounded-lg border border-border-primary bg-bg-secondary">
         <div className="flex items-center justify-between border-b border-border-primary px-3 py-2">

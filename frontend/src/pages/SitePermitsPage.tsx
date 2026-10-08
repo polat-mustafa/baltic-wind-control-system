@@ -158,7 +158,7 @@ const OUTLOOK_NOTE: Record<Decision["outcome"], string> = {
     "You can still walk through the next stages to learn the procedure, but a real project could not take this site on to layout: redraw it clear of the failed checks.",
   more_information: "Essential data are missing, so the authority would ask for more before deciding.",
   approved_with_conditions:
-    "No blocking issue; the points marked “Check” would become permit conditions (seabed findings are design matters, not consent conditions).",
+    "No blocking issue; the points marked “Check” would become permit conditions (seabed and grid findings are design matters, not consent conditions).",
   approved: "No blocking issue in this screening.",
 };
 

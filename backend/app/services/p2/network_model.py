@@ -234,7 +234,9 @@ OLTC_STEPS = 10
 OLTC_STEP_PERCENT = 1.25
 
 # Grid connection
-GRID_SSC_MVA = 10_000.0  # Short-circuit power at PCC [MVA]
+GRID_SSC_MVA = 10_000.0  # Short-circuit power at PCC [MVA] (illustrative, same for every node)
+#: SB-510's PSE connection point (region pack grid node, OSM / PSE).
+SB510_GRID_NODE = "Słupsk Wierzbięcin 400/110 kV"
 GRID_RX_RATIO = 0.1  # R/X ratio of grid impedance
 
 # STATCOM and reactors
@@ -293,6 +295,7 @@ class FarmSpec:
     grid_ssc_mva: float = GRID_SSC_MVA
     harmonic_filter_mvar: float = 0.0  # damped high-pass at OSS 66 kV, 50 Hz output [Mvar]
     harmonic_filter_tuned_order: float = 0.0
+    grid_node: str = SB510_GRID_NODE  # PSE 400 kV connection point (site assessment)
 
     @property
     def num_turbines(self) -> int:
@@ -357,6 +360,7 @@ def design(
     export_length_km: float,
     array_cable_length_km: float = ARRAY_CABLE_LENGTH_KM,
     name: str = "Own project",
+    grid_node: str = SB510_GRID_NODE,
 ) -> FarmSpec:
     """Size export, transformers, STATCOM and reactors of a farm (module docstring)."""
     if not string_layout or min(string_layout) < 1:
@@ -396,6 +400,7 @@ def design(
         statcom_mvar=statcom,
         num_reactors=n_reactors,
         reactor_unit_mvar=unit,
+        grid_node=grid_node,
     )
     # Harmonic filter from the harmonic network of this design (power_quality imports
     # this module, hence the local import).

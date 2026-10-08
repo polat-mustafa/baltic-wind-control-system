@@ -137,6 +137,7 @@ class NetworkSpecResponse(BaseModel):
     num_onshore_transformers: int
     onshore_trafo_mva: float
     grid_ssc_mva: float
+    grid_node: str = Field(description="PSE 400 kV connection point")
     statcom_rating_mvar: float
     num_reactors: int
     reactor_unit_mvar: float
@@ -191,6 +192,7 @@ async def get_network_spec(spec: FarmSpecDep) -> NetworkSpecResponse:
         num_onshore_transformers=NUM_ONSHORE_TRANSFORMERS,
         onshore_trafo_mva=spec.onshore_trafo_mva,
         grid_ssc_mva=spec.grid_ssc_mva,
+        grid_node=spec.grid_node,
         statcom_rating_mvar=spec.statcom_mvar,
         num_reactors=spec.num_reactors,
         reactor_unit_mvar=spec.reactor_unit_mvar,

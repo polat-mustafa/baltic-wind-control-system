@@ -59,6 +59,9 @@ class AssessRequest(BaseModel):
         description="Site outline [[lon, lat], …] (closed or open)",
     )
     criteria: CriteriaOverrides = Field(default_factory=CriteriaOverrides)
+    grid_node: str | None = Field(
+        None, max_length=120, description="Chosen grid connection point (default: the nearest)"
+    )
 
 
 # ── Responses ─────────────────────────────────────────────────────
@@ -120,6 +123,14 @@ class SeabedClassCard(BaseModel):
     foundation_factor: float = Field(description="Foundation cost multiplier (sand = 1.00)")
     hard: bool
     quality: Literal["illustrative"] = "illustrative"
+
+
+class GridNodeSchema(BaseModel):
+    name: str
+    status: Literal["existing", "commissioning", "planned"]
+    km: float = Field(description="Straight distance from the site centre [km]")
+    voltage_kv: list[int]
+    basis: str = Field(description="Where the node and its status come from")
 
 
 class PortSchema(BaseModel):
@@ -245,6 +256,9 @@ class AssessResponse(BaseModel):
     wind: WindClimateSchema | None = None
     seabed: dict[str, float] | None = Field(
         None, description="Seabed substrate class → share of the mapped site area"
+    )
+    grid_nodes: list[GridNodeSchema] = Field(
+        default_factory=list, description="Grid connection points, nearest first"
     )
     ports: list[PortSchema] = Field(
         default_factory=list, description="Offshore wind ports, nearest first per use"

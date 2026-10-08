@@ -43,6 +43,8 @@ export interface SitePersisted {
   site: LonLat[] | null;
   stage: StageId;
   done: StageId[];
+  /** Chosen grid connection point; null = the nearest. */
+  gridNode: string | null;
 }
 
 const isLonLat = (v: unknown): v is LonLat =>
@@ -55,6 +57,7 @@ function parse(p: Record<string, unknown>): SitePersisted {
     site,
     stage: isStage(p.stage) ? p.stage : "screening",
     done: Array.isArray(p.done) ? p.done.filter(isStage) : [],
+    gridNode: typeof p.gridNode === "string" && p.gridNode ? p.gridNode : null,
   };
 }
 
@@ -65,7 +68,7 @@ function load(): SitePersisted {
   } catch {
     // corrupt value: start fresh
   }
-  return { site: null, stage: "screening", done: [] };
+  return { site: null, stage: "screening", done: [], gridNode: null };
 }
 
 interface SiteState {
@@ -79,6 +82,7 @@ interface SiteState {
   reportFor: string | null;
   stage: StageId;
   done: StageId[];
+  gridNode: string | null;
   loading: boolean;
   assessing: boolean;
   /** Last assessment failure; the previous report (if any) is kept. */
@@ -94,6 +98,8 @@ interface SiteState {
   finishDrawing: () => Promise<void>;
   cancelDrawing: () => void;
   setSite: (site: LonLat[] | null) => Promise<void>;
+  /** Choose the grid connection point (null = the nearest) and re-assess. */
+  setGridNode: (name: string | null) => Promise<void>;
   assess: () => Promise<void>;
   setStage: (stage: StageId) => void;
   completeStage: (stage: StageId) => void;
@@ -109,8 +115,8 @@ let assessToken = 0;
 
 const initial = load();
 
-function persist(s: Pick<SiteState, "site" | "stage" | "done">) {
-  writeStored(SITE_KEY, JSON.stringify({ site: s.site, stage: s.stage, done: s.done }));
+function persist(s: Pick<SiteState, "site" | "stage" | "done" | "gridNode">) {
+  writeStored(SITE_KEY, JSON.stringify({ site: s.site, stage: s.stage, done: s.done, gridNode: s.gridNode }));
 }
 
 export const useSiteStore = create<SiteState>((set, get) => ({
@@ -123,6 +129,7 @@ export const useSiteStore = create<SiteState>((set, get) => ({
   reportFor: null,
   stage: initial.stage,
   done: initial.done,
+  gridNode: initial.gridNode,
   loading: false,
   assessing: false,
   assessError: null,
@@ -173,9 +180,15 @@ export const useSiteStore = create<SiteState>((set, get) => ({
 
   setSite: async (site) => {
     // A new site invalidates every stage done for the old one.
-    set({ site, report: null, reportFor: null, assessError: null, done: [], stage: "screening" });
+    set({ site, report: null, reportFor: null, assessError: null, done: [], stage: "screening", gridNode: null });
     persist(get());
     if (site) await get().assess();
+  },
+
+  setGridNode: async (gridNode) => {
+    set({ gridNode });
+    persist(get());
+    await get().assess();
   },
 
   assess: async () => {
@@ -185,7 +198,7 @@ export const useSiteStore = create<SiteState>((set, get) => ({
     const token = ++assessToken;
     set({ assessing: true, assessError: null });
     try {
-      const report = await api.postAssess(site, criteria, get().layers?.region.region);
+      const report = await api.postAssess(site, criteria, get().layers?.region.region, get().gridNode);
       if (token === assessToken) set({ report, reportFor: reportSignature(site, criteria), assessing: false });
     } catch (err) {
       if (token === assessToken) set({ assessError: message(err), assessing: false });
@@ -219,6 +232,7 @@ export const useSiteStore = create<SiteState>((set, get) => ({
       stage: "screening",
       done: [],
       criteria: {},
+      gridNode: null,
     });
     persist(get());
     void get().runSuitability();

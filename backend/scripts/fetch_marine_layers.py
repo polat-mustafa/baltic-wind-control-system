@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 import time
 import urllib.parse
@@ -497,6 +498,31 @@ def cables(box: tuple[float, float, float, float], sea: SeaMask, today: str) -> 
     )
 
 
+#: PSE stations under construction or being commissioned: (status, basis) from PSE's
+#: investment pages (read 2026-10-08); every other node is an existing OSM substation.
+GRID_NODE_STATUS = {
+    "way/1162100134": (
+        "planned",
+        "PSE investment: new 400 kV station Krzemienica (KZE), connection of the Bałtyk 1 "
+        "offshore wind farm; permits obtained (inwestycje.pse.pl/stacjakrzemienica/)",
+    ),
+    "way/1119590976": (
+        "commissioning",
+        "PSE investment: 400 kV station Choczewo, takes Baltic Power since 2026, handover of "
+        "the whole station planned for 2027 (inwestycje.pse.pl/stacjachoczewo/)",
+    ),
+}
+
+
+def short_station_name(name: str, voltages: list[int]) -> str:
+    """'Stacja elektroenergetyczna 400/110kV „Żarnowiec”' → 'Żarnowiec 400/110 kV'."""
+    quoted = re.search(r"[„\"“]([^”\"„“]+)[”\"“]", name)
+    base = quoted.group(1) if quoted else name
+    base = re.sub(r"(?i)stacja elektroenergetyczna|\(planowana\)|[\d/]+\s*kV", "", base)
+    base = re.sub(r"^\s*SE\s+", "", base).strip(" ,")
+    return f"{base} {'/'.join(str(v) for v in voltages)} kV" if voltages else base
+
+
 def grid_nodes(today: str) -> dict[str, Any]:
     """PSE 400 kV substations near the coast (existing and planned), from OSM."""
     print("  OpenStreetMap: PSE 400 kV substations")
@@ -523,16 +549,25 @@ def grid_nodes(today: str) -> dict[str, Any]:
             continue
         seen.add(name)
         planned = "planowan" in name.lower() or t.get("power") != "substation"
+        osm = f"{e['type']}/{e['id']}"
+        kv = sorted(
+            {int(v) // 1000 for v in t.get("voltage", "").split(";") if v.isdigit()}, reverse=True
+        )
+        status, basis = GRID_NODE_STATUS.get(
+            osm,
+            ("planned", "Tagged as planned in OpenStreetMap — check PSE's development plan")
+            if planned
+            else ("existing", "OpenStreetMap power=substation, operator PSE"),
+        )
         features.append(
             {
-                "name": name,
+                "name": short_station_name(name, kv),
                 "coordinates": [round(float(c["lon"]), 5), round(float(c["lat"]), 5)],
-                "voltage_kv": sorted(
-                    {int(v) // 1000 for v in t.get("voltage", "").split(";") if v.isdigit()},
-                    reverse=True,
-                ),
-                "status": "planned" if planned else "existing",
-                "osm": f"{e['type']}/{e['id']}",
+                "voltage_kv": kv,
+                "status": status,
+                "basis": basis,
+                "osm_name": name,
+                "osm": osm,
             }
         )
     return layer(
@@ -907,6 +942,8 @@ def rebuild_group(group: str, pack: dict[str, Any], today: str) -> list[dict[str
         return wind_projects(box, sea, today)
     if group == "ports":
         return [ports(today)]
+    if group == "grid":
+        return [grid_nodes(today)]
     return [fetch_seabed(REGION_BBOX, today)]
 
 
@@ -1079,7 +1116,7 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--only",
-        choices=("wind", "seabed", "ports"),
+        choices=("wind", "seabed", "ports", "grid"),
         help="rebuild one group of layers and keep the rest of the pack (needs a full pack)",
     )
     args = parser.parse_args()

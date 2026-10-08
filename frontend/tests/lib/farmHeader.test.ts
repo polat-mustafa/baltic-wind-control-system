@@ -61,6 +61,13 @@ describe("farm header", () => {
     expect(farmInput()).toMatchObject({ wind_a: 10.4, wind_k: 2.15, export_km: expect.any(Number) });
   });
 
+  it("names the site report's grid connection point", () => {
+    layOut();
+    expect(farmInput()!.grid_node).toBeUndefined();
+    useSiteStore.setState({ report: { grid_km: 30, depth_m: [30, 40], grid_node: "Krzemienica 400 kV" } as never });
+    expect(farmInput()!.grid_node).toBe("Krzemienica 400 kV");
+  });
+
   it("goes to grid, SCADA (control-room bays included), commissioning and twin", () => {
     for (const url of ["/api/v1/grid/load-flow", "/api/v1/scada/cms/fleet/overview", "/api/v1/scada/historian/latest", "/api/v1/scada/bays/BAY-OSS-66-07/command", "/api/v1/scada/interlocks/validate", "/api/v1/digital-twin/analyze", "/api/v1/commissioning/programmes"]) {
       expect(sendsFarm(url)).toBe(true);

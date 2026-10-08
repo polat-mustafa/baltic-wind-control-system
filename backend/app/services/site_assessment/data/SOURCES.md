@@ -12,6 +12,7 @@ Regenerate every layer with (network access, a few minutes):
     cd backend && python scripts/fetch_marine_layers.py --only wind     # wind farm layers only
     cd backend && python scripts/fetch_marine_layers.py --only seabed   # seabed substrate only
     cd backend && python scripts/fetch_marine_layers.py --only ports    # offshore wind ports only
+    cd backend && python scripts/fetch_marine_layers.py --only grid     # PSE grid nodes only
 
 ## southern_baltic.json — Southern Baltic, the whole Polish EEZ
 
@@ -25,7 +26,7 @@ and the coast from Świnoujście to the Vistula Spit. Retrieved 2026-10-06.
 | `territorial` | territorial | Marine Regions `eez_12nm` — Polish 12 NM (MRGID 49028) | CC BY 4.0 — Flanders Marine Institute |
 | `coastline` | shore | OpenStreetMap `natural=coastline` (Overpass), Świnoujście → Vistula Spit; Bornholm excluded so shore distance means the Polish coast | ODbL 1.0 © OpenStreetMap contributors |
 | `cables` | cable | OpenStreetMap submarine power/telecom cables and pipelines (SwePol, NordBalt, Baltic Pipe, Nord Stream 1/2, C-Lion 1, Bornholm cables …) plus EMODnet Human Activities `pipelines` (Petrobaltic field lines) | ODbL 1.0; CC BY 4.0 (EMODnet) |
-| `grid_nodes` | grid | OpenStreetMap PSE 400 kV substations near the coast: Słupsk-Wierzbięcino, Żarnowiec, Choczewo, Dunowo, Żydowo-Kierzkowo, Gdańsk I / Błonia / Przyjaźń, Pelplin; Krzemienica marked *planned* | ODbL 1.0 |
+| `grid_nodes` | grid | OpenStreetMap PSE 400 kV substations near the coast: Słupsk Wierzbięcin, Żarnowiec, Dunowo, Żydowo Kierzkowo, Gdańsk I / Błonia / Przyjaźń, Pelplin (existing); Choczewo *commissioning* (takes Baltic Power since 2026, whole station 2027 — PSE, inwestycje.pse.pl/stacjachoczewo/); Krzemienica *planned* (connection of Bałtyk 1, permits obtained — PSE, inwestycje.pse.pl/stacjakrzemienica/). Each node carries `status` and `basis`; names shortened from the OSM `name` (kept as `osm_name`) | ODbL 1.0 (OSM); statuses from PSE's investment pages |
 | `ports` | port | Offshore wind ports with their announced role — O&M: Łeba (Baltic Power, Bałtyk 2 / 3), Ustka (PGE Baltica), Władysławowo (Ocean Winds, BC-Wind); installation: Świnoujście (ORLEN terminal, in operation June 2025), Gdańsk T5 (Baltica 2, lease from Q4 2026), Rønne DK (Baltic Power). Role and status from the operators' announcements (URL per port, read 2026-10-08); location = the OSM port area | ODbL 1.0 (OSM locations); roles are facts from public announcements |
 | `natura2000` | protected | EEA Natura 2000 (release 2023-12) via EMODnet Human Activities `natura2000areas`, marine and coastal sites | CC BY 4.0 (EMODnet) |
 | `owf_outlines` | owf | OpenStreetMap offshore wind farm outlines (`power=plant` / `construction:power=plant`): Baltic Power, Bałtyk II, Baltica 2, Wikinger, Arkonabecken Südost | ODbL 1.0 |

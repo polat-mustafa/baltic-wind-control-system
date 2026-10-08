@@ -28,6 +28,7 @@ from app.schemas.site_assessment import (
     ClassArea,
     CriterionCard,
     DepthBandCard,
+    GridNodeSchema,
     LayerFeature,
     LayerInfo,
     LayersResponse,
@@ -268,7 +269,7 @@ async def post_assess(req: AssessRequest) -> AssessResponse:
         if len(corner) < 2 or not all(math.isfinite(v) for v in corner[:2]):
             raise ValidationError("Every corner must be [lon, lat]")
     try:
-        a = await run_in_threadpool(assess_site, pack, crit, req.polygon)
+        a = await run_in_threadpool(assess_site, pack, crit, req.polygon, req.grid_node)
     except InvalidSiteError as exc:
         raise ValidationError(str(exc)) from exc
     return AssessResponse(
@@ -304,6 +305,20 @@ async def post_assess(req: AssessRequest) -> AssessResponse:
             approximate=a.wind.approximate,
         ),
         seabed=None if a.seabed is None else {k: round(v, 4) for k, v in a.seabed.items()},
+        grid_nodes=[
+            GridNodeSchema(
+                name=n.name,
+                status="planned"
+                if n.status == "planned"
+                else "commissioning"
+                if n.status == "commissioning"
+                else "existing",
+                km=round(n.km, 1),
+                voltage_kv=n.voltage_kv,
+                basis=n.basis,
+            )
+            for n in a.grid_nodes
+        ],
         ports=[
             PortSchema(
                 name=p.name,

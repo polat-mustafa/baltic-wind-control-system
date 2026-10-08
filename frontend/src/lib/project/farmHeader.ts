@@ -24,6 +24,8 @@ export interface FarmInput {
   /** Site Weibull A [m/s] and k at hub height (Digital Twin inflow), when known. */
   wind_a?: number;
   wind_k?: number;
+  /** PSE connection point of the site assessment. */
+  grid_node?: string;
 }
 
 /** The own project's farm, or null (reference mode or no layout yet). */
@@ -39,6 +41,7 @@ export function farmInput(): FarmInput | null {
     export_km: Math.max(1, plan.exportKm),
     array_km: Math.max(0.1, Math.round((plan.arrayKm / plan.turbines.length) * 1000) / 1000),
     ...(report?.wind ? { wind_a: report.wind.weibull_a, wind_k: report.wind.weibull_k } : {}),
+    ...(report?.grid_node ? { grid_node: report.grid_node } : {}),
   };
 }
 

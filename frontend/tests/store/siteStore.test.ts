@@ -47,7 +47,7 @@ describe("drawing", () => {
       [16.4, 54.8],
       [16.4, 54.9],
     ]);
-    expect(mockApi.postAssess).toHaveBeenCalledWith(s().site, {}, undefined); // region: the backend default until layers load
+    expect(mockApi.postAssess).toHaveBeenCalledWith(s().site, {}, undefined, null); // region: the backend default until layers load; nearest grid node
     expect(s().report?.area_km2).toBe(112.2);
   });
 
@@ -77,7 +77,17 @@ describe("site and stages", () => {
     mockApi.postAssess.mockClear();
     s().setCriteria({ exclude_protected: false });
     expect(mockApi.postSuitability).toHaveBeenCalledWith({ exclude_protected: false }, 2, undefined);
-    expect(mockApi.postAssess).toHaveBeenCalledWith(CASE_STUDY_SITE, { exclude_protected: false }, undefined);
+    expect(mockApi.postAssess).toHaveBeenCalledWith(CASE_STUDY_SITE, { exclude_protected: false }, undefined, null);
+  });
+
+  it("re-assesses for a chosen grid node, keeps it, and forgets it for a new site", async () => {
+    await s().setSite(CASE_STUDY_SITE);
+    mockApi.postAssess.mockClear();
+    await s().setGridNode("Żarnowiec 400/110 kV");
+    expect(mockApi.postAssess).toHaveBeenCalledWith(CASE_STUDY_SITE, {}, undefined, "Żarnowiec 400/110 kV");
+    expect(JSON.parse(localStorage.getItem("of.site.v1")!).gridNode).toBe("Żarnowiec 400/110 kV");
+    await s().setSite([[16.3, 54.8], [16.4, 54.8], [16.4, 54.9]]);
+    expect(s().gridNode).toBeNull();
   });
 
   it("reports assessment errors without a global error", async () => {

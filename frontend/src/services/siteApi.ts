@@ -83,6 +83,16 @@ export interface LayersResponse {
   seabed_classes?: SeabedClass[];
 }
 
+export interface GridNode {
+  name: string;
+  status: "existing" | "commissioning" | "planned";
+  /** Straight distance from the site centre [km]. */
+  km: number;
+  voltage_kv: number[];
+  /** Where the node and its status come from. */
+  basis: string;
+}
+
 export interface SitePort {
   name: string;
   use: "O&M" | "installation";
@@ -168,6 +178,8 @@ export interface AssessResponse {
   shore_km: [number, number] | null;
   grid_km: number | null;
   grid_node: string | null;
+  /** Every grid connection point, nearest first; `grid_node` is the chosen one. */
+  grid_nodes?: GridNode[];
   cable_km: number | null;
   owf_km: number | null;
   protected_km: number | null;
@@ -200,5 +212,6 @@ export const getRaster = (role: string, bbox: [number, number, number, number], 
 export const postSuitability = (criteria: CriteriaOverrides, cell_km = 2, region?: string): Promise<SuitabilityResponse> =>
   post(`${BASE}/suitability`, { criteria, cell_km, ...(region ? { region } : {}) });
 
-export const postAssess = (polygon: LonLat[], criteria: CriteriaOverrides, region?: string): Promise<AssessResponse> =>
-  post(`${BASE}/assess`, { polygon, criteria, ...(region ? { region } : {}) });
+/** Site report; `gridNode` picks the connection point (default: the nearest). */
+export const postAssess = (polygon: LonLat[], criteria: CriteriaOverrides, region?: string, gridNode?: string | null): Promise<AssessResponse> =>
+  post(`${BASE}/assess`, { polygon, criteria, ...(region ? { region } : {}), ...(gridNode ? { grid_node: gridNode } : {}) });

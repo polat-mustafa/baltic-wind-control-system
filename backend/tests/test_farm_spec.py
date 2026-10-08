@@ -22,6 +22,7 @@ from app.schemas.grid import LoadFlowScenario
 from app.services.p2.load_flow import run_load_flow
 from app.services.p2.network_model import (
     SB510,
+    SB510_GRID_NODE,
     STRING_LAYOUT,
     build_network,
     design,
@@ -166,6 +167,19 @@ class TestFarmHeader:
         assert data["reactor_unit_mvar"] == 110 and data["cable_q_mvar"] == pytest.approx(
             433.3, abs=0.1
         )
+
+    def test_header_carries_the_grid_node(self):
+        assert client.get("/api/v1/grid/network-spec").json()["grid_node"] == SB510_GRID_NODE
+        body = {"strings": [6] * 4, "export_km": 40.0, "array_km": 1.5, "grid_node": "Żarnowiec"}
+        data = client.get(
+            "/api/v1/grid/network-spec", headers={"X-Farm": quote(json.dumps(body))}
+        ).json()
+        assert data["grid_node"] == "Żarnowiec" and data["source"] == "project"
+        # the node is a label: the same farm sized for another node is electrically the same
+        plain = client.get("/api/v1/grid/network-spec", headers=_header([6] * 4, 40.0)).json()
+        assert {k: v for k, v in data.items() if k not in ("grid_node", "name")} == {
+            k: v for k, v in plain.items() if k not in ("grid_node", "name")
+        }
 
     def test_load_flow_uses_the_header(self):
         r = client.get("/api/v1/grid/load-flow/full_load", headers=_header([5, 5, 5, 5], 30.0, 1.4))

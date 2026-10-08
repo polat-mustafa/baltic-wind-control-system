@@ -44,6 +44,9 @@ class FarmInput(BaseModel):
     array_km: float = Field(ge=0.1, le=20.0, description="Mean array section length [km]")
     wind_a: float | None = Field(None, ge=3.0, le=20.0, description="Weibull A at hub [m/s]")
     wind_k: float | None = Field(None, ge=1.0, le=5.0, description="Weibull k at hub")
+    grid_node: str | None = Field(
+        None, min_length=1, max_length=120, description="PSE connection point (site assessment)"
+    )
 
     @model_validator(mode="after")
     def _size(self) -> FarmInput:
@@ -68,7 +71,13 @@ def farm_spec(x_farm: Annotated[str | None, Header()] = None) -> FarmSpec:
     farm = _farm_input(x_farm)
     if farm is None:
         return SB510
-    spec = design(tuple(farm.strings), round(farm.export_km, 1), round(farm.array_km, 3), farm.name)
+    spec = design(
+        tuple(farm.strings),
+        round(farm.export_km, 1),
+        round(farm.array_km, 3),
+        farm.name,
+        **({"grid_node": farm.grid_node} if farm.grid_node else {}),
+    )
     return check_reactors(spec)
 
 

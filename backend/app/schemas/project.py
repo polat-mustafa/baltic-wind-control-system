@@ -40,6 +40,7 @@ class ProjectSite(_Doc):
     polygon: list[tuple[Lon, Lat]] | None = Field(None, min_length=3, max_length=64)
     stage: Name = "screening"
     done: list[Name] = Field(default_factory=list, max_length=20)
+    grid_node: str | None = Field(None, alias="gridNode", max_length=120)
 
 
 class ProjectData(_Doc):

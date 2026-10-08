@@ -78,8 +78,8 @@ const BLOCKING = new Set(["sea", "territorial_sea", "eez", "msp_energy", "owf", 
  * for more information; a nearby Natura 2000 site triggers an appropriate
  * assessment, assumed here to conclude "no adverse effect on integrity".
  */
-/** Engineering findings (design and cost), not consent matters: never a permit condition. */
-const ENGINEERING = new Set(["seabed"]);
+/** Engineering and grid findings (design, cost, PSE connection), not consent matters: never a permit condition. */
+const ENGINEERING = new Set(["seabed", "grid"]);
 
 export function decide(report: AssessResponse | null): Decision {
   if (!report) {

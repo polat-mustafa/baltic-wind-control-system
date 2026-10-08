@@ -102,13 +102,18 @@ def test_create_open_save_delete(client: TestClient) -> None:
     assert uuid.UUID(p["id"]).version == 4
     assert p["data"]["turbineModel"] == "IEA-15-240-RWT"
     assert p["data"]["site"]["done"] == ["screening"]
+    assert p["data"]["site"]["gridNode"] is None  # older documents: the nearest node
 
     got = client.get(f"{URL}/{p['id']}").json()
     assert got["data"] == p["data"]
 
-    r = client.put(f"{URL}/{p['id']}", json={"revision": 1, "data": _doc(name="Renamed")})
+    site = {**_doc()["site"], "gridNode": "Żarnowiec 400/110 kV"}
+    r = client.put(
+        f"{URL}/{p['id']}", json={"revision": 1, "data": _doc(name="Renamed", site=site)}
+    )
     assert r.status_code == 200, r.text
     assert r.json()["revision"] == 2 and r.json()["data"]["name"] == "Renamed"
+    assert r.json()["data"]["site"]["gridNode"] == "Żarnowiec 400/110 kV"
 
     stale = client.put(f"{URL}/{p['id']}", json={"revision": 1, "data": _doc()})
     assert stale.status_code == 409

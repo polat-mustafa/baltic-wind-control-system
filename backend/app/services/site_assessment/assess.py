@@ -20,6 +20,7 @@ import numpy as np
 from app.services.p1.weather_window import CTV_SPEED_KMH
 from app.services.site_assessment.criteria import SEABED_CLASSES, Criteria, depth_band
 from app.services.site_assessment.geo import (
+    LocalProjection,
     is_simple,
     points_in_polygon,
     points_in_polygons,
@@ -60,6 +61,17 @@ class Check:
 
 
 @dataclass(frozen=True)
+class GridNodeReach:
+    """A grid connection point and its straight distance from the site centre."""
+
+    name: str
+    status: str  # existing | commissioning | planned
+    km: float
+    voltage_kv: list[int]
+    basis: str
+
+
+@dataclass(frozen=True)
 class PortReach:
     """An offshore wind port and its distance to the site by sea."""
 
@@ -81,8 +93,9 @@ class Assessment:
     class_shares: dict[str, float]  # suitable / marginal / poor → fraction of area
     mean_score: float | None
     shore_km: tuple[float, float] | None  # min, max over the site
-    grid_km: float | None  # centroid to nearest grid node
+    grid_km: float | None  # centroid to the chosen grid node (default: the nearest)
     grid_node: str | None
+    grid_nodes: list[GridNodeReach]  # every node, nearest first
     cable_km: float | None
     owf_km: float | None
     protected_km: float | None
@@ -124,7 +137,13 @@ def _finite(a: np.ndarray) -> np.ndarray:
     return np.asarray(a[np.isfinite(a)], dtype=float)
 
 
-def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> Assessment:
+def assess_site(
+    pack: RegionPack,
+    crit: Criteria,
+    coords: list[list[float]],
+    grid_node: str | None = None,
+) -> Assessment:
+    """Report for a site; ``grid_node`` picks the connection point (default: the nearest)."""
     ring_ll = _ring(coords)
     lon_min, lat_min, lon_max, lat_max = pack.bbox
     for lon, lat in ring_ll:
@@ -169,13 +188,24 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
 
     cx, cy = float(sx.mean()), float(sy.mean())
     clon, clat = proj.inverse(np.array(cx), np.array(cy))
-    grid_node: str | None = None
-    grid_km: float | None = None
-    for name, glon, glat in pack.points("grid"):
-        gx_km, gy_km = proj.forward(np.array(glon), np.array(glat))
-        d = math.hypot(float(gx_km) - cx, float(gy_km) - cy)
-        if grid_km is None or d < grid_km:
-            grid_node, grid_km = name, d
+    nodes = sorted(
+        (
+            GridNodeReach(
+                f.name,
+                str(f.props.get("status", "existing")),
+                _km_to(proj, cx, cy, f.coordinates),
+                [int(v) for v in f.props.get("voltage_kv", [])],
+                str(f.props.get("basis", "")),
+            )
+            for f in pack.point_features("grid")
+        ),
+        key=lambda n: n.km,
+    )
+    chosen = nodes[0] if nodes else None
+    if grid_node is not None:
+        chosen = next((n for n in nodes if n.name == grid_node), None)
+        if chosen is None:
+            raise InvalidSiteError(f"unknown grid node {grid_node!r}")
 
     shore = _finite(np.concatenate([ev.shore_km, edge.shore_km]))
     depth = _finite(np.concatenate([ev.depth_m, edge.depth_m]))
@@ -237,6 +267,7 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
         projects,
         seabed,
         ports,
+        chosen,
     )
 
     return Assessment(
@@ -249,8 +280,9 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
         class_shares=class_shares,
         mean_score=mean_score,
         shore_km=(float(shore.min()), float(shore.max())) if shore.size else None,
-        grid_km=grid_km,
-        grid_node=grid_node,
+        grid_km=None if chosen is None else chosen.km,
+        grid_node=None if chosen is None else chosen.name,
+        grid_nodes=nodes,
         cable_km=float(cable.min()) if cable.size else None,
         owf_km=float(owf.min()) if owf.size else None,
         protected_km=float(protected.min()) if protected.size else None,
@@ -264,6 +296,12 @@ def assess_site(pack: RegionPack, crit: Criteria, coords: list[list[float]]) -> 
         checks=checks,
         complete=is_complete(pack),
     )
+
+
+def _km_to(proj: LocalProjection, x: float, y: float, lonlat: list[float]) -> float:
+    """Straight distance [km] from projected (x, y) to a [lon, lat] point."""
+    px, py = proj.forward(np.array(lonlat[0]), np.array(lonlat[1]))
+    return math.hypot(float(px) - x, float(py) - y)
 
 
 def _seabed_shares(pack: RegionPack, lon: np.ndarray, lat: np.ndarray) -> dict[str, float] | None:
@@ -326,6 +364,32 @@ def _seabed_check(seabed: dict[str, float] | None) -> Check:
     )
 
 
+def _grid_check(node: GridNodeReach | None) -> Check:
+    title = "Grid connection point"
+    if node is None:
+        return Check("grid", title, "unknown", "No grid connection points loaded.")
+    where = (
+        f"{node.name} ({node.status}), {node.km:.0f} km straight from the site centre; "
+        "the export route is longer"
+    )
+    if node.status == "existing":
+        return Check(
+            "grid",
+            title,
+            "info",
+            f"{where}. PSE sets the connection conditions.",
+            "PSE IRiESP; OpenStreetMap substations",
+        )
+    return Check(
+        "grid",
+        title,
+        "warn",
+        f"{where}. Not in full service yet — {node.basis}. The farm's connection date "
+        "follows PSE's schedule.",
+        "PSE investment programme",
+    )
+
+
 def _ports_check(pack: RegionPack, ports: list[PortReach]) -> Check:
     title = "Ports"
     if not pack.has("port"):
@@ -365,6 +429,7 @@ def _checks(
     projects: list[str],
     seabed: dict[str, float] | None,
     ports: list[PortReach],
+    grid: GridNodeReach | None,
 ) -> list[Check]:
     checks: list[Check] = []
 
@@ -624,6 +689,7 @@ def _checks(
 
     checks.append(_seabed_check(seabed))
     checks.append(_ports_check(pack, ports))
+    checks.append(_grid_check(grid))
 
     checks.append(
         Check(

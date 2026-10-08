@@ -23,6 +23,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.services.lifecycle.campaign import SB510_INSTALL_PORT_KM
 from app.services.p1.weather_window import SB510_OM_PORT_KM
+from app.services.p2.network_model import SB510_GRID_NODE
 from app.services.site_assessment.assess import InvalidSiteError, assess_site
 from app.services.site_assessment.criteria import Criteria, depth_band
 from app.services.site_assessment.geo import (
@@ -722,3 +723,37 @@ def test_sea_route_goes_round_land() -> None:
     kx = 111.19 * math.cos(math.radians(54.95))
     round_end = 2 * math.hypot(0.45 * kx, 0.3 * 111.19)
     assert round_end * 0.98 < detour < round_end * 1.2
+
+
+# ── Grid connection points ───────────────────────────────────────
+
+
+def test_sb510_grid_nodes_ranked_and_choosable() -> None:
+    """Nearest PSE node = Słupsk Wierzbięcin (existing); Krzemienica is planned (PSE)."""
+    pack = load_region("southern-baltic")
+    a = assess_site(pack, Criteria(), SB510_SITE)
+    assert a.grid_node == SB510_GRID_NODE and a.grid_km == a.grid_nodes[0].km
+    assert [n.km for n in a.grid_nodes] == sorted(n.km for n in a.grid_nodes)
+    by_name = {n.name: n for n in a.grid_nodes}
+    assert by_name["Krzemienica 400 kV"].status == "planned"
+    assert "inwestycje.pse.pl" in by_name["Krzemienica 400 kV"].basis
+    assert by_name["Choczewo 400 kV"].status == "commissioning"
+    assert next(c for c in a.checks if c.id == "grid").status == "info"
+    chosen = assess_site(pack, Criteria(), SB510_SITE, grid_node="Krzemienica 400 kV")
+    assert chosen.grid_node == "Krzemienica 400 kV"
+    assert chosen.grid_km == by_name["Krzemienica 400 kV"].km
+    check = next(c for c in chosen.checks if c.id == "grid")
+    assert check.status == "warn" and "Bałtyk 1" in check.detail
+    with pytest.raises(InvalidSiteError, match="unknown grid node"):
+        assess_site(pack, Criteria(), SB510_SITE, grid_node="Nowhere 400 kV")
+
+
+def test_grid_node_over_the_api() -> None:
+    body = {"polygon": SB510_SITE, "grid_node": "Żarnowiec 400/110 kV"}
+    r = client.post(f"{API}/assess", json=body)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["grid_node"] == "Żarnowiec 400/110 kV"
+    assert {n["status"] for n in data["grid_nodes"]} == {"existing", "commissioning", "planned"}
+    bad = client.post(f"{API}/assess", json={**body, "grid_node": "Nowhere"})
+    assert bad.status_code == 422

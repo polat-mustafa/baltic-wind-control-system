@@ -96,7 +96,7 @@ export function scoreSite(report: AssessResponse): Scored {
 // ── Layout challenge ─────────────────────────────────────────────
 
 export const LAYOUT_BAND_MW: [number, number] = [450, 550];
-/** LCOE for zero and full marks [€/MWh] with the default (NREL 2024) cost inputs; SB-510 ≈ 117. */
+/** LCOE for zero and full marks [€/MWh] with the default (NREL 2024) cost inputs; SB-510 ≈ 116 at its site climate (A 10.80, k 2.04). */
 export const LCOE_RANGE: [number, number] = [132, 115];
 /** Wake loss for full and zero marks [%]. */
 export const WAKE_RANGE: [number, number] = [3, 12];

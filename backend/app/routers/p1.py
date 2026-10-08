@@ -78,6 +78,11 @@ from app.services.p1.yaw_optimizer import (
     optimize_yaw_all_directions,
     optimize_yaw_single_direction,
 )
+from app.services.site_assessment.wind_climate import (
+    SB510_MEAN_MS,
+    SB510_WEIBULL_A,
+    SB510_WEIBULL_K,
+)
 
 router = APIRouter(prefix="/api/v1/wind", tags=["P1 Wind Resource"])
 
@@ -119,8 +124,8 @@ class TurbineSpecResponse(BaseModel):
 class WeibullFitRequest(BaseModel):
     """Request to fit Weibull from synthetic data."""
 
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0, description="Weibull scale A [m/s]")
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0, description="Weibull shape k [-]")
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0, description="Weibull scale A [m/s]")
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0, description="Weibull shape k [-]")
     num_samples: int = Field(8760, ge=1000, le=87600, description="Number of synthetic samples")
 
 
@@ -138,8 +143,8 @@ class WeibullFitResponse(BaseModel):
 class WindRoseRequest(BaseModel):
     """Request for wind rose computation from synthetic data."""
 
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     num_samples: int = Field(8760, ge=1000, le=87600)
     num_sectors: int = Field(12, ge=8, le=36)
 
@@ -164,8 +169,8 @@ class WakeAnalysisRequest(BaseModel):
     """Request for wake analysis on a layout."""
 
     layout: str = Field("regular", description="Layout name: regular, staggered")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
 
 
@@ -191,8 +196,8 @@ class CustomWakeRequest(BaseModel):
 
     x_m: list[float] = Field(min_length=1, max_length=150, description="Turbine x (east) [m]")
     y_m: list[float] = Field(min_length=1, max_length=150, description="Turbine y (north) [m]")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     turbine_model: str = Field(
         DEFAULT_TURBINE_ID,
@@ -241,8 +246,8 @@ class AEPCascadeRequest(BaseModel):
     """Request for full AEP loss cascade."""
 
     layout: str = Field("regular")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
 
@@ -280,8 +285,8 @@ class BlockageRequest(BaseModel):
     """Request for blockage estimation."""
 
     layout: str = Field("regular")
-    mean_wind_speed_ms: float = Field(9.3, ge=3.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    mean_wind_speed_ms: float = Field(SB510_MEAN_MS, ge=3.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
 
 
 class BlockageResponse(BaseModel):
@@ -297,8 +302,8 @@ class BlockageResponse(BaseModel):
 class LayoutComparisonRequest(BaseModel):
     """Request to compare all 3 layouts."""
 
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
 
@@ -342,8 +347,8 @@ class YawOptimizationRequest(BaseModel):
     layout: str = Field("staggered", description="Layout name: regular, staggered")
     wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0, description="Wind direction [deg]")
     wind_speed_ms: float = Field(9.5, ge=3.0, le=25.0, description="Wind speed [m/s]")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     max_yaw_deg: float = Field(30.0, ge=5.0, le=40.0, description="Max yaw angle [deg]")
 
@@ -364,8 +369,8 @@ class FarmYawOptimizationRequest(BaseModel):
     """Request for yaw optimization across all wind directions."""
 
     layout: str = Field("staggered", description="Layout name: regular, staggered")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     wind_speed_ms: float = Field(
         9.5,
@@ -1020,8 +1025,8 @@ class WakeModelComparisonRequest(BaseModel):
     """Request to compare multiple wake deficit models."""
 
     layout: str = Field("staggered")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     models: list[str] = Field(
         default=["jensen", "bpa_gaussian", "noj", "zong_gaussian"],
@@ -1052,8 +1057,8 @@ class WakeModelComparisonResponse(BaseModel):
 
 class DeratingRequest(BaseModel):
     layout: str = Field("staggered")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     wind_direction_deg: float = Field(240.0, ge=0.0, lt=360.0)
 
@@ -1069,8 +1074,10 @@ class DeratingResponse(BaseModel):
 
 class FLOWERSRequest(BaseModel):
     layout: str = Field("staggered")
-    mean_wind_speed_ms: float = Field(9.3, ge=5.0, le=20.0, description="Hub-height mean [m/s]")
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    mean_wind_speed_ms: float = Field(
+        SB510_MEAN_MS, ge=5.0, le=20.0, description="Hub-height mean [m/s]"
+    )
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     n_fourier_modes: int = Field(12, ge=4, le=24, description="Truncated to sectors/2 (Nyquist)")
 
 
@@ -1085,8 +1092,8 @@ class FLOWERSResponse(BaseModel):
 
 class MarketWeightedAEPRequest(BaseModel):
     layout: str = Field("staggered")
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     flat_price_eur_mwh: float = Field(72.0, ge=10.0, le=300.0)
 
@@ -1327,8 +1334,8 @@ class LayoutOptimizationRequest(BaseModel):
         description="Algorithm: differential_evolution, basin_hopping, "
         "genetic_algorithm, or gradient_lbfgsb",
     )
-    weibull_a: float = Field(10.5, ge=5.0, le=20.0)
-    weibull_k: float = Field(2.2, ge=1.0, le=4.0)
+    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
+    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     maxiter: int = Field(5, ge=1, le=50)
 

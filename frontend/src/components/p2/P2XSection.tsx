@@ -93,7 +93,7 @@ export default function P2XSection() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <ChartWrapper
               title="Farm output duration curve"
-              footer="The 8760 hours of the site's wind year sorted by output (Weibull 9.3 m/s, k = 2.2 as in P1; multi-turbine power curve, 97 % availability; wakes not deducted). Output above the grid limit is lost unless the electrolyser absorbs it; below 10 % load it cannot run."
+              footer="The 8760 hours of the site's wind year sorted by output (SB-510 site: mean 9.57 m/s, k = 2.04 as in P1; multi-turbine power curve, 97 % availability; wakes not deducted). Output above the grid limit is lost unless the electrolyser absorbs it; below 10 % load it cannot run."
             >
               <Plot
                 data={[

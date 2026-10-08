@@ -24,6 +24,7 @@ import { prepareYield, UNIFORM_ROSE, yieldOf, type WindRose } from "../layout/en
 import { foundationFor, layoutContext, OTHER_LOSSES, statusAt, WEIBULL_A, WEIBULL_K } from "../layout/evaluate";
 import { minSpacing, polygonArea, type LonLat } from "../layout/geometry";
 import { suggestMoves, type MoveSuggestion } from "../layout/suggest";
+import { SB510_WIND } from "../../constants/sb510Wind";
 
 export const REPORT_SCHEMA = "offshoreforge-report/1";
 
@@ -159,7 +160,7 @@ export function buildReport(i: ReportInput) {
       weibull_a_ms: r(windA, 2),
       weibull_k: r(windK, 2),
       sector_frequencies: w?.sector_frequencies ?? null,
-      source: w ? `${w.source} (${w.license})` : "Regional approximation (A 10.5 m/s, k 2.2), uniform rose — no site climate",
+      source: w ? `${w.source} (${w.license})` : `SB-510 site climate (${SB510_WIND.source}: A ${SB510_WIND.weibullA} m/s, k ${SB510_WIND.weibullK}), uniform rose — no site assessment for this project`,
     },
     layout: {
       turbine_model: model.name,

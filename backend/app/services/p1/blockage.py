@@ -48,6 +48,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from app.services.p1.turbine_models import get_turbine
+from app.services.site_assessment.wind_climate import SB510_MEAN_MS, SB510_WEIBULL_K
 
 # Calibration constant (see module docstring) — energy loss per unit
 # array density × Ct for below-rated operation.
@@ -152,8 +153,8 @@ def estimate_blockage_loss_percent(
     x_positions: NDArray[np.floating],
     y_positions: NDArray[np.floating],
     rotor_diameter_m: float = _REFERENCE_D_M,
-    mean_wind_speed_ms: float = 9.3,
-    weibull_k: float = 2.2,
+    mean_wind_speed_ms: float = SB510_MEAN_MS,
+    weibull_k: float = SB510_WEIBULL_K,
 ) -> BlockageResult:
     """Estimate the global-blockage AEP loss (see module docstring).
 

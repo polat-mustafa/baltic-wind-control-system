@@ -24,7 +24,7 @@ Constants (SB-510)
 - Hub height: 150 m
 - ERA5 reference heights: 10 m, 100 m
 - Expected offshore shear exponent: 0.06–0.12
-- Expected Baltic Weibull: A ≈ 10.5 m/s, k ≈ 2.2
+- SB-510 site (NEWA 150 m): A ≈ 10.80 m/s, k ≈ 2.04
 """
 
 from dataclasses import dataclass

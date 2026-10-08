@@ -9,6 +9,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.services.site_assessment.wind_climate import SB510_MEAN_MS, SB510_WEIBULL_K
+
 # ── Farm configuration ────────────────────────────────────────────
 
 
@@ -26,9 +28,11 @@ class FarmConfigCreate(BaseModel):
         default=7.0, ge=4.0, le=12.0, description="Grid spacing in rotor diameters [D]"
     )
     mean_wind_speed_ms: float = Field(
-        default=9.5, ge=5.0, le=14.0, description="Hub-height mean wind speed [m/s]"
+        default=SB510_MEAN_MS, ge=5.0, le=14.0, description="Hub-height mean wind speed [m/s]"
     )
-    weibull_k: float = Field(default=2.2, ge=1.5, le=3.5, description="Weibull shape parameter")
+    weibull_k: float = Field(
+        default=SB510_WEIBULL_K, ge=1.5, le=3.5, description="Weibull shape parameter"
+    )
     availability_pct: float = Field(default=95.0, ge=70.0, le=99.9)
     capex_m_eur_per_mw: float = Field(
         default=5.0,

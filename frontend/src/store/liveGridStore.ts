@@ -80,8 +80,8 @@ export function useLiveGridPolling(): void {
 
 /** SB-510 iron losses of the 4 × 300 MVA transformers [MW] (backend PFE 60 kW each). */
 const NO_LOAD_LOSS_MW = 0.24;
-/** SB-510 series losses at rated output [MW]: P2 load flow 6.35 MW total at 510 MW. */
-const SERIES_LOSS_AT_RATED_MW = 6.11;
+/** SB-510 series losses at rated output [MW]: P2 load flow 8.63 MW total at 510 MW (76.5 km). */
+const SERIES_LOSS_AT_RATED_MW = 8.39;
 
 export interface PlantSnapshot {
   /** Sum of the turbine outputs [MW]. */

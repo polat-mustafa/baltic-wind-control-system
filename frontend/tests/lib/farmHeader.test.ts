@@ -47,7 +47,7 @@ describe("farm header", () => {
     const f = farmInput()!;
     expect(f.strings.reduce((a, b) => a + b, 0)).toBe(8);
     expect(Math.max(...f.strings)).toBeLessThanOrEqual(6); // 800 mm² carries 6 × 15 MW
-    expect(f.export_km).toBe(45); // no site report yet → the SB-510 default
+    expect(f.export_km).toBe(76.5); // no site report yet → the SB-510 default
     expect(f.array_km).toBeGreaterThan(1);
     expect(f.array_km).toBeLessThan(3);
     expect(JSON.parse(decodeURIComponent(farmHeader()!))).toEqual(f);

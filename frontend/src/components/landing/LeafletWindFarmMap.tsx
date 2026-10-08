@@ -6,7 +6,7 @@
  * polylines. Export cable (220 kV) runs from OSS to onshore substation with
  * animated dash pattern. KPI ribbon overlays at top, alarm ticker at bottom.
  *
- * Geographic coordinates: centered ~54.70°N, 16.55°E (Polish Baltic EEZ).
+ * Geographic coordinates: SB-510 array ~55.06°N, 16.54°E (Polish Baltic EEZ, PZP_44).
  *
  * Detail panels are rendered by the parent (LandingPage) — OUTSIDE Leaflet's
  * DOM tree — so they are never hidden behind GPU-composited translate3d layers.
@@ -511,7 +511,7 @@ function createEquipmentIcon(opts: {
   });
 }
 
-function createOSSIcon(powerMW: number, mva: number): L.DivIcon {
+function createOSSIcon(powerMW: number, mva: number, labelLeft: boolean): L.DivIcon {
   return createEquipmentIcon({
     glyph: transformerGlyph(
       SCADA_COLORS.VOLTAGE_66KV,
@@ -521,6 +521,7 @@ function createOSSIcon(powerMW: number, mva: number): L.DivIcon {
     value: `${powerMW.toFixed(0)} MW`,
     sub: `2 × ${mva} MVA`,
     color: EQ_GREEN,
+    labelLeft,
   });
 }
 
@@ -548,7 +549,7 @@ function createGridSwitchyardIcon(breakerClosed: boolean): L.DivIcon {
 }
 
 /** Q sign convention (rule 4): + injecting (capacitive), − absorbing (inductive). */
-function createSTATCOMIcon(qMVAR: number): L.DivIcon {
+function createSTATCOMIcon(qMVAR: number, labelLeft: boolean): L.DivIcon {
   const color = qMVAR > 5 ? EQ_INJECT : qMVAR < -5 ? EQ_ABSORB : EQ_IDLE;
   const sign = qMVAR > 0 ? "+" : qMVAR < 0 ? "−" : "";
   return createEquipmentIcon({
@@ -558,6 +559,7 @@ function createSTATCOMIcon(qMVAR: number): L.DivIcon {
     sub: qMVAR > 5 ? "inject" : qMVAR < -5 ? "absorb" : "float",
     color,
     offset: [0, -34],
+    labelLeft,
   });
 }
 
@@ -1302,7 +1304,7 @@ function FitFleet() {
     }
     // top padding clears the KPI strip drawn over the map
     map.fitBounds(fleet.source === "sb510" ? FARM_VIEW_BOUNDS : fleetBounds(fleet), {
-      paddingTopLeft: [24, fleet.source === "sb510" ? 24 : 130],
+      paddingTopLeft: [24, 130],
       paddingBottomRight: [24, 24],
     });
   }, [map, fleet]);
@@ -1333,12 +1335,14 @@ function LeafletWindFarmMapInner({
   onLIDARClick,
 }: LeafletWindFarmMapProps) {
   const fleet = useFleet();
-  const ossIcon = useMemo(() => createOSSIcon(totalPowerMW, fleet.net.oss_trafo_mva), [totalPowerMW, fleet]);
+  // labels face away from the array: an OSS on its west side (SB-510) labels to the left
+  const ossWest = useMemo(() => fleet.oss.lon < fleet.turbines.reduce((a, t) => a + t.lon, 0) / fleet.turbines.length, [fleet]);
+  const ossIcon = useMemo(() => createOSSIcon(totalPowerMW, fleet.net.oss_trafo_mva, ossWest), [totalPowerMW, fleet, ossWest]);
   const onshoreIcon = useMemo(() => createOnshoreIcon(fleet.net.onshore_trafo_mva), [fleet]);
   // STATCOM Q: pandapower when the backend solves, else the reactive-balance
   // estimate (store/liveGridStore) — the same number as the ribbon and panel.
   const statcomQ = Math.round(useStatcomQ(totalPowerMW).q);
-  const statcomIcon = useMemo(() => createSTATCOMIcon(statcomQ), [statcomQ]);
+  const statcomIcon = useMemo(() => createSTATCOMIcon(statcomQ, ossWest), [statcomQ, ossWest]);
   // Grid switchyard breaker is closed whenever the farm is exporting power.
   const isExporting = totalPowerMW > 0.5;
   const switchyardIcon = useMemo(
@@ -1393,7 +1397,7 @@ function LeafletWindFarmMapInner({
     >
       <MapContainer
         bounds={sb510 ? FARM_VIEW_BOUNDS : fleetBounds(fleet)}
-        boundsOptions={sb510 ? { padding: [24, 24] } : { paddingTopLeft: [24, 130], paddingBottomRight: [24, 24] }}
+        boundsOptions={{ paddingTopLeft: [24, 130], paddingBottomRight: [24, 24] }}
         zoomSnap={0.25}
         zoomDelta={0.5}
         className="w-full h-full"
@@ -1550,7 +1554,7 @@ function LeafletWindFarmMapInner({
           }}
         >
           <Tooltip direction="left" offset={[-6, 0]}>
-            Landfall · Zaleskie beach (HDD) — 31.5 km subsea + 13.4 km land
+            Landfall · Zaleskie beach (HDD) — 63.5 km subsea + 13 km land
           </Tooltip>
         </CircleMarker>
 

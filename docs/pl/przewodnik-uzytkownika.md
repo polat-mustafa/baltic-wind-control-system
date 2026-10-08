@@ -1,7 +1,7 @@
 # Przewodnik użytkownika
 
 **OffshoreForge**: symulacja morskiej farmy wiatrowej 510 MW na Morzu Bałtyckim
-(34 × Vestas V236-15.0 MW, sieć wewnętrzna 66 kV, kabel eksportowy 220 kV o długości 45 km, sieć PSE 400 kV).
+(34 × Vestas V236-15.0 MW, sieć wewnętrzna 66 kV, kabel eksportowy 220 kV o długości 76,5 km, sieć PSE 400 kV).
 
 ## 1. Wymagania
 

@@ -75,9 +75,14 @@ def test_reactor_switching_keeps_statcom_headroom(layout: tuple[int, ...], km: f
         assert r.reactors_in_service < spec.num_reactors
 
 
-def test_sb510_keeps_all_reactors_in() -> None:
+def test_sb510_runs_on_two_reactors_and_keeps_the_spare() -> None:
+    """442 MVAR of charging: with all 3 × 170 in, the STATCOM would generate over 60 MVAR,
+    so the N+1 spare is switched out at every output and the STATCOM stays inside ±60."""
     for f in (0.0, 0.5, 1.0):
-        assert run_live_load_flow([15.0 * f] * 34).reactors_in_service == 3
+        r = run_live_load_flow([15.0 * f] * 34)
+        assert r.reactors_in_service == 2 and r.voltage_compliant
+        assert abs(r.statcom_q_mvar) < 60.0
+        assert r.export_cable_loading_pct < 90.0
 
 
 def test_api_takes_the_farm_from_the_header() -> None:

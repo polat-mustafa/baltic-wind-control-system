@@ -47,7 +47,18 @@ client = TestClient(app)
 API = "/api/v1/site"
 
 SQUARE = np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]])
-SB510_SITE = [[16.31, 54.845], [16.485, 54.845], [16.485, 54.755], [16.31, 54.755]]
+# SB-510 = energy basin PZP_44 between 16.42 and 16.63 °E (frontend SITE_BOUNDARY_GEO)
+SB510_SITE = [
+    [16.4978, 55.099],
+    [16.5452, 55.1059],
+    [16.6056, 55.1083],
+    [16.63, 55.1139],
+    [16.63, 55.0474],
+    [16.4496, 55.0054],
+    [16.4417, 55.0018],
+    [16.42, 54.9881],
+    [16.42, 55.0688],
+]
 
 
 # ── Synthetic region with every layer role ───────────────────────
@@ -336,34 +347,33 @@ class TestScreening:
 
 class TestAssess:
     def test_sb510_case_study(self) -> None:
-        """The current SB-510 boundary against the open data: geometry checks out, the MSP does not.
+        """SB-510 in energy basin PZP_44 (= site 44.E.1) against the open data.
 
-        It lies outside every energy basin of the Polish maritime spatial plan
-        (Dz.U. 2021 poz. 935) and 60–80 % inside shipping-priority basin PZP_15; the Ławica
-        Słupska Natura 2000 site is ≈ 1 km north. Real findings: SB-510 moves into energy
-        basin PZP_44 (a later phase of the own-project programme) and this test follows it.
+        Every legal blocker passes: inside the basin, beyond 12 nm, no shipping basin,
+        military area or munition dump, cables > 4 km away. What stays: the area is
+        already allocated (44.E.1, PGE / Baltica 9, 2023 — SB-510 is a fictional use of
+        it) and the Ławica Słupska Natura 2000 site is 2 km south (appropriate
+        assessment). 34–54 m of water → jackets.
         """
         pack = load_region("southern-baltic")
         a = assess_site(pack, Criteria(), SB510_SITE)
-        # 0.09° × 0.175° at 54.8° N ≈ 10.0 km × 11.2 km
-        assert a.area_km2 == pytest.approx(112.3, rel=0.01)
-        assert a.shore_km is not None and a.shore_km[0] > 22.224  # beyond 12 nm
+        assert a.area_km2 == pytest.approx(112.9, rel=0.01)
+        assert a.shore_km is not None and a.shore_km[0] > 45  # far beyond 12 nm (22.2 km)
         assert a.grid_node is not None and "Słupsk" in a.grid_node
-        assert 40 < a.grid_km < 50  # type: ignore[operator]  # export route is 44.9 km
-        assert a.depth_m is not None and a.depth_m[0] > 20 and a.depth_m[1] < 45  # EMODnet DTM
-        assert a.foundation == "monopile / jacket"
-        assert 0.6 < a.exclusion_shares["shipping"] < 0.8
+        # straight line; the cable runs round the Natura 2000 site: 76.5 km
+        assert 60 < a.grid_km < 70  # type: ignore[operator]
+        assert a.depth_m is not None and a.depth_m[0] > 30 and a.depth_m[1] < 57  # EMODnet DTM
+        assert a.foundation is not None and "jacket" in a.foundation
+        assert a.excluded_fraction == 0
         assert a.capacity_mw == pytest.approx(a.area_km2 * (1 - a.excluded_fraction) * 4.5)
         status = {c.id: c.status for c in a.checks}
         assert status["territorial_sea"] == "pass" and status["eez"] == "pass"
-        assert (
-            status["owf"] == "pass" and status["depth"] == "pass" and status["restricted"] == "pass"
-        )
-        assert status["shipping"] == "fail"
-        assert status["msp_energy"] == "fail" and a.energy_basins == []
-        assert status["owf"] == "pass" and a.projects == []
+        assert status["depth"] == "pass" and status["restricted"] == "pass"
+        assert status["shipping"] == "pass" and status["cables"] == "pass"
+        assert status["msp_energy"] == "pass" and a.energy_basins == ["PZP_44"]
+        assert status["owf"] == "warn" and any("Baltica 9" in p for p in a.projects)
         assert status["natura2000"] == "warn"
-        assert a.protected_km is not None and 0 < a.protected_km < 2
+        assert a.protected_km is not None and 1.5 < a.protected_km < 2.5
         assert a.complete
         # The full boundary at the case-study density gives SB-510's 510 MW
         assert a.area_km2 * 4.5 == pytest.approx(510, rel=0.02)
@@ -515,7 +525,7 @@ class TestAPI:
         r = client.post(f"{API}/assess", json={"polygon": SB510_SITE})
         assert r.status_code == 200
         b = r.json()
-        assert b["area_km2"] == pytest.approx(112.3, rel=0.01)
+        assert b["area_km2"] == pytest.approx(112.9, rel=0.01)
         assert {c["status"] for c in b["checks"]} <= {"pass", "warn", "fail", "unknown", "info"}
         crossing = [[16.3, 54.8], [16.5, 54.9], [16.5, 54.8], [16.3, 54.9]]
         assert client.post(f"{API}/assess", json={"polygon": crossing}).status_code == 422

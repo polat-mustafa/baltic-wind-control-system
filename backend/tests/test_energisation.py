@@ -8,8 +8,18 @@ import math
 
 import pytest
 
-from app.services.p2.network_model import TRAFO_66_220_I0_PERCENT, TRAFO_66_220_MVA
-from app.services.p5.energisation import cable_charging_mvar, ferranti_ratio, network_snapshot
+from app.services.p2.network_model import (
+    OLTC_STEP_PERCENT,
+    SB510,
+    TRAFO_66_220_I0_PERCENT,
+    TRAFO_66_220_MVA,
+)
+from app.services.p5.energisation import (
+    cable_charging_mvar,
+    ferranti_ratio,
+    network_snapshot,
+    onshore_tap,
+)
 from app.services.p5.equipment_state import EquipmentState, build_initial_state
 
 SHUT, OPENED = EquipmentState.CLOSED, EquipmentState.OPEN
@@ -39,13 +49,16 @@ def state_after(*stages: str) -> dict[str, EquipmentState]:
 
 
 def test_analytic_cross_checks():
-    assert cable_charging_mvar() == pytest.approx(130.0, abs=0.1)
-    assert ferranti_ratio() == pytest.approx(1.0071, abs=1e-4)
+    assert cable_charging_mvar() == pytest.approx(221.0, abs=0.1)  # 76.5 km
+    assert ferranti_ratio() == pytest.approx(1.0206, abs=1e-4)  # 1 / cos(βl), βl ≈ 0.20 rad
 
 
 def test_dead_network_is_flat():
+    """Only the onshore OLTC pre-set (3 steps for the 76.5 km cable) moves the busbar."""
     snap = network_snapshot(build_initial_state())
-    assert snap.bus("ONS220").vm_pu == pytest.approx(1.0, abs=1e-3)
+    assert onshore_tap() == 3
+    tap = 1 + onshore_tap() * OLTC_STEP_PERCENT / 100
+    assert snap.bus("ONS220").vm_pu == pytest.approx(1 / tap, abs=1e-3)
     assert snap.cable_i_send_a is None
 
 
@@ -63,7 +76,8 @@ def test_open_ended_cable():
 
 def test_reactor_and_statcom_bring_the_busbar_to_1pu():
     after_reactor = network_snapshot(state_after("cable", "oss", "reactor"))
-    assert after_reactor.reactor_q_mvar == pytest.approx(-80.0, rel=0.03)  # absorbing (Rule 4)
+    v = after_reactor.bus("OSS220").vm_pu  # absorbing (Rule 4), Q ∝ U²
+    assert after_reactor.reactor_q_mvar == pytest.approx(-SB510.reactor_unit_mvar * v**2, rel=0.01)
     assert after_reactor.poc_q_mvar < network_snapshot(state_after("cable", "oss")).poc_q_mvar
     regulated = network_snapshot(state_after("cable", "oss", "reactor", "statcom"))
     assert regulated.bus("OSS220").vm_pu == pytest.approx(1.0, abs=1e-3)

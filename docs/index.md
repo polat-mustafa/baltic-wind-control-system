@@ -2,7 +2,7 @@
 
 A production-grade educational simulation platform for a **510 MW Baltic Sea offshore wind farm** — covering the complete engineering lifecycle from wind resource assessment through HV commissioning.
 
-**34 x Vestas V236-15.0 MW** | 66 kV array | 220 kV export (45 km) | 400 kV PSE grid connection
+**34 x Vestas V236-15.0 MW** | 66 kV array | 220 kV export (76.5 km) | 400 kV PSE grid connection
 
 ## Five Interconnected Projects
 

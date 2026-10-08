@@ -54,9 +54,9 @@ class OSSBaySensorGroup(BaseModel):
 
 
 class CableSensorGroup(BaseModel):
-    """Export cable monitoring instruments (45 km, 220 kV three-core)."""
+    """Export cable monitoring instruments (76.5 km, 220 kV three-core)."""
 
-    cable_length_km: float = 45.0
+    cable_length_km: float = 76.5
     cable_voltage_kv: float = 220.0
     sensors: list[SensorSpec]
     total_cable_instruments: int

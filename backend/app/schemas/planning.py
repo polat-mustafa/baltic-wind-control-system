@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 
 class ExportRequest(BaseModel):
-    design_length_km: float = Field(default=45.0, ge=10.0, le=200.0, description="Cable route [km]")
+    design_length_km: float = Field(default=76.5, ge=10.0, le=200.0, description="Cable route [km]")
 
 
 class ExportHVAC(BaseModel):

@@ -20,7 +20,7 @@ Sequence (60 steps, 6 phases)
    charging current and Ferranti rise, 24 h soak at U0 (IEC 62067's alternative
    after-installation AC test), hold point.
 3. OSS 220 kV — remove the busbar earth, close DS/CB, remove the bay earths and
-   switch in reactor 1 (80 Mvar) and the STATCOM (voltage control at 1.00 pu).
+   switch in reactor 1 (SB-510: 170 Mvar) and the STATCOM (voltage control at 1.00 pu).
 4. TX-OSS-01 — remove its bay earth, energise from the 220 kV side (inrush; 87T
    restrained by the 2nd harmonic), verify magnetising current, energise 66 kV
    section A, hold point.

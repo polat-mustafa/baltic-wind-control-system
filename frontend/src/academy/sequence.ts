@@ -29,7 +29,7 @@ export const ENERGISATION: SequenceStep[] = [
     id: "earths",
     title: "Release the locks, open both cable earth switches and close the onshore disconnector",
     steps: "2.01 – 2.07",
-    needs: "The export cable is still earthed at both ends: closing a breaker onto an earth — even one 45 km away at the OSS — is a bolted fault. Earths come off first.",
+    needs: "The export cable is still earthed at both ends: closing a breaker onto an earth — even one 76.5 km away at the OSS — is a bolted fault. Earths come off first.",
   },
   {
     id: "export-cable",

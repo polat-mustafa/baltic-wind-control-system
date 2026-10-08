@@ -21,7 +21,7 @@ class FarmConfigCreate(BaseModel):
     turbine_rated_mw: float = Field(default=15.0, ge=0.5, le=20.0)
     array_voltage_kv: float = Field(default=66.0, ge=33.0, le=132.0)
     export_voltage_kv: float = Field(default=220.0, ge=66.0, le=400.0)
-    export_length_km: float = Field(default=45.0, ge=1.0, le=300.0)
+    export_length_km: float = Field(default=76.5, ge=1.0, le=300.0)
     turbine_spacing_d: float = Field(
         default=7.0, ge=4.0, le=12.0, description="Grid spacing in rotor diameters [D]"
     )

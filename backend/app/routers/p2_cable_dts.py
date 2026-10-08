@@ -3,7 +3,7 @@ Cable DTS thermal monitoring API endpoints — M10.
 
 Endpoints
 ---------
-GET    /api/v1/grid/cable/dts/profile    — fibre reading + conductor estimate along 45 km
+GET    /api/v1/grid/cable/dts/profile    — fibre reading + conductor estimate along 76.5 km
 POST   /api/v1/grid/cable/dts/transient  — conductor temperature after a current step
 
 One circuit of the 220 kV export cable; currents are per circuit.
@@ -29,7 +29,7 @@ async def get_dts_profile(
     ambient_temp_c: float = Query(15.0, ge=-5.0, le=35.0),
 ) -> DTSProfileResponse:
     """
-    Steady-state temperature every 100 m along the 45 km route.
+    Steady-state temperature every 100 m along the 76.5 km route.
 
     DTS measures the fibre; the conductor temperature is estimated as
     fibre + (W_c + ½W_d)·T_int. Losses follow IEC 60287-1-1: R_AC rises with

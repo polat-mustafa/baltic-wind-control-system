@@ -83,8 +83,8 @@ async def seed_default_farm() -> None:
             name="SB-510",
             # Array centroid — same site as the frontend map
             # (frontend/src/constants/windFarmLayout.ts, EEZ, 29–40 m depth)
-            latitude=54.797,
-            longitude=16.397,
+            latitude=55.063,
+            longitude=16.536,
             capacity_mw=510.0,
             num_turbines=34,
             turbine_model="IEA-15-240-RWT",

@@ -1,7 +1,7 @@
 # User Guide
 
 **OffshoreForge**: a simulation of a 510 MW Baltic Sea offshore wind farm
-(34 × Vestas V236-15.0 MW, 66 kV array, 45 km 220 kV export cable, PSE 400 kV grid).
+(34 × Vestas V236-15.0 MW, 66 kV array, 76.5 km 220 kV export cable, PSE 400 kV grid).
 
 ## 1. Requirements
 

@@ -101,7 +101,7 @@ export default function LayoutMap({
 
   return (
     <div className="relative h-[460px] overflow-hidden rounded-lg border border-border-primary sm:h-[560px]" data-tour="layout-map">
-      <MapContainer center={[54.8, 16.4]} zoom={11} className="h-full w-full" preferCanvas zoomControl={false}>
+      <MapContainer center={[55.06, 16.53]} zoom={11} className="h-full w-full" preferCanvas zoomControl={false}>
         <ZoomControl position="bottomright" />
         <TileLayer
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"

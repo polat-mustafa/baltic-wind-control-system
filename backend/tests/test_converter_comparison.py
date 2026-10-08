@@ -19,7 +19,7 @@ from app.services.p2.converter_comparison import (
     run_converter_comparison,
     run_weak_grid_comparison,
 )
-from app.services.p2.network_model import TOTAL_CAPACITY_MW
+from app.services.p2.network_model import EXPORT_CABLE_LENGTH_KM, TOTAL_CAPACITY_MW
 
 
 @pytest.fixture(scope="module")
@@ -35,9 +35,11 @@ def weak():
 def test_scr_at_poc_and_terminals(strong):
     gfl, _ = strong
     assert gfl.scr == pytest.approx(10_000 / TOTAL_CAPACITY_MW, rel=0.01)
-    # transformers + cable cost ≈ 0.25 p.u. → SCR ≈ 3.3 at the 66 kV busbar
-    assert 3.0 < gfl.scr_terminal < 3.6
-    assert abs(grid_impedance_pu(10_000.0, 45.0)) == pytest.approx(1 / gfl.scr_terminal, rel=0.01)
+    # transformers + 76.5 km of cable cost ≈ 0.27 p.u. → SCR ≈ 3.1 at the 66 kV busbar
+    assert 3.0 < gfl.scr_terminal < 3.3
+    assert abs(grid_impedance_pu(10_000.0, EXPORT_CABLE_LENGTH_KM)) == pytest.approx(
+        1 / gfl.scr_terminal, rel=0.01
+    )
 
 
 def test_both_stable_in_strong_grid(strong):
@@ -54,7 +56,7 @@ def test_gfm_gives_inertial_power_gfl_does_not(strong):
 
 
 def test_gfm_hits_current_limit_in_stiff_grid_for_large_jump():
-    r = get_comparison_response("strong_grid", 10_000.0, phase_jump_deg=40.0)
+    r = get_comparison_response("strong_grid", 10_000.0, phase_jump_deg=45.0)
     assert r.gfm_result.peak_current_pu == pytest.approx(GFM_CURRENT_LIMIT_PU, abs=1e-3)
     assert "current limit" in r.gfm_advantage
 

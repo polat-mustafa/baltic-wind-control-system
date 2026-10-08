@@ -2,9 +2,9 @@
 Cable DTS thermal monitoring — M10.
 
 One circuit of the 220 kV export cable (network_model.EXPORT_CABLE_1000: 3-core
-XLPE, 1000 mm² Cu, 950 A static rating, 45 km). The farm has two circuits,
+XLPE, 1000 mm² Cu, 950 A static rating, 76.5 km). The farm has two circuits,
 each with its own fibre, so ``current_a`` is the per-circuit current
-(≈ 730 A per circuit at 510 MW; ≈ 1 360 A on the survivor after an N-1 trip).
+(≈ 730 A per circuit at 510 MW; ≈ 1 370 A on the survivor after an N-1 trip).
 
 What DTS measures, and what it does not
 ---------------------------------------
@@ -34,12 +34,12 @@ Steady-state thermal circuit (IEC 60287-1-1 structure, per conductor)
 
 Route zones (km from the OSS; geometry: frontend constants/windFarmLayout.ts)
 - J-tube 0–0.3 km: cable in air in a steel tube on the OSS — worst cooling.
-- Subsea burial 0.3–31.0 km: 1–2 m in seabed sediment; ±5 % from burial depth.
-- HDD landfall 31.0–31.8 km at Zaleskie: 10–15 m under beach and dunes.
-- Land cable 31.8–45 km: direct-buried to the onshore substation.
+- Subsea burial 0.3–62.7 km: 1–2 m in seabed sediment; ±5 % from burial depth.
+- HDD landfall 62.7–63.5 km at Zaleskie: 10–15 m under beach and dunes.
+- Land cable 63.5–76.5 km: direct-buried to the onshore substation.
 One ambient temperature applies to the whole route — a simplification (air,
 seabed and soil differ in reality). The current is taken as uniform; in a
-45 km HVAC cable the charging current (≈ 340 A at full length) makes it vary
+76.5 km HVAC cable the charging current (≈ 580 A at full length) makes it vary
 along the route, depending on where the shunt reactors sit.
 
 Transient (N-1 emergency loading)
@@ -64,7 +64,7 @@ from typing import Any
 from app.services.p2.network_model import EXPORT_CABLE_1000, EXPORT_CABLE_LENGTH_KM
 
 CABLE_LENGTH_KM = EXPORT_CABLE_LENGTH_KM
-N_POINTS = 450  # one reading per 100 m
+N_POINTS = round(CABLE_LENGTH_KM * 10)  # one reading per 100 m
 STATIC_RATING_A = EXPORT_CABLE_1000.max_i_ka * 1000.0  # 950 A per circuit
 NUM_CIRCUITS = 2
 U_KV = 220.0
@@ -85,8 +85,8 @@ T_INT = 0.5  # conductor → fibre [K·m/W] — assumption
 TAU_INT_H = 1.0  # internal time constant — assumption
 
 J_TUBE_END_KM = 0.3
-HDD_START_KM = 31.0
-HDD_END_KM = 31.8
+HDD_START_KM = 62.7
+HDD_END_KM = 63.5
 
 # name, start km, end km, R_ext relative to the J-tube, external time constant [h]
 ZONES: tuple[tuple[str, float, float, float, float], ...] = (

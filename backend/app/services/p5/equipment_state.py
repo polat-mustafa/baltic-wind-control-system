@@ -6,8 +6,8 @@ Scope
 The first-energisation programme (``switching_programme.py``) energises export
 circuit 1 from the already-live onshore 220 kV busbar::
 
-    ONS220 ─DS-ON-220-01─ ONS-E1 ─CB-ON-220-01─ CABLE1 (45 km) ─CB-OSS-220-01─ OSS-E1
-           ─DS-OSS-220-01─ OSS220 ┬─CB-SR-01──── SR1    shunt reactor 1, 80 Mvar
+    ONS220 ─DS-ON-220-01─ ONS-E1 ─CB-ON-220-01─ CABLE1 (76.5 km) ─CB-OSS-220-01─ OSS-E1
+           ─DS-OSS-220-01─ OSS220 ┬─CB-SR-01──── SR1    shunt reactor 1, 170 Mvar
                                   ├─CB-STC-01─── STC    STATCOM ±120 Mvar
                                   ├─CB-TX-OSS-HV─ TX1 ─CB-TX-OSS-LV─ 66A ─CB-STR-0n─ STRn  n=1…3
                                   └─CB-TX-OSS-02-HV─ TX2 ─CB-TX-OSS-02-LV─ 66B ─…─ STRn  n=4…6
@@ -50,7 +50,7 @@ scheme, not text from the standard):
              grid-following and cannot energise a dead feeder.
 
 Because the rule works on groups, the far-end earth of the cable is caught too:
-closing CB-ON-220-01 with ES-OSS-220-01 still closed 45 km away is blocked,
+closing CB-ON-220-01 with ES-OSS-220-01 still closed 76.5 km away is blocked,
 which a bay-local CB↔ES pairing would miss.
 
 References

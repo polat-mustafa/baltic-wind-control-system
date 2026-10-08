@@ -261,7 +261,7 @@ def run_load_flow(
     auto_dispatch : bool
         If True, auto-adjust STATCOM Q before final load flow. Default: True.
     export_length_km : float | None
-        Export cable length [km]; None = the spec's (SB-510: 45.0).
+        Export cable length [km]; None = the spec's (SB-510: 76.5).
     grid_ssc_mva : float
         Grid short-circuit power [MVA]. Default: 10,000.
     spec : FarmSpec
@@ -286,9 +286,9 @@ def run_load_flow(
     if config.disable_string is not None and len(spec.string_layout) > 1:
         _apply_n_minus_1(net, config.disable_string, spec.string_layout)
 
-    # Auto-dispatch STATCOM
+    # Auto-dispatch STATCOM (and switch reactors out where it saturates)
     if auto_dispatch:
-        auto_statcom_dispatch(net)
+        dispatch_with_reactor_switching(net, spec.statcom_mvar)
 
     # Run final load flow
     pp.runpp(net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
@@ -406,14 +406,15 @@ def _extract_transformer_results(net: pp.pandapowerNet) -> list[TransformerResul
     return results
 
 
-def _dispatch_with_reactor_switching(net: pp.pandapowerNet, rating: float) -> tuple[float, int]:
+def dispatch_with_reactor_switching(net: pp.pandapowerNet, rating: float) -> tuple[float, int]:
     """STATCOM voltage control plus the operator's reactor switching.
 
     All N+1 reactors start in service (the design case). While the STATCOM
     injects more than half its rating, one reactor is switched out — kept out
     only if that relieves the STATCOM (|Q| falls), as the landing estimate
-    does (frontend ``reactiveBalance``). SB-510 never needs it (≤ 56 of
-    120 MVAR); a long single circuit with large reactor units does.
+    does (frontend ``reactiveBalance``). SB-510 (3 × 170 MVAR on 442 MVAR of
+    charging) runs on two at full output; so does a long single circuit.
+    Every operating-point study uses it: Grid tab, N-1, live map.
 
     Returns the STATCOM set-point [MVAR, generating +] and the reactors in service.
     """
@@ -458,7 +459,7 @@ def run_live_load_flow(wtg_p_mw: list[float], spec: FarmSpec = SB510) -> LiveLoa
         name = str(net.sgen.at[idx, "name"])
         if name.startswith("WTG_"):
             net.sgen.at[idx, "p_mw"] = float(wtg_p_mw[int(name[4:]) - 1])
-    statcom_q, reactors_on = _dispatch_with_reactor_switching(net, spec.statcom_mvar)
+    statcom_q, reactors_on = dispatch_with_reactor_switching(net, spec.statcom_mvar)
     pp.runpp(net, algorithm="nr", max_iteration=100, tolerance_mva=1e-8)
 
     total_gen = float(sum(wtg_p_mw))

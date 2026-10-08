@@ -20,17 +20,20 @@ import numpy as np
 import pandapower as pp
 import pytest
 
+from app.services.p2.load_flow import dispatch_with_reactor_switching
 from app.services.p2.network_model import (
     ARRAY_CABLE_500,
     ARRAY_CABLE_630,
     ARRAY_CABLE_800,
     EXPORT_CABLE_1000,
+    EXPORT_CABLE_LENGTH_KM,
     NUM_EXPORT_CABLES,
     NUM_SHUNT_REACTORS,
     NUM_STRINGS,
     NUM_TURBINES,
     SHUNT_REACTOR_MVAR,
     SHUNT_REACTOR_UNIT_MVAR,
+    STATCOM_RATING_MVAR,
     TOTAL_CAPACITY_MW,
     TRAFO_66_220_MVA,
     TRAFO_66_220_VK_PERCENT,
@@ -86,15 +89,16 @@ class TestNetworkTopology:
         export_lines = net.line[net.line["name"] == "Export_220kV"]
         assert len(export_lines) == 1
         row = export_lines.iloc[0]
-        assert float(row["length_km"]) == pytest.approx(45.0)
+        assert float(row["length_km"]) == pytest.approx(EXPORT_CABLE_LENGTH_KM)
         # load flow uses the 90 °C AC resistance
         assert float(row["r_ohm_per_km"]) == pytest.approx(EXPORT_CABLE_1000.r_ac_ohm_per_km)
         assert int(row["parallel"]) == NUM_EXPORT_CABLES == 2
 
     def test_export_cables_not_overloaded_at_full_load(self):
-        """510 MW must fit in the export circuits (1 × 362 MVA would be ~140 %)."""
+        """510 MW must fit in the export circuits (1 × 362 MVA would be ~140 %) at the
+        operating point: STATCOM on the OSS busbar, the spare reactor switched out."""
         net = build_network(generation_fraction=1.0)
-        pp.runpp(net)
+        dispatch_with_reactor_switching(net, STATCOM_RATING_MVAR)
         export_idx = net.line.index[net.line["name"] == "Export_220kV"][0]
         loading = float(net.res_line.at[export_idx, "loading_percent"])
         assert loading < 100.0, f"Export loading {loading:.1f} % — cable undersized"

@@ -36,7 +36,7 @@ export const landingGuide: TrainingGuideData = {
   subtitle: "Real-time operational map of the 510 MW Baltic Sea wind farm",
   purpose:
     "The landing page is your control room overview — a single screen showing " +
-    "all 34 turbines, the offshore substation, 45 km export cable, and onshore " +
+    "all 34 turbines, the offshore substation, 76.5 km export cable, and onshore " +
     "connection point. It mirrors what operators see in real ABB Ability or " +
     "Siemens DEOP control rooms.",
   howToUse: [
@@ -54,7 +54,7 @@ export const landingGuide: TrainingGuideData = {
     { name: "KPI Ribbon", description: "Glassmorphic overlay at top showing total farm power (MW), average wind speed (m/s), farm availability (%), and active turbine count." },
     { name: "Turbine Markers", description: "Color-coded status indicators: green = operating, amber = warning/degraded, red = faulted/tripped, gray = offline. Each shows real-time power output on hover." },
     { name: "Offshore Substation (OSS)", description: "Central collection point where 66 kV array cables meet. Contains 66/220 kV transformer, protection relays, and IEC 61850 IEDs." },
-    { name: "Export Cable", description: "45 km 220 kV submarine cable from OSS to shore. Click to see loading, losses, and thermal data." },
+    { name: "Export Cable", description: "76.5 km 220 kV export cable (63.5 km subsea) from OSS to the onshore substation. Click to see loading, losses, and thermal data." },
     { name: "Onshore Substation", description: "220/400 kV transformer connecting to the PSE national grid. Includes STATCOM and shunt reactor." },
     { name: "Layer Controls", description: "Toggle overlays: wind particle field, bathymetry depth shading, wake effect cones, ocean wave animation, and day/night cycle." },
     { name: "Alarm Ticker", description: "Scrolling alert feed showing active alarms across the farm with ISA-18.2 priority color coding." },
@@ -137,7 +137,7 @@ export const p2Guide: TrainingGuideData = {
     { name: "Single-line diagram", description: "The power path with live MW, loading and busbar voltages from the selected load flow; flow speed ∝ MW." },
     { name: "Voltage along the connection", description: "Voltage from PSE 400 kV to the last turbine of string 1 for all four scenarios, against the 0.95–1.05 pu planning band." },
     { name: "Thermal loading", description: "Export cables, both transformer stages and each string's head cable as a share of rating." },
-    { name: "Reactive power", description: "No-load balance (260 MVAR cable charging, 240 MVAR reactors, STATCOM range) and the Q range at the POC vs PSE Art. 21(3)(c)." },
+    { name: "Reactive power", description: "No-load balance (442 MVAR cable charging, 3 × 170 MVAR reactors, STATCOM range) and the Q range at the POC vs PSE Art. 21(3)(c)." },
     { name: "Breaker duty", description: "IEC 60909 Ik'' and ip as a share of each busbar's breaking and making rating." },
     { name: "Fault ride-through", description: "Quasi-static phasor model: POC and terminal voltage vs the PSE profile, K-factor reactive current, power recovery within 5 s." },
     { name: "Grid-following vs grid-forming", description: "SMIB simulation after a grid phase jump: PLL synchronisation vs virtual-inertia response; SCR at POC vs at the turbines." },

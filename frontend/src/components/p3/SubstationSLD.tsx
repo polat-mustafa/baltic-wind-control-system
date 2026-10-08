@@ -3,7 +3,7 @@
  *
  * Topology and energisation come from utils/scadaTopology for the live fleet
  * (2 × onshore and 2 × OSS transformers, n export cables, split 66 kV
- * switchboard with one feeder per string — SB-510: 2 × 45 km, 6 strings).
+ * switchboard with one feeder per string — SB-510: 2 × 76.5 km, 6 strings).
  * Flows are computed from the live farm: string MW from the turbines,
  * section → transformer loading, cable current with half the charging
  * current in quadrature. Operating a breaker is select-before-operate

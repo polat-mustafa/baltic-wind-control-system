@@ -30,7 +30,7 @@ class CampaignRequest(BaseModel):
     array_km: float | None = Field(
         None, gt=0, le=600, description="Total array cable length [km]; default 1.6 km per turbine"
     )
-    export_km: float = Field(45.0, ge=1, le=300)
+    export_km: float = Field(76.5, ge=1, le=300)
     foundation: Literal["monopile", "jacket"] = "monopile"
     start_date: date = date(2028, 4, 1)
     alpha: float = Field(

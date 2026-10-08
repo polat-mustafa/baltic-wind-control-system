@@ -52,9 +52,9 @@ async def get_network_topology(spec: FarmSpecDep) -> NetworkTopologyResponse:
     The OPC-UA server on the OSS gateway aggregates all turbine data and exposes
     it as a unified address space (urn:offshoreforge:scada).
 
-    **Tier 3 — WAN (OSS to Onshore, 45 km):**
+    **Tier 3 — WAN (OSS to Onshore, 76.5 km):**
     Primary: dedicated OPGW fibre in the export cable jacket.
-    Propagation delay: 45 km × 5 µs/km = 0.225 ms.
+    Propagation delay: 76.5 km × 5 µs/km = 0.383 ms.
     Backup: licensed microwave link (L-band, 100 Mbps, <1 ms path).
     Both paths use IPsec AES-256 tunnels terminating at firewalls (IEC 62443 conduit).
 

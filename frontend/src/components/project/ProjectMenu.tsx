@@ -6,12 +6,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Download, FilePlus2, FolderOpen, Upload } from "lucide-react";
+import { BookOpen, Copy, Download, FilePlus2, FolderOpen, Upload } from "lucide-react";
+import { OSS_GEO, TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 
 import { applyDoc, buildDoc, DEFAULT_NAME, parseDoc } from "../../lib/project/document";
 import { cn } from "../../lib/utils";
 import { useModeStore, type Mode } from "../../store/modeStore";
 import { useProjectSync } from "../../store/projectSync";
+import { CASE_STUDY_SITE } from "../../store/siteStore";
 import { Button } from "../ui/Button";
 import { SaveOnline } from "./SaveOnline";
 
@@ -66,16 +68,26 @@ export default function ProjectMenu() {
       setNote(e instanceof Error ? e.message : String(e));
     }
   };
-  const newProject = () => {
-    if (!window.confirm("Start an empty project? The current one is replaced in this browser; an online copy stays reachable by its link."))
+  const startProject = (question: string, content: Record<string, unknown>) => {
+    if (!window.confirm(`${question} The current one is replaced in this browser; an online copy stays reachable by its link.`))
       return;
     useProjectSync.getState().detach();
-    applyDoc(parseDoc({ schema: 2, app: "OffshoreForge", turbines: [] }));
-    setName(DEFAULT_NAME);
+    const doc = parseDoc({ schema: 2, app: "OffshoreForge", turbines: [], ...content });
+    applyDoc(doc);
+    setName(doc.name);
     setNote(null);
     setOpen(false);
     navigate("/develop");
   };
+  const newProject = () => startProject("Start an empty project?", { name: DEFAULT_NAME });
+  // SB-510's site (PZP_44) and layout; the permit stages and everything after are the learner's
+  const fromSb510 = () =>
+    startProject("Start from SB-510? Its site and 34-turbine layout are copied; you run the permit stages and the rest.", {
+      name: "SB-510 copy",
+      site: { polygon: CASE_STUDY_SITE },
+      turbines: TURBINE_POSITIONS.map(({ id, lon, lat }) => ({ id, lon, lat })),
+      oss: [OSS_GEO.lon, OSS_GEO.lat],
+    });
   const openLink = () => {
     const id = link.match(UUID)?.[0];
     if (!id) return setNote("No project ID found — paste the link from “Copy link” or the ID itself.");
@@ -143,6 +155,9 @@ export default function ProjectMenu() {
                 <Button variant="ghost" size="sm" onClick={newProject}>
                   <FilePlus2 size={13} className="mr-1" /> New
                 </Button>
+                <Button variant="ghost" size="sm" onClick={fromSb510}>
+                  <Copy size={13} className="mr-1" /> From SB-510
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => fileRef.current?.click()}>
                   <Upload size={13} className="mr-1" /> Import
                 </Button>
@@ -188,7 +203,7 @@ export default function ProjectMenu() {
             </>
           ) : (
             <p className="text-[11px] text-text-muted">
-              SB-510 is a fictional 510 MW case study in the Polish Baltic. Your own project stays in this browser while you explore it.
+              SB-510 is a fictional 510 MW case study in energy basin PZP_44 of the Polish Baltic (the real site 44.E.1, permit: PGE / Baltica 9, 2023). Your own project stays in this browser while you explore it.
             </p>
           )}
         </div>

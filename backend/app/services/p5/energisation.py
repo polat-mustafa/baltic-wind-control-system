@@ -8,13 +8,13 @@ computed values instead of a fixed text.
 
 What the numbers show
 ---------------------
-- Cable energised open-ended from shore: the 45 km cable generates
-  Q_c = ω·C·U²·l = 2π·50 · 190 nF/km · (220 kV)² · 45 km ≈ 130 Mvar, so the
-  sending-end current is I_c = Q_c / (√3·U) ≈ 341 A with zero load, and the open
-  end rises by the Ferranti factor 1/cos(βl) ≈ 1.007 (βl = ωl√(LC) ≈ 0.118 rad).
-  The 130 Mvar flow into the onshore 220 kV busbar and raise its voltage by
+- Cable energised open-ended from shore: the 76.5 km cable generates
+  Q_c = ω·C·U²·l = 2π·50 · 190 nF/km · (220 kV)² · 76.5 km ≈ 221 Mvar, so the
+  sending-end current is I_c = Q_c / (√3·U) ≈ 580 A with zero load, and the open
+  end rises by the Ferranti factor 1/cos(βl) ≈ 1.021 (βl = ωl√(LC) ≈ 0.20 rad).
+  The 221 Mvar flow into the onshore 220 kV busbar and raise its voltage by
   roughly Q_c / S_k there (S_k ≈ 3 GVA behind the two onshore transformers).
-- Shunt reactor 1 (80 Mvar at 1 pu, Q ∝ U²) takes most of that back; the STATCOM
+- Shunt reactor 1 (170 Mvar at 1 pu, Q ∝ U²) takes most of that back; the STATCOM
   then holds the OSS 220 kV busbar at 1.00 pu within ±120 Mvar.
 - TX-OSS-01 on no load draws only its magnetising current (i0 = 0.05 % →
   ≈ 0.4 A at 220 kV).
@@ -32,7 +32,7 @@ Onshore OLTC pre-set: a longer cable lifts the onshore busbar further (75 km:
 ≈ 230 Mvar, +5 %), so before energising, the onshore transformers are tapped
 down (``onshore_tap``: the first HV tap, 1.25 % per step, that keeps the busbar
 and the open cable end within 0.95–1.05 pu). The tap is then held for the
-whole programme; SB-510 needs none (tap 0). When no tap is enough (a long
+whole programme; SB-510 (76.5 km) needs 3 steps. When no tap is enough (a long
 cable on small onshore transformers), reactor 1 is connected to the dead cable
 and energised with it (``reactor_energisation``).
 

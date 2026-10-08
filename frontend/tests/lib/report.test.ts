@@ -89,7 +89,7 @@ describe("project report", () => {
     const r = buildReport(input({ moves }));
     expect(r.moves?.[0]).toMatchObject({ confirmed: true, pywake_gain_pct: 0.04 });
     expect(r.moves?.slice(1).every((m) => m.confirmed === false)).toBe(true);
-  });
+  }, 30_000); // findMoves runs the in-browser wake search; slow under coverage on CI
 });
 
 describe("report uncertainty", () => {

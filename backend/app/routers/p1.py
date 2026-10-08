@@ -61,6 +61,7 @@ from app.services.p1.wake_model import (
     WakeAnalysisResult,
     create_site_from_wind_rose,
     create_wind_turbine,
+    run_cluster_wake,
     run_wake_analysis,
 )
 from app.services.p1.wake_models import (
@@ -183,6 +184,13 @@ class WakeAnalysisResponse(BaseModel):
     capacity_factor: float
     per_turbine_aep_gwh: list[float]
     per_turbine_wake_loss_percent: list[float]
+    external_wake_loss_percent: float | None = Field(
+        None, description="Loss to the neighbouring farms' wakes [%] (only with neighbours)"
+    )
+    net_aep_with_neighbours_gwh: float | None = Field(
+        None, description="Net AEP after the external wake loss [GWh/yr]"
+    )
+    neighbour_count: int = 0
 
 
 class CustomWakeRequest(BaseModel):
@@ -213,6 +221,12 @@ class CustomWakeRequest(BaseModel):
             "frequencies; without it the dashboard's synthetic 12-sector rose is used."
         ),
     )
+    neighbour_x_m: list[float] | None = Field(
+        None,
+        max_length=1500,
+        description="Neighbouring farms' turbines (approximate layouts, /site/neighbours), x [m]",
+    )
+    neighbour_y_m: list[float] | None = Field(None, max_length=1500, description="… y [m]")
 
 
 class WakeMove(BaseModel):
@@ -712,7 +726,24 @@ async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisRespon
     """
     if len(request.x_m) != len(request.y_m):
         raise DomainValidationError("x_m and y_m must have the same length")
+    nx, ny = request.neighbour_x_m or [], request.neighbour_y_m or []
+    if len(nx) != len(ny):
+        raise DomainValidationError("neighbour_x_m and neighbour_y_m must have the same length")
     result = await _run_custom_wake(request, request.x_m, request.y_m)
+    cluster: dict[str, float] | None = None
+    if nx:
+        cluster = await _cached_cluster_wake(
+            [round(v, 1) for v in request.x_m],
+            [round(v, 1) for v in request.y_m],
+            [round(v, 1) for v in nx],
+            [round(v, 1) for v in ny],
+            request.weibull_a,
+            request.weibull_k,
+            request.turbulence_intensity,
+            request.turbine_model,
+            request.sector_frequencies,
+        )
+    ext = None if cluster is None else cluster["external_wake_loss_percent"]
 
     return WakeAnalysisResponse(
         gross_aep_gwh=round(result["gross_aep_gwh"], 2),
@@ -723,6 +754,39 @@ async def wake_analysis_custom(request: CustomWakeRequest) -> WakeAnalysisRespon
         per_turbine_wake_loss_percent=[
             round(float(v), 2) for v in result["per_turbine_wake_loss_percent"]
         ],
+        external_wake_loss_percent=None if ext is None else round(ext, 2),
+        net_aep_with_neighbours_gwh=None
+        if ext is None
+        else round(result["net_aep_gwh"] * (1 - ext / 100), 2),
+        neighbour_count=len(nx),
+    )
+
+
+@cached(prefix="wake-cluster-v1", ttl=3600)
+def _cached_cluster_wake(
+    x_m: list[float],
+    y_m: list[float],
+    nx_m: list[float],
+    ny_m: list[float],
+    weibull_a: float,
+    weibull_k: float,
+    ti: float,
+    model_id: str,
+    sector_frequencies: list[float] | None,
+) -> dict[str, float]:
+    """Cached own-alone / own-with-neighbours PyWake pair (``run_cluster_wake``)."""
+    site = (
+        _site(weibull_a, weibull_k, ti)
+        if sector_frequencies is None
+        else _rose_site(weibull_a, weibull_k, sector_frequencies, ti)
+    )
+    return run_cluster_wake(
+        np.asarray(x_m),
+        np.asarray(y_m),
+        np.asarray(nx_m),
+        np.asarray(ny_m),
+        site,
+        create_wind_turbine(model_id),
     )
 
 

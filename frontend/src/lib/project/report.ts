@@ -52,6 +52,8 @@ export interface ReportInput {
   seabedAt?: SeabedAt;
   /** PyWake run for exactly this layout, else null. */
   pywake: WakeAnalysisResult | null;
+  /** External wake loss from the neighbouring farms for this layout (TurbOPark), else null. */
+  external?: { lossPct: number; farms: number; turbines: number } | null;
   history: AepRun[];
   moves: { list: MoveSuggestion[]; checked: WakeMoveResult[] | null } | null;
   network: NetworkSpec | null;
@@ -131,7 +133,8 @@ export function buildReport(i: ReportInput) {
   const count = (s: string) => statuses.filter((x) => x.status === s).length;
   const spacing = minSpacing(xy);
 
-  const wakeNetGWh = i.pywake?.net_aep_gwh ?? screening?.netGWh ?? 0;
+  const externalPct = i.external?.lossPct ?? 0;
+  const wakeNetGWh = (i.pywake?.net_aep_gwh ?? screening?.netGWh ?? 0) * (1 - externalPct / 100);
   const netGWh = wakeNetGWh * (1 - OTHER_LOSSES);
   const seabedFactor = foundationFactor(
     i.turbines.map((t) => [t.lon, t.lat]),
@@ -199,6 +202,9 @@ export function buildReport(i: ReportInput) {
         wake_loss_pct: r(i.pywake.wake_loss_percent, 2),
         capacity_factor: r(i.pywake.capacity_factor, 3),
       },
+      external_wake: i.external
+        ? { loss_pct: r(i.external.lossPct, 2), farms: i.external.farms, virtual_turbines: i.external.turbines, model: "TurbOPark (Nygaard et al. 2022), approximate neighbour layouts" }
+        : null,
       other_losses_pct: r(100 * OTHER_LOSSES, 1),
       net_gwh: r(netGWh, 0),
       basis: i.pywake ? "PyWake" : "screening model",

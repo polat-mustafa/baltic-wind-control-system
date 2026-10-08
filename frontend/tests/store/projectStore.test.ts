@@ -1,13 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/services/windResourceApi", () => ({
-  runCustomWakeAnalysis: vi.fn(async (x: number[]) => ({
-    gross_aep_gwh: 60 * x.length,
-    net_aep_gwh: 55 * x.length,
-    wake_loss_percent: 8.3,
-    capacity_factor: 0.42,
-    per_turbine_aep_gwh: x.map(() => 55),
-    per_turbine_wake_loss_percent: x.map(() => 8.3),
+  runCustomWakeAnalysis: vi.fn(async (x: number[], ...rest: unknown[]) => {
+    const nb = rest[6] as { x_m: number[] } | null | undefined;
+    return {
+      gross_aep_gwh: 60 * x.length,
+      net_aep_gwh: 55 * x.length,
+      wake_loss_percent: 8.3,
+      capacity_factor: 0.42,
+      per_turbine_aep_gwh: x.map(() => 55),
+      per_turbine_wake_loss_percent: x.map(() => 8.3),
+      ...(nb ? { external_wake_loss_percent: 4, net_aep_with_neighbours_gwh: 55 * x.length * 0.96, neighbour_count: nb.x_m.length } : {}),
+    };
+  }),
+}));
+vi.mock("../../src/services/siteApi", () => ({
+  postNeighbours: vi.fn(async () => ({
+    farms: [{ name: "Neighbour", status: "Planned", power_mw: 30, source: "point", distance_km: 20, turbines: [[17, 55], [17.01, 55]] }],
+    density_mw_km2: 10,
+    density_basis: "median of 5 mapped outlines",
+    radius_km: 60,
+    note: "Approximate neighbour layout",
   })),
 }));
 
@@ -83,6 +96,19 @@ describe("projectStore", () => {
     await s.runPyWake(([lon, lat]) => ({ x: lon, y: lat }), { weibullA: 10.6, weibullK: 2, sectorFrequencies: null }, remote);
     expect(remote).toHaveBeenCalledWith({ weibullA: 10.6, weibullK: 2, sectorFrequencies: null });
     expect(useProjectStore.getState().pywake?.net_aep_gwh).toBe(70);
+  });
+
+  it("estimates the external wake loss with the neighbours' virtual turbines", async () => {
+    const { runCustomWakeAnalysis } = await import("../../src/services/windResourceApi");
+    const s = useProjectStore.getState();
+    s.addTurbine([16.4, 54.8]);
+    await s.runNeighbourWake(([lon, lat]) => ({ x: lon * 1000, y: lat * 1000 }), [[16.3, 54.7], [16.5, 54.7], [16.5, 54.9]]);
+    const st = useProjectStore.getState();
+    expect(st.external).toMatchObject({ lossPct: 4, netWithGWh: 52.8, turbines: 2 });
+    expect(st.external?.farms[0]).not.toHaveProperty("turbines");
+    expect(st.externalFor).toBe(signature(st.turbines));
+    const call = vi.mocked(runCustomWakeAnalysis).mock.calls.at(-1)!;
+    expect(call[7]).toEqual({ x_m: [17000, 17010], y_m: [55000, 55000] });
   });
 
   it("ignores invalid cost inputs", () => {

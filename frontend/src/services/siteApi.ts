@@ -216,6 +216,29 @@ export const postSuitability = (criteria: CriteriaOverrides, cell_km = 2, region
 export const postAssess = (polygon: LonLat[], criteria: CriteriaOverrides, region?: string, gridNode?: string | null): Promise<AssessResponse> =>
   post(`${BASE}/assess`, { polygon, criteria, ...(region ? { region } : {}), ...(gridNode ? { grid_node: gridNode } : {}) });
 
+export interface NeighbourFarm {
+  name: string;
+  status: string;
+  power_mw: number;
+  /** "outline": fills the mapped outline; "point": a square of P / density on the point. */
+  source: "outline" | "point";
+  distance_km: number;
+  /** Virtual turbines [lon, lat] — approximate, real coordinates are not published. */
+  turbines: LonLat[];
+}
+
+export interface NeighboursResponse {
+  farms: NeighbourFarm[];
+  density_mw_km2: number;
+  density_basis: string;
+  radius_km: number;
+  note: string;
+}
+
+/** Real wind farms around the site as approximate turbine layouts (cluster wakes). */
+export const postNeighbours = (polygon: LonLat[], turbine_model?: string, region?: string): Promise<NeighboursResponse> =>
+  post(`${BASE}/neighbours`, { polygon, ...(turbine_model ? { turbine_model } : {}), ...(region ? { region } : {}) });
+
 export interface RouteCrossing {
   name: string;
   /** Acute angle to the crossed line [deg], 90 = right angles. */

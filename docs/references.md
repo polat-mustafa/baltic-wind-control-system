@@ -111,6 +111,7 @@ Citation rules used here:
 | Seabed substrate check (Folk 5 classes), piling and burial notes, foundation cost factor (*illustrative*) | `services/site_assessment/criteria.py` (`SEABED_CLASSES`), `assess.py`, `scripts/fetch_marine_layers.py` (`fetch_seabed`), `frontend/src/lib/layout/cost.ts` | [38], [S37], [S38] |
 | Ports: announced O&M / installation role, distance by sea (16-neighbour shortest path on the bathymetry grid) | `services/site_assessment/sea_routes.py`, `assess.py` (`_ports_check`), `scripts/fetch_marine_layers.py` (`PORTS`) | operators' announcements (URLs in the pack); OSM locations |
 | Export route check: landfall, Natura 2000 / military km, shipping-basin and cable crossing angles (≥ 45°), automatic shortest sea route | `services/site_assessment/route_check.py`, `sea_routes.py` (`sea_path`), `routers/site_assessment.py` (`/route-check`) | [S39], [S27] |
+| Cluster wakes: approximate neighbour layouts (outline or P / median outline density), external wake loss with TurbOPark | `services/site_assessment/neighbours.py`, `services/p1/wake_model.py` (`run_cluster_wake`), `routers/p1.py` (`wake-analysis-custom` neighbours), `routers/site_assessment.py` (`/neighbours`) | [41], [42] |
 | Site wind climate: mean speed, Weibull k and A at 150 m; 12-sector rose | `services/site_assessment/wind_climate.py`, `scripts/fetch_wind_climate.py`, `routers/p1.py` (`_rose_site`) | [28], [29], [30] |
 
 ## Academy — scored missions
@@ -197,6 +198,8 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 38. EMODnet Geology, seabed substrate 1:250 000 (Folk 5-class scheme), https://emodnet.ec.europa.eu/en/geology — CC BY 4.0; Polish waters from Mojski, J. E. (ed.), *Geological Map of the Baltic Sea Bottom 1:200 000*, Polish Geological Institute, 1988–1995.
 39. NREL ORBIT (Offshore Renewables Balance-of-system and Installation Tool), github.com/WISDEM/ORBIT — `ORBIT/core/defaults/process_times.yaml`, `library/vessels` (example_heavy_lift_vessel, example_wtiv, example_cable_lay_vessel), `library/turbines/15MW_generic.yaml`; Apache-2.0.
 40. NREL WOMBAT (Windfarm Operations and Maintenance cost-Benefit Analysis Tool), github.com/WISDEM/WOMBAT — `library/default/vessels/ctv.yaml` (37.04 km/h), `library/default/project/config/base_osw_fixed.yaml` (workday 07–19); Apache-2.0.
+41. Nygaard, N. G., Poulsen, L., Svensson, E., Pedersen, J. G. "Large-scale benchmarking of wake models for offshore wind farms." *J. Phys.: Conf. Ser.* 2265, 022008, 2022 (TurbOPark; PyWake `Nygaard_2022`).
+42. Platis, A. et al. "First in situ evidence of wakes in the far field behind offshore wind farms." *Scientific Reports* 8, 2163, 2018.
 
 ## Standards and regulations
 

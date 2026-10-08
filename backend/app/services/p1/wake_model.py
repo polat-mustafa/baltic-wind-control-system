@@ -351,3 +351,62 @@ def run_wake_analysis(
         per_turbine_wake_loss_percent=per_turbine_wake_loss.astype(np.float64),
         capacity_factor=capacity_factor,
     )
+
+
+#: Cluster-wake grid: 5° directions and 2 m/s speeds — hundreds of neighbour turbines make
+#: the 1° default too heavy (≈ 1 min and 0.6 GB for 680 turbines at 5° × 1 m/s).
+CLUSTER_WD = np.arange(0.0, 360.0, 5.0)
+CLUSTER_WS = np.arange(3.0, 26.0, 2.0)
+
+
+def run_cluster_wake(
+    x_m: NDArray[np.floating],
+    y_m: NDArray[np.floating],
+    neighbour_x_m: NDArray[np.floating],
+    neighbour_y_m: NDArray[np.floating],
+    site: Any,
+    turbine: Any,
+) -> dict[str, float]:
+    """Net AEP of the own turbines alone and with the neighbouring farms [GWh/yr].
+
+    Wakes between farms decay more slowly than the Gaussian models used inside a
+    farm assume, so both runs use TurbOPark (Nygaard et al. 2022, Ørsted's
+    turbulence-optimised Park model, validated on cluster wakes) as PyWake's
+    ``Nygaard_2022`` sets it up — TurboGaussianDeficit with ct2a_mom1d, mirrored
+    ground, ctlim 0.96, deficit scaled with the downstream turbine's ambient
+    wind, squared-sum superposition — except the rotor average: rotor centre
+    instead of the Gaussian-overlap table (that table needs h5py, not a
+    dependency here). Same direction / speed grid for both runs; their ratio is
+    the external wake loss.
+    """
+    from py_wake.literature.turbopark import (
+        Mirror,
+        PropagateDownwind,
+        SquaredSum,
+        TurboGaussianDeficit,
+        ct2a_mom1d,
+    )
+
+    deficit = TurboGaussianDeficit(
+        ct2a=ct2a_mom1d, groundModel=Mirror(superpositionModel=SquaredSum()), ctlim=0.96
+    )
+    deficit.WS_key = "WS_jlk"
+    model = PropagateDownwind(
+        site, turbine, wake_deficitModel=deficit, superpositionModel=SquaredSum()
+    )
+    n = len(x_m)
+
+    def own_net(x: NDArray[np.floating], y: NDArray[np.floating]) -> float:
+        res = model(x, y, wd=CLUSTER_WD, ws=CLUSTER_WS, wd_chunks=12)
+        return float(res.aep().sum(["wd", "ws"]).values[:n].sum())
+
+    alone = own_net(np.asarray(x_m), np.asarray(y_m))
+    together = own_net(
+        np.concatenate([np.asarray(x_m), np.asarray(neighbour_x_m)]),
+        np.concatenate([np.asarray(y_m), np.asarray(neighbour_y_m)]),
+    )
+    return {
+        "alone_gwh": alone,
+        "with_neighbours_gwh": together,
+        "external_wake_loss_percent": 100.0 * (1.0 - together / alone) if alone > 0 else 0.0,
+    }

@@ -31,6 +31,13 @@ const input = (over: Partial<ReportInput> = {}): ReportInput => ({
 describe("project report", () => {
   const rep = buildReport(input());
 
+  it("takes the external wake loss of the neighbours off the net energy", () => {
+    const ext = buildReport(input({ external: { lossPct: 4.77, farms: 9, turbines: 646 } }));
+    expect(ext.energy.external_wake).toMatchObject({ loss_pct: 4.77, farms: 9, virtual_turbines: 646 });
+    expect(ext.energy.net_gwh / rep.energy.net_gwh).toBeCloseTo(1 - 0.0477, 3);
+    expect(rep.energy.external_wake).toBeNull();
+  });
+
   it("is plain JSON (the download is the object itself)", () => {
     expect(rep.schema).toBe(REPORT_SCHEMA);
     expect(JSON.parse(JSON.stringify(rep))).toEqual(rep);

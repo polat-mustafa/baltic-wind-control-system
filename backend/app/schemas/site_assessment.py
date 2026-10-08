@@ -313,3 +313,31 @@ class RouteCheckResponse(BaseModel):
     shipping_km: list[AreaLengthSchema]
     cables: list[CrossingSchema]
     checks: list[CheckSchema]
+
+
+class NeighboursRequest(BaseModel):
+    region: str = DEFAULT_REGION
+    polygon: list[list[float]] = Field(
+        ..., min_length=3, max_length=200, description="Site outline"
+    )
+    radius_km: float = Field(60.0, gt=0, le=100, description="Search radius from the site centre")
+    turbine_model: str | None = Field(None, description="Turbine of the virtual layouts")
+
+
+class NeighbourFarmSchema(BaseModel):
+    name: str
+    status: str
+    power_mw: float
+    source: Literal["outline", "point"] = Field(
+        description="Layout fills the mapped outline, or a square of P / density on the point"
+    )
+    distance_km: float
+    turbines: list[list[float]] = Field(description="Virtual turbines [[lon, lat], …]")
+
+
+class NeighboursResponse(BaseModel):
+    farms: list[NeighbourFarmSchema]
+    density_mw_km2: float
+    density_basis: str
+    radius_km: float
+    note: str

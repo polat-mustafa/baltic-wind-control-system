@@ -59,6 +59,10 @@ export interface WakeAnalysisResult {
   capacity_factor: number;
   per_turbine_aep_gwh: number[];
   per_turbine_wake_loss_percent: number[];
+  /** Loss to the neighbouring farms' wakes [%] (TurbOPark), only when neighbours were sent. */
+  external_wake_loss_percent?: number | null;
+  net_aep_with_neighbours_gwh?: number | null;
+  neighbour_count?: number;
 }
 
 // ── AEP Cascade ─────────────────────────────────────────────────

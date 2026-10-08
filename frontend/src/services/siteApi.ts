@@ -65,6 +65,8 @@ export interface RasterResponse {
   dlon: number;
   dlat: number;
   bands: Record<string, (number | null)[][]>;
+  /** Class rasters (seabed): code → name. */
+  classes?: Record<string, string> | null;
   source: string;
   license: string;
   retrieved: string;
@@ -77,6 +79,20 @@ export interface LayersResponse {
   complete: boolean;
   criteria: CriterionCard[];
   depth_bands: { min_m: number; max_m: number; score: number; foundation: string }[];
+  /** Seabed substrate classes (EMODnet Folk 5) and what they mean for piles and cables. */
+  seabed_classes?: SeabedClass[];
+}
+
+export interface SeabedClass {
+  code: number;
+  name: string;
+  piling: string;
+  burial: string;
+  /** Foundation cost multiplier, sand = 1.00 (illustrative). */
+  foundation_factor: number;
+  /** Piling or burial needs extra work. */
+  hard: boolean;
+  quality: "illustrative";
 }
 
 export interface CriteriaOverrides {
@@ -152,19 +168,25 @@ export interface AssessResponse {
   /** Real wind farm projects inside the site or already holding its energy basins. */
   projects?: string[];
   wind?: SiteWind | null;
+  /** Seabed substrate class → share of the mapped site area. */
+  seabed?: Record<string, number> | null;
   checks: SiteCheck[];
   complete: boolean;
 }
 
-export const getLayers = (region = "southern-baltic"): Promise<LayersResponse> =>
-  request(`${BASE}/layers?region=${encodeURIComponent(region)}`);
+/** `?region=…` when one is given; without it the backend uses its default region pack. */
+const regionQuery = (region?: string) => (region ? `region=${encodeURIComponent(region)}` : "");
+
+/** Layers of a region (default: the backend's region pack; `layers.region.region` names it). */
+export const getLayers = (region?: string): Promise<LayersResponse> =>
+  request(`${BASE}/layers${region ? `?${regionQuery(region)}` : ""}`);
 
 /** A raster layer (bathymetry: depth [m, positive down]) clipped to [lon_min, lat_min, lon_max, lat_max]. */
-export const getRaster = (role: string, bbox: [number, number, number, number], region = "southern-baltic"): Promise<RasterResponse> =>
-  request(`${BASE}/raster?role=${encodeURIComponent(role)}&bbox=${bbox.map((v) => v.toFixed(4)).join(",")}&region=${encodeURIComponent(region)}`);
+export const getRaster = (role: string, bbox: [number, number, number, number], region?: string): Promise<RasterResponse> =>
+  request(`${BASE}/raster?role=${encodeURIComponent(role)}&bbox=${bbox.map((v) => v.toFixed(4)).join(",")}${region ? `&${regionQuery(region)}` : ""}`);
 
-export const postSuitability = (criteria: CriteriaOverrides, cell_km = 2): Promise<SuitabilityResponse> =>
-  post(`${BASE}/suitability`, { criteria, cell_km });
+export const postSuitability = (criteria: CriteriaOverrides, cell_km = 2, region?: string): Promise<SuitabilityResponse> =>
+  post(`${BASE}/suitability`, { criteria, cell_km, ...(region ? { region } : {}) });
 
-export const postAssess = (polygon: LonLat[], criteria: CriteriaOverrides): Promise<AssessResponse> =>
-  post(`${BASE}/assess`, { polygon, criteria });
+export const postAssess = (polygon: LonLat[], criteria: CriteriaOverrides, region?: string): Promise<AssessResponse> =>
+  post(`${BASE}/assess`, { polygon, criteria, ...(region ? { region } : {}) });

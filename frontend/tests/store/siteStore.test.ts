@@ -47,7 +47,7 @@ describe("drawing", () => {
       [16.4, 54.8],
       [16.4, 54.9],
     ]);
-    expect(mockApi.postAssess).toHaveBeenCalledWith(s().site, {});
+    expect(mockApi.postAssess).toHaveBeenCalledWith(s().site, {}, undefined); // region: the backend default until layers load
     expect(s().report?.area_km2).toBe(112.2);
   });
 
@@ -76,8 +76,8 @@ describe("site and stages", () => {
     await s().setSite(CASE_STUDY_SITE);
     mockApi.postAssess.mockClear();
     s().setCriteria({ exclude_protected: false });
-    expect(mockApi.postSuitability).toHaveBeenCalledWith({ exclude_protected: false });
-    expect(mockApi.postAssess).toHaveBeenCalledWith(CASE_STUDY_SITE, { exclude_protected: false });
+    expect(mockApi.postSuitability).toHaveBeenCalledWith({ exclude_protected: false }, 2, undefined);
+    expect(mockApi.postAssess).toHaveBeenCalledWith(CASE_STUDY_SITE, { exclude_protected: false }, undefined);
   });
 
   it("reports assessment errors without a global error", async () => {

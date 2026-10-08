@@ -38,7 +38,7 @@ Citation rules used here:
 | Reactive power / STATCOM sizing | `services/p2/statcom_sizing.py` | [4], [5], [S5], [S6] |
 | Cable current rating | `services/p2/cable_dts.py` | [S7] |
 | Cable R, C, X, ratings (provenance note at the cable constants) | `services/p2/network_model.py` | [S33], [33], [34], [S7] |
-| Power quality | `services/p2/power_quality.py` | [S8], [S9] |
+| Power quality (harmonic filter: damped high-pass) | `services/p2/power_quality.py` | [S8], [S9], [S36] |
 
 ## P3 — SCADA and substation automation
 
@@ -227,3 +227,4 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 - **[S33]** IEC 60228:2004 — Conductors of insulated cables (class 2 maximum DC resistance at 20 °C).
 - **[S34]** IEC 60085:2007 — Electrical insulation — Thermal evaluation and designation (class B 130 °C, class F 155 °C).
 - **[S35]** ISO 3448:1992 — Industrial liquid lubricants — ISO viscosity classification (VG 46: 41.4–50.6 cSt at 40 °C); ISO 4406:2021 — Hydraulic fluid power — Fluids — Method for coding the level of contamination by solid particles.
+- **[S36]** IEEE Std 1531-2020 — Guide for the Application and Specification of Harmonic Filters; J. C. Das, "Passive filters — potentialities and limitations", IEEE Trans. Ind. Appl. 40(1), 2004, pp. 232–241.

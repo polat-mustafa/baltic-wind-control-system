@@ -270,11 +270,13 @@ def plant_state(m: float, spec: FarmSpec = SB510) -> dict[HistorianTag, float]:
     i_charge_half = spec.cable_q_mvar / n_cct * 1e3 / (math.sqrt(3) * 220.0) / 2
     i_circuit_ka = math.hypot(i_active, i_charge_half) / 1e3
 
-    # Reactive balance of the export system, reactors at both ends (one out near rated)
+    # Reactive balance of the export system, reactors at both ends (one out near rated);
+    # the OSS 66 kV harmonic filter generates its rated Q at 50 Hz
     n_react = spec.num_reactors
     q_max = spec.statcom_mvar
     absorbed = SB510_SERIES_Q_MVAR * scale * p * p
-    statcom = n_react * spec.reactor_unit_mvar + absorbed - spec.cable_q_mvar
+    generated = spec.cable_q_mvar + spec.harmonic_filter_mvar
+    statcom = n_react * spec.reactor_unit_mvar + absorbed - generated
     if n_react and statcom > q_max / 2:
         n_react -= 1
         statcom -= spec.reactor_unit_mvar

@@ -19,8 +19,8 @@ export const p2xEducation: EducationContent = {
     "the windiest few, so each kilogram carries more of its purchase price.",
 
   technicalExplanation:
-    "The duration curve comes from the site's Weibull distribution (v̄ = 9.3 m/s, k = 2.2, as in P1) through a " +
-    "multi-turbine power curve: the V236 curve averaged over a Gaussian spread of wind speed across the farm " +
+    "The duration curve comes from the site's Weibull distribution (v̄ = 9.57 m/s, k = 2.04, the SB-510 site as in P1) through a " +
+    "multi-turbine power curve: the IEA 15 MW curve averaged over a Gaussian spread of wind speed across the farm " +
     "(σ = 1 m/s, Nørgaard & Holttinen), times 97 % availability. Wakes are not deducted, so energies are upper " +
     "bounds. A PEM electrolyser at a system specific energy of 53 kWh/kg puts 33.33/53 ≈ 63 % of the electricity " +
     "into the hydrogen's lower heating value; it cannot run below about 10 % load. LCOH = annualised capital " +

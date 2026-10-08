@@ -72,17 +72,17 @@ export const uncertaintyEducation: EducationContent = {
   workedExamples: [
     {
       title: "This platform's σ and P-values",
-      scenario: "P50 = 2,077 GWh/yr (AEP tab, A = 10.5 m/s, k = 2.2). Eight sources as listed above.",
+      scenario: "P50 = 2,161 GWh/yr (AEP tab, SB-510 site A = 10.80 m/s, k = 2.04). Eight sources as listed above.",
       steps: [
         "Σσᵢ² = 16 + 9 + 9 + 4 + 4 + 2.25 + 2.25 + 1 = 47.5",
         "σ = √47.5 = 6.89 %",
-        "P75 = 2,077 × (1 − 0.674 × 0.0689) = 1,981 GWh",
-        "P90 = 2,077 × (1 − 1.282 × 0.0689) = 1,894 GWh",
-        "P99 = 2,077 × (1 − 2.326 × 0.0689) = 1,744 GWh",
+        "P75 = 2,161 × (1 − 0.674 × 0.0689) = 2,061 GWh",
+        "P90 = 2,161 × (1 − 1.282 × 0.0689) = 1,970 GWh",
+        "P99 = 2,161 × (1 − 2.326 × 0.0689) = 1,815 GWh",
       ],
       result:
         "P90/P50 = 0.912. Halving the wind-resource term (4 → 2 %, e.g. with a year of floating-LiDAR data) gives " +
-        "σ = √35.5 = 5.96 % and lifts P90 to 1,919 GWh — 25 GWh/yr more bankable energy without changing P50.",
+        "σ = √35.5 = 5.96 % and lifts P90 to 1,996 GWh — 26 GWh/yr more bankable energy without changing P50.",
     },
   ],
 

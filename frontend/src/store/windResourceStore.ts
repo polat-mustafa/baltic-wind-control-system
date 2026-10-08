@@ -21,6 +21,7 @@ import type {
   WeibullFitResult,
   WindRoseResult,
 } from "../types/windResource";
+import { SB510_WIND } from "../constants/sb510Wind";
 
 // ── Store Interface ────────────────────────────────────────────
 
@@ -65,8 +66,8 @@ interface WindResourceState {
 
 export const useWindResourceStore = create<WindResourceState>((set, get) => ({
   // Default parameters (Baltic Sea typical values)
-  weibullA: 10.5,
-  weibullK: 2.2,
+  weibullA: SB510_WIND.weibullA,
+  weibullK: SB510_WIND.weibullK,
   turbulenceIntensity: 0.06,
   priceEurMwh: 72.0,
   activeLayout: "regular",

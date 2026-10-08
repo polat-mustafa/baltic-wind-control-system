@@ -12,6 +12,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.services.site_assessment.wind_climate import SB510_WEIBULL_A, SB510_WEIBULL_K
+
 # ── Power Curve Schemas ───────────────────────────────────────────
 
 
@@ -82,13 +84,13 @@ class GenerateSCADARequest(BaseModel):
         description="Number of 10-minute intervals (52560 = 1 year)",
     )
     weibull_a: float = Field(
-        default=10.5,
+        default=SB510_WEIBULL_A,
         ge=3.0,
         le=20.0,
         description="Weibull scale parameter [m/s]",
     )
     weibull_k: float = Field(
-        default=2.2,
+        default=SB510_WEIBULL_K,
         ge=1.0,
         le=4.0,
         description="Weibull shape parameter [-]",

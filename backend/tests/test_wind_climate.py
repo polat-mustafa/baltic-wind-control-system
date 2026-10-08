@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import math
+import re
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -12,8 +14,12 @@ from app.services.site_assessment.layers import load_region, parse_pack
 from app.services.site_assessment.wind_climate import (
     APPROX_A_MS,
     APPROX_K,
+    SB510_MEAN_MS,
+    SB510_WEIBULL_A,
+    SB510_WEIBULL_K,
     SECTOR_BANDS,
     approximation,
+    sb510_wind,
     site_wind,
 )
 
@@ -104,3 +110,20 @@ def test_region_pack_wind_is_plausible() -> None:
     for layer in pack.by_role("wind") + pack.by_role("wind_rose"):
         assert layer.source and layer.license and layer.retrieved
     assert "NC" in pack.by_role("wind")[0].license  # NEWA is non-commercial
+
+
+def test_sb510_defaults_match_the_site_pack():
+    """Form defaults (backend constants and the frontend twin) = the SB-510 site climate."""
+    w = sb510_wind()
+    assert round(w.a_ms, 2) == SB510_WEIBULL_A
+    assert round(w.k, 2) == SB510_WEIBULL_K
+    assert round(SB510_WEIBULL_A * math.gamma(1 + 1 / SB510_WEIBULL_K), 2) == SB510_MEAN_MS
+    ts = Path(__file__).parents[2] / "frontend/src/constants/sb510Wind.ts"
+    if ts.exists():  # backend-only checkout
+        text = ts.read_text(encoding="utf-8")
+        values = {k: float(v) for k, v in re.findall(r"(weibullA|weibullK|meanMs): ([\d.]+)", text)}
+        assert values == {
+            "weibullA": SB510_WEIBULL_A,
+            "weibullK": SB510_WEIBULL_K,
+            "meanMs": SB510_MEAN_MS,
+        }

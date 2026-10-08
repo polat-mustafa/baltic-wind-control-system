@@ -106,6 +106,14 @@ def site_wind(pack: RegionPack, lon: NDArray[np.float64], lat: NDArray[np.float6
 
 # ── SB-510 reference site ─────────────────────────────────────────────────────
 
+#: SB-510 wind climate at the 150 m hub (NEWA mean + Microscale-Atlas k, averaged over the
+#: 34 turbine positions — ``sb510_wind()``): the default of every P1 / P2 / P4 form and
+#: endpoint. Rounded; ``test_sb510_defaults_match_the_site_pack`` keeps them equal to the pack
+#: and to ``frontend/src/constants/sb510Wind.ts``.
+SB510_WEIBULL_A = 10.80  # m/s
+SB510_WEIBULL_K = 2.04
+SB510_MEAN_MS = 9.57  # A·Γ(1 + 1/k)
+
 #: Hour-to-hour persistence of the SB-510 wind speed: AR(1) coefficient fitted (least
 #: squares, lags 1–24 h, RMS 0.010) to the autocorrelation of the normal scores of the
 #: ERA5 100 m hourly wind speed 2020–2024 at 55.06 °N 16.52 °E (Copernicus C3S via the

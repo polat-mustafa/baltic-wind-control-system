@@ -10,6 +10,7 @@ import { create } from "zustand";
 
 import * as api from "../services/farmComparisonApi";
 import type { FarmComparisonResponse, FarmConfig } from "../types/farmComparison";
+import { SB510_WIND } from "../constants/sb510Wind";
 
 export const MAX_FARMS = 4;
 
@@ -20,8 +21,8 @@ export const FARM_COLORS = ["#60a5fa", "#3ecf6e", "#f5a623", "#c084fc"];
 const BASE: Omit<FarmConfig, "name"> = {
   turbine_count: 34,
   turbine_rated_mw: 15.0,
-  mean_wind_speed_ms: 9.3, // Weibull A 10.5, k 2.2 — same site as the AEP tab
-  weibull_k: 2.2,
+  mean_wind_speed_ms: SB510_WIND.meanMs, // SB-510 site (NEWA 150 m) — same as the AEP tab
+  weibull_k: SB510_WIND.weibullK,
   turbine_spacing_d: 7,
   array_voltage_kv: 66,
   export_voltage_kv: 220,

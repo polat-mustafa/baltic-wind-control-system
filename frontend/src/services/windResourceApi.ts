@@ -18,6 +18,7 @@ import type {
 
 import { DEFAULT_TURBINE_ID } from "../constants/turbineModels";
 import { post, request } from "./apiClient";
+import { SB510_WIND } from "../constants/sb510Wind";
 
 const BASE = "/api/v1/wind";
 
@@ -74,8 +75,8 @@ export function runWakeAnalysis(
 export function runCustomWakeAnalysis(
   x_m: number[],
   y_m: number[],
-  weibull_a = 10.5,
-  weibull_k = 2.2,
+  weibull_a: number = SB510_WIND.weibullA,
+  weibull_k: number = SB510_WIND.weibullK,
   turbulence_intensity = 0.06,
   turbine_model = DEFAULT_TURBINE_ID,
   sector_frequencies: number[] | null = null,

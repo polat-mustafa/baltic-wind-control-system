@@ -43,6 +43,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from app.services.p1.turbine_models import DEFAULT_TURBINE_ID, get_turbine
+from app.services.site_assessment.wind_climate import SB510_WEIBULL_A, SB510_WEIBULL_K
 
 # ── Default turbine (SB-510, "V236 class") ─────────────────────────
 
@@ -154,8 +155,8 @@ def rated_power_kw(turbine: Any) -> float:
 
 
 def create_uniform_site(
-    weibull_a_ms: float = 10.5,
-    weibull_k: float = 2.2,
+    weibull_a_ms: float = SB510_WEIBULL_A,
+    weibull_k: float = SB510_WEIBULL_K,
     turbulence_intensity: float = 0.06,
 ) -> Any:
     """

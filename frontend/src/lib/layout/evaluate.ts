@@ -12,6 +12,7 @@ import { layoutYield, moveDelta, UNIFORM_ROSE, type WindRose, type YieldModel, t
 import { bearing, centroid, dist, insidePolygon, minSpacing, projection, type LonLat, type Projection, type XY } from "./geometry";
 import { SB510_EXPORT_KM } from "../../constants/windFarmLayout";
 import { REFERENCE_TURBINE, turbineById } from "../../utils/turbineCurves";
+import { SB510_WIND } from "../../constants/sb510Wind";
 
 /** Reference turbine (IEA 15 MW, "V236 class"): rotor diameter [m] and rating [MW]. */
 export const D = REFERENCE_TURBINE.rotorDiameterM;
@@ -24,9 +25,9 @@ export const MIN_SPACING_D = 4;
  * multiplied — 1 − 0.98 · 0.95 · 0.99 = 7.8 %. Blockage is not modelled here.
  */
 export const OTHER_LOSSES = 1 - (1 - 0.02) * (1 - 0.05) * (1 - 0.01);
-/** Site Weibull used by the canvas (P1 SB-510 hub-height fit). */
-export const WEIBULL_A = 10.5;
-export const WEIBULL_K = 2.2;
+/** Site Weibull used by the canvas when the site has no assessment (SB-510, NEWA 150 m). */
+export const WEIBULL_A = SB510_WIND.weibullA;
+export const WEIBULL_K = SB510_WIND.weibullK;
 /** Layers a turbine may not stand in ("owf" = outlines of real wind farms). */
 export const EXCLUDING_ROLES = ["protected", "shipping", "restricted", "owf"];
 

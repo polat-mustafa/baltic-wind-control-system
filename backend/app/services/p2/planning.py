@@ -15,7 +15,7 @@ Planning & Power-to-X — two studies on the 510 MW farm.
    left out of both options.
 
 2. Electrolyser on the energy above a grid connection limit
-   The farm's output duration curve: Weibull A from v̄ = 9.3 m/s, k = 2.2
+   The farm's output duration curve: Weibull A from v̄ = 9.57 m/s, k = 2.04 (SB-510 site, NEWA 150 m)
    as in P1, through a multi-turbine power curve — the reference (IEA 15 MW) curve averaged
    over a Gaussian spread of wind speed across the farm (σ = 1 m/s,
    Nørgaard & Holttinen 2004) — times 97 % availability (both assumptions).
@@ -48,11 +48,12 @@ from app.services.p2.network_model import (
     TOTAL_CAPACITY_MW,
     FarmSpec,
 )
+from app.services.site_assessment.wind_climate import SB510_MEAN_MS, SB510_WEIBULL_K
 
 HOURS = 8760
 OMEGA = 2 * math.pi * 50.0
-SITE_MEAN_MS = 9.3  # P1 default site
-SITE_K = 2.2
+SITE_MEAN_MS = SB510_MEAN_MS  # SB-510 site climate at 150 m (NEWA)
+SITE_K = SB510_WEIBULL_K
 FARM_SPREAD_MS = 1.0  # σ of wind speed across the farm — assumption
 AVAILABILITY = 0.97  # assumption
 

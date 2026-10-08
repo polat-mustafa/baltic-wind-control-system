@@ -34,7 +34,7 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 10 | Layout UX: turbine glyphs by status (+ outside the energy basins), IDs from zoom 12, OSS platform icon, on-map legend; turbine card (net AEP, wake loss, free/waked wind, 2 nearest, depth → foundation, warnings) live while dragging; live checklist; move suggestions checked by PyWake (`/wind/wake-moves`); per-turbine depth (`/site/raster`); info buttons | In review (PR #237, `feat/layout-ux`, stacked on 9) |
 | 11 | Project report `/report` (site checks + sources, permit outlook, SVG mini map, energy: screening + PyWake, per-turbine table, AEP history; PyWake-checked moves; electrical design + full-load load flow; cost / LCOE; construction P50 / P90; data sources + "re-verify" note), print → PDF, JSON download; `GET /projects/{id}/windio.yaml` (windIO 2.x) + `.offshoreforge.json` sidecar | In review (PR #238, `feat/project-report`, stacked on 10) |
 | 12 | Provenance: `SourceBadge` (official / measured / literature / approximation / illustrative); Layout cost inputs, P1 loss cascade and report carry their source; cost defaults from NREL Cost of Wind Energy Review 2024 + ORBIT cable library (2023 USD → €), export priced per circuit; 66 kV cable capacitance from the ABB/NKT datasheet; datasheet cable ratings (current-based grading, 4 × 120 MVAr reactors at both export cable ends); every module on the IEA 15 MW (owner-approved): P4, Digital Twin, turbine physics (ROSCO controller), P3 historian/OPC UA/CMS, nacelle subsystems and the 3D model as a low-speed direct drive | In review (PR #239, `feat/provenance`, stacked on 11) |
-| 13 | Pro items | Open |
+| 13 | Pro items: region from the backend's pack, seabed substrate (EMODnet Geology) in screening / layout / cost, offshore wind ports with sea-route distances (construction trips, O&M CTV transit), choosable PSE grid node, export route check (drawn or automatic, length = export), cluster wakes from neighbouring farms (TurbOPark), sourced AEP uncertainty components and P50 / P75 / P90 | In review (`feat/pro-items`, stacked on 12) |
 
 Phase 1 note: `test_sb510_case_study` expected `msp_energy == "fail"` until phase 9 moved SB-510 into PZP_44; it now passes every blocker (owf = warn: allocated, natura2000 = warn: 2 km).
 Phase 2 note: the permit outlook says a refused site "could not go on to layout"; since phase 6 Layout stays locked for such a site in an own project.
@@ -134,19 +134,68 @@ Phase 12 notes:
 - Harmonic filter: damped 2nd-order high-pass at OSS 66 kV (`FarmSpec.harmonic_filter_mvar/_tuned_order`, `power_quality.size_harmonic_filter`, called by `design()`): tune one order below the worst order, smallest size 2–10 Mvar with every order ≤ 50 % of the planning level at the POC / 220 / 66 kV for 0.5–2 × S_sc and no amplified resonance (> 3) on a characteristic order. SB-510: 5 Mvar at h18, q 1.5 (C 3.64 µF, L 8.59 mH, R 72.8 Ω); the 960 Hz peak moves to ≈ 645 Hz (×2.6), h19 108 % → 10 %, worst h13 50 %, THD at 66 kV 0.98 %. pandapower shunt `HF_OSS_66_5MVAR_h18` (q −5, load convention): STATCOM −2.8 → −7.8 MVAr at full load, buses 0.999–1.008 p.u.; the historian Q balance includes it.
 - Still open / follow-ups: the drawn blade shape stays V236-like (only scaled).
 
+Phase 13 notes (order 4 → 1 → 2 → 5 → 3 → 6 → 7, one commit each):
+- 4 Region pack: already the whole Polish EEZ since phase 1 (every MSP energy basin 14 / 43–46 / 53 / 60). The
+  frontend no longer names `southern-baltic`: without a region the backend default is used, the site store sends the
+  region of the loaded layers. `/layers` is 523 KB raw / 129 KB gzip; nginx gzips JSON, so no GZip middleware.
+- 1 Seabed: `seabed` class raster (EMODnet Geology 1:250 000, Folk 5; Polish part = PGI-NRI 1:200 000) on the
+  bathymetry's 0.01° grid, one digit per cell (`rows`, decoded on load; nearest-node sampling). Check `seabed` warns on
+  coarse / mixed (till, boulders) / rock with the piling and burial consequence (DNV-RP-C212, DNV-RP-0360) — an
+  engineering finding, kept out of the permit conditions (`journey.ENGINEERING`). Foundation cost × mean class factor
+  (sand 1.00 … rock 1.25, illustrative: no published premium found). SB-510: mixed 40 %, coarse 31 %, sand 29 % → warn,
+  foundations × 1.06. `hooks/useSiteRasters` serves depth + seabed to Layout and Report.
+- 2 Ports: `ports` layer (O&M Łeba / Ustka / Władysławowo, installation Świnoujście / Gdańsk T5 / Rønne; role and status
+  from the operators' announcements, OSM location). `sea_routes.py`: 16-neighbour Dijkstra on the bathymetry sea cells,
+  coastline cells blocked (Hel, Vistula Spit), ports snapped to the largest connected water body; cache keyed by the
+  raster + coastline objects. SB-510: O&M Ustka 52.5 km, installation Rønne 116.7 km (constants
+  `SB510_OM_PORT_KM` / `SB510_INSTALL_PORT_KM`, frontend twin `SB510_PORTS`, all pinned by tests). Campaign trips =
+  units × ORBIT fastening time + 2 × distance / ORBIT speed (HLV 7, WTIV 10, CLV 11.5 km/h) instead of a fixed 48 h →
+  SB-510 campaign P50 day 180 / P90 day 227 (was 167 / 201). O&M maintenance window: WOMBAT 07–19 working day minus the
+  CTV transit at 37.04 km/h (SB-510 9.2 h of work); no frontend calls that endpoint yet.
+- 5 Grid nodes: short names, `status` existing / commissioning (Choczewo) / planned (Krzemienica, Bałtyk 1) with PSE's
+  investment pages as `basis`. Assessment ranks every node, takes `grid_node` (unknown → 422) and checks it (planned /
+  commissioning warns; a grid matter, not a permit condition). Picker in the site report; the choice lives in the site
+  store and the project document (`site.gridNode`) and goes into `X-Farm` → `FarmSpec.grid_node`. The grid
+  short-circuit power stays the illustrative 10 GVA for every node — per-node fault levels would need PSE data.
+- 3 Route check: `POST /site/route-check` (`route_check.py`): drawn route or automatic shortest sea path to the node;
+  km subsea / land, landfall, Natura / military km, shipping-basin and cable crossings with angles (< 45° warns, ICPC
+  Rec. 2; 45° is a teaching proxy for shipping lanes). SB-510's surveyed route = 76.5 km (63.4 + 13.1), PZP_15 at
+  89°, no cable crossing; findings: 11.1 km of the coastal bird area (HDD), 1.5 km of Jezioro Wicko on land, and
+  24.5 km through a military National Defence Area — the SB-510 route was NOT re-drawn (owner's call). The checked
+  length (`site.route`, `site.routeKm`) is the farm's export length in Layout cost, `X-Farm` and construction.
+- 6 Cluster wakes: `POST /site/neighbours` (60 km, Platis et al. 2018) → virtual turbines of the site's model; outlines
+  filled, point-only projects a square of P / median outline density (10.5 MW/km²), points inside outlines dropped,
+  same-location points merged, projects holding the site's own area left out. `wake-analysis-custom` takes neighbour
+  positions; external loss = TurbOPark (Nygaard et al. 2022) alone vs with neighbours on a 5° × 2 m/s grid,
+  PropagateDownwind, rotor-centre averaging (PyWake's overlap table needs h5py — not added). SB-510: 9 farms, 646
+  virtual turbines, −4.8 % (site climate; −4.1 % with Layout's regional rose), ≈ 20 s. The Gaussian model gives
+  −0.96 % for the same farms. Layout button "Estimate external loss"; LCOE and the report's net energy include it.
+- 7 Uncertainty: `uncertainty_components()` — NEWA spread 0.54 m/s × AEP sensitivity (computed, SB-510 0.98), ERA5
+  IAV 4.20 % (`fetch_wind_climate.py --iav`, 1995–2024) / √30 and / √25, wake + blockage 25 % of the loss (Walker et
+  al. 2016), turbine 4.0 % and non-wake 2.7 % (Lee & Fields 2021 Table B6 medians). SB-510 σ 7.7 %, P90 1 948 GWh/yr
+  (was 6.89 % / 1 970). `POST /wind/uncertainty`; P1 shows the components, the report P50 / P75 / P90; the frontend
+  twin `aepMath.UNCERTAINTY_SOURCES` is pinned by a backend test. `DEFAULT_UNCERTAINTY_SOURCES` stays for explicit
+  overrides only.
+- Data downloads (all in the scripts, retrieved 2026-10-08): EMODnet Geology WFS (needs `sortBy=objectid` for paging),
+  Overpass (ports, grid), Open-Meteo ERA5 (IAV). Lee & Fields' Table B6 was read from the journal's XLSX.
+- e2e: Site & Permits (route panel, grid picker), Layout (card seabed row, neighbour block), Report (seabed column,
+  P-values) and Construction (ports) change their look → `npm run e2e:update` locally.
+
 ## Resume here
 
 1. The own-project programme is a PR stack, one branch per phase, each based on the one before it
    (phase 1 `feat/site-msp-energy-basins` → … → phase 10 `feat/layout-ux` #237 → phase 11
-   `feat/project-report` #238 → phase 12 `feat/provenance`). Start the next phase from the newest branch:
-   `git fetch origin && git checkout feat/provenance && git pull`, then `git checkout -b <new branch>`
-   and open the PR with that branch as base.
-2. Next: phase 13 (pro items, order 4 → 1 → 2 → 5 → 3 → 6 → 7). Full specs: the plan file named above,
-   sections "Faz 12" / "Faz 13"; read the latest "Phase N notes" here before starting.
+   `feat/project-report` #238 → phase 12 `feat/provenance` #239 → phase 13 `feat/pro-items`). The
+   13-phase programme is complete; new work starts from the newest branch
+   (`git fetch origin && git checkout feat/pro-items && git pull`) or from `main` once the stack is merged.
+2. Next: nothing planned. Candidate follow-ups from phase 13: re-draw SB-510's export route clear of the
+   military National Defence Area (owner's call), per-node grid fault levels from PSE data, a frontend
+   caller for the O&M maintenance window (it already takes the O&M port distance), neighbour layouts on
+   the Layout map.
 3. Known, not ours: 6 old mypy errors under `digital_twin`; the Docker backend image runs old code — check in
    the browser with a local `uvicorn app.main:app --port 8001` and a temporary Vite proxy target (revert it).
 4. Owner to-dos: `cd frontend && npm run e2e:update` (new baselines incl. `layout`, `site-permits`, `academy`,
-   `construction`, `handover`, `decommissioning`, `report`; the owner's modified snapshot files in the working
+   `construction`, `handover`, `decommissioning`, `report`, and the phase 13 look changes; the owner's modified snapshot files in the working
    tree are not committed by Claude), merge the PR stack in order, rename the GitHub repo to `offshoreforge`,
    trademark check.
 

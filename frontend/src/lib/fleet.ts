@@ -81,6 +81,14 @@ export interface FleetSite {
   grid: { name: string; lat: number; lon: number } | null;
 }
 
+/** Turbine wording for headers: SB-510 keeps its "V236 class" case-study name. */
+export const turbineLabel = (f: Fleet): string =>
+  f.source === "sb510" ? '15 MW "V236 class" (IEA-15-240-RWT model)' : "15 MW IEA-15-240-RWT";
+
+/** Farm name for headers: the reference case, or the own project's name. */
+export const farmTitle = (f: Fleet): string =>
+  f.source === "sb510" ? "SB-510 reference" : f.name && f.name !== "Untitled project" ? f.name : "Own project";
+
 /** 66 kV busbar section of string i (0-based): the first `section_a_strings` on A. */
 export const sectionOf = (f: Fleet, i: number): "A" | "B" => (i < f.net.section_a_strings ? "A" : "B");
 

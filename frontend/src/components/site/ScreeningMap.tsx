@@ -26,6 +26,7 @@ import { Layers, PenLine, RotateCcw, Undo2, X, Check, MapPinned } from "lucide-r
 import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { cn } from "../../lib/utils";
 import type { LayerInfo, LonLat } from "../../services/siteApi";
+import { useModeStore } from "../../store/modeStore";
 import { CASE_STUDY_GRID_NODE, CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
 import { checkExportRoute } from "../../lib/site/exportRoute";
 import { ROLE_STYLE, wideScreen, type RoleStyle } from "./mapStyles";
@@ -243,7 +244,7 @@ export default function ScreeningMap() {
   const finishRoute = useSiteStore((s) => s.finishRoute);
   const cancelRoute = useSiteStore((s) => s.cancelRoute);
   const [visible, setVisible] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries([...Object.entries(ROLE_STYLE).map(([k, v]) => [k, v.on]), ["suitability", true], ["turbines", true]]),
+    Object.fromEntries([...Object.entries(ROLE_STYLE).map(([k, v]) => [k, v.on]), ["suitability", true], ["turbines", useModeStore.getState().mode !== "own"]]),
   );
   const [panelOpen, setPanelOpen] = useState(wideScreen);
   const suitability = useSiteStore((s) => s.suitability);

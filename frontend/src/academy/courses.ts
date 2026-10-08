@@ -248,7 +248,7 @@ export const MISSIONS: Mission[] = [
     kind: "drill",
     scenario: "voltage-dip",
     title: "Voltage dip drill",
-    summary: "Ride through a 400 kV fault near Słupsk on the live farm.",
+    summary: "Ride through a 400 kV fault near the grid connection point on the live farm.",
     scoring: "100 − 15 per mistake − 1 per 10 s over par.",
     refs: ["NC RfG Art. 16 / 20"],
     minutes: 3,

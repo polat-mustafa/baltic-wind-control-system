@@ -22,7 +22,7 @@ import {
   Minimize2,
 } from "lucide-react";
 
-import { useFleet } from "../lib/fleet";
+import { farmTitle, turbineLabel, useFleet } from "../lib/fleet";
 import MapKPIRibbon from "../components/landing/MapKPIRibbon";
 import { WindRoseWidget } from "../components/landing/WindRoseWidget";
 import LeafletWindFarmMap from "../components/landing/LeafletWindFarmMap";
@@ -387,8 +387,7 @@ export default function LandingPage() {
               Wind Farm Overview
             </h2>
             <p className="text-[10px] text-text-muted font-mono">
-              {fleet.source === "sb510" ? "" : `${fleet.name} · `}
-              {fleet.turbines.length} × 15 MW V236 class (IEA 15 MW) · Polish Baltic Sea · Real-time simulation
+              {farmTitle(fleet)} · {fleet.turbines.length} × {turbineLabel(fleet)} · Polish Baltic Sea · Live simulation
             </p>
           </div>
           <InfoButton info={farmOverviewInfo} />

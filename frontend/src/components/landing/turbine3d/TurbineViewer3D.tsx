@@ -701,7 +701,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
       {/* Turbine ID badge */}
       <div className="absolute top-2 left-2 z-10 bg-bg-secondary/80 backdrop-blur-sm rounded px-2 py-0.5 border border-border-primary">
         <span className="text-[10px] font-mono text-text-muted">{turbineId}</span>
-        <span className="text-[9px] font-mono text-text-muted opacity-60 ml-1">· 15 MW V236 class (IEA 15 MW)</span>
+        <span className="text-[9px] font-mono text-text-muted opacity-60 ml-1">· 15 MW IEA-15-240-RWT</span>
       </div>
       {onToggleExpand && interiorView === "3d" && (
         <div className="absolute left-2 top-9 z-20">{expandButton}</div>

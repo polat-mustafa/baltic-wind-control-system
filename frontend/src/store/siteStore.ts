@@ -141,7 +141,7 @@ export const useSiteStore = create<SiteState>((set, get) => ({
     const token = ++suitabilityToken;
     set({ loading: true, error: null });
     try {
-      const suitability = await api.postSuitability(get().criteria);
+      const suitability = await api.postSuitability(get().criteria, 2, get().layers?.region.region);
       if (token === suitabilityToken) set({ suitability, loading: false });
     } catch (err) {
       if (token === suitabilityToken) set({ error: message(err), loading: false });
@@ -185,7 +185,7 @@ export const useSiteStore = create<SiteState>((set, get) => ({
     const token = ++assessToken;
     set({ assessing: true, assessError: null });
     try {
-      const report = await api.postAssess(site, criteria);
+      const report = await api.postAssess(site, criteria, get().layers?.region.region);
       if (token === assessToken) set({ report, reportFor: reportSignature(site, criteria), assessing: false });
     } catch (err) {
       if (token === assessToken) set({ assessError: message(err), assessing: false });

@@ -20,6 +20,7 @@ class CriteriaOverrides(BaseModel):
     """Any subset of the screening criteria; omitted fields keep their defaults."""
 
     exclude_territorial_sea: bool | None = None
+    require_energy_basin: bool | None = None
     territorial_sea_km: float | None = Field(None, ge=0, le=50)
     cable_buffer_km: float | None = Field(None, ge=0, le=20)
     owf_buffer_km: float | None = Field(None, ge=0, le=50)
@@ -184,5 +185,12 @@ class AssessResponse(BaseModel):
     protected_km: float | None
     depth_m: list[float] | None = Field(None, description="[min, max] over the site")
     foundation: str | None
+    energy_basins: list[str] = Field(
+        default_factory=list, description="Plan basins with an energy function the site lies in"
+    )
+    projects: list[str] = Field(
+        default_factory=list,
+        description="Real wind farm projects inside the site or holding its energy basins",
+    )
     checks: list[CheckSchema]
     complete: bool

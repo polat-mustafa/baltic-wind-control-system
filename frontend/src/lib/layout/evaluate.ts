@@ -20,6 +20,7 @@ export const OTHER_LOSSES = 0.08;
 /** Site Weibull used by the canvas (P1 SB-510 hub-height fit). */
 export const WEIBULL_A = 10.5;
 export const WEIBULL_K = 2.2;
+/** Layers a turbine may not stand in ("owf" = outlines of real wind farms). */
 export const EXCLUDING_ROLES = ["protected", "shipping", "restricted", "owf"];
 
 export type Ring = LonLat[];
@@ -41,6 +42,23 @@ export function exclusionRings(layers: LayersResponse | null): { name: string; r
     if (EXCLUDING_ROLES.includes(l.role))
       for (const f of l.features) if (f.geometry.type === "Polygon") out.push({ name: f.name, role: l.role, ring: f.geometry.coordinates[0] });
   return out;
+}
+
+/** Energy basins of the maritime spatial plan: in Poland the only sea areas open to offshore wind. */
+export function energyRings(layers: LayersResponse | null): Ring[] {
+  return (layers?.layers ?? [])
+    .filter((l) => l.role === "msp_energy")
+    .flatMap((l) => l.features.filter((f) => f.geometry.type === "Polygon").map((f) => f.geometry.coordinates[0] as Ring));
+}
+
+export const OUTSIDE_ENERGY_BASIN = "outside the plan's energy basins";
+
+/** Why a turbine position is not allowed (constraint name), or null when it is. */
+export function blockedBy(p: LonLat, rings: { name: string; ring: Ring }[], energy: Ring[]): string | null {
+  const hit = rings.find((r) => inRing(p, r.ring));
+  if (hit) return `inside ${hit.name}`;
+  if (energy.length > 0 && !energy.some((r) => inRing(p, r))) return OUTSIDE_ENERGY_BASIN;
+  return null;
 }
 
 /** Export cable length: straight line to the grid node + 10 % routing, 45 km (SB-510) without a report. */
@@ -78,6 +96,7 @@ export function evaluateLayout(i: LayoutInput): LayoutEvaluation {
   const siteXY = i.site.map(proj.toXY);
   const xy = i.turbines.map((t) => proj.toXY([t.lon, t.lat]));
   const rings = exclusionRings(i.layers);
+  const energy = energyRings(i.layers);
   const yieldRes = xy.length ? layoutYield(xy, WEIBULL_A, WEIBULL_K, i.rose ?? UNIFORM_ROSE) : null;
   const cables = i.oss && xy.length ? routeCables(proj.toXY(i.oss), xy, RATED_MW) : null;
   const spacing = minSpacing(xy);
@@ -92,7 +111,7 @@ export function evaluateLayout(i: LayoutInput): LayoutEvaluation {
     count: xy.length,
     capacityMW,
     outside: inside.filter((v) => !v).length,
-    excluded: i.turbines.filter((t, k) => inside[k] && rings.some((r) => inRing([t.lon, t.lat], r.ring))).length,
+    excluded: i.turbines.filter((t, k) => inside[k] && blockedBy([t.lon, t.lat], rings, energy) !== null).length,
     close,
     minSpacingD: spacing ? spacing.m / D : null,
     yield: yieldRes,

@@ -23,6 +23,7 @@ from app.services.site_assessment.criteria import Criteria, depth_band
 from app.services.site_assessment.geo import (
     EARTH_RADIUS_KM,
     LocalProjection,
+    distance_to_lines,
     distance_to_polygons,
     distance_to_polyline,
     is_simple,
@@ -98,6 +99,31 @@ def synthetic_pack(**drop: bool) -> Any:
             "owf", "owf", "polygon", [{"name": "farm", "coordinates": _box(16.7, 54.5, 16.8, 54.6)}]
         ),
         layer(
+            "owf_points",
+            "owf",
+            "point",
+            [
+                {
+                    "name": "Allocated farm",
+                    "coordinates": [16.45, 54.4],
+                    "power_mw": 500.0,
+                    "status": "Planned",
+                }
+            ],
+        ),
+        layer(
+            "energy",
+            "msp_energy",
+            "polygon",
+            [
+                {
+                    "name": "E1 — energy basin",
+                    "basin": "E1",
+                    "coordinates": _box(16.3, 54.0, 16.95, 54.75),
+                }
+            ],
+        ),
+        layer(
             "protected",
             "protected",
             "polygon",
@@ -165,6 +191,18 @@ class TestGeometry:
         d_poly = distance_to_polygons(np.array([5.0, 13.0]), np.array([5.0, 5.0]), [[SQUARE]])
         assert d_poly == pytest.approx([0.0, 3.0])
 
+    def test_pruned_line_distance_matches_brute_force(self) -> None:
+        rng = np.random.default_rng(3)
+        lines = [
+            np.cumsum(rng.normal(0, 3, (rng.integers(2, 40), 2)), axis=0) + rng.uniform(-50, 50, 2)
+            for _ in range(25)
+        ]
+        px, py = rng.uniform(-80, 80, (2, 3000))
+        brute = np.min([distance_to_polyline(px, py, ln) for ln in lines], axis=0)
+        assert distance_to_lines(px, py, lines) == pytest.approx(brute)
+        grid_x, grid_y = np.meshgrid(np.linspace(-60, 60, 40), np.linspace(-60, 60, 30))
+        assert distance_to_lines(grid_x, grid_y, lines).shape == (30, 40)
+
     def test_area_and_simplicity(self) -> None:
         assert polygon_area_km2(SQUARE) == pytest.approx(100.0)
         assert polygon_area_km2(SQUARE[::-1]) == pytest.approx(100.0)
@@ -217,6 +255,21 @@ class TestScreening:
         ev = evaluate(synthetic_pack(), Criteria(exclude_territorial_sea=False), lon, lat)
         assert (ev.cls == CLASS_EXCLUDED).all()
         assert ev.excluded[role].all()
+
+    def test_outside_energy_basin(self) -> None:
+        """Polish rule: offshore wind only inside the plan's energy basins."""
+        pack = synthetic_pack()
+        lon, lat = np.array([16.98, 16.5]), np.array([54.5, 54.35])
+        ev = evaluate(pack, Criteria(exclude_territorial_sea=False), lon, lat)
+        assert [REASONS[r] if r >= 0 else None for r in ev.reason] == ["outside_energy_basin", None]
+        off = evaluate(
+            pack, Criteria(exclude_territorial_sea=False, require_energy_basin=False), lon, lat
+        )
+        assert not off.excluded["outside_energy_basin"].any()
+        no_plan = evaluate(
+            synthetic_pack(msp_energy=True), Criteria(exclude_territorial_sea=False), lon, lat
+        )
+        assert not no_plan.excluded["outside_energy_basin"].any()
 
     def test_territorial_sea_from_shore_distance(self) -> None:
         pack = synthetic_pack()
@@ -275,6 +328,7 @@ class TestScreening:
     def test_completeness(self) -> None:
         assert is_complete(synthetic_pack())
         assert not is_complete(synthetic_pack(protected=True))
+        assert not is_complete(synthetic_pack(msp_energy=True))
 
 
 # ── Candidate site ───────────────────────────────────────────────
@@ -282,11 +336,12 @@ class TestScreening:
 
 class TestAssess:
     def test_sb510_case_study(self) -> None:
-        """SB-510 against the open data: geometry checks out, the site conflicts with the MSP.
+        """The current SB-510 boundary against the open data: geometry checks out, the MSP does not.
 
-        27 of the 34 fictional turbines lie in basin PZP_15, whose priority use in the
-        Polish maritime spatial plan (Dz.U. 2021 poz. 935) is shipping; the Ławica
-        Słupska Natura 2000 site is ≈ 1 km north. Both are real findings, kept on purpose.
+        It lies outside every energy basin of the Polish maritime spatial plan
+        (Dz.U. 2021 poz. 935) and 60–80 % inside shipping-priority basin PZP_15; the Ławica
+        Słupska Natura 2000 site is ≈ 1 km north. Real findings: SB-510 moves into energy
+        basin PZP_44 (a later phase of the own-project programme) and this test follows it.
         """
         pack = load_region("southern-baltic")
         a = assess_site(pack, Criteria(), SB510_SITE)
@@ -305,6 +360,8 @@ class TestAssess:
             status["owf"] == "pass" and status["depth"] == "pass" and status["restricted"] == "pass"
         )
         assert status["shipping"] == "fail"
+        assert status["msp_energy"] == "fail" and a.energy_basins == []
+        assert status["owf"] == "pass" and a.projects == []
         assert status["natura2000"] == "warn"
         assert a.protected_km is not None and 0 < a.protected_km < 2
         assert a.complete
@@ -314,6 +371,17 @@ class TestAssess:
     def test_pack_provenance(self) -> None:
         pack = load_region("southern-baltic")
         assert pack.missing_roles() == []
+        # the whole Polish EEZ (Marine Regions MRGID 5687: 14.20–19.81 °E, ≤ 55.92 °N)
+        lon0, lat0, lon1, lat1 = pack.bbox
+        assert lon0 <= 14.2 and lon1 >= 19.8 and lat1 >= 55.92 and lat0 <= 54.0
+        basins = {str(f.props["basin"]) for f, _ in pack.named_polygons("msp_energy")}
+        assert {"PZP_14", "PZP_43", "PZP_44", "PZP_45", "PZP_46", "PZP_53", "PZP_60"} <= basins
+        projects = {f.name for f in pack.point_features("owf")}
+        assert {"Baltic Power", "Baltica 9", "Baltyk II"} <= projects
+        outlines = {f.name for f, _ in pack.named_polygons("owf")}
+        assert "Baltic Power" in outlines
+        grid = {name for name, _, _ in pack.points("grid")}
+        assert any("Słupsk" in n for n in grid) and any("Żarnowiec" in n for n in grid)
         for layer in pack.layers:
             assert layer.source and layer.license and layer.retrieved, layer.id
         assert pack.raster("bathymetry") is not None
@@ -331,6 +399,34 @@ class TestAssess:
         n2k = next(c for c in near.checks if c.id == "natura2000")
         assert n2k.status == "warn" and "appropriate assessment" in n2k.detail
         assert near.protected_km == pytest.approx(0.05 * LocalProjection(16.5, 54.45).kx, abs=0.3)
+
+    def test_energy_basin_and_allocated_project(self) -> None:
+        pack = synthetic_pack()
+        crit = Criteria(exclude_territorial_sea=False)
+        inside = assess_site(pack, crit, _box(16.4, 54.3, 16.6, 54.45)[0])
+        checks = {c.id: c for c in inside.checks}
+        assert checks["msp_energy"].status == "pass" and "E1" in checks["msp_energy"].detail
+        assert inside.energy_basins == ["E1"]
+        # the basin already belongs to a real project: allocated, not free
+        assert checks["owf"].status == "warn" and "Allocated farm" in checks["owf"].detail
+        assert inside.projects == ["Allocated farm (500 MW, Planned)"]
+
+        straddling = assess_site(pack, crit, _box(16.85, 54.3, 16.99, 54.4)[0])
+        msp = next(c for c in straddling.checks if c.id == "msp_energy")
+        assert msp.status == "fail"
+        assert straddling.exclusion_shares["outside_energy_basin"] == pytest.approx(
+            0.04 / 0.14, abs=0.05
+        )
+        generic = assess_site(
+            pack,
+            Criteria(exclude_territorial_sea=False, require_energy_basin=False),
+            _box(16.85, 54.3, 16.99, 54.4)[0],
+        )
+        assert next(c for c in generic.checks if c.id == "msp_energy").status == "info"
+        missing = assess_site(
+            synthetic_pack(msp_energy=True), crit, _box(16.4, 54.3, 16.6, 54.45)[0]
+        )
+        assert next(c for c in missing.checks if c.id == "msp_energy").status == "unknown"
 
     @pytest.mark.parametrize(
         "polygon,message",
@@ -365,6 +461,7 @@ class TestAPI:
             "protected",
             "shipping",
             "restricted",
+            "msp_energy",
         } <= roles
         assert {"eez", "territorial", "bathymetry"} <= roles
         assert body["complete"] is True
@@ -384,7 +481,7 @@ class TestAPI:
         areas = {a["name"]: a["area_km2"] for a in b["class_areas"]}
         assert areas["suitable"] > 0 and areas["excluded"] > 0
         reasons = {a["reason"] for a in b["reason_areas"]}
-        assert {"land", "territorial_sea", "owf_area"} <= reasons
+        assert {"land", "territorial_sea", "outside_energy_basin", "shipping"} <= reasons
         # excluded cells carry no score
         for row_c, row_s in zip(b["classes"], b["scores"], strict=True):
             for c, s in zip(row_c, row_s, strict=True):
@@ -392,15 +489,22 @@ class TestAPI:
 
     def test_suitability_overrides_and_validation(self) -> None:
         base = client.post(f"{API}/suitability", json={"cell_km": 3}).json()
-        off = client.post(
+        generic = client.post(
             f"{API}/suitability",
-            json={"cell_km": 3, "criteria": {"exclude_territorial_sea": False}},
+            json={"cell_km": 3, "criteria": {"require_energy_basin": False}},
+        ).json()
+        both = client.post(
+            f"{API}/suitability",
+            json={
+                "cell_km": 3,
+                "criteria": {"require_energy_basin": False, "exclude_territorial_sea": False},
+            },
         ).json()
 
         def excluded(b: dict[str, Any]) -> int:
             return next(a["cells"] for a in b["class_areas"] if a["name"] == "excluded")
 
-        assert excluded(off) < excluded(base)
+        assert excluded(both) < excluded(generic) < excluded(base)
         bad = client.post(
             f"{API}/suitability", json={"criteria": {"shore_ideal_km": 90, "shore_max_km": 50}}
         )

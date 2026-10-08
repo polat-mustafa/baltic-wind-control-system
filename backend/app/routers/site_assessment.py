@@ -233,6 +233,8 @@ async def post_assess(req: AssessRequest) -> AssessResponse:
         protected_km=None if a.protected_km is None else round(a.protected_km, 2),
         depth_m=None if a.depth_m is None else [round(v, 1) for v in a.depth_m],
         foundation=a.foundation,
+        energy_basins=a.energy_basins,
+        projects=a.projects,
         checks=[
             CheckSchema(
                 id=c.id, title=c.title, status=c.status, detail=c.detail, reference=c.reference

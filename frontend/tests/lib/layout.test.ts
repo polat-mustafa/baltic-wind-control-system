@@ -4,6 +4,8 @@ import { gridFill, insidePolygon, minSpacing, polygonArea, projection, type XY }
 import { maxPerString, mstLength, routeCables, sectionFor, stringCurrent } from "../../src/lib/layout/cables";
 import { layoutYield } from "../../src/lib/layout/energy";
 import { crf, DEFAULT_COSTS, layoutCost } from "../../src/lib/layout/cost";
+import { blockedBy, energyRings, exclusionRings, OUTSIDE_ENERGY_BASIN } from "../../src/lib/layout/evaluate";
+import type { LayersResponse, LayerInfo, LonLat } from "../../src/services/siteApi";
 
 const D = 236;
 const square = (s: number): XY[] => [
@@ -107,5 +109,48 @@ describe("cost", () => {
     expect(c.lcoe!).toBeGreaterThan(40);
     expect(c.lcoe!).toBeLessThan(120);
     expect(layoutCost(DEFAULT_COSTS, 510, 60, 45, 40, 0).lcoe).toBeNull();
+  });
+});
+
+describe("turbine constraints", () => {
+  const box = (lon0: number, lat0: number, lon1: number, lat1: number): LonLat[] => [
+    [lon0, lat0],
+    [lon1, lat0],
+    [lon1, lat1],
+    [lon0, lat1],
+    [lon0, lat0],
+  ];
+  const layer = (role: string, name: string, ring: LonLat[]): LayerInfo => ({
+    id: role,
+    title: role,
+    role,
+    geometry: "polygon",
+    source: "test",
+    license: "test",
+    retrieved: "2026-10-06",
+    features: [{ name, geometry: { type: "Polygon", coordinates: [ring] }, properties: {} }],
+  });
+  const layers = {
+    layers: [
+      layer("msp_energy", "PZP_44 — energy basin", box(16.0, 54.0, 17.0, 55.0)),
+      layer("owf", "Baltic Power", box(16.6, 54.6, 16.8, 54.8)),
+      layer("shipping", "PZP_15 — shipping priority", box(16.0, 54.9, 17.0, 55.0)),
+    ],
+  } as unknown as LayersResponse;
+  const rings = exclusionRings(layers);
+  const energy = energyRings(layers);
+
+  it("allows a free spot inside an energy basin", () => {
+    expect(blockedBy([16.3, 54.3], rings, energy)).toBeNull();
+  });
+
+  it("blocks real wind farms, shipping basins and anything outside the energy basins", () => {
+    expect(blockedBy([16.7, 54.7], rings, energy)).toBe("inside Baltic Power");
+    expect(blockedBy([16.3, 54.95], rings, energy)).toBe("inside PZP_15 — shipping priority");
+    expect(blockedBy([17.5, 54.5], rings, energy)).toBe(OUTSIDE_ENERGY_BASIN);
+  });
+
+  it("skips the basin rule when the region has no spatial plan layer", () => {
+    expect(blockedBy([17.5, 54.5], rings, [])).toBeNull();
   });
 });

@@ -9,7 +9,8 @@ it is not a legal boundary and must not be used for navigation.
 Regenerate every layer with (network access, a few minutes):
 
     cd backend && python scripts/fetch_marine_layers.py
-    cd backend && python scripts/fetch_marine_layers.py --only wind   # wind farm layers only
+    cd backend && python scripts/fetch_marine_layers.py --only wind     # wind farm layers only
+    cd backend && python scripts/fetch_marine_layers.py --only seabed   # seabed substrate only
 
 ## southern_baltic.json — Southern Baltic, the whole Polish EEZ
 
@@ -33,6 +34,7 @@ and the coast from Świnoujście to the Vistula Spit. Retrieved 2026-10-06.
 | `bathymetry` | bathymetry | EMODnet Digital Bathymetry DTM 2024 (doi:10.12770/cf51df64-56f9-4a99-b1aa-36b8d7b743a1), mean of the 1/16′ cells in 0.01° blocks | EMODnet open data, with attribution; not for navigation |
 | `wind_climate` | wind | Hub height 150 m, 0.05° grid: mean speed from the NEWA Mesoscale Atlas `wind_speed_mean` (WRF 3 km, 1989–2018, doi:10.11583/DTU.14414096.v1); Weibull k from the NEWA Microscale Atlas `weib_k_combined` at 100 and 200 m (0.5° sea points, ln z interpolation to 150 m); A = mean / Γ(1 + 1/k). Built by `scripts/fetch_wind_climate.py` | **CC BY-NC 4.0** (NEWA, DTU Wind Energy) — non-commercial; OffshoreForge is free and non-commercial, a commercial re-user must replace this layer |
 | `wind_rose` | wind_rose | 12-sector direction frequency (wind FROM) of ERA5 hourly 100 m winds 2015–2024, 0.5° grid, via the Open-Meteo archive API | CC BY 4.0 (ERA5: Copernicus Climate Change Service; Open-Meteo) |
+| `seabed` | seabed | EMODnet Geology seabed substrate 1:250 000 (`gtk:seabed_substrate_250k`), Folk 5 classes (mud to muddy sand, sand, coarse-grained, mixed, rock and boulders); Polish waters from PGI-NRI, *Geological Map of the Baltic Sea bottom 1:200 000* (Mojski ed., 1988–1995). Class at the centre of each 0.01° cell of the bathymetry grid, stored as one digit per cell | CC BY 4.0 — EMODnet Geology |
 
 Licences were read from each dataset's ISO metadata record (EMODnet
 GeoNetwork), the Marine Regions licence page and the OSM copyright page.
@@ -62,7 +64,9 @@ simplified excerpt for screening, and the script re-downloads it.
 - Outlines of most permitted projects (only five are mapped in OSM); the others
   are EMODnet points. The individual permit areas (e.g. 44.E.1 inside basin
   PZP_44) are not published as open GIS data.
-- Seabed substrate and ports are not in the pack yet.
+- Seabed substrate is a 1:250 000 compilation of 1988–1995 mapping: it says what a
+  site investigation will probably meet, not what a pile will meet. The foundation
+  cost factors per class are teaching assumptions (no published premium found).
 
 ### What the data says about SB-510
 
@@ -75,6 +79,9 @@ Baltica 9 / PGE; SB-510 borrows the area for teaching):
   basin, military area or recorded munition dump in it; the SwePol HVDC cable
   is 4.6 km east of the boundary;
 - 34–54 m of water over the boundary, 37–51 m at the 34 turbines → jackets;
+- seabed (EMODnet Geology / PGI-NRI): mixed sediment 40 %, coarse-grained 31 %,
+  sand 29 % of the site — glacial till and gravel of the Słupsk Bank area, so the
+  screening warns about boulders and pile driving;
 - already allocated (warning: Baltica 9, and the EMODnet points FEW Baltic II
   and Sharco Duo);
 - the Natura 2000 site Ławica Słupska (PLC990001) is 2 km south: an

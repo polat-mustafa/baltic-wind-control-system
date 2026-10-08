@@ -1,7 +1,7 @@
 /**
  * Card for the selected turbine, or the one being dragged (live, once per
  * animation frame): net AEP and wake loss, free and waked mean wind speed,
- * the two nearest neighbours, water depth → foundation, and warnings.
+ * the two nearest neighbours, water depth → foundation, seabed sediment, and warnings.
  */
 
 import { X } from "lucide-react";
@@ -62,6 +62,7 @@ export default function TurbineCard({ stats }: { stats: (id: string, at: LonLat 
         row(k === 0 ? "Nearest" : "Next", `${n.id} · ${(n.m / 1000).toFixed(2)} km · ${n.d.toFixed(1)} D · ${compass(n.bearing)}`),
       )}
       {row("Water depth", s.depthM != null ? `${s.depthM.toFixed(0)} m${s.foundation ? ` → ${s.foundation.split(" (")[0]}` : ""}` : "—")}
+      {row("Seabed", s.seabed ? s.seabed.name : "—")}
       {s.warnings.length > 0 && (
         <ul className="space-y-0.5 border-t border-border-primary pt-1 text-status-warning">
           {s.warnings.map((w) => (

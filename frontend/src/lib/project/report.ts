@@ -21,7 +21,7 @@ import { turbineById } from "../../utils/turbineCurves";
 import { routeCables } from "../layout/cables";
 import { COST_DEFAULTS, DEFAULT_COSTS, layoutCost, type CostInputs } from "../layout/cost";
 import { prepareYield, UNIFORM_ROSE, yieldOf, type WindRose } from "../layout/energy";
-import { foundationFor, layoutContext, OTHER_LOSSES, statusAt, WEIBULL_A, WEIBULL_K } from "../layout/evaluate";
+import { foundationFactor, foundationFor, layoutContext, OTHER_LOSSES, statusAt, WEIBULL_A, WEIBULL_K, type SeabedAt } from "../layout/evaluate";
 import { minSpacing, polygonArea, type LonLat } from "../layout/geometry";
 import { suggestMoves, type MoveSuggestion } from "../layout/suggest";
 import { SB510_WIND } from "../../constants/sb510Wind";
@@ -48,6 +48,8 @@ export interface ReportInput {
   layers: LayersResponse | null;
   /** Water depth [m, positive down] at a point, null = no data. */
   depthAt: (p: LonLat) => number | null;
+  /** Seabed substrate class at a point (EMODnet Geology), null = no data. */
+  seabedAt?: SeabedAt;
   /** PyWake run for exactly this layout, else null. */
   pywake: WakeAnalysisResult | null;
   history: AepRun[];
@@ -124,12 +126,18 @@ export function buildReport(i: ReportInput) {
 
   const statuses = i.turbines.map((t, k) => statusAt(ctx, [t.lon, t.lat], xy.filter((_, j) => j !== k)));
   const depths = i.turbines.map((t) => i.depthAt([t.lon, t.lat]));
+  const seabedAt: SeabedAt = i.seabedAt ?? (() => null);
+  const seabeds = i.turbines.map((t) => seabedAt([t.lon, t.lat]));
   const count = (s: string) => statuses.filter((x) => x.status === s).length;
   const spacing = minSpacing(xy);
 
   const wakeNetGWh = i.pywake?.net_aep_gwh ?? screening?.netGWh ?? 0;
   const netGWh = wakeNetGWh * (1 - OTHER_LOSSES);
-  const cost = layoutCost(i.costs, capacityMW, cables?.totalKm ?? 0, i.exportKm, a?.depth_m?.[1] ?? null, netGWh);
+  const seabedFactor = foundationFactor(
+    i.turbines.map((t) => [t.lon, t.lat]),
+    seabedAt,
+  );
+  const cost = layoutCost(i.costs, capacityMW, cables?.totalKm ?? 0, i.exportKm, a?.depth_m?.[1] ?? null, netGWh, seabedFactor);
   const decision = decide(a);
   const lf = i.loadFlow;
 
@@ -146,6 +154,7 @@ export function buildReport(i: ReportInput) {
       capacity_potential_mw: r(a.capacity_mw, 0),
       depth_m: a.depth_m,
       foundation: a.foundation,
+      seabed_shares: a.seabed ?? null,
       shore_km: a.shore_km,
       grid_km: a.grid_km,
       grid_node: a.grid_node,
@@ -199,6 +208,7 @@ export function buildReport(i: ReportInput) {
         lat: r(t.lat, 5),
         depth_m: depths[k] == null ? null : r(depths[k]!, 0),
         foundation: foundationFor(depths[k], i.layers?.depth_bands),
+        seabed: seabeds[k]?.name ?? null,
         status: statuses[k].status,
         wake_loss_pct: screening ? r(screening.perTurbineLossPct[k]) : null,
         net_gwh: i.pywake ? r(i.pywake.per_turbine_aep_gwh[k], 2) : screening ? r(screening.perTurbineNetGWh[k], 2) : null,
@@ -252,6 +262,7 @@ export function buildReport(i: ReportInput) {
       lines_meur: cost.lines.map((l) => ({ item: l.label, meur: r(l.meur, 0) })),
       capex_meur: r(cost.capexMEUR, 0),
       capex_meur_per_mw: r(cost.capexMEURperMW, 2),
+      seabed_factor: r(seabedFactor, 3),
       opex_meur_yr: r(cost.opexMEURyr, 1),
       wacc_pct: i.costs.waccPct,
       lifetime_years: i.costs.lifetimeYears,
@@ -280,7 +291,7 @@ export function buildReport(i: ReportInput) {
 /** Which unit costs the report used: the sourced defaults, or the user's own values. */
 export function costSource(c: CostInputs): string {
   const own = (Object.keys(DEFAULT_COSTS) as (keyof CostInputs)[]).filter((k) => c[k] !== DEFAULT_COSTS[k]);
-  const base = "NREL Cost of Wind Energy Review 2024 + ORBIT cable library (2023 USD → € at 1.0813 $/€; jacket and WACC are teaching assumptions)";
+  const base = "NREL Cost of Wind Energy Review 2024 + ORBIT cable library (2023 USD → € at 1.0813 $/€; jacket, seabed factors and WACC are teaching assumptions)";
   return own.length ? `${base}; own values for: ${own.map((k) => COST_DEFAULTS[k].label).join(", ")}` : base;
 }
 

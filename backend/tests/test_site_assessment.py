@@ -10,6 +10,7 @@ Rules checked here (see app/services/site_assessment):
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from typing import Any
 
@@ -561,3 +562,89 @@ def test_raster_endpoint_rejects_bad_requests() -> None:
     assert status("bathymetry", "0,0,1,1") == 422  # no overlap
     assert status("nope", "16.4,55,16.6,55.1") == 404
     assert status("bathymetry", "10,50,25,60") == 422  # too large
+
+
+# ── Seabed substrate (EMODnet Geology, Folk 5) ──────────────────
+
+
+def _with_seabed(rows: list[str]) -> Any:
+    """The synthetic pack plus a class raster stored as digit rows (0.05° grid from 16.0 / 54.0)."""
+    base = synthetic_pack()
+    seabed = parse_pack(
+        {
+            "region": "t",
+            "title": "t",
+            "bbox": [16.0, 53.9, 17.0, 55.0],
+            "pending": [],
+            "layers": [
+                {
+                    "id": "seabed",
+                    "title": "seabed",
+                    "role": "seabed",
+                    "geometry": "raster",
+                    "source": "test",
+                    "license": "test",
+                    "retrieved": "2026-01-01",
+                    "raster": {
+                        "lon0": 16.0,
+                        "lat0": 54.0,
+                        "dlon": 0.05,
+                        "dlat": 0.05,
+                        "rows": rows,
+                    },
+                }
+            ],
+        }
+    )
+    return dataclasses.replace(base, layers=base.layers + seabed.layers)
+
+
+def test_seabed_rows_decode_to_classes_with_no_data() -> None:
+    pack = _with_seabed(["0123", "4500"])
+    r = pack.raster("seabed")
+    assert r is not None
+    assert np.isnan(r.values[0, 0]) and r.values[0, 3] == 3 and r.values[1, 1] == 5
+    # nearest node, not an interpolated class
+    assert r.nearest(np.array([16.074]), np.array([54.0]))[0] == 1
+    assert r.nearest(np.array([16.076]), np.array([54.0]))[0] == 2
+    assert np.isnan(r.nearest(np.array([15.9]), np.array([54.0]))[0])
+
+
+def test_seabed_check_passes_on_sand_and_warns_on_rock() -> None:
+    site = [[16.4, 54.3], [16.6, 54.3], [16.6, 54.5], [16.4, 54.5]]
+    sand = assess_site(_with_seabed(["2" * 21] * 21), Criteria(), site)
+    assert sand.seabed == {"Sand": 1.0}
+    assert next(c for c in sand.checks if c.id == "seabed").status == "pass"
+    rock = assess_site(_with_seabed(["2" * 21] * 8 + ["5" * 21] * 13), Criteria(), site)
+    assert rock.seabed is not None and 0 < rock.seabed["Rock and boulders"] < 1
+    check = next(c for c in rock.checks if c.id == "seabed")
+    assert check.status == "warn" and "drive-drill-drive" in check.detail
+    no_layer = assess_site(synthetic_pack(), Criteria(), site)
+    assert no_layer.seabed is None
+    assert next(c for c in no_layer.checks if c.id == "seabed").status == "unknown"
+
+
+def test_sb510_seabed_is_till_gravel_and_sand() -> None:
+    """EMODnet / PGI-NRI 1:200 000: the Słupsk Bank area is mixed sediment and gravel."""
+    a = assess_site(load_region("southern-baltic"), Criteria(), SB510_SITE)
+    assert a.seabed is not None
+    assert sum(a.seabed.values()) == pytest.approx(1.0)
+    assert a.seabed["Mixed sediment"] == pytest.approx(0.40, abs=0.05)
+    assert a.seabed["Coarse-grained sediment"] == pytest.approx(0.31, abs=0.05)
+    assert a.seabed["Sand"] == pytest.approx(0.29, abs=0.05)
+    assert next(c for c in a.checks if c.id == "seabed").status == "warn"
+
+
+def test_seabed_raster_and_class_cards_over_the_api() -> None:
+    r = client.get(
+        "/api/v1/site/raster", params={"role": "seabed", "bbox": "16.42,55.0,16.63,55.12"}
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["classes"]["5"] == "Rock and boulders"
+    codes = {v for row in body["bands"]["values"] for v in row if v is not None}
+    assert codes <= {1, 2, 3, 4, 5} and {3, 4} <= codes
+    cards = client.get(f"{API}/layers").json()["seabed_classes"]
+    assert [c["code"] for c in cards] == [1, 2, 3, 4, 5]
+    assert next(c for c in cards if c["name"] == "Sand")["foundation_factor"] == 1.0
+    assert all(c["quality"] == "illustrative" for c in cards)

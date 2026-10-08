@@ -35,12 +35,18 @@ from app.schemas.site_assessment import (
     RasterResponse,
     ReasonArea,
     RegionInfo,
+    SeabedClassCard,
     SuitabilityRequest,
     SuitabilityResponse,
     WindClimateSchema,
 )
 from app.services.site_assessment.assess import InvalidSiteError, assess_site
-from app.services.site_assessment.criteria import CRITERIA_INFO, DEPTH_BANDS, Criteria
+from app.services.site_assessment.criteria import (
+    CRITERIA_INFO,
+    DEPTH_BANDS,
+    SEABED_CLASSES,
+    Criteria,
+)
 from app.services.site_assessment.layers import Layer, RegionPack, available_regions, load_region
 from app.services.site_assessment.suitability import (
     CLASS_NAMES,
@@ -151,6 +157,7 @@ async def get_layers(region: str = DEFAULT_REGION) -> LayersResponse:
             for c in CRITERIA_INFO
         ],
         depth_bands=[DepthBandCard(**asdict(b)) for b in DEPTH_BANDS],
+        seabed_classes=[SeabedClassCard(**asdict(c)) for c in SEABED_CLASSES],
     )
 
 
@@ -192,6 +199,7 @@ async def get_raster(
         dlon=r["dlon"],
         dlat=r["dlat"],
         bands={k: [row[i0 : i1 + 1] for row in v[j0 : j1 + 1]] for k, v in bands.items()},
+        classes=r.get("classes"),
         source=layer.source,
         license=layer.license,
         retrieved=layer.retrieved,
@@ -294,6 +302,7 @@ async def post_assess(req: AssessRequest) -> AssessResponse:
             license=a.wind.license,
             approximate=a.wind.approximate,
         ),
+        seabed=None if a.seabed is None else {k: round(v, 4) for k, v in a.seabed.items()},
         checks=[
             CheckSchema(
                 id=c.id, title=c.title, status=c.status, detail=c.detail, reference=c.reference

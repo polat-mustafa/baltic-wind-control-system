@@ -17,6 +17,8 @@ each dataset's metadata when this script was written):
   internal waters of every State in the box — the union is the sea mask.
 * OpenStreetMap via the Overpass API (ODbL 1.0): coastline, submarine cables
   and pipelines, PSE 400 kV substations, offshore wind farm outlines.
+* EMODnet Geology WFS (CC BY 4.0): seabed substrate 1:250 000 (Folk 5 classes;
+  Polish part = PGI-NRI Geological Map of the Baltic Sea bottom 1:200 000).
 
 Polygons are clipped to the region box (plus a margin) and simplified
 (Ramer–Douglas–Peucker, ≈ 100 m); bathymetry is block-averaged to a coarse
@@ -57,6 +59,7 @@ REGION_DESCRIPTION = (
 EMODNET_HA_WFS = "https://ows.emodnet-humanactivities.eu/wfs"
 EMODNET_BATHY_WCS = "https://ows.emodnet-bathymetry.eu/wcs"
 MARINE_REGIONS_WFS = "https://geo.vliz.be/geoserver/MarineRegions/wfs"
+EMODNET_GEOLOGY_WFS = "https://drive.emodnet-geology.eu/geoserver/gtk/wfs"
 OVERPASS = (
     "https://overpass-api.de/api/interpreter",
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
@@ -796,7 +799,86 @@ def build_layers(bbox: tuple[float, float, float, float], today: str) -> list[di
         )
     )
     layers.append(fetch_bathymetry(bbox, today))
+    layers.append(fetch_seabed(bbox, today))
     return layers
+
+
+def rebuild_group(group: str, pack: dict[str, Any], today: str) -> list[dict[str, Any]]:
+    """Fresh layers of one group; the rest of the pack is kept."""
+    lon0, lat0, lon1, lat1 = REGION_BBOX
+    box = (lon0 - MARGIN_DEG, lat0 - MARGIN_DEG, lon1 + MARGIN_DEG, lat1 + MARGIN_DEG)
+    if group == "wind":
+        sea = SeaMask(next(lyr for lyr in pack["layers"] if lyr["id"] == "sea")["features"])
+        return wind_projects(box, sea, today)
+    return [fetch_seabed(REGION_BBOX, today)]
+
+
+#: EMODnet Geology Folk 5-class substrate codes kept in the pack (6 = no data, 9 = restricted).
+SEABED_CLASSES = {
+    1: "Mud to muddy sand",
+    2: "Sand",
+    3: "Coarse-grained sediment",
+    4: "Mixed sediment",
+    5: "Rock and boulders",
+}
+
+
+def fetch_seabed(bbox: tuple[float, float, float, float], today: str) -> dict[str, Any]:
+    """Seabed substrate class at the centre of every bathymetry block (same 0.01° grid).
+
+    One digit per cell (Folk 5 class, "0" = no data), one string per row: the
+    class map is categorical, so the pack keeps the class under each cell centre
+    instead of interpolating between classes.
+    """
+    print("  EMODnet Geology: seabed_substrate_250k")
+    lon0, lat0, lon1, lat1 = bbox
+    box = (lon0 - MARGIN_DEG, lat0 - MARGIN_DEG, lon1 + MARGIN_DEG, lat1 + MARGIN_DEG)
+    fc = wfs_geojson(EMODNET_GEOLOGY_WFS, "gtk:seabed_substrate_250k", box, sortBy="objectid")
+    nx = math.ceil((lon1 - lon0) / BATHY_STEP_DEG)
+    ny = math.ceil((lat1 - lat0) / BATHY_STEP_DEG)
+    lon = lon0 + BATHY_STEP_DEG / 2 + BATHY_STEP_DEG * np.arange(nx)
+    lat = lat0 + BATHY_STEP_DEG / 2 + BATHY_STEP_DEG * np.arange(ny)
+    gx, gy = np.meshgrid(lon, lat)
+    px, py = gx.ravel(), gy.ravel()
+    cls = np.zeros(px.size, dtype=int)
+    holders: set[str] = set()
+    for f in fc["features"]:
+        code = int(f["properties"].get("folk_5cl") or 0)
+        g = f.get("geometry")
+        if code not in SEABED_CLASSES or not g:
+            continue
+        polys = g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]
+        rings = [[np.asarray(r, dtype=float)[:, :2] for r in poly] for poly in polys]
+        free = cls == 0  # overlapping national maps: the first one wins
+        hit = np.zeros(px.size, dtype=bool)
+        hit[free] = points_in_polygons(px[free], py[free], rings)
+        if hit.any():
+            cls[hit] = code
+            holders.add(str(f["properties"].get("data_holder") or "").strip())
+    grid = cls.reshape(ny, nx)
+    counts = {SEABED_CLASSES[k]: int((grid == k).sum()) for k in SEABED_CLASSES}
+    print(f"    → {ny}×{nx} cells, classes {counts}")
+    return layer(
+        "seabed",
+        "Seabed substrate (Folk 5 classes)",
+        "seabed",
+        "raster",
+        "EMODnet Geology seabed substrate 1:250 000 (gtk:seabed_substrate_250k), Folk 5-class "
+        "scheme; Polish waters from PGI-NRI, Geological Map of the Baltic Sea bottom 1:200 000 "
+        f"(Mojski ed., 1988–1995); data holders {', '.join(sorted(h for h in holders if h))}. "
+        f"Class at the centre of each {BATHY_STEP_DEG}° cell",
+        "CC BY 4.0 — EMODnet Geology (https://emodnet.ec.europa.eu/en/geology)",
+        today,
+        features=[],
+        raster={
+            "lon0": lon0 + BATHY_STEP_DEG / 2,
+            "lat0": lat0 + BATHY_STEP_DEG / 2,
+            "dlon": BATHY_STEP_DEG,
+            "dlat": BATHY_STEP_DEG,
+            "classes": {str(k): v for k, v in SEABED_CLASSES.items()},
+            "rows": ["".join(str(v) for v in row) for row in grid],
+        },
+    )
 
 
 def parse_wcs_text(text: str) -> tuple[np.ndarray, float, float, float, float]:
@@ -900,18 +982,15 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--only",
-        choices=("wind",),
+        choices=("wind", "seabed"),
         help="rebuild one group of layers and keep the rest of the pack (needs a full pack)",
     )
     args = parser.parse_args()
     pack = json.loads(PACK.read_text(encoding="utf-8"))
     today = datetime.now(UTC).date().isoformat()
     print(f"Region {pack['region']} bbox {REGION_BBOX}")
-    if args.only == "wind":
-        lon0, lat0, lon1, lat1 = REGION_BBOX
-        box = (lon0 - MARGIN_DEG, lat0 - MARGIN_DEG, lon1 + MARGIN_DEG, lat1 + MARGIN_DEG)
-        sea = SeaMask(next(lyr for lyr in pack["layers"] if lyr["id"] == "sea")["features"])
-        fresh = {lyr["id"]: lyr for lyr in wind_projects(box, sea, today)}
+    if args.only:
+        fresh = {lyr["id"]: lyr for lyr in rebuild_group(args.only, pack, today)}
         layers = [fresh.pop(lyr["id"], lyr) for lyr in pack["layers"]] + list(fresh.values())
     else:
         layers = build_layers(REGION_BBOX, today)

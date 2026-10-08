@@ -27,7 +27,7 @@ import {
   MIN_SPACING_D,
   OTHER_LOSSES,
   RATED_MW,
-  rasterSampler,
+  foundationFactor,
   statusAt,
   turbineStats,
   WEIBULL_A,
@@ -35,7 +35,7 @@ import {
 } from "../lib/layout/evaluate";
 import { centroid, gridFill, minSpacing, polygonArea, type LonLat, type XY } from "../lib/layout/geometry";
 import { suggestMoves } from "../lib/layout/suggest";
-import { getRaster, type RasterResponse } from "../services/siteApi";
+import { useSiteRasters } from "../hooks/useSiteRasters";
 import { checkWakeMoves, computeWindRose } from "../services/windResourceApi";
 import { MAX_TURBINES, signature, useProjectStore } from "../store/projectStore";
 import { CASE_STUDY_SITE, useSiteStore } from "../store/siteStore";
@@ -189,22 +189,9 @@ export default function LayoutPage() {
   const areaKm2 = polygonArea(siteXY) / 1e6;
   const excludedBy = (pt: LonLat) => blockedBy(pt, ctx.rings, ctx.energy);
 
-  // Water depth at each turbine: the bathymetry raster around the site (EMODnet DTM, region pack).
-  const [depthRaster, setDepthRaster] = useState<RasterResponse | null>(null);
+  // Water depth and seabed sediment at each turbine (EMODnet bathymetry and Geology, region pack).
+  const { depthAt, seabedAt } = useSiteRasters(site, layers?.seabed_classes);
   const siteKey = site.map((q) => q.join(",")).join(";");
-  useEffect(() => {
-    let live = true;
-    const lons = site.map((q) => q[0]);
-    const lats = site.map((q) => q[1]);
-    const m = 0.05; // ° margin: turbines dragged just outside still get a depth
-    getRaster("bathymetry", [Math.min(...lons) - m, Math.min(...lats) - m, Math.max(...lons) + m, Math.max(...lats) + m])
-      .then((r) => live && setDepthRaster(r))
-      .catch(() => live && setDepthRaster(null)); // depth shows "—", the checklist says unknown
-    return () => {
-      live = false;
-    };
-  }, [siteKey]); // refetch only when the outline changes
-  const depthAt = useMemo(() => rasterSampler(depthRaster), [depthRaster]);
 
   const sig = signature(p.turbines);
   const xy = useMemo(() => p.turbines.map((t) => proj.toXY([t.lon, t.lat])), [p.turbines, proj]);
@@ -242,9 +229,9 @@ export default function LayoutPage() {
   const stats = useCallback(
     (id: string, at: LonLat | null) => {
       const i = ids.indexOf(id);
-      return yieldModel && i >= 0 ? turbineStats(ctx, yieldModel, ids, i, at, depthAt, layers?.depth_bands) : null;
+      return yieldModel && i >= 0 ? turbineStats(ctx, yieldModel, ids, i, at, depthAt, layers?.depth_bands, seabedAt) : null;
     },
-    [ctx, yieldModel, ids, depthAt, layers],
+    [ctx, yieldModel, ids, depthAt, seabedAt, layers],
   );
 
   const capacity = p.turbines.length * RATED_MW;
@@ -253,7 +240,8 @@ export default function LayoutPage() {
   const netGWh = wakeOnlyGWh * (1 - OTHER_LOSSES);
   const defaultExport = defaultExportKm(report?.grid_km);
   const expKm = exportKm ?? defaultExport;
-  const cost = layoutCost(p.costs, capacity, cables?.totalKm ?? 0, expKm, report?.depth_m?.[1] ?? null, netGWh);
+  const seabedFactor = foundationFactor(p.turbines.map((t) => [t.lon, t.lat]), seabedAt);
+  const cost = layoutCost(p.costs, capacity, cables?.totalKm ?? 0, expKm, report?.depth_m?.[1] ?? null, netGWh, seabedFactor);
 
   const pyWind = { weibull_a: windA, weibull_k: windK, sector_frequencies: siteWind?.sector_frequencies ?? null };
   const subseaCables = useMemo<XY[][]>(
@@ -535,7 +523,10 @@ export default function LayoutPage() {
               <tbody>
                 {cost.lines.map((l) => (
                   <tr key={l.label} className="border-b border-border-primary/60">
-                    <td className="py-0.5 text-text-secondary">{l.label}</td>
+                    <td className="py-0.5 text-text-secondary">
+                      {l.label}
+                      {l.source && <SourceBadge p={l.source} className="ml-1" />}
+                    </td>
                     <td className="py-0.5 text-right tabular-nums text-text-primary">{l.meur.toFixed(0)} M€</td>
                   </tr>
                 ))}

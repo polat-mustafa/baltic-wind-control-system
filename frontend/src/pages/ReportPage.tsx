@@ -22,7 +22,8 @@ import { DEFAULT_TURBINE_ID } from "../constants/turbineModels";
 import { useFarmPlan } from "../hooks/useFarmPlan";
 import { campaignRequest } from "../lib/lifecycle/farm";
 import { DEFAULT_COSTS } from "../lib/layout/cost";
-import { layoutContext, RATED_MW, rasterSampler } from "../lib/layout/evaluate";
+import { layoutContext, RATED_MW } from "../lib/layout/evaluate";
+import { useSiteRasters } from "../hooks/useSiteRasters";
 import type { LonLat } from "../lib/layout/geometry";
 import { routeCables } from "../lib/layout/cables";
 import { buildDoc } from "../lib/project/document";
@@ -31,7 +32,7 @@ import { buildReport, findMoves, type ProjectReport, type ReportInput } from "..
 import { cn } from "../lib/utils";
 import { runLoadFlow } from "../services/gridApi";
 import { aepHistory, windioUrl, type AepRun } from "../services/projectApi";
-import { getRaster, postAssess, type AssessResponse, type RasterResponse } from "../services/siteApi";
+import { postAssess, type AssessResponse } from "../services/siteApi";
 import { checkWakeMoves, runCustomWakeAnalysis } from "../services/windResourceApi";
 import { useGridStore } from "../store/gridStore";
 import { limitList, requestSignature, useLifecycleStore } from "../store/lifecycleStore";
@@ -208,21 +209,7 @@ export default function ReportPage() {
     else if (useSiteStore.getState().site && !useSiteStore.getState().report) void assess();
   }, [reference, loadLayers, fetchNetworkSpec, assess]);
 
-  const [depthRaster, setDepthRaster] = useState<RasterResponse | null>(null);
-  const siteKey = site.map((q) => q.join(",")).join(";");
-  useEffect(() => {
-    let live = true;
-    const lons = site.map((q) => q[0]);
-    const lats = site.map((q) => q[1]);
-    const m = 0.05;
-    getRaster("bathymetry", [Math.min(...lons) - m, Math.min(...lats) - m, Math.max(...lons) + m, Math.max(...lats) + m])
-      .then((r) => live && setDepthRaster(r))
-      .catch(() => live && setDepthRaster(null));
-    return () => {
-      live = false;
-    };
-  }, [siteKey]); // refetch only when the outline changes
-  const depthAt = useMemo(() => rasterSampler(depthRaster), [depthRaster]);
+  const { depthAt, seabedAt } = useSiteRasters(site, layers?.seabed_classes);
 
   const [history, setHistory] = useState<AepRun[]>([]);
   const loadHistory = () => {
@@ -260,6 +247,7 @@ export default function ReportPage() {
     assessment,
     layers,
     depthAt,
+    seabedAt,
     pywake,
     history,
     moves,
@@ -456,9 +444,9 @@ export default function ReportPage() {
             <p className="text-[11px] text-slate-500">Wind: {rep.wind.source}.</p>
             {e.turbines.length > 0 && (
               <Table
-                head={["Turbine", "Lon", "Lat", "Depth m", "Foundation", "Status", "Wake loss %", `Net GWh/yr (${e.pywake ? "PyWake" : "screening"})`]}
-                right={[1, 2, 3, 6, 7]}
-                rows={e.turbines.map((t) => [t.id, t.lon.toFixed(4), t.lat.toFixed(4), fmt(t.depth_m), t.foundation ?? "—", <Chip key="s" s={t.status} />, fmt(t.wake_loss_pct, 1), fmt(t.net_gwh, 1)])}
+                head={["Turbine", "Lon", "Lat", "Depth m", "Foundation", "Seabed", "Status", "Wake loss %", `Net GWh/yr (${e.pywake ? "PyWake" : "screening"})`]}
+                right={[1, 2, 3, 7, 8]}
+                rows={e.turbines.map((t) => [t.id, t.lon.toFixed(4), t.lat.toFixed(4), fmt(t.depth_m), t.foundation ?? "—", t.seabed ?? "—", <Chip key="s" s={t.status} />, fmt(t.wake_loss_pct, 1), fmt(t.net_gwh, 1)])}
               />
             )}
             <h3 className="pt-2 font-sans text-[12px] font-semibold">AEP revision history (stored PyWake runs)</h3>

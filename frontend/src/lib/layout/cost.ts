@@ -10,7 +10,7 @@
  * editable on the Layout page.
  */
 
-import type { Sourced } from "../../components/ui/SourceBadge";
+import type { Provenance, Sourced } from "../../components/ui/SourceBadge";
 
 export interface CostInputs {
   turbineMEURperMW: number;
@@ -88,6 +88,13 @@ export const COST_DEFAULTS: Record<keyof CostInputs, Sourced & { label: string }
   },
 };
 
+/** Seabed multipliers on the foundation cost (backend criteria.SEABED_CLASSES, sent with /site/layers). */
+export const SEABED_FACTOR_SOURCE: Provenance = {
+  quality: "illustrative",
+  source: "Teaching assumption per EMODnet Folk 5 class: mud 1.10, sand 1.00, coarse 1.05, mixed (till, boulders) 1.10, rock 1.25",
+  note: "No published premium per sediment class was found; the effects (pile refusal, drive-drill-drive, boulder clearance) follow DNV-RP-C212. Replace with a geotechnical quote",
+};
+
 const keys = Object.keys(COST_DEFAULTS) as (keyof CostInputs)[];
 export const DEFAULT_COSTS = Object.fromEntries(keys.map((k) => [k, COST_DEFAULTS[k].value])) as unknown as CostInputs;
 export const COST_LABELS = Object.fromEntries(
@@ -115,7 +122,7 @@ export const crf = (ratePct: number, years: number) => {
 };
 
 export interface CostResult {
-  lines: { label: string; meur: number }[];
+  lines: { label: string; meur: number; source?: Provenance }[];
   capexMEUR: number;
   capexMEURperMW: number;
   opexMEURyr: number;
@@ -130,12 +137,15 @@ export function layoutCost(
   exportKm: number,
   maxDepthM: number | null,
   netGWh: number,
+  /** Mean seabed factor on the foundations (sand = 1; `foundationFactor()` in evaluate.ts). */
+  seabedFactor = 1,
 ): CostResult {
   const circuits = exportCircuits(capacityMW, exportKm);
   const foundation = maxDepthM != null && maxDepthM > 40 ? c.jacketMEURperMW : c.monopileMEURperMW;
+  const seabedNote = Math.abs(seabedFactor - 1) > 0.005 ? `, seabed × ${seabedFactor.toFixed(2)}` : "";
   const lines = [
     { label: "Turbines", meur: c.turbineMEURperMW * capacityMW },
-    { label: maxDepthM != null && maxDepthM > 40 ? "Foundations (jacket)" : "Foundations (monopile)", meur: foundation * capacityMW },
+    { label: `Foundations (${maxDepthM != null && maxDepthM > 40 ? "jacket" : "monopile"}${seabedNote})`, meur: foundation * capacityMW * seabedFactor, source: seabedNote ? SEABED_FACTOR_SOURCE : undefined },
     { label: "Array cables", meur: c.arrayCableMEURperKm * arrayKm },
     { label: "Offshore substation", meur: c.ossMEURperMW * capacityMW },
     { label: `Export cable (${circuits} × ${exportKm.toFixed(0)} km)`, meur: c.exportCircuitMEURperKm * exportKm * circuits },

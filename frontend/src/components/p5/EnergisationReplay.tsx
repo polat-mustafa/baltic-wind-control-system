@@ -8,11 +8,12 @@
  *
  * Frames come from GET /commissioning/energisation-trace (one load flow per
  * switching step of a fresh programme for this farm), so the numbers are the
- * ones the learner meets when running the programme. Steady state only:
+ * ones the learner meets when running the programme; a small map shows the same
+ * frame where the plant is (EnergisationMap). Steady state only:
  * inrush and switching transients are not steady-state quantities.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw, X } from "lucide-react";
 
@@ -21,6 +22,9 @@ import { getEnergisationTrace } from "../../services/commissioningApi";
 import type { EnergisationTrace, ProgrammeDetail, TraceFrame } from "../../types/commissioning";
 import { Button } from "../ui/Button";
 import CircuitSLD from "./CircuitSLD";
+
+// MapLibre + deck.gl: loaded with the replay only
+const EnergisationMap = lazy(() => import("./EnergisationMap"));
 
 const FRAME_MS = 1600;
 
@@ -277,6 +281,11 @@ export default function EnergisationReplay({ onClose }: { onClose: () => void })
           <CircuitSLD programme={asProgramme(trace, frame)} focus={frame.equipment_id} />
         </div>
         <div className="grid content-start gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <div className="sm:col-span-2 xl:col-span-1">
+            <Suspense fallback={<div className="h-56 rounded-md border border-border-primary bg-bg-secondary" />}>
+              <EnergisationMap frame={frame} />
+            </Suspense>
+          </div>
           <Trace
             title="220 kV voltage"
             unit="pu"

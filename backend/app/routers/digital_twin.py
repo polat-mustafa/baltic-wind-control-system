@@ -53,6 +53,7 @@ from app.schemas.digital_twin import (
 )
 from app.services.digital_twin import detection as det_mod
 from app.services.digital_twin import plant_simulator as plant
+from app.services.digital_twin.care_benchmark import available_farms
 from app.services.digital_twin.care_benchmark import load_results as care_results
 from app.services.digital_twin.detection import (
     CHANNELS,
@@ -587,9 +588,13 @@ async def operating_point(req: OperatingPointRequest) -> OperatingPointResponse:
 
 
 @router.get("/real-data/care", response_model=CareBenchmarkResponse)
-async def care_benchmark() -> CareBenchmarkResponse:
-    """The twin's detector on CARE to Compare Wind Farm B (real offshore SCADA, CC BY-SA 4.0).
+async def care_benchmark(farm: str = "b") -> CareBenchmarkResponse:
+    """The twin's detector on CARE to Compare offshore farms (real SCADA, CC BY-SA 4.0).
 
-    Built offline by ``scripts/build_care_benchmark.py``; this endpoint serves the bundled result.
+    Farm B is the development set, Farm C the held-out test set. Built offline by
+    ``scripts/build_care_benchmark.py``; this endpoint serves the bundled result.
     """
-    return CareBenchmarkResponse(**care_results())
+    farms = available_farms()
+    if farm.lower() not in farms:
+        raise NotFoundError(f"No CARE result for farm {farm!r}; available: {farms}")
+    return CareBenchmarkResponse(**care_results(farm.lower()), available_farms=farms)

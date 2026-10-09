@@ -14,14 +14,18 @@ Method — the twin's state detection, unchanged
    production only (status 0). A data-driven NBM replaces the physics twin because the
    turbines are anonymised; the residual r = T_meas − T_NBM is what the twin charts.
    (Tautz-Weinert & Watson 2017, IET Renew. Power Gener. 11(4) — NBM for SCADA CM.)
-2. Phase I (Montgomery): the NBM is fitted on the older 80 % of the training year;
-   the newest 20 % gives the residual mean / σ per active-power decile and the
-   autocorrelation factor κ (EWMAST, Zhang 1998).
+2. Phase I (Montgomery): Phase I data must cover every operating condition, so the
+   training year is cut into 4 time blocks and each is scored by an NBM fitted on the
+   other three; these out-of-block residuals (all seasons) give the mean / σ per
+   active-power decile and the autocorrelation factor κ (EWMAST, Zhang 1998). The NBM
+   that charts the prediction period is then fitted on the whole year. (v1 calibrated
+   on the newest 20 % only — one season — and alarmed in 6 of 9 normal periods of
+   Wind Farm B; v2 was designed on Farm B and tested untouched on Farm C.)
 3. EWMA chart with the live twin's own settings — λ, L, persistence imported from
    ``detection`` — so nothing is tuned on the benchmark's fault labels.
-4. Phase I verification: the newest 20 % of the training year is normal by definition,
-   so each channel's limit is widened until that slice raises no confirmed alarm (the
-   live twin checks its L = 5 the same way on fault-free data). Training data only.
+4. Phase I verification: the training year is normal by definition, so each channel's
+   limit is widened until its out-of-block chart raises no confirmed alarm (the live
+   twin checks its L = 5 the same way on fault-free data). Training data only.
 5. Turbine alarm = first channel beyond its limit for ``PERSISTENCE`` samples.
 
 Scores (CARE terms, simplified): an anomaly event is *detected* if an alarm is
@@ -38,7 +42,7 @@ import json
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import xgboost as xgb
@@ -55,6 +59,7 @@ from app.services.digital_twin.detection import (
 FloatArray = NDArray[np.float64]
 RESULT_FILE = Path(__file__).parent / "data" / "care_farm_b.json"
 CALIBRATION_SHARE = 0.2
+OOF_BLOCKS = 4  # Phase I: each quarter of the year scored by a model of the other three
 POWER_BINS = 10
 SAMPLES_PER_HOUR = 6
 
@@ -89,18 +94,36 @@ def chart_channel(
     train: NDArray[np.bool_],
     power: FloatArray,
     seed: int = 0,
+    calibration: Literal["newest", "oof"] = "oof",
 ) -> ChannelChart:
     """NBM + Phase I + EWMA chart for one channel; returns the prediction-period chart."""
     train_rows = np.flatnonzero(train & valid & np.isfinite(y))
-    n_fit = int(len(train_rows) * (1 - CALIBRATION_SHARE))
-    fit, cal = train_rows[:n_fit], train_rows[n_fit:]
-    model = xgb.XGBRegressor(
-        n_estimators=200, max_depth=4, learning_rate=0.1, random_state=seed, n_jobs=4
-    )
-    model.fit(x[fit], y[fit])
+
+    def nbm() -> xgb.XGBRegressor:
+        return xgb.XGBRegressor(
+            n_estimators=150, max_depth=4, learning_rate=0.1, random_state=seed, n_jobs=4
+        )
+
+    if calibration == "newest":  # v1: the newest 20 % only — one season
+        n_fit = int(len(train_rows) * (1 - CALIBRATION_SHARE))
+        fit, cal = train_rows[:n_fit], train_rows[n_fit:]
+        model = nbm()
+        model.fit(x[fit], y[fit])
+        resid_cal = y[cal] - model.predict(x[cal])
+    else:  # v2: out-of-block residuals over the whole year — every season
+        cal = train_rows
+        parts = np.array_split(train_rows, OOF_BLOCKS)
+        resid_parts = []
+        for k, block in enumerate(parts):
+            others = np.concatenate([b for j, b in enumerate(parts) if j != k])
+            m = nbm()
+            m.fit(x[others], y[others])
+            resid_parts.append(y[block] - m.predict(x[block]))
+        resid_cal = np.concatenate(resid_parts)
+        model = nbm()
+        model.fit(x[train_rows], y[train_rows])
 
     pred_rows = np.flatnonzero(~train)
-    resid_cal = y[cal] - model.predict(x[cal])
     resid = y[pred_rows] - model.predict(x[pred_rows])
     ok = valid[pred_rows] & np.isfinite(resid)
 
@@ -155,8 +178,16 @@ def _first_alarm(u: FloatArray) -> int | None:
     return None
 
 
+def available_farms() -> list[str]:
+    """Farms with a bundled result: 'b' (development set), 'c' (held-out test set)."""
+    return sorted(
+        f.stem.removeprefix("care_farm_") for f in RESULT_FILE.parent.glob("care_farm_*.json")
+    )
+
+
 @cache
-def load_results() -> dict[str, Any]:
-    """Bundled benchmark result (built offline from the 1.4 GB of CSVs)."""
-    data: dict[str, Any] = json.loads(RESULT_FILE.read_text(encoding="utf-8"))
+def load_results(farm: str = "b") -> dict[str, Any]:
+    """Bundled benchmark result (built offline from the CSVs by build_care_benchmark.py)."""
+    path = RESULT_FILE.with_name(f"care_farm_{farm}.json")
+    data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     return data

@@ -12,6 +12,7 @@
  */
 
 import { useEffect } from "react";
+import { farmTitle, useFleet } from "../lib/fleet";
 import { Activity, BookOpen, Brain, Network, Play } from "lucide-react";
 
 import ForecastDashboard from "../components/p4/ForecastDashboard";
@@ -100,10 +101,10 @@ export default function ForecastPage() {
     fetchTurbineSpec();
   }, [fetchTurbineSpec]);
 
-  const turbineOptions = Array.from({ length: 34 }, (_, i) => ({
-    value: i,
-    label: `WTG_${String(i + 1).padStart(2, "0")}`,
-  }));
+  // The models train on one turbine of the 34-turbine reference SCADA set; the picker
+  // names it after the farm on screen (an own project has as many choices as turbines).
+  const fleet = useFleet();
+  const turbineOptions = fleet.turbines.slice(0, 34).map((t, i) => ({ value: i, label: t.id }));
 
   return (
     <div className="space-y-5">
@@ -117,6 +118,10 @@ export default function ForecastPage() {
             {turbineSpec
               ? `${turbineSpec.name} · ${turbineSpec.rated_power_mw} MW · Cut-in ${turbineSpec.cut_in_speed_ms} / Rated ${turbineSpec.rated_speed_ms} / Cut-out ${turbineSpec.cut_out_speed_ms} m/s · XGBoost + LSTM + TFT`
               : "Loading turbine spec..."}
+          </p>
+          <p className="mt-0.5 text-[11px] text-text-muted">
+            {farmTitle(fleet)}: {fleet.turbines.length} turbines = {fleet.net.total_capacity_mw.toFixed(0)} MW. The models train once on a
+            synthetic reference SCADA set (34 turbines, SB-510 climate, cached); single-turbine forecasts are scaled to this farm.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">

@@ -31,7 +31,7 @@ STAGES: list[tuple[str, str, float]] = [
     ("ensemble", "Skill-gated ensemble + physical constraints", 2.0),
 ]
 _WEIGHT = {k: w for k, _, w in STAGES}
-_MAX_LOG = 60
+_MAX_LOG = 400  # epoch lines included (every 5th + new bests)
 _MAX_CURVE = 600  # epochs kept per model (5 folds × ≤ 100)
 
 
@@ -44,6 +44,7 @@ class _Tracker:
         self._log: list[dict[str, Any]] = []
         self._curves: dict[str, list[dict[str, float]]] = {}
         self._folds: dict[str, list[dict[str, float]]] = {}
+        self._best_val: dict[tuple[str, int], float] = {}
         self._last_build_s: float | None = None
         self._finished_at: float | None = None
 
@@ -58,6 +59,7 @@ class _Tracker:
             self._log = []
             self._curves = {"lstm": [], "tft": []}
             self._folds = {"xgboost": [], "lstm": [], "tft": []}
+            self._best_val = {}
         self.log("Build started — no cached models for this configuration, training from scratch")
 
     def finish(self) -> None:
@@ -70,14 +72,25 @@ class _Tracker:
         self.log(
             f"Build finished in {(self._last_build_s or 0) / 60:.1f} min — cached for reuse",
             force=True,
+            level="ok",
         )
 
     # ── reports (no-ops outside a build) ─────────────────────────────
-    def log(self, message: str, *, force: bool = False) -> None:
+    def log(
+        self, message: str, *, force: bool = False, level: str = "info", stage: str | None = None
+    ) -> None:
+        """One console line; level info | ok | debug (epochs) | warn."""
         with self._lock:
             if not self._active and not force:
                 return
-            self._log.append({"t": round(time.time() - self._t0, 1), "msg": message})
+            self._log.append(
+                {
+                    "t": round(time.time() - self._t0, 1),
+                    "msg": message,
+                    "level": level,
+                    "stage": stage,
+                }
+            )
             del self._log[:-_MAX_LOG]
 
     def stage(self, key: str, status: str, detail: str = "") -> None:
@@ -93,7 +106,9 @@ class _Tracker:
         if status in ("running", "done"):
             label = next(lbl for k, lbl, _ in STAGES if k == key)
             self.log(
-                f"{'▶' if status == 'running' else '✔'} {label}{' — ' + detail if detail else ''}"
+                f"{'▶' if status == 'running' else '✔'} {label}{' — ' + detail if detail else ''}",
+                level="info" if status == "running" else "ok",
+                stage=key,
             )
 
     def model_done(self, key: str, rmse_mw: float, skill: float) -> None:
@@ -113,6 +128,9 @@ class _Tracker:
         with self._lock:
             if not self._active:
                 return
+            best = val_loss < self._best_val.get((key, fold), float("inf"))
+            if best:
+                self._best_val[(key, fold)] = val_loss
             curve = self._curves.setdefault(key, [])
             curve.append(
                 {
@@ -123,6 +141,14 @@ class _Tracker:
                 }
             )
             del curve[:-_MAX_CURVE]
+        # every 5th epoch and every new best: enough to follow, few enough to read
+        if epoch == 1 or epoch % 5 == 0 or best:
+            self.log(
+                f"{key.upper()} fold {fold + 1} · epoch {epoch:>3}: loss {train_loss:.4f}"
+                f" / val {val_loss:.4f}{'  ★ best' if best else ''}",
+                level="debug",
+                stage=key,
+            )
 
     def fold(self, key: str, fold: int, rmse_mw: float, epochs: int | None = None) -> None:
         with self._lock:
@@ -132,7 +158,9 @@ class _Tracker:
                 {"fold": fold, "rmse_mw": round(rmse_mw, 4), "epochs": epochs or 0}
             )
         tail = f" after {epochs} epochs" if epochs else ""
-        self.log(f"{key.upper()} fold {fold + 1}: RMSE {rmse_mw:.3f} MW{tail}")
+        self.log(
+            f"{key.upper()} fold {fold + 1}: RMSE {rmse_mw:.3f} MW{tail}", level="ok", stage=key
+        )
 
     # ── read ─────────────────────────────────────────────────────────
     def snapshot(self) -> dict[str, Any]:

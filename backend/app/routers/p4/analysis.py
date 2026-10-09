@@ -48,8 +48,8 @@ async def detect_ramps_endpoint(
     """Detect ramp events in ensemble forecast and generate grid alerts.
 
     Pipeline: train all 3 models → ensemble forecast → scale to farm total
-    (×34 turbines) → ramp detection (threshold + wavelet + regime) →
-    grid stability alerts for ramp-down events.
+    (× farm_turbines, default the 34 of the reference set) → ramp detection
+    (threshold + wavelet + regime) → grid stability alerts for ramp-down events.
     """
 
     # Use shared cached forecasts (lock serialises first build)
@@ -66,8 +66,7 @@ async def detect_ramps_endpoint(
     )
 
     # Scale single-turbine forecast to farm total for ramp detection
-    num_turbines = request.num_turbines
-    farm_power = ensemble.power_p50_mw * num_turbines
+    farm_power = ensemble.power_p50_mw * (request.farm_turbines or request.num_turbines)
 
     ramp_config = RampConfig(threshold_mw_hr=request.threshold_mw_hr)
     detection = detect_all_ramps(farm_power, ramp_config)

@@ -66,9 +66,11 @@ describe("P4 AI Academy", () => {
     expect(screen.getByText("42 %")).toBeDefined();
   });
 
-  it("opens the lesson of a clicked concept", () => {
+  it("shows a clicked concept's summary, then opens its lesson", () => {
     render(<ConceptMap lang="en" />);
     fireEvent.click(screen.getByText("Attention"));
+    expect(screen.getByText(/weight which past moments matter/)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: /Open the lesson/ }));
     expect(useForecastStore.getState().chapter).toBe("tft");
     expect(useForecastStore.getState().tab).toBe("academy");
   });

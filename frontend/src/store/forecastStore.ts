@@ -10,6 +10,7 @@
 
 import { create } from "zustand";
 
+import { liveFleet } from "../lib/fleet";
 import * as api from "../services/forecastApi";
 import type {
   EnsemblePredictResponse,
@@ -78,6 +79,8 @@ export const useForecastStore = create<ForecastState>((set, get) => ({
   turbineSpec: null,
 
   // Parameters
+  // Turbines of the synthetic reference SCADA set the models train on (≈40 min CPU,
+  // cached); farm totals are scaled to the live fleet (own project or SB-510).
   numTurbines: 34,
   numTimesteps: 8760,
   turbineIndex: 0,
@@ -166,7 +169,7 @@ export const useForecastStore = create<ForecastState>((set, get) => ({
       const [modelComparison, shapResult, rampDetection] = await Promise.all([
         api.compareModels(numTurbines, numTimesteps, turbineIndex, horizonSteps),
         api.getXGBoostSHAP(numTurbines, numTimesteps, turbineIndex),
-        api.detectRamps(numTurbines, numTimesteps, turbineIndex, horizonSteps, rampThresholdMwHr),
+        api.detectRamps(numTurbines, numTimesteps, turbineIndex, horizonSteps, rampThresholdMwHr, undefined, liveFleet().turbines.length),
       ]);
 
       set({

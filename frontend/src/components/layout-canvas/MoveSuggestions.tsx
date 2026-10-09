@@ -13,7 +13,7 @@ import { Lightbulb, MoveRight } from "lucide-react";
 
 import { layoutSuggestInfo } from "../../constants/panelInfo";
 import { compass } from "../../lib/layout/evaluate";
-import type { MoveSuggestion } from "../../lib/layout/suggest";
+import { compatibleMoves, type MoveSuggestion } from "../../lib/layout/suggest";
 import type { WakeMoveResult } from "../../services/windResourceApi";
 import { Button } from "../ui/Button";
 import { InfoButton } from "../ui/InfoButton";
@@ -32,18 +32,22 @@ export default function MoveSuggestions({
   suggest,
   validate,
   apply,
+  minGapM,
 }: {
   /** Layout signature: suggestions are reset when it changes. */
   sig: string;
   disabled: boolean;
-  suggest: () => MoveSuggestion[];
+  suggest: (objective: "lcoe" | "aep") => MoveSuggestion[];
   validate: (moves: MoveSuggestion[]) => Promise<WakeMoveResult[]>;
   apply: (m: MoveSuggestion) => void;
+  /** Closest distance two moved turbines may end up at [m] (MIN_SPACING_D × D). */
+  minGapM: number;
 }) {
   const [list, setList] = useState<MoveSuggestion[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [checked, setChecked] = useState<WakeMoveResult[] | null>(null);
   const [checkError, setCheckError] = useState(false);
+  const [objective, setObjective] = useState<"lcoe" | "aep">("lcoe");
 
   useEffect(() => {
     setList(null);
@@ -57,7 +61,7 @@ export default function MoveSuggestions({
     setCheckError(false);
     // Let the button show "Searching…" before the ~0.5 s search blocks the thread.
     setTimeout(() => {
-      const found = suggest();
+      const found = suggest(objective);
       setList(found);
       setBusy(false);
       if (found.length)
@@ -74,6 +78,21 @@ export default function MoveSuggestions({
           <Lightbulb size={13} aria-hidden /> Move suggestions
         </h3>
         <span className="flex items-center gap-1">
+          <span className="flex overflow-hidden rounded-md border border-border-primary text-[10px]" role="radiogroup" aria-label="Optimise for">
+            {(["lcoe", "aep"] as const).map((o) => (
+              <button
+                key={o}
+                type="button"
+                role="radio"
+                aria-checked={objective === o}
+                onClick={() => setObjective(o)}
+                title={o === "lcoe" ? "Cheaper energy: AEP gain against the extra cable" : "More energy: AEP gain only"}
+                className={objective === o ? "bg-accent/20 px-1.5 py-1 font-semibold text-accent" : "px-1.5 py-1 text-text-muted hover:text-text-primary"}
+              >
+                {o.toUpperCase()}
+              </button>
+            ))}
+          </span>
           <InfoButton info={layoutSuggestInfo} />
           <Button size="sm" variant="secondary" onClick={run} disabled={disabled || busy}>
             {busy ? "Searching…" : list ? "Search again" : "Suggest moves"}
@@ -82,13 +101,31 @@ export default function MoveSuggestions({
       </div>
       {list == null ? (
         <p className="text-[11px] text-text-muted">
-          Tries moving the ten most waked turbines by ½, 1 and 2 D in eight directions, keeps the moves that stay allowed and lower the
-          LCOE, and checks the best five with PyWake.
+          No AI: a deterministic search. It tries moving the ten most waked turbines by ½, 1 and 2 D in eight directions, keeps the moves
+          that stay inside the site, ≥ 4 D from every turbine, clear of exclusion areas and existing cables, without crossing array cables,
+          and that lower the {objective === "lcoe" ? "LCOE" : "wake loss"}; then PyWake checks the best five.
         </p>
       ) : list.length === 0 ? (
         <p className="text-[12px] text-text-secondary">No single move of ≤ 2 D lowers the LCOE: this layout is locally tuned.</p>
       ) : (
         <ul className="space-y-1.5 text-[12px]">
+          {checked && checked.some((c) => c.delta_gwh > 0) && (() => {
+            const ok = compatibleMoves(
+              order(list.length, checked).filter((k) => checked[k].delta_gwh > 0).map((k) => list[k]),
+              minGapM,
+            );
+            return (
+              <li className="flex items-center gap-2 rounded-md border border-status-normal/40 bg-status-normal/10 p-2">
+                <span className="min-w-0 flex-1 text-text-secondary">
+                  {ok.length} PyWake-confirmed move{ok.length === 1 ? "" : "s"} can be applied together (moved turbines stay ≥ 4 D apart).
+                  Gains are not exactly additive — run PyWake again afterwards.
+                </span>
+                <Button size="sm" onClick={() => ok.forEach(apply)}>
+                  Apply all ({ok.length})
+                </Button>
+              </li>
+            );
+          })()}
           {checked && !checked.some((c) => c.delta_gwh > 0) && (
             <li className="rounded-md border border-status-warning/40 bg-status-warning/10 p-2 text-text-secondary">
               PyWake confirms none of these moves. Their screening gains (≤ {Math.max(...list.map((m) => m.deltaPct)).toFixed(2)} %) are

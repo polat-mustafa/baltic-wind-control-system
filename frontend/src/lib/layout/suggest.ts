@@ -49,6 +49,8 @@ export interface SuggestInput {
   /** Existing subsea cables (local metres) and the buffer to keep from them [m]. */
   cables: XY[][];
   cableBufferM: number;
+  /** Rank by cheaper energy (LCOE, default) or by more energy (AEP, cable cost ignored). */
+  objective?: "lcoe" | "aep";
 }
 
 const BEARINGS = [0, 45, 90, 135, 180, 225, 270, 315];
@@ -74,6 +76,9 @@ export function suggestMoves(s: SuggestInput, worst = 10, top = 5): MoveSuggesti
   const ownEdges = (i: number) => (s.tree?.edges ?? []).filter((e) => e.from === i || e.to === i).map((e) => (e.from === i ? e.to : e.from));
   const restEdges = (i: number) => (s.tree?.edges ?? []).filter((e) => e.from !== i && e.to !== i);
   const baseLcoe = lcoe(base.netGWh, baseKm);
+  const aep = s.objective === "aep";
+  const better = (a: MoveSuggestion, b: MoveSuggestion) =>
+    aep ? a.deltaGWh > b.deltaGWh : a.deltaLcoe < b.deltaLcoe || (a.deltaLcoe === b.deltaLcoe && a.deltaGWh > b.deltaGWh);
   const order = base.perTurbineLossPct
     .map((loss, i) => ({ loss, i }))
     .sort((a, b) => b.loss - a.loss)
@@ -109,11 +114,23 @@ export function suggestMoves(s: SuggestInput, worst = 10, top = 5): MoveSuggesti
           deltaLcoe: lcoe(base.netGWh + effect.deltaGWh, cableKm) - baseLcoe,
         };
         const prev = best.get(i);
-        if (!prev || cand.deltaLcoe < prev.deltaLcoe) best.set(i, cand);
+        if (!prev || better(cand, prev)) best.set(i, cand);
       }
   }
   return [...best.values()]
-    .filter((m) => m.deltaLcoe < 0)
-    .sort((a, b) => a.deltaLcoe - b.deltaLcoe || b.deltaGWh - a.deltaGWh)
+    .filter((m) => (aep ? m.deltaGWh > 0 : m.deltaLcoe < 0))
+    .sort((a, b) => (better(a, b) ? -1 : better(b, a) ? 1 : 0))
     .slice(0, top);
+}
+
+/**
+ * Moves that can be applied together: one per turbine, targets at least
+ * `minGapM` apart (each move was checked against the unmoved layout, so two
+ * moved turbines could otherwise end up too close). Greedy in the given order.
+ */
+export function compatibleMoves(moves: MoveSuggestion[], minGapM: number): MoveSuggestion[] {
+  const out: MoveSuggestion[] = [];
+  for (const m of moves)
+    if (out.every((o) => o.index !== m.index && dist(o.to, m.to) >= minGapM)) out.push(m);
+  return out;
 }

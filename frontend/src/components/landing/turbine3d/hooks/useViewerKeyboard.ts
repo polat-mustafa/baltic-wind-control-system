@@ -76,12 +76,13 @@ export function useViewerKeyboard({
           e.preventDefault();
           break;
         case "s":
-          store.setInteriorView(store.interiorView === "3d" ? "schematic" : "3d");
+          // cycle Realistic → Schematic → Drawings
+          store.setInteriorView(store.interiorView === "3d" ? "side" : store.interiorView === "side" ? "drawings" : "3d");
           e.preventDefault();
           break;
         case "escape":
-          // In schematic mode, Esc closes the overlay first; otherwise clears selection.
-          if (store.interiorView === "schematic") {
+          // In a 2D view, Esc returns to the 3D view first; otherwise clears selection.
+          if (store.interiorView !== "3d") {
             store.setInteriorView("3d");
           } else {
             store.setSelectedTurbinePart(null);

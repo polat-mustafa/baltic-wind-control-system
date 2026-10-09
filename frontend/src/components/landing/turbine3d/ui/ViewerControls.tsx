@@ -13,7 +13,7 @@
 import { useState, type ReactNode } from "react";
 import {
   RotateCcw, Layers, Ruler, User, ScanLine, Box, Play, Pause, Wind,
-  Thermometer, Radio, Zap, Cloud, Sun, Moon, Grid3x3,
+  Thermometer, Radio, Zap, Cloud, Sun, Moon,
   Triangle, TrendingDown, LineChart, Activity, ChevronRight, Navigation, SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
@@ -23,7 +23,6 @@ import type { SkyPreset } from "../scene/Environment";
 
 interface ViewerControlsProps {
   viewerMode: "normal" | "cutaway" | "exploded";
-  interiorView: "3d" | "schematic";
   skyPreset: SkyPreset;
   showAnnotationLayer: boolean;
   showHumanFigure: boolean;
@@ -38,7 +37,6 @@ interface ViewerControlsProps {
   showCpWidget: boolean;
   onResetCamera: () => void;
   onViewerModeChange: (mode: "normal" | "cutaway" | "exploded") => void;
-  onInteriorViewChange: (v: "3d" | "schematic") => void;
   onSkyPresetChange: (p: SkyPreset) => void;
   onToggleAnnotations: () => void;
   onToggleHumanFigure: () => void;
@@ -107,7 +105,6 @@ function Section({ title, icon: Icon, defaultOpen, children }: SectionProps) {
 
 export function ViewerControls({
   viewerMode,
-  interiorView,
   skyPreset,
   showAnnotationLayer,
   showHumanFigure,
@@ -122,7 +119,6 @@ export function ViewerControls({
   showCpWidget,
   onResetCamera,
   onViewerModeChange,
-  onInteriorViewChange,
   onSkyPresetChange,
   onToggleAnnotations,
   onToggleHumanFigure,
@@ -186,24 +182,6 @@ export function ViewerControls({
             >
               <Layers size={11} />
               <span>Exp</span>
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-0.5 [&>button]:justify-center">
-            <button
-              className={interiorView === "3d" ? btnActive : btn}
-              onClick={() => onInteriorViewChange("3d")}
-              title="3D photoreal view (S)"
-            >
-              <Box size={11} />
-              <span>3D</span>
-            </button>
-            <button
-              className={interiorView === "schematic" ? btnActive : btn}
-              onClick={() => onInteriorViewChange("schematic")}
-              title="Isometric technical schematic (S)"
-            >
-              <Grid3x3 size={11} />
-              <span>Schem</span>
             </button>
           </div>
           <button

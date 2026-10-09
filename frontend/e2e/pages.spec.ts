@@ -38,7 +38,7 @@ async function open(page: Page, path: string, theme: (typeof THEMES)[number], we
   await page.evaluate(() => document.fonts.ready);
 }
 
-test("3D turbine viewer and drawings open without runtime errors", async ({ page }) => {
+test("3D turbine viewer, schematic and drawings open without runtime errors", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => {
@@ -51,7 +51,9 @@ test("3D turbine viewer and drawings open without runtime errors", async ({ page
   await page.getByRole("button", { name: /Full view/ }).click();
   await expect(page.getByText(/Live analytics/)).toBeVisible();
   await page.waitForTimeout(3000); // a few hundred frames of the flow / wake / farm scene
-  await page.keyboard.press("s"); // 3D ↔ drawings
+  await page.keyboard.press("s"); // Realistic → Schematic (live side view)
+  await expect(page.getByRole("region", { name: "This rotor's wake" })).toBeVisible();
+  await page.getByRole("radio", { name: "Drawings" }).click();
   for (const sheet of [/E-01/, /M-01/, /P-01/]) {
     await page.getByRole("tab", { name: sheet }).click();
     await expect(page.getByText(/SB5-WTG-/)).toBeVisible();

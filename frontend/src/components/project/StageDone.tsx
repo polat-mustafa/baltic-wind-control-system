@@ -40,7 +40,7 @@ export function StageDone({ milestone, title, need, next }: Props) {
             size="sm"
             onClick={() => {
               complete(milestone);
-              // Commissioning done: the plant is energised — play the sequence from the grid down
+              // Commissioning done: the plant is energised — the Commissioning page replays it from the grid down
               if (milestone === "commissioning") useLandingStore.getState().playEnergisation();
             }}
             disabled={need !== null}

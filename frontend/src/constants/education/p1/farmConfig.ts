@@ -29,12 +29,10 @@ export const farmConfigEducation: EducationContent = {
     {
       label: "IEC 61400-15 (series) — Energy yield assessment",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "IEC 60287 — Current rating of electric cables",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_60287",
     },
   ],
 
@@ -46,7 +44,7 @@ export const farmConfigEducation: EducationContent = {
         { symbol: "s_x, s_y", name: "Spacing along / across the wind in rotor diameters", unit: "—" },
         { symbol: "D", name: "Rotor diameter (241 m, IEA 15 MW)", unit: "m" },
       ],
-      explanation: "Rough farm footprint; 34 × V236 at 7 D × 7 D ≈ 34 × 1.65 km × 1.65 km ≈ 93 km² of cells.",
+      explanation: "Rough farm footprint; 34 turbines (D = 241.35 m) at 7 D × 7 D ≈ 34 × 1.69 km × 1.69 km ≈ 97 km² of cells.",
     },
     {
       expression: "Q_charging = ω · C · U² · L · n_circuits",

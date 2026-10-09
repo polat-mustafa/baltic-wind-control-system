@@ -31,12 +31,11 @@ export const aepCascadeEducation: EducationContent = {
     {
       label: "IEC 61400-15 (series) — Assessment of site-specific wind conditions and energy yield",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "MEASNET — Evaluation of site-specific wind conditions",
       type: "standard",
-      url: "https://www.measnet.com/procedure/",
+      url: "https://www.measnet.com/",
     },
   ],
 

@@ -61,6 +61,18 @@ test("3D turbine viewer, schematic and drawings open without runtime errors", as
   expect(errors, errors.join("\n")).toEqual([]);
 });
 
+test("Print / PDF shows the report, not blank pages", async ({ page }) => {
+  await open(page, "/report", "hmi");
+  await page.evaluate(() => document.querySelector(".print-doc")?.setAttribute("data-printing", ""));
+  await page.emulateMedia({ media: "print" });
+  const visible = await page.evaluate(() => {
+    const doc = document.querySelector(".print-doc");
+    const h = doc?.querySelector("h1, h2");
+    return [doc, h].map((e) => (e ? getComputedStyle(e).visibility : "missing"));
+  });
+  expect(visible).toEqual(["visible", "visible"]);
+});
+
 test("guided tour: welcome, spotlight, turbine action step", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));

@@ -1,13 +1,13 @@
 /**
- * Uncertainty vs Lead Time panel — monotone growth of forecast spread.
+ * Forecast band width across the evaluation window.
  *
- * A single 48 h forecast does not support an hour-of-day × horizon heatmap
- * (each step maps to exactly one cell → forced diagonal, no aggregation).
- * We instead plot the direct quantity that is actually available: the
- * P90–P10 spread [MW] as a function of lead time. Forecast error grows
- * with horizon, so this curve should rise monotonically.
+ * Every step is a 10-min-ahead forecast (lagged SCADA up to t−1), so the
+ * x-axis is time into the window, NOT lead time: the band follows the
+ * weather (widest on the steep part of the power curve), it does not grow
+ * with the hour. True lead-time growth is a day-ahead property — see the
+ * Real data tab.
  *
- * X-axis: lead time [h]
+ * X-axis: hours into the window [h]
  * Y-axis: P90–P10 spread [MW]
  * Trace: P90 upper / P10 lower (invisible lines) with a shaded fill between,
  *        plus the instantaneous spread as a solid line for hover details.
@@ -61,7 +61,7 @@ export default function AccuracyHeatmapPanel() {
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-base font-semibold text-text-primary">
-          Uncertainty vs Lead Time — P90-P10 Spread
+          Forecast band width — P90 − P10 across the window
         </h3>
         <InfoButton info={accuracyHeatmapInfo} />
       </div>
@@ -101,7 +101,7 @@ export default function AccuracyHeatmapPanel() {
           },
           xaxis: {
             ...DARK_PLOTLY_LAYOUT.xaxis,
-            title: "Lead Time [h]",
+            title: "Hours into the window [h]",
             nticks: 12,
           },
           yaxis: {

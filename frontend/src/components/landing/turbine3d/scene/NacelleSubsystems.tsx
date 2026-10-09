@@ -286,7 +286,7 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
         <Nameplate
           position={[0, -0.6, 1.255]}
           title="TRANSFORMER · 16 MVA"
-          lines={["→ 66 kV · Dyn11", "IEC 60076-14 · ONAN", "η 99.5 % (illustrative)"]}
+          lines={["→ 66 kV · Dyn11", "IEC 60076-16 · ONAN", "η 99.5 % (illustrative)"]}
           width={1.15}
           height={0.42}
         />

@@ -15,7 +15,8 @@ import type { TurbinePartId } from "../../../../constants/turbinePartEducation";
 
 export interface SchematicCitation {
   source: string;
-  url: string;
+  /** Omitted for paywalled standards whose catalogue page we could not verify. */
+  url?: string;
 }
 
 export interface SchematicPart {
@@ -51,9 +52,9 @@ export interface SchematicPart {
  */
 const CITE_IEA15 = { source: "Gaertner et al. 2020 — IEA 15 MW reference turbine, NREL/TP-5000-75698", url: "https://docs.nlr.gov/docs/fy20osti/75698.pdf" };
 const CITE_ROSCO = { source: "IEA-15-240-RWT v1.1.18 — ROSCO DISCON.IN / ElastoDyn", url: "https://github.com/IEAWindTask37/IEA-15-240-RWT" };
-const CITE_TRANSFORMER = { source: "IEC 60076-14 — liquid-filled 66 kV transformer", url: "https://www.npcelectric.com/transformers/66kv-69kv-power-transformer.html" };
-const CITE_IEC_61400_24 = { source: "IEC 61400-24 — lightning protection", url: "https://webstore.iec.ch/publication/26327" };
-const CITE_IEC_62040 = { source: "IEC 62040-1 — UPS safety", url: "https://webstore.iec.ch/publication/32136" };
+const CITE_TRANSFORMER = { source: "IEC 60076-16 — transformers for wind turbine applications (66 kV step-up)" };
+const CITE_IEC_61400_24 = { source: "IEC 61400-24 — lightning protection" };
+const CITE_IEC_62040 = { source: "IEC 62040-1 — UPS safety",  };
 
 export const NACELLE_SCHEMATIC_PARTS: SchematicPart[] = [
   // ── Main driveline (left → right) ─────────────────────────────

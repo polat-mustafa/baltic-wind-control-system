@@ -27,12 +27,10 @@ export const weibullEducation: EducationContent = {
     {
       label: "IEC 61400-1 — Wind turbines: design requirements (wind classes)",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "IEC 61400-12-1 — Power performance measurements (method of bins)",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "MEASNET — Evaluation of site-specific wind conditions",

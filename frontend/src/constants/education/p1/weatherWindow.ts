@@ -69,7 +69,7 @@ export const weatherWindowEducation: EducationContent = {
       ],
       result:
         "≈ 80 % of the time the waves allow a CTV transfer; the wind limit lowers it further. In the winter months " +
-        "(H̄s ≈ 1.6–1.8 m) the same calculation gives only ≈ 45–50 %.",
+        "(H̄s ≈ 1.6–1.8 m) the same calculation gives only ≈ 42–50 %.",
     },
   ],
 

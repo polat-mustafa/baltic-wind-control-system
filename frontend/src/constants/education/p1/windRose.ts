@@ -28,12 +28,10 @@ export const windRoseEducation: EducationContent = {
     {
       label: "IEC 61400-1 — Design requirements (normal wind profile)",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "IEC 61400-3-1 — Design requirements for fixed offshore wind turbines",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "MEASNET — Evaluation of site-specific wind conditions",
@@ -75,14 +73,14 @@ export const windRoseEducation: EducationContent = {
   workedExamples: [
     {
       title: "Extrapolating 100 m data to the 150 m hub",
-      scenario: "A dataset gives v̄ = 8.93 m/s at 100 m; offshore α = 0.10; V236 hub at 150 m.",
+      scenario: "A dataset gives v̄ = 8.93 m/s at 100 m; offshore α = 0.10; IEA 15 MW hub at 150 m.",
       steps: [
         "(150 / 100)^0.10 = 1.5^0.10 = 1.0414",
         "v̄(150 m) = 8.93 × 1.0414 = 9.30 m/s",
-        "Gross AEP with the speed scaled by 1.0414 (same k): +4.9 % for the V236 at this site",
+        "Gross AEP with the speed scaled by 1.0414 (same k): +4.6 % for the IEA 15 MW at this site",
       ],
       result:
-        "A 4 % speed correction is worth ≈ 5 % energy here. Get the shear wrong by 0.05 in α and the hub speed moves by " +
+        "A 4 % speed correction is worth ≈ 4.6 % energy here. Get the shear wrong by 0.05 in α and the hub speed moves by " +
         "≈ 2 %, a full uncertainty band of its own.",
     },
   ],

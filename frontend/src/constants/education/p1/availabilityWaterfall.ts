@@ -25,7 +25,6 @@ export const availabilityWaterfallEducation: EducationContent = {
     {
       label: "IEC 61400-26-1 — Availability for wind energy generation systems",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
   ],
 

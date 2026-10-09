@@ -38,7 +38,7 @@ describe("AccuracyHeatmapPanel", () => {
 
     render(<AccuracyHeatmapPanel />);
     expect(
-      screen.getByText("Uncertainty vs Lead Time — P90-P10 Spread"),
+      screen.getByText("Forecast band width — P90 − P10 across the window"),
     ).toBeDefined();
   });
 });

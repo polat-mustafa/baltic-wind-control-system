@@ -283,7 +283,7 @@ def _build_all_model_forecasts_inner(
     xgb_forecast = xgb_pred_f.result()
     lstm_forecast = lstm_pred_f.result()
     tft_forecast = tft_pred_f.result()
-    PROGRESS.stage("predict", "done", f"{horizon} steps ahead")
+    PROGRESS.stage("predict", "done", f"{horizon} ten-minute steps, each one step ahead")
     # the ensemble itself (weights, skill gate, 0 ≤ P ≤ Prated) runs right
     # after the build in milliseconds — shown as the last stage here
     PROGRESS.stage(

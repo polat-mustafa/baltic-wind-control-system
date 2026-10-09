@@ -266,9 +266,14 @@ export const CHAPTERS: Chapter[] = [
         en: "Quantiles are learned with the pinball loss: for the 90th percentile, under-predicting costs 9 times more than over-predicting, which pushes the line up until only 10 % of points lie above it. Move τ below and watch the line settle.",
         tr: "Kantiller pinball kaybı ile öğrenilir: 90. yüzdelik için düşük tahmin, yüksek tahminden 9 kat pahalıdır; bu, çizgiyi noktaların yalnızca %10'u üstünde kalana kadar yukarı iter. Aşağıda τ'yu değiştirin ve çizginin yerleşmesini izleyin.",
       },
+      {
+        en: "Careful — the energy-yield P90 (Wind Resource page) is the opposite tail: the annual yield exceeded with 90 % probability, the LOW value banks lend on. A forecast P90 is the HIGH value, exceeded only one time in ten. Same name, opposite side: always ask “quantile or exceedance?”.",
+        tr: "Dikkat — enerji verimi P90'ı (Rüzgâr Kaynağı sayfası) karşı kuyruktur: %90 olasılıkla aşılan yıllık üretim, bankaların kredi verdiği DÜŞÜK değer. Tahmin P90'ı ise YÜKSEK değerdir, on seferde yalnızca bir kez aşılır. Aynı ad, ters taraf: her zaman “kantil mi, aşılma mı?” diye sorun.",
+      },
     ],
     takeaways: [
       { en: "Pinball loss with τ = 0.9 learns the P90.", tr: "τ = 0,9 ile pinball kaybı P90'ı öğrenir." },
+      { en: "Forecast P90 = high quantile; energy-yield P90 = low, exceeded 90 % of years.", tr: "Tahmin P90 = yüksek kantil; enerji verimi P90 = düşük, yılların %90'ında aşılır." },
       { en: "Wide band = uncertain; plan reserves accordingly.", tr: "Geniş bant = belirsiz; rezervi buna göre planlayın." },
     ],
     widget: "quantile",

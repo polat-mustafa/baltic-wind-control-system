@@ -29,12 +29,10 @@ export const wakeLossEducation: EducationContent = {
     {
       label: "IEC 61400-15 (series) — Energy yield assessment (wake loss reporting)",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "IEC 61400-1 — Design requirements (wake-added turbulence in load cases)",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
   ],
 
@@ -48,6 +46,8 @@ export const wakeLossEducation: EducationContent = {
         { symbol: "k*", name: "Wake expansion rate", unit: "—" },
         { symbol: "ε", name: "Initial width ≈ 0.2√β, β = ½(1+√(1−Ct))/√(1−Ct)", unit: "—" },
         { symbol: "r", name: "Radial distance from wake centre", unit: "m" },
+        { symbol: "x", name: "Downstream distance from the rotor", unit: "m" },
+        { symbol: "D", name: "Rotor diameter (241.35 m)", unit: "m" },
       ],
       explanation: "Bastankhah–Porté-Agel Gaussian wake: deficit decays and widens with downstream distance x.",
       reference: "Bastankhah & Porté-Agel, Renewable Energy 70 (2014) 116–123",
@@ -63,11 +63,11 @@ export const wakeLossEducation: EducationContent = {
 
   workedExamples: [
     {
-      title: "Single wake 7 D behind a V236 (centre line)",
-      scenario: "Ct = 0.78 (≈ 8 m/s), ambient TI = 6 % → k* = 0.38 × 0.06 + 0.004 = 0.0268, x = 7D = 1,652 m.",
+      title: "Single wake 7 D behind an SB-510 turbine (IEA 15 MW, D = 241.35 m, centre line)",
+      scenario: "Ct = 0.78 (≈ 8 m/s), ambient TI = 6 % → k* = 0.38 × 0.06 + 0.004 = 0.0268, x = 7D = 1,689 m.",
       steps: [
         "β = ½(1 + √0.22)/√0.22 = ½ · 1.469 / 0.469 = 1.566;  ε = 0.2·√1.566 = 0.250",
-        "σ = 0.0268 × 1,652 + 0.250 × 236 = 44.3 + 59.0 = 103.3 m  →  σ/D = 0.438",
+        "σ = 0.0268 × 1,689 + 0.250 × 241.35 = 45.3 + 60.3 = 105.6 m  →  σ/D = 0.438 (σ/D = 7k* + ε does not depend on D)",
         "Ct / (8 (σ/D)²) = 0.78 / 1.532 = 0.509",
         "Centre-line deficit = 1 − √(1 − 0.509) = 1 − 0.701 = 0.30",
         "Power ratio at that point ≈ (1 − 0.30)³ = 0.34",
@@ -75,7 +75,7 @@ export const wakeLossEducation: EducationContent = {
       result:
         "A turbine exactly on the centre line 7 D downstream sees ≈ 30 % less wind and ≈ 1/3 of the power, at that " +
         "wind speed and direction. Averaged over the rotor, all directions and all speeds, the farm wake loss is far " +
-        "smaller — about 5.6 % on the AEP tab.",
+        "smaller — about 6.5 % on the AEP tab.",
     },
   ],
 
@@ -117,7 +117,7 @@ export const wakeLossEducation: EducationContent = {
   codeReferences: [
     {
       file: "backend/app/services/p1/wake_model.py",
-      description: "V236 power/Ct curves; PyWake BPA + LinearSum + STF2017 configuration; run_wake_analysis().",
+      description: "IEA 15 MW power/Ct curves; PyWake BPA + LinearSum + STF2017 configuration; run_wake_analysis().",
     },
     {
       file: "backend/app/services/p1/wake_models.py",

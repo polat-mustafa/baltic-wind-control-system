@@ -69,7 +69,7 @@ export const statcomInfo: InfoContent = {
   parameters: [
     { name: "STATCOM", description: "±120 MVAR (full 4-quadrant operation)" },
     { name: "Shunt reactors", description: "4 × 180 MVAR: one per export cable onshore and one at the OSS, so each cable end carries half the charging current; sized so one can be out" },
-    { name: "Power factor", description: "0.95 lead to 0.95 lag at PCC" },
+    { name: "Q range at the POC", description: "PSE (NC RfG Art. 21(3)(c)): −0.35 … +0.40 × P_max = −178.5 … +204 MVAR at 510 MW, PSE 400 kV" },
   ],
   interpretation:
     "STATCOM must maintain voltage within ±5% during normal operation " +
@@ -81,11 +81,11 @@ export const frtInfo: InfoContent = {
   description:
     "Simulates voltage dip at PCC and verifies the wind farm stays connected " +
     "per grid code requirements (phasor model of the farm and grid impedances).",
-  standard: "ENTSO-E NC RfG Article 14 — FRT capability for Type D generators",
+  standard: "NC RfG Art. 16(3)(a) (FRT profile, type D) and Art. 20(3) (active power recovery) — PSE parameters",
   parameters: [
     { name: "Voltage dip", description: "0–100% retained voltage at PCC" },
     { name: "Duration", description: "Dip duration (150–700 ms typical)" },
-    { name: "Recovery", description: "Must recover to 90% within 1.5 s" },
+    { name: "Recovery", description: "Active power back to 90 % of the pre-fault value within 5 s once the voltage is above 0.9 pu (PSE, Art. 20(3)(a))" },
   ],
   interpretation:
     "The farm must remain connected during the dip and inject reactive current " +
@@ -244,10 +244,10 @@ export const forecastVsActualInfo: InfoContent = {
   description:
     "Overlays model predictions (P10/P50/P90 bands) against actual measured power output. " +
     "The P50 line should track actuals closely; P10-P90 band captures uncertainty.",
-  standard: "IEC 61400-26-2 — Production-based availability",
+  standard: "Madsen et al. 2005 (evaluation protocol) · Gneiting & Raftery 2007 (quantile scoring)",
   parameters: [
-    { name: "P50", description: "Median forecast (50% probability of exceedance)" },
-    { name: "P10/P90", description: "Uncertainty band (80% confidence interval)" },
+    { name: "P50", description: "Median forecast: the real power is above it half of the time" },
+    { name: "P10/P90", description: "10 % and 90 % quantiles: an 80 % central prediction interval if calibrated (forecast P90 is the HIGH side — the opposite of energy-yield P90)" },
     { name: "RMSE", description: "Root Mean Square Error (MW)" },
   ],
   interpretation:
@@ -261,17 +261,18 @@ export const forecastVsActualInfo: InfoContent = {
 export const modelComparisonInfo: InfoContent = {
   title: "Model Comparison — XGBoost vs LSTM vs TFT",
   description:
-    "Side-by-side comparison of three ML model architectures on the same test data. " +
-    "Each model has different strengths for different forecast horizons.",
+    "Side-by-side comparison of three ML model architectures on the same test data " +
+    "(10-min-ahead, TimeSeriesSplit, never shuffled).",
   parameters: [
-    { name: "XGBoost", description: "Gradient boosting — best for short horizons (< 6h)" },
-    { name: "LSTM", description: "Recurrent neural network — good for 6–24h" },
-    { name: "TFT", description: "Temporal Fusion Transformer — best for 24–48h" },
-    { name: "Ensemble", description: "Weighted blend of all three models" },
+    { name: "XGBoost", description: "Gradient-boosted trees on lagged SCADA + NWP features" },
+    { name: "LSTM", description: "Recurrent network over a 24 h window; MC-dropout band" },
+    { name: "TFT", description: "Temporal Fusion Transformer; quantiles from the pinball loss" },
+    { name: "Ensemble", description: "Skill-gated, inverse-MSE weighted blend" },
   ],
   interpretation:
-    "Lower RMSE = better accuracy. The ensemble should outperform individual models " +
-    "by combining their complementary strengths across horizons.",
+    "Lower RMSE = better accuracy; skill > 0 = better than persistence. Which architecture wins depends on " +
+    "the data and the horizon — read it from these numbers, not from reputation. An ensemble only helps when " +
+    "its members make different errors.",
 };
 
 export const shapInfo: InfoContent = {
@@ -292,16 +293,15 @@ export const shapInfo: InfoContent = {
 };
 
 export const accuracyHeatmapInfo: InfoContent = {
-  title: "Uncertainty vs Lead Time — P90-P10 Spread",
+  title: "Forecast band width — P90 − P10 across the window",
   description:
-    "Shows forecast uncertainty (P90-P10 spread) as a function of lead time. " +
-    "A single 48 h forecast does not support an hour-of-day × horizon heatmap " +
-    "(each step would map to exactly one cell), so this curve plots the quantity " +
-    "the data actually supports.",
+    "Width of the P10–P90 band [MW] at each step of the evaluation window. Every step is a " +
+    "10-min-ahead forecast, so the x-axis is time into the window, not lead time.",
   interpretation:
-    "Spread should rise monotonically: uncertainty grows with horizon because the " +
-    "NWP error band widens and the lagged SCADA features become less informative. " +
-    "A flat or shrinking curve suggests the quantile heads are under-dispersed.",
+    "The band follows the weather, not the clock: it is widest where the power curve is steepest " +
+    "(about 7–10 m/s) and narrow at rated or near cut-in. Whether it is the right width is a " +
+    "calibration question — about 80 % of the measurements should fall inside it (Real data tab). " +
+    "Growth with lead time belongs to day-ahead forecasts.",
 };
 
 export const revenueImpactInfo: InfoContent = {

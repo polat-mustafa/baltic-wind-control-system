@@ -23,11 +23,14 @@ The TFT architecture addresses this by:
   3. Multi-Head Attention: detects long-range patterns (fronts, diurnal)
   4. Quantile Outputs: native P10/P50/P90 without MC sampling
 
-Standard — IEC 61400-26-1 & TFT Architecture
-----------------------------------------------
-IEC 61400-26-1 requires uncertainty quantification for power predictions.
+Quantile outputs & TFT architecture
+-------------------------------------
 TFT uses quantile regression (pinball loss) directly in the loss function,
-producing calibrated prediction intervals without post-hoc approximation.
+so P10/P50/P90 come out of the network without post-hoc approximation.
+Pinball loss is a proper scoring rule for quantiles (Gneiting & Raftery
+2007) — it rewards calibration but does not guarantee it: check the
+P10–P90 coverage (target 80 %) on held-out data. P90 is the high quantile,
+the opposite tail from energy-yield P90.
 
 The TFT architecture (Lim et al., 2021) combines:
   - Gated Residual Networks (GRN) for non-linear processing with skip connections
@@ -66,7 +69,7 @@ References
 - Lim et al., "Temporal Fusion Transformers for Interpretable Multi-horizon
   Time Series Forecasting" (Int. J. Forecasting, 2021)
 - Vaswani et al., "Attention Is All You Need" (NeurIPS 2017)
-- IEC 61400-26-1: Time-based availability for wind turbines
+- Gneiting & Raftery, JASA 102(477), 2007 — proper scoring rules, quantiles
 - Roadmap §5.6: TFT model, §5.7: Quantile regression, §5.10: Attention
 """
 
@@ -88,6 +91,7 @@ from app.services.p4.lstm_model import (
     _normalize_features_with_params,
     create_sequences,
 )
+from app.services.p4.model_evaluation import skill_score_from_squared_errors
 from app.services.p4.physical_constraints import enforce_physical_constraints
 from app.services.p4.training_progress import PROGRESS
 
@@ -189,7 +193,7 @@ class TFTCVResult:
         Mean R² across all folds.
     skill_score_vs_persistence : float
         Skill score vs persistence baseline.
-        SS = 1 - RMSE_model / RMSE_persistence. SS > 0 = model wins.
+        SS = 1 - MSE_model / MSE_persistence on the test samples. SS > 0 = model wins.
     architecture_summary : str
         Human-readable description of the TFT architecture.
     """
@@ -610,13 +614,6 @@ def _compute_metrics(
     )
 
 
-def _compute_persistence_rmse(target: NDArray[np.float64]) -> float:
-    """Compute RMSE for persistence baseline: P(t+1) = P(t)."""
-    if len(target) < 2:
-        return 0.0
-    return float(np.sqrt(np.mean((target[1:] - target[:-1]) ** 2)))
-
-
 def _build_tft_model(n_features: int, config: TFTConfig) -> WindPowerTFT:
     """Construct a WindPowerTFT model."""
     torch.manual_seed(config.seed)
@@ -749,6 +746,8 @@ def train_tft(
     # TimeSeriesSplit cross-validation
     tscv = TimeSeriesSplit(n_splits=config.n_cv_splits)
     fold_metrics_list: list[TFTFoldMetrics] = []
+    model_sq: list[float] = []  # squared errors on every test sample [MW²]
+    persistence_sq: list[float] = []  # same samples, persistence P̂(t) = P(t−1)
     last_model: WindPowerTFT | None = None
 
     for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_seq)):
@@ -787,6 +786,9 @@ def train_tft(
         # Denormalize for metrics
         y_pred_mw = _denormalize_power(y_pred_norm, norm_params)
         y_true_mw = _denormalize_power(y_test_np, norm_params)
+        y_prev_mw = _denormalize_power(y_seq[test_idx - 1], norm_params)  # test_idx ≥ 1 always
+        model_sq.extend((y_true_mw - y_pred_mw) ** 2)
+        persistence_sq.extend((y_true_mw - y_prev_mw) ** 2)
 
         metrics = _compute_metrics(y_true_mw, y_pred_mw, fold_idx, actual_epochs)
         fold_metrics_list.append(metrics)
@@ -802,8 +804,7 @@ def train_tft(
     mean_r2 = float(np.mean([m.r_squared for m in fold_metrics_list]))
 
     # Skill score vs persistence
-    persistence_rmse = _compute_persistence_rmse(target_power_mw)
-    skill_score = 1.0 - mean_rmse / persistence_rmse if persistence_rmse > 0 else 0.0
+    skill_score = skill_score_from_squared_errors(model_sq, persistence_sq)
 
     arch_summary = (
         f"VSN({n_features}→{config.hidden_size}) → "

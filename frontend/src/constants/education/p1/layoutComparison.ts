@@ -27,7 +27,6 @@ export const layoutComparisonEducation: EducationContent = {
     {
       label: "IEC 61400-15 (series) — Energy yield assessment",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "DNV-ST-0359 — Subsea power cables for wind power plants",

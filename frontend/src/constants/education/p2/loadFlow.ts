@@ -62,13 +62,13 @@ export const loadFlowEducation: EducationContent = {
       title: "Full load: 510 MW generated, how much reaches PSE?",
       scenario: "All 34 WTGs at 15 MW, STATCOM holding OSS 220 kV at 1.0 p.u. (Load-flow tab, full-load scenario).",
       steps: [
-        "Losses: array cables + export cables + two transformer stages = 6.35 MW",
-        "Delivered at the POC: 510 − 6.35 = 503.65 MW (1.25 % electrical loss at this instant)",
-        "Export cables carry 504.6 MW + charging current → 76.9 % of the two-circuit rating",
-        "Each transformer stage (2 × 300 MVA) runs at ≈ 85 %",
+        "Losses: array cables + export cables (6.65 MW) + two transformer stages (2.1 MW) = 10.1 MW",
+        "Delivered at the POC: 510 − 10.1 = 499.8 MW (1.98 % electrical loss at this instant)",
+        "Export cables carry ≈ 501 MW + their own charging current → 99.1 % of the two-circuit rating (108 km)",
+        "Each transformer stage (2 × 300 MVA) runs at ≈ 83–84 %",
       ],
       result:
-        "Full-load losses are 1.25 %; averaged over a year (most hours below rated) the energy loss is lower — " +
+        "Full-load losses are 1.98 %; averaged over a year (most hours below rated, and I²R falls with the square of the load) the energy loss is lower — " +
         "the P1 cascade uses 2 %, which also covers auxiliary consumption.",
     },
   ],

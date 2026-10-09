@@ -36,7 +36,7 @@ interface Stage {
   color: string;
   partId?: TurbinePartId;
   note?: string;
-  citation?: { source: string; url: string };
+  citation?: { source: string; url?: string };
 }
 
 export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
@@ -113,20 +113,14 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
         color: "#f25c54",
         note: `${pct(V236_ETA.transformer)} — illustrative (IEC 60076 liquid-filled)`,
         partId: "transformer",
-        citation: {
-          source: "NPC 66 kV / IEC 60076-14 datasheet",
-          url: "https://www.npcelectric.com/transformers/66kv-69kv-power-transformer.html",
-        },
+        citation: { source: "IEC 60076-16 — transformers for wind turbine applications" },
       },
       {
         label: "× availability",
         fraction: availability,
         color: "#dc2626",
-        note: "95 % — industry target (framework: IEC 61400-26)",
-        citation: {
-          source: "NREL TP-72373 — availability framework",
-          url: "https://docs.nrel.gov/docs/fy20osti/72373.pdf",
-        },
+        note: "95 % — illustrative assumption (counted per IEC 61400-26-1)",
+        citation: { source: "Illustrative: offshore time-based availability is typically quoted at 95–97 %; IEC 61400-26-1 defines how it is counted, not a target" },
       },
     ];
   }, []);
@@ -181,9 +175,10 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
               {s.citation && (
                 <a
                   href={s.citation.url}
-                  target="_blank"
+                  target={s.citation.url ? "_blank" : undefined}
                   rel="noopener noreferrer"
                   title={s.citation.source}
+                  aria-label={s.citation.source}
                   className="shrink-0 text-text-muted hover:text-accent"
                 >
                   <HelpCircle size={10} />

@@ -65,6 +65,53 @@ WS_BIN_MS = 1.0
 CALIBRATION_SHARE = 0.2  # newest part of each training block, for the band
 
 
+ENTSOE_MANIFEST = Path(__file__).parent / "data" / "entsoe_units.json"
+DK2_PRODUCTION = (
+    "Energinet Energi Data Service — ProductionConsumptionSettlement, "
+    "DK2 OffshoreWindGe100MW_MWh (CC BY 4.0)"
+)
+
+
+@dataclass(frozen=True)
+class Site:
+    """A real production series with its NWP: the DK2 aggregate or one ENTSO-E farm."""
+
+    key: str
+    title: str
+    file: Path
+    capacity_mw: float
+    farms: tuple[str, ...]
+    production: str
+    deep_file: Path | None = None
+
+
+def sites() -> dict[str, Site]:
+    """DK2 always; German Baltic farms once scripts/fetch_entsoe_units.py has run."""
+    out = {
+        "dk2": Site(
+            "dk2",
+            "DK2 Baltic offshore (3 farms)",
+            DATA_FILE,
+            CAPACITY_MW,
+            FARMS,
+            DK2_PRODUCTION,
+            DEEP_FILE,
+        )
+    }
+    if ENTSOE_MANIFEST.exists():
+        for u in json.loads(ENTSOE_MANIFEST.read_text(encoding="utf-8")):
+            out[u["key"]] = Site(
+                u["key"],
+                u["title"],
+                DATA_FILE.parent / u["file"],
+                float(u["capacity_mw"]),
+                (u["title"],),
+                f"ENTSO-E Transparency Platform — Actual Generation per Generation Unit "
+                f"(16.1.A), {u['entsoe_name']}",
+            )
+    return out
+
+
 @dataclass(frozen=True)
 class RealDataset:
     time_utc: NDArray[np.datetime64]
@@ -75,8 +122,8 @@ class RealDataset:
 
 
 @cache
-def load_dataset() -> RealDataset:
-    with gzip.open(DATA_FILE, "rt", encoding="utf-8") as f:
+def load_dataset(site: str = "dk2") -> RealDataset:
+    with gzip.open(sites()[site].file, "rt", encoding="utf-8") as f:
         rows = list(csv.reader(f))
     header, body = rows[0], rows[1:]
     values = np.array([[float(x) for x in r[1:]] for r in body])
@@ -134,8 +181,8 @@ def power_curve_forecast(
     return out
 
 
-def _clip(p: NDArray[np.float64]) -> NDArray[np.float64]:
-    return enforce_physical_constraints(p, None, rated_power_mw=CAPACITY_MW).power_mw
+def _clip(p: NDArray[np.float64], capacity_mw: float) -> NDArray[np.float64]:
+    return enforce_physical_constraints(p, None, rated_power_mw=capacity_mw).power_mw
 
 
 @dataclass(frozen=True)
@@ -159,9 +206,11 @@ class RealForecastResult:
 
 
 @cache
-def evaluate_real_dayahead(seed: int = 42) -> RealForecastResult:
+def evaluate_real_dayahead(site: str = "dk2", seed: int = 42) -> RealForecastResult:
     """Train XGBoost (P10/P50/P90) per TimeSeriesSplit fold and score it against the baselines."""
-    ds = load_dataset()
+    st = sites()[site]
+    cap = st.capacity_mw
+    ds = load_dataset(site)
     x_all, names = build_features(ds)
     pers_all = persistence_24h(ds)
     ok = ~np.isnan(pers_all)  # first day + gaps: no persistence → not scored
@@ -202,10 +251,14 @@ def evaluate_real_dayahead(seed: int = 42) -> RealForecastResult:
         margin = float(np.quantile(miss, QUANTILES[2] - QUANTILES[0]))
         model.fit(x[train], y[train])  # refit on the whole block for the forecast itself
         q = np.sort(model.predict(x[test]), axis=1)  # sort: quantiles never cross
-        p10, p50, p90 = _clip(q[:, 0] - margin), _clip(q[:, 1]), _clip(q[:, 2] + margin)
+        p10, p50, p90 = (
+            _clip(q[:, 0] - margin, cap),
+            _clip(q[:, 1], cap),
+            _clip(q[:, 2] + margin, cap),
+        )
         preds["XGBoost (P50)"].append(p50)
         preds["NWP power curve"].append(
-            _clip(power_curve_forecast(ws_mean[train], y[train], ws_mean[test]))
+            _clip(power_curve_forecast(ws_mean[train], y[train], ws_mean[test]), cap)
         )
         preds["Climatology"].append(np.full(len(test), y[train].mean()))
         preds["Persistence 24 h"].append(pers[test])
@@ -230,19 +283,19 @@ def evaluate_real_dayahead(seed: int = 42) -> RealForecastResult:
         scores.append(
             ModelScore(
                 name=name,
-                nrmse_pct=round(100 * float(np.sqrt(mse(a_all, p_all))) / CAPACITY_MW, 2),
-                nmae_pct=round(100 * float(np.mean(np.abs(a_all - p_all))) / CAPACITY_MW, 2),
-                bias_pct=round(100 * float(np.mean(p_all - a_all)) / CAPACITY_MW, 2),
+                nrmse_pct=round(100 * float(np.sqrt(mse(a_all, p_all))) / cap, 2),
+                nmae_pct=round(100 * float(np.mean(np.abs(a_all - p_all))) / cap, 2),
+                bias_pct=round(100 * float(np.mean(p_all - a_all)) / cap, 2),
                 skill_vs_persistence=round(1 - mse(a_all, p_all) / mse_pers, 3),
                 fold_nrmse_pct=[
-                    round(100 * float(np.sqrt(mse(a, p))) / CAPACITY_MW, 2)
+                    round(100 * float(np.sqrt(mse(a, p))) / cap, 2)
                     for a, p in zip(actuals, folds, strict=True)
                 ],
             )
         )
 
-    if DEEP_FILE.exists():
-        deep = json.loads(DEEP_FILE.read_text(encoding="utf-8"))["models"]
+    if st.deep_file is not None and st.deep_file.exists():
+        deep = json.loads(st.deep_file.read_text(encoding="utf-8"))["models"]
         scores[1:1] = [
             ModelScore(**{k: m[k] for k in ModelScore.__dataclass_fields__}) for m in deep
         ]

@@ -68,3 +68,44 @@ def test_deep_models_are_scored_on_real_data():
     for m in deep.values():
         assert len(m["fold_nrmse_pct"]) == 5
         assert 10.0 < m["nrmse_pct"] < 25.0 and m["skill_vs_persistence"] > 0.5
+
+
+A73_SAMPLE = b"""<?xml version="1.0" encoding="UTF-8"?>
+<GL_MarketDocument xmlns="urn:iec62325.351:tc57wg16:451-6:generationloaddocument:3:0">
+ <TimeSeries>
+  <MktPSRType><psrType>B18</psrType>
+   <PowerSystemResources><mRID codingScheme="A01">11WD7BALTIC2XXX</mRID><name>Baltic 2</name>
+   </PowerSystemResources></MktPSRType>
+  <Period>
+   <timeInterval><start>2024-06-01T00:00Z</start><end>2024-06-01T01:00Z</end></timeInterval>
+   <resolution>PT15M</resolution>
+   <Point><position>1</position><quantity>100</quantity></Point>
+   <Point><position>2</position><quantity>200</quantity></Point>
+   <Point><position>4</position><quantity>40</quantity></Point>
+  </Period>
+ </TimeSeries>
+</GL_MarketDocument>"""
+
+
+def test_entsoe_a73_parser_fills_a03_gaps_and_averages_to_hours():
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "scripts" / "fetch_entsoe_units.py"
+    spec = importlib.util.spec_from_file_location("fetch_entsoe_units", path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    import sys
+
+    sys.path.insert(0, str(path.parent))
+    spec.loader.exec_module(mod)
+    out = mod.parse_a73(A73_SAMPLE)
+    # positions 1, 2, (3 repeats 2), 4 → (100 + 200 + 200 + 40) / 4
+    assert out == {"Baltic 2": {"2024-06-01T00": 135.0}}
+
+
+def test_sites_endpoint_and_unknown_site():
+    client = TestClient(app)
+    keys = [s["key"] for s in client.get("/api/v1/forecast/real-data/sites").json()]
+    assert keys[0] == "dk2"
+    assert client.get("/api/v1/forecast/real-data/day-ahead?site=nope").status_code == 404

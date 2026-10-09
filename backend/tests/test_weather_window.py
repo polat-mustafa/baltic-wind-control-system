@@ -240,3 +240,18 @@ class TestOAMCost:
         result_low = get_oam_cost_breakdown(unplanned_events_per_turbine=4.0)
         result_high = get_oam_cost_breakdown(unplanned_events_per_turbine=10.0)
         assert result_high["unplanned_maintenance_eur"] > result_low["unplanned_maintenance_eur"]
+
+
+def test_access_is_measured_from_the_hindcast_with_sea_ice():
+    """Joint frequency from the 30-year ERA5 hindcast; ice days from NOAA OISST."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    body = TestClient(app).get("/api/v1/wind/weather-windows").json()
+    assert "ERA5" in body["hindcast"]
+    ice = body["sea_ice"]
+    assert ice["winters"] == 30 and 0 <= ice["winters_with_ice"] < 15
+    assert ice["mean_ice_days"] < 10  # southern Baltic open sea: ice is rare and brief
+    ctv = next(v for v in body["vessels"] if v["vessel"] == "CTV")
+    assert 55 < ctv["annual_average_pct"] < 80  # Hs ≤ 1.5 m and wind ≤ 10 m/s, measured

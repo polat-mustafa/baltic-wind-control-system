@@ -12,7 +12,7 @@
 import { useEffect, useState } from "react";
 import Plot from "react-plotly.js";
 
-import { getRealDayAhead, type RealForecastResponse } from "../../services/forecastApi";
+import { getRealDayAhead, getRealSites, type RealForecastResponse, type RealSite } from "../../services/forecastApi";
 import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useChartPalette, withAlpha } from "../../hooks/useChartPalette";
 import { ChartWrapper } from "../ui/ChartWrapper";
@@ -23,12 +23,18 @@ export default function RealDataPanel() {
   const pal = useChartPalette();
   const [data, setData] = useState<RealForecastResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [site, setSite] = useState("dk2");
+  const [sites, setSites] = useState<RealSite[]>([]);
 
   useEffect(() => {
-    getRealDayAhead()
+    getRealSites().then(setSites).catch(() => setSites([]));
+  }, []);
+  useEffect(() => {
+    setData(null);
+    getRealDayAhead(site)
       .then(setData)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [site]);
 
   if (error) return <p className="text-sm text-status-alarm">Real-data forecast failed: {error}</p>;
   if (!data)
@@ -45,6 +51,22 @@ export default function RealDataPanel() {
 
   return (
     <div className="space-y-4">
+      {sites.length > 1 && (
+        <label className="flex items-center gap-2 text-sm text-text-secondary">
+          Real series
+          <select
+            value={site}
+            onChange={(e) => setSite(e.target.value)}
+            className="rounded-md border border-border-secondary bg-bg-tertiary px-2 py-1 text-sm text-text-primary"
+          >
+            {sites.map((x) => (
+              <option key={x.key} value={x.key}>
+                {x.title} — {x.capacity_mw.toFixed(0)} MW
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="rounded-lg border border-border-primary bg-bg-secondary p-4 text-sm text-text-secondary">
         <p className="text-text-primary">
           Day-ahead forecast of <b>measured</b> Baltic offshore production — {source.farms.join(", ")} ={" "}

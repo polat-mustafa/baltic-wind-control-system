@@ -109,3 +109,25 @@ def test_sites_endpoint_and_unknown_site():
     keys = [s["key"] for s in client.get("/api/v1/forecast/real-data/sites").json()]
     assert keys[0] == "dk2"
     assert client.get("/api/v1/forecast/real-data/day-ahead?site=nope").status_code == 404
+
+
+def test_single_farm_sites_from_the_file_library():
+    """Kriegers Flak, Rødsand 1 / 2 per farm (ENTSO-E 16.1.A): physical and scored."""
+    from app.services.p4.real_data import sites
+
+    s = sites()
+    assert {"kriegers_flak", "roedsand1", "roedsand2"} <= set(s)
+    for key in ("kriegers_flak", "roedsand1", "roedsand2"):
+        ds = load_dataset(key)
+        assert len(ds.power_mw) > 15_000
+        assert ds.power_mw.min() >= 0.0 and ds.power_mw.max() <= s[key].capacity_mw
+
+
+def test_baltic_power_energisation_endpoint():
+    """Poland's first offshore farm (76 × V236-15.0 MW) ramping up since first power."""
+    body = TestClient(app).get("/api/v1/commissioning/real-data/baltic-power").json()
+    days = body["days"]
+    assert len(days) > 60 and "V236" in body["farm"]
+    assert all(0 <= d["peak_mw"] <= 1140 and d["turbines_at_least"] <= 76 for d in days)
+    # energisation: the last month's best is well above the first week's
+    assert max(d["peak_mw"] for d in days[-30:]) > 2 * max(d["peak_mw"] for d in days[:7])

@@ -644,8 +644,8 @@ function ControlRoomMapInner({
         <AlarmTicker />
       </div>
 
-      {/* Bottom-right: legend */}
-      <div className="absolute bottom-3 right-3 z-10 flex flex-wrap items-center gap-x-3.5 gap-y-1 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 text-xs text-text-secondary">
+      {/* Bottom-right: legend (from sm up: on a phone it would cover the environment panel) */}
+      <div className="absolute bottom-3 right-3 z-10 hidden flex-wrap sm:flex items-center gap-x-3.5 gap-y-1 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 text-xs text-text-secondary">
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: `rgb(${pal.turbine.slice(0, 3).join(",")})` }} />running</span>
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-[1.5px] border-status-offline" />stopped</span>
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-status-warning" />attention</span>

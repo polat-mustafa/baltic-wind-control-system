@@ -67,24 +67,24 @@ function ProfileChart({ hubWindMs }: { hubWindMs: number }) {
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Vertical wind profile">
       {/* Rotor disk band */}
       <rect x={pad.l} y={y(TIP_HIGH)} width={W - pad.l - pad.r} height={y(TIP_LOW) - y(TIP_HIGH)} fill="#45c8d9" opacity={0.08} />
-      <text x={W - pad.r + 4} y={y(TIP_HIGH) + 9} fontSize={9} fill="#7189a0">tip {TIP_HIGH} m</text>
-      <text x={W - pad.r + 4} y={y(TIP_LOW) - 2} fontSize={9} fill="#7189a0">tip {TIP_LOW} m</text>
+      <text x={W - pad.r + 4} y={y(TIP_HIGH) + 9} fontSize={9} fill="#8099b0">tip {TIP_HIGH} m</text>
+      <text x={W - pad.r + 4} y={y(TIP_LOW) - 2} fontSize={9} fill="#8099b0">tip {TIP_LOW} m</text>
       {/* Hub line */}
-      <line x1={pad.l} x2={W - pad.r} y1={y(HUB_HEIGHT_M)} y2={y(HUB_HEIGHT_M)} stroke="#7189a0" strokeDasharray="3 3" />
+      <line x1={pad.l} x2={W - pad.r} y1={y(HUB_HEIGHT_M)} y2={y(HUB_HEIGHT_M)} stroke="#8099b0" strokeDasharray="3 3" />
       <text x={W - pad.r + 4} y={y(HUB_HEIGHT_M) + 3} fontSize={9} fill="#a3b6c8">hub</text>
       {/* Axes */}
       {[0, 100, 200, 300].map((z) => (
-        <text key={z} x={pad.l - 6} y={y(z) + 3} fontSize={9} fill="#7189a0" textAnchor="end" fontFamily="IBM Plex Mono, monospace">
+        <text key={z} x={pad.l - 6} y={y(z) + 3} fontSize={9} fill="#8099b0" textAnchor="end" fontFamily="IBM Plex Mono, monospace">
           {z}
         </text>
       ))}
       {[uMin, Math.round((uMin + uMax) / 2), uMax].map((u) => (
-        <text key={u} x={x(u)} y={H - 6} fontSize={9} fill="#7189a0" textAnchor="middle" fontFamily="IBM Plex Mono, monospace">
+        <text key={u} x={x(u)} y={H - 6} fontSize={9} fill="#8099b0" textAnchor="middle" fontFamily="IBM Plex Mono, monospace">
           {u}
         </text>
       ))}
-      <text x={pad.l - 6} y={pad.t + 2} fontSize={8} fill="#7189a0" textAnchor="end">m</text>
-      <text x={W - pad.r} y={H - 6} fontSize={8} fill="#7189a0" textAnchor="start" dx={4}>m/s</text>
+      <text x={pad.l - 6} y={pad.t + 2} fontSize={8} fill="#8099b0" textAnchor="end">m</text>
+      <text x={W - pad.r} y={H - 6} fontSize={8} fill="#8099b0" textAnchor="start" dx={4}>m/s</text>
       {/* Profile + range gates */}
       <path d={curve} fill="none" stroke={PROFILE_COLOR} strokeWidth={1.75} />
       {GATES.map((z) => (

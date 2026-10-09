@@ -80,7 +80,7 @@ function Legend({ wakes }: { wakes: boolean }) {
         <Layers size={13} /> Legend
       </button>
       {open && (
-        <div className="pointer-events-auto mt-1.5 w-60 max-w-[75vw] space-y-2 overflow-y-auto rounded-md border border-border-primary bg-bg-secondary/95 p-2 text-xs shadow">
+        <div tabIndex={0} role="region" aria-label="Map legend" className="pointer-events-auto mt-1.5 w-60 max-w-[75vw] space-y-2 overflow-y-auto rounded-md border border-border-primary bg-bg-secondary/95 p-2 text-xs shadow">
           <section aria-label="Turbines" className="space-y-1">
             <LegendHeading>Turbines</LegendHeading>
             {(Object.keys(STATUS_STYLE) as TurbineStatus[]).map((k) => (

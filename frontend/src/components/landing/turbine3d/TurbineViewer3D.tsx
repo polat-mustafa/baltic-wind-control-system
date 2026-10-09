@@ -43,6 +43,7 @@ import {
   selectSensorMarkers,
   selectPowerFlow,
   selectInteriorView,
+  type TurbineView,
   selectTimeOfDay,
   selectSkyPreset,
   selectWindField,
@@ -75,6 +76,13 @@ import { WakeField } from "./scene/WakeField";
 import { FaultBeacon, ServiceCraft } from "./scene/FaultAndService";
 import { InNacelleFrame } from "./scene/InNacelleFrame";
 import { HUB, SHAFT_TILT } from "./model/layout";
+import { TurbineSideView } from "./schematic/TurbineSideView";
+
+const VIEWS: { id: TurbineView; label: string; hint: string }[] = [
+  { id: "3d", label: "Realistic", hint: "The 3D model, live rotor, pitch and yaw" },
+  { id: "side", label: "Schematic", hint: "Live side view: inflow shear, this rotor's wake, yaw" },
+  { id: "drawings", label: "Drawings", hint: "Engineering sheets: single-line, drivetrain, hydraulics" },
+];
 import { WindTriangle } from "./scene/WindTriangle";
 import { NacelleInteriorDetail } from "./scene/NacelleInteriorDetail";
 import { ViewerControls } from "./ui/ViewerControls";
@@ -326,8 +334,8 @@ function TurbineScene({
         <Vignette offset={0.32} darkness={0.38} blendFunction={BlendFunction.NORMAL} />
       </EffectComposer>
 
-      {/* Fade scene when schematic is active — user still feels atmosphere */}
-      {interiorView === "schematic" && (
+      {/* Fade the scene behind a 2D view — the user still feels the atmosphere */}
+      {interiorView !== "3d" && (
         <mesh position={[0, 80, 0]} renderOrder={999}>
           <sphereGeometry args={[1200, 16, 16]} />
           <meshBasicMaterial color="#0a1320" transparent opacity={0.55} side={THREE.BackSide} depthWrite={false} />
@@ -378,7 +386,8 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
   const [metresPerPixel, setMetresPerPixel] = useState(0.5);
   // Realistic by default; the toon + ink look is an opt-in demo
   const [hiddenCardFor, setHiddenCardFor] = useState<TurbinePartId | null>(null);
-  const [showAnalytics, setShowAnalytics] = useState(true);
+  // Trends open on request: the schematic view carries the readings, the 3D view stays clear
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -441,9 +450,26 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
     }
   }, [selectedPart, viewerMode, setViewerMode]);
 
-  const handleInteriorViewChange = useCallback(
-    (next: "3d" | "schematic") => setInteriorView(next),
-    [setInteriorView],
+  const viewSwitch = (
+    <div role="radiogroup" aria-label="Turbine view" className="pointer-events-auto flex rounded-md border border-border-secondary bg-bg-secondary/95 p-0.5 shadow-lg">
+      {VIEWS.map((v) => (
+        <button
+          key={v.id}
+          type="button"
+          role="radio"
+          aria-checked={interiorView === v.id}
+          title={v.hint}
+          onClick={() => setInteriorView(v.id)}
+          className={
+            interiorView === v.id
+              ? "rounded bg-accent-muted px-3 py-1 text-xs font-semibold text-accent"
+              : "rounded px-3 py-1 text-xs font-medium text-text-secondary hover:text-text-primary"
+          }
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
   );
 
   // Live HPU/cooling/safety telemetry from backend nacelle subsystem endpoints.
@@ -605,17 +631,34 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
         </Suspense>
       </Canvas>
 
-      {/* 2D Isometric schematic — overlaid on top of faded 3D canvas */}
-      {interiorView === "schematic" && (
-        <div className="absolute inset-0 z-20 pointer-events-none">
-          <NacelleSchematic turbineId={turbineId} headerExtra={expandButton} />
+      {/* 2D views over the faded 3D canvas: live side view, engineering drawings */}
+      {interiorView === "side" && (
+        <div className="absolute inset-0 z-20">
+          <TurbineSideView turbineId={turbineId} />
         </div>
+      )}
+      {interiorView === "drawings" && (
+        <div className="absolute inset-0 z-20 pointer-events-none">
+          <NacelleSchematic
+            turbineId={turbineId}
+            headerExtra={
+              <>
+                {viewSwitch}
+                {expandButton}
+              </>
+            }
+          />
+        </div>
+      )}
+
+      {/* Realistic | Schematic | Drawings (keyboard S cycles); in the drawings it sits in their header */}
+      {interiorView !== "drawings" && (
+        <div className="absolute left-1/2 top-2 z-30 -translate-x-1/2">{viewSwitch}</div>
       )}
 
       {/* HTML overlays */}
       <ViewerControls
         viewerMode={viewerMode}
-        interiorView={interiorView}
         skyPreset={skyPreset}
         showAnnotationLayer={showAnnotationLayer}
         showHumanFigure={showHumanFigure}
@@ -630,7 +673,6 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
         showCpWidget={showCpWidget}
         onResetCamera={handleResetCamera}
         onViewerModeChange={setViewerMode}
-        onInteriorViewChange={handleInteriorViewChange}
         onSkyPresetChange={setSkyPreset}
         onToggleAnnotations={() => setShowAnnotations(!showAnnotationLayer)}
         onToggleHumanFigure={() => setShowHumanFigure((v) => !v)}
@@ -687,7 +729,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
       )}
 
       {/* HUD widgets */}
-      <CompassWidget windDirectionDeg={compassWind} nacelleYawDeg={nacelleYaw} windMs={manualWindMs} />
+      {interiorView === "3d" && <CompassWidget windDirectionDeg={compassWind} nacelleYawDeg={nacelleYaw} windMs={manualWindMs} />}
       <CameraModeBadge />
       <ScaleBar metresPerPixel={metresPerPixel} />
       <KeyboardHelp />
@@ -725,7 +767,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
                 onClick={() => setShowAnalytics(true)}
                 className="absolute left-[9.25rem] top-12 z-20 @max-lg:left-auto @max-lg:right-2 @max-lg:top-24 rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-xs font-semibold text-text-primary hover:bg-bg-hover"
               >
-                📈 Live analytics
+                Live analytics
               </button>
             ))}
         </>

@@ -11,7 +11,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Grid3x3, MapPinned, MousePointerClick, Play, RotateCcw, Trash2, Wind } from "lucide-react";
+import { Grid3x3, MousePointerClick, Play, RotateCcw, Trash2, Wind } from "lucide-react";
 
 import { cn } from "../lib/utils";
 import { routeCables, maxPerString } from "../lib/layout/cables";
@@ -53,6 +53,7 @@ import TurbineCard from "../components/layout-canvas/TurbineCard";
 import LayoutChecklist from "../components/layout-canvas/LayoutChecklist";
 import MoveSuggestions from "../components/layout-canvas/MoveSuggestions";
 import { layoutCostInfo, layoutGridToolInfo, layoutPyWakeInfo, layoutResultsInfo } from "../constants/panelInfo";
+import { PageHeader } from "../components/layout/PageHeader";
 
 const LayoutMap = lazy(() => import("../components/layout-canvas/LayoutMap"));
 
@@ -304,18 +305,15 @@ export default function LayoutPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
-            <MapPinned size={20} className="text-accent" aria-hidden />
-            Layout
-          </h2>
-          <p className="mt-1 text-xs text-text-muted">
+      <PageHeader
+        title="Layout"
+        description={
+          <>
             Place turbines in your site, watch wake losses and the array cables change, then check the energy yield with PyWake
             and estimate the cost. Turbine: IEA-15-240-RWT, 15 MW direct drive (D = 241 m, hub 150 m).
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {!siteDrawn && (
         <p className="rounded-md border border-border-primary bg-bg-secondary px-3 py-2 text-[12px] text-text-secondary">

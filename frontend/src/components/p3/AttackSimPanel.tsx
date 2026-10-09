@@ -44,7 +44,7 @@ export default function AttackSimPanel() {
         <Button size="sm" onClick={simulateAttack} disabled={attackLoading}>
           {attackLoading ? (
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" />
               Simulating…
             </span>
           ) : "Run Scenario"}

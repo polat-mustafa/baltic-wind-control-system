@@ -6,7 +6,7 @@
  */
 
 import { Link } from "react-router-dom";
-import { ArrowRight, HardHat, Play } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 
 import { useFarmPlan } from "../hooks/useFarmPlan";
 import { campaignRequest } from "../lib/lifecycle/farm";
@@ -17,6 +17,7 @@ import CampaignControls from "../components/lifecycle/CampaignControls";
 import { CampaignResultPanels } from "../components/lifecycle/CampaignResults";
 import FarmSource from "../components/lifecycle/FarmSource";
 import { StageDone } from "../components/project/StageDone";
+import { PageHeader } from "../components/layout/PageHeader";
 
 export default function ConstructionPage() {
   const farm = useFarmPlan();
@@ -27,21 +28,22 @@ export default function ConstructionPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
-            <HardHat size={20} className="text-accent" aria-hidden />
-            Construction
-          </h2>
-          <p className="mt-1 text-xs text-text-muted">
+      <PageHeader
+        title="Construction"
+        description={
+          <>
             Install the offshore substation, foundations, cables and turbines in Baltic weather windows. Every operation waits for sea states
             below its limit; the campaign is run over {build.runs} weather years to give P10 / P50 / P90 dates and the vessel bill.
-          </p>
-        </div>
-        <Link to="/build/handover" className="flex items-center gap-1 text-[12px] text-accent underline">
-          Hand-over package <ArrowRight size={13} aria-hidden />
-        </Link>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <Link to="/build/handover" className="flex items-center gap-1 text-[12px] text-accent underline">
+              Hand-over package <ArrowRight size={13} aria-hidden />
+            </Link>
+          </>
+        }
+      />
 
       <FarmSource farm={farm} />
       {/* One tour target for the inputs and the run button, so the tour's

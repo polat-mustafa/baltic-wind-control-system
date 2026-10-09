@@ -300,7 +300,7 @@ export default function LayoutPage() {
           </h2>
           <p className="mt-1 text-xs text-text-muted">
             Place turbines in your site, watch wake losses and the array cables change, then check the energy yield with PyWake
-            and estimate the cost. Turbine: V236 class, modelled with the IEA 15 MW reference turbine (D = 241 m).
+            and estimate the cost. Turbine: IEA-15-240-RWT, 15 MW direct drive (D = 241 m, hub 150 m).
           </p>
         </div>
       </div>

@@ -81,7 +81,7 @@ export const metalRaw: PbrPreset = {
 };
 
 /**
- * Polished steel — main shaft, coupling, precision bearings.
+ * Polished steel — main shaft, main bearings.
  * Low roughness, high metalness → mirror-like reflections.
  */
 export const metalPolished: PbrPreset = {

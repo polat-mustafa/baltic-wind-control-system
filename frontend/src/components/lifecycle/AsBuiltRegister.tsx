@@ -26,7 +26,7 @@ export default function AsBuiltRegister({ farm, build, printing }: { farm: FarmP
           <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-slate-500">OffshoreForge · hand-over to operation</p>
           <h3 className="text-lg font-bold">As-built register — {farm.name}</h3>
           <p className="text-[11px] text-slate-600">
-            {farm.turbines.length} × 15 MW (V236 class, IEA 15 MW) = {farm.capacityMW} MW · {farm.strings.length} array strings at 66 kV · export {farm.exportKm} km
+            {farm.turbines.length} × 15 MW (IEA-15-240-RWT) = {farm.capacityMW} MW · {farm.strings.length} array strings at 66 kV · export {farm.exportKm} km
             at 220 kV · {farm.foundation === "jacket" ? "jacket" : "monopile"} foundations · printed {new Date().toISOString().slice(0, 10)}
           </p>
         </header>

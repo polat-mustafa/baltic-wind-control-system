@@ -18,7 +18,7 @@ class FarmConfigCreate(BaseModel):
     """Request body to create a new farm configuration."""
 
     name: str = Field(description="Configuration name", min_length=3, max_length=100)
-    turbine_model: str = Field(default="V236-15.0", description="Turbine model designation")
+    turbine_model: str = Field(default="IEA-15-240-RWT", description="Turbine model designation")
     turbine_count: int = Field(default=34, ge=1, le=200)
     turbine_rated_mw: float = Field(default=15.0, ge=0.5, le=20.0)
     array_voltage_kv: float = Field(default=66.0, ge=33.0, le=132.0)

@@ -20,7 +20,7 @@ import { Cable, Factory, Power, Wind } from "lucide-react";
 import { useLandingStore } from "../../store/landingStore";
 import { usePlantSnapshot } from "../../store/liveGridStore";
 import { plantNet } from "../../utils/landingPhysics";
-import { useFleet } from "../../lib/fleet";
+import { turbineLabel, useFleet } from "../../lib/fleet";
 import { mimicLayout } from "../../constants/mimicLayout";
 
 import TurbineCell from "./TurbineCell";
@@ -70,7 +70,7 @@ export default function WindFarmMimic() {
             Plant Mimic · Operations
           </h3>
           <span className="hidden md:inline text-[10px] text-text-muted font-mono">
-            {fleet.turbines.length} × 15 MW V236 class (IEA 15 MW) · {net.ratedMW.toFixed(0)} MW · 66 / 220 / 400 kV
+            {fleet.turbines.length} × {turbineLabel(fleet)} · {net.ratedMW.toFixed(0)} MW · 66 / 220 / 400 kV
           </span>
         </div>
         <div className="flex items-center gap-3 text-[10px] font-mono text-text-secondary">

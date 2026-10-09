@@ -7,7 +7,7 @@
  * points upwind.
  *
  * The accumulated angle is shared (`rotorPhase`) so the drivetrain (main
- * shaft, planetary stages, generator) and the tip-vortex wake stay locked to
+ * shaft, direct-drive generator rotor) and the tip-vortex wake stay locked to
  * the blades.
  */
 

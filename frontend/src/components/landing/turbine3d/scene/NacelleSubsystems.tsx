@@ -91,7 +91,7 @@ export const NacelleSubsystems = memo(function NacelleSubsystems({
           position={[0, 0.2, 0.605]}
           rotation={[0, 0, 0]}
           title="HPU · 210 bar"
-          lines={["ISO 4413 · VG 46", "6.5 kW · 12 L/min", "SIL 2 · SN-HPU-V236"]}
+          lines={["ISO 4413 · VG 46", "6.5 kW · 12 L/min", "SIL 2 · SN-HPU-15MW"]}
           width={0.78}
           height={0.34}
         />

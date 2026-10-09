@@ -68,18 +68,15 @@ describe("TurbineDetailPanel", () => {
     expect(container.firstChild).toBeTruthy();
   });
 
-  it("renders navigation buttons (P1-P5 + Physics)", () => {
+  it("names the modules it links to as the sidebar does", () => {
     render(
       <MemoryRouter>
         <TurbineDetailPanel turbine={mockTurbine} onClose={vi.fn()} />
       </MemoryRouter>,
     );
-    expect(screen.getByText("P1")).toBeDefined();
-    expect(screen.getByText("P2")).toBeDefined();
-    expect(screen.getByText("P3")).toBeDefined();
-    expect(screen.getByText("P4")).toBeDefined();
-    expect(screen.getByText("P5")).toBeDefined();
-    expect(screen.getByText("Physics")).toBeDefined();
+    for (const name of ["Wind Resource", "Grid Integration", "SCADA", "Forecasting", "Digital Twin", "Turbine Physics"])
+      expect(screen.getByText(name)).toBeDefined();
+    expect(screen.queryByText("P1")).toBeNull();
   });
 
   it("renders the condition section", () => {

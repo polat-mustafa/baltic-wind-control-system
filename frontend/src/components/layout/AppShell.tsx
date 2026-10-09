@@ -184,7 +184,7 @@ export default function AppShell() {
           {/* Farm spec badge (the reference case study) */}
           {mode !== "own" && (
             <span className="hidden xl:inline-flex text-[10px] text-text-muted font-mono tracking-wide whitespace-nowrap">
-              510 MW · 34×V236 · 66/220/400 kV
+              510 MW · 34 × 15 MW · 66/220/400 kV
             </span>
           )}
 

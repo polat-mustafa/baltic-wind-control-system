@@ -57,8 +57,8 @@ class WindFarmCreate(BaseModel):
     num_turbines: int = Field(ge=1, le=200)
     turbine_model: str = Field(
         max_length=100,
-        default="Vestas V236-15.0 MW",
-        examples=["Vestas V236-15.0 MW"],
+        default="IEA-15-240-RWT",
+        examples=["IEA-15-240-RWT"],
     )
     turbine_positions: list[TurbinePositionCreate] = Field(default_factory=list)
 

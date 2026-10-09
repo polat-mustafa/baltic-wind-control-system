@@ -8,6 +8,11 @@ import { arraySegments, liveFleet, pathToOss } from "../lib/fleet";
 import { bayName } from "../lib/lifecycle/farm";
 import { useLandingStore } from "../store/landingStore";
 
+/** Installed capacity of the live farm [MW]. */
+const pmaxMW = () => Math.round(liveFleet().net.total_capacity_mw);
+/** LFSM-U response at the 49.72 Hz reference nadir: Pmax/0.05 × (49.8 − 49.72)/50 [MW]. */
+const lfsmUpMW = () => Math.round(((pmaxMW() / 0.05) * 0.08) / 50);
+
 export type TrainingEvent =
   | { type: "cable-selected"; stringNumber: number; segmentKey: string }
   | { type: "isolate"; segmentKey: string; ok: boolean }
@@ -279,9 +284,9 @@ const underFrequency: Scenario = {
       say: "What did the 5 percent reserve buy, and what did it cost?",
       options: () => [
         {
-          label: "About 16 MW of fast upward response, for about 5 % less energy all the time",
+          label: `About ${lfsmUpMW()} MW of fast upward response, for about 5 % less energy all the time`,
           correct: true,
-          why: "Droop 5 %: ΔP = P/0.05 × (49.8 − f)/50 ≈ 16 MW at 49.72 Hz, capped by the headroom.",
+          why: `Droop 5 % on Pmax = ${pmaxMW()} MW: ΔP = Pmax/0.05 × (49.8 − f)/50 ≈ ${lfsmUpMW()} MW at 49.72 Hz, capped by the headroom.`,
         },
         { label: "Unlimited response at no cost", correct: false, why: "The response is capped by the headroom and the headroom is spilled energy." },
         { label: "It only improves voltage", correct: false, why: "It is active-power headroom; voltage is the reactive side." },
@@ -294,12 +299,12 @@ const underFrequency: Scenario = {
 
 const voltageDip: Scenario = {
   id: "voltage-dip",
-  title: "400 kV fault near Słupsk — ride through",
+  title: "400 kV fault near the grid node — ride through",
   summary: "A line fault drops the PCC voltage to 0.3 pu for 140 ms. See the farm stay connected, inject reactive current and recover.",
   refs: ["NC RfG Art. 16 / 20 (FRT, fast fault current)", "PSE IRiESP LVRT profile", "backend services/p2/frt_simulation.py"],
   parS: 90,
-  intro: "Scenario: a fault on the 400 kilovolt grid near Słupsk.",
-  debrief: "Fault ride-through keeps the plant on line so the grid does not lose 500 MW on top of the fault; the reactive current helps the protection see and clear it.",
+  intro: "Scenario: a fault on the 400 kilovolt grid near the farm's connection point.",
+  debrief: "Fault ride-through keeps the plant on line so the grid does not lose the whole farm on top of the fault; the reactive current helps the protection see and clear it.",
   setup: () => store().triggerGridEvent("voltage-dip"),
   teardown: () => store().clearGridEvent(),
   steps: [

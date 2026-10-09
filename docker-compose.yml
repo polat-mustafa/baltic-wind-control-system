@@ -29,6 +29,10 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
+    # Optional secrets such as AISSTREAM_API_KEY (.env is not copied into the image)
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/balticwind
       REDIS_URL: redis://redis:6379/0

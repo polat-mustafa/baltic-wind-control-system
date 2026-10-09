@@ -44,6 +44,9 @@ export default function ConstructionPage() {
       </div>
 
       <FarmSource farm={farm} />
+      {/* One tour target for the inputs and the run button, so the tour's
+          spotlight leaves "Simulate the campaign" clickable. */}
+      <div className="space-y-4" data-tour="campaign-setup">
       <CampaignControls
         value={build}
         vessels={["HLV", "CLV", "WTIV", "CTV"]}
@@ -55,6 +58,7 @@ export default function ConstructionPage() {
           <Play size={13} className="mr-1" /> {running.build ? "Simulating…" : "Simulate the campaign"}
         </Button>
         {stale && <span className="text-[12px] text-status-warning">Inputs changed since this result — run again.</span>}
+      </div>
       </div>
       {error && (
         <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-status-alarm/30 bg-status-alarm/10 p-3 text-sm">

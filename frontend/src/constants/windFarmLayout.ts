@@ -105,6 +105,30 @@ export const SITE_SOURCES = [
 // busbar (backend P2).
 export const OSS_GEO = { lat: 55.026, lon: 16.442 };
 
+// Collector (feeder) routing. The OSS sits west of string 1, so straight
+// feeders from strings 2–6 would cut through string 1 (string 3's passed 36 m
+// from WTG-05) and string 6's lay on top of string 5's for 9.5 km. Each
+// feeder instead runs below the southern turbine row: it passes every string
+// to its west 330 m south of that string's gateway turbine, parallel feeders
+// stacked 200 m apart, clears string 1 by 500 m to the west, then turns up
+// to the OSS. Map/3D only — the P2 load
+// flow uses STRING_LAYOUT and fixed section lengths.
+const FEEDER_CLEARANCE_DEG = 0.003; // ≈ 330 m
+const FEEDER_PITCH_DEG = 0.0018; // ≈ 200 m
+const FEEDER_WEST_CLEAR_DEG = 0.008; // ≈ 510 m
+const GATEWAYS = [1, 2, 3, 4, 5, 6].map((n) =>
+  TURBINE_POSITIONS.filter((t) => t.stringNumber === n).reduce((a, b) => (b.lat < a.lat ? b : a)),
+);
+export const FEEDER_WAYPOINTS: Record<number, { lat: number; lon: number }[]> = Object.fromEntries(
+  GATEWAYS.map((_, i) => {
+    const under = GATEWAYS.slice(0, i)
+      .reverse()
+      .map((g, j) => ({ lat: g.lat - FEEDER_CLEARANCE_DEG - FEEDER_PITCH_DEG * j, lon: g.lon }));
+    const last = under[under.length - 1];
+    return [i + 1, last ? [...under, { lat: last.lat, lon: last.lon - FEEDER_WEST_CLEAR_DEG }] : []];
+  }),
+);
+
 // Floating LIDAR: 3 km west (270°) of WTG-04, the middle of string 1, i.e.
 // UPWIND of the prevailing westerly wind, so it measures undisturbed
 // freestream rather than turbine wakes. Inside PZP_44, ≈ 48 m depth (EMODnet).
@@ -426,16 +450,50 @@ export const SEA_POLYGON_GEO: [number, number][] = [
 ];
 
 /**
- * SwePol HVDC link (450 kV DC, 600 MW, Stärnö SE ↔ Słupsk-Wierzbięcino PL),
- * OSM ways 1025227913 (subsea) + 251849081 (land). It lands 27 km east of ours and
- * both routes stay apart — no cable crossing needed.
+ * SwePol HVDC link (450 kV DC, 600 MW, Stärnö SE ↔ Słupsk-Wierzbięcino PL):
+ * the whole OSM subsea way 1025227913 from the Stärnö converter (Karlshamn)
+ * to the Ustka landfall, then land way 251849081 to the Słupsk converter.
+ * It lands 27 km east of the SB-510 export route — no cable crossing.
  */
 export const SWEPOL_GEO: [number, number][] = [
+  [56.1368, 14.8373],
+  [56.1331, 14.8404],
+  [56.1305, 14.8453],
+  [56.1271, 14.8577],
+  [56.1252, 14.8695],
+  [56.1259, 14.8828],
+  [56.1035, 14.9181],
+  [56.0765, 14.9787],
+  [56.0496, 14.9860],
+  [56.0416, 14.9847],
+  [55.9986, 14.9935],
+  [55.9242, 15.0112],
+  [55.8352, 15.0323],
+  [55.7930, 15.1428],
+  [55.7510, 15.2529],
+  [55.6697, 15.4650],
+  [55.6060, 15.6311],
+  [55.5426, 15.7962],
+  [55.4839, 15.9487],
+  [55.4355, 16.0704],
+  [55.3718, 16.2303],
   [55.3525, 16.2825],
+  [55.3369, 16.3139],
+  [55.2784, 16.4253],
+  [55.2070, 16.5611],
+  [55.1047, 16.7553],
   [55.1025, 16.7652],
+  [55.0283, 16.8461],
   [54.9695, 16.9151],
-  [54.898, 16.9263],
+  [54.8980, 16.9263],
+  [54.8335, 16.9062],
+  [54.7681, 16.8858],
+  [54.6955, 16.8646],
+  [54.6597, 16.8542],
+  [54.6426, 16.8502],
   [54.6211, 16.8451],
+  [54.6097, 16.8284],
+  [54.5913, 16.8012],
   [54.5776, 16.7811],
   [54.5739, 16.7841],
   [54.5544, 16.7985],

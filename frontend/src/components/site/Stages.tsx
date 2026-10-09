@@ -32,20 +32,37 @@ import {
   type Task,
 } from "./journey";
 
-/** Simulated months per real second. */
-const MONTHS_PER_SECOND = 4;
+/** Simulated months per real second between milestones. */
+const MONTHS_PER_SECOND = 2;
+/** Real time the clock holds at each milestone so its step can be read. */
+const PERMIT_DWELL_MS = 3500;
+const TASK_DWELL_MS = 1500;
 
-/** Simulation clock in months; runs while `running`, fast-forward jumps to `end`. */
-function useSimClock(end: number) {
+/**
+ * Simulation clock in months; runs while `running`, holds `dwellMs` at every
+ * milestone month in `marks` (a procedure step starting, a task finishing),
+ * fast-forward jumps to `end`.
+ */
+function useSimClock(end: number, marks: number[] = [], dwellMs = 0) {
   const [month, setMonth] = useState(0);
   const [running, setRunning] = useState(false);
   const last = useRef<number | null>(null);
+  const holdUntil = useRef(0);
+  const markKey = marks.join(",");
   useEffect(() => {
     if (!running) return;
+    const stops = markKey ? markKey.split(",").map(Number) : [];
     let raf = 0;
     const tick = (t: number) => {
-      if (last.current != null) {
-        setMonth((m) => Math.min(end, m + ((t - last.current!) / 1000) * MONTHS_PER_SECOND));
+      if (last.current != null && t >= holdUntil.current) {
+        const dt = ((t - last.current) / 1000) * MONTHS_PER_SECOND;
+        setMonth((m) => {
+          const next = Math.min(end, m + dt);
+          const crossed = stops.find((k) => k > m && k <= next && k < end);
+          if (crossed === undefined) return next;
+          holdUntil.current = t + dwellMs;
+          return crossed;
+        });
       }
       last.current = t;
       raf = requestAnimationFrame(tick);
@@ -55,7 +72,7 @@ function useSimClock(end: number) {
       cancelAnimationFrame(raf);
       last.current = null;
     };
-  }, [running, end]);
+  }, [running, end, markKey, dwellMs]);
   useEffect(() => {
     if (month >= end) setRunning(false);
   }, [month, end]);
@@ -63,13 +80,17 @@ function useSimClock(end: number) {
     month,
     running,
     done: month >= end,
-    play: () => setRunning(true),
+    play: () => {
+      if (month === 0) holdUntil.current = performance.now() + dwellMs; // read the first step too
+      setRunning(true);
+    },
     pause: () => setRunning(false),
     finish: () => {
       setRunning(false);
       setMonth(end);
     },
     restart: () => {
+      holdUntil.current = performance.now() + dwellMs;
       setMonth(0);
       setRunning(true);
     },
@@ -196,7 +217,7 @@ function TasksStage({
   children?: React.ReactNode;
 }) {
   const end = Math.max(...tasks.map((t) => t.months));
-  const clock = useSimClock(end);
+  const clock = useSimClock(end, tasks.map((t) => t.months), TASK_DWELL_MS);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
   useEffect(() => {
@@ -278,7 +299,7 @@ export function PermitStage() {
   const decision = decide(report);
   const steps = permitSteps(decision);
   const end = steps[steps.length - 1].month;
-  const clock = useSimClock(end);
+  const clock = useSimClock(end, steps.map((s) => s.month), PERMIT_DWELL_MS);
   const reduced = useReducedMotion() ?? false;
   const current = [...steps].reverse().find((s) => clock.month >= s.month) ?? steps[0];
   const idx = steps.indexOf(current);
@@ -307,7 +328,7 @@ export function PermitStage() {
         {/* The procedure timeline */}
         <ol className="space-y-1.5" aria-label="Permit procedure">
           {steps.map((s, i) => {
-            const state = i < idx || decided ? "done" : i === idx && clock.month > 0 ? "now" : "next";
+            const state = i < idx || decided ? "done" : i === idx && (clock.month > 0 || clock.running) ? "now" : "next";
             return (
               <motion.li
                 key={s.id}

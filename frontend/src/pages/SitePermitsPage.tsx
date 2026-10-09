@@ -51,12 +51,12 @@ function Stepper() {
                 stage === s.id ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-hover",
               )}
             >
-              <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider opacity-80">
+              <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider">
                 {isDone ? <CheckCircle2 size={11} aria-label="done" /> : `${i + 1}`}
                 <span className="hidden sm:inline">· {s.short}</span>
               </span>
               <span className="hidden text-xs font-medium md:block">{s.title}</span>
-              <span className="hidden text-xs opacity-75 lg:block">{s.duration}</span>
+              <span className="hidden text-xs lg:block">{s.duration}</span>
             </button>
           </li>
         );

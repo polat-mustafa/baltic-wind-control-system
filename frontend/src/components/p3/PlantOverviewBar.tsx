@@ -150,10 +150,11 @@ export default function PlantOverviewBar({ trailing }: { trailing?: ReactNode })
           return (
             <span
               key={key}
-              data-priority={attr}
+              // ISA-101: no alarms of a priority = a neutral count, not a faded alarm colour
+              data-priority={n > 0 ? attr : undefined}
               className={cn(
                 "px-1.5 py-0.5 rounded text-xs font-mono font-bold tabular-nums",
-                n === 0 && "opacity-30",
+                n === 0 && "border border-border-primary text-text-muted",
                 n > 0 && key === "CRITICAL" && "animate-pulse",
               )}
             >

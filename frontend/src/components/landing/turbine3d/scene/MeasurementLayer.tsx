@@ -105,7 +105,7 @@ function FilterChips({
               borderRadius: 4,
               border: filterKind === k ? "1px solid #45c8d9" : "1px solid rgba(255,255,255,0.15)",
               background: filterKind === k ? "rgba(59,130,246,0.25)" : "rgba(0,0,0,0.5)",
-              color: filterKind === k ? "#93c5fd" : "#94a3b8",
+              color: filterKind === k ? "var(--color-accent)" : "var(--color-text-muted)",
               cursor: "pointer",
               textTransform: "capitalize",
             }}

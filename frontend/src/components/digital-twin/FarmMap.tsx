@@ -68,8 +68,8 @@ export default function FarmMap() {
       <svg
         viewBox={`${geo.box.x} ${geo.box.y} ${geo.box.w} ${geo.box.h}`}
         className="w-full h-auto max-h-[460px]"
-        role="img"
-        aria-label="Wind farm layout coloured by turbine health state"
+        role="group"
+        aria-label="Wind farm layout coloured by turbine health state (turbines are buttons)"
       >
         {strings.map((s, i) => (
           <polyline

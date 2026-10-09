@@ -65,7 +65,7 @@ import TurbineWakeCone from "./TurbineWakeCone";
 const NORMAL = "#4cc38a";
 const WARN = "#f0b13e";
 const ALARM = "#f25c54";
-const MUTED = "#7189a0";
+const MUTED = "#8099b0";
 const RHO_AIR = 1.225; // kg/m³, ISO standard atmosphere
 const ROTOR_AREA_M2 = Math.PI * (ROTOR_DIAMETER_M / 2) ** 2;
 

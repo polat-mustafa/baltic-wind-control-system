@@ -254,6 +254,7 @@ export default function AEPExplainer() {
                 className="w-full h-auto"
                 style={{ fontSize: fs }}
                 role="img"
+                aria-label={`${STEPS[step]}: illustration for this step`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

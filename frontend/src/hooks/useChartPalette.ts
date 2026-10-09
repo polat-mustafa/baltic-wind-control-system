@@ -62,4 +62,7 @@ export function useChartPalette(): ChartPalette {
 }
 
 /** Plotly layout.transition — data changes (re-run, slider) animate instead of jumping. */
+/** "#rrggbb" at opacity a (0…1) as "#rrggbbaa" — fills and bands in a series colour. */
+export const withAlpha = (hex: string, a: number) => `${hex}${Math.round(a * 255).toString(16).padStart(2, "0")}`;
+
 export const CHART_TRANSITION = { duration: 600, easing: "cubic-in-out" } as const;

@@ -24,6 +24,7 @@ import { ControlDrawer } from "../components/ui/ControlDrawer";
 import { p1Guide } from "../constants/trainingGuideContent";
 import { PageHeader } from "../components/layout/PageHeader";
 import { PageTabs, type PageTab } from "../components/layout/PageTabs";
+import { useAutoRun } from "../hooks/useAutoRun";
 
 type Tab = "aep" | "farms" | "ops";
 
@@ -49,6 +50,8 @@ export default function WindResourcePage() {
   useEffect(() => {
     fetchTurbineSpec();
   }, [fetchTurbineSpec]);
+  // Open with results: PyWake for the 34 turbines takes a few seconds
+  useAutoRun(!analysisRun && !loading && !error, runFullAnalysis);
 
   return (
     <div className="space-y-5">

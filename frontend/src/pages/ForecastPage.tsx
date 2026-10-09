@@ -27,6 +27,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card"
 import { readStored } from "../lib/storage";
 import { p4Guide } from "../constants/trainingGuideContent";
 import { PageHeader } from "../components/layout/PageHeader";
+import { useAutoRun } from "../hooks/useAutoRun";
 
 const TABS: { id: ForecastTab; label: string; Icon: typeof Brain }[] = [
   { id: "forecast", label: "Forecast", Icon: Brain },
@@ -100,7 +101,11 @@ export default function ForecastPage() {
 
   useEffect(() => {
     fetchTurbineSpec();
+    void useForecastStore.getState().fetchTrainingProgress();
   }, [fetchTurbineSpec]);
+  // Open with results when the models are already trained and cached (seconds);
+  // a first training takes ~30 min on a CPU, so that one stays a choice
+  useAutoRun(!!live && live.last_build_s != null && !live.active && !analysisRun && !loading && !error, runFullAnalysis);
 
   // The models train on one turbine of the 34-turbine reference SCADA set; the picker
   // names it after the farm on screen (an own project has as many choices as turbines).

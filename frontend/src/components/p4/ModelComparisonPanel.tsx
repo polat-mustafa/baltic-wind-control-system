@@ -14,24 +14,25 @@ import {
 } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { modelComparisonInfo } from "../../constants/panelInfo";
-
-/** Per-model colors from plan spec */
-const MODEL_COLORS: Record<string, string> = {
-  XGBoost: "#FF9500",
-  LSTM: "#00AAFF",
-  TFT: "#00CC66",
-  Ensemble: "#CC66FF",
-  Persistence: "#94A3B8",
-};
+import { useChartPalette } from "../../hooks/useChartPalette";
 
 export default function ModelComparisonPanel() {
+  const pal = useChartPalette();
+  // The ensemble is the headline series; the members and the persistence baseline step back
+  const MODEL_COLORS: Record<string, string> = {
+    XGBoost: pal.orange,
+    LSTM: pal.aqua,
+    TFT: pal.yellow,
+    Ensemble: pal.blue,
+    Persistence: pal.ref,
+  };
   const { modelComparison } = useForecastStore();
 
   if (!modelComparison) return null;
 
   const models = modelComparison.model_metrics;
   const names = models.map((m) => m.model_name);
-  const colors = names.map((n) => MODEL_COLORS[n] ?? "#94A3B8");
+  const colors = names.map((n) => MODEL_COLORS[n] ?? pal.ref);
 
   // Detect ensemble under-performance: an ensemble should never be worse
   // than its best base member. When this happens we surface a hint so
@@ -134,7 +135,7 @@ export default function ModelComparisonPanel() {
               >
                 <td
                   className="py-1 px-2 font-medium"
-                  style={{ color: MODEL_COLORS[m.model_name] ?? "#94A3B8" }}
+                  style={{ color: MODEL_COLORS[m.model_name] ?? pal.ref }}
                 >
                   {m.model_name}
                   {m.model_name === modelComparison.best_rmse ? " ★" : ""}

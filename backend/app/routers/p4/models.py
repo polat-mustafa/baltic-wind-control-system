@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from typing import Any
 
 from fastapi import APIRouter
 
+from app.core.cache import _make_cache_key, get_redis
 from app.schemas.forecast import (
     FeatureImportanceSchema,
     FoldMetricsSchema,
@@ -53,7 +55,7 @@ from app.services.p4.xgboost_model import (
     train_xgboost,
 )
 
-from ._pipeline import _get_pipeline_data
+from ._pipeline import DETERMINISTIC_TTL_S, PIPELINE_VERSION, _get_pipeline_data
 
 router = APIRouter()
 
@@ -169,7 +171,20 @@ async def xgboost_shap_endpoint(
     """Compute SHAP feature importance for the XGBoost P50 model.
 
     Pipeline: generate data → train → compute SHAP → return importance.
+    The result depends only on the request (seeded synthetic SCADA), so it is
+    cached in Redis like the forecasts: retraining XGBoost and TreeSHAP over
+    every row takes ~100 s on a CPU, the cache hit milliseconds.
     """
+    key = _make_cache_key(f"xgb_shap_{PIPELINE_VERSION}", (), request.model_dump())
+    redis = get_redis()
+    if redis is not None:
+        try:
+            hit = await redis.get(key)
+            if hit is not None:
+                return SHAPResponse.model_validate_json(hit)
+        except Exception:  # Redis down: compute uncached
+            pass
+
     features, target, _, _, feature_names = await _get_pipeline_data(
         num_turbines=request.num_turbines,
         num_timesteps=request.num_timesteps,
@@ -203,11 +218,15 @@ async def xgboost_shap_endpoint(
     n_sample = min(10, shap_result.shap_values.shape[0])
     shap_sample = [[round(float(v), 6) for v in row] for row in shap_result.shap_values[:n_sample]]
 
-    return SHAPResponse(
+    response = SHAPResponse(
         feature_importance=importance_list,
         top_features=top_features,
         shap_values_sample=shap_sample,
     )
+    if redis is not None:
+        with contextlib.suppress(Exception):  # Redis down: just not cached
+            await redis.setex(key, DETERMINISTIC_TTL_S, response.model_dump_json())
+    return response
 
 
 # ── LSTM Training ────────────────────────────────────────────────

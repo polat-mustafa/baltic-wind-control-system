@@ -14,8 +14,10 @@ import {
 } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { shapInfo } from "../../constants/panelInfo";
+import { useChartPalette, withAlpha } from "../../hooks/useChartPalette";
 
 export default function SHAPPanel() {
+  const pal = useChartPalette();
   const { shapResult } = useForecastStore();
 
   if (!shapResult) return null;
@@ -30,11 +32,11 @@ export default function SHAPPanel() {
   const names = reversed.map((f) => f.name);
   const values = reversed.map((f) => f.importance);
 
-  // Color gradient: higher importance = more saturated orange
+  // Colour: higher importance = more opaque orange
   const maxVal = Math.max(...values, 1e-9);
   const colors = values.map((v) => {
     const ratio = v / maxVal;
-    return `rgba(255, 149, 0, ${0.3 + 0.7 * ratio})`;
+    return withAlpha(pal.orange, 0.3 + 0.7 * ratio);
   });
 
   return (

@@ -3,15 +3,18 @@
  *
  * A small force-directed layout (repulsion between all nodes, springs along
  * links, gentle pull to the centre, damping) runs in requestAnimationFrame
- * until it settles; dragging a node re-heats it. Links are quadratic curves
- * shaded from one concept's colour to the other's; hovering a concept dims
- * everything that is not directly connected; clicking opens its lesson.
+ * until it settles; dragging a node re-heats it. Links are soft curves that
+ * light up (with a moving dash) around the concept in focus. Hover shows a
+ * short summary card; click opens the detail panel — summary, related
+ * concepts, and the lesson that explains it.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useForecastStore } from "../../../store/forecastStore";
-import { CONCEPTS, LINKS, type Lang } from "./academyContent";
+import { BookOpen, X } from "lucide-react";
+
+import { CHAPTERS, CONCEPT_SUMMARY, CONCEPTS, LINKS, type Lang } from "./academyContent";
 
 const W = 960;
 const H = 560;
@@ -69,6 +72,9 @@ export default function ConceptMap({ lang }: { lang: Lang }) {
   const heat = useRef(1);
   const drag = useRef<string | null>(null);
   const [hover, setHover] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const focus = hover ?? selected;
+  const moved = useRef(false);
 
   useEffect(() => {
     let raf = 0;
@@ -129,14 +135,17 @@ export default function ConceptMap({ lang }: { lang: Lang }) {
     const r = e.currentTarget.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
   };
-  const lit = (id: string) => !hover || id === hover || neighbours.get(hover)?.has(id);
+  const lit = (id: string) => !focus || id === focus || neighbours.get(focus)?.has(id);
+  const byId = useMemo(() => new Map(CONCEPTS.map((c) => [c.id, c])), []);
   const ps = pos.current;
 
   return (
     <div className="bw-viz rounded-lg border border-border-primary bg-bg-secondary p-3">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="relative min-w-0">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm font-semibold text-text-primary">
-          {lang === "tr" ? "Kavram haritası — bir kavrama tıklayın, dersi açılsın" : "Concept map — click a concept to open its lesson"}
+          {lang === "tr" ? "Kavram haritası — üzerine gelin: özet · tıklayın: ayrıntı" : "Concept map — hover for a summary, click for details"}
         </div>
         <div className="flex flex-wrap gap-3 text-[11px] text-text-muted">
           {Object.keys(GROUP_TONE).map((g) => (
@@ -161,6 +170,7 @@ export default function ConceptMap({ lang }: { lang: Lang }) {
           heat.current = Math.max(heat.current, 0.6);
         }}
         onPointerUp={() => (drag.current = null)}
+        onClick={(e) => e.target === e.currentTarget && setSelected(null)}
         onPointerLeave={() => (drag.current = null)}
       >
         <defs>
@@ -183,27 +193,36 @@ export default function ConceptMap({ lang }: { lang: Lang }) {
         {LINKS.map(([a, b]) => {
           const pa = ps.get(a)!;
           const pb = ps.get(b)!;
-          const mx = (pa.x + pb.x) / 2;
-          const my = (pa.y + pb.y) / 2;
-          const nx = -(pb.y - pa.y) * 0.18;
-          const ny = (pb.x - pa.x) * 0.18;
-          const on = !hover || a === hover || b === hover;
+          // soft S-curve: control points a third of the way along, nudged sideways
+          const dx = pb.x - pa.x;
+          const dy = pb.y - pa.y;
+          const k = 0.12;
+          const d = `M ${pa.x} ${pa.y} C ${pa.x + dx / 3 - dy * k} ${pa.y + dy / 3 + dx * k}, ${pa.x + (2 * dx) / 3 - dy * k} ${pa.y + (2 * dy) / 3 + dx * k}, ${pb.x} ${pb.y}`;
+          const on = !focus || a === focus || b === focus;
+          const hot = !!focus && (a === focus || b === focus);
           return (
             <path
               key={`${a}-${b}`}
-              d={`M ${pa.x} ${pa.y} Q ${mx + nx} ${my + ny} ${pb.x} ${pb.y}`}
+              d={d}
               fill="none"
               stroke={`url(#cm-${a}-${b})`}
-              strokeWidth={on && hover ? 2.6 : 1.5}
-              strokeOpacity={on ? 0.75 : 0.08}
+              strokeWidth={hot ? 2.2 : 1.1}
+              strokeOpacity={on ? (hot ? 0.95 : 0.45) : 0.06}
+              strokeLinecap="round"
+              strokeDasharray={hot ? "6 5" : undefined}
               style={{ transition: "stroke-opacity 300ms, stroke-width 300ms" }}
-            />
+            >
+              {hot && <animate attributeName="stroke-dashoffset" from="22" to="0" dur="0.9s" repeatCount="indefinite" />}
+            </path>
           );
         })}
         {CONCEPTS.map((c) => {
           const p = ps.get(c.id)!;
           const r = 7 + 2.2 * Math.min(6, degree.get(c.id) ?? 1);
           const on = lit(c.id);
+          const isFocus = focus === c.id;
+          const label = c.label[lang];
+          const lw = label.length * 6.4 + 12;
           return (
             <g
               key={c.id}
@@ -212,21 +231,119 @@ export default function ConceptMap({ lang }: { lang: Lang }) {
               onPointerDown={(e) => {
                 e.stopPropagation();
                 drag.current = c.id;
+                moved.current = false;
+              }}
+              onPointerMove={() => {
+                if (drag.current === c.id) moved.current = true;
               }}
               onPointerEnter={() => setHover(c.id)}
               onPointerLeave={() => setHover(null)}
-              onClick={() => openChapter(c.chapter)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!moved.current) setSelected((v) => (v === c.id ? null : c.id));
+              }}
             >
-              <title>{`${c.label[lang]} — ${lang === "tr" ? "dersi aç" : "open lesson"}`}</title>
-              <circle r={r + 6} style={{ fill: GROUP_TONE[c.group] }} opacity={hover === c.id ? 0.55 : 0.22} filter="url(#cm-glow)" />
-              <circle r={r} style={{ fill: GROUP_TONE[c.group], stroke: "var(--color-bg-secondary)" }} strokeWidth={2} />
-              <text y={r + 14} textAnchor="middle" fontSize={hover === c.id ? 13 : 11.5} fontWeight={hover === c.id ? 800 : 650} style={{ fill: "var(--color-text-primary)", paintOrder: "stroke", stroke: "var(--color-bg-secondary)", strokeWidth: 3 }}>
-                {c.label[lang]}
+              <circle r={r + 7} style={{ fill: GROUP_TONE[c.group] }} opacity={isFocus ? 0.5 : 0.16} filter="url(#cm-glow)" />
+              <circle r={r} style={{ fill: GROUP_TONE[c.group], stroke: selected === c.id ? "var(--color-text-primary)" : "var(--color-bg-secondary)" }} strokeWidth={selected === c.id ? 3 : 2} />
+              <rect x={-lw / 2} y={r + 4} width={lw} height={17} rx={8.5} style={{ fill: "var(--color-bg-primary)", stroke: isFocus ? GROUP_TONE[c.group] : "var(--color-border-primary)" }} strokeWidth={1} opacity={0.92} />
+              <text y={r + 16} textAnchor="middle" fontSize={isFocus ? 11.5 : 10.5} fontWeight={isFocus ? 800 : 600} style={{ fill: "var(--color-text-primary)" }}>
+                {label}
               </text>
             </g>
           );
         })}
       </svg>
+      {hover && hover !== selected && <HoverCard id={hover} p={ps.get(hover)!} lang={lang} group={byId.get(hover)!.group} />}
+      </div>
+      <ConceptPanel id={selected} lang={lang} onSelect={setSelected} onOpen={openChapter} neighbours={neighbours} />
+      </div>
     </div>
+  );
+}
+
+function HoverCard({ id, p, lang, group }: { id: string; p: P; lang: Lang; group: string }) {
+  const left = (p.x / W) * 100;
+  const top = (p.y / H) * 100;
+  const c = CONCEPTS.find((x) => x.id === id)!;
+  return (
+    <div
+      className="pointer-events-none absolute z-10 w-64 rounded-md border border-border-primary bg-bg-primary/95 p-2.5 text-[12px] shadow-lg backdrop-blur"
+      style={{ left: `${left}%`, top: `${top}%`, transform: `translate(${left > 60 ? "-105%" : "5%"}, ${top > 60 ? "-105%" : "8%"})` }}
+    >
+      <div className="mb-0.5 flex items-center gap-1.5 font-semibold text-text-primary">
+        <span className="inline-block h-2 w-2 rounded-full" style={{ background: GROUP_TONE[group] }} />
+        {c.label[lang]}
+      </div>
+      <p className="leading-snug text-text-secondary">{CONCEPT_SUMMARY[id]?.[lang]}</p>
+      <p className="mt-1 text-[10px] text-text-muted">{lang === "tr" ? "Ayrıntı için tıklayın" : "Click for details"}</p>
+    </div>
+  );
+}
+
+function ConceptPanel({
+  id,
+  lang,
+  onSelect,
+  onOpen,
+  neighbours,
+}: {
+  id: string | null;
+  lang: Lang;
+  onSelect: (id: string | null) => void;
+  onOpen: (chapter: string) => void;
+  neighbours: Map<string, Set<string>>;
+}) {
+  const c = id ? CONCEPTS.find((x) => x.id === id) : null;
+  if (!c) {
+    return (
+      <aside className="flex items-center justify-center rounded-md border border-dashed border-border-primary p-4 text-center text-[12px] text-text-muted">
+        {lang === "tr"
+          ? "Bir kavrama tıklayın: özeti, bağlı kavramları ve onu anlatan ders burada açılır."
+          : "Click a concept: its summary, related concepts and the lesson that explains it open here."}
+      </aside>
+    );
+  }
+  const chapter = CHAPTERS.find((ch) => ch.id === c.chapter);
+  const related = [...(neighbours.get(c.id) ?? [])].map((r) => CONCEPTS.find((x) => x.id === r)).filter((x) => x !== undefined);
+  return (
+    <aside className="space-y-2.5 rounded-md border border-border-primary bg-bg-primary p-3 text-[12px]">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bg-primary" style={{ background: GROUP_TONE[c.group] }}>
+            {GROUP_LABEL[c.group][lang]}
+          </span>
+          <h4 className="mt-1.5 text-base font-semibold text-text-primary">{c.label[lang]}</h4>
+        </div>
+        <button type="button" onClick={() => onSelect(null)} aria-label="Close" className="text-text-muted hover:text-text-primary">
+          <X size={14} />
+        </button>
+      </div>
+      <p className="leading-relaxed text-text-secondary">{CONCEPT_SUMMARY[c.id]?.[lang]}</p>
+      {related.length > 0 && (
+        <div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">{lang === "tr" ? "Bağlı kavramlar" : "Related concepts"}</div>
+          <div className="flex flex-wrap gap-1">
+            {related.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => onSelect(r.id)}
+                className="rounded-full border border-border-primary px-2 py-0.5 text-[11px] text-text-secondary hover:border-accent hover:text-text-primary"
+              >
+                {r.label[lang]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => onOpen(c.chapter)}
+        className="flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-accent-hover"
+      >
+        <BookOpen size={13} /> {lang === "tr" ? "Dersi aç" : "Open the lesson"}
+        {chapter ? `: ${chapter.title[lang]}` : ""}
+      </button>
+    </aside>
   );
 }

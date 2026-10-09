@@ -121,7 +121,7 @@ def get_turbine_spec(model_id: str = DEFAULT_TURBINE_ID) -> TurbineSpec:
     t = get_turbine(model_id)
     return TurbineSpec(
         model_id=t.id,
-        name=f"{t.name} (SB-510 'V236 class')",
+        name=f"{t.name} ({t.id})",
         rotor_diameter_m=t.rotor_diameter_m,
         hub_height_m=t.hub_height_m,
         rated_power_mw=t.rated_mw,

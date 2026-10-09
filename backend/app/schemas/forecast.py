@@ -642,6 +642,13 @@ class RampDetectRequest(BaseModel):
         description="Ramp rate threshold [MW/hr]",
     )
     seed: int | None = Field(default=42)
+    farm_turbines: int | None = Field(
+        default=None,
+        ge=1,
+        le=150,
+        description="Turbines of the farm the forecast is scaled to (the own project); "
+        "default num_turbines. The models still train on the num_turbines reference set.",
+    )
 
 
 class RampDetectResponse(BaseModel):

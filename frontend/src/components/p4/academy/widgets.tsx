@@ -16,6 +16,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useFleet } from "../../../lib/fleet";
 
 import { useForecastStore } from "../../../store/forecastStore";
 import { rng } from "./boosting";
@@ -41,6 +42,7 @@ function useTicker(period: number, n: number) {
 // ── 1. Why forecast ─────────────────────────────────────────────────
 
 export function WhyViz({ lang }: { lang: Lang }) {
+  const farmN = useFleet().turbines.length;
   const t = tt(lang);
   const N = 144; // 10-min steps in a day
   const data = useMemo(() => {
@@ -63,8 +65,8 @@ export function WhyViz({ lang }: { lang: Lang }) {
     `${path(a)} ${data.actual.map((_, i) => `L${x(N - 1 - i).toFixed(1)},${y(data.actual[N - 1 - i]).toFixed(1)}`).join(" ")} Z`;
   const price = 30; // €/MWh imbalance spread (illustrative)
   const mwh = (a: number[]) => a.reduce((s, v, i) => s + Math.abs(v - data.actual[i]) / 6, 0);
-  const costP = mwh(data.persistence) * price * 34;
-  const costF = mwh(data.forecast) * price * 34;
+  const costP = mwh(data.persistence) * price * farmN;
+  const costF = mwh(data.forecast) * price * farmN;
   return (
     <div className={box}>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="One day: actual power, forecast and persistence">
@@ -93,7 +95,7 @@ export function WhyViz({ lang }: { lang: Lang }) {
       </svg>
       <div className="mt-2 grid grid-cols-2 gap-2 text-center text-sm">
         <div className="rounded-md border border-status-alarm/40 p-2">
-          <div className="text-xs text-text-muted">{t("persistence · farm (34 WTG)", "persistence · santral (34 WTG)")}</div>
+          <div className="text-xs text-text-muted">{t(`persistence · farm (${farmN} WTG)`, `persistence · santral (${farmN} WTG)`)}</div>
           <div className="font-mono text-lg font-bold">{Math.round(costP).toLocaleString()} €/day</div>
         </div>
         <div className="rounded-md border border-accent/40 p-2">
@@ -103,8 +105,8 @@ export function WhyViz({ lang }: { lang: Lang }) {
       </div>
       <p className="mt-1.5 text-[11px] text-text-muted">
         {t(
-          `Illustrative: |error| × ${price} €/MWh imbalance spread, scaled to 34 turbines with the same profile.`,
-          `Örnek hesap: |hata| × ${price} €/MWh dengesizlik farkı, aynı profil ile 34 türbine ölçeklenmiş.`,
+          `Illustrative: |error| × ${price} €/MWh imbalance spread, scaled to ${farmN} turbines with the same profile.`,
+          `Örnek hesap: |hata| × ${price} €/MWh dengesizlik farkı, aynı profil ile ${farmN} türbine ölçeklenmiş.`,
         )}
       </p>
     </div>

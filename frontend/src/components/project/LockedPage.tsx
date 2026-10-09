@@ -4,11 +4,10 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Lock as LockIcon } from "lucide-react";
 
 import type { Lock } from "../../lib/project/progress";
-import { useModeStore } from "../../store/modeStore";
+import { confirmReference, switchMode } from "../../lib/project/library";
 import { Button } from "../ui/Button";
 
 export function LockedPage({ title, lock }: { title: string; lock: Lock }) {
-  const setMode = useModeStore((s) => s.setMode);
   return (
     <div className="mx-auto mt-6 max-w-lg rounded-xl border border-border-primary bg-bg-secondary p-5 sm:mt-12" role="status">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
@@ -25,7 +24,7 @@ export function LockedPage({ title, lock }: { title: string; lock: Lock }) {
         >
           Go to {lock.label} <ArrowRight size={13} aria-hidden />
         </Link>
-        <Button variant="secondary" size="sm" onClick={() => setMode("reference")}>
+        <Button variant="secondary" size="sm" onClick={() => confirmReference() && switchMode("reference")}>
           See it in SB-510
         </Button>
       </div>

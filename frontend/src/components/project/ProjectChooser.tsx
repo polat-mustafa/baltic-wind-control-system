@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, FolderPlus } from "lucide-react";
 
+import { switchMode } from "../../lib/project/library";
 import { useModeStore } from "../../store/modeStore";
 import { useTourStore } from "../../tour/tourStore";
 
@@ -16,7 +17,6 @@ export default function ProjectChooser() {
   const unset = useModeStore((s) => s.mode === null);
   const idle = useTourStore((s) => !s.welcomeOpen && s.activeTourId === null);
   const open = unset && idle;
-  const setMode = useModeStore((s) => s.setMode);
   const navigate = useNavigate();
   const titleId = useId();
   const firstRef = useRef<HTMLButtonElement>(null);
@@ -41,7 +41,7 @@ export default function ProjectChooser() {
         </h2>
         <p className="mt-1 text-xs text-text-muted">You can switch at any time from the project menu in the header.</p>
         <div className="mt-4 space-y-2">
-          <button ref={firstRef} type="button" className={card} onClick={() => setMode("reference")}>
+          <button ref={firstRef} type="button" className={card} onClick={() => switchMode("reference")}>
             <BookOpen size={20} className="mt-0.5 shrink-0 text-accent" aria-hidden />
             <span>
               <span className="block text-sm font-semibold">Explore SB-510</span>
@@ -54,7 +54,7 @@ export default function ProjectChooser() {
             type="button"
             className={card}
             onClick={() => {
-              setMode("own");
+              switchMode("own");
               navigate("/develop");
             }}
           >

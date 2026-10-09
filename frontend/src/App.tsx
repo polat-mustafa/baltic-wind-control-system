@@ -40,6 +40,7 @@ const SCADAPage = lazy(() => import("./pages/SCADAPage"));
 const SitePermitsPage = lazy(() => import("./pages/SitePermitsPage"));
 const LayoutPage = lazy(() => import("./pages/LayoutPage"));
 const ReportPage = lazy(() => import("./pages/ReportPage"));
+const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
 const TurbinePhysicsPage = lazy(() => import("./pages/TurbinePhysicsPage"));
 const WindResourcePage = lazy(() => import("./pages/WindResourcePage"));
 
@@ -53,6 +54,7 @@ function App() {
             <Route path="develop" element={<SitePermitsPage />} />
             <Route path="develop/layout" element={<LayoutPage />} />
             <Route path="report" element={<ReportPage />} />
+            <Route path="projects" element={<ProjectsPage />} />
             <Route path="wind-resource" element={<WindResourcePage />} />
             <Route path="hv-grid" element={<HVGridPage />} />
             <Route path="scada" element={<SCADAPage />} />

@@ -37,7 +37,8 @@ import { centroid, gridFill, minSpacing, polygonArea, type LonLat, type XY } fro
 import { suggestMoves } from "../lib/layout/suggest";
 import { useSiteRasters } from "../hooks/useSiteRasters";
 import { checkWakeMoves, computeWindRose } from "../services/windResourceApi";
-import { MAX_TURBINES, signature, useProjectStore } from "../store/projectStore";
+import { MAX_TURBINES, signature, useProjectStore, wtgId } from "../store/projectStore";
+import { useFarmPlan } from "../hooks/useFarmPlan";
 import { CASE_STUDY_SITE, useSiteStore } from "../store/siteStore";
 import { useProjectSync } from "../store/projectSync";
 import { Button } from "../components/ui/Button";
@@ -157,6 +158,10 @@ export default function LayoutPage() {
   const syncId = useProjectSync((s) => s.id);
 
   const p = useProjectStore();
+  // Operational register (strings from the OSS): the names SCADA, P5 and the control room use
+  const plan = useFarmPlan();
+  const registerOrder = plan.source === "project" ? plan.turbines.map((t) => t.id) : null;
+  const offRegister = registerOrder?.some((id, i) => id !== wtgId(i + 1)) ?? false;
   const [rose, setRose] = useState<WindRose>(UNIFORM_ROSE);
   const [roseReal, setRoseReal] = useState(false);
   const [wakeOn, setWakeOn] = useState(false);
@@ -322,6 +327,21 @@ export default function LayoutPage() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="space-y-3">
+          {offRegister && registerOrder && (
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border-primary bg-bg-secondary px-3 py-2 text-[12px] text-text-secondary">
+              <span className="min-w-0 flex-1">
+                Turbine tags differ from the operational numbering (string by string from the OSS) used by SCADA, commissioning and
+                the control room. Tags stay put while you design; renumber once, when the layout is frozen.
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => window.confirm("Rename every turbine to WTG-01 … in string order?") && p.renumber(registerOrder)}
+              >
+                Renumber turbines
+              </Button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-1.5" data-tour="layout-tools">
             <Button size="sm" variant={p.addMode ? "primary" : "secondary"} onClick={() => p.setAddMode(!p.addMode)} aria-pressed={p.addMode}>
               <MousePointerClick size={13} className="mr-1" /> {p.addMode ? "Click the map to add…" : "Add turbines"}
@@ -329,7 +349,14 @@ export default function LayoutPage() {
             <Button size="sm" variant="secondary" onClick={() => p.selected && p.removeTurbine(p.selected)} disabled={!p.selected}>
               <Trash2 size={13} className="mr-1" /> Remove {p.selected ?? "selected"}
             </Button>
-            <Button size="sm" variant="secondary" onClick={p.loadCaseStudy}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                (!p.turbines.length || window.confirm("Replace the turbines of this layout with SB-510's 34? (Duplicate the project in My projects first to keep this one.)")) &&
+                p.loadCaseStudy()
+              }
+            >
               Load SB-510 layout
             </Button>
             <Button size="sm" variant="ghost" onClick={p.clear} disabled={!p.turbines.length}>

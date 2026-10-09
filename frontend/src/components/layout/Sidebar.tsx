@@ -16,6 +16,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
+  Library,
   LayoutDashboard,
   Wind,
   Zap,
@@ -82,6 +83,12 @@ const NAV_GROUPS: NavGroup[] = [
         path: "/report",
         icon: FileText,
         description: "Print / PDF, JSON, windIO",
+      },
+      {
+        label: "My Projects",
+        path: "/projects",
+        icon: Library,
+        description: "Open, compare, export",
       },
     ],
   },

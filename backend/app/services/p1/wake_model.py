@@ -388,6 +388,29 @@ def _overlap_avg_model() -> Any:
     return OverlapAvg()
 
 
+def turbopark_model(site: Any, turbine: Any) -> Any:
+    """TurbOPark (Nygaard et al. 2022) as PyWake's ``Nygaard_2022`` sets it up — see
+    ``run_cluster_wake``."""
+    from py_wake.literature.turbopark import (
+        Mirror,
+        PropagateDownwind,
+        SquaredSum,
+        TurboGaussianDeficit,
+        ct2a_mom1d,
+    )
+
+    deficit = TurboGaussianDeficit(
+        ct2a=ct2a_mom1d,
+        groundModel=Mirror(superpositionModel=SquaredSum()),
+        rotorAvgModel=_overlap_avg_model(),
+        ctlim=0.96,
+    )
+    deficit.WS_key = "WS_jlk"
+    return PropagateDownwind(
+        site, turbine, wake_deficitModel=deficit, superpositionModel=SquaredSum()
+    )
+
+
 def run_cluster_wake(
     x_m: NDArray[np.floating],
     y_m: NDArray[np.floating],
@@ -407,24 +430,7 @@ def run_cluster_wake(
     table, ``_overlap_avg_model``). Same direction / speed grid for both runs;
     their ratio is the external wake loss.
     """
-    from py_wake.literature.turbopark import (
-        Mirror,
-        PropagateDownwind,
-        SquaredSum,
-        TurboGaussianDeficit,
-        ct2a_mom1d,
-    )
-
-    deficit = TurboGaussianDeficit(
-        ct2a=ct2a_mom1d,
-        groundModel=Mirror(superpositionModel=SquaredSum()),
-        rotorAvgModel=_overlap_avg_model(),
-        ctlim=0.96,
-    )
-    deficit.WS_key = "WS_jlk"
-    model = PropagateDownwind(
-        site, turbine, wake_deficitModel=deficit, superpositionModel=SquaredSum()
-    )
+    model = turbopark_model(site, turbine)
     n = len(x_m)
 
     def own_net(x: NDArray[np.floating], y: NDArray[np.floating]) -> float:

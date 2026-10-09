@@ -225,7 +225,13 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   IEC TR 60909-4 example networks.
 - **B3 — P4 real data only:** drop the synthetic SCADA forecast path; train and score on measured data
   (ENTSO-E File Library already in use, PR #262). Day-ahead metrics: CRPS, P10–P90 coverage,
-  reliability diagram, skill vs 24 h persistence and climatology.
+  reliability diagram, skill vs 24 h persistence and climatology. Research result: the data is already
+  here (`scripts/fetch_real_forecast_data.py`, `fetch_entsoe_units.py`, `services/p4/real_data.py`: Energinet
+  DK2 + ENTSO-E Kriegers Flak / Rødsand with Open-Meteo Previous Runs `previous_day1` ECMWF/ICON, hourly
+  2024-06 → 2026-10). Move XGB/LSTM/TFT/ensemble/SHAP onto it (NWP features, power lags ≥ 36 h only,
+  TimeSeriesSplit with a 24–48 h gap), delete `scada_generator` and `_pipeline._build_*`. Add TSO benchmarks:
+  Energinet `Forecasts_Hour` (DK2 offshore day-ahead) and Elia `ods031` (Belgian offshore, measured +
+  day-ahead + confidence10/90). Never the Open-Meteo Historical Forecast API (near-analysis, leaks).
 - **B4 — "Evidence" page** in the app generated from test results (what was validated, against what,
   metric, value, test file).
 - **B5 — guards:** numbers quoted in education prose checked against the backend; weekly DOI / link check.

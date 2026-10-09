@@ -1,0 +1,23 @@
+[
+ {
+  "key": "kriegers_flak",
+  "title": "Kriegers Flak (72 \u00d7 SG 8.4-167 DD)",
+  "capacity_mw": 604.8,
+  "entsoe_name": "DK_KF_AB_GU",
+  "file": "entsoe_kriegers_flak.csv.gz"
+ },
+ {
+  "key": "roedsand1",
+  "title": "Nysted / R\u00f8dsand 1 (72 \u00d7 SWT-2.3-82)",
+  "capacity_mw": 165.6,
+  "entsoe_name": "Roedsand 1",
+  "file": "entsoe_roedsand1.csv.gz"
+ },
+ {
+  "key": "roedsand2",
+  "title": "R\u00f8dsand 2 (90 \u00d7 SWT-2.3-93)",
+  "capacity_mw": 207.0,
+  "entsoe_name": "Roedsand 2",
+  "file": "entsoe_roedsand2.csv.gz"
+ }
+]

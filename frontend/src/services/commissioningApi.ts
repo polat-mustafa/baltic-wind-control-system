@@ -95,3 +95,23 @@ export const stageAction = (id: string, stage: NotificationStage, action: "submi
 export const listProcedures = () => request<EmergencyProcedure[]>(`${BASE}/emergency-procedures`);
 export const triggerEmergency = (id: string, emergency_type: string, triggered_by: string) =>
   post<EmergencyEvent>(`${P(id)}/emergency`, { emergency_type, triggered_by });
+
+// ── Real data: Baltic Power going live (ENTSO-E 16.1.A) ──
+
+export interface BalticPowerDay {
+  date: string;
+  peak_mw: number;
+  energy_mwh: number;
+  /** Peak / 15 MW: at least this many V236 turbines were producing. */
+  turbines_at_least: number;
+}
+
+export interface BalticPowerEnergisation {
+  farm: string;
+  source: string;
+  days: BalticPowerDay[];
+}
+
+export function getBalticPowerEnergisation(): Promise<BalticPowerEnergisation> {
+  return request(`${BASE}/real-data/baltic-power`);
+}

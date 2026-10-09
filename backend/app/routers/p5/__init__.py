@@ -8,6 +8,7 @@ from fastapi import APIRouter
 
 from .emergency import router as emergency_router
 from .loto import router as loto_router
+from .real_data import router as real_data_router
 from .switching import router as switching_router
 from .testing import router as testing_router
 
@@ -16,3 +17,4 @@ router.include_router(switching_router)
 router.include_router(loto_router)
 router.include_router(testing_router)
 router.include_router(emergency_router)
+router.include_router(real_data_router)

@@ -58,14 +58,14 @@ interface ViewerControlsProps {
 }
 
 const btn = cn(
-  "flex items-center gap-1 rounded px-2 py-1 w-full",
+  "flex items-center gap-1 rounded px-1.5 py-1 w-full min-w-0",
   "bg-bg-secondary/80 border border-border-primary backdrop-blur-sm",
   "text-text-muted hover:text-text-primary hover:bg-bg-hover",
   "transition-colors duration-150 text-[10px] font-medium",
 );
 
 const btnActive = cn(
-  "flex items-center gap-1 rounded px-2 py-1 w-full",
+  "flex items-center gap-1 rounded px-1.5 py-1 w-full min-w-0",
   "bg-accent/20 border border-accent/40 backdrop-blur-sm",
   "text-accent",
   "transition-colors duration-150 text-[10px] font-medium",
@@ -81,7 +81,7 @@ interface SectionProps {
 function Section({ title, icon: Icon, defaultOpen, children }: SectionProps) {
   return (
     <details
-      className="group pointer-events-auto w-44"
+      className="group pointer-events-auto w-48"
       {...(defaultOpen ? { open: true } : {})}
     >
       <summary
@@ -159,10 +159,10 @@ export function ViewerControls({
           compactOpen ? "@max-lg:top-9 @max-lg:max-h-[calc(100%-2.5rem)]" : "@max-lg:hidden",
         )}
       >
-        {/* View — mode + interior view; reset is surfaced as a trailing
-            icon-only button so the section fits in one visually clean block. */}
+        {/* View — mode + interior view, with reset on its own full-width row
+            so it can never be pushed outside the panel. */}
         <Section title="View" icon={Box}>
-          <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-0.5">
+          <div className="grid grid-cols-3 gap-0.5 [&>button]:justify-center">
             <button
               className={viewerMode === "normal" ? btnActive : btn}
               onClick={() => onViewerModeChange("normal")}
@@ -187,16 +187,8 @@ export function ViewerControls({
               <Layers size={11} />
               <span>Exp</span>
             </button>
-            <button
-              className={cn(btn, "justify-center !w-auto px-1.5")}
-              onClick={onResetCamera}
-              title="Reset all overlays, modes, and camera (R)"
-              aria-label="Reset camera and overlays"
-            >
-              <RotateCcw size={11} />
-            </button>
           </div>
-          <div className="grid grid-cols-2 gap-0.5">
+          <div className="grid grid-cols-2 gap-0.5 [&>button]:justify-center">
             <button
               className={interiorView === "3d" ? btnActive : btn}
               onClick={() => onInteriorViewChange("3d")}
@@ -214,11 +206,19 @@ export function ViewerControls({
               <span>Schem</span>
             </button>
           </div>
+          <button
+            className={btn}
+            onClick={onResetCamera}
+            title="Reset all overlays, modes, and camera (R)"
+          >
+            <RotateCcw size={11} />
+            <span>Reset view</span>
+          </button>
         </Section>
 
         {/* Environment — sky preset */}
         <Section title="Environment" icon={Cloud}>
-          <div className="grid grid-cols-3 gap-0.5">
+          <div className="grid grid-cols-3 gap-0.5 [&>button]:justify-center">
             <button
               className={skyPreset === "overcast" ? btnActive : btn}
               onClick={() => onSkyPresetChange("overcast")}
@@ -316,7 +316,7 @@ export function ViewerControls({
 
         {/* Blade Analysis — vertex-color shader modes */}
         <Section title="Blade Analysis" icon={Activity}>
-          <div className="grid grid-cols-2 gap-0.5">
+          <div className="grid grid-cols-2 gap-0.5 [&>button]:justify-center">
             {(["off", "thermal", "pressure", "bending"] as const).map((m) => (
               <button
                 key={m}

@@ -204,7 +204,8 @@ export const GridContext = memo(function GridContext() {
       >
         <Tooltip sticky>
           HVDC SwePol · 450 kV DC · 600 MW · Stärnö (SE) ↔ Słupsk-Wierzbięcino
-          (OSM)
+          (PL) · existing PL–SE interconnector, grid context only — not part of
+          the wind farm (OSM)
         </Tooltip>
       </Polyline>
     </>

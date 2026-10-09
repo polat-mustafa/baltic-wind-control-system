@@ -81,7 +81,9 @@ export default function AisTraffic() {
       ? "AIS off — set AISSTREAM_API_KEY on the backend (free key: aisstream.io)"
       : data && !data.status.connected
         ? `AIS: connecting… ${data.status.error}`
-        : null;
+        : data && data.vessels.length === 0
+          ? "AIS live — no vessel reports yet (shore-receiver coverage off Słupsk is sparse)"
+          : null;
 
   return (
     <>

@@ -31,8 +31,11 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 AISSTREAM_URL = "wss://stream.aisstream.io/v0/stream"
-# Site + approaches: Ustka / Słupsk Bank, lat 54.45–55.20 N, lon 15.80–17.30 E
-BBOX = [[54.45, 15.80], [55.20, 17.30]]
+# Southern Baltic, Bornholm – Gdańsk Bay, lat 54.30–55.80 N, lon 14.20–19.00 E.
+# aisstream only relays terrestrial receivers; on 2026-10-09 none covered the
+# Słupsk Bank itself (0 reports in 15.8–17.3 E over 60 s, 116 around Gdańsk
+# and Bornholm), so a site-only box usually stayed empty.
+BBOX = [[54.30, 14.20], [55.80, 19.00]]
 STALE_AFTER_S = 15 * 60  # AIS class A reports every 2–10 s under way, 3 min at anchor
 _POSITION_TYPES = ("PositionReport", "StandardClassBPositionReport", "ExtendedClassBPositionReport")
 
@@ -52,11 +55,17 @@ class Vessel:
 
 _vessels: dict[int, Vessel] = {}
 _task: asyncio.Task[None] | None = None
-_status = {"connected": False, "last_message": 0.0, "error": ""}
+_status: dict[str, Any] = {"connected": False, "last_message": 0.0, "error": ""}
+
+
+class AisServerError(RuntimeError):
+    """aisstream rejected the subscription (bad key, malformed box, rate limit)."""
 
 
 def ingest(msg: dict[str, Any], now: float | None = None) -> None:
     """Update the vessel cache from one aisstream message (pure, testable)."""
+    if "error" in msg:  # e.g. {"error": "Api Key Is Not Valid"} — the server then closes
+        raise AisServerError(str(msg["error"]))
     meta = msg.get("MetaData") or {}
     mmsi = meta.get("MMSI")
     if not isinstance(mmsi, int):
@@ -121,6 +130,9 @@ async def _run(api_key: str) -> None:
                 async for raw in ws:
                     ingest(json.loads(raw))
                     _status["last_message"] = time.time()
+            # A clean close is still a lost feed: report it and back off instead
+            # of reconnecting in a tight loop while claiming to be connected.
+            raise ConnectionError("stream closed by aisstream")
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # network / auth errors: log, back off, retry

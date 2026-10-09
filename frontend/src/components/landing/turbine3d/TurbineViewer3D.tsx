@@ -131,6 +131,8 @@ interface TurbineSceneProps {
   illustrated: boolean;
   /** GPU can't hold the frame rate: skip depth of field and bloom. */
   lowFx: boolean;
+  /** Bumped by "Reset view": flies the camera home even with no part selected. */
+  resetNonce: number;
 }
 
 function TurbineScene({
@@ -152,6 +154,7 @@ function TurbineScene({
   onMetricsReady,
   illustrated,
   lowFx,
+  resetNonce,
 }: TurbineSceneProps) {
   const selectedPart = useLandingStore(selectTurbinePart);
   const viewerMode = useLandingStore(selectViewerMode);
@@ -186,6 +189,10 @@ function TurbineScene({
   useEffect(() => {
     flyTo(selectedPart);
   }, [selectedPart, flyTo]);
+
+  useEffect(() => {
+    if (resetNonce > 0) flyTo(null);
+  }, [resetNonce, flyTo]);
 
   // Entering cutaway/exploded with nothing selected: frame the nacelle so
   // the opened shell is actually in view.
@@ -363,6 +370,7 @@ interface TurbineViewer3DProps {
 export default function TurbineViewer3D({ turbineId, turbine, expanded = false, onToggleExpand }: TurbineViewer3DProps) {
   const [webGLOk] = useState(() => isWebGLAvailable());
   const [explodedOffset, setExplodedOffset] = useState(0);
+  const [resetNonce, setResetNonce] = useState(0);
   const [showHumanFigure, setShowHumanFigure] = useState(false);
   const [dpr, setDpr] = useState(Math.min(window.devicePixelRatio, 2));
   const [lowFx, setLowFx] = useState(false);
@@ -458,8 +466,8 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
   const handleResetCamera = useCallback(() => {
     // Full reset: clears all overlays, modes, sky, selection in the store,
     // plus this component's local UI state (manual run, wind, exploded, scale figure).
-    // Clearing selectedTurbinePart also triggers the existing fly-to-default-camera effect.
     resetViewerDefaults();
+    setResetNonce((n) => n + 1);
     setManualRun(null);
     setManualWindMs(liveWindMs);
     setExplodedOffset(0);
@@ -598,6 +606,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
             onMetricsReady={setMetresPerPixel}
             illustrated={illustrated}
             lowFx={lowFx}
+            resetNonce={resetNonce}
           />
         </Suspense>
       </Canvas>

@@ -30,6 +30,8 @@ const CARD_W = 360;
 const ARROW_GAP = 64;
 /** Pause after an action step is done before moving on. */
 const ADVANCE_MS = 1100;
+/** Above the landing overlays (3D viewer 1150, expanded 1300), below the tour (10000). */
+const RAISED_Z = 1400;
 
 /** First element of the first target id that is laid out and at least partly on screen. */
 function findTarget(ids: string[]): HTMLElement | null {
@@ -165,6 +167,19 @@ function TourStepView({ tour, step, index }: { tour: Tour; step: TourStep; index
   const blocked = !!step.task && !done;
   const last = index === tour.steps.length - 1;
   const following = last ? nextTour(tour.id) : undefined;
+
+  // Lift a covered target above its siblings while the step is shown.
+  const raised = ready && step.raise && step.target ? ([] as string[]).concat(step.target).join("|") : "";
+  useEffect(() => {
+    if (!raised) return;
+    const el = findTarget(raised.split("|"));
+    if (!el) return;
+    const before = el.style.zIndex;
+    el.style.zIndex = String(RAISED_Z);
+    return () => {
+      el.style.zIndex = before;
+    };
+  }, [raised]);
 
   // Action done by the user → move on by itself (not on the last step,
   // whose card offers the next tour).

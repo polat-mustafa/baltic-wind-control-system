@@ -96,7 +96,7 @@ export const hvacVsHvdcEducation: EducationContent = {
         "I_c = 7.58 A/km × 130 km = 986 A; half at each end: 493 A",
         "Per cable: √3 · 220 kV · √(825² − 493²) A ≈ 252 MW → 8 cables for 2 GW",
         "Charging power ωC'U²L ≈ 376 MVAR per cable → about 3 GVAR of reactors over the 8 cables",
-        "HVDC: one ±320 kV (or ±525 kV) link and two converter stations carry the same power with no charging current",
+        "HVDC: one ±525 kV link (the German 2 GW standard; ±320 kV links carry ≈ 0.9 GW) and two converter stations carry the same power with no charging current",
       ],
       result:
         "Eight AC cables with 3 GVAR of compensation against one DC link: at this scale and distance HVDC is the usual " +

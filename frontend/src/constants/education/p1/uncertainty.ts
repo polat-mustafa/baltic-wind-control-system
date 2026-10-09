@@ -8,7 +8,8 @@ export const uncertaintyEducation: EducationContent = {
 
   overview:
     "Every AEP on this dashboard is a central estimate of an uncertain quantity. The width of its distribution — the " +
-    "combined uncertainty σ — sets the gap between P50 (median) and P90 (bankable). Lenders size debt on P90, so a " +
+    "combined uncertainty σ — sets the gap between P50 (median) and P90 (bankable: the yield EXCEEDED with 90 % " +
+    "probability, so the low value — forecasting's P90 on the Forecast page is the opposite, high quantile). Lenders size debt on P90, so a " +
     "wider σ means less debt for the same farm. Reducing σ (longer data, LiDAR, validated models) is therefore worth " +
     "real money, even when it does not change P50 at all.",
 
@@ -30,7 +31,6 @@ export const uncertaintyEducation: EducationContent = {
     {
       label: "IEC 61400-15 (series) — Energy yield assessment and its uncertainty",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "JCGM 100 — Guide to the Expression of Uncertainty in Measurement (GUM)",

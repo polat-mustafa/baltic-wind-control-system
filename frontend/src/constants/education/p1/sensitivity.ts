@@ -21,7 +21,7 @@ export const sensitivityEducation: EducationContent = {
     "Global methods (Sobol indices) average over the joint distribution and capture interactions; the backend's " +
     "polynomial-chaos tool reports Sobol indices. Because the AEP cascade is multiplicative and the losses are small, " +
     "interactions between the loss terms are weak, so OAT ranks them almost the same way. The wind-speed → energy step " +
-    "is non-linear and turbine-dependent: for the V236 at this site, +1 % in Weibull A gives only +1.2 % gross AEP.",
+    "is non-linear and turbine-dependent: for the IEA 15 MW at this site, +1 % in Weibull A gives +0.98 % gross AEP (aep_sensitivity()); at a weaker site the same turbine gives more.",
 
   standards: [
     {
@@ -57,16 +57,19 @@ export const sensitivityEducation: EducationContent = {
   workedExamples: [
     {
       title: "Tornado for this platform's AEP (±1σ of each source)",
-      scenario: "P50 = 2,077 GWh/yr; uncertainty sources as % of AEP: wind 4, wake 3, long-term 3, shear 2, availability 2.",
+      scenario:
+        "P50 = 2,161 GWh/yr (AEP tab); the six components of uncertainty_components() as % of AEP: wind resource 5.51, " +
+        "turbine performance 4.0, plant non-wake losses 2.7, wake and blockage 2.1, future variability 0.82, long-term 0.75.",
       steps: [
-        "Wind resource: ±4 % → ±83 GWh",
-        "Wake model: ±3 % → ±62 GWh",
-        "Long-term correction: ±3 % → ±62 GWh",
-        "Shear, availability: ±2 % → ±42 GWh each",
+        "Wind resource (NEWA model, no measurement): ±5.51 % → ±119 GWh",
+        "Turbine performance (reference power curve): ±4.0 % → ±86 GWh",
+        "Plant non-wake losses: ±2.7 % → ±58 GWh",
+        "Wake and blockage model: ±2.1 % → ±45 GWh",
+        "Future variability ±0.82 % → ±18 GWh; long-term period ±0.75 % → ±16 GWh",
       ],
       result:
-        "The wind-resource terms (data + long-term + shear) dominate. More measurement — a floating LiDAR campaign, a " +
-        "longer reference period — buys more bankable energy than refining the cable-loss estimate.",
+        "The wind-resource term dominates because SB-510 has no on-site measurement, only the NEWA atlas. A floating LiDAR " +
+        "campaign buys more bankable energy than refining the cable-loss estimate.",
     },
   ],
 

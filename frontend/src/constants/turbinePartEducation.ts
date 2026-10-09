@@ -768,7 +768,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     title: "Nacelle Step-Up Transformer",
     overview:
       "The nacelle transformer steps the converter output up to 66 kV for the array cable to the offshore substation. The IEA 15 MW reference specifies the generator (4.77 kV line) but not the converter output voltage or the transformer, so the rating here is illustrative: 16 MVA (\u2248 7 % above 15 MW), Dyn11, liquid-filled.",
-    standards: ["IEC 60076-1", "IEC 60076-14", "IEC 61400-1"],
+    standards: ["IEC 60076-1", "IEC 60076-16", "IEC 61400-1"],
     formulas: [
       {
         expression: "I = S / (\u221A3 \u00B7 V)",

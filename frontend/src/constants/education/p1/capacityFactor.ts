@@ -26,7 +26,6 @@ export const capacityFactorEducation: EducationContent = {
     {
       label: "IEC 61400-12-1 — Power performance measurements",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
   ],
 
@@ -52,16 +51,16 @@ export const capacityFactorEducation: EducationContent = {
 
   workedExamples: [
     {
-      title: "This platform (34 × V236, P50 from the AEP tab)",
-      scenario: "Installed 510 MW, gross AEP 2,426 GWh/yr, net P50 2,077 GWh/yr.",
+      title: "This platform (34 × IEA 15 MW, P50 from the AEP tab)",
+      scenario: "Installed 510 MW, gross AEP 2,557 GWh/yr, net P50 2,161 GWh/yr, P90 1,948 GWh/yr.",
       steps: [
         "Maximum = 510 MW × 8,760 h = 4,467,600 MWh = 4,468 GWh",
-        "Gross CF = 2,426 / 4,468 = 54.3 %",
-        "Net CF (P50) = 2,077 / 4,468 = 46.5 %  → 4,073 full-load hours",
+        "Gross CF = 2,557 / 4,468 = 57.2 %",
+        "Net CF (P50) = 2,161 / 4,468 = 48.4 %  → 4,237 full-load hours",
       ],
       result:
-        "The 8-point gap between gross and net CF is the whole loss cascade. A P90-based CF would be another 8.8 % " +
-        "lower (≈ 42.4 %).",
+        "The 8.8-point gap between gross and net CF is the whole loss cascade. A P90-based CF is another 9.9 % " +
+        "lower (1,948 / 4,468 ≈ 43.6 %).",
     },
   ],
 

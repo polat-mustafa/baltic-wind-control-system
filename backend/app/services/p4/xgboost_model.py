@@ -21,16 +21,20 @@ Quantile regression (pinball loss) provides prediction intervals:
 
 where τ = 0.10 (P10), 0.50 (P50/median), 0.90 (P90).
 
-Standard — IEC 61400-26-1 Availability & Uncertainty
-------------------------------------------------------
-IEC 61400-26-1 requires uncertainty quantification for power predictions.
-P10/P50/P90 intervals map directly to operational decision-making:
-  - P90: Conservative estimate for grid commitment (90% probability of exceedance)
-  - P50: Central forecast for energy trading
-  - P10: Optimistic estimate for maintenance scheduling
+Forecast verification — quantiles and skill
+--------------------------------------------
+P10/P50/P90 here are QUANTILES of the power forecast: the real power should
+fall below P10 one time in ten and above P90 one time in ten (Gneiting &
+Raftery 2007). P90 is therefore the HIGH value. This is the opposite side
+from energy-yield P90 (P1), which is the yield EXCEEDED with 90 % probability
+— the low, bankable value. Same name, opposite tail.
+  - P10: low side — the level to plan against when a shortfall is costly
+  - P50: median forecast, the point forecast for day-ahead bidding
+  - P90: high side — upper bound for curtailment / congestion planning
 
-The skill score compares against persistence (P(t+1) = P(t)):
-  SS = 1 - RMSE_model / RMSE_persistence
+The skill score compares against persistence (P̂(t) = P(t−1)) on the same
+test samples, as recommended by Madsen et al. (2005):
+  SS = 1 - MSE_model / MSE_persistence
   SS > 0 means the model beats the naive baseline.
 
 Maths — XGBoost Objective Functions
@@ -46,11 +50,11 @@ For quantile regression, the loss function becomes:
 which is a piecewise linear (pinball) loss that shifts the predicted
 distribution to the desired quantile level.
 
-TimeSeriesSplit ensures no future leakage:
-  Fold 1: train [0..N/5], test [N/5..2N/5]
-  Fold 2: train [0..2N/5], test [2N/5..3N/5]
+TimeSeriesSplit ensures no future leakage (5 splits → N/6 per block):
+  Fold 1: train [0..N/6], test [N/6..2N/6]
+  Fold 2: train [0..2N/6], test [2N/6..3N/6]
   ...
-  Fold 5: train [0..4N/5], test [4N/5..N]
+  Fold 5: train [0..5N/6], test [5N/6..N]
 
 SHAP (SHapley Additive exPlanations) decomposes each prediction:
   f(x) = E[f(X)] + Σ φ_j(x)
@@ -62,7 +66,10 @@ References
 ----------
 - Chen & Guestrin, "XGBoost: A Scalable Tree Boosting System" (KDD 2016)
 - Lundberg & Lee, "SHAP: A Unified Approach to Interpreting Model Predictions"
-- IEC 61400-26-1: Time-based availability for wind turbines
+- Madsen et al., "Standardizing the performance evaluation of short-term wind
+  power prediction models", Wind Engineering 29(6), 2005
+- Gneiting & Raftery, "Strictly proper scoring rules, prediction, and
+  estimation", JASA 102(477), 2007
 - Roadmap §5.7: XGBoost model, §5.10: SHAP, §5.11: Skill score
 """
 
@@ -75,6 +82,7 @@ import xgboost as xgb
 from numpy.typing import NDArray
 from sklearn.model_selection import TimeSeriesSplit
 
+from app.services.p4.model_evaluation import skill_score_from_squared_errors
 from app.services.p4.physical_constraints import enforce_physical_constraints
 from app.services.p4.training_progress import PROGRESS
 
@@ -160,7 +168,7 @@ class CVResult:
         Mean R² across all folds.
     skill_score_vs_persistence : float
         Skill score vs persistence baseline.
-        SS = 1 - RMSE_model / RMSE_persistence. SS > 0 = model wins.
+        SS = 1 - MSE_model / MSE_persistence on the test samples. SS > 0 = model wins.
     """
 
     fold_metrics: list[FoldMetrics]
@@ -248,20 +256,6 @@ def _compute_metrics(
         mape_pct=round(mape, 2),
         r_squared=round(r_squared, 4),
     )
-
-
-def _compute_persistence_rmse(target: NDArray[np.float64]) -> float:
-    """Compute RMSE for persistence baseline: P(t+1) = P(t).
-
-    Persistence is the simplest forecast — assume the next value equals
-    the current value. Any useful ML model must beat this.
-    """
-    if len(target) < 2:
-        return 0.0
-    persistence_pred = target[:-1]
-    actual = target[1:]
-    rmse = float(np.sqrt(np.mean((actual - persistence_pred) ** 2)))
-    return rmse
 
 
 def _dmatrix(
@@ -405,10 +399,10 @@ def train_xgboost(
     mean_mape = float(np.mean([m.mape_pct for m in fold_metrics_list]))
     mean_r2 = float(np.mean([m.r_squared for m in fold_metrics_list]))
 
-    # Skill score vs persistence on the test samples: RMSE over all test samples
-    model_rmse = float(np.sqrt(np.mean([m.rmse_mw**2 for m in fold_metrics_list])))
-    persistence_rmse = float(np.sqrt(np.mean(persistence_sq))) if persistence_sq else 0.0
-    skill_score = 1.0 - model_rmse / persistence_rmse if persistence_rmse > 0 else 0.0
+    # Skill score vs persistence on the same test samples (TimeSeriesSplit folds are
+    # equal-sized, so the mean of the fold MSEs is the MSE over all test samples)
+    fold_mse = [m.rmse_mw**2 for m in fold_metrics_list]
+    skill_score = skill_score_from_squared_errors(fold_mse, persistence_sq)
 
     cv_result = CVResult(
         fold_metrics=fold_metrics_list,

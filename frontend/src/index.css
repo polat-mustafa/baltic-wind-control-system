@@ -455,9 +455,11 @@ body {
   .dwg-flow { animation: none; }
 }
 
-/* Site & Permits: print only the selected training-specimen document */
+/* Print only the document being printed (report, permits, hand-over, training record).
+   :where() keeps the hide rule at zero specificity — otherwise body:has(...) * (0,2,1)
+   beats .print-doc[data-printing] * (0,2,0) and every page comes out blank. */
 @media print {
-  body:has(.print-doc[data-printing]) * {
+  :where(body:has(.print-doc[data-printing])) * {
     visibility: hidden !important;
   }
   .print-doc[data-printing],

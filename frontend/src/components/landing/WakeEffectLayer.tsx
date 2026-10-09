@@ -1,7 +1,7 @@
 /**
  * Wake effect visualization layer for the Leaflet wind farm map.
  *
- * Shows Jensen/Park wake deficit cones behind each turbine and
+ * Shows the 2σ envelope of each turbine's Gaussian (Bastankhah) wake and
  * quiet loss badges on the most-affected downstream turbines.
  *
  * Wind direction is quantized to 5° steps to avoid excessive

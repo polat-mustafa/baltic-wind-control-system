@@ -1,5 +1,5 @@
 /**
- * Grid events seen from the 510 MW farm — pure, testable trajectories.
+ * Grid events seen from the farm (Pmax = its installed capacity) — pure, testable trajectories.
  *
  * 1. Frequency events in the Continental Europe (CE) synchronous area:
  *    aggregated swing equation
@@ -16,7 +16,7 @@
  *      LFSM-U below 49.8 Hz: ΔP = +(Pmax/0.05)·(49.8 − f)/50, limited by
  *      the headroom it holds (Δ-reserve) — at MPPT it has none.
  *
- * 2. Voltage dip at the PCC (400 kV fault near Słupsk, cleared in 140 ms)
+ * 2. Voltage dip at the PCC (400 kV fault near the grid node, cleared in 140 ms)
  *    against the PSE LVRT envelope used by backend services/p2/frt_simulation.py.
  *    During the dip the converters give reactive current priority:
  *      ΔIq = K·ΔU, K = 2 (NC RfG Art. 20/21), capped at 1.0 pu,
@@ -68,11 +68,13 @@ export function lvrtLimit(t: number): number {
  * Frequency event: CE swing equation + farm LFSM response.
  * @param pFarmMW  farm output before the event
  * @param reservePct Δ-reserve held (0 = MPPT, no upward headroom)
+ * @param pmaxMW   installed capacity (LFSM-U droop is on Pmax)
  */
 export function frequencyEvent(
   kind: "underfrequency" | "overfrequency",
   pFarmMW: number,
   reservePct: number,
+  pmaxMW: number,
   durationS = 60,
   dt = 0.05,
 ): GridSample[] {
@@ -94,14 +96,14 @@ export function frequencyEvent(
     // Farm LFSM (1 s response lag)
     let target = pFarmMW;
     if (f > 50.2) target = pFarmMW - (pFarmMW / DROOP) * ((f - 50.2) / F0);
-    if (f < 49.8) target = pFarmMW + Math.min(headroom, (510 / DROOP) * ((49.8 - f) / F0));
+    if (f < 49.8) target = pFarmMW + Math.min(headroom, (pmaxMW / DROOP) * ((49.8 - f) / F0));
     pFarm += ((target - pFarm) * dt) / 1.0;
   }
   return out;
 }
 
-/** 400 kV fault near Słupsk: U_ret 0.3 pu for 140 ms, then recovery. */
-export function voltageDipEvent(pFarmMW: number, durationS = 3, dt = 0.01): GridSample[] {
+/** 400 kV fault near the grid node: U_ret 0.3 pu for 140 ms, then recovery (Pmax = pmaxMW). */
+export function voltageDipEvent(pFarmMW: number, pmaxMW: number, durationS = 3, dt = 0.01): GridSample[] {
   const CLEAR = 0.14;
   const out: GridSample[] = [];
   for (let t = 0; t <= durationS + 1e-9; t += dt) {
@@ -111,14 +113,14 @@ export function voltageDipEvent(pFarmMW: number, durationS = 3, dt = 0.01): Grid
     const ip = Math.sqrt(Math.max(0, 1 - iq * iq));
     // P: limited by Ip during the dip; ramps back to 100 % over 0.8 s after clearance
     const recovery = t < CLEAR ? 0 : Math.min(1, (t - CLEAR) / 0.8);
-    const pLimit = u * ip * 510;
+    const pLimit = u * ip * pmaxMW;
     const pMW = t < 0.02 ? pFarmMW : Math.min(pLimit, pFarmMW * (t < CLEAR ? 1 : recovery));
     out.push({
       t: Math.round(t * 1000) / 1000,
       f: F0,
       u,
       pMW,
-      qMVAr: u * iq * 510,
+      qMVAr: u * iq * pmaxMW,
       statcomMVAr: u < 0.9 ? u * 120 : 0,
     });
   }

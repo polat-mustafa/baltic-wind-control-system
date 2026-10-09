@@ -22,7 +22,7 @@ export default function FleetHealthPanel() {
   return (
     <section className="bg-bg-secondary rounded-lg border border-border-primary p-3">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-2">
-        <h3 className="text-xs font-semibold text-text-primary">Fleet health index · {fleet.turbines.length} × V236</h3>
+        <h3 className="text-xs font-semibold text-text-primary">Fleet health index · {fleet.turbines.length} × 15 MW</h3>
         <span className="text-[11px] font-mono text-text-muted">
           fleet mean {fleet.fleet_average_hi.toFixed(0)} · {fleet.turbines_in_alert} amber · {fleet.turbines_in_warning} red/critical
         </span>

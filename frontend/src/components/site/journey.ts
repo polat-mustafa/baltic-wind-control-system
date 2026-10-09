@@ -310,7 +310,7 @@ export const ENVIRONMENT: Task[] = [
     actor: "consultant",
     months: 6,
     what: "Grab samples, video transects and habitat mapping over the site and the cable route.",
-    why: "Sandbanks (habitat 1110) and reefs (1170) are protected habitat types; Ławica Słupska nearby is designated for both.",
+    why: "Sandbanks (habitat 1110) and reefs (1170) are protected habitat types under the Habitats Directive; the screening's Natura 2000 check shows whether a designated site lies near yours.",
   },
   {
     id: "fish",

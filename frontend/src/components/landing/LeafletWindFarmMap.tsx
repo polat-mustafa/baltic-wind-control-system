@@ -1457,7 +1457,7 @@ function LeafletWindFarmMapInner({
         {/* 500 m safety zones (UNCLOS Art. 60) */}
         {layers.safetyZones && <SafetyZones />}
 
-        {/* Jensen/Park wake effect cones + loss badges */}
+        {/* Wake cones (Bastankhah) + loss badges */}
         {layers.wakeEffects && <WakeEffectLayer />}
 
         {/* 66 kV array cables */}

@@ -9,7 +9,7 @@
  *   process     ISA-5.1 / ISO 10628 — instrument bubble, pump, tank, filter,
  *               check / relief valve, accumulator, cylinder, heat exchanger,
  *               fan, brake caliper
- *   mechanical  ISO 3952 style — rolling bearing, coupling, gear stage
+ *   mechanical  ISO 3952 style — rolling bearing, brake (direct drive: no gear stage)
  *
  * Ink is `currentColor` (the sheet sets the theme text colour); fills use
  * the paper colour so symbols mask the lines they sit on.

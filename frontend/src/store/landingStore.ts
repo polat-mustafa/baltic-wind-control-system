@@ -704,7 +704,8 @@ export const useLandingStore = create<LandingState>((set) => {
     gridEvent: null,
     triggerGridEvent: (kind) => {
       const p = useLandingStore.getState().kpis.totalOutputMW;
-      const traj = kind === "voltage-dip" ? voltageDipEvent(p) : frequencyEvent(kind, p, _reservePct);
+      const pmax = liveFleet().net.total_capacity_mw;
+      const traj = kind === "voltage-dip" ? voltageDipEvent(p, pmax) : frequencyEvent(kind, p, _reservePct, pmax);
       set({ gridEvent: { kind, startedAt: Date.now(), slowMo: kind === "voltage-dip" ? 10 : 1, reservePct: _reservePct, traj } });
     },
     clearGridEvent: () => set({ gridEvent: null }),
@@ -787,7 +788,7 @@ export const useLandingStore = create<LandingState>((set) => {
             const posOffset = pos ? (pos.x * Math.cos(_windDirDeg * Math.PI / 180) + pos.y * Math.sin(_windDirDeg * Math.PI / 180)) / 800 : 0;
             const turbineBaseWind = _baseWindSpeed + posOffset * 0.5 + rand(-0.15, 0.15);
             // Smooth the FREESTREAM wind, then apply this turbine's wake deficit
-            // (Jensen/Park, cached per 5° of direction) — the rotor sees u·(1−δ).
+            // (Bastankhah Gaussian, Katic root-sum-square, cached per 5° of direction) — the rotor sees u·(1−δ).
             const deficit = wakeDeficits.get(id) ?? 0;
             const prevFree = _freeWind.get(id) ?? t.windSpeedMs / (1 - deficit);
             const freeWind = clamp(prevFree * 0.5 + turbineBaseWind * 0.5, 0, 40);

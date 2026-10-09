@@ -526,7 +526,7 @@ const digitalTwin: Tour = {
       target: "page-header",
       title: "A physics model next to every turbine",
       body:
-        "The twin runs a physics model of the V236 at each 10-minute record's measured wind and compares it " +
+        "The twin runs a physics model of the 15 MW turbine at each 10-minute record's measured wind and compares it " +
         "with what the turbine reports. It follows the ISO 13374 chain: detect, diagnose, predict.",
     },
     {

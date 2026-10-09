@@ -108,17 +108,8 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId, head
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          {headerExtra}
-          <button
-            type="button"
-            onClick={() => setInteriorView("3d")}
-            className="flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-secondary px-3 py-1.5 text-[12px] font-semibold hover:bg-bg-hover"
-            title="Back to the 3D view (S)"
-          >
-            <X size={14} /> Back to 3D
-          </button>
-        </div>
+        {/* the viewer's Realistic | Schematic | Drawings switch and full-view toggle */}
+        <div className="flex items-center gap-2">{headerExtra}</div>
       </div>
 
       <div className="min-h-0 flex-1 p-2">

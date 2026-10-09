@@ -18,10 +18,22 @@ export interface AccessProbabilityResponse {
   limiting_parameter: string;
 }
 
+export interface SeaIceClimate {
+  source: string;
+  ice_days_by_winter: Record<string, number>;
+  winters: number;
+  winters_with_ice: number;
+  mean_ice_days: number;
+  note: string;
+}
+
 export interface AllVesselAccessResponse {
   location: string;
   year: number;
   vessels: AccessProbabilityResponse[];
+  /** Source of the measured sea states behind the access (ERA5 hindcast). */
+  hindcast?: string;
+  sea_ice?: SeaIceClimate | null;
 }
 
 // ── O&M cost breakdown ───────────────────────────────────────────

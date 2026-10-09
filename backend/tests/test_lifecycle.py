@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from datetime import date
 from typing import Any
 
@@ -38,18 +37,17 @@ def _inp(**kw: Any) -> CampaignInput:
 # ── weather model ─────────────────────────────────────────────────────────────
 
 
-def test_marginals_follow_the_monthly_climate() -> None:
-    """Simulated Hs and wind match their Rayleigh / Weibull k=2 CDFs in a winter month."""
-    hs, vw = weather.simulate(date(2028, 1, 1), 31 * 4, 400, seed=7)
-    mu_h, mu_v = weather.HS_MEAN[0], weather.VW_MEAN[0]
-    for x in (1.0, 1.5, 2.5):
-        expected = 1 - math.exp(-math.pi / 4 * (x / mu_h) ** 2)
-        assert abs(float((hs <= x).mean()) - expected) < 0.03
-    c = 2 * mu_v / math.sqrt(math.pi)
-    for x in (6.0, 10.0, 14.0):
-        assert abs(float((vw <= x).mean()) - (1 - math.exp(-((x / c) ** 2)))) < 0.03
-    # Rayleigh mean ≈ monthly mean [m]
-    assert abs(float(hs.mean()) - mu_h) < 0.08
+def test_runs_replay_the_real_hindcast() -> None:
+    """Run r = the historical year 1995 + (seed + r) mod 30, starting on the start date."""
+    t, hs_all, v_all = weather.hindcast()
+    assert t[0] == np.datetime64("1995-01-01T00") and len(t) >= 30 * 365 * 4
+    hs, vw = weather.simulate(date(2028, 1, 1), 31 * 4, 3, seed=7)
+    s0 = int(np.searchsorted(t, np.datetime64("2002-01-01T00")))  # 1995 + 7
+    assert np.array_equal(hs[0], hs_all[s0 : s0 + 31 * 4])
+    assert np.array_equal(vw[0], v_all[s0 : s0 + 31 * 4])
+    # Baltic climate: January rougher than July [m], winter wind stronger [m/s]
+    assert 1.2 < weather.HS_MEAN[0] < 1.8 and 0.5 < weather.HS_MEAN[6] < 1.0
+    assert weather.VW_MEAN[0] > weather.VW_MEAN[6] + 2.0
 
 
 def test_sea_states_persist_and_wind_follows_waves() -> None:

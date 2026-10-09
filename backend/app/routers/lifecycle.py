@@ -21,9 +21,8 @@ router = APIRouter(prefix="/api/v1/lifecycle", tags=["Lifecycle"])
 ASSUMPTIONS = [
     "Weather-restricted operations after DNV-ST-N001: each unit needs a window in which Hs "
     "and wind stay below α × the operational limit for its whole planned duration.",
-    "Sea states: Rayleigh Hs and Weibull k = 2 wind around the monthly Baltic means of the "
-    f"O&M model, {weather.STEP_HOURS}-hourly, persistence ρ = {weather.RHO_6H} per step and "
-    f"wind–wave correlation {weather.R_WIND_WAVE} (illustrative, not a hindcast).",
+    f"Sea states: a real {weather.STEP_HOURS}-hourly hindcast at the site — "
+    f"{weather.HINDCAST_SOURCE}. Each run replays one historical year (1995–2024).",
     f"Jack-up crane limit applies at hub height ({weather.HUB_HEIGHT_M:.0f} m); 10 m wind is "
     f"scaled with the power law α = {weather.SHEAR_ALPHA} (IEC 61400-3-1 normal wind profile).",
     "Port round trips: units × fastening time at the quay + 2 × port distance / transit "

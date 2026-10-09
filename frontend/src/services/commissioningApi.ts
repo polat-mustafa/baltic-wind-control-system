@@ -8,6 +8,7 @@ import type {
   ComplianceVerdict,
   EmergencyEvent,
   EmergencyProcedure,
+  EnergisationTrace,
   EquipmentClass,
   ExecuteStepResponse,
   FATCampaign,
@@ -29,6 +30,8 @@ export const listProgrammes = () => request<ProgrammeSummary[]>(`${BASE}/program
 export const createProgramme = (pic_name: string) =>
   post<ProgrammeSummary>(`${BASE}/programmes`, { pic_name });
 export const getProgramme = (id: string) => request<ProgrammeDetail>(P(id));
+/** Circuit 1's first energisation, one load-flow frame per switching step (cached per farm). */
+export const getEnergisationTrace = () => request<EnergisationTrace>(`${BASE}/energisation-trace`);
 export const startProgramme = (id: string) => post<ProgrammeSummary>(`${P(id)}/start`, {});
 
 export async function deleteProgramme(id: string): Promise<void> {

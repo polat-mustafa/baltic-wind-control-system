@@ -17,6 +17,7 @@ from app.schemas.commissioning import (
     EmergencyEventSchema,
     EmergencyStopRequest,
     EmergencyStopResponse,
+    EnergisationTraceSchema,
     EquipmentStateSchema,
     ExecuteStepRequest,
     ExecuteStepResponse,
@@ -27,13 +28,17 @@ from app.schemas.commissioning import (
     ProgrammeFarmSchema,
     ProgrammeSummarySchema,
     StepSchema,
+    TraceFrameSchema,
 )
+from app.services.p2.network_model import EXPORT_CABLE_1000, FarmSpec
 from app.services.p5.energisation import (
+    NetworkSnapshot,
     circuit1_limit_mw,
     network_snapshot,
     onshore_tap,
 )
-from app.services.p5.equipment_state import get_equipment_definition
+from app.services.p5.energisation_trace import energisation_trace
+from app.services.p5.equipment_state import EquipmentState, get_equipment_definition
 from app.services.p5.programme_repository import ProgrammeRepository
 from app.services.p5.switching_programme import (
     PiCDecisionRequiredError,
@@ -67,37 +72,60 @@ def _summary(p: SwitchingProgramme) -> ProgrammeSummarySchema:
     )
 
 
-def _detail(p: SwitchingProgramme) -> ProgrammeDetailSchema:
-    locked = p.locked()
-    spec = p.spec
-    snap = network_snapshot(p.system_state, spec)
-    equipment = []
-    for eq_id, state in p.system_state.items():
+def _equipment(
+    state: dict[str, EquipmentState], spec: FarmSpec, locked: frozenset[str] = frozenset()
+) -> list[EquipmentStateSchema]:
+    out = []
+    for eq_id, eq_state in state.items():
         eq = get_equipment_definition(eq_id, spec)
-        equipment.append(
+        out.append(
             EquipmentStateSchema(
                 equipment_id=eq_id,
                 equipment_type=eq.equipment_type.value,
                 voltage_kv=eq.voltage_kv,
                 location=eq.location,
-                state=state.value,
+                state=eq_state.value,
                 zones=list(eq.zones),
                 locked=eq_id in locked,
             )
         )
+    return out
+
+
+def _farm(spec: FarmSpec) -> ProgrammeFarmSchema:
+    return ProgrammeFarmSchema(
+        name=spec.name,
+        string_layout=list(spec.string_layout),
+        section_a_strings=spec.section_a_strings,
+        export_length_km=spec.export_length_km,
+        oss_trafo_mva=spec.oss_trafo_mva,
+        statcom_mvar=spec.statcom_mvar,
+        reactor_unit_mvar=spec.reactor_unit_mvar if spec.num_reactors else None,
+        output_limit_mw=circuit1_limit_mw(spec),
+        onshore_tap=onshore_tap(spec),
+    )
+
+
+def _network(snap: NetworkSnapshot) -> NetworkSnapshotSchema:
+    return NetworkSnapshotSchema(
+        zones={z: s.value for z, s in snap.zones.items()},
+        buses=[
+            BusReadingSchema(name=b.name, zone=b.zone, vn_kv=b.vn_kv, vm_pu=b.vm_pu, kv=b.kv)
+            for b in snap.buses
+        ],
+        **{
+            k: v
+            for k, v in asdict(snap).items()
+            if k not in ("zones", "buses") and k in NetworkSnapshotSchema.model_fields
+        },
+    )
+
+
+def _detail(p: SwitchingProgramme) -> ProgrammeDetailSchema:
+    spec = p.spec
     return ProgrammeDetailSchema(
         **_summary(p).model_dump(),
-        farm=ProgrammeFarmSchema(
-            name=spec.name,
-            string_layout=list(spec.string_layout),
-            section_a_strings=spec.section_a_strings,
-            export_length_km=spec.export_length_km,
-            oss_trafo_mva=spec.oss_trafo_mva,
-            statcom_mvar=spec.statcom_mvar,
-            reactor_unit_mvar=spec.reactor_unit_mvar if spec.num_reactors else None,
-            output_limit_mw=circuit1_limit_mw(spec),
-            onshore_tap=onshore_tap(spec),
-        ),
+        farm=_farm(spec),
         phases=phases(spec),
         steps=[
             StepSchema(
@@ -105,21 +133,35 @@ def _detail(p: SwitchingProgramme) -> ProgrammeDetailSchema:
             )
             for s in p.steps
         ],
-        equipment_states=equipment,
-        network=NetworkSnapshotSchema(
-            zones={z: s.value for z, s in snap.zones.items()},
-            buses=[
-                BusReadingSchema(name=b.name, zone=b.zone, vn_kv=b.vn_kv, vm_pu=b.vm_pu, kv=b.kv)
-                for b in snap.buses
-            ],
-            **{
-                k: v
-                for k, v in asdict(snap).items()
-                if k not in ("zones", "buses") and k in NetworkSnapshotSchema.model_fields
-            },
-        ),
+        equipment_states=_equipment(p.system_state, spec, p.locked()),
+        network=_network(network_snapshot(p.system_state, spec)),
         audit_trail=[AuditRecordSchema(**asdict(r)) for r in p.audit_trail],
         emergency_log=[EmergencyEventSchema(**e) for e in p.emergency_log],
+    )
+
+
+@router.get("/energisation-trace", response_model=EnergisationTraceSchema)
+def get_energisation_trace(spec: FarmSpecDep) -> EnergisationTraceSchema:
+    """Circuit 1's first energisation for the farm in the X-Farm header, one load-flow
+    frame per switching step of its programme (cached per farm; the first call solves
+    about 25 load flows)."""
+    frames = energisation_trace(spec)
+    return EnergisationTraceSchema(
+        farm=_farm(spec),
+        equipment=_equipment(frames[0].state, spec),
+        cable_rating_a=EXPORT_CABLE_1000.max_i_ka * 1000,
+        frames=[
+            TraceFrameSchema(
+                step_id=f.step_id,
+                step_number=f.step_number,
+                phase=f.phase,
+                action=f.action,
+                equipment_id=f.equipment_id,
+                states={k: v.value for k, v in f.state.items()},
+                network=_network(f.snapshot),
+            )
+            for f in frames
+        ],
     )
 
 

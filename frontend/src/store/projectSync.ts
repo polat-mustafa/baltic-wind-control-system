@@ -13,6 +13,7 @@
 import { create } from "zustand";
 
 import { applyDoc, buildDoc, DEFAULT_NAME, parseDoc } from "../lib/project/document";
+import { createProject as addToLibrary, listProjects, openProject } from "../lib/project/library";
 import { readStored, writeStored } from "../lib/storage";
 import { ApiError } from "../services/apiClient";
 import { createProject, deleteProject, getProject, runProjectAep, saveProject, type AepRun } from "../services/projectApi";
@@ -51,7 +52,12 @@ interface SyncStore {
   remove: () => Promise<void>;
   /** PyWake run on the saved layout, kept as AEP history. */
   runAep: (wind?: PyWakeWind) => Promise<AepRun>;
+  /** Point the sync at another project (library switch): its name and online copy, if any. */
+  attach: (name: string, cloud: { id: string; revision: number } | null) => void;
 }
+
+/** Only the own project is saved online — never the SB-510 reference shown in the stores. */
+const ownMode = () => useModeStore.getState().mode === "own";
 
 export const shareLink = (id: string) => new URL(`${import.meta.env.BASE_URL}develop/layout?project=${id}`, window.location.origin).href;
 
@@ -90,7 +96,7 @@ export const useProjectSync = create<SyncStore>((set, get) => {
 
   const push = async () => {
     const { id, revision, name, sync } = get();
-    if (!id || sync === "conflict") return;
+    if (!id || sync === "conflict" || !ownMode()) return;
     const doc = buildDoc(name);
     const json = JSON.stringify(doc);
     if (json === lastSent) {
@@ -115,7 +121,7 @@ export const useProjectSync = create<SyncStore>((set, get) => {
   };
   const schedule = () => {
     clearTimeout(timer);
-    if (get().id && get().sync !== "conflict") timer = setTimeout(() => void flush(), SAVE_DELAY_MS);
+    if (get().id && get().sync !== "conflict" && ownMode()) timer = setTimeout(() => void flush(), SAVE_DELAY_MS);
   };
 
   return {
@@ -143,17 +149,16 @@ export const useProjectSync = create<SyncStore>((set, get) => {
         const r = await getProject(id);
         if (!r.data) throw new Error("This is the read-only SB-510 reference project.");
         const doc = parseDoc(r.data);
-        applyDoc(doc);
+        // File it in "My projects": reopen its entry, or add one (the project on screen is filed first)
+        const cloud = { id: r.id, revision: r.revision };
+        const known = listProjects().find((e) => e.cloud?.id === r.id);
+        if (known) {
+          openProject(known.id);
+          applyDoc(doc); // the server copy is the latest
+        } else addToLibrary(doc, cloud);
         lastSent = JSON.stringify(buildDoc(doc.name));
-        set({
-          id: r.id,
-          revision: r.revision,
-          name: doc.name,
-          sync: "saved",
-          error: null,
-        });
+        set({ ...cloud, name: doc.name, sync: "saved", error: null });
         remember();
-        useModeStore.getState().setMode("own");
       } catch (e) {
         set({
           error:
@@ -201,6 +206,13 @@ export const useProjectSync = create<SyncStore>((set, get) => {
       } catch (e) {
         set({ error: message(e) });
       }
+    },
+
+    attach: (name, cloud) => {
+      clearTimeout(timer);
+      lastSent = null;
+      set({ id: cloud?.id ?? null, revision: cloud?.revision ?? 0, name, sync: cloud ? "saved" : null, error: null });
+      remember();
     },
 
     runAep: async (wind) => {

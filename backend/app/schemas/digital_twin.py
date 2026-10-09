@@ -329,3 +329,48 @@ class OperatingPointResponse(BaseModel):
     rotor_speed_z: float | None
     pitch_residual_deg: float | None
     pitch_z: float | None
+
+
+# ── Real-data validation: CARE to Compare, Wind Farm B ────────────
+
+
+class CareEventSchema(BaseModel):
+    """One CARE data set: a fault (anomaly) or a normal period, and the detector's verdict."""
+
+    event_id: int
+    label: Literal["anomaly", "normal"]
+    description: str
+    window_days: float
+    prediction_days: float
+    channels_charted: int
+    median_limit_factor: float = Field(description="Phase I widening of the twin's limit")
+    alarm_at_live_limit: bool = Field(description="Alarm at the live twin's limit (no widening)")
+    alarm: bool = Field(description="An alarm was confirmed inside the event window")
+    first_channel: str | None
+    first_alarm_day: float | None = Field(description="Days after the window start")
+    warning_days: float | None = Field(description="Event end (fault) − first alarm [d]")
+    channels_in_alarm: list[str]
+    daily_health_min: list[float | None] = Field(description="Worst channel health per day")
+    daily_residual_k: list[float | None] | None = Field(
+        description="Daily mean residual of the first alarmed channel [K]"
+    )
+
+
+class CareSummarySchema(BaseModel):
+    anomaly_events: int
+    detected: int
+    normal_events: int
+    false_alarms: int
+    median_warning_days: float | None
+
+
+class CareBenchmarkResponse(BaseModel):
+    """The twin's detector on real offshore SCADA with recorded faults."""
+
+    source: str
+    settings: dict[str, float | int | str]
+    summary: CareSummarySchema
+    summary_live_limit: dict[str, int] = Field(
+        description="Same charts at the live twin's limit, before the Phase I widening"
+    )
+    events: list[CareEventSchema]

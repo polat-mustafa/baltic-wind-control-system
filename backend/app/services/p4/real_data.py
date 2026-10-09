@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import csv
 import gzip
+import json
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -53,6 +54,8 @@ from sklearn.model_selection import TimeSeriesSplit
 from app.services.p4.physical_constraints import enforce_physical_constraints
 
 DATA_FILE = Path(__file__).parent / "data" / "dk2_offshore_dayahead.csv.gz"
+# LSTM / TFT scores, trained offline (scripts/train_real_deep_models.py: tens of minutes)
+DEEP_FILE = Path(__file__).parent / "data" / "dk2_deep_models.json"
 CAPACITY_MW = 604.8 + 207.0 + 165.6  # Kriegers Flak + Rødsand II + Nysted
 FARMS = ("Kriegers Flak 604.8 MW", "Rødsand II 207 MW", "Nysted 165.6 MW")
 QUANTILES = (0.1, 0.5, 0.9)
@@ -140,7 +143,7 @@ class ModelScore:
     name: str
     nrmse_pct: float
     nmae_pct: float
-    bias_pct: float
+    bias_pct: float | None
     skill_vs_persistence: float
     fold_nrmse_pct: list[float]
 
@@ -237,6 +240,12 @@ def evaluate_real_dayahead(seed: int = 42) -> RealForecastResult:
                 ],
             )
         )
+
+    if DEEP_FILE.exists():
+        deep = json.loads(DEEP_FILE.read_text(encoding="utf-8"))["models"]
+        scores[1:1] = [
+            ModelScore(**{k: m[k] for k in ModelScore.__dataclass_fields__}) for m in deep
+        ]
 
     total_gain = sum(gain.values()) or 1.0
     importance = sorted(

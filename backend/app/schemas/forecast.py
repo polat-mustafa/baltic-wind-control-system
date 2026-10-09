@@ -709,7 +709,7 @@ class RealModelScoreSchema(BaseModel):
     name: str
     nrmse_pct: float = Field(description="RMSE / installed capacity [%]")
     nmae_pct: float = Field(description="MAE / installed capacity [%]")
-    bias_pct: float = Field(description="mean(forecast − actual) / capacity [%]")
+    bias_pct: float | None = Field(description="mean(forecast − actual) / capacity [%]")
     skill_vs_persistence: float = Field(description="1 − MSE / MSE(persistence 24 h)")
     fold_nrmse_pct: list[float] = Field(description="nRMSE per test fold, oldest first [%]")
 

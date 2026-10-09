@@ -72,7 +72,7 @@ export default function RealDataPanel() {
           priority={coverageOk ? "normal" : "warning"}
           subtitle={coverageOk ? "ideal 80 % · conformal band" : "ideal 80 % — band miscalibrated"}
         />
-        <InfoTile label="Bias" value={xgb.bias_pct.toFixed(1)} unit="% of capacity" subtitle="mean(forecast − actual)" />
+        <InfoTile label="Bias" value={(xgb.bias_pct ?? 0).toFixed(1)} unit="% of capacity" subtitle="mean(forecast − actual)" />
       </div>
 
       <ChartWrapper title="Last 14 days of the last test fold — actual vs forecast">
@@ -144,7 +144,8 @@ export default function RealDataPanel() {
           <p className="mt-2 text-xs text-text-muted">
             The NWP power curve is physics only (mean power per 1 m/s bin of the forecast wind). XGBoost adds the
             direction, the two sites, the hour and the ECMWF–ICON disagreement — a small gain: most day-ahead error is
-            the weather forecast itself.
+            the weather forecast itself. LSTM and TFT read the last 24 h of NWP rows; they are trained offline on the
+            same folds (early stopping on the newest 20 % of each training block).
           </p>
         </div>
         <div className="rounded-lg border border-border-primary bg-bg-secondary p-4">

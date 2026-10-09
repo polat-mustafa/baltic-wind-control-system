@@ -752,22 +752,26 @@ def train_tft(
     last_model: WindPowerTFT | None = None
 
     for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_seq)):
-        x_train_np = x_seq[train_idx]
-        y_train_np = y_seq[train_idx]
+        # Early stopping watches the newest 20 % of the training block, never the
+        # test fold (stopping on the test fold leaks it into the model choice).
+        n_fit = max(1, int(len(train_idx) * 0.8))
+        fit_idx, val_idx = train_idx[:n_fit], train_idx[n_fit:]
+        if len(val_idx) == 0:
+            val_idx = fit_idx
         x_test_np = x_seq[test_idx]
         y_test_np = y_seq[test_idx]
 
         # Convert to tensors
-        x_train_t = torch.tensor(x_train_np, dtype=torch.float32)
-        y_train_t = torch.tensor(y_train_np, dtype=torch.float32)
+        x_train_t = torch.tensor(x_seq[fit_idx], dtype=torch.float32)
+        y_train_t = torch.tensor(y_seq[fit_idx], dtype=torch.float32)
         x_test_t = torch.tensor(x_test_np, dtype=torch.float32)
 
         # Train
         model, actual_epochs = _train_single_fold(
             x_train_t,
             y_train_t,
-            x_test_t,
-            torch.tensor(y_test_np, dtype=torch.float32),
+            torch.tensor(x_seq[val_idx], dtype=torch.float32),
+            torch.tensor(y_seq[val_idx], dtype=torch.float32),
             n_features,
             config,
             fold=fold_idx,

@@ -16,7 +16,7 @@ interface TurbineWakeConeProps {
 
 /** Color matching the severity thresholds used in TurbineDetailPanel / WakeEffectLayer. */
 function wakeConeColor(pct: number): string {
-  if (pct > 20) return "#ef4444"; // red
+  if (pct > 20) return "#f25c54"; // red
   if (pct > 10) return "#f97316"; // orange
   return "#fbbf24"; // yellow
 }
@@ -24,7 +24,7 @@ function wakeConeColor(pct: number): string {
 export default function TurbineWakeCone({ powerOutputMW, wakeLossPct }: TurbineWakeConeProps) {
   const opacity = Math.min(powerOutputMW / 15, 1) * 0.6;
   const hasLoss = wakeLossPct != null && wakeLossPct > 0;
-  const fillColor = hasLoss ? wakeConeColor(wakeLossPct) : "#3b82f6";
+  const fillColor = hasLoss ? wakeConeColor(wakeLossPct) : "#45c8d9";
   const labelText = hasLoss ? `\u2212${wakeLossPct}% wake loss` : "Wake deficit zone";
 
   return (

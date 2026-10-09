@@ -11,10 +11,10 @@ import { V236 } from "../../utils/landingPhysics";
 // ── ISA-101 SCADA Colors ────────────────────────────────────────
 
 const SCADA_COLORS = {
-  ENERGIZED: "#3ecf6e", // green — normal / optimal
-  WARNING: "#f5a623",   // amber — caution
+  ENERGIZED: "#4cc38a", // green — normal / optimal
+  WARNING: "#f0b13e",   // amber — caution
   FAULT: "#e74c3c",     // red   — alarm
-  MUTED: "#9ba3b8",     // gray  — no data
+  MUTED: "#a3b6c8",     // gray  — no data
 } as const;
 
 // ── KPI Card ────────────────────────────────────────────────────

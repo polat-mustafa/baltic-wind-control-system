@@ -68,7 +68,7 @@ export default function RelayCoordinationTable() {
               ))}
             </tbody>
           </table>
-          <p className="text-[11px] text-text-muted mt-2">
+          <p className="text-xs text-text-muted mt-2">
             Overcurrent pairs are judged at the IEC 60909 maximum and minimum 66 kV fault currents (worst case shown).
           </p>
         </div>

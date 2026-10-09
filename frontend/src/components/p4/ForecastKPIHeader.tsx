@@ -137,7 +137,7 @@ export default function ForecastKPIHeader() {
         label="Est. Revenue"
         value={revenueStr}
         unit="EUR"
-        color="#60A5FA"
+        color="#5cc3d2"
         subtitle={`@ ${spotPriceEurMwh} EUR/MWh · P50 × spot × ${farmN} turbines`}
       />
     </div>

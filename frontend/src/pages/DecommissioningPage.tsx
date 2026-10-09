@@ -37,28 +37,28 @@ function Options({ value, onChange }: { value: DecomOptions; onChange: (o: Decom
       <input type="checkbox" className="mt-0.5 accent-accent" checked={value[k]} onChange={(e) => onChange({ ...value, [k]: e.target.checked })} />
       <span>
         {label}
-        <span className="block text-[10px] text-text-muted">{note}</span>
+        <span className="block text-xs text-text-muted">{note}</span>
       </span>
     </label>
   );
   return (
     <div className="space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3 text-[12px] text-text-primary" data-tour="decom-options">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">What comes out</h3>
-      <p className="text-[11px] text-text-muted">Turbines and the offshore substation are always removed.</p>
+      <p className="text-xs text-text-muted">Turbines and the offshore substation are always removed.</p>
       <fieldset className="space-y-1">
         <legend className="text-text-secondary">Foundations</legend>
         <label className="flex items-start gap-2">
           <input type="radio" name="fnd" className="mt-0.5 accent-accent" checked={value.foundations === "cut"} onChange={() => onChange({ ...value, foundations: "cut" })} />
           <span>
             Cut below the seabed, leave the embedded pile
-            <span className="block text-[10px] text-text-muted">Common practice; the cut depth is set in the approved programme.</span>
+            <span className="block text-xs text-text-muted">Common practice; the cut depth is set in the approved programme.</span>
           </span>
         </label>
         <label className="flex items-start gap-2">
           <input type="radio" name="fnd" className="mt-0.5 accent-accent" checked={value.foundations === "full"} onChange={() => onChange({ ...value, foundations: "full" })} />
           <span>
             Full removal (excavate or vibro-extract the pile)
-            <span className="block text-[10px] text-text-muted">More vessel time and seabed disturbance; nothing left behind.</span>
+            <span className="block text-xs text-text-muted">More vessel time and seabed disturbance; nothing left behind.</span>
           </span>
         </label>
       </fieldset>
@@ -151,7 +151,7 @@ export default function DecommissioningPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[400px] text-[12px]">
               <thead>
-                <tr className="border-b border-border-primary text-left text-[10px] uppercase tracking-wider text-text-muted">
+                <tr className="border-b border-border-primary text-left text-xs uppercase tracking-wider text-text-muted">
                   <th className="py-1 pr-2">Item</th>
                   <th className="py-1 pr-2 text-right">Mass</th>
                   <th className="py-1">Fate</th>
@@ -168,7 +168,7 @@ export default function DecommissioningPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-[10px] text-text-muted">
+          <p className="mt-2 text-xs text-text-muted">
             Per turbine: blades {MASS.bladesPerTurbine} t, nacelle and hub {MASS.nacellePerTurbine} t, tower {MASS.towerPerTurbine} t,
             {farm.foundation === "jacket" ? ` jacket ${MASS.jacketPerTurbine} t` : ` monopile and TP ${MASS.monopilePerTurbine} t`}, scour rock{" "}
             {MASS.scourPerFoundation} t; cables {MASS.arrayCablePerKm} t/km (66 kV) and {MASS.exportCablePerKm} t/km (220 kV). Order of
@@ -200,7 +200,7 @@ export default function DecommissioningPage() {
                   ))}
                 </tbody>
               </table>
-              <p className="text-[10px] text-text-muted">
+              <p className="text-xs text-text-muted">
                 Illustrative unit values: port handling {UNIT.portHandlingEURperT} €/t, blade processing {UNIT.bladeProcessingEURperT} €/t,
                 steel scrap credit {UNIT.steelScrapCreditEURperT} €/t, cable credit {UNIT.cableRecyclingCreditEURperT} €/t, management{" "}
                 {100 * UNIT.managementShare} % of the vessel campaign, monitoring {UNIT.monitoringMEURperYear} M€/yr for {UNIT.monitoringYears}{" "}
@@ -235,7 +235,7 @@ export default function DecommissioningPage() {
 
       <WatchOut text="Removing everything is not automatically the greenest option: recovering buried cables and scour rock disturbs the seabed a second time. The choice is made case by case with the authority, and whatever stays is charted." />
 
-      <section className="text-[11px] text-text-muted">
+      <section className="text-xs text-text-muted">
         <h3 className="mb-1 font-semibold uppercase tracking-wider">Sources</h3>
         <ul className="list-disc space-y-0.5 pl-5">
           {DECOM_SOURCES.map((s) => (

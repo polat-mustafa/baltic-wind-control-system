@@ -50,12 +50,12 @@ export default function StudyTab() {
       </label>
 
       <section>
-        <h4 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-text-muted">Drill scores</h4>
+        <h4 className="mb-1 text-xs font-bold uppercase tracking-wider text-text-muted">Drill scores</h4>
         {byScenario.length === 0 ? (
           <p>No completed drills yet — finished Training drills are recorded here.</p>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full font-mono text-[11.5px]">
+          <table className="w-full font-mono text-xs">
               <tbody>
                 {byScenario.map(([title, scores]) => {
                   const s = summary(scores);
@@ -74,7 +74,7 @@ export default function StudyTab() {
       </section>
 
       <section>
-        <h4 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-text-muted">
+        <h4 className="mb-1 text-xs font-bold uppercase tracking-wider text-text-muted">
           System Usability Scale (Brooke, 1996)
         </h4>
         <p className="mb-1.5">1 = strongly disagree … 5 = strongly agree</p>
@@ -94,7 +94,7 @@ export default function StudyTab() {
                     onClick={() => setAnswers((a) => a.map((x, k) => (k === i ? v : x)))}
                     className={
                       "h-6 w-7 rounded border font-mono text-[12px] font-bold " +
-                      (answers[i] === v ? "border-accent bg-accent text-white" : "border-border-primary bg-bg-secondary")
+                      (answers[i] === v ? "border-accent bg-accent text-accent-ink" : "border-border-primary bg-bg-secondary")
                     }
                   >
                     {v}
@@ -122,7 +122,7 @@ export default function StudyTab() {
         )}
       </section>
 
-      <section className="rounded border border-border-primary bg-bg-secondary/60 p-2 font-mono text-[11.5px]">
+      <section className="rounded border border-border-primary bg-bg-secondary/60 p-2 font-mono text-xs">
         SUS n={susStats.n}
         {susStats.n > 0 && ` · mean ${susStats.mean.toFixed(1)} (${susGrade(susStats.mean)})`}
         {susStats.n > 1 && ` · SD ${susStats.sd.toFixed(1)} · 95 % CI ± ${susStats.ci95.toFixed(1)}`}
@@ -150,7 +150,7 @@ export default function StudyTab() {
           Clear
         </button>
       </div>
-      <p className="text-[11px] text-text-muted">
+      <p className="text-xs text-text-muted">
         Anonymous codes only; data stays in this browser (localStorage) until exported.
       </p>
     </div>

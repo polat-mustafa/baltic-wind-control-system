@@ -119,7 +119,7 @@ export default function ForecastPage() {
               ? `${turbineSpec.name} · ${turbineSpec.rated_power_mw} MW · Cut-in ${turbineSpec.cut_in_speed_ms} / Rated ${turbineSpec.rated_speed_ms} / Cut-out ${turbineSpec.cut_out_speed_ms} m/s · XGBoost + LSTM + TFT`
               : "Loading turbine spec..."}
           </p>
-          <p className="mt-0.5 text-[11px] text-text-muted">
+          <p className="mt-0.5 text-xs text-text-muted">
             {farmTitle(fleet)}: {fleet.turbines.length} turbines = {fleet.net.total_capacity_mw.toFixed(0)} MW. The models train once on a
             synthetic reference SCADA set (34 turbines, SB-510 climate, cached); single-turbine forecasts are scaled to this farm.
           </p>

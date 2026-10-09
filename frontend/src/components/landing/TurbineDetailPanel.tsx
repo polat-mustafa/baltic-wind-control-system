@@ -61,10 +61,10 @@ import TurbinePowerTrain from "./TurbinePowerTrain";
 import TurbineSparklines from "./TurbineSparklines";
 import TurbineWakeCone from "./TurbineWakeCone";
 
-const NORMAL = "#3ecf6e";
-const WARN = "#f5a623";
-const ALARM = "#ef4444";
-const MUTED = "#6b7490";
+const NORMAL = "#4cc38a";
+const WARN = "#f0b13e";
+const ALARM = "#f25c54";
+const MUTED = "#7189a0";
 const RHO_AIR = 1.225; // kg/m³, ISO standard atmosphere
 const ROTOR_AREA_M2 = Math.PI * (ROTOR_DIAMETER_M / 2) ** 2;
 
@@ -72,7 +72,7 @@ const STATUS: Record<TurbineStatus, { label: string; color: string }> = {
   operating: { label: "Operating", color: NORMAL },
   curtailed: { label: "Curtailed", color: WARN },
   fault: { label: "Fault", color: ALARM },
-  offline: { label: "Offline", color: "#9ba3b8" },
+  offline: { label: "Offline", color: "#a3b6c8" },
 };
 
 /** Where to look at this turbine next (names as in the sidebar). */
@@ -133,7 +133,7 @@ function PowerCurveChart({
             x2={W - pad.r}
             y1={y(p)}
             y2={y(p)}
-            stroke="#2a3040"
+            stroke="#1f3448"
             strokeWidth={0.75}
           />
           <text
@@ -142,7 +142,7 @@ function PowerCurveChart({
             fontSize={9}
             fill={MUTED}
             textAnchor="end"
-            fontFamily="JetBrains Mono, monospace"
+            fontFamily="IBM Plex Mono, monospace"
           >
             {p}
           </text>
@@ -156,7 +156,7 @@ function PowerCurveChart({
           fontSize={9}
           fill={MUTED}
           textAnchor="middle"
-          fontFamily="JetBrains Mono, monospace"
+          fontFamily="IBM Plex Mono, monospace"
         >
           {v}
         </text>
@@ -173,7 +173,7 @@ function PowerCurveChart({
       >
         MW
       </text>
-      <path d={curve} fill="none" stroke="#3b82f6" strokeWidth={1.75} />
+      <path d={curve} fill="none" stroke="#45c8d9" strokeWidth={1.75} />
       {inRange && (
         <>
           <line
@@ -189,7 +189,7 @@ function PowerCurveChart({
             cy={y(powerMW)}
             r={4}
             fill={WARN}
-            stroke="#0f1117"
+            stroke="#0a1520"
             strokeWidth={1.5}
           />
         </>
@@ -209,12 +209,12 @@ function Stat({
 }) {
   return (
     <div className="rounded-lg bg-bg-secondary/70 px-2 py-1.5">
-      <div className="text-[10px] uppercase tracking-wider text-text-muted">
+      <div className="text-xs uppercase tracking-wider text-text-muted">
         {label}
       </div>
       <div className="font-mono text-sm font-medium tabular-nums text-text-primary">
         {value}
-        <span className="ml-0.5 text-[10px] text-text-muted">{unit}</span>
+        <span className="ml-0.5 text-xs text-text-muted">{unit}</span>
       </div>
     </div>
   );
@@ -321,7 +321,7 @@ export default function TurbineDetailPanel({
               unit="MW"
               color={status.color}
             />
-            <div className="pb-1 text-right font-mono text-[11px] tabular-nums text-text-muted">
+            <div className="pb-1 text-right font-mono text-xs tabular-nums text-text-muted">
               <span className="text-text-primary">{ratedPct.toFixed(0)} %</span>{" "}
               of {V236.ratedMW} MW
             </div>
@@ -352,7 +352,7 @@ export default function TurbineDetailPanel({
                 {faultCategory.label}
               </span>
               <span
-                className="ml-auto rounded px-1.5 py-0.5 font-mono text-[10px] font-bold"
+                className="ml-auto rounded px-1.5 py-0.5 font-mono text-xs font-bold"
                 style={{
                   color: faultCategory.priority === "CRITICAL" ? ALARM : WARN,
                   backgroundColor:
@@ -364,11 +364,11 @@ export default function TurbineDetailPanel({
                 {faultCategory.priority}
               </span>
             </div>
-            <p className="mt-1.5 text-[11px] leading-snug text-text-secondary">
+            <p className="mt-1.5 text-xs leading-snug text-text-secondary">
               <span className="text-text-muted">Cause · </span>
               {faultCategory.probableCause}
             </p>
-            <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+            <p className="mt-0.5 text-xs leading-snug text-text-secondary">
               <span className="text-text-muted">Action · </span>
               {faultCategory.recommendedAction}
             </p>
@@ -380,7 +380,7 @@ export default function TurbineDetailPanel({
             <div className="text-xs font-semibold" style={{ color: WARN }}>
               {curtailInfo.label}
             </div>
-            <p className="mt-1 text-[11px] leading-snug text-text-secondary">
+            <p className="mt-1 text-xs leading-snug text-text-secondary">
               {curtailInfo.explanation}
             </p>
           </div>
@@ -453,7 +453,7 @@ export default function TurbineDetailPanel({
           aside={`Betz limit Cp ≤ ${(16 / 27).toFixed(3)}`}
         >
           <PowerCurveChart windMs={t.windSpeedMs} powerMW={t.powerOutputMW} />
-          <p className="mt-1 text-[11px] text-text-muted">
+          <p className="mt-1 text-xs text-text-muted">
             cut-in {V236.cutInMs} · rated {V236.ratedMs} · cut-out{" "}
             {V236.cutOutMs} m/s — same curve as the P1 backend
           </p>
@@ -505,8 +505,8 @@ export default function TurbineDetailPanel({
               >
                 <Icon size={15} className="shrink-0 text-text-muted group-hover:text-accent" aria-hidden />
                 <span className="min-w-0">
-                  <span className="block truncate text-[11px] font-semibold text-text-primary">{label}</span>
-                  <span className="block truncate text-[10px] text-text-muted">{what}</span>
+                  <span className="block truncate text-xs font-semibold text-text-primary">{label}</span>
+                  <span className="block truncate text-xs text-text-muted">{what}</span>
                 </span>
               </button>
             ))}

@@ -66,7 +66,7 @@ export function InfoTile({
         <span
           className={cn(
             "font-medium text-text-muted uppercase tracking-wider",
-            size === "md" ? "text-[10px]" : "text-[9px]",
+            size === "md" ? "text-xs" : "text-xs",
           )}
         >
           {label}
@@ -105,7 +105,7 @@ export function InfoTile({
       {(subtitle || sparkline) && (
         <div className="flex items-end justify-between gap-2 mt-1.5 min-h-[18px]">
           {subtitle ? (
-            <span className="text-[10px] text-text-muted truncate flex-1">
+            <span className="text-xs text-text-muted truncate flex-1">
               {subtitle}
             </span>
           ) : (

@@ -120,7 +120,7 @@ export default function FrtMission() {
               </div>
               <VoltageChart c={q.case} label={`Dip ${i + 1}: ${q.case.uRet} pu for ${q.case.faultS * 1000} ms, recovering to ${q.case.uEnd} pu`} />
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] text-text-muted">Verdict</span>
+                <span className="text-xs text-text-muted">Verdict</span>
                 {[true, false].map((v) => (
                   <Choice
                     key={String(v)}
@@ -133,7 +133,7 @@ export default function FrtMission() {
                 ))}
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] text-text-muted">ΔI<sub>q</sub> [pu]</span>
+                <span className="text-xs text-text-muted">ΔI<sub>q</sub> [pu]</span>
                 {q.iqOptions.map((v) => (
                   <Choice
                     key={v}
@@ -146,7 +146,7 @@ export default function FrtMission() {
                 ))}
               </div>
               {shown && (
-                <p className="text-[11px] text-text-secondary">
+                <p className="text-xs text-text-secondary">
                   {q.rideThrough
                     ? "The voltage never falls below the profile: the farm must stay connected."
                     : "The voltage falls below the profile: the farm may disconnect."}{" "}

@@ -41,5 +41,7 @@ export default defineConfig({
     setupFiles: ["./tests/setup.ts"],
     // e2e/ holds Playwright specs (npm run e2e), not Vitest tests
     include: ["tests/**/*.{test,spec}.{ts,tsx}"],
+    // index.css?raw is read by the token-sync test (tests/constants/scadaColors)
+    css: { include: [/index\.css/] },
   },
 });

@@ -61,14 +61,14 @@ const btn = cn(
   "flex items-center gap-1 rounded px-1.5 py-1 w-full min-w-0",
   "bg-bg-secondary/80 border border-border-primary backdrop-blur-sm",
   "text-text-muted hover:text-text-primary hover:bg-bg-hover",
-  "transition-colors duration-150 text-[10px] font-medium",
+  "transition-colors duration-150 text-xs font-medium",
 );
 
 const btnActive = cn(
   "flex items-center gap-1 rounded px-1.5 py-1 w-full min-w-0",
   "bg-accent/20 border border-accent/40 backdrop-blur-sm",
   "text-accent",
-  "transition-colors duration-150 text-[10px] font-medium",
+  "transition-colors duration-150 text-xs font-medium",
 );
 
 interface SectionProps {
@@ -89,7 +89,7 @@ function Section({ title, icon: Icon, defaultOpen, children }: SectionProps) {
           "flex items-center gap-1 rounded px-2 py-1 cursor-pointer select-none list-none",
           "bg-bg-secondary/80 border border-border-primary backdrop-blur-sm",
           "text-text-secondary hover:text-text-primary hover:bg-bg-hover",
-          "text-[10px] font-semibold uppercase tracking-wide",
+          "text-xs font-semibold uppercase tracking-wide",
           "[&::-webkit-details-marker]:hidden",
         )}
       >
@@ -148,7 +148,7 @@ export function ViewerControls({
         type="button"
         onClick={() => setCompactOpen((o) => !o)}
         aria-expanded={compactOpen}
-        className="@lg:hidden absolute top-2 right-2 z-10 flex items-center gap-1 rounded border border-border-primary bg-bg-secondary/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-text-secondary"
+        className="@lg:hidden absolute top-2 right-2 z-10 flex items-center gap-1 rounded border border-border-primary bg-bg-secondary/90 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-text-secondary"
       >
         <SlidersHorizontal size={11} />
         Controls
@@ -377,7 +377,7 @@ export function ViewerControls({
               onChange={(e) => onWindSpeedChange?.(parseFloat(e.target.value))}
               className="flex-1 min-w-0 accent-accent"
             />
-            <span className="text-[9px] font-mono text-text-muted w-10 shrink-0 text-right tabular-nums">
+            <span className="text-xs font-mono text-text-muted w-10 shrink-0 text-right tabular-nums">
               {(manualWindMs ?? 11).toFixed(1)} m/s
             </span>
           </div>
@@ -418,7 +418,7 @@ function WindDirectionControl() {
         onClick={() => setManual(null)}
         disabled={manual === null}
         title="Hand wind direction back to the simulation"
-        className="w-10 shrink-0 text-right font-mono text-[9px] tabular-nums text-text-muted hover:text-text-primary disabled:hover:text-text-muted"
+        className="w-10 shrink-0 text-right font-mono text-xs tabular-nums text-text-muted hover:text-text-primary disabled:hover:text-text-muted"
       >
         {manual === null ? `${value}°` : `${value}° ↺`}
       </button>

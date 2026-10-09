@@ -68,26 +68,26 @@ export default function PowerQualityDashboard() {
                     role="tab"
                     aria-selected={bus === b}
                     onClick={() => setBus(b)}
-                    className={`rounded px-2 py-1 text-[11px] font-medium ${bus === b ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+                    className={`rounded px-2 py-1 text-xs font-medium ${bus === b ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
                   >
                     {l}
                   </button>
                 ))}
               </div>
             </div>
-            <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[11rem]">
+            <label className="flex flex-col gap-0.5 text-xs text-text-muted min-w-[11rem]">
               <span className="flex justify-between">
                 Grid short-circuit power <span className="font-mono text-text-primary">{(ssc / 1000).toFixed(1)} GVA{gridSscMva == null ? " (farm)" : ""}</span>
               </span>
               <input type="range" min={1000} max={Math.max(20000, farmSsc)} step={500} value={ssc} onChange={(e) => setGridSscMva(Number(e.target.value))} className="accent-accent" />
             </label>
-            <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[11rem]">
+            <label className="flex flex-col gap-0.5 text-xs text-text-muted min-w-[11rem]">
               <span className="flex justify-between">
                 WTG emission level <span className="font-mono text-text-primary">× {emissionScale.toFixed(1)}</span>
               </span>
               <input type="range" min={0.5} max={3} step={0.1} value={emissionScale} onChange={(e) => setEmissionScale(Number(e.target.value))} className="accent-accent" />
             </label>
-            {loading && <span className="text-[11px] text-text-muted">analysing…</span>}
+            {loading && <span className="text-xs text-text-muted">analysing…</span>}
             <span className="ml-auto">
               <EducationButton content={powerQualityEducation} />
             </span>

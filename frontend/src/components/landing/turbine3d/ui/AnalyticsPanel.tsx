@@ -52,7 +52,7 @@ export const AnalyticsPanel = memo(function AnalyticsPanel({
     <div className="bw-viz pointer-events-auto w-[396px] max-w-full rounded-lg border border-border-primary bg-bg-secondary/95 text-text-primary shadow-xl backdrop-blur">
       <div className="flex items-center gap-2 border-b border-border-primary px-3 py-1.5">
         <div className="text-[12px] font-bold">Live analytics · {turbineId}</div>
-        <div className="ml-auto flex overflow-hidden rounded border border-border-primary text-[11px] font-semibold" role="tablist">
+        <div className="ml-auto flex overflow-hidden rounded border border-border-primary text-xs font-semibold" role="tablist">
           {(
             [
               ["trends", "Trends"],
@@ -68,7 +68,7 @@ export const AnalyticsPanel = memo(function AnalyticsPanel({
               onClick={() => setTab(id)}
               className={cn(
                 "px-2 py-0.5",
-                tab === id ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-hover",
+                tab === id ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-hover",
               )}
             >
               {label}
@@ -229,7 +229,7 @@ function Trends({ samples, version }: { samples: readonly Sample[]; version: num
         )}
       </svg>
       {hover !== null && cur && (
-        <div className="pointer-events-none absolute left-11 top-0 rounded border border-border-primary bg-bg-elevated px-1.5 py-0.5 font-mono text-[10px] font-semibold text-text-secondary shadow">
+        <div className="pointer-events-none absolute left-11 top-0 rounded border border-border-primary bg-bg-elevated px-1.5 py-0.5 font-mono text-xs font-semibold text-text-secondary shadow">
           {Math.round((cur.t - samples[n - 1].t) / 1000)} s · wind free {cur.freeWindMs.toFixed(1)} m/s
         </div>
       )}
@@ -396,5 +396,5 @@ function Losses({
 }
 
 function Note({ children }: { children: ReactNode }) {
-  return <div className="px-1 text-[10.5px] font-semibold leading-snug text-text-muted">{children}</div>;
+  return <div className="px-1 text-xs font-semibold leading-snug text-text-muted">{children}</div>;
 }

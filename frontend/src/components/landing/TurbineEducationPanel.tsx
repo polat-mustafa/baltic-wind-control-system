@@ -74,7 +74,7 @@ export default function TurbineEducationPanel({
       {/* ── Header ── */}
       <div
         className="px-3 py-2 border-b flex items-center justify-between"
-        style={{ borderColor: "#2a3040" }}
+        style={{ borderColor: "#1f3448" }}
       >
         <div className="text-sm font-semibold text-text-primary">
           {education.title}
@@ -97,13 +97,13 @@ export default function TurbineEducationPanel({
             <div className="flex items-center gap-1.5">
               <span
                 className="w-2 h-2 rounded-full animate-pulse"
-                style={{ backgroundColor: "#ef4444" }}
+                style={{ backgroundColor: "#f25c54" }}
               />
-              <span className="text-[11px] font-semibold text-status-alarm">
+              <span className="text-xs font-semibold text-status-alarm">
                 Active Fault: {faultCategory.label}
               </span>
             </div>
-            <div className="text-[10px] text-text-muted space-y-0.5">
+            <div className="text-xs text-text-muted space-y-0.5">
               <div>
                 <span className="text-text-secondary">Location:</span> {education.title}
               </div>
@@ -128,16 +128,16 @@ export default function TurbineEducationPanel({
             <div className="flex items-center gap-1.5">
               <span
                 className="w-2 h-2 rounded-full animate-pulse"
-                style={{ backgroundColor: "#f5a623" }}
+                style={{ backgroundColor: "#f0b13e" }}
               />
-              <span className="text-[11px] font-semibold text-status-warning">
+              <span className="text-xs font-semibold text-status-warning">
                 {curtailmentInfo.label}
               </span>
             </div>
-            <div className="text-[10px] text-text-muted space-y-0.5">
+            <div className="text-xs text-text-muted space-y-0.5">
               <div>{curtailmentInfo.explanation}</div>
               <div className="mt-1 pt-1 border-t" style={{ borderColor: "rgba(245,166,35,0.15)" }}>
-                <span className="text-status-warning text-[9px] font-semibold uppercase tracking-wider">
+                <span className="text-status-warning text-xs font-semibold uppercase tracking-wider">
                   Engineering Note
                 </span>
                 <div className="mt-0.5 text-text-secondary">{curtailmentInfo.educationalNote}</div>
@@ -148,7 +148,7 @@ export default function TurbineEducationPanel({
 
         {/* ── Overview ── */}
         <Section title="Overview">
-          <p className="text-[11px] text-text-secondary leading-relaxed">
+          <p className="text-xs text-text-secondary leading-relaxed">
             {education.overview}
           </p>
         </Section>
@@ -162,31 +162,31 @@ export default function TurbineEducationPanel({
                   key={i}
                   className="rounded border"
                   style={{
-                    backgroundColor: "#1e2231",
-                    borderColor: "#2a3040",
+                    backgroundColor: "#152637",
+                    borderColor: "#1f3448",
                     borderLeftWidth: 3,
-                    borderLeftColor: "#3b82f6",
+                    borderLeftColor: "#45c8d9",
                   }}
                 >
                   <div
-                    className="px-2 py-1.5 font-mono text-[11px] text-text-primary"
-                    style={{ fontFamily: "JetBrains Mono, monospace" }}
+                    className="px-2 py-1.5 font-mono text-xs text-text-primary"
+                    style={{ fontFamily: "IBM Plex Mono, monospace" }}
                   >
                     {f.expression}
                   </div>
                   {f.variables.length > 0 && (
                     <div
                       className="px-2 pb-1.5 space-y-0.5 border-t"
-                      style={{ borderColor: "#2a3040" }}
+                      style={{ borderColor: "#1f3448" }}
                     >
                       {f.variables.map((v) => (
                         <div
                           key={v.symbol}
-                          className="flex items-baseline gap-1.5 text-[10px]"
+                          className="flex items-baseline gap-1.5 text-xs"
                         >
                           <span
                             className="text-accent font-mono shrink-0"
-                            style={{ fontFamily: "JetBrains Mono, monospace" }}
+                            style={{ fontFamily: "IBM Plex Mono, monospace" }}
                           >
                             {v.symbol}
                           </span>
@@ -199,8 +199,8 @@ export default function TurbineEducationPanel({
                     </div>
                   )}
                   <div
-                    className="px-2 pb-1.5 text-[10px] text-text-muted leading-relaxed border-t"
-                    style={{ borderColor: "#2a3040" }}
+                    className="px-2 pb-1.5 text-xs text-text-muted leading-relaxed border-t"
+                    style={{ borderColor: "#1f3448" }}
                   >
                     {f.explanation}
                   </div>
@@ -214,25 +214,25 @@ export default function TurbineEducationPanel({
         <Section title="SB-510 design (IEA 15 MW)">
           <div className="space-y-1.5">
             <div
-              className="rounded px-2 py-1.5 text-[11px] font-mono text-text-primary"
+              className="rounded px-2 py-1.5 text-xs font-mono text-text-primary"
               style={{
-                backgroundColor: "#1e2231",
-                fontFamily: "JetBrains Mono, monospace",
+                backgroundColor: "#152637",
+                fontFamily: "IBM Plex Mono, monospace",
               }}
             >
               {education.design.v236Value}
             </div>
-            <p className="text-[10px] text-text-secondary leading-relaxed">
+            <p className="text-xs text-text-secondary leading-relaxed">
               {education.design.reasoning}
             </p>
             <div className="flex flex-wrap gap-1">
               {education.design.influencingFactors.map((f) => (
                 <span
                   key={f}
-                  className="text-[9px] px-1.5 py-0.5 rounded"
+                  className="text-xs px-1.5 py-0.5 rounded"
                   style={{
                     backgroundColor: "rgba(59,130,246,0.1)",
-                    color: "#6b7490",
+                    color: "#7189a0",
                   }}
                 >
                   {f}
@@ -249,15 +249,15 @@ export default function TurbineEducationPanel({
               {education.efficiencyNotes.map((e) => (
                 <div
                   key={e.name}
-                  className="flex items-center justify-between text-[10px]"
+                  className="flex items-center justify-between text-xs"
                 >
                   <span className="text-text-secondary">{e.name}</span>
-                  <span className="font-mono text-status-warning" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+                  <span className="font-mono text-status-warning" style={{ fontFamily: "IBM Plex Mono, monospace" }}>
                     {e.typicalLossPct}
                   </span>
                 </div>
               ))}
-              <div className="text-[9px] text-border-accent mt-0.5">
+              <div className="text-xs text-border-accent mt-0.5">
                 {education.efficiencyNotes.map((e) => e.dissipation).join(" | ")}
               </div>
             </div>
@@ -271,12 +271,12 @@ export default function TurbineEducationPanel({
               {education.standards.map((s) => (
                 <span
                   key={s}
-                  className="text-[9px] font-mono px-1.5 py-0.5 rounded border"
+                  className="text-xs font-mono px-1.5 py-0.5 rounded border"
                   style={{
-                    borderColor: "#2a3040",
-                    color: "#9ba3b8",
-                    backgroundColor: "#161924",
-                    fontFamily: "JetBrains Mono, monospace",
+                    borderColor: "#1f3448",
+                    color: "#a3b6c8",
+                    backgroundColor: "#0f1d2b",
+                    fontFamily: "IBM Plex Mono, monospace",
                   }}
                 >
                   {s}
@@ -291,9 +291,9 @@ export default function TurbineEducationPanel({
           title="Explain Simply"
           open={showSimple}
           onToggle={() => setShowSimple(!showSimple)}
-          borderColor="#3ecf6e"
+          borderColor="#4cc38a"
         >
-          <p className="text-[11px] text-text-secondary leading-relaxed">
+          <p className="text-xs text-text-secondary leading-relaxed">
             {education.simpleExplanation}
           </p>
         </CollapsibleSection>
@@ -303,9 +303,9 @@ export default function TurbineEducationPanel({
           title="Explain Technically"
           open={showTechnical}
           onToggle={() => setShowTechnical(!showTechnical)}
-          borderColor="#3b82f6"
+          borderColor="#45c8d9"
         >
-          <p className="text-[11px] text-text-secondary leading-relaxed">
+          <p className="text-xs text-text-secondary leading-relaxed">
             {education.technicalExplanation}
           </p>
         </CollapsibleSection>
@@ -327,7 +327,7 @@ function Section({
 }) {
   return (
     <div>
-      <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+      <div className="text-xs text-text-muted uppercase tracking-wider mb-1">
         {title}
       </div>
       {children}
@@ -352,20 +352,20 @@ function CollapsibleSection({
     <div
       className="rounded border"
       style={{
-        borderColor: "#2a3040",
+        borderColor: "#1f3448",
         borderLeftWidth: 3,
         borderLeftColor: borderColor,
       }}
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-2 py-1.5 text-[10px] text-text-secondary hover:text-text-primary transition-colors"
+        className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors"
       >
         <span className="uppercase tracking-wider">{title}</span>
         {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
       </button>
       {open && (
-        <div className="px-2 pb-2 border-t" style={{ borderColor: "#2a3040" }}>
+        <div className="px-2 pb-2 border-t" style={{ borderColor: "#1f3448" }}>
           <div className="pt-1.5">{children}</div>
         </div>
       )}

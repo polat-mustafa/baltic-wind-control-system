@@ -152,7 +152,7 @@ export function CpLambdaWidget({ turbineId, windMs, onClose }: CpLambdaWidgetPro
     if (lambda > 0 && cp > 0) {
       const px = xToPx(lambda);
       const py = yToPx(cp);
-      ctx.fillStyle = "#ef4444";
+      ctx.fillStyle = "#f25c54";
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -165,7 +165,7 @@ export function CpLambdaWidget({ turbineId, windMs, onClose }: CpLambdaWidgetPro
   return (
     <div className="absolute bottom-2 right-2 z-20 bg-bg-secondary/95 backdrop-blur-sm border border-border-primary rounded-md shadow-lg pointer-events-auto">
       <div className="flex items-center justify-between px-2 py-1 border-b border-border-primary">
-        <span className="text-[10px] font-semibold text-text-primary">
+        <span className="text-xs font-semibold text-text-primary">
           Cp(λ) · β = {pitch.toFixed(1)}°
         </span>
         <button onClick={onClose} className="p-0.5 hover:bg-bg-hover rounded" title="Close">
@@ -173,7 +173,7 @@ export function CpLambdaWidget({ turbineId, windMs, onClose }: CpLambdaWidgetPro
         </button>
       </div>
       <canvas ref={canvasRef} width={220} height={150} className="block" />
-      <div className="px-2 pb-1.5 text-[9px] font-mono text-text-muted">
+      <div className="px-2 pb-1.5 text-xs font-mono text-text-muted">
         λ = {lambda.toFixed(2)} · Cp = {cp.toFixed(3)}
       </div>
     </div>

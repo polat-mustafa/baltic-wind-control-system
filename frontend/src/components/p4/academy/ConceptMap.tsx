@@ -147,7 +147,7 @@ export default function ConceptMap({ lang }: { lang: Lang }) {
         <div className="text-sm font-semibold text-text-primary">
           {lang === "tr" ? "Kavram haritası — üzerine gelin: özet · tıklayın: ayrıntı" : "Concept map — hover for a summary, click for details"}
         </div>
-        <div className="flex flex-wrap gap-3 text-[11px] text-text-muted">
+        <div className="flex flex-wrap gap-3 text-xs text-text-muted">
           {Object.keys(GROUP_TONE).map((g) => (
             <span key={g} className="flex items-center gap-1">
               <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: GROUP_TONE[g] }} />
@@ -275,7 +275,7 @@ function HoverCard({ id, p, lang, group }: { id: string; p: P; lang: Lang; group
         {c.label[lang]}
       </div>
       <p className="leading-snug text-text-secondary">{CONCEPT_SUMMARY[id]?.[lang]}</p>
-      <p className="mt-1 text-[10px] text-text-muted">{lang === "tr" ? "Ayrıntı için tıklayın" : "Click for details"}</p>
+      <p className="mt-1 text-xs text-text-muted">{lang === "tr" ? "Ayrıntı için tıklayın" : "Click for details"}</p>
     </div>
   );
 }
@@ -309,7 +309,7 @@ function ConceptPanel({
     <aside className="space-y-2.5 rounded-md border border-border-primary bg-bg-primary p-3 text-[12px]">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bg-primary" style={{ background: GROUP_TONE[c.group] }}>
+          <span className="rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-bg-primary" style={{ background: GROUP_TONE[c.group] }}>
             {GROUP_LABEL[c.group][lang]}
           </span>
           <h4 className="mt-1.5 text-base font-semibold text-text-primary">{c.label[lang]}</h4>
@@ -321,14 +321,14 @@ function ConceptPanel({
       <p className="leading-relaxed text-text-secondary">{CONCEPT_SUMMARY[c.id]?.[lang]}</p>
       {related.length > 0 && (
         <div>
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">{lang === "tr" ? "Bağlı kavramlar" : "Related concepts"}</div>
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">{lang === "tr" ? "Bağlı kavramlar" : "Related concepts"}</div>
           <div className="flex flex-wrap gap-1">
             {related.map((r) => (
               <button
                 key={r.id}
                 type="button"
                 onClick={() => onSelect(r.id)}
-                className="rounded-full border border-border-primary px-2 py-0.5 text-[11px] text-text-secondary hover:border-accent hover:text-text-primary"
+                className="rounded-full border border-border-primary px-2 py-0.5 text-xs text-text-secondary hover:border-accent hover:text-text-primary"
               >
                 {r.label[lang]}
               </button>
@@ -339,7 +339,7 @@ function ConceptPanel({
       <button
         type="button"
         onClick={() => onOpen(c.chapter)}
-        className="flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-accent-hover"
+        className="flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink hover:bg-accent-hover"
       >
         <BookOpen size={13} /> {lang === "tr" ? "Dersi aç" : "Open the lesson"}
         {chapter ? `: ${chapter.title[lang]}` : ""}

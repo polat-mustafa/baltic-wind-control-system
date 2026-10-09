@@ -632,7 +632,10 @@ def _defs(spec: FarmSpec = SB510) -> list[tuple[int, dict[str, object]]]:
             6,
             verify(
                 "rated",
-                f"Verify cable 1 and TX-OSS-01 loading at rated output ({limit:.0f} MW)",
+                f"Verify cable 1 and TX-OSS-01 loading at rated output ({limit:.0f} MW)"
+                if limit >= full
+                else f"Verify cable 1 and TX-OSS-01 loading at the circuit 1 PPC limit "
+                f"({limit:.0f} of {full:.0f} MW)",
                 notes=rated_note,
             ),
         ),

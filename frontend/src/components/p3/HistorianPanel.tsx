@@ -86,19 +86,19 @@ export default function HistorianPanel() {
     <section className="bg-bg-secondary rounded-lg border border-border-primary p-3 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-xs font-semibold text-text-primary">SCADA historian</h3>
-        <span className="text-[11px] text-text-muted" title="Deterministic synthetic history from one physical plant model; live values are in the overview bar">IEC 61400-25 tags · synthetic plant history · tiers raw 90 d / 1-min 2 y / 1-h lifetime</span>
+        <span className="text-xs text-text-muted" title="Deterministic synthetic history from one physical plant model; live values are in the overview bar">IEC 61400-25 tags · synthetic plant history · tiers raw 90 d / 1-min 2 y / 1-h lifetime</span>
         <span className="flex-1" />
         {RANGES.map((r, i) => (
           <button
             key={r.label}
             type="button"
             onClick={() => setRangeIdx(i)}
-            className={cn(btnCls, i === rangeIdx ? "border-accent bg-accent text-white" : "border-border-primary text-text-secondary hover:bg-bg-hover")}
+            className={cn(btnCls, i === rangeIdx ? "border-accent bg-accent text-accent-ink" : "border-border-primary text-text-secondary hover:bg-bg-hover")}
           >
             {r.label}
           </button>
         ))}
-        <span className="text-[11px] font-mono text-text-muted">Δt {RANGES[rangeIdx].resolution}</span>
+        <span className="text-xs font-mono text-text-muted">Δt {RANGES[rangeIdx].resolution}</span>
         <button type="button" onClick={() => void load()} className={cn(btnCls, "flex items-center gap-1 border-border-primary text-text-secondary hover:bg-bg-hover")}>
           <RefreshCw size={11} className={loading ? "animate-spin" : undefined} /> Refresh
         </button>
@@ -115,7 +115,7 @@ export default function HistorianPanel() {
               title={`${t.tag} — ${t.description}`}
               aria-pressed={on}
               className={cn(
-                "h-7 px-2 rounded border text-[11px]",
+                "h-7 px-2 rounded border text-xs",
                 on ? "border-accent text-text-primary bg-bg-hover" : "border-border-primary text-text-muted hover:text-text-secondary",
                 !on && selected.length >= MAX_TAGS && "opacity-40 cursor-not-allowed",
               )}
@@ -171,7 +171,7 @@ export default function HistorianPanel() {
       )}
 
       {n > 0 && (
-        <table className="w-full text-[11px]">
+        <table className="w-full text-xs">
           <thead className="text-text-muted text-left">
             <tr>
               <th className="py-1 font-medium">Tag</th>

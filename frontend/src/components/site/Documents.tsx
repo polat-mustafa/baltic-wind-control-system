@@ -44,16 +44,16 @@ function Specimen({ children, title, issuer, docRef }: { children: React.ReactNo
       </div>
       <header className="mb-4 flex items-start justify-between gap-4 border-b-2 border-slate-800 pb-3">
         <div>
-          <div className="text-[11px] uppercase tracking-widest text-slate-500">{issuer}</div>
+          <div className="text-xs uppercase tracking-widest text-slate-500">{issuer}</div>
           <h3 className="mt-1 text-lg font-bold">{title}</h3>
         </div>
-        <div className="text-right text-[11px] text-slate-600">
+        <div className="text-right text-xs text-slate-600">
           <div>Ref. {docRef}</div>
           <div>Date {today()}</div>
         </div>
       </header>
       <div className="relative space-y-3">{children}</div>
-      <footer className="relative mt-6 border-t border-slate-300 pt-2 text-[10px] text-red-700">
+      <footer className="relative mt-6 border-t border-slate-300 pt-2 text-xs text-red-700">
         TRAINING SPECIMEN — not a legal document. Produced by the OffshoreForge simulation; the issuing body is
         fictional and the content illustrative.
       </footer>
@@ -106,7 +106,7 @@ function EiaSummary({ r }: { r: AssessResponse }) {
         sensitive periods, micro-siting around sensitive habitats, and a monitoring programme before, during and after
         construction.
       </p>
-      <p className="text-[11px] text-slate-500">Prepared under Directive 2011/92/EU as amended by 2014/52/EU, Article 5 and Annex IV.</p>
+      <p className="text-xs text-slate-500">Prepared under Directive 2011/92/EU as amended by 2014/52/EU, Article 5 and Annex IV.</p>
     </Specimen>
   );
 }
@@ -141,7 +141,7 @@ function PermitDecision({ r, d }: { r: AssessResponse; d: Decision }) {
           </ol>
         </>
       )}
-      <p className="text-[11px] text-slate-500">
+      <p className="text-xs text-slate-500">
         Legal basis (generic EU): Directive (EU) 2018/2001 as amended by (EU) 2023/2413, Articles 16–16b; Directive
         2011/92/EU; Directive 92/43/EEC, Article 6(3). National law decides the actual procedure and appeal rights.
       </p>
@@ -165,7 +165,7 @@ function GridOffer({ r }: { r: AssessResponse }) {
         response), verified at commissioning; a connection agreement; and the construction programme of the reinforcement
         works at the connection point.
       </p>
-      <p className="text-[11px] text-slate-500">
+      <p className="text-xs text-slate-500">
         Type D: connection at 110 kV or above (Regulation (EU) 2016/631, Article 5).
       </p>
     </Specimen>
@@ -216,7 +216,7 @@ export default function DocumentsStage() {
         <button
           type="button"
           onClick={print}
-          className="ml-auto flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
+          className="ml-auto flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover"
         >
           <Printer size={13} /> Print / save as PDF
         </button>

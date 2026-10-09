@@ -40,11 +40,11 @@ const PH = H - PAD.t - PAD.b;
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 const C = {
-  wind: "#60a5fa",
-  power: "#3ecf6e",
-  energy: "#f5a623",
-  loss: "#ef4444",
-  net: "#3ecf6e",
+  wind: "#5cc3d2",
+  power: "#4cc38a",
+  energy: "#f0b13e",
+  loss: "#f25c54",
+  net: "#4cc38a",
   muted: "var(--color-border-secondary)",
   text: "var(--color-text-secondary)",
   strong: "var(--color-text-primary)",
@@ -81,7 +81,7 @@ function Axes({ xLabel, yLabel, yMax, yFmt = (v: number) => v.toFixed(0), xTicks
 }) {
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * yMax);
   return (
-    <g fill={C.text} fontFamily="'JetBrains Mono', monospace">
+    <g fill={C.text} fontFamily="'IBM Plex Mono', monospace">
       {yTicks.map((v) => {
         const y = PAD.t + PH - (v / yMax) * PH;
         return (
@@ -147,7 +147,7 @@ function Bars({ values, vMax, yMax, color, opacity = 1, delayStep = 0.015 }: {
 function Stat({ label, value, unit, tone = "text-text-primary" }: { label: string; value: string; unit?: string; tone?: string }) {
   return (
     <div className="rounded-md border border-border-primary bg-bg-primary/60 px-3 py-2">
-      <div className="text-[10px] text-text-muted">{label}</div>
+      <div className="text-xs text-text-muted">{label}</div>
       <div className={`font-mono text-base font-semibold tabular-nums ${tone}`}>
         {value} {unit && <span className="text-xs font-normal text-text-muted">{unit}</span>}
       </div>
@@ -228,8 +228,8 @@ export default function AEPExplainer() {
                 step === i ? "bg-accent/15 text-text-primary" : "text-text-muted hover:text-text-secondary"
               }`}
             >
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-mono ${
-                i <= step ? "bg-accent text-white" : "bg-bg-tertiary"
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-mono ${
+                i <= step ? "bg-accent text-accent-ink" : "bg-bg-tertiary"
               }`}>{i + 1}</span>
               {s}
               {step === i && playing && (
@@ -456,7 +456,7 @@ export default function AEPExplainer() {
             className="flex items-center gap-1 text-xs text-text-secondary disabled:opacity-30 hover:text-text-primary">
             <ChevronLeft size={14} /> Back
           </button>
-          <span className="text-[11px] text-text-muted">Step {step + 1} of {STEPS.length}</span>
+          <span className="text-xs text-text-muted">Step {step + 1} of {STEPS.length}</span>
           <button disabled={step === STEPS.length - 1} onClick={() => setStep((s) => s + 1)}
             className="flex items-center gap-1 text-xs text-text-secondary disabled:opacity-30 hover:text-text-primary">
             Next <ChevronRight size={14} />

@@ -177,7 +177,7 @@ export default function ProjectsPage() {
 
       <div className="overflow-x-auto rounded-lg border border-border-primary">
         <table className="w-full min-w-[640px] text-left text-[12px]">
-          <thead className="bg-bg-secondary text-[11px] uppercase tracking-wide text-text-muted">
+          <thead className="bg-bg-secondary text-xs uppercase tracking-wide text-text-muted">
             <tr>
               <th className="w-8 px-3 py-2" aria-label="Compare" />
               <th className="px-3 py-2">Project</th>
@@ -204,9 +204,9 @@ export default function ProjectsPage() {
                 <td className="px-3 py-2">
                   <span className="font-medium text-text-primary">{e.name}</span>
                   {e.id === active && (
-                    <span className="ml-2 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">{mode === "own" ? "open" : "last open"}</span>
+                    <span className="ml-2 rounded bg-accent/15 px-1.5 py-0.5 text-xs font-semibold text-accent">{mode === "own" ? "open" : "last open"}</span>
                   )}
-                  {e.cloud && <span className="ml-2 rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] text-text-muted">online</span>}
+                  {e.cloud && <span className="ml-2 rounded bg-bg-tertiary px-1.5 py-0.5 text-xs text-text-muted">online</span>}
                 </td>
                 <td className="px-3 py-2 text-text-secondary">
                   {e.doc.turbines.length} × 15 MW = {e.doc.turbines.length * 15} MW{e.doc.site.polygon ? "" : " · no site"}
@@ -263,7 +263,7 @@ export default function ProjectsPage() {
         <Button onClick={() => void compare()} disabled={picked.length < 2 || running}>
           <BarChart3 size={14} className="mr-1" /> {running ? "Comparing…" : `Compare ${picked.length || ""} selected`.trim()}
         </Button>
-        <p className="min-w-0 flex-1 text-[11px] text-text-muted">
+        <p className="min-w-0 flex-1 text-xs text-text-muted">
           Same engines as the Layout page and the project report: screening wake model on each site&apos;s wind, NREL/ORBIT unit costs.
           Revenue at a flat price (no curtailment, degradation or tax); NPV of revenue − OPEX at each project&apos;s WACC and lifetime.
         </p>
@@ -281,7 +281,7 @@ function CompareTable({ results }: { results: ProjectMetrics[] }) {
         <table className="w-full text-[12px]">
           <thead className="bg-bg-secondary">
             <tr>
-              <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wide text-text-muted">Metric</th>
+              <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-text-muted">Metric</th>
               {results.map((m, i) => (
                 <th key={i} className="px-3 py-2 text-right font-semibold text-text-primary">
                   {m.name}
@@ -313,7 +313,7 @@ function CompareTable({ results }: { results: ProjectMetrics[] }) {
             <tr>
               <td className="px-3 py-1.5 text-text-muted">Wind and depth from</td>
               {results.map((m, i) => (
-                <td key={i} className="px-3 py-1.5 text-right text-[11px] text-text-muted">
+                <td key={i} className="px-3 py-1.5 text-right text-xs text-text-muted">
                   {m.basis}
                 </td>
               ))}
@@ -334,12 +334,12 @@ function Bars({ title, results, get }: { title: string; results: ProjectMetrics[
   const max = Math.max(1, ...results.map((m) => Math.abs(get(m))));
   return (
     <div className="rounded-lg border border-border-primary bg-bg-secondary p-3">
-      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</div>
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</div>
       <div className="space-y-1.5">
         {results.map((m, i) => {
           const v = get(m);
           return (
-            <div key={i} className="text-[11px]">
+            <div key={i} className="text-xs">
               <div className="flex justify-between text-text-secondary">
                 <span className="truncate">{m.name}</span>
                 <span className="font-mono tabular-nums">{Math.round(v).toLocaleString("en-US")}</span>

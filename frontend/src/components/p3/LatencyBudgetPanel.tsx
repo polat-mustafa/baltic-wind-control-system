@@ -22,7 +22,7 @@ export default function LatencyBudgetPanel() {
   return (
     <section className="bg-bg-secondary rounded-lg border border-border-primary p-3">
       <h3 className="text-xs font-semibold text-text-primary">Transfer-time budgets · IEC 61850-5</h3>
-      <p className="text-[11px] text-text-muted mb-3">Each bar is scaled to its class limit; the empty part is the margin.</p>
+      <p className="text-xs text-text-muted mb-3">Each bar is scaled to its class limit; the empty part is the margin.</p>
       <div className="space-y-4">
         {budgets.map((b) => {
           const parts = Object.entries(b.budget_breakdown);
@@ -46,7 +46,7 @@ export default function LatencyBudgetPanel() {
                   />
                 ))}
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-text-muted">
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-text-muted">
                 {parts.map(([k, ms], i) => (
                   <span key={k} className="flex items-center gap-1">
                     <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: colors[i % colors.length] }} />

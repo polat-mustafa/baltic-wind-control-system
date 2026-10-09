@@ -14,7 +14,7 @@ export const LEVEL_STYLE: Record<CMSAlertLevel, { bg: string; fg: string; label:
   GREEN: { bg: "transparent", fg: "var(--color-text-secondary)", label: "≥ 80 normal" },
   YELLOW: { bg: "#e6d27a", fg: "#1a1a1a", label: "60–80 watch" },
   AMBER: { bg: "#e39b3d", fg: "#1a1a1a", label: "40–60 inspect ≤ 30 d" },
-  RED: { bg: "#c8362d", fg: "#ffffff", label: "20–40 inspect ≤ 7 d" },
+  RED: { bg: "#f25c54", fg: "#0a1520", label: "20–40 inspect ≤ 7 d" },
   CRITICAL: { bg: "#7a1712", fg: "#ffffff", label: "< 20 stop" },
 };
 

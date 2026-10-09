@@ -35,8 +35,8 @@ interface AisResponse {
 function shipClass(code: number | null): [string, string] {
   if (code === null) return ["unknown type", "#94a3b8"];
   if (code >= 70 && code <= 79) return ["cargo", "#22c55e"];
-  if (code >= 80 && code <= 89) return ["tanker", "#ef4444"];
-  if (code >= 60 && code <= 69) return ["passenger", "#3b82f6"];
+  if (code >= 80 && code <= 89) return ["tanker", "#f25c54"];
+  if (code >= 60 && code <= 69) return ["passenger", "#45c8d9"];
   if (code === 30) return ["fishing", "#fb923c"];
   if (code === 31 || code === 32 || code === 52) return ["towing / tug", "#06b6d4"];
   if (code === 36 || code === 37) return ["sailing / pleasure", "#d946ef"];
@@ -88,7 +88,7 @@ export default function AisTraffic() {
   return (
     <>
       {note && (
-        <div className="pointer-events-none absolute bottom-8 left-1/2 z-1000 -translate-x-1/2 rounded border border-border-primary bg-bg-primary/85 px-2 py-0.5 text-[10px] text-text-muted">
+        <div className="pointer-events-none absolute bottom-8 left-1/2 z-1000 -translate-x-1/2 rounded border border-border-primary bg-bg-primary/85 px-2 py-0.5 text-xs text-text-muted">
           {note}
         </div>
       )}

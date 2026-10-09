@@ -32,17 +32,17 @@ export default function CpSurfaceChart() {
         coloring: "heatmap",
         showlabels: true,
         labelfont: {
-          family: "'JetBrains Mono', monospace",
+          family: "'IBM Plex Mono', monospace",
           size: 11,
           color: "white",
         },
       },
       colorbar: {
-        title: { text: "Cp", font: { color: "#e8eaf0", size: 11 } },
+        title: { text: "Cp", font: { color: "#e4ecf3", size: 11 } },
         tickfont: {
-          family: "'JetBrains Mono', monospace",
+          family: "'IBM Plex Mono', monospace",
           size: 10,
-          color: "#9ba3b8",
+          color: "#a3b6c8",
         },
       },
       hovertemplate:
@@ -58,7 +58,7 @@ export default function CpSurfaceChart() {
       text: [`Cp_max = ${cpSurface.cp_max.toFixed(4)}`],
       textposition: "top center",
       textfont: {
-        family: "'JetBrains Mono', monospace",
+        family: "'IBM Plex Mono', monospace",
         size: 10,
         color: "#e74c3c",
       },

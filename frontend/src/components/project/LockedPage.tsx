@@ -20,7 +20,7 @@ export function LockedPage({ title, lock }: { title: string; lock: Lock }) {
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Link
           to={lock.go}
-          className="inline-flex h-8 items-center gap-1 rounded-md bg-accent px-3 text-xs font-medium text-white hover:bg-accent-hover"
+          className="inline-flex h-8 items-center gap-1 rounded-md bg-accent px-3 text-xs font-medium text-accent-ink hover:bg-accent-hover"
         >
           Go to {lock.label} <ArrowRight size={13} aria-hidden />
         </Link>
@@ -28,7 +28,7 @@ export function LockedPage({ title, lock }: { title: string; lock: Lock }) {
           See it in SB-510
         </Button>
       </div>
-      <p className="mt-3 text-[11px] text-text-muted">
+      <p className="mt-3 text-xs text-text-muted">
         SB-510 is the reference case study with every module open. Your project stays in this browser; switch back from the project menu
         in the header.
       </p>

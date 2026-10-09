@@ -47,7 +47,7 @@ export default function FaultRegister() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-xs">
             <thead>
-              <tr className="border-b border-border-primary text-left text-[10px] uppercase tracking-wider text-text-muted">
+              <tr className="border-b border-border-primary text-left text-xs uppercase tracking-wider text-text-muted">
                 <th className="py-2 pr-3 font-medium">Turbine</th>
                 <th className="py-2 pr-3 font-medium">State</th>
                 <th className="py-2 pr-3 font-medium text-right">HI</th>
@@ -79,7 +79,7 @@ export default function FaultRegister() {
                       {kind ? (
                         <>
                           <span className="text-text-primary">{FAULT_LABEL[kind]}</span>
-                          <span className="ml-1.5 text-[10px] text-text-muted">{FAULT_CATEGORY[kind]}</span>
+                          <span className="ml-1.5 text-xs text-text-muted">{FAULT_CATEGORY[kind]}</span>
                         </>
                       ) : (
                         <span className="text-text-muted italic">

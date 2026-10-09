@@ -92,7 +92,7 @@ function Sequence({ onClose }: { onClose: () => void }) {
     const t0 = performance.now();
     let raf = 0;
     const tick = (now: number) => {
-      const dt = now - t0;
+      const dt = Math.max(0, now - t0); // rAF's frame time can precede t0 on the first tick
       setT(Math.min(total, dt));
       if (dt < total) raf = requestAnimationFrame(tick);
     };

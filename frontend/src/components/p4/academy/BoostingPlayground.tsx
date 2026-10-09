@@ -61,7 +61,7 @@ export default function BoostingPlayground({ lang }: { lang: "en" | "tr" }) {
             if (k >= M) setK(0);
             setPlaying(!running);
           }}
-          className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 font-semibold text-white hover:bg-accent-hover"
+          className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 font-semibold text-accent-ink hover:bg-accent-hover"
         >
           {running ? <Pause size={13} /> : <Play size={13} />} {running ? t("Pause", "Duraklat") : t("Add trees", "Ağaç ekle")}
         </button>
@@ -143,7 +143,7 @@ export default function BoostingPlayground({ lang }: { lang: "en" | "tr" }) {
               <text x={234} y={H + 1} style={{ fill: "var(--color-text-secondary)" }}>{t("unseen test", "görülmemiş test")}</text>
             </g>
           </svg>
-          <div className="rounded border border-border-primary bg-bg-secondary p-2 font-mono text-[11px] leading-relaxed text-text-secondary">
+          <div className="rounded border border-border-primary bg-bg-secondary p-2 font-mono text-xs leading-relaxed text-text-secondary">
             <div className="mb-0.5 font-sans text-xs font-semibold text-text-primary">
               {k === 0 ? t("No tree yet", "Henüz ağaç yok") : t(`Tree #${k} (adds η × leaf):`, `Ağaç #${k} (η × yaprak ekler):`)}
             </div>

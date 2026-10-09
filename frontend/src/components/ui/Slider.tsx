@@ -12,7 +12,7 @@ interface SliderProps {
 
 export function Slider({ label, value, display, min, max, step, onChange }: SliderProps) {
   return (
-    <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[10rem] flex-1">
+    <label className="flex flex-col gap-0.5 text-xs text-text-muted min-w-[10rem] flex-1">
       <span className="flex justify-between">
         {label} <span className="font-mono text-text-primary">{display}</span>
       </span>

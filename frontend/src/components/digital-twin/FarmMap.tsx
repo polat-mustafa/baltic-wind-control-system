@@ -183,7 +183,7 @@ export default function FarmMap() {
           </text>
         </g>
       </svg>
-      <div className="mt-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-text-secondary">
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-text-secondary">
         {(["normal", "alert", "alarm"] as const).map((s) => (
           <span key={s} className="flex items-center gap-1.5">
             <svg width="12" height="12" aria-hidden>

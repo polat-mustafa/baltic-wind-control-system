@@ -119,12 +119,12 @@ export default function ExportRoute() {
                   <div className="min-w-0">
                     <div className="font-medium text-text-primary">{c.title}</div>
                     <div className="text-text-secondary">{c.detail}</div>
-                    {c.reference && <div className="mt-0.5 text-[10px] text-text-muted">{c.reference}</div>}
+                    {c.reference && <div className="mt-0.5 text-xs text-text-muted">{c.reference}</div>}
                   </div>
                 </li>
               ))}
             </ul>
-            <p className="text-[10px] text-text-muted">
+            <p className="text-xs text-text-muted">
               This length is the farm's export cable: Layout cost, the grid design and construction use it.
               {check.auto &&
                 " The automatic route keeps out of military areas and munition dumps and avoids Natura 2000 and shipping basins where it can (teaching weights); it does not see existing cables or crossing angles — check them and redraw."}

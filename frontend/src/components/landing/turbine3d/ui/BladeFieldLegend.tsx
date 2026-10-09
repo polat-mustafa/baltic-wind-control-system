@@ -42,15 +42,15 @@ export function BladeFieldLegend() {
   };
 
   return (
-    <div className="w-60 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 font-mono text-[10px] shadow backdrop-blur-sm">
-      <div className="mb-1 text-[11px] font-bold text-text-primary">{TITLE[s.mode]}</div>
+    <div className="w-60 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 font-mono text-xs shadow backdrop-blur-sm">
+      <div className="mb-1 text-xs font-bold text-text-primary">{TITLE[s.mode]}</div>
       <div className="h-2.5 w-full rounded-sm" style={{ background: scaleGradientCss(s.mode) }} />
       <div className="flex justify-between text-text-secondary">
         {ticks.map((v, i) => (
           <span key={i}>{tick(v)}</span>
         ))}
       </div>
-      <div className="text-right text-[9px] text-text-muted">
+      <div className="text-right text-xs text-text-muted">
         {range.unit}
         {s.mode === "thermal" ? " above air" : ""}
         {range.sqrt ? " · √ scale" : ""}
@@ -78,7 +78,7 @@ export function BladeFieldLegend() {
           </>
         )}
       </div>
-      <div className="mt-1 text-[9px] leading-tight text-text-muted">{NOTE[s.mode]}</div>
+      <div className="mt-1 text-xs leading-tight text-text-muted">{NOTE[s.mode]}</div>
     </div>
   );
 }

@@ -20,7 +20,7 @@ export default function DrillMission({ mission }: { mission: Mission }) {
       </p>
       <Link
         to={`/?drill=${mission.scenario}`}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-xs font-medium text-white hover:bg-accent-hover"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-xs font-medium text-accent-ink hover:bg-accent-hover"
       >
         <Play size={13} /> Start the drill in the control room
       </Link>

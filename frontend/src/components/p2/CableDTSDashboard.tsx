@@ -66,7 +66,7 @@ export default function CableDTSDashboard() {
                     key={a}
                     aria-pressed={currentA === a}
                     onClick={() => setParams({ currentA: a })}
-                    className={`rounded px-2 py-1 text-[11px] font-medium ${currentA === a ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+                    className={`rounded px-2 py-1 text-xs font-medium ${currentA === a ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
                   >
                     {label}
                   </button>

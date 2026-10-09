@@ -43,7 +43,7 @@ export function MilestoneTable({ result }: { result: CampaignResult }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[480px] text-[12px]">
         <thead>
-          <tr className="border-b border-border-primary text-left text-[10px] uppercase tracking-wider text-text-muted">
+          <tr className="border-b border-border-primary text-left text-xs uppercase tracking-wider text-text-muted">
             <th className="py-1 pr-2">Milestone</th>
             <th className="py-1 pr-2 text-right">P10 [day]</th>
             <th className="py-1 pr-2 text-right">P50 [day]</th>
@@ -73,7 +73,7 @@ export function MilestoneTable({ result }: { result: CampaignResult }) {
 export function WindowHeatmap({ result }: { result: CampaignResult }) {
   return (
     <div className="overflow-x-auto" data-tour="campaign-windows">
-      <table className="w-full min-w-[560px] border-separate border-spacing-[2px] text-[11px]">
+      <table className="w-full min-w-[560px] border-separate border-spacing-[2px] text-xs">
         <thead>
           <tr className="text-text-muted">
             <th className="pr-2 text-left font-normal">Vessel · operation window</th>
@@ -116,7 +116,7 @@ export function WindowHeatmap({ result }: { result: CampaignResult }) {
           ))}
         </tbody>
       </table>
-      <p className="mt-1 text-[10px] text-text-muted">
+      <p className="mt-1 text-xs text-text-muted">
         % of the time a weather window long enough for one operation (Hs and wind below α × limit for the whole duration) opens. Hover a
         cell for the workable share of single 6-hour steps — always higher.
       </p>
@@ -129,7 +129,7 @@ export function VesselTable({ result }: { result: CampaignResult }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[620px] text-[12px]">
         <thead>
-          <tr className="border-b border-border-primary text-left text-[10px] uppercase tracking-wider text-text-muted">
+          <tr className="border-b border-border-primary text-left text-xs uppercase tracking-wider text-text-muted">
             <th className="py-1 pr-2">Vessel</th>
             <th className="py-1 pr-2 text-right">Limit Hs / wind</th>
             <th className="py-1 pr-2 text-right">Day rate</th>
@@ -144,7 +144,7 @@ export function VesselTable({ result }: { result: CampaignResult }) {
               <td className="py-1 pr-2 text-text-primary">
                 <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ background: VESSEL_COLOR[v.id] }} aria-hidden />
                 {v.name} <span className="text-text-muted">({v.id})</span>
-                <div className="text-[10px] text-text-muted">{v.role}</div>
+                <div className="text-xs text-text-muted">{v.role}</div>
               </td>
               <td className="py-1 pr-2 text-right tabular-nums text-text-secondary">
                 {v.hs_limit_m} m / {v.wind_limit_ms} m/s <span className="text-text-muted">@{v.wind_reference.replace("hub height", "hub")}</span>

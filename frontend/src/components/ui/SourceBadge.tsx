@@ -40,7 +40,7 @@ const TONE: Record<Quality, string> = {
 
 export function SourceBadge({ p, className }: { p: Provenance; className?: string }) {
   return (
-    <details className={cn("group inline-block align-middle text-[10px] leading-tight", className)}>
+    <details className={cn("group inline-block align-middle text-xs leading-tight", className)}>
       <summary
         className={cn(
           "inline-block cursor-pointer list-none rounded border px-1 py-px font-medium [&::-webkit-details-marker]:hidden",

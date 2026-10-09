@@ -24,7 +24,7 @@ function Box({ x, y, w, label, sub, active = true }: { x: number; y: number; w: 
         {label}
       </text>
       {sub && (
-        <text x={x + w / 2} y={y + 36} textAnchor="middle" fontSize={10.5} className="fill-text-muted" fontFamily="JetBrains Mono, monospace">
+        <text x={x + w / 2} y={y + 36} textAnchor="middle" fontSize={10.5} className="fill-text-muted" fontFamily="IBM Plex Mono, monospace">
           {sub}
         </text>
       )}

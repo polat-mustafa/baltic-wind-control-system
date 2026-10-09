@@ -19,7 +19,7 @@ export default function FarmSource({ farm }: { farm: FarmPlan }) {
     <div className="rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="farm-source">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{farm.name}</h3>
-        <span className="text-[11px] text-text-muted">
+        <span className="text-xs text-text-muted">
           {farm.source === "project" ? (
             <>
               from <Link to="/develop/layout" className="text-accent underline">Layout</Link>

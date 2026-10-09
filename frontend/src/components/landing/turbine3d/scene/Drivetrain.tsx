@@ -36,7 +36,7 @@ interface DrivetrainProps {
   internals: boolean;
 }
 
-const HL = "#60a5fa";
+const HL = "#5cc3d2";
 const HL_EM = "#1d4ed8";
 
 type Look = { color: string; metalness: number; roughness: number };

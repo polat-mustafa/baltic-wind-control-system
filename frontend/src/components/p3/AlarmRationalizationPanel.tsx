@@ -55,12 +55,12 @@ export default function AlarmRationalizationPanel() {
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-xs font-semibold text-text-primary">Alarm management performance · EEMUA 191 / ISA-18.2</h3>
         {kpi && (
-          <span className="text-[11px] font-mono text-text-secondary">
+          <span className="text-xs font-mono text-text-secondary">
             last {kpi.window_hours} h · {kpi.total_alarms_in_window} activations · grade <b className="text-text-primary">{kpi.overall_grade}</b>
           </span>
         )}
         <span className="flex-1" />
-        <button type="button" onClick={() => void fetchAll()} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-[11px] text-text-secondary hover:bg-bg-hover">
+        <button type="button" onClick={() => void fetchAll()} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-xs text-text-secondary hover:bg-bg-hover">
           <RefreshCw size={11} className={loading ? "animate-spin" : undefined} /> Refresh
         </button>
       </div>
@@ -69,9 +69,9 @@ export default function AlarmRationalizationPanel() {
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
         {tiles.map(([label, value, target, ok]) => (
           <div key={label} className="rounded-lg border border-border-primary bg-bg-secondary p-2">
-            <div className="text-[10px] uppercase tracking-wider text-text-muted">{label}</div>
+            <div className="text-xs uppercase tracking-wider text-text-muted">{label}</div>
             <div className="text-base font-mono font-semibold text-text-primary">{value}</div>
-            <div className={cn("text-[11px]", ok ? "text-text-muted" : "text-text-primary font-semibold")}>{ok ? target : `✗ target ${target}`}</div>
+            <div className={cn("text-xs", ok ? "text-text-muted" : "text-text-primary font-semibold")}>{ok ? target : `✗ target ${target}`}</div>
           </div>
         ))}
       </div>
@@ -116,7 +116,7 @@ export default function AlarmRationalizationPanel() {
         <section className="rounded-lg border border-status-warning/50 bg-bg-secondary p-3">
           <h4 className="text-xs font-semibold text-text-primary mb-1">Chattering alarms</h4>
           {chattering.chattering_alarms.map((a) => (
-            <p key={a.tag} className="text-[11px] text-text-secondary">
+            <p key={a.tag} className="text-xs text-text-secondary">
               <span className="font-mono text-text-primary">{a.tag}</span> — {a.transition_count}× in {a.window_minutes} min. {a.recommendation}
             </p>
           ))}
@@ -128,7 +128,7 @@ export default function AlarmRationalizationPanel() {
           Master alarm database <span className="font-normal text-text-muted">({mad.length} rationalised classes · WTG.* covers WTG-01…{String(fleet.turbines.length).padStart(2, "0")})</span>
         </h4>
         <div className="overflow-x-auto">
-          <table className="w-full text-[11px]">
+          <table className="w-full text-xs">
             <thead className="text-left text-text-muted">
               <tr>
                 <th className="py-1 pr-2 font-medium w-9">Pri</th>

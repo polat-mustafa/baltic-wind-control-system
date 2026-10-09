@@ -36,7 +36,7 @@ export default function ChannelComparePanel() {
     <ChartWrapper
       title={`Measured vs twin — ${meta.label}`}
       headerRight={
-        <div className="flex flex-wrap rounded-md border border-border-secondary overflow-hidden text-[11px]">
+        <div className="flex flex-wrap rounded-md border border-border-secondary overflow-hidden text-xs">
           {CHANNEL_ORDER.map((k) => (
             <button
               key={k}
@@ -44,7 +44,7 @@ export default function ChannelComparePanel() {
               aria-pressed={channel === k}
               title={CHANNEL_META[k].label}
               className={`px-2 py-0.5 font-mono ${
-                channel === k ? "bg-accent text-white" : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
+                channel === k ? "bg-accent text-accent-ink" : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
               }`}
             >
               {CHANNEL_META[k].short}

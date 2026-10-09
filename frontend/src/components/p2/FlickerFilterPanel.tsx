@@ -44,7 +44,7 @@ export default function FlickerFilterPanel() {
         <div className="space-y-3">
           <Meter label="P_st (short-term)" value={flicker.pst} limit={flicker.pst_limit} />
           <Meter label="P_lt (long-term)" value={flicker.plt} limit={flicker.plt_limit} />
-          <p className="text-[11px] text-text-muted">
+          <p className="text-xs text-text-muted">
             {flicker.pst_compliant && flicker.plt_compliant ? "✓" : "✗"} IEC 61000-3-7 HV-EHV planning levels. Continuous operation{" "}
             {flicker.pst_continuous.toFixed(4)}, switching {flicker.pst_switching.toFixed(4)} (c = {flicker.flicker_coefficient}, k_f ={" "}
             {flicker.switching_coefficient} — illustrative full-converter values). Full converters on a strong grid barely flicker.
@@ -61,13 +61,13 @@ export default function FlickerFilterPanel() {
                 role="tab"
                 aria-selected={filterOrder === h}
                 onClick={() => setFilterOrder(h)}
-                className={`rounded px-2 py-1 text-[11px] font-medium ${filterOrder === h ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+                className={`rounded px-2 py-1 text-xs font-medium ${filterOrder === h ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
               >
                 h{h}
               </button>
             ))}
           </div>
-          <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[9rem] flex-1">
+          <label className="flex flex-col gap-0.5 text-xs text-text-muted min-w-[9rem] flex-1">
             <span className="flex justify-between">
               Capacitor bank <span className="font-mono text-text-primary">{filterMvar} MVAR</span>
             </span>
@@ -88,10 +88,10 @@ export default function FlickerFilterPanel() {
             <dd className="font-mono text-right">{filterDesign.insertion_loss_db.toFixed(1)} dB</dd>
             <dt className="text-text-muted">50 Hz reactive power</dt>
             <dd className="font-mono text-right">+{filterDesign.reactive_contribution_mvar.toFixed(1)} MVAR</dd>
-            <dd className="col-span-2 text-[11px] text-text-secondary">{filterDesign.assessment}</dd>
+            <dd className="col-span-2 text-xs text-text-secondary">{filterDesign.assessment}</dd>
           </dl>
         )}
-        <p className="text-[11px] text-text-muted">
+        <p className="text-xs text-text-muted">
           A filter adds capacitance — it shifts the other resonances; a real design re-runs the scan with the filter in.
         </p>
       </div>

@@ -21,7 +21,8 @@ import {
   Signal,
   ChevronRight,
   AlertTriangle,
-  Palette,
+  Sun,
+  Moon,
   Menu,
 } from "lucide-react";
 
@@ -188,7 +189,7 @@ export default function AppShell() {
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
           {/* Farm spec badge (the reference case study) */}
           {mode !== "own" && (
-            <span className="hidden xl:inline-flex text-[10px] text-text-muted font-mono tracking-wide whitespace-nowrap">
+            <span className="hidden xl:inline-flex text-xs text-text-muted font-mono tracking-wide whitespace-nowrap">
               510 MW · 34 × 15 MW · 66/220/400 kV
             </span>
           )}
@@ -210,13 +211,12 @@ export default function AppShell() {
             type="button"
             onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}
             aria-pressed={storybook}
-            aria-label="Switch colour palette"
+            aria-label={storybook ? "Switch to the control room palette" : "Switch to the storybook palette"}
             data-tour="theme-toggle"
-            title="Switch colour palette"
-            className="flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-tertiary px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+            title={storybook ? "Storybook palette — switch to control room" : "Control room palette — switch to storybook"}
+            className="flex items-center rounded-md border border-border-primary bg-bg-tertiary p-1.5 text-text-secondary hover:bg-bg-hover"
           >
-            <Palette size={13} />
-            <span className="hidden sm:inline">{storybook ? "Storybook" : "Control room"}</span>
+            {storybook ? <Sun size={14} /> : <Moon size={14} />}
           </button>
 
           {/* Simulation clock (date hidden on phones) */}
@@ -229,7 +229,7 @@ export default function AppShell() {
           >
             <span className="hidden md:inline">{clock.toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" })}</span>
             <span>{clock.toLocaleTimeString("sv-SE", { timeZone: "Europe/Warsaw" })}</span>
-            <span className="hidden sm:inline text-text-muted text-[10px]">
+            <span className="hidden sm:inline text-text-muted text-xs">
               {clock.toLocaleString("en-GB", { timeZone: "Europe/Warsaw", timeZoneName: "short" }).split(" ").pop()}
             </span>
           </div>
@@ -238,19 +238,19 @@ export default function AppShell() {
 
       {/* ── Global Critical Alarm Banner ── */}
       {criticalCount > 0 && (
-        <div className="shrink-0 px-2 sm:px-4 py-1.5 bg-red-900/40 border-b border-red-700/50 flex items-center justify-between gap-2 animate-pulse">
-          <div className="flex min-w-0 items-center gap-2 text-xs font-mono text-red-400">
+        <div className="shrink-0 px-2 sm:px-4 py-1.5 bg-status-alarm/15 border-b border-status-alarm/40 flex items-center justify-between gap-2 animate-pulse">
+          <div className="flex min-w-0 items-center gap-2 text-xs font-mono text-status-alarm">
             <AlertTriangle size={14} className="shrink-0" />
             <span className="font-bold shrink-0">
               {criticalCount} CRITICAL ALARM{criticalCount > 1 ? "S" : ""} ACTIVE
             </span>
             {firstCriticalText && (
-              <span className="truncate text-red-400/70">— {firstCriticalText}</span>
+              <span className="truncate text-status-alarm/80">— {firstCriticalText}</span>
             )}
           </div>
           <Link
             to="/scada"
-            className="shrink-0 text-[10px] font-mono text-red-400 hover:text-red-300 underline underline-offset-2"
+            className="shrink-0 text-xs font-mono text-status-alarm hover:text-text-primary underline underline-offset-2"
           >
             Open SCADA →
           </Link>

@@ -47,8 +47,8 @@ export interface Annotation {
 // ── Category → colour map (used by AnnotationMarker) ────────────
 
 export const ANNOTATION_CATEGORY_COLOR: Record<AnnotationCategory, string> = {
-  geometry:   "#3b82f6", // blue
-  thermal:    "#ef4444", // red
+  geometry:   "#45c8d9", // blue
+  thermal:    "#f25c54", // red
   electrical: "#22c55e", // green
   kinematic:  "#f59e0b", // amber
   comms:      "#8b5cf6", // violet

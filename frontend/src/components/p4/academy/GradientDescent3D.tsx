@@ -109,7 +109,7 @@ export default function GradientDescent3D({ lang }: { lang: "en" | "tr" }) {
               setEta(v as number);
               setK(0);
             }}
-            className={`rounded-md border px-2 py-0.5 font-semibold ${eta === v ? "border-accent bg-accent text-white" : "border-border-primary hover:bg-bg-hover"}`}
+            className={`rounded-md border px-2 py-0.5 font-semibold ${eta === v ? "border-accent bg-accent text-accent-ink" : "border-border-primary hover:bg-bg-hover"}`}
           >
             {v} · {label}
           </button>
@@ -138,7 +138,7 @@ export default function GradientDescent3D({ lang }: { lang: "en" | "tr" }) {
           <OrbitControls target={[0, 0.2, 0]} enablePan={false} minDistance={5} maxDistance={16} autoRotate autoRotateSpeed={0.4} />
         </Canvas>
       </div>
-      <p className="mt-1.5 text-[11px] text-text-muted">
+      <p className="mt-1.5 text-xs text-text-muted">
         {t(
           "Surface height = loss L(w₁, w₂); colour blue (low) → orange (high). Drag to rotate. The yellow ball is the model's two weights after each update w ← w − η∇L.",
           "Yüzey yüksekliği = kayıp L(w₁, w₂); renk mavi (düşük) → turuncu (yüksek). Döndürmek için sürükleyin. Sarı top, her w ← w − η∇L güncellemesinden sonra modelin iki ağırlığıdır.",

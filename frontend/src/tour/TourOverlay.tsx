@@ -322,7 +322,7 @@ function TourStepView({ tour, step, index }: { tour: Tour; step: TourStep; index
           style={{ left: place.x, top: place.y, width: cardW }}
         >
           <div className="flex items-center justify-between gap-2 border-b border-border-primary px-4 py-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+            <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
               {tour.title} · {index + 1} / {tour.steps.length}
             </span>
             <button
@@ -433,7 +433,7 @@ function TourStepView({ tour, step, index }: { tour: Tour; step: TourStep; index
                       next();
                       start(following.id);
                     }}
-                    className="flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
+                    className="flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover"
                   >
                     Next: {following.title} <ArrowRight size={13} />
                   </button>
@@ -443,7 +443,7 @@ function TourStepView({ tour, step, index }: { tour: Tour; step: TourStep; index
                   type="button"
                   onClick={next}
                   disabled={blocked}
-                  className="flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
+                  className="flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-40"
                 >
                   {last ? "Finish" : "Next"} <ArrowRight size={13} />
                 </button>

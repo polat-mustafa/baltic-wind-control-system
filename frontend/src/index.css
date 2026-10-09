@@ -21,53 +21,62 @@
   }
 }
 
-/* ── ISA-101 High Performance HMI Design System ──────────────────
-   OffshoreForge
-   Color palette follows ISA-101 dark control room variant.
-   Typography: Inter (UI) + JetBrains Mono (data values).
+/* ── Baltic Night — OffshoreForge design tokens ───────────────────
+   Dark control-room theme (style board 2026-10-09). A quiet navy ground,
+   ONE accent (Baltic cyan) for "act here / live", and colour that appears
+   only when equipment needs attention (ISA-101). Typography: IBM Plex Sans
+   (UI) + IBM Plex Mono (numbers, tags, units only).
    ────────────────────────────────────────────────────────────── */
 
 @theme {
-  /* ── Backgrounds (ISA-101 dark control room) ── */
-  --color-bg-primary: #0f1117;
-  --color-bg-secondary: #161924;
-  --color-bg-tertiary: #1e2231;
-  --color-bg-elevated: #252a3a;
-  --color-bg-hover: #2d3348;
+  /* ── Ground (bg-0 canvas → bg-3 hover) ── */
+  --color-bg-primary: #0a1520;
+  --color-bg-secondary: #0f1d2b;
+  --color-bg-tertiary: #152637;
+  --color-bg-elevated: #172a3d;
+  --color-bg-hover: #1c3145;
 
-  /* ── Borders ── */
-  --color-border-primary: #2a3040;
-  --color-border-secondary: #3d4560;
-  --color-border-accent: #4a5580;
+  /* ── Lines ── */
+  --color-border-primary: #1f3448;
+  --color-border-secondary: #2c4760;
+  --color-border-accent: #3a5874;
 
   /* ── Text ── */
-  --color-text-primary: #e8eaf0;
-  --color-text-secondary: #9ba3b8;
-  --color-text-muted: #6b7490;
+  --color-text-primary: #e4ecf3;
+  --color-text-secondary: #a3b6c8;
+  --color-text-muted: #7189a0;
 
-  /* ── ISA-101 Status Colors ── */
-  --color-status-normal: #3ecf6e;
-  --color-status-warning: #f5a623;
-  --color-status-alarm: #ef4444;
-  --color-status-info: #3b82f6;
-  --color-status-offline: #6b7280;
-  --color-status-maintenance: #f97316;
-  --color-status-comms-loss: #d946ef;
+  /* ── State (ISA-101: colour only when it needs attention) ── */
+  --color-status-normal: #4cc38a;
+  --color-status-warning: #f0b13e;
+  --color-status-alarm: #f25c54;
+  --color-status-info: #8fb4f5;
+  --color-status-offline: #56708a;
+  --color-status-maintenance: #e39a5b;
+  --color-status-comms-loss: #c98bd3;
 
-  /* ── IEC Voltage Level Colors ── */
-  --color-voltage-400kv: #ef4444;
-  --color-voltage-220kv: #3b82f6;
-  --color-voltage-66kv: #f97316;
-  --color-voltage-lv: #6b7280;
+  /* ── Voltage levels (energised; muted so alarms win) ── */
+  --color-voltage-400kv: #e8837a;
+  --color-voltage-220kv: #8fb4f5;
+  --color-voltage-66kv: #e5b567;
+  --color-voltage-lv: #56708a;
 
-  /* ── Accent ── */
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-accent-muted: rgba(59, 130, 246, 0.15);
+  /* ── Accent: Baltic cyan. Text ON an accent fill uses accent-ink. ── */
+  --color-accent: #45c8d9;
+  --color-accent-hover: #6fd6e3;
+  --color-accent-muted: rgba(69, 200, 217, 0.14);
+  --color-accent-ink: #032029;
+
+  /* ── Shape: small radii, lines over shadows ── */
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --radius-2xl: 8px;
 
   /* ── Typography ── */
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
   /* ── Extra breakpoints for large monitors (default: sm 640 … 2xl 1536) ── */
   --breakpoint-3xl: 120rem; /* 1920 px — Full HD */
@@ -76,9 +85,9 @@
 
 /* ── Responsive base ──
    Phones: no text inflation on rotate, no double-tap-zoom delay. Large monitors
-   (QHD and up): the rem scale grows (Tailwind spacing + text-xs…) and the
-   px-sized micro labels get a matching bump, so the HMI stays readable instead
-   of shrinking into a corner. Full HD and below are untouched. */
+   (QHD and up): the rem scale grows (Tailwind spacing + text-xs…), so the HMI
+   stays readable instead of shrinking into a corner. Full HD and below are
+   untouched. No UI text is below 12 px (text-xs). */
 select, input, textarea { max-width: 100%; }
 html {
   -webkit-text-size-adjust: 100%;
@@ -87,17 +96,9 @@ html {
 }
 @media (min-width: 2400px) {
   html { font-size: 112.5%; }
-  .text-\[8px\] { font-size: 9px; }
-  .text-\[9px\] { font-size: 10px; }
-  .text-\[10px\] { font-size: 11.25px; }
-  .text-\[11px\] { font-size: 12.5px; }
 }
 @media (min-width: 3200px) {
   html { font-size: 137.5%; }
-  .text-\[8px\] { font-size: 11px; }
-  .text-\[9px\] { font-size: 12.4px; }
-  .text-\[10px\] { font-size: 13.75px; }
-  .text-\[11px\] { font-size: 15px; }
 }
 
 /* ── Base Styles ── */
@@ -109,52 +110,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── ISA-101 Grayscale Override (scoped to SCADA page) ──────────────
-   ISA-101 / ASM Consortium high-performance HMI: medium-grey canvas,
-   ~90% grayscale, color reserved for alarms and energized HV equipment.
-   Applied via a wrapper element (className="scada-isa101") on /scada
-   only, so other dashboards keep the dark control-room theme.
+/* ── SCADA page (className="scada-isa101") ──────────────────────
+   Baltic Night already follows ISA-101 (neutral ground, colour only for
+   alarms and energised HV), so the page uses the app tokens; this scope
+   only keeps the flat hairlines, alarm chips and mimic flow animation.
    ────────────────────────────────────────────────────────────── */
-.scada-isa101 {
-  /* Backgrounds — medium grey canvas (Tier 1 darkest → Tier 5 lightest) */
-  --color-bg-primary:   #4A4F55;
-  --color-bg-secondary: #5A5F66;
-  --color-bg-tertiary:  #686E76;
-  --color-bg-elevated:  #767D86;
-  --color-bg-hover:     #828A94;
-
-  /* Borders — low-contrast hairlines */
-  --color-border-primary:   #3A3E43;
-  --color-border-secondary: #2C2F33;
-  --color-border-accent:    #1F2226;
-
-  /* Text — high-contrast neutrals */
-  --color-text-primary:   #F5F5F5;
-  --color-text-secondary: #D8D8D8;
-  --color-text-muted:     #A8AAAD;
-
-  /* Status — desaturated; saturation kept only for alarm priorities */
-  --color-status-normal:        #2E7D5B;
-  --color-status-warning:       #C9A227;
-  --color-status-alarm:         #C8362D;
-  --color-status-info:          #5C7CB1;
-  --color-status-offline:       #8B8B8B;
-  --color-status-maintenance:   #B86A2A;
-  --color-status-comms-loss:    #7A4FB0;
-
-  /* IEC voltage levels — desaturated; SLD differentiates by stroke width too */
-  --color-voltage-400kv: #B0413E;
-  --color-voltage-220kv: #4A6FA5;
-  --color-voltage-66kv:  #B07B3E;
-  --color-voltage-lv:    #5A5F66;
-
-  /* Accent — desat cyan (used only for active-tab affordance) */
-  --color-accent: #4FC3D8;
-
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
-}
-
 /* ISA-101: prefer flat hairlines over 3D depth — neutralise heavy shadows */
 .scada-isa101 .shadow-lg,
 .scada-isa101 .shadow-md {
@@ -163,10 +123,10 @@ body {
 
 /* Alarm-priority chip palette — kept vivid by design (only colour place
    where saturation is allowed; rule of "color = look here now"). */
-.scada-isa101 [data-priority="P1"] { background: #C8362D; color: #FFFFFF; }
-.scada-isa101 [data-priority="P2"] { background: #E5C100; color: #1F2226; }
-.scada-isa101 [data-priority="P3"] { background: #4FC3D8; color: #1F2226; }
-.scada-isa101 [data-priority="JOURNAL"] { background: #5C7CB1; color: #FFFFFF; }
+.scada-isa101 [data-priority="P1"] { background: #f25c54; color: #0a1520; }
+.scada-isa101 [data-priority="P2"] { background: #f0b13e; color: #0a1520; }
+.scada-isa101 [data-priority="P3"] { background: #8fb4f5; color: #0a1520; }
+.scada-isa101 [data-priority="JOURNAL"] { background: #56708a; color: #e4ecf3; }
 
 /* ── Plant Mimic flow-line animation (marching dashes) ── */
 .scada-isa101 .mimic-flow-66kv,
@@ -209,7 +169,7 @@ body {
 
 /* ── Selection ── */
 ::selection {
-  background-color: rgba(59, 130, 246, 0.3);
+  background-color: rgba(69, 200, 217, 0.3);
   color: var(--color-text-primary);
 }
 
@@ -330,12 +290,12 @@ body {
 /* Dark-themed zoom controls */
 .leaflet-control-zoom a {
   background-color: rgba(22, 25, 36, 0.9) !important;
-  color: #9ba3b8 !important;
-  border-color: #2a3040 !important;
+  color: #a3b6c8 !important;
+  border-color: #1f3448 !important;
 }
 .leaflet-control-zoom a:hover {
   background-color: #2d3348 !important;
-  color: #e8eaf0 !important;
+  color: #e4ecf3 !important;
 }
 
 /* ── Equipment chips (OSS, STATCOM, LIDAR, onshore, switchyard) ──
@@ -357,7 +317,7 @@ body {
   height: 24px;
   flex-shrink: 0;
   border-radius: 6px;
-  background: rgba(15, 17, 23, 0.92);
+  background: rgba(10, 21, 32, 0.92);
   border: 1.5px solid var(--eq-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--eq-color) 18%, transparent), 0 2px 8px rgba(0, 0, 0, 0.5);
   transition: transform 150ms ease;
@@ -376,7 +336,7 @@ body {
   flex-direction: column;
   padding: 3px 7px 3px 6px;
   border-radius: 5px;
-  background: rgba(15, 17, 23, 0.82);
+  background: rgba(10, 21, 32, 0.82);
   border-left: 2px solid var(--eq-color);
   backdrop-filter: blur(4px);
   line-height: 1.2;
@@ -398,7 +358,7 @@ body {
 }
 .eq-marker__sub {
   font-weight: 400;
-  color: #6b7490;
+  color: #7189a0;
   margin-left: 4px;
 }
 /* Label on the left of the glyph (the icon box stays anchored on the glyph) */
@@ -431,12 +391,12 @@ body {
 
 /* Dark-themed attribution (required by the OSM licence) */
 .leaflet-control-attribution {
-  background: rgba(15, 17, 23, 0.7) !important;
+  background: rgba(10, 21, 32, 0.7) !important;
   color: #6b7280 !important;
   font-size: 9px;
 }
 .leaflet-control-attribution a {
-  color: #9ba3b8 !important;
+  color: #a3b6c8 !important;
 }
 
 /* Wake loss badge — remove default Leaflet icon styling */
@@ -455,7 +415,7 @@ body {
   font-family: 'JetBrains Mono', monospace;
   font-size: calc(9px * clamp(1, var(--wtg-scale, 1), 1.6));
   font-weight: 600;
-  background: rgba(15, 17, 23, 0.75);
+  background: rgba(10, 21, 32, 0.75);
   padding: 1px 4px;
   border-radius: 3px;
   white-space: nowrap;
@@ -512,7 +472,7 @@ body {
 
 /* ── Turbine power train (TurbinePowerTrain) — energy flowing down the spine ── */
 .powertrain-flow {
-  background: repeating-linear-gradient(180deg, transparent 0 10px, #3ecf6e 10px 18px);
+  background: repeating-linear-gradient(180deg, transparent 0 10px, #4cc38a 10px 18px);
   background-size: 100% 36px;
   animation: powertrain-flow linear infinite;
   opacity: 0.8;
@@ -697,7 +657,16 @@ body {
   --color-text-secondary: #4d3d2c;
   --color-text-muted: #7a6650;
   --color-accent: #2c6e76;
-  --sb-font: "Atkinson Hyperlegible Next", "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Paper needs darker state/voltage steps than the navy ground (≥ 4.5:1 on #f1e4c3) */
+  --color-status-alarm: #b42318;
+  --color-status-offline: #6b6257;
+  --color-status-maintenance: #9a4a00;
+  --color-status-comms-loss: #6b2f8f;
+  --color-voltage-400kv: #b42318;
+  --color-voltage-220kv: #1d4ed8;
+  --color-voltage-66kv: #9a5a00;
+  --color-voltage-lv: #6b6257;
+  --sb-font: "Atkinson Hyperlegible Next", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--sb-font);
   font-family: var(--font-sans);
 }
@@ -837,27 +806,27 @@ body {
 }
 
 /* Storybook: re-skin overlays that use inline control-room colours */
-.theme-storybook [style*="rgba(15, 17, 23"],
-.theme-storybook [style*="rgba(15,17,23"],
-.theme-storybook [style*="rgb(30, 34, 49)"] {
+.theme-storybook [style*="rgba(10, 21, 32"],
+.theme-storybook [style*="rgba(10,21,32"],
+.theme-storybook [style*="rgb(21, 38, 55)"] {
   background-color: var(--sb-paper) !important;
   border-color: var(--sb-ink) !important;
   color: var(--sb-ink) !important;
   box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.75);
 }
-.theme-storybook svg circle[fill="rgba(15,17,23,0.85)"] {
+.theme-storybook svg circle[fill="rgba(10,21,32,0.85)"] {
   fill: var(--sb-paper);
   stroke: var(--sb-ink);
   stroke-width: 1.5;
 }
-.theme-storybook svg [fill="#6b7490"],
+.theme-storybook svg [fill="#7189a0"],
 .theme-storybook svg [fill="#94a3b8"] {
   fill: var(--sb-ink);
 }
-.theme-storybook .text-\[\#e8eaf0\],
-.theme-storybook [style*="color: rgb(232, 234, 240)"],
-.theme-storybook [style^="color: rgb(107, 116, 144)"],
-.theme-storybook [style^="color: rgb(155, 163, 184)"] {
+.theme-storybook .text-\[\#e4ecf3\],
+.theme-storybook [style*="color: rgb(228, 236, 243)"],
+.theme-storybook [style^="color: rgb(113, 137, 160)"],
+.theme-storybook [style^="color: rgb(163, 182, 200)"] {
   color: var(--sb-ink) !important;
 }
 .theme-storybook .bg-slate-900\/90 {
@@ -887,19 +856,19 @@ body {
   --color-status-warning: #9a5a00;
   --color-status-info: #1d4ed8;
 }
-.theme-storybook :is([style^="color: rgb(62, 207, 110)"], [style*="; color: rgb(62, 207, 110)"], [class*="text-emerald-"], [class*="text-green-"]) {
+.theme-storybook :is([style^="color: rgb(76, 195, 138)"], [style*="; color: rgb(76, 195, 138)"], [class*="text-emerald-"], [class*="text-green-"]) {
   color: #1f7a3e !important;
 }
-.theme-storybook :is([style^="color: rgb(59, 130, 246)"], [style*="; color: rgb(59, 130, 246)"], [class*="text-blue-"], [class*="text-sky-"]) {
+.theme-storybook :is([style^="color: rgb(69, 200, 217)"], [style*="; color: rgb(69, 200, 217)"], [class*="text-blue-"], [class*="text-sky-"]) {
   color: #1d4ed8 !important;
 }
 .theme-storybook :is([style^="color: rgb(6, 182, 212)"], [style*="; color: rgb(6, 182, 212)"], [class*="text-cyan-"], [class*="text-teal-"]) {
   color: #0e6070 !important;
 }
-.theme-storybook :is([style^="color: rgb(245, 166, 35)"], [style*="; color: rgb(245, 166, 35)"], [class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-4"]) {
+.theme-storybook :is([style^="color: rgb(240, 177, 62)"], [style*="; color: rgb(240, 177, 62)"], [class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-4"]) {
   color: #9a5a00 !important;
 }
-.theme-storybook [class*="text-accent"] {
+.theme-storybook [class*="text-accent"]:not([class*="text-accent-ink"]) {
   color: #1f5960 !important;
 }
 .theme-storybook :is([class*="text-slate-4"], [class*="text-slate-5"], [class*="text-gray-4"]) {
@@ -985,6 +954,8 @@ body {
    and light "-100" label text that sits on solid status fills → ink. */
 .theme-storybook {
   --color-accent-hover: #1f5960;
+  --color-accent-muted: rgba(44, 110, 118, 0.15);
+  --color-accent-ink: #ffffff;
 }
 .theme-storybook :is(.text-green-100, .text-emerald-100, .text-amber-100, .text-yellow-100, .text-red-100) {
   color: var(--sb-ink) !important;
@@ -993,9 +964,9 @@ body {
 /* Chart series slots (validated categorical palette, dataviz reference):
    dark steps on the control-room surface, light steps on paper. */
 .bw-viz {
-  --viz-1: #3987e5;
-  --viz-2: #d95926;
-  --viz-3: #199e70;
+  --viz-1: #1a9fb1;
+  --viz-2: #d0712b;
+  --viz-3: #6a80e0;
 }
 .theme-storybook .bw-viz {
   --viz-1: #2a78d6;

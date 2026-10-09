@@ -21,13 +21,13 @@ const LAYER_ITEMS: {
   label: string;
   color: string;
 }[] = [
-  { key: "windParticles", label: "Wind Flow", color: "#60a5fa" },
-  { key: "wakeEffects", label: "Wake Cones", color: "#ef4444" },
+  { key: "windParticles", label: "Wind Flow", color: "#5cc3d2" },
+  { key: "wakeEffects", label: "Wake Cones", color: "#f25c54" },
   { key: "oceanWaves", label: "Ocean Waves", color: "#06b6d4" },
   { key: "arrayCables", label: "Array Cables", color: "#f97316" },
-  { key: "exclusionZone", label: "Site Boundary", color: "#3b82f6" },
-  { key: "foundations", label: "Foundations", color: "#4a5580" },
-  { key: "turbineLabels", label: "Turbine Labels", color: "#6b7490" },
+  { key: "exclusionZone", label: "Site Boundary", color: "#45c8d9" },
+  { key: "foundations", label: "Foundations", color: "#3a5874" },
+  { key: "turbineLabels", label: "Turbine Labels", color: "#7189a0" },
   { key: "bathymetry", label: "Bathymetry", color: "#1e3a5f" },
   { key: "dayNightTint", label: "Day / Night", color: "#fbbf24" },
   { key: "safetyZones", label: "Safety Zones 500 m", color: "#f59e0b" },
@@ -45,7 +45,7 @@ function Toggle({ checked }: { checked: boolean }) {
   return (
     <div
       className="relative w-7 h-4 rounded-full transition-colors duration-200 shrink-0"
-      style={{ backgroundColor: checked ? "#3b82f6" : "#3d4560" }}
+      style={{ backgroundColor: checked ? "#45c8d9" : "#2c4760" }}
     >
       <div
         className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform duration-200"
@@ -69,14 +69,14 @@ export default function LayerControlPanel() {
         onClick={() => setIsOpen((o) => !o)}
         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-colors align-top"
         style={{
-          backgroundColor: isOpen ? "#1e2231" : "rgba(15,17,23,0.85)",
-          borderColor: isOpen ? "#3b82f6" : "#3d4560",
-          color: isOpen ? "#e8eaf0" : "#9ba3b8",
+          backgroundColor: isOpen ? "#152637" : "rgba(10,21,32,0.85)",
+          borderColor: isOpen ? "#45c8d9" : "#2c4760",
+          color: isOpen ? "#e4ecf3" : "#a3b6c8",
         }}
         title="Toggle map layers"
       >
         <Layers size={14} />
-        <span className="text-[11px] font-medium">Layers</span>
+        <span className="text-xs font-medium">Layers</span>
       </button>
 
       {/* Expanded panel */}
@@ -84,14 +84,14 @@ export default function LayerControlPanel() {
         <div
           className="mt-1.5 rounded-lg border overflow-hidden"
           style={{
-            backgroundColor: "rgba(15,17,23,0.95)",
-            borderColor: "#2a3040",
+            backgroundColor: "rgba(10,21,32,0.95)",
+            borderColor: "#1f3448",
             minWidth: 180,
           }}
         >
           <div
-            className="px-3 py-1.5 border-b text-[10px] font-semibold tracking-wider uppercase"
-            style={{ borderColor: "#2a3040", color: "#6b7490" }}
+            className="px-3 py-1.5 border-b text-xs font-semibold tracking-wider uppercase"
+            style={{ borderColor: "#1f3448", color: "#7189a0" }}
           >
             Map Layers
           </div>
@@ -111,9 +111,9 @@ export default function LayerControlPanel() {
                   }}
                 />
                 <span
-                  className="text-[11px] flex-1 text-left transition-opacity"
+                  className="text-xs flex-1 text-left transition-opacity"
                   style={{
-                    color: layers[key] ? "#e8eaf0" : "#6b7490",
+                    color: layers[key] ? "#e4ecf3" : "#7189a0",
                   }}
                 >
                   {label}

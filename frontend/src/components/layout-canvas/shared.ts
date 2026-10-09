@@ -20,14 +20,14 @@ export const SECTION_COLOR: Record<string, string> = {
   "630": "#6366f1",
   "800": "#a855f7",
   "1000": "#d946ef",
-  over: "#ef4444",
+  over: "#f25c54",
 };
 
 /** Turbine fill per position status; the legend text says what each means. */
 export const STATUS_STYLE: Record<TurbineStatus, { color: string; label: string }> = {
   ok: { color: "#f8fafc", label: "OK" },
   close: { color: "#f59e0b", label: "closer than 4 D to a neighbour" },
-  outside: { color: "#ef4444", label: "outside the site boundary" },
+  outside: { color: "#f25c54", label: "outside the site boundary" },
   excluded: { color: "#ec4899", label: "in a constraint area" },
   basin: { color: "#a8a29e", label: "outside the plan's energy basins" },
 };

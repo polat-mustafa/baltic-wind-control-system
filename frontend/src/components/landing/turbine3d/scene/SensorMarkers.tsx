@@ -4,9 +4,9 @@
  * Renders small sphere markers at each CMS sensor location inside the nacelle.
  * Sensors are colour-coded by type following the IEC 61400-25 CMS data model:
  *
- *   PT100 temperature  → red    (#ef4444)
+ *   PT100 temperature  → red    (#f25c54)
  *   IEPE vibration     → amber  (#f59e0b)
- *   Pressure (HPU)     → blue   (#3b82f6)
+ *   Pressure (HPU)     → blue   (#45c8d9)
  *   Encoder/position   → green  (#22c55e)
  *
  * Clicking a marker selects the nearest turbine part (wires into the existing
@@ -81,9 +81,9 @@ interface Sensor {
 }
 
 const SENSOR_COLOUR: Record<SensorType, string> = {
-  temperature: "#ef4444",
+  temperature: "#f25c54",
   vibration:   "#f59e0b",
-  pressure:    "#3b82f6",
+  pressure:    "#45c8d9",
   encoder:     "#22c55e",
 };
 
@@ -240,7 +240,7 @@ function ClusterGlyph({
         />
       </mesh>
       <Html center distanceFactor={60} style={{ pointerEvents: "none" }}>
-        <div className="text-[10px] font-mono text-sky-200 bg-black/70 px-1.5 py-0.5 rounded border border-sky-500/40 whitespace-nowrap">
+        <div className="text-xs font-mono text-sky-200 bg-black/70 px-1.5 py-0.5 rounded border border-sky-500/40 whitespace-nowrap">
           {count} sensors
         </div>
       </Html>
@@ -318,7 +318,7 @@ function SensorSphere({
           style={{ pointerEvents: "none" }}
         >
           <div
-            className="text-[10px] font-mono text-text-primary bg-bg-secondary/95 px-2 py-1 rounded border border-border-primary whitespace-nowrap shadow-lg shadow-black/60"
+            className="text-xs font-mono text-text-primary bg-bg-secondary/95 px-2 py-1 rounded border border-border-primary whitespace-nowrap shadow-lg shadow-black/60"
             style={{ borderLeft: `3px solid ${colour}` }}
           >
             <div className="font-semibold">{sensor.label}</div>
@@ -327,7 +327,7 @@ function SensorSphere({
                 {reading.text}
               </div>
             )}
-            <div className="text-text-muted text-[9px]">
+            <div className="text-text-muted text-xs">
               {sensor.id} · {sensor.type}
             </div>
           </div>
@@ -347,7 +347,7 @@ function SensorSphere({
               style={{ height: "18px" }}
             />
             <div
-              className="text-[9px] font-mono text-text-muted bg-bg-secondary/80 px-1.5 py-0.5 rounded border border-border-primary whitespace-nowrap"
+              className="text-xs font-mono text-text-muted bg-bg-secondary/80 px-1.5 py-0.5 rounded border border-border-primary whitespace-nowrap"
               style={{ borderLeft: `2px solid ${colour}` }}
             >
               {sensor.label.split(" (")[0]}
@@ -378,15 +378,15 @@ export function SensorLegend() {
 
   return (
     <div className="flex w-60 flex-col gap-0.5 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 shadow backdrop-blur-sm">
-      <span className="text-[9px] text-text-muted font-mono mb-0.5">Sensors ({SENSORS.length})</span>
+      <span className="text-xs text-text-muted font-mono mb-0.5">Sensors ({SENSORS.length})</span>
       {entries.map(({ type, label, count }) => (
         <div key={type} className="flex items-center gap-1">
           <div
             className="w-2 h-2 rounded-full flex-shrink-0"
             style={{ backgroundColor: SENSOR_COLOUR[type] }}
           />
-          <span className="text-[9px] text-text-muted font-mono">{label}</span>
-          <span className="text-[9px] text-text-primary font-mono ml-auto pl-2">{count}</span>
+          <span className="text-xs text-text-muted font-mono">{label}</span>
+          <span className="text-xs text-text-primary font-mono ml-auto pl-2">{count}</span>
         </div>
       ))}
     </div>

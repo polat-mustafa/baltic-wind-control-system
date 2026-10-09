@@ -78,7 +78,7 @@ export default function MoveSuggestions({
           <Lightbulb size={13} aria-hidden /> Move suggestions
         </h3>
         <span className="flex items-center gap-1">
-          <span className="flex overflow-hidden rounded-md border border-border-primary text-[10px]" role="radiogroup" aria-label="Optimise for">
+          <span className="flex overflow-hidden rounded-md border border-border-primary text-xs" role="radiogroup" aria-label="Optimise for">
             {(["lcoe", "aep"] as const).map((o) => (
               <button
                 key={o}
@@ -100,7 +100,7 @@ export default function MoveSuggestions({
         </span>
       </div>
       {list == null ? (
-        <p className="text-[11px] text-text-muted">
+        <p className="text-xs text-text-muted">
           No AI: a deterministic search. It tries moving the ten most waked turbines by ½, 1 and 2 D in eight directions, keeps the moves
           that stay inside the site, ≥ 4 D from every turbine, clear of exclusion areas and existing cables, without crossing array cables,
           and that lower the {objective === "lcoe" ? "LCOE" : "wake loss"}; then PyWake checks the best five.
@@ -144,7 +144,7 @@ export default function MoveSuggestions({
                     <MoveRight size={12} className="mx-1 inline" aria-hidden />
                     AEP {signed(m.deltaPct, 2)} %
                   </span>
-                  <span className="block text-[11px] text-text-muted">
+                  <span className="block text-xs text-text-muted">
                     {signed(m.deltaGWh, 1)} GWh/yr · cables {signed(m.deltaCableKm, 2)} km · LCOE {signed(m.deltaLcoe, 2)} €/MWh ·{" "}
                     {pw ? (
                       <span className={pw.delta_gwh > 0 ? "text-status-normal" : "text-status-warning"}>

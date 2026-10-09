@@ -68,6 +68,7 @@ Citation rules used here:
 | Residual learning on persistence (base margin), early stopping on the last 20 % of each fold | `services/p4/xgboost_model.py` | [12], [20] |
 | Synthetic NWP: persistent AR(1) error (0.9 / h), 6-hourly runs, 1.0–1.3 m/s | `services/p4/nwp_pipeline.py` | ECMWF IFS documentation |
 | **Real data**: LSTM / TFT on the same set, trained offline (`scripts/train_real_deep_models.py`), early stopping on the newest 20 % of each training block (also fixed for the synthetic models: they stopped on the test fold) | `services/p4/lstm_model.py`, `tft_model.py` | [14], [16] |
+| **Real data**: single-farm day-ahead forecasts — Kriegers Flak, Rødsand 1, Rødsand 2 — from ENTSO-E 16.1.A (File Library monthly extracts) + day-old NWP; Baltic Power (PL, 76 × V236-15.0 MW) energisation ramp shown in P5 | `scripts/fetch_entsoe_units.py --file-library`, `services/p4/real_data.py`, `routers/p5/real_data.py` | ENTSO-E Transparency Platform, Regulation (EU) 543/2013 Art. 16.1.A |
 | **Real data**: day-ahead forecast of measured DK2 Baltic offshore output (Kriegers Flak, Rødsand II, Nysted; Energinet, CC BY 4.0) from day-old ECMWF / ICON 100 m wind (Open-Meteo Previous Runs, CC BY 4.0); nRMSE vs persistence, climatology, NWP power curve; conformalised P10–P90 | `services/p4/real_data.py`, `scripts/fetch_real_forecast_data.py` | Giebel et al. 2011 (ANEMOS.plus); Romano, Patterson & Candès 2019 (CQR); Hong et al. 2016 (GEFCom2014) |
 
 ## P5 — Commissioning

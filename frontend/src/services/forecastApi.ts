@@ -449,6 +449,8 @@ export interface RealModelScore {
 
 export interface RealForecastResponse {
   source: {
+    site: string;
+    title: string;
     production: string;
     nwp: string;
     farms: string[];
@@ -473,6 +475,17 @@ export interface RealForecastResponse {
 }
 
 /** XGBoost P10/P50/P90 trained on Energinet DK2 offshore output + archived day-ahead NWP. */
-export function getRealDayAhead(): Promise<RealForecastResponse> {
-  return request(`${BASE}/real-data/day-ahead`);
+export function getRealDayAhead(site = "dk2"): Promise<RealForecastResponse> {
+  return request(`${BASE}/real-data/day-ahead?site=${encodeURIComponent(site)}`);
+}
+
+export interface RealSite {
+  key: string;
+  title: string;
+  capacity_mw: number;
+}
+
+/** Real production series available: DK2 aggregate + single farms (ENTSO-E 16.1.A). */
+export function getRealSites(): Promise<RealSite[]> {
+  return request(`${BASE}/real-data/sites`);
 }

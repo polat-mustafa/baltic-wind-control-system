@@ -1,0 +1,534 @@
+{
+ "farm": "Baltic Power (Orlen / Northland), 76 \u00d7 Vestas V236-15.0 MW = 1140 MW",
+ "source": "ENTSO-E Transparency Platform, Actual Generation per Generation Unit (16.1.A), unit 'MFW Baltic Power' (PL), File Library monthly extracts",
+ "days": [
+  {
+   "date": "2026-07-14",
+   "peak_mw": 0.0,
+   "energy_mwh": 0.0,
+   "turbines_at_least": 0
+  },
+  {
+   "date": "2026-07-15",
+   "peak_mw": 27.0,
+   "energy_mwh": 175.1,
+   "turbines_at_least": 1
+  },
+  {
+   "date": "2026-07-16",
+   "peak_mw": 18.2,
+   "energy_mwh": 114.0,
+   "turbines_at_least": 1
+  },
+  {
+   "date": "2026-07-17",
+   "peak_mw": 69.2,
+   "energy_mwh": 492.2,
+   "turbines_at_least": 4
+  },
+  {
+   "date": "2026-07-18",
+   "peak_mw": 116.5,
+   "energy_mwh": 1663.8,
+   "turbines_at_least": 7
+  },
+  {
+   "date": "2026-07-19",
+   "peak_mw": 122.5,
+   "energy_mwh": 1530.9,
+   "turbines_at_least": 8
+  },
+  {
+   "date": "2026-07-20",
+   "peak_mw": 117.4,
+   "energy_mwh": 1048.2,
+   "turbines_at_least": 7
+  },
+  {
+   "date": "2026-07-21",
+   "peak_mw": 129.6,
+   "energy_mwh": 2048.0,
+   "turbines_at_least": 8
+  },
+  {
+   "date": "2026-07-22",
+   "peak_mw": 113.4,
+   "energy_mwh": 1121.8,
+   "turbines_at_least": 7
+  },
+  {
+   "date": "2026-07-23",
+   "peak_mw": 115.7,
+   "energy_mwh": 1153.0,
+   "turbines_at_least": 7
+  },
+  {
+   "date": "2026-07-24",
+   "peak_mw": 121.8,
+   "energy_mwh": 1239.3,
+   "turbines_at_least": 8
+  },
+  {
+   "date": "2026-07-25",
+   "peak_mw": 87.5,
+   "energy_mwh": 964.2,
+   "turbines_at_least": 5
+  },
+  {
+   "date": "2026-07-26",
+   "peak_mw": 136.2,
+   "energy_mwh": 1086.0,
+   "turbines_at_least": 9
+  },
+  {
+   "date": "2026-07-27",
+   "peak_mw": 123.0,
+   "energy_mwh": 2877.2,
+   "turbines_at_least": 8
+  },
+  {
+   "date": "2026-07-28",
+   "peak_mw": 148.8,
+   "energy_mwh": 3150.2,
+   "turbines_at_least": 9
+  },
+  {
+   "date": "2026-07-29",
+   "peak_mw": 107.2,
+   "energy_mwh": 721.5,
+   "turbines_at_least": 7
+  },
+  {
+   "date": "2026-07-30",
+   "peak_mw": 120.7,
+   "energy_mwh": 1059.8,
+   "turbines_at_least": 8
+  },
+  {
+   "date": "2026-07-31",
+   "peak_mw": 53.1,
+   "energy_mwh": 462.9,
+   "turbines_at_least": 3
+  },
+  {
+   "date": "2026-08-01",
+   "peak_mw": 39.1,
+   "energy_mwh": 223.6,
+   "turbines_at_least": 2
+  },
+  {
+   "date": "2026-08-02",
+   "peak_mw": 65.4,
+   "energy_mwh": 627.4,
+   "turbines_at_least": 4
+  },
+  {
+   "date": "2026-08-03",
+   "peak_mw": 82.7,
+   "energy_mwh": 671.4,
+   "turbines_at_least": 5
+  },
+  {
+   "date": "2026-08-04",
+   "peak_mw": 69.8,
+   "energy_mwh": 730.6,
+   "turbines_at_least": 4
+  },
+  {
+   "date": "2026-08-05",
+   "peak_mw": 128.1,
+   "energy_mwh": 818.6,
+   "turbines_at_least": 8
+  },
+  {
+   "date": "2026-08-06",
+   "peak_mw": 139.9,
+   "energy_mwh": 1122.1,
+   "turbines_at_least": 9
+  },
+  {
+   "date": "2026-08-07",
+   "peak_mw": 143.9,
+   "energy_mwh": 3074.2,
+   "turbines_at_least": 9
+  },
+  {
+   "date": "2026-08-08",
+   "peak_mw": 140.3,
+   "energy_mwh": 1888.3,
+   "turbines_at_least": 9
+  },
+  {
+   "date": "2026-08-09",
+   "peak_mw": 130.3,
+   "energy_mwh": 983.0,
+   "turbines_at_least": 8
+  },
+  {
+   "date": "2026-08-10",
+   "peak_mw": 178.2,
+   "energy_mwh": 2722.8,
+   "turbines_at_least": 11
+  },
+  {
+   "date": "2026-08-11",
+   "peak_mw": 163.8,
+   "energy_mwh": 3552.4,
+   "turbines_at_least": 10
+  },
+  {
+   "date": "2026-08-12",
+   "peak_mw": 93.2,
+   "energy_mwh": 598.8,
+   "turbines_at_least": 6
+  },
+  {
+   "date": "2026-08-13",
+   "peak_mw": 11.9,
+   "energy_mwh": 19.5,
+   "turbines_at_least": 0
+  },
+  {
+   "date": "2026-08-14",
+   "peak_mw": 158.1,
+   "energy_mwh": 861.1,
+   "turbines_at_least": 10
+  },
+  {
+   "date": "2026-08-15",
+   "peak_mw": 172.2,
+   "energy_mwh": 2873.7,
+   "turbines_at_least": 11
+  },
+  {
+   "date": "2026-08-16",
+   "peak_mw": 176.8,
+   "energy_mwh": 3757.8,
+   "turbines_at_least": 11
+  },
+  {
+   "date": "2026-08-17",
+   "peak_mw": 123.8,
+   "energy_mwh": 1273.1,
+   "turbines_at_least": 8
+  },
+  {
+   "date": "2026-08-18",
+   "peak_mw": 172.2,
+   "energy_mwh": 2791.2,
+   "turbines_at_least": 11
+  },
+  {
+   "date": "2026-08-19",
+   "peak_mw": 79.5,
+   "energy_mwh": 158.7,
+   "turbines_at_least": 5
+  },
+  {
+   "date": "2026-08-20",
+   "peak_mw": 31.9,
+   "energy_mwh": 130.9,
+   "turbines_at_least": 2
+  },
+  {
+   "date": "2026-08-21",
+   "peak_mw": 128.6,
+   "energy_mwh": 1286.4,
+   "turbines_at_least": 8
+  },
+  {
+   "date": "2026-08-22",
+   "peak_mw": 233.8,
+   "energy_mwh": 3271.2,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-08-23",
+   "peak_mw": 212.1,
+   "energy_mwh": 2505.1,
+   "turbines_at_least": 14
+  },
+  {
+   "date": "2026-08-24",
+   "peak_mw": 32.1,
+   "energy_mwh": 271.6,
+   "turbines_at_least": 2
+  },
+  {
+   "date": "2026-08-25",
+   "peak_mw": 14.4,
+   "energy_mwh": 31.3,
+   "turbines_at_least": 0
+  },
+  {
+   "date": "2026-08-26",
+   "peak_mw": 87.6,
+   "energy_mwh": 1107.1,
+   "turbines_at_least": 5
+  },
+  {
+   "date": "2026-08-27",
+   "peak_mw": 234.2,
+   "energy_mwh": 2026.8,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-08-28",
+   "peak_mw": 275.4,
+   "energy_mwh": 4925.4,
+   "turbines_at_least": 18
+  },
+  {
+   "date": "2026-08-29",
+   "peak_mw": 236.9,
+   "energy_mwh": 3082.2,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-08-30",
+   "peak_mw": 267.6,
+   "energy_mwh": 3701.7,
+   "turbines_at_least": 17
+  },
+  {
+   "date": "2026-08-31",
+   "peak_mw": 242.7,
+   "energy_mwh": 1139.8,
+   "turbines_at_least": 16
+  },
+  {
+   "date": "2026-09-01",
+   "peak_mw": 232.0,
+   "energy_mwh": 3496.9,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-09-02",
+   "peak_mw": 247.1,
+   "energy_mwh": 4500.9,
+   "turbines_at_least": 16
+  },
+  {
+   "date": "2026-09-03",
+   "peak_mw": 232.9,
+   "energy_mwh": 4445.1,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-09-04",
+   "peak_mw": 232.8,
+   "energy_mwh": 3925.4,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-09-05",
+   "peak_mw": 229.1,
+   "energy_mwh": 4391.6,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-09-06",
+   "peak_mw": 228.4,
+   "energy_mwh": 4451.7,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-09-07",
+   "peak_mw": 236.9,
+   "energy_mwh": 2351.1,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-09-08",
+   "peak_mw": 248.7,
+   "energy_mwh": 2239.2,
+   "turbines_at_least": 16
+  },
+  {
+   "date": "2026-09-09",
+   "peak_mw": 235.6,
+   "energy_mwh": 4588.9,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-09-10",
+   "peak_mw": 240.1,
+   "energy_mwh": 4946.4,
+   "turbines_at_least": 16
+  },
+  {
+   "date": "2026-09-11",
+   "peak_mw": 86.0,
+   "energy_mwh": 622.4,
+   "turbines_at_least": 5
+  },
+  {
+   "date": "2026-09-12",
+   "peak_mw": 102.5,
+   "energy_mwh": 654.1,
+   "turbines_at_least": 6
+  },
+  {
+   "date": "2026-09-13",
+   "peak_mw": 173.9,
+   "energy_mwh": 1881.0,
+   "turbines_at_least": 11
+  },
+  {
+   "date": "2026-09-14",
+   "peak_mw": 53.2,
+   "energy_mwh": 400.6,
+   "turbines_at_least": 3
+  },
+  {
+   "date": "2026-09-15",
+   "peak_mw": 222.1,
+   "energy_mwh": 1330.0,
+   "turbines_at_least": 14
+  },
+  {
+   "date": "2026-09-16",
+   "peak_mw": 272.8,
+   "energy_mwh": 2608.9,
+   "turbines_at_least": 18
+  },
+  {
+   "date": "2026-09-17",
+   "peak_mw": 242.9,
+   "energy_mwh": 5029.4,
+   "turbines_at_least": 16
+  },
+  {
+   "date": "2026-09-18",
+   "peak_mw": 233.1,
+   "energy_mwh": 5116.9,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-09-19",
+   "peak_mw": 247.4,
+   "energy_mwh": 4172.8,
+   "turbines_at_least": 16
+  },
+  {
+   "date": "2026-09-20",
+   "peak_mw": 245.9,
+   "energy_mwh": 3511.9,
+   "turbines_at_least": 16
+  },
+  {
+   "date": "2026-09-21",
+   "peak_mw": 245.8,
+   "energy_mwh": 5039.1,
+   "turbines_at_least": 16
+  },
+  {
+   "date": "2026-09-22",
+   "peak_mw": 177.5,
+   "energy_mwh": 2746.2,
+   "turbines_at_least": 11
+  },
+  {
+   "date": "2026-09-23",
+   "peak_mw": 79.8,
+   "energy_mwh": 617.5,
+   "turbines_at_least": 5
+  },
+  {
+   "date": "2026-09-24",
+   "peak_mw": 57.9,
+   "energy_mwh": 388.4,
+   "turbines_at_least": 3
+  },
+  {
+   "date": "2026-09-25",
+   "peak_mw": 209.4,
+   "energy_mwh": 3370.2,
+   "turbines_at_least": 13
+  },
+  {
+   "date": "2026-09-26",
+   "peak_mw": 199.9,
+   "energy_mwh": 3081.2,
+   "turbines_at_least": 13
+  },
+  {
+   "date": "2026-09-27",
+   "peak_mw": 139.6,
+   "energy_mwh": 1026.2,
+   "turbines_at_least": 9
+  },
+  {
+   "date": "2026-09-28",
+   "peak_mw": 267.9,
+   "energy_mwh": 3709.1,
+   "turbines_at_least": 17
+  },
+  {
+   "date": "2026-09-29",
+   "peak_mw": 243.2,
+   "energy_mwh": 2222.8,
+   "turbines_at_least": 16
+  },
+  {
+   "date": "2026-09-30",
+   "peak_mw": 238.7,
+   "energy_mwh": 3578.3,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-10-01",
+   "peak_mw": 238.8,
+   "energy_mwh": 5074.6,
+   "turbines_at_least": 15
+  },
+  {
+   "date": "2026-10-02",
+   "peak_mw": 110.9,
+   "energy_mwh": 1136.7,
+   "turbines_at_least": 7
+  },
+  {
+   "date": "2026-10-03",
+   "peak_mw": 26.2,
+   "energy_mwh": 240.1,
+   "turbines_at_least": 1
+  },
+  {
+   "date": "2026-10-04",
+   "peak_mw": 177.8,
+   "energy_mwh": 2673.1,
+   "turbines_at_least": 11
+  },
+  {
+   "date": "2026-10-05",
+   "peak_mw": 295.5,
+   "energy_mwh": 5928.5,
+   "turbines_at_least": 19
+  },
+  {
+   "date": "2026-10-06",
+   "peak_mw": 295.3,
+   "energy_mwh": 5441.2,
+   "turbines_at_least": 19
+  },
+  {
+   "date": "2026-10-07",
+   "peak_mw": 257.4,
+   "energy_mwh": 1789.8,
+   "turbines_at_least": 17
+  },
+  {
+   "date": "2026-10-08",
+   "peak_mw": 294.5,
+   "energy_mwh": 2656.8,
+   "turbines_at_least": 19
+  },
+  {
+   "date": "2026-10-09",
+   "peak_mw": 295.3,
+   "energy_mwh": 987.6,
+   "turbines_at_least": 19
+  }
+ ]
+}

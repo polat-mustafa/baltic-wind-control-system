@@ -46,5 +46,17 @@ def test_endpoint_serves_the_bundled_benchmark():
         assert e["median_limit_factor"] >= 1.0
         if e["alarm"] and e["label"] == "anomaly":
             assert e["warning_days"] > 0
-    # widening can only remove alarms
+    # widening can only remove alarms; whole-year calibration (v2) halves v1's false alarms
     assert s["false_alarms"] <= body["summary_live_limit"]["false_alarms"]
+    assert s["false_alarms"] < body["summary_v1"]["false_alarms"]
+    assert "b" in body["available_farms"]
+
+
+def test_farm_c_is_the_held_out_set():
+    """Farm C was run once with the method fixed on Farm B — its numbers are reported as-is."""
+    body = TestClient(app).get("/api/v1/digital-twin/real-data/care?farm=c").json()
+    assert "held-out" in body["role"]
+    s = body["summary"]
+    assert s["anomaly_events"] == 27
+    assert len(body["events"]) == s["anomaly_events"] + s["normal_events"]
+    assert TestClient(app).get("/api/v1/digital-twin/real-data/care?farm=x").status_code == 404

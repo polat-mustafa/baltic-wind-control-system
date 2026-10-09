@@ -367,6 +367,12 @@ class CareSummarySchema(BaseModel):
 class CareBenchmarkResponse(BaseModel):
     """The twin's detector on real offshore SCADA with recorded faults."""
 
+    farm: str = "B"
+    role: str = ""
+    available_farms: list[str] = Field(default_factory=list)
+    summary_v1: dict[str, float | int] | None = Field(
+        None, description="First method (one-season calibration) on the same farm"
+    )
     source: str
     settings: dict[str, float | int | str]
     summary: CareSummarySchema

@@ -31,6 +31,7 @@ grid, so the pack stays small enough to commit.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import math
 import re
@@ -583,6 +584,93 @@ def grid_nodes(today: str) -> dict[str, Any]:
     )
 
 
+#: Transmission grid from OpenStreetMap, prebuilt for PyPSA-Eur (Xiong et al. 2025):
+#: Zenodo record 18619025 (2026-02-12), ODbL. Lines ≥ 220 kV and HVDC links.
+PYPSA_OSM = "https://zenodo.org/api/records/18619025/files/{}/content"
+GRID_MIN_KV = 220
+
+
+def _wkt_line(wkt: str) -> list[list[float]]:
+    body = wkt.strip("'\" ").removeprefix("LINESTRING").strip(" ()")
+    return [[float(v) for v in pt.split()] for pt in body.split(",")]
+
+
+def grid_lines(box: tuple[float, float, float, float], today: str) -> dict[str, Any]:
+    """PSE / neighbour lines ≥ 220 kV and HVDC links (SwePol) inside the region box."""
+    import csv as _csv
+
+    _csv.field_size_limit(1 << 27)
+    lon0, lat0, lon1, lat1 = box
+
+    def inside(pt: list[float]) -> bool:
+        return lon0 <= pt[0] <= lon1 and lat0 <= pt[1] <= lat1
+
+    with urllib.request.urlopen(PYPSA_OSM.format("buses.csv"), timeout=300) as r:
+        buses = {
+            b["bus_id"]: [float(b["x"]), float(b["y"])]
+            for b in _csv.DictReader(io.TextIOWrapper(r, encoding="utf-8"))
+        }
+    features = []
+    for name, kind in (("lines.csv", "AC line"), ("links.csv", "HVDC link")):
+        print(f"  PyPSA-Eur OSM grid: {name}")
+        with urllib.request.urlopen(PYPSA_OSM.format(name), timeout=300) as r:
+            rows = _csv.DictReader(io.TextIOWrapper(r, encoding="utf-8"))
+            for row in rows:
+                kv = float(row["voltage"] or 0)
+                if kv < GRID_MIN_KV:
+                    continue
+                pts = _wkt_line(row["geometry"])
+                schematic = len(pts) < 2  # some HVDC links carry one point: draw bus to bus
+                if schematic:
+                    ends = [buses.get(row["bus0"]), buses.get(row["bus1"])]
+                    if None in ends:
+                        continue
+                    pts = [pt for pt in ends if pt is not None]
+                keep = [i for i, pt in enumerate(pts) if inside(pt)]
+                if not keep and schematic:
+                    mid = [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2]
+                    keep = [0, 1] if inside(mid) else []
+                if not keep:
+                    continue
+                # the inside run plus one vertex either side, rounded to ~100 m
+                seg = pts[max(0, keep[0] - 1) : keep[-1] + 2]
+                coords: list[list[float]] = []
+                for x, y in seg:
+                    c = [round(x, 3), round(y, 3)]
+                    if not coords or coords[-1] != c:
+                        coords.append(c)
+                circuits = int(float(row.get("circuits") or 1))
+                features.append(
+                    {
+                        "name": f"{kv:.0f} kV {kind}"
+                        + (f" × {circuits}" if circuits > 1 else "")
+                        + (" (under construction)" if row["under_construction"] == "t" else "")
+                        + (" — route schematic" if schematic else ""),
+                        "coordinates": coords,
+                        "kind": kind,
+                        "voltage_kv": kv,
+                        "circuits": circuits,
+                        "rating_mva": round(float(row.get("s_nom") or row.get("p_nom") or 0), 0),
+                        "underground": row["underground"] == "t",
+                        "status": "under construction"
+                        if row["under_construction"] == "t"
+                        else "existing",
+                    }
+                )
+    return layer(
+        "grid_lines",
+        f"Transmission lines ≥ {GRID_MIN_KV} kV and HVDC links",
+        "grid",
+        "line",
+        "OpenStreetMap power lines, prebuilt for PyPSA-Eur (Xiong et al. 2025, Zenodo "
+        "10.5281/zenodo.18619025, 2026-02-12) — ratings are typical values by conductor "
+        "type, not the TSO's",
+        OSM_LICENCE,
+        today,
+        features=features,
+    )
+
+
 #: Offshore wind ports of the Polish projects: (name, OSM element, use, status, basis).
 #: Use and status as announced by the operators (read 2026-10-08) — check before relying on them.
 PORTS: tuple[tuple[str, str, str, str, str], ...] = (
@@ -869,7 +957,7 @@ def build_layers(bbox: tuple[float, float, float, float], today: str) -> list[di
     sea = SeaMask(layers[0]["features"])
     layers.append(coastline(today))
     layers.append(cables(box, sea, today))
-    layers.append(grid_nodes(today))
+    layers += [grid_nodes(today), grid_lines(box, today)]
     layers.append(ports(today))
 
     n2k = fetch_ha("natura2000areas", box)
@@ -943,7 +1031,7 @@ def rebuild_group(group: str, pack: dict[str, Any], today: str) -> list[dict[str
     if group == "ports":
         return [ports(today)]
     if group == "grid":
-        return [grid_nodes(today)]
+        return [grid_nodes(today), grid_lines(box, today)]
     return [fetch_seabed(REGION_BBOX, today)]
 
 

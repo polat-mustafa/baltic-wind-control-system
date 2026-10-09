@@ -101,7 +101,7 @@ export default function ProjectMenu() {
         aria-haspopup="dialog"
         aria-expanded={open}
         title="Project"
-        className="flex max-w-[11rem] items-center gap-1.5 rounded-md border border-border-primary bg-bg-tertiary px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+        className="flex h-8 max-w-[13rem] items-center gap-2 rounded-md border border-border-secondary px-2.5 text-xs font-medium text-text-primary hover:bg-bg-hover"
       >
         {own ? <FolderOpen size={13} className="shrink-0" /> : <BookOpen size={13} className="shrink-0" />}
         <span className="hidden truncate sm:inline">{own ? name : mode === "reference" ? "SB-510 reference" : "Project"}</span>

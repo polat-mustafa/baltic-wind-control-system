@@ -41,10 +41,10 @@ export default function TourMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         title="Guided tours"
-        className="flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-tertiary px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+        aria-label="Guided tours"
+        className="flex h-8 w-8 items-center justify-center rounded-md border border-border-secondary text-text-secondary hover:bg-bg-hover hover:text-text-primary"
       >
-        <Compass size={13} />
-        <span className="hidden sm:inline">Tour</span>
+        <Compass size={15} strokeWidth={1.75} />
       </button>
       {open && (
         <div

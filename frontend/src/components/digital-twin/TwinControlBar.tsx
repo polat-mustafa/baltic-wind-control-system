@@ -94,7 +94,7 @@ export default function TwinControlBar() {
         <Button onClick={runAnalysis} disabled={loading} size="sm" className="h-[34px] px-4">
           {loading ? (
             <span className="flex items-center gap-2">
-              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
               Running twin…
             </span>
           ) : (

@@ -26,8 +26,11 @@ import TestingTab from "../components/p5/TestingTab";
 import GridCodeTab from "../components/p5/GridCodeTab";
 import EmergencyTab from "../components/p5/EmergencyTab";
 import AuditTrail from "../components/p5/AuditTrail";
+import { PageHeader } from "../components/layout/PageHeader";
+import { PageTabs, type PageTab } from "../components/layout/PageTabs";
+import { useLandingStore } from "../store/landingStore";
 
-const TABS: { id: P5Tab; label: string; Icon: React.FC<{ size?: number }> }[] = [
+const TABS: PageTab<P5Tab>[] = [
   { id: "switching", label: "Switching", Icon: Zap },
   { id: "isolation", label: "Isolation", Icon: Lock },
   { id: "testing", label: "FAT / SAT", Icon: FlaskConical },
@@ -200,6 +203,9 @@ export default function CommissioningPage() {
   const { active, programmes, error, fetchProgrammes, clearError } = useCommissioningStore();
   const finished = active?.status === "completed" || programmes.some((p) => p.status === "completed");
   const [tab, setTab] = useState<P5Tab>("switching");
+  // Once the farm is commissioned, its first energisation can be replayed here
+  const commissioned = useLandingStore((s) => s.commissioned);
+  const playEnergisation = useLandingStore((s) => s.playEnergisation);
 
   useEffect(() => {
     void fetchProgrammes();
@@ -207,15 +213,21 @@ export default function CommissioningPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-text-primary">HV Commissioning</h2>
-          <p className="mt-1 font-mono text-xs text-text-muted">
-            Circuit 1 first energisation · isolation (EN 50110-1) · FAT / SAT · EON → ION → FON (NC RfG)
-          </p>
-        </div>
-        <TrainingGuide guide={p5Guide} />
-      </div>
+      <PageHeader
+        title="HV Commissioning"
+        description="First energisation of export circuit 1: isolation and locks, tests, the switching programme step by step, and the grid-code notifications."
+        meta="Isolation EN 50110-1 · FAT / SAT · EON → ION → FON (NC RfG)"
+        actions={
+          <>
+            <TrainingGuide guide={p5Guide} />
+            {commissioned && (
+              <Button variant="secondary" size="sm" onClick={playEnergisation} title="Replay the first energisation from the grid, bay by bay">
+                <Zap size={14} /> Replay energisation
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <ProjectHandoverNote what="A new programme is built for your farm: cable length, transformer, reactor and STATCOM ratings from the grid design, one feeder bay per string of section A. Each programme keeps the farm it was created for." />
       <StageDone
@@ -238,22 +250,7 @@ export default function CommissioningPage() {
         <>
           <StatusStrip programme={active} />
           <NextAction programme={active} onGoto={setTab} />
-          <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-border-primary bg-bg-secondary p-1">
-            {TABS.map(({ id, label, Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors",
-                  tab === id ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary",
-                )}
-              >
-                <Icon size={12} />
-                {label}
-              </button>
-            ))}
-          </div>
+          <PageTabs tabs={TABS} value={tab} onChange={setTab} label="Commissioning steps" />
           {tab === "switching" && <SwitchingTab programme={active} onGoto={setTab} />}
           {tab === "isolation" && <IsolationTab programme={active} />}
           {tab === "testing" && <TestingTab />}

@@ -10,8 +10,9 @@ test("renders the landing page heading", () => {
   expect(headings.length).toBeGreaterThanOrEqual(1);
 });
 
-test("displays the wind farm specification", () => {
+test("displays the wind farm specification", async () => {
   render(<App />);
-  const matches = screen.getAllByText(/510 MW/);
+  // The Control Room header names the farm and its capacity once the page chunk loads
+  const matches = await screen.findAllByText(/510 MW/, undefined, { timeout: 5000 });
   expect(matches.length).toBeGreaterThanOrEqual(1);
 });

@@ -1,6 +1,6 @@
 /**
- * Sidebar responsive behaviour: off-canvas drawer below md, icon rail between
- * md and lg, full width from lg up (the user toggle overrides the default).
+ * Sidebar responsive behaviour: off-canvas drawer below md; from md up an icon
+ * rail by default that the user can widen, remembered in this browser.
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -29,7 +29,10 @@ const renderSidebar = (props: Partial<Parameters<typeof Sidebar>[0]> = {}) =>
   );
 
 describe("Sidebar", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
 
   it("is an inert off-canvas drawer on phones until opened", () => {
     setViewport(375);
@@ -52,18 +55,24 @@ describe("Sidebar", () => {
     expect(onMobileClose).toHaveBeenCalled();
   });
 
-  it("is an icon rail on tablets and expandable by the user", () => {
-    setViewport(800);
-    renderSidebar();
-    expect(screen.queryByText("Wind farm map & KPIs")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
-    expect(screen.getByText("Wind farm map & KPIs")).toBeDefined();
-  });
-
-  it("is full width on laptops and up", () => {
+  it("is an icon rail from tablets up, and every icon keeps its page name", () => {
     setViewport(1440);
     renderSidebar();
-    expect(screen.getByText("Wind farm map & KPIs")).toBeDefined();
-    expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeDefined();
+    expect(screen.getByRole("navigation").dataset.expanded).toBe("false");
+    expect(screen.getByRole("link", { name: "Control Room" })).toBeDefined();
+  });
+
+  it("widens on request and remembers the choice", () => {
+    setViewport(1440);
+    const first = renderSidebar();
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    expect(screen.getByRole("navigation").dataset.expanded).toBe("true");
+    expect(localStorage.getItem("of.nav.expanded")).toBe("1");
+    first.unmount();
+
+    renderSidebar();
+    expect(screen.getByRole("navigation").dataset.expanded).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(localStorage.getItem("of.nav.expanded")).toBe("0");
   });
 });

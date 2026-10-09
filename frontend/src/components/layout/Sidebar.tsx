@@ -1,189 +1,23 @@
 /**
- * Navigation sidebar, grouped by project lifecycle stage.
+ * Navigation sidebar, grouped by project lifecycle stage (constants/navigation).
  *
- * Features:
- * - Lifecycle groups: Develop, Design, Build & Commission, Operate, Decommission, then Learn
- * - Lucide icons per module
- * - Collapse/expand toggle
- * - Active state with left accent border
- * - Lock icon on modules the own project has not reached yet (lib/project/progress.ts)
- * - System status section at bottom
- *
- * Responsive: ≥ lg full width, md–lg an icon rail (user can expand it),
- * < md an off-canvas drawer opened from the header menu button.
+ * md and up: a 56 px icon rail by default — each icon names its page in a
+ * tooltip — that the user can widen to a labelled list; the choice is kept in
+ * this browser (`of.nav.expanded`). Below md: an off-canvas drawer with labels,
+ * opened from the header menu button. Modules the own project has not reached
+ * yet carry a lock (lib/project/progress.ts).
  */
 
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import {
-  Library,
-  LayoutDashboard,
-  Wind,
-  Zap,
-  Monitor,
-  Brain,
-  ClipboardCheck,
-  Cpu,
-  Fan,
-  MapPinned,
-  Grid3x3,
-  GraduationCap,
-  HardHat,
-  FileCheck2,
-  FileText,
-  Recycle,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Lock,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Lock, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
-import { StatusIndicator } from "../ui/StatusIndicator";
 import { useLocks } from "../../lib/project/progress";
+import { readStored, writeStored } from "../../lib/storage";
+import { NAV_GROUPS } from "../../constants/navigation";
 
-interface NavItem {
-  label: string;
-  path: string;
-  icon: LucideIcon;
-  description: string;
-}
-
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
-
-/** Pages grouped by project lifecycle stage (develop → design → build → operate). */
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "Develop",
-    items: [
-      {
-        label: "Site & Permits",
-        path: "/develop",
-        icon: MapPinned,
-        description: "Open data, suitability, EIA, permit",
-      },
-      {
-        label: "Layout",
-        path: "/develop/layout",
-        icon: Grid3x3,
-        description: "Turbines, wakes, cables, cost",
-      },
-      {
-        label: "Wind Resource",
-        path: "/wind-resource",
-        icon: Wind,
-        description: "Weibull, wakes, layout, AEP",
-      },
-      {
-        label: "Project Report",
-        path: "/report",
-        icon: FileText,
-        description: "Print / PDF, JSON, windIO",
-      },
-      {
-        label: "My Projects",
-        path: "/projects",
-        icon: Library,
-        description: "Open, compare, export",
-      },
-    ],
-  },
-  {
-    label: "Design",
-    items: [
-      {
-        label: "Grid Integration",
-        path: "/hv-grid",
-        icon: Zap,
-        description: "Load flow, FRT, STATCOM",
-      },
-      {
-        label: "Turbine Physics",
-        path: "/turbine-physics",
-        icon: Fan,
-        description: "Cp(λ, β), pitch & yaw control",
-      },
-    ],
-  },
-  {
-    label: "Build & Commission",
-    items: [
-      {
-        label: "Construction",
-        path: "/build",
-        icon: HardHat,
-        description: "Vessels, weather windows, timeline",
-      },
-      {
-        label: "Commissioning",
-        path: "/commissioning",
-        icon: ClipboardCheck,
-        description: "Switching, LOTO, SAT",
-      },
-      {
-        label: "Hand-over",
-        path: "/build/handover",
-        icon: FileCheck2,
-        description: "As-built register, to operation",
-      },
-    ],
-  },
-  {
-    label: "Operate",
-    items: [
-      {
-        label: "Control Room",
-        path: "/",
-        icon: LayoutDashboard,
-        description: "Wind farm map & KPIs",
-      },
-      {
-        label: "SCADA",
-        path: "/scada",
-        icon: Monitor,
-        description: "SLD, GOOSE, permits",
-      },
-      {
-        label: "Forecasting",
-        path: "/forecast",
-        icon: Brain,
-        description: "XGBoost, LSTM, TFT",
-      },
-      {
-        label: "Digital Twin",
-        path: "/digital-twin",
-        icon: Cpu,
-        description: "Condition monitoring, ISO 13374",
-      },
-    ],
-  },
-  {
-    label: "Decommission",
-    items: [
-      {
-        label: "Decommissioning",
-        path: "/decommission",
-        icon: Recycle,
-        description: "Removal, recycling, seabed",
-      },
-    ],
-  },
-  {
-    label: "Learn",
-    items: [
-      {
-        label: "Academy",
-        path: "/academy",
-        icon: GraduationCap,
-        description: "Courses, scored missions",
-      },
-    ],
-  },
-];
+const EXPANDED_KEY = "of.nav.expanded";
 
 interface SidebarProps {
   /** Drawer state below md (the sidebar is off-canvas there). */
@@ -193,94 +27,108 @@ interface SidebarProps {
 
 export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const isMd = useMediaQuery("(min-width: 768px)");
-  const isLg = useMediaQuery("(min-width: 1024px)");
-  const [userCollapsed, setUserCollapsed] = useState<boolean | null>(null);
-  // Icon rail between md and lg, full width from lg up; the toggle overrides.
+  const [userExpanded, setUserExpanded] = useState(() => readStored(EXPANDED_KEY) === "1");
   // The drawer below md always shows the labels.
-  const collapsed = isMd && (userCollapsed ?? !isLg);
+  const expanded = !isMd || userExpanded;
   const locks = useLocks();
+
+  const toggle = () => {
+    setUserExpanded(!userExpanded);
+    writeStored(EXPANDED_KEY, userExpanded ? "0" : "1");
+  };
 
   return (
     <nav
       aria-label="Main navigation"
       data-tour="nav"
+      data-expanded={expanded}
       inert={!isMd && !mobileOpen}
       className={cn(
         "flex flex-col border-r border-border-primary bg-bg-secondary shrink-0",
-        "transition-all duration-300 ease-in-out",
+        "transition-[width,transform] duration-200 ease-out",
         "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-[2000] max-md:w-72 max-md:max-w-[85vw] max-md:overflow-y-auto max-md:shadow-2xl",
         mobileOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full",
-        collapsed ? "md:w-16" : "md:w-60",
+        expanded ? "md:w-56" : "md:w-14",
       )}
     >
-      {/* Collapse toggle (drawer: close button) */}
-      <div className="flex items-center justify-end px-2 py-2 border-b border-border-primary">
-        <button
-          onClick={() => (isMd ? setUserCollapsed(!collapsed) : onMobileClose())}
-          className={cn(
-            "flex items-center justify-center h-7 w-7 rounded-md",
-            "text-text-muted hover:text-text-secondary hover:bg-bg-hover",
-            "transition-colors duration-150",
-          )}
-          aria-label={
-            !isMd ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"
-          }
-        >
-          {!isMd ? <X size={16} /> : collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
-      </div>
+      {!isMd && (
+        <div className="flex items-center justify-end border-b border-border-primary px-2 py-2">
+          <button
+            type="button"
+            onClick={onMobileClose}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary"
+            aria-label="Close menu"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
-      {/* Navigation, grouped by lifecycle stage */}
-      <div className="flex flex-1 flex-col gap-3 px-2 py-3">
+      <div className={cn("flex flex-1 flex-col py-2", expanded ? "px-2" : "items-center px-1.5")}>
         {NAV_GROUPS.map((group, gi) => (
-          <section key={group.label} aria-labelledby={`nav-group-${gi}`}>
-            {collapsed ? (
+          <section key={group.label} aria-labelledby={`nav-group-${gi}`} className={cn("w-full", gi > 0 && "mt-2")}>
+            {expanded ? (
+              <h2 id={`nav-group-${gi}`} className="px-2.5 pb-1 pt-1 text-xs font-medium uppercase tracking-[0.08em] text-text-muted">
+                {group.label}
+              </h2>
+            ) : (
               <>
-                {gi > 0 && <div className="mx-2 mb-2 border-t border-border-primary" aria-hidden />}
+                {gi > 0 && <div className="mx-auto mb-2 w-6 border-t border-border-primary" aria-hidden />}
                 <h2 id={`nav-group-${gi}`} className="sr-only">
                   {group.label}
                 </h2>
               </>
-            ) : (
-              <h2
-                id={`nav-group-${gi}`}
-                className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-text-muted"
-              >
-                {group.label}
-              </h2>
             )}
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const lock = locks[item.path];
+                const name = `${item.label}${lock ? " (locked)" : ""}`;
                 return (
                   <li key={item.path}>
                     <NavLink
                       to={item.path}
                       end={item.path === "/" || item.path === "/develop" || item.path === "/build"}
                       onClick={onMobileClose}
+                      aria-label={expanded && !lock ? undefined : name}
+                      title={lock ? `${item.label} — locked. First: ${lock.need}` : expanded ? item.description : undefined}
                       className={({ isActive }) =>
                         cn(
-                          "group flex items-center gap-3 rounded-md transition-all duration-150",
-                          collapsed ? "justify-center px-2 py-2" : "px-3 py-2",
+                          "group relative flex items-center gap-3 rounded-md text-sm transition-colors duration-150",
+                          expanded ? "h-9 px-2.5" : "h-10 w-10 justify-center",
                           isActive
-                            ? "bg-accent-muted text-accent border-l-2 border-accent"
-                            : "text-text-secondary hover:text-text-primary hover:bg-bg-hover border-l-2 border-transparent",
+                            ? "bg-accent-muted text-accent"
+                            : "text-text-muted hover:bg-bg-hover hover:text-text-primary",
                         )
                       }
-                      title={lock ? `${item.label} — locked. First: ${lock.need}` : collapsed ? item.label : undefined}
-                      aria-label={collapsed || lock ? `${item.label}${lock ? " (locked)" : ""}` : undefined}
                     >
-                      <Icon size={18} className="shrink-0" />
-                      {!collapsed && (
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span className="text-sm font-medium truncate">{item.label}</span>
-                          <span className="text-xs text-text-muted truncate">
-                            {item.description}
-                          </span>
-                        </div>
+                      {({ isActive }) => (
+                        <>
+                          {isActive && (
+                            <span aria-hidden className="absolute -left-1.5 top-2 h-6 w-0.5 rounded-full bg-accent" />
+                          )}
+                          <Icon size={18} strokeWidth={1.75} className="shrink-0" />
+                          {expanded ? (
+                            <span className={cn("min-w-0 flex-1 truncate font-medium", !isActive && "text-text-secondary group-hover:text-text-primary")}>
+                              {item.label}
+                            </span>
+                          ) : (
+                            <span
+                              aria-hidden
+                              className="pointer-events-none absolute left-full top-1/2 z-[1500] ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-border-secondary bg-bg-elevated px-2.5 py-1.5 text-xs font-medium text-text-primary opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus-visible:opacity-100"
+                            >
+                              {item.label}
+                            </span>
+                          )}
+                          {lock && (
+                            <Lock
+                              size={expanded ? 12 : 10}
+                              aria-hidden
+                              className={cn("shrink-0 text-text-muted", !expanded && "absolute bottom-1 right-1")}
+                            />
+                          )}
+                        </>
                       )}
-                      {lock && <Lock size={12} className="shrink-0 text-text-muted" aria-hidden />}
                     </NavLink>
                   </li>
                 );
@@ -290,23 +138,23 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         ))}
       </div>
 
-      {/* System status footer */}
-      <div
-        className={cn(
-          "border-t border-border-primary px-3 py-3",
-          collapsed && "px-2 flex justify-center",
-        )}
-      >
-        <StatusIndicator
-          status="normal"
-          label={collapsed ? undefined : "System Online"}
-        />
-        {!collapsed && (
-          <div className="mt-2 text-xs text-text-muted font-mono">
-            {new Date().toISOString().slice(0, 19).replace("T", " ")} UTC
-          </div>
-        )}
-      </div>
+      {isMd && (
+        <div className={cn("border-t border-border-primary py-2", expanded ? "px-2" : "flex justify-center px-1.5")}>
+          <button
+            type="button"
+            onClick={toggle}
+            className={cn(
+              "flex items-center gap-3 rounded-md text-xs text-text-muted hover:bg-bg-hover hover:text-text-secondary",
+              expanded ? "h-8 w-full px-2.5" : "h-8 w-10 justify-center",
+            )}
+            aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
+            title={expanded ? "Collapse to icons" : "Show page names"}
+          >
+            {expanded ? <ChevronsLeft size={16} /> : <ChevronsRight size={16} />}
+            {expanded && <span>Collapse</span>}
+          </button>
+        </div>
+      )}
     </nav>
   );
 }

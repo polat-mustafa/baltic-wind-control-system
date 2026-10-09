@@ -13,7 +13,7 @@
  */
 
 import { useEffect } from "react";
-import { BookOpenCheck, Cpu, LayoutGrid, Wind } from "lucide-react";
+import { BookOpenCheck, LayoutGrid, Wind } from "lucide-react";
 
 import EventLog from "../components/digital-twin/EventLog";
 import FarmMap from "../components/digital-twin/FarmMap";
@@ -37,8 +37,10 @@ import { Skeleton } from "../components/ui/Skeleton";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { digitalTwinGuide } from "../constants/trainingGuideContent";
 import { useDigitalTwinStore, type TwinTab } from "../store/digitalTwinStore";
+import { PageHeader } from "../components/layout/PageHeader";
+import { PageTabs, type PageTab } from "../components/layout/PageTabs";
 
-const TABS: { id: TwinTab; label: string; Icon: React.FC<{ size?: number }> }[] = [
+const TABS: PageTab<TwinTab>[] = [
   { id: "fleet", label: "Fleet overview", Icon: LayoutGrid },
   { id: "turbine", label: "Turbine analysis", Icon: Wind },
   { id: "model", label: "Model & validation", Icon: BookOpenCheck },
@@ -73,19 +75,21 @@ export default function DigitalTwinPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
-            <Cpu size={20} className="text-accent" aria-hidden />
-            Digital Twin · Condition Monitoring
-          </h2>
-          <p className="mt-1 text-xs text-text-muted">
-            Physics reference model of the IEA 15 MW turbine (direct drive) run at the measured wind of every 10-min
-            SCADA record · EWMA control charts · model-based fault isolation · ISO 13374-1 / 13381-1
-          </p>
-        </div>
-        <TrainingGuide guide={digitalTwinGuide} />
-      </div>
+      <PageHeader
+        title="Digital Twin · Condition Monitoring"
+        description={
+          <>
+            A physics reference model of the IEA 15 MW direct-drive turbine runs at the measured wind of every 10-min SCADA
+            record; control charts on the residuals find faults and model-based isolation names them.
+          </>
+        }
+        meta="ISO 13374-1 · ISO 13381-1 · EWMA control charts"
+        actions={
+          <>
+            <TrainingGuide guide={digitalTwinGuide} />
+          </>
+        }
+      />
 
       <TwinControlBar />
 
@@ -103,29 +107,7 @@ export default function DigitalTwinPage() {
 
       <ProjectHandoverNote what="The twin watches your turbines on your site's hub-height wind (Weibull A, k from the site report). The detector keeps its phase-one calibration on the SB-510 fleet: same turbine model, limits per wind bin. Fault scenarios are spread over your turbines." />
 
-      <div
-        role="tablist"
-        aria-label="Digital twin views"
-        data-tour="page-tabs"
-        className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-border-primary bg-bg-secondary p-1"
-      >
-        {TABS.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
-              tab === id
-                ? "bg-accent text-accent-ink"
-                : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
-            }`}
-          >
-            <Icon size={13} />
-            {label}
-          </button>
-        ))}
-      </div>
+      <PageTabs tabs={TABS} value={tab} onChange={setTab} label="Digital twin views" />
 
       {!analysis ? (
         loading ? (

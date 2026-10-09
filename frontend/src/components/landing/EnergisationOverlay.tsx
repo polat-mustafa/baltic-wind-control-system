@@ -6,7 +6,7 @@
  * busbar → string feeders → turbines synchronise and ramp up).
  *
  * Shown when an own project's commissioning is marked complete, and on
- * demand ("Replay energisation") for the SB-510 reference. Ratings come
+ * demand ("Replay energisation" on the Commissioning page). Ratings come
  * from the live fleet's network design (lib/fleet → backend P2 design).
  */
 

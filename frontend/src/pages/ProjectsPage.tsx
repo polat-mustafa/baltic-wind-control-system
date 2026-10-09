@@ -7,7 +7,7 @@
 
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BarChart3, Copy, Download, FolderOpen, Library, Pencil, Trash2, Upload } from "lucide-react";
+import { BarChart3, Copy, Download, FolderOpen, Pencil, Trash2, Upload } from "lucide-react";
 
 import { Button } from "../components/ui/Button";
 import { parseDoc, type ProjectDoc } from "../lib/project/document";
@@ -26,6 +26,7 @@ import {
 import { cn } from "../lib/utils";
 import { postAssess, type AssessResponse } from "../services/siteApi";
 import { useModeStore } from "../store/modeStore";
+import { PageHeader } from "../components/layout/PageHeader";
 
 const REFERENCE = "sb510";
 const MAX_COMPARE = 4;
@@ -141,16 +142,16 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
-          <Library size={20} className="text-accent" aria-hidden /> My projects
-        </h2>
-        <p className="mt-1 max-w-3xl text-xs text-text-muted">
-          Your projects are kept in this browser (switching to the SB-510 reference files the open one here first). Export a project to keep
-          it as a file or move it to another computer; a project saved online is also reachable by its link. Tick two to four projects to
-          compare them.
-        </p>
-      </div>
+      <PageHeader
+        title="My projects"
+        description={
+          <>
+            Your projects are kept in this browser (switching to the SB-510 reference files the open one here first). Export a project to keep
+            it as a file or move it to another computer; a project saved online is also reachable by its link. Tick two to four projects to
+            compare them.
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={() => fileRef.current?.click()}>

@@ -15,9 +15,11 @@ import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
+import { useChartPalette } from "../../hooks/useChartPalette";
 import { useTurbinePhysicsStore } from "../../store/turbinePhysicsStore";
 
 export default function PowerTimeChart() {
+  const pal = useChartPalette();
   const simulation = useTurbinePhysicsStore((s) => s.simulation);
   if (!simulation) return null;
 
@@ -38,7 +40,7 @@ export default function PowerTimeChart() {
       name: "Electrical Power",
       type: "scatter",
       mode: "lines",
-      line: { color: "#45c8d9", width: 2 },
+      line: { color: pal.blue, width: 2 },
       hovertemplate: "%{y:.2f} MW<extra></extra>",
     },
     {
@@ -47,7 +49,7 @@ export default function PowerTimeChart() {
       name: "Aero Power",
       type: "scatter",
       mode: "lines",
-      line: { color: "#f0b13e", width: 1.5, dash: "dot" },
+      line: { color: pal.orange, width: 1.5, dash: "dot" },
       hovertemplate: "%{y:.2f} MW<extra></extra>",
     },
     {
@@ -56,7 +58,7 @@ export default function PowerTimeChart() {
       name: "Wind Speed",
       type: "scatter",
       mode: "lines",
-      line: { color: "#a3b6c8", width: 1, dash: "dot" },
+      line: { color: pal.ref, width: 1, dash: "dot" },
       yaxis: "y2",
       hovertemplate: "%{y:.1f} m/s<extra></extra>",
     },
@@ -67,7 +69,7 @@ export default function PowerTimeChart() {
       name: "Rated (15 MW)",
       type: "scatter",
       mode: "lines",
-      line: { color: "#e74c3c", width: 1, dash: "dash" },
+      line: { color: pal.ref, width: 1, dash: "dash" },
       showlegend: true,
       hoverinfo: "skip",
     },
@@ -88,7 +90,7 @@ export default function PowerTimeChart() {
       tickfont: {
         family: "'IBM Plex Mono', monospace",
         size: 10,
-        color: "#a3b6c8",
+        color: pal.ref,
       },
     },
     xaxis: {

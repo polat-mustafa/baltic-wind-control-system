@@ -49,6 +49,7 @@ import { hvacVsHvdcEducation } from "../constants/education/library/hvacVsHvdc";
 import { statcomSizingEducation } from "../constants/education/library/statcomSizing";
 import { arrayVoltageEducation } from "../constants/education/library/arrayVoltage";
 import { cableCrossSectionEducation } from "../constants/education/library/cableCrossSection";
+import { useAutoRun } from "../hooks/useAutoRun";
 
 
 type Tab =
@@ -104,6 +105,8 @@ export default function HVGridPage() {
   useEffect(() => {
     fetchNetworkSpec();
   }, [fetchNetworkSpec]);
+  // Open with results: the load flow, short circuit and FRT take ~10 s
+  useAutoRun(!analysisRun && !gridLoading && !gridError, runFullAnalysis);
 
   return (
     <div className="space-y-5">

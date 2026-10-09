@@ -16,12 +16,14 @@ import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
+import { useChartPalette } from "../../hooks/useChartPalette";
 import { useTurbinePhysicsStore } from "../../store/turbinePhysicsStore";
 
 /** Overspeed shutdown [rpm] — ROSCO SD_MaxGenSpd, 1.2 × the 7.56 rpm rated speed. */
 const OVERSPEED_RPM = 1.2 * V236.ratedRpm;
 
 export default function RotorPitchChart() {
+  const pal = useChartPalette();
   const simulation = useTurbinePhysicsStore((s) => s.simulation);
   if (!simulation) return null;
 
@@ -41,7 +43,7 @@ export default function RotorPitchChart() {
       name: "Rotor Speed",
       type: "scatter",
       mode: "lines",
-      line: { color: "#4cc38a", width: 2 },
+      line: { color: pal.blue, width: 2 },
       hovertemplate: "%{y:.2f} rpm<extra></extra>",
     },
     {
@@ -50,7 +52,7 @@ export default function RotorPitchChart() {
       name: "Pitch Angle",
       type: "scatter",
       mode: "lines",
-      line: { color: "#f97316", width: 2 },
+      line: { color: pal.orange, width: 2 },
       yaxis: "y2",
       hovertemplate: "%{y:.1f} deg<extra></extra>",
     },
@@ -61,7 +63,7 @@ export default function RotorPitchChart() {
       name: `Overspeed trip (${OVERSPEED_RPM.toFixed(2)})`,
       type: "scatter",
       mode: "lines",
-      line: { color: "#e74c3c", width: 1, dash: "dash" },
+      line: { color: pal.red, width: 1, dash: "dash" },
       showlegend: true,
       hoverinfo: "skip",
     },
@@ -72,7 +74,7 @@ export default function RotorPitchChart() {
       name: `Rated (${V236.ratedRpm.toFixed(2)})`,
       type: "scatter",
       mode: "lines",
-      line: { color: "#22c55e", width: 1, dash: "dot" },
+      line: { color: pal.blue, width: 1, dash: "dot" },
       showlegend: true,
       hoverinfo: "skip",
     },
@@ -83,7 +85,7 @@ export default function RotorPitchChart() {
       name: `Min RPM (${V236.minRpm.toFixed(1)})`,
       type: "scatter",
       mode: "lines",
-      line: { color: "#a3b6c8", width: 1, dash: "dash" },
+      line: { color: pal.ref, width: 1, dash: "dash" },
       showlegend: true,
       hoverinfo: "skip",
     },
@@ -104,7 +106,7 @@ export default function RotorPitchChart() {
       tickfont: {
         family: "'IBM Plex Mono', monospace",
         size: 10,
-        color: "#a3b6c8",
+        color: pal.ref,
       },
     },
     xaxis: {

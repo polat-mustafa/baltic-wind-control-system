@@ -96,7 +96,14 @@ for (const [name, path] of ROUTES) {
 
   for (const theme of THEMES) {
     test(`${name}: looks unchanged (${theme})`, async ({ page }) => {
+      // Pages open with results (hooks/useAutoRun): wait until the page's own run has finished
+      test.setTimeout(180_000);
       await open(page, path, theme);
+      await page.waitForTimeout(1500); // a run may start after a first status call (Forecast: model cache)
+      await page
+        .waitForFunction(() => !/Running|Queued/.test(document.body.innerText), null, { timeout: 150_000, polling: 500 })
+        .catch(() => undefined);
+      await page.waitForLoadState("networkidle").catch(() => undefined);
       await page.waitForTimeout(800);
       await expect(page).toHaveScreenshot(`${name}-${theme}.png`, {
         fullPage: false,

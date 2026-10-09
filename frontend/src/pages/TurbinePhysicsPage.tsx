@@ -16,6 +16,7 @@ import { ControlDrawer } from "../components/ui/ControlDrawer";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { turbinePhysicsGuide } from "../constants/trainingGuideContent";
 import { PageHeader } from "../components/layout/PageHeader";
+import { useAutoRun } from "../hooks/useAutoRun";
 
 const SCENARIO_OPTIONS = [
   { value: "constant", label: "Constant Wind" },
@@ -67,6 +68,8 @@ export default function TurbinePhysicsPage() {
     fetchConfig();
     fetchCpSurface();
   }, [fetchConfig, fetchCpSurface]);
+  // Open with results: the default scenario simulates in under a second
+  useAutoRun(!analysisRun && !loading && !error, runSimulation);
 
   return (
     <div className="space-y-5">

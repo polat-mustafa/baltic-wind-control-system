@@ -16,7 +16,7 @@
 import type { NacelleSubsystemsResponse } from "../../../../services/nacelleSubsystemsApi";
 import type { TurbinePartId } from "../../../../constants/turbinePartEducation";
 import type { TurbineData } from "../../../../types/landing";
-import type { PowerChain } from "../../../../utils/landingPhysics";
+import { CONVERTER_GRID_KV, type PowerChain } from "../../../../utils/landingPhysics";
 import { REFERENCE_TURBINE } from "../../../../utils/turbineCurves";
 import {
   Accumulator, Battery, Bearing, BrakeCaliper, Breaker, Bubble, CableEnd, Capacitor, CheckValve, Converter, CT,
@@ -86,7 +86,7 @@ export function ElectricalSheet({ turbine, chain, selected, onSelect, string, na
         <Breaker closed={online} />
       </Sym>
       <Label x={450} y={228} tag="-Q1" text={online ? "closed" : "open"} />
-      <Reading x={404} y={272} lines={[`I ${f2(kA(chain.converter.outMW, 0.69))} kA`, "@ 690 V, pf 1"]} />
+      <Reading x={404} y={272} lines={[`I ${f2(kA(chain.converter.outMW, CONVERTER_GRID_KV))} kA`, `@ ${CONVERTER_GRID_KV} kV, pf 1`]} />
       <g transform="translate(512 250)"><CT /></g>
       <g transform="translate(540 250)"><VT /></g>
       <Label x={540} y={308} tag="-T12" text="VT" />
@@ -94,7 +94,7 @@ export function ElectricalSheet({ turbine, chain, selected, onSelect, string, na
       <Sym x={620} y={250} part="transformer" {...sel} title="Step-up transformer">
         <Transformer />
       </Sym>
-      <Label x={620} y={205} tag="-T1" text="0.69 / 66 kV Dyn11" />
+      <Label x={620} y={205} tag="-T1" text={`${CONVERTER_GRID_KV} / 66 kV Dyn11`} />
       <Reading x={572} y={290} lines={[`${f2(p)} MW`, `I ${(kA(p, 66) * 1000).toFixed(0)} A @ 66 kV`]} />
 
       <Sym x={715} y={250} part="transformer" {...sel} title="66 kV transformer feeder circuit breaker">
@@ -234,7 +234,7 @@ export function DrivetrainSheet({ turbine, chain, selected, onSelect, nacelle, y
           <path d="M 0 -44 L 7 -30 L -7 -30 Z" fill="var(--color-accent)" />
         </g>
       </Sym>
-      <Label x={300} y={640} tag="-MDL" text="yaw bearing · 4 drives" />
+      <Label x={300} y={640} tag="-MDL" text="2-row ball yaw bearing · drives (symbolic count)" />
       <Sym x={470} y={540} part="yaw_brake" {...sel} title="Yaw brake calipers">
         <BrakeCaliper applied={Math.abs(yawErrDeg) < 3} />
       </Sym>

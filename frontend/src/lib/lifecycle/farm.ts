@@ -9,7 +9,7 @@
  */
 
 import { OSS_GEO, SB510_DEPTH_M, SB510_EXPORT_KM, TURBINE_POSITIONS } from "../../constants/windFarmLayout";
-import { routeCables, sectionFor, type CableEdge } from "../layout/cables";
+import { mstLength, routeCables, sectionFor, type CableEdge, type CableResult } from "../layout/cables";
 import { defaultExportKm, RATED_MW } from "../layout/evaluate";
 import { centroid, dist, projection, type LonLat, type XY } from "../layout/geometry";
 import type { SitePort } from "../../services/siteApi";
@@ -142,6 +142,30 @@ function sb510Edges(xy: XY[], ossXY: XY): CableEdge[] {
     });
   }
   return edges;
+}
+
+/** True when the turbines are SB-510's 34, unmoved (reference case, or an untouched "From SB-510" copy). */
+export const isSb510Layout = (t: { id: string; lon: number; lat: number }[]) =>
+  t.length === TURBINE_POSITIONS.length &&
+  t.every((x, i) => x.id === TURBINE_POSITIONS[i].id && x.lon === TURBINE_POSITIONS[i].lon && x.lat === TURBINE_POSITIONS[i].lat);
+
+/**
+ * SB-510's designed array (6 radial strings, 6-6-6-6-5-5, as P2/P3/P5) instead
+ * of the Layout page's automatic router, which would split it differently.
+ * `xy` in TURBINE_POSITIONS order.
+ */
+export function sb510Cables(xy: XY[], ossXY: XY): CableResult {
+  const edges = sb510Edges(xy, ossXY);
+  const kmBySection: Record<string, number> = {};
+  for (const e of edges) kmBySection[e.section?.id ?? "over"] = (kmBySection[e.section?.id ?? "over"] ?? 0) + e.lengthM / 1000;
+  return {
+    edges,
+    strings: new Set(TURBINE_POSITIONS.map((t) => t.stringNumber)).size,
+    totalKm: edges.reduce((s, e) => s + e.lengthM, 0) / 1000,
+    kmBySection,
+    crossings: 0,
+    mstKm: mstLength(ossXY, xy) / 1000,
+  };
 }
 
 interface ProjectLike {

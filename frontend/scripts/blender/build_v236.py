@@ -20,12 +20,13 @@ frame the React component expects:
   everything else world frame: sea level y=0, seabed y=-40, hub height 150 m
 
 Multi-colour parts (CTV, SOV, generator magnets, weathered tower / TP /
-monopile) carry per-vertex colours (glTF COLOR_0).
+jacket) carry per-vertex colours (glTF COLOR_0).
 
 The exterior follows public V236-15.0 MW data (rotor 236 m, blade 115.5 m, hub
-150 m); the drivetrain, overhang (11.35 m), tower (Ø 10 → 6.5 m) and monopile
-(Ø 9 m in ~40 m water) follow the IEA 15 MW reference turbine that SB-510 is
-modelled with (low-speed direct drive, no gearbox). Colours: RAL 7035 light grey
+150 m); the drivetrain, overhang (11.35 m) and tower (Ø 10 → 6.5 m) follow the
+IEA 15 MW reference turbine that SB-510 is modelled with (low-speed direct
+drive, no gearbox); the foundation is a four-legged jacket (SB-510: 37–51 m of
+water). Colours: RAL 7035 light grey
 tower and nacelle, RAL 1023 traffic-yellow transition piece (IALA O-139
 marking of offshore structures), red blade-tip bands (ICAO Annex 14 style).
 """
@@ -417,10 +418,24 @@ for k in range(64):
     h = -2.8 + (7.35 + 2.8) * k / 63
     dense.append((max(0.0, interp([(p[1], p[0]) for p in SPIN], h)), h))
 spinner = lathe(dense, 72, axis="z")
-# blade-root fairings: a short collar around each blade where it leaves the spinner
-for b in range(3):
+PRECONE = math.radians(4.0)  # IEA 15 MW: blades coned 4° upwind (viewer: model/layout.ts)
+
+
+def blade_axes(b):
+    """Pitch axis d of blade b (preconed toward +z, upwind) and two normals u, w."""
     a = math.pi / 2 + b * 2 * math.pi / 3  # blade 1 along +y
-    d = (math.cos(a), math.sin(a), 0.0)
+    c, s_ = math.cos(PRECONE), math.sin(PRECONE)
+    radial = (math.cos(a), math.sin(a), 0.0)
+    d = (c * radial[0], c * radial[1], s_)
+    u = (-s_ * radial[0], -s_ * radial[1], c)
+    w = (radial[1], -radial[0], 0.0)
+    return d, u, w
+
+
+# blade-root fairings: a short collar around each blade where it leaves the spinner,
+# on the preconed pitch axis so each root sits square in its collar
+for b in range(3):
+    d, u, w = blade_axes(b)
     ring_prof = [(3.05, 3.0), (3.05, 3.9), (2.85, 4.05)]
     col_m = Mesh()
     rings_c = []
@@ -428,9 +443,6 @@ for b in range(3):
         ring = []
         for k in range(48):
             t = 2 * math.pi * k / 48
-            # local frame: axis d, u = +z, w = d × z
-            u = (0.0, 0.0, 1.0)
-            w = (d[1], -d[0], 0.0)
             p = tuple(d[i] * h + r * (math.cos(t) * u[i] + math.sin(t) * w[i]) for i in range(3))
             ring.append(col_m.add_v(p))
         rings_c.append(ring)
@@ -440,17 +452,13 @@ spinner.build("spinner", WHITE, col)
 
 hubd = Mesh()
 for b in range(3):
-    a = math.pi / 2 + b * 2 * math.pi / 3
-    d = (math.cos(a), math.sin(a), 0.0)
+    d, u, w = blade_axes(b)
     # pitch bearing seal ring visible at the collar lip
-    ring = []
     rings_s = []
     for r, h in ((2.86, 4.0), (2.95, 4.0), (2.95, 4.2), (2.8, 4.2)):
         ring = []
         for k in range(48):
             t = 2 * math.pi * k / 48
-            u = (0.0, 0.0, 1.0)
-            w = (d[1], -d[0], 0.0)
             ring.append(hubd.add_v(tuple(d[i] * h + r * (math.cos(t) * u[i] + math.sin(t) * w[i]) for i in range(3))))
         rings_s.append(ring)
     ring_strip(hubd, rings_s, smooth=False)
@@ -474,15 +482,32 @@ def rrect(hw, yb, yt, rc, n=10, dome=0.0):
     return pts
 
 
+# Shaft geometry (viewer: model/layout.ts) — the turret flange is the nacelle's
+# front face, so that face must be square to the 6° nose-up shaft.
+SHAFT_TILT = math.radians(6.0)
+HUB_W = (0.0, 150.0, 11.35)
+FLANGE_AXIAL = 6.38  # hub centre → turret flange along the shaft [m]
+NAC_ORIGIN = (0.0, 151.0, -5.0)
+FLANGE_W = (0.0, HUB_W[1] - FLANGE_AXIAL * math.sin(SHAFT_TILT), HUB_W[2] - FLANGE_AXIAL * math.cos(SHAFT_TILT))
+FLANGE_Y_NAC = FLANGE_W[1] - NAC_ORIGIN[1]  # ≈ −1.67 m in the nacelle frame
+
+
+def smoothstep(e0, e1, x):
+    t = min(1.0, max(0.0, (x - e0) / (e1 - e0)))
+    return t * t * (3 - 2 * t)
+
+
 def nacelle_section(z):
     """Envelope at station z: long box with generously rounded edges. Direct
     drive: the generator sits in front of the nacelle, so the front is a rounded
-    face 5 m upwind of the tower axis where the turret flange bolts on."""
-    hw, yb, yt, rc = 5.0, -4.4, 4.6, 1.0
-    if z > 9.1:  # front rounding
+    face 5 m upwind of the tower axis where the turret flange bolts on. The
+    front 3 m drop 0.8 m (the bedplate's front casting) so the Ø 6.6 m flange,
+    centred 1.67 m below the nacelle axis, stays inside the shell."""
+    hw, yb, yt, rc = 5.0, -4.4 - 0.8 * smoothstep(5.0, 8.5, z), 4.6, 1.0
+    if z > 9.1:  # front rounding (sides and roof; the chin stays flat for the flange)
         t = min(1.0, (z - 9.1) / 0.9)
         e = 1 - math.cos(t * math.pi / 2)
-        hw, yb, yt, rc = 5.0 - 0.5 * e, -4.4 + 0.5 * e, 4.6 - 0.5 * e, 1.0 + 0.4 * e
+        hw, yt, rc = 5.0 - 0.5 * e, 4.6 - 0.5 * e, 1.0 + 0.4 * e
     if z < -9.6:  # rear rounding
         t = min(1.0, (-9.6 - z) / 0.9)
         e = 1 - math.cos(t * math.pi / 2)
@@ -496,7 +521,10 @@ zs += [-9.6 + 18.7 * k / 18 for k in range(1, 19)]
 zs += [9.1 + 0.9 * math.sin(math.pi / 2 * k / 5) for k in range(1, 6)]
 nrings = []
 for z in zs:
-    nrings.append([nac.add_v((x, y, z)) for x, y in nacelle_section(z)])
+    # front face square to the tilted shaft: shear z about the flange centre,
+    # blended in over the front 2 m (roof back, chin forward)
+    k = smoothstep(7.0, 9.1, z)
+    nrings.append([nac.add_v((x, y, z - k * (y - FLANGE_Y_NAC) * math.tan(SHAFT_TILT))) for x, y in nacelle_section(z)])
 ring_strip(nac, nrings)
 # end caps (rear flat-ish, front where the turret enters)
 nac.add_f(tuple(reversed(nrings[0])), True)
@@ -615,24 +643,63 @@ for k in range(4):  # intermediate obstruction lights (low-intensity, red)
     tl.extend(lathe([(0, -0.2), (0.22, -0.2), (0.22, 0.1), (0, 0.22)], 12, center=(r * math.cos(a), y, r * math.sin(a))))
 tl.build("tower_lights", LIGHT, col)
 
-# ══ Transition piece + monopile + scour (world) ════════════════════════════
+# ══ Transition piece + jacket (world) ═══════════════════════════════════════
+# SB-510 stands in 37–51 m of water, beyond monopile practice for a 15 MW
+# turbine, so it sits on a four-legged jacket on pin piles (as the Construction
+# page and the cost model assume). Proportions follow published 15 MW jacket
+# studies: legs Ø 2.2 m, 16 m square at the top, 28 m at the mudline, four
+# X-braced bays; the yellow transition piece (central can + girders) carries
+# the tower at +26 m.
 TP_R = 4.9
-tp = lathe([(TP_R, -2.0), (TP_R, 25.4), (TP_R - 0.4, 25.8), (R0 + 0.1, 26.0)], 96, smooth=True)
+JKT_TOP, JKT_HALF_TOP, JKT_HALF_BASE, LEG_R = 16.0, 8.0, 14.0, 1.1
+SEABED = -40.0
+
+
+def leg_half(y):
+    """Half spacing of the jacket legs at height y (linear batter)."""
+    return JKT_HALF_TOP + (JKT_TOP - y) / (JKT_TOP - SEABED) * (JKT_HALF_BASE - JKT_HALF_TOP)
+
+
+CORNERS = [(1, 1), (1, -1), (-1, -1), (-1, 1)]
+tp = lathe([(TP_R, 14.0), (TP_R, 25.4), (TP_R - 0.4, 25.8), (R0 + 0.1, 26.0)], 96, smooth=True, cap=True)
+for sx, sz in CORNERS:  # girders from the can to the leg tops
+    tp.extend(tube((sx * TP_R * 0.7, 15.6, sz * TP_R * 0.7), (sx * JKT_HALF_TOP, 15.6, sz * JKT_HALF_TOP), 0.75, 10, smooth=False))
+    tp.extend(tube((sx * JKT_HALF_TOP, 14.6, sz * JKT_HALF_TOP), (sx * JKT_HALF_TOP, JKT_TOP + 0.6, sz * JKT_HALF_TOP), LEG_R + 0.15, 16))
 tp.paint(weather_tp).build("transition_piece", VCOL, col)
 
+jkt = Mesh()
+levels = [JKT_TOP - 0.6, 2.0, -12.0, -26.0, SEABED + 1.0]
+for sx, sz in CORNERS:  # legs, down to the pin-pile sleeves
+    h0, h1 = leg_half(JKT_TOP), leg_half(SEABED)
+    jkt.extend(tube((sx * h0, JKT_TOP, sz * h0), (sx * h1, SEABED, sz * h1), LEG_R, 16))
+    jkt.extend(tube((sx * (h1 + 2.6), SEABED + 4.0, sz * h1), (sx * (h1 + 2.6), SEABED - 0.5, sz * h1), 1.0, 12))  # pin pile
+    jkt.extend(tube((sx * h1, SEABED + 3.0, sz * h1), (sx * (h1 + 2.6), SEABED + 3.0, sz * h1), 0.35, 8))  # sleeve link
+for (ax_, az_), (bx_, bz_) in zip(CORNERS, CORNERS[1:] + CORNERS[:1]):  # four faces
+    for y0, y1 in zip(levels, levels[1:]):
+        p0 = (ax_ * leg_half(y0), y0, az_ * leg_half(y0))
+        p1 = (bx_ * leg_half(y0), y0, bz_ * leg_half(y0))
+        q0 = (ax_ * leg_half(y1), y1, az_ * leg_half(y1))
+        q1 = (bx_ * leg_half(y1), y1, bz_ * leg_half(y1))
+        jkt.extend(tube(p0, q1, 0.5, 10))  # X-brace
+        jkt.extend(tube(p1, q0, 0.5, 10))
+    y = SEABED + 1.0  # mudline horizontal
+    jkt.extend(tube((ax_ * leg_half(y), y, az_ * leg_half(y)), (bx_ * leg_half(y), y, bz_ * leg_half(y)), 0.5, 10))
+jkt.paint(weather_mp).build("jacket", VCOL, col)
+
 tpd = Mesh()
-# external main platform (grating) with railing
-tpd.extend(annulus(25.6, 25.9, TP_R, 9.0, 96))
-tpd.extend(railing(circle_pts(8.9, 25.9, 40), post_every=1.5))
+# main platform (grating) with railing, wide enough to reach the access ladder
+tpd.extend(annulus(25.6, 25.9, TP_R, 11.8, 96))
+tpd.extend(railing(circle_pts(11.7, 25.9, 48), post_every=1.5))
 # lower resting / cable-hang-off platform
 tpd.extend(annulus(18.3, 18.5, TP_R, 6.2, 64))
-# boat landing (-x side): two fender tubes, brackets and the access ladder
-bx = -TP_R - 1.25
+# boat landing (-x face of the jacket): two fender tubes, brackets to the jacket
+# face, and the access ladder up to the main platform
+LANDING_X = -leg_half(-4.0) - 1.4
 for zz in (-0.95, 0.95):
-    tpd.extend(tube((bx, -4.0, zz), (bx, 19.0, zz), 0.32, 12))
+    tpd.extend(tube((LANDING_X, -4.0, zz), (LANDING_X, 19.0, zz), 0.32, 12))
     for yy in (-2.0, 6.0, 14.0):
-        tpd.extend(tube((bx, yy, zz), (-TP_R + 0.1, yy, zz * 0.6), 0.14, 8))
-lx = -TP_R - 0.5
+        tpd.extend(tube((LANDING_X, yy, zz), (-leg_half(yy), yy, zz * 3.0), 0.14, 8))
+lx = LANDING_X + 0.75
 for zz in (-0.35, 0.35):
     tpd.extend(tube((lx, -2.5, zz), (lx, 25.7, zz), 0.05, 6))
 y = -2.2
@@ -643,20 +710,17 @@ while y < 25.5:
 tpd.extend(tube((7.6, 25.9, 0), (7.6, 30.5, 0), 0.22, 12))
 tpd.extend(tube((7.6, 30.3, 0), (10.8, 31.4, 0), 0.14, 10))
 tpd.extend(tube((10.8, 31.4, 0), (10.8, 29.5, 0), 0.02, 4))
+# J-tubes: the 66 kV array cables rise inside the jacket to the hang-off platform
+for zz in (-2.0, 2.0):
+    tpd.extend(tube((leg_half(SEABED + 2.0) - 3.0, SEABED + 2.0, zz), (TP_R - 0.4, 14.0, zz), 0.3, 8))
 tpd.build("tp_detail", GALV, col)
 
-mono = lathe([(4.5, -40.0), (4.5, -1.5)], 64)
-mono.paint(weather_mp).build("monopile", VCOL, col)
-
-anodes = Mesh()
-for y in (-12.0, -24.0):
-    for k in range(6):
-        a = k * math.pi / 3
-        anodes.extend(box((4.75 * math.cos(a), y, 4.75 * math.sin(a)), (0.35, 2.2, 0.35)))
+anodes = Mesh()  # sacrificial anodes on the legs
+for y in (-12.0, -26.0):
+    for sx, sz in CORNERS:
+        h = leg_half(y) + LEG_R + 0.2
+        anodes.extend(box((sx * h, y, sz * h), (0.35, 2.2, 0.35)))
 anodes.build("anodes", DARK, col)
-
-scour = lathe([(0.0, -39.0), (5.0, -39.2), (9.0, -39.6), (14.0, -40.1), (18.0, -40.35), (18.5, -40.5)], 48)
-scour.build("scour", ROCK, col)
 
 # ══ Drivetrain (shaft frame: hub centre origin, +z toward the rotor) ═══════
 # IEA 15 MW low-speed direct drive (Gaertner et al. 2020, Tables 5-2 / 5-4).
@@ -771,7 +835,15 @@ nose.build("dt_nose", CAST, col)
 # ══ Bedplate + converter (world / yaw frame) ═══════════════════════════════
 bed = Mesh()
 bed.extend(box((0, 146.98, 0.6), (4.4, 0.56, 5.4)))  # cast bedplate nose from the yaw bearing forward
-bed.extend(box((0, 148.9, 4.55), (5.0, 4.4, 0.5)))  # front bulkhead the turret flange bolts to (5 m)
+# front bulkhead the turret flange bolts to: square to the 6° shaft, 0.5 m thick
+# behind the flange (a level plate left a wedge gap 0.5 m at the top, 1.6 m at the bottom)
+ax = (0.0, math.sin(SHAFT_TILT), math.cos(SHAFT_TILT))
+up = (0.0, math.cos(SHAFT_TILT), -math.sin(SHAFT_TILT))
+bulk = box((0, 0, 0), (5.0, 4.4, 0.5))
+for i, (bx, by, bz) in enumerate(bulk.v):
+    x3, y3, z3 = bx, bz, -by - 0.25  # Blender → three.js, then 0.25 m behind the flange
+    bulk.v[i] = B(tuple(FLANGE_W[j] + x3 * (1.0 if j == 0 else 0.0) + y3 * up[j] + z3 * ax[j] for j in range(3)))
+bed.extend(bulk)
 for x in (-2.2, 2.2):
     bed.extend(box((x, 147.0, -6.0), (0.5, 0.55, 14.0)))  # welded rear frame
 for z in (-2.5, -7.0, -12.5):
@@ -788,9 +860,9 @@ conv.build("converter", VCOL, col)
 
 # ══ Service vessels (world frame) ══════════════════════════════════════════
 # CTV: 27 m aluminium catamaran pushing its bow fender on the boat landing
-# (−x side of the transition piece), 24 industrial personnel.
+# (−x face of the jacket), 24 industrial personnel.
 ctv = Mesh()
-bow_x = -TP_R - 1.6
+bow_x = LANDING_X - 0.35
 for zz in (-3.1, 3.1):  # twin hulls, bow taper
     hull = Mesh()
     rings_h = []

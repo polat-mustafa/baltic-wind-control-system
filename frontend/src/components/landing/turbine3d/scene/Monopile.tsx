@@ -1,14 +1,10 @@
 /**
- * Monopile foundation + transition piece.
+ * Foundation + transition piece (part id "foundation").
  *
- * Dimensions (V236 Baltic typical):
- *   Diameter: Ø 9 m
- *   Above waterline: ~20 m (y=0 → y=20)
- *   Below seabed: ~40 m (y=0 → y=-40) — shown semi-transparent
- *   Transition piece: tapers from 9 m → 6 m over top 8 m
- *
- * The monopile is grey with a corrosion protection yellow stripe
- * at the splash zone (approx y = -2 to +3 m).
+ * With the GLB loaded: SB-510's four-legged jacket (37–51 m of water) from the
+ * Blender build (scripts/blender/build_v236.py). The procedural fallback below
+ * (shown only while the GLB loads or without WebGL assets) is a simple
+ * cylinder placeholder.
  */
 
 import { memo, useMemo } from "react";
@@ -33,9 +29,10 @@ export const Monopile = memo(function Monopile({ isSelected, turbineId = "WTG" }
   };
 
   if (model?.transition_piece) {
-    // Blender foundation: Ø 9 m monopile to the seabed (−40 m) with anodes and
-    // rock scour protection; RAL 1023 yellow transition piece (−2 → 26 m)
-    // with boat landing, access ladder, platforms and davit crane.
+    // Blender foundation (SB-510, 37–51 m of water): four-legged X-braced jacket
+    // on pin piles to the seabed (−40 m) with anodes and J-tubes; RAL 1023 yellow
+    // transition piece (can + girders, 14 → 26 m) with boat landing, access
+    // ladder, platforms and davit crane.
     const hl = isSelected ? "#60a5fa" : undefined;
     return (
       <group onClick={select}>
@@ -53,8 +50,8 @@ export const Monopile = memo(function Monopile({ isSelected, turbineId = "WTG" }
             <meshStandardMaterial color="#9aa1a6" roughness={0.4} metalness={0.8} />
           </mesh>
         )}
-        {model.monopile && (
-          <mesh geometry={model.monopile}>
+        {model.jacket && (
+          <mesh geometry={model.jacket}>
             <meshStandardMaterial vertexColors color={hl ?? "#ffffff"} roughness={0.7} metalness={0.3} transparent opacity={0.6} />
           </mesh>
         )}

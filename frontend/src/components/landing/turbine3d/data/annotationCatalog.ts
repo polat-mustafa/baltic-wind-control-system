@@ -6,7 +6,7 @@
  * dimension arrows, clicking opens an AnnotationDetailPopup.
  *
  * Scene coordinate system: Y is UP, units = metres.
- * Origin is at the waterline base of the monopile (sea floor level).
+ * Origin is at mean sea level on the tower axis; the seabed is at y = −40.
  * Hub centre is at y=150 (hub height above mean sea level).
  */
 
@@ -129,20 +129,21 @@ export const STATIC_ANNOTATIONS: Annotation[] = [
     },
   },
   {
-    id: "dim:monopile-depth",
+    id: "dim:water-depth",
     kind: "dimension",
     category: "geometry",
-    anchor: [-14, -20, 0],
-    arrowFrom: [-12, 0, 0],
-    arrowTo:   [-12, -40, 0],
+    anchor: [-18, -20, 0],
+    arrowFrom: [-16, 0, 0],
+    arrowTo:   [-16, -40, 0],
     label: "~40 m",
     detail: {
-      title: "Monopile penetration depth",
-      value: "≈ 40 m below seabed (Baltic ~30 m water depth)",
+      title: "Water depth · jacket foundation",
+      value: "≈ 40 m (SB-510 site: 37–51 m)",
       unit: "m",
-      source: "Polish Baltic offshore typical (PSE design basis)",
+      source: "EMODnet Bathymetry DTM (site pack); four-legged jacket on pin piles beyond ≈ 40 m",
       description:
-        "Drives soil-structure dynamics. Natural frequency must sit in the 'soft-stiff' window between 1P and 3P rotor frequencies to avoid resonance.",
+        "Too deep for a 15 MW monopile, so the turbine stands on a four-legged, X-braced jacket pinned to the seabed by piles. " +
+        "Its first bending frequency must sit in the 'soft-stiff' window between the 1P and 3P rotor frequencies to avoid resonance.",
     },
   },
   // ── Component callouts (visible in cutaway / exploded) ─────────

@@ -15,11 +15,12 @@ export interface TurbineView {
   note: string;
 }
 
+/** Array cable cross-sections: one cyan ramp, darker → brighter as the conductor grows; red only over capacity. */
 export const SECTION_COLOR: Record<string, string> = {
-  "500": "#0ea5e9",
-  "630": "#6366f1",
-  "800": "#a855f7",
-  "1000": "#d946ef",
+  "500": "#2f7f8c",
+  "630": "#3aa6b5",
+  "800": "#45c8d9",
+  "1000": "#a3e6ee",
   over: "#f25c54",
 };
 

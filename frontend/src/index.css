@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "leaflet/dist/leaflet.css";
 
 /* Tailwind v4 dropped the pointer cursor on buttons — restore it for
    everything clickable so users can tell what reacts to a click. */
@@ -179,32 +178,6 @@ body {
   outline-offset: 2px;
 }
 
-/* Dark-themed zoom controls */
-.leaflet-control-zoom a {
-  background-color: rgba(22, 25, 36, 0.9) !important;
-  color: #a3b6c8 !important;
-  border-color: #1f3448 !important;
-}
-.leaflet-control-zoom a:hover {
-  background-color: #2d3348 !important;
-  color: #e4ecf3 !important;
-}
-
-/* Dark-themed attribution (required by the OSM licence) */
-.leaflet-control-attribution {
-  background: rgba(10, 21, 32, 0.7) !important;
-  color: #6b7280 !important;
-  font-size: 9px;
-}
-.leaflet-control-attribution a {
-  color: #a3b6c8 !important;
-}
-
-/* Trap Leaflet internal z-indexes so detail panels (z-[1100]) render above */
-.leaflet-container {
-  z-index: 0;
-}
-
 /* ── Chart Fullscreen — force Plotly to fill available height ──── */
 [data-chart-fs] .js-plotly-plot,
 [data-chart-fs] .plot-container,
@@ -259,10 +232,6 @@ body {
     animation: none;
   }
 }
-/* No browser focus box around clicked SVG paths (cables) */
-.leaflet-container path.leaflet-interactive:focus {
-  outline: none;
-}
 @keyframes cable-fault {
   from { stroke-opacity: 1; }
   to { stroke-opacity: 0.25; }
@@ -304,21 +273,6 @@ body {
   --font-sans: var(--sb-font);
   font-family: var(--font-sans);
 }
-.theme-storybook .leaflet-container {
-  background: #3f8d86 !important;
-}
-.theme-storybook .leaflet-tooltip {
-  background: var(--sb-paper) !important;
-  color: var(--sb-ink) !important;
-  border: 1.5px solid var(--sb-ink) !important;
-  font-family: var(--sb-font);
-  font-size: 13px;
-  box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.8) !important;
-}
-.theme-storybook .leaflet-control-attribution {
-  background: rgba(241, 228, 195, 0.85) !important;
-  color: #5a4632 !important;
-}
 
 /* Storybook: re-skin overlays that use inline control-room colours */
 .theme-storybook [style*="rgba(10, 21, 32"],
@@ -358,7 +312,7 @@ body {
    (WCAG AA ≥ 4.5:1 on #f1e4c3). */
 .theme-storybook :is(
     .text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs,
-    .font-mono, .leaflet-tooltip, .leaflet-control-attribution
+    .font-mono
   ),
 .theme-storybook :is(.text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs) * {
   font-weight: 700;

@@ -87,7 +87,7 @@ export default function WakeEffectLayer() {
     [coneDir, fleet],
   );
   const losses = useMemo(() => {
-    const allLosses = [...farmWakeDeficits(windDir, fleet)].map(([turbineId, deficit]) => ({
+    const allLosses = [...farmWakeDeficits(windDir, fleet, freeMs)].map(([turbineId, deficit]) => ({
       turbineId,
       lossPct: Math.round(wakePowerLossPct(freeMs, deficit)),
     }));

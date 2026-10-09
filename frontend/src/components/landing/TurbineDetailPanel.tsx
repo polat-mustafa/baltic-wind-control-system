@@ -43,6 +43,7 @@ import {
   ROTOR_DIAMETER_M,
   V236,
   turbinePowerMW,
+  wakeCt,
   wakePowerLossPct,
 } from "../../utils/landingPhysics";
 import { useFleet } from "../../lib/fleet";
@@ -267,7 +268,7 @@ export default function TurbineDetailPanel({
   const freeMs = Math.round(kpis.freestreamWindMs * 2) / 2;
   const fleet = useFleet();
   const wakeLoss = useMemo(() => {
-    const w = computeWakeLosses(fleet.turbines, windDir).find((l) => l.turbineId === t.id);
+    const w = computeWakeLosses(fleet.turbines, windDir, wakeCt(freeMs)).find((l) => l.turbineId === t.id);
     return w ? { ...w, lossPct: Math.round(wakePowerLossPct(freeMs, w.deficit)) } : null;
   }, [windDir, freeMs, t.id, fleet]);
 

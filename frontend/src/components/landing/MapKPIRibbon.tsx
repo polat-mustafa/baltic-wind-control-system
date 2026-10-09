@@ -1,54 +1,50 @@
 /**
- * KPI ribbon — farm-level metrics updated every 3s.
+ * KPI strip above the Control Room map — farm-level readings, updated every tick.
  *
- * Supports two layouts:
- *   horizontal (default): glassmorphic bar across the top of the map
- *   vertical: right sidebar strip (legacy, unused by default)
- *
- * Uses ISA-101 muted colors for control room readability.
+ * One row of cells (style board): label, reading, one line of context. Readings
+ * stay neutral while normal and take the warning / alarm colour only when a
+ * limit is crossed (ISA-101: colour means "look here").
  */
 
 import { useEffect, useRef, useState } from "react";
 
 import { useFleet } from "../../lib/fleet";
 import { useGridEventSample } from "../../hooks/useGridEventSample";
-
 import type { FarmKPI } from "../../types/landing";
-import { Zap, Wind, Gauge, AlertTriangle, Activity, TrendingUp, Sigma, Waves, Tornado } from "lucide-react";
-import { cn } from "../../lib/utils";
 import { gustMs as gustFromMean } from "../../utils/landingPhysics";
 import { useLiveGridStore, useStatcomQ } from "../../store/liveGridStore";
 
 interface MapKPIRibbonProps {
   kpis: FarmKPI;
-  horizontal?: boolean;
 }
 
-interface KPIItemProps {
+const NORMAL = "var(--color-text-primary)";
+const WARN = "var(--color-status-warning)";
+const ALARM = "var(--color-status-alarm)";
+
+interface CellProps {
   label: string;
   value: string;
   unit: string;
-  icon: React.ReactNode;
+  sub: string;
   color?: string;
   title?: string;
 }
 
-function KPIChip({ label, value, unit, icon, color = "#4cc38a", title }: KPIItemProps) {
+function Cell({ label, value, unit, sub, color = NORMAL, title }: CellProps) {
   return (
-    <div className="flex shrink-0 items-center gap-1.5 px-2 py-1.5" title={title}>
-      <span className="text-text-muted">{icon}</span>
-      <div className="flex items-baseline gap-1">
-        <span className="text-xs text-text-muted uppercase tracking-wider font-medium mr-1">{label}</span>
-        <span className="text-sm font-bold tabular-nums transition-colors duration-700" style={{ color }}>
-          {value}
-        </span>
-        <span className="text-xs text-text-muted">{unit}</span>
-      </div>
+    <div className="flex min-w-[8.5rem] flex-1 flex-col gap-0.5 border-r border-border-primary px-4 py-2 last:border-r-0" title={title}>
+      <span className="text-xs font-medium uppercase tracking-[0.08em] text-text-muted">{label}</span>
+      <span className="font-mono text-xl font-medium tabular-nums transition-colors duration-700" style={{ color }}>
+        {value}
+        <span className="ml-1.5 text-xs text-text-muted">{unit}</span>
+      </span>
+      <span className="truncate text-xs text-text-muted">{sub}</span>
     </div>
   );
 }
 
-export default function MapKPIRibbon({ kpis: baseKpis, horizontal = true }: MapKPIRibbonProps) {
+export default function MapKPIRibbon({ kpis: baseKpis }: MapKPIRibbonProps) {
   // During a grid frequency event the ribbon shows the event's frequency.
   const gridEvent = useGridEventSample();
   const kpis =
@@ -57,21 +53,18 @@ export default function MapKPIRibbon({ kpis: baseKpis, horizontal = true }: MapK
       : baseKpis;
   const capacityPct = kpis.capacityFactorPct;
   const fleet = useFleet();
-  // Capacity factor is weather, not a fault — informational blue at any value
-  // (ISA-101: reserve amber/red for abnormal states).
-  const capacityColor = "#45c8d9";
-  const alertColor = kpis.activeAlerts === 0 ? "#4cc38a" : kpis.activeAlerts > 3 ? "#f25c54" : "#f0b13e";
-  const freqColor = Math.abs(kpis.gridFrequencyHz - 50) < 0.05 ? "#4cc38a" : "#f0b13e";
+  const alertColor = kpis.activeAlerts === 0 ? NORMAL : kpis.activeAlerts > 3 ? ALARM : WARN;
+  const freqColor = Math.abs(kpis.gridFrequencyHz - 50) < 0.05 ? NORMAL : WARN;
 
   // Q = STATCOM output (+ injecting / − absorbing), coloured by use of its ±120 MVAr.
   // From the backend load flow (pandapower, store/liveGridStore) when it is
   // reachable, else the browser's reactive-balance estimate (labelled "est.").
   const grid = useLiveGridStore((s) => s.result);
   const reactiveQ = Math.round(useStatcomQ(kpis.totalOutputMW).q);
-  const reactiveColor = Math.abs(reactiveQ) < 60 ? "#4cc38a" : Math.abs(reactiveQ) < 100 ? "#f0b13e" : "#f25c54";
+  const reactiveColor = Math.abs(reactiveQ) < 60 ? NORMAL : Math.abs(reactiveQ) < 100 ? WARN : ALARM;
 
   const gustMs = gustFromMean(kpis.averageWindSpeedMs);
-  const gustColor = gustMs > 28 ? "#f25c54" : gustMs > 22 ? "#f0b13e" : "#4cc38a";
+  const gustColor = gustMs > 28 ? ALARM : gustMs > 22 ? WARN : NORMAL;
 
   // df/dt — frequency rate of change in mHz/s. Derived by tracking the
   // previous gridFrequencyHz value across renders. ENTSO-E NC RfG limit is
@@ -90,121 +83,67 @@ export default function MapKPIRibbon({ kpis: baseKpis, horizontal = true }: MapK
       prevTime.current = now;
     }
   }, [kpis.gridFrequencyHz]);
-  const dfdtColor = Math.abs(dfdt) > 200 ? "#f25c54" : Math.abs(dfdt) > 100 ? "#f0b13e" : "#4cc38a";
+  const dfdtColor = Math.abs(dfdt) > 200 ? ALARM : Math.abs(dfdt) > 100 ? WARN : NORMAL;
 
-  if (!horizontal) {
-    // Legacy vertical layout (kept for backward compatibility)
-    return (
-      <div className="flex flex-col bg-bg-secondary border border-border-primary rounded-lg overflow-hidden h-full">
-        <div className="px-3 py-2 border-b border-border-primary bg-bg-tertiary">
-          <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Live KPIs</span>
-        </div>
-        <div className="flex-1 overflow-y-auto text-sm">
-          <div className="px-3 py-2 border-b border-border-primary">
-            <span className="text-text-muted text-xs">Total Output</span>
-            <div className="font-bold tabular-nums transition-colors duration-700" style={{ color: "#4cc38a" }}>
-              {kpis.totalOutputMW.toFixed(0)} <span className="text-xs text-text-muted">MW / {fleet.net.total_capacity_mw.toFixed(0)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
-  // Horizontal glassmorphic bar
+  const capacity = fleet.net.total_capacity_mw;
   return (
     <div
-      className={cn(
-        // One swipeable row below xl; wraps (max. 2 rows) on wide screens
-        "flex items-center justify-between gap-y-0.5 overflow-x-auto xl:flex-wrap xl:overflow-visible",
-        "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-        "bg-bg-secondary/80 backdrop-blur-md border-b border-border-primary",
-        "rounded-b-lg mx-2 sm:mx-12 shadow-lg shadow-black/20",
-        "pointer-events-auto",
-      )}
+      className="flex overflow-x-auto rounded border border-border-primary bg-bg-secondary [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      role="group"
+      aria-label="Farm readings"
     >
-      <KPIChip
+      <Cell
         label="Output"
         value={kpis.totalOutputMW.toFixed(0)}
         unit="MW"
-        icon={<Zap size={12} />}
-        color="#4cc38a"
+        sub={`of ${capacity.toFixed(0)} MW · CF ${capacityPct.toFixed(1)} %`}
       />
-      <KPIChip
+      <Cell
         label="Wind"
         value={kpis.averageWindSpeedMs.toFixed(1)}
         unit="m/s"
-        icon={<Wind size={12} />}
-        color="#45c8d9"
+        sub={`from ${Math.round(kpis.windDirectionDeg)}° · gust ${gustMs.toFixed(1)}`}
+        color={gustColor}
       />
-      <KPIChip
-        label="Avail"
-        value={kpis.availabilityPercent.toFixed(1)}
-        unit="%"
-        icon={<Gauge size={12} />}
-        color={kpis.availabilityPercent >= 95 ? "#4cc38a" : "#f0b13e"}
-      />
-      <KPIChip
-        label="Alerts"
-        value={String(kpis.activeAlerts)}
-        unit={kpis.activeAlerts === 1 ? "alarm" : "alarms"}
-        icon={<AlertTriangle size={12} />}
-        color={alertColor}
-      />
-
-      {/* Capacity factor with mini bar */}
-      <div className="flex shrink-0 items-center gap-2 px-3 py-1.5">
-        <span className="text-text-muted"><TrendingUp size={12} /></span>
-        <span className="text-xs text-text-muted uppercase tracking-wider font-medium">CF</span>
-        <div className="w-16 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${Math.min(capacityPct, 100)}%`, backgroundColor: capacityColor }}
-          />
-        </div>
-        <span className="text-xs font-bold tabular-nums transition-colors duration-700" style={{ color: capacityColor }}>
-          {capacityPct.toFixed(1)}%
-        </span>
-      </div>
-
-      <KPIChip
-        label="Freq"
+      <Cell
+        label="Frequency"
         value={kpis.gridFrequencyHz.toFixed(3)}
         unit="Hz"
-        icon={<Activity size={12} />}
-        color={freqColor}
+        sub={`df/dt ${dfdt >= 0 ? "+" : ""}${dfdt.toFixed(0)} mHz/s`}
+        color={Math.abs(dfdt) > 100 ? dfdtColor : freqColor}
       />
-      <KPIChip
-        label="df/dt"
-        value={`${dfdt >= 0 ? "+" : ""}${dfdt.toFixed(0)}`}
-        unit="mHz/s"
-        icon={<Sigma size={12} />}
-        color={dfdtColor}
-      />
-      <KPIChip
-        label="Q"
+      <Cell
+        label="Q at POC"
         value={`${reactiveQ >= 0 ? "+" : ""}${reactiveQ}`}
-        unit={grid?.converged ? "MVAr" : "MVAr est."}
-        icon={<Waves size={12} />}
+        unit="Mvar"
+        sub={grid?.converged ? "STATCOM · load flow" : "STATCOM · estimate"}
         color={reactiveColor}
         title={grid?.converged ? "STATCOM set-point from the pandapower load flow (backend)" : "Browser estimate — backend load flow not reachable"}
       />
+      <Cell
+        label="Availability"
+        value={kpis.availabilityPercent.toFixed(1)}
+        unit="%"
+        sub="time-based, IEC 61400-26"
+        color={kpis.availabilityPercent >= 95 ? NORMAL : WARN}
+      />
       {grid?.converged && (
-        <KPIChip
-          label="Loss"
+        <Cell
+          label="Losses"
           value={grid.total_loss_mw.toFixed(1)}
           unit="MW"
-          icon={<Zap size={12} />}
-          color={grid.voltage_compliant ? "#4cc38a" : "#f25c54"}
-          title={`pandapower Newton-Raphson: ${grid.poc_p_mw.toFixed(1)} MW / ${grid.poc_q_mvar.toFixed(1)} MVAr at PSE 400 kV · V_OSS ${grid.v_oss_220_pu.toFixed(3)} pu · export cable ${grid.export_cable_loading_pct.toFixed(0)} %`}
+          sub={`export cable ${grid.export_cable_loading_pct.toFixed(0)} %`}
+          color={grid.voltage_compliant ? NORMAL : ALARM}
+          title={`pandapower Newton-Raphson: ${grid.poc_p_mw.toFixed(1)} MW / ${grid.poc_q_mvar.toFixed(1)} MVAr at PSE 400 kV · V_OSS ${grid.v_oss_220_pu.toFixed(3)} pu`}
         />
       )}
-      <KPIChip
-        label="Gust"
-        value={gustMs.toFixed(1)}
-        unit="m/s"
-        icon={<Tornado size={12} />}
-        color={gustColor}
+      <Cell
+        label="Alerts"
+        value={String(kpis.activeAlerts)}
+        unit={kpis.activeAlerts === 1 ? "alarm" : "alarms"}
+        sub={kpis.activeAlerts === 0 ? "all clear" : "see SCADA alarms"}
+        color={alertColor}
       />
     </div>
   );

@@ -23,7 +23,7 @@ import {
 import { farmTitle, turbineLabel, useFleet } from "../lib/fleet";
 import MapKPIRibbon from "../components/landing/MapKPIRibbon";
 import { WindRoseWidget } from "../components/landing/WindRoseWidget";
-import LeafletWindFarmMap from "../components/landing/LeafletWindFarmMap";
+import FarmMap from "../components/landing/FarmMap";
 import CableDetailPanel from "../components/landing/CableDetailPanel";
 import TransformerDetailPanel from "../components/landing/TransformerDetailPanel";
 import TurbineDetailPanel from "../components/landing/TurbineDetailPanel";
@@ -313,12 +313,9 @@ export default function LandingPage() {
         className="fixed inset-0 bg-bg-primary flex flex-col"
         style={{ zIndex: 9999 }}
       >
-        {/* Horizontal KPI ribbon — glassmorphic overlay at top */}
-        <div
-          className="absolute top-2 left-0 right-0 pointer-events-none"
-          style={{ zIndex: 1001 }}
-        >
-          <MapKPIRibbon kpis={kpis} horizontal />
+        {/* KPI strip */}
+        <div className="shrink-0 p-2 pr-28">
+          <MapKPIRibbon kpis={kpis} />
         </div>
 
         {/* Exit fullscreen button */}
@@ -340,7 +337,7 @@ export default function LandingPage() {
         {/* Map fills viewport — panels rendered after map, outside Leaflet DOM */}
         <div ref={areaRef} className="relative flex-1">
           <div className="w-full h-full">
-            <LeafletWindFarmMap
+            <FarmMap
               totalPowerMW={roundedPower}
               selectedTurbineId={selectedTurbineId}
               onTurbineClick={handleTurbineClick}
@@ -407,20 +404,17 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* Main area: Map fills width, KPI + detail panels overlaid */}
-      <div ref={areaRef} className="relative flex-1 min-h-0">
-        {/* Horizontal KPI ribbon overlay */}
-        <div
-          className="absolute top-2 left-0 right-0 pointer-events-none"
-          style={{ zIndex: 1001 }}
-          data-tour="kpi-ribbon"
-        >
-          <MapKPIRibbon kpis={kpis} horizontal />
-        </div>
+      {/* KPI strip — one row above the map */}
+      <div className="mb-3 shrink-0" data-tour="kpi-ribbon">
+        <MapKPIRibbon kpis={kpis} />
+      </div>
 
-        {/* Leaflet map — fills remaining space */}
+      {/* Main area: the map fills the rest; detail panels overlaid */}
+      <div ref={areaRef} className="relative flex-1 min-h-0">
+
+        {/* The farm map — fills the remaining space */}
         <div className="w-full h-full" data-tour="farm-map">
-          <LeafletWindFarmMap
+          <FarmMap
             totalPowerMW={roundedPower}
             selectedTurbineId={selectedTurbineId}
             onTurbineClick={handleTurbineClick}

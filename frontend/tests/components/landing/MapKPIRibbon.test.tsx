@@ -1,11 +1,6 @@
 /**
- * Tests for the MapKPIRibbon component (horizontal glassmorphic bar — default layout).
- *
- * Labels were shortened in the Leaflet refactor for compact display:
- *   "Total Output" → "Output", "Wind Speed" → "Wind",
- *   "Availability" → "Avail", "Active Alerts" → "Alerts",
- *   "Capacity Factor" → "CF", "Grid Frequency" → "Freq".
- * Revenue chip is not rendered in horizontal mode.
+ * Tests for the KPI strip above the Control Room map: one cell per reading,
+ * neutral while normal, warning colour only when a limit is crossed.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -38,10 +33,12 @@ describe("MapKPIRibbon", () => {
     expect(screen.getByText("11.2")).toBeDefined();
   });
 
-  it("renders availability", () => {
-    render(<MapKPIRibbon kpis={highAvailKPIs} />);
-    expect(screen.getByText("Avail")).toBeDefined();
-    expect(screen.getByText("96.5")).toBeDefined();
+  it("renders availability, neutral above 95 % and amber below", () => {
+    const { rerender } = render(<MapKPIRibbon kpis={highAvailKPIs} />);
+    expect(screen.getByText("Availability")).toBeDefined();
+    expect(screen.getByText("96.5").getAttribute("style")).toContain("--color-text-primary");
+    rerender(<MapKPIRibbon kpis={{ ...highAvailKPIs, availabilityPercent: 91.2 }} />);
+    expect(screen.getByText("91.2").getAttribute("style")).toContain("--color-status-warning");
   });
 
   it("renders active alerts", () => {
@@ -55,15 +52,14 @@ describe("MapKPIRibbon", () => {
     expect(screen.getByText("alarm")).toBeDefined();
   });
 
-  it("renders capacity factor", () => {
+  it("renders the capacity factor under the output", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
-    expect(screen.getByText("CF")).toBeDefined();
-    expect(screen.getByText("88.2%")).toBeDefined();
+    expect(screen.getByText(/CF 88\.2 %/)).toBeDefined();
   });
 
   it("renders grid frequency", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
-    expect(screen.getByText("Freq")).toBeDefined();
+    expect(screen.getByText("Frequency")).toBeDefined();
     expect(screen.getByText("50.010")).toBeDefined();
   });
 });

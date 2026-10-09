@@ -810,7 +810,8 @@ export const useLandingStore = create<LandingState>((set, get) => {
                 7, 15,
               );
 
-          const wakeDeficits = farmWakeDeficits(_windDirDeg);
+          // Wake strength follows the rotor thrust at the current freestream wind (Ct(v))
+          const wakeDeficits = farmWakeDeficits(_windDirDeg, liveFleet(), _baseWindSpeed);
           const posById = new Map(liveFleet().turbines.map((p) => [p.id, p]));
 
           for (const id of state.turbineIds) {

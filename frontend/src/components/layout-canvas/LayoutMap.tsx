@@ -70,7 +70,7 @@ function Legend({ wakes }: { wakes: boolean }) {
   const roles = CONSTRAINT_ROLES.filter((r) => layers?.layers.some((l) => l.role === r));
   const glyph = (html: string) => <span className="flex w-[18px] shrink-0 justify-center" dangerouslySetInnerHTML={{ __html: html }} />;
   return (
-    <div className="pointer-events-none absolute right-3 top-3 z-[1000] flex max-h-[calc(100%-1.5rem)] flex-col items-end" data-tour="layout-legend">
+    <div className="pointer-events-none absolute right-3 top-3 z-[1000] flex max-h-[calc(100%-6.5rem)] flex-col items-end" data-tour="layout-legend">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

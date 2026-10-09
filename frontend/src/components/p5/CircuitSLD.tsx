@@ -274,7 +274,7 @@ export default function CircuitSLD({
           <W x1={150} y1={92} x2={150} y2={119} c={zc("ONS-E1")} />
           <CB ctx={ctx} id="CB-ON-220-01" x={150} y={128} />
           <W x1={150} y1={137} x2={150} y2={172} c={zc("CABLE1")} />
-          <ES ctx={ctx} id="ES-ON-220-01" x={150} y={172} dir={-1} />
+          <ES ctx={ctx} id="ES-ON-220-01" x={150} y={172} />
 
           {/* Onshore line reactor 1: cable side of CB-ON-220-01, energised with the cable */}
           {eq["CB-SR-ON-01"] && farm.reactor_unit_mvar != null && (
@@ -301,7 +301,7 @@ export default function CircuitSLD({
           <text x={380} y={158} textAnchor="middle" fontSize={14} fontWeight={600} className="fill-text-primary">
             Export cable 1 · {farm.export_length_km} km · 1000 mm² Cu XLPE
           </text>
-          <text x={380} y={194} textAnchor="middle" fontSize={12} fontFamily="monospace" className="fill-text-secondary">
+          <text x={405} y={194} textAnchor="middle" fontSize={12} fontFamily="monospace" className="fill-text-secondary">
             {net.cable_i_send_a != null
               ? `sending end ${net.cable_i_send_a.toFixed(0)} A · ${net.cable_loading_pct?.toFixed(0)} % of ${EXPORT_CABLE.ratedA} A`
               : net.zones.CABLE1}

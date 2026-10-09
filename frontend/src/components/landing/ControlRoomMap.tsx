@@ -650,7 +650,13 @@ function ControlRoomMapInner({
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-[1.5px] border-status-offline" />stopped</span>
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-status-warning" />attention</span>
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-3.5" style={{ background: `rgb(${pal.v66.slice(0, 3).join(",")})` }} />66 kV</span>
-        <span className="flex items-center gap-1.5"><span className="h-0.5 w-3.5 bg-accent" />220 kV live</span>
+        <span className="flex items-center gap-1.5">
+          {/* as drawn on the map: 220 kV core, live-energy glow and particle */}
+          <span className="relative h-[3px] w-4 rounded-full" style={{ background: `rgb(${pal.v220.slice(0, 3).join(",")})`, boxShadow: `0 0 0 3px rgba(${pal.accent.slice(0, 3).join(",")},0.18)` }}>
+            <span className="absolute left-1/2 top-1/2 h-[5px] w-[5px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: `rgb(${pal.accent.slice(0, 3).join(",")})` }} />
+          </span>
+          220 kV live
+        </span>
       </div>
 
       {ais.note && (

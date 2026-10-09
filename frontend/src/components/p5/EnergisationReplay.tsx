@@ -113,7 +113,7 @@ function Trace({
   const now = series.map((s) => s.values[index]);
   return (
     <figure className="rounded-md border border-border-primary bg-bg-secondary p-2.5">
-      <figcaption className="flex items-baseline justify-between gap-2">
+      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-2">
         <span className="text-xs font-medium uppercase tracking-[0.08em] text-text-muted">{title}</span>
         <span className="flex gap-3 font-mono text-xs">
           {series.map((s, k) => (
@@ -276,58 +276,58 @@ export default function EnergisationReplay({ onClose }: { onClose: () => void })
         </p>
       </div>
 
+      {/* Traces first: they stay in view with the step text while the replay runs */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Trace
+          title="220 kV voltage"
+          unit="pu"
+          series={[
+            { label: "onshore", color: C2, values: series.ons },
+            { label: "OSS", color: C1, values: series.oss },
+          ]}
+          limits={[
+            { value: 1.05, label: "1.05", color: BAND },
+            { value: 0.95, label: "0.95", color: BAND },
+          ]}
+          domain={[0.92, 1.08]}
+          index={index}
+        />
+        <Trace
+          title="Export cable 1 current"
+          unit="A"
+          series={[
+            { label: "shore", color: C1, values: series.send },
+            { label: "OSS", color: C2, values: series.recv },
+          ]}
+          limits={[{ value: rating, label: `${rating} A rating`, color: LIMIT }]}
+          domain={bounds([...series.send, ...series.recv], 100, 0, rating)}
+          index={index}
+        />
+        <Trace
+          title="Reactive power at PSE 400 kV"
+          unit="Mvar"
+          series={[{ label: "Q", color: C1, values: series.q }]}
+          limits={[{ value: 0, label: "0", color: BAND }]}
+          domain={bounds(series.q, 50, 0, 0)}
+          index={index}
+        />
+        <Trace
+          title="Output"
+          unit="MW"
+          series={[{ label: "P", color: C1, values: series.p }]}
+          limits={[{ value: limitMw, label: `PPC limit ${limitMw.toFixed(0)} MW`, color: BAND }]}
+          domain={bounds(series.p, 50, 0, limitMw)}
+          index={index}
+        />
+      </div>
+
       <div className="grid gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="rounded-md border border-border-primary bg-bg-secondary p-2">
           <CircuitSLD programme={asProgramme(trace, frame)} focus={frame.equipment_id} />
         </div>
-        <div className="grid content-start gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <div className="sm:col-span-2 xl:col-span-1">
-            <Suspense fallback={<div className="h-56 rounded-md border border-border-primary bg-bg-secondary" />}>
-              <EnergisationMap frame={frame} />
-            </Suspense>
-          </div>
-          <Trace
-            title="220 kV voltage"
-            unit="pu"
-            series={[
-              { label: "onshore", color: C2, values: series.ons },
-              { label: "OSS", color: C1, values: series.oss },
-            ]}
-            limits={[
-              { value: 1.05, label: "1.05", color: BAND },
-              { value: 0.95, label: "0.95", color: BAND },
-            ]}
-            domain={[0.92, 1.08]}
-            index={index}
-          />
-          <Trace
-            title="Export cable 1 current"
-            unit="A"
-            series={[
-              { label: "shore", color: C1, values: series.send },
-              { label: "OSS", color: C2, values: series.recv },
-            ]}
-            limits={[{ value: rating, label: `${rating} A rating`, color: LIMIT }]}
-            domain={bounds([...series.send, ...series.recv], 100, 0, rating)}
-            index={index}
-          />
-          <Trace
-            title="Reactive power at PSE 400 kV"
-            unit="Mvar"
-            series={[{ label: "Q", color: C1, values: series.q }]}
-            limits={[{ value: 0, label: "0", color: BAND }]}
-            domain={bounds(series.q, 50, 0, 0)}
-            index={index}
-          />
-          <Trace
-            title="Output"
-            unit="MW"
-            series={[{ label: "P", color: C1, values: series.p }]}
-            limits={[{ value: limitMw, label: `PPC limit ${limitMw.toFixed(0)} MW`, color: BAND }]}
-            domain={bounds(series.p, 50, 0, limitMw)}
-            index={index}
-          />
-        </div>
+        <Suspense fallback={<div className="h-56 rounded-md border border-border-primary bg-bg-secondary" />}>
+          <EnergisationMap frame={frame} />
+        </Suspense>
       </div>
     </section>
   );

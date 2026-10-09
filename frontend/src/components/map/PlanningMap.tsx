@@ -21,6 +21,10 @@ import { useLayerStore } from "../../store/layerStore";
 
 export type Bounds = [[number, number], [number, number]];
 
+/** Planning zoom range: country to a single turbine. Below ~4 the world wraps and the base map can lose the data layers. */
+const MIN_ZOOM = 4;
+const MAX_ZOOM = 17;
+
 /** OSM raster base. Dark: brightness inverted and hue turned back, so sea and land keep their hues on a navy ground. */
 function osmStyle(dark: boolean): StyleSpecification {
   return {
@@ -89,7 +93,7 @@ export default function PlanningMap({
       const { width, height } = el.getBoundingClientRect();
       if (width < 10 || height < 10) return false;
       const v = new WebMercatorViewport({ width, height }).fitBounds(boundsRef.current, { padding: 28 });
-      setViewState({ longitude: v.longitude, latitude: v.latitude, zoom: v.zoom, pitch: 0, bearing: 0 });
+      setViewState({ longitude: v.longitude, latitude: v.latitude, zoom: v.zoom, pitch: 0, bearing: 0, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM });
       return true;
     };
     if (fit()) return;
@@ -102,7 +106,9 @@ export default function PlanningMap({
   useEffect(() => {
     if (zoom != null) onZoom?.(zoom);
   }, [zoom, onZoom]);
-  const zoomBy = (dz: number) => setViewState((v) => v && { ...v, zoom: Math.max(4, Math.min(17, v.zoom + dz)), transitionDuration: 250 });
+  // Instant step: a deck.gl transition fed back through the controlled view state could loop
+  // (React "maximum update depth") and leave the MapLibre base behind the data layers.
+  const zoomBy = (dz: number) => setViewState((v) => v && { ...v, zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, v.zoom + dz)) });
   const button =
     "flex h-8 w-8 items-center justify-center rounded-md border border-border-secondary bg-bg-secondary text-text-secondary hover:text-text-primary";
 

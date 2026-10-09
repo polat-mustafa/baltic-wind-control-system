@@ -18,11 +18,12 @@ export const weatherWindowEducation: EducationContent = {
     "care about wind and visibility. Each month, the chart shows the chance that each of them can get out.",
 
   technicalExplanation:
-    "Long-term Hs within a month is modelled with a Rayleigh distribution (Weibull, k = 2) fitted to the monthly mean " +
-    "Hs, and the wind limit with a Weibull wind distribution. Access probability is the product of the wave and wind " +
-    "probabilities — an independence approximation; in reality high wind and high waves come together, so the true " +
-    "joint probability is higher than the product in benign months and the limits interact. Persistence also matters: " +
-    "a 6-hour job needs 6 consecutive good hours, which is less likely than 6 random ones.",
+    "The app uses a real 30-year hindcast at the site — ERA5 ocean-wave model Hs and ERA5 10 m wind, 1995–2024, " +
+    "6-hourly worst hour. Access probability is counted, not modelled: the share of 6-hour steps in that month with " +
+    "Hs AND wind inside the vessel limits. The classic shortcut — a Rayleigh Hs distribution times a Weibull wind " +
+    "distribution, assumed independent (formula below) — gives a CTV 55 % access a year at this site; the measured " +
+    "joint frequency gives 68 %, because wind and waves calm down together. Persistence matters too: campaign " +
+    "planning replays the historical years, so a 6-hour job needs 6 consecutive good hours of a real year.",
 
   standards: [
     {
@@ -44,8 +45,8 @@ export const weatherWindowEducation: EducationContent = {
         { symbol: "H̄s", name: "Mean significant wave height of the month", unit: "m" },
       ],
       explanation:
-        "Rayleigh CDF written with the mean (mean = σ√(π/2)). Not to be confused with exp(−2(H/Hs)²), which is the " +
-        "distribution of individual wave heights within one sea state.",
+        "Rayleigh CDF written with the mean (mean = σ√(π/2)) — the hand estimate when no hindcast is at hand. Not to " +
+        "be confused with exp(−2(H/Hs)²), which is the distribution of individual wave heights within one sea state.",
     },
     {
       expression: "E[T_wait] = (1 − p) / p · Δt",
@@ -84,7 +85,11 @@ export const weatherWindowEducation: EducationContent = {
   codeReferences: [
     {
       file: "backend/app/services/p1/weather_window.py",
-      description: "Monthly Rayleigh Hs and Weibull wind access model per vessel; maintenance-window search (M14).",
+      description: "Monthly access per vessel from the measured joint Hs / wind frequency; maintenance-window search (M14).",
+    },
+    {
+      file: "backend/app/services/lifecycle/weather.py",
+      description: "30-year ERA5 hindcast at SB-510 (scripts/fetch_metocean.py); campaign runs replay historical years.",
     },
   ],
 

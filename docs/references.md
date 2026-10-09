@@ -138,6 +138,7 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 
 | Topic | Implementation | Reference |
 |---|---|---|
+| **Real data**: 30-year ERA5 sea-state hindcast at PZP_44 (Open-Meteo, ERA5 WAM Hs + ERA5 10 m wind, 1995–2024, 6-hourly worst hour); campaign runs replay historical years; O&M access = measured joint Hs/wind frequency; sea ice days per winter from NOAA OISST v2.1 | `services/lifecycle/weather.py`, `services/p1/weather_window.py`, `scripts/fetch_metocean.py` | Hersbach et al. 2020 (ERA5); Huang et al. 2021 (OISST v2.1, J. Climate 34) |
 | Weather-restricted operations, α factor (OP_WF = α · OP_LIM) | `backend/app/services/lifecycle/campaign.py` | [S29] |
 | Port round trips: fastening times at the quay, vessel transit speeds | `backend/app/services/lifecycle/campaign.py` (`LOAD_HOURS`, `round_trip`) | [39] |
 | O&M working day and CTV transit from the O&M port | `backend/app/services/p1/weather_window.py` (`find_maintenance_window`) | [40] |

@@ -3,15 +3,13 @@ Weather Window & O&M Logistics service — M14.
 
 Physics layers
 --------------
-1. Wave climate model
-   Baltic Sea significant wave height Hs follows Weibull distribution.
-   Monthly P50 Hs ranges from 0.5 m (July–August) to 1.8 m (December–January).
-   CTV limit Hs ≤ 1.5 m → inaccessible ~15–20% of winter days.
+1. Wave climate — measured
+   30-year ERA5 hindcast at the site (lifecycle.weather): monthly mean of the 6-hourly
+   worst-hour Hs, 0.79 m (May) to 1.66 m (January).
 
 2. Vessel access probability
-   P(access) = P(Hs ≤ Hs_limit) × P(Vw ≤ Vw_limit)
-   Wind and wave are correlated (r ≈ 0.7 for Baltic offshore).
-   Simplified: monthly P(Hs ≤ limit) from climatological exceedance curves.
+   P(access) = share of hindcast 6-hour steps with Hs ≤ Hs_limit AND Vw ≤ Vw_limit,
+   per month — the joint frequency, so the wind–wave correlation is the real one.
 
 3. Wait-for-window model
    Expected wait = (1 - P_access) / P_access × mean_window_duration
@@ -36,15 +34,16 @@ import math
 from typing import Any
 
 from app.core.exceptions import ValidationError
+from app.services.lifecycle import weather
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-# Baltic Sea monthly mean significant wave height P50 [m] — Jan..Dec
-# Source: CMEMS Baltic Sea wave reanalysis (BAL-PHY-WAV-007) 2000–2020 average
-_MONTHLY_HS_P50 = [1.7, 1.6, 1.4, 1.0, 0.8, 0.6, 0.6, 0.7, 0.9, 1.2, 1.5, 1.8]
-
-# Baltic Sea monthly mean wind speed [m/s] — Jan..Dec (10 m height)
-_MONTHLY_VW_MEAN = [9.5, 9.2, 8.8, 7.5, 6.8, 6.5, 6.3, 6.6, 7.4, 8.2, 9.0, 9.6]
+# Monthly mean Hs [m] and 10 m wind [m/s] (6-hourly worst hour), Jan..Dec, from the real
+# SB-510 hindcast (ERA5 waves + wind 1995–2024, lifecycle.weather). The earlier hand-typed
+# Rayleigh inputs and the independence assumption gave CTV 55 % access a year; the
+# measured joint frequency gives 68 % (wind and waves calm down together).
+_MONTHLY_HS_P50 = [round(float(x), 2) for x in weather.HS_MEAN]
+_MONTHLY_VW_MEAN = [round(float(x), 2) for x in weather.VW_MEAN]
 
 # Vessel operational limits
 _VESSEL_HS_LIMIT = {
@@ -95,44 +94,16 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", 
 # ── Core probability model ────────────────────────────────────────────────────
 
 
-def _wave_exceedance_prob(hs_mean: float, hs_limit: float) -> float:
-    """
-    Approximate P(Hs ≤ hs_limit) using Rayleigh distribution.
-
-    P(Hs > x) ≈ exp(-π/4 × (x/Hs_mean)^2)
-    This is the standard Rayleigh CDF for wave height.
-    """
-    if hs_limit >= 3.0 * hs_mean:
-        return 1.0
-    exponent = -math.pi / 4.0 * (hs_limit / max(0.01, hs_mean)) ** 2
-    return 1.0 - math.exp(exponent)
-
-
-def _wind_exceedance_prob(vw_mean: float, vw_limit: float) -> float:
-    """
-    Approximate P(Vw ≤ vw_limit) using Weibull k=2 (Rayleigh).
-
-    P(Vw > x) ≈ exp(-(x / (vw_mean × 2/√π))^2)
-    """
-    if vw_limit >= 3.0 * vw_mean:
-        return 1.0
-    # Scale parameter c = vw_mean * 2/sqrt(π)
-    c = vw_mean * 2.0 / math.sqrt(math.pi)
-    exponent = -((vw_limit / max(0.01, c)) ** 2)
-    return 1.0 - math.exp(exponent)
-
-
 def _monthly_access_probability(vessel: str, month_idx: int) -> float:
     """
     Access probability [0–1] for a given vessel and month (0=Jan, 11=Dec).
 
-    Assumes Hs and Vw are independently distributed (conservative).
+    Measured, not modelled: the share of 6-hour steps of that month in the 30-year
+    hindcast with Hs AND wind both inside the vessel limits — the real wind–wave
+    correlation included (the Rayleigh × Weibull product assumed independence).
     """
-    hs_mean = _MONTHLY_HS_P50[month_idx]
-    vw_mean = _MONTHLY_VW_MEAN[month_idx]
-    p_wave = _wave_exceedance_prob(hs_mean, _VESSEL_HS_LIMIT[vessel])
-    p_wind = _wind_exceedance_prob(vw_mean, _VESSEL_VW_LIMIT[vessel])
-    return min(1.0, p_wave * p_wind)
+    access = weather.monthly_access(_VESSEL_HS_LIMIT[vessel], _VESSEL_VW_LIMIT[vessel])
+    return float(access[month_idx])
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -148,11 +119,10 @@ def get_vessel_access(vessel: str) -> dict[str, Any]:
     # Determine limiting parameter
     hs_limit = _VESSEL_HS_LIMIT[vessel]
     vw_limit = _VESSEL_VW_LIMIT[vessel]
-    # Compare at average annual conditions
-    avg_hs = sum(_MONTHLY_HS_P50) / 12.0
-    avg_vw = sum(_MONTHLY_VW_MEAN) / 12.0
-    p_wave = _wave_exceedance_prob(avg_hs, hs_limit)
-    p_wind = _wind_exceedance_prob(avg_vw, vw_limit)
+    # Which limit closes more of the year on its own (measured marginals)
+    _, hs_all, vw_all = weather.hindcast()
+    p_wave = float((hs_all <= hs_limit).mean())
+    p_wind = float((vw_all <= vw_limit).mean())
     limiting = "Hs (wave height)" if p_wave < p_wind else "Vw (wind speed)"
 
     return {
@@ -167,10 +137,18 @@ def get_vessel_access(vessel: str) -> dict[str, Any]:
 def get_all_vessel_access(year: int = 2025) -> dict[str, Any]:
     """Return access probabilities for all four vessel types."""
     vessels = [get_vessel_access(v) for v in ("CTV", "SOV", "JACK_UP", "HELICOPTER")]
+    ice = weather.ice_climate()
     return {
         "location": LOCATION,
         "year": year,
         "vessels": vessels,
+        "hindcast": weather.HINDCAST_SOURCE,
+        "sea_ice": {
+            **ice,
+            "note": "Passive-microwave ice in a cell 37 km offshore; isolated days in mild "
+            "winters may be coastal or wet-snow artefacts. Ice at PZP_44 is rare and brief — "
+            "no ice-class foundation design driver, but a winter access risk.",
+        },
     }
 
 

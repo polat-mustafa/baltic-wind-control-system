@@ -108,6 +108,21 @@ export default function WeatherWindowPanel() {
           </span>
         ))}
       </div>
+
+      {/* Provenance: measured, not modelled */}
+      {vesselAccess.hindcast && (
+        <p className="mt-2 text-xs text-text-muted">
+          Measured: share of 6-hour steps with Hs and wind inside the vessel limits — {vesselAccess.hindcast}.
+        </p>
+      )}
+      {vesselAccess.sea_ice && (
+        <p className="mt-1 text-xs text-text-muted">
+          Sea ice at the site: {vesselAccess.sea_ice.winters_with_ice} of {vesselAccess.sea_ice.winters} winters,
+          mean {vesselAccess.sea_ice.mean_ice_days.toFixed(1)} days a winter (max{" "}
+          {Math.max(...Object.values(vesselAccess.sea_ice.ice_days_by_winter))} d) — {vesselAccess.sea_ice.source}.{" "}
+          {vesselAccess.sea_ice.note}
+        </p>
+      )}
     </div>
   );
 }

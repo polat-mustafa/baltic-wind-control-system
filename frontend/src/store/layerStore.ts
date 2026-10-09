@@ -2,7 +2,7 @@
  * Zustand store for map layer visibility toggles.
  *
  * Each boolean flag controls whether a data layer is rendered
- * on the Leaflet wind farm map. Toggles are session-level UI state
+ * on the Control Room map. Toggles are session-level UI state
  * (not persisted). Separate from landingStore to keep concerns clean.
  */
 
@@ -49,12 +49,19 @@ interface LayerState {
   setLayer: (key: keyof LayerVisibility, on: boolean) => void;
   mapTheme: MapTheme;
   setMapTheme: (t: MapTheme) => void;
+  /**
+   * Show the classic Leaflet map instead of the MapLibre + deck.gl map. Kept
+   * while the remaining layers (AIS, waves, wind flow, nav aids…) move over.
+   */
+  classicMap: boolean;
+  setClassicMap: (on: boolean) => void;
 }
 
 export const useLayerStore = create<LayerState>((set) => ({
   layers: {
     windParticles: true,
-    wakeEffects: true,
+    // Wake envelopes are a planning view (Layout); off in the Control Room until asked for
+    wakeEffects: false,
     oceanWaves: true,
     arrayCables: true,
     exclusionZone: true,
@@ -71,6 +78,8 @@ export const useLayerStore = create<LayerState>((set) => ({
     cableDts: false,
   },
   mapTheme: loadTheme(),
+  classicMap: false,
+  setClassicMap: (classicMap) => set({ classicMap }),
   setMapTheme: (mapTheme) => {
     // private mode / blocked storage: theme just isn't remembered
     writeStored(THEME_KEY, mapTheme);

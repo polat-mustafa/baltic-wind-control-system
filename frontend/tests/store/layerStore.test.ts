@@ -1,7 +1,7 @@
 /**
  * Tests for the layer visibility Zustand store.
  *
- * Verifies the 17 layer toggles' defaults (all on except the fibre, DTS and my-project overlays), that toggleLayer
+ * Verifies the layer toggles' defaults (all on except the fibre, DTS and wake overlays), that toggleLayer
  * flips a single layer, and that toggling twice restores the original.
  */
 
@@ -11,7 +11,6 @@ import type { LayerVisibility } from "../../src/store/layerStore";
 
 const ALL_LAYER_KEYS: (keyof LayerVisibility)[] = [
   "windParticles",
-  "wakeEffects",
   "oceanWaves",
   "arrayCables",
   "exclusionZone",
@@ -27,7 +26,7 @@ const ALL_LAYER_KEYS: (keyof LayerVisibility)[] = [
 ];
 
 describe("initial state", () => {
-  it("has every layer on except the fibre, DTS and my-project overlays", () => {
+  it("has every layer on except the fibre, DTS and wake overlays", () => {
     const { layers } = useLayerStore.getState();
     for (const key of ALL_LAYER_KEYS) {
       expect(layers[key]).toBe(true);
@@ -39,6 +38,7 @@ describe("initial state", () => {
     expect(Object.keys(layers)).toHaveLength(16);
     expect(layers.fibreComms).toBe(false);
     expect(layers.cableDts).toBe(false);
+    expect(layers.wakeEffects).toBe(false); // a planning view: off in the Control Room until asked for
   });
 
   it("setLayer sets one layer explicitly", () => {

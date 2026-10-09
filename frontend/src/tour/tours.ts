@@ -15,19 +15,6 @@ import type { Tour } from "./types";
 
 const exists = (selector: string) => () => () => document.querySelector(selector) !== null;
 
-/** Completes once the element has been dragged at least `minPx` from where it started. */
-function moved(target: string, minPx = 24) {
-  return () => {
-    const el = document.querySelector(`[data-tour="${target}"]`);
-    const start = el?.getBoundingClientRect();
-    return () => {
-      const now = document.querySelector(`[data-tour="${target}"]`)?.getBoundingClientRect();
-      if (!start || !now) return false;
-      return Math.hypot(now.left - start.left, now.top - start.top) >= minPx;
-    };
-  };
-}
-
 const controlRoom: Tour = {
   id: "control-room",
   title: "Control room",
@@ -116,20 +103,9 @@ const controlRoom: Tour = {
       target: "layer-control",
       title: "Map layers",
       body:
-        "Switch overlays on and off: wind flow, wake cones, bathymetry, 500 m safety zones, navigation aids, " +
-        "O&M vessels, live AIS traffic and the export cable temperature (DTS).",
-    },
-    {
-      id: "wind-rose",
-      route: "/",
-      target: ["wind-rose", "wind-rose-collapsed"],
-      title: "Wind rose",
-      body:
-        "How often the wind blows from each direction, banded by speed; the current direction is highlighted. " +
-        "The climatology here is illustrative, with the south-westerly prevailing wind typical of the Baltic.",
-      task: { instruction: "Drag the wind rose by its header to move it.", watch: moved("wind-rose") },
-      // The turbine viewer from the "turbine" step may still be open on top of it.
-      raise: true,
+        "Switch overlays on and off, grouped plant, weather, marine and context: wind flow, waves, wake envelopes, " +
+        "live AIS traffic, O&M vessels, navigation aids, 500 m safety zones, bathymetry and the export cable " +
+        "temperature (DTS).",
     },
     {
       id: "theme",

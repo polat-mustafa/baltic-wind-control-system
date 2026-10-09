@@ -179,114 +179,6 @@ body {
   outline-offset: 2px;
 }
 
-/* ── Leaflet Overrides (dark theme) ─────────────────────────────── */
-
-/* Remove default marker shadows and backgrounds for custom DivIcons */
-.leaflet-turbine-marker,
-.leaflet-eq-marker {
-  background: none !important;
-  border: none !important;
-}
-.leaflet-eq-marker:hover {
-  z-index: 2000 !important;
-}
-
-/* ── Turbine marker — see createTurbineIcon ───────────────────
-   The 40 × 56 icon is scaled about the hub (20 px, 20 px) by --wtg-scale,
-   set on the map container per zoom (TurbineZoomScaler). Scaling the SVG,
-   not Leaflet's wrapper, keeps Leaflet's own translate3d untouched. */
-.leaflet-turbine-marker {
-  cursor: pointer;
-}
-.leaflet-turbine-marker .wtg-svg {
-  overflow: visible;
-  transform-origin: 20px 20px;
-  transform: scale(var(--wtg-scale, 1));
-  /* Thin dark halo so the translucent icon reads on sea, tiles and cables */
-  filter: drop-shadow(0 0 1.2px rgba(0, 0, 0, 0.9));
-  transition: transform 0.25s ease;
-}
-/* Live parts, eased across the 5 s simulation tick (see TurbineMarker).
-   transform-box view-box + origin 0 0 = the hub (viewBox origin). */
-.wtg-svg .wtg-yaw,
-.wtg-svg .wtg-nacelle,
-.wtg-svg .wtg-rotor {
-  transform-box: view-box;
-  transform-origin: 0 0;
-}
-.wtg-svg .wtg-yaw {
-  transition: transform 5s linear;
-}
-.wtg-svg .wtg-nacelle {
-  transition: transform 3s ease-in-out;
-}
-.wtg-svg .wtg-rotor {
-  animation: wtg-spin 7.2s linear infinite; /* 8.33 rpm; rate set per turbine */
-}
-.wtg-svg .wtg-power {
-  transform-box: fill-box;
-  transform-origin: left center;
-  transform: scaleX(0);
-  transition: transform 5s linear;
-}
-.wtg-no-ease .wtg-yaw,
-.wtg-no-ease .wtg-nacelle,
-.wtg-no-ease .wtg-power {
-  transition: none !important;
-}
-@keyframes wtg-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.leaflet-turbine-marker:hover .wtg-svg {
-  transform: scale(calc(var(--wtg-scale, 1) * 1.15));
-}
-.leaflet-turbine-marker:hover {
-  z-index: 1000 !important;
-}
-.leaflet-turbine-marker.turbine-selected .wtg-svg {
-  transform: scale(calc(var(--wtg-scale, 1) * 1.15));
-  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.95));
-}
-.leaflet-turbine-marker.turbine-selected {
-  z-index: 1001 !important;
-}
-.wtg-labels-off .wtg-id,
-.hide-turbine-labels .wtg-id {
-  display: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .leaflet-turbine-marker .wtg-svg,
-  .wtg-svg .wtg-yaw,
-  .wtg-svg .wtg-nacelle,
-  .wtg-svg .wtg-power { transition: none; }
-  .wtg-svg .wtg-rotor { animation: none; }
-}
-
-/* Dark-themed Leaflet tooltips matching ISA-101 palette */
-/* pointer-events: none prevents tooltip from stealing hover from the marker */
-.leaflet-turbine-tooltip .leaflet-tooltip-content-wrapper,
-.leaflet-turbine-tooltip {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  pointer-events: none !important;
-}
-.leaflet-turbine-tooltip::before {
-  display: none !important;
-}
-
-/* Animated export cable dashes (power flow effect) */
-.leaflet-export-cable-animated {
-  animation: cable-flow 1.5s linear infinite;
-}
-@keyframes cable-flow {
-  from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: -40; }
-}
-
 /* Dark-themed zoom controls */
 .leaflet-control-zoom a {
   background-color: rgba(22, 25, 36, 0.9) !important;
@@ -298,97 +190,6 @@ body {
   color: #e4ecf3 !important;
 }
 
-/* ── Equipment chips (OSS, STATCOM, LIDAR, onshore, switchyard) ──
-   The 24 × 24 glyph sits exactly on the geographic point; the label
-   overflows to the right. --eq-color = state/accent colour. */
-.eq-marker {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: max-content;
-  cursor: pointer;
-  font-family: var(--font-sans);
-}
-.eq-marker__glyph {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  border-radius: 6px;
-  background: rgba(10, 21, 32, 0.92);
-  border: 1.5px solid var(--eq-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--eq-color) 18%, transparent), 0 2px 8px rgba(0, 0, 0, 0.5);
-  transition: transform 150ms ease;
-}
-.eq-marker__glyph.is-live::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: 8px;
-  border: 1.5px solid var(--eq-color);
-  animation: eq-pulse 2.4s ease-out infinite;
-  pointer-events: none;
-}
-.eq-marker__body {
-  display: flex;
-  flex-direction: column;
-  padding: 3px 7px 3px 6px;
-  border-radius: 5px;
-  background: rgba(10, 21, 32, 0.82);
-  border-left: 2px solid var(--eq-color);
-  backdrop-filter: blur(4px);
-  line-height: 1.2;
-  white-space: nowrap;
-}
-.eq-marker__tag {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #cbd5e1;
-  /* no text-transform: units like "kV" are case-sensitive */
-}
-.eq-marker__value {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--eq-color);
-  font-variant-numeric: tabular-nums;
-}
-.eq-marker__sub {
-  font-weight: 400;
-  color: #7189a0;
-  margin-left: 4px;
-}
-/* Label on the left of the glyph (the icon box stays anchored on the glyph) */
-.eq-marker--left {
-  position: absolute;
-  top: 0;
-  right: 0;
-  flex-direction: row-reverse;
-}
-.eq-marker--left .eq-marker__body {
-  border-left: none;
-  border-right: 2px solid var(--eq-color);
-  text-align: right;
-}
-.eq-marker:hover .eq-marker__glyph {
-  transform: scale(1.12);
-}
-@keyframes eq-pulse {
-  from { transform: scale(1); opacity: 0.8; }
-  to { transform: scale(1.7); opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .eq-marker__glyph.is-live::after { animation: none; }
-}
-
-/* Light OSM tiles → dark control-room basemap */
-.osm-dark-tiles {
-  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.4);
-}
-
 /* Dark-themed attribution (required by the OSM licence) */
 .leaflet-control-attribution {
   background: rgba(10, 21, 32, 0.7) !important;
@@ -397,61 +198,6 @@ body {
 }
 .leaflet-control-attribution a {
   color: #a3b6c8 !important;
-}
-
-/* Wake loss badge — remove default Leaflet icon styling */
-.leaflet-wake-loss-badge {
-  background: none !important;
-  border: none !important;
-}
-
-/* Turbine power badge (zoom ≥ 13) — remove default icon styling */
-.leaflet-turbine-power-badge {
-  background: none !important;
-  border: none !important;
-  pointer-events: none !important;
-}
-.leaflet-turbine-power-badge span {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: calc(9px * clamp(1, var(--wtg-scale, 1), 1.6));
-  font-weight: 600;
-  background: rgba(10, 21, 32, 0.75);
-  padding: 1px 4px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-.leaflet-turbine-power-badge b {
-  font-weight: inherit;
-}
-.leaflet-turbine-power-badge small {
-  font-size: 7px;
-  font-weight: 400;
-  opacity: 0.7;
-}
-
-/* Pitch arc indicator (zoom ≥ 14) — remove default icon styling */
-.leaflet-turbine-pitch-arc {
-  background: none !important;
-  border: none !important;
-  pointer-events: none !important;
-}
-/* Grow with the turbine icon, pivoting on its left edge next to the ring */
-.leaflet-turbine-pitch-arc svg {
-  transform-origin: 0 50%;
-  transform: scale(clamp(1, var(--wtg-scale, 1), 2));
-  overflow: visible;
-}
-
-/* Bathymetry label tooltip — remove default Leaflet tooltip chrome */
-.leaflet-bathy-label,
-.leaflet-bathy-label .leaflet-tooltip-content-wrapper {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-}
-.leaflet-bathy-label::before {
-  display: none !important;
 }
 
 /* Trap Leaflet internal z-indexes so detail panels (z-[1100]) render above */
@@ -513,125 +259,13 @@ body {
     animation: none;
   }
 }
-
-/* Array-cable focus (click a 66 kV cable): turbines feeding it glow,
-   turbines on other strings fade. Classes set in TurbineMarker. */
-.leaflet-turbine-marker.wtg-feed .wtg-svg {
-  filter: brightness(1.35) drop-shadow(0 0 5px rgba(79, 195, 216, 0.95));
-}
-.leaflet-turbine-marker.wtg-feed {
-  z-index: 900 !important;
-}
-.leaflet-turbine-marker.wtg-dim {
-  opacity: 0.3;
-}
-.array-cable-focus {
-  filter: drop-shadow(0 0 4px rgba(79, 195, 216, 0.9));
-}
 /* No browser focus box around clicked SVG paths (cables) */
 .leaflet-container path.leaflet-interactive:focus {
   outline: none;
 }
-
-/* ── Maritime layers (MaritimeLayers.tsx) ───────────────────────── */
-/* IALA G1162 yellow lights at the transition piece (below the icon base).
-   All lights start together, so SPS flash in sync as required. */
-.leaflet-nav-light {
-  background: none !important;
-  border: none !important;
-}
-.nav-light {
-  position: absolute;
-  left: -3px;
-  top: -3px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #facc15;
-  box-shadow: 0 0 6px 2px rgba(250, 204, 21, 0.8);
-  transform: translate(calc(-7px * var(--wtg-scale, 1)), calc(22px * var(--wtg-scale, 1)));
-  opacity: 0.15;
-}
-.nav-light--sps {
-  animation: nav-flash 5s steps(1, end) infinite;
-}
-.nav-light--ips {
-  width: 4px;
-  height: 4px;
-  left: -2px;
-  top: -2px;
-  animation: nav-flash 2.5s steps(1, end) infinite;
-}
-@keyframes nav-flash {
-  0% { opacity: 1; }
-  12% { opacity: 0.15; }
-}
-.leaflet-cardinal-mark {
-  background: none !important;
-  border: none !important;
-}
-.cardinal-mark {
-  position: relative;
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
-}
-.cardinal-mark span {
-  position: absolute;
-  left: 15px;
-  top: 3px;
-  white-space: nowrap;
-  font: 600 9px/1 "JetBrains Mono", monospace;
-  color: #e2e8f0;
-  background: rgba(10, 14, 21, 0.7);
-  padding: 2px 4px;
-  border-radius: 3px;
-}
-.leaflet-vessel {
-  background: none !important;
-  border: none !important;
-}
-.vessel {
-  position: relative;
-  width: 18px;
-  height: 18px;
-}
-.vessel-hull {
-  transform-origin: 9px 9px;
-  transition: transform 0.6s linear;
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
-}
-.vessel-tag {
-  position: absolute;
-  left: 20px;
-  top: 2px;
-  white-space: nowrap;
-  font: 600 9px/1 "JetBrains Mono", monospace;
-  color: #e0f2fe;
-  background: rgba(10, 14, 21, 0.75);
-  border: 1px solid rgba(125, 211, 252, 0.35);
-  padding: 2px 4px;
-  border-radius: 3px;
-}
-/* ICAO Annex 14 aviation obstruction light (red, medium intensity) on the
-   nacelle roof; synchronised via a shared negative animation delay. */
-.wtg-svg .wtg-avlight {
-  animation: av-flash 2s steps(1, end) infinite;
-  animation-delay: var(--av-delay, 0s);
-}
-@keyframes av-flash {
-  0% { opacity: 1; }
-  40% { opacity: 0.1; }
-}
-/* Array-cable fault scenario */
-.array-cable-fault {
-  animation: cable-fault 0.8s ease-in-out infinite alternate;
-}
 @keyframes cable-fault {
   from { stroke-opacity: 1; }
   to { stroke-opacity: 0.25; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .nav-light, .wtg-svg .wtg-avlight, .array-cable-fault { animation: none; opacity: 1; }
-  .vessel-hull { transition: none; }
 }
 
 /* ══ Storybook theme ═══════════════════════════════════════════
@@ -670,52 +304,8 @@ body {
   --font-sans: var(--sb-font);
   font-family: var(--font-sans);
 }
-/* Land as parchment; the sea is tinted teal by a polygon (StorybookSea). */
-.theme-storybook .osm-dark-tiles {
-  filter: sepia(0.75) saturate(0.85) brightness(0.97) contrast(1.05);
-}
 .theme-storybook .leaflet-container {
   background: #3f8d86 !important;
-}
-.sb-paper-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    radial-gradient(ellipse at center, transparent 55%, rgba(43, 33, 24, 0.42) 100%),
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.17 0 0 0 0 0.13 0 0 0 0 0.09 0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  mix-blend-mode: multiply;
-  opacity: 0.55;
-}
-/* Plant chips as inked paper tags */
-.theme-storybook .eq-marker__glyph {
-  background: var(--sb-paper);
-  border: 2px solid var(--sb-ink);
-  border-radius: 46% 54% 42% 58% / 55% 45% 55% 45%;
-  box-shadow: 2px 2px 0 var(--sb-ink);
-}
-.theme-storybook .eq-marker__glyph svg * {
-  stroke: var(--sb-ink);
-}
-.theme-storybook .eq-marker__body {
-  background: var(--sb-paper);
-  border: 1.5px solid var(--sb-ink);
-  border-radius: 3px 9px 4px 8px;
-  box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.85);
-  backdrop-filter: none;
-}
-.theme-storybook .eq-marker__tag {
-  color: var(--sb-ink);
-  font-family: var(--sb-font);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-.theme-storybook .eq-marker__value {
-  color: #7a3b14;
-}
-.theme-storybook .eq-marker__sub {
-  color: #7a6650;
 }
 .theme-storybook .leaflet-tooltip {
   background: var(--sb-paper) !important;
@@ -725,84 +315,9 @@ body {
   font-size: 13px;
   box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.8) !important;
 }
-.theme-storybook .leaflet-turbine-power-badge span,
-.theme-storybook .vessel-tag,
-.theme-storybook .cardinal-mark span {
-  background: var(--sb-paper);
-  color: var(--sb-ink);
-  border: 1.2px solid var(--sb-ink);
-  font-family: var(--sb-font);
-  font-size: 12px;
-}
-.theme-storybook .wtg-id {
-  font-family: var(--sb-font);
-}
-.theme-storybook .leaflet-turbine-marker .wtg-svg {
-  filter: drop-shadow(1.5px 2px 0 rgba(43, 33, 24, 0.35));
-}
 .theme-storybook .leaflet-control-attribution {
   background: rgba(241, 228, 195, 0.85) !important;
   color: #5a4632 !important;
-}
-
-/* Technicians at work (repair jobs) — both themes */
-.leaflet-crew {
-  background: none !important;
-  border: none !important;
-}
-.crew-badge {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  width: max-content;
-  transform: translate(calc(14px * var(--wtg-scale, 1)), calc(4px * var(--wtg-scale, 1)));
-}
-.crew-badge svg .crew-arm {
-  transform-box: fill-box;
-  transform-origin: 0% 100%;
-  animation: crew-wrench 0.9s ease-in-out infinite alternate;
-}
-.crew-badge__bar {
-  position: absolute;
-  left: 0;
-  bottom: -5px;
-  height: 3px;
-  width: 100%;
-  border-radius: 2px;
-  background: rgba(0, 0, 0, 0.35);
-  overflow: hidden;
-}
-.crew-badge__bar > i {
-  display: block;
-  height: 100%;
-  background: #f59e0b;
-  transform-origin: left center;
-}
-.crew-badge__label {
-  font: 600 9px/1 "JetBrains Mono", monospace;
-  color: #fde68a;
-  background: rgba(10, 14, 21, 0.8);
-  padding: 2px 4px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-.theme-storybook .crew-badge__label {
-  font: 13px/1 var(--sb-font);
-  color: var(--sb-ink);
-  background: var(--sb-paper);
-  border: 1.2px solid var(--sb-ink);
-}
-@keyframes crew-wrench {
-  from { transform: rotate(-25deg); }
-  to { transform: rotate(20deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .crew-badge svg .crew-arm { animation: none; }
-}
-@keyframes crew-progress {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
 }
 
 /* Storybook: re-skin overlays that use inline control-room colours */
@@ -843,8 +358,7 @@ body {
    (WCAG AA ≥ 4.5:1 on #f1e4c3). */
 .theme-storybook :is(
     .text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs,
-    .font-mono, .leaflet-tooltip, .eq-marker__tag, .eq-marker__sub, .vessel-tag,
-    .wtg-id, .cardinal-mark span, .leaflet-control-attribution
+    .font-mono, .leaflet-tooltip, .leaflet-control-attribution
   ),
 .theme-storybook :is(.text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs) * {
   font-weight: 700;
@@ -877,13 +391,6 @@ body {
 /* Translucent accent fills vanish over the dark 3D canvas — make them paper-solid */
 .theme-storybook :is([class^="bg-accent/"], [class*=" bg-accent/"]):not(:hover) {
   background-color: #cfe1da !important;
-}
-.theme-storybook .leaflet-dts-label span {
-  background: var(--sb-paper) !important;
-  color: #8a1c1c !important;
-  border: 1.2px solid var(--sb-ink) !important;
-  font-family: var(--sb-font) !important;
-  font-size: 13px !important;
 }
 
 /* Storybook: Plotly charts. DARK_PLOTLY_LAYOUT writes inline SVG styles, so

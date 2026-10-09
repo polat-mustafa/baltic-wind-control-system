@@ -229,19 +229,6 @@ export const FARM_VIEW_BOUNDS: [[number, number], [number, number]] = [
   [55.12, 16.645],
 ];
 
-/**
- * Turbine icon scale per map zoom (1 = the 40 × 56 px base icon).
- * At 55.06°N the 1,448 m along-string spacing is 33 px at z11 and doubles per
- * zoom step. The icon's vertical extent (heading arrow → ID label) is ≈ 50
- * units, ≈ 62 once the live-MW badge appears (z ≥ 13); the scale keeps that
- * stack within 90 % of the spacing so neighbours never touch, capped at 3.2×.
- */
-export function turbineIconScale(zoom: number): number {
-  const spacingPx = 33 * 2 ** (zoom - 11);
-  const extentUnits = zoom >= 13 ? 62 : 50;
-  return Math.min(3.2, Math.max(0.45, (0.9 * spacingPx) / extentUnits));
-}
-
 // ── Bathymetry isobaths (EMODnet Bathymetry DTM, real data) ─────
 // Contoured from the region pack's 0.01° EMODnet DTM grid over 54.52–55.17°N,
 // 16.12–16.97°E (2026-10-08): the longest line per level, simplified (0.004°).

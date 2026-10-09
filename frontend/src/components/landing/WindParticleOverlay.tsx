@@ -1,22 +1,25 @@
 /**
- * Animated wind particle overlay for the Leaflet map (Windy.com style).
+ * Animated wind particle overlay for the Control Room map (Windy.com style),
+ * drawn in screen space under the deck.gl layers.
  *
  * Renders ~300 particles flowing in the current wind direction using
  * HTML5 Canvas + requestAnimationFrame. Each particle is drawn as a
  * short directional streak with a bright head dot.
  *
- * Color scale follows wind speed:
- *   #5cc3d2  light breeze  (< 6 m/s)
- *   #06b6d4  moderate       (6–10 m/s)
- *   #e2e8f0  strong         (10–14 m/s)
- *   #fbbf24  near cut-out   (> 14 m/s)
+ * Colour follows wind speed, neutral greys getting lighter, amber only when
+ * the wind nears the 25 m/s cut-out:
+ *   #7189a0  light breeze  (< 6 m/s)
+ *   #a3b6c8  moderate      (6–10 m/s)
+ *   #e4ecf3  strong        (10–20 m/s)
+ *   #f0b13e  near cut-out  (≥ 20 m/s)
  *
- * Wind data is read from landingStore on each animation frame.
- * Zero external dependencies — pure Canvas API.
+ * Wind data is read from landingStore on each animation frame; the map view
+ * comes in as a ref (panning carries the particles along, zooming respawns
+ * them). Zero external dependencies — pure Canvas API.
  */
 
 import { useEffect, useRef } from "react";
-import { useMap } from "react-leaflet";
+import type { WebMercatorViewport } from "@deck.gl/core";
 
 import { useLandingStore } from "../../store/landingStore";
 
@@ -31,10 +34,10 @@ const JITTER = 0.3; // random lateral wander (px/frame)
 // ── Wind speed → color ───────────────────────────────────────────
 
 function windColor(ms: number): string {
-  if (ms < 6) return "#5cc3d2";
-  if (ms < 10) return "#06b6d4";
-  if (ms < 14) return "#e2e8f0";
-  return "#fbbf24";
+  if (ms < 6) return "#7189a0";
+  if (ms < 10) return "#a3b6c8";
+  if (ms < 20) return "#e4ecf3";
+  return "#f0b13e";
 }
 
 // ── Particle ─────────────────────────────────────────────────────
@@ -48,36 +51,22 @@ interface Particle {
   speedFactor: number;
 }
 
+/** The current map view (screen size, zoom, lon/lat → px), kept by the map. */
+export type MapView = { readonly current: WebMercatorViewport | null };
+
 // ── Component ────────────────────────────────────────────────────
 
-export default function WindParticleOverlay() {
-  const map = useMap();
+export default function WindParticleOverlay({ view }: { view: MapView }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const particlesRef = useRef<Particle[]>([]);
   const rafRef = useRef(0);
 
   useEffect(() => {
-    const pane = map.getPane("atmosphericPane");
-    if (!pane) return;
-
-    // Create overlay canvas inside atmospheric pane (above tiles, below markers)
-    const canvas = document.createElement("canvas");
-    canvas.style.cssText =
-      "position:absolute;top:0;left:0;pointer-events:none;";
-    pane.appendChild(canvas);
-    canvasRef.current = canvas;
-
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     let w = 0;
     let h = 0;
-
-    function resize() {
-      const size = map.getSize();
-      w = size.x;
-      h = size.y;
-      canvas.width = w;
-      canvas.height = h;
-    }
-    resize();
+    let last: WebMercatorViewport | null = null;
 
     function spawn(): Particle {
       return {
@@ -90,29 +79,38 @@ export default function WindParticleOverlay() {
       };
     }
 
-    particlesRef.current = Array.from({ length: PARTICLE_COUNT }, spawn);
-
     // Lerp targets — smoothly interpolate toward store values each frame
     const LERP_RATE = 0.03; // ~84% convergence in 1s at 60fps
     let lerpWindDir = useLandingStore.getState().kpis.windDirectionDeg;
     let lerpWindSpeed = useLandingStore.getState().kpis.averageWindSpeedMs;
 
-    function onMapChange() {
-      resize();
-      particlesRef.current = Array.from({ length: PARTICLE_COUNT }, spawn);
+    /** Follow the map: a pan carries the particles along, a zoom or resize respawns them. */
+    function followView(vp: WebMercatorViewport) {
+      if (vp === last) return;
+      if (last && vp.zoom === last.zoom && vp.width === w && vp.height === h) {
+        const [x0, y0] = last.project([vp.longitude, vp.latitude]);
+        const [dx, dy] = [w / 2 - x0, h / 2 - y0];
+        for (const p of particlesRef.current) {
+          p.x += dx;
+          p.y += dy;
+        }
+      } else {
+        w = canvas!.width = vp.width;
+        h = canvas!.height = vp.height;
+        particlesRef.current = Array.from({ length: PARTICLE_COUNT }, spawn);
+      }
+      last = vp;
     }
-    map.on("resize", onMapChange);
-    map.on("moveend", onMapChange);
-    map.on("zoomend", onMapChange);
 
     // ── Animation loop ────────────────────────────────────────────
 
     function frame() {
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
+      const ctx = canvas!.getContext("2d");
+      if (!ctx || !view.current) {
         rafRef.current = requestAnimationFrame(frame);
         return;
       }
+      followView(view.current);
 
       const { windDirectionDeg, averageWindSpeedMs } =
         useLandingStore.getState().kpis;
@@ -198,12 +196,8 @@ export default function WindParticleOverlay() {
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      map.off("resize", onMapChange);
-      map.off("moveend", onMapChange);
-      map.off("zoomend", onMapChange);
-      canvas.remove();
     };
-  }, [map]);
+  }, [view]);
 
-  return null;
+  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0" aria-hidden />;
 }

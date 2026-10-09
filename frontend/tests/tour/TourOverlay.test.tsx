@@ -48,7 +48,7 @@ describe("TourOverlay", () => {
     render(<Page />);
     act(() => useTourStore.getState().start("control-room"));
     expect(screen.getByRole("dialog", { name: /Welcome to OffshoreForge/ })).toBeDefined();
-    expect(screen.getByText(/1 \/ 10/)).toBeDefined();
+    expect(screen.getByText(/1 \/ 9/)).toBeDefined();
 
     fireEvent.keyDown(window, { key: "ArrowRight" });
     expect(await screen.findByRole("dialog", { name: /Organised by lifecycle stage/ })).toBeDefined();

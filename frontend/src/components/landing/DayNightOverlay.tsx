@@ -1,9 +1,9 @@
 /**
- * Day/night tint overlay for the Leaflet wind farm map.
+ * Day/night tint overlay for the Control Room map.
  *
- * Renders a semi-transparent fullscreen div using createPortal into
- * the Leaflet container. The tint colour and opacity follow a
- * compressed day cycle (24 h in ~300 s simulation time).
+ * A semi-transparent div over the map base, under the deck.gl layers. The
+ * tint colour and opacity follow a compressed day cycle (24 h in ~300 s
+ * simulation time).
  *
  * Timeline:
  *   06-08  dawn (amber tint, low opacity)
@@ -11,9 +11,6 @@
  *   17-19  dusk (amber tint, low opacity)
  *   19-06  night (blue tint, moderate opacity)
  */
-
-import { createPortal } from "react-dom";
-import { useMap } from "react-leaflet";
 
 import { selectEnvironment, useLandingStore } from "../../store/landingStore";
 
@@ -48,27 +45,17 @@ function getTint(hour: number): { color: string; opacity: number } {
 }
 
 export default function DayNightOverlay() {
-  const map = useMap();
   const env = useLandingStore(selectEnvironment);
-
-  const pane = map.getPane("atmosphericPane");
-  if (!pane) return null;
-
   const { color, opacity } = getTint(env.simulatedHour);
 
   // Skip rendering when fully transparent (day)
   if (opacity < 0.005) return null;
 
-  return createPortal(
+  return (
     <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        backgroundColor: `rgba(${color}, ${opacity})`,
-        pointerEvents: "none",
-        transition: "background-color 2s ease",
-      }}
-    />,
-    pane,
+      aria-hidden
+      className="pointer-events-none absolute inset-0"
+      style={{ backgroundColor: `rgba(${color}, ${opacity})`, transition: "background-color 2s ease" }}
+    />
   );
 }

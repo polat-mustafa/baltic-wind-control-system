@@ -2,6 +2,12 @@
 
     set ENTSOE_API_TOKEN=<your token>        (PowerShell: $env:ENTSOE_API_TOKEN = "...")
     cd backend && python scripts/fetch_entsoe_units.py
+    cd backend && python scripts/fetch_entsoe_units.py --file-library <folder of 16.1.A CSVs>
+
+Without a token, the same data comes from the File Library (logged-in website): TP_export →
+ActualGenerationOutputPerGenerationUnit_16.1.A_r3, monthly CSVs. German units are not in
+those extracts (2024-06 … 2026-10 checked); Danish Kriegers Flak, Rødsand 1 / 2 and Poland's
+Baltic Power (from 2026-07, still energising) are.
 
 ENTSO-E Transparency Platform, "Actual Generation per Generation Unit" (16.1.A,
 documentType A73, processType A16), psrType B18 = wind offshore, control area 50Hertz
@@ -48,6 +54,10 @@ FARMS: list[tuple[str, str, str, float, float, float]] = [
     (r"arkona", "arkona", "Arkona (60 × SWT-6.0-154)", 385.0, 54.78, 14.12),
     (r"eagle", "baltic_eagle", "Baltic Eagle (50 × V174-9.5)", 476.0, 54.85, 14.20),
     (r"arcadis", "arcadis_ost1", "Arcadis Ost 1 (27 × V174-9.5)", 257.0, 54.83, 13.63),
+    # Danish Baltic farms as named in the File Library (DK2 rows; DK repeats them)
+    (r"^DK_KF_AB_GU$", "kriegers_flak", "Kriegers Flak (72 × SG 8.4-167 DD)", 604.8, 55.03, 12.93),
+    (r"^Roedsand 1$", "roedsand1", "Nysted / Rødsand 1 (72 × SWT-2.3-82)", 165.6, 54.55, 11.71),
+    (r"^Roedsand 2$", "roedsand2", "Rødsand 2 (90 × SWT-2.3-93)", 207.0, 54.56, 11.53),
 ]
 
 
@@ -103,24 +113,8 @@ def fetch_day(token: str, day: date) -> bytes:
     return b""
 
 
-def main() -> int:
-    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]  # Windows console
-    token = os.environ.get("ENTSOE_API_TOKEN", "").strip()
-    if not token:
-        print(__doc__)
-        return 1
-    end = date.today() - timedelta(days=5)
-    power: dict[str, dict[str, float]] = defaultdict(dict)
-    day = START
-    while day <= end:
-        xml = fetch_day(token, day)
-        for unit, hours in (parse_a73(xml) if xml else {}).items():
-            power[unit].update(hours)
-        if day.day == 1:
-            print(day, sorted(power), flush=True)
-        day += timedelta(days=1)
-        time.sleep(0.16)  # ≤ 400 requests per minute
-
+def write_sites(power: dict[str, dict[str, float]], end: date) -> None:
+    """Hourly MW per known farm + day-old NWP at the farm → entsoe_<key>.csv.gz + manifest."""
     manifest = []
     for unit, hours in sorted(power.items()):
         match = next((f for f in FARMS if re.search(f[0], unit, re.IGNORECASE)), None)
@@ -149,6 +143,93 @@ def main() -> int:
             {"key": key, "title": title, "capacity_mw": cap, "entsoe_name": unit, "file": path.name}
         )
     (OUT / "entsoe_units.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+
+
+FILE_LIBRARY_UNITS = ("DK_KF_AB_GU", "Roedsand 1", "Roedsand 2", "MFW Baltic Power")
+BALTIC_POWER = "MFW Baltic Power"
+BALTIC_POWER_TURBINE_MW = 15.0  # 76 × Vestas V236-15.0 MW = 1140 MW
+P5_DATA = Path(__file__).resolve().parents[1] / "app/services/p5/data"
+
+
+def parse_file_library(folder: Path) -> dict[str, dict[str, float]]:
+    """{unit: {ISO hour: mean MW}} from the 16.1.A monthly CSVs (tab-separated).
+
+    File Library → TP_export → ActualGenerationOutputPerGenerationUnit_16.1.A_r3, one file
+    per month (~0.5 GB, all of Europe). Danish units appear under DK and DK2: keep DK2.
+    """
+    sums: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    for path in sorted(folder.glob("*ActualGenerationOutputPerGenerationUnit_16.1.A*.csv")):
+        with path.open(encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if "\tDK2\t" not in line and "\tPL\t" not in line:
+                    continue
+                c = line.rstrip("\n").split("\t")
+                if len(c) < 10 or c[7] not in FILE_LIBRARY_UNITS or c[5] not in ("DK2", "PL"):
+                    continue
+                try:
+                    mw = float(c[9])
+                except ValueError:
+                    continue
+                sums[c[7]][c[0][:10] + "T" + c[0][11:13]].append(mw)
+        print(path.name, {u: len(h) for u, h in sums.items()}, flush=True)
+    return {u: {h: sum(v) / len(v) for h, v in hours.items()} for u, hours in sums.items()}
+
+
+def write_baltic_power_energisation(hours: dict[str, float]) -> None:
+    """Poland's first offshore farm going live: daily peak and energy (P5 commissioning)."""
+    days: dict[str, list[float]] = defaultdict(list)
+    for h, mw in hours.items():
+        days[h[:10]].append(mw)
+    rows = [
+        {
+            "date": d,
+            "peak_mw": round(max(v), 1),
+            "energy_mwh": round(sum(v), 1),
+            # a 15 MW turbine cannot give more than 15 MW: peak / 15 is a lower bound
+            "turbines_at_least": int(max(v) // BALTIC_POWER_TURBINE_MW),
+        }
+        for d, v in sorted(days.items())
+    ]
+    P5_DATA.mkdir(parents=True, exist_ok=True)
+    (P5_DATA / "baltic_power_energisation.json").write_text(
+        json.dumps(
+            {
+                "farm": "Baltic Power (Orlen / Northland), 76 × Vestas V236-15.0 MW = 1140 MW",
+                "source": "ENTSO-E Transparency Platform, Actual Generation per Generation Unit "
+                "(16.1.A), unit 'MFW Baltic Power' (PL), File Library monthly extracts",
+                "days": rows,
+            },
+            indent=1,
+        ),
+        encoding="utf-8",
+    )
+    print(f"Baltic Power: {len(rows)} days, peak {max(r['peak_mw'] for r in rows):.0f} MW")
+
+
+def main() -> int:
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]  # Windows console
+    if len(sys.argv) > 2 and sys.argv[1] == "--file-library":
+        power = parse_file_library(Path(sys.argv[2]))
+        write_baltic_power_energisation(power.pop(BALTIC_POWER, {}))
+        write_sites(power, date.today() - timedelta(days=5))
+        return 0
+    token = os.environ.get("ENTSOE_API_TOKEN", "").strip()
+    if not token:
+        print(__doc__)
+        return 1
+    end = date.today() - timedelta(days=5)
+    power: dict[str, dict[str, float]] = defaultdict(dict)
+    day = START
+    while day <= end:
+        xml = fetch_day(token, day)
+        for unit, hours in (parse_a73(xml) if xml else {}).items():
+            power[unit].update(hours)
+        if day.day == 1:
+            print(day, sorted(power), flush=True)
+        day += timedelta(days=1)
+        time.sleep(0.16)  # ≤ 400 requests per minute
+
+    write_sites(power, end)
     return 0
 
 

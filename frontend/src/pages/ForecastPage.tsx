@@ -1,9 +1,10 @@
 /**
  * AI Forecasting page — route /forecast.
  *
- * Four views of the same forecasting system:
+ * Five views of the same forecasting system:
  *   Forecast          the dashboard (ensemble P10/P50/P90, model comparison,
  *                     SHAP, accuracy, revenue)
+ *   Real data         day-ahead forecast of measured Baltic offshore output (DK2)
  *   Training monitor  the models being built, live (stages, epochs, losses)
  *   AI Academy        the course: from "why forecast" to XGBoost, LSTM, TFT,
  *                     with interactive illustrations and narration (EN/TR)
@@ -13,12 +14,13 @@
 
 import { useEffect } from "react";
 import { farmTitle, useFleet } from "../lib/fleet";
-import { Activity, BookOpen, Brain, Network, Play } from "lucide-react";
+import { Activity, BookOpen, Brain, Database, Network, Play } from "lucide-react";
 
 import ForecastDashboard from "../components/p4/ForecastDashboard";
 import TrainingMonitor from "../components/p4/academy/TrainingMonitor";
 import AcademyTab from "../components/p4/academy/AcademyTab";
 import ConceptMap from "../components/p4/academy/ConceptMap";
+import RealDataPanel from "../components/p4/RealDataPanel";
 import { useForecastStore, type ForecastTab } from "../store/forecastStore";
 import { Button } from "../components/ui/Button";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
@@ -31,6 +33,7 @@ import { useAutoRun } from "../hooks/useAutoRun";
 
 const TABS: { id: ForecastTab; label: string; Icon: typeof Brain }[] = [
   { id: "forecast", label: "Forecast", Icon: Brain },
+  { id: "real", label: "Real data", Icon: Database },
   { id: "monitor", label: "Training monitor", Icon: Activity },
   { id: "academy", label: "AI Academy", Icon: BookOpen },
   { id: "map", label: "Concept map", Icon: Network },
@@ -361,6 +364,7 @@ export default function ForecastPage() {
             />
           </div>
         ))}
+      {tab === "real" && <RealDataPanel />}
       {tab === "monitor" && <TrainingMonitor />}
       {tab === "academy" && <AcademyTab />}
       {tab === "map" && <ConceptMap lang={academyLang()} />}

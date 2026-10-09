@@ -21,7 +21,7 @@ import type {
   TurbineSpec,
 } from "../types/forecast";
 
-export type ForecastTab = "forecast" | "monitor" | "academy" | "map";
+export type ForecastTab = "forecast" | "real" | "monitor" | "academy" | "map";
 
 // ── Store Interface ────────────────────────────────────────────
 

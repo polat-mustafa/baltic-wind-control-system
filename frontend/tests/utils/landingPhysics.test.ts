@@ -12,6 +12,7 @@ import {
   V236,
   exportCableState,
   farmWakeDeficits,
+  wakeCt,
   wakePowerLossPct,
   gustMs,
   reactiveBalance,
@@ -125,6 +126,15 @@ describe("wakes", () => {
       expect(deficit).toBeGreaterThan(0);
       expect(deficit).toBeLessThan(0.6);
     }
+  });
+
+  it("weakens the wakes above rated as the rotor pitches and thrust drops (Ct(v))", () => {
+    expect(wakeCt(9)).toBeGreaterThan(0.7); // below rated: Ct ≈ 0.8
+    expect(wakeCt(18)).toBeLessThan(0.4); // pitched well out above rated
+    expect(wakeCt(2)).toBe(0); // parked below cut-in: no wake
+    const sum = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
+    expect(sum(farmWakeDeficits(225, undefined, 18))).toBeLessThan(0.6 * sum(farmWakeDeficits(225, undefined, 9)));
+    expect(farmWakeDeficits(225, undefined, 2).size).toBe(0);
   });
 
   it("loses less power above rated than the cubic rule suggests", () => {

@@ -11,6 +11,8 @@
  * Standards: ISA-101 (HMI), ISA-18.2 / EEMUA 191 (alarm management),
  *            IEC 61131-3 (PLC color coding)
  */
+import type { TurbineStatus } from "../types/landing";
+
 export const SCADA_COLORS = {
   // Equipment states — desaturated per ISA-101 (color only when abnormal)
   ENERGIZED: "#4CC38A",      // Muted green — energized, normal operation
@@ -50,4 +52,12 @@ export const VOLTAGE_COLOR: Record<number, string> = {
   400: SCADA_COLORS.VOLTAGE_400KV,
   220: SCADA_COLORS.VOLTAGE_220KV,
   66: SCADA_COLORS.VOLTAGE_66KV,
+};
+
+/** Turbine status colours on maps and chips (offline is a lighter slate so it stays legible as text). */
+export const TURBINE_STATUS_COLOR: Record<TurbineStatus, string> = {
+  operating: SCADA_COLORS.ENERGIZED,
+  curtailed: SCADA_COLORS.WARNING,
+  fault: SCADA_COLORS.FAULT,
+  offline: "#8b93a7",
 };

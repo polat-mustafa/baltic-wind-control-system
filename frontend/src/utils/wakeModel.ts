@@ -147,6 +147,8 @@ const MIN_DEFICIT = 0.005;
 export function computeWakeLosses(
   turbines: { id: string; lat: number; lon: number }[],
   windFromDeg: number,
+  /** Rotor thrust coefficient of the upstream turbines (default 0.8, below rated). */
+  ct = CT,
 ): WakeLossResult[] {
   const downRad = ((windFromDeg + 180) * Math.PI) / 180;
   const results: WakeLossResult[] = [];
@@ -168,7 +170,7 @@ export function computeWakeLosses(
 
       // Perpendicular (cross-wind) distance
       const cross = Math.abs(-dN * Math.sin(downRad) + dE * Math.cos(downRad));
-      const d = velocityDeficit(along, cross);
+      const d = velocityDeficit(along, cross, ct);
       if (d < MIN_DEFICIT) continue;
 
       sqSum += d ** 2;

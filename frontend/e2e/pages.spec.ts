@@ -45,7 +45,8 @@ test("3D turbine viewer and drawings open without runtime errors", async ({ page
     if (m.type() === "error" && !IGNORED.some((r) => r.test(m.text()))) errors.push(m.text());
   });
   await open(page, "/", "storybook");
-  await page.locator(".leaflet-turbine-marker").nth(8).click();
+  // The map is a WebGL canvas: open WTG-09 from its keyboard / screen-reader button
+  await page.getByRole("button", { name: /^WTG-09 ·/ }).dispatchEvent("click");
   await expect(page.locator("canvas").first()).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: /Full view/ }).click();
   await expect(page.getByText(/Live analytics/)).toBeVisible();
@@ -70,7 +71,8 @@ test("guided tour: welcome, spotlight, turbine action step", async ({ page }) =>
   await page.keyboard.press("ArrowRight"); // KPIs
   await page.keyboard.press("ArrowRight"); // action: open a turbine
   await expect(page.getByText(/Your turn: Click any turbine/)).toBeVisible();
-  await page.locator(".leaflet-turbine-marker").nth(8).click();
+  // The map is a WebGL canvas: open WTG-09 from its keyboard / screen-reader button
+  await page.getByRole("button", { name: /^WTG-09 ·/ }).dispatchEvent("click");
   await expect(page.getByRole("dialog", { name: /Meet the turbine/ })).toBeVisible({ timeout: 10_000 });
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("tour-overlay")).toHaveCount(0);
@@ -100,6 +102,7 @@ for (const [name, path] of ROUTES) {
         mask: [
           page.locator("header"),
           page.locator(".leaflet-container"),
+          page.locator("canvas"), // WebGL map and charts draw live values
           page.locator("[class*='tabular-nums'], .font-mono"),
           page.locator("[data-e2e-mask]"), // database-backed lists
         ],

@@ -43,7 +43,7 @@ export default function AvailabilityDashboard() {
   if (loading && !loaded) {
     return (
       <div className="flex items-center justify-center gap-3 py-20 text-text-muted">
-        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
         Loading availability data…
       </div>
     );

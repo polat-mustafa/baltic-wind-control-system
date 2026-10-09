@@ -26,6 +26,7 @@ import { ControlDrawer } from "../components/ui/ControlDrawer";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import { readStored } from "../lib/storage";
 import { p4Guide } from "../constants/trainingGuideContent";
+import { PageHeader } from "../components/layout/PageHeader";
 
 const TABS: { id: ForecastTab; label: string; Icon: typeof Brain }[] = [
   { id: "forecast", label: "Forecast", Icon: Brain },
@@ -108,180 +109,174 @@ export default function ForecastPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-text-primary">
-            AI Forecasting
-          </h2>
-          <p className="text-xs text-text-muted mt-1 font-mono">
-            {turbineSpec
-              ? `${turbineSpec.name} · ${turbineSpec.rated_power_mw} MW · Cut-in ${turbineSpec.cut_in_speed_ms} / Rated ${turbineSpec.rated_speed_ms} / Cut-out ${turbineSpec.cut_out_speed_ms} m/s · XGBoost + LSTM + TFT`
-              : "Loading turbine spec..."}
-          </p>
-          <p className="mt-0.5 text-xs text-text-muted">
-            {farmTitle(fleet)}: {fleet.turbines.length} turbines = {fleet.net.total_capacity_mw.toFixed(0)} MW. The models train once on a
-            synthetic reference SCADA set (34 turbines, SB-510 climate, cached); single-turbine forecasts are scaled to this farm.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            onClick={runFullAnalysis}
-            data-tour="run-button"
-            disabled={loading}
-            size="sm"
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Running...
-              </span>
-            ) : analysisRun ? (
-              "Re-run"
-            ) : (
-              "Run Forecast"
-            )}
-          </Button>
-          <ControlDrawer
-            title="Forecast Controls"
-            subtitle="Turbine, horizon, ramp & pricing"
-            footer={
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="font-medium text-text-secondary">Models:</span>
-                  <span className="text-text-muted"> XGBoost (gradient boosting), LSTM (recurrent neural net), TFT (transformer with attention)</span>
-                </div>
-                <div>
-                  <span className="font-medium text-text-secondary">SHAP</span>
-                  <span className="text-text-muted"> — SHapley Additive exPlanations. Shows which input features drive the forecast</span>
-                </div>
-                <p className="text-text-muted italic">
-                  Spot prices are synthetic (educational). Revenue figures are illustrative.
-                </p>
-                <p className="text-text-muted italic">
-                  Inputs are causal: SCADA measured up to t−1 plus the NWP forecast for t. A skill
-                  score near 1.0 would indicate leakage; operational 10-min forecasts typically
-                  reach 0.1–0.5 vs persistence.
-                </p>
-              </div>
-            }
-          >
-            {/* Turbine selector */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Turbine Selector</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <select
-                  value={turbineIndex}
-                  onChange={(e) => setTurbineIndex(Number(e.target.value))}
-                  className="w-full bg-bg-tertiary border border-border-secondary rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  {turbineOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </CardContent>
-            </Card>
-
-            {/* Forecast horizon */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Forecast Horizon</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {HORIZON_OPTIONS.map((opt) => (
-                    <label
-                      key={opt.value}
-                      className="flex items-center gap-2 cursor-pointer group"
-                    >
-                      <input
-                        type="radio"
-                        name="horizon"
-                        value={opt.value}
-                        checked={horizonSteps === opt.value}
-                        onChange={() => setHorizonSteps(opt.value)}
-                        className="accent-accent"
-                      />
-                      <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">
-                        {opt.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Ramp threshold slider */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Ramp Threshold</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <input
-                  type="range"
-                  min={10}
-                  max={200}
-                  step={5}
-                  value={rampThresholdMwHr}
-                  onChange={(e) => setRampThresholdMwHr(Number(e.target.value))}
-                  className="w-full accent-accent"
-                />
-                <p className="text-sm text-text-secondary mt-2 text-center font-mono tabular-nums">
-                  {rampThresholdMwHr} MW/hr
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Spot price input */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Spot Price</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={500}
-                    step={1}
-                    value={spotPriceEurMwh}
-                    onChange={(e) => setSpotPriceEurMwh(Number(e.target.value))}
-                    className="w-full bg-bg-tertiary border border-border-secondary rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent font-mono"
-                  />
-                  <span className="text-xs text-text-muted whitespace-nowrap">
-                    EUR/MWh
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Run Analysis button + progress */}
+      <PageHeader
+        title="AI Forecasting"
+        description={
+          <>
+            {farmTitle(fleet)}: {fleet.turbines.length} turbines = {fleet.net.total_capacity_mw.toFixed(0)} MW. The models train once on a synthetic reference SCADA set (34 turbines, SB-510 climate, cached); single-turbine forecasts are scaled to this farm.
+          </>
+        }
+        meta={turbineSpec ? `${turbineSpec.name} · ${turbineSpec.rated_power_mw} MW · cut-in ${turbineSpec.cut_in_speed_ms} / rated ${turbineSpec.rated_speed_ms} / cut-out ${turbineSpec.cut_out_speed_ms} m/s · XGBoost + LSTM + TFT` : undefined}
+        actions={
+          <>
+            <TrainingGuide guide={p4Guide} />
             <Button
-              onClick={runFullAnalysis}
-              disabled={loading}
-              className="w-full py-3"
-              size="lg"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Running Analysis...
-                </span>
-              ) : analysisRun ? (
-                "Re-run Forecast Analysis"
-              ) : (
-                "Run Forecast Analysis"
-              )}
-            </Button>
+                        onClick={runFullAnalysis}
+                        data-tour="run-button"
+                        disabled={loading}
+                        size="sm"
+                      >
+                        {loading ? (
+                          <span className="flex items-center gap-2">
+                            <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                            Running...
+                          </span>
+                        ) : analysisRun ? (
+                          "Re-run"
+                        ) : (
+                          "Run Forecast"
+                        )}
+                      </Button>
+                      <ControlDrawer
+                        title="Forecast Controls"
+                        subtitle="Turbine, horizon, ramp & pricing"
+                        footer={
+                          <div className="space-y-2 text-xs">
+                            <div>
+                              <span className="font-medium text-text-secondary">Models:</span>
+                              <span className="text-text-muted"> XGBoost (gradient boosting), LSTM (recurrent neural net), TFT (transformer with attention)</span>
+                            </div>
+                            <div>
+                              <span className="font-medium text-text-secondary">SHAP</span>
+                              <span className="text-text-muted"> — SHapley Additive exPlanations. Shows which input features drive the forecast</span>
+                            </div>
+                            <p className="text-text-muted italic">
+                              Spot prices are synthetic (educational). Revenue figures are illustrative.
+                            </p>
+                            <p className="text-text-muted italic">
+                              Inputs are causal: SCADA measured up to t−1 plus the NWP forecast for t. A skill
+                              score near 1.0 would indicate leakage; operational 10-min forecasts typically
+                              reach 0.1–0.5 vs persistence.
+                            </p>
+                          </div>
+                        }
+                      >
+                        {/* Turbine selector */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Turbine Selector</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <select
+                              value={turbineIndex}
+                              onChange={(e) => setTurbineIndex(Number(e.target.value))}
+                              className="w-full bg-bg-tertiary border border-border-secondary rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                            >
+                              {turbineOptions.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </CardContent>
+                        </Card>
 
-          </ControlDrawer>
-          <TrainingGuide guide={p4Guide} />
-        </div>
-      </div>
+                        {/* Forecast horizon */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Forecast Horizon</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2">
+                              {HORIZON_OPTIONS.map((opt) => (
+                                <label
+                                  key={opt.value}
+                                  className="flex items-center gap-2 cursor-pointer group"
+                                >
+                                  <input
+                                    type="radio"
+                                    name="horizon"
+                                    value={opt.value}
+                                    checked={horizonSteps === opt.value}
+                                    onChange={() => setHorizonSteps(opt.value)}
+                                    className="accent-accent"
+                                  />
+                                  <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">
+                                    {opt.label}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Ramp threshold slider */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Ramp Threshold</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <input
+                              type="range"
+                              min={10}
+                              max={200}
+                              step={5}
+                              value={rampThresholdMwHr}
+                              onChange={(e) => setRampThresholdMwHr(Number(e.target.value))}
+                              className="w-full accent-accent"
+                            />
+                            <p className="text-sm text-text-secondary mt-2 text-center font-mono tabular-nums">
+                              {rampThresholdMwHr} MW/hr
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        {/* Spot price input */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Spot Price</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={0}
+                                max={500}
+                                step={1}
+                                value={spotPriceEurMwh}
+                                onChange={(e) => setSpotPriceEurMwh(Number(e.target.value))}
+                                className="w-full bg-bg-tertiary border border-border-secondary rounded-md px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent font-mono"
+                              />
+                              <span className="text-xs text-text-muted whitespace-nowrap">
+                                EUR/MWh
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Run Analysis button + progress */}
+                        <Button
+                          onClick={runFullAnalysis}
+                          disabled={loading}
+                          className="w-full py-3"
+                          size="lg"
+                        >
+                          {loading ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                              Running Analysis...
+                            </span>
+                          ) : analysisRun ? (
+                            "Re-run Forecast Analysis"
+                          ) : (
+                            "Run Forecast Analysis"
+                          )}
+                        </Button>
+
+                      </ControlDrawer>
+          </>
+        }
+      />
 
       {/* Error banner */}
       {error && (

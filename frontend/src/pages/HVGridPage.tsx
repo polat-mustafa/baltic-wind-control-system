@@ -40,6 +40,8 @@ import ProjectGridNote from "../components/p2/ProjectGridNote";
 import { useGridStore } from "../store/gridStore";
 import { usePPCStore } from "../store/ppcStore";
 import { Button } from "../components/ui/Button";
+import { PageHeader } from "../components/layout/PageHeader";
+import { PageTabs, type PageTab } from "../components/layout/PageTabs";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { p2Guide } from "../constants/trainingGuideContent";
 import { EducationPanel } from "../components/ui/EducationPanel";
@@ -60,16 +62,16 @@ type Tab =
   | "advanced"
   | "planning";
 
-const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }>; tooltip: string }[] = [
-  { id: "grid",          label: "Grid Analysis",    Icon: Zap,           tooltip: "Load flow, reactive power vs PSE range, IEC 60909 breaker duty, FRT, GFL vs GFM" },
-  { id: "ppc",           label: "PPC",              Icon: Radio,         tooltip: "Power Plant Controller — TSO dispatch, LFSM/FSM frequency response, voltage control (PSE NC RfG)" },
-  { id: "protection",    label: "Protection",       Icon: ShieldCheck,   tooltip: "Relay coordination, TCC curves, selectivity grading (IEC 60255)" },
-  { id: "power-quality", label: "Power Quality",    Icon: Activity,      tooltip: "Harmonics, resonance scan, flicker at the 400 kV POC (IEC 61000-3-6 / 3-7)" },
-  { id: "bess",          label: "BESS",             Icon: Battery,       tooltip: "Battery Energy Storage System — 50 MW / 200 MWh LFP, FCR/FFR, ramp smoothing" },
-  { id: "cable-dts",     label: "Cable DTS",        Icon: Cable,         tooltip: "Distributed Temperature Sensing — IEC 60287 dynamic ampacity, 108 km export cable" },
-  { id: "market",        label: "Market",           Icon: TrendingUp,    tooltip: "One trading day: TGE day-ahead, PSE imbalance (CEN), two-sided CfD, BESS arbitrage" },
-  { id: "advanced",      label: "Security & Dynamics", Icon: FlaskConical, tooltip: "N-1 outages as AC load flows with PPC runback; ANDES RMS simulation of LFSM-O and fault ride-through (WECC generic models)" },
-  { id: "planning",      label: "Planning & P2X",   Icon: Network,       tooltip: "HVAC vs HVDC export over distance, electrolyser on surplus wind" },
+const TABS: PageTab<Tab>[] = [
+  { id: "grid",          label: "Grid Analysis",    Icon: Zap,           title: "Load flow, reactive power vs PSE range, IEC 60909 breaker duty, FRT, GFL vs GFM" },
+  { id: "ppc",           label: "PPC",              Icon: Radio,         title: "Power Plant Controller — TSO dispatch, LFSM/FSM frequency response, voltage control (PSE NC RfG)" },
+  { id: "protection",    label: "Protection",       Icon: ShieldCheck,   title: "Relay coordination, TCC curves, selectivity grading (IEC 60255)" },
+  { id: "power-quality", label: "Power Quality",    Icon: Activity,      title: "Harmonics, resonance scan, flicker at the 400 kV POC (IEC 61000-3-6 / 3-7)" },
+  { id: "bess",          label: "BESS",             Icon: Battery,       title: "Battery Energy Storage System — 50 MW / 200 MWh LFP, FCR/FFR, ramp smoothing" },
+  { id: "cable-dts",     label: "Cable DTS",        Icon: Cable,         title: "Distributed Temperature Sensing — IEC 60287 dynamic ampacity, 108 km export cable" },
+  { id: "market",        label: "Market",           Icon: TrendingUp,    title: "One trading day: TGE day-ahead, PSE imbalance (CEN), two-sided CfD, BESS arbitrage" },
+  { id: "advanced",      label: "Security & Dynamics", Icon: FlaskConical, title: "N-1 outages as AC load flows with PPC runback; ANDES RMS simulation of LFSM-O and fault ride-through (WECC generic models)" },
+  { id: "planning",      label: "Planning & P2X",   Icon: Network,       title: "HVAC vs HVDC export over distance, electrolyser on surplus wind" },
 ];
 
 export default function HVGridPage() {
@@ -105,44 +107,22 @@ export default function HVGridPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-text-primary">
-            HV Grid Integration
-          </h2>
-          <p className="text-xs text-text-muted mt-1 font-mono">
-            {networkSpec
-              ? `${networkSpec.name} · ${networkSpec.total_capacity_mw} MW · ${networkSpec.array_voltage_kv}/${networkSpec.export_voltage_kv}/${networkSpec.grid_voltage_kv} kV · ${networkSpec.num_export_cables} × ${networkSpec.export_length_km} km export`
-              : "Loading..."}
-          </p>
-          {/* Design-rationale cross-links */}
-          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            {[
-              { label: "Why HVAC?", entry: hvacVsHvdcEducation },
-              { label: "Why 66 kV?", entry: arrayVoltageEducation },
-              { label: "Why ±120 MVAR STATCOM?", entry: statcomSizingEducation },
-              { label: "Why graded cables?", entry: cableCrossSectionEducation },
-            ].map(({ label, entry }) => (
-              <button
-                key={label}
-                onClick={() => setLibraryEntry(entry)}
-                className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover transition-colors"
-              >
-                <BookOpen size={10} />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Action buttons — only for grid/ppc tabs */}
-          {activeTab === "grid" && (
-            <>
+      <PageHeader
+        title="HV Grid Integration"
+        description="Load flow, IEC 60909 short circuit, fault ride-through and reactive power for the export system, checked against the PSE grid code."
+        meta={
+          networkSpec
+            ? `${networkSpec.name} · ${networkSpec.total_capacity_mw} MW · ${networkSpec.array_voltage_kv}/${networkSpec.export_voltage_kv}/${networkSpec.grid_voltage_kv} kV · ${networkSpec.num_export_cables} × ${networkSpec.export_length_km} km export`
+            : undefined
+        }
+        actions={
+          <>
+            <TrainingGuide guide={p2Guide} />
+            {activeTab === "grid" && (
               <Button onClick={runFullAnalysis} disabled={loading} size="sm" data-tour="run-button">
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                     Running...
                   </span>
                 ) : analysisRun ? (
@@ -151,37 +131,34 @@ export default function HVGridPage() {
                   "Run Analysis"
                 )}
               </Button>
-            </>
-          )}
-
-
-          <TrainingGuide guide={p2Guide} />
+            )}
+          </>
+        }
+      >
+        {/* Design-rationale cross-links */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {[
+            { label: "Why HVAC?", entry: hvacVsHvdcEducation },
+            { label: "Why 66 kV?", entry: arrayVoltageEducation },
+            { label: "Why ±120 MVAR STATCOM?", entry: statcomSizingEducation },
+            { label: "Why graded cables?", entry: cableCrossSectionEducation },
+          ].map(({ label, entry }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setLibraryEntry(entry)}
+              className="flex items-center gap-1.5 text-xs text-accent hover:text-accent-hover transition-colors"
+            >
+              <BookOpen size={12} />
+              {label}
+            </button>
+          ))}
         </div>
-      </div>
+      </PageHeader>
 
       <ProjectGridNote />
 
-      {/* Tab bar */}
-      <div
-        className="flex gap-1 p-1 bg-bg-secondary rounded-lg border border-border-primary max-w-full overflow-x-auto"
-        data-tour="page-tabs"
-      >
-        {TABS.map(({ id, label, Icon, tooltip }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            title={tooltip}
-            className={`flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
-              activeTab === id
-                ? "bg-accent text-accent-ink"
-                : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-            }`}
-          >
-            <Icon size={12} />
-            {label}
-          </button>
-        ))}
-      </div>
+      <PageTabs tabs={TABS} value={activeTab} onChange={setActiveTab} />
 
       {/* Error banner (grid/ppc only) */}
       {error && (activeTab === "grid" || activeTab === "ppc") && (

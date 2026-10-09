@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Download, FileCheck2, Map as MapIcon, Printer } from "lucide-react";
+import { Download, Map as MapIcon, Printer } from "lucide-react";
 
 import { useFarmPlan } from "../hooks/useFarmPlan";
 import { useLifecycleStore } from "../store/lifecycleStore";
@@ -15,6 +15,7 @@ import { WatchOut } from "../components/site/Stages";
 import AsBuiltRegister from "../components/lifecycle/AsBuiltRegister";
 import FarmSource from "../components/lifecycle/FarmSource";
 import { StageDone } from "../components/project/StageDone";
+import { PageHeader } from "../components/layout/PageHeader";
 
 function save(name: string, text: string, type: string) {
   const blob = new Blob([text], { type });
@@ -103,29 +104,28 @@ export default function HandoverPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
-            <FileCheck2 size={20} className="text-accent" aria-hidden />
-            Hand-over
-          </h2>
-          <p className="mt-1 text-xs text-text-muted">
+      <PageHeader
+        title="Hand-over"
+        description={
+          <>
             The farm leaves the project team: an as-built register, the energisation order per feeder bay, and what each operation module
             takes over.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <Button variant="ghost" size="sm" onClick={csv}>
-            <Download size={13} className="mr-1" /> CSV
-          </Button>
-          <Button variant="ghost" size="sm" onClick={json}>
-            <Download size={13} className="mr-1" /> JSON
-          </Button>
-          <Button size="sm" onClick={print}>
-            <Printer size={13} className="mr-1" /> Print / PDF
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <Button variant="ghost" size="sm" onClick={csv}>
+              <Download size={13} className="mr-1" /> CSV
+            </Button>
+            <Button variant="ghost" size="sm" onClick={json}>
+              <Download size={13} className="mr-1" /> JSON
+            </Button>
+            <Button size="sm" onClick={print}>
+              <Printer size={13} className="mr-1" /> Print / PDF
+            </Button>
+          </>
+        }
+      />
 
       <FarmSource farm={farm} />
       <StageDone

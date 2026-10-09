@@ -15,13 +15,9 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Monitor,
-  Brain,
-  ClipboardCheck,
   Maximize2,
   Minimize2,
   PlugZap,
-  Zap,
 } from "lucide-react";
 
 import { farmTitle, turbineLabel, useFleet } from "../lib/fleet";
@@ -207,22 +203,11 @@ type DetailPanel =
   | "statcom"
   | null;
 
-const QUICK_LINKS = [
-  { label: "SCADA", path: "/scada", icon: Monitor, tip: "SCADA & automation" },
-  { label: "Forecast", path: "/forecast", icon: Brain, tip: "Power forecasting" },
-  {
-    label: "Commissioning",
-    path: "/commissioning",
-    icon: ClipboardCheck,
-    tip: "HV commissioning",
-  },
-] as const;
 
 export default function LandingPage() {
   const fleet = useFleet();
   const kpis = useLandingStore((s) => s.kpis);
   const commissioned = useLandingStore((s) => s.commissioned);
-  const playEnergisation = useLandingStore((s) => s.playEnergisation);
   const startSimulation = useLandingStore((s) => s.startSimulation);
   const stopSimulation = useLandingStore((s) => s.stopSimulation);
   const navigate = useNavigate();
@@ -380,79 +365,34 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col h-[calc(100dvh-6.5rem)] min-h-[30rem] sm:h-[calc(100dvh-8rem)]">
-      {/* Header row — title + quick access buttons */}
-      <div
-        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-2 sm:mb-3 shrink-0"
+      {/* Header row — compact for a map-first page: title, the farm in one line, guide, fullscreen */}
+      <header
+        className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2"
         data-tour="page-header"
       >
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="min-w-0">
-            <h2 className="text-base sm:text-lg font-semibold text-text-primary">
-              Wind Farm Overview
-            </h2>
-            <p className="text-xs text-text-muted font-mono">
-              {farmTitle(fleet)} · {fleet.turbines.length} × {turbineLabel(fleet)} · Polish Baltic Sea · Live simulation
-            </p>
-          </div>
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Control Room</h1>
+          <span className="text-sm text-text-muted">
+            {farmTitle(fleet)} · {fleet.turbines.length} × {turbineLabel(fleet)} = {fleet.net.total_capacity_mw.toFixed(0)} MW · Polish Baltic Sea · live simulation
+          </span>
           <InfoButton info={farmOverviewInfo} />
         </div>
-
-        {/* Quick nav + Training Guide + Control Room Mode button */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <TrainingGuide guide={landingGuide} />
-          {QUICK_LINKS.map((link) => {
-            const Icon = link.icon;
-            return (
-              <button
-                key={link.path}
-                onClick={() => navigate(link.path)}
-                title={link.tip}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1.5",
-                  "border border-border-primary bg-bg-secondary",
-                  "hover:bg-bg-hover hover:border-border-secondary",
-                  "transition-all duration-150 group",
-                )}
-              >
-                <Icon size={13} className="text-accent" />
-                <span className="text-xs font-medium text-text-muted group-hover:text-text-primary">
-                  {link.label}
-                </span>
-              </button>
-            );
-          })}
-
-          {commissioned && (
-            <button
-              onClick={playEnergisation}
-              title="Replay the first energisation from the grid, bay by bay"
-              className="flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-secondary px-2.5 py-1.5 transition-all duration-150 hover:border-border-secondary hover:bg-bg-hover"
-            >
-              <Zap size={13} className="text-status-warning" />
-              <span className="text-xs font-medium text-text-muted">Replay energisation</span>
-            </button>
-          )}
-
-          {/* Control Room Mode toggle (iPhone Safari has no Fullscreen API for pages) */}
+          {/* Control Room Mode (iPhone Safari has no Fullscreen API for pages) */}
           {"requestFullscreen" in document.documentElement && (
             <button
+              type="button"
               onClick={toggleFullscreen}
+              aria-label="Control Room Mode (fullscreen)"
               title="Control Room Mode (fullscreen)"
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1.5",
-                "border border-accent/30 bg-accent/10",
-                "hover:bg-accent/20 hover:border-accent/50",
-                "transition-all duration-150 group",
-            )}
-          >
-            <Maximize2 size={13} className="text-accent" />
-            <span className="hidden sm:inline text-xs font-medium text-accent/80 group-hover:text-accent">
-              Control Room
-            </span>
-          </button>
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-border-secondary text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+            >
+              <Maximize2 size={15} strokeWidth={1.75} />
+            </button>
           )}
         </div>
-      </div>
+      </header>
 
       {!commissioned && (
         <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-[12px] text-text-primary">

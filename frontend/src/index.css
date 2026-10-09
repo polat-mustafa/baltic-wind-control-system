@@ -43,7 +43,7 @@
   /* ── Text ── */
   --color-text-primary: #e4ecf3;
   --color-text-secondary: #a3b6c8;
-  --color-text-muted: #7189a0;
+  --color-text-muted: #8099b0;
 
   /* ── State (ISA-101: colour only when it needs attention) ── */
   --color-status-normal: #4cc38a;
@@ -237,6 +237,15 @@ body {
   to { stroke-opacity: 0.25; }
 }
 
+/* Training console (p4/academy/TrainingMonitor): a terminal, dark in both themes.
+   Its own classes, so the storybook ink remaps (text-slate-*, text-sky-* …) stay out. */
+.con { color: #d5dee8; }
+.con .con-fg { color: #e4ecf3; }
+.con .con-dim { color: #a3b6c8; }
+.con .con-info { color: #8fb4f5; }
+.con .con-ok { color: #4cc38a; }
+.con .con-warn { color: #f0b13e; }
+
 /* ══ Storybook theme ═══════════════════════════════════════════
    Hand-drawn, parchment-and-ink look inspired by illustrated survival games.
    Original art only (no game assets). Scoped to the landing map area via
@@ -288,7 +297,7 @@ body {
   stroke: var(--sb-ink);
   stroke-width: 1.5;
 }
-.theme-storybook svg [fill="#7189a0"],
+.theme-storybook svg [fill="#8099b0"],
 .theme-storybook svg [fill="#94a3b8"] {
   fill: var(--sb-ink);
 }
@@ -320,12 +329,12 @@ body {
 .theme-storybook {
   --color-text-secondary: #3d2f21;
   --color-text-muted: #5e4a36;
-  --color-status-normal: #1f7a3e;
-  --color-status-warning: #9a5a00;
+  --color-status-normal: #1a6b36;
+  --color-status-warning: #734300;
   --color-status-info: #1d4ed8;
 }
 .theme-storybook :is([style^="color: rgb(76, 195, 138)"], [style*="; color: rgb(76, 195, 138)"], [class*="text-emerald-"], [class*="text-green-"]) {
-  color: #1f7a3e !important;
+  color: #1a6b36 !important;
 }
 .theme-storybook :is([style^="color: rgb(69, 200, 217)"], [style*="; color: rgb(69, 200, 217)"], [class*="text-blue-"], [class*="text-sky-"]) {
   color: #1d4ed8 !important;
@@ -334,7 +343,7 @@ body {
   color: #0e6070 !important;
 }
 .theme-storybook :is([style^="color: rgb(240, 177, 62)"], [style*="; color: rgb(240, 177, 62)"], [class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-4"]) {
-  color: #9a5a00 !important;
+  color: #734300 !important;
 }
 .theme-storybook [class*="text-accent"]:not([class*="text-accent-ink"]) {
   color: #1f5960 !important;
@@ -393,8 +402,8 @@ body {
   --color-text-primary: #2b2118;
   --color-text-secondary: #3d2f21;
   --color-text-muted: #5e4a36;
-  --color-status-normal: #1f7a3e;
-  --color-status-warning: #9a5a00;
+  --color-status-normal: #1a6b36;
+  --color-status-warning: #734300;
   --color-status-info: #1d4ed8;
   --color-voltage-lv: #7a6650;
   --color-accent: #2c6e76;

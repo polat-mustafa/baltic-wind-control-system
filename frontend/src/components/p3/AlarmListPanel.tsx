@@ -240,7 +240,8 @@ export default function AlarmListPanel({ compact = false }: { compact?: boolean 
                     className={cn(
                       "border-b border-border-primary/60 cursor-pointer hover:bg-bg-hover",
                       selectedId === a.id && "bg-bg-hover",
-                      !inAlarm && "opacity-60",
+                      // returned to normal: the text steps back, the priority chip stays readable
+                      !inAlarm && "[&_td:not(:first-child)]:text-text-muted",
                     )}
                     style={{ boxShadow: isUnack ? `inset 3px 0 0 ${PRIORITY_CHIP[a.priority].bg}` : undefined }}
                   >

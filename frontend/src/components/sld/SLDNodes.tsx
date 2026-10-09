@@ -257,19 +257,19 @@ export function IEDNode({ data }: { data: IEDNodeData }) {
           {label}
         </div>
       </div>
-      <div className="text-xs" style={{ color: "#7189a0" }}>{lns} LNs</div>
+      <div className="text-xs" style={{ color: "#8099b0" }}>{lns} LNs</div>
 
       {/* Live turbine data block */}
       {hasLiveData && (
         <div className="mt-1 pt-1 border-t" style={{ borderColor: color + "33" }}>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "#7189a0" }}>Power</span>
+            <span style={{ color: "#8099b0" }}>Power</span>
             <span className="tabular-nums font-medium" style={{ color: statusColor ?? "#e4ecf3" }}>
               {(powerMW ?? 0).toFixed(1)} MW
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "#7189a0" }}>Wind</span>
+            <span style={{ color: "#8099b0" }}>Wind</span>
             <span className="tabular-nums font-medium" style={{ color: "#e4ecf3" }}>
               {(windMs ?? 0).toFixed(1)} m/s
             </span>

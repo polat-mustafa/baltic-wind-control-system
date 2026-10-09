@@ -397,10 +397,10 @@ function EmptyChart({ text }: { text: string }) {
 }
 
 const LEVEL_STYLE: Record<string, { tag: string; cls: string }> = {
-  info: { tag: "INFO", cls: "text-sky-400" },
-  ok: { tag: " OK ", cls: "text-emerald-400" },
-  debug: { tag: "EPOC", cls: "text-slate-500" },
-  warn: { tag: "WARN", cls: "text-amber-400" },
+  info: { tag: "INFO", cls: "con-info" },
+  ok: { tag: " OK ", cls: "con-ok" },
+  debug: { tag: "EPOC", cls: "con-dim" },
+  warn: { tag: "WARN", cls: "con-warn" },
 };
 
 /** Training console: time, level, stage, message; filter by kind, follow the tail. */
@@ -437,18 +437,18 @@ function LogConsole({ log }: { log: TrainingLogLine[] }) {
           </label>
         </div>
       </div>
-      <div ref={ref} className="h-56 overflow-y-auto rounded border border-black/30 bg-[#0b0f14] p-2 font-mono text-xs leading-[1.55] text-slate-300">
+      <div ref={ref} tabIndex={0} role="log" aria-label="Training console" className="h-56 overflow-y-auto rounded border border-black/30 bg-[#0b0f14] p-2 font-mono text-xs leading-[1.55] con">
         {shown.length === 0 ? (
-          <span className="text-slate-500">No build has run since the server started — the models may come from the cache.</span>
+          <span className="con-dim">No build has run since the server started — the models may come from the cache.</span>
         ) : (
           shown.map((l, i) => {
             const lv = LEVEL_STYLE[l.level ?? "info"] ?? LEVEL_STYLE.info;
             return (
               <div key={i} className="flex gap-2 whitespace-pre">
-                <span className="text-slate-500">{fmtDuration(l.t).padStart(9, " ")}</span>
+                <span className="con-dim">{fmtDuration(l.t).padStart(9, " ")}</span>
                 <span className={lv.cls}>{lv.tag}</span>
-                <span className="w-16 shrink-0 truncate text-slate-400">{l.stage ? `[${l.stage}]` : ""}</span>
-                <span className={cn("whitespace-pre-wrap", l.level === "debug" ? "text-slate-400" : "text-slate-200")}>{l.msg}</span>
+                <span className="w-16 shrink-0 truncate con-dim">{l.stage ? `[${l.stage}]` : ""}</span>
+                <span className={cn("whitespace-pre-wrap", l.level === "debug" ? "con-dim" : "con-fg")}>{l.msg}</span>
               </div>
             );
           })

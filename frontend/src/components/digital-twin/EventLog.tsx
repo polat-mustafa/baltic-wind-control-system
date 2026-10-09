@@ -46,7 +46,7 @@ export default function EventLog() {
       }
       footer="Peak u = |EWMA| / control limit (alarm ≥ 2). Times UTC."
     >
-      <div className="max-h-[360px] overflow-auto">
+      <div className="max-h-[360px] overflow-auto" tabIndex={0} role="region" aria-label="Event log">
         <table className="w-full min-w-[720px] text-xs">
           <thead className="sticky top-0 bg-bg-secondary">
             <tr className="border-b border-border-primary text-left text-xs uppercase tracking-wider text-text-muted">

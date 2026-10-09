@@ -38,7 +38,7 @@ export function PageTabs<T extends string>({ tabs, value, onChange, label = "Pag
       aria-label={label}
       onKeyDown={onKey}
       data-tour="page-tabs"
-      className={cn("flex max-w-full gap-6 overflow-x-auto border-b border-border-primary", className)}
+      className={cn("flex max-w-full gap-6 overflow-x-auto overflow-y-hidden border-b border-border-primary [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", className)}
     >
       {tabs.map(({ id, label: text, Icon, title }) => {
         const selected = id === value;

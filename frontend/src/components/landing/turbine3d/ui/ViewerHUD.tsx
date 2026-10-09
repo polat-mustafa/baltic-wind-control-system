@@ -82,34 +82,34 @@ export const CompassWidget = memo(function CompassWidget({
               dominantBaseline="central"
               fontSize="11"
               fontWeight="800"
-              style={d === 0 ? { fill: "#dc2626" } : ink}
+              style={d === 0 ? { fill: "var(--color-accent)" } : ink}
             >
               {"NESW"[i]}
             </text>
           ))}
           {/* wind: tail on the FROM side, head downwind, through the centre */}
           <g transform={`rotate(${windDirectionDeg})`}>
-            <line x1="0" y1="-50" x2="0" y2="26" stroke="#0284c7" strokeWidth="3.2" strokeLinecap="round" />
-            <path d="M 0 40 L -8 24 L 8 24 Z" fill="#0284c7" />
+            <line x1="0" y1="-50" x2="0" y2="26" stroke="var(--color-accent)" strokeWidth="3.2" strokeLinecap="round" />
+            <path d="M 0 40 L -8 24 L 8 24 Z" fill="var(--color-accent)" />
             {/* feathers mark the tail like a met chart barb */}
-            <line x1="0" y1="-50" x2="7" y2="-56" stroke="#0284c7" strokeWidth="2" />
-            <line x1="0" y1="-44" x2="7" y2="-50" stroke="#0284c7" strokeWidth="2" />
+            <line x1="0" y1="-50" x2="7" y2="-56" stroke="var(--color-accent)" strokeWidth="2" />
+            <line x1="0" y1="-44" x2="7" y2="-50" stroke="var(--color-accent)" strokeWidth="2" />
           </g>
           {/* nacelle: body downwind of the tower, rotor on the upwind face */}
           <g transform={`rotate(${nacelleYawDeg})`}>
-            <rect x="-4.5" y="-4" width="9" height="18" rx="2.5" fill="#f59e0b" stroke="#78350f" strokeWidth="1" />
-            <line x1="-17" y1="-6.5" x2="17" y2="-6.5" stroke="#78350f" strokeWidth="2.6" strokeLinecap="round" />
-            <circle cy="-7" r="3" fill="#78350f" />
+            <rect x="-4.5" y="-4" width="9" height="18" rx="2.5" fill="var(--color-text-primary)" stroke="var(--color-bg-primary)" strokeWidth="1" />
+            <line x1="-17" y1="-6.5" x2="17" y2="-6.5" stroke="var(--color-text-primary)" strokeWidth="2.6" strokeLinecap="round" />
+            <circle cy="-7" r="3" fill="var(--color-text-primary)" />
           </g>
         </g>
         {/* lubber line: the view direction is always up */}
         <path d="M 0 -59 L -4.5 -51 L 4.5 -51 Z" style={{ fill: "var(--color-text-primary)" }} />
       </svg>
       <div className="mt-0.5 rounded border border-border-primary bg-bg-secondary/90 px-1.5 py-0.5 font-mono text-xs font-bold leading-tight text-text-primary">
-        <div className="text-sky-300">
+        <div className="text-accent">
           Wind {windMs.toFixed(1)} m/s · {Math.round(windDirectionDeg)}° {cardinal16(windDirectionDeg)}
         </div>
-        <div className="text-amber-300">
+        <div className="text-text-primary">
           Nacelle {Math.round(nacelleYawDeg)}° · err {yawErr >= 0 ? "+" : ""}
           {yawErr.toFixed(0)}°
         </div>
@@ -152,7 +152,8 @@ export const CameraModeBadge = memo(function CameraModeBadge() {
   const interiorView = useLandingStore(selectInteriorView);
 
   let label = "Overview";
-  if (interiorView === "schematic") label = "Schematic";
+  if (interiorView === "side") label = "Schematic";
+  else if (interiorView === "drawings") label = "Drawings";
   else if (selectedPart) label = `→ ${selectedPart.replace(/_/g, " ")}`;
 
   return (

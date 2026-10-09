@@ -327,6 +327,9 @@ function liveEnvironment(sim: EnvironmentData, w: LiveWeather): EnvironmentData 
  */
 export const SITE_VISIT_FAULTS: TurbineFaultType[] = ["PITCH_CONTROL_FAULT", "BEARING_OVERTEMP", "GENERATOR_WINDING_TEMP"];
 
+/** Turbine viewer modes: realistic 3D, live 2D side view (wind, yaw, wake), engineering drawings. */
+export type TurbineView = "3d" | "side" | "drawings";
+
 export interface RepairJob {
   crew: string;
   startedAt: number;
@@ -437,7 +440,8 @@ interface LandingState {
   selectedTurbinePart: import("../constants/turbinePartEducation").TurbinePartId | null;
   viewerMode: "normal" | "cutaway" | "exploded";
   /** 3D scene vs. 2D isometric schematic (Phase 3.3) */
-  interiorView: "3d" | "schematic";
+  /** Turbine viewer: realistic 3D, live schematic side view, or the engineering drawings. */
+  interiorView: TurbineView;
   showAnnotationLayer: boolean;
   /** D1 — thermal temperature colour overlay */
   showThermalOverlay: boolean;
@@ -463,7 +467,7 @@ interface LandingState {
   skyPreset: "overcast" | "golden" | "night";
   setSelectedTurbinePart: (id: import("../constants/turbinePartEducation").TurbinePartId | null) => void;
   setViewerMode: (mode: "normal" | "cutaway" | "exploded") => void;
-  setInteriorView: (v: "3d" | "schematic") => void;
+  setInteriorView: (v: TurbineView) => void;
   setShowAnnotationLayer: (visible: boolean) => void;
   setShowThermalOverlay: (v: boolean) => void;
   setShowSensorMarkers: (v: boolean) => void;

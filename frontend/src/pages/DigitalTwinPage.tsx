@@ -13,7 +13,7 @@
  */
 
 import { useEffect } from "react";
-import { BookOpenCheck, LayoutGrid, Wind } from "lucide-react";
+import { BookOpenCheck, Database, LayoutGrid, Wind } from "lucide-react";
 
 import EventLog from "../components/digital-twin/EventLog";
 import FarmMap from "../components/digital-twin/FarmMap";
@@ -31,6 +31,7 @@ import SeverityTrendPanel from "../components/digital-twin/SeverityTrendPanel";
 import TurbineHeader from "../components/digital-twin/TurbineHeader";
 import TwinControlBar from "../components/digital-twin/TwinControlBar";
 import ValidationPanel from "../components/digital-twin/ValidationPanel";
+import CareBenchmarkPanel from "../components/digital-twin/CareBenchmarkPanel";
 import ProjectHandoverNote from "../components/lifecycle/ProjectHandoverNote";
 import { Button } from "../components/ui/Button";
 import { Skeleton } from "../components/ui/Skeleton";
@@ -44,6 +45,7 @@ const TABS: PageTab<TwinTab>[] = [
   { id: "fleet", label: "Fleet overview", Icon: LayoutGrid },
   { id: "turbine", label: "Turbine analysis", Icon: Wind },
   { id: "model", label: "Model & validation", Icon: BookOpenCheck },
+  { id: "real", label: "Real data", Icon: Database },
 ];
 
 function LoadingBlock({ height = 320 }: { height?: number }) {
@@ -109,7 +111,9 @@ export default function DigitalTwinPage() {
 
       <PageTabs tabs={TABS} value={tab} onChange={setTab} label="Digital twin views" />
 
-      {!analysis ? (
+      {tab === "real" ? (
+        <CareBenchmarkPanel />
+      ) : !analysis ? (
         loading ? (
           <div className="space-y-4">
             <LoadingBlock height={96} />

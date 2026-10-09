@@ -26,6 +26,7 @@ from app.schemas.digital_twin import (
     AmbientSeries,
     AnalyzeRequest,
     AnalyzeResponse,
+    CareBenchmarkResponse,
     ChannelCard,
     ChannelSeries,
     DiagnosisSchema,
@@ -52,6 +53,7 @@ from app.schemas.digital_twin import (
 )
 from app.services.digital_twin import detection as det_mod
 from app.services.digital_twin import plant_simulator as plant
+from app.services.digital_twin.care_benchmark import load_results as care_results
 from app.services.digital_twin.detection import (
     CHANNELS,
     detector_settings,
@@ -582,3 +584,12 @@ async def operating_point(req: OperatingPointRequest) -> OperatingPointResponse:
         pitch_residual_deg=opt(float(meas[2] - exp[2])),
         pitch_z=opt(float(zz[2])),
     )
+
+
+@router.get("/real-data/care", response_model=CareBenchmarkResponse)
+async def care_benchmark() -> CareBenchmarkResponse:
+    """The twin's detector on CARE to Compare Wind Farm B (real offshore SCADA, CC BY-SA 4.0).
+
+    Built offline by ``scripts/build_care_benchmark.py``; this endpoint serves the bundled result.
+    """
+    return CareBenchmarkResponse(**care_results())

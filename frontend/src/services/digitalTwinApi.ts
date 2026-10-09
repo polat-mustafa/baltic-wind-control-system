@@ -290,3 +290,42 @@ export const postAnalyze = (params: RunParams): Promise<AnalyzeResponse> =>
 export const postTurbineDetail = (
   params: RunParams & { turbine_id: number },
 ): Promise<TurbineDetail> => post(`${BASE}/turbine-detail`, params);
+
+// ── Real-data validation: CARE to Compare, Wind Farm B (offshore) ──
+
+export interface CareEvent {
+  event_id: number;
+  label: "anomaly" | "normal";
+  description: string;
+  window_days: number;
+  prediction_days: number;
+  channels_charted: number;
+  median_limit_factor: number;
+  alarm_at_live_limit: boolean;
+  alarm: boolean;
+  first_channel: string | null;
+  first_alarm_day: number | null;
+  warning_days: number | null;
+  channels_in_alarm: string[];
+  daily_health_min: (number | null)[];
+  daily_residual_k: (number | null)[] | null;
+}
+
+export interface CareBenchmark {
+  source: string;
+  settings: Record<string, number | string>;
+  summary: {
+    anomaly_events: number;
+    detected: number;
+    normal_events: number;
+    false_alarms: number;
+    median_warning_days: number | null;
+  };
+  summary_live_limit: { detected: number; false_alarms: number };
+  events: CareEvent[];
+}
+
+/** The twin's detector on real offshore SCADA with recorded faults (bundled result). */
+export function getCareBenchmark(): Promise<CareBenchmark> {
+  return request(`${BASE}/real-data/care`);
+}

@@ -121,7 +121,7 @@ export default function ForecastPage() {
         title="AI Forecasting"
         description={
           <>
-            {farmTitle(fleet)}: {fleet.turbines.length} turbines = {fleet.net.total_capacity_mw.toFixed(0)} MW. The models train once on a synthetic reference SCADA set (34 turbines, SB-510 climate, cached); single-turbine forecasts are scaled to this farm.
+            {farmTitle(fleet)}: {fleet.turbines.length} turbines = {fleet.net.total_capacity_mw.toFixed(0)} MW. The SB-510 models train on a synthetic reference SCADA set (34 turbines, SB-510 climate, cached); the Real data tab trains and scores the same methods on measured Baltic offshore output (Energinet DK2, 977 MW) with archived ECMWF / ICON forecasts.
           </>
         }
         meta={turbineSpec ? `${turbineSpec.name} · ${turbineSpec.rated_power_mw} MW · cut-in ${turbineSpec.cut_in_speed_ms} / rated ${turbineSpec.rated_speed_ms} / cut-out ${turbineSpec.cut_out_speed_ms} m/s · XGBoost + LSTM + TFT` : undefined}

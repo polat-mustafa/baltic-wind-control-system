@@ -188,6 +188,18 @@ class TestNWPPipeline:
         assert len(dataset.wind_speed_100m_ms) == 100
         assert np.all(dataset.wind_speed_100m_ms >= 0.0)
 
+    def test_nwp_wind_error_is_realistic_and_persistent(self):
+        """Freshest-run error 1.0–1.5 m/s (0–6 h lead) and correlated over an hour.
+
+        White noise growing to 5 m/s switched cut-in/cut-out on and off at random
+        and pushed every model below persistence.
+        """
+        truth = np.full(20_000, 10.0)
+        nwp = generate_nwp_dataset(NWPConfig(num_timesteps=20_000, seed=1), scada_wind_ms=truth)
+        err = nwp.wind_speed_100m_ms - truth
+        assert 1.0 <= float(np.sqrt(np.mean(err**2))) <= 1.5
+        assert np.corrcoef(err[:-6], err[6:])[0, 1] > 0.8  # 1 h apart
+
 
 # ── TestXGBoostTraining ───────────────────────────────────────────
 

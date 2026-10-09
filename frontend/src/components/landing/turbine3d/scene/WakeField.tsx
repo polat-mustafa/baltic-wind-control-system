@@ -48,8 +48,9 @@ const FRAG = /* glsl */ `
   void main() {
     float d = texture2D(uDef, vUv).r * ${D_MAX.toFixed(2)};
     if (d < 0.012) discard;
-    vec3 c = mix(vec3(0.99, 0.88, 0.45), vec3(0.97, 0.52, 0.12), smoothstep(0.02, 0.2, d));
-    c = mix(c, vec3(0.78, 0.14, 0.12), smoothstep(0.2, 0.45, d));
+    // Baltic cyan ramp (as the schematic view): pale #a9e3eb → accent #45c8d9 → deep #12788c
+    vec3 c = mix(vec3(0.66, 0.89, 0.92), vec3(0.27, 0.78, 0.85), smoothstep(0.02, 0.2, d));
+    c = mix(c, vec3(0.07, 0.47, 0.55), smoothstep(0.2, 0.45, d));
     // iso-lines every 5 % deficit
     float k = d * 20.0;
     float line = 1.0 - smoothstep(0.0, fwidth(k) * 1.4, abs(fract(k + 0.5) - 0.5));
@@ -65,7 +66,7 @@ const FRAG = /* glsl */ `
     // translucent fill + crisp iso-lines, like a CFD contour cut: the sea
     // and the turbines stay readable through it
     float a = (0.26 * smoothstep(0.012, 0.35, d) + line * 0.55 * smoothstep(0.02, 0.06, d)) * edge * near * grazing * uOpacity;
-    gl_FragColor = vec4(mix(c, vec3(0.55, 0.12, 0.04), line * 0.5), a);
+    gl_FragColor = vec4(mix(c, vec3(0.01, 0.13, 0.16), line * 0.5), a);
   }
 `;
 

@@ -106,9 +106,10 @@ def _build_xgboost_pipeline(
     ]
 
     # Wind for the physical constraints (cut-in / cut-out) and the forecast
-    # plot: the NWP forecast for the target step — the only wind known in
-    # advance (the measured channels are lagged to t−1, see engineer_features).
-    wind_speed = merged_features[:, feature_names.index("nwp_wind_speed_100m_ms")]
+    # plot: the last measured wind v(t−1). For a 10-minute-ahead forecast it is
+    # the best wind known in advance — the 10-minute change is ~0.3 m/s, while
+    # NWP is off by 1–1.3 m/s, which zeroed good forecasts near cut-in.
+    wind_speed = merged_features[:, feature_names.index("wind_speed_ms_prev")]
 
     # Target power: use the clean, filtered power for this turbine
     clean_power = dataset.power_mw[clean_mask, turbine_idx]
@@ -136,8 +137,9 @@ def _build_xgboost_pipeline(
 # keeps it across backend restarts.
 DETERMINISTIC_TTL_S = 7 * 24 * 3600
 # Bump when features or models change, so week-old results of the previous
-# pipeline are not served (v2: causal features, measured channels at t−1).
-PIPELINE_VERSION = "v2"
+# pipeline are not served (v2: causal features, measured channels at t−1;
+# v3: persistent NWP error, constraints on the measured wind).
+PIPELINE_VERSION = "v3"
 
 
 @cached(prefix=f"xgb_pipeline_{PIPELINE_VERSION}", ttl=DETERMINISTIC_TTL_S)

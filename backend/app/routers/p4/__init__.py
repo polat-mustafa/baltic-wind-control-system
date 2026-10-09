@@ -9,6 +9,7 @@ from fastapi import APIRouter
 from .analysis import router as analysis_router
 from .ensemble import router as ensemble_router
 from .models import router as models_router
+from .real_data import router as real_data_router
 from .scada_pipeline import router as scada_pipeline_router
 from .turbine_spec import router as turbine_spec_router
 
@@ -18,3 +19,4 @@ router.include_router(scada_pipeline_router)
 router.include_router(models_router)
 router.include_router(ensemble_router)
 router.include_router(analysis_router)
+router.include_router(real_data_router)

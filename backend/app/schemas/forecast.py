@@ -698,3 +698,43 @@ class ModelCompareResponse(BaseModel):
     best_skill: str = Field(description="Model with highest skill score")
     best_calibration: str = Field(description="Model with best P90 calibration")
     ranking: list[str] = Field(description="Models ranked by RMSE (best first)")
+
+
+# ── Real-Data Day-Ahead Schemas ──────────────────────────────────
+
+
+class RealModelScoreSchema(BaseModel):
+    """One forecast (or baseline) scored over all TimeSeriesSplit test folds."""
+
+    name: str
+    nrmse_pct: float = Field(description="RMSE / installed capacity [%]")
+    nmae_pct: float = Field(description="MAE / installed capacity [%]")
+    bias_pct: float = Field(description="mean(forecast − actual) / capacity [%]")
+    skill_vs_persistence: float = Field(description="1 − MSE / MSE(persistence 24 h)")
+    fold_nrmse_pct: list[float] = Field(description="nRMSE per test fold, oldest first [%]")
+
+
+class RealDataSourceSchema(BaseModel):
+    """Provenance of the real data set."""
+
+    production: str
+    nwp: str
+    farms: list[str]
+    capacity_mw: float
+    period_start_utc: str
+    period_end_utc: str
+    hours: int
+    folds: int
+
+
+class RealForecastResponse(BaseModel):
+    """Day-ahead forecast of real Baltic offshore production (Energinet DK2 + archived NWP)."""
+
+    source: RealDataSourceSchema
+    scores: list[RealModelScoreSchema]
+    p10_p90_coverage_pct: float = Field(description="Actuals inside P10–P90 (ideal 80) [%]")
+    feature_importance: list[dict[str, Any]] = Field(description="Top features, share of gain")
+    series: dict[str, list[Any]] = Field(
+        description="Last 14 days of the last test fold: time_utc, actual/p10/p50/p90/"
+        "persistence [MW], nwp_wind_ms [m/s]"
+    )

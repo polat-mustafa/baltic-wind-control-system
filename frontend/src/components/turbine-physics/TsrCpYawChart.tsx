@@ -94,7 +94,8 @@ export default function TsrCpYawChart() {
     xaxis: {
       ...DARK_PLOTLY_LAYOUT.xaxis,
       title: "Time [s]",
-      domain: [0, 1],
+      // leave room on the right for two separate secondary axes
+      domain: [0, 0.82],
     },
     yaxis: {
       ...DARK_PLOTLY_LAYOUT.yaxis,
@@ -106,6 +107,7 @@ export default function TsrCpYawChart() {
       overlaying: "y",
       side: "right",
       gridcolor: "transparent",
+      tickformat: ".2f",
       tickfont: {
         family: "'IBM Plex Mono', monospace",
         size: 10,
@@ -113,11 +115,13 @@ export default function TsrCpYawChart() {
       },
     },
     yaxis3: {
-      title: { text: "Yaw Error [deg]", font: { color: pal.aqua } },
+      title: { text: "Yaw Error [deg]", font: { color: pal.aqua }, standoff: 6 },
       overlaying: "y",
       side: "right",
-      position: 0.95,
+      anchor: "free",
+      position: 1,
       gridcolor: "transparent",
+      tickformat: ".0f",
       tickfont: {
         family: "'IBM Plex Mono', monospace",
         size: 10,
@@ -130,7 +134,7 @@ export default function TsrCpYawChart() {
       x: 0,
       y: 1.15,
     },
-    margin: { ...DARK_PLOTLY_LAYOUT.margin, r: 80 },
+    margin: { ...DARK_PLOTLY_LAYOUT.margin, r: 64 },
   };
 
   return (

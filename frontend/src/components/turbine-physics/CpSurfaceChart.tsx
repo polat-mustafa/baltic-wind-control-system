@@ -15,9 +15,11 @@ import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
+import { useChartPalette } from "../../hooks/useChartPalette";
 import { useTurbinePhysicsStore } from "../../store/turbinePhysicsStore";
 
 export default function CpSurfaceChart() {
+  const pal = useChartPalette();
   const cpSurface = useTurbinePhysicsStore((s) => s.cpSurface);
   if (!cpSurface) return null;
 
@@ -27,22 +29,22 @@ export default function CpSurfaceChart() {
       y: cpSurface.pitch_angles_deg,
       z: cpSurface.cp_matrix,
       type: "contour",
-      colorscale: "Viridis",
+      colorscale: pal.seq.map((c, i) => [i / (pal.seq.length - 1), c] as [number, string]),
       contours: {
         coloring: "heatmap",
         showlabels: true,
         labelfont: {
           family: "'IBM Plex Mono', monospace",
           size: 11,
-          color: "white",
+          color: pal.ink,
         },
       },
       colorbar: {
-        title: { text: "Cp", font: { color: "#e4ecf3", size: 11 } },
+        title: { text: "Cp", font: { color: pal.ink, size: 11 } },
         tickfont: {
           family: "'IBM Plex Mono', monospace",
           size: 10,
-          color: "#a3b6c8",
+          color: pal.ref,
         },
       },
       hovertemplate:
@@ -54,13 +56,13 @@ export default function CpSurfaceChart() {
       y: [0],
       type: "scatter",
       mode: "markers" as const,
-      marker: { color: "#e74c3c", size: 10, symbol: "star" },
+      marker: { color: pal.ink, size: 10, symbol: "star" },
       text: [`Cp_max = ${cpSurface.cp_max.toFixed(4)}`],
       textposition: "top center",
       textfont: {
         family: "'IBM Plex Mono', monospace",
         size: 10,
-        color: "#e74c3c",
+        color: pal.ink,
       },
       showlegend: false,
       hovertemplate:

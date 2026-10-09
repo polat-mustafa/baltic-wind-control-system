@@ -15,13 +15,13 @@ import {
 } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { forecastVsActualInfo } from "../../constants/panelInfo";
-
-/** Model color palette per plan spec */
-const ENSEMBLE_COLOR = "#CC66FF";
-const BAND_FILL = "rgba(0, 170, 255, 0.15)";
-const WIND_COLOR = "#FFAA00";
+import { useChartPalette, withAlpha } from "../../hooks/useChartPalette";
 
 export default function ForecastVsActualPanel() {
+  const pal = useChartPalette();
+  const ENSEMBLE_COLOR = pal.blue;
+  const BAND_FILL = withAlpha(pal.blue, 0.15);
+  const WIND_COLOR = pal.orange;
   const { ensembleForecast } = useForecastStore();
 
   if (!ensembleForecast) return null;
@@ -123,7 +123,7 @@ export default function ForecastVsActualPanel() {
             title: { text: "Wind [m/s]", font: { color: WIND_COLOR, size: 11 } },
             overlaying: "y",
             side: "right",
-            gridcolor: "rgba(148, 163, 184, 0.08)",
+            gridcolor: pal.band,
             tickfont: { color: WIND_COLOR, size: 10 },
           },
           xaxis: {

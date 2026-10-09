@@ -63,30 +63,17 @@ export default function TurbinePhysicsKPIHeader() {
     : null;
   const meanPitch = simulation?.summary.mean_pitch_deg ?? null;
 
-  // Color logic — ISA-101 thresholds
-  const cpColor =
-    cpMax === null
-      ? SCADA_COLORS.MUTED
-      : cpMax > 0.45
-        ? SCADA_COLORS.ENERGIZED
-        : cpMax > 0.35
-          ? SCADA_COLORS.WARNING
-          : SCADA_COLORS.FAULT;
-
-  const cfColor =
-    capacityFactor === null
-      ? SCADA_COLORS.MUTED
-      : capacityFactor > 0.35
-        ? SCADA_COLORS.ENERGIZED
-        : capacityFactor > 0.2
-          ? SCADA_COLORS.WARNING
-          : SCADA_COLORS.FAULT;
-
+  // ISA-101: numbers are neutral; colour only for an abnormal state. A low Cp or
+  // capacity factor is a property of the chosen wind scenario, not an alarm; the
+  // rotor overshooting rated speed towards the 9.07 rpm overspeed trip is.
+  const NORMAL = "var(--color-text-primary)";
+  const cpColor = cpMax === null ? SCADA_COLORS.MUTED : NORMAL;
+  const cfColor = capacityFactor === null ? SCADA_COLORS.MUTED : NORMAL;
   const rpmColor =
     peakRotorSpeed === null
       ? SCADA_COLORS.MUTED
       : peakRotorSpeed <= 1.1 * V236.ratedRpm
-        ? SCADA_COLORS.ENERGIZED
+        ? NORMAL
         : peakRotorSpeed <= 1.2 * V236.ratedRpm // ROSCO overspeed trip 9.07 rpm
           ? SCADA_COLORS.WARNING
           : SCADA_COLORS.FAULT;
@@ -103,7 +90,7 @@ export default function TurbinePhysicsKPIHeader() {
         label="Mean Power"
         value={meanPower !== null ? meanPower.toFixed(2) : "—"}
         unit="MW"
-        color={SCADA_COLORS.ENERGIZED}
+        color={NORMAL}
       />
       <KPICard
         label="Capacity Factor"
@@ -123,7 +110,7 @@ export default function TurbinePhysicsKPIHeader() {
         label="Mean Pitch"
         value={meanPitch !== null ? meanPitch.toFixed(1) : "—"}
         unit="deg"
-        color={SCADA_COLORS.MUTED}
+        color={NORMAL}
       />
     </div>
   );

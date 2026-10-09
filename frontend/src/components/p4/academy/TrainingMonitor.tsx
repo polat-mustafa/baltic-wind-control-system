@@ -12,7 +12,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, Clock, Database, Layers, Volume2, VolumeX } from "lucide-react";
 
 import { useForecastStore } from "../../../store/forecastStore";
-import type { EpochPoint, FoldResult, TrainingLive, TrainingStage, TrainingStageKey } from "../../../types/forecast";
+import type { EpochPoint, FoldResult, TrainingLive, TrainingLogLine, TrainingStage, TrainingStageKey } from "../../../types/forecast";
+import { cn } from "../../../lib/utils";
 import { useNarrator, type NarrationLang } from "../../../hooks/useNarrator";
 import { PipelineGraph } from "./PipelineGraph";
 import { STAGE_TONE, STAGE_WEIGHT } from "./stages";
@@ -144,7 +145,7 @@ export default function TrainingMonitor() {
         <div className="mb-1 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-text-primary">
           <Layers size={15} /> Pipeline
           <span className="text-xs font-normal text-text-muted">
-            data flows left → right · the three models train in parallel · cyan particles = active stage
+            data flows left → right · the three models train in parallel · LED: grey pending · amber running · green done · marching dashes = data flowing in
           </span>
         </div>
         <PipelineGraph stages={stages} />
@@ -395,24 +396,62 @@ function EmptyChart({ text }: { text: string }) {
   );
 }
 
-function LogConsole({ log }: { log: { t: number; msg: string }[] }) {
+const LEVEL_STYLE: Record<string, { tag: string; cls: string }> = {
+  info: { tag: "INFO", cls: "text-sky-400" },
+  ok: { tag: " OK ", cls: "text-emerald-400" },
+  debug: { tag: "EPOC", cls: "text-slate-500" },
+  warn: { tag: "WARN", cls: "text-amber-400" },
+};
+
+/** Training console: time, level, stage, message; filter by kind, follow the tail. */
+function LogConsole({ log }: { log: TrainingLogLine[] }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [filter, setFilter] = useState<"all" | "events" | "epochs">("all");
+  const [follow, setFollow] = useState(true);
+  const shown = log.filter((l) => (filter === "all" ? true : filter === "epochs" ? l.level === "debug" : l.level !== "debug"));
   useEffect(() => {
     const el = ref.current;
-    if (el) el.scrollTop = el.scrollHeight; // follow the newest line
-  }, [log.length]);
+    if (el && follow) el.scrollTop = el.scrollHeight; // follow the newest line
+  }, [shown.length, follow]);
   return (
     <div className="rounded-lg border border-border-primary bg-bg-secondary p-3">
-      <div className="mb-1 text-sm font-semibold text-text-primary">Event log</div>
-      <div ref={ref} className="h-48 overflow-y-auto rounded bg-bg-primary p-2 font-mono text-[11.5px] leading-relaxed text-text-secondary">
-        {log.length === 0 ? (
-          <span className="text-text-muted">No build has run since the server started — the models may come from the cache.</span>
+      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold text-text-primary">Training console</span>
+        <span className="font-mono text-[10px] text-text-muted">{log.length} lines</span>
+        <div className="ml-auto flex items-center gap-1 text-[10px]">
+          {(["all", "events", "epochs"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              className={cn(
+                "rounded border px-1.5 py-0.5 font-mono uppercase",
+                filter === f ? "border-accent bg-accent/15 text-accent" : "border-border-primary text-text-muted hover:text-text-primary",
+              )}
+            >
+              {f}
+            </button>
+          ))}
+          <label className="ml-1 flex items-center gap-1 text-text-muted">
+            <input type="checkbox" className="accent-accent" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> follow
+          </label>
+        </div>
+      </div>
+      <div ref={ref} className="h-56 overflow-y-auto rounded border border-black/30 bg-[#0b0f14] p-2 font-mono text-[11px] leading-[1.55] text-slate-300">
+        {shown.length === 0 ? (
+          <span className="text-slate-500">No build has run since the server started — the models may come from the cache.</span>
         ) : (
-          log.map((l, i) => (
-            <div key={i}>
-              <span className="text-text-muted">[{fmtDuration(l.t).padStart(9, " ")}]</span> {l.msg}
-            </div>
-          ))
+          shown.map((l, i) => {
+            const lv = LEVEL_STYLE[l.level ?? "info"] ?? LEVEL_STYLE.info;
+            return (
+              <div key={i} className="flex gap-2 whitespace-pre">
+                <span className="text-slate-500">{fmtDuration(l.t).padStart(9, " ")}</span>
+                <span className={lv.cls}>{lv.tag}</span>
+                <span className="w-16 shrink-0 truncate text-slate-400">{l.stage ? `[${l.stage}]` : ""}</span>
+                <span className={cn("whitespace-pre-wrap", l.level === "debug" ? "text-slate-400" : "text-slate-200")}>{l.msg}</span>
+              </div>
+            );
+          })
         )}
       </div>
     </div>

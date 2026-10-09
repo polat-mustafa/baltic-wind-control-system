@@ -1,8 +1,9 @@
 /**
- * The forecast pipeline as a node graph: data → features → three models in
- * parallel → forecast → ensemble. Curved (cubic Bézier) links shaded from
- * the source stage's colour to the target's; particles flow along the links
- * that feed the stage currently running; each node carries a progress ring.
+ * The forecast pipeline as an engineering block diagram: data → features →
+ * three models in parallel → forecast → ensemble. Each block has a header
+ * strip with its stage number and a status LED (grey pending, amber running,
+ * green done), ports on both sides and a progress bar; orthogonal connectors
+ * with arrowheads carry a marching dash while data flows into a running stage.
  */
 
 import { memo } from "react";
@@ -10,19 +11,20 @@ import { memo } from "react";
 import type { TrainingStage, TrainingStageKey } from "../../../types/forecast";
 import { STAGE_TONE } from "./stages";
 
-const W = 960;
-const H = 300;
-const NW = 156;
-const NH = 66;
+const W = 980;
+const H = 316;
+const NW = 168;
+const NH = 74;
+const HEAD = 18;
 
-const NODES: Record<TrainingStageKey, { x: number; y: number; title: string; sub: string }> = {
-  data: { x: 92, y: 150, title: "SCADA data", sub: "34 WTG · 10-min" },
-  features: { x: 270, y: 150, title: "Features", sub: "causal · NWP" },
-  xgboost: { x: 480, y: 52, title: "XGBoost", sub: "boosted trees" },
-  lstm: { x: 480, y: 150, title: "LSTM", sub: "recurrent net" },
-  tft: { x: 480, y: 248, title: "TFT", sub: "attention" },
-  predict: { x: 690, y: 150, title: "Forecast", sub: "P10 · P50 · P90" },
-  ensemble: { x: 868, y: 150, title: "Ensemble", sub: "+ physics" },
+const NODES: Record<TrainingStageKey, { x: number; y: number; code: string; title: string; sub: string }> = {
+  data: { x: 96, y: 158, code: "S1 · DATA", title: "SCADA data", sub: "reference set · 34 WTG" },
+  features: { x: 284, y: 158, code: "S2 · FEATURES", title: "Feature engineering", sub: "causal lags · NWP" },
+  xgboost: { x: 500, y: 54, code: "S3 · MODEL", title: "XGBoost", sub: "gradient-boosted trees" },
+  lstm: { x: 500, y: 158, code: "S4 · MODEL", title: "LSTM", sub: "recurrent network" },
+  tft: { x: 500, y: 262, code: "S5 · MODEL", title: "TFT", sub: "temporal attention" },
+  predict: { x: 708, y: 158, code: "S6 · FORECAST", title: "Quantile forecast", sub: "P10 · P50 · P90" },
+  ensemble: { x: 890, y: 158, code: "S7 · ENSEMBLE", title: "Ensemble", sub: "skill-weighted + physics" },
 };
 
 const EDGES: [TrainingStageKey, TrainingStageKey][] = [
@@ -36,21 +38,19 @@ const EDGES: [TrainingStageKey, TrainingStageKey][] = [
   ["predict", "ensemble"],
 ];
 
-function edgePath(a: TrainingStageKey, b: TrainingStageKey) {
-  const x1 = NODES[a].x + NW / 2;
-  const y1 = NODES[a].y;
-  const x2 = NODES[b].x - NW / 2;
-  const y2 = NODES[b].y;
-  const dx = (x2 - x1) * 0.55;
-  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
-}
+const LED = { pending: "#6b7280", running: "#f59e0b", done: "#22c55e", error: "#ef4444" } as const;
 
-/** SVG arc for a progress ring of radius r, fraction f. */
-function arc(cx: number, cy: number, r: number, f: number) {
-  const a = Math.min(0.9999, Math.max(0, f)) * 2 * Math.PI;
-  const x = cx + r * Math.sin(a);
-  const y = cy - r * Math.cos(a);
-  return `M ${cx} ${cy - r} A ${r} ${r} 0 ${a > Math.PI ? 1 : 0} 1 ${x} ${y}`;
+/** Orthogonal connector with rounded bends: right from a, vertical at mid-x, right into b. */
+function edgePath(a: TrainingStageKey, b: TrainingStageKey) {
+  const x1 = NODES[a].x + NW / 2 + 4;
+  const y1 = NODES[a].y;
+  const x2 = NODES[b].x - NW / 2 - 6;
+  const y2 = NODES[b].y;
+  if (Math.abs(y2 - y1) < 1) return `M ${x1} ${y1} H ${x2}`;
+  const mx = (x1 + x2) / 2;
+  const r = Math.min(10, Math.abs(y2 - y1) / 2);
+  const s = y2 > y1 ? 1 : -1;
+  return `M ${x1} ${y1} H ${mx - r} Q ${mx} ${y1} ${mx} ${y1 + s * r} V ${y2 - s * r} Q ${mx} ${y2} ${mx + r} ${y2} H ${x2}`;
 }
 
 export const PipelineGraph = memo(function PipelineGraph({ stages }: { stages: TrainingStage[] }) {
@@ -59,68 +59,75 @@ export const PipelineGraph = memo(function PipelineGraph({ stages }: { stages: T
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Forecast pipeline with live stage status">
       <defs>
-        {EDGES.map(([a, b]) => (
-          <linearGradient key={`g-${a}-${b}`} id={`g-${a}-${b}`} x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0" style={{ stopColor: STAGE_TONE[a] }} />
-            <stop offset="1" style={{ stopColor: STAGE_TONE[b] }} />
-          </linearGradient>
-        ))}
-        <filter id="pg-glow" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="6" />
-        </filter>
+        <pattern id="pg-grid" width="16" height="16" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.8" style={{ fill: "var(--color-border-primary)" }} />
+        </pattern>
+        <marker id="pg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: "var(--color-text-muted)" }} />
+        </marker>
+        <marker id="pg-arrow-live" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: "var(--color-accent)" }} />
+        </marker>
       </defs>
+      <rect width={W} height={H} fill="url(#pg-grid)" />
 
-      {/* links */}
+      {/* connectors */}
       {EDGES.map(([a, b]) => {
         const d = edgePath(a, b);
         const flowing = statusOf(b) === "running" && statusOf(a) === "done";
         const done = statusOf(b) === "done";
         return (
-          <g key={`${a}-${b}`}>
-            <path d={d} fill="none" stroke={`url(#g-${a}-${b})`} strokeWidth={done || flowing ? 3.2 : 1.8} strokeOpacity={done || flowing ? 0.95 : 0.35} strokeLinecap="round" />
-            {flowing &&
-              [0, 0.5, 1].map((delay) => (
-                <circle key={delay} r={4} style={{ fill: "var(--color-accent)" }}>
-                  <animateMotion dur="1.6s" begin={`${delay}s`} repeatCount="indefinite" path={d} />
-                </circle>
-              ))}
-          </g>
+          <path
+            key={`${a}-${b}`}
+            d={d}
+            fill="none"
+            style={{ stroke: flowing ? "var(--color-accent)" : "var(--color-text-muted)" }}
+            strokeWidth={flowing ? 2.2 : done ? 1.8 : 1.2}
+            strokeOpacity={flowing || done ? 0.95 : 0.45}
+            strokeDasharray={flowing ? "7 5" : done ? undefined : "3 4"}
+            markerEnd={flowing ? "url(#pg-arrow-live)" : "url(#pg-arrow)"}
+          >
+            {flowing && <animate attributeName="stroke-dashoffset" from="24" to="0" dur="0.7s" repeatCount="indefinite" />}
+          </path>
         );
       })}
 
-      {/* nodes */}
+      {/* blocks */}
       {(Object.keys(NODES) as TrainingStageKey[]).map((k) => {
         const n = NODES[k];
         const st = byKey.get(k);
-        const status = st?.status ?? "pending";
+        const status = (st?.status ?? "pending") as keyof typeof LED;
         const tone = STAGE_TONE[k];
         const x = n.x - NW / 2;
         const y = n.y - NH / 2;
+        const frac = status === "done" ? 1 : status === "running" ? (st?.fraction ?? 0) : 0;
         return (
-          <g key={k} opacity={status === "pending" ? 0.6 : 1}>
-            {status === "running" && (
-              <rect x={x - 4} y={y - 4} width={NW + 8} height={NH + 8} rx={16} style={{ fill: tone }} opacity={0.45} filter="url(#pg-glow)">
-                <animate attributeName="opacity" values="0.15;0.55;0.15" dur="1.8s" repeatCount="indefinite" />
-              </rect>
-            )}
-            <rect x={x} y={y} width={NW} height={NH} rx={12} style={{ fill: "var(--color-bg-primary)", stroke: tone }} strokeWidth={status === "pending" ? 1.2 : 2.2} />
-            {/* progress ring */}
-            <circle cx={x + 26} cy={n.y} r={15} fill="none" style={{ stroke: "var(--color-border-primary)" }} strokeWidth={3} />
-            {status !== "pending" && (
-              <path d={arc(x + 26, n.y, 15, status === "done" ? 1 : (st?.fraction ?? 0))} fill="none" style={{ stroke: tone }} strokeWidth={3.5} strokeLinecap="round" />
-            )}
-            <text x={x + 26} y={n.y + 4} textAnchor="middle" fontSize={status === "done" ? 13 : 9.5} fontWeight={800} style={{ fill: tone }}>
-              {status === "done" ? "✓" : status === "running" ? `${Math.round((st?.fraction ?? 0) * 100)}` : "·"}
+          <g key={k} opacity={status === "pending" ? 0.7 : 1}>
+            <rect x={x} y={y} width={NW} height={NH} rx={4} style={{ fill: "var(--color-bg-primary)", stroke: status === "running" ? tone : "var(--color-border-secondary)" }} strokeWidth={status === "running" ? 2 : 1.2} />
+            {/* header strip */}
+            <path d={`M ${x} ${y + 4} Q ${x} ${y} ${x + 4} ${y} H ${x + NW - 4} Q ${x + NW} ${y} ${x + NW} ${y + 4} V ${y + HEAD} H ${x} Z`} style={{ fill: tone }} opacity={0.22} />
+            <text x={x + 8} y={y + 12.5} fontSize={9} fontWeight={700} letterSpacing={0.6} fontFamily="ui-monospace, monospace" style={{ fill: "var(--color-text-secondary)" }}>
+              {n.code}
             </text>
-            <text x={x + 50} y={n.y - 6} fontSize={14} fontWeight={800} style={{ fill: "var(--color-text-primary)" }}>
+            <circle cx={x + NW - 10} cy={y + HEAD / 2} r={4} style={{ fill: LED[status] ?? LED.pending }}>
+              {status === "running" && <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />}
+            </circle>
+            {/* body */}
+            <text x={x + 8} y={y + HEAD + 18} fontSize={13} fontWeight={700} style={{ fill: "var(--color-text-primary)" }}>
               {n.title}
             </text>
-            <text x={x + 50} y={n.y + 11} fontSize={10.5} fontWeight={600} style={{ fill: "var(--color-text-muted)" }}>
+            <text x={x + 8} y={y + HEAD + 33} fontSize={10} style={{ fill: "var(--color-text-muted)" }}>
               {n.sub}
             </text>
+            {/* progress bar */}
+            <rect x={x + 8} y={y + NH - 9} width={NW - 16} height={3} rx={1.5} style={{ fill: "var(--color-border-primary)" }} />
+            <rect x={x + 8} y={y + NH - 9} width={(NW - 16) * frac} height={3} rx={1.5} style={{ fill: status === "done" ? LED.done : tone }} />
+            {/* ports */}
+            {k !== "data" && <circle cx={x} cy={n.y} r={3} style={{ fill: "var(--color-bg-primary)", stroke: "var(--color-text-muted)" }} />}
+            {k !== "ensemble" && <circle cx={x + NW} cy={n.y} r={3} style={{ fill: "var(--color-bg-primary)", stroke: "var(--color-text-muted)" }} />}
             {st?.detail && status !== "pending" && (
-              <text x={n.x} y={y + NH + 14} textAnchor="middle" fontSize={9.5} style={{ fill: "var(--color-text-secondary)" }}>
-                {st.detail.length > 44 ? `${st.detail.slice(0, 43)}…` : st.detail}
+              <text x={n.x} y={y + NH + 13} textAnchor="middle" fontSize={9} fontFamily="ui-monospace, monospace" style={{ fill: "var(--color-text-secondary)" }}>
+                {st.detail.length > 46 ? `${st.detail.slice(0, 45)}…` : st.detail}
               </text>
             )}
           </g>

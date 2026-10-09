@@ -2,12 +2,13 @@
  * Revenue impact panel — dual-axis chart with power + cumulative revenue.
  *
  * Left axis: P50 power forecast [MW] per turbine
- * Right axis: cumulative revenue [EUR] for full 34-turbine farm
+ * Right axis: cumulative revenue [EUR] for the whole farm on screen (own project or SB-510)
  * Spot price is synthetic (base ± 30% day/night amplitude).
  * Clearly labeled as educational/synthetic.
  */
 
 import Plot from "react-plotly.js";
+import { useFleet } from "../../lib/fleet";
 import { useForecastStore } from "../../store/forecastStore";
 import {
   DARK_PLOTLY_LAYOUT,
@@ -23,12 +24,12 @@ const SPOT_COLOR = "#FFAA00";
 
 export default function RevenueImpactPanel() {
   const { ensembleForecast, spotPriceEurMwh } = useForecastStore();
+  const numTurbines = useFleet().turbines.length; // farm on screen: own project or SB-510
 
   if (!ensembleForecast) return null;
 
   const numSteps = ensembleForecast.num_steps;
   const dtHours = 10 / 60; // 10-minute intervals
-  const numTurbines = 34;
 
   // Create hour labels
   const xLabels = Array.from({ length: numSteps }, (_, i) => {
@@ -89,7 +90,7 @@ export default function RevenueImpactPanel() {
     <div className="bg-bg-secondary rounded-lg border border-border-primary p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-base font-semibold text-text-primary">
-          Revenue Impact — 34 Turbines
+          Revenue Impact — {numTurbines} Turbines
         </h3>
         <div className="flex items-center gap-2">
           <span className="text-xs text-text-muted">

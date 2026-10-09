@@ -291,6 +291,16 @@ export interface RampDetectResponse {
 
 export type TrainingStageKey = "data" | "features" | "xgboost" | "lstm" | "tft" | "predict" | "ensemble";
 
+/** One line of the training console (backend services/p4/training_progress.py). */
+export interface TrainingLogLine {
+  /** Seconds since the build started. */
+  t: number;
+  msg: string;
+  /** info · ok (stage / fold done) · debug (epoch progress) · warn; absent on old servers. */
+  level?: "info" | "ok" | "debug" | "warn";
+  stage?: TrainingStageKey | null;
+}
+
 export interface TrainingStage {
   key: TrainingStageKey;
   label: string;
@@ -322,7 +332,7 @@ export interface TrainingLive {
   /** Duration of the last finished build [s] (the cached models). */
   last_build_s: number | null;
   stages: TrainingStage[];
-  log: { t: number; msg: string }[];
+  log: TrainingLogLine[];
   curves: Partial<Record<"lstm" | "tft", EpochPoint[]>>;
   folds: Partial<Record<"xgboost" | "lstm" | "tft", FoldResult[]>>;
 }

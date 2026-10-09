@@ -1,0 +1,50 @@
+"""Digital twin detector on real data: CARE to Compare Wind Farm B (bundled result + method)."""
+
+from __future__ import annotations
+
+import numpy as np
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.services.digital_twin.care_benchmark import chart_channel, thermal_inputs
+
+
+def _plant(n: int, drift_from: int | None, seed: int = 1):
+    """Bearing temperature = f(power, ambient) + lagged noise; optional +K/day drift."""
+    rng = np.random.default_rng(seed)
+    power = np.clip(0.5 + 0.3 * np.sin(np.arange(n) / 300) + 0.1 * rng.standard_normal(n), 0, 1)
+    ambient = 10 + 5 * np.sin(np.arange(n) / 4000)
+    temp = 30 + 25 * power + 0.5 * ambient + 0.3 * rng.standard_normal(n)
+    if drift_from is not None:
+        temp[drift_from:] += np.arange(n - drift_from) / 144 * 0.5  # +0.5 K per day
+    x = thermal_inputs(power, ambient, ambient * 0, power * 10)
+    train = np.arange(n) < int(n * 0.8)
+    return x, temp, np.ones(n, dtype=bool), train, power
+
+
+def test_quiet_on_normal_data():
+    x, y, valid, train, power = _plant(20_000, None)
+    assert chart_channel(x, y, valid, train, power).first_alarm is None
+
+
+def test_detects_a_bearing_drift_within_days():
+    x, y, valid, train, power = _plant(20_000, drift_from=17_000)
+    ch = chart_channel(x, y, valid, train, power)
+    pred_start = int(20_000 * 0.8)
+    assert ch.first_alarm is not None
+    # +0.5 K/day: alarm before ~5 K offset, well under a typical 10 K OEM SCADA limit
+    assert 0 < (ch.first_alarm - (17_000 - pred_start)) / 144 < 10
+
+
+def test_endpoint_serves_the_bundled_benchmark():
+    body = TestClient(app).get("/api/v1/digital-twin/real-data/care").json()
+    s = body["summary"]
+    assert s["anomaly_events"] == 6 and s["normal_events"] == 9
+    assert len(body["events"]) == 15
+    assert s["detected"] >= 4  # the published finding: 5 / 6 faults before failure
+    for e in body["events"]:
+        assert e["median_limit_factor"] >= 1.0
+        if e["alarm"] and e["label"] == "anomaly":
+            assert e["warning_days"] > 0
+    # widening can only remove alarms
+    assert s["false_alarms"] <= body["summary_live_limit"]["false_alarms"]

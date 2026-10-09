@@ -22,7 +22,7 @@ router = APIRouter()
 
 # The data file is bundled and the training seeded, so a hit equals a rebuild; bump the
 # prefix when the data file or the model changes.
-@cached(prefix="real_dayahead_v1", ttl=DETERMINISTIC_TTL_S)
+@cached(prefix="real_dayahead_v2", ttl=DETERMINISTIC_TTL_S)
 def _real_dayahead_payload() -> dict[str, Any]:
     r = evaluate_real_dayahead()
     return RealForecastResponse(

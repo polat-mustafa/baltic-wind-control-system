@@ -442,7 +442,7 @@ export interface RealModelScore {
   name: string;
   nrmse_pct: number;
   nmae_pct: number;
-  bias_pct: number;
+  bias_pct: number | null;
   skill_vs_persistence: number;
   fold_nrmse_pct: number[];
 }

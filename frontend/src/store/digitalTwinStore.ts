@@ -21,7 +21,7 @@ import type {
   TurbineDetail,
 } from "../services/digitalTwinApi";
 
-export type TwinTab = "fleet" | "turbine" | "model";
+export type TwinTab = "fleet" | "turbine" | "model" | "real";
 
 interface DigitalTwinState {
   /** farmKey() of the farm the model card and the run belong to. */

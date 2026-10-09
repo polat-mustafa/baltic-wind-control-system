@@ -138,8 +138,9 @@ def _build_xgboost_pipeline(
 DETERMINISTIC_TTL_S = 7 * 24 * 3600
 # Bump when features or models change, so week-old results of the previous
 # pipeline are not served (v2: causal features, measured channels at t−1;
-# v3: persistent NWP error, constraints on the measured wind).
-PIPELINE_VERSION = "v3"
+# v3: persistent NWP error, constraints on the measured wind; v4: LSTM / TFT early
+# stopping on the training block, not the test fold).
+PIPELINE_VERSION = "v4"
 
 
 @cached(prefix=f"xgb_pipeline_{PIPELINE_VERSION}", ttl=DETERMINISTIC_TTL_S)

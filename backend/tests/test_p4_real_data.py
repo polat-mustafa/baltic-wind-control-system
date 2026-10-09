@@ -56,3 +56,15 @@ def test_endpoint_beats_every_baseline():
     bands = zip(ser["p10_mw"], ser["p50_mw"], ser["p90_mw"], strict=True)
     assert all(a <= b <= c for a, b, c in bands)
     assert max(ser["p90_mw"]) <= body["source"]["capacity_mw"]
+
+
+def test_deep_models_are_scored_on_real_data():
+    import json
+
+    from app.services.p4.real_data import DEEP_FILE
+
+    deep = {m["name"]: m for m in json.loads(DEEP_FILE.read_text(encoding="utf-8"))["models"]}
+    assert set(deep) == {"LSTM", "TFT (P50)"}
+    for m in deep.values():
+        assert len(m["fold_nrmse_pct"]) == 5
+        assert 10.0 < m["nrmse_pct"] < 25.0 and m["skill_vs_persistence"] > 0.5

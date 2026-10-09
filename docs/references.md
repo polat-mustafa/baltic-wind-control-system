@@ -67,6 +67,7 @@ Citation rules used here:
 | Synthetic SCADA: Gaussian copula on the site Weibull, ERA5 hourly persistence φ = 0.957, 10-min sampling error (Λ₁ = 42 m) | `services/p4/scada_generator.py` | [28], [30], [S1] |
 | Residual learning on persistence (base margin), early stopping on the last 20 % of each fold | `services/p4/xgboost_model.py` | [12], [20] |
 | Synthetic NWP: persistent AR(1) error (0.9 / h), 6-hourly runs, 1.0–1.3 m/s | `services/p4/nwp_pipeline.py` | ECMWF IFS documentation |
+| **Real data**: LSTM / TFT on the same set, trained offline (`scripts/train_real_deep_models.py`), early stopping on the newest 20 % of each training block (also fixed for the synthetic models: they stopped on the test fold) | `services/p4/lstm_model.py`, `tft_model.py` | [14], [16] |
 | **Real data**: day-ahead forecast of measured DK2 Baltic offshore output (Kriegers Flak, Rødsand II, Nysted; Energinet, CC BY 4.0) from day-old ECMWF / ICON 100 m wind (Open-Meteo Previous Runs, CC BY 4.0); nRMSE vs persistence, climatology, NWP power curve; conformalised P10–P90 | `services/p4/real_data.py`, `scripts/fetch_real_forecast_data.py` | Giebel et al. 2011 (ANEMOS.plus); Romano, Patterson & Candès 2019 (CQR); Hong et al. 2016 (GEFCom2014) |
 
 ## P5 — Commissioning
@@ -90,6 +91,7 @@ Citation rules used here:
 | Power-curve residual binning | `services/digital_twin/detection.py` | [S2] |
 | Reference model: ROSCO Cp(λ, β) table, λ = 9 tracking, minimum-pitch schedule, generator + converter losses | `services/digital_twin/reference_model.py` | [26], [37] |
 | Stator-winding thermal model, insulation classes | `services/digital_twin/reference_model.py`, `services/turbine_physics/nacelle_subsystems.py` | [S22], [S34] |
+| **Real data**: detector validated on CARE to Compare Wind Farm B (offshore, Germany; 6 faults, 9 normal periods; CC BY-SA 4.0) — XGBoost normal-behaviour models per temperature channel, twin's EWMA settings, Phase I limit verification on training data only | `services/digital_twin/care_benchmark.py`, `scripts/build_care_benchmark.py` | Gück et al. 2024 (CARE to Compare, Energies); Tautz-Weinert & Watson 2017 (IET RPG 11(4)); Zhang 1998 (EWMAST) |
 
 ## Turbine physics — time-domain simulator
 

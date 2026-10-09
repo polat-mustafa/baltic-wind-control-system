@@ -1,0 +1,36 @@
+{
+ "trained_utc": "2026-10-09T18:03Z",
+ "lookback_h": 24,
+ "models": [
+  {
+   "name": "LSTM",
+   "nrmse_pct": 18.99,
+   "nmae_pct": 13.37,
+   "bias_pct": null,
+   "skill_vs_persistence": 0.731,
+   "fold_nrmse_pct": [
+    22.0,
+    17.98,
+    18.28,
+    19.07,
+    17.26
+   ],
+   "train_minutes": 2.8
+  },
+  {
+   "name": "TFT (P50)",
+   "nrmse_pct": 18.23,
+   "nmae_pct": 12.67,
+   "bias_pct": null,
+   "skill_vs_persistence": 0.752,
+   "fold_nrmse_pct": [
+    17.46,
+    18.74,
+    20.66,
+    17.39,
+    16.63
+   ],
+   "train_minutes": 12.6
+  }
+ ]
+}

@@ -232,7 +232,7 @@ export default function TurbineEducationPanel({
                   className="text-xs px-1.5 py-0.5 rounded"
                   style={{
                     backgroundColor: "rgba(59,130,246,0.1)",
-                    color: "#7189a0",
+                    color: "#8099b0",
                   }}
                 >
                   {f}

@@ -98,7 +98,7 @@ export default function EnvironmentPanel() {
         <div className="flex items-center gap-1.5">
           <span
             className="text-xs font-mono tabular-nums"
-            style={{ color: "#94a3b8" }}
+            style={{ color: "var(--color-text-muted)" }}
           >
             {isLive
               ? `${live.time.slice(11, 16)} UTC`
@@ -118,13 +118,9 @@ export default function EnvironmentPanel() {
                 aria-pressed={source === src}
                 className="px-1.5 text-xs font-semibold uppercase"
                 style={{
-                  backgroundColor:
-                    source === src
-                      ? src === "live"
-                        ? "#16a34a"
-                        : "#45c8d9"
-                      : "transparent",
-                  color: source === src ? "#fff" : "#94a3b8",
+                  // a mode, not a state: the accent marks the chosen one (accent ink keeps WCAG AA)
+                  backgroundColor: source === src ? "var(--color-accent)" : "transparent",
+                  color: source === src ? "var(--color-accent-ink)" : "var(--color-text-muted)",
                 }}
                 title={
                   src === "live"

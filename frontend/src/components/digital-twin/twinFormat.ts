@@ -109,7 +109,8 @@ export const STATUS_CLASS: Record<HealthStatus, { text: string; chip: string }> 
   },
   alarm: {
     text: "text-status-alarm",
-    chip: "bg-status-alarm/15 text-status-alarm border-status-alarm/40",
+    // solid, as the SCADA alarm chips: red text on a red tint stays under 4.5:1
+    chip: "bg-status-alarm text-accent-ink border-status-alarm font-semibold",
   },
 };
 

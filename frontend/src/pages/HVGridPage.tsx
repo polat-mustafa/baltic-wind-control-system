@@ -127,7 +127,7 @@ export default function HVGridPage() {
               <button
                 key={label}
                 onClick={() => setLibraryEntry(entry)}
-                className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+                className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover transition-colors"
               >
                 <BookOpen size={10} />
                 {label}
@@ -173,7 +173,7 @@ export default function HVGridPage() {
             title={tooltip}
             className={`flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
               activeTab === id
-                ? "bg-accent text-white"
+                ? "bg-accent text-accent-ink"
                 : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
             }`}
           >

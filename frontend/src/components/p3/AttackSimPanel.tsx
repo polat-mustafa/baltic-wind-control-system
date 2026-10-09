@@ -64,7 +64,7 @@ export default function AttackSimPanel() {
               <p className="text-text-muted">Target zone</p>
               <p className="font-mono text-text-primary">{attackResult.targeted_zone}</p>
             </div>
-            <span className={`px-2 py-1 rounded font-semibold ${attackResult.overall_blocked ? "border border-border-secondary text-text-primary" : "bg-[#c8362d] text-white"}`}>
+            <span className={`px-2 py-1 rounded font-semibold ${attackResult.overall_blocked ? "border border-border-secondary text-text-primary" : "bg-status-alarm text-bg-primary"}`}>
               {attackResult.overall_blocked ? "Blocked" : "Breached"}
             </span>
           </div>
@@ -72,10 +72,10 @@ export default function AttackSimPanel() {
           {/* Step-by-step */}
           <div className="space-y-2">
             {attackResult.steps.map((step) => (
-              <div key={step.step} className={`rounded-lg border p-2.5 text-xs bg-bg-tertiary ${step.detected ? "border-border-primary" : "border-[#c8362d]"}`}>
+              <div key={step.step} className={`rounded-lg border p-2.5 text-xs bg-bg-tertiary ${step.detected ? "border-border-primary" : "border-status-alarm"}`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="font-mono text-text-muted">Step {step.step}</span>
-                  <span className={`px-1.5 rounded-sm text-[10px] font-mono font-bold ${step.detected ? "border border-border-secondary text-text-secondary" : "bg-[#c8362d] text-white"}`}>
+                  <span className={`px-1.5 rounded-sm text-xs font-mono font-bold ${step.detected ? "border border-border-secondary text-text-secondary" : "bg-status-alarm text-bg-primary"}`}>
                     {step.detected ? "DETECTED" : "UNDETECTED"}
                   </span>
                 </div>

@@ -134,7 +134,7 @@ export default function SCADAPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-text-primary whitespace-nowrap">
             SCADA &amp; Automation
           </h2>
-          <span className="hidden 2xl:inline text-[10px] text-text-muted font-mono truncate">
+          <span className="hidden 2xl:inline text-xs text-text-muted font-mono truncate">
             {substationSummary
               ? `${substationSummary.total_devices} IEDs · ${substationSummary.total_logical_nodes} logical nodes · IEC 61850 station bus`
               : "Loading…"}
@@ -146,7 +146,7 @@ export default function SCADAPage() {
           data-tour="scada-controls"
           aria-expanded={controlsOpen}
           onClick={() => setControlsOpen((o) => !o)}
-          className="flex items-center gap-1 text-[10px] text-text-muted hover:text-text-primary"
+          className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
           title={controlsOpen ? "Hide simulation controls" : "Show simulation controls"}
         >
           Controls {controlsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -182,7 +182,7 @@ export default function SCADAPage() {
                 className={cn(
                   toolBtnCls,
                   autoSimEnabled
-                    ? "border-accent bg-accent text-white hover:opacity-90"
+                    ? "border-accent bg-accent text-accent-ink hover:opacity-90"
                     : "bg-bg-secondary border-border-primary text-text-secondary hover:bg-bg-hover",
                 )}
               >

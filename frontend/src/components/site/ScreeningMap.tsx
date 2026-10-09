@@ -371,7 +371,7 @@ export default function ScreeningMap() {
           <Layers size={13} /> Legend
         </button>
         {panelOpen && (
-          <div className="pointer-events-auto mt-1.5 w-64 max-w-[75vw] space-y-2 overflow-y-auto rounded-md border border-border-primary bg-bg-secondary/95 p-2 text-[11px] shadow">
+          <div className="pointer-events-auto mt-1.5 w-64 max-w-[75vw] space-y-2 overflow-y-auto rounded-md border border-border-primary bg-bg-secondary/95 p-2 text-xs shadow">
             <section aria-label="Screening result" className="space-y-1">
               <LegendHeading>{loading ? "Screening result (updating…)" : "Screening result"}</LegendHeading>
               <LegendToggle
@@ -386,7 +386,7 @@ export default function ScreeningMap() {
               <LegendKey color="transparent" label="Poor" note="no shading: allowed but low score" />
               <LegendKey color="transparent" label="Excluded" note="no shading: the excluding layer shows" />
               {topReasons.length > 0 && (
-                <ul className="ml-6 space-y-0.5 text-[10px] text-text-muted" aria-label="Main exclusion reasons">
+                <ul className="ml-6 space-y-0.5 text-xs text-text-muted" aria-label="Main exclusion reasons">
                   {topReasons.map((r) => (
                     <li key={r.reason} className="flex justify-between gap-2">
                       <span className="truncate">{r.label}</span>
@@ -445,7 +445,7 @@ function ToolButton({
       className={cn(
         "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium shadow disabled:opacity-40",
         primary
-          ? "bg-accent text-white hover:bg-accent-hover"
+          ? "bg-accent text-accent-ink hover:bg-accent-hover"
           : "border border-border-primary bg-bg-secondary/95 text-text-secondary hover:bg-bg-hover",
       )}
     >
@@ -456,7 +456,7 @@ function ToolButton({
 }
 
 export function LegendHeading({ children }: { children: React.ReactNode }) {
-  return <h4 className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{children}</h4>;
+  return <h4 className="text-xs font-semibold uppercase tracking-wider text-text-muted">{children}</h4>;
 }
 
 /** Swatch: fill colour plus the layer's own outline and dash, so the key matches the map. */
@@ -524,7 +524,7 @@ function LegendToggle({
       </span>
       <span className="min-w-0">
         <span className="block text-text-primary">{label}</span>
-        {note && <span className="block text-[10px] text-text-muted">{note}</span>}
+        {note && <span className="block text-xs text-text-muted">{note}</span>}
       </span>
     </label>
   );

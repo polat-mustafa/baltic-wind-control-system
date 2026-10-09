@@ -55,11 +55,11 @@ export default function CourseMap({ active, onMission }: { active: string | null
       <ol className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-tour="academy-tracks">
         {TRACKS.map((t, i) => (
           <li key={t.id} className="flex flex-col rounded-lg border border-border-primary bg-bg-secondary p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">
+            <p className="text-xs font-semibold uppercase tracking-wider text-accent">
               {i + 1} · {t.title}
             </p>
             <p className="mb-2 text-[12px] text-text-secondary">{t.goal}</p>
-            <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Lessons</h4>
+            <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">Lessons</h4>
             <ul className="mb-2 space-y-0.5">
               {t.lessons.map((l) => (
                 <li key={lessonId(l)}>
@@ -67,7 +67,7 @@ export default function CourseMap({ active, onMission }: { active: string | null
                 </li>
               ))}
             </ul>
-            <h4 className="mb-1 mt-auto text-[10px] font-semibold uppercase tracking-wider text-text-muted">Missions</h4>
+            <h4 className="mb-1 mt-auto text-xs font-semibold uppercase tracking-wider text-text-muted">Missions</h4>
             <ul className="space-y-1" data-tour="academy-missions">
               {MISSIONS.filter((m) => m.track === t.id).map((m) => (
                 <li key={m.id}>

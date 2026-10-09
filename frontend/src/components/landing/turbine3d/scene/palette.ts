@@ -9,12 +9,12 @@
 export const statusPalette = {
   alive:   "#38bdf8",  // sky-400 — live power / active flow
   warning: "#f59e0b",  // amber-500 — oil ΔT, threshold approach
-  fault:   "#ef4444",  // red-500 — fault / trip
+  fault:   "#f25c54",  // red-500 — fault / trip
   idle:    "#64748b",  // slate-500 — inactive
   oil:     "#f59e0b",  // amber — hydraulic / lube oil
   coolant: "#22d3ee",  // cyan-400 — water-glycol coolant
   hvAC:    "#a78bfa",  // violet — HV AC export
-  selected:      "#60a5fa",  // blue-400 — currently-selected part rim
+  selected:      "#5cc3d2",  // blue-400 — currently-selected part rim
   selectedGlow:  "#1d4ed8",  // blue-700 — selected part emissive
 } as const;
 

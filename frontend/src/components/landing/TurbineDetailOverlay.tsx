@@ -40,9 +40,9 @@ function useZoom(): number {
 // ── Status → badge colour ───────────────────────────────────────
 
 const STATUS_BADGE_COLOR: Record<TurbineStatus, string> = {
-  operating: "#3ecf6e",
-  curtailed: "#f5a623",
-  fault: "#ef4444",
+  operating: "#4cc38a",
+  curtailed: "#f0b13e",
+  fault: "#f25c54",
   offline: "#6b7280",
 };
 
@@ -123,16 +123,16 @@ const TurbinePitchArc = memo(function TurbinePitchArc({
   const markerRef = useRef<L.Marker | null>(null);
   const pitch = turbine?.pitchAngleDeg ?? 0;
   // Colour: green (fine) → amber (limiting) → red (feathered)
-  const arcColor = pitch < 5 ? "#3ecf6e" : pitch < 15 ? "#f5a623" : "#ef4444";
+  const arcColor = pitch < 5 ? "#4cc38a" : pitch < 15 ? "#f0b13e" : "#f25c54";
 
   const icon = useMemo(
     () =>
       L.divIcon({
         html: `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="${PITCH_C}" cy="${PITCH_C}" r="${PITCH_R}" fill="none" stroke="#3d4560" stroke-width="1.5" opacity="0.5"/>
+      <circle cx="${PITCH_C}" cy="${PITCH_C}" r="${PITCH_R}" fill="none" stroke="#2c4760" stroke-width="1.5" opacity="0.5"/>
       <path class="pitch-arc" fill="none" stroke-width="2.5" stroke-linecap="round"/>
       <circle class="pitch-dot" cx="${PITCH_C}" cy="${PITCH_C - PITCH_R}" r="1.5"/>
-      <text class="pitch-text" x="${PITCH_C}" y="${PITCH_C + 3}" fill="#94a3b8" font-size="5.5" font-family="JetBrains Mono, monospace" text-anchor="middle"></text>
+      <text class="pitch-text" x="${PITCH_C}" y="${PITCH_C + 3}" fill="#94a3b8" font-size="5.5" font-family="IBM Plex Mono, monospace" text-anchor="middle"></text>
     </svg>`,
         className: "leaflet-turbine-pitch-arc",
         iconSize: [20, 20],

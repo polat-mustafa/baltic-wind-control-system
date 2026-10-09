@@ -85,7 +85,7 @@ export default function OAMCostPanel() {
           yaxis: {
             ...DARK_PLOTLY_LAYOUT.yaxis,
             automargin: true,
-            tickfont: { size: 11, family: "'Inter', sans-serif" },
+            tickfont: { size: 11, family: "'IBM Plex Sans', sans-serif" },
           },
           margin: { t: 20, r: 80, b: 56, l: 160 },
         }}

@@ -88,11 +88,11 @@ export default function PermitWorkflowPanel() {
               void run(() => createPermit(form));
             }}
           >
-            <label className="block text-[11px] text-text-muted">
+            <label className="block text-xs text-text-muted">
               Work description
               <input className={inputCls} value={form.work_description} onChange={(e) => setForm({ ...form, work_description: e.target.value })} required />
             </label>
-            <label className="block text-[11px] text-text-muted">
+            <label className="block text-xs text-text-muted">
               Equipment
               <input className={inputCls} list="ptw-equipment" value={form.equipment_id} onChange={(e) => setForm({ ...form, equipment_id: e.target.value })} required />
               <datalist id="ptw-equipment">
@@ -101,11 +101,11 @@ export default function PermitWorkflowPanel() {
                 ))}
               </datalist>
             </label>
-            <label className="block text-[11px] text-text-muted">
+            <label className="block text-xs text-text-muted">
               Requested by
               <input className={inputCls} value={form.requested_by} onChange={(e) => setForm({ ...form, requested_by: e.target.value })} required />
             </label>
-            <button type="submit" disabled={busy} className="w-full h-8 rounded bg-accent text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50">
+            <button type="submit" disabled={busy} className="w-full h-8 rounded bg-accent text-accent-ink text-xs font-semibold hover:opacity-90 disabled:opacity-50">
               Request permit
             </button>
           </form>
@@ -127,11 +127,11 @@ export default function PermitWorkflowPanel() {
                   activePermit?.ptw_number === p.ptw_number && "bg-bg-hover",
                 )}
               >
-                <div className="flex justify-between text-[11px]">
+                <div className="flex justify-between text-xs">
                   <span className="font-mono font-semibold text-text-primary">{p.ptw_number}</span>
                   <span className="text-text-secondary">{statusLabel(p.status)}</span>
                 </div>
-                <div className="text-[11px] text-text-muted truncate">
+                <div className="text-xs text-text-muted truncate">
                   {p.equipment_id} · {p.work_description}
                 </div>
               </button>
@@ -147,7 +147,7 @@ export default function PermitWorkflowPanel() {
           <InfoButton info={permitWorkflowInfo} />
           {activePermit && <span className="font-mono text-xs text-text-secondary">{activePermit.ptw_number}</span>}
           <span className="flex-1" />
-          <span className="text-[11px] text-text-muted">
+          <span className="text-xs text-text-muted">
             Acting as <b className="text-text-primary">L{roleLevel} {role?.name ?? ""}</b>
           </span>
         </div>
@@ -165,14 +165,14 @@ export default function PermitWorkflowPanel() {
                   <li key={s.id} className="flex flex-col items-center text-center gap-1 min-w-0">
                     <span
                       className={cn(
-                        "flex items-center justify-center w-6 h-6 rounded-full border-2 text-[10px] font-mono font-bold",
-                        current ? "border-accent bg-accent text-white" : done ? "border-status-normal text-status-normal" : "border-border-secondary text-text-muted",
+                        "flex items-center justify-center w-6 h-6 rounded-full border-2 text-xs font-mono font-bold",
+                        current ? "border-accent bg-accent text-accent-ink" : done ? "border-status-normal text-status-normal" : "border-border-secondary text-text-muted",
                       )}
                       aria-current={current ? "step" : undefined}
                     >
                       {done ? <Check size={12} /> : i + 1}
                     </span>
-                    <span className={cn("text-[10px] leading-tight", current ? "text-text-primary font-semibold" : "text-text-muted")}>{s.label}</span>
+                    <span className={cn("text-xs leading-tight", current ? "text-text-primary font-semibold" : "text-text-muted")}>{s.label}</span>
                   </li>
                 );
               })}
@@ -216,7 +216,7 @@ export default function PermitWorkflowPanel() {
                       }
                       className={cn(
                         "h-8 px-3 rounded text-xs font-semibold border disabled:opacity-40 disabled:cursor-not-allowed",
-                        isCancel ? "border-border-primary text-text-secondary hover:bg-bg-hover" : "border-accent bg-accent text-white hover:opacity-90",
+                        isCancel ? "border-border-primary text-text-secondary hover:bg-bg-hover" : "border-accent bg-accent text-accent-ink hover:opacity-90",
                       )}
                     >
                       {isCancel ? "Cancel permit" : `→ ${statusLabel(t.target_status)}`}
@@ -229,8 +229,8 @@ export default function PermitWorkflowPanel() {
 
             {activePermit.transition_log.length > 0 && (
               <div className="overflow-x-auto">
-                <h4 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1">Audit trail</h4>
-                <table className="w-full text-[11px]">
+                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">Audit trail</h4>
+                <table className="w-full text-xs">
                   <thead className="text-text-muted text-left">
                     <tr>
                       <th className="py-1 pr-3 font-medium">Time</th>

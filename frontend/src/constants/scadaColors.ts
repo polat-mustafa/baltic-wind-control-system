@@ -1,5 +1,7 @@
 /**
- * SCADA color palette — ISA-101 / IEC 61131 compliant.
+ * SCADA color palette — ISA-101 / IEC 61131 compliant, Baltic Night values
+ * (mirrors the CSS tokens in index.css; hex because SVG, canvas and Leaflet
+ * HTML strings consume it).
  *
  * These colors follow ISA-101 High Performance HMI guidelines with
  * muted tones suitable for dark control room environments.
@@ -11,27 +13,27 @@
  */
 export const SCADA_COLORS = {
   // Equipment states — desaturated per ISA-101 (color only when abnormal)
-  ENERGIZED: "#2E7D5B",      // Desat green — energized, normal operation
-  DE_ENERGIZED: "#8B8B8B",   // Mid-grey — de-energized, isolated
-  EARTHED: "#7A4FB0",        // Desat magenta — earthed (safety earth applied)
-  FAULT: "#C8362D",          // Dark red — fault condition (Priority 1)
-  WARNING: "#C9A227",        // Mustard — warning, operator attention
+  ENERGIZED: "#4CC38A",      // Muted green — energized, normal operation
+  DE_ENERGIZED: "#56708A",   // Slate — de-energized, isolated
+  EARTHED: "#C98BD3",        // Muted magenta — earthed (safety earth applied)
+  FAULT: "#F25C54",          // Red — fault condition (Priority 1)
+  WARNING: "#F0B13E",        // Amber — warning, operator attention
 
   // Alarm priorities (EEMUA-191) — saturation INTENTIONALLY kept here;
   // alarm chips are the one place vivid color carries meaning.
-  ALARM_CRITICAL: "#C8362D", // P1 red — immediate action required
-  ALARM_HIGH: "#E5C100",     // P2 mustard yellow — prompt action required
-  ALARM_MEDIUM: "#4FC3D8",   // P3 cyan — awareness
-  ALARM_LOW: "#5C7CB1",      // Journal slate blue — informational
+  ALARM_CRITICAL: "#F25C54", // P1 red — immediate action required
+  ALARM_HIGH: "#F0B13E",     // P2 amber — prompt action required
+  ALARM_MEDIUM: "#8FB4F5",   // P3 periwinkle — awareness
+  ALARM_LOW: "#56708A",      // Journal slate — informational
 
   // IEC voltage levels — desaturated; SLD also uses stroke width to differentiate
-  VOLTAGE_400KV: "#B0413E",  // Desat red
-  VOLTAGE_220KV: "#4A6FA5",  // Desat blue
-  VOLTAGE_66KV: "#B07B3E",   // Desat amber
-  VOLTAGE_NEUTRAL: "#5A5F66",// Matches canvas
+  VOLTAGE_400KV: "#E8837A",  // Muted red
+  VOLTAGE_220KV: "#8FB4F5",  // Muted blue
+  VOLTAGE_66KV: "#E5B567",   // Muted amber
+  VOLTAGE_NEUTRAL: "#2C4760",// Dead line (line-strong)
 
   // Normal-band marker for InfoTile sparklines — neutral grey
-  NORMAL_BAND: "#A8AAAD",
+  NORMAL_BAND: "#7189A0",
 } as const;
 
 /** Map equipment state strings from the API to SCADA colors. */

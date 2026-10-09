@@ -183,7 +183,7 @@ export const WindProfile = memo(function WindProfile({ windMs, windFromDeg }: { 
           <div className="text-[13px] font-bold text-accent">
             Wind {windMs.toFixed(1)} m/s · from {from}° {card}
           </div>
-          <div className="text-[10px] font-semibold text-text-secondary">
+          <div className="text-xs font-semibold text-text-secondary">
             met mast · u(z) = u<sub>hub</sub>(z/150)<sup>{SHEAR_ALPHA}</sup> · TI {(turbulenceIntensity(windMs) * 100).toFixed(1)} %
           </div>
         </div>
@@ -194,13 +194,13 @@ export const WindProfile = memo(function WindProfile({ windMs, windFromDeg }: { 
         [TIP_LOW, `tip bottom ${TIP_LOW.toFixed(1)} m · ${uLow.toFixed(1)} m/s`],
       ].map(([z, label]) => (
         <Html key={String(z)} position={[MAST_X, Number(z), MAST_Z + 10]} center zIndexRange={[9, 0]} style={{ pointerEvents: "none" }}>
-          <div className="whitespace-nowrap rounded border border-border-primary bg-bg-secondary/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-text-primary">
+          <div className="whitespace-nowrap rounded border border-border-primary bg-bg-secondary/90 px-1.5 py-0.5 font-mono text-xs font-bold text-text-primary">
             {label}
           </div>
         </Html>
       ))}
       <Html position={[MAST_X, TIP_LOW - 16, MAST_Z]} center zIndexRange={[9, 0]} style={{ pointerEvents: "none" }}>
-        <div className="whitespace-nowrap rounded border border-border-primary bg-bg-secondary/90 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-text-primary">
+        <div className="whitespace-nowrap rounded border border-border-primary bg-bg-secondary/90 px-1.5 py-0.5 font-mono text-xs font-semibold text-text-primary">
           shear across rotor Δu = {(uHigh - uLow).toFixed(1)} m/s ({(((uHigh - uLow) / windMs) * 100).toFixed(0)} %)
         </div>
       </Html>

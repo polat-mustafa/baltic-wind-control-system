@@ -33,7 +33,7 @@ export default function IsolationTab({ programme }: { programme: ProgrammeDetail
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-xs">
-            <thead className="bg-bg-tertiary text-left text-[10px] uppercase tracking-wide text-text-muted">
+            <thead className="bg-bg-tertiary text-left text-xs uppercase tracking-wide text-text-muted">
               <tr>
                 <th className="px-4 py-2 font-medium">Device</th>
                 <th className="px-3 py-2 font-medium">Secured</th>
@@ -53,7 +53,7 @@ export default function IsolationTab({ programme }: { programme: ProgrammeDetail
                   <tr key={p.point_id} className="border-t border-border-primary/50">
                     <td className="px-4 py-2">
                       <div className="font-mono text-text-primary">{p.equipment_id}</div>
-                      <div className="text-[11px] text-text-muted">{eq?.location}</div>
+                      <div className="text-xs text-text-muted">{eq?.location}</div>
                     </td>
                     <td className="px-3 py-2 text-text-secondary">{p.secured_state === "open" ? "open (DS)" : "closed (earthed)"}</td>
                     <td className={cn("px-3 py-2 font-mono", inSecured ? "text-text-secondary" : "text-status-warning")}>
@@ -66,7 +66,7 @@ export default function IsolationTab({ programme }: { programme: ProgrammeDetail
                         {applied ? "applied" : "removed"}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-[11px] text-text-muted">
+                    <td className="px-3 py-2 text-xs text-text-muted">
                       {applied ? `${p.locked_by} · ${time(p.applied_at)}` : `${p.removed_by} · ${time(p.removed_at)}`}
                     </td>
                     <td className="px-4 py-2 text-right">

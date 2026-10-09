@@ -10,7 +10,7 @@
  *   - IED: protection/measurement controller box
  *
  * Colors follow ISA-101 / SCADA_COLORS for equipment state:
- *   energized (#3ecf6e), de-energized (#6b7280), earthed (#22d3ee), fault (#ef4444)
+ *   energized (#4cc38a), de-energized (#6b7280), earthed (#22d3ee), fault (#f25c54)
  */
 
 import { Handle, Position } from "@xyflow/react";
@@ -41,8 +41,8 @@ export function CircuitBreakerNode({ data }: { data: CBNodeData }) {
         <line x1={20} y1={28} x2={20} y2={40} stroke={color} strokeWidth={2} />
       </svg>
       <div className="text-center mt-0.5">
-        <div className="text-[9px] font-mono font-bold" style={{ color }}>{label}</div>
-        <div className="text-[8px] font-mono" style={{ color: color + "99" }}>{state}</div>
+        <div className="text-xs font-mono font-bold" style={{ color }}>{label}</div>
+        <div className="text-xs font-mono" style={{ color: color + "99" }}>{state}</div>
       </div>
       <Handle type="source" position={Position.Bottom} className="!w-1.5 !h-1.5" style={{ background: color }} />
     </div>
@@ -79,8 +79,8 @@ export function DisconnectorNode({ data }: { data: DSNodeData }) {
         <line x1={20} y1={0} x2={20} y2={6} stroke={color} strokeWidth={2} />
       </svg>
       <div className="text-center mt-0.5">
-        <div className="text-[9px] font-mono font-bold" style={{ color }}>{label}</div>
-        <div className="text-[8px] font-mono" style={{ color: color + "99" }}>{state}</div>
+        <div className="text-xs font-mono font-bold" style={{ color }}>{label}</div>
+        <div className="text-xs font-mono" style={{ color: color + "99" }}>{state}</div>
       </div>
       <Handle type="source" position={Position.Bottom} className="!w-1.5 !h-1.5" style={{ background: color }} />
     </div>
@@ -120,8 +120,8 @@ export function EarthSwitchNode({ data }: { data: ESNodeData }) {
         <line x1={17} y1={38} x2={23} y2={38} stroke={color} strokeWidth={1} />
       </svg>
       <div className="text-center mt-0.5">
-        <div className="text-[9px] font-mono font-bold" style={{ color }}>{label}</div>
-        <div className="text-[8px] font-mono" style={{ color: color + "99" }}>{state}</div>
+        <div className="text-xs font-mono font-bold" style={{ color }}>{label}</div>
+        <div className="text-xs font-mono" style={{ color: color + "99" }}>{state}</div>
       </div>
       <Handle type="source" position={Position.Bottom} className="!w-1.5 !h-1.5" style={{ background: color }} />
     </div>
@@ -154,9 +154,9 @@ export function TransformerNode({ data }: { data: TXNodeData }) {
         <line x1={25} y1={44} x2={25} y2={56} stroke={color} strokeWidth={2} />
       </svg>
       <div className="text-center mt-0.5">
-        <div className="text-[9px] font-mono font-bold" style={{ color }}>{label}</div>
-        {rating && <div className="text-[7px] font-mono" style={{ color: color + "bb" }}>{rating}</div>}
-        <div className="text-[8px] font-mono" style={{ color: color + "99" }}>{state}</div>
+        <div className="text-xs font-mono font-bold" style={{ color }}>{label}</div>
+        {rating && <div className="text-xs font-mono" style={{ color: color + "bb" }}>{rating}</div>}
+        <div className="text-xs font-mono" style={{ color: color + "99" }}>{state}</div>
       </div>
       <Handle type="source" position={Position.Bottom} className="!w-1.5 !h-1.5" style={{ background: color }} />
     </div>
@@ -184,7 +184,7 @@ export function BusbarNode({ data }: { data: BusbarNodeData }) {
         <rect x={0} y={2} width={4} height={12} rx={1} fill={color} />
         <rect x={196} y={2} width={4} height={12} rx={1} fill={color} />
       </svg>
-      <div className="text-[10px] font-mono font-bold mt-1" style={{ color }}>
+      <div className="text-xs font-mono font-bold mt-1" style={{ color }}>
         {label}
       </div>
       <Handle type="source" position={Position.Bottom} className="!w-2 !h-2" style={{ background: color }} />
@@ -196,7 +196,7 @@ export function BusbarNode({ data }: { data: BusbarNodeData }) {
 // Protection / measurement / bay controller with LN count
 
 const ALARM_COLOR: Record<string, string> = {
-  CRITICAL: "#ef4444",
+  CRITICAL: "#f25c54",
   HIGH:     "#f97316",
   MEDIUM:   "#eab308",
   LOW:      "#38bdf8",
@@ -239,7 +239,7 @@ export function IEDNode({ data }: { data: IEDNodeData }) {
       {/* Alarm badge — top-right corner */}
       {alarmColor && (
         <span
-          className="absolute top-0.5 right-0.5 text-[9px] leading-none select-none"
+          className="absolute top-0.5 right-0.5 text-xs leading-none select-none"
           style={{ color: alarmColor }}
           title={alarmPriority}
         >
@@ -253,24 +253,24 @@ export function IEDNode({ data }: { data: IEDNodeData }) {
             style={{ backgroundColor: statusColor }}
           />
         )}
-        <div className="text-[10px] font-bold truncate" style={{ color: alarmColor ?? color }}>
+        <div className="text-xs font-bold truncate" style={{ color: alarmColor ?? color }}>
           {label}
         </div>
       </div>
-      <div className="text-[8px]" style={{ color: "#6b7490" }}>{lns} LNs</div>
+      <div className="text-xs" style={{ color: "#7189a0" }}>{lns} LNs</div>
 
       {/* Live turbine data block */}
       {hasLiveData && (
         <div className="mt-1 pt-1 border-t" style={{ borderColor: color + "33" }}>
-          <div className="flex justify-between text-[8px]">
-            <span style={{ color: "#6b7490" }}>Power</span>
-            <span className="tabular-nums font-medium" style={{ color: statusColor ?? "#e8eaf0" }}>
+          <div className="flex justify-between text-xs">
+            <span style={{ color: "#7189a0" }}>Power</span>
+            <span className="tabular-nums font-medium" style={{ color: statusColor ?? "#e4ecf3" }}>
               {(powerMW ?? 0).toFixed(1)} MW
             </span>
           </div>
-          <div className="flex justify-between text-[8px]">
-            <span style={{ color: "#6b7490" }}>Wind</span>
-            <span className="tabular-nums font-medium" style={{ color: "#e8eaf0" }}>
+          <div className="flex justify-between text-xs">
+            <span style={{ color: "#7189a0" }}>Wind</span>
+            <span className="tabular-nums font-medium" style={{ color: "#e4ecf3" }}>
               {(windMs ?? 0).toFixed(1)} m/s
             </span>
           </div>
@@ -278,7 +278,7 @@ export function IEDNode({ data }: { data: IEDNodeData }) {
           <div className="w-full h-1 bg-bg-tertiary rounded-full mt-0.5 overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${powerFraction * 100}%`, backgroundColor: statusColor ?? "#3ecf6e" }}
+              style={{ width: `${powerFraction * 100}%`, backgroundColor: statusColor ?? "#4cc38a" }}
             />
           </div>
         </div>

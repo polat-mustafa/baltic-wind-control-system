@@ -62,7 +62,7 @@ export default function CMSDashboard() {
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-xs font-semibold text-text-primary">Condition monitoring · ISO 13373 / ISO 13381-1</h3>
         <span className="flex-1" />
-        <button type="button" onClick={() => void fetchFleetHealth()} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-[11px] text-text-secondary hover:bg-bg-hover">
+        <button type="button" onClick={() => void fetchFleetHealth()} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-xs text-text-secondary hover:bg-bg-hover">
           <RefreshCw size={11} /> Refresh
         </button>
       </div>
@@ -85,7 +85,7 @@ export default function CMSDashboard() {
               const st = LEVEL_STYLE[a.alert_level];
               return (
                 <li key={a.id}>
-                  <button type="button" onClick={() => void fetchTurbineDetail(a.turbine_id)} className="w-full flex flex-wrap items-center gap-2 text-left text-[11px] hover:bg-bg-hover rounded px-1 py-0.5">
+                  <button type="button" onClick={() => void fetchTurbineDetail(a.turbine_id)} className="w-full flex flex-wrap items-center gap-2 text-left text-xs hover:bg-bg-hover rounded px-1 py-0.5">
                     <span className="w-16 text-center rounded-sm font-mono font-bold" style={{ background: st.bg, color: st.fg }}>
                       {a.alert_level}
                     </span>
@@ -105,7 +105,7 @@ export default function CMSDashboard() {
           <section className="bg-bg-secondary rounded-lg border border-border-primary p-3">
             <div className="flex items-center gap-2 mb-2">
               <h4 className="text-xs font-semibold text-text-primary">{selectedId} · component health</h4>
-              <span className="text-[11px] font-mono text-text-muted">overall HI {health.overall_health_index.toFixed(0)} (worst component)</span>
+              <span className="text-xs font-mono text-text-muted">overall HI {health.overall_health_index.toFixed(0)} (worst component)</span>
             </div>
             <div className="grid grid-cols-5 gap-1.5 mb-3">
               {health.components.map((x) => {
@@ -117,12 +117,12 @@ export default function CMSDashboard() {
                     onClick={() => setPfComponent(x.component)}
                     className={cn("rounded border p-1.5 text-left", pfComponent === x.component ? "border-accent" : "border-border-primary")}
                   >
-                    <div className="text-[10px] text-text-muted truncate">{label(x.component)}</div>
+                    <div className="text-xs text-text-muted truncate">{label(x.component)}</div>
                     <div className="flex items-baseline gap-1">
                       <span className="text-sm font-mono font-bold text-text-primary">{x.health_index.toFixed(0)}</span>
                       <span className="inline-block w-2 h-2 rounded-full border border-border-secondary" style={{ background: st.bg }} />
                     </div>
-                    <div className="text-[10px] font-mono text-text-muted leading-tight">
+                    <div className="text-xs font-mono text-text-muted leading-tight">
                       {x.component === "PITCH" || x.component === "YAW" ? "—" : `${x.vib_rms_mm_s.toFixed(1)} mm/s`}
                       <br />
                       {x.temp_celsius.toFixed(0)} °C · {x.rul_days > 3650 ? "> 10 y" : `${x.rul_days.toFixed(0)} d`}
@@ -176,10 +176,10 @@ export default function CMSDashboard() {
               <div>
                 <div className="flex flex-wrap items-baseline gap-2">
                   <h4 className="text-xs font-semibold text-text-primary">Hydraulic oil (pitch HPU) · ISO 4406</h4>
-                  <span className="text-[11px] font-mono text-text-secondary">
+                  <span className="text-xs font-mono text-text-secondary">
                     now {oil.current_iso_code} · limit {oil.target_iso_code}
                   </span>
-                  {oil.water_ingress_alert && <span className="text-[11px] font-semibold text-status-warning">water &gt; 200 ppm</span>}
+                  {oil.water_ingress_alert && <span className="text-xs font-semibold text-status-warning">water &gt; 200 ppm</span>}
                 </div>
                 <Plot
                   data={(
@@ -211,7 +211,7 @@ export default function CMSDashboard() {
                   useResizeHandler
                   style={{ width: "100%" }}
                 />
-                <p className="text-[11px] text-text-muted">
+                <p className="text-xs text-text-muted">
                   {oil.next_oil_change_recommendation} · viscosity {oil.history.at(-1)!.viscosity_cst.toFixed(0)} cSt (ISO VG 46) · water{" "}
                   {oil.history.at(-1)!.water_ppm.toFixed(0)} ppm
                 </p>
@@ -233,12 +233,12 @@ export default function CMSDashboard() {
                   <option value="MODERATE">Moderate · 2 HI/day</option>
                   <option value="SEVERE">Severe · 5 HI/day</option>
                 </select>
-                <button type="button" onClick={() => void injectFault({ component: pfComponent, severity })} className="h-7 px-3 rounded bg-accent text-white text-xs font-semibold hover:opacity-90">
+                <button type="button" onClick={() => void injectFault({ component: pfComponent, severity })} className="h-7 px-3 rounded bg-accent text-accent-ink text-xs font-semibold hover:opacity-90">
                   Inject
                 </button>
               </div>
-              {injection && <p className="mt-1.5 text-[11px] text-text-secondary">{injection.message}</p>}
-              <p className="mt-1 text-[11px] text-text-muted">
+              {injection && <p className="mt-1.5 text-xs text-text-secondary">{injection.message}</p>}
+              <p className="mt-1 text-xs text-text-muted">
                 The fault starts from today's health and progresses in real days; the P-F curve shows the projected crossing
                 times.
               </p>

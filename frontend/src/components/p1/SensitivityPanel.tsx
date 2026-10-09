@@ -35,7 +35,7 @@ function Slider({ label, value, min, max, step, unit, onChange }: SliderProps) {
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+        className="w-full h-1.5 bg-bg-hover rounded-lg appearance-none cursor-pointer accent-[var(--color-accent)]"
       />
     </div>
   );
@@ -114,8 +114,8 @@ export default function SensitivityPanel() {
               onClick={() => setActiveLayout(layout)}
               className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                 activeLayout === layout
-                  ? "bg-blue-600/20 text-blue-400 border border-blue-500/50"
-                  : "bg-bg-tertiary text-text-secondary border border-border-secondary hover:bg-slate-600"
+                  ? "bg-accent-muted text-accent border border-accent/50"
+                  : "bg-bg-tertiary text-text-secondary border border-border-secondary hover:bg-bg-hover"
               }`}
             >
               {layout.charAt(0).toUpperCase() + layout.slice(1)}

@@ -2,7 +2,7 @@
  * Chart palette for analytical (Plotly) charts — one set per app theme.
  *
  * Categorical slots validated with the dataviz palette checker against each
- * chart surface (storybook paper #f7edd4, HMI #0f1117): all-pairs CVD ΔE ≥ 9,
+ * chart surface (storybook paper #f7edd4, Baltic Night #0f1d2b): all-pairs CVD ΔE ≥ 9,
  * normal-vision ΔE ≥ 20. Light orange/aqua sit below 3:1 on paper, so charts
  * using them carry direct labels. Sequential = one hue (blue), light → dark
  * on paper and dark → light on the dark surface ("more" is always more ink).
@@ -44,15 +44,17 @@ const LIGHT: ChartPalette = {
 };
 
 const DARK: ChartPalette = {
-  blue: "#3987e5",
-  orange: "#d95926",
-  aqua: "#199e70",
-  yellow: "#c98500",
-  red: "#e66767",
-  seq: ["#184f95", "#1c5cab", "#2a78d6", "#5598e7", "#86b6ef", "#cde2fb"],
-  ink: "#e8eaf0",
-  ref: "rgba(232, 234, 240, 0.55)",
-  band: "rgba(232, 234, 240, 0.05)",
+  // Baltic Night: cyan · orange · periwinkle · mustard — validated on #0f1d2b
+  // (L 0.48–0.67, CVD ΔE ≥ 17.7, contrast ≥ 3:1). Slot names are historical.
+  blue: "#1a9fb1",
+  orange: "#d0712b",
+  aqua: "#6a80e0",
+  yellow: "#b08a1e",
+  red: "#e05a52",
+  seq: ["#0f3a46", "#12586a", "#17788c", "#1a9fb1", "#5cc3d2", "#a9e3eb"],
+  ink: "#e4ecf3",
+  ref: "rgba(228, 236, 243, 0.55)",
+  band: "rgba(228, 236, 243, 0.05)",
 };
 
 export function useChartPalette(): ChartPalette {

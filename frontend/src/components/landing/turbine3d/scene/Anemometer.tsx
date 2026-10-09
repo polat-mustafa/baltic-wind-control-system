@@ -13,7 +13,7 @@ interface AnemometerProps {
 
 export const Anemometer = memo(function Anemometer({ isSelected }: AnemometerProps) {
   const setSelectedPart = useLandingStore((s) => s.setSelectedTurbinePart);
-  const color = isSelected ? "#60a5fa" : "#9ca3af";
+  const color = isSelected ? "#5cc3d2" : "#9ca3af";
   const emissive = isSelected ? "#1d4ed8" : "#000000";
   const emissiveIntensity = isSelected ? 0.4 : 0;
 

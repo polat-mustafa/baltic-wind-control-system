@@ -27,7 +27,7 @@ const STATUS: Record<CheckStatus, { label: string; Icon: typeof CheckCircle2; cl
 export function StatusMark({ status }: { status: CheckStatus }) {
   const s = STATUS[status];
   return (
-    <span className={cn("inline-flex w-[4.5rem] shrink-0 items-center gap-1 text-[11px] font-semibold uppercase", s.cls)}>
+    <span className={cn("inline-flex w-[4.5rem] shrink-0 items-center gap-1 text-xs font-semibold uppercase", s.cls)}>
       <s.Icon size={13} aria-hidden />
       {s.label}
     </span>
@@ -60,8 +60,8 @@ function GridNodePicker() {
           </option>
         ))}
       </select>
-      {current && current.status !== "existing" && <span className="mt-1 block text-[11px] text-status-warning">{current.basis}</span>}
-      <span className="mt-1 block text-[10px] text-text-muted">Straight distance from the site centre; PSE 400 kV stations from OpenStreetMap and PSE's investment pages.</span>
+      {current && current.status !== "existing" && <span className="mt-1 block text-xs text-status-warning">{current.basis}</span>}
+      <span className="mt-1 block text-xs text-text-muted">Straight distance from the site centre; PSE 400 kV stations from OpenStreetMap and PSE's investment pages.</span>
       <GridSscInput key={report?.grid_node ?? ""} />
     </div>
   );
@@ -91,7 +91,7 @@ function GridSscInput() {
         />
         <span className="text-text-muted">MVA</span>
       </span>
-      <span className="mt-1 block text-[10px] text-text-muted">
+      <span className="mt-1 block text-xs text-text-muted">
         {ssc == null ? "Empty: an illustrative 10 000 MVA. " : `${(ssc / 1000).toFixed(1)} GVA in your project's grid studies. `}
         Enter the value of the TSO's connection conditions (PSE publishes no per-node values); {lo.toLocaleString("en")}–
         {hi.toLocaleString("en")} MVA, the upper bound being 63 kA at 400 kV.
@@ -221,7 +221,7 @@ export default function SiteReport() {
       <div className="rounded-lg border border-border-primary bg-bg-secondary">
         <div className="flex items-center justify-between border-b border-border-primary px-3 py-2">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Screening checklist</h3>
-          <span className={cn("text-[11px] font-medium", fails ? "text-status-alarm" : "text-text-muted")}>
+          <span className={cn("text-xs font-medium", fails ? "text-status-alarm" : "text-text-muted")}>
             {fails ? `${fails} blocking issue${fails > 1 ? "s" : ""}` : "no blocking issue"}
           </span>
         </div>
@@ -232,14 +232,14 @@ export default function SiteReport() {
               <div className="min-w-0">
                 <div className="font-medium text-text-primary">{c.title}</div>
                 <div className="text-text-secondary">{c.detail}</div>
-                {c.reference && <div className="mt-0.5 text-[10px] text-text-muted">{c.reference}</div>}
+                {c.reference && <div className="mt-0.5 text-xs text-text-muted">{c.reference}</div>}
               </div>
             </li>
           ))}
         </ul>
       </div>
       {!report.complete && (
-        <p className="text-[11px] text-status-warning">
+        <p className="text-xs text-status-warning">
           Some data layers are missing: checks marked "unknown" were not done.
         </p>
       )}

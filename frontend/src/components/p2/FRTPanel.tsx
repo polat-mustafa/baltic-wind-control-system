@@ -58,7 +58,7 @@ function Slider(props: {
   onChange: (v: number) => void;
 }) {
   return (
-    <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[9rem] flex-1">
+    <label className="flex flex-col gap-0.5 text-xs text-text-muted min-w-[9rem] flex-1">
       <span className="flex justify-between">
         {props.label}
         <span className="font-mono text-text-primary">{props.format(props.value)}</span>
@@ -131,14 +131,14 @@ export default function FRTPanel() {
               role="tab"
               aria-selected={frtType === k}
               onClick={() => setFrtType(k)}
-              className={`rounded px-2 py-1 text-[11px] font-medium ${frtType === k ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+              className={`rounded px-2 py-1 text-xs font-medium ${frtType === k ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
             >
               {k === "lvrt" ? "LVRT · fault" : "HVRT · swell"}
             </button>
           ))}
         </div>
         {frtType === "lvrt" && (
-          <label className="flex flex-col gap-0.5 text-[11px] text-text-muted">
+          <label className="flex flex-col gap-0.5 text-xs text-text-muted">
             Fault location
             <select
               value={frtParams.faultBus}
@@ -182,7 +182,7 @@ export default function FRTPanel() {
           format={(v) => v.toFixed(1)}
           onChange={(v) => setFrtParams({ kFactor: v })}
         />
-        {frtLoading && <span className="text-[11px] text-text-muted">simulating…</span>}
+        {frtLoading && <span className="text-xs text-text-muted">simulating…</span>}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_16rem] gap-3">

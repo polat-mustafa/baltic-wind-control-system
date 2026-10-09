@@ -46,7 +46,7 @@ export default function GOOSESimPanel() {
           className={cn("rounded-lg border p-3 bg-bg-secondary flex flex-col gap-2", selected === s.fault_type ? "border-accent" : "border-border-primary")}
         >
           <div className="text-xs font-semibold text-text-primary">{PROTECTION[s.fault_type] ?? s.fault_type}</div>
-          <p className="text-[11px] text-text-secondary flex-1">{s.description}</p>
+          <p className="text-xs text-text-secondary flex-1">{s.description}</p>
           <button
             type="button"
             disabled={loading}
@@ -54,7 +54,7 @@ export default function GOOSESimPanel() {
               setSelected(s.fault_type);
               void run();
             }}
-            className="self-start flex items-center gap-1 h-7 px-3 rounded bg-accent text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+            className="self-start flex items-center gap-1 h-7 px-3 rounded bg-accent text-accent-ink text-xs font-semibold hover:opacity-90 disabled:opacity-50"
           >
             <Zap size={11} /> Inject fault
           </button>
@@ -100,9 +100,9 @@ export default function GOOSESimPanel() {
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-xs font-semibold text-text-primary">{PROTECTION[result.fault_type] ?? result.fault_type}</h3>
         <InfoButton info={gooseSimInfo} />
-        <span className="text-[11px] text-text-secondary">{result.description}</span>
+        <span className="text-xs text-text-secondary">{result.description}</span>
         <span className="flex-1" />
-        <button type="button" onClick={clear} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-[11px] text-text-secondary hover:bg-bg-hover">
+        <button type="button" onClick={clear} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-xs text-text-secondary hover:bg-bg-hover">
           <X size={11} /> New scenario
         </button>
       </div>
@@ -116,9 +116,9 @@ export default function GOOSESimPanel() {
           ["Operator alarm", `${at(ev, "scada_alarm").toFixed(0)} ms`, "IEC 60870-5-104 — after the fault is gone", true],
         ].map(([label, value, sub, ok]) => (
           <div key={label as string} className="rounded-lg border border-border-primary bg-bg-secondary p-2.5">
-            <div className="text-[10px] uppercase tracking-wider text-text-muted">{label}</div>
+            <div className="text-xs uppercase tracking-wider text-text-muted">{label}</div>
             <div className="text-lg font-mono font-semibold text-text-primary">{value}</div>
-            <div className={cn("text-[11px]", ok ? "text-text-muted" : "text-status-alarm font-semibold")}>
+            <div className={cn("text-xs", ok ? "text-text-muted" : "text-status-alarm font-semibold")}>
               {ok ? sub : `NOT MET — ${sub}`}
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function GOOSESimPanel() {
         {/* Sequence of events */}
         <section className="rounded-lg border border-border-primary bg-bg-secondary p-3">
           <h4 className="text-xs font-semibold text-text-primary mb-1">Sequence of events</h4>
-          <table className="w-full text-[11px]">
+          <table className="w-full text-xs">
             <tbody>
               {ev.map((e) => (
                 <tr key={`${e.event_type}-${e.timestamp_ms}-${e.ied_name}`} className="border-t border-border-primary/60">
@@ -182,7 +182,7 @@ export default function GOOSESimPanel() {
         <section className="rounded-lg border border-border-primary bg-bg-secondary p-3 space-y-2">
           <h4 className="text-xs font-semibold text-text-primary">Published GOOSE PDU</h4>
           {pdu && (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[11px] font-mono">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs font-mono">
               <dt className="text-text-muted">gocbRef</dt>
               <dd className="text-text-primary break-all">{pdu.gocb_ref}</dd>
               <dt className="text-text-muted">datSet</dt>

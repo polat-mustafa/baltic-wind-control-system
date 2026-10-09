@@ -124,7 +124,7 @@ function ConnectedTurbineDetailPanel({
         <Suspense
           fallback={
             <div className="w-full h-full rounded-lg border border-border-primary bg-bg-secondary flex items-center justify-center">
-              <span className="text-[11px] text-text-muted font-mono">
+              <span className="text-xs text-text-muted font-mono">
                 Loading 3D viewer…
               </span>
             </div>
@@ -349,7 +349,7 @@ export default function LandingPage() {
           style={{ zIndex: 1002 }}
         >
           <Minimize2 size={13} />
-          <span className="text-[10px] font-medium">Exit</span>
+          <span className="text-xs font-medium">Exit</span>
         </button>
 
         {/* Map fills viewport — panels rendered after map, outside Leaflet DOM */}
@@ -390,7 +390,7 @@ export default function LandingPage() {
             <h2 className="text-base sm:text-lg font-semibold text-text-primary">
               Wind Farm Overview
             </h2>
-            <p className="text-[10px] text-text-muted font-mono">
+            <p className="text-xs text-text-muted font-mono">
               {farmTitle(fleet)} · {fleet.turbines.length} × {turbineLabel(fleet)} · Polish Baltic Sea · Live simulation
             </p>
           </div>
@@ -415,7 +415,7 @@ export default function LandingPage() {
                 )}
               >
                 <Icon size={13} className="text-accent" />
-                <span className="text-[10px] font-medium text-text-muted group-hover:text-text-primary">
+                <span className="text-xs font-medium text-text-muted group-hover:text-text-primary">
                   {link.label}
                 </span>
               </button>
@@ -429,7 +429,7 @@ export default function LandingPage() {
               className="flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-secondary px-2.5 py-1.5 transition-all duration-150 hover:border-border-secondary hover:bg-bg-hover"
             >
               <Zap size={13} className="text-status-warning" />
-              <span className="text-[10px] font-medium text-text-muted">Replay energisation</span>
+              <span className="text-xs font-medium text-text-muted">Replay energisation</span>
             </button>
           )}
 
@@ -446,7 +446,7 @@ export default function LandingPage() {
             )}
           >
             <Maximize2 size={13} className="text-accent" />
-            <span className="hidden sm:inline text-[10px] font-medium text-accent/80 group-hover:text-accent">
+            <span className="hidden sm:inline text-xs font-medium text-accent/80 group-hover:text-accent">
               Control Room
             </span>
           </button>

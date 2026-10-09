@@ -70,7 +70,7 @@ export default function SCLGeneratorPanel() {
             <h3 className="text-sm font-semibold text-text-primary">
               SCL Generator (IEC 61850-6)
             </h3>
-            <span className="text-[10px] text-text-muted font-mono uppercase tracking-wide">
+            <span className="text-xs text-text-muted font-mono uppercase tracking-wide">
               POST /scada/scl-generate
             </span>
           </div>
@@ -108,7 +108,7 @@ export default function SCLGeneratorPanel() {
                   {opt.label}
                 </span>
               </div>
-              <p className="mt-1 text-[10px] text-text-muted leading-snug">
+              <p className="mt-1 text-xs text-text-muted leading-snug">
                 {opt.help}
               </p>
             </label>
@@ -117,7 +117,7 @@ export default function SCLGeneratorPanel() {
 
         {fileType === "ICD" && (
           <div>
-            <label className="text-[10px] uppercase tracking-wide text-text-muted block mb-1">
+            <label className="text-xs uppercase tracking-wide text-text-muted block mb-1">
               IED Device Name
             </label>
             <input
@@ -155,7 +155,7 @@ export default function SCLGeneratorPanel() {
               Download
             </Button>
           </div>
-          <pre className="font-mono text-[10px] bg-bg-tertiary border border-border-primary rounded p-2 text-text-primary overflow-auto max-h-96">
+          <pre className="font-mono text-xs bg-bg-tertiary border border-border-primary rounded p-2 text-text-primary overflow-auto max-h-96">
             {result.xml_content}
           </pre>
         </div>

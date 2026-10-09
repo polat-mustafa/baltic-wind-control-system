@@ -1,7 +1,9 @@
 /**
  * Tests for SCADA color constants — ISA-101 compliance.
  *
- * Colors use ISA-101 muted tones (not pure RGB) for dark control room use.
+ * The constants are hex copies of the Baltic Night CSS tokens (SVG, canvas and
+ * Leaflet HTML strings cannot read CSS variables), so they must stay in sync
+ * with the @theme block of index.css.
  */
 
 import { describe, expect, it } from "vitest";
@@ -10,33 +12,33 @@ import {
   EQUIPMENT_STATE_COLOR,
   VOLTAGE_COLOR,
 } from "../../src/constants/scadaColors";
+import css from "../../src/index.css?raw";
+
+const theme = css.slice(css.indexOf("@theme {"), css.indexOf("}", css.indexOf("@theme {")));
+const token = (name: string) => theme.match(new RegExp(`--color-${name}:\\s*(#[0-9a-fA-F]{6})`))?.[1].toLowerCase();
 
 describe("SCADA_COLORS", () => {
-  it("defines all required equipment state colors", () => {
-    expect(SCADA_COLORS.ENERGIZED).toBe("#2E7D5B");
-    expect(SCADA_COLORS.DE_ENERGIZED).toBe("#8B8B8B");
-    expect(SCADA_COLORS.EARTHED).toBe("#7A4FB0");
-    expect(SCADA_COLORS.FAULT).toBe("#C8362D");
-    expect(SCADA_COLORS.WARNING).toBe("#C9A227");
+  it.each([
+    ["ENERGIZED", "status-normal"],
+    ["DE_ENERGIZED", "status-offline"],
+    ["EARTHED", "status-comms-loss"],
+    ["FAULT", "status-alarm"],
+    ["WARNING", "status-warning"],
+    ["ALARM_CRITICAL", "status-alarm"],
+    ["ALARM_HIGH", "status-warning"],
+    ["ALARM_MEDIUM", "status-info"],
+    ["ALARM_LOW", "status-offline"],
+    ["VOLTAGE_400KV", "voltage-400kv"],
+    ["VOLTAGE_220KV", "voltage-220kv"],
+    ["VOLTAGE_66KV", "voltage-66kv"],
+    ["VOLTAGE_NEUTRAL", "border-secondary"],
+  ] as const)("%s matches the --color-%s token", (key, name) => {
+    expect(token(name)).toBeDefined();
+    expect(SCADA_COLORS[key].toLowerCase()).toBe(token(name));
   });
 
-  it("defines all alarm priority colors", () => {
-    expect(SCADA_COLORS.ALARM_CRITICAL).toBe("#C8362D");
-    expect(SCADA_COLORS.ALARM_HIGH).toBe("#E5C100");
-    expect(SCADA_COLORS.ALARM_MEDIUM).toBe("#4FC3D8");
-    expect(SCADA_COLORS.ALARM_LOW).toBe("#5C7CB1");
-  });
-
-  it("defines all voltage level colors", () => {
-    expect(SCADA_COLORS.VOLTAGE_400KV).toBe("#B0413E");
-    expect(SCADA_COLORS.VOLTAGE_220KV).toBe("#4A6FA5");
-    expect(SCADA_COLORS.VOLTAGE_66KV).toBe("#B07B3E");
-    expect(SCADA_COLORS.VOLTAGE_NEUTRAL).toBe("#5A5F66");
-  });
-
-  it("is frozen (as const) — all values are string literals", () => {
-    const keys = Object.keys(SCADA_COLORS);
-    expect(keys.length).toBe(14);
+  it("avoids pure RGB primaries (ISA-101: no #FF0000 / #00FF00)", () => {
+    for (const c of Object.values(SCADA_COLORS)) expect(c.toUpperCase()).not.toMatch(/^#(FF0000|00FF00|0000FF)$/);
   });
 });
 

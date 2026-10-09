@@ -22,9 +22,9 @@ const SECTOR_DEG = 360 / SECTORS;
 // IEC 61400-1 wind-speed bins (m/s), inner → outer.
 const BINS = [
   { min: 0,  max: 5,  color: "#0ea5e9" },   // light
-  { min: 5,  max: 10, color: "#3ecf6e" },   // moderate
-  { min: 10, max: 15, color: "#f5a623" },   // strong
-  { min: 15, max: 25, color: "#ef4444" },   // gale
+  { min: 5,  max: 10, color: "#4cc38a" },   // moderate
+  { min: 10, max: 15, color: "#f0b13e" },   // strong
+  { min: 15, max: 25, color: "#f25c54" },   // gale
 ];
 
 // Climatology — frequency of each (sector, bin) for the Polish Baltic.
@@ -133,8 +133,8 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
         data-tour="wind-rose-collapsed"
         title="Open wind rose"
       >
-        <Wind size={12} className="text-cyan-400" />
-        <span className="text-[10px] font-mono text-text-secondary">Wind Rose</span>
+        <Wind size={12} className="text-accent" />
+        <span className="text-xs font-mono text-text-secondary">Wind Rose</span>
       </button>
     );
   }
@@ -153,7 +153,7 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
         >
           <div className="flex items-center gap-1">
             <GripVertical size={10} className="text-text-muted" />
-            <span className="text-[9px] text-text-muted font-mono uppercase tracking-widest">Wind Rose · illustrative</span>
+            <span className="text-xs text-text-muted font-mono uppercase tracking-widest">Wind Rose · illustrative</span>
           </div>
           <button
             onPointerDown={(e) => e.stopPropagation()}
@@ -168,7 +168,7 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
         <svg width="160" height="160" viewBox="-80 -80 160 160">
           {/* Backdrop circle + range rings */}
           {[20, 40, 60].map((r) => (
-            <circle key={r} cx={0} cy={0} r={r} fill="none" stroke="#1e2231" strokeWidth={0.4} strokeDasharray="2 2" />
+            <circle key={r} cx={0} cy={0} r={r} fill="none" stroke="#152637" strokeWidth={0.4} strokeDasharray="2 2" />
           ))}
 
           {/* Cardinal labels */}
@@ -188,7 +188,7 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
                 textAnchor="middle"
                 fill="#94a3b8"
                 fontSize="8"
-                fontFamily="JetBrains Mono, monospace"
+                fontFamily="IBM Plex Mono, monospace"
               >
                 {c.l}
               </text>
@@ -225,13 +225,13 @@ export const WindRoseWidget = memo(function WindRoseWidget() {
           <circle cx={0} cy={0} r={3} fill="#0a0d14" stroke="#475569" strokeWidth={0.8} />
         </svg>
         {/* Live readout */}
-        <div className="flex items-center justify-between text-[10px] font-mono px-1 pt-1">
+        <div className="flex items-center justify-between text-xs font-mono px-1 pt-1">
           <span className="text-text-muted">Now</span>
-          <span className="text-cyan-400 font-bold">{currentDir.toFixed(0)}°</span>
+          <span className="text-accent font-bold">{currentDir.toFixed(0)}°</span>
           <span className="text-text-muted">{cardinal(currentDir)}</span>
         </div>
         {/* Bin legend */}
-        <div className="flex items-center justify-between text-[8px] font-mono px-1 mt-1">
+        <div className="flex items-center justify-between text-xs font-mono px-1 mt-1">
           {BINS.map((b) => (
             <div key={b.min} className="flex items-center gap-0.5">
               <span className="w-1.5 h-1.5 rounded-sm" style={{ backgroundColor: b.color }} />

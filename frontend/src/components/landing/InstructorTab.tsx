@@ -25,7 +25,7 @@ const mmss = (ms: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 
-const btn = "rounded border border-border-primary px-2 py-1 text-[11px] font-semibold hover:bg-bg-hover";
+const btn = "rounded border border-border-primary px-2 py-1 text-xs font-semibold hover:bg-bg-hover";
 
 export default function InstructorTab() {
   const s = useInstructorStore();
@@ -61,7 +61,7 @@ export default function InstructorTab() {
       </div>
 
       <fieldset className="space-y-1.5 rounded border border-border-primary p-2">
-        <legend className="px-1 text-[11px] font-bold uppercase tracking-wide text-text-muted">Inject</legend>
+        <legend className="px-1 text-xs font-bold uppercase tracking-wide text-text-muted">Inject</legend>
         <div className="flex flex-wrap items-center gap-1">
           <select value={turbine} onChange={(e) => setTurbine(e.target.value)} className="rounded border border-border-primary bg-bg-secondary px-1 py-0.5" aria-label="Turbine">
             {fleet.turbines.map((t) => (
@@ -123,7 +123,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded border border-border-primary bg-bg-secondary px-1 py-0.5">
       <div className="font-mono text-[13px] font-bold tabular-nums">{value}</div>
-      <div className="text-[10px] font-semibold text-text-muted">{label}</div>
+      <div className="text-xs font-semibold text-text-muted">{label}</div>
     </div>
   );
 }
@@ -139,7 +139,7 @@ function PowerTrace({ samples, injections }: { samples: PlantSample[]; injection
   const d = samples.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.mw).toFixed(1)}`).join("");
   return (
     <figure className="bw-viz">
-      <figcaption className="flex justify-between text-[11px] font-bold">
+      <figcaption className="flex justify-between text-xs font-bold">
         <span>Farm output [MW]</span>
         <span className="font-mono tabular-nums">{samples[samples.length - 1].mw.toFixed(0)} MW</span>
       </figcaption>

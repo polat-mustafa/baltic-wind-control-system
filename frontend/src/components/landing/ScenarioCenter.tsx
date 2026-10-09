@@ -55,12 +55,12 @@ function Chart({ kind, traj, tS }: { kind: GridEventKind; traj: GridSample[]; tS
         <path
           d={line(traj.filter((_, i) => i % 5 === 0).map((p) => [x(p.t), y(lvrtLimit(p.t))]))}
           fill="none"
-          stroke="#ef4444"
+          stroke="#f25c54"
           strokeWidth={1}
           strokeDasharray="4 2"
         />
       )}
-      <path d={line(shown.map((p) => [x(p.t), yP(p.pMW)]))} fill="none" stroke="#3ecf6e" strokeWidth={1.4} />
+      <path d={line(shown.map((p) => [x(p.t), yP(p.pMW)]))} fill="none" stroke="#4cc38a" strokeWidth={1.4} />
       {dip && (
         <path
           d={line(shown.map((p) => [x(p.t), yP(p.qMVAr + p.statcomMVAr)]))}
@@ -69,10 +69,10 @@ function Chart({ kind, traj, tS }: { kind: GridEventKind; traj: GridSample[]; tS
           strokeWidth={1.2}
         />
       )}
-      <path d={line(shown.map((p) => [x(p.t), y(main(p))]))} fill="none" stroke="#60a5fa" strokeWidth={1.8} />
+      <path d={line(shown.map((p) => [x(p.t), y(main(p))]))} fill="none" stroke="#5cc3d2" strokeWidth={1.8} />
       <text x={2} y={H + 11} fontSize={8.5} fill="var(--color-text-muted)">
-        <tspan fill="#60a5fa">{dip ? "U [pu]" : "f [Hz]"}</tspan>
-        <tspan dx={8} fill="#3ecf6e">
+        <tspan fill="#5cc3d2">{dip ? "U [pu]" : "f [Hz]"}</tspan>
+        <tspan dx={8} fill="#4cc38a">
           P farm [MW]
         </tspan>
         {dip && (
@@ -81,7 +81,7 @@ function Chart({ kind, traj, tS }: { kind: GridEventKind; traj: GridSample[]; tS
           </tspan>
         )}
         {dip && (
-          <tspan dx={8} fill="#ef4444">
+          <tspan dx={8} fill="#f25c54">
             PSE LVRT
           </tspan>
         )}
@@ -106,7 +106,7 @@ function GridEventsTab() {
     report({ type: "grid-event", kind: k });
   };
   return (
-    <div className="space-y-2 px-3 py-2 text-[11px]">
+    <div className="space-y-2 px-3 py-2 text-xs">
       <div className="grid grid-cols-3 gap-1">
         {(
           [
@@ -122,7 +122,7 @@ function GridEventsTab() {
             className="rounded border border-border-primary bg-bg-secondary px-1.5 py-1 text-left hover:bg-bg-hover"
           >
             <div className="font-semibold text-text-primary">{a}</div>
-            <div className="text-[10px] text-text-muted">{b}</div>
+            <div className="text-xs text-text-muted">{b}</div>
           </button>
         ))}
       </div>
@@ -143,7 +143,7 @@ function GridEventsTab() {
       {ev && live ? (
         <>
           <Chart kind={ev.kind} traj={ev.traj} tS={live.tS} />
-          <div className="grid grid-cols-2 gap-x-3 font-mono text-[10.5px] tabular-nums">
+          <div className="grid grid-cols-2 gap-x-3 font-mono text-xs tabular-nums">
             {ev.kind === "voltage-dip" ? (
               <>
                 <span className="text-text-muted">U PCC</span>
@@ -172,7 +172,7 @@ function GridEventsTab() {
           </div>
         </>
       ) : (
-        <p className="text-[10.5px] leading-snug text-text-muted">
+        <p className="text-xs leading-snug text-text-muted">
           CE reference incident 3 GW (SOGL Art. 153): H = 5 s, 300 GW, FCR 3 GW at 200 mHz. Farm response per NC RfG
           Art. 15 (LFSM, droop 5 %) and FRT per the PSE LVRT envelope. Illustrative system parameters.
         </p>
@@ -186,8 +186,8 @@ function GridEventsTab() {
 /** Signature of each drill's event, drawn as a tiny trace on its card (x 0–100, y 0–30). */
 const PREVIEW: Record<string, { label: string; d: string; tone: string; icon: typeof Zap }> = {
   "cable-fault": { label: "string power", d: "M0 6 H38 L40 26 H64 L66 15 H100", tone: "#f59e0b", icon: Cable },
-  "turbine-fault": { label: "turbine power", d: "M0 8 C10 6 20 10 30 7 L34 26 H100", tone: "#ef4444", icon: Fan },
-  underfrequency: { label: "frequency", d: "M0 6 H20 C26 6 30 26 38 26 C48 26 56 16 70 15 H100", tone: "#60a5fa", icon: Activity },
+  "turbine-fault": { label: "turbine power", d: "M0 8 C10 6 20 10 30 7 L34 26 H100", tone: "#f25c54", icon: Fan },
+  underfrequency: { label: "frequency", d: "M0 6 H20 C26 6 30 26 38 26 C48 26 56 16 70 15 H100", tone: "#5cc3d2", icon: Activity },
   "voltage-dip": { label: "PCC voltage", d: "M0 5 H24 L26 24 H34 L42 9 C60 6 80 5 100 5", tone: "#a78bfa", icon: Zap },
 };
 
@@ -203,12 +203,12 @@ function ScenarioCard({ id, title, summary, steps, parS, best, onStart }: {
       className="group w-full rounded-lg border border-border-primary bg-bg-secondary p-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-lg"
     >
       <div className="flex items-start gap-2">
-        <span className="mt-0.5 rounded-md p-1.5" style={{ background: `${pv?.tone ?? "#60a5fa"}22` }}>
+        <span className="mt-0.5 rounded-md p-1.5" style={{ background: `${pv?.tone ?? "#5cc3d2"}22` }}>
           <Icon size={14} style={{ color: pv?.tone }} aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[12px] font-semibold text-text-primary">{title}</span>
-          <span className="block text-[10.5px] leading-snug text-text-muted">{summary}</span>
+          <span className="block text-xs leading-snug text-text-muted">{summary}</span>
         </span>
         {pv && (
           <svg viewBox="0 0 100 30" className="h-8 w-20 shrink-0" aria-hidden>
@@ -219,7 +219,7 @@ function ScenarioCard({ id, title, summary, steps, parS, best, onStart }: {
           </svg>
         )}
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px]">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1 text-xs">
         <span className="rounded-full border border-border-primary px-1.5 py-0.5 text-text-muted">{steps} steps</span>
         <span className="rounded-full border border-border-primary px-1.5 py-0.5 text-text-muted">par {parS} s</span>
         {pv && <span className="rounded-full border border-border-primary px-1.5 py-0.5 text-text-muted">watch: {pv.label}</span>}
@@ -266,7 +266,7 @@ function TrainingTab() {
   const step = sc.steps[t.stepIdx];
   const elapsed = Math.round((Date.now() - t.startedAt) / 1000);
   return (
-    <div className="space-y-2 px-3 py-2 text-[11px]">
+    <div className="space-y-2 px-3 py-2 text-xs">
       <div className="flex items-center justify-between">
         <span className="font-semibold text-text-primary">{sc.title}</span>
         <span className="font-mono text-text-muted">
@@ -280,13 +280,13 @@ function TrainingTab() {
             {t.result.timeS.toFixed(0)} s · {t.result.mistakes} mistake(s) · par {sc.parS} s
           </div>
           <p className="mt-1 leading-snug text-text-secondary">{sc.debrief}</p>
-          <div className="mt-1 text-[10px] text-text-muted">References: {sc.refs.join(" · ")}</div>
+          <div className="mt-1 text-xs text-text-muted">References: {sc.refs.join(" · ")}</div>
         </div>
       ) : (
         step && (
           <div className="rounded border border-border-primary bg-bg-secondary p-2">
             <p className="leading-snug text-text-primary">{typeof step.say === "function" ? step.say() : step.say}</p>
-            {step.hint && <p className="mt-1 text-[10.5px] text-text-muted">Hint: {step.hint}</p>}
+            {step.hint && <p className="mt-1 text-xs text-text-muted">Hint: {step.hint}</p>}
             {step.kind === "quiz" && (
               <div className="mt-1.5 space-y-1">
                 {step.options?.().map((o, i) => (
@@ -311,8 +311,8 @@ function TrainingTab() {
           .map((l) => (
             <div
               key={l.t + l.text}
-              className="text-[10.5px] leading-snug"
-              style={{ color: l.tone === "ok" ? "#3ecf6e" : l.tone === "error" ? "#ef4444" : "var(--color-text-muted)" }}
+              className="text-xs leading-snug"
+              style={{ color: l.tone === "ok" ? "#4cc38a" : l.tone === "error" ? "#f25c54" : "var(--color-text-muted)" }}
             >
               {l.text}
             </div>
@@ -359,7 +359,7 @@ export default function ScenarioCenter() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-md border border-border-secondary bg-bg-primary/90 px-2.5 py-1.5 text-[11px] font-medium text-text-primary hover:bg-bg-hover"
+        className="flex items-center gap-1.5 rounded-md border border-border-secondary bg-bg-primary/90 px-2.5 py-1.5 text-xs font-medium text-text-primary hover:bg-bg-hover"
         aria-expanded={open}
       >
         <GraduationCap size={14} />
@@ -367,7 +367,7 @@ export default function ScenarioCenter() {
       </button>
       {open && (
         <div className="mt-1.5 w-[340px] overflow-hidden rounded-lg border border-border-primary bg-bg-primary/95 shadow-lg shadow-black/30 backdrop-blur-sm">
-          <div className="flex items-center border-b border-border-primary/60 text-[11px]">
+          <div className="flex items-center border-b border-border-primary/60 text-xs">
             {(
               [
                 ["training", "Training"],

@@ -173,9 +173,9 @@ function AtmosphericPanes() {
 // 5 s tick and eased by CSS transitions / the Web Animations playback rate,
 // so a wind change never rebuilds 34 icons (which restarted every rotor).
 const STATUS_COLOR: Record<TurbineStatus, string> = {
-  operating: "#3ecf6e",
-  curtailed: "#f5a623",
-  fault: "#ef4444",
+  operating: "#4cc38a",
+  curtailed: "#f0b13e",
+  fault: "#f25c54",
   offline: "#8b93a7",
 };
 
@@ -210,7 +210,7 @@ function createTurbineIcon(status: TurbineStatus, shortId: string): L.DivIcon {
     <line x1="-4.5" y1="24" x2="4.5" y2="24" stroke="${color}" stroke-width="1" opacity="0.4"/>
     <g class="wtg-nacelle">
       <rect x="-2.5" y="-2.4" width="10.5" height="4.8" rx="2.2" fill="${color}" opacity="0.95"/>
-      <circle class="wtg-avlight" cx="5.8" cy="-3" r="0.9" fill="#ef4444" style="--av-delay:-${((Date.now() % 2000) / 1000).toFixed(2)}s"/>
+      <circle class="wtg-avlight" cx="5.8" cy="-3" r="0.9" fill="#f25c54" style="--av-delay:-${((Date.now() % 2000) / 1000).toFixed(2)}s"/>
     </g>
     <path class="wtg-pitch" d="" fill="none" stroke="#fbbf24" stroke-width="1" opacity="0.9"/>
     <g class="wtg-rotor">
@@ -219,9 +219,9 @@ function createTurbineIcon(status: TurbineStatus, shortId: string): L.DivIcon {
       <path d="${BLADE}" fill="${color}" opacity="0.9" transform="rotate(240)"/>
     </g>
     <circle r="2.1" fill="${color}"/>
-    <rect x="${-BAR_W / 2}" y="26" width="${BAR_W}" height="2.2" rx="0.6" fill="#1e2231" stroke="${color}" stroke-width="0.35" opacity="0.8"/>
+    <rect x="${-BAR_W / 2}" y="26" width="${BAR_W}" height="2.2" rx="0.6" fill="#152637" stroke="${color}" stroke-width="0.35" opacity="0.8"/>
     <rect class="wtg-power" x="${-BAR_W / 2}" y="26" width="${BAR_W}" height="2.2" rx="0.6" fill="${color}" opacity="0.85"/>
-    <text class="wtg-id" x="0" y="34.5" fill="#aab4c8" font-size="6.5" font-weight="600" font-family="JetBrains Mono, monospace" text-anchor="middle">${shortId}</text>
+    <text class="wtg-id" x="0" y="34.5" fill="#aab4c8" font-size="6.5" font-weight="600" font-family="IBM Plex Mono, monospace" text-anchor="middle">${shortId}</text>
   </svg>
   <span class="sr-only">Turbine WTG-${shortId}, ${status}</span>`;
 
@@ -416,7 +416,7 @@ const TurbineMarker = memo(function TurbineMarker({
               {turbine.id}
             </span>
             <span
-              className="flex items-center gap-1 text-[10px] font-medium"
+              className="flex items-center gap-1 text-xs font-medium"
               style={{ color: STATUS_COLOR[turbine.status] }}
             >
               <span
@@ -426,7 +426,7 @@ const TurbineMarker = memo(function TurbineMarker({
               {turbine.status}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-2 py-1.5 text-[10px]">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-2 py-1.5 text-xs">
             <div className="flex justify-between">
               <span className="text-text-muted">Power</span>
               <span className="text-text-primary font-mono tabular-nums">
@@ -463,10 +463,10 @@ const TurbineMarker = memo(function TurbineMarker({
 // geographic point + a label chip (tag / live value) to its right. HTML text
 // (not scaled SVG) keeps labels crisp at ≥ 9.5 px. Styles: `.eq-marker` in
 // index.css. Details live in the panels that open on click.
-const EQ_GREEN = "#3ecf6e";
-const EQ_INJECT = "#f5a623";
+const EQ_GREEN = "#4cc38a";
+const EQ_INJECT = "#f0b13e";
 const EQ_ABSORB = "#4FC3D8";
-const EQ_IDLE = "#9ba3b8";
+const EQ_IDLE = "#a3b6c8";
 
 /** Two-winding transformer (IEC 60617): LV circle left, HV circle right. */
 const transformerGlyph = (lv: string, hv: string) =>
@@ -606,8 +606,8 @@ function WindCompass() {
           cx={0}
           cy={0}
           r={32}
-          fill="rgba(15,17,23,0.85)"
-          stroke="#3d4560"
+          fill="rgba(10,21,32,0.85)"
+          stroke="#2c4760"
           strokeWidth={1}
         />
         <line
@@ -615,7 +615,7 @@ function WindCompass() {
           y1={-30}
           x2={0}
           y2={-24}
-          stroke="#ef4444"
+          stroke="#f25c54"
           strokeWidth={1.5}
         />
         <line x1={0} y1={30} x2={0} y2={24} stroke="#4a5568" strokeWidth={1} />
@@ -631,7 +631,7 @@ function WindCompass() {
         <text
           x={0}
           y={-20}
-          fill="#ef4444"
+          fill="#f25c54"
           fontSize={7}
           fontWeight="700"
           textAnchor="middle"
@@ -642,7 +642,7 @@ function WindCompass() {
         <text
           x={0}
           y={21}
-          fill="#6b7490"
+          fill="#7189a0"
           fontSize={6}
           textAnchor="middle"
           dominantBaseline="middle"
@@ -652,7 +652,7 @@ function WindCompass() {
         <text
           x={20}
           y={1}
-          fill="#6b7490"
+          fill="#7189a0"
           fontSize={6}
           textAnchor="middle"
           dominantBaseline="middle"
@@ -662,7 +662,7 @@ function WindCompass() {
         <text
           x={-20}
           y={1}
-          fill="#6b7490"
+          fill="#7189a0"
           fontSize={6}
           textAnchor="middle"
           dominantBaseline="middle"
@@ -675,12 +675,12 @@ function WindCompass() {
             y1={14}
             x2={0}
             y2={-14}
-            stroke="#3b82f6"
+            stroke="#45c8d9"
             strokeWidth={2}
             strokeLinecap="round"
           />
-          <polygon points="0,-17 -4,-10 4,-10" fill="#3b82f6" />
-          <circle cx={0} cy={0} r={2.5} fill="#3b82f6" opacity={0.6} />
+          <polygon points="0,-17 -4,-10 4,-10" fill="#45c8d9" />
+          <circle cx={0} cy={0} r={2.5} fill="#45c8d9" opacity={0.6} />
         </g>
         <text
           x={0}
@@ -688,7 +688,7 @@ function WindCompass() {
           fill="#94a3b8"
           fontSize={8}
           textAnchor="middle"
-          fontFamily="JetBrains Mono, monospace"
+          fontFamily="IBM Plex Mono, monospace"
         >
           {windCardinal} {kpis.averageWindSpeedMs.toFixed(1)} m/s
         </text>
@@ -705,9 +705,9 @@ function WindCompass() {
 // tree is the live fleet's (lib/fleet arraySegments): SB-510's strings end at
 // their southern turbine, which connects to the OSS.
 function loadColor(loadFrac: number): string {
-  if (loadFrac < 0.7) return "#3ecf6e";
-  if (loadFrac < 0.95) return "#f5a623";
-  return "#ef4444";
+  if (loadFrac < 0.7) return "#4cc38a";
+  if (loadFrac < 0.95) return "#f0b13e";
+  return "#f25c54";
 }
 
 /** A clicked array-cable segment: its string and the turbines it carries. */
@@ -795,7 +795,7 @@ function ArrayCables({
               positions={path}
               pathOptions={{
                 color: isFaulted
-                  ? "#ef4444"
+                  ? "#f25c54"
                   : dead
                     ? deadColor
                     : loadColor(loadFrac),
@@ -840,7 +840,7 @@ function ArrayCables({
                 offset={[0, -2]}
                 className="leaflet-cable-tooltip"
               >
-                <div className="text-[10px] font-mono text-text-secondary">
+                <div className="text-xs font-mono text-text-secondary">
                   <div
                     className="font-bold mb-0.5"
                     style={{ color: loadColor(loadFrac) }}
@@ -1035,7 +1035,7 @@ function ArrayCableCard({
     >
       <div className="flex items-start justify-between border-b border-border-primary/60 px-3 py-2">
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-text-muted">
+          <div className="text-xs uppercase tracking-wider text-text-muted">
             66 kV array cable · String S{seg.stringNumber} ({n} WTG)
           </div>
           <div className="font-mono text-xs font-semibold text-text-primary">
@@ -1051,7 +1051,7 @@ function ArrayCableCard({
           ×
         </button>
       </div>
-      <div className="flex justify-between gap-2 border-b border-border-primary/60 px-3 py-1 text-[11px]">
+      <div className="flex justify-between gap-2 border-b border-border-primary/60 px-3 py-1 text-xs">
         <button
           type="button"
           disabled={!towardOss}
@@ -1069,7 +1069,7 @@ function ArrayCableCard({
           next section out ▶
         </button>
       </div>
-      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 px-3 py-2 font-mono text-[11px] tabular-nums whitespace-nowrap">
+      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 px-3 py-2 font-mono text-xs tabular-nums whitespace-nowrap">
         <span className="text-text-muted">Load</span>
         <span className="text-right" style={{ color: loadColor(loadFrac) }}>
           {carriedMW.toFixed(1)} MW · {currentA.toFixed(0)} A ·{" "}
@@ -1089,14 +1089,14 @@ function ArrayCableCard({
         </span>
       </div>
       <div className="border-t border-border-primary/60 px-3 py-2">
-        <div className="mb-1 text-[10px] uppercase tracking-wider text-text-muted">
+        <div className="mb-1 text-xs uppercase tracking-wider text-text-muted">
           Carries power + fibre (SCADA / IEC 61850) of {feeds.length} WTG
         </div>
         <div className="flex flex-wrap gap-1">
           {feeds.map((t) => (
             <span
               key={t.id}
-              className="rounded border px-1.5 py-0.5 font-mono text-[10px] tabular-nums"
+              className="rounded border px-1.5 py-0.5 font-mono text-xs tabular-nums"
               style={{
                 borderColor: `${STATUS_COLOR[t.status]}80`,
                 color: STATUS_COLOR[t.status],
@@ -1106,7 +1106,7 @@ function ArrayCableCard({
             </span>
           ))}
         </div>
-        <p className="mt-1.5 text-[10px] leading-snug text-text-muted">
+        <p className="mt-1.5 text-xs leading-snug text-text-muted">
           Radial string: each segment carries every turbine beyond it. Feeder CB{" "}
           {bay} at the OSS 66 kV switchboard trips the whole string.
         </p>
@@ -1123,20 +1123,20 @@ function ArrayCableCard({
                 beyondIds: seg.feedIds,
               })
             }
-            className="w-full rounded border border-[#ef4444]/60 px-2 py-1 text-[11px] font-semibold text-[#ef4444] hover:bg-[#ef4444]/10"
+            className="w-full rounded border border-[#f25c54]/60 px-2 py-1 text-xs font-semibold text-[#f25c54] hover:bg-[#f25c54]/10"
           >
             Simulate cable fault on this section
           </button>
         )}
         {fault && !faultHere && (
-          <p className="text-[10px] text-text-muted">
+          <p className="text-xs text-text-muted">
             Cable fault active on string S{fault.stringNumber} — open that
             string to follow or restore it.
           </p>
         )}
         {faultHere && faultSeg && (
-          <div className="space-y-1 font-mono text-[10px] leading-snug">
-            <div className="text-[#ef4444]">
+          <div className="space-y-1 font-mono text-xs leading-snug">
+            <div className="text-[#f25c54]">
               t+0.1 s ·{" "}
               {faultHere.manual && faultHere.stage === "tripped"
                 ? "earth fault on string"
@@ -1152,17 +1152,17 @@ function ArrayCableCard({
                   const ok = isolateArrayFault(seg.key);
                   report({ type: "isolate", segmentKey: seg.key, ok });
                 }}
-                className="w-full rounded border border-[#f5a623]/70 px-2 py-1 font-sans text-[11px] font-semibold text-[#f5a623] hover:bg-[#f5a623]/10"
+                className="w-full rounded border border-[#f0b13e]/70 px-2 py-1 font-sans text-xs font-semibold text-[#f0b13e] hover:bg-[#f0b13e]/10"
               >
                 Open switch &amp; isolate this section ({seg.fromId}→{seg.toId})
               </button>
             ) : faultHere.stage === "tripped" ? (
-              <div className="text-[#f5a623]">
+              <div className="text-[#f0b13e]">
                 locating fault · isolating section… (≈ {isolateIn} s,
                 time-compressed)
               </div>
             ) : (
-              <div className="text-[#3ecf6e]">
+              <div className="text-[#4cc38a]">
                 {faultSeg.toId === "OSS"
                   ? "fault is on the feeder cable itself — the string stays off until repair"
                   : `switch at ${faultSeg.toId} opened, CB re-closed: ${faultHere.restorableIds.length} WTG back on line`}
@@ -1175,7 +1175,7 @@ function ArrayCableCard({
             <button
               type="button"
               onClick={restoreArrayFault}
-              className="mt-1 w-full rounded border border-[#3ecf6e]/60 px-2 py-1 font-sans text-[11px] font-semibold text-[#3ecf6e] hover:bg-[#3ecf6e]/10"
+              className="mt-1 w-full rounded border border-[#4cc38a]/60 px-2 py-1 font-sans text-xs font-semibold text-[#4cc38a] hover:bg-[#4cc38a]/10"
             >
               Repair cable & re-energise string
             </button>
@@ -1257,9 +1257,9 @@ function FoundationLayer() {
           center={[pos.lat, pos.lon]}
           radius={8}
           pathOptions={{
-            color: "#4a5580",
+            color: "#3a5874",
             weight: 1.5,
-            fillColor: "#1e2231",
+            fillColor: "#152637",
             fillOpacity: 0.6,
             interactive: false,
           }}

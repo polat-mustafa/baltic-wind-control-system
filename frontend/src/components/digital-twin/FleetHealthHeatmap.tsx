@@ -24,8 +24,8 @@ export default function FleetHealthHeatmap() {
   const { health_trend: ht, ambient } = analysis;
   const x = ht.timestamps.map(isoTime);
   const names = analysis.turbines.map((t) => t.name);
-  const neutralLo = paper ? "#d9c48f" : "#2d3348";
-  const neutralHi = paper ? "#f3e7c9" : "#4a5580";
+  const neutralLo = paper ? "#d9c48f" : "#1c3145";
+  const neutralHi = paper ? "#f3e7c9" : "#3a5874";
   const colorscale: [number, string][] = [
     [0, c.red],
     [0.399, c.red],

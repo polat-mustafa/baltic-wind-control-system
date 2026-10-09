@@ -59,8 +59,8 @@ export function Actor({
       </div>
       {showLabel && (
         <figcaption className="text-center leading-tight">
-          <span className="block text-[11px] font-semibold text-text-primary">{info.name}</span>
-          <span className="block max-w-[9rem] text-[10px] text-text-muted">{info.role}</span>
+          <span className="block text-xs font-semibold text-text-primary">{info.name}</span>
+          <span className="block max-w-[9rem] text-xs text-text-muted">{info.role}</span>
         </figcaption>
       )}
     </motion.figure>

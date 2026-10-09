@@ -63,7 +63,7 @@ export default function SequenceMission() {
       </p>
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Programme so far</h4>
+          <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">Programme so far</h4>
           {done.length === 0 ? (
             <p className="text-[12px] text-text-muted">No step yet.</p>
           ) : (
@@ -83,7 +83,7 @@ export default function SequenceMission() {
           )}
         </div>
         <div>
-          <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+          <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
             {remaining.length ? `Next step? (${mistakes} mistake${mistakes === 1 ? "" : "s"})` : "Done"}
           </h4>
           <div className="space-y-1.5">

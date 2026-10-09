@@ -58,7 +58,7 @@ export function AnnotationMarkerContent({ annotation, isSelected, onClick }: Ann
         style={{
           marginLeft: 6,
           fontSize: 13,
-          fontFamily: "JetBrains Mono, monospace",
+          fontFamily: "IBM Plex Mono, monospace",
           color: "#e2e8f0",
           whiteSpace: "nowrap",
           textShadow: "0 1px 3px rgba(0,0,0,0.9)",

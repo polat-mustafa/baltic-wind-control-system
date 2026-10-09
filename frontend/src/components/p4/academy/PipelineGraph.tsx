@@ -38,7 +38,7 @@ const EDGES: [TrainingStageKey, TrainingStageKey][] = [
   ["predict", "ensemble"],
 ];
 
-const LED = { pending: "#6b7280", running: "#f59e0b", done: "#22c55e", error: "#ef4444" } as const;
+const LED = { pending: "#6b7280", running: "#f59e0b", done: "#22c55e", error: "#f25c54" } as const;
 
 /** Orthogonal connector with rounded bends: right from a, vertical at mid-x, right into b. */
 function edgePath(a: TrainingStageKey, b: TrainingStageKey) {

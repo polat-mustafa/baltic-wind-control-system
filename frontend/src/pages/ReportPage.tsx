@@ -72,7 +72,7 @@ const STATUS_STYLE: Record<string, string> = {
   basin: "bg-red-100 text-red-800",
 };
 const Chip = ({ s }: { s: string }) => (
-  <span className={cn("inline-block rounded px-1.5 py-px font-sans text-[10px] font-semibold uppercase", STATUS_STYLE[s] ?? STATUS_STYLE.unknown)}>{s}</span>
+  <span className={cn("inline-block rounded px-1.5 py-px font-sans text-xs font-semibold uppercase", STATUS_STYLE[s] ?? STATUS_STYLE.unknown)}>{s}</span>
 );
 
 function Section({ n, title, children, action }: { n: number; title: string; children: ReactNode; action?: ReactNode }) {
@@ -104,7 +104,7 @@ const Facts = ({ rows }: { rows: [string, ReactNode][] }) => (
 function Table({ head, rows, right = [] }: { head: string[]; rows: ReactNode[][]; right?: number[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[420px] border-collapse font-sans text-[11px]">
+      <table className="w-full min-w-[420px] border-collapse font-sans text-xs">
         <thead>
           <tr className="border-b border-slate-400 text-left text-slate-600">
             {head.map((h, k) => (
@@ -388,14 +388,14 @@ export default function ReportPage() {
       <div className="print-doc mx-auto max-w-4xl" data-printing={printing ? "" : undefined}>
         <article className="rounded-md border border-slate-300 bg-white p-4 font-serif text-[13px] leading-relaxed text-slate-900 shadow-md sm:p-8">
           <header className="border-b-2 border-slate-800 pb-2">
-            <p className="font-sans text-[10px] uppercase tracking-widest text-slate-500">OffshoreForge · project report · training</p>
+            <p className="font-sans text-xs uppercase tracking-widest text-slate-500">OffshoreForge · project report · training</p>
             <h1 className="font-sans text-[20px] font-bold leading-tight">{name}</h1>
             <p className="text-[12px] text-slate-600">
               {rep.layout.turbines} × {rep.layout.turbine_model} = {fmt(rep.layout.capacity_mw)} MW · generated {rep.generated}
               {!reference && syncId ? ` · project ${syncId.slice(0, 8)}` : ""}
             </p>
           </header>
-          <p className="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 font-sans text-[11px] text-amber-900">{rep.note}</p>
+          <p className="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 font-sans text-xs text-amber-900">{rep.note}</p>
 
           <Section n={1} title="Site and screening checks">
             {rep.site ? (
@@ -436,7 +436,7 @@ export default function ReportPage() {
 
           <Section n={3} title="Layout">
             {turbines.length ? <MiniMap input={input} /> : <Muted>No turbines placed yet.</Muted>}
-            <p className="text-center font-sans text-[10px] text-slate-500">Dashed: site · dots: turbines · square: offshore substation · lines: array cables (red = over the largest section)</p>
+            <p className="text-center font-sans text-xs text-slate-500">Dashed: site · dots: turbines · square: offshore substation · lines: array cables (red = over the largest section)</p>
             <Facts
               rows={[
                 ["Turbines", `${rep.layout.turbines} × 15 MW = ${fmt(rep.layout.capacity_mw)} MW`],
@@ -472,9 +472,9 @@ export default function ReportPage() {
                 ],
               ]}
             />
-            <p className="text-[11px] text-slate-500">Wind: {rep.wind.source}.</p>
+            <p className="text-xs text-slate-500">Wind: {rep.wind.source}.</p>
             {e.uncertainty && (
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 Uncertainty (1σ of AEP, root-sum-square):{" "}
                 {e.uncertainty.components.map((c) => `${c.name} ${c.sigma_pct.toFixed(1)} % (${c.source})`).join("; ")}. P_xx = P50 · (1 − z·σ), z = 0.674 / 1.282.
               </p>
@@ -496,7 +496,7 @@ export default function ReportPage() {
             ) : (
               <Muted>{reference ? "Kept for saved own projects." : syncId ? "No stored runs yet — run PyWake." : "Save the project online to keep a history of PyWake runs."}</Muted>
             )}
-            <p className="text-[11px] text-slate-500">P50 / P90 after the P1 loss cascade (electrical 2 %, availability 5 %, environmental 1 %; no blockage in a stored run) and the uncertainty components of the farm (as above).</p>
+            <p className="text-xs text-slate-500">P50 / P90 after the P1 loss cascade (electrical 2 %, availability 5 %, environmental 1 %; no blockage in a stored run) and the uncertainty components of the farm (as above).</p>
           </Section>
 
           <Section n={5} title="Suggested turbine moves (PyWake-checked)" action={runButton("moves", "Find moves", runMoves, turbines.length < 2)}>
@@ -517,7 +517,7 @@ export default function ReportPage() {
                   ])}
                 />
                 {rep.moves.every((m) => !m.confirmed) && (
-                  <p className="text-[11px] text-slate-500">PyWake confirms none: single moves are worth tenths of a percent, below the screening model's accuracy.</p>
+                  <p className="text-xs text-slate-500">PyWake confirms none: single moves are worth tenths of a percent, below the screening model's accuracy.</p>
                 )}
               </>
             ) : (
@@ -553,7 +553,7 @@ export default function ReportPage() {
                 ) : (
                   <Muted>Full-load load flow not run yet (pandapower, 0.95–1.05 p.u. band).</Muted>
                 )}
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Design rules: backend network_model.design(); load flow with pandapower, reactors switched as an operator would. The
                   string plan here is the electrical design&apos;s; the layout section shows the Layout page&apos;s cable routing.
                 </p>
@@ -576,7 +576,7 @@ export default function ReportPage() {
                 ["LCOE = (CAPEX·CRF + OPEX) / AEP", fmt(rep.cost.lcoe_eur_mwh, 0, "€/MWh")],
               ]}
             />
-            <p className="text-[11px] text-slate-500">Source: {rep.cost.source}. Energy basis: {e.basis}.</p>
+            <p className="text-xs text-slate-500">Source: {rep.cost.source}. Energy basis: {e.basis}.</p>
           </Section>
 
           <Section n={8} title="Construction campaign" action={runButton("build", "Simulate", runBuild)}>

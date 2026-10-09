@@ -88,13 +88,13 @@ export function EquipmentPanel({
               {tag}
             </h2>
             <span
-              className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+              className="shrink-0 rounded px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider"
               style={{ backgroundColor: `${status.color}26`, color: status.color }}
             >
               {status.label}
             </span>
           </div>
-          <p className="mt-0.5 text-[11px] leading-snug text-text-muted">
+          <p className="mt-0.5 text-xs leading-snug text-text-muted">
             {subtitle}
           </p>
         </div>
@@ -124,7 +124,7 @@ export function EquipmentPanel({
             </button>
           )}
           {footnote && (
-            <p className="mt-2 text-center text-[10px] leading-relaxed text-text-muted">
+            <p className="mt-2 text-center text-xs leading-relaxed text-text-muted">
               {footnote}
             </p>
           )}
@@ -146,10 +146,10 @@ export function PanelSection({
   return (
     <section className="border-b border-border-primary/60 px-4 py-3 last:border-b-0">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+        <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
           {title}
         </h3>
-        {aside && <div className="text-[10px] text-text-muted">{aside}</div>}
+        {aside && <div className="text-xs text-text-muted">{aside}</div>}
       </div>
       {children}
     </section>
@@ -178,7 +178,7 @@ export function DataRow({
         style={{ color: color ?? "var(--color-text-primary)" }}
       >
         {value}
-        {unit && <span className="ml-1 text-[10px] text-text-muted">{unit}</span>}
+        {unit && <span className="ml-1 text-xs text-text-muted">{unit}</span>}
       </span>
     </div>
   );
@@ -198,7 +198,7 @@ export function HeroValue({
 }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
         {caption}
       </div>
       <div

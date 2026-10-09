@@ -19,7 +19,7 @@ export default function AuditTrail({ programme }: { programme: ProgrammeDetail }
       <CardContent className="p-0">
         <div className="max-h-[640px] overflow-auto">
           <table className="w-full min-w-[720px] text-xs">
-            <thead className="sticky top-0 bg-bg-tertiary text-left text-[10px] uppercase tracking-wide text-text-muted">
+            <thead className="sticky top-0 bg-bg-tertiary text-left text-xs uppercase tracking-wide text-text-muted">
               <tr>
                 <th className="px-4 py-2 font-medium">Time (local)</th>
                 <th className="px-3 py-2 font-medium">Step</th>
@@ -37,7 +37,7 @@ export default function AuditTrail({ programme }: { programme: ProgrammeDetail }
                     <td className="px-3 py-1.5 font-mono text-text-secondary">{r.step_id || "—"}</td>
                     <td className={cn("px-3 py-1.5", refused ? "text-status-alarm" : "text-text-primary")}>{r.action}</td>
                     <td className="px-3 py-1.5 text-text-secondary">{r.performed_by}</td>
-                    <td className="px-4 py-1.5 font-mono text-[11px] text-text-muted">{r.details}</td>
+                    <td className="px-4 py-1.5 font-mono text-xs text-text-muted">{r.details}</td>
                   </tr>
                 );
               })}

@@ -17,7 +17,7 @@ import type { FarmAEPResult } from "../../types/farmComparison";
 import { EducationButton } from "../ui/EducationButton";
 
 const LOSS_COLORS = {
-  wake: "#ef4444",
+  wake: "#f25c54",
   blockage: "#f97316",
   electrical: "#eab308",
   availability: "#a855f7",
@@ -100,7 +100,7 @@ function MetricBars({
             className="absolute top-0 bottom-0 border-l-2 border-dashed border-status-warning pointer-events-none"
             style={{ left: `calc((100% - 4.5rem) * ${reference.value / max})` }}
           >
-            <span className="absolute -top-4 -translate-x-1/2 whitespace-nowrap text-[10px] text-status-warning">
+            <span className="absolute -top-4 -translate-x-1/2 whitespace-nowrap text-xs text-status-warning">
               {reference.label}
             </span>
           </div>
@@ -142,7 +142,7 @@ export default function FarmComparisonResultsPanel() {
             >
               <Award size={18} style={{ color: FARM_COLORS[names.indexOf(w.farm) % FARM_COLORS.length] }} />
               <div className="min-w-0">
-                <div className="text-[10px] text-text-muted">{w.label}</div>
+                <div className="text-xs text-text-muted">{w.label}</div>
                 <div className="text-sm font-semibold text-text-primary truncate">{w.farm}</div>
               </div>
             </motion.div>
@@ -188,9 +188,9 @@ export default function FarmComparisonResultsPanel() {
               );
             })}
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-text-secondary">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-xs text-text-secondary">
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-4 rounded-sm bg-linear-to-r from-[#60a5fa] to-[#3ecf6e]" /> Net (delivered)
+              <span className="h-2.5 w-4 rounded-sm bg-linear-to-r from-[#5cc3d2] to-[#4cc38a]" /> Net (delivered)
             </span>
             {(Object.keys(LOSS_COLORS) as LossKey[]).map((k) => (
               <span key={k} className="flex items-center gap-1.5 capitalize">
@@ -198,7 +198,7 @@ export default function FarmComparisonResultsPanel() {
               </span>
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-text-muted">
+          <p className="mt-2 text-xs text-text-muted">
             Losses are multiplicative: each acts on the energy left after the previous one. Wake from PyWake BPA
             Gaussian on the farm's grid; blockage Nygaard (2020); electrical loss is energy-weighted over the year.
           </p>
@@ -220,7 +220,7 @@ export default function FarmComparisonResultsPanel() {
             />
             <MetricBars title="Project IRR (unlevered, flat price)" unit="%" values={lcoe.map((l) => l.irr_pct)} names={names} best="max" digits={1} />
           </div>
-          <p className="mt-4 text-[11px] text-text-muted">
+          <p className="mt-4 text-xs text-text-muted">
             LCOE below the price line means the farm earns more per MWh than it costs over its life. IRR below the WACC says the same thing the other way round: the project does not earn its cost of capital at this price. P90 (bank case) is
             ≈ 8.8 % below P50 at the 6.9 % combined (RSS) uncertainty.
           </p>
@@ -269,7 +269,7 @@ export default function FarmComparisonResultsPanel() {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-[11px] text-text-muted">
+          <p className="mt-3 text-xs text-text-muted">
             Screening model — reactive capability and NC RfG compliance need a load flow (see P2 HV Grid). Export
             circuits assume 1000 mm² Cu XLPE (R_ac 0.023 Ω/km, 190 nF/km), unity power factor at the POC.
           </p>

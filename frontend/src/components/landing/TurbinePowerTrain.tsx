@@ -33,9 +33,9 @@ import {
 import type { TurbineStatus } from "../../types/landing";
 import { V236, V236_ETA, v236PowerChain } from "../../utils/landingPhysics";
 
-const WARN = "#f5a623";
-const ALARM = "#ef4444";
-const ACCENT = "#3b82f6";
+const WARN = "#f0b13e";
+const ALARM = "#f25c54";
+const ACCENT = "#45c8d9";
 
 /** Parts not on the main chain, still clickable for their education card. */
 const OTHER_PARTS: TurbinePartId[] = [
@@ -116,7 +116,7 @@ function Stage({
     >
       <span
         className="flex size-7 items-center justify-center rounded-md bg-bg-tertiary"
-        style={{ color: edge ?? "#9ba3b8" }}
+        style={{ color: edge ?? "#a3b6c8" }}
       >
         <Icon size={15} strokeWidth={1.75} />
       </span>
@@ -124,7 +124,7 @@ function Stage({
         <span className="block truncate text-xs font-medium text-text-primary">
           {title}
         </span>
-        <span className="block truncate font-mono text-[11px] tabular-nums text-text-muted">
+        <span className="block truncate font-mono text-xs tabular-nums text-text-muted">
           {detail}
         </span>
       </span>
@@ -132,11 +132,11 @@ function Stage({
         {power && (
           <span className="block font-mono text-xs font-medium tabular-nums text-text-primary">
             {power}
-            <span className="ml-0.5 text-[10px] text-text-muted">MW</span>
+            <span className="ml-0.5 text-xs text-text-muted">MW</span>
           </span>
         )}
         {loss && (
-          <span className="block font-mono text-[10px] tabular-nums text-text-muted">
+          <span className="block font-mono text-xs tabular-nums text-text-muted">
             −{mw(loss.mw)}
             {loss.eta !== undefined && ` · η ${(loss.eta * 100).toFixed(1)}%`}
           </span>
@@ -281,7 +281,7 @@ export default function TurbinePowerTrain({
       </div>
 
       <div className="mt-3">
-        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+        <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
           Other components
         </div>
         <div className="flex flex-wrap gap-1">
@@ -295,7 +295,7 @@ export default function TurbinePowerTrain({
                 onClick={() => onPartClick?.(id)}
                 title={title}
                 aria-pressed={activePart === id}
-                className="rounded-md border px-2 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/60 hover:text-text-primary"
+                className="rounded-md border px-2 py-0.5 text-xs text-text-secondary transition-colors hover:border-accent/60 hover:text-text-primary"
                 style={{
                   borderColor: color ?? "var(--color-border-primary)",
                   color: color ?? undefined,
@@ -312,7 +312,7 @@ export default function TurbinePowerTrain({
         </div>
       </div>
       {status === "fault" || status === "offline" ? (
-        <p className="mt-2 text-[11px] text-text-muted">
+        <p className="mt-2 text-xs text-text-muted">
           Rotor stopped, blades feathered (90°) — no power flow.
         </p>
       ) : null}

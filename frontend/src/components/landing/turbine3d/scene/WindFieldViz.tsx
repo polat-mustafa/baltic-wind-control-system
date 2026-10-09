@@ -59,7 +59,7 @@ function TipSpeedGauge({
   const mach = tipSpeed / 340;  // speed of sound at sea level
   return (
     <Html position={[0, ROTOR_RADIUS + 6, 0]} center>
-      <div className="text-[10px] font-mono font-semibold text-text-primary bg-bg-secondary/90 px-2 py-1 rounded border border-border-primary whitespace-nowrap leading-tight">
+      <div className="text-xs font-mono font-semibold text-text-primary bg-bg-secondary/90 px-2 py-1 rounded border border-border-primary whitespace-nowrap leading-tight">
         <div>|ΩR| = {tipSpeed.toFixed(0)} m/s</div>
         <div>λ = {tsr.toFixed(1)}</div>
         <div>Mach {mach.toFixed(2)}</div>

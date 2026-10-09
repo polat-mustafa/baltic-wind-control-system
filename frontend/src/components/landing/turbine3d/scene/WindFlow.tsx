@@ -258,7 +258,7 @@ export const WindFlow = memo(function WindFlow({
             <div className="text-[12px] font-bold text-status-warning">
               In the wake of {waked.id} · {waked.dist.toFixed(1)} D upstream
             </div>
-            <div className="text-[11px] font-semibold text-text-primary">
+            <div className="text-xs font-semibold text-text-primary">
               wind −{(waked.deficit * 100).toFixed(0)} % · power ≈ −{((1 - (1 - waked.deficit) ** 3) * 100).toFixed(0)} %
               {waked.ti > 0.001 ? ` · TI +${(waked.ti * 100).toFixed(1)} pts` : " · wake edge"}
             </div>

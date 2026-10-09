@@ -151,7 +151,7 @@ export default function HandoverPage() {
                 )}
               </div>
               <p className="mt-1 text-text-primary">{m.takes}</p>
-              <p className="mt-0.5 text-[11px] text-text-muted">{m.note}</p>
+              <p className="mt-0.5 text-xs text-text-muted">{m.note}</p>
             </div>
           ))}
         </div>
@@ -169,7 +169,7 @@ export default function HandoverPage() {
             </li>
           ))}
         </ol>
-        <p className="mt-1 text-[10px] text-text-muted">
+        <p className="mt-1 text-xs text-text-muted">
           Condensed from the P5 switching programme (S-001 … S-030); practise it in the Academy energisation mission.
         </p>
       </section>

@@ -42,7 +42,7 @@ export default function ValidationPanel() {
           ["False events", `${v.false_events}`],
         ].map(([k, val]) => (
           <div key={k} className="rounded-md bg-bg-tertiary/70 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-text-muted">{k}</div>
+            <div className="text-xs uppercase tracking-wider text-text-muted">{k}</div>
             <div className="font-mono text-base font-semibold tabular-nums text-text-primary">{val}</div>
           </div>
         ))}
@@ -55,7 +55,7 @@ export default function ValidationPanel() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-xs">
             <thead>
-              <tr className="border-b border-border-primary text-left text-[10px] uppercase tracking-wider text-text-muted">
+              <tr className="border-b border-border-primary text-left text-xs uppercase tracking-wider text-text-muted">
                 <th className="py-2 pr-3 font-medium">Turbine</th>
                 <th className="py-2 pr-3 font-medium">Injected fault</th>
                 <th className="py-2 pr-3 font-medium">Onset</th>

@@ -31,7 +31,7 @@ export function ViewerLegend({ turbineId }: ViewerLegendProps) {
           key={label}
           className="flex flex-col items-center bg-bg-secondary/80 backdrop-blur-sm rounded-md px-2 py-1 border border-border-primary min-w-[48px]"
         >
-          <span className="text-[10px] text-text-muted font-mono uppercase tracking-wider leading-3">
+          <span className="text-xs text-text-muted font-mono uppercase tracking-wider leading-3">
             {label}
           </span>
           <span className="text-[12px] text-text-primary font-mono font-semibold leading-4 tabular-nums">

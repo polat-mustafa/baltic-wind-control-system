@@ -67,7 +67,7 @@ export default function VibrationPanel() {
         </select>
         <span className="flex-1" />
         {vibration && zone && (
-          <span className="text-[11px] font-mono text-text-secondary">
+          <span className="text-xs font-mono text-text-secondary">
             overall <b className="text-text-primary">{vibration.overall_rms_mm_s.toFixed(2)} mm/s</b> · zone {zone.label} · Δf {vibration.resolution_hz.toFixed(3)} Hz
           </span>
         )}
@@ -121,7 +121,7 @@ export default function VibrationPanel() {
       ) : (
         <div className="flex items-center justify-center h-48 text-xs text-text-muted">{loading ? "Loading spectrum…" : "No spectrum"}</div>
       )}
-      <p className="text-[11px] text-text-muted mt-1">
+      <p className="text-xs text-text-muted mt-1">
         Dotted lines: kinematic and electrical frequencies at rated speed (rotor 7.56 rpm, direct drive, 200 poles). A
         defect shows as a peak at its frequency and harmonics; rotor eccentricity raises 2·f_e with ±1× sidebands. Roller
         counts are assumed values, not OEM data.

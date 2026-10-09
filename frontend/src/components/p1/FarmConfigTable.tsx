@@ -115,7 +115,7 @@ export default function FarmConfigTable() {
         {GROUPS.map((g) => (
           <tbody key={g.title}>
             <tr>
-              <th colSpan={farms.length + 1} className="px-2 pt-3 pb-1 text-left text-[11px] font-semibold text-text-secondary border-b border-border-primary/60">
+              <th colSpan={farms.length + 1} className="px-2 pt-3 pb-1 text-left text-xs font-semibold text-text-secondary border-b border-border-primary/60">
                 {g.title}
               </th>
             </tr>
@@ -150,7 +150,7 @@ export default function FarmConfigTable() {
           </tbody>
         ))}
       </table>
-      <p className="px-2 py-2 text-[11px] text-text-muted">
+      <p className="px-2 py-2 text-xs text-text-muted">
         Coloured inputs differ from the first design. Hover a row label for what it means physically.
       </p>
     </div>

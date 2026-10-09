@@ -31,7 +31,7 @@ export default function AlarmTicker() {
     <div
       className="pointer-events-auto rounded-md border px-2 py-1.5 backdrop-blur-sm"
       style={{
-        backgroundColor: "rgba(15,17,23,0.9)",
+        backgroundColor: "rgba(10,21,32,0.9)",
         borderColor: faultedTurbines.length > 0 ? "rgba(239,68,68,0.3)" : "rgba(107,116,144,0.3)",
         maxWidth: 360,
       }}
@@ -43,7 +43,7 @@ export default function AlarmTicker() {
               className="w-1.5 h-1.5 rounded-full animate-pulse"
               style={{ backgroundColor: SCADA_COLORS.FAULT }}
             />
-            <span className="text-[9px] font-mono uppercase tracking-wider" style={{ color: SCADA_COLORS.FAULT }}>
+            <span className="text-xs font-mono uppercase tracking-wider" style={{ color: SCADA_COLORS.FAULT }}>
               Active Faults ({totalFaults})
             </span>
           </div>
@@ -58,11 +58,11 @@ export default function AlarmTicker() {
                     className="w-1 h-1 rounded-full animate-pulse"
                     style={{ backgroundColor: SCADA_COLORS.FAULT }}
                   />
-                  <span className="text-[10px] font-mono font-medium" style={{ color: SCADA_COLORS.FAULT }}>
+                  <span className="text-xs font-mono font-medium" style={{ color: SCADA_COLORS.FAULT }}>
                     {t.id}
                   </span>
                   {category && (
-                    <span className="text-[9px] text-text-muted truncate">
+                    <span className="text-xs text-text-muted truncate">
                       {category.label}
                     </span>
                   )}
@@ -70,7 +70,7 @@ export default function AlarmTicker() {
               );
             })}
             {totalFaults > 5 && (
-              <div className="text-[9px] text-text-muted font-mono">
+              <div className="text-xs text-text-muted font-mono">
                 +{totalFaults - 5} more
               </div>
             )}
@@ -86,9 +86,9 @@ export default function AlarmTicker() {
           )}
           <Link
             to="/scada"
-            className="flex items-center gap-1.5 text-[9px] font-mono text-amber-400 hover:text-amber-300 transition-colors"
+            className="flex items-center gap-1.5 text-xs font-mono text-status-warning hover:text-text-primary transition-colors"
           >
-            <span className="w-1 h-1 rounded-full bg-amber-400" />
+            <span className="w-1 h-1 rounded-full bg-status-warning" />
             {scadaAlarmCount} SCADA alarm{scadaAlarmCount !== 1 ? "s" : ""} active →
           </Link>
         </>

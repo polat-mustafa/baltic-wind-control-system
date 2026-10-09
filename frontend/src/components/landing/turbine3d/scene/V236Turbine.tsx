@@ -159,7 +159,7 @@ function NacelleFrame({ selectedPart }: { selectedPart: TurbinePartId | null }) 
       {model.bedplate && (
         <mesh geometry={model.bedplate} name="bedplate" castShadow receiveShadow onClick={pick("bedplate")}>
           <meshStandardMaterial
-            color={selectedPart === "bedplate" ? "#60a5fa" : "#5b6b7a"}
+            color={selectedPart === "bedplate" ? "#5cc3d2" : "#5b6b7a"}
             metalness={0.3}
             roughness={0.55}
           />
@@ -169,7 +169,7 @@ function NacelleFrame({ selectedPart }: { selectedPart: TurbinePartId | null }) 
         <mesh geometry={model.converter} name="converter" castShadow onClick={pick("converter")}>
           <meshStandardMaterial
             vertexColors
-            color={selectedPart === "converter" ? "#60a5fa" : "#ffffff"}
+            color={selectedPart === "converter" ? "#5cc3d2" : "#ffffff"}
             metalness={0.5}
             roughness={0.4}
           />

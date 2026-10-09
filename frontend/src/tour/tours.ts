@@ -136,7 +136,7 @@ const controlRoom: Tour = {
       target: "theme-toggle",
       title: "Two looks",
       body:
-        "Control room is the high-performance HMI palette operators use; Storybook is a lighter palette for " +
+        "The moon is the dark control-room palette operators use; the sun is the lighter storybook palette for " +
         "teaching and presentations. The data is the same.",
     },
     {

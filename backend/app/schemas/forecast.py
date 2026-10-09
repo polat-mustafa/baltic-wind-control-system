@@ -717,6 +717,8 @@ class RealModelScoreSchema(BaseModel):
 class RealDataSourceSchema(BaseModel):
     """Provenance of the real data set."""
 
+    site: str
+    title: str
     production: str
     nwp: str
     farms: list[str]

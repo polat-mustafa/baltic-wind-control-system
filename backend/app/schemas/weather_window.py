@@ -47,12 +47,25 @@ class AccessProbabilityResponse(BaseModel):
     )
 
 
+class SeaIceClimate(BaseModel):
+    """Sea-ice days per winter at the site (satellite, NOAA OISST)."""
+
+    source: str
+    ice_days_by_winter: dict[str, int]
+    winters: int
+    winters_with_ice: int
+    mean_ice_days: float = Field(description="Mean ice days per winter [d]")
+    note: str
+
+
 class AllVesselAccessResponse(BaseModel):
     """Access probabilities for all vessel types — used for O&M planning matrix."""
 
     location: str
     year: int
     vessels: list[AccessProbabilityResponse]
+    hindcast: str = Field("", description="Source of the measured sea states behind the access")
+    sea_ice: SeaIceClimate | None = None
 
 
 class MaintenanceWindowRequest(BaseModel):

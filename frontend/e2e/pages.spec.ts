@@ -98,10 +98,9 @@ for (const [name, path] of ROUTES) {
       await page.waitForTimeout(800);
       await expect(page).toHaveScreenshot(`${name}-${theme}.png`, {
         fullPage: false,
-        // live values: clock, KPIs, map tiles and the simulated farm move every tick
+        // live values: clock, KPIs and the simulated farm move every tick
         mask: [
           page.locator("header"),
-          page.locator(".leaflet-container"),
           page.locator("canvas"), // WebGL map and charts draw live values
           page.locator("[class*='tabular-nums'], .font-mono"),
           page.locator("[data-e2e-mask]"), // database-backed lists

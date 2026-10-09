@@ -396,7 +396,7 @@ export default function LayoutPage() {
             />
           </Suspense>
           <p className="text-xs text-text-muted">
-            Click a turbine for its card; drag it to see the farm AEP change live. Turbine IDs appear from zoom 12.
+            Click a turbine for its card; drag it to see the farm AEP change live. Turbine IDs appear from zoom 11.
           </p>
           <WatchOut text="Wake losses grow quickly below about 5 D downwind; a tight layout gains megawatts on paper and loses them in energy. Drag a turbine and watch the farm AEP change in its card." />
           <LayoutChecklist

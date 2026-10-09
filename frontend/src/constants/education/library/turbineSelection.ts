@@ -37,7 +37,6 @@ export const turbineSelectionEducation: EducationContent = {
     {
       label: "IEC 61400-1 — Wind turbines: Design requirements",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "IEC 61400-3-1 — Design requirements for offshore wind turbines",
@@ -95,7 +94,8 @@ export const turbineSelectionEducation: EducationContent = {
       ],
       result:
         "The V236-class turbine is selected. At 34 turbines it exactly fills the 510 MW PSE connection agreement slot, " +
-        "it uses the same foundation geometry as Baltic Power (copying structural designs), and Vestas has a " +
+        "the supply chain, installation vessels and PSE grid-code experience of Baltic Power carry over (foundations stay " +
+        "site-specific: SB-510's 37–51 m depths point to jackets), and Vestas has a " +
         "European manufacturing footprint (blades in Szczecin, Poland from 2026).",
     },
   ],
@@ -108,15 +108,16 @@ export const turbineSelectionEducation: EducationContent = {
         "ongoing 2025–2026. First commercial power expected Q2 2026. This project provides direct cost benchmarks, " +
         "installation vessel availability, and grid-code compliance data for SB-510.",
       takeaway:
-        "Having a reference project with the same turbine model 60 km to the west substantially de-risks the " +
-        "turbine selection — foundation loads, cable schedules, and grid-code submissions are directly transferable.",
+        "Having a reference project with the same turbine model further east along the same coast (off Łeba) de-risks the " +
+        "turbine selection — vessels, port logistics and the grid-code compliance route are proven; foundation " +
+        "and load calculations still have to be redone for this site.",
     },
     {
       title: "Bałtyk 2 & 3 (Poland) — ~1.4 GW, SG 14-236 DD",
       description:
         "Equinor + Polenergia projects using the competing direct-drive machine. Offshore construction started " +
         "January 2026. The SG 14-236 DD is technically equivalent but uses a different drive-train philosophy " +
-        "(no gearbox) and was not yet PSE pre-qualified when Baltic Power made its turbine selection.",
+        "(no gearbox).",
       takeaway:
         "Both machines are viable for Polish Baltic conditions. V236 was selected here specifically because " +
         "Baltic Power's ongoing project provides an immediately transferable reference data set.",
@@ -137,7 +138,6 @@ export const turbineSelectionEducation: EducationContent = {
     {
       label: "IEC 61400-12-1: Power performance measurements — standard overview",
       type: "website",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
   ],
 

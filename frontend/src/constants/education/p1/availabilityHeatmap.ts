@@ -27,12 +27,10 @@ export const availabilityHeatmapEducation: EducationContent = {
     {
       label: "IEC 61400-26-1 — Availability for wind energy generation systems",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "IEC TS 61400-26-3 — Availability for wind power stations",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
   ],
 

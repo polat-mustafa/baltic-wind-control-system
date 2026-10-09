@@ -18,20 +18,26 @@ The cubic wind-speed dependence P = ½ρACp(λ,β)v³ means that temporal
 correlations in wind speed create complex, non-linear power sequences
 that tabular models (XGBoost) cannot natively capture.
 
-Standard — IEC 61400-26-1 Uncertainty & MC Dropout
-----------------------------------------------------
-IEC 61400-26-1 requires uncertainty quantification for power predictions.
-MC Dropout (Gal & Ghahramani, 2016) provides a principled Bayesian
-approximation: running T stochastic forward passes with dropout active
-produces an ensemble of predictions whose statistics estimate:
+Forecast uncertainty — MC Dropout
+------------------------------------
+No IEC standard prescribes how a power forecast states its uncertainty;
+the verification practice comes from the forecasting literature (Madsen et
+al. 2005; Gneiting & Raftery 2007). MC Dropout (Gal & Ghahramani, 2016) is
+an approximate Bayesian method: T stochastic forward passes with dropout
+active give an ensemble whose statistics estimate
   - Mean: E[P(t)] ≈ (1/T) Σ ŷ_t  — central forecast
-  - Variance: Var[P(t)] ≈ (1/T) Σ (ŷ_t - μ)²  — epistemic uncertainty
+  - Variance: Var[P(t)] ≈ (1/T) Σ (ŷ_t - μ)²  — epistemic (model) uncertainty
   - Quantiles: P10 = μ - 1.2816σ, P90 = μ + 1.2816σ  (Gaussian z-scores)
 
-This maps directly to operational decision-making:
-  - P90: Conservative estimate for grid commitment
-  - P50: Central forecast for energy trading
-  - P10: Optimistic estimate for maintenance scheduling
+Limits worth knowing: dropout spread is epistemic only — it ignores the
+irreducible (aleatoric) scatter of the wind itself — and the Gaussian band
+is symmetric while power is bounded at 0 and Prated. MC-dropout bands are
+therefore usually too narrow; check them with the P10–P90 coverage
+(target 80 %) before trusting them.
+
+P10/P50/P90 are QUANTILES (P90 = the high side, exceeded one time in ten),
+not the exceedance levels of energy-yield work, where P90 is the low,
+bankable value. Same name, opposite tail.
 
 Maths — LSTM Cell Equations
 -----------------------------
@@ -62,7 +68,8 @@ References
 ----------
 - Hochreiter & Schmidhuber, "Long Short-Term Memory" (Neural Computation, 1997)
 - Gal & Ghahramani, "Dropout as a Bayesian Approximation" (ICML 2016)
-- IEC 61400-26-1: Time-based availability for wind turbines
+- Madsen et al., Wind Engineering 29(6), 2005 — forecast evaluation protocol
+- Gneiting & Raftery, JASA 102(477), 2007 — proper scoring rules, quantiles
 - Roadmap §5.8: LSTM model, §5.11: Skill score
 """
 
@@ -77,6 +84,7 @@ from numpy.lib.stride_tricks import sliding_window_view
 from numpy.typing import NDArray
 from sklearn.model_selection import TimeSeriesSplit
 
+from app.services.p4.model_evaluation import skill_score_from_squared_errors
 from app.services.p4.physical_constraints import enforce_physical_constraints
 from app.services.p4.training_progress import PROGRESS
 
@@ -176,7 +184,7 @@ class LSTMCVResult:
         Mean R² across all folds.
     skill_score_vs_persistence : float
         Skill score vs persistence baseline.
-        SS = 1 - RMSE_model / RMSE_persistence. SS > 0 = model wins.
+        SS = 1 - MSE_model / MSE_persistence on the test samples. SS > 0 = model wins.
     architecture_summary : str
         Human-readable description of the LSTM architecture.
     """
@@ -530,13 +538,6 @@ def _compute_metrics(
     )
 
 
-def _compute_persistence_rmse(target: NDArray[np.float64]) -> float:
-    """Compute RMSE for persistence baseline: P(t+1) = P(t)."""
-    if len(target) < 2:
-        return 0.0
-    return float(np.sqrt(np.mean((target[1:] - target[:-1]) ** 2)))
-
-
 def _train_single_fold(
     x_train: torch.Tensor,
     y_train: torch.Tensor,
@@ -658,6 +659,8 @@ def train_lstm(
     # TimeSeriesSplit cross-validation
     tscv = TimeSeriesSplit(n_splits=config.n_cv_splits)
     fold_metrics_list: list[LSTMFoldMetrics] = []
+    model_sq: list[float] = []  # squared errors on every test sample [MW²]
+    persistence_sq: list[float] = []  # same samples, persistence P̂(t) = P(t−1)
     last_model: WindPowerLSTM | None = None
 
     for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_seq)):
@@ -695,6 +698,9 @@ def train_lstm(
         # Denormalize for metrics
         y_pred_mw = _denormalize_power(y_pred_norm, norm_params)
         y_true_mw = _denormalize_power(y_test_np, norm_params)
+        y_prev_mw = _denormalize_power(y_seq[test_idx - 1], norm_params)  # test_idx ≥ 1 always
+        model_sq.extend((y_true_mw - y_pred_mw) ** 2)
+        persistence_sq.extend((y_true_mw - y_prev_mw) ** 2)
 
         metrics = _compute_metrics(y_true_mw, y_pred_mw, fold_idx, actual_epochs)
         fold_metrics_list.append(metrics)
@@ -710,8 +716,7 @@ def train_lstm(
     mean_r2 = float(np.mean([m.r_squared for m in fold_metrics_list]))
 
     # Skill score vs persistence
-    persistence_rmse = _compute_persistence_rmse(target_power_mw)
-    skill_score = 1.0 - mean_rmse / persistence_rmse if persistence_rmse > 0 else 0.0
+    skill_score = skill_score_from_squared_errors(model_sq, persistence_sq)
 
     h1, h2 = config.hidden_units
     arch_summary = (

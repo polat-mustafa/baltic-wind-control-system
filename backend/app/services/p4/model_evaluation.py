@@ -157,12 +157,15 @@ def compute_skill_score(
     actual: NDArray[np.float64],
     predicted: NDArray[np.float64],
 ) -> float:
-    """Skill score vs persistence baseline.
+    """Skill score vs one-step persistence, the platform's single definition.
 
-    SS = 1 - MSE_model / MSE_persistence
+    SS = 1 - MSE_model / MSE_persistence      (MSE skill score, Murphy 1988)
 
-    Persistence forecast: P(t+1) = P(t). Uses actual[:-1] as the
-    persistence prediction for actual[1:].
+    Persistence forecast: P̂(t) = P(t−1). Both errors are taken on the same
+    samples actual[1:] — the first sample has no persistence forecast.
+    The same formula scores the cross-validation folds
+    (``skill_score_from_squared_errors``) and the real-data day-ahead check
+    (there against 24 h persistence, see ``real_data``).
 
     SS > 0 → model beats persistence
     SS = 0 → model equals persistence
@@ -172,14 +175,20 @@ def compute_skill_score(
     """
     if len(actual) < 2:
         return 0.0
+    return skill_score_from_squared_errors(
+        (actual[1:] - predicted[1:]) ** 2, (actual[1:] - actual[:-1]) ** 2
+    )
 
-    # Persistence: previous value predicts next value
-    persist_pred = actual[:-1]
-    persist_actual = actual[1:]
 
-    mse_persist = float(np.mean((persist_actual - persist_pred) ** 2))
-    mse_model = float(np.mean((actual - predicted) ** 2))
-
+def skill_score_from_squared_errors(
+    model_sq: NDArray[np.float64] | list[float],
+    persistence_sq: NDArray[np.float64] | list[float],
+) -> float:
+    """SS = 1 − mean(model_sq) / mean(persistence_sq), on the same samples [MW²]."""
+    if len(persistence_sq) == 0:
+        return 0.0
+    mse_persist = float(np.mean(persistence_sq))
+    mse_model = float(np.mean(model_sq))
     if mse_persist == 0.0:
         return 1.0 if mse_model == 0.0 else 0.0
     return 1.0 - mse_model / mse_persist

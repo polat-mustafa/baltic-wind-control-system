@@ -108,6 +108,7 @@ Citation rules used here:
 
 | Topic | Implementation | Reference |
 |---|---|---|
+| **Real data**: transmission lines ≥ 220 kV and HVDC links (SwePol) on the screening map, coloured by voltage — OpenStreetMap prebuilt for PyPSA-Eur | `scripts/fetch_marine_layers.py` (`grid_lines`) | Xiong et al. 2025, Zenodo 10.5281/zenodo.18619025 (ODbL) |
 | Territorial sea (12 nm) and EEZ | `services/site_assessment/criteria.py` | [S25] |
 | Marine spatial plans (wind farm areas) | `services/site_assessment/data/` | [S26] |
 | Natura 2000 appropriate assessment trigger | `services/site_assessment/assess.py` | [S27] |

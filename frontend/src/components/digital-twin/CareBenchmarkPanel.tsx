@@ -29,15 +29,16 @@ export default function CareBenchmarkPanel() {
   const [data, setData] = useState<CareBenchmark | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pick, setPick] = useState<number | null>(null);
+  const [farm, setFarm] = useState("b");
 
   useEffect(() => {
-    getCareBenchmark()
+    getCareBenchmark(farm)
       .then((d) => {
         setData(d);
         setPick(d.events.find((e) => e.label === "anomaly" && e.alarm)?.event_id ?? d.events[0]?.event_id ?? null);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [farm]);
 
   if (error) return <p className="text-sm text-status-alarm">Benchmark failed: {error}</p>;
   if (!data) return <p className="text-sm text-text-muted">Loading the real-data benchmark…</p>;
@@ -49,24 +50,55 @@ export default function CareBenchmarkPanel() {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border-primary bg-bg-secondary p-4 text-sm text-text-secondary">
-        <p className="text-text-primary">
-          The twin&apos;s detector on <b>real offshore SCADA with recorded faults</b> — CARE to Compare, Wind Farm B
-          (offshore wind farm in Germany, anonymised, 10-min data, 257 channels).
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-text-primary">
+            The twin&apos;s detector on <b>real offshore SCADA with recorded faults</b> — CARE to Compare, Wind Farm{" "}
+            {data.farm} (offshore wind farm in Germany, anonymised, 10-min data) — <i>{data.role}</i>.
+          </p>
+          {data.available_farms.length > 1 && (
+            <div role="radiogroup" aria-label="Wind farm" className="flex gap-1">
+              {data.available_farms.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  role="radio"
+                  aria-checked={f === farm}
+                  onClick={() => setFarm(f)}
+                  className={`rounded border px-2 py-0.5 text-xs font-semibold ${f === farm ? "border-accent bg-accent/15 text-text-primary" : "border-border-primary text-text-secondary hover:bg-bg-hover"}`}
+                >
+                  Farm {f.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <p className="mt-1">
           Per temperature channel a normal-behaviour model learns the bearing / gearbox / transformer temperature from
           power, wind, ambient temperature and rotor speed on a normal training year; the residual runs through the{" "}
           <b>same EWMA chart as the live twin</b> (λ {data.settings.ewma_lambda}, L {data.settings.ewma_L},{" "}
-          {data.settings.persistence_samples} samples persistence), with each limit widened until the newest 20 % of the
-          training year (normal by definition) raises no alarm. Nothing is tuned on the fault labels.
+          {data.settings.persistence_samples} samples persistence). Phase I scores each quarter of the normal training
+          year with a model of the other three and widens each limit until that year raises no alarm. Nothing is
+          tuned on the fault labels; Farm C was run once with the method fixed on Farm B.
         </p>
         <p className="mt-1">
           Finding: at the live twin&apos;s own limit the detector caught {data.summary_live_limit.detected} /{" "}
-          {s.anomaly_events} faults but alarmed in {data.summary_live_limit.false_alarms} / {s.normal_events} normal
-          periods; Phase I widening gives {s.detected} / {s.anomaly_events} and {s.false_alarms} / {s.normal_events}.
-          Real SCADA drifts more than the simulator — a fleet would retrain the normal-behaviour models seasonally and
+          {s.anomaly_events} faults and alarmed in {data.summary_live_limit.false_alarms} / {s.normal_events} normal
+          periods. With the Phase I calibration it catches {s.detected} / {s.anomaly_events} with {s.false_alarms} /{" "}
+          {s.normal_events} false alarms
+          {data.summary_v1 &&
+            ` (the first, one-season calibration gave ${data.summary_v1.detected} / ${s.anomaly_events} and ${data.summary_v1.false_alarms} / ${s.normal_events})`}
+          . Real SCADA drifts more than the simulator; a fleet would also retrain the normal-behaviour models and
           rationalise alarms (ISA-18.2) before handing them to operators.
         </p>
+        {s.detected / s.anomaly_events - s.false_alarms / s.normal_events < 0.25 && (
+          <p className="mt-1 text-status-warning">
+            Held-out verdict: detection rate {Math.round((100 * s.detected) / s.anomaly_events)} % against a false-alarm
+            rate of {Math.round((100 * s.false_alarms) / s.normal_events)} % — close to chance. Most faults here are
+            pitch, converter and communication faults that a temperature-only model cannot see, and environment
+            channels (nacelle outside temperature) raise alarms of their own. Reported as measured, not re-tuned on
+            these labels.
+          </p>
+        )}
         <div className="mt-2 text-xs">
           <SourceBadge p={{ source: data.source, license: "CC BY-SA 4.0", quality: "measured" }} />
         </div>

@@ -759,3 +759,22 @@ def test_grid_node_over_the_api() -> None:
     assert {n["status"] for n in data["grid_nodes"]} == {"existing", "commissioning", "planned"}
     bad = client.post(f"{API}/assess", json={**body, "grid_node": "Nowhere"})
     assert bad.status_code == 422
+
+
+def test_pack_carries_the_real_transmission_grid() -> None:
+    """OSM lines ≥ 220 kV (PyPSA-Eur prebuild) incl. the SwePol HVDC landing at Słupsk."""
+    import json
+
+    pack = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "app/services/site_assessment/data/southern_baltic.json"
+        ).read_text(encoding="utf-8")
+    )
+    grid = next(lyr for lyr in pack["layers"] if lyr["id"] == "grid_lines")
+    assert grid["role"] == "grid" and grid["geometry"] == "line" and "ODbL" in grid["license"]
+    kv = {f["voltage_kv"] for f in grid["features"]}
+    assert {220.0, 400.0} <= kv
+    hvdc = [f for f in grid["features"] if f["kind"] == "HVDC link"]
+    # SwePol: Wierzbięcino (Słupsk) 54.5 °N 16.9 °E ↔ Stärnö (SE)
+    assert any(abs(f["coordinates"][0][1] - 54.5) < 0.1 for f in hvdc)

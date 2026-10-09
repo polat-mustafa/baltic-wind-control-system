@@ -312,6 +312,10 @@ export interface CareEvent {
 }
 
 export interface CareBenchmark {
+  farm: string;
+  role: string;
+  available_farms: string[];
+  summary_v1: { detected: number; false_alarms: number; median_warning_days: number } | null;
   source: string;
   settings: Record<string, number | string>;
   summary: {
@@ -326,6 +330,6 @@ export interface CareBenchmark {
 }
 
 /** The twin's detector on real offshore SCADA with recorded faults (bundled result). */
-export function getCareBenchmark(): Promise<CareBenchmark> {
-  return request(`${BASE}/real-data/care`);
+export function getCareBenchmark(farm = "b"): Promise<CareBenchmark> {
+  return request(`${BASE}/real-data/care?farm=${encodeURIComponent(farm)}`);
 }

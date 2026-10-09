@@ -212,6 +212,30 @@ Phase 13 follow-ups (owner's decision 2026-10-08: re-route with real data, finis
   cache key `wake-cluster-v2`. New deps: h5netcdf ≥ 1.8, pyfive ≥ 1.2.
 - e2e: the landing map, Grid, Commissioning, Site & Permits, Wind Resource (O&M tab) change their look.
 
+## Evidence programme (owner decisions 2026-10-10 — do not re-ask)
+
+Review verdict 7/10: strong engineering and tooling, weak evidence. PR #264 (merged) fixed the blank
+Print/PDF, the P4 IEC 61400-26-1 misattribution, the forecast-vs-yield P90 confusion, the skill-score split,
+stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources. Next, in this order:
+
+- **B1 — measured wake validation (approved):** PyWake's measured Horns Rev 1 and Lillgrund data
+  (DTU GitLab `TOPFARM/PyWake`, `py_wake/validation/data`, MIT) committed with its licence and attribution;
+  our NOJ / BPA / TurbOPark set-ups scored against the measured row power ratios (RMSE per row and direction).
+- **B2 — P2 analytic checks as tests:** ωCU²L charging, Ferranti 1/cos βl, LFSM-O hand formula vs ANDES,
+  IEC TR 60909-4 example networks.
+- **B3 — P4 real data only:** drop the synthetic SCADA forecast path; train and score on measured data
+  (ENTSO-E File Library already in use, PR #262). Day-ahead metrics: CRPS, P10–P90 coverage,
+  reliability diagram, skill vs 24 h persistence and climatology.
+- **B4 — "Evidence" page** in the app generated from test results (what was validated, against what,
+  metric, value, test file).
+- **B5 — guards:** numbers quoted in education prose checked against the backend; weekly DOI / link check.
+- **Still to audit line by line:** `turbinePartEducation.ts`, `tours.ts`, Academy courses.
+- **AI tutor (after B):** OpenRouter-style OpenAI-compatible API with cheap models, the user brings their
+  own key (kept server-side per session, never in localStorage); look into linking existing subscriptions.
+  Context = current page + panel numbers; physics questions go to backend calculators as tools; browser
+  Web Speech API for the microphone; an eval set before release.
+- **Rejected for now:** learner paths, hosted demo, pilot study (old "Faz C").
+
 ## Resume here
 
 1. The own-project programme is a PR stack, one branch per phase, each based on the one before it

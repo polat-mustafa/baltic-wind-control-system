@@ -1,17 +1,14 @@
 /**
- * The Control Room map: the MapLibre + deck.gl map (ControlRoomMap) where the
- * browser has WebGL, the classic Leaflet map otherwise — or when the user
- * opens it for a layer that has not moved over yet (layerStore.classicMap).
- * A WebGL failure at runtime also falls back to the classic map.
+ * The Control Room map (MapLibre + deck.gl, ControlRoomMap), loaded lazily.
+ * It needs WebGL: without it, or when the GPU context fails at runtime, a
+ * plain note says so instead of a broken canvas.
  */
 
 import { Component, lazy, Suspense, type ReactNode } from "react";
 
-import { useLayerStore } from "../../store/layerStore";
 import type { FarmMapProps } from "./ControlRoomMap";
 
 const ControlRoomMap = lazy(() => import("./ControlRoomMap"));
-const LeafletWindFarmMap = lazy(() => import("./LeafletWindFarmMap"));
 
 let webgl: boolean | null = null;
 /** WebGL available (checked once). */
@@ -39,30 +36,21 @@ class Fallback extends Component<{ children: ReactNode; fallback: ReactNode }, {
   }
 }
 
+function NoMap({ why }: { why: string }) {
+  return (
+    <div className="flex h-full min-h-[450px] w-full items-center justify-center rounded border border-border-primary bg-bg-secondary p-6 text-center text-sm text-text-muted">
+      {why} The plant itself is still live in SCADA, the KPIs above and every page.
+    </div>
+  );
+}
+
 export default function FarmMap(props: FarmMapProps) {
-  const classic = useLayerStore((s) => s.classicMap);
-  const setClassicMap = useLayerStore((s) => s.setClassicMap);
-  const leaflet = <LeafletWindFarmMap {...props} />;
+  if (!hasWebGL()) return <NoMap why="The map needs WebGL, which this browser does not offer." />;
   return (
     <Suspense fallback={<div className="h-full w-full rounded border border-border-primary bg-bg-secondary" />}>
-      {classic || !hasWebGL() ? (
-        <div className="relative h-full w-full">
-          {leaflet}
-          {classic && hasWebGL() && (
-            <button
-              type="button"
-              onClick={() => setClassicMap(false)}
-              className="absolute bottom-3 left-1/2 z-[1100] -translate-x-1/2 rounded-md border border-border-secondary bg-bg-secondary px-3 py-1.5 text-xs font-medium text-text-primary shadow-lg hover:bg-bg-hover"
-            >
-              Back to the new map
-            </button>
-          )}
-        </div>
-      ) : (
-        <Fallback fallback={leaflet}>
-          <ControlRoomMap {...props} />
-        </Fallback>
-      )}
+      <Fallback fallback={<NoMap why="The map's graphics context failed (GPU reset or driver issue) — reload the page to try again." />}>
+        <ControlRoomMap {...props} />
+      </Fallback>
     </Suspense>
   );
 }

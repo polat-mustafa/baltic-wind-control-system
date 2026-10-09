@@ -14,7 +14,7 @@ interface TurbineWakeConeProps {
   wakeLossPct?: number;
 }
 
-/** Color matching the severity thresholds used in TurbineDetailPanel / WakeEffectLayer. */
+/** Color matching the severity thresholds used in TurbineDetailPanel and the map's wake badges. */
 function wakeConeColor(pct: number): string {
   if (pct > 20) return "#f25c54"; // red
   if (pct > 10) return "#f97316"; // orange

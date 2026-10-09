@@ -776,7 +776,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
       {/* Legend of the hub-height wake slice */}
       <div className="pointer-events-none absolute bottom-10 right-2 z-10 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 @max-lg:hidden text-xs font-semibold text-text-primary shadow">
         <div className="mb-1 font-bold">Wake deficit at hub height (150 m)</div>
-        <div className="h-2 w-44 rounded" style={{ background: "linear-gradient(90deg,#fdd95a,#f7731a,#cc1a1a)" }} />
+        <div className="h-2 w-44 rounded" style={{ background: "linear-gradient(90deg,#a9e3eb,#45c8d9,#12788c)" }} />
         <div className="flex justify-between font-mono text-xs text-text-secondary">
           <span>3 %</span>
           <span>20 %</span>

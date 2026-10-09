@@ -385,8 +385,12 @@ export interface ArrayCableFault {
 
 /** Turbines held offline by the scenario (tick and random toggler respect it). */
 const _outOfService = new Set<string>();
-/** Turbines whose feeder is de-energised by SCADA switching (P3 single-line). */
+/** Turbines currently held de-energised: SCADA switching ∪ the not-commissioned plant. */
 const _deenergised = new Set<string>();
+/** Turbines whose feeder SCADA switching has opened (P3 single-line). */
+let _scadaOff: string[] = [];
+/** The whole plant is held dead until it is commissioned. */
+let _notCommissioned = false;
 let _faultToken = 0;
 
 /** Open the switch on the OSS side of the fault and re-close the feeder CB. */
@@ -490,6 +494,18 @@ interface LandingState {
    */
   setDeenergised: (ids: string[]) => void;
 
+  /**
+   * False until the farm has been commissioned (own project before the P5
+   * programme is complete): every turbine is held de-energised at 0 MW and
+   * the control room shows a still, dead plant.
+   */
+  commissioned: boolean;
+  setCommissioned: (on: boolean) => void;
+  /** Epoch ms when the energisation sequence overlay was started, else null. */
+  energisationAt: number | null;
+  playEnergisation: () => void;
+  closeEnergisation: () => void;
+
   /** Active 66 kV array-cable fault scenario, if any. */
   arrayFault: ArrayCableFault | null;
   /** Fault on one array segment: trip the string, isolate, restore the healthy part. */
@@ -565,7 +581,23 @@ function plantFor(f: Fleet) {
   };
 }
 
-export const useLandingStore = create<LandingState>((set) => {
+export const useLandingStore = create<LandingState>((set, get) => {
+  /** Hold exactly the turbines that should be dead now (SCADA ∪ not commissioned). */
+  const applyDeenergised = () => {
+    const ids = _notCommissioned ? get().turbineIds : _scadaOff;
+    const next = new Set(ids);
+    const restored = [..._deenergised].filter((id) => !next.has(id));
+    const dropped = ids.filter((id) => !_deenergised.has(id));
+    if (!restored.length && !dropped.length) return;
+    _deenergised.clear();
+    for (const id of next) _deenergised.add(id);
+    set((state) => {
+      let turbineMap = setStatuses(state.turbineMap, dropped, "offline", true);
+      turbineMap = setStatuses(turbineMap, restored, "operating", false);
+      return { turbineMap, kpis: computeKPIs(turbineMap) };
+    });
+  };
+
   return {
     ...plantFor(liveFleet()),
     environment: computeEnvironment(hubTo10m(11.0), 0),
@@ -622,18 +654,19 @@ export const useLandingStore = create<LandingState>((set) => {
       }),
 
     setDeenergised: (ids) => {
-      const next = new Set(ids);
-      const restored = [..._deenergised].filter((id) => !next.has(id));
-      const dropped = ids.filter((id) => !_deenergised.has(id));
-      if (!restored.length && !dropped.length) return;
-      _deenergised.clear();
-      for (const id of next) _deenergised.add(id);
-      set((state) => {
-        let turbineMap = setStatuses(state.turbineMap, dropped, "offline", true);
-        turbineMap = setStatuses(turbineMap, restored, "operating", false);
-        return { turbineMap, kpis: computeKPIs(turbineMap) };
-      });
+      _scadaOff = ids;
+      applyDeenergised();
     },
+
+    commissioned: true,
+    setCommissioned: (on) => {
+      _notCommissioned = !on;
+      if (get().commissioned !== on) set({ commissioned: on });
+      applyDeenergised();
+    },
+    energisationAt: null,
+    playEnergisation: () => set({ energisationAt: Date.now() }),
+    closeEnergisation: () => set({ energisationAt: null }),
 
     arrayFault: null,
 
@@ -973,9 +1006,12 @@ useFleetStore.subscribe((s, prev) => {
   _faultToken++;
   _outOfService.clear();
   _deenergised.clear();
+  _scadaOff = [];
   _freeWind.clear();
   useFaultBus.setState({ activeFaults: {} });
   useLandingStore.setState({ ...plantFor(s.fleet), arrayFault: null, repairs: {} });
+  // A plant that is not commissioned stays dead on the new fleet too
+  useLandingStore.getState().setCommissioned(useLandingStore.getState().commissioned);
 });
 
 // ── Selectors ──────────────────────────────────────────────────

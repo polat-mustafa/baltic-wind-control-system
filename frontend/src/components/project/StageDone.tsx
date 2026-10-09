@@ -3,6 +3,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 
+import { useLandingStore } from "../../store/landingStore";
 import { useLifecycleStore, type Milestone } from "../../store/lifecycleStore";
 import { useModeStore } from "../../store/modeStore";
 import { Button } from "../ui/Button";
@@ -35,7 +36,15 @@ export function StageDone({ milestone, title, need, next }: Props) {
       ) : (
         <>
           <span className="text-text-secondary">{need ?? `Your project: mark ${title.toLowerCase()} complete to open ${next.label}.`}</span>
-          <Button size="sm" onClick={() => complete(milestone)} disabled={need !== null}>
+          <Button
+            size="sm"
+            onClick={() => {
+              complete(milestone);
+              // Commissioning done: the plant is energised — play the sequence from the grid down
+              if (milestone === "commissioning") useLandingStore.getState().playEnergisation();
+            }}
+            disabled={need !== null}
+          >
             Mark {title.toLowerCase()} complete
           </Button>
         </>

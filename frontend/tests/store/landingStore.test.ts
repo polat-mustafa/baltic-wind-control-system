@@ -77,3 +77,16 @@ describe("stopSimulation", () => {
     useLandingStore.getState().stopSimulation();
   });
 });
+
+describe("commissioning gate", () => {
+  it("holds the whole plant dead until commissioned, whatever SCADA switching does", () => {
+    const s = () => useLandingStore.getState();
+    s().setCommissioned(false);
+    expect(s().commissioned).toBe(false);
+    expect(Object.values(s().turbineMap).every((t) => t.status === "offline" && t.powerOutputMW === 0)).toBe(true);
+    s().setDeenergised([]); // SCADA closes every feeder: still not commissioned
+    expect(Object.values(s().turbineMap).every((t) => t.status === "offline")).toBe(true);
+    s().setCommissioned(true);
+    expect(Object.values(s().turbineMap).every((t) => t.status === "operating")).toBe(true);
+  });
+});

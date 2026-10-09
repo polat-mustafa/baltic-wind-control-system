@@ -14,8 +14,10 @@ import { useCommissioningStore } from "../../store/commissioningStore";
 import type { ProgrammeDetail, Step, StepType } from "../../types/commissioning";
 import { p5NetworkInfo, p5SldInfo, p5StepInfo } from "../../constants/panelInfo";
 import CircuitSLD from "./CircuitSLD";
+import { ACTION_LABEL, GATE_TAB, gateOf, type P5Tab } from "./steps";
 
-export type P5Tab = "switching" | "isolation" | "testing" | "gridcode" | "emergency" | "audit";
+export type { P5Tab };
+
 
 const TYPE_LABEL: Record<StepType, string> = {
   check: "Check",
@@ -27,21 +29,7 @@ const TYPE_LABEL: Record<StepType, string> = {
   declaration: "Declaration",
 };
 
-const ACTION_LABEL: Record<StepType, string> = {
-  check: "Confirm check",
-  gate: "Check gate",
-  isolation: "Remove lock",
-  switching: "Operate",
-  verification: "Take reading",
-  hold_point: "Reach hold point",
-  declaration: "Declare",
-};
 
-const GATE_TAB: Record<string, { tab: P5Tab; what: string }> = {
-  sat: { tab: "testing", what: "Approve the SAT campaign (Testing tab)" },
-  eon: { tab: "gridcode", what: "Have PSE issue the EON (Grid code tab)" },
-  ion: { tab: "gridcode", what: "Have PSE issue the ION (Grid code tab)" },
-};
 
 function TypeTag({ type }: { type: StepType }) {
   return (
@@ -215,9 +203,9 @@ function CurrentStep({ programme, onGoto }: { programme: ProgrammeDetail; onGoto
   );
 }
 
+
 function GateHint({ step, onGoto }: { step: Step; onGoto: (t: P5Tab) => void }) {
-  const key = step.action.startsWith("SAT") ? "sat" : step.action.startsWith("EON") ? "eon" : "ion";
-  const g = GATE_TAB[key];
+  const g = GATE_TAB[gateOf(step)];
   return (
     <button type="button" onClick={() => onGoto(g.tab)} className="text-xs text-accent hover:underline">
       {g.what} →
@@ -345,6 +333,8 @@ function StepList({ programme }: { programme: ProgrammeDetail }) {
 }
 
 export default function SwitchingTab({ programme, onGoto }: { programme: ProgrammeDetail; onGoto: (t: P5Tab) => void }) {
+  const busy = useCommissioningStore((s) => s.busy);
+  const executeCurrentStep = useCommissioningStore((s) => s.executeCurrentStep);
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
       <div className="space-y-4 xl:col-span-2">
@@ -352,7 +342,7 @@ export default function SwitchingTab({ programme, onGoto }: { programme: Program
           <CardHeader action={<InfoButton info={p5SldInfo} />}>
             <CardTitle>Circuit 1 — single-line diagram</CardTitle>
           </CardHeader>
-          <CircuitSLD programme={programme} />
+          <CircuitSLD programme={programme} onOperate={() => void executeCurrentStep()} busy={busy} />
         </Card>
         <StepList programme={programme} />
       </div>

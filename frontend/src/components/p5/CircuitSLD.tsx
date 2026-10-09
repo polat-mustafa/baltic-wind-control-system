@@ -15,6 +15,8 @@
 import { useState } from "react";
 
 import { SCADA_COLORS } from "../../constants/scadaColors";
+import { cn } from "../../lib/utils";
+import { Button } from "../ui/Button";
 import type { EquipmentState, ProgrammeDetail, ZoneStatus } from "../../types/commissioning";
 import { EXPORT_CABLE } from "../../utils/landingPhysics";
 
@@ -213,7 +215,13 @@ function Generator({ ctx, x, y, zone }: { ctx: Ctx; x: number; y: number; zone: 
   );
 }
 
-export default function CircuitSLD({ programme }: { programme: ProgrammeDetail }) {
+/**
+ * `onOperate` enables select-before-operate on the diagram: click the device
+ * of the current switching / isolation step (dashed frame), then Execute —
+ * the same interlocked step as the step button. Other devices only show their
+ * state: the programme, not the operator, decides the order.
+ */
+export default function CircuitSLD({ programme, onOperate, busy = false }: { programme: ProgrammeDetail; onOperate?: () => void; busy?: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const eq = Object.fromEntries(programme.equipment_states.map((e) => [e.equipment_id, e]));
   const current = programme.steps[programme.current_step_index];
@@ -233,6 +241,8 @@ export default function CircuitSLD({ programme }: { programme: ProgrammeDetail }
   const net = programme.network;
   const farm = programme.farm;
   const sel = selected ? eq[selected] : null;
+  const operable =
+    !!onOperate && programme.status === "in_progress" && !!current?.equipment_id && (current.step_type === "switching" || current.step_type === "isolation");
   const pad = (n: number) => String(n).padStart(2, "0");
   const strA = farm.string_layout.slice(0, farm.section_a_strings).map((wtg, i) => ({ n: i + 1, wtg, x: 470 + i * 95 }));
   // more than 3 strings on section A: TX-OSS-02 and section B move right
@@ -400,9 +410,39 @@ export default function CircuitSLD({ programme }: { programme: ProgrammeDetail }
         <span className="ml-auto font-mono">
           {sel
             ? `${sel.equipment_id} · ${sel.location} · ${sel.state}${sel.locked ? " · locked" : ""}`
-            : "Click a device for details — devices are operated only through the programme"}
+            : operable
+              ? `Click ${ctx.focus} (dashed frame) to operate it — select before operate`
+              : "Click a device for details"}
         </span>
       </div>
+      {sel && operable && (
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-2 border-t px-4 py-2 text-[12px]",
+            sel.equipment_id === ctx.focus ? "border-accent/40 bg-accent/10" : "border-status-warning/40 bg-status-warning/10",
+          )}
+        >
+          {sel.equipment_id === ctx.focus ? (
+            <>
+              <span className="min-w-0 flex-1 text-text-primary">
+                <b className="font-mono">{sel.equipment_id}</b> selected ({sel.state}
+                {sel.locked ? ", locked" : ""}) — step {current?.step_id}: {current?.action}
+              </span>
+              <Button size="sm" onClick={() => onOperate?.()} disabled={busy}>
+                Execute
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <span className="text-text-primary">
+              Interlock: step {current?.step_id} operates <b className="font-mono">{ctx.focus}</b>, not{" "}
+              <b className="font-mono">{sel.equipment_id}</b> — the programme sets the order.
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

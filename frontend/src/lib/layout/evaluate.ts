@@ -266,6 +266,8 @@ export interface LayoutInput {
   rose?: WindRose;
   /** Turbine model id (constants/turbineModels.ts); default the IEA 15 MW reference. */
   turbineId?: string;
+  /** Hub-height Weibull of the site (A [m/s], k); default the SB-510 climate. */
+  weibull?: { a: number; k: number };
 }
 
 export interface LayoutEvaluation {
@@ -309,7 +311,7 @@ export function evaluateLayout(i: LayoutInput): LayoutEvaluation {
   const model = turbineById(i.turbineId);
   const d = model.rotorDiameterM;
   const ratedMW = model.ratedKw / 1000;
-  const yieldRes = xy.length ? layoutYield(xy, WEIBULL_A, WEIBULL_K, i.rose ?? UNIFORM_ROSE, model) : null;
+  const yieldRes = xy.length ? layoutYield(xy, i.weibull?.a ?? WEIBULL_A, i.weibull?.k ?? WEIBULL_K, i.rose ?? UNIFORM_ROSE, model) : null;
   const cables = i.oss && xy.length ? routeCables(proj.toXY(i.oss), xy, ratedMW) : null;
   const spacing = minSpacing(xy);
   const capacityMW = xy.length * ratedMW;

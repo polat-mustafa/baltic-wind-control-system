@@ -7,7 +7,7 @@
  * Legal frame and sources: lib/lifecycle/decommissioning.ts.
  */
 
-import { Play, Recycle } from "lucide-react";
+import { Play } from "lucide-react";
 
 import { useFarmPlan } from "../hooks/useFarmPlan";
 import { campaignRequest } from "../lib/lifecycle/farm";
@@ -28,6 +28,7 @@ import CampaignControls from "../components/lifecycle/CampaignControls";
 import { CampaignResultPanels } from "../components/lifecycle/CampaignResults";
 import FarmSource from "../components/lifecycle/FarmSource";
 import { meur } from "../components/lifecycle/shared";
+import { PageHeader } from "../components/layout/PageHeader";
 
 const kt = (t: number) => `${(t / 1000).toFixed(t < 10_000 ? 1 : 0)} kt`;
 
@@ -91,18 +92,15 @@ export default function DecommissioningPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
-            <Recycle size={20} className="text-accent" aria-hidden />
-            Decommissioning
-          </h2>
-          <p className="mt-1 text-xs text-text-muted">
+      <PageHeader
+        title="Decommissioning"
+        description={
+          <>
             After 25–30 years the farm comes out of the sea: choose what is removed, simulate the removal campaign in weather windows, and see
             the material, the cost and how the seabed is restored.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <FarmSource farm={farm} />
 

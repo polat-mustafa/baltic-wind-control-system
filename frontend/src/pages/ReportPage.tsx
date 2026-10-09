@@ -15,7 +15,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Download, FileCode2, FileText, Play, Printer } from "lucide-react";
+import { Download, FileCode2, Play, Printer } from "lucide-react";
 
 import { OSS_GEO, TURBINE_POSITIONS } from "../constants/windFarmLayout";
 import { DEFAULT_TURBINE_ID } from "../constants/turbineModels";
@@ -44,6 +44,7 @@ import { CASE_STUDY_GRID_NODE, CASE_STUDY_SITE, useSiteStore } from "../store/si
 import type { LoadFlowResult } from "../types/grid";
 import type { WakeAnalysisResult } from "../types/windResource";
 import { Button } from "../components/ui/Button";
+import { PageHeader } from "../components/layout/PageHeader";
 
 const SB510_TURBINES = TURBINE_POSITIONS.map((t) => ({ id: t.id, lon: t.lon, lat: t.lat }));
 const SB510_OSS: LonLat = [OSS_GEO.lon, OSS_GEO.lat];
@@ -344,38 +345,37 @@ export default function ReportPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
-            <FileText size={20} className="text-accent" aria-hidden />
-            Project report
-          </h2>
-          <p className="mt-1 text-xs text-text-muted">
+      <PageHeader
+        title="Project report"
+        description={
+          <>
             {reference ? "The SB-510 reference farm" : "Your project"} on printable pages: site, permit outlook, energy, electrical design, cost and
             construction, each with its source. Print it to PDF, download the numbers as JSON
             {reference ? "" : ", or the layout as a windIO file for other wind-farm tools"}.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <Button size="sm" variant="secondary" onClick={() => save(`${slug(name)}.report.json`, JSON.stringify(rep, null, 2), "application/json")}>
-            <Download size={13} className="mr-1" /> JSON
-          </Button>
-          {!reference && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={downloadWindio}
-              disabled={!syncId || !turbines.length || busy !== null}
-              title={syncId ? "windIO 2.x YAML + the project document (.offshoreforge.json)" : "Save the project online first (project menu)"}
-            >
-              <FileCode2 size={13} className="mr-1" /> {busy === "windio" ? "Exporting…" : "windIO"}
+          </>
+        }
+        actions={
+          <>
+            <Button size="sm" variant="secondary" onClick={() => save(`${slug(name)}.report.json`, JSON.stringify(rep, null, 2), "application/json")}>
+              <Download size={13} className="mr-1" /> JSON
             </Button>
-          )}
-          <Button size="sm" onClick={print}>
-            <Printer size={13} className="mr-1" /> Print / PDF
-          </Button>
-        </div>
-      </div>
+            {!reference && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={downloadWindio}
+                disabled={!syncId || !turbines.length || busy !== null}
+                title={syncId ? "windIO 2.x YAML + the project document (.offshoreforge.json)" : "Save the project online first (project menu)"}
+              >
+                <FileCode2 size={13} className="mr-1" /> {busy === "windio" ? "Exporting…" : "windIO"}
+              </Button>
+            )}
+            <Button size="sm" onClick={print}>
+              <Printer size={13} className="mr-1" /> Print / PDF
+            </Button>
+          </>
+        }
+      />
       {!reference && !syncId && (
         <p className="text-[12px] text-text-muted">windIO export works on saved projects: use “Save online” in the project menu first.</p>
       )}

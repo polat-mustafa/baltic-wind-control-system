@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileText, GraduationCap, RotateCcw } from "lucide-react";
+import { FileText, RotateCcw } from "lucide-react";
 
 import { MISSIONS, TRACKS, lessonId, missionById } from "../academy/courses";
 import { bestScores, PASS_MARK, passed, useAcademyStore } from "../store/academyStore";
@@ -23,6 +23,7 @@ import FrtMission from "../components/academy/FrtMission";
 import DiagnosisMission from "../components/academy/DiagnosisMission";
 import DrillMission from "../components/academy/DrillMission";
 import TrainingRecord from "../components/academy/TrainingRecord";
+import { PageHeader } from "../components/layout/PageHeader";
 
 function MissionBody({ id }: { id: string }) {
   const m = missionById(id)!;
@@ -94,32 +95,31 @@ export default function AcademyPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
-            <GraduationCap size={20} className="text-accent" aria-hidden />
-            Academy
-          </h2>
-          <p className="mt-1 text-xs text-text-muted">
+      <PageHeader
+        title="Academy"
+        description={
+          <>
             Learn the lifecycle of an offshore wind farm — develop, design, build, operate — with lessons and scored missions graded on
             the engines of this platform and on your own project.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant={view === "record" ? "primary" : "secondary"} size="sm" onClick={() => setParams(view === "record" ? {} : { view: "record" })}>
-            <FileText size={13} /> Training record
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              if (window.confirm("Delete all Academy progress in this browser?")) reset();
-            }}
-          >
-            <RotateCcw size={13} /> Reset
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <Button variant={view === "record" ? "primary" : "secondary"} size="sm" onClick={() => setParams(view === "record" ? {} : { view: "record" })}>
+              <FileText size={13} /> Training record
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (window.confirm("Delete all Academy progress in this browser?")) reset();
+              }}
+            >
+              <RotateCcw size={13} /> Reset
+            </Button>
+          </>
+        }
+      />
 
       <Progress key={learner} />
 

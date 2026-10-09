@@ -9,7 +9,7 @@
 
 import { lazy, Suspense, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Gavel, MapPinned, OctagonX, RotateCcw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Gavel, OctagonX, RotateCcw } from "lucide-react";
 
 import { cn } from "../lib/utils";
 import { useSiteStore } from "../store/siteStore";
@@ -23,6 +23,7 @@ import DocumentsStage from "../components/site/Documents";
 import DataSources, { ScreeningDisclaimer } from "../components/site/DataSources";
 import { OUTCOME_LABEL, STAGES, decide, type Decision, type StageId } from "../components/site/journey";
 import type { CriterionCard } from "../services/siteApi";
+import { PageHeader } from "../components/layout/PageHeader";
 
 // Leaflet map only when the page opens
 const ScreeningMap = lazy(() => import("../components/site/ScreeningMap"));
@@ -260,21 +261,22 @@ export default function SitePermitsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2" data-tour="page-header">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary">
-            <MapPinned size={20} className="text-accent" aria-hidden />
-            Site &amp; Permits
-          </h2>
-          <p className="mt-1 text-xs text-text-muted">
+      <PageHeader
+        title="Site & Permits"
+        description={
+          <>
             Build a wind farm from scratch: screen a site on open marine data, survey it, study the environment and
             take it through the permit procedure. Generic EU process; national procedures differ.
-          </p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={reset}>
-          <RotateCcw size={13} className="mr-1" /> Start over
-        </Button>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <Button variant="ghost" size="sm" onClick={reset}>
+              <RotateCcw size={13} className="mr-1" /> Start over
+            </Button>
+          </>
+        }
+      />
 
       <Stepper />
 

@@ -2,8 +2,9 @@
  * Application shell — ISA-101 dark control room layout.
  *
  * Structure:
- *   1. Top bar — branding, breadcrumbs, system clock, connection status
- *   2. Sidebar — collapsible navigation with icons
+ *   1. Top bar — brand, lifecycle breadcrumb, project, alarm state (only when
+ *      not normal), tour, palette toggle, clock
+ *   2. Sidebar — icon rail, expandable (constants/navigation)
  *   3. Content area — renders active route via <Outlet />
  *
  * The dark background follows ISA-101 High Performance HMI guidelines:
@@ -16,15 +17,7 @@
 
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { Suspense, useEffect, useState } from "react";
-import {
-  Wind,
-  Signal,
-  ChevronRight,
-  AlertTriangle,
-  Sun,
-  Moon,
-  Menu,
-} from "lucide-react";
+import { Wind, ChevronRight, AlertTriangle, Sun, Moon, Menu } from "lucide-react";
 
 import Sidebar from "./Sidebar";
 import { LockedPage } from "../project/LockedPage";
@@ -35,7 +28,7 @@ import TourOverlay from "../../tour/TourOverlay";
 import TourWelcome from "../../tour/TourWelcome";
 import { Skeleton } from "../ui/Skeleton";
 import { StatusIndicator } from "../ui/StatusIndicator";
-import { cn } from "../../lib/utils";
+import { navTrail } from "../../constants/navigation";
 import { useFaultSync } from "../../hooks/useFaultSync";
 import { useLiveFleet } from "../../hooks/useLiveFleet";
 import { useEnergisationGate } from "../../hooks/useEnergisationGate";
@@ -46,25 +39,6 @@ import { useLayerStore } from "../../store/layerStore";
 import { useModeStore } from "../../store/modeStore";
 import { useSiteStore } from "../../store/siteStore";
 import { useLocks } from "../../lib/project/progress";
-
-const ROUTE_LABELS: Record<string, string> = {
-  "/": "Control Room",
-  "/develop": "Site & Permits",
-  "/develop/layout": "Layout",
-  "/wind-resource": "Wind Resource",
-  "/report": "Project Report",
-  "/projects": "My Projects",
-  "/hv-grid": "HV Grid Integration",
-  "/scada": "SCADA & Automation",
-  "/forecast": "AI Forecasting",
-  "/commissioning": "HV Commissioning",
-  "/digital-twin": "Digital Twin · Condition Monitoring",
-  "/turbine-physics": "Turbine Physics",
-  "/build": "Construction",
-  "/build/handover": "Hand-over",
-  "/decommission": "Decommissioning",
-  "/academy": "Academy",
-};
 
 /** Placeholder while a lazy page chunk downloads. */
 function PageLoading() {
@@ -79,7 +53,8 @@ function PageLoading() {
 
 export default function AppShell() {
   const location = useLocation();
-  const currentLabel = ROUTE_LABELS[location.pathname] ?? "Dashboard";
+  const trail = navTrail(location.pathname);
+  const currentLabel = trail?.label ?? "OffshoreForge";
 
   // Unified fault synchronization between landing map and SCADA
   useFaultSync();
@@ -149,9 +124,8 @@ export default function AppShell() {
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col">
-      {/* ── Top Bar ── */}
+      {/* ── Top bar: menu (phones), brand, breadcrumb · project, alarm state, tour, palette, clock ── */}
       <header className="h-12 bg-bg-secondary border-b border-border-primary flex items-center justify-between gap-2 px-2 sm:px-4 shrink-0">
-        {/* Left: Menu (drawer) + Logo + Breadcrumb */}
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             type="button"
@@ -163,50 +137,42 @@ export default function AppShell() {
           >
             <Menu size={18} />
           </button>
-          <Link
-            to="/"
-            data-tour="brand"
-            className="flex shrink-0 items-center gap-2 hover:opacity-80 transition-opacity"
-          >
-            <div className="flex items-center justify-center h-7 w-7 rounded-md bg-accent/15">
+          <Link to="/" data-tour="brand" className="flex shrink-0 items-center gap-2 hover:opacity-80 transition-opacity">
+            <div className="flex items-center justify-center h-7 w-7 rounded-md bg-accent-muted">
               <Wind size={16} className="text-accent" />
             </div>
             <span className="hidden sm:inline font-semibold text-sm tracking-tight text-text-primary whitespace-nowrap">
               OffshoreForge
             </span>
           </Link>
-
-          {/* Breadcrumb */}
-          <div className="flex min-w-0 items-center gap-1.5 text-text-muted">
-            <ChevronRight size={12} className="shrink-0" />
-            <span className="truncate text-xs font-medium text-text-secondary">
-              {currentLabel}
-            </span>
-          </div>
+          <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm text-text-muted">
+            {trail && (
+              <>
+                <ChevronRight size={14} className="hidden shrink-0 sm:block" aria-hidden />
+                <span className="hidden shrink-0 sm:inline">{trail.group}</span>
+              </>
+            )}
+            <ChevronRight size={14} className="shrink-0" aria-hidden />
+            <span className="truncate font-medium text-text-primary" aria-current="page">{currentLabel}</span>
+          </nav>
         </div>
 
-        {/* Right: System info */}
-        <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-          {/* Farm spec badge (the reference case study) */}
-          {mode !== "own" && (
-            <span className="hidden xl:inline-flex text-xs text-text-muted font-mono tracking-wide whitespace-nowrap">
-              510 MW · 34 × 15 MW · 66/220/400 kV
-            </span>
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Plant state only when something needs attention (ISA-101: normal is quiet) */}
+          {headerStatus !== "normal" && (
+            <StatusIndicator status={headerStatus} label={headerLabel} className="[&>span:last-child]:max-sm:hidden" />
           )}
-
-          {/* Connection status (label hidden on phones) */}
-          <div className="flex items-center gap-2">
-            <Signal size={12} className="hidden sm:block text-text-muted" />
-            <StatusIndicator
-              status={headerStatus}
-              label={headerLabel}
-              className="[&>span:last-child]:max-sm:hidden"
-            />
-          </div>
-
           <ProjectMenu />
+          <div
+            className="hidden items-baseline gap-1.5 px-1 font-mono text-sm tabular-nums text-text-secondary sm:flex"
+            title={clock.toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" })}
+          >
+            <span>{clock.toLocaleTimeString("sv-SE", { timeZone: "Europe/Warsaw" })}</span>
+            <span className="text-xs text-text-muted">
+              {clock.toLocaleString("en-GB", { timeZone: "Europe/Warsaw", timeZoneName: "short" }).split(" ").pop()}
+            </span>
+          </div>
           <TourMenu />
-
           <button
             type="button"
             onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}
@@ -214,25 +180,10 @@ export default function AppShell() {
             aria-label={storybook ? "Switch to the control room palette" : "Switch to the storybook palette"}
             data-tour="theme-toggle"
             title={storybook ? "Storybook palette — switch to control room" : "Control room palette — switch to storybook"}
-            className="flex items-center rounded-md border border-border-primary bg-bg-tertiary p-1.5 text-text-secondary hover:bg-bg-hover"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-border-secondary text-text-secondary hover:bg-bg-hover hover:text-text-primary"
           >
-            {storybook ? <Sun size={14} /> : <Moon size={14} />}
+            {storybook ? <Sun size={15} strokeWidth={1.75} /> : <Moon size={15} strokeWidth={1.75} />}
           </button>
-
-          {/* Simulation clock (date hidden on phones) */}
-          <div
-            className={cn(
-              "flex items-center gap-1.5 px-2 py-1 rounded-md",
-              "bg-bg-tertiary border border-border-primary",
-              "font-mono text-xs text-text-secondary tabular-nums whitespace-nowrap",
-            )}
-          >
-            <span className="hidden md:inline">{clock.toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" })}</span>
-            <span>{clock.toLocaleTimeString("sv-SE", { timeZone: "Europe/Warsaw" })}</span>
-            <span className="hidden sm:inline text-text-muted text-xs">
-              {clock.toLocaleString("en-GB", { timeZone: "Europe/Warsaw", timeZoneName: "short" }).split(" ").pop()}
-            </span>
-          </div>
         </div>
       </header>
 
@@ -267,7 +218,7 @@ export default function AppShell() {
           />
         )}
         <Sidebar mobileOpen={navOpen} onMobileClose={() => setNavOpen(false)} />
-        <main className="min-w-0 flex-1 overflow-auto p-2 sm:p-3">
+        <main className="min-w-0 flex-1 overflow-auto p-3 md:px-6 md:py-5">
           {/* Pages are lazy-loaded (App.tsx) */}
           <Suspense fallback={<PageLoading />}>
             {lock ? <LockedPage title={currentLabel} lock={lock} /> : <Outlet />}

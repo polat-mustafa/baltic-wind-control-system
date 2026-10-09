@@ -22,7 +22,6 @@ import {
 
 import { farmTitle, turbineLabel, useFleet } from "../lib/fleet";
 import MapKPIRibbon from "../components/landing/MapKPIRibbon";
-import { WindRoseWidget } from "../components/landing/WindRoseWidget";
 import FarmMap from "../components/landing/FarmMap";
 import CableDetailPanel from "../components/landing/CableDetailPanel";
 import TransformerDetailPanel from "../components/landing/TransformerDetailPanel";
@@ -217,7 +216,7 @@ export default function LandingPage() {
   const turbineLayout: TurbineLayout =
     areaWidth === 0 || areaWidth >= WIDE_MIN_W ? "wide" : areaWidth >= MEDIUM_MIN_W ? "medium" : "stacked";
 
-  // Panel state — lifted from LeafletWindFarmMap so panels render outside Leaflet DOM
+  // Panel state — lifted out of the map so panels render outside its canvas
   const [activePanel, setActivePanel] = useState<DetailPanel>(null);
   const [selectedTurbineId, setSelectedTurbineId] = useState<string | null>(
     null,
@@ -258,7 +257,7 @@ export default function LandingPage() {
     }
   }, []);
 
-  // Map click handlers — stable callbacks for memo'd LeafletWindFarmMap
+  // Map click handlers — stable callbacks for the memo'd map
   const handleTurbineClick = useCallback((turbineId: string) => {
     setSelectedTurbineId(turbineId);
     setActivePanel("turbine");
@@ -349,11 +348,6 @@ export default function LandingPage() {
             />
           </div>
 
-          {/* Wind rose climatology widget — top-left corner overlay (also
-              rendered in normal mode below). Both code paths must include it
-              so the widget survives the Control Room toggle. */}
-          <WindRoseWidget />
-
           {detailPanels}
         </div>
       </div>
@@ -426,10 +420,7 @@ export default function LandingPage() {
           />
         </div>
 
-        {/* Wind rose climatology widget — top-left corner overlay */}
-        <WindRoseWidget />
-
-        {/* Detail panels — OUTSIDE Leaflet's DOM, above compositor layers */}
+        {/* Detail panels — outside the map, above its canvas */}
         {detailPanels}
       </div>
     </div>

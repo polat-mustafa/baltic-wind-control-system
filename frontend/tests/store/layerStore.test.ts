@@ -1,7 +1,7 @@
 /**
  * Tests for the layer visibility Zustand store.
  *
- * Verifies the layer toggles' defaults (all on except the fibre, DTS and wake overlays), that toggleLayer
+ * Verifies the layer toggles' defaults (all on except the fibre, DTS, wake and wave overlays), that toggleLayer
  * flips a single layer, and that toggling twice restores the original.
  */
 
@@ -11,7 +11,6 @@ import type { LayerVisibility } from "../../src/store/layerStore";
 
 const ALL_LAYER_KEYS: (keyof LayerVisibility)[] = [
   "windParticles",
-  "oceanWaves",
   "arrayCables",
   "exclusionZone",
   "foundations",
@@ -26,7 +25,7 @@ const ALL_LAYER_KEYS: (keyof LayerVisibility)[] = [
 ];
 
 describe("initial state", () => {
-  it("has every layer on except the fibre, DTS and wake overlays", () => {
+  it("has every layer on except the fibre, DTS, wake and wave overlays", () => {
     const { layers } = useLayerStore.getState();
     for (const key of ALL_LAYER_KEYS) {
       expect(layers[key]).toBe(true);
@@ -39,6 +38,7 @@ describe("initial state", () => {
     expect(layers.fibreComms).toBe(false);
     expect(layers.cableDts).toBe(false);
     expect(layers.wakeEffects).toBe(false); // a planning view: off in the Control Room until asked for
+    expect(layers.oceanWaves).toBe(false); // scenery: off until asked for
   });
 
   it("setLayer sets one layer explicitly", () => {
@@ -64,7 +64,7 @@ describe("toggleLayer", () => {
     const { layers } = useLayerStore.getState();
     expect(layers.bathymetry).toBe(false);
     expect(layers.windParticles).toBe(true);
-    expect(layers.oceanWaves).toBe(true);
+    expect(layers.oceanWaves).toBe(false);
     // Reset
     useLayerStore.getState().toggleLayer("bathymetry");
   });

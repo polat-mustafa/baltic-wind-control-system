@@ -86,7 +86,7 @@ const NAV_ITEMS = [
   { label: "Turbine Physics", path: "/turbine-physics", icon: Activity, what: "Cp(λ, β), pitch, yaw" },
 ];
 
-/** Round wind direction to nearest `step` degrees (matches WakeEffectLayer). */
+/** Round wind direction to nearest `step` degrees (matches the map's wake badges). */
 const quantizeDir = (deg: number, step = 5) => Math.round(deg / step) * step;
 
 const levelColor = (v: number, warn: number, alarm: number) =>
@@ -260,7 +260,7 @@ export default function TurbineDetailPanel({
     t.windSpeedMs,
   );
 
-  // Wake loss — same quantized direction as the WakeEffectLayer badges
+  // Wake loss — same quantized direction as the map's wake badges
   const kpis = useLandingStore(selectKPIs);
   const windDir = quantizeDir(kpis.windDirectionDeg);
   // Live power loss at the current freestream (0 when the waked wind is

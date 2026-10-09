@@ -6,19 +6,21 @@
  * the site boundary is a dashed line. deck.gl draws what changes: the 66 kV
  * array cables coloured by load, the export cables with energy particles that
  * run faster as the farm exports more, the turbines by state, the equipment
- * marks and labels that appear as you zoom in.
+ * marks and labels that appear as you zoom in. Context and sea traffic
+ * (bathymetry, OWF areas, AIS, O&M vessels, nav aids, fibre, DTS…) come from
+ * mapContextLayers; waves, wind flow and the day / night tint are screen-space
+ * canvases between the base map and the deck.gl layers.
  *
  * Colour follows ISA-101: running turbines and normal cable loads are neutral;
  * amber / red mark only what needs attention; cyan is live energy.
  *
- * Same props as the classic Leaflet map (LeafletWindFarmMap), so the Control
- * Room's detail panels work unchanged. Turbines are also offered as a
- * keyboard / screen-reader list (the WebGL canvas is not focusable).
+ * Turbines are also offered as a keyboard / screen-reader list (the WebGL
+ * canvas is not focusable).
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Map as MapLibre } from "react-map-gl/maplibre";
-import DeckGL from "@deck.gl/react";
+import DeckGL, { type DeckGLRef } from "@deck.gl/react";
 import { WebMercatorViewport, type MapViewState, type PickingInfo } from "@deck.gl/core";
 import { IconLayer, PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type { StyleSpecification } from "maplibre-gl";
@@ -39,18 +41,23 @@ import {
 } from "../../constants/windFarmLayout";
 import { cableTree, distanceM, type CableFocus } from "../../lib/arrayCables";
 import { useFleet, type Fleet } from "../../lib/fleet";
-import { selectKPIs, useLandingStore } from "../../store/landingStore";
+import { selectEnvironment, selectKPIs, useLandingStore } from "../../store/landingStore";
 import { useLayerStore } from "../../store/layerStore";
 import { useStatcomQ } from "../../store/liveGridStore";
 import type { TurbineStatus } from "../../types/landing";
-import { arrayCableCurrentA, arrayCableGrade, farmWakeDeficits, wakePowerLossPct } from "../../utils/landingPhysics";
+import { arrayCableCurrentA, arrayCableGrade, exportCableState, farmWakeDeficits, wakePowerLossPct } from "../../utils/landingPhysics";
 import { wakeConePoly } from "../../utils/wakeModel";
 
 import AlarmTicker from "./AlarmTicker";
 import ArrayCableCard from "./ArrayCableCard";
+import DayNightOverlay from "./DayNightOverlay";
 import EnvironmentPanel from "./EnvironmentPanel";
+import { useAis, useOmVessels, svgIcon } from "./maritime";
+import { PALETTES, alpha, dtsTip, overLayers, underLayers, type Palette, type RGBA } from "./mapContextLayers";
 import MapLayersMenu from "./MapLayersMenu";
+import OceanWaveOverlay from "./OceanWaveOverlay";
 import ScenarioCenter from "./ScenarioCenter";
+import WindParticleOverlay, { type MapView } from "./WindParticleOverlay";
 
 export interface FarmMapProps {
   totalPowerMW: number;
@@ -63,59 +70,10 @@ export interface FarmMapProps {
   onLIDARClick?: () => void;
 }
 
-type RGBA = [number, number, number, number];
-
-/** Map palettes: Baltic Night (control room) and storybook paper. */
-const PALETTES = {
-  hmi: {
-    land: "#101c27",
-    sea: "#0a1622",
-    coast: "#22384d",
-    boundary: "#2c4760",
-    turbine: [213, 225, 236, 255] as RGBA,
-    hollow: [10, 21, 32, 255] as RGBA,
-    offline: [86, 112, 138, 255] as RGBA,
-    warn: [240, 177, 62, 255] as RGBA,
-    alarm: [242, 92, 84, 255] as RGBA,
-    accent: [69, 200, 217, 255] as RGBA,
-    v66: [229, 181, 103, 255] as RGBA,
-    v220: [143, 180, 245, 255] as RGBA,
-    v400: [232, 131, 122, 255] as RGBA,
-    text: [163, 182, 200, 255] as RGBA,
-    label: [228, 236, 243, 255] as RGBA,
-    labelBg: [15, 29, 43, 230] as RGBA,
-    ink: "#e4ecf3",
-  },
-  storybook: {
-    land: "#e8d8b0",
-    sea: "#3f8d86",
-    coast: "#2b2118",
-    boundary: "#2b2118",
-    turbine: [43, 33, 24, 255] as RGBA,
-    hollow: [241, 228, 195, 255] as RGBA,
-    offline: [107, 98, 87, 255] as RGBA,
-    warn: [154, 90, 0, 255] as RGBA,
-    alarm: [180, 35, 24, 255] as RGBA,
-    accent: [246, 238, 219, 255] as RGBA,
-    v66: [154, 90, 0, 255] as RGBA,
-    v220: [29, 78, 216, 255] as RGBA,
-    v400: [180, 35, 24, 255] as RGBA,
-    text: [43, 33, 24, 255] as RGBA,
-    label: [43, 33, 24, 255] as RGBA,
-    labelBg: [247, 237, 212, 235] as RGBA,
-    ink: "#2b2118",
-  },
-};
-type Palette = (typeof PALETTES)["hmi"];
-
-const alpha = (c: RGBA, a: number): RGBA => [c[0], c[1], c[2], a];
 const ll = (p: { lat: number; lon: number }): [number, number] => [p.lon, p.lat];
 const swap = (p: [number, number]): [number, number] => [p[1], p[0]];
 
 /** Equipment marks as small SVG icons (deck.gl IconLayer). */
-function svgIcon(svg: string) {
-  return { url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, width: 48, height: 48, anchorY: 24 };
-}
 function equipmentIcons(ink: string, fill: string) {
   return {
     oss: svgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect x="6" y="6" width="36" height="36" fill="${fill}" stroke="${ink}" stroke-width="4"/><path d="M14 24h20M24 14v20" stroke="${ink}" stroke-width="4"/></svg>`),
@@ -220,8 +178,22 @@ function ControlRoomMapInner({
   const fault = useLandingStore((s) => s.arrayFault);
   const kpis = useLandingStore(selectKPIs);
   const statcomQ = Math.round(useStatcomQ(totalPowerMW).q);
+  const env = useLandingStore(selectEnvironment);
+  const repairs = useLandingStore((s) => s.repairs);
   const exporting = totalPowerMW > 0.5;
+  const ais = useAis(layers.aisTraffic);
+  const vessels = useOmVessels(layers.vessels && sb510);
   const boxRef = useRef<HTMLDivElement>(null);
+  const deckRef = useRef<DeckGLRef>(null);
+  // The canvases (waves, wind flow) read the live viewport every frame
+  const view = useMemo<MapView>(
+    () => ({
+      get current() {
+        return (deckRef.current?.deck?.getViewports()[0] as WebMercatorViewport | undefined) ?? null;
+      },
+    }),
+    [],
+  );
   const [viewState, setViewState] = useState<MapViewState | null>(null);
   const zoom = viewState?.zoom ?? 11;
   const [focus, setFocus] = useState<CableFocus | null>(null);
@@ -382,7 +354,14 @@ function ControlRoomMapInner({
     [onTurbineClick, onOSSClick, onSTATCOMClick, onLIDARClick, onOnshoreClick, onCableClick],
   );
 
+  // Export cable DTS: rounded to 5 A / 0.5 °C so the 200 slices only recolour on real changes
+  const dtsA = Math.round(exportCableState(kpis.totalOutputMW).currentA / 5) * 5;
+  const dtsC = Math.round(env.seaTemperatureC * 2) / 2;
+  const dts = useMemo(() => ({ currentA: dtsA, ambientC: dtsC }), [dtsA, dtsC]);
+  const context = { layers, pal, theme, fleet, sb510, zoom, turbineMap, fault, repairs, ais: ais.vessels, vessels, dts, now: Date.now() };
+
   const deckLayers = [
+    ...underLayers(context),
     layers.wakeEffects &&
       new PolygonLayer({
         id: "wakes",
@@ -531,19 +510,23 @@ function ControlRoomMapInner({
         getTextAnchor: "start",
         getPixelOffset: [12, 10],
       }),
+    // Turbine IDs as you zoom in, with the output once there is room for it
     layers.turbineLabels &&
       zoom >= 12.5 &&
       new TextLayer({
         id: "turbine-ids",
         data: turbines,
         getPosition: (d: (typeof turbines)[number]) => d.position,
-        getText: (d: (typeof turbines)[number]) => d.short,
+        getText: (d: (typeof turbines)[number]) => (zoom >= 13.5 ? `${d.short} · ${d.mw.toFixed(1)} MW` : d.short),
         getColor: pal.text,
         getSize: 12,
         sizeUnits: "pixels",
         fontFamily: "IBM Plex Mono, monospace",
+        characterSet: "auto",
         getPixelOffset: [0, 16],
+        updateTriggers: { getText: [zoom >= 13.5, turbineMap] },
       }),
+    ...overLayers(context),
   ].filter(Boolean);
 
   const tooltip = useCallback(
@@ -579,15 +562,18 @@ function ControlRoomMapInner({
       if (info.layer?.id === "equipment") {
         return { text: String((o as { name: string }).name), style: box };
       }
-      return null;
+      if (info.layer?.id === "dts") return { text: dtsTip((o as { km: number }).km, dts), style: box };
+      const tip = (o as { tip?: string; tooltip?: string }).tip ?? (o as { tooltip?: string }).tooltip;
+      return tip ? { text: tip, style: box } : null;
     },
-    [theme, pal, fleet, sb510],
+    [theme, pal, fleet, sb510, dts],
   );
 
   return (
     <div ref={boxRef} className="relative h-full w-full overflow-hidden rounded border border-border-primary" style={{ minHeight: 450, background: pal.land }}>
       {viewState && (
         <DeckGL
+          ref={deckRef}
           viewState={viewState}
           onViewStateChange={({ viewState: v }) => setViewState(v as MapViewState)}
           controller={{ dragRotate: false, touchRotate: false, keyboard: false }}
@@ -599,6 +585,9 @@ function ControlRoomMapInner({
           getCursor={({ isHovering }: { isHovering: boolean }) => (isHovering ? "pointer" : "grab")}
         >
           <MapLibre mapStyle={style} attributionControl={false} />
+          {layers.dayNightTint && <DayNightOverlay />}
+          {layers.oceanWaves && <OceanWaveOverlay view={view} />}
+          {layers.windParticles && <WindParticleOverlay view={view} />}
         </DeckGL>
       )}
 
@@ -610,6 +599,7 @@ function ControlRoomMapInner({
           aria-expanded={menuOpen}
           aria-label="Map layers"
           title="Map layers"
+          data-tour="layer-control"
           className="flex h-8 w-8 items-center justify-center rounded-md border border-border-secondary bg-bg-secondary text-text-secondary hover:text-text-primary"
         >
           <Layers size={15} strokeWidth={1.75} />
@@ -663,6 +653,11 @@ function ControlRoomMapInner({
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-3.5 bg-accent" />220 kV live</span>
       </div>
 
+      {ais.note && (
+        <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 max-w-[40%] -translate-x-1/2 truncate rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-xs text-text-muted">
+          {ais.note}
+        </div>
+      )}
       {focus && layers.arrayCables && <ArrayCableCard seg={focus} onClose={() => setFocus(null)} onSelect={setFocus} />}
       <ScenarioCenter />
 

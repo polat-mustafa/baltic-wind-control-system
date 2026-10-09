@@ -67,9 +67,9 @@ export const NACELLE_SCHEMATIC_PARTS: SchematicPart[] = [
     groups: ["drivetrain", "safety", "hydraulic"] },
   { id: "generator", x: 305, y: 235, w: 255, h: 190, label: "Direct-Drive PMSG",  sublabel: "200 poles · 7.56 rpm · 12.6 Hz · 4.77 kV", tone: "winding", callout: { x: 430, y: 200 },
     groups: ["drivetrain", "electrical"], cite: [CITE_IEA15] },
-  { id: "converter", x: 570, y: 260, w: 150, h: 140, label: "Full-Power Converter", sublabel: "AC/DC/AC · 12.6 → 50 Hz", tone: "cabinet",   callout: { x: 645, y: 220 },
+  { id: "converter", x: 570, y: 260, w: 150, h: 140, label: "Full-Power Converter", sublabel: "MV AC/DC/AC · 12.6 → 50 Hz", tone: "cabinet",   callout: { x: 645, y: 220 },
     groups: ["electrical"], cite: [CITE_ROSCO] },
-  { id: "transformer", x: 730, y: 260, w: 120, h: 140, label: "Step-Up Transformer", sublabel: "→ 66 kV · Dyn11", tone: "cabinet", callout: { x: 790, y: 220 },
+  { id: "transformer", x: 730, y: 260, w: 120, h: 140, label: "Step-Up Transformer", sublabel: "3.3 → 66 kV · Dyn11", tone: "cabinet", callout: { x: 790, y: 220 },
     groups: ["electrical"], cite: [CITE_TRANSFORMER] },
 
   // ── Upper deck — crane, lightning, cabinets ──────────────────
@@ -89,11 +89,11 @@ export const NACELLE_SCHEMATIC_PARTS: SchematicPart[] = [
     groups: ["cooling"] },
   { id: "cable_routing",  x: 430, y: 440, w: 160, h:  80, label: "Cable Routing",         sublabel: "Twist loop ±3½ turns",    tone: "cabinet", callout: { x: 510, y: 560 },
     groups: ["electrical", "maintenance"] },
-  { id: "yaw_brake",      x: 600, y: 440, w: 140, h:  80, label: "Yaw Bearing & Brakes",  sublabel: "4 × hydraulic calipers · EN 13849", tone: "metal", callout: { x: 670, y: 560 },
+  { id: "yaw_brake",      x: 600, y: 440, w: 140, h:  80, label: "Yaw Bearing & Brakes",  sublabel: "2-row ball bearing · hydraulic calipers", tone: "metal", callout: { x: 670, y: 560 },
     groups: ["hydraulic", "safety"] },
   { id: "fire_suppression", x: 750, y: 440, w: 130, h:  80, label: "Fire Suppression",    sublabel: "HFC-227ea · ISO 14520",   tone: "cabinet", callout: { x: 815, y: 560 },
     groups: ["safety"] },
-  { id: "bedplate",       x: 890, y: 440, w: 100, h:  80, label: "Bedplate",              sublabel: "Cast GGG-40 mainframe",   tone: "structural", callout: { x: 940, y: 560 },
+  { id: "bedplate",       x: 890, y: 440, w: 100, h:  80, cite: [CITE_IEA15], label: "Bedplate",              sublabel: "Hollow curved steel beam · 50 mm · 70 t",   tone: "structural", callout: { x: 940, y: 560 },
     groups: ["structural"] },
 ];
 

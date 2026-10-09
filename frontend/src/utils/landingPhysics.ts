@@ -189,6 +189,16 @@ export const V236 = {
  * The nacelle transformer (99.5 %, illustrative — not part of the reference
  * turbine) steps it up to 66 kV.
  */
+/**
+ * Grid-side voltage of the full converter [kV]. The IEA 15 MW generator is a
+ * 4.77 kV machine, so its back-to-back converter is a medium-voltage one
+ * (3-level NPC class, DC link ≈ 7–8 kV) feeding a 3.3 / 66 kV step-up
+ * transformer — 15 MW at 690 V would be 12.6 kA and needs a 4.77 kV DC link
+ * it could not produce. 3.3 kV is a typical MV-converter rating, assumed: the
+ * reference turbine does not specify the converter.
+ */
+export const CONVERTER_GRID_KV = 3.3;
+
 export const V236_ETA = {
   generator: 0.9655,
   converter: 0.9918,

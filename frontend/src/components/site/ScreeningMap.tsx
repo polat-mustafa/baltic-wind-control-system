@@ -7,226 +7,59 @@
  * Legend: open by default from the sm breakpoint, collapsible on phones.
  */
 
-import { memo, useEffect, useMemo, useState } from "react";
-import L from "leaflet";
-import {
-  CircleMarker,
-  MapContainer,
-  Polygon,
-  Polyline,
-  Rectangle,
-  TileLayer,
-  Tooltip,
-  useMap,
-  useMapEvents,
-  ZoomControl,
-} from "react-leaflet";
+import { useMemo, useState } from "react";
+import type { PickingInfo } from "@deck.gl/core";
+import { PathStyleExtension } from "@deck.gl/extensions";
+import { PathLayer, PolygonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { Layers, PenLine, RotateCcw, Undo2, X, Check, MapPinned } from "lucide-react";
 
 import { TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { cn } from "../../lib/utils";
-import type { LayerInfo, LonLat } from "../../services/siteApi";
+import type { LonLat } from "../../services/siteApi";
 import { useModeStore } from "../../store/modeStore";
 import { CASE_STUDY_GRID_NODE, CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
 import { checkExportRoute } from "../../lib/site/exportRoute";
-import { ROLE_STYLE, wideScreen, type RoleStyle } from "./mapStyles";
-
-type LatLng = [number, number];
-const ll = ([lon, lat]: LonLat): LatLng => [lat, lon];
+import { rgba } from "../map/deckUtils";
+import PlanningMap, { type Bounds } from "../map/PlanningMap";
+import { roleLayer, roleTooltip } from "./mapLayers";
+import { ROLE_STYLE, wideScreen } from "./mapStyles";
 
 const SUITABLE = "#16a34a";
 // Yellow, not amber: real wind farms are orange and the two must not be confused.
 const MARGINAL = "#eab308";
+const SITE = "#45c8d9";
+const ROUTE_COLOR = "#e39a5b";
+const DASH = [new PathStyleExtension({ dash: true })];
+const WHITE: [number, number, number, number] = [255, 255, 255, 255];
 
-
-function FitBounds({ bbox }: { bbox: [number, number, number, number] }) {
-  const map = useMap();
-  useEffect(() => {
-    map.fitBounds([
-      [bbox[1], bbox[0]],
-      [bbox[3], bbox[2]],
-    ]);
-  }, [map, bbox]);
-  return null;
+/** Bounds around a set of [lon, lat] points. */
+function around(pts: LonLat[]): Bounds {
+  const lons = pts.map((p) => p[0]);
+  const lats = pts.map((p) => p[1]);
+  return [
+    [Math.min(...lons), Math.min(...lats)],
+    [Math.max(...lons), Math.max(...lats)],
+  ];
 }
 
-function DrawClicks() {
-  const drawing = useSiteStore((s) => s.drawing);
-  const addCorner = useSiteStore((s) => s.addCorner);
-  const routeDrawing = useSiteStore((s) => s.routeDrawing);
-  const addRoutePoint = useSiteStore((s) => s.addRoutePoint);
-  const map = useMapEvents({
-    click(e) {
-      const p: LonLat = [Number(e.latlng.lng.toFixed(5)), Number(e.latlng.lat.toFixed(5))];
-      if (drawing) addCorner(p);
-      else if (routeDrawing) addRoutePoint(p);
-    },
-  });
-  useEffect(() => {
-    map.getContainer().style.cursor = drawing || routeDrawing ? "crosshair" : "";
-  }, [map, drawing, routeDrawing]);
-  return null;
-}
-
-const ROUTE_COLOR = "#c2410c";
-
-/** The export route being drawn (dashed) or the checked one, with its landfall. */
-function ExportRouteShapes() {
-  const drawingRoute = useSiteStore((s) => s.routeDrawing);
-  const check = useSiteStore((s) => s.routeCheck);
-  const map = useMap();
-  useEffect(() => {
-    if (check?.route.length) map.fitBounds(check.route.map(ll), { padding: [40, 40] });
-  }, [map, check]);
-  if (drawingRoute) {
-    return (
-      <>
-        {drawingRoute.length > 1 && <Polyline positions={drawingRoute.map(ll)} pathOptions={{ color: ROUTE_COLOR, weight: 2, dashArray: "5 5" }} />}
-        {drawingRoute.map((p, i) => (
-          <CircleMarker key={i} center={ll(p)} radius={4} pathOptions={{ color: "#fff", weight: 2, fillColor: ROUTE_COLOR, fillOpacity: 1 }} />
-        ))}
-      </>
-    );
-  }
-  if (!check) return null;
-  return (
-    <>
-      <Polyline positions={check.route.map(ll)} pathOptions={{ color: ROUTE_COLOR, weight: 3 }}>
-        <Tooltip sticky>
-          Export cable {check.total_km.toFixed(1)} km ({check.auto ? "automatic" : "drawn"})
-        </Tooltip>
-      </Polyline>
-      {check.landfall && (
-        <CircleMarker center={ll(check.landfall)} radius={6} pathOptions={{ color: "#fff", weight: 2, fillColor: ROUTE_COLOR, fillOpacity: 1 }}>
-          <Tooltip>Landfall</Tooltip>
-        </CircleMarker>
-      )}
-      {[...check.shipping, ...check.cables].map((c, i) => (
-        <CircleMarker
-          key={`x${i}`}
-          center={ll(c.at)}
-          radius={4}
-          pathOptions={{ color: c.angle_deg < 45 ? "#dc2626" : "#334155", weight: 2, fillColor: "#fff", fillOpacity: 1 }}
-        >
-          <Tooltip>
-            {c.name}: {c.angle_deg.toFixed(0)}°
-          </Tooltip>
-        </CircleMarker>
-      ))}
-    </>
-  );
-}
-
-/** Tooltip text: the feature name plus capacity / status when the data has them. */
-function featureLabel(f: LayerInfo["features"][number]): string {
-  const p = f.properties;
-  const extra = [
-    typeof p.use === "string" ? `${p.use} port` : "",
-    typeof p.power_mw === "number" ? `${p.power_mw} MW` : "",
-    typeof p.status === "string" ? p.status : "",
-  ].filter(Boolean);
-  return extra.length ? `${f.name} (${extra.join(", ")})` : f.name;
-}
-
-export const LayerShapes = memo(function LayerShapes({
-  layer,
-  style,
-  renderer,
-}: {
-  layer: LayerInfo;
-  style: RoleStyle;
-  renderer: L.Renderer;
-}) {
-  return (
-    <>
-      {layer.features.map((f, i) => {
-        const g = f.geometry;
-        if (g.type === "Polygon") {
-          return (
-            <Polygon
-              key={`${layer.id}-${i}`}
-              positions={g.coordinates.map((ring) => ring.map(ll))}
-              pathOptions={{
-                color: style.color,
-                weight: 1.2,
-                fillColor: style.color,
-                fillOpacity: style.fill,
-                dashArray: style.dash,
-              }}
-              renderer={renderer}
-            >
-              <Tooltip sticky>{featureLabel(f)}</Tooltip>
-            </Polygon>
-          );
-        }
-        if (g.type === "LineString") {
-          return (
-            <Polyline
-              key={`${layer.id}-${i}`}
-              positions={g.coordinates.map(ll)}
-              pathOptions={{ color: style.color, weight: 2, dashArray: style.dash }}
-              renderer={renderer}
-            >
-              <Tooltip sticky>{f.name}</Tooltip>
-            </Polyline>
-          );
-        }
-        return (
-          <CircleMarker
-            key={`${layer.id}-${i}`}
-            center={ll(g.coordinates)}
-            radius={6}
-            pathOptions={{ color: "#fff", weight: 2, fillColor: style.color, fillOpacity: 1 }}
-          >
-            <Tooltip>{featureLabel(f)}</Tooltip>
-          </CircleMarker>
-        );
-      })}
-    </>
-  );
-});
-
-function SuitabilityCells({ renderer }: { renderer: L.Renderer }) {
+/** Suitability grid: suitable and marginal cells shaded, poor and excluded left clear. */
+function useSuitabilityCells() {
   const s = useSiteStore((st) => st.suitability);
-  const cells = useMemo(() => {
+  return useMemo(() => {
     if (!s) return [];
-    const out: { key: string; bounds: [LatLng, LatLng]; cls: number; score: number | null }[] = [];
+    const out: { polygon: LonLat[]; cls: number }[] = [];
     for (let j = 0; j < s.ny; j++) {
       for (let i = 0; i < s.nx; i++) {
         const cls = s.classes[j][i];
         if (cls !== 2 && cls !== 3) continue;
         const lon = s.lon0 + i * s.dlon;
         const lat = s.lat0 + j * s.dlat;
-        out.push({
-          key: `${j}-${i}`,
-          bounds: [
-            [lat - s.dlat / 2, lon - s.dlon / 2],
-            [lat + s.dlat / 2, lon + s.dlon / 2],
-          ],
-          cls,
-          score: s.scores[j][i],
-        });
+        const [w, e, so, n] = [lon - s.dlon / 2, lon + s.dlon / 2, lat - s.dlat / 2, lat + s.dlat / 2];
+        out.push({ polygon: [[w, so], [e, so], [e, n], [w, n]], cls });
       }
     }
     return out;
   }, [s]);
-  return (
-    <>
-      {cells.map((c) => (
-        <Rectangle
-          key={c.key}
-          bounds={c.bounds}
-          pathOptions={{
-            stroke: false,
-            fillColor: c.cls === 3 ? SUITABLE : MARGINAL,
-            fillOpacity: c.cls === 3 ? 0.38 : 0.28,
-          }}
-          renderer={renderer}
-          interactive={false}
-        />
-      ))}
-    </>
-  );
 }
 
 export default function ScreeningMap() {
@@ -252,65 +85,144 @@ export default function ScreeningMap() {
     () => [...(suitability?.reason_areas ?? [])].sort((a, b) => b.area_km2 - a.area_km2).slice(0, 5),
     [suitability],
   );
-  const renderer = useMemo(() => L.canvas({ padding: 0.3 }), []);
+
+  const addCorner = useSiteStore((s) => s.addCorner);
+  const addRoutePoint = useSiteStore((s) => s.addRoutePoint);
+  const check = useSiteStore((s) => s.routeCheck);
+  const cells = useSuitabilityCells();
 
   const bbox = layers?.region.bbox ?? [16.22, 54.45, 17.85, 55.2];
   const shown = (layers?.layers ?? []).filter((l) => ROLE_STYLE[l.role] && visible[l.role]);
+  // Fit the region, or the checked export route once there is one
+  const bounds: Bounds = check?.route.length ? around(check.route) : [[bbox[0], bbox[1]], [bbox[2], bbox[3]]];
+  const fitKey = check?.route.length ? `route-${check.total_km}` : bbox.join(",");
+
+  const crossings = check ? [...check.shipping, ...check.cables] : [];
+  const routePath = routeDrawing ?? check?.route ?? [];
+  const mapLayers = [
+    visible.suitability &&
+      new PolygonLayer({
+        id: "suitability",
+        data: cells,
+        getPolygon: (d: (typeof cells)[number]) => d.polygon,
+        getFillColor: (d: (typeof cells)[number]) => (d.cls === 3 ? rgba(SUITABLE, 0.38) : rgba(MARGINAL, 0.28)),
+        stroked: false,
+      }),
+    ...shown.map((layer) => roleLayer(layer, ROLE_STYLE[layer.role])),
+    visible.turbines &&
+      new ScatterplotLayer({
+        id: "sb510-turbines",
+        data: TURBINE_POSITIONS,
+        getPosition: (d: { lat: number; lon: number }) => [d.lon, d.lat],
+        getRadius: 2.5,
+        radiusUnits: "pixels",
+        getFillColor: rgba("#f8fafc"),
+        getLineColor: rgba("#0f172a"),
+        stroked: true,
+        lineWidthUnits: "pixels",
+        getLineWidth: 1,
+      }),
+    site &&
+      !drawing &&
+      new PolygonLayer({
+        id: "site",
+        data: [{ polygon: site }],
+        getPolygon: (d: { polygon: LonLat[] }) => d.polygon,
+        getFillColor: rgba(SITE, 0.12),
+        getLineColor: rgba(SITE),
+        getLineWidth: 3,
+        lineWidthUnits: "pixels",
+        pickable: true,
+      }),
+    drawing &&
+      drawing.length > 1 &&
+      new PathLayer({
+        id: "site-draft",
+        data: [{ path: drawing }],
+        getPath: (d: { path: LonLat[] }) => d.path,
+        getColor: rgba(SITE),
+        getWidth: 2,
+        widthUnits: "pixels",
+        getDashArray: [5, 5],
+        extensions: DASH,
+      }),
+    drawing &&
+      new ScatterplotLayer({
+        id: "site-corners",
+        data: drawing,
+        getPosition: (d: LonLat) => d,
+        getRadius: 5,
+        radiusUnits: "pixels",
+        getFillColor: rgba(SITE),
+        getLineColor: WHITE,
+        stroked: true,
+        lineWidthUnits: "pixels",
+        getLineWidth: 2,
+      }),
+    // Export route: being drawn (dashed) or checked, with its landfall and crossings
+    routePath.length > 1 &&
+      new PathLayer({
+        id: "route",
+        data: [{ path: routePath, km: routeDrawing ? undefined : check?.total_km, auto: check?.auto }],
+        getPath: (d: { path: LonLat[] }) => d.path,
+        getColor: rgba(ROUTE_COLOR),
+        getWidth: routeDrawing ? 2 : 3,
+        widthUnits: "pixels",
+        getDashArray: routeDrawing ? [5, 5] : [0, 0],
+        extensions: DASH,
+        pickable: !routeDrawing,
+      }),
+    new ScatterplotLayer({
+      id: "route-points",
+      data: routeDrawing
+        ? routeDrawing.map((p) => ({ position: p, r: 4, fill: ROUTE_COLOR, line: "#ffffff", tip: undefined }))
+        : [
+            ...(check?.landfall ? [{ position: check.landfall, r: 6, fill: ROUTE_COLOR, line: "#ffffff", tip: "Landfall" }] : []),
+            ...crossings.map((c) => ({
+              position: c.at,
+              r: 4,
+              fill: "#ffffff",
+              line: c.angle_deg < 45 ? "#f25c54" : "#334155",
+              tip: `${c.name}: ${c.angle_deg.toFixed(0)}°`,
+            })),
+          ],
+      getPosition: (d: { position: LonLat }) => d.position,
+      getRadius: (d: { r: number }) => d.r,
+      radiusUnits: "pixels",
+      getFillColor: (d: { fill: string }) => rgba(d.fill),
+      getLineColor: (d: { line: string }) => rgba(d.line),
+      stroked: true,
+      lineWidthUnits: "pixels",
+      getLineWidth: 2,
+      pickable: true,
+    }),
+  ];
+  const tooltip = (info: PickingInfo): string | null => {
+    const id = info.layer?.id;
+    if (id === "site") return "Your candidate site";
+    if (id === "route") {
+      const d = info.object as { km?: number; auto?: boolean };
+      return d.km != null ? `Export cable ${d.km.toFixed(1)} km (${d.auto ? "automatic" : "drawn"})` : null;
+    }
+    if (id === "route-points") return (info.object as { tip?: string }).tip ?? null;
+    return roleTooltip(info);
+  };
 
   return (
     <div className="relative h-[460px] overflow-hidden rounded-lg border border-border-primary sm:h-[560px]" data-tour="site-map">
-      <MapContainer
-        center={[(bbox[1] + bbox[3]) / 2, (bbox[0] + bbox[2]) / 2]}
-        zoom={9}
-        className="h-full w-full"
-        preferCanvas
-        attributionControl
-        zoomControl={false}
-      >
-        <ZoomControl position="bottomright" />
-        <TileLayer
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Data: EMODnet, EEA, Marine Regions'
-        />
-        <FitBounds bbox={bbox} />
-        <DrawClicks />
-        <ExportRouteShapes />
-        {visible.suitability && <SuitabilityCells renderer={renderer} />}
-        {shown.map((layer) => (
-          <LayerShapes key={layer.id} layer={layer} style={ROLE_STYLE[layer.role]} renderer={renderer} />
-        ))}
-        {visible.turbines &&
-          TURBINE_POSITIONS.map((t) => (
-            <CircleMarker
-              key={t.id}
-              center={[t.lat, t.lon]}
-              radius={2.5}
-              pathOptions={{ color: "#0f172a", weight: 1, fillColor: "#f8fafc", fillOpacity: 1 }}
-              interactive={false}
-            />
-          ))}
-        {site && !drawing && (
-          <Polygon
-            positions={site.map(ll)}
-            pathOptions={{ color: "#0ea5e9", weight: 3, fillColor: "#0ea5e9", fillOpacity: 0.12 }}
-          >
-            <Tooltip sticky>Your candidate site</Tooltip>
-          </Polygon>
-        )}
-        {drawing && drawing.length > 0 && (
-          <>
-            <Polyline positions={drawing.map(ll)} pathOptions={{ color: "#0ea5e9", weight: 2, dashArray: "5 5" }} />
-            {drawing.map((p, i) => (
-              <CircleMarker
-                key={i}
-                center={ll(p)}
-                radius={5}
-                pathOptions={{ color: "#fff", weight: 2, fillColor: "#0ea5e9", fillOpacity: 1 }}
-              />
-            ))}
-          </>
-        )}
-      </MapContainer>
+      <PlanningMap
+        bounds={bounds}
+        fitKey={fitKey}
+        layers={mapLayers}
+        getTooltip={tooltip}
+        onClick={(info: PickingInfo) => {
+          if (!info.coordinate) return;
+          const p: LonLat = [Number(info.coordinate[0].toFixed(5)), Number(info.coordinate[1].toFixed(5))];
+          if (drawing) addCorner(p);
+          else if (routeDrawing) addRoutePoint(p);
+        }}
+        cursor={drawing || routeDrawing ? "crosshair" : undefined}
+      />
 
       {/* Drawing toolbar */}
       <div

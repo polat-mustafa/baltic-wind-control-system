@@ -1,28 +1,28 @@
 /**
- * Animated ocean wave overlay for the Leaflet map (Canvas-based).
+ * Animated ocean wave overlay for the Control Room map (Canvas-based, drawn
+ * in screen space under the deck.gl layers; the map view comes in as a ref).
  *
  * Two layers of short-crested sinusoidal wave crest lines simulate ocean surface:
  *   1. Primary swell — wide spacing, slow scroll, brightest
  *   2. Wind-sea — medium spacing, moderate scroll
  *
- * Zoom-dependent visibility:
- *   zoom < 9     → hidden (no draw, saves GPU)
- *   zoom 9–10.5  → fade-in (linear interpolation 0→1)
- *   zoom ≥ 10.5  → full opacity (covers the default farm view, ≈ z 12)
+ * Zoom-dependent visibility (MapLibre zoom, 512 px tiles):
+ *   zoom < 8     → hidden (no draw, saves GPU)
+ *   zoom 8–9.5   → fade-in (linear interpolation 0→1)
+ *   zoom ≥ 9.5   → full opacity (covers the default farm view, ≈ z 11)
  *
  * Foam dots scatter along primary swell crests for realism at close zoom.
  *
  * Wave direction follows wind (rotated via canvas transform).
  * Intensity (opacity, amplitude) scales with the simulated significant wave
  * height Hs (store environment); whitecap foam appears from Bft 4
- * (≈ 5.5 m/s), where breaking crests start in open sea. Follows the WindParticleOverlay canvas
- * pattern: createElement → atmosphericPane → requestAnimationFrame loop.
+ * (≈ 5.5 m/s), where breaking crests start in open sea.
  *
  * Respects prefers-reduced-motion: draws static lines (no animation).
  */
 
 import { useEffect, useRef } from "react";
-import { useMap } from "react-leaflet";
+import type { MapView } from "./WindParticleOverlay";
 
 import { SEA_POLYGON_GEO, SITE_BOUNDARY_GEO } from "../../constants/windFarmLayout";
 import { useLandingStore } from "../../store/landingStore";
@@ -31,9 +31,9 @@ import { useLayerStore } from "../../store/layerStore";
 // ── Zoom thresholds ─────────────────────────────────────────────
 
 /** Zoom level below which waves are completely hidden */
-const WAVE_ZOOM_MIN = 9;
+const WAVE_ZOOM_MIN = 8;
 /** Zoom level at which waves reach full opacity */
-const WAVE_ZOOM_FULL = 10.5;
+const WAVE_ZOOM_FULL = 9.5;
 
 // ── Wave layer definitions ───────────────────────────────────────
 
@@ -233,34 +233,17 @@ function drawStorybookSea(
 
 // ── Component ────────────────────────────────────────────────────
 
-export default function OceanWaveOverlay() {
-  const map = useMap();
+export default function OceanWaveOverlay({ view }: { view: MapView }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef(0);
 
   useEffect(() => {
-    const pane = map.getPane("atmosphericPane");
-    if (!pane) return;
-
-    // Create overlay canvas inside atmospheric pane (above tiles, below markers)
-    const canvas = document.createElement("canvas");
-    canvas.style.cssText =
-      "position:absolute;top:0;left:0;pointer-events:none;";
-    pane.appendChild(canvas);
-    canvasRef.current = canvas;
-
-    let w = 0;
-    let h = 0;
-    let currentZoom = map.getZoom();
-
-    function resize() {
-      const size = map.getSize();
-      w = size.x;
-      h = size.y;
-      canvas.width = w;
-      canvas.height = h;
-    }
-    resize();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const project = (lat: number, lon: number) => {
+      const [x, y] = view.current!.project([lon, lat]);
+      return { x, y };
+    };
 
     // Check prefers-reduced-motion
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -280,19 +263,11 @@ export default function OceanWaveOverlay() {
     const hsIntensity = (hs: number) => Math.min(Math.max(hs / 4, 0.35), 1);
     let lerpIntensity = hsIntensity(useLandingStore.getState().environment.significantWaveHeightM);
 
-    function onMapChange() {
-      resize();
-      currentZoom = map.getZoom();
-    }
-    map.on("resize", onMapChange);
-    map.on("moveend", onMapChange);
-    map.on("zoomend", onMapChange);
-
     // Turbine array on screen (+ margin for icon size and breaker width)
     function farmRect() {
       const r = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
       for (const [lat, lon] of SITE_BOUNDARY_GEO) {
-        const p = map.latLngToContainerPoint([lat, lon]);
+        const p = project(lat, lon);
         r.x0 = Math.min(r.x0, p.x - 50);
         r.y0 = Math.min(r.y0, p.y - 40);
         r.x1 = Math.max(r.x1, p.x + 50);
@@ -304,10 +279,16 @@ export default function OceanWaveOverlay() {
     // ── Animation loop ────────────────────────────────────────────
 
     function frame() {
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
+      const ctx = canvas!.getContext("2d");
+      const vp = view.current;
+      if (!ctx || !vp) {
         rafRef.current = requestAnimationFrame(frame);
         return;
+      }
+      const { width: w, height: h, zoom: currentZoom } = vp;
+      if (canvas!.width !== w || canvas!.height !== h) {
+        canvas!.width = w;
+        canvas!.height = h;
       }
 
       // ── Zoom gate: skip drawing entirely below threshold ────────
@@ -359,7 +340,7 @@ export default function OceanWaveOverlay() {
       // Waves only on the sea: clip to the OSM coastline polygon.
       ctx.beginPath();
       SEA_POLYGON_GEO.forEach(([lat, lon], i) => {
-        const pt = map.latLngToContainerPoint([lat, lon]);
+        const pt = project(lat, lon);
         if (i === 0) ctx.moveTo(pt.x, pt.y);
         else ctx.lineTo(pt.x, pt.y);
       });
@@ -469,12 +450,8 @@ export default function OceanWaveOverlay() {
     return () => {
       cancelAnimationFrame(rafRef.current);
       motionQuery.removeEventListener("change", onMotionChange);
-      map.off("resize", onMapChange);
-      map.off("moveend", onMapChange);
-      map.off("zoomend", onMapChange);
-      canvas.remove();
     };
-  }, [map]);
+  }, [view]);
 
-  return null;
+  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0" aria-hidden />;
 }

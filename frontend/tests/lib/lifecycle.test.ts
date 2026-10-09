@@ -1,12 +1,13 @@
 /** Lifecycle engines: farm plan / hand-over register, campaign request, decommissioning inventory and cost. */
 
 import { describe, expect, it } from "vitest";
+import { centroid, projection } from "../../src/lib/layout/geometry";
 
-import { TURBINE_POSITIONS } from "../../src/constants/windFarmLayout";
+import { OSS_GEO, TURBINE_POSITIONS } from "../../src/constants/windFarmLayout";
 import { maxPerString } from "../../src/lib/layout/cables";
 import { RATED_MW } from "../../src/lib/layout/evaluate";
 import { DEFAULT_DECOM, endOfLifeCost, inventory, MASS } from "../../src/lib/lifecycle/decommissioning";
-import { bayName, campaignRequest, farmPlan, foundationFor } from "../../src/lib/lifecycle/farm";
+import { bayName, campaignRequest, farmPlan, foundationFor, isSb510Layout, sb510Cables } from "../../src/lib/lifecycle/farm";
 
 const noSite = { site: null, report: null };
 
@@ -132,5 +133,17 @@ describe("decommissioning", () => {
     expect(a.recycledShare).toBeGreaterThan(0.8); // steel dominates the recovered mass
     expect(a.recycledShare).toBeLessThanOrEqual(1);
     expect(a.leftT).toBeGreaterThan(0);
+  });
+});
+
+describe("SB-510 on the Layout page", () => {
+  it("keeps its designed strings 6-6-6-6-5-5 instead of the auto-router's", () => {
+    const pts = TURBINE_POSITIONS.map((t) => [t.lon, t.lat] as [number, number]);
+    const proj = projection(centroid(pts));
+    const c = sb510Cables(pts.map(proj.toXY), proj.toXY([OSS_GEO.lon, OSS_GEO.lat]));
+    expect(c.strings).toBe(6);
+    const feederLoads = c.edges.filter((e) => e.to < 0).map((e) => e.load).sort((a, b) => b - a);
+    expect(feederLoads).toEqual([6, 6, 6, 6, 5, 5]);
+    expect(isSb510Layout(TURBINE_POSITIONS.map(({ id, lon, lat }) => ({ id, lon, lat })))).toBe(true);
   });
 });

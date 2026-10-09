@@ -39,6 +39,7 @@ import { useSiteRasters } from "../hooks/useSiteRasters";
 import { checkWakeMoves, computeWindRose } from "../services/windResourceApi";
 import { MAX_TURBINES, signature, useProjectStore, wtgId } from "../store/projectStore";
 import { useFarmPlan } from "../hooks/useFarmPlan";
+import { isSb510Layout, sb510Cables } from "../lib/lifecycle/farm";
 import { CASE_STUDY_SITE, useSiteStore } from "../store/siteStore";
 import { useProjectSync } from "../store/projectSync";
 import { Button } from "../components/ui/Button";
@@ -216,7 +217,12 @@ export default function LayoutPage() {
   const yieldModel = useMemo(() => (xy.length ? prepareYield(xy, windA, windK, activeRose) : null), [xy, windA, windK, activeRose]);
   const yieldRes = useMemo(() => (yieldModel ? yieldOf(yieldModel) : null), [yieldModel]);
   const oss = p.oss;
-  const cables = useMemo(() => (oss && xy.length ? routeCables(proj.toXY(oss), xy, RATED_MW) : null), [xy, oss, proj]);
+  // SB-510's own layout keeps its designed 6 strings (6-6-6-6-5-5); anything else is auto-routed
+  const sb510 = useMemo(() => isSb510Layout(p.turbines), [p.turbines]);
+  const cables = useMemo(
+    () => (!oss || !xy.length ? null : sb510 ? sb510Cables(xy, proj.toXY(oss)) : routeCables(proj.toXY(oss), xy, RATED_MW)),
+    [xy, oss, proj, sb510],
+  );
   const spacing = minSpacing(xy);
   const ids = useMemo(() => p.turbines.map((t) => t.id), [p.turbines]);
 

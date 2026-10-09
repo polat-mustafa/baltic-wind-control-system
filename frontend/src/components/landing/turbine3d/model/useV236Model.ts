@@ -22,7 +22,7 @@ export type V236Model = Record<string, BufferGeometry>;
 
 /** Bump when public/models/v236.glb is rebuilt so browsers never mix an old
  *  cached model with new code (rev 5: direct drive, no gearbox). */
-export const MODEL_REV = 5;
+export const MODEL_REV = 6; // 6: jacket foundation, nacelle front square to the 6° shaft, preconed root collars
 const URL = `${import.meta.env.BASE_URL}models/v236.glb?rev=${MODEL_REV}`;
 let cache: Promise<V236Model | null> | null = null;
 const positions: Record<string, [number, number, number]> = {};

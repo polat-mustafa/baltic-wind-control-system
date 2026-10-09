@@ -3,8 +3,8 @@
  * with N cylindrical conductors laid inside as instanced meshes.
  *
  * Used to replace the flat <Line> power runs with readable 3D cable routing.
- *   - Low voltage (0.69 kV): grey sheath, 3 cables (generator → converter,
- *     converter → transformer)
+ *   - Generator / converter side (4.77 kV · 3.3 kV): grey sheath, 3 cables
+ *     (generator → converter, converter → transformer)
  *   - Medium voltage (66 kV): red sheath, 3 cables
  *     (transformer → cable_routing nexus)
  *

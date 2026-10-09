@@ -1,22 +1,12 @@
 /**
- * Wind-field visualization — educational overlay.
+ * Wind-field overlay — the tip-speed gauge at the blade tip: |ΩR|, tip-speed
+ * ratio λ and tip Mach number.
  *
- * Shows the three things every wind-energy textbook diagrams:
- *   1. Freestream vector V∞ — a labelled arrow upstream of the rotor.
- *   2. Streamlines — 24 tubes flowing through the actuator disc, bent by
- *      the induction factor a ≈ 1/3 (Betz optimum). Downstream velocity
- *      u = V∞(1 − 2a). UV-scrolled animated texture gives flow direction.
- *   3. Wake deficit ribbon — horizontal plane downstream coloured by
- *      Jensen analytical model:  u(x)/U∞ = 1 − 2a/(1 + 2kx/R)²  (k=0.04).
- *      Red near rotor → green by 10D downstream.
- *   4. Tip-speed gauge — HTML sprite at blade tip with |ΩR|, λ, Mach.
- *   (Tip vortices and the animated wake live in WindFlow.)
+ * The flow itself is drawn elsewhere: the hub-height wake deficit of every
+ * running turbine in WakeField (Bastankhah Gaussian wakes, Katic sum, Crespo
+ * added turbulence — model/wakeModel.ts) and the tip vortices in WindFlow.
  *
- * All geometry assumes the rotor axis points +X (wind from +X). The
- * V236 nacelle yaws to face the wind, so we draw the field in world
- * coordinates aligned with the yawed rotor (parent group transforms it).
- *
- * Reference: Burton et al., "Wind Energy Handbook" (3rd ed.), §3.3–3.4.
+ * The group yaws with the wind bearing (parent transform); local +X points upwind.
  */
 
 import { memo } from "react";

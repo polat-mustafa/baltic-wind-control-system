@@ -417,34 +417,34 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
   // ── Foundation ──
   {
     partId: "foundation",
-    title: "Monopile Foundation",
+    title: "Jacket Foundation",
     overview:
-      "The monopile is a large steel cylinder driven 25\u201330 m into the seabed. At 8\u201310 m outer diameter, it transfers all turbine loads (weight, wind thrust, wave forces) into the seabed soil. It is the most common offshore wind foundation type.",
-    standards: ["DNV-ST-0126", "DNV-RP-C212", "ISO 19901-4"],
+      "SB-510 stands in 37–51 m of water, too deep for a 15 MW monopile, so each turbine sits on a four-legged steel jacket: tubular legs (Ø ≈ 2.2 m) braced by X-members, pinned to the seabed by driven piles. A yellow transition piece on top carries the tower, the boat landing and the work platforms; the array cables rise to it through J-tubes.",
+    standards: ["DNV-ST-0126", "DNV-RP-C203 (fatigue of tubular joints)", "ISO 19902"],
     formulas: [
       {
-        expression: "F\u209C\u2095\u2063\u1D64\u209B\u209C = \u00BD \u00D7 \u03C1 \u00D7 A \u00D7 V\u00B2 \u00D7 C\u209C",
+        expression: "Fₜ = ½ × ρ × A × V² × Cₜ",
         variables: [
-          { symbol: "\u03C1", name: "Air density", unit: "kg/m\u00B3" },
-          { symbol: "A", name: "Rotor area", unit: "m\u00B2" },
+          { symbol: "ρ", name: "Air density", unit: "kg/m³" },
+          { symbol: "A", name: "Rotor area", unit: "m²" },
           { symbol: "V", name: "Wind speed", unit: "m/s" },
-          { symbol: "C\u209C", name: "Thrust coefficient", unit: "dimensionless" },
+          { symbol: "Cₜ", name: "Thrust coefficient", unit: "dimensionless" },
         ],
         explanation:
-          "The axial thrust force on the rotor is transmitted through the tower into the foundation. At rated wind speed, thrust can exceed 2,500 kN (250 tonnes-force).",
+          "The rotor thrust goes down the tower into the jacket, which turns the overturning moment into push-pull axial forces in its legs and piles. The IEA 15 MW thrust peaks at ≈ 2.46 MN at rated wind (10.66 m/s).",
       },
     ],
     design: {
-      v236Value: "Monopile, 10 m OD, 55 \u2192 44 mm wall, \u2248 1,310 t (IEA 15 MW reference in 30 m water)",
+      v236Value: "Four-legged jacket, ≈ 16 m square at the top, 28 m at the mudline, 4 X-braced bays, pin piles (37–51 m of water)",
       reasoning:
-        "Monopiles are cost-effective in water depths up to ~40 m. The large diameter provides sufficient lateral stiffness to meet eigenfrequency requirements without complex jacket structures.",
-      influencingFactors: ["Water depth", "Seabed soil conditions", "Scour protection", "Installation hammer energy"],
+        "Beyond about 40 m a monopile for a 15 MW rotor becomes very large and heavy; a jacket reaches the stiffness it needs with far less steel because its legs work axially. The price is more fabrication (hundreds of welded tubular joints) and more installation steps.",
+      influencingFactors: ["Water depth", "Seabed soil conditions", "Joint fatigue", "Fabrication yard capacity"],
     },
     efficiencyNotes: [],
     simpleExplanation:
-      "The monopile is like a giant fence post hammered into the sea floor. It holds the entire turbine steady against wind, waves, and currents for 25+ years.",
+      "The jacket is a steel tower-shaped lattice standing on the sea floor, like an electricity pylon under water, with the turbine tower bolted on top.",
     technicalExplanation:
-      "A driven steel monopile designed per DNV-ST-0126 with P-y curve soil-structure interaction analysis. Lateral capacity is governed by cyclic degradation of soil stiffness under combined wind-wave loading. Scour protection (rock dumping) prevents seabed erosion around the pile.",
+      "Designed per DNV-ST-0126 / ISO 19902: pile capacity from axial and lateral soil curves, fatigue of the tubular joints per DNV-RP-C203 under combined wind and wave loading, and a first bending frequency inside the 1P–3P window of the rotor.",
     faultTypes: [],
   },
 

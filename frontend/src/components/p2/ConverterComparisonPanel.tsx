@@ -83,13 +83,13 @@ export default function ConverterComparisonPanel() {
               role="tab"
               aria-selected={converterScenario === k}
               onClick={() => setConverterScenario(k)}
-              className={`rounded px-2 py-1 text-[11px] font-medium ${converterScenario === k ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+              className={`rounded px-2 py-1 text-xs font-medium ${converterScenario === k ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
             >
               {label}
             </button>
           ))}
         </div>
-        <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[10rem]">
+        <label className="flex flex-col gap-0.5 text-xs text-text-muted min-w-[10rem]">
           <span className="flex justify-between">
             Phase jump at t = 0.1 s <span className="font-mono text-text-primary">{phaseJumpDeg}°</span>
           </span>
@@ -103,11 +103,11 @@ export default function ConverterComparisonPanel() {
             className="accent-accent"
           />
         </label>
-        <p className="text-[11px] text-text-secondary">
+        <p className="text-xs text-text-secondary">
           SCR <span className="font-mono">{gfl.scr.toFixed(1)}</span> at the POC →{" "}
           <span className="font-mono">{gfl.scr_terminal.toFixed(1)}</span> at the 66 kV busbar
         </p>
-        {converterLoading && <span className="text-[11px] text-text-muted">simulating…</span>}
+        {converterLoading && <span className="text-xs text-text-muted">simulating…</span>}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">

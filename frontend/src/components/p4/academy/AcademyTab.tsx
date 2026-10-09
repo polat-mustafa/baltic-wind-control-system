@@ -90,7 +90,7 @@ export default function AcademyTab() {
                 )}
                 aria-current={c.id === ch.id ? "page" : undefined}
               >
-                <span className="mt-0.5 w-5 shrink-0 font-mono text-[11px] text-text-muted">{c.n}</span>
+                <span className="mt-0.5 w-5 shrink-0 font-mono text-xs text-text-muted">{c.n}</span>
                 <span>{c.title[lang]}</span>
               </button>
             </li>
@@ -110,7 +110,7 @@ export default function AcademyTab() {
           <div className="flex items-center gap-1.5">
             <div className="flex overflow-hidden rounded-md border border-border-primary text-xs font-semibold">
               {(["en", "tr"] as const).map((l) => (
-                <button key={l} type="button" onClick={() => setLang(l)} className={cn("px-2 py-1", lang === l ? "bg-accent text-white" : "hover:bg-bg-hover")}>
+                <button key={l} type="button" onClick={() => setLang(l)} className={cn("px-2 py-1", lang === l ? "bg-accent text-accent-ink" : "hover:bg-bg-hover")}>
                   {l.toUpperCase()}
                 </button>
               ))}
@@ -162,7 +162,7 @@ export default function AcademyTab() {
             type="button"
             disabled={idx === CHAPTERS.length - 1}
             onClick={() => openChapter(CHAPTERS[idx + 1].id)}
-            className="flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
+            className="flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-40"
           >
             {idx < CHAPTERS.length - 1 ? CHAPTERS[idx + 1].title[lang] : ""} <ChevronRight size={14} />
           </button>

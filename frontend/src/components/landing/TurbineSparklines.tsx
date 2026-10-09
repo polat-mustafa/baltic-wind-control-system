@@ -63,9 +63,9 @@ function Sparkline({
   return (
     <div className="flex-1 min-w-0">
       <div className="flex items-center justify-between mb-0.5">
-        <span className="text-[9px] text-text-muted uppercase tracking-wider">{label}</span>
-        <span className="text-[11px] font-mono tabular-nums font-medium" style={{ color: lineColor }}>
-          {value} <span className="text-[9px] text-text-muted">{unit}</span>
+        <span className="text-xs text-text-muted uppercase tracking-wider">{label}</span>
+        <span className="text-xs font-mono tabular-nums font-medium" style={{ color: lineColor }}>
+          {value} <span className="text-xs text-text-muted">{unit}</span>
         </span>
       </div>
       <svg
@@ -88,7 +88,7 @@ function Sparkline({
             />
           </>
         ) : (
-          <text x={W / 2} y={H / 2 + 3} textAnchor="middle" fill="#3d4560" fontSize={9}>
+          <text x={W / 2} y={H / 2 + 3} textAnchor="middle" fill="#2c4760" fontSize={9}>
             waiting…
           </text>
         )}
@@ -108,7 +108,7 @@ export default function TurbineSparklines({
       <Sparkline
         data={powerHistory}
         maxVal={15}
-        lineColor="#3ecf6e"
+        lineColor="#4cc38a"
         fillColor="rgba(62,207,110,0.12)"
         label="Power"
         value={currentPowerMW.toFixed(1)}
@@ -117,7 +117,7 @@ export default function TurbineSparklines({
       <Sparkline
         data={windHistory}
         maxVal={25}
-        lineColor="#3b82f6"
+        lineColor="#45c8d9"
         fillColor="rgba(59,130,246,0.12)"
         label="Wind"
         value={currentWindMs.toFixed(1)}

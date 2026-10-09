@@ -147,7 +147,7 @@ export default function AEPCascadePanel() {
           style={{ height: CHART_HEIGHT }}
         />
       </div>
-      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-secondary" aria-label="Sources of the loss values">
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary" aria-label="Sources of the loss values">
         {a.loss_factors.map((lf) => (
           <li key={lf.name} className="flex items-start gap-1">
             <span className="whitespace-nowrap">
@@ -158,7 +158,7 @@ export default function AEPCascadePanel() {
         ))}
       </ul>
       {a.uncertainty && a.uncertainty.length > 0 && (
-        <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-secondary" aria-label="Uncertainty components">
+        <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary" aria-label="Uncertainty components">
           <li className="font-medium text-text-primary">Uncertainty (1σ of AEP):</li>
           {a.uncertainty.map((u) => (
             <li key={u.name} className="flex items-start gap-1">

@@ -35,22 +35,22 @@ export default function EmergencyTab({ programme }: { programme: ProgrammeDetail
             </CardHeader>
             <CardContent className="flex flex-1 flex-col gap-3 text-xs">
               <div className="flex flex-wrap gap-2">
-                <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase", SEVERITY_STYLE[p.severity])}>{p.severity}</span>
-                <span className="rounded border border-border-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-text-secondary">
+                <span className={cn("rounded px-1.5 py-0.5 text-xs font-semibold uppercase", SEVERITY_STYLE[p.severity])}>{p.severity}</span>
+                <span className="rounded border border-border-primary px-1.5 py-0.5 text-xs font-semibold uppercase text-text-secondary">
                   {p.effect === "trip" ? "Trips circuit 1" : "Suspends switching"}
                 </span>
-                <span className="text-[11px] text-text-muted">{p.responsible}</span>
+                <span className="text-xs text-text-muted">{p.responsible}</span>
               </div>
               <ol className="list-decimal space-y-1 pl-4 text-text-primary">
                 {p.immediate_actions.map((a) => <li key={a}>{a}</li>)}
               </ol>
               <div>
-                <p className="mb-0.5 text-[10px] uppercase tracking-wide text-text-muted">Communication</p>
+                <p className="mb-0.5 text-xs uppercase tracking-wide text-text-muted">Communication</p>
                 <ul className="space-y-0.5 text-text-secondary">
                   {p.communication_protocol.map((c) => <li key={c}>{c}</li>)}
                 </ul>
               </div>
-              <p className="text-[11px] text-text-muted">{p.reference_document}</p>
+              <p className="text-xs text-text-muted">{p.reference_document}</p>
               <div className="mt-auto flex gap-2">
                 {armed === p.emergency_type ? (
                   <>

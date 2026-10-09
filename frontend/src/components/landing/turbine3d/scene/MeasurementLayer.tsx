@@ -100,10 +100,10 @@ function FilterChips({
             onClick={() => onChange(k)}
             style={{
               fontSize: 9,
-              fontFamily: "JetBrains Mono, monospace",
+              fontFamily: "IBM Plex Mono, monospace",
               padding: "2px 6px",
               borderRadius: 4,
-              border: filterKind === k ? "1px solid #3b82f6" : "1px solid rgba(255,255,255,0.15)",
+              border: filterKind === k ? "1px solid #45c8d9" : "1px solid rgba(255,255,255,0.15)",
               background: filterKind === k ? "rgba(59,130,246,0.25)" : "rgba(0,0,0,0.5)",
               color: filterKind === k ? "#93c5fd" : "#94a3b8",
               cursor: "pointer",

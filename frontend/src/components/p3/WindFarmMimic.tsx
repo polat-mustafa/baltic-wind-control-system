@@ -66,14 +66,14 @@ export default function WindFarmMimic() {
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 px-3 py-1.5 border-b border-border-primary bg-bg-tertiary shrink-0">
         <div className="flex items-center gap-2">
           <Wind size={12} className="text-text-muted" />
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
             Plant Mimic · Operations
           </h3>
-          <span className="hidden md:inline text-[10px] text-text-muted font-mono">
+          <span className="hidden md:inline text-xs text-text-muted font-mono">
             {fleet.turbines.length} × {turbineLabel(fleet)} · {net.ratedMW.toFixed(0)} MW · 66 / 220 / 400 kV
           </span>
         </div>
-        <div className="flex items-center gap-3 text-[10px] font-mono text-text-secondary">
+        <div className="flex items-center gap-3 text-xs font-mono text-text-secondary">
           <span>
             Σ WTG{" "}
             <span className="text-text-primary">
@@ -129,7 +129,7 @@ export default function WindFarmMimic() {
               >
                 <div
                   className="absolute -left-9 top-1/2 -translate-y-1/2
-                             text-[9px] font-mono uppercase tracking-wider text-text-muted
+                             text-xs font-mono uppercase tracking-wider text-text-muted
                              pointer-events-none select-none"
                   style={{ width: 32 }}
                 >

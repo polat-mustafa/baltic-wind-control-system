@@ -66,7 +66,7 @@ export default function RepairWindowPanel() {
         O&M port {port ? `${port.name}, ${port.km.toFixed(1)} km by sea` : "not assessed — SB-510's Ustka (52.5 km) is used"}.
         A CTV crew works the 12 h day minus the trip out and back; an SOV or jack-up stays offshore.
       </p>
-      <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-text-muted">
+      <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
         <label className="flex flex-col gap-0.5">
           Vessel
           <select className={field} value={vessel} onChange={(e) => setVessel(e.target.value as VesselType)}>
@@ -121,9 +121,9 @@ export default function RepairWindowPanel() {
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="py-1">
-      <div className="text-[10px] uppercase tracking-wider text-text-muted">{label}</div>
+      <div className="text-xs uppercase tracking-wider text-text-muted">{label}</div>
       <div className="font-mono text-text-primary">{value}</div>
-      {hint && <div className="text-[10px] text-text-muted">{hint}</div>}
+      {hint && <div className="text-xs text-text-muted">{hint}</div>}
     </div>
   );
 }

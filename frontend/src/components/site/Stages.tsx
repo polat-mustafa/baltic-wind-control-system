@@ -35,7 +35,7 @@ import {
 /** Says what in a stage comes from the user's site and what is a teaching script. */
 function ScriptedNote() {
   return (
-    <p className="rounded-md border border-border-primary bg-bg-tertiary px-2.5 py-1.5 text-[11px] text-text-muted">
+    <p className="rounded-md border border-border-primary bg-bg-tertiary px-2.5 py-1.5 text-xs text-text-muted">
       <b className="text-text-secondary">Training timeline.</b> Tasks, durations and dialogue are a typical EU sequence, not
       data for your site. Computed from your site: the screening checks (real open data), the Natura 2000 and restricted-area
       warnings here, and the permit outcome.
@@ -123,13 +123,13 @@ function ClockBar({
       <span className="font-mono text-sm tabular-nums text-text-primary">
         Month {clock.month.toFixed(clock.month < 10 ? 1 : 0)}
       </span>
-      <span className="text-[11px] text-text-muted">of {end} · {label}</span>
+      <span className="text-xs text-text-muted">of {end} · {label}</span>
       <div className="ml-auto flex gap-1.5">
         {!clock.done && (
           <button
             type="button"
             onClick={clock.running ? clock.pause : clock.play}
-            className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-white hover:bg-accent-hover"
+            className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-accent-ink hover:bg-accent-hover"
           >
             <Play size={12} /> {clock.running ? "Pause" : clock.month > 0 ? "Resume" : "Start"}
           </button>
@@ -169,7 +169,7 @@ function TaskCard({ task, month }: { task: Task; month: number }) {
           <h4 className="text-sm font-semibold text-text-primary">{task.title}</h4>
           <span
             className={cn(
-              "inline-flex items-center gap-1 text-[11px] font-medium",
+              "inline-flex items-center gap-1 text-xs font-medium",
               done ? "text-status-normal" : "text-text-muted",
             )}
           >
@@ -193,8 +193,8 @@ function TaskCard({ task, month }: { task: Task; month: number }) {
           {task.why}
         </p>
         {task.watchOut && <WatchOut text={task.watchOut} />}
-        {task.reference && <p className="text-[10px] text-text-muted">{task.reference}</p>}
-        <p className="text-[10px] text-text-muted">
+        {task.reference && <p className="text-xs text-text-muted">{task.reference}</p>}
+        <p className="text-xs text-text-muted">
           {ACTORS[task.actor].name} · {ACTORS[task.actor].role}
         </p>
       </div>
@@ -286,7 +286,7 @@ export function EnvironmentStage() {
             aria-pressed={i === season}
           >
             <div className="text-xs font-semibold text-text-primary">{s.title}</div>
-            <div className="mt-0.5 text-[11px] text-text-secondary">{s.focus}</div>
+            <div className="mt-0.5 text-xs text-text-secondary">{s.focus}</div>
           </button>
         ))}
       </div>
@@ -361,12 +361,12 @@ export function PermitStage() {
                     )}
                     {s.title}
                   </span>
-                  <span className="font-mono text-[11px] text-text-muted">month {s.month}</span>
+                  <span className="font-mono text-xs text-text-muted">month {s.month}</span>
                 </div>
                 {state !== "next" && (
                   <>
                     <p className="mt-0.5 text-[12px] text-text-secondary">{s.note}</p>
-                    <p className="text-[10px] text-text-muted">{s.reference}</p>
+                    <p className="text-xs text-text-muted">{s.reference}</p>
                   </>
                 )}
                 <span className="sr-only">{state === "done" ? "done" : state === "now" ? "in progress" : "waiting"}</span>

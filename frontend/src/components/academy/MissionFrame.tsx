@@ -22,7 +22,7 @@ export function ScoreBadge({ score, className }: { score: number | undefined; cl
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-semibold tabular-nums",
+        "inline-flex items-center gap-1 rounded-full px-1.5 py-px text-xs font-semibold tabular-nums",
         passed(score) ? "bg-status-normal/15 text-status-normal" : "bg-status-warning/15 text-status-warning",
         className,
       )}
@@ -53,7 +53,7 @@ export function ScoreCard({ result, children }: { result: Scored; children?: Rea
               <tr key={l.label} className="border-t border-border-primary/60 align-top">
                 <td className="py-1 pr-2 text-text-primary">
                   {l.label}
-                  <span className="block text-[11px] text-text-muted">{l.note}</span>
+                  <span className="block text-xs text-text-muted">{l.note}</span>
                 </td>
                 <td className={cn("whitespace-nowrap py-1 text-right tabular-nums", l.points < 0 ? "text-status-alarm" : "text-text-secondary")}>
                   {l.points}
@@ -80,7 +80,7 @@ export default function MissionFrame({ mission, onClose, children }: { mission: 
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">
+          <p className="text-xs font-semibold uppercase tracking-wider text-accent">
             {KIND_LABEL[mission.kind]} · ~{mission.minutes} min
           </p>
           <h3 id="mission-title" className="text-base font-semibold text-text-primary">
@@ -97,7 +97,7 @@ export default function MissionFrame({ mission, onClose, children }: { mission: 
           <X size={16} />
         </button>
       </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-muted">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
         <span>
           <span className="font-semibold text-text-secondary">Scoring: </span>
           {mission.scoring}
@@ -109,7 +109,7 @@ export default function MissionFrame({ mission, onClose, children }: { mission: 
         )}
       </div>
       {children}
-      <p className="border-t border-border-primary pt-2 text-[10px] text-text-muted">References: {mission.refs.join(" · ")}</p>
+      <p className="border-t border-border-primary pt-2 text-xs text-text-muted">References: {mission.refs.join(" · ")}</p>
     </section>
   );
 }

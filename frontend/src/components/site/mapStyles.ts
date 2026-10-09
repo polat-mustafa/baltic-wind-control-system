@@ -22,7 +22,7 @@ export const ROLE_STYLE: Record<string, RoleStyle> = {
   shipping: {
     label: "Shipping priority (MSP)",
     note: "Plan basins where shipping comes first: no wind farms",
-    color: "#3b82f6",
+    color: "#45c8d9",
     fill: 0.14,
     dash: "6 4",
     on: true,
@@ -45,7 +45,7 @@ export const ROLE_STYLE: Record<string, RoleStyle> = {
   restricted: {
     label: "Military / munitions",
     note: "Military areas and munition dumpsites",
-    color: "#ef4444",
+    color: "#f25c54",
     fill: 0.12,
     dash: "3 3",
     on: true,

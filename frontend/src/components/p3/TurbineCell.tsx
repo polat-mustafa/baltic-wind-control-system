@@ -73,7 +73,7 @@ function TurbineCellInner({ turbineId, onOpen }: TurbineCellProps) {
       className={cn(
         "group flex flex-col text-left",
         "border-l-[3px] border border-border-primary bg-bg-secondary",
-        "px-1.5 py-1 min-w-[100px] w-[100px]",
+        "px-1.5 py-1 min-w-[112px] w-[112px]",
         "transition-colors hover:bg-bg-elevated focus:outline-none",
         "focus-visible:ring-1 focus-visible:ring-accent",
         STATUS_BORDER[status],
@@ -82,7 +82,7 @@ function TurbineCellInner({ turbineId, onOpen }: TurbineCellProps) {
     >
       {/* Header — id + status dot */}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold tracking-wide text-text-secondary">
+        <span className="text-xs font-semibold tracking-wide text-text-secondary">
           {turbineId}
         </span>
         <span
@@ -107,22 +107,22 @@ function TurbineCellInner({ turbineId, onOpen }: TurbineCellProps) {
             ? "—"
             : t.powerOutputMW.toFixed(1)}
         </span>
-        <span className="text-[9px] text-text-muted">MW</span>
+        <span className="text-xs text-text-muted">MW</span>
       </div>
 
       {/* Wind speed + nacelle direction */}
-      <div className="flex items-center gap-1 mt-0.5">
-        <span className="font-mono tabular-nums text-[10px] text-text-secondary">
+      <div className="flex items-center gap-0.5 mt-0.5">
+        <span className="font-mono tabular-nums text-xs text-text-secondary">
           {t.windSpeedMs.toFixed(1)}
         </span>
-        <span className="text-[9px] text-text-muted">m/s</span>
+        <span className="text-xs text-text-muted">m/s</span>
         <ArrowUp
           size={9}
           className="text-text-muted shrink-0"
           style={{ transform: `rotate(${t.nacellePositionDeg}deg)` }}
           aria-hidden
         />
-        <span className="font-mono tabular-nums text-[9px] text-text-muted">
+        <span className="font-mono tabular-nums text-xs text-text-muted">
           {Math.round(t.nacellePositionDeg)}°
         </span>
       </div>

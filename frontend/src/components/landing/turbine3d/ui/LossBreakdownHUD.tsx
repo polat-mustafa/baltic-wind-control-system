@@ -110,7 +110,7 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
       {
         label: "× η transformer",
         fraction: transformer,
-        color: "#ef4444",
+        color: "#f25c54",
         note: `${pct(V236_ETA.transformer)} — illustrative (IEC 60076 liquid-filled)`,
         partId: "transformer",
         citation: {
@@ -140,8 +140,8 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary">
         <div>
-          <div className="text-[11px] font-semibold text-text-primary">Power Loss Cascade</div>
-          <div className="text-[9px] text-text-muted font-mono">IEA 15 MW · P_grid / P_wind = {(grid * 100).toFixed(1)} %</div>
+          <div className="text-xs font-semibold text-text-primary">Power Loss Cascade</div>
+          <div className="text-xs text-text-muted font-mono">IEA 15 MW · P_grid / P_wind = {(grid * 100).toFixed(1)} %</div>
         </div>
         <button onClick={onClose} className="p-1 hover:bg-bg-hover rounded" title="Close">
           <X size={12} className="text-text-muted" />
@@ -154,14 +154,14 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
           <div key={s.label} className="group">
             <div className="flex items-baseline justify-between mb-0.5">
               <button
-                className="text-[10px] font-mono text-text-primary hover:text-accent text-left flex-1 truncate"
+                className="text-xs font-mono text-text-primary hover:text-accent text-left flex-1 truncate"
                 onClick={() => s.partId && setSelectedPart(s.partId)}
                 disabled={!s.partId}
                 title={s.partId ? `Focus 3D on ${s.partId}` : undefined}
               >
                 {s.label}
               </button>
-              <span className="text-[9px] font-mono text-text-muted ml-1">
+              <span className="text-xs font-mono text-text-muted ml-1">
                 {(s.fraction * 100).toFixed(1)}%
               </span>
             </div>
@@ -175,7 +175,7 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
               />
             </div>
             <div className="flex items-baseline justify-between mt-0.5 gap-1">
-              <span className="text-[8px] text-text-muted font-mono truncate">
+              <span className="text-xs text-text-muted font-mono truncate">
                 {s.note}
               </span>
               {s.citation && (
@@ -195,9 +195,9 @@ export function LossBreakdownHUD({ onClose }: LossBreakdownHUDProps) {
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-2 border-t border-border-primary text-[9px] font-mono text-text-muted">
+      <div className="px-3 py-2 border-t border-border-primary text-xs font-mono text-text-muted">
         <div>Aero vs Betz (16/27 = 59.3 %): {overallVsBetz.toFixed(1)} %</div>
-        <div className="text-text-muted/70 mt-0.5 text-[8px]">
+        <div className="text-text-muted/70 mt-0.5 text-xs">
           Sources cited per stage (?). Availability is an industry target — IEC 61400-26 is the framework, not a mandated value.
         </div>
       </div>

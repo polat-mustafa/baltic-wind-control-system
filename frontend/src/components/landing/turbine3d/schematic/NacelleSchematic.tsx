@@ -102,7 +102,7 @@ export const NacelleSchematic = memo(function NacelleSchematic({ turbineId, head
               role="tab"
               aria-selected={sheetId === s.id}
               onClick={() => setSheetId(s.id)}
-              className={cn("px-3 py-1.5", sheetId === s.id ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-hover")}
+              className={cn("px-3 py-1.5", sheetId === s.id ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-hover")}
             >
               {s.label}
             </button>

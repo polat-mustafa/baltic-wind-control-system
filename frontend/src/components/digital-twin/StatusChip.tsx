@@ -24,7 +24,7 @@ export function StatusChip({
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded border font-medium uppercase tracking-wide",
-        compact ? "px-1.5 py-0 text-[10px]" : "px-2 py-0.5 text-[11px]",
+        compact ? "px-1.5 py-0 text-xs" : "px-2 py-0.5 text-xs",
         STATUS_CLASS[status].chip,
         className,
       )}

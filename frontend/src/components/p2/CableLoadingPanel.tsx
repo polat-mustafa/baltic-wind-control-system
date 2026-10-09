@@ -34,8 +34,8 @@ export function ScenarioTabs() {
           role="tab"
           aria-selected={activeScenario === s}
           onClick={() => setActiveScenario(s)}
-          className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
-            activeScenario === s ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"
+          className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+            activeScenario === s ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"
           }`}
         >
           {SCENARIO_LABEL[s]}

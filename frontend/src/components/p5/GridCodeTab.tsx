@@ -49,8 +49,8 @@ function Item({ t, editable }: { t: GridCodeTest; editable: boolean }) {
             <span className="mr-1.5 font-mono text-text-muted">{t.test_id}</span>
             {t.name}
           </p>
-          <p className="text-[11px] text-text-muted">{t.standard} · {t.description}</p>
-          <p className="text-[11px] text-text-secondary">Criterion: {t.acceptance_criteria}</p>
+          <p className="text-xs text-text-muted">{t.standard} · {t.description}</p>
+          <p className="text-xs text-text-secondary">Criterion: {t.acceptance_criteria}</p>
         </div>
         {editable ? (
           <select
@@ -58,14 +58,14 @@ function Item({ t, editable }: { t: GridCodeTest; editable: boolean }) {
             value={t.verdict}
             disabled={busy}
             onChange={(e) => recordCompliance(t.test_id, e.target.value as ComplianceVerdict, "")}
-            className={cn("rounded border border-border-secondary bg-bg-tertiary px-1.5 py-1 text-[11px]", VERDICT_STYLE[t.verdict])}
+            className={cn("rounded border border-border-secondary bg-bg-tertiary px-1.5 py-1 text-xs", VERDICT_STYLE[t.verdict])}
           >
             <option value="pending">pending</option>
             <option value="compliant">compliant</option>
             <option value="non_compliant">non-compliant</option>
           </select>
         ) : (
-          <span className={cn("text-[11px] font-semibold", VERDICT_STYLE[t.verdict])}>{t.verdict.replace("_", "-")}</span>
+          <span className={cn("text-xs font-semibold", VERDICT_STYLE[t.verdict])}>{t.verdict.replace("_", "-")}</span>
         )}
       </div>
     </li>
@@ -110,10 +110,10 @@ export default function GridCodeTab({ programme }: { programme: ProgrammeDetail 
             <Card key={id} className="flex flex-col">
               <CardHeader action={i === 0 ? <InfoButton info={p5GridCodeInfo} /> : undefined}>
                 <CardTitle>{name}</CardTitle>
-                <span className="text-[11px] text-text-muted">NC RfG {article}</span>
+                <span className="text-xs text-text-muted">NC RfG {article}</span>
                 <span
                   className={cn(
-                    "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase",
+                    "rounded px-1.5 py-0.5 text-xs font-semibold uppercase",
                     app.status === "issued" ? "bg-status-normal/15 text-status-normal"
                       : app.status === "submitted" ? "bg-status-warning/15 text-status-warning"
                       : "bg-bg-tertiary text-text-secondary",
@@ -125,7 +125,7 @@ export default function GridCodeTab({ programme }: { programme: ProgrammeDetail 
               <div className="px-4 py-2 text-xs text-text-secondary">
                 <ArrowRight size={11} className="mr-1 inline" />
                 {allows}
-                {app.approved_at && <span className="block text-[11px] text-text-muted">Issued {date(app.approved_at)}{app.valid_until && ` · valid until ${date(app.valid_until)}`}</span>}
+                {app.approved_at && <span className="block text-xs text-text-muted">Issued {date(app.approved_at)}{app.valid_until && ` · valid until ${date(app.valid_until)}`}</span>}
               </div>
               <ul className="flex-1">
                 {app.tests.map((t) => (
@@ -149,7 +149,7 @@ export default function GridCodeTab({ programme }: { programme: ProgrammeDetail 
                   {app.status === "submitted" && (
                     <Button size="sm" disabled={busy} onClick={() => stageAction(id, "approve")}>PSE issues {name}</Button>
                   )}
-                  <span className="text-[11px] text-text-muted">
+                  <span className="text-xs text-text-muted">
                     {!prevOk ? `${STAGES[i - 1].name} must be issued first` : needsProgramme ? "Programme must be complete" : ""}
                   </span>
                 </div>

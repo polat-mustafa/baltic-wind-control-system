@@ -24,7 +24,7 @@ import {
 } from "../../utils/landingPhysics";
 import { DataRow, EquipmentPanel, HeroValue, PanelSection } from "./EquipmentPanel";
 
-const NORMAL = "#3ecf6e";
+const NORMAL = "#4cc38a";
 const PROFILE_COLOR = "#4FC3D8";
 const R = ROTOR_DIAMETER_M / 2;
 const TIP_LOW = HUB_HEIGHT_M - R;
@@ -66,29 +66,29 @@ function ProfileChart({ hubWindMs }: { hubWindMs: number }) {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Vertical wind profile">
       {/* Rotor disk band */}
-      <rect x={pad.l} y={y(TIP_HIGH)} width={W - pad.l - pad.r} height={y(TIP_LOW) - y(TIP_HIGH)} fill="#3b82f6" opacity={0.08} />
-      <text x={W - pad.r + 4} y={y(TIP_HIGH) + 9} fontSize={9} fill="#6b7490">tip {TIP_HIGH} m</text>
-      <text x={W - pad.r + 4} y={y(TIP_LOW) - 2} fontSize={9} fill="#6b7490">tip {TIP_LOW} m</text>
+      <rect x={pad.l} y={y(TIP_HIGH)} width={W - pad.l - pad.r} height={y(TIP_LOW) - y(TIP_HIGH)} fill="#45c8d9" opacity={0.08} />
+      <text x={W - pad.r + 4} y={y(TIP_HIGH) + 9} fontSize={9} fill="#7189a0">tip {TIP_HIGH} m</text>
+      <text x={W - pad.r + 4} y={y(TIP_LOW) - 2} fontSize={9} fill="#7189a0">tip {TIP_LOW} m</text>
       {/* Hub line */}
-      <line x1={pad.l} x2={W - pad.r} y1={y(HUB_HEIGHT_M)} y2={y(HUB_HEIGHT_M)} stroke="#6b7490" strokeDasharray="3 3" />
-      <text x={W - pad.r + 4} y={y(HUB_HEIGHT_M) + 3} fontSize={9} fill="#9ba3b8">hub</text>
+      <line x1={pad.l} x2={W - pad.r} y1={y(HUB_HEIGHT_M)} y2={y(HUB_HEIGHT_M)} stroke="#7189a0" strokeDasharray="3 3" />
+      <text x={W - pad.r + 4} y={y(HUB_HEIGHT_M) + 3} fontSize={9} fill="#a3b6c8">hub</text>
       {/* Axes */}
       {[0, 100, 200, 300].map((z) => (
-        <text key={z} x={pad.l - 6} y={y(z) + 3} fontSize={9} fill="#6b7490" textAnchor="end" fontFamily="JetBrains Mono, monospace">
+        <text key={z} x={pad.l - 6} y={y(z) + 3} fontSize={9} fill="#7189a0" textAnchor="end" fontFamily="IBM Plex Mono, monospace">
           {z}
         </text>
       ))}
       {[uMin, Math.round((uMin + uMax) / 2), uMax].map((u) => (
-        <text key={u} x={x(u)} y={H - 6} fontSize={9} fill="#6b7490" textAnchor="middle" fontFamily="JetBrains Mono, monospace">
+        <text key={u} x={x(u)} y={H - 6} fontSize={9} fill="#7189a0" textAnchor="middle" fontFamily="IBM Plex Mono, monospace">
           {u}
         </text>
       ))}
-      <text x={pad.l - 6} y={pad.t + 2} fontSize={8} fill="#6b7490" textAnchor="end">m</text>
-      <text x={W - pad.r} y={H - 6} fontSize={8} fill="#6b7490" textAnchor="start" dx={4}>m/s</text>
+      <text x={pad.l - 6} y={pad.t + 2} fontSize={8} fill="#7189a0" textAnchor="end">m</text>
+      <text x={W - pad.r} y={H - 6} fontSize={8} fill="#7189a0" textAnchor="start" dx={4}>m/s</text>
       {/* Profile + range gates */}
       <path d={curve} fill="none" stroke={PROFILE_COLOR} strokeWidth={1.75} />
       {GATES.map((z) => (
-        <circle key={z} cx={x(windAtHeight(hubWindMs, z))} cy={y(z)} r={z === HUB_HEIGHT_M ? 3.5 : 2.5} fill={z === HUB_HEIGHT_M ? "#e8eaf0" : PROFILE_COLOR} />
+        <circle key={z} cx={x(windAtHeight(hubWindMs, z))} cy={y(z)} r={z === HUB_HEIGHT_M ? 3.5 : 2.5} fill={z === HUB_HEIGHT_M ? "#e4ecf3" : PROFILE_COLOR} />
       ))}
     </svg>
   );
@@ -107,16 +107,16 @@ export default function LIDARDetailPanel({ onClose }: { onClose: () => void }) {
       icon={Radar}
       tag="LIDAR-MM-01"
       subtitle="Floating LiDAR buoy · ZX 300M · independent wind reference"
-      status={valid ? { label: "Valid", color: NORMAL } : { label: "Standby", color: "#9ba3b8" }}
+      status={valid ? { label: "Valid", color: NORMAL } : { label: "Standby", color: "#a3b6c8" }}
       onClose={onClose}
       action={{ label: "Open Wind Resource (P1)", onClick: () => navigate("/wind-resource") }}
       footnote="Carbon Trust OWA FLS roadmap · IEC 61400-50-2 — reference for P50 / P90 yield"
     >
       <div className="px-4 py-3 border-b border-border-primary/60">
         <div className="flex items-end justify-between">
-          <HeroValue caption={`Hub height · ${HUB_HEIGHT_M} m`} value={windMs.toFixed(1)} unit="m/s" color={valid ? PROFILE_COLOR : "#9ba3b8"} />
+          <HeroValue caption={`Hub height · ${HUB_HEIGHT_M} m`} value={windMs.toFixed(1)} unit="m/s" color={valid ? PROFILE_COLOR : "#a3b6c8"} />
           <div className="pb-1 text-right">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">Direction</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">Direction</div>
             <div className="font-mono text-xl font-semibold tabular-nums text-text-primary">
               {kpis.windDirectionDeg.toFixed(0)}°
             </div>
@@ -129,8 +129,8 @@ export default function LIDARDetailPanel({ onClose }: { onClose: () => void }) {
         <div className="mt-2 grid grid-cols-6 gap-1 text-center">
           {GATES.map((z) => (
             <div key={z}>
-              <div className="font-mono text-[10px] text-text-muted">{z} m</div>
-              <div className="font-mono text-[11px] tabular-nums text-text-primary">
+              <div className="font-mono text-xs text-text-muted">{z} m</div>
+              <div className="font-mono text-xs tabular-nums text-text-primary">
                 {windAtHeight(windMs, z).toFixed(1)}
               </div>
             </div>

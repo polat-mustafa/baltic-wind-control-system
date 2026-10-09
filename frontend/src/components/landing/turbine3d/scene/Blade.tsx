@@ -54,7 +54,7 @@ export const Blade = memo(
     const baseGeom = model?.blade ?? BLADE_GEOM_BASE;
 
     const renderField = !!fieldGeom;
-    const baseColor = isSelected ? "#60a5fa" : metalPaintedShell.color;
+    const baseColor = isSelected ? "#5cc3d2" : metalPaintedShell.color;
     const baseEmissive = isSelected ? "#1d4ed8" : statusColor;
     const baseEmissiveIntensity = isSelected ? 0.3 : 0.03;
 

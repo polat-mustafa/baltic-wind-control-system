@@ -58,7 +58,7 @@ export default function SOERecorderPanel() {
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border-primary">
         <h3 className="text-xs font-semibold text-text-primary">SOE recorder</h3>
         {stats && (
-          <span className="text-[11px] font-mono text-text-muted">
+          <span className="text-xs font-mono text-text-muted">
             {stats.total_events} events / {stats.window_hours} h · {stats.unacknowledged_count} unacknowledged
             {stats.most_active_device ? ` · most active ${stats.most_active_device}` : ""}
           </span>
@@ -81,7 +81,7 @@ export default function SOERecorderPanel() {
             </option>
           ))}
         </select>
-        <label className="flex items-center gap-1 text-[11px] text-text-secondary">
+        <label className="flex items-center gap-1 text-xs text-text-secondary">
           <input type="checkbox" checked={unackOnly} onChange={(e) => setUnackOnly(e.target.checked)} className="accent-accent" /> unacked
         </label>
         <button type="button" onClick={() => void applyFilters()} className={cn(ctrl, "flex items-center gap-1 hover:bg-bg-hover")}>
@@ -97,7 +97,7 @@ export default function SOERecorderPanel() {
             No recorded events. Operate a 66 kV bay or inject a protection fault — both are written here.
           </p>
         ) : (
-          <table className="w-full text-[11px]">
+          <table className="w-full text-xs">
             <thead className="sticky top-0 bg-bg-tertiary text-text-muted text-left">
               <tr>
                 <th className="px-2 py-1 font-medium w-9">Sev</th>
@@ -117,7 +117,7 @@ export default function SOERecorderPanel() {
                 return (
                   <tr key={e.id} className={cn("border-b border-border-primary/60 hover:bg-bg-hover", !e.acknowledged && "font-semibold")}>
                     <td className="px-2 py-0.5">
-                      {e.severity === "INFO" ? <span className="text-[10px] font-mono font-normal text-text-muted">info</span> : <PriorityChip priority={e.severity} />}
+                      {e.severity === "INFO" ? <span className="text-xs font-mono font-normal text-text-muted">info</span> : <PriorityChip priority={e.severity} />}
                     </td>
                     <td className="px-2 py-0.5 font-mono tabular-nums text-text-secondary whitespace-nowrap">{utcMs(e.timestamp_utc)}</td>
                     <td className="px-2 py-0.5 font-mono tabular-nums text-right text-text-muted whitespace-nowrap">
@@ -134,7 +134,7 @@ export default function SOERecorderPanel() {
                         <button
                           type="button"
                           onClick={() => void acknowledgeEvent(e.id, "OPR-1")}
-                          className="px-1.5 rounded border border-border-primary text-[10px] font-semibold text-text-primary hover:bg-bg-hover"
+                          className="px-1.5 rounded border border-border-primary text-xs font-semibold text-text-primary hover:bg-bg-hover"
                         >
                           ACK
                         </button>

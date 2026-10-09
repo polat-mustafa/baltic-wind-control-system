@@ -60,7 +60,7 @@ export default function NetworkDashboard() {
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-xs font-semibold text-text-primary">Communication network · IEC 61850 / IEC 62443</h3>
         <span className="flex-1" />
-        <button type="button" onClick={() => void fetchAll()} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-[11px] text-text-secondary hover:bg-bg-hover">
+        <button type="button" onClick={() => void fetchAll()} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-xs text-text-secondary hover:bg-bg-hover">
           <RefreshCw size={11} className={loading ? "animate-spin" : undefined} /> Refresh
         </button>
       </div>
@@ -74,7 +74,7 @@ export default function NetworkDashboard() {
 
       {topology && (
         <section className="bg-bg-secondary rounded-lg border border-border-primary p-3">
-          <p className="text-[11px] text-text-muted mb-2">{topology.assessment}</p>
+          <p className="text-xs text-text-muted mb-2">{topology.assessment}</p>
           <div className="overflow-x-auto">
             <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[760px]" role="img" aria-label="OT network architecture">
               {LAYERS.map((l, i) => (
@@ -121,14 +121,14 @@ export default function NetworkDashboard() {
               ))}
             </svg>
           </div>
-          <div className="flex flex-wrap gap-4 text-[11px] text-text-muted mt-1">
+          <div className="flex flex-wrap gap-4 text-xs text-text-muted mt-1">
             <span className="flex items-center gap-1"><span className="inline-block w-5 h-0.5" style={{ background: c.blue }} /> fibre / Ethernet</span>
             <span className="flex items-center gap-1"><span className="inline-block w-5 h-0.5" style={{ background: c.orange }} /> licensed microwave</span>
             <span>dashed = redundant path · thick = ≥ 1 Gbit/s · hover for details</span>
           </div>
 
           <div className="overflow-x-auto mt-3">
-            <table className="w-full text-[11px]">
+            <table className="w-full text-xs">
               <thead className="text-left text-text-muted">
                 <tr>
                   <th className="py-1 pr-3 font-medium">Link</th>

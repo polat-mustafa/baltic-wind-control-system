@@ -56,13 +56,13 @@ export default function EventLogPanel() {
       .filter((e) => cat.match(e) && (!q || `${e.source} ${e.description}`.toLowerCase().includes(q)));
   }, [eventLog, category, query]);
 
-  const ctrl = "h-6 text-[11px] bg-bg-secondary border border-border-primary rounded px-1.5 text-text-secondary";
+  const ctrl = "h-6 text-xs bg-bg-secondary border border-border-primary rounded px-1.5 text-text-secondary";
 
   return (
     <div className="flex flex-col h-full min-h-[420px] bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-border-primary shrink-0">
         <h3 className="text-xs font-semibold text-text-primary">Event Log / SOE</h3>
-        <span className="text-[10px] font-mono text-text-muted">{eventLog.length} entries · 1 ms resolution</span>
+        <span className="text-xs font-mono text-text-muted">{eventLog.length} entries · 1 ms resolution</span>
         <span className="flex-1" />
         <select value={category} onChange={(e) => setCategory(e.target.value)} className={ctrl} aria-label="Event category">
           {CATEGORY.map((c) => (
@@ -86,7 +86,7 @@ export default function EventLogPanel() {
             {eventLog.length === 0 ? "No events yet. Inject a fault, operate a breaker or start the auto-simulation." : "No events match the filter."}
           </div>
         ) : (
-          <table className="w-full text-[11px]">
+          <table className="w-full text-xs">
             <thead className="sticky top-0 bg-bg-tertiary text-text-muted">
               <tr className="text-left">
                 <th className="px-2 py-1 font-medium w-9">Pri</th>
@@ -99,7 +99,7 @@ export default function EventLogPanel() {
             <tbody>
               {rows.map((e) => (
                 <tr key={e.id} className="border-b border-border-primary/60 hover:bg-bg-hover">
-                  <td className="px-2 py-0.5">{e.priority === "INFO" ? <span className="text-[10px] font-mono text-text-muted">info</span> : <PriorityChip priority={e.priority} />}</td>
+                  <td className="px-2 py-0.5">{e.priority === "INFO" ? <span className="text-xs font-mono text-text-muted">info</span> : <PriorityChip priority={e.priority} />}</td>
                   <td className="px-2 py-0.5 font-mono tabular-nums text-text-secondary whitespace-nowrap">{formatTimeMs(e.timestamp)}</td>
                   <td className="px-2 py-0.5 font-mono text-text-primary whitespace-nowrap">{e.source}</td>
                   <td className="px-2 py-0.5 font-mono text-text-muted whitespace-nowrap">{e.type.toLowerCase()}</td>

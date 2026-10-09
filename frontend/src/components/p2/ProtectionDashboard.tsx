@@ -143,7 +143,7 @@ export default function ProtectionDashboard() {
                     role="tab"
                     aria-selected={faultLocation === k}
                     onClick={() => setFaultLocation(k)}
-                    className={`rounded px-2 py-1 text-[11px] font-medium ${faultLocation === k ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+                    className={`rounded px-2 py-1 text-xs font-medium ${faultLocation === k ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
                   >
                     {l}
                   </button>
@@ -151,7 +151,7 @@ export default function ProtectionDashboard() {
               </div>
             </div>
             {faultLocation === "export_cable" && (
-              <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[12rem]">
+              <label className="flex flex-col gap-0.5 text-xs text-text-muted min-w-[12rem]">
                 <span className="flex justify-between">
                   Position along the cable <span className="font-mono text-text-primary">{positionPct} % from onshore</span>
                 </span>
@@ -165,13 +165,13 @@ export default function ProtectionDashboard() {
                   role="tab"
                   aria-selected={faultType === t}
                   onClick={() => setFaultType(t)}
-                  className={`rounded px-2 py-1 text-[11px] font-medium ${faultType === t ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+                  className={`rounded px-2 py-1 text-xs font-medium ${faultType === t ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
                 >
                   {t === "3ph" ? "3-phase" : "phase-phase"}
                 </button>
               ))}
             </div>
-            {loading && <span className="text-[11px] text-text-muted">studying…</span>}
+            {loading && <span className="text-xs text-text-muted">studying…</span>}
           </div>
         </motion.div>
 

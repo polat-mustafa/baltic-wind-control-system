@@ -103,7 +103,7 @@ export function WhyViz({ lang }: { lang: Lang }) {
           <div className="font-mono text-lg font-bold">{Math.round(costF).toLocaleString()} €/day</div>
         </div>
       </div>
-      <p className="mt-1.5 text-[11px] text-text-muted">
+      <p className="mt-1.5 text-xs text-text-muted">
         {t(
           `Illustrative: |error| × ${price} €/MWh imbalance spread, scaled to ${farmN} turbines with the same profile.`,
           `Örnek hesap: |hata| × ${price} €/MWh dengesizlik farkı, aynı profil ile ${farmN} türbine ölçeklenmiş.`,
@@ -387,7 +387,7 @@ export function QuantileViz({ lang }: { lang: Lang }) {
       <div className="mb-1 flex items-center gap-2 text-xs">
         <span className="font-semibold">τ</span>
         {[0.1, 0.5, 0.9].map((v) => (
-          <button key={v} type="button" onClick={() => setTau(v)} className={`rounded-md border px-2 py-0.5 font-semibold ${tau === v ? "border-accent bg-accent text-white" : "border-border-primary hover:bg-bg-hover"}`}>
+          <button key={v} type="button" onClick={() => setTau(v)} className={`rounded-md border px-2 py-0.5 font-semibold ${tau === v ? "border-accent bg-accent text-accent-ink" : "border-border-primary hover:bg-bg-hover"}`}>
             P{Math.round(v * 100)}
           </button>
         ))}
@@ -445,7 +445,7 @@ export function EnsembleViz({ lang }: { lang: Lang }) {
             </div>
           </div>
         ))}
-        <div className="flex gap-3 text-[11px] text-text-muted">
+        <div className="flex gap-3 text-xs text-text-muted">
           <span><span className="mr-1 inline-block h-2 w-2" style={{ background: "var(--viz-2)" }} />XGBoost</span>
           <span><span className="mr-1 inline-block h-2 w-2" style={{ background: "var(--viz-1)" }} />LSTM</span>
           <span><span className="mr-1 inline-block h-2 w-2" style={{ background: "var(--viz-3)" }} />TFT</span>
@@ -491,7 +491,7 @@ export function PipelineViz({ lang }: { lang: Lang }) {
   return (
     <div className={box}>
       <PipelineGraph stages={ALL_DONE} />
-      <button type="button" onClick={() => setTab("monitor")} className="mt-2 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover">
+      <button type="button" onClick={() => setTab("monitor")} className="mt-2 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover">
         {t("Open the live training monitor →", "Canlı eğitim monitörünü aç →")}
       </button>
     </div>

@@ -22,10 +22,10 @@ import { cn } from "../../lib/utils";
 
 /** Priority chip: saturated background + legible text (WCAG ≥ 4.5:1). */
 const PRIORITY_CHIP: Record<AlarmPriority, { label: string; bg: string; fg: string }> = {
-  CRITICAL: { label: "P1", bg: SCADA_COLORS.ALARM_CRITICAL, fg: "#ffffff" },
-  HIGH: { label: "P2", bg: SCADA_COLORS.ALARM_HIGH, fg: "#1a1a1a" },
-  MEDIUM: { label: "P3", bg: SCADA_COLORS.ALARM_MEDIUM, fg: "#1a1a1a" },
-  LOW: { label: "P4", bg: SCADA_COLORS.ALARM_LOW, fg: "#ffffff" },
+  CRITICAL: { label: "P1", bg: SCADA_COLORS.ALARM_CRITICAL, fg: "#0a1520" },
+  HIGH: { label: "P2", bg: SCADA_COLORS.ALARM_HIGH, fg: "#0a1520" },
+  MEDIUM: { label: "P3", bg: SCADA_COLORS.ALARM_MEDIUM, fg: "#0a1520" },
+  LOW: { label: "P4", bg: SCADA_COLORS.ALARM_LOW, fg: "#e4ecf3" },
 };
 
 const STATE_LABEL: Record<AlarmState, string> = {
@@ -65,14 +65,14 @@ function exportCsv(alarms: SCADAAlarm[]): void {
 export function PriorityChip({ priority }: { priority: AlarmPriority }) {
   const c = PRIORITY_CHIP[priority];
   return (
-    <span className="inline-block w-7 text-center rounded-sm text-[10px] font-mono font-bold leading-4" style={{ background: c.bg, color: c.fg }}>
+    <span className="inline-block w-7 text-center rounded-sm text-xs font-mono font-bold leading-4" style={{ background: c.bg, color: c.fg }}>
       {c.label}
     </span>
   );
 }
 
-const selectCls = "h-6 text-[11px] bg-bg-secondary border border-border-primary rounded px-1.5 text-text-secondary";
-const btnCls = "flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-[11px] text-text-secondary hover:bg-bg-hover transition-colors";
+const selectCls = "h-6 text-xs bg-bg-secondary border border-border-primary rounded px-1.5 text-text-secondary";
+const btnCls = "flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-xs text-text-secondary hover:bg-bg-hover transition-colors";
 
 export default function AlarmListPanel({ compact = false }: { compact?: boolean }) {
   const alarms = useScadaStore((s) => s.alarms);
@@ -131,13 +131,13 @@ export default function AlarmListPanel({ compact = false }: { compact?: boolean 
       {/* Header */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 border-b border-border-primary shrink-0">
         <h3 className="text-xs font-semibold text-text-primary">Alarm List</h3>
-        <span className="text-[10px] font-mono text-text-muted">ISA-18.2</span>
-        <span className="text-[11px] font-mono text-text-secondary tabular-nums" title="Unacknowledged / standing (active) alarms">
+        <span className="text-xs font-mono text-text-muted">ISA-18.2</span>
+        <span className="text-xs font-mono text-text-secondary tabular-nums" title="Unacknowledged / standing (active) alarms">
           <b className={unack ? "text-text-primary" : undefined}>{unack}</b> unack · {standing} standing
         </span>
         {!compact && (
           <span
-            className={cn("text-[11px] font-mono tabular-nums", rate10 > 10 ? "text-status-warning" : "text-text-muted")}
+            className={cn("text-xs font-mono tabular-nums", rate10 > 10 ? "text-status-warning" : "text-text-muted")}
             title="EEMUA 191 / ISA-18.2: > 10 alarms in 10 min per operator is a flood"
           >
             {rate10}/10 min{rate10 > 10 ? " · FLOOD" : ""}
@@ -216,7 +216,7 @@ export default function AlarmListPanel({ compact = false }: { compact?: boolean 
             {alarms.length === 0 ? "No alarms. Inject a fault or start the auto-simulation." : showShelved ? "No shelved alarms." : "No alarms match the filters."}
           </div>
         ) : (
-          <table className="w-full text-[11px]">
+          <table className="w-full text-xs">
             <thead className="sticky top-0 bg-bg-tertiary text-text-muted">
               <tr className="text-left">
                 <th className="px-2 py-1 font-medium w-9">Pri</th>
@@ -270,7 +270,7 @@ export default function AlarmListPanel({ compact = false }: { compact?: boolean 
                             e.stopPropagation();
                             acknowledgeAlarm(a.id, OPERATOR);
                           }}
-                          className="px-1.5 rounded border border-border-primary text-[10px] font-semibold text-text-primary hover:bg-bg-hover"
+                          className="px-1.5 rounded border border-border-primary text-xs font-semibold text-text-primary hover:bg-bg-hover"
                         >
                           ACK
                         </button>
@@ -308,7 +308,7 @@ export default function AlarmListPanel({ compact = false }: { compact?: boolean 
               <X size={13} />
             </button>
           </div>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[11px]">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
             <dt className="text-text-muted">Value / limit</dt>
             <dd className="font-mono text-text-primary">
               {selected.value} <span className="text-text-muted">(limit {selected.setpoint})</span>

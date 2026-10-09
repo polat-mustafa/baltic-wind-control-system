@@ -35,7 +35,7 @@ export default function TwinControlBar() {
     >
       <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
         <label className="flex flex-col gap-1 min-w-[12rem] flex-1 sm:flex-none">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
+          <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
             Fault scenario
           </span>
           <select
@@ -52,7 +52,7 @@ export default function TwinControlBar() {
         </label>
 
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
+          <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
             Window
           </span>
           <div
@@ -68,7 +68,7 @@ export default function TwinControlBar() {
                 onClick={() => setDurationDays(d)}
                 className={`px-2.5 py-1.5 text-xs font-mono tabular-nums transition-colors ${
                   durationDays === d
-                    ? "bg-accent text-white"
+                    ? "bg-accent text-accent-ink"
                     : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
                 }`}
               >
@@ -79,7 +79,7 @@ export default function TwinControlBar() {
         </div>
 
         <label className="flex flex-col gap-1 w-24">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
+          <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
             Seed
           </span>
           <input
@@ -105,7 +105,7 @@ export default function TwinControlBar() {
           )}
         </Button>
         {stale && !loading && (
-          <span className="text-[11px] text-status-warning">
+          <span className="text-xs text-status-warning">
             Settings changed — results show the previous run.
           </span>
         )}
@@ -120,7 +120,7 @@ export default function TwinControlBar() {
                 inj.turbines.map((t, i) => (
                   <li
                     key={`${inj.kind}-${t}`}
-                    className="rounded border border-border-secondary bg-bg-tertiary px-1.5 py-0.5 font-mono text-[10px] text-text-secondary"
+                    className="rounded border border-border-secondary bg-bg-tertiary px-1.5 py-0.5 font-mono text-xs text-text-secondary"
                   >
                     {t} · {formatSeverity(inj.kind, inj.severity[i])} · from{" "}
                     {Math.round(inj.onset_fraction * 100)} %

@@ -30,7 +30,7 @@ export const Cooler = memo(function Cooler({ isSelected }: CoolerProps) {
           onClick={(e) => { e.stopPropagation(); setSelectedPart("cooler"); }}
         >
           <meshStandardMaterial
-            color={isSelected ? "#60a5fa" : "#3c434a"}
+            color={isSelected ? "#5cc3d2" : "#3c434a"}
             roughness={0.45}
             metalness={0.6}
             emissive={isSelected ? "#1d4ed8" : "#000000"}
@@ -51,7 +51,7 @@ export const Cooler = memo(function Cooler({ isSelected }: CoolerProps) {
       >
         <boxGeometry args={[4.5, 1.2, 6]} />
         <meshStandardMaterial
-          color={isSelected ? "#60a5fa" : "#4b5563"}
+          color={isSelected ? "#5cc3d2" : "#4b5563"}
           roughness={0.5}
           metalness={0.4}
           emissive={isSelected ? "#1d4ed8" : "#000000"}

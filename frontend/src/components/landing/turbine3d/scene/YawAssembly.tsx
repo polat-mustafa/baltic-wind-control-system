@@ -39,7 +39,7 @@ export const YawAssembly = memo(function YawAssembly({ isSelected }: YawAssembly
       >
         <torusGeometry args={[3.0, 0.3, 12, 48]} />
         <meshStandardMaterial
-          color={isSelected ? "#60a5fa" : "#374151"}
+          color={isSelected ? "#5cc3d2" : "#374151"}
           roughness={0.35}
           metalness={0.7}
           emissive={isSelected ? "#1d4ed8" : "#000000"}

@@ -33,7 +33,7 @@ export const Monopile = memo(function Monopile({ isSelected, turbineId = "WTG" }
     // on pin piles to the seabed (−40 m) with anodes and J-tubes; RAL 1023 yellow
     // transition piece (can + girders, 14 → 26 m) with boat landing, access
     // ladder, platforms and davit crane.
-    const hl = isSelected ? "#60a5fa" : undefined;
+    const hl = isSelected ? "#5cc3d2" : undefined;
     return (
       <group onClick={select}>
         <mesh geometry={model.transition_piece} name="foundation" castShadow receiveShadow>
@@ -95,7 +95,7 @@ export const Monopile = memo(function Monopile({ isSelected, turbineId = "WTG" }
       >
         <cylinderGeometry args={[4.5, 4.5, 20, 32]} />
         <meshStandardMaterial
-          color={isSelected ? "#60a5fa" : "#4a5568"}
+          color={isSelected ? "#5cc3d2" : "#4a5568"}
           roughness={0.7}
           metalness={0.3}
           emissive={isSelected ? "#1d4ed8" : "#000000"}

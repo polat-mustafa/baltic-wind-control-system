@@ -214,13 +214,13 @@ export default function TurbineFaceplate({
                 )}
                 aria-hidden
               />
-              <span className="text-[11px] font-mono text-text-secondary">
+              <span className="text-xs font-mono text-text-secondary">
                 {STATUS_LABEL[turbine.status] ?? turbine.status.toUpperCase()}
               </span>
-              <span className="text-[10px] text-text-muted">
+              <span className="text-xs text-text-muted">
                 Mode: <span className="text-text-secondary">{mode}</span>
               </span>
-              <span className="text-[10px] text-text-muted">
+              <span className="text-xs text-text-muted">
                 Alarms:{" "}
                 <span
                   className={cn(
@@ -233,7 +233,7 @@ export default function TurbineFaceplate({
                   {activeAlarmCount}
                 </span>
               </span>
-              <span className="text-[10px] text-text-muted">
+              <span className="text-xs text-text-muted">
                 Op-hrs:{" "}
                 <span className="font-mono tabular-nums text-text-secondary">
                   {turbine.operatingHours.toLocaleString()}
@@ -255,7 +255,7 @@ export default function TurbineFaceplate({
           <div className="flex-1 min-h-0 overflow-auto p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* OPERATING values */}
             <section className="border border-border-primary bg-bg-primary">
-              <h3 className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted border-b border-border-primary bg-bg-tertiary">
+              <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-text-muted border-b border-border-primary bg-bg-tertiary">
                 Operating
               </h3>
               <div className="p-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
@@ -306,7 +306,7 @@ export default function TurbineFaceplate({
 
             {/* ENVIRONMENT values */}
             <section className="border border-border-primary bg-bg-primary">
-              <h3 className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted border-b border-border-primary bg-bg-tertiary">
+              <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-text-muted border-b border-border-primary bg-bg-tertiary">
                 Environment
               </h3>
               <div className="p-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
@@ -315,8 +315,8 @@ export default function TurbineFaceplate({
                   value={turbine.windSpeedMs.toFixed(1)}
                   unit="m/s"
                 />
-                <div className="flex items-baseline justify-between gap-2 text-[11px]">
-                  <span className="text-text-muted uppercase tracking-wider text-[9px]">
+                <div className="flex items-baseline justify-between gap-2 text-xs">
+                  <span className="text-text-muted uppercase tracking-wider text-xs">
                     Wind dir
                   </span>
                   <span className="font-mono tabular-nums text-text-secondary inline-flex items-center gap-1">
@@ -365,10 +365,10 @@ export default function TurbineFaceplate({
             {/* TREND — full width */}
             <section className="md:col-span-2 border border-border-primary bg-bg-primary">
               <div className="flex items-center justify-between px-2 py-1 border-b border-border-primary bg-bg-tertiary">
-                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
                   Power Trend · 60 s
                 </h3>
-                <span className="text-[10px] text-text-muted">
+                <span className="text-xs text-text-muted">
                   Setpoint{" "}
                   <span className="font-mono text-text-secondary">
                     {setpoint.toFixed(1)} MW ± 5 %
@@ -390,7 +390,7 @@ export default function TurbineFaceplate({
 
             {/* SETPOINTS */}
             <section className="border border-border-primary bg-bg-primary">
-              <h3 className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted border-b border-border-primary bg-bg-tertiary">
+              <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-text-muted border-b border-border-primary bg-bg-tertiary">
                 Setpoints
               </h3>
               <div className="p-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
@@ -411,10 +411,10 @@ export default function TurbineFaceplate({
 
             {/* MANUAL CONTROLS */}
             <section className="border border-border-primary bg-bg-primary">
-              <h3 className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted border-b border-border-primary bg-bg-tertiary flex items-center justify-between">
+              <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-text-muted border-b border-border-primary bg-bg-tertiary flex items-center justify-between">
                 Manual Controls
                 {!canControl && (
-                  <span className="inline-flex items-center gap-1 text-[9px] text-status-warning normal-case">
+                  <span className="inline-flex items-center gap-1 text-xs text-status-warning normal-case">
                     <AlertTriangle size={10} />
                     Sr. Operator (L3+) required
                   </span>
@@ -444,7 +444,7 @@ export default function TurbineFaceplate({
                     tone="info"
                   />
                 </div>
-                <div className="flex items-center gap-2 text-[10px]">
+                <div className="flex items-center gap-2 text-xs">
                   <span className="text-text-muted">Mode:</span>
                   <ModeToggle
                     value="AUTO"
@@ -463,11 +463,11 @@ export default function TurbineFaceplate({
 
             {/* ALARM HISTORY */}
             <section className="md:col-span-2 border border-border-primary bg-bg-primary">
-              <h3 className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted border-b border-border-primary bg-bg-tertiary">
+              <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-text-muted border-b border-border-primary bg-bg-tertiary">
                 Alarm History · this turbine · last 24 h
               </h3>
               {turbineAlarms.length === 0 ? (
-                <div className="p-3 text-[11px] text-text-muted text-center">
+                <div className="p-3 text-xs text-text-muted text-center">
                   No alarms recorded for {turbineId}.
                 </div>
               ) : (
@@ -475,14 +475,14 @@ export default function TurbineFaceplate({
                   {turbineAlarms.map((a) => (
                     <li
                       key={a.id}
-                      className="flex items-baseline gap-2 px-2 py-1 text-[11px] font-mono"
+                      className="flex items-baseline gap-2 px-2 py-1 text-xs font-mono"
                     >
                       <span className="text-text-muted tabular-nums">
                         {formatTime(a.timestamp)}
                       </span>
                       <span
                         data-priority={PRIORITY_TAG[a.priority] ?? "JOURNAL"}
-                        className="px-1 text-[9px] font-semibold uppercase tracking-wide"
+                        className="px-1 text-xs font-semibold uppercase tracking-wide"
                       >
                         {PRIORITY_TAG[a.priority] ?? "INFO"}
                       </span>
@@ -501,7 +501,7 @@ export default function TurbineFaceplate({
           <div className="border-t border-border-primary bg-bg-tertiary px-3 py-2 flex items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-2">
               <Zap size={12} className="text-text-muted" />
-              <span className="text-[10px] uppercase tracking-wider text-text-muted">
+              <span className="text-xs uppercase tracking-wider text-text-muted">
                 Inject Test Fault
               </span>
               <select
@@ -549,8 +549,8 @@ function DataRow({
   warn?: boolean;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-2 text-[11px]">
-      <span className="text-text-muted uppercase tracking-wider text-[9px]">
+    <div className="flex items-baseline justify-between gap-2 text-xs">
+      <span className="text-text-muted uppercase tracking-wider text-xs">
         {label}
       </span>
       <span
@@ -561,7 +561,7 @@ function DataRow({
       >
         {value}
         {unit && (
-          <span className="text-text-muted ml-0.5 text-[9px]">{unit}</span>
+          <span className="text-text-muted ml-0.5 text-xs">{unit}</span>
         )}
       </span>
     </div>
@@ -629,7 +629,7 @@ function ModeToggle({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "px-2 py-0.5 border text-[10px] font-mono transition-colors",
+        "px-2 py-0.5 border text-xs font-mono transition-colors",
         active
           ? "border-accent text-accent bg-accent/10"
           : "border-border-primary text-text-muted hover:text-text-secondary",

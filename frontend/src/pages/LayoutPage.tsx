@@ -97,7 +97,7 @@ function GridTool({ onFill }: { onFill: (o: { along: number; across: number; ang
       <Button size="sm" onClick={() => onFill({ along, across, angle, staggered, avoid })}>
         <Grid3x3 size={13} className="mr-1" /> Fill site
       </Button>
-      <p className="text-[10px] text-text-muted">
+      <p className="text-xs text-text-muted">
         Put the wider spacing along the prevailing wind (here from the west–southwest): wakes are longest downwind.
       </p>
     </div>
@@ -137,7 +137,7 @@ function CostPanel({ costs, setCost, reset }: { costs: CostInputs; setCost: (k: 
               />
             </div>
           ))}
-          <p className="text-[10px] text-text-muted">
+          <p className="text-xs text-text-muted">
             Defaults: NREL Cost of Wind Energy Review 2024 (U.S. fixed-bottom reference) and the ORBIT cable library, 2023 USD at
             1.0813 $/€. Tap a badge for the source. Replace them with your own quotes.
           </p>
@@ -397,7 +397,7 @@ export default function LayoutPage() {
               card={<TurbineCard stats={stats} />}
             />
           </Suspense>
-          <p className="text-[11px] text-text-muted">
+          <p className="text-xs text-text-muted">
             Click a turbine for its card; drag it to see the farm AEP change live. Turbine IDs appear from zoom 12.
           </p>
           <WatchOut text="Wake losses grow quickly below about 5 D downwind; a tight layout gains megawatts on paper and loses them in energy. Drag a turbine and watch the farm AEP change in its card." />
@@ -512,10 +512,10 @@ export default function LayoutPage() {
                   <div className="text-text-muted">Capacity factor</div>
                   <div className="font-semibold text-text-primary">{(100 * p.pywake.capacity_factor).toFixed(1)} %</div>
                 </div>
-                {!pywakeFresh && <p className="col-span-3 text-[11px] text-status-warning">The layout changed since this run.</p>}
+                {!pywakeFresh && <p className="col-span-3 text-xs text-status-warning">The layout changed since this run.</p>}
               </div>
             ) : (
-              <p className="text-[11px] text-text-muted">
+              <p className="text-xs text-text-muted">
                 Niayifar Gaussian wakes, STF2017 turbulence, same 12-sector rose. The live numbers above use a faster model that agrees
                 within about 0.5 percentage points on regular grids.
               </p>
@@ -545,15 +545,15 @@ export default function LayoutPage() {
                     {external.farms.length === 1 ? "" : "s"} within 60 km ({external.turbines} virtual turbines); net AEP after it{" "}
                     {external.netWithGWh.toFixed(0)} GWh (wake only). The cost estimate includes it.
                   </p>
-                  <p className="text-[11px] text-text-muted">
+                  <p className="text-xs text-text-muted">
                     {external.farms.map((f) => `${f.name} ${f.power_mw.toFixed(0)} MW, ${f.distance_km.toFixed(0)} km`).join(" · ")}
                   </p>
-                  <p className="text-[11px] text-status-warning">
+                  <p className="text-xs text-status-warning">
                     {external.note}; point-only projects use {external.densityBasis}. TurbOPark (Nygaard et al. 2022) wakes.
                   </p>
                 </>
               ) : (
-                <p className="text-[11px] text-text-muted">
+                <p className="text-xs text-text-muted">
                   Real projects around the site take wind from it. This places approximate layouts of the farms within 60 km and runs PyWake with and
                   without them; the live numbers above leave them out.
                 </p>
@@ -619,7 +619,7 @@ export default function LayoutPage() {
               <span className="text-[12px] text-text-secondary">LCOE</span>
               <span className="text-lg font-semibold text-text-primary">{cost.lcoe != null ? `${cost.lcoe.toFixed(0)} €/MWh` : "—"}</span>
             </div>
-            <p className="text-[10px] text-text-muted">
+            <p className="text-xs text-text-muted">
               LCOE = (CAPEX·CRF + OPEX) / AEP. AEP: {pywakeFresh ? "PyWake" : "live estimate"}, minus {(100 * OTHER_LOSSES).toFixed(1)} % electrical,
               availability and environmental losses (P1 cascade defaults). Foundations by the site's deepest water ({report?.depth_m ? `${report.depth_m[1].toFixed(0)} m` : "not assessed"}).
             </p>

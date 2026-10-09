@@ -69,7 +69,7 @@ function DispatchCard() {
               </div>
             ))}
           </dl>
-          <p className="text-[11px] text-text-muted">
+          <p className="text-xs text-text-muted">
             {d.dispatch_feasible ? "✓" : "✗"} {d.notes}. SOC after one minute {d.soc_after_pct.toFixed(2)} %. The red tick is the set-point.
           </p>
         </>
@@ -123,14 +123,14 @@ export default function BESSDashboard() {
                     role="tab"
                     aria-selected={event === e}
                     onClick={() => setParams({ event: e })}
-                    className={`rounded px-2 py-1 text-[11px] font-medium ${event === e ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+                    className={`rounded px-2 py-1 text-xs font-medium ${event === e ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
                   >
                     {FREQUENCY_EVENTS[e].label}
                   </button>
                 ))}
               </div>
             </div>
-            <label className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+            <label className="flex items-center gap-1.5 text-xs text-text-secondary">
               <input type="checkbox" checked={ffrEnabled} onChange={(e) => setParams({ ffrEnabled: e.target.checked })} className="accent-accent" />
               FFR step below {FFR_THRESHOLD_HZ} Hz (example product, not a PSE service)
             </label>

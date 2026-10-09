@@ -30,10 +30,10 @@ import {
   PanelSection,
 } from "./EquipmentPanel";
 
-const INJECT_COLOR = "#f5a623";
+const INJECT_COLOR = "#f0b13e";
 const ABSORB_COLOR = "#4FC3D8";
-const IDLE_COLOR = "#9ba3b8";
-const NORMAL_COLOR = "#3ecf6e";
+const IDLE_COLOR = "#a3b6c8";
+const NORMAL_COLOR = "#4cc38a";
 /** Full scale of the balance bars [MVAr]. */
 const BALANCE_SCALE = 300;
 
@@ -94,17 +94,17 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
         <div className="flex items-end justify-between">
           <HeroValue caption="Reactive power" value={signed(q)} unit="MVAr" color={modeColor} />
           <div className="pb-1 text-right">
-            <div className="text-[11px] font-bold tracking-wider" style={{ color: modeColor }}>
+            <div className="text-xs font-bold tracking-wider" style={{ color: modeColor }}>
               {mode}
             </div>
-            <div className="font-mono text-[11px] text-text-muted tabular-nums">
+            <div className="font-mono text-xs text-text-muted tabular-nums">
               {utilisationPct.toFixed(0)} % of rating
             </div>
           </div>
         </div>
         <div className="mt-2.5">
           <LevelBar value={q} min={-rating} max={rating} color={modeColor} />
-          <div className="mt-1 flex justify-between font-mono text-[10px] text-text-muted">
+          <div className="mt-1 flex justify-between font-mono text-xs text-text-muted">
             <span>−{rating} absorb</span>
             <span>0</span>
             <span>inject +{rating}</span>
@@ -145,7 +145,7 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
               >
                 <div className="font-mono text-xs font-semibold text-text-primary">R{i + 1}</div>
                 <div
-                  className="text-[10px] font-medium"
+                  className="text-xs font-medium"
                   style={{ color: inService ? ABSORB_COLOR : "var(--color-text-muted)" }}
                 >
                   {inService ? "In service" : "Standby"}
@@ -154,7 +154,7 @@ export default function STATCOMDetailPanel({ onClose }: { onClose: () => void })
             );
           })}
         </div>
-        <p className="mt-2 text-[11px] leading-snug text-text-muted">
+        <p className="mt-2 text-xs leading-snug text-text-muted">
           One reactor per export circuit at each cable end, so each end carries
           about half of the charging current. Reactors are switched out as output
           rises, when I²X losses would otherwise push the STATCOM past +{rating / 2} MVAr.

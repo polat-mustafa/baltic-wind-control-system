@@ -144,7 +144,7 @@ export function PartRail({
       <button
         type="button"
         onClick={() => setTouring((v) => !v)}
-        className="flex items-center gap-1 rounded-md border border-accent bg-accent px-2.5 py-1 text-[12px] font-bold text-white hover:opacity-90"
+        className="flex items-center gap-1 rounded-md border border-accent bg-accent px-2.5 py-1 text-[12px] font-bold text-accent-ink hover:opacity-90"
         title="Camera flies through every component with a spoken explanation"
       >
         {touring ? <Pause size={13} /> : <Play size={13} />} {touring ? "Stop tour" : "Guided tour"}
@@ -160,7 +160,7 @@ export function PartRail({
           className={
             "rounded-md border px-2.5 py-1 text-[12px] font-semibold transition-colors " +
             (selected === p.id
-              ? "border-accent bg-accent text-white"
+              ? "border-accent bg-accent text-accent-ink"
               : "border-border-primary bg-bg-secondary/90 text-text-primary hover:bg-bg-hover")
           }
         >
@@ -187,7 +187,7 @@ export function PartInfoCard({
     <div className="pointer-events-auto flex max-h-full w-[380px] max-w-full flex-col overflow-hidden rounded-lg border border-border-primary bg-bg-primary/95 shadow-xl shadow-black/40 backdrop-blur-sm">
       <div className="flex items-start justify-between gap-2 border-b border-border-primary px-4 py-3">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">SB-510 turbine (IEA 15 MW) · component</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">SB-510 turbine (IEA 15 MW) · component</div>
           <h3 className="text-lg font-bold leading-tight text-text-primary">{edu.title}</h3>
         </div>
         <button type="button" onClick={onClose} aria-label="Close part info" className="rounded p-1 text-text-muted hover:bg-bg-hover">
@@ -200,14 +200,14 @@ export function PartInfoCard({
         <div className="grid grid-cols-2 gap-1.5">
           {facts.map(([k, val]) => (
             <div key={k} className="rounded border border-border-primary bg-bg-secondary px-2 py-1.5">
-              <div className="text-[11px] font-semibold text-text-muted">{k}</div>
+              <div className="text-xs font-semibold text-text-muted">{k}</div>
               <div className="font-mono text-[15px] font-bold tabular-nums text-text-primary">{val}</div>
             </div>
           ))}
         </div>
 
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted">SB-510 design (IEA 15 MW)</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-text-muted">SB-510 design (IEA 15 MW)</div>
           <div className="font-semibold text-text-primary">{edu.design.v236Value}</div>
           <p className="mt-1">{edu.design.reasoning}</p>
         </div>
@@ -221,7 +221,7 @@ export function PartInfoCard({
 
         {edu.efficiencyNotes.length > 0 && (
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted">Losses</div>
+            <div className="text-xs font-bold uppercase tracking-wider text-text-muted">Losses</div>
             <ul className="mt-1 space-y-0.5">
               {edu.efficiencyNotes.map((n) => (
                 <li key={n.name}>
@@ -234,7 +234,7 @@ export function PartInfoCard({
 
         <div className="flex flex-wrap gap-1">
           {edu.standards.map((s) => (
-            <span key={s} className="rounded border border-border-primary px-1.5 py-0.5 font-mono text-[11px] font-semibold">
+            <span key={s} className="rounded border border-border-primary px-1.5 py-0.5 font-mono text-xs font-semibold">
               {s}
             </span>
           ))}

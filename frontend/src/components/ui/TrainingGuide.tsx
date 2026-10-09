@@ -37,16 +37,16 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
           data-tour="training-guide"
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5",
-            "border border-amber-600/30 bg-amber-500/10",
-            "text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/50",
+            "border border-border-secondary bg-transparent",
+            "text-text-secondary hover:text-text-primary hover:bg-bg-hover",
             "transition-all duration-150 group",
             className,
           )}
           aria-label={`Training Guide: ${guide.title}`}
           title="Training Guide"
         >
-          <GraduationCap size={14} className="text-amber-400 group-hover:text-amber-300" />
-          <span className="text-[10px] font-medium">Guide</span>
+          <GraduationCap size={14} className="text-text-secondary group-hover:text-text-primary" />
+          <span className="text-xs font-medium">Guide</span>
         </button>
       </Dialog.Trigger>
 
@@ -63,8 +63,8 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
           <div className="shrink-0 px-6 pt-5 pb-4 border-b border-border-primary">
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 h-8 w-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
-                  <GraduationCap size={16} className="text-amber-400" />
+                <div className="mt-0.5 h-8 w-8 rounded-lg bg-accent-muted border border-accent/30 flex items-center justify-center">
+                  <GraduationCap size={16} className="text-accent" />
                 </div>
                 <div>
                   <Dialog.Title className="text-base font-semibold text-text-primary">
@@ -124,7 +124,7 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
                 <ol className="space-y-2">
                   {guide.howToUse.map((step, i) => (
                     <li key={i} className="flex items-start gap-3 text-sm">
-                      <span className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-accent/15 text-accent text-[10px] font-bold flex items-center justify-center">
+                      <span className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-accent/15 text-accent text-xs font-bold flex items-center justify-center">
                         {i + 1}
                       </span>
                       <span className="text-text-secondary leading-relaxed">
@@ -222,7 +222,7 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
 
           {/* Footer */}
           <div className="shrink-0 px-6 py-3 border-t border-border-primary">
-            <p className="text-[10px] text-text-muted text-center">
+            <p className="text-xs text-text-muted text-center">
               OffshoreForge — Training Module
             </p>
           </div>

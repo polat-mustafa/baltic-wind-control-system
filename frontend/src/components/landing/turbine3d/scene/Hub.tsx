@@ -100,7 +100,7 @@ export const Hub = memo(function Hub({ isSelected }: HubProps) {
           onClick={(e) => { e.stopPropagation(); setSelectedPart("hub"); }}
         >
           <meshPhysicalMaterial
-            color={isSelected ? "#60a5fa" : metalPaintedShell.color}
+            color={isSelected ? "#5cc3d2" : metalPaintedShell.color}
             roughness={metalPaintedShell.roughness}
             metalness={metalPaintedShell.metalness}
             clearcoat={metalPaintedShell.clearcoat}
@@ -133,7 +133,7 @@ export const Hub = memo(function Hub({ isSelected }: HubProps) {
         onClick={(e) => { e.stopPropagation(); setSelectedPart("hub"); }}
       >
         <meshPhysicalMaterial
-          color={isSelected ? "#60a5fa" : metalPaintedShell.color}
+          color={isSelected ? "#5cc3d2" : metalPaintedShell.color}
           roughness={metalPaintedShell.roughness}
           metalness={metalPaintedShell.metalness}
           clearcoat={metalPaintedShell.clearcoat}

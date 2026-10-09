@@ -51,23 +51,23 @@ export default function DataSources() {
         <span className="flex items-center gap-1.5">
           <Database size={13} aria-hidden /> Data &amp; sources
         </span>
-        <span className="text-[10px] font-normal normal-case tracking-normal text-text-muted">
+        <span className="text-xs font-normal normal-case tracking-normal text-text-muted">
           {layers.layers.length} layers · {layers.region.title}
         </span>
       </summary>
       <ul className="max-h-72 divide-y divide-border-primary overflow-y-auto border-t border-border-primary">
         {layers.layers.map((l) => (
-          <li key={l.id} className="px-3 py-1.5 text-[11px]">
+          <li key={l.id} className="px-3 py-1.5 text-xs">
             <div className="flex items-baseline justify-between gap-2">
               <span className="font-medium text-text-primary">{l.title}</span>
-              <span className="shrink-0 text-[10px] text-text-muted">retrieved {l.retrieved}</span>
+              <span className="shrink-0 text-xs text-text-muted">retrieved {l.retrieved}</span>
             </div>
             <div className="text-text-secondary">{l.source}</div>
-            <div className="text-[10px] text-text-muted">Licence: {l.license}</div>
+            <div className="text-xs text-text-muted">Licence: {l.license}</div>
           </li>
         ))}
         {layers.missing.map((m) => (
-          <li key={`missing-${m.role}`} className="px-3 py-1.5 text-[11px]">
+          <li key={`missing-${m.role}`} className="px-3 py-1.5 text-xs">
             <span className="font-medium text-status-warning">Missing: {m.role}</span>
             <span className="block text-text-secondary">{m.effect}</span>
           </li>

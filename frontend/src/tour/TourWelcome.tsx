@@ -100,7 +100,7 @@ export default function TourWelcome() {
             ref={startRef}
             type="button"
             onClick={() => start("control-room")}
-            className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
+            className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover"
           >
             <Compass size={14} /> Start the tour
           </button>

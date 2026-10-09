@@ -33,7 +33,7 @@ function Section({ n, title, children }: { n: number; title: string; children: R
   return (
     <motion.section variants={item} className="space-y-3">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-text-secondary">
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-mono text-white">{n}</span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs font-mono text-accent-ink">{n}</span>
         {title}
       </h3>
       {children}

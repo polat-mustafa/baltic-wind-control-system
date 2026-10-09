@@ -29,14 +29,14 @@ export default function EventLog() {
     <ChartWrapper
       title="Event log"
       headerRight={
-        <div className="flex rounded-md border border-border-secondary overflow-hidden text-[11px]">
+        <div className="flex rounded-md border border-border-secondary overflow-hidden text-xs">
           {(["all", "active", "alarm"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               aria-pressed={filter === f}
               className={`px-2 py-0.5 capitalize ${
-                filter === f ? "bg-accent text-white" : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
+                filter === f ? "bg-accent text-accent-ink" : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
               }`}
             >
               {f}
@@ -49,7 +49,7 @@ export default function EventLog() {
       <div className="max-h-[360px] overflow-auto">
         <table className="w-full min-w-[720px] text-xs">
           <thead className="sticky top-0 bg-bg-secondary">
-            <tr className="border-b border-border-primary text-left text-[10px] uppercase tracking-wider text-text-muted">
+            <tr className="border-b border-border-primary text-left text-xs uppercase tracking-wider text-text-muted">
               <th className="py-1.5 pr-3 font-medium">Confirmed</th>
               <th className="py-1.5 pr-3 font-medium">Turbine</th>
               <th className="py-1.5 pr-3 font-medium">Channel</th>
@@ -83,7 +83,7 @@ export default function EventLog() {
                   </td>
                   <td className="py-1.5 pr-3">
                     <StatusChip status={e.level} compact />
-                    {e.end == null && <span className="ml-1.5 text-[10px] text-text-muted">active</span>}
+                    {e.end == null && <span className="ml-1.5 text-xs text-text-muted">active</span>}
                   </td>
                   <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{formatHours(duration)}</td>
                   <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{e.peak_u.toFixed(2)}</td>

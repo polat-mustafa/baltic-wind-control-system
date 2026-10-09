@@ -73,7 +73,7 @@ export default function MarketDashboard() {
                     key={s}
                     aria-pressed={scenario === s}
                     onClick={() => setParams({ scenario: s })}
-                    className={`rounded px-2 py-1 text-[11px] font-medium ${scenario === s ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+                    className={`rounded px-2 py-1 text-xs font-medium ${scenario === s ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
                   >
                     {label}
                   </button>

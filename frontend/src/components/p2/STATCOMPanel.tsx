@@ -38,7 +38,7 @@ function RangeBar({
   const pos = (v: number) => ((v - lo) / (hi - lo)) * 100;
   return (
     <div>
-      <div className="flex justify-between text-[11px] text-text-secondary">
+      <div className="flex justify-between text-xs text-text-secondary">
         <span>{label}</span>
         <span className="font-mono">
           {min.toFixed(0)} … +{max.toFixed(0)} MVAR
@@ -138,7 +138,7 @@ export default function STATCOMPanel() {
           </p>
           <RangeBar label="PSE requirement" min={s.pse_q_min_mvar} max={s.pse_q_max_mvar} lo={lo} hi={hi} color={c.ink} outline />
           <RangeBar label="Farm capability" min={s.poc_q_min_mvar} max={s.poc_q_max_mvar} lo={lo} hi={hi} color={c.blue} />
-          <div className="relative h-3 text-[10px] text-text-muted font-mono">
+          <div className="relative h-3 text-xs text-text-muted font-mono">
             <span className="absolute left-0">← absorbing</span>
             <span className="absolute -translate-x-1/2" style={{ left: `${(-lo / (hi - lo)) * 100}%` }}>
               0

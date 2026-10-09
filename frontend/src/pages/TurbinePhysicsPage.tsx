@@ -406,7 +406,7 @@ function NumberInput({
           onChange={(e) => onChange(Number(e.target.value))}
           className="w-20 bg-bg-tertiary border border-border-secondary rounded-md px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent font-mono text-right"
         />
-        <span className="text-[10px] text-text-muted w-8">{unit}</span>
+        <span className="text-xs text-text-muted w-8">{unit}</span>
       </div>
     </div>
   );

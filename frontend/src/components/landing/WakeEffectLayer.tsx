@@ -45,16 +45,16 @@ const MAX_WAKE_BADGES = 6;
 
 function wakeLossIcon(lossPct: number): L.DivIcon {
   const color =
-    lossPct > 25 ? "#ef4444" : lossPct > 15 ? "#f97316" : "#fbbf24";
+    lossPct > 25 ? "#f25c54" : lossPct > 15 ? "#f97316" : "#fbbf24";
 
   const minus = String.fromCharCode(0x2212);
   return L.divIcon({
     html: `<span style="
-      font-family:'JetBrains Mono',monospace;
+      font-family:'IBM Plex Mono',monospace;
       font-size:8px;
       font-weight:600;
       color:${color};
-      background:rgba(15,17,23,0.6);
+      background:rgba(10,21,32,0.6);
       border:1px solid ${color}40;
       border-radius:999px;
       padding:0 3px;
@@ -107,7 +107,7 @@ export default function WakeEffectLayer() {
           positions={c.poly}
           pathOptions={{
             color: "transparent",
-            fillColor: "#ef4444",
+            fillColor: "#f25c54",
             fillOpacity: 0.06,
             weight: 0,
             interactive: false,

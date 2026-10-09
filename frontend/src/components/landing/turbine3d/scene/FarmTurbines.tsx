@@ -147,7 +147,7 @@ export const FarmTurbines = memo(function FarmTurbines({ turbineId }: { turbineI
         .filter((t) => Math.hypot(t.x, t.z) < LABEL_RANGE_M)
         .map((t) => (
           <Html key={t.id} position={[t.x, 30, t.z]} center zIndexRange={[9, 0]} style={{ pointerEvents: "none" }}>
-            <div className="whitespace-nowrap rounded border border-border-primary bg-bg-secondary/85 px-1.5 py-0.5 font-mono text-[11px] font-bold text-text-primary">
+            <div className="whitespace-nowrap rounded border border-border-primary bg-bg-secondary/85 px-1.5 py-0.5 font-mono text-xs font-bold text-text-primary">
               {t.id}
             </div>
           </Html>

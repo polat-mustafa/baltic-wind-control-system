@@ -110,7 +110,7 @@ export default function WindResourcePage() {
           onClick={() => setActiveTab("aep")}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === "aep"
-              ? "bg-accent text-white"
+              ? "bg-accent text-accent-ink"
               : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
           }`}
         >
@@ -121,7 +121,7 @@ export default function WindResourcePage() {
           onClick={() => setActiveTab("farms")}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === "farms"
-              ? "bg-accent text-white"
+              ? "bg-accent text-accent-ink"
               : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
           }`}
         >
@@ -132,7 +132,7 @@ export default function WindResourcePage() {
           onClick={() => setActiveTab("ops")}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === "ops"
-              ? "bg-accent text-white"
+              ? "bg-accent text-accent-ink"
               : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
           }`}
         >

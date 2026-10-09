@@ -38,7 +38,7 @@ export default function PowerTimeChart() {
       name: "Electrical Power",
       type: "scatter",
       mode: "lines",
-      line: { color: "#3b82f6", width: 2 },
+      line: { color: "#45c8d9", width: 2 },
       hovertemplate: "%{y:.2f} MW<extra></extra>",
     },
     {
@@ -47,7 +47,7 @@ export default function PowerTimeChart() {
       name: "Aero Power",
       type: "scatter",
       mode: "lines",
-      line: { color: "#f5a623", width: 1.5, dash: "dot" },
+      line: { color: "#f0b13e", width: 1.5, dash: "dot" },
       hovertemplate: "%{y:.2f} MW<extra></extra>",
     },
     {
@@ -56,7 +56,7 @@ export default function PowerTimeChart() {
       name: "Wind Speed",
       type: "scatter",
       mode: "lines",
-      line: { color: "#9ba3b8", width: 1, dash: "dot" },
+      line: { color: "#a3b6c8", width: 1, dash: "dot" },
       yaxis: "y2",
       hovertemplate: "%{y:.1f} m/s<extra></extra>",
     },
@@ -86,9 +86,9 @@ export default function PowerTimeChart() {
       side: "right",
       gridcolor: "transparent",
       tickfont: {
-        family: "'JetBrains Mono', monospace",
+        family: "'IBM Plex Mono', monospace",
         size: 10,
-        color: "#9ba3b8",
+        color: "#a3b6c8",
       },
     },
     xaxis: {

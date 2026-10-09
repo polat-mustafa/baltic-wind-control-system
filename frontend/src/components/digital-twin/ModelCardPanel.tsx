@@ -24,7 +24,7 @@ function Rows({ rows }: { rows: [string, string][] }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-md border border-border-primary/70 bg-bg-tertiary/30 p-3 space-y-2">
-      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{title}</h4>
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-text-muted">{title}</h4>
       {children}
     </section>
   );
@@ -73,7 +73,7 @@ export default function ModelCardPanel() {
               ["Torque gain K", `${num(a.torque_gain_mnm_per_rad_s2)} MN·m·s²`],
             ]}
           />
-          <p className="text-[11px] text-text-muted">
+          <p className="text-xs text-text-muted">
             One constant fitted to the official rated point: it closes the 1.6 % gap between
             the ROSCO Cp table (CCBlade) and the WISDEM table behind the power curve.
           </p>
@@ -88,7 +88,7 @@ export default function ModelCardPanel() {
               ["Time constant τ", `${num(Number(th.time_constant_s) / 60, 0)} min`],
             ]}
           />
-          <p className="text-[11px] text-status-warning">{String(th.provenance)}</p>
+          <p className="text-xs text-status-warning">{String(th.provenance)}</p>
         </Section>
 
         <Section title="Phase I calibration (fault-free data)">
@@ -101,7 +101,7 @@ export default function ModelCardPanel() {
               ["False events, independent run", `${num(p1.verification_false_events, 0)} / ${num(p1.verification_days, 0)} d`],
             ]}
           />
-          <p className="text-[11px] text-text-muted">
+          <p className="text-xs text-text-muted">
             σ_v is inverted from the power scatter (GUM propagation) — it recovers the simulated
             anemometer error, which is how the diagnosis knows the input uncertainty.
           </p>
@@ -118,7 +118,7 @@ export default function ModelCardPanel() {
               ["Wind bins", `${num(d.wind_bin_width_ms)} m/s (IEC 61400-12-1)`],
             ]}
           />
-          <p className="text-[11px] text-text-muted">
+          <p className="text-xs text-text-muted">
             L is set for 170 parallel charts (34 × 5), not for one: the fleet false-event rate is
             the number that matters to an operator.
           </p>
@@ -128,7 +128,7 @@ export default function ModelCardPanel() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-text-muted">
+                <tr className="text-left text-xs uppercase tracking-wider text-text-muted">
                   <th className="pb-1 pr-2 font-medium">Channel</th>
                   <th className="pb-1 pr-2 font-medium">LN</th>
                   <th className="pb-1 pr-2 font-medium text-right">RMSE</th>
@@ -151,7 +151,7 @@ export default function ModelCardPanel() {
               </tbody>
             </table>
           </div>
-          <p className="text-[11px] text-text-muted">
+          <p className="text-xs text-text-muted">
             ρ₁ lag-1 autocorrelation, κ EWMAST variance factor that widens the limit.
           </p>
         </Section>
@@ -176,7 +176,7 @@ export default function ModelCardPanel() {
               <li key={s.code}>
                 <span className="font-mono font-semibold text-text-primary">{s.code}</span>{" "}
                 <span className="text-text-secondary">{s.title}</span>
-                <div className="text-[11px] text-text-muted">→ {s.role}</div>
+                <div className="text-xs text-text-muted">→ {s.role}</div>
               </li>
             ))}
           </ul>

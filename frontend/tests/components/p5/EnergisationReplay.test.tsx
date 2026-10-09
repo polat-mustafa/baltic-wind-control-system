@@ -32,6 +32,7 @@ const trace: EnergisationTrace = {
 
 vi.mock("../../../src/services/commissioningApi", () => ({ getEnergisationTrace: () => Promise.resolve(trace) }));
 vi.mock("framer-motion", () => ({ useReducedMotion: () => true })); // no autoplay
+vi.mock("../../../src/components/p5/EnergisationMap", () => ({ default: () => null })); // WebGL
 
 describe("EnergisationReplay", () => {
   it("steps through the frames with the load-flow readings", async () => {

@@ -54,11 +54,15 @@ export function depthScore(depthM: number): number {
   return 0;
 }
 
-export function scoreSite(report: AssessResponse): Scored {
+/** Export route length for full and zero grid points [km]; straight line × 1.1 when no route was checked. */
+export const ROUTE_RANGE: [number, number] = [60, 150];
+
+/** `routeKm`: the checked export route (Site & Permits route check), if any. */
+export function scoreSite(report: AssessResponse, routeKm?: number | null): Scored {
   const d = decide(report);
   const deepest = report.depth_m?.[1] ?? null;
-  const grid = report.grid_km;
-  const gridPts = grid == null ? 0 : grid <= 50 ? 15 : grid <= 100 ? 8 : 0;
+  const km = routeKm ?? (report.grid_km == null ? null : report.grid_km * 1.1);
+  const gridPts = km == null ? 0 : r1(15 * clamp01((ROUTE_RANGE[1] - km) / (ROUTE_RANGE[1] - ROUTE_RANGE[0])));
   return total([
     {
       label: "Permit decision",
@@ -79,10 +83,13 @@ export function scoreSite(report: AssessResponse): Scored {
       note: deepest == null ? "unknown" : `deepest ${deepest.toFixed(0)} m (${report.foundation ?? "foundation band"})`,
     },
     {
-      label: "Grid connection distance",
+      label: "Export cable length",
       points: gridPts,
       max: 15,
-      note: grid == null ? "unknown" : `${grid.toFixed(0)} km straight line (full marks ≤ 50 km, half ≤ 100 km)`,
+      note:
+        km == null
+          ? "unknown"
+          : `${km.toFixed(0)} km ${routeKm != null ? "checked route" : "(straight line + 10 %)"} — full marks ≤ ${ROUTE_RANGE[0]} km, none ≥ ${ROUTE_RANGE[1]} km`,
     },
     {
       label: "Usable share of the area",
@@ -98,8 +105,14 @@ export function scoreSite(report: AssessResponse): Scored {
 export const LAYOUT_BAND_MW: [number, number] = [450, 550];
 /** LCOE for zero and full marks [€/MWh] with the default (NREL 2024) cost inputs; SB-510 ≈ 116 at its site climate (A 10.80, k 2.04). */
 export const LCOE_RANGE: [number, number] = [132, 115];
-/** Wake loss for full and zero marks [%]. */
-export const WAKE_RANGE: [number, number] = [3, 12];
+/**
+ * Internal wake loss for full and zero marks [%], from the screening model
+ * (Bastankhah, internal wakes only): SB-510's 6 × 8 D grid gives ≈ 5 %, a
+ * 4 D-packed layout ≈ 12 %.
+ */
+export const WAKE_RANGE: [number, number] = [5, 12];
+/** Closest-pair spacing for zero and full marks [rotor diameters]; below MIN_SPACING_D (4 D) turbines are "close". */
+export const SPACING_RANGE: [number, number] = [4, 6];
 /** Array cable per MW for full and zero marks [km/MW]. */
 export const CABLE_RANGE: [number, number] = [0.1, 0.25];
 export const INVALID_PENALTY = 10;
@@ -116,18 +129,27 @@ export function scoreLayout(e: LayoutEvaluation): Scored {
       label: "Capacity in the 450–550 MW band",
       points: r1(25 * clamp01(1 - off / 150)),
       max: 25,
-      note: `${e.capacityMW} MW (${e.count} × 15 MW)`,
+      note: `${e.capacityMW} MW (${e.count} turbines)`,
+    },
+    {
+      label: "Turbine spacing",
+      points: e.minSpacingD == null ? 0 : r1(10 * clamp01((e.minSpacingD - SPACING_RANGE[0]) / (SPACING_RANGE[1] - SPACING_RANGE[0]))),
+      max: 10,
+      note:
+        e.minSpacingD == null
+          ? "—"
+          : `closest pair ${e.minSpacingD.toFixed(1)} D${e.close ? `, ${e.close} turbine(s) under 4 D` : ""} (full marks ≥ ${SPACING_RANGE[1]} D)`,
     },
     {
       label: "Levelised cost of energy",
-      points: lcoe == null ? 0 : r1(50 * clamp01((LCOE_RANGE[0] - lcoe) / (LCOE_RANGE[0] - LCOE_RANGE[1]))),
-      max: 50,
+      points: lcoe == null ? 0 : r1(45 * clamp01((LCOE_RANGE[0] - lcoe) / (LCOE_RANGE[0] - LCOE_RANGE[1]))),
+      max: 45,
       note: lcoe == null ? "no energy yet" : `${lcoe.toFixed(1)} €/MWh (full marks ≤ ${LCOE_RANGE[1]}, none ≥ ${LCOE_RANGE[0]})`,
     },
     {
       label: "Wake loss",
-      points: wake == null ? 0 : r1(15 * clamp01((WAKE_RANGE[1] - wake) / (WAKE_RANGE[1] - WAKE_RANGE[0]))),
-      max: 15,
+      points: wake == null ? 0 : r1(10 * clamp01((WAKE_RANGE[1] - wake) / (WAKE_RANGE[1] - WAKE_RANGE[0]))),
+      max: 10,
       note: wake == null ? "—" : `${wake.toFixed(1)} % (full marks ≤ ${WAKE_RANGE[0]} %, none ≥ ${WAKE_RANGE[1]} %)`,
     },
     {

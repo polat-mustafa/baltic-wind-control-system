@@ -150,7 +150,8 @@ export function PowerFlowParticles({ turbineId }: PowerFlowParticlesProps) {
   const powerFraction = Number.isFinite(rawFraction)
     ? Math.max(0, Math.min(1, rawFraction))
     : 0;
-  const speed = IDLE_SPEED + SPEED_SCALE * powerFraction;
+  // No power, no flow: a parked or de-energised turbine shows still particles
+  const speed = powerFraction > 0 ? IDLE_SPEED + SPEED_SCALE * powerFraction : 0;
 
   const pointsRef = useRef<THREE.Points>(null);
 

@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { InfoButton } from "../ui/InfoButton";
 import { cn } from "../../lib/utils";
-import { useCommissioningStore } from "../../store/commissioningStore";
+import { FAT_TAG, useCommissioningStore } from "../../store/commissioningStore";
 import type { EquipmentClass, FATCampaign, SATCampaign, TestSpecification } from "../../types/commissioning";
 import { p5FatInfo, p5SatInfo } from "../../constants/panelInfo";
 
@@ -22,11 +22,7 @@ const CLASS_LABEL: Record<EquipmentClass, string> = {
   gis_220kv: "220 kV GIS",
   protection_panel: "Protection panel",
 };
-const DEFAULT_TAG: Record<EquipmentClass, string> = {
-  power_transformer: "TX-OSS-01",
-  gis_220kv: "GIS-OSS-220",
-  protection_panel: "PROT-CIRCUIT-1",
-};
+const DEFAULT_TAG = FAT_TAG;
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : Math.abs(v) >= 100 ? v.toFixed(1) : Math.abs(v) >= 1 ? v.toFixed(2) : v.toPrecision(2));
 

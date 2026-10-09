@@ -59,10 +59,24 @@ interface CommissioningState {
   markStageCompliant: (stage: NotificationStage) => Promise<void>;
   stageAction: (stage: NotificationStage, action: "submit" | "approve") => Promise<void>;
   triggerEmergency: (type: string) => Promise<void>;
+  /**
+   * Bring a gate to "passed" with typical values, the way the plant team would
+   * on the day: FATs for every class → SAT (gate "sat"), or the compliance
+   * records and PSE notifications up to EON / ION. A demonstration shortcut —
+   * the Testing and Grid code tabs show every record it makes.
+   */
+  prepareGate: (gate: "sat" | "eon" | "ion") => Promise<void>;
   clearError: () => void;
 }
 
 const orNull = <T,>(p: Promise<T>) => p.catch(() => null);
+
+/** Default equipment tags for the FAT of each class (circuit 1). */
+export const FAT_TAG: Record<EquipmentClass, string> = {
+  power_transformer: "TX-OSS-01",
+  gis_220kv: "GIS-OSS-220",
+  protection_panel: "PROT-CIRCUIT-1",
+};
 
 export const useCommissioningStore = create<CommissioningState>((set, get) => {
   const pic = () => get().active?.pic_name ?? "";
@@ -228,6 +242,35 @@ export const useCommissioningStore = create<CommissioningState>((set, get) => {
     stageAction: (stage, action) => run(() => api.stageAction(id(), stage, action)),
 
     triggerEmergency: (type) => run(() => api.triggerEmergency(id(), type, pic())),
+
+    prepareGate: async (gate) => {
+      const ok = () => !get().error;
+      if (gate === "sat") {
+        for (const cls of Object.keys(FAT_TAG) as EquipmentClass[]) {
+          if (get().fat.some((f) => f.equipment_class === cls && f.status === "approved")) continue;
+          if (!get().fat.some((f) => f.equipment_class === cls)) await get().createFAT(FAT_TAG[cls], cls);
+          const c = get().fat.find((f) => f.equipment_class === cls && f.status !== "approved");
+          if (!c || !ok()) return;
+          await get().fillFAT(c.campaign_id);
+          await get().approveFAT(c.campaign_id);
+          if (!ok()) return;
+        }
+        if (!get().sat) await get().createSAT();
+        if (ok() && get().sat?.status !== "approved") {
+          await get().fillSAT();
+          await get().approveSAT();
+        }
+        return;
+      }
+      if (!get().compliance) await get().createCompliance();
+      for (const stage of (gate === "eon" ? ["eon"] : ["eon", "ion"]) as NotificationStage[]) {
+        const app = () => get().compliance?.stages[stage];
+        if (!ok() || app()?.status === "issued") continue;
+        await get().markStageCompliant(stage);
+        if (app()?.status === "open") await get().stageAction(stage, "submit");
+        if (app()?.status === "submitted") await get().stageAction(stage, "approve");
+      }
+    },
     clearError: () => set({ error: null }),
   };
 });

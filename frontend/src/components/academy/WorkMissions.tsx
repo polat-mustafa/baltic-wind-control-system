@@ -11,7 +11,9 @@ import { scoreLayout, scoreSite, type Scored } from "../../academy/scoring";
 import { DEFAULT_COSTS } from "../../lib/layout/cost";
 import { UNIFORM_ROSE, type WindRose } from "../../lib/layout/energy";
 import { defaultExportKm, evaluateLayout, WEIBULL_A, WEIBULL_K } from "../../lib/layout/evaluate";
+import { DEFAULT_TURBINE_ID } from "../../constants/turbineModels";
 import { computeWindRose } from "../../services/windResourceApi";
+import { turbineById } from "../../utils/turbineCurves";
 import { useAcademyStore } from "../../store/academyStore";
 import { useProjectStore } from "../../store/projectStore";
 import { CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
@@ -37,6 +39,7 @@ export function SiteMission() {
   const assessing = useSiteStore((s) => s.assessing);
   const error = useSiteStore((s) => s.error);
   const assess = useSiteStore((s) => s.assess);
+  const routeKm = useSiteStore((s) => s.routeKm);
   const record = useAcademyStore((s) => s.record);
   const [result, setResult] = useState<Scored | null>(null);
 
@@ -57,7 +60,7 @@ export function SiteMission() {
 
   const grade = () => {
     if (!report) return;
-    const r = scoreSite(report);
+    const r = scoreSite(report, routeKm);
     setResult(r);
     record({
       mission: "site-selection",
@@ -98,8 +101,13 @@ export function LayoutMission() {
   const layers = useSiteStore((s) => s.layers);
   const loadLayers = useSiteStore((s) => s.loadLayers);
   const assess = useSiteStore((s) => s.assess);
+  const routeKm = useSiteStore((s) => s.routeKm);
   const record = useAcademyStore((s) => s.record);
   const [rose, setRose] = useState<WindRose | null>(null);
+  const model = turbineById(DEFAULT_TURBINE_ID);
+  const ratedMW = model.ratedKw / 1000;
+  // Same wind as the Layout page: the site's measured climate when assessed, else SB-510's
+  const siteWind = report?.wind && !report.wind.approximate ? report.wind : null;
   const [result, setResult] = useState<Scored | null>(null);
 
   useEffect(() => {
@@ -131,8 +139,12 @@ export function LayoutMission() {
       costs: DEFAULT_COSTS,
       layers,
       maxDepthM: report?.depth_m?.[1] ?? null,
-      exportKm: defaultExportKm(report?.grid_km),
-      rose: rose ?? UNIFORM_ROSE,
+      exportKm: defaultExportKm(report?.grid_km, routeKm),
+      rose: siteWind?.sector_frequencies
+        ? { directions: siteWind.sector_frequencies.map((_, i) => i * 30), frequencies: siteWind.sector_frequencies }
+        : (rose ?? UNIFORM_ROSE),
+      weibull: siteWind ? { a: siteWind.weibull_a, k: siteWind.weibull_k } : undefined,
+      turbineId: model.id,
     });
     const r = scoreLayout(e);
     setResult(r);
@@ -146,7 +158,7 @@ export function LayoutMission() {
   return (
     <div className="space-y-3">
       <p className="text-[13px] text-text-secondary">
-        Your layout: {turbines.length} turbines ({turbines.length * 15} MW){oss ? "" : ", no offshore substation yet"}, in{" "}
+        Your layout: {turbines.length} × {ratedMW} MW {model.name} ({turbines.length * ratedMW} MW){oss ? "" : ", no offshore substation yet"}, in{" "}
         {siteDrawn ? "your site from Site & Permits" : "the SB-510 case-study site"}.
         {!layers && " Constraint layers are not loaded (backend offline?): turbines are only checked against the site boundary."}
         {rose === UNIFORM_ROSE && " Wind rose: uniform (the backend wind rose is not available)."}

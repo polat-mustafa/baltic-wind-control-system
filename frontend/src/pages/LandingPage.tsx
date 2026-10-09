@@ -20,6 +20,8 @@ import {
   ClipboardCheck,
   Maximize2,
   Minimize2,
+  PlugZap,
+  Zap,
 } from "lucide-react";
 
 import { farmTitle, turbineLabel, useFleet } from "../lib/fleet";
@@ -219,6 +221,8 @@ const QUICK_LINKS = [
 export default function LandingPage() {
   const fleet = useFleet();
   const kpis = useLandingStore((s) => s.kpis);
+  const commissioned = useLandingStore((s) => s.commissioned);
+  const playEnergisation = useLandingStore((s) => s.playEnergisation);
   const startSimulation = useLandingStore((s) => s.startSimulation);
   const stopSimulation = useLandingStore((s) => s.stopSimulation);
   const navigate = useNavigate();
@@ -418,6 +422,17 @@ export default function LandingPage() {
             );
           })}
 
+          {commissioned && (
+            <button
+              onClick={playEnergisation}
+              title="Replay the first energisation from the grid, bay by bay"
+              className="flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-secondary px-2.5 py-1.5 transition-all duration-150 hover:border-border-secondary hover:bg-bg-hover"
+            >
+              <Zap size={13} className="text-status-warning" />
+              <span className="text-[10px] font-medium text-text-muted">Replay energisation</span>
+            </button>
+          )}
+
           {/* Control Room Mode toggle (iPhone Safari has no Fullscreen API for pages) */}
           {"requestFullscreen" in document.documentElement && (
             <button
@@ -438,6 +453,19 @@ export default function LandingPage() {
           )}
         </div>
       </div>
+
+      {!commissioned && (
+        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-[12px] text-text-primary">
+          <PlugZap size={14} className="text-status-warning" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <b>Not commissioned yet.</b> The farm is built but de-energised: 0 MW, rotors parked, no power flow. Run the
+            commissioning programme and mark the stage complete to energise it from the grid.
+          </span>
+          <button onClick={() => navigate("/commissioning")} className="font-semibold text-accent underline">
+            Go to Commissioning
+          </button>
+        </div>
+      )}
 
       {/* Main area: Map fills width, KPI + detail panels overlaid */}
       <div ref={areaRef} className="relative flex-1 min-h-0">

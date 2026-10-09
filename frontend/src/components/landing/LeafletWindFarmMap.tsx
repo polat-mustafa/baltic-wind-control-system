@@ -1519,7 +1519,8 @@ function LeafletWindFarmMapInner({
             weight: 3,
             opacity: 0.9,
             dashArray: "8 12",
-            className: "leaflet-export-cable-animated",
+            // marching dashes only while power flows to shore
+            className: isExporting ? "leaflet-export-cable-animated" : undefined,
             interactive: false,
           }}
         />

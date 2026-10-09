@@ -37,6 +37,8 @@ import { StatusIndicator } from "../ui/StatusIndicator";
 import { cn } from "../../lib/utils";
 import { useFaultSync } from "../../hooks/useFaultSync";
 import { useLiveFleet } from "../../hooks/useLiveFleet";
+import { useEnergisationGate } from "../../hooks/useEnergisationGate";
+import EnergisationOverlay from "../landing/EnergisationOverlay";
 import { useScadaStore } from "../../store/scadaStore";
 import { useLandingStore } from "../../store/landingStore";
 import { useLayerStore } from "../../store/layerStore";
@@ -82,6 +84,8 @@ export default function AppShell() {
   useFaultSync();
   // The live plant (map, control room, alarms) runs on SB-510 or the own project
   useLiveFleet();
+  // ... and is only energised once it has been commissioned
+  useEnergisationGate();
 
   // Own project: modules unlock stage by stage; the locks need the site assessment and constraint layers.
   const mode = useModeStore((s) => s.mode);
@@ -274,6 +278,7 @@ export default function AppShell() {
       {/* Guided tours (portals above everything) */}
       <TourWelcome />
       <TourOverlay />
+      <EnergisationOverlay />
       <ProjectChooser />
     </div>
   );

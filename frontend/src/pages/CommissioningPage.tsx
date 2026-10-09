@@ -20,6 +20,7 @@ import { useCommissioningStore } from "../store/commissioningStore";
 import { useGridStore, useNetwork } from "../store/gridStore";
 import type { ProgrammeDetail, ProgrammeStatus } from "../types/commissioning";
 import SwitchingTab, { type P5Tab } from "../components/p5/SwitchingTab";
+import NextAction from "../components/p5/NextAction";
 import IsolationTab from "../components/p5/IsolationTab";
 import TestingTab from "../components/p5/TestingTab";
 import GridCodeTab from "../components/p5/GridCodeTab";
@@ -236,6 +237,7 @@ export default function CommissioningPage() {
       ) : (
         <>
           <StatusStrip programme={active} />
+          <NextAction programme={active} onGoto={setTab} />
           <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-border-primary bg-bg-secondary p-1">
             {TABS.map(({ id, label, Icon }) => (
               <button

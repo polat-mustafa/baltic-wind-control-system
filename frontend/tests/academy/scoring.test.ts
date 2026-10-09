@@ -58,6 +58,25 @@ describe("layout challenge score", () => {
     expect(s.score).toBe(Math.round(sum(s)));
   });
 
+  it("scores SB-510 high and full on spacing (6 D closest pair)", () => {
+    const s = scoreLayout(evaluateLayout(base));
+    expect(s.lines.find((l) => l.label === "Turbine spacing")).toMatchObject({ points: 10 });
+    expect(s.score).toBeGreaterThanOrEqual(80);
+  });
+
+  it("takes the spacing points from a layout packed under 4 D", () => {
+    const packed = TURBINE_POSITIONS.map((t) => ({ ...t, lon: 16.54 + (t.lon - 16.54) * 0.6, lat: 55.06 + (t.lat - 55.06) * 0.6 }));
+    const e = evaluateLayout({ ...base, turbines: packed });
+    expect(e.minSpacingD!).toBeLessThan(4);
+    expect(scoreLayout(e).lines.find((l) => l.label === "Turbine spacing")!.points).toBe(0);
+  });
+
+  it("grades the export route, straight line + 10 % when unchecked", () => {
+    const line = (r: ReturnType<typeof scoreSite>) => r.lines.find((l) => l.label === "Export cable length")!;
+    expect(line(scoreSite(report(), 108)).points).toBeCloseTo(7, 0); // SB-510's 108 km route
+    expect(line(scoreSite(report())).points).toBe(15); // 45.9 km × 1.1
+  });
+
   it("gives no capacity or cost points to an empty layout", () => {
     const s = scoreLayout(evaluateLayout({ ...base, turbines: [], oss: null }));
     expect(s.score).toBe(0);

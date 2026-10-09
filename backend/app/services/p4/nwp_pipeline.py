@@ -40,14 +40,18 @@ Forecast skill degrades with lead time. For offshore wind, typical RMSE:
 
 Maths — Synthetic NWP with Correlated Forecast Error
 ------------------------------------------------------
-We generate NWP wind speed correlated with SCADA "truth" but with
-Gaussian noise that increases with lead time:
+We generate NWP wind speed correlated with SCADA "truth" plus an error that
+grows with lead time and, as in real NWP, persists for hours (a front a few
+hours early or late is wrong for hours, not for one 10-minute step):
 
-  v_nwp(t) = v_scada(t) + ε(t)
-  ε(t) ~ N(0, σ_base + σ_growth × lead_hour(t))
+  v_nwp(t) = v_scada(t) + σ(lead) × e(t),   σ(lead) = σ_base + σ_growth × lead_hour
+  e(t) = unit-variance Gaussian AR(1), correlation 0.9 per hour
 
-where σ_base = 0.5 m/s (analysis error) and σ_growth = 0.1 m/s/hour
-(forecast degradation rate).
+A new run is issued every 6 h (ECMWF HRES 00/06/12/18 UTC), so the freshest
+run is 0–6 h old: σ_base = 1.0 m/s, σ_growth = 0.05 m/s/h → 1.0–1.3 m/s,
+inside the 0–6 h band above. (The old white noise growing over a 48 h cycle
+reached 5.3 m/s and switched the cut-in/cut-out constraint on and off at
+random.)
 
 References
 ----------
@@ -62,6 +66,8 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+
+from app.services.p4.scada_generator import _gaussian_ar
 
 # ── Constants ─────────────────────────────────────────────────────
 
@@ -96,8 +102,10 @@ class NWPConfig:
     sigma_growth_ms_per_hour : float
         Forecast error growth rate [m/s per hour].
         Simulates NWP skill degradation with lead time.
-    forecast_horizon_hours : float
-        Maximum lead time for the NWP forecast [hours].
+    issue_interval_hours : float
+        Hours between NWP runs; the lead time of the freshest run cycles 0 → this.
+    error_correlation_1h : float
+        Hour-to-hour correlation of the NWP wind error [-].
     mean_temperature_c : float
         Mean 2 m temperature [°C] for Baltic Sea.
     mean_pressure_pa : float
@@ -109,9 +117,10 @@ class NWPConfig:
     """
 
     num_timesteps: int = 52_560
-    sigma_base_ms: float = 0.5
-    sigma_growth_ms_per_hour: float = 0.1
-    forecast_horizon_hours: float = 48.0
+    sigma_base_ms: float = 1.0
+    sigma_growth_ms_per_hour: float = 0.05
+    issue_interval_hours: float = 6.0
+    error_correlation_1h: float = 0.9
     mean_temperature_c: float = 8.0
     mean_pressure_pa: float = 101_325.0
     mean_blh_m: float = 800.0
@@ -156,30 +165,14 @@ def _generate_nwp_wind_speed(
     scada_wind_ms: NDArray[np.float64],
     config: NWPConfig,
 ) -> NDArray[np.float64]:
-    """Generate NWP wind speed with correlated forecast error.
-
-    The NWP forecast tracks the SCADA "truth" but with increasing
-    Gaussian noise that simulates real NWP skill degradation.
-    """
+    """Generate NWP wind speed: truth + persistent error growing with lead time."""
     n = len(scada_wind_ms)
-
-    # Simulate lead-time-dependent error
-    # Cycle through forecast horizons (NWP issued every 6 h → 36 steps)
-    steps_per_cycle = int(config.forecast_horizon_hours * 6)  # 6 steps/hour
-    if steps_per_cycle < 1:
-        steps_per_cycle = 1
-
-    lead_hours = np.zeros(n, dtype=np.float64)
-    for t in range(n):
-        step_in_cycle = t % steps_per_cycle
-        lead_hours[t] = step_in_cycle / 6.0  # Convert steps to hours
-
-    # Error grows with lead time: σ(t) = σ_base + σ_growth × lead_hour
+    steps_per_cycle = max(1, int(config.issue_interval_hours * 6))  # 6 steps/hour
+    lead_hours = (np.arange(n) % steps_per_cycle) / 6.0
     sigma = config.sigma_base_ms + config.sigma_growth_ms_per_hour * lead_hours
-    noise = rng.normal(0.0, sigma)
-
-    nwp_wind = scada_wind_ms + noise
-    return np.maximum(nwp_wind, 0.0)
+    phi = config.error_correlation_1h ** (1.0 / 6.0)  # per 10-minute step
+    error = _gaussian_ar(rng, n, (phi,))
+    return np.maximum(scada_wind_ms + sigma * error, 0.0)
 
 
 def _generate_nwp_wind_direction(

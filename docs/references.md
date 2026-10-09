@@ -66,6 +66,8 @@ Citation rules used here:
 | Power curve with air-density normalisation v·(ρ/ρ₀)^⅓ | `services/p4/turbine_power_curve.py` | [26], [S2] |
 | Synthetic SCADA: Gaussian copula on the site Weibull, ERA5 hourly persistence φ = 0.957, 10-min sampling error (Λ₁ = 42 m) | `services/p4/scada_generator.py` | [28], [30], [S1] |
 | Residual learning on persistence (base margin), early stopping on the last 20 % of each fold | `services/p4/xgboost_model.py` | [12], [20] |
+| Synthetic NWP: persistent AR(1) error (0.9 / h), 6-hourly runs, 1.0–1.3 m/s | `services/p4/nwp_pipeline.py` | ECMWF IFS documentation |
+| **Real data**: day-ahead forecast of measured DK2 Baltic offshore output (Kriegers Flak, Rødsand II, Nysted; Energinet, CC BY 4.0) from day-old ECMWF / ICON 100 m wind (Open-Meteo Previous Runs, CC BY 4.0); nRMSE vs persistence, climatology, NWP power curve; conformalised P10–P90 | `services/p4/real_data.py`, `scripts/fetch_real_forecast_data.py` | Giebel et al. 2011 (ANEMOS.plus); Romano, Patterson & Candès 2019 (CQR); Hong et al. 2016 (GEFCom2014) |
 
 ## P5 — Commissioning
 

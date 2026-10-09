@@ -435,3 +435,44 @@ export function compareModels(
     seed,
   });
 }
+
+// ── Real data: day-ahead forecast of Baltic offshore production ──
+
+export interface RealModelScore {
+  name: string;
+  nrmse_pct: number;
+  nmae_pct: number;
+  bias_pct: number;
+  skill_vs_persistence: number;
+  fold_nrmse_pct: number[];
+}
+
+export interface RealForecastResponse {
+  source: {
+    production: string;
+    nwp: string;
+    farms: string[];
+    capacity_mw: number;
+    period_start_utc: string;
+    period_end_utc: string;
+    hours: number;
+    folds: number;
+  };
+  scores: RealModelScore[];
+  p10_p90_coverage_pct: number;
+  feature_importance: { feature: string; gain_share: number }[];
+  series: {
+    time_utc: string[];
+    actual_mw: number[];
+    p10_mw: number[];
+    p50_mw: number[];
+    p90_mw: number[];
+    persistence_mw: number[];
+    nwp_wind_ms: number[];
+  };
+}
+
+/** XGBoost P10/P50/P90 trained on Energinet DK2 offshore output + archived day-ahead NWP. */
+export function getRealDayAhead(): Promise<RealForecastResponse> {
+  return request(`${BASE}/real-data/day-ahead`);
+}

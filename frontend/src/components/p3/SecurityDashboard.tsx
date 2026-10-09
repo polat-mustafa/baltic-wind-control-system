@@ -18,8 +18,8 @@ import { cn } from "../../lib/utils";
 const Pill = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
   <span
     className={cn(
-      "inline-block px-1.5 rounded-sm text-[10px] font-mono font-bold",
-      ok ? "border border-border-secondary text-text-secondary" : "bg-[#c8362d] text-white",
+      "inline-block px-1.5 rounded-sm text-xs font-mono font-bold",
+      ok ? "border border-border-secondary text-text-secondary" : "bg-status-alarm text-bg-primary",
     )}
   >
     {children}
@@ -44,9 +44,9 @@ export default function SecurityDashboard() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-xs font-semibold text-text-primary">Cybersecurity · IEC 62443-3-3 · target SL-2</h3>
-        {compliance && <span className="text-[11px] text-text-secondary">{compliance.overall_assessment}</span>}
+        {compliance && <span className="text-xs text-text-secondary">{compliance.overall_assessment}</span>}
         <span className="flex-1" />
-        <button type="button" onClick={() => void fetchAll()} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-[11px] text-text-secondary hover:bg-bg-hover">
+        <button type="button" onClick={() => void fetchAll()} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-xs text-text-secondary hover:bg-bg-hover">
           <RefreshCw size={11} className={loading ? "animate-spin" : undefined} /> Refresh
         </button>
       </div>
@@ -63,7 +63,7 @@ export default function SecurityDashboard() {
           ).map(([label, pct]) => (
             <div key={label} className="rounded-lg border border-border-primary bg-bg-secondary p-2.5">
               <div className="flex items-baseline justify-between">
-                <span className="text-[11px] text-text-muted">{label} requirements met</span>
+                <span className="text-xs text-text-muted">{label} requirements met</span>
                 <span className="text-base font-mono font-semibold text-text-primary">{pct.toFixed(0)} %</span>
               </div>
               <div className="h-2 mt-1 rounded bg-bg-tertiary overflow-hidden">
@@ -78,7 +78,7 @@ export default function SecurityDashboard() {
         {zones && (
           <section className="rounded-lg border border-border-primary bg-bg-secondary p-3">
             <h4 className="text-xs font-semibold text-text-primary mb-1">Zones (Purdue levels)</h4>
-            <table className="w-full text-[11px]">
+            <table className="w-full text-xs">
               <thead className="text-left text-text-muted">
                 <tr>
                   <th className="py-1 pr-2 font-medium">Level</th>
@@ -111,7 +111,7 @@ export default function SecurityDashboard() {
             <h4 className="text-xs font-semibold text-text-primary mb-1">
               Conduits <span className="font-normal text-text-muted">({conduits.total_conduits}, {conduits.unencrypted_count} unencrypted)</span>
             </h4>
-            <table className="w-full text-[11px]">
+            <table className="w-full text-xs">
               <thead className="text-left text-text-muted">
                 <tr>
                   <th className="py-1 pr-2 font-medium">From → to</th>
@@ -142,7 +142,7 @@ export default function SecurityDashboard() {
                 })}
               </tbody>
             </table>
-            <p className="text-[11px] text-text-muted mt-1">
+            <p className="text-xs text-text-muted mt-1">
               "None" is acceptable only inside a physically secured zone (hard-wired process level); it is listed so the
               exception stays visible.
             </p>
@@ -156,7 +156,7 @@ export default function SecurityDashboard() {
             System requirements · {compliance.open_gaps} open gaps
           </h4>
           <div className="overflow-x-auto">
-            <table className="w-full text-[11px]">
+            <table className="w-full text-xs">
               <thead className="text-left text-text-muted">
                 <tr>
                   <th className="py-1 pr-2 font-medium">SR</th>

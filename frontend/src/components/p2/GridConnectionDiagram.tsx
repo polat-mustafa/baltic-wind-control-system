@@ -68,7 +68,7 @@ function Bus({
           textAnchor="middle"
           className="fill-text-secondary"
           fontSize={12}
-          fontFamily="JetBrains Mono, monospace"
+          fontFamily="IBM Plex Mono, monospace"
         >
           {v > 0 ? `${v.toFixed(3)} pu` : "de-energised"}
         </text>
@@ -131,7 +131,7 @@ function Flow({
         textAnchor="middle"
         className="fill-text-primary"
         fontSize={12}
-        fontFamily="JetBrains Mono, monospace"
+        fontFamily="IBM Plex Mono, monospace"
       >
         {mw.toFixed(0)} MW
         {loading !== undefined ? ` · ${loading.toFixed(0)} %` : ""}
@@ -236,7 +236,7 @@ export default function GridConnectionDiagram() {
             textAnchor="middle"
             className="fill-text-primary"
             fontSize={12}
-            fontFamily="JetBrains Mono, monospace"
+            fontFamily="IBM Plex Mono, monospace"
           >
             {r.poc_p_mw.toFixed(0)} MW · {r.poc_q_mvar >= 0 ? "+" : ""}
             {r.poc_q_mvar.toFixed(0)} MVAR

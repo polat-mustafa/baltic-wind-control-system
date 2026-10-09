@@ -7,10 +7,11 @@
  *
  * One row of turbine cells per string; the 66 kV bus runs right of the
  * longest row and the OSS / onshore / grid tiles to the right of it — so
- * SB-510 (6 strings of ≤ 6) gets 980 × 580 and a larger farm a larger canvas.
+ * SB-510 (6 strings of ≤ 6) gets 1052 × 580 and a larger farm a larger canvas.
+ * cellW must match the TurbineCell width (w-[112px]).
  */
 
-const CELL = { cellW: 100, cellH: 64, cellGapX: 4, rowGapY: 18, stringStartX: 10, stringStartY: 14 } as const;
+const CELL = { cellW: 112, cellH: 64, cellGapX: 4, rowGapY: 18, stringStartX: 10, stringStartY: 14 } as const;
 
 export type MimicLayout = ReturnType<typeof mimicLayout>;
 

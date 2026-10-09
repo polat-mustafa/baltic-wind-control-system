@@ -41,7 +41,7 @@ export const Tower = memo(function Tower({ isSelected }: TowerProps) {
         >
           <meshStandardMaterial
             vertexColors
-            color={isSelected ? "#60a5fa" : "#ffffff"}
+            color={isSelected ? "#5cc3d2" : "#ffffff"}
             roughness={0.5}
             metalness={0.1}
             emissive={isSelected ? "#1d4ed8" : "#000000"}
@@ -70,7 +70,7 @@ export const Tower = memo(function Tower({ isSelected }: TowerProps) {
       >
         <cylinderGeometry args={[2.5, 5, H, 48, 8]} />
         <meshStandardMaterial
-          color={isSelected ? "#60a5fa" : "#6b7280"}
+          color={isSelected ? "#5cc3d2" : "#6b7280"}
           roughness={0.55}
           metalness={0.45}
           emissive={isSelected ? "#1d4ed8" : "#000000"}

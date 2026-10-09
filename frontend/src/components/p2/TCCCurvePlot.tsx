@@ -26,7 +26,7 @@ function TmsSlider({ id, label, value }: { id: string; label: string; value: num
     return () => clearTimeout(t);
   }, [v, value, id, setTms]);
   return (
-    <label className="flex flex-col gap-0.5 text-[11px] text-text-muted flex-1 min-w-[10rem]">
+    <label className="flex flex-col gap-0.5 text-xs text-text-muted flex-1 min-w-[10rem]">
       <span className="flex justify-between">
         {label}
         <span className="font-mono text-text-primary">TMS {v.toFixed(2)}</span>

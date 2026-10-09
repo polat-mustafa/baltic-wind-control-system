@@ -46,9 +46,9 @@ export default function BathymetryLayer() {
                 style={{
                   color,
                   fontSize: 9,
-                  fontFamily: "JetBrains Mono, monospace",
+                  fontFamily: "IBM Plex Mono, monospace",
                   fontWeight: 600,
-                  background: "rgba(15,17,23,0.7)",
+                  background: "rgba(10,21,32,0.7)",
                   padding: "1px 4px",
                   borderRadius: 3,
                 }}

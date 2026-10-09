@@ -13,7 +13,7 @@
  *   HI 80–100 → green  (#22c55e)
  *   HI 60–80  → yellow (#eab308)
  *   HI 30–60  → amber  (#f97316)
- *   HI  0–30  → red    (#ef4444)
+ *   HI  0–30  → red    (#f25c54)
  */
 
 import * as THREE from "three";
@@ -32,7 +32,7 @@ function hiToColour(hi: number): string {
   if (hi >= 80) return "#22c55e";
   if (hi >= 60) return "#eab308";
   if (hi >= 30) return "#f97316";
-  return "#ef4444";
+  return "#f25c54";
 }
 
 interface Badge {

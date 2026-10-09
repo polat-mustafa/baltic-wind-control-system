@@ -44,7 +44,7 @@ export default function CampaignGantt({ result }: { result: CampaignResult }) {
                   `end P10–P90 day ${a.end_days.p10.toFixed(0)}–${a.end_days.p90.toFixed(0)}`
                 }
               >
-                <div className="text-[11px] leading-tight text-text-secondary">
+                <div className="text-xs leading-tight text-text-secondary">
                   <span className="font-semibold text-text-primary">{a.vessel}</span> · {a.name}
                 </div>
                 <div className="relative h-3">
@@ -66,7 +66,7 @@ export default function CampaignGantt({ result }: { result: CampaignResult }) {
             );
           })}
         </ol>
-        <div className="relative mt-1 h-4 text-[11px] text-text-muted">
+        <div className="relative mt-1 h-4 text-xs text-text-muted">
           {ticks.map((t, i) =>
             i % step === 0 ? (
               <span key={t.d} className="absolute whitespace-nowrap" style={{ left: pct(t.d) }}>
@@ -76,7 +76,7 @@ export default function CampaignGantt({ result }: { result: CampaignResult }) {
           )}
         </div>
       </div>
-      <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-secondary">
+      <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
         <span>
           Median run from {fmtDate(result.start_date)} to {fmtDate(addDays(result.start_date, result.total_days.p50))}.
         </span>

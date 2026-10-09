@@ -61,7 +61,7 @@ export default function CampaignControls({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[420px] text-[12px]">
             <thead>
-              <tr className="text-left text-[10px] uppercase tracking-wider text-text-muted">
+              <tr className="text-left text-xs uppercase tracking-wider text-text-muted">
                 <th className="py-1">Vessel</th>
                 <th className="py-1 text-right">Hs limit [m]</th>
                 <th className="py-1 text-right">Wind limit [m/s]</th>
@@ -106,11 +106,11 @@ export default function CampaignControls({
                         className={`${input} w-16 text-right`}
                         aria-label={`${d.name} wind limit`}
                       />{" "}
-                      <span className="text-[10px] text-text-muted">@{d.windRef}</span>
+                      <span className="text-xs text-text-muted">@{d.windRef}</span>
                     </td>
                     <td className="py-1 pl-2 text-right">
                       {changed && (
-                        <button type="button" className="text-[11px] text-text-muted underline" onClick={() => onLimit(v, null)}>
+                        <button type="button" className="text-xs text-text-muted underline" onClick={() => onLimit(v, null)}>
                           reset
                         </button>
                       )}

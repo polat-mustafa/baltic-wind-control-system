@@ -33,7 +33,7 @@ const TYPE_LABEL: Record<StepType, string> = {
 
 function TypeTag({ type }: { type: StepType }) {
   return (
-    <span className="rounded border border-border-primary bg-bg-tertiary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-secondary">
+    <span className="rounded border border-border-primary bg-bg-tertiary px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-text-secondary">
       {TYPE_LABEL[type]}
     </span>
   );
@@ -75,8 +75,8 @@ function CurrentStep({ programme, onGoto }: { programme: ProgrammeDetail; onGoto
           <>
             <div className="flex flex-wrap items-center gap-2">
               <TypeTag type={step.step_type} />
-              <span className="text-[11px] text-text-muted">by {step.responsible}</span>
-              {step.equipment_id && <span className="font-mono text-[11px] text-text-secondary">{step.equipment_id}</span>}
+              <span className="text-xs text-text-muted">by {step.responsible}</span>
+              {step.equipment_id && <span className="font-mono text-xs text-text-secondary">{step.equipment_id}</span>}
             </div>
             <p className="text-sm font-medium leading-snug text-text-primary">{step.action}</p>
             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
@@ -227,12 +227,12 @@ function Readings({ programme }: { programme: ProgrammeDetail }) {
     <Card>
       <CardHeader action={<InfoButton info={p5NetworkInfo} />}>
         <CardTitle>Network readings</CardTitle>
-        <span className="text-[11px] text-text-muted">load flow of the live network</span>
+        <span className="text-xs text-text-muted">load flow of the live network</span>
       </CardHeader>
       <CardContent className="space-y-3 p-4">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-left text-[10px] uppercase tracking-wide text-text-muted">
+            <tr className="text-left text-xs uppercase tracking-wide text-text-muted">
               <th className="pb-1 font-medium">Busbar</th>
               <th className="pb-1 text-right font-medium">kV</th>
               <th className="pb-1 text-right font-medium">pu</th>
@@ -259,9 +259,9 @@ function Readings({ programme }: { programme: ProgrammeDetail }) {
             </div>
           ))}
         </dl>
-        <p className="text-[10px] leading-relaxed text-text-muted">
+        <p className="text-xs leading-relaxed text-text-muted">
           Steady state only — switching transients and transformer inrush are not load-flow
-          quantities. Released turbines are dispatched at rated output (design check).
+          quantities. Released turbines are dispatched at rated output, capped by the circuit 1 PPC limit while circuit 2 is out (design check).
           Q: generator convention, + = generating.
         </p>
       </CardContent>
@@ -292,7 +292,7 @@ function StepList({ programme }: { programme: ProgrammeDetail }) {
           const done = steps.filter((s) => s.status === "completed").length;
           return (
             <section key={phase}>
-              <h4 className="sticky top-0 z-10 flex justify-between border-y border-border-primary bg-bg-tertiary px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+              <h4 className="sticky top-0 z-10 flex justify-between border-y border-border-primary bg-bg-tertiary px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                 <span>{phase}. {name}</span>
                 <span className="font-mono font-normal">{done}/{steps.length}</span>
               </h4>
@@ -315,7 +315,7 @@ function StepList({ programme }: { programme: ProgrammeDetail }) {
                           {s.action}
                         </p>
                         {s.reading && (
-                          <p className={cn("mt-0.5 font-mono text-[11px]", s.status === "completed" ? "text-text-muted" : "text-status-alarm")}>
+                          <p className={cn("mt-0.5 font-mono text-xs", s.status === "completed" ? "text-text-muted" : "text-status-alarm")}>
                             {s.reading}
                           </p>
                         )}

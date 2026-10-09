@@ -52,7 +52,7 @@ function beaufortColor(scale: number): string {
   if (scale <= 3) return "#22c55e";
   if (scale <= 6) return "#06b6d4";
   if (scale <= 9) return "#f59e0b";
-  return "#ef4444";
+  return "#f25c54";
 }
 
 function formatHour(h: number): string {
@@ -76,28 +76,28 @@ export default function EnvironmentPanel() {
     <div
       className="pointer-events-auto rounded-lg border overflow-hidden"
       style={{
-        backgroundColor: "rgba(15,17,23,0.92)",
-        borderColor: "#2a3040",
+        backgroundColor: "rgba(10,21,32,0.92)",
+        borderColor: "#1f3448",
         minWidth: 180,
       }}
     >
       {/* Header with simulated clock */}
       <div
         className="flex items-center justify-between px-2.5 py-1 border-b"
-        style={{ borderColor: "#2a3040" }}
+        style={{ borderColor: "#1f3448" }}
       >
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
-          className="flex items-center gap-1 text-[10px] font-semibold tracking-wider uppercase text-text-muted"
+          className="flex items-center gap-1 text-xs font-semibold tracking-wider uppercase text-text-muted"
         >
           Environment
           <span className="sm:hidden">{open ? <ChevronDown size={11} /> : <ChevronUp size={11} />}</span>
         </button>
         <div className="flex items-center gap-1.5">
           <span
-            className="text-[10px] font-mono tabular-nums"
+            className="text-xs font-mono tabular-nums"
             style={{ color: "#94a3b8" }}
           >
             {isLive
@@ -106,7 +106,7 @@ export default function EnvironmentPanel() {
           </span>
           <div
             className="flex overflow-hidden rounded border"
-            style={{ borderColor: "#3d4560" }}
+            style={{ borderColor: "#2c4760" }}
             role="group"
             aria-label="Weather source"
           >
@@ -116,13 +116,13 @@ export default function EnvironmentPanel() {
                 type="button"
                 onClick={() => setSource(src)}
                 aria-pressed={source === src}
-                className="px-1.5 text-[9px] font-semibold uppercase"
+                className="px-1.5 text-xs font-semibold uppercase"
                 style={{
                   backgroundColor:
                     source === src
                       ? src === "live"
                         ? "#16a34a"
-                        : "#3b82f6"
+                        : "#45c8d9"
                       : "transparent",
                   color: source === src ? "#fff" : "#94a3b8",
                 }}
@@ -144,7 +144,7 @@ export default function EnvironmentPanel() {
           {/* Beaufort badge */}
           <div
             className="flex items-center gap-2 px-2.5 py-1.5 border-b"
-            style={{ borderColor: "#2a3040" }}
+            style={{ borderColor: "#1f3448" }}
           >
             <span
               className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
@@ -157,14 +157,14 @@ export default function EnvironmentPanel() {
               {env.beaufortScale}
             </span>
             <div>
-              <div className="text-[11px] font-medium" style={{ color: bColor }}>
+              <div className="text-xs font-medium" style={{ color: bColor }}>
                 Bft {env.beaufortScale} — {env.beaufortDesc}
               </div>
             </div>
           </div>
 
           {/* Sea state */}
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-2.5 py-1.5 text-[10px]">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-2.5 py-1.5 text-xs">
             <Row label="Hs" value={`${env.significantWaveHeightM.toFixed(1)} m`} />
             <Row
               label={isLive ? "Tm" : "Tp"}
@@ -181,8 +181,8 @@ export default function EnvironmentPanel() {
           </div>
           {source === "live" && (
             <div
-              className="border-t px-2.5 py-1 text-[9px] leading-snug text-text-muted"
-              style={{ borderColor: "#2a3040" }}
+              className="border-t px-2.5 py-1 text-xs leading-snug text-text-muted"
+              style={{ borderColor: "#1f3448" }}
             >
               {error
                 ? `Open-Meteo unavailable (${error}) — using simulation`

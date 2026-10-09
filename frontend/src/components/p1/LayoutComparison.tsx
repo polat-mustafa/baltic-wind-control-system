@@ -44,7 +44,7 @@ export default function LayoutComparison() {
               <th className="text-left font-medium py-1.5 pr-4">Metric</th>
               {[a, b].map((e) => (
                 <th key={e.name} className="text-right font-medium py-1.5 px-3 capitalize">
-                  {e.name} {e.name === best && <span className="ml-1 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">better</span>}
+                  {e.name} {e.name === best && <span className="ml-1 rounded bg-accent/15 px-1.5 py-0.5 text-xs font-semibold text-accent">better</span>}
                 </th>
               ))}
               <th className="text-right font-medium py-1.5 pl-3">Δ ({b.name} − {a.name})</th>

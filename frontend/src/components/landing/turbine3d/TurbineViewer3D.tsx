@@ -78,7 +78,6 @@ import { HUB, SHAFT_TILT } from "./model/layout";
 import { WindTriangle } from "./scene/WindTriangle";
 import { NacelleInteriorDetail } from "./scene/NacelleInteriorDetail";
 import { ViewerControls } from "./ui/ViewerControls";
-import { IllustratedStyle } from "./scene/IllustratedStyle";
 import { PartInfoCard, PartRail } from "./ui/PartInfoCard";
 import { AnalyticsPanel } from "./ui/AnalyticsPanel";
 import { ViewerLegend } from "./ui/ViewerLegend";
@@ -128,7 +127,6 @@ interface TurbineSceneProps {
   overrideRpm?: number;
   onSelectPart: (id: TurbinePartId) => void;
   onMetricsReady?: (metresPerPixel: number) => void;
-  illustrated: boolean;
   /** GPU can't hold the frame rate: skip depth of field and bloom. */
   lowFx: boolean;
   /** Bumped by "Reset view": flies the camera home even with no part selected. */
@@ -152,7 +150,6 @@ function TurbineScene({
   overrideRpm,
   onSelectPart,
   onMetricsReady,
-  illustrated,
   lowFx,
   resetNonce,
 }: TurbineSceneProps) {
@@ -305,7 +302,6 @@ function TurbineScene({
       </InNacelleFrame>
 
       {/* Render style demo: toon + ink edges */}
-      <IllustratedStyle enabled={illustrated} />
 
       {/* Post-processing stack */}
       {/* autoClear off: required by the Outline pass (selected-part glow).
@@ -381,7 +377,6 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
   const [manualWindMs, setManualWindMs] = useState<number>(liveWindMs);
   const [metresPerPixel, setMetresPerPixel] = useState(0.5);
   // Realistic by default; the toon + ink look is an opt-in demo
-  const [illustrated, setIllustrated] = useState(false);
   const [hiddenCardFor, setHiddenCardFor] = useState<TurbinePartId | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(true);
 
@@ -527,7 +522,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
       type="button"
       onClick={onToggleExpand}
       title={expanded ? "Back to the map (Esc)" : "Expand the 3D simulation to the full map area"}
-      className="rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-[11px] font-semibold text-text-primary hover:bg-bg-hover"
+      className="rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-xs font-semibold text-text-primary hover:bg-bg-hover"
     >
       {expanded ? "⤡ Exit full view" : "⤢ Full view"}
     </button>
@@ -604,7 +599,6 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
             overrideRpm={overrideRpm}
             onSelectPart={setSelectedPart}
             onMetricsReady={setMetresPerPixel}
-            illustrated={illustrated}
             lowFx={lowFx}
             resetNonce={resetNonce}
           />
@@ -667,7 +661,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
 
       {viewerMode === "exploded" && interiorView === "3d" && (
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-bg-secondary/80 rounded px-3 py-1.5 border border-border-primary">
-          <span className="text-[9px] text-text-muted font-mono">Explode</span>
+          <span className="text-xs text-text-muted font-mono">Explode</span>
           <input
             type="range"
             min={0}
@@ -677,7 +671,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
             onChange={(e) => setExplodedOffset(parseFloat(e.target.value))}
             className="w-24 accent-accent"
           />
-          <span className="text-[9px] text-text-muted font-mono w-6">{Math.round(explodedOffset * 100)}%</span>
+          <span className="text-xs text-text-muted font-mono w-6">{Math.round(explodedOffset * 100)}%</span>
         </div>
       )}
 
@@ -700,8 +694,8 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
 
       {/* Turbine ID badge */}
       <div className="absolute top-2 left-2 z-10 bg-bg-secondary/80 backdrop-blur-sm rounded px-2 py-0.5 border border-border-primary">
-        <span className="text-[10px] font-mono text-text-muted">{turbineId}</span>
-        <span className="text-[9px] font-mono text-text-muted opacity-60 ml-1">· 15 MW IEA-15-240-RWT</span>
+        <span className="text-xs font-mono text-text-muted">{turbineId}</span>
+        <span className="text-xs font-mono text-text-muted opacity-60 ml-1">· 15 MW IEA-15-240-RWT</span>
       </div>
       {onToggleExpand && interiorView === "3d" && (
         <div className="absolute left-2 top-9 z-20">{expandButton}</div>
@@ -729,7 +723,7 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
               <button
                 type="button"
                 onClick={() => setShowAnalytics(true)}
-                className="absolute left-[9.25rem] top-12 z-20 @max-lg:left-auto @max-lg:right-2 @max-lg:top-24 rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-[11px] font-semibold text-text-primary hover:bg-bg-hover"
+                className="absolute left-[9.25rem] top-12 z-20 @max-lg:left-auto @max-lg:right-2 @max-lg:top-24 rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-xs font-semibold text-text-primary hover:bg-bg-hover"
               >
                 📈 Live analytics
               </button>
@@ -738,25 +732,16 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
       )}
 
       {/* Legend of the hub-height wake slice */}
-      <div className="pointer-events-none absolute bottom-10 right-2 z-10 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 @max-lg:hidden text-[11px] font-semibold text-text-primary shadow">
+      <div className="pointer-events-none absolute bottom-10 right-2 z-10 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 @max-lg:hidden text-xs font-semibold text-text-primary shadow">
         <div className="mb-1 font-bold">Wake deficit at hub height (150 m)</div>
         <div className="h-2 w-44 rounded" style={{ background: "linear-gradient(90deg,#fdd95a,#f7731a,#cc1a1a)" }} />
-        <div className="flex justify-between font-mono text-[10px] text-text-secondary">
+        <div className="flex justify-between font-mono text-xs text-text-secondary">
           <span>3 %</span>
           <span>20 %</span>
           <span>≥ 45 %</span>
         </div>
-        <div className="text-[10px] text-text-muted">Bastankhah wakes · Katic sum · iso-lines 5 %</div>
+        <div className="text-xs text-text-muted">Bastankhah wakes · Katic sum · iso-lines 5 %</div>
       </div>
-
-      <button
-        type="button"
-        onClick={() => setIllustrated((v) => !v)}
-        title="Render style (demo): physically based vs toon shading with ink edges"
-        className="absolute bottom-2 right-16 z-10 @max-lg:hidden rounded border border-border-primary bg-bg-secondary/85 px-2 py-0.5 font-mono text-[10px] text-text-secondary hover:bg-bg-hover"
-      >
-        Style: {illustrated ? "Illustrated (demo)" : "Realistic"}
-      </button>
     </div>
   );
 }

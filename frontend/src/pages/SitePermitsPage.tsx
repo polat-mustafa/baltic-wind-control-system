@@ -47,15 +47,15 @@ function Stepper() {
               aria-label={`Stage ${i + 1}: ${s.title}${isDone ? " (done)" : ""}`}
               className={cn(
                 "flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left transition-colors disabled:opacity-40",
-                stage === s.id ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-hover",
+                stage === s.id ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-hover",
               )}
             >
-              <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider opacity-80">
+              <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider opacity-80">
                 {isDone ? <CheckCircle2 size={11} aria-label="done" /> : `${i + 1}`}
                 <span className="hidden sm:inline">· {s.short}</span>
               </span>
               <span className="hidden text-xs font-medium md:block">{s.title}</span>
-              <span className="hidden text-[10px] opacity-75 lg:block">{s.duration}</span>
+              <span className="hidden text-xs opacity-75 lg:block">{s.duration}</span>
             </button>
           </li>
         );
@@ -114,7 +114,7 @@ function CriteriaPanel() {
             />
             <span>
               <span className="text-text-primary">{t.label}</span>
-              <span className="block text-[10px] text-text-muted">{t.note}</span>
+              <span className="block text-xs text-text-muted">{t.note}</span>
             </span>
           </label>
           <CriterionInfo card={cardByKey[t.key]} />
@@ -137,7 +137,7 @@ function CriteriaPanel() {
         </select>
       </label>
       {suitability && (
-        <p className="border-t border-border-primary pt-2 text-[11px] text-text-secondary">
+        <p className="border-t border-border-primary pt-2 text-xs text-text-secondary">
           <span className="font-semibold text-status-normal">{area("suitable").toFixed(0)} km² suitable</span> ·{" "}
           {area("marginal").toFixed(0)} km² marginal · {area("excluded").toFixed(0)} km² excluded (≈ {suitability.cell_km} km
           cells). Thresholds marked illustrative in the API model card are teaching defaults.
@@ -292,7 +292,7 @@ export default function SitePermitsPage() {
           <h3 id="stage-title" className="text-base font-semibold text-text-primary">
             {current.title}
           </h3>
-          {current.duration && <span className="text-[11px] text-text-muted">{current.duration}</span>}
+          {current.duration && <span className="text-xs text-text-muted">{current.duration}</span>}
         </div>
         {effective === "screening" && <ScreeningStage />}
         {effective === "investigation" && <InvestigationStage />}
@@ -318,7 +318,7 @@ export default function SitePermitsPage() {
           {effective === "documents" && (
             <Link
               to="/develop/layout"
-              className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-xs font-medium text-white hover:bg-accent-hover"
+              className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-xs font-medium text-accent-ink hover:bg-accent-hover"
             >
               Continue to layout <ArrowRight size={13} className="ml-1" />
             </Link>

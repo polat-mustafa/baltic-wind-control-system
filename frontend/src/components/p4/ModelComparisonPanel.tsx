@@ -105,7 +105,7 @@ export default function ModelComparisonPanel() {
       </div>
 
       {ensembleUnderperforms && (
-        <div className="mt-2 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+        <div className="mt-2 rounded border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-xs text-status-warning">
           ⚠ Ensemble RMSE ({ensemble?.rmse_mw.toFixed(3)} MW) is higher than the
           best base model. Likely cause: {worstBase.model_name} underperformed
           ({worstBase.rmse_mw.toFixed(3)} MW) and its larger errors still carry
@@ -116,9 +116,9 @@ export default function ModelComparisonPanel() {
 
       {/* Mini summary table */}
       <div className="mt-2 overflow-x-auto">
-        <table className="w-full text-xs text-slate-400">
+        <table className="w-full text-xs text-text-secondary">
           <thead>
-            <tr className="border-b border-slate-700">
+            <tr className="border-b border-border-primary">
               <th className="text-left py-1 px-2">Model</th>
               <th className="text-right py-1 px-2">RMSE</th>
               <th className="text-right py-1 px-2">MAE</th>
@@ -130,7 +130,7 @@ export default function ModelComparisonPanel() {
             {models.map((m) => (
               <tr
                 key={m.model_name}
-                className="border-b border-slate-700/50"
+                className="border-b border-border-primary/60"
               >
                 <td
                   className="py-1 px-2 font-medium"

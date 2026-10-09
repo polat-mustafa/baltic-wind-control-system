@@ -91,11 +91,11 @@ export default function BayControllerPanel() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <h3 className="text-xs font-semibold text-text-primary">OSS 66 kV switchboard · 9 bay controllers</h3>
-        <span className="text-[11px] font-mono text-text-muted">
+        <span className="text-xs font-mono text-text-muted">
           {allBays ? `${allBays.energised_count} in service · ${allBays.earthed_count} earthed` : "loading…"}
         </span>
         <span className="flex-1" />
-        <button type="button" onClick={() => void fetchAllBays().then(fetchAllInterlocks)} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-[11px] text-text-secondary hover:bg-bg-hover">
+        <button type="button" onClick={() => void fetchAllBays().then(fetchAllInterlocks)} className="flex items-center gap-1 h-6 px-2 rounded border border-border-primary text-xs text-text-secondary hover:bg-bg-hover">
           <RefreshCw size={11} /> Refresh
         </button>
       </div>
@@ -126,13 +126,13 @@ export default function BayControllerPanel() {
                   b?.is_tie_cb && "bg-bg-tertiary",
                 )}
               >
-                <span className="text-[10px] font-mono text-text-muted">section {section}</span>
+                <span className="text-xs font-mono text-text-muted">section {section}</span>
                 <span className="text-xs font-mono font-semibold text-text-primary">{name.replace("BAY-OSS-", "")}</span>
-                <span className="text-[11px] text-text-secondary leading-tight min-h-7">{b?.display_name ?? "—"}</span>
+                <span className="text-xs text-text-secondary leading-tight min-h-7">{b?.display_name ?? "—"}</span>
                 {b && (
                   <div className="flex items-end gap-1.5">
                     <BayMimic bay={b} />
-                    <div className="text-[10px] font-mono leading-4 text-text-muted">
+                    <div className="text-xs font-mono leading-4 text-text-muted">
                       <div className={b.circuit_breaker === "closed" ? "text-text-primary font-semibold" : undefined}>CB {b.circuit_breaker}</div>
                       <div>{b.bay_mode}</div>
                       <div className={b.protection_relay === "tripped" ? "text-status-alarm font-semibold" : undefined}>relay {b.protection_relay}</div>
@@ -170,7 +170,7 @@ export default function BayControllerPanel() {
                           type="button"
                           disabled={busy}
                           onClick={() => void validate(bay.name, id, action)}
-                          className="h-6 px-2 rounded border border-border-primary text-[11px] font-semibold text-text-primary hover:bg-bg-hover disabled:opacity-40"
+                          className="h-6 px-2 rounded border border-border-primary text-xs font-semibold text-text-primary hover:bg-bg-hover disabled:opacity-40"
                         >
                           {pending ? "Selected" : `Select ${action.toUpperCase()}`}
                         </button>
@@ -188,7 +188,7 @@ export default function BayControllerPanel() {
                       Interlocks clear for <b className="font-mono">{validation.equipment_id} {validation.action.toUpperCase()}</b>
                     </span>
                     <span className="flex-1" />
-                    <button type="button" disabled={busy} onClick={() => void execute(bay.name, validation.equipment_id, validation.action)} className="h-7 px-3 rounded bg-accent text-white font-semibold hover:opacity-90 disabled:opacity-50">
+                    <button type="button" disabled={busy} onClick={() => void execute(bay.name, validation.equipment_id, validation.action)} className="h-7 px-3 rounded bg-accent text-accent-ink font-semibold hover:opacity-90 disabled:opacity-50">
                       Execute
                     </button>
                     <button type="button" onClick={clearValidation} className="h-7 px-3 rounded border border-border-primary text-text-secondary hover:bg-bg-hover">
@@ -212,10 +212,10 @@ export default function BayControllerPanel() {
             <h4 className="text-xs font-semibold text-text-primary mb-2">Interlock logic (CILO) — {bay.name}</h4>
             <ul className="space-y-1">
               {rules.map((r) => (
-                <li key={r.interlock_id} className="flex gap-2 text-[11px]">
+                <li key={r.interlock_id} className="flex gap-2 text-xs">
                   <span className={cn("font-mono w-14 shrink-0", r.currently_active ? "text-status-warning font-semibold" : "text-text-muted")}>{r.interlock_id}</span>
                   <span className={r.currently_active ? "text-text-primary" : "text-text-muted"}>{r.description}</span>
-                  <span className="ml-auto shrink-0 font-mono text-[10px] text-text-muted">{r.currently_active ? "BLOCKING" : "clear"}</span>
+                  <span className="ml-auto shrink-0 font-mono text-xs text-text-muted">{r.currently_active ? "BLOCKING" : "clear"}</span>
                 </li>
               ))}
             </ul>

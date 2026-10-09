@@ -53,7 +53,7 @@ function Tabs<T extends string>({ items, value, onChange, label }: { items: [T, 
           role="tab"
           aria-selected={value === k}
           onClick={() => onChange(k)}
-          className={`rounded px-2 py-1 text-[11px] font-medium ${value === k ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary"}`}
+          className={`rounded px-2 py-1 text-xs font-medium ${value === k ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
         >
           {l}
         </button>
@@ -64,7 +64,7 @@ function Tabs<T extends string>({ items, value, onChange, label }: { items: [T, 
 
 function Slider(p: { label: string; value: number; min: number; max: number; step: number; unit: string; digits?: number; onChange: (v: number) => void }) {
   return (
-    <label className="flex flex-col gap-0.5 text-[11px] text-text-muted min-w-[9rem] flex-1">
+    <label className="flex flex-col gap-0.5 text-xs text-text-muted min-w-[9rem] flex-1">
       <span className="flex justify-between">
         {p.label}
         <span className="font-mono text-text-primary">
@@ -126,7 +126,7 @@ function Controls() {
               <Slider label="Q set-point" value={s.reactiveSetpointMVAR} min={-200} max={200} step={10} unit="MVAR" onChange={s.setReactiveSetpointMVAR} />
             )}
             {s.reactivePowerMode === "power_factor" && (
-              <label className="flex flex-col gap-0.5 text-[11px] text-text-muted">
+              <label className="flex flex-col gap-0.5 text-xs text-text-muted">
                 Power factor
                 <select
                   value={s.powerFactor}
@@ -142,7 +142,7 @@ function Controls() {
               </label>
             )}
           </div>
-          <label className="flex flex-col gap-0.5 text-[11px] text-text-muted max-w-xs">
+          <label className="flex flex-col gap-0.5 text-xs text-text-muted max-w-xs">
             Grid event at t = {T_EVENT} s
             <select
               value={s.event}
@@ -158,7 +158,7 @@ function Controls() {
           </label>
         </div>
       </div>
-      {s.loading && <p className="text-[11px] text-text-muted">simulating…</p>}
+      {s.loading && <p className="text-xs text-text-muted">simulating…</p>}
     </div>
   );
 }

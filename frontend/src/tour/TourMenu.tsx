@@ -53,7 +53,7 @@ export default function TourMenu() {
           className="absolute right-0 top-full mt-1 w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-border-primary bg-bg-secondary p-1.5 shadow-2xl"
           style={{ zIndex: 2100 }}
         >
-          <p className="px-2 pb-1 pt-0.5 text-[11px] text-text-muted">
+          <p className="px-2 pb-1 pt-0.5 text-xs text-text-muted">
             {completed.length} of {TOURS.length} tours completed
           </p>
           {STAGES.map((stage) => {
@@ -61,7 +61,7 @@ export default function TourMenu() {
             if (tours.length === 0) return null;
             return (
               <div key={stage} className="py-1">
-                <div className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                <div className="px-2 pb-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
                   {stage}
                 </div>
                 {tours.map((t) => {
@@ -84,7 +84,7 @@ export default function TourMenu() {
                       )}
                       <span className="min-w-0">
                         <span className="block text-xs font-medium text-text-primary">{t.title}</span>
-                        <span className="block text-[11px] text-text-muted">{t.summary}</span>
+                        <span className="block text-xs text-text-muted">{t.summary}</span>
                       </span>
                     </button>
                   );

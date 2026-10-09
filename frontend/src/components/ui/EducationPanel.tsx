@@ -57,7 +57,7 @@ const TABS = [
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <h4 className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">
+    <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
       {children}
     </h4>
   );
@@ -74,8 +74,8 @@ function EmptyHint({ children }: { children: ReactNode }) {
 function ReferenceTypeChip({ type }: { type: Reference["type"] }) {
   const styles: Record<Reference["type"], string> = {
     standard: "bg-status-info/15 text-status-info border-status-info/30",
-    paper: "bg-purple-500/15 text-purple-300 border-purple-500/30",
-    textbook: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    paper: "bg-bg-tertiary text-text-secondary border-border-secondary",
+    textbook: "bg-bg-tertiary text-text-secondary border-border-secondary",
     regulation: "bg-status-alarm/15 text-status-alarm border-status-alarm/30",
     website: "bg-status-normal/15 text-status-normal border-status-normal/30",
   };
@@ -83,7 +83,7 @@ function ReferenceTypeChip({ type }: { type: Reference["type"] }) {
     <span
       className={cn(
         "inline-flex items-center rounded-sm border px-1.5 py-0.5",
-        "text-[9px] font-medium uppercase tracking-wider",
+        "text-xs font-medium uppercase tracking-wider",
         styles[type],
       )}
     >
@@ -103,7 +103,7 @@ function ReferenceRow({ refItem }: { refItem: Reference }) {
           <ReferenceTypeChip type={refItem.type} />
         </div>
         {refItem.citation && (
-          <p className="mt-1 text-[11px] text-text-muted italic">
+          <p className="mt-1 text-xs text-text-muted italic">
             {refItem.citation}
           </p>
         )}
@@ -217,7 +217,7 @@ function FormulaCard({ formula }: { formula: Formula }) {
       </p>
 
       {formula.reference && (
-        <p className="text-[10px] text-text-muted font-mono">
+        <p className="text-xs text-text-muted font-mono">
           Source: {formula.reference}
         </p>
       )}
@@ -244,7 +244,7 @@ function WorkedExampleCard({ example }: { example: WorkedExample }) {
         ))}
       </ol>
       <div className="rounded-sm border border-status-normal/30 bg-status-normal/10 px-3 py-2">
-        <span className="text-[10px] font-semibold text-status-normal uppercase tracking-wider">
+        <span className="text-xs font-semibold text-status-normal uppercase tracking-wider">
           Result
         </span>
         <p className="text-xs text-text-secondary mt-1 leading-relaxed">
@@ -314,7 +314,7 @@ function RealWorldCard({ rwc }: { rwc: RealWorldCase }) {
         {rwc.description}
       </p>
       <div className="rounded-sm border-l-2 border-accent/60 bg-accent/5 px-3 py-2">
-        <span className="text-[10px] font-semibold text-accent uppercase tracking-wider">
+        <span className="text-xs font-semibold text-accent uppercase tracking-wider">
           Takeaway
         </span>
         <p className="text-xs text-text-secondary mt-1 leading-relaxed">
@@ -322,7 +322,7 @@ function RealWorldCard({ rwc }: { rwc: RealWorldCase }) {
         </p>
       </div>
       {rwc.source && (
-        <p className="text-[10px] text-text-muted font-mono">
+        <p className="text-xs text-text-muted font-mono">
           Source: {rwc.source}
         </p>
       )}

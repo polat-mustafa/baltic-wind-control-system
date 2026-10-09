@@ -41,7 +41,7 @@ export default function RotorPitchChart() {
       name: "Rotor Speed",
       type: "scatter",
       mode: "lines",
-      line: { color: "#3ecf6e", width: 2 },
+      line: { color: "#4cc38a", width: 2 },
       hovertemplate: "%{y:.2f} rpm<extra></extra>",
     },
     {
@@ -83,7 +83,7 @@ export default function RotorPitchChart() {
       name: `Min RPM (${V236.minRpm.toFixed(1)})`,
       type: "scatter",
       mode: "lines",
-      line: { color: "#9ba3b8", width: 1, dash: "dash" },
+      line: { color: "#a3b6c8", width: 1, dash: "dash" },
       showlegend: true,
       hoverinfo: "skip",
     },
@@ -102,9 +102,9 @@ export default function RotorPitchChart() {
       side: "right",
       gridcolor: "transparent",
       tickfont: {
-        family: "'JetBrains Mono', monospace",
+        family: "'IBM Plex Mono', monospace",
         size: 10,
-        color: "#9ba3b8",
+        color: "#a3b6c8",
       },
     },
     xaxis: {

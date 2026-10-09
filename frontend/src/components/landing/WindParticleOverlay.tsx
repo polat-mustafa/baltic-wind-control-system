@@ -6,7 +6,7 @@
  * short directional streak with a bright head dot.
  *
  * Color scale follows wind speed:
- *   #60a5fa  light breeze  (< 6 m/s)
+ *   #5cc3d2  light breeze  (< 6 m/s)
  *   #06b6d4  moderate       (6–10 m/s)
  *   #e2e8f0  strong         (10–14 m/s)
  *   #fbbf24  near cut-out   (> 14 m/s)
@@ -31,7 +31,7 @@ const JITTER = 0.3; // random lateral wander (px/frame)
 // ── Wind speed → color ───────────────────────────────────────────
 
 function windColor(ms: number): string {
-  if (ms < 6) return "#60a5fa";
+  if (ms < 6) return "#5cc3d2";
   if (ms < 10) return "#06b6d4";
   if (ms < 14) return "#e2e8f0";
   return "#fbbf24";

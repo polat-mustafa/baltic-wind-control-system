@@ -23,9 +23,10 @@ What the numbers show
   ≈ 0.4 A at 220 kV).
 - Released turbines are dispatched at rated output (15 MW, unity power factor):
   a design check of cable and transformer loading, not a wind forecast. When
-  section A alone is more than one export circuit carries (farms with 3–4
-  circuits), the PPC holds the output at 90 % of the circuit's capability
-  (``circuit1_limit_mw``) until the other circuits are in service.
+  section A alone is more than one export circuit carries, the PPC holds the
+  output at 90 % of the circuit's capability (``circuit1_limit_mw``) until the
+  other circuits are in service. SB-510: section A is 270 MW, circuit 1 alone
+  reaches 100 % cable loading at ≈ 233 MW, so the limit is ≈ 210 MW.
 
 The numbers above are SB-510; ``network_snapshot(state, spec)`` builds the same
 model for any ``FarmSpec`` (cable length, transformer and reactor sizes,

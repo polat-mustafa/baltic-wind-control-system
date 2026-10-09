@@ -187,7 +187,7 @@ export default function TrainingMonitor() {
             <button
               type="button"
               onClick={() => void runFullAnalysis()}
-              className="mt-3 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
+              className="mt-3 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover"
             >
               Run forecast
             </button>
@@ -250,7 +250,7 @@ function SegmentedProgress({
           ),
         )}
       </div>
-      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-text-muted">
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-text-muted">
         {(Object.keys(STAGE_WEIGHT) as TrainingStageKey[]).map((k) => (
           <span key={k} className="flex items-center gap-1">
             <span className="inline-block h-2 w-2 rounded-sm" style={{ background: STAGE_TONE[k] }} />
@@ -341,7 +341,7 @@ function FoldChart({ folds }: { folds: Partial<Record<"xgboost" | "lstm" | "tft"
     <figure className="rounded-lg border border-border-primary bg-bg-secondary p-3">
       <figcaption className="mb-1 flex justify-between text-sm font-semibold text-text-primary">
         <span>Out-of-sample RMSE per fold [MW]</span>
-        <span className="flex gap-2 text-[11px] font-normal text-text-muted">
+        <span className="flex gap-2 text-xs font-normal text-text-muted">
           {(["xgboost", "lstm", "tft"] as const).map((m) => (
             <span key={m} className="flex items-center gap-1">
               <span className="inline-block h-2 w-2 rounded-sm" style={{ background: tone[m] }} />
@@ -417,8 +417,8 @@ function LogConsole({ log }: { log: TrainingLogLine[] }) {
     <div className="rounded-lg border border-border-primary bg-bg-secondary p-3">
       <div className="mb-1.5 flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-text-primary">Training console</span>
-        <span className="font-mono text-[10px] text-text-muted">{log.length} lines</span>
-        <div className="ml-auto flex items-center gap-1 text-[10px]">
+        <span className="font-mono text-xs text-text-muted">{log.length} lines</span>
+        <div className="ml-auto flex items-center gap-1 text-xs">
           {(["all", "events", "epochs"] as const).map((f) => (
             <button
               key={f}
@@ -437,7 +437,7 @@ function LogConsole({ log }: { log: TrainingLogLine[] }) {
           </label>
         </div>
       </div>
-      <div ref={ref} className="h-56 overflow-y-auto rounded border border-black/30 bg-[#0b0f14] p-2 font-mono text-[11px] leading-[1.55] text-slate-300">
+      <div ref={ref} className="h-56 overflow-y-auto rounded border border-black/30 bg-[#0b0f14] p-2 font-mono text-xs leading-[1.55] text-slate-300">
         {shown.length === 0 ? (
           <span className="text-slate-500">No build has run since the server started — the models may come from the cache.</span>
         ) : (

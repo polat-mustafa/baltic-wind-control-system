@@ -78,7 +78,7 @@ function SiteItem({ siteDrawn }: { siteDrawn: boolean }) {
   return (
     <li className="flex items-start gap-2">
       {assessing ? (
-        <span className="inline-flex w-[4.5rem] shrink-0 items-center gap-1 text-[11px] font-semibold uppercase text-text-muted">
+        <span className="inline-flex w-[4.5rem] shrink-0 items-center gap-1 text-xs font-semibold uppercase text-text-muted">
           <Loader2 size={13} className="animate-spin" aria-hidden /> Wait
         </span>
       ) : (
@@ -168,14 +168,14 @@ export default function LayoutChecklist(props: ChecklistInput) {
             <span className="min-w-0 flex-1">
               <span className="block font-medium text-text-primary">
                 {i.title}
-                {i.grid && <span className="ml-1.5 rounded bg-bg-tertiary px-1 py-px text-[9px] font-semibold uppercase text-text-muted">HV Grid</span>}
+                {i.grid && <span className="ml-1.5 rounded bg-bg-tertiary px-1 py-px text-xs font-semibold uppercase text-text-muted">HV Grid</span>}
               </span>
               <span className="block text-text-muted">{i.detail}</span>
             </span>
           </li>
         ))}
       </ul>
-      <p className="text-[11px] text-text-secondary">
+      <p className="text-xs text-text-secondary">
         {gridOpen ? "The layout meets the checks that open HV Grid in your own project." : "HV Grid opens in your own project once the checks marked HV Grid pass."}
       </p>
     </div>

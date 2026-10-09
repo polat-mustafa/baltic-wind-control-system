@@ -38,13 +38,13 @@ export default function InterlockStatusPanel() {
     <section className="bg-bg-secondary rounded-lg border border-border-primary p-3 space-y-3">
       <div>
         <h3 className="text-xs font-semibold text-text-primary">Interlock matrix · OSS 66 kV bays</h3>
-        <p className="text-[11px] text-text-muted">
+        <p className="text-xs text-text-muted">
           ■ = rule currently blocking an operation in the bay. In service, ILK-002/003/005 block earthing,
           disconnector and rack-out operations because the breaker is closed — that is the interlock doing its job.
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table className="text-[11px] border-collapse min-w-[720px] w-full">
+        <table className="text-xs border-collapse min-w-[720px] w-full">
           <thead>
             <tr className="text-text-muted">
               <th className="text-left font-medium py-1 pr-3">Rule</th>

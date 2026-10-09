@@ -53,7 +53,7 @@ export function ControlDrawer({
             size={14}
             className="text-accent group-hover:text-accent"
           />
-          <span className="text-[10px] font-medium">Controls</span>
+          <span className="text-xs font-medium">Controls</span>
         </button>
       </Dialog.Trigger>
 

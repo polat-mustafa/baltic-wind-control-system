@@ -23,11 +23,11 @@ export default function FleetHealthPanel() {
     <section className="bg-bg-secondary rounded-lg border border-border-primary p-3">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-2">
         <h3 className="text-xs font-semibold text-text-primary">Fleet health index · {fleet.turbines.length} × 15 MW</h3>
-        <span className="text-[11px] font-mono text-text-muted">
+        <span className="text-xs font-mono text-text-muted">
           fleet mean {fleet.fleet_average_hi.toFixed(0)} · {fleet.turbines_in_alert} amber · {fleet.turbines_in_warning} red/critical
         </span>
         <span className="flex-1" />
-        <span className="flex flex-wrap gap-2 text-[10px] text-text-muted">
+        <span className="flex flex-wrap gap-2 text-xs text-text-muted">
           {(Object.keys(LEVEL_STYLE) as CMSAlertLevel[]).map((l) => (
             <span key={l} className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-sm border border-border-secondary" style={{ background: LEVEL_STYLE[l].bg }} />
@@ -38,7 +38,7 @@ export default function FleetHealthPanel() {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="border-separate border-spacing-0.5 text-[10px] font-mono">
+        <table className="border-separate border-spacing-0.5 text-xs font-mono">
           <thead>
             <tr>
               <th />
@@ -47,7 +47,7 @@ export default function FleetHealthPanel() {
                   <button
                     type="button"
                     onClick={() => void select(t.turbine_id)}
-                    className={cn("w-7 rounded-sm", selected === t.turbine_id ? "bg-accent text-white" : "text-text-muted hover:text-text-primary")}
+                    className={cn("w-7 rounded-sm", selected === t.turbine_id ? "bg-accent text-accent-ink" : "text-text-muted hover:text-text-primary")}
                     title={`Open ${t.turbine_id}`}
                   >
                     {t.turbine_id.slice(4)}
@@ -59,7 +59,7 @@ export default function FleetHealthPanel() {
           <tbody>
             {CMS_COMPONENTS.map((c) => (
               <tr key={c.id}>
-                <th className="pr-2 text-left font-sans font-normal text-[11px] text-text-secondary whitespace-nowrap">{c.label}</th>
+                <th className="pr-2 text-left font-sans font-normal text-xs text-text-secondary whitespace-nowrap">{c.label}</th>
                 {fleet.turbines.map((t) => {
                   const hi = t.component_health[c.id];
                   const st = LEVEL_STYLE[hiLevel(hi)];

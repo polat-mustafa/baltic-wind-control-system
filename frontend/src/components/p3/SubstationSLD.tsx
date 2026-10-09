@@ -217,10 +217,10 @@ export default function SubstationSLD() {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 border-b border-border-primary shrink-0">
         <h3 className="text-xs font-semibold text-text-primary">Single-Line Diagram</h3>
         <InfoButton info={substationSldInfo} />
-        <span className="text-[10px] text-text-muted font-mono">
+        <span className="text-xs text-text-muted font-mono">
           IEC 60617 · click a breaker to select, then execute (SBO)
         </span>
-        <span className="ml-auto flex items-center gap-3 text-[10px] font-mono text-text-muted">
+        <span className="ml-auto flex items-center gap-3 text-xs font-mono text-text-muted">
           {([["400 kV", V400], ["220 kV", V220], ["66 kV", V66], ["dead", DEAD]] as const).map(([l, c]) => (
             <span key={l} className="flex items-center gap-1">
               <span className="inline-block w-3 h-0.5" style={{ background: c }} />
@@ -378,7 +378,7 @@ export default function SubstationSLD() {
             <button
               type="button"
               onClick={async () => setBlocked(await operateBreaker(selected))}
-              className="h-7 px-3 rounded bg-accent text-white font-medium hover:opacity-90"
+              className="h-7 px-3 rounded bg-accent text-accent-ink font-medium hover:opacity-90"
             >
               Execute {selState === "CLOSED" ? "OPEN" : "CLOSE"}
             </button>

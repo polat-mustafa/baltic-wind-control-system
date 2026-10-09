@@ -32,7 +32,7 @@ export default function P2XSection() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1">
             <p className="text-xs font-semibold text-text-secondary">Power-to-X · PEM electrolyser on energy above the grid limit</p>
-            <p className="text-[11px] text-text-secondary">What if PSE grants less than {n.total_capacity_mw.toFixed(0)} MW of connection capacity?</p>
+            <p className="text-xs text-text-secondary">What if PSE grants less than {n.total_capacity_mw.toFixed(0)} MW of connection capacity?</p>
           </div>
           <Slider
             label="Grid connection"

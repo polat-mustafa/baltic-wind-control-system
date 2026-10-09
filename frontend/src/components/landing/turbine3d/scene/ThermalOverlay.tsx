@@ -35,7 +35,7 @@ const HOT_SPOTS: { id: ThermalId; position: [number, number, number]; radius: nu
 const STATE_STYLE = {
   ok: { text: "OK", color: "#22c55e" },
   alarm: { text: "ALARM", color: "#f59e0b" },
-  trip: { text: "TRIP", color: "#ef4444" },
+  trip: { text: "TRIP", color: "#f25c54" },
 } as const;
 
 let glowTexture: THREE.Texture | null = null;
@@ -107,7 +107,7 @@ function HotSpot({
           style={{ borderColor: reading.state === "ok" ? colour : st.color }}
         >
           <span
-            className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] text-slate-950"
+            className="flex h-4 w-4 items-center justify-center rounded-full text-xs text-slate-950"
             style={{ background: colour }}
           >
             {n}
@@ -123,8 +123,8 @@ function HotSpot({
 export function ThermalLegend({ turbineId }: { turbineId: string }) {
   const readings = useNacelleReadings(turbineId);
   return (
-    <div className="w-60 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 font-mono text-[10px] shadow backdrop-blur-sm">
-      <div className="mb-1 text-[11px] font-bold text-text-primary">Nacelle thermal (IR palette)</div>
+    <div className="w-60 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 font-mono text-xs shadow backdrop-blur-sm">
+      <div className="mb-1 text-xs font-bold text-text-primary">Nacelle thermal (IR palette)</div>
       <div className="h-2.5 w-full rounded-sm" style={{ background: irGradientCss() }} />
       <div className="flex justify-between text-text-secondary">
         <span>{IR_RANGE_C.min} °C</span>
@@ -142,14 +142,14 @@ export function ThermalLegend({ turbineId }: { turbineId: string }) {
             <div key={hs.id}>
               <div className="flex items-center gap-1">
                 <span
-                  className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-slate-950"
+                  className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-slate-950"
                   style={{ background: colour }}
                 >
                   {i + 1}
                 </span>
                 <span className="truncate text-text-secondary">{r.spec.label}</span>
                 <span className="ml-auto font-semibold tabular-nums text-text-primary">{r.tempC.toFixed(0)} °C</span>
-                <span className="w-9 text-right text-[8px] font-bold" style={{ color: st.color }}>
+                <span className="w-9 text-right text-xs font-bold" style={{ color: st.color }}>
                   {st.text}
                 </span>
               </div>
@@ -165,7 +165,7 @@ export function ThermalLegend({ turbineId }: { turbineId: string }) {
           );
         })}
       </div>
-      <div className="mt-1.5 text-[9px] leading-tight text-text-muted">
+      <div className="mt-1.5 text-xs leading-tight text-text-muted">
         bar ticks: alarm (amber) · trip (red) · T = T_air + ΔT_rated·(k₀ + (1−k₀)·pⁿ), n = 2 windings (I²R) · live:
         main bearing, generator winding
       </div>

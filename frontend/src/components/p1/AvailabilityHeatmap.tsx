@@ -72,7 +72,7 @@ export default function AvailabilityHeatmap() {
           height: 260,
           showlegend: false,
           bargap: 0.25,
-          xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, tickangle: -60, tickfont: { size: 9, family: "'JetBrains Mono', monospace" } },
+          xaxis: { ...DARK_PLOTLY_LAYOUT.xaxis, tickangle: -60, tickfont: { size: 9, family: "'IBM Plex Mono', monospace" } },
           yaxis: { ...DARK_PLOTLY_LAYOUT.yaxis, title: { text: "TBA [%]", font: { size: 12 } }, range: [Math.min(90, ...tbaValues) - 0.5, 100] },
           shapes: [
             { type: "line", xref: "paper", yref: "y", x0: 0, x1: 1, y0: TARGET, y1: TARGET, line: { color: c.ref, width: 1.5, dash: "dash" } } as const,

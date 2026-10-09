@@ -59,7 +59,7 @@ export default function TrainingRecord() {
             Training record
           </div>
           <header className="relative border-b border-slate-300 pb-3">
-            <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-slate-500">OffshoreForge Academy</p>
+            <p className="font-sans text-xs font-semibold uppercase tracking-widest text-slate-500">OffshoreForge Academy</p>
             <h3 className="text-lg font-bold">Training record</h3>
             <p className="text-[12px] text-slate-600">
               Learner: <span className="font-semibold text-slate-900">{learner || "(no name set)"}</span> · printed{" "}
@@ -74,7 +74,7 @@ export default function TrainingRecord() {
           </section>
           <table className="relative mt-3 w-full border-collapse text-[12px]">
             <thead>
-              <tr className="border-b border-slate-400 text-left font-sans text-[10px] uppercase tracking-wider text-slate-500">
+              <tr className="border-b border-slate-400 text-left font-sans text-xs uppercase tracking-wider text-slate-500">
                 <th className="py-1 pr-2">Track</th>
                 <th className="py-1 pr-2">Mission</th>
                 <th className="py-1 pr-2 text-right">Best</th>
@@ -99,8 +99,8 @@ export default function TrainingRecord() {
           </table>
           {attempts.length > 0 && (
             <>
-              <h4 className="relative mt-4 font-sans text-[10px] font-semibold uppercase tracking-wider text-slate-500">Attempt log</h4>
-              <ol className="relative mt-1 space-y-0.5 text-[11px]">
+              <h4 className="relative mt-4 font-sans text-xs font-semibold uppercase tracking-wider text-slate-500">Attempt log</h4>
+              <ol className="relative mt-1 space-y-0.5 text-xs">
                 {[...attempts].reverse().slice(0, 40).map((a, i) => (
                   <li key={`${a.at}-${i}`}>
                     {date(a.at)} · {MISSIONS.find((m) => m.id === a.mission)?.title ?? a.mission} · <b>{a.score}</b>
@@ -110,7 +110,7 @@ export default function TrainingRecord() {
               </ol>
             </>
           )}
-          <footer className="relative mt-4 border-t border-slate-300 pt-2 text-[10px] text-slate-500">
+          <footer className="relative mt-4 border-t border-slate-300 pt-2 text-xs text-slate-500">
             Self-recorded in this browser by the OffshoreForge training platform. Mission weights are illustrative teaching choices. This
             record is not a certificate of competence and not proof of any qualification (e.g. GWO, ECITB, national electrical
             authorisation).

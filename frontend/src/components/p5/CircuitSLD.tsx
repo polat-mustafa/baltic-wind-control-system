@@ -397,7 +397,7 @@ export default function CircuitSLD({ programme, onOperate, busy = false }: { pro
       </div>
 
       {/* Legend + selection */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border-primary px-4 py-2 text-[11px] text-text-muted">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border-primary px-4 py-2 text-xs text-text-muted">
         {([["220 kV live", V220], ["66 kV live", V66], ["earthed", EARTH], ["isolated", DEAD]] as const).map(([l, c]) => (
           <span key={l} className="flex items-center gap-1.5">
             <span className="inline-block h-0.5 w-4" style={{ background: c }} />

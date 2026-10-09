@@ -41,7 +41,7 @@ interface MetricProps {
 function Metric({ label, value, unit, outOfBand, title }: MetricProps) {
   return (
     <div className="flex flex-col justify-center px-3 border-l border-border-primary first:border-l-0" title={title}>
-      <span className="text-[9px] uppercase tracking-wider text-text-muted whitespace-nowrap">{label}</span>
+      <span className="text-xs uppercase tracking-wider text-text-muted whitespace-nowrap">{label}</span>
       <span className="flex items-baseline gap-1 whitespace-nowrap">
         <span
           className={cn(
@@ -51,7 +51,7 @@ function Metric({ label, value, unit, outOfBand, title }: MetricProps) {
         >
           {value}
         </span>
-        {unit && <span className="text-[10px] text-text-muted">{unit}</span>}
+        {unit && <span className="text-xs text-text-muted">{unit}</span>}
       </span>
     </div>
   );
@@ -85,7 +85,7 @@ export default function PlantOverviewBar({ trailing }: { trailing?: ReactNode })
         <span className="text-xs font-semibold text-text-primary leading-tight whitespace-nowrap">
           {fleet.name} ({fleet.net.total_capacity_mw.toFixed(0)} MW)
         </span>
-        <span className="text-[10px] font-mono text-text-muted tabular-nums whitespace-nowrap">{utc}</span>
+        <span className="text-xs font-mono text-text-muted tabular-nums whitespace-nowrap">{utc}</span>
       </div>
 
       <div className="flex items-stretch flex-1 min-w-0 overflow-x-auto [scrollbar-width:none]">
@@ -123,7 +123,7 @@ export default function PlantOverviewBar({ trailing }: { trailing?: ReactNode })
         />
         <div className="hidden lg:flex items-center px-3 border-l border-border-primary">
           <span
-            className="text-[9px] font-mono uppercase tracking-wider text-text-muted whitespace-nowrap"
+            className="text-xs font-mono uppercase tracking-wider text-text-muted whitespace-nowrap"
             title={
               plant.source === "pandapower"
                 ? "Network values from the backend Newton-Raphson load flow (refreshed every 10 s)"
@@ -152,7 +152,7 @@ export default function PlantOverviewBar({ trailing }: { trailing?: ReactNode })
               key={key}
               data-priority={attr}
               className={cn(
-                "px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tabular-nums",
+                "px-1.5 py-0.5 rounded text-xs font-mono font-bold tabular-nums",
                 n === 0 && "opacity-30",
                 n > 0 && key === "CRITICAL" && "animate-pulse",
               )}

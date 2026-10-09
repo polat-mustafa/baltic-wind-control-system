@@ -1,54 +1,54 @@
 /**
- * Shared Plotly layout defaults for ISA-101 dark SCADA theme.
+ * Shared Plotly layout defaults for Baltic Night theme.
  *
  * All chart panels import this base layout to ensure consistent
  * dark background, grid colours, and font settings.
- * Uses Inter for labels and JetBrains Mono for axis values.
+ * Uses IBM Plex Sans for labels and IBM Plex Mono for axis values.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export const DARK_PLOTLY_LAYOUT: Record<string, any> = {
-  paper_bgcolor: "#161924", // bg-secondary
-  plot_bgcolor: "#0f1117", // bg-primary
+  paper_bgcolor: "#0f1d2b", // bg-secondary
+  plot_bgcolor: "#0a1520", // bg-primary
   font: {
-    color: "#e8eaf0", // text-primary
-    family: "'Inter', sans-serif",
+    color: "#e4ecf3", // text-primary
+    family: "'IBM Plex Sans', sans-serif",
     size: 14,
   },
   margin: { t: 44, r: 24, b: 56, l: 68 },
   xaxis: {
-    gridcolor: "rgba(42, 48, 64, 0.8)", // border-primary
-    zerolinecolor: "rgba(61, 69, 96, 0.6)", // border-secondary
+    gridcolor: "rgba(31, 52, 72, 0.9)", // border-primary
+    zerolinecolor: "rgba(44, 71, 96, 0.8)", // border-secondary
     tickfont: {
-      family: "'JetBrains Mono', monospace",
+      family: "'IBM Plex Mono', monospace",
       size: 12,
-      color: "#9ba3b8", // text-secondary
+      color: "#a3b6c8", // text-secondary
     },
   },
   yaxis: {
-    gridcolor: "rgba(42, 48, 64, 0.8)",
-    zerolinecolor: "rgba(61, 69, 96, 0.6)",
+    gridcolor: "rgba(31, 52, 72, 0.9)",
+    zerolinecolor: "rgba(44, 71, 96, 0.8)",
     tickfont: {
-      family: "'JetBrains Mono', monospace",
+      family: "'IBM Plex Mono', monospace",
       size: 12,
-      color: "#9ba3b8",
+      color: "#a3b6c8",
     },
   },
   legend: {
     font: {
-      color: "#9ba3b8",
+      color: "#a3b6c8",
       size: 12,
     },
     bgcolor: "transparent",
   },
   hoverlabel: {
-    bgcolor: "#252a3a", // bg-elevated
-    bordercolor: "#3d4560", // border-secondary
+    bgcolor: "#172a3d", // bg-elevated
+    bordercolor: "#2c4760", // border-secondary
     font: {
-      family: "'JetBrains Mono', monospace",
+      family: "'IBM Plex Mono', monospace",
       size: 13,
-      color: "#e8eaf0",
+      color: "#e4ecf3",
     },
   },
 };

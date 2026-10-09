@@ -117,7 +117,7 @@ export default function DigitalTwinPage() {
             onClick={() => setTab(id)}
             className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
               tab === id
-                ? "bg-accent text-white"
+                ? "bg-accent text-accent-ink"
                 : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
             }`}
           >

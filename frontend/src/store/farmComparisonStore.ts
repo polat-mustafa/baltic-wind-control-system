@@ -15,7 +15,8 @@ import { SB510_WIND } from "../constants/sb510Wind";
 export const MAX_FARMS = 4;
 
 /** One colour per farm slot — config cards and every results chart. */
-export const FARM_COLORS = ["#60a5fa", "#3ecf6e", "#f5a623", "#c084fc"];
+// Same order as the chart palette (useChartPalette)
+export const FARM_COLORS = ["#1a9fb1", "#d0712b", "#6a80e0", "#b08a1e"];
 
 /** Shared economics / site defaults (2024–25 European offshore ranges). */
 const BASE: Omit<FarmConfig, "name"> = {

@@ -50,7 +50,7 @@ export function SaveOnline() {
           <Cloud size={13} className="mr-1" /> {s.sync === "saving" ? "Saving…" : "Save online"}
         </Button>
         {s.error && (
-          <span role="alert" className="text-[11px] text-status-alarm">
+          <span role="alert" className="text-xs text-status-alarm">
             {s.error}
           </span>
         )}
@@ -60,7 +60,7 @@ export function SaveOnline() {
   const st = STATE[s.sync ?? "saving"];
   const Icon = st.icon;
   return (
-    <div className="flex max-w-md flex-col items-end gap-1 text-[11px]">
+    <div className="flex max-w-md flex-col items-end gap-1 text-xs">
       <div className="flex flex-wrap items-center justify-end gap-1.5">
         <span className={`flex items-center gap-1 ${st.tone}`} role="status">
           <Icon size={12} className={s.sync === "saving" ? "animate-spin" : undefined} aria-hidden /> {st.label}

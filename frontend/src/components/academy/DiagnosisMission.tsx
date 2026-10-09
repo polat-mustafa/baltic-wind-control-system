@@ -159,7 +159,7 @@ export default function DiagnosisMission() {
       </details>
       <div className="max-h-[420px] overflow-auto rounded-md border border-border-primary">
         <table className="w-full min-w-[760px] text-[12px]">
-          <thead className="sticky top-0 bg-bg-secondary text-[11px] text-text-muted">
+          <thead className="sticky top-0 bg-bg-secondary text-xs text-text-muted">
             <tr>
               <th className="px-2 py-1 text-left font-medium">Turbine</th>
               <th className="px-1 py-1 text-right font-medium">Health</th>
@@ -189,7 +189,7 @@ export default function DiagnosisMission() {
                       </span>
                     </td>
                   ))}
-                  <td className="min-w-[10rem] px-2 py-1 text-[11px] text-text-secondary">{kinds.join(", ") || "—"}</td>
+                  <td className="min-w-[10rem] px-2 py-1 text-xs text-text-secondary">{kinds.join(", ") || "—"}</td>
                   <td className="px-2 py-1">
                     <div className="flex items-center gap-1.5">
                       <input
@@ -212,7 +212,7 @@ export default function DiagnosisMission() {
                         disabled={!flagged || shown}
                         value={picks[t.name] ?? ""}
                         onChange={(e) => setPicks((p) => ({ ...p, [t.name]: (e.target.value || null) as FaultKind | null }))}
-                        className="max-w-[11rem] rounded border border-border-primary bg-bg-tertiary px-1 py-0.5 text-[11px] disabled:opacity-40"
+                        className="max-w-[11rem] rounded border border-border-primary bg-bg-tertiary px-1 py-0.5 text-xs disabled:opacity-40"
                       >
                         <option value="">fault type…</option>
                         {FAULTS.map((f) => (
@@ -223,7 +223,7 @@ export default function DiagnosisMission() {
                       </select>
                     </div>
                     {shown && (isTruth || flagged) && (
-                      <p className="mt-0.5 text-[10px] text-text-muted">
+                      <p className="mt-0.5 text-xs text-text-muted">
                         truth: {isTruth ? faultLabel(isTruth.kind) : "healthy"} · twin: {t.diagnosis?.label ?? "no diagnosis"}
                       </p>
                     )}
@@ -234,7 +234,7 @@ export default function DiagnosisMission() {
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-text-muted">
+      <p className="text-xs text-text-muted">
         Channel health 0–100 per channel (P power, ω rotor speed, β pitch, T generator winding temperature, v anemometer); rows sorted by
         health. Events: ↑ / ↓ measured above / below the twin's expectation, ! alarm level.
       </p>

@@ -28,9 +28,9 @@ interface TransformerDetailPanelProps {
   navLabel: string;
 }
 
-const NORMAL = "#3ecf6e";
-const WARN = "#f5a623";
-const ALARM = "#ef4444";
+const NORMAL = "#4cc38a";
+const WARN = "#f0b13e";
+const ALARM = "#f25c54";
 const COOLING_STAGES: TransformerData["coolingStatus"][] = [
   "ONAN",
   "ONAF-1",
@@ -91,7 +91,7 @@ function Switchboard66({ stringMW }: { stringMW: number[] }) {
   const fleet = useFleet();
   return (
     <PanelSection title="66 kV switchboard" aside={`coupler ${bayName(fleet.strings.length + 2)} open`}>
-      <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-x-3 gap-y-[3px] font-mono text-[11px] tabular-nums">
+      <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-x-3 gap-y-[3px] font-mono text-xs tabular-nums">
         {fleet.strings.map((ids, i) => {
           const n = i + 1;
           const open = fault?.stringNumber === n && fault.stage === "tripped";
@@ -111,7 +111,7 @@ function Switchboard66({ stringMW }: { stringMW: number[] }) {
           );
         })}
       </div>
-      <p className="mt-1.5 text-[10px] leading-snug text-text-muted">
+      <p className="mt-1.5 text-xs leading-snug text-text-muted">
         Feeder protection 50/51 + 51N per string. Platform: topside with
         helideck (CAP 437) for access when seas exceed the vessel limits.
       </p>
@@ -166,7 +166,7 @@ export default function TransformerDetailPanel({
             unit="%"
             color={loadColor}
           />
-          <div className="pb-1 text-right font-mono text-[11px] tabular-nums text-text-muted">
+          <div className="pb-1 text-right font-mono text-xs tabular-nums text-text-muted">
             <span className="text-text-primary">
               {throughputMVA.toFixed(0)}
             </span>{" "}
@@ -208,7 +208,7 @@ export default function TransformerDetailPanel({
                     style={{ backgroundColor: NORMAL }}
                   />
                 </div>
-                <div className="mt-0.5 text-[10px] text-text-muted">
+                <div className="mt-0.5 text-xs text-text-muted">
                   {isOss
                     ? `66 kV section ${String.fromCharCode(65 + i)} · S${i === 0 ? "1–3" : "4–6"}`
                     : `Circuit ${i + 1}`}
@@ -218,7 +218,7 @@ export default function TransformerDetailPanel({
                   style={{ color: levelColor(unitPct, 85, 100) }}
                 >
                   {unitPct.toFixed(0)} %
-                  <span className="ml-1 text-[10px] text-text-muted">
+                  <span className="ml-1 text-xs text-text-muted">
                     {unitMVA.toFixed(0)} MVA
                   </span>
                 </div>
@@ -290,7 +290,7 @@ export default function TransformerDetailPanel({
           {COOLING_STAGES.map((stage) => (
             <div
               key={stage}
-              className="rounded-md py-1 text-center font-mono text-[11px]"
+              className="rounded-md py-1 text-center font-mono text-xs"
               style={
                 stage === tx.coolingStatus
                   ? {

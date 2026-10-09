@@ -41,15 +41,15 @@ const SLICES: { pts: P[]; km: number }[] = (() => {
 /** 20 °C blue → 50 green → 70 amber (DTS alarm) → 90 red (limit). */
 function tempColor(t: number): string {
   if (t < 35) return "#38bdf8";
-  if (t < 55) return "#3ecf6e";
+  if (t < 55) return "#4cc38a";
   if (t < 70) return "#facc15";
   if (t < 85) return "#f97316";
-  return "#ef4444";
+  return "#f25c54";
 }
 
 const label = (text: string, anchor: [number, number] = [-8, 8]) =>
   L.divIcon({
-    html: `<span style="font:600 10px/1 'JetBrains Mono',monospace;background:rgba(10,14,21,.85);color:#fda4af;padding:2px 4px;border-radius:3px;border:1px solid #fb718566;white-space:nowrap">${text}</span>`,
+    html: `<span style="font:600 10px/1 'IBM Plex Mono',monospace;background:rgba(10,14,21,.85);color:#fda4af;padding:2px 4px;border-radius:3px;border:1px solid #fb718566;white-space:nowrap">${text}</span>`,
     className: "leaflet-dts-label",
     iconSize: [0, 0],
     iconAnchor: anchor,

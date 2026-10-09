@@ -23,16 +23,16 @@ export default function AsBuiltRegister({ farm, build, printing }: { farm: FarmP
           Training specimen
         </div>
         <header className="relative border-b border-slate-300 pb-3">
-          <p className="font-sans text-[10px] font-semibold uppercase tracking-widest text-slate-500">OffshoreForge · hand-over to operation</p>
+          <p className="font-sans text-xs font-semibold uppercase tracking-widest text-slate-500">OffshoreForge · hand-over to operation</p>
           <h3 className="text-lg font-bold">As-built register — {farm.name}</h3>
-          <p className="text-[11px] text-slate-600">
+          <p className="text-xs text-slate-600">
             {farm.turbines.length} × 15 MW (IEA-15-240-RWT) = {farm.capacityMW} MW · {farm.strings.length} array strings at 66 kV · export {farm.exportKm} km
             at 220 kV · {farm.foundation === "jacket" ? "jacket" : "monopile"} foundations · printed {new Date().toISOString().slice(0, 10)}
           </p>
         </header>
 
         <section className="relative mt-3">
-          <h4 className="font-sans text-[10px] font-semibold uppercase tracking-wider text-slate-500">Construction</h4>
+          <h4 className="font-sans text-xs font-semibold uppercase tracking-wider text-slate-500">Construction</h4>
           {build && cod && first ? (
             <p>
               Simulated campaign from {fmtDate(build.start_date)}: first power {fmtDate(first.date_p50)} (P90 {fmtDate(first.date_p90)}), full
@@ -44,10 +44,10 @@ export default function AsBuiltRegister({ farm, build, printing }: { farm: FarmP
         </section>
 
         <section className="relative mt-3">
-          <h4 className="font-sans text-[10px] font-semibold uppercase tracking-wider text-slate-500">Strings and OSS feeder bays</h4>
-          <table className="mt-1 w-full border-collapse text-[11px]">
+          <h4 className="font-sans text-xs font-semibold uppercase tracking-wider text-slate-500">Strings and OSS feeder bays</h4>
+          <table className="mt-1 w-full border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-400 text-left font-sans text-[10px] uppercase tracking-wider text-slate-500">
+              <tr className="border-b border-slate-400 text-left font-sans text-xs uppercase tracking-wider text-slate-500">
                 <th className="py-1 pr-2">String</th>
                 <th className="py-1 pr-2">Feeder bay</th>
                 <th className="py-1 pr-2 text-right">Turbines</th>
@@ -61,7 +61,7 @@ export default function AsBuiltRegister({ farm, build, printing }: { farm: FarmP
                 return (
                   <tr key={s} className="border-b border-slate-200">
                     <td className="py-1 pr-2">S{s + 1}</td>
-                    <td className="py-1 pr-2 font-mono text-[10px]">{farm.turbines.find((t) => t.string === s + 1)?.bay}</td>
+                    <td className="py-1 pr-2 font-mono text-xs">{farm.turbines.find((t) => t.string === s + 1)?.bay}</td>
                     <td className="py-1 pr-2 text-right tabular-nums">{n}</td>
                     <td className="py-1 pr-2 text-right tabular-nums">{n * 15}</td>
                     <td className="py-1">{ids.join(", ")}</td>
@@ -70,7 +70,7 @@ export default function AsBuiltRegister({ farm, build, printing }: { farm: FarmP
               })}
             </tbody>
           </table>
-          <p className="mt-1 text-[11px] text-slate-600">
+          <p className="mt-1 text-xs text-slate-600">
             Array cable {farm.arrayKm.toFixed(1)} km:{" "}
             {Object.entries(farm.kmBySection)
               .map(([k, v]) => `${k === "over" ? "overloaded" : `${k} mm²`} ${v.toFixed(1)} km`)
@@ -80,11 +80,11 @@ export default function AsBuiltRegister({ farm, build, printing }: { farm: FarmP
         </section>
 
         <section className="relative mt-3">
-          <h4 className="font-sans text-[10px] font-semibold uppercase tracking-wider text-slate-500">Turbine register</h4>
+          <h4 className="font-sans text-xs font-semibold uppercase tracking-wider text-slate-500">Turbine register</h4>
           <div className="overflow-x-auto">
-            <table className="mt-1 w-full min-w-[520px] border-collapse text-[11px]">
+            <table className="mt-1 w-full min-w-[520px] border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-400 text-left font-sans text-[10px] uppercase tracking-wider text-slate-500">
+                <tr className="border-b border-slate-400 text-left font-sans text-xs uppercase tracking-wider text-slate-500">
                   <th className="py-1 pr-2">Id</th>
                   <th className="py-1 pr-2 text-right">Lat [°N]</th>
                   <th className="py-1 pr-2 text-right">Lon [°E]</th>
@@ -111,7 +111,7 @@ export default function AsBuiltRegister({ farm, build, printing }: { farm: FarmP
           </div>
         </section>
 
-        <footer className="relative mt-4 border-t border-slate-300 pt-2 text-[10px] text-slate-500">
+        <footer className="relative mt-4 border-t border-slate-300 pt-2 text-xs text-slate-500">
           TRAINING SPECIMEN — produced by the OffshoreForge simulation from a screening-level layout. Positions, cable routes and dates are
           not surveyed, engineered or certified.
         </footer>

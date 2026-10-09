@@ -42,12 +42,12 @@ export default function ProjectGridNote() {
           the SB-510 design (export circuits from the cable's charging current, transformers at ≤ 90 % loading, reactors at both cable ends sized for one out, checked by a
           reactor-outage load flow):
         </p>
-        <ul className="mt-1 list-disc space-y-0.5 pl-5 font-mono text-[11px]">
+        <ul className="mt-1 list-disc space-y-0.5 pl-5 font-mono text-xs">
           {items.map((t) => (
             <li key={t}>{t}</li>
           ))}
         </ul>
-        <p className="mt-1 text-[11px] text-text-muted">The {SB510_TABS} tabs still show SB-510.</p>
+        <p className="mt-1 text-xs text-text-muted">The {SB510_TABS} tabs still show SB-510.</p>
       </div>
       <StageDone milestone="design" title="Design freeze" need={freezeNeed()} next={{ path: "/build", label: "Construction" }} />
     </div>

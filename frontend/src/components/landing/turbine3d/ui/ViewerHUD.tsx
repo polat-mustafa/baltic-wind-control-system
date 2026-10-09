@@ -105,7 +105,7 @@ export const CompassWidget = memo(function CompassWidget({
         {/* lubber line: the view direction is always up */}
         <path d="M 0 -59 L -4.5 -51 L 4.5 -51 Z" style={{ fill: "var(--color-text-primary)" }} />
       </svg>
-      <div className="mt-0.5 rounded border border-border-primary bg-bg-secondary/90 px-1.5 py-0.5 font-mono text-[10px] font-bold leading-tight text-text-primary">
+      <div className="mt-0.5 rounded border border-border-primary bg-bg-secondary/90 px-1.5 py-0.5 font-mono text-xs font-bold leading-tight text-text-primary">
         <div className="text-sky-300">
           Wind {windMs.toFixed(1)} m/s · {Math.round(windDirectionDeg)}° {cardinal16(windDirectionDeg)}
         </div>
@@ -140,7 +140,7 @@ export const ScaleBar = memo(function ScaleBar({ metresPerPixel }: ScaleBarProps
         className="h-1.5 border-l border-r border-t border-text-muted"
         style={{ width: `${Math.min(barPx, 200)}px` }}
       />
-      <div className="text-[9px] font-mono text-text-muted mt-0.5">
+      <div className="text-xs font-mono text-text-muted mt-0.5">
         {barMeters < 1000 ? `${barMeters} m` : `${barMeters / 1000} km`}
       </div>
     </div>
@@ -157,7 +157,7 @@ export const CameraModeBadge = memo(function CameraModeBadge() {
 
   return (
     <div className="absolute top-2 left-40 z-10 @max-lg:hidden bg-bg-secondary/80 backdrop-blur-sm rounded px-2 py-0.5 border border-border-primary pointer-events-none">
-      <span className="text-[9px] font-mono text-text-muted uppercase tracking-wider">
+      <span className="text-xs font-mono text-text-muted uppercase tracking-wider">
         {label}
       </span>
     </div>
@@ -169,7 +169,7 @@ export const KeyboardHelp = memo(function KeyboardHelp() {
   return (
     <div className="absolute bottom-3 right-3 z-10 pointer-events-auto @max-lg:hidden pointer-coarse:hidden">
       <button
-        className="flex items-center gap-1 rounded px-2 py-1 bg-bg-secondary/80 border border-border-primary backdrop-blur-sm text-text-muted hover:text-text-primary text-[9px] font-mono"
+        className="flex items-center gap-1 rounded px-2 py-1 bg-bg-secondary/80 border border-border-primary backdrop-blur-sm text-text-muted hover:text-text-primary text-xs font-mono"
         onClick={() => setOpen((v) => !v)}
         title="Keyboard shortcuts"
       >
@@ -177,7 +177,7 @@ export const KeyboardHelp = memo(function KeyboardHelp() {
         <span>Keys</span>
       </button>
       {open && (
-        <div className="absolute bottom-8 right-0 w-52 rounded bg-bg-secondary/95 border border-border-primary backdrop-blur-md p-2 text-[9px] font-mono text-text-muted space-y-0.5">
+        <div className="absolute bottom-8 right-0 w-52 rounded bg-bg-secondary/95 border border-border-primary backdrop-blur-md p-2 text-xs font-mono text-text-muted space-y-0.5">
           <div className="flex justify-between"><span>F</span><span>Frame selected</span></div>
           <div className="flex justify-between"><span>R</span><span>Reset view</span></div>
           <div className="flex justify-between"><span>1 / 2 / 3</span><span>Normal / Cut / Explode</span></div>

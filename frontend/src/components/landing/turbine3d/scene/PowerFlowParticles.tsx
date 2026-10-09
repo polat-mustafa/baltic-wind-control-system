@@ -4,10 +4,10 @@
  * Animated particle trails visualising the energy conversion chain of the
  * direct drive (no gearbox), each segment in its own colour:
  *
- *   Wind → Rotor            (blue   #3b82f6)  aerodynamic capture
+ *   Wind → Rotor            (blue   #45c8d9)  aerodynamic capture
  *   Rotor → Generator       (green  #22c55e)  main shaft, rotor speed (7.56 rpm)
  *   Generator → Converter   (orange #f97316)  12.6 Hz → DC link → 50 Hz
- *   Converter → Transformer (red    #ef4444)  step-up to 66 kV
+ *   Converter → Transformer (red    #f25c54)  step-up to 66 kV
  *   Coolant loop            (amber  #f59e0b)  closed circuit: generator →
  *                                             coolant skid → converter → generator
  *
@@ -52,12 +52,12 @@ interface Segment {
 
 const SEGMENTS: Segment[] = [
   // Wind → Rotor (hub approach)
-  { colour: "#3b82f6", start: onShaft(-1.0), end: onShaft(SHAFT_Z.frontBearing), count: 40, spread: 1.2 },
+  { colour: "#45c8d9", start: onShaft(-1.0), end: onShaft(SHAFT_Z.frontBearing), count: 40, spread: 1.2 },
   // Rotor → Generator (main shaft → rotor disc → air gap)
   { colour: "#22c55e", start: onShaft(SHAFT_Z.frontBearing), end: PARTS.generator, count: 50, spread: 0.6 },
   // Generator → converter (port) → transformer
   { colour: "#f97316", start: PARTS.generator, end: PARTS.converter, count: 30, spread: 0.3 },
-  { colour: "#ef4444", start: PARTS.converter, end: PARTS.transformer, count: 30, spread: 0.3 },
+  { colour: "#f25c54", start: PARTS.converter, end: PARTS.transformer, count: 30, spread: 0.3 },
   // ── Coolant loop (amber #f59e0b) — generator stator → coolant skid → converter → generator.
   { colour: "#f59e0b", start: onShaft(SHAFT_Z.statorDisc, 2.5, 2.5), end: PARTS.coolantSkid, count: 18, spread: 0.18 },
   { colour: "#f59e0b", start: PARTS.coolantSkid, end: [PARTS.coolantSkid[0], PARTS.coolantSkid[1] - 1.5, PARTS.coolantSkid[2]], count: 14, spread: 0.12 },

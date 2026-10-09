@@ -135,7 +135,7 @@ export function AnnotationDetailPopup({ annotation, onClose }: AnnotationDetailP
         {/* Formula */}
         {detail.formula && (
           <div className="mb-1.5 px-2 py-1 bg-bg-primary rounded border border-border-primary">
-            <code className="text-[11px] font-mono text-accent">{detail.formula}</code>
+            <code className="text-xs font-mono text-accent">{detail.formula}</code>
           </div>
         )}
 
@@ -147,7 +147,7 @@ export function AnnotationDetailPopup({ annotation, onClose }: AnnotationDetailP
         )}
 
         {/* Source */}
-        <div className="text-[10px] text-text-muted opacity-60 font-mono">{detail.source}</div>
+        <div className="text-xs text-text-muted opacity-60 font-mono">{detail.source}</div>
       </div>
     </div>
   );

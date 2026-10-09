@@ -60,7 +60,7 @@ export default function MimicTerminalNode({
       <div className="flex items-center justify-between px-2 py-1 border-b border-border-primary bg-bg-tertiary">
         <div className="flex items-center gap-1.5">
           {icon && <span className="text-text-muted">{icon}</span>}
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-primary">
+          <span className="text-xs font-semibold uppercase tracking-wider text-text-primary">
             {label}
           </span>
         </div>
@@ -76,14 +76,14 @@ export default function MimicTerminalNode({
           <span className="font-mono font-semibold tabular-nums text-xl leading-none text-text-primary">
             {throughput.value}
           </span>
-          <span className="text-[10px] text-text-muted">{throughput.unit}</span>
+          <span className="text-xs text-text-muted">{throughput.unit}</span>
         </div>
       )}
 
       {/* Voltage step */}
       {voltageStep && (
         <div className="px-2 pb-1">
-          <span className="text-[10px] font-mono text-text-secondary">
+          <span className="text-xs font-mono text-text-secondary">
             {voltageStep}
           </span>
         </div>
@@ -95,7 +95,7 @@ export default function MimicTerminalNode({
           {rows.map((r) => (
             <div
               key={r.label}
-              className="flex items-baseline justify-between gap-2 text-[10px]"
+              className="flex items-baseline justify-between gap-2 text-xs"
             >
               <span className="text-text-muted uppercase tracking-wider">
                 {r.label}

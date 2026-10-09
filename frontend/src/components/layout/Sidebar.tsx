@@ -244,7 +244,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             ) : (
               <h2
                 id={`nav-group-${gi}`}
-                className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted"
+                className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-text-muted"
               >
                 {group.label}
               </h2>
@@ -275,7 +275,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                       {!collapsed && (
                         <div className="flex flex-col min-w-0 flex-1">
                           <span className="text-sm font-medium truncate">{item.label}</span>
-                          <span className="text-[10px] text-text-muted truncate">
+                          <span className="text-xs text-text-muted truncate">
                             {item.description}
                           </span>
                         </div>
@@ -302,7 +302,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           label={collapsed ? undefined : "System Online"}
         />
         {!collapsed && (
-          <div className="mt-2 text-[10px] text-text-muted font-mono">
+          <div className="mt-2 text-xs text-text-muted font-mono">
             {new Date().toISOString().slice(0, 19).replace("T", " ")} UTC
           </div>
         )}

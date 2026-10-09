@@ -31,7 +31,7 @@ function ChannelBars({ t }: { t: TurbineSummary }) {
         const hi = t.channel_health[k];
         const zone = healthZone(hi);
         return (
-          <li key={k} className="grid grid-cols-[8.5rem_1fr_2.5rem] items-center gap-2 text-[11px]">
+          <li key={k} className="grid grid-cols-[8.5rem_1fr_2.5rem] items-center gap-2 text-xs">
             <span className="truncate text-text-secondary">{CHANNEL_META[k].label}</span>
             <span className="h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
               <span className={cn("block h-full rounded-full", BAR[zone])} style={{ width: `${hi}%` }} />
@@ -100,7 +100,7 @@ export default function TurbineHeader() {
           <span className="text-xs text-text-muted">health index (weakest channel, now)</span>
         </div>
         <ChannelBars t={t} />
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
           <dt className="text-text-muted">Events</dt>
           <dd className="text-right font-mono">
             {t.event_count} ({t.active_event_count} active)
@@ -118,7 +118,7 @@ export default function TurbineHeader() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-3">
         <div className="rounded-lg border border-border-primary bg-bg-secondary p-4 space-y-2.5">
-          <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-text-muted">
             <Stethoscope size={13} /> Diagnosis (HA)
           </div>
           {!d ? (
@@ -133,7 +133,7 @@ export default function TurbineHeader() {
                   {d.kind ? FAULT_LABEL[d.kind] : "Unexplained deviation"}
                 </h3>
                 {d.kind && (
-                  <span className="text-[11px] text-text-muted">{FAULT_CATEGORY[d.kind]} fault</span>
+                  <span className="text-xs text-text-muted">{FAULT_CATEGORY[d.kind]} fault</span>
                 )}
               </div>
               {d.kind && (
@@ -144,14 +144,14 @@ export default function TurbineHeader() {
                     ["Explained", `${(d.explained * 100).toFixed(0)} %`],
                   ].map(([k, v]) => (
                     <div key={k} className="rounded-md bg-bg-tertiary/70 px-2.5 py-1.5">
-                      <div className="text-[10px] uppercase tracking-wider text-text-muted">{k}</div>
+                      <div className="text-xs uppercase tracking-wider text-text-muted">{k}</div>
                       <div className="font-mono text-sm font-semibold tabular-nums text-text-primary">{v}</div>
                     </div>
                   ))}
                 </div>
               )}
               <p className="text-xs text-text-secondary">{d.cause_hint}</p>
-              <p className="text-[11px] text-text-muted">
+              <p className="text-xs text-text-muted">
                 Fitted on {d.samples_used} producing samples, {formatTime(d.window_start)} –{" "}
                 {formatTime(d.window_end)} · mean ambient {d.mean_ambient_c.toFixed(1)} °C,{" "}
                 {d.mean_humidity_pct.toFixed(0)} % RH · likelihood-ratio statistic{" "}
@@ -163,14 +163,14 @@ export default function TurbineHeader() {
 
         <div className="space-y-3">
           <div className="rounded-lg border border-border-primary bg-bg-secondary p-4 space-y-2">
-            <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-text-muted">
               <ClipboardCheck size={13} /> Advisory (AG)
             </div>
             <p className="text-xs leading-relaxed text-text-secondary">
               {d?.advisory ?? (d ? "Review the raw channels; no modelled fault explains the deviation." : "No action.")}
             </p>
             {mode && (
-              <ul className="space-y-0.5 text-[10px] text-text-muted">
+              <ul className="space-y-0.5 text-xs text-text-muted">
                 {mode.references.map((r) => (
                   <li key={r}>{r}</li>
                 ))}
@@ -178,7 +178,7 @@ export default function TurbineHeader() {
             )}
           </div>
           <div className="rounded-lg border border-border-primary bg-bg-secondary p-4 space-y-1.5">
-            <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-text-muted">
               <Timer size={13} /> Prognosis (PA)
             </div>
             {!p ? (
@@ -193,7 +193,7 @@ export default function TurbineHeader() {
                     90 % [{(p.rul_lower_days ?? 0).toFixed(1)} – {p.rul_upper_days?.toFixed(1) ?? "∞"}] d
                   </span>
                 </div>
-                <p className="text-[11px] text-text-muted">
+                <p className="text-xs text-text-muted">
                   to the limit {p.limit} ({p.limit_note}) · rate {p.slope_per_day.toFixed(3)} ± {p.slope_std_error.toFixed(3)}
                   /d · p = {p.p_value < 1e-4 ? "< 0.0001" : p.p_value.toFixed(4)}
                 </p>

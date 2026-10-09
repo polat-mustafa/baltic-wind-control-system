@@ -127,14 +127,14 @@ export default function ProjectMenu() {
                 )}
               >
                 <span className="block text-xs font-semibold text-text-primary">{m.title}</span>
-                <span className="block text-[10px] text-text-muted">{m.note}</span>
+                <span className="block text-xs text-text-muted">{m.note}</span>
               </button>
             ))}
           </div>
 
           {own ? (
             <>
-              <label className="block text-[11px] text-text-muted">
+              <label className="block text-xs text-text-muted">
                 Project name
                 <input
                   key={name}
@@ -198,13 +198,13 @@ export default function ProjectMenu() {
                 </Button>
               </form>
               {note && (
-                <p role="status" className="text-[11px] text-text-secondary">
+                <p role="status" className="text-xs text-text-secondary">
                   {note}
                 </p>
               )}
             </>
           ) : (
-            <p className="text-[11px] text-text-muted">
+            <p className="text-xs text-text-muted">
               SB-510 is a fictional 510 MW case study in energy basin PZP_44 of the Polish Baltic (the real site 44.E.1, permit: PGE / Baltica 9, 2023). Changes here are not saved. Your own projects are kept in{" "}
               <Link to="/projects" onClick={() => setOpen(false)} className="text-accent hover:underline">
                 My projects

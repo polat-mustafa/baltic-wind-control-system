@@ -27,7 +27,7 @@ export default function TurbineCard({ stats }: { stats: (id: string, at: LonLat 
   );
   return (
     <div
-      className="pointer-events-auto space-y-1 rounded-md border border-border-primary bg-bg-secondary/95 p-2 text-[11px] shadow"
+      className="pointer-events-auto space-y-1 rounded-md border border-border-primary bg-bg-secondary/95 p-2 text-xs shadow"
       role="status"
       aria-live="polite"
       data-tour="layout-card"

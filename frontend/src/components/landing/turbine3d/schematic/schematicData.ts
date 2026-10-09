@@ -111,7 +111,7 @@ export type FocusModeId = typeof FOCUS_MODES[number]["id"];
 export const TONE_STYLES: Record<SchematicPart["tone"], { fill: string; stroke: string; hatch?: string }> = {
   metal:      { fill: "#1f2937", stroke: "#64748b", hatch: "#334155" },
   winding:    { fill: "#2a1a0a", stroke: "#c2410c" },                    // copper
-  tank:       { fill: "#102030", stroke: "#3b82f6" },                    // hydraulic oil
+  tank:       { fill: "#102030", stroke: "#45c8d9" },                    // hydraulic oil
   cabinet:    { fill: "#0f1722", stroke: "#94a3b8" },
   cooling:    { fill: "#082030", stroke: "#22d3ee" },
   rotating:   { fill: "#18222f", stroke: "#eab308" },                    // amber — moving parts
@@ -143,7 +143,7 @@ export interface SchematicConnection {
 export const CONNECTION_STYLES: Record<ConnectionKind, { stroke: string; label: string }> = {
   hydraulic:    { stroke: "#fb923c", label: "Hydraulic (220 bar)" },
   electrical_lv:{ stroke: "#94a3b8", label: "Generator / converter side" },
-  electrical_mv:{ stroke: "#ef4444", label: "MV 66 kV" },
+  electrical_mv:{ stroke: "#f25c54", label: "MV 66 kV" },
   coolant:      { stroke: "#22d3ee", label: "Coolant (water-glycol)" },
   data:         { stroke: "#4ade80", label: "Data · IEC 61850" },
 };

@@ -49,7 +49,7 @@ export default function ExportTechSection() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1">
             <p className="text-xs font-semibold text-text-secondary">Export technology · HVAC 220 kV vs VSC-HVDC ±320 kV</p>
-            <p className="text-[11px] text-text-secondary">This farm: {n.num_export_cables} × 1000 mm² 220 kV circuit{n.num_export_cables > 1 ? "s" : ""}, {n.export_length_km} km.</p>
+            <p className="text-xs text-text-secondary">This farm: {n.num_export_cables} × 1000 mm² 220 kV circuit{n.num_export_cables > 1 ? "s" : ""}, {n.export_length_km} km.</p>
           </div>
           <Slider
             label="Export route length"

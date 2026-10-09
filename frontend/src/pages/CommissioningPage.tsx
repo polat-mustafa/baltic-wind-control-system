@@ -48,7 +48,7 @@ const STATUS_STYLE: Record<ProgrammeStatus, string> = {
 
 function StatusChip({ status }: { status: ProgrammeStatus }) {
   return (
-    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide", STATUS_STYLE[status])}>
+    <span className={cn("rounded px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide", STATUS_STYLE[status])}>
       {status.replace("_", " ")}
     </span>
   );
@@ -59,7 +59,7 @@ function Gate({ label, ok, detail }: { label: string; ok: boolean; detail: strin
     <span
       title={detail}
       className={cn(
-        "flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px]",
+        "flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs",
         ok ? "border-status-normal/40 text-status-normal" : "border-border-primary text-text-muted",
       )}
     >
@@ -85,13 +85,13 @@ function StatusStrip({ programme }: { programme: ProgrammeDetail }) {
             <span className="font-mono text-xs text-text-primary">{programme.programme_id}</span>
             <StatusChip status={programme.status} />
           </div>
-          <div className="text-[11px] text-text-muted">Person in Control: {programme.pic_name}</div>
+          <div className="text-xs text-text-muted">Person in Control: {programme.pic_name}</div>
         </div>
         <div className="flex min-w-40 flex-1 items-center gap-2">
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
             <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${pct}%` }} />
           </div>
-          <span className="font-mono text-[11px] text-text-muted">{programme.completed_steps}/{programme.total_steps}</span>
+          <span className="font-mono text-xs text-text-muted">{programme.completed_steps}/{programme.total_steps}</span>
         </div>
         <div className="flex flex-wrap gap-1.5">
           <Gate label={`FAT ${classes.size}/3`} ok={classes.size === 3} detail="Approved FAT per equipment class" />
@@ -167,7 +167,7 @@ function ProgrammeList() {
                       <span className="font-mono text-xs text-text-primary">{p.programme_id}</span>
                       <StatusChip status={p.status} />
                     </div>
-                    <div className="text-[11px] text-text-muted">
+                    <div className="text-xs text-text-muted">
                       PiC {p.pic_name} · {p.completed_steps}/{p.total_steps} steps · {new Date(p.created_at).toLocaleDateString()}
                     </div>
                   </div>
@@ -246,7 +246,7 @@ export default function CommissioningPage() {
                 onClick={() => setTab(id)}
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors",
-                  tab === id ? "bg-accent text-white" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary",
+                  tab === id ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary",
                 )}
               >
                 <Icon size={12} />

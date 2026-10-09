@@ -24,9 +24,9 @@ interface CableDetailPanelProps {
   onNavigate: () => void;
 }
 
-const NORMAL = "#3ecf6e";
-const WARN = "#f5a623";
-const ALARM = "#ef4444";
+const NORMAL = "#4cc38a";
+const WARN = "#f0b13e";
+const ALARM = "#f25c54";
 
 const levelColor = (v: number, warn: number, alarm: number) => (v >= alarm ? ALARM : v >= warn ? WARN : NORMAL);
 
@@ -52,7 +52,7 @@ export default function CableDetailPanel({ cable, onClose, onNavigate }: CableDe
       <div className="border-b border-border-primary/60 px-4 py-3">
         <div className="flex items-end justify-between">
           <HeroValue caption="Current per circuit" value={s.currentA.toFixed(0)} unit="A" color={loadColor} />
-          <div className="pb-1 text-right font-mono text-[11px] tabular-nums text-text-muted">
+          <div className="pb-1 text-right font-mono text-xs tabular-nums text-text-muted">
             <span className="text-text-primary">{s.loadingPct.toFixed(0)} %</span> of {cable.currentRatingA} A
           </div>
         </div>
@@ -78,7 +78,7 @@ export default function CableDetailPanel({ cable, onClose, onNavigate }: CableDe
         <DataRow label="Seabed ambient" value={EXPORT_CABLE.seabedC} unit="°C" />
         <DataRow label="Burial depth" value={cable.burialDepthM} unit="m" />
         <DataRow label="Route" value={sb510 ? "OSS → Darłówko (HDD) → Krzemienica" : "OSS → grid node (not yet surveyed)"} />
-        <p className="mt-1.5 text-[11px] leading-snug text-text-muted">
+        <p className="mt-1.5 text-xs leading-snug text-text-muted">
           Temperature follows I²: at 73 % current the conductor sits near 55 °C, leaving margin for
           dynamic rating (see DTS in P2).
         </p>

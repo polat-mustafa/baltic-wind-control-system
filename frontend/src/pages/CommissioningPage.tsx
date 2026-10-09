@@ -26,6 +26,7 @@ import TestingTab from "../components/p5/TestingTab";
 import GridCodeTab from "../components/p5/GridCodeTab";
 import EmergencyTab from "../components/p5/EmergencyTab";
 import AuditTrail from "../components/p5/AuditTrail";
+import EnergisationReplay from "../components/p5/EnergisationReplay";
 import { PageHeader } from "../components/layout/PageHeader";
 import { PageTabs, type PageTab } from "../components/layout/PageTabs";
 import { useLandingStore } from "../store/landingStore";
@@ -203,9 +204,16 @@ export default function CommissioningPage() {
   const { active, programmes, error, fetchProgrammes, clearError } = useCommissioningStore();
   const finished = active?.status === "completed" || programmes.some((p) => p.status === "completed");
   const [tab, setTab] = useState<P5Tab>("switching");
-  // Once the farm is commissioned, its first energisation can be replayed here
-  const commissioned = useLandingStore((s) => s.commissioned);
-  const playEnergisation = useLandingStore((s) => s.playEnergisation);
+  // The first energisation, replayed from the load flow; opened from the header, or when an
+  // own project's commissioning is marked complete (StageDone → playEnergisation)
+  const energisationAt = useLandingStore((s) => s.energisationAt);
+  const closeEnergisation = useLandingStore((s) => s.closeEnergisation);
+  const [replay, setReplay] = useState(false);
+  useEffect(() => {
+    if (energisationAt == null) return;
+    setReplay(true);
+    closeEnergisation();
+  }, [energisationAt, closeEnergisation]);
 
   useEffect(() => {
     void fetchProgrammes();
@@ -220,14 +228,20 @@ export default function CommissioningPage() {
         actions={
           <>
             <TrainingGuide guide={p5Guide} />
-            {commissioned && (
-              <Button variant="secondary" size="sm" onClick={playEnergisation} title="Replay the first energisation from the grid, bay by bay">
-                <Zap size={14} /> Replay energisation
-              </Button>
-            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setReplay((r) => !r)}
+              aria-pressed={replay}
+              title="Replay circuit 1's first energisation: the load flow after each switching step"
+            >
+              <Zap size={14} /> Energisation replay
+            </Button>
           </>
         }
       />
+
+      {replay && <EnergisationReplay onClose={() => setReplay(false)} />}
 
       <ProjectHandoverNote what="A new programme is built for your farm: cable length, transformer, reactor and STATCOM ratings from the grid design, one feeder bay per string of section A. Each programme keeps the farm it was created for." />
       <StageDone

@@ -122,6 +122,27 @@ class ProgrammeFarmSchema(BaseModel):
     onshore_tap: int = Field(description="Onshore OLTC pre-set (0 = neutral)")
 
 
+class TraceFrameSchema(BaseModel):
+    """The plant after one switching step of circuit 1 (step "0": as built)."""
+
+    step_id: str
+    step_number: int
+    phase: int
+    action: str
+    equipment_id: str
+    states: dict[str, str] = Field(description="Device → open | closed after this step")
+    network: NetworkSnapshotSchema
+
+
+class EnergisationTraceSchema(BaseModel):
+    """First energisation replayed: one load-flow frame per switching step."""
+
+    farm: ProgrammeFarmSchema
+    equipment: list[EquipmentStateSchema] = Field(description="Devices as built (types and zones)")
+    cable_rating_a: float = Field(description="Export cable current rating [A]")
+    frames: list[TraceFrameSchema]
+
+
 class ProgrammeDetailSchema(ProgrammeSummarySchema):
     farm: ProgrammeFarmSchema
     phases: dict[int, str]

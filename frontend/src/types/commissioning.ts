@@ -134,6 +134,26 @@ export interface ProgrammeDetail extends ProgrammeSummary {
   emergency_log: EmergencyEvent[];
 }
 
+/** The plant after one switching step of circuit 1 (step "0": as built). */
+export interface TraceFrame {
+  step_id: string;
+  step_number: number;
+  phase: number;
+  action: string;
+  equipment_id: string;
+  /** Device → open | closed after this step. */
+  states: Record<string, "open" | "closed">;
+  network: NetworkSnapshot;
+}
+
+/** First energisation replayed: one load-flow frame per switching step (GET /energisation-trace). */
+export interface EnergisationTrace {
+  farm: ProgrammeFarm;
+  equipment: EquipmentState[];
+  cable_rating_a: number;
+  frames: TraceFrame[];
+}
+
 export interface ExecuteStepResponse {
   success: boolean;
   step_id: string;

@@ -318,23 +318,34 @@ export function v236PitchDeg(windMs: number): number {
 // ── Wakes (Jensen/Park, utils/wakeModel) ──────────────────────────
 
 const WAKE_DIR_STEP_DEG = 5;
-const wakeCache = new WeakMap<Fleet, Map<number, Map<string, number>>>();
+const WAKE_CT_STEP = 0.05;
+const wakeCache = new WeakMap<Fleet, Map<string, Map<string, number>>>();
 
 /**
  * Velocity deficit Δu/u₀ per turbine for a wind direction, quantised to 5°
  * (same step as the map's wake layer) and cached per fleet — n² geometry per step.
- * ponytail: constant Ct = 0.8; above rated a real rotor pitches and Ct drops,
- * so high-wind deficits are overstated. Use a Ct(v) table if that matters.
+ * The wake strength follows the rotor thrust at the freestream wind, Ct(v) from the
+ * IEA-15-240-RWT table (≈ 0.8 below rated, falling as the blades pitch above
+ * 10.66 m/s, 0 when parked), quantised to 0.05. Without a wind the below-rated
+ * Ct = 0.8 is used.
  */
-export function farmWakeDeficits(windFromDeg: number, f: Fleet = liveFleet()): Map<string, number> {
+/** Wake thrust coefficient at a freestream wind: Ct(v), quantised to 0.05; 0.8 without a wind. */
+export function wakeCt(freestreamMs?: number): number {
+  if (freestreamMs === undefined) return 0.8;
+  return Math.round(thrustCoefficient(REFERENCE_TURBINE, freestreamMs) / WAKE_CT_STEP) * WAKE_CT_STEP;
+}
+
+export function farmWakeDeficits(windFromDeg: number, f: Fleet = liveFleet(), freestreamMs?: number): Map<string, number> {
   const dir = ((Math.round(windFromDeg / WAKE_DIR_STEP_DEG) * WAKE_DIR_STEP_DEG) % 360 + 360) % 360;
-  let byDir = wakeCache.get(f);
-  if (!byDir) wakeCache.set(f, (byDir = new Map()));
-  let deficits = byDir.get(dir);
+  const ct = wakeCt(freestreamMs);
+  const key = `${dir}|${ct.toFixed(2)}`;
+  let byKey = wakeCache.get(f);
+  if (!byKey) wakeCache.set(f, (byKey = new Map()));
+  let deficits = byKey.get(key);
   if (!deficits) {
     const geo = f.turbines.map(({ id, lat, lon }) => ({ id, lat, lon }));
-    deficits = new Map(computeWakeLosses(geo, dir).map((w) => [w.turbineId, w.deficit]));
-    byDir.set(dir, deficits);
+    deficits = new Map(computeWakeLosses(geo, dir, ct).map((w) => [w.turbineId, w.deficit]));
+    byKey.set(key, deficits);
   }
   return deficits;
 }

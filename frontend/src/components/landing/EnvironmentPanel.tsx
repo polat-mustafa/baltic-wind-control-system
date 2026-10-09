@@ -83,7 +83,7 @@ export default function EnvironmentPanel() {
     >
       {/* Header with simulated clock */}
       <div
-        className="flex items-center justify-between px-2.5 py-1 border-b"
+        className="flex items-center justify-between gap-3 px-2.5 py-1 border-b"
         style={{ borderColor: "#1f3448" }}
       >
         <button

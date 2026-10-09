@@ -22,10 +22,8 @@ import {
 } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { accuracyHeatmapInfo } from "../../constants/panelInfo";
+import { useChartPalette, withAlpha } from "../../hooks/useChartPalette";
 
-const BAND_FILL = "rgba(0, 170, 255, 0.18)";
-const SPREAD_LINE = "#00AAFF";
-const SMOOTH_LINE = "#CC66FF";
 const SMOOTHING_WINDOW = 6; // 1 hour at 10-min resolution
 
 function centredMovingAverage(values: number[], window: number): number[] {
@@ -40,6 +38,10 @@ function centredMovingAverage(values: number[], window: number): number[] {
 }
 
 export default function AccuracyHeatmapPanel() {
+  const pal = useChartPalette();
+  const BAND_FILL = withAlpha(pal.blue, 0.18);
+  const SPREAD_LINE = pal.blue;
+  const SMOOTH_LINE = pal.orange;
   const { ensembleForecast } = useForecastStore();
 
   if (!ensembleForecast) return null;

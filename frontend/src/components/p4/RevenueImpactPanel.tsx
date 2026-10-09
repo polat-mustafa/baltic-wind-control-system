@@ -17,12 +17,13 @@ import {
 } from "../../constants/plotlyDefaults";
 import { InfoButton } from "../ui/InfoButton";
 import { revenueImpactInfo } from "../../constants/panelInfo";
-
-const POWER_COLOR = "#CC66FF";
-const REVENUE_COLOR = "#00CC66";
-const SPOT_COLOR = "#FFAA00";
+import { useChartPalette, withAlpha } from "../../hooks/useChartPalette";
 
 export default function RevenueImpactPanel() {
+  const pal = useChartPalette();
+  const POWER_COLOR = pal.blue;
+  const REVENUE_COLOR = pal.orange;
+  const SPOT_COLOR = pal.yellow;
   const { ensembleForecast, spotPriceEurMwh } = useForecastStore();
   const numTurbines = useFleet().turbines.length; // farm on screen: own project or SB-510
 
@@ -143,7 +144,7 @@ export default function RevenueImpactPanel() {
             mode: "lines",
             line: { width: 0 },
             fill: "tonexty",
-            fillcolor: "rgba(0, 204, 102, 0.18)",
+            fillcolor: withAlpha(pal.orange, 0.18),
             yaxis: "y3",
             name: "Revenue P10-P90",
             hovertemplate:
@@ -186,7 +187,7 @@ export default function RevenueImpactPanel() {
             overlaying: "y",
             side: "right",
             position: 0.88,
-            gridcolor: "rgba(148, 163, 184, 0.05)",
+            gridcolor: pal.band,
             tickfont: { color: SPOT_COLOR, size: 11 },
           },
           yaxis3: {
@@ -194,7 +195,7 @@ export default function RevenueImpactPanel() {
             overlaying: "y",
             side: "right",
             position: 0.95,
-            gridcolor: "rgba(148, 163, 184, 0.05)",
+            gridcolor: pal.band,
             tickfont: { color: REVENUE_COLOR, size: 11 },
           },
           margin: { t: 40, r: 80, b: 50, l: 60 },

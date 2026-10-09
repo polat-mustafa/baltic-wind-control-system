@@ -13,9 +13,11 @@ import {
   DARK_PLOTLY_LAYOUT,
   PLOTLY_CONFIG,
 } from "../../constants/plotlyDefaults";
+import { useChartPalette } from "../../hooks/useChartPalette";
 import { useTurbinePhysicsStore } from "../../store/turbinePhysicsStore";
 
 export default function TsrCpYawChart() {
+  const pal = useChartPalette();
   const simulation = useTurbinePhysicsStore((s) => s.simulation);
   if (!simulation) return null;
 
@@ -36,7 +38,7 @@ export default function TsrCpYawChart() {
       name: "TSR (λ)",
       type: "scatter",
       mode: "lines",
-      line: { color: "#06b6d4", width: 2 },
+      line: { color: pal.blue, width: 2 },
       hovertemplate: "λ = %{y:.2f}<extra></extra>",
     },
     {
@@ -45,7 +47,7 @@ export default function TsrCpYawChart() {
       name: "Cp",
       type: "scatter",
       mode: "lines",
-      line: { color: "#a855f7", width: 2 },
+      line: { color: pal.orange, width: 2 },
       yaxis: "y2",
       hovertemplate: "Cp = %{y:.4f}<extra></extra>",
     },
@@ -55,7 +57,7 @@ export default function TsrCpYawChart() {
       name: "Yaw Error",
       type: "scatter",
       mode: "lines",
-      line: { color: "#45c8d9", width: 1.5 },
+      line: { color: pal.aqua, width: 1.5 },
       yaxis: "y3",
       hovertemplate: "%{y:.1f}°<extra></extra>",
     },
@@ -66,7 +68,7 @@ export default function TsrCpYawChart() {
       name: "Yaw Deadband (±8°)",
       type: "scatter",
       mode: "lines",
-      line: { color: "rgba(59,130,246,0.3)", width: 1, dash: "dash" },
+      line: { color: pal.ref, width: 1, dash: "dash" },
       yaxis: "y3",
       showlegend: true,
       hoverinfo: "skip",
@@ -77,12 +79,12 @@ export default function TsrCpYawChart() {
       y: [-8, -8],
       type: "scatter",
       mode: "lines",
-      line: { color: "rgba(59,130,246,0.3)", width: 1, dash: "dash" },
+      line: { color: pal.ref, width: 1, dash: "dash" },
       yaxis: "y3",
       showlegend: false,
       hoverinfo: "skip",
       fill: "tonexty",
-      fillcolor: "rgba(59,130,246,0.06)",
+      fillcolor: pal.band,
     },
   ];
 
@@ -97,21 +99,21 @@ export default function TsrCpYawChart() {
     yaxis: {
       ...DARK_PLOTLY_LAYOUT.yaxis,
       title: "TSR λ [-]",
-      titlefont: { color: "#06b6d4" },
+      titlefont: { color: pal.blue },
     },
     yaxis2: {
-      title: { text: "Cp [-]", font: { color: "#a855f7" } },
+      title: { text: "Cp [-]", font: { color: pal.orange } },
       overlaying: "y",
       side: "right",
       gridcolor: "transparent",
       tickfont: {
         family: "'IBM Plex Mono', monospace",
         size: 10,
-        color: "#a855f7",
+        color: pal.orange,
       },
     },
     yaxis3: {
-      title: { text: "Yaw Error [deg]", font: { color: "#45c8d9" } },
+      title: { text: "Yaw Error [deg]", font: { color: pal.aqua } },
       overlaying: "y",
       side: "right",
       position: 0.95,
@@ -119,7 +121,7 @@ export default function TsrCpYawChart() {
       tickfont: {
         family: "'IBM Plex Mono', monospace",
         size: 10,
-        color: "#45c8d9",
+        color: pal.aqua,
       },
     },
     legend: {

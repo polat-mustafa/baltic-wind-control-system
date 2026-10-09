@@ -221,14 +221,25 @@ function Generator({ ctx, x, y, zone }: { ctx: Ctx; x: number; y: number; zone: 
  * the same interlocked step as the step button. Other devices only show their
  * state: the programme, not the operator, decides the order.
  */
-export default function CircuitSLD({ programme, onOperate, busy = false }: { programme: ProgrammeDetail; onOperate?: () => void; busy?: boolean }) {
+export default function CircuitSLD({
+  programme,
+  onOperate,
+  busy = false,
+  focus,
+}: {
+  programme: ProgrammeDetail;
+  onOperate?: () => void;
+  busy?: boolean;
+  /** Device to frame as "this step" (the energisation replay); default: the programme's current step. */
+  focus?: string;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   const eq = Object.fromEntries(programme.equipment_states.map((e) => [e.equipment_id, e]));
   const current = programme.steps[programme.current_step_index];
   const ctx: Ctx = {
     zones: programme.network.zones,
     eq,
-    focus: programme.status === "in_progress" || programme.status === "hold" ? current?.equipment_id ?? "" : "",
+    focus: focus ?? (programme.status === "in_progress" || programme.status === "hold" ? current?.equipment_id ?? "" : ""),
     selected,
     select: (id) => setSelected((s) => (s === id ? null : id)),
   };
@@ -387,8 +398,9 @@ export default function CircuitSLD({ programme, onOperate, busy = false }: { pro
                 <W x1={x} y1={639} x2={x} y2={649} c={released ? zc(z) : DEAD} />
                 <Generator ctx={ctx} x={x} y={662} zone={released ? z : "__none"} />
                 <text x={x} y={694} textAnchor="middle" fontSize={13} fontWeight={600} className="fill-text-primary">String {n}</text>
-                <text x={x} y={710} textAnchor="middle" fontSize={11} fontFamily="monospace" className="fill-text-muted">
-                  {wtg} × 15 MW{released ? " · online" : ""}
+                {/* online: the rating in the live 66 kV colour (a longer label would run into the next string) */}
+                <text x={x} y={710} textAnchor="middle" fontSize={11} fontFamily="monospace" className={released ? undefined : "fill-text-muted"} fill={released ? V66 : undefined}>
+                  {wtg} × 15 MW<title>{released ? "online" : "not released"}</title>
                 </text>
               </g>
             );

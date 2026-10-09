@@ -32,7 +32,6 @@ import { navTrail } from "../../constants/navigation";
 import { useFaultSync } from "../../hooks/useFaultSync";
 import { useLiveFleet } from "../../hooks/useLiveFleet";
 import { useEnergisationGate } from "../../hooks/useEnergisationGate";
-import EnergisationOverlay from "../landing/EnergisationOverlay";
 import { useScadaStore } from "../../store/scadaStore";
 import { useLandingStore } from "../../store/landingStore";
 import { useLayerStore } from "../../store/layerStore";
@@ -229,7 +228,6 @@ export default function AppShell() {
       {/* Guided tours (portals above everything) */}
       <TourWelcome />
       <TourOverlay />
-      <EnergisationOverlay />
       <ProjectChooser />
     </div>
   );

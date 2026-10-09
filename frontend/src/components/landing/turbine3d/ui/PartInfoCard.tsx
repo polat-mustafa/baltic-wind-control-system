@@ -15,7 +15,7 @@ import {
 import type { TurbineData } from "../../../../types/landing";
 import { ROTOR_RADIUS } from "../model/layout";
 import { PART_RAIL } from "./partRail";
-import { v236PowerChain, v236ThrustMN } from "../../../../utils/landingPhysics";
+import { CONVERTER_GRID_KV, v236PowerChain, v236ThrustMN } from "../../../../utils/landingPhysics";
 
 const R = ROTOR_RADIUS; // m, rotor radius (IEA 15 MW)
 
@@ -63,7 +63,7 @@ function liveFacts(part: TurbinePartId, t: TurbineData): [string, string][] {
       return [
         ["Output", `${chain.converter.outMW.toFixed(2)} MW`],
         ["Loss", `${chain.converter.lossMW.toFixed(2)} MW`],
-        ["Grid side", "0.69 kV · 50 Hz"],
+        ["Grid side", `${CONVERTER_GRID_KV} kV · 50 Hz (MV converter)`],
       ];
     case "transformer":
       return [

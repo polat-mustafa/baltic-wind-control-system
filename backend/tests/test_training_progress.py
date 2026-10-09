@@ -50,3 +50,19 @@ def test_lstm_training_streams_epoch_losses_and_fold_results() -> None:
     assert {f["fold"] for f in snap["folds"]["lstm"]} == {0, 1}
     lstm = next(s for s in snap["stages"] if s["key"] == "lstm")
     assert lstm["status"] == "done" and lstm["fraction"] == 1.0
+
+
+def test_log_lines_carry_level_stage_and_epoch_progress():
+    from app.services.p4.training_progress import _Tracker
+
+    tr = _Tracker()
+    tr.start()
+    tr.stage("lstm", "running", "fold 1/5")
+    for e, val in ((1, 0.5), (2, 0.4), (3, 0.45), (5, 0.42)):
+        tr.epoch("lstm", 0, e, 0.3, val)
+    tr.fold("lstm", 0, 0.81, epochs=5)
+    log = tr.snapshot()["log"]
+    epochs = [line for line in log if line["level"] == "debug"]
+    assert [line["stage"] for line in epochs] == ["lstm"] * 3  # epoch 1, the new best at 2, epoch 5
+    assert "★ best" in epochs[1]["msg"] and "★" not in epochs[2]["msg"]
+    assert log[-1]["level"] == "ok" and "RMSE 0.810 MW" in log[-1]["msg"]

@@ -11,7 +11,8 @@ import StudyTab from "./StudyTab";
 import InstructorTab from "./InstructorTab";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { GraduationCap, Volume2, VolumeX, X } from "lucide-react";
+import { Activity, Cable, Fan, GraduationCap, Volume2, VolumeX, X, Zap } from "lucide-react";
+import { bestScores, drillMissionId, passed, useAcademyStore } from "../../store/academyStore";
 
 import { useLandingStore } from "../../store/landingStore";
 import { useTrainingStore } from "../../store/trainingStore";
@@ -182,8 +183,58 @@ function GridEventsTab() {
 
 // ── Training tab ─────────────────────────────────────────────────
 
+/** Signature of each drill's event, drawn as a tiny trace on its card (x 0–100, y 0–30). */
+const PREVIEW: Record<string, { label: string; d: string; tone: string; icon: typeof Zap }> = {
+  "cable-fault": { label: "string power", d: "M0 6 H38 L40 26 H64 L66 15 H100", tone: "#f59e0b", icon: Cable },
+  "turbine-fault": { label: "turbine power", d: "M0 8 C10 6 20 10 30 7 L34 26 H100", tone: "#ef4444", icon: Fan },
+  underfrequency: { label: "frequency", d: "M0 6 H20 C26 6 30 26 38 26 C48 26 56 16 70 15 H100", tone: "#60a5fa", icon: Activity },
+  "voltage-dip": { label: "PCC voltage", d: "M0 5 H24 L26 24 H34 L42 9 C60 6 80 5 100 5", tone: "#a78bfa", icon: Zap },
+};
+
+function ScenarioCard({ id, title, summary, steps, parS, best, onStart }: {
+  id: string; title: string; summary: string; steps: number; parS: number; best?: number; onStart: () => void;
+}) {
+  const pv = PREVIEW[id];
+  const Icon = pv?.icon ?? GraduationCap;
+  return (
+    <button
+      type="button"
+      onClick={onStart}
+      className="group w-full rounded-lg border border-border-primary bg-bg-secondary p-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-lg"
+    >
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 rounded-md p-1.5" style={{ background: `${pv?.tone ?? "#60a5fa"}22` }}>
+          <Icon size={14} style={{ color: pv?.tone }} aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[12px] font-semibold text-text-primary">{title}</span>
+          <span className="block text-[10.5px] leading-snug text-text-muted">{summary}</span>
+        </span>
+        {pv && (
+          <svg viewBox="0 0 100 30" className="h-8 w-20 shrink-0" aria-hidden>
+            <path d={pv.d} fill="none" stroke={pv.tone} strokeWidth={1.6} strokeLinejoin="round" opacity={0.85} />
+            <circle r={2.2} fill={pv.tone}>
+              <animateMotion dur="3s" repeatCount="indefinite" path={pv.d} />
+            </circle>
+          </svg>
+        )}
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px]">
+        <span className="rounded-full border border-border-primary px-1.5 py-0.5 text-text-muted">{steps} steps</span>
+        <span className="rounded-full border border-border-primary px-1.5 py-0.5 text-text-muted">par {parS} s</span>
+        {pv && <span className="rounded-full border border-border-primary px-1.5 py-0.5 text-text-muted">watch: {pv.label}</span>}
+        <span className={`ml-auto rounded-full px-1.5 py-0.5 font-semibold ${best != null ? (passed(best) ? "bg-status-normal/15 text-status-normal" : "bg-status-warning/15 text-status-warning") : "text-text-muted"}`}>
+          {best != null ? `best ${best}` : "not tried"}
+        </span>
+        <span className="text-accent opacity-0 transition-opacity group-hover:opacity-100">Start →</span>
+      </div>
+    </button>
+  );
+}
+
 function TrainingTab() {
   const t = useTrainingStore();
+  const best = bestScores(useAcademyStore((s) => s.attempts));
   // Re-check the active step whenever plant state changes
   const turbineMap = useLandingStore((s) => s.turbineMap);
   const arrayFault = useLandingStore((s) => s.arrayFault);
@@ -203,17 +254,9 @@ function TrainingTab() {
 
   if (!t.active) {
     return (
-      <div className="space-y-1.5 px-3 py-2">
+      <div className="grid gap-2 px-3 py-2">
         {SCENARIOS.map((sc) => (
-          <button
-            key={sc.id}
-            type="button"
-            onClick={() => t.start(sc.id)}
-            className="w-full rounded border border-border-primary bg-bg-secondary px-2 py-1.5 text-left hover:bg-bg-hover"
-          >
-            <div className="text-[12px] font-semibold text-text-primary">{sc.title}</div>
-            <div className="text-[10.5px] leading-snug text-text-muted">{sc.summary}</div>
-          </button>
+          <ScenarioCard key={sc.id} id={sc.id} title={sc.title} summary={sc.summary} steps={sc.steps.length} parS={sc.parS} best={best[drillMissionId(sc.id)]} onStart={() => t.start(sc.id)} />
         ))}
       </div>
     );

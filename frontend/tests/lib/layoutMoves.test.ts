@@ -16,7 +16,7 @@ import {
   turbineWarnings,
 } from "../../src/lib/layout/evaluate";
 import type { LonLat, XY } from "../../src/lib/layout/geometry";
-import { suggestMoves } from "../../src/lib/layout/suggest";
+import { compatibleMoves, suggestMoves, type MoveSuggestion } from "../../src/lib/layout/suggest";
 import type { LayersResponse, RasterResponse, SeabedClass } from "../../src/services/siteApi";
 
 const D = TURBINE_MODELS["IEA-15-240-RWT"].rotorDiameterM;
@@ -242,5 +242,31 @@ describe("seabed sediment", () => {
   it("warns on hard ground in the turbine card", () => {
     expect(turbineWarnings({ status: "ok", note: "" }, 45, "jacket", 5, classes[1])).toContain("rock and boulders: piles may not drive");
     expect(turbineWarnings({ status: "ok", note: "" }, 45, "jacket", 5, classes[0])).toEqual([]);
+  });
+});
+
+
+describe("move suggestions: objective and batch apply", () => {
+  it("ranks by AEP when asked, keeping only moves that add energy", () => {
+    const site: LonLat[] = [
+      [16.0, 55.0],
+      [16.3, 55.0],
+      [16.3, 55.1],
+      [16.0, 55.1],
+    ];
+    const ctx = layoutContext(site, null);
+    const t = row(3, 5).map((p) => ({ x: p.x - 5 * D, y: p.y }));
+    const model = prepareYield(t, 10.5, 2.2, WEST);
+    const base = { ctx, model, ids: ["T01", "T02", "T03"], oss: null, tree: null, costs: DEFAULT_COSTS, exportKm: 50, maxDepthM: 40, cables: [], cableBufferM: 500 };
+    const aep = suggestMoves({ ...base, objective: "aep" });
+    expect(aep.length).toBeGreaterThan(0);
+    for (let k = 1; k < aep.length; k++) expect(aep[k - 1].deltaGWh).toBeGreaterThanOrEqual(aep[k].deltaGWh);
+  });
+
+  it("applies together only moves of different turbines whose targets stay apart", () => {
+    const mv = (index: number, x: number): MoveSuggestion => ({ index, id: `T${index}`, to: { x, y: 0 }, distM: 120, bearingDeg: 0, deltaGWh: 1, deltaPct: 0.1, deltaCableKm: 0, deltaLcoe: -0.1 });
+    const gap = 4 * D;
+    const picked = compatibleMoves([mv(0, 0), mv(0, 5000), mv(1, gap / 2), mv(2, gap * 1.5)], gap);
+    expect(picked.map((m) => m.index)).toEqual([0, 2]);
   });
 });

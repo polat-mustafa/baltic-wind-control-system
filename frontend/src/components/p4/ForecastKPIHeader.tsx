@@ -5,6 +5,7 @@
  * Color-coded per ISA-101: green = normal, amber = warning, red = fault.
  */
 
+import { useFleet } from "../../lib/fleet";
 import { useForecastStore } from "../../store/forecastStore";
 import { SCADA_COLORS } from "../../constants/scadaColors";
 
@@ -39,6 +40,7 @@ export default function ForecastKPIHeader() {
     ensembleForecast,
     spotPriceEurMwh,
   } = useForecastStore();
+  const farmN = useFleet().turbines.length; // farm on screen: own project or SB-510
 
   if (!modelComparison || !rampDetection || !ensembleForecast) return null;
 
@@ -91,10 +93,9 @@ export default function ForecastKPIHeader() {
         ? SCADA_COLORS.WARNING
         : SCADA_COLORS.FAULT;
 
-  // Revenue estimate: Σ(P50 × spotPrice × Δt × numTurbines)
-  // 10-min intervals = 10/60 hours per step, 34 turbines
+  // Revenue estimate: Σ(P50 × spotPrice × Δt × N) — 10-min steps (1/6 h), N = turbines of the farm on screen
   const totalRevenue = ensembleForecast.power_p50_mw.reduce(
-    (sum, p) => sum + p * spotPriceEurMwh * (10 / 60) * 34,
+    (sum, p) => sum + p * spotPriceEurMwh * (10 / 60) * farmN,
     0,
   );
   const revenueStr =
@@ -137,7 +138,7 @@ export default function ForecastKPIHeader() {
         value={revenueStr}
         unit="EUR"
         color="#60A5FA"
-        subtitle={`@ ${spotPriceEurMwh} EUR/MWh · P50 × spot × 34 turbines`}
+        subtitle={`@ ${spotPriceEurMwh} EUR/MWh · P50 × spot × ${farmN} turbines`}
       />
     </div>
   );

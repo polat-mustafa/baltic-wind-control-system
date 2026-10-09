@@ -404,6 +404,8 @@ export function detectRamps(
   horizonSteps: number,
   thresholdMwHr: number,
   seed?: number,
+  /** Turbines of the farm on screen; the forecast is scaled to it (models stay on the reference set). */
+  farmTurbines?: number,
 ): Promise<RampDetectResponse> {
   return post(`${BASE}/detect-ramps`, {
     num_turbines: numTurbines,
@@ -412,6 +414,7 @@ export function detectRamps(
     horizon_steps: horizonSteps,
     threshold_mw_hr: thresholdMwHr,
     seed,
+    farm_turbines: farmTurbines,
   });
 }
 

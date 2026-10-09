@@ -266,9 +266,10 @@ export default function LayoutPage() {
     [layers, proj],
   );
   const cableBufferKm = Number(layers?.criteria.find((c) => c.key === "cable_buffer_km")?.default ?? 0.5);
-  const suggest = () =>
+  const suggest = (objective: "lcoe" | "aep") =>
     yieldModel
       ? suggestMoves({
+          objective,
           ctx,
           model: yieldModel,
           ids,
@@ -573,6 +574,7 @@ export default function LayoutPage() {
               ).then((r) => r.moves)
             }
             apply={(m) => p.moveTurbine(m.id, proj.toLonLat(m.to))}
+            minGapM={MIN_SPACING_D * D}
           />
 
           <div className="space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="layout-cost">

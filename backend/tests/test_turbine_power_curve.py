@@ -31,7 +31,8 @@ class TestTurbineSpec:
 
     def test_spec_comes_from_the_official_table(self) -> None:
         spec = get_turbine_spec()
-        assert spec.model_id == "IEA-15-240-RWT" and "V236 class" in spec.name
+        assert spec.model_id == "IEA-15-240-RWT"
+        assert spec.name == "IEA 15 MW reference turbine (IEA-15-240-RWT)"
         assert (spec.rated_power_mw, spec.rotor_diameter_m, spec.hub_height_m) == (
             15.0,
             241.35,

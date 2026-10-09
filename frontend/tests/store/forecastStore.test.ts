@@ -95,7 +95,7 @@ describe("runFullAnalysis", () => {
     expect(mockApi.predictEnsemble).toHaveBeenCalledWith(34, 52560, 0, 288, undefined, expect.any(Function));
     expect(mockApi.compareModels).toHaveBeenCalledWith(34, 52560, 0, 288);
     expect(mockApi.getXGBoostSHAP).toHaveBeenCalledWith(34, 52560, 0);
-    expect(mockApi.detectRamps).toHaveBeenCalledWith(34, 52560, 0, 288, 50);
+    expect(mockApi.detectRamps).toHaveBeenCalledWith(34, 52560, 0, 288, 50, undefined, 34); // models on the 34-turbine set, scaled to the live farm (SB-510: 34)
     expect(useForecastStore.getState().loading).toBe(false);
     expect(useForecastStore.getState().analysisRun).toBe(true);
   });

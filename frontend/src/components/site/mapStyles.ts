@@ -60,7 +60,7 @@ export const ROLE_STYLE: Record<string, RoleStyle> = {
   },
   eez: { label: "EEZ boundary", note: "Polish exclusive economic zone", color: "#334155", fill: 0, dash: "2 6", on: false },
   cable: { label: "Subsea cables", note: "Existing cables and pipelines, with a safety buffer", color: "#e11d48", fill: 0, on: true },
-  grid: { label: "Grid connection", note: "Onshore substations for the export cable", color: "#0f766e", fill: 1, on: true },
+  grid: { label: "Grid connection", note: "PSE substations and ≥ 220 kV lines incl. SwePol HVDC (OpenStreetMap)", color: "#0f766e", fill: 1, on: true },
   port: {
     label: "Offshore wind ports",
     note: "O&M bases and installation terminals, as announced by their operators",

@@ -39,7 +39,27 @@ from app.services.digital_twin.detection import (
 )
 
 ZIP_URL = "https://zenodo.org/api/records/14006163/files/CARE_To_Compare.zip/content"
-POWER, WIND, AMBIENT, ROTOR = "power_62_avg", "wind_speed_61_avg", "sensor_8_avg", "sensor_25_avg"
+#: operating-point inputs, found by their sensor description (names differ per farm)
+INPUTS = {  # priority order: Farm B's name first, then Farm C's
+    "power": ("active power", "active power hv grid"),
+    "wind": ("wind speed", "wind speed 1+2"),
+    "ambient": ("outside temperature", "ambient temperature"),
+    "rotor": ("rotor speed", "rotor speed 1"),
+}
+
+
+def resolve_inputs(feats: pd.DataFrame) -> dict[str, str]:
+    """Role → '<sensor>_avg' column by exact description, in priority order (no guessing)."""
+    desc = feats.description.str.strip().str.lower()
+    out = {}
+    for role, names in INPUTS.items():
+        name = next((n for n in names if (desc == n).any()), None)
+        if name is None:
+            raise SystemExit(f"no {role} sensor ({names}) in feature_description.csv")
+        out[role] = f"{feats.sensor_name[desc == name].iloc[0]}_avg"
+    return out
+
+
 SAMPLES_PER_DAY = 24 * SAMPLES_PER_HOUR
 
 
@@ -75,16 +95,20 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("root", nargs="?", type=Path)
     ap.add_argument("--range", action="store_true", help="print the curl command and stop")
+    ap.add_argument("--farm", default="B", choices=["B", "C"])
     args = ap.parse_args()
     if args.range:
         print_range()
         return 0
-    farm = args.root / "Wind Farm B"
+    farm = args.root / f"Wind Farm {args.farm}"
+    result_file = RESULT_FILE.with_name(f"care_farm_{args.farm.lower()}.json")
     info = pd.read_csv(farm / "event_info.csv", sep=";")
     feats = pd.read_csv(farm / "feature_description.csv", sep=";", encoding="latin-1")
+    cols = resolve_inputs(feats)
+    print("inputs:", cols, flush=True)
     temps = feats[
         feats.description.str.contains("temperature", case=False)
-        & (feats.sensor_name != AMBIENT.removesuffix("_avg"))
+        & (feats.sensor_name + "_avg" != cols["ambient"])
     ]
     channels = {f"{r.sensor_name}_avg": r.description.strip() for r in temps.itertuples()}
 
@@ -94,8 +118,10 @@ def main() -> int:
         d = pd.read_csv(farm / "datasets" / f"{ev.event_id}.csv", sep=";").sort_values("id")
         train = (d.train_test == "train").to_numpy()
         valid = (d.status_type_id == 0).to_numpy()
-        power = d[POWER].to_numpy(float)
-        x = thermal_inputs(power, *(d[c].to_numpy(float) for c in (WIND, AMBIENT, ROTOR)))
+        power = d[cols["power"]].to_numpy(float)
+        x = thermal_inputs(
+            power, *(d[cols[r]].to_numpy(float) for r in ("wind", "ambient", "rotor"))
+        )
         ids = d.id.to_numpy()[~train]
 
         first: dict[str, int] = {}
@@ -155,16 +181,21 @@ def main() -> int:
     normals = [e for e in events if e["label"] == "normal"]
     warn = [e["warning_days"] for e in anomalies if e["alarm"]]
     out = {
-        "source": "CARE to Compare v6 (Gück et al. 2024), Wind Farm B — offshore, Germany, "
-        "anonymised; Zenodo 10.5281/zenodo.14006163, CC BY-SA 4.0",
+        "farm": args.farm,
+        "role": "development set (method designed here)"
+        if args.farm == "B"
+        else "held-out test set (method fixed on Farm B, run once)",
+        "source": f"CARE to Compare v6 (Gück et al. 2024), Wind Farm {args.farm} — offshore, "
+        "Germany, anonymised; Zenodo 10.5281/zenodo.14006163, CC BY-SA 4.0",
         "settings": {
             "ewma_lambda": EWMA_LAMBDA,
             "ewma_L": EWMA_L,
             "persistence_samples": PERSISTENCE,
-            "nbm": "XGBoost 200 trees depth 4 on power, wind, ambient T, rotor speed, "
+            "nbm": "XGBoost 150 trees depth 4 on power, wind, ambient T, rotor speed, "
             "1 h / 6 h mean power; status 0 only",
-            "calibration": "newest 20 % of the training year, per active-power decile; "
-            "limit widened until that normal slice has no confirmed alarm",
+            "calibration": "v2: out-of-block residuals over the whole training year (4 time "
+            "blocks), per active-power decile; limit widened until that year has no "
+            "confirmed alarm",
         },
         "summary": {
             "anomaly_events": len(anomalies),
@@ -180,9 +211,11 @@ def main() -> int:
         },
         "events": events,
     }
-    RESULT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    RESULT_FILE.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(out["summary"], f"-> {RESULT_FILE}")
+    if args.farm == "B":  # v1 (newest-20 % calibration) result on the same farm, for the record
+        out["summary_v1"] = {"detected": 5, "false_alarms": 6, "median_warning_days": 25.1}
+    result_file.parent.mkdir(parents=True, exist_ok=True)
+    result_file.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(out["summary"], f"-> {result_file}")
     return 0
 
 

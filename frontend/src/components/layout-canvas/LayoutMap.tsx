@@ -4,6 +4,10 @@
  * and offshore substation, array cables coloured by section, optionally the
  * wakes for one wind direction, and a legend.
  *
+ * Turbines and the OSS are sized in metres (with pixel limits), so they keep
+ * their place relative to the site as you zoom instead of swelling into a
+ * blob when zoomed out. New ones can be dragged in from the palette.
+ *
  * Dragging a turbine publishes its position once per animation frame
  * (`useDrag`) so the live card can show the yield change; the layout itself
  * is committed on drag end.
@@ -21,17 +25,21 @@ import { wakeConePoly } from "../../utils/wakeModel";
 import { useLayerStore } from "../../store/layerStore";
 import { useProjectStore } from "../../store/projectStore";
 import { useSiteStore } from "../../store/siteStore";
-import { rgba, svgIcon } from "../map/deckUtils";
+import { DROP_TYPE, rgba, svgIcon } from "../map/deckUtils";
 import PlanningMap, { type Bounds } from "../map/PlanningMap";
 import { LegendHeading, Swatch } from "../site/ScreeningMap";
 import { roleLayer, roleTooltip } from "../site/mapLayers";
-import { ROLE_STYLE, wideScreen } from "../site/mapStyles";
+import { ROLE_STYLE } from "../site/mapStyles";
 import { ossGlyph, SECTION_COLOR, STATUS_STYLE, turbineGlyph, useDrag, type TurbineStatus, type TurbineView } from "./shared";
 
 const CONSTRAINT_ROLES = ["msp_energy", "protected", "shipping", "restricted", "owf", "cable"];
 /** Turbine IDs are drawn from this zoom level on (MapLibre zoom). */
 const LABEL_ZOOM = 11;
 const SITE = "#45c8d9";
+/** Glyph size on the map: 2.5 D (≈ 600 m) for a turbine, so a 6 D grid keeps clear gaps; pixel limits keep it visible and clickable. */
+const TURBINE_SIZE_M = 600;
+const OSS_SIZE_M = 800;
+const SIZE_PX = { sizeMinPixels: 8, sizeMaxPixels: 34 };
 
 const iconCache = new Map<string, ReturnType<typeof svgIcon>>();
 function turbineIcon(status: TurbineStatus, selected: boolean) {
@@ -65,12 +73,13 @@ function endDrag() {
 }
 
 function Legend({ wakes }: { wakes: boolean }) {
-  const [open, setOpen] = useState(wideScreen);
+  // Closed by default: open it covers a third of the map
+  const [open, setOpen] = useState(false);
   const layers = useSiteStore((s) => s.layers);
   const roles = CONSTRAINT_ROLES.filter((r) => layers?.layers.some((l) => l.role === r));
   const glyph = (html: string) => <span className="flex w-[18px] shrink-0 justify-center" dangerouslySetInnerHTML={{ __html: html }} />;
   return (
-    <div className="pointer-events-none absolute right-3 top-3 z-[1000] flex max-h-[calc(100%-1.5rem)] flex-col items-end" data-tour="layout-legend">
+    <div className="pointer-events-none absolute right-3 top-3 z-[1000] flex max-h-[calc(100%-6.5rem)] flex-col items-end" data-tour="layout-legend">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -135,6 +144,34 @@ function Legend({ wakes }: { wakes: boolean }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Drag a turbine or the substation from here onto the map. */
+function Palette() {
+  const items = [
+    { kind: "turbine", label: "Turbine", title: "Drag a turbine onto the map", html: turbineGlyph(STATUS_STYLE.ok.color, 18) },
+    { kind: "oss", label: "Substation", title: "Drag a substation onto the map", html: ossGlyph(18) },
+  ];
+  return (
+    <div className="absolute bottom-8 left-3 z-[1000] flex items-center gap-1.5 rounded-md border border-border-primary bg-bg-secondary/95 p-1.5 text-xs text-text-secondary shadow" data-tour="layout-palette">
+      <span className="px-1">Drag onto the map:</span>
+      {items.map((it) => (
+        <span
+          key={it.kind}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(DROP_TYPE, it.kind);
+            e.dataTransfer.effectAllowed = "copy";
+          }}
+          title={it.title}
+          className="flex cursor-grab items-center gap-1 rounded border border-border-secondary bg-bg-tertiary px-1.5 py-1 font-medium text-text-primary active:cursor-grabbing"
+        >
+          <span className="flex" dangerouslySetInnerHTML={{ __html: it.html }} />
+          {it.label}
+        </span>
+      ))}
     </div>
   );
 }
@@ -227,8 +264,9 @@ export default function LayoutMap({
       data: shown,
       getPosition: (t: TurbineView) => [t.lon, t.lat],
       getIcon: (t: TurbineView) => turbineIcon(t.status, t.id === selected),
-      getSize: (t: TurbineView) => (t.id === selected ? 26 : 20),
-      sizeUnits: "pixels",
+      getSize: (t: TurbineView) => (t.id === selected ? 1.3 : 1) * TURBINE_SIZE_M,
+      sizeUnits: "meters",
+      ...SIZE_PX,
       pickable: true,
       updateTriggers: { getIcon: selected, getSize: selected },
     }),
@@ -254,8 +292,9 @@ export default function LayoutMap({
         data: [{ position: ossAt }],
         getPosition: (d: { position: LonLat }) => d.position,
         getIcon: () => OSS_ICON,
-        getSize: 24,
-        sizeUnits: "pixels",
+        getSize: OSS_SIZE_M,
+        sizeUnits: "meters",
+        ...SIZE_PX,
         pickable: true,
       }),
   ];
@@ -309,8 +348,10 @@ export default function LayoutMap({
           setDrag(null);
         }}
         cursor={addMode ? "crosshair" : drag ? "grabbing" : undefined}
+        onDropItem={(kind, at) => (kind === "oss" ? setOss(at) : addTurbine(at))}
       />
       <Legend wakes={wakeFrom != null} />
+      <Palette />
       {card && <div className="pointer-events-none absolute left-3 top-3 z-[1000] w-64 max-w-[calc(100%-7.5rem)]">{card}</div>}
     </div>
   );

@@ -22,6 +22,11 @@
  *   δ(s, t) = v_LS(rotor, t − s/U_c) · s / U_c,
  * with v_LS the large-scale part of the same field — so the far wake snakes,
  * as seen in LES and nacelle-lidar scans.
+ *
+ * Wake-added turbulence (WAKE_FIELD) is a second, small-scale field: it is
+ * made in the wake's shear layer, so its eddies are about the size of that
+ * layer (integral scale ≈ ¼ D ≈ 60 m, down to 6 m), not the 340 m
+ * atmospheric eddies. Callers scale it by U·ΔTI (Crespo–Hernández).
  */
 
 export const L_INTEGRAL = 340; // m
@@ -52,20 +57,20 @@ function rng(seed: number) {
   };
 }
 
-export function makeTurbulence(seed = 7, largeWavelength = 472): TurbulenceField {
+export function makeTurbulence(seed = 7, largeWavelength = 472, integral = L_INTEGRAL, lambdaMin = LAMBDA_MIN): TurbulenceField {
   const rand = rng(seed);
   const f: TurbulenceField = {
     kx: new Float32Array(N_MODES), ky: new Float32Array(N_MODES), kz: new Float32Array(N_MODES),
     ax: new Float32Array(N_MODES), ay: new Float32Array(N_MODES), az: new Float32Array(N_MODES),
     ph: new Float32Array(N_MODES), large: new Uint8Array(N_MODES),
   };
-  const kMin = (2 * Math.PI) / (2 * L_INTEGRAL);
-  const kMax = (2 * Math.PI) / LAMBDA_MIN;
+  const kMin = (2 * Math.PI) / (2 * integral);
+  const kMax = (2 * Math.PI) / lambdaMin;
   const energy: number[] = [];
   for (let n = 0; n < N_MODES; n++) {
     // log-spaced |k|, Δk ∝ k → mode variance E(k)·k
     const k = kMin * (kMax / kMin) ** ((n + 0.5) / N_MODES);
-    const kl = k * L_INTEGRAL;
+    const kl = k * integral;
     energy.push(((kl ** 4) / (1 + kl * kl) ** (17 / 6)) * k);
     // random direction on the sphere
     const cz = rand() * 2 - 1;
@@ -125,5 +130,7 @@ export function turbAt(
 
 /** One field shared by the flow streaks and the wind-profile mast (same eddies). */
 export const FIELD = makeTurbulence(7);
+/** Wake shear-layer turbulence: ≈ ¼ D integral scale, eddies down to 6 m; no meandering modes. */
+export const WAKE_FIELD = makeTurbulence(11, Infinity, 60, 6);
 /** The 3D flow runs ×4 real time so the air crosses 8 D in ~40 s. */
 export const FLOW_TIME_X = 4;

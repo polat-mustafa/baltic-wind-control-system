@@ -181,7 +181,7 @@ export default {
   "Power coefficient, tip-speed ratio, pitch and yaw.": "Güç katsayısı, uç hız oranı, pitch ve yaw.",
   "Install the farm in weather windows: vessels, timeline, P50 and P90.": "Santrali hava pencerelerinde kurun: gemiler, zaman çizelgesi, P50 ve P90.",
   "Switching programmes, isolation and acceptance tests.": "Manevra programları, izolasyon ve kabul testleri.",
-  "The as-built register and what each operation module takes over.": "İnşa edildiği hali kaydı ve her işletme modülünün neyi devraldığı.",
+  "The as-built register and what each operation module takes over.": "As-built kaydı ve her işletme modülünün neyi devraldığı.",
   "The operator HMI, IEC 61850 substation automation and alarms.": "Operatör HMI'ı, IEC 61850 trafo merkezi otomasyonu ve alarmlar.",
   "Machine-learning forecasts on real data and how to judge them.": "Gerçek veride makine öğrenmesi tahminleri ve onları nasıl değerlendireceğiniz.",
   "Detect, diagnose and predict turbine faults.": "Türbin arızalarını tespit edin, tanılayın ve öngörün.",

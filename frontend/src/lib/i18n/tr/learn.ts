@@ -102,7 +102,7 @@ export default {
   "Protection Zones, Grading and Clearance Time": "Koruma bölgeleri, kademelendirme ve temizleme süresi",
   "Energise export circuit 1 step by step: isolation locks, interlocks, hold points and load-flow readings.":
     "İletim devresi 1'i adım adım enerjilendirin: izolasyon kilitleri, kilitlemeler, bekleme noktaları ve yük akışı okumaları.",
-  "Print the as-built register and put your farm on the control-room map.": "Yapıldığı gibi kaydını yazdırın ve santralinizi kontrol odası haritasına koyun.",
+  "Print the as-built register and put your farm on the control-room map.": "As-built kaydını yazdırın ve santralinizi kontrol odası haritasına koyun.",
   "Keep the plant compliant, available and healthy.": "Tesisi uyumlu, kullanılabilir ve sağlıklı tutun.",
   "Fault Ride-Through (FRT) and Fast Fault Current": "Arızada devrede kalma (FRT) ve hızlı arıza akımı",
   "Reactive Compensation — Reactors, STATCOM and the PSE Q Range": "Reaktif kompanzasyon — reaktörler, STATCOM ve PSE Q aralığı",

@@ -74,7 +74,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Decommission",
+    label: "End of life",
     items: [{ label: "Decommissioning", path: "/decommission", icon: Recycle, description: "Removal, recycling, seabed" }],
   },
   {

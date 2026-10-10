@@ -139,5 +139,5 @@ export default function OceanWaveOverlay({ view }: { view: MapView }) {
     return () => cancelAnimationFrame(raf);
   }, [view]);
 
-  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden />;
+  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 z-[-1] h-full w-full" aria-hidden />;
 }

@@ -1,9 +1,12 @@
 /**
  * Control Room map — MapLibre GL base + deck.gl data layers (redesign phase 3).
  *
- * The base is the OpenStreetMap raster (same as the planning maps): coast
- * towns, streets and ports give the farm its place when you zoom out; the
- * site boundary is a dashed line on top. deck.gl draws what changes: the 66 kV
+ * The base is the OpenStreetMap raster (same as the planning maps) for the
+ * land — coast towns, streets and ports give the farm its place when you zoom
+ * out — with our own coastline polygon painted over the sea in the theme's
+ * sea colour (navy in Baltic Night), and the site boundary dashed on top.
+ * Turbines are the Layout canvas's top-view glyph (disc + three blades) in
+ * their state colour. deck.gl draws what changes: the 66 kV
  * array cables coloured by load, the export cables with energy particles that
  * run faster as the farm exports more, the turbines by state, the equipment
  * marks and labels that appear as you zoom in. Context and sea traffic
@@ -37,6 +40,7 @@ import {
   PSE_GRID_LINE_GEO,
   PSE_SUBSTATION_GEO,
   PSE_SUBSTATION_NAME,
+  SEA_POLYGON_GEO,
 } from "../../constants/windFarmLayout";
 import { cableTree, distanceM, type CableFocus } from "../../lib/arrayCables";
 import { useFleet, type Fleet } from "../../lib/fleet";
@@ -46,7 +50,8 @@ import { useStatcomQ } from "../../store/liveGridStore";
 import type { TurbineStatus } from "../../types/landing";
 import { arrayCableCurrentA, arrayCableGrade, exportCableState, farmWakeDeficits, wakePowerLossPct } from "../../utils/landingPhysics";
 import { wakeConePoly } from "../../utils/wakeModel";
-import { osmStyle } from "../map/deckUtils";
+import { osmStyle, svgIcon as glyphIcon } from "../map/deckUtils";
+import { turbineGlyph } from "../layout-canvas/shared";
 
 import AlarmTicker from "./AlarmTicker";
 import ArrayCableCard from "./ArrayCableCard";
@@ -92,6 +97,7 @@ function baseStyle(pal: Palette, fleet: Fleet, showBoundary: boolean, dark: bool
     ...osm,
     sources: {
       ...osm.sources,
+      sea: { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [ring(SEA_POLYGON_GEO)] } } },
       site: {
         type: "geojson",
         data: {
@@ -103,12 +109,14 @@ function baseStyle(pal: Palette, fleet: Fleet, showBoundary: boolean, dark: bool
     },
     layers: [
       ...osm.layers,
+      { id: "sea", type: "fill", source: "sea", paint: { "fill-color": pal.sea } },
+      { id: "coast", type: "line", source: "sea", paint: { "line-color": pal.coast, "line-width": 1.2 } },
       {
         id: "site",
         type: "line",
         source: "site",
         layout: { visibility: showBoundary ? "visible" : "none" },
-        paint: { "line-color": pal.boundary, "line-width": 1.2, "line-dasharray": [4, 3] },
+        paint: { "line-color": pal.boundary, "line-width": 2.2, "line-dasharray": [4, 3] },
       },
     ],
   };
@@ -150,6 +158,22 @@ function usePhase(on: boolean) {
   }, [on]);
   return phase;
 }
+
+const hex = (c: RGBA) => `#${c.slice(0, 3).map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+/** Turbine glyph fill per state: white when running, warn / alarm when it needs attention, slate when stopped. */
+const glyphColor = (s: TurbineStatus, pal: Palette) =>
+  s === "fault" ? hex(pal.alarm) : s === "curtailed" ? hex(pal.warn) : s === "offline" ? "#64748b" : "#f8fafc";
+const glyphCache = new Map<string, ReturnType<typeof glyphIcon>>();
+function turbineIcon(color: string) {
+  let icon = glyphCache.get(color);
+  if (!icon) {
+    icon = glyphIcon(turbineGlyph(color, 24), 24);
+    glyphCache.set(color, icon);
+  }
+  return icon;
+}
+/** Glyph size on the map: 2.5 D (≈ 600 m) as on the Layout canvas, kept between 10 and 36 px. */
+const TURBINE_SIZE_M = 600;
 
 const STATUS_WORD: Record<TurbineStatus, string> = {
   operating: "operating",
@@ -376,18 +400,18 @@ function ControlRoomMapInner({
         id: "grid-line",
         data: [{ path: PSE_GRID_LINE_GEO.map(ll) }],
         getPath: (d: { path: [number, number][] }) => d.path,
-        getColor: alpha(pal.v400, 200),
+        getColor: alpha(pal.v400, 240),
         widthUnits: "pixels",
-        getWidth: 2.5,
+        getWidth: 3,
       }),
     exporting &&
       new PathLayer({
         id: "export-glow",
         data: [{ path: exportSubsea }, { path: exportLand }],
         getPath: (d: { path: [number, number][] }) => d.path,
-        getColor: alpha(pal.accent, 45),
+        getColor: alpha(pal.accent, 70),
         widthUnits: "pixels",
-        getWidth: 9,
+        getWidth: 11,
         capRounded: true,
         jointRounded: true,
       }),
@@ -398,9 +422,9 @@ function ControlRoomMapInner({
         { path: exportLand, kind: "export" },
       ],
       getPath: (d: { path: [number, number][] }) => d.path,
-      getColor: alpha(pal.v220, 210),
+      getColor: alpha(pal.v220, 255),
       widthUnits: "pixels",
-      getWidth: 3,
+      getWidth: 4,
       widthMinPixels: 3,
       pickable: true,
       capRounded: true,
@@ -415,10 +439,10 @@ function ControlRoomMapInner({
           const dim = focus && focus.stringNumber !== d.seg.stringNumber && !d.faulted;
           // red only for a fault or an overload: 95 % at rated output is the graded design point, not an alarm
           const c = d.faulted || d.load > 1 ? pal.alarm : d.dead ? pal.offline : pal.v66;
-          return alpha(c, dim ? 50 : focus?.key === d.seg.key || d.faulted ? 255 : 170);
+          return alpha(c, dim ? 60 : focus?.key === d.seg.key || d.faulted ? 255 : 240);
         },
         getWidth: (d: (typeof cables)[number]) =>
-          (d.seg.toId === "OSS" ? 2.4 : 1.6) + (focus?.key === d.seg.key || d.faulted ? 2.4 : focus?.stringNumber === d.seg.stringNumber ? 1 : 0),
+          (d.seg.toId === "OSS" ? 3 : 2.2) + (focus?.key === d.seg.key || d.faulted ? 2.4 : focus?.stringNumber === d.seg.stringNumber ? 1 : 0),
         widthUnits: "pixels",
         pickable: true,
         updateTriggers: { getColor: [focus, pal], getWidth: focus },
@@ -430,26 +454,21 @@ function ControlRoomMapInner({
         getPosition: (d: { position: [number, number] }) => d.position,
         getFillColor: pal.accent,
         radiusUnits: "pixels",
-        getRadius: 2.6,
+        getRadius: 3.2,
         updateTriggers: { getPosition: phase },
       }),
     // Turbines: neutral when running; amber / red only when they need attention
-    new ScatterplotLayer({
+    new IconLayer({
       id: "turbines",
       data: turbines,
       getPosition: (d: (typeof turbines)[number]) => d.position,
-      getFillColor: (d: (typeof turbines)[number]) =>
-        d.status === "fault" ? pal.alarm : d.status === "curtailed" ? pal.warn : d.status === "offline" ? pal.hollow : pal.turbine,
-      getLineColor: pal.offline,
-      getLineWidth: (d: (typeof turbines)[number]) => (d.status === "offline" ? 1.5 : 0),
-      lineWidthUnits: "pixels",
-      stroked: true,
-      radiusUnits: "meters",
-      getRadius: 75,
-      radiusMinPixels: 3.5,
-      radiusMaxPixels: 9,
+      getIcon: (d: (typeof turbines)[number]) => turbineIcon(glyphColor(d.status, pal)),
+      getSize: TURBINE_SIZE_M,
+      sizeUnits: "meters",
+      sizeMinPixels: 10,
+      sizeMaxPixels: 36,
       pickable: true,
-      updateTriggers: { getFillColor: [turbineMap, pal], getLineWidth: turbineMap },
+      updateTriggers: { getIcon: [turbineMap, pal] },
     }),
     new ScatterplotLayer({
       id: "turbine-rings",
@@ -460,9 +479,9 @@ function ControlRoomMapInner({
       filled: false,
       stroked: true,
       lineWidthUnits: "pixels",
-      getLineWidth: 1.5,
+      getLineWidth: 2,
       radiusUnits: "pixels",
-      getRadius: 10,
+      getRadius: 16,
       updateTriggers: { getLineColor: [selectedTurbineId, pal] },
     }),
     new IconLayer({
@@ -470,7 +489,7 @@ function ControlRoomMapInner({
       data: equipment,
       getPosition: (d: (typeof equipment)[number]) => d.position,
       getIcon: (d: (typeof equipment)[number]) => icons[d.kind],
-      getSize: (d: (typeof equipment)[number]) => (d.kind === "landfall" ? 12 : 18),
+      getSize: (d: (typeof equipment)[number]) => (d.kind === "landfall" ? 14 : 22),
       sizeUnits: "pixels",
       pickable: true,
       updateTriggers: { getIcon: icons },
@@ -645,9 +664,12 @@ function ControlRoomMapInner({
 
       {/* Bottom-right: legend (from sm up: on a phone it would cover the environment panel) */}
       <div className="absolute bottom-3 right-3 z-10 hidden flex-wrap sm:flex items-center gap-x-3.5 gap-y-1 rounded-md border border-border-primary bg-bg-secondary/90 px-2.5 py-1.5 text-xs text-text-secondary">
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: `rgb(${pal.turbine.slice(0, 3).join(",")})` }} />running</span>
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border-[1.5px] border-status-offline" />stopped</span>
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-status-warning" />attention</span>
+        {(["operating", "offline", "curtailed"] as const).map((s) => (
+          <span key={s} className="flex items-center gap-1.5">
+            <span className="flex" dangerouslySetInnerHTML={{ __html: turbineGlyph(glyphColor(s, pal), 14) }} />
+            {s === "operating" ? "running" : s === "offline" ? "stopped" : "attention"}
+          </span>
+        ))}
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-3.5" style={{ background: `rgb(${pal.v66.slice(0, 3).join(",")})` }} />66 kV</span>
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-3.5 bg-accent" />220 kV live</span>
       </div>

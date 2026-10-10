@@ -16,6 +16,7 @@
  *   /decommission    → DecommissioningPage
  *   /academy         → AcademyPage (courses, scored missions)
  *   /evidence        → EvidencePage (validation results from the test suite)
+ *   /tutor/callback  → TutorCallbackPage (Sign in with OpenRouter for the AI tutor)
  *
  * All routes are wrapped in AppShell (top bar + sidebar + content area).
  */
@@ -44,6 +45,7 @@ const LayoutPage = lazy(() => import("./pages/LayoutPage"));
 const ReportPage = lazy(() => import("./pages/ReportPage"));
 const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
 const TurbinePhysicsPage = lazy(() => import("./pages/TurbinePhysicsPage"));
+const TutorCallbackPage = lazy(() => import("./pages/TutorCallbackPage"));
 const WindResourcePage = lazy(() => import("./pages/WindResourcePage"));
 
 function App() {
@@ -69,6 +71,7 @@ function App() {
             <Route path="decommission" element={<DecommissioningPage />} />
             <Route path="academy" element={<AcademyPage />} />
             <Route path="evidence" element={<EvidencePage />} />
+            <Route path="tutor/callback" element={<TutorCallbackPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

@@ -15,6 +15,7 @@
  * the same CSS tokens, so no page needs to know about it.
  */
 
+import TutorPanel from "../tutor/TutorPanel";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { Suspense, useEffect, useState } from "react";
 import { Wind, ChevronRight, AlertTriangle, Sun, Moon, Menu } from "lucide-react";
@@ -229,6 +230,7 @@ export default function AppShell() {
       <TourWelcome />
       <TourOverlay />
       <ProjectChooser />
+      <TutorPanel />
     </div>
   );
 }

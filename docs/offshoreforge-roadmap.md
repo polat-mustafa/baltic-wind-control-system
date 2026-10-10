@@ -288,6 +288,21 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   own key (kept server-side per session, never in localStorage); look into linking existing subscriptions.
   Context = current page + panel numbers; physics questions go to backend calculators as tools; browser
   Web Speech API for the microphone; an eval set before release.
+  **Built** (`services/tutor.py`, `routers/tutor.py`, `components/tutor/TutorPanel.tsx`, route `/tutor/callback`):
+  OpenAI-compatible providers on a fixed HTTPS allowlist (OpenRouter, OpenAI, Groq, DeepSeek, Mistral, Gemini —
+  no arbitrary URLs, so no SSRF); the key is posted once and kept in server memory under an HttpOnly, SameSite=Strict
+  cookie (8 h, lost on restart, redacted from errors, never logged or returned); "Sign in with OpenRouter" (OAuth PKCE,
+  S256) creates a key in the learner's own account and the backend exchanges the code, so the key never reaches the
+  browser. Consumer chat subscriptions (ChatGPT / Claude / Gemini apps) issue no API keys and cannot be linked.
+  Context = route + page title + on-screen text (≤ 4000 chars). Tools = the platform's calculators: `plant_facts`
+  (shared with the education guard), `turbine_operating_point` (stopped outside cut-in…cut-out, rule 1),
+  `export_cable` (ωCV²L, Ferranti, capacity), `short_circuit` (IEC 60909 via pandapower); answers list the tools
+  run. 30 questions / 10 min per session. Mic via Web Speech API where the browser has it.
+  Eval set `backend/scripts/tutor_eval.json` (14 cases incl. page context, honesty, Turkish; expected numbers taken
+  from the tools at run time) + runner `scripts/tutor_eval.py` (pass ≥ 80 %); CI checks the set and the scorer.
+  **Owner to-do before release:** run the eval with a real key and a cheap model
+  (`TUTOR_PROVIDER=openrouter TUTOR_MODEL=… TUTOR_API_KEY=… python scripts/tutor_eval.py`). Multi-worker deployments
+  need a shared session store (in-memory now, one process).
 - **Rejected for now:** learner paths, hosted demo, pilot study (old "Faz C").
 
 ## Resume here

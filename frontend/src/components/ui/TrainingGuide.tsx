@@ -170,6 +170,7 @@ export function TrainingGuide({ guide, className }: TrainingGuideProps) {
                   {guide.standards.map((standard) => (
                     <div
                       key={standard.label}
+                      translate="no"
                       className="flex items-start gap-2 text-sm"
                     >
                       <span className="shrink-0 mt-1.5 h-1.5 w-1.5 rounded-full bg-status-info" />

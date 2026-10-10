@@ -62,8 +62,8 @@ export const loadFlowEducation: EducationContent = {
       title: "Full load: 510 MW generated, how much reaches PSE?",
       scenario: "All 34 WTGs at 15 MW, STATCOM holding OSS 220 kV at 1.0 p.u. (Load-flow tab, full-load scenario).",
       steps: [
-        "Losses: array cables + export cables (6.65 MW) + two transformer stages (2.1 MW) = 10.1 MW",
-        "Delivered at the POC: 510 − 10.1 = 499.8 MW (1.98 % electrical loss at this instant)",
+        "Losses: array cables (1.34 MW) + export cables (6.65 MW) + two transformer stages (2.1 MW) = 10.1 MW",
+        "Delivered at the POC: 510 − 10.1 − ≈ 0.1 MW in the reactors and the filter = 499.8 MW (2.0 % electrical loss at this instant)",
         "Export cables carry ≈ 501 MW + their own charging current → 99.1 % of the two-circuit rating (108 km)",
         "Each transformer stage (2 × 300 MVA) runs at ≈ 83–84 %",
       ],
@@ -73,7 +73,15 @@ export const loadFlowEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Hornsea One: compensation along the route",
+      description:
+        "On a long 220 kV export cable the charging current builds up along the route. Hornsea One added an offshore reactive compensation platform with shunt reactors about halfway along its export route to keep voltages and current within limits.",
+      takeaway: "Load flow along the cable — not only at its ends — decides where compensation has to sit.",
+      source: "offshorewind.biz (2016), Babcock / Ramboll RCS contracts",
+    },
+  ],
 
   furtherReading: [
     {

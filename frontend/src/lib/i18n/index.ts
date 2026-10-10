@@ -29,6 +29,7 @@
  * dictionary (keys still exist in the source, placeholders match).
  */
 
+import { useCallback } from "react";
 import { create } from "zustand";
 
 import { readStored, writeStored } from "../storage";
@@ -64,8 +65,8 @@ export const nextLanguage = (lang: Lang): Lang => CODES[(CODES.indexOf(lang) + 1
 
 /** Numeric placeholders ({n}, {n1}, {n2}…) match only a number; any other name matches any text. */
 const NUMERIC = /^n\d*$/;
-/** Placeholders kept verbatim (ids, names, titles); any other text placeholder must be a known label. */
-const FREE = /^(id|name|list|design|topic|title|scenario|need|node|mark\d*)$/;
+/** Placeholders kept verbatim (ids, names, titles, formatted dates, units); any other text placeholder must be a known label. */
+const FREE = /^(id|name|list|design|topic|title|scenario|need|node|mark\d*|date\d*|unit\d*)$/;
 
 interface Pattern {
   re: RegExp;
@@ -245,6 +246,7 @@ export async function applyLanguage(lang: Lang): Promise<void> {
   await loadLanguage(lang);
   // A quick second click while this dictionary was loading wins
   if (requested !== lang) return;
+  useLangStore.setState({ ready: lang });
   if (lang === "en" && current === "en") return; // nothing was translated
   current = lang;
   observer?.disconnect();
@@ -271,6 +273,8 @@ export async function applyLanguage(lang: Lang): Promise<void> {
 
 interface LangStore {
   lang: Lang;
+  /** The language whose dictionary is loaded and applied (lags `lang` while it loads). */
+  ready: Lang;
   setLang: (lang: Lang) => void;
 }
 
@@ -278,8 +282,19 @@ const stored = readStored(LANG_KEY);
 
 export const useLangStore = create<LangStore>((set) => ({
   lang: isLang(stored) ? stored : "en",
+  ready: "en",
   setLang: (lang) => {
     writeStored(LANG_KEY, lang);
     set({ lang });
   },
 }));
+
+/**
+ * For text React must format itself (formulas with sub/superscripts, inside
+ * translate="no"): translate in render instead of in the DOM. Re-renders once the
+ * dictionary has loaded.
+ */
+export function useTranslate(): (s: string) => string {
+  const ready = useLangStore((s) => s.ready);
+  return useCallback((s: string) => translate(ready, s), [ready]);
+}

@@ -39,7 +39,7 @@ const GROUPS: { title: string; fields: FieldSpec[] }[] = [
     title: "Layout",
     fields: [
       { key: "turbine_count", label: "Turbines", unit: "", min: 2, max: 200, step: 1, hint: "Number of turbines on a near-square grid." },
-      { key: "turbine_rated_mw", label: "Rating", unit: "MW", min: 0.5, max: 20, step: 0.5, hint: "Scaled IEA-15-240-RWT at the same specific power (343 W/m²): same rated wind speed, rotor area ∝ rating." },
+      { key: "turbine_rated_mw", label: "Rating", unit: "MW", min: 0.5, max: 20, step: 0.5, hint: "Scaled IEA-15-240-RWT at the same specific power (328 W/m²): same rated wind speed, rotor area ∝ rating." },
       { key: "turbine_spacing_d", label: "Spacing", unit: "D", min: 4, max: 12, step: 0.5, hint: "Grid spacing in rotor diameters. Tighter = less seabed and cable, but more wake loss." },
     ],
   },

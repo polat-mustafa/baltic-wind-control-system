@@ -235,7 +235,7 @@ export default function DecommissioningPage() {
 
       <section className="text-xs text-text-muted">
         <h3 className="mb-1 font-semibold uppercase tracking-wider">Sources</h3>
-        <ul className="list-disc space-y-0.5 pl-5">
+        <ul translate="no" className="list-disc space-y-0.5 pl-5">
           {DECOM_SOURCES.map((s) => (
             <li key={s.url}>
               <a href={s.url} target="_blank" rel="noreferrer" className="text-accent underline">

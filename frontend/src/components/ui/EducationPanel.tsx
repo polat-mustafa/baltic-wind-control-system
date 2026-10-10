@@ -4,7 +4,7 @@
  *
  * Five tabs:
  *   1. Overview      — overview, simple, technical
- *   2. Maths         — formulas (mono expression + variable table) + worked examples
+ *   2. Maths         — formulas and worked examples on paper (MathPaper.tsx)
  *   3. Standards     — standards list with type chips and external links
  *   4. Real World    — real-world case cards + further reading
  *   5. Code          — repo file references
@@ -34,14 +34,13 @@ import {
 import { cn } from "../../lib/utils";
 import type {
   EducationContent,
-  Formula,
   Reference,
-  WorkedExample,
   RealWorldCase,
   CodeReference,
 } from "../../types/education";
 import type { InfoContent } from "./InfoButton";
 import { promoteInfoContent, isEducationContent } from "../../lib/promoteInfoContent";
+import { FormulaPaper, WorkedExamplePaper } from "./MathPaper";
 
 // ── Tab definitions ────────────────────────────────────────────
 
@@ -97,13 +96,13 @@ function ReferenceRow({ refItem }: { refItem: Reference }) {
     <>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-text-secondary group-hover:text-text-primary leading-snug">
+          <span translate="no" className="text-sm text-text-secondary group-hover:text-text-primary leading-snug">
             {refItem.label}
           </span>
           <ReferenceTypeChip type={refItem.type} />
         </div>
         {refItem.citation && (
-          <p className="mt-1 text-xs text-text-muted italic">
+          <p translate="no" className="mt-1 text-xs text-text-muted italic">
             {refItem.citation}
           </p>
         )}
@@ -190,71 +189,6 @@ function OverviewTab({ c }: { c: EducationContent }) {
   );
 }
 
-function FormulaCard({ formula }: { formula: Formula }) {
-  return (
-    <div className="rounded-md border border-border-primary bg-bg-tertiary p-4 space-y-3">
-      <div translate="no" className="rounded-sm bg-black/30 border border-border-primary px-3 py-2 font-mono text-sm text-accent break-words">
-        {formula.expression}
-      </div>
-
-      {formula.variables.length > 0 && (
-        <div className="space-y-1">
-          {formula.variables.map((v) => (
-            <div
-              key={`${v.symbol}-${v.name}`}
-              className="grid grid-cols-[2.5rem_1fr_auto] items-baseline gap-2 text-xs"
-            >
-              <span translate="no" className="font-mono text-accent">{v.symbol}</span>
-              <span className="text-text-secondary">{v.name}</span>
-              <span translate="no" className="text-text-muted font-mono">{v.unit}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <p className="text-xs text-text-secondary leading-relaxed">
-        {formula.explanation}
-      </p>
-
-      {formula.reference && (
-        <p className="text-xs text-text-muted font-mono">
-          Source: {formula.reference}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function WorkedExampleCard({ example }: { example: WorkedExample }) {
-  return (
-    <div className="rounded-md border border-border-primary bg-bg-tertiary p-4 space-y-3">
-      <h5 className="text-sm font-semibold text-text-primary">{example.title}</h5>
-      <p className="text-xs text-text-secondary leading-relaxed italic">
-        {example.scenario}
-      </p>
-      <ol className="space-y-1.5">
-        {example.steps.map((step, idx) => (
-          <li
-            key={idx}
-            className="grid grid-cols-[1.25rem_1fr] gap-2 text-xs text-text-secondary"
-          >
-            <span className="font-mono text-text-muted">{idx + 1}.</span>
-            <span className="font-mono leading-relaxed">{step}</span>
-          </li>
-        ))}
-      </ol>
-      <div className="rounded-sm border border-status-normal/30 bg-status-normal/10 px-3 py-2">
-        <span className="text-xs font-semibold text-status-normal uppercase tracking-wider">
-          Result
-        </span>
-        <p className="text-xs text-text-secondary mt-1 leading-relaxed">
-          {example.result}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function MathsTab({ c }: { c: EducationContent }) {
   if (c.formulas.length === 0 && c.workedExamples.length === 0) {
     return (
@@ -271,7 +205,7 @@ function MathsTab({ c }: { c: EducationContent }) {
           <SectionLabel>Formulas</SectionLabel>
           <div className="space-y-3">
             {c.formulas.map((f, idx) => (
-              <FormulaCard key={idx} formula={f} />
+              <FormulaPaper key={idx} formula={f} />
             ))}
           </div>
         </div>
@@ -282,7 +216,7 @@ function MathsTab({ c }: { c: EducationContent }) {
           <SectionLabel>Worked Examples</SectionLabel>
           <div className="space-y-3">
             {c.workedExamples.map((e, idx) => (
-              <WorkedExampleCard key={idx} example={e} />
+              <WorkedExamplePaper key={idx} example={e} />
             ))}
           </div>
         </div>
@@ -323,7 +257,7 @@ function RealWorldCard({ rwc }: { rwc: RealWorldCase }) {
       </div>
       {rwc.source && (
         <p className="text-xs text-text-muted font-mono">
-          Source: {rwc.source}
+          Source: <span translate="no">{rwc.source}</span>
         </p>
       )}
     </div>
@@ -368,7 +302,7 @@ function RealWorldTab({ c }: { c: EducationContent }) {
 function CodeReferenceCard({ codeRef }: { codeRef: CodeReference }) {
   return (
     <div className="rounded-md border border-border-primary bg-bg-tertiary p-3 space-y-1">
-      <p className="font-mono text-xs text-accent break-all">{codeRef.file}</p>
+      <p translate="no" className="font-mono text-xs text-accent break-all">{codeRef.file}</p>
       <p className="text-xs text-text-secondary leading-relaxed">
         {codeRef.description}
       </p>

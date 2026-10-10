@@ -89,9 +89,11 @@ export const windRoseEducation: EducationContent = {
     {
       title: "Low-level jets over the Baltic",
       description:
-        "Over the cold Baltic in spring and early summer, warm air advected over the sea forms stable layers and " +
-        "low-level jets near rotor heights, which a single power-law exponent does not capture.",
+        "Ship-based lidar over the southern Baltic recorded low-level jets in 9.4 % of hours, mostly at night; stable " +
+        "layers, typical in spring, make them more likely, and numerical models underestimate how often they occur. " +
+        "A single power-law exponent does not capture such profiles.",
       takeaway: "For 150 m hubs, measure the profile (floating LiDAR) rather than assume it.",
+      source: "Rubio, Kühn & Gottschall, Wind Energy Science 7, 2433–2455 (2022)",
     },
   ],
 

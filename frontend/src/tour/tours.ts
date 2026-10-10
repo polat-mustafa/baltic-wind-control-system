@@ -437,7 +437,7 @@ const scada: Tour = {
       route: "/scada",
       target: "scada-controls",
       title: "Simulation controls",
-      body: "Inject a turbine fault, run a GOOSE protection sequence, start auto-simulation or change operator role.",
+      body: "Run a GOOSE protection sequence, start the turbine-fault auto-simulation or change the operator role.",
       task: {
         instruction: "Open the Controls bar.",
         watch: exists('[data-tour="scada-controls"][aria-expanded="true"]'),

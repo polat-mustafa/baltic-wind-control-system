@@ -134,9 +134,16 @@ function sourceText(): string {
   walk("../backend/app");
   return (
     files
-      // Python joins adjacent literals: "a " "b" is one string
-      .map((f) => readFileSync(f, "utf8").replace(/"\s*\n\s*"/g, ""))
+      // Python joins adjacent literals: "a " "b" is one string; TS content splits long text with "a " + "b"
+      .map((f) =>
+        readFileSync(f, "utf8")
+          .replace(/"\s*\n\s*"/g, "")
+          .replace(/(["'])\s*\+\s*\1/g, ""),
+      )
       .join("\n")
+      // escapes as the runtime string has them (turbinePartEducation.ts spells non-ASCII as \uXXXX)
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_, h: string) => String.fromCharCode(parseInt(h, 16)))
+      .replace(/\\(["'])/g, "$1")
       .replace(/&amp;/g, "&")
       .replace(/&apos;/g, "'")
       .replace(/&quot;/g, '"')

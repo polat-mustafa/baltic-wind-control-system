@@ -28,8 +28,9 @@ export const turbineSelectionEducation: EducationContent = {
     "specific power 328 W/m², rated at 10.66 m/s) the SB-510 wind climate (NEWA 150 m: Weibull A 10.80 m/s, k 2.04) gives " +
     "a gross capacity factor of 57 % before wake and other losses; (2) drivetrain — the real V236 uses a medium-speed " +
     "gearbox + PMSG, while the open model is a low-speed direct drive (no gearbox, 200-pole PMSG, 369 t generator), so " +
-    "the platform's drivetrain losses and nacelle layout are those of the direct drive; (3) grid code — PSE IRiESP Type D " +
-    "pre-qualification requires LVRT to 15% Un for 140 ms + reactive current injection ≥2%/% voltage drop. " +
+    "the platform's drivetrain losses and nacelle layout are those of the direct drive; (3) grid code — PSE's type D " +
+    "requirements (NC RfG, 2018) ask the plant to ride through a fault down to 0 pu at the connection point for 150 ms " +
+    "and to inject fast fault current with K = 2–10 (Art. 16(3)(a), 20(2)(b)). " +
     "All three candidates can meet this in principle; the V236 is the one being connected to the PSE grid " +
     "(Baltic Power), which shortens the compliance-simulation work rather than removing it.",
 
@@ -95,32 +96,47 @@ export const turbineSelectionEducation: EducationContent = {
       result:
         "The V236-class turbine is selected. At 34 turbines it exactly fills the 510 MW PSE connection agreement slot, " +
         "the supply chain, installation vessels and PSE grid-code experience of Baltic Power carry over (foundations stay " +
-        "site-specific: SB-510's 37–51 m depths point to jackets), and Vestas has a " +
-        "European manufacturing footprint (blades in Szczecin, Poland from 2026).",
+        "site-specific: SB-510's 37–51 m depths point to jackets), and Vestas announced in January 2024 a V236 " +
+        "blade factory in Szczecin, Poland, planned to start operating in 2026.",
+    },
+  ],
+
+  codeReferences: [
+    {
+      file: "backend/app/services/p1/turbine_models.py",
+      description: "get_turbine() — the IEA-15-240-RWT power and thrust curves every module uses; rosco() — its ROSCO rotor and controller data.",
+    },
+    {
+      file: "frontend/src/constants/turbineModels.ts",
+      description: "TURBINE_MODELS — the same reference turbine in the browser: layout yield (lib/layout/energy.ts), project report and the 3D model dimensions.",
     },
   ],
 
   realWorldCases: [
     {
-      title: "Baltic Power (Poland) — 1.2 GW, 76 × V236-15.0 MW",
+      title: "Baltic Power (Poland) — 76 × Vestas V236-15.0 MW",
       description:
-        "Operated by ORLEN + Northland Power. All 78 foundations installed by late 2025; turbine installation " +
-        "ongoing 2025–2026. First commercial power expected Q2 2026. This project provides direct cost benchmarks, " +
-        "installation vessel availability, and grid-code compliance data for SB-510.",
+        "ORLEN (51 %) and Northland Power (49 %). Monopile installation began in early 2025 (78 monopiles); the farm " +
+        "delivered Poland's first offshore wind power to the grid on 10 July 2026 with 54 of 76 turbines installed, " +
+        "and commercial operation was expected in the second half of 2026.",
       takeaway:
-        "Having a reference project with the same turbine model further east along the same coast (off Łeba) de-risks the " +
-        "turbine selection — vessels, port logistics and the grid-code compliance route are proven; foundation " +
-        "and load calculations still have to be redone for this site.",
+        "A project with the same turbine class further east along the same coast (off Łeba) de-risks the selection — " +
+        "vessels, port logistics and the PSE compliance route are proven; foundation and load calculations still " +
+        "have to be redone for this site.",
+      source: "Northland Power press release, 10 Jul 2026; Notes from Poland, 6 Feb 2025",
     },
     {
-      title: "Bałtyk 2 & 3 (Poland) — ~1.4 GW, SG 14-236 DD",
+      title: "Bałtyk 2 & 3 (Poland) — 1.44 GW, 100 × SG 14-236 DD",
       description:
-        "Equinor + Polenergia projects using the competing direct-drive machine. Offshore construction started " +
-        "January 2026. The SG 14-236 DD is technically equivalent but uses a different drive-train philosophy " +
+        "Equinor and Polenergia took the final investment decision in May 2025 for 100 Siemens Gamesa SG 14-236 DD " +
+        "turbines of 14.4 MW; monopiles go in during 2026 and first power is planned for 2027. The SG 14-236 DD is a " +
+        "competing 15 MW-class machine with a different drive-train philosophy " +
         "(no gearbox).",
       takeaway:
-        "Both machines are viable for Polish Baltic conditions. V236 was selected here specifically because " +
-        "Baltic Power's ongoing project provides an immediately transferable reference data set.",
+        "Both machines are viable for Polish Baltic conditions. The V236 class was chosen here because Baltic " +
+        "Power provides an immediately transferable reference; the open model the platform computes with is itself " +
+        "a direct drive, like the SG 14-236 DD.",
+      source: "offshorewind.biz, 20 May 2025 (FID) and 16 Feb 2024 (turbine choice)",
     },
   ],
 

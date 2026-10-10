@@ -39,7 +39,7 @@ export default {
 
   // Commissioning
   "HV Commissioning": "YG Devreye Alma",
-  "Isolation EN 50110-1": "Yalıtım EN 50110-1",
+  "Isolation EN 50110-1": "İzolasyon EN 50110-1",
   "First energisation of export circuit {n1} of SB-{n2}: cable {n3} from shore, the OSS {n4} kV busbar with reactor {n5} and the STATCOM, TX-OSS-{n6} {n7} kV section A and strings {n8}–{n9} ({n10} × {n11} MW = {n12} MW). Section B (circuit {n13}) stays isolated and earthed.":
     "SB-{n2} iletim devresi {n1}'in ilk enerjilendirmesi: karadan kablo {n3}, reaktör {n5} ve STATCOM ile OSS {n4} kV barası, TX-OSS-{n6} {n7} kV A bölümü ve {n8}–{n9} dizileri ({n10} × {n11} MW = {n12} MW). B bölümü (devre {n13}) yalıtılmış ve topraklı kalır.",
   "Turbines producing (≥)": "Üreten türbinler (≥)",

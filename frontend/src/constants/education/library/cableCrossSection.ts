@@ -100,7 +100,26 @@ export const cableCrossSectionEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  codeReferences: [
+    {
+      file: "frontend/src/lib/layout/cables.ts",
+      description: "ARRAY_SECTIONS and sectionFor() — the smallest 66 kV section whose rating carries the turbines downstream; routeCables() grades every segment of the layout.",
+    },
+    {
+      file: "backend/app/services/p2/network_model.py",
+      description: "CableSpec — resistance at 90 °C with the IEC 60287 ac factor, reactance, capacitance and rating of each section, with their sources.",
+    },
+  ],
+
+  realWorldCases: [
+    {
+      title: "Cables dominate offshore wind insurance losses",
+      description:
+        "GCube's review of a decade of claims (2010–2020) found subsea cables behind about 30 % of offshore wind claims and over half of the money paid out; Allianz reported cable failures in 53 % of its offshore wind claims for 2014–2020.",
+      takeaway: "A cable sized with no thermal margin, or damaged in installation, is the most expensive single failure on an offshore farm — the rating table is a safety limit, not a target.",
+      source: "GCube Insurance, Uncharted Waters (2020); Allianz Global Corporate & Specialty (2021)",
+    },
+  ],
 
   furtherReading: [
     {

@@ -249,7 +249,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
       v236Value: "Upwind tapered double outer-ring (locating) + downwind spherical roller (non-locating), 1.2 m apart (IEA 15 MW, Table 5-2)",
       reasoning:
         "Two bearings spread the rotor overhang moment; one locating bearing takes the thrust while the non-locating one lets the shaft grow thermally.",
-      influencingFactors: ["Rotor + generator weight", "Axial thrust (\u2248 2.4 MN near rated)", "Grease quality", "Temperature cycling"],
+      influencingFactors: ["Rotor + generator weight", "Axial thrust (\u2248 2.46 MN at rated)", "Grease quality", "Temperature cycling"],
     },
     efficiencyNotes: [
       { name: "Friction torque", typicalLossPct: "<0.1%", dissipation: "Heat in the bearing grease" },
@@ -360,7 +360,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "P\u2097\u2092\u209B\u209B", name: "Power loss", unit: "MW" },
         ],
         explanation:
-          "Power loss from yaw misalignment follows a cos\u00B3 relationship. A 10\u00B0 misalignment loses ~4.6% of power; 20\u00B0 loses ~17%.",
+          "Power loss from yaw misalignment follows a cos\u00B3 relationship. A 10\u00B0 misalignment loses ~4.5% of power; 20\u00B0 loses ~17%.",
       },
     ],
     design: {
@@ -669,7 +669,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
       {
         expression: "M_tilt \u2248 F_thrust \u00B7 h + m_RNA \u00B7 g \u00B7 e",
         variables: [
-          { symbol: "F_thrust", name: "Rotor thrust (\u2248 2.4 MN near rated)", unit: "MN" },
+          { symbol: "F_thrust", name: "Rotor thrust (\u2248 2.46 MN at rated)", unit: "MN" },
           { symbol: "m_RNA", name: "Rotor-nacelle assembly mass (\u2248 946 t)", unit: "t" },
           { symbol: "e", name: "Overhang of the rotor mass (12.0 m to the hub)", unit: "m" },
         ],
@@ -887,7 +887,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     design: {
       v236Value: "Two HEB 300 I-beam rails, 20 m span, 10 t SWL, motorised trolley-hoist (illustrative)",
       reasoning:
-        "Internal crane access is essential for component changeout offshore, where external crane vessels are extremely expensive (\u20AC150,000\u2013600,000/day). A main-bearing or generator exchange (generator 369 t) always needs a jack-up vessel; the internal crane handles converter and auxiliary replacements.",
+        "Internal crane access is essential for component changeout offshore, where an external crane vessel costs a six-figure sum per day. A main-bearing or generator exchange (generator 369 t) always needs a jack-up vessel; the internal crane handles converter and auxiliary replacements.",
       influencingFactors: ["Component replacement frequency (MTTR)", "Offshore crane vessel day rates", "Nacelle ceiling clearance", "Structural load path to bedplate"],
     },
     efficiencyNotes: [],
@@ -971,22 +971,22 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "fire_suppression",
     title: "Nacelle Fire Suppression System",
     overview:
-      "The nacelle contains automatic fire suppression cylinders charged with a clean agent (typically HFC-227ea/FM-200 or inert gas CO\u2082) installed near the highest fire-risk areas: the hydraulic unit, the generator cable entry and the converter IGBT modules. Smoke detectors (VESDA air-sampling) and thermal fuses provide dual-channel detection before suppression discharge.",
-    standards: ["IEC 61400-1 \u00A79 (Fire protection)", "NFPA 2001 (Clean agent suppression)", "ISO 14520 (Gaseous fire suppression)"],
+      "The nacelle contains automatic fire suppression cylinders charged with a clean agent (typically HFC-227ea/FM-200, or an inert gas such as nitrogen or IG-541) installed near the highest fire-risk areas: the hydraulic unit, the generator cable entry and the converter IGBT modules. Smoke detectors (VESDA air-sampling) and thermal fuses provide dual-channel detection before suppression discharge.",
+    standards: ["NFPA 2001 (Clean agent suppression)", "ISO 14520 (Gaseous fire suppression)"],
     formulas: [
       {
-        expression: "m_{agent} = C\u00B7V_{enclosure}\u00B7\u03C1_{air}",
+        expression: "m_{agent} = (V/S)\u00B7C/(100 \u2212 C)",
         variables: [
           { symbol: "C", name: "Design concentration (% vol)", unit: "%" },
-          { symbol: "V", name: "Enclosure volume", unit: "m\u00B3" },
-          { symbol: "\u03C1_{air}", name: "Air density", unit: "kg/m\u00B3" },
+          { symbol: "V", name: "Protected volume", unit: "m\u00B3" },
+          { symbol: "S", name: "Specific vapour volume of the agent", unit: "m\u00B3/kg" },
         ],
         explanation:
-          "For HFC-227ea, design concentration C = 7% (NOAEL limit). Nacelle volume \u2248 900 m\u00B3. Required agent mass \u2248 0.07 \u00D7 900 \u00D7 1.225 \u00D7 0.73 (agent specific weight factor) \u2248 56 kg. Distributed across 4 cylinders \u00D7 20 kg each.",
+          "NFPA 2001 total-flooding equation. For HFC-227ea S \u2248 0.137 m\u00B3/kg at 20 \u00B0C and a typical design concentration is C = 7 % (its NOAEL is 9 %). Flooding a whole 900 m\u00B3 nacelle would take 900/0.137 \u00D7 7/93 \u2248 490 kg of agent, and a nacelle is far from airtight \u2014 so the agent goes where fires start: a 2 m\u00B3 converter cabinet needs 2/0.137 \u00D7 7/93 \u2248 1.1 kg.",
       },
     ],
     design: {
-      v236Value: "4\u00D7 20 kg HFC-227ea cylinders, VESDA smoke detection (illustrative)",
+      v236Value: "HFC-227ea units in the converter and switchgear cabinets, VESDA smoke detection (illustrative)",
       reasoning:
         "Clean agents are essential offshore to avoid water damage to electrical equipment and because manual intervention is impossible. HFC-227ea is electrically non-conductive, low-toxicity at design concentration, and leaves no residue on electronics.",
       influencingFactors: ["Nacelle enclosure volume", "Occupied vs unoccupied detection strategy", "Insurance and DNV type approval requirements", "Environmental regulations on halon alternatives"],

@@ -62,7 +62,22 @@ export const layoutComparisonEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Horns Rev 1 wake photograph (12 Feb 2008)",
+      description:
+        "Cold, humid air over a warmer sea condensed into fog inside the turbine wakes and made them visible: long trails downstream of every row of the 80-turbine farm.",
+      takeaway: "Wakes are long and merge row after row — the reason spacing along the prevailing wind is the strongest layout lever.",
+      source: "Hasager et al., Energies 6(2) 696 (2013), \"Wind farm wake: the Horns Rev photo case\"; photo Christian Steiness / Vattenfall",
+    },
+    {
+      title: "Lillgrund (Sweden): a deliberately dense layout",
+      description:
+        "Lillgrund's turbines stand about 3.3 rotor diameters apart within a row and 4.3 D between rows, much tighter than usual, and the farm became a benchmark case for wake models.",
+      takeaway: "Tight spacing saves seabed and cable but is paid for in wake loss — the trade-off this tab quantifies.",
+      source: "EERA-DTOC wake benchmark, DTU / Vattenfall (DeepWind 2014)",
+    },
+  ],
 
   furtherReading: [
     {

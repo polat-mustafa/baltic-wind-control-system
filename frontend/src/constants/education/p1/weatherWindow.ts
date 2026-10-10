@@ -73,7 +73,15 @@ export const weatherWindowEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Sheringham Shoal (UK): installation in poor weather",
+      description:
+        "Unseasonally poor weather slowed turbine installation; the developer brought in a replacement jack-up vessel, used real-time wave monitoring to catch shorter windows and moved the completion date back.",
+      takeaway: "Vessel limits on Hs and wind decide the schedule as much as the vessel count — plan on P90 weather, not on the average.",
+      source: "Energy Voice, Sheringham Shoal installation coverage",
+    },
+  ],
 
   furtherReading: [
     {

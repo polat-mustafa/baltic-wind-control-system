@@ -116,8 +116,8 @@ export default {
   "Shape: low k = gusty, spread-out winds; high k = steady winds. Offshore Baltic ≈ 2.0–2.3.":
     "Şekil: düşük k = hamleli, yayılmış rüzgârlar; yüksek k = kararlı rüzgârlar. Açık deniz Baltık ≈ 2,0–2,3.",
   "Number of turbines on a near-square grid.": "Kareye yakın bir ızgarada türbin sayısı.",
-  "Scaled IEA-15-240-RWT at the same specific power (343 W/m²): same rated wind speed, rotor area ∝ rating.":
-    "Aynı özgül güçte (343 W/m²) ölçeklenmiş IEA-15-240-RWT: aynı anma rüzgâr hızı, rotor alanı ∝ anma gücü.",
+  "Scaled IEA-15-240-RWT at the same specific power (328 W/m²): same rated wind speed, rotor area ∝ rating.":
+    "Aynı özgül güçte (328 W/m²) ölçeklenmiş IEA-15-240-RWT: aynı anma rüzgâr hızı, rotor alanı ∝ anma gücü.",
   "Grid spacing in rotor diameters. Tighter = less seabed and cable, but more wake loss.":
     "Rotor çapı cinsinden ızgara aralığı. Daha sık = daha az deniz tabanı ve kablo, ama daha fazla iz kaybı.",
   "Collection voltage. I²R loss ∝ 1/U² for the same conductor.": "Toplama gerilimi. Aynı iletken için I²R kaybı ∝ 1/U².",
@@ -328,4 +328,5 @@ export default {
     "Sahada deniz buzu: {n2} kışın {n1}'inde, kış başına ortalama {n3} gün (en fazla {n4} g) — NOAA OISST v2.1 günlük deniz buzu yoğunluğu, hücre {n5} °K {n6} °D, CoastWatch ERDDAP üzerinden (kamu malı). Kıyıdan {n7} km açıktaki bir hücrede pasif mikrodalga buzu; ılık kışlardaki tekil günler kıyı veya ıslak kar yanılsaması olabilir. PZP_44'te buz nadir ve kısa sürelidir — buz sınıfı temel tasarımı gerektirmez, ama kışın erişim riskidir.",
   "Maintenance & logistics (bottom-up) EUR 48k/MW/year — {n1}–{n2} % of a typical total OPEX of EUR {n3}–120k/MW/year (service contract, base, staff, lease and grid charges not modelled)":
     "Bakım ve lojistik (aşağıdan yukarıya) 48 bin EUR/MW/yıl — tipik toplam OPEX'in ({n3}–120 bin EUR/MW/yıl) %{n1}–{n2}'si (servis sözleşmesi, üs, personel, kira ve şebeke bedelleri modellenmedi)",
+  "Wind:": "Rüzgâr:",
 } satisfies Record<string, string>;

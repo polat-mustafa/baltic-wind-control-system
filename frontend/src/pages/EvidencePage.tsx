@@ -63,7 +63,7 @@ export default function EvidencePage() {
                     {fmt(i.value)} {i.unit !== "−" && <span className="text-text-muted">{i.unit}</span>}
                   </td>
                   <td className="py-1.5 pr-3 font-mono text-xs text-text-secondary">{i.limit}</td>
-                  <td className="py-1.5 font-mono text-xs">
+                  <td translate="no" className="py-1.5 font-mono text-xs">
                     <a href={REPO + i.test} target="_blank" rel="noreferrer" className="text-accent hover:underline">
                       {i.test.split("/").pop()}
                     </a>

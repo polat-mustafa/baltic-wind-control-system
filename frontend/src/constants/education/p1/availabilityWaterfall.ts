@@ -57,7 +57,15 @@ export const availabilityWaterfallEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "German North Sea, 2023: downtime the operator does not control",
+      description:
+        "TenneT reported that German North Sea offshore wind produced 19.2 TWh in 2023 against 21.1 TWh in 2022, about 9 % less, because the onshore grid could not carry the power and the turbines were curtailed in redispatch.",
+      takeaway: "Grid curtailment is external downtime: it costs energy and revenue but is not the operator's failure — which is why IEC 61400-26 keeps it apart from controllable downtime.",
+      source: "TenneT via Clean Energy Wire (2024)",
+    },
+  ],
 
   furtherReading: [
     {

@@ -139,7 +139,15 @@ export const powerQualityEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "BorWin1 (Germany): harmonic interaction in a converter grid",
+      description:
+        "BorWin1 connects offshore wind farms through a small islanded AC grid fed only by converters. TenneT engineers published its first experiences with harmonic interactions and high-frequency oscillations between the converters and the grid; in 2014 the connected BARD Offshore 1 farm stood idle for months while power quality was investigated.",
+      takeaway: "When cables and converters dominate a network, resonances move into the range converters excite — the impedance scan on this tab is how they are found before commissioning.",
+      source: "Buchhagen et al., VDE (2015), \"BorWin1 – First Experiences with harmonic interactions in converter dominated grids\"; offshore-energy.biz, 26 Jun 2014",
+    },
+  ],
 
   furtherReading: [
     {

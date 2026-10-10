@@ -292,4 +292,5 @@ export default {
     "Sahanın rüzgâr yılı boyunca (iz kayıplarından önce {n1} GWh). HVAC: şarj akımı dahil iletken I²R, dielektrik Q·tan δ. HVDC: kablo I²R + her biri ≈%{n3} olan {n2} dönüştürücü (varsayım). Reaktör, STATCOM ve transformatör kayıpları dahil değil. HVDC yalnızca {n4} km'nin ötesinde daha az kaybeder.",
   "LCOH = capital·(CRF + {n1} % O&M)/(FLH/SEC) + price·SEC, with SEC = {n2} kWh/kg, {n3} % WACC, {n4} years (assumptions). Few running hours make H₂ expensive however cheap the power. Back to power via H₂ returns only ≈{n5} % of the electricity.":
     "LCOH = sermaye·(CRF + %{n1} İ&B)/(TYS/ÖEK) + fiyat·ÖEK; ÖEK = {n2} kWh/kg, AOSM %{n3}, {n4} yıl (varsayımlar). Az çalışma saati, elektrik ne kadar ucuz olursa olsun H₂'yi pahalı yapar. H₂ üzerinden yeniden elektriğe dönüş, elektriğin yalnızca ≈%{n5}'ini geri verir.",
+  "3-phase": "üç fazlı",
 } satisfies Record<string, string>;

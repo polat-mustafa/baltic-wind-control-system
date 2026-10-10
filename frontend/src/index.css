@@ -465,3 +465,70 @@ body {
     max-width: none;
   }
 }
+
+/* ── Maths on paper (components/ui/MathPaper.tsx) ──────────────────────
+   A ruled notebook sheet in both themes: dark ink on warm paper, a red margin
+   line and rules every 1.75rem that the handwriting sits on. Playpen Sans is
+   a legible school hand that covers Greek and the maths symbols the formulas
+   use. Ink ≥ 7:1 on the paper; notes and sources ≥ 4.5:1. */
+.math-paper {
+  --paper: #fdf9ee;
+  --ink: #1f2d4d;
+  --rule: rgba(70, 110, 180, 0.16);
+  position: relative;
+  border: 1px solid #d9cfb4;
+  border-radius: 4px;
+  padding: 0.6rem 1rem 0.75rem 2.6rem;
+  color: var(--ink);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(to right, transparent 1.9rem, rgba(200, 70, 70, 0.35) 1.9rem, rgba(200, 70, 70, 0.35) calc(1.9rem + 1px), transparent calc(1.9rem + 1px)),
+    linear-gradient(to bottom, transparent calc(1.75rem - 1px), var(--rule) calc(1.75rem - 1px));
+  background-size: 100% 100%, 100% 1.75rem;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 6px 14px -8px rgba(0, 0, 0, 0.45);
+}
+.math-hand {
+  font-family: "Playpen Sans", "Comic Neue", cursive;
+  font-weight: 500;
+  color: var(--ink, #1f2d4d);
+  letter-spacing: 0.01em;
+  line-height: 1.75rem;
+}
+.math-hand :is(sub, sup) {
+  font-size: 0.68em;
+  line-height: 0;
+}
+.math-hand sub {
+  vertical-align: -0.3em;
+}
+.math-hand sup {
+  vertical-align: 0.55em;
+}
+.math-paper-title {
+  font-family: "Playpen Sans", cursive;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.75rem;
+  color: var(--ink);
+}
+.math-paper-note {
+  color: #3c4a66;
+  font-size: 0.8125rem;
+}
+.math-paper-source {
+  color: #4f5a73;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+.math-paper-result {
+  border-top: 1px dashed rgba(31, 45, 77, 0.45);
+  padding-top: 0.35rem;
+}
+.math-paper-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1a6b36;
+}

@@ -22,13 +22,15 @@ export const useMarketStore = create<MarketState>((set, get) => ({
   forecast_sigma_ms: 1.0,
   include_cfd: true,
   include_bess: true,
+  date: undefined,
   day: null,
   error: null,
   setParams: (p) => set(p),
   run: async () => {
-    const { scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess } = get();
+    const { scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess, date } = get();
     try {
-      set({ day: await simMarketDay({ scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess }) });
+      const body = { scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess, ...(scenario === "real_day" && date ? { date } : {}) };
+      set({ day: await simMarketDay(body), error: null });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
     }

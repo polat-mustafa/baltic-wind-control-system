@@ -34,6 +34,8 @@ import type { LayerVisibility, MapTheme } from "../../store/layerStore";
 import type { TurbineData } from "../../types/landing";
 import { DTS_ZONES, dtsTempC, dtsZoneName } from "../../utils/landingPhysics";
 
+import { rgba } from "../map/deckUtils";
+import { stationLine, type CoastalStation } from "./coastal";
 import { AIS_ICON, FAULT_LABEL, cardinalIcon, crewIcon, shipClass, svgIcon, vesselIcon, type AisVessel, type OmVessel } from "./maritime";
 
 export type RGBA = [number, number, number, number];
@@ -177,6 +179,8 @@ export interface ContextInput {
   repairs: Record<string, RepairJob>;
   ais: AisVessel[];
   vessels: OmVessel[];
+  /** IMGW coastal stations, latest hourly observation. */
+  coastal: CoastalStation[];
   /** Export current per circuit [A] and sea temperature [°C], for the DTS. */
   dts: { currentA: number; ambientC: number };
   now: number;
@@ -377,10 +381,63 @@ export function underLayers(c: ContextInput): Layer[] {
 
 /** Layers drawn above the turbines. */
 export function overLayers(c: ContextInput): Layer[] {
-  const { layers, pal, theme, fleet, sb510, zoom, turbineMap, fault, repairs, ais, vessels, now } = c;
+  const { layers, pal, theme, fleet, sb510, zoom, turbineMap, fault, repairs, ais, vessels, now, coastal } = c;
   const storybook = theme === "storybook";
   const pos = new Map(fleet.turbines.map((t) => [t.id, [t.lon, t.lat] as [number, number]]));
   const out: (Layer | false)[] = [];
+
+  if (layers.coastalStations && coastal.length) {
+    // measured 10 m shore wind: a dot, an arrow blowing downwind, the speed
+    const data = coastal.map((st) => ({
+      st,
+      position: [st.lon, st.lat] as [number, number],
+      tip: `${stationLine(st)}
+IMGW SYNOP, measured on the shore: lower than the 150 m model wind over open sea`,
+    }));
+    out.push(
+      new ScatterplotLayer({
+        id: "coastal-stations",
+        data,
+        getPosition: (d: (typeof data)[number]) => d.position,
+        getRadius: 5,
+        radiusUnits: "pixels",
+        getFillColor: rgba(pal.ink),
+        getLineColor: [255, 255, 255, 255],
+        stroked: true,
+        lineWidthUnits: "pixels",
+        getLineWidth: 1.5,
+        pickable: true,
+        updateTriggers: { getFillColor: pal },
+      }),
+      new TextLayer({
+        id: "coastal-wind",
+        data: data.filter((d) => d.st.wind_ms != null),
+        getPosition: (d: (typeof data)[number]) => d.position,
+        getText: (d: (typeof data)[number]) => `${d.st.wind_ms!.toFixed(0)} m/s`,
+        getColor: rgba(pal.ink),
+        getSize: 12,
+        getPixelOffset: [10, 0],
+        getTextAnchor: "start",
+        fontFamily: MONO,
+        characterSet: "auto",
+        pickable: true,
+        updateTriggers: { getColor: pal },
+      }),
+      new TextLayer({
+        id: "coastal-arrows",
+        data: data.filter((d) => d.st.wind_dir_deg != null && d.st.wind_ms != null),
+        getPosition: (d: (typeof data)[number]) => d.position,
+        getText: () => "➤",
+        // ➤ points east = deck angle 0 (counter-clockwise); it points downwind: bearing from + 180°
+        getAngle: (d: (typeof data)[number]) => 90 - (d.st.wind_dir_deg! + 180),
+        getColor: rgba(pal.ink),
+        getSize: 13,
+        getPixelOffset: [-14, 0],
+        fontFamily: MONO,
+        characterSet: "auto",
+      }),
+    );
+  }
 
   if (layers.navAids && sb510) {
     const lights = fleet.turbines

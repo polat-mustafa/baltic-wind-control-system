@@ -396,9 +396,19 @@ class TestAssess:
         assert {"PZP_14", "PZP_43", "PZP_44", "PZP_45", "PZP_46", "PZP_53", "PZP_60"} <= basins
         projects = {f.name for f in pack.point_features("owf")}
         outlines = {f.name for f, _ in pack.named_polygons("owf")}
-        # a farm with a drawn outline is not repeated as a point
-        assert {"Baltica 9", "Baltica 3"} <= projects and not projects & outlines
+        # built farms (OSM), Polish location permits (SIPAM); a project with an area is not
+        # repeated as a point
         assert {"Baltic Power", "Baltica 2", "MFW Bałtyk II Offshore Wind Farm"} <= outlines
+        assert {
+            "Baltica 9",
+            "Baltica 3",
+            "Bałtyk Środkowy III",
+            "Energa MFW 1 (14.E.1)",
+        } <= outlines
+        assert not projects & outlines
+        permits = [f for f, _ in pack.named_polygons("owf") if f.props.get("source") == "SIPAM"]
+        b9 = next(f for f in permits if f.name == "Baltica 9")
+        assert b9.props["power_mw"] == 975.0  # EMODnet's capacity; competing entries left out
         grid = {name for name, _, _ in pack.points("grid")}
         assert any("Słupsk" in n for n in grid) and any("Żarnowiec" in n for n in grid)
         for layer in pack.layers:
@@ -782,3 +792,12 @@ def test_pack_carries_the_real_transmission_grid() -> None:
     # real routes, not bus-to-bus straight lines (PyPSA's CSV quotes its WKT with ')
     ac = [f for f in grid["features"] if f["kind"] == "AC line"]
     assert sum(len(f["coordinates"]) > 2 for f in ac) > 0.8 * len(ac)
+
+
+def test_second_atlas_at_sb510() -> None:
+    """GWA v4 next to NEWA at the SB-510 turbines: the two atlases agree within ~10 %."""
+    from app.services.site_assessment.wind_climate import sb510_wind
+
+    w = sb510_wind()
+    assert w.gwa_mean_ms is not None
+    assert 0.9 < w.gwa_mean_ms / w.mean_ms < 1.1

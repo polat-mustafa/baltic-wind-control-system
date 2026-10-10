@@ -4,7 +4,9 @@ Site wind climate from the region pack: Weibull A and k at hub height and the
 
 Data (scripts/fetch_wind_climate.py): mean speed at 150 m from the NEWA
 Mesoscale Atlas, k from the NEWA Microscale Atlas (100/200 m → 150 m), and the
-direction rose from ERA5 100 m hourly winds 2015–2024. Without those layers
+direction rose from ERA5 100 m hourly winds 2015–2024. A second atlas, the
+Global Wind Atlas v4 mean at 150 m, is reported next to NEWA: the spread of
+two independent atlases is a first look at the wind-resource uncertainty. Without those layers
 the regional approximation is returned and labelled as such.
 
 Physics
@@ -52,6 +54,8 @@ class WindClimate:
     source: str
     license: str
     approximate: bool
+    #: Second atlas over the same samples: Global Wind Atlas v4 mean at hub height [m/s].
+    gwa_mean_ms: float | None = None
 
 
 def approximation() -> WindClimate:
@@ -78,6 +82,9 @@ def site_wind(pack: RegionPack, lon: NDArray[np.float64], lat: NDArray[np.float6
     if not ok.any():  # site on land or outside the grid
         return approximation()
     u, kk = float(mean[ok].mean()), float(k[ok].mean())
+    gwa_r = pack.raster("wind", "gwa_mean")
+    gwa = gwa_r.sample(lon, lat) if gwa_r is not None else np.array([np.nan])
+    gwa_ok = gwa[np.isfinite(gwa)]
 
     freqs: tuple[float, ...] | None = None
     clon, clat = np.array([float(np.mean(lon))]), np.array([float(np.mean(lat))])
@@ -101,6 +108,7 @@ def site_wind(pack: RegionPack, lon: NDArray[np.float64], lat: NDArray[np.float6
         source=source,
         license=license_,
         approximate=False,
+        gwa_mean_ms=float(gwa_ok.mean()) if gwa_ok.size else None,
     )
 
 

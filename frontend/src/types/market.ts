@@ -3,7 +3,7 @@
  * Money in PLN, energy in MWh per 1 h period.
  */
 
-export type MarketScenario = "windy_spring_sunday" | "winter_weekday" | "calm_summer_day";
+export type MarketScenario = "windy_spring_sunday" | "winter_weekday" | "calm_summer_day" | "real_day";
 
 export interface MarketDayRequest {
   scenario: MarketScenario;
@@ -11,6 +11,8 @@ export interface MarketDayRequest {
   forecast_sigma_ms: number;
   include_cfd: boolean;
   include_bess: boolean;
+  /** real_day: YYYY-MM-DD (Polish time); default today. */
+  date?: string;
 }
 
 export interface MarketHour {
@@ -47,4 +49,35 @@ export interface MarketDayResponse {
   bess_arbitrage_pln: number;
   total_pln: number;
   assessment: string;
+}
+
+/** One quarter-hour of the Polish system (PSE his-wlk-cal + rce-pln); null = not published yet. */
+export interface PseQuarter {
+  /** End of the quarter-hour, Polish time. */
+  time: string;
+  period: string;
+  wind_mw: number | null;
+  pv_mw: number | null;
+  demand_mw: number | null;
+  price_pln_mwh: number | null;
+}
+
+export interface PseDay {
+  date: string;
+  quarters: PseQuarter[];
+  summary: {
+    quarters_filled: number;
+    last_filled: string | null;
+    wind_mwh: number;
+    pv_mwh: number;
+    demand_mwh: number;
+    wind_share_pct: number | null;
+    pv_share_pct: number | null;
+    wind_peak_mw: number | null;
+    avg_price_pln_mwh: number | null;
+    wind_capture_price_pln_mwh: number | null;
+    wind_capture_rate_pct: number | null;
+    negative_price_quarters: number;
+  };
+  source: string;
 }

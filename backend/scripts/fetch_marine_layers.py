@@ -66,6 +66,7 @@ EMODNET_HA_WFS = "https://ows.emodnet-humanactivities.eu/wfs"
 EMODNET_BATHY_WCS = "https://ows.emodnet-bathymetry.eu/wcs"
 MARINE_REGIONS_WFS = "https://geo.vliz.be/geoserver/MarineRegions/wfs"
 EMODNET_GEOLOGY_WFS = "https://drive.emodnet-geology.eu/geoserver/gtk/wfs"
+SIPAM_WFS = "https://ogc.sipam.gov.pl/geoserver/SIPAM_ENG/wfs"
 OVERPASS = (
     "https://overpass-api.de/api/interpreter",
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
@@ -854,6 +855,38 @@ def wind_projects(
                         "osm": f"{e['type']}/{e['id']}",
                     }
                 )
+    # Poland: the location permits (PSZW) in force, from the maritime administration's
+    # SIPAM WFS — the official project areas.
+    print("  SIPAM: location permits (PSZW) for offshore wind farms")
+    # the server pages only with a sort key and filters by attribute (no bbox)
+    permits = wfs_geojson(
+        SIPAM_WFS,
+        "SIPAM_ENG:investment_permit",
+        box,
+        CQL_FILTER="structure_type_code='mfw'",
+        sortBy="investment_permit_id",
+    )
+    for f in permits["features"]:
+        p, g = f["properties"], f.get("geometry")
+        if not g or p.get("structure_type_code") != "mfw" or p.get("permit_status") != "aktualne":
+            continue
+        for poly in prepare_polygons(g, box):
+            outer = np.asarray(poly[0], dtype=float)
+            centre = outer.mean(axis=0)
+            if any(points_in_polygons(centre[:1], centre[1:], [[k]])[0] for k in kept):
+                continue  # the built farm's OSM outline is drawn
+            kept.append(outer)
+            outlines.append(
+                {
+                    "name": permit_name(p),
+                    "coordinates": poly,
+                    "country": "Poland",
+                    "status": "location permit (PSZW)",
+                    "holder": p.get("investor_id"),
+                    "permit_until": (p.get("permit_term") or "")[:10] or None,
+                    "source": "SIPAM",
+                }
+            )
     # Neighbours' project areas as EMODnet polygons. Poland's are the MSP basins (own layer),
     # not projects; very large unnamed polygons are search areas, not farms.
     for f in fetch_ha("windfarmspoly", box)["features"]:
@@ -899,8 +932,16 @@ def wind_projects(
         p, xy = f["properties"], f["geometry"]["coordinates"][:2]
         if len(at[tuple(xy)]) > 1:
             continue
-        if any(points_in_polygons(np.array([xy[0]]), np.array([xy[1]]), [[k]])[0] for k in kept):
-            continue  # the farm's outline is drawn
+        if any(
+            points_in_polygons(
+                np.array([xy[0]]), np.array([xy[1]]), [[np.asarray(o["coordinates"][0])]]
+            )[0]
+            for o in outlines
+            if o.get("source") != "SIPAM"
+        ):
+            continue  # the farm's outline is drawn (and carries its own capacity)
+        if float(p.get("power_mw") or 0.0) < 20.0:
+            continue  # a pre-2010 test application, not a project of today's scale
         points.append(
             {
                 "name": p.get("name") or "Wind farm",
@@ -913,6 +954,7 @@ def wind_projects(
                 "approximate": True,
             }
         )
+    points = merge_into_permits(outlines, points)
     return [
         layer(
             "owf_outlines",
@@ -921,8 +963,9 @@ def wind_projects(
             "polygon",
             "OpenStreetMap power=plant / construction:power=plant + plant:source=wind at sea "
             "(Overpass): the outlines mappers have drawn so far; other countries' project "
-            "areas from EMODnet Human Activities 'windfarmspoly'",
-            f"{OSM_LICENCE}; {EMODNET_HA_LICENCE}",
+            "areas from EMODnet Human Activities 'windfarmspoly'; Polish location permits (PSZW) "
+            "in force from SIPAM (Polish maritime administration, INSPIRE WFS)",
+            f"{OSM_LICENCE}; {EMODNET_HA_LICENCE}; SIPAM © Urząd Morski w Gdyni (attribution)",
             today,
             features=outlines,
         ),
@@ -939,6 +982,124 @@ def wind_projects(
             features=points,
         ),
     ]
+
+
+#: Permit holders whose SIPAM permit carries only the generic title.
+PERMIT_HOLDERS = {
+    "ew_baltica1": "Baltica 1",
+    "ew_baltica2": "Baltica 2",
+    "ew_baltica3": "Baltica 3",
+    "baltic_power": "Baltic Power",
+    "c_wind": "C-Wind",
+    "cwindpolskaspzoo": "C-Wind",
+}
+
+
+_ROMAN = {
+    "i": "1",
+    "ii": "2",
+    "iii": "3",
+    "iv": "4",
+    "v": "5",
+    "vi": "6",
+    "vii": "7",
+    "viii": "8",
+    "ix": "9",
+}
+_GENERIC = {"offshore", "wind", "farm", "morska", "farma", "wiatrowa", "mfw", "phase"}
+
+
+def _tokens(name: str) -> set[str]:
+    """Name tokens for matching: lower case, Roman numerals as digits, the area's last digit."""
+    name = re.sub(r"(?i)\s+phase\s+\d+|\s+offshore wind farm\s+\d+$", "", name)
+    out = set()
+    for t in re.findall(r"[\w.+]+", name.lower().replace("ł", "l")):
+        if re.fullmatch(r"\d{2}\.e\.\d", t):
+            out.add(t[-1])  # 14.E.3 → "3" (Orlen Neptun III holds 14.E.3)
+        elif t not in _GENERIC:
+            out.add(_ROMAN.get(t, t))
+    return out
+
+
+def merge_into_permits(
+    outlines: list[dict[str, Any]], points: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Polish project points → the location permit (SIPAM) they belong to.
+
+    A point goes to the permit within 30 km whose name matches best (≥ 2 shared tokens),
+    else to the permit it lies in; points with neither stay (approximate). Per permit
+    the best-matching project (its phases summed) gives the capacity; other entries in
+    the same area are competing or outdated applications and are left out.
+    """
+    permits = [o for o in outlines if o.get("source") == "SIPAM"]
+    assigned: dict[int, list[dict[str, Any]]] = {}
+    keep = []
+    for pt in points:
+        if pt.get("country") != "Poland":
+            keep.append(pt)
+            continue
+        xy = pt["coordinates"]
+        near = [(i, o) for i, o in enumerate(permits) if _km_to(o, xy) < 30.0]
+        scored = [(len(_tokens(pt["name"]) & _tokens(o["name"])), i) for i, o in near]
+        best = max(scored, default=(0, -1))
+        # two shared name tokens, or one when the point sits next to the area
+        if best[0] >= 2 or (best[0] == 1 and _km_to(permits[best[1]], xy) < 5.0):
+            assigned.setdefault(best[1], []).append(pt)
+            continue
+        inside = [
+            i
+            for i, o in near
+            if points_in_polygons(
+                np.array([xy[0]]), np.array([xy[1]]), [[np.asarray(o["coordinates"][0])]]
+            )[0]
+        ]
+        if inside:
+            assigned.setdefault(inside[0], []).append(pt)
+        else:
+            keep.append(pt)
+    for i, pts in assigned.items():
+        o = permits[i]
+        groups: dict[frozenset[str], list[dict[str, Any]]] = {}
+        for pt in pts:
+            groups.setdefault(frozenset(_tokens(pt["name"])), []).append(pt)
+        best_group = max(
+            groups.values(),
+            key=lambda g: (
+                len(_tokens(g[0]["name"]) & _tokens(o["name"])),
+                sum(float(x.get("power_mw") or 0) for x in g),
+            ),
+        )
+        o["power_mw"] = sum(float(x.get("power_mw") or 0) for x in best_group) or None
+        o["projects"] = [x["name"] for x in best_group]
+        others = [x["name"] for x in pts if x not in best_group]
+        if others:
+            o["also_listed"] = others
+    return keep
+
+
+def _km_to(outline: dict[str, Any], xy: list[float]) -> float:
+    """Distance [km] from a lon/lat point to the nearest vertex of an outline (equirectangular)."""
+    ring = np.asarray(outline["coordinates"][0], dtype=float)
+    dx = (ring[:, 0] - xy[0]) * 111.32 * math.cos(math.radians(xy[1]))
+    dy = (ring[:, 1] - xy[1]) * 110.57
+    return float(np.hypot(dx, dy).min())
+
+
+def permit_name(p: dict[str, Any]) -> str:
+    """'Morska Farma Wiatrowa Energa MFW 1 dla obszaru 14.E.1 …' → 'Energa MFW 1 (14.E.1)'."""
+    name = str(p.get("short_name") or p.get("full_name") or "Offshore wind farm")
+    if name.startswith("Zespół morskich farm wiatrowych oraz"):
+        return PERMIT_HOLDERS.get(str(p.get("investor_id")), name)
+    area = re.search(r"(\d{2}\.E\.\d)", name)
+    name = re.split(r" wraz z| dla obszaru| na obszarze| obszar ", name)[0]
+    name = re.sub(
+        r"^(Morska Farma Wiatrowa|Zespół morskich farm wiatrowych|Farma Elektrowni Wiatrowych)\s+",
+        "",
+        name,
+    ).strip()
+    if area and area.group(1) not in name:
+        name += f" ({area.group(1)})"
+    return name
 
 
 def _mw(value: str | None) -> float | None:

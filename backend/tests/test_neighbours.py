@@ -31,7 +31,9 @@ def test_sb510_neighbours() -> None:
     n = neighbour_farms(load_region("southern-baltic"), SB510_SITE, 15.0)
     names = [f.name for f in n.farms]
     assert not any(k in " ".join(names) for k in ("Baltica 9", "FEW Baltic II", "Sharco"))
-    assert names[0] == "MFW Bałtyk II Offshore Wind Farm"  # nearest, mapped outline
+    # nearest: PGE's Baltica 7 location permit (SIPAM area), then Bałtyk II (built, OSM outline)
+    assert names[:2] == ["Baltica 7", "MFW Bałtyk II Offshore Wind Farm"]
+    assert next(f for f in n.farms if f.name == "Baltica 7").source == "outline"
     assert all(f.distance_km <= RADIUS_KM for f in n.farms)
     for f in n.farms:
         assert len(f.turbines) == pytest.approx(f.power_mw / 15.0, abs=1.0)
@@ -88,7 +90,7 @@ def test_neighbours_and_custom_wake_api() -> None:
     r = client.post("/api/v1/site/neighbours", json={"polygon": SB510_SITE, "radius_km": 30})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert [f["name"] for f in body["farms"]] == ["MFW Bałtyk II Offshore Wind Farm"]
+    assert [f["name"] for f in body["farms"]] == ["Baltica 7", "MFW Bałtyk II Offshore Wind Farm"]
     assert "not published" in body["note"]
     bad = client.post(
         "/api/v1/wind/wake-analysis-custom",

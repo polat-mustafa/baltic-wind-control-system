@@ -27,6 +27,7 @@ const GROUPS: { name: string; items: { key: keyof LayerVisibility; label: string
       { key: "oceanWaves", label: "Waves" },
       { key: "wakeEffects", label: "Wake envelopes" },
       { key: "dayNightTint", label: "Day / night" },
+      { key: "coastalStations", label: "Coastal weather stations (IMGW, live)" },
     ],
   },
   {

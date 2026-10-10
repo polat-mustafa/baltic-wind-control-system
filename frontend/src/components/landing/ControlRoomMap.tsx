@@ -56,6 +56,7 @@ import { turbineGlyph } from "../layout-canvas/shared";
 import AlarmTicker from "./AlarmTicker";
 import ArrayCableCard from "./ArrayCableCard";
 import DayNightOverlay from "./DayNightOverlay";
+import { useCoastalStations } from "./coastal";
 import EnvironmentPanel from "./EnvironmentPanel";
 import { useAis, useOmVessels, svgIcon } from "./maritime";
 import { PALETTES, alpha, dtsTip, overLayers, underLayers, type Palette, type RGBA } from "./mapContextLayers";
@@ -202,6 +203,7 @@ function ControlRoomMapInner({
   const repairs = useLandingStore((s) => s.repairs);
   const exporting = totalPowerMW > 0.5;
   const ais = useAis(layers.aisTraffic);
+  const coastal = useCoastalStations(layers.coastalStations);
   const vessels = useOmVessels(layers.vessels && sb510);
   const boxRef = useRef<HTMLDivElement>(null);
   const deckRef = useRef<DeckGLRef>(null);
@@ -382,7 +384,7 @@ function ControlRoomMapInner({
   const dtsA = Math.round(exportCableState(kpis.totalOutputMW).currentA / 5) * 5;
   const dtsC = Math.round(env.seaTemperatureC * 2) / 2;
   const dts = useMemo(() => ({ currentA: dtsA, ambientC: dtsC }), [dtsA, dtsC]);
-  const context = { layers, pal, theme, fleet, sb510, zoom, turbineMap, fault, repairs, ais: ais.vessels, vessels, dts, now: Date.now() };
+  const context = { layers, pal, theme, fleet, sb510, zoom, turbineMap, fault, repairs, ais: ais.vessels, vessels, dts, coastal, now: Date.now() };
 
   const deckLayers = [
     ...underLayers(context),

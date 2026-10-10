@@ -8,7 +8,7 @@
  * with this map), cross-checked with ENTSO-E's 2024 grid map print.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { PickingInfo } from "@deck.gl/core";
 import { PathLayer, ScatterplotLayer } from "@deck.gl/layers";
 
@@ -16,52 +16,18 @@ import { SCADA_COLORS } from "../../constants/scadaColors";
 import { EXPORT_CABLE_GEO } from "../../constants/windFarmLayout";
 import { farmTitle, useFleet } from "../../lib/fleet";
 import { rgba } from "../map/deckUtils";
+import { COUNTRY, DC_COLOR as DC, kseLayers, kseTooltip, usePlGrid, type GridLine } from "../map/kseLayers";
 import PlanningMap, { type Bounds } from "../map/PlanningMap";
-
-interface GridLine {
-  c: [number, number][];
-  kv: number;
-  kind: "AC" | "DC";
-  circuits: number;
-  km: number;
-  to?: string;
-  status?: string;
-}
-interface Station {
-  name: string;
-  kv: number[];
-  c: [number, number];
-  status?: string;
-}
-interface PlGrid {
-  source: string;
-  license: string;
-  retrieved: string;
-  lines: GridLine[];
-  stations: Station[];
-  entsoe_check?: { map: string; named: number; stations: number };
-}
 
 const POLAND: Bounds = [
   [14.1, 48.95],
   [24.2, 55.0],
 ];
-const DC = "#c38cf0";
-const lineColor = (l: GridLine) => (l.kind === "DC" ? DC : l.kv >= 380 ? SCADA_COLORS.VOLTAGE_400KV : SCADA_COLORS.VOLTAGE_220KV);
-const COUNTRY: Record<string, string> = { DE: "Germany", CZ: "Czechia", SK: "Slovakia", UA: "Ukraine", LT: "Lithuania", SE: "Sweden" };
 
 export default function PolishGridMap() {
-  const [grid, setGrid] = useState<PlGrid | null>(null);
+  const grid = usePlGrid();
   const fleet = useFleet();
   const sb510 = fleet.source === "sb510";
-
-  useEffect(() => {
-    let live = true;
-    void import("../../data/plGrid.json").then((m) => live && setGrid(m.default as unknown as PlGrid));
-    return () => {
-      live = false;
-    };
-  }, []);
 
   const summary = useMemo(() => {
     if (!grid) return null;
@@ -86,30 +52,7 @@ export default function PolishGridMap() {
   const farm = farmTitle(fleet);
 
   const layers = grid && [
-    new PathLayer<GridLine>({
-      id: "kse-lines",
-      data: grid.lines,
-      getPath: (l) => l.c,
-      getColor: (l) => rgba(lineColor(l)),
-      getWidth: (l) => (l.to || l.kind === "DC" ? 3.5 : l.circuits > 1 ? 2.5 : 1.6),
-      widthUnits: "pixels",
-      capRounded: true,
-      jointRounded: true,
-      pickable: true,
-    }),
-    new ScatterplotLayer<Station>({
-      id: "kse-stations",
-      data: grid.stations,
-      getPosition: (s) => s.c,
-      getRadius: (s) => (s.kv[0] >= 400 ? 4 : 3),
-      radiusUnits: "pixels",
-      getFillColor: rgba("#e4ecf3"),
-      getLineColor: (s) => rgba(s.kv[0] >= 400 ? SCADA_COLORS.VOLTAGE_400KV : SCADA_COLORS.VOLTAGE_220KV),
-      stroked: true,
-      lineWidthUnits: "pixels",
-      getLineWidth: 1.5,
-      pickable: true,
-    }),
+    ...kseLayers(grid),
     route.length > 1 &&
       new PathLayer({
         id: "farm-route",
@@ -139,15 +82,8 @@ export default function PolishGridMap() {
   const tooltip = (info: PickingInfo): string | null => {
     const id = info.layer?.id;
     if (!info.object) return null;
-    if (id === "kse-lines") {
-      const l = info.object as GridLine;
-      const what = l.kind === "DC" ? `${l.kv} kV HVDC link` : `${l.kv} kV line${l.circuits > 1 ? ` × ${l.circuits}` : ""}`;
-      return `${what} · ${l.km.toFixed(0)} km${l.to ? ` · interconnector to ${COUNTRY[l.to] ?? l.to}` : ""}${l.status ? ` · ${l.status}` : ""}`;
-    }
-    if (id === "kse-stations") {
-      const s = info.object as Station;
-      return s.status ? `${s.name} · ${s.status}` : s.name;
-    }
+    const kse = kseTooltip(info);
+    if (kse) return kse;
     if (id === "farm-route") return `${farm} export route`;
     if (id === "farm-node") return `${(info.object as { name: string }).name} · ${farm} connects here`;
     return null;

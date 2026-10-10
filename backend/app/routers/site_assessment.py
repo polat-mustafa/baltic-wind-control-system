@@ -316,6 +316,7 @@ async def post_assess(req: AssessRequest) -> AssessResponse:
             source=a.wind.source,
             license=a.wind.license,
             approximate=a.wind.approximate,
+            gwa_mean_ms=None if a.wind.gwa_mean_ms is None else round(a.wind.gwa_mean_ms, 2),
         ),
         seabed=None if a.seabed is None else {k: round(v, 4) for k, v in a.seabed.items()},
         grid_nodes=[

@@ -87,9 +87,9 @@ export function useAis(on: boolean): { vessels: AisVessel[]; note: string | null
 // ── O&M vessels ──────────────────────────────────────────────────
 
 /** Weather-window limits, same as backend services/p1/weather_window.py. */
-const HS_LIMIT = { CTV: 1.5, SOV: 2.5 } as const;
+export const HS_LIMIT = { CTV: 1.5, SOV: 2.5 } as const;
 /** Wind limits [m/s at 10 m], same source. */
-const VW_LIMIT = { CTV: 10, SOV: 15 } as const;
+export const VW_LIMIT = { CTV: 10, SOV: 15 } as const;
 /** Service speeds [kn] and the track time compression. */
 const SPEED_KN = { CTV: 25, SOV: 12 } as const;
 const TIME_X = 20;

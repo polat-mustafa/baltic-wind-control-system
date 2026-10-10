@@ -21,7 +21,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useSyncExternalStore, type ComponentProps } from "react";
+import { useMemo, useSyncExternalStore, type ComponentProps } from "react";
 import createPlotlyComponent from "react-plotly.js/factory";
 import Plotly from "plotly.js-dist-min";
 
@@ -88,10 +88,18 @@ function phoneLayout(layout: PlotProps["layout"] = {}): PlotProps["layout"] {
 
 export default function Plot(props: PlotProps) {
   const phone = useSyncExternalStore(subscribe, isPhone, () => false);
+  // Plotly writes its autorange result (range) into the layout object it is given. So:
+  // - one copy per chart, never the shared DARK_PLOTLY_LAYOUT axes (written by one chart,
+  //   read by the next);
+  // - the same copy while the content is unchanged: a fresh object without that range on a
+  //   re-render made Plotly.react skip the recalculation and draw default axes ([-1, 6]);
+  // - a changed content gets a new copy and datarevision, which forces a full recalculation.
+  const key = JSON.stringify((phone ? phoneLayout(props.layout) : props.layout) ?? {});
+  const layout = useMemo(() => ({ ...JSON.parse(key), datarevision: key }), [key]);
   // phone: no modebar either (it covers the top of the plot; the chart's expand button stays)
   return phone ? (
-    <BasePlot {...props} layout={phoneLayout(props.layout)} config={{ ...props.config, displayModeBar: false }} />
+    <BasePlot {...props} layout={layout} config={{ ...props.config, displayModeBar: false }} />
   ) : (
-    <BasePlot {...props} />
+    <BasePlot {...props} layout={layout} />
   );
 }

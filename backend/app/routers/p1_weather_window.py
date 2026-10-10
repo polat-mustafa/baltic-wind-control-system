@@ -211,3 +211,15 @@ async def coastal_stations() -> dict[str, Any]:
 
     result: dict[str, Any] = await fetch()
     return result
+
+
+@router.get("/metocean", summary="Sea conditions at SB-510 (Copernicus Marine reanalyses)")
+async def metocean() -> dict[str, Any]:
+    """
+    Waves (hourly since 1980: percentiles, 50-year Hs), surface currents, sea surface and
+    seabed temperature along the export route (daily since 1993), sea ice (CMEMS next to
+    NOAA OISST) and the export cable rating per month with the measured seabed temperature.
+    """
+    from app.services.p1.metocean import metocean as load
+
+    return load()

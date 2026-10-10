@@ -121,6 +121,8 @@ class LSTMConfig:
         Number of MC Dropout forward passes for uncertainty estimation.
     n_cv_splits : int
         Number of TimeSeriesSplit folds.
+    gap : int
+        Sequences left out between each training and test block (0 = none).
     seed : int
         Random seed for reproducibility.
     """
@@ -134,6 +136,7 @@ class LSTMConfig:
     batch_size: int = 64
     mc_samples: int = 100
     n_cv_splits: int = 5
+    gap: int = 0
     seed: int = 42
 
 
@@ -433,6 +436,24 @@ def _normalize_features(
     return norm_features, norm_target, params
 
 
+def _fold_normalized(
+    x_raw: NDArray[np.float64],
+    y_raw: NDArray[np.float64],
+    features: NDArray[np.float64],
+    target: NDArray[np.float64],
+    rows_end: int,
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NormParams]:
+    """Sequences scaled with min/max of the training rows ``[0, rows_end)`` only, so no
+    statistic of the test fold reaches the inputs (fit the scaler on the past)."""
+    _, _, params = _normalize_features(features[:rows_end], target[:rows_end])
+    t_range = params.target_max - params.target_min or 1.0
+    return (
+        _normalize_features_with_params(x_raw, params),
+        (y_raw - params.target_min) / t_range,
+        params,
+    )
+
+
 def _normalize_features_with_params(
     features: NDArray[np.float64],
     params: NormParams,
@@ -632,13 +653,11 @@ def train_lstm(
     if config is None:
         config = LSTMConfig()
 
-    # Normalize before sequencing — all sliding window values on same scale
-    norm_features, norm_target, norm_params = _normalize_features(features, target_power_mw)
+    # Sequences on raw values; each fold scales them with the min/max of its own
+    # training block, so no test-fold statistics leak into the inputs.
+    x_raw, y_raw = create_sequences(features, target_power_mw, config.lookback)
 
-    # Create sequences
-    x_seq, y_seq = create_sequences(norm_features, norm_target, config.lookback)
-
-    if x_seq.shape[0] == 0:
+    if x_raw.shape[0] == 0:
         msg = (
             f"Not enough samples ({features.shape[0]}) for lookback={config.lookback}. "
             f"Need at least {config.lookback} samples."
@@ -648,7 +667,9 @@ def train_lstm(
     n_features = features.shape[1]
 
     # TimeSeriesSplit cross-validation
-    tscv = TimeSeriesSplit(n_splits=config.n_cv_splits)
+    # gap: sequences dropped between training and test block (rows next to the test
+    # block are almost the same weather, so they would flatter the score)
+    tscv = TimeSeriesSplit(n_splits=config.n_cv_splits, gap=config.gap)
     fold_metrics_list: list[LSTMFoldMetrics] = []
     model_sq: list[float] = []  # squared errors on every test sample [MW²]
     persistence_sq: list[float] = []  # same samples, persistence P̂(t) = P(t−1)
@@ -656,7 +677,10 @@ def train_lstm(
     oof_index: list[int] = []
     oof_pred: list[list[float]] = []
 
-    for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_seq)):
+    for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_raw)):
+        x_seq, y_seq, norm_params = _fold_normalized(
+            x_raw, y_raw, features, target_power_mw, int(train_idx[-1]) + config.lookback
+        )
         # Early stopping watches the newest 20 % of the training block, never the
         # test fold (stopping on the test fold leaks it into the model choice).
         n_fit = max(1, int(len(train_idx) * 0.8))

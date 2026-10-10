@@ -1,6 +1,39 @@
 {
  "items": [
   {
+   "id": "dt-care-b-detected",
+   "area": "Digital twin",
+   "claim": "Physics-residual detector on real turbine SCADA (CARE Farm B, tuning set)",
+   "against": "labelled fault and normal periods, CARE to Compare (Gück et al. 2024)",
+   "metric": "faults detected before failure (of 6)",
+   "value": 5.0,
+   "unit": "−",
+   "limit": "≥ 4",
+   "test": "backend/tests/test_dt_care_benchmark.py"
+  },
+  {
+   "id": "dt-care-b-false_alarms",
+   "area": "Digital twin",
+   "claim": "Physics-residual detector on real turbine SCADA (CARE Farm B, tuning set)",
+   "against": "labelled fault and normal periods, CARE to Compare (Gück et al. 2024)",
+   "metric": "false alarms (of 9 normal periods)",
+   "value": 3.0,
+   "unit": "−",
+   "limit": "fewer than v1",
+   "test": "backend/tests/test_dt_care_benchmark.py"
+  },
+  {
+   "id": "dt-care-c-detected",
+   "area": "Digital twin",
+   "claim": "Same detector, method frozen on Farm B, run once on Farm C (held out)",
+   "against": "27 labelled fault periods, CARE Farm C",
+   "metric": "faults detected before failure",
+   "value": 13.0,
+   "unit": "−",
+   "limit": "reported as-is",
+   "test": "backend/tests/test_dt_care_benchmark.py"
+  },
+  {
    "id": "p1-turbopark-orsted",
    "area": "P1 — wind resource",
    "claim": "Our TurbOPark set-up (cluster wakes) is Ørsted's model",
@@ -100,12 +133,126 @@
    "test": "backend/tests/test_p2_analytic.py"
   },
   {
+   "id": "andes-frt-iq",
+   "area": "P2 — grid dynamics (ANDES)",
+   "claim": "Fault ride-through at 0.05 pu retained voltage: reactive current priority",
+   "against": "PSE fast fault current (NC RfG Art. 20(2)(b)), converter limit 1.1 pu",
+   "metric": "peak reactive current during the dip",
+   "value": 1.099,
+   "unit": "pu",
+   "limit": "> 1.0 pu, stays connected",
+   "test": "backend/tests/test_andes_dynamics.py",
+   "tolerance": 0.02
+  },
+  {
+   "id": "andes-frt-recovery",
+   "area": "P2 — grid dynamics (ANDES)",
+   "claim": "Active power recovery after the fault is cleared",
+   "against": "post-fault recovery to 90 % of pre-fault power (PSE, frt_simulation.py)",
+   "metric": "clearance → 90 % of pre-fault power",
+   "value": 0.075,
+   "unit": "s",
+   "limit": "< 5.0 s",
+   "test": "backend/tests/test_andes_dynamics.py",
+   "tolerance": 0.02
+  },
+  {
+   "id": "andes-lfsm-o",
+   "area": "P2 — grid dynamics (ANDES)",
+   "claim": "LFSM-O after losing 3 GW of load: REPCA1 plant controller in ANDES",
+   "against": "PSE / NC RfG droop by hand: ΔP = −P_max/0.05 · (f − 50.2)/50",
+   "metric": "steady-state ΔP minus hand formula",
+   "value": -0.4,
+   "unit": "MW",
+   "limit": "± 2 MW",
+   "test": "backend/tests/test_andes_dynamics.py",
+   "tolerance": 0.5
+  },
+  {
+   "id": "andes-lfsm-o-delay",
+   "area": "P2 — grid dynamics (ANDES)",
+   "claim": "LFSM-O response starts quickly after 50.2 Hz is crossed",
+   "against": "NC RfG Art. 13(2) LFSM-O: an initial delay above 2 s must be justified",
+   "metric": "50.2 Hz crossing → 1 % output reduction",
+   "value": 0.4,
+   "unit": "s",
+   "limit": "< 2 s",
+   "test": "backend/tests/test_andes_dynamics.py",
+   "tolerance": 0.05
+  },
+  {
+   "id": "p3-busbar-clearance",
+   "area": "P3 — SCADA & protection",
+   "claim": "Busbar fault cleared by 87B differential over GOOSE",
+   "against": "main-protection clearing target at 220 kV (relay + breaker)",
+   "metric": "fault inception → arc extinction",
+   "value": 50.0,
+   "unit": "ms",
+   "limit": "< 100 ms",
+   "test": "backend/tests/test_goose_simulation.py"
+  },
+  {
+   "id": "p3-export-87l",
+   "area": "P3 — SCADA & protection",
+   "claim": "Export cable fault at 95 % of 108 km cleared by line differential 87L",
+   "against": "PSE FRT profile allows 0 pu for 150 ms only: clear within it",
+   "metric": "main protection clearance incl. breaker",
+   "value": 85.0,
+   "unit": "ms",
+   "limit": "≤ 150 ms",
+   "test": "backend/tests/test_protection_relay.py"
+  },
+  {
+   "id": "p3-goose-fault-current",
+   "area": "P3 — SCADA & protection",
+   "claim": "The SCADA fault scenario uses the grid model's fault current",
+   "against": "IEC 60909 I\"k at the OSS 220 kV busbar (pandapower, P2)",
+   "metric": "busbar fault current",
+   "value": 7.811,
+   "unit": "kA",
+   "limit": "= P2 calc_sc",
+   "test": "backend/tests/test_goose_simulation.py"
+  },
+  {
+   "id": "p3-goose-transfer",
+   "area": "P3 — SCADA & protection",
+   "claim": "GOOSE trip transfer time in the busbar-fault sequence (fixed teaching value)",
+   "against": "IEC 61850-5 transfer time class for trips, ≤ 3 ms",
+   "metric": "publisher → subscriber transfer time",
+   "value": 1.5,
+   "unit": "ms",
+   "limit": "< 3 ms",
+   "test": "backend/tests/test_goose_simulation.py"
+  },
+  {
+   "id": "p3-idmt-si",
+   "area": "P3 — SCADA & protection",
+   "claim": "Overcurrent relay curve, standard inverse, 10 × pickup, TMS 1",
+   "against": "IEC 60255-151 formula t = 0.14 / (M^0.02 − 1) = 2.97 s",
+   "metric": "operating time",
+   "value": 2.9706,
+   "unit": "s",
+   "limit": "= 2.97 s ± 0.01",
+   "test": "backend/tests/test_protection_relay.py"
+  },
+  {
+   "id": "p3-selectivity-margin",
+   "area": "P3 — SCADA & protection",
+   "claim": "66 kV feeder vs incomer overcurrent grading at the IEC 60909 fault current",
+   "against": "grading margin practice (≥ 300 ms: breaker + relay overshoot + safety)",
+   "metric": "time margin, evaluated on both curves",
+   "value": 366.5,
+   "unit": "ms",
+   "limit": "≥ 300 ms",
+   "test": "backend/tests/test_protection_relay.py"
+  },
+  {
    "id": "p4-energinet-nrmse_pct",
    "area": "P4 — forecasting",
    "claim": "Day-ahead forecast: Energinet (TSO)",
    "against": "16731 measured DK2 hours (Energinet)",
    "metric": "nRMSE",
-   "value": 16.88,
+   "value": 16.9,
    "unit": "% of capacity",
    "limit": "reference",
    "test": "backend/tests/test_p4_real_data.py"
@@ -116,7 +263,7 @@
    "claim": "XGBoost P10–P90 band (conformalised) is calibrated",
    "against": "16731 measured DK2 hours (Energinet)",
    "metric": "share of measured hours inside P10–P90",
-   "value": 84.5,
+   "value": 84.8,
    "unit": "%",
    "limit": "75–90 % (ideal 80 %)",
    "test": "backend/tests/test_p4_real_data.py"
@@ -138,7 +285,7 @@
    "claim": "Day-ahead forecast: XGBoost",
    "against": "16731 measured DK2 hours (Energinet)",
    "metric": "nRMSE",
-   "value": 15.36,
+   "value": 15.41,
    "unit": "% of capacity",
    "limit": "10–20 % (Giebel 2011); < TSO",
    "test": "backend/tests/test_p4_real_data.py"
@@ -149,7 +296,7 @@
    "claim": "Day-ahead forecast: XGBoost",
    "against": "16731 measured DK2 hours (Energinet)",
    "metric": "MSE skill vs 24 h persistence",
-   "value": 0.825,
+   "value": 0.823,
    "unit": "−",
    "limit": "> 0.5",
    "test": "backend/tests/test_p4_real_data.py"

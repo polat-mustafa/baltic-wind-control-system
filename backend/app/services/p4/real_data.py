@@ -29,10 +29,11 @@ and vs climatology, SS = 1 − MSE/MSE_ref; CRPS ≈ quantile score (2/9)·Σ pi
 τ = 0.1 … 0.9 in % of capacity (it equals the MAE for a point forecast) and CRPSS vs
 climatology; P10–P90 coverage and a reliability table (observed share below each quantile).
 
-Validation: 5-fold ``TimeSeriesSplit`` (domain rule 6) — every fold trains on the past
-and is tested on the next block, never shuffled. The quantile band is conformalised
-(CQR) on the newest 20 % of each training block: the P10–P90 miss margin m is added to
-P90, subtracted from P10 and scaled linearly in between (q_τ + m·(τ − 0.5)/0.4).
+Validation: 5-fold ``TimeSeriesSplit`` (domain rule 6) — every fold trains on the past and
+is tested on the next block, never shuffled, with a 48 h gap between the two so the last
+training days do not share their weather with the first test days. The quantile band is
+conformalised (CQR) on the newest 20 % of each training block: the P10–P90 miss margin m is
+added to P90, subtracted from P10 and scaled linearly in between (q_τ + m·(τ − 0.5)/0.4).
 Output is clipped to 0 ≤ P ≤ capacity (``enforce_physical_constraints``; rule 1).
 Feature attribution: mean |SHAP| of the P50 output (XGBoost TreeSHAP, ``pred_contribs``).
 
@@ -75,6 +76,9 @@ FARMS = ("Kriegers Flak 604.8 MW", "Rødsand II 207 MW", "Nysted 165.6 MW")
 QUANTILES = tuple(round(0.1 * k, 1) for k in range(1, 10))  # P10 … P90
 I10, I50, I90 = 0, 4, 8
 N_SPLITS = 5
+# hours dropped between each training block and its test block: the weather of the last
+# training hours is the weather of the first test hours (synoptic memory of ~1–2 days)
+GAP_H = 48
 SERIES_HOURS = 14 * 24  # last two weeks of the last test fold, for the chart
 WS_BIN_MS = 1.0
 CALIBRATION_SHARE = 0.2  # newest part of each training block, for the band
@@ -335,7 +339,7 @@ def evaluate_real_dayahead(site: str = "dk2", seed: int = 42) -> RealForecastRes
     if tso is not None:
         point[TSO] = nan.copy()
     shap = np.zeros(len(names))
-    folds = list(TimeSeriesSplit(n_splits=N_SPLITS).split(x))
+    folds = list(TimeSeriesSplit(n_splits=N_SPLITS, gap=GAP_H).split(x))
 
     for k, (train, test) in enumerate(folds):
         q, s = _xgb_fold(x, y, train, test, seed)

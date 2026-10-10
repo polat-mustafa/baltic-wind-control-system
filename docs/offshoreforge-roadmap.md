@@ -252,14 +252,16 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   engineering, synthetic NWP, XGBoost / ensemble / ramp / training-monitor services and their 12 endpoints; frontend
   dashboard panels, training monitor, controls). The Forecast page is the real-data view + AI Academy + concept map.
   `services/p4/real_data.py` scores every forecast on the same 16 731 DK2 test hours: XGBoost (nine quantiles, CQR)
-  nRMSE **15.4 %**, CRPS 7.7 % (CRPSS 0.62 vs climatology), P10–P90 coverage 84.5 %; **Energinet's own day-ahead
+  nRMSE **15.4 %**, CRPS 7.7 % (CRPSS 0.62 vs climatology), P10–P90 coverage 84.8 %; **Energinet's own day-ahead
   forecast 16.9 %** (rescaled ×mean ratio per training block — it covers more farms and averages 18 % above the
-  three-farm metering; issued ~17:50 D−1); NWP power curve 16.0 %; TFT 17.9 % (coverage 74 %, not conformalised);
-  LSTM 19.0 %; 1/MSE ensemble 16.3 % — it does **not** beat XGBoost (weaker members, correlated NWP error; the academy
+  three-farm metering; issued ~17:50 D−1); NWP power curve 16.0 %; TFT 18.4 % (coverage 75 %, not conformalised);
+  LSTM 19.4 %; 1/MSE ensemble 16.6 % — it does **not** beat XGBoost (weaker members, correlated NWP error; the academy
   says so); climatology 32.1 %; persistence 36.7 %. LSTM / TFT out-of-fold forecasts are bundled per hour
   (`dk2_deep_predictions.csv.gz`, `scripts/train_real_deep_models.py`, ~14 min CPU). Feature-leak guard test: only
   NWP + clock columns. Elia `ods031` not added (licence text unverified; the Energinet benchmark covers the TSO
   comparison). Academy text, P4 training guide and the forecast tour rewritten for the real-data pipeline.
+  Follow-up: 48 h gap between every training and test block (XGBoost and LSTM / TFT), LSTM / TFT min-max scaling
+  fitted on each fold's training block only (was the whole set); numbers above are after this change.
 - **B4 — "Evidence" page** in the app generated from test results (what was validated, against what,
   metric, value, test file).
   **Done**: route `/evidence` (Learn → Evidence). The `evidence` fixture (`backend/tests/conftest.py`) records each

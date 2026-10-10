@@ -75,8 +75,9 @@ export default function EvidencePage() {
         </section>
       ))}
       <p className="text-xs text-text-muted">
-        Still to come: numbers quoted in the lessons checked against the backend, and a weekly check of every cited DOI
-        and link. Not yet covered here: P3 (IEC 61850 behaviour) and the ANDES dynamic tests, which run on Linux CI only.
+        Also checked on every run: every SB-510 number quoted in lessons, panels and tours against the backend
+        (tests/constants/plantFacts.test.ts), and weekly every cited DOI and link. The ANDES rows run on Linux only
+        (CI and the backend Docker image); the GOOSE transfer time is a fixed teaching value, shown against its limit.
       </p>
     </div>
   );

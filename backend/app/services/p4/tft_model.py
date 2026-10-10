@@ -87,7 +87,7 @@ from sklearn.model_selection import TimeSeriesSplit
 from app.services.p4.lstm_model import (
     NormParams,
     _denormalize_power,
-    _normalize_features,
+    _fold_normalized,
     _normalize_features_with_params,
     create_sequences,
 )
@@ -129,6 +129,8 @@ class TFTConfig:
         Quantile levels for probabilistic forecasting.
     n_cv_splits : int
         Number of TimeSeriesSplit folds.
+    gap : int
+        Sequences left out between each training and test block (0 = none).
     seed : int
         Random seed for reproducibility.
     """
@@ -143,6 +145,7 @@ class TFTConfig:
     batch_size: int = 64
     quantiles: tuple[float, ...] = DEFAULT_QUANTILES
     n_cv_splits: int = 5
+    gap: int = 0
     seed: int = 42
 
 
@@ -719,13 +722,11 @@ def train_tft(
     if config is None:
         config = TFTConfig()
 
-    # Normalize before sequencing
-    norm_features, norm_target, norm_params = _normalize_features(features, target_power_mw)
+    # Sequences on raw values; each fold scales them with the min/max of its own
+    # training block, so no test-fold statistics leak into the inputs.
+    x_raw, y_raw = create_sequences(features, target_power_mw, config.lookback)
 
-    # Create sequences
-    x_seq, y_seq = create_sequences(norm_features, norm_target, config.lookback)
-
-    if x_seq.shape[0] == 0:
+    if x_raw.shape[0] == 0:
         msg = (
             f"Not enough samples ({features.shape[0]}) for lookback={config.lookback}. "
             f"Need at least {config.lookback} samples."
@@ -735,7 +736,9 @@ def train_tft(
     n_features = features.shape[1]
 
     # TimeSeriesSplit cross-validation
-    tscv = TimeSeriesSplit(n_splits=config.n_cv_splits)
+    # gap: sequences dropped between training and test block (rows next to the test
+    # block are almost the same weather, so they would flatter the score)
+    tscv = TimeSeriesSplit(n_splits=config.n_cv_splits, gap=config.gap)
     fold_metrics_list: list[TFTFoldMetrics] = []
     model_sq: list[float] = []  # squared errors on every test sample [MW²]
     persistence_sq: list[float] = []  # same samples, persistence P̂(t) = P(t−1)
@@ -743,7 +746,10 @@ def train_tft(
     oof_index: list[int] = []
     oof_pred: list[list[float]] = []
 
-    for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_seq)):
+    for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_raw)):
+        x_seq, y_seq, norm_params = _fold_normalized(
+            x_raw, y_raw, features, target_power_mw, int(train_idx[-1]) + config.lookback
+        )
         # Early stopping watches the newest 20 % of the training block, never the
         # test fold (stopping on the test fold leaks it into the model choice).
         n_fit = max(1, int(len(train_idx) * 0.8))

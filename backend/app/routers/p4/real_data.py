@@ -27,7 +27,7 @@ TTL_S = 7 * 24 * 3600
 
 
 # Bump the prefix when a data file or the model changes.
-@cached(prefix="real_dayahead_v4", ttl=TTL_S)
+@cached(prefix="real_dayahead_v5", ttl=TTL_S)
 def _real_dayahead_payload(site: str) -> dict[str, Any]:
     st = sites()[site]
     r = evaluate_real_dayahead(site)

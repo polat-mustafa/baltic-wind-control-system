@@ -10,6 +10,8 @@ scores them on the same hours as XGBoost and the baselines and builds the ensemb
 Same data, same features, same 5-fold TimeSeriesSplit as XGBoost (on sequences: a window of
 24 hourly NWP rows predicts its last hour). Early stopping watches the newest 20 % of each
 training block, never the test fold. The TFT learns the same nine quantiles (P10 … P90).
+The same 48 h gap separates training and test blocks, and each fold scales its inputs with
+the min/max of its own training block.
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services.p4.lstm_model import LSTMConfig, train_lstm
-from app.services.p4.real_data import DEEP_FILE, QUANTILES, build_features, load_dataset
+from app.services.p4.real_data import DEEP_FILE, GAP_H, QUANTILES, build_features, load_dataset
 from app.services.p4.tft_model import TFTConfig, train_tft
 
 LOOKBACK_H = 24
@@ -38,11 +40,15 @@ def main() -> int:
     for name, run in (
         (
             "lstm",
-            lambda: train_lstm(x, y, LSTMConfig(lookback=LOOKBACK_H, epochs=60, mc_samples=1)),
+            lambda: train_lstm(
+                x, y, LSTMConfig(lookback=LOOKBACK_H, epochs=60, mc_samples=1, gap=GAP_H)
+            ),
         ),
         (
             "tft",
-            lambda: train_tft(x, y, TFTConfig(lookback=LOOKBACK_H, epochs=60, quantiles=QUANTILES)),
+            lambda: train_tft(
+                x, y, TFTConfig(lookback=LOOKBACK_H, epochs=60, quantiles=QUANTILES, gap=GAP_H)
+            ),
         ),
     ):
         t0 = time.perf_counter()

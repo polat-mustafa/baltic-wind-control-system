@@ -5,6 +5,7 @@
  */
 
 import {
+  BadgeCheck,
   Brain,
   ClipboardCheck,
   Cpu,
@@ -78,7 +79,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Learn",
-    items: [{ label: "Academy", path: "/academy", icon: GraduationCap, description: "Courses, scored missions" }],
+    items: [
+      { label: "Academy", path: "/academy", icon: GraduationCap, description: "Courses, scored missions" },
+      { label: "Evidence", path: "/evidence", icon: BadgeCheck, description: "What each model is validated against" },
+    ],
   },
 ];
 

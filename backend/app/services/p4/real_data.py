@@ -1,40 +1,52 @@
 """
-Day-ahead wind power forecast trained on REAL data: Baltic offshore production + archived NWP.
+Day-ahead wind power forecast trained and scored on REAL data: Baltic offshore production +
+archived NWP. P4 has no synthetic data path — every number on the Forecast page comes from here.
 
-The other P4 modules train on synthetic SCADA (SB-510 is a case study, not a built farm).
-This one answers "does the method work on real data?" with measured output of the three
-Danish Baltic offshore farms in price area DK2 — Kriegers Flak 604.8 MW, Rødsand II 207 MW,
-Nysted 165.6 MW = 977.4 MW — and the wind the ECMWF IFS and DWD ICON runs of the
-previous day predicted for each hour (see ``scripts/fetch_real_forecast_data.py``).
+Data: measured output of the three Danish Baltic offshore farms in price area DK2 — Kriegers
+Flak 604.8 MW, Rødsand II 207 MW, Nysted 165.6 MW = 977.4 MW — (or one farm from ENTSO-E)
+and the wind the ECMWF IFS and DWD ICON runs of the previous day predicted for each hour
+(``scripts/fetch_real_forecast_data.py``).
 
 Framing — day-ahead, as a farm bids it
 ---------------------------------------
 The bid for day D closes at 12:00 on D−1, so the only wind known for hour t is a forecast
 24–47 h old (Open-Meteo ``previous_day1``). Measured power is not a feature: at the bid
-it is 13–36 h old and nearly useless. Baselines a model must beat:
+it is 13–36 h old and nearly useless. Forecasts scored:
 
-  - persistence (24 h):  P̂(t) = P(t − 24 h)          — the TSO textbook baseline
-  - climatology:         P̂(t) = mean P (training)   — what you know with no forecast
-  - NWP power curve:     P̂(t) = mean P in the 1 m/s bin of the mean NWP wind — the
-                         physics-only forecast (farm power curve learnt from data)
+  - XGBoost, nine quantiles P10 … P90 (conformalised, see below)
+  - LSTM, and TFT with the same nine quantiles, trained offline
+    (``scripts/train_real_deep_models.py``)
+  - ensemble of the XGBoost / LSTM / TFT P50, weights 1/MSE on the earlier test folds only
+  - NWP power curve: mean P in the 1 m/s bin of the mean NWP wind (physics only)
+  - Energinet's own day-ahead forecast (DK2 only, the TSO benchmark). It is issued ~17:50 D−1,
+    after the bid gate, and covers a wider set of farms (it averages ~18 % above the three-farm
+    metering), so it is rescaled by mean(P)/mean(forecast) of each training block.
+  - climatology: the training mean (its quantiles for the probabilistic scores)
+  - persistence 24 h: P̂(t) = P(t − 24 h)
 
-Score: nRMSE = RMSE / installed capacity [%] (the TSO convention, e.g. ENTSO-E), and the
-skill score vs persistence SS = 1 − MSE_model / MSE_persistence.
+Scores, all on the same hours: nRMSE / nMAE / bias in % of capacity; skill vs persistence
+and vs climatology, SS = 1 − MSE/MSE_ref; CRPS ≈ quantile score (2/9)·Σ pinball over
+τ = 0.1 … 0.9 in % of capacity (it equals the MAE for a point forecast) and CRPSS vs
+climatology; P10–P90 coverage and a reliability table (observed share below each quantile).
 
 Validation: 5-fold ``TimeSeriesSplit`` (domain rule 6) — every fold trains on the past
-and is tested on the next block, never shuffled. The P10–P90 band is conformalised
-(CQR) on the newest 20 % of each training block, so it covers ~80 % out of sample.
-Output is clipped to 0 ≤ P ≤ capacity
-(``enforce_physical_constraints``; rule 1 at farm level).
+and is tested on the next block, never shuffled. The quantile band is conformalised
+(CQR) on the newest 20 % of each training block: the P10–P90 miss margin m is added to
+P90, subtracted from P10 and scaled linearly in between (q_τ + m·(τ − 0.5)/0.4).
+Output is clipped to 0 ≤ P ≤ capacity (``enforce_physical_constraints``; rule 1).
+Feature attribution: mean |SHAP| of the P50 output (XGBoost TreeSHAP, ``pred_contribs``).
 
 References
 ----------
-- Energinet Energi Data Service, ProductionConsumptionSettlement (CC BY 4.0)
+- Energinet Energi Data Service, ProductionConsumptionSettlement and Forecasts_Hour (CC BY 4.0)
 - Open-Meteo Previous Runs API: ECMWF IFS 0.25°, DWD ICON (CC BY 4.0)
 - Giebel et al. (2011) "The state of the art in short-term prediction of wind power",
   ANEMOS.plus — day-ahead nRMSE typically 10–20 % of capacity
+- Gneiting & Raftery (2007) "Strictly proper scoring rules, prediction, and estimation", JASA
 - Romano, Patterson & Candès (2019) "Conformalized quantile regression", NeurIPS
 - Hong et al. (2016) GEFCom2014 probabilistic wind track (quantile / pinball loss)
+- Lundberg et al. (2020) "From local explanations to global understanding with explainable
+  AI for trees", Nature Machine Intelligence (TreeSHAP)
 """
 
 from __future__ import annotations
@@ -45,6 +57,7 @@ import json
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import xgboost as xgb
@@ -54,15 +67,22 @@ from sklearn.model_selection import TimeSeriesSplit
 from app.services.p4.physical_constraints import enforce_physical_constraints
 
 DATA_FILE = Path(__file__).parent / "data" / "dk2_offshore_dayahead.csv.gz"
-# LSTM / TFT scores, trained offline (scripts/train_real_deep_models.py: tens of minutes)
-DEEP_FILE = Path(__file__).parent / "data" / "dk2_deep_models.json"
+# LSTM / TFT out-of-fold forecasts per hour, trained offline (scripts/train_real_deep_models.py)
+DEEP_FILE = Path(__file__).parent / "data" / "dk2_deep_predictions.csv.gz"
+TSO_FILE = Path(__file__).parent / "data" / "dk2_tso_dayahead.csv.gz"
 CAPACITY_MW = 604.8 + 207.0 + 165.6  # Kriegers Flak + Rødsand II + Nysted
 FARMS = ("Kriegers Flak 604.8 MW", "Rødsand II 207 MW", "Nysted 165.6 MW")
-QUANTILES = (0.1, 0.5, 0.9)
+QUANTILES = tuple(round(0.1 * k, 1) for k in range(1, 10))  # P10 … P90
+I10, I50, I90 = 0, 4, 8
 N_SPLITS = 5
 SERIES_HOURS = 14 * 24  # last two weeks of the last test fold, for the chart
 WS_BIN_MS = 1.0
 CALIBRATION_SHARE = 0.2  # newest part of each training block, for the band
+
+XGB, LSTM, TFT = "XGBoost (P50)", "LSTM", "TFT (P50)"
+ENSEMBLE, CURVE, TSO = "Ensemble (1/MSE weights)", "NWP power curve", "Energinet day-ahead (TSO)"
+CLIM, PERS = "Climatology", "Persistence 24 h"
+ORDER = (XGB, TFT, LSTM, ENSEMBLE, CURVE, TSO, CLIM, PERS)
 
 
 ENTSOE_MANIFEST = Path(__file__).parent / "data" / "entsoe_units.json"
@@ -83,6 +103,7 @@ class Site:
     farms: tuple[str, ...]
     production: str
     deep_file: Path | None = None
+    tso_file: Path | None = None
 
 
 def sites() -> dict[str, Site]:
@@ -96,6 +117,7 @@ def sites() -> dict[str, Site]:
             FARMS,
             DK2_PRODUCTION,
             DEEP_FILE,
+            TSO_FILE,
         )
     }
     if ENTSOE_MANIFEST.exists():
@@ -134,6 +156,22 @@ def load_dataset(site: str = "dk2") -> RealDataset:
         nwp_wd=values[:, 2::2],
         nwp_names=[h.removesuffix("_ws") for h in header[2::2]],
     )
+
+
+def read_hourly(path: Path | None, time_utc: NDArray[np.datetime64]) -> dict[str, Any]:
+    """Columns of an hourly ``time_utc,…`` gz CSV aligned to ``time_utc`` (NaN = missing)."""
+    if path is None or not path.exists():
+        return {}
+    with gzip.open(path, "rt", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    hours = np.array([r[0].rstrip("Z") for r in rows[1:]], dtype="datetime64[h]")
+    pos = {h: i for i, h in enumerate(hours.tolist())}
+    idx = np.array([pos.get(h, -1) for h in time_utc.tolist()])
+    vals = np.array([[float(v) for v in r[1:]] for r in rows[1:]])
+    return {
+        name: np.where(idx >= 0, vals[np.maximum(idx, 0), j], np.nan)
+        for j, name in enumerate(rows[0][1:])
+    }
 
 
 def build_features(ds: RealDataset) -> tuple[NDArray[np.float64], list[str]]:
@@ -181,6 +219,15 @@ def power_curve_forecast(
     return out
 
 
+def quantile_score(y: NDArray[np.float64], q: NDArray[np.float64]) -> float:
+    """CRPS approximation (2/9)·Σ_τ pinball_τ over QUANTILES [MW]. ``q`` is (n, 9), or (n,)
+    for a point forecast — then it equals the MAE, because the τ average to 0.5."""
+    q2 = q[:, None] if q.ndim == 1 else q
+    tau = np.array(QUANTILES)[None, :]
+    d = y[:, None] - q2
+    return float(np.mean(2 * np.maximum(tau * d, (tau - 1) * d)))
+
+
 def _clip(p: NDArray[np.float64], capacity_mw: float) -> NDArray[np.float64]:
     return enforce_physical_constraints(p, None, rated_power_mw=capacity_mw).power_mw
 
@@ -190,24 +237,82 @@ class ModelScore:
     name: str
     nrmse_pct: float
     nmae_pct: float
-    bias_pct: float | None
+    bias_pct: float
     skill_vs_persistence: float
+    skill_vs_climatology: float
+    crps_pct: float
+    crpss_vs_climatology: float
+    probabilistic: bool
     fold_nrmse_pct: list[float]
+
+
+@dataclass(frozen=True)
+class Reliability:
+    name: str
+    observed_below: list[float]  # share of hours at or below each quantile; ideal = τ
+    p10_p90_coverage_pct: float
 
 
 @dataclass(frozen=True)
 class RealForecastResult:
     scores: list[ModelScore]
+    reliability: list[Reliability]
     p10_p90_coverage_pct: float
     feature_importance: list[tuple[str, float]]
     series: dict[str, list[object]]
     period: tuple[str, str]
     hours: int
+    scored_hours: int
+
+
+def _xgb_fold(
+    x: NDArray[np.float64],
+    y: NDArray[np.float64],
+    train: NDArray[np.intp],
+    test: NDArray[np.intp],
+    seed: int,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Conformalised quantiles (n_test, 9) [MW] and Σ|SHAP| of the P50 output per feature."""
+    model = xgb.XGBRegressor(
+        objective="reg:quantileerror",
+        quantile_alpha=np.array(QUANTILES),
+        n_estimators=400,
+        max_depth=5,
+        learning_rate=0.05,
+        subsample=0.8,
+        random_state=seed,
+        n_jobs=4,
+    )
+    # Conformalised quantile regression (Romano et al. 2019): fit on the older 80 % of the
+    # training block, measure how far P10–P90 misses on the newest 20 %, widen the test band
+    # by that margin. The forecast itself comes from a refit on the whole block.
+    fit, cal = np.array_split(train, [int(len(train) * (1 - CALIBRATION_SHARE))])
+    model.fit(x[fit], y[fit])
+    q_cal = np.sort(model.predict(x[cal]), axis=1)
+    miss = np.maximum(q_cal[:, I10] - y[cal], y[cal] - q_cal[:, I90])
+    margin = float(np.quantile(miss, QUANTILES[I90] - QUANTILES[I10]))
+    model.fit(x[train], y[train])
+    q = np.sort(model.predict(x[test]), axis=1)  # sort: quantiles never cross
+    q = q + margin * (np.array(QUANTILES) - 0.5) / 0.4
+    contribs = model.get_booster().predict(xgb.DMatrix(x[test]), pred_contribs=True)
+    shap: NDArray[np.float64] = np.abs(contribs[:, I50, :-1]).sum(axis=0)  # last = bias
+    return q, shap
+
+
+def _ensemble_weights(
+    members: list[NDArray[np.float64]], y: NDArray[np.float64], past: NDArray[np.intp]
+) -> NDArray[np.float64]:
+    """1/MSE of each member on earlier test hours (all members present); equal if none."""
+    past = past[np.all([np.isfinite(m[past]) for m in members], axis=0)]
+    if past.size == 0:
+        return np.full(len(members), 1 / len(members))
+    w = np.array([1 / np.mean((m[past] - y[past]) ** 2) for m in members])
+    return np.asarray(w / w.sum(), dtype=np.float64)
 
 
 @cache
 def evaluate_real_dayahead(site: str = "dk2", seed: int = 42) -> RealForecastResult:
-    """Train XGBoost (P10/P50/P90) per TimeSeriesSplit fold and score it against the baselines."""
+    """Train XGBoost per TimeSeriesSplit fold and score every forecast on the same hours."""
     st = sites()[site]
     cap = st.capacity_mw
     ds = load_dataset(site)
@@ -216,109 +321,117 @@ def evaluate_real_dayahead(site: str = "dk2", seed: int = 42) -> RealForecastRes
     ok = ~np.isnan(pers_all)  # first day + gaps: no persistence → not scored
     x, y, pers, ws_mean = x_all[ok], ds.power_mw[ok], pers_all[ok], ds.nwp_ws[ok].mean(axis=1)
     t = ds.time_utc[ok]
+    deep = read_hourly(st.deep_file, t)
+    tso = read_hourly(st.tso_file, t).get("tso_dayahead_mw")
 
-    preds: dict[str, list[NDArray[np.float64]]] = {
-        "XGBoost (P50)": [],
-        "NWP power curve": [],
-        "Climatology": [],
-        "Persistence 24 h": [],
-    }
-    actuals: list[NDArray[np.float64]] = []
-    inside = 0
-    gain: dict[str, float] = dict.fromkeys(names, 0.0)
-    last: dict[str, NDArray[np.float64]] = {}
-    last_t = t[:0]
+    n = len(y)
+    nan = np.full(n, np.nan)
+    quant = {XGB: np.full((n, len(QUANTILES)), np.nan), CLIM: np.full((n, len(QUANTILES)), np.nan)}
+    point = {CURVE: nan.copy(), CLIM: nan.copy(), PERS: pers}
+    if deep:
+        quant[TFT] = np.column_stack([deep[f"tft_q{round(100 * q)}_mw"] for q in QUANTILES])
+        point[LSTM] = deep["lstm_p50_mw"]
+        point[ENSEMBLE] = nan.copy()
+    if tso is not None:
+        point[TSO] = nan.copy()
+    shap = np.zeros(len(names))
+    folds = list(TimeSeriesSplit(n_splits=N_SPLITS).split(x))
 
-    for train, test in TimeSeriesSplit(n_splits=N_SPLITS).split(x):
-        model = xgb.XGBRegressor(
-            objective="reg:quantileerror",
-            quantile_alpha=np.array(QUANTILES),
-            n_estimators=400,
-            max_depth=5,
-            learning_rate=0.05,
-            subsample=0.8,
-            random_state=seed,
-            n_jobs=4,
+    for k, (train, test) in enumerate(folds):
+        q, s = _xgb_fold(x, y, train, test, seed)
+        quant[XGB][test] = np.column_stack([_clip(c, cap) for c in q.T])
+        shap += s
+        point[CURVE][test] = _clip(
+            power_curve_forecast(ws_mean[train], y[train], ws_mean[test]), cap
         )
-        # Conformalised quantile regression (Romano et al. 2019): fit on the older 80 %
-        # of the training block, measure how far the band misses on the newest 20 %,
-        # widen the test band by that margin → P10–P90 holds ~80 % out of sample. The
-        # forecast itself comes from a refit on the whole block (the oldest fold is short).
-        fit, cal = np.array_split(train, [int(len(train) * (1 - CALIBRATION_SHARE))])
-        model.fit(x[fit], y[fit])
-        q_cal = np.sort(model.predict(x[cal]), axis=1)
-        miss = np.maximum(q_cal[:, 0] - y[cal], y[cal] - q_cal[:, 2])
-        margin = float(np.quantile(miss, QUANTILES[2] - QUANTILES[0]))
-        model.fit(x[train], y[train])  # refit on the whole block for the forecast itself
-        q = np.sort(model.predict(x[test]), axis=1)  # sort: quantiles never cross
-        p10, p50, p90 = (
-            _clip(q[:, 0] - margin, cap),
-            _clip(q[:, 1], cap),
-            _clip(q[:, 2] + margin, cap),
+        point[CLIM][test] = y[train].mean()
+        quant[CLIM][test] = np.quantile(y[train], QUANTILES)
+        if tso is not None:
+            seen = train[np.isfinite(tso[train])]
+            point[TSO][test] = _clip(tso[test] * y[seen].mean() / tso[seen].mean(), cap)
+        if deep:
+            members = [quant[XGB][:, I50], point[LSTM], quant[TFT][:, I50]]
+            past = np.concatenate([f[1] for f in folds[:k]]) if k else np.array([], dtype=np.intp)
+            w = _ensemble_weights(members, y, past)
+            point[ENSEMBLE][test] = sum(wi * m[test] for wi, m in zip(w, members, strict=True))
+
+    point[XGB] = quant[XGB][:, I50]
+    if deep:
+        point[TFT] = quant[TFT][:, I50]
+    # score every forecast on the same hours: test folds where all of them exist
+    scored = np.zeros(n, dtype=bool)
+    scored[folds[0][1][0] :] = True
+    for v in [*point.values(), *(q[:, I10] for q in quant.values())]:
+        scored &= np.isfinite(v)
+    yy = y[scored]
+
+    def mse(p: NDArray[np.float64]) -> float:
+        return float(np.mean((p[scored] - yy) ** 2))
+
+    def crps(name: str) -> float:
+        return quantile_score(yy, quant[name][scored] if name in quant else point[name][scored])
+
+    mse_pers, mse_clim, crps_clim = mse(pers), mse(point[CLIM]), crps(CLIM)
+    scores = [
+        ModelScore(
+            name=name,
+            nrmse_pct=round(100 * float(np.sqrt(mse(point[name]))) / cap, 2),
+            nmae_pct=round(100 * float(np.mean(np.abs(point[name][scored] - yy))) / cap, 2),
+            bias_pct=round(100 * float(np.mean(point[name][scored] - yy)) / cap, 2),
+            skill_vs_persistence=round(1 - mse(point[name]) / mse_pers, 3),
+            skill_vs_climatology=round(1 - mse(point[name]) / mse_clim, 3),
+            crps_pct=round(100 * crps(name) / cap, 2),
+            crpss_vs_climatology=round(1 - crps(name) / crps_clim, 3),
+            probabilistic=name in quant,
+            fold_nrmse_pct=[
+                round(100 * float(np.sqrt(np.mean((point[name][f] - y[f]) ** 2))) / cap, 2)
+                for f in (test[scored[test]] for _, test in folds)
+                if f.size
+            ],
         )
-        preds["XGBoost (P50)"].append(p50)
-        preds["NWP power curve"].append(
-            _clip(power_curve_forecast(ws_mean[train], y[train], ws_mean[test]), cap)
+        for name in ORDER
+        if name in point
+    ]
+
+    reliability = [
+        Reliability(
+            name,
+            np.round((yy[:, None] <= q[scored]).mean(axis=0), 3).tolist(),
+            round(100 * float(np.mean((yy >= q[scored][:, I10]) & (yy <= q[scored][:, I90]))), 1),
         )
-        preds["Climatology"].append(np.full(len(test), y[train].mean()))
-        preds["Persistence 24 h"].append(pers[test])
-        actuals.append(y[test])
-        inside += int(np.sum((y[test] >= p10) & (y[test] <= p90)))
-        for k, v in model.get_booster().get_score(importance_type="gain").items():
-            gain[names[int(k[1:])] if k.startswith("f") and k[1:].isdigit() else k] += float(
-                v  # type: ignore[arg-type]  # gain is a float per feature
-            )
-        last = {"y": y[test], "p10": p10, "p50": p50, "p90": p90, "pers": pers[test]}
-        last["ws"] = ws_mean[test]
-        last_t = t[test]
+        for name, q in quant.items()
+    ]
 
-    def mse(a: NDArray[np.float64], b: NDArray[np.float64]) -> float:
-        return float(np.mean((a - b) ** 2))
-
-    a_all = np.concatenate(actuals)
-    mse_pers = mse(a_all, np.concatenate(preds["Persistence 24 h"]))
-    scores = []
-    for name, folds in preds.items():
-        p_all = np.concatenate(folds)
-        scores.append(
-            ModelScore(
-                name=name,
-                nrmse_pct=round(100 * float(np.sqrt(mse(a_all, p_all))) / cap, 2),
-                nmae_pct=round(100 * float(np.mean(np.abs(a_all - p_all))) / cap, 2),
-                bias_pct=round(100 * float(np.mean(p_all - a_all)) / cap, 2),
-                skill_vs_persistence=round(1 - mse(a_all, p_all) / mse_pers, 3),
-                fold_nrmse_pct=[
-                    round(100 * float(np.sqrt(mse(a, p))) / cap, 2)
-                    for a, p in zip(actuals, folds, strict=True)
-                ],
-            )
-        )
-
-    if st.deep_file is not None and st.deep_file.exists():
-        deep = json.loads(st.deep_file.read_text(encoding="utf-8"))["models"]
-        scores[1:1] = [
-            ModelScore(**{k: m[k] for k in ModelScore.__dataclass_fields__}) for m in deep
-        ]
-
-    total_gain = sum(gain.values()) or 1.0
+    total = float(shap.sum()) or 1.0
     importance = sorted(
-        ((k, round(v / total_gain, 4)) for k, v in gain.items()), key=lambda kv: -kv[1]
+        ((nm, round(float(v) / total, 4)) for nm, v in zip(names, shap, strict=True)),
+        key=lambda kv: -kv[1],
     )
-    n = SERIES_HOURS
-    series = {
-        "time_utc": [str(v) + ":00Z" for v in last_t[-n:]],
-        "actual_mw": np.round(last["y"][-n:], 1).tolist(),
-        "p10_mw": np.round(last["p10"][-n:], 1).tolist(),
-        "p50_mw": np.round(last["p50"][-n:], 1).tolist(),
-        "p90_mw": np.round(last["p90"][-n:], 1).tolist(),
-        "persistence_mw": np.round(last["pers"][-n:], 1).tolist(),
-        "nwp_wind_ms": np.round(last["ws"][-n:], 2).tolist(),
+    last = folds[-1][1][-SERIES_HOURS:]
+
+    def ser(v: NDArray[np.float64], nd: int = 1) -> list[object]:
+        return [round(float(a), nd) if np.isfinite(a) else None for a in v[last]]
+
+    series: dict[str, list[object]] = {
+        "time_utc": [str(v) + ":00Z" for v in t[last]],
+        "actual_mw": ser(y),
+        "p10_mw": ser(quant[XGB][:, I10]),
+        "p50_mw": ser(quant[XGB][:, I50]),
+        "p90_mw": ser(quant[XGB][:, I90]),
+        "persistence_mw": ser(pers),
+        "nwp_wind_ms": ser(ws_mean, 2),
     }
+    if tso is not None:
+        series["tso_mw"] = ser(point[TSO])
+    if deep:
+        series["ensemble_mw"] = ser(point[ENSEMBLE])
     return RealForecastResult(
         scores=scores,
-        p10_p90_coverage_pct=round(100 * inside / len(a_all), 1),
+        reliability=reliability,
+        p10_p90_coverage_pct=reliability[0].p10_p90_coverage_pct,
         feature_importance=importance[:10],
         series=series,
         period=(str(ds.time_utc[0]) + ":00Z", str(ds.time_utc[-1]) + ":00Z"),
         hours=len(ds.time_utc),
+        scored_hours=int(scored.sum()),
     )

@@ -2,9 +2,9 @@
  * AI Academy — the P4 forecasting course, from zero to the models running in
  * this platform. English and Turkish; every chapter can be read aloud.
  *
- * Numbers quoted here are the platform's own (V236, 10-min SCADA, 5-fold
- * TimeSeriesSplit, measured skill before/after the leakage fix), so the
- * lesson and the dashboard tell the same story.
+ * Numbers quoted here are the platform's own (measured DK2 offshore output,
+ * day-ahead NWP inputs, 5-fold TimeSeriesSplit, the Real data scores), so the
+ * lesson and the results tab tell the same story.
  */
 
 export type Lang = "en" | "tr";
@@ -112,8 +112,8 @@ export const CHAPTERS: Chapter[] = [
         tr: "LSTM ve TFT modellerimizde on binlerce ağırlık var; arazinin de o kadar boyutu var. 64 örneklik mini-batch'ler üzerinde Adam optimizasyonunu (gradyan inişinin uyarlanabilir hali) kullanıyoruz. Tüm eğitim verisinin bir kez geçilmesine epoch denir.",
       },
       {
-        en: "Drag the 3D landscape, change the learning rate and watch the path. In the training monitor you see the same thing as a curve: the loss falling epoch after epoch, until early stopping ends it when validation loss stops improving for 10 epochs.",
-        tr: "3B araziyi döndürün, öğrenme oranını değiştirin ve yolu izleyin. Eğitim monitöründe aynı şeyi bir eğri olarak görürsünüz: kayıp epoch epoch düşer; doğrulama kaybı 10 epoch boyunca iyileşmezse erken durdurma eğitimi bitirir.",
+        en: "Drag the 3D landscape, change the learning rate and watch the path. The LSTM and TFT on the Real data tab learn exactly like this: the loss falls epoch after epoch, until early stopping ends it when the loss on the newest 20 % of the training block stops improving for 10 epochs.",
+        tr: "3B araziyi döndürün, öğrenme oranını değiştirin ve yolu izleyin. Gerçek veri sekmesindeki LSTM ve TFT tam olarak böyle öğrenir: kayıp epoch epoch düşer; eğitim bloğunun en yeni %20'sindeki kayıp 10 epoch boyunca iyileşmezse erken durdurma eğitimi bitirir.",
       },
     ],
     takeaways: [
@@ -162,12 +162,12 @@ export const CHAPTERS: Chapter[] = [
     },
     body: [
       {
-        en: "Ordinary K-fold cross-validation shuffles the data: the model trains on Wednesday and is tested on Tuesday. With wind, neighbouring 10-minute samples are almost identical, so a shuffled test is secretly a memory test and looks far too good.",
-        tr: "Sıradan K-katlı çapraz doğrulama veriyi karıştırır: model çarşamba ile eğitilir, salı ile test edilir. Rüzgârda komşu 10 dakikalık örnekler neredeyse aynıdır; karıştırılmış bir test gizlice bir ezber testidir ve olduğundan çok daha iyi görünür.",
+        en: "Ordinary K-fold cross-validation shuffles the data: the model trains on Wednesday and is tested on Tuesday. With wind, neighbouring hours are almost identical, so a shuffled test is secretly a memory test and looks far too good.",
+        tr: "Sıradan K-katlı çapraz doğrulama veriyi karıştırır: model çarşamba ile eğitilir, salı ile test edilir. Rüzgârda komşu saatler neredeyse aynıdır; karıştırılmış bir test gizlice bir ezber testidir ve olduğundan çok daha iyi görünür.",
       },
       {
-        en: "TimeSeriesSplit grows the training window forward in time and always tests on the block that comes after it. Our models use 5 such folds; the RMSE bars in the training monitor are these out-of-sample results.",
-        tr: "TimeSeriesSplit eğitim penceresini zamanda ileri doğru büyütür ve her zaman ondan sonra gelen blokta test eder. Modellerimiz 5 böyle katman kullanır; eğitim monitöründeki RMSE çubukları bu örneklem dışı sonuçlardır.",
+        en: "TimeSeriesSplit grows the training window forward in time and always tests on the block that comes after it. Our models use 5 such folds; the nRMSE per fold in the Real data table is these out-of-sample results.",
+        tr: "TimeSeriesSplit eğitim penceresini zamanda ileri doğru büyütür ve her zaman ondan sonra gelen blokta test eder. Modellerimiz 5 böyle katman kullanır; Gerçek veri tablosundaki katman başına nRMSE bu örneklem dışı sonuçlardır.",
       },
     ],
     takeaways: [
@@ -190,8 +190,8 @@ export const CHAPTERS: Chapter[] = [
         tr: "t anındaki gücü tahmin etmek için özellik tablosu t anında ölçülen rüzgâr hızını içeriyordu. Ama güç, güç eğrisi üzerinden neredeyse doğrudan rüzgârdan gelir. Yani 'tahmin' aslında önceden bilinemeyecek bir bilgiyle güç eğrisine bakmaktı.",
       },
       {
-        en: "The fix: every measured channel enters with its last value before t (t−1); for the moment t itself only the weather model's forecast (NWP) is used. The skill against persistence dropped from 0.996 to about 0.15 for XGBoost — lower, but honest. A test now fails if the skill ever creeps above 0.9 again.",
-        tr: "Düzeltme: ölçülen her kanal t'den önceki son değeriyle (t−1) girer; t anının kendisi için yalnızca hava tahmin modelinin tahmini (NWP) kullanılır. XGBoost'un persistence'a karşı skill değeri 0,996'dan yaklaşık 0,15'e düştü — daha düşük ama dürüst. Skill tekrar 0,9'un üzerine çıkarsa artık bir test başarısız oluyor.",
+        en: "The fix: every measured channel enters with its last value before t (t−1); for the moment t itself only the weather model's forecast (NWP) is used. On the 10-minute pipeline of that time, XGBoost's skill against persistence dropped from 0.996 to about 0.15 — lower, but honest. The day-ahead forecast used now avoids the trap by construction: measured power and wind are not features at all, only the weather forecast issued the day before — and a test fails if a measured value ever enters the feature table.",
+        tr: "Düzeltme: ölçülen her kanal t'den önceki son değeriyle (t−1) girer; t anının kendisi için yalnızca hava tahmin modelinin tahmini (NWP) kullanılır. O zamanki 10 dakikalık hatta XGBoost'un persistence'a karşı skill değeri 0,996'dan yaklaşık 0,15'e düştü — daha düşük ama dürüst. Şimdi kullanılan gün öncesi tahmin bu tuzağı yapısı gereği önler: ölçülmüş güç ve rüzgâr hiç özellik değildir, yalnızca bir önceki gün yayımlanan hava tahmini kullanılır — ve ölçülmüş bir değer özellik tablosuna girerse bir test başarısız olur.",
       },
     ],
     takeaways: [
@@ -206,8 +206,8 @@ export const CHAPTERS: Chapter[] = [
     n: 7,
     title: { en: "LSTM — a neural network with memory", tr: "LSTM — hafızası olan bir sinir ağı" },
     lead: {
-      en: "Trees look at one row at a time. An LSTM reads a sequence — here the last 144 ten-minute steps (24 hours) — and keeps a memory of what mattered.",
-      tr: "Ağaçlar her seferinde tek bir satıra bakar. LSTM bir diziyi okur — burada son 144 on dakikalık adım (24 saat) — ve önemli olanın hafızasını tutar.",
+      en: "Trees look at one row at a time. An LSTM reads a sequence — here the last 24 hourly rows of day-ahead NWP wind — and keeps a memory of what mattered.",
+      tr: "Ağaçlar her seferinde tek bir satıra bakar. LSTM bir diziyi okur — burada gün öncesi NWP rüzgârının son 24 saatlik satırı — ve önemli olanın hafızasını tutar.",
     },
     body: [
       {
@@ -215,8 +215,8 @@ export const CHAPTERS: Chapter[] = [
         tr: "Her LSTM hücresinin içinde bir 'hücre durumu' akar, bir hafıza bandı. Her biri 0 ile 1 arasında öğrenilmiş küçük bir fonksiyon olan üç kapı onu yönetir: unutma kapısı neyin atılacağına, giriş kapısı hangi yeni bilginin saklanacağına, çıkış kapısı bir sonraki katmana neyin gösterileceğine karar verir.",
       },
       {
-        en: "This is how it can learn that a slowly rising wind over three hours is different from a gust, or that power at dusk follows a daily pattern. Our network: LSTM(64) → LSTM(32) → output, with dropout. Running it 100 times with dropout switched on (Monte-Carlo dropout) gives an uncertainty band.",
-        tr: "Üç saat boyunca yavaşça artan rüzgârın bir hamleden farklı olduğunu ya da alacakaranlıktaki gücün günlük bir deseni izlediğini böyle öğrenebilir. Ağımız: LSTM(64) → LSTM(32) → çıkış, dropout ile. Dropout açıkken 100 kez çalıştırmak (Monte-Carlo dropout) bir belirsizlik bandı verir.",
+        en: "This is how it can learn that a slowly rising wind over three hours is different from a gust, or that power at dusk follows a daily pattern. Our network: LSTM(64) → LSTM(32) → output, with dropout. Running it 100 times with dropout switched on (Monte-Carlo dropout) gives an uncertainty band; on the Real data tab the LSTM is scored as a point forecast and the bands come from XGBoost and the TFT.",
+        tr: "Üç saat boyunca yavaşça artan rüzgârın bir hamleden farklı olduğunu ya da alacakaranlıktaki gücün günlük bir deseni izlediğini böyle öğrenebilir. Ağımız: LSTM(64) → LSTM(32) → çıkış, dropout ile. Dropout açıkken 100 kez çalıştırmak (Monte-Carlo dropout) bir belirsizlik bandı verir; Gerçek veri sekmesinde LSTM nokta tahmini olarak puanlanır, bantlar XGBoost ve TFT'den gelir.",
       },
     ],
     takeaways: [
@@ -284,17 +284,17 @@ export const CHAPTERS: Chapter[] = [
     n: 10,
     title: { en: "Ensemble, skill score and physics", tr: "Topluluk, skill skoru ve fizik" },
     lead: {
-      en: "Three different models make different mistakes. Combined wisely, the errors partly cancel — and physics has the last word.",
-      tr: "Üç farklı model farklı hatalar yapar. Akıllıca birleştirildiğinde hatalar kısmen birbirini götürür — ve son söz fiziğindir.",
+      en: "Three different models make different mistakes. Combined, the errors can partly cancel — if they really are different. Physics has the last word.",
+      tr: "Üç farklı model farklı hatalar yapar. Birleştirildiğinde hatalar kısmen birbirini götürebilir — gerçekten farklıysalar. Son söz fiziğindir.",
     },
     body: [
       {
-        en: "The skill score compares a model with persistence: SS = 1 − MSE_model / MSE_persistence. 0 means no better than 'it stays as it is', 1 would be perfect. A model with negative skill is dropped from the ensemble; the others are weighted by 1/RMSE² and by horizon (XGBoost for the next hours, TFT for longer leads).",
-        tr: "Skill skoru bir modeli persistence ile karşılaştırır: SS = 1 − MSE_model / MSE_persistence. 0, 'olduğu gibi kalır'dan iyi değil demektir; 1 mükemmel olurdu. Skill'i negatif olan model topluluktan çıkarılır; diğerleri 1/RMSE² ile ve ufka göre ağırlıklandırılır (yakın saatler için XGBoost, uzun ufuklar için TFT).",
+        en: "The skill score compares a model with persistence: SS = 1 − MSE_model / MSE_persistence. 0 means no better than 'it stays as it is', 1 would be perfect. Here the ensemble weights XGBoost, LSTM and TFT by 1/MSE on the earlier test folds only. On the measured DK2 data it does not beat XGBoost alone: the two networks are weaker and most of their error comes from the same weather forecast, so averaging adds error instead of cancelling it. An honest result — an ensemble is worth it only when its members fail differently.",
+        tr: "Skill skoru bir modeli persistence ile karşılaştırır: SS = 1 − MSE_model / MSE_persistence. 0, 'olduğu gibi kalır'dan iyi değil demektir; 1 mükemmel olurdu. Burada topluluk XGBoost, LSTM ve TFT'yi yalnızca önceki test katmanlarındaki 1/MSE ile ağırlıklandırır. Ölçülmüş DK2 verisinde tek başına XGBoost'u geçemez: iki ağ daha zayıftır ve hatalarının çoğu aynı hava tahmininden gelir, bu yüzden ortalama almak hatayı götürmek yerine ekler. Dürüst bir sonuç — topluluk ancak üyeleri farklı şekilde yanıldığında değerlidir.",
       },
       {
-        en: "Finally the physical guard (enforce_physical_constraints): no power below cut-in 3 m/s or above cut-out 25 m/s, never below 0 or above the 15 MW rating, P10 ≤ P50 ≤ P90. Machine learning never overrides physics.",
-        tr: "Son olarak fiziksel koruma (enforce_physical_constraints): 3 m/s devreye girme hızının altında ve 25 m/s devreden çıkma hızının üstünde güç yok, 0'ın altına ya da 15 MW nominalin üstüne asla çıkmaz, P10 ≤ P50 ≤ P90. Makine öğrenmesi fiziği asla geçersiz kılamaz.",
+        en: "Finally the physical guard (enforce_physical_constraints): never below 0 or above the installed capacity, P10 ≤ P50 ≤ P90 — for one turbine also no power below cut-in or above cut-out. Machine learning never overrides physics.",
+        tr: "Son olarak fiziksel koruma (enforce_physical_constraints): 0'ın altına ya da kurulu gücün üstüne asla çıkmaz, P10 ≤ P50 ≤ P90 — tek bir türbin için ayrıca devreye girme hızının altında ve devreden çıkma hızının üstünde güç yoktur. Makine öğrenmesi fiziği asla geçersiz kılamaz.",
       },
       {
         en: "SHAP values then explain each forecast: how much every feature pushed the prediction up or down from the average — so an engineer can check the model's reasoning, not just its output.",
@@ -302,7 +302,7 @@ export const CHAPTERS: Chapter[] = [
       },
     ],
     takeaways: [
-      { en: "SS > 0 beats persistence; weights follow skill.", tr: "SS > 0 persistence'ı yener; ağırlıklar skill'i izler." },
+      { en: "SS > 0 beats persistence; an ensemble helps only when its members fail differently.", tr: "SS > 0 persistence'ı yener; topluluk ancak üyeleri farklı yanıldığında işe yarar." },
       { en: "Physics constraints are applied after the ML.", tr: "Fizik kısıtları ML'den sonra uygulanır." },
     ],
     widget: "ensemble",
@@ -313,17 +313,17 @@ export const CHAPTERS: Chapter[] = [
     n: 11,
     title: { en: "The whole pipeline in this platform", tr: "Bu platformdaki uçtan uca hat" },
     lead: {
-      en: "From raw SCADA to a forecast band in seven stages — the same ones you can watch light up in the training monitor.",
-      tr: "Ham SCADA'dan tahmin bandına yedi aşamada — eğitim monitöründe yanışını izleyebileceğiniz aşamaların aynısı.",
+      en: "From measured output and yesterday's weather forecast to a scored forecast band in seven stages.",
+      tr: "Ölçülmüş üretimden ve dünkü hava tahmininden puanlanmış bir tahmin bandına yedi aşamada.",
     },
     body: [
       {
-        en: "1 Data: two months (8 760 ten-minute steps) of synthetic SCADA for 34 turbines, quality-filtered (sensor faults, curtailment, maintenance, icing, power-curve outliers). 2 Features: causal, lagged, plus NWP. 3–5 XGBoost, LSTM and TFT train in parallel, each with 5-fold TimeSeriesSplit and early stopping. 6 Forecast with uncertainty. 7 Ensemble and physics.",
-        tr: "1 Veri: 34 türbin için iki aylık (8 760 on dakikalık adım) sentetik SCADA, kalite filtreli (sensör arızaları, kısıtlama, bakım, buzlanma, güç eğrisi aykırı değerleri). 2 Özellikler: nedensel, gecikmeli, artı NWP. 3–5 XGBoost, LSTM ve TFT paralel eğitilir; her biri 5 katlı TimeSeriesSplit ve erken durdurma ile. 6 Belirsizlikli tahmin. 7 Topluluk ve fizik.",
+        en: "1 Data: about 20 000 hours of measured output of three Danish Baltic offshore farms (Kriegers Flak, Rødsand II, Nysted — 977 MW, Energinet) and the 100 m wind the ECMWF and ICON runs of the day before predicted for each hour. 2 Features: only what a bid at 12:00 D−1 can know — NWP wind and direction per model and site, hour of day, model disagreement. 3–5 XGBoost (nine quantiles), LSTM and TFT, each with 5-fold TimeSeriesSplit; the band is conformalised. 6 Ensemble with weights from the earlier folds. 7 Scoring on the same hours against persistence, climatology, a physics-only power curve and the TSO's own day-ahead forecast; 0 ≤ P ≤ capacity.",
+        tr: "1 Veri: üç Danimarka Baltık açık deniz santralinin (Kriegers Flak, Rødsand II, Nysted — 977 MW, Energinet) yaklaşık 20 000 saatlik ölçülmüş üretimi ve bir önceki günün ECMWF ve ICON koşularının her saat için öngördüğü 100 m rüzgârı. 2 Özellikler: yalnızca D−1 12:00 teklifinde bilinebilenler — model ve saha başına NWP rüzgârı ve yönü, günün saati, modeller arası fark. 3–5 XGBoost (dokuz kantil), LSTM ve TFT; her biri 5 katlı TimeSeriesSplit ile; bant konformal olarak kalibre edilir. 6 Ağırlıkları önceki katmanlardan gelen topluluk. 7 Aynı saatlerde kalıcılık, klimatoloji, yalnızca fizik güç eğrisi ve TSO'nun kendi gün öncesi tahminine karşı puanlama; 0 ≤ P ≤ kapasite.",
       },
       {
-        en: "On a CPU server the first build takes about half an hour; the results are then cached for a week, so every later run takes seconds. Press 'Run forecast' and switch to the training monitor to see it happen.",
-        tr: "Bir CPU sunucusunda ilk derleme yaklaşık yarım saat sürer; sonuçlar bir hafta önbellekte kalır, böylece sonraki her çalıştırma saniyeler sürer. 'Run forecast'a basın ve olanı görmek için eğitim monitörüne geçin.",
+        en: "XGBoost trains in one to two minutes on a CPU the first time the Real data tab opens and is then cached; the LSTM and TFT take about a quarter of an hour, so they are trained offline on the same folds and only their forecasts are bundled.",
+        tr: "Gerçek veri sekmesi ilk açıldığında XGBoost bir CPU'da bir-iki dakikada eğitilir ve sonra önbellekte kalır; LSTM ve TFT yaklaşık çeyrek saat sürdüğü için aynı katmanlarla çevrimdışı eğitilir ve yalnızca tahminleri pakete eklenir.",
       },
     ],
     takeaways: [
@@ -339,7 +339,7 @@ export const CONCEPTS: { id: string; label: T; chapter: string; group: "data" | 
   { id: "grid", label: { en: "Grid balancing", tr: "Şebeke dengesi" }, chapter: "why", group: "ops" },
   { id: "market", label: { en: "Energy market", tr: "Enerji piyasası" }, chapter: "why", group: "ops" },
   { id: "imbalance", label: { en: "Imbalance cost", tr: "Dengesizlik maliyeti" }, chapter: "why", group: "ops" },
-  { id: "scada", label: { en: "SCADA data", tr: "SCADA verisi" }, chapter: "pipeline", group: "data" },
+  { id: "scada", label: { en: "Measured power", tr: "Ölçülmüş güç" }, chapter: "pipeline", group: "data" },
   { id: "nwp", label: { en: "Weather model (NWP)", tr: "Hava modeli (NWP)" }, chapter: "ml", group: "data" },
   { id: "features", label: { en: "Features", tr: "Özellikler" }, chapter: "ml", group: "data" },
   { id: "target", label: { en: "Target P(t)", tr: "Hedef P(t)" }, chapter: "ml", group: "data" },
@@ -375,10 +375,10 @@ export const CONCEPT_SUMMARY: Record<string, T> = {
   grid: { en: "Supply must equal demand every second; the TSO keeps frequency at 50 Hz with reserves it buys in advance — the better the wind forecast, the fewer reserves.", tr: "Arz her saniye talebe eşit olmalı; TSO frekansı önceden satın aldığı rezervlerle 50 Hz'de tutar — rüzgâr tahmini ne kadar iyiyse o kadar az rezerv gerekir." },
   market: { en: "A wind farm sells its expected output day-ahead and intraday; the forecast is the volume it bids.", tr: "Rüzgâr santrali beklenen üretimini gün öncesi ve gün içi piyasada satar; tahmin, teklif ettiği miktardır." },
   imbalance: { en: "Every MWh delivered differently from the schedule is settled at the imbalance price — forecast error turns directly into money.", tr: "Programdan farklı teslim edilen her MWh dengesizlik fiyatıyla uzlaştırılır — tahmin hatası doğrudan paraya dönüşür." },
-  scada: { en: "Ten-minute averages of wind, power, pitch, rpm and status from every turbine: the history the models learn from, after filtering faults and curtailment.", tr: "Her türbinden rüzgâr, güç, pitch, devir ve durumun on dakikalık ortalamaları: arızalar ve kısıtlamalar ayıklandıktan sonra modellerin öğrendiği geçmiş." },
+  scada: { en: "The history the models learn from: here hourly settlement metering of three offshore farms (Energinet). Inside one farm the same role is played by 10-minute SCADA averages of every turbine.", tr: "Modellerin öğrendiği geçmiş: burada üç açık deniz santralinin saatlik uzlaştırma ölçümü (Energinet). Tek bir santralin içinde aynı rolü her türbinin 10 dakikalık SCADA ortalamaları üstlenir." },
   nwp: { en: "Numerical weather prediction gives tomorrow's wind at hub height; beyond a few hours it carries most of the forecast skill.", tr: "Sayısal hava tahmini yarının göbek yüksekliğindeki rüzgârını verir; birkaç saatin ötesinde tahmin becerisinin çoğunu taşır." },
-  features: { en: "Inputs built from the data — lagged power, wind, direction, time of day, NWP — using only values known at forecast time (causal).", tr: "Veriden üretilen girdiler — gecikmeli güç, rüzgâr, yön, günün saati, NWP — yalnızca tahmin anında bilinen değerlerle (nedensel)." },
-  target: { en: "What the model predicts: the turbine's power P(t + h) at each horizon h.", tr: "Modelin tahmin ettiği şey: her ufuk h için türbin gücü P(t + h)." },
+  features: { en: "Inputs built from the data using only values known at forecast time (causal) — here NWP wind and direction per model and site, hour of day and the ECMWF–ICON spread.", tr: "Yalnızca tahmin anında bilinen değerlerle (nedensel) veriden üretilen girdiler — burada model ve saha başına NWP rüzgârı ve yönü, günün saati ve ECMWF–ICON farkı." },
+  target: { en: "What the model predicts: the farms' mean power P(t) in each hour of the next day.", tr: "Modelin tahmin ettiği şey: ertesi günün her saatinde santrallerin ortalama gücü P(t)." },
   loss: { en: "A number that measures how wrong the predictions are (e.g. mean squared error); training is the search for parameters that make it small.", tr: "Tahminlerin ne kadar yanlış olduğunu ölçen sayı (örneğin ortalama kare hata); eğitim, onu küçülten parametrelerin aranmasıdır." },
   gradient: { en: "Move every parameter a small step against the slope of the loss; repeated thousands of times, the loss rolls downhill to a minimum.", tr: "Her parametreyi kaybın eğimine karşı küçük bir adım oynat; binlerce kez tekrarlanınca kayıp bir minimuma yuvarlanır." },
   epoch: { en: "One full pass over the training data; networks learn over many epochs while the validation loss is watched.", tr: "Eğitim verisinin bir kez tamamen geçilmesi; ağlar doğrulama kaybı izlenirken birçok epoch boyunca öğrenir." },
@@ -391,16 +391,16 @@ export const CONCEPT_SUMMARY: Record<string, T> = {
   tscv: { en: "Cross-validation that always trains on the past and tests on the future — never shuffles time.", tr: "Her zaman geçmişte eğitip gelecekte test eden çapraz doğrulama — zamanı asla karıştırmaz." },
   validation: { en: "Data held back from training to judge the model honestly and to choose settings like the number of epochs.", tr: "Modeli dürüstçe değerlendirmek ve epoch sayısı gibi ayarları seçmek için eğitimden ayrılan veri." },
   leakage: { en: "Information from the future slipping into the inputs; it makes test scores look great and real forecasts fail.", tr: "Gelecekten gelen bilginin girdilere sızması; test skorlarını harika, gerçek tahminleri ise başarısız gösterir." },
-  lstm: { en: "A recurrent network with gates that decide what to remember along a sequence; reads the last 24 h of SCADA step by step.", tr: "Bir dizi boyunca neyi hatırlayacağına kapılarla karar veren yinelemeli ağ; son 24 saatlik SCADA verisini adım adım okur." },
-  sequence: { en: "The window of past time steps fed to a sequence model, here 144 ten-minute steps = 24 h.", tr: "Dizi modeline verilen geçmiş zaman adımları penceresi, burada 144 on dakikalık adım = 24 sa." },
+  lstm: { en: "A recurrent network with gates that decide what to remember along a sequence; reads the last 24 hourly NWP rows step by step.", tr: "Bir dizi boyunca neyi hatırlayacağına kapılarla karar veren yinelemeli ağ; son 24 saatlik NWP satırını adım adım okur." },
+  sequence: { en: "The window of past time steps fed to a sequence model, here 24 hourly rows = 24 h.", tr: "Dizi modeline verilen geçmiş zaman adımları penceresi, burada 24 saatlik satır = 24 sa." },
   dropout: { en: "Randomly switching neurons off; run many times at prediction (Monte Carlo) it gives a spread of forecasts — an uncertainty estimate.", tr: "Nöronları rastgele kapatmak; tahminde birçok kez çalıştırılınca (Monte Carlo) bir tahmin dağılımı — belirsizlik tahmini — verir." },
   tft: { en: "Temporal Fusion Transformer: combines recurrent layers with attention and outputs quantiles directly.", tr: "Temporal Fusion Transformer: yinelemeli katmanları dikkat mekanizmasıyla birleştirir ve doğrudan kantiller üretir." },
   attention: { en: "Lets the model weight which past moments matter for this forecast — and shows those weights, so it can be inspected.", tr: "Modelin bu tahmin için hangi geçmiş anların önemli olduğunu ağırlıklandırmasını sağlar — ve bu ağırlıkları gösterir." },
   quantile: { en: "P50 is the median forecast; the true value should fall below P10 one time in ten and above P90 one time in ten.", tr: "P50 medyan tahmindir; gerçek değer on seferde bir P10'un altında, on seferde bir P90'ın üstünde olmalıdır." },
   pinball: { en: "The loss for quantile forecasts: it punishes under- and over-prediction asymmetrically, so each quantile lands where it should.", tr: "Kantil tahminlerin kaybı: eksik ve fazla tahmini asimetrik cezalandırır, böylece her kantil olması gereken yere oturur." },
   uncertainty: { en: "How wide the range of plausible outcomes is; traders and the TSO size reserves and bids from it, not from P50 alone.", tr: "Olası sonuçların aralığının genişliği; tüccarlar ve TSO rezervleri ve teklifleri yalnızca P50'den değil buradan boyutlandırır." },
-  ensemble: { en: "Combining XGBoost, LSTM and TFT, each weighted by how well it did recently; usually beats every single model.", tr: "XGBoost, LSTM ve TFT'nin son performanslarına göre ağırlıklandırılarak birleştirilmesi; genellikle her tek modeli geçer." },
-  persistence: { en: "The naive forecast 'the next hours will be like now'; hard to beat in the first hour and the baseline for skill.", tr: "'Sonraki saatler şimdiki gibi olacak' diyen basit tahmin; ilk saatte geçmesi zordur ve beceri için referanstır." },
+  ensemble: { en: "Combining XGBoost, LSTM and TFT, each weighted by how well it did on earlier data; it helps only when the members make different errors.", tr: "XGBoost, LSTM ve TFT'nin önceki verideki başarılarına göre ağırlıklandırılarak birleştirilmesi; yalnızca üyeler farklı hatalar yaptığında işe yarar." },
+  persistence: { en: "The naive forecast 'it stays as it was': for the next hour the last value, for day-ahead the same hour yesterday. Hard to beat in the first hour; the baseline for skill.", tr: "'Olduğu gibi kalır' diyen basit tahmin: bir sonraki saat için son değer, gün öncesi için dünün aynı saati. İlk saatte geçmesi zordur; beceri için referanstır." },
   skill: { en: "1 − error(model) / error(persistence): 0 means no better than persistence, 1 would be perfect.", tr: "1 − hata(model) / hata(persistence): 0 persistence'tan iyi değil demek, 1 kusursuz olurdu." },
   physics: { en: "The forecast is clipped to what the turbine can do: 0 below cut-in and above cut-out, never above rated power — ML never overrides physics.", tr: "Tahmin türbinin yapabileceğiyle sınırlanır: cut-in altında ve cut-out üstünde 0, asla nominal gücün üstünde değil — ML fiziği asla aşamaz." },
   shap: { en: "Splits each prediction into the contribution of every feature, so you can see why the model said what it said.", tr: "Her tahmini her özelliğin katkısına ayırır; böylece modelin neden öyle dediğini görebilirsiniz." },

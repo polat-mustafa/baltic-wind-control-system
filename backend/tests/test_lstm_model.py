@@ -17,7 +17,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from app.services.p4.feature_engineering import FeatureConfig, engineer_features
 from app.services.p4.lstm_model import (
     LSTMConfig,
     compute_mc_dropout_detail,
@@ -25,20 +24,10 @@ from app.services.p4.lstm_model import (
     predict_lstm,
     train_lstm,
 )
-from app.services.p4.nwp_pipeline import (
-    NWP_FEATURE_NAMES,
-    NWPConfig,
-    generate_nwp_dataset,
-    merge_nwp_features,
-)
 from app.services.p4.physical_constraints import DEFAULT_RATED_POWER_MW
-from app.services.p4.scada_generator import SCADAConfig, generate_scada_dataset
-from app.services.p4.scada_quality_filters import apply_all_quality_filters
+from app.services.p4.real_data import CAPACITY_MW, build_features, load_dataset
 
 # ── Shared Test Fixtures ──────────────────────────────────────────
-
-SMALL_SCADA_CONFIG = SCADAConfig(num_turbines=2, num_timesteps=500, seed=42)
-TURBINE_INDEX = 0
 
 # Small LSTM config for fast CI
 SMALL_LSTM_CONFIG = LSTMConfig(
@@ -55,81 +44,34 @@ SMALL_LSTM_CONFIG = LSTMConfig(
 )
 
 
-@pytest.fixture(scope="module")
-def scada_dataset():
-    """Generate a small SCADA dataset for all tests."""
-    return generate_scada_dataset(SMALL_SCADA_CONFIG)
+# A slice of the real DK2 set (Energinet + archived NWP, from 2024-06), farm output scaled
+# to one 15 MW turbine because predict_* clips to the turbine rating (rule 1).
+_DS = load_dataset()
+_N = 600
+_X, _NAMES = build_features(_DS)
 
 
 @pytest.fixture(scope="module")
-def filtered_data(scada_dataset):
-    """Apply quality filters to the SCADA dataset."""
-    return apply_all_quality_filters(
-        wind_speed=scada_dataset.wind_speed_ms,
-        power=scada_dataset.power_mw,
-        status=scada_dataset.status,
-        temperature=scada_dataset.temperature_c,
-        humidity=scada_dataset.humidity_pct,
-    )
+def merged_features():
+    """NWP features of the real day-ahead set."""
+    return _X[:_N]
 
 
 @pytest.fixture(scope="module")
-def engineered(scada_dataset, filtered_data):
-    """Run feature engineering on filtered data."""
-    return engineer_features(
-        wind_speed=scada_dataset.wind_speed_ms,
-        power=scada_dataset.power_mw,
-        wind_direction=scada_dataset.wind_direction_deg,
-        temperature=scada_dataset.temperature_c,
-        pressure=scada_dataset.pressure_pa,
-        humidity=scada_dataset.humidity_pct,
-        timestamps=scada_dataset.timestamps,
-        clean_mask=filtered_data.clean_mask,
-        turbine_index=TURBINE_INDEX,
-        config=FeatureConfig(),
-    )
+def target_power():
+    """Measured DK2 offshore output per 15 MW of capacity [MW]."""
+    return _DS.power_mw[:_N] * DEFAULT_RATED_POWER_MW / CAPACITY_MW
 
 
 @pytest.fixture(scope="module")
-def nwp_dataset(scada_dataset, filtered_data):
-    """Generate NWP data correlated with SCADA."""
-    mask = filtered_data.clean_mask[:, TURBINE_INDEX]
-    scada_wind = scada_dataset.wind_speed_ms[mask, TURBINE_INDEX]
-    timestamps = scada_dataset.timestamps[mask]
-    nwp_config = NWPConfig(num_timesteps=len(scada_wind), seed=42)
-    return generate_nwp_dataset(
-        config=nwp_config,
-        scada_wind_ms=scada_wind,
-        timestamps=timestamps,
-    )
+def wind_speed():
+    """Mean NWP 100 m wind of the hour [m/s]."""
+    return _DS.nwp_ws[:_N].mean(axis=1)
 
 
 @pytest.fixture(scope="module")
-def merged_features(engineered, nwp_dataset):
-    """Merge SCADA features with NWP features."""
-    return merge_nwp_features(engineered.feature_matrix, nwp_dataset)
-
-
-@pytest.fixture(scope="module")
-def target_power(scada_dataset, filtered_data, engineered):
-    """Extract target power aligned to feature matrix."""
-    mask = filtered_data.clean_mask[:, TURBINE_INDEX]
-    clean_power = scada_dataset.power_mw[mask, TURBINE_INDEX]
-    return clean_power[-engineered.valid_timesteps :]
-
-
-@pytest.fixture(scope="module")
-def wind_speed(scada_dataset, filtered_data, engineered):
-    """Extract wind speed aligned to feature matrix."""
-    mask = filtered_data.clean_mask[:, TURBINE_INDEX]
-    clean_wind = scada_dataset.wind_speed_ms[mask, TURBINE_INDEX]
-    return clean_wind[-engineered.valid_timesteps :]
-
-
-@pytest.fixture(scope="module")
-def feature_names(engineered):
-    """Full feature name list (SCADA + NWP)."""
-    return engineered.feature_names + list(NWP_FEATURE_NAMES)
+def feature_names():
+    return _NAMES
 
 
 @pytest.fixture(scope="module")

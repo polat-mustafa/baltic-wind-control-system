@@ -452,40 +452,32 @@ const scada: Tour = {
 const forecast: Tour = {
   id: "forecast",
   title: "Power forecasting",
-  summary: "Machine-learning forecasts and how to judge them.",
+  summary: "Machine-learning forecasts on real data and how to judge them.",
   stage: "Operate",
   steps: [
     {
       id: "header",
       route: "/forecast",
       target: "page-header",
-      title: "Forecasting output",
+      title: "Forecasting on measured output",
       body:
-        "XGBoost, LSTM and Temporal Fusion Transformer models forecast farm output; an ensemble combines them. " +
-        "Forecasts feed trading and grid scheduling.",
+        "XGBoost, LSTM and Temporal Fusion Transformer models forecast real Baltic offshore output a day ahead; an " +
+        "ensemble combines them. Forecasts feed trading and grid scheduling.",
     },
     {
       id: "tabs",
       route: "/forecast",
       target: "page-tabs",
-      title: "Learn while it trains",
+      title: "Results, course, map",
       body:
-        "Forecast shows the results, Training monitor follows the models as they learn, AI Academy explains " +
-        "the methods step by step and Concept map links the ideas.",
-    },
-    {
-      id: "run",
-      route: "/forecast",
-      target: "run-button",
-      title: "Train the models",
-      body: "Training runs on the backend and can take a few minutes; the monitor tab shows live progress.",
+        "Day-ahead shows the scored forecasts, AI Academy explains the methods step by step and Concept map links the ideas.",
       task: {
-        instruction: "Press Run Forecast to start training (or skip this step).",
-        watch: () => () => useForecastStore.getState().analysisRun || useForecastStore.getState().loading,
+        instruction: "Open the AI Academy tab (or skip this step).",
+        watch: () => () => useForecastStore.getState().tab === "academy",
       },
       caution:
         "Time series are split in time order and never shuffled. Shuffling leaks the future into training " +
-        "and makes a model look better than it is. ML output is still clipped to physics (0 ≤ P ≤ P_rated).",
+        "and makes a model look better than it is. ML output is still clipped to physics (0 ≤ P ≤ capacity).",
     },
   ],
 };

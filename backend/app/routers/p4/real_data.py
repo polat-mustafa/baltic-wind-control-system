@@ -8,10 +8,13 @@ from fastapi import APIRouter
 
 from app.core.cache import cached
 from app.core.exceptions import NotFoundError
-from app.schemas.forecast import RealDataSourceSchema, RealForecastResponse, RealModelScoreSchema
+from app.schemas.forecast import (
+    RealDataSourceSchema,
+    RealForecastResponse,
+    RealModelScoreSchema,
+    RealReliabilitySchema,
+)
 from app.services.p4.real_data import N_SPLITS, evaluate_real_dayahead, sites
-
-from ._pipeline import DETERMINISTIC_TTL_S
 
 router = APIRouter()
 
@@ -19,11 +22,12 @@ NWP_SOURCE = (
     "Open-Meteo Previous Runs API — ECMWF IFS 0.25° and DWD ICON, 100 m wind "
     "issued the day before (lead 24–47 h, CC BY 4.0)"
 )
+#: The data files are bundled and the training seeded, so a hit equals a rebuild.
+TTL_S = 7 * 24 * 3600
 
 
-# The data files are bundled and the training seeded, so a hit equals a rebuild; bump the
-# prefix when a data file or the model changes.
-@cached(prefix="real_dayahead_v3", ttl=DETERMINISTIC_TTL_S)
+# Bump the prefix when a data file or the model changes.
+@cached(prefix="real_dayahead_v4", ttl=TTL_S)
 def _real_dayahead_payload(site: str) -> dict[str, Any]:
     st = sites()[site]
     r = evaluate_real_dayahead(site)
@@ -39,10 +43,12 @@ def _real_dayahead_payload(site: str) -> dict[str, Any]:
             period_end_utc=r.period[1],
             hours=r.hours,
             folds=N_SPLITS,
+            scored_hours=r.scored_hours,
         ),
         scores=[RealModelScoreSchema(**vars(s)) for s in r.scores],
+        reliability=[RealReliabilitySchema(**vars(s)) for s in r.reliability],
         p10_p90_coverage_pct=r.p10_p90_coverage_pct,
-        feature_importance=[{"feature": k, "gain_share": v} for k, v in r.feature_importance],
+        feature_importance=[{"feature": k, "shap_share": v} for k, v in r.feature_importance],
         series=r.series,
     ).model_dump()
 
@@ -57,9 +63,10 @@ async def real_sites() -> list[dict[str, Any]]:
 
 @router.get("/real-data/day-ahead", response_model=RealForecastResponse)
 async def real_dayahead(site: str = "dk2") -> RealForecastResponse:
-    """XGBoost P10/P50/P90 vs NWP power curve, climatology and 24 h persistence.
+    """XGBoost P10…P90, LSTM, TFT and their ensemble vs the NWP power curve, the TSO's
+    day-ahead forecast (DK2), climatology and 24 h persistence — on the same real hours.
 
-    First call per site trains 5 folds on the bundled data (~1 min on a CPU), then Redis
+    First call per site trains 5 folds on the bundled data (~1–2 min on a CPU), then Redis
     serves it.
     """
     if site not in sites():

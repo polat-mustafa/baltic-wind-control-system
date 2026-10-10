@@ -237,15 +237,6 @@ body {
   to { stroke-opacity: 0.25; }
 }
 
-/* Training console (p4/academy/TrainingMonitor): a terminal, dark in both themes.
-   Its own classes, so the storybook ink remaps (text-slate-*, text-sky-* …) stay out. */
-.con { color: #d5dee8; }
-.con .con-fg { color: #e4ecf3; }
-.con .con-dim { color: #a3b6c8; }
-.con .con-info { color: #8fb4f5; }
-.con .con-ok { color: #4cc38a; }
-.con .con-warn { color: #f0b13e; }
-
 /* ══ Storybook theme ═══════════════════════════════════════════
    Hand-drawn, parchment-and-ink look inspired by illustrated survival games.
    Original art only (no game assets). Scoped to the landing map area via

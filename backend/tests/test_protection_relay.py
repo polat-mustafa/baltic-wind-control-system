@@ -48,9 +48,19 @@ class TestSettings:
         assert S["PTUV-01"].time_delay > 2.5  # beyond the 2.5 s FRT profile
         assert S["PTOV-01"].pickup_value >= 1.15  # 1.118–1.15 pu must be held 60 min
 
-    def test_iec_standard_inverse(self):
+    def test_iec_standard_inverse(self, evidence):
         # 10 × pickup, TMS 1: 0.14 / (10^0.02 − 1) = 2.97 s
         assert idmt_operating_time(10.0, 1.0, "SI") == pytest.approx(2.97, abs=0.01)
+        evidence(
+            "p3-idmt-si",
+            area="P3 — SCADA & protection",
+            claim="Overcurrent relay curve, standard inverse, 10 × pickup, TMS 1",
+            against="IEC 60255-151 formula t = 0.14 / (M^0.02 − 1) = 2.97 s",
+            metric="operating time",
+            value=idmt_operating_time(10.0, 1.0, "SI"),
+            unit="s",
+            limit="= 2.97 s ± 0.01",
+        )
         assert idmt_operating_time(0.9, 1.0, "SI") == math.inf
         assert idmt_operating_time(5.0, 0.1, "DT", 0.4) == 0.4
 
@@ -61,7 +71,7 @@ class TestSelectivity:
         assert i_max == pytest.approx(19.5, abs=0.2)  # 108 km export: weaker grid infeed
         assert i_min == pytest.approx(12.5, abs=0.2)  # no K_T in the min case (pandapower ≥ 3.5)
 
-    def test_default_scheme_is_selective_at_real_currents(self):
+    def test_default_scheme_is_selective_at_real_currents(self, evidence):
         results = verify_selectivity()
         assert len(results) == len(GRADING_PAIRS)
         assert all(r.verdict == SelectivityVerdict.SELECTIVE for r in results)
@@ -70,6 +80,16 @@ class TestSelectivity:
         i_max = oss_66kv_fault_levels_ka()[0]
         assert oc.downstream_delay_s == pytest.approx(ptoc_time_s(S["PTOC-01"], i_max), abs=1e-2)
         assert oc.actual_margin_ms >= 300.0
+        evidence(
+            "p3-selectivity-margin",
+            area="P3 — SCADA & protection",
+            claim="66 kV feeder vs incomer overcurrent grading at the IEC 60909 fault current",
+            against="grading margin practice (≥ 300 ms: breaker + relay overshoot + safety)",
+            metric="time margin, evaluated on both curves",
+            value=oc.actual_margin_ms,
+            unit="ms",
+            limit="≥ 300 ms",
+        )
 
     def test_low_incomer_tms_breaks_selectivity(self):
         bad = apply_overrides({"PTOC-02": {"tms": 0.05}})
@@ -86,7 +106,7 @@ class TestFaultStudy:
         assert r["selective"] and r["fast_enough"] and r["assessment"] == "PASS"
         assert r["time_limit_s"] > 1.0  # head-cable I²t withstand ≫ backup clearance
 
-    def test_export_cable_is_cleared_by_differential_within_150_ms(self):
+    def test_export_cable_is_cleared_by_differential_within_150_ms(self, evidence):
         for pos in (10.0, 50.0, 95.0):
             r = run_coordination_study("export_cable", position_pct=pos)
             assert r["main_relay"] == "PDIF-87L"
@@ -94,6 +114,16 @@ class TestFaultStudy:
             assert r["backup_margin_ms"] >= 300.0
             assert r["assessment"] == "PASS"
         far = run_coordination_study("export_cable", position_pct=95.0)
+        evidence(
+            "p3-export-87l",
+            area="P3 — SCADA & protection",
+            claim="Export cable fault at 95 % of 108 km cleared by line differential 87L",
+            against="PSE FRT profile allows 0 pu for 150 ms only: clear within it",
+            metric="main protection clearance incl. breaker",
+            value=far["main_clearance_ms"],
+            unit="ms",
+            limit="≤ 150 ms",
+        )
         assert "PDIS-Z1" not in [e["relay_id"] for e in far["relay_sequence"]]  # beyond 80 % reach
 
     def test_fault_current_falls_along_the_cable(self):

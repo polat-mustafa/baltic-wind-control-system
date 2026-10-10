@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  weibullCdf,
   exceedance,
   gamma,
   grossTurbineMWh,
@@ -14,6 +15,11 @@ import {
 } from "../../src/utils/aepMath";
 
 describe("aepMath", () => {
+  it("hours below cut-in come from the CDF, not whole 1 m/s bins", () => {
+    // 8760 · (1 − exp(−(3/11.5)^2.04)) = 547 h; summing the bins centred below 3 m/s gave 381 h
+    expect(8760 * weibullCdf(3, 11.5, 2.04)).toBeCloseTo(547, 0);
+  });
+
   it("gamma matches known values", () => {
     expect(gamma(5)).toBeCloseTo(24, 8);
     expect(gamma(1.5)).toBeCloseTo(Math.sqrt(Math.PI) / 2, 10);

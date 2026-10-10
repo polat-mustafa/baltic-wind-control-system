@@ -262,7 +262,7 @@ export default function ProjectsPage() {
           </span>
         </label>
         <Button onClick={() => void compare()} disabled={picked.length < 2 || running}>
-          <BarChart3 size={14} className="mr-1" /> {running ? "Comparing…" : `Compare ${picked.length || ""} selected`.trim()}
+          <BarChart3 size={14} className="mr-1" /> {running ? "Comparing…" : picked.length ? `Compare ${picked.length} selected` : "Compare selected"}
         </Button>
         <p className="min-w-0 flex-1 text-xs text-text-muted">
           Same engines as the Layout page and the project report: screening wake model on each site&apos;s wind, NREL/ORBIT unit costs.

@@ -26,6 +26,7 @@ import {
   rss,
   speedBins,
   UNCERTAINTY_SOURCES,
+  weibullCdf,
   weibullMean,
   Z,
 } from "../../utils/aepMath";
@@ -180,7 +181,9 @@ export default function AEPExplainer() {
     const modeBin = bins.reduce((a, b) => (b.hours > a.hours ? b : a));
     const peakEBin = bins.reduce((a, b) => (b.energyMWh > a.energyMWh ? b : a));
     const aboveRatedShare = bins.filter((b) => b.v >= 12).reduce((s, b) => s + b.energyMWh, 0) / totalE;
-    const hoursBelowCutIn = bins.filter((b) => b.v < V236.cutInMs).reduce((s, b) => s + b.hours, 0);
+    // Exact CDF, not the 1 m/s bins: the bin centred on 3 m/s (2.5–3.5) is half below cut-in,
+    // so summing whole bins under 3 m/s missed ≈ 30 % of these hours.
+    const hoursBelowCutIn = 8760 * weibullCdf(V236.cutInMs, weibullA, weibullK);
     const hoursAtRated = bins.filter((b) => b.v >= 12 && b.v <= V236.cutOutMs).reduce((s, b) => s + b.hours, 0);
     return { bins, turbineGWh, grossGWh, modeBin, peakEBin, aboveRatedShare, hoursBelowCutIn, hoursAtRated };
   }, [weibullA, weibullK]);

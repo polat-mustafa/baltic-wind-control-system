@@ -76,3 +76,6 @@ ebook/
 # Playwright (frontend e2e) run output — baselines in frontend/e2e/*-snapshots are committed
 frontend/test-results/
 frontend/playwright-report/
+
+# i18n:missing report (frontend/scripts/i18n-missing.mjs)
+frontend/i18n-missing-*.tsv

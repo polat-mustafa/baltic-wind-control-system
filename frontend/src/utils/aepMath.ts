@@ -45,7 +45,8 @@ export function gamma(x: number): number {
 /** Mean wind speed of Weibull(A, k): v̄ = A · Γ(1 + 1/k). */
 export const weibullMean = (a: number, k: number) => a * gamma(1 + 1 / k);
 
-const weibullCdf = (v: number, a: number, k: number) => (v <= 0 ? 0 : 1 - Math.exp(-((v / a) ** k)));
+/** Weibull cumulative distribution: share of the year with wind below v. */
+export const weibullCdf = (v: number, a: number, k: number) => (v <= 0 ? 0 : 1 - Math.exp(-((v / a) ** k)));
 
 export interface SpeedBin {
   /** Bin centre [m/s] (bins are 1 m/s wide: v−0.5 … v+0.5). */

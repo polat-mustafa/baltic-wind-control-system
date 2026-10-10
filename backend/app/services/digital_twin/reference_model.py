@@ -347,7 +347,7 @@ def evaluate(
             idx = lim_idx[su]
 
             def surplus_vs_lambda(x: FloatArray) -> FloatArray:
-                return p_el_mw(idx, x, off_l[su]) - plim_l[su]
+                return np.asarray(p_el_mw(idx, x, off_l[su]) - plim_l[su], dtype=np.float64)
 
             lam[idx] = _bisect_decreasing(surplus_vs_lambda, lam[idx], lam_rated[su])
             region[idx] = REGION_CONSTANT_POWER
@@ -357,7 +357,7 @@ def evaluate(
             lam_r = lam_rated[pr]
 
             def surplus_vs_pitch(b: FloatArray) -> FloatArray:
-                return p_el_mw(idx, lam_r, b) - plim_l[pr]
+                return np.asarray(p_el_mw(idx, lam_r, b) - plim_l[pr], dtype=np.float64)
 
             beta_actual[idx] = _bisect_decreasing(
                 surplus_vs_pitch, off_l[pr], off_l[pr] + _PITCH_SEARCH_MAX_DEG

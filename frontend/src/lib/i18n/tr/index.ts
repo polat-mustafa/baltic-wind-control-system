@@ -22,6 +22,7 @@ import guides from "./guides";
 import landing from "./landing";
 import learn from "./learn";
 import lifecycle from "./lifecycle";
+import liveData from "./live-data";
 import misc from "./misc";
 import operate from "./operate";
 import pages from "./pages";
@@ -49,6 +50,7 @@ const tr: Dictionary = {
   ...lifecycle,
   ...commissioning,
   ...site,
+  ...liveData,
   ...misc,
   ...operate,
   ...pages,

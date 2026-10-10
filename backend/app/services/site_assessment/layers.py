@@ -214,10 +214,16 @@ class RegionPack:
         return any(layer.geometry == "polygon" and layer.features for layer in self.by_role(role))
 
     def raster(self, role: str, band: str | None = None) -> Raster | None:
-        """The raster of this role (``band`` picks one band of a multi-band raster)."""
+        """The raster of this role (``band`` picks one band of a multi-band raster).
+
+        None when the role has no raster or the raster lacks that band (e.g. an older pack
+        without the optional ``gwa_mean`` band).
+        """
         for layer in self.by_role(role):
             if layer.raster is not None:
                 r = layer.raster
+                if band is not None and band not in r.get("bands", {}):
+                    return None
                 rows = r["bands"][band] if band is not None else r["values"]
                 values = np.array(
                     [[np.nan if v is None else float(v) for v in row] for row in rows],

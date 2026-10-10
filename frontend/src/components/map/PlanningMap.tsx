@@ -25,6 +25,13 @@ import MapCredits from "./MapCredits";
 
 export type Bounds = [[number, number], [number, number]];
 
+export interface RasterOverlay {
+  id: string;
+  /** Tile URL template; a WMS GetMap with bbox={bbox-epsg-3857}&width=256&height=256. */
+  tiles: string;
+  opacity?: number;
+}
+
 export interface PlanningMapProps {
   bounds: Bounds;
   /** Refit to `bounds` when this changes (not on every new array). */
@@ -44,8 +51,12 @@ export interface PlanningMapProps {
   onDropItem?: (kind: string, at: [number, number]) => void;
   /** Sources of the data layers, credited after the base map; null for none. */
   dataCredit?: string | null;
+  /** Raster overlays on the base map, under the data (e.g. a WMS with {bbox-epsg-3857} tiles). */
+  overlays?: RasterOverlay[];
   children?: ReactNode;
 }
+
+const NO_OVERLAYS: RasterOverlay[] = [];
 
 export default function PlanningMap({
   bounds,
@@ -62,13 +73,25 @@ export default function PlanningMap({
   cursor,
   onDropItem,
   dataCredit = "EMODnet, EEA, Marine Regions",
+  overlays = NO_OVERLAYS,
   children,
 }: PlanningMapProps) {
   const theme = useLayerStore((s) => s.mapTheme);
   const dark = theme === "hmi";
   const pal = PALETTES[theme];
   const vector = useVectorStyle(theme);
-  const style = useMemo(() => (vector ? recolourVector(vector, pal.land, pal.sea) : osmStyle(dark)), [vector, pal, dark]);
+  const style = useMemo(() => {
+    const base = vector ? recolourVector(vector, pal.land, pal.sea) : osmStyle(dark);
+    if (!overlays.length) return base;
+    return {
+      ...base,
+      sources: {
+        ...base.sources,
+        ...Object.fromEntries(overlays.map((o) => [o.id, { type: "raster" as const, tiles: [o.tiles], tileSize: 256 }])),
+      },
+      layers: [...base.layers, ...overlays.map((o) => ({ id: o.id, type: "raster" as const, source: o.id, paint: { "raster-opacity": o.opacity ?? 0.7 } }))],
+    };
+  }, [vector, pal, dark, overlays]);
   const boxRef = useRef<HTMLDivElement>(null);
   const [viewState, setViewState] = useState<MapViewState | null>(null);
   const boundsRef = useRef(bounds);

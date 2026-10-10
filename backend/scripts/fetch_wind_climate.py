@@ -387,13 +387,111 @@ def build(today: str) -> list[dict[str, Any]]:
     return [wind_layer, rose_layer]
 
 
+#: Global Wind Atlas v4 (DTU Wind Energy / World Bank, CC BY 4.0): Poland, mean wind at 150 m,
+#: 0.0025° GeoTIFF (ZSTD tiles, floating-point predictor).
+GWA_TIF = "https://globalwindatlas.info/api/gis/country/POL/wind-speed/150"
+
+
+def _gwa_grid() -> tuple[Any, float, float, float]:
+    """The GWA raster as a lazy tile reader: (read(row0, row1, col0, col1), lon0, lat0, step)."""
+    import tifffile
+
+    try:
+        from compression import zstd  # Python ≥ 3.14
+    except ImportError as e:  # pragma: no cover - older Python
+        raise SystemExit("GWA tiles are ZSTD-compressed: run this step with Python 3.14+") from e
+
+    path = Path(tempfile.gettempdir()) / "gwa_POL_wind-speed_150m.tif"
+    if not path.exists():
+        print("  Global Wind Atlas v4: Poland 150 m GeoTIFF (≈ 25 MB)")
+        path.write_bytes(_get(GWA_TIF, timeout=900))
+    tif = tifffile.TiffFile(str(path))
+    page = tif.pages[0]
+    tags = {t.name: t.value for t in page.tags.values()}
+    lon0, lat0 = tags["ModelTiepointTag"][3], tags["ModelTiepointTag"][4]
+    step = tags["ModelPixelScaleTag"][0]
+    th, tw = page.tilelength, page.tilewidth
+    ntx = -(-page.shape[1] // tw)
+    raw = path.read_bytes()
+
+    def tile(i: int) -> FloatArray:
+        b = np.frombuffer(
+            zstd.decompress(
+                raw[page.dataoffsets[i] : page.dataoffsets[i] + page.databytecounts[i]]
+            ),
+            dtype=np.uint8,
+        ).reshape(th, 4 * tw)
+        # TIFF predictor 3: undo the byte differencing per row, then the byte planes
+        # (most significant first) back to big-endian float32 samples
+        b = np.cumsum(b, axis=1, dtype=np.uint8).reshape(th, 4, tw).transpose(0, 2, 1)
+        return np.ascontiguousarray(b).view(">f4").reshape(th, tw).astype(float)
+
+    def read(r0: int, r1: int, c0: int, c1: int) -> FloatArray:
+        out = np.full((r1 - r0, c1 - c0), np.nan)
+        for tr in range(r0 // th, (r1 - 1) // th + 1):
+            for tc in range(c0 // tw, (c1 - 1) // tw + 1):
+                t = tile(tr * ntx + tc)
+                ra, rb = max(r0, tr * th), min(r1, (tr + 1) * th)
+                ca, cb = max(c0, tc * tw), min(c1, (tc + 1) * tw)
+                out[ra - r0 : rb - r0, ca - c0 : cb - c0] = t[
+                    ra - tr * th : rb - tr * th, ca - tc * tw : cb - tc * tw
+                ]
+        return out
+
+    return read, float(lon0), float(lat0), float(step)
+
+
+def add_gwa_band(pack: dict[str, Any]) -> None:
+    """Second atlas on the wind_climate grid: GWA v4 mean at 150 m averaged over each cell."""
+    layer = next(lyr for lyr in pack["layers"] if lyr["id"] == "wind_climate")
+    r = layer["raster"]
+    ny, nx = len(r["bands"]["mean"]), len(r["bands"]["mean"][0])
+    read, glon0, glat0, gstep = _gwa_grid()
+    half = r["dlon"] / 2
+    grid = np.full((ny, nx), np.nan)
+    for j in range(ny):
+        lat = r["lat0"] + j * r["dlat"]
+        for i in range(nx):
+            if r["bands"]["mean"][j][i] is None:
+                continue  # land, as in NEWA
+            lon = r["lon0"] + i * r["dlon"]
+            c0, c1 = int((lon - half - glon0) / gstep), int((lon + half - glon0) / gstep)
+            r0, r1 = int((glat0 - (lat + half)) / gstep), int((glat0 - (lat - half)) / gstep)
+            if r0 < 0 or c0 < 0:
+                continue
+            v = read(r0, max(r1, r0 + 1), c0, max(c1, c0 + 1))
+            v = v[np.isfinite(v) & (v > 0)]
+            if v.size:
+                grid[j, i] = float(v.mean())
+    r["bands"]["gwa_mean"] = _rows(grid, 2)
+    layer["source"] = layer["source"].split("; second atlas")[0] + (
+        "; second atlas: Global Wind Atlas v4 (DTU Wind Energy, World Bank) mean at 150 m"
+    )
+    layer["license"] = layer["license"].split("; GWA")[0] + "; GWA: CC BY 4.0"
+    ok = grid[np.isfinite(grid)]
+    print(f"  GWA band: {ok.size} sea cells, median {np.median(ok):.2f} m/s")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument(
         "--iav", action="store_true", help="print the ERA5 interannual variability (no pack write)"
     )
+    ap.add_argument(
+        "--gwa",
+        action="store_true",
+        help="add the Global Wind Atlas band to the existing layer only",
+    )
     args = ap.parse_args()
+    if args.gwa:
+        pack = json.loads(PACK.read_text(encoding="utf-8"))
+        add_gwa_band(pack)
+        if not args.dry_run:
+            text = json.dumps(pack, ensure_ascii=False, separators=(",", ":"))
+            PACK.write_text(text + "\n", encoding="utf-8")
+            print(f"wrote {PACK}")
+        return
     if args.iav:
         iav, n = era5_iav(*IAV_POINT)
         print(f"ERA5 100 m annual mean wind, {n} years {IAV_YEARS} at {IAV_POINT}: IAV {iav:.2f} %")

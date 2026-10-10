@@ -163,6 +163,8 @@ export interface SiteWind {
   license: string;
   /** True: real data not found, closest approximation used. */
   approximate: boolean;
+  /** Second atlas: Global Wind Atlas v4 mean at hub height [m/s]. */
+  gwa_mean_ms?: number | null;
 }
 
 export interface AssessResponse {

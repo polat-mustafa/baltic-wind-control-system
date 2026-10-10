@@ -25,6 +25,7 @@ function input(on: Partial<LayerVisibility>, extra: Partial<ContextInput> = {}):
     repairs: {},
     ais: [],
     vessels: [],
+    coastal: [],
     dts: { currentA: 800, ambientC: 10 },
     now: Date.now(),
     ...extra,
@@ -35,6 +36,15 @@ const ids = (c: ContextInput) => [...underLayers(c), ...overLayers(c)].map((l) =
 describe("map context layers", () => {
   it("draws nothing with every layer off", () => {
     expect(ids(input({}))).toEqual([]);
+  });
+
+  it("draws the IMGW coastal stations with their measured wind", () => {
+    const st = { id: "12115", name: "Ustka", lat: 54.583, lon: 16.867, time_utc: "2026-10-10T21:00Z", wind_ms: 5, wind_dir_deg: 190, air_temp_c: 10.7, pressure_hpa: 1005, humidity_pct: 82 };
+    expect(ids(input({ coastalStations: true }))).toEqual([]); // no data yet: nothing
+    const layers = overLayers(input({ coastalStations: true }, { coastal: [st] }));
+    expect(layers.map((l) => l.id)).toEqual(["coastal-stations", "coastal-wind", "coastal-arrows"]);
+    const dot = (layers[0].props.data as { tip: string }[])[0];
+    expect(dot.tip).toMatch(/^Ustka · 5 m\/s from 190° at 10 m · 10\.7 °C · 21:00 UTC/);
   });
 
   it("adds the layers of each toggle", () => {

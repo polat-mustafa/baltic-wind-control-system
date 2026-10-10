@@ -20,8 +20,10 @@ import { useModeStore } from "../../store/modeStore";
 import { CASE_STUDY_GRID_NODE, CASE_STUDY_SITE, useSiteStore } from "../../store/siteStore";
 import { checkExportRoute } from "../../lib/site/exportRoute";
 import { rgba } from "../map/deckUtils";
-import PlanningMap, { type Bounds } from "../map/PlanningMap";
+import PlanningMap, { type Bounds, type RasterOverlay } from "../map/PlanningMap";
 import { inDrawOrder, roleLayer, roleTooltip } from "./mapLayers";
+import { kseLayers, kseTooltip, usePlGrid } from "../map/kseLayers";
+import { SCADA_COLORS } from "../../constants/scadaColors";
 import { ROLE_STYLE, wideScreen } from "./mapStyles";
 
 const SUITABLE = "#16a34a";
@@ -62,6 +64,17 @@ function useSuitabilityCells() {
   }, [s]);
 }
 
+/** EMSA route density (all ship types, annual 2025) from EMODnet Human Activities, as WMS tiles. */
+const TRAFFIC: RasterOverlay[] = [
+  {
+    id: "traffic",
+    tiles:
+      "https://ows.emodnet-humanactivities.eu/wms?service=WMS&version=1.1.1&request=GetMap&layers=emodnet:routedensity_allavg" +
+      "&styles=&time=2025-01-01T00:00:00Z&srs=EPSG:3857&bbox={bbox-epsg-3857}&width=256&height=256&format=image/png&transparent=true",
+    opacity: 0.55,
+  },
+];
+
 export default function ScreeningMap() {
   const layers = useSiteStore((s) => s.layers);
   const site = useSiteStore((s) => s.site);
@@ -77,7 +90,13 @@ export default function ScreeningMap() {
   const finishRoute = useSiteStore((s) => s.finishRoute);
   const cancelRoute = useSiteStore((s) => s.cancelRoute);
   const [visible, setVisible] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries([...Object.entries(ROLE_STYLE).map(([k, v]) => [k, v.on]), ["suitability", true], ["turbines", useModeStore.getState().mode !== "own"]]),
+    Object.fromEntries([
+      ...Object.entries(ROLE_STYLE).map(([k, v]) => [k, v.on]),
+      ["suitability", true],
+      ["turbines", useModeStore.getState().mode !== "own"],
+      ["kse", true],
+      ["traffic", false],
+    ]),
   );
   const [panelOpen, setPanelOpen] = useState(wideScreen);
   const suitability = useSiteStore((s) => s.suitability);
@@ -92,7 +111,11 @@ export default function ScreeningMap() {
   const cells = useSuitabilityCells();
 
   const bbox = layers?.region.bbox ?? [16.22, 54.45, 17.85, 55.2];
-  const shown = (layers?.layers ?? []).filter((l) => ROLE_STYLE[l.role] && visible[l.role]);
+  const kse = usePlGrid();
+  // with the national grid on, its lines replace the region pack's coastal grid lines
+  const shown = (layers?.layers ?? []).filter(
+    (l) => ROLE_STYLE[l.role] && visible[l.role] && !(visible.kse && kse && l.id === "grid_lines"),
+  );
   // Fit the region, or the checked export route once there is one
   const bounds: Bounds = check?.route.length ? around(check.route) : [[bbox[0], bbox[1]], [bbox[2], bbox[3]]];
   const fitKey = check?.route.length ? `route-${check.total_km}` : bbox.join(",");
@@ -109,6 +132,7 @@ export default function ScreeningMap() {
         stroked: false,
       }),
     ...inDrawOrder(shown).map((layer) => roleLayer(layer, ROLE_STYLE[layer.role])),
+    ...(visible.kse && kse ? kseLayers(kse, 0.8) : []),
     visible.turbines &&
       new ScatterplotLayer({
         id: "sb510-turbines",
@@ -205,7 +229,7 @@ export default function ScreeningMap() {
       return d.km != null ? `Export cable ${d.km.toFixed(1)} km (${d.auto ? "automatic" : "drawn"})` : null;
     }
     if (id === "route-points") return (info.object as { tip?: string }).tip ?? null;
-    return roleTooltip(info);
+    return kseTooltip(info) ?? roleTooltip(info);
   };
 
   return (
@@ -214,6 +238,8 @@ export default function ScreeningMap() {
         bounds={bounds}
         fitKey={fitKey}
         layers={mapLayers}
+        overlays={visible.traffic ? TRAFFIC : undefined}
+        dataCredit={visible.traffic ? "EMODnet, EEA, Marine Regions, EMSA route density" : undefined}
         getTooltip={tooltip}
         onClick={(info: PickingInfo) => {
           if (!info.coordinate) return;
@@ -321,6 +347,20 @@ export default function ScreeningMap() {
                   onChange={(v) => setVisible({ ...visible, [role]: v })}
                 />
               ))}
+              <LegendToggle
+                color="#d94a2b"
+                label="Ship traffic density 2025"
+                note="EMSA route density (AIS), annual, via EMODnet: red = busiest lanes"
+                checked={!!visible.traffic}
+                onChange={(v) => setVisible({ ...visible, traffic: v })}
+              />
+              <LegendToggle
+                color={SCADA_COLORS.VOLTAGE_400KV}
+                label="Polish transmission system (KSE)"
+                note="PSE 400 / 220 kV lines and substations, interconnectors, SwePol HVDC"
+                checked={!!visible.kse}
+                onChange={(v) => setVisible({ ...visible, kse: v })}
+              />
               <LegendToggle
                 color="#0f172a"
                 label="SB-510 turbines"

@@ -15,6 +15,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { fetchLiveWeather } from "../../services/openMeteoApi";
+import { useCoastalStations } from "./coastal";
 import { selectEnvironment, useLandingStore } from "../../store/landingStore";
 
 const LIVE_REFRESH_MS = 15 * 60 * 1000; // Open-Meteo "current" updates every 15 min
@@ -67,6 +68,8 @@ export default function EnvironmentPanel() {
   const setSource = useLandingStore((s) => s.setWeatherSource);
   const live = useLandingStore((s) => s.liveWeather);
   const error = useLiveWeatherFeed();
+  // the two stations nearest the farm, to set against the model wind
+  const measured = useCoastalStations(source === "live").filter((st) => st.name === "Ustka" || st.name === "Łeba");
   const isLive = source === "live" && !!live;
   const bColor = beaufortColor(env.beaufortScale);
   // Collapsed to its header on phones (it would cover a quarter of the map)
@@ -185,6 +188,20 @@ export default function EnvironmentPanel() {
                 : live
                   ? `Open-Meteo (CC BY 4.0) · 10 m ${live.wind10Ms.toFixed(1)} m/s ${Math.round(live.windDir10Deg)}° · 100 m ${live.wind100Ms.toFixed(1)} m/s → hub 150 m (α 0.1)`
                   : "loading Open-Meteo…"}
+            </div>
+          )}
+          {source === "live" && measured.length > 0 && (
+            <div className="border-t px-2.5 py-1 text-xs leading-snug text-text-muted" style={{ borderColor: "#1f3448" }}>
+              <span className="text-text-secondary">Measured on the shore (IMGW, 10 m): </span>
+              {/* one span per station, so each reading translates on its own */}
+              {measured.map((st, k) => (
+                <span key={st.id}>
+                  {k > 0 && " · "}
+                  <span className="font-mono">
+                    {st.name} {st.wind_ms?.toFixed(0) ?? "—"} m/s {st.wind_dir_deg != null ? `${st.wind_dir_deg.toFixed(0)}°` : ""}
+                  </span>
+                </span>
+              ))}
             </div>
           )}
         </>

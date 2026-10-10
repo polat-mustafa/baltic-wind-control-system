@@ -9,6 +9,7 @@ import type { Dictionary } from "..";
 
 import academy from "./academy";
 import charts from "./charts";
+import commissioning from "./commissioning";
 import contentMisc from "./content-misc";
 import design from "./design";
 import eduLibrary from "./edu-library";
@@ -26,6 +27,7 @@ import operate from "./operate";
 import pages from "./pages";
 import scada from "./scada";
 import shell from "./shell";
+import site from "./site";
 import twin from "./twin";
 
 // edu-*, guides and content-misc translate the content files (education panels, part cards,
@@ -45,6 +47,8 @@ const tr: Dictionary = {
   ...landing,
   ...learn,
   ...lifecycle,
+  ...commissioning,
+  ...site,
   ...misc,
   ...operate,
   ...pages,

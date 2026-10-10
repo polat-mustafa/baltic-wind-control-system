@@ -334,7 +334,7 @@ export default function LayoutPage() {
         <div className="space-y-3">
           {offRegister && registerOrder && (
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-border-primary bg-bg-secondary px-3 py-2 text-[12px] text-text-secondary">
-              <span className="min-w-0 flex-1">
+              <span className="min-w-0 flex-1 basis-56">
                 Turbine tags differ from the operational numbering (string by string from the OSS) used by SCADA, commissioning and
                 the control room. Tags stay put while you design; renumber once, when the layout is frozen.
               </span>

@@ -92,9 +92,11 @@ function GridSscInput() {
         <span className="text-text-muted">MVA</span>
       </span>
       <span className="mt-1 block text-xs text-text-muted">
-        {ssc == null ? "Empty: an illustrative 10 000 MVA. " : `${(ssc / 1000).toFixed(1)} GVA in your project's grid studies. `}
-        Enter the value of the TSO's connection conditions (PSE publishes no per-node values); {lo.toLocaleString("en")}–
-        {hi.toLocaleString("en")} MVA, the upper bound being 63 kA at 400 kV.
+        <span>{ssc == null ? "Empty: an illustrative 10 000 MVA." : `${(ssc / 1000).toFixed(1)} GVA in your project's grid studies.`}</span>{" "}
+        <span>
+          Enter the value of the TSO's connection conditions (PSE publishes no per-node values); {lo.toLocaleString("en")}–
+          {hi.toLocaleString("en")} MVA, the upper bound being 63 kA at 400 kV.
+        </span>
       </span>
     </span>
   );

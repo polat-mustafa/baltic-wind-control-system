@@ -54,7 +54,7 @@ export default function DayNightOverlay() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0"
+      className="pointer-events-none absolute inset-0 z-[-1]"
       style={{ backgroundColor: `rgba(${color}, ${opacity})`, transition: "background-color 2s ease" }}
     />
   );

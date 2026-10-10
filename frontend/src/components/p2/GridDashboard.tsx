@@ -12,6 +12,7 @@
  * Panels fade/slide in one after another (framer-motion, honours reduced motion).
  */
 
+import { lazy, Suspense } from "react";
 import { motion, MotionConfig } from "framer-motion";
 
 import { useGridStore } from "../../store/gridStore";
@@ -23,6 +24,9 @@ import GridKPIHeader from "./GridKPIHeader";
 import ShortCircuitPanel from "./ShortCircuitPanel";
 import STATCOMPanel from "./STATCOMPanel";
 import VoltageProfilePanel from "./VoltageProfilePanel";
+
+// MapLibre + deck.gl and the grid data: loaded with the map only
+const PolishGridMap = lazy(() => import("./PolishGridMap"));
 
 const item = {
   hidden: { opacity: 0, y: 14 },
@@ -58,6 +62,11 @@ export default function GridDashboard() {
         </motion.div>
         <motion.div variants={item}>
           <GridConnectionDiagram />
+        </motion.div>
+        <motion.div variants={item}>
+          <Suspense fallback={<div className="h-[520px] rounded-lg border border-border-primary bg-bg-secondary" />}>
+            <PolishGridMap />
+          </Suspense>
         </motion.div>
         <Section n={1} title="Power flow — voltages and loading in four operating cases">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

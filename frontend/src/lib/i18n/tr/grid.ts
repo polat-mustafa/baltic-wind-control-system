@@ -293,4 +293,16 @@ export default {
   "LCOH = capital·(CRF + {n1} % O&M)/(FLH/SEC) + price·SEC, with SEC = {n2} kWh/kg, {n3} % WACC, {n4} years (assumptions). Few running hours make H₂ expensive however cheap the power. Back to power via H₂ returns only ≈{n5} % of the electricity.":
     "LCOH = sermaye·(CRF + %{n1} İ&B)/(TYS/ÖEK) + fiyat·ÖEK; ÖEK = {n2} kWh/kg, AOSM %{n3}, {n4} yıl (varsayımlar). Az çalışma saati, elektrik ne kadar ucuz olursa olsun H₂'yi pahalı yapar. H₂ üzerinden yeniden elektriğe dönüş, elektriğin yalnızca ≈%{n5}'ini geri verir.",
   "3-phase": "üç fazlı",
+  // ── Polish transmission system map (p2/PolishGridMap) ──
+  "Polish transmission system (KSE): where the farm connects": "Polonya iletim sistemi (KSE): santralin bağlandığı yer",
+  "PSE's 400 and 220 kV network, the interconnectors to the neighbours and the SwePol HVDC link. Hover a line or a substation.":
+    "PSE'nin 400 ve 220 kV şebekesi, komşulara enterkonnektörler ve SwePol HVDC bağlantısı. Bir hattın ya da trafo merkezinin üzerine gelin.",
+  "Map of the Polish transmission system": "Polonya iletim sistemi haritası",
+  "400 kV · ≈ {n} km": "400 kV · ≈ {n} km",
+  "220 kV · ≈ {n} km": "220 kV · ≈ {n} km",
+  "{n} PSE substations": "{n} PSE trafo merkezi",
+  "{name} export route": "{name} iletim güzergâhı",
+  "Interconnectors (circuits):": "Enterkonnektörler (devre):",
+  "{n} of {n2} substations are named on the ENTSO-E map print; the rest lie south of its 50° N edge or are newer.":
+    "{n2} trafo merkezinin {n}'i ENTSO-E harita baskısında adıyla yer alıyor; kalanlar haritanın 50° K sınırının güneyinde ya da daha yeni.",
 } satisfies Record<string, string>;

@@ -395,9 +395,10 @@ class TestAssess:
         basins = {str(f.props["basin"]) for f, _ in pack.named_polygons("msp_energy")}
         assert {"PZP_14", "PZP_43", "PZP_44", "PZP_45", "PZP_46", "PZP_53", "PZP_60"} <= basins
         projects = {f.name for f in pack.point_features("owf")}
-        assert {"Baltic Power", "Baltica 9", "Baltyk II"} <= projects
         outlines = {f.name for f, _ in pack.named_polygons("owf")}
-        assert "Baltic Power" in outlines
+        # a farm with a drawn outline is not repeated as a point
+        assert {"Baltica 9", "Baltica 3"} <= projects and not projects & outlines
+        assert {"Baltic Power", "Baltica 2", "MFW Bałtyk II Offshore Wind Farm"} <= outlines
         grid = {name for name, _, _ in pack.points("grid")}
         assert any("Słupsk" in n for n in grid) and any("Żarnowiec" in n for n in grid)
         for layer in pack.layers:
@@ -777,4 +778,7 @@ def test_pack_carries_the_real_transmission_grid() -> None:
     assert {220.0, 400.0} <= kv
     hvdc = [f for f in grid["features"] if f["kind"] == "HVDC link"]
     # SwePol: Wierzbięcino (Słupsk) 54.5 °N 16.9 °E ↔ Stärnö (SE)
-    assert any(abs(f["coordinates"][0][1] - 54.5) < 0.1 for f in hvdc)
+    assert any(abs(pt[1] - 54.5) < 0.1 for f in hvdc for pt in f["coordinates"])
+    # real routes, not bus-to-bus straight lines (PyPSA's CSV quotes its WKT with ')
+    ac = [f for f in grid["features"] if f["kind"] == "AC line"]
+    assert sum(len(f["coordinates"]) > 2 for f in ac) > 0.8 * len(ac)

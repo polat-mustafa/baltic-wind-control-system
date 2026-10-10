@@ -112,7 +112,12 @@ def neighbour_farms(
         for f, rings in pack.named_polygons("owf")
         if _mw(f) >= MIN_MW and str(f.props.get("status", "")).lower() not in SKIP_STATUS
     ]
-    densities = [_mw(f) / polygon_area_km2(r) for f, r in outlines if polygon_area_km2(r) > 1]
+    # built farms only: EMODnet's planning areas abroad are far larger than the farms in them
+    densities = [
+        _mw(f) / polygon_area_km2(r)
+        for f, r in outlines
+        if polygon_area_km2(r) > 1 and f.props.get("source") != "EMODnet"
+    ]
     density = float(np.median(densities)) if densities else 4.5
     basis = (
         f"median of {len(densities)} mapped outlines (OpenStreetMap)"

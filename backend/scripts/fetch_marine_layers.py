@@ -39,6 +39,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -592,71 +593,86 @@ GRID_MIN_KV = 220
 
 def _wkt_line(wkt: str) -> list[list[float]]:
     body = wkt.strip("'\" ").removeprefix("LINESTRING").strip(" ()")
-    return [[float(v) for v in pt.split()] for pt in body.split(",")]
+    return [[float(v) for v in pt.split()] for pt in body.split(",") if pt.strip()]
+
+
+def _pypsa_csv(name: str) -> Iterator[dict[str, str]]:
+    """Rows of one PyPSA-Eur OSM file. Its text fields are quoted with ' (WKT geometry
+    holds commas): read with the default " every line kept only its first vertex."""
+    import csv as _csv
+
+    _csv.field_size_limit(1 << 27)
+    print(f"  PyPSA-Eur OSM grid: {name}")
+    with urllib.request.urlopen(PYPSA_OSM.format(name), timeout=600) as r:
+        yield from _csv.DictReader(io.TextIOWrapper(r, encoding="utf-8"), quotechar="'")
+
+
+def pypsa_grid(min_kv: float = GRID_MIN_KV) -> Iterator[dict[str, Any]]:
+    """AC lines ≥ `min_kv` and HVDC links: route, ends (countries), voltage, circuits, rating."""
+    buses = {b["bus_id"]: b for b in _pypsa_csv("buses.csv")}
+    for name, kind in (("lines.csv", "AC line"), ("links.csv", "HVDC link")):
+        for row in _pypsa_csv(name):
+            kv = float(row["voltage"] or 0)
+            if kv < min_kv:
+                continue
+            ends = [buses.get(row["bus0"]), buses.get(row["bus1"])]
+            pts = _wkt_line(row["geometry"])
+            schematic = len(pts) < 2  # some HVDC links carry one point: draw bus to bus
+            if schematic:
+                if None in ends:
+                    continue
+                pts = [[float(e["x"]), float(e["y"])] for e in ends if e is not None]
+            yield {
+                "kind": kind,
+                "kv": kv,
+                "pts": pts,
+                "schematic": schematic,
+                "countries": [e["country"] if e else None for e in ends],
+                "circuits": int(float(row.get("circuits") or 1)),
+                "rating_mva": round(float(row.get("s_nom") or row.get("p_nom") or 0), 0),
+                "length_km": float(row.get("length") or 0) / 1000,
+                "underground": row["underground"] == "t",
+                "under_construction": row["under_construction"] == "t",
+            }
+
+
+def grid_line_feature(g: dict[str, Any], coords: list[list[float]]) -> dict[str, Any]:
+    return {
+        "name": f"{g['kv']:.0f} kV {g['kind']}"
+        + (f" × {g['circuits']}" if g["circuits"] > 1 else "")
+        + (" (under construction)" if g["under_construction"] else "")
+        + (" — route schematic" if g["schematic"] else ""),
+        "coordinates": coords,
+        "kind": g["kind"],
+        "voltage_kv": g["kv"],
+        "circuits": g["circuits"],
+        "rating_mva": g["rating_mva"],
+        "underground": g["underground"],
+        "status": "under construction" if g["under_construction"] else "existing",
+    }
 
 
 def grid_lines(box: tuple[float, float, float, float], today: str) -> dict[str, Any]:
     """PSE / neighbour lines ≥ 220 kV and HVDC links (SwePol) inside the region box."""
-    import csv as _csv
-
-    _csv.field_size_limit(1 << 27)
     lon0, lat0, lon1, lat1 = box
 
     def inside(pt: list[float]) -> bool:
         return lon0 <= pt[0] <= lon1 and lat0 <= pt[1] <= lat1
 
-    with urllib.request.urlopen(PYPSA_OSM.format("buses.csv"), timeout=300) as r:
-        buses = {
-            b["bus_id"]: [float(b["x"]), float(b["y"])]
-            for b in _csv.DictReader(io.TextIOWrapper(r, encoding="utf-8"))
-        }
     features = []
-    for name, kind in (("lines.csv", "AC line"), ("links.csv", "HVDC link")):
-        print(f"  PyPSA-Eur OSM grid: {name}")
-        with urllib.request.urlopen(PYPSA_OSM.format(name), timeout=300) as r:
-            rows = _csv.DictReader(io.TextIOWrapper(r, encoding="utf-8"))
-            for row in rows:
-                kv = float(row["voltage"] or 0)
-                if kv < GRID_MIN_KV:
-                    continue
-                pts = _wkt_line(row["geometry"])
-                schematic = len(pts) < 2  # some HVDC links carry one point: draw bus to bus
-                if schematic:
-                    ends = [buses.get(row["bus0"]), buses.get(row["bus1"])]
-                    if None in ends:
-                        continue
-                    pts = [pt for pt in ends if pt is not None]
-                keep = [i for i, pt in enumerate(pts) if inside(pt)]
-                if not keep and schematic:
-                    mid = [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2]
-                    keep = [0, 1] if inside(mid) else []
-                if not keep:
-                    continue
-                # the inside run plus one vertex either side, rounded to ~100 m
-                seg = pts[max(0, keep[0] - 1) : keep[-1] + 2]
-                coords: list[list[float]] = []
-                for x, y in seg:
-                    c = [round(x, 3), round(y, 3)]
-                    if not coords or coords[-1] != c:
-                        coords.append(c)
-                circuits = int(float(row.get("circuits") or 1))
-                features.append(
-                    {
-                        "name": f"{kv:.0f} kV {kind}"
-                        + (f" × {circuits}" if circuits > 1 else "")
-                        + (" (under construction)" if row["under_construction"] == "t" else "")
-                        + (" — route schematic" if schematic else ""),
-                        "coordinates": coords,
-                        "kind": kind,
-                        "voltage_kv": kv,
-                        "circuits": circuits,
-                        "rating_mva": round(float(row.get("s_nom") or row.get("p_nom") or 0), 0),
-                        "underground": row["underground"] == "t",
-                        "status": "under construction"
-                        if row["under_construction"] == "t"
-                        else "existing",
-                    }
-                )
+    for g in pypsa_grid():
+        pts = g["pts"]
+        keep = [i for i, pt in enumerate(pts) if inside(pt)]
+        if not keep and g["schematic"]:
+            mid = [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2]
+            keep = [0, 1] if inside(mid) else []
+        if not keep:
+            continue
+        # the inside run plus one vertex either side, simplified to ~100 m
+        seg = rdp(np.asarray(pts[max(0, keep[0] - 1) : keep[-1] + 2], dtype=float), SIMPLIFY_DEG)
+        features.append(
+            grid_line_feature(g, [[round(float(x), 4), round(float(y), 4)] for x, y in seg])
+        )
     return layer(
         "grid_lines",
         f"Transmission lines ≥ {GRID_MIN_KV} kV and HVDC links",
@@ -838,20 +854,63 @@ def wind_projects(
                         "osm": f"{e['type']}/{e['id']}",
                     }
                 )
-    points = []
-    for f in fetch_ha("windfarms", box)["features"]:
+    # Neighbours' project areas as EMODnet polygons. Poland's are the MSP basins (own layer),
+    # not projects; very large unnamed polygons are search areas, not farms.
+    for f in fetch_ha("windfarmspoly", box)["features"]:
         p, g = f["properties"], f.get("geometry")
-        if not g or g["type"] != "Point":
+        if (
+            not g
+            or p.get("country") == "Poland"
+            or not p.get("name")
+            or p.get("status") == "Dismantled"
+        ):
             continue
+        for poly in prepare_polygons(g, box):
+            outer = np.asarray(poly[0], dtype=float)
+            centre = outer.mean(axis=0)
+            if any(points_in_polygons(centre[:1], centre[1:], [[k]])[0] for k in kept):
+                continue  # already an OSM outline
+            kept.append(outer)
+            outlines.append(
+                {
+                    "name": p["name"],
+                    "coordinates": poly,
+                    "country": p.get("country"),
+                    "power_mw": p.get("power_mw"),
+                    "status": str(p.get("status") or "").lower() or None,
+                    "source": "EMODnet",
+                }
+            )
+    raw = [
+        f
+        for f in fetch_ha("windfarms", box)["features"]
+        if f.get("geometry", {}).get("type") == "Point"
+        and f["properties"].get("status") != "Dismantled"
+    ]
+    # One coordinate under several different projects is a placeholder (e.g. "Aurora" and
+    # "Njord" on Bornholm's south coast), not a position.
+    at: dict[tuple[float, float], set[str]] = {}
+    for f in raw:
+        at.setdefault(tuple(f["geometry"]["coordinates"][:2]), set()).add(
+            f["properties"].get("name") or ""
+        )
+    points = []
+    for f in raw:
+        p, xy = f["properties"], f["geometry"]["coordinates"][:2]
+        if len(at[tuple(xy)]) > 1:
+            continue
+        if any(points_in_polygons(np.array([xy[0]]), np.array([xy[1]]), [[k]])[0] for k in kept):
+            continue  # the farm's outline is drawn
         points.append(
             {
                 "name": p.get("name") or "Wind farm",
-                "coordinates": [round(g["coordinates"][0], 5), round(g["coordinates"][1], 5)],
+                "coordinates": [round(xy[0], 5), round(xy[1], 5)],
                 "country": p.get("country"),
                 "status": p.get("status"),
                 "power_mw": p.get("power_mw"),
                 "n_turbines": p.get("n_turbines"),
                 "year": p.get("year"),
+                "approximate": True,
             }
         )
     return [
@@ -861,8 +920,9 @@ def wind_projects(
             "owf",
             "polygon",
             "OpenStreetMap power=plant / construction:power=plant + plant:source=wind at sea "
-            "(Overpass): the outlines mappers have drawn so far",
-            OSM_LICENCE,
+            "(Overpass): the outlines mappers have drawn so far; other countries' project "
+            "areas from EMODnet Human Activities 'windfarmspoly'",
+            f"{OSM_LICENCE}; {EMODNET_HA_LICENCE}",
             today,
             features=outlines,
         ),
@@ -871,7 +931,9 @@ def wind_projects(
             "Offshore wind farm projects (locations)",
             "owf",
             "point",
-            "EMODnet Human Activities 'windfarms' (status, capacity, year as reported)",
+            "EMODnet Human Activities 'windfarms' (status, capacity, year as reported): an "
+            "approximate centre per project; points inside a drawn outline and placeholder "
+            "coordinates shared by several projects are left out",
             EMODNET_HA_LICENCE,
             today,
             features=points,

@@ -1,5 +1,5 @@
 {
- "source": "NOAA OISST v2.1 daily sea-ice concentration, cell 55.125 \u00b0N 16.625 \u00b0E, via CoastWatch ERDDAP (public domain)",
+ "source": "NOAA OISST v2.1 daily sea-ice concentration, cell 55.125 °N 16.625 °E, via CoastWatch ERDDAP (public domain)",
  "ice_days_by_winter": {
   "1995": 0,
   "1996": 0,
@@ -31,5 +31,45 @@
   "2022": 0,
   "2023": 0,
   "2024": 0
+ },
+ "cmems": {
+  "source": "BALTICSEA_MULTIYEAR_PHY_003_011 (doi:10.48670/moi-00013): model sea ice with assimilation, site cell 55.058 °N 16.541 °E; ice day = concentration > 15%",
+  "ice_days_by_winter": {
+   "1993": 0,
+   "1994": 0,
+   "1995": 0,
+   "1996": 0,
+   "1997": 0,
+   "1998": 0,
+   "1999": 0,
+   "2000": 0,
+   "2001": 0,
+   "2002": 0,
+   "2003": 0,
+   "2004": 0,
+   "2005": 0,
+   "2006": 0,
+   "2007": 0,
+   "2008": 0,
+   "2009": 0,
+   "2010": 5,
+   "2011": 0,
+   "2012": 0,
+   "2013": 0,
+   "2014": 0,
+   "2015": 0,
+   "2016": 0,
+   "2017": 0,
+   "2018": 0,
+   "2019": 0,
+   "2020": 0,
+   "2021": 0,
+   "2022": 0,
+   "2023": 0,
+   "2024": 0,
+   "2025": 0
+  },
+  "max_concentration": 0.55,
+  "max_thickness_m": 0.13
  }
 }

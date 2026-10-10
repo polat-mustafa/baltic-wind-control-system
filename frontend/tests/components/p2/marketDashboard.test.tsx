@@ -35,6 +35,25 @@ beforeEach(() => {
     total_pln: 3847894,
     assessment: "The CfD fixes the price.",
   });
+  vi.mocked(api.getPseDay).mockResolvedValue({
+    date: "2026-10-10",
+    quarters: [],
+    summary: {
+      quarters_filled: 96,
+      last_filled: "2026-10-11 00:00:00",
+      wind_mwh: 98400,
+      pv_mwh: 31000,
+      demand_mwh: 401400,
+      wind_share_pct: 24.5,
+      pv_share_pct: 7.7,
+      wind_peak_mw: 5800,
+      avg_price_pln_mwh: 428,
+      wind_capture_price_pln_mwh: 401,
+      wind_capture_rate_pct: 94,
+      negative_price_quarters: 0,
+    },
+    source: "PSE S.A., Raporty PSE",
+  });
 });
 
 const flush = async () => {
@@ -65,5 +84,18 @@ describe("MarketDashboard", () => {
     await flush();
     vi.useRealTimers();
     expect(vi.mocked(api.simMarketDay).mock.lastCall?.[0]).toMatchObject({ scenario: "winter_weekday", include_cfd: false });
+  });
+
+  it("runs a real day (PSE prices) for the chosen date and shows the Polish system", async () => {
+    vi.useFakeTimers();
+    render(<MarketDashboard />);
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: "Real day (PSE)" }));
+    fireEvent.change(screen.getByLabelText("Real day"), { target: { value: "2026-10-10" } });
+    await flush();
+    vi.useRealTimers();
+    expect(vi.mocked(api.simMarketDay).mock.lastCall?.[0]).toMatchObject({ scenario: "real_day", date: "2026-10-10" });
+    expect(vi.mocked(api.getPseDay).mock.lastCall?.[0]).toBe("2026-10-10");
+    expect(await screen.findByText("24.5")).toBeTruthy(); // wind share of Polish demand
   });
 });

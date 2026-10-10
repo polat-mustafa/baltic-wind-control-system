@@ -5,7 +5,8 @@ can estimate the external wake loss (the energy the site loses to its
 neighbours' wakes). The layouts are NOT the real ones — the developers have
 not published turbine coordinates:
 
-* a project with a mapped outline (OpenStreetMap) fills the outline;
+* a project with a mapped outline (OpenStreetMap) or an official area (a Polish
+  location permit from SIPAM, a planned area abroad from EMODnet) fills it;
 * a project known only as a point (EMODnet) fills a square of area
   P / density centred on the point, density = median of the mapped outlines;
 * turbines are the site's turbine model (P / P_rated of them) on a regular
@@ -112,7 +113,13 @@ def neighbour_farms(
         for f, rings in pack.named_polygons("owf")
         if _mw(f) >= MIN_MW and str(f.props.get("status", "")).lower() not in SKIP_STATUS
     ]
-    densities = [_mw(f) / polygon_area_km2(r) for f, r in outlines if polygon_area_km2(r) > 1]
+    # built farms only: planning areas (EMODnet abroad) and permit areas (SIPAM) are larger
+    # than the farms built in them
+    densities = [
+        _mw(f) / polygon_area_km2(r)
+        for f, r in outlines
+        if polygon_area_km2(r) > 1 and f.props.get("source") not in ("EMODnet", "SIPAM")
+    ]
     density = float(np.median(densities)) if densities else 4.5
     basis = (
         f"median of {len(densities)} mapped outlines (OpenStreetMap)"

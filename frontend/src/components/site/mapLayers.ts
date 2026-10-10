@@ -25,6 +25,7 @@ export function featureLabel(f: Feature): string {
     typeof p.power_mw === "number" ? `${p.power_mw} MW` : "",
     typeof p.rating_mva === "number" && p.rating_mva > 0 ? `${p.rating_mva} MVA` : "",
     typeof p.status === "string" ? p.status : "",
+    p.approximate === true ? "approximate position" : "",
   ].filter(Boolean);
   return extra.length ? `${f.name} (${extra.join(", ")})` : f.name;
 }

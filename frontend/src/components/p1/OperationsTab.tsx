@@ -15,6 +15,7 @@ import AvailabilityDashboard from "./AvailabilityDashboard";
 import OAMCostPanel from "./OAMCostPanel";
 import RepairWindowPanel from "./RepairWindowPanel";
 import WeatherWindowPanel from "./WeatherWindowPanel";
+import AccessForecastPanel from "./AccessForecastPanel";
 
 export default function OperationsTab() {
   const { fetchAll, error } = useWeatherWindowStore();
@@ -36,6 +37,7 @@ export default function OperationsTab() {
         <WeatherWindowPanel />
         <OAMCostPanel />
       </div>
+      <AccessForecastPanel />
       <RepairWindowPanel />
     </div>
   );

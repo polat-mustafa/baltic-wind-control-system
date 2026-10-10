@@ -22,6 +22,7 @@ const ALL_LAYER_KEYS: (keyof LayerVisibility)[] = [
   "vessels",
   "gridContext",
   "aisTraffic",
+  "coastalStations",
 ];
 
 describe("initial state", () => {
@@ -32,9 +33,9 @@ describe("initial state", () => {
     }
   });
 
-  it("has exactly 16 layer keys", () => {
+  it("has exactly 17 layer keys", () => {
     const { layers } = useLayerStore.getState();
-    expect(Object.keys(layers)).toHaveLength(16);
+    expect(Object.keys(layers)).toHaveLength(17);
     expect(layers.fibreComms).toBe(false);
     expect(layers.cableDts).toBe(false);
     expect(layers.wakeEffects).toBe(false); // a planning view: off in the Control Room until asked for

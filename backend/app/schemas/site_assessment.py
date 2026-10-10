@@ -247,6 +247,9 @@ class WindClimateSchema(BaseModel):
     source: str
     license: str
     approximate: bool = Field(description="True: real data not found, closest approximation")
+    gwa_mean_ms: float | None = Field(
+        None, description="Second atlas: Global Wind Atlas v4 mean at hub height [m/s]"
+    )
 
 
 class AssessResponse(BaseModel):

@@ -25,7 +25,7 @@ export default function MarketPricePanel() {
   return (
     <ChartWrapper
       title="Prices — day-ahead, imbalance and CfD strike"
-      footer={`${d.scenario_label}. Day average ${d.day_average_price_pln_mwh.toFixed(0)} PLN/MWh. ${n ? `${n} shaded period${n > 1 ? "s" : ""} below zero: no CfD support (CEEAG 2022 §122), so the farm curtails. ` : ""}Synthetic price shape, hourly for readability — SDAC has traded 15-minute periods since 1 Oct 2025.`}
+      footer={`${d.scenario_label}. Day average ${d.day_average_price_pln_mwh.toFixed(0)} PLN/MWh. ${n ? `${n} shaded period${n > 1 ? "s" : ""} below zero: no CfD support (CEEAG 2022 §122), so the farm curtails. ` : ""}${d.scenario === "real_day" ? "Real RCE price (PSE), hourly means of its 15-minute periods; CEN here is still the model's (DA − λ·deviation)." : "Synthetic price shape, hourly for readability — SDAC has traded 15-minute periods since 1 Oct 2025."}`}
     >
       <Plot
         data={[

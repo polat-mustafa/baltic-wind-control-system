@@ -282,7 +282,7 @@ export default {
   "One WTG's current emission [% of rated current]": "Bir WTG'nin akım emisyonu [anma akımının %'si]",
   "Harmonic voltage as a share of its planning level [%]": "Planlama seviyesine oranla harmonik gerilim [%]",
   "BESS 50 MW / 200 MWh — arbitrage": "BESS 50 MW / 200 MWh — arbitraj",
-  "Trading day (synthetic)": "İşlem günü (sentetik)",
+  "Trading day": "İşlem günü",
   "CfD strike (2025 auction: 477–492)": "CfD kullanım fiyatı (2025 ihalesi: 477–492)",
   "Day-ahead wind-speed error, 1σ": "Gün öncesi rüzgâr hızı hatası, 1σ",
   "Revenue of the day": "Günün geliri",

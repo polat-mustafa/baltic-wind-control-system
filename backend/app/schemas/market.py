@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Scenario = Literal["windy_spring_sunday", "winter_weekday", "calm_summer_day"]
+Scenario = Literal["windy_spring_sunday", "winter_weekday", "calm_summer_day", "real_day"]
 
 
 class MarketDayRequest(BaseModel):
@@ -25,6 +25,11 @@ class MarketDayRequest(BaseModel):
     )
     include_cfd: bool = True
     include_bess: bool = True
+    date: str | None = Field(
+        default=None,
+        description="real_day: the day (YYYY-MM-DD, Polish time); default today",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+    )
 
 
 class MarketHour(BaseModel):

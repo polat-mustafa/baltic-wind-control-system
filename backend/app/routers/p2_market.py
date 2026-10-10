@@ -4,14 +4,27 @@ Market API — M11.
 POST /api/v1/grid/market/day — schedule and settle one trading day:
 TGE day-ahead (SDAC), PSE imbalance at the single price CEN, two-sided CfD
 and BESS arbitrage. Prices in PLN/MWh.
+
+GET /api/v1/grid/pse/day — the real Polish system on one day (PSE open data):
+wind, PV and demand per 15 min with the market price RCE.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+import datetime as dt
+from typing import Any
+from zoneinfo import ZoneInfo
+
+from fastapi import APIRouter, Query
 
 from app.schemas.market import MarketDayRequest, MarketDayResponse
 from app.services.p2 import market as svc
+from app.services.p2 import pse_live
+
+
+def _today_pl() -> str:
+    return dt.datetime.now(ZoneInfo("Europe/Warsaw")).date().isoformat()
+
 
 router = APIRouter(tags=["M11 Market Integration"])
 
@@ -30,6 +43,31 @@ async def market_day(body: MarketDayRequest) -> MarketDayResponse:
     (strike − DA) per metered MWh. The BESS arbitrages the day-ahead curve
     with perfect foresight — an upper bound.
 
-    Price shapes, wind and forecast error are synthetic, labelled scenarios.
+    Price shapes, wind and forecast error are synthetic, labelled scenarios —
+    except ``real_day``: that day's RCE price (PSE, hourly means of the
+    quarter-hours) and the model wind at the site that day (Open-Meteo).
     """
-    return MarketDayResponse(**svc.simulate_day(**body.model_dump()))
+    args = body.model_dump(exclude={"date"})
+    if body.scenario == "real_day":
+        day = body.date or _today_pl()
+        prices = pse_live.hourly_prices((await pse_live.pse_day(day))["quarters"])
+        wind = await pse_live.site_wind_hub(day)
+        args["day"] = {
+            "label": f"Real day {day}: RCE price (PSE) and the model wind at the site (Open-Meteo)",
+            "price": prices,
+            "wind": wind,
+        }
+    return MarketDayResponse(**svc.simulate_day(**args))
+
+
+@router.get("/pse/day", summary="The real Polish system on one day (PSE open data)")
+async def pse_day(
+    date: str | None = Query(None, description="YYYY-MM-DD (Polish time); default today"),
+) -> dict[str, Any]:
+    """
+    Wind, PV and demand of the KSE per 15 min (``his-wlk-cal``, about an hour
+    behind real time) and the market price RCE (``rce-pln``, published the day
+    before), with the day's wind share and the wind capture price.
+    """
+    result: dict[str, Any] = await pse_live.pse_day(date or _today_pl())
+    return result

@@ -4,7 +4,8 @@ Shared test fixtures.
 ``evidence`` — the validation tests record what they checked (claim, reference, metric,
 value, limit) for the in-app Evidence page. ``scripts/build_evidence.py`` runs them with
 ``EVIDENCE_WRITE=1`` and writes ``frontend/src/data/evidence.json``; in every other run a
-recorded value must match the committed one (2 % + 0.001), so the page cannot go stale.
+recorded value must match the committed one (2 % + 0.001, or the check's own absolute
+``tolerance``), so the page cannot go stale.
 """
 
 from __future__ import annotations
@@ -41,6 +42,7 @@ def evidence(request: pytest.FixtureRequest) -> Callable[..., None]:
         value: float,
         unit: str = "",
         limit: str = "",
+        tolerance: float = 0.0,
     ) -> None:
         entry = {
             "id": id,
@@ -53,12 +55,15 @@ def evidence(request: pytest.FixtureRequest) -> Callable[..., None]:
             "limit": limit,
             "test": test_file,
         }
+        if tolerance:
+            entry["tolerance"] = tolerance  # absolute; for values on a solver time grid
         if os.environ.get("EVIDENCE_WRITE"):
             _RECORDED.append(entry)
             return
         old = _committed().get(id)
         assert old is not None, f"evidence {id!r} missing: run scripts/build_evidence.py"
-        assert abs(old["value"] - entry["value"]) <= 0.02 * abs(old["value"]) + 1e-3, (
+        allowed = max(0.02 * abs(old["value"]) + 1e-3, float(old.get("tolerance", 0.0)))
+        assert abs(old["value"] - entry["value"]) <= allowed, (
             f"evidence {id!r} changed {old['value']} → {entry['value']}: "
             "run scripts/build_evidence.py and commit evidence.json"
         )

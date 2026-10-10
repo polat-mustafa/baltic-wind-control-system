@@ -36,7 +36,7 @@ def test_detects_a_bearing_drift_within_days():
     assert 0 < (ch.first_alarm - (17_000 - pred_start)) / 144 < 10
 
 
-def test_endpoint_serves_the_bundled_benchmark():
+def test_endpoint_serves_the_bundled_benchmark(evidence):
     body = TestClient(app).get("/api/v1/digital-twin/real-data/care").json()
     s = body["summary"]
     assert s["anomaly_events"] == 6 and s["normal_events"] == 9
@@ -50,13 +50,37 @@ def test_endpoint_serves_the_bundled_benchmark():
     assert s["false_alarms"] <= body["summary_live_limit"]["false_alarms"]
     assert s["false_alarms"] < body["summary_v1"]["false_alarms"]
     assert "b" in body["available_farms"]
+    for key, metric, unit, limit in (
+        ("detected", "faults detected before failure (of 6)", "−", "≥ 4"),
+        ("false_alarms", "false alarms (of 9 normal periods)", "−", "fewer than v1"),
+    ):
+        evidence(
+            f"dt-care-b-{key}",
+            area="Digital twin",
+            claim="Physics-residual detector on real turbine SCADA (CARE Farm B, tuning set)",
+            against="labelled fault and normal periods, CARE to Compare (Gück et al. 2024)",
+            metric=metric,
+            value=s[key],
+            unit=unit,
+            limit=limit,
+        )
 
 
-def test_farm_c_is_the_held_out_set():
+def test_farm_c_is_the_held_out_set(evidence):
     """Farm C was run once with the method fixed on Farm B — its numbers are reported as-is."""
     body = TestClient(app).get("/api/v1/digital-twin/real-data/care?farm=c").json()
     assert "held-out" in body["role"]
     s = body["summary"]
     assert s["anomaly_events"] == 27
     assert len(body["events"]) == s["anomaly_events"] + s["normal_events"]
+    evidence(
+        "dt-care-c-detected",
+        area="Digital twin",
+        claim="Same detector, method frozen on Farm B, run once on Farm C (held out)",
+        against="27 labelled fault periods, CARE Farm C",
+        metric="faults detected before failure",
+        value=s["detected"],
+        unit="−",
+        limit="reported as-is",
+    )
     assert TestClient(app).get("/api/v1/digital-twin/real-data/care?farm=x").status_code == 404

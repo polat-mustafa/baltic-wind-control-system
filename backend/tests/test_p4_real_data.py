@@ -76,7 +76,7 @@ def test_ensemble_weights_use_only_earlier_hours():
     assert np.allclose(_ensemble_weights([good, bad], y, np.array([], dtype=np.intp)), 0.5)
 
 
-def test_endpoint_scores_every_forecast_on_the_same_hours():
+def test_endpoint_scores_every_forecast_on_the_same_hours(evidence):
     r = TestClient(app).get("/api/v1/forecast/real-data/day-ahead")
     assert r.status_code == 200
     body = r.json()
@@ -89,6 +89,23 @@ def test_endpoint_scores_every_forecast_on_the_same_hours():
     assert xgb["nrmse_pct"] < s["Climatology"]["nrmse_pct"] < s["Persistence 24 h"]["nrmse_pct"]
     # 2026-10-10: XGBoost 15.4 % beats the TSO's own forecast 16.9 % — may only improve
     assert xgb["nrmse_pct"] < tso["nrmse_pct"]
+    hours = f"{body['source']['scored_hours']} measured DK2 hours (Energinet)"
+    for name, m, metric, label, unit, limit in (
+        ("XGBoost", xgb, "nrmse_pct", "nRMSE", "% of capacity", "10–20 % (Giebel 2011); < TSO"),
+        ("Energinet (TSO)", tso, "nrmse_pct", "nRMSE", "% of capacity", "reference"),
+        ("XGBoost", xgb, "crpss_vs_climatology", "CRPS skill vs climatology", "−", "> 0.5"),
+        ("XGBoost", xgb, "skill_vs_persistence", "MSE skill vs 24 h persistence", "−", "> 0.5"),
+    ):
+        evidence(
+            f"p4-{name.split()[0].lower()}-{metric}",
+            area="P4 — forecasting",
+            claim=f"Day-ahead forecast: {name}",
+            against=hours,
+            metric=label,
+            value=m[metric],
+            unit=unit,
+            limit=limit,
+        )
     # probabilistic: the band beats its own median on CRPS, climatology quantiles are the zero
     assert xgb["crps_pct"] < xgb["nmae_pct"] and xgb["crpss_vs_climatology"] > 0.5
     assert s["Climatology"]["crpss_vs_climatology"] == 0.0
@@ -97,6 +114,16 @@ def test_endpoint_scores_every_forecast_on_the_same_hours():
         if not m["probabilistic"]:
             assert m["crps_pct"] == m["nmae_pct"]  # CRPS of a point forecast = MAE
     assert 75.0 <= body["p10_p90_coverage_pct"] <= 90.0  # conformalised band, ideal 80 %
+    evidence(
+        "p4-xgboost-coverage",
+        area="P4 — forecasting",
+        claim="XGBoost P10–P90 band (conformalised) is calibrated",
+        against=hours,
+        metric="share of measured hours inside P10–P90",
+        value=body["p10_p90_coverage_pct"],
+        unit="%",
+        limit="75–90 % (ideal 80 %)",
+    )
     rel = {r["name"]: r["observed_below"] for r in body["reliability"]}
     assert all(np.diff(v).min() >= 0 for v in rel.values())  # monotone in τ
     assert (

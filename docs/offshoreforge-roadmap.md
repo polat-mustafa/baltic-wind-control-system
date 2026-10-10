@@ -221,6 +221,16 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
 - **B1 — measured wake validation (approved):** PyWake's measured Horns Rev 1 and Lillgrund data
   (DTU GitLab `TOPFARM/PyWake`, `py_wake/validation/data`, MIT) committed with its licence and attribution;
   our NOJ / BPA / TurbOPark set-ups scored against the measured row power ratios (RMSE per row and direction).
+  **Done** (`services/p1/wake_validation.py`, `tests/test_wake_validation.py`): 9 rows (Horns Rev 1 inner-row
+  mean at 270°, Lillgrund rows B/D/4/6 at 105/120/207/222°), uniform inflow at the bin centre, bin mean
+  over wd ± 3°, plus Gaussian wind-direction averaging (σ 3.3° Lillgrund, van der Laan distance law
+  Horns Rev 1). Mean RMSE of P_i/P_1, direction-averaged: **BPA 0.083 (production model, best)**,
+  TurbOPark 0.097, NOJ 0.116 (without averaging 0.113 / 0.151 / 0.116). Known weaknesses the data shows:
+  BPA's near wake is far too deep at Lillgrund's 3.3–4.3 D (P₂/P₁ 0.02–0.08 vs 0.18 measured, row 6 at
+  120°); TurbOPark is too deep inside the farm (Horns Rev 1 row 10: 0.42 vs 0.63) — it is calibrated for
+  cluster wakes, where we use it; NOJ (k = 0.1, linear sum) recovers too slowly deep in the array. Our
+  TurbOPark set-up is also verified against Ørsted's MATLAB example (rtol 1e-5). Scores are locked in CI
+  (may only improve). B4 will show them on the Evidence page.
 - **B2 — P2 analytic checks as tests:** ωCU²L charging, Ferranti 1/cos βl, LFSM-O hand formula vs ANDES,
   IEC TR 60909-4 example networks.
 - **B3 — P4 real data only:** drop the synthetic SCADA forecast path; train and score on measured data

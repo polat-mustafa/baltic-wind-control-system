@@ -45,9 +45,8 @@ export type RGBA = [number, number, number, number];
  */
 export const PALETTES = {
   hmi: {
-    land: "#101c27",
+    land: "#1f3449",
     sea: "#0a1622",
-    coast: "#22384d",
     boundary: "#a5b4fc",
     turbine: [255, 255, 255, 255] as RGBA,
     hollow: [10, 21, 32, 255] as RGBA,
@@ -70,7 +69,6 @@ export const PALETTES = {
   storybook: {
     land: "#e8d8b0",
     sea: "#3f8d86",
-    coast: "#2b2118",
     boundary: "#4338ca",
     turbine: [30, 24, 18, 255] as RGBA,
     hollow: [255, 250, 235, 255] as RGBA,

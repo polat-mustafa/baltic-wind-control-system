@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { frequencyEvent, lvrtLimit, voltageDipEvent } from "../../src/utils/gridEvents";
+import { DIP_START_S, frequencyEvent, lvrtLimit, voltageDipEvent } from "../../src/utils/gridEvents";
 
 describe("CE reference incident (3 GW loss)", () => {
   const traj = frequencyEvent("underfrequency", 400, 0, 510);
@@ -35,15 +35,22 @@ describe("voltage dip / FRT", () => {
   const traj = voltageDipEvent(450, 510);
 
   it("stays above the PSE LVRT envelope and injects reactive current", () => {
-    for (const s of traj) expect(s.u).toBeGreaterThanOrEqual(lvrtLimit(s.t) - 1e-9);
+    for (const s of traj) expect(s.u).toBeGreaterThanOrEqual(lvrtLimit(s.t - DIP_START_S) - 1e-9);
     const during = traj.find((s) => s.t === 0.1)!;
     expect(during.qMVAr).toBeGreaterThan(0);
     expect(during.statcomMVAr).toBeGreaterThan(0);
     expect(during.pMW).toBeLessThan(10); // reactive current priority
   });
 
+  it("holds 0.3 pu for the 140 ms the drill text states", () => {
+    const dip = traj.filter((s) => s.u === 0.3);
+    expect(dip[0].t).toBeCloseTo(DIP_START_S, 6);
+    // the last 0.3 pu sample is the clearance instant, where the recovery ramp starts
+    expect(dip[dip.length - 1].t - dip[0].t).toBeCloseTo(0.14, 6);
+  });
+
   it("recovers ≥ 90 % of pre-fault power within 1 s of clearance", () => {
-    const after = traj.find((s) => Math.abs(s.t - 1.14) < 1e-6)!;
+    const after = traj.find((s) => Math.abs(s.t - (DIP_START_S + 0.14 + 1)) < 1e-6)!;
     expect(after.pMW).toBeGreaterThanOrEqual(0.9 * 450);
   });
 });

@@ -27,7 +27,7 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 5 | Project persistence: `wind_farm` = project table (JSONB document, revision lock, 12-month idle purge, read-only SB-510 row), `/api/v1/projects` + stored PyWake AEP history, anonymous link, auto-save with conflict / offline handling, export/import schema 2 | In review (`feat/project-persistence`, stacked on phase 4) |
 | 6 | Post-tour choice (SB-510 reference / own project), stage locks in the sidebar + one AppShell guard with "See it in SB-510", header project menu (name, online copy, new, open by link, import / export), lifecycle milestones | In review (`feat/project-mode-locks`, stacked on phase 5) |
 | 7 | `FarmSpec` + `design()` (golden: SB-510 back exactly), P2 load flow / SC / STATCOM / N-1 / FRT / GFL-GFM / PPC / power quality / planning / ANDES on the farm spec, `X-Farm` header from the own layout, design-freeze gate before Construction | In review (`feat/farm-spec-p2`, stacked on phase 6) |
-| 8a | P5 on the farm spec: circuit-1 switchgear, isolation locks, 60-step switching programme, load-flow checks, FAT/SAT limits; programme keeps its farm (`farm_spec` column) | In review (`feat/farm-spec-p5`, stacked on phase 7) |
+| 8a | P5 on the farm spec: circuit-1 switchgear, isolation locks, 63-step switching programme, load-flow checks, FAT/SAT limits; programme keeps its farm (`farm_spec` column) | In review (`feat/farm-spec-p5`, stacked on phase 7) |
 | 8b | P3 SCADA + Digital Twin on the farm spec: bay controllers per string, historian, CMS, IEC 61850 / SCL, OPC UA tree, OT network, security zones; twin on the farm's turbines and site wind | In review (`feat/farm-spec-p3`, stacked on 8a) |
 | 8c | Live control room on the own farm: one live fleet for the map, 3D, mimic, single-line diagram, bay controllers, alarms, drills and plant physics; live load flow with reactor switching | In review (`feat/farm-spec-control-room`, stacked on 8b) |
 | 9 | SB-510 moves into MSP energy basin PZP_44 (site 44.E.1): new layout, OSS, LIDAR, boundary, marks, 76.5 km export round Ławica Słupska, P2 redesigned by `design()` (3 × 170 MVAr), reactor switching in every operating-point study, "From SB-510" project start | In review (`feat/sb510-pzp44`, stacked on 8c) |
@@ -71,7 +71,7 @@ Phase 7 notes:
 - Changed test: `test_statcom.py::test_reactor_n1_detects_insecure_design` monkeypatched a module constant; it now passes a 2-reactor `FarmSpec`. All other existing P2 tests pass unchanged.
 
 Phase 8a notes:
-- `services/p5/equipment_state.py`: `equipment(spec)` builds the circuit-1 registry — strings of section A (1…⌈n/2⌉) with WTG groups, section B strings earthed, IDs `CB-STR-nn`; no reactor bay when the design has no reactors. Every interlock function takes `spec` (default SB-510, so the SB-510 registry, the 60 steps and all existing P5 tests are unchanged).
+- `services/p5/equipment_state.py`: `equipment(spec)` builds the circuit-1 registry — strings of section A (1…⌈n/2⌉) with WTG groups, section B strings earthed, IDs `CB-STR-nn`; no reactor bay when the design has no reactors. Every interlock function takes `spec` (default SB-510, so the SB-510 registry, the 63 steps and all existing P5 tests are unchanged).
 - `energisation.network_snapshot(state, spec)`: cable length, transformer / reactor / STATCOM ratings and strings from the spec. Two physics additions found by running every Phase 7 farm through the programme: (1) a long cable lifts the onshore busbar (75 km open-ended: 230 Mvar, 1.054 p.u.), so the onshore OLTC is pre-set (`onshore_tap`, first tap that keeps the busbar and cable end in 0.95–1.05 p.u.; SB-510: tap 0); (2) when no tap is enough (120 MW / 73 km on 2 × 100 MVA onshore transformers) reactor 1 is connected to the dead cable and energised with it (`reactor_energisation`, steps reordered). 3–4 circuit farms: section A exceeds one circuit, so the PPC limits circuit 1 to 90 % of its capability (`circuit1_limit_mw`; 1080 MW: 321 MW, cable 94 %).
 - Transformer no-load losses now scale with the rating (`FarmSpec.oss_pfe_kw` / `onshore_pfe_kw`, SB-510 unchanged); before, a 100 MVA unit had the 300 MVA unit's 60 kW.
 - `switching_programme`: `_defs(spec)`, `phases(spec)`, checks get the spec (STATCOM range, TX i0, rated text); the programme stores its `FarmSpec` (`switching_programme.farm_spec` JSONB, Alembic `d9e0f1a2b3c4`; NULL = SB-510). Create programme / FAT take the `X-Farm` header; later calls use the stored farm. FAT transformer limits follow the rating, SAT the cable length and strings.
@@ -212,6 +212,101 @@ Phase 13 follow-ups (owner's decision 2026-10-08: re-route with real data, finis
   cache key `wake-cluster-v2`. New deps: h5netcdf ≥ 1.8, pyfive ≥ 1.2.
 - e2e: the landing map, Grid, Commissioning, Site & Permits, Wind Resource (O&M tab) change their look.
 
+## Evidence programme (owner decisions 2026-10-10 — do not re-ask)
+
+Review verdict 7/10: strong engineering and tooling, weak evidence. PR #264 (merged) fixed the blank
+Print/PDF, the P4 IEC 61400-26-1 misattribution, the forecast-vs-yield P90 confusion, the skill-score split,
+stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources. Next, in this order:
+
+- **B1 — measured wake validation (approved):** PyWake's measured Horns Rev 1 and Lillgrund data
+  (DTU GitLab `TOPFARM/PyWake`, `py_wake/validation/data`, MIT) committed with its licence and attribution;
+  our NOJ / BPA / TurbOPark set-ups scored against the measured row power ratios (RMSE per row and direction).
+  **Done** (`services/p1/wake_validation.py`, `tests/test_wake_validation.py`): 9 rows (Horns Rev 1 inner-row
+  mean at 270°, Lillgrund rows B/D/4/6 at 105/120/207/222°), uniform inflow at the bin centre, bin mean
+  over wd ± 3°, plus Gaussian wind-direction averaging (σ 3.3° Lillgrund, van der Laan distance law
+  Horns Rev 1). Mean RMSE of P_i/P_1, direction-averaged: **BPA 0.083 (production model, best)**,
+  TurbOPark 0.097, NOJ 0.116 (without averaging 0.113 / 0.151 / 0.116). Known weaknesses the data shows:
+  BPA's near wake is far too deep at Lillgrund's 3.3–4.3 D (P₂/P₁ 0.02–0.08 vs 0.18 measured, row 6 at
+  120°); TurbOPark is too deep inside the farm (Horns Rev 1 row 10: 0.42 vs 0.63) — it is calibrated for
+  cluster wakes, where we use it; NOJ (k = 0.1, linear sum) recovers too slowly deep in the array. Our
+  TurbOPark set-up is also verified against Ørsted's MATLAB example (rtol 1e-5). Scores are locked in CI
+  (may only improve). B4 will show them on the Evidence page.
+- **B2 — P2 analytic checks as tests:** ωCU²L charging, Ferranti 1/cos βl, LFSM-O hand formula vs ANDES,
+  IEC TR 60909-4 example networks.
+  **Done** (`tests/test_p2_analytic.py`): pandapower vs a hand π-model of the 108 km export circuit (V_r and
+  Q to 1e-6), π-model and `ferranti_rise_pu` vs the exact distributed line 1/cosh γl (within 1 %), charging
+  Q = ωCL(V_s² + V_r²)/2 − 3I²X (0.1 %; 2.2 % above nominal ωCV²L because of the 4.3 % open-end rise),
+  `calc_sc` vs an IEC 60909-0:2016 hand calculation (grid feeder + transformer, K_T for max only, κ for i_p).
+  LFSM-O was already covered (204 MW/Hz hand number in `test_ppc.py`, ANDES in `test_andes_dynamics.py`).
+  TR 60909-4 example networks not transcribed (pandapower ships no copy; hand network instead).
+- **B3 — P4 real data only:** drop the synthetic SCADA forecast path; train and score on measured data
+  (ENTSO-E File Library already in use, PR #262). Day-ahead metrics: CRPS, P10–P90 coverage,
+  reliability diagram, skill vs 24 h persistence and climatology. Research result: the data is already
+  here (`scripts/fetch_real_forecast_data.py`, `fetch_entsoe_units.py`, `services/p4/real_data.py`: Energinet
+  DK2 + ENTSO-E Kriegers Flak / Rødsand with Open-Meteo Previous Runs `previous_day1` ECMWF/ICON, hourly
+  2024-06 → 2026-10). Move XGB/LSTM/TFT/ensemble/SHAP onto it (NWP features, power lags ≥ 36 h only,
+  TimeSeriesSplit with a 24–48 h gap), delete `scada_generator` and `_pipeline._build_*`. Add TSO benchmarks:
+  Energinet `Forecasts_Hour` (DK2 offshore day-ahead) and Elia `ods031` (Belgian offshore, measured +
+  day-ahead + confidence10/90). Never the Open-Meteo Historical Forecast API (near-analysis, leaks).
+  **Done** (B3 PR): the synthetic SCADA path is gone (backend `scada_generator`, quality filters, feature
+  engineering, synthetic NWP, XGBoost / ensemble / ramp / training-monitor services and their 12 endpoints; frontend
+  dashboard panels, training monitor, controls). The Forecast page is the real-data view + AI Academy + concept map.
+  `services/p4/real_data.py` scores every forecast on the same 16 731 DK2 test hours: XGBoost (nine quantiles, CQR)
+  nRMSE **15.4 %**, CRPS 7.7 % (CRPSS 0.62 vs climatology), P10–P90 coverage 84.8 %; **Energinet's own day-ahead
+  forecast 16.9 %** (rescaled ×mean ratio per training block — it covers more farms and averages 18 % above the
+  three-farm metering; issued ~17:50 D−1); NWP power curve 16.0 %; TFT 18.4 % (coverage 75 %, not conformalised);
+  LSTM 19.4 %; 1/MSE ensemble 16.6 % — it does **not** beat XGBoost (weaker members, correlated NWP error; the academy
+  says so); climatology 32.1 %; persistence 36.7 %. LSTM / TFT out-of-fold forecasts are bundled per hour
+  (`dk2_deep_predictions.csv.gz`, `scripts/train_real_deep_models.py`, ~14 min CPU). Feature-leak guard test: only
+  NWP + clock columns. Elia `ods031` not added (licence text unverified; the Energinet benchmark covers the TSO
+  comparison). Academy text, P4 training guide and the forecast tour rewritten for the real-data pipeline.
+  Follow-up: 48 h gap between every training and test block (XGBoost and LSTM / TFT), LSTM / TFT min-max scaling
+  fitted on each fold's training block only (was the whole set); numbers above are after this change.
+- **B4 — "Evidence" page** in the app generated from test results (what was validated, against what,
+  metric, value, test file).
+  **Done**: route `/evidence` (Learn → Evidence). The `evidence` fixture (`backend/tests/conftest.py`) records each
+  check from `test_wake_validation.py`, `test_p2_analytic.py`, `test_p4_real_data.py`;
+  `backend/scripts/build_evidence.py` (EVIDENCE_WRITE=1) writes `frontend/src/data/evidence.json` (14 checks).
+  Every normal test run compares the recorded value with the committed one (2 % + 0.001) and fails if it drifted —
+  regenerate and commit. Not covered yet: P3, ANDES (Linux-only), DT.
+- **B5 — guards:** numbers quoted in education prose checked against the backend; weekly DOI / link check.
+  **Done**: `backend/tests/test_plant_facts.py` keeps `frontend/src/data/plantFacts.json` equal to the backend
+  (FarmSpec SB510, IEA-15 turbine); `frontend/tests/constants/plantFacts.test.ts` checks every phrase in `src/` that
+  quotes an SB-510 number (turbine count, MW, export km, reactors, STATCOM, charging Mvar, rotor D, cut-in / rated /
+  cut-out, rpm) at the quoted precision — 60+ hits, 7 allow-listed alternatives (sizing options, a 6-WTG string,
+  another rotor, an Academy mission target, the DT 7.52 rpm tip-speed limit). `backend/scripts/check_links.py` +
+  `.github/workflows/links.yml` (Mondays): DOIs via the doi.org handle API, links fail on 404 / 410 / DNS only
+  (host down is reported). First run: MEASNET procedure link was dead → documents page (Version 3, 2022);
+  DTU TOPFARM docs host down at the time (not failing).
+- **Line-by-line audit — done** (`turbinePartEducation.ts`, `tours.ts`, `academy/*`), 35 + 6 corrections: converter loss
+  notes contradicted η 99.18 %; unsourced 784 V / 84.2:1 ratio removed; FRT injection "20 ms" → PSE 90 % in 60 ms;
+  bedplate / RNA / overhang aligned to the bundled IEA v1.1.18 data (42.3 t, 946 t, 12.0 m — the text had 2020-report
+  values); Weibull → SB-510 site A 10.8 m/s k 2.04; UPS battery and feathering arithmetic; yaw-brake torque (1.4 MN·m
+  for four calipers, not ">> 10 MN·m"); cable twist limits = backend (±630° / ±1260°); HEB is hot-rolled; unsourced
+  flash densities, motor counts and an IEC 61508 false-discharge rate removed; illustrative values labelled; the P5
+  programme has **63** steps (not 60; mission ref "S-001…S-030" → "1.01 … 6.03"). The step count and the PSE FRT
+  constants of the Academy mission are now locked to the backend by `plantFacts`.
+- **AI tutor (after B):** OpenRouter-style OpenAI-compatible API with cheap models, the user brings their
+  own key (kept server-side per session, never in localStorage); look into linking existing subscriptions.
+  Context = current page + panel numbers; physics questions go to backend calculators as tools; browser
+  Web Speech API for the microphone; an eval set before release.
+  **Built** (`services/tutor.py`, `routers/tutor.py`, `components/tutor/TutorPanel.tsx`, route `/tutor/callback`):
+  OpenAI-compatible providers on a fixed HTTPS allowlist (OpenRouter, OpenAI, Groq, DeepSeek, Mistral, Gemini —
+  no arbitrary URLs, so no SSRF); the key is posted once and kept in server memory under an HttpOnly, SameSite=Strict
+  cookie (8 h, lost on restart, redacted from errors, never logged or returned); "Sign in with OpenRouter" (OAuth PKCE,
+  S256) creates a key in the learner's own account and the backend exchanges the code, so the key never reaches the
+  browser. Consumer chat subscriptions (ChatGPT / Claude / Gemini apps) issue no API keys and cannot be linked.
+  Context = route + page title + on-screen text (≤ 4000 chars). Tools = the platform's calculators: `plant_facts`
+  (shared with the education guard), `turbine_operating_point` (stopped outside cut-in…cut-out, rule 1),
+  `export_cable` (ωCV²L, Ferranti, capacity), `short_circuit` (IEC 60909 via pandapower); answers list the tools
+  run. 30 questions / 10 min per session. Mic via Web Speech API where the browser has it.
+  Eval set `backend/scripts/tutor_eval.json` (14 cases incl. page context, honesty, Turkish; expected numbers taken
+  from the tools at run time) + runner `scripts/tutor_eval.py` (pass ≥ 80 %); CI checks the set and the scorer.
+  **Owner to-do before release:** run the eval with a real key and a cheap model
+  (`TUTOR_PROVIDER=openrouter TUTOR_MODEL=… TUTOR_API_KEY=… python scripts/tutor_eval.py`). Multi-worker deployments
+  need a shared session store (in-memory now, one process).
+- **Rejected for now:** learner paths, hosted demo, pilot study (old "Faz C").
+
 ## Resume here
 
 1. The own-project programme is a PR stack, one branch per phase, each based on the one before it
@@ -222,7 +317,7 @@ Phase 13 follow-ups (owner's decision 2026-10-08: re-route with real data, finis
 2. Next: nothing planned. Candidate follow-ups: neighbour layouts on the Layout map; SB-510's export at
    99 % suggests a study of a larger export conductor or mid-route compensation (no datasheet values for
    1200 / 1600 mm² in the model yet).
-3. Known, not ours: 6 old mypy errors under `digital_twin`; the Docker backend image runs old code — check in
+3. Known: the Docker backend image runs old code (the 6 `digital_twin` mypy errors were fixed in #272) — check in
    the browser with a local `uvicorn app.main:app --port 8001` and a temporary Vite proxy target (revert it).
 4. Owner to-dos: `cd frontend && npm run e2e:update` (new baselines incl. `layout`, `site-permits`, `academy`,
    `construction`, `handover`, `decommissioning`, `report`, and the phase 13 look changes; the owner's modified snapshot files in the working

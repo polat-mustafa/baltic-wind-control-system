@@ -73,7 +73,15 @@ export const bessEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Dynamic Containment (GB), first day in service",
+      description:
+        "National Grid ESO's sub-second post-fault frequency service went live on 1 October 2020 with batteries as the first providers. The next day an interconnector fault removed about 1 GW; frequency fell to 49.597 Hz and one battery was discharging over 28 MW within 10 s.",
+      takeaway: "Batteries are bought for speed: they deliver frequency response in under a second, faster than turbines or governors.",
+      source: "National Grid ESO (NESO) press release, Oct 2020; Current± (2020)",
+    },
+  ],
 
   furtherReading: [
     {

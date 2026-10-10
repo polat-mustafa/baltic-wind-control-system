@@ -140,7 +140,7 @@ function SelectionBar({ part, onClose, onOpenIn3D }: { part: SchematicPart; onCl
   return (
     <div className="border-t border-border-primary bg-bg-secondary px-4 py-2">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-56">
           <div className="text-[13px] font-bold">
             {part.label}
             {part.sublabel && <span className="ml-2 text-[12px] font-semibold text-text-muted">{part.sublabel}</span>}
@@ -160,12 +160,16 @@ function SelectionBar({ part, onClose, onOpenIn3D }: { part: SchematicPart; onCl
             </div>
           )}
         </div>
-        {part.cite?.map((c) => (
-          <a key={c.url} href={c.url} target="_blank" rel="noopener noreferrer" title={c.source}
-            className="flex items-center gap-1 text-[12px] font-semibold text-accent hover:underline">
-            <ExternalLink size={13} /> source
-          </a>
-        ))}
+        {part.cite?.map((c) =>
+          c.url ? (
+            <a key={c.source} href={c.url} target="_blank" rel="noopener noreferrer" title={c.source}
+              className="flex items-center gap-1 text-[12px] font-semibold text-accent hover:underline">
+              <ExternalLink size={13} /> source
+            </a>
+          ) : (
+            <span key={c.source} className="text-[12px] text-text-muted">{c.source}</span>
+          ),
+        )}
         <button type="button" onClick={onOpenIn3D}
           className="rounded-md border border-accent px-2.5 py-1 text-[12px] font-bold text-accent hover:bg-accent-muted">
           Open in 3D →

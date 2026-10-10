@@ -388,7 +388,7 @@ export default function LandingPage() {
       {!commissioned && (
         <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-[12px] text-text-primary">
           <PlugZap size={14} className="text-status-warning" aria-hidden />
-          <span className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1 basis-56">
             <b>Not commissioned yet.</b> The farm is built but de-energised: 0 MW, rotors parked, no power flow. Run the
             commissioning programme and mark the stage complete to energise it from the grid.
           </span>

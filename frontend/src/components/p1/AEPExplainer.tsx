@@ -26,10 +26,15 @@ import {
   rss,
   speedBins,
   UNCERTAINTY_SOURCES,
+  weibullCdf,
   weibullMean,
   Z,
 } from "../../utils/aepMath";
-import { V236, turbinePowerMW } from "../../utils/landingPhysics";
+import { ROTOR_DIAMETER_M, V236, turbinePowerMW } from "../../utils/landingPhysics";
+
+// From the modelled turbine, so they follow it: A = π(D/2)², Cp,e = P_rated / (½ρA·v_rated³) at ρ = 1.225 kg/m³
+const SWEPT_AREA_M2 = Math.round(Math.PI * (ROTOR_DIAMETER_M / 2) ** 2);
+const CP_RATED_ELECTRICAL = (V236.ratedMW * 1e6) / (0.5 * 1.225 * SWEPT_AREA_M2 * V236.ratedMs ** 3);
 
 const N_TURBINES = 34;
 const W = 600;
@@ -180,7 +185,9 @@ export default function AEPExplainer() {
     const modeBin = bins.reduce((a, b) => (b.hours > a.hours ? b : a));
     const peakEBin = bins.reduce((a, b) => (b.energyMWh > a.energyMWh ? b : a));
     const aboveRatedShare = bins.filter((b) => b.v >= 12).reduce((s, b) => s + b.energyMWh, 0) / totalE;
-    const hoursBelowCutIn = bins.filter((b) => b.v < V236.cutInMs).reduce((s, b) => s + b.hours, 0);
+    // Exact CDF, not the 1 m/s bins: the bin centred on 3 m/s (2.5–3.5) is half below cut-in,
+    // so summing whole bins under 3 m/s missed ≈ 30 % of these hours.
+    const hoursBelowCutIn = 8760 * weibullCdf(V236.cutInMs, weibullA, weibullK);
     const hoursAtRated = bins.filter((b) => b.v >= 12 && b.v <= V236.cutOutMs).reduce((s, b) => s + b.hours, 0);
     return { bins, turbineGWh, grossGWh, modeBin, peakEBin, aboveRatedShare, hoursBelowCutIn, hoursAtRated };
   }, [weibullA, weibullK]);
@@ -400,8 +407,8 @@ export default function AEPExplainer() {
                 <>
                   <p><b className="text-text-primary">The turbine turns wind into power — non-linearly.</b> Wind power through the rotor is ½ρAv³: double the speed, eight times the power. The SB-510 turbine starts at 3 m/s, reaches 15 MW at {V236.ratedMs.toFixed(1)} m/s, then pitches its blades to hold 15 MW, and shuts down above {V236.cutOutMs} m/s to protect itself.</p>
                   <div className="grid grid-cols-2 gap-2">
-                    <Stat label="Rotor swept area" value="43 744" unit="m²" />
-                    <Stat label="Cp at rated (electrical)" value="0.41" unit="< Betz 0.593" />
+                    <Stat label="Rotor swept area" value={SWEPT_AREA_M2.toLocaleString("en-GB").replace(/,/g, " ")} unit="m²" />
+                    <Stat label="Cp at rated (electrical)" value={CP_RATED_ELECTRICAL.toFixed(2)} unit="< Betz 0.593" />
                   </div>
                   <p className="text-xs text-text-muted">Curve: the IEA 15 MW reference turbine (IEA Wind Task 37, Apache-2.0) — the same table the backend wake model uses. SB-510 is a “V236 class” farm; Vestas publishes no V236 curve.</p>
                 </>

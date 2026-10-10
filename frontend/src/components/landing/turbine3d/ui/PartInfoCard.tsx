@@ -16,6 +16,7 @@ import type { TurbineData } from "../../../../types/landing";
 import { ROTOR_RADIUS } from "../model/layout";
 import { PART_RAIL } from "./partRail";
 import { CONVERTER_GRID_KV, v236PowerChain, v236ThrustMN } from "../../../../utils/landingPhysics";
+import { FormulaPaper } from "../../../ui/MathPaper";
 
 const R = ROTOR_RADIUS; // m, rotor radius (IEA 15 MW)
 
@@ -213,10 +214,7 @@ export function PartInfoCard({
         </div>
 
         {edu.formulas.slice(0, 2).map((f) => (
-          <div key={f.expression} className="rounded border border-border-primary bg-bg-secondary px-3 py-2">
-            <div className="font-mono text-[14px] font-bold text-text-primary">{f.expression}</div>
-            <p className="mt-1 text-[12px]">{f.explanation}</p>
-          </div>
+          <FormulaPaper key={f.expression} formula={{ ...f, variables: [] }} compact />
         ))}
 
         {edu.efficiencyNotes.length > 0 && (
@@ -234,7 +232,7 @@ export function PartInfoCard({
 
         <div className="flex flex-wrap gap-1">
           {edu.standards.map((s) => (
-            <span key={s} className="rounded border border-border-primary px-1.5 py-0.5 font-mono text-xs font-semibold">
+            <span key={s} translate="no" className="rounded border border-border-primary px-1.5 py-0.5 font-mono text-xs font-semibold">
               {s}
             </span>
           ))}

@@ -27,17 +27,15 @@ export const weibullEducation: EducationContent = {
     {
       label: "IEC 61400-1 — Wind turbines: design requirements (wind classes)",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "IEC 61400-12-1 — Power performance measurements (method of bins)",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
-      label: "MEASNET — Evaluation of site-specific wind conditions",
+      label: "MEASNET — Evaluation of site-specific wind conditions, Version 3 (2022)",
       type: "standard",
-      url: "https://www.measnet.com/procedure/",
+      url: "https://www.measnet.com/documents/",
     },
   ],
 
@@ -88,8 +86,10 @@ export const weibullEducation: EducationContent = {
       title: "Long-term correction (MCP)",
       description:
         "On-site campaigns usually cover only 1–2 years. Measure-correlate-predict (MCP) against a long reanalysis " +
-        "record corrects them to the long-term mean, because single years differ by several percent in energy.",
+        "record corrects them to the long-term mean. A 2026 study found that the choice of measurement year alone " +
+        "changed the predicted long-term wind speed by 1–14 % (6.5 % on average) across its sites.",
       takeaway: "The Weibull of one measured year is not the Weibull of the project's life.",
+      source: "Borowski et al., Wind Energy Science 11, 661 (2026)",
     },
   ],
 
@@ -113,8 +113,12 @@ export const weibullEducation: EducationContent = {
 
   codeReferences: [
     {
+      file: "backend/app/services/p1/data_processing.py",
+      description: "fit_weibull() — maximum-likelihood fit of k and A (scipy weibull_min, location fixed at 0); compute_weibull_pdf() — the density curve drawn over the histogram.",
+    },
+    {
       file: "backend/app/services/p1/wind_analysis.py",
-      description: "fit_weibull(), compute_weibull_pdf(), compute_wind_rose() — fitted on the synthetic hourly record.",
+      description: "compute_wind_rose() — the same fit per direction sector, on the synthetic hourly record.",
     },
     {
       file: "backend/app/routers/p1.py",

@@ -114,16 +114,29 @@ export const statcomSizingEducation: EducationContent = {
     },
   ],
 
+  codeReferences: [
+    {
+      file: "backend/app/services/p2/statcom_sizing.py",
+      description: "calculate_cable_reactive_power() and ferranti_rise_pu() — the cable Q and voltage rise; size_statcom() — the rating with one reactor out and 10 % + 5 % margins; poc_q_capability() — the Q range at the PSE 400 kV point.",
+    },
+    {
+      file: "backend/app/services/p2/network_model.py",
+      description: "design() — sizes the STATCOM and the shunt reactors at both cable ends for any farm.",
+    },
+  ],
+
   realWorldCases: [
     {
       title: "Hornsea One (UK) — multiple 220 kV HVAC export circuits",
       description:
-        "The 1.2 GW Hornsea One farm exports over three 220 kV HVAC circuits and uses an offshore reactive " +
-        "compensation station part-way along the ~120 km route, because a single 220 kV cable cannot carry the " +
-        "full output and long cables generate large charging power.",
+        "The 1.2 GW Hornsea One farm, about 120 km off Yorkshire, exports over three 220 kV HVAC cable systems " +
+        "(467 km of offshore export cable in total) and uses an offshore reactive compensation station part-way " +
+        "along the route, because a single 220 kV cable cannot carry the full output and long cables generate " +
+        "large charging power.",
       takeaway:
         "Large HVAC-connected farms split their export over several cables and combine shunt reactors with " +
         "dynamic compensation; SB-510 splits its reactors between both cable ends for the same reason.",
+      source: "Ørsted / NKT (offshorewind.biz 2016, 2018); Jicable'19 paper A2-6",
     },
   ],
 

@@ -66,9 +66,11 @@ export const farmLayoutMapEducation: EducationContent = {
     {
       title: "Why 66 kV became the offshore array standard",
       description:
-        "With 8–15 MW turbines, 33 kV strings could only carry two to four machines each. Moving to 66 kV doubled the " +
-        "power per string for similar cable sizes and became the norm for new offshore farms around 2016–2020.",
-      takeaway: "Turbine size drives array voltage; 132 kV arrays are being studied for the next turbine generation.",
+        "With 8–15 MW turbines, 33 kV strings could only carry two to four machines each. Moving to 66 kV doubles the " +
+        "power per string for similar cable sizes; the Carbon Trust's Offshore Wind Accelerator supported the type " +
+        "testing of the first 66 kV array cable systems in 2016, citing up to 15 % capex savings.",
+      takeaway: "Turbine size drives array voltage: 66 kV is the array voltage of today's 15 MW-class projects.",
+      source: "Prysmian press release, 2016 (Carbon Trust OWA 66 kV qualification)",
     },
   ],
 
@@ -87,7 +89,7 @@ export const farmLayoutMapEducation: EducationContent = {
     },
     {
       file: "backend/app/services/p2/network_model.py",
-      description: "STRING_LAYOUT and the graded 500/630/800 mm² array cable specs.",
+      description: "STRING_LAYOUT and the graded 500–1000 mm² array cable specs.",
     },
   ],
 

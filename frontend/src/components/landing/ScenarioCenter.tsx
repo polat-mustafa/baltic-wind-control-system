@@ -18,7 +18,7 @@ import { useLandingStore } from "../../store/landingStore";
 import { useTrainingStore } from "../../store/trainingStore";
 import { SCENARIOS } from "../../training/scenarios";
 import { useGridEventSample } from "../../hooks/useGridEventSample";
-import { lvrtLimit, type GridEventKind, type GridSample } from "../../utils/gridEvents";
+import { DIP_START_S, lvrtLimit, type GridEventKind, type GridSample } from "../../utils/gridEvents";
 
 // ── Mini chart ───────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ function Chart({ kind, traj, tS }: { kind: GridEventKind; traj: GridSample[]; tS
       ))}
       {dip && (
         <path
-          d={line(traj.filter((_, i) => i % 5 === 0).map((p) => [x(p.t), y(lvrtLimit(p.t))]))}
+          d={line(traj.filter((_, i) => i % 5 === 0).map((p) => [x(p.t), y(lvrtLimit(p.t - DIP_START_S))]))}
           fill="none"
           stroke="#f25c54"
           strokeWidth={1}
@@ -280,7 +280,7 @@ function TrainingTab() {
             {t.result.timeS.toFixed(0)} s · {t.result.mistakes} mistake(s) · par {sc.parS} s
           </div>
           <p className="mt-1 leading-snug text-text-secondary">{sc.debrief}</p>
-          <div className="mt-1 text-xs text-text-muted">References: {sc.refs.join(" · ")}</div>
+          <div className="mt-1 text-xs text-text-muted">References: <span translate="no">{sc.refs.join(" · ")}</span></div>
         </div>
       ) : (
         step && (

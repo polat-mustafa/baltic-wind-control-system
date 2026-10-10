@@ -27,12 +27,10 @@ export const availabilityHeatmapEducation: EducationContent = {
     {
       label: "IEC 61400-26-1 — Availability for wind energy generation systems",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "IEC TS 61400-26-3 — Availability for wind power stations",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
   ],
 
@@ -71,7 +69,15 @@ export const availabilityHeatmapEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Horns Rev 1 (Denmark, 2003–2004): a fleet-wide pattern",
+      description:
+        "Transformer failures began in August 2003 and many generators turned out to have production defects. In 2004 Vestas took all 80 V80 nacelles of the farm ashore for repair and upgrading.",
+      takeaway: "When many turbines dip at the same time, look for a common cause — a component series — not 80 separate faults.",
+      source: "Vestas / Elsam (2004); IEEE Spectrum, \"Danish wind turbines take unfortunate turn\"",
+    },
+  ],
 
   furtherReading: [
     {

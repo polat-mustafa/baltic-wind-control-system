@@ -1,0 +1,20 @@
+# Weekly check that every cited DOI is registered and no web link in the docs or the
+# frontend education content is gone (404 / 410 / host name no longer resolves).
+name: Links
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: DOIs and links
+        run: python3 backend/scripts/check_links.py

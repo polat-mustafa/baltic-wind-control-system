@@ -68,10 +68,10 @@ export const faultRideThroughEducation: EducationContent = {
       title: "Near-zero voltage fault at the 400 kV busbar",
       scenario: "Fault at PSE 400 kV, Z_f = 0.005 p.u. (100 MVA), 150 ms, K = 2, farm at 510 MW.",
       steps: [
-        "Retained voltage at the POC ≈ 0.33 p.u.; at the WTG terminals ≈ 0.30 p.u. at fault inception",
+        "Retained voltage at the POC ≈ 0.32 p.u.; at the WTG terminals ≈ 0.27 p.u. at fault inception",
         "Iq = 0.1 (pre-fault) + K·ΔU rises to ≈ 0.9 p.u. within ≈ 60 ms and lifts the 66 kV busbar to ≈ 0.60 p.u.",
         "With Iq priority only √(1 − 0.9²) ≈ 0.44 p.u. active current remains → P ≈ 0.60 × 0.44 × 510 ≈ 134 MW; STATCOM ≈ 59 MVAR",
-        "After clearance P ramps at 1 p.u./s → 90 % of 510 MW within ≈ 0.46 s (PSE limit 5 s)",
+        "After clearance P ramps at 1 p.u./s → 90 % of 510 MW within ≈ 0.38 s (PSE limit 5 s)",
       ],
       result: "POC voltage stays above the PSE profile → the farm must, and does, ride through.",
     },

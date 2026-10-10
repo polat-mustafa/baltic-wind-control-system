@@ -412,7 +412,7 @@ export default function ReportPage() {
                 />
                 <Table
                   head={["Check", "Result", "Finding", "Reference"]}
-                  rows={rep.site.checks.map((c) => [c.title, <Chip key="s" s={c.status} />, c.detail, <span key="r" className="text-slate-500">{c.reference}</span>])}
+                  rows={rep.site.checks.map((c) => [c.title, <Chip key="s" s={c.status} />, c.detail, <span key="r" translate="no" className="text-slate-500">{c.reference}</span>])}
                 />
               </>
             ) : (
@@ -472,7 +472,7 @@ export default function ReportPage() {
                 ],
               ]}
             />
-            <p className="text-xs text-slate-500">Wind: {rep.wind.source}.</p>
+            <p className="text-xs text-slate-500">Wind: <span translate="no">{rep.wind.source}</span>.</p>
             {e.uncertainty && (
               <p className="text-xs text-slate-500">
                 Uncertainty (1σ of AEP, root-sum-square):{" "}
@@ -600,7 +600,7 @@ export default function ReportPage() {
           </Section>
 
           <Section n={9} title="Data sources and provenance">
-            <Table head={["Data", "Source", "Licence", "Retrieved"]} rows={rep.sources.map((s) => [s.data, s.source, s.license, s.retrieved || "—"])} />
+            <Table head={["Data", "Source", "Licence", "Retrieved"]} rows={rep.sources.map((s) => [s.data, <span key="s" translate="no">{s.source}</span>, <span key="l" translate="no">{s.license}</span>, s.retrieved || "—"])} />
             <p className="text-[12px]">
               Models: wake screening and cable routing in the browser (lib/layout), PyWake for the reference AEP, pandapower for the load flow,
               Monte Carlo weather years for the campaign. Unit costs are illustrative. <strong>{rep.note}</strong>

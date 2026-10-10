@@ -10,6 +10,7 @@ import { ArrowRight, ClipboardCheck } from "lucide-react";
 import { scoreLayout, scoreSite, type Scored } from "../../academy/scoring";
 import { DEFAULT_COSTS } from "../../lib/layout/cost";
 import { UNIFORM_ROSE, type WindRose } from "../../lib/layout/energy";
+import { isSb510Layout } from "../../lib/lifecycle/farm";
 import { defaultExportKm, evaluateLayout, WEIBULL_A, WEIBULL_K } from "../../lib/layout/evaluate";
 import { DEFAULT_TURBINE_ID } from "../../constants/turbineModels";
 import { computeWindRose } from "../../services/windResourceApi";
@@ -139,7 +140,7 @@ export function LayoutMission() {
       costs: DEFAULT_COSTS,
       layers,
       maxDepthM: report?.depth_m?.[1] ?? null,
-      exportKm: defaultExportKm(report?.grid_km, routeKm),
+      exportKm: defaultExportKm(report?.grid_km, routeKm, isSb510Layout(turbines)),
       rose: siteWind?.sector_frequencies
         ? { directions: siteWind.sector_frequencies.map((_, i) => i * 30), frequencies: siteWind.sector_frequencies }
         : (rose ?? UNIFORM_ROSE),

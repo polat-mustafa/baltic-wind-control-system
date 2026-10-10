@@ -38,8 +38,13 @@ const ROLE_OPTIONS = [
 ] as const;
 
 /** "cable_earth_fault" → "Cable earth fault" */
-const scenarioLabel = (faultType: string) =>
-  faultType.charAt(0).toUpperCase() + faultType.slice(1).replace(/_/g, " ");
+/** Protection scenarios of backend goose_simulation.py (written out so the UI translator finds them). */
+const SCENARIO_LABEL: Record<string, string> = {
+  busbar_overcurrent: "Busbar overcurrent",
+  transformer_differential: "Transformer differential",
+  cable_earth_fault: "Cable earth fault",
+};
+const scenarioLabel = (faultType: string) => SCENARIO_LABEL[faultType] ?? faultType.replace(/_/g, " ");
 
 const selectCls =
   "h-7 text-xs bg-bg-secondary border border-border-primary rounded px-2 text-text-secondary focus:outline-none focus:border-accent";

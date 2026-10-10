@@ -86,6 +86,10 @@ MAX_CELL_KM = 10.0
 MAX_CELLS = 40_000
 
 
+#: owf polygons that are project areas, not wind farms on the water.
+AREA_SOURCES = ("SIPAM", "EMODnet")
+
+
 def ramp(d: FloatArray, ideal: float, worst: float) -> FloatArray:
     """1 for d ≤ ideal, 0 for d ≥ worst, linear between (NaN stays NaN)."""
     span = max(worst - ideal, 1e-9)
@@ -140,11 +144,14 @@ def evaluate(pack: RegionPack, crit: Criteria, lon: FloatArray, lat: FloatArray)
         if pack.has("cable")
         else np.full(lon.shape, np.inf)
     )
-    owf_km = (
-        distance_to_polygons(x, y, pack.polygons("owf"))
-        if pack.has_polygons("owf")
-        else np.full(lon.shape, np.inf)
-    )
+    # Built and building farms exclude; permit areas (SIPAM) and planned areas abroad
+    # (EMODnet) are allocated to someone else: a warning in the report, not a hole here.
+    built = [
+        rings
+        for f, rings in pack.named_polygons("owf")
+        if f.props.get("source") not in AREA_SOURCES
+    ]
+    owf_km = distance_to_polygons(x, y, built) if built else np.full(lon.shape, np.inf)
     protected_km = (
         distance_to_polygons(x, y, pack.polygons("protected"))
         if pack.has("protected")

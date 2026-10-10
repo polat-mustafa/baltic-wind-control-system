@@ -23,11 +23,14 @@ The TFT architecture addresses this by:
   3. Multi-Head Attention: detects long-range patterns (fronts, diurnal)
   4. Quantile Outputs: native P10/P50/P90 without MC sampling
 
-Standard — IEC 61400-26-1 & TFT Architecture
-----------------------------------------------
-IEC 61400-26-1 requires uncertainty quantification for power predictions.
+Quantile outputs & TFT architecture
+-------------------------------------
 TFT uses quantile regression (pinball loss) directly in the loss function,
-producing calibrated prediction intervals without post-hoc approximation.
+so P10/P50/P90 come out of the network without post-hoc approximation.
+Pinball loss is a proper scoring rule for quantiles (Gneiting & Raftery
+2007) — it rewards calibration but does not guarantee it: check the
+P10–P90 coverage (target 80 %) on held-out data. P90 is the high quantile,
+the opposite tail from energy-yield P90.
 
 The TFT architecture (Lim et al., 2021) combines:
   - Gated Residual Networks (GRN) for non-linear processing with skip connections
@@ -66,7 +69,7 @@ References
 - Lim et al., "Temporal Fusion Transformers for Interpretable Multi-horizon
   Time Series Forecasting" (Int. J. Forecasting, 2021)
 - Vaswani et al., "Attention Is All You Need" (NeurIPS 2017)
-- IEC 61400-26-1: Time-based availability for wind turbines
+- Gneiting & Raftery, JASA 102(477), 2007 — proper scoring rules, quantiles
 - Roadmap §5.6: TFT model, §5.7: Quantile regression, §5.10: Attention
 """
 
@@ -84,12 +87,12 @@ from sklearn.model_selection import TimeSeriesSplit
 from app.services.p4.lstm_model import (
     NormParams,
     _denormalize_power,
-    _normalize_features,
+    _fold_normalized,
     _normalize_features_with_params,
     create_sequences,
 )
+from app.services.p4.model_evaluation import skill_score_from_squared_errors
 from app.services.p4.physical_constraints import enforce_physical_constraints
-from app.services.p4.training_progress import PROGRESS
 
 # ── Constants ─────────────────────────────────────────────────────
 
@@ -126,6 +129,8 @@ class TFTConfig:
         Quantile levels for probabilistic forecasting.
     n_cv_splits : int
         Number of TimeSeriesSplit folds.
+    gap : int
+        Sequences left out between each training and test block (0 = none).
     seed : int
         Random seed for reproducibility.
     """
@@ -140,6 +145,7 @@ class TFTConfig:
     batch_size: int = 64
     quantiles: tuple[float, ...] = DEFAULT_QUANTILES
     n_cv_splits: int = 5
+    gap: int = 0
     seed: int = 42
 
 
@@ -189,7 +195,7 @@ class TFTCVResult:
         Mean R² across all folds.
     skill_score_vs_persistence : float
         Skill score vs persistence baseline.
-        SS = 1 - RMSE_model / RMSE_persistence. SS > 0 = model wins.
+        SS = 1 - MSE_model / MSE_persistence on the test samples. SS > 0 = model wins.
     architecture_summary : str
         Human-readable description of the TFT architecture.
     """
@@ -201,6 +207,10 @@ class TFTCVResult:
     mean_r_squared: float
     skill_score_vs_persistence: float
     architecture_summary: str
+    # out-of-fold forecasts: sequence index (row = index + lookback − 1) and the model's
+    # outputs per test sample [MW] (LSTM: [P50]; TFT: one per quantile)
+    test_index: list[int] = field(default_factory=list)
+    test_pred_mw: list[list[float]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -610,13 +620,6 @@ def _compute_metrics(
     )
 
 
-def _compute_persistence_rmse(target: NDArray[np.float64]) -> float:
-    """Compute RMSE for persistence baseline: P(t+1) = P(t)."""
-    if len(target) < 2:
-        return 0.0
-    return float(np.sqrt(np.mean((target[1:] - target[:-1]) ** 2)))
-
-
 def _build_tft_model(n_features: int, config: TFTConfig) -> WindPowerTFT:
     """Construct a WindPowerTFT model."""
     torch.manual_seed(config.seed)
@@ -660,15 +663,12 @@ def _train_single_fold(
     for epoch in range(config.epochs):
         # Training phase
         model.train()
-        train_loss_sum, n_batches = 0.0, 0
         for batch_x, batch_y in train_loader:
             optimizer.zero_grad()
             pred = model(batch_x)  # (batch, n_quantiles)
             loss = _quantile_loss(pred, batch_y, config.quantiles)
             loss.backward()  # type: ignore[no-untyped-call]
             optimizer.step()
-            train_loss_sum += float(loss.item())
-            n_batches += 1
 
         actual_epochs = epoch + 1
 
@@ -677,14 +677,6 @@ def _train_single_fold(
         with torch.no_grad():
             val_pred = model(x_val)
             val_loss = _quantile_loss(val_pred, y_val, config.quantiles).item()
-
-        # Live training monitor: loss curves + share of this model's work
-        PROGRESS.epoch("tft", fold, epoch + 1, train_loss_sum / max(n_batches, 1), val_loss)
-        PROGRESS.fraction(
-            "tft",
-            (fold + (epoch + 1) / config.epochs) / n_folds,
-            f"fold {fold + 1}/{n_folds} · epoch {epoch + 1} · val pinball {val_loss:.4f}",
-        )
 
         # Early stopping
         if val_loss < best_val_loss:
@@ -730,13 +722,11 @@ def train_tft(
     if config is None:
         config = TFTConfig()
 
-    # Normalize before sequencing
-    norm_features, norm_target, norm_params = _normalize_features(features, target_power_mw)
+    # Sequences on raw values; each fold scales them with the min/max of its own
+    # training block, so no test-fold statistics leak into the inputs.
+    x_raw, y_raw = create_sequences(features, target_power_mw, config.lookback)
 
-    # Create sequences
-    x_seq, y_seq = create_sequences(norm_features, norm_target, config.lookback)
-
-    if x_seq.shape[0] == 0:
+    if x_raw.shape[0] == 0:
         msg = (
             f"Not enough samples ({features.shape[0]}) for lookback={config.lookback}. "
             f"Need at least {config.lookback} samples."
@@ -744,14 +734,22 @@ def train_tft(
         raise ValueError(msg)
 
     n_features = features.shape[1]
-    PROGRESS.stage("tft", "running", f"{x_seq.shape[0]} sequences × lookback {config.lookback}")
 
     # TimeSeriesSplit cross-validation
-    tscv = TimeSeriesSplit(n_splits=config.n_cv_splits)
+    # gap: sequences dropped between training and test block (rows next to the test
+    # block are almost the same weather, so they would flatter the score)
+    tscv = TimeSeriesSplit(n_splits=config.n_cv_splits, gap=config.gap)
     fold_metrics_list: list[TFTFoldMetrics] = []
+    model_sq: list[float] = []  # squared errors on every test sample [MW²]
+    persistence_sq: list[float] = []  # same samples, persistence P̂(t) = P(t−1)
     last_model: WindPowerTFT | None = None
+    oof_index: list[int] = []
+    oof_pred: list[list[float]] = []
 
-    for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_seq)):
+    for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_raw)):
+        x_seq, y_seq, norm_params = _fold_normalized(
+            x_raw, y_raw, features, target_power_mw, int(train_idx[-1]) + config.lookback
+        )
         # Early stopping watches the newest 20 % of the training block, never the
         # test fold (stopping on the test fold leaks it into the model choice).
         n_fit = max(1, int(len(train_idx) * 0.8))
@@ -782,16 +780,20 @@ def train_tft(
         model.eval()
         with torch.no_grad():
             preds = model(x_test_t)  # (n_test, n_quantiles)
-            y_pred_norm = preds[:, 1].numpy()  # P50
+            y_pred_norm = preds[:, config.quantiles.index(0.5)].numpy()  # P50
 
         # Denormalize for metrics
         y_pred_mw = _denormalize_power(y_pred_norm, norm_params)
         y_true_mw = _denormalize_power(y_test_np, norm_params)
+        y_prev_mw = _denormalize_power(y_seq[test_idx - 1], norm_params)  # test_idx ≥ 1 always
+        oof_index.extend(test_idx.tolist())
+        oof_pred.extend(np.sort(_denormalize_power(preds.numpy(), norm_params), axis=1).tolist())
+        model_sq.extend((y_true_mw - y_pred_mw) ** 2)
+        persistence_sq.extend((y_true_mw - y_prev_mw) ** 2)
 
         metrics = _compute_metrics(y_true_mw, y_pred_mw, fold_idx, actual_epochs)
         fold_metrics_list.append(metrics)
         last_model = model
-        PROGRESS.fold("tft", fold_idx, metrics.rmse_mw, actual_epochs)
 
     assert last_model is not None
 
@@ -802,8 +804,7 @@ def train_tft(
     mean_r2 = float(np.mean([m.r_squared for m in fold_metrics_list]))
 
     # Skill score vs persistence
-    persistence_rmse = _compute_persistence_rmse(target_power_mw)
-    skill_score = 1.0 - mean_rmse / persistence_rmse if persistence_rmse > 0 else 0.0
+    skill_score = skill_score_from_squared_errors(model_sq, persistence_sq)
 
     arch_summary = (
         f"VSN({n_features}→{config.hidden_size}) → "
@@ -823,9 +824,10 @@ def train_tft(
         mean_r_squared=round(mean_r2, 4),
         skill_score_vs_persistence=round(skill_score, 4),
         architecture_summary=arch_summary,
+        test_index=oof_index,
+        test_pred_mw=oof_pred,
     )
 
-    PROGRESS.model_done("tft", cv_result.mean_rmse_mw, cv_result.skill_score_vs_persistence)
     return cv_result, last_model, norm_params
 
 

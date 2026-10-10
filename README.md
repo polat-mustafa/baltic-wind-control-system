@@ -17,10 +17,9 @@ The platform ships with one reference project, modelled on the current Polish Ba
 
 | | |
 |---|---|
-| Site | Polish EEZ, Southern Baltic (≈ 54.5° N, 16.0° E) |
-| Turbines | 34 × Vestas V236-15.0 MW = **510 MW** |
-| Array | 66 kV XLPE strings |
-| Site | MSP energy basin PZP_44 (real site 44.E.1, permit PGE / Baltica 9 — used fictionally), 37–51 m, jackets |
+| Site | Polish EEZ, MSP energy basin PZP_44 (≈ 55.06° N, 16.54° E; real site 44.E.1, permit PGE / Baltica 9 — used fictionally), 37–51 m, jackets |
+| Turbines | 34 × 15 MW "V236 class" = **510 MW**, modelled with the open IEA 15 MW reference turbine (IEA-15-240-RWT, direct drive, ROSCO controller) because Vestas publishes no V236 model data |
+| Array | 66 kV XLPE, 6 strings (6-6-6-6-5-5) |
 | Export | 2 × 220 kV HVAC, 108 km (79.3 subsea round Ławica Słupska, clear of the military area + 28.7 onshore) to PSE Krzemienica |
 | Reactive power | ±120 Mvar STATCOM, 4 × 180 Mvar shunt reactors (one per export circuit at each end) |
 | Storage | 50 MW / 200 MWh BESS |

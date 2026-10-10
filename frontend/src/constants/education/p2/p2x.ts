@@ -60,15 +60,23 @@ export const p2xEducation: EducationContent = {
       title: "60 MW on a 400 MW connection",
       scenario: "Surplus energy is free; installed cost 2000 €/kW.",
       steps: [
-        "Absorbed: ≈ 179 GWh at ≈ 2980 full-load hours",
-        "Hydrogen: 179 GWh / 53 kWh/kg ≈ 3380 t/yr",
-        "Capital per kW-year: 2000 € · (0.094 + 0.03) ≈ 249 €; per kg: 249 / (2980/53) ≈ 4.4 €/kg",
+        "Absorbed: ≈ 203 GWh at ≈ 3390 full-load hours",
+        "Hydrogen: 203 GWh / 53 kWh/kg ≈ 3840 t/yr",
+        "Capital per kW-year: 2000 € · (0.094 + 0.03) ≈ 249 €; per kg: 249 / (3390/53) ≈ 3.9 €/kg",
       ],
-      result: "A 150 MW electrolyser on the same connection runs fewer full-load hours, and each kilogram costs more.",
+      result: "A 150 MW electrolyser on the same connection runs only ≈ 1985 full-load hours, and each kilogram costs ≈ 6.6 €.",
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "H2RES (Denmark): electrolysis on offshore wind",
+      description:
+        "Ørsted's H2RES project at Avedøre Holme, Copenhagen, couples a 2 MW electrolyser to two 3.6 MW offshore wind turbines and was designed to make up to about 1,000 kg of hydrogen a day; construction began in May 2021.",
+      takeaway: "Pilot plants test how an electrolyser follows variable wind output — the full-load hours that this tab shows decide the hydrogen cost.",
+      source: "Ørsted, 17 May 2021; State of Green",
+    },
+  ],
 
   furtherReading: [
     {

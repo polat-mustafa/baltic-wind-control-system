@@ -3,7 +3,7 @@
  *
  * Structure:
  *   1. Top bar — brand, lifecycle breadcrumb, project, alarm state (only when
- *      not normal), tour, palette toggle, clock
+ *      not normal), tour, language (cycles lib/i18n LANGUAGES), palette toggle, clock
  *   2. Sidebar — icon rail, expandable (constants/navigation)
  *   3. Content area — renders active route via <Outlet />
  *
@@ -15,6 +15,7 @@
  * the same CSS tokens, so no page needs to know about it.
  */
 
+import TutorPanel from "../tutor/TutorPanel";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { Suspense, useEffect, useState } from "react";
 import { Wind, ChevronRight, AlertTriangle, Sun, Moon, Menu } from "lucide-react";
@@ -38,6 +39,7 @@ import { useLayerStore } from "../../store/layerStore";
 import { useModeStore } from "../../store/modeStore";
 import { useSiteStore } from "../../store/siteStore";
 import { useLocks } from "../../lib/project/progress";
+import { applyLanguage, LANGUAGES, nextLanguage, useLangStore } from "../../lib/i18n";
 
 /** Placeholder while a lazy page chunk downloads. */
 function PageLoading() {
@@ -104,6 +106,12 @@ export default function AppShell() {
   useEffect(() => {
     document.documentElement.classList.toggle("theme-storybook", storybook);
   }, [storybook]);
+
+  // UI language: translates the rendered page in place, nothing remounts (lib/i18n)
+  const lang = useLangStore((s) => s.lang);
+  const setLang = useLangStore((s) => s.setLang);
+  const next = LANGUAGES[nextLanguage(lang)];
+  useEffect(() => void applyLanguage(lang), [lang]);
 
   // Off-canvas navigation drawer (phones / narrow tablets, below md)
   const [navOpen, setNavOpen] = useState(false);
@@ -174,6 +182,17 @@ export default function AppShell() {
           <TourMenu />
           <button
             type="button"
+            onClick={() => setLang(nextLanguage(lang))}
+            translate="no"
+            lang={nextLanguage(lang)}
+            aria-label={next.name}
+            title={next.name}
+            className="flex h-8 min-w-8 items-center justify-center rounded-md border border-border-secondary px-1.5 font-mono text-xs font-semibold text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+          >
+            {next.label}
+          </button>
+          <button
+            type="button"
             onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}
             aria-pressed={storybook}
             aria-label={storybook ? "Switch to the control room palette" : "Switch to the storybook palette"}
@@ -217,7 +236,8 @@ export default function AppShell() {
           />
         )}
         <Sidebar mobileOpen={navOpen} onMobileClose={() => setNavOpen(false)} />
-        <main className="min-w-0 flex-1 overflow-auto p-3 md:px-6 md:py-5">
+        {/* pb-20: room under the last control of a page for the fixed Tutor button */}
+        <main className="min-w-0 flex-1 overflow-auto p-3 pb-20 md:px-6 md:pt-5 md:pb-20">
           {/* Pages are lazy-loaded (App.tsx) */}
           <Suspense fallback={<PageLoading />}>
             {lock ? <LockedPage title={currentLabel} lock={lock} /> : <Outlet />}
@@ -229,6 +249,7 @@ export default function AppShell() {
       <TourWelcome />
       <TourOverlay />
       <ProjectChooser />
+      <TutorPanel />
     </div>
   );
 }

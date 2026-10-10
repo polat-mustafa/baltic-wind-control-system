@@ -34,30 +34,36 @@ import type { LayerVisibility, MapTheme } from "../../store/layerStore";
 import type { TurbineData } from "../../types/landing";
 import { DTS_ZONES, dtsTempC, dtsZoneName } from "../../utils/landingPhysics";
 
+import { rgba } from "../map/deckUtils";
+import { stationLine, type CoastalStation } from "./coastal";
 import { AIS_ICON, FAULT_LABEL, cardinalIcon, crewIcon, shipClass, svgIcon, vesselIcon, type AisVessel, type OmVessel } from "./maritime";
 
 export type RGBA = [number, number, number, number];
 
-/** Map palettes: Baltic Night (control room) and storybook paper. */
+/**
+ * Map palettes: Baltic Night (control room) and storybook paper. Saturated on
+ * purpose: the street map underneath is busy, so equipment, cables and zones
+ * need strong hues to read at a glance.
+ */
 export const PALETTES = {
   hmi: {
-    land: "#101c27",
+    land: "#1f3449",
     sea: "#0a1622",
-    coast: "#22384d",
-    boundary: "#2c4760",
-    turbine: [213, 225, 236, 255] as RGBA,
+    boundary: "#a5b4fc",
+    turbine: [255, 255, 255, 255] as RGBA,
     hollow: [10, 21, 32, 255] as RGBA,
-    offline: [86, 112, 138, 255] as RGBA,
-    warn: [240, 177, 62, 255] as RGBA,
-    alarm: [242, 92, 84, 255] as RGBA,
-    accent: [69, 200, 217, 255] as RGBA,
-    comms: [201, 139, 211, 255] as RGBA,
-    depth: [58, 88, 116, 255] as RGBA,
-    v66: [229, 181, 103, 255] as RGBA,
-    v220: [143, 180, 245, 255] as RGBA,
-    v400: [232, 131, 122, 255] as RGBA,
-    text: [163, 182, 200, 255] as RGBA,
-    muted: [113, 137, 160, 255] as RGBA,
+    offline: [120, 150, 180, 255] as RGBA,
+    warn: [255, 184, 28, 255] as RGBA,
+    alarm: [255, 77, 77, 255] as RGBA,
+    accent: [34, 226, 245, 255] as RGBA,
+    comms: [232, 121, 249, 255] as RGBA,
+    depth: [86, 156, 214, 255] as RGBA,
+    zone: [192, 132, 252, 255] as RGBA,
+    v66: [255, 176, 46, 255] as RGBA,
+    v220: [96, 165, 250, 255] as RGBA,
+    v400: [255, 99, 99, 255] as RGBA,
+    text: [203, 221, 238, 255] as RGBA,
+    muted: [150, 176, 202, 255] as RGBA,
     label: [228, 236, 243, 255] as RGBA,
     labelBg: [15, 29, 43, 230] as RGBA,
     ink: "#e4ecf3",
@@ -65,19 +71,19 @@ export const PALETTES = {
   storybook: {
     land: "#e8d8b0",
     sea: "#3f8d86",
-    coast: "#2b2118",
-    boundary: "#2b2118",
-    turbine: [43, 33, 24, 255] as RGBA,
-    hollow: [241, 228, 195, 255] as RGBA,
+    boundary: "#4338ca",
+    turbine: [30, 24, 18, 255] as RGBA,
+    hollow: [255, 250, 235, 255] as RGBA,
     offline: [107, 98, 87, 255] as RGBA,
-    warn: [154, 90, 0, 255] as RGBA,
-    alarm: [180, 35, 24, 255] as RGBA,
+    warn: [217, 119, 6, 255] as RGBA,
+    alarm: [220, 38, 38, 255] as RGBA,
     accent: [246, 238, 219, 255] as RGBA,
-    comms: [106, 46, 122, 255] as RGBA,
-    depth: [32, 92, 88, 255] as RGBA,
-    v66: [154, 90, 0, 255] as RGBA,
+    comms: [162, 28, 175, 255] as RGBA,
+    depth: [22, 70, 66, 255] as RGBA,
+    zone: [124, 58, 237, 255] as RGBA,
+    v66: [234, 108, 0, 255] as RGBA,
     v220: [29, 78, 216, 255] as RGBA,
-    v400: [180, 35, 24, 255] as RGBA,
+    v400: [220, 38, 38, 255] as RGBA,
     text: [43, 33, 24, 255] as RGBA,
     muted: [74, 62, 50, 255] as RGBA,
     label: [43, 33, 24, 255] as RGBA,
@@ -173,6 +179,8 @@ export interface ContextInput {
   repairs: Record<string, RepairJob>;
   ais: AisVessel[];
   vessels: OmVessel[];
+  /** IMGW coastal stations, latest hourly observation. */
+  coastal: CoastalStation[];
   /** Export current per circuit [A] and sea temperature [°C], for the DTS. */
   dts: { currentA: number; ambientC: number };
   now: number;
@@ -187,8 +195,8 @@ export function underLayers(c: ContextInput): Layer[] {
         id: "bathymetry",
         data: BATHY,
         getPath: (d: (typeof BATHY)[number]) => d.path,
-        getColor: (d: (typeof BATHY)[number]) => alpha(pal.depth, 80 + d.depth * 2),
-        getWidth: 1.2,
+        getColor: (d: (typeof BATHY)[number]) => alpha(pal.depth, 150 + d.depth * 2),
+        getWidth: 1.6,
         widthUnits: "pixels",
         getDashArray: [6, 4],
         extensions: DASH,
@@ -212,7 +220,7 @@ export function underLayers(c: ContextInput): Layer[] {
         id: "owf-areas",
         data: OWF,
         getPolygon: (d: (typeof OWF)[number]) => d.polygon,
-        getFillColor: alpha(pal.muted, 14),
+        getFillColor: alpha(pal.zone, 38),
         stroked: false,
         pickable: true,
         updateTriggers: { getFillColor: pal },
@@ -222,8 +230,8 @@ export function underLayers(c: ContextInput): Layer[] {
         id: "owf-outlines",
         data: OWF,
         getPath: (d: (typeof OWF)[number]) => d.path,
-        getColor: alpha(pal.muted, 150),
-        getWidth: 1,
+        getColor: alpha(pal.zone, 230),
+        getWidth: 1.8,
         widthUnits: "pixels",
         getDashArray: [6, 4],
         extensions: DASH,
@@ -236,7 +244,7 @@ export function underLayers(c: ContextInput): Layer[] {
         data: OWF,
         getPosition: (d: (typeof OWF)[number]) => d.centre,
         getText: (d: (typeof OWF)[number]) => d.name,
-        getColor: alpha(pal.muted, 230),
+        getColor: alpha(pal.zone, 255),
         getSize: 12,
         fontFamily: MONO,
         characterSet: "auto",
@@ -247,8 +255,8 @@ export function underLayers(c: ContextInput): Layer[] {
         id: "swepol",
         data: SWEPOL,
         getPath: (d: (typeof SWEPOL)[number]) => d.path,
-        getColor: alpha(pal.text, 170),
-        getWidth: 2,
+        getColor: alpha(pal.v400, 230),
+        getWidth: 2.5,
         widthUnits: "pixels",
         getDashArray: [10, 4, 2, 4],
         extensions: DASH,
@@ -264,7 +272,7 @@ export function underLayers(c: ContextInput): Layer[] {
         radiusUnits: "meters",
         filled: false,
         stroked: true,
-        getLineColor: alpha(pal.muted, 55),
+        getLineColor: alpha(pal.muted, 120),
         getLineWidth: 1,
         lineWidthUnits: "pixels",
         updateTriggers: { getLineColor: pal },
@@ -373,10 +381,63 @@ export function underLayers(c: ContextInput): Layer[] {
 
 /** Layers drawn above the turbines. */
 export function overLayers(c: ContextInput): Layer[] {
-  const { layers, pal, theme, fleet, sb510, zoom, turbineMap, fault, repairs, ais, vessels, now } = c;
+  const { layers, pal, theme, fleet, sb510, zoom, turbineMap, fault, repairs, ais, vessels, now, coastal } = c;
   const storybook = theme === "storybook";
   const pos = new Map(fleet.turbines.map((t) => [t.id, [t.lon, t.lat] as [number, number]]));
   const out: (Layer | false)[] = [];
+
+  if (layers.coastalStations && coastal.length) {
+    // measured 10 m shore wind: a dot, an arrow blowing downwind, the speed
+    const data = coastal.map((st) => ({
+      st,
+      position: [st.lon, st.lat] as [number, number],
+      tip: `${stationLine(st)}
+IMGW SYNOP, measured on the shore: lower than the 150 m model wind over open sea`,
+    }));
+    out.push(
+      new ScatterplotLayer({
+        id: "coastal-stations",
+        data,
+        getPosition: (d: (typeof data)[number]) => d.position,
+        getRadius: 5,
+        radiusUnits: "pixels",
+        getFillColor: rgba(pal.ink),
+        getLineColor: [255, 255, 255, 255],
+        stroked: true,
+        lineWidthUnits: "pixels",
+        getLineWidth: 1.5,
+        pickable: true,
+        updateTriggers: { getFillColor: pal },
+      }),
+      new TextLayer({
+        id: "coastal-wind",
+        data: data.filter((d) => d.st.wind_ms != null),
+        getPosition: (d: (typeof data)[number]) => d.position,
+        getText: (d: (typeof data)[number]) => `${d.st.wind_ms!.toFixed(0)} m/s`,
+        getColor: rgba(pal.ink),
+        getSize: 12,
+        getPixelOffset: [10, 0],
+        getTextAnchor: "start",
+        fontFamily: MONO,
+        characterSet: "auto",
+        pickable: true,
+        updateTriggers: { getColor: pal },
+      }),
+      new TextLayer({
+        id: "coastal-arrows",
+        data: data.filter((d) => d.st.wind_dir_deg != null && d.st.wind_ms != null),
+        getPosition: (d: (typeof data)[number]) => d.position,
+        getText: () => "➤",
+        // ➤ points east = deck angle 0 (counter-clockwise); it points downwind: bearing from + 180°
+        getAngle: (d: (typeof data)[number]) => 90 - (d.st.wind_dir_deg! + 180),
+        getColor: rgba(pal.ink),
+        getSize: 13,
+        getPixelOffset: [-14, 0],
+        fontFamily: MONO,
+        characterSet: "auto",
+      }),
+    );
+  }
 
   if (layers.navAids && sb510) {
     const lights = fleet.turbines

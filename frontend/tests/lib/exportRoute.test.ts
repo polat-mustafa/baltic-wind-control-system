@@ -32,6 +32,10 @@ describe("export length", () => {
   it("takes the checked route, else the straight line + 10 %", () => {
     expect(defaultExportKm(60, 71.26)).toBe(71.3);
     expect(defaultExportKm(60, null)).toBe(66);
+    // SB-510's own layout without a checked route: its surveyed 108 km, not 1.1 × the straight line
+    // (the Layout page priced SB-510 on 79 km while the report used 108 km)
+    expect(defaultExportKm(72.2, null, true)).toBe(108);
+    expect(defaultExportKm(72.2, 90, true)).toBe(90);
     const turbines = [
       { id: "T1", lon: 16.45, lat: 55.05 },
       { id: "T2", lon: 16.5, lat: 55.05 },

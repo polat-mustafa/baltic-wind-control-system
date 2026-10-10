@@ -96,7 +96,7 @@ export const hvacVsHvdcEducation: EducationContent = {
         "I_c = 7.58 A/km × 130 km = 986 A; half at each end: 493 A",
         "Per cable: √3 · 220 kV · √(825² − 493²) A ≈ 252 MW → 8 cables for 2 GW",
         "Charging power ωC'U²L ≈ 376 MVAR per cable → about 3 GVAR of reactors over the 8 cables",
-        "HVDC: one ±320 kV (or ±525 kV) link and two converter stations carry the same power with no charging current",
+        "HVDC: one ±525 kV link (the German 2 GW standard; ±320 kV links carry ≈ 0.9 GW) and two converter stations carry the same power with no charging current",
       ],
       result:
         "Eight AC cables with 3 GVAR of compensation against one DC link: at this scale and distance HVDC is the usual " +
@@ -105,14 +105,27 @@ export const hvacVsHvdcEducation: EducationContent = {
     },
   ],
 
+  codeReferences: [
+    {
+      file: "backend/app/services/p2/planning.py",
+      description: "export_comparison() — HVAC 220 kV capacity left after the charging current, cable Q and annual losses against VSC-HVDC, 10–200 km.",
+    },
+    {
+      file: "backend/app/services/p2/network_model.py",
+      description: "design() — refuses an HVAC export a farm cannot use (too many circuits) and points to HVDC.",
+    },
+  ],
+
   realWorldCases: [
     {
       title: "BorWin / DolWin (Germany) — HVDC VSC clusters",
       description:
-        "TenneT connects the German North Sea farms far from shore through ±320 kV HVDC VSC links of roughly " +
-        "0.8–0.9 GW each, each with an offshore converter platform.",
+        "TenneT connects the German North Sea farms far from shore through HVDC VSC links, each with an offshore " +
+        "converter platform: BorWin1 (400 MW) was the first; later links such as DolWin2 (916 MW, 320 kV) and " +
+        "DolWin3 (900 MW, ±320 kV) carry about 0.9 GW each.",
       takeaway:
         "HVDC becomes the default once the AC option would need many cables and gigavars of compensation.",
+      source: "Hitachi Energy, BorWin1 and DolWin2 project pages; TenneT",
     },
   ],
 

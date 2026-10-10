@@ -73,12 +73,18 @@ export default function CareBenchmarkPanel() {
           )}
         </div>
         <p className="mt-1">
-          Per temperature channel a normal-behaviour model learns the bearing / gearbox / transformer temperature from
-          power, wind, ambient temperature and rotor speed on a normal training year; the residual runs through the{" "}
-          <b>same EWMA chart as the live twin</b> (λ {data.settings.ewma_lambda}, L {data.settings.ewma_L},{" "}
-          {data.settings.persistence_samples} samples persistence). Phase I scores each quarter of the normal training
-          year with a model of the other three and widens each limit until that year raises no alarm. Nothing is
-          tuned on the fault labels; Farm C was run once with the method fixed on Farm B.
+          {/* one sentence per span: the UI translator matches each as a whole, numbers as {n} */}
+          <span>
+            Per temperature channel a normal-behaviour model learns the bearing / gearbox / transformer temperature
+            from power, wind, ambient temperature and rotor speed on a normal training year; the residual runs through
+            the same EWMA chart as the live twin (λ {data.settings.ewma_lambda}, L {data.settings.ewma_L},{" "}
+            {data.settings.persistence_samples} samples persistence).
+          </span>{" "}
+          <span>
+            Phase I scores each quarter of the normal training year with a model of the other three and widens each
+            limit until that year raises no alarm. Nothing is tuned on the fault labels; Farm C was run once with the
+            method fixed on Farm B.
+          </span>
         </p>
         <p className="mt-1">
           Finding: at the live twin&apos;s own limit the detector caught {data.summary_live_limit.detected} /{" "}

@@ -1,23 +1,27 @@
 /**
- * Base for the planning maps (Site screening, Layout): MapLibre with the
- * OpenStreetMap raster tiles as the base — towns, ports and the coast matter
- * when choosing a site — recoloured for Baltic Night in the dark theme, and
+ * Base for the planning maps (Site screening, Layout, energisation replay):
+ * MapLibre with the OpenStreetMap vector base (OpenFreeMap; raster OSM until it
+ * loads) — towns, ports and the coast matter when choosing a site — in the
+ * Control Room's sea / land colours, and
  * deck.gl drawing the data on top (same DeckGL-as-root pattern as the Control
  * Room map).
  *
  * The map fits `bounds` whenever `fitKey` changes. Zoom buttons sit bottom
- * right; the OSM / data attribution bottom left.
+ * right; the OSM / data attribution bottom left. Items dragged from a palette
+ * (HTML drag and drop, `DROP_TYPE` data = item kind) land via `onDropItem`.
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Map as MapLibre } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { WebMercatorViewport, type Layer, type MapViewState, type PickingInfo } from "@deck.gl/core";
-import type { StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Minus, Plus } from "lucide-react";
 
 import { useLayerStore } from "../../store/layerStore";
+import { PALETTES } from "../landing/mapContextLayers";
+import { DROP_TYPE, osmStyle, recolourVector, useVectorStyle } from "./deckUtils";
+import MapCredits from "./MapCredits";
 
 export type Bounds = [[number, number], [number, number]];
 
@@ -25,25 +29,11 @@ export type Bounds = [[number, number], [number, number]];
 const MIN_ZOOM = 4;
 const MAX_ZOOM = 17;
 
-/** OSM raster base. Dark: brightness inverted and hue turned back, so sea and land keep their hues on a navy ground. */
-function osmStyle(dark: boolean): StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, maxzoom: 19 },
-    },
-    layers: [
-      { id: "ground", type: "background", paint: { "background-color": dark ? "#0a1520" : "#e8e4da" } },
-      {
-        id: "osm",
-        type: "raster",
-        source: "osm",
-        paint: dark
-          ? { "raster-brightness-min": 0.86, "raster-brightness-max": 0.07, "raster-hue-rotate": 180, "raster-saturation": -0.45, "raster-contrast": 0.08 }
-          : { "raster-saturation": -0.25 },
-      },
-    ],
-  };
+export interface RasterOverlay {
+  id: string;
+  /** Tile URL template; a WMS GetMap with bbox={bbox-epsg-3857}&width=256&height=256. */
+  tiles: string;
+  opacity?: number;
 }
 
 export interface PlanningMapProps {
@@ -61,8 +51,16 @@ export interface PlanningMapProps {
   onDragEnd?: (info: PickingInfo) => void;
   onHover?: (info: PickingInfo) => void;
   cursor?: string;
+  /** A palette item (`DROP_TYPE`) dropped on the map at lon/lat. */
+  onDropItem?: (kind: string, at: [number, number]) => void;
+  /** Sources of the data layers, credited after the base map; null for none. */
+  dataCredit?: string | null;
+  /** Raster overlays on the base map, under the data (e.g. a WMS with {bbox-epsg-3857} tiles). */
+  overlays?: RasterOverlay[];
   children?: ReactNode;
 }
+
+const NO_OVERLAYS: RasterOverlay[] = [];
 
 export default function PlanningMap({
   bounds,
@@ -77,10 +75,27 @@ export default function PlanningMap({
   onDragEnd,
   onHover,
   cursor,
+  onDropItem,
+  dataCredit = "EMODnet, EEA, Marine Regions",
+  overlays = NO_OVERLAYS,
   children,
 }: PlanningMapProps) {
-  const dark = useLayerStore((s) => s.mapTheme) === "hmi";
-  const style = useMemo(() => osmStyle(dark), [dark]);
+  const theme = useLayerStore((s) => s.mapTheme);
+  const dark = theme === "hmi";
+  const pal = PALETTES[theme];
+  const vector = useVectorStyle(theme);
+  const style = useMemo(() => {
+    const base = vector ? recolourVector(vector, pal.land, pal.sea) : osmStyle(dark);
+    if (!overlays.length) return base;
+    return {
+      ...base,
+      sources: {
+        ...base.sources,
+        ...Object.fromEntries(overlays.map((o) => [o.id, { type: "raster" as const, tiles: [o.tiles], tileSize: 256 }])),
+      },
+      layers: [...base.layers, ...overlays.map((o) => ({ id: o.id, type: "raster" as const, source: o.id, paint: { "raster-opacity": o.opacity ?? 0.7 } }))],
+    };
+  }, [vector, pal, dark, overlays]);
   const boxRef = useRef<HTMLDivElement>(null);
   const [viewState, setViewState] = useState<MapViewState | null>(null);
   const boundsRef = useRef(bounds);
@@ -113,7 +128,23 @@ export default function PlanningMap({
     "flex h-8 w-8 items-center justify-center rounded-md border border-border-secondary bg-bg-secondary text-text-secondary hover:text-text-primary";
 
   return (
-    <div ref={boxRef} className="absolute inset-0" style={{ background: dark ? "#0a1520" : "#e8e4da" }}>
+    <div
+      ref={boxRef}
+      className="absolute inset-0"
+      style={{ background: pal.sea }}
+      onDragOver={(e) => {
+        if (onDropItem && e.dataTransfer.types.includes(DROP_TYPE)) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        const kind = e.dataTransfer.getData(DROP_TYPE);
+        const el = boxRef.current;
+        if (!onDropItem || !kind || !viewState || !el) return;
+        e.preventDefault();
+        const r = el.getBoundingClientRect();
+        const [lon, lat] = new WebMercatorViewport({ ...viewState, width: r.width, height: r.height }).unproject([e.clientX - r.left, e.clientY - r.top]);
+        onDropItem(kind, [lon, lat]);
+      }}
+    >
       {viewState && (
         <DeckGL
           viewState={viewState}
@@ -156,13 +187,7 @@ export default function PlanningMap({
           <Minus size={15} />
         </button>
       </div>
-      <div className="pointer-events-auto absolute bottom-0 left-0 z-10 rounded-tr bg-bg-secondary/80 px-1.5 py-0.5 text-xs text-text-muted">
-        ©{" "}
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">
-          OpenStreetMap
-        </a>{" "}
-        contributors · Data: EMODnet, EEA, Marine Regions
-      </div>
+      <MapCredits data={dataCredit ?? undefined} className="bottom-0 left-0 rounded-tr max-sm:bottom-1 max-sm:left-1 max-sm:rounded" />
       {children}
     </div>
   );

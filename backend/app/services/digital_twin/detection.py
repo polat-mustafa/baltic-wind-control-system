@@ -120,7 +120,7 @@ HI_ALARM: float = 40.0
 # Phase I
 CALIBRATION_SEED: int = 20_250_113
 CALIBRATION_DAYS: int = 30
-WIND_BIN_EDGES: FloatArray = np.arange(0.0, 26.5, 0.5)  # IEC 61400-12-1 bin width
+WIND_BIN_EDGES: FloatArray = np.arange(0.0, 26.5, 0.5, dtype=np.float64)  # IEC 61400-12-1 bin width
 MIN_BIN_COUNT: int = 200
 ANEMOMETER_MIN_WIND_MS: float = 4.0
 

@@ -31,6 +31,8 @@ export interface LayerVisibility {
   fibreComms: boolean;
   /** Live AIS traffic (aisstream.io via backend; needs AISSTREAM_API_KEY) */
   aisTraffic: boolean;
+  /** IMGW coastal SYNOP stations: measured shore wind (live). */
+  coastalStations: boolean;
   /** Export cable DTS temperature profile (IEC 60287 model) */
   cableDts: boolean;
 }
@@ -70,6 +72,7 @@ export const useLayerStore = create<LayerState>((set) => ({
     gridContext: true,
     fibreComms: false,
     aisTraffic: true,
+    coastalStations: true,
     cableDts: false,
   },
   mapTheme: loadTheme(),

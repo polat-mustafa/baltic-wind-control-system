@@ -128,13 +128,15 @@ def simulate_day(
     forecast_sigma_ms: float = 1.0,
     include_cfd: bool = True,
     include_bess: bool = True,
+    day: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Schedule, settle and sum one day: day-ahead sales, imbalance at CEN,
     CfD settlement and BESS arbitrage. All money in PLN, energy in MWh
     (1 h periods, so MW and MWh/period are numerically equal).
     """
-    sc = SCENARIOS[scenario]
+    # `day`: a real day's shapes ({"label", "price", "wind"}) instead of a labelled scenario
+    sc = day or SCENARIOS[scenario]
     price = np.array(sc["price"], dtype=float)
     wind_fc = np.array(sc["wind"], dtype=float)
 

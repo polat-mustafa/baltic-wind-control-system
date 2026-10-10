@@ -92,9 +92,11 @@ function GridSscInput() {
         <span className="text-text-muted">MVA</span>
       </span>
       <span className="mt-1 block text-xs text-text-muted">
-        {ssc == null ? "Empty: an illustrative 10 000 MVA. " : `${(ssc / 1000).toFixed(1)} GVA in your project's grid studies. `}
-        Enter the value of the TSO's connection conditions (PSE publishes no per-node values); {lo.toLocaleString("en")}–
-        {hi.toLocaleString("en")} MVA, the upper bound being 63 kA at 400 kV.
+        <span>{ssc == null ? "Empty: an illustrative 10 000 MVA." : `${(ssc / 1000).toFixed(1)} GVA in your project's grid studies.`}</span>{" "}
+        <span>
+          Enter the value of the TSO's connection conditions (PSE publishes no per-node values); {lo.toLocaleString("en")}–
+          {hi.toLocaleString("en")} MVA, the upper bound being 63 kA at 400 kV.
+        </span>
       </span>
     </span>
   );
@@ -202,7 +204,15 @@ export default function SiteReport() {
             subtitle={
               report.wind.approximate
                 ? "approximation — real data not found"
-                : `A ${report.wind.weibull_a.toFixed(1)} · k ${report.wind.weibull_k.toFixed(2)} · NEWA + ERA5`
+                : (
+                    // two lines: the tile cuts a subtitle to its width
+                    <>
+                      <span className="block truncate">{`A ${report.wind.weibull_a.toFixed(1)} · k ${report.wind.weibull_k.toFixed(2)} · NEWA + ERA5`}</span>
+                      {report.wind.gwa_mean_ms != null && (
+                        <span className="block truncate">{`GWA v4 ${report.wind.gwa_mean_ms.toFixed(1)} m/s (${report.wind.gwa_mean_ms >= report.wind.mean_ms ? "+" : "−"}${Math.abs(100 * (report.wind.gwa_mean_ms / report.wind.mean_ms - 1)).toFixed(0)} %)`}</span>
+                      )}
+                    </>
+                  )
             }
             priority={report.wind.approximate ? "warning" : "normal"}
             size="sm"

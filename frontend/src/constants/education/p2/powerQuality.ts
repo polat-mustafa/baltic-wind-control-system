@@ -119,7 +119,8 @@ export const powerQualityEducation: EducationContent = {
       steps: [
         "Without a filter, scan from OSS 66 kV: parallel resonances at ≈ 115 Hz (h 2.3), ≈ 545 Hz (h 10.9) and ≈ 880 Hz (h 17.6)",
         "At h17 |Z| ≈ 178 Ω versus ≈ 2.9 Ω at 50 Hz: ≈ 3.6× more than a plain inductance (2.9 Ω × 17 = 49 Ω)",
-        "0.25 % h17 emission × √34 → 0.89 % at OSS 66 kV, 74.5 % of the 1.2 % HV planning level — within the limit, " +
+        "h17 current: 0.25 % × 131 A = 0.33 A per turbine, × √34 (α = 2 for h ≥ 10, IEC 61000-3-6) = 1.9 A; × 178 Ω = 340 V " +
+          "= 0.89 % of the 38.1 kV phase voltage at OSS 66 kV, 74.5 % of the 1.2 % HV planning level — within the limit, " +
           "but past the 50 % a single plant may take",
         "Filter design: worst order h17 → tune to h16 (800 Hz); every characteristic order ≤ 50 % of its planning " +
           "level at 0.5, 1 and 2 × S_sc and no resonance on h5…h25: 2 Mvar (larger sizes pull the h2 resonance down)",
@@ -138,7 +139,15 @@ export const powerQualityEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "BorWin1 (Germany): harmonic interaction in a converter grid",
+      description:
+        "BorWin1 connects offshore wind farms through a small islanded AC grid fed only by converters. TenneT engineers published its first experiences with harmonic interactions and high-frequency oscillations between the converters and the grid; in 2014 the connected BARD Offshore 1 farm stood idle for months while power quality was investigated.",
+      takeaway: "When cables and converters dominate a network, resonances move into the range converters excite — the impedance scan on this tab is how they are found before commissioning.",
+      source: "Buchhagen et al., VDE (2015), \"BorWin1 – First Experiences with harmonic interactions in converter dominated grids\"; offshore-energy.biz, 26 Jun 2014",
+    },
+  ],
 
   furtherReading: [
     {

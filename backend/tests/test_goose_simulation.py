@@ -234,11 +234,31 @@ class TestProtectionTimeline:
 class TestIECCompliance:
     """Tests for IEC 61850-8-1 and IEC 62271-100 compliance."""
 
-    def test_goose_latency_below_4ms(self):
-        """GOOSE latency must be < 4 ms per IEC 61850-8-1."""
+    def test_goose_latency_below_4ms(self, evidence):
+        """GOOSE latency must be within the IEC 61850-5 trip class (3 ms)."""
         scenario = create_busbar_overcurrent_scenario()
         result = simulate_fault(scenario)
         assert result.goose_latency_ms < GOOSE_MAX_LATENCY_MS
+        evidence(
+            "p3-goose-transfer",
+            area="P3 — SCADA & protection",
+            claim="GOOSE trip transfer time in the busbar-fault sequence (fixed teaching value)",
+            against="IEC 61850-5 transfer time class for trips, ≤ 3 ms",
+            metric="publisher → subscriber transfer time",
+            value=result.goose_latency_ms,
+            unit="ms",
+            limit="< 3 ms",
+        )
+        evidence(
+            "p3-busbar-clearance",
+            area="P3 — SCADA & protection",
+            claim="Busbar fault cleared by 87B differential over GOOSE",
+            against="main-protection clearing target at 220 kV (relay + breaker)",
+            metric="fault inception → arc extinction",
+            value=result.total_clearance_ms,
+            unit="ms",
+            limit="< 100 ms",
+        )
 
     def test_goose_compliance_flag_is_true(self):
         """Compliance flag must agree with the latency check."""
@@ -294,9 +314,19 @@ class TestFaultScenarios:
         scenario = create_busbar_overcurrent_scenario()
         assert scenario.protection_function == ProtectionFunction.PDIF
 
-    def test_busbar_fault_current_is_iec60909_ikss(self):
+    def test_busbar_fault_current_is_iec60909_ikss(self, evidence):
         """Ik'' at the OSS 220 kV busbar comes from pandapower (≈ 7.8 kA), ~6 × load."""
         scenario = create_busbar_overcurrent_scenario()
+        evidence(
+            "p3-goose-fault-current",
+            area="P3 — SCADA & protection",
+            claim="The SCADA fault scenario uses the grid model's fault current",
+            against='IEC 60909 I"k at the OSS 220 kV busbar (pandapower, P2)',
+            metric="busbar fault current",
+            value=scenario.fault_current_ka,
+            unit="kA",
+            limit="= P2 calc_sc",
+        )
         assert 7.0 < scenario.fault_current_ka < 9.0
         assert scenario.fault_current_ka / scenario.load_current_ka > 5
 

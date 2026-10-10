@@ -67,11 +67,11 @@ export const gridFormingEducation: EducationContent = {
   workedExamples: [
     {
       title: "20° phase jump, strong grid (10 GVA)",
-      scenario: "SCR 19.6 at the POC, 3.3 at the 66 kV busbar; farm at 510 MW.",
+      scenario: "SCR 19.6 at the POC, 2.9 at the 66 kV busbar; farm at 510 MW.",
       steps: [
-        "GFL: active power moves by only ≈ 10 MW; the PLL frequency estimate spikes by ≈ 5 Hz for a few ms",
-        "GFM: synchronising power swing ≈ 390 MW, peak current ≈ 1.10 p.u., settles in ≈ 0.6 s",
-        "At 40° the GFM current reaches its 1.2 p.u. limit",
+        "GFL: active power moves by only ≈ 15 MW; the PLL frequency estimate spikes by ≈ 5 Hz for a few ms",
+        "GFM: synchronising power swing ≈ 360 MW, peak current ≈ 1.08 p.u., settles in ≈ 0.65 s",
+        "At 40° the GFM swing doubles to ≈ 725 MW and its current rises to ≈ 1.17 p.u., just under the 1.2 p.u. limit",
       ],
       result:
         "GFM gives the grid an inertial response a GFL unit cannot; GFL rides a strong grid more gently. Try the very " +

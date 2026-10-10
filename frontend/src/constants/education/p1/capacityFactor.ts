@@ -14,7 +14,7 @@ export const capacityFactorEducation: EducationContent = {
   simpleExplanation:
     "A 15 MW turbine running flat out for a whole year would make 15 × 8,760 = 131,400 MWh. Real turbines don't: " +
     "sometimes the wind is weak, sometimes it is too strong, sometimes they are being serviced. Capacity factor is the " +
-    "share of that maximum you actually get. 46.5 % is the same energy as running at full power for 4,073 hours.",
+    "share of that maximum you actually get. 48.4 % — this farm's P50 — is the same energy as running at full power for about 4,240 hours.",
 
   technicalExplanation:
     "CF = AEP_net / (P_rated · 8,760 h). A big rotor on a modest generator (low specific power) reaches rated power at " +
@@ -26,7 +26,6 @@ export const capacityFactorEducation: EducationContent = {
     {
       label: "IEC 61400-12-1 — Power performance measurements",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
   ],
 
@@ -52,20 +51,35 @@ export const capacityFactorEducation: EducationContent = {
 
   workedExamples: [
     {
-      title: "This platform (34 × V236, P50 from the AEP tab)",
-      scenario: "Installed 510 MW, gross AEP 2,426 GWh/yr, net P50 2,077 GWh/yr.",
+      title: "This platform (34 × IEA 15 MW, P50 from the AEP tab)",
+      scenario: "Installed 510 MW, gross AEP 2,557 GWh/yr, net P50 2,161 GWh/yr, P90 1,948 GWh/yr.",
       steps: [
         "Maximum = 510 MW × 8,760 h = 4,467,600 MWh = 4,468 GWh",
-        "Gross CF = 2,426 / 4,468 = 54.3 %",
-        "Net CF (P50) = 2,077 / 4,468 = 46.5 %  → 4,073 full-load hours",
+        "Gross CF = 2,557 / 4,468 = 57.2 %",
+        "Net CF (P50) = 2,161 / 4,468 = 48.4 %  → 4,237 full-load hours",
       ],
       result:
-        "The 8-point gap between gross and net CF is the whole loss cascade. A P90-based CF would be another 8.8 % " +
-        "lower (≈ 42.4 %).",
+        "The 8.8-point gap between gross and net CF is the whole loss cascade. A P90-based CF is another 9.9 % " +
+        "lower (1,948 / 4,468 ≈ 43.6 %).",
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "UK offshore fleet, 2023",
+      description:
+        "The average load factor of UK offshore wind was 39.7 % in 2023, lower than in 2022 because it was a less windy year.",
+      takeaway: "A single year's capacity factor moves with the weather; compare farms and designs on long-term values.",
+      source: "IEA Wind TCP, UK country report 2023",
+    },
+    {
+      title: "Ørsted portfolio expectation, 2019",
+      description:
+        "Ørsted lowered the expected lifetime load factor of a defined European offshore portfolio from 48–50 % to about 48 % after better modelling of wake and blockage losses.",
+      takeaway: "Modern offshore farms are planned around a 40–50 % capacity factor — and a one-point change is worth a revision of the business case.",
+      source: "Ørsted company announcement, 29 Oct 2019",
+    },
+  ],
 
   furtherReading: [
     {

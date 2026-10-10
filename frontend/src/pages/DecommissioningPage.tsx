@@ -28,6 +28,7 @@ import CampaignControls from "../components/lifecycle/CampaignControls";
 import { CampaignResultPanels } from "../components/lifecycle/CampaignResults";
 import FarmSource from "../components/lifecycle/FarmSource";
 import { meur } from "../components/lifecycle/shared";
+import { StageGuide, StepHeading } from "../components/lifecycle/StageGuide";
 import { PageHeader } from "../components/layout/PageHeader";
 
 const kt = (t: number) => `${(t / 1000).toFixed(t < 10_000 ? 1 : 0)} kt`;
@@ -91,7 +92,7 @@ export default function DecommissioningPage() {
   const eol = result && !stale ? endOfLifeCost(lines, result.cost_meur.p50, farm.capacityMW) : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         title="Decommissioning"
         description={
@@ -102,12 +103,34 @@ export default function DecommissioningPage() {
         }
       />
 
+      <StageGuide
+        current="decom"
+        question="What comes out of the sea, what may stay, what happens to the material — and who pays?"
+        facts={[
+          { label: "Who", value: "The owner, under a decommissioning programme the authority approves" },
+          { label: "Planned when", value: "With the permits, before construction — with a financial security" },
+          { label: "Ends with", value: "A post-removal survey shows the site clear; the authority releases the security" },
+          { label: "Why it matters", value: "It is a construction campaign in reverse: vessels, weather windows, cost and risk" },
+        ]}
+        steps={[
+          { title: "Plan and secure", text: "Removal plan and financial security come with the permits, decades before removal." },
+          { title: "Update the programme", text: "A few years before end of life: final scope, surveys and the authority's approval." },
+          { title: "Remove", text: "Installation in reverse: blades, nacelle, tower, foundation, cables, substation." },
+          { title: "Recycle", text: "Steel and copper are sold as scrap; composite blades go to processing, not landfill." },
+          { title: "Restore and monitor", text: "Seabed survey, debris clearance, charting what stays, monitoring for years." },
+        ]}
+      />
+
       <FarmSource farm={farm} />
 
+      <StepHeading n={1} title="Choose what comes out">
+        Turbines and the substation always come out; foundations, cables and rock are a choice — each one trades seabed disturbance against
+        what is left behind.
+      </StepHeading>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <Options value={o} onChange={(options) => setDecom({ options })} />
         <section className="min-w-0 space-y-2 rounded-lg border border-border-primary bg-bg-secondary p-3 text-[12px]" data-tour="decom-legal">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Legal frame</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Why remove at all — the legal frame</h3>
           <ul className="list-disc space-y-1 pl-5 text-text-primary">
             <li>
               <b>UNCLOS Art. 60(3):</b> abandoned or disused installations shall be removed to ensure safety of navigation, with due regard to
@@ -127,6 +150,10 @@ export default function DecommissioningPage() {
         </section>
       </div>
 
+      <StepHeading n={2} title="Simulate the removal campaign">
+        Construction in reverse, with the same vessels and weather limits: every lift needs a calm-enough window, so each run replays one
+        historical year of SB-510 sea states, and the spread over the runs gives P50 and P90 dates and costs.
+      </StepHeading>
       <CampaignControls value={decom} vessels={["CTV", "WTIV", "CLV", "HLV", "SURVEY"]} onChange={setDecom} onLimit={(v, l) => setLimit("decom", v, l)} />
       <div className="flex flex-wrap items-center gap-3">
         <Button onClick={() => void run("decom", req)} disabled={running.decom}>
@@ -143,6 +170,9 @@ export default function DecommissioningPage() {
         </div>
       )}
 
+      <StepHeading n={3} title="Material, cost and schedule">
+        What comes out by weight and where it goes, the net end-of-life cost after scrap credits, and the campaign timeline.
+      </StepHeading>
       <div className="grid gap-4 xl:grid-cols-2">
         <section className="min-w-0 rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="decom-inventory">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-secondary">Material inventory (illustrative masses)</h3>
@@ -217,8 +247,10 @@ export default function DecommissioningPage() {
         </div>
       )}
 
+      <StepHeading n={4} title="Restore the seabed">
+        The job is finished when the seabed is surveyed clear, not when the last vessel leaves.
+      </StepHeading>
       <section className="rounded-lg border border-border-primary bg-bg-secondary p-3" data-tour="decom-restoration">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-secondary">Seabed restoration</h3>
         <ol className="grid gap-2 text-[12px] sm:grid-cols-2 xl:grid-cols-5">
           {RESTORATION_STEPS.map((s, i) => (
             <li key={s.title} className="rounded-md border border-border-primary/70 p-2">
@@ -235,7 +267,7 @@ export default function DecommissioningPage() {
 
       <section className="text-xs text-text-muted">
         <h3 className="mb-1 font-semibold uppercase tracking-wider">Sources</h3>
-        <ul className="list-disc space-y-0.5 pl-5">
+        <ul translate="no" className="list-disc space-y-0.5 pl-5">
           {DECOM_SOURCES.map((s) => (
             <li key={s.url}>
               <a href={s.url} target="_blank" rel="noreferrer" className="text-accent underline">

@@ -25,6 +25,7 @@ export function featureLabel(f: Feature): string {
     typeof p.power_mw === "number" ? `${p.power_mw} MW` : "",
     typeof p.rating_mva === "number" && p.rating_mva > 0 ? `${p.rating_mva} MVA` : "",
     typeof p.status === "string" ? p.status : "",
+    p.approximate === true ? "approximate position" : "",
   ].filter(Boolean);
   return extra.length ? `${f.name} (${extra.join(", ")})` : f.name;
 }
@@ -59,6 +60,15 @@ export function roleLayer(layer: LayerInfo, style: RoleStyle) {
     pickable: true,
   });
 }
+
+const DRAW_RANK: Record<string, number> = { polygon: 0, line: 1, point: 2 };
+/**
+ * Role layers in draw order: areas, then lines, then points on top. In file order the
+ * energy-basin polygons covered the wind-project points inside them, hid them and
+ * took their hover (the basin name showed instead of the project's).
+ */
+export const inDrawOrder = (layers: LayerInfo[]): LayerInfo[] =>
+  [...layers].sort((a, b) => (DRAW_RANK[a.geometry] ?? 0) - (DRAW_RANK[b.geometry] ?? 0));
 
 /** Tooltip for any layer whose objects carry `properties.feature` (the role layers). */
 export function roleTooltip(info: PickingInfo): string | null {

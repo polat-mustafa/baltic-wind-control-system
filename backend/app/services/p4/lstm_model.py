@@ -18,20 +18,26 @@ The cubic wind-speed dependence P = ½ρACp(λ,β)v³ means that temporal
 correlations in wind speed create complex, non-linear power sequences
 that tabular models (XGBoost) cannot natively capture.
 
-Standard — IEC 61400-26-1 Uncertainty & MC Dropout
-----------------------------------------------------
-IEC 61400-26-1 requires uncertainty quantification for power predictions.
-MC Dropout (Gal & Ghahramani, 2016) provides a principled Bayesian
-approximation: running T stochastic forward passes with dropout active
-produces an ensemble of predictions whose statistics estimate:
+Forecast uncertainty — MC Dropout
+------------------------------------
+No IEC standard prescribes how a power forecast states its uncertainty;
+the verification practice comes from the forecasting literature (Madsen et
+al. 2005; Gneiting & Raftery 2007). MC Dropout (Gal & Ghahramani, 2016) is
+an approximate Bayesian method: T stochastic forward passes with dropout
+active give an ensemble whose statistics estimate
   - Mean: E[P(t)] ≈ (1/T) Σ ŷ_t  — central forecast
-  - Variance: Var[P(t)] ≈ (1/T) Σ (ŷ_t - μ)²  — epistemic uncertainty
+  - Variance: Var[P(t)] ≈ (1/T) Σ (ŷ_t - μ)²  — epistemic (model) uncertainty
   - Quantiles: P10 = μ - 1.2816σ, P90 = μ + 1.2816σ  (Gaussian z-scores)
 
-This maps directly to operational decision-making:
-  - P90: Conservative estimate for grid commitment
-  - P50: Central forecast for energy trading
-  - P10: Optimistic estimate for maintenance scheduling
+Limits worth knowing: dropout spread is epistemic only — it ignores the
+irreducible (aleatoric) scatter of the wind itself — and the Gaussian band
+is symmetric while power is bounded at 0 and Prated. MC-dropout bands are
+therefore usually too narrow; check them with the P10–P90 coverage
+(target 80 %) before trusting them.
+
+P10/P50/P90 are QUANTILES (P90 = the high side, exceeded one time in ten),
+not the exceedance levels of energy-yield work, where P90 is the low,
+bankable value. Same name, opposite tail.
 
 Maths — LSTM Cell Equations
 -----------------------------
@@ -62,7 +68,8 @@ References
 ----------
 - Hochreiter & Schmidhuber, "Long Short-Term Memory" (Neural Computation, 1997)
 - Gal & Ghahramani, "Dropout as a Bayesian Approximation" (ICML 2016)
-- IEC 61400-26-1: Time-based availability for wind turbines
+- Madsen et al., Wind Engineering 29(6), 2005 — forecast evaluation protocol
+- Gneiting & Raftery, JASA 102(477), 2007 — proper scoring rules, quantiles
 - Roadmap §5.8: LSTM model, §5.11: Skill score
 """
 
@@ -77,8 +84,8 @@ from numpy.lib.stride_tricks import sliding_window_view
 from numpy.typing import NDArray
 from sklearn.model_selection import TimeSeriesSplit
 
+from app.services.p4.model_evaluation import skill_score_from_squared_errors
 from app.services.p4.physical_constraints import enforce_physical_constraints
-from app.services.p4.training_progress import PROGRESS
 
 # ── Constants ─────────────────────────────────────────────────────
 
@@ -114,6 +121,8 @@ class LSTMConfig:
         Number of MC Dropout forward passes for uncertainty estimation.
     n_cv_splits : int
         Number of TimeSeriesSplit folds.
+    gap : int
+        Sequences left out between each training and test block (0 = none).
     seed : int
         Random seed for reproducibility.
     """
@@ -127,6 +136,7 @@ class LSTMConfig:
     batch_size: int = 64
     mc_samples: int = 100
     n_cv_splits: int = 5
+    gap: int = 0
     seed: int = 42
 
 
@@ -176,7 +186,7 @@ class LSTMCVResult:
         Mean R² across all folds.
     skill_score_vs_persistence : float
         Skill score vs persistence baseline.
-        SS = 1 - RMSE_model / RMSE_persistence. SS > 0 = model wins.
+        SS = 1 - MSE_model / MSE_persistence on the test samples. SS > 0 = model wins.
     architecture_summary : str
         Human-readable description of the LSTM architecture.
     """
@@ -188,6 +198,10 @@ class LSTMCVResult:
     mean_r_squared: float
     skill_score_vs_persistence: float
     architecture_summary: str
+    # out-of-fold forecasts: sequence index (row = index + lookback − 1) and the model's
+    # outputs per test sample [MW] (LSTM: [P50]; TFT: one per quantile)
+    test_index: list[int] = field(default_factory=list)
+    test_pred_mw: list[list[float]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -422,6 +436,24 @@ def _normalize_features(
     return norm_features, norm_target, params
 
 
+def _fold_normalized(
+    x_raw: NDArray[np.float64],
+    y_raw: NDArray[np.float64],
+    features: NDArray[np.float64],
+    target: NDArray[np.float64],
+    rows_end: int,
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NormParams]:
+    """Sequences scaled with min/max of the training rows ``[0, rows_end)`` only, so no
+    statistic of the test fold reaches the inputs (fit the scaler on the past)."""
+    _, _, params = _normalize_features(features[:rows_end], target[:rows_end])
+    t_range = params.target_max - params.target_min or 1.0
+    return (
+        _normalize_features_with_params(x_raw, params),
+        (y_raw - params.target_min) / t_range,
+        params,
+    )
+
+
 def _normalize_features_with_params(
     features: NDArray[np.float64],
     params: NormParams,
@@ -530,13 +562,6 @@ def _compute_metrics(
     )
 
 
-def _compute_persistence_rmse(target: NDArray[np.float64]) -> float:
-    """Compute RMSE for persistence baseline: P(t+1) = P(t)."""
-    if len(target) < 2:
-        return 0.0
-    return float(np.sqrt(np.mean((target[1:] - target[:-1]) ** 2)))
-
-
 def _train_single_fold(
     x_train: torch.Tensor,
     y_train: torch.Tensor,
@@ -570,15 +595,12 @@ def _train_single_fold(
     for epoch in range(config.epochs):
         # Training phase
         model.train()
-        train_loss_sum, n_batches = 0.0, 0
         for batch_x, batch_y in train_loader:
             optimizer.zero_grad()
             pred = model(batch_x).squeeze(-1)
             loss = loss_fn(pred, batch_y)
             loss.backward()
             optimizer.step()
-            train_loss_sum += float(loss.item())
-            n_batches += 1
 
         actual_epochs = epoch + 1
 
@@ -587,14 +609,6 @@ def _train_single_fold(
         with torch.no_grad():
             val_pred = model(x_val).squeeze(-1)
             val_loss = loss_fn(val_pred, y_val).item()
-
-        # Live training monitor: loss curves + share of this model's work
-        PROGRESS.epoch("lstm", fold, epoch + 1, train_loss_sum / max(n_batches, 1), val_loss)
-        PROGRESS.fraction(
-            "lstm",
-            (fold + (epoch + 1) / config.epochs) / n_folds,
-            f"fold {fold + 1}/{n_folds} · epoch {epoch + 1} · val MSE {val_loss:.4f}",
-        )
 
         # Early stopping
         if val_loss < best_val_loss:
@@ -639,13 +653,11 @@ def train_lstm(
     if config is None:
         config = LSTMConfig()
 
-    # Normalize before sequencing — all sliding window values on same scale
-    norm_features, norm_target, norm_params = _normalize_features(features, target_power_mw)
+    # Sequences on raw values; each fold scales them with the min/max of its own
+    # training block, so no test-fold statistics leak into the inputs.
+    x_raw, y_raw = create_sequences(features, target_power_mw, config.lookback)
 
-    # Create sequences
-    x_seq, y_seq = create_sequences(norm_features, norm_target, config.lookback)
-
-    if x_seq.shape[0] == 0:
+    if x_raw.shape[0] == 0:
         msg = (
             f"Not enough samples ({features.shape[0]}) for lookback={config.lookback}. "
             f"Need at least {config.lookback} samples."
@@ -653,14 +665,22 @@ def train_lstm(
         raise ValueError(msg)
 
     n_features = features.shape[1]
-    PROGRESS.stage("lstm", "running", f"{x_seq.shape[0]} sequences × lookback {config.lookback}")
 
     # TimeSeriesSplit cross-validation
-    tscv = TimeSeriesSplit(n_splits=config.n_cv_splits)
+    # gap: sequences dropped between training and test block (rows next to the test
+    # block are almost the same weather, so they would flatter the score)
+    tscv = TimeSeriesSplit(n_splits=config.n_cv_splits, gap=config.gap)
     fold_metrics_list: list[LSTMFoldMetrics] = []
+    model_sq: list[float] = []  # squared errors on every test sample [MW²]
+    persistence_sq: list[float] = []  # same samples, persistence P̂(t) = P(t−1)
     last_model: WindPowerLSTM | None = None
+    oof_index: list[int] = []
+    oof_pred: list[list[float]] = []
 
-    for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_seq)):
+    for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_raw)):
+        x_seq, y_seq, norm_params = _fold_normalized(
+            x_raw, y_raw, features, target_power_mw, int(train_idx[-1]) + config.lookback
+        )
         # Early stopping watches the newest 20 % of the training block, never the
         # test fold (stopping on the test fold leaks it into the model choice).
         n_fit = max(1, int(len(train_idx) * 0.8))
@@ -695,11 +715,15 @@ def train_lstm(
         # Denormalize for metrics
         y_pred_mw = _denormalize_power(y_pred_norm, norm_params)
         y_true_mw = _denormalize_power(y_test_np, norm_params)
+        y_prev_mw = _denormalize_power(y_seq[test_idx - 1], norm_params)  # test_idx ≥ 1 always
+        oof_index.extend(test_idx.tolist())
+        oof_pred.extend([[float(v)] for v in y_pred_mw])
+        model_sq.extend((y_true_mw - y_pred_mw) ** 2)
+        persistence_sq.extend((y_true_mw - y_prev_mw) ** 2)
 
         metrics = _compute_metrics(y_true_mw, y_pred_mw, fold_idx, actual_epochs)
         fold_metrics_list.append(metrics)
         last_model = model
-        PROGRESS.fold("lstm", fold_idx, metrics.rmse_mw, actual_epochs)
 
     assert last_model is not None
 
@@ -710,8 +734,7 @@ def train_lstm(
     mean_r2 = float(np.mean([m.r_squared for m in fold_metrics_list]))
 
     # Skill score vs persistence
-    persistence_rmse = _compute_persistence_rmse(target_power_mw)
-    skill_score = 1.0 - mean_rmse / persistence_rmse if persistence_rmse > 0 else 0.0
+    skill_score = skill_score_from_squared_errors(model_sq, persistence_sq)
 
     h1, h2 = config.hidden_units
     arch_summary = (
@@ -729,9 +752,10 @@ def train_lstm(
         mean_r_squared=round(mean_r2, 4),
         skill_score_vs_persistence=round(skill_score, 4),
         architecture_summary=arch_summary,
+        test_index=oof_index,
+        test_pred_mw=oof_pred,
     )
 
-    PROGRESS.model_done("lstm", cv_result.mean_rmse_mw, cv_result.skill_score_vs_persistence)
     return cv_result, last_model, norm_params
 
 

@@ -237,14 +237,38 @@ body {
   to { stroke-opacity: 0.25; }
 }
 
-/* Training console (p4/academy/TrainingMonitor): a terminal, dark in both themes.
-   Its own classes, so the storybook ink remaps (text-slate-*, text-sky-* …) stay out. */
-.con { color: #d5dee8; }
-.con .con-fg { color: #e4ecf3; }
-.con .con-dim { color: #a3b6c8; }
-.con .con-info { color: #8fb4f5; }
-.con .con-ok { color: #4cc38a; }
-.con .con-warn { color: #f0b13e; }
+/* ── Single-line diagram (P5): colour changes fade, the device of the step
+   ripples, a conductor that has just come live glows in the accent ── */
+.sld-anim :is(line, rect, path, circle, ellipse) {
+  transition: stroke 0.7s ease, fill 0.7s ease;
+}
+.sld-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sld-ring 2.4s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+}
+.sld-ring + .sld-ring { animation-delay: 1.2s; }
+@keyframes sld-ring {
+  from { transform: scale(0.55); opacity: 0.95; }
+  to { transform: scale(1.7); opacity: 0; }
+}
+.sld-fresh { animation: sld-fresh 2.4s ease-out both; }
+@keyframes sld-fresh {
+  from { filter: drop-shadow(0 0 6px var(--color-accent)); }
+  to { filter: drop-shadow(0 0 2px var(--color-accent)); }
+}
+/* trace: the newest step draws in, the cursor glides */
+.trace-draw { stroke-dasharray: 1; animation: trace-draw 0.9s ease-out both; }
+@keyframes trace-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+.trace-cursor { transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .sld-ring, .sld-fresh, .trace-draw { animation: none; }
+  .sld-ring { opacity: 0.6; }
+  .sld-anim :is(line, rect, path, circle, ellipse), .trace-cursor { transition: none; }
+}
 
 /* ══ Storybook theme ═══════════════════════════════════════════
    Hand-drawn, parchment-and-ink look inspired by illustrated survival games.
@@ -270,7 +294,7 @@ body {
   --color-text-muted: #7a6650;
   --color-accent: #2c6e76;
   /* Paper needs darker state/voltage steps than the navy ground (≥ 4.5:1 on #f1e4c3) */
-  --color-status-alarm: #b42318;
+  --color-status-alarm: #a51f15;
   --color-status-offline: #6b6257;
   --color-status-maintenance: #9a4a00;
   --color-status-comms-loss: #6b2f8f;
@@ -318,7 +342,7 @@ body {
 
 /* Storybook readability: small print and pop-up text in bold, and the
    neon control-room status colours darkened to ink-on-paper contrast
-   (WCAG AA ≥ 4.5:1 on #f1e4c3). */
+   (WCAG AA ≥ 4.5:1 on #f1e4c3 and on the darker panel paper #d3cda4). */
 .theme-storybook :is(
     .text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs,
     .font-mono
@@ -329,15 +353,15 @@ body {
 .theme-storybook {
   --color-text-secondary: #3d2f21;
   --color-text-muted: #5e4a36;
-  --color-status-normal: #1a6b36;
+  --color-status-normal: #165c2e;
   --color-status-warning: #734300;
-  --color-status-info: #1d4ed8;
+  --color-status-info: #1a44c0;
 }
 .theme-storybook :is([style^="color: rgb(76, 195, 138)"], [style*="; color: rgb(76, 195, 138)"], [class*="text-emerald-"], [class*="text-green-"]) {
-  color: #1a6b36 !important;
+  color: #165c2e !important;
 }
 .theme-storybook :is([style^="color: rgb(69, 200, 217)"], [style*="; color: rgb(69, 200, 217)"], [class*="text-blue-"], [class*="text-sky-"]) {
-  color: #1d4ed8 !important;
+  color: #1a44c0 !important;
 }
 .theme-storybook :is([style^="color: rgb(6, 182, 212)"], [style*="; color: rgb(6, 182, 212)"], [class*="text-cyan-"], [class*="text-teal-"]) {
   color: #0e6070 !important;
@@ -402,9 +426,9 @@ body {
   --color-text-primary: #2b2118;
   --color-text-secondary: #3d2f21;
   --color-text-muted: #5e4a36;
-  --color-status-normal: #1a6b36;
+  --color-status-normal: #165c2e;
   --color-status-warning: #734300;
-  --color-status-info: #1d4ed8;
+  --color-status-info: #1a44c0;
   --color-voltage-lv: #7a6650;
   --color-accent: #2c6e76;
 }
@@ -455,9 +479,11 @@ body {
   .dwg-flow { animation: none; }
 }
 
-/* Site & Permits: print only the selected training-specimen document */
+/* Print only the document being printed (report, permits, hand-over, training record).
+   :where() keeps the hide rule at zero specificity — otherwise body:has(...) * (0,2,1)
+   beats .print-doc[data-printing] * (0,2,0) and every page comes out blank. */
 @media print {
-  body:has(.print-doc[data-printing]) * {
+  :where(body:has(.print-doc[data-printing])) * {
     visibility: hidden !important;
   }
   .print-doc[data-printing],
@@ -471,4 +497,71 @@ body {
     width: 100%;
     max-width: none;
   }
+}
+
+/* ── Maths on paper (components/ui/MathPaper.tsx) ──────────────────────
+   A ruled notebook sheet in both themes: dark ink on warm paper, a red margin
+   line and rules every 1.75rem that the handwriting sits on. Playpen Sans is
+   a legible school hand that covers Greek and the maths symbols the formulas
+   use. Ink ≥ 7:1 on the paper; notes and sources ≥ 4.5:1. */
+.math-paper {
+  --paper: #fdf9ee;
+  --ink: #1f2d4d;
+  --rule: rgba(70, 110, 180, 0.16);
+  position: relative;
+  border: 1px solid #d9cfb4;
+  border-radius: 4px;
+  padding: 0.6rem 1rem 0.75rem 2.6rem;
+  color: var(--ink);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(to right, transparent 1.9rem, rgba(200, 70, 70, 0.35) 1.9rem, rgba(200, 70, 70, 0.35) calc(1.9rem + 1px), transparent calc(1.9rem + 1px)),
+    linear-gradient(to bottom, transparent calc(1.75rem - 1px), var(--rule) calc(1.75rem - 1px));
+  background-size: 100% 100%, 100% 1.75rem;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 6px 14px -8px rgba(0, 0, 0, 0.45);
+}
+.math-hand {
+  font-family: "Playpen Sans", "Comic Neue", cursive;
+  font-weight: 500;
+  color: var(--ink, #1f2d4d);
+  letter-spacing: 0.01em;
+  line-height: 1.75rem;
+}
+.math-hand :is(sub, sup) {
+  font-size: 0.68em;
+  line-height: 0;
+}
+.math-hand sub {
+  vertical-align: -0.3em;
+}
+.math-hand sup {
+  vertical-align: 0.55em;
+}
+.math-paper-title {
+  font-family: "Playpen Sans", cursive;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.75rem;
+  color: var(--ink);
+}
+.math-paper-note {
+  color: #3c4a66;
+  font-size: 0.8125rem;
+}
+.math-paper-source {
+  color: #4f5a73;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+.math-paper-result {
+  border-top: 1px dashed rgba(31, 45, 77, 0.45);
+  padding-top: 0.35rem;
+}
+.math-paper-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1a6b36;
 }

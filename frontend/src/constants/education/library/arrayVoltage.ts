@@ -81,12 +81,25 @@ export const arrayVoltageEducation: EducationContent = {
     },
   ],
 
+  codeReferences: [
+    {
+      file: "backend/app/services/p2/network_model.py",
+      description: "ARRAY_KV = 66 and the 66 kV array CableSpec sections (500–1000 mm², datasheet ratings); STRING_LAYOUT — SB-510's six strings, 6-6-6-6-5-5.",
+    },
+    {
+      file: "frontend/src/lib/layout/cables.ts",
+      description: "stringCurrent() — I = n·P / (√3·66 kV); maxPerString() — how many turbines the largest 66 kV section can carry.",
+    },
+  ],
+
   realWorldCases: [
     {
       title: "Baltic Power (Poland) — 76 × Vestas V236-15.0 MW",
       description:
-        "The ≈ 1.1 GW Polish Baltic project uses the same turbine class as SB-510's reference with a 66 kV array.",
+        "Poland's first offshore wind farm (76 × 15 MW, about 1.1 GW) delivered first power on 10 July 2026; its " +
+        "turbines are in the same 15 MW class as SB-510's reference turbine.",
       takeaway: "66 kV is the array voltage of today's 15 MW-class projects, including in the Polish Baltic.",
+      source: "Northland Power press release, 10 Jul 2026",
     },
   ],
 

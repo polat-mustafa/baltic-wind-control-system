@@ -1,44 +1,17 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import AcademyTab from "../../../src/components/p4/academy/AcademyTab";
-import TrainingMonitor from "../../../src/components/p4/academy/TrainingMonitor";
 import ConceptMap from "../../../src/components/p4/academy/ConceptMap";
 import { CHAPTERS, CONCEPTS, LINKS } from "../../../src/components/p4/academy/academyContent";
+import { useLangStore } from "../../../src/lib/i18n";
 import { useForecastStore } from "../../../src/store/forecastStore";
-import type { TrainingLive } from "../../../src/types/forecast";
-
-vi.mock("../../../src/services/forecastApi", () => ({
-  getTrainingProgress: vi.fn(() => new Promise(() => undefined)),
-}));
-
-const LIVE: TrainingLive = {
-  active: true,
-  overall: 0.42,
-  elapsed_s: 600,
-  eta_s: 830,
-  last_build_s: null,
-  stages: [
-    { key: "data", label: "data", status: "done", fraction: 1, detail: "" },
-    { key: "features", label: "features", status: "done", fraction: 1, detail: "" },
-    { key: "xgboost", label: "xgboost", status: "done", fraction: 1, detail: "mean RMSE 2.9 MW" },
-    { key: "lstm", label: "LSTM", status: "running", fraction: 0.4, detail: "fold 3/5 · epoch 12" },
-    { key: "tft", label: "TFT", status: "running", fraction: 0.35, detail: "fold 2/5" },
-    { key: "predict", label: "predict", status: "pending", fraction: 0, detail: "" },
-    { key: "ensemble", label: "ensemble", status: "pending", fraction: 0, detail: "" },
-  ],
-  log: [{ t: 12, msg: "XGBOOST fold 1: RMSE 2.872 MW" }],
-  curves: {
-    lstm: [
-      { fold: 0, epoch: 1, train: 0.3, val: 0.2 },
-      { fold: 0, epoch: 2, train: 0.1, val: 0.12 },
-    ],
-  },
-  folds: { xgboost: [{ fold: 0, rmse_mw: 2.87, epochs: 0 }] },
-};
 
 describe("P4 AI Academy", () => {
-  beforeEach(() => useForecastStore.setState({ chapter: "why", tab: "academy", live: null, loading: false }));
+  beforeEach(() => {
+    useForecastStore.setState({ chapter: "why", tab: "academy", real: null });
+    useLangStore.setState({ lang: "en" });
+  });
 
   it("has a consistent course: every concept points at a chapter, every link at concepts", () => {
     const chapterIds = new Set(CHAPTERS.map((c) => c.id));
@@ -48,22 +21,14 @@ describe("P4 AI Academy", () => {
     expect(CHAPTERS.every((c) => c.body.every((b) => b.en && b.tr))).toBe(true);
   });
 
-  it("walks the chapters and switches to Turkish", () => {
+  it("walks the chapters and follows the app language", () => {
     render(<AcademyTab />);
     expect(screen.getByRole("heading", { name: CHAPTERS[0].title.en })).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: /Decision trees and XGBoost/ }));
     expect(screen.getByRole("heading", { name: "Decision trees and XGBoost" })).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: "TR" }));
+    // the header EN/TR toggle: chapters render their own Turkish text, state kept
+    act(() => useLangStore.getState().setLang("tr"));
     expect(screen.getByRole("heading", { name: "Karar ağaçları ve XGBoost" })).toBeDefined();
-  });
-
-  it("shows the live build: status, ETA, stage details and the log", () => {
-    useForecastStore.setState({ live: LIVE, loading: true, progressMessage: "LSTM — fold 3/5" });
-    render(<TrainingMonitor />);
-    expect(screen.getByText("training")).toBeDefined();
-    expect(screen.getByText(/ETA 13 min/)).toBeDefined();
-    expect(screen.getByText(/XGBOOST fold 1: RMSE 2.872 MW/)).toBeDefined();
-    expect(screen.getByText("42 %")).toBeDefined();
   });
 
   it("shows a clicked concept's summary, then opens its lesson", () => {

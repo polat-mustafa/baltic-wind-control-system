@@ -39,6 +39,7 @@ from app.routers.projects import router as projects_router  # noqa: E402
 from app.routers.site_assessment import router as site_assessment_router  # noqa: E402
 from app.routers.turbine_physics import router as turbine_physics_router  # noqa: E402
 from app.routers.turbine_subsystems import router as turbine_subsystems_router  # noqa: E402
+from app.routers.tutor import router as tutor_router  # noqa: E402
 from app.seed import seed_default_farm  # noqa: E402
 from app.services.p3.alarm_manager import seed_master_alarm_database  # noqa: E402
 
@@ -114,6 +115,7 @@ app.include_router(digital_twin_router)
 app.include_router(site_assessment_router)
 app.include_router(lifecycle_router)
 app.include_router(projects_router)
+app.include_router(tutor_router)
 
 
 @app.get("/health")

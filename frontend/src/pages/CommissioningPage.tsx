@@ -51,10 +51,21 @@ const STATUS_STYLE: Record<ProgrammeStatus, string> = {
   aborted: "bg-status-alarm/15 text-status-alarm",
 };
 
+/** Written out so the UI translator finds each word. */
+const STATUS_LABEL: Record<ProgrammeStatus, string> = {
+  created: "created",
+  approved: "approved",
+  in_progress: "in progress",
+  hold: "hold",
+  suspended: "suspended",
+  completed: "completed",
+  aborted: "aborted",
+};
+
 function StatusChip({ status }: { status: ProgrammeStatus }) {
   return (
     <span className={cn("rounded px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide", STATUS_STYLE[status])}>
-      {status.replace("_", " ")}
+      {STATUS_LABEL[status]}
     </span>
   );
 }
@@ -167,7 +178,7 @@ function ProgrammeList() {
             <ul>
               {programmes.map((p) => (
                 <li key={p.programme_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border-primary/50 px-5 py-2.5 first:border-t-0">
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 basis-56">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs text-text-primary">{p.programme_id}</span>
                       <StatusChip status={p.status} />

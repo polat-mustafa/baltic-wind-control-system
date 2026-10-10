@@ -21,6 +21,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { useMemo, useSyncExternalStore, type ComponentProps } from "react";
 import createPlotlyComponent from "react-plotly.js/factory";
 import Plotly from "plotly.js-dist-min";
 
@@ -53,4 +54,52 @@ function derefPlotly(v: unknown): object {
   return v as object;
 }
 
-export default deref(createPlotlyComponent)(derefPlotly(Plotly));
+const BasePlot = deref(createPlotlyComponent)(derefPlotly(Plotly)) as typeof import("react-plotly.js").default;
+type PlotProps = ComponentProps<typeof BasePlot>;
+
+const PHONE = "(max-width: 639px)";
+const phoneQuery = () => window.matchMedia?.(PHONE);
+const subscribe = (cb: () => void) => {
+  const q = phoneQuery();
+  q?.addEventListener("change", cb);
+  return () => q?.removeEventListener("change", cb);
+};
+const isPhone = () => phoneQuery()?.matches ?? false;
+
+/**
+ * Phone layout for every chart in one place: the legend leaves the plot area
+ * (a horizontal row under the chart, where it cannot cover the data), the side
+ * margins shrink to what the tick labels need (a right-hand axis keeps its
+ * room) and the text steps down a size.
+ */
+function phoneLayout(layout: PlotProps["layout"] = {}): PlotProps["layout"] {
+  const m = layout.margin ?? {};
+  const two = Object.keys(layout).some((k) => /^yaxis[2-9]$/.test(k));
+  return {
+    ...layout,
+    font: { ...layout.font, size: Math.min(layout.font?.size ?? 12, 11) },
+    margin: { ...m, l: Math.min(m.l ?? 80, 48), r: two ? (m.r ?? 80) : Math.min(m.r ?? 80, 12), b: (m.b ?? 40) + 8 },
+    legend:
+      layout.showlegend === false
+        ? layout.legend
+        : { ...layout.legend, orientation: "h", x: 0, xanchor: "left", xref: "container", y: 0, yanchor: "bottom", yref: "container", font: { size: 11 } },
+  };
+}
+
+export default function Plot(props: PlotProps) {
+  const phone = useSyncExternalStore(subscribe, isPhone, () => false);
+  // Plotly writes its autorange result (range) into the layout object it is given. So:
+  // - one copy per chart, never the shared DARK_PLOTLY_LAYOUT axes (written by one chart,
+  //   read by the next);
+  // - the same copy while the content is unchanged: a fresh object without that range on a
+  //   re-render made Plotly.react skip the recalculation and draw default axes ([-1, 6]);
+  // - a changed content gets a new copy and datarevision, which forces a full recalculation.
+  const key = JSON.stringify((phone ? phoneLayout(props.layout) : props.layout) ?? {});
+  const layout = useMemo(() => ({ ...JSON.parse(key), datarevision: key }), [key]);
+  // phone: no modebar either (it covers the top of the plot; the chart's expand button stays)
+  return phone ? (
+    <BasePlot {...props} layout={layout} config={{ ...props.config, displayModeBar: false }} />
+  ) : (
+    <BasePlot {...props} layout={layout} />
+  );
+}

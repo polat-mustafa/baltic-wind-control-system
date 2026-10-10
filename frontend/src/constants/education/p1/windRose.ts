@@ -28,17 +28,15 @@ export const windRoseEducation: EducationContent = {
     {
       label: "IEC 61400-1 — Design requirements (normal wind profile)",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
       label: "IEC 61400-3-1 — Design requirements for fixed offshore wind turbines",
       type: "standard",
-      url: "https://en.wikipedia.org/wiki/IEC_61400",
     },
     {
-      label: "MEASNET — Evaluation of site-specific wind conditions",
+      label: "MEASNET — Evaluation of site-specific wind conditions, Version 3 (2022)",
       type: "standard",
-      url: "https://www.measnet.com/procedure/",
+      url: "https://www.measnet.com/documents/",
     },
   ],
 
@@ -75,14 +73,14 @@ export const windRoseEducation: EducationContent = {
   workedExamples: [
     {
       title: "Extrapolating 100 m data to the 150 m hub",
-      scenario: "A dataset gives v̄ = 8.93 m/s at 100 m; offshore α = 0.10; V236 hub at 150 m.",
+      scenario: "A dataset gives v̄ = 8.93 m/s at 100 m; offshore α = 0.10; IEA 15 MW hub at 150 m.",
       steps: [
         "(150 / 100)^0.10 = 1.5^0.10 = 1.0414",
         "v̄(150 m) = 8.93 × 1.0414 = 9.30 m/s",
-        "Gross AEP with the speed scaled by 1.0414 (same k): +4.9 % for the V236 at this site",
+        "Gross AEP with the speed scaled by 1.0414 (same k): +4.6 % for the IEA 15 MW at this site",
       ],
       result:
-        "A 4 % speed correction is worth ≈ 5 % energy here. Get the shear wrong by 0.05 in α and the hub speed moves by " +
+        "A 4 % speed correction is worth ≈ 4.6 % energy here. Get the shear wrong by 0.05 in α and the hub speed moves by " +
         "≈ 2 %, a full uncertainty band of its own.",
     },
   ],
@@ -91,9 +89,11 @@ export const windRoseEducation: EducationContent = {
     {
       title: "Low-level jets over the Baltic",
       description:
-        "Over the cold Baltic in spring and early summer, warm air advected over the sea forms stable layers and " +
-        "low-level jets near rotor heights, which a single power-law exponent does not capture.",
+        "Ship-based lidar over the southern Baltic recorded low-level jets in 9.4 % of hours, mostly at night; stable " +
+        "layers, typical in spring, make them more likely, and numerical models underestimate how often they occur. " +
+        "A single power-law exponent does not capture such profiles.",
       takeaway: "For 150 m hubs, measure the profile (floating LiDAR) rather than assume it.",
+      source: "Rubio, Kühn & Gottschall, Wind Energy Science 7, 2433–2455 (2022)",
     },
   ],
 

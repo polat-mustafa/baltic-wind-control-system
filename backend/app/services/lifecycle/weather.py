@@ -1,10 +1,13 @@
 """
 Sea states for campaign planning and O&M access — a REAL 30-year hindcast at SB-510.
 
-``data/sb510_metocean_6h.csv.gz`` (``scripts/fetch_metocean.py``): significant wave
-height Hs from the ERA5 ocean-wave model and the ERA5 10 m wind, 1995–2024, at PZP_44
-(55.06 °N 16.54 °E), via Open-Meteo (CC BY 4.0). Each 6-hour value is the worst hour of
-the block, so a step counts as workable only if every hour in it is.
+``data/sb510_metocean_6h.csv.gz``: significant wave height Hs from the Copernicus Marine
+Baltic wave reanalysis (BALTICSEA_MULTIYEAR_WAV_003_015, ≈ 1 nmi grid,
+``scripts/process_cmems.py``) and the ERA5 10 m wind (``scripts/fetch_metocean.py``, via
+Open-Meteo, CC BY 4.0), 1995–2024, at PZP_44 (55.06 °N 16.54 °E). The Baltic model
+replaced the ERA5 waves (0.5° WAM): mean Hs 1.25 against 1.20 m, CTV access 70 against
+72 %. Each 6-hour value is the worst hour of the block, so a step counts as workable only
+if every hour in it is.
 
 Each campaign run replays one historical year: run r starts on the campaign start date
 in year ``1995 + (seed + r) mod 30`` and continues through the record (wrapping from
@@ -13,7 +16,10 @@ therefore those of the real Baltic, not a model of them. With more than 30 runs 
 years repeat; percentiles then weight the 30 years equally.
 
 Sea ice: ``data/sb510_ice.json`` counts the days per winter that NOAA OISST v2.1
-(passive microwave, 0.25°) shows ice in the site cell.
+(passive microwave, 0.25°) shows ice in the site cell — the count campaigns use. Its
+``cmems`` block holds the Copernicus Marine ice model's count for comparison: far fewer
+days (a 25 km microwave cell this near the coast also sees coastal ice), so OISST is the
+conservative choice.
 """
 
 from __future__ import annotations
@@ -36,8 +42,9 @@ HUB_HEIGHT_M = 150.0
 SHEAR_ALPHA = 0.14
 DATA = Path(__file__).parent / "data"
 HINDCAST_SOURCE = (
-    "ERA5 ocean waves (ECMWF WAM) + ERA5 10 m wind, 1995–2024, 55.06 °N 16.54 °E, "
-    "via Open-Meteo (CC BY 4.0); 6-hourly worst hour"
+    "Hs: Copernicus Marine Baltic wave reanalysis BALTICSEA_MULTIYEAR_WAV_003_015 "
+    "(doi:10.48670/moi-00014); 10 m wind: ERA5 via Open-Meteo (CC BY 4.0); 1995–2024, "
+    "55.06 °N 16.54 °E; 6-hourly worst hour"
 )
 
 

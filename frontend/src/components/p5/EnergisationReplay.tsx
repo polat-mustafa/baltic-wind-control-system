@@ -11,13 +11,19 @@
  * ones the learner meets when running the programme; a small map shows the same
  * frame where the plant is (EnergisationMap). Steady state only:
  * inrush and switching transients are not steady-state quantities.
+ *
+ * Motion (as on the style board): rings ripple from the device of the step,
+ * what has just come live glows in the accent, colours fade between steps,
+ * the newest trace segment draws in and the cursor glides. 1× = 3.2 s a step,
+ * enough to read it; reduced motion = no ripple, no autoplay.
  */
 
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw, X } from "lucide-react";
+import { Pause, Play, RotateCcw, SkipBack, SkipForward, X } from "lucide-react";
 
 import { farmKey } from "../../lib/project/farmHeader";
+import { cn } from "../../lib/utils";
 import { getEnergisationTrace } from "../../services/commissioningApi";
 import type { EnergisationTrace, ProgrammeDetail, TraceFrame } from "../../types/commissioning";
 import { Button } from "../ui/Button";
@@ -26,7 +32,9 @@ import CircuitSLD from "./CircuitSLD";
 // MapLibre + deck.gl: loaded with the replay only
 const EnergisationMap = lazy(() => import("./EnergisationMap"));
 
-const FRAME_MS = 1600;
+/** One step at 1×: time to read the step and watch the diagram and traces settle. */
+const STEP_MS = 3200;
+const SPEEDS = [0.5, 1, 2] as const;
 
 // Validated chart palette (Baltic Night): series, then the limit colours
 const C1 = "#1a9fb1";
@@ -68,13 +76,25 @@ function asProgramme(t: EnergisationTrace, f: TraceFrame): ProgrammeDetail {
 
 const busPu = (f: TraceFrame, zone: string) => f.network.buses.find((b) => b.zone === zone)?.vm_pu ?? null;
 
+/** Short names of the programme phases the replay walks through (backend switching_programme.phases). */
+function phaseName(phase: number, strings: number): string {
+  if (phase === 2) return "Export cable 1";
+  if (phase === 3) return "OSS 220 kV";
+  if (phase === 4) return "TX-OSS-01 · 66 kV A";
+  if (phase === 5) return strings > 1 ? `Strings 1–${strings}` : "String 1";
+  return `Phase ${phase}`;
+}
+
 interface Series {
   label: string;
   color: string;
   values: (number | null)[];
 }
 
-/** Step trace: each value holds until the next switching step; the cursor marks the step shown. */
+/**
+ * Step trace: each value holds until the next switching step. Drawn up to the
+ * step shown; the newest segment draws in, the cursor and the dots glide.
+ */
 function Trace({
   title,
   unit,
@@ -90,16 +110,17 @@ function Trace({
   domain: [number, number];
   index: number;
 }) {
-  const W = 320;
-  const H = 120;
-  const L = 34;
+  const W = 340;
+  const H = 66;
+  const L = 36;
   const n = series[0].values.length;
-  const x = (i: number) => L + ((W - L - 6) * i) / Math.max(1, n - 1);
-  const y = (v: number) => 8 + (H - 26) * (1 - (v - domain[0]) / (domain[1] - domain[0]));
-  const path = (vals: (number | null)[]) => {
+  const x = (i: number) => L + ((W - L - 8) * i) / Math.max(1, n - 1);
+  const y = (v: number) => 6 + (H - 14) * (1 - (v - domain[0]) / (domain[1] - domain[0]));
+  /** Step path over steps from…to: the value holds, then jumps. */
+  const path = (vals: (number | null)[], from: number, to: number) => {
     let d = "";
     let pen = false;
-    for (let i = 0; i <= index && i < vals.length; i++) {
+    for (let i = from; i <= to && i < vals.length; i++) {
       const v = vals[i];
       if (v == null) {
         pen = false;
@@ -112,9 +133,9 @@ function Trace({
   };
   const now = series.map((s) => s.values[index]);
   return (
-    <figure className="rounded-md border border-border-primary bg-bg-secondary p-2.5">
+    <figure className="min-w-0 rounded-md border border-border-primary bg-bg-secondary px-2.5 py-2">
       <figcaption className="flex flex-wrap items-baseline justify-between gap-x-2">
-        <span className="text-xs font-medium uppercase tracking-[0.08em] text-text-muted">{title}</span>
+        <span className="text-xs font-medium text-text-secondary">{title}</span>
         <span className="flex gap-3 font-mono text-xs">
           {series.map((s, k) => (
             <span key={s.label} className="flex items-center gap-1 text-text-primary">
@@ -125,32 +146,43 @@ function Trace({
         </span>
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full" role="img" aria-label={`${title} by switching step`}>
-        {[domain[0], (domain[0] + domain[1]) / 2, domain[1]].map((v) => (
+        {[domain[0], domain[1]].map((v) => (
           <g key={v}>
-            <line x1={L} x2={W - 6} y1={y(v)} y2={y(v)} stroke="var(--color-border-primary)" />
-            <text x={L - 4} y={y(v) + 4} textAnchor="end" fontSize={10} className="fill-text-muted font-mono">
+            <line x1={L} x2={W - 8} y1={y(v)} y2={y(v)} stroke="var(--color-border-primary)" />
+            <text x={L - 4} y={y(v) + 4} textAnchor="end" fontSize={11} className="fill-text-muted font-mono">
               {unit === "pu" ? v.toFixed(2) : v.toFixed(0)}
             </text>
           </g>
         ))}
         {limits.map((l) => (
           <g key={l.label}>
-            <line x1={L} x2={W - 6} y1={y(l.value)} y2={y(l.value)} stroke={l.color} strokeDasharray="4 3" />
-            <text x={W - 8} y={y(l.value) - 3} textAnchor="end" fontSize={10} fill={l.color}>
+            <line x1={L} x2={W - 8} y1={y(l.value)} y2={y(l.value)} stroke={l.color} strokeDasharray="4 3" />
+            <text x={W - 10} y={y(l.value) - 3} textAnchor="end" fontSize={11} fill={l.color}>
               {l.label}
             </text>
           </g>
         ))}
-        <line x1={x(index)} x2={x(index)} y1={6} y2={H - 18} stroke="var(--color-text-muted)" strokeDasharray="2 3" />
+        <line
+          x1={0}
+          x2={0}
+          y1={2}
+          y2={H - 2}
+          stroke="var(--color-accent)"
+          strokeOpacity={0.6}
+          className="trace-cursor"
+          style={{ transform: `translateX(${x(index)}px)` }}
+        />
         {series.map((s) => (
-          <path key={s.label} d={path(s.values)} fill="none" stroke={s.color} strokeWidth={2} />
+          <g key={s.label}>
+            <path d={path(s.values, 0, Math.max(0, index - 1))} fill="none" stroke={s.color} strokeWidth={2} />
+            {index > 0 && s.values[index - 1] != null && s.values[index] != null && (
+              <path key={index} d={path(s.values, index - 1, index)} pathLength={1} fill="none" stroke={s.color} strokeWidth={2} className="trace-draw" />
+            )}
+            {s.values[index] != null && (
+              <circle r={3.5} fill={s.color} className="trace-cursor" style={{ transform: `translate(${x(index)}px, ${y(s.values[index]!)}px)` }} />
+            )}
+          </g>
         ))}
-        <text x={L} y={H - 4} fontSize={10} className="fill-text-muted">
-          as built
-        </text>
-        <text x={W - 6} y={H - 4} textAnchor="end" fontSize={10} className="fill-text-muted">
-          switching step →
-        </text>
       </svg>
     </figure>
   );
@@ -170,6 +202,8 @@ export default function EnergisationReplay({ onClose }: { onClose: () => void })
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(!reduced);
+  const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
+  const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -180,14 +214,18 @@ export default function EnergisationReplay({ onClose }: { onClose: () => void })
       alive = false;
     };
   }, []);
+  // Opened from the page header: bring the whole replay into view once it is drawn
+  useEffect(() => {
+    if (trace) ref.current?.scrollIntoView?.({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  }, [trace, reduced]);
 
   const last = (trace?.frames.length ?? 1) - 1;
   useEffect(() => {
     if (!playing || !trace) return;
     if (index >= last) return setPlaying(false);
-    const id = setTimeout(() => setIndex((i) => i + 1), FRAME_MS);
+    const id = setTimeout(() => setIndex((i) => i + 1), STEP_MS / speed);
     return () => clearTimeout(id);
-  }, [playing, trace, index, last]);
+  }, [playing, trace, index, last, speed]);
 
   const series = useMemo(() => {
     if (!trace) return null;
@@ -201,6 +239,26 @@ export default function EnergisationReplay({ onClose }: { onClose: () => void })
       p: f.map((x) => x.network.generation_mw),
     };
   }, [trace]);
+
+  // Phases in programme order: first frame and number of frames of each
+  const phases = useMemo(() => {
+    const out: { phase: number; first: number; count: number }[] = [];
+    trace?.frames.forEach((f, i) => {
+      if (i === 0) return;
+      const p = out.at(-1);
+      if (p?.phase === f.phase) p.count++;
+      else out.push({ phase: f.phase, first: i, count: 1 });
+    });
+    return out;
+  }, [trace]);
+
+  // Zones that came live at this step: accent + glow on the diagram and the map
+  const fresh = useMemo(() => {
+    if (!trace || index === 0) return new Set<string>();
+    const before = trace.frames[index - 1].network.zones;
+    const after = trace.frames[index].network.zones;
+    return new Set(Object.keys(after).filter((z) => after[z] === "live" && before[z] !== "live"));
+  }, [trace, index]);
 
   if (error) {
     return (
@@ -227,108 +285,206 @@ export default function EnergisationReplay({ onClose }: { onClose: () => void })
     series.q[index] != null && `${net.poc_q_mvar >= 0 ? "+" : ""}${net.poc_q_mvar.toFixed(0)} Mvar into PSE`,
     net.generation_mw > 0 && `${net.generation_mw.toFixed(0)} MW exported`,
   ].filter(Boolean);
+  const go = (i: number) => {
+    setPlaying(false);
+    setIndex(Math.max(0, Math.min(last, i)));
+  };
+  const strings = trace.farm.section_a_strings;
+  const square = "h-9 w-9 justify-center px-0";
 
   return (
-    <section aria-label="Energisation replay" className="space-y-3 rounded-md border border-border-secondary bg-bg-primary p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-text-primary">First energisation of circuit 1, replayed</h2>
+    <section ref={ref} aria-label="Energisation replay" className="scroll-mt-3 space-y-3 rounded-md border border-border-secondary bg-bg-primary p-3">
+      {/* Title + transport */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-text-primary">First energisation of circuit 1, replayed</h2>
           <p className="text-xs text-text-muted">
             {trace.farm.name}: the load flow after each of the programme's {last} switching steps (steady state; inrush and transients are not shown).
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="ghost" onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0} aria-label="Previous step">
-            <ChevronLeft size={14} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button size="sm" variant="ghost" className={square} onClick={() => go(0)} disabled={index === 0} aria-label="Back to the start">
+            <RotateCcw size={15} />
+          </Button>
+          <Button size="sm" variant="ghost" className={square} onClick={() => go(index - 1)} disabled={index === 0} aria-label="Previous step">
+            <SkipBack size={15} />
           </Button>
           {index >= last ? (
-            <Button size="sm" variant="secondary" onClick={() => (setIndex(0), setPlaying(true))}>
-              <RotateCcw size={14} /> Replay
+            <Button size="sm" className="h-9 min-w-[5.5rem]" onClick={() => (setIndex(0), setPlaying(true))}>
+              <RotateCcw size={15} /> Replay
             </Button>
           ) : (
-            <Button size="sm" variant="secondary" onClick={() => setPlaying((p) => !p)}>
-              {playing ? <Pause size={14} /> : <Play size={14} />} {playing ? "Pause" : "Play"}
+            <Button size="sm" className="h-9 min-w-[5.5rem]" onClick={() => setPlaying((p) => !p)}>
+              {playing ? <Pause size={15} /> : <Play size={15} />} {playing ? "Pause" : "Play"}
             </Button>
           )}
-          <Button size="sm" variant="ghost" onClick={() => setIndex((i) => Math.min(last, i + 1))} disabled={index >= last} aria-label="Next step">
-            <ChevronRight size={14} />
+          <Button size="sm" variant="ghost" className={square} onClick={() => go(index + 1)} disabled={index >= last} aria-label="Next step">
+            <SkipForward size={15} />
           </Button>
-          <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close the replay">
-            <X size={14} />
+          <div role="radiogroup" aria-label="Replay speed" className="ml-1 inline-flex h-9 overflow-hidden rounded-md border border-border-secondary">
+            {SPEEDS.map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={speed === v}
+                onClick={() => setSpeed(v)}
+                translate="no"
+                className={cn(
+                  "min-w-9 px-2 font-mono text-xs transition-colors",
+                  speed === v ? "bg-accent/15 text-accent" : "text-text-secondary hover:text-text-primary",
+                )}
+              >
+                {v}×
+              </button>
+            ))}
+          </div>
+          <span className="ml-1 font-mono text-xs text-text-muted" translate="no">
+            <span className="text-base text-text-primary">{index}</span> / {last}
+          </span>
+          <Button size="sm" variant="ghost" className={square} onClick={onClose} aria-label="Close the replay">
+            <X size={15} />
           </Button>
         </div>
       </div>
 
+      {/* Progress: the slider is the track, the phases under it in proportion */}
       <div>
         <input
           type="range"
           min={0}
           max={last}
           value={index}
-          onChange={(e) => (setPlaying(false), setIndex(Number(e.target.value)))}
+          onChange={(e) => go(Number(e.target.value))}
           aria-label="Switching step"
           className="w-full accent-accent"
         />
-        <p role="status" aria-live="polite" className="mt-1 min-h-[2.75rem] text-sm text-text-primary">
-          <span className="mr-2 font-mono text-text-muted">{index === 0 ? "as built" : `step ${frame.step_id}`}</span>
-          {frame.action}
-          {facts.length > 0 && <span className="block font-mono text-xs text-text-secondary">{facts.join(" · ")}</span>}
-        </p>
-      </div>
-
-      {/* Traces first: they stay in view with the step text while the replay runs */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Trace
-          title="220 kV voltage"
-          unit="pu"
-          series={[
-            { label: "onshore", color: C2, values: series.ons },
-            { label: "OSS", color: C1, values: series.oss },
-          ]}
-          limits={[
-            { value: 1.05, label: "1.05", color: BAND },
-            { value: 0.95, label: "0.95", color: BAND },
-          ]}
-          domain={[0.92, 1.08]}
-          index={index}
-        />
-        <Trace
-          title="Export cable 1 current"
-          unit="A"
-          series={[
-            { label: "shore", color: C1, values: series.send },
-            { label: "OSS", color: C2, values: series.recv },
-          ]}
-          limits={[{ value: rating, label: `${rating} A rating`, color: LIMIT }]}
-          domain={bounds([...series.send, ...series.recv], 100, 0, rating)}
-          index={index}
-        />
-        <Trace
-          title="Reactive power at PSE 400 kV"
-          unit="Mvar"
-          series={[{ label: "Q", color: C1, values: series.q }]}
-          limits={[{ value: 0, label: "0", color: BAND }]}
-          domain={bounds(series.q, 50, 0, 0)}
-          index={index}
-        />
-        <Trace
-          title="Output"
-          unit="MW"
-          series={[{ label: "P", color: C1, values: series.p }]}
-          limits={[{ value: limitMw, label: `PPC limit ${limitMw.toFixed(0)} MW`, color: BAND }]}
-          domain={bounds(series.p, 50, 0, limitMw)}
-          index={index}
-        />
-      </div>
-
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="rounded-md border border-border-primary bg-bg-secondary p-2">
-          <CircuitSLD programme={asProgramme(trace, frame)} focus={frame.equipment_id} />
+        <div className="mt-1 grid gap-1.5" style={{ gridTemplateColumns: phases.map((p) => `${p.count}fr`).join(" ") }}>
+          {phases.map((p) => {
+            const done = Math.max(0, Math.min(1, (index - p.first + 1) / p.count));
+            const active = done > 0 && done < 1;
+            return (
+              <button
+                key={p.phase}
+                type="button"
+                onClick={() => go(p.first)}
+                className={cn(
+                  "flex min-w-0 flex-col gap-1 text-left text-xs",
+                  active ? "text-accent" : done === 1 ? "text-text-secondary" : "text-text-muted",
+                )}
+              >
+                <span className="h-[3px] w-full overflow-hidden rounded-full bg-border-primary">
+                  <span className="block h-full bg-accent transition-[width] duration-700 ease-out" style={{ width: `${done * 100}%` }} />
+                </span>
+                <span className={cn("truncate", !active && "max-sm:hidden")}>
+                  <span>{phaseName(p.phase, strings)}</span>
+                  {done === 1 && <span aria-hidden> ✓</span>}
+                </span>
+              </button>
+            );
+          })}
         </div>
-        <Suspense fallback={<div className="h-56 rounded-md border border-border-primary bg-bg-secondary" />}>
-          <EnergisationMap frame={frame} />
-        </Suspense>
       </div>
+
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(340px,400px)]">
+        {/* Diagram + what this step did */}
+        <div className="flex min-w-0 flex-col rounded-md border border-border-primary bg-bg-secondary">
+          <CircuitSLD programme={asProgramme(trace, frame)} focus={frame.equipment_id} fresh={fresh} fit />
+          <p role="status" aria-live="polite" className="min-h-[3.5rem] border-t border-border-primary px-3 py-2 text-sm text-text-primary">
+            <span className="mr-2 font-mono text-accent">{index === 0 ? "as built" : frame.step_id}</span>
+            {frame.action}
+            {facts.length > 0 && (
+              <span className="flex flex-wrap gap-x-1.5 font-mono text-xs text-text-secondary">
+                {/* one span per reading, so each translates on its own */}
+                {facts.map((f, k) => (
+                  <span key={k}>
+                    {k > 0 && <span aria-hidden>· </span>}
+                    <span>{f}</span>
+                  </span>
+                ))}
+              </span>
+            )}
+          </p>
+        </div>
+
+        <div className="grid min-w-0 content-start gap-2 sm:grid-cols-2 xl:grid-cols-1">
+          <figure className="relative h-40 overflow-hidden rounded-md border border-border-primary sm:col-span-2 xl:col-span-1" aria-label="The plant on the map at this step">
+            <Suspense fallback={<div className="h-full bg-bg-secondary" />}>
+              <EnergisationMap frame={frame} fresh={fresh} />
+            </Suspense>
+          </figure>
+          <Trace
+            title="220 kV voltage"
+            unit="pu"
+            series={[
+              { label: "onshore", color: C2, values: series.ons },
+              { label: "OSS", color: C1, values: series.oss },
+            ]}
+            limits={[
+              { value: 1.05, label: "1.05", color: BAND },
+              { value: 0.95, label: "0.95", color: BAND },
+            ]}
+            domain={[0.92, 1.08]}
+            index={index}
+          />
+          <Trace
+            title="Export cable 1 current"
+            unit="A"
+            series={[
+              { label: "shore", color: C1, values: series.send },
+              { label: "OSS", color: C2, values: series.recv },
+            ]}
+            limits={[{ value: rating, label: `${rating} A rating`, color: LIMIT }]}
+            domain={bounds([...series.send, ...series.recv], 100, 0, rating)}
+            index={index}
+          />
+          <Trace
+            title="Reactive power at PSE 400 kV"
+            unit="Mvar"
+            series={[{ label: "Q", color: C1, values: series.q }]}
+            limits={[{ value: 0, label: "0", color: BAND }]}
+            domain={bounds(series.q, 50, 0, 0)}
+            index={index}
+          />
+          <Trace
+            title="Output"
+            unit="MW"
+            series={[{ label: "P", color: C1, values: series.p }]}
+            limits={[{ value: limitMw, label: `PPC limit ${limitMw.toFixed(0)} MW`, color: BAND }]}
+            domain={bounds(series.p, 50, 0, limitMw)}
+            index={index}
+          />
+        </div>
+      </div>
+
+      {/* The steps around this one: done · now · next */}
+      <ol className="grid grid-cols-3 gap-2 md:grid-cols-5" aria-label="Steps around this one">
+        {[-2, -1, 0, 1, 2].map((d) => {
+          const i = index + d;
+          const f = i >= 0 ? trace.frames[i] : undefined;
+          const edge = Math.abs(d) === 2 ? "max-md:hidden" : undefined;
+          if (!f) return <li key={d} aria-hidden className={edge} />;
+          return (
+            <li key={d} className={edge}>
+              <button
+                type="button"
+                onClick={() => go(i)}
+                aria-current={d === 0 ? "step" : undefined}
+                className={cn(
+                  "flex h-full w-full flex-col gap-1 rounded-md border px-2.5 py-2 text-left transition-colors duration-500",
+                  d === 0 ? "border-accent bg-accent/10" : "border-border-primary bg-bg-secondary hover:border-border-secondary",
+                )}
+              >
+                <span className="flex justify-between gap-2 font-mono text-xs">
+                  <span className={d === 0 ? "text-accent" : "text-text-muted"}>{i === 0 ? "0" : f.step_id}</span>
+                  <span className="text-text-muted">{d < 0 ? "done" : d === 0 ? "now" : "next"}</span>
+                </span>
+                <span className={cn("line-clamp-2 text-xs leading-snug", d === 0 ? "text-text-primary" : "text-text-secondary")}>{f.action}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
     </section>
   );
 }

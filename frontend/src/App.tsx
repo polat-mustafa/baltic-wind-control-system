@@ -15,6 +15,8 @@
  *   /build           → ConstructionPage, /build/handover → HandoverPage
  *   /decommission    → DecommissioningPage
  *   /academy         → AcademyPage (courses, scored missions)
+ *   /evidence        → EvidencePage (validation results from the test suite)
+ *   /tutor/callback  → TutorCallbackPage (Sign in with OpenRouter for the AI tutor)
  *
  * All routes are wrapped in AppShell (top bar + sidebar + content area).
  */
@@ -32,6 +34,7 @@ const CommissioningPage = lazy(() => import("./pages/CommissioningPage"));
 const ConstructionPage = lazy(() => import("./pages/ConstructionPage"));
 const DecommissioningPage = lazy(() => import("./pages/DecommissioningPage"));
 const DigitalTwinPage = lazy(() => import("./pages/DigitalTwinPage"));
+const EvidencePage = lazy(() => import("./pages/EvidencePage"));
 const ForecastPage = lazy(() => import("./pages/ForecastPage"));
 const HandoverPage = lazy(() => import("./pages/HandoverPage"));
 const HVGridPage = lazy(() => import("./pages/HVGridPage"));
@@ -42,6 +45,7 @@ const LayoutPage = lazy(() => import("./pages/LayoutPage"));
 const ReportPage = lazy(() => import("./pages/ReportPage"));
 const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
 const TurbinePhysicsPage = lazy(() => import("./pages/TurbinePhysicsPage"));
+const TutorCallbackPage = lazy(() => import("./pages/TutorCallbackPage"));
 const WindResourcePage = lazy(() => import("./pages/WindResourcePage"));
 
 function App() {
@@ -66,6 +70,8 @@ function App() {
             <Route path="digital-twin" element={<DigitalTwinPage />} />
             <Route path="decommission" element={<DecommissioningPage />} />
             <Route path="academy" element={<AcademyPage />} />
+            <Route path="evidence" element={<EvidencePage />} />
+            <Route path="tutor/callback" element={<TutorCallbackPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

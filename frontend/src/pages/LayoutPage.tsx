@@ -253,7 +253,7 @@ export default function LayoutPage() {
   const wakeOnlyGWh = (pywakeFresh?.net_aep_gwh ?? yieldRes?.netGWh ?? 0) * (1 - (external?.lossPct ?? 0) / 100);
   const netGWh = wakeOnlyGWh * (1 - OTHER_LOSSES);
   const routeKm = useSiteStore((s) => s.routeKm);
-  const defaultExport = defaultExportKm(report?.grid_km, routeKm);
+  const defaultExport = defaultExportKm(report?.grid_km, routeKm, sb510);
   const expKm = exportKm ?? defaultExport;
   const seabedFactor = foundationFactor(p.turbines.map((t) => [t.lon, t.lat]), seabedAt);
   const cost = layoutCost(p.costs, capacity, cables?.totalKm ?? 0, expKm, report?.depth_m?.[1] ?? null, netGWh, seabedFactor);
@@ -334,7 +334,7 @@ export default function LayoutPage() {
         <div className="space-y-3">
           {offRegister && registerOrder && (
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-border-primary bg-bg-secondary px-3 py-2 text-[12px] text-text-secondary">
-              <span className="min-w-0 flex-1">
+              <span className="min-w-0 flex-1 basis-56">
                 Turbine tags differ from the operational numbering (string by string from the OSS) used by SCADA, commissioning and
                 the control room. Tags stay put while you design; renumber once, when the layout is frozen.
               </span>
@@ -396,7 +396,7 @@ export default function LayoutPage() {
             />
           </Suspense>
           <p className="text-xs text-text-muted">
-            Click a turbine for its card; drag it to see the farm AEP change live. Turbine IDs appear from zoom 11.
+            Click a turbine for its card; drag it to see the farm AEP change live. Drag new turbines or the substation in from the palette. Turbine IDs appear from zoom 11.
           </p>
           <WatchOut text="Wake losses grow quickly below about 5 D downwind; a tight layout gains megawatts on paper and loses them in energy. Drag a turbine and watch the farm AEP change in its card." />
           <LayoutChecklist

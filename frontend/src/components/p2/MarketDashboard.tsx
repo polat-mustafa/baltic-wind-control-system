@@ -21,6 +21,7 @@ import MarketBessPanel from "./MarketBessPanel";
 import MarketEnergyPanel from "./MarketEnergyPanel";
 import MarketPricePanel from "./MarketPricePanel";
 import MarketSettlementPanel from "./MarketSettlementPanel";
+import PseSystemPanel from "./PseSystemPanel";
 
 const item = {
   hidden: { opacity: 0, y: 12 },
@@ -31,18 +32,22 @@ const SCENARIOS: [string, MarketScenario][] = [
   ["Windy spring Sunday", "windy_spring_sunday"],
   ["Winter weekday", "winter_weekday"],
   ["Calm summer day", "calm_summer_day"],
+  ["Real day (PSE)", "real_day"],
 ];
+
+/** Polish date (YYYY-MM-DD) `days` from today. */
+const plDate = (days = 0) => new Date(Date.now() + days * 864e5).toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
 
 const kPln = (v: number) => `${v >= 0 ? "" : "−"}${Math.abs(v / 1000).toFixed(0)}`;
 
 export default function MarketDashboard() {
-  const { day: d, scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess, error, setParams, run, clearError } =
+  const { day: d, scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess, date, error, setParams, run, clearError } =
     useMarketStore();
 
   useEffect(() => {
     const id = setTimeout(() => void run(), 250);
     return () => clearTimeout(id);
-  }, [scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess, run]);
+  }, [scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess, date, run]);
 
   const toggle = (label: string, on: boolean, key: "include_cfd" | "include_bess") => (
     <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
@@ -66,7 +71,7 @@ export default function MarketDashboard() {
         <motion.div variants={item} className="rounded-lg border border-border-primary bg-bg-secondary p-4 space-y-3">
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-text-secondary">Trading day (synthetic)</p>
+              <p className="text-xs font-semibold text-text-secondary">Trading day</p>
               <div className="flex flex-wrap gap-1">
                 {SCENARIOS.map(([label, s]) => (
                   <button
@@ -78,6 +83,17 @@ export default function MarketDashboard() {
                     {label}
                   </button>
                 ))}
+                {scenario === "real_day" && (
+                  <input
+                    type="date"
+                    aria-label="Real day"
+                    value={date ?? plDate()}
+                    min="2024-06-14"
+                    max={plDate(1)}
+                    onChange={(e) => setParams({ date: e.target.value || undefined })}
+                    className="rounded border border-border-primary bg-bg-tertiary px-2 py-0.5 font-mono text-xs text-text-primary"
+                  />
+                )}
               </div>
             </div>
             <div className="flex gap-4">
@@ -146,6 +162,9 @@ export default function MarketDashboard() {
         <motion.div variants={item} className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <MarketSettlementPanel />
           <MarketBessPanel />
+        </motion.div>
+        <motion.div variants={item}>
+          <PseSystemPanel date={scenario === "real_day" ? date : undefined} />
         </motion.div>
       </motion.div>
     </MotionConfig>

@@ -62,18 +62,26 @@ export const loadFlowEducation: EducationContent = {
       title: "Full load: 510 MW generated, how much reaches PSE?",
       scenario: "All 34 WTGs at 15 MW, STATCOM holding OSS 220 kV at 1.0 p.u. (Load-flow tab, full-load scenario).",
       steps: [
-        "Losses: array cables + export cables + two transformer stages = 6.35 MW",
-        "Delivered at the POC: 510 − 6.35 = 503.65 MW (1.25 % electrical loss at this instant)",
-        "Export cables carry 504.6 MW + charging current → 76.9 % of the two-circuit rating",
-        "Each transformer stage (2 × 300 MVA) runs at ≈ 85 %",
+        "Losses: array cables (1.34 MW) + export cables (6.65 MW) + two transformer stages (2.1 MW) = 10.1 MW",
+        "Delivered at the POC: 510 − 10.1 − ≈ 0.1 MW in the reactors and the filter = 499.8 MW (2.0 % electrical loss at this instant)",
+        "Export cables carry ≈ 501 MW + their own charging current → 99.1 % of the two-circuit rating (108 km)",
+        "Each transformer stage (2 × 300 MVA) runs at ≈ 83–84 %",
       ],
       result:
-        "Full-load losses are 1.25 %; averaged over a year (most hours below rated) the energy loss is lower — " +
+        "Full-load losses are 1.98 %; averaged over a year (most hours below rated, and I²R falls with the square of the load) the energy loss is lower — " +
         "the P1 cascade uses 2 %, which also covers auxiliary consumption.",
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Hornsea One: compensation along the route",
+      description:
+        "On a long 220 kV export cable the charging current builds up along the route. Hornsea One added an offshore reactive compensation platform with shunt reactors about halfway along its export route to keep voltages and current within limits.",
+      takeaway: "Load flow along the cable — not only at its ends — decides where compensation has to sit.",
+      source: "offshorewind.biz (2016), Babcock / Ramboll RCS contracts",
+    },
+  ],
 
   furtherReading: [
     {

@@ -37,12 +37,34 @@ vi.mock("../../../src/components/p5/EnergisationMap", () => ({ default: () => nu
 describe("EnergisationReplay", () => {
   it("steps through the frames with the load-flow readings", async () => {
     render(<EnergisationReplay onClose={() => {}} />);
-    expect(await screen.findByText(/Plant as built/)).toBeDefined();
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toMatch(/Plant as built/);
     expect(screen.getByRole("img", { name: "Circuit 1 single-line diagram" })).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Next step" }));
-    expect(screen.getByText(/export cable 1 energised from shore/)).toBeDefined();
-    expect(screen.getByText(/cable 833 A at the shore end \(101 % of 825 A\)/)).toBeDefined();
-    expect(screen.getByText(/\+133 Mvar into PSE/)).toBeDefined();
+    expect(status.textContent).toMatch(/export cable 1 energised from shore/);
+    expect(status.textContent).toMatch(/cable 833 A at the shore end \(101 % of 825 A\)/);
+    expect(status.textContent).toMatch(/\+133 Mvar into PSE/);
     expect(screen.getByRole("button", { name: /Replay/ })).toBeDefined(); // last frame
+  });
+
+  it("rings the step's device and marks what just came live", async () => {
+    const { container } = render(<EnergisationReplay onClose={() => {}} />);
+    await screen.findByRole("status");
+    expect(container.querySelectorAll(".sld-fresh")).toHaveLength(0); // as built: nothing live
+    fireEvent.click(screen.getByRole("button", { name: "Next step" }));
+    // two rings rippling from CB-ON-220-01; the cable that came live glows in the accent
+    expect(container.querySelectorAll(".sld-ring")).toHaveLength(2);
+    expect(container.querySelectorAll(".sld-fresh").length).toBeGreaterThan(0);
+    // the step cards: this one is "now", the as-built frame "done"
+    expect(screen.getByRole("button", { current: "step" }).textContent).toMatch(/2\.11.*now/);
+  });
+
+  it("plays at the chosen speed", async () => {
+    render(<EnergisationReplay onClose={() => {}} />);
+    await screen.findByRole("status");
+    const fast = screen.getByRole("radio", { name: "2×" });
+    expect(screen.getByRole("radio", { name: "1×" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(fast);
+    expect(fast.getAttribute("aria-checked")).toBe("true");
   });
 });

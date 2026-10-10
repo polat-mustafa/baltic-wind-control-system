@@ -16,6 +16,8 @@ IEC 61400-26  — Availability (downtime categories)
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter
 
 from app.schemas.weather_window import (
@@ -197,3 +199,27 @@ async def get_oam_cost(
         request.heavy_lift_events_per_year,
     )
     return OAMCostBreakdown(**result)
+
+
+@router.get("/coastal-stations", summary="Measured wind at the IMGW coastal stations (live)")
+async def coastal_stations() -> dict[str, Any]:
+    """
+    Latest hourly SYNOP observation at Kołobrzeg, Ustka, Łeba and Hel (IMGW-PIB
+    public data): 10 m wind on the shore, to set against the model wind at the site.
+    """
+    from app.services.p1.coastal_stations import coastal_stations as fetch
+
+    result: dict[str, Any] = await fetch()
+    return result
+
+
+@router.get("/metocean", summary="Sea conditions at SB-510 (Copernicus Marine reanalyses)")
+async def metocean() -> dict[str, Any]:
+    """
+    Waves (hourly since 1980: percentiles, 50-year Hs), surface currents, sea surface and
+    seabed temperature along the export route (daily since 1993), sea ice (CMEMS next to
+    NOAA OISST) and the export cable rating per month with the measured seabed temperature.
+    """
+    from app.services.p1.metocean import metocean as load
+
+    return load()

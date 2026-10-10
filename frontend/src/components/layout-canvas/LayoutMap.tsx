@@ -28,7 +28,7 @@ import { useSiteStore } from "../../store/siteStore";
 import { DROP_TYPE, rgba, svgIcon } from "../map/deckUtils";
 import PlanningMap, { type Bounds } from "../map/PlanningMap";
 import { LegendHeading, Swatch } from "../site/ScreeningMap";
-import { roleLayer, roleTooltip } from "../site/mapLayers";
+import { inDrawOrder, roleLayer, roleTooltip } from "../site/mapLayers";
 import { ROLE_STYLE } from "../site/mapStyles";
 import { ossGlyph, SECTION_COLOR, STATUS_STYLE, turbineGlyph, useDrag, type TurbineStatus, type TurbineView } from "./shared";
 
@@ -228,7 +228,7 @@ export default function LayoutMap({
   const onHover = useCallback((info: PickingInfo) => setOverDraggable(!!info.object && (info.layer?.id === "turbines" || info.layer?.id === "oss")), []);
 
   const mapLayers = [
-    ...constraints.map((layer) => roleLayer(layer, ROLE_STYLE[layer.role])),
+    ...inDrawOrder(constraints).map((layer) => roleLayer(layer, ROLE_STYLE[layer.role])),
     new PolygonLayer({
       id: "site",
       data: [{ polygon: site }],

@@ -139,9 +139,12 @@ function CriteriaPanel() {
       </label>
       {suitability && (
         <p className="border-t border-border-primary pt-2 text-xs text-text-secondary">
+          {/* one span per sentence, so each translates on its own */}
           <span className="font-semibold text-status-normal">{area("suitable").toFixed(0)} km² suitable</span> ·{" "}
-          {area("marginal").toFixed(0)} km² marginal · {area("excluded").toFixed(0)} km² excluded (≈ {suitability.cell_km} km
-          cells). Thresholds marked illustrative in the API model card are teaching defaults.
+          <span>
+            {area("marginal").toFixed(0)} km² marginal · {area("excluded").toFixed(0)} km² excluded (≈ {suitability.cell_km} km cells).
+          </span>{" "}
+          <span>Thresholds marked illustrative in the API model card are teaching defaults.</span>
         </p>
       )}
     </div>

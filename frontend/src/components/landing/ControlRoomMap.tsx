@@ -44,12 +44,13 @@ import {
 import { cableTree, distanceM, type CableFocus } from "../../lib/arrayCables";
 import { useFleet, type Fleet } from "../../lib/fleet";
 import { selectEnvironment, selectKPIs, useLandingStore } from "../../store/landingStore";
-import { useLayerStore, type MapTheme } from "../../store/layerStore";
+import { useLayerStore } from "../../store/layerStore";
 import { useStatcomQ } from "../../store/liveGridStore";
 import type { TurbineStatus } from "../../types/landing";
 import { arrayCableCurrentA, arrayCableGrade, exportCableState, farmWakeDeficits, wakePowerLossPct } from "../../utils/landingPhysics";
 import { wakeConePoly } from "../../utils/wakeModel";
-import { osmStyle, svgIcon as glyphIcon } from "../map/deckUtils";
+import { osmStyle, recolourVector, svgIcon as glyphIcon, useVectorStyle } from "../map/deckUtils";
+import MapCredits from "../map/MapCredits";
 import { turbineGlyph } from "../layout-canvas/shared";
 
 import AlarmTicker from "./AlarmTicker";
@@ -88,31 +89,10 @@ function equipmentIcons(ink: string, fill: string) {
   };
 }
 
-/** OpenFreeMap styles (OpenMapTiles schema): dark for Baltic Night, the quiet positron under the storybook palette. */
-const VECTOR_STYLE: Record<MapTheme, string> = {
-  hmi: "https://tiles.openfreemap.org/styles/dark",
-  storybook: "https://tiles.openfreemap.org/styles/positron",
-};
-const vectorStyles = new Map<MapTheme, Promise<StyleSpecification>>();
-function loadVectorStyle(theme: MapTheme) {
-  let p = vectorStyles.get(theme);
-  if (!p) {
-    p = fetch(VECTOR_STYLE[theme]).then((r) => (r.ok ? (r.json() as Promise<StyleSpecification>) : Promise.reject(new Error(String(r.status)))));
-    p.catch(() => vectorStyles.delete(theme)); // retry on the next mount
-    vectorStyles.set(theme, p);
-  }
-  return p;
-}
-
 /** Base map style: the vector map recoloured to the palette (raster OSM until / unless it loads) plus the site boundary. */
 function baseStyle(pal: Palette, fleet: Fleet, showBoundary: boolean, dark: boolean, vector: StyleSpecification | null): StyleSpecification {
   const ring = (pts: [number, number][]) => [...pts.map(swap), swap(pts[0])];
-  const base = vector ?? osmStyle(dark);
-  const recolour = (l: StyleSpecification["layers"][number]): StyleSpecification["layers"][number] =>
-    !vector ? l
-    : l.type === "background" ? { ...l, paint: { ...l.paint, "background-color": pal.land } }
-    : l.id === "water" && l.type === "fill" ? { ...l, paint: { ...l.paint, "fill-color": pal.sea } }
-    : l;
+  const base = vector ? recolourVector(vector, pal.land, pal.sea) : osmStyle(dark);
   return {
     ...base,
     sources: {
@@ -127,7 +107,7 @@ function baseStyle(pal: Palette, fleet: Fleet, showBoundary: boolean, dark: bool
       },
     },
     layers: [
-      ...base.layers.map(recolour),
+      ...base.layers,
       {
         id: "site",
         type: "line",
@@ -240,17 +220,7 @@ function ControlRoomMapInner({
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setFocus(null), [fleet]);
 
-  const [vector, setVector] = useState<{ theme: MapTheme; style: StyleSpecification } | null>(null);
-  useEffect(() => {
-    let live = true;
-    loadVectorStyle(theme)
-      .then((s) => live && setVector({ theme, style: s }))
-      .catch(() => undefined); // raster OSM stays
-    return () => {
-      live = false;
-    };
-  }, [theme]);
-  const vectorStyle = vector?.theme === theme ? vector.style : null;
+  const vectorStyle = useVectorStyle(theme);
   const style = useMemo(
     () => baseStyle(pal, fleet, layers.exclusionZone, theme === "hmi", vectorStyle),
     [pal, fleet, layers.exclusionZone, theme, vectorStyle],
@@ -705,21 +675,7 @@ function ControlRoomMapInner({
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-3.5 bg-accent" />220 kV live</span>
       </div>
 
-      <div className="pointer-events-auto absolute bottom-0 left-1/2 z-10 -translate-x-1/2 rounded-t bg-bg-secondary/80 px-1.5 py-0.5 text-xs text-text-muted">
-        ©{" "}
-        <a href="https://openfreemap.org" target="_blank" rel="noreferrer" className="underline">
-          OpenFreeMap
-        </a>{" "}
-        ©{" "}
-        <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer" className="underline">
-          OpenMapTiles
-        </a>{" "}
-        ©{" "}
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">
-          OpenStreetMap
-        </a>{" "}
-        contributors
-      </div>
+      <MapCredits className="bottom-0 left-1/2 -translate-x-1/2 rounded-t max-sm:bottom-1 max-sm:left-auto max-sm:right-1 max-sm:translate-x-0 max-sm:rounded" />
       {ais.note && (
         <div className="pointer-events-none absolute bottom-7 left-1/2 z-10 max-w-[40%] -translate-x-1/2 truncate rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-xs text-text-muted">
           {ais.note}

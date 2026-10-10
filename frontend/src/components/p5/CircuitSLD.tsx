@@ -7,12 +7,12 @@
  * a conductor is drawn in its voltage colour when live, magenta when earthed
  * and grey when isolated. Devices: breaker = square (filled = closed),
  * disconnector / earth switch = blade (closed = in line), a padlock marks an
- * isolation lock, the dashed frame marks the device of the current step.
+ * isolation lock, rippling rings mark the device of the current step.
  * Devices are operated only through the programme (interlocked); clicking
  * one shows its details.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { SCADA_COLORS } from "../../constants/scadaColors";
 import { cn } from "../../lib/utils";
@@ -26,19 +26,26 @@ const EARTH = SCADA_COLORS.EARTHED;
 const DEAD = SCADA_COLORS.DE_ENERGIZED;
 const LOCK = SCADA_COLORS.WARNING;
 
+const NONE: ReadonlySet<string> = new Set();
+
 const ZONE_KV: Record<string, number> = { "66A": 66, "66B": 66 };
 const zoneKv = (z: string) => ZONE_KV[z] ?? (z.startsWith("STR") ? 66 : 220);
+
+/** A conductor that came live at this step (energisation replay). */
+const FRESH = "var(--color-accent)";
 
 interface Ctx {
   zones: Record<string, ZoneStatus>;
   eq: Record<string, EquipmentState>;
   focus: string;
+  fresh: ReadonlySet<string>;
   selected: string | null;
   select: (id: string) => void;
 }
 
 function zoneColor(ctx: Ctx, zone: string, kv = zoneKv(zone)): string {
   const s = ctx.zones[zone];
+  if (s === "live" && ctx.fresh.has(zone)) return FRESH;
   return s === "live" ? (kv === 66 ? V66 : V220) : s === "earthed" ? EARTH : DEAD;
 }
 
@@ -51,13 +58,13 @@ function deviceColor(ctx: Ctx, id: string): string {
 }
 
 function W({ x1, y1, x2, y2, c, w = 2 }: { x1: number; y1: number; x2: number; y2: number; c: string; w?: number }) {
-  return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={c} strokeWidth={w} />;
+  return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={c} strokeWidth={w} className={c === FRESH ? "sld-fresh" : undefined} />;
 }
 
 function Bus({ x1, x2, y, c, label }: { x1: number; x2: number; y: number; c: string; label: string }) {
   return (
     <g>
-      <line x1={x1} y1={y} x2={x2} y2={y} stroke={c} strokeWidth={6} strokeLinecap="square" />
+      <line x1={x1} y1={y} x2={x2} y2={y} stroke={c} strokeWidth={6} strokeLinecap="square" className={c === FRESH ? "sld-fresh" : undefined} />
       <text x={x1} y={y - 10} fontSize={13} fontWeight={600} className="fill-text-secondary">
         {label}
       </text>
@@ -88,18 +95,18 @@ function Device({ ctx, id, x, y, label, labelSide = "right", children }: {
     <g
       role="button"
       tabIndex={0}
+      data-focus={isFocus || undefined}
       aria-label={`${id} ${e.state}${e.locked ? ", locked" : ""}`}
       className="cursor-pointer focus:outline-none"
       onClick={() => ctx.select(id)}
       onKeyDown={(ev) => ev.key === "Enter" && ctx.select(id)}
     >
-      <title>{`${id} — ${e.location}\n${e.state.toUpperCase()}${e.locked ? " · isolation lock applied" : ""}`}</title>
-      {(isFocus || ctx.selected === id) && (
-        <rect
-          x={x - 15} y={y - 15} width={30} height={30} rx={3} fill="none"
-          stroke={isFocus ? "var(--color-accent)" : "var(--color-text-muted)"}
-          strokeWidth={2} strokeDasharray="4 2" className={isFocus ? "animate-pulse" : undefined}
-        />
+      <title>{`${id} — ${e.location} · ${e.state.toUpperCase()}${e.locked ? " · isolation lock applied" : ""}`}</title>
+      {/* the device of this step: two rings rippling out from it */}
+      {isFocus &&
+        [0, 1].map((k) => <circle key={k} cx={x} cy={y} r={17} fill="none" stroke={FRESH} strokeWidth={2} className="sld-ring" />)}
+      {ctx.selected === id && !isFocus && (
+        <rect x={x - 15} y={y - 15} width={30} height={30} rx={3} fill="none" stroke="var(--color-text-muted)" strokeWidth={2} strokeDasharray="4 2" />
       )}
       {children}
       {e.locked && <Padlock x={x + 13} y={y - 13} />}
@@ -217,7 +224,7 @@ function Generator({ ctx, x, y, zone }: { ctx: Ctx; x: number; y: number; zone: 
 
 /**
  * `onOperate` enables select-before-operate on the diagram: click the device
- * of the current switching / isolation step (dashed frame), then Execute —
+ * of the current switching / isolation step (rippling ring), then Execute —
  * the same interlocked step as the step button. Other devices only show their
  * state: the programme, not the operator, decides the order.
  */
@@ -226,23 +233,40 @@ export default function CircuitSLD({
   onOperate,
   busy = false,
   focus,
+  fresh,
+  fit = false,
 }: {
   programme: ProgrammeDetail;
   onOperate?: () => void;
   busy?: boolean;
   /** Device to frame as "this step" (the energisation replay); default: the programme's current step. */
   focus?: string;
+  /** Zones that came live at this step: drawn in the accent with a fading glow. */
+  fresh?: ReadonlySet<string>;
+  /** Cap the diagram's height so it fits the screen next to other panels. */
+  fit?: boolean;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const eq = Object.fromEntries(programme.equipment_states.map((e) => [e.equipment_id, e]));
   const current = programme.steps[programme.current_step_index];
   const ctx: Ctx = {
     zones: programme.network.zones,
     eq,
     focus: focus ?? (programme.status === "in_progress" || programme.status === "hold" ? current?.equipment_id ?? "" : ""),
+    fresh: fresh ?? NONE,
     selected,
     select: (id) => setSelected((s) => (s === id ? null : id)),
   };
+  // Narrow screen (the diagram scrolls sideways): keep the device of the step in view
+  useEffect(() => {
+    const box = scrollRef.current;
+    const el = box?.querySelector("[data-focus]");
+    if (!box || !el || box.scrollWidth <= box.clientWidth) return;
+    const r = el.getBoundingClientRect();
+    const left = r.left - box.getBoundingClientRect().left + box.scrollLeft + r.width / 2 - box.clientWidth / 2;
+    box.scrollTo?.({ left, behavior: "smooth" });
+  }, [ctx.focus]);
   const zc = (z: string, kv?: number) => zoneColor(ctx, z, kv);
   const bus = (zone: string) => programme.network.buses.find((b) => b.zone === zone);
   const vLabel = (zone: string) => {
@@ -263,8 +287,9 @@ export default function CircuitSLD({
 
   return (
     <div className="flex flex-col">
-      <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${860 + dx} 720`} className="w-full min-w-[680px]" role="img" aria-label="Circuit 1 single-line diagram">
+      <p className="px-3 pt-2 text-xs text-text-muted sm:hidden">Swipe sideways to see the whole diagram.</p>
+      <div ref={scrollRef} className="overflow-x-auto">
+        <svg viewBox={`0 0 ${860 + dx} 720`} className={cn("sld-anim w-full min-w-[680px]", fit && "xl:max-h-[min(56vh,600px)]")} role="img" aria-label="Circuit 1 single-line diagram">
           {/* ── Onshore ── */}
           <Bus x1={60} x2={240} y={40} c={zc("ONS220")} label="Onshore 220 kV" />
           <text x={250} y={44} fontSize={12} fontFamily="monospace" className="fill-text-secondary">{vLabel("ONS220")}</text>
@@ -423,7 +448,7 @@ export default function CircuitSLD({
           {sel
             ? `${sel.equipment_id} · ${sel.location} · ${sel.state}${sel.locked ? " · locked" : ""}`
             : operable
-              ? `Click ${ctx.focus} (dashed frame) to operate it — select before operate`
+              ? `Click ${ctx.focus} (the rippling ring) to operate it — select before operate`
               : "Click a device for details"}
         </span>
       </div>

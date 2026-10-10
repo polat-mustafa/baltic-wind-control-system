@@ -21,7 +21,7 @@ import { CASE_STUDY_GRID_NODE, CASE_STUDY_SITE, useSiteStore } from "../../store
 import { checkExportRoute } from "../../lib/site/exportRoute";
 import { rgba } from "../map/deckUtils";
 import PlanningMap, { type Bounds } from "../map/PlanningMap";
-import { roleLayer, roleTooltip } from "./mapLayers";
+import { inDrawOrder, roleLayer, roleTooltip } from "./mapLayers";
 import { ROLE_STYLE, wideScreen } from "./mapStyles";
 
 const SUITABLE = "#16a34a";
@@ -108,7 +108,7 @@ export default function ScreeningMap() {
         getFillColor: (d: (typeof cells)[number]) => (d.cls === 3 ? rgba(SUITABLE, 0.38) : rgba(MARGINAL, 0.28)),
         stroked: false,
       }),
-    ...shown.map((layer) => roleLayer(layer, ROLE_STYLE[layer.role])),
+    ...inDrawOrder(shown).map((layer) => roleLayer(layer, ROLE_STYLE[layer.role])),
     visible.turbines &&
       new ScatterplotLayer({
         id: "sb510-turbines",

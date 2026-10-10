@@ -1,7 +1,8 @@
 /**
- * Base for the planning maps (Site screening, Layout): MapLibre with the
- * OpenStreetMap raster tiles as the base — towns, ports and the coast matter
- * when choosing a site — recoloured for Baltic Night in the dark theme, and
+ * Base for the planning maps (Site screening, Layout, energisation replay):
+ * MapLibre with the OpenStreetMap vector base (OpenFreeMap; raster OSM until it
+ * loads) — towns, ports and the coast matter when choosing a site — in the
+ * Control Room's sea / land colours, and
  * deck.gl drawing the data on top (same DeckGL-as-root pattern as the Control
  * Room map).
  *
@@ -18,7 +19,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Minus, Plus } from "lucide-react";
 
 import { useLayerStore } from "../../store/layerStore";
-import { DROP_TYPE, osmStyle } from "./deckUtils";
+import { PALETTES } from "../landing/mapContextLayers";
+import { DROP_TYPE, osmStyle, recolourVector, useVectorStyle } from "./deckUtils";
+import MapCredits from "./MapCredits";
 
 export type Bounds = [[number, number], [number, number]];
 
@@ -39,6 +42,8 @@ export interface PlanningMapProps {
   cursor?: string;
   /** A palette item (`DROP_TYPE`) dropped on the map at lon/lat. */
   onDropItem?: (kind: string, at: [number, number]) => void;
+  /** Sources of the data layers, credited after the base map; null for none. */
+  dataCredit?: string | null;
   children?: ReactNode;
 }
 
@@ -56,10 +61,14 @@ export default function PlanningMap({
   onHover,
   cursor,
   onDropItem,
+  dataCredit = "EMODnet, EEA, Marine Regions",
   children,
 }: PlanningMapProps) {
-  const dark = useLayerStore((s) => s.mapTheme) === "hmi";
-  const style = useMemo(() => osmStyle(dark), [dark]);
+  const theme = useLayerStore((s) => s.mapTheme);
+  const dark = theme === "hmi";
+  const pal = PALETTES[theme];
+  const vector = useVectorStyle(theme);
+  const style = useMemo(() => (vector ? recolourVector(vector, pal.land, pal.sea) : osmStyle(dark)), [vector, pal, dark]);
   const boxRef = useRef<HTMLDivElement>(null);
   const [viewState, setViewState] = useState<MapViewState | null>(null);
   const boundsRef = useRef(bounds);
@@ -93,7 +102,7 @@ export default function PlanningMap({
     <div
       ref={boxRef}
       className="absolute inset-0"
-      style={{ background: dark ? "#0a1520" : "#e8e4da" }}
+      style={{ background: pal.sea }}
       onDragOver={(e) => {
         if (onDropItem && e.dataTransfer.types.includes(DROP_TYPE)) e.preventDefault();
       }}
@@ -149,13 +158,7 @@ export default function PlanningMap({
           <Minus size={15} />
         </button>
       </div>
-      <div className="pointer-events-auto absolute bottom-0 left-0 z-10 rounded-tr bg-bg-secondary/80 px-1.5 py-0.5 text-xs text-text-muted">
-        ©{" "}
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">
-          OpenStreetMap
-        </a>{" "}
-        contributors · Data: EMODnet, EEA, Marine Regions
-      </div>
+      <MapCredits data={dataCredit ?? undefined} className="bottom-0 left-0 rounded-tr max-sm:bottom-1 max-sm:left-1 max-sm:rounded" />
       {children}
     </div>
   );

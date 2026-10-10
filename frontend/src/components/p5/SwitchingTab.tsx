@@ -208,7 +208,7 @@ function GateHint({ step, onGoto }: { step: Step; onGoto: (t: P5Tab) => void }) 
   const g = GATE_TAB[gateOf(step)];
   return (
     <button type="button" onClick={() => onGoto(g.tab)} className="text-xs text-accent hover:underline">
-      {g.what} →
+      <span>{g.what}</span> <span aria-hidden>→</span>
     </button>
   );
 }
@@ -342,7 +342,7 @@ export default function SwitchingTab({ programme, onGoto }: { programme: Program
           <CardHeader action={<InfoButton info={p5SldInfo} />}>
             <CardTitle>Circuit 1 — single-line diagram</CardTitle>
           </CardHeader>
-          <CircuitSLD programme={programme} onOperate={() => void executeCurrentStep()} busy={busy} />
+          <CircuitSLD programme={programme} onOperate={() => void executeCurrentStep()} busy={busy} fit />
         </Card>
         <StepList programme={programme} />
       </div>

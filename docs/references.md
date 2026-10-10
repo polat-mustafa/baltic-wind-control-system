@@ -57,20 +57,17 @@ Citation rules used here:
 
 | Topic | Implementation | Reference |
 |---|---|---|
-| Gradient-boosted quantile model | `services/p4/xgboost_model.py` | [12], [13] |
-| LSTM, MC-dropout uncertainty | `services/p4/lstm_model.py` | [14], [15] |
-| Temporal Fusion Transformer | `services/p4/tft_model.py` | [16] |
-| Explanations (SHAP) | `services/p4/xgboost_model.py` | [17] |
-| Time-ordered cross-validation | `services/p4/` (scikit-learn `TimeSeriesSplit`) | [18], [19] |
-| Forecast error metrics | `services/p4/model_evaluation.py` | [19], [20] |
-| Physical limits on forecasts (IEA 15 MW: 3 / 10.66 / 25 m/s) | `services/p4/physical_constraints.py` | [26], [S3] |
+| Data: measured hourly DK2 Baltic offshore output (Kriegers Flak, Rødsand II, Nysted; Energinet ProductionConsumptionSettlement, CC BY 4.0) and day-old ECMWF / ICON 100 m wind (Open-Meteo Previous Runs, lead 24–47 h, CC BY 4.0); single farms from ENTSO-E 16.1.A (File Library) | `scripts/fetch_real_forecast_data.py`, `scripts/fetch_entsoe_units.py --file-library`, `services/p4/real_data.py` | ENTSO-E Transparency Platform, Regulation (EU) 543/2013 Art. 16.1.A |
+| Gradient-boosted quantile model, nine quantiles P10…P90, conformalised band (CQR on the newest 20 % of each training block) | `services/p4/real_data.py` (`_xgb_fold`) | [12], [13], [48] |
+| LSTM and TFT (nine quantiles) on the same folds, trained offline, early stopping on the newest 20 % of each training block; out-of-fold forecasts bundled per hour | `services/p4/lstm_model.py`, `tft_model.py`, `scripts/train_real_deep_models.py` | [14], [15], [16] |
+| Ensemble weights 1/MSE from earlier test folds only | `services/p4/real_data.py` (`_ensemble_weights`) | [20] |
+| Explanations: mean \|SHAP\| of the P50 (TreeSHAP, `pred_contribs`) | `services/p4/real_data.py` | [17], [49] |
+| Time-ordered cross-validation | `services/p4/real_data.py` (scikit-learn `TimeSeriesSplit`) | [18], [19] |
+| Scores on the same hours: nRMSE / nMAE / bias, skill vs persistence and climatology, CRPS as the quantile score (2/9)·Σ pinball (= MAE for a point forecast), CRPSS, P10–P90 coverage, reliability | `services/p4/real_data.py`, `model_evaluation.py` | [19], [20], [47] |
+| TSO benchmark: Energinet's day-ahead forecast for DK2 offshore wind (Forecasts_Hour, ForecastDayAhead, CC BY 4.0), rescaled to the metered farms on each training block | `scripts/fetch_real_forecast_data.py --tso-only`, `services/p4/real_data.py` | Energinet Energi Data Service |
+| Physical limits on forecasts (0 ≤ P ≤ capacity; one turbine: IEA 15 MW 3 / 10.66 / 25 m/s) | `services/p4/physical_constraints.py` | [26], [S3] |
 | Power curve with air-density normalisation v·(ρ/ρ₀)^⅓ | `services/p4/turbine_power_curve.py` | [26], [S2] |
-| Synthetic SCADA: Gaussian copula on the site Weibull, ERA5 hourly persistence φ = 0.957, 10-min sampling error (Λ₁ = 42 m) | `services/p4/scada_generator.py` | [28], [30], [S1] |
-| Residual learning on persistence (base margin), early stopping on the last 20 % of each fold | `services/p4/xgboost_model.py` | [12], [20] |
-| Synthetic NWP: persistent AR(1) error (0.9 / h), 6-hourly runs, 1.0–1.3 m/s | `services/p4/nwp_pipeline.py` | ECMWF IFS documentation |
-| **Real data**: LSTM / TFT on the same set, trained offline (`scripts/train_real_deep_models.py`), early stopping on the newest 20 % of each training block (also fixed for the synthetic models: they stopped on the test fold) | `services/p4/lstm_model.py`, `tft_model.py` | [14], [16] |
-| **Real data**: single-farm day-ahead forecasts — Kriegers Flak, Rødsand 1, Rødsand 2 — from ENTSO-E 16.1.A (File Library monthly extracts) + day-old NWP; Baltic Power (PL, 76 × V236-15.0 MW) energisation ramp shown in P5 | `scripts/fetch_entsoe_units.py --file-library`, `services/p4/real_data.py`, `routers/p5/real_data.py` | ENTSO-E Transparency Platform, Regulation (EU) 543/2013 Art. 16.1.A |
-| **Real data**: day-ahead forecast of measured DK2 Baltic offshore output (Kriegers Flak, Rødsand II, Nysted; Energinet, CC BY 4.0) from day-old ECMWF / ICON 100 m wind (Open-Meteo Previous Runs, CC BY 4.0); nRMSE vs persistence, climatology, NWP power curve; conformalised P10–P90 | `services/p4/real_data.py`, `scripts/fetch_real_forecast_data.py` | Giebel et al. 2011 (ANEMOS.plus); Romano, Patterson & Candès 2019 (CQR); Hong et al. 2016 (GEFCom2014) |
+| Day-ahead framing and expected accuracy (nRMSE 10–20 % of capacity) | `services/p4/real_data.py` | Giebel et al. 2011 (ANEMOS.plus); Hong et al. 2016 (GEFCom2014) |
 
 ## P5 — Commissioning
 
@@ -213,6 +210,9 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 44. Lee, J. C. Y., Fields, M. J. "An overview of wind-energy-production prediction bias, losses, and uncertainties." *Wind Energy Science* 6, 311–365, 2021 (Table B6).
 45. van der Laan, M. P., Sørensen, N. N., Réthoré, P.-E., Mann, J., Kelly, M. C., Troldborg, N., Schepers, J. G., Machefaux, E. "An improved k-ε model applied to a wind turbine wake in atmospheric turbulence." *Wind Energy* 18(5), 889–907, 2015. DOI 10.1002/we.1804.
 46. Gaumond, M., Réthoré, P.-E., Ott, S., Peña, A., Bechmann, A., Hansen, K. S. "Evaluation of the wind direction uncertainty and its impact on wake modeling at the Horns Rev offshore wind farm." *Wind Energy* 17(8), 1169–1178, 2014. DOI 10.1002/we.1625.
+47. Gneiting, T., Raftery, A. E. "Strictly proper scoring rules, prediction, and estimation." *Journal of the American Statistical Association* 102(477), 359–378, 2007. DOI 10.1198/016214506000001437.
+48. Romano, Y., Patterson, E., Candès, E. "Conformalized quantile regression." *Advances in Neural Information Processing Systems* 32, 2019.
+49. Lundberg, S. M., Erion, G., Chen, H., et al. "From local explanations to global understanding with explainable AI for trees." *Nature Machine Intelligence* 2, 56–67, 2020. DOI 10.1038/s42256-019-0138-9.
 
 ## Standards and regulations
 

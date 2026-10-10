@@ -1,450 +1,31 @@
 /**
- * Typed fetch wrapper for P4 AI Forecasting API endpoints.
- *
- * Every function maps 1:1 to a backend route in backend/app/routers/p4.py.
- * Pattern follows gridApi.ts — Vite dev proxy forwards /api.
+ * Typed fetch wrapper for the P4 forecasting API (backend/app/routers/p4/real_data.py):
+ * the day-ahead forecast trained and scored on real Baltic offshore production.
  */
 
-import type {
-  ConstraintCheckResponse,
-  EnsemblePredictResponse,
-  FeatureEngineeringResponse,
-  LSTMPredictResponse,
-  LSTMTrainResponse,
-  MCDropoutResponse,
-  ModelCompareResponse,
-  PowerCurveResponse,
-  QualityFilterResponse,
-  RampDetectResponse,
-  SCADADatasetSummary,
-  SHAPResponse,
-  TrainingLive,
-  TFTAttentionResponse,
-  TFTPredictResponse,
-  TFTTrainResponse,
-  TurbineSpec,
-  XGBoostPredictResponse,
-  XGBoostTrainResponse,
-} from "../types/forecast";
-
-import { post, request } from "./apiClient";
+import { request } from "./apiClient";
 
 const BASE = "/api/v1/forecast";
-
-// ── Turbine Spec ──────────────────────────────────────────────
-
-export function getTurbineSpec(): Promise<TurbineSpec> {
-  return request(`${BASE}/turbine-spec`);
-}
-
-// ── Power Curve ───────────────────────────────────────────────
-
-export function generatePowerCurve(
-  windStepMs?: number,
-  airDensity?: number,
-): Promise<PowerCurveResponse> {
-  return post(`${BASE}/power-curve`, {
-    wind_step_ms: windStepMs,
-    air_density_kg_m3: airDensity,
-  });
-}
-
-// ── SCADA Generation ──────────────────────────────────────────
-
-export function generateSCADA(
-  numTurbines: number,
-  numTimesteps: number,
-  weibullA: number,
-  weibullK: number,
-  seed?: number,
-): Promise<SCADADatasetSummary> {
-  return post(`${BASE}/generate-scada`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    weibull_a: weibullA,
-    weibull_k: weibullK,
-    seed,
-  });
-}
-
-// ── Quality Filtering ─────────────────────────────────────────
-
-export function runQualityFilter(
-  numTurbines: number,
-  numTimesteps: number,
-  seed?: number,
-): Promise<QualityFilterResponse> {
-  return post(`${BASE}/quality-filter`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    seed,
-  });
-}
-
-// ── Feature Engineering ───────────────────────────────────────
-
-export function runFeatureEngineering(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  seed?: number,
-): Promise<FeatureEngineeringResponse> {
-  return post(`${BASE}/features`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    seed,
-  });
-}
-
-// ── Constraint Enforcement ────────────────────────────────────
-
-export function checkConstraints(
-  predictionsMw: number[],
-  windSpeedsMs?: number[],
-): Promise<ConstraintCheckResponse> {
-  return post(`${BASE}/check-constraints`, {
-    predictions_mw: predictionsMw,
-    wind_speeds_ms: windSpeedsMs,
-  });
-}
-
-// ── XGBoost Training ──────────────────────────────────────────
-
-export function trainXGBoost(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  nEstimators?: number,
-  maxDepth?: number,
-  learningRate?: number,
-  seed?: number,
-): Promise<XGBoostTrainResponse> {
-  return post(`${BASE}/train-xgboost`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    n_estimators: nEstimators,
-    max_depth: maxDepth,
-    learning_rate: learningRate,
-    seed,
-  });
-}
-
-// ── XGBoost Prediction ───────────────────────────────────────
-
-export function predictXGBoost(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  horizonSteps: number,
-  seed?: number,
-): Promise<XGBoostPredictResponse> {
-  return post(`${BASE}/predict-xgboost`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    horizon_steps: horizonSteps,
-    seed,
-  });
-}
-
-// ── XGBoost SHAP ──────────────────────────────────────────────
-
-export function getXGBoostSHAP(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  topKFeatures: number = 10,
-  seed?: number,
-): Promise<SHAPResponse> {
-  return post(`${BASE}/xgboost-shap`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    top_k_features: topKFeatures,
-    seed,
-  });
-}
-
-// ── LSTM Training ─────────────────────────────────────────────
-
-export function trainLSTM(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  lookback?: number,
-  hiddenUnitsL1?: number,
-  hiddenUnitsL2?: number,
-  dropout?: number,
-  learningRate?: number,
-  epochs?: number,
-  patience?: number,
-  batchSize?: number,
-  seed?: number,
-): Promise<LSTMTrainResponse> {
-  return post(`${BASE}/train-lstm`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    lookback,
-    hidden_units_l1: hiddenUnitsL1,
-    hidden_units_l2: hiddenUnitsL2,
-    dropout,
-    learning_rate: learningRate,
-    epochs,
-    patience,
-    batch_size: batchSize,
-    seed,
-  });
-}
-
-// ── LSTM Prediction ───────────────────────────────────────────
-
-export function predictLSTM(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  lookback?: number,
-  mcSamples?: number,
-  horizonSteps?: number,
-  seed?: number,
-): Promise<LSTMPredictResponse> {
-  return post(`${BASE}/predict-lstm`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    lookback,
-    mc_samples: mcSamples,
-    horizon_steps: horizonSteps,
-    seed,
-  });
-}
-
-// ── MC Dropout Visualization ──────────────────────────────────
-
-export function lstmMCDropout(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  lookback?: number,
-  mcSamples?: number,
-  horizonSteps?: number,
-  seed?: number,
-): Promise<MCDropoutResponse> {
-  return post(`${BASE}/lstm-mc-dropout`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    lookback,
-    mc_samples: mcSamples,
-    horizon_steps: horizonSteps,
-    seed,
-  });
-}
-
-// ── TFT Training ──────────────────────────────────────────────
-
-export function trainTFT(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  lookback?: number,
-  hiddenSize?: number,
-  numAttentionHeads?: number,
-  dropout?: number,
-  learningRate?: number,
-  epochs?: number,
-  patience?: number,
-  batchSize?: number,
-  seed?: number,
-): Promise<TFTTrainResponse> {
-  return post(`${BASE}/train-tft`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    lookback,
-    hidden_size: hiddenSize,
-    num_attention_heads: numAttentionHeads,
-    dropout,
-    learning_rate: learningRate,
-    epochs,
-    patience,
-    batch_size: batchSize,
-    seed,
-  });
-}
-
-// ── TFT Prediction ────────────────────────────────────────────
-
-export function predictTFT(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  lookback?: number,
-  horizonSteps?: number,
-  seed?: number,
-): Promise<TFTPredictResponse> {
-  return post(`${BASE}/predict-tft`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    lookback,
-    horizon_steps: horizonSteps,
-    seed,
-  });
-}
-
-// ── TFT Attention Visualization ───────────────────────────────
-
-export function tftAttention(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  lookback?: number,
-  horizonSteps?: number,
-  seed?: number,
-): Promise<TFTAttentionResponse> {
-  return post(`${BASE}/tft-attention`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    lookback,
-    horizon_steps: horizonSteps,
-    seed,
-  });
-}
-
-// ── Ensemble Prediction (async background task + polling) ─────
-
-/** Polling interval for ensemble task status checks. */
-const ENSEMBLE_POLL_MS = 2_000;
-
-interface TaskStartResponse {
-  task_id: string;
-  status: string;
-}
-
-interface TaskStatusResponse {
-  status: string;
-  progress: number;
-  result: EnsemblePredictResponse | null;
-  error: string | null;
-  live?: TrainingLive | null;
-}
-
-/** Snapshot of the live / last model build (stages, losses, log, ETA). */
-export function getTrainingProgress(): Promise<TrainingLive> {
-  return request(`${BASE}/training-progress`);
-}
-
-/**
- * Start ensemble training as a background task, then poll until complete.
- *
- * The backend returns 202 immediately with a task_id.  We poll
- * GET /predict-ensemble/status/{task_id} every 3 s until the task
- * finishes.  The caller still gets a simple Promise<EnsemblePredictResponse>,
- * so the store and UI code need no changes.
- */
-export async function predictEnsemble(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  horizonSteps: number,
-  seed?: number,
-  onProgress?: (progress: number, live: TrainingLive | null) => void,
-): Promise<EnsemblePredictResponse> {
-  // 1. Start background task → 202 Accepted
-  const { task_id } = await post<TaskStartResponse>(
-    `${BASE}/predict-ensemble`,
-    {
-      num_turbines: numTurbines,
-      num_timesteps: numTimesteps,
-      turbine_index: turbineIndex,
-      horizon_steps: horizonSteps,
-      seed,
-    },
-  );
-
-  // 2. Poll until completed or failed
-  for (;;) {
-    await new Promise((r) => setTimeout(r, ENSEMBLE_POLL_MS));
-    let status: TaskStatusResponse;
-    try {
-      status = await request<TaskStatusResponse>(
-        `${BASE}/predict-ensemble/status/${task_id}`,
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg === "Task not found") {
-        throw new Error(
-          "Forecast task was lost (server may have restarted). Please run the analysis again.",
-          { cause: err },
-        );
-      }
-      throw err;
-    }
-    onProgress?.(status.progress, status.live ?? null);
-    if (status.status === "completed" && status.result) {
-      return status.result;
-    }
-    if (status.status === "failed") {
-      throw new Error(status.error ?? "Ensemble training failed");
-    }
-    // status === "running" → continue polling
-  }
-}
-
-// ── Ramp Detection ────────────────────────────────────────────
-
-export function detectRamps(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  horizonSteps: number,
-  thresholdMwHr: number,
-  seed?: number,
-  /** Turbines of the farm on screen; the forecast is scaled to it (models stay on the reference set). */
-  farmTurbines?: number,
-): Promise<RampDetectResponse> {
-  return post(`${BASE}/detect-ramps`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    horizon_steps: horizonSteps,
-    threshold_mw_hr: thresholdMwHr,
-    seed,
-    farm_turbines: farmTurbines,
-  });
-}
-
-// ── Model Comparison ──────────────────────────────────────────
-
-export function compareModels(
-  numTurbines: number,
-  numTimesteps: number,
-  turbineIndex: number,
-  horizonSteps: number,
-  seed?: number,
-): Promise<ModelCompareResponse> {
-  return post(`${BASE}/compare-models`, {
-    num_turbines: numTurbines,
-    num_timesteps: numTimesteps,
-    turbine_index: turbineIndex,
-    horizon_steps: horizonSteps,
-    seed,
-  });
-}
-
-// ── Real data: day-ahead forecast of Baltic offshore production ──
 
 export interface RealModelScore {
   name: string;
   nrmse_pct: number;
   nmae_pct: number;
-  bias_pct: number | null;
+  bias_pct: number;
   skill_vs_persistence: number;
+  skill_vs_climatology: number;
+  /** CRPS ≈ (2/9)·Σ pinball over P10…P90 [% of capacity]; equals nMAE for a point forecast. */
+  crps_pct: number;
+  crpss_vs_climatology: number;
+  probabilistic: boolean;
   fold_nrmse_pct: number[];
+}
+
+export interface RealReliability {
+  name: string;
+  /** Share of hours at or below each quantile P10 … P90 (ideal 0.1 … 0.9). */
+  observed_below: number[];
+  p10_p90_coverage_pct: number;
 }
 
 export interface RealForecastResponse {
@@ -459,22 +40,28 @@ export interface RealForecastResponse {
     period_end_utc: string;
     hours: number;
     folds: number;
+    scored_hours: number;
   };
   scores: RealModelScore[];
+  reliability: RealReliability[];
   p10_p90_coverage_pct: number;
-  feature_importance: { feature: string; gain_share: number }[];
+  feature_importance: { feature: string; shap_share: number }[];
   series: {
     time_utc: string[];
-    actual_mw: number[];
-    p10_mw: number[];
-    p50_mw: number[];
-    p90_mw: number[];
-    persistence_mw: number[];
-    nwp_wind_ms: number[];
+    actual_mw: (number | null)[];
+    p10_mw: (number | null)[];
+    p50_mw: (number | null)[];
+    p90_mw: (number | null)[];
+    persistence_mw: (number | null)[];
+    nwp_wind_ms: (number | null)[];
+    /** DK2 only: Energinet's day-ahead forecast, rescaled to the three farms. */
+    tso_mw?: (number | null)[];
+    /** When the LSTM / TFT forecasts are bundled: the 1/MSE-weighted ensemble. */
+    ensemble_mw?: (number | null)[];
   };
 }
 
-/** XGBoost P10/P50/P90 trained on Energinet DK2 offshore output + archived day-ahead NWP. */
+/** XGBoost P10…P90, LSTM, TFT, ensemble and baselines on measured output + archived NWP. */
 export function getRealDayAhead(site = "dk2"): Promise<RealForecastResponse> {
   return request(`${BASE}/real-data/day-ahead?site=${encodeURIComponent(site)}`);
 }

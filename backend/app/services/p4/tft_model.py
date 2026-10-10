@@ -93,7 +93,6 @@ from app.services.p4.lstm_model import (
 )
 from app.services.p4.model_evaluation import skill_score_from_squared_errors
 from app.services.p4.physical_constraints import enforce_physical_constraints
-from app.services.p4.training_progress import PROGRESS
 
 # ── Constants ─────────────────────────────────────────────────────
 
@@ -205,6 +204,10 @@ class TFTCVResult:
     mean_r_squared: float
     skill_score_vs_persistence: float
     architecture_summary: str
+    # out-of-fold forecasts: sequence index (row = index + lookback − 1) and the model's
+    # outputs per test sample [MW] (LSTM: [P50]; TFT: one per quantile)
+    test_index: list[int] = field(default_factory=list)
+    test_pred_mw: list[list[float]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -657,15 +660,12 @@ def _train_single_fold(
     for epoch in range(config.epochs):
         # Training phase
         model.train()
-        train_loss_sum, n_batches = 0.0, 0
         for batch_x, batch_y in train_loader:
             optimizer.zero_grad()
             pred = model(batch_x)  # (batch, n_quantiles)
             loss = _quantile_loss(pred, batch_y, config.quantiles)
             loss.backward()  # type: ignore[no-untyped-call]
             optimizer.step()
-            train_loss_sum += float(loss.item())
-            n_batches += 1
 
         actual_epochs = epoch + 1
 
@@ -674,14 +674,6 @@ def _train_single_fold(
         with torch.no_grad():
             val_pred = model(x_val)
             val_loss = _quantile_loss(val_pred, y_val, config.quantiles).item()
-
-        # Live training monitor: loss curves + share of this model's work
-        PROGRESS.epoch("tft", fold, epoch + 1, train_loss_sum / max(n_batches, 1), val_loss)
-        PROGRESS.fraction(
-            "tft",
-            (fold + (epoch + 1) / config.epochs) / n_folds,
-            f"fold {fold + 1}/{n_folds} · epoch {epoch + 1} · val pinball {val_loss:.4f}",
-        )
 
         # Early stopping
         if val_loss < best_val_loss:
@@ -741,7 +733,6 @@ def train_tft(
         raise ValueError(msg)
 
     n_features = features.shape[1]
-    PROGRESS.stage("tft", "running", f"{x_seq.shape[0]} sequences × lookback {config.lookback}")
 
     # TimeSeriesSplit cross-validation
     tscv = TimeSeriesSplit(n_splits=config.n_cv_splits)
@@ -749,6 +740,8 @@ def train_tft(
     model_sq: list[float] = []  # squared errors on every test sample [MW²]
     persistence_sq: list[float] = []  # same samples, persistence P̂(t) = P(t−1)
     last_model: WindPowerTFT | None = None
+    oof_index: list[int] = []
+    oof_pred: list[list[float]] = []
 
     for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_seq)):
         # Early stopping watches the newest 20 % of the training block, never the
@@ -781,19 +774,20 @@ def train_tft(
         model.eval()
         with torch.no_grad():
             preds = model(x_test_t)  # (n_test, n_quantiles)
-            y_pred_norm = preds[:, 1].numpy()  # P50
+            y_pred_norm = preds[:, config.quantiles.index(0.5)].numpy()  # P50
 
         # Denormalize for metrics
         y_pred_mw = _denormalize_power(y_pred_norm, norm_params)
         y_true_mw = _denormalize_power(y_test_np, norm_params)
         y_prev_mw = _denormalize_power(y_seq[test_idx - 1], norm_params)  # test_idx ≥ 1 always
+        oof_index.extend(test_idx.tolist())
+        oof_pred.extend(np.sort(_denormalize_power(preds.numpy(), norm_params), axis=1).tolist())
         model_sq.extend((y_true_mw - y_pred_mw) ** 2)
         persistence_sq.extend((y_true_mw - y_prev_mw) ** 2)
 
         metrics = _compute_metrics(y_true_mw, y_pred_mw, fold_idx, actual_epochs)
         fold_metrics_list.append(metrics)
         last_model = model
-        PROGRESS.fold("tft", fold_idx, metrics.rmse_mw, actual_epochs)
 
     assert last_model is not None
 
@@ -824,9 +818,10 @@ def train_tft(
         mean_r_squared=round(mean_r2, 4),
         skill_score_vs_persistence=round(skill_score, 4),
         architecture_summary=arch_summary,
+        test_index=oof_index,
+        test_pred_mw=oof_pred,
     )
 
-    PROGRESS.model_done("tft", cv_result.mean_rmse_mw, cv_result.skill_score_vs_persistence)
     return cv_result, last_model, norm_params
 
 

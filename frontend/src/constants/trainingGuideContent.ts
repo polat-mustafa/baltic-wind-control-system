@@ -209,28 +209,25 @@ export const p3Guide: TrainingGuideData = {
 
 export const p4Guide: TrainingGuideData = {
   title: "AI Forecasting",
-  subtitle: "Wind power prediction using XGBoost, LSTM, and Temporal Fusion Transformer",
+  subtitle: "Day-ahead wind power forecasts on real Baltic offshore data",
   purpose:
-    "This dashboard demonstrates a full ML forecasting pipeline for wind power prediction. " +
-    "Three model architectures — XGBoost (gradient boosting), LSTM (recurrent neural network), " +
-    "and TFT (transformer with attention) — are trained and compared. SHAP explainability " +
-    "shows which features drive predictions, and revenue impact quantifies the financial value of accurate forecasting.",
+    "Forecasts the measured hourly output of the Danish Baltic offshore farms (Kriegers Flak, Rødsand II, Nysted — " +
+    "977 MW, Energinet), or one farm from ENTSO-E, from the wind the ECMWF and ICON runs of the day before predicted. " +
+    "XGBoost, LSTM, a Temporal Fusion Transformer and their ensemble are scored on the same test hours against " +
+    "persistence, climatology, a physics-only power curve and the TSO's own day-ahead forecast. There is no synthetic data.",
   howToUse: [
-    "Select a turbine (WTG_01 to WTG_34) from the dropdown.",
-    "Choose the evaluation window: 24 hours (144 ten-minute steps) or 48 hours (288). Each step is a 10-minute-ahead forecast that already knows the power measured 10 minutes earlier — a rolling short-term forecast, not a day-ahead one. The day-ahead test against 24 h persistence is the 'Real data' tab.",
-    "Set the Ramp Threshold (MW/hr) — defines what constitutes a significant power ramp event.",
-    "Enter a Spot Price (EUR/MWh) for revenue impact calculations.",
-    "Click 'Run Forecast Analysis' to train and evaluate all three models.",
-    "Watch the progress bar as models train sequentially (XGBoost → LSTM → TFT → Ensemble).",
-    "Compare model performance in the dashboard panels. Click (i) on each panel for details.",
+    "Open the Day-ahead tab; the first load trains XGBoost on five time-ordered folds (one to two minutes), later loads are cached.",
+    "Pick a real series: the DK2 aggregate or a single farm.",
+    "Read the score table: nRMSE, skill vs persistence and climatology, CRPS — all on the same hours.",
+    "Check the reliability diagram: a calibrated band lies on the dashed line (10 % of hours below P10, 90 % below P90).",
+    "Use the AI Academy and the Concept map to learn the methods behind each number.",
   ],
   sections: [
-    { name: "KPI Header", description: "Five metrics: best RMSE and MAE [MW], skill score SS = 1 − MSE_model / MSE_persistence (above 0 beats persistence), alert events from the ramp detector, and the estimated revenue of the P50 forecast at the set price." },
-    { name: "Forecast vs Actual", description: "Time series overlay of P10/P50/P90 prediction bands against measured power output. P50 should track actuals; the P10-P90 band captures uncertainty." },
-    { name: "Model Comparison", description: "Side-by-side RMSE / MAE / skill of XGBoost, LSTM and TFT on the same window. Which model wins depends on the data and the horizon — judge it from the numbers here and on the Real data tab, not from reputation." },
-    { name: "SHAP Explainability", description: "SHapley Additive exPlanations showing feature importance. Red dots right = high values push prediction up. Wind speed is typically the dominant feature." },
-    { name: "Accuracy Heatmap", description: "Width of the P10–P90 band [MW] across the evaluation window. A wide band means the models disagree with themselves; check against the Real data tab whether 80 % of the measurements really fall inside the band (coverage)." },
-    { name: "Revenue Impact", description: "Financial value of improved forecasting vs persistence baseline. Better forecasts reduce imbalance penalties and increase day-ahead market revenue." },
+    { name: "Tiles", description: "XGBoost nRMSE (with the TSO day-ahead nRMSE for comparison), CRPS and its skill vs climatology, P10–P90 coverage (ideal 80 %), skill vs persistence and bias." },
+    { name: "Measured vs forecast", description: "The last 14 days of the last test fold: measured output, XGBoost P50 with its P10–P90 band, the ensemble and the TSO forecast; persistence can be switched on in the legend." },
+    { name: "Score table", description: "Every forecast on the same test hours. Skill = 1 − MSE / MSE(reference). CRPS ≈ (2/9)·Σ pinball loss over P10…P90 and equals the MAE for a point forecast, so bands and points compare on one scale." },
+    { name: "Reliability", description: "Observed share of hours below each quantile against its nominal level, for XGBoost, the TFT and climatology." },
+    { name: "What XGBoost uses", description: "Share of mean |SHAP| of the P50 per feature: NWP wind per model and site, direction, hour of day, model spread." },
   ],
   standards: [
     { label: "Madsen et al. (2005) — Standardizing the performance evaluation of short-term wind power prediction models, Wind Engineering 29(6)", url: "https://doi.org/10.1260/030952405776234599" },
@@ -240,11 +237,11 @@ export const p4Guide: TrainingGuideData = {
     { label: "Chen & Guestrin (2016) — XGBoost (arXiv)", url: "https://arxiv.org/abs/1603.02754" },
   ],
   learningObjectives: [
-    "Compare ML architectures for time-series forecasting (boosting vs RNN vs transformer).",
-    "Interpret RMSE, MAE, skill score vs persistence and P10–P90 coverage as forecast quality metrics.",
+    "Compare ML architectures for day-ahead forecasting (boosting vs RNN vs transformer) on measured data.",
+    "Interpret nRMSE, skill vs persistence and climatology, CRPS, coverage and reliability as forecast quality metrics.",
     "Use SHAP values to explain which input features drive model predictions.",
-    "Tell a 10-minute-ahead forecast from a day-ahead forecast, and why each needs its own persistence baseline.",
-    "Quantify the economic value of improved wind power forecasting.",
+    "Explain why a day-ahead forecast may only use information available at the 12:00 D−1 bid.",
+    "Judge a model against the TSO's own forecast, not only against naive baselines.",
   ],
 };
 

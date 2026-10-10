@@ -15,7 +15,7 @@ Monorepo: FastAPI (Python 3.13, SQLAlchemy, Pydantic v2) backend + React 19 / Ty
 | Backend lint | `cd backend && python -m ruff check app/ tests/ && python -m ruff format --check app/ tests/` |
 | Backend types | `cd backend && python -m mypy app/` |
 | Backend tests (targeted) | `cd backend && python -m pytest tests/test_<module>.py -q` |
-| Backend tests (full, ~1750) | `cd backend && python -m pytest -n auto -q` (parallel, pytest-xdist) |
+| Backend tests (full, ~1500) | `cd backend && python -m pytest -n auto -q` (parallel, pytest-xdist) |
 | Frontend typecheck | `cd frontend && npm run typecheck` |
 | Frontend lint | `cd frontend && npm run lint` |
 | Frontend tests | `cd frontend && npm test` |

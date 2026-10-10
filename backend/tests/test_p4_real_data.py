@@ -8,9 +8,13 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.services.p4.real_data import (
     CAPACITY_MW,
+    QUANTILES,
+    _ensemble_weights,
+    build_features,
     load_dataset,
     persistence_24h,
     power_curve_forecast,
+    quantile_score,
 )
 
 
@@ -39,35 +43,84 @@ def test_power_curve_is_monotonic_enough():
     assert out[0] < out[1] < out[2] <= 900
 
 
-def test_endpoint_beats_every_baseline():
+def test_features_hold_no_measured_value():
+    """Day-ahead leakage guard: only NWP issued the day before and the clock are inputs."""
+    ds = load_dataset()
+    x, names = build_features(ds)
+    assert x.shape == (len(ds.power_mw), len(names))
+    allowed = ("ecmwf_", "icon_", "hour_", "nwp_spread")
+    assert all(n.startswith(allowed) for n in names), names
+    # no column is (a shift of) the measured power
+    for j in range(x.shape[1]):
+        assert abs(np.corrcoef(x[:, j], ds.power_mw)[0, 1]) < 0.95
+
+
+def test_quantile_score_is_mae_for_a_point_forecast_and_rewards_a_sharp_band():
+    rng = np.random.default_rng(0)
+    y = rng.uniform(0, 100, 5000)
+    point = y + rng.normal(0, 10, y.size)
+    assert np.isclose(quantile_score(y, point), np.mean(np.abs(y - point)))
+    # the true conditional quantiles of y given point = y + noise beat the point forecast
+    z = np.array([-1.2816, -0.8416, -0.5244, -0.2533, 0.0, 0.2533, 0.5244, 0.8416, 1.2816])
+    assert len(z) == len(QUANTILES)
+    band = point[:, None] + 10 * z[None, :]
+    assert quantile_score(y, band) < quantile_score(y, point)
+
+
+def test_ensemble_weights_use_only_earlier_hours():
+    y = np.zeros(10)
+    good, bad = np.full(10, 1.0), np.full(10, 3.0)
+    bad[5:] = 0.0  # perfect later — must not matter for weights learnt on hours 0–4
+    w = _ensemble_weights([good, bad], y, np.arange(5))
+    assert np.allclose(w, [0.9, 0.1])  # 1/1 : 1/9
+    assert np.allclose(_ensemble_weights([good, bad], y, np.array([], dtype=np.intp)), 0.5)
+
+
+def test_endpoint_scores_every_forecast_on_the_same_hours():
     r = TestClient(app).get("/api/v1/forecast/real-data/day-ahead")
     assert r.status_code == 200
     body = r.json()
     s = {m["name"]: m for m in body["scores"]}
-    xgb = s["XGBoost (P50)"]
+    xgb, tso = s["XGBoost (P50)"], s["Energinet day-ahead (TSO)"]
+    assert {"TFT (P50)", "LSTM", "Ensemble (1/MSE weights)", "NWP power curve"} <= set(s)
     # day-ahead offshore nRMSE is typically 10–20 % of capacity (Giebel et al. 2011)
-    assert 10.0 < xgb["nrmse_pct"] < 20.0
-    assert xgb["skill_vs_persistence"] > 0.5
+    assert 10.0 < xgb["nrmse_pct"] < 20.0 and 10.0 < tso["nrmse_pct"] < 20.0
+    assert xgb["skill_vs_persistence"] > 0.5 and xgb["skill_vs_climatology"] > 0.5
     assert xgb["nrmse_pct"] < s["Climatology"]["nrmse_pct"] < s["Persistence 24 h"]["nrmse_pct"]
-    assert len(xgb["fold_nrmse_pct"]) == body["source"]["folds"] == 5
+    # 2026-10-10: XGBoost 15.4 % beats the TSO's own forecast 16.9 % — may only improve
+    assert xgb["nrmse_pct"] < tso["nrmse_pct"]
+    # probabilistic: the band beats its own median on CRPS, climatology quantiles are the zero
+    assert xgb["crps_pct"] < xgb["nmae_pct"] and xgb["crpss_vs_climatology"] > 0.5
+    assert s["Climatology"]["crpss_vs_climatology"] == 0.0
+    for m in body["scores"]:
+        assert len(m["fold_nrmse_pct"]) == body["source"]["folds"] == 5
+        if not m["probabilistic"]:
+            assert m["crps_pct"] == m["nmae_pct"]  # CRPS of a point forecast = MAE
     assert 75.0 <= body["p10_p90_coverage_pct"] <= 90.0  # conformalised band, ideal 80 %
+    rel = {r["name"]: r["observed_below"] for r in body["reliability"]}
+    assert all(np.diff(v).min() >= 0 for v in rel.values())  # monotone in τ
+    assert np.max(np.abs(np.array(rel["XGBoost (P50)"]) - np.array(QUANTILES))) < 0.08
+    assert body["source"]["scored_hours"] > 15_000
+    assert body["feature_importance"][0]["feature"].endswith("_ws")  # wind drives power
     ser = body["series"]
-    assert len(ser["time_utc"]) == 14 * 24
+    assert (
+        len(ser["time_utc"]) == 14 * 24 and len(ser["tso_mw"]) == len(ser["ensemble_mw"]) == 14 * 24
+    )
     bands = zip(ser["p10_mw"], ser["p50_mw"], ser["p90_mw"], strict=True)
     assert all(a <= b <= c for a, b, c in bands)
     assert max(ser["p90_mw"]) <= body["source"]["capacity_mw"]
 
 
-def test_deep_models_are_scored_on_real_data():
-    import json
+def test_deep_model_forecasts_are_bundled_per_hour():
+    from app.services.p4.real_data import DEEP_FILE, read_hourly
 
-    from app.services.p4.real_data import DEEP_FILE
-
-    deep = {m["name"]: m for m in json.loads(DEEP_FILE.read_text(encoding="utf-8"))["models"]}
-    assert set(deep) == {"LSTM", "TFT (P50)"}
-    for m in deep.values():
-        assert len(m["fold_nrmse_pct"]) == 5
-        assert 10.0 < m["nrmse_pct"] < 25.0 and m["skill_vs_persistence"] > 0.5
+    ds = load_dataset()
+    deep = read_hourly(DEEP_FILE, ds.time_utc)
+    assert set(deep) == {"lstm_p50_mw", *(f"tft_q{round(100 * q)}_mw" for q in QUANTILES)}
+    have = np.isfinite(deep["lstm_p50_mw"])
+    assert have.sum() > 15_000
+    tft = np.column_stack([deep[f"tft_q{round(100 * q)}_mw"] for q in QUANTILES])[have]
+    assert np.all(np.diff(tft, axis=1) >= 0)  # quantiles never cross
 
 
 A73_SAMPLE = b"""<?xml version="1.0" encoding="UTF-8"?>

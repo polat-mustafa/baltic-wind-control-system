@@ -247,4 +247,11 @@ export default {
   Tap: "Kademe",
   Reactors: "Reaktörler",
   "Export cable": "İletim kablosu",
+  "Busbar overcurrent": "Bara aşırı akımı",
+  "Transformer differential": "Transformatör diferansiyel",
+  "Cable earth fault": "Kablo toprak arızası",
+  Avail: "Kull.",
+  "Connection point": "Bağlantı noktası",
+  "{n} IEDs · {n1} logical nodes · IEC 61850 station bus": "{n} IED · {n1} mantıksal düğüm · IEC 61850 istasyon veri yolu",
+  '{n1} × {n2} MW "V236 class" (IEA-{n3}-{n4}-RWT model) · {n5} MW · 66 / 220 / 400 kV': '{n1} × {n2} MW "V236 sınıfı" (IEA-{n3}-{n4}-RWT modeli) · {n5} MW · 66 / 220 / 400 kV',
 } satisfies Record<string, string>;

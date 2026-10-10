@@ -85,8 +85,8 @@ LOSS_SOURCES: dict[str, tuple[str, str]] = {
     "blockage": ("literature", "Global blockage after Nygaard et al. 2020"),
     "electrical": (
         "approximation",
-        "Typical annual value; the P2 load flow of SB-510 loses 8.6 MW at 510 MW "
-        "(1.7 % at full load, less averaged over the year)",
+        "Typical annual value; the P2 load flow of SB-510 loses 10.2 MW at 510 MW "
+        "(2.0 % at full load, less averaged over the year)",
     ),
     "availability": (
         "approximation",

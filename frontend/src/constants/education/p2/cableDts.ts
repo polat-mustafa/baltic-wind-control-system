@@ -72,7 +72,22 @@ export const cableDtsEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Where export cables run hot",
+      description:
+        "A DONG Energy (now Ørsted) study of offshore export cables found the hot spots where the cable passes under the sea-defence wall at landfall and in the J-tube of the offshore substation — not along the buried subsea route.",
+      takeaway: "The rating of a whole circuit is set by its hottest few hundred metres; DTS shows where they are.",
+      source: "DTU Orbit, \"Thermal Analysis and Debottlenecking of HVAC Export Cables for Offshore Windfarms\"",
+    },
+    {
+      title: "TenneT export cable monitoring",
+      description:
+        "TenneT, the German and Dutch offshore grid operator, selected LIOS fibre-optic monitoring for its offshore export cables.",
+      takeaway: "Fibre temperature monitoring is standard equipment on offshore grid connections, not an add-on.",
+      source: "offshorewind.biz, 22 Aug 2016",
+    },
+  ],
 
   furtherReading: [
     {

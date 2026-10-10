@@ -64,7 +64,7 @@ export function InfoButton({ info, className }: InfoButtonProps) {
               <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
                 Standard
               </span>
-              <p className="text-sm text-status-info mt-1 font-mono">
+              <p translate="no" className="text-sm text-status-info mt-1 font-mono">
                 {info.standard}
               </p>
             </div>

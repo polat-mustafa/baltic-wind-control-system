@@ -24,6 +24,7 @@ import {
   type TurbinePartId,
 } from "../../constants/turbinePartEducation";
 import { FAULT_CATEGORIES } from "../../constants/faultCategories";
+import { FormulaPaper } from "../ui/MathPaper";
 import type { TurbineData } from "../../types/landing";
 import type { CurtailmentInfo } from "../../utils/curtailmentReason";
 
@@ -158,53 +159,7 @@ export default function TurbineEducationPanel({
           <Section title="Formulas">
             <div className="space-y-2">
               {education.formulas.map((f, i) => (
-                <div
-                  key={i}
-                  className="rounded border"
-                  style={{
-                    backgroundColor: "#152637",
-                    borderColor: "#1f3448",
-                    borderLeftWidth: 3,
-                    borderLeftColor: "#45c8d9",
-                  }}
-                >
-                  <div
-                    className="px-2 py-1.5 font-mono text-xs text-text-primary"
-                    style={{ fontFamily: "IBM Plex Mono, monospace" }}
-                  >
-                    {f.expression}
-                  </div>
-                  {f.variables.length > 0 && (
-                    <div
-                      className="px-2 pb-1.5 space-y-0.5 border-t"
-                      style={{ borderColor: "#1f3448" }}
-                    >
-                      {f.variables.map((v) => (
-                        <div
-                          key={v.symbol}
-                          className="flex items-baseline gap-1.5 text-xs"
-                        >
-                          <span
-                            className="text-accent font-mono shrink-0"
-                            style={{ fontFamily: "IBM Plex Mono, monospace" }}
-                          >
-                            {v.symbol}
-                          </span>
-                          <span className="text-text-muted">{v.name}</span>
-                          <span className="text-border-accent ml-auto shrink-0">
-                            [{v.unit}]
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div
-                    className="px-2 pb-1.5 text-xs text-text-muted leading-relaxed border-t"
-                    style={{ borderColor: "#1f3448" }}
-                  >
-                    {f.explanation}
-                  </div>
-                </div>
+                <FormulaPaper key={i} formula={f} compact />
               ))}
             </div>
           </Section>
@@ -271,6 +226,7 @@ export default function TurbineEducationPanel({
               {education.standards.map((s) => (
                 <span
                   key={s}
+                  translate="no"
                   className="text-xs font-mono px-1.5 py-0.5 rounded border"
                   style={{
                     borderColor: "#1f3448",

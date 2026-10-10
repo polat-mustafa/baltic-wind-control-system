@@ -70,7 +70,15 @@ export const andesDynamicsEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "GB power cut, 9 August 2019",
+      description:
+        "A lightning fault was cleared in under 0.1 s, yet Hornsea One deloaded from 799 MW to 62 MW, Little Barford lost 244 MW and loss-of-mains protection tripped hundreds of MW of embedded generation. Frequency fell below 48.8 Hz and about 5 % of demand — over a million customers — was disconnected by low-frequency demand disconnection.",
+      takeaway: "Dynamic simulations of the whole plant — controllers, protection and their interaction with the grid — are what grid-code compliance is checked against; Ørsted's own studies had shown the controller problem at full output before the event.",
+      source: "Ofgem, 9 August 2019 power outage report (January 2020)",
+    },
+  ],
 
   furtherReading: [
     {

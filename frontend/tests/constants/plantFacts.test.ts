@@ -48,7 +48,13 @@ const ALLOW: [file: string, snippet: string][] = [
   // DT reference model: rated speed of the official table = 95 m/s tip speed (7.518 rpm),
   // the ROSCO pitch reference is 7.56 rpm (digital_twin/reference_model.py)
   ["components/digital-twin/ReferenceCurvePanel.tsx", "5.0–7.52 rpm"],
+  // Baltic Power, a real farm in a real-world case
+  ["constants/education/library/arrayVoltage.ts", "76 × 15 MW"],
 ];
+
+/** A dictionary entry translates the English text, so a phrase allowed in the source is allowed there too. */
+const allowed = (rel: string, phrase: string) =>
+  ALLOW.some(([f, s]) => s === phrase && (f === rel || rel.startsWith("lib/i18n/")));
 
 /** The quoted number equals the fact rounded to as many decimals as the text shows. */
 function agrees(quoted: string, fact: number): boolean {
@@ -66,7 +72,7 @@ describe("plant facts in prose", () => {
       for (const { fact, re } of CHECKS) {
         for (const m of text.matchAll(re)) {
           const quoted = m[1] ?? m[2];
-          if (ALLOW.some(([f, s]) => f === rel && m[0] === s)) continue;
+          if (allowed(rel, m[0])) continue;
           seen += 1;
           if (!agrees(quoted, facts[fact])) wrong.push(`${rel}: "${m[0]}" (backend ${fact} = ${facts[fact]})`);
         }

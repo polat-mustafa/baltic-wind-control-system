@@ -252,12 +252,12 @@ export default {
   "Person in Control (name)": "Sorumlu kişi (ad)",
   "Person in Control": "Sorumlu kişi",
   "First energisation of export circuit 1: isolation and locks, tests, the switching programme step by step, and the grid-code notifications.":
-    "İletim devresi 1'in ilk enerjilendirmesi: yalıtım ve kilitler, testler, adım adım manevra programı ve şebeke yönetmeliği bildirimleri.",
-  "Isolation EN 50110-1 · FAT / SAT · EON → ION → FON (NC RfG)": "Yalıtım EN 50110-1 · FAT / SAT · EON → ION → FON (NC RfG)",
+    "İletim devresi 1'in ilk enerjilendirmesi: izolasyon ve kilitler, testler, adım adım manevra programı ve şebeke yönetmeliği bildirimleri.",
+  "Isolation EN 50110-1 · FAT / SAT · EON → ION → FON (NC RfG)": "İzolasyon EN 50110-1 · FAT / SAT · EON → ION → FON (NC RfG)",
   "Replay circuit 1's first energisation: the load flow after each switching step":
     "Devre 1'in ilk enerjilendirmesini tekrar oynat: her manevra adımından sonraki yük akışı",
   "Commissioning steps": "Devreye alma adımları",
-  Isolation: "Yalıtım",
+  Isolation: "İzolasyon",
   "Grid code": "Şebeke yönetmeliği",
   Emergency: "Acil durum",
   "Inputs changed since this result — run again.": "Bu sonuçtan sonra girdiler değişti — yeniden çalıştırın.",

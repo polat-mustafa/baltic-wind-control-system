@@ -72,9 +72,31 @@ export const exportTechEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Hornsea One (UK, 1.2 GW): HVAC as far as it goes",
+      description:
+        "Ørsted kept 220 kV AC for Hornsea One and added the world's first offshore reactive compensation station roughly halfway along the export route; it was described as the longest 220 kV cable connection to an offshore wind farm.",
+      takeaway: "HVAC can reach further with mid-route compensation — an extra platform instead of two converter stations.",
+      source: "offshorewind.biz (2016, 2018); Jicable'19 paper A2-6 (Ørsted)",
+    },
+    {
+      title: "BorWin1 (Germany): the first HVDC-connected offshore wind farm",
+      description:
+        "BorWin1 (400 MW, ±150 kV, TenneT / ABB) was the first HVDC link to connect an offshore wind farm, through a small islanded offshore AC grid.",
+      takeaway: "HVDC removes the charging-current limit for far-shore farms, but brings new converter-interaction problems of its own.",
+      source: "TenneT; Hitachi Energy (ABB) BorWin1 project page",
+    },
+  ],
 
-  furtherReading: [],
+  furtherReading: [
+    {
+      label: "Hornsea projects 1 and 2 – Design and Optimisation of the Cables for the World Largest Offshore Wind Farms",
+      type: "paper",
+      url: "https://jicable.org/Former_Conferences/Jicable_prizes/2019-A2-6.pdf",
+      citation: "Zouraraki M., Kvarts T., Vilhelmsen M. A., Østerø R., Page T., Hjerrild J. (Ørsted), Jicable'19, paper A2-6",
+    },
+  ],
 
   codeReferences: [
     { file: "backend/app/services/p2/planning.py", description: "export_comparison(): capacity, charging and losses vs length." },

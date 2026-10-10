@@ -205,4 +205,6 @@ export default {
   "Turbine is in standstill since {n} due to rotorbearing damage.": "Türbin rotor yatağı hasarı nedeniyle {n} tarihinden beri duruyor.",
   "Residual {channel} [K]": "Artık {channel} [K]",
   "Hub temperature": "Göbek sıcaklığı",
+  "Per temperature channel a normal-behaviour model learns the bearing / gearbox / transformer temperature from power, wind, ambient temperature and rotor speed on a normal training year; the residual runs through the same EWMA chart as the live twin (λ {n1}, L {n2}, {n3} samples persistence).": "Her sıcaklık kanalı için bir normal davranış modeli, normal bir eğitim yılında rulman / dişli kutusu / transformatör sıcaklığını güç, rüzgâr, ortam sıcaklığı ve rotor hızından öğrenir; artık, canlı ikizle aynı EWMA grafiğinden geçer (λ {n1}, L {n2}, {n3} örnek kalıcılık).",
+  "Phase I scores each quarter of the normal training year with a model of the other three and widens each limit until that year raises no alarm. Nothing is tuned on the fault labels; Farm C was run once with the method fixed on Farm B.": "I. Aşama normal eğitim yılının her çeyreğini diğer üçünden kurulan bir modelle puanlar ve her sınırı o yıl hiç alarm vermeyene kadar genişletir. Arıza etiketlerine göre hiçbir ayar yapılmaz; Farm C, yöntem Farm B'de sabitlenerek bir kez çalıştırıldı.",
 } satisfies Record<string, string>;

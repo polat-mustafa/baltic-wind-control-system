@@ -68,7 +68,22 @@ export const marketEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Polish offshore CfDs, phase I (2021)",
+      description:
+        "Poland's Energy Regulatory Office awarded the first offshore wind projects, including Baltic Power, two-sided contracts for difference at 319.60 PLN/MWh for up to 25 years, indexed to inflation.",
+      takeaway: "Under a two-sided CfD the farm earns the strike price whatever the market does — the day-ahead price and imbalance still decide its cash flow day by day.",
+      source: "Northland Power, 15 Jun 2021; offshorewind.biz, 5 May 2021",
+    },
+    {
+      title: "Poland's first competitive offshore auction (Dec 2025)",
+      description:
+        "Three projects (about 3.4 GW) won 25-year CfDs: Baltic East at 476.88, Baltica 9 at 489 and Bałtyk 1 at 492.32 PLN/MWh. Baltica 9 is the real permit area this platform uses for SB-510's site.",
+      takeaway: "The strike price on this page (489 PLN/MWh) is a real auction result, not an assumption.",
+      source: "offshorewind.biz, 19 Dec 2025; ORLEN press release, Dec 2025",
+    },
+  ],
 
   furtherReading: [
     { label: "SDAC — 15-minute MTU go-live", type: "website", citation: "EPEX SPOT news, 2025" },

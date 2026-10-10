@@ -78,7 +78,15 @@ export const reactiveCompensationEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Iberian blackout, 28 April 2025",
+      description:
+        "ENTSO-E's expert panel found multiple interacting causes, with overvoltage the main mechanism: gaps in voltage and reactive power control, different voltage regulation practices and cascading generator disconnections. Its 17 recommendations include clearer requirements for providing reactive power.",
+      takeaway: "Reactive power is a security service: who absorbs and supplies it, and how fast, decides whether voltages stay in band.",
+      source: "ENTSO-E Expert Panel, final report on the 28 April 2025 Iberian blackout (20 March 2026)",
+    },
+  ],
 
   furtherReading: [
     { label: "P. Kundur — Power System Stability and Control", type: "textbook", citation: "McGraw-Hill, 1994, ch. 11" },

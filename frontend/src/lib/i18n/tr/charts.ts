@@ -1,0 +1,161 @@
+/** Turkish: result panels — chart titles, axes, footers and source badges (P1, P2 N-1, digital twin). */
+export default {
+  "Source:": "Kaynak:",
+  // Source badges (components/ui/SourceBadge.tsx)
+  official: "resmî",
+  measured: "ölçülmüş",
+  literature: "literatür",
+  approximation: "yaklaşım",
+  illustrative: "temsilî",
+
+  // P1 — KPIs, Weibull, rose, layout, wakes, cascade
+  "{n} full-load h/yr": "{n} tam yük sa/yıl",
+  "at {n} €/MWh flat": "sabit {n} €/MWh'ten",
+  "RSS of {n} sources · IEC 61400-15": "{n} kaynağın RSS'i · IEC 61400-15",
+  "Wind speed distribution — Weibull A = {n1} m/s, k = {n2}": "Rüzgâr hızı dağılımı — Weibull A = {n1} m/s, k = {n2}",
+  "Hourly record": "Saatlik kayıt",
+  "Hub-height wind speed [m/s]": "Göbek yüksekliğinde rüzgâr hızı [m/s]",
+  "Hours per year [h]": "Yılda saat [sa]",
+  "cut-in {n}": "devreye girme {n}",
+  "rated {n}": "anma {n}",
+  "cut-out {n}": "devreden çıkma {n}",
+  "Mean {n1} m/s · {n2} h/yr between cut-in and rated, {n3} h/yr at full power · synthetic hourly record":
+    "Ortalama {n1} m/s · devreye girme ile anma arasında {n2} sa/yıl, tam güçte {n3} sa/yıl · sentetik saatlik kayıt",
+  "Speed class": "Hız sınıfı",
+  "Energy share (∝ v³)": "Enerji payı (∝ v³)",
+  "Prevailing from {n1}° ({name}) · circular σ {n2}° · {n3} sectors · direction = where the wind comes FROM":
+    "Hâkim yön {n1}° ({name}) · dairesel σ {n2}° · {n3} sektör · yön = rüzgârın GELDİĞİ yer",
+  "Farm layout — {layout}, net AEP per turbine": "Santral yerleşimi — {layout}, türbin başına net AEP",
+  "Regular Grid": "Düzenli ızgara",
+  Staggered: "Şaşırtmalı",
+  Optimized: "Optimize edilmiş",
+  "Easting [km]": "Doğu [km]",
+  "Northing [km]": "Kuzey [km]",
+  "prevailing wind": "hâkim rüzgâr",
+  "Wake loss [%]": "İz kaybı [%]",
+  "farm {n} %": "santral %{n}",
+  "Farm wake loss {n1} % (bold bars are above it) · most shadowed {name} ({n2} %) · most exposed {id} ({n3} %)":
+    "Santral iz kaybı %{n1} (kalın çubuklar bunun üstünde) · en çok gölgede kalan {name} (%{n2}) · en açıktaki {id} (%{n3})",
+  Gross: "Brüt",
+  Blockage: "Blokaj",
+  Environmental: "Çevresel",
+  "Gross → net (P50)": "Brüt → net (P50)",
+  "y-axis starts at {n} GWh": "y ekseni {n} GWh'ten başlar",
+  "Probability the year-average AEP is exceeded": "Yıl ortalaması AEP'nin aşılma olasılığı",
+  "Long-term net AEP [GWh/yr]": "Uzun vadeli net AEP [GWh/yıl]",
+  "Probability of exceedance [%]": "Aşılma olasılığı [%]",
+  "debt sizing →": "borç boyutlandırma →",
+  "Wake {n} %": "İz %{n}",
+  "Blockage {n} %": "Blokaj %{n}",
+  "Electrical {n} %": "Elektriksel %{n}",
+  "Availability {n} %": "Kullanılabilirlik %{n}",
+  "Environmental {n} %": "Çevresel %{n}",
+  "PyWake Gaussian wake (Niayifar & Porté-Agel 2016) on this layout": "Bu yerleşimde PyWake Gauss izi (Niayifar & Porté-Agel 2016)",
+  "Global blockage after Nygaard et al. 2020": "Nygaard et al. 2020'ye göre küresel blokaj",
+  "Typical annual value; the P2 load flow of SB-510 loses 10.2 MW at 510 MW (2.0 % at full load, less averaged over the year)":
+    "Tipik yıllık değer; SB-510'un P2 yük akışı 510 MW'ta 10.2 MW kaybeder (tam yükte %2.0, yıl ortalamasında daha az)",
+  "Typical planning value ({n} % availability); {name} model it against distance to port":
+    "Tipik planlama değeri (%{n} kullanılabilirlik); {name} bunu limana uzaklığa göre modeller",
+  "{name} assume {n1} % for temperature shutdown, icing, hysteresis and lightning; this default keeps {n2} %":
+    "{name} sıcaklık kaynaklı durma, buzlanma, histerezis ve yıldırım için %{n1} varsayar; bu varsayılan %{n2} tutar",
+  "Uncertainty (1σ of AEP):": "Belirsizlik (AEP'nin 1σ'sı):",
+  "Wind resource (NEWA model, no measurement) {n} %": "Rüzgâr kaynağı (NEWA modeli, ölçüm yok) %{n}",
+  "NEWA mean-speed spread {n1} m/s (Dörenkämper et al. {n2}) on {n3} m/s, × AEP sensitivity {n4}":
+    "{n3} m/s üzerinde NEWA ortalama hız yayılımı {n1} m/s (Dörenkämper et al. {n2}), × AEP duyarlılığı {n4}",
+  "Long-term period ({n1}-year atlas) {n2} %": "Uzun dönem ({n1} yıllık atlas) %{n2}",
+  "ERA5 interannual variability {n1} % / √{n2}, × {n3}": "ERA5 yıllar arası değişkenlik %{n1} / √{n2}, × {n3}",
+  "Future variability ({n1} years) {n2} %": "Gelecek değişkenliği ({n1} yıl) %{n2}",
+  "Wake and blockage model {n} %": "İz ve blokaj modeli %{n}",
+  "25 % of the modelled loss (Walker et al. 2016, Wind Energy 19:979)": "Modellenen kaybın %25'i (Walker et al. 2016, Wind Energy 19:979)",
+  "Turbine performance (reference power curve) {n} %": "Türbin performansı (referans güç eğrisi) %{n}",
+  "{name}, median of the turbine-performance values": "{name}, türbin performansı değerlerinin medyanı",
+  "Plant non-wake losses {n} %": "Santralin iz dışı kayıpları %{n}",
+  "{name}, median of the non-wake plant-performance values": "{name}, iz dışı santral performansı değerlerinin medyanı",
+  "Total loss {n1} % (losses multiply, they don't add) · combined uncertainty ±{n2} % (RSS, 1σ) · price {n3} €/MWh":
+    "Toplam kayıp %{n1} (kayıplar toplanmaz, çarpılır) · birleşik belirsizlik ±%{n2} (RSS, 1σ) · fiyat {n3} €/MWh",
+  "Layout comparison — regular vs staggered": "Yerleşim karşılaştırması — düzenli ve şaşırtmalı",
+  staggered: "şaşırtmalı",
+  regular: "düzenli",
+  "Δ ({layout1} − {layout2})": "Δ ({layout1} − {layout2})",
+
+  // P2 — N-1 security
+  "{n} MW at the POC": "bağlantı noktasında {n} MW",
+  Secure: "Güvenli",
+  "Not secure": "Güvenli değil",
+  "{n} outages need a runback": "{n} kesinti geri çekme gerektirir",
+  "no runback needed": "geri çekme gerekmez",
+  "any outage, no runback": "her kesintide, geri çekmesiz",
+  "at least — nothing binds": "en az — hiçbir şey sınırlamıyor",
+  "{n1} s · lowest V {n2} p.u.": "{n1} s · en düşük V {n2} p.u.",
+  "lowest V {n} p.u.": "en düşük V {n} p.u.",
+  "String {n1} ({n2} WTGs)": "Dizi {n1} ({n2} WTG)",
+  "OSS transformer {n}": "OSS transformatörü {n}",
+  "Onshore transformer {n}": "Kara transformatörü {n}",
+  "Export circuit {n}": "İletim devresi {n}",
+  "Right after the outage": "Kesintiden hemen sonra",
+  "After PPC runback": "PPC geri çekmesinden sonra",
+  "Dashed line: 100 % of rating. String trips only remove generation, so the rest unloads. Losing one of two export circuits (its two shunt reactors, onshore and OSS, are intertripped with it) or transformers overloads the survivor; the PPC runs the turbines back until it is at or below 100 %.":
+    "Kesikli çizgi: anma değerinin %100'ü. Dizi açmaları yalnızca üretimi kaldırır, bu yüzden geri kalanın yükü azalır. İki iletim devresinden birini (iki şönt reaktörü, kara ve OSS, onunla birlikte karşılıklı açtırılır) ya da transformatörlerden birini kaybetmek kalanı aşırı yükler; PPC türbinleri o %100'e ya da altına inene kadar geri çeker.",
+  "Voltage [p.u.]": "Gerilim [p.u.]",
+  "Every bus except the PSE 400 kV slack, with the STATCOM holding the OSS 220 kV busbar at 1.0 p.u. Base case {n1}–{n2} p.u. Band {n3}–{n4} p.u. is the operating band assumed here, not a grid-code limit.":
+    "PSE 400 kV salınım barası hariç her bara; STATCOM OSS 220 kV barasını 1.0 p.u.'da tutuyor. Temel durum {n1}–{n2} p.u. {n3}–{n4} p.u. bandı burada varsayılan işletme bandıdır, şebeke yönetmeliği sınırı değildir.",
+  "Time after the outage [s]": "Kesintiden sonraki süre [s]",
+  outage: "kesinti",
+  "firm N-1 output {n} MW": "kesin N-1 çıkışı {n} MW",
+  "Output falls at {n1} MW/s (2 % of {n2} MW per second — an assumed rate; pitch systems can be faster). Seconds of overload are harmless: cable and transformer thermal time constants are hours (see the Cable DTS tab).":
+    "Çıkış {n1} MW/s ile düşer (saniyede {n2} MW'ın %2'si — varsayılan bir hız; pitch sistemleri daha hızlı olabilir). Saniyelerce aşırı yük zararsızdır: kablo ve transformatör ısıl zaman sabitleri saatlerdir (Kablo DTS sekmesine bakın).",
+  "At {n} MW one export circuit or one transformer carries everything — no runback is needed.":
+    "{n} MW'ta tek bir iletim devresi ya da tek bir transformatör her şeyi taşır — geri çekme gerekmez.",
+
+  // Digital twin — turbine view
+  "{name} — Alert, HI {n}": "{name} — Uyarı, HI {n}",
+  "{name} — Alarm, HI {n}": "{name} — Alarm, HI {n}",
+  "{name} — Alert, HI {n} · {fault}": "{name} — Uyarı, HI {n} · {fault}",
+  "{name} — Alarm, HI {n} · {fault}": "{name} — Alarm, HI {n} · {fault}",
+  "{name} — Normal, HI {n} · {fault}": "{name} — Normal, HI {n} · {fault}",
+  Alert: "Uyarı",
+  Persistence: "Kalıcılık",
+  "Fitted on {n1} producing samples, {date1} – {date2} · mean ambient {n2} °C, {n3} % RH · likelihood-ratio statistic {n4}":
+    "Üretim yapan {n1} örnekte uyduruldu, {date1} – {date2} · ortalama ortam {n2} °C, %{n3} BN · olabilirlik oranı istatistiği {n4}",
+  "The direct-drive generator converts more power into heat than the twin expects — typical of stator-winding insulation ageing or inter-turn faults, weakened magnets (more current for the same torque) or main-bearing distress. Compare the stator-winding PT100s phase by phase, measure insulation resistance and polarisation index, and review main-bearing temperature and vibration.":
+    "Doğrudan tahrikli jeneratör, ikizin beklediğinden daha fazla gücü ısıya çeviriyor — stator sargı yalıtımının yaşlanması ya da sarımlar arası arızalar, zayıflamış mıknatıslar (aynı tork için daha fazla akım) ya da ana rulman sorunu için tipiktir. Stator sargı PT100'lerini faz faz karşılaştırın, yalıtım direncini ve polarizasyon indeksini ölçün, ana rulman sıcaklığını ve titreşimini inceleyin.",
+  "Illustrative end-of-life criterion: generator losses doubled (≈ +68 K stator winding at rated load in this model — beyond the class-F margin).":
+    "Temsilî ömür sonu kriteri: jeneratör kayıplarının iki katına çıkması (bu modelde anma yükünde stator sargısında ≈ +68 K — F sınıfı payının ötesinde).",
+  "to the limit {n1} ({note}) · rate {n2} ± {n3}/d · p = < 0.0001": "sınıra {n1} ({note}) · hız {n2} ± {n3}/g · p = < 0.0001",
+  "to the limit {n1} ({note}) · rate {n2} ± {n3}/d · p = {n4}": "sınıra {n1} ({note}) · hız {n2} ± {n3}/g · p = {n4}",
+  "Dotted red = limit {n} {unit} ({note}) · shaded = 90 % RUL interval · weighted least squares, one-sided t-test (ISO 13381-1)":
+    "Noktalı kırmızı = sınır {n} {unit} ({note}) · gölgeli = %90 RUL aralığı · ağırlıklı en küçük kareler, tek yönlü t-testi (ISO 13381-1)",
+  "IEA 15 MW: ROSCO Cp(λ, β) table × k_aero, λ = 9 tracking, 5.0–7.52 rpm, ROSCO minimum-pitch schedule, pitch regulation above 10.66 m/s. Max |ΔP| vs the official table: {n1} MW; {n2} MW from {n3} m/s up.":
+    "IEA 15 MW: ROSCO Cp(λ, β) tablosu × k_aero, λ = 9 takibi, 5.0–7.52 rpm, ROSCO minimum pitch planı, 10.66 m/s üstünde pitch regülasyonu. Resmi tabloya karşı en büyük |ΔP|: {n1} MW; {n3} m/s'den itibaren {n2} MW.",
+  "illustrative — no public IEA 15 MW generator thermal data; rated rise ≈ 78 K (within the IEC 60034-1 class B rise on class F insulation)":
+    "temsilî — IEA 15 MW için kamuya açık jeneratör ısıl verisi yok; anma artışı ≈ 78 K (F sınıfı yalıtımda IEC 60034-1 B sınıfı artışı içinde)",
+  "loss factor (1 = nominal 3.45 %)": "kayıp faktörü (1 = nominal %3.45)",
+  "Cp loss": "Cp kaybı",
+  "blade-angle offset": "kanat açısı kayması",
+  "active-power limit": "aktif güç sınırı",
+  "gain error": "kazanç hatası",
+  "{param} [{unit}] · {n1}–{n2}": "{param} [{unit}] · {n1}–{n2}",
+  "{param} [{unit}] · {n1}–{n2} · limit {n3}": "{param} [{unit}] · {n1}–{n2} · sınır {n3}",
+  "→ {role}": "→ {role}",
+  "Pipeline structure: DA → DM → SD → HA → PA → AG": "Süreç yapısı: DA → DM → SD → HA → PA → AG",
+  "Model-based diagnosis, fault-symptom reasoning": "Model tabanlı tanı, arıza-belirti akıl yürütmesi",
+  "RUL from a degradation descriptor, with confidence": "Bir bozulma tanımlayıcısından güven aralığıyla RUL",
+  "Vocabulary: physical entity, digital entity, data connection": "Terimler: fiziksel varlık, dijital varlık, veri bağlantısı",
+  "Model card: calibration and validation evidence": "Model kartı: kalibrasyon ve doğrulama kanıtı",
+  "0.5 m/s bins, air density from p and T": "0.5 m/s'lik aralıklar, p ve T'den hava yoğunluğu",
+  "Channel → logical node mapping (WTUR, WROT, WTRM, WMET)": "Kanal → mantıksal düğüm eşlemesi (WTUR, WROT, WTRM, WMET)",
+  "Propagation of wind-measurement uncertainty through the twin": "Rüzgâr ölçüm belirsizliğinin ikiz boyunca yayılımı",
+  "Skill = 1 − MSE / MSE(reference). CRPS ≈ (2/9)·Σ pinball loss over P10…P90 (Gneiting & Raftery 2007); for a point forecast it equals the MAE, so point and band forecasts compare on one scale. CRPSS uses the climatological quantiles of each training block. The NWP power curve is physics only (mean power per 1 m/s bin of the forecast wind). The ensemble weights XGBoost, LSTM and TFT by 1/MSE on the earlier test folds only. Energinet's own day-ahead forecast covers a wider set of DK2 offshore farms and is issued ~17:50 D−1 (after the bid gate); it is rescaled on each training block to the three metered farms. LSTM and TFT read the last 24 h of NWP rows and are trained offline on the same folds.":
+    "Beceri = 1 − MSE / MSE(referans). CRPS ≈ (2/9)·Σ P10…P90 üzerinden pinball kaybı (Gneiting & Raftery 2007); nokta tahmini için MAE'ye eşittir, böylece nokta ve bant tahminleri tek ölçekte karşılaştırılır. CRPSS her eğitim bloğunun klimatolojik kantillerini kullanır. NWP güç eğrisi yalnızca fiziktir (tahmin rüzgârının her 1 m/s aralığı için ortalama güç). Topluluk XGBoost, LSTM ve TFT'yi yalnızca önceki test katmanlarındaki 1/MSE ile ağırlıklandırır. Energinet'in kendi gün öncesi tahmini daha geniş bir DK2 açık deniz santrali kümesini kapsar ve D−1 ~17:50'de (teklif kapısından sonra) yayımlanır; her eğitim bloğunda ölçülen üç santrale yeniden ölçeklenir. LSTM ve TFT son 24 sa'lik NWP satırlarını okur ve aynı katmanlarda çevrimdışı eğitilir.",
+
+  // P5 — programme and campaign status chips, programme list
+  created: "oluşturuldu",
+  approved: "onaylandı",
+  "in progress": "sürüyor",
+  hold: "beklemede",
+  suspended: "askıda",
+  completed: "tamamlandı",
+  aborted: "iptal edildi",
+  failures: "başarısız",
+  "PiC {name} · {n1}/{n2} steps · {date}": "PiC {name} · {n1}/{n2} adım · {date}",
+} satisfies Record<string, string>;

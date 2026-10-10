@@ -14,7 +14,7 @@ export const capacityFactorEducation: EducationContent = {
   simpleExplanation:
     "A 15 MW turbine running flat out for a whole year would make 15 × 8,760 = 131,400 MWh. Real turbines don't: " +
     "sometimes the wind is weak, sometimes it is too strong, sometimes they are being serviced. Capacity factor is the " +
-    "share of that maximum you actually get. 46.5 % is the same energy as running at full power for 4,073 hours.",
+    "share of that maximum you actually get. 48.4 % — this farm's P50 — is the same energy as running at full power for about 4,240 hours.",
 
   technicalExplanation:
     "CF = AEP_net / (P_rated · 8,760 h). A big rotor on a modest generator (low specific power) reaches rated power at " +
@@ -64,7 +64,22 @@ export const capacityFactorEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "UK offshore fleet, 2023",
+      description:
+        "The average load factor of UK offshore wind was 39.7 % in 2023, lower than in 2022 because it was a less windy year.",
+      takeaway: "A single year's capacity factor moves with the weather; compare farms and designs on long-term values.",
+      source: "IEA Wind TCP, UK country report 2023",
+    },
+    {
+      title: "Ørsted portfolio expectation, 2019",
+      description:
+        "Ørsted lowered the expected lifetime load factor of a defined European offshore portfolio from 48–50 % to about 48 % after better modelling of wake and blockage losses.",
+      takeaway: "Modern offshore farms are planned around a 40–50 % capacity factor — and a one-point change is worth a revision of the business case.",
+      source: "Ørsted company announcement, 29 Oct 2019",
+    },
+  ],
 
   furtherReading: [
     {

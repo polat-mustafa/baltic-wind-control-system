@@ -69,7 +69,15 @@ export const oamCostEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "How large O&M is in LCOE",
+      description:
+        "A SINTEF review of O&M models found published estimates of the OPEX share of offshore wind LCOE between 12 % and 32 %, typically about 25 %, counting direct O&M costs only.",
+      takeaway: "A quarter of the cost of every MWh is operations — a cheaper vessel strategy or better access weather can matter as much as a cheaper turbine.",
+      source: "Welte et al., SINTEF Energy Research, O&M modelling (2017)",
+    },
+  ],
 
   furtherReading: [
     {

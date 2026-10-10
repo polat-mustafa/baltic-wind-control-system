@@ -212,6 +212,46 @@ Phase 13 follow-ups (owner's decision 2026-10-08: re-route with real data, finis
   cache key `wake-cluster-v2`. New deps: h5netcdf ≥ 1.8, pyfive ≥ 1.2.
 - e2e: the landing map, Grid, Commissioning, Site & Permits, Wind Resource (O&M tab) change their look.
 
+## Evidence programme (owner decisions 2026-10-10 — do not re-ask)
+
+Review verdict 7/10: strong engineering and tooling, weak evidence. PR #264 (merged) fixed the blank
+Print/PDF, the P4 IEC 61400-26-1 misattribution, the forecast-vs-yield P90 confusion, the skill-score split,
+stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources. Next, in this order:
+
+- **B1 — measured wake validation (approved):** PyWake's measured Horns Rev 1 and Lillgrund data
+  (DTU GitLab `TOPFARM/PyWake`, `py_wake/validation/data`, MIT) committed with its licence and attribution;
+  our NOJ / BPA / TurbOPark set-ups scored against the measured row power ratios (RMSE per row and direction).
+  **Done** (`services/p1/wake_validation.py`, `tests/test_wake_validation.py`): 9 rows (Horns Rev 1 inner-row
+  mean at 270°, Lillgrund rows B/D/4/6 at 105/120/207/222°), uniform inflow at the bin centre, bin mean
+  over wd ± 3°, plus Gaussian wind-direction averaging (σ 3.3° Lillgrund, van der Laan distance law
+  Horns Rev 1). Mean RMSE of P_i/P_1, direction-averaged: **BPA 0.083 (production model, best)**,
+  TurbOPark 0.097, NOJ 0.116 (without averaging 0.113 / 0.151 / 0.116). Known weaknesses the data shows:
+  BPA's near wake is far too deep at Lillgrund's 3.3–4.3 D (P₂/P₁ 0.02–0.08 vs 0.18 measured, row 6 at
+  120°); TurbOPark is too deep inside the farm (Horns Rev 1 row 10: 0.42 vs 0.63) — it is calibrated for
+  cluster wakes, where we use it; NOJ (k = 0.1, linear sum) recovers too slowly deep in the array. Our
+  TurbOPark set-up is also verified against Ørsted's MATLAB example (rtol 1e-5). Scores are locked in CI
+  (may only improve). B4 will show them on the Evidence page.
+- **B2 — P2 analytic checks as tests:** ωCU²L charging, Ferranti 1/cos βl, LFSM-O hand formula vs ANDES,
+  IEC TR 60909-4 example networks.
+- **B3 — P4 real data only:** drop the synthetic SCADA forecast path; train and score on measured data
+  (ENTSO-E File Library already in use, PR #262). Day-ahead metrics: CRPS, P10–P90 coverage,
+  reliability diagram, skill vs 24 h persistence and climatology. Research result: the data is already
+  here (`scripts/fetch_real_forecast_data.py`, `fetch_entsoe_units.py`, `services/p4/real_data.py`: Energinet
+  DK2 + ENTSO-E Kriegers Flak / Rødsand with Open-Meteo Previous Runs `previous_day1` ECMWF/ICON, hourly
+  2024-06 → 2026-10). Move XGB/LSTM/TFT/ensemble/SHAP onto it (NWP features, power lags ≥ 36 h only,
+  TimeSeriesSplit with a 24–48 h gap), delete `scada_generator` and `_pipeline._build_*`. Add TSO benchmarks:
+  Energinet `Forecasts_Hour` (DK2 offshore day-ahead) and Elia `ods031` (Belgian offshore, measured +
+  day-ahead + confidence10/90). Never the Open-Meteo Historical Forecast API (near-analysis, leaks).
+- **B4 — "Evidence" page** in the app generated from test results (what was validated, against what,
+  metric, value, test file).
+- **B5 — guards:** numbers quoted in education prose checked against the backend; weekly DOI / link check.
+- **Still to audit line by line:** `turbinePartEducation.ts`, `tours.ts`, Academy courses.
+- **AI tutor (after B):** OpenRouter-style OpenAI-compatible API with cheap models, the user brings their
+  own key (kept server-side per session, never in localStorage); look into linking existing subscriptions.
+  Context = current page + panel numbers; physics questions go to backend calculators as tools; browser
+  Web Speech API for the microphone; an eval set before release.
+- **Rejected for now:** learner paths, hosted demo, pilot study (old "Faz C").
+
 ## Resume here
 
 1. The own-project programme is a PR stack, one branch per phase, each based on the one before it

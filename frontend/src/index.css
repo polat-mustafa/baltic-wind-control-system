@@ -237,6 +237,39 @@ body {
   to { stroke-opacity: 0.25; }
 }
 
+/* ── Single-line diagram (P5): colour changes fade, the device of the step
+   ripples, a conductor that has just come live glows in the accent ── */
+.sld-anim :is(line, rect, path, circle, ellipse) {
+  transition: stroke 0.7s ease, fill 0.7s ease;
+}
+.sld-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sld-ring 2.4s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+}
+.sld-ring + .sld-ring { animation-delay: 1.2s; }
+@keyframes sld-ring {
+  from { transform: scale(0.55); opacity: 0.95; }
+  to { transform: scale(1.7); opacity: 0; }
+}
+.sld-fresh { animation: sld-fresh 2.4s ease-out both; }
+@keyframes sld-fresh {
+  from { filter: drop-shadow(0 0 6px var(--color-accent)); }
+  to { filter: drop-shadow(0 0 2px var(--color-accent)); }
+}
+/* trace: the newest step draws in, the cursor glides */
+.trace-draw { stroke-dasharray: 1; animation: trace-draw 0.9s ease-out both; }
+@keyframes trace-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+.trace-cursor { transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .sld-ring, .sld-fresh, .trace-draw { animation: none; }
+  .sld-ring { opacity: 0.6; }
+  .sld-anim :is(line, rect, path, circle, ellipse), .trace-cursor { transition: none; }
+}
+
 /* ══ Storybook theme ═══════════════════════════════════════════
    Hand-drawn, parchment-and-ink look inspired by illustrated survival games.
    Original art only (no game assets). Scoped to the landing map area via

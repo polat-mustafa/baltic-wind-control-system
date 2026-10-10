@@ -140,7 +140,7 @@ function SelectionBar({ part, onClose, onOpenIn3D }: { part: SchematicPart; onCl
   return (
     <div className="border-t border-border-primary bg-bg-secondary px-4 py-2">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-56">
           <div className="text-[13px] font-bold">
             {part.label}
             {part.sublabel && <span className="ml-2 text-[12px] font-semibold text-text-muted">{part.sublabel}</span>}

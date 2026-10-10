@@ -98,7 +98,7 @@ export default function AcademyTab() {
       {/* Chapter */}
       <article className="space-y-4 rounded-lg border border-border-primary bg-bg-secondary p-5">
         <header className="flex flex-wrap items-start gap-3">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 basis-56">
             <div className="text-xs font-semibold uppercase tracking-wider text-accent">
               {lang === "tr" ? "Bölüm" : "Chapter"} {ch.n} / {CHAPTERS.length}
             </div>

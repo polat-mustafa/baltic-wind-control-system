@@ -176,9 +176,10 @@ export default function TutorPanel() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open the AI tutor"
-        className="fixed bottom-4 right-4 z-[1500] flex items-center gap-1.5 rounded-full bg-accent px-3 py-2 text-sm font-semibold text-accent-ink shadow-lg hover:bg-accent-hover print:hidden"
+        className="fixed bottom-4 right-4 z-[1500] flex items-center gap-1.5 rounded-full bg-accent px-3 py-2 text-sm font-semibold text-accent-ink shadow-lg hover:bg-accent-hover max-sm:bottom-3 max-sm:right-3 max-sm:h-11 max-sm:w-11 max-sm:justify-center max-sm:p-0 print:hidden"
       >
-        <MessageCircleQuestion size={16} /> Tutor
+        {/* phone: a round icon button, so it covers as little of the page as possible */}
+        <MessageCircleQuestion size={18} /> <span className="max-sm:sr-only">Tutor</span>
       </button>
     );
 

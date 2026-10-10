@@ -50,7 +50,7 @@ export default function NextAction({ programme, onGoto }: { programme: Programme
         <b>Step {step.step_id}:</b> {ACTION_LABEL[step.step_type]}
         {step.equipment_id ? ` ${step.equipment_id}` : ""} — {step.action}
         {step.equipment_id && (step.step_type === "switching" || step.step_type === "isolation")
-          ? " Use the step button, or click the framed device on the single-line diagram."
+          ? " Use the step button, or click the ringed device on the single-line diagram."
           : ""}
       </>
     );
@@ -62,7 +62,7 @@ export default function NextAction({ programme, onGoto }: { programme: Programme
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-2 text-[12px]" role="status">
       <Compass size={15} className="shrink-0 text-accent" aria-hidden />
-      <span className="min-w-0 flex-1 text-text-primary">
+      <span className="min-w-0 flex-1 basis-56 text-text-primary">
         <span className="mr-1 font-semibold uppercase tracking-wide text-accent">Next</span>
         {text}
       </span>

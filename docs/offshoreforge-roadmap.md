@@ -317,7 +317,7 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
 2. Next: nothing planned. Candidate follow-ups: neighbour layouts on the Layout map; SB-510's export at
    99 % suggests a study of a larger export conductor or mid-route compensation (no datasheet values for
    1200 / 1600 mm² in the model yet).
-3. Known, not ours: 6 old mypy errors under `digital_twin`; the Docker backend image runs old code — check in
+3. Known: the Docker backend image runs old code (the 6 `digital_twin` mypy errors were fixed in #272) — check in
    the browser with a local `uvicorn app.main:app --port 8001` and a temporary Vite proxy target (revert it).
 4. Owner to-dos: `cd frontend && npm run e2e:update` (new baselines incl. `layout`, `site-permits`, `academy`,
    `construction`, `handover`, `decommissioning`, `report`, and the phase 13 look changes; the owner's modified snapshot files in the working

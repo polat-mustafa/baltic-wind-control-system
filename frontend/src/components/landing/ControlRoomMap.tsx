@@ -1,10 +1,10 @@
 /**
  * Control Room map — MapLibre GL base + deck.gl data layers (redesign phase 3).
  *
- * The base is the OpenStreetMap raster (same as the planning maps) for the
- * land — coast towns, streets and ports give the farm its place when you zoom
- * out — with our own coastline polygon painted over the sea in the theme's
- * sea colour (navy in Baltic Night), and the site boundary dashed on top.
+ * The base is OpenStreetMap vector tiles (OpenFreeMap, no key): coast towns,
+ * streets and ports give the farm its place when you zoom out, and every sea
+ * and lake takes the theme's sea colour (navy in Baltic Night) at any zoom.
+ * The site boundary is dashed on top. Offline or blocked → the OSM raster.
  * Turbines are the Layout canvas's top-view glyph (disc + three blades) in
  * their state colour. deck.gl draws what changes: the 66 kV
  * array cables coloured by load, the export cables with energy particles that
@@ -40,12 +40,11 @@ import {
   PSE_GRID_LINE_GEO,
   PSE_SUBSTATION_GEO,
   PSE_SUBSTATION_NAME,
-  SEA_POLYGON_GEO,
 } from "../../constants/windFarmLayout";
 import { cableTree, distanceM, type CableFocus } from "../../lib/arrayCables";
 import { useFleet, type Fleet } from "../../lib/fleet";
 import { selectEnvironment, selectKPIs, useLandingStore } from "../../store/landingStore";
-import { useLayerStore } from "../../store/layerStore";
+import { useLayerStore, type MapTheme } from "../../store/layerStore";
 import { useStatcomQ } from "../../store/liveGridStore";
 import type { TurbineStatus } from "../../types/landing";
 import { arrayCableCurrentA, arrayCableGrade, exportCableState, farmWakeDeficits, wakePowerLossPct } from "../../utils/landingPhysics";
@@ -89,15 +88,35 @@ function equipmentIcons(ink: string, fill: string) {
   };
 }
 
-/** Base map style: OpenStreetMap (theme-recoloured) plus the site boundary. */
-function baseStyle(pal: Palette, fleet: Fleet, showBoundary: boolean, dark: boolean): StyleSpecification {
+/** OpenFreeMap styles (OpenMapTiles schema): dark for Baltic Night, the quiet positron under the storybook palette. */
+const VECTOR_STYLE: Record<MapTheme, string> = {
+  hmi: "https://tiles.openfreemap.org/styles/dark",
+  storybook: "https://tiles.openfreemap.org/styles/positron",
+};
+const vectorStyles = new Map<MapTheme, Promise<StyleSpecification>>();
+function loadVectorStyle(theme: MapTheme) {
+  let p = vectorStyles.get(theme);
+  if (!p) {
+    p = fetch(VECTOR_STYLE[theme]).then((r) => (r.ok ? (r.json() as Promise<StyleSpecification>) : Promise.reject(new Error(String(r.status)))));
+    p.catch(() => vectorStyles.delete(theme)); // retry on the next mount
+    vectorStyles.set(theme, p);
+  }
+  return p;
+}
+
+/** Base map style: the vector map recoloured to the palette (raster OSM until / unless it loads) plus the site boundary. */
+function baseStyle(pal: Palette, fleet: Fleet, showBoundary: boolean, dark: boolean, vector: StyleSpecification | null): StyleSpecification {
   const ring = (pts: [number, number][]) => [...pts.map(swap), swap(pts[0])];
-  const osm = osmStyle(dark);
+  const base = vector ?? osmStyle(dark);
+  const recolour = (l: StyleSpecification["layers"][number]): StyleSpecification["layers"][number] =>
+    !vector ? l
+    : l.type === "background" ? { ...l, paint: { ...l.paint, "background-color": pal.land } }
+    : l.id === "water" && l.type === "fill" ? { ...l, paint: { ...l.paint, "fill-color": pal.sea } }
+    : l;
   return {
-    ...osm,
+    ...base,
     sources: {
-      ...osm.sources,
-      sea: { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [ring(SEA_POLYGON_GEO)] } } },
+      ...base.sources,
       site: {
         type: "geojson",
         data: {
@@ -108,9 +127,7 @@ function baseStyle(pal: Palette, fleet: Fleet, showBoundary: boolean, dark: bool
       },
     },
     layers: [
-      ...osm.layers,
-      { id: "sea", type: "fill", source: "sea", paint: { "fill-color": pal.sea } },
-      { id: "coast", type: "line", source: "sea", paint: { "line-color": pal.coast, "line-width": 1.2 } },
+      ...base.layers.map(recolour),
       {
         id: "site",
         type: "line",
@@ -223,7 +240,21 @@ function ControlRoomMapInner({
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setFocus(null), [fleet]);
 
-  const style = useMemo(() => baseStyle(pal, fleet, layers.exclusionZone, theme === "hmi"), [pal, fleet, layers.exclusionZone, theme]);
+  const [vector, setVector] = useState<{ theme: MapTheme; style: StyleSpecification } | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadVectorStyle(theme)
+      .then((s) => live && setVector({ theme, style: s }))
+      .catch(() => undefined); // raster OSM stays
+    return () => {
+      live = false;
+    };
+  }, [theme]);
+  const vectorStyle = vector?.theme === theme ? vector.style : null;
+  const style = useMemo(
+    () => baseStyle(pal, fleet, layers.exclusionZone, theme === "hmi", vectorStyle),
+    [pal, fleet, layers.exclusionZone, theme, vectorStyle],
+  );
   const icons = useMemo(() => equipmentIcons(pal.ink, theme === "hmi" ? "#0f1d2b" : "#f7edd4"), [pal, theme]);
 
   // Initial view: the array (SB-510's framing) or the own project's turbines
@@ -675,6 +706,14 @@ function ControlRoomMapInner({
       </div>
 
       <div className="pointer-events-auto absolute bottom-0 left-1/2 z-10 -translate-x-1/2 rounded-t bg-bg-secondary/80 px-1.5 py-0.5 text-xs text-text-muted">
+        ©{" "}
+        <a href="https://openfreemap.org" target="_blank" rel="noreferrer" className="underline">
+          OpenFreeMap
+        </a>{" "}
+        ©{" "}
+        <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer" className="underline">
+          OpenMapTiles
+        </a>{" "}
         ©{" "}
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">
           OpenStreetMap

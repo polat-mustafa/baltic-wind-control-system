@@ -64,7 +64,8 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </div>
       )}
 
-      <div className={cn("flex flex-1 flex-col py-2", expanded ? "px-2" : "items-center px-1.5")}>
+      {/* not flex-1: the collapse button follows the last group instead of the bottom of the screen */}
+      <div className={cn("flex flex-col py-2", expanded ? "px-2" : "items-center px-1.5")}>
         {NAV_GROUPS.map((group, gi) => (
           <section key={group.label} aria-labelledby={`nav-group-${gi}`} className={cn("w-full", gi > 0 && "mt-2")}>
             {expanded ? (

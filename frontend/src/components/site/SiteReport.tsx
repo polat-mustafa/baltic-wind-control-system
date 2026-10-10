@@ -204,11 +204,15 @@ export default function SiteReport() {
             subtitle={
               report.wind.approximate
                 ? "approximation — real data not found"
-                : `A ${report.wind.weibull_a.toFixed(1)} · k ${report.wind.weibull_k.toFixed(2)} · NEWA + ERA5${
-                    report.wind.gwa_mean_ms
-                      ? ` · GWA v4 ${report.wind.gwa_mean_ms.toFixed(1)} (${report.wind.gwa_mean_ms >= report.wind.mean_ms ? "+" : "−"}${Math.abs(100 * (report.wind.gwa_mean_ms / report.wind.mean_ms - 1)).toFixed(0)} %)`
-                      : ""
-                  }`
+                : (
+                    // two lines: the tile cuts a subtitle to its width
+                    <>
+                      <span className="block truncate">{`A ${report.wind.weibull_a.toFixed(1)} · k ${report.wind.weibull_k.toFixed(2)} · NEWA + ERA5`}</span>
+                      {report.wind.gwa_mean_ms != null && (
+                        <span className="block truncate">{`GWA v4 ${report.wind.gwa_mean_ms.toFixed(1)} m/s (${report.wind.gwa_mean_ms >= report.wind.mean_ms ? "+" : "−"}${Math.abs(100 * (report.wind.gwa_mean_ms / report.wind.mean_ms - 1)).toFixed(0)} %)`}</span>
+                      )}
+                    </>
+                  )
             }
             priority={report.wind.approximate ? "warning" : "normal"}
             size="sm"

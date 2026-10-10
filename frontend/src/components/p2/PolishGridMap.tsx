@@ -117,7 +117,12 @@ export default function PolishGridMap() {
           </div>
           <p>
             <span className="font-medium text-text-primary">Interconnectors (circuits): </span>
-            {summary.byCountry.map(([c, n]) => `${COUNTRY[c] ?? c} ${n}`).join(" · ")}
+            {summary.byCountry.map(([c, n], k) => (
+              <span key={c}>
+                {k > 0 && " · "}
+                <span>{COUNTRY[c] ?? c}</span> <span translate="no">{n}</span>
+              </span>
+            ))}
           </p>
           <p className="text-text-muted">
             <span>{grid.source}</span>{" "}

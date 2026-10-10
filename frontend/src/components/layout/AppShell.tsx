@@ -236,7 +236,8 @@ export default function AppShell() {
           />
         )}
         <Sidebar mobileOpen={navOpen} onMobileClose={() => setNavOpen(false)} />
-        <main className="min-w-0 flex-1 overflow-auto p-3 md:px-6 md:py-5">
+        {/* pb-20: room under the last control of a page for the fixed Tutor button */}
+        <main className="min-w-0 flex-1 overflow-auto p-3 pb-20 md:px-6 md:pt-5 md:pb-20">
           {/* Pages are lazy-loaded (App.tsx) */}
           <Suspense fallback={<PageLoading />}>
             {lock ? <LockedPage title={currentLabel} lock={lock} /> : <Outlet />}

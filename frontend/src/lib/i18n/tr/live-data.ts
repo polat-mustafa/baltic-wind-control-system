@@ -65,6 +65,14 @@ const liveData: Record<string, string> = {
   "CTV access": "CTV erişimi",
   "SOV access": "SOV erişimi",
 
+  // ── Interconnector countries (p2/PolishGridMap) ──
+  Germany: "Almanya",
+  Czechia: "Çekya",
+  Slovakia: "Slovakya",
+  Ukraine: "Ukrayna",
+  Lithuania: "Litvanya",
+  Sweden: "İsveç",
+
   // ── Screening map: traffic and the national grid ──
   "Ship traffic density 2025": "Gemi trafiği yoğunluğu 2025",
   "EMSA route density (AIS), annual, via EMODnet: red = busiest lanes": "EMSA rota yoğunluğu (AIS), yıllık, EMODnet üzerinden: kırmızı = en yoğun hatlar",

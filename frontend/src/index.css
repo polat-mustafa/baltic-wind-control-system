@@ -261,7 +261,7 @@ body {
   --color-text-muted: #7a6650;
   --color-accent: #2c6e76;
   /* Paper needs darker state/voltage steps than the navy ground (≥ 4.5:1 on #f1e4c3) */
-  --color-status-alarm: #b42318;
+  --color-status-alarm: #a51f15;
   --color-status-offline: #6b6257;
   --color-status-maintenance: #9a4a00;
   --color-status-comms-loss: #6b2f8f;
@@ -309,7 +309,7 @@ body {
 
 /* Storybook readability: small print and pop-up text in bold, and the
    neon control-room status colours darkened to ink-on-paper contrast
-   (WCAG AA ≥ 4.5:1 on #f1e4c3). */
+   (WCAG AA ≥ 4.5:1 on #f1e4c3 and on the darker panel paper #d3cda4). */
 .theme-storybook :is(
     .text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs,
     .font-mono
@@ -320,15 +320,15 @@ body {
 .theme-storybook {
   --color-text-secondary: #3d2f21;
   --color-text-muted: #5e4a36;
-  --color-status-normal: #1a6b36;
+  --color-status-normal: #165c2e;
   --color-status-warning: #734300;
-  --color-status-info: #1d4ed8;
+  --color-status-info: #1a44c0;
 }
 .theme-storybook :is([style^="color: rgb(76, 195, 138)"], [style*="; color: rgb(76, 195, 138)"], [class*="text-emerald-"], [class*="text-green-"]) {
-  color: #1a6b36 !important;
+  color: #165c2e !important;
 }
 .theme-storybook :is([style^="color: rgb(69, 200, 217)"], [style*="; color: rgb(69, 200, 217)"], [class*="text-blue-"], [class*="text-sky-"]) {
-  color: #1d4ed8 !important;
+  color: #1a44c0 !important;
 }
 .theme-storybook :is([style^="color: rgb(6, 182, 212)"], [style*="; color: rgb(6, 182, 212)"], [class*="text-cyan-"], [class*="text-teal-"]) {
   color: #0e6070 !important;
@@ -393,9 +393,9 @@ body {
   --color-text-primary: #2b2118;
   --color-text-secondary: #3d2f21;
   --color-text-muted: #5e4a36;
-  --color-status-normal: #1a6b36;
+  --color-status-normal: #165c2e;
   --color-status-warning: #734300;
-  --color-status-info: #1d4ed8;
+  --color-status-info: #1a44c0;
   --color-voltage-lv: #7a6650;
   --color-accent: #2c6e76;
 }

@@ -17,7 +17,7 @@ import ConceptMap from "../components/p4/academy/ConceptMap";
 import RealDataPanel from "../components/p4/RealDataPanel";
 import { useForecastStore, type ForecastTab } from "../store/forecastStore";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
-import { readStored } from "../lib/storage";
+import { useLangStore } from "../lib/i18n";
 import { p4Guide } from "../constants/trainingGuideContent";
 import { PageHeader } from "../components/layout/PageHeader";
 
@@ -27,14 +27,10 @@ const TABS: { id: ForecastTab; label: string; Icon: typeof Brain }[] = [
   { id: "map", label: "Concept map", Icon: Network },
 ];
 
-/** Language chosen in the academy (shared with the concept map). */
-function academyLang(): "en" | "tr" {
-  return readStored("of.academyLang") === "tr" ? "tr" : "en";
-}
-
 export default function ForecastPage() {
   const tab = useForecastStore((s) => s.tab);
   const setTab = useForecastStore((s) => s.setTab);
+  const lang = useLangStore((s) => (s.lang === "tr" ? "tr" : "en"));
 
   return (
     <div className="space-y-5">
@@ -65,7 +61,7 @@ export default function ForecastPage() {
 
       {tab === "real" && <RealDataPanel />}
       {tab === "academy" && <AcademyTab />}
-      {tab === "map" && <ConceptMap lang={academyLang()} />}
+      {tab === "map" && <ConceptMap lang={lang} />}
     </div>
   );
 }

@@ -3,7 +3,7 @@
  *
  * Structure:
  *   1. Top bar — brand, lifecycle breadcrumb, project, alarm state (only when
- *      not normal), tour, palette toggle, clock
+ *      not normal), tour, language (cycles lib/i18n LANGUAGES), palette toggle, clock
  *   2. Sidebar — icon rail, expandable (constants/navigation)
  *   3. Content area — renders active route via <Outlet />
  *
@@ -39,6 +39,7 @@ import { useLayerStore } from "../../store/layerStore";
 import { useModeStore } from "../../store/modeStore";
 import { useSiteStore } from "../../store/siteStore";
 import { useLocks } from "../../lib/project/progress";
+import { applyLanguage, LANGUAGES, nextLanguage, useLangStore } from "../../lib/i18n";
 
 /** Placeholder while a lazy page chunk downloads. */
 function PageLoading() {
@@ -105,6 +106,12 @@ export default function AppShell() {
   useEffect(() => {
     document.documentElement.classList.toggle("theme-storybook", storybook);
   }, [storybook]);
+
+  // UI language: translates the rendered page in place, nothing remounts (lib/i18n)
+  const lang = useLangStore((s) => s.lang);
+  const setLang = useLangStore((s) => s.setLang);
+  const next = LANGUAGES[nextLanguage(lang)];
+  useEffect(() => void applyLanguage(lang), [lang]);
 
   // Off-canvas navigation drawer (phones / narrow tablets, below md)
   const [navOpen, setNavOpen] = useState(false);
@@ -173,6 +180,17 @@ export default function AppShell() {
             </span>
           </div>
           <TourMenu />
+          <button
+            type="button"
+            onClick={() => setLang(nextLanguage(lang))}
+            translate="no"
+            lang={nextLanguage(lang)}
+            aria-label={next.name}
+            title={next.name}
+            className="flex h-8 min-w-8 items-center justify-center rounded-md border border-border-secondary px-1.5 font-mono text-xs font-semibold text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+          >
+            {next.label}
+          </button>
           <button
             type="button"
             onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}

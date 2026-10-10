@@ -71,6 +71,7 @@ These are large (SKILL.md ≈ 28 KB, Project_Roadmap.md ≈ 93 KB). Do NOT read 
 ## Gotchas
 
 - Windows dev machine: prefer `python -m <tool>` over bare `ruff`/`pytest`. Smart App Control blocks exe/DLLs in a fresh `uv sync` venv, so locally use the existing Python env; CI uses `uv sync --locked`.
+- UI language (header EN/TR): English source text is the key; Turkish lives in `frontend/src/lib/i18n/tr/` and is applied to the DOM in place (no re-render, state kept). New/changed UI text → add its Turkish there (`{n}` = number, `{label}` = known label); `npm run i18n:missing -- tr` lists what is still English; `tests/lib/i18n.test.tsx` fails on keys whose English no longer exists. Formulas, symbols, units: `translate="no"`. New language: see the header of `frontend/src/lib/i18n/index.ts`.
 - Dependencies are pinned in `backend/uv.lock`. After editing `pyproject.toml` dependencies run `cd backend && uv lock` and commit the lockfile (CI uses `--locked` and fails otherwise).
 - `.planning/` holds old planning notes (legacy GSD) — not a source of truth.
 - Never commit `.env*` files; secrets stay out of the repo.

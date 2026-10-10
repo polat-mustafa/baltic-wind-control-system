@@ -193,7 +193,7 @@ function OverviewTab({ c }: { c: EducationContent }) {
 function FormulaCard({ formula }: { formula: Formula }) {
   return (
     <div className="rounded-md border border-border-primary bg-bg-tertiary p-4 space-y-3">
-      <div className="rounded-sm bg-black/30 border border-border-primary px-3 py-2 font-mono text-sm text-accent break-words">
+      <div translate="no" className="rounded-sm bg-black/30 border border-border-primary px-3 py-2 font-mono text-sm text-accent break-words">
         {formula.expression}
       </div>
 
@@ -204,9 +204,9 @@ function FormulaCard({ formula }: { formula: Formula }) {
               key={`${v.symbol}-${v.name}`}
               className="grid grid-cols-[2.5rem_1fr_auto] items-baseline gap-2 text-xs"
             >
-              <span className="font-mono text-accent">{v.symbol}</span>
+              <span translate="no" className="font-mono text-accent">{v.symbol}</span>
               <span className="text-text-secondary">{v.name}</span>
-              <span className="text-text-muted font-mono">{v.unit}</span>
+              <span translate="no" className="text-text-muted font-mono">{v.unit}</span>
             </div>
           ))}
         </div>

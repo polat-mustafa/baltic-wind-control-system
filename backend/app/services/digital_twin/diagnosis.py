@@ -153,7 +153,7 @@ def _context(
     det: Detection,
     cal: Calibration,
 ) -> _TurbineContext:
-    grid = np.arange(GRID_MIN_MS, GRID_MAX_MS + GRID_STEP_MS / 2, GRID_STEP_MS)
+    grid = np.arange(GRID_MIN_MS, GRID_MAX_MS + GRID_STEP_MS / 2, GRID_STEP_MS, dtype=np.float64)
     rho = float(np.median(data.air_density[sel]))
     kernel = _wind_kernel(grid, cal)
     twin_mean, twin_var = _moments(kernel, evaluate(grid, rho))

@@ -1,12 +1,17 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import AcademyTab from "../../../src/components/p4/academy/AcademyTab";
 import ConceptMap from "../../../src/components/p4/academy/ConceptMap";
 import { CHAPTERS, CONCEPTS, LINKS } from "../../../src/components/p4/academy/academyContent";
+import { useLangStore } from "../../../src/lib/i18n";
 import { useForecastStore } from "../../../src/store/forecastStore";
+
 describe("P4 AI Academy", () => {
-  beforeEach(() => useForecastStore.setState({ chapter: "why", tab: "academy", real: null }));
+  beforeEach(() => {
+    useForecastStore.setState({ chapter: "why", tab: "academy", real: null });
+    useLangStore.setState({ lang: "en" });
+  });
 
   it("has a consistent course: every concept points at a chapter, every link at concepts", () => {
     const chapterIds = new Set(CHAPTERS.map((c) => c.id));
@@ -16,12 +21,13 @@ describe("P4 AI Academy", () => {
     expect(CHAPTERS.every((c) => c.body.every((b) => b.en && b.tr))).toBe(true);
   });
 
-  it("walks the chapters and switches to Turkish", () => {
+  it("walks the chapters and follows the app language", () => {
     render(<AcademyTab />);
     expect(screen.getByRole("heading", { name: CHAPTERS[0].title.en })).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: /Decision trees and XGBoost/ }));
     expect(screen.getByRole("heading", { name: "Decision trees and XGBoost" })).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: "TR" }));
+    // the header EN/TR toggle: chapters render their own Turkish text, state kept
+    act(() => useLangStore.getState().setLang("tr"));
     expect(screen.getByRole("heading", { name: "Karar ağaçları ve XGBoost" })).toBeDefined();
   });
 

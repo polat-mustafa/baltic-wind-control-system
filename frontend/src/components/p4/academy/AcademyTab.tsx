@@ -3,16 +3,16 @@
  *
  * Eleven chapters from "why forecast" to the full pipeline, each with an
  * interactive illustration computed in the browser, key take-aways and
- * narration (Web Speech API) in English or Turkish. The concept map and the
+ * narration (Web Speech API) in the app language (header EN/TR). The concept map and the
  * training monitor link into it, so theory and the running system stay one.
  */
 
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, Lightbulb, Square, Volume2 } from "lucide-react";
 
 import { useForecastStore } from "../../../store/forecastStore";
 import { useNarrator } from "../../../hooks/useNarrator";
-import { readStored, writeStored } from "../../../lib/storage";
+import { useLangStore } from "../../../lib/i18n";
 import { cn } from "../../../lib/utils";
 import { CHAPTERS, type Lang, type Widget } from "./academyContent";
 import BoostingPlayground from "./BoostingPlayground";
@@ -20,8 +20,6 @@ import { AttentionViz, EnsembleViz, LeakageViz, LSTMCellViz, PipelineViz, Quanti
 
 // three.js scene only when its chapter opens
 const GradientDescent3D = lazy(() => import("./GradientDescent3D"));
-
-const LANG_KEY = "of.academyLang";
 
 function WidgetView({ widget, lang }: { widget: Widget; lang: Lang }) {
   switch (widget) {
@@ -57,11 +55,10 @@ function WidgetView({ widget, lang }: { widget: Widget; lang: Lang }) {
 export default function AcademyTab() {
   const chapterId = useForecastStore((s) => s.chapter);
   const openChapter = useForecastStore((s) => s.openChapter);
-  const [lang, setLangState] = useState<Lang>(() => (readStored(LANG_KEY) as Lang) || "en");
-  const setLang = (l: Lang) => {
-    setLangState(l);
-    writeStored(LANG_KEY, l); // private mode — keep in memory
-  };
+  // Chapters carry their own English and Turkish text: they follow the app language
+  // (English for any other), not the DOM translator.
+  const appLang = useLangStore((s) => s.lang);
+  const lang: Lang = appLang === "tr" ? "tr" : "en";
   const { supported, speaking, speak, stop } = useNarrator();
   const idx = Math.max(0, CHAPTERS.findIndex((c) => c.id === chapterId));
   const ch = CHAPTERS[idx];
@@ -108,13 +105,6 @@ export default function AcademyTab() {
             <h3 className="mt-0.5 text-xl font-semibold text-text-primary">{ch.title[lang]}</h3>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="flex overflow-hidden rounded-md border border-border-primary text-xs font-semibold">
-              {(["en", "tr"] as const).map((l) => (
-                <button key={l} type="button" onClick={() => setLang(l)} className={cn("px-2 py-1", lang === l ? "bg-accent text-accent-ink" : "hover:bg-bg-hover")}>
-                  {l.toUpperCase()}
-                </button>
-              ))}
-            </div>
             {supported && (
               <button
                 type="button"

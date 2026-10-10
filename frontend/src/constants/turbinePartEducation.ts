@@ -188,11 +188,11 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     standards: ["IEC 61400-1", "DIN 743", "DNV-ST-0361"],
     formulas: [
       {
-        expression: "P\u2098\u2091\u2092\u2095 = Q \u00B7 \u03C9",
+        expression: "P_mech = Q \u00B7 \u03C9",
         variables: [
           { symbol: "Q", name: "Shaft torque", unit: "N\u00B7m" },
           { symbol: "\u03C9", name: "Angular velocity", unit: "rad/s" },
-          { symbol: "P\u2098\u2091\u2092\u2095", name: "Mechanical power", unit: "W" },
+          { symbol: "P_mech", name: "Mechanical power", unit: "W" },
         ],
         explanation:
           "Mechanical power is torque times angular velocity. At rated: \u03C9 = 7.56 rpm \u00D7 2\u03C0/60 = 0.792 rad/s and the rotor delivers 15.66 MW (15 MW electrical \u00F7 generator 96.55 % \u00F7 converter 99.18 %), so Q = P/\u03C9 \u2248 19.8 MN\u00B7m \u2014 the ROSCO rated generator torque (VS_RtTq 19.79 MN\u00B7m).",
@@ -280,11 +280,11 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           "A direct drive turns slowly, so it needs many poles: 100 pole pairs \u00D7 7.56 rpm / 60 = 12.6 Hz at rated. That is why the converter must handle the full power \u2014 the grid is at 50 Hz.",
       },
       {
-        expression: "P\u2091\u2097 = P\u2098\u2091\u2092\u2095 \u00D7 \u03B7\u2091\u2091\u2099 \u00D7 \u03B7\u2092\u2092\u2099\u1D65",
+        expression: "P\u2091\u2097 = P_mech \u00D7 η_gen \u00D7 η_conv",
         variables: [
-          { symbol: "P\u2098\u2091\u2092\u2095", name: "Shaft power", unit: "MW" },
-          { symbol: "\u03B7\u2091\u2091\u2099", name: "Generator efficiency", unit: "0.9655" },
-          { symbol: "\u03B7\u2092\u2092\u2099\u1D65", name: "Converter efficiency", unit: "0.9918" },
+          { symbol: "P_mech", name: "Shaft power", unit: "MW" },
+          { symbol: "η_gen", name: "Generator efficiency", unit: "0.9655" },
+          { symbol: "η_conv", name: "Converter efficiency", unit: "0.9918" },
           { symbol: "P\u2091\u2097", name: "Electrical power", unit: "MW" },
         ],
         explanation:
@@ -317,10 +317,10 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     standards: ["ENTSO-E NC RfG Type D", "PSE IRiESP", "IEC 61400-21"],
     formulas: [
       {
-        expression: "P\u2091\u2063\u2092\u209A = P\u2091\u2091\u2099 \u00D7 \u03B7\u2092\u2092\u2099\u1D65",
+        expression: "P\u2091\u2063\u2092\u209A = P\u2091\u2091\u2099 \u00D7 η_conv",
         variables: [
           { symbol: "P\u2091\u2091\u2099", name: "Generator output", unit: "MW" },
-          { symbol: "\u03B7\u2092\u2092\u2099\u1D65", name: "Converter efficiency", unit: "0.9918" },
+          { symbol: "η_conv", name: "Converter efficiency", unit: "0.9918" },
           { symbol: "P\u2091\u2063\u2092\u209A", name: "Power to grid", unit: "MW" },
         ],
         explanation:
@@ -559,11 +559,11 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     standards: ["IEC 61400-1", "IEC 60034-1", "IEC 60085"],
     formulas: [
       {
-        expression: "Q = P\u2098\u2091\u2092\u2095\u00B7(1 \u2212 \u03B7\u2091\u2091\u2099) + P\u2098\u2091\u2092\u2095\u00B7\u03B7\u2091\u2091\u2099\u00B7(1 \u2212 \u03B7\u2092\u2092\u2099\u1D65)",
+        expression: "Q = P_mech\u00B7(1 \u2212 η_gen) + P_mech\u00B7η_gen\u00B7(1 \u2212 η_conv)",
         variables: [
-          { symbol: "P\u2098\u2091\u2092\u2095", name: "Shaft power (15.66 MW at rated)", unit: "MW" },
-          { symbol: "\u03B7\u2091\u2091\u2099", name: "Generator efficiency", unit: "0.9655" },
-          { symbol: "\u03B7\u2092\u2092\u2099\u1D65", name: "Converter efficiency", unit: "0.9918" },
+          { symbol: "P_mech", name: "Shaft power (15.66 MW at rated)", unit: "MW" },
+          { symbol: "η_gen", name: "Generator efficiency", unit: "0.9655" },
+          { symbol: "η_conv", name: "Converter efficiency", unit: "0.9918" },
         ],
         explanation:
           "Heat to reject at rated: 15.66 \u00D7 0.0345 = 0.54 MW from the generator plus 15.12 \u00D7 0.0082 = 0.12 MW from the converter \u2248 0.66 MW.",
@@ -629,11 +629,11 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     standards: ["IEC 61400-12-1", "IEC 61400-21-1", "ENTSO-E NC RfG"],
     formulas: [
       {
-        expression: "P\u2091\u2097 = \u00BD\u03C1AV\u00B3 \u00B7 C\u209A,aero \u00B7 \u03B7\u2091\u2091\u2099 \u00B7 \u03B7\u2092\u2092\u2099\u1D65",
+        expression: "P\u2091\u2097 = \u00BD\u03C1AV\u00B3 \u00B7 C\u209A,aero \u00B7 η_gen \u00B7 η_conv",
         variables: [
           { symbol: "C\u209A,aero", name: "Aerodynamic power coefficient", unit: "0.462 below rated" },
-          { symbol: "\u03B7\u2091\u2091\u2099", name: "Generator efficiency", unit: "0.9655" },
-          { symbol: "\u03B7\u2092\u2092\u2099\u1D65", name: "Converter efficiency", unit: "0.9918" },
+          { symbol: "η_gen", name: "Generator efficiency", unit: "0.9655" },
+          { symbol: "η_conv", name: "Converter efficiency", unit: "0.9918" },
         ],
         explanation:
           "At rated (10.66 m/s): \u00BD \u00D7 1.225 \u00D7 45,750 m\u00B2 \u00D7 10.66\u00B3 = 33.9 MW in the wind; \u00D7 0.462 = 15.66 MW on the shaft; \u00D7 0.95756 = 15.0 MW electrical \u2014 an overall C\u209A of 0.442.",

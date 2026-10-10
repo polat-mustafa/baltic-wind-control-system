@@ -81,7 +81,8 @@ export function ChartWrapper({ title, headerRight, footer, children }: ChartWrap
         {children}
       </div>
       {footer && (
-        <p className="text-xs text-text-muted mt-1 text-center shrink-0">{footer}</p>
+        // div, not p: footers carry SourceBadge <details>, which may not sit inside a <p>
+        <div className="text-xs text-text-muted mt-1 text-center shrink-0">{footer}</div>
       )}
 
       {/* Fullscreen mode: floating exit button — bottom-right to avoid blocking chart data */}

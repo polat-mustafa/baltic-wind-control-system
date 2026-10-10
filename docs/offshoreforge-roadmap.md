@@ -235,7 +235,7 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   IEC TR 60909-4 example networks.
   **Done** (`tests/test_p2_analytic.py`): pandapower vs a hand π-model of the 108 km export circuit (V_r and
   Q to 1e-6), π-model and `ferranti_rise_pu` vs the exact distributed line 1/cosh γl (within 1 %), charging
-  Q = ωCL(V_s² + V_r²)/2 − 3I²X (0.1 %; 2.2 % above nominal ωCV²L because of the open-end rise),
+  Q = ωCL(V_s² + V_r²)/2 − 3I²X (0.1 %; 2.2 % above nominal ωCV²L because of the 4.3 % open-end rise),
   `calc_sc` vs an IEC 60909-0:2016 hand calculation (grid feeder + transformer, K_T for max only, κ for i_p).
   LFSM-O was already covered (204 MW/Hz hand number in `test_ppc.py`, ANDES in `test_andes_dynamics.py`).
   TR 60909-4 example networks not transcribed (pandapower ships no copy; hand network instead).
@@ -262,6 +262,11 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   comparison). Academy text, P4 training guide and the forecast tour rewritten for the real-data pipeline.
 - **B4 — "Evidence" page** in the app generated from test results (what was validated, against what,
   metric, value, test file).
+  **Done**: route `/evidence` (Learn → Evidence). The `evidence` fixture (`backend/tests/conftest.py`) records each
+  check from `test_wake_validation.py`, `test_p2_analytic.py`, `test_p4_real_data.py`;
+  `backend/scripts/build_evidence.py` (EVIDENCE_WRITE=1) writes `frontend/src/data/evidence.json` (14 checks).
+  Every normal test run compares the recorded value with the committed one (2 % + 0.001) and fails if it drifted —
+  regenerate and commit. Not covered yet: P3, ANDES (Linux-only), DT.
 - **B5 — guards:** numbers quoted in education prose checked against the backend; weekly DOI / link check.
 - **Still to audit line by line:** `turbinePartEducation.ts`, `tours.ts`, Academy courses.
 - **AI tutor (after B):** OpenRouter-style OpenAI-compatible API with cheap models, the user brings their

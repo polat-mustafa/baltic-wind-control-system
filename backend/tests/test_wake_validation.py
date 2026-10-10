@@ -48,7 +48,7 @@ def test_direction_average_keeps_a_constant_and_the_circular_mean() -> None:
 
 
 @needs_pywake
-def test_turbopark_model_reproduces_orsted_matlab_reference() -> None:
+def test_turbopark_model_reproduces_orsted_matlab_reference(evidence) -> None:
     """Ørsted's TurbOParkExamples.mlx, example 1 (one row, 6D, as in PyWake's
     ``test_turbopark.py``): our ``turbopark_model`` must give the same powers [kW]."""
     from py_wake.site import UniformSite
@@ -77,10 +77,20 @@ def test_turbopark_model_reproduces_orsted_matlab_reference() -> None:
         [71.8241034924664, 446.254939675813, 2408.31291455241],
     ]
     np.testing.assert_allclose(res.Power.squeeze() / 1000, ref, rtol=1e-5)
+    evidence(
+        "p1-turbopark-orsted",
+        area="P1 — wind resource",
+        claim="Our TurbOPark set-up (cluster wakes) is Ørsted's model",
+        against="Ørsted's TurbOPark MATLAB example 1 (4 turbines, 3 wind speeds)",
+        metric="max relative power difference",
+        value=100 * float(np.max(np.abs(res.Power.squeeze() / 1000 / np.array(ref) - 1))),
+        unit="%",
+        limit="< 0.001 %",
+    )
 
 
 @needs_pywake
-def test_wake_models_against_measured_rows() -> None:
+def test_wake_models_against_measured_rows(evidence) -> None:
     scores = validate_wake_models()
     assert len(scores) == len(CASES) * len(MODELS)
     for s in scores:
@@ -94,6 +104,17 @@ def test_wake_models_against_measured_rows() -> None:
     # averaging is what brings the Gaussian models close to the data.
     mean_avg = {m: np.mean([s.rmse_averaged for s in scores if s.model == m]) for m in MODELS}
     assert min(mean_avg, key=mean_avg.__getitem__) == "BPA"
+    for m, v in mean_avg.items():
+        evidence(
+            f"p1-wake-{m.lower()}",
+            area="P1 — wind resource",
+            claim=f"{m} wake model{' (production)' if m == 'BPA' else ''}: row power ratios",
+            against="measured SCADA P_i/P_1, Horns Rev 1 + Lillgrund rows (PyWake data, MIT)",
+            metric="mean RMSE over 9 rows, wind-direction averaged",
+            value=v,
+            unit="−",
+            limit=f"≤ {RMSE_LOCK[m]}",
+        )
     for m in ("BPA", "TurbOPark"):
         plain = np.mean([s.rmse for s in scores if s.model == m])
         assert mean_avg[m] < plain

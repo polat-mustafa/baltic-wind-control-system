@@ -186,7 +186,7 @@ export const MISSIONS: Mission[] = [
     title: "First energisation",
     summary: "Put the key steps of the export system and array energisation in a safe order.",
     scoring: "100 − 15 per wrong step − 1 per 10 s over a 2 min par.",
-    refs: ["P5 switching programme S-001 … S-030", "EN 50110-1 (operation of electrical installations)"],
+    refs: ["P5 switching programme, steps 1.01 … 6.03", "EN 50110-1 (operation of electrical installations)"],
     minutes: 5,
   },
   {

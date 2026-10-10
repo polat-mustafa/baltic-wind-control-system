@@ -27,7 +27,7 @@ Full plan: `~/.claude/plans/max-effortta-plani-dusun-velvety-dawn.md` (owner's m
 | 5 | Project persistence: `wind_farm` = project table (JSONB document, revision lock, 12-month idle purge, read-only SB-510 row), `/api/v1/projects` + stored PyWake AEP history, anonymous link, auto-save with conflict / offline handling, export/import schema 2 | In review (`feat/project-persistence`, stacked on phase 4) |
 | 6 | Post-tour choice (SB-510 reference / own project), stage locks in the sidebar + one AppShell guard with "See it in SB-510", header project menu (name, online copy, new, open by link, import / export), lifecycle milestones | In review (`feat/project-mode-locks`, stacked on phase 5) |
 | 7 | `FarmSpec` + `design()` (golden: SB-510 back exactly), P2 load flow / SC / STATCOM / N-1 / FRT / GFL-GFM / PPC / power quality / planning / ANDES on the farm spec, `X-Farm` header from the own layout, design-freeze gate before Construction | In review (`feat/farm-spec-p2`, stacked on phase 6) |
-| 8a | P5 on the farm spec: circuit-1 switchgear, isolation locks, 60-step switching programme, load-flow checks, FAT/SAT limits; programme keeps its farm (`farm_spec` column) | In review (`feat/farm-spec-p5`, stacked on phase 7) |
+| 8a | P5 on the farm spec: circuit-1 switchgear, isolation locks, 63-step switching programme, load-flow checks, FAT/SAT limits; programme keeps its farm (`farm_spec` column) | In review (`feat/farm-spec-p5`, stacked on phase 7) |
 | 8b | P3 SCADA + Digital Twin on the farm spec: bay controllers per string, historian, CMS, IEC 61850 / SCL, OPC UA tree, OT network, security zones; twin on the farm's turbines and site wind | In review (`feat/farm-spec-p3`, stacked on 8a) |
 | 8c | Live control room on the own farm: one live fleet for the map, 3D, mimic, single-line diagram, bay controllers, alarms, drills and plant physics; live load flow with reactor switching | In review (`feat/farm-spec-control-room`, stacked on 8b) |
 | 9 | SB-510 moves into MSP energy basin PZP_44 (site 44.E.1): new layout, OSS, LIDAR, boundary, marks, 76.5 km export round Ławica Słupska, P2 redesigned by `design()` (3 × 170 MVAr), reactor switching in every operating-point study, "From SB-510" project start | In review (`feat/sb510-pzp44`, stacked on 8c) |
@@ -71,7 +71,7 @@ Phase 7 notes:
 - Changed test: `test_statcom.py::test_reactor_n1_detects_insecure_design` monkeypatched a module constant; it now passes a 2-reactor `FarmSpec`. All other existing P2 tests pass unchanged.
 
 Phase 8a notes:
-- `services/p5/equipment_state.py`: `equipment(spec)` builds the circuit-1 registry — strings of section A (1…⌈n/2⌉) with WTG groups, section B strings earthed, IDs `CB-STR-nn`; no reactor bay when the design has no reactors. Every interlock function takes `spec` (default SB-510, so the SB-510 registry, the 60 steps and all existing P5 tests are unchanged).
+- `services/p5/equipment_state.py`: `equipment(spec)` builds the circuit-1 registry — strings of section A (1…⌈n/2⌉) with WTG groups, section B strings earthed, IDs `CB-STR-nn`; no reactor bay when the design has no reactors. Every interlock function takes `spec` (default SB-510, so the SB-510 registry, the 63 steps and all existing P5 tests are unchanged).
 - `energisation.network_snapshot(state, spec)`: cable length, transformer / reactor / STATCOM ratings and strings from the spec. Two physics additions found by running every Phase 7 farm through the programme: (1) a long cable lifts the onshore busbar (75 km open-ended: 230 Mvar, 1.054 p.u.), so the onshore OLTC is pre-set (`onshore_tap`, first tap that keeps the busbar and cable end in 0.95–1.05 p.u.; SB-510: tap 0); (2) when no tap is enough (120 MW / 73 km on 2 × 100 MVA onshore transformers) reactor 1 is connected to the dead cable and energised with it (`reactor_energisation`, steps reordered). 3–4 circuit farms: section A exceeds one circuit, so the PPC limits circuit 1 to 90 % of its capability (`circuit1_limit_mw`; 1080 MW: 321 MW, cable 94 %).
 - Transformer no-load losses now scale with the rating (`FarmSpec.oss_pfe_kw` / `onshore_pfe_kw`, SB-510 unchanged); before, a 100 MVA unit had the 300 MVA unit's 60 kW.
 - `switching_programme`: `_defs(spec)`, `phases(spec)`, checks get the spec (STATCOM range, TX i0, rated text); the programme stores its `FarmSpec` (`switching_programme.farm_spec` JSONB, Alembic `d9e0f1a2b3c4`; NULL = SB-510). Create programme / FAT take the `X-Farm` header; later calls use the stored farm. FAT transformer limits follow the rating, SAT the cable length and strings.
@@ -268,7 +268,22 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   Every normal test run compares the recorded value with the committed one (2 % + 0.001) and fails if it drifted —
   regenerate and commit. Not covered yet: P3, ANDES (Linux-only), DT.
 - **B5 — guards:** numbers quoted in education prose checked against the backend; weekly DOI / link check.
-- **Still to audit line by line:** `turbinePartEducation.ts`, `tours.ts`, Academy courses.
+  **Done**: `backend/tests/test_plant_facts.py` keeps `frontend/src/data/plantFacts.json` equal to the backend
+  (FarmSpec SB510, IEA-15 turbine); `frontend/tests/constants/plantFacts.test.ts` checks every phrase in `src/` that
+  quotes an SB-510 number (turbine count, MW, export km, reactors, STATCOM, charging Mvar, rotor D, cut-in / rated /
+  cut-out, rpm) at the quoted precision — 60+ hits, 7 allow-listed alternatives (sizing options, a 6-WTG string,
+  another rotor, an Academy mission target, the DT 7.52 rpm tip-speed limit). `backend/scripts/check_links.py` +
+  `.github/workflows/links.yml` (Mondays): DOIs via the doi.org handle API, links fail on 404 / 410 / DNS only
+  (host down is reported). First run: MEASNET procedure link was dead → documents page (Version 3, 2022);
+  DTU TOPFARM docs host down at the time (not failing).
+- **Line-by-line audit — done** (`turbinePartEducation.ts`, `tours.ts`, `academy/*`), 35 + 6 corrections: converter loss
+  notes contradicted η 99.18 %; unsourced 784 V / 84.2:1 ratio removed; FRT injection "20 ms" → PSE 90 % in 60 ms;
+  bedplate / RNA / overhang aligned to the bundled IEA v1.1.18 data (42.3 t, 946 t, 12.0 m — the text had 2020-report
+  values); Weibull → SB-510 site A 10.8 m/s k 2.04; UPS battery and feathering arithmetic; yaw-brake torque (1.4 MN·m
+  for four calipers, not ">> 10 MN·m"); cable twist limits = backend (±630° / ±1260°); HEB is hot-rolled; unsourced
+  flash densities, motor counts and an IEC 61508 false-discharge rate removed; illustrative values labelled; the P5
+  programme has **63** steps (not 60; mission ref "S-001…S-030" → "1.01 … 6.03"). The step count and the PSE FRT
+  constants of the Academy mission are now locked to the backend by `plantFacts`.
 - **AI tutor (after B):** OpenRouter-style OpenAI-compatible API with cheap models, the user brings their
   own key (kept server-side per session, never in localStorage); look into linking existing subscriptions.
   Context = current page + panel numbers; physics questions go to backend calculators as tools; browser

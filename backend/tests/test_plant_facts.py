@@ -11,12 +11,14 @@ import os
 from pathlib import Path
 
 from app.services.p1.turbine_models import get_turbine
+from app.services.p2.frt_simulation import DEAD_BAND_PU, K_FACTOR_RANGE, PSE_FRT_PROFILE
 from app.services.p2.network_model import SB510
+from app.services.p5.switching_programme import create_oss_energisation_programme
 
 FACTS_FILE = Path(__file__).resolve().parents[2] / "frontend" / "src" / "data" / "plantFacts.json"
 
 
-def plant_facts() -> dict[str, float]:
+def plant_facts() -> dict[str, object]:
     t = get_turbine()
     return {
         "turbines": SB510.num_turbines,
@@ -33,6 +35,10 @@ def plant_facts() -> dict[str, float]:
         "cut_out_ms": t.cut_out_ms,
         "min_rotor_rpm": t.min_rotor_rpm,
         "max_rotor_rpm": t.max_rotor_rpm,
+        "pse_frt_profile": [list(p) for p in PSE_FRT_PROFILE],
+        "frt_k_min": K_FACTOR_RANGE[0],
+        "frt_dead_band_pu": DEAD_BAND_PU,
+        "programme_steps": len(create_oss_energisation_programme("facts").steps),
     }
 
 

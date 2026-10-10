@@ -12,5 +12,22 @@
  "rated_ms": 10.6594,
  "cut_out_ms": 25.0,
  "min_rotor_rpm": 5.0,
- "max_rotor_rpm": 7.56
+ "max_rotor_rpm": 7.56,
+ "pse_frt_profile": [
+  [
+   0.0,
+   0.0
+  ],
+  [
+   0.15,
+   0.0
+  ],
+  [
+   2.5,
+   0.85
+  ]
+ ],
+ "frt_k_min": 2.0,
+ "frt_dead_band_pu": 0.1,
+ "programme_steps": 63
 }

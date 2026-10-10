@@ -8,9 +8,10 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { DEAD_BAND_PU, K_FACTOR, PSE_FRT_PROFILE } from "../../src/academy/frt";
 import facts from "../../src/data/plantFacts.json";
 
-type Fact = keyof typeof facts;
+type Fact = { [K in keyof typeof facts]: (typeof facts)[K] extends number ? K : never }[keyof typeof facts];
 const SRC = resolve(__dirname, "../../src");
 
 function sourceFiles(dir: string): string[] {
@@ -32,6 +33,7 @@ const CHECKS: { fact: Fact; re: RegExp }[] = [
   { fact: "rated_ms", re: /rated (?:wind )?speed (?:of )?(\d+(?:\.\d+)?) ?m\/s/g },
   { fact: "cut_out_ms", re: /cut-out (?:speed )?(?:of )?(\d+(?:\.\d+)?) ?m\/s/g },
   { fact: "max_rotor_rpm", re: /\b\d+(?:\.\d+)? ?[–-] ?(\d+(?:\.\d+)?) ?rpm\b/g },
+  { fact: "programme_steps", re: /\b(\d+)[- ]step (?:switching )?programme\b/g },
 ];
 
 /** Deliberate other numbers: design alternatives, a string of turbines, another machine. */
@@ -76,5 +78,11 @@ describe("plant facts in prose", () => {
 
   it("allow-listed exceptions still exist (remove them when the text changes)", () => {
     for (const [file, snippet] of ALLOW) expect(readFileSync(join(SRC, file), "utf-8")).toContain(snippet);
+  });
+
+  it("the Academy FRT mission uses the backend's PSE profile and fast fault current rule", () => {
+    expect(PSE_FRT_PROFILE).toEqual(facts.pse_frt_profile);
+    expect(K_FACTOR).toBe(facts.frt_k_min);
+    expect(DEAD_BAND_PU).toBe(facts.frt_dead_band_pu);
   });
 });

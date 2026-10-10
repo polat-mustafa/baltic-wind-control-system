@@ -34,9 +34,9 @@ export const windRoseEducation: EducationContent = {
       type: "standard",
     },
     {
-      label: "MEASNET — Evaluation of site-specific wind conditions",
+      label: "MEASNET — Evaluation of site-specific wind conditions, Version 3 (2022)",
       type: "standard",
-      url: "https://www.measnet.com/procedure/",
+      url: "https://www.measnet.com/documents/",
     },
   ],
 

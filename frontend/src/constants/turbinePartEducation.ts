@@ -313,7 +313,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "converter",
     title: "Power Converter",
     overview:
-      "The full-scale power converter converts the generator's variable-frequency AC into grid-compatible fixed-frequency AC (50 Hz). It consists of a machine-side rectifier (AC\u2192DC), DC link, and grid-side inverter (DC\u2192AC), enabling full control of active and reactive power. The generator side runs at 4.77 kV and 12.6 Hz (IEA 15 MW); the grid-side output feeds the turbine's step-up transformer to 66 kV before the array cable. Transformer losses are typically ~0.5% (copper + iron losses), governed by the turns ratio N\u2082/N\u2081 = V\u2082/V\u2081 = 66,000/784 \u2248 84.2:1.",
+      "The full-scale power converter converts the generator's variable-frequency AC into grid-compatible fixed-frequency AC (50 Hz). It consists of a machine-side rectifier (AC\u2192DC), DC link, and grid-side inverter (DC\u2192AC), enabling full control of active and reactive power. The generator side runs at 4.77 kV and 12.6 Hz (IEA 15 MW); the grid-side output feeds the turbine's step-up transformer to 66 kV before the array cable. The IEA reference does not specify the converter output voltage, so the transformer ratio is not given here; its losses are typically ~0.5 % (copper + iron, illustrative).",
     standards: ["ENTSO-E NC RfG Type D", "PSE IRiESP", "IEC 61400-21"],
     formulas: [
       {
@@ -334,14 +334,13 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
       influencingFactors: ["IGBT junction temperature", "Cooling system", "DC link voltage", "Grid fault duration"],
     },
     efficiencyNotes: [
-      { name: "Switching losses", typicalLossPct: "~1.2%", dissipation: "Heat in IGBT modules (liquid cooled)" },
-      { name: "Conduction losses", typicalLossPct: "~0.8%", dissipation: "Resistive heat in power semiconductors" },
+      { name: "Switching + conduction losses", typicalLossPct: "~0.8%", dissipation: "Heat in the IGBT modules (liquid cooled); \u03B7 = 99.18 %" },
       { name: "Transformer losses (→ 66 kV, illustrative)", typicalLossPct: "~0.5%", dissipation: "Copper (I²R) + iron (hysteresis/eddy) losses in step-up transformer" },
     ],
     simpleExplanation:
       "The converter is like a universal power adapter for your laptop \u2014 it changes the electricity from what the generator produces into what the power grid needs. It also helps the turbine 'ride through' grid disturbances.",
     technicalExplanation:
-      "A full-scale back-to-back voltage-source converter using IGBT modules. Machine-side converter implements field-oriented control for torque regulation; grid-side converter implements voltage-oriented control for P/Q dispatch. FRT capability per ENTSO-E NC RfG Type D requires reactive current injection within 20 ms of voltage dip detection.",
+      "A full-scale back-to-back voltage-source converter using IGBT modules. Machine-side converter implements field-oriented control for torque regulation; grid-side converter implements voltage-oriented control for P/Q dispatch. FRT capability per ENTSO-E NC RfG Type D: fast fault (reactive) current with gain K = 2\u201310, 90 % of it within 60 ms (PSE settings, NC RfG Art. 20(2)(b); backend frt_simulation.py).",
     faultTypes: ["CONVERTER_OVERTEMP", "GRID_FREQUENCY_FAULT"],
   },
 
@@ -377,7 +376,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     simpleExplanation:
       "The yaw system is like a weathervane \u2014 it turns the whole turbine top to face the wind. If it doesn't point the right way, the blades can't catch as much wind, like trying to fly a kite sideways.",
     technicalExplanation:
-      "Four AC servo motors engage a slewing ring bearing via planetary gearboxes. The yaw controller uses filtered nacelle wind vane input with \u00B18\u00B0 deadband to command yaw rotations. Cable twist is managed by a twist counter with automatic unwind cycles. Yaw misalignment \u03B3 causes cos\u00B3\u03B3 power loss \u2014 a key AEP derating factor in energy yield assessments.",
+      "Electric yaw drives (their number is not given by the IEA reference) engage the slewing ring via planetary gearboxes. The yaw controller uses filtered nacelle wind vane input with \u00B18\u00B0 deadband to command yaw rotations. Cable twist is managed by a twist counter with automatic unwind cycles. Yaw misalignment \u03B3 causes cos\u00B3\u03B3 power loss \u2014 a key AEP derating factor in energy yield assessments.",
     faultTypes: ["YAW_ERROR"],
   },
 
@@ -435,7 +434,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
       },
     ],
     design: {
-      v236Value: "Four-legged jacket, ≈ 16 m square at the top, 28 m at the mudline, 4 X-braced bays, pin piles (37–51 m of water)",
+      v236Value: "Four-legged jacket, ≈ 16 m square at the top, 28 m at the mudline, 4 X-braced bays, pin piles (37–51 m of water; dimensions illustrative, as drawn in the 3D model)",
       reasoning:
         "Beyond about 40 m a monopile for a 15 MW rotor becomes very large and heavy; a jacket reaches the stiffness it needs with far less steel because its legs work axially. The price is more fabrication (hundreds of welded tubular joints) and more installation steps.",
       influencingFactors: ["Water depth", "Seabed soil conditions", "Joint fatigue", "Fabrication yard capacity"],
@@ -514,7 +513,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     simpleExplanation:
       "Wind is the fuel for the turbine. The faster the wind blows, the more power is available \u2014 but there's a sweet spot. Too little wind and the turbine can't start; too much and it has to shut down for safety.",
     technicalExplanation:
-      "Hub-height wind resource characterization per IEC 61400-12-1 using cup/sonic anemometry or LiDAR. The Weibull distribution (shape k \u2248 2.0\u20132.2, scale A \u2248 9\u201310 m/s for Baltic) models long-term wind speed frequency, enabling AEP estimation through convolution with the power curve.",
+      "Hub-height wind resource characterization per IEC 61400-12-1 using cup/sonic anemometry or LiDAR. The Weibull distribution (SB-510 site climate at 150 m: A = 10.8 m/s, k = 2.04) models long-term wind speed frequency, enabling AEP estimation through convolution with the power curve.",
     faultTypes: [],
   },
 
@@ -664,22 +663,22 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "bedplate",
     title: "Bedplate (Mainframe)",
     overview:
-      "The structural backbone of the nacelle: a curved cast-steel bedplate that carries the turret (with the main bearings and the generator stator) from its flange 5 m upwind of the tower axis down to the yaw bearing. All rotor loads \u2014 thrust, torque, bending moments \u2014 pass through it into the tower. IEA 15 MW: 70.3 t, 50 mm wall, nose height 4.875 m.",
+      "The structural backbone of the nacelle: a curved cast-steel bedplate that carries the turret (with the main bearings and the generator stator) from its flange 5 m upwind of the tower axis down to the yaw bearing. All rotor loads \u2014 thrust, torque, bending moments \u2014 pass through it into the tower. IEA 15 MW: 42.3 t (v1.1.18 nacelle mass table), 50 mm wall, nose height 4.875 m.",
     standards: ["IEC 61400-1", "EN 1993-1-9", "DNV-ST-0361"],
     formulas: [
       {
         expression: "M_tilt \u2248 F_thrust \u00B7 h + m_RNA \u00B7 g \u00B7 e",
         variables: [
           { symbol: "F_thrust", name: "Rotor thrust (\u2248 2.4 MN near rated)", unit: "MN" },
-          { symbol: "m_RNA", name: "Rotor-nacelle assembly mass (\u2248 1,017 t)", unit: "t" },
-          { symbol: "e", name: "Overhang of the rotor mass (11.35 m to the hub)", unit: "m" },
+          { symbol: "m_RNA", name: "Rotor-nacelle assembly mass (\u2248 946 t)", unit: "t" },
+          { symbol: "e", name: "Overhang of the rotor mass (12.0 m to the hub)", unit: "m" },
         ],
         explanation:
           "The overhung rotor and generator create a large nodding moment on the bedplate and yaw bearing; the thrust adds a fore-aft moment. Both cycle with every gust \u2014 fatigue (IEC 61400-1 DLC 1.x) drives the design.",
       },
     ],
     design: {
-      v236Value: "Cast steel, 70.3 t, 50 mm wall, turret flange 5 m upwind of the tower axis (IEA 15 MW, Table 5-3)",
+      v236Value: "Cast steel, 42.3 t (IEA-15-240-RWT v1.1.18 mass table), 50 mm wall, turret flange 5 m upwind of the tower axis",
       reasoning:
         "A curved casting routes the loads from the turret flange to the 6.5 m yaw bearing smoothly, with no welds in the highest-stressed areas.",
       influencingFactors: ["Rotor thrust and nodding moment", "Fatigue (25 years)", "Casting size limits", "Yaw bearing diameter (6.5 m)"],
@@ -709,13 +708,13 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "\u03B3", name: "Adiabatic exponent (N\u2082: 1.4)", unit: "dimensionless" },
         ],
         explanation:
-          "Bladder-type accumulators store energy under compressed nitrogen. At 250 bar operating pressure, a 50 L accumulator holds sufficient energy to pitch all three blades to feather (\u226590\u00B0) without any pump operation \u2014 the IEC 61400-1 safe-shutdown requirement.",
+          "Bladder-type accumulators store energy under compressed nitrogen. At 250 bar operating pressure, each blade's accumulator (\u2248 50 L, illustrative) holds enough energy to pitch it to feather (\u226590\u00B0) without any pump operation \u2014 the IEC 61400-1 safe-shutdown requirement.",
       },
     ],
     design: {
       v236Value: "30 kW pump, 180\u2013250 bar, ~200 L reservoir, 3\u00D7 blade pitch accumulators",
       reasoning:
-        "Hydraulic pitch actuation is preferred over electric direct drives on this turbine class due to high force density and inherent fail-safe (spring-return to feather). Each blade has its own accumulator for single-failure tolerance.",
+        "The IEA reference does not specify the pitch actuators; this model uses hydraulic cylinders for their force density and stored-energy fail-safe (electric pitch with battery backup is the other common choice). Each blade has its own accumulator for single-failure tolerance.",
       influencingFactors: ["Pitch actuation force", "Fail-safe feathering energy", "Brake caliper pressure", "IEC 61400-1 DLC 2.1 (fault + shutdown)"],
     },
     efficiencyNotes: [
@@ -734,7 +733,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "control_cabinet",
     title: "Main Controller & Safety PLC",
     overview:
-      "The nacelle control cabinets house the main turbine controller (TCS), the safety PLC, network switches, and I/O modules. The TCS implements the full IEC 61400-25-2 state machine, executing the MPPT algorithm below rated wind and the pitch/torque regulation above rated. The safety PLC runs IEC 61508 SIL 2 logic for overspeed, vibration, and fire trips.",
+      "The nacelle control cabinets house the main turbine controller (TCS), the safety PLC, network switches, and I/O modules. The TCS runs the turbine state machine (eight IEC 61400-1 operating states, reported with IEC 61400-25-2 state codes), executing the MPPT algorithm below rated wind and the pitch/torque regulation above rated. The safety PLC runs IEC 61508 SIL 2 logic for overspeed, vibration, and fire trips.",
     standards: ["IEC 61400-25-2 (SCADA data model)", "IEC 61508 SIL 2 (safety PLC)", "IEC 62443-3-3 (cybersecurity)"],
     formulas: [
       {
@@ -749,7 +748,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
       },
     ],
     design: {
-      v236Value: "2\u00D7 cabinets, IEC 61131-3 PLC, 1 Gbps Ethernet ring, UPS-backed",
+      v236Value: "2\u00D7 cabinets, IEC 61131-3 PLC, 1 Gbps Ethernet ring, UPS-backed (illustrative)",
       reasoning:
         "Dual-cabinet architecture separates safety-critical I/O (PLC, e-stop, fire) from performance-critical I/O (TCS, pitch drives, grid interface). Physical separation provides fault isolation per IEC 62443 zone model.",
       influencingFactors: ["IEC 61508 SIL 2 requirement", "EMC environment (strong fields near generator)", "Operating temperature range -20\u00B0C to +55\u00B0C", "Hot-standby redundancy"],
@@ -847,11 +846,11 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "\u03B7_{discharge}", name: "Discharge efficiency", unit: "dimensionless" },
         ],
         explanation:
-          "For P_load = 15 kW (pitch drives + controls), t = 0.25 h (15 min), \u03B7 = 0.85: E = 15 \u00D7 0.25 / 0.85 = 4.4 kWh. Battery capacity is sized with a 1.5\u00D7 margin \u2192 ~6.6 kWh installed (typical: 2\u00D7 48 V / 100 Ah VRLA strings).",
+          "For P_load = 15 kW (pitch drives + controls), t = 0.25 h (15 min), \u03B7 = 0.85: E = 15 \u00D7 0.25 / 0.85 = 4.4 kWh. Battery capacity is sized with a 1.5\u00D7 margin \u2192 ~6.6 kWh installed (e.g. one 48 V / 140 Ah VRLA string = 6.7 kWh).",
       },
     ],
     design: {
-      v236Value: "~6.6 kWh VRLA battery, 48 VDC bus, 15 min backup at 15 kW load",
+      v236Value: "~6.6 kWh VRLA battery, 48 VDC bus, 15 min backup at 15 kW load (illustrative)",
       reasoning:
         "VRLA AGM batteries are preferred for offshore nacelles due to sealed construction (no acid spillage risk in tilted nacelle), wide temperature tolerance, and no hydrogen venting requirement. Li-ion variants offer higher energy density but require thermal management.",
       influencingFactors: ["Grid loss probability and duration", "Pitch drive energy for safe feathering", "Battery degradation at cold temperatures", "Weight budget (nacelle mass \u2248 673 t)"],
@@ -863,7 +862,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     simpleExplanation:
       "The UPS is like the emergency battery in a laptop. If the electricity supply cuts out, the UPS keeps the blade pitch motors and computers running for 15 minutes \u2014 long enough to safely stop the turbine and point the blades away from the wind.",
     technicalExplanation:
-      "The UPS is an online double-conversion system (IEC 62040-3 VFI class): grid AC \u2192 rectifier \u2192 DC bus \u2192 inverter \u2192 load. During normal operation the batteries float at full charge. On grid loss, the inverter draws from the battery without any transfer interruption. The IEC 61400-1 DLC 5.1 (emergency shutdown) analysis requires the pitch system to receive full power for at least one complete feathering cycle (~30 s at 2\u00B0/s). The 15-minute capacity far exceeds this, accommodating multiple retry attempts.",
+      "The UPS is an online double-conversion system (IEC 62040-3 VFI class): grid AC \u2192 rectifier \u2192 DC bus \u2192 inverter \u2192 load. During normal operation the batteries float at full charge. On grid loss, the inverter draws from the battery without any transfer interruption. The IEC 61400-1 DLC 5.1 (emergency shutdown) analysis requires the pitch system to receive full power for at least one complete feathering cycle (90\u00B0 at the 2\u00B0/s pitch rate = 45 s). The 15-minute capacity far exceeds this, accommodating multiple retry attempts.",
     faultTypes: [],
   },
 
@@ -886,7 +885,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
       },
     ],
     design: {
-      v236Value: "Two HEB 300 I-beam rails, 20 m span, 10 t SWL, motorised trolley-hoist",
+      v236Value: "Two HEB 300 I-beam rails, 20 m span, 10 t SWL, motorised trolley-hoist (illustrative)",
       reasoning:
         "Internal crane access is essential for component changeout offshore, where external crane vessels are extremely expensive (\u20AC150,000\u2013600,000/day). A main-bearing or generator exchange (generator 369 t) always needs a jack-up vessel; the internal crane handles converter and auxiliary replacements.",
       influencingFactors: ["Component replacement frequency (MTTR)", "Offshore crane vessel day rates", "Nacelle ceiling clearance", "Structural load path to bedplate"],
@@ -895,7 +894,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     simpleExplanation:
       "The crane rail is like a ceiling track in a factory. A hoist (electric winch) rolls along the track and lets technicians lift heavy components inside the nacelle \u2014 avoiding the need to bring a massive floating crane every time something needs to be replaced.",
     technicalExplanation:
-      "The crane rail system consists of two parallel HEB 300 cold-rolled steel I-beams bolted to nacelle ceiling structure with gusset plates. The motorised trolley uses a variable-speed hoist with load monitoring to prevent SWL exceedance. End stops and limit switches prevent rail over-travel. Designed per EN 13001-2 with fatigue category EC1 (moderate use, \u2264100 full cycles/year). The rail is rated for dynamic loads including nacelle motion in wave-induced vessel roll (jack-up stabilisation not required as nacelle is tower-mounted).",
+      "The crane rail system consists of two parallel HEB 300 hot-rolled steel I-beams bolted to nacelle ceiling structure with gusset plates. The motorised trolley uses a variable-speed hoist with load monitoring to prevent SWL exceedance. End stops and limit switches prevent rail over-travel. Designed per EN 13001-2 with fatigue category EC1 (moderate use, \u2264100 full cycles/year). The rail is rated for dynamic loads including nacelle motion in wave-induced vessel roll (jack-up stabilisation not required as nacelle is tower-mounted).",
     faultTypes: [],
   },
 
@@ -915,20 +914,20 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "R_{disc}", name: "Yaw ring radius", unit: "m" },
         ],
         explanation:
-          "For \u03BC=0.35, F_clamp=150 kN per caliper (250 bar \u00D7 60 cm\u00B2 piston), R_disc=2.5 m: T = 4\u00D72\u00D70.35\u00D7150,000\u00D72.5 = 1.05 MN\u00B7m per caliper side. Total braking torque >>10 MN\u00B7m \u2014 far exceeds maximum yaw torque from wind loading.",
+          "For \u03BC=0.35, F_clamp=150 kN per caliper (250 bar \u00D7 60 cm\u00B2 piston), R_disc=3.25 m (6.5 m bearing): T = 4\u00D72\u00D70.35\u00D7150,000\u00D73.25 \u2248 1.4 MN\u00B7m for four calipers. Large nacelles therefore carry many more calipers; four is a simplification of this model.",
       },
     ],
     design: {
       v236Value: "4\u00D7 hydraulic calipers, 250 bar, 6.5 m yaw bearing, fail-safe spring-applied (illustrative)",
       reasoning:
         "Fail-safe spring-applied design ensures the nacelle is locked if hydraulic pressure is lost (e.g. HPU failure). Active yaw requires deliberate hydraulic release. This SIL 2 design prevents uncontrolled nacelle rotation that could overload the twist cables.",
-      influencingFactors: ["Maximum yaw moment from asymmetric wind loading", "Cable twist limit (\u00B13.5 turns)", "Yaw drive motor torque for controlled rotation", "Offshore corrosion environment (316L stainless disc)"],
+      influencingFactors: ["Maximum yaw moment from asymmetric wind loading", "Cable twist limit (\u00B13.5 turns)", "Yaw drive motor torque for controlled rotation", "Offshore corrosion environment"],
     },
     efficiencyNotes: [],
     simpleExplanation:
       "Yaw brakes are like powerful parking brakes for the nacelle direction. When the turbine has turned to face the wind, these hydraulic clamps lock the nacelle in place so it doesn\u2019t keep spinning. They release briefly when the wind direction changes.",
     technicalExplanation:
-      "Each caliper is a spring-applied, hydraulically released (SAHR) disc brake per EN 13849 Category 3, PL d. The four calipers act on the outer flange of the yaw slewing ring. During yaw motions, the calipers are partially pressurised to provide damping torque (~20% of full clamp) to suppress yaw oscillations \u2014 the \u2018yaw damping\u2019 mode. Pad wear is monitored by a proximity sensor; worn pads generate a SCADA alarm at <5 mm remaining thickness. Disc is 25 mm 316L stainless steel for corrosion resistance.",
+      "Each caliper is a spring-applied, hydraulically released (SAHR) disc brake per EN 13849 Category 3, PL d. The four calipers act on the outer flange of the yaw slewing ring. During yaw motions, the calipers are partially pressurised to provide damping torque (~20% of full clamp) to suppress yaw oscillations \u2014 the \u2018yaw damping\u2019 mode. Pad wear is monitored by a proximity sensor; worn pads generate a SCADA alarm at <5 mm remaining thickness.",
     faultTypes: ["YAW_ERROR"],
   },
 
@@ -937,7 +936,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     partId: "cable_routing",
     title: "Nacelle Cable Routing (Power + Control)",
     overview:
-      "A bundle of power cables and fibre-optic/control cables descends from the nacelle base through the centre of the tower to the tower base. The three MV power cables (66 kV XLPE, 240 mm\u00B2) carry rated current (~131 A at 66 kV). Control and data cables include fibre optic (1 Gbps IEC 61850 GOOSE), Profibus for pitch drives, and safety loop wiring. A cable twist loop accommodates \u00B13.5 full nacelle rotations before untwist.",
+      "A bundle of power cables and fibre-optic/control cables descends from the nacelle base through the centre of the tower to the tower base. The 66 kV XLPE power cables carry only one turbine's current (\u2248 131 A at unity power factor). Control and data cables include fibre optic (1 Gbps IEC 61850 GOOSE), Profibus for pitch drives, and safety loop wiring. A free-hanging twist loop takes \u00B13.5 nacelle turns before a forced untwist.",
     standards: ["IEC 60840 (MV cables)", "IEC 61850-9 (Process bus)", "IEC 62305 (Lightning protection for cables)"],
     formulas: [
       {
@@ -948,13 +947,13 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
           { symbol: "cos\u03C6", name: "Power factor", unit: "dimensionless" },
         ],
         explanation:
-          "At 15 MW rated, 66 kV, pf=0.9: I = 15\u00D710\u2076 / (\u221A3 \u00D7 66,000 \u00D7 0.9) = 146 A. The cable is rated at 240 mm\u00B2 XLPE with a continuous current rating of \u2265185 A (uprated by the J-tube thermal derating factor of ~0.8 \u2192 185/0.8 = 231 A \u2265 146 A).",
+          "At 15 MW rated, 66 kV, pf=0.9: I = 15\u00D710\u2076 / (\u221A3 \u00D7 66,000 \u00D7 0.9) = 146 A \u2014 small for a 66 kV cable: the smallest array section in the model (500 mm\u00B2) is rated 655 A (ABB, IEC 60287), so even a 0.8 derating for the enclosed tower leaves a wide margin.",
       },
     ],
     design: {
-      v236Value: "3\u00D7 66 kV XLPE 240 mm\u00B2 MV cables, \u00B13.5-turn twist loop, 1 Gbps fibre optic ring",
+      v236Value: "66 kV XLPE drop cable, \u00B13.5-turn twist loop, 1 Gbps fibre optic ring (illustrative)",
       reasoning:
-        "The twist loop stores cable length for nacelle rotation. At 3.5 turns \u00D7 5 m yaw ring circumference = 17.5 m of loop per cable. A cable twist counter in the TCS triggers an untwist sequence when the limit is approached.",
+        "The free-hanging loop absorbs the twist of the nacelle rotation. The cable twist counter warns at \u00B1630\u00B0 (1.75 turns) and forces an untwist at \u00B11260\u00B0 (3.5 turns) (backend nacelle_subsystems.py).",
       influencingFactors: ["Rated current (146 A)", "Yaw rotation range (\u00B13.5 turns)", "Tower height (150 m cable run)", "IEC 62305 lightning surge protection"],
     },
     efficiencyNotes: [
@@ -963,7 +962,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     simpleExplanation:
       "Cables run from the nacelle all the way down through the middle of the tower to the seabed connection. Because the nacelle spins left and right to follow the wind, the cables have a looped section that uncoils as the nacelle rotates \u2014 like a retractable phone cord.",
     technicalExplanation:
-      "The tower cable arrangement uses a J-tube termination at the nacelle base and free-hanging drops through the tower interior. A twist accumulator loop (spiral section) stores cable for \u00B13.5 rotations. The cable twist counter is implemented in the yaw controller: yaw angle is accumulated; at \u00B1630\u00B0 a soft warning is issued; at \u00B1900\u00B0 an untwist command executes. IEC 62305 surge protection devices are installed at the nacelle cable entry. MV cable capacitance (~0.18 \u03BCF/km) contributes to array charging current management.",
+      "The tower cables hang free from the nacelle base through the tower interior (J-tubes are at the foundation, where the array cables enter). A twist accumulator loop (spiral section) stores cable for \u00B13.5 rotations. The cable twist counter is implemented in the yaw controller: yaw angle is accumulated; at \u00B1630\u00B0 a soft warning is issued; at \u00B11260\u00B0 a forced untwist executes. IEC 62305 surge protection devices are installed at the nacelle cable entry. The 66 kV array cables add 0.29\u20130.38 \u03BCF/km of capacitance (500\u20131000 mm\u00B2, ABB) to the array charging current.",
     faultTypes: [],
   },
 
@@ -987,7 +986,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
       },
     ],
     design: {
-      v236Value: "4\u00D7 20 kg HFC-227ea cylinders, VESDA smoke detection, CO\u2082 pre-warning alarm",
+      v236Value: "4\u00D7 20 kg HFC-227ea cylinders, VESDA smoke detection (illustrative)",
       reasoning:
         "Clean agents are essential offshore to avoid water damage to electrical equipment and because manual intervention is impossible. HFC-227ea is electrically non-conductive, low-toxicity at design concentration, and leaves no residue on electronics.",
       influencingFactors: ["Nacelle enclosure volume", "Occupied vs unoccupied detection strategy", "Insurance and DNV type approval requirements", "Environmental regulations on halon alternatives"],
@@ -996,7 +995,7 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     simpleExplanation:
       "Fire is a serious risk inside the nacelle because hydraulic oil, large electrical machines and high-voltage electronics are all confined in one space. The fire suppression cylinders automatically spray a gas that smothers flames without damaging electronics \u2014 think of it as a giant fire extinguisher that fires itself.",
     technicalExplanation:
-      "The dual-channel detection (VESDA + thermal) prevents false discharge (probability <10\u207B\u2076/year per IEC 61508). On confirmed fire, a 30-second pre-alarm alert sounds (allows personnel evacuation), then agent discharges at 10 bar through nozzles designed to achieve design concentration within 10 s (ISO 14520). Post-discharge, the nacelle is ventilated before re-entry. The system interfaces with the safety PLC to trigger emergency shutdown (pitch to feather, main breaker open) simultaneously with agent discharge.",
+      "The dual-channel detection (VESDA + thermal, both must confirm) prevents false discharge. On confirmed fire, a 30-second pre-alarm alert sounds (allows personnel evacuation), then agent discharges at 10 bar through nozzles designed to achieve design concentration within 10 s (ISO 14520). Post-discharge, the nacelle is ventilated before re-entry. The system interfaces with the safety PLC to trigger emergency shutdown (pitch to feather, main breaker open) simultaneously with agent discharge.",
     faultTypes: [],
   },
 
@@ -1021,14 +1020,14 @@ export const TURBINE_PART_EDUCATION: TurbinePartEducation[] = [
     design: {
       v236Value: "IEC 62305 LPL I (200 kA), 50 mm\u00B2 copper conductor, slip-ring discharge path, SPDs on all cable entries",
       reasoning:
-        "Offshore Baltic turbines experience \u223C3\u20135 lightning strikes per turbine per year. LPL I provides a rolling sphere radius of 20 m, protecting the full blade swept area. The conductor bypasses the main bearings and the generator air gap via a dedicated brush/slip-ring path to prevent bearing current damage.",
-      influencingFactors: ["Strike frequency (keraunic level, Baltic \u22483-5/km\u00B2/year)", "Blade receptor geometry", "Tower height (150 m \u2192 increased interception probability)", "IEC 61400-24 blade tip design"],
+        "How often a turbine is struck depends on the local ground-flash density and its height (IEC 61400-24 Annex A). LPL I provides a rolling sphere radius of 20 m, protecting the full blade swept area. The conductor bypasses the main bearings and the generator air gap via a dedicated brush/slip-ring path to prevent bearing current damage.",
+      influencingFactors: ["Local ground-flash density (lightning location data)", "Blade receptor geometry", "Tower height (150 m \u2192 increased interception probability)", "IEC 61400-24 blade tip design"],
     },
     efficiencyNotes: [],
     simpleExplanation:
       "Wind turbines are very tall and often get struck by lightning. The down-conductor is a thick copper wire that gives the lightning a safe path to travel \u2014 from the blade tip, through the hub, down the tower, and into the sea \u2014 without damaging the main bearings or electronics.",
     technicalExplanation:
-      "The IEC 61400-24 LPS design requires that all conductive parts within 3 m of the down-conductor are either bonded or maintained at >3 m separation. The main bearings and generator are bypassed using a carbon-brush slip ring assembly on the main shaft that provides a direct current path from the rotor hub to the bedplate earthing bar, avoiding bearing damage. SPDs (Type 1 + Type 2, 200 kA 10/350 \u03BCs waveshape) protect all data and power cables at the nacelle entry. The earthing electrode system at the monopile achieves <10 \u03A9 to remote earth per IEC 62305-3.",
+      "The IEC 61400-24 LPS design requires that all conductive parts within 3 m of the down-conductor are either bonded or maintained at >3 m separation. The main bearings and generator are bypassed using a carbon-brush slip ring assembly on the main shaft that provides a direct current path from the rotor hub to the bedplate earthing bar, avoiding bearing damage. SPDs (Type 1 + Type 2, 200 kA 10/350 \u03BCs waveshape) protect all data and power cables at the nacelle entry. The earthing system through the jacket and its piles achieves <10 \u03A9 to remote earth per IEC 62305-3.",
     faultTypes: [],
   },
 ];

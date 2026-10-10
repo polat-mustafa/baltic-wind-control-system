@@ -389,7 +389,7 @@ const commissioning: Tour = {
       title: "First energisation",
       body:
         "Before the farm exports power, every HV circuit is energised in a controlled order. After the " +
-        "factory and site acceptance tests and PSE's energisation notification (EON), a 60-step programme " +
+        "factory and site acceptance tests and PSE's energisation notification (EON), a 63-step programme " +
         "takes export circuit 1 from earthed and locked to live, verifying each step on a load flow.",
     },
     {

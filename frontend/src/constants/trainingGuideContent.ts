@@ -268,7 +268,7 @@ export const p5Guide: TrainingGuideData = {
     "When the programme is complete, finish the FON items and submit the FON.",
   ],
   sections: [
-    { name: "Switching", description: "Single-line diagram coloured by the backend's zone analysis (live / earthed / isolated), the current step with its controls, load-flow readings and the 60 steps in six phases." },
+    { name: "Switching", description: "Single-line diagram coloured by the backend's zone analysis (live / earthed / isolated), the current step with its controls, load-flow readings and the 63 steps in six phases." },
     { name: "Isolation", description: "EN 50110-1 register: disconnectors locked open, earth switches locked closed, each with a danger tag. Only the PiC removes a lock." },
     { name: "FAT / SAT", description: "Routine tests per equipment class with IEC 60076-1 / IEC 62271 / IEC 60255 limits; site tests of circuit 1 after installation." },
     { name: "Grid code", description: "NC RfG EON → ION → FON for an onshore type D power park module (connection point PSE 400 kV): documents, compliance tests (Art. 47–48), simulations (Art. 54–56)." },

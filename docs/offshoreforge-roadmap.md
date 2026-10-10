@@ -233,6 +233,12 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   (may only improve). B4 will show them on the Evidence page.
 - **B2 — P2 analytic checks as tests:** ωCU²L charging, Ferranti 1/cos βl, LFSM-O hand formula vs ANDES,
   IEC TR 60909-4 example networks.
+  **Done** (`tests/test_p2_analytic.py`): pandapower vs a hand π-model of the 108 km export circuit (V_r and
+  Q to 1e-6), π-model and `ferranti_rise_pu` vs the exact distributed line 1/cosh γl (within 1 %), charging
+  Q = ωCL(V_s² + V_r²)/2 − 3I²X (0.1 %; 2.2 % above nominal ωCV²L because of the open-end rise),
+  `calc_sc` vs an IEC 60909-0:2016 hand calculation (grid feeder + transformer, K_T for max only, κ for i_p).
+  LFSM-O was already covered (204 MW/Hz hand number in `test_ppc.py`, ANDES in `test_andes_dynamics.py`).
+  TR 60909-4 example networks not transcribed (pandapower ships no copy; hand network instead).
 - **B3 — P4 real data only:** drop the synthetic SCADA forecast path; train and score on measured data
   (ENTSO-E File Library already in use, PR #262). Day-ahead metrics: CRPS, P10–P90 coverage,
   reliability diagram, skill vs 24 h persistence and climatology. Research result: the data is already

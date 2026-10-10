@@ -60,8 +60,12 @@ export default function ForecastPage() {
       </div>
 
       {tab === "real" && <RealDataPanel />}
-      {tab === "academy" && <AcademyTab />}
-      {tab === "map" && <ConceptMap lang={lang} />}
+      {/* The course carries its own English and Turkish text: the DOM translator leaves it alone */}
+      {(tab === "academy" || tab === "map") && (
+        <div translate="no" lang={lang}>
+          {tab === "academy" ? <AcademyTab /> : <ConceptMap lang={lang} />}
+        </div>
+      )}
     </div>
   );
 }

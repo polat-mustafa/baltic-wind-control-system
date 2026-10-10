@@ -129,7 +129,7 @@ function StatusChip({ status, allPassed }: { status: string; allPassed: boolean 
           : "bg-bg-tertiary text-text-secondary",
       )}
     >
-      {status === "completed" && !allPassed ? "failures" : status.replace("_", " ")}
+      {status === "completed" && !allPassed ? "failures" : status === "in_progress" ? "in progress" : status}
     </span>
   );
 }

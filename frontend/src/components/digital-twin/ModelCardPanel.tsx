@@ -174,8 +174,10 @@ export default function ModelCardPanel() {
           <ul className="space-y-1.5 text-xs">
             {card.standards.map((s) => (
               <li key={s.code}>
-                <span className="font-mono font-semibold text-text-primary">{s.code}</span>{" "}
-                <span className="text-text-secondary">{s.title}</span>
+                <span translate="no">
+                  <span className="font-mono font-semibold text-text-primary">{s.code}</span>{" "}
+                  <span className="text-text-secondary">{s.title}</span>
+                </span>
                 <div className="text-xs text-text-muted">→ {s.role}</div>
               </li>
             ))}

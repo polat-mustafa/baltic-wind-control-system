@@ -52,17 +52,25 @@ export const shortCircuitEducation: EducationContent = {
       title: "66 kV offshore switchgear duty",
       scenario: "Maximum case (c = 1.10), all WTGs contributing, OSS 66 kV busbar.",
       steps: [
-        "Ik'' = 21.4 kA, ip = 50.5 kA (pandapower calc_sc)",
-        "Breaking: 21.4 / 25 kA = 86 % of a 25 kA breaker",
-        "Making: 50.5 / (2.5 × 25 = 62.5 kA) = 81 %",
+        "Ik'' = 19.5 kA, ip = 44.8 kA (pandapower calc_sc)",
+        "Breaking: 19.5 / 25 kA = 78 % of a 25 kA breaker",
+        "Making: 44.8 / (2.5 × 25 = 62.5 kA) = 72 %",
       ],
       result:
-        "25 kA switchgear is adequate with margin; a third offshore transformer in parallel would push the busbar " +
-        "past it — fault level is a constraint on how much transformer capacity can be paralleled.",
+        "25 kA switchgear is adequate with margin; a third 66/220 kV transformer in parallel would raise Ik'' to " +
+        "≈ 21.2 kA (85 %) — every transformer paralleled eats into that margin.",
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "West Murray (Australia): when fault level is too low",
+      description:
+        "In a remote zone with a low-capacity 220 kV network and many inverter-based plants, AEMO declared a system strength gap in December 2019 and limited five solar farms to 50 % because of voltage oscillations, until tuned inverter settings were proven in April 2020.",
+      takeaway: "Short-circuit power is not only breaker duty: a weak grid (low S_sc) limits how much converter-based generation can connect stably.",
+      source: "AEMO media release, April 2020; AEMO West Murray presentation, Feb 2020",
+    },
+  ],
 
   furtherReading: [
     {

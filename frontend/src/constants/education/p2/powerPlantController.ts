@@ -90,7 +90,15 @@ export const powerPlantControllerEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Hornsea One, 9 August 2019: plant control under a grid fault",
+      description:
+        "After a transmission fault the onshore control system behaved as designed, but the offshore turbine controllers reacted incorrectly to voltage fluctuations on the offshore network; the instability between them shut down two modules and the farm deloaded from 799 MW to 62 MW. A software update was installed the next day.",
+      takeaway: "The PPC and the turbine controllers form one control loop — its stability at full output and on weak grid conditions has to be proven, not assumed.",
+      source: "Ofgem, 9 August 2019 power outage report (January 2020)",
+    },
+  ],
 
   furtherReading: [
     {

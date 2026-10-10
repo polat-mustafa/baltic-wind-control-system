@@ -77,7 +77,15 @@ export const protectionEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "9 August 2019: protection settings that made it worse",
+      description:
+        "During the GB event, vector-shift loss-of-mains protection tripped about 150 MW of embedded generation on the voltage dip and rate-of-change-of-frequency settings tripped an estimated 350–430 MW more as frequency fell.",
+      takeaway: "Protection must clear real faults and stay stable for the disturbances it is not meant for — selectivity and settings are a system question.",
+      source: "Ofgem, 9 August 2019 power outage report (January 2020)",
+    },
+  ],
 
   furtherReading: [
     { label: "Network Protection & Automation Guide (NPAG)", type: "textbook", citation: "Alstom Grid / GE, 2011 edition" },

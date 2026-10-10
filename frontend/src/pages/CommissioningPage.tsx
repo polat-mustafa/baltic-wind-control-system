@@ -51,10 +51,21 @@ const STATUS_STYLE: Record<ProgrammeStatus, string> = {
   aborted: "bg-status-alarm/15 text-status-alarm",
 };
 
+/** Written out so the UI translator finds each word. */
+const STATUS_LABEL: Record<ProgrammeStatus, string> = {
+  created: "created",
+  approved: "approved",
+  in_progress: "in progress",
+  hold: "hold",
+  suspended: "suspended",
+  completed: "completed",
+  aborted: "aborted",
+};
+
 function StatusChip({ status }: { status: ProgrammeStatus }) {
   return (
     <span className={cn("rounded px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide", STATUS_STYLE[status])}>
-      {status.replace("_", " ")}
+      {STATUS_LABEL[status]}
     </span>
   );
 }

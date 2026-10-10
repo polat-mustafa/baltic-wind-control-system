@@ -83,9 +83,10 @@ export const wakeLossEducation: EducationContent = {
     {
       title: "Horns Rev 1 (Denmark) — wakes made visible",
       description:
-        "A 2008 photograph of the 80-turbine farm in humid, cold conditions shows condensation tracing each turbine's " +
-        "wake far downstream.",
+        "A photograph of the 80-turbine farm on 12 February 2008, in cold humid air over a warmer sea, shows fog " +
+        "tracing each turbine's wake far downstream.",
       takeaway: "Offshore wakes are persistent and kilometres long — spacing decisions are worth real energy.",
+      source: "Hasager et al., Energies 6(2), 696 (2013), \"Wind farm wake: the Horns Rev photo case\"",
     },
     {
       title: "Lillgrund (Sweden) — very tight spacing",
@@ -93,6 +94,7 @@ export const wakeLossEducation: EducationContent = {
         "Built with unusually close spacing (about 3.3 D × 4.3 D). It became a reference data set for wake model " +
         "validation because its wake losses are much larger than at conventionally spaced farms.",
       takeaway: "Spacing below ~5 D gives disproportionately large wake losses.",
+      source: "EERA-DTOC wake benchmark, DTU / Vattenfall (DeepWind 2014)",
     },
   ],
 

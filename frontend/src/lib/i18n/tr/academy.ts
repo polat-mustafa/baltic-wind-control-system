@@ -111,7 +111,6 @@ export default {
   "Loading the real-data benchmark…": "Gerçek veri kıyaslaması yükleniyor…",
   "The twin's detector on": "İkizin dedektörü:",
   "real offshore SCADA with recorded faults": "kayıtlı arızalı gerçek açık deniz SCADA verisi",
-  "same EWMA chart as the live twin": "canlı ikizle aynı EWMA grafiği",
   Events: "Olaylar",
   Recorded: "Kayıtlı",
   "Twin verdict": "İkiz kararı",

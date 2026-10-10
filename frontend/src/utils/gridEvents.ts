@@ -45,14 +45,13 @@ const F0 = 50;
 const DROOP = 0.05;
 export const CE = { H: 5, S_MW: 300_000, lossMW: 3000, fcrMW: 3000, fcrLagS: 8, loadDampingPerHz: 0.01 };
 
-/** PSE LVRT envelope (backend frt_simulation.py): time [s] → minimum U [pu]. */
+/** PSE type-D FRT profile (NC RfG Art. 16(3)(a), backend frt_simulation.py PSE_FRT_PROFILE):
+ *  time after fault inception [s] → minimum POC voltage [pu] the farm must ride through. */
 export const PSE_LVRT: [number, number][] = [
-  [0, 0.15],
-  [0.14, 0.25],
-  [0.5, 0.85],
-  [1.0, 0.85],
-  [1.5, 1.0],
-  [3.0, 1.0],
+  [0, 0],
+  [0.15, 0],
+  [2.5, 0.85],
+  [3.0, 0.85],
 ];
 
 export function lvrtLimit(t: number): number {
@@ -102,21 +101,34 @@ export function frequencyEvent(
   return out;
 }
 
+/** Fault inception in the voltage-dip trajectory [s] (a short pre-fault stretch is drawn first). */
+export const DIP_START_S = 0.02;
+
 /** 400 kV fault near the grid node: U_ret 0.3 pu for 140 ms, then recovery (Pmax = pmaxMW). */
 export function voltageDipEvent(pFarmMW: number, pmaxMW: number, durationS = 3, dt = 0.01): GridSample[] {
-  const CLEAR = 0.14;
+  const ms = (s: number) => Math.round(s * 1000) / 1000;
+  const CLEAR = ms(DIP_START_S + 0.14);
+  const RAMP_END = ms(CLEAR + 0.11);
   const out: GridSample[] = [];
-  for (let t = 0; t <= durationS + 1e-9; t += dt) {
+  for (let i = 0; i * dt <= durationS + 1e-9; i++) {
+    // ms-rounded time: an accumulated t drifts below 0.16 and would stretch the dip by a step
+    const t = ms(i * dt);
     const u =
-      t < 0.02 ? 1 : t < CLEAR ? 0.3 : t < 0.25 ? 0.3 + ((t - CLEAR) / 0.11) * 0.55 : Math.min(1, 0.85 + (t - 0.25) * 0.12);
+      t < DIP_START_S
+        ? 1
+        : t < CLEAR
+          ? 0.3
+          : t < RAMP_END
+            ? 0.3 + ((t - CLEAR) / 0.11) * 0.55
+            : Math.min(1, 0.85 + (t - RAMP_END) * 0.12);
     const iq = Math.min(1, 2 * Math.max(0, 0.9 - u)); // K = 2 outside the ±10 % band
     const ip = Math.sqrt(Math.max(0, 1 - iq * iq));
     // P: limited by Ip during the dip; ramps back to 100 % over 0.8 s after clearance
     const recovery = t < CLEAR ? 0 : Math.min(1, (t - CLEAR) / 0.8);
     const pLimit = u * ip * pmaxMW;
-    const pMW = t < 0.02 ? pFarmMW : Math.min(pLimit, pFarmMW * (t < CLEAR ? 1 : recovery));
+    const pMW = t < DIP_START_S ? pFarmMW : Math.min(pLimit, pFarmMW * (t < CLEAR ? 1 : recovery));
     out.push({
-      t: Math.round(t * 1000) / 1000,
+      t,
       f: F0,
       u,
       pMW,

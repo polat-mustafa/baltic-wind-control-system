@@ -43,7 +43,7 @@ export const sensitivityEducation: EducationContent = {
         { symbol: "S_i", name: "Normalised (elasticity) sensitivity to input i", unit: "—" },
         { symbol: "x_i", name: "Input i", unit: "varies" },
       ],
-      explanation: "'1 % change in x_i gives S_i % change in AEP'. For Weibull A on this site S ≈ 1.2.",
+      explanation: "'1 % change in x_i gives S_i % change in AEP'. For Weibull A on this site S ≈ 1.0 (0.98 in aep_sensitivity()).",
     },
     {
       expression: "S_i^Sobol = Var[E(Y | x_i)] / Var(Y)",
@@ -73,7 +73,15 @@ export const sensitivityEducation: EducationContent = {
     },
   ],
 
-  realWorldCases: [],
+  realWorldCases: [
+    {
+      title: "Ørsted's 2019 production revision",
+      description:
+        "Better modelling of blockage and wake losses made Ørsted cut the expected lifetime load factor of a European offshore portfolio from 48–50 % to about 48 % and its IRR target from 7.5–8.5 % to 7.0–8.0 %; its share price fell about 7 % that day.",
+      takeaway: "One modelling input that shifts energy by a few percent moves the return of a multi-billion project — sensitivity tells you which inputs to measure better.",
+      source: "Ørsted company announcement, 29 Oct 2019; offshorewind.biz (2019)",
+    },
+  ],
 
   furtherReading: [
     {

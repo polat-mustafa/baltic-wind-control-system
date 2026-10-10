@@ -109,7 +109,7 @@ export default function MissionFrame({ mission, onClose, children }: { mission: 
         )}
       </div>
       {children}
-      <p className="border-t border-border-primary pt-2 text-xs text-text-muted">References: {mission.refs.join(" · ")}</p>
+      <p className="border-t border-border-primary pt-2 text-xs text-text-muted">References: <span translate="no">{mission.refs.join(" · ")}</span></p>
     </section>
   );
 }

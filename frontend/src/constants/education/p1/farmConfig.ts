@@ -20,8 +20,8 @@ export const farmConfigEducation: EducationContent = {
   technicalExplanation:
     "Wake loss falls with spacing because the deficit decays roughly as 1/(1 + 2k·x/D)² (Jensen) or with the growing " +
     "Gaussian width (Bastankhah–Porté-Agel); offshore k is small, so recovery is slow. Spacing is usually larger along " +
-    "the prevailing wind direction than across it. Turbines other than 15 MW are modelled as the V236 scaled at " +
-    "constant specific power (343 W/m²): same rated wind speed, rotor area ∝ rating, so wake loss depends only on " +
+    "the prevailing wind direction than across it. Turbines other than 15 MW are modelled as the IEA 15 MW reference scaled at " +
+    "constant specific power (328 W/m²): same rated wind speed, rotor area ∝ rating, so wake loss depends only on " +
     "spacing in rotor diameters. Export circuits are 1000 mm² Cu XLPE (825 A each, ABB/NKT datasheet); the number of circuits follows " +
     "the current at rated power, and cable charging Q = ωCU²L grows with length.",
 
@@ -76,9 +76,10 @@ export const farmConfigEducation: EducationContent = {
     {
       title: "Horns Rev 1 (Denmark) — 7 D square grid",
       description:
-        "80 turbines on a regular grid with 7 D spacing in both directions; one of the first large offshore arrays and " +
-        "a long-standing wake-model validation case.",
+        "80 Vestas V80 turbines on a regular grid, 560 m (7 D) apart in both directions; one of the first large " +
+        "offshore arrays and a long-standing wake-model validation case.",
       takeaway: "Regular grids are simple to build and analyse, but they line turbines up exactly for some directions.",
+      source: "Horns Rev environmental impact summary; TU Delft OCW, Module 9 wind farm aspects",
     },
   ],
 

@@ -101,7 +101,7 @@ export default {
     "Santralinizi Baltık hava pencerelerinde kurun; bahar ve sonbahar başlangıcını P50 ve P90 üzerinden karşılaştırın.",
   "Protection Zones, Grading and Clearance Time": "Koruma bölgeleri, kademelendirme ve temizleme süresi",
   "Energise export circuit 1 step by step: isolation locks, interlocks, hold points and load-flow readings.":
-    "İletim devresi 1'i adım adım enerjilendirin: yalıtım kilitleri, kilitlemeler, bekleme noktaları ve yük akışı okumaları.",
+    "İletim devresi 1'i adım adım enerjilendirin: izolasyon kilitleri, kilitlemeler, bekleme noktaları ve yük akışı okumaları.",
   "Print the as-built register and put your farm on the control-room map.": "Yapıldığı gibi kaydını yazdırın ve santralinizi kontrol odası haritasına koyun.",
   "Keep the plant compliant, available and healthy.": "Tesisi uyumlu, kullanılabilir ve sağlıklı tutun.",
   "Fault Ride-Through (FRT) and Fast Fault Current": "Arızada devrede kalma (FRT) ve hızlı arıza akımı",

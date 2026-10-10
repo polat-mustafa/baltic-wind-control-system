@@ -21,7 +21,7 @@ export const lcoeEducation: EducationContent = {
     "Screening form: LCOE = (CAPEX·CRF + OPEX) / AEP_net, with the capital recovery factor CRF = r(1+r)ⁿ / ((1+r)ⁿ − 1). " +
     "It assumes constant annual energy and costs; full models discount year-by-year cash flows (degradation, major " +
     "repairs, decommissioning). Use real costs with a real discount rate or nominal with nominal — never mix. LCOE is " +
-    "inversely proportional to AEP: using P90 instead of P50 raises it by the same 8–10 %. When LCOE > price, the " +
+    "inversely proportional to AEP: using P90 instead of P50 raises it by 1/(P90/P50) − 1, about 11 % here. When LCOE > price, the " +
     "project IRR is below the discount rate — the two indicators say the same thing.",
 
   standards: [
@@ -80,7 +80,7 @@ export const lcoeEducation: EducationContent = {
         "LCOE = 263.3 M€ / 2,183,000 MWh = 120.6 €/MWh",
       ],
       result:
-        "≈ 120 €/MWh: far above a flat 72 €/MWh market price (payback 28.6 years > the 25-year life, IRR ≈ 0 %), so the " +
+        "≈ 120 €/MWh: far above a flat 72 €/MWh market price (payback 27.3 years > the 25-year life, IRR ≈ 0 %), so the " +
         "project needs a CfD strike near its LCOE, lower CAPEX, or cheaper capital. A 1 pp lower WACC alone brings LCOE to ≈ 112 €/MWh.",
     },
   ],
@@ -97,9 +97,11 @@ export const lcoeEducation: EducationContent = {
     {
       title: "UK — AR4 (2022) and AR5 (2023)",
       description:
-        "Offshore wind cleared AR4 at £37.35/MWh (2012 prices). After steep cost inflation, AR5 attracted no offshore " +
-        "bids at its administrative ceiling, and the ceiling was raised for AR6.",
+        "Offshore wind cleared AR4 (July 2022) at £37.35/MWh (2012 prices). After steep cost inflation no offshore " +
+        "wind project won a contract in AR5 (September 2023) under its £44/MWh ceiling; for AR6 the ceiling was raised " +
+        "to £73/MWh and offshore wind returned with nearly 5 GW.",
       takeaway: "When CAPEX and interest rates rise faster than AEP improves, strike prices must follow — LCOE moves.",
+      source: "GOV.UK, CfD Allocation Round 4 and 5 results (2022, 2023); AR6 results (2024)",
     },
   ],
 

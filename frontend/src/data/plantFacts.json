@@ -1,0 +1,16 @@
+{
+ "turbines": 34,
+ "turbine_mw": 15.0,
+ "capacity_mw": 510.0,
+ "export_km": 108.0,
+ "reactors": 4,
+ "reactor_mvar": 180.0,
+ "statcom_mvar": 120.0,
+ "cable_charging_mvar": 624,
+ "rotor_diameter_m": 241.35,
+ "cut_in_ms": 3.0,
+ "rated_ms": 10.6594,
+ "cut_out_ms": 25.0,
+ "min_rotor_rpm": 5.0,
+ "max_rotor_rpm": 7.56
+}

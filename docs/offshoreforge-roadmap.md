@@ -268,6 +268,14 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   Every normal test run compares the recorded value with the committed one (2 % + 0.001) and fails if it drifted —
   regenerate and commit. Not covered yet: P3, ANDES (Linux-only), DT.
 - **B5 — guards:** numbers quoted in education prose checked against the backend; weekly DOI / link check.
+  **Done**: `backend/tests/test_plant_facts.py` keeps `frontend/src/data/plantFacts.json` equal to the backend
+  (FarmSpec SB510, IEA-15 turbine); `frontend/tests/constants/plantFacts.test.ts` checks every phrase in `src/` that
+  quotes an SB-510 number (turbine count, MW, export km, reactors, STATCOM, charging Mvar, rotor D, cut-in / rated /
+  cut-out, rpm) at the quoted precision — 60+ hits, 7 allow-listed alternatives (sizing options, a 6-WTG string,
+  another rotor, an Academy mission target, the DT 7.52 rpm tip-speed limit). `backend/scripts/check_links.py` +
+  `.github/workflows/links.yml` (Mondays): DOIs via the doi.org handle API, links fail on 404 / 410 / DNS only
+  (host down is reported). First run: MEASNET procedure link was dead → documents page (Version 3, 2022);
+  DTU TOPFARM docs host down at the time (not failing).
 - **Still to audit line by line:** `turbinePartEducation.ts`, `tours.ts`, Academy courses.
 - **AI tutor (after B):** OpenRouter-style OpenAI-compatible API with cheap models, the user brings their
   own key (kept server-side per session, never in localStorage); look into linking existing subscriptions.

@@ -12,10 +12,12 @@
  *   • wake swirl opposite to the rotor, ω_w = 2a′Ω, a′ = a(1−a)/λ²;
  *   • the other turbines' wakes (Ct from their own simulated wind), Katic
  *     quadratic superposition;
- *   • turbulence — spatially coherent random-Fourier-mode field with a
- *     von Kármán spectrum, frozen and advected with the wind
- *     (model/turbulence), σ = U·√(TI₀² + ΔTI²) with Crespo–Hernández added
- *     TI in the wakes: eddies carry groups of streaks together;
+ *   • turbulence — spatially coherent random-Fourier-mode fields with a
+ *     von Kármán spectrum, frozen and advected with the flow
+ *     (model/turbulence): the ambient field (L ≈ 340 m) at σ = U·TI₀, plus
+ *     in the wakes a small-scale shear-layer field (L ≈ ¼ D) at σ = U·ΔTI,
+ *     Crespo–Hernández added TI, carried at the wake speed U_c — so the air
+ *     churns behind the rotor and stays smooth outside;
  *   • wake meandering (DWM, Larsen 2008) — the deficit centre is displaced by
  *     the large eddies, δ = v_LS·s/U_c, so the far wake snakes.
  *   Colour = local speed ratio u/U (pale cyan free stream → orange deficit).
@@ -28,7 +30,10 @@
  *
  * TipVortices (rotor frame) — the three helical tip vortices shed by the
  *   blades, locked to the rotor azimuth, convected at U(1−a), expanding with
- *   the stream tube and diffusing with age.
+ *   the stream tube and diffusing with age. Past the breakdown distance
+ *   (≈ 1–2 D, shorter in more turbulent air; Lignarolo et al. 2015, JFM 781)
+ *   the helices go unstable: the wake turbulence field bends them more and
+ *   more and they dissolve into the turbulent far wake.
  */
 
 import { memo, useMemo, useRef, useState } from "react";
@@ -42,7 +47,7 @@ import { useLandingStore } from "../../../../store/landingStore";
 import { useFleet } from "../../../../lib/fleet";
 import { farmAround } from "../model/farm";
 import { HUB } from "../model/layout";
-import { FIELD, FLOW_TIME_X, turbAt } from "../model/turbulence";
+import { FIELD, FLOW_TIME_X, turbAt, WAKE_FIELD } from "../model/turbulence";
 import { addedTI, D, deficit, R, wakeSources, type WakeSource } from "../model/wakeModel";
 
 const NV = 800; // particles in a slab around the vertical plane through the rotor axis
@@ -108,6 +113,7 @@ export const WindFlow = memo(function WindFlow({
   const tmp = useMemo(
     () => ({
       t: { x: 0, y: 0, z: 0 },
+      tw: { x: 0, y: 0, z: 0 },
       ls: { x: 0, y: 0, z: 0 },
       cam: new THREE.Vector3(),
       c: new THREE.Color(),
@@ -204,12 +210,22 @@ export const WindFlow = memo(function WindFlow({
           vy += swirl * dx;
         }
       }
-      // coherent turbulence, σ grows in wakes
+      // coherent ambient turbulence everywhere, plus small-scale shear-layer turbulence in the wakes
       turbAt(FIELD, x, y, z, tSim, U, tmp.t);
-      const sig = U * Math.sqrt(ti0 * ti0 + ti2);
-      x += (vx + sig * tmp.t.x) * dt;
-      y += (vy + sig * tmp.t.y) * dt;
-      z += (-u + sig * tmp.t.z) * dt;
+      const sa = U * ti0;
+      let tx = sa * tmp.t.x;
+      let ty = sa * tmp.t.y;
+      let tz = sa * tmp.t.z;
+      if (ti2 > 0) {
+        turbAt(WAKE_FIELD, x, y, z, tSim, uc, tmp.tw);
+        const sw = U * Math.sqrt(ti2);
+        tx += sw * tmp.tw.x;
+        ty += sw * tmp.tw.y;
+        tz += sw * tmp.tw.z;
+      }
+      x += (vx + tx) * dt;
+      y += (vy + ty) * dt;
+      z += (-u + tz) * dt;
       if (z < Z_END || y < 2 || Math.abs(x) > XH + 2 * R) {
         seedPos(i, p);
         p.z = Z_SPAWN - Math.random() * 40;
@@ -326,8 +342,10 @@ export const WindCompass = memo(function WindCompass({ windFromDeg }: { windFrom
 
 // ── Tip vortices (rotor frame) ────────────────────────────────────────
 
-const VORTEX_PER_BLADE = 150;
-const VORTEX_DT = 0.2; // s of age between tube segments (≈ 1.6 m at 8 m/s)
+const VORTEX_PER_BLADE = 300;
+const VORTEX_DT = 0.25; // s of age between tube segments (≈ 2 m at 8 m/s); 75 s ≈ 2.5 D
+/** Breakdown starts 0.12/TI rotor diameters downstream (0.75–2 D) and is complete one D further. Stylised fit to Lignarolo et al. (2015). */
+const breakdownD = (ti: number) => Math.min(2, Math.max(0.75, 0.12 / ti));
 
 export const TipVortices = memo(function TipVortices({
   windMs,
@@ -351,23 +369,35 @@ export const TipVortices = memo(function TipVortices({
       q: new THREE.Quaternion(),
       s: new THREE.Vector3(),
       yAxis: new THREE.Vector3(0, 1, 0),
+      tw: { x: 0, y: 0, z: 0 },
     }),
     [],
   );
   const ct = rotorRpm > 0.1 ? turbineThrustCoefficient(windMs) : 0;
   const a = inductionFromCt(ct);
-  useFrame(() => {
+  useFrame(({ clock }) => {
     const mesh = ref.current;
     if (!mesh) return;
     const omega = (rotorRpm * 2 * Math.PI) / 60;
     const phi = rotorPhase.value;
     const uConv = windMs * (1 - a); // tip vortices convect near U(1−a)
+    const sb = breakdownD(turbulenceIntensity(windMs)) * D;
+    const t = clock.elapsedTime;
     const tip = (b: number, age: number, out: THREE.Vector3) => {
       const s = uConv * age;
       const uc = 1 - a * (1 + s / Math.hypot(s, R));
       const rt = R * Math.sqrt((1 - a) / Math.max(uc, 0.3));
       const ang = (2 * Math.PI * b) / 3 - (phi - omega * age);
-      return out.set(-rt * Math.sin(ang), rt * Math.cos(ang), tipZ - s);
+      out.set(-rt * Math.sin(ang), rt * Math.cos(ang), tipZ - s);
+      if (s > sb) {
+        // unstable helix: bent by the wake eddies, up to ~R/4, growing over one D
+        const g = Math.min(1, (s - sb) / D) ** 1.5 * 0.25 * R;
+        turbAt(WAKE_FIELD, out.x, out.y, out.z, t, uConv, tmp.tw);
+        out.x += g * tmp.tw.x;
+        out.y += g * tmp.tw.y;
+        out.z += g * tmp.tw.z;
+      }
+      return out;
     };
     let i = 0;
     for (let b = 0; b < 3; b++) {
@@ -380,7 +410,9 @@ export const TipVortices = memo(function TipVortices({
         const len = tmp.dir.length();
         tmp.q.setFromUnitVectors(tmp.yAxis, tmp.dir.normalize());
         const fade = Math.max(0, 1 - age / (VORTEX_PER_BLADE * VORTEX_DT));
-        const core = (0.3 + 0.02 * age) * (0.4 + 0.6 * fade); // viscous core growth, fading
+        // after breakdown the vortex dissolves within one D: the tube thins away
+        const left = Math.min(1, Math.max(0, 1 - (uConv * age - sb) / D));
+        const core = (0.3 + 0.02 * age) * (0.4 + 0.6 * fade) * left; // viscous core growth, fading
         tmp.s.set(core, len * 1.02, core);
         tmp.m.compose(tmp.mid, tmp.q, tmp.s);
         mesh.setMatrixAt(i, tmp.m);

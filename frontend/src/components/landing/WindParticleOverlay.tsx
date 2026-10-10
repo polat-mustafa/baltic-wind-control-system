@@ -2,9 +2,11 @@
  * Animated wind particle overlay for the Control Room map (Windy.com style),
  * drawn in screen space under the deck.gl layers.
  *
- * Renders ~300 particles flowing in the current wind direction using
- * HTML5 Canvas + requestAnimationFrame. Each particle is drawn as a
- * short directional streak with a bright head dot.
+ * Renders ~160 particles flowing in the current wind direction using
+ * HTML5 Canvas + requestAnimationFrame. Each frame fades what is already on
+ * the canvas a little and draws every particle's last step, so the particles
+ * leave smooth tapering trails (no per-frame jitter, which read as noise).
+ * Drawn at the device pixel ratio so the lines stay sharp.
  *
  * Colour follows wind speed, neutral greys getting lighter, amber only when
  * the wind nears the 25 m/s cut-out:
@@ -22,14 +24,15 @@ import { useEffect, useRef } from "react";
 import type { WebMercatorViewport } from "@deck.gl/core";
 
 import { useLandingStore } from "../../store/landingStore";
+import { useLayerStore } from "../../store/layerStore";
 
 // ── Tunables ──────────────────────────────────────────────────────
 
-const PARTICLE_COUNT = 300;
-const BASE_MAX_AGE = 80; // frames before respawn
-const AGE_VARIANCE = 30;
-const STREAK_FRAMES = 7; // trail length in frames of travel
-const JITTER = 0.3; // random lateral wander (px/frame)
+const PARTICLE_COUNT = 160;
+const BASE_MAX_AGE = 150; // frames before respawn
+const AGE_VARIANCE = 50;
+/** Share of the trail canvas erased per frame: smaller = longer trails. */
+const TRAIL_FADE = 0.035;
 
 // ── Wind speed → color ───────────────────────────────────────────
 
@@ -66,6 +69,7 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
     if (!canvas) return;
     let w = 0;
     let h = 0;
+    let dpr = 1;
     let last: WebMercatorViewport | null = null;
 
     function spawn(): Particle {
@@ -86,7 +90,7 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
 
     /** Follow the map: a pan carries the particles along, a zoom or resize respawns them. */
     function followView(vp: WebMercatorViewport) {
-      if (vp === last) return;
+      if (vp === last || (last && vp.longitude === last.longitude && vp.latitude === last.latitude && vp.zoom === last.zoom && vp.width === w && vp.height === h)) return;
       if (last && vp.zoom === last.zoom && vp.width === w && vp.height === h) {
         const [x0, y0] = last.project([vp.longitude, vp.latitude]);
         const [dx, dy] = [w / 2 - x0, h / 2 - y0];
@@ -95,10 +99,15 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
           p.y += dy;
         }
       } else {
-        w = canvas!.width = vp.width;
-        h = canvas!.height = vp.height;
+        w = vp.width;
+        h = vp.height;
+        dpr = window.devicePixelRatio || 1;
+        canvas!.width = Math.round(w * dpr);
+        canvas!.height = Math.round(h * dpr);
         particlesRef.current = Array.from({ length: PARTICLE_COUNT }, spawn);
       }
+      // Old trails would sit in the wrong place after a pan or zoom
+      canvas!.getContext("2d")?.clearRect(0, 0, canvas!.width, canvas!.height);
       last = vp;
     }
 
@@ -130,24 +139,31 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
       const dx = Math.sin(toRad) * speed;
       const dy = -Math.cos(toRad) * speed; // canvas Y is inverted
 
-      const color = windColor(lerpWindSpeed);
+      // Storybook sits on the light street map: ink trails there, the speed greys on the dark one
+      const color = useLayerStore.getState().mapTheme === "storybook" ? "#2b2118" : windColor(lerpWindSpeed);
 
-      ctx.clearRect(0, 0, w, h);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // Fade the existing trails a little
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = `rgba(0,0,0,${TRAIL_FADE})`;
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.lineCap = "round";
 
       const particles = particlesRef.current;
 
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
+        const x0 = p.x;
+        const y0 = p.y;
 
-        // Wave-like modulation: sinusoidal speed variation per particle
-        const waveFactor = 0.7 + 0.3 * Math.sin(p.age * 0.05 + p.phase);
-        // Lateral sway: gentle perpendicular sine wave
-        const perpX = -dy;
-        const perpY = dx;
-        const sway = Math.sin(p.age * 0.03 + p.phase * 2) * 0.15;
-
-        p.x += (dx * waveFactor + perpX * sway) * p.speedFactor + (Math.random() - 0.5) * JITTER;
-        p.y += (dy * waveFactor + perpY * sway) * p.speedFactor + (Math.random() - 0.5) * JITTER;
+        // Gentle meander across the flow (turbulent eddies), smooth per particle
+        const sway = Math.sin(p.age * 0.03 + p.phase * 2) * 0.12;
+        p.x += (dx - dy * sway) * p.speedFactor;
+        p.y += (dy + dx * sway) * p.speedFactor;
         p.age++;
 
         // Respawn if out of bounds or expired
@@ -168,24 +184,11 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
         const alpha =
           t < 0.12 ? t / 0.12 : t > 0.8 ? (1 - t) / 0.2 : 1;
 
-        // Streak tail (short line in wind direction)
-        const tailX = p.x - dx * STREAK_FRAMES * p.speedFactor;
-        const tailY = p.y - dy * STREAK_FRAMES * p.speedFactor;
-
-        ctx.globalAlpha = alpha * 0.3;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
+        ctx.globalAlpha = alpha * 0.4;
         ctx.beginPath();
-        ctx.moveTo(tailX, tailY);
+        ctx.moveTo(x0, y0);
         ctx.lineTo(p.x, p.y);
         ctx.stroke();
-
-        // Bright head dot
-        ctx.globalAlpha = alpha * 0.55;
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 1.2, 0, Math.PI * 2);
-        ctx.fill();
       }
 
       ctx.globalAlpha = 1;
@@ -199,5 +202,5 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
     };
   }, [view]);
 
-  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0" aria-hidden />;
+  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden />;
 }

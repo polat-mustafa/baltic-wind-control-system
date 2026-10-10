@@ -384,8 +384,8 @@ export default {
   "Renumber turbines": "Türbinleri yeniden numaralandır",
   "Load SB-510 layout": "SB-510 yerleşimini yükle",
   "Wakes from": "İz etkisi yönü",
-  "Click a turbine for its card; drag it to see the farm AEP change live. Turbine IDs appear from zoom 11.":
-    "Kartı için bir türbine tıklayın; santral AEP'sinin canlı değişimini görmek için sürükleyin. Türbin kimlikleri 11. yakınlaştırmadan itibaren görünür.",
+  "Click a turbine for its card; drag it to see the farm AEP change live. Drag new turbines or the substation in from the palette. Turbine IDs appear from zoom 11.":
+    "Kartı için bir türbine tıklayın; santral AEP'sinin canlı değişimini görmek için sürükleyin. Yeni türbinleri veya trafo merkezini paletten haritaya sürükleyin. Türbin kimlikleri 11. yakınlaştırmadan itibaren görünür.",
   "Live results": "Canlı sonuçlar",
   "Reference AEP (PyWake)": "Referans AEP (PyWake)",
   "Net AEP": "Net AEP",

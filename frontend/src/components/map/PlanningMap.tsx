@@ -6,41 +6,21 @@
  * Room map).
  *
  * The map fits `bounds` whenever `fitKey` changes. Zoom buttons sit bottom
- * right; the OSM / data attribution bottom left.
+ * right; the OSM / data attribution bottom left. Items dragged from a palette
+ * (HTML drag and drop, `DROP_TYPE` data = item kind) land via `onDropItem`.
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Map as MapLibre } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { WebMercatorViewport, type Layer, type MapViewState, type PickingInfo } from "@deck.gl/core";
-import type { StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Minus, Plus } from "lucide-react";
 
 import { useLayerStore } from "../../store/layerStore";
+import { DROP_TYPE, osmStyle } from "./deckUtils";
 
 export type Bounds = [[number, number], [number, number]];
-
-/** OSM raster base. Dark: brightness inverted and hue turned back, so sea and land keep their hues on a navy ground. */
-function osmStyle(dark: boolean): StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, maxzoom: 19 },
-    },
-    layers: [
-      { id: "ground", type: "background", paint: { "background-color": dark ? "#0a1520" : "#e8e4da" } },
-      {
-        id: "osm",
-        type: "raster",
-        source: "osm",
-        paint: dark
-          ? { "raster-brightness-min": 0.86, "raster-brightness-max": 0.07, "raster-hue-rotate": 180, "raster-saturation": -0.45, "raster-contrast": 0.08 }
-          : { "raster-saturation": -0.25 },
-      },
-    ],
-  };
-}
 
 export interface PlanningMapProps {
   bounds: Bounds;
@@ -57,6 +37,8 @@ export interface PlanningMapProps {
   onDragEnd?: (info: PickingInfo) => void;
   onHover?: (info: PickingInfo) => void;
   cursor?: string;
+  /** A palette item (`DROP_TYPE`) dropped on the map at lon/lat. */
+  onDropItem?: (kind: string, at: [number, number]) => void;
   children?: ReactNode;
 }
 
@@ -73,6 +55,7 @@ export default function PlanningMap({
   onDragEnd,
   onHover,
   cursor,
+  onDropItem,
   children,
 }: PlanningMapProps) {
   const dark = useLayerStore((s) => s.mapTheme) === "hmi";
@@ -107,7 +90,23 @@ export default function PlanningMap({
     "flex h-8 w-8 items-center justify-center rounded-md border border-border-secondary bg-bg-secondary text-text-secondary hover:text-text-primary";
 
   return (
-    <div ref={boxRef} className="absolute inset-0" style={{ background: dark ? "#0a1520" : "#e8e4da" }}>
+    <div
+      ref={boxRef}
+      className="absolute inset-0"
+      style={{ background: dark ? "#0a1520" : "#e8e4da" }}
+      onDragOver={(e) => {
+        if (onDropItem && e.dataTransfer.types.includes(DROP_TYPE)) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        const kind = e.dataTransfer.getData(DROP_TYPE);
+        const el = boxRef.current;
+        if (!onDropItem || !kind || !viewState || !el) return;
+        e.preventDefault();
+        const r = el.getBoundingClientRect();
+        const [lon, lat] = new WebMercatorViewport({ ...viewState, width: r.width, height: r.height }).unproject([e.clientX - r.left, e.clientY - r.top]);
+        onDropItem(kind, [lon, lat]);
+      }}
+    >
       {viewState && (
         <DeckGL
           viewState={viewState}

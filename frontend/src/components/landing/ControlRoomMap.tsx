@@ -1,9 +1,9 @@
 /**
  * Control Room map — MapLibre GL base + deck.gl data layers (redesign phase 3).
  *
- * The base is drawn from our own geometry, no tile server: land is the map
- * background, the sea is the coastline polygon (constants/windFarmLayout), and
- * the site boundary is a dashed line. deck.gl draws what changes: the 66 kV
+ * The base is the OpenStreetMap raster (same as the planning maps): coast
+ * towns, streets and ports give the farm its place when you zoom out; the
+ * site boundary is a dashed line on top. deck.gl draws what changes: the 66 kV
  * array cables coloured by load, the export cables with energy particles that
  * run faster as the farm exports more, the turbines by state, the equipment
  * marks and labels that appear as you zoom in. Context and sea traffic
@@ -37,7 +37,6 @@ import {
   PSE_GRID_LINE_GEO,
   PSE_SUBSTATION_GEO,
   PSE_SUBSTATION_NAME,
-  SEA_POLYGON_GEO,
 } from "../../constants/windFarmLayout";
 import { cableTree, distanceM, type CableFocus } from "../../lib/arrayCables";
 import { useFleet, type Fleet } from "../../lib/fleet";
@@ -47,6 +46,7 @@ import { useStatcomQ } from "../../store/liveGridStore";
 import type { TurbineStatus } from "../../types/landing";
 import { arrayCableCurrentA, arrayCableGrade, exportCableState, farmWakeDeficits, wakePowerLossPct } from "../../utils/landingPhysics";
 import { wakeConePoly } from "../../utils/wakeModel";
+import { osmStyle } from "../map/deckUtils";
 
 import AlarmTicker from "./AlarmTicker";
 import ArrayCableCard from "./ArrayCableCard";
@@ -84,13 +84,14 @@ function equipmentIcons(ink: string, fill: string) {
   };
 }
 
-/** Base map style from our own geometry: land background, sea polygon, coastline, site boundary. */
-function baseStyle(pal: Palette, fleet: Fleet, showBoundary: boolean): StyleSpecification {
+/** Base map style: OpenStreetMap (theme-recoloured) plus the site boundary. */
+function baseStyle(pal: Palette, fleet: Fleet, showBoundary: boolean, dark: boolean): StyleSpecification {
   const ring = (pts: [number, number][]) => [...pts.map(swap), swap(pts[0])];
+  const osm = osmStyle(dark);
   return {
-    version: 8,
+    ...osm,
     sources: {
-      sea: { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [ring(SEA_POLYGON_GEO)] } } },
+      ...osm.sources,
       site: {
         type: "geojson",
         data: {
@@ -101,9 +102,7 @@ function baseStyle(pal: Palette, fleet: Fleet, showBoundary: boolean): StyleSpec
       },
     },
     layers: [
-      { id: "land", type: "background", paint: { "background-color": pal.land } },
-      { id: "sea", type: "fill", source: "sea", paint: { "fill-color": pal.sea } },
-      { id: "coast", type: "line", source: "sea", paint: { "line-color": pal.coast, "line-width": 1.2 } },
+      ...osm.layers,
       {
         id: "site",
         type: "line",
@@ -200,7 +199,7 @@ function ControlRoomMapInner({
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setFocus(null), [fleet]);
 
-  const style = useMemo(() => baseStyle(pal, fleet, layers.exclusionZone), [pal, fleet, layers.exclusionZone]);
+  const style = useMemo(() => baseStyle(pal, fleet, layers.exclusionZone, theme === "hmi"), [pal, fleet, layers.exclusionZone, theme]);
   const icons = useMemo(() => equipmentIcons(pal.ink, theme === "hmi" ? "#0f1d2b" : "#f7edd4"), [pal, theme]);
 
   // Initial view: the array (SB-510's framing) or the own project's turbines
@@ -653,8 +652,15 @@ function ControlRoomMapInner({
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-3.5 bg-accent" />220 kV live</span>
       </div>
 
+      <div className="pointer-events-auto absolute bottom-0 left-1/2 z-10 -translate-x-1/2 rounded-t bg-bg-secondary/80 px-1.5 py-0.5 text-xs text-text-muted">
+        ©{" "}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">
+          OpenStreetMap
+        </a>{" "}
+        contributors
+      </div>
       {ais.note && (
-        <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 max-w-[40%] -translate-x-1/2 truncate rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-xs text-text-muted">
+        <div className="pointer-events-none absolute bottom-7 left-1/2 z-10 max-w-[40%] -translate-x-1/2 truncate rounded border border-border-primary bg-bg-secondary/90 px-2 py-0.5 text-xs text-text-muted">
           {ais.note}
         </div>
       )}

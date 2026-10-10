@@ -86,7 +86,6 @@ from sklearn.model_selection import TimeSeriesSplit
 
 from app.services.p4.model_evaluation import skill_score_from_squared_errors
 from app.services.p4.physical_constraints import enforce_physical_constraints
-from app.services.p4.training_progress import PROGRESS
 
 # ── Constants ─────────────────────────────────────────────────────
 
@@ -196,6 +195,10 @@ class LSTMCVResult:
     mean_r_squared: float
     skill_score_vs_persistence: float
     architecture_summary: str
+    # out-of-fold forecasts: sequence index (row = index + lookback − 1) and the model's
+    # outputs per test sample [MW] (LSTM: [P50]; TFT: one per quantile)
+    test_index: list[int] = field(default_factory=list)
+    test_pred_mw: list[list[float]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -571,15 +574,12 @@ def _train_single_fold(
     for epoch in range(config.epochs):
         # Training phase
         model.train()
-        train_loss_sum, n_batches = 0.0, 0
         for batch_x, batch_y in train_loader:
             optimizer.zero_grad()
             pred = model(batch_x).squeeze(-1)
             loss = loss_fn(pred, batch_y)
             loss.backward()
             optimizer.step()
-            train_loss_sum += float(loss.item())
-            n_batches += 1
 
         actual_epochs = epoch + 1
 
@@ -588,14 +588,6 @@ def _train_single_fold(
         with torch.no_grad():
             val_pred = model(x_val).squeeze(-1)
             val_loss = loss_fn(val_pred, y_val).item()
-
-        # Live training monitor: loss curves + share of this model's work
-        PROGRESS.epoch("lstm", fold, epoch + 1, train_loss_sum / max(n_batches, 1), val_loss)
-        PROGRESS.fraction(
-            "lstm",
-            (fold + (epoch + 1) / config.epochs) / n_folds,
-            f"fold {fold + 1}/{n_folds} · epoch {epoch + 1} · val MSE {val_loss:.4f}",
-        )
 
         # Early stopping
         if val_loss < best_val_loss:
@@ -654,7 +646,6 @@ def train_lstm(
         raise ValueError(msg)
 
     n_features = features.shape[1]
-    PROGRESS.stage("lstm", "running", f"{x_seq.shape[0]} sequences × lookback {config.lookback}")
 
     # TimeSeriesSplit cross-validation
     tscv = TimeSeriesSplit(n_splits=config.n_cv_splits)
@@ -662,6 +653,8 @@ def train_lstm(
     model_sq: list[float] = []  # squared errors on every test sample [MW²]
     persistence_sq: list[float] = []  # same samples, persistence P̂(t) = P(t−1)
     last_model: WindPowerLSTM | None = None
+    oof_index: list[int] = []
+    oof_pred: list[list[float]] = []
 
     for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(x_seq)):
         # Early stopping watches the newest 20 % of the training block, never the
@@ -699,13 +692,14 @@ def train_lstm(
         y_pred_mw = _denormalize_power(y_pred_norm, norm_params)
         y_true_mw = _denormalize_power(y_test_np, norm_params)
         y_prev_mw = _denormalize_power(y_seq[test_idx - 1], norm_params)  # test_idx ≥ 1 always
+        oof_index.extend(test_idx.tolist())
+        oof_pred.extend([[float(v)] for v in y_pred_mw])
         model_sq.extend((y_true_mw - y_pred_mw) ** 2)
         persistence_sq.extend((y_true_mw - y_prev_mw) ** 2)
 
         metrics = _compute_metrics(y_true_mw, y_pred_mw, fold_idx, actual_epochs)
         fold_metrics_list.append(metrics)
         last_model = model
-        PROGRESS.fold("lstm", fold_idx, metrics.rmse_mw, actual_epochs)
 
     assert last_model is not None
 
@@ -734,9 +728,10 @@ def train_lstm(
         mean_r_squared=round(mean_r2, 4),
         skill_score_vs_persistence=round(skill_score, 4),
         architecture_summary=arch_summary,
+        test_index=oof_index,
+        test_pred_mw=oof_pred,
     )
 
-    PROGRESS.model_done("lstm", cv_result.mean_rmse_mw, cv_result.skill_score_vs_persistence)
     return cv_result, last_model, norm_params
 
 

@@ -12,7 +12,7 @@
  *   AttentionViz  softmax attention over the last 48 h (recent + same hour
  *                 yesterday + similar wind) — illustrative weights
  *   QuantileViz   pinball loss: the τ-quantile of noisy outcomes
- *   EnsembleViz   this run's model comparison and the horizon weights
+ *   EnsembleViz   the real-data scores and how the ensemble weights are set
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -216,7 +216,7 @@ export function LeakageViz({ lang }: { lang: Lang }) {
         <text x={400} y={232} fontSize={10.5} fontWeight={700} style={{ fill: "var(--viz-1)" }}>✔ {t("allowed: issued in advance", "izinli: önceden yayımlanır")}</text>
         {/* skill bars */}
         <g transform="translate(20 222)">
-          <text x={0} y={0} fontSize={11} fontWeight={800} style={ink}>{t("XGBoost skill vs persistence", "XGBoost skill (persistence'a karşı)")}</text>
+          <text x={0} y={0} fontSize={11} fontWeight={800} style={ink}>{t("XGBoost skill vs persistence — the old 10-minute pipeline", "XGBoost skill (persistence'a karşı) — eski 10 dakikalık hat")}</text>
           {[
             [t("leaky", "sızıntılı"), 0.996, "var(--color-status-alarm)"],
             [t("causal (fixed)", "nedensel (düzeltilmiş)"), 0.15, "var(--color-status-normal)"],
@@ -418,54 +418,40 @@ export function QuantileViz({ lang }: { lang: Lang }) {
   );
 }
 
-// ── 7. Ensemble + this run's numbers ────────────────────────────────
-
-const HORIZON_WEIGHTS = [
-  ["< 6 h", 0.5, 0.3, 0.2],
-  ["6–24 h", 0.2, 0.4, 0.4],
-  ["24–48 h", 0.1, 0.3, 0.6],
-] as const;
+// ── 7. Ensemble + the real-data numbers ─────────────────────────────
 
 export function EnsembleViz({ lang }: { lang: Lang }) {
   const t = tt(lang);
-  const cmp = useForecastStore((s) => s.modelComparison);
-  const rows = cmp?.model_metrics ?? [];
-  const max = Math.max(1, ...rows.map((m) => m.rmse_mw));
+  const real = useForecastStore((s) => s.real);
+  const setTab = useForecastStore((s) => s.setTab);
+  const rows = real?.scores ?? [];
+  const max = Math.max(1, ...rows.map((m) => m.nrmse_pct));
   return (
     <div className={`${box} grid grid-cols-1 gap-4 lg:grid-cols-2`}>
-      <div>
-        <div className="mb-1 text-sm font-semibold">{t("Base weights by lead time (before skill gating)", "Ufka göre taban ağırlıklar (skill elemesi öncesi)")}</div>
-        {HORIZON_WEIGHTS.map(([h, xg, ls, tf]) => (
-          <div key={h} className="mb-1.5 flex items-center gap-2 text-xs">
-            <span className="w-14 font-mono">{h}</span>
-            <div className="flex h-5 flex-1 overflow-hidden rounded">
-              <div style={{ width: `${xg * 100}%`, background: "var(--viz-2)" }} title="XGBoost" />
-              <div style={{ width: `${ls * 100}%`, background: "var(--viz-1)" }} title="LSTM" />
-              <div style={{ width: `${tf * 100}%`, background: "var(--viz-3)" }} title="TFT" />
-            </div>
-          </div>
-        ))}
-        <div className="flex gap-3 text-xs text-text-muted">
-          <span><span className="mr-1 inline-block h-2 w-2" style={{ background: "var(--viz-2)" }} />XGBoost</span>
-          <span><span className="mr-1 inline-block h-2 w-2" style={{ background: "var(--viz-1)" }} />LSTM</span>
-          <span><span className="mr-1 inline-block h-2 w-2" style={{ background: "var(--viz-3)" }} />TFT</span>
-        </div>
+      <div className="text-sm">
+        <div className="mb-1 font-semibold">{t("How the weights are set", "Ağırlıklar nasıl belirlenir")}</div>
+        <p className="text-text-secondary">
+          {t(
+            "Each test fold uses weights w ∝ 1/MSE that XGBoost, LSTM and TFT earned on the earlier folds only — never on the hours being scored. The first fold, with no history, weights them equally.",
+            "Her test katmanı, XGBoost, LSTM ve TFT'nin yalnızca önceki katmanlarda kazandığı w ∝ 1/MSE ağırlıklarını kullanır — puanlanan saatlerde asla. Geçmişi olmayan ilk katman onları eşit ağırlıklandırır.",
+          )}
+        </p>
       </div>
       <div>
-        <div className="mb-1 text-sm font-semibold">{t("Your last run (out-of-sample)", "Son çalıştırmanız (örneklem dışı)")}</div>
+        <div className="mb-1 text-sm font-semibold">{t("Measured DK2 output, day-ahead (nRMSE, % of capacity)", "Ölçülmüş DK2 üretimi, gün öncesi (nRMSE, kapasitenin %'si)")}</div>
         {rows.length === 0 ? (
-          <div className="rounded border border-dashed border-border-primary p-3 text-xs text-text-muted">
-            {t("Run a forecast to see RMSE and skill of each model here.", "Her modelin RMSE ve skill değerini burada görmek için bir tahmin çalıştırın.")}
-          </div>
+          <button type="button" onClick={() => setTab("real")} className="w-full rounded border border-dashed border-border-primary p-3 text-left text-xs text-text-muted hover:bg-bg-hover">
+            {t("Open the Day-ahead tab to load the scores →", "Skorları yüklemek için Gün öncesi sekmesini açın →")}
+          </button>
         ) : (
           rows.map((m) => (
-            <div key={m.model_name} className="mb-1 flex items-center gap-2 text-xs">
-              <span className="w-24 truncate font-semibold">{m.model_name}</span>
+            <div key={m.name} className="mb-1 flex items-center gap-2 text-xs">
+              <span className="w-40 truncate font-semibold">{m.name}</span>
               <div className="h-3 flex-1 rounded bg-bg-tertiary">
-                <div className="h-3 rounded" style={{ width: `${(m.rmse_mw / max) * 100}%`, background: "var(--color-text-secondary)" }} />
+                <div className="h-3 rounded" style={{ width: `${(m.nrmse_pct / max) * 100}%`, background: "var(--color-text-secondary)" }} />
               </div>
-              <span className="w-36 text-right font-mono tabular-nums">
-                {m.rmse_mw.toFixed(2)} MW · SS {m.skill_score.toFixed(2)}
+              <span className="w-32 whitespace-nowrap text-right font-mono tabular-nums">
+                {m.nrmse_pct.toFixed(1)} % · SS {m.skill_vs_persistence.toFixed(2)}
               </span>
             </div>
           ))
@@ -491,8 +477,8 @@ export function PipelineViz({ lang }: { lang: Lang }) {
   return (
     <div className={box}>
       <PipelineGraph stages={ALL_DONE} />
-      <button type="button" onClick={() => setTab("monitor")} className="mt-2 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover">
-        {t("Open the live training monitor →", "Canlı eğitim monitörünü aç →")}
+      <button type="button" onClick={() => setTab("real")} className="mt-2 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover">
+        {t("See the scored results on real data →", "Gerçek veride puanlanmış sonuçları gör →")}
       </button>
     </div>
   );

@@ -15,7 +15,7 @@ All endpoints follow the convention: /api/v1/wind/{resource}
 
 Data approach: generates synthetic ERA5-like wind data from Weibull
 parameters (A, k) since no real database exists yet. Same philosophy
-as P4's scada_generator.py — physics-correct synthetic data.
+as the digital twin plant simulator — physics-correct synthetic data.
 """
 
 from __future__ import annotations

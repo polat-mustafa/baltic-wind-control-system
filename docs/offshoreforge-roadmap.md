@@ -248,6 +248,18 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   TimeSeriesSplit with a 24–48 h gap), delete `scada_generator` and `_pipeline._build_*`. Add TSO benchmarks:
   Energinet `Forecasts_Hour` (DK2 offshore day-ahead) and Elia `ods031` (Belgian offshore, measured +
   day-ahead + confidence10/90). Never the Open-Meteo Historical Forecast API (near-analysis, leaks).
+  **Done** (B3 PR): the synthetic SCADA path is gone (backend `scada_generator`, quality filters, feature
+  engineering, synthetic NWP, XGBoost / ensemble / ramp / training-monitor services and their 12 endpoints; frontend
+  dashboard panels, training monitor, controls). The Forecast page is the real-data view + AI Academy + concept map.
+  `services/p4/real_data.py` scores every forecast on the same 16 731 DK2 test hours: XGBoost (nine quantiles, CQR)
+  nRMSE **15.4 %**, CRPS 7.7 % (CRPSS 0.62 vs climatology), P10–P90 coverage 84.5 %; **Energinet's own day-ahead
+  forecast 16.9 %** (rescaled ×mean ratio per training block — it covers more farms and averages 18 % above the
+  three-farm metering; issued ~17:50 D−1); NWP power curve 16.0 %; TFT 17.9 % (coverage 74 %, not conformalised);
+  LSTM 19.0 %; 1/MSE ensemble 16.3 % — it does **not** beat XGBoost (weaker members, correlated NWP error; the academy
+  says so); climatology 32.1 %; persistence 36.7 %. LSTM / TFT out-of-fold forecasts are bundled per hour
+  (`dk2_deep_predictions.csv.gz`, `scripts/train_real_deep_models.py`, ~14 min CPU). Feature-leak guard test: only
+  NWP + clock columns. Elia `ods031` not added (licence text unverified; the Energinet benchmark covers the TSO
+  comparison). Academy text, P4 training guide and the forecast tour rewritten for the real-data pipeline.
 - **B4 — "Evidence" page** in the app generated from test results (what was validated, against what,
   metric, value, test file).
 - **B5 — guards:** numbers quoted in education prose checked against the backend; weekly DOI / link check.

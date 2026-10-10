@@ -22,6 +22,7 @@ Citation rules used here:
 | Wake deficit (Gaussian) | `services/p1/wake_model.py` (PyWake `NiayifarGaussianDeficit`, `LinearSum`) | [6], [7] |
 | Wake-added turbulence | `services/p1/wake_model.py` (PyWake `STF2017TurbulenceModel`) | [8], [S1] |
 | Global blockage | `services/p1/blockage.py` | [9] |
+| Wake-model validation: NOJ / BPA / TurbOPark vs measured Horns Rev 1 and Lillgrund row power ratios (PyWake validation data, MIT), wind-direction uncertainty averaging; TurbOPark verified against Ørsted's MATLAB example | `services/p1/wake_validation.py`, `services/p1/validation_data/pywake/`, `tests/test_wake_validation.py` | [41], [45], [46] |
 | AEP loss cascade, P50/P90 | `services/p1/aep_calculator.py` | [1], [2] |
 | Power / thrust curve, cut-in/out (IEA 15 MW and 22 MW reference turbines) | `services/p1/turbine_models.py`, `app/data/turbines/`, `scripts/fetch_turbine_curves.py`, `frontend/src/constants/turbineModels.ts` | [S2], [26], [27] |
 | windIO 2.x plant export (site, wind resource, layout, turbine) | `services/p1/windio.py`, `routers/projects.py` (`/projects/{id}/windio.yaml`) | [31] |
@@ -210,6 +211,8 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 42. Platis, A. et al. "First in situ evidence of wakes in the far field behind offshore wind farms." *Scientific Reports* 8, 2163, 2018.
 43. Walker, K., et al. "An evaluation of the predictive accuracy of wake effects models for offshore wind farms." *Wind Energy* 19(5), 979–996, 2016.
 44. Lee, J. C. Y., Fields, M. J. "An overview of wind-energy-production prediction bias, losses, and uncertainties." *Wind Energy Science* 6, 311–365, 2021 (Table B6).
+45. van der Laan, M. P., Sørensen, N. N., Réthoré, P.-E., Mann, J., Kelly, M. C., Troldborg, N., Schepers, J. G., Machefaux, E. "An improved k-ε model applied to a wind turbine wake in atmospheric turbulence." *Wind Energy* 18(5), 889–907, 2015. DOI 10.1002/we.1804.
+46. Gaumond, M., Réthoré, P.-E., Ott, S., Peña, A., Bechmann, A., Hansen, K. S. "Evaluation of the wind direction uncertainty and its impact on wake modeling at the Horns Rev offshore wind farm." *Wind Energy* 17(8), 1169–1178, 2014. DOI 10.1002/we.1625.
 
 ## Standards and regulations
 

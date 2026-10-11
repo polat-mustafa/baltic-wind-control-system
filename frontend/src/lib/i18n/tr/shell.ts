@@ -542,6 +542,11 @@ export default {
   "Grid voltage +3 %": "Şebeke gerilimi +%3",
   "High-Wind Curtailment": "Yüksek rüzgâr kısıtlaması",
   "Grid Dispatch Curtailment": "Şebeke dispeç kısıtlaması",
+  "Negative-Price Curtailment": "Negatif fiyat kısıtlaması",
+  "The RCE price for {date} is {n} PLN/MWh (PSE). The farm runs to a zero schedule until the price is positive again.":
+    "{date} için RCE fiyatı {n} PLN/MWh (PSE). Santral, fiyat yeniden pozitif olana kadar sıfır programla çalışır.",
+  "A CfD pays no support for periods with a negative price (EU state-aid guidelines CEEAG 2022 §122), so producing would cost money: the PPC sets the farm to zero and the converters hold the turbines at idle. The same rule drives the Market tab of the HV Grid page.":
+    "CfD, fiyatın negatif olduğu dönemler için destek ödemez (AB devlet yardımı kılavuzu CEEAG 2022 §122); bu yüzden üretmek para kaybettirir: PPC santrali sıfıra ayarlar ve dönüştürücüler türbinleri rölantide tutar. Aynı kural YG Şebeke sayfasının Piyasa sekmesini de yönetir.",
 
   // Tours
   "Guided tours": "Rehberli turlar",

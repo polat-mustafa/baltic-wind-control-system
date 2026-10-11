@@ -60,6 +60,28 @@ async def market_day(body: MarketDayRequest) -> MarketDayResponse:
     return MarketDayResponse(**svc.simulate_day(**args))
 
 
+@router.get("/pse/price-now", summary="RCE market price of the current quarter-hour (PSE)")
+async def pse_price_now() -> dict[str, Any]:
+    """
+    The RCE price [PLN/MWh] of the quarter-hour running now (Polish time) —
+    published the day before, so it is known for the whole day. The control
+    room curtails the farm while it is negative: no CfD support for those
+    periods (CEEAG 2022 §122), as on the Market tab. The day is cached 15 min.
+    """
+    now = dt.datetime.now(ZoneInfo("Europe/Warsaw"))
+    day = await pse_live.pse_day(now.date().isoformat())
+    q = pse_live.current_quarter(day["quarters"], now.strftime("%Y-%m-%d %H:%M:%S"))
+    if q is None:
+        raise pse_live.PseDataError("No RCE price for the current quarter-hour yet.")
+    return {
+        "time": q["time"],
+        "period": q["period"],
+        "price_pln_mwh": q["price_pln_mwh"],
+        "negative": q["price_pln_mwh"] < 0,
+        "source": pse_live.SOURCE,
+    }
+
+
 @router.get("/pse/day", summary="The real Polish system on one day (PSE open data)")
 async def pse_day(
     date: str | None = Query(None, description="YYYY-MM-DD (Polish time); default today"),

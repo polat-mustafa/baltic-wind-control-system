@@ -160,7 +160,7 @@ describe("dictionaries", () => {
       const stale = Object.keys(dict).filter((k) => !k.includes("{") && !source.includes(k) && !PLOTLY.includes(k));
       expect(stale, code).toEqual([]);
     }
-  });
+  }, 20_000); // scans all of src: ~2.5 s alone, over 5 s in a loaded full run
 
   it("every placeholder in a key appears in its translation", () => {
     const names = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();

@@ -57,7 +57,7 @@ export function farmHeader(): string | null {
 /** Same value as `farmHeader`, "sb510" without one — tells when P2 results belong to another farm. */
 export const farmKey = () => farmHeader() ?? "sb510";
 
-const FARM_APIS = ["/api/v1/grid", "/api/v1/commissioning", "/api/v1/scada", "/api/v1/digital-twin"];
+const FARM_APIS = ["/api/v1/grid", "/api/v1/commissioning", "/api/v1/scada", "/api/v1/digital-twin", "/api/v1/info/sensors"];
 
 export const sendsFarm = (url: string) => FARM_APIS.some((p) => url.startsWith(p));
 

@@ -80,18 +80,44 @@ The eight experimental P1 endpoints (`helix-control`, `dynamic-flow`,
 the `/research-lab` page were deleted: they were analytical stand-ins whose
 labels overstated the method (e.g. "RANS CFD").
 
-## Group E — Live nacelle subsystems (4 endpoints, partial)
+## Group E — Live nacelle subsystems (1 endpoint)
 
-The 3D viewer (`/` landing → turbine drill-down) now polls these every 2 s
-while a viewer is mounted, replacing the previous closed-form temperature/
-pressure formulas with deterministic backend physics.
+The 3D viewer (`/` landing → turbine drill-down) polls this every 2 s while a
+viewer is mounted, replacing the previous closed-form temperature/pressure
+formulas with deterministic backend physics.
 
 | Endpoint | Method | UI consumer |
 |---|---|---|
 | `/api/v1/turbine-sim/nacelle/subsystems` | GET | `nacelleSubsystemsStore` (polling) — drives `ThermalOverlay`, `HPUPressureGauge`, `OilFlowLoop` |
-| `/api/v1/turbine-sim/nacelle/hpu` | GET | `nacelleSubsystemsApi.getHPU` (typed wrapper, on-demand) |
-| `/api/v1/turbine-sim/nacelle/cooling` | GET | `nacelleSubsystemsApi.getCooling` |
-| `/api/v1/turbine-sim/nacelle/safety` | GET | `nacelleSubsystemsApi.getSafety` |
+
+The per-subsystem GETs (`/hpu`, `/cooling`, `/safety`) returned blocks of the
+same response and had no caller; removed 2026-10-11.
+
+## Group F — Audit 2026-10-11 (wired 9, removed 12)
+
+A full audit found 16 endpoints without a frontend caller. Wired:
+
+| Endpoint | Method | UI route | Component |
+|---|---|---|---|
+| `/api/v1/wind/wake-model-comparison` | POST | `/wind-resource` → **Wake & Uncertainty Studies** | `WakeStudiesTab` |
+| `/api/v1/wind/flowers-aep` | POST | same | `WakeStudiesTab` |
+| `/api/v1/wind/yaw-optimization` | POST | same | `WakeStudiesTab` |
+| `/api/v1/wind/yaw-optimization-farm` | POST | same | `WakeStudiesTab` |
+| `/api/v1/wind/derating` | POST | same | `WakeStudiesTab` |
+| `/api/v1/wind/pce-uncertainty` | POST | same | `WakeStudiesTab` |
+| `/api/v1/digital-twin/operating-point` | POST | `/digital-twin` → Model | `OperatingPointPanel` |
+| `/api/v1/info/sensors` | GET | `/scada` → Equipment → Instruments | `InstrumentRegisterPanel` |
+| `/api/v1/scada/cms/turbines/{id}/simulate-fault` | DELETE (new) | `/scada` → Equipment → CMS | Clear button |
+
+Removed: `/forecast/turbine-spec` and `/forecast/power-curve` (duplicates of
+`/wind/turbine-spec`), `/grid/bess/status` and `/grid/bess/mode` (a process-wide
+mutable state shared by every user), `/scada/opcua/restart` (an unauthenticated
+admin action), `/wind/farms/compare/{id}` (read an unbounded in-memory cache),
+`/wind/market-weighted-aep` (synthetic random prices gave a value factor > 1,
+contradicting the real PSE capture price on the Market tab),
+`/wind/layout-optimization` (minutes per run; the Layout page's screened moves
+checked with PyWake cover layout improvement) and the three nacelle sub-GETs.
+Checked by a route ↔ caller cross-check (169 routes, none without a caller).
 
 Files:
 - `frontend/src/services/nacelleSubsystemsApi.ts`
@@ -109,8 +135,9 @@ Files:
 | A2 — P2 Planning & P2X | 2 | ✅ wired |
 | B — P2 Market Imbalance | 1 | ✅ wired |
 | C — P3 SCL Generator | 1 | ✅ wired |
-| E — Live nacelle subsystems | 4 | ✅ wired (polling) |
-| **Total newly exposed** | **10** | — |
+| E — Live nacelle subsystems | 1 | ✅ wired (polling) |
+| F — Audit 2026-10-11 | 9 | ✅ wired (12 removed) |
+| **Total newly exposed** | **16** | — |
 
 To keep this audit green, future endpoint additions should ship with at least
 one frontend caller in the same PR.

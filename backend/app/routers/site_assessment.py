@@ -144,13 +144,13 @@ def _layer(layer: Layer) -> LayerInfo:
 
 
 @router.get("/regions", response_model=list[RegionInfo])
-async def get_regions() -> list[RegionInfo]:
+def get_regions() -> list[RegionInfo]:
     """Case-study regions with a layer pack."""
     return [_region_info(load_region(r)) for r in available_regions()]
 
 
 @router.get("/layers", response_model=LayersResponse)
-async def get_layers(region: str = DEFAULT_REGION) -> LayersResponse:
+def get_layers(region: str = DEFAULT_REGION) -> LayersResponse:
     """Region layers with provenance, missing layers and the criteria model card."""
     pack = _pack(region)
     defaults = Criteria().as_dict()
@@ -180,7 +180,7 @@ _MAX_RASTER_CELLS = 40_000
 
 
 @router.get("/raster", response_model=RasterResponse)
-async def get_raster(
+def get_raster(
     role: str,
     bbox: str = Query(description="lon_min,lat_min,lon_max,lat_max"),
     region: str = DEFAULT_REGION,

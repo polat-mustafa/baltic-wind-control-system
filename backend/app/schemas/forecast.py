@@ -1,6 +1,6 @@
 """
-Pydantic schemas for P4 forecasting: the turbine power curve and the day-ahead
-forecast trained and scored on real Baltic offshore data.
+Pydantic schemas for P4 forecasting: the day-ahead forecast trained and scored on
+real Baltic offshore data.
 """
 
 from __future__ import annotations
@@ -8,59 +8,6 @@ from __future__ import annotations
 from typing import Any
 
 from pydantic import BaseModel, Field
-
-# ── Power Curve Schemas ───────────────────────────────────────────
-
-
-class TurbineSpecSchema(BaseModel):
-    """Turbine specification response."""
-
-    name: str = Field(description="Turbine model name")
-    rotor_diameter_m: float = Field(description="Rotor diameter [m]")
-    hub_height_m: float = Field(description="Hub height [m]")
-    rated_power_mw: float = Field(description="Rated power [MW]")
-    cut_in_speed_ms: float = Field(description="Cut-in wind speed [m/s]")
-    rated_speed_ms: float = Field(description="Rated wind speed [m/s]")
-    cut_out_speed_ms: float = Field(description="Cut-out wind speed [m/s]")
-    num_blades: int = Field(description="Number of rotor blades")
-    cp_max: float = Field(description="Maximum electrical power coefficient of the table")
-    ct_rated: float = Field(description="Thrust coefficient at rated speed")
-    drivetrain: str = Field(description='Drivetrain, e.g. "Low speed, Direct drive"')
-    min_rotor_rpm: float = Field(description="Minimum rotor speed [rpm]")
-    max_rotor_rpm: float = Field(description="Maximum (rated) rotor speed [rpm]")
-    source: str = Field(description="Data source of the curve")
-
-
-class PowerCurveRequest(BaseModel):
-    """Request to generate a power curve."""
-
-    wind_step_ms: float = Field(
-        default=0.5,
-        ge=0.1,
-        le=2.0,
-        description="Wind speed bin width [m/s]. IEC 61400-12-1 default: 0.5",
-    )
-    air_density_kg_m3: float | None = Field(
-        default=None,
-        ge=0.8,
-        le=1.6,
-        description="Air density [kg/m³]. Default: 1.225 (standard conditions)",
-    )
-
-
-class PowerCurveResponse(BaseModel):
-    """Power curve generation response."""
-
-    spec: TurbineSpecSchema
-    wind_speeds_ms: list[float] = Field(description="Wind speed array [m/s]")
-    power_mw: list[float] = Field(description="Power output array [MW]")
-    ct: list[float] = Field(description="Thrust coefficient array [-]")
-    swept_area_m2: float = Field(description="Rotor swept area [m²]")
-    air_density_kg_m3: float = Field(description="Air density used [kg/m³]")
-    num_points: int = Field(description="Number of data points in the curve")
-
-
-# ── Real-data day-ahead forecast ─────────────────────────────────
 
 
 class RealModelScoreSchema(BaseModel):

@@ -54,3 +54,20 @@ def test_oil_history_is_monthly_hydraulic_vg46():
     assert times == sorted(times) and len(times) == 12
     assert oil.component == "PITCH"
     assert all(41.4 < p.viscosity_cst < 50.6 for p in oil.history)
+
+
+def test_injected_fault_can_be_cleared():
+    """DELETE on simulate-fault removes the training degradation (it used to persist
+    until the server restarted)."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    url = "/api/v1/scada/cms/turbines/WTG-03/simulate-fault"
+    assert (
+        client.post(url, json={"component": "MAIN_BEARING", "severity": "SEVERE"}).status_code
+        == 200
+    )
+    assert client.delete(url).json() == {"cleared": 1}
+    assert client.delete(url).json() == {"cleared": 0}

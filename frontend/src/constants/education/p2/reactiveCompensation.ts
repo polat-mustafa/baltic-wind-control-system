@@ -66,15 +66,15 @@ export const reactiveCompensationEducation: EducationContent = {
   workedExamples: [
     {
       title: "Does the scheme meet PSE's reactive range at 510 MW?",
-      scenario: "P = P_max, OLTCs regulating, farm buses kept within 0.90–1.10 p.u.",
+      scenario: "P = P_max, OLTCs regulating, farm buses within 0.90–1.10 p.u., no cable or transformer above its rating",
       steps: [
         "Required: +0.40 × 510 = +204 MVAR, −0.35 × 510 = −178.5 MVAR at PSE 400 kV",
-        "Producing: WTGs + STATCOM at full capacitive output, reactors switched out → +532 MVAR",
-        "Absorbing: WTGs + STATCOM inductive with all reactors in → −590 MVAR",
+        "At 510 MW the export cables already run at ≈ 99 % of 825 A — Q sent through them (WTGs, STATCOM) has almost no room",
+        "Onshore reactors sit on the onshore busbar and do not load the cable: both out → +247 MVAR, both in → −205 MVAR (with the WTG/STATCOM headroom the cable still allows)",
       ],
       result:
-        "The range is met with margin. The STATCOM is therefore not sized by the steady-state Q range; it is sized for " +
-        "the reactor N-1 case and for fast voltage control — the WTGs and switched reactors do the slow, large moves.",
+        "The range is met, but by the onshore reactors, not by the converters: a voltage-only check would have claimed +532 / −590 MVAR at 138 % cable loading. " +
+        "The STATCOM is sized for the reactor N-1 case and for fast voltage control, not for the steady-state Q range.",
     },
   ],
 
@@ -95,7 +95,7 @@ export const reactiveCompensationEducation: EducationContent = {
   codeReferences: [
     {
       file: "backend/app/services/p2/statcom_sizing.py",
-      description: "Cable Q, Ferranti vs uncompensated rise, reactor N-1, poc_q_capability() bisection.",
+      description: "Cable Q, Ferranti vs uncompensated rise, reactor N-1, poc_q_capability() with voltage and thermal limits.",
     },
   ],
 };

@@ -11,6 +11,8 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
+
 from app.services.p1.availability import (
     NUM_TURBINES,
     get_downtime_breakdown,
@@ -147,6 +149,13 @@ class TestFleetAvailability:
     def test_fleet_mtbf_positive(self):
         result = get_fleet_availability()
         assert result["fleet_mtbf_hours"] > 0.0
+
+    def test_fleet_mtbf_uses_operating_hours_like_each_turbine(self):
+        """MTBF = operating hours / faults, fleet and turbine alike (not calendar hours)."""
+        r = get_fleet_availability()
+        hours = sum(t["hours_producing"] for t in r["turbines"])
+        faults = sum(t["fault_count"] for t in r["turbines"])
+        assert r["fleet_mtbf_hours"] == pytest.approx(hours / faults, abs=0.1)
 
     def test_assessment_string_non_empty(self):
         result = get_fleet_availability()

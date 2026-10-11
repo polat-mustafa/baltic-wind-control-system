@@ -3,6 +3,10 @@ import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Sparkline } from "./Sparkline";
 
+/** Labels whose letters carry meaning keep their case: uppercase turns σ into Σ (a sum)
+ * and m/s into M/S (megasiemens per second). Greek letters or a unit → no uppercase. */
+const keepsCase = (label: string) => /[α-ω]|\[|\//.test(label);
+
 export type TilePriority = "normal" | "warning" | "alarm" | "info";
 
 interface InfoTileProps {
@@ -65,7 +69,8 @@ export function InfoTile({
       <div className="flex items-center justify-between mb-1">
         <span
           className={cn(
-            "font-medium text-text-muted uppercase tracking-wider",
+            "font-medium text-text-muted tracking-wider",
+            !keepsCase(label) && "uppercase",
             size === "md" ? "text-xs" : "text-xs",
           )}
         >

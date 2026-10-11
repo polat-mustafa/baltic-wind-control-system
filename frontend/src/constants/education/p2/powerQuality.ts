@@ -117,25 +117,18 @@ export const powerQualityEducation: EducationContent = {
       scenario:
         "10 GVA grid, 2 × 108 km cable, reactors in, typical full-converter emission.",
       steps: [
-        "Without a filter, scan from OSS 66 kV: parallel resonances at ≈ 115 Hz (h 2.3), ≈ 545 Hz (h 10.9) and ≈ 880 Hz (h 17.6)",
-        "At h17 |Z| ≈ 178 Ω versus ≈ 2.9 Ω at 50 Hz: ≈ 3.6× more than a plain inductance (2.9 Ω × 17 = 49 Ω)",
-        "h17 current: 0.25 % × 131 A = 0.33 A per turbine, × √34 (α = 2 for h ≥ 10, IEC 61000-3-6) = 1.9 A; × 178 Ω = 340 V " +
-          "= 0.89 % of the 38.1 kV phase voltage at OSS 66 kV, 74.5 % of the 1.2 % HV planning level — within the limit, " +
-          "but past the 50 % a single plant may take",
-        "Filter design: worst order h17 → tune to h16 (800 Hz); every characteristic order ≤ 50 % of its planning " +
-          "level at 0.5, 1 and 2 × S_sc and no resonance on h5…h25: 2 Mvar (larger sizes pull the h2 resonance down)",
-        "Elements at 66 kV: X_C − X_L = 66²/2 = 2 178 Ω, X_L = X_C/16² → C = 1.46 µF, L = 27.2 mH, R = 1.5 × 16 × ω₀L = 205 Ω",
-        "With the filter: h17 |Z| = 75 Ω, 0.38 % = 31.5 % of the planning level; the 880 Hz peak drops to ≈ 840 Hz (h 16.8) " +
-          "at amplification 1.5; worst order h11 at 34 %, THD 0.85 % (1.23 % without)",
-        "At the PSE 400 kV POC THD ≈ 0.14 % (0.15 % without) — the grid side was never the problem",
-        "Left over: the 108 km cable against the grid rings at ≈ 115 Hz (h 2.3, × 12) — a 66 kV high-pass can't move " +
-          "it; h2 stays at ≤ 75 % of its planning level at half the grid strength",
+        "Without a filter, scan from OSS 66 kV: parallel resonances at ≈ 115 Hz (h 2.3, × 11), ≈ 535 Hz (h 10.7) and ≈ 770 Hz (h 15.4, × 12.5)",
+        "The 770 Hz peak is the array cables (charging 21.3 Mvar) against the OSS transformers; it falls between h15 and h16, where a full converter emits little",
+        "On a strong grid (2 × S_sc = 20 GVA) the 535 Hz peak rises to × 3.0 — within one order of h11, a characteristic converter harmonic",
+        "h11 current: 0.5 % × 131 A = 0.66 A per turbine, × √34 (α = 2 for h ≥ 10, IEC 61000-3-6) = 3.8 A; × 57.9 Ω = 221 V = 0.58 % of the 38.1 kV phase voltage at OSS 66 kV, 38.7 % of the 1.5 % HV planning level",
+        "Filter design: an amplified resonance next to h11 → tune one order below, h10.34 (517 Hz); the smallest standard size that leaves no such resonance at 0.5, 1 and 2 × S_sc: 2 Mvar",
+        "Elements at 66 kV: X_C − X_L = 66²/2 = 2 178 Ω, X_L = X_C/10.34² → C = 1.45 µF, L = 65.5 mH, R = 1.5 × 10.34 × ω₀L = 319 Ω",
+        "With the filter: the 535 Hz peak drops to × 2.0, h11 to 0.39 % = 26 % of the planning level; no characteristic order above 27 %; THD 0.71 % at 66 kV (0.78 % without)",
+        "At the PSE 400 kV POC THD ≈ 0.12 % (0.14 % without) — the grid side was never the problem",
+        "Left over: the 108 km cable against the grid rings at ≈ 105–120 Hz (h 2.1–2.4, × 10–16) — a 66 kV high-pass can't move it; on the weak grid h2 reaches 84 % of its planning level, a point for the connection-stage harmonic study",
       ],
       result:
-        "The farm's own 66 kV busbar needs the filter: the 880 Hz resonance (array cable capacitance against the OSS " +
-        "transformers and the grid) sits next to h17. A 2 Mvar damped high-pass at OSS 66 kV brings h17 from 74.5 % to " +
-        "31.5 % of the planning level. At 50 Hz it is a 2 Mvar capacitor the STATCOM absorbs (+30.3 → +28.4 Mvar at full " +
-        "load). A real study re-checks it once the converter harmonic models are final.",
+        "The farm needs the filter for its strong-grid case: the 535 Hz resonance (export cable and array capacitance against the transformers and the grid) climbs next to h11. A 2 Mvar damped high-pass tuned to h10.34 at OSS 66 kV damps it and brings h11 from 38.7 % to 26 % of the planning level. At 50 Hz it is a 2 Mvar capacitor the STATCOM absorbs (+30.3 → +28.4 Mvar at full load). An earlier version of this model lumped only 15 Mvar of array charging (the load-flow cables give 21.3), put the array resonance at 880 Hz next to h17 and chose an h16 filter — with the correct capacitance that filter would itself leave a × 3 resonance next to h17. A real study re-checks it once the converter harmonic models are final.",
     },
   ],
 

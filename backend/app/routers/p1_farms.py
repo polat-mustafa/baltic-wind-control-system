@@ -8,7 +8,6 @@ GET    /api/v1/wind/farms                    — List configurations
 GET    /api/v1/wind/farms/{id}               — Get configuration
 DELETE /api/v1/wind/farms/{id}               — Delete configuration
 POST   /api/v1/wind/farms/compare            — Run comparison (2-4 farms, by id or inline)
-GET    /api/v1/wind/farms/compare/{id}       — Get comparison results
 
 Enables side-by-side comparison of up to 4 wind farm designs, covering:
 - AEP (Weibull × power curve integration, P50/P90 exceedance)
@@ -80,23 +79,6 @@ async def create_farm(body: FarmConfigCreate) -> FarmConfigResponse:
 async def list_farms() -> list[FarmConfigResponse]:
     """Return all stored farm configurations, most recent first."""
     return svc.list_farms()
-
-
-@router.get(
-    "/farms/compare/{comparison_id}",
-    response_model=FarmComparisonResponse,
-    summary="Get comparison results",
-)
-async def get_comparison(comparison_id: uuid.UUID) -> FarmComparisonResponse:
-    """Retrieve a previously computed comparison by ID.
-
-    Comparison results are cached in memory (server restart clears the cache).
-    Use this to fetch results without re-running the full calculation.
-    """
-    result = svc.get_comparison(comparison_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail=f"Comparison {comparison_id} not found")
-    return result
 
 
 @router.get(

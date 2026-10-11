@@ -46,7 +46,8 @@ export function StageGuide({ current, question, facts, steps }: Props) {
                 <span className={`flex items-center gap-1 font-semibold ${here ? "text-accent" : "text-text-primary"}`}>
                   <span className="tabular-nums text-text-muted">{i + 1}</span> {s.label}
                 </span>
-                <span className="block text-[11px] text-text-muted">{s.span}</span>
+                {/* text-secondary on the tinted current card: text-muted fails WCAG contrast there */}
+                <span className={`block text-[11px] ${here ? "text-text-secondary" : "text-text-muted"}`}>{s.span}</span>
                 <span className="mt-0.5 block text-[11px] leading-snug text-text-secondary">{s.what}</span>
               </Link>
               {i < STAGES.length - 1 && (

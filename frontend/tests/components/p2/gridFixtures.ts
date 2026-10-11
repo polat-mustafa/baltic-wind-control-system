@@ -45,14 +45,14 @@ function loadFlow(scenario: LoadFlowScenario, gen: number, v: number, loading: n
   };
 }
 
-export const loadFlowResults: LoadFlowResult[] = [
+const loadFlowResults: LoadFlowResult[] = [
   loadFlow("full_load", 510, 0.998, 76.9),
   loadFlow("partial_load", 255, 1.0, 48.3),
   loadFlow("no_load", 0, 1.006, 31.2),
   loadFlow("n_minus_1", 435, 0.999, 68.0),
 ];
 
-export const shortCircuit: ShortCircuitResult = {
+const shortCircuit: ShortCircuitResult = {
   case: "max",
   voltage_factor_c: 1.1,
   max_ikss_ka: 21.42,
@@ -76,8 +76,8 @@ export const statcomSizing: STATCOMSizingResult = {
   without_compensation_v_max_pu: 1.2446,
   reactor_n1_statcom_q_mvar: -66.8,
   reactor_n1_secure: true,
-  poc_q_max_mvar: 532.2,
-  poc_q_min_mvar: -589.7,
+  poc_q_max_mvar: 247.5,
+  poc_q_min_mvar: -204.6,
   pse_q_max_mvar: 204,
   pse_q_min_mvar: -178.5,
   pse_q_range_met: true,
@@ -94,7 +94,7 @@ const frtPoint = (time_s: number, v: number, vt: number, p: number, q: number, i
   statcom_q_mvar: iq * 70,
 });
 
-export const frtResult: FRTSimulationResult = {
+const frtResult: FRTSimulationResult = {
   frt_type: "lvrt",
   fault_bus: "PSE_400kV",
   fault_duration_s: 0.15,
@@ -124,7 +124,7 @@ export const frtResult: FRTSimulationResult = {
   ],
 };
 
-export const converterComparison: ConverterComparisonResult = {
+const converterComparison: ConverterComparisonResult = {
   scenario: "strong_grid",
   phase_jump_deg: 20,
   gfm_advantage: "20° grid phase jump, SCR 19.6 at the POC → 3.3 at the 66 kV busbar.",

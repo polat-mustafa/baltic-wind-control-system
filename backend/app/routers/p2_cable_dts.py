@@ -24,7 +24,7 @@ router = APIRouter(prefix="/cable", tags=["M10 Cable DTS Thermal Monitoring"])
     response_model=DTSProfileResponse,
     summary="DTS profile and steady-state rating of one export circuit",
 )
-async def get_dts_profile(
+def get_dts_profile(
     current_a: float = Query(818.0, ge=0.0, le=1600.0),
     ambient_temp_c: float = Query(15.0, ge=-5.0, le=35.0),
 ) -> DTSProfileResponse:
@@ -47,7 +47,7 @@ async def get_dts_profile(
     response_model=DTSTransientResponse,
     summary="Emergency loading — conductor temperature after a current step",
 )
-async def simulate_transient(body: DTSTransientRequest) -> DTSTransientResponse:
+def simulate_transient(body: DTSTransientRequest) -> DTSTransientResponse:
     """
     Step from the pre-fault current to an emergency current — for example the
     surviving circuit after an N-1 trip (≈ 1 360 A at 510 MW) — and track the

@@ -83,6 +83,7 @@ from app.services.turbine_physics.rotor_dynamics import (
 from app.services.turbine_physics.state_machine import (
     TurbineOperatingState,
     classify_wind_state,
+    is_overspeed,
 )
 from app.services.turbine_physics.yaw_control import (
     YawConfig,
@@ -253,8 +254,8 @@ def _determine_status(wind_speed_ms: float, spec: TurbineSpec, is_shutdown: bool
     appropriate IEC 61400-1 §7.4 state.  The returned string is the
     TurbineOperatingState enum value (e.g. ``"power_production"``).
 
-    For full state-machine behaviour (faults, commands, overspeed) use
-    ``state_machine.next_state()`` directly with ``StateMachineInput``.
+    ``step_turbine`` adds the latched overspeed trip; for faults and operator commands
+    use ``state_machine.next_state()`` directly with ``StateMachineInput``.
     """
     if is_shutdown:
         return TurbineOperatingState.EMERGENCY_SHUTDOWN.value
@@ -294,9 +295,14 @@ def step_turbine(
         New TurbineState for the current timestep.
     """
     new_time = prev_state.time_s + dt
-    status = _determine_status(wind_speed_ms, config.spec)
-    producing = status == TurbineOperatingState.POWER_PRODUCTION.value
     rpm = prev_state.rotor.speed_rpm
+    # Overspeed trip (ROSCO SD_MaxGenSpd, 9.07 rpm): latched — a tripped turbine stays
+    # down until reset, whatever the wind does next.
+    tripped = prev_state.status == TurbineOperatingState.EMERGENCY_SHUTDOWN.value or is_overspeed(
+        rpm, config.rotor_config.max_speed_rpm
+    )
+    status = _determine_status(wind_speed_ms, config.spec, is_shutdown=tripped)
+    producing = status == TurbineOperatingState.POWER_PRODUCTION.value
     radius_m = config.spec.rotor_diameter_m / 2.0
 
     # 1. Yaw control — align nacelle to wind
@@ -569,7 +575,7 @@ def run_simulation(
 def run_step_response(
     v_init_ms: float = 8.0,
     v_final_ms: float = 14.0,
-    ramp_s: float = 10.0,
+    ramp_s: float = 30.0,
     total_s: float = 120.0,
     config: SimulationConfig | None = None,
 ) -> SimulationResult:

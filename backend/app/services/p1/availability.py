@@ -12,8 +12,11 @@ Physics layers
 
 2. Energy-Based Availability (EBA)
    EBA = E_actual / E_theoretical * 100 %
-   E_theoretical = integral(P_power_curve(v_t) * dt, 0..T_total)
-   Penalises downtime during high-wind periods more than low-wind periods.
+   Definition: E_theoretical = integral(P_power_curve(v_t) * dt, 0..T_total), which
+   penalises downtime during high-wind periods more than low-wind periods.
+   Here (synthetic demo events, no wind series): E_theoretical = T · P_rated · CF with
+   the fleet-average CF 0.50, and each event's lost energy at that same mean power —
+   so EBA tracks TBA; a measured wind series is needed for the real weighting.
 
 3. Production-Based Availability (PBA) — IEC 61400-26-2:2014
    PBA = 1 - (E_lost_avoidable / E_theoretical) * 100 %
@@ -172,7 +175,8 @@ def get_fleet_availability(period_hours: float = 8760.0) -> dict[str, Any]:
 
     # Fleet MTBF/MTTR (aggregate)
     total_faults = sum(t["fault_count"] for t in turbines)
-    fleet_mtbf = period_hours * NUM_TURBINES / max(1, total_faults)
+    # Same definition as per turbine: operating (available) hours between faults
+    fleet_mtbf = sum(t["hours_producing"] for t in turbines) / max(1, total_faults)
     total_repair_time = sum(t["hours_unscheduled_maintenance"] for t in turbines)
     fleet_mttr = total_repair_time / max(1, total_faults)
 

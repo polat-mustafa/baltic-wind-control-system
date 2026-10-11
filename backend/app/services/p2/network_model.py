@@ -23,10 +23,11 @@ For the two parallel export cables: Q ≈ 624 MVAR
 
 Why two export cables?
 -----------------------
-One 1000 mm² cable carries √3 × 220 kV × 0.95 kA ≈ 362 MVA — less than 510 MW.
-With a single cable the full-load load flow showed ~140 % loading. Two cables
-(≈ 75 % loaded at full output) also give N-1 export redundancy: losing one cable
-curtails the farm to ~360 MVA instead of 0 MW.
+One 1000 mm² cable carries √3 × 220 kV × 0.825 kA ≈ 314 MVA — less than 510 MW, and
+its charging current (≈ 820 A over 108 km, half of it at each compensated end) takes
+much of that. Two cables run at ≈ 99 % of their rating at full output (load flow) and
+give N-1 export redundancy: losing one cable curtails the farm (runback) instead of
+stopping it.
 
 Physics — Transformer Equivalent Circuit
 -----------------------------------------
@@ -123,7 +124,6 @@ import math
 from dataclasses import dataclass, replace
 from functools import lru_cache
 
-import numpy as np
 import pandapower as pp
 
 from app.core.exceptions import DomainError
@@ -205,7 +205,8 @@ TURBINE_RATED_MW = 15.0
 TOTAL_CAPACITY_MW = NUM_TURBINES * TURBINE_RATED_MW  # 510 MW
 
 # String layout: 4 strings × 6 WTGs + 2 strings × 5 WTGs (6 feeder bays at the OSS).
-# 6 × 15 MW = 90 MW ≈ 790 A on the OSS-end cable → 800 mm² (900 A) is ~89 % loaded.
+# 6 × 15 MW = 90 MW ≈ 787 A on the OSS-end cable → 1000 mm² (825 A, 95 %); 800 mm²
+# (775 A) is too small (``_get_cable_grade``).
 STRING_LAYOUT = [6, 6, 6, 6, 5, 5]
 NUM_STRINGS = len(STRING_LAYOUT)
 # OSS 66 kV switchboard: strings 1-3 on busbar section A (TX-OSS-01), 4-6 on
@@ -258,13 +259,16 @@ SHUNT_REACTOR_UNIT_MVAR = 180.0  # absorption per reactor [MVAR]
 SHUNT_REACTOR_MVAR = NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR  # 720 MVAR total
 
 # Harmonic filter at the OSS 66 kV busbar — damped 2nd-order high-pass (C in series with
-# L ∥ R), sized by ``power_quality.size_harmonic_filter``: without it the array-cable
-# capacitance and the OSS transformers resonate at 880 Hz (amplification 15.7) and h17
-# reaches 74.5 % of the IEC TR 61000-3-6 planning level at 66 kV. 2 Mvar tuned to h16
-# (C 1.46 µF, L 27.2 mH, R 205 Ω) damps the peak to 840 Hz, amplification 1.5, h17 31.5 %
-# (power_quality module docstring).
+# L ∥ R), sized by ``power_quality.size_harmonic_filter``. Without it the array-cable
+# capacitance (21.3 MVAR, ``array_charging_mvar``) and the OSS transformers resonate at
+# 770 Hz (×12.5) and the export cable against the grid gives a second peak at 535 Hz, which
+# on a strong grid (2 × S_sc) reaches ×3.0 next to h11 (38.7 % of the 66 kV planning level).
+# 2 Mvar tuned to h10.34 (517 Hz; C 1.45 µF, L 65.5 mH, R 319 Ω) damps it to ×2.0 and h11
+# to 26 %; no characteristic order exceeds 27 % (power_quality module docstring).
+# (Until 2026-10-11 the harmonic model lumped only 15 MVAR of array charging, which put the
+# resonance at 880 Hz next to h17 and chose a filter tuned to h16.)
 HARMONIC_FILTER_MVAR = 2.0  # fundamental reactive output [Mvar], generating (Rule 4)
-HARMONIC_FILTER_TUNED_ORDER = 16.0  # 800 Hz
+HARMONIC_FILTER_TUNED_ORDER = 10.34  # 517 Hz
 
 
 # ── Farm specification (SB-510 or the learner's project) ─────────
@@ -479,6 +483,17 @@ def _get_cable_grade(turbines_downstream: int, turbine_mw: float = TURBINE_RATED
     """
     i_ka = string_current_ka(turbines_downstream, turbine_mw)
     return next((c for c in ARRAY_SECTIONS if c.max_i_ka >= i_ka - 1e-9), ARRAY_SECTIONS[-1])
+
+
+def array_charging_mvar(spec: FarmSpec = SB510) -> float:
+    """Charging power of all 66 kV array cables, ωCV²L summed over the graded sections
+    exactly as ``build_network`` lays them [MVAR] (SB-510: 15 600 nF·km → 21.3 MVAR)."""
+    c_nf_km = sum(
+        _get_cable_grade(n - pos, spec.turbine_rated_mw).c_nf_per_km * spec.array_cable_length_km
+        for n in spec.string_layout
+        for pos in range(n)
+    )
+    return OMEGA * c_nf_km * 1e-9 * (ARRAY_KV * 1e3) ** 2 / 1e6
 
 
 def build_network(
@@ -749,32 +764,3 @@ def series_impedances_pu(
             spec.oss_trafo_mva * NUM_OSS_TRANSFORMERS,
         ),
     }
-
-
-def get_bus_count(net: pp.pandapowerNet) -> int:
-    """Return total number of buses in the network."""
-    return len(net.bus)
-
-
-def get_total_generation_mw(net: pp.pandapowerNet) -> float:
-    """Return total active power from all static generators [MW]."""
-    return float(net.sgen.p_mw.sum())
-
-
-def get_cable_grades_summary(net: pp.pandapowerNet) -> dict[str, int]:
-    """Return count of array cables by cross-section grade.
-
-    Returns
-    -------
-    dict[str, int]
-        Keys: '500mm2', '630mm2', '800mm2', '1000mm2'. Values: cable count.
-    """
-    counts = {f"{c.cross_section_mm2:.0f}mm2": 0 for c in ARRAY_SECTIONS}
-    for _, row in net.line.iterrows():
-        if not str(row["name"]).startswith("Array_"):
-            continue
-        # Identify the grade by its capacitance — R differs between 20 °C and 90 °C builds
-        c_nf = float(row["c_nf_per_km"])
-        grade = next(c for c in ARRAY_SECTIONS if np.isclose(c_nf, c.c_nf_per_km))
-        counts[f"{grade.cross_section_mm2:.0f}mm2"] += 1
-    return counts

@@ -2,7 +2,7 @@
  * Level-3 sub-tab strip — context-dependent on the active Level-2 area.
  *
  * Operations:  Mimic · SLD · Alarms · Event Log · Permits · Bay Control
- * Equipment:   Condition Monitoring · Vibration · Historian
+ * Equipment:   Condition Monitoring · Vibration · Historian · Instruments
  * Diagnostics: GOOSE Protection · SOE Recorder · Interlocks · Comms Network
  * Engineering: RBAC · Cybersecurity · OPC UA · SCL Generator · Alarm Rationalisation
  */
@@ -13,6 +13,7 @@ import {
   Database,
   FileCode,
   FileText,
+  Gauge,
   GitBranch,
   LayoutGrid,
   Layers,
@@ -55,6 +56,7 @@ const SUB_TABS: Record<ScadaArea, readonly SubTabDef[]> = {
     { id: "cms",       label: "Condition Mon.", icon: Stethoscope },
     { id: "vibration", label: "Vibration",      icon: Waves },
     { id: "historian", label: "Historian",      icon: Database },
+    { id: "instruments", label: "Instruments",  icon: Gauge },
   ],
   diagnostics: [
     { id: "goose",      label: "GOOSE Protection", icon: Zap },

@@ -15,7 +15,7 @@
  * momentum-theory root used here. It replaced a Jensen/Park top-hat model
  * (k = 0.04) that overstated far-wake deficits by up to 34 % at 15 D.
  *
- * Geographic conversions assume ~54.75°N latitude (Polish Baltic EEZ).
+ * Geographic conversions assume 55.06°N latitude (SB-510, Polish Baltic EEZ).
  */
 
 import { REFERENCE_TURBINE } from "./turbineCurves";
@@ -29,7 +29,7 @@ const CT = 0.8; // thrust coefficient below rated
 /** Wake expansion rate k* (offshore). */
 export const K_STAR = 0.035;
 
-// ── Geographic conversion at 54.75°N ─────────────────────────────
+// ── Geographic conversion at 55.06°N ─────────────────────────────
 
 const M_PER_DEG_LAT = 111_320;
 const M_PER_DEG_LON = 111_320 * Math.cos((55.06 * Math.PI) / 180);

@@ -42,7 +42,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import and_, desc, func, select, update
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
@@ -109,7 +109,8 @@ async def list_alarms(
     shelved_only: bool = False,
     active_only: bool = False,
 ) -> list[AlarmResponse]:
-    """Return alarms from the registry with optional filters."""
+    """Return alarms from the registry with optional filters (expired shelves lifted first)."""
+    await expire_shelved_alarms(db)
     conditions = []
     if state:
         conditions.append(Alarm.state == state)
@@ -132,14 +133,6 @@ async def list_alarms(
     )
     rows = list((await db.execute(q)).scalars())
     return [_row_to_response(r) for r in rows]
-
-
-async def get_alarm(db: AsyncSession, alarm_id: uuid.UUID) -> AlarmResponse:
-    """Get a single alarm by ID."""
-    row = await db.get(Alarm, alarm_id)
-    if row is None:
-        raise ValueError(f"Alarm {alarm_id} not found")
-    return _row_to_response(row)
 
 
 # ── Shelving ──────────────────────────────────────────────────────
@@ -602,9 +595,9 @@ async def detect_flood(
 
 
 async def expire_shelved_alarms(db: AsyncSession) -> int:
-    """Auto-unshelve alarms whose shelve duration has expired.
-
-    Called periodically (e.g. every 5 minutes) from a background task.
+    """Auto-unshelve alarms whose shelve duration has expired (EEMUA 191 §4.4 / ISA-18.2
+    §11: shelving is time-limited). Run lazily before every alarm read, so an expired
+    shelve can never hide an alarm; each expiry is logged as UNSHELVED by SYSTEM.
 
     Returns
     -------
@@ -612,20 +605,36 @@ async def expire_shelved_alarms(db: AsyncSession) -> int:
         Number of alarms unshelved.
     """
     now = datetime.now(UTC)
-    stmt = (
-        update(Alarm)
-        .where(
-            and_(
-                Alarm.shelved == True,  # noqa: E712
-                Alarm.shelved_until != None,  # noqa: E711
-                Alarm.shelved_until <= now,
+    rows = list(
+        (
+            await db.execute(
+                select(Alarm).where(
+                    and_(
+                        Alarm.shelved == True,  # noqa: E712
+                        Alarm.shelved_until != None,  # noqa: E711
+                        Alarm.shelved_until <= now,
+                    )
+                )
+            )
+        ).scalars()
+    )
+    for row in rows:
+        row.shelved = False
+        row.shelved_until = None
+        row.shelve_reason = ""
+        db.add(
+            AlarmEvent(
+                timestamp_utc=now,
+                alarm_tag=row.tag,
+                transition="UNSHELVED",
+                operator_id="SYSTEM (shelve expired)",
+                priority=row.priority,
+                source_device=row.source_device,
             )
         )
-        .values(shelved=False, shelved_until=None, shelve_reason="")
-    )
-    result = await db.execute(stmt)
-    await db.commit()
-    return int(result.rowcount)  # type: ignore[attr-defined]
+    if rows:
+        await db.commit()
+    return len(rows)
 
 
 # ── Master alarm database (ISA-18.2 §10 rationalisation) ─────────

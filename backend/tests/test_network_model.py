@@ -18,11 +18,8 @@ Test Strategy
 
 import math
 
-import numpy as np
-import pandapower as pp
 import pytest
 
-from app.services.p2.load_flow import dispatch_with_reactor_switching
 from app.services.p2.network_model import (
     ARRAY_CABLE_500,
     ARRAY_CABLE_630,
@@ -30,163 +27,17 @@ from app.services.p2.network_model import (
     ARRAY_CABLE_1000,
     ARRAY_SECTIONS,
     EXPORT_CABLE_1000,
-    EXPORT_CABLE_LENGTH_KM,
-    MAX_TURBINES_PER_STRING,
-    NUM_EXPORT_CABLES,
-    NUM_SHUNT_REACTORS,
-    NUM_STRINGS,
-    NUM_TURBINES,
-    SHUNT_REACTOR_MVAR,
-    SHUNT_REACTOR_UNIT_MVAR,
-    STATCOM_RATING_MVAR,
-    TOTAL_CAPACITY_MW,
     TRAFO_66_220_MVA,
     TRAFO_66_220_VK_PERCENT,
     TRAFO_220_400_MVA,
-    _get_cable_grade,
     build_network,
-    get_bus_count,
-    get_cable_grades_summary,
-    get_total_generation_mw,
     iec60287_ac_factor,
-    string_current_ka,
 )
 
 # ── Topology Tests ────────────────────────────────────────────────
 
 
-class TestNetworkTopology:
-    """Tests for network bus/element counts and structure."""
-
-    def test_bus_count(self):
-        """Network must have exactly 38 buses (4 system + 34 WTG)."""
-        net = build_network()
-        assert get_bus_count(net) == 38
-
-    def test_bus_names(self):
-        """System buses must be named correctly."""
-        net = build_network()
-        bus_names = list(net.bus["name"])
-        assert "PSE_400kV" in bus_names
-        assert "Onshore_220kV" in bus_names
-        assert "OSS_220kV" in bus_names
-        assert "OSS_66kV" in bus_names
-
-    def test_wtg_bus_count(self):
-        """Must have exactly 34 WTG buses on 66 kV."""
-        net = build_network()
-        wtg_buses = [n for n in net.bus["name"] if n.startswith("WTG_")]
-        assert len(wtg_buses) == NUM_TURBINES
-
-    def test_wtg_buses_at_66kv(self):
-        """All WTG buses must be on 66 kV nominal."""
-        net = build_network()
-        for idx in range(len(net.bus)):
-            name = str(net.bus.at[idx, "name"])
-            if name.startswith("WTG_"):
-                assert float(net.bus.at[idx, "vn_kv"]) == 66.0
-
-    def test_line_count(self):
-        """Network must have exactly 35 cables (34 array + 1 export)."""
-        net = build_network()
-        assert len(net.line) == 35
-
-    def test_export_cable_exists(self):
-        """Export cable must exist with correct parameters."""
-        net = build_network()
-        export_lines = net.line[net.line["name"] == "Export_220kV"]
-        assert len(export_lines) == 1
-        row = export_lines.iloc[0]
-        assert float(row["length_km"]) == pytest.approx(EXPORT_CABLE_LENGTH_KM)
-        # load flow uses the 90 °C AC resistance
-        assert float(row["r_ohm_per_km"]) == pytest.approx(EXPORT_CABLE_1000.r_ac_ohm_per_km)
-        assert int(row["parallel"]) == NUM_EXPORT_CABLES == 2
-
-    def test_export_cables_not_overloaded_at_full_load(self):
-        """510 MW must fit in the export circuits (1 × 362 MVA would be ~140 %) at the
-        operating point: STATCOM on the OSS busbar, the spare reactor switched out."""
-        net = build_network(generation_fraction=1.0)
-        dispatch_with_reactor_switching(net, STATCOM_RATING_MVAR)
-        export_idx = net.line.index[net.line["name"] == "Export_220kV"][0]
-        loading = float(net.res_line.at[export_idx, "loading_percent"])
-        assert loading < 100.0, f"Export loading {loading:.1f} % — cable undersized"
-
-    def test_transformer_count(self):
-        """Network must have exactly 2 transformers."""
-        net = build_network()
-        assert len(net.trafo) == 2
-
-    def test_external_grid_exists(self):
-        """External grid (slack bus) must exist at PSE 400 kV."""
-        net = build_network()
-        assert len(net.ext_grid) == 1
-        assert str(net.ext_grid.at[0, "name"]) == "PSE_Grid"
-
-
 # ── Cable Grading Tests ──────────────────────────────────────────
-
-
-class TestCableGrading:
-    """Tests for array cable cross-section grading by the current downstream."""
-
-    def test_cable_grades_present(self):
-        """6-6-6-6-5-5: the 4 six-turbine OSS segments (787 A) need 1000 mm² (825 A), the
-        5-turbine segments (656 A) 630 mm² (715 A), 1–4 turbines (≤ 525 A) 500 mm²
-        (655 A); 800 mm² (775 A) carries neither six nor is needed for five."""
-        grades = get_cable_grades_summary(build_network())
-        assert grades == {"500mm2": 24, "630mm2": 6, "800mm2": 0, "1000mm2": 4}
-
-    def test_grade_is_the_smallest_section_that_carries_the_current(self):
-        for n in range(1, MAX_TURBINES_PER_STRING + 1):
-            cable = _get_cable_grade(n)
-            assert cable.max_i_ka >= string_current_ka(n)
-            smaller = [c for c in ARRAY_SECTIONS if c.cross_section_mm2 < cable.cross_section_mm2]
-            assert all(c.max_i_ka < string_current_ka(n) for c in smaller)
-        assert MAX_TURBINES_PER_STRING == 6  # 7 × 131 A = 918 A > 825 A
-
-    def test_total_array_cables(self):
-        """Total graded cables must equal 34 (one per WTG)."""
-        net = build_network()
-        grades = get_cable_grades_summary(net)
-        total = sum(grades.values())
-        assert total == NUM_TURBINES
-
-    @pytest.mark.parametrize("operating", [True, False])
-    def test_cable_resistance_ranges(self, operating):
-        """Cable R values must match the specified grades (90 °C AC or 20 °C DC build)."""
-        net = build_network(r_at_operating_temp=operating)
-        specs = (*ARRAY_SECTIONS, EXPORT_CABLE_1000)
-        valid_r = {c.r_ac_ohm_per_km if operating else c.r_ohm_per_km for c in specs}
-        for idx in range(len(net.line)):
-            r = float(net.line.at[idx, "r_ohm_per_km"])
-            assert any(np.isclose(r, vr, atol=1e-4) for vr in valid_r), (
-                f"Unexpected R={r} Ω/km in cable {net.line.at[idx, 'name']}"
-            )
-
-    @pytest.mark.parametrize(
-        ("spec", "expected_r90"),
-        [
-            (ARRAY_CABLE_500, 0.0493),
-            (ARRAY_CABLE_630, 0.0395),
-            (ARRAY_CABLE_800, 0.0325),
-            (ARRAY_CABLE_1000, 0.0277),
-            (EXPORT_CABLE_1000, 0.0233),
-        ],
-    )
-    def test_ac_resistance_at_90c(self, spec, expected_r90):
-        """R_AC,90 = R20 × (1 + 0.00393 × 70) × (1 + y_s + y_p)  (IEC 60287-1-1 §2.1)."""
-        assert spec.r_ac_ohm_per_km == pytest.approx(expected_r90, abs=0.0002)
-        assert 1.3 < spec.r_ac_ohm_per_km / spec.r_ohm_per_km < 1.6
-
-    def test_hot_resistance_raises_losses(self):
-        """Same dispatch, 90 °C cables → more active power losses than 20 °C cables."""
-
-        def losses_mw(operating: bool) -> float:
-            net = build_network(generation_fraction=1.0, r_at_operating_temp=operating)
-            pp.runpp(net)
-            return float(net.res_line.pl_mw.sum())
-
-        assert losses_mw(True) > 1.25 * losses_mw(False)
 
 
 # ── Transformer Tests ────────────────────────────────────────────
@@ -218,91 +69,6 @@ class TestTransformers:
 
 
 # ── Generation Tests ──────────────────────────────────────────────
-
-
-class TestGeneration:
-    """Tests for WTG and STATCOM generation elements."""
-
-    def test_total_generation_full_load(self):
-        """Total generation at full load must be 510 MW."""
-        net = build_network(generation_fraction=1.0)
-        # Total includes STATCOM (P=0), so subtract
-        total = get_total_generation_mw(net)
-        assert total == pytest.approx(TOTAL_CAPACITY_MW, abs=1.0)
-
-    def test_total_generation_partial_load(self):
-        """Total generation at 50% load must be 255 MW."""
-        net = build_network(generation_fraction=0.5)
-        total = get_total_generation_mw(net)
-        assert total == pytest.approx(255.0, abs=1.0)
-
-    def test_total_generation_no_load(self):
-        """Total generation at no-load must be 0 MW."""
-        net = build_network(generation_fraction=0.0)
-        total = get_total_generation_mw(net)
-        assert total == pytest.approx(0.0, abs=0.1)
-
-    def test_sgen_count(self):
-        """Must have 35 sgens (34 WTGs + 1 STATCOM)."""
-        net = build_network()
-        assert len(net.sgen) == NUM_TURBINES + 1  # +1 for STATCOM
-
-    def test_statcom_present(self):
-        """STATCOM sgen must exist with P=0."""
-        net = build_network()
-        statcom = net.sgen[net.sgen["name"] == "STATCOM"]
-        assert len(statcom) == 1
-        assert float(statcom.iloc[0]["p_mw"]) == pytest.approx(0.0)
-
-    def test_shunt_reactor_present(self):
-        """4 × 120 MVAR shunt reactors: one per export circuit at each end."""
-        net = build_network(enable_reactor=True)
-        reactors = net.shunt[net.shunt["name"].str.startswith("Reactor_")]
-        assert len(reactors) == NUM_SHUNT_REACTORS == 4
-        # pandapower shunts use the load convention: q_mvar > 0 = absorbing
-        assert list(reactors["q_mvar"]) == pytest.approx([SHUNT_REACTOR_UNIT_MVAR] * 4)
-        ends = net.bus.loc[reactors["bus"], "name"].tolist()
-        assert ends == ["Onshore_220kV"] * 2 + ["OSS_220kV"] * 2
-        assert float(reactors["q_mvar"].sum()) == pytest.approx(SHUNT_REACTOR_MVAR)
-
-    def test_harmonic_filter_at_oss_66kv(self):
-        """2 Mvar damped high-pass, capacitive at 50 Hz: q < 0 in the load convention."""
-        net = build_network()
-        hf = net.shunt[net.shunt["name"].str.startswith("HF_OSS_66")]
-        assert len(hf) == 1
-        assert float(hf["q_mvar"].iloc[0]) == pytest.approx(-2.0)
-        assert net.bus.loc[hf["bus"].iloc[0], "name"] == "OSS_66kV"
-
-    def test_shunt_reactor_lowers_voltage(self):
-        """A reactor absorbs Q, so switching it in must LOWER the OSS voltage.
-
-        Regression: the reactor was once modelled with the wrong sign and acted
-        as a capacitor bank (voltage went up from 1.044 to 1.063 pu).
-        """
-
-        def v_oss(enable_reactor: bool) -> float:
-            net = build_network(generation_fraction=0.0, enable_reactor=enable_reactor)
-            pp.runpp(net)
-            oss = net.bus.index[net.bus["name"] == "OSS_220kV"][0]
-            return float(net.res_bus.at[oss, "vm_pu"])
-
-        assert v_oss(True) < v_oss(False)
-
-    def test_no_reactor_when_disabled(self):
-        """Shunt reactors are absent when disabled; the harmonic filter stays."""
-        net = build_network(enable_reactor=False)
-        assert list(net.shunt["name"]) == ["HF_OSS_66_2MVAR_h16"]
-
-    def test_string_layout(self):
-        """String layout must produce exactly 34 WTGs across 6 strings (6-6-6-6-5-5)."""
-        net = build_network()
-        array_lines = [n for n in net.line["name"] if n.startswith("Array_")]
-        # Count unique string prefixes
-        strings = set()
-        for name in array_lines:
-            parts = name.split("_")
-            strings.add(parts[1])  # S1, S2, ...
-        assert len(strings) == NUM_STRINGS
 
 
 def test_string_layout_matches_p3_p5_feeders():

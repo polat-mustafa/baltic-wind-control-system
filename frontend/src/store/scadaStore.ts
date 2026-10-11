@@ -92,6 +92,7 @@ export type ScadaSubTab =
   | "cms"
   | "vibration"
   | "historian"
+  | "instruments"
   // diagnostics
   | "goose"
   | "soe"

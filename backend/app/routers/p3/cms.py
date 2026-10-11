@@ -9,6 +9,7 @@ GET  /api/v1/scada/cms/turbines/{id}/vibration      — FFT vibration spectrum
 GET  /api/v1/scada/cms/turbines/{id}/oil-analysis   — Hydraulic (pitch) oil quality trend
 GET  /api/v1/scada/cms/alerts                       — Active CMS alerts
 POST /api/v1/scada/cms/turbines/{id}/simulate-fault — Inject degradation scenario
+DELETE /api/v1/scada/cms/turbines/{id}/simulate-fault — Clear injected degradation
 
 CMS is the primary tool for preventing unplanned offshore failures.
 An unplanned main bearing failure on a 15 MW turbine costs €280k–€800k;
@@ -225,7 +226,7 @@ async def simulate_fault(
     - MODERATE : 2.0 HI/day — weeks to failure (developing fault)
     - SEVERE   : 5.0 HI/day — days to failure (advanced fault)
 
-    The injected fault persists until the server restarts. Use this endpoint
+    The injected fault persists until it is cleared (DELETE on the same path). Use this endpoint
     in training scenarios to demonstrate:
     1. How CMS health index changes before failure is visible
     2. RUL estimation accuracy at different degradation stages
@@ -251,3 +252,17 @@ async def simulate_fault(
             degradation_rate=body.degradation_rate,
         ),
     )
+
+
+@router.delete(
+    "/cms/turbines/{turbine_id}/simulate-fault",
+    summary="Clear injected CMS degradation",
+)
+async def clear_fault(
+    spec: FarmSpecDep,
+    turbine_id: Annotated[str, Path(description="Turbine ID, e.g. 'WTG-01'")],
+    component: Annotated[str | None, Query(description="One component; all if omitted")] = None,
+) -> dict[str, int]:
+    """Remove the training degradation(s) of a turbine; its health returns to baseline."""
+    tid = _validate_turbine(turbine_id, spec.num_turbines)
+    return {"cleared": svc.clear_fault_injection(tid, component.upper() if component else None)}

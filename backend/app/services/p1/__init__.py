@@ -21,7 +21,6 @@ from app.services.p1.layout_optimizer import (
     compute_pairwise_distances_m,
     generate_regular_grid,
     generate_staggered_grid,
-    optimize_layout,
 )
 
 __all__ = [
@@ -41,5 +40,4 @@ __all__ = [
     "estimate_blockage_loss_percent",
     "generate_regular_grid",
     "generate_staggered_grid",
-    "optimize_layout",
 ]

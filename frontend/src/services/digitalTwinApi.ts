@@ -333,3 +333,30 @@ export interface CareBenchmark {
 export function getCareBenchmark(farm = "b"): Promise<CareBenchmark> {
   return request(`${BASE}/real-data/care?farm=${encodeURIComponent(farm)}`);
 }
+
+// ── One measured operating point vs the twin ─────────────────────
+
+export interface OperatingPointRequest {
+  wind_speed_ms: number;
+  power_mw: number;
+  rotor_speed_rpm?: number | null;
+  pitch_deg?: number | null;
+  air_density?: number;
+}
+
+export interface OperatingPointResult {
+  region: string;
+  expected_power_mw: number;
+  expected_rotor_speed_rpm: number;
+  expected_pitch_deg: number;
+  power_residual_mw: number;
+  power_z: number | null;
+  rotor_speed_residual_rpm: number | null;
+  rotor_speed_z: number | null;
+  pitch_residual_deg: number | null;
+  pitch_z: number | null;
+}
+
+/** Residuals and z-scores (Phase I σ of the wind bin) of one 10-min SCADA reading. */
+export const checkOperatingPoint = (req: OperatingPointRequest): Promise<OperatingPointResult> =>
+  post(`${BASE}/operating-point`, req);

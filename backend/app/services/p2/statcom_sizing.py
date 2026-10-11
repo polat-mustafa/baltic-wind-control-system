@@ -54,7 +54,14 @@ connection point for P ≥ 0.1 P_max: −178.5 / +204 MVAR for 510 MW.
 ``poc_q_capability`` finds what the scheme delivers at P_max: WTG reactive
 capability (assumed ±0.33 p.u., cos φ = 0.95 at rated power — the V236 data
 sheet is not public), STATCOM ±120 MVAR, switching the shunt reactors, and
-both OLTCs regulating, with every farm bus kept within 0.90–1.10 p.u.
+both OLTCs regulating, with every farm bus kept within 0.90–1.10 p.u. AND every
+cable and transformer within its rating. The thermal limit is what binds: at P_max
+the export runs at ≈ 99 % of its 825 A rating, so Q that must pass through it (WTGs,
+STATCOM, OSS reactors) is nearly used up. The range comes from the onshore reactors,
+which sit on the onshore busbar and move the POC Q without adding cable current:
+SB-510 reaches +247 / −205 MVAR (both onshore reactors out / in, then the WTG and
+STATCOM headroom the cable still allows). Without the thermal check the same search
+reported +532 / −590 MVAR — at 138 % export-cable and 128 % transformer loading.
 
 Sizing (network_model.design / size_statcom) — one reactor per circuit at each cable
 end (4 × 180 MVAR); the STATCOM covers both edge cases with its margin
@@ -83,6 +90,7 @@ Constants (SB-510)
 - Voltage limits: 0.95–1.05 p.u.
 """
 
+import copy
 import dataclasses
 import math
 from functools import lru_cache
@@ -91,7 +99,12 @@ import pandapower as pp
 from pandapower.control import DiscreteTapControl
 
 from app.schemas.grid import STATCOMSizingResult
-from app.services.p2.load_flow import V_MAX_PU, V_MIN_PU, auto_statcom_dispatch
+from app.services.p2.load_flow import (
+    V_MAX_PU,
+    V_MIN_PU,
+    auto_statcom_dispatch,
+    dispatch_with_reactor_switching,
+)
 from app.services.p2.network_model import (
     EXPORT_CABLE_1000,
     EXPORT_CABLE_LENGTH_KM,
@@ -113,6 +126,7 @@ PSE_Q_ABSORB_PU = 0.35
 WTG_Q_CAPABILITY_PU = 0.33  # ±Q/S_n at rated power (cos φ 0.95) — assumption
 CAPABILITY_V_MIN_PU = 0.90
 CAPABILITY_V_MAX_PU = 1.10
+THERMAL_LIMIT_PCT = 100.0  # cables and transformers at their continuous rating
 
 
 def ferranti_rise_pu(length_km: float = EXPORT_CABLE_LENGTH_KM) -> float:
@@ -144,7 +158,7 @@ def calculate_cable_reactive_power(
     voltage_kv : float
         Nominal voltage [kV]. Default: 220.
     length_km : float
-        Cable length [km]. Default: 45.
+        Cable length [km]. Default: 108 (SB-510).
     num_cables : int
         Number of parallel cables. Default: 2 (export circuits).
 
@@ -183,9 +197,9 @@ def size_statcom(
     cable_q_mvar : float | None
         Export cable Q [MVAR]. If None, calculated from cable parameters.
     reactor_unit_mvar : float
-        Absorption of one shunt reactor [MVAR]. Default: 80.
+        Absorption of one shunt reactor [MVAR]. Default: 180 (SB-510).
     num_reactors : int
-        Installed shunt reactors. Default: 3 (N+1).
+        Installed shunt reactors. Default: 4 (one per circuit at each cable end).
     reactors_out : int
         Reactors out of service in the design case. Default: 1 (N-1).
     temperature_derating : float
@@ -300,47 +314,59 @@ def validate_compensation(
     )
 
 
-def continuous_q_mvar(spec: FarmSpec = SB510) -> float:
-    """Q the WTGs and the STATCOM give without switching reactors [MVAR]."""
-    return WTG_Q_CAPABILITY_PU * spec.capacity_mw + spec.statcom_mvar
-
-
 def _poc_q_at(
-    q_inj_mvar: float, export_length_km: float, grid_ssc_mva: float, spec: FarmSpec = SB510
+    base: pp.pandapowerNet,
+    sign: int,
+    onshore_switched: int,
+    share: float,
+    spec: FarmSpec = SB510,
 ) -> tuple[float, bool]:
-    """POC reactive power for a requested internal injection, and voltage feasibility.
+    """POC reactive power of one capability trial, and whether it is feasible.
 
-    q_inj > 0 (producing): WTGs and STATCOM first, then shunt reactors are
-    switched out one by one (SB-510: 180 MVAR steps). q_inj < 0: WTGs and STATCOM
-    absorb with all reactors in. Both OLTCs hold their LV busbar at 0.99–1.01 p.u.
+    Starts from the normal P_max operating point ``base`` (reactors and STATCOM as
+    ``load_flow.dispatch_with_reactor_switching`` leaves them), then
+      1. switches ``onshore_switched`` onshore reactors (out to produce, in to absorb) —
+         they sit on the onshore busbar, so they move the POC Q without adding current
+         to the export cable;
+      2. moves the WTGs and the STATCOM a fraction ``share`` of the way from their
+         operating point to their limit in the direction ``sign`` — this Q flows
+         through the export cable and the transformers.
+    Both OLTCs hold their LV busbar at 0.99–1.01 p.u. Feasible = converged, every farm
+    bus within 0.90–1.10 p.u. and no cable or transformer above its rating.
     """
-    cont = continuous_q_mvar(spec)
-    reactors_out = 0
-    if q_inj_mvar > cont and spec.num_reactors:
-        reactors_out = min(
-            spec.num_reactors,
-            math.ceil((q_inj_mvar - cont) / spec.reactor_unit_mvar),
-        )
-    q_cont = q_inj_mvar - reactors_out * spec.reactor_unit_mvar
-    share = max(min(q_cont / cont, 1.0), -1.0)  # same fraction on every source
+    net = copy.deepcopy(base)
+    onshore = [
+        i
+        for i in net.shunt.index
+        if str(net.shunt.at[i, "name"]).startswith("Reactor_ONS")
+        and bool(net.shunt.at[i, "in_service"]) == (sign > 0)
+    ]
+    for i in onshore[:onshore_switched]:
+        net.shunt.at[i, "in_service"] = sign < 0
 
-    net = build_network(
-        export_length_km=export_length_km,
-        grid_ssc_mva=grid_ssc_mva,
-        generation_fraction=1.0,
-        statcom_q_mvar=share * spec.statcom_mvar,
-        spec=spec,
-    )
-    net.shunt.loc[net.shunt.index[:reactors_out], "in_service"] = False
+    statcom = net.sgen.index[net.sgen["name"] == "STATCOM"][0]
+    q_statcom = float(net.sgen.at[statcom, "q_mvar"])
+    net.sgen.at[statcom, "q_mvar"] = q_statcom + share * (sign * spec.statcom_mvar - q_statcom)
     wtg = net.sgen["name"].str.startswith("WTG_")
-    net.sgen.loc[wtg, "q_mvar"] = share * WTG_Q_CAPABILITY_PU * spec.turbine_rated_mw
+    net.sgen.loc[wtg, "q_mvar"] = share * sign * WTG_Q_CAPABILITY_PU * spec.turbine_rated_mw
+
     for idx in net.trafo.index:
         DiscreteTapControl(net, idx, vm_lower_pu=0.99, vm_upper_pu=1.01, side="lv")
-    pp.runpp(net, run_control=True, max_iteration=100, tolerance_mva=1e-6)
+    try:
+        pp.runpp(net, run_control=True, max_iteration=100, tolerance_mva=1e-6)
+    except pp.LoadflowNotConverged:
+        return 0.0, False
     if not net.converged:
         return 0.0, False
     vm = net.res_bus.vm_pu[~net.bus["name"].str.contains("PSE")]
-    ok = bool(vm.min() >= CAPABILITY_V_MIN_PU and vm.max() <= CAPABILITY_V_MAX_PU)
+    loading = max(
+        float(net.res_line.loading_percent.max()), float(net.res_trafo.loading_percent.max())
+    )
+    ok = bool(
+        vm.min() >= CAPABILITY_V_MIN_PU
+        and vm.max() <= CAPABILITY_V_MAX_PU
+        and loading <= THERMAL_LIMIT_PCT
+    )
     return -float(net.res_ext_grid.q_mvar.sum()), ok  # delivered to PSE, generating +
 
 
@@ -352,27 +378,49 @@ def poc_q_capability(
 ) -> tuple[float, float]:
     """Largest producing / absorbing Q at the PSE 400 kV POC at P_max [MVAR].
 
-    Bisection on the internal injection; each trial is a load flow with OLTC
-    control, accepted only if every farm bus stays within 0.90–1.10 p.u.
+    From the normal P_max operating point, per direction: as many onshore reactors
+    switched as stays feasible, then bisection on the WTG + STATCOM share; every trial
+    is a load flow with OLTC control, accepted only within 0.90–1.10 p.u. and the
+    thermal ratings (``_poc_q_at``). At P_max SB-510's export runs at ≈ 99 % of its
+    rating, so Q that has to pass through the cable is almost exhausted; the PSE range
+    comes from the onshore reactors.
     """
     grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
-    cont = continuous_q_mvar(spec)
-    tops = {+1: cont + spec.reactor_mvar, -1: cont}
+    base = build_network(
+        export_length_km=export_length_km,
+        grid_ssc_mva=grid_ssc_mva,
+        generation_fraction=1.0,
+        spec=spec,
+    )
+    dispatch_with_reactor_switching(base, spec.statcom_mvar)
+
     result: dict[int, float] = {}
-    for sign, top in tops.items():
-        q_top, ok_top = _poc_q_at(sign * top, export_length_km, grid_ssc_mva, spec)
-        if ok_top:
-            result[sign] = q_top
-            continue
-        lo, hi = 0.0, top
-        best, _ = _poc_q_at(0.0, export_length_km, grid_ssc_mva, spec)
-        for _ in range(7):
-            mid = 0.5 * (lo + hi)
-            q, ok = _poc_q_at(sign * mid, export_length_km, grid_ssc_mva, spec)
-            if ok:
-                lo, best = mid, q
+    for sign in (+1, -1):
+        onshore = [
+            i
+            for i in base.shunt.index
+            if str(base.shunt.at[i, "name"]).startswith("Reactor_ONS")
+            and bool(base.shunt.at[i, "in_service"]) == (sign > 0)
+        ]
+        q0, steps, ok0 = 0.0, 0, False
+        for steps in range(len(onshore), -1, -1):  # most switching that stays feasible
+            q0, ok0 = _poc_q_at(base, sign, steps, 0.0, spec)
+            if ok0:
+                break
+        best = q0
+        if ok0:
+            q_top, ok_top = _poc_q_at(base, sign, steps, 1.0, spec)
+            if ok_top:
+                best = q_top
             else:
-                hi = mid
+                lo, hi = 0.0, 1.0
+                for _ in range(7):
+                    mid = 0.5 * (lo + hi)
+                    q, ok = _poc_q_at(base, sign, steps, mid, spec)
+                    if ok:
+                        lo, best = mid, q
+                    else:
+                        hi = mid
         result[sign] = best
     return result[+1], result[-1]
 

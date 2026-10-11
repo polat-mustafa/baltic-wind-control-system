@@ -3,7 +3,7 @@ Project Information API — static design rationale and sensor register.
 
 Endpoints
 ---------
-GET  /api/v1/info/sensors    — Full instrument register for 510 MW platform
+GET  /api/v1/info/sensors    — Instrument register of the farm
 GET  /api/v1/info/health     — Lightweight liveness probe (no DB)
 GET  /api/v1/info/ais        — Live AIS vessels around the site (aisstream.io proxy)
 
@@ -23,6 +23,7 @@ from typing import Any
 from fastapi import APIRouter
 
 from app.config import settings
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.sensor_specs import SensorRegisterResponse
 from app.services.p0 import ais_stream
 from app.services.p0 import sensor_register as svc
@@ -35,16 +36,16 @@ router = APIRouter(prefix="/api/v1/info", tags=["Project Info"])
     response_model=SensorRegisterResponse,
     summary="Full instrument register",
     description=(
-        "Returns the complete sensor specification register for the SB-510 (510 MW) platform: "
-        "34 turbines x 11 sensors, 6 OSS bays x 5 instruments, 5 export cable instruments. "
-        "Total ~409 field instrument tags (process sensors only). "
+        "Instrument register of the farm (SB-510 or the own project): sensors per turbine, "
+        "per 66 kV feeder bay and per export circuit, and the total tag count "
+        "(SB-510: 392, process sensors only). "
         "All specifications reference IEC/ISO standards. "
         "Values are indicative — final specs are vendor-dependent."
     ),
 )
-async def get_sensor_register() -> SensorRegisterResponse:
-    """Return the full sensor register."""
-    return svc.get_sensor_register()
+def get_sensor_register(spec: FarmSpecDep) -> SensorRegisterResponse:
+    """Return the full sensor register of the farm."""
+    return svc.get_sensor_register(spec)
 
 
 @router.get(
@@ -56,7 +57,7 @@ async def get_sensor_register() -> SensorRegisterResponse:
         "enabled=false and no vessels (the map never shows invented traffic)."
     ),
 )
-async def get_ais_vessels() -> dict[str, Any]:
+def get_ais_vessels() -> dict[str, Any]:
     enabled = bool(settings.aisstream_api_key)
     return {
         "enabled": enabled,

@@ -107,7 +107,7 @@ ZONES: tuple[tuple[str, float, float, float, float], ...] = (
 _W_C_RATED = STATIC_RATING_A**2 * R_AC90_OHM_PER_M
 R_EXT_J_TUBE = (T_CONDUCTOR_MAX - T_AMBIENT_DESIGN - (_W_C_RATED + W_DIELECTRIC / 2) * T_INT) / (
     _W_C_RATED + W_DIELECTRIC
-)  # ≈ 2.9 K·m/W
+)  # ≈ 3.67 K·m/W
 
 
 def _zone(km: float) -> tuple[str, float, float, float, float]:

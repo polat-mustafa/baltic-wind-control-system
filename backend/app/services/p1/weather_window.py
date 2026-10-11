@@ -25,7 +25,7 @@ References
 ----------
 DNVGL-RP-O101    Offshore wind O&M operational philosophy
 IEC 61400-26-1   Availability categories (links to M13)
-Offshore Wind O&M Market Report 2024 (Bloomberg NEF) — EUR 80-120/MW/year benchmark
+IRENA renewable power generation costs — total offshore OPEX EUR 70–120k/MW/year
 """
 
 from __future__ import annotations

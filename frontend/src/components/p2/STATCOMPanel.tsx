@@ -8,8 +8,7 @@
  */
 
 import { motion } from "framer-motion";
-import type { PlotData } from "plotly.js";
-import Plot from "react-plotly.js";
+import Plot, { type PlotParams } from "react-plotly.js";
 
 import { reactiveCompensationEducation } from "../../constants/education/p2";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
@@ -17,6 +16,9 @@ import { CHART_TRANSITION, useChartPalette } from "../../hooks/useChartPalette";
 import { useGridStore, useNetwork } from "../../store/gridStore";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
+
+/** One Plotly trace (plotly.js typings via react-plotly.js). */
+type PlotData = PlotParams["data"][number];
 
 function RangeBar({
   label,

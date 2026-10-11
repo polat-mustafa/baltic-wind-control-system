@@ -204,14 +204,14 @@ class TestEnergyRose:
         """Energy fractions should sum to 1.0."""
         freqs = np.array([0.3, 0.5, 0.2])
         speeds = np.array([8.0, 10.0, 6.0])
-        energy = compute_energy_rose(freqs, speeds)
+        energy = compute_energy_rose(freqs, speeds**3)
         assert energy.sum() == pytest.approx(1.0, abs=1e-10)
 
     def test_high_speed_sector_dominates(self):
         """Sector with much higher speed should dominate energy (cubic law)."""
         freqs = np.array([0.5, 0.5])  # Equal frequency
         speeds = np.array([5.0, 10.0])  # 10 m/s has 8× the energy of 5 m/s
-        energy = compute_energy_rose(freqs, speeds)
+        energy = compute_energy_rose(freqs, speeds**3)
         # Energy ratio: 10³/5³ = 8, so sector 1 gets 8/(1+8) ≈ 0.889
         assert energy[1] > energy[0]
         assert energy[1] == pytest.approx(8.0 / 9.0, abs=0.001)
@@ -220,9 +220,19 @@ class TestEnergyRose:
         """Sectors with NaN speeds should contribute zero energy."""
         freqs = np.array([0.5, 0.3, 0.2])
         speeds = np.array([10.0, np.nan, 8.0])
-        energy = compute_energy_rose(freqs, speeds)
+        energy = compute_energy_rose(freqs, speeds**3)
         assert energy[1] == 0.0
         assert energy.sum() == pytest.approx(1.0, abs=1e-10)
+
+    def test_gusty_sector_carries_more_energy_at_the_same_mean(self):
+        """Same mean speed, different spread: ⟨v³⟩ ≠ v̄³, the gusty sector wins."""
+        steady = np.full(1000, 8.0)
+        gusty = np.tile([4.0, 12.0], 500)  # mean 8 m/s, ⟨v³⟩ = 896 vs 512
+        result = compute_wind_rose(
+            np.concatenate([steady, gusty]), np.r_[np.full(1000, 0.0), np.full(1000, 180.0)], 2
+        )
+        assert result.mean_speeds_ms == pytest.approx([8.0, 8.0])
+        assert result.energy_fractions[1] == pytest.approx(896 / (896 + 512), rel=1e-6)
 
 
 # ── Circular Standard Deviation ────────────────────────────────────

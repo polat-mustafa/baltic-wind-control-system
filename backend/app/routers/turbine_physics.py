@@ -68,7 +68,7 @@ router = APIRouter(
 
 
 @router.post("/simulate", response_model=SimulationResponse)
-async def simulate(req: SimulationRequest) -> SimulationResponse:
+def simulate(req: SimulationRequest) -> SimulationResponse:
     """Run turbine simulation with arbitrary wind time series.
 
     Accepts a wind speed array (one value per timestep) and returns
@@ -120,7 +120,7 @@ async def simulate(req: SimulationRequest) -> SimulationResponse:
 
 
 @router.post("/step-response", response_model=SimulationResponse)
-async def step_response(req: StepResponseRequest) -> SimulationResponse:
+def step_response(req: StepResponseRequest) -> SimulationResponse:
     """Run step-response simulation: wind ramps from v_init to v_final.
 
     Useful for analyzing turbine dynamic response:
@@ -169,7 +169,7 @@ async def step_response(req: StepResponseRequest) -> SimulationResponse:
 
 
 @router.post("/aerodynamic-state", response_model=AerodynamicStateResponse)
-async def aerodynamic_state(
+def aerodynamic_state(
     req: AerodynamicStateRequest,
 ) -> AerodynamicStateResponse:
     """Compute single-point aerodynamic state.
@@ -200,7 +200,7 @@ async def aerodynamic_state(
 
 
 @router.get("/cp-surface", response_model=CpSurfaceResponse)
-async def cp_surface() -> CpSurfaceResponse:
+def cp_surface() -> CpSurfaceResponse:
     """Get the Cp(λ, β) surface of the IEA 15 MW rotor for 3D visualization.
 
     The official ROSCO performance table (CCBlade steady BEM): λ 2–14.5 and
@@ -223,7 +223,7 @@ async def cp_surface() -> CpSurfaceResponse:
 
 
 @router.get("/config", response_model=TurbinePhysicsConfigResponse)
-async def get_config() -> TurbinePhysicsConfigResponse:
+def get_config() -> TurbinePhysicsConfigResponse:
     """Get complete module configuration.
 
     Returns all turbine physics constants and controller parameters.

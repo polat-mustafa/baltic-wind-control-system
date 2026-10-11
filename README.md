@@ -9,7 +9,9 @@
 OffshoreForge is an open training platform for offshore wind engineers. Every screen is a working
 engineering model, not a mock-up: wake losses come from PyWake, short-circuit currents from
 pandapower (IEC 60909), and the digital twin detects and diagnoses faults injected with known ground truth.
-Each method is traced to its standard or primary source in [docs/references.md](docs/references.md).
+Each method is traced to its standard or primary source in [docs/references.md](docs/references.md),
+and the in-app **Evidence** page lists what each model is validated against (measured wakes,
+hand calculations, real forecasts), generated from the tests themselves.
 
 ## Case study: Southern Baltic (SB-510)
 
@@ -21,7 +23,7 @@ The platform ships with one reference project, modelled on the current Polish Ba
 | Turbines | 34 × 15 MW "V236 class" = **510 MW**, modelled with the open IEA 15 MW reference turbine (IEA-15-240-RWT, direct drive, ROSCO controller) because Vestas publishes no V236 model data |
 | Array | 66 kV XLPE, 6 strings (6-6-6-6-5-5) |
 | Export | 2 × 220 kV HVAC, 108 km (79.3 subsea round Ławica Słupska, clear of the military area + 28.7 onshore) to PSE Krzemienica |
-| Reactive power | ±120 Mvar STATCOM, 4 × 180 Mvar shunt reactors (one per export circuit at each end) |
+| Reactive power | ±120 Mvar STATCOM, 4 × 180 Mvar shunt reactors (one per export circuit at each end), 2 Mvar harmonic filter (h 10.34) |
 | Storage | 50 MW / 200 MWh BESS |
 | Grid | PSE 400 kV, ENTSO-E NC RfG Type D |
 
@@ -33,24 +35,32 @@ The modules follow a wind farm through its life.
 
 | Stage | Module | What you work with |
 |---|---|---|
-| **Develop** | Site & Permits | Open marine data (EMODnet, EEA Natura 2000, Marine Regions), suitability screening, candidate-site report, survey and EIA stages, generic EU permit procedure |
+| **Develop** | Site & Permits | Open marine data (EMODnet, EEA Natura 2000, Marine Regions), official Polish location permits (SIPAM), the Polish transmission grid (KSE), ship traffic density, two wind atlases (NEWA, Global Wind Atlas v4), suitability screening, candidate-site report, survey and EIA stages, generic EU permit procedure |
 | | Layout | Drag-and-drop turbines in the site, live wake loss, Esau–Williams array cables, PyWake AEP for the exact positions, CAPEX and LCOE |
-| | Wind Resource | Weibull fits, wake models (PyWake), AEP and loss chain, availability (IEC 61400-26), weather windows |
-| **Design** | Grid Integration | Load flow, IEC 60909 short circuit, fault ride-through, STATCOM sizing, power quality, cable thermal rating (IEC 60287) |
-| | Turbine Physics | Cp(λ, β) surface, pitch and torque control, yaw |
-| **Build & Commission** | Construction | Installation campaign in Baltic weather windows (DNV-ST-N001 α factor): vessels, P10/P50/P90 timeline, waiting on weather, vessel cost |
-| | Commissioning | Circuit 1 energisation (60 steps, topology interlocks, load-flow-verified readings), isolation locks, FAT/SAT, EON → ION → FON |
-| | Hand-over | As-built register of your farm, energisation order per feeder bay, your layout on the control-room map |
-| **Operate** | Control Room | Farm map, live KPIs, 3D turbine with drawing sheets |
-| | SCADA | IEC 61850 data model and GOOSE, bay control, alarms, permit-to-work, OPC UA, IEC 62443 zones |
-| | Forecasting | XGBoost, LSTM and TFT models, ensembles, SHAP, with an interactive ML academy |
-| | Digital Twin | Physics-based condition monitoring (ISO 13374): detection, model-based diagnosis, RUL prognosis |
-| **Decommission** | Decommissioning | Removal options, removal campaign, material and recycling, end-of-life cost, seabed restoration (UNCLOS Art. 60, IMO A.672(16)) |
-| **Learn** | Academy | Courses along the lifecycle and scored missions (site, layout, energisation, FRT, twin diagnosis, control-room drills) |
+| | Wind Resource | Weibull fits, wake models (PyWake) validated against measured Horns Rev 1 and Lillgrund rows, wake steering, derating and PCE/Sobol uncertainty studies, AEP and loss chain, availability (IEC 61400-26), Copernicus Marine metocean and weather windows |
+| | Project Report · My Projects | Printable report (PDF, JSON, windIO); open, compare and export your own projects |
+| **Design** | Grid Integration | Load flow, IEC 60909 short circuit, fault ride-through, STATCOM sizing, power quality, cable thermal rating (IEC 60287), power plant controller, BESS, PSE live system data and a real market day |
+| | Turbine Physics | Cp(λ, β) surface, ROSCO pitch and torque control, yaw, overspeed trip |
+| **Build** | Construction | Installation campaign in Baltic weather windows (DNV-ST-N001 α factor): vessels, P10/P50/P90 timeline, waiting on weather, vessel cost |
+| | Commissioning | Circuit 1 energisation (63 steps, topology interlocks, load-flow-verified readings, animated replay), isolation locks, FAT/SAT, EON → ION → FON |
+| | Hand-over | Hand-over package checklist, punch-list grades, as-built register of your farm, energisation order per feeder bay, your layout on the control-room map |
+| **Operate** | Control Room | Farm map, live KPIs, measured coastal wind (IMGW), 7-day CTV/SOV access forecast, 3D turbine with drawing sheets |
+| | SCADA | IEC 61850 data model and GOOSE, bay control, alarms, permit-to-work, instrument register, OPC UA, IEC 62443 zones |
+| | Forecasting | Real data only (ENTSO-E / Energinet DK2): XGBoost, LSTM and TFT against the TSO's own forecast, CRPS and reliability, ensembles, SHAP, with an interactive ML academy |
+| | Digital Twin | Physics-based condition monitoring (ISO 13374) on real CARE turbine data: detection, model-based diagnosis, RUL prognosis |
+| **End of life** | Decommissioning | Removal options, removal campaign, material and recycling, end-of-life cost, seabed restoration (UNCLOS Art. 60, IMO A.672(16)) |
+| **Learn** | Academy · Evidence | Courses along the lifecycle and scored missions (site, layout, energisation, FRT, twin diagnosis, control-room drills); the validation record of every model |
 
 New here? On first launch the app offers a **guided tour**: spotlights and arrows walk you through
 the control room, some steps ask you to try things yourself, and every module has its own short
 tour in the header's **Tour** menu.
+
+- **English / Turkish:** the header button switches the whole interface in place, without losing
+  inputs or results.
+- **AI tutor:** a panel on every page answers questions with the page as context and calls the
+  platform's own calculators (plant facts, turbine operating point, export cable, IEC 60909).
+  Bring your own key (OpenAI-compatible providers, or sign in with OpenRouter); the key stays in
+  server memory and is never returned to the browser.
 
 ## Quick start
 
@@ -86,9 +96,9 @@ npm run dev
 
 ```mermaid
 graph LR
-    UI["Frontend<br/>React 19 · TypeScript · Tailwind v4<br/>Zustand · Plotly · Leaflet · three.js"]
-    API["Backend<br/>FastAPI · Python 3.13 · Pydantic v2<br/>~185 REST operations"]
-    ENG["Engines<br/>PyWake · pandapower · scikit-learn<br/>XGBoost · PyTorch"]
+    UI["Frontend<br/>React 19 · TypeScript · Tailwind v4<br/>Zustand · Plotly · MapLibre · deck.gl · three.js"]
+    API["Backend<br/>FastAPI · Python 3.13 · Pydantic v2<br/>~180 REST operations"]
+    ENG["Engines<br/>PyWake · pandapower · ANDES<br/>scikit-learn · XGBoost · PyTorch"]
     DB[("PostgreSQL 16<br/>+ TimescaleDB")]
     RD[("Redis 7")]
     UI <--> API
@@ -106,8 +116,16 @@ graph LR
 | `frontend/src/{components,store,services}/` | UI, Zustand stores, typed API clients |
 | `docs/` | MkDocs site, user guides, methods and references |
 
-API prefixes: `/api/v1/wind`, `/grid`, `/scada`, `/forecast`, `/commissioning`, `/digital-twin`,
-`/turbine-physics`, `/turbine-sim`, `/info`.
+API prefixes: `/api/v1/site`, `/wind`, `/grid`, `/scada`, `/forecast`, `/commissioning`,
+`/lifecycle`, `/digital-twin`, `/turbine-physics`, `/turbine-sim`, `/projects`, `/tutor`, `/info`.
+
+## Data
+
+Bundled or fetched from open sources: ERA5, NEWA and Global Wind Atlas v4 (wind),
+Copernicus Marine Baltic reanalyses (waves, seabed temperature, ice, currents), NOAA OISST,
+EMODnet and SIPAM (sea use and permits), PyPSA-Eur / OpenStreetMap (grid), PSE open API and
+IMGW (live system and coastal stations), ENTSO-E / Energinet (forecasting), CARE (condition
+monitoring), Horns Rev 1 and Lillgrund (wake validation, via PyWake). Live sources need no key.
 
 ## Testing
 
@@ -119,7 +137,9 @@ make lint        # ruff + mypy + tsc + eslint
 Backend tests assert physics rather than snapshots, for example:
 - power stays in [0, P_rated] and is zero outside cut-in and cut-out;
 - fault currents follow IEC 60909 with c_max = 1.10;
-- interlocks obey switchgear rules.
+- interlocks obey switchgear rules;
+- recorded validation values (Evidence page) and every SB-510 number quoted in the UI stay
+  equal to what the engines compute.
 
 Frontend end-to-end checks use Playwright (`cd frontend && npm run e2e`).
 

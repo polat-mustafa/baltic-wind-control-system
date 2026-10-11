@@ -184,7 +184,7 @@ export default function TurbineFaceplate({
   };
 
   const ratedMW = 15.0;
-  const setpoint = turbine.status === "curtailed" ? ratedMW * 0.6 : ratedMW;
+  const setpoint = turbine.status === "curtailed" ? 0 : ratedMW; // curtailed: zero schedule (negative RCE price)
   const band: [number, number] = [setpoint * 0.95, setpoint * 1.05];
 
   return (
@@ -401,11 +401,11 @@ export default function TurbineFaceplate({
                 />
                 <DataRow
                   label="Curtail"
-                  value={turbine.status === "curtailed" ? "40" : "0"}
+                  value={turbine.status === "curtailed" ? "100" : "0"}
                   unit="%"
                 />
                 <DataRow label="Mode" value={mode} />
-                <DataRow label="Cut-out" value="31" unit="m/s" />
+                <DataRow label="Cut-out" value="25" unit="m/s" />
               </div>
             </section>
 

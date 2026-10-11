@@ -93,6 +93,17 @@ def pse_day(day: str) -> dict[str, Any]:
     return {"date": day, "quarters": quarters, "summary": summarise(quarters), "source": SOURCE}
 
 
+def current_quarter(quarters: list[dict[str, Any]], now: str) -> dict[str, Any] | None:
+    """The quarter-hour that holds ``now`` ("YYYY-MM-DD HH:MM:SS", Polish time) with a price.
+
+    Quarters are stamped with their end time, so it is the first one ending after now.
+    """
+    return next(
+        (q for q in quarters if q["time"] > now and q["price_pln_mwh"] is not None),
+        None,
+    )
+
+
 def summarise(quarters: list[dict[str, Any]]) -> dict[str, Any]:
     """Energy [MWh] (MW × ¼ h), shares, average and wind capture price over the filled quarters."""
     filled = [q for q in quarters if q["wind_mw"] is not None and q["demand_mw"] is not None]

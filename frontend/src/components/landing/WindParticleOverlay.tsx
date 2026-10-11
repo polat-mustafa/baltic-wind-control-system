@@ -15,6 +15,11 @@
  *   #e4ecf3  strong        (10–20 m/s)
  *   #f0b13e  near cut-out  (≥ 20 m/s)
  *
+ * Inside the farm the particles feel the wakes: each one samples u/u₀ where it
+ * is (utils/wakeModel.wakeSpeedRatio — the Gaussian deficits behind every
+ * rotor, as in the KPI losses), slows down by it and turns copper, the
+ * colour of the energy the wake costs.
+ *
  * Wind data is read from landingStore on each animation frame; the map view
  * comes in as a ref (panning carries the particles along, zooming respawns
  * them). Zero external dependencies — pure Canvas API.
@@ -23,12 +28,18 @@
 import { useEffect, useRef } from "react";
 import type { WebMercatorViewport } from "@deck.gl/core";
 
+import { liveFleet, type Fleet } from "../../lib/fleet";
 import { useLandingStore } from "../../store/landingStore";
 import { useLayerStore } from "../../store/layerStore";
+import { wakeCt } from "../../utils/landingPhysics";
+import { toLocalM, wakeSpeedRatio } from "../../utils/wakeModel";
+import { WAKE_RGB } from "../map/wakeField";
 
 // ── Tunables ──────────────────────────────────────────────────────
 
-const PARTICLE_COUNT = 160;
+const PARTICLE_COUNT = 280;
+/** Wakes are only looked for this far around the turbines [m]. */
+const WAKE_REACH_M = 4000;
 const BASE_MAX_AGE = 150; // frames before respawn
 const AGE_VARIANCE = 50;
 /** Share of the trail canvas erased per frame: smaller = longer trails. */
@@ -71,6 +82,22 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
     let h = 0;
     let dpr = 1;
     let last: WebMercatorViewport | null = null;
+    // rotors in metres around the first turbine, rebuilt when the fleet changes
+    let farm: { fleet: Fleet; lat0: number; lon0: number; rotors: { e: number; n: number }[]; box: number[] } | null = null;
+    function farmFrame() {
+      const fleet = liveFleet();
+      if (farm?.fleet === fleet) return farm;
+      const t0 = fleet.turbines[0];
+      const rotors = fleet.turbines.map((t) => {
+        const [e, n] = toLocalM(t.lat, t.lon, t0?.lat ?? 0, t0?.lon ?? 0);
+        return { e, n };
+      });
+      const es = rotors.map((r) => r.e);
+      const ns = rotors.map((r) => r.n);
+      const box = [Math.min(...es) - WAKE_REACH_M, Math.max(...es) + WAKE_REACH_M, Math.min(...ns) - WAKE_REACH_M, Math.max(...ns) + WAKE_REACH_M];
+      farm = { fleet, lat0: t0?.lat ?? 0, lon0: t0?.lon ?? 0, rotors, box };
+      return farm;
+    }
 
     function spawn(): Particle {
       return {
@@ -149,8 +176,10 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
       ctx.fillStyle = `rgba(0,0,0,${TRAIL_FADE})`;
       ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = "source-over";
-      ctx.strokeStyle = color;
       ctx.lineWidth = 1;
+      const vp = view.current;
+      const f = farmFrame();
+      const ct = wakeCt(lerpWindSpeed);
       ctx.lineCap = "round";
 
       const particles = particlesRef.current;
@@ -160,10 +189,18 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
         const x0 = p.x;
         const y0 = p.y;
 
+        // Wake: u/u₀ under the particle (1 in the free stream)
+        let ratio = 1;
+        if (f.rotors.length > 0) {
+          const [lon, lat] = vp.unproject([x0, y0]);
+          const [e, n] = toLocalM(lat, lon, f.lat0, f.lon0);
+          if (e > f.box[0] && e < f.box[1] && n > f.box[2] && n < f.box[3]) ratio = wakeSpeedRatio(e, n, f.rotors, lerpWindDir, ct);
+        }
+
         // Gentle meander across the flow (turbulent eddies), smooth per particle
         const sway = Math.sin(p.age * 0.03 + p.phase * 2) * 0.12;
-        p.x += (dx - dy * sway) * p.speedFactor;
-        p.y += (dy + dx * sway) * p.speedFactor;
+        p.x += (dx - dy * sway) * p.speedFactor * ratio;
+        p.y += (dy + dx * sway) * p.speedFactor * ratio;
         p.age++;
 
         // Respawn if out of bounds or expired
@@ -184,7 +221,9 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
         const alpha =
           t < 0.12 ? t / 0.12 : t > 0.8 ? (1 - t) / 0.2 : 1;
 
-        ctx.globalAlpha = alpha * 0.4;
+        const deficit = 1 - ratio;
+        ctx.strokeStyle = deficit > 0.02 ? `rgb(${WAKE_RGB.join(",")})` : color;
+        ctx.globalAlpha = alpha * (deficit > 0.02 ? Math.min(0.9, 0.4 + deficit * 2.5) : 0.4);
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.lineTo(p.x, p.y);

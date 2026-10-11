@@ -31,8 +31,8 @@ export const K_STAR = 0.035;
 
 // ── Geographic conversion at 55.06°N ─────────────────────────────
 
-const M_PER_DEG_LAT = 111_320;
-const M_PER_DEG_LON = 111_320 * Math.cos((55.06 * Math.PI) / 180);
+export const M_PER_DEG_LAT = 111_320;
+export const M_PER_DEG_LON = 111_320 * Math.cos((55.06 * Math.PI) / 180);
 
 // ── Core wake math ────────────────────────────────────────────────
 
@@ -114,6 +114,40 @@ export function wakeConePoly(
   }
 
   return [...left, ...right.reverse()];
+}
+
+// ── Wake field between the turbines ───────────────────────────────
+
+/** A point in metres east / north of (lat0, lon0): the flat frame the wake geometry uses. */
+export function toLocalM(lat: number, lon: number, lat0: number, lon0: number): [number, number] {
+  return [(lon - lon0) * M_PER_DEG_LON, (lat - lat0) * M_PER_DEG_LAT];
+}
+
+/**
+ * u/u₀ at any point (metres east / north, same frame as `rotors`): every rotor
+ * upstream of it, Gaussian deficit, Katic sum of squares — the field that
+ * `computeWakeLosses` samples at the hubs, so the map and the losses agree.
+ */
+export function wakeSpeedRatio(
+  e: number,
+  n: number,
+  rotors: readonly { e: number; n: number }[],
+  windFromDeg: number,
+  ct = CT,
+): number {
+  const a = (windFromDeg * Math.PI) / 180;
+  const fe = -Math.sin(a); // flow direction (where the wind blows to), east / north
+  const fn = -Math.cos(a);
+  let sq = 0;
+  for (const r of rotors) {
+    const de = e - r.e;
+    const dn = n - r.n;
+    const along = de * fe + dn * fn;
+    if (along <= 0) continue;
+    const d = velocityDeficit(along, Math.abs(de * fn - dn * fe), ct);
+    sq += d * d;
+  }
+  return 1 - Math.sqrt(sq);
 }
 
 // ── Farm-level wake loss computation ──────────────────────────────

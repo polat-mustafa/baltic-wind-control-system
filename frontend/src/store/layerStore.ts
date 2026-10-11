@@ -56,7 +56,7 @@ interface LayerState {
 export const useLayerStore = create<LayerState>((set) => ({
   layers: {
     windParticles: true,
-    // Wake envelopes are a planning view (Layout); off in the Control Room until asked for
+    // The wake field is a planning view (Layout); off in the Control Room until asked for
     wakeEffects: false,
     // Waves are scenery: off in the control room, one click away in Map layers
     oceanWaves: false,

@@ -2,19 +2,22 @@
  * Baltic Sea water surface — multi-octave Gerstner waves with foam + Fresnel.
  *
  * Implementation:
- *   - ShaderMaterial with 4 summed Gerstner waves (different directions, wavelengths, steepnesses).
+ *   - ShaderMaterial with 6 summed Gerstner waves: 4 around the spectral peak and 2 short
+ *     wind-sea components (0.35 / 0.22 λp) that make a rough sea read as rough.
  *   - Vertex shader displaces positions AND recomputes per-vertex normals analytically
  *     (no finite-difference approximation) → correct lighting.
  *   - Fragment shader blends deep-water colour (#041424) with crest colour (#3a5872),
  *     adds Fresnel rim brightness and foam near steep crests.
  *   - Sea state from landingStore: Hs sets amplitudes (Σa² = Hs²/8), Tp sets the
  *     peak wavelength (deep water λp = g·Tp²/2π ≈ 56 m at Tp 6 s), waves travel downwind.
+ *   - WAVE_GAIN: amplitudes are drawn ×2. At true scale a 1.7 m sea is ±0.4 m with
+ *     ~2° slopes — invisible from the default camera ~270 m away. The HUD says so.
  *
  * Performance:
- *   - Plane is 300×300 segments on a 600×600 m patch (~90k verts). With analytic normals
- *     there is no CPU per-frame work; everything is GPU-side. Cheaper than the prior
- *     CPU-vertex-mutation sine approach despite 5× more vertices.
- *   - If perf monitor drops dpr, we keep geometry — the cost is fill, not vertex.
+ *   - Plane is 600×600 segments on a 3 km patch (5 m spacing, ~360k verts). With analytic
+ *     normals there is no CPU per-frame work; everything is GPU-side.
+ *   - Short components fade out with distance from the camera, where 5 m spacing can't
+ *     carry them (they would alias into shimmer).
  */
 
 import { useRef, useMemo, useEffect } from "react";
@@ -38,25 +41,29 @@ const VERTEX_SHADER = /* glsl */ `
   uniform float uHs;       // significant wave height [m]
   uniform float uLambdaP;  // peak wavelength [m], deep water: g·Tp²/2π
   uniform vec2 uDir;       // mean travel direction (downwind), plane-local xy
+  uniform float uGain;     // visual amplitude gain (WAVE_GAIN)
+  uniform vec3 uCamLocal;  // camera position in plane-local xy (z unused)
 
   varying vec3 vWorldPos;
   varying vec3 vNormal;
   varying float vFoam;
   #include <fog_pars_vertex>
 
-  // Four Gerstner components around the spectral peak: (angle off mean
-  // direction [rad], wavelength / λp, amplitude weight). Σ a_i² = Hs²/8
-  // (Hs = 4·σ_η). λ is floored at 22 m: the mesh spacing is 7.5 m, shorter
-  // waves alias into noise (short chop is added as fragment normal detail).
+  // Gerstner components: (angle off mean direction [rad], wavelength / λp,
+  // amplitude weight). C0–C3 sit around the spectral peak, C4–C5 are the short
+  // wind sea. Σ a_i² = Hs²/8 (Hs = 4·σ_η). λ is floored at 12 m: the mesh
+  // spacing is 5 m, shorter waves alias (finer chop is fragment normal detail).
   const vec3 C0 = vec3( 0.00, 1.00, 0.62);
   const vec3 C1 = vec3( 0.45, 0.72, 0.48);
   const vec3 C2 = vec3(-0.55, 0.48, 0.45);
   const vec3 C3 = vec3( 0.95, 0.30, 0.42);
+  const vec3 C4 = vec3(-0.30, 0.35, 0.30);
+  const vec3 C5 = vec3( 0.60, 0.22, 0.22);
 
   vec3 gerstner(vec2 xz, vec3 c, float aScale, inout vec3 nrm) {
     float ang = c.x;
     vec2 dir = vec2(uDir.x * cos(ang) - uDir.y * sin(ang), uDir.x * sin(ang) + uDir.y * cos(ang));
-    float wavelen = max(uLambdaP * c.y, 34.0);
+    float wavelen = max(uLambdaP * c.y, 12.0);
     float k = 6.2831853 / wavelen;
     float omega = sqrt(9.81 * k);                 // deep-water dispersion
     float a = aScale * c.z;
@@ -76,7 +83,9 @@ const VERTEX_SHADER = /* glsl */ `
     // Plane is rotated -π/2 around X: local xy is horizontal, local z is up.
     vec2 xz = pos.xy;
     // Normalise weights so that Σ a_i² = Hs²/8
-    float aScale = uHs / sqrt(8.0 * (C0.z*C0.z + C1.z*C1.z + C2.z*C2.z + C3.z*C3.z));
+    float aScale = uGain * uHs / sqrt(8.0 * (C0.z*C0.z + C1.z*C1.z + C2.z*C2.z + C3.z*C3.z + C4.z*C4.z + C5.z*C5.z));
+    // short components only near the camera (5 m mesh can't carry them far away)
+    float near = 1.0 - smoothstep(400.0, 1100.0, length(xz - uCamLocal.xy));
 
     vec3 n = vec3(0.0, 1.0, 0.0);   // (local x, up, local y)
     vec3 disp = vec3(0.0);
@@ -84,6 +93,8 @@ const VERTEX_SHADER = /* glsl */ `
     disp += gerstner(xz, C1, aScale, n);
     disp += gerstner(xz, C2, aScale, n);
     disp += gerstner(xz, C3, aScale, n);
+    disp += gerstner(xz, C4, aScale * near, n);
+    disp += gerstner(xz, C5, aScale * near, n);
 
     pos.x += disp.x;
     pos.y += disp.z;
@@ -94,8 +105,8 @@ const VERTEX_SHADER = /* glsl */ `
     // local y maps to world -z under the plane rotation
     vNormal = normalize(vec3(n.x, n.y, -n.z));
 
-    // Foam near crests: elevation above ~0.35 Hs
-    vFoam = smoothstep(0.25, 0.6, disp.y / max(uHs, 0.1));
+    // Foam near crests: elevation above ~0.35 Hs (true scale, gain removed)
+    vFoam = smoothstep(0.25, 0.6, disp.y / max(uGain * uHs, 0.1));
 
     vec4 mvPosition = viewMatrix * worldPos;
     gl_Position = projectionMatrix * mvPosition;
@@ -169,12 +180,15 @@ const FRAGMENT_SHADER = /* glsl */ `
   }
 `;
 
+/** Drawn wave amplitude / true amplitude (see the header note). */
+export const WAVE_GAIN = 2;
+
 export function SeaPlane() {
   const matRef = useRef<THREE.ShaderMaterial>(null);
   const skyPreset = useLandingStore(selectSkyPreset);
 
   const geometry = useMemo(
-    () => new THREE.PlaneGeometry(7000, 7000, 520, 520),
+    () => new THREE.PlaneGeometry(3000, 3000, 600, 600),
     [],
   );
 
@@ -190,6 +204,8 @@ export function SeaPlane() {
         uHs:            { value: 1.2 },
         uLambdaP:       { value: 56 },
         uDir:           { value: new THREE.Vector2(0.7, 0.7) },
+        uGain:          { value: WAVE_GAIN },
+        uCamLocal:      { value: new THREE.Vector3() },
         uDeepColor:     { value: new THREE.Color(initial.deep) },
         uShallowColor:  { value: new THREE.Color(initial.shallow) },
         uCrestColor:    { value: new THREE.Color(initial.crest) },
@@ -214,6 +230,8 @@ export function SeaPlane() {
     if (!matRef.current) return;
     matRef.current.uniforms.uTime.value = clock.getElapsedTime();
     matRef.current.uniforms.uCameraPos.value.copy(camera.position);
+    // plane rotated −π/2 about X: local (x, y) = world (x, −z)
+    matRef.current.uniforms.uCamLocal.value.set(camera.position.x, -camera.position.z, 0);
 
     // Sea state from the environment: Hs, Tp → λp = g·Tp²/2π, and waves
     // travel downwind. Scene yaw convention puts bearing θ at world

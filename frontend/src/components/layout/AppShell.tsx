@@ -32,6 +32,7 @@ import { StatusIndicator } from "../ui/StatusIndicator";
 import { navTrail } from "../../constants/navigation";
 import { useFaultSync } from "../../hooks/useFaultSync";
 import { useLiveFleet } from "../../hooks/useLiveFleet";
+import { useLiveWeather } from "../../hooks/useLiveWeather";
 import { useEnergisationGate } from "../../hooks/useEnergisationGate";
 import { useScadaStore } from "../../store/scadaStore";
 import { useLandingStore } from "../../store/landingStore";
@@ -61,6 +62,8 @@ export default function AppShell() {
   useFaultSync();
   // The live plant (map, control room, alarms) runs on SB-510 or the own project
   useLiveFleet();
+  // ... on live Open-Meteo weather at the farm, wherever the user is in the app
+  useLiveWeather();
   // ... and is only energised once it has been commissioned
   useEnergisationGate();
 

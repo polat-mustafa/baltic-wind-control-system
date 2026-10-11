@@ -3,10 +3,10 @@
  *
  * - Forecast API (DWD ICON / ECMWF IFS blend): current 10 m wind, gusts,
  *   air temperature, MSL pressure, cloud cover, visibility; hourly 100 m wind.
- * - Marine API: significant wave height, mean period, direction, SST.
+ * - Marine API: significant wave height, peak period (or mean period → peak), direction, SST.
  *
  * Hub-height wind (150 m) = u100 · (150/100)^α with the offshore shear
- * exponent α = 0.1 used across the landing sim (utils/landingPhysics).
+ * exponent α = 0.14 used across the app (utils/landingPhysics, backend lifecycle/weather.py).
  * Data: Open-Meteo.com, CC BY 4.0 — attribution shown in the UI.
  */
 
@@ -30,6 +30,7 @@ export interface LiveWeather {
   cloudPct: number;
   visibilityKm: number;
   waveHeightM: number | null;
+  /** Peak period Tp [s] (from the mean period when the model gives no peak period). */
   wavePeriodS: number | null;
   waveDirDeg: number | null;
   seaTempC: number | null;
@@ -53,6 +54,7 @@ interface MarineResponse {
   current: {
     wave_height: number | null;
     wave_period: number | null;
+    wave_peak_period: number | null;
     wave_direction: number | null;
     sea_surface_temperature: number | null;
   };
@@ -78,8 +80,18 @@ function atTimeDir(times: string[], values: number[], iso: string): number {
   return ((Math.atan2(s, c) * 180) / Math.PI + 360) % 360;
 }
 
-export async function fetchLiveWeather(signal?: AbortSignal): Promise<LiveWeather> {
-  const { lat, lon } = SITE_LATLON;
+/**
+ * JONSWAP (γ = 3.3): mean period Tm01 = 0.835·Tp (DNV-RP-C205 §3.5.5), so
+ * Tp = Tm / 0.835. Open-Meteo's `wave_period` is a mean period; the 3D sea
+ * and the panel work with the peak period.
+ */
+export const TM_TO_TP = 1 / 0.835;
+
+export async function fetchLiveWeather(
+  site: { lat: number; lon: number } = SITE_LATLON,
+  signal?: AbortSignal,
+): Promise<LiveWeather> {
+  const { lat, lon } = site;
   const q = `latitude=${lat}&longitude=${lon}&timezone=GMT`;
   const [fc, mar] = await Promise.all([
     fetch(
@@ -93,7 +105,7 @@ export async function fetchLiveWeather(signal?: AbortSignal): Promise<LiveWeathe
     }),
     fetch(
       `https://marine-api.open-meteo.com/v1/marine?${q}` +
-        "&current=wave_height,wave_period,wave_direction,sea_surface_temperature",
+        "&current=wave_height,wave_period,wave_peak_period,wave_direction,sea_surface_temperature",
       { signal },
     )
       .then((r) => (r.ok ? (r.json() as Promise<MarineResponse>) : null))
@@ -116,7 +128,8 @@ export async function fetchLiveWeather(signal?: AbortSignal): Promise<LiveWeathe
     cloudPct: c.cloud_cover,
     visibilityKm: c.visibility / 1000,
     waveHeightM: mar?.current.wave_height ?? null,
-    wavePeriodS: mar?.current.wave_period ?? null,
+    wavePeriodS:
+      mar?.current.wave_peak_period ?? (mar?.current.wave_period != null ? mar.current.wave_period * TM_TO_TP : null),
     waveDirDeg: mar?.current.wave_direction ?? null,
     seaTempC: mar?.current.sea_surface_temperature ?? null,
   };

@@ -23,9 +23,11 @@ interface PageHeaderProps {
   actions?: ReactNode;
   /** An extra row under the facts (design-rationale links, notes). */
   children?: ReactNode;
+  /** Pages that do not run on the live plant say what their data is instead. */
+  studyData?: string;
 }
 
-export function PageHeader({ title, description, meta, actions, children }: PageHeaderProps) {
+export function PageHeader({ title, description, meta, actions, children, studyData }: PageHeaderProps) {
   const chips = meta ? meta.split(" · ").filter(Boolean) : [];
   return (
     <header
@@ -46,6 +48,11 @@ export function PageHeader({ title, description, meta, actions, children }: Page
               </li>
             ))}
           </ul>
+        )}
+        {studyData && (
+          <p className="mt-2 text-xs text-text-muted" data-testid="study-data">
+            <span className="font-semibold text-text-secondary">Study data, not the live plant:</span> {studyData}
+          </p>
         )}
         {children && <div className="mt-2.5">{children}</div>}
       </div>

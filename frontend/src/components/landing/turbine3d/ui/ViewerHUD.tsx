@@ -9,6 +9,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { Keyboard } from "lucide-react";
 
 import { cameraHeading } from "../hooks/useCameraHeading";
+import { WAVE_GAIN } from "../scene/SeaPlane";
 
 import {
   selectInteriorView,
@@ -116,10 +117,22 @@ export const CompassWidget = memo(function CompassWidget({
         <div className="text-text-muted">
           View <span ref={viewRef}>000°</span> ▲
         </div>
+        <SeaStateLine />
       </div>
     </div>
   );
 });
+
+/** Sea state the 3D waves are drawn from (amplitudes ×WAVE_GAIN for visibility). */
+function SeaStateLine() {
+  const hs = useLandingStore((s) => s.environment.significantWaveHeightM);
+  const tp = useLandingStore((s) => s.environment.wavePeriodS);
+  return (
+    <div className="font-normal text-text-muted" title={`Wave heights drawn ×${WAVE_GAIN} so the sea state is visible at this distance`}>
+      Sea Hs {hs.toFixed(1)} m · Tp {tp.toFixed(1)} s · waves ×{WAVE_GAIN}
+    </div>
+  );
+}
 
 interface ScaleBarProps {
   /** Metres per screen pixel at current camera distance. */

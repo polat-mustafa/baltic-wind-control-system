@@ -283,6 +283,13 @@ class HistorianQueryResponse(BaseModel):
     range_hours: int = Field(description="Requested time window [hours]")
     resolution: str = Field(description="Sample interval used")
     series: list[TagTimeSeriesSchema] = Field(description="One time-series per requested tag")
+    wind_source: str = Field(
+        default="model",
+        description=(
+            "'open-meteo' = the site's real hub wind (as in the control room), "
+            "'model' = offline fallback"
+        ),
+    )
 
 
 class HistorianLatestResponse(BaseModel):
@@ -290,4 +297,11 @@ class HistorianLatestResponse(BaseModel):
 
     values: dict[str, float] = Field(
         description="Mapping of tag → current value in engineering units"
+    )
+    wind_source: str = Field(
+        default="model",
+        description=(
+            "'open-meteo' = the site's real hub wind (as in the control room), "
+            "'model' = offline fallback"
+        ),
     )

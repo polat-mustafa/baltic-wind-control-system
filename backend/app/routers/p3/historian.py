@@ -29,6 +29,8 @@ POST /api/v1/scada/historian/query          — Multi-tag time-series query
 
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException
 
 from app.routers.farm_spec import FarmSpecDep
@@ -46,6 +48,8 @@ from app.services.p3.historian import (
     generate_time_series,
     get_available_tags,
     get_latest_values,
+    prefetch_site_wind,
+    wind_source,
 )
 
 router = APIRouter()
@@ -83,7 +87,10 @@ async def get_latest_historian_values(spec: FarmSpecDep) -> HistorianLatestRespo
     Equivalent to a snapshot query at ``now``. Useful for KPI cards and
     live data feeds that don't need full time-series history.
     """
-    return HistorianLatestResponse(values=get_latest_values(spec=spec))
+    await prefetch_site_wind()
+    return HistorianLatestResponse(
+        values=get_latest_values(spec=spec), wind_source=wind_source(time.time() / 60)
+    )
 
 
 @router.post("/historian/query", response_model=HistorianQueryResponse)
@@ -124,6 +131,7 @@ async def query_historian(
             detail=(f"resolution must be one of {valid}. Got: '{request.resolution}'"),
         ) from err
 
+    await prefetch_site_wind(request.range_hours)
     series_list: list[TagTimeSeriesSchema] = []
     invalid_tags: list[str] = []
 
@@ -177,4 +185,5 @@ async def query_historian(
         range_hours=request.range_hours,
         resolution=resolution.value,
         series=series_list,
+        wind_source=wind_source(time.time() / 60),
     )

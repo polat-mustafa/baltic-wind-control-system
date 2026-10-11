@@ -76,6 +76,7 @@ export default function TurbinePhysicsPage() {
       <PageHeader
         title="Turbine Physics"
         description="One turbine second by second: rotor aerodynamics, the ROSCO pitch and torque controller, and yaw tracking."
+        studyData="one turbine under the wind scenario you choose below."
         meta={config ? `${config.turbine_name} · ${config.rated_power_mw} MW · D ${config.rotor_diameter_m} m · cut-in ${config.cut_in_speed_ms} / rated ${config.rated_speed_ms.toFixed(2)} / cut-out ${config.cut_out_speed_ms} m/s · ${config.drivetrain}` : undefined}
         actions={
           <>

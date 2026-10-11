@@ -429,3 +429,10 @@ export function dtsTempC(km: number, currentA: number, ambientC: number): number
   if (denom <= 0) return Infinity;
   return (ambientC + a * k * (1 - 20 * DTS_ALPHA) + DTS_W_D * (DTS_T_INT / 2 + rExt)) / denom;
 }
+
+/**
+ * Relative ageing rate of non-thermally-upgraded transformer paper,
+ * IEC 60076-7 eq. (2): V = 2^((θh − 98)/6) — ageing doubles every 6 K of
+ * hot spot above 98 °C (V = 1 is normal life).
+ */
+export const ageingRate = (hotSpotC: number): number => 2 ** ((hotSpotC - 98) / 6);

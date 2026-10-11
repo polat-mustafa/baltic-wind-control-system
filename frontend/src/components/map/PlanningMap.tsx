@@ -162,9 +162,9 @@ export default function PlanningMap({
               ? {
                   text,
                   style: {
-                    background: dark ? "#172a3d" : "#f7edd4",
-                    color: dark ? "#e4ecf3" : "#2b2118",
-                    border: `1px solid ${dark ? "#2c4760" : "#2b2118"}`,
+                    background: dark ? "#172a3d" : "#f4f3ee",
+                    color: dark ? "#e4ecf3" : "#121817",
+                    border: `1px solid ${dark ? "#2c4760" : "#121817"}`,
                     borderRadius: "4px",
                     padding: "6px 8px",
                     fontSize: "12px",

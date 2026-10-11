@@ -270,51 +270,55 @@ body {
   .sld-anim :is(line, rect, path, circle, ellipse), .trace-cursor { transition: none; }
 }
 
-/* ══ Storybook theme ═══════════════════════════════════════════
-   Hand-drawn, parchment-and-ink look inspired by illustrated survival games.
-   Original art only (no game assets). Scoped to the landing map area via
-   .theme-storybook; the ISA-101 control-room theme stays the default.
+/* ══ Chart-paper theme (light) ═════════════════════════════════
+   The light palette of the showcase site (frontend/showcase/style.css):
+   neutral nautical-chart paper, green-black ink, hairlines instead of
+   shadows, one deep-sea accent. Same ISA-101 rule as Baltic Night: the
+   ground stays neutral so colour still means "look here". Every state and
+   voltage step is ≥ 4.5:1 on the paper, on the panels (#f4f3ee) and on
+   its own 15–20 % tinted chip. Class name kept from the earlier storybook look so stored
+   preferences keep working.
    ═════════════════════════════════════════════════════════════════════ */
 .theme-storybook {
-  --sb-ink: #2b2118;
-  --sb-paper: #f1e4c3;
-  --sb-paper-dark: #dcc795;
-  --sb-sea: #3f8d86;
-  --sb-sea-deep: #2c6663;
-  --sb-foam: #f6eedb;
-  --color-bg-primary: #f1e4c3;
-  --color-bg-secondary: #e8d8b0;
-  --color-bg-tertiary: #dcc795;
-  --color-bg-elevated: #f7edd4;
-  --color-bg-hover: #e2cf9f;
-  --color-border-primary: #3a2d20;
-  --color-border-secondary: #5a4632;
-  --color-text-primary: #2b2118;
-  --color-text-secondary: #4d3d2c;
-  --color-text-muted: #7a6650;
-  --color-accent: #2c6e76;
-  /* Paper needs darker state/voltage steps than the navy ground (≥ 4.5:1 on #f1e4c3) */
-  --color-status-alarm: #a51f15;
-  --color-status-offline: #6b6257;
-  --color-status-maintenance: #9a4a00;
-  --color-status-comms-loss: #6b2f8f;
-  --color-voltage-400kv: #b42318;
-  --color-voltage-220kv: #1d4ed8;
-  --color-voltage-66kv: #9a5a00;
-  --color-voltage-lv: #6b6257;
-  --sb-font: "Atkinson Hyperlegible Next", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--sb-font);
-  font-family: var(--font-sans);
+  --sb-ink: #121817;
+  --sb-paper: #f4f3ee;
+  --sb-line: #cfcdc3;
+  --color-bg-primary: #ecebe4;
+  --color-bg-secondary: #e3e1d7;
+  --color-bg-tertiary: #d9d7cc;
+  --color-bg-elevated: #f4f3ee;
+  --color-bg-hover: #dddbd0;
+  --color-border-primary: #cfcdc3;
+  --color-border-secondary: #b6b4a9;
+  --color-border-accent: #8a8f88;
+  --color-text-primary: #121817;
+  --color-text-secondary: #3b4643;
+  --color-text-muted: #515d59;
+  --color-accent: #0f5e58;
+  --color-accent-hover: #0b4a45;
+  --color-accent-muted: rgba(15, 94, 88, 0.12);
+  --color-accent-ink: #ffffff;
+  --color-status-normal: #125d32;
+  --color-status-warning: #714900;
+  --color-status-alarm: #962019;
+  --color-status-info: #1d49ab;
+  --color-status-offline: #4a534f;
+  --color-status-maintenance: #87370a;
+  --color-status-comms-loss: #71368d;
+  --color-voltage-400kv: #89332c;
+  --color-voltage-220kv: #2147ae;
+  --color-voltage-66kv: #803d16;
+  --color-voltage-lv: #4a534f;
 }
 
-/* Storybook: re-skin overlays that use inline control-room colours */
+/* Overlays that carry inline control-room colours → paper panels */
 .theme-storybook [style*="rgba(10, 21, 32"],
 .theme-storybook [style*="rgba(10,21,32"],
 .theme-storybook [style*="rgb(21, 38, 55)"] {
   background-color: var(--sb-paper) !important;
-  border-color: var(--sb-ink) !important;
+  border-color: var(--sb-line) !important;
   color: var(--sb-ink) !important;
-  box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.75);
+  box-shadow: 0 1px 2px rgba(18, 24, 23, 0.08);
 }
 .theme-storybook svg circle[fill="rgba(10,21,32,0.85)"] {
   fill: var(--sb-paper);
@@ -323,7 +327,7 @@ body {
 }
 .theme-storybook svg [fill="#8099b0"],
 .theme-storybook svg [fill="#94a3b8"] {
-  fill: var(--sb-ink);
+  fill: var(--color-text-muted);
 }
 .theme-storybook .text-\[\#e4ecf3\],
 .theme-storybook [style*="color: rgb(228, 236, 243)"],
@@ -333,55 +337,59 @@ body {
 }
 .theme-storybook .bg-slate-900\/90 {
   background-color: var(--sb-paper);
-  border-color: var(--sb-ink);
-  box-shadow: 2px 2px 0 rgba(43, 33, 24, 0.75);
+  border-color: var(--sb-line);
 }
 .theme-storybook .text-slate-300 {
   color: var(--sb-ink);
 }
+/* The dark theme's glow shadows read as smudges on paper */
+.theme-storybook :is(.shadow-2xl, .shadow-xl) {
+  --tw-shadow-color: rgba(18, 24, 23, 0.14);
+}
 
-/* Storybook readability: small print and pop-up text in bold, and the
-   neon control-room status colours darkened to ink-on-paper contrast
-   (WCAG AA ≥ 4.5:1 on #f1e4c3 and on the darker panel paper #d3cda4). */
-.theme-storybook :is(
-    .text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs,
-    .font-mono
-  ),
-.theme-storybook :is(.text-\[8px\], .text-\[9px\], .text-\[10px\], .text-\[11px\], .text-xs) * {
-  font-weight: 700;
-}
-.theme-storybook {
-  --color-text-secondary: #3d2f21;
-  --color-text-muted: #5e4a36;
-  --color-status-normal: #165c2e;
-  --color-status-warning: #734300;
-  --color-status-info: #1a44c0;
-}
+/* Neon control-room hues written inline or as Tailwind classes → the
+   paper steps above (≥ 4.5:1) */
 .theme-storybook :is([style^="color: rgb(76, 195, 138)"], [style*="; color: rgb(76, 195, 138)"], [class*="text-emerald-"], [class*="text-green-"]) {
-  color: #165c2e !important;
+  color: var(--color-status-normal) !important;
 }
 .theme-storybook :is([style^="color: rgb(69, 200, 217)"], [style*="; color: rgb(69, 200, 217)"], [class*="text-blue-"], [class*="text-sky-"]) {
-  color: #1a44c0 !important;
+  color: var(--color-status-info) !important;
 }
 .theme-storybook :is([style^="color: rgb(6, 182, 212)"], [style*="; color: rgb(6, 182, 212)"], [class*="text-cyan-"], [class*="text-teal-"]) {
-  color: #0e6070 !important;
+  color: var(--color-accent) !important;
 }
 .theme-storybook :is([style^="color: rgb(240, 177, 62)"], [style*="; color: rgb(240, 177, 62)"], [class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-4"]) {
-  color: #734300 !important;
+  color: var(--color-status-warning) !important;
+}
+.theme-storybook :is([style^="color: rgb(242, 92, 84)"], [style*="; color: rgb(242, 92, 84)"]) {
+  color: var(--color-status-alarm) !important;
 }
 .theme-storybook [class*="text-accent"]:not([class*="text-accent-ink"]) {
-  color: #1f5960 !important;
+  color: var(--color-accent) !important;
 }
 .theme-storybook :is([class*="text-slate-4"], [class*="text-slate-5"], [class*="text-gray-4"]) {
-  color: #5e4a36 !important;
+  color: var(--color-text-muted) !important;
+}
+.theme-storybook [class*="text-orange-"] {
+  color: var(--color-status-maintenance) !important;
+}
+.theme-storybook :is([class*="text-indigo-"], [class*="text-purple-"], [class*="text-violet-"], [class*="text-fuchsia-"]) {
+  color: var(--color-status-comms-loss) !important;
+}
+.theme-storybook :is([class*="text-red-"], [class*="text-rose-"]) {
+  color: var(--color-status-alarm) !important;
+}
+/* Light "-100" label text that sits on solid status fills → ink */
+.theme-storybook :is(.text-green-100, .text-emerald-100, .text-amber-100, .text-yellow-100, .text-red-100) {
+  color: var(--sb-ink) !important;
 }
 /* Translucent accent fills vanish over the dark 3D canvas — make them paper-solid */
 .theme-storybook :is([class^="bg-accent/"], [class*=" bg-accent/"]):not(:hover) {
-  background-color: #cfe1da !important;
+  background-color: #d3e2df !important;
 }
 
-/* Storybook: Plotly charts. DARK_PLOTLY_LAYOUT writes inline SVG styles, so
-   the paper palette is applied on top here (one place, ~45 charts). */
+/* Plotly charts. DARK_PLOTLY_LAYOUT writes inline SVG styles, so the paper
+   palette is applied on top here (one place, ~45 charts). */
 .theme-storybook .js-plotly-plot .main-svg {
   background: transparent !important;
 }
@@ -389,70 +397,26 @@ body {
   background: var(--sb-paper);
 }
 .theme-storybook .js-plotly-plot :is(.bglayer .bg, .plotbg path) {
-  fill: #f7edd4 !important;
+  fill: var(--sb-paper) !important;
 }
 .theme-storybook .js-plotly-plot .legend .bg {
   fill: transparent !important;
 }
 .theme-storybook .js-plotly-plot .main-svg text:not(.textpoint text, .hovertext text) {
-  fill: var(--sb-ink) !important;
-  font-weight: 700;
+  fill: var(--color-text-secondary) !important;
 }
 .theme-storybook .js-plotly-plot :is(.xgrid, .ygrid, .angularaxisgrid path, .radialaxisgrid path) {
-  stroke: rgba(43, 33, 24, 0.14) !important;
+  stroke: rgba(18, 24, 23, 0.1) !important;
 }
 .theme-storybook .js-plotly-plot :is(.xzl, .yzl, .zl) {
-  stroke: rgba(43, 33, 24, 0.45) !important;
+  stroke: rgba(18, 24, 23, 0.4) !important;
 }
 .theme-storybook .js-plotly-plot .hoverlayer .hovertext path {
   fill: var(--sb-paper) !important;
-  stroke: var(--sb-ink) !important;
+  stroke: var(--sb-line) !important;
 }
 .theme-storybook .js-plotly-plot .hoverlayer .hovertext text {
   fill: var(--sb-ink) !important;
-}
-
-/* Storybook over the SCADA page: same ISA-101 rule (neutral canvas, colour
-   only for alarms/energised HV), but on paper instead of grey. */
-.theme-storybook .scada-isa101 {
-  --color-bg-primary: #f1e4c3;
-  --color-bg-secondary: #e8d8b0;
-  --color-bg-tertiary: #dcc795;
-  --color-bg-elevated: #f7edd4;
-  --color-bg-hover: #e2cf9f;
-  --color-border-primary: #3a2d20;
-  --color-border-secondary: #5a4632;
-  --color-border-accent: #2b2118;
-  --color-text-primary: #2b2118;
-  --color-text-secondary: #3d2f21;
-  --color-text-muted: #5e4a36;
-  --color-status-normal: #165c2e;
-  --color-status-warning: #734300;
-  --color-status-info: #1a44c0;
-  --color-voltage-lv: #7a6650;
-  --color-accent: #2c6e76;
-}
-
-/* Storybook: the remaining neon text hues, darkened to ink-on-paper contrast */
-.theme-storybook [class*="text-orange-"] {
-  color: #9a4a00 !important;
-}
-.theme-storybook :is([class*="text-indigo-"], [class*="text-purple-"], [class*="text-violet-"], [class*="text-fuchsia-"]) {
-  color: #4c2a85 !important;
-}
-.theme-storybook :is([class*="text-red-"], [class*="text-rose-"]) {
-  color: #9b1c1c !important;
-}
-
-/* Storybook: hover shade of the teal accent (default is control-room blue),
-   and light "-100" label text that sits on solid status fills → ink. */
-.theme-storybook {
-  --color-accent-hover: #1f5960;
-  --color-accent-muted: rgba(44, 110, 118, 0.15);
-  --color-accent-ink: #ffffff;
-}
-.theme-storybook :is(.text-green-100, .text-emerald-100, .text-amber-100, .text-yellow-100, .text-red-100) {
-  color: var(--sb-ink) !important;
 }
 
 /* Chart series slots (validated categorical palette, dataviz reference):

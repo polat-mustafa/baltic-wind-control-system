@@ -41,7 +41,7 @@ import { AIS_ICON, FAULT_LABEL, cardinalIcon, crewIcon, shipClass, svgIcon, vess
 export type RGBA = [number, number, number, number];
 
 /**
- * Map palettes: Baltic Night (control room) and storybook paper. Saturated on
+ * Map palettes: Baltic Night (control room) and chart paper (light). Saturated on
  * purpose: the street map underneath is busy, so equipment, cables and zones
  * need strong hues to read at a glance.
  */
@@ -69,26 +69,26 @@ export const PALETTES = {
     ink: "#e4ecf3",
   },
   storybook: {
-    land: "#e8d8b0",
-    sea: "#3f8d86",
-    boundary: "#4338ca",
-    turbine: [30, 24, 18, 255] as RGBA,
-    hollow: [255, 250, 235, 255] as RGBA,
-    offline: [107, 98, 87, 255] as RGBA,
-    warn: [217, 119, 6, 255] as RGBA,
-    alarm: [220, 38, 38, 255] as RGBA,
-    accent: [246, 238, 219, 255] as RGBA,
-    comms: [162, 28, 175, 255] as RGBA,
-    depth: [22, 70, 66, 255] as RGBA,
-    zone: [124, 58, 237, 255] as RGBA,
-    v66: [234, 108, 0, 255] as RGBA,
-    v220: [29, 78, 216, 255] as RGBA,
-    v400: [220, 38, 38, 255] as RGBA,
-    text: [43, 33, 24, 255] as RGBA,
-    muted: [74, 62, 50, 255] as RGBA,
-    label: [43, 33, 24, 255] as RGBA,
-    labelBg: [247, 237, 212, 235] as RGBA,
-    ink: "#2b2118",
+    land: "#e3e1d7",
+    sea: "#c9d8d5",
+    boundary: "#3f3a9c",
+    turbine: [18, 24, 23, 255] as RGBA,
+    hollow: [244, 243, 238, 255] as RGBA,
+    offline: [86, 96, 92, 255] as RGBA,
+    warn: [196, 120, 0, 255] as RGBA,
+    alarm: [200, 38, 30, 255] as RGBA,
+    accent: [15, 94, 88, 255] as RGBA,
+    comms: [122, 58, 152, 255] as RGBA,
+    depth: [64, 110, 120, 255] as RGBA,
+    zone: [110, 70, 190, 255] as RGBA,
+    v66: [196, 105, 59, 255] as RGBA,
+    v220: [37, 80, 196, 255] as RGBA,
+    v400: [156, 58, 51, 255] as RGBA,
+    text: [18, 24, 23, 255] as RGBA,
+    muted: [81, 93, 89, 255] as RGBA,
+    label: [18, 24, 23, 255] as RGBA,
+    labelBg: [244, 243, 238, 235] as RGBA,
+    ink: "#121817",
   },
 };
 export type Palette = (typeof PALETTES)["hmi"];

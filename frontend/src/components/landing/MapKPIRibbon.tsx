@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useFleet } from "../../lib/fleet";
+import { MODELLED_RATE, TIME_COMPRESSION } from "../../lib/plant/failures";
 import { useGridEventSample } from "../../hooks/useGridEventSample";
 import type { FarmKPI } from "../../types/landing";
 import { gustMs as gustFromMean } from "../../utils/landingPhysics";
@@ -44,6 +45,8 @@ function Cell({ label, value, unit, sub, color = NORMAL, title }: CellProps) {
     </div>
   );
 }
+
+const FAULT_NOTE = `Turbine faults at offshore failure rates (Carroll et al. 2016: ${MODELLED_RATE.toFixed(1)} stops per turbine per year), time compressed ×${TIME_COMPRESSION}: one 5 s update is one plant hour. Curtailment: live RCE price below zero (PSE).`;
 
 export default function MapKPIRibbon({ kpis: baseKpis }: MapKPIRibbonProps) {
   // During a grid frequency event the ribbon shows the event's frequency.
@@ -150,6 +153,7 @@ export default function MapKPIRibbon({ kpis: baseKpis }: MapKPIRibbonProps) {
         unit={kpis.activeAlerts === 1 ? "alarm" : "alarms"}
         sub={kpis.activeAlerts === 0 ? "all clear" : "see SCADA alarms"}
         color={alertColor}
+        title={FAULT_NOTE}
       />
     </div>
   );

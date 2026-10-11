@@ -13,9 +13,10 @@
 
 import { create } from "zustand";
 
-import { FAULT_TYPES } from "../constants/faultCategories";
 import { liveFleet, pathToOss, useFleetStore, type Fleet } from "../lib/fleet";
 import { useFaultBus } from "./faultBus";
+import { drawFault, repairTicks } from "../lib/plant/failures";
+import { refreshPrice, priceNow } from "../lib/plant/marketPrice";
 import type {
   CableData,
   EnvironmentData,
@@ -94,11 +95,10 @@ function computePitchAngle(windMs: number, status: TurbineStatus): number {
   return v236PitchDeg(windMs);
 }
 
-/** Electrical power [MW] from the V236 curve; curtailed units run at 60 %. */
+/** Electrical power [MW] from the turbine curve; curtailed units follow a zero schedule (negative RCE price). */
 function computePower(windMs: number, status: TurbineStatus): number {
-  if (status === "fault" || status === "offline") return 0;
-  const p = turbinePowerMW(windMs);
-  return status === "curtailed" ? p * 0.6 : p;
+  if (status === "fault" || status === "offline" || status === "curtailed") return 0;
+  return turbinePowerMW(windMs);
 }
 
 // ── Beaufort scale lookup ─────────────────────────────────────
@@ -414,6 +414,9 @@ let _scadaOff: string[] = [];
 /** The whole plant is held dead until it is commissioned. */
 let _notCommissioned = false;
 let _faultToken = 0;
+/** Simulation tick counter and the tick each turbine's repair is due (lib/plant/failures). */
+let _tick = 0;
+const _repairDue = new Map<string, number>();
 
 /** Open the switch on the OSS side of the fault and re-close the feeder CB. */
 function isolate(): void {
@@ -792,6 +795,7 @@ export const useLandingStore = create<LandingState>((set, get) => {
         delete repairs[turbineId];
         const t = state.turbineMap[turbineId];
         if (!t || t.status !== "fault") return { repairs };
+        _repairDue.delete(turbineId);
         useFaultBus.getState().clearFault(turbineId, "landing");
         const turbineMap = { ...state.turbineMap, [turbineId]: { ...t, status: "operating" as const, faultType: undefined } };
         return { repairs, turbineMap, kpis: computeKPIs(turbineMap) };
@@ -810,6 +814,9 @@ export const useLandingStore = create<LandingState>((set, get) => {
     startSimulation: () => {
       if (_tickInterval) return; // already running — idempotent
       _simStartTime = Date.now();
+      // RCE price of the running quarter-hour: refreshed every 5 min (backend caches the day)
+      void refreshPrice();
+      setInterval(() => void refreshPrice(), 5 * 60_000);
 
       _tickInterval = setInterval(() => {
         set((state) => {
@@ -957,40 +964,36 @@ export const useLandingStore = create<LandingState>((set, get) => {
             }
           }
 
-          // Randomly toggle 1 turbine status every tick
-          const ids = state.turbineIds;
-          const idx = Math.floor(Math.random() * ids.length);
-          const targetId = ids[idx];
-          const target = newMap[targetId];
-          const roll = Math.random();
-
-          if (_outOfService.has(targetId) || _deenergised.has(targetId)) {
-            // held offline by the array-cable fault scenario or SCADA switching
-          } else if (target.status === "operating") {
-            if (roll < 0.01) {
-              // Fault: set status but let ramp rates gradually bring power to 0
-              // (computePower returns 0 for fault, ramp will catch up in 2-3 ticks)
-              const faultType = FAULT_TYPES[Math.floor(Math.random() * FAULT_TYPES.length)];
-              newMap[targetId] = { ...target, status: "fault", faultType, availabilityPct: round1(target.availabilityPct * 0.99) };
-              // Publish to unified fault bus → syncs to SCADA
-              useFaultBus.getState().publishFault(targetId, faultType, "landing");
-            } else if (roll < 0.04) {
-              newMap[targetId] = { ...target, status: "curtailed" };
-            }
-          } else if (target.status === "fault") {
-            // remote reset works for most faults; component faults wait for the crew
-            if (roll < 0.35 && !(target.faultType && SITE_VISIT_FAULTS.includes(target.faultType))) {
-              newMap[targetId] = { ...target, status: "operating", faultType: undefined };
-              // Clear from unified fault bus → syncs to SCADA
-              useFaultBus.getState().clearFault(targetId, "landing");
-            }
-          } else if (target.status === "curtailed") {
-            if (roll < 0.5) {
-              newMap[targetId] = { ...target, status: "operating" };
-            }
-          } else if (target.status === "offline") {
-            if (roll < 0.3) {
-              newMap[targetId] = { ...target, status: "operating" };
+          // Failures: each turbine a Poisson process per alarm type at the offshore rates of
+          // Carroll et al. (2016), time compressed (one tick = one plant hour); a repair ends
+          // after its technician time, site-visit faults wait for the crew the operator sends.
+          // Curtailment: zero schedule while the live RCE price is negative.
+          _tick++;
+          const negativePrice = priceNow()?.negative === true;
+          for (const id of state.turbineIds) {
+            const t = newMap[id];
+            if (_outOfService.has(id) || _deenergised.has(id)) continue; // held offline by switching / the cable fault
+            if (t.status === "fault") {
+              if (!t.faultType) continue;
+              const due = _repairDue.get(id) ?? _tick + repairTicks(t.faultType as TurbineFaultType);
+              _repairDue.set(id, due); // also faults injected from SCADA
+              if (_tick >= due && !SITE_VISIT_FAULTS.includes(t.faultType as TurbineFaultType)) {
+                _repairDue.delete(id);
+                newMap[id] = { ...t, status: negativePrice ? "curtailed" : "operating", faultType: undefined };
+                useFaultBus.getState().clearFault(id, "landing");
+              }
+            } else if (t.status === "operating" || t.status === "curtailed") {
+              const faultType = drawFault();
+              if (faultType) {
+                // ramp rates bring power to 0 over 2–3 ticks
+                newMap[id] = { ...t, status: "fault", faultType, availabilityPct: round1(t.availabilityPct * 0.99) };
+                _repairDue.set(id, _tick + repairTicks(faultType));
+                useFaultBus.getState().publishFault(id, faultType, "landing");
+              } else if (t.status !== (negativePrice ? "curtailed" : "operating")) {
+                newMap[id] = { ...t, status: negativePrice ? "curtailed" : "operating" };
+              }
+            } else if (t.status === "offline" && Math.random() < 0.3) {
+              newMap[id] = { ...t, status: "operating" };
             }
           }
 

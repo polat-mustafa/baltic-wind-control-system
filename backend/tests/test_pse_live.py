@@ -131,3 +131,21 @@ def test_coastal_stations_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     st = r.json()["stations"]
     assert [s["name"] for s in st] == [s[2] for s in cs.STATIONS]
     assert st[0]["wind_ms"] == 5.0 and st[0]["time_utc"] == "2026-10-10T21:00Z"
+
+
+def test_current_quarter_is_the_one_ending_after_now() -> None:
+    q = _quarters()
+    assert pse_live.current_quarter(q, "2026-10-09 10:07:00")["period"] == "10:00 - 10:15"
+    assert pse_live.current_quarter(q, "2026-10-09 10:15:00")["period"] == "10:15 - 10:30"
+    q[41]["price_pln_mwh"] = None  # unpublished: not invented
+    assert pse_live.current_quarter(q[:42], "2026-10-09 10:20:00") is None
+
+
+def test_price_now_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def day(_: str) -> dict[str, Any]:
+        future = {"time": "2999-01-01 00:00:00", "price_pln_mwh": -25.0}
+        return {"quarters": [{**q, **future} for q in _quarters(1)]}
+
+    monkeypatch.setattr(pse_live, "pse_day", day)
+    body = TestClient(app).get("/api/v1/grid/pse/price-now").json()
+    assert body["price_pln_mwh"] == -25.0 and body["negative"] is True

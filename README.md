@@ -11,7 +11,8 @@ engineering model, not a mock-up: wake losses come from PyWake, short-circuit cu
 pandapower (IEC 60909), and the digital twin detects and diagnoses faults injected with known ground truth.
 Each method is traced to its standard or primary source in [docs/references.md](docs/references.md),
 and the in-app **Evidence** page lists what each model is validated against (measured wakes,
-hand calculations, real forecasts), generated from the tests themselves.
+hand calculations, a real farm's metered output over 28 months, real forecasts, the IEA 15 MW
+reference tables), generated from the tests themselves.
 
 ## Case study: Southern Baltic (SB-510)
 
@@ -37,14 +38,14 @@ The modules follow a wind farm through its life.
 |---|---|---|
 | **Develop** | Site & Permits | Open marine data (EMODnet, EEA Natura 2000, Marine Regions), official Polish location permits (SIPAM), the Polish transmission grid (KSE), ship traffic density, two wind atlases (NEWA, Global Wind Atlas v4), suitability screening, candidate-site report, survey and EIA stages, generic EU permit procedure |
 | | Layout | Drag-and-drop turbines in the site, live wake loss, Esau–Williams array cables, PyWake AEP for the exact positions, CAPEX and LCOE |
-| | Wind Resource | Weibull fits, wake models (PyWake) validated against measured Horns Rev 1 and Lillgrund rows, wake steering, derating and PCE/Sobol uncertainty studies, AEP and loss chain, availability (IEC 61400-26), Copernicus Marine metocean and weather windows |
+| | Wind Resource | Weibull fits, wake models (PyWake) validated against measured Horns Rev 1 and Lillgrund rows, the AEP chain checked against Rødsand II's metered output (28 months), wake steering, derating and PCE/Sobol uncertainty studies, AEP and loss chain for SB-510 or your own layout and site wind, availability (IEC 61400-26), Copernicus Marine metocean and weather windows |
 | | Project Report · My Projects | Printable report (PDF, JSON, windIO); open, compare and export your own projects |
-| **Design** | Grid Integration | Load flow, IEC 60909 short circuit, fault ride-through, STATCOM sizing, power quality, cable thermal rating (IEC 60287), power plant controller, BESS, PSE live system data and a real market day |
+| **Design** | Grid Integration | Load flow, IEC 60909 short circuit, fault ride-through, STATCOM sizing, power quality, cable thermal rating (IEC 60287), power plant controller, BESS, PSE live system data and a real market day — sized for SB-510 or your own farm |
 | | Turbine Physics | Cp(λ, β) surface, ROSCO pitch and torque control, yaw, overspeed trip |
 | **Build** | Construction | Installation campaign in Baltic weather windows (DNV-ST-N001 α factor): vessels, P10/P50/P90 timeline, waiting on weather, vessel cost |
 | | Commissioning | Circuit 1 energisation (63 steps, topology interlocks, load-flow-verified readings, animated replay), isolation locks, FAT/SAT, EON → ION → FON |
 | | Hand-over | Hand-over package checklist, punch-list grades, as-built register of your farm, energisation order per feeder bay, your layout on the control-room map |
-| **Operate** | Control Room | Farm map, live KPIs, measured coastal wind (IMGW), 7-day CTV/SOV access forecast, 3D turbine with drawing sheets |
+| **Operate** | Control Room | Farm map, live KPIs, measured coastal wind (IMGW), turbine faults at published offshore failure rates, curtailment on the live PSE price, 7-day CTV/SOV access forecast, 3D turbine with drawing sheets |
 | | SCADA | IEC 61850 data model and GOOSE, bay control, alarms, permit-to-work, instrument register, OPC UA, IEC 62443 zones |
 | | Forecasting | Real data only (ENTSO-E / Energinet DK2): XGBoost, LSTM and TFT against the TSO's own forecast, CRPS and reliability, ensembles, SHAP, with an interactive ML academy |
 | | Digital Twin | Physics-based condition monitoring (ISO 13374) on real CARE turbine data: detection, model-based diagnosis, RUL prognosis |

@@ -341,6 +341,29 @@ Plan: live-data coherence, then evidence A1–A5, then UX B1–B5, one PR each.
 - **B4 (#289):** `constants/glossary.ts` (33 terms + Turkish) as "Key terms" chips beside the primer prose
   (not inside it — the translator works on whole text nodes).
 
+## Plan to 9/10 (owner approved 2026-10-11, five PRs)
+
+- **PR 1 — P1 follows the own project (#290):** `POST /wind/aep-cascade-custom` (own positions, turbine,
+  site Weibull + rose → PyWake wake → blockage with that turbine's curves → cascade); `windResourceStore`
+  runs the farm plan's layout with the site assessment's wind in own-project mode, the wind-rose chart shows
+  that rose, results carry `farmFor`; the regular-vs-staggered comparison is labelled SB-510-only.
+- **PR 2 — HV Grid tabs (#291):** Cable DTS (route length, circuits, `GET /grid/cable/dts/farm` full-output
+  current from the load flow, N-1 survivor current — SB-510 818 / 1 418 A), Market (n × IEA-15, `capacity_mw`)
+  and BESS (trace, 10 %/min ramp example, dispatch case scale with the rating) follow X-Farm. Protection stays
+  SB-510 (its OSS relay settings), labelled.
+- **PR 3 — plant realism (#292):** control-room faults are Poisson per turbine and alarm at the offshore rates of
+  Carroll et al. 2016 (5.1 of 8.3 failures/turbine/yr map to a stop alarm; repair = technician hours), time
+  compressed ×720 (5 s = 1 plant hour, stated on the Alerts tile); curtailment = zero schedule while the live
+  RCE price of the running quarter-hour is negative (`GET /grid/pse/price-now`).
+- **PR 4 — evidence (#293):** turbine physics vs the IEA-15 table (power ≤ 1.7 %, rpm ≤ 0.56 %, pitch / thrust
+  ≤ 1.26° / 5.7 % at the rated knee only); A1 over 28 months (R² 0.951 with 29 capped/dark days left out —
+  Rødsand II held at ≈ 100 MW 11–28 Nov 2024, 0 MW 29 Nov–3 Dec; 0.75 with every hour; yearly bias +5.0 /
+  +0.5 / −0.4 %); A3 gets Baltica 2's topology note (reactors, filters, STATCOM, no ratings); Baltica 2
+  (107 × SG 14-222 DD, 2027) is the next farm to validate.
+- **PR 5 — docs + verification:** this section, references [50], README.
+- Findings kept: Baltica 2 PDFs have no wind measurements; Copernicus Marine is already used for sea states
+  (`process_cmems.py`), hub wind comes from ERA5; FINO2 only if the owner provides BSH data.
+
 ## Resume here
 
 1. The own-project programme is a PR stack, one branch per phase, each based on the one before it
@@ -365,7 +388,8 @@ Plan: live-data coherence, then evidence A1–A5, then UX B1–B5, one PR each.
 - Phase 5: glossary tooltips (Cp, EIA, FRT, …) on the Academy and module pages.
 - Phase 4: IEA-15-240-RWT as a second turbine model, curves from the official IEA Wind Task 37 repository
   (`IEAWindTask37/IEA-15-240-RWT`), source in `docs/references.md`.
-- Phase 4: hand the layout project to the P1 / P2 pages (they still use the fixed SB-510 constants).
+- ~~Phase 4: hand the layout project to the P1 / P2 pages~~ — done in the plan to 9 (#290, #291); only the
+  Protection tab keeps SB-510's relay settings.
 
 ## Working conventions
 

@@ -137,3 +137,32 @@ def test_wake_moves_rejects_bad_moves() -> None:
     assert client.post(MOVES, json={**base, "moves": []}).status_code == 422
     six = [{"index": 1, "x_m": 3000.0 + i, "y_m": 0.0} for i in range(6)]
     assert client.post(MOVES, json={**base, "moves": six}).status_code == 422
+
+
+CASCADE = "/api/v1/wind/aep-cascade-custom"
+
+
+def test_aep_cascade_custom_follows_the_layout_and_turbine() -> None:
+    """Own-project cascade: wake + blockage + losses on these positions, CF on this farm's MW."""
+    xs, ys = _grid(3, 6.0)
+    r = client.post(CASCADE, json={"x_m": xs, "y_m": ys, "weibull_a": 10.6, "weibull_k": 2.1})
+    assert r.status_code == 200, r.text
+    c = r.json()
+    wake = client.post(URL, json={"x_m": xs, "y_m": ys, "weibull_a": 10.6, "weibull_k": 2.1}).json()
+    assert c["gross_aep_gwh"] == wake["gross_aep_gwh"]
+    losses = {lf["name"]: lf["loss_percent"] for lf in c["loss_factors"]}
+    assert losses["wake"] == pytest.approx(wake["wake_loss_percent"], abs=0.01)
+    assert losses["blockage"] > 0.0
+    # Rule 1 at farm level: 0 < net < gross ≤ 9 × 15 MW × 8760 h
+    assert 0.0 < c["net_aep_gwh"] < c["gross_aep_gwh"] <= 9 * 15.0 * 8.76
+    assert c["capacity_factor"] == pytest.approx(c["net_aep_gwh"] / (9 * 15.0 * 8.76), abs=1e-3)
+    assert c["p90_gwh"] < c["p75_gwh"] < c["p50_gwh"] == c["net_aep_gwh"]
+    big = client.post(
+        CASCADE, json={"x_m": xs, "y_m": ys, "turbine_model": "IEA-22-280-RWT"}
+    ).json()
+    assert big["gross_aep_gwh"] > c["gross_aep_gwh"]
+
+
+def test_aep_cascade_custom_rejects_bad_layouts() -> None:
+    assert client.post(CASCADE, json={"x_m": [0.0, 2000.0], "y_m": [0.0]}).status_code == 422
+    assert client.post(CASCADE, json={"x_m": [0.0, 50.0], "y_m": [0.0, 0.0]}).status_code == 422

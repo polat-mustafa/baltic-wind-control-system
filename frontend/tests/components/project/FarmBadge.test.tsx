@@ -49,7 +49,7 @@ describe("FarmBadge", () => {
       ["ConstructionPage", "live"],
       ["HandoverPage", "live"],
       ["DecommissioningPage", "live"],
-      ["WindResourcePage", "reference"],
+      ["WindResourcePage", "live"],
     ];
     for (const [page, scope] of pages) {
       const src = readFileSync(resolve(__dirname, `../../../src/pages/${page}.tsx`), "utf-8");

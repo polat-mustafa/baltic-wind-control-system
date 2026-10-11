@@ -31,12 +31,12 @@ import {
   Z,
 } from "../../utils/aepMath";
 import { ROTOR_DIAMETER_M, V236, turbinePowerMW } from "../../utils/landingPhysics";
+import { useFarmPlan } from "../../hooks/useFarmPlan";
 
 // From the modelled turbine, so they follow it: A = π(D/2)², Cp,e = P_rated / (½ρA·v_rated³) at ρ = 1.225 kg/m³
 const SWEPT_AREA_M2 = Math.round(Math.PI * (ROTOR_DIAMETER_M / 2) ** 2);
 const CP_RATED_ELECTRICAL = (V236.ratedMW * 1e6) / (0.5 * 1.225 * SWEPT_AREA_M2 * V236.ratedMs ** 3);
 
-const N_TURBINES = 34;
 const W = 600;
 const H = 250;
 const PAD = { l: 52, r: 16, t: 16, b: 40 };
@@ -164,6 +164,7 @@ function Stat({ label, value, unit, tone = "text-text-primary" }: { label: strin
 
 export default function AEPExplainer() {
   const { weibullA, weibullK, priceEurMwh, setWeibullA, setWeibullK, aepCascade } = useWindResourceStore();
+  const N_TURBINES = useFarmPlan().turbines.length;
   const [step, setStep] = useState(0);
   const [chartRef, chartWidth] = useElementWidth<HTMLDivElement>();
   // SVG text is in viewBox units: grow it as the chart shrinks so it stays ≈ 11 px on screen
@@ -190,7 +191,7 @@ export default function AEPExplainer() {
     const hoursBelowCutIn = 8760 * weibullCdf(V236.cutInMs, weibullA, weibullK);
     const hoursAtRated = bins.filter((b) => b.v >= 12 && b.v <= V236.cutOutMs).reduce((s, b) => s + b.hours, 0);
     return { bins, turbineGWh, grossGWh, modeBin, peakEBin, aboveRatedShare, hoursBelowCutIn, hoursAtRated };
-  }, [weibullA, weibullK]);
+  }, [weibullA, weibullK, N_TURBINES]);
 
   const fromAnalysis = aepCascade !== null;
   const losses: [string, number][] = aepCascade
@@ -405,7 +406,7 @@ export default function AEPExplainer() {
               )}
               {step === 1 && (
                 <>
-                  <p><b className="text-text-primary">The turbine turns wind into power — non-linearly.</b> Wind power through the rotor is ½ρAv³: double the speed, eight times the power. The SB-510 turbine starts at 3 m/s, reaches 15 MW at {V236.ratedMs.toFixed(1)} m/s, then pitches its blades to hold 15 MW, and shuts down above {V236.cutOutMs} m/s to protect itself.</p>
+                  <p><b className="text-text-primary">The turbine turns wind into power — non-linearly.</b> Wind power through the rotor is ½ρAv³: double the speed, eight times the power. The IEA 15 MW turbine starts at 3 m/s, reaches 15 MW at {V236.ratedMs.toFixed(1)} m/s, then pitches its blades to hold 15 MW, and shuts down above {V236.cutOutMs} m/s to protect itself.</p>
                   <div className="grid grid-cols-2 gap-2">
                     <Stat label="Rotor swept area" value={SWEPT_AREA_M2.toLocaleString("en-GB").replace(/,/g, " ")} unit="m²" />
                     <Stat label="Cp at rated (electrical)" value={CP_RATED_ELECTRICAL.toFixed(2)} unit="< Betz 0.593" />

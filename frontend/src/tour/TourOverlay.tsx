@@ -161,6 +161,11 @@ function TourStepView({ tour, step, index }: { tour: Tour; step: TourStep; index
     if (!onRoute && step.route) navigate(step.route);
   }, [onRoute, step.route, navigate]);
 
+  // Then into the stage / tab the step needs.
+  useEffect(() => {
+    if (onRoute) step.prepare?.();
+  }, [onRoute, step]);
+
   const { rect, missing } = useTargetRect(onRoute ? step.target : undefined);
   const ready = onRoute && (!step.target || rect !== null);
   const { done, byUser } = useTaskDone(step, ready);

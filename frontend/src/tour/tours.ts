@@ -7,6 +7,7 @@
 import { useDigitalTwinStore } from "../store/digitalTwinStore";
 import { useForecastStore } from "../store/forecastStore";
 import { useProjectStore } from "../store/projectStore";
+import { useSiteStore } from "../store/siteStore";
 import { useGridStore } from "../store/gridStore";
 import { useLifecycleStore } from "../store/lifecycleStore";
 import { useTurbinePhysicsStore } from "../store/turbinePhysicsStore";
@@ -14,6 +15,12 @@ import { useWindResourceStore } from "../store/windResourceStore";
 import type { Tour } from "./types";
 
 const exists = (selector: string) => () => () => document.querySelector(selector) !== null;
+
+/** Site & Permits remembers its stage: the map and the report live on the first one. */
+const screeningStage = () => useSiteStore.getState().setStage("screening");
+
+/** A page left on another tab: back to its first one, where the run button lives. */
+const firstTab = () => document.querySelector<HTMLElement>('[data-tour="page-tabs"] [role="tab"]')?.click();
 
 const controlRoom: Tour = {
   id: "control-room",
@@ -149,6 +156,7 @@ const sitePermits: Tour = {
     {
       id: "map",
       route: "/develop",
+      prepare: screeningStage,
       target: "site-map",
       title: "Open marine data",
       body:
@@ -159,6 +167,7 @@ const sitePermits: Tour = {
     {
       id: "draw",
       route: "/develop",
+      prepare: screeningStage,
       // The whole map, not just the toolbar: corners are clicked on the map,
       // and the overlay blocks every click outside the spotlight.
       target: "site-map",
@@ -172,6 +181,7 @@ const sitePermits: Tour = {
     {
       id: "report",
       route: "/develop",
+      prepare: screeningStage,
       target: "site-report",
       title: "The screening report",
       body:
@@ -290,6 +300,7 @@ const windResource: Tour = {
       id: "run",
       route: "/wind-resource",
       target: "run-button",
+      prepare: firstTab,
       title: "Run the analysis",
       body: "The backend runs the wake model for all 34 turbines and builds the loss chain.",
       task: {
@@ -331,6 +342,7 @@ const grid: Tour = {
       id: "run",
       route: "/hv-grid",
       target: "run-button",
+      prepare: firstTab,
       title: "Run the grid analysis",
       body: "Load flow and short-circuit results come from pandapower; nothing is hard-coded.",
       task: {

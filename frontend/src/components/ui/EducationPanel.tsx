@@ -41,6 +41,7 @@ import type {
 import type { InfoContent } from "./InfoButton";
 import { promoteInfoContent, isEducationContent } from "../../lib/promoteInfoContent";
 import { FormulaPaper, WorkedExamplePaper } from "./MathPaper";
+import { KeyTerms } from "./KeyTerms";
 
 // ── Tab definitions ────────────────────────────────────────────
 
@@ -144,6 +145,8 @@ function OverviewTab({ c }: { c: EducationContent }) {
         <SectionLabel>Overview</SectionLabel>
         <p className="text-sm text-text-secondary leading-relaxed">{c.overview}</p>
       </div>
+
+      <KeyTerms texts={[c.overview, c.simpleExplanation, c.technicalExplanation, c.interpretation]} />
 
       {c.parameters && c.parameters.length > 0 && (
         <div>

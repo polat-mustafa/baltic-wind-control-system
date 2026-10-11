@@ -330,7 +330,16 @@ Plan: live-data coherence, then evidence A1–A5, then UX B1–B5, one PR each.
 - **A4 — Baltic Power (gated):** peak 295 of 1140 MW in the last 30 days of the bundled data (19/76 turbines,
   2026-10-09). `tests/test_baltic_power_gate.py` fails once the refreshed data reaches 90 %, until the farm
   is added to `real_data.sites()`. Owner to-do: monthly File Library download.
-- Next: B1 one farm on every page, B5 start strip, B2 Turkish gate, B3 visual audit, B4 glossary.
+- **B1 + B5 (#288):** `components/project/FarmBadge` heads every page that models a farm (same words as the
+  control room); `farmPlan` uses the saved project name; the Wind Resource page is labelled as the SB-510
+  reference study and points own projects to the Layout page (its endpoints work on named SB-510 layouts and
+  `X-Farm` carries no positions). Start-here strip under the Control Room header until the first tour / lesson.
+- **B2 (#289):** `scripts/i18n-missing.mjs --check` + `scripts/i18n-allowlist.txt`; CI job "Frontend Turkish"
+  runs it against a backend-less dev server (error and empty states included).
+- **B3 (#289):** all 17 routes × 2 themes × 390 / 1440 px — no horizontal overflow, no page errors; HV Grid
+  header no longer jumps when /network-spec answers; e2e waits for HV Grid's late sections; baselines refreshed.
+- **B4 (#289):** `constants/glossary.ts` (33 terms + Turkish) as "Key terms" chips beside the primer prose
+  (not inside it — the translator works on whole text nodes).
 
 ## Resume here
 

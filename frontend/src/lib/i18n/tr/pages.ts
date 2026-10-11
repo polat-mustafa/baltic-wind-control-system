@@ -326,8 +326,9 @@ export default {
   "Same engines as the Layout page and the project report: screening wake model on each site's wind, NREL/ORBIT unit costs. Revenue at a flat price (no curtailment, degradation or tax); NPV of revenue − OPEX at each project's WACC and lifetime.":
     "Yerleşim sayfası ve proje raporuyla aynı motorlar: her sahanın rüzgârında ön eleme iz modeli, NREL/ORBIT birim maliyetleri. Gelir sabit fiyatla (kısıtlama, bozulma veya vergi yok); her projenin AOSM'si ve ömrüyle gelir − OPEX'in NBD'si.",
   Permit: "İzin",
-  "Measured: share of {n1}-hour steps with Hs and wind inside the vessel limits — ERA5 ocean waves (ECMWF WAM) + ERA5 {n2} m wind, {n3}–{n4} {n5} °N {n6} °E, via Open-Meteo (CC BY {n7}); {n8}-hourly worst hour.":
-    "Ölçülen: Hs ve rüzgârın gemi sınırları içinde kaldığı {n1} saatlik adımların payı — ERA5 okyanus dalgaları (ECMWF WAM) + ERA5 {n2} m rüzgâr, {n3}–{n4}, {n5} °K {n6} °D, Open-Meteo üzerinden (CC BY {n7}); {n8} saatlik en kötü saat.",
+  // the source list after the dash is a citation and stays as written
+  "Measured: share of {n}-hour steps with Hs and wind inside the vessel limits — {title}.":
+    "Ölçülen: Hs ve rüzgârın gemi sınırları içinde kaldığı {n} saatlik adımların payı — {title}.",
   "Sea ice at the site: {n1} of {n2} winters, mean {n3} days a winter (max {n4} d) — NOAA OISST v2.1 daily sea-ice concentration, cell {n5} °N {n6} °E, via CoastWatch ERDDAP (public domain). Passive-microwave ice in a cell {n7} km offshore; isolated days in mild winters may be coastal or wet-snow artefacts. Ice at PZP_44 is rare and brief — no ice-class foundation design driver, but a winter access risk.":
     "Sahada deniz buzu: {n2} kışın {n1}'inde, kış başına ortalama {n3} gün (en fazla {n4} g) — NOAA OISST v2.1 günlük deniz buzu yoğunluğu, hücre {n5} °K {n6} °D, CoastWatch ERDDAP üzerinden (kamu malı). Kıyıdan {n7} km açıktaki bir hücrede pasif mikrodalga buzu; ılık kışlardaki tekil günler kıyı veya ıslak kar yanılsaması olabilir. PZP_44'te buz nadir ve kısa sürelidir — buz sınıfı temel tasarımı gerektirmez, ama kışın erişim riskidir.",
   "Maintenance & logistics (bottom-up) EUR 48k/MW/year — {n1}–{n2} % of a typical total OPEX of EUR {n3}–120k/MW/year (service contract, base, staff, lease and grid charges not modelled)":

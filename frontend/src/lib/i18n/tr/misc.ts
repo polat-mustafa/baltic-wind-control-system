@@ -82,4 +82,48 @@ export default {
   "It stays off until manually reconnected": "Elle yeniden bağlanana kadar kapalı kalır",
   "Self-recorded in this browser by the OffshoreForge training platform. Mission weights are illustrative teaching choices. This record is not a certificate of competence and not proof of any qualification (e.g. GWO, ECITB, national electrical authorisation).":
     "OffshoreForge eğitim platformunca bu tarayıcıda kendi kendine kaydedilmiştir. Görev ağırlıkları örnek öğretim tercihleridir. Bu kayıt bir yeterlilik sertifikası ve herhangi bir niteliğin (ör. GWO, ECITB veya ulusal elektrik yetkilendirmesi) kanıtı değildir.",
+  // ── UI audit 2026-10-11 (npm run i18n:missing) ──
+  "HV Grid opens in your own project once the checks marked HV Grid pass.":
+    "HV Grid, kendi projenizde HV Grid ile işaretli kontroller geçtiğinde açılır.",
+  "The layout meets the checks that open HV Grid in your own project.":
+    "Yerleşim, kendi projenizde HV Grid'i açan kontrolleri karşılıyor.",
+  "{n} turbines in a constraint area": "kısıt alanında {n} türbin",
+  "{n} turbine in a constraint area": "kısıt alanında {n} türbin",
+  "{n} turbine(s) inside a constraint area.": "Kısıt alanının içinde {n} türbin.",
+  "reanalysis: model with assimilated observations": "yeniden analiz: gözlemlerin özümsendiği model",
+  "Copernicus Marine Service licence: free and open, attribution required":
+    "Copernicus Marine Service lisansı: ücretsiz ve açık, atıf gerekli",
+  "Generated using E.U. Copernicus Marine Service Information · {title}":
+    "AB Copernicus Marine Service bilgileri kullanılarak üretilmiştir · {title}",
+  "hours [%]": "saat [%]",
+  "seabed [°C]": "deniz tabanı [°C]",
+  "rating [A]": "anma akımı [A]",
+  "SB-510 site (≈ 45 m)": "SB-510 sahası (≈ 45 m)",
+  "Mid-route (≈ 30 m)": "Güzergâh ortası (≈ 30 m)",
+  "Near landfall (≈ 10 m)": "Karaya çıkış yakını (≈ 10 m)",
+  "Subsea burial": "Deniz altı gömme",
+  "HDD landfall": "HDD karaya çıkış",
+  "{label} rating": "{label} anma akımı",
+  "forecast, not a measurement": "tahmin, ölçüm değil",
+  "TSO operational data": "İSO işletme verisi",
+  excluded: "hariç",
+  "{n} excluded": "{n} hariç",
+  "As-built register — {label}": "As-built kaydı — {label}",
+  // shown while the backend is down (found with the backend stopped, as in CI)
+  "Could not assess the site: {title}": "Saha değerlendirilemedi: {title}",
+  "{n} turbines without depth data": "derinlik verisi olmayan {n} türbin",
+  "{n} turbine without depth data": "derinlik verisi olmayan {n} türbin",
+  "uniform rose (API offline)": "düzgün gül (API çevrim dışı)",
+  "Foundations ({label})": "Temeller ({label})",
+  "LCOE = (CAPEX·CRF + OPEX) / AEP. AEP: live estimate, minus {n} % electrical, availability and environmental losses (P1 cascade defaults). Foundations by the site's deepest water (not assessed).":
+    "LCOE = (CAPEX·CRF + OPEX) / AEP. AEP: canlı tahmin, eksi %{n} elektriksel, kullanılabilirlik ve çevresel kayıplar (P1 zinciri varsayılanları). Temeller sahanın en derin suyuna göre (değerlendirilmedi).",
+  "Failed to load availability data: {title}": "Kullanılabilirlik verisi yüklenemedi: {title}",
+  "Weather-window data failed to load: {title}": "Hava penceresi verisi yüklenemedi: {title}",
+  "Assessing the SB-510 site…": "SB-510 sahası değerlendiriliyor…",
+  "No site has been assessed yet.": "Henüz hiçbir saha değerlendirilmedi.",
+  "AIS: {title}": "AIS: {title}",
+  "backend not reachable": "arka uca ulaşılamıyor",
+  "Real-data forecast failed: {title}": "Gerçek veri tahmini başarısız: {title}",
+  "Benchmark failed: {title}": "Kıyaslama başarısız: {title}",
+  "Uncertainty (1σ of AEP, root-sum-square): {title}": "Belirsizlik (AEP'nin 1σ'sı, kareler toplamının karekökü): {title}",
 } satisfies Record<string, string>;

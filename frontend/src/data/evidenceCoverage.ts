@@ -29,7 +29,7 @@ export const KINDS: { id: EvidenceKind; label: string; hint: string }[] = [
 export const GAPS: { module: string; note: string }[] = [
   {
     module: "P1 — other real farms",
-    note: "Kriegers Flak (SG 8.0-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used",
+    note: "Kriegers Flak (SG 8.4-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used",
   },
   {
     module: "P1 — wind input at SB-510",

@@ -9,6 +9,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 
+import { useNetwork } from "../../store/gridStore";
 import type { CoordinationStudyResponse } from "../../types/protection";
 
 const W = 960;
@@ -57,6 +58,7 @@ function Breaker({ x, open, delayS, label }: { x: number; open: boolean; delayS:
 }
 
 export default function ProtectionZoneDiagram({ study }: { study: CoordinationStudyResponse }) {
+  const n = useNetwork();
   const loc = study.fault_location;
   const main = study.relay_sequence.find((e) => e.relay_id === study.main_relay);
   const openAt = ((main?.clearance_time_ms ?? 0) / 1000) * PLAYBACK;
@@ -96,7 +98,7 @@ export default function ProtectionZoneDiagram({ study }: { study: CoordinationSt
       />
       <path d={`M${CABLE[0]} ${Y} H${CABLE[1]}`} stroke="var(--color-border-secondary)" strokeWidth={3} strokeDasharray="10 5" fill="none" />
       <text x={(CABLE[0] + CABLE[1]) / 2} y={Y + 26} textAnchor="middle" fontSize={11} className="fill-text-secondary">
-        export cable 2 × 108 km · 220 kV · 87L + distance Z1 80 % / Z2 120 %
+        {`export cable ${n.num_export_cables} × ${n.export_length_km} km · 220 kV · 87L + distance Z1 80 % / Z2 120 %`}
       </text>
       {/* transformer */}
       <circle cx={X.tx - 8} cy={Y} r={14} fill="none" stroke="var(--color-text-primary)" strokeWidth={2} />
@@ -121,7 +123,7 @@ export default function ProtectionZoneDiagram({ study }: { study: CoordinationSt
         String
       </text>
       <text x={X.string} y={Y + 60} textAnchor="middle" fontSize={10} className="fill-text-muted">
-        6 × WTG
+        {`${Math.max(...n.string_layout)} × WTG`}
       </text>
       {/* breakers — remount per study so the trip replays */}
       <g key={study.study_id}>

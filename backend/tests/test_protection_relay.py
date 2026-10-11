@@ -11,17 +11,23 @@ from __future__ import annotations
 import math
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.core.exceptions import ValidationError
+from app.main import app
+from app.services.p2.network_model import SB510, design
 from app.services.p5.protection_relay import (
     GRADING_PAIRS,
     OSS_RELAY_SETTINGS,
     SelectivityVerdict,
     apply_overrides,
+    ct_primary_a,
     export_cable_fault_ka,
     get_tcc_plot_data,
+    head_cable_mm2,
     oss_66kv_fault_levels_ka,
     ptoc_time_s,
+    relay_settings,
     run_coordination_study,
     simulate_fault_clearance,
     verify_selectivity,
@@ -131,3 +137,44 @@ def test_tcc_curves_use_each_relays_own_settings():
         for rid, c in curves.items()
     }
     assert at_20ka["PTOC-02"] - at_20ka["PTOC-01"] > 0.3
+
+
+class TestOwnFarm:
+    """The scheme follows the modelled farm (X-Farm): CTs, incomer TMS, fault levels."""
+
+    SMALL = '{"name":"T","strings":[4,4],"export_km":40,"array_km":1.6}'
+
+    def test_sb510_settings_follow_from_the_sizing_rules(self):
+        assert relay_settings(SB510) == OSS_RELAY_SETTINGS
+        assert ct_primary_a(787.0) == 1000.0  # 6 × 15 MW at 66 kV, × 1.1 = 866 A
+        assert ct_primary_a(2624.0) == 3000.0  # 300 MVA at 66 kV
+        assert head_cable_mm2(SB510) == 630.0  # 5-turbine strings
+
+    def test_small_farm_gets_its_own_cts_and_a_graded_incomer(self):
+        spec = design((4, 4), 40.0, 1.6, "T")
+        s = {r.setting_id: r for r in relay_settings(spec)}
+        assert (s["PTOC-01"].ct_primary_a, s["PTOC-02"].ct_primary_a) == (600.0, 1000.0)
+        # closer CTs: TMS 0.15 would grade only ≈ 200 ms → the incomer steps up to 0.20
+        assert s["PTOC-02"].tms == pytest.approx(0.20)
+        assert all(r.verdict == SelectivityVerdict.SELECTIVE for r in verify_selectivity(spec=spec))
+        assert oss_66kv_fault_levels_ka(spec)[0] < oss_66kv_fault_levels_ka()[0]
+        r = run_coordination_study("string_feeder", spec=spec)
+        assert r["assessment"] == "PASS" and "500 mm²" in r["time_criterion"]
+
+    def test_endpoints_follow_x_farm(self):
+        from urllib.parse import quote
+
+        client = TestClient(app)
+        base = "/api/v1/grid/protection"
+        h = {"X-Farm": quote(self.SMALL)}
+        ct = {r["setting_id"]: r["ct_primary_a"] for r in client.get(f"{base}/relays").json()}
+        own = {
+            r["setting_id"]: r["ct_primary_a"]
+            for r in client.get(f"{base}/relays", headers=h).json()
+        }
+        assert (ct["PTOC-02"], own["PTOC-02"]) == (3000.0, 1000.0)
+        body = {"fault_location": "oss_busbar_66kv", "include_tcc_data": True}
+        sb = client.post(f"{base}/coordination-study", json=body).json()
+        small = client.post(f"{base}/coordination-study", json=body, headers=h).json()
+        assert small["fault_current_ka"] < sb["fault_current_ka"]
+        assert small["tcc_data"]["fault_markers"][0]["current_ka"] < 10.0

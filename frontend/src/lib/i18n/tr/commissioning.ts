@@ -68,8 +68,12 @@ const commissioning: Record<string, string> = {
   "Close {id} — export cable 1 energised from shore with its onshore line reactor":
     "{id}'i kapat — iletim kablosu 1 kara hat reaktörüyle birlikte karadan enerjilendirildi",
   "Close {id} — export cable 1 energised from shore": "{id}'i kapat — iletim kablosu 1 karadan enerjilendirildi",
-  "The cable draws its full charging current; its onshore reactor takes about half of it up at the onshore end, and the open end rises above the sending end (Ferranti).":
-    "Kablo tam şarj akımını çeker; kara reaktörü bunun yaklaşık yarısını kara ucunda karşılar ve açık uç gönderme ucunun üzerine çıkar (Ferranti).",
+  "Close {id} — export cable 1 energised from shore with its onshore line reactor through its pre-insertion resistor":
+    "{id}'i kapat — iletim kablosu 1 kara hat reaktörüyle birlikte, kesicinin ön ekleme direnci üzerinden karadan enerjilendirildi",
+  "The cable draws its full charging current; its onshore reactor takes {n} % of it up at the onshore end, and the open end rises above the sending end (Ferranti).":
+    "Kablo tam şarj akımını çeker; kara reaktörü bunun %{n}'ini kara ucunda karşılar ve açık uç gönderme ucunun üzerine çıkar (Ferranti).",
+  "The cable draws its full charging current; its onshore reactor takes {n} % of it up at the onshore end, and the open end rises above the sending end (Ferranti). Above {n2} % the reactor's DC offset can keep the breaker current from crossing zero for seconds (zero-miss); with the reactor already on the cable, the breaker's pre-insertion resistor damps that offset (connecting the reactor later by its own breaker at a voltage peak would leave the uncompensated cable to lift the onshore busbar).":
+    "Kablo tam şarj akımını çeker; kara reaktörü bunun %{n}'ini kara ucunda karşılar ve açık uç gönderme ucunun üzerine çıkar (Ferranti). %{n2}'nin üzerinde reaktörün DC bileşeni kesici akımının saniyelerce sıfırdan geçmesini engelleyebilir (zero-miss); reaktör zaten kabloya bağlıyken bu bileşeni kesicinin ön ekleme direnci sönümler (reaktörü sonra kendi kesicisiyle bir gerilim tepesinde bağlamak, kompanze edilmemiş kablonun kara barasını yükseltmesine yol açardı).",
   "The open-ended cable draws its full charging current; the open end rises above the sending end (Ferranti).":
     "Ucu açık kablo tam şarj akımını çeker; açık uç gönderme ucunun üzerine çıkar (Ferranti).",
   "Verify onshore and cable-end voltage, charging current": "Kara ve kablo ucu gerilimini, şarj akımını doğrula",

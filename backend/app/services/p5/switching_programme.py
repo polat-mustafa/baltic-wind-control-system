@@ -70,8 +70,10 @@ from app.services.p2.network_model import (
 )
 from app.services.p5.energisation import (
     V_BAND_PU,
+    ZERO_MISS_LIMIT_PCT,
     NetworkSnapshot,
     circuit1_limit_mw,
+    energisation_compensation_pct,
     ferranti_ratio,
     network_snapshot,
     onshore_tap,
@@ -272,7 +274,8 @@ def _check_cable_energised(
     ok1, onshore = _band(snap, "ONS220")
     ok2, far = _band(snap, "OSS220" if snap.bus("OSS220") else "CABLE1")
     reactor = (
-        f"; onshore reactor {snap.reactor_on_q_mvar:.0f} Mvar"
+        f"; onshore reactor {snap.reactor_on_q_mvar:.0f} Mvar "
+        f"({energisation_compensation_pct(spec):.0f} % of the cable's charging)"
         if snap.reactor_on_q_mvar is not None
         else ""
     )
@@ -477,6 +480,8 @@ def _defs(spec: FarmSpec = SB510) -> list[tuple[int, dict[str, object]]]:
                 ),
             ),
         ]
+    comp = energisation_compensation_pct(spec)
+    zero_miss = comp > ZERO_MISS_LIMIT_PCT
     energise = [
         (2, unlock("DS-ON-220-01")),
         (
@@ -502,13 +507,26 @@ def _defs(spec: FarmSpec = SB510) -> list[tuple[int, dict[str, object]]]:
                 "CB-ON-220-01",
                 close,
                 "Close CB-ON-220-01 — export cable 1 energised from shore"
-                + (" with its onshore line reactor" if spec.num_reactors else ""),
-                notes="The cable draws its full charging current; its onshore reactor takes "
-                "about half of it up at the onshore end, and the open end rises above the "
-                "sending end (Ferranti)."
-                if spec.num_reactors
-                else "The open-ended cable draws its full charging current; the open end "
-                "rises above the sending end (Ferranti).",
+                + (" with its onshore line reactor" if spec.num_reactors else "")
+                + (" through its pre-insertion resistor" if zero_miss else ""),
+                notes=(
+                    f"The cable draws its full charging current; its onshore reactor takes "
+                    f"{comp:.0f} % of it up at the onshore end, and the open end rises above "
+                    "the sending end (Ferranti)."
+                    if spec.num_reactors
+                    else "The open-ended cable draws its full charging current; the open end "
+                    "rises above the sending end (Ferranti)."
+                )
+                + (
+                    f" Above {ZERO_MISS_LIMIT_PCT:.0f} % the reactor's DC offset can keep the "
+                    "breaker current from crossing zero for seconds (zero-miss); with the "
+                    "reactor already on the cable, the breaker's pre-insertion resistor "
+                    "damps that offset (connecting the reactor later by its own breaker at "
+                    "a voltage peak would leave the uncompensated cable to lift the onshore "
+                    "busbar)."
+                    if zero_miss
+                    else ""
+                ),
             ),
         ),
         (2, verify("cable_energised", "Verify onshore and cable-end voltage, charging current")),

@@ -81,6 +81,14 @@ from app.services.p5.equipment_state import (
 STATCOM_V_SET_PU = 1.00
 FREQUENCY_HZ = 50.0
 V_BAND_PU = (0.95, 1.05)  # project operating band for verification steps
+# Zero-miss: a cable energised together with a shunt reactor that takes up more than
+# about half of its charging current sees a DC offset larger than the AC current — the
+# breaker current misses its zero crossings for up to seconds (Hjerrild et al., Hornsea
+# 1 and 2 grid connection, CIGRE Symposium Aalborg 2019: they tap the onshore reactor to < 50 %).
+# da Silva et al., IEEE Trans. Power Delivery 25(4) 2923, 2010: the two countermeasures
+# that remove it are a pre-insertion resistor (reactor directly on the cable) or
+# connecting the reactor through its own breaker at a voltage peak.
+ZERO_MISS_LIMIT_PCT = 50.0
 
 
 @dataclass(frozen=True)
@@ -128,6 +136,14 @@ def cable_charging_mvar(u_kv: float = 220.0, length_km: float = EXPORT_CABLE_LEN
     """Q_c = ω·C·U²·l of one export cable [Mvar] (analytic cross-check)."""
     c = EXPORT_CABLE_1000.c_nf_per_km * 1e-9 * length_km
     return 2 * math.pi * FREQUENCY_HZ * c * (u_kv * 1e3) ** 2 / 1e6
+
+
+def energisation_compensation_pct(spec: FarmSpec = SB510) -> float:
+    """Share of one export cable's charging power its onshore line reactor takes up
+    when both are energised together [%] (SB-510: 180 of 312 Mvar = 58 %)."""
+    if not spec.num_reactors:
+        return 0.0
+    return 100.0 * spec.reactor_unit_mvar / (spec.cable_q_mvar / spec.num_export_cables)
 
 
 def ferranti_ratio(length_km: float = EXPORT_CABLE_LENGTH_KM) -> float:

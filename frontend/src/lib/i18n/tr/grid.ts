@@ -110,7 +110,7 @@ export default {
   "OSS 220 kV busbar": "OSS 220 kV barası",
   "phase-phase": "faz-faz",
   "Protection zones, {n1} kV string feeder (OSS end) — {n2} kA {n3}-phase": "Koruma bölgeleri, {n1} kV dizi fideri (OSS ucu) — {n2} kA {n3} faz",
-  "export cable 2 × 108 km · 220 kV · 87L + distance Z1 80 % / Z2 120 %": "iletim kablosu 2 × 108 km · 220 kV · 87L + mesafe Z1 %80 / Z2 %120",
+  "export cable {n1} × {n2} km · {n3} kV · 87L + distance Z1 {n4} % / Z2 {n5} %": "iletim kablosu {n1} × {n2} km · {n3} kV · 87L + mesafe Z1 %{n4} / Z2 %{n5}",
   "Hollow breaker = opened by PTOC-{n1} at {n2} ms (played back {n3}× slower)": "Boş kesici = PTOC-{n1} tarafından {n2} ms'de açıldı ({n3}× yavaş oynatılıyor)",
   "✓ Protection adequate": "✓ Koruma yeterli",
   "{n1} kV string feeder (OSS end) — {n2} kA {n3}-phase": "{n1} kV dizi fideri (OSS ucu) — {n2} kA {n3} faz",
@@ -195,8 +195,8 @@ export default {
     "✓ Rüzgâr fazlası {n1} MW; batarya kısıtlama yerine {n2} MW şarj ediyor. Bir dakika sonra SOC %{n3}. Kırmızı işaret ayar noktasıdır.",
   "All {n1} circuits, {n2} MW — {n3} A": "{n1} devrenin tümü, {n2} MW — {n3} A",
   "One circuit, {n1} MW — {n2} A": "Tek devre, {n1} MW — {n2} A",
-  "The Protection tab still shows SB-510's relay settings (CT ratios and pick-ups of its OSS); BESS, Cable DTS and Market follow your farm's rating and export circuits.":
-    "Koruma sekmesi hâlâ SB-510'un röle ayarlarını gösterir (OSS'sinin akım trafosu oranları ve açma eşikleri); BESS, Kablo DTS ve Piyasa sekmeleri santralinizin gücünü ve iletim devrelerini izler.",
+  "Every tab follows this design — Protection sizes its CTs, grades the incomer and takes the fault levels from it; BESS, Cable DTS and Market follow your farm's rating and export circuits.":
+    "Her sekme bu tasarımı izler — Koruma akım trafolarını ondan boyutlandırır, giriş rölesini kademelendirir ve arıza akımlarını ondan alır; BESS, Kablo DTS ve Piyasa sekmeleri santralinizin gücünü ve iletim devrelerini izler.",
   "Datasheet rating — 825 A": "Veri sayfası kapasitesi — 825 A",
   "N-{n1} survivor — {n2} A": "N-{n1} kalan devre — {n2} A",
   "set by the OSS J-tube · {n1} A at {n2} °C (datasheet)": "OSS J-tüpü belirler · {n2} °C'de {n1} A (veri sayfası)",

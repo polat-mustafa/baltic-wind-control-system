@@ -26,6 +26,9 @@ IEC 60255-151:2009 defines five standard IDMT curve shapes. We implement
 SI (Standard Inverse), VI (Very Inverse), EI (Extremely Inverse), and DT
 (Definite Time). The TCC endpoints provide data for log-log Plotly charts.
 
+The scheme follows the modelled farm: SB-510, or the own project in the ``X-Farm``
+header (CT ratios, fault levels and the head-cable withstand from its design).
+
 Standards: IEC 60255-151/-121/-127/-181, IEC 61936-1, PSE IRiESP.
 """
 
@@ -37,6 +40,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Path, Query
 
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.protection import (
     CoordinationStudyRequest,
     CoordinationStudyResponse,
@@ -51,6 +55,7 @@ from app.schemas.protection import (
     TCCCurveSeries,
     TCCPlotData,
 )
+from app.services.p2.network_model import FarmSpec
 from app.services.p5 import protection_relay as svc
 
 router = APIRouter(tags=["M05 Protection Relay Coordination"])
@@ -71,14 +76,14 @@ MODEL_BY_FUNCTION = {
 }
 
 
-def _effective_settings() -> tuple[svc.RelaySetting, ...]:
-    """Registry settings with the user's PUT overrides applied."""
-    return svc.apply_overrides(_relay_overrides)
+def _effective_settings(spec: FarmSpec) -> tuple[svc.RelaySetting, ...]:
+    """Settings of the farm with the user's PUT overrides applied."""
+    return svc.apply_overrides(_relay_overrides, spec)
 
 
-def _build_relay_schema(setting_id: str) -> ProtectionRelaySchema:
-    """Build a ProtectionRelaySchema from the registry + any overrides."""
-    settings_map = {s.setting_id: s for s in _effective_settings()}
+def _build_relay_schema(setting_id: str, spec: FarmSpec) -> ProtectionRelaySchema:
+    """Build a ProtectionRelaySchema from the farm's settings + any overrides."""
+    settings_map = {s.setting_id: s for s in _effective_settings(spec)}
     if setting_id not in settings_map:
         raise HTTPException(status_code=404, detail=f"Relay '{setting_id}' not found")
     s = settings_map[setting_id]
@@ -102,9 +107,12 @@ def _build_relay_schema(setting_id: str) -> ProtectionRelaySchema:
 
 
 def _tcc(
-    settings: tuple[svc.RelaySetting, ...], study_id: str, relay_ids: list[str] | None = None
+    settings: tuple[svc.RelaySetting, ...],
+    study_id: str,
+    spec: FarmSpec,
+    relay_ids: list[str] | None = None,
 ) -> TCCPlotData:
-    i_max, i_min = svc.oss_66kv_fault_levels_ka()
+    i_max, i_min = svc.oss_66kv_fault_levels_ka(spec)
     return TCCPlotData(
         study_id=study_id,
         curves=[
@@ -141,6 +149,7 @@ def _tcc(
     summary="List all protection relays",
 )
 async def list_relays(
+    spec: FarmSpecDep,
     relay_type: str | None = Query(
         default=None,
         description="Filter by IEC LN class: PTOC / PDIS / PTOV / PTUV / PTOF / PTUF",
@@ -159,7 +168,7 @@ async def list_relays(
     Settings are cross-checked against PSE IRiESP and ENTSO-E NC RfG
     Type D requirements during every commissioning SAT.
     """
-    results = [_build_relay_schema(s.setting_id) for s in svc.OSS_RELAY_SETTINGS]
+    results = [_build_relay_schema(s.setting_id, spec) for s in svc.OSS_RELAY_SETTINGS]
     if relay_type:
         results = [r for r in results if r.relay_type == relay_type.upper()]
     return results
@@ -173,6 +182,7 @@ async def list_relays(
 async def update_relay_settings(
     setting_id: Annotated[str, Path(description="Relay setting ID, e.g. 'PTOC-01'")],
     body: Annotated[RelaySettingsUpdate, Body()],
+    spec: FarmSpecDep,
 ) -> ProtectionRelaySchema:
     """Update protection relay settings (in-memory override).
 
@@ -205,7 +215,7 @@ async def update_relay_settings(
     if body.enabled is not None:
         overrides["enabled"] = body.enabled
 
-    return _build_relay_schema(setting_id)
+    return _build_relay_schema(setting_id, spec)
 
 
 @router.post(
@@ -215,6 +225,7 @@ async def update_relay_settings(
 )
 async def run_coordination_study(
     body: CoordinationStudyRequest,
+    spec: FarmSpecDep,
 ) -> CoordinationStudyResponse:
     """Run a Time-Current Characteristic coordination study.
 
@@ -233,13 +244,14 @@ async def run_coordination_study(
     - PTOC (overcurrent): minimum 300 ms margin between stages
     - PDIS (distance): minimum 400 ms margin between zones
     """
-    settings = _effective_settings()
+    settings = _effective_settings(spec)
     result = svc.run_coordination_study(
         fault_location=body.fault_location,
         fault_current_ka=body.fault_current_ka,
         position_pct=body.position_pct,
         settings=settings,
         fault_type=body.fault_type,
+        spec=spec,
     )
     return CoordinationStudyResponse(
         study_id=result["study_id"],
@@ -274,7 +286,7 @@ async def run_coordination_study(
             for g in result["grading_results"]
         ],
         grading_violations=result["grading_violations"],
-        tcc_data=_tcc(settings, result["study_id"]) if body.include_tcc_data else None,
+        tcc_data=_tcc(settings, result["study_id"], spec) if body.include_tcc_data else None,
         assessment=result["assessment"],
         created_at=datetime.now(UTC),
     )
@@ -287,6 +299,7 @@ async def run_coordination_study(
 )
 async def simulate_fault_clearance(
     body: FaultClearanceRequest,
+    spec: FarmSpecDep,
 ) -> FaultClearanceResponse:
     """Simulate complete fault clearance including CB operation.
 
@@ -304,6 +317,8 @@ async def simulate_fault_clearance(
         fault_location=body.fault_location,
         fault_impedance_ohm=body.fault_impedance_ohm,
         position_pct=body.position_pct,
+        settings=_effective_settings(spec),
+        spec=spec,
     )
     relay_sequence = [RelayTripEvent(**ev) for ev in result["relay_sequence"]]
 
@@ -329,6 +344,7 @@ async def simulate_fault_clearance(
     summary="Get TCC plot data",
 )
 async def get_tcc_data(
+    spec: FarmSpecDep,
     relay_ids: list[str] | None = Query(
         default=None,
         description="Filter to specific relay IDs, e.g. PTOC-01,PTOC-02",
@@ -350,4 +366,4 @@ async def get_tcc_data(
     more discrimination at high fault currents — useful when fault current
     varies widely (e.g. at different distances along a long cable).
     """
-    return _tcc(_effective_settings(), "default", relay_ids)
+    return _tcc(_effective_settings(spec), "default", spec, relay_ids)

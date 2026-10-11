@@ -11,6 +11,7 @@ import Plot from "react-plotly.js";
 import { farmLayoutMapEducation } from "../../constants/education/p1";
 import { CHART_HEIGHT, DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useChartPalette } from "../../hooks/useChartPalette";
+import { ROTOR_DIAMETER_M } from "../../utils/landingPhysics";
 import { useWindResourceStore } from "../../store/windResourceStore";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
@@ -38,7 +39,7 @@ export default function FarmLayoutMap() {
     <ChartWrapper
       title={`Farm layout — ${layoutPositions.name}, net AEP per turbine`}
       headerRight={<EducationButton content={farmLayoutMapEducation} />}
-      footer={`${layoutPositions.num_turbines} turbines · min spacing ${(layoutPositions.min_spacing_m / 236).toFixed(1)} D (${layoutPositions.min_spacing_m.toFixed(0)} m) · ${layoutPositions.area_km2.toFixed(1)} km² · range ${Math.min(...aep).toFixed(1)}–${best.toFixed(1)} GWh/yr`}
+      footer={`${layoutPositions.num_turbines} turbines · min spacing ${(layoutPositions.min_spacing_m / ROTOR_DIAMETER_M).toFixed(1)} D (${layoutPositions.min_spacing_m.toFixed(0)} m) · ${layoutPositions.area_km2.toFixed(1)} km² · range ${Math.min(...aep).toFixed(1)}–${best.toFixed(1)} GWh/yr`}
     >
       <Plot
         data={[

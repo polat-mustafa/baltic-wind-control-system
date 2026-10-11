@@ -155,6 +155,7 @@ def estimate_blockage_loss_percent(
     rotor_diameter_m: float = _REFERENCE_D_M,
     mean_wind_speed_ms: float = SB510_MEAN_MS,
     weibull_k: float = SB510_WEIBULL_K,
+    model_id: str | None = None,
 ) -> BlockageResult:
     """Estimate the global-blockage AEP loss (see module docstring).
 
@@ -170,6 +171,8 @@ def estimate_blockage_loss_percent(
         Long-term mean hub-height wind speed [m/s].
     weibull_k : float
         Weibull shape factor [-]; A = v̄ / Γ(1 + 1/k).
+    model_id : str, optional
+        Turbine model id for the power and Ct curves; default IEA-15-240-RWT.
 
     Returns
     -------
@@ -181,8 +184,8 @@ def estimate_blockage_loss_percent(
     a = mean_wind_speed_ms / math.gamma(1.0 + 1.0 / weibull_k)
     v = np.linspace(0.0, 35.0, 1401)
     pdf = (weibull_k / a) * (v / a) ** (weibull_k - 1) * np.exp(-((v / a) ** weibull_k))
-    ct = get_ct_curve(v)
-    p_free = get_power_curve_kw(v)
+    ct = get_ct_curve(v, model_id)
+    p_free = get_power_curve_kw(v, model_id)
     e_free = float(np.trapezoid(p_free * pdf, v))
     mean_ct = float(np.trapezoid(ct * p_free * pdf, v) / e_free)
 
@@ -192,7 +195,7 @@ def estimate_blockage_loss_percent(
 
     density = compute_array_density(num_turbines, rotor_diameter_m, farm_area_km2)
     deficit = (_BLOCKAGE_ALPHA / 3.0) * density * ct
-    p_blocked = get_power_curve_kw(v * (1.0 - deficit))
+    p_blocked = get_power_curve_kw(v * (1.0 - deficit), model_id)
     loss = 1.0 - float(np.trapezoid(p_blocked * pdf, v)) / e_free
 
     return BlockageResult(

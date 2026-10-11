@@ -41,7 +41,7 @@ function Section({ n, title, children }: { n: number; title: string; children: R
 }
 
 export default function WindResourceDashboard() {
-  const { aepCascade } = useWindResourceStore();
+  const { aepCascade, layoutComparison } = useWindResourceStore();
   if (!aepCascade) return null;
 
   return (
@@ -71,7 +71,14 @@ export default function WindResourceDashboard() {
           <AEPCascadePanel />
         </Section>
         <Section n={4} title="Layout alternatives">
-          <LayoutComparison />
+          {layoutComparison ? (
+            <LayoutComparison />
+          ) : (
+            <p className="rounded-lg border border-border-primary bg-bg-secondary px-3 py-2 text-[12px] text-text-secondary">
+              The regular-versus-staggered comparison uses SB-510's reference layouts. Your own layout's alternatives are
+              tried on the Layout page (PyWake-checked turbine moves).
+            </p>
+          )}
         </Section>
       </motion.div>
     </MotionConfig>

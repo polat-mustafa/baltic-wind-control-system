@@ -14,13 +14,14 @@ import { useEffect, useState } from "react";
 import { BarChart2, FlaskConical, Wrench, Wind } from "lucide-react";
 
 import AEPExplainer from "../components/p1/AEPExplainer";
-import ProjectP1Note from "../components/p1/ProjectP1Note";
 import WindResourceDashboard from "../components/p1/WindResourceDashboard";
 import SensitivityPanel from "../components/p1/SensitivityPanel";
 import FarmComparisonDashboard from "../components/p1/FarmComparisonDashboard";
 import OperationsTab from "../components/p1/OperationsTab";
 import WakeStudiesTab from "../components/p1/WakeStudiesTab";
-import { useWindResourceStore } from "../store/windResourceStore";
+import { p1Farm, useWindResourceStore } from "../store/windResourceStore";
+import { useFarmPlan } from "../hooks/useFarmPlan";
+import { useSiteStore } from "../store/siteStore";
 import { Button } from "../components/ui/Button";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
 import { ControlDrawer } from "../components/ui/ControlDrawer";
@@ -46,6 +47,7 @@ export default function WindResourcePage() {
     loading,
     error,
     analysisRun,
+    farmFor,
     fetchTurbineSpec,
     runFullAnalysis,
     clearError,
@@ -54,14 +56,19 @@ export default function WindResourcePage() {
   useEffect(() => {
     fetchTurbineSpec();
   }, [fetchTurbineSpec]);
-  // Open with results: PyWake for the 34 turbines takes a few seconds
-  useAutoRun(!analysisRun && !loading && !error, runFullAnalysis);
+  // The farm on every page: SB-510, or the own layout with its site wind
+  const plan = useFarmPlan();
+  const site = useSiteStore((s) => s.site);
+  const wind = useSiteStore((s) => s.report?.wind ?? null);
+  const farmId = p1Farm(plan, site, wind).id;
+  // Open with results (and re-run when the farm changes): PyWake takes a few seconds
+  useAutoRun((!analysisRun || farmFor !== farmId) && !loading && !error, runFullAnalysis);
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Wind Resource & AEP"
-        farm="reference"
+        farm="live"
         description="The wind climate at the site, PyWake wake losses and the farm's energy yield with its uncertainty (P50 / P90)."
         meta={turbineSpec ? `IEA-15-240-RWT · Baltic Sea · PyWake Niayifar Gaussian · D ${turbineSpec.rotor_diameter_m} m · hub ${turbineSpec.hub_height_m} m` : undefined}
         actions={
@@ -111,8 +118,6 @@ export default function WindResourcePage() {
           </>
         }
       />
-
-      <ProjectP1Note />
 
       <PageTabs tabs={TABS} value={activeTab} onChange={setActiveTab} />
 

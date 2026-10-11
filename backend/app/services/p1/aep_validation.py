@@ -45,6 +45,7 @@ CAPACITY_MW = 207.0  # 90 × 2.3 MW
 HUB_HEIGHT_M = 68.5  # Rødsand II hub height (E.ON); ERA5 wind is at 100 m
 YEAR = 2025
 TI = 0.06  # ambient turbulence intensity offshore at the hub
+CHUNK_H = 2000  # hours per PyWake run (bounds memory)
 LOSS_FACTOR = (
     (1 - DEFAULT_ELECTRICAL_LOSS)
     * (1 - DEFAULT_AVAILABILITY_LOSS)
@@ -102,8 +103,18 @@ def _hourly() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     x, y = _layout_m()
     t, ws, wd = _era5()
     turbine = SWT2p3_93_65()
-    sim = configure_wake_model(UniformSite(ti=TI), turbine)(x, y, wd=wd, ws=ws, time=True)
-    waked = np.asarray(sim.Power.values, dtype=float).sum(axis=0) / 1e6  # MW per hour
+    model = configure_wake_model(UniformSite(ti=TI), turbine)
+    # in chunks: PyWake holds turbine × turbine × hour arrays (90 × 90 × 20 000 h ≈ 1.3 GB each)
+    waked = np.concatenate(
+        [
+            np.asarray(
+                model(x, y, wd=wd[k : k + CHUNK_H], ws=ws[k : k + CHUNK_H], time=True).Power.values,
+                dtype=float,
+            ).sum(axis=0)
+            / 1e6  # MW per hour
+            for k in range(0, len(t), CHUNK_H)
+        ]
+    )
     free = np.asarray(turbine.power(ws), dtype=float) * len(x) / 1e6
 
     meas = load_dataset("roedsand2")

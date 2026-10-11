@@ -56,7 +56,9 @@ export default function MapLayersMenu({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && onClose();
+    // The toggle button handles its own click: closing here too reopened the menu at once
+    const onDown = (e: MouseEvent) =>
+      ref.current && !ref.current.contains(e.target as Node) && !(e.target as Element).closest?.("[data-layers-toggle]") && onClose();
     window.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown);
     return () => {

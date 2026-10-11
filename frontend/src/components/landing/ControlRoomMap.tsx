@@ -529,11 +529,14 @@ function ControlRoomMapInner({
         getPosition: (d: (typeof wakes.badges)[number]) => d.position,
         getText: (d: (typeof wakes.badges)[number]) => `−${d.loss} %`,
         characterSet: "auto",
-        // copper like the wake field, outlined so it reads over the wake itself
-        getColor: theme === "hmi" ? [255, 196, 160, 255] : [130, 56, 22, 255],
-        outlineWidth: 3,
-        outlineColor: theme === "hmi" ? [10, 21, 32, 255] : [255, 255, 255, 255],
-        fontSettings: { sdf: true },
+        // a small chip, copper edged like the wake field: crisp over the wake, no halo
+        // (an SDF outline drew a white halo and a jagged glyph at this size)
+        getColor: theme === "hmi" ? [255, 214, 190, 255] : [110, 46, 16, 255],
+        background: true,
+        getBackgroundColor: theme === "hmi" ? [10, 21, 32, 225] : [253, 249, 240, 235],
+        getBorderColor: [...WAKE_RGB, 255],
+        getBorderWidth: 1,
+        backgroundPadding: [4, 1],
         fontWeight: 600,
         getSize: 13,
         sizeUnits: "pixels",
@@ -627,6 +630,7 @@ function ControlRoomMapInner({
         <button
           type="button"
           onClick={() => setMenuOpen((o) => !o)}
+          data-layers-toggle
           aria-expanded={menuOpen}
           aria-label="Map layers"
           title="Map layers"

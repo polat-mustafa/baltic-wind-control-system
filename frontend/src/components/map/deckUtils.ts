@@ -17,10 +17,22 @@ export function dashArray(dash?: string): [number, number] {
   return a && b ? [a, b] : [0, 0];
 }
 
-/** SVG markup → IconLayer icon (adds the xmlns a data URL needs). */
+/** Bitmap resolution of an icon over its nominal size: sharp up to ~40 px on screen at 2× display scaling. */
+const ICON_RASTER = 4;
+
+/**
+ * SVG markup → IconLayer icon (adds the xmlns a data URL needs). The browser
+ * rasterises an SVG image at its own width/height, so those are raised to the
+ * atlas size: left at the nominal size the icon was upscaled — soft and
+ * pixelated on scaled (125–150 %) displays.
+ */
 export function svgIcon(svg: string, size: number) {
-  const xml = svg.includes("xmlns") ? svg : svg.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
-  return { url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`, width: size * 2, height: size * 2, anchorY: size };
+  const px = size * ICON_RASTER;
+  const xml = (svg.includes("xmlns") ? svg : svg.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"')).replace(
+    /<svg([^>]*?)\swidth="[^"]*"\s+height="[^"]*"/,
+    `<svg$1 width="${px}" height="${px}"`,
+  );
+  return { url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`, width: px, height: px, anchorY: px / 2 };
 }
 
 /** Drag-and-drop data type of palette items dropped on a PlanningMap; the data is the item kind. */

@@ -139,9 +139,6 @@ export default {
     "Yalnızca anonim kodlar; veriler dışa aktarılana kadar bu tarayıcıda (localStorage) kalır.",
   "e.g. P07 (no names)": "ör. P07 (isim yok)",
   "Anonymous participant code": "Anonim katılımcı kodu",
-  "Feeder protection 50/51 + 51N per string. Platform: topside with helideck (CAP 437) for access when seas exceed the vessel limits.":
-    "Dizi başına fider koruması 50/51 + 51N. Platform: deniz gemi sınırlarını aştığında erişim için helikopter pistli (CAP 437) üst yapı.",
-  "66 kV switchboard": "66 kV dağıtım panosu",
   "If one unit trips (N-1)": "Bir ünite açarsa (N-1)",
   Temperatures: "Sıcaklıklar",
   "Top oil": "Üst yağ",
@@ -153,6 +150,43 @@ export default {
   "Buchholz relay": "Buchholz rölesi",
   "Dissolved gas (DGA)": "Çözünmüş gaz (DGA)",
   "Operating hours": "Çalışma saatleri",
+  "{n} × {n2} MVA · {unit} kV · Three-phase ONAN/ONAF": "{n} × {n2} MVA · {unit} kV · Üç fazlı ONAN/ONAF",
+  "Apparent power S = √(P² + Q²). The turbines run near unity power factor, so MVA ≈ MW here.":
+    "Görünür güç S = √(P² + Q²). Türbinler birime yakın güç faktöründe çalışır, bu yüzden burada MVA ≈ MW.",
+  "How power flows through the OSS": "Güç OSS'den nasıl akar",
+  "OSS single-line diagram": "OSS tek hat şeması",
+  "to shore ↑": "karaya ↑",
+  "Each string has its own feeder breaker (50/51 + 51N). The 66 kV board is split in two with the coupler open, so a fault on one section only takes out half the farm.":
+    "Her dizinin kendi fider kesicisi vardır (50/51 + 51N). 66 kV pano kuplaj açık olarak ikiye bölünmüştür; bu yüzden bir bölümdeki arıza santralin yalnızca yarısını devre dışı bırakır.",
+  "Units · parallel, equal sharing": "Üniteler · paralel, eşit paylaşım",
+  "Circuit {n}": "Devre {n}",
+  "curtail {n} MW": "{n} MW kısıntı",
+  "no curtailment": "kısıntı yok",
+  OPEN: "AÇIK",
+  "healthy unit carries {n} of {n2} MVA": "sağlam ünite taşır: {n} / {n2} MVA",
+  "The coupler closes and the healthy unit picks up both sections ({list}), but only up to its own {n} MVA — the rest must be curtailed.":
+    "Kuplaj kapanır ve sağlam ünite iki bölümü de ({list}) üstlenir, ama yalnızca kendi {n} MVA'sına kadar — gerisi kısılmalıdır.",
+  "The healthy unit carries the whole export, but only up to its own {n} MVA — the rest must be curtailed.":
+    "Sağlam ünite tüm iletimi taşır, ama yalnızca kendi {n} MVA'sına kadar — gerisi kısılmalıdır.",
+  "limits: warn · alarm": "sınırlar: uyarı · alarm",
+  "Insulation ageing rate": "Yalıtım yaşlanma hızı",
+  "IEC 60076-7: V = 2^((θh − 98)/6), non-upgraded paper": "IEC 60076-7: V = 2^((θh − 98)/6), ısıl iyileştirilmemiş kâğıt",
+  "Paper insulation sets the transformer's life: its ageing doubles for every 6 K of hot spot above 98 °C (× 1 = normal life).":
+    "Transformatörün ömrünü kâğıt yalıtım belirler: sıcak nokta 98 °C'nin üzerinde her 6 K arttığında yaşlanma iki katına çıkar (× 1 = normal ömür).",
+  "of ±{n}": "/ ±{n}",
+  "The on-load tap changer shifts the turns ratio to hold the {n} kV bus voltage as the grid side moves. ONAN = oil and air by natural convection; ONAF stages switch fans on as the oil heats up.":
+    "Yük altında kademe değiştirici, şebeke tarafı değiştikçe {n} kV bara gerilimini tutmak için sarım oranını kaydırır. ONAN = yağ ve hava doğal konveksiyonla; ONAF kademeleri yağ ısındıkça fanları devreye alır.",
+  "Catches gas or an oil surge from an internal fault": "İç arızadan kaynaklanan gazı veya yağ dalgalanmasını yakalar",
+  "IEC 60599: gas ratios point to overheating, partial discharge or arcing":
+    "IEC 60599: gaz oranları aşırı ısınmaya, kısmi boşalmaya veya arka işaret eder",
+  "Buchholz trips on a sudden internal fault; DGA finds slow ones months earlier.":
+    "Buchholz ani bir iç arızada açtırır; DGA yavaş gelişenleri aylar önce bulur.",
+  "The topside has a helideck (CAP 437) for access when seas exceed vessel limits.":
+    "Üst yapıda, deniz gemi sınırlarını aştığında erişim için bir helikopter pisti (CAP 437) vardır.",
+  "Open SCADA Dashboard": "SCADA panosunu aç",
+  "Open HV Grid Dashboard": "YG Şebeke panosunu aç",
+  "IEC 60076-7 thermal limits and ageing · IEC 60599 DGA · simplified live model":
+    "IEC 60076-7 ısıl sınırlar ve yaşlanma · IEC 60599 DGA · basitleştirilmiş canlı model",
 
   // Turbine panel
   "Hub height": "Göbek yüksekliği",

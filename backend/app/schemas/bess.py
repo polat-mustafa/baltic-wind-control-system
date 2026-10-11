@@ -173,12 +173,12 @@ class BESSDispatchRequest(BaseModel):
 
     p_target_mw: float = Field(
         ge=0.0,
-        le=560.0,  # 510 MW WTG + 50 MW BESS
+        le=2300.0,  # 150 turbines × 15 MW + 50 MW BESS (largest own project)
         description="Active power setpoint from grid operator [MW]",
     )
     p_available_wtg_mw: float = Field(
         ge=0.0,
-        le=510.0,
+        le=2250.0,  # 150 × 15 MW
         description="Sum of all WTG available power at current wind [MW]",
     )
     current_soc_pct: float = Field(

@@ -75,7 +75,7 @@ describe("BESSDashboard", () => {
     expect(fcrReq.ffr_threshold_hz).toBeNull();
     expect(fcrReq.fcr_capacity_mw).toBe(50);
     expect(fcrReq.frequency_trace_hz).toEqual([...FREQUENCY_EVENTS.reference.trace]);
-    expect(vi.mocked(api.simRampSmoothing).mock.calls[0][0].wind_power_trace_mw).toBe(WIND_TRACE_MW);
+    expect(vi.mocked(api.simRampSmoothing).mock.calls[0][0].wind_power_trace_mw).toEqual(WIND_TRACE_MW);
 
     expect(screen.getByText("96")).toBeTruthy();
     expect(screen.getByText("6 → 0")).toBeTruthy();

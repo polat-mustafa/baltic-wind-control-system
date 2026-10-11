@@ -1,5 +1,5 @@
 /**
- * Market tab — one trading day of the 510 MW farm: TGE day-ahead, PSE
+ * Market tab — one trading day of the modelled farm (SB-510 or the own design): TGE day-ahead, PSE
  * imbalance at CEN, two-sided CfD and BESS arbitrage. Money in PLN.
  *
  *   controls · KPIs
@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { motion, MotionConfig } from "framer-motion";
 
 import { marketEducation } from "../../constants/education/p2";
+import { useNetwork } from "../../store/gridStore";
 import { useMarketStore } from "../../store/marketStore";
 import type { MarketScenario } from "../../types/market";
 import { EducationButton } from "../ui/EducationButton";
@@ -44,10 +45,11 @@ export default function MarketDashboard() {
   const { day: d, scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess, date, error, setParams, run, clearError } =
     useMarketStore();
 
+  const net = useNetwork(); // re-run for another farm
   useEffect(() => {
     const id = setTimeout(() => void run(), 250);
     return () => clearTimeout(id);
-  }, [scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess, date, run]);
+  }, [scenario, strike_pln_mwh, forecast_sigma_ms, include_cfd, include_bess, date, run, net]);
 
   const toggle = (label: string, on: boolean, key: "include_cfd" | "include_bess") => (
     <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">

@@ -11,7 +11,9 @@ import { useEffect } from "react";
 import { motion, MotionConfig } from "framer-motion";
 
 import { cableDtsEducation } from "../../constants/education/p2";
-import { N1_CURRENT_A, NORMAL_CURRENT_A, useCableDTSStore } from "../../store/cableDtsStore";
+import { farmKey } from "../../lib/project/farmHeader";
+import { useCableDTSStore } from "../../store/cableDtsStore";
+import { useNetwork } from "../../store/gridStore";
 import { EducationButton } from "../ui/EducationButton";
 import { KPICard } from "../ui/KPICard";
 import { Slider } from "../ui/Slider";
@@ -24,16 +26,25 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
 };
 
-const PRESETS: [string, number][] = [
-  [`Both circuits, 510 MW — ${NORMAL_CURRENT_A} A`, NORMAL_CURRENT_A],
-  ["Datasheet rating — 825 A", 825],
-  [`N-1 survivor — ${N1_CURRENT_A} A`, N1_CURRENT_A],
-];
-
 const fmtMinutes = (m: number) => `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, "0")} min`;
 
 export default function CableDTSDashboard() {
-  const { profile: p, transient: t, currentA, ambientC, emergencyA, error, setParams, runProfile, runTransient, clearError } = useCableDTSStore();
+  const { farm, farmFor, loadFarm, profile: p, transient: t, currentA, ambientC, emergencyA, error, setParams, runProfile, runTransient, clearError } =
+    useCableDTSStore();
+  // The farm's circuits and currents (SB-510 or the own design); reload when the design changes
+  const net = useNetwork();
+  useEffect(() => {
+    if (farmFor !== farmKey()) void loadFarm();
+  }, [net, farmFor, loadFarm]);
+  const circuits = farm?.num_circuits ?? 2;
+  const capMw = farm?.capacity_mw ?? 510;
+  const presets: [string, number][] = farm
+    ? [
+        [`${circuits === 1 ? "One circuit" : `All ${circuits} circuits`}, ${capMw.toFixed(0)} MW — ${farm.normal_current_a} A`, farm.normal_current_a],
+        ["Datasheet rating — 825 A", 825],
+        ...(farm.n1_current_a != null ? [[`N-1 survivor — ${farm.n1_current_a} A`, farm.n1_current_a] as [string, number]] : []),
+      ]
+    : [["Datasheet rating — 825 A", 825]];
 
   useEffect(() => {
     const id = setTimeout(() => void runProfile(), 250);
@@ -61,7 +72,7 @@ export default function CableDTSDashboard() {
             <div className="space-y-1">
               <p className="text-xs font-semibold text-text-secondary">Current per circuit</p>
               <div className="flex flex-wrap gap-1">
-                {PRESETS.map(([label, a]) => (
+                {presets.map(([label, a]) => (
                   <button
                     key={a}
                     aria-pressed={currentA === a}
@@ -84,7 +95,7 @@ export default function CableDTSDashboard() {
               label="Emergency current after the step"
               value={emergencyA}
               display={`${emergencyA} A`}
-              min={800}
+              min={400}
               max={1600}
               step={10}
               onChange={(v) => setParams({ emergencyA: v })}
@@ -106,10 +117,10 @@ export default function CableDTSDashboard() {
             trendValue={p ? `set by the ${p.limiting_zone} · 825 A at 20 °C (datasheet)` : ""}
           />
           <KPICard
-            label="Export capability, 2 circuits"
+            label={`Export capability, ${circuits} circuit${circuits === 1 ? "" : "s"}`}
             value={p ? p.export_capability_mva.toFixed(0) : "—"}
             unit="MVA"
-            trendValue={p ? `${p.export_capability_mva >= 510 ? "✓" : "✗"} 510 MW farm at 220 kV` : ""}
+            trendValue={p ? `${p.export_capability_mva >= capMw ? "✓" : "✗"} ${capMw.toFixed(0)} MW farm at 220 kV` : ""}
           />
           <KPICard
             label={`Time to 90 °C at ${emergencyA} A`}

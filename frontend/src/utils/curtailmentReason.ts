@@ -5,7 +5,8 @@
  * fields (windSpeed, pitchAngle, powerOutput) to determine WHY a turbine
  * is curtailed, and which cross-section part is most relevant.
  *
- * Three heuristics (checked in order):
+ * The control room curtails on a negative RCE price (lib/plant/marketPrice); that
+ * reason comes first. Then three heuristics (checked in order):
  * 1. High-wind curtailment: windSpeed > 20 m/s AND pitch > 15°
  *    → blades are pitched to feather to shed load
  * 2. Grid dispatch curtailment: power << expected at moderate wind
@@ -15,10 +16,11 @@
 
 import type { TurbinePartId } from "../constants/turbinePartEducation";
 import type { TurbineData } from "../types/landing";
+import { priceNow } from "../lib/plant/marketPrice";
 import { turbinePowerMW } from "./landingPhysics";
 
 export interface CurtailmentInfo {
-  reason: "high_wind" | "grid_dispatch" | "unknown";
+  reason: "negative_price" | "high_wind" | "grid_dispatch" | "unknown";
   label: string;
   explanation: string;
   affectedPart: TurbinePartId;
@@ -27,6 +29,19 @@ export interface CurtailmentInfo {
 
 export function inferCurtailment(turbine: TurbineData): CurtailmentInfo | null {
   if (turbine.status !== "curtailed") return null;
+
+  // 0. Market: the RCE price of this quarter-hour is negative
+  const price = priceNow();
+  if (price?.negative) {
+    return {
+      reason: "negative_price",
+      label: "Negative-Price Curtailment",
+      explanation: `The RCE price for ${price.period} is ${price.price_pln_mwh.toFixed(0)} PLN/MWh (PSE). The farm runs to a zero schedule until the price is positive again.`,
+      affectedPart: "converter",
+      educationalNote:
+        "A CfD pays no support for periods with a negative price (EU state-aid guidelines CEEAG 2022 §122), so producing would cost money: the PPC sets the farm to zero and the converters hold the turbines at idle. The same rule drives the Market tab of the HV Grid page.",
+    };
+  }
 
   // 1. High-wind curtailment: wind > 20 m/s with significant pitch
   if (turbine.windSpeedMs > 20 && turbine.pitchAngleDeg > 15) {

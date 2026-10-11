@@ -2,8 +2,8 @@
 
 **Learn offshore wind engineering by running a wind farm — from wind resource to grid connection, SCADA and condition monitoring.**
 
-[![CI](https://github.com/polat-mustafa/baltic-wind-control-system/actions/workflows/ci.yml/badge.svg)](https://github.com/polat-mustafa/baltic-wind-control-system/actions/workflows/ci.yml)
-[![Docs](https://github.com/polat-mustafa/baltic-wind-control-system/actions/workflows/docs.yml/badge.svg)](https://polat-mustafa.github.io/baltic-wind-control-system/)
+[![CI](https://github.com/polat-mustafa/offshoreforge/actions/workflows/ci.yml/badge.svg)](https://github.com/polat-mustafa/offshoreforge/actions/workflows/ci.yml)
+[![Docs](https://github.com/polat-mustafa/offshoreforge/actions/workflows/docs.yml/badge.svg)](https://polat-mustafa.github.io/offshoreforge/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 OffshoreForge is an open training platform for offshore wind engineers. Every screen is a working
@@ -69,8 +69,8 @@ You need Docker with Compose. For development without Docker: Python 3.13 with
 [uv](https://docs.astral.sh/uv/), and Node.js 22.
 
 ```bash
-git clone https://github.com/polat-mustafa/baltic-wind-control-system.git
-cd baltic-wind-control-system
+git clone https://github.com/polat-mustafa/offshoreforge.git
+cd offshoreforge
 docker compose up -d --build
 ```
 
@@ -160,7 +160,7 @@ The full method-to-source map is in [docs/references.md](docs/references.md).
 
 ## Documentation
 
-- [Documentation site](https://polat-mustafa.github.io/baltic-wind-control-system/)
+- [Documentation site](https://polat-mustafa.github.io/offshoreforge/)
 - User guide: [EN](docs/en/user-guide.md) · [TR](docs/KULLANICI_KILAVUZU.md) · [PL](docs/pl/przewodnik-uzytkownika.md)
 - [Engineering rules and code style](docs/SKILL.md)
 - [Technical design basis](docs/Project_Roadmap.md)

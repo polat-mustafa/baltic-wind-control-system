@@ -4,12 +4,14 @@ AEP-chain validation against a real farm's measured output (evidence programme A
 The P1 chain — reanalysis wind → hub-height shear → turbine power curve → production
 wake model (BPA Gaussian, ``configure_wake_model``) → the AEP cascade's loss factors —
 is run hour by hour for Rødsand II (90 × Siemens SWT-2.3-93, 207 MW, Danish Baltic Sea)
-through 2025 and compared with what the farm actually delivered (ENTSO-E 16.1.A unit
-generation, bundled for P4).
+and compared with what the farm actually delivered (ENTSO-E 16.1.A unit generation,
+bundled for P4): the calendar year 2025 (``validate_aep_chain``) and every month of
+June 2024 … September 2026 (``validate_months``: monthly R² over 28 months, bias per year).
 
 Inputs (``validation_data/roedsand2``, see SOURCES.md):
 - turbine positions: OpenStreetMap (ODbL), 90 nodes, model tag SWT-2.3-93;
-- wind: ERA5 hourly 100 m speed / direction at the farm (Open-Meteo archive, CC BY 4.0),
+- wind: ERA5 hourly 100 m speed / direction at the farm, 2024-06 … 2026-09 (Open-Meteo
+  archive, CC BY 4.0),
   shifted to the 68.5 m hub with the power law, α = 0.14 (IEC 61400-3-1, as everywhere else);
 - turbine: PyWake's SWT-2.3-93 power / Ct curves (``py_wake.validation.lillgrund``, the
   same turbine type as Lillgrund, MIT);
@@ -79,9 +81,9 @@ def _layout_m() -> tuple[np.ndarray, np.ndarray]:
 
 
 def _era5() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """(time [h], hub wind [m/s], direction [deg]) for YEAR."""
-    with gzip.open(DATA_DIR / f"era5_{YEAR}.csv.gz", "rt", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+    """(time [h], hub wind [m/s], direction [deg]) for every hour of the ERA5 file."""
+    with gzip.open(DATA_DIR / "era5.csv.gz", "rt", encoding="utf-8") as f:
+        rows = [r for r in csv.DictReader(f) if r["ws100"] and r["wd100"]]
     t = np.array([r["time_utc"] for r in rows], dtype="datetime64[h]")
     ws100 = np.array([float(r["ws100"]) for r in rows])
     wd = np.array([float(r["wd100"]) for r in rows])
@@ -89,8 +91,8 @@ def _era5() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 @cache
-def validate_aep_chain() -> AepValidation:
-    """Run the chain for every hour of YEAR and score it against the metered output (≈ 20 s)."""
+def _hourly() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """(time, measured MW, model waked MW, model free MW) for every hour in both series (≈ 45 s)."""
     from py_wake.site import UniformSite
     from py_wake.validation.lillgrund import SWT2p3_93_65
 
@@ -105,11 +107,16 @@ def validate_aep_chain() -> AepValidation:
     free = np.asarray(turbine.power(ws), dtype=float) * len(x) / 1e6
 
     meas = load_dataset("roedsand2")
-    in_year = meas.time_utc.astype("datetime64[Y]").astype(int) + 1970 == YEAR
-    m_t, m_p = meas.time_utc[in_year], meas.power_mw[in_year]
-    common, i_model, i_meas = np.intersect1d(t, m_t, return_indices=True)
-    p_meas = m_p[i_meas]
-    p_waked, p_free = waked[i_model], free[i_model]
+    common, i_model, i_meas = np.intersect1d(t, meas.time_utc, return_indices=True)
+    return common, meas.power_mw[i_meas], waked[i_model], free[i_model]
+
+
+@cache
+def validate_aep_chain() -> AepValidation:
+    """Run the chain for every hour of YEAR and score it against the metered output."""
+    t, meas, waked, free = _hourly()
+    in_year = t.astype("datetime64[Y]").astype(int) + 1970 == YEAR
+    common, p_meas, p_waked, p_free = t[in_year], meas[in_year], waked[in_year], free[in_year]
     p_net = p_waked * LOSS_FACTOR
 
     months = common.astype("datetime64[M]").astype(int) % 12 + 1
@@ -136,6 +143,71 @@ def validate_aep_chain() -> AepValidation:
     )
 
 
+@dataclass(frozen=True)
+class MonthlyValidation:
+    months: list[tuple[str, int, float, float]]  # (YYYY-MM, hours kept, measured GWh, model GWh)
+    constrained_days: list[str]  # days left out: the farm was capped or off (see below)
+    monthly_r2: float  # R² of the monthly energies, constrained days left out [-]
+    monthly_r2_all: float  # the same with every hour [-]
+    bias_by_year: dict[int, float]  # net model vs measured energy per calendar year [%]
+    bias_pct: float  # over all months [%]
+
+
+def _r2(a: np.ndarray, b: np.ndarray) -> float:
+    return float(np.corrcoef(a, b)[0, 1] ** 2)
+
+
+CAP_SHARE = 0.6  # a day is constrained when the metered peak stays below 60 % of the model's …
+WINDY_SHARE = 0.5  # … on a day the model reaches at least half the capacity
+
+
+@cache
+def validate_months() -> MonthlyValidation:
+    """Every month with metered output and ERA5 wind: R² of monthly energies, bias per year.
+
+    The model has no outages or grid limits. Days on which the farm was visibly capped or
+    off — metered peak < 60 % of the model's on a day the model reaches ≥ ½ capacity, e.g.
+    Rødsand II held at ≈ 100 MW 11–28 Nov 2024, at 0 MW 29 Nov–3 Dec and at ≈ 57 MW
+    13–18 Dec — are left out, as an energy-yield validation leaves out known downtime;
+    ``monthly_r2_all`` keeps them. A month counts when ≥ 50 % of its hours remain.
+    """
+    t, meas, waked, _ = _hourly()
+    net = waked * LOSS_FACTOR
+    day = t.astype("datetime64[D]")
+    keep = np.ones(len(t), dtype=bool)
+    constrained = []
+    for d in np.unique(day):
+        sel = day == d
+        peak = net[sel].max()
+        if peak > WINDY_SHARE * CAPACITY_MW and meas[sel].max() < CAP_SHARE * peak:
+            keep[sel] = False
+            constrained.append(str(d))
+
+    month = t.astype("datetime64[M]")
+    rows, rows_all = [], []
+    for m in np.unique(month):
+        sel = month == m
+        rows_all.append((meas[sel].sum(), net[sel].sum()))
+        k = sel & keep
+        if k.sum() >= 0.5 * sel.sum():
+            rows.append((str(m), int(k.sum()), meas[k].sum() / 1e3, net[k].sum() / 1e3))
+    mm = np.array([r[2] for r in rows])
+    mn = np.array([r[3] for r in rows])
+    by_year = {}
+    for y in sorted({r[0][:4] for r in rows}):
+        e_m = sum(r[2] for r in rows if r[0][:4] == y)
+        e_n = sum(r[3] for r in rows if r[0][:4] == y)
+        by_year[int(y)] = float(100 * (e_n / e_m - 1))
+    return MonthlyValidation(
+        months=[(r[0], r[1], float(r[2]), float(r[3])) for r in rows],
+        constrained_days=constrained,
+        monthly_r2=_r2(mm, mn),
+        monthly_r2_all=_r2(*np.array(rows_all).T),
+        bias_by_year=by_year,
+        bias_pct=float(100 * (mn.sum() / mm.sum() - 1)),
+    )
+
+
 if __name__ == "__main__":
     v = validate_aep_chain()
     print(
@@ -143,4 +215,11 @@ if __name__ == "__main__":
         f"{v.net_gwh:.1f} GWh (free {v.free_gwh:.1f}, wake loss {v.wake_loss_pct:.1f} %) · "
         f"bias {v.bias_pct:+.1f} % · monthly R² {v.monthly_r2:.3f} · hourly nRMSE "
         f"{v.hourly_nrmse_pct:.1f} % · CF {v.cf_measured_pct:.1f} vs {v.cf_model_pct:.1f} %"
+    )
+    mv = validate_months()
+    years = ", ".join(f"{y} {b:+.1f} %" for y, b in mv.bias_by_year.items())
+    print(
+        f"{mv.months[0][0]} … {mv.months[-1][0]}: {len(mv.months)} months, "
+        f"{len(mv.constrained_days)} constrained days out · monthly R² {mv.monthly_r2:.3f} "
+        f"(all hours {mv.monthly_r2_all:.3f}) · bias {mv.bias_pct:+.1f} % ({years})"
     )

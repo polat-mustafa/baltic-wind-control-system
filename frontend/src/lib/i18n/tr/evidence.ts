@@ -126,14 +126,14 @@ export default {
   "another published implementation of the same model": "aynı modelin yayımlanmış başka bir uygulaması",
   "a limit set by a grid code or standard": "bir şebeke yönetmeliğinin ya da standardın koyduğu sınır",
   "P1 — other real farms": "P1 — diğer gerçek santraller",
-  "Kriegers Flak (SG 8.4-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used":
-    "Kriegers Flak (SG 8.4-167 DD) ve Rødsand 1 (SWT-2.3-82): açık güç eğrisi yok, bu yüzden ölçülen üretimleri kullanılmıyor",
+  "Kriegers Flak (SG 8.4-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used. Next: Baltica 2 (107 × SG 14-222 DD, 1 498 MW, Polish EEZ) once it is commissioned (2027) and on ENTSO-E":
+    "Kriegers Flak (SG 8.4-167 DD) ve Rødsand 1 (SWT-2.3-82): açık güç eğrisi yok, bu yüzden ölçülen üretimleri kullanılmıyor. Sıradaki: Baltica 2 (107 × SG 14-222 DD, 1 498 MW, Polonya MEB'i), devreye alınıp (2027) ENTSO-E'de yayımlandığında",
   "P1 — wind input at SB-510": "P1 — SB-510'da rüzgâr girdisi",
   "no offshore mast at the site; FINO2 (the nearest Baltic mast) needs a BSH data account — the owner's to-do":
     "sahada açık deniz ölçüm direği yok; FINO2 (en yakın Baltık direği) BSH veri hesabı gerektirir — sahibin yapacağı iş",
   "P2 — reactor sizing vs a built farm": "P2 — kurulu bir santrale karşı reaktör boyutlandırma",
-  "no published reactor ratings found for Kriegers Flak, Anholt or Baltic Power (cable data is public, MVAr is not)":
-    "Kriegers Flak, Anholt veya Baltic Power için yayımlanmış reaktör değeri bulunamadı (kablo verisi açık, MVAr değil)",
+  "no published reactor ratings found for Kriegers Flak, Anholt, Baltic Power or Baltica 2 (cable data is public, MVAr is not). Baltica 2's grid-connection EIA confirms the same topology — shunt reactors, harmonic filters and a STATCOM at the 220/275 kV onshore substation, 400 kV GIS — without ratings":
+    "Kriegers Flak, Anholt, Baltic Power veya Baltica 2 için yayımlanmış reaktör değeri bulunamadı (kablo verisi açık, MVAr değil). Baltica 2'nin şebeke bağlantısı ÇED raporu aynı topolojiyi doğrular — 220/275 kV kara trafo merkezinde şönt reaktörler, harmonik filtreler ve bir STATCOM, 400 kV GIS — değerler olmadan",
   "P4 — Baltic Power forecast site": "P4 — Baltic Power tahmin sitesi",
   "still energising (peak 295 of 1140 MW in the last 30 days); added once it reaches 90 % — a test enforces it":
     "hâlâ devreye alınıyor (son 30 günde 1140 MW'ın 295'i tepe); %90'a ulaşınca eklenecek — bir test bunu zorunlu kılar",
@@ -147,8 +147,23 @@ export default {
   "weather windows use measured ERA5 sea states; costs and durations are illustrative":
     "hava pencereleri ölçülmüş ERA5 deniz durumlarını kullanır; maliyetler ve süreler temsilîdir",
   "Turbine physics (ROSCO)": "Türbin fiziği (ROSCO)",
-  "IEA 15 MW reference data; not compared with OpenFAST runs": "IEA 15 MW referans verisi; OpenFAST koşularıyla karşılaştırılmadı",
+  "ROSCO time-domain simulator, steady state at 6, 8, 10.66, 12, 15, 20 m/s":
+    "ROSCO zaman tanım alanı simülatörü, 6, 8, 10.66, 12, 15, 20 m/s'de kararlı durum",
+  "IEA 15 MW RWT official steady-state table (WISDEM, IEA Wind Task 37)":
+    "IEA 15 MW RWT resmî kararlı durum tablosu (WISDEM, IEA Wind Task 37)",
+  "max power difference": "en büyük güç farkı",
+  "max rotor-speed difference": "en büyük rotor hızı farkı",
+  "max pitch difference (rated knee; < 0.2° elsewhere)": "en büyük hatve farkı (anma dirseği; başka yerde < 0.2°)",
+  "max thrust difference (rated knee; < 2.5 % elsewhere)": "en büyük itki farkı (anma dirseği; başka yerde < %2.5)",
+  "< 2 % (CCBlade vs WISDEM Cp in region 2)": "< %2 (2. bölgede CCBlade ile WISDEM Cp farkı)",
+  "< 1 % (7.56 rpm reference vs 7.52 rpm table limit)": "< %1 (7.56 rpm referans, tablo sınırı 7.52 rpm)",
+  "AEP chain month by month, Rødsand II June 2024 – September 2026 (29 days with the farm capped or off left out)":
+    "AEP zinciri ay ay, Rødsand II Haziran 2024 – Eylül 2026 (santralin kısıtlı ya da kapalı olduğu 29 gün dışarıda)",
+  "R² of the 28 monthly energies (all hours: 0.75)": "28 aylık enerjinin R²'si (tüm saatler: 0.75)",
+  "largest yearly bias, model vs metered (2024 +5.0 %, 2025 +0.5 %, 2026 -0.4 %)":
+    "en büyük yıllık sapma, model / sayaç (2024 +%5.0, 2025 +%0.5, 2026 -%0.4)",
+  "|bias| < 8 % per year": "yıllık |sapma| < %8",
   "Control room live plant": "Kontrol odası canlı santrali",
-  "live Open-Meteo wind on the IEA 15 MW curve; the plant itself is a simulation":
-    "IEA 15 MW eğrisi üzerinde canlı Open-Meteo rüzgârı; santralin kendisi bir benzetimdir",
+  "live Open-Meteo wind on the IEA 15 MW curve, faults at published offshore failure rates (Carroll et al. 2016), curtailment on the live RCE price; time compressed, not compared with a real plant's event log":
+    "IEA 15 MW eğrisi üzerinde canlı Open-Meteo rüzgârı, yayımlanmış açık deniz arıza oranlarıyla arızalar (Carroll vd. 2016), canlı RCE fiyatına göre kısıtlama; zaman sıkıştırılmış, gerçek bir santralin olay kaydıyla karşılaştırılmadı",
 } satisfies Record<string, string>;

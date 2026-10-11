@@ -20,6 +20,7 @@ import WindFarmMimic from "./WindFarmMimic";
 import GOOSESimPanel from "./GOOSESimPanel";
 import EventLogPanel from "./EventLogPanel";
 import HistorianPanel from "./HistorianPanel";
+import InstrumentRegisterPanel from "./InstrumentRegisterPanel";
 import PermitWorkflowPanel from "./PermitWorkflowPanel";
 import RBACPanel from "./RBACPanel";
 import BayControllerPanel from "./BayControllerPanel";
@@ -91,6 +92,9 @@ export default function SCADADashboard() {
         )}
         {area === "equipment" && active === "historian" && (
           <div className="p-3"><HistorianPanel /></div>
+        )}
+        {area === "equipment" && active === "instruments" && (
+          <div className="p-3"><InstrumentRegisterPanel /></div>
         )}
         {area === "diagnostics" && active === "network" && (
           <div className="p-3"><NetworkDashboard /></div>

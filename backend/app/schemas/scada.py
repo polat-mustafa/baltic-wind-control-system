@@ -81,35 +81,6 @@ class PhysicalDeviceSchema(BaseModel):
 # ── GOOSE Schemas ──────────────────────────────────────────────
 
 
-class GOOSEControlBlockSchema(BaseModel):
-    """API representation of a GOOSE Control Block."""
-
-    name: str = Field(description="GoCB name")
-    app_id: str = Field(description="GOOSE Application ID hex")
-    go_id: str = Field(description="GOOSE identifier string")
-    dataset_name: str = Field(description="Reference to dataset")
-    mac_address: str = Field(description="Multicast destination MAC")
-    vlan_id: int = Field(description="VLAN ID for traffic separation")
-    min_time_ms: int = Field(description="Minimum retransmission interval [ms]")
-    max_time_ms: int = Field(description="Maximum retransmission interval [ms]")
-    description: str = Field(default="")
-
-
-class DatasetMemberSchema(BaseModel):
-    """API representation of a Dataset member reference."""
-
-    reference: str = Field(description="Full IEC 61850 object reference")
-    fc: str = Field(description="Functional constraint")
-
-
-class DatasetSchema(BaseModel):
-    """API representation of an IEC 61850 Dataset."""
-
-    name: str = Field(description="Dataset name")
-    members: list[DatasetMemberSchema] = Field(default_factory=list)
-    description: str = Field(default="")
-
-
 # ── SCL Generation Schemas ─────────────────────────────────────
 
 
@@ -137,21 +108,6 @@ class SCLFileResponse(BaseModel):
 
 
 # ── Device Registry Schemas ────────────────────────────────────
-
-
-class IEC61850DeviceResponse(BaseModel):
-    """Summary response for an IEC 61850 device."""
-
-    model_config = {"from_attributes": True}
-
-    id: uuid.UUID
-    name: str
-    equipment_type: str
-    manufacturer: str
-    model: str
-    ip_address: str
-    description: str
-    created_at: datetime
 
 
 class SubstationSummaryResponse(BaseModel):

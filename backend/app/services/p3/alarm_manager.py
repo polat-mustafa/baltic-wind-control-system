@@ -135,15 +135,6 @@ async def list_alarms(
     return [_row_to_response(r) for r in rows]
 
 
-async def get_alarm(db: AsyncSession, alarm_id: uuid.UUID) -> AlarmResponse:
-    """Get a single alarm by ID (expired shelves lifted first)."""
-    await expire_shelved_alarms(db)
-    row = await db.get(Alarm, alarm_id)
-    if row is None:
-        raise ValueError(f"Alarm {alarm_id} not found")
-    return _row_to_response(row)
-
-
 # ── Shelving ──────────────────────────────────────────────────────
 
 

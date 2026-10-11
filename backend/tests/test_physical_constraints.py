@@ -11,7 +11,6 @@ import pytest
 
 from app.services.p4.physical_constraints import (
     ConstraintType,
-    enforce_farm_constraints,
     enforce_physical_constraints,
 )
 
@@ -111,21 +110,3 @@ class TestConstraintResult:
 
 
 # ── Farm Constraint Tests ─────────────────────────────────────────
-
-
-class TestFarmConstraints:
-    """C5: Farm total ≤ 510 MW."""
-
-    def test_farm_constraints_per_turbine(self) -> None:
-        """Each turbine should have its own ConstraintResult."""
-        power = np.random.default_rng(42).uniform(0, 14, size=(100, 34))
-        results = enforce_farm_constraints(power)
-        assert len(results) == 34
-
-    def test_farm_constraints_with_wind(self) -> None:
-        power = np.random.default_rng(42).uniform(5, 10, size=(10, 3))
-        wind = np.random.default_rng(42).uniform(5, 20, size=(10, 3))
-        results = enforce_farm_constraints(power, wind_speeds_ms=wind, num_turbines=3)
-        assert len(results) == 3
-        for r in results:
-            assert np.all(r.power_mw >= 0.0)

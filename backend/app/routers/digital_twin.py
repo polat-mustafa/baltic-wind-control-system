@@ -355,12 +355,12 @@ async def get_config(farm: FarmSpecDep, wind: FarmWindDep) -> ModelCardResponse:
 
 
 @router.get("/scenarios", response_model=list[ScenarioInfo])
-async def list_scenarios(spec: FarmSpecDep) -> list[ScenarioInfo]:
+def list_scenarios(spec: FarmSpecDep) -> list[ScenarioInfo]:
     return [_scenario_info(plant.scenario_for(n, spec.num_turbines)) for n in plant.SCENARIOS]
 
 
 @router.get("/reference-curve", response_model=ReferenceCurveResponse)
-async def get_reference_curve() -> ReferenceCurveResponse:
+def get_reference_curve() -> ReferenceCurveResponse:
     """Twin steady state at ρ = 1.225 kg/m³, with the legacy V236 table for validation."""
     rc = reference_curve()
     dev = np.abs(rc.power_mw - rc.p1_table_power_mw)
@@ -588,7 +588,7 @@ async def operating_point(req: OperatingPointRequest) -> OperatingPointResponse:
 
 
 @router.get("/real-data/care", response_model=CareBenchmarkResponse)
-async def care_benchmark(farm: str = "b") -> CareBenchmarkResponse:
+def care_benchmark(farm: str = "b") -> CareBenchmarkResponse:
     """The twin's detector on CARE to Compare offshore farms (real SCADA, CC BY-SA 4.0).
 
     Farm B is the development set, Farm C the held-out test set. Built offline by

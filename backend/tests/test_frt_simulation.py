@@ -13,8 +13,6 @@ from app.schemas.grid import FRTTimePoint, FRTType
 from app.services.p2.frt_simulation import (
     I_MAX_PU,
     PRE_FAULT_S,
-    check_active_power_recovery,
-    check_reactive_current_compliance,
     iq_target,
     pse_frt_profile,
     run_frt_simulation,
@@ -127,21 +125,3 @@ def _points(values: list[tuple[float, float, float, float]]) -> list[FRTTimePoin
         )
         for t, v, p, iq in values
     ]
-
-
-class TestComplianceHelpers:
-    def test_reactive_current_good_and_bad(self):
-        good = _points([(0.0, 1.0, 510, 0.0), (0.6, 0.5, 200, 1.0)])
-        ok, gain = check_reactive_current_compliance(good, 0.5, 0.65)
-        assert ok and gain == pytest.approx(2.0)
-        bad = _points([(0.0, 1.0, 510, 0.0), (0.6, 0.5, 200, 0.3)])
-        ok, gain = check_reactive_current_compliance(bad, 0.5, 0.65)
-        assert not ok and gain < 2.0
-
-    def test_power_recovery_good_and_bad(self):
-        series = _points([(0.7, 1.0, 300, 0), (1.5, 1.0, 470, 0)])
-        ok, t = check_active_power_recovery(series, 0.65, 510)
-        assert ok and t == pytest.approx(0.85)
-        never = _points([(0.7, 1.0, 300, 0), (6.0, 1.0, 400, 0)])
-        ok, t = check_active_power_recovery(never, 0.65, 510)
-        assert not ok and t == float("inf")

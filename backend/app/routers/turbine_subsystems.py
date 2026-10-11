@@ -80,7 +80,7 @@ def _build_request_from_query(
 
 
 @router.get("/subsystems", response_model=NacelleSubsystemsResponse)
-async def get_subsystems(
+def get_subsystems(
     power_mw: float = Query(default=10.0, ge=0.0, le=15.0, description="Electrical output [MW]"),
     ambient_temp_c: float = Query(
         default=15.0, ge=-30.0, le=50.0, description="Ambient temperature [°C]"

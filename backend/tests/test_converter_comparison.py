@@ -14,10 +14,10 @@ from app.schemas.grid import ConverterType
 from app.services.p2.converter_comparison import (
     GFM_CURRENT_LIMIT_PU,
     VERY_WEAK_GRID_SSC_MVA,
+    WEAK_GRID_SSC_MVA,
     get_comparison_response,
     grid_impedance_pu,
     run_converter_comparison,
-    run_weak_grid_comparison,
 )
 from app.services.p2.network_model import EXPORT_CABLE_LENGTH_KM, TOTAL_CAPACITY_MW
 
@@ -29,7 +29,7 @@ def strong():
 
 @pytest.fixture(scope="module")
 def weak():
-    return run_weak_grid_comparison()
+    return run_converter_comparison("weak_grid", WEAK_GRID_SSC_MVA)
 
 
 def test_scr_at_poc_and_terminals(strong):

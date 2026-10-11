@@ -54,7 +54,7 @@ def _real_dayahead_payload(site: str) -> dict[str, Any]:
 
 
 @router.get("/real-data/sites")
-async def real_sites() -> list[dict[str, Any]]:
+def real_sites() -> list[dict[str, Any]]:
     """Real production series available: DK2 aggregate + ENTSO-E farms once fetched."""
     return [
         {"key": s.key, "title": s.title, "capacity_mw": s.capacity_mw} for s in sites().values()

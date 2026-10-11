@@ -19,9 +19,7 @@ from app.services.p5.protection_relay import (
     SelectivityVerdict,
     apply_overrides,
     export_cable_fault_ka,
-    get_relay_settings,
     get_tcc_plot_data,
-    idmt_operating_time,
     oss_66kv_fault_levels_ka,
     ptoc_time_s,
     run_coordination_study,
@@ -30,39 +28,6 @@ from app.services.p5.protection_relay import (
 )
 
 S = {s.setting_id: s for s in OSS_RELAY_SETTINGS}
-
-
-class TestSettings:
-    def test_registry(self):
-        assert get_relay_settings() is OSS_RELAY_SETTINGS
-        ids = [s.setting_id for s in OSS_RELAY_SETTINGS]
-        assert len(ids) == len(set(ids)) == 10
-        assert {"PDIF-87L", "PDIF-87B"} <= set(ids)
-
-    def test_overcurrent_stages_are_idmt_with_cts(self):
-        assert S["PTOC-01"].curve == "SI" and S["PTOC-01"].ct_primary_a == 1000.0
-        assert S["PTOC-02"].curve == "SI" and S["PTOC-02"].tms > S["PTOC-01"].tms
-
-    def test_voltage_frequency_stages_sit_outside_pse_ranges(self):
-        assert S["PTUF-01"].pickup_value == 47.5 and S["PTOF-01"].pickup_value == 51.5
-        assert S["PTUV-01"].time_delay > 2.5  # beyond the 2.5 s FRT profile
-        assert S["PTOV-01"].pickup_value >= 1.15  # 1.118–1.15 pu must be held 60 min
-
-    def test_iec_standard_inverse(self, evidence):
-        # 10 × pickup, TMS 1: 0.14 / (10^0.02 − 1) = 2.97 s
-        assert idmt_operating_time(10.0, 1.0, "SI") == pytest.approx(2.97, abs=0.01)
-        evidence(
-            "p3-idmt-si",
-            area="P3 — SCADA & protection",
-            claim="Overcurrent relay curve, standard inverse, 10 × pickup, TMS 1",
-            against="IEC 60255-151 formula t = 0.14 / (M^0.02 − 1) = 2.97 s",
-            metric="operating time",
-            value=idmt_operating_time(10.0, 1.0, "SI"),
-            unit="s",
-            limit="= 2.97 s ± 0.01",
-        )
-        assert idmt_operating_time(0.9, 1.0, "SI") == math.inf
-        assert idmt_operating_time(5.0, 0.1, "DT", 0.4) == 0.4
 
 
 class TestSelectivity:

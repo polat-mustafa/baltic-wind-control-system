@@ -72,20 +72,6 @@ async def close_redis() -> None:
         logger.info("Redis connection closed")
 
 
-async def get_redis_client() -> aioredis.Redis | None:
-    """FastAPI dependency -- returns the Redis client (or None)."""
-    return _redis_client
-
-
-def get_redis() -> aioredis.Redis | None:
-    """Sync accessor for the Redis client singleton.
-
-    Use this in background tasks that don't have a request context.
-    Route handlers should use the ``get_redis_client`` dependency instead.
-    """
-    return _redis_client
-
-
 async def redis_ping() -> bool:
     """Check Redis connectivity. Returns True if responsive."""
     if _redis_client is None:

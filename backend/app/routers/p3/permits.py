@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db import get_session
 from app.models.ptw import PermitToWork, PTWTransitionLog
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.ptw import (
     CreatePermitRequest,
     ExtendPermitRequest,
@@ -22,6 +23,7 @@ from app.schemas.ptw import (
     TransitionPermitRequest,
     TransitionResponse,
 )
+from app.services.p3.bay_controller import apply_permit_isolation
 from app.services.p3.permit_to_work import (
     PermitRecord,
     PermitStatus,
@@ -211,6 +213,7 @@ async def get_permit_detail(
 async def transition_permit(
     ptw_number: str,
     request: TransitionPermitRequest,
+    spec: FarmSpecDep,
     session: AsyncSession = Depends(get_session),
 ) -> TransitionResponse:
     """Advance a permit to the next state in its lifecycle.
@@ -286,6 +289,12 @@ async def transition_permit(
     )
     session.add(log_entry)
     await session.commit()
+
+    # The isolated bay leaves remote control while the permit holds it (ILK-006)
+    if target == PermitStatus.ISOLATION_CONFIRMED:
+        apply_permit_isolation(permit.equipment_id, True, request.performed_by, spec)
+    elif target in (PermitStatus.LOTO_REMOVED, PermitStatus.CLOSED, PermitStatus.CANCELLED):
+        apply_permit_isolation(permit.equipment_id, False, request.performed_by, spec)
 
     return TransitionResponse(
         success=True,

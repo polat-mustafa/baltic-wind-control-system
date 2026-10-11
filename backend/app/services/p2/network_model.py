@@ -124,7 +124,6 @@ import math
 from dataclasses import dataclass, replace
 from functools import lru_cache
 
-import numpy as np
 import pandapower as pp
 
 from app.core.exceptions import DomainError
@@ -765,32 +764,3 @@ def series_impedances_pu(
             spec.oss_trafo_mva * NUM_OSS_TRANSFORMERS,
         ),
     }
-
-
-def get_bus_count(net: pp.pandapowerNet) -> int:
-    """Return total number of buses in the network."""
-    return len(net.bus)
-
-
-def get_total_generation_mw(net: pp.pandapowerNet) -> float:
-    """Return total active power from all static generators [MW]."""
-    return float(net.sgen.p_mw.sum())
-
-
-def get_cable_grades_summary(net: pp.pandapowerNet) -> dict[str, int]:
-    """Return count of array cables by cross-section grade.
-
-    Returns
-    -------
-    dict[str, int]
-        Keys: '500mm2', '630mm2', '800mm2', '1000mm2'. Values: cable count.
-    """
-    counts = {f"{c.cross_section_mm2:.0f}mm2": 0 for c in ARRAY_SECTIONS}
-    for _, row in net.line.iterrows():
-        if not str(row["name"]).startswith("Array_"):
-            continue
-        # Identify the grade by its capacitance — R differs between 20 °C and 90 °C builds
-        c_nf = float(row["c_nf_per_km"])
-        grade = next(c for c in ARRAY_SECTIONS if np.isclose(c_nf, c.c_nf_per_km))
-        counts[f"{grade.cross_section_mm2:.0f}mm2"] += 1
-    return counts

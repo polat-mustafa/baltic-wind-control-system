@@ -314,11 +314,6 @@ def validate_compensation(
     )
 
 
-def continuous_q_mvar(spec: FarmSpec = SB510) -> float:
-    """Q the WTGs and the STATCOM give without switching reactors [MVAR]."""
-    return WTG_Q_CAPABILITY_PU * spec.capacity_mw + spec.statcom_mvar
-
-
 def _poc_q_at(
     base: pp.pandapowerNet,
     sign: int,

@@ -1,6 +1,5 @@
 """
-Tests for Tier 2 P1 features: multiple wake models, derating, FLOWERS AEP,
-market-weighted AEP, multi-algorithm optimization, PCE UQ, and robust optimization.
+Tests for Tier 2 P1 features: multiple wake models, derating, FLOWERS AEP and PCE UQ.
 """
 
 import numpy as np
@@ -191,38 +190,6 @@ class TestFLOWERS:
 # ── Market Value-Weighted AEP ───────────────────────────────────
 
 
-class TestMultiAlgorithm:
-    """Tests for multi-algorithm layout optimization."""
-
-    def test_algorithm_enum(self):
-        from app.services.p1.layout_optimizer import OptimizationAlgorithm
-
-        assert len(OptimizationAlgorithm) == 4
-
-    def test_gradient_optimization_runs(self):
-        from app.services.p1.layout_optimizer import optimize_layout_gradient
-
-        x, y = _small_layout()
-        site = _default_site()
-        result = optimize_layout_gradient(x, y, site, maxiter=2)
-        assert result.num_turbines == 4
-        assert result.name == "Gradient Optimized"
-
-    def test_optimize_multi_dispatcher(self):
-        from app.services.p1.layout_optimizer import OptimizationAlgorithm, optimize_layout_multi
-
-        x, y = _small_layout()
-        site = _default_site()
-        result = optimize_layout_multi(
-            x,
-            y,
-            site,
-            algorithm=OptimizationAlgorithm.GRADIENT_LBFGSB,
-            maxiter=2,
-        )
-        assert result.num_turbines == 4
-
-
 # ── Polynomial Chaos UQ ────────────────────────────────────────
 
 
@@ -296,43 +263,3 @@ class TestPCEUQ:
 
 
 # ── Robust Optimization ────────────────────────────────────────
-
-
-class TestRobustOptimization:
-    """Tests for robust layout optimization."""
-
-    def test_scenario_generation(self):
-        from app.services.p1.robust_optimization import _generate_scenarios
-
-        scenarios = _generate_scenarios(n_scenarios=10)
-        assert len(scenarios) == 10
-        for s in scenarios:
-            assert "weibull_a" in s
-            assert "weibull_k" in s
-            assert "turbulence_intensity" in s
-
-    def test_evaluate_scenarios(self):
-        from app.services.p1.robust_optimization import (
-            _evaluate_layout_scenarios,
-            _generate_scenarios,
-        )
-
-        x, y = _small_layout()
-        scenarios = _generate_scenarios(n_scenarios=3)
-        aeps = _evaluate_layout_scenarios(x, y, scenarios)
-        assert len(aeps) == 3
-        assert all(a > 0 for a in aeps)
-
-    def test_robust_optimization_runs(self):
-        from app.services.p1.robust_optimization import run_robust_optimization
-
-        x, y = _small_layout()
-        result = run_robust_optimization(
-            x,
-            y,
-            n_scenarios=3,
-            maxiter=2,
-        )
-        assert result.mean_aep_gwh > 0
-        assert result.layout.num_turbines == 4
-        assert result.n_scenarios == 3

@@ -39,7 +39,7 @@ router = APIRouter(tags=["M14 Weather Window O&M Logistics"])
     response_model=AllVesselAccessResponse,
     summary="Monthly vessel access probability — all vessel types",
 )
-async def get_all_vessel_access(year: int = 2025) -> AllVesselAccessResponse:
+def get_all_vessel_access(year: int = 2025) -> AllVesselAccessResponse:
     """
     Return monthly access probability for CTV, SOV, Jack-up, and Helicopter.
 
@@ -78,7 +78,7 @@ async def get_all_vessel_access(year: int = 2025) -> AllVesselAccessResponse:
     response_model=AccessProbabilityResponse,
     summary="Monthly access probability for a specific vessel type",
 )
-async def get_vessel_access(vessel: VesselType) -> AccessProbabilityResponse:
+def get_vessel_access(vessel: VesselType) -> AccessProbabilityResponse:
     """
     Return monthly access probability for a specific vessel type.
 
@@ -104,7 +104,7 @@ async def get_vessel_access(vessel: VesselType) -> AccessProbabilityResponse:
     response_model=MaintenanceWindowResponse,
     summary="Find next weather window + O&M cost estimate",
 )
-async def find_maintenance_window(
+def find_maintenance_window(
     request: MaintenanceWindowRequest,
 ) -> MaintenanceWindowResponse:
     """
@@ -147,7 +147,7 @@ async def find_maintenance_window(
     response_model=OAMCostBreakdown,
     summary="Annual O&M cost model (EUR/MW benchmark)",
 )
-async def get_oam_cost(
+def get_oam_cost(
     n_turbines: int = 34,
     turbine_rated_mw: float = 15.0,
     planned_events_per_turbine: float = 1.0,
@@ -214,7 +214,7 @@ async def coastal_stations() -> dict[str, Any]:
 
 
 @router.get("/metocean", summary="Sea conditions at SB-510 (Copernicus Marine reanalyses)")
-async def metocean() -> dict[str, Any]:
+def metocean() -> dict[str, Any]:
     """
     Waves (hourly since 1980: percentiles, 50-year Hs), surface currents, sea surface and
     seabed temperature along the export route (daily since 1993), sea ice (CMEMS next to

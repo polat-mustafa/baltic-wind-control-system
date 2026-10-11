@@ -56,7 +56,6 @@ Constants
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from pathlib import Path
 
 from app.services.p2.network_model import SB510, FarmSpec
 from app.services.p3.iec61850_model import (
@@ -528,20 +527,6 @@ def scl_to_string(root: ET.Element, indent: bool = True) -> str:
     buf = io.BytesIO()
     tree.write(buf, encoding="UTF-8", xml_declaration=True)
     return buf.getvalue().decode("UTF-8")
-
-
-def write_scl_file(root: ET.Element, path: Path) -> None:
-    """Write an SCL XML element tree to a file.
-
-    Parameters
-    ----------
-    root : ET.Element
-        Root SCL element.
-    path : Path
-        Output file path (typically .ssd, .icd, or .scd extension).
-    """
-    xml_string = scl_to_string(root, indent=True)
-    path.write_text(xml_string, encoding="UTF-8")
 
 
 def validate_scl_structure(root: ET.Element) -> list[str]:

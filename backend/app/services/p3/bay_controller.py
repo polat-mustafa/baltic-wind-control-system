@@ -55,7 +55,6 @@ from app.services.p5.equipment_state import (
     SwitchCommand,
     SwitchingAction,
     SwitchPosition,
-    SynchroCheckResult,
 )
 
 # ── Bay registry ────────────────────────────────────────────────────
@@ -634,24 +633,18 @@ def set_manual_isolation(
     return bay
 
 
-def update_synchrocheck(
-    bay_id: str,
-    delta_voltage_percent: float,
-    delta_frequency_hz: float,
-    delta_phase_deg: float,
-    spec: FarmSpec = SB510,
-) -> BayController:
-    """Update live synchrocheck measurements for a tie CB bay.
+def apply_permit_isolation(
+    equipment_id: str, isolated: bool, operator_id: str, spec: FarmSpec = SB510
+) -> bool:
+    """Permit-to-work link: an isolated permit takes its bay out of remote control.
 
-    Called periodically by the measurement system (every 1–2 s) to
-    keep the ILK-007 check current.
+    ISOLATION_CONFIRMED → the bay goes to MAINTENANCE (all switching blocked) with the
+    manual-isolation flag set (ILK-006 blocks auto-reclose); LOTO_REMOVED / CLOSED /
+    CANCELLED → back to REMOTE, flag cleared. Returns False when the permit's
+    equipment is not a bay of this switchboard (a cable section, an IED …).
     """
-    bay = _bay(spec, bay_id)
-    if not bay.is_tie_cb:
-        raise StateTransitionError(f"Bay '{bay_id}' is not a tie CB bay.")
-    bay.synchrocheck = SynchroCheckResult(
-        delta_voltage_percent=delta_voltage_percent,
-        delta_frequency_hz=delta_frequency_hz,
-        delta_phase_deg=delta_phase_deg,
-    )
-    return bay
+    if equipment_id not in _bays(spec):
+        return False
+    set_bay_mode(equipment_id, "maintenance" if isolated else "remote", operator_id, spec)
+    set_manual_isolation(equipment_id, isolated, operator_id, spec)
+    return True

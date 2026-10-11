@@ -36,7 +36,7 @@ router = APIRouter(tags=["M08 BESS Integration"])
     response_model=FrequencyResponseResult,
     summary="FCR response to a frequency trace",
 )
-async def simulate_frequency_response(
+def simulate_frequency_response(
     body: FrequencyResponseRequest,
 ) -> FrequencyResponseResult:
     """
@@ -68,7 +68,7 @@ async def simulate_frequency_response(
     response_model=RampSmoothingResult,
     summary="BESS ramp smoothing at the POC",
 )
-async def simulate_ramp_smoothing(body: RampSmoothingRequest) -> RampSmoothingResult:
+def simulate_ramp_smoothing(body: RampSmoothingRequest) -> RampSmoothingResult:
     """
     Keep the POC output within a ramp-rate limit (1 min steps).
 
@@ -93,7 +93,7 @@ async def simulate_ramp_smoothing(body: RampSmoothingRequest) -> RampSmoothingRe
     response_model=DegradationResponse,
     summary="BESS state-of-health projection (LFP)",
 )
-async def project_degradation(body: DegradationRequest) -> DegradationResponse:
+def project_degradation(body: DegradationRequest) -> DegradationResponse:
     """
     SOH over the years — an empirical LFP model with labelled assumptions.
 
@@ -115,7 +115,7 @@ async def project_degradation(body: DegradationRequest) -> DegradationResponse:
     response_model=BESSDispatchResponse,
     summary="WTG + BESS combined dispatch",
 )
-async def bess_dispatch(body: BESSDispatchRequest) -> BESSDispatchResponse:
+def bess_dispatch(body: BESSDispatchRequest) -> BESSDispatchResponse:
     """
     Meet the TSO setpoint at the POC with turbines and battery.
 

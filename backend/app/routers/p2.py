@@ -169,7 +169,7 @@ class FRTRequest(BaseModel):
 
 
 @router.get("/network-spec", response_model=NetworkSpecResponse)
-async def get_network_spec(spec: FarmSpecDep) -> NetworkSpecResponse:
+def get_network_spec(spec: FarmSpecDep) -> NetworkSpecResponse:
     """Electrical design of the modelled farm (SB-510 unless the X-Farm header is sent)."""
     return NetworkSpecResponse(
         name=spec.name,
@@ -235,7 +235,7 @@ async def live_load_flow(body: LiveLoadFlowRequest, spec: FarmSpecDep) -> LiveLo
 
 
 @router.get("/load-flow-all", response_model=list[LoadFlowResponse])
-async def load_flow_all_scenarios(spec: FarmSpecDep) -> list[LoadFlowResponse]:
+def load_flow_all_scenarios(spec: FarmSpecDep) -> list[LoadFlowResponse]:
     """Run load flow for all four standard PSE IRiESP scenarios.
 
     Returns results for full_load, partial_load, no_load, and n_minus_1.
@@ -249,7 +249,7 @@ async def load_flow_all_scenarios(spec: FarmSpecDep) -> list[LoadFlowResponse]:
 
 
 @router.get("/short-circuit/{case}", response_model=ShortCircuitResponse)
-async def short_circuit(case: str, spec: FarmSpecDep) -> ShortCircuitResponse:
+def short_circuit(case: str, spec: FarmSpecDep) -> ShortCircuitResponse:
     """Run IEC 60909 short-circuit calculation at all buses.
 
     Case 'max' (c=1.1) for breaker sizing, 'min' (c=1.0) for protection
@@ -282,7 +282,7 @@ async def statcom_sizing(spec: FarmSpecDep) -> STATCOMSizingResult:
 
 
 @router.post("/frt/{frt_type}", response_model=FRTSimulationResponse)
-async def frt_simulation(
+def frt_simulation(
     frt_type: FRTType,
     request: FRTRequest,
     spec: FarmSpecDep,
@@ -316,7 +316,7 @@ async def frt_simulation(
     "/converter-comparison/{scenario}",
     response_model=ConverterComparisonResponse,
 )
-async def converter_comparison(
+def converter_comparison(
     scenario: str,
     spec: FarmSpecDep,
     phase_jump_deg: float = Query(20.0, ge=5.0, le=60.0, description="Grid phase jump [deg]"),
@@ -362,7 +362,7 @@ class PPCStatusRequest(BaseModel):
 
 
 @router.get("/ppc/status", response_model=PPCStatusResponse)
-async def ppc_status_default(spec: FarmSpecDep) -> PPCStatusResponse:
+def ppc_status_default(spec: FarmSpecDep) -> PPCStatusResponse:
     """Get PPC status at default operating conditions.
 
     Returns a real-time snapshot of the PPC state above rated wind (12 m/s; rated 10.66 m/s),
@@ -377,7 +377,7 @@ async def ppc_status_default(spec: FarmSpecDep) -> PPCStatusResponse:
 
 
 @router.post("/ppc/status", response_model=PPCStatusResponse)
-async def ppc_status(request: PPCStatusRequest, spec: FarmSpecDep) -> PPCStatusResponse:
+def ppc_status(request: PPCStatusRequest, spec: FarmSpecDep) -> PPCStatusResponse:
     """Get PPC status at specified operating conditions.
 
     Returns a real-time snapshot of the PPC state for the given wind speed,
@@ -401,7 +401,7 @@ async def ppc_status(request: PPCStatusRequest, spec: FarmSpecDep) -> PPCStatusR
 
 
 @router.post("/ppc/simulate", response_model=PPCSimulationResponse)
-async def ppc_simulate(request: PPCSimulationRequest, spec: FarmSpecDep) -> PPCSimulationResponse:
+def ppc_simulate(request: PPCSimulationRequest, spec: FarmSpecDep) -> PPCSimulationResponse:
     """Run a PPC control simulation over a time window (0.1 s steps).
 
     TSO command at ``setpoint_time_s``; optional grid frequency step and grid

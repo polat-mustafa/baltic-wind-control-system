@@ -118,7 +118,7 @@ export const powerQualityEducation: EducationContent = {
         "10 GVA grid, 2 × 108 km cable, reactors in, typical full-converter emission.",
       steps: [
         "Without a filter, scan from OSS 66 kV: parallel resonances at ≈ 115 Hz (h 2.3, × 11), ≈ 535 Hz (h 10.7) and ≈ 770 Hz (h 15.4, × 12.5)",
-        "The 770 Hz peak is the array cables (21.3 Mvar of charging) against the OSS transformers; it falls between h15 and h16, where a full converter emits little",
+        "The 770 Hz peak is the array cables (charging 21.3 Mvar) against the OSS transformers; it falls between h15 and h16, where a full converter emits little",
         "On a strong grid (2 × S_sc = 20 GVA) the 535 Hz peak rises to × 3.0 — within one order of h11, a characteristic converter harmonic",
         "h11 current: 0.5 % × 131 A = 0.66 A per turbine, × √34 (α = 2 for h ≥ 10, IEC 61000-3-6) = 3.8 A; × 57.9 Ω = 221 V = 0.58 % of the 38.1 kV phase voltage at OSS 66 kV, 38.7 % of the 1.5 % HV planning level",
         "Filter design: an amplified resonance next to h11 → tune one order below, h10.34 (517 Hz); the smallest standard size that leaves no such resonance at 0.5, 1 and 2 × S_sc: 2 Mvar",

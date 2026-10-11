@@ -261,7 +261,9 @@ def size_harmonic_filter(spec: FarmSpec) -> tuple[float, float]:
     """(Q [Mvar], tuned order) of the OSS 66 kV filter for a design; (0, 0) if none is needed.
 
     Needed when a characteristic order (h ≥ 5) exceeds 50 % of its planning level in any
-    bus / S_sc case. Tuned one order below the worst one (h5: 4.7); the smallest standard size that
+    bus / S_sc case, or when an amplified resonance (> 3) sits within one order of a
+    characteristic harmonic. Tuned one order below the worst one (or the lowest threatened
+    one; h5: 4.7); the smallest standard size that
     brings every order (low ones included — added capacitance pulls the low-order cable
     resonance down) to ≤ 50 % and leaves no amplified resonance next to a characteristic
     harmonic wins, else the size with the lowest overall worst case.
@@ -280,10 +282,10 @@ def size_harmonic_filter(spec: FarmSpec) -> tuple[float, float]:
     for q in HARMONIC_FILTER_SIZES_MVAR:
         candidate = replace(base, harmonic_filter_mvar=q, harmonic_filter_tuned_order=tuned)
         w, _, w_low = _worst_over_grid_range(candidate)
-        overall, critical = max(w, w_low), _resonance_near_characteristic(candidate)
-        if overall <= FILTER_TARGET_PCT and not critical:
+        overall, crit = max(w, w_low), _resonance_near_characteristic(candidate)
+        if overall <= FILTER_TARGET_PCT and not crit:
             return q, tuned
-        best = min(best, (critical, overall, q))
+        best = min(best, (crit, overall, q))
     return (best[2], tuned) if best[2] else (0.0, 0.0)
 
 

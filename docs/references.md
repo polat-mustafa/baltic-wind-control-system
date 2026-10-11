@@ -23,8 +23,9 @@ Citation rules used here:
 | Wake-added turbulence | `services/p1/wake_model.py` (PyWake `STF2017TurbulenceModel`) | [8], [S1] |
 | Global blockage | `services/p1/blockage.py` | [9] |
 | Wake-model validation: NOJ / BPA / TurbOPark vs measured Horns Rev 1 and Lillgrund row power ratios (PyWake validation data, MIT), wind-direction uncertainty averaging; TurbOPark verified against Ørsted's MATLAB example | `services/p1/wake_validation.py`, `services/p1/validation_data/pywake/`, `tests/test_wake_validation.py` | [41], [45], [46] |
-| AEP-chain validation: ERA5 100 m wind → α 0.14 shear → SWT-2.3-93 power curve → BPA wakes (PyWake, hourly time series) → cascade losses, scored against Rødsand II's metered 2025 output (ENTSO-E 16.1.A); layout from OpenStreetMap (ODbL) | `services/p1/aep_validation.py`, `services/p1/validation_data/roedsand2/`, `scripts/fetch_validation_farms.py`, `tests/test_aep_validation.py` | ERA5: Hersbach et al. 2020, DOI 10.1002/qj.3803; ENTSO-E Transparency Platform 16.1.A; [41] |
+| AEP-chain validation: ERA5 100 m wind → α 0.14 shear → SWT-2.3-93 power curve → BPA wakes (PyWake, hourly time series) → cascade losses, scored against Rødsand II's metered output (ENTSO-E 16.1.A): calendar 2025 and every month June 2024 – September 2026 (days with the farm capped or off left out); layout from OpenStreetMap (ODbL) | `services/p1/aep_validation.py`, `services/p1/validation_data/roedsand2/`, `scripts/fetch_validation_farms.py`, `tests/test_aep_validation.py` | ERA5: Hersbach et al. 2020, DOI 10.1002/qj.3803; ENTSO-E Transparency Platform 16.1.A; [41] |
 | AEP loss cascade, P50/P90 | `services/p1/aep_calculator.py` | [1], [2] |
+| Own-project AEP cascade (own positions, turbine, site Weibull + 12-sector rose) | `routers/p1.py` (`/aep-cascade-custom`), `frontend/src/store/windResourceStore.ts` | [1], [2], [9] |
 | Power / thrust curve, cut-in/out (IEA 15 MW and 22 MW reference turbines) | `services/p1/turbine_models.py`, `app/data/turbines/`, `scripts/fetch_turbine_curves.py`, `frontend/src/constants/turbineModels.ts` | [S2], [26], [27] |
 | windIO 2.x plant export (site, wind resource, layout, turbine) | `services/p1/windio.py`, `routers/projects.py` (`/projects/{id}/windio.yaml`) | [31] |
 | Loss defaults with provenance (electrical, availability, environmental) | `services/p1/aep_calculator.py` (`LOSS_SOURCES`), `components/ui/SourceBadge.tsx` | [35] |
@@ -39,7 +40,7 @@ Citation rules used here:
 | Short-circuit currents | `services/p2/short_circuit.py` (`pandapower.shortcircuit.calc_sc`) | [S4], [10] |
 | RMS dynamics, FRT | `services/p2/andes_dynamics.py`, `frt_simulation.py` (ANDES) | [4], [11], [S5] |
 | Reactive power / STATCOM sizing | `services/p2/statcom_sizing.py` | [4], [5], [S5], [S6] |
-| Cable current rating | `services/p2/cable_dts.py` | [S7] |
+| Cable current rating; route and circuits of the modelled farm, full-output and N-1 survivor current | `services/p2/cable_dts.py`, `routers/p2_cable_dts.py` (`/cable/dts/farm`) | [S7] |
 | Cable R, C, X, ratings (provenance note at the cable constants) | `services/p2/network_model.py` | [S33], [33], [34], [S7] |
 | Power quality (harmonic filter: damped high-pass) | `services/p2/power_quality.py` | [S8], [S9], [S36] |
 
@@ -102,6 +103,7 @@ Citation rules used here:
 | Generator-torque PI (TSR tracking), pitch PI with gain schedule, setpoint smoother, speed filters | `services/turbine_physics/drivetrain.py`, `pitch_control.py`, `simulator.py` | [37] (ROSCO v2.10.1 source, DISCON.IN) |
 | Overspeed trip 9.07 rpm, yaw 0.5 °/s / 8° | `state_machine.py`, `yaw_control.py` | [37], [S1] |
 | Extreme operating gust check | `tests/test_turbine_physics.py` | [S1] §6.3.3.2 |
+| Steady state vs the official IEA 15 MW table (rpm, pitch, power, thrust at 6–20 m/s) | `tests/test_turbine_physics_reference.py` | [26] |
 | CMS: bearing defect frequencies, generator electrical lines, hydraulic-oil grade | `services/p3/cms.py` | [S24], [S35] |
 
 ## Site assessment — screening
@@ -150,6 +152,13 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 | National decommissioning programmes (example regime) | `frontend/src/pages/DecommissioningPage.tsx` | [S32] |
 | Blade end of life, recyclable share of turbine mass | `frontend/src/lib/lifecycle/decommissioning.ts` | [24] |
 | Decommissioning methods and sequence | `backend/app/services/lifecycle/campaign.py` (`remove_plan`) | [25] |
+
+## Control room — live plant
+
+| Topic | Implementation | Reference |
+|---|---|---|
+| Turbine faults: Poisson per turbine and alarm type at offshore failure rates, repair = technician hours, time compressed ×720 | `frontend/src/lib/plant/failures.ts`, `store/landingStore.ts` | [50] |
+| Curtailment on a negative RCE price of the running quarter-hour (zero schedule, no CfD support) | `services/p2/pse_live.py` (`current_quarter`), `routers/p2_market.py` (`/pse/price-now`), `frontend/src/lib/plant/marketPrice.ts` | PSE api.raporty.pse.pl (rce-pln); CEEAG 2022 §122 |
 
 ## 3D turbine viewer — overlays
 
@@ -214,6 +223,7 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 47. Gneiting, T., Raftery, A. E. "Strictly proper scoring rules, prediction, and estimation." *Journal of the American Statistical Association* 102(477), 359–378, 2007. DOI 10.1198/016214506000001437.
 48. Romano, Y., Patterson, E., Candès, E. "Conformalized quantile regression." *Advances in Neural Information Processing Systems* 32, 2019.
 49. Lundberg, S. M., Erion, G., Chen, H., et al. "From local explanations to global understanding with explainable AI for trees." *Nature Machine Intelligence* 2, 56–67, 2020. DOI 10.1038/s42256-019-0138-9.
+50. Carroll, J., McDonald, A., McMillan, D. "Failure rate, repair time and unscheduled O&M cost analysis of offshore wind turbines." *Wind Energy* 19(6), 1107–1119, 2016. DOI 10.1002/we.1887 (Fig. 3 failure rates per sub-assembly, Fig. 13 repair times; accepted manuscript, Strathprints 54141).
 
 ## Standards and regulations
 

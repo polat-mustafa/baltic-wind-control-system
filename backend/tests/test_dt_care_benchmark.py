@@ -57,6 +57,7 @@ def test_endpoint_serves_the_bundled_benchmark(evidence):
         evidence(
             f"dt-care-b-{key}",
             area="Digital twin",
+            kind="measured",
             claim="Physics-residual detector on real turbine SCADA (CARE Farm B, tuning set)",
             against="labelled fault and normal periods, CARE to Compare (Gück et al. 2024)",
             metric=metric,
@@ -76,6 +77,7 @@ def test_farm_c_is_the_held_out_set(evidence):
     evidence(
         "dt-care-c-detected",
         area="Digital twin",
+        kind="measured",
         claim="Same detector, method frozen on Farm B, run once on Farm C (held out)",
         against="27 labelled fault periods, CARE Farm C",
         metric="faults detected before failure",

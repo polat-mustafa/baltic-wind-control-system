@@ -308,6 +308,24 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   need a shared session store (in-memory now, one process).
 - **Rejected for now:** learner paths, hosted demo, pilot study (old "Faz C").
 
+## Coherence and validation programme (owner approved 2026-10-11)
+
+Plan: live-data coherence, then evidence A1–A5, then UX B1–B5, one PR each.
+
+- **Live coherence (#286):** one app-wide live Open-Meteo feed (default, remembered); KPI strip, map box
+  and Environment panel show the same hub-height freestream wind; 3D rotor follows it; visible 3D sea
+  (waves drawn ×2, labelled); SCADA historian on the site's Open-Meteo hub wind; α = 0.14 front and back.
+- **A1 — AEP chain vs a real farm (done):** `services/p1/aep_validation.py` runs ERA5 → shear → SWT-2.3-93
+  curve → BPA wakes (hourly) → cascade losses for Rødsand II through 2025 and compares with its metered
+  output: bias **+1.1 %**, monthly R² **0.956**, hourly nRMSE 16.8 % of 207 MW, wake loss 12.0 %.
+  Blockage, curtailment, outages and air density are not modelled. Kriegers Flak and Rødsand 1 have no open
+  power curve and are listed as gaps.
+- **A5 — coverage matrix (done):** every evidence row has a kind (measured / analytic / reference / standard);
+  the Evidence page counts them per module and lists the modules with no external check.
+- Next: A2 FINO2 (owner registration at BSH needed), A3 reactor sizing vs a published project, A4 Baltic
+  Power as a forecast site once fully online; B1 one farm on every page, B5 start strip, B2 Turkish gate,
+  B3 visual audit, B4 glossary.
+
 ## Resume here
 
 1. The own-project programme is a PR stack, one branch per phase, each based on the one before it

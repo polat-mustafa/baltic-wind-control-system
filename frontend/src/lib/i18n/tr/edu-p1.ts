@@ -183,7 +183,7 @@ export default {
   "Weibull density": "Weibull yoğunluğu",
   "Target height (hub)": "Hedef yükseklik (göbek)",
   "Reference (measurement) height": "Referans (ölçüm) yüksekliği",
-  "Shear exponent (≈ 0.1 offshore, stability-dependent)": "Kesme üssü (açık denizde ≈ 0.1, kararlılığa bağlı)",
+  "Shear exponent (0.14 = IEC 61400-3-1 offshore value, used in this app; ≈ 0.1 in neutral air, stability-dependent)": "Kesme üssü (0.14 = IEC 61400-3-1 açık deniz değeri, bu uygulamada kullanılır; nötr havada ≈ 0.1, kararlılığa bağlı)",
   "Friction velocity": "Sürtünme hızı",
   "von Kármán constant ≈ 0.40": "von Kármán sabiti ≈ 0.40",
   "Roughness length (sea ≈ 0.0002 m)": "Pürüzlülük uzunluğu (deniz ≈ 0.0002 m)",

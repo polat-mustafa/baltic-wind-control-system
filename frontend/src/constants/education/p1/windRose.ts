@@ -46,7 +46,7 @@ export const windRoseEducation: EducationContent = {
       variables: [
         { symbol: "z", name: "Target height (hub)", unit: "m" },
         { symbol: "z_ref", name: "Reference (measurement) height", unit: "m" },
-        { symbol: "α", name: "Shear exponent (≈ 0.1 offshore, stability-dependent)", unit: "—" },
+        { symbol: "α", name: "Shear exponent (0.14 = IEC 61400-3-1 offshore value, used in this app; ≈ 0.1 in neutral air, stability-dependent)", unit: "—" },
       ],
       explanation:
         "Simple steady-state profile. Under stable stratification (common over cold water in spring) real shear can be " +

@@ -103,4 +103,43 @@ export default {
   "MSE skill vs 24 h persistence": "24 sa kalıcılığa karşı MSE becerisi",
   "Also checked on every run: every SB-510 number quoted in lessons, panels and tours against the backend (tests/constants/plantFacts.test.ts), and weekly every cited DOI and link. The ANDES rows run on Linux only (CI and the backend Docker image); the GOOSE transfer time is a fixed teaching value, shown against its limit.":
     "Her çalıştırmada ayrıca kontrol edilir: derslerde, panellerde ve turlarda alıntılanan her SB-510 sayısı arka uca karşı (tests/constants/plantFacts.test.ts), haftalık olarak da alıntılanan her DOI ve bağlantı. ANDES satırları yalnızca Linux'ta çalışır (CI ve arka uç Docker imajı); GOOSE aktarım süresi sınırına karşı gösterilen sabit bir öğretim değeridir.",
+  // ── A1: AEP chain on Rødsand II ──
+  "AEP chain (ERA5 → shear → power curve → BPA wakes → loss cascade), Rødsand II 2025":
+    "AEP zinciri (ERA5 → rüzgâr kesmesi → güç eğrisi → BPA izleri → kayıp kademesi), Rødsand II 2025",
+  "metered output of Rødsand II (90 × SWT-2.3-93, 207 MW), ENTSO-E 16.1.A":
+    "Rødsand II'nin sayaçla ölçülen üretimi (90 × SWT-2.3-93, 207 MW), ENTSO-E 16.1.A",
+  "annual energy, model vs metered": "yıllık enerji, model ile ölçülen",
+  "R² of the 12 monthly energies": "12 aylık enerjinin R²'si",
+  "hourly RMSE, % of capacity": "saatlik RMSE, kurulu gücün %'si",
+  "|bias| < {n} %": "|sapma| < %{n}",
+  // ── Coverage matrix ──
+  "Coverage by module": "Modüllere göre kapsam",
+  Module: "Modül",
+  Kind: "Tür",
+  "not validated": "doğrulanmadı",
+  "Measured data": "Ölçüm verisi",
+  "Hand calculation": "Elle hesap",
+  "Reference implementation": "Referans uygulama",
+  "Standard requirement": "Standart gereği",
+  "field measurements: SCADA, metered output, wake rows": "saha ölçümleri: SCADA, sayaç üretimi, iz sıraları",
+  "an independent closed-form or hand calculation": "bağımsız kapalı form ya da elle hesap",
+  "another published implementation of the same model": "aynı modelin yayımlanmış başka bir uygulaması",
+  "a limit set by a grid code or standard": "bir şebeke yönetmeliğinin ya da standardın koyduğu sınır",
+  "P1 — other real farms": "P1 — diğer gerçek santraller",
+  "Kriegers Flak (SG 8.0-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used":
+    "Kriegers Flak (SG 8.0-167 DD) ve Rødsand 1 (SWT-2.3-82): açık güç eğrisi yok, bu yüzden ölçülen üretimleri kullanılmıyor",
+  "P5 — commissioning": "P5 — devreye alma",
+  "switching programme checked by load flow and interlocks only, no field record":
+    "manevra programı yalnızca yük akışı ve kilitlemelerle denetlenir, saha kaydı yok",
+  "Site assessment": "Saha değerlendirmesi",
+  "screening layers are sourced data; the scoring itself is not validated":
+    "eleme katmanları kaynaklı veridir; puanlamanın kendisi doğrulanmadı",
+  "Lifecycle (construction, O&M, decommissioning)": "Yaşam döngüsü (inşaat, işletme-bakım, söküm)",
+  "weather windows use measured ERA5 sea states; costs and durations are illustrative":
+    "hava pencereleri ölçülmüş ERA5 deniz durumlarını kullanır; maliyetler ve süreler temsilîdir",
+  "Turbine physics (ROSCO)": "Türbin fiziği (ROSCO)",
+  "IEA 15 MW reference data; not compared with OpenFAST runs": "IEA 15 MW referans verisi; OpenFAST koşularıyla karşılaştırılmadı",
+  "Control room live plant": "Kontrol odası canlı santrali",
+  "live Open-Meteo wind on the IEA 15 MW curve; the plant itself is a simulation":
+    "IEA 15 MW eğrisi üzerinde canlı Open-Meteo rüzgârı; santralin kendisi bir benzetimdir",
 } satisfies Record<string, string>;

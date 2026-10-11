@@ -636,7 +636,8 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
 
       {/* 2D views over the faded 3D canvas: live side view, engineering drawings */}
       {interiorView === "side" && (
-        <div className="absolute inset-0 z-20">
+        // phone: starts below the ID and view-switch rows, which covered its read-outs
+        <div className="absolute inset-0 z-20 @max-lg:top-[5.25rem]">
           <TurbineSideView turbineId={turbineId} />
         </div>
       )}
@@ -656,7 +657,8 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
 
       {/* Realistic | Schematic | Drawings (keyboard S cycles); in the drawings it sits in their header */}
       {interiorView !== "drawings" && (
-        <div className="absolute left-1/2 top-2 z-30 -translate-x-1/2">{viewSwitch}</div>
+        // narrow (phone): its own row under the ID / Controls row, which it would cover
+        <div className="absolute left-1/2 top-2 z-30 -translate-x-1/2 @max-lg:top-11">{viewSwitch}</div>
       )}
 
       {/* HTML overlays */}
@@ -739,19 +741,23 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
       <ScaleBar metresPerPixel={metresPerPixel} />
       <KeyboardHelp />
 
-      {/* Turbine ID badge */}
-      <div className="absolute top-2 left-2 z-10 bg-bg-secondary/80 backdrop-blur-sm rounded px-2 py-0.5 border border-border-primary">
-        <span className="text-xs font-mono text-text-muted">{turbineId}</span>
-        <span className="text-xs font-mono text-text-muted opacity-60 ml-1">· 15 MW IEA-15-240-RWT</span>
-      </div>
-      {onToggleExpand && interiorView === "3d" && (
-        <div className="absolute left-2 top-9 z-20">{expandButton}</div>
+      {/* Turbine ID badge and the full-view toggle: stacked, side by side on a phone;
+          the drawings name the turbine in their own header */}
+      {interiorView !== "drawings" && (
+        <div className="pointer-events-none absolute left-2 top-2 z-20 flex flex-col items-start gap-1.5 @max-lg:flex-row @max-lg:items-center">
+          <div className="bg-bg-secondary/80 backdrop-blur-sm rounded px-2 py-0.5 border border-border-primary">
+            <span className="text-xs font-mono text-text-muted">{turbineId}</span>
+            <span className="text-xs font-mono text-text-muted opacity-60 ml-1 @max-lg:hidden">· 15 MW IEA-15-240-RWT</span>
+          </div>
+          {onToggleExpand && interiorView === "3d" && <div className="pointer-events-auto">{expandButton}</div>}
+        </div>
       )}
 
       {/* Expanded: component rail + info card for the selected part */}
       {expanded && interiorView === "3d" && (
         <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-20 flex justify-center px-40 @max-lg:px-2">
+          {/* above the telemetry strip, which takes two text lines per chip on a phone */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] z-20 flex justify-center px-40 @max-lg:bottom-[6rem] @max-lg:px-2">
             <PartRail selected={selectedPart} onSelect={setSelectedPart} />
           </div>
           {selectedPart && turbineState && hiddenCardFor !== selectedPart && (

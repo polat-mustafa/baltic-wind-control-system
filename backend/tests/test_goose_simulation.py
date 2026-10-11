@@ -242,6 +242,7 @@ class TestIECCompliance:
         evidence(
             "p3-goose-transfer",
             area="P3 — SCADA & protection",
+            kind="standard",
             claim="GOOSE trip transfer time in the busbar-fault sequence (fixed teaching value)",
             against="IEC 61850-5 transfer time class for trips, ≤ 3 ms",
             metric="publisher → subscriber transfer time",
@@ -252,6 +253,7 @@ class TestIECCompliance:
         evidence(
             "p3-busbar-clearance",
             area="P3 — SCADA & protection",
+            kind="standard",
             claim="Busbar fault cleared by 87B differential over GOOSE",
             against="main-protection clearing target at 220 kV (relay + breaker)",
             metric="fault inception → arc extinction",
@@ -320,6 +322,7 @@ class TestFaultScenarios:
         evidence(
             "p3-goose-fault-current",
             area="P3 — SCADA & protection",
+            kind="standard",
             claim="The SCADA fault scenario uses the grid model's fault current",
             against='IEC 60909 I"k at the OSS 220 kV busbar (pandapower, P2)',
             metric="busbar fault current",

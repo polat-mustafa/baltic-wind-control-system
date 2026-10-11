@@ -80,6 +80,7 @@ def test_turbopark_model_reproduces_orsted_matlab_reference(evidence) -> None:
     evidence(
         "p1-turbopark-orsted",
         area="P1 — wind resource",
+        kind="reference",
         claim="Our TurbOPark set-up (cluster wakes) is Ørsted's model",
         against="Ørsted's TurbOPark MATLAB example 1 (4 turbines, 3 wind speeds)",
         metric="max relative power difference",
@@ -108,6 +109,7 @@ def test_wake_models_against_measured_rows(evidence) -> None:
         evidence(
             f"p1-wake-{m.lower()}",
             area="P1 — wind resource",
+            kind="measured",
             claim=f"{m} wake model{' (production)' if m == 'BPA' else ''}: row power ratios",
             against="measured SCADA P_i/P_1, Horns Rev 1 + Lillgrund rows (PyWake data, MIT)",
             metric="mean RMSE over 9 rows, wind-direction averaged",

@@ -308,6 +308,30 @@ stale V236 / 76.5 km numbers in the education panels, and wrong or dead sources.
   need a shared session store (in-memory now, one process).
 - **Rejected for now:** learner paths, hosted demo, pilot study (old "Faz C").
 
+## Coherence and validation programme (owner approved 2026-10-11)
+
+Plan: live-data coherence, then evidence A1–A5, then UX B1–B5, one PR each.
+
+- **Live coherence (#286):** one app-wide live Open-Meteo feed (default, remembered); KPI strip, map box
+  and Environment panel show the same hub-height freestream wind; 3D rotor follows it; visible 3D sea
+  (waves drawn ×2, labelled); SCADA historian on the site's Open-Meteo hub wind; α = 0.14 front and back.
+- **A1 — AEP chain vs a real farm (done):** `services/p1/aep_validation.py` runs ERA5 → shear → SWT-2.3-93
+  curve → BPA wakes (hourly) → cascade losses for Rødsand II through 2025 and compares with its metered
+  output: bias **+1.1 %**, monthly R² **0.956**, hourly nRMSE 16.8 % of 207 MW, wake loss 12.0 %.
+  Blockage, curtailment, outages and air density are not modelled. Kriegers Flak and Rødsand 1 have no open
+  power curve and are listed as gaps.
+- **A5 — coverage matrix (done):** every evidence row has a kind (measured / analytic / reference / standard);
+  the Evidence page counts them per module and lists the modules with no external check.
+- **A2 — FINO2 (blocked on the owner):** no open copy exists (Zenodo / PANGAEA searched); the BSH FINO
+  database needs an account. Listed as a gap on the Evidence page until the data is downloaded.
+- **A3 — reactor sizing vs a built farm (dropped):** cable lengths are public for Kriegers Flak, Anholt
+  (24 km subsea + 60 km land, 245 kV) and Baltic Power (≈ 23 + 8 km), but no reactor MVAr ratings were
+  found; no invented reference. Listed as a gap.
+- **A4 — Baltic Power (gated):** peak 295 of 1140 MW in the last 30 days of the bundled data (19/76 turbines,
+  2026-10-09). `tests/test_baltic_power_gate.py` fails once the refreshed data reaches 90 %, until the farm
+  is added to `real_data.sites()`. Owner to-do: monthly File Library download.
+- Next: B1 one farm on every page, B5 start strip, B2 Turkish gate, B3 visual audit, B4 glossary.
+
 ## Resume here
 
 1. The own-project programme is a PR stack, one branch per phase, each based on the one before it

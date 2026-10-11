@@ -48,6 +48,7 @@ class TestSelectivity:
         evidence(
             "p3-selectivity-margin",
             area="P3 — SCADA & protection",
+            kind="standard",
             claim="66 kV feeder vs incomer overcurrent grading at the IEC 60909 fault current",
             against="grading margin practice (≥ 300 ms: breaker + relay overshoot + safety)",
             metric="time margin, evaluated on both curves",
@@ -82,6 +83,7 @@ class TestFaultStudy:
         evidence(
             "p3-export-87l",
             area="P3 — SCADA & protection",
+            kind="standard",
             claim="Export cable fault at 95 % of 108 km cleared by line differential 87L",
             against="PSE FRT profile allows 0 pu for 150 ms only: clear within it",
             metric="main protection clearance incl. breaker",

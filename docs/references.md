@@ -23,6 +23,7 @@ Citation rules used here:
 | Wake-added turbulence | `services/p1/wake_model.py` (PyWake `STF2017TurbulenceModel`) | [8], [S1] |
 | Global blockage | `services/p1/blockage.py` | [9] |
 | Wake-model validation: NOJ / BPA / TurbOPark vs measured Horns Rev 1 and Lillgrund row power ratios (PyWake validation data, MIT), wind-direction uncertainty averaging; TurbOPark verified against Ørsted's MATLAB example | `services/p1/wake_validation.py`, `services/p1/validation_data/pywake/`, `tests/test_wake_validation.py` | [41], [45], [46] |
+| AEP-chain validation: ERA5 100 m wind → α 0.14 shear → SWT-2.3-93 power curve → BPA wakes (PyWake, hourly time series) → cascade losses, scored against Rødsand II's metered 2025 output (ENTSO-E 16.1.A); layout from OpenStreetMap (ODbL) | `services/p1/aep_validation.py`, `services/p1/validation_data/roedsand2/`, `scripts/fetch_validation_farms.py`, `tests/test_aep_validation.py` | ERA5: Hersbach et al. 2020, DOI 10.1002/qj.3803; ENTSO-E Transparency Platform 16.1.A; [41] |
 | AEP loss cascade, P50/P90 | `services/p1/aep_calculator.py` | [1], [2] |
 | Power / thrust curve, cut-in/out (IEA 15 MW and 22 MW reference turbines) | `services/p1/turbine_models.py`, `app/data/turbines/`, `scripts/fetch_turbine_curves.py`, `frontend/src/constants/turbineModels.ts` | [S2], [26], [27] |
 | windIO 2.x plant export (site, wind resource, layout, turbine) | `services/p1/windio.py`, `routers/projects.py` (`/projects/{id}/windio.yaml`) | [31] |

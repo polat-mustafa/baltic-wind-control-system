@@ -58,6 +58,7 @@ def test_lfsm_o_settles_on_the_5_percent_droop(freq, evidence):
     evidence(
         "andes-lfsm-o",
         area="P2 — grid dynamics (ANDES)",
+        kind="analytic",
         claim="LFSM-O after losing 3 GW of load: REPCA1 plant controller in ANDES",
         against="PSE / NC RfG droop by hand: ΔP = −P_max/0.05 · (f − 50.2)/50",
         metric="steady-state ΔP minus hand formula",
@@ -75,6 +76,7 @@ def test_lfsm_o_starts_within_2_s(freq, evidence):
     evidence(
         "andes-lfsm-o-delay",
         area="P2 — grid dynamics (ANDES)",
+        kind="standard",
         claim="LFSM-O response starts quickly after 50.2 Hz is crossed",
         against="NC RfG Art. 13(2) LFSM-O: an initial delay above 2 s must be justified",
         metric="50.2 Hz crossing → 1 % output reduction",
@@ -93,6 +95,7 @@ def test_fault_reactive_current_injection(fault, evidence):
     evidence(
         "andes-frt-iq",
         area="P2 — grid dynamics (ANDES)",
+        kind="standard",
         claim="Fault ride-through at 0.05 pu retained voltage: reactive current priority",
         against="PSE fast fault current (NC RfG Art. 20(2)(b)), converter limit 1.1 pu",
         metric="peak reactive current during the dip",
@@ -109,6 +112,7 @@ def test_fault_active_power_recovers_within_pse_limit(fault, evidence):
     evidence(
         "andes-frt-recovery",
         area="P2 — grid dynamics (ANDES)",
+        kind="standard",
         claim="Active power recovery after the fault is cleared",
         against="post-fault recovery to 90 % of pre-fault power (PSE, frt_simulation.py)",
         metric="clearance → 90 % of pre-fault power",

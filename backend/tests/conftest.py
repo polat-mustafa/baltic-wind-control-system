@@ -20,6 +20,9 @@ import pytest
 
 EVIDENCE_FILE = Path(__file__).resolve().parents[2] / "frontend" / "src" / "data" / "evidence.json"
 _RECORDED: list[dict[str, Any]] = []
+#: What a check compares against: measured field data, a hand / closed-form calculation,
+#: another published implementation of the same model, or a standard's requirement.
+EVIDENCE_KINDS = ("measured", "analytic", "reference", "standard")
 
 
 def _committed() -> dict[str, dict[str, Any]]:
@@ -49,6 +52,7 @@ def evidence(request: pytest.FixtureRequest) -> Callable[..., None]:
         id: str,
         *,
         area: str,
+        kind: str,
         claim: str,
         against: str,
         metric: str,
@@ -57,9 +61,11 @@ def evidence(request: pytest.FixtureRequest) -> Callable[..., None]:
         limit: str = "",
         tolerance: float = 0.0,
     ) -> None:
+        assert kind in EVIDENCE_KINDS, f"evidence kind {kind!r} not in {EVIDENCE_KINDS}"
         entry = {
             "id": id,
             "area": area,
+            "kind": kind,
             "claim": claim,
             "against": against,
             "metric": metric,
@@ -75,6 +81,7 @@ def evidence(request: pytest.FixtureRequest) -> Callable[..., None]:
             return
         old = _committed().get(id)
         assert old is not None, f"evidence {id!r} missing: run scripts/build_evidence.py"
+        assert old.get("kind") == kind, f"evidence {id!r} kind changed: rebuild evidence.json"
         allowed = max(0.02 * abs(old["value"]) + 1e-3, float(old.get("tolerance", 0.0)))
         assert abs(old["value"] - entry["value"]) <= allowed, (
             f"evidence {id!r} changed {old['value']} → {entry['value']}: "

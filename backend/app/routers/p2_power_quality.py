@@ -44,9 +44,7 @@ router = APIRouter(tags=["M06 Power Quality & Harmonics"])
     response_model=HarmonicAnalysisResponse,
     summary="Harmonic voltages from WTG emission (IEC TR 61000-3-6)",
 )
-async def analyse_harmonics(
-    body: HarmonicSpectrumRequest, spec: FarmSpecDep
-) -> HarmonicAnalysisResponse:
+def analyse_harmonics(body: HarmonicSpectrumRequest, spec: FarmSpecDep) -> HarmonicAnalysisResponse:
     """Sum the 34 WTGs' current emission (IEC 61000-3-6 exponents), pass it
     through the network's harmonic impedance and compare the voltage at the
     chosen bus with the planning levels."""
@@ -66,7 +64,7 @@ async def analyse_harmonics(
     response_model=ResonanceScanResponse,
     summary="Network frequency scan",
 )
-async def resonance_scan(body: ResonanceScanRequest, spec: FarmSpecDep) -> ResonanceScanResponse:
+def resonance_scan(body: ResonanceScanRequest, spec: FarmSpecDep) -> ResonanceScanResponse:
     """|Z(f)| seen from OSS 66 kV, OSS 220 kV or the POC, with amplified resonances —
     long HVAC cables + reactors + transformer/grid inductance resonate at low orders."""
     return ResonanceScanResponse(
@@ -85,14 +83,15 @@ async def resonance_scan(body: ResonanceScanRequest, spec: FarmSpecDep) -> Reson
     response_model=FlickerResponse,
     summary="Flicker severity at the POC (IEC 61400-21)",
 )
-async def flicker(body: FlickerRequest, spec: FarmSpecDep) -> FlickerResponse:
+def flicker(body: FlickerRequest, spec: FarmSpecDep) -> FlickerResponse:
     """Continuous-operation and switching flicker, cubic sum, vs HV-EHV planning levels."""
     return FlickerResponse(
         **svc.compute_flicker(
             body.rated_mw,
             body.grid_fault_level_mva or spec.grid_ssc_mva,
             body.grid_impedance_angle_deg,
-            body.annual_switching_operations,
+            body.n10,
+            body.n120,
         )
     )
 
@@ -102,7 +101,7 @@ async def flicker(body: FlickerRequest, spec: FarmSpecDep) -> FlickerResponse:
     response_model=FilterDesignResponse,
     summary="Single-tuned harmonic filter",
 )
-async def filter_design(body: FilterDesignRequest, spec: FarmSpecDep) -> FilterDesignResponse:
+def filter_design(body: FilterDesignRequest, spec: FarmSpecDep) -> FilterDesignResponse:
     """Size C and L for a target order (tuned 3 % low) and rate its attenuation
     against the network's harmonic impedance at that order."""
     return FilterDesignResponse(
@@ -121,6 +120,6 @@ async def filter_design(body: FilterDesignRequest, spec: FarmSpecDep) -> FilterD
     response_model=HarmonicLimitsResponse,
     summary="Harmonic planning levels",
 )
-async def harmonic_limits() -> HarmonicLimitsResponse:
+def harmonic_limits() -> HarmonicLimitsResponse:
     """IEC TR 61000-3-6 planning levels for orders 2–25 (and LV compatibility levels)."""
     return HarmonicLimitsResponse(**svc.get_harmonic_limits())

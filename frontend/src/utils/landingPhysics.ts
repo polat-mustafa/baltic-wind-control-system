@@ -315,7 +315,7 @@ export function v236PitchDeg(windMs: number): number {
   return operatingPoint(REFERENCE_TURBINE, windMs).pitchDeg;
 }
 
-// ── Wakes (Jensen/Park, utils/wakeModel) ──────────────────────────
+// ── Wakes (Bastankhah–Porté-Agel Gaussian, utils/wakeModel) ──────────────────────────
 
 const WAKE_DIR_STEP_DEG = 5;
 const WAKE_CT_STEP = 0.05;

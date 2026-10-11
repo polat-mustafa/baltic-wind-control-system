@@ -1,22 +1,24 @@
 /**
  * Wind Resource page — route /wind-resource.
  *
- * Three tabs:
+ * Four tabs:
  *   "AEP Analysis"     — animated AEP explainer + PyWake Weibull analysis (WindResourceDashboard)
  *   "Farm Comparison"  — M04 multi-farm AEP/LCOE comparison (FarmComparisonDashboard)
  *   "Availability & O&M" — M13 IEC 61400-26 availability + M14 weather windows / O&M cost
+ *   "Wake & Uncertainty Studies" — wake models, wake steering / derating, PCE Sobol (WakeStudiesTab)
  *
  * Controls live in a slide-out drawer (AEP tab only).
  */
 
 import { useEffect, useState } from "react";
-import { BarChart2, Wrench, Wind } from "lucide-react";
+import { BarChart2, FlaskConical, Wrench, Wind } from "lucide-react";
 
 import AEPExplainer from "../components/p1/AEPExplainer";
 import WindResourceDashboard from "../components/p1/WindResourceDashboard";
 import SensitivityPanel from "../components/p1/SensitivityPanel";
 import FarmComparisonDashboard from "../components/p1/FarmComparisonDashboard";
 import OperationsTab from "../components/p1/OperationsTab";
+import WakeStudiesTab from "../components/p1/WakeStudiesTab";
 import { useWindResourceStore } from "../store/windResourceStore";
 import { Button } from "../components/ui/Button";
 import { TrainingGuide } from "../components/ui/TrainingGuide";
@@ -26,12 +28,13 @@ import { PageHeader } from "../components/layout/PageHeader";
 import { PageTabs, type PageTab } from "../components/layout/PageTabs";
 import { useAutoRun } from "../hooks/useAutoRun";
 
-type Tab = "aep" | "farms" | "ops";
+type Tab = "aep" | "farms" | "ops" | "studies";
 
 const TABS: PageTab<Tab>[] = [
   { id: "aep", label: "AEP Analysis", Icon: Wind },
   { id: "farms", label: "Farm Comparison", Icon: BarChart2 },
   { id: "ops", label: "Availability & O&M", Icon: Wrench },
+  { id: "studies", label: "Wake & Uncertainty Studies", Icon: FlaskConical },
 ];
 
 export default function WindResourcePage() {
@@ -58,7 +61,7 @@ export default function WindResourcePage() {
       <PageHeader
         title="Wind Resource & AEP"
         description="The wind climate at the site, PyWake wake losses and the farm's energy yield with its uncertainty (P50 / P90)."
-        meta={turbineSpec ? `34 × 15 MW IEA-15-240-RWT · Baltic Sea · PyWake BPA Gaussian · D ${turbineSpec.rotor_diameter_m} m · hub ${turbineSpec.hub_height_m} m` : undefined}
+        meta={turbineSpec ? `34 × 15 MW IEA-15-240-RWT · Baltic Sea · PyWake Niayifar Gaussian · D ${turbineSpec.rotor_diameter_m} m · hub ${turbineSpec.hub_height_m} m` : undefined}
         actions={
           <>
             <div className="flex items-center gap-2 shrink-0">
@@ -151,6 +154,9 @@ export default function WindResourcePage() {
 
       {/* ── Availability & O&M tab (M13 + M14) ─────────────────── */}
       {activeTab === "ops" && <OperationsTab />}
+
+      {/* ── Wake & uncertainty studies (on demand) ─────────────── */}
+      {activeTab === "studies" && <WakeStudiesTab />}
     </div>
   );
 }

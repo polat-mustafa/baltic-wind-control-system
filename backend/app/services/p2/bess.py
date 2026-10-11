@@ -54,18 +54,6 @@ RAMP_RATE_LIMIT_MW_PER_MIN = 51.0  # example plant setting (10 % of 510 MW per m
 _ETA = ROUNDTRIP_EFFICIENCY_PCT / 100.0
 _MWH_PER_PCT = RATED_ENERGY_MWH / 100.0
 
-_state: dict[str, Any] = {
-    "soc_percent": 60.0,
-    "power_mw": 0.0,
-    "reactive_mvar": 0.0,
-    "mode": "STANDBY",
-    "temperature_c": 25.0,
-    "soh_percent": 99.5,
-    "cycle_count": 12,
-    "capacity_fade_pct": 0.5,
-    "alarms_active": False,
-}
-
 
 def _soc_step(soc: float, p_mw: float, dt_h: float) -> float:
     """SOC after dt with battery power p (positive = discharge)."""
@@ -79,57 +67,6 @@ def _limit_by_soc(p_mw: float, soc: float) -> float:
     if p_mw < 0 and soc >= SOC_MAX_PCT:
         return 0.0
     return max(-RATED_POWER_MW, min(RATED_POWER_MW, p_mw))
-
-
-def get_status() -> dict[str, Any]:
-    """Current operating state; available energy counts from SOC_min."""
-    soc, soh = _state["soc_percent"], _state["soh_percent"]
-    rated_energy = RATED_ENERGY_MWH * soh / 100.0
-    return {
-        "soc_percent": round(soc, 2),
-        "power_mw": round(_state["power_mw"], 3),
-        "reactive_mvar": round(_state["reactive_mvar"], 3),
-        "mode": _state["mode"],
-        "temperature_c": round(_state["temperature_c"], 1),
-        "soh_percent": round(soh, 2),
-        "cycle_count": _state["cycle_count"],
-        "capacity_fade_pct": round(_state["capacity_fade_pct"], 2),
-        "rated_power_mw": RATED_POWER_MW,
-        "rated_energy_mwh": round(rated_energy, 1),
-        "available_energy_mwh": round(max(0.0, rated_energy * (soc - SOC_MIN_PCT) / 100.0), 2),
-        "alarms_active": _state["alarms_active"],
-    }
-
-
-def set_mode(mode: str, power_setpoint_mw: float, soc_target_pct: float) -> dict[str, Any]:
-    """Change the operating mode if the SOC allows it."""
-    previous, soc = _state["mode"], _state["soc_percent"]
-    reason = "Mode change accepted"
-    allowed = True
-    if mode == "CHARGE" and soc >= SOC_MAX_PCT:
-        allowed, reason = False, f"Cannot charge: SOC {soc:.1f} % at the {SOC_MAX_PCT} % maximum"
-    elif mode == "DISCHARGE" and soc <= SOC_MIN_PCT:
-        allowed, reason = False, f"Cannot discharge: SOC {soc:.1f} % at the {SOC_MIN_PCT} % minimum"
-    elif mode == "FREQUENCY_RESPONSE":
-        endurance_min = (soc - SOC_MIN_PCT) * _MWH_PER_PCT / RATED_POWER_MW * 60
-        if endurance_min < LER_MIN_ENDURANCE_MIN:
-            allowed = False
-            reason = (
-                f"FCR needs ≥ {LER_MIN_ENDURANCE_MIN:.0f} min at full power: "
-                f"only {endurance_min:.0f} min left at SOC {soc:.1f} %"
-            )
-    if allowed:
-        _state["mode"] = mode
-        p = max(-RATED_POWER_MW, min(RATED_POWER_MW, power_setpoint_mw))
-        _state["power_mw"] = 0.0 if mode in ("FREQUENCY_RESPONSE", "RAMP_SMOOTHING") else p
-    return {
-        "previous_mode": previous,
-        "new_mode": _state["mode"],
-        "power_setpoint_mw": _state["power_mw"],
-        "soc_current_pct": soc,
-        "transition_allowed": allowed,
-        "reason": reason,
-    }
 
 
 def fcr_power_mw(frequency_hz: float, capacity_mw: float = RATED_POWER_MW) -> float:

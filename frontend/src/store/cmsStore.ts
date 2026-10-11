@@ -34,6 +34,8 @@ interface CMSState {
   fetchTurbineDetail(turbineId: string): Promise<void>;
   fetchVibration(turbineId: string, component: CMSComponent): Promise<void>;
   injectFault(req: FaultInjectionRequest): Promise<void>;
+  /** Remove the selected turbine's injected degradation(s). */
+  clearInjectedFaults(): Promise<void>;
   setSelectedTurbineId(id: string): void;
   setSelectedComponent(c: CMSComponent): void;
   clearError(): void;
@@ -104,6 +106,18 @@ export const useCMSStore = create<CMSState>((set, get) => ({
       await get().fetchTurbineDetail(selectedTurbineId);
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Fault injection failed" });
+    }
+  },
+
+  clearInjectedFaults: async () => {
+    const { selectedTurbineId } = get();
+    try {
+      await api.clearFault(selectedTurbineId);
+      set({ lastFaultInjection: null });
+      await get().fetchFleetHealth();
+      await get().fetchTurbineDetail(selectedTurbineId);
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : "Clearing the fault failed" });
     }
   },
 

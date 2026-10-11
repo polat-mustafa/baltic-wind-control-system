@@ -386,53 +386,35 @@ class TestNacelleAPI:
         assert "ups" in data
         assert "any_alarm" in data
 
-    def test_hpu_endpoint_returns_200(self, client: TestClient) -> None:
-        response = client.get("/api/v1/turbine-sim/nacelle/hpu")
-        assert response.status_code == 200
-
-    def test_hpu_response_has_pressure(self, client: TestClient) -> None:
-        data = client.get("/api/v1/turbine-sim/nacelle/hpu").json()
-        assert "line_pressure_bar" in data
+    def test_hpu_block_has_pressure(self, client: TestClient) -> None:
+        data = client.get("/api/v1/turbine-sim/nacelle/subsystems").json()["hpu"]
         assert data["line_pressure_bar"] == HPU_NOMINAL_PRESSURE_BAR
 
-    def test_cooling_endpoint_returns_200(self, client: TestClient) -> None:
-        response = client.get("/api/v1/turbine-sim/nacelle/cooling")
-        assert response.status_code == 200
-
-    def test_cooling_response_has_winding_temp(self, client: TestClient) -> None:
-        data = client.get("/api/v1/turbine-sim/nacelle/cooling").json()
+    def test_cooling_block_has_winding_temp(self, client: TestClient) -> None:
+        data = client.get("/api/v1/turbine-sim/nacelle/subsystems").json()["cooling"]
         assert "winding_temp_c" in data and "oil_temp_c" not in data
         assert data["winding_temp_c"] > 0.0
 
-    def test_safety_endpoint_returns_200(self, client: TestClient) -> None:
-        response = client.get("/api/v1/turbine-sim/nacelle/safety")
-        assert response.status_code == 200
-
-    def test_safety_response_has_vibration_zone(self, client: TestClient) -> None:
-        data = client.get("/api/v1/turbine-sim/nacelle/safety").json()
-        assert "vibration_zone" in data
+    def test_safety_block_has_vibration_zone(self, client: TestClient) -> None:
+        data = client.get("/api/v1/turbine-sim/nacelle/subsystems").json()["safety"]
         assert data["vibration_zone"] in {"A", "B", "C", "D"}
 
     def test_safety_overspeed_via_query_param(self, client: TestClient) -> None:
         """Pass overspeed RPM via query parameter and verify warning flag."""
         speed = RATED_ROTOR_SPEED_RPM * 1.22
-        data = client.get(f"/api/v1/turbine-sim/nacelle/safety?rotor_speed_rpm={speed}").json()
-        assert data["overspeed_warning"] is True
+        url = f"/api/v1/turbine-sim/nacelle/subsystems?rotor_speed_rpm={speed}"
+        assert client.get(url).json()["safety"]["overspeed_warning"] is True
 
     def test_cooling_high_ambient_via_query_param(self, client: TestClient) -> None:
         """Summer ambient (35°C) should raise the winding temperature vs default (15°C)."""
-        hot = client.get(
-            "/api/v1/turbine-sim/nacelle/cooling?ambient_temp_c=35.0&power_mw=15.0"
-        ).json()
-        cold = client.get(
-            "/api/v1/turbine-sim/nacelle/cooling?ambient_temp_c=0.0&power_mw=15.0"
-        ).json()
+        url = "/api/v1/turbine-sim/nacelle/subsystems?power_mw=15.0&ambient_temp_c="
+        hot = client.get(url + "35.0").json()["cooling"]
+        cold = client.get(url + "0.0").json()["cooling"]
         assert hot["winding_temp_c"] > cold["winding_temp_c"]
 
     def test_hpu_feathered_pitch_via_query_param(self, client: TestClient) -> None:
-        data = client.get(
-            "/api/v1/turbine-sim/nacelle/hpu?pitch_deg=90.0&is_operating=false"
-        ).json()
+        url = "/api/v1/turbine-sim/nacelle/subsystems?pitch_deg=90.0&is_operating=false"
+        data = client.get(url).json()["hpu"]
         assert data["pitch_cylinder_extension_pct"] == pytest.approx(0.0, abs=1.0)
         assert data["brake_caliper_pressure_bar"] == 250.0
 

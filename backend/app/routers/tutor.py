@@ -56,7 +56,7 @@ def _status(s: tutor.Session | None) -> TutorStatus:
 
 
 @router.get("/providers")
-async def providers() -> list[dict[str, Any]]:
+def providers() -> list[dict[str, Any]]:
     """Providers a learner can bring a key for, with their key pages and default models."""
     return [
         {"id": k, **{f: v[f] for f in ("title", "default_model", "keys_url")}}
@@ -65,12 +65,12 @@ async def providers() -> list[dict[str, Any]]:
 
 
 @router.get("/status", response_model=TutorStatus)
-async def status(request: Request) -> TutorStatus:
+def status(request: Request) -> TutorStatus:
     return _status(tutor.get_session(request.cookies.get(COOKIE)))
 
 
 @router.post("/connect", response_model=TutorStatus)
-async def connect(body: TutorConnectRequest, request: Request, response: Response) -> TutorStatus:
+def connect(body: TutorConnectRequest, request: Request, response: Response) -> TutorStatus:
     s = _session(request, response, create=True)
     try:
         tutor.connect(s, body.provider, body.api_key, body.model)
@@ -80,16 +80,14 @@ async def connect(body: TutorConnectRequest, request: Request, response: Respons
 
 
 @router.post("/disconnect", response_model=TutorStatus)
-async def disconnect(request: Request, response: Response) -> TutorStatus:
+def disconnect(request: Request, response: Response) -> TutorStatus:
     tutor.drop_session(request.cookies.get(COOKIE))
     response.delete_cookie(COOKIE, path="/api/v1/tutor")
     return TutorStatus(connected=False)
 
 
 @router.post("/openrouter/start")
-async def openrouter_start(
-    body: TutorOAuthStart, request: Request, response: Response
-) -> dict[str, str]:
+def openrouter_start(body: TutorOAuthStart, request: Request, response: Response) -> dict[str, str]:
     """Begin "Sign in with OpenRouter" (OAuth PKCE); the browser opens the returned URL."""
     s = _session(request, response, create=True)
     try:

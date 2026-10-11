@@ -23,6 +23,7 @@ import FleetKPIs from "../components/digital-twin/FleetKPIs";
 import ChannelComparePanel from "../components/digital-twin/ChannelComparePanel";
 import HypothesisPanel from "../components/digital-twin/HypothesisPanel";
 import ModelCardPanel from "../components/digital-twin/ModelCardPanel";
+import OperatingPointPanel from "../components/digital-twin/OperatingPointPanel";
 import PipelineStrip from "../components/digital-twin/PipelineStrip";
 import PowerCurvePanel from "../components/digital-twin/PowerCurvePanel";
 import ReferenceCurvePanel from "../components/digital-twin/ReferenceCurvePanel";
@@ -167,6 +168,7 @@ export default function DigitalTwinPage() {
             <div className="space-y-4">
               <ValidationPanel />
               <ReferenceCurvePanel />
+              <OperatingPointPanel />
               <ModelCardPanel />
             </div>
           )}

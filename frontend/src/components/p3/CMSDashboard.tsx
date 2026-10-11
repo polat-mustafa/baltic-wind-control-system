@@ -34,6 +34,7 @@ export default function CMSDashboard() {
   const fetchFleetHealth = useCMSStore((s) => s.fetchFleetHealth);
   const fetchTurbineDetail = useCMSStore((s) => s.fetchTurbineDetail);
   const injectFault = useCMSStore((s) => s.injectFault);
+  const clearInjectedFaults = useCMSStore((s) => s.clearInjectedFaults);
   const clearError = useCMSStore((s) => s.clearError);
   const c = useChartPalette();
 
@@ -235,6 +236,9 @@ export default function CMSDashboard() {
                 </select>
                 <button type="button" onClick={() => void injectFault({ component: pfComponent, severity })} className="h-7 px-3 rounded bg-accent text-accent-ink text-xs font-semibold hover:opacity-90">
                   Inject
+                </button>
+                <button type="button" onClick={() => void clearInjectedFaults()} className="h-7 px-3 rounded border border-border-secondary text-xs font-semibold text-text-secondary hover:text-text-primary">
+                  Clear
                 </button>
               </div>
               {injection && <p className="mt-1.5 text-xs text-text-secondary">{injection.message}</p>}

@@ -389,9 +389,22 @@ class TestSimulator:
         assert result.pitch_angle_deg[-1] == pytest.approx(ref["pitch_deg"], abs=0.5)
 
     def test_step_response_settles_at_rated(self) -> None:
-        result = run_step_response(8.0, 14.0, 10.0, 120.0)
+        """8 → 14 m/s in 30 s peaks ≈ 8.4 rpm, below the trip, and settles at rated."""
+        result = run_step_response(8.0, 14.0, 30.0, 120.0)
+        assert result.rotor_speed_rpm.max() < OVERSPEED_SHUTDOWN_RPM
+        assert "emergency_shutdown" not in result.status
         assert result.electrical_power_mw[-1] == pytest.approx(15.0, abs=0.01)
         assert result.rotor_speed_rpm[-1] == pytest.approx(7.56, abs=0.01)
+
+    def test_overspeed_trips_and_latches(self) -> None:
+        """8 → 14 m/s in 10 s overshoots to 9.11 rpm > 9.07 rpm: emergency shutdown, which
+        stays latched although the wind (14 m/s) is inside the operating range."""
+        result = run_step_response(8.0, 14.0, 10.0, 120.0)
+        first = result.status.index("emergency_shutdown")
+        assert result.rotor_speed_rpm[first - 1] > OVERSPEED_SHUTDOWN_RPM
+        assert set(result.status[first:]) == {"emergency_shutdown"}
+        assert result.pitch_angle_deg[-1] == 90.0
+        assert result.electrical_power_mw[-1] == 0.0
 
     def test_extreme_operating_gust_stays_below_overspeed(self) -> None:
         """IEC EOG at 12 m/s (+4.3 m/s): the rotor peaks ≈ 8.3 rpm < 9.07 rpm trip."""

@@ -46,21 +46,6 @@ class OPCUAStatusResponse(BaseModel):
     )
 
 
-class OPCUASubscriptionRequest(BaseModel):
-    """Request to create a monitored item subscription (informational schema)."""
-
-    node_ids: list[str] = Field(description="List of NodeId strings to monitor")
-    publishing_interval_ms: int = Field(
-        default=1000,
-        ge=100,
-        le=60000,
-        description="Publishing interval in ms (100 ms - 60 s)",
-    )
-    queue_size: int = Field(
-        default=10, ge=1, le=100, description="Per-item notification queue depth"
-    )
-
-
 class OPCUAAddressSpaceResponse(BaseModel):
     """Top-level address-space dump as a JSON tree."""
 

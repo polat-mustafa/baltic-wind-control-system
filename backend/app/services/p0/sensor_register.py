@@ -18,6 +18,7 @@ from app.schemas.sensor_specs import (
     SensorSpec,
     TurbineSensorGroup,
 )
+from app.services.p2.network_model import SB510, FarmSpec
 
 # ── Per-turbine sensors ────────────────────────────────────────────────────
 
@@ -159,7 +160,7 @@ _TURBINE_SENSORS: list[SensorSpec] = [
 
 _TURBINE_SENSOR_GROUP = TurbineSensorGroup(
     sensors=_TURBINE_SENSORS,
-    total_per_turbine=len(_TURBINE_SENSORS),
+    total_per_turbine=sum(sp.quantity_per_location for sp in _TURBINE_SENSORS),
 )
 
 # ── Per-OSS bay sensors ────────────────────────────────────────────────────
@@ -302,26 +303,29 @@ _CABLE_SENSOR_GROUP = CableSensorGroup(
 
 # ── Public API ─────────────────────────────────────────────────────────────
 
-_TURBINE_TAGS = _TURBINE_SENSOR_GROUP.total_per_turbine * 34  # 34 turbines
-_OSS_TAGS = _OSS_BAY_SENSOR_GROUP.total_per_bay * 6  # 6 bays
-_CABLE_TAGS = _CABLE_SENSOR_GROUP.total_cable_instruments
 
-_TOTAL_TAGS = _TURBINE_TAGS + _OSS_TAGS + _CABLE_TAGS
+def get_sensor_register(spec: FarmSpec = SB510) -> SensorRegisterResponse:
+    """Instrument register of a farm: per turbine × turbines, per feeder bay × strings,
+    per export circuit × circuits (each circuit has its own DTS fibre and joint monitors).
 
-
-def get_sensor_register() -> SensorRegisterResponse:
-    """Return the complete instrument register for SB-510 (510 MW).
-
-    Returns
-    -------
-    SensorRegisterResponse
-        Static data — no database query needed.
+    SB-510: 34 × 10 + 6 × 7 + 2 × 5 = 392 instrument tags.
     """
+    cable = _CABLE_SENSOR_GROUP.model_copy(
+        update={
+            "cable_length_km": spec.export_length_km,
+            "num_circuits": spec.num_export_cables,
+        }
+    )
+    total = (
+        _TURBINE_SENSOR_GROUP.total_per_turbine * spec.num_turbines
+        + _OSS_BAY_SENSOR_GROUP.total_per_bay * len(spec.string_layout)
+        + cable.total_cable_instruments * spec.num_export_cables
+    )
     return SensorRegisterResponse(
         turbine=_TURBINE_SENSOR_GROUP,
         oss_bay=_OSS_BAY_SENSOR_GROUP,
-        export_cable=_CABLE_SENSOR_GROUP,
-        total_turbine_locations=34,
-        total_oss_bays=6,
-        total_instrument_tags=_TOTAL_TAGS,
+        export_cable=cable,
+        total_turbine_locations=spec.num_turbines,
+        total_oss_bays=len(spec.string_layout),
+        total_instrument_tags=total,
     )

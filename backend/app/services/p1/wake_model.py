@@ -36,6 +36,7 @@ References
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -230,9 +231,10 @@ def create_site_from_wind_rose(
             sector_a[i] = weibull_i.scale_a_ms
             sector_k[i] = weibull_i.shape_k
         else:
-            # Fallback: use overall mean speed and k=2.0
-            sector_a[i] = float(np.nanmean(wr.mean_speeds_ms))
+            # Fallback: k = 2 and the scale that gives the overall mean speed,
+            # A = v̄ / Γ(1 + 1/k) (= 1.128 · v̄ at k = 2; A = v̄ would understate the wind)
             sector_k[i] = 2.0
+            sector_a[i] = float(np.nanmean(wr.mean_speeds_ms)) / math.gamma(1.0 + 1.0 / 2.0)
 
     return UniformWeibullSite(
         p_wd=wr.frequencies,

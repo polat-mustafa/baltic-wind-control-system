@@ -191,8 +191,9 @@ def next_state(
 ) -> TurbineOperatingState:
     """Compute the next IEC 61400-1 operating state.
 
-    Implements the deterministic state transition table.  Called at every
-    simulator timestep; the result replaces ``TurbineState.status``.
+    Implements the deterministic state transition table for SCADA-style sequences
+    (start-up, commands, faults). The time-domain simulator uses only its overspeed
+    rule (``is_overspeed``, latched in ``simulator.step_turbine``).
 
     Transition priority (highest to lowest within each state):
       1. Critical fault / overspeed → EMERGENCY_SHUTDOWN (overrides all)

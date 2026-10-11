@@ -281,7 +281,3 @@ SEABED_CLASSES: tuple[SeabedClass, ...] = (
         True,
     ),
 )
-
-
-def seabed_class(code: int) -> SeabedClass | None:
-    return next((c for c in SEABED_CLASSES if c.code == code), None)

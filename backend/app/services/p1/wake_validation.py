@@ -99,7 +99,7 @@ def _model(name: str, site: Any, turbine: Any) -> Any:
     from app.services.p1.wake_models import WakeDeficitModel, configure_wake_model_flexible
 
     if name == "NOJ":
-        return configure_wake_model_flexible(site, turbine, deficit_model=WakeDeficitModel.NOJ)
+        return configure_wake_model_flexible(site, turbine, deficit_model=WakeDeficitModel.JENSEN)
     if name == "BPA":
         return configure_wake_model(site, turbine)
     return turbopark_model(site, turbine)

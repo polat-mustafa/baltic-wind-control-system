@@ -46,45 +46,6 @@ class SOEEventResponse(BaseModel):
 # ── Query parameters ──────────────────────────────────────────────
 
 
-class SOEQueryParams(BaseModel):
-    """Filter parameters for SOE log queries.
-
-    Used as a request body for POST /api/v1/scada/soe/query
-    (POST allows complex filter objects; GET uses query params for simple cases).
-    """
-
-    start_utc: datetime | None = Field(
-        default=None,
-        description="Start of time range (inclusive). Defaults to last 24 hours.",
-    )
-    end_utc: datetime | None = Field(
-        default=None,
-        description="End of time range (inclusive). Defaults to now.",
-    )
-    event_types: list[str] | None = Field(
-        default=None,
-        description="Filter to specific event types, e.g. ['PROTECTION_TRIP', 'CB_OPERATION']",
-    )
-    source_devices: list[str] | None = Field(
-        default=None,
-        description="Filter to specific devices, e.g. ['OSS_66kV_Bay01_CB']",
-    )
-    severities: list[str] | None = Field(
-        default=None,
-        description="Filter to specific severities, e.g. ['CRITICAL', 'HIGH']",
-    )
-    unacknowledged_only: bool = Field(
-        default=False,
-        description="If True, return only unacknowledged events",
-    )
-    limit: int = Field(
-        default=500,
-        ge=1,
-        le=5000,
-        description="Maximum number of events to return (most recent first)",
-    )
-
-
 class SOEQueryResponse(BaseModel):
     """Response for SOE log queries."""
 
@@ -139,16 +100,3 @@ class SOEStatsResponse(BaseModel):
 
 
 # ── CSV export ────────────────────────────────────────────────────
-
-
-class SOEExportRequest(BaseModel):
-    """Parameters for SOE CSV export.
-
-    Used by GET /api/v1/scada/soe/export (query params) to generate
-    incident report CSVs for protection engineers and insurers.
-    """
-
-    start_utc: datetime
-    end_utc: datetime
-    event_types: list[str] | None = None
-    source_devices: list[str] | None = None

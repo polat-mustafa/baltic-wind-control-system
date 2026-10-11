@@ -1,7 +1,7 @@
 /**
  * Nacelle Subsystems API — SB-510 turbine (IEA 15 MW, direct drive) live physics endpoints.
  *
- * Wraps GET /api/v1/turbine-sim/nacelle/{subsystems,hpu,cooling,safety}.
+ * Wraps GET /api/v1/turbine-sim/nacelle/subsystems.
  * Backend computes deterministic physics from operating conditions, so
  * the frontend feeds live turbine state (power, RPM, pitch, ambient) and
  * receives subsystem-level temperature/pressure/alarm data.
@@ -101,18 +101,4 @@ function toQuery(q: Record<string, unknown>): string {
 
 export function getNacelleSubsystems(q: NacelleQuery): Promise<NacelleSubsystemsResponse> {
   return request<NacelleSubsystemsResponse>(`${BASE}/subsystems${toQuery(q as unknown as Record<string, unknown>)}`);
-}
-
-export function getHPU(q: Pick<NacelleQuery, "power_mw" | "is_operating" | "pitch_deg">): Promise<HPUState> {
-  return request<HPUState>(`${BASE}/hpu${toQuery(q as unknown as Record<string, unknown>)}`);
-}
-
-export function getCooling(q: Pick<NacelleQuery, "power_mw" | "ambient_temp_c">): Promise<CoolingState> {
-  return request<CoolingState>(`${BASE}/cooling${toQuery(q as unknown as Record<string, unknown>)}`);
-}
-
-export function getSafety(
-  q: Pick<NacelleQuery, "rotor_speed_rpm" | "power_mw" | "vibration_mm_s" | "ice_detection" | "fire_alarm" | "lightning_count">,
-): Promise<SafetyState> {
-  return request<SafetyState>(`${BASE}/safety${toQuery(q as unknown as Record<string, unknown>)}`);
 }

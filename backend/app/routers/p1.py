@@ -36,11 +36,9 @@ from app.services.p1.aep_calculator import (
     Z_75,
     Z_90,
     Z_99,
-    MarketWeightedAEPResult,
     UncertaintyComponent,
     aep_sensitivity,
     compute_aep_cascade,
-    compute_market_weighted_aep,
     uncertainty_components,
 )
 from app.services.p1.blockage import (
@@ -54,10 +52,8 @@ from app.services.p1.derating import optimize_derating
 from app.services.p1.flowers_aep import compute_flowers_aep
 from app.services.p1.layout_optimizer import (
     LayoutResult,
-    OptimizationAlgorithm,
     generate_regular_grid,
     generate_staggered_grid,
-    optimize_layout_multi,
 )
 from app.services.p1.turbine_models import DEFAULT_TURBINE_ID, get_turbine
 from app.services.p1.uncertainty_quantification import (
@@ -568,7 +564,7 @@ def _cached_wake_analysis(
 
 
 @router.get("/turbine-spec", response_model=TurbineSpecResponse)
-async def get_turbine_spec(model: str | None = None) -> TurbineSpecResponse:
+def get_turbine_spec(model: str | None = None) -> TurbineSpecResponse:
     """Specification of a reference turbine model (default: SB-510's IEA 15 MW)."""
     t = get_turbine(model)
     return TurbineSpecResponse(
@@ -587,7 +583,7 @@ async def get_turbine_spec(model: str | None = None) -> TurbineSpecResponse:
 
 
 @router.post("/weibull-fit", response_model=WeibullFitResponse)
-async def weibull_fit(request: WeibullFitRequest) -> WeibullFitResponse:
+def weibull_fit(request: WeibullFitRequest) -> WeibullFitResponse:
     """Generate synthetic wind data from Weibull parameters and re-fit.
 
     Returns histogram bin data and fitted PDF for overlay plotting.
@@ -618,7 +614,7 @@ async def weibull_fit(request: WeibullFitRequest) -> WeibullFitResponse:
 
 
 @router.post("/wind-rose", response_model=WindRoseResponse)
-async def wind_rose(request: WindRoseRequest) -> WindRoseResponse:
+def wind_rose(request: WindRoseRequest) -> WindRoseResponse:
     """Compute wind rose from synthetic wind data."""
     speeds, directions = _generate_synthetic_wind(
         request.weibull_a, request.weibull_k, request.num_samples
@@ -861,7 +857,7 @@ async def wake_moves(request: WakeMovesRequest) -> WakeMovesResponse:
 
 
 @router.post("/aep-cascade", response_model=AEPCascadeResponse)
-async def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
+def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
     """Compute full gross-to-net AEP cascade with uncertainty.
 
     Runs wake analysis + blockage estimation, then applies the
@@ -935,7 +931,7 @@ def _components(items: list[UncertaintyComponent]) -> list[UncertaintyComponentS
 
 
 @router.post("/uncertainty", response_model=UncertaintyResponse)
-async def aep_uncertainty(request: UncertaintyRequest) -> UncertaintyResponse:
+def aep_uncertainty(request: UncertaintyRequest) -> UncertaintyResponse:
     """AEP uncertainty components of a farm and their RSS (for P75 / P90 of any P50)."""
     get_turbine(request.turbine_model)  # unknown id → 422
     comps = uncertainty_components(
@@ -957,7 +953,7 @@ async def aep_uncertainty(request: UncertaintyRequest) -> UncertaintyResponse:
 
 
 @router.post("/blockage", response_model=BlockageResponse)
-async def blockage_estimate(request: BlockageRequest) -> BlockageResponse:
+def blockage_estimate(request: BlockageRequest) -> BlockageResponse:
     """Estimate global-blockage AEP loss (density × Ct deficit through the power curve)."""
     layout = _get_layout(request.layout)
 
@@ -979,7 +975,7 @@ async def blockage_estimate(request: BlockageRequest) -> BlockageResponse:
 
 
 @router.post("/layout-comparison", response_model=LayoutComparisonResponse)
-async def layout_comparison(request: LayoutComparisonRequest) -> LayoutComparisonResponse:
+def layout_comparison(request: LayoutComparisonRequest) -> LayoutComparisonResponse:
     """Compare regular and staggered layouts via full AEP cascade.
 
     Runs wake analysis + blockage + cascade for each layout and
@@ -1047,7 +1043,7 @@ async def layout_comparison(request: LayoutComparisonRequest) -> LayoutCompariso
 
 
 @router.get("/layouts/{name}/positions", response_model=LayoutPositionsResponse)
-async def get_layout_positions(name: str) -> LayoutPositionsResponse:
+def get_layout_positions(name: str) -> LayoutPositionsResponse:
     """Get turbine x/y positions for a named layout."""
     layout = _get_layout(name)
 
@@ -1065,7 +1061,7 @@ async def get_layout_positions(name: str) -> LayoutPositionsResponse:
 
 
 @router.post("/yaw-optimization", response_model=YawOptimizationResponse)
-async def yaw_optimization(request: YawOptimizationRequest) -> YawOptimizationResponse:
+def yaw_optimization(request: YawOptimizationRequest) -> YawOptimizationResponse:
     """Optimize per-turbine yaw angles for wake steering at a single wind direction.
 
     Wake steering deflects upstream wakes by yawing turbines, increasing
@@ -1102,7 +1098,7 @@ async def yaw_optimization(request: YawOptimizationRequest) -> YawOptimizationRe
 
 
 @router.post("/yaw-optimization-farm", response_model=FarmYawOptimizationResponse)
-async def yaw_optimization_farm(
+def yaw_optimization_farm(
     request: FarmYawOptimizationRequest,
 ) -> FarmYawOptimizationResponse:
     """Optimize yaw angles across all wind directions and estimate AEP gain.
@@ -1161,7 +1157,7 @@ class WakeModelComparisonRequest(BaseModel):
     weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     models: list[str] = Field(
-        default=["jensen", "bpa_gaussian", "noj", "zong_gaussian"],
+        default=["jensen", "bpa_gaussian", "niayifar_gaussian", "zong_gaussian", "turbopark"],
         description="Wake deficit models to compare",
     )
     turbulence_model: str = Field(
@@ -1222,28 +1218,9 @@ class FLOWERSResponse(BaseModel):
     n_fourier_modes: int
 
 
-class MarketWeightedAEPRequest(BaseModel):
-    layout: str = Field("staggered")
-    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
-    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
-    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
-    flat_price_eur_mwh: float = Field(72.0, ge=10.0, le=300.0)
-
-
-class MarketWeightedAEPResponse(BaseModel):
-    flat_aep_gwh: float
-    market_weighted_aep_gwh: float
-    market_value_factor: float
-    flat_revenue_meur: float
-    market_revenue_meur: float
-    revenue_uplift_percent: float
-    average_capture_price_eur_mwh: float
-    peak_generation_fraction: float
-
-
 class PCEUQRequest(BaseModel):
     layout: str = Field("staggered")
-    pce_order: int = Field(3, ge=1, le=5)
+    pce_order: int = Field(2, ge=1, le=4)
     n_samples: int = Field(30, ge=10, le=100)
 
 
@@ -1261,7 +1238,7 @@ class PCEUQResponse(BaseModel):
     p90_gwh: float
     dominant_parameter: str
     sobol_indices: list[SobolIndexSchema]
-    r_squared: float
+    q2_loo: float
     pce_order: int
     num_samples: int
 
@@ -1270,11 +1247,12 @@ class PCEUQResponse(BaseModel):
 
 
 @router.post("/wake-model-comparison", response_model=WakeModelComparisonResponse)
-async def wake_model_comparison(request: WakeModelComparisonRequest) -> WakeModelComparisonResponse:
+def wake_model_comparison(request: WakeModelComparisonRequest) -> WakeModelComparisonResponse:
     """Compare multiple wake deficit models on the same layout.
 
-    Models available: jensen (NOJ top-hat), bpa_gaussian (Bastankhah),
-    noj (same as Jensen), zong_gaussian (Zong & Porté-Agel LES-based).
+    Models available: jensen (NOJ top-hat), bpa_gaussian (Bastankhah 2014),
+    niayifar_gaussian (Niayifar & Porté-Agel 2016 — the platform's AEP model),
+    zong_gaussian (Zong & Porté-Agel 2020), turbopark (Nygaard et al. 2020).
     """
     layout = _get_layout(request.layout)
     site = _site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
@@ -1312,7 +1290,7 @@ async def wake_model_comparison(request: WakeModelComparisonRequest) -> WakeMode
 
 
 @router.post("/derating", response_model=DeratingResponse)
-async def derating_analysis(request: DeratingRequest) -> DeratingResponse:
+def derating_analysis(request: DeratingRequest) -> DeratingResponse:
     """Front-row derating (axial-induction control) for one wind direction.
 
     Finds the setpoint α that maximises Weibull-averaged farm power, with the
@@ -1344,7 +1322,7 @@ async def derating_analysis(request: DeratingRequest) -> DeratingResponse:
 
 
 @router.post("/flowers-aep", response_model=FLOWERSResponse)
-async def flowers_aep(request: FLOWERSRequest) -> FLOWERSResponse:
+def flowers_aep(request: FLOWERSRequest) -> FLOWERSResponse:
     """Compute AEP using FLOWERS fast analytical method.
 
     FLOWERS uses Fourier decomposition of the wind rose to analytically
@@ -1376,51 +1354,8 @@ async def flowers_aep(request: FLOWERSRequest) -> FLOWERSResponse:
     )
 
 
-@router.post("/market-weighted-aep", response_model=MarketWeightedAEPResponse)
-async def market_weighted_aep(request: MarketWeightedAEPRequest) -> MarketWeightedAEPResponse:
-    """Compute market value-weighted AEP accounting for price-generation correlation.
-
-    Captures the 'cannibalization' effect where wind generation can depress
-    spot prices, reducing the effective value of each MWh produced.
-    """
-    layout = _get_layout(request.layout)
-    wake = _run_wake_for_layout(
-        layout,
-        request.weibull_a,
-        request.weibull_k,
-        request.turbulence_intensity,
-    )
-
-    # Generate synthetic 8760 hourly profile from average power
-    avg_power_mw = wake.net_aep_gwh * 1000.0 / 8760.0
-    rng = np.random.default_rng(42)
-    hours = np.arange(8760)
-    diurnal = 1.0 + 0.1 * np.cos(2 * np.pi * (hours % 24 - 4) / 24.0)
-    noise = 1.0 + 0.3 * rng.standard_normal(8760)
-    hourly_gen = np.clip(avg_power_mw * diurnal * noise, 0.0, 510.0)
-
-    try:
-        result: MarketWeightedAEPResult = compute_market_weighted_aep(
-            hourly_gen,
-            flat_price_eur_mwh=request.flat_price_eur_mwh,
-        )
-    except Exception as e:
-        raise DomainError(f"Market-weighted AEP failed: {e}") from e
-
-    return MarketWeightedAEPResponse(
-        flat_aep_gwh=result.flat_aep_gwh,
-        market_weighted_aep_gwh=result.market_weighted_aep_gwh,
-        market_value_factor=result.market_value_factor,
-        flat_revenue_meur=result.flat_revenue_meur,
-        market_revenue_meur=result.market_revenue_meur,
-        revenue_uplift_percent=result.revenue_uplift_percent,
-        average_capture_price_eur_mwh=result.average_capture_price_eur_mwh,
-        peak_generation_fraction=result.peak_generation_fraction,
-    )
-
-
 @router.post("/pce-uncertainty", response_model=PCEUQResponse)
-async def pce_uncertainty(request: PCEUQRequest) -> PCEUQResponse:
+def pce_uncertainty(request: PCEUQRequest) -> PCEUQResponse:
     """Run Polynomial Chaos Expansion uncertainty quantification on AEP.
 
     Builds a polynomial surrogate from sampled wake analyses to extract
@@ -1450,63 +1385,10 @@ async def pce_uncertainty(request: PCEUQRequest) -> PCEUQResponse:
             SobolIndexSchema(parameter=s.parameter, first_order=s.first_order)
             for s in result.sobol_indices
         ],
-        r_squared=result.r_squared,
+        q2_loo=result.q2_loo,
         pce_order=result.pce_order,
         num_samples=result.num_samples,
     )
 
 
 # ── Layout Optimization ───────────────────────────────────────
-
-
-class LayoutOptimizationRequest(BaseModel):
-    layout: str = Field("staggered", description="Initial layout: regular or staggered")
-    algorithm: str = Field(
-        "differential_evolution",
-        description="Algorithm: differential_evolution, basin_hopping, "
-        "genetic_algorithm, or gradient_lbfgsb",
-    )
-    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
-    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
-    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
-    maxiter: int = Field(5, ge=1, le=50)
-
-
-class LayoutOptimizationResponse(BaseModel):
-    name: str
-    num_turbines: int
-    min_spacing_m: float
-    area_km2: float
-
-
-@router.post("/layout-optimization", response_model=LayoutOptimizationResponse)
-async def layout_optimization(
-    request: LayoutOptimizationRequest,
-) -> LayoutOptimizationResponse:
-    """Optimize turbine layout using a selected algorithm.
-
-    Supports differential evolution, basin hopping, genetic algorithm,
-    and gradient-based (L-BFGS-B) optimization. Maximizes net AEP while
-    respecting minimum spacing constraints (5D = 1180 m).
-    """
-    layout = _get_layout(request.layout)
-    site = _site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
-    algorithm = OptimizationAlgorithm(request.algorithm)
-
-    try:
-        result = optimize_layout_multi(
-            layout.x_positions,
-            layout.y_positions,
-            site,
-            algorithm=algorithm,
-            maxiter=request.maxiter,
-        )
-    except Exception as e:
-        raise DomainError(f"Layout optimization failed: {e}") from e
-
-    return LayoutOptimizationResponse(
-        name=result.name,
-        num_turbines=result.num_turbines,
-        min_spacing_m=round(result.min_spacing_m, 1),
-        area_km2=round(result.area_km2, 3),
-    )

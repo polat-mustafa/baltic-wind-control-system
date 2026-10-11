@@ -40,42 +40,6 @@ class DowntimeCategory(str, Enum):  # noqa: UP042
     UNKNOWN = "UNKNOWN"  # Not yet classified
 
 
-class DowntimeEventCreate(BaseModel):
-    """Create a new downtime event for a turbine."""
-
-    turbine_id: str = Field(
-        description="Turbine identifier (e.g., WTG-01 to WTG-34)",
-        pattern=r"WTG-\d{2}",
-    )
-    category: DowntimeCategory
-    start_utc: str = Field(description="Start time in ISO 8601 UTC format")
-    end_utc: str | None = Field(
-        default=None,
-        description="End time (None if event still ongoing)",
-    )
-    alarm_code: str | None = Field(
-        default=None,
-        description="SCADA alarm code that triggered this event (links to SOE/alarm log)",
-    )
-    description: str = Field(default="", description="Free-text description")
-    energy_loss_mwh: float = Field(
-        default=0.0,
-        ge=0.0,
-        description=(
-            "Estimated energy loss during downtime [MWh]. "
-            "For fault events: calculated from P50 wind during outage period."
-        ),
-    )
-
-
-class DowntimeEventResponse(DowntimeEventCreate):
-    """Downtime event with computed fields."""
-
-    id: str
-    duration_hours: float = Field(description="Event duration [hours]")
-    lost_revenue_eur: float = Field(description="Revenue lost at average DA price [EUR]")
-
-
 # ── Availability KPIs ─────────────────────────────────────────────────────────
 
 
@@ -165,15 +129,3 @@ class DowntimeBreakdownResponse(BaseModel):
 
 
 # ── LOTO integration ──────────────────────────────────────────────────────────
-
-
-class LOTOAvailabilityLink(BaseModel):
-    """Links a LOTO permit (P5) to an availability downtime record."""
-
-    permit_id: str
-    turbine_id: str
-    downtime_category: DowntimeCategory
-    scheduled: bool = Field(description="True = planned maintenance; False = corrective")
-    duration_hours: float
-    crew_size: int
-    work_description: str

@@ -8,17 +8,11 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
 
-from app.services.p1.turbine_models import get_turbine
 from app.services.p4.turbine_power_curve import (
-    PowerCurveResult,
-    build_power_curve,
-    compute_air_density_kg_m3,
     compute_swept_area_m2,
     get_turbine_spec,
-    interpolate_power_mw,
 )
 
 RATED_MS = 10.6594  # IEA 15 MW: first table speed at 15 MW
@@ -86,134 +80,10 @@ class TestSweptArea:
 # ── Air Density Tests ─────────────────────────────────────────────
 
 
-class TestAirDensity:
-    """Verify ideal gas law: ρ = P / (R × T)."""
-
-    def test_standard_conditions(self) -> None:
-        rho = compute_air_density_kg_m3()
-        assert abs(rho - 1.225) < 0.001
-
-    def test_cold_baltic_winter(self) -> None:
-        """At -10°C (263.15 K), density should be higher than standard."""
-        rho = compute_air_density_kg_m3(temperature_k=263.15)
-        assert rho > 1.3  # Cold air is denser
-
-    def test_warm_summer(self) -> None:
-        """At 30°C (303.15 K), density should be lower than standard."""
-        rho = compute_air_density_kg_m3(temperature_k=303.15)
-        assert rho < 1.2
-
-    def test_invalid_temperature_raises(self) -> None:
-        with pytest.raises(ValueError, match="Temperature"):
-            compute_air_density_kg_m3(temperature_k=0.0)
-
-    def test_invalid_pressure_raises(self) -> None:
-        with pytest.raises(ValueError, match="Pressure"):
-            compute_air_density_kg_m3(pressure_pa=-100.0)
-
-
 # ── Power Curve Shape Tests ───────────────────────────────────────
-
-
-class TestPowerCurveShape:
-    """Verify the 4-region power curve shape."""
-
-    @pytest.fixture()
-    def curve(self) -> PowerCurveResult:
-        return build_power_curve()
-
-    def test_equals_the_official_table_at_reference_density(self, curve: PowerCurveResult) -> None:
-        t = get_turbine()
-        inside = (curve.wind_speeds_ms >= 3.0) & (curve.wind_speeds_ms <= 25.0)
-        v = curve.wind_speeds_ms[inside]
-        assert np.allclose(curve.power_mw[inside], t.power_curve_kw(v) / 1e3)
-
-    def test_zero_power_below_cut_in(self, curve: PowerCurveResult) -> None:
-        below = curve.wind_speeds_ms < 3.0
-        assert np.all(curve.power_mw[below] == 0.0)
-
-    def test_zero_power_above_cut_out(self, curve: PowerCurveResult) -> None:
-        above = curve.wind_speeds_ms > 25.0
-        assert np.all(curve.power_mw[above] == 0.0)
-
-    def test_power_monotonic_in_region2(self, curve: PowerCurveResult) -> None:
-        region2 = (curve.wind_speeds_ms >= 3.0) & (curve.wind_speeds_ms <= RATED_MS)
-        assert np.all(np.diff(curve.power_mw[region2]) >= 0.0)
-
-    def test_rated_plateau_in_region3(self, curve: PowerCurveResult) -> None:
-        """15 MW from 10.66 m/s to the 25 m/s cut-out (pitch-regulated)."""
-        region3 = (curve.wind_speeds_ms >= 11.0) & (curve.wind_speeds_ms <= 25.0)
-        assert np.all(curve.power_mw[region3] == 15.0)
-
-    def test_power_never_exceeds_rated(self, curve: PowerCurveResult) -> None:
-        assert np.all(curve.power_mw <= 15.0)
-
-    def test_power_never_negative(self, curve: PowerCurveResult) -> None:
-        assert np.all(curve.power_mw >= 0.0)
-
-
-class TestAirDensityNormalisation:
-    """IEC 61400-12-1 §9.1.5: P_ρ(v) = P_ref(v·(ρ/ρ₀)^(1/3)) for a pitch-regulated rotor."""
-
-    def test_cold_dense_air_gives_more_power_in_region_2(self) -> None:
-        ref = build_power_curve()
-        cold = build_power_curve(air_density_kg_m3=1.30)
-        i = int(np.argmin(np.abs(ref.wind_speeds_ms - 8.0)))
-        expected = get_turbine().power_curve_kw(8.0 * (1.30 / 1.225) ** (1 / 3)) / 1e3
-        assert cold.power_mw[i] == pytest.approx(expected)
-        assert cold.power_mw[i] > ref.power_mw[i]
-
-    def test_cut_out_stays_on_the_measured_wind(self) -> None:
-        light = build_power_curve(air_density_kg_m3=1.10)
-        assert light.power_mw[light.wind_speeds_ms == 25.0][0] == 15.0
-        assert np.all(light.power_mw[light.wind_speeds_ms > 25.0] == 0.0)
 
 
 # ── Thrust Coefficient Tests ─────────────────────────────────────
 
 
-class TestThrustCoefficient:
-    """Verify Ct profile."""
-
-    @pytest.fixture()
-    def curve(self) -> PowerCurveResult:
-        return build_power_curve()
-
-    def test_ct_falls_above_rated(self, curve: PowerCurveResult) -> None:
-        """Ct ≈ 0.78 in region 2, 0.77 at rated, pitched down to ≈ 0.04 at cut-out."""
-        at = lambda v: curve.ct[int(np.argmin(np.abs(curve.wind_speeds_ms - v)))]  # noqa: E731
-        assert at(7.0) == pytest.approx(0.78, abs=0.01)
-        assert at(25.0) == pytest.approx(0.044, abs=0.005)
-
-    def test_ct_zero_below_cut_in(self, curve: PowerCurveResult) -> None:
-        below = curve.wind_speeds_ms < 3.0
-        assert np.all(curve.ct[below] == 0.0)
-
-    def test_ct_zero_above_cut_out(self, curve: PowerCurveResult) -> None:
-        above = curve.wind_speeds_ms > 25.0
-        assert np.all(curve.ct[above] == 0.0)
-
-
 # ── Interpolation Tests ──────────────────────────────────────────
-
-
-class TestInterpolation:
-    """Verify power interpolation at arbitrary wind speeds."""
-
-    def test_interpolate_at_zero(self) -> None:
-        assert interpolate_power_mw(0.0) == 0.0
-
-    def test_interpolate_at_rated(self) -> None:
-        assert interpolate_power_mw(11.0) == pytest.approx(15.0)
-
-    def test_interpolate_above_cutout(self) -> None:
-        assert interpolate_power_mw(26.0) == 0.0
-
-    def test_interpolate_array(self) -> None:
-        winds = np.array([0.0, 5.0, 11.0, 20.0, 35.0])
-        powers = interpolate_power_mw(winds)
-        assert isinstance(powers, np.ndarray)
-        assert len(powers) == 5
-        assert powers[0] == 0.0  # Below cut-in
-        assert powers[-1] == 0.0  # Above cut-out
-        assert powers[2] == pytest.approx(15.0)

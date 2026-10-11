@@ -32,7 +32,7 @@ router = APIRouter(tags=["M13 Availability Tracking IEC 61400-26"])
     response_model=FarmAvailabilityResponse,
     summary="Fleet availability KPIs (IEC 61400-26 TBA/EBA/PBA)",
 )
-async def get_fleet_availability(period_hours: float = 8760.0) -> FarmAvailabilityResponse:
+def get_fleet_availability(period_hours: float = 8760.0) -> FarmAvailabilityResponse:
     """
     Return IEC 61400-26 availability KPIs for all 34 SB-510 turbines.
 
@@ -80,7 +80,7 @@ async def get_fleet_availability(period_hours: float = 8760.0) -> FarmAvailabili
     response_model=TurbineAvailabilityKPI,
     summary="Single turbine availability KPIs",
 )
-async def get_turbine_availability(
+def get_turbine_availability(
     turbine_id: str,
     period_hours: float = 8760.0,
 ) -> TurbineAvailabilityKPI:
@@ -123,7 +123,7 @@ async def get_turbine_availability(
     response_model=DowntimeBreakdownResponse,
     summary="IEC 61400-26 downtime category breakdown",
 )
-async def get_downtime_breakdown(
+def get_downtime_breakdown(
     scope: str,
     period_hours: float = 8760.0,
 ) -> DowntimeBreakdownResponse:

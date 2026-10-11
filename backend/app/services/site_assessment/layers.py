@@ -210,9 +210,6 @@ class RegionPack:
             f for layer in self.by_role(role) if layer.geometry == "point" for f in layer.features
         ]
 
-    def has_polygons(self, role: str) -> bool:
-        return any(layer.geometry == "polygon" and layer.features for layer in self.by_role(role))
-
     def raster(self, role: str, band: str | None = None) -> Raster | None:
         """The raster of this role (``band`` picks one band of a multi-band raster).
 

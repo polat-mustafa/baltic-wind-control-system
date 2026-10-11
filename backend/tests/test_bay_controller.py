@@ -61,3 +61,18 @@ def test_validate_endpoint_accepts_bay_name():
     )
     assert r.status_code == 200
     assert r.json()["blocked_by"] == ["ILK-003"]
+
+
+def test_permit_isolation_takes_the_bay_out_of_remote_control():
+    """PTW ISOLATION_CONFIRMED → MAINTENANCE + manual isolation (ILK-006); closing the
+    permit returns the bay to REMOTE. Equipment that is not a bay is left alone."""
+    bay = "BAY-OSS-66-03"
+    assert bc.apply_permit_isolation(bay, True, "test")
+    state = bc.get_bay_state(bay)
+    assert state.bay_mode == bc.BayMode.MAINTENANCE and state.manual_isolation_active
+    with pytest.raises(StateTransitionError, match="MAINTENANCE"):
+        bc.execute_command(bay, cmd("CB-STR-03", "open"))
+    assert bc.apply_permit_isolation(bay, False, "test")
+    state = bc.get_bay_state(bay)
+    assert state.bay_mode == bc.BayMode.REMOTE and not state.manual_isolation_active
+    assert not bc.apply_permit_isolation("EXPORT-CABLE-KM-36", True, "test")

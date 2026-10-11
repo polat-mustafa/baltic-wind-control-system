@@ -70,7 +70,7 @@ export default function AvailabilityWaterfallPanel() {
           </h3>
           <EducationButton content={availabilityWaterfallEducation} />
         </div>
-        <Badge variant={controllable_loss_pct > 2 ? "warning" : "normal"}>
+        <Badge variant={controllable_loss_pct > 2 ? "warning" : "normal"} className="normal-case tracking-normal">
           Controllable downtime {controllable_loss_pct.toFixed(1)} % of hours (target &lt; 2 %)
         </Badge>
       </div>

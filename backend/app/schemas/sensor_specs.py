@@ -58,8 +58,9 @@ class CableSensorGroup(BaseModel):
 
     cable_length_km: float = 108.0
     cable_voltage_kv: float = 220.0
+    num_circuits: int = 2
     sensors: list[SensorSpec]
-    total_cable_instruments: int
+    total_cable_instruments: int = Field(description="Instruments per export circuit")
 
 
 class SensorRegisterResponse(BaseModel):
@@ -68,10 +69,9 @@ class SensorRegisterResponse(BaseModel):
 
     Counts
     ------
-    Turbines: 34 × 11 sensors = 374 instrument tags
-    OSS bays: 6 × 5 instruments = 30 instrument tags
-    Export cable: 5 instruments
-    Total: ~409 field instruments (process sensors only)
+    SB-510: turbines 34 × 10 = 340, OSS feeder bays 6 × 7 = 42, export circuits
+    2 × 5 = 10 — 392 field instruments (process sensors only). The counts follow the
+    farm (``services/p0/sensor_register.get_sensor_register(spec)``).
 
     Exclusions: smoke/fire detectors, CCTV, met-mast meteorological
     instruments, access-control systems.

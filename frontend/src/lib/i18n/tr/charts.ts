@@ -51,7 +51,7 @@ export default {
   "Availability {n} %": "Kullanılabilirlik %{n}",
   "Environmental {n} %": "Çevresel %{n}",
   "PyWake Gaussian wake (Niayifar & Porté-Agel 2016) on this layout": "Bu yerleşimde PyWake Gauss izi (Niayifar & Porté-Agel 2016)",
-  "Global blockage after Nygaard et al. 2020": "Nygaard et al. 2020'ye göre küresel blokaj",
+  "Engineering scaling (array density × Ct, calibrated to the 1–4 % band of Bleeg et al. 2018) — not a published model": "Mühendislik ölçeklemesi (dizi yoğunluğu × Ct, Bleeg et al. 2018'in %1–4 bandına kalibre) — yayımlanmış bir model değil",
   "Typical annual value; the P2 load flow of SB-510 loses 10.2 MW at 510 MW (2.0 % at full load, less averaged over the year)":
     "Tipik yıllık değer; SB-510'un P2 yük akışı 510 MW'ta 10.2 MW kaybeder (tam yükte %2.0, yıl ortalamasında daha az)",
   "Typical planning value ({n} % availability); {name} model it against distance to port":

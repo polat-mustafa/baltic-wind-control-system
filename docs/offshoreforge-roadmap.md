@@ -189,8 +189,9 @@ Phase 13 follow-ups (owner's decision 2026-10-08: re-route with real data, finis
   108.0 km (79.3 + 28.7), no military / munitions / cable, only PLB990002 (8.5 km at sea, HDD). The automatic route
   (`auto_route`) now closes military + munitions (1 km buffer), weights Natura × 10 and shipping × 3, lands outside
   harbour channels and checks the land leg. `design(STRING_LAYOUT, 108)`: Q_cable 624 Mvar, 4 × 180 Mvar reactors,
-  ±120 Mvar, filter 2 Mvar h16 (array resonance 880 Hz, h17 74.5 % → 31.5 %; the 115 Hz cable–grid resonance stays
-  ≤ 75 %). Load flow: export 99 % at 510 MW, losses 10.1 MW, buses 0.997–1.015 pu; N-1 export trip 174 % → runback
+  ±120 Mvar, filter 2 Mvar h10.34 (since the 2026-10-11 audit: array charging 21.3 Mvar from the graded cables, array
+  resonance 770 Hz, the 535 Hz peak next to h11 damped from ×3.0 to ×2.0, h11 38.7 % → 26 %; the 115 Hz cable–grid
+  resonance reaches h2 84 % on a weak grid). Load flow: export 99 % at 510 MW, losses 10.1 MW, buses 0.997–1.015 pu; N-1 export trip 174 % → runback
   to 279 MW; Ferranti 4.3 %, uncompensated rise 24.5 %; IEC 60909 OSS 66 kV 19.5 / 12.5 kA, OSS 220 kV 7.8 kA;
   terminal SCR 2.9 (very-weak scenario 0.75 GVA so GFL still has an operating point). P5: onshore OLTC pre-set 3
   steps; circuit-1 PPC limit from a load-flow capability (`circuit1_capability_mw`, 233 MW → 210 MW; the held tap

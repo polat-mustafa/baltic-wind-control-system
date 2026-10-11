@@ -40,13 +40,6 @@ class PermissionCheckResponse(BaseModel):
     mfa_required: bool = Field(description="True if MFA is required for this role level")
 
 
-class RolePermissionSchema(BaseModel):
-    """A single permission entry in a role definition."""
-
-    permission: str = Field(description="Permission identifier")
-    description: str = Field(default="", description="Human-readable description")
-
-
 class RoleDefinitionResponse(BaseModel):
     """Complete role definition with permissions."""
 

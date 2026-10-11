@@ -445,7 +445,7 @@ PSE compliance verification follows EON → ION → FON stages before granting o
 
 **Selected rating: ±120 MVAR** (checked for one reactor out: ~624 MVAR from the two export cables − 3 × 180 MVAR ≈ 84 MVAR net STATCOM absorption, × 1.15 for temperature derating + ageing = 97; and for all four in: (720 − 624) × 1.15 = 110 → 120 MVAR per `design()` / `size_statcom()`. In normal operation the STATCOM stays between −40 and +60 MVAR in the Grid-tab scenarios, keeping its range for dynamics) **+ 4 × 180 MVAR shunt reactors** (one per export cable at each end, so each cable end carries half the charging current; cheap continuous base-load compensation that keeps the STATCOM small).
 
-**PSE reactive range (Art. 21(3)(c), −0.35 … +0.40 P_max at the POC = −178.5 / +204 MVAR):** `poc_q_capability()` finds +532 / −590 MVAR at P = 510 MW using WTG capability (±0.33 pu assumed — the IEA 15 MW reference turbine defines none), the STATCOM, reactor switching and both OLTCs, with every farm bus within 0.90–1.10 pu. The range is met with margin, so the STATCOM rating is set by the reactor N-1 case and fast voltage control, not by the steady-state Q range.
+**PSE reactive range (Art. 21(3)(c), −0.35 … +0.40 P_max at the POC = −178.5 / +204 MVAR):** `poc_q_capability()` finds +247 / −205 MVAR at P = 510 MW using WTG capability (±0.33 pu assumed — the IEA 15 MW reference turbine defines none), the STATCOM, reactor switching and both OLTCs, with every farm bus within 0.90–1.10 pu and every cable and transformer within its rating. The thermal rating binds: at P_max the export cables run at ≈ 99 %, so the range comes from switching the two onshore reactors (which do not load the cable), not from WTG/STATCOM Q sent through it. (An earlier version checked voltages only and reported +532 / −590 MVAR at 138 % cable loading.) The STATCOM rating is set by the reactor N-1 case and fast voltage control, not by the steady-state Q range.
 
 ### 3.9 FRT Compliance — PSE type-D power park module
 
@@ -474,11 +474,13 @@ U_ret = U_clear = U_rec1 = 0.00 pu, t_clear = t_rec1 = t_rec2 = 0.15 s, U_rec2 =
 
 | Result (10 GVA grid) | Value |
 |---|---|
-| Parallel resonances seen from OSS 66 kV, no filter | ≈ 115 Hz (h 2.3, amplification ×13), ≈ 545 Hz (h 10.9) and ≈ 880 Hz (h 17.6, ×16) |
-| h17 at OSS 66 kV, no filter | 0.89 % = 74.5 % of the 1.2 % planning level — within it, but past the plant's 50 % share: the 880 Hz resonance sits next to h17 |
-| Harmonic filter (in the design) | damped high-pass at OSS 66 kV, 2 Mvar tuned to h16, q 1.5 (C 1.46 µF, L 27.2 mH, R 205 Ω) — `size_harmonic_filter`; the 880 Hz peak drops to ≈ 840 Hz (×1.5) |
-| With the filter | h17 0.38 % = 31.5 % of the planning level; worst characteristic order h11 at 34 %; THD 0.85 % at 66 kV, 0.14 % at the PSE 400 kV POC (planning level 3 %); the h2 cable–grid resonance stays at ≤ 75 % (no 66 kV filter moves it) |
-| Flicker P_st / P_lt at the POC | 0.002 / 0.002 (planning levels 0.8 / 0.6) |
+| Array cable charging in the harmonic model | 21.3 MVAR — the graded 66 kV sections of the load flow (`network_model.array_charging_mvar`, 15 600 nF·km) |
+| Parallel resonances seen from OSS 66 kV, no filter | ≈ 115 Hz (h 2.3, ×11), ≈ 535 Hz (h 10.7, ×2.7) and ≈ 770 Hz (h 15.4, ×12.5); on a 20 GVA grid the 535 Hz peak reaches ×3.0 next to h11 |
+| h11 at OSS 66 kV, no filter, 20 GVA | 0.58 % = 38.7 % of the 1.5 % planning level — the worst characteristic order |
+| Harmonic filter (in the design) | damped high-pass at OSS 66 kV, 2 Mvar tuned to h10.34 (517 Hz), q 1.5 (C 1.45 µF, L 65.5 mH, R 319 Ω) — `size_harmonic_filter`, triggered by the amplified resonance next to h11 |
+| With the filter | 535 Hz peak ×2.0; h11 26 %; no characteristic order above 27 %; THD 0.71 % at 66 kV, 0.12 % at the PSE 400 kV POC (planning level 3 %); the h2 cable–grid resonance (105–120 Hz) reaches 84 % on the 5 GVA grid — no 66 kV filter moves it, an item for the connection-stage harmonic study |
+| Correction (2026-10-11) | the model used to lump only 15 MVAR of array charging: it showed the array resonance at 880 Hz next to h17 and chose an h16 filter, which with the correct capacitance would itself leave a ×3 resonance next to h17 |
+| Flicker P_st / P_lt at the POC | 0.007 / 0.006 (planning levels 0.8 / 0.6); switching (start at cut-in, N10 = 10, N120 = 120 per turbine) dominates |
 
 Planning levels follow IEC TR 61000-3-6:2008 Table 2 (MV / HV-EHV, THD 6.5 % / 3 %); flicker IEC 61000-3-7 HV-EHV. The emission limit PSE would allocate to the plant is a share of the planning level.
 

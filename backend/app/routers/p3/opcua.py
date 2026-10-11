@@ -5,7 +5,6 @@ Endpoints
 ---------
 GET  /api/v1/scada/opcua/status         — Server status (running/stopped, connected clients)
 GET  /api/v1/scada/opcua/address-space  — Browse address space as JSON tree
-POST /api/v1/scada/opcua/restart        — Restart the OPC-UA server
 
 The actual OPC-UA communication happens on port 4840 via the binary UA
 protocol. These HTTP endpoints expose management and monitoring only.
@@ -68,24 +67,3 @@ async def get_address_space(spec: FarmSpecDep) -> OPCUAAddressSpaceResponse:
     WNAC, WROT logical nodes) which this address space approximates.
     """
     return svc.get_address_space(spec)
-
-
-@router.post(
-    "/opcua/restart",
-    response_model=OPCUAStatusResponse,
-    summary="Restart OPC-UA server",
-)
-async def restart_opcua_server() -> OPCUAStatusResponse:
-    """Stop and restart the OPC-UA server background task.
-
-    Use this after configuration changes or to recover from a fault
-    condition. The server task is re-created as a new asyncio task;
-    connected clients will be dropped and must reconnect.
-
-    Production systems typically handle this via a watchdog daemon
-    rather than an HTTP endpoint — this endpoint is provided for the
-    SCADA training environment.
-    """
-    await svc.stop_server()
-    await svc.start_server()
-    return svc.get_status()

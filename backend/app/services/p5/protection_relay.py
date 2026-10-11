@@ -273,11 +273,6 @@ LOCATION_LABEL = {
 }
 
 
-def get_relay_settings() -> tuple[RelaySetting, ...]:
-    """Return all relay settings of the OSS / export system."""
-    return OSS_RELAY_SETTINGS
-
-
 # ── Operating times ─────────────────────────────────────────────
 
 

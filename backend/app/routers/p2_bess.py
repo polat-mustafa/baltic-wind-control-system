@@ -3,8 +3,6 @@ BESS (Battery Energy Storage System) API endpoints — M08.
 
 Endpoints
 ---------
-GET    /api/v1/grid/bess/status                       — SOC, power, temperature, mode
-POST   /api/v1/grid/bess/mode                         — set operating mode
 POST   /api/v1/grid/bess/simulate/frequency-response  — FCR to a frequency trace
 POST   /api/v1/grid/bess/simulate/ramp-smoothing      — ramp-limited POC output
 POST   /api/v1/grid/bess/degradation                  — SOH projection
@@ -21,9 +19,6 @@ from fastapi import APIRouter
 from app.schemas.bess import (
     BESSDispatchRequest,
     BESSDispatchResponse,
-    BESSModeRequest,
-    BESSModeResponse,
-    BESSStatusResponse,
     DegradationRequest,
     DegradationResponse,
     FrequencyResponseRequest,
@@ -36,42 +31,12 @@ from app.services.p2 import bess as svc
 router = APIRouter(tags=["M08 BESS Integration"])
 
 
-@router.get(
-    "/bess/status",
-    response_model=BESSStatusResponse,
-    summary="BESS operating state — SOC, power, mode",
-)
-async def get_bess_status() -> BESSStatusResponse:
-    """
-    Current BESS snapshot.
-
-    At SOC 60 % the 200 MWh battery holds 120 MWh; above the 10 % floor
-    100 MWh can be discharged — 2 h at 50 MW. SOH = present capacity /
-    nameplate; end of life is taken at 80 % SOH.
-    """
-    return BESSStatusResponse(**svc.get_status())
-
-
-@router.post("/bess/mode", response_model=BESSModeResponse, summary="Set BESS operating mode")
-async def set_bess_mode(body: BESSModeRequest) -> BESSModeResponse:
-    """
-    Change the operating mode.
-
-    - CHARGE is refused at SOC ≥ 90 %, DISCHARGE at SOC ≤ 10 %.
-    - FREQUENCY_RESPONSE needs ≥ 15 min of full-power energy above the SOC
-      floor — the lower bound of the limited-energy-reservoir time in SO GL
-      Art. 156 (TSOs set 15–30 min).
-    - In FREQUENCY_RESPONSE and RAMP_SMOOTHING the setpoint is automatic.
-    """
-    return BESSModeResponse(**svc.set_mode(body.mode, body.power_setpoint_mw, body.soc_target_pct))
-
-
 @router.post(
     "/bess/simulate/frequency-response",
     response_model=FrequencyResponseResult,
     summary="FCR response to a frequency trace",
 )
-async def simulate_frequency_response(
+def simulate_frequency_response(
     body: FrequencyResponseRequest,
 ) -> FrequencyResponseResult:
     """
@@ -103,7 +68,7 @@ async def simulate_frequency_response(
     response_model=RampSmoothingResult,
     summary="BESS ramp smoothing at the POC",
 )
-async def simulate_ramp_smoothing(body: RampSmoothingRequest) -> RampSmoothingResult:
+def simulate_ramp_smoothing(body: RampSmoothingRequest) -> RampSmoothingResult:
     """
     Keep the POC output within a ramp-rate limit (1 min steps).
 
@@ -128,7 +93,7 @@ async def simulate_ramp_smoothing(body: RampSmoothingRequest) -> RampSmoothingRe
     response_model=DegradationResponse,
     summary="BESS state-of-health projection (LFP)",
 )
-async def project_degradation(body: DegradationRequest) -> DegradationResponse:
+def project_degradation(body: DegradationRequest) -> DegradationResponse:
     """
     SOH over the years — an empirical LFP model with labelled assumptions.
 
@@ -150,7 +115,7 @@ async def project_degradation(body: DegradationRequest) -> DegradationResponse:
     response_model=BESSDispatchResponse,
     summary="WTG + BESS combined dispatch",
 )
-async def bess_dispatch(body: BESSDispatchRequest) -> BESSDispatchResponse:
+def bess_dispatch(body: BESSDispatchRequest) -> BESSDispatchResponse:
     """
     Meet the TSO setpoint at the POC with turbines and battery.
 

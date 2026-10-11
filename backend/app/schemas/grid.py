@@ -18,8 +18,6 @@ Standards
 - ENTSO-E NC RfG: Type D generating unit requirements (FRT, frequency, SSO)
 """
 
-import uuid
-from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
@@ -265,51 +263,6 @@ class STATCOMSizingResult(BaseModel):
 
 
 # ── Persistence Response (for API) ───────────────────────────────
-
-
-class GridNetworkResponse(BaseModel):
-    """Response schema for a persisted grid network configuration."""
-
-    model_config = {"from_attributes": True}
-
-    id: uuid.UUID
-    name: str
-    base_mva: float
-    num_strings: int
-    export_length_km: float
-    grid_ssc_mva: float
-    created_at: datetime
-
-
-class LoadFlowResultResponse(BaseModel):
-    """Response schema for a persisted load flow result."""
-
-    model_config = {"from_attributes": True}
-
-    id: uuid.UUID
-    grid_network_id: uuid.UUID
-    scenario: str
-    converged: bool
-    v_min_pu: float
-    v_max_pu: float
-    total_loss_mw: float
-    voltage_compliant: bool
-    calculated_at: datetime
-
-
-class ShortCircuitResultResponse(BaseModel):
-    """Response schema for a persisted short-circuit result."""
-
-    model_config = {"from_attributes": True}
-
-    id: uuid.UUID
-    grid_network_id: uuid.UUID
-    case: str
-    voltage_factor_c: float
-    max_ikss_ka: float
-    max_ikss_bus: str
-    breaker_adequate: bool
-    calculated_at: datetime
 
 
 # ── P2B Dynamic Compliance Enums ─────────────────────────────────

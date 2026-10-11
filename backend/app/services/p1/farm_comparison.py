@@ -81,7 +81,6 @@ from app.services.p2.network_model import (
 # ── In-memory farm registry ──────────────────────────────────────
 # Production: persisted to farm_configuration DB table via SQLAlchemy
 _farm_configs: dict[uuid.UUID, FarmConfigResponse] = {}
-_comparison_cache: dict[uuid.UUID, FarmComparisonResponse] = {}
 
 # Array cable loss at rated power for a 66 kV collection system [fraction].
 # Typical 0.8–1.5 % at rated; scales with (66/U)² for a fixed conductor.
@@ -378,9 +377,4 @@ def run_comparison(
         ),
         created_at=datetime.now(UTC),
     )
-    _comparison_cache[comparison.comparison_id] = comparison
     return comparison
-
-
-def get_comparison(comparison_id: uuid.UUID) -> FarmComparisonResponse | None:
-    return _comparison_cache.get(comparison_id)

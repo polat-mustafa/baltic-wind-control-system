@@ -61,3 +61,8 @@ export function simulateFault(
 ): Promise<FaultInjectionResponse> {
   return post(`${BASE}/turbines/${turbineId}/simulate-fault`, req);
 }
+
+/** Remove the injected degradation(s) of a turbine (all components). */
+export function clearFault(turbineId: string): Promise<{ cleared: number }> {
+  return request(`${BASE}/turbines/${turbineId}/simulate-fault`, { method: "DELETE" });
+}

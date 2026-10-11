@@ -261,17 +261,6 @@ def run_converter_comparison(
     return response.gfl_result, response.gfm_result
 
 
-def run_weak_grid_comparison(
-    grid_ssc_mva: float = WEAK_GRID_SSC_MVA,
-    generation_fraction: float = 1.0,
-    export_length_km: float | None = None,
-) -> tuple[ConverterResult, ConverterResult]:
-    """Same comparison at a 2 GVA grid (SCR_POC ≈ 3.9)."""
-    return run_converter_comparison(
-        "weak_grid", grid_ssc_mva, generation_fraction, export_length_km
-    )
-
-
 def get_comparison_response(
     scenario: str,
     grid_ssc_mva: float = STRONG_GRID_SSC_MVA,

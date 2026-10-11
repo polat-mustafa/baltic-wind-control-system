@@ -37,6 +37,31 @@
    "test": "backend/tests/test_dt_care_benchmark.py"
   },
   {
+   "id": "p1-aep-roedsand2-28m-r2",
+   "area": "P1 — wind resource",
+   "kind": "measured",
+   "claim": "AEP chain month by month, Rødsand II June 2024 – September 2026 (29 days with the farm capped or off left out)",
+   "against": "metered output of Rødsand II (90 × SWT-2.3-93, 207 MW), ENTSO-E 16.1.A",
+   "metric": "R² of the 28 monthly energies (all hours: 0.75)",
+   "value": 0.9511,
+   "unit": "",
+   "limit": "> 0.9",
+   "test": "backend/tests/test_aep_validation.py"
+  },
+  {
+   "id": "p1-aep-roedsand2-28m-year-bias",
+   "area": "P1 — wind resource",
+   "kind": "measured",
+   "claim": "AEP chain month by month, Rødsand II June 2024 – September 2026 (29 days with the farm capped or off left out)",
+   "against": "metered output of Rødsand II (90 × SWT-2.3-93, 207 MW), ENTSO-E 16.1.A",
+   "metric": "largest yearly bias, model vs metered (2024 +5.0 %, 2025 +0.5 %, 2026 -0.4 %)",
+   "value": 5.0346,
+   "unit": "%",
+   "limit": "|bias| < 8 % per year",
+   "test": "backend/tests/test_aep_validation.py",
+   "tolerance": 0.5
+  },
+  {
    "id": "p1-aep-roedsand2-bias",
    "area": "P1 — wind resource",
    "kind": "measured",
@@ -364,6 +389,54 @@
    "unit": "−",
    "limit": "> 0.5",
    "test": "backend/tests/test_p4_real_data.py"
+  },
+  {
+   "id": "tp-steady-pitch",
+   "area": "Turbine physics (ROSCO)",
+   "kind": "reference",
+   "claim": "ROSCO time-domain simulator, steady state at 6, 8, 10.66, 12, 15, 20 m/s",
+   "against": "IEA 15 MW RWT official steady-state table (WISDEM, IEA Wind Task 37)",
+   "metric": "max pitch difference (rated knee; < 0.2° elsewhere)",
+   "value": 1.2616,
+   "unit": "°",
+   "limit": "< 1.5°",
+   "test": "backend/tests/test_turbine_physics_reference.py"
+  },
+  {
+   "id": "tp-steady-power",
+   "area": "Turbine physics (ROSCO)",
+   "kind": "reference",
+   "claim": "ROSCO time-domain simulator, steady state at 6, 8, 10.66, 12, 15, 20 m/s",
+   "against": "IEA 15 MW RWT official steady-state table (WISDEM, IEA Wind Task 37)",
+   "metric": "max power difference",
+   "value": 1.6949,
+   "unit": "%",
+   "limit": "< 2 % (CCBlade vs WISDEM Cp in region 2)",
+   "test": "backend/tests/test_turbine_physics_reference.py"
+  },
+  {
+   "id": "tp-steady-rpm",
+   "area": "Turbine physics (ROSCO)",
+   "kind": "reference",
+   "claim": "ROSCO time-domain simulator, steady state at 6, 8, 10.66, 12, 15, 20 m/s",
+   "against": "IEA 15 MW RWT official steady-state table (WISDEM, IEA Wind Task 37)",
+   "metric": "max rotor-speed difference",
+   "value": 0.5638,
+   "unit": "%",
+   "limit": "< 1 % (7.56 rpm reference vs 7.52 rpm table limit)",
+   "test": "backend/tests/test_turbine_physics_reference.py"
+  },
+  {
+   "id": "tp-steady-thrust",
+   "area": "Turbine physics (ROSCO)",
+   "kind": "reference",
+   "claim": "ROSCO time-domain simulator, steady state at 6, 8, 10.66, 12, 15, 20 m/s",
+   "against": "IEA 15 MW RWT official steady-state table (WISDEM, IEA Wind Task 37)",
+   "metric": "max thrust difference (rated knee; < 2.5 % elsewhere)",
+   "value": 5.7386,
+   "unit": "%",
+   "limit": "< 7 %",
+   "test": "backend/tests/test_turbine_physics_reference.py"
   }
  ]
 }

@@ -31,6 +31,7 @@ TESTS = [
     "tests/test_goose_simulation.py",
     "tests/test_protection_relay.py",
     "tests/test_dt_care_benchmark.py",
+    "tests/test_turbine_physics_reference.py",
     # ANDES runs on Linux only (Windows application control blocks it); its rows are
     # written from the backend Docker image, see the module docstring
     "tests/test_andes_dynamics.py",

@@ -1,10 +1,10 @@
-"""A1: the P1 AEP chain against Rødsand II's metered 2025 output (ENTSO-E 16.1.A)."""
+"""A1: the P1 AEP chain against Rødsand II's metered output (ENTSO-E 16.1.A): 2025 and 28 months."""
 
 import importlib.util
 
 import pytest
 
-from app.services.p1.aep_validation import CAPACITY_MW, validate_aep_chain
+from app.services.p1.aep_validation import CAPACITY_MW, validate_aep_chain, validate_months
 
 needs_pywake = pytest.mark.skipif(
     importlib.util.find_spec("py_wake") is None, reason="PyWake not installed"
@@ -59,4 +59,44 @@ def test_aep_chain_matches_roedsand2_metered_output(evidence) -> None:
         value=v.hourly_nrmse_pct,
         unit="%",
         limit="reported as-is",
+    )
+
+
+@needs_pywake
+def test_aep_chain_holds_month_by_month_over_28_months(evidence) -> None:
+    """June 2024 … September 2026: every month, constrained days (capped / off) left out."""
+    mv = validate_months()
+    assert len(mv.months) >= 27 and mv.months[0][0] == "2024-06"
+    # the capped / dark spell of Rødsand II in Nov–Dec 2024 is found, and it is short
+    assert "2024-11-30" in mv.constrained_days and len(mv.constrained_days) < 60
+    assert mv.monthly_r2_all < mv.monthly_r2 > 0.9
+    assert max(abs(b) for b in mv.bias_by_year.values()) < 8.0
+    assert abs(mv.bias_pct) < BIAS_LIMIT_PCT
+
+    common = {
+        "area": "P1 — wind resource",
+        "kind": "measured",
+        "claim": (
+            "AEP chain month by month, Rødsand II June 2024 – September 2026 "
+            f"({len(mv.constrained_days)} days with the farm capped or off left out)"
+        ),
+        "against": "metered output of Rødsand II (90 × SWT-2.3-93, 207 MW), ENTSO-E 16.1.A",
+    }
+    evidence(
+        "p1-aep-roedsand2-28m-r2",
+        **common,
+        metric=f"R² of the {len(mv.months)} monthly energies (all hours: {mv.monthly_r2_all:.2f})",
+        value=mv.monthly_r2,
+        limit="> 0.9",
+    )
+    evidence(
+        "p1-aep-roedsand2-28m-year-bias",
+        **common,
+        metric="largest yearly bias, model vs metered ("
+        + ", ".join(f"{y} {b:+.1f} %" for y, b in mv.bias_by_year.items())
+        + ")",
+        value=max(mv.bias_by_year.values(), key=abs),
+        unit="%",
+        limit="|bias| < 8 % per year",
+        tolerance=0.5,
     )

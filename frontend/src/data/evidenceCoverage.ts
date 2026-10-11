@@ -29,7 +29,7 @@ export const KINDS: { id: EvidenceKind; label: string; hint: string }[] = [
 export const GAPS: { module: string; note: string }[] = [
   {
     module: "P1 — other real farms",
-    note: "Kriegers Flak (SG 8.4-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used",
+    note: "Kriegers Flak (SG 8.4-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used. Next: Baltica 2 (107 × SG 14-222 DD, 1 498 MW, Polish EEZ) once it is commissioned (2027) and on ENTSO-E",
   },
   {
     module: "P1 — wind input at SB-510",
@@ -37,7 +37,7 @@ export const GAPS: { module: string; note: string }[] = [
   },
   {
     module: "P2 — reactor sizing vs a built farm",
-    note: "no published reactor ratings found for Kriegers Flak, Anholt or Baltic Power (cable data is public, MVAr is not)",
+    note: "no published reactor ratings found for Kriegers Flak, Anholt, Baltic Power or Baltica 2 (cable data is public, MVAr is not). Baltica 2's grid-connection EIA confirms the same topology — shunt reactors, harmonic filters and a STATCOM at the 220/275 kV onshore substation, 400 kV GIS — without ratings",
   },
   {
     module: "P4 — Baltic Power forecast site",
@@ -46,6 +46,5 @@ export const GAPS: { module: string; note: string }[] = [
   { module: "P5 — commissioning", note: "switching programme checked by load flow and interlocks only, no field record" },
   { module: "Site assessment", note: "screening layers are sourced data; the scoring itself is not validated" },
   { module: "Lifecycle (construction, O&M, decommissioning)", note: "weather windows use measured ERA5 sea states; costs and durations are illustrative" },
-  { module: "Turbine physics (ROSCO)", note: "IEA 15 MW reference data; not compared with OpenFAST runs" },
-  { module: "Control room live plant", note: "live Open-Meteo wind on the IEA 15 MW curve; the plant itself is a simulation" },
+  { module: "Control room live plant", note: "live Open-Meteo wind on the IEA 15 MW curve, faults at published offshore failure rates (Carroll et al. 2016), curtailment on the live RCE price; time compressed, not compared with a real plant's event log" },
 ];

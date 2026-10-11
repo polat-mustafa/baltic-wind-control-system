@@ -13,7 +13,7 @@
  */
 
 import StartHereStrip from "../components/landing/StartHereStrip";
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { Fragment, lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Maximize2,
@@ -67,9 +67,11 @@ const WIDE_MIN_W = PANEL_LEFT_WITH_VIEWER + PANEL_W + 10; // 1050
 const MEDIUM_MIN_W = 720;
 const MEDIUM_VIEWER_W = 340;
 const MEDIUM_PANEL_LEFT = VIEWER_LEFT + MEDIUM_VIEWER_W + 10; // 360
-const STACK_VIEWER_H = "42%";
+const STACK_VIEWER_H = "45%";
 type TurbineLayout = "wide" | "medium" | "stacked";
-const STACKED_PANEL_PLACEMENT = { left: 8, right: 8, top: "calc(42% + 16px)", bottom: 8 } as const;
+// Phones: viewer and panel leave the (small) map area for a full-screen layer, viewer above,
+// panel below filling the rest — squeezed into the map they covered each other
+const STACKED_PANEL_PLACEMENT = { left: 8, right: 8, top: "calc(45% + 16px)", bottom: 8, maxWidth: "none", maxHeight: "none" } as const;
 const MEDIUM_PANEL_PLACEMENT = { left: MEDIUM_PANEL_LEFT, right: 10, top: VIEWER_TOP } as const;
 
 function ConnectedTurbineDetailPanel({
@@ -97,15 +99,17 @@ function ConnectedTurbineDetailPanel({
     return () => window.removeEventListener("keydown", onEsc, true);
   }, [expanded]);
   if (!turbine) return null;
+  const Layer = layout === "stacked" ? StackedLayer : Fragment;
   return (
-    <>
+    <Layer>
       {/* 3D Viewer — to the left of the detail panel */}
       <div
         className="absolute"
         data-tour="turbine-viewer"
         style={
           expanded
-            ? { zIndex: 1300, left: 8, top: 8, width: "calc(100% - 16px)", height: "calc(100% - 16px)" }
+            ? // phone: the bottom 56 px stay free for the floating Tutor button, which covered the telemetry
+              { zIndex: 1300, left: 8, top: 8, width: "calc(100% - 16px)", height: layout === "stacked" ? "calc(100% - 72px)" : "calc(100% - 16px)" }
             : layout === "stacked"
               ? { zIndex: 1150, left: 8, right: 8, top: 8, height: STACK_VIEWER_H }
               : {
@@ -148,8 +152,13 @@ function ConnectedTurbineDetailPanel({
               : undefined
         }
       />
-    </>
+    </Layer>
   );
+}
+
+/** Phone layout: a full-screen layer over the page (closed with the panel's ✕ or Esc). */
+function StackedLayer({ children }: { children: ReactNode }) {
+  return <div className="fixed inset-0 z-[1200] bg-bg-primary">{children}</div>;
 }
 
 function ConnectedOSSPanel({ onClose }: { onClose: () => void }) {

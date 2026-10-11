@@ -25,11 +25,12 @@ export function ViewerLegend({ turbineId }: ViewerLegendProps) {
   ];
 
   return (
-    <div className="absolute bottom-6 left-3 z-10 flex gap-1.5 pointer-events-none">
+    // narrow (phone): the six chips share the width instead of running off the right edge
+    <div className="absolute bottom-6 left-3 z-10 flex gap-1.5 pointer-events-none @max-lg:right-3 @max-lg:gap-1">
       {items.map(({ label, value }) => (
         <div
           key={label}
-          className="flex flex-col items-center bg-bg-secondary/80 backdrop-blur-sm rounded-md px-2 py-1 border border-border-primary min-w-[48px]"
+          className="flex flex-col items-center bg-bg-secondary/80 backdrop-blur-sm rounded-md px-2 py-1 border border-border-primary min-w-[48px] @max-lg:min-w-0 @max-lg:flex-1 @max-lg:px-0.5 @max-lg:text-center"
         >
           <span className="text-xs text-text-muted font-mono uppercase tracking-wider leading-3">
             {label}

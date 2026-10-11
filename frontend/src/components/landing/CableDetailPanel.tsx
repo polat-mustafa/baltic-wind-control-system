@@ -43,7 +43,7 @@ export default function CableDetailPanel({ cable, onClose, onNavigate }: CableDe
     <EquipmentPanel
       icon={Cable}
       tag={["EXP-CBL-01", "EXP-CBL-01/02"][net.circuits - 1] ?? `EXP-CBL-01…0${net.circuits}`}
-      subtitle={`${net.circuits} × ${cable.lengthKm.toFixed(0)} km${sb510 ? " (31.5 subsea + 13.4 land)" : ""} · ${cable.voltageRatingKV} kV · ${cable.crossSectionMm2} mm² XLPE`}
+      subtitle={`${net.circuits} × ${cable.lengthKm.toFixed(0)} km${sb510 ? " (79.3 subsea + 28.7 land)" : ""} · ${cable.voltageRatingKV} kV · ${cable.crossSectionMm2} mm² XLPE`}
       status={{ label: "Energised", color: NORMAL }}
       onClose={onClose}
       action={{ label: "Open HV Grid · cable loading & DTS", onClick: onNavigate }}

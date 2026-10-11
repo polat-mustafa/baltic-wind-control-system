@@ -165,9 +165,19 @@ export const TurbineSideView = memo(function TurbineSideView({ turbineId }: { tu
           {/* Wake: filled iso-deficit bands, dashed contour lines labelled at their tips */}
           <g clipPath="url(#above-sea)">
             {contours.map(({ level, pts }) => {
-              const upper = pts.map((p) => `${xs(p.x).toFixed(1)},${y(HUB_HEIGHT_M + p.r).toFixed(1)}`);
-              const lower = [...pts].reverse().map((p) => `${xs(p.x).toFixed(1)},${y(HUB_HEIGHT_M - p.r).toFixed(1)}`);
-              return <polygon key={level} points={[...upper, ...lower].join(" ")} fill="var(--color-accent)" fillOpacity={0.07} stroke="var(--color-accent)" strokeOpacity={0.55} strokeDasharray="5 4" />;
+              // Starts at the blade tips (rotor plane tilted with the shaft); the edge along the
+              // rotor is not stroked, or it reads as a second, untilted blade.
+              const pt = (p: { x: number; r: number }, sign: 1 | -1) =>
+                p.x === 0 ? `${(sign > 0 ? tipTop : tipBottom).x.toFixed(1)},${(sign > 0 ? tipTop : tipBottom).y.toFixed(1)}` : `${xs(p.x).toFixed(1)},${y(HUB_HEIGHT_M + sign * p.r).toFixed(1)}`;
+              const upper = pts.map((p) => pt(p, 1));
+              const lower = [...pts].reverse().map((p) => pt(p, -1));
+              return (
+                <g key={level}>
+                  <polygon points={[...upper, ...lower].join(" ")} fill="var(--color-accent)" fillOpacity={0.07} />
+                  <polyline points={upper.join(" ")} fill="none" stroke="var(--color-accent)" strokeOpacity={0.55} strokeDasharray="5 4" />
+                  <polyline points={lower.join(" ")} fill="none" stroke="var(--color-accent)" strokeOpacity={0.55} strokeDasharray="5 4" />
+                </g>
+              );
             })}
           </g>
           {contours.map(({ level, pts }) => {

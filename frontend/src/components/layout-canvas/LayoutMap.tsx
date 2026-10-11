@@ -305,17 +305,19 @@ export default function LayoutMap({
         getPosition: (d: (typeof wakeLosses)[number]) => d.position,
         getText: (d: (typeof wakeLosses)[number]) => `−${d.loss} %`,
         getSize: 13,
-        // light copper on the dark map, deep copper on the light one: readable over the wake itself
-        getColor: dark ? [255, 196, 160, 255] : [130, 56, 22, 255],
-        outlineWidth: 3,
-        outlineColor: dark ? [10, 21, 32, 255] : [255, 255, 255, 255],
-        fontSettings: { sdf: true },
+        // a small chip, copper edged like the wake field: crisp over the wake, no halo
+        getColor: dark ? [255, 214, 190, 255] : [110, 46, 16, 255],
+        background: true,
+        getBackgroundColor: dark ? [10, 21, 32, 225] : [253, 249, 240, 235],
+        getBorderColor: [...WAKE_RGB, 255],
+        getBorderWidth: 1,
+        backgroundPadding: [4, 1],
         fontFamily: "IBM Plex Mono, monospace",
         fontWeight: 600,
         characterSet: "auto",
         getTextAnchor: "start",
         getPixelOffset: [12, -10],
-        updateTriggers: { getColor: dark, outlineColor: dark },
+        updateTriggers: { getColor: dark, getBackgroundColor: dark },
       }),
     ossAt &&
       new IconLayer({

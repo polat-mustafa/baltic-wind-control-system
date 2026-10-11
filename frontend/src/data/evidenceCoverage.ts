@@ -31,6 +31,18 @@ export const GAPS: { module: string; note: string }[] = [
     module: "P1 — other real farms",
     note: "Kriegers Flak (SG 8.0-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used",
   },
+  {
+    module: "P1 — wind input at SB-510",
+    note: "no offshore mast at the site; FINO2 (the nearest Baltic mast) needs a BSH data account — the owner's to-do",
+  },
+  {
+    module: "P2 — reactor sizing vs a built farm",
+    note: "no published reactor ratings found for Kriegers Flak, Anholt or Baltic Power (cable data is public, MVAr is not)",
+  },
+  {
+    module: "P4 — Baltic Power forecast site",
+    note: "still energising (peak 295 of 1140 MW in the last 30 days); added once it reaches 90 % — a test enforces it",
+  },
   { module: "P5 — commissioning", note: "switching programme checked by load flow and interlocks only, no field record" },
   { module: "Site assessment", note: "screening layers are sourced data; the scoring itself is not validated" },
   { module: "Lifecycle (construction, O&M, decommissioning)", note: "weather windows use measured ERA5 sea states; costs and durations are illustrative" },

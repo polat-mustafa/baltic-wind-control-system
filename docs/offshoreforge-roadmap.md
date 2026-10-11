@@ -322,9 +322,15 @@ Plan: live-data coherence, then evidence A1–A5, then UX B1–B5, one PR each.
   power curve and are listed as gaps.
 - **A5 — coverage matrix (done):** every evidence row has a kind (measured / analytic / reference / standard);
   the Evidence page counts them per module and lists the modules with no external check.
-- Next: A2 FINO2 (owner registration at BSH needed), A3 reactor sizing vs a published project, A4 Baltic
-  Power as a forecast site once fully online; B1 one farm on every page, B5 start strip, B2 Turkish gate,
-  B3 visual audit, B4 glossary.
+- **A2 — FINO2 (blocked on the owner):** no open copy exists (Zenodo / PANGAEA searched); the BSH FINO
+  database needs an account. Listed as a gap on the Evidence page until the data is downloaded.
+- **A3 — reactor sizing vs a built farm (dropped):** cable lengths are public for Kriegers Flak, Anholt
+  (24 km subsea + 60 km land, 245 kV) and Baltic Power (≈ 23 + 8 km), but no reactor MVAr ratings were
+  found; no invented reference. Listed as a gap.
+- **A4 — Baltic Power (gated):** peak 295 of 1140 MW in the last 30 days of the bundled data (19/76 turbines,
+  2026-10-09). `tests/test_baltic_power_gate.py` fails once the refreshed data reaches 90 %, until the farm
+  is added to `real_data.sites()`. Owner to-do: monthly File Library download.
+- Next: B1 one farm on every page, B5 start strip, B2 Turkish gate, B3 visual audit, B4 glossary.
 
 ## Resume here
 

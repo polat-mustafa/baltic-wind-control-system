@@ -128,6 +128,15 @@ export default {
   "P1 — other real farms": "P1 — diğer gerçek santraller",
   "Kriegers Flak (SG 8.0-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used":
     "Kriegers Flak (SG 8.0-167 DD) ve Rødsand 1 (SWT-2.3-82): açık güç eğrisi yok, bu yüzden ölçülen üretimleri kullanılmıyor",
+  "P1 — wind input at SB-510": "P1 — SB-510'da rüzgâr girdisi",
+  "no offshore mast at the site; FINO2 (the nearest Baltic mast) needs a BSH data account — the owner's to-do":
+    "sahada açık deniz ölçüm direği yok; FINO2 (en yakın Baltık direği) BSH veri hesabı gerektirir — sahibin yapacağı iş",
+  "P2 — reactor sizing vs a built farm": "P2 — kurulu bir santrale karşı reaktör boyutlandırma",
+  "no published reactor ratings found for Kriegers Flak, Anholt or Baltic Power (cable data is public, MVAr is not)":
+    "Kriegers Flak, Anholt veya Baltic Power için yayımlanmış reaktör değeri bulunamadı (kablo verisi açık, MVAr değil)",
+  "P4 — Baltic Power forecast site": "P4 — Baltic Power tahmin sitesi",
+  "still energising (peak 295 of 1140 MW in the last 30 days); added once it reaches 90 % — a test enforces it":
+    "hâlâ devreye alınıyor (son 30 günde 1140 MW'ın 295'i tepe); %90'a ulaşınca eklenecek — bir test bunu zorunlu kılar",
   "P5 — commissioning": "P5 — devreye alma",
   "switching programme checked by load flow and interlocks only, no field record":
     "manevra programı yalnızca yük akışı ve kilitlemelerle denetlenir, saha kaydı yok",

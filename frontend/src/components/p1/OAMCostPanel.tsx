@@ -50,10 +50,10 @@ export default function OAMCostPanel() {
           <EducationButton content={oamCostEducation} />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="neutral">
+          <Badge variant="neutral" className="normal-case tracking-normal">
             Total: {toM(oamCost.total_oam_eur).toFixed(1)} M€/yr
           </Badge>
-          <Badge variant="info">
+          <Badge variant="info" className="normal-case tracking-normal">
             {oamCost.per_mw_eur.toFixed(0)} €/MW/yr
           </Badge>
         </div>

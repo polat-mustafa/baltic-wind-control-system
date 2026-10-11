@@ -101,6 +101,9 @@ function Panel({
   );
 }
 
+/** Numbers with units: no uppercase (it would turn σ into Σ and GWh into GWH). */
+const KPI = "normal-case tracking-normal";
+
 const th = "text-left font-medium text-text-muted px-2 py-1";
 const td = "px-2 py-1 tabular-nums";
 
@@ -170,8 +173,8 @@ export default function WakeStudiesTab() {
               </tbody>
             </table>
             <div className="flex gap-2 flex-wrap">
-              <Badge variant="info">{`Spread ${models.data.cmp.aep_range_gwh.toFixed(0)} GWh/yr`}</Badge>
-              <Badge variant="neutral">{`Wake loss ${models.data.cmp.wake_loss_range_percent.toFixed(1)} points apart`}</Badge>
+              <Badge variant="info" className={KPI}>{`Spread ${models.data.cmp.aep_range_gwh.toFixed(0)} GWh/yr`}</Badge>
+              <Badge variant="neutral" className={KPI}>{`Wake loss ${models.data.cmp.wake_loss_range_percent.toFixed(1)} points apart`}</Badge>
             </div>
             <p className="text-xs text-text-muted">
               TurbOPark recovers the wake more slowly in deep arrays and gives the largest loss; Jensen&apos;s
@@ -200,9 +203,9 @@ export default function WakeStudiesTab() {
         {yaw.data && (
           <>
             <div className="flex gap-2 flex-wrap">
-              <Badge variant="normal">{`Wake steering +${yaw.data.yaw.power_gain_percent.toFixed(1)} % (${yaw.data.yaw.baseline_power_mw.toFixed(0)} → ${yaw.data.yaw.optimized_power_mw.toFixed(0)} MW)`}</Badge>
-              <Badge variant="neutral">{`${yaw.data.yaw.optimal_yaw_angles_deg.filter((a) => Math.abs(a) > 0.5).length} of ${yaw.data.yaw.optimal_yaw_angles_deg.length} turbines yawed, up to ${Math.max(...yaw.data.yaw.optimal_yaw_angles_deg.map(Math.abs)).toFixed(0)}°`}</Badge>
-              <Badge variant="neutral">{`Derating +${yaw.data.derate.power_gain_percent.toFixed(1)} % (best fraction ${yaw.data.derate.optimal_derating_fraction.toFixed(2)})`}</Badge>
+              <Badge variant="normal" className={KPI}>{`Wake steering +${yaw.data.yaw.power_gain_percent.toFixed(1)} % (${yaw.data.yaw.baseline_power_mw.toFixed(0)} → ${yaw.data.yaw.optimized_power_mw.toFixed(0)} MW)`}</Badge>
+              <Badge variant="neutral" className={KPI}>{`${yaw.data.yaw.optimal_yaw_angles_deg.filter((a) => Math.abs(a) > 0.5).length} of ${yaw.data.yaw.optimal_yaw_angles_deg.length} turbines yawed, up to ${Math.max(...yaw.data.yaw.optimal_yaw_angles_deg.map(Math.abs)).toFixed(0)}°`}</Badge>
+              <Badge variant="neutral" className={KPI}>{`Derating +${yaw.data.derate.power_gain_percent.toFixed(1)} % (best fraction ${yaw.data.derate.optimal_derating_fraction.toFixed(2)})`}</Badge>
             </div>
             <p className="text-xs text-text-muted">
               Yawing costs the steered turbine roughly cos³ of its misalignment, but lifts the turbines
@@ -224,8 +227,8 @@ export default function WakeStudiesTab() {
         {yawYear.data && (
           <>
             <div className="flex gap-2 flex-wrap">
-              <Badge variant="normal">{`AEP +${yawYear.data.aep_gain_percent.toFixed(2)} % (${yawYear.data.baseline_aep_gwh.toFixed(0)} → ${yawYear.data.optimized_aep_gwh.toFixed(0)} GWh/yr)`}</Badge>
-              <Badge variant="neutral">{`Per direction at ${STEERING_WIND_MS} m/s: mean +${yawYear.data.mean_power_gain_percent.toFixed(1)} %, best +${yawYear.data.max_power_gain_percent.toFixed(1)} % from ${yawYear.data.best_direction_deg.toFixed(0)}°`}</Badge>
+              <Badge variant="normal" className={KPI}>{`AEP +${yawYear.data.aep_gain_percent.toFixed(2)} % (${yawYear.data.baseline_aep_gwh.toFixed(0)} → ${yawYear.data.optimized_aep_gwh.toFixed(0)} GWh/yr)`}</Badge>
+              <Badge variant="neutral" className={KPI}>{`Per direction at ${STEERING_WIND_MS} m/s: mean +${yawYear.data.mean_power_gain_percent.toFixed(1)} %, best +${yawYear.data.max_power_gain_percent.toFixed(1)} % from ${yawYear.data.best_direction_deg.toFixed(0)}°`}</Badge>
             </div>
             <p className="text-xs text-text-muted">
               Several per cent in one aligned direction becomes a fraction of a per cent of AEP: most
@@ -246,8 +249,8 @@ export default function WakeStudiesTab() {
         {pce.data && (
           <>
             <div className="flex gap-2 flex-wrap">
-              <Badge variant="info">{`Mean ${pce.data.mean_aep_gwh.toFixed(0)} GWh/yr, σ ${pce.data.std_aep_gwh.toFixed(0)} (${pce.data.cov_percent.toFixed(1)} %)`}</Badge>
-              <Badge variant={pce.data.q2_loo >= 0.9 ? "normal" : "warning"}>{`Leave-one-out Q² ${pce.data.q2_loo.toFixed(3)}`}</Badge>
+              <Badge variant="info" className={KPI}>{`Mean ${pce.data.mean_aep_gwh.toFixed(0)} GWh/yr, σ ${pce.data.std_aep_gwh.toFixed(0)} (${pce.data.cov_percent.toFixed(1)} %)`}</Badge>
+              <Badge variant={pce.data.q2_loo >= 0.9 ? "normal" : "warning"} className={KPI}>{`Leave-one-out Q² ${pce.data.q2_loo.toFixed(3)}`}</Badge>
             </div>
             <div className="space-y-1.5 max-w-xl">
               {pce.data.sobol_indices.map((s) => (

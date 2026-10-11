@@ -42,7 +42,7 @@ export default function OperatingPointPanel() {
 
   const field = (label: string, value: number, set: (v: number) => void, step: number) => (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium uppercase tracking-wider text-text-muted">{label}</span>
+      <span className="text-xs font-medium tracking-wider text-text-muted">{label}</span>
       <input type="number" step={step} value={value} onChange={(e) => set(Number(e.target.value))} className={input} />
     </label>
   );

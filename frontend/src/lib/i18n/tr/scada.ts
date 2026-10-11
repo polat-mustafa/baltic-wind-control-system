@@ -265,7 +265,7 @@ export default {
   "Per turbine": "Türbin başına",
   "Per 66 kV feeder bay": "66 kV fider bölmesi başına",
   "Per 220 kV export circuit": "220 kV ihracat devresi başına",
-  "{n} field instruments: {n} turbines × {n} = {n}, {n} feeder bays × {n} = {n}, {n} export circuits × {n} = {n}.": "{n} saha enstrümanı: {n} türbin × {n} = {n}, {n} fider bölmesi × {n} = {n}, {n} ihracat devresi × {n} = {n}.",
+  "{n1} field instruments: {n2} turbines × {n3} = {n4}, {n5} feeder bays × {n6} = {n7}, {n8} export circuits × {n9} = {n10}.": "{n1} saha enstrümanı: {n2} türbin × {n3} = {n4}, {n5} fider bölmesi × {n6} = {n7}, {n8} ihracat devresi × {n9} = {n10}.",
   "Nacelle anemometer": "Nasel anemometresi",
   "Wind vane (yaw reference)": "Rüzgâr gülü (sapma referansı)",
   "Main bearing RTD": "Ana yatak RTD",

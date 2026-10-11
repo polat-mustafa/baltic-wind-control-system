@@ -166,4 +166,18 @@ describe("dictionaries", () => {
     const names = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
     for (const [code, dict] of DICTS) for (const [k, v] of Object.entries(dict)) expect(names(v), `${code}: ${k}`).toEqual(names(k));
   });
+
+  it("placeholder names are unique within a key (a repeated {n} fills every slot with the first number)", () => {
+    for (const [code, dict] of DICTS) {
+      const repeated = Object.keys(dict).filter((k) => {
+        const names = [...k.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+        return new Set(names).size !== names.length;
+      });
+      expect(repeated, code).toEqual([]);
+    }
+  });
+
+  it("numbered placeholders keep their numbers", () => {
+    expect(translate("tr", "Wake steering +7.8 % (280 → 302 MW)")).toBe("İz yönlendirme +%7.8 (280 → 302 MW)");
+  });
 });

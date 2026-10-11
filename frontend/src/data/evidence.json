@@ -171,6 +171,18 @@
    "test": "backend/tests/test_p2_analytic.py"
   },
   {
+   "id": "p2-export-circuits-baltic-power",
+   "area": "P2 — HV grid",
+   "kind": "reference",
+   "claim": "Export circuits the design rule gives 76 turbines × 15 MW at ≈ 40 km",
+   "against": "Baltic Power as built: 4 export cables to Choczewo (ORLEN / Northland, 2026)",
+   "metric": "220 kV 1000 mm² circuits (√3·U·√(I² − (Ic/2)²) each)",
+   "value": 4.0,
+   "unit": "circuits",
+   "limit": "= 4",
+   "test": "backend/tests/test_p2_analytic.py"
+  },
+  {
    "id": "p2-ferranti",
    "area": "P2 — HV grid",
    "kind": "analytic",

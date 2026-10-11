@@ -184,3 +184,34 @@ def test_calc_sc_equals_the_iec_60909_hand_calculation(
     )
     if case == "max":  # ≈ 6.0 kA: the 300 MVA transformer dominates the 10 GVA grid
         assert 5.5 < ikss < 6.5
+
+
+def test_export_sizing_matches_baltic_power(evidence) -> None:
+    """The design rule (``network_model.design``) on a built farm of the same turbine.
+
+    Baltic Power (ORLEN / Northland, first power July 2026, 76th turbine 7 Oct 2026):
+    76 × 15 MW = 1 140 MW, four HVAC export cables to Choczewo. The operator's
+    "Kable morskie" film gives 130 km of offshore export cable and the project page a
+    land section of about 7 km → ≈ 40 km per circuit. The rule must also land on four
+    circuits for 1 140 MW at any length in that range — three cannot carry it.
+    """
+    from app.services.p2.network_model import design, export_circuit_capacity_mw
+
+    per_circuit_km = 130.0 / 4 + 7.0
+    spec = design(tuple([6] * 12 + [4]), per_circuit_km, name="Baltic Power")
+    assert spec.capacity_mw == pytest.approx(1140.0)
+    assert spec.num_export_cables == 4
+    for km in (30.0, 50.0):
+        assert design(tuple([6] * 12 + [4]), km).num_export_cables == 4
+    assert 3 * export_circuit_capacity_mw(per_circuit_km) < 1140.0
+    evidence(
+        "p2-export-circuits-baltic-power",
+        area="P2 — HV grid",
+        kind="reference",
+        claim="Export circuits the design rule gives 76 turbines × 15 MW at ≈ 40 km",
+        against="Baltic Power as built: 4 export cables to Choczewo (ORLEN / Northland, 2026)",
+        metric="220 kV 1000 mm² circuits (√3·U·√(I² − (Ic/2)²) each)",
+        value=spec.num_export_cables,
+        unit="circuits",
+        limit="= 4",
+    )

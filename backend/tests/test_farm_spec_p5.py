@@ -29,8 +29,10 @@ from app.models.programme import FATCampaignModel, SwitchingProgrammeModel
 from app.services.p2.network_model import SB510, design, export_circuit_capacity_mw
 from app.services.p2.statcom_sizing import check_reactors
 from app.services.p5.energisation import (
+    ZERO_MISS_LIMIT_PCT,
     circuit1_capability_mw,
     circuit1_limit_mw,
+    energisation_compensation_pct,
     onshore_tap,
     section_a_mw,
 )
@@ -199,3 +201,20 @@ def test_api_without_header_is_sb510(client: TestClient):
     assert detail["farm"]["name"] == "SB-510"
     assert detail["total_steps"] == 63
     assert detail["farm"]["reactor_unit_mvar"] == 180
+
+
+def test_zero_miss_guard_follows_the_line_reactor_share():
+    """A line reactor above ~50 % of the cable's charging power energised with the cable
+    can stop the breaker current crossing zero (Hornsea 1/2: tapped to < 50 %); the
+    programme then closes CB-ON-220-01 through its pre-insertion resistor (da Silva 2010)."""
+    # SB-510: 180 Mvar of one 108 km circuit's ωCV²L = 312 Mvar
+    assert energisation_compensation_pct(SB510) == pytest.approx(57.7, abs=0.1)
+    short = check_reactors(design((6, 6, 6, 6, 5, 5), 40.0))  # 50 of 116 Mvar
+    assert energisation_compensation_pct(short) < ZERO_MISS_LIMIT_PCT
+
+    def cb_on(spec: Any) -> Any:
+        return next(s for s in _completed(spec).steps if s.equipment_id == "CB-ON-220-01")
+
+    assert "pre-insertion resistor" in cb_on(SB510).action and "zero-miss" in cb_on(SB510).notes
+    assert "pre-insertion" not in cb_on(short).action
+    assert "58 % of the cable's charging" in _reading(_completed(SB510), "cable_energised")

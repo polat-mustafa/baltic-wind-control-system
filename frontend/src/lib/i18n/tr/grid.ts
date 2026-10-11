@@ -195,8 +195,8 @@ export default {
     "✓ Rüzgâr fazlası {n1} MW; batarya kısıtlama yerine {n2} MW şarj ediyor. Bir dakika sonra SOC %{n3}. Kırmızı işaret ayar noktasıdır.",
   "All {n1} circuits, {n2} MW — {n3} A": "{n1} devrenin tümü, {n2} MW — {n3} A",
   "One circuit, {n1} MW — {n2} A": "Tek devre, {n1} MW — {n2} A",
-  "The Protection tab still shows SB-510's relay settings (CT ratios and pick-ups of its OSS); BESS, Cable DTS and Market follow your farm's rating and export circuits.":
-    "Koruma sekmesi hâlâ SB-510'un röle ayarlarını gösterir (OSS'sinin akım trafosu oranları ve açma eşikleri); BESS, Kablo DTS ve Piyasa sekmeleri santralinizin gücünü ve iletim devrelerini izler.",
+  "Every tab follows this design — Protection sizes its CTs, grades the incomer and takes the fault levels from it; BESS, Cable DTS and Market follow your farm's rating and export circuits.":
+    "Her sekme bu tasarımı izler — Koruma akım trafolarını ondan boyutlandırır, giriş rölesini kademelendirir ve arıza akımlarını ondan alır; BESS, Kablo DTS ve Piyasa sekmeleri santralinizin gücünü ve iletim devrelerini izler.",
   "Datasheet rating — 825 A": "Veri sayfası kapasitesi — 825 A",
   "N-{n1} survivor — {n2} A": "N-{n1} kalan devre — {n2} A",
   "set by the OSS J-tube · {n1} A at {n2} °C (datasheet)": "OSS J-tüpü belirler · {n2} °C'de {n1} A (veri sayfası)",

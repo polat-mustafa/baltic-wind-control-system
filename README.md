@@ -2,8 +2,10 @@
 
 **Learn offshore wind engineering by running a wind farm — from wind resource to grid connection, SCADA and condition monitoring.**
 
+**[→ Try the live demo](https://polat-mustafa.github.io/offshoreforge/)** — runs in the browser, no install.
+
 [![CI](https://github.com/polat-mustafa/offshoreforge/actions/workflows/ci.yml/badge.svg)](https://github.com/polat-mustafa/offshoreforge/actions/workflows/ci.yml)
-[![Docs](https://github.com/polat-mustafa/offshoreforge/actions/workflows/docs.yml/badge.svg)](https://polat-mustafa.github.io/offshoreforge/)
+[![Docs](https://github.com/polat-mustafa/offshoreforge/actions/workflows/docs.yml/badge.svg)](https://polat-mustafa.github.io/offshoreforge/docs/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 OffshoreForge is an open training platform for offshore wind engineers. Every screen is a working
@@ -160,7 +162,8 @@ The full method-to-source map is in [docs/references.md](docs/references.md).
 
 ## Documentation
 
-- [Documentation site](https://polat-mustafa.github.io/offshoreforge/)
+- [Project site and live demo](https://polat-mustafa.github.io/offshoreforge/)
+- [Documentation site](https://polat-mustafa.github.io/offshoreforge/docs/)
 - User guide: [EN](docs/en/user-guide.md) · [TR](docs/KULLANICI_KILAVUZU.md) · [PL](docs/pl/przewodnik-uzytkownika.md)
 - [Engineering rules and code style](docs/SKILL.md)
 - [Technical design basis](docs/Project_Roadmap.md)

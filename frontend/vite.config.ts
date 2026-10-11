@@ -4,6 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "path";
 
 export default defineConfig({
+  // Sub-path for the static GitHub Pages demo (e.g. /offshoreforge/demo/); "/" everywhere else
+  base: process.env.VITE_BASE ?? "/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: [

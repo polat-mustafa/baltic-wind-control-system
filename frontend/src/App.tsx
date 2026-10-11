@@ -50,7 +50,8 @@ const WindResourcePage = lazy(() => import("./pages/WindResourcePage"));
 
 function App() {
   return (
-    <BrowserRouter>
+    // BASE_URL: "/" normally, the sub-path in the GitHub Pages demo build (VITE_BASE)
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <ErrorBoundary>
         <Routes>
           <Route element={<AppShell />}>

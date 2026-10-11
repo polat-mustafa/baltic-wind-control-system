@@ -30,6 +30,7 @@ import TourWelcome from "../../tour/TourWelcome";
 import { Skeleton } from "../ui/Skeleton";
 import { StatusIndicator } from "../ui/StatusIndicator";
 import { navTrail } from "../../constants/navigation";
+import { DEMO } from "../../demo/demoKey";
 import { useFaultSync } from "../../hooks/useFaultSync";
 import { useLiveFleet } from "../../hooks/useLiveFleet";
 import { useLiveWeather } from "../../hooks/useLiveWeather";
@@ -134,6 +135,20 @@ export default function AppShell() {
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col">
+      {/* Static GitHub Pages demo: say what the visitor is looking at (demo/demoKey.ts) */}
+      {DEMO && (
+        <div className="flex shrink-0 items-center justify-center gap-3 bg-accent px-3 py-1 text-xs text-bg-primary">
+          <span>Static demo: engine results recorded for SB-510. New calculations need the backend.</span>
+          <a
+            href="https://github.com/polat-mustafa/offshoreforge"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold underline underline-offset-2 whitespace-nowrap"
+          >
+            Run it yourself ↗
+          </a>
+        </div>
+      )}
       {/* ── Top bar: menu (phones), brand, breadcrumb · project, alarm state, tour, palette, clock ── */}
       <header className="h-12 bg-bg-secondary border-b border-border-primary flex items-center justify-between gap-2 px-2 sm:px-4 shrink-0">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">

@@ -132,6 +132,20 @@ export function computeAEPCascade(
   });
 }
 
+/** AEP cascade of the own layout: positions in local metres, its turbine and site wind. */
+export function computeCustomAEPCascade(body: {
+  x_m: number[];
+  y_m: number[];
+  weibull_a: number;
+  weibull_k: number;
+  turbulence_intensity: number;
+  price_eur_mwh: number;
+  sector_frequencies: number[] | null;
+  turbine_model?: string;
+}): Promise<AEPCascadeResult> {
+  return post(`${BASE}/aep-cascade-custom`, { turbine_model: DEFAULT_TURBINE_ID, ...body });
+}
+
 // ── Blockage ────────────────────────────────────────────────────
 
 export function estimateBlockage(

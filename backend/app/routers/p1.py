@@ -36,6 +36,7 @@ from app.services.p1.aep_calculator import (
     Z_75,
     Z_90,
     Z_99,
+    AEPCascadeResult,
     UncertaintyComponent,
     aep_sensitivity,
     compute_aep_cascade,
@@ -265,6 +266,12 @@ class AEPCascadeRequest(BaseModel):
     weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
     weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
+    price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
+
+
+class CustomAEPCascadeRequest(CustomWakeRequest):
+    """AEP cascade of a user's own layout (own-project mode on the Wind Resource page)."""
+
     price_eur_mwh: float = Field(DEFAULT_PRICE_EUR_MWH, ge=10.0, le=300.0)
 
 
@@ -894,7 +901,44 @@ def aep_cascade(request: AEPCascadeRequest) -> AEPCascadeResponse:
         weibull_a=request.weibull_a,
         weibull_k=request.weibull_k,
     )
+    return _cascade_response(cascade)
 
+
+@router.post("/aep-cascade-custom", response_model=AEPCascadeResponse)
+async def aep_cascade_custom(request: CustomAEPCascadeRequest) -> AEPCascadeResponse:
+    """AEP cascade of arbitrary positions, turbine model and site wind (own project).
+
+    Same chain as /aep-cascade: PyWake wake (as /wake-analysis-custom) → blockage
+    of these positions with this turbine's curves → loss cascade, P-values, revenue.
+    """
+    if len(request.x_m) != len(request.y_m):
+        raise DomainValidationError("x_m and y_m must have the same length")
+    wake = await _run_custom_wake(request, request.x_m, request.y_m)
+    turbine = get_turbine(request.turbine_model)
+    blockage = estimate_blockage_loss_percent(
+        num_turbines=len(request.x_m),
+        x_positions=np.asarray(request.x_m, dtype=np.float64),
+        y_positions=np.asarray(request.y_m, dtype=np.float64),
+        rotor_diameter_m=turbine.rotor_diameter_m,
+        mean_wind_speed_ms=request.weibull_a * math.gamma(1 + 1 / request.weibull_k),
+        weibull_k=request.weibull_k,
+        model_id=turbine.id,
+    )
+    cascade = compute_aep_cascade(
+        gross_aep_gwh=float(wake["gross_aep_gwh"]),
+        wake_loss_fraction=float(wake["wake_loss_percent"]) / 100.0,
+        blockage_loss_fraction=blockage.blockage_loss_percent / 100.0,
+        num_turbines=len(request.x_m),
+        rated_power_kw=turbine.rated_kw,
+        price_eur_mwh=request.price_eur_mwh,
+        weibull_a=request.weibull_a,
+        weibull_k=request.weibull_k,
+        turbine_model=turbine.id,
+    )
+    return _cascade_response(cascade)
+
+
+def _cascade_response(cascade: AEPCascadeResult) -> AEPCascadeResponse:
     return AEPCascadeResponse(
         gross_aep_gwh=round(cascade.gross_aep_gwh, 2),
         net_aep_gwh=round(cascade.net_aep_gwh, 2),

@@ -99,10 +99,9 @@ export default {
   "{name} · {n1} × {n2} MW = {n3} MW": "{name} · {n1} × {n2} MW = {n3} MW",
   "This page analyses the SB-510 reference farm": "Bu sayfa SB-510 referans santralini inceler",
   "The farm this page models": "Bu sayfanın modellediği santral",
-  "This page studies the SB-510 reference farm.": "Bu sayfa SB-510 referans santralini inceler.",
-  "Open the Layout page": "Yerleşim sayfasını aç",
-  "The energy yield, wake loss and cost of your own layout are worked out from its turbine positions on the Layout page.":
-    "Kendi yerleşiminizin enerji üretimi, iz kaybı ve maliyeti, türbin konumlarından Yerleşim sayfasında hesaplanır.",
+  "The regular-versus-staggered comparison uses SB-510's reference layouts. Your own layout's alternatives are tried on the Layout page (PyWake-checked turbine moves).":
+    "Düzenli ve kaydırmalı yerleşim karşılaştırması SB-510'un referans yerleşimlerini kullanır. Kendi yerleşiminizin alternatifleri Yerleşim sayfasında denenir (PyWake ile doğrulanan türbin kaydırmaları).",
+  "own layout": "kendi yerleşim",
   "Every module open on the case study": "Vaka çalışmasında tüm modüller açık",
   "Modules open stage by stage": "Modüller aşama aşama açılır",
   "Start an empty project?": "Boş bir proje başlatılsın mı?",

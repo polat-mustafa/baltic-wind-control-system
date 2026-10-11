@@ -31,6 +31,8 @@ export interface TutorAnswer {
   answer: string;
   model: string;
   tools: TutorToolCall[];
+  /** The answer hit the token limit and ends mid-sentence. */
+  truncated?: boolean;
 }
 
 export interface TutorTurn {

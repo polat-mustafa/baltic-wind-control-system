@@ -87,6 +87,27 @@ def test_tool_loop_answers_with_the_backend_calculator() -> None:
     assert len(seen) == 2
 
 
+def test_a_cut_off_answer_is_flagged_and_reasoning_is_kept_short() -> None:
+    """finish_reason "length" reaches the learner; OpenRouter is asked to think briefly."""
+    seen: list[dict] = []
+
+    def provider(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        choice = {"message": {"content": "Sayfa, Polonya Baltık Denizi'ndeki 510 MW'l"}}
+        return httpx.Response(200, json={"choices": [choice | {"finish_reason": "length"}]})
+
+    out = tutor.chat(
+        _connected(),
+        [],
+        "bu sayfa nedir?",
+        {},
+        client=httpx.Client(transport=httpx.MockTransport(provider)),
+    )
+    assert out["truncated"] is True
+    assert seen[0]["max_tokens"] == tutor.MAX_ANSWER_TOKENS
+    assert seen[0]["reasoning"] == {"effort": "low", "exclude": True}
+
+
 def test_provider_errors_never_echo_the_key() -> None:
     def provider(request: httpx.Request) -> httpx.Response:
         return httpx.Response(401, text=f"invalid key {KEY}")

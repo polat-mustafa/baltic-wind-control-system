@@ -9,13 +9,85 @@
  * Web Speech API where available.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Mic, MessageCircleQuestion, Send, X } from "lucide-react";
 
 import * as api from "../../services/tutorApi";
 
-type Msg = api.TutorTurn & { tools?: api.TutorToolCall[] };
+const TutorMarkdown = lazy(() => import("./TutorMarkdown"));
+
+type Msg = api.TutorTurn & { tools?: api.TutorToolCall[]; truncated?: boolean };
+
+const TOOL_TITLES: Record<string, string> = {
+  plant_facts: "Plant facts",
+  turbine_operating_point: "Turbine operating point",
+  export_cable: "Export cable",
+  short_circuit: "Short circuit",
+};
+
+/** Unit from the last word of a result key (`rated_ms` → m/s); the backend names keys this way. */
+const UNITS: Record<string, string> = {
+  ms: "m/s", kw: "kW", mw: "MW", km: "km", m: "m", kv: "kV", ka: "kA", mva: "MVA", mvar: "Mvar",
+  kn: "kN", knm: "kN·m", rpm: "rpm", deg: "°", pu: "pu", pct: "%", hz: "Hz",
+};
+
+const round = (x: number) => Number(x.toPrecision(5));
+
+function fmt(v: unknown): string {
+  if (typeof v === "number") return String(round(v));
+  if (v && typeof v === "object") return JSON.stringify(v, (_, x) => (typeof x === "number" ? round(x) : x));
+  return String(v);
+}
+
+/** One tool result as label / value rows: `rotor_diameter_m: 241.35` → ["rotor diameter", "241.35 m"]. */
+function resultRows(result: Record<string, unknown>): [string, string][] {
+  return Object.entries(result).map(([key, v]) => {
+    const words = key.split("_");
+    const unit = words.length > 1 ? UNITS[words[words.length - 1]] : undefined;
+    return [(unit ? words.slice(0, -1) : words).join(" "), unit ? `${fmt(v)} ${unit}` : fmt(v)];
+  });
+}
+
+function ToolCalls({ tools, shown }: { tools: api.TutorToolCall[]; shown: Set<string> }) {
+  return (
+    <details className="mt-2 rounded-md border border-border-primary text-xs text-text-muted">
+      <summary className="cursor-pointer px-2 py-1">
+        Calculated with{" "}
+        {tools.map((t, j) => (
+          <span key={j}>
+            {j > 0 && " · "}
+            {TOOL_TITLES[t.name] ?? t.name}
+          </span>
+        ))}
+      </summary>
+      {tools.map((t, j) => {
+        const id = `${t.name}${t.arguments ?? ""}${JSON.stringify(t.result)}`;
+        const repeat = shown.has(id);
+        shown.add(id);
+        return (
+          <div key={j} className="border-t border-border-primary px-2 py-1.5">
+            <div className="font-mono text-[11px]" translate="no">
+              {t.name}({t.arguments && t.arguments !== "{}" ? t.arguments : ""})
+            </div>
+            {repeat ? (
+              <div className="italic">Same result as above.</div>
+            ) : (
+              <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5" translate="no">
+                {resultRows(t.result).map(([k, v]) => (
+                  <div key={k} className="contents">
+                    <dt className="text-text-muted">{k}</dt>
+                    <dd className="break-words font-mono text-text-primary">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+        );
+      })}
+    </details>
+  );
+}
 
 interface SpeechRecognitionLike {
   lang: string;
@@ -135,6 +207,7 @@ export default function TutorPanel() {
   const [listening, setListening] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const Speech = speechRecognition();
+  const shown = new Set<string>(); // tool results already shown in this conversation (filled while rendering)
 
   useEffect(() => {
     if (open) api.getStatus().then(setStatus).catch(() => setStatus({ connected: false, provider: "", provider_title: "", model: "" }));
@@ -151,7 +224,7 @@ export default function TutorPanel() {
     setBusy(true);
     try {
       const r = await api.ask(q, history, pageContext(pathname));
-      setMsgs((m) => [...m, { role: "assistant", content: r.answer, tools: r.tools }]);
+      setMsgs((m) => [...m, { role: "assistant", content: r.answer, tools: r.tools, truncated: r.truncated }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -222,21 +295,26 @@ export default function TutorPanel() {
                 turbine make at 9 m/s?”. Numbers come from the platform&apos;s calculators.
               </p>
             )}
-            {msgs.map((m, i) => (
-              <div key={i} className={m.role === "user" ? "ml-8 rounded-md bg-bg-tertiary p-2 text-text-primary" : "text-text-primary"}>
-                <div className="whitespace-pre-wrap">{m.content}</div>
-                {m.tools && m.tools.length > 0 && (
-                  <details className="mt-1 text-xs text-text-muted">
-                    <summary>Calculated with: {m.tools.map((t) => t.name).join(", ")}</summary>
-                    {m.tools.map((t, j) => (
-                      <pre key={j} className="mt-1 overflow-x-auto rounded bg-bg-tertiary p-1.5 font-mono">
-                        {t.name}({t.arguments ?? ""}) → {JSON.stringify(t.result, null, 1)}
-                      </pre>
-                    ))}
-                  </details>
-                )}
-              </div>
-            ))}
+            {msgs.map((m, i) =>
+              m.role === "user" ? (
+                <div key={i} className="ml-8 whitespace-pre-wrap rounded-md bg-bg-tertiary p-2 text-text-primary" translate="no">
+                  {m.content}
+                </div>
+              ) : (
+                <div key={i} className="text-text-secondary">
+                  {/* the model already answers in the learner's language: keep the page translator off it */}
+                  <div translate="no">
+                    <Suspense fallback={<div className="whitespace-pre-wrap">{m.content}</div>}>
+                      <TutorMarkdown text={m.content} />
+                    </Suspense>
+                  </div>
+                  {m.truncated && (
+                    <p className="mt-1 text-xs text-status-warning">The answer hit the length limit and was cut off — ask “continue”.</p>
+                  )}
+                  {m.tools && m.tools.length > 0 && <ToolCalls tools={m.tools} shown={shown} />}
+                </div>
+              ),
+            )}
             {busy && <p className="text-text-muted">Thinking…</p>}
             {error && <p className="text-xs text-status-alarm">{error}</p>}
             <div ref={end} />

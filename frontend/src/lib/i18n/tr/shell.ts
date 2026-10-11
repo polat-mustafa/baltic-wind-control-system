@@ -357,8 +357,8 @@ export default {
   "Battery Energy Storage System — 50 MW / 200 MWh LFP, FCR/FFR, ramp smoothing":
     "Batarya Enerji Depolama Sistemi — 50 MW / 200 MWh LFP, FCR/FFR, rampa yumuşatma",
   "Cable DTS": "Kablo DTS",
-  "Distributed Temperature Sensing — IEC 60287 dynamic ampacity, 108 km export cable":
-    "Dağıtık Sıcaklık Algılama — IEC 60287 dinamik akım taşıma kapasitesi, 108 km iletim kablosu",
+  "Distributed Temperature Sensing — IEC 60287 dynamic ampacity of the export cable":
+    "Dağıtık Sıcaklık Algılama — iletim kablosunun IEC 60287 dinamik akım taşıma kapasitesi",
   Market: "Piyasa",
   "One trading day: TGE day-ahead, PSE imbalance (CEN), two-sided CfD, BESS arbitrage":
     "Bir işlem günü: TGE gün öncesi, PSE dengesizlik (CEN), iki yönlü CfD, BESS arbitrajı",

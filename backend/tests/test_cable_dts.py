@@ -126,3 +126,39 @@ class TestAPI:
         assert (
             c.get("/api/v1/grid/cable/dts/profile", params={"current_a": 5000}).status_code == 422
         )
+
+
+class TestOwnFarm:
+    """The tab follows the modelled farm: route length, circuits and currents (X-Farm)."""
+
+    def test_n1_current_reproduces_the_sb510_load_flow(self):
+        """818 A per circuit at 510 MW → survivor ≈ 1 418 A (N-1 load flow: 1 438 A)."""
+        n1 = m.n1_current_a(818.0, 510.0, 2)
+        assert n1 == pytest.approx(1438.0, rel=0.02)
+        assert m.n1_current_a(400.0, 120.0, 1) is None
+
+    def test_route_zones_scale_with_length(self):
+        zones = m.route_zones(40.0)
+        assert [z[0] for z in zones] == [z[0] for z in m.ZONES]
+        assert zones[0][1:3] == (0.0, m.J_TUBE_END_KM) and zones[-1][2] == 40.0
+        assert zones[2][2] - zones[2][1] == pytest.approx(m.HDD_END_KM - m.HDD_START_KM)
+        assert m.route_zones(EXPORT_CABLE_LENGTH_KM) is m.ZONES
+
+    def test_endpoints_follow_x_farm(self):
+        from urllib.parse import quote
+
+        client = TestClient(app)
+        base = "/api/v1/grid/cable/dts"
+        sb = client.get(f"{base}/farm").json()
+        assert (sb["cable_length_km"], sb["num_circuits"], sb["normal_current_a"]) == (108, 2, 818)
+        farm = '{"name":"T","strings":[4,4],"export_km":40,"array_km":1.6}'
+        h = {"X-Farm": quote(farm)}
+        own = client.get(f"{base}/farm", headers=h).json()
+        assert own["capacity_mw"] == 120 and own["cable_length_km"] == 40
+        # 120 MW on one circuit: above the active current P/(√3·220 kV) ≈ 315 A, below 825 A
+        assert 315 < own["normal_current_a"] < 825
+        p = client.get(f"{base}/profile?current_a=400", headers=h).json()
+        assert p["cable_length_km"] == 40 and len(p["profile"]) == 400
+        assert p["export_capability_mva"] == pytest.approx(
+            math.sqrt(3) * 220 * p["rating_at_ambient_a"] / 1000 * own["num_circuits"], abs=1
+        )

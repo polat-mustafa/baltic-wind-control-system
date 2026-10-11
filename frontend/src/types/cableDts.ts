@@ -25,9 +25,22 @@ export interface RatingCurve {
   zones: { name: string; rating_a: number[] }[];
 }
 
+/** Export circuits of the modelled farm (GET /cable/dts/farm). */
+export interface DTSFarm {
+  name: string;
+  capacity_mw: number;
+  cable_length_km: number;
+  num_circuits: number;
+  /** Per-circuit current at full output, OSS end (full-load load flow) [A]. */
+  normal_current_a: number;
+  /** Survivor current after one circuit trips; null with one circuit. */
+  n1_current_a: number | null;
+}
+
 export interface DTSProfileResponse {
   current_a: number;
   ambient_temp_c: number;
+  num_circuits: number;
   cable_length_km: number;
   profile: DTSProfilePoint[];
   zones: DTSZone[];

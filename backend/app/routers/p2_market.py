@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Query
 
+from app.routers.farm_spec import FarmSpecDep
 from app.schemas.market import MarketDayRequest, MarketDayResponse
 from app.services.p2 import market as svc
 from app.services.p2 import pse_live
@@ -34,7 +35,7 @@ router = APIRouter(tags=["M11 Market Integration"])
     response_model=MarketDayResponse,
     summary="One trading day: day-ahead, imbalance, CfD, BESS",
 )
-async def market_day(body: MarketDayRequest) -> MarketDayResponse:
+async def market_day(body: MarketDayRequest, spec: FarmSpecDep) -> MarketDayResponse:
     """
     The farm offers its forecast at 0 PLN/MWh and curtails in negative-price
     periods (no CfD support there, CEEAG 2022 §122). Deviations from the
@@ -57,7 +58,7 @@ async def market_day(body: MarketDayRequest) -> MarketDayResponse:
             "price": prices,
             "wind": wind,
         }
-    return MarketDayResponse(**svc.simulate_day(**args))
+    return MarketDayResponse(**svc.simulate_day(**args, n_turbines=spec.num_turbines))
 
 
 @router.get("/pse/price-now", summary="RCE market price of the current quarter-hour (PSE)")

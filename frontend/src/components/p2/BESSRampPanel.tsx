@@ -13,7 +13,7 @@ import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
 
 export default function BESSRampPanel() {
-  const { ramp, rampLimitMwPerMin } = useBESSStore();
+  const { ramp, rampLimitMwPerMin, farmMw } = useBESSStore();
   const c = useChartPalette();
   if (!ramp) return null;
 
@@ -31,7 +31,7 @@ export default function BESSRampPanel() {
     <ChartWrapper
       title={`Ramp smoothing at ${rampLimitMwPerMin} MW/min`}
       headerRight={<EducationButton content={bessEducation} />}
-      footer={`${pass ? "✓" : "✗"} ${ramp.assessment}. Ramp limit is a plant setting agreed with the TSO (51 MW/min = 10 % of 510 MW per minute); wind trace illustrative.`}
+      footer={`${pass ? "✓" : "✗"} ${ramp.assessment}. Ramp limit is a plant setting agreed with the TSO (${rampLimitMwPerMin} MW/min = ${((100 * rampLimitMwPerMin) / farmMw).toFixed(0)} % of ${farmMw.toFixed(0)} MW per minute); wind trace illustrative.`}
     >
       <p className="text-xs text-text-muted mb-1">Active power [MW]</p>
       <Plot

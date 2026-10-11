@@ -53,6 +53,12 @@ export interface TourStep {
    * under an open 3D turbine viewer), so the spotlit element gets the clicks.
    */
   raise?: boolean;
+  /**
+   * Put the page in the state the step needs before its target is looked for
+   * (a stage, a tab): pages remember where the learner left them, so the
+   * target may not be on screen otherwise. Runs once, on the step's route.
+   */
+  prepare?: () => void;
 }
 
 export interface Tour {

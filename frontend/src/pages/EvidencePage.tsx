@@ -16,7 +16,7 @@ import { GAPS, KINDS, type EvidenceItem, type EvidenceKind } from "../data/evide
 
 const ITEMS = evidence.items as EvidenceItem[];
 
-const REPO = "https://github.com/polat-mustafa/baltic-wind-control-system/blob/main/";
+const REPO = "https://github.com/polat-mustafa/offshoreforge/blob/main/";
 
 /** Four significant figures, no trailing zeros: 1.043, 318.8, 0.0833. */
 function fmt(v: number): string {

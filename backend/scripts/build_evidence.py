@@ -9,7 +9,7 @@ later test run checks its recorded values against it.
 The ANDES rows need Linux; from the repo root, with the backend image built:
 
     docker run --rm -v "$PWD:/repo" -w /repo/backend -e EVIDENCE_WRITE=1
-        --entrypoint sh baltic-wind-control-system-backend
+        --entrypoint sh offshoreforge-backend
         -c "pip -q install pytest && python -m pytest -q tests/test_andes_dynamics.py"
 
 (one command line; the image only needs ANDES and the backend dependencies)

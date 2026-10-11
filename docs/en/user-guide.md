@@ -13,8 +13,8 @@
 ## 2. Run with Docker
 
 ```bash
-git clone https://github.com/polat-mustafa/baltic-wind-control-system.git
-cd baltic-wind-control-system
+git clone https://github.com/polat-mustafa/offshoreforge.git
+cd offshoreforge
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 docker compose up -d --build

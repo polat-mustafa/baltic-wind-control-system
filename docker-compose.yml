@@ -1,3 +1,6 @@
+# Fixed project name: container/volume names stay the same whatever the checkout folder is called
+name: offshoreforge
+
 services:
   postgres:
     image: timescale/timescaledb:latest-pg16

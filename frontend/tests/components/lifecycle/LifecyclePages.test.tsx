@@ -49,7 +49,7 @@ describe("lifecycle pages", () => {
   it("construction: runs the campaign for SB-510 and shows the milestones", async () => {
     vi.mocked(api.runCampaign).mockResolvedValue(install as CampaignResult);
     renderAt("/build", <ConstructionPage />);
-    expect(screen.getByText("SB-510 reference farm")).toBeTruthy();
+    expect(screen.getByText("SB-510 reference")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Simulate the campaign/ }));
     await screen.findByText("Full commercial operation");
     const sent = vi.mocked(api.runCampaign).mock.calls[0][0];
@@ -73,8 +73,8 @@ describe("lifecycle pages", () => {
   it("hand-over: register of the learner's project and the map layer", async () => {
     ownProject();
     renderAt("/build/handover", <HandoverPage />);
-    expect(screen.getByText("Your layout project")).toBeTruthy();
-    expect(screen.getByText(/As-built register — Your layout project/)).toBeTruthy();
+    expect(screen.getByText("Own project")).toBeTruthy();
+    expect(screen.getByText(/As-built register — Own project/)).toBeTruthy();
     const register = screen.getByText("Turbine register").closest("section") as HTMLElement;
     expect(within(register).getAllByRole("row")).toHaveLength(1 + 8);
     expect(screen.getAllByText(/BAY-OSS-66-01/).length).toBeGreaterThan(0);

@@ -85,9 +85,12 @@ export interface FleetSite {
 export const turbineLabel = (f: Fleet): string =>
   f.source === "sb510" ? '15 MW "V236 class" (IEA-15-240-RWT model)' : "15 MW IEA-15-240-RWT";
 
+/** The own project's display name: its saved name, or "Own project" while it has none. */
+export const projectTitle = (name: string | undefined): string =>
+  name && name !== "Untitled project" ? name : "Own project";
+
 /** Farm name for headers: the reference case, or the own project's name. */
-export const farmTitle = (f: Fleet): string =>
-  f.source === "sb510" ? "SB-510 reference" : f.name && f.name !== "Untitled project" ? f.name : "Own project";
+export const farmTitle = (f: Fleet): string => (f.source === "sb510" ? "SB-510 reference" : projectTitle(f.name));
 
 /** 66 kV busbar section of string i (0-based): the first `section_a_strings` on A. */
 export const sectionOf = (f: Fleet, i: number): "A" | "B" => (i < f.net.section_a_strings ? "A" : "B");

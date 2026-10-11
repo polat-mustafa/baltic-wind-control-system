@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { BarChart2, FlaskConical, Wrench, Wind } from "lucide-react";
 
 import AEPExplainer from "../components/p1/AEPExplainer";
+import ProjectP1Note from "../components/p1/ProjectP1Note";
 import WindResourceDashboard from "../components/p1/WindResourceDashboard";
 import SensitivityPanel from "../components/p1/SensitivityPanel";
 import FarmComparisonDashboard from "../components/p1/FarmComparisonDashboard";
@@ -60,8 +61,9 @@ export default function WindResourcePage() {
     <div className="space-y-5">
       <PageHeader
         title="Wind Resource & AEP"
+        farm="reference"
         description="The wind climate at the site, PyWake wake losses and the farm's energy yield with its uncertainty (P50 / P90)."
-        meta={turbineSpec ? `34 × 15 MW IEA-15-240-RWT · Baltic Sea · PyWake Niayifar Gaussian · D ${turbineSpec.rotor_diameter_m} m · hub ${turbineSpec.hub_height_m} m` : undefined}
+        meta={turbineSpec ? `IEA-15-240-RWT · Baltic Sea · PyWake Niayifar Gaussian · D ${turbineSpec.rotor_diameter_m} m · hub ${turbineSpec.hub_height_m} m` : undefined}
         actions={
           <>
             <div className="flex items-center gap-2 shrink-0">
@@ -109,6 +111,8 @@ export default function WindResourcePage() {
           </>
         }
       />
+
+      <ProjectP1Note />
 
       <PageTabs tabs={TABS} value={activeTab} onChange={setActiveTab} />
 

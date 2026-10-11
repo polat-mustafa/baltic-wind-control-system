@@ -220,6 +220,7 @@ export default function HandoverPage() {
     <div className="space-y-6">
       <PageHeader
         title="Hand-over to operation"
+        farm="live"
         description={
           <>
             Commissioning proves the plant works; hand-over makes someone else responsible for it. The contractor and the project team pass

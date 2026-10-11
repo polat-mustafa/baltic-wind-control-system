@@ -13,7 +13,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { useScadaStore } from "../../store/scadaStore";
 import { usePlantSnapshot } from "../../store/liveGridStore";
-import { useFleet } from "../../lib/fleet";
+import { farmTitle, useFleet } from "../../lib/fleet";
 import { cn } from "../../lib/utils";
 /** PSE operating band at the 400 kV POC: 380–420 kV (±5 %). */
 const V_POC_MIN_KV = 380;
@@ -83,7 +83,7 @@ export default function PlantOverviewBar({ trailing }: { trailing?: ReactNode })
     >
       <div className="hidden sm:flex flex-col justify-center px-3 border-r border-border-primary">
         <span className="text-xs font-semibold text-text-primary leading-tight whitespace-nowrap">
-          {fleet.name} ({fleet.net.total_capacity_mw.toFixed(0)} MW)
+          {farmTitle(fleet)} ({fleet.net.total_capacity_mw.toFixed(0)} MW)
         </span>
         <span className="text-xs font-mono text-text-muted tabular-nums whitespace-nowrap">{utc}</span>
       </div>

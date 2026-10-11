@@ -7,8 +7,11 @@ Writes app/services/p1/validation_data/roedsand2/:
 - ``layout.csv`` — the 90 Siemens SWT-2.3-93 positions from OpenStreetMap
   (Overpass API, ``generator:source=wind`` west of 11.64° E; Nysted / Rødsand 1 lies east
   of it). © OpenStreetMap contributors, ODbL 1.0.
-- ``era5_2025.csv.gz`` — ERA5 hourly 100 m wind speed and direction for 2025 at the farm
-  centroid (Open-Meteo archive API, ``models=era5``; Copernicus C3S, CC BY 4.0).
+- ``era5.csv.gz`` — ERA5 hourly 100 m wind speed and direction at the farm centroid,
+  ``START`` … ``END`` (the months the metered output covers; Open-Meteo archive API,
+  ``models=era5``; Copernicus C3S, CC BY 4.0).
+
+An existing ``layout.csv`` is kept (OSM edits would otherwise move the farm between runs).
 
 The measured output of the same farm is the ENTSO-E 16.1.A series already bundled for
 P4 (``app/services/p4/data/entsoe_roedsand2.csv.gz``).
@@ -32,6 +35,7 @@ ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
 HEADERS = {"User-Agent": "OffshoreForge-validation/1.0 (educational)", "Accept": "application/json"}
 BBOX = (54.50, 11.35, 54.62, 11.64)  # S, W, N, E — Rødsand II only
 N_TURBINES = 90
+START, END = "2024-06-01", "2026-09-30"
 
 
 def _get(url: str, data: bytes | None = None, timeout: int = 180) -> bytes:
@@ -64,8 +68,8 @@ def fetch_era5(lat: float, lon: float) -> dict[str, list]:
     q = {
         "latitude": f"{lat:.4f}",
         "longitude": f"{lon:.4f}",
-        "start_date": "2025-01-01",
-        "end_date": "2025-12-31",
+        "start_date": START,
+        "end_date": END,
         "hourly": "wind_speed_100m,wind_direction_100m",
         "wind_speed_unit": "ms",
         "timezone": "GMT",
@@ -78,15 +82,20 @@ def fetch_era5(lat: float, lon: float) -> dict[str, list]:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    layout = fetch_layout()
-    with (OUT / "layout.csv").open("w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["osm_id", "lat", "lon"])
-        w.writerows(layout)
+    if (OUT / "layout.csv").exists():
+        with (OUT / "layout.csv").open(encoding="utf-8") as f:
+            rows = csv.DictReader(f)
+            layout = [(int(r["osm_id"]), float(r["lat"]), float(r["lon"])) for r in rows]
+    else:
+        layout = fetch_layout()
+        with (OUT / "layout.csv").open("w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(["osm_id", "lat", "lon"])
+            w.writerows(layout)
     lat = sum(r[1] for r in layout) / len(layout)
     lon = sum(r[2] for r in layout) / len(layout)
     h = fetch_era5(lat, lon)
-    with gzip.open(OUT / "era5_2025.csv.gz", "wt", newline="", encoding="utf-8") as f:
+    with gzip.open(OUT / "era5.csv.gz", "wt", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["time_utc", "ws100", "wd100"])
         w.writerows(zip(h["time"], h["wind_speed_100m"], h["wind_direction_100m"], strict=True))

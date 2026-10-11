@@ -42,6 +42,9 @@ Route zones (km from the OSS; geometry: frontend constants/windFarmLayout.ts)
 - HDD landfall 78.7–79.5 km at Darłówko-Wschodnie (coast at 79.3 km): 10–15 m
   under beach and dunes.
 - Land cable 79.5–108 km: direct-buried to the onshore substation at Krzemienica.
+Another farm's route (own project, ``route_zones``): its export length, the
+landfall at the same share of the route as SB-510's (73 %) — an assumption,
+since only the total length is known — and the same J-tube and HDD lengths.
 One ambient temperature applies to the whole route — a simplification (air,
 seabed and soil differ in reality). The current is taken as uniform; in a
 108 km HVAC cable the charging current (≈ 820 A at full length) makes it vary
@@ -110,12 +113,31 @@ R_EXT_J_TUBE = (T_CONDUCTOR_MAX - T_AMBIENT_DESIGN - (_W_C_RATED + W_DIELECTRIC 
 )  # ≈ 3.67 K·m/W
 
 
-def _zone(km: float) -> tuple[str, float, float, float, float]:
-    return next((z for z in ZONES if km <= z[2]), ZONES[-1])
+Zone = tuple[str, float, float, float, float]
 
 
-def _r_ext(km: float) -> float:
-    name, *_, rel, _tau = _zone(km)
+def route_zones(length_km: float = CABLE_LENGTH_KM) -> tuple[Zone, ...]:
+    """Zones of a route of this length: SB-510's, or its shape scaled (see module docstring)."""
+    if length_km == CABLE_LENGTH_KM:
+        return ZONES
+    hdd = HDD_END_KM - HDD_START_KM
+    landfall = length_km * HDD_START_KM / CABLE_LENGTH_KM
+    start = max(J_TUBE_END_KM + 0.1, min(landfall, length_km - hdd))
+    end = min(start + hdd, length_km)
+    bounds = ((0.0, J_TUBE_END_KM), (J_TUBE_END_KM, start), (start, end), (end, length_km))
+    return tuple(
+        (name, round(a, 2), round(b, 2), rel, tau)
+        for (name, *_r, rel, tau), (a, b) in zip(ZONES, bounds, strict=True)
+        if b > a
+    )
+
+
+def _zone(km: float, zones: tuple[Zone, ...] = ZONES) -> Zone:
+    return next((z for z in zones if km <= z[2]), zones[-1])
+
+
+def _r_ext(km: float, zones: tuple[Zone, ...] = ZONES) -> float:
+    name, *_, rel, _tau = _zone(km, zones)
     r = R_EXT_J_TUBE * rel
     if name == "Subsea burial":
         r *= 1 + 0.05 * math.sin(2 * math.pi * km / 8.0)  # burial depth variation
@@ -147,21 +169,46 @@ def _route_rating(ambient_c: float) -> tuple[float, str]:
     return min((rating_a(ambient_c, R_EXT_J_TUBE * z[3]), z[0]) for z in ZONES)
 
 
-def export_capability_mva(current_a: float) -> float:
-    """Apparent power both circuits carry at current_a each [MVA]."""
-    return math.sqrt(3) * U_KV * current_a / 1000.0 * NUM_CIRCUITS
+def export_capability_mva(current_a: float, num_circuits: int = NUM_CIRCUITS) -> float:
+    """Apparent power all circuits carry at current_a each [MVA]."""
+    return math.sqrt(3) * U_KV * current_a / 1000.0 * num_circuits
 
 
-def simulate_dts(current_a: float = 818.0, ambient_temp_c: float = 15.0) -> dict[str, Any]:
+def n1_current_a(normal_a: float, capacity_mw: float, num_circuits: int) -> float | None:
+    """
+    Survivor current after one circuit trips, before the runback [A].
+
+    Split the normal per-circuit current into an active part I_p = P/(√3·U·n)
+    and the rest (charging, reactive) I_q = √(I² − I_p²). The survivors take
+    the whole P; each keeps its own charging current:
+        I_N-1 = √((n·I_p/(n − 1))² + I_q²)
+    SB-510: 818 A → 1 418 A (the N-1 load flow gives 1 438 A; P taken at the
+    220 kV side without array losses). None with a single circuit.
+    """
+    if num_circuits < 2:
+        return None
+    i_p = capacity_mw / (math.sqrt(3) * U_KV * num_circuits) * 1000.0
+    i_q2 = max(normal_a**2 - i_p**2, 0.0)
+    return math.hypot(num_circuits * i_p / (num_circuits - 1), math.sqrt(i_q2))
+
+
+def simulate_dts(
+    current_a: float = 818.0,
+    ambient_temp_c: float = 15.0,
+    length_km: float = CABLE_LENGTH_KM,
+    num_circuits: int = NUM_CIRCUITS,
+) -> dict[str, Any]:
     """DTS profile of one circuit: fibre reading and conductor estimate every 100 m."""
     rng = random.Random(int(current_a * 100 + ambient_temp_c * 10))
-    step = CABLE_LENGTH_KM / N_POINTS
+    zones_ = route_zones(length_km)
+    n_points = max(10, round(length_km * 10))
+    step = length_km / n_points
     profile: list[dict[str, Any]] = []
     zone_max: dict[str, dict[str, float]] = {}
-    for i in range(N_POINTS):
+    for i in range(n_points):
         km = round((i + 0.5) * step, 3)
-        name = _zone(km)[0]
-        t_c, t_f = steady_temps(current_a, ambient_temp_c, _r_ext(km))
+        name = _zone(km, zones_)[0]
+        t_c, t_f = steady_temps(current_a, ambient_temp_c, _r_ext(km, zones_))
         noise = rng.gauss(0.0, 0.3)  # DTS reading noise σ = 0.3 °C (assumed)
         point: dict[str, Any] = {
             "distance_km": km,
@@ -184,7 +231,8 @@ def simulate_dts(current_a: float = 818.0, ambient_temp_c: float = 15.0) -> dict
             "max_fibre_c": zone_max[name]["f"],
             "rating_a": round(rating_a(ambient_temp_c, R_EXT_J_TUBE * rel), 0),
         }
-        for name, start, end, rel, _tau in ZONES
+        for name, start, end, rel, _tau in zones_
+        if name in zone_max
     ]
     hottest = max(profile, key=lambda p: p["conductor_temp_c"])
     alarm_km = round(sum(step for p in profile if p["conductor_temp_c"] >= T_ALARM), 1)
@@ -203,7 +251,8 @@ def simulate_dts(current_a: float = 818.0, ambient_temp_c: float = 15.0) -> dict
     return {
         "current_a": current_a,
         "ambient_temp_c": ambient_temp_c,
-        "cable_length_km": CABLE_LENGTH_KM,
+        "cable_length_km": length_km,
+        "num_circuits": num_circuits,
         "profile": profile,
         "zones": zones,
         "max_conductor_c": t_max,
@@ -214,7 +263,7 @@ def simulate_dts(current_a: float = 818.0, ambient_temp_c: float = 15.0) -> dict
         "static_rating_a": STATIC_RATING_A,
         "rating_at_ambient_a": round(route_rating, 0),
         "limiting_zone": limiting_zone,
-        "export_capability_mva": round(export_capability_mva(route_rating), 0),
+        "export_capability_mva": round(export_capability_mva(route_rating, num_circuits), 0),
         "rating_curve": rating_curve(),
         "assessment": assessment,
     }

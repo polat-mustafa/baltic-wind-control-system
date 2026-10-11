@@ -81,10 +81,11 @@ SCENARIOS: dict[str, dict[str, Any]] = {
 }  # fmt: skip
 
 
-def farm_mw(wind_ms: np.ndarray) -> np.ndarray:
-    """Farm output [MW] from hub-height wind: 34 × reference (IEA 15 MW) curve × losses, 0 ≤ P ≤ 510."""
+def farm_mw(wind_ms: np.ndarray, n_turbines: int = N_TURBINES) -> np.ndarray:
+    """Farm output [MW] from hub-height wind: n × reference (IEA 15 MW) curve × losses, 0 ≤ P ≤ n × 15."""
     p = np.asarray(get_power_curve_kw(wind_ms), dtype=float)
-    return np.clip(N_TURBINES * p / 1000.0 * LOSS_FACTOR, 0.0, RATED_MW)
+    rated = n_turbines * RATED_MW / N_TURBINES
+    return np.clip(n_turbines * p / 1000.0 * LOSS_FACTOR, 0.0, rated)
 
 
 def bess_arbitrage(price: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
@@ -129,6 +130,7 @@ def simulate_day(
     include_cfd: bool = True,
     include_bess: bool = True,
     day: dict[str, Any] | None = None,
+    n_turbines: int = N_TURBINES,
 ) -> dict[str, Any]:
     """
     Schedule, settle and sum one day: day-ahead sales, imbalance at CEN,
@@ -146,8 +148,8 @@ def simulate_day(
     for t in range(24):
         prev = err[t - 1] if t else 0.0
         err[t] = 0.8 * prev + forecast_sigma_ms * np.sqrt(1 - 0.8**2) * rng.standard_normal()
-    forecast = farm_mw(wind_fc)
-    available = farm_mw(np.maximum(wind_fc + err, 0.0))
+    forecast = farm_mw(wind_fc, n_turbines)
+    available = farm_mw(np.maximum(wind_fc + err, 0.0), n_turbines)
 
     negative = price < 0
     bid = np.where(negative, 0.0, forecast)
@@ -185,6 +187,7 @@ def simulate_day(
     return {
         "scenario": scenario,
         "scenario_label": sc["label"],
+        "capacity_mw": n_turbines * RATED_MW / N_TURBINES,
         "hours": [
             {
                 "hour": h,

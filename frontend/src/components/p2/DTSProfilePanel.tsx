@@ -1,5 +1,5 @@
 /**
- * DTS profile — fibre reading and conductor estimate along the 108 km route,
+ * DTS profile — fibre reading and conductor estimate along the export route,
  * zone bands, the 80 °C alarm setting and the 90 °C XLPE limit; zone table.
  */
 

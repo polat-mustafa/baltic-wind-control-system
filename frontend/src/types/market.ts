@@ -34,6 +34,8 @@ export interface MarketHour {
 export interface MarketDayResponse {
   scenario: MarketScenario;
   scenario_label: string;
+  /** Farm rating [MW]: SB-510, or the own design (X-Farm header). */
+  capacity_mw: number;
   hours: MarketHour[];
   energy_mwh: number;
   curtailed_mwh: number;

@@ -11,7 +11,8 @@ import { useEffect } from "react";
 import { motion, MotionConfig } from "framer-motion";
 
 import { bessEducation } from "../../constants/education/p2";
-import { FFR_THRESHOLD_HZ, FREQUENCY_EVENTS, type FrequencyEvent, useBESSStore } from "../../store/bessStore";
+import { useFleet } from "../../lib/fleet";
+import { FFR_THRESHOLD_HZ, FREQUENCY_EVENTS, farmDefaults, type FrequencyEvent, useBESSStore } from "../../store/bessStore";
 import { EducationButton } from "../ui/EducationButton";
 import { KPICard } from "../ui/KPICard";
 import { Slider } from "../ui/Slider";
@@ -25,8 +26,8 @@ const item = {
 };
 
 function DispatchCard() {
-  const { dispatch: d, pTargetMw, pAvailableMw, setParams } = useBESSStore();
-  const bar = (mw: number) => `${Math.min(100, (Math.abs(mw) / 560) * 100)}%`;
+  const { dispatch: d, pTargetMw, pAvailableMw, farmMw, setParams } = useBESSStore();
+  const bar = (mw: number) => `${Math.min(100, (Math.abs(mw) / (farmMw + 50)) * 100)}%`;
   const rows: [string, number, string][] = d
     ? [
         ["Wind available", pAvailableMw, "bg-text-muted/40"],
@@ -42,13 +43,13 @@ function DispatchCard() {
         <EducationButton content={bessEducation} />
       </div>
       <div className="flex flex-wrap gap-4">
-        <Slider label="TSO set-point" value={pTargetMw} display={`${pTargetMw} MW`} min={0} max={560} step={5} onChange={(v) => setParams({ pTargetMw: v })} />
+        <Slider label="TSO set-point" value={pTargetMw} display={`${pTargetMw} MW`} min={0} max={farmMw + 50} step={5} onChange={(v) => setParams({ pTargetMw: v })} />
         <Slider
           label="Wind available"
           value={pAvailableMw}
           display={`${pAvailableMw} MW`}
           min={0}
-          max={510}
+          max={farmMw}
           step={5}
           onChange={(v) => setParams({ pAvailableMw: v })}
         />
@@ -81,7 +82,12 @@ function DispatchCard() {
 export default function BESSDashboard() {
   const s = useBESSStore();
   const { fcr, ramp, degradation, error, setParams, runFcr, runRamp, runDegradation, runDispatch } = s;
-  const { event, fcrCapacityMw, ffrEnabled, initialSocPct, rampLimitMwPerMin, annualCycles, avgDodPct, pTargetMw, pAvailableMw } = s;
+  const { event, fcrCapacityMw, ffrEnabled, initialSocPct, rampLimitMwPerMin, annualCycles, avgDodPct, pTargetMw, pAvailableMw, farmMw } = s;
+  // The farm's rating sets the wind trace, the example ramp limit and the dispatch case
+  const capMw = useFleet().net.total_capacity_mw;
+  useEffect(() => {
+    if (capMw !== farmMw) setParams(farmDefaults(capMw));
+  }, [capMw, farmMw, setParams]);
 
   useEffect(() => {
     const id = setTimeout(() => void runFcr(), 250);
@@ -90,7 +96,7 @@ export default function BESSDashboard() {
   useEffect(() => {
     const id = setTimeout(() => void runRamp(), 250);
     return () => clearTimeout(id);
-  }, [rampLimitMwPerMin, initialSocPct, runRamp]);
+  }, [rampLimitMwPerMin, initialSocPct, farmMw, runRamp]);
   useEffect(() => {
     const id = setTimeout(() => void runDegradation(), 250);
     return () => clearTimeout(id);
@@ -145,8 +151,8 @@ export default function BESSDashboard() {
               label="POC ramp limit"
               value={rampLimitMwPerMin}
               display={`${rampLimitMwPerMin} MW/min`}
-              min={10}
-              max={100}
+              min={5}
+              max={Math.max(100, Math.round(farmMw / 5))}
               step={1}
               onChange={(v) => setParams({ rampLimitMwPerMin: v })}
             />

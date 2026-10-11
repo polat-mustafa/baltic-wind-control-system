@@ -7,8 +7,6 @@
 import { useGridStore, useNetwork } from "../../store/gridStore";
 import { StageDone } from "../project/StageDone";
 
-/** Tabs that still model SB-510 (their data follow its real route, battery and market). */
-const SB510_TABS = "Protection, BESS, Cable DTS and Market";
 
 function freezeNeed(): string | null {
   const { networkSpec, loadFlowResults, analysisRun } = useGridStore.getState();
@@ -47,7 +45,10 @@ export default function ProjectGridNote() {
             <li key={t}>{t}</li>
           ))}
         </ul>
-        <p className="mt-1 text-xs text-text-muted">The {SB510_TABS} tabs still show SB-510.</p>
+        <p className="mt-1 text-xs text-text-muted">
+          The Protection tab still shows SB-510's relay settings (CT ratios and pick-ups of its OSS); BESS, Cable DTS and Market follow
+          your farm's rating and export circuits.
+        </p>
       </div>
       <StageDone milestone="design" title="Design freeze" need={freezeNeed()} next={{ path: "/build", label: "Construction" }} />
     </div>

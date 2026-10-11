@@ -50,6 +50,7 @@ class MarketHour(BaseModel):
 class MarketDayResponse(BaseModel):
     scenario: Scenario
     scenario_label: str
+    capacity_mw: float = Field(description="Farm rating [MW] (SB-510 or the X-Farm design)")
     hours: list[MarketHour]
     energy_mwh: float
     curtailed_mwh: float

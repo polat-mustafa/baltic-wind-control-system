@@ -69,7 +69,7 @@ const TABS: PageTab<Tab>[] = [
   { id: "protection",    label: "Protection",       Icon: ShieldCheck,   title: "Relay coordination, TCC curves, selectivity grading (IEC 60255)" },
   { id: "power-quality", label: "Power Quality",    Icon: Activity,      title: "Harmonics, resonance scan, flicker at the 400 kV POC (IEC 61000-3-6 / 3-7)" },
   { id: "bess",          label: "BESS",             Icon: Battery,       title: "Battery Energy Storage System — 50 MW / 200 MWh LFP, FCR/FFR, ramp smoothing" },
-  { id: "cable-dts",     label: "Cable DTS",        Icon: Cable,         title: "Distributed Temperature Sensing — IEC 60287 dynamic ampacity, 108 km export cable" },
+  { id: "cable-dts",     label: "Cable DTS",        Icon: Cable,         title: "Distributed Temperature Sensing — IEC 60287 dynamic ampacity of the export cable" },
   { id: "market",        label: "Market",           Icon: TrendingUp,    title: "One trading day: TGE day-ahead, PSE imbalance (CEN), two-sided CfD, BESS arbitrage" },
   { id: "advanced",      label: "Security & Dynamics", Icon: FlaskConical, title: "N-1 outages as AC load flows with PPC runback; ANDES RMS simulation of LFSM-O and fault ride-through (WECC generic models)" },
   { id: "planning",      label: "Planning & P2X",   Icon: Network,       title: "HVAC vs HVDC export over distance, electrolyser on surplus wind" },

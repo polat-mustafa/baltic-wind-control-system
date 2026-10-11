@@ -19,6 +19,7 @@ beforeEach(() => {
   vi.mocked(api.simMarketDay).mockResolvedValue({
     scenario: "windy_spring_sunday",
     scenario_label: "Windy spring Sunday",
+    capacity_mw: 510,
     hours: [],
     energy_mwh: 6951.5,
     curtailed_mwh: 1697.2,

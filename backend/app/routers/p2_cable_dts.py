@@ -13,7 +13,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
-from app.schemas.cable_dts import DTSProfileResponse, DTSTransientRequest, DTSTransientResponse
+from app.routers.farm_spec import FarmSpecDep
+from app.schemas.cable_dts import (
+    DTSFarmResponse,
+    DTSProfileResponse,
+    DTSTransientRequest,
+    DTSTransientResponse,
+)
 from app.services.p2 import cable_dts as svc
 
 router = APIRouter(prefix="/cable", tags=["M10 Cable DTS Thermal Monitoring"])
@@ -25,6 +31,7 @@ router = APIRouter(prefix="/cable", tags=["M10 Cable DTS Thermal Monitoring"])
     summary="DTS profile and steady-state rating of one export circuit",
 )
 def get_dts_profile(
+    spec: FarmSpecDep,
     current_a: float = Query(818.0, ge=0.0, le=1600.0),
     ambient_temp_c: float = Query(15.0, ge=-5.0, le=35.0),
 ) -> DTSProfileResponse:
@@ -39,7 +46,37 @@ def get_dts_profile(
     at 90 °C; the OSS J-tube (cable in air) sets it. 825 A at 20 °C (datasheet) is the
     calibration point.
     """
-    return DTSProfileResponse(**svc.simulate_dts(current_a, ambient_temp_c))
+    return DTSProfileResponse(
+        **svc.simulate_dts(current_a, ambient_temp_c, spec.export_length_km, spec.num_export_cables)
+    )
+
+
+@router.get(
+    "/dts/farm",
+    response_model=DTSFarmResponse,
+    summary="Export circuits of the modelled farm and their full-output currents",
+)
+async def get_dts_farm(spec: FarmSpecDep) -> DTSFarmResponse:
+    """
+    Route length and circuits of the farm (SB-510, or the own project's design),
+    the per-circuit current at full output from the full-load load flow (export
+    cable loading × the 825 A datasheet rating) and the N-1 survivor current
+    (``cable_dts.n1_current_a``).
+    """
+    from app.routers.p2 import _cached_load_flow  # p2 mounts this router
+
+    lf = await _cached_load_flow("full_load", True, spec)
+    export = next(line for line in lf["lines"] if line["name"] == "Export_220kV")
+    normal = export["loading_percent"] / 100.0 * svc.STATIC_RATING_A
+    n1 = svc.n1_current_a(normal, spec.capacity_mw, spec.num_export_cables)
+    return DTSFarmResponse(
+        name=spec.name,
+        capacity_mw=spec.capacity_mw,
+        cable_length_km=spec.export_length_km,
+        num_circuits=spec.num_export_cables,
+        normal_current_a=round(normal),
+        n1_current_a=None if n1 is None else round(n1),
+    )
 
 
 @router.post(

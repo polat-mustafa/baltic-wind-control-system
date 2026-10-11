@@ -43,6 +43,7 @@ class DTSProfileResponse(BaseModel):
     current_a: float = Field(description="Per-circuit current [A]")
     ambient_temp_c: float
     cable_length_km: float
+    num_circuits: int = 2
     profile: list[DTSProfilePoint] = Field(description="One reading per 100 m")
     zones: list[DTSZone]
     max_conductor_c: float
@@ -56,6 +57,21 @@ class DTSProfileResponse(BaseModel):
     export_capability_mva: float = Field(description="Both circuits at the route rating")
     rating_curve: RatingCurve
     assessment: str
+
+
+class DTSFarmResponse(BaseModel):
+    """The export circuits of the modelled farm and their currents at full output."""
+
+    name: str
+    capacity_mw: float
+    cable_length_km: float
+    num_circuits: int
+    normal_current_a: float = Field(
+        description="Per-circuit current at full output, OSS end (full-load load flow) [A]"
+    )
+    n1_current_a: float | None = Field(
+        description="Survivor current after one circuit trips, before the runback [A]"
+    )
 
 
 class DTSTransientRequest(BaseModel):

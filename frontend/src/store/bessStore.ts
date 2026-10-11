@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 
+import { liveFleet } from "../lib/fleet";
 import * as api from "../services/bessApi";
 import type {
   BESSDispatchResponse,
@@ -45,7 +46,7 @@ export const FREQUENCY_EVENTS = {
 } as const;
 export type FrequencyEvent = keyof typeof FREQUENCY_EVENTS;
 
-/** Wind output during a front passage, 1 min steps, 120 min [MW]: two 65 MW/min ramps. */
+/** Wind output of SB-510 (510 MW) during a front passage, 1 min steps, 120 min [MW]: two 65 MW/min ramps. */
 const WIND_KEYPOINTS: [number, number][] = [
   [0, 260], [20, 260], [23, 455], [45, 455], [53, 300], [70, 300], [73, 105], [95, 105], [119, 250],
 ];
@@ -57,7 +58,23 @@ export const WIND_TRACE_MW = Array.from({ length: 120 }, (_, i) => {
   return +(base + 12 * Math.sin(i / 3)).toFixed(1);
 });
 
+const SB510_MW = 510;
+
+/** The front-passage trace scaled to a farm of `capMw` (same shape, same ramps in % of the farm per minute). */
+export const windTrace = (capMw: number): number[] =>
+  capMw === SB510_MW ? WIND_TRACE_MW : WIND_TRACE_MW.map((p) => +((p * capMw) / SB510_MW).toFixed(1));
+
+/** Farm-dependent defaults: ramp limit 10 % of the farm per minute (example setting), dispatch case at ≈ 59 / 75 %. */
+export const farmDefaults = (capMw: number) => ({
+  farmMw: capMw,
+  rampLimitMwPerMin: Math.max(5, Math.round(capMw / 10)),
+  pTargetMw: 5 * Math.round((capMw * 0.59) / 5),
+  pAvailableMw: 5 * Math.round((capMw * 0.745) / 5),
+});
+
 interface Params {
+  /** Farm rating the farm-dependent defaults were set for [MW]. */
+  farmMw: number;
   event: FrequencyEvent;
   fcrCapacityMw: number;
   ffrEnabled: boolean;
@@ -105,11 +122,9 @@ export const useBESSStore = create<BESSState>((set, get) => {
     fcrCapacityMw: 50,
     ffrEnabled: false,
     initialSocPct: 50,
-    rampLimitMwPerMin: 51,
     annualCycles: 365,
     avgDodPct: 70,
-    pTargetMw: 300,
-    pAvailableMw: 380,
+    ...farmDefaults(SB510_MW),
 
     setParams: (p) => set(p),
     runFcr: () => {
@@ -127,7 +142,7 @@ export const useBESSStore = create<BESSState>((set, get) => {
       const { rampLimitMwPerMin, initialSocPct } = get();
       return guard(async () => ({
         ramp: await api.simRampSmoothing({
-          wind_power_trace_mw: WIND_TRACE_MW,
+          wind_power_trace_mw: windTrace(liveFleet().net.total_capacity_mw),
           max_ramp_rate_mw_per_min: rampLimitMwPerMin,
           initial_soc_pct: initialSocPct,
         }),

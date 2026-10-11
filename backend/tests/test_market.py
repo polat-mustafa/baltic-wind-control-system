@@ -115,3 +115,12 @@ class TestAPI:
         assert r.status_code == 200
         assert len(r.json()["hours"]) == 24
         assert c.post("/api/v1/grid/market/day", json={"scenario": "x"}).status_code == 422
+
+
+def test_day_scales_with_the_farm():
+    """A farm of n turbines: output ≤ n × 15 MW, energy in proportion to its size."""
+    sb = m.simulate_day("winter_weekday", include_bess=False)
+    small = m.simulate_day("winter_weekday", include_bess=False, n_turbines=8)
+    assert small["capacity_mw"] == 120.0 and sb["capacity_mw"] == 510.0
+    assert all(h["metered_mwh"] <= 120.0 for h in small["hours"])
+    assert small["energy_mwh"] == pytest.approx(sb["energy_mwh"] * 8 / 34, rel=0.01)

@@ -20,7 +20,7 @@ export default function MarketEnergyPanel() {
   return (
     <ChartWrapper
       title="Energy — schedule against metered"
-      footer={`RMS deviation ${d.rmse_mwh.toFixed(0)} MWh per period (${((100 * d.rmse_mwh) / 510).toFixed(0)} % of 510 MW) from a ${forecast_sigma_ms.toFixed(1)} m/s wind-speed error: largest on the steep part of the power curve, near zero above rated wind.${d.curtailed_mwh > 0 ? ` ${d.curtailed_mwh.toFixed(0)} MWh curtailed.` : ""}`}
+      footer={`RMS deviation ${d.rmse_mwh.toFixed(0)} MWh per period (${((100 * d.rmse_mwh) / d.capacity_mw).toFixed(0)} % of ${d.capacity_mw.toFixed(0)} MW) from a ${forecast_sigma_ms.toFixed(1)} m/s wind-speed error: largest on the steep part of the power curve, near zero above rated wind.${d.curtailed_mwh > 0 ? ` ${d.curtailed_mwh.toFixed(0)} MWh curtailed.` : ""}`}
     >
       <Plot
         data={[

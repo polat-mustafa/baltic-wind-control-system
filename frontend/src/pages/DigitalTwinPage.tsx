@@ -80,6 +80,7 @@ export default function DigitalTwinPage() {
     <div className="space-y-4">
       <PageHeader
         title="Digital Twin · Condition Monitoring"
+        farm="live"
         description={
           <>
             A physics reference model of the IEA 15 MW direct-drive turbine runs at the measured wind of every 10-min SCADA

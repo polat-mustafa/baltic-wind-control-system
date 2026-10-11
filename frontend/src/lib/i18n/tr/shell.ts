@@ -93,6 +93,16 @@ export default {
   "My project": "Projem",
   Project: "Proje",
   "SB-510 reference": "SB-510 referansı",
+  "Own project": "Kendi proje",
+  // the reference / "Own project" translate; a saved project name stays as typed
+  "{label} · {n1} × {n2} MW = {n3} MW": "{label} · {n1} × {n2} MW = {n3} MW",
+  "{name} · {n1} × {n2} MW = {n3} MW": "{name} · {n1} × {n2} MW = {n3} MW",
+  "This page analyses the SB-510 reference farm": "Bu sayfa SB-510 referans santralini inceler",
+  "The farm this page models": "Bu sayfanın modellediği santral",
+  "This page studies the SB-510 reference farm.": "Bu sayfa SB-510 referans santralini inceler.",
+  "Open the Layout page": "Yerleşim sayfasını aç",
+  "The energy yield, wake loss and cost of your own layout are worked out from its turbine positions on the Layout page.":
+    "Kendi yerleşiminizin enerji üretimi, iz kaybı ve maliyeti, türbin konumlarından Yerleşim sayfasında hesaplanır.",
   "Every module open on the case study": "Vaka çalışmasında tüm modüller açık",
   "Modules open stage by stage": "Modüller aşama aşama açılır",
   "Start an empty project?": "Boş bir proje başlatılsın mı?",

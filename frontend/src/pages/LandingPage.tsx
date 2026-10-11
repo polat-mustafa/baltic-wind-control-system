@@ -12,6 +12,7 @@
  * DOM tree so they are never hidden behind GPU-composited translate3d layers.
  */
 
+import StartHereStrip from "../components/landing/StartHereStrip";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -384,6 +385,8 @@ export default function LandingPage() {
           )}
         </div>
       </header>
+
+      <StartHereStrip />
 
       {!commissioned && (
         <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-[12px] text-text-primary">

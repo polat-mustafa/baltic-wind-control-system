@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { farmPlan, type FarmPlan } from "../lib/lifecycle/farm";
 import { useModeStore } from "../store/modeStore";
 import { useProjectStore } from "../store/projectStore";
+import { useProjectSync } from "../store/projectSync";
 import { useSiteStore } from "../store/siteStore";
 
 const NONE: never[] = [];
@@ -16,5 +17,9 @@ export function useFarmPlan(): FarmPlan {
   const site = useSiteStore((s) => s.site);
   const report = useSiteStore((s) => s.report);
   const routeKm = useSiteStore((s) => s.routeKm);
-  return useMemo(() => farmPlan({ turbines, oss }, { site, report, routeKm }), [turbines, oss, site, report, routeKm]);
+  const name = useProjectSync((s) => s.name);
+  return useMemo(
+    () => farmPlan({ turbines, oss, name }, { site, report, routeKm }),
+    [turbines, oss, name, site, report, routeKm],
+  );
 }

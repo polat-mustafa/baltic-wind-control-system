@@ -15,6 +15,9 @@ const ROUTES = [
   ["digital-twin", "/digital-twin"],
   ["decommissioning", "/decommission"],
   ["academy", "/academy"],
+  ["projects", "/projects"],
+  ["turbine-physics", "/turbine-physics"],
+  ["evidence", "/evidence"],
 ] as const;
 
 const THEMES = ["storybook", "hmi"] as const;

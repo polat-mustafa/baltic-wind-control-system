@@ -235,6 +235,7 @@ export default function CommissioningPage() {
     <div className="space-y-4">
       <PageHeader
         title="HV Commissioning"
+        farm="live"
         description="First energisation of export circuit 1: isolation and locks, tests, the switching programme step by step, and the grid-code notifications."
         meta="Isolation EN 50110-1 · FAT / SAT · EON → ION → FON (NC RfG)"
         actions={

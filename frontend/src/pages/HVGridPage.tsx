@@ -112,10 +112,11 @@ export default function HVGridPage() {
     <div className="space-y-5">
       <PageHeader
         title="HV Grid Integration"
+        farm="live"
         description="Load flow, IEC 60909 short circuit, fault ride-through and reactive power for the export system, checked against the PSE grid code."
         meta={
           networkSpec
-            ? `${networkSpec.name} · ${networkSpec.total_capacity_mw} MW · ${networkSpec.array_voltage_kv}/${networkSpec.export_voltage_kv}/${networkSpec.grid_voltage_kv} kV · ${networkSpec.num_export_cables} × ${networkSpec.export_length_km} km export`
+            ? `${networkSpec.array_voltage_kv}/${networkSpec.export_voltage_kv}/${networkSpec.grid_voltage_kv} kV · ${networkSpec.num_export_cables} × ${networkSpec.export_length_km} km export`
             : undefined
         }
         actions={

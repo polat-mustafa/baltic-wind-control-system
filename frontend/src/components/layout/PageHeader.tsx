@@ -13,6 +13,8 @@
 
 import type { ReactNode } from "react";
 
+import { FarmBadge, type FarmScope } from "../project/FarmBadge";
+
 interface PageHeaderProps {
   title: ReactNode;
   /** One or two plain sentences on what the page is for. */
@@ -25,9 +27,11 @@ interface PageHeaderProps {
   children?: ReactNode;
   /** Pages that do not run on the live plant say what their data is instead. */
   studyData?: string;
+  /** The farm the page models, as the first chip (components/project/FarmBadge). */
+  farm?: FarmScope;
 }
 
-export function PageHeader({ title, description, meta, actions, children, studyData }: PageHeaderProps) {
+export function PageHeader({ title, description, meta, actions, children, studyData, farm }: PageHeaderProps) {
   const chips = meta ? meta.split(" · ").filter(Boolean) : [];
   return (
     <header
@@ -37,8 +41,13 @@ export function PageHeader({ title, description, meta, actions, children, studyD
       <div className="min-w-0 max-w-4xl">
         <h1 className="text-2xl font-semibold tracking-tight text-text-primary">{title}</h1>
         {description && <p className="mt-1 text-sm leading-relaxed text-text-secondary">{description}</p>}
-        {chips.length > 0 && (
+        {(chips.length > 0 || farm) && (
           <ul className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Key facts">
+            {farm && (
+              <li>
+                <FarmBadge scope={farm} />
+              </li>
+            )}
             {chips.map((c) => (
               <li
                 key={c}

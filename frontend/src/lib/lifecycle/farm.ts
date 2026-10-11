@@ -8,6 +8,7 @@
  * campaign (POST /api/v1/lifecycle/campaign).
  */
 
+import { projectTitle } from "../fleet";
 import { OSS_GEO, SB510_DEPTH_M, SB510_EXPORT_KM, TURBINE_POSITIONS } from "../../constants/windFarmLayout";
 import { mstLength, routeCables, sectionFor, type CableEdge, type CableResult } from "../layout/cables";
 import { defaultExportKm, RATED_MW } from "../layout/evaluate";
@@ -171,6 +172,8 @@ export function sb510Cables(xy: XY[], ossXY: XY): CableResult {
 interface ProjectLike {
   turbines: { id: string; lon: number; lat: number }[];
   oss: LonLat | null;
+  /** Saved project name (store/projectSync); headers show the same via projectTitle. */
+  name?: string;
 }
 
 interface SiteLike {
@@ -209,7 +212,7 @@ export function farmPlan(project: ProjectLike, site: SiteLike): FarmPlan {
   const depthM = own ? (site.report?.depth_m ?? null) : SB510_DEPTH_M;
   return {
     source: own ? "project" : "sb510",
-    name: own ? "Your layout project" : "SB-510 reference farm",
+    name: own ? projectTitle(project.name) : "SB-510 reference",
     turbines: rows,
     oss,
     strings,

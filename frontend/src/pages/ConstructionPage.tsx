@@ -30,6 +30,7 @@ export default function ConstructionPage() {
     <div className="space-y-4">
       <PageHeader
         title="Construction"
+        farm="live"
         description={
           <>
             Install the offshore substation, foundations, cables and turbines in Baltic weather windows. Every operation waits for sea states

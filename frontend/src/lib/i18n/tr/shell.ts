@@ -620,4 +620,10 @@ export default {
   "Don't show again": "Bir daha gösterme",
   Later: "Sonra",
   "Start the tour": "Tura başla",
+  // Static demo (GitHub Pages)
+  "Static demo: engine results recorded for SB-510. New calculations need the backend.":
+    "Statik demo: motor sonuçları SB-510 için kaydedildi. Yeni hesaplar backend gerektirir.",
+  "Run it yourself ↗": "Kendin çalıştır ↗",
+  "Static demo: this calculation runs on the backend. Clone the repository and run `docker compose up` to compute it live.":
+    "Statik demo: bu hesap backend'de çalışır. Canlı hesaplamak için depoyu klonlayıp `docker compose up` çalıştırın.",
 } satisfies Record<string, string>;

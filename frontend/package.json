@@ -8,13 +8,16 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.build.json && vite build",
     "preview": "vite preview",
-    "lint": "eslint src/",
+    "lint": "eslint src/ showcase/ e2e-demo/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "e2e:update": "playwright test --update-snapshots",
+    "demo:record": "node scripts/demo.mjs record",
+    "demo:check": "node scripts/demo.mjs check",
+    "build:demo": "node scripts/build-demo.mjs",
     "i18n:missing": "node scripts/i18n-missing.mjs"
   },
   "dependencies": {

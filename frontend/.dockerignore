@@ -2,3 +2,7 @@ node_modules
 dist
 .env
 .env.*
+dist-demo
+dist-site
+demo-api
+showcase

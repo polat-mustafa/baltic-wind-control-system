@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OffshoreForge — an offshore wind farm you can operate</title>
+    <meta
+      name="description"
+      content="Open-source training platform that takes a 510 MW Baltic offshore wind farm through its whole life: site, layout, HV grid, construction, commissioning, SCADA, forecasting, digital twin. Every model validated."
+    />
+    <meta name="theme-color" content="#0b1312" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="OffshoreForge — an offshore wind farm you can operate" />
+    <meta
+      property="og:description"
+      content="A 510 MW Baltic wind farm from empty sea to decommissioning. Every screen a working engineering model, checked against measured data."
+    />
+    <meta property="og:image" content="%VITE_SITE_URL%og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <a class="skip" href="#demo">Skip to the demo</a>
+
+    <!-- ═══ HERO: the farm from above, wind and wakes computed live ═══ -->
+    <header class="hero" id="top">
+      <canvas class="hero__field" aria-hidden="true"></canvas>
+      <div class="hero__graticule" aria-hidden="true"></div>
+
+      <nav class="nav" aria-label="Main">
+        <a class="brand" href="#top" aria-label="OffshoreForge, back to top">
+          <svg class="brand__mark" viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="12" y1="12" x2="12" y2="16.5" />
+            <circle cx="12" cy="12" r="2.2" />
+          </svg>
+          <span>OffshoreForge</span>
+        </a>
+        <ul class="nav__links">
+          <li><a href="#demo">Demo</a></li>
+          <li><a href="#lifecycle">Lifecycle</a></li>
+          <li><a href="#evidence">Evidence</a></li>
+          <li><a href="#case">SB-510</a></li>
+          <li><a href="#build">Build</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+        <a class="nav__gh" href="https://github.com/polat-mustafa/offshoreforge" rel="noopener">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          <span>Source</span>
+        </a>
+      </nav>
+
+      <div class="hero__copy">
+        <p class="eyebrow">Open source · Offshore wind engineering · Southern Baltic</p>
+        <h1>An offshore wind farm <em>you can operate.</em></h1>
+        <p class="lede">
+          OffshoreForge takes a 510&nbsp;MW Baltic wind farm through its whole life&nbsp;— from an empty
+          patch of sea to the last turbine coming down. Every screen is a working engineering model,
+          and every model is checked against measurements, standards or a hand calculation.
+        </p>
+        <div class="cta">
+          <a class="btn btn--signal" href="#demo">Try the live demo <span aria-hidden="true">↓</span></a>
+          <a class="btn btn--line" href="https://github.com/polat-mustafa/offshoreforge" rel="noopener">View the source <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+
+      <!-- the instrument: drag the dial, the farm turns into the wind -->
+      <section class="instrument" aria-label="Wind farm simulator">
+        <div class="dial" role="slider" tabindex="0" aria-label="Wind direction (from)" aria-valuemin="0" aria-valuemax="359" aria-valuenow="250" aria-valuetext="250 degrees">
+          <svg viewBox="-60 -60 120 120" aria-hidden="true">
+            <circle class="dial__ring" r="52" />
+            <g class="dial__ticks"></g>
+            <text class="dial__card" y="-38">N</text>
+            <text class="dial__card" x="40" y="4">E</text>
+            <text class="dial__card" y="45">S</text>
+            <text class="dial__card" x="-40" y="4">W</text>
+            <g class="dial__needle">
+              <line y1="-50" y2="-18" />
+              <path d="M0,-12 l-5,-9 h10 z" />
+            </g>
+            <circle class="dial__hub" r="3" />
+          </svg>
+        </div>
+        <div class="readout">
+          <div class="readout__row"><span>Wind from</span><output data-out="dir">250°</output></div>
+          <label class="readout__row readout__speed">
+            <span>Hub wind</span>
+            <output data-out="speed">9.5 m/s</output>
+            <input type="range" min="3" max="25" step="0.5" value="9.5" aria-label="Hub-height wind speed, metres per second" />
+          </label>
+          <div class="readout__row readout__big"><span>Farm output</span><output data-out="power">—</output></div>
+          <div class="readout__row"><span>Wake loss</span><output data-out="loss">—</output></div>
+          <p class="readout__note">
+            <span class="readout__key"><i></i>wake: slower air behind a rotor</span>
+            Gaussian wakes (Bastankhah–Porté-Agel) · IEA-15-240-RWT curves · computed in your browser.
+            <span class="readout__hint">Drag the dial — line the wind up with a row and watch the loss.</span>
+          </p>
+        </div>
+      </section>
+      <div class="probe" aria-hidden="true"></div>
+      <p class="hero__scale" aria-hidden="true"><span></span>2 km</p>
+    </header>
+
+    <main>
+      <!-- ═══ 01 DEMO ═══ -->
+      <section class="sec sec--paper" id="demo">
+        <div class="sec__head">
+          <p class="sec__no">01 — Try it</p>
+          <h2>The real application, running in this page.</h2>
+          <p class="sec__lede">
+            Not a video and not a mock-up: this is the platform itself, built for the web with the
+            responses of its engines recorded for the SB-510 case. Click around. Anything that needs a
+            fresh calculation tells you so&nbsp;— <code>docker compose up</code> runs the full thing.
+          </p>
+        </div>
+        <div class="frame">
+          <div class="frame__bar">
+            <div class="frame__tabs" role="tablist" aria-label="Demo screens">
+              <button role="tab" aria-selected="true" data-route="" data-caption="The control room of SB-510: 34 turbines, live Baltic weather and ship traffic, every map layer backed by a model.">Control room</button>
+              <button role="tab" aria-selected="false" data-route="develop/layout" data-caption="Layout: drag turbines on the real site and watch wakes, cable lengths and energy yield follow.">Layout</button>
+              <button role="tab" aria-selected="false" data-route="hv-grid" data-caption="HV grid: pandapower load flow, IEC 60909 short circuit and fault ride-through against the PSE grid code.">HV grid</button>
+              <button role="tab" aria-selected="false" data-route="scada" data-caption="SCADA: IEC 61850 substation model, GOOSE trips, alarms and the permit-to-work state machine.">SCADA</button>
+              <button role="tab" aria-selected="false" data-route="digital-twin" data-caption="Digital twin: physics residuals on every turbine, fault injection with known ground truth.">Digital twin</button>
+              <button role="tab" aria-selected="false" data-route="turbine-physics" data-caption="Turbine physics: the IEA 15 MW rotor under the ROSCO controller, step by step in time.">Turbine physics</button>
+              <button role="tab" aria-selected="false" data-route="evidence" data-caption="Evidence: every validation result, generated by the test suite itself.">Evidence</button>
+            </div>
+            <a class="frame__open" href="./demo/" target="_blank" rel="noopener">Full screen ↗</a>
+          </div>
+          <div class="frame__screen">
+            <iframe title="OffshoreForge live demo" src="about:blank" data-src="./demo/" loading="lazy"></iframe>
+            <button class="frame__start" type="button">
+              <span class="frame__play" aria-hidden="true"></span>
+              Start the demo
+              <small>loads the full application · ≈ 5 MB</small>
+            </button>
+          </div>
+          <p class="frame__caption">
+            <span>Fig. 1</span> <span class="frame__what">The control room of SB-510: 34 turbines, live Baltic weather and ship traffic,
+            every map layer backed by a model.</span> Desktop recommended.
+          </p>
+        </div>
+      </section>
+
+      <!-- ═══ 02 LIFECYCLE ═══ -->
+      <section class="sec sec--paper sec--rule" id="lifecycle">
+        <div class="sec__head">
+          <p class="sec__no">02 — Lifecycle</p>
+          <h2>Forty years of a wind farm, one model.</h2>
+          <p class="sec__lede">
+            Each phase hands its results to the next: the layout sets the cable lengths, the cables set
+            the reactive power, the grid study sets the protection, and the same turbine model runs in
+            the SCADA, the forecast and the digital twin. Pick a phase to open it in the demo.
+          </p>
+        </div>
+        <div class="gantt" role="list">
+          <div class="gantt__ruler" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <!-- ═══ 03 EVIDENCE ═══ -->
+      <section class="sec sec--sea" id="evidence">
+        <div class="sec__head">
+          <p class="sec__no">03 — Evidence</p>
+          <h2>Measured, not claimed.</h2>
+          <p class="sec__lede">
+            <span data-count="evidence">36</span> checks run with the test suite. Each one compares a model
+            with metered output, a standard or a hand calculation&nbsp;— and the build fails if a number drifts.
+          </p>
+        </div>
+        <div class="proof"></div>
+        <details class="ledger">
+          <summary>All <span data-count="evidence">36</span> checks</summary>
+          <div class="ledger__scroll">
+            <table>
+              <thead>
+                <tr><th scope="col">Model</th><th scope="col">Checked against</th><th scope="col">Result</th><th scope="col">Limit</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+      <!-- ═══ 04 CASE ═══ -->
+      <section class="sec sec--paper" id="case">
+        <div class="sec__head">
+          <p class="sec__no">04 — The case</p>
+          <h2>SB-510, Southern Baltic.</h2>
+          <p class="sec__lede">
+            One reference project, modelled on the Polish Baltic build-out: a real spatial-plan basin,
+            real bathymetry, a real grid connection point. The physics and the engineering are real;
+            the farm itself is fictional.
+          </p>
+        </div>
+        <div class="case">
+          <figure class="sld">
+            <div class="sld__scroll">
+              <svg viewBox="0 0 1000 330" role="img" aria-labelledby="sld-title">
+                <title id="sld-title">Single-line diagram of SB-510 from the turbines to the 400 kV grid</title>
+              </svg>
+            </div>
+            <figcaption><span>Fig. 2</span> Single-line diagram. Each export circuit has a shunt reactor at both ends; the 220&nbsp;kV cables alone generate ≈&nbsp;624&nbsp;Mvar.</figcaption>
+          </figure>
+          <dl class="spec"></dl>
+        </div>
+      </section>
+
+      <!-- ═══ 05 BUILD ═══ -->
+      <section class="sec sec--paper sec--rule" id="build">
+        <div class="sec__head">
+          <p class="sec__no">05 — How it is built</p>
+          <h2>Engineering engines behind a web interface.</h2>
+          <p class="sec__lede">
+            The physics runs in Python on the open-source engines the industry itself uses; the browser
+            draws it. Nothing on the screen is a hard-coded number that a model did not produce.
+          </p>
+        </div>
+        <div class="stack">
+          <div class="stack__col">
+            <h3>Interface</h3>
+            <ul>
+              <li>React 19 · TypeScript (strict)</li>
+              <li>MapLibre + deck.gl charts of the sea</li>
+              <li>three.js turbine with the ROSCO controller</li>
+              <li>Plotly · XYFlow single-line diagrams</li>
+              <li>English · Turkish</li>
+            </ul>
+          </div>
+          <div class="stack__col">
+            <h3>Engines</h3>
+            <ul>
+              <li>FastAPI · Python 3.13 · Pydantic v2</li>
+              <li>PyWake — wakes and energy yield</li>
+              <li>pandapower — load flow, IEC 60909</li>
+              <li>ANDES — fault ride-through dynamics</li>
+              <li>XGBoost · PyTorch LSTM / TFT forecasts</li>
+              <li>asyncua — OPC UA server</li>
+            </ul>
+          </div>
+          <div class="stack__col">
+            <h3>Platform</h3>
+            <ul>
+              <li>PostgreSQL 16 + TimescaleDB · Redis</li>
+              <li>Docker Compose — one command</li>
+              <li>≈ 1 500 backend tests, typed, linted</li>
+              <li>GitHub Actions CI · MkDocs handbook</li>
+              <li>Every method traced to its source</li>
+            </ul>
+          </div>
+        </div>
+        <div class="standards" aria-label="Standards the models follow">
+          <span>IEC 60909-0</span><span>IEC 61850</span><span>IEC 61400-1</span><span>IEC 61400-25</span><span>IEC 60255-151</span><span>IEC 60287</span><span>IEC 62443</span><span>IEC 60870-5-104</span><span>ENTSO-E NC RfG</span><span>PSE IRiESP</span><span>EN 50160</span><span>ISO 10816</span>
+        </div>
+        <div class="run">
+          <div>
+            <h3>Run the full platform</h3>
+            <p>Every engine, the database and the live data feeds, on your own machine.</p>
+          </div>
+          <pre><code><span class="c">$</span> git clone https://github.com/polat-mustafa/offshoreforge
+<span class="c">$</span> cd offshoreforge && docker compose up
+<span class="c"># open http://localhost:3000</span></code></pre>
+        </div>
+      </section>
+
+      <!-- ═══ 06 AUTHOR + CONTACT ═══ -->
+      <section class="sec sec--sea" id="contact">
+        <div class="author">
+          <img class="author__photo" src="https://github.com/polat-mustafa.png?size=320" alt="Mustafa Polat" width="160" height="160" loading="lazy" />
+          <div>
+            <p class="sec__no">06 — Author</p>
+            <h2 class="author__name">Mustafa Polat</h2>
+            <p class="author__role">Energy Systems Engineer · Control, Automation &amp; Programming · Gdynia, Poland</p>
+            <p class="author__text">
+              I build OffshoreForge to understand an offshore wind farm end to end&nbsp;— and to make that
+              understanding something others can run, question and improve. It is open source and will stay that way.
+            </p>
+            <ul class="author__links">
+              <li><a href="https://github.com/polat-mustafa" rel="noopener">GitHub ↗</a></li>
+              <li><a href="./docs/" rel="noopener">Handbook ↗</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="feedback">
+          <h2>Tell me what is wrong.</h2>
+          <p>
+            I am looking for honest feedback from people who design, build, connect and operate wind farms.
+            A number that looks off, a standard read the wrong way, a screen that confuses&nbsp;— write to me.
+          </p>
+          <div class="cta">
+            <a class="btn btn--signal" data-mail href="#contact">Write an e-mail</a>
+            <a class="btn btn--line btn--light" href="https://github.com/polat-mustafa/offshoreforge/issues/new" rel="noopener">Open an issue ↗</a>
+          </div>
+          <noscript><p class="mono">pmustafa0 [at] gmail [dot] com</p></noscript>
+        </div>
+      </section>
+    </main>
+
+    <!-- ═══ TITLE BLOCK ═══ -->
+    <footer class="titleblock">
+      <dl>
+        <div><dt>Project</dt><dd>OffshoreForge</dd></div>
+        <div><dt>Case</dt><dd>SB-510 · PZP_44</dd></div>
+        <div><dt>Position</dt><dd>55°03′N 16°32′E</dd></div>
+        <div><dt>Licence</dt><dd>MIT</dd></div>
+        <div><dt>Revision</dt><dd data-rev>—</dd></div>
+      </dl>
+      <p>
+        SB-510 is a fictional wind farm on a real spatial-plan site, used for teaching. Not affiliated with
+        Vestas, PGE or PSE. Turbine model: IEA-15-240-RWT (NREL / DTU, open). Map data © OpenStreetMap contributors.
+      </p>
+    </footer>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

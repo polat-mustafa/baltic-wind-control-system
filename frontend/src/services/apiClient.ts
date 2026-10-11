@@ -6,6 +6,8 @@
  * /api → localhost:8000; in production nginx handles the proxy.
  */
 
+import { DEMO, DEMO_MISS, demoFile } from "../demo/demoKey";
+
 /**
  * FastAPI `detail` → readable text. Validation errors (422) arrive as a list
  * of `{loc, msg}` objects; passing that to `new Error()` printed "[object Object]".
@@ -39,7 +41,17 @@ export function setRequestHeaders(fn: (url: string) => Record<string, string>): 
   extraHeaders = fn;
 }
 
+/** Static demo build: the recorded response, or an honest "runs on the backend" error (demo/demoKey.ts). */
+async function demoRequest<T>(url: string, init?: RequestInit): Promise<T> {
+  const file = demoFile(init?.method ?? "GET", url, init?.body as string | undefined);
+  const res = await fetch(`${import.meta.env.BASE_URL}demo-api/${file}`, { signal: init?.signal });
+  // a host may answer a missing file with its HTML fallback page instead of a 404
+  if (!res.ok || !res.headers.get("content-type")?.includes("json")) throw new ApiError(DEMO_MISS, 503);
+  return res.json() as Promise<T>;
+}
+
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  if (DEMO) return demoRequest<T>(url, init);
   // init first, headers merged after: a caller's own headers add to, not replace, the defaults
   const res = await fetch(url, {
     ...init,

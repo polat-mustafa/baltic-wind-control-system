@@ -1,0 +1,1 @@
+{"layouts":[{"name":"regular","net_aep_gwh":2160.99,"wake_loss_percent":6.47,"capacity_factor":0.4837,"revenue_meur":155.59,"p90_gwh":1947.59},{"name":"staggered","net_aep_gwh":2163.6,"wake_loss_percent":6.47,"capacity_factor":0.4843,"revenue_meur":155.78,"p90_gwh":1950.16}],"best_layout":"staggered","improvement_percent":0.12}

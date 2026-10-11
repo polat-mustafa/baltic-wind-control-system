@@ -1,6 +1,6 @@
 site_name: OffshoreForge
 site_description: Offshore wind engineering training platform — site to operation, with the 510 MW Southern Baltic case study
-site_url: https://polat-mustafa.github.io/offshoreforge/
+site_url: https://polat-mustafa.github.io/offshoreforge/docs/
 repo_url: https://github.com/polat-mustafa/offshoreforge
 repo_name: offshoreforge
 
@@ -45,13 +45,13 @@ nav:
 extra:
   alternate:
     - name: English
-      link: /offshoreforge/en/
+      link: /offshoreforge/docs/en/
       lang: en
     - name: Türkçe
-      link: /offshoreforge/tr/
+      link: /offshoreforge/docs/tr/
       lang: tr
     - name: Polski
-      link: /offshoreforge/pl/
+      link: /offshoreforge/docs/pl/
       lang: pl
 
 markdown_extensions:

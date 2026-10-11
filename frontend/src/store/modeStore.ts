@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 
+import { DEMO } from "../demo/demoKey";
 import { readStored, writeStored } from "../lib/storage";
 
 export const MODE_KEY = "of.mode.v1";
@@ -21,7 +22,8 @@ interface ModeStore {
 }
 
 export const useModeStore = create<ModeStore>((set) => ({
-  mode: stored === "reference" || stored === "own" ? stored : null,
+  // The static demo opens straight on SB-510: no chooser between a visitor and the modules
+  mode: stored === "reference" || stored === "own" ? stored : DEMO ? "reference" : null,
   setMode: (mode) => {
     writeStored(MODE_KEY, mode);
     set({ mode });

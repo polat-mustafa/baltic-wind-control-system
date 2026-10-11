@@ -40,6 +40,7 @@ Citation rules used here:
 | Short-circuit currents | `services/p2/short_circuit.py` (`pandapower.shortcircuit.calc_sc`) | [S4], [10] |
 | RMS dynamics, FRT | `services/p2/andes_dynamics.py`, `frt_simulation.py` (ANDES) | [4], [11], [S5] |
 | Reactive power / STATCOM sizing | `services/p2/statcom_sizing.py` | [4], [5], [S5], [S6] |
+| Export circuits vs a built farm (Baltic Power: 76 × 15 MW, 4 circuits) and reactor topology (Hornsea 1/2, Baltica 2) | `tests/test_p2_analytic.py`, gap note in `frontend/src/data/evidenceCoverage.ts` | [51], [53] |
 | Cable current rating; route and circuits of the modelled farm, full-output and N-1 survivor current | `services/p2/cable_dts.py`, `routers/p2_cable_dts.py` (`/cable/dts/farm`) | [S7] |
 | Cable R, C, X, ratings (provenance note at the cable constants) | `services/p2/network_model.py` | [S33], [33], [34], [S7] |
 | Power quality (harmonic filter: damped high-pass) | `services/p2/power_quality.py` | [S8], [S9], [S36] |
@@ -77,7 +78,8 @@ Citation rules used here:
 |---|---|---|
 | Switching programme, safe work | `services/p5/switching_programme.py` | [S14] |
 | Lockout/tagout | `services/p5/loto.py` | [S15] |
-| Protection relays | `services/p5/protection_relay.py` | [S16] |
+| Protection relays; CTs, incomer TMS and fault levels sized for the modelled farm | `services/p5/protection_relay.py` (`relay_settings`) | [S16], [S40] |
+| Zero-miss at cable + line-reactor energisation (> 50 % → pre-insertion resistor) | `services/p5/energisation.py`, `switching_programme.py` | [51], [52] |
 | Circuit-breaker duties | `services/p5/switching_programme.py`, `sat.py` | [S17] |
 | Grid-code compliance tests | `services/p5/grid_code_testing.py` | [S5], [S18] |
 | Arc-flash incident energy | `services/p5/loto.py` | [S19] |
@@ -224,6 +226,9 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 48. Romano, Y., Patterson, E., Candès, E. "Conformalized quantile regression." *Advances in Neural Information Processing Systems* 32, 2019.
 49. Lundberg, S. M., Erion, G., Chen, H., et al. "From local explanations to global understanding with explainable AI for trees." *Nature Machine Intelligence* 2, 56–67, 2020. DOI 10.1038/s42256-019-0138-9.
 50. Carroll, J., McDonald, A., McMillan, D. "Failure rate, repair time and unscheduled O&M cost analysis of offshore wind turbines." *Wind Energy* 19(6), 1107–1119, 2016. DOI 10.1002/we.1887 (Fig. 3 failure rates per sub-assembly, Fig. 13 repair times; accepted manuscript, Strathprints 54141).
+51. Hjerrild, J., Sahukari, S., Juamperez, M., Kocewiak, Ł. H., Vilhelmsen, M. A., Okholm, J., Zouraraki, M., Kvarts, T. "Hornsea Projects One and Two – Design and Execution of the Grid Connection for the World's Largest Offshore Wind Farms." CIGRE Symposium, Aalborg, June 2019 (reactors at both cable ends and a mid-point station, STATCOMs onshore, onshore variable reactor tapped below 50 % of the cable at energisation).
+52. da Silva, F. F., Bak, C. L., Gudmundsdottir, U. S., Wiechowski, W., Knardrupgård, M. R. "Methods to Minimize Zero-Missing Phenomenon." *IEEE Transactions on Power Delivery* 25(4), 2923–2930, 2010. DOI 10.1109/TPWRD.2010.2045010.
+53. Baltic Power (ORLEN / Northland Power): balticpower.pl project pages and the operator's films "How is it installed?" — episodes OSS (two OSS, 230/66 kV GIS) and "Kable morskie" (350 km of cable: 130 km offshore export, 80 km onshore export), read 2026-10-11; 76 × 15 MW, four export cables to Choczewo.
 
 ## Standards and regulations
 
@@ -266,3 +271,4 @@ teaching values, listed on the pages and in the API response (`assumptions`, `ve
 - **[S37]** DNV-RP-C212 — Offshore soil mechanics and geotechnical engineering (pile drivability, boulders).
 - **[S38]** DNV-RP-0360 — Subsea power cables in shallow water (cable burial assessment and protection).
 - **[S39]** ICPC Recommendation No. 2 — Cable routing and reporting criteria (crossings as close to 90° as possible, not below 45°), International Cable Protection Committee.
+- **[S40]** IEC 61869-2:2012 — Instrument transformers — Part 2: Additional requirements for current transformers (standard rated primary currents).

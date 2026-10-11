@@ -324,9 +324,21 @@ Plan: live-data coherence, then evidence A1–A5, then UX B1–B5, one PR each.
   the Evidence page counts them per module and lists the modules with no external check.
 - **A2 — FINO2 (blocked on the owner):** no open copy exists (Zenodo / PANGAEA searched); the BSH FINO
   database needs an account. Listed as a gap on the Evidence page until the data is downloaded.
-- **A3 — reactor sizing vs a built farm (dropped):** cable lengths are public for Kriegers Flak, Anholt
-  (24 km subsea + 60 km land, 245 kV) and Baltic Power (≈ 23 + 8 km), but no reactor MVAr ratings were
-  found; no invented reference. Listed as a gap.
+- **A3 — reactor sizing vs a built farm (topology, 2026-10-12):** still no published MVAr ratings
+  (Kriegers Flak, Anholt, Baltic Power, Baltica 2, Hornsea 1/2); no invented reference. Checked instead:
+  Baltic Power's 4 export circuits (operator films: 130 km offshore export + 80 km onshore single-core cable,
+  ≈ 7 km route → ≈ 40 km per circuit) — `design()` gives 4 (evidence `p2-export-circuits-baltic-power`);
+  Hornsea 1/2 (Hjerrild et al., CIGRE 2019) and Baltica 2's EIA confirm reactors at both ends with
+  STATCOMs and filters onshore. Finding kept as a gap note: Baltic Power's OSS equipment list names no
+  reactor — at ≈ 40 km the charging current fits onshore, our rule still puts one at each end
+  (onshore-only placement for short exports would touch ~15 files: P5 programme, SLDs, ANDES, harmonics).
+- **Protection follows the farm (2026-10-12):** `protection_relay.relay_settings(spec)` — CTs = smallest
+  IEC 61869-2 primary ≥ 1.1 × rated current, incomer TMS = smallest 0.05 step grading ≥ 300 ms at the farm's
+  IEC 60909 66 kV levels (SB-510 reproduces CT 1000/3000, TMS 0.10/0.15), weakest head cable (SB-510 630 mm²,
+  was a stray 800); every `/grid/protection/*` endpoint takes X-Farm.
+- **Zero-miss (2026-10-12):** the onshore line reactor energised with cable 1 takes 58 % of its ωCV²L
+  (180 / 312 Mvar); above 50 % (Hjerrild 2019; da Silva et al. 2010) the programme closes CB-ON-220-01
+  through its pre-insertion resistor and says why; the cable-energised reading shows the share.
 - **A4 — Baltic Power (gated):** peak 295 of 1140 MW in the last 30 days of the bundled data (19/76 turbines,
   2026-10-09). `tests/test_baltic_power_gate.py` fails once the refreshed data reaches 90 %, until the farm
   is added to `real_data.sites()`. Owner to-do: monthly File Library download.

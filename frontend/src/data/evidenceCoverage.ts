@@ -37,7 +37,7 @@ export const GAPS: { module: string; note: string }[] = [
   },
   {
     module: "P2 — reactor sizing vs a built farm",
-    note: "no published reactor ratings found for Kriegers Flak, Anholt, Baltic Power or Baltica 2 (cable data is public, MVAr is not). Baltica 2's grid-connection EIA confirms the same topology — shunt reactors, harmonic filters and a STATCOM at the 220/275 kV onshore substation, 400 kV GIS — without ratings",
+    note: "no published MVAr ratings for Kriegers Flak, Anholt, Baltic Power, Baltica 2 or Hornsea 1/2, so the topology is checked instead. Baltica 2's grid-connection EIA: shunt reactors, harmonic filters and a STATCOM onshore. Hornsea 1/2 (Hjerrild et al., CIGRE 2019): reactors at both cable ends plus a mid-point station, STATCOMs onshore, line reactor below 50 % of the cable at energisation — the zero-miss limit the P5 programme now checks (pre-insertion resistor above it). Baltic Power (operator films, 2026): 4 export circuits (the design rule gives 4, see P2 — HV grid), and its OSS equipment list (transformers, 230/66 kV GIS, diesel, auxiliaries) names no reactor: at ≈ 40 km per circuit the charging current can be compensated onshore, where our rule still puts one at each end",
   },
   {
     module: "P4 — Baltic Power forecast site",

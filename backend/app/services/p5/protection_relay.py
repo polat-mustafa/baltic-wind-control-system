@@ -34,6 +34,12 @@ Voltage and frequency stages sit outside PSE's ride-through ranges:
 47.5 / 51.5 Hz (NC RfG frequency ranges), 1.15 pu above the 60-min band at
 110–300 kV (1.118–1.15 pu), 0.80 pu after 3 s (beyond the 2.5 s FRT profile).
 
+Every value that follows the plant comes from its design (``FarmSpec``; SB-510 or the
+own project in the X-Farm header): CT primaries are the smallest IEC 61869-2 ratings
+≥ 1.1 × the rated current (longest string at the feeder, one OSS transformer at the
+incomer — SB-510: 787 A → 1000/1, 2624 A → 3000/1), the head-cable withstand uses the
+weakest string head section, and the fault currents come from that design's network.
+
 Fault currents: 66 kV from pandapower IEC 60909 (``calc_short_circuit``);
 along the export cable from the series-impedance chain with c = 1.10 plus
 the converters' rated-current infeed (k = 1). Balanced faults only — earth
@@ -54,9 +60,12 @@ from typing import Any
 
 from app.core.exceptions import ValidationError
 from app.services.p2.network_model import (
-    STATCOM_RATING_MVAR,
-    TOTAL_CAPACITY_MW,
+    ARRAY_KV,
+    SB510,
+    FarmSpec,
+    _get_cable_grade,
     series_impedances_pu,
+    string_current_ka,
 )
 
 # ── Enums / data ─────────────────────────────────────────────────
@@ -133,7 +142,7 @@ OSS_RELAY_SETTINGS: tuple[RelaySetting, ...] = (
     RelaySetting(
         "PTOC-01",
         ProtectionFunction.PTOC,
-        "String feeder overcurrent — IEC SI, 1.2 × In, TMS 0.10",
+        "String feeder overcurrent — IEC SI, CT 1000/1, 1.2 × In, TMS 0.10",
         1.2,
         "xIn",
         0.0,
@@ -146,7 +155,7 @@ OSS_RELAY_SETTINGS: tuple[RelaySetting, ...] = (
     RelaySetting(
         "PTOC-02",
         ProtectionFunction.PTOC,
-        "66 kV incomer overcurrent (backup) — IEC SI, 1.2 × In, TMS 0.15",
+        "66 kV incomer overcurrent (backup) — IEC SI, CT 3000/1, 1.2 × In, TMS 0.15",
         1.2,
         "xIn",
         0.0,
@@ -258,7 +267,10 @@ IEC_CURVES: dict[str, tuple[float, float]] = {
 CB_BREAK_TIME_MS = 60.0  # 3-cycle breaker, IEC 62271-100 rated break time
 MAIN_CLEARANCE_TARGET_MS = 150.0  # PSE FRT profile t_clear
 CU_XLPE_K = 143.0  # A·√s/mm², Cu, XLPE 90 → 250 °C (IEC 60364-5-54 adiabatic k)
-ARRAY_HEAD_CABLE_MM2 = 800.0  # string head cable cross-section
+# IEC 61869-2 standard rated primary currents ≥ 100 A (10 … 75 A × decades)
+CT_RATINGS_A = (100, 125, 150, 200, 250, 300, 400, 500, 600, 750, 1000, 1250, 1500, 2000,
+                2500, 3000, 4000, 5000, 6000, 7500)  # fmt: skip
+CT_HEADROOM = 1.1  # continuous load ≤ 1/1.1 of the CT primary
 LEGACY_LOCATIONS = {  # older API names → (location, % of cable from the onshore end)
     "export_cable_near": ("export_cable", 89.0),
     "export_cable_mid": ("export_cable", 50.0),
@@ -271,6 +283,52 @@ LOCATION_LABEL = {
     "export_cable": "220 kV export cable",
     "oss_busbar_220kv": "OSS 220 kV busbar",
 }
+
+
+# ── Settings of a farm ───────────────────────────────────────────
+
+
+def ct_primary_a(rated_a: float) -> float:
+    """Smallest IEC 61869-2 primary rating ≥ 1.1 × the rated current [A]."""
+    need = CT_HEADROOM * rated_a
+    return float(next((r for r in CT_RATINGS_A if r >= need - 1e-9), CT_RATINGS_A[-1]))
+
+
+@lru_cache(maxsize=16)
+def relay_settings(spec: FarmSpec = SB510) -> tuple[RelaySetting, ...]:
+    """The scheme set for ``spec`` (SB-510 gives ``OSS_RELAY_SETTINGS``).
+
+    CTs from the rated currents; the feeder keeps TMS 0.10 and the incomer gets the
+    smallest TMS step (0.05) that grades ≥ 300 ms behind it at both IEC 60909 66 kV
+    fault levels — SB-510: 0.134 needed → 0.15.
+    """
+    s = {r.setting_id: r for r in OSS_RELAY_SETTINGS}
+    feeder_a = string_current_ka(max(spec.string_layout), spec.turbine_rated_mw) * 1000.0
+    incomer_a = spec.oss_trafo_mva / (math.sqrt(3) * ARRAY_KV) * 1000.0
+    feeder = replace(s["PTOC-01"], ct_primary_a=ct_primary_a(feeder_a))
+    incomer = replace(s["PTOC-02"], ct_primary_a=ct_primary_a(incomer_a))
+    pair = next(p for p in GRADING_PAIRS if p.upstream_id == "PTOC-02")
+    currents = oss_66kv_fault_levels_ka(spec)
+    for step in range(1, 21):
+        incomer = replace(incomer, tms=round(0.05 * step, 2))
+        graded = check_single_grading_pair(pair, {"PTOC-01": feeder, "PTOC-02": incomer}, currents)
+        if graded.verdict == SelectivityVerdict.SELECTIVE:
+            break
+    for r in (feeder, incomer):
+        what = "String feeder overcurrent" if r is feeder else "66 kV incomer overcurrent (backup)"
+        s[r.setting_id] = replace(
+            r,
+            description=f"{what} — IEC SI, CT {r.ct_primary_a:.0f}/1, 1.2 × In, TMS {r.tms:.2f}",
+        )
+    return tuple(s[r.setting_id] for r in OSS_RELAY_SETTINGS)
+
+
+def head_cable_mm2(spec: FarmSpec = SB510) -> float:
+    """Smallest string head section (the cable next to the OSS) [mm²] — SB-510: the
+    5-turbine strings' 630 mm²."""
+    return min(
+        _get_cable_grade(n, spec.turbine_rated_mw).cross_section_mm2 for n in spec.string_layout
+    )
 
 
 # ── Operating times ─────────────────────────────────────────────
@@ -302,29 +360,31 @@ def ptoc_time_s(setting: RelaySetting, current_ka: float) -> float:
     )
 
 
-@lru_cache(maxsize=1)
-def oss_66kv_fault_levels_ka() -> tuple[float, float]:
+@lru_cache(maxsize=16)
+def oss_66kv_fault_levels_ka(spec: FarmSpec = SB510) -> tuple[float, float]:
     """IEC 60909 Ik'' (max, min) at the OSS 66 kV busbar [kA] (pandapower)."""
     from app.services.p2.short_circuit import calc_short_circuit
 
     def at_66(case: str) -> float:
-        res = calc_short_circuit(case)
+        res = calc_short_circuit(case, spec=spec)
         return next(b.ikss_ka for b in res.bus_results if b.bus_name == "OSS_66kV")
 
     return at_66("max"), at_66("min")
 
 
-def export_cable_fault_ka(position_pct: float, c: float = 1.1) -> tuple[float, float]:
+def export_cable_fault_ka(
+    position_pct: float, c: float = 1.1, spec: FarmSpec = SB510
+) -> tuple[float, float]:
     """(grid-side, converter) fault current [kA] at a point of the export cable.
 
     position_pct: 0 = onshore end, 100 = OSS end. Grid side through the
     series-impedance chain with voltage factor c; converters and STATCOM
     feed about their rated current (k = 1).
     """
-    z = series_impedances_pu(100.0)
+    z = series_impedances_pu(100.0, spec=spec)
     z_path = z["grid"] + z["onshore"] + z["export"] * position_pct / 100.0
     grid = c * 100.0 / (math.sqrt(3) * 220.0 * abs(z_path))
-    converters = (TOTAL_CAPACITY_MW + STATCOM_RATING_MVAR) / (math.sqrt(3) * 220.0)
+    converters = (spec.capacity_mw + spec.statcom_mvar) / (math.sqrt(3) * 220.0)
     return grid, converters
 
 
@@ -376,17 +436,21 @@ def verify_selectivity(
     settings: tuple[RelaySetting, ...] | None = None,
     grading_pairs: tuple[GradingPair, ...] | None = None,
     currents_ka: tuple[float, ...] | None = None,
+    spec: FarmSpec = SB510,
 ) -> list[GradingResult]:
-    """Check every grading pair (worst case over the fault currents)."""
-    settings_map = {s.setting_id: s for s in (settings or OSS_RELAY_SETTINGS)}
+    """Check every grading pair (worst case over the fault currents of ``spec``)."""
+    settings_map = {s.setting_id: s for s in (settings or relay_settings(spec))}
+    currents = currents_ka or oss_66kv_fault_levels_ka(spec)
     return [
-        check_single_grading_pair(pair, settings_map, currents_ka)
+        check_single_grading_pair(pair, settings_map, currents)
         for pair in (grading_pairs or GRADING_PAIRS)
     ]
 
 
-def apply_overrides(overrides: dict[str, dict[str, Any]]) -> tuple[RelaySetting, ...]:
-    """Settings with user changes (pickup, delay, TMS, curve) applied."""
+def apply_overrides(
+    overrides: dict[str, dict[str, Any]], spec: FarmSpec = SB510
+) -> tuple[RelaySetting, ...]:
+    """Settings of ``spec`` with user changes (pickup, delay, TMS, curve) applied."""
     fields = {
         "pickup_value": "pickup_value",
         "time_delay_s": "time_delay",
@@ -394,7 +458,7 @@ def apply_overrides(overrides: dict[str, dict[str, Any]]) -> tuple[RelaySetting,
         "curve_type": "curve",
     }
     out = []
-    for s in OSS_RELAY_SETTINGS:
+    for s in relay_settings(spec):
         ov = overrides.get(s.setting_id, {})
         out.append(
             replace(s, **{fields[k]: v for k, v in ov.items() if k in fields and v is not None})
@@ -435,6 +499,7 @@ def run_coordination_study(
     position_pct: float | None = None,
     settings: tuple[RelaySetting, ...] | None = None,
     fault_type: str = "3ph",
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """Which relays see a fault, when they trip, and whether it is selective.
 
@@ -446,10 +511,10 @@ def run_coordination_study(
         raise ValidationError(msg)
     factor = 1.0 if fault_type == "3ph" else math.sqrt(3) / 2
     location, position = _resolve_location(fault_location, position_pct)
-    s = {r.setting_id: r for r in (settings or OSS_RELAY_SETTINGS)}
+    s = {r.setting_id: r for r in (settings or relay_settings(spec))}
 
     if location in ("string_feeder", "oss_busbar_66kv"):
-        i_max, i_min = oss_66kv_fault_levels_ka()
+        i_max, i_min = oss_66kv_fault_levels_ka(spec)
         current = (fault_current_ka or i_max) * factor
         kv = 66.0
         events = [
@@ -480,7 +545,7 @@ def run_coordination_study(
         kv = 220.0
         if location == "oss_busbar_220kv":
             position = 100.0
-        grid, conv = export_cable_fault_ka(position)
+        grid, conv = export_cable_fault_ka(position, spec=spec)
         current = (fault_current_ka or grid + conv) * factor
         # Distance relay at the onshore end: Z1 covers 80 % of the cable, Z2 (120 %)
         # backs up the whole cable and the OSS 220 kV busbar
@@ -505,14 +570,15 @@ def run_coordination_study(
         else math.inf
     )
 
-    grading = verify_selectivity(tuple(s.values()), currents_ka=currents)
+    grading = verify_selectivity(tuple(s.values()), currents_ka=currents, spec=spec)
     violations = sum(r.verdict == SelectivityVerdict.NON_SELECTIVE for r in grading)
     main_first = first is not None and str(first["role"]).startswith("main")
     selective = main_first and backup_margin >= 300.0 - 1e-6 and violations == 0
+    head_mm2 = head_cable_mm2(spec)
     if location == "string_feeder":
-        # Internal array fault: the grid barely sees it; the limit is the head
+        # Internal array fault: the grid barely sees it; the limit is the weakest head
         # cable's short-circuit withstand, judged on the backup clearance
-        limit_s = (CU_XLPE_K * ARRAY_HEAD_CABLE_MM2 / (current * 1000.0)) ** 2
+        limit_s = (CU_XLPE_K * head_mm2 / (current * 1000.0)) ** 2
         backup_ms = min(
             (b["clearance_time_ms"] for b in backups), default=main["clearance_time_ms"]
         )
@@ -544,7 +610,7 @@ def run_coordination_study(
         "fast_enough": fast,
         "time_limit_s": round(limit_s, 3),
         "time_criterion": (
-            "head-cable I²t withstand (k = 143, 800 mm² Cu) vs backup clearance"
+            f"head-cable I²t withstand (k = 143, {head_mm2:.0f} mm² Cu) vs backup clearance"
             if location == "string_feeder"
             else "main clearance ≤ 150 ms (PSE FRT profile t_clear)"
         ),
@@ -557,6 +623,8 @@ def simulate_fault_clearance(
     fault_location: str,
     fault_impedance_ohm: float = 0.0,
     position_pct: float | None = None,
+    settings: tuple[RelaySetting, ...] | None = None,
+    spec: FarmSpec = SB510,
 ) -> dict[str, Any]:
     """Clearance timeline of the main protection for one fault.
 
@@ -564,13 +632,15 @@ def simulate_fault_clearance(
     seen at the fault (purely reactive sources, resistive fault — magnitudes).
     """
     location, position = _resolve_location(fault_location, position_pct)
-    base = run_coordination_study(location, position_pct=position, fault_type=fault_type)
+    base = run_coordination_study(
+        location, position_pct=position, settings=settings, fault_type=fault_type, spec=spec
+    )
     current = base["fault_current_ka"]
     if fault_impedance_ohm > 0:
         kv = base["voltage_kv"]
         z_source = kv / (math.sqrt(3) * current)  # Ω
         current = kv / (math.sqrt(3) * math.hypot(z_source, fault_impedance_ohm))
-        base = run_coordination_study(location, current, position, fault_type=fault_type)
+        base = run_coordination_study(location, current, position, settings, fault_type, spec)
     main = next(e for e in base["relay_sequence"] if e["relay_id"] == base["main_relay"])
     return {
         "fault_type": fault_type,

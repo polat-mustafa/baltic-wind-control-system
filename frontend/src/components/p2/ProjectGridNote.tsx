@@ -46,8 +46,8 @@ export default function ProjectGridNote() {
           ))}
         </ul>
         <p className="mt-1 text-xs text-text-muted">
-          The Protection tab still shows SB-510's relay settings (CT ratios and pick-ups of its OSS); BESS, Cable DTS and Market follow
-          your farm's rating and export circuits.
+          Every tab follows this design — Protection sizes its CTs, grades the incomer and takes the fault levels from it; BESS, Cable
+          DTS and Market follow your farm's rating and export circuits.
         </p>
       </div>
       <StageDone milestone="design" title="Design freeze" need={freezeNeed()} next={{ path: "/build", label: "Construction" }} />

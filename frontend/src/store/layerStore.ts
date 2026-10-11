@@ -37,7 +37,7 @@ export interface LayerVisibility {
   cableDts: boolean;
 }
 
-/** Map look: ISA-101 control room (default) or the hand-drawn "storybook" demo. */
+/** App palette: ISA-101 control room or light chart paper ("storybook" is the stored key). */
 export type MapTheme = "hmi" | "storybook";
 
 const THEME_KEY = "of.mapTheme";

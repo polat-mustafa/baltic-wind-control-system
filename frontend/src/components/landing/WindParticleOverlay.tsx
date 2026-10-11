@@ -167,7 +167,7 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
       const dy = -Math.cos(toRad) * speed; // canvas Y is inverted
 
       // Storybook sits on the light street map: ink trails there, the speed greys on the dark one
-      const color = useLayerStore.getState().mapTheme === "storybook" ? "#2b2118" : windColor(lerpWindSpeed);
+      const color = useLayerStore.getState().mapTheme === "storybook" ? "#121817" : windColor(lerpWindSpeed);
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       // Fade the existing trails a little

@@ -227,7 +227,7 @@ function ControlRoomMapInner({
     () => baseStyle(pal, fleet, layers.exclusionZone, theme === "hmi", vectorStyle),
     [pal, fleet, layers.exclusionZone, theme, vectorStyle],
   );
-  const icons = useMemo(() => equipmentIcons(pal.ink, theme === "hmi" ? "#0f1d2b" : "#f7edd4"), [pal, theme]);
+  const icons = useMemo(() => equipmentIcons(pal.ink, theme === "hmi" ? "#0f1d2b" : "#f4f3ee"), [pal, theme]);
 
   // Initial view: the array (SB-510's framing) or the own project's turbines
   const bounds = useMemo((): [[number, number], [number, number]] => {
@@ -568,9 +568,9 @@ function ControlRoomMapInner({
       const o = info.object as Record<string, unknown> | undefined;
       if (!o) return null;
       const box = {
-        background: theme === "hmi" ? "#172a3d" : "#f7edd4",
+        background: theme === "hmi" ? "#172a3d" : "#f4f3ee",
         color: pal.ink,
-        border: `1px solid ${theme === "hmi" ? "#2c4760" : "#2b2118"}`,
+        border: `1px solid ${theme === "hmi" ? "#2c4760" : "#121817"}`,
         borderRadius: "4px",
         padding: "6px 8px",
         fontFamily: "IBM Plex Mono, monospace",

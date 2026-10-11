@@ -10,7 +10,7 @@
  * The dark background follows ISA-101 High Performance HMI guidelines:
  * operators in dimmed control rooms benefit from a dark UI that makes
  * status colors (green/amber/red) more perceptually prominent. The header
- * toggle swaps the whole app to the parchment "storybook" palette (training /
+ * toggle swaps the whole app to the light chart-paper palette (training /
  * presentation look) by putting .theme-storybook on <html>; every page reads
  * the same CSS tokens, so no page needs to know about it.
  */
@@ -103,7 +103,7 @@ export default function AppShell() {
       ? "Degraded"
       : "Normal";
 
-  // App-wide palette: control room (default) or storybook
+  // App-wide palette: control room or light chart paper
   const mapTheme = useLayerStore((s) => s.mapTheme);
   const setMapTheme = useLayerStore((s) => s.setMapTheme);
   const storybook = mapTheme === "storybook";
@@ -213,9 +213,9 @@ export default function AppShell() {
             type="button"
             onClick={() => setMapTheme(storybook ? "hmi" : "storybook")}
             aria-pressed={storybook}
-            aria-label={storybook ? "Switch to the control room palette" : "Switch to the storybook palette"}
+            aria-label={storybook ? "Switch to the control room palette" : "Switch to the light palette"}
             data-tour="theme-toggle"
-            title={storybook ? "Storybook palette — switch to control room" : "Control room palette — switch to storybook"}
+            title={storybook ? "Light palette — switch to control room" : "Control room palette — switch to light"}
             className="flex h-8 w-8 items-center justify-center rounded-md border border-border-secondary text-text-secondary hover:bg-bg-hover hover:text-text-primary"
           >
             {storybook ? <Sun size={15} strokeWidth={1.75} /> : <Moon size={15} strokeWidth={1.75} />}

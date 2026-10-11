@@ -317,11 +317,11 @@ export function cardinalIcon(kind: "N" | "E" | "S" | "W") {
 
 /** Vessel top view, bow up (rotated by the layer). */
 export function vesselIcon(kind: Kind, storybook: boolean) {
-  const ink = storybook ? "#2b2118" : "#0a1520";
+  const ink = storybook ? "#121817" : "#0a1520";
   const hull =
     kind === "SOV"
-      ? `<path d="M12 1 17 8 17 23 7 23 7 8Z" fill="${storybook ? "#b5532b" : "#a3b6c8"}" stroke="${ink}" stroke-width="1.1" stroke-linejoin="round"/><rect x="9" y="12" width="6" height="6" rx="1" fill="${storybook ? "#f1e4c3" : "#0f1d2b"}"/>`
-      : `<path d="M8.5 5 10.5 9 10.5 21 7 21 7 9Z" fill="${storybook ? "#f1e4c3" : "#e5b567"}" stroke="${ink}" stroke-width="1"/><path d="M15.5 5 17 9 17 21 13.5 21 13.5 9Z" fill="${storybook ? "#f1e4c3" : "#e5b567"}" stroke="${ink}" stroke-width="1"/><rect x="8.5" y="10" width="7" height="7" rx="1.5" fill="${storybook ? "#e3b33a" : "#0f1d2b"}" stroke="${ink}" stroke-width="1"/>`;
+      ? `<path d="M12 1 17 8 17 23 7 23 7 8Z" fill="${storybook ? "#b5532b" : "#a3b6c8"}" stroke="${ink}" stroke-width="1.1" stroke-linejoin="round"/><rect x="9" y="12" width="6" height="6" rx="1" fill="${storybook ? "#f4f3ee" : "#0f1d2b"}"/>`
+      : `<path d="M8.5 5 10.5 9 10.5 21 7 21 7 9Z" fill="${storybook ? "#f4f3ee" : "#e5b567"}" stroke="${ink}" stroke-width="1"/><path d="M15.5 5 17 9 17 21 13.5 21 13.5 9Z" fill="${storybook ? "#f4f3ee" : "#e5b567"}" stroke="${ink}" stroke-width="1"/><rect x="8.5" y="10" width="7" height="7" rx="1.5" fill="${storybook ? "#e3b33a" : "#0f1d2b"}" stroke="${ink}" stroke-width="1"/>`;
   return svgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">${hull}</svg>`);
 }
 
@@ -333,7 +333,7 @@ export const AIS_ICON = {
 
 /** Two technicians in hard hats + hi-vis (original drawing). */
 export function crewIcon(storybook: boolean) {
-  const ink = storybook ? 'stroke="#2b2118" stroke-width="1"' : 'stroke="#0a1520" stroke-width="0.8"';
+  const ink = storybook ? 'stroke="#121817" stroke-width="1"' : 'stroke="#0a1520" stroke-width="0.8"';
   const tech = (x: number) =>
     `<g transform="translate(${x} 0)"><path d="M5.5 7 Q9 2.5 12.5 7 Z" fill="#f0b13e" ${ink}/><circle cx="9" cy="8.6" r="2.6" fill="#f3d9b1" ${ink}/><path d="M5 21 L5.6 12.4 Q9 10.6 12.4 12.4 L13 21 Z" fill="#e39a5b" ${ink}/><path d="M5.4 15 L12.6 15" stroke="#fde68a" stroke-width="1.2"/></g>`;
   return svgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="44" viewBox="0 0 32 22">${tech(0)}${tech(13)}</svg>`, 64, 44, 44);

@@ -2,7 +2,7 @@
  * Chart palette for analytical (Plotly) charts — one set per app theme.
  *
  * Categorical slots validated with the dataviz palette checker against each
- * chart surface (storybook paper #f7edd4, Baltic Night #0f1d2b): all-pairs CVD ΔE ≥ 9,
+ * chart surface (chart-paper panel #f4f3ee, Baltic Night #0f1d2b): all-pairs CVD ΔE ≥ 9,
  * normal-vision ΔE ≥ 20. Light orange/aqua sit below 3:1 on paper, so charts
  * using them carry direct labels. Sequential = one hue (blue), light → dark
  * on paper and dark → light on the dark surface ("more" is always more ink).
@@ -38,9 +38,9 @@ const LIGHT: ChartPalette = {
   yellow: "#eda100",
   red: "#e34948",
   seq: ["#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281", "#0d366b"],
-  ink: "#2b2118",
-  ref: "rgba(43, 33, 24, 0.6)",
-  band: "rgba(43, 33, 24, 0.06)",
+  ink: "#121817",
+  ref: "rgba(18, 24, 23, 0.6)",
+  band: "rgba(18, 24, 23, 0.06)",
 };
 
 const DARK: ChartPalette = {

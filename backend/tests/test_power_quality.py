@@ -164,15 +164,15 @@ class TestFlicker:
             10 * compute_flicker(grid_fault_level_mva=10_000.0)["pst"], rel=0.02
         )
 
-    def test_switching_term_includes_factor_18(self):
-        f = compute_flicker(annual_switching_operations=20_000)
-        n, s_n = 34, 15.0 / 0.95
-        n10 = 20_000 / n / (365.25 * 24 * 6)
-        expected = n ** (1 / 3) * 18 * n10**0.31 * f["switching_coefficient"] * s_n / 10_000
+    def test_switching_term_iec_61400_21(self):
+        """P_st,Σ = 18/S_k · (N · N10 · (k_f·S_n)^3.2)^0.31 with N10 the 10-min maximum
+        (10 for a start at cut-in) — not an annual average, which made it ≈ 20× too small."""
+        f = compute_flicker()
+        n, s_n, k_f = 34, 15.0 / 0.95, f["switching_coefficient"]
+        expected = 18 / 10_000 * (n * 10 * (k_f * s_n) ** 3.2) ** 0.31
         assert f["pst_switching"] == pytest.approx(expected, rel=0.01)
-        assert (
-            f["pst_switching"] > compute_flicker(annual_switching_operations=100)["pst_switching"]
-        )
+        assert f["pst_switching"] > f["pst_continuous"] and f["dominant_source"] == "SWITCHING"
+        assert compute_flicker(n10=1)["pst_switching"] < f["pst_switching"]
 
 
 class TestFilter:

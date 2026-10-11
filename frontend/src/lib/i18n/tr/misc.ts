@@ -13,6 +13,7 @@ export default {
   "Cp Max": "Cp maks",
   "Mean Power": "Ortalama güç",
   "Capacity Factor": "Kapasite faktörü",
+  "Overspeed trip at t = {n} s — the rotor passed {n} rpm, the blades feather and the turbine stays in emergency shutdown until reset.": "Aşırı hız tripi t = {n} s'de — rotor {n} rpm'i geçti, kanatlar yelken konumuna döner ve türbin sıfırlanana kadar acil durdurmada kalır.",
   "Peak Rotor Speed": "Tepe rotor hızı",
   "Mean Pitch": "Ortalama kanat açısı",
   "≥ 80 normal": "≥ 80 normal",

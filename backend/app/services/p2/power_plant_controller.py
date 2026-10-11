@@ -249,7 +249,10 @@ def run_ppc_simulation(
     series: list[PPCTimePoint] = []
     dispatch_trace: list[float] = []  # ramp-limited dispatch, to isolate the frequency response
     ramp_violated = voltage_violated = False
-    dispatch_limit = max(ramp_up, ramp_down) * 60.0 * 1.01
+    # The plant's agreed ramp limit [MW/min] (not the TSO override): a TSO ramp command
+    # faster than the agreed setting is flagged. Frequency response is exempt (it rides
+    # on top of the dispatch), so the limiter output is what is checked.
+    dispatch_limit = max(cfg.ramp_up_pct_per_min, cfg.ramp_down_pct_per_min) / 100.0 * cap * 1.01
 
     for k in range(n):
         t = k * dt
@@ -501,13 +504,28 @@ def get_ppc_status(
     p_actual = max(0.0, min(p_setpoint + d_freq, total_available))
 
     v_ref = tso.voltage_setpoint_pu or 1.0
+    # Steady state on the POC Thevenin source (as in the simulation, the POC sits at
+    # 1.0 pu with the export and Q = 0): V = V0 + X·Q/S_base, so slope control settles at
+    # Q = K·(V_ref − V0) / (1 + K·X/S_base) with K = Q_max / slope.
+    v0 = 1.0
+    _, x_grid = _grid_impedance_pu(spec.grid_ssc_mva)
+    k_slope = PSE_Q_PRODUCE_PU * cap / (cfg.voltage_slope_pct / 100.0)
+    q_cap = available_turbines * WTG_Q_LIMIT_MVAR + spec.statcom_mvar
     q = 0.0
-    if reactive_power_mode == ReactivePowerMode.REACTIVE_POWER:
+    if reactive_power_mode == ReactivePowerMode.VOLTAGE_CONTROL:
+        q = k_slope * (v_ref - v0) / (1.0 + k_slope * x_grid / S_BASE_MVA)
+    elif reactive_power_mode == ReactivePowerMode.Q_V_DROOP:
+        err = v_ref - v0
+        if abs(err) > cfg.q_v_droop_deadband_pu:
+            k_eff = k_slope / (1.0 + k_slope * x_grid / S_BASE_MVA)
+            q = k_eff * (abs(err) - cfg.q_v_droop_deadband_pu) * math.copysign(1.0, err)
+    elif reactive_power_mode == ReactivePowerMode.REACTIVE_POWER:
         q = tso.reactive_power_mvar or 0.0
     elif reactive_power_mode == ReactivePowerMode.POWER_FACTOR:
         q = _q_from_power_factor(
             p_actual, tso.power_factor if tso.power_factor is not None else 1.0
         )
+    q = max(-q_cap, min(q_cap, q))
     statcom_q, _ = _split_q_statcom_wtg(q, available_turbines, spec.statcom_mvar)
 
     if tso.emergency_stop:
@@ -531,7 +549,7 @@ def get_ppc_status(
         q_setpoint_mvar=round(q, 2),
         q_actual_mvar=round(q, 2),
         voltage_setpoint_pu=round(v_ref, 4),
-        voltage_actual_pu=round(_poc_voltage(1.0, 0.0, q, spec.grid_ssc_mva), 4),
+        voltage_actual_pu=round(v0 + x_grid * q / S_BASE_MVA, 4),
         frequency_hz=round(frequency_hz, 3),
         frequency_response_active=abs(d_freq) > 0.1,
         frequency_delta_p_mw=round(d_freq, 2),

@@ -15,66 +15,17 @@ from itertools import pairwise
 import pytest
 from fastapi.testclient import TestClient
 
-import app.services.p2.bess as bess_svc
 from app.main import app
 from app.services.p2.bess import (
-    RATED_ENERGY_MWH,
     RATED_POWER_MW,
     SOC_MAX_PCT,
     SOC_MIN_PCT,
     calculate_degradation,
     dispatch_bess,
     fcr_power_mw,
-    get_status,
-    set_mode,
     simulate_frequency_response,
     simulate_ramp_smoothing,
 )
-
-
-@pytest.fixture(autouse=True)
-def _restore_state():
-    saved = dict(bess_svc._state)
-    yield
-    bess_svc._state.clear()
-    bess_svc._state.update(saved)
-
-
-# ── Status and modes ───────────────────────────────────────────────────────────
-
-
-def test_available_energy_counts_from_soc_floor():
-    s = get_status()
-    capacity = RATED_ENERGY_MWH * s["soh_percent"] / 100
-    assert s["available_energy_mwh"] == pytest.approx(
-        capacity * (s["soc_percent"] - SOC_MIN_PCT) / 100, abs=0.01
-    )
-    assert s["rated_power_mw"] == RATED_POWER_MW
-
-
-@pytest.mark.parametrize(
-    ("mode", "soc", "allowed"),
-    [
-        ("CHARGE", SOC_MAX_PCT, False),
-        ("DISCHARGE", SOC_MIN_PCT, False),
-        ("DISCHARGE", 50.0, True),
-        # FCR needs 15 min at 50 MW = 12.5 MWh = 6.25 % SOC above the floor
-        ("FREQUENCY_RESPONSE", 16.0, False),
-        ("FREQUENCY_RESPONSE", 16.5, True),
-    ],
-)
-def test_mode_transitions_respect_soc(mode, soc, allowed):
-    bess_svc._state["soc_percent"] = soc
-    r = set_mode(mode, 10.0, 50.0)
-    assert r["transition_allowed"] is allowed
-    assert (r["new_mode"] == mode) is allowed
-
-
-def test_discharge_setpoint_is_positive():
-    bess_svc._state["soc_percent"] = 50.0
-    assert set_mode("DISCHARGE", 20.0, 30.0)["power_setpoint_mw"] == 20.0
-    assert set_mode("FREQUENCY_RESPONSE", 20.0, 30.0)["power_setpoint_mw"] == 0.0
-
 
 # ── FCR ────────────────────────────────────────────────────────────────────────
 

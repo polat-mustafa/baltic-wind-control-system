@@ -2,13 +2,11 @@
 
 REST endpoints exposing the SB-510 turbine (IEA 15 MW, direct drive) nacelle physics models:
 
-  GET  /api/v1/turbine-sim/nacelle/subsystems  — all subsystems (aggregate)
-  GET  /api/v1/turbine-sim/nacelle/hpu         — Hydraulic Power Unit only
-  GET  /api/v1/turbine-sim/nacelle/cooling     — Cooling & lubrication only
-  GET  /api/v1/turbine-sim/nacelle/safety      — Safety systems only
+  GET  /api/v1/turbine-sim/nacelle/subsystems  — HPU, cooling, safety, cable twist, UPS
 
-All endpoints accept identical query parameters (operating conditions) and
-return pure deterministic physics — no database calls, no state.
+Query parameters are the operating conditions; the response is pure deterministic
+physics — no database calls, no state. (The per-subsystem GETs /hpu, /cooling,
+/safety had no caller and returned the same blocks; removed 2026-10-11.)
 
 Physics Layer
 ─────────────
@@ -41,10 +39,7 @@ from app.schemas.nacelle_subsystems import (
 from app.services.turbine_physics.nacelle_subsystems import (
     CableTwistState,
     UPSState,
-    compute_cooling_state,
-    compute_hpu_state,
     compute_nacelle_subsystems,
-    compute_safety_state,
 )
 
 router = APIRouter(
@@ -151,77 +146,6 @@ async def get_subsystems(
         ups=_ups_to_response(state.ups),
         any_alarm=any_alarm,
     )
-
-
-@router.get("/hpu", response_model=HPUStateResponse)
-async def get_hpu(
-    power_mw: float = Query(default=10.0, ge=0.0, le=15.0, description="Electrical output [MW]"),
-    is_operating: bool = Query(default=True, description="Turbine in power production"),
-    pitch_deg: float = Query(default=5.0, ge=0.0, le=90.0, description="Blade pitch angle [°]"),
-) -> HPUStateResponse:
-    """Return Hydraulic Power Unit (HPU) state.
-
-    Models the accumulator pressure cycle, pitch cylinder extension,
-    main shaft brake pressure, and ISO 4406 oil cleanliness code.
-
-    Physics:
-    - Accumulator: adiabatic discharge (P × V^γ = const, γ=1.4 for N₂)
-    - Pitch cylinder extension: 0% (feathered/90°) → 100% (fine/0°)
-    - Brake: clamped at 250 bar when parked, released when operating
-    - ISO 4406: cleanliness improves at low load (less particle generation)
-    """
-    state = compute_hpu_state(power_mw=power_mw, is_operating=is_operating, pitch_deg=pitch_deg)
-    return HPUStateResponse(**state.__dict__)
-
-
-@router.get("/cooling", response_model=CoolingStateResponse)
-async def get_cooling(
-    power_mw: float = Query(default=10.0, ge=0.0, le=15.0, description="Electrical output [MW]"),
-    ambient_temp_c: float = Query(
-        default=15.0, ge=-30.0, le=50.0, description="Ambient temperature [°C]"
-    ),
-) -> CoolingStateResponse:
-    """Return the generator / converter cooling state (direct drive, no gearbox).
-
-    Losses: Q_gen = P_mech·(1 − η_gen) ≈ 540 kW and Q_conv ≈ 124 kW at rated.
-    Stator winding: T = T_amb + 10 K + 0.125 K/kW · Q_gen (≈ 93 °C at rated, 15 °C).
-    Alarm 130 °C (class B), trip 155 °C (class F, IEC 60085).
-    """
-    state = compute_cooling_state(power_mw=power_mw, ambient_temp_c=ambient_temp_c)
-    return CoolingStateResponse(**state.__dict__)
-
-
-@router.get("/safety", response_model=SafetyStateResponse)
-async def get_safety(
-    rotor_speed_rpm: float = Query(default=7.56, ge=0.0, le=15.0, description="Rotor speed [rpm]"),
-    power_mw: float = Query(default=10.0, ge=0.0, le=15.0, description="Electrical output [MW]"),
-    vibration_mm_s: float = Query(
-        default=1.5, ge=0.0, le=20.0, description="Vibration velocity RMS [mm/s]"
-    ),
-    ice_detection: bool = Query(default=False, description="Ice detected on rotor"),
-    fire_alarm: bool = Query(default=False, description="Fire/smoke alarm active"),
-    lightning_count: int = Query(default=0, ge=0, description="Cumulative lightning strike count"),
-) -> SafetyStateResponse:
-    """Return nacelle safety systems state.
-
-    Checks:
-    - Overspeed (IEC 61400-1 §8.3):
-        Controller trip: ω > 120% rated (9.07 rpm, ROSCO) → EMERGENCY_SHUTDOWN
-        Safety chain: ω > 125% rated (9.45 rpm, illustrative)
-    - Vibration (ISO 10816-21):
-        Zone A ≤ 2.3 mm/s (new equip.), B ≤ 4.5 (unrestricted),
-        C ≤ 7.1 (restricted, plan maint.), D > 7.1 (emergency stop)
-    - Ice, fire, lightning strike counter
-    """
-    state = compute_safety_state(
-        rotor_speed_rpm=rotor_speed_rpm,
-        power_mw=power_mw,
-        vibration_mm_s=vibration_mm_s,
-        ice_detection=ice_detection,
-        fire_alarm=fire_alarm,
-        lightning_count=lightning_count,
-    )
-    return SafetyStateResponse(**state.__dict__)
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────

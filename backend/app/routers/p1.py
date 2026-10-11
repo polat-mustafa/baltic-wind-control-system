@@ -36,11 +36,9 @@ from app.services.p1.aep_calculator import (
     Z_75,
     Z_90,
     Z_99,
-    MarketWeightedAEPResult,
     UncertaintyComponent,
     aep_sensitivity,
     compute_aep_cascade,
-    compute_market_weighted_aep,
     uncertainty_components,
 )
 from app.services.p1.blockage import (
@@ -1161,7 +1159,7 @@ class WakeModelComparisonRequest(BaseModel):
     weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
     turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
     models: list[str] = Field(
-        default=["jensen", "bpa_gaussian", "noj", "zong_gaussian"],
+        default=["jensen", "bpa_gaussian", "niayifar_gaussian", "zong_gaussian", "turbopark"],
         description="Wake deficit models to compare",
     )
     turbulence_model: str = Field(
@@ -1222,28 +1220,9 @@ class FLOWERSResponse(BaseModel):
     n_fourier_modes: int
 
 
-class MarketWeightedAEPRequest(BaseModel):
-    layout: str = Field("staggered")
-    weibull_a: float = Field(SB510_WEIBULL_A, ge=5.0, le=20.0)
-    weibull_k: float = Field(SB510_WEIBULL_K, ge=1.0, le=4.0)
-    turbulence_intensity: float = Field(0.06, ge=0.02, le=0.20)
-    flat_price_eur_mwh: float = Field(72.0, ge=10.0, le=300.0)
-
-
-class MarketWeightedAEPResponse(BaseModel):
-    flat_aep_gwh: float
-    market_weighted_aep_gwh: float
-    market_value_factor: float
-    flat_revenue_meur: float
-    market_revenue_meur: float
-    revenue_uplift_percent: float
-    average_capture_price_eur_mwh: float
-    peak_generation_fraction: float
-
-
 class PCEUQRequest(BaseModel):
     layout: str = Field("staggered")
-    pce_order: int = Field(3, ge=1, le=5)
+    pce_order: int = Field(2, ge=1, le=4)
     n_samples: int = Field(30, ge=10, le=100)
 
 
@@ -1261,7 +1240,7 @@ class PCEUQResponse(BaseModel):
     p90_gwh: float
     dominant_parameter: str
     sobol_indices: list[SobolIndexSchema]
-    r_squared: float
+    q2_loo: float
     pce_order: int
     num_samples: int
 
@@ -1273,8 +1252,9 @@ class PCEUQResponse(BaseModel):
 async def wake_model_comparison(request: WakeModelComparisonRequest) -> WakeModelComparisonResponse:
     """Compare multiple wake deficit models on the same layout.
 
-    Models available: jensen (NOJ top-hat), bpa_gaussian (Bastankhah),
-    noj (same as Jensen), zong_gaussian (Zong & Porté-Agel LES-based).
+    Models available: jensen (NOJ top-hat), bpa_gaussian (Bastankhah 2014),
+    niayifar_gaussian (Niayifar & Porté-Agel 2016 — the platform's AEP model),
+    zong_gaussian (Zong & Porté-Agel 2020), turbopark (Nygaard et al. 2020).
     """
     layout = _get_layout(request.layout)
     site = _site(request.weibull_a, request.weibull_k, request.turbulence_intensity)
@@ -1376,49 +1356,6 @@ async def flowers_aep(request: FLOWERSRequest) -> FLOWERSResponse:
     )
 
 
-@router.post("/market-weighted-aep", response_model=MarketWeightedAEPResponse)
-async def market_weighted_aep(request: MarketWeightedAEPRequest) -> MarketWeightedAEPResponse:
-    """Compute market value-weighted AEP accounting for price-generation correlation.
-
-    Captures the 'cannibalization' effect where wind generation can depress
-    spot prices, reducing the effective value of each MWh produced.
-    """
-    layout = _get_layout(request.layout)
-    wake = _run_wake_for_layout(
-        layout,
-        request.weibull_a,
-        request.weibull_k,
-        request.turbulence_intensity,
-    )
-
-    # Generate synthetic 8760 hourly profile from average power
-    avg_power_mw = wake.net_aep_gwh * 1000.0 / 8760.0
-    rng = np.random.default_rng(42)
-    hours = np.arange(8760)
-    diurnal = 1.0 + 0.1 * np.cos(2 * np.pi * (hours % 24 - 4) / 24.0)
-    noise = 1.0 + 0.3 * rng.standard_normal(8760)
-    hourly_gen = np.clip(avg_power_mw * diurnal * noise, 0.0, 510.0)
-
-    try:
-        result: MarketWeightedAEPResult = compute_market_weighted_aep(
-            hourly_gen,
-            flat_price_eur_mwh=request.flat_price_eur_mwh,
-        )
-    except Exception as e:
-        raise DomainError(f"Market-weighted AEP failed: {e}") from e
-
-    return MarketWeightedAEPResponse(
-        flat_aep_gwh=result.flat_aep_gwh,
-        market_weighted_aep_gwh=result.market_weighted_aep_gwh,
-        market_value_factor=result.market_value_factor,
-        flat_revenue_meur=result.flat_revenue_meur,
-        market_revenue_meur=result.market_revenue_meur,
-        revenue_uplift_percent=result.revenue_uplift_percent,
-        average_capture_price_eur_mwh=result.average_capture_price_eur_mwh,
-        peak_generation_fraction=result.peak_generation_fraction,
-    )
-
-
 @router.post("/pce-uncertainty", response_model=PCEUQResponse)
 async def pce_uncertainty(request: PCEUQRequest) -> PCEUQResponse:
     """Run Polynomial Chaos Expansion uncertainty quantification on AEP.
@@ -1450,7 +1387,7 @@ async def pce_uncertainty(request: PCEUQRequest) -> PCEUQResponse:
             SobolIndexSchema(parameter=s.parameter, first_order=s.first_order)
             for s in result.sobol_indices
         ],
-        r_squared=result.r_squared,
+        q2_loo=result.q2_loo,
         pce_order=result.pce_order,
         num_samples=result.num_samples,
     )

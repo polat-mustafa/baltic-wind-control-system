@@ -62,6 +62,9 @@ export default function TurbinePhysicsKPIHeader() {
     ? Math.max(...simulation.rotor_speed_rpm)
     : null;
   const meanPitch = simulation?.summary.mean_pitch_deg ?? null;
+  // Overspeed trip (9.07 rpm) latches an emergency shutdown in the simulator
+  const tripIndex = simulation ? simulation.status.indexOf("emergency_shutdown") : -1;
+  const tripTimeS = tripIndex >= 0 ? simulation!.time_s[tripIndex] : null;
 
   // ISA-101: numbers are neutral; colour only for an abnormal state. A low Cp or
   // capacity factor is a property of the chosen wind scenario, not an alarm; the
@@ -106,6 +109,11 @@ export default function TurbinePhysicsKPIHeader() {
         unit="rpm"
         color={rpmColor}
       />
+      {tripTimeS !== null && (
+        <p className="col-span-full text-sm font-semibold" style={{ color: SCADA_COLORS.FAULT }}>
+          {`Overspeed trip at t = ${tripTimeS.toFixed(1)} s — the rotor passed 9.07 rpm, the blades feather and the turbine stays in emergency shutdown until reset.`}
+        </p>
+      )}
       <KPICard
         label="Mean Pitch"
         value={meanPitch !== null ? meanPitch.toFixed(1) : "—"}

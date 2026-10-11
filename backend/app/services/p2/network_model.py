@@ -23,10 +23,11 @@ For the two parallel export cables: Q ≈ 624 MVAR
 
 Why two export cables?
 -----------------------
-One 1000 mm² cable carries √3 × 220 kV × 0.95 kA ≈ 362 MVA — less than 510 MW.
-With a single cable the full-load load flow showed ~140 % loading. Two cables
-(≈ 75 % loaded at full output) also give N-1 export redundancy: losing one cable
-curtails the farm to ~360 MVA instead of 0 MW.
+One 1000 mm² cable carries √3 × 220 kV × 0.825 kA ≈ 314 MVA — less than 510 MW, and
+its charging current (≈ 820 A over 108 km, half of it at each compensated end) takes
+much of that. Two cables run at ≈ 99 % of their rating at full output (load flow) and
+give N-1 export redundancy: losing one cable curtails the farm (runback) instead of
+stopping it.
 
 Physics — Transformer Equivalent Circuit
 -----------------------------------------
@@ -205,7 +206,8 @@ TURBINE_RATED_MW = 15.0
 TOTAL_CAPACITY_MW = NUM_TURBINES * TURBINE_RATED_MW  # 510 MW
 
 # String layout: 4 strings × 6 WTGs + 2 strings × 5 WTGs (6 feeder bays at the OSS).
-# 6 × 15 MW = 90 MW ≈ 790 A on the OSS-end cable → 800 mm² (900 A) is ~89 % loaded.
+# 6 × 15 MW = 90 MW ≈ 787 A on the OSS-end cable → 1000 mm² (825 A, 95 %); 800 mm²
+# (775 A) is too small (``_get_cable_grade``).
 STRING_LAYOUT = [6, 6, 6, 6, 5, 5]
 NUM_STRINGS = len(STRING_LAYOUT)
 # OSS 66 kV switchboard: strings 1-3 on busbar section A (TX-OSS-01), 4-6 on

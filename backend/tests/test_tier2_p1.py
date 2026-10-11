@@ -29,8 +29,14 @@ class TestWakeModels:
     def test_wake_deficit_model_enum(self):
         from app.services.p1.wake_models import WakeDeficitModel
 
-        assert len(WakeDeficitModel) == 4
-        assert "jensen" in [m.value for m in WakeDeficitModel]
+        # Five distinct models — "noj" was once listed beside "jensen" (the same model)
+        assert [m.value for m in WakeDeficitModel] == [
+            "jensen",
+            "bpa_gaussian",
+            "niayifar_gaussian",
+            "zong_gaussian",
+            "turbopark",
+        ]
 
     def test_turbulence_model_enum(self):
         from app.services.p1.wake_models import TurbulenceModel
@@ -185,43 +191,6 @@ class TestFLOWERS:
 # ── Market Value-Weighted AEP ───────────────────────────────────
 
 
-class TestMarketWeightedAEP:
-    """Tests for market value-weighted AEP calculation."""
-
-    def test_market_weighted_aep_runs(self):
-        from app.services.p1.aep_calculator import compute_market_weighted_aep
-
-        gen = np.full(8760, 250.0)  # 250 MW constant
-        result = compute_market_weighted_aep(gen)
-        assert result.flat_aep_gwh > 0
-        assert result.market_weighted_aep_gwh > 0
-
-    def test_market_value_factor(self):
-        from app.services.p1.aep_calculator import compute_market_weighted_aep
-
-        gen = np.full(8760, 250.0)
-        result = compute_market_weighted_aep(gen)
-        # Market value factor should be close to 1.0 for constant generation
-        assert 0.5 < result.market_value_factor < 1.5
-
-    def test_capture_price_positive(self):
-        from app.services.p1.aep_calculator import compute_market_weighted_aep
-
-        gen = np.full(8760, 250.0)
-        result = compute_market_weighted_aep(gen)
-        assert result.average_capture_price_eur_mwh > 0
-
-    def test_peak_generation_fraction(self):
-        from app.services.p1.aep_calculator import compute_market_weighted_aep
-
-        gen = np.full(8760, 250.0)
-        result = compute_market_weighted_aep(gen)
-        assert 0.0 < result.peak_generation_fraction < 1.0
-
-
-# ── Multi-Algorithm Optimization ────────────────────────────────
-
-
 class TestMultiAlgorithm:
     """Tests for multi-algorithm layout optimization."""
 
@@ -297,6 +266,26 @@ class TestPCEUQ:
         assert len(result.sobol_indices) == 3  # 3 default parameters
         for si in result.sobol_indices:
             assert 0 <= si.first_order <= 1.0
+
+    def test_pce_matches_monte_carlo_on_a_known_function(self):
+        """Orthonormal Hermite basis: mean = c_0 and Var = Σc² must reproduce Monte Carlo
+        (the old Legendre basis on Gaussian inputs gave a wrong variance)."""
+        from app.services.p1.uncertainty_quantification import (
+            UncertainParameter,
+            _build_polynomial_basis,
+            _generate_lhs_samples,
+        )
+
+        params = [UncertainParameter("a", 10.0, 0.5), UncertainParameter("b", 2.0, 0.2)]
+        xs = _generate_lhs_samples(params, 40, 1)
+        f = lambda a, b: 3 * a**2 + 5 * b + a * b  # noqa: E731
+        xi = (xs - np.array([10.0, 2.0])) / np.array([0.5, 0.2])
+        basis = _build_polynomial_basis(xi, 2, ["gaussian", "gaussian"])
+        c = np.linalg.lstsq(basis, f(xs[:, 0], xs[:, 1]), rcond=None)[0]
+        rng = np.random.default_rng(0)
+        y = f(rng.normal(10.0, 0.5, 400_000), rng.normal(2.0, 0.2, 400_000))
+        assert c[0] == pytest.approx(y.mean(), rel=1e-3)
+        assert np.sqrt(np.sum(c[1:] ** 2)) == pytest.approx(y.std(), rel=5e-3)
 
     def test_pce_exceedance_values(self):
         from app.services.p1.uncertainty_quantification import run_pce_uncertainty

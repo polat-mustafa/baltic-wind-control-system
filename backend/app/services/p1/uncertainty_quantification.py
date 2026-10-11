@@ -20,14 +20,18 @@ with a polynomial surrogate. Key steps:
 The PCE expansion:
     Y(ξ) = Σ_α c_α × Ψ_α(ξ)
 
-where ξ are standardised random variables, Ψ_α are multivariate orthogonal
-polynomials (Hermite for Gaussian inputs, Legendre for uniform), and c_α are
-the expansion coefficients.
-
-Statistics from PCE coefficients (exact, no sampling needed):
+where ξ are standardised random variables, Ψ_α are multivariate ORTHONORMAL
+polynomials of their distribution (probabilists' Hermite He_n/√n! for Gaussian
+inputs, √(2n+1)·P_n Legendre for uniform ones on [−1, 1]), and c_α are the
+expansion coefficients. Only with an orthonormal basis of the input distribution
+do the statistics follow from the coefficients:
     E[Y] = c_0                              (mean)
     Var[Y] = Σ_{α≠0} c_α²                 (variance)
     Sobol indices: S_i = Σ_{α∈A_i} c_α² / Var[Y]  (sensitivity)
+Fit quality is the leave-one-out Q² (e_i / (1 − h_ii) from the hat matrix), not the
+in-sample R², which reaches 1 whenever the basis has nearly as many terms as there
+are samples. Scope: this is the AEP spread from the wind-climate inputs alone
+(A, k, TI), not the bankable total uncertainty (``aep_calculator``).
 
 References
 ----------
@@ -56,7 +60,7 @@ from app.services.p1.wake_model import (
 
 # ── PCE Constants ───────────────────────────────────────────────
 
-DEFAULT_PCE_ORDER: int = 3
+DEFAULT_PCE_ORDER: int = 2
 """Default polynomial order for PCE."""
 
 DEFAULT_NUM_SAMPLES: int = 50
@@ -128,8 +132,9 @@ class PCEResult:
         Polynomial chaos order used.
     num_samples : int
         Number of model evaluations.
-    r_squared : float
-        PCE fit quality (coefficient of determination).
+    q2_loo : float
+        Leave-one-out predictivity Q² of the surrogate (1 = perfect, < 0.9 = too few
+        samples for this order).
     sample_aep_values_gwh : NDArray
         AEP values at sample points [GWh/year].
     """
@@ -144,7 +149,7 @@ class PCEResult:
     dominant_parameter: str = ""
     pce_order: int = DEFAULT_PCE_ORDER
     num_samples: int = DEFAULT_NUM_SAMPLES
-    r_squared: float = 0.0
+    q2_loo: float = 0.0
     sample_aep_values_gwh: NDArray[np.floating] = field(default_factory=lambda: np.array([]))
 
 
@@ -193,44 +198,50 @@ def _generate_lhs_samples(
     return samples
 
 
+def _multi_indices(n_params: int, order: int) -> list[tuple[int, ...]]:
+    """Total-degree multi-indices α with |α| ≤ order, the constant term first."""
+    from itertools import product as iter_product
+
+    return [c for c in iter_product(range(order + 1), repeat=n_params) if sum(c) <= order]
+
+
 def _build_polynomial_basis(
-    samples_normalised: NDArray[np.floating],
+    xi: NDArray[np.floating],
     order: int,
+    distributions: list[str],
 ) -> NDArray[np.floating]:
-    """Build multivariate polynomial basis matrix (Legendre polynomials).
+    """Orthonormal multivariate polynomial basis Ψ_α(ξ).
 
     Parameters
     ----------
-    samples_normalised : NDArray
-        Normalised samples in [-1, 1]. Shape: (n_samples, n_params).
+    xi : NDArray
+        Standardised samples, shape (n_samples, n_params): ξ = (x − μ)/σ for a
+        Gaussian input, ξ ∈ [−1, 1] for a uniform one.
     order : int
-        Maximum polynomial order.
+        Maximum total polynomial degree.
+    distributions : list[str]
+        "gaussian" (Hermite He_n/√n!) or "uniform" (√(2n+1)·P_n) per parameter.
 
     Returns
     -------
     NDArray
-        Basis matrix. Shape: (n_samples, n_terms).
+        Basis matrix, shape (n_samples, n_terms); E[Ψ_α Ψ_β] = δ_αβ.
     """
-    n_samples, n_params = samples_normalised.shape
+    from math import factorial, sqrt
 
-    # Generate multi-index set for total-degree polynomial
-    from itertools import product as iter_product
+    from numpy.polynomial import hermite_e, legendre
 
-    indices = []
-    for combo in iter_product(range(order + 1), repeat=n_params):
-        if sum(combo) <= order:
-            indices.append(combo)
-
-    n_terms = len(indices)
-    basis = np.ones((n_samples, n_terms))
-
+    indices = _multi_indices(xi.shape[1], order)
+    basis = np.ones((xi.shape[0], len(indices)))
     for t, idx in enumerate(indices):
         for p, deg in enumerate(idx):
-            if deg > 0:
-                # Legendre polynomial of degree `deg`
-                x = samples_normalised[:, p]
-                basis[:, t] *= np.polynomial.legendre.legval(x, [0] * deg + [1])
-
+            if deg == 0:
+                continue
+            unit = [0] * deg + [1]
+            if distributions[p] == "gaussian":
+                basis[:, t] *= hermite_e.hermeval(xi[:, p], unit) / sqrt(factorial(deg))
+            else:
+                basis[:, t] *= legendre.legval(xi[:, p], unit) * sqrt(2 * deg + 1)
     return basis
 
 
@@ -264,11 +275,14 @@ def run_pce_uncertainty(
     PCEResult
         PCE statistics, Sobol indices, and fit quality.
     """
-    # Default uncertain parameters
+    # Default uncertain parameters: SB-510's site Weibull (wind_climate) with the NEWA
+    # mean-speed spread on A (0.54 m/s, as in aep_calculator), k ± 0.15, TI 6 ± 1 %
     if parameters is None:
+        from app.services.site_assessment.wind_climate import SB510_WEIBULL_A, SB510_WEIBULL_K
+
         parameters = [
-            UncertainParameter("weibull_a", 10.5, 0.5, "gaussian"),
-            UncertainParameter("weibull_k", 2.2, 0.15, "gaussian"),
+            UncertainParameter("weibull_a", SB510_WEIBULL_A, 0.54, "gaussian"),
+            UncertainParameter("weibull_k", SB510_WEIBULL_K, 0.15, "gaussian"),
             UncertainParameter("turbulence_intensity", 0.06, 0.01, "gaussian"),
         ]
 
@@ -296,8 +310,8 @@ def run_pce_uncertainty(
             param_dict[param.name] = val
 
         site = create_uniform_site(
-            weibull_a_ms=param_dict.get("weibull_a", 10.5),
-            weibull_k=param_dict.get("weibull_k", 2.2),
+            weibull_a_ms=param_dict["weibull_a"],
+            weibull_k=param_dict["weibull_k"],
             turbulence_intensity=param_dict.get("turbulence_intensity", 0.06),
         )
 
@@ -330,57 +344,41 @@ def run_pce_uncertainty(
             sample_aep_values_gwh=aep_values,
         )
 
-    # Normalise samples to [-1, 1]
-    samples_norm = np.zeros_like(samples_valid)
+    # Standardise: ξ = (x − μ)/σ (Gaussian); uniform inputs span μ ± 2σ → ξ ∈ [−1, 1]
+    dists = [p.distribution for p in parameters]
+    xi = np.zeros_like(samples_valid)
     for j, param in enumerate(parameters):
-        center = param.nominal
-        scale = max(param.std_dev * 2.0, 1e-10)
-        samples_norm[:, j] = (samples_valid[:, j] - center) / scale
+        scale = param.std_dev if param.distribution == "gaussian" else 2.0 * param.std_dev
+        xi[:, j] = (samples_valid[:, j] - param.nominal) / max(scale, 1e-12)
 
-    # Build polynomial basis
-    basis = _build_polynomial_basis(samples_norm, pce_order)
-
-    # Fit PCE coefficients via least squares
+    basis = _build_polynomial_basis(xi, pce_order, dists)
     coeffs, _residuals, _, _ = np.linalg.lstsq(basis, aep_valid, rcond=None)
 
-    # PCE statistics
+    # Orthonormal basis: mean = c_0, variance = Σ c_α² (α ≠ 0)
     mean_aep = float(coeffs[0])
     variance = float(np.sum(coeffs[1:] ** 2))
     std_aep = float(np.sqrt(max(0.0, variance)))
 
-    # R² fit quality
-    predictions = basis @ coeffs
-    ss_res = float(np.sum((aep_valid - predictions) ** 2))
-    ss_tot = float(np.sum((aep_valid - np.mean(aep_valid)) ** 2))
-    r_squared = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+    # Leave-one-out Q²: e_i / (1 − h_ii), h = diag(A (AᵀA)⁻¹ Aᵀ)
+    residuals = aep_valid - basis @ coeffs
+    leverage = np.einsum("ij,ji->i", basis, np.linalg.pinv(basis))
+    loo = residuals / np.clip(1.0 - leverage, 1e-9, None)
+    ss_tot = float(np.sum((aep_valid - aep_valid.mean()) ** 2))
+    q2_loo = 1.0 - float(np.sum(loo**2)) / ss_tot if ss_tot > 0 else 0.0
 
-    # Compute first-order Sobol indices
-    # For each parameter, sum squared coefficients of terms involving only that parameter
-    from itertools import product as iter_product
-
-    indices_list = []
-    for combo in iter_product(range(pce_order + 1), repeat=n_params):
-        if sum(combo) <= pce_order:
-            indices_list.append(combo)
-
+    # First-order Sobol indices: terms that involve parameter i only
+    indices_list = _multi_indices(n_params, pce_order)
     sobol_indices: list[SobolIndex] = []
     for p_idx, param in enumerate(parameters):
-        param_var = 0.0
-        for t, idx in enumerate(indices_list):
-            if t == 0:
-                continue  # Skip constant term
-            # First-order: only p_idx is nonzero in this multi-index
-            is_first_order = idx[p_idx] > 0 and all(
-                idx[k] == 0 for k in range(n_params) if k != p_idx
-            )
-            if is_first_order:
-                param_var += coeffs[t] ** 2
-
-        sobol_first = param_var / variance if variance > 0 else 0.0
+        param_var = sum(
+            float(coeffs[t] ** 2)
+            for t, idx in enumerate(indices_list)
+            if idx[p_idx] > 0 and all(idx[k] == 0 for k in range(n_params) if k != p_idx)
+        )
         sobol_indices.append(
             SobolIndex(
                 parameter=param.name,
-                first_order=round(sobol_first, 4),
+                first_order=round(param_var / variance if variance > 0 else 0.0, 4),
             )
         )
 
@@ -412,6 +410,6 @@ def run_pce_uncertainty(
         dominant_parameter=dominant,
         pce_order=pce_order,
         num_samples=n_samples,
-        r_squared=round(r_squared, 4),
+        q2_loo=round(q2_loo, 4),
         sample_aep_values_gwh=np.round(aep_values, 2),
     )

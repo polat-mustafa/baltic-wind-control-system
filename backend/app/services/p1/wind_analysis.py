@@ -12,7 +12,7 @@ Physics Pipeline
 2. Compute frequency of occurrence per sector
 3. Compute mean wind speed per sector
 4. Fit sector-wise Weibull distributions
-5. Compute energy rose: E_sector ∝ f_sector × v̄_sector³ (cubic law)
+5. Compute energy rose: E_sector ∝ f_sector × ⟨v³⟩_sector (cubic law)
 6. Compute circular standard deviation (directional variability)
 
 References
@@ -198,30 +198,31 @@ def fit_sector_weibull(
 
 def compute_energy_rose(
     frequencies: NDArray[np.floating],
-    mean_speeds_ms: NDArray[np.floating],
+    mean_cubed_speeds: NDArray[np.floating],
 ) -> NDArray[np.floating]:
     """
-    Compute energy fraction per sector using the cubic law.
+    Compute energy fraction per sector from the mean of v³.
 
-    Wind power is proportional to v³, so the energy contribution from
-    each sector scales as: E_i ∝ f_i × v̄_i³
+    Wind power is proportional to v³, so a sector's energy is E_i ∝ f_i × ⟨v³⟩_i —
+    the mean of the cube, not the cube of the mean: for a Weibull wind
+    ⟨v³⟩ = v̄³ · Γ(1 + 3/k) / Γ(1 + 1/k)³ (≈ 1.9 × v̄³ at k = 2), so sectors with a
+    different spread k carry different energy at the same mean speed.
 
     Parameters
     ----------
     frequencies : NDArray
         Sector frequencies [-]. Shape: (num_sectors,).
-    mean_speeds_ms : NDArray
-        Mean speed per sector [m/s]. Shape: (num_sectors,).
+    mean_cubed_speeds : NDArray
+        Mean of v³ per sector [m³/s³]. Shape: (num_sectors,).
 
     Returns
     -------
     NDArray
         Normalised energy fraction per sector [-]. Sums to 1.0.
-        Zero for sectors with NaN speeds.
+        Zero for sectors with NaN values.
     """
-    # Replace NaN with 0 for computation
-    speeds_clean = np.where(np.isnan(mean_speeds_ms), 0.0, mean_speeds_ms)
-    energy_raw = frequencies * speeds_clean**3
+    cubes_clean = np.where(np.isnan(mean_cubed_speeds), 0.0, mean_cubed_speeds)
+    energy_raw = frequencies * cubes_clean
     total_energy = energy_raw.sum()
     if total_energy == 0:
         return np.zeros_like(frequencies)
@@ -312,7 +313,8 @@ def compute_wind_rose(
     frequencies = compute_sector_frequencies(sector_indices, num_sectors)
     mean_speeds = compute_sector_mean_speed_ms(speeds_ms, sector_indices, num_sectors)
     sector_weibull = fit_sector_weibull(speeds_ms, sector_indices, num_sectors)
-    energy_fractions = compute_energy_rose(frequencies, mean_speeds)
+    mean_cubes = compute_sector_mean_speed_ms(speeds_ms**3, sector_indices, num_sectors)
+    energy_fractions = compute_energy_rose(frequencies, mean_cubes)
 
     # Dominant direction = centre of the most frequent sector
     dominant_idx = int(np.argmax(frequencies))

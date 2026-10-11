@@ -175,3 +175,22 @@ class TestStatus:
         s = get_ppc_status(frequency_hz=50.5)
         assert s.frequency_response_active
         assert s.frequency_delta_p_mw == pytest.approx(-0.3 * K_LFSM)
+
+    def test_voltage_control_snapshot_settles_on_the_slope(self):
+        """V_ref 1.02 pu: Q = K·ΔV/(1 + K·X/S_base) and the POC sits between 1.0 and V_ref."""
+        s = get_ppc_status(tso_setpoint=TSOSetpoint(voltage_setpoint_pu=1.02))
+        assert s.q_actual_mvar > 0
+        assert 1.0 < s.voltage_actual_pu < 1.02
+
+
+class TestRampCompliance:
+    def test_tso_ramp_faster_than_the_agreed_limit_is_flagged(self):
+        """A TSO ramp command of 200 MW/min exceeds the plant's agreed 10 %/min (51 MW/min)."""
+        tso = TSOSetpoint(active_power_mw=300.0, ramp_rate_mw_per_min=200.0)
+        r = _sim(tso=tso, active_power_mode=ActivePowerMode.RAMP_RATE_CONTROL)
+        assert not r.ramp_rate_compliant
+
+    def test_tso_ramp_within_the_agreed_limit_passes(self):
+        tso = TSOSetpoint(active_power_mw=300.0, ramp_rate_mw_per_min=40.0)
+        r = _sim(tso=tso, active_power_mode=ActivePowerMode.RAMP_RATE_CONTROL)
+        assert r.ramp_rate_compliant

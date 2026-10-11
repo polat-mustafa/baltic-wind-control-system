@@ -14,12 +14,18 @@ using different assumptions about the wake profile shape and expansion rate:
      ΔU/U₀ = (1 - √(1 - Ct/(8(σ/D)²))) × exp(-r²/(2σ²))
    Most widely used. Captures lateral decay realistically.
 
-3. **NOJ (Niels Otto Jensen / Frandsen)** — Modified Jensen with turbulence:
-     Like Jensen but with wake-added turbulence scaling expansion rate.
+3. **Niayifar & Porté-Agel (2016)** — Gaussian with a wake expansion rate that
+     grows with the local turbulence intensity (k* = 0.3837·TI + 0.003678). The
+     model behind the platform's AEP (``wake_model.configure_wake_model``).
 
-4. **Zong & Porté-Agel (2020)** — Empirical Gaussian based on LES data:
-     Similar to BPA but with empirically tuned parameters from large-eddy
-     simulation databases. Better accuracy for large rotors.
+4. **Zong & Porté-Agel (2020)** — Gaussian with a near-wake onset and a
+     turbulence-dependent expansion, from LES; better for large rotors.
+
+5. **TurbOPark (Nygaard et al. 2020)** — Gaussian whose expansion follows the
+     wake-added turbulence along the wake; recovers more slowly in large
+     offshore arrays, which is why it predicts the largest deep-array losses.
+
+(Jensen 1983 is PyWake's ``NOJDeficit`` — "NOJ" = N. O. Jensen; one model.)
 
 Turbulence Models
 -----------------
@@ -63,8 +69,9 @@ class WakeDeficitModel(StrEnum):
 
     JENSEN = "jensen"
     BPA_GAUSSIAN = "bpa_gaussian"
-    NOJ = "noj"
+    NIAYIFAR_GAUSSIAN = "niayifar_gaussian"
     ZONG_GAUSSIAN = "zong_gaussian"
+    TURBOPARK = "turbopark"
 
 
 class TurbulenceModel(StrEnum):
@@ -124,10 +131,14 @@ def _get_deficit_model(model: WakeDeficitModel) -> Any:
         from py_wake.deficit_models.gaussian import BastankhahGaussianDeficit
 
         return BastankhahGaussianDeficit()
-    elif model == WakeDeficitModel.NOJ:
-        from py_wake.deficit_models import NOJDeficit
+    elif model == WakeDeficitModel.NIAYIFAR_GAUSSIAN:
+        from py_wake.deficit_models.gaussian import NiayifarGaussianDeficit
 
-        return NOJDeficit()
+        return NiayifarGaussianDeficit()
+    elif model == WakeDeficitModel.TURBOPARK:
+        from py_wake.deficit_models.gaussian import TurboGaussianDeficit
+
+        return TurboGaussianDeficit()
     elif model == WakeDeficitModel.ZONG_GAUSSIAN:
         from py_wake.deficit_models.gaussian import ZongGaussianDeficit
 
@@ -325,7 +336,7 @@ def compare_wake_models(
     site : py_wake.site.BaseSite
         PyWake site object.
     models : list[WakeDeficitModel], optional
-        Models to compare. Default: all four.
+        Models to compare. Default: all five.
     turbulence_model : TurbulenceModel
         Turbulence model applied to all comparisons. Default: STF2017.
     superposition_model : SuperpositionModel

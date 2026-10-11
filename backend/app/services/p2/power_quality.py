@@ -68,8 +68,8 @@ that filter itself leaves a ×3 resonance next to h17.)
 Flicker — IEC 61400-21 / IEC 61000-3-7
 ---------------------------------------
   continuous:  P_st = P_lt = c(ψ_k) · √N · S_n / S_k
-  switching:   P_st = 18 · N10^0.31 · k_f · S_n / S_k,
-               P_lt =  8 · N120^0.31 · k_f · S_n / S_k   (per turbine, cubic sum)
+  switching:   P_st = 18/S_k · (Σ N10 · (k_f · S_n)^3.2)^0.31,
+               P_lt =  8/S_k · (Σ N120 · (k_f · S_n)^3.2)^0.31   (N10/N120: maxima per 10 min / 2 h)
   combined by the cubic law (IEC 61000-3-7). Planning levels HV-EHV:
   P_st 0.8, P_lt 0.6. c and k_f are illustrative full-converter values — the
   V236 IEC 61400-21 report is not public.
@@ -488,21 +488,25 @@ def compute_flicker(
     rated_mw: float = 510.0,
     grid_fault_level_mva: float = GRID_SSC_MVA,
     grid_impedance_angle_deg: float = 84.3,
-    annual_switching_operations: int = 1000,
+    n10: float = 10.0,
+    n120: float = 120.0,
 ) -> dict[str, Any]:
-    """P_st / P_lt of the farm at the POC (IEC 61400-21, cubic summation)."""
+    """P_st / P_lt of the farm at the POC (IEC 61400-21 eq. for N turbines, cubic summation).
+
+    ``n10`` / ``n120``: the most switching operations one turbine makes in 10 min / 2 h —
+    test-report values; 10 / 120 is the start-up at cut-in wind (the worst case of a full
+    converter, which has no generator switch-over). Flicker is a short-term severity, so
+    these are maxima, not annual averages.
+    """
     n = max(1, round(rated_mw / TURBINE_RATED_MW))
     s_n = TURBINE_RATED_MW / 0.95  # MVA at rated power, cos φ 0.95
     c = _interpolate_table(_C_TABLE, grid_impedance_angle_deg)
     k_f = _interpolate_table(_KF_TABLE, grid_impedance_angle_deg)
 
     p_cont = c * math.sqrt(n) * s_n / grid_fault_level_mva
-    ops_per_turbine_year = annual_switching_operations / n
-    n10 = ops_per_turbine_year / (365.25 * 24 * 6)
-    n120 = ops_per_turbine_year / (365.25 * 12)
-    # per turbine, then cubic sum over n turbines: (n · P³)^(1/3)
-    pst_sw = n ** (1 / 3) * 18 * n10**0.31 * k_f * s_n / grid_fault_level_mva if n10 > 0 else 0.0
-    plt_sw = n ** (1 / 3) * 8 * n120**0.31 * k_f * s_n / grid_fault_level_mva if n120 > 0 else 0.0
+    # P_st,Σ = 18/S_k · (Σ N10,i · (k_f,i · S_n,i)^3.2)^0.31, P_lt,Σ with 8 and N120
+    pst_sw = 18.0 / grid_fault_level_mva * (n * n10 * (k_f * s_n) ** 3.2) ** 0.31
+    plt_sw = 8.0 / grid_fault_level_mva * (n * n120 * (k_f * s_n) ** 3.2) ** 0.31
     pst = (p_cont**3 + pst_sw**3) ** (1 / 3)
     plt = (p_cont**3 + plt_sw**3) ** (1 / 3)
     worst = max(pst / PST_PLANNING_HV, plt / PLT_PLANNING_HV)

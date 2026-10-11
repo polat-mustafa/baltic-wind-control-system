@@ -480,7 +480,7 @@ U_ret = U_clear = U_rec1 = 0.00 pu, t_clear = t_rec1 = t_rec2 = 0.15 s, U_rec2 =
 | Harmonic filter (in the design) | damped high-pass at OSS 66 kV, 2 Mvar tuned to h10.34 (517 Hz), q 1.5 (C 1.45 µF, L 65.5 mH, R 319 Ω) — `size_harmonic_filter`, triggered by the amplified resonance next to h11 |
 | With the filter | 535 Hz peak ×2.0; h11 26 %; no characteristic order above 27 %; THD 0.71 % at 66 kV, 0.12 % at the PSE 400 kV POC (planning level 3 %); the h2 cable–grid resonance (105–120 Hz) reaches 84 % on the 5 GVA grid — no 66 kV filter moves it, an item for the connection-stage harmonic study |
 | Correction (2026-10-11) | the model used to lump only 15 MVAR of array charging: it showed the array resonance at 880 Hz next to h17 and chose an h16 filter, which with the correct capacitance would itself leave a ×3 resonance next to h17 |
-| Flicker P_st / P_lt at the POC | 0.002 / 0.002 (planning levels 0.8 / 0.6) |
+| Flicker P_st / P_lt at the POC | 0.007 / 0.006 (planning levels 0.8 / 0.6); switching (start at cut-in, N10 = 10, N120 = 120 per turbine) dominates |
 
 Planning levels follow IEC TR 61000-3-6:2008 Table 2 (MV / HV-EHV, THD 6.5 % / 3 %); flicker IEC 61000-3-7 HV-EHV. The emission limit PSE would allocate to the plant is a share of the planning level.
 

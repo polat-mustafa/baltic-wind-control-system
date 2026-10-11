@@ -101,7 +101,9 @@ export interface FlickerRequest {
   rated_mw: number;
   grid_fault_level_mva: number;
   grid_impedance_angle_deg: number;
-  annual_switching_operations: number;
+  /** Max switching operations of one turbine in 10 min / 2 h (IEC 61400-21). */
+  n10: number;
+  n120: number;
 }
 
 export interface FlickerResponse {

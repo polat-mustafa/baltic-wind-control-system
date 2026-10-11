@@ -158,7 +158,7 @@ def calculate_cable_reactive_power(
     voltage_kv : float
         Nominal voltage [kV]. Default: 220.
     length_km : float
-        Cable length [km]. Default: 45.
+        Cable length [km]. Default: 108 (SB-510).
     num_cables : int
         Number of parallel cables. Default: 2 (export circuits).
 
@@ -197,9 +197,9 @@ def size_statcom(
     cable_q_mvar : float | None
         Export cable Q [MVAR]. If None, calculated from cable parameters.
     reactor_unit_mvar : float
-        Absorption of one shunt reactor [MVAR]. Default: 80.
+        Absorption of one shunt reactor [MVAR]. Default: 180 (SB-510).
     num_reactors : int
-        Installed shunt reactors. Default: 3 (N+1).
+        Installed shunt reactors. Default: 4 (one per circuit at each cable end).
     reactors_out : int
         Reactors out of service in the design case. Default: 1 (N-1).
     temperature_derating : float

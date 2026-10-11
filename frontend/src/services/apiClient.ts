@@ -40,9 +40,10 @@ export function setRequestHeaders(fn: (url: string) => Record<string, string>): 
 }
 
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  // init first, headers merged after: a caller's own headers add to, not replace, the defaults
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...extraHeaders(url) },
     ...init,
+    headers: { "Content-Type": "application/json", ...extraHeaders(url), ...(init?.headers as Record<string, string>) },
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));

@@ -92,7 +92,8 @@ async def flicker(body: FlickerRequest, spec: FarmSpecDep) -> FlickerResponse:
             body.rated_mw,
             body.grid_fault_level_mva or spec.grid_ssc_mva,
             body.grid_impedance_angle_deg,
-            body.annual_switching_operations,
+            body.n10,
+            body.n120,
         )
     )
 

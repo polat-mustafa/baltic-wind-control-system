@@ -127,8 +127,17 @@ class FlickerRequest(BaseModel):
     grid_impedance_angle_deg: float = Field(
         default=84.3, ge=30.0, le=90.0, description="Grid impedance angle ψ_k (R/X 0.1 → 84.3°)"
     )
-    annual_switching_operations: int = Field(
-        default=1000, ge=1, le=100_000, description="Turbine start/stop operations per year (farm)"
+    n10: float = Field(
+        default=10.0,
+        ge=0.0,
+        le=100.0,
+        description="Max switching ops of one turbine in 10 min, N10 (10 = start at cut-in)",
+    )
+    n120: float = Field(
+        default=120.0,
+        ge=0.0,
+        le=1000.0,
+        description="Max switching ops of one turbine in 2 h, N120 (120 = start at cut-in)",
     )
 
 

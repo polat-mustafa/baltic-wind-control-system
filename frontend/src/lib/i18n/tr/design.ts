@@ -12,7 +12,7 @@ export default {
   Turbines: "Türbinler",
   "Array cables · site": "Dizi kabloları · saha",
   "site boundary": "saha sınırı",
-  "wakes (first 3 km, one direction)": "izler (ilk 3 km, tek yön)",
+  "wake: slower air (one direction) · −% = turbine's loss below rated": "iz: yavaşlamış hava (tek yön) · −% = türbinin anma altı kaybı",
   Constraints: "Kısıtlar",
   "Map legend": "Harita göstergesi",
   "Array cables and site": "Dizi kabloları ve saha",

@@ -25,7 +25,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Map as MapLibre } from "react-map-gl/maplibre";
 import DeckGL, { type DeckGLRef } from "@deck.gl/react";
 import { WebMercatorViewport, type MapViewState, type PickingInfo } from "@deck.gl/core";
-import { IconLayer, PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
+import { BitmapLayer, IconLayer, PathLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type { StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Layers, Minus, Plus } from "lucide-react";
@@ -47,10 +47,10 @@ import { selectEnvironment, selectKPIs, useLandingStore } from "../../store/land
 import { useLayerStore } from "../../store/layerStore";
 import { useStatcomQ } from "../../store/liveGridStore";
 import type { TurbineStatus } from "../../types/landing";
-import { arrayCableCurrentA, arrayCableGrade, exportCableState, farmWakeDeficits, wakePowerLossPct } from "../../utils/landingPhysics";
-import { wakeConePoly } from "../../utils/wakeModel";
+import { arrayCableCurrentA, arrayCableGrade, exportCableState, farmWakeDeficits, wakeCt, wakePowerLossPct } from "../../utils/landingPhysics";
 import { osmStyle, recolourVector, svgIcon as glyphIcon, useVectorStyle } from "../map/deckUtils";
 import MapCredits from "../map/MapCredits";
+import { WAKE_RGB, wakeField } from "../map/wakeField";
 import { turbineGlyph } from "../layout-canvas/shared";
 
 import AlarmTicker from "./AlarmTicker";
@@ -314,20 +314,27 @@ function ControlRoomMapInner({
   );
   const attention = turbines.filter((t) => t.status === "curtailed" || t.status === "fault");
 
-  // ── Wakes (Bastankhah, Ct(v)) — envelopes plus the worst few losses
+  // ── Wakes (Bastankhah, Ct(v)) — the u/u₀ field plus the worst few losses
   const windDir = Math.round(kpis.windDirectionDeg);
   const freeMs = Math.round(kpis.freestreamWindMs * 2) / 2;
+  // The raster only follows the wind (5° steps, as the losses) and Ct: rebuilt on every
+  // simulation tick it re-uploaded its texture each time and flickered.
+  const fieldDir = (Math.round(windDir / 5) * 5) % 360;
+  const fieldCt = wakeCt(freeMs);
+  const field = useMemo(
+    () => (layers.wakeEffects ? wakeField(fleet.turbines, fieldDir, fieldCt) : null),
+    [layers.wakeEffects, fleet, fieldDir, fieldCt],
+  );
   const wakes = useMemo(() => {
-    if (!layers.wakeEffects) return { cones: [], badges: [] };
-    const cones = fleet.turbines.map((t) => ({ polygon: wakeConePoly(t.lat, t.lon, windDir).map(swap) }));
+    if (!layers.wakeEffects) return { field: null, badges: [] };
     const pos = new Map(turbines.map((t) => [t.id, t.position]));
     const badges = [...farmWakeDeficits(windDir, fleet, freeMs)]
       .map(([id, deficit]) => ({ id, loss: Math.round(wakePowerLossPct(freeMs, deficit)), position: pos.get(id)! }))
       .filter((b) => b.loss >= 10 && b.position)
       .sort((a, b) => b.loss - a.loss)
       .slice(0, 6);
-    return { cones, badges };
-  }, [layers.wakeEffects, fleet, windDir, freeMs, turbines]);
+    return { field, badges };
+  }, [layers.wakeEffects, field, fleet, windDir, freeMs, turbines]);
 
   // ── Equipment
   const ossAt = ll(fleet.oss);
@@ -388,14 +395,12 @@ function ControlRoomMapInner({
 
   const deckLayers = [
     ...underLayers(context),
-    layers.wakeEffects &&
-      new PolygonLayer({
+    wakes.field &&
+      new BitmapLayer({
         id: "wakes",
-        data: wakes.cones,
-        getPolygon: (d: { polygon: [number, number][] }) => d.polygon,
-        getFillColor: alpha(pal.accent, theme === "hmi" ? 14 : 40),
-        stroked: false,
-        updateTriggers: { getFillColor: theme },
+        image: wakes.field.image,
+        bounds: wakes.field.bounds,
+        opacity: theme === "hmi" ? 0.85 : 0.7,
       }),
     // 400 kV line to the PSE substation, and the export cables (glow while exporting)
     sb510 &&
@@ -682,6 +687,12 @@ function ControlRoomMapInner({
           </span>
           220 kV live
         </span>
+        {(layers.wakeEffects || layers.windParticles) && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-3.5" style={{ background: `rgb(${WAKE_RGB.join(",")})` }} />
+            wake: slower air
+          </span>
+        )}
       </div>
 
       <MapCredits className="bottom-0 left-1/2 -translate-x-1/2 rounded-t max-sm:bottom-1 max-sm:left-auto max-sm:right-1 max-sm:translate-x-0 max-sm:rounded" />

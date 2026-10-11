@@ -379,10 +379,13 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
   const [dpr, setDpr] = useState(Math.min(window.devicePixelRatio, 2));
   const [lowFx, setLowFx] = useState(false);
   const [manualRun, setManualRun] = useState<boolean | null>(null);
-  // Rotor what-if wind: starts at (and resets to) the turbine's live SCADA
-  // wind, so the spinning rotor and the telemetry strip agree on open.
-  const liveWindMs = Math.min(20, Math.max(0, Math.round(turbine.windSpeedMs * 2) / 2));
-  const [manualWindMs, setManualWindMs] = useState<number>(liveWindMs);
+  // Rotor wind: follows the turbine's live wind (the same plant state as the map and
+  // SCADA) until the slider is touched; then it is a what-if until Reset / "live".
+  const liveTurbine = useLandingStore(selectTurbine(turbineId)) ?? turbine;
+  // unrounded, so the compass, the telemetry strip and the rotor show the same number
+  const liveWindMs = Math.min(20, Math.max(0, liveTurbine.windSpeedMs));
+  const [windOverride, setWindOverride] = useState<number | null>(null);
+  const manualWindMs = windOverride ?? liveWindMs;
   const [metresPerPixel, setMetresPerPixel] = useState(0.5);
   // Realistic by default; the toon + ink look is an opt-in demo
   const [hiddenCardFor, setHiddenCardFor] = useState<TurbinePartId | null>(null);
@@ -490,10 +493,10 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
     resetViewerDefaults();
     setResetNonce((n) => n + 1);
     setManualRun(null);
-    setManualWindMs(liveWindMs);
+    setWindOverride(null);
     setExplodedOffset(0);
     setShowHumanFigure(false);
-  }, [resetViewerDefaults, liveWindMs]);
+  }, [resetViewerDefaults]);
 
   const handleFitToSelected = useCallback(() => {
     // Trigger a re-run of the fly-to effect by clearing and re-setting the part.
@@ -688,7 +691,9 @@ export default function TurbineViewer3D({ turbineId, turbine, expanded = false, 
         onToggleRun={handleToggleRun}
         isRunning={manualRun !== false}
         manualWindMs={manualWindMs}
-        onWindSpeedChange={setManualWindMs}
+        onWindSpeedChange={setWindOverride}
+        windIsLive={windOverride === null}
+        onWindLive={() => setWindOverride(null)}
       />
 
       {/* Educational HUDs */}

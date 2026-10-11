@@ -86,7 +86,7 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
     // Lerp targets — smoothly interpolate toward store values each frame
     const LERP_RATE = 0.03; // ~84% convergence in 1s at 60fps
     let lerpWindDir = useLandingStore.getState().kpis.windDirectionDeg;
-    let lerpWindSpeed = useLandingStore.getState().kpis.averageWindSpeedMs;
+    let lerpWindSpeed = useLandingStore.getState().kpis.freestreamWindMs;
 
     /** Follow the map: a pan carries the particles along, a zoom or resize respawns them. */
     function followView(vp: WebMercatorViewport) {
@@ -121,7 +121,7 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
       }
       followView(view.current);
 
-      const { windDirectionDeg, averageWindSpeedMs } =
+      const { windDirectionDeg, freestreamWindMs } =
         useLandingStore.getState().kpis;
 
       // Lerp wind direction (shortest angular path handles 0/360 wrap)
@@ -131,7 +131,7 @@ export default function WindParticleOverlay({ view }: { view: MapView }) {
       lerpWindDir = (lerpWindDir + dirDelta * LERP_RATE + 360) % 360;
 
       // Lerp wind speed
-      lerpWindSpeed += (averageWindSpeedMs - lerpWindSpeed) * LERP_RATE;
+      lerpWindSpeed += (freestreamWindMs - lerpWindSpeed) * LERP_RATE;
 
       // Particles flow in the downwind direction (FROM → TO)
       const toRad = ((lerpWindDir + 180) * Math.PI) / 180;

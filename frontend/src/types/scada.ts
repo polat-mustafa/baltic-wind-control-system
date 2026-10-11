@@ -336,9 +336,12 @@ export interface HistorianQueryResponse {
   range_hours: number;
   resolution: string;
   series: TagTimeSeries[];
+  /** "open-meteo" = the site's real hub wind (as the control room), "model" = offline fallback. */
+  wind_source?: string;
 }
 
 /** Latest values snapshot */
 export interface HistorianLatestResponse {
   values: Record<string, number>;
+  wind_source?: string;
 }

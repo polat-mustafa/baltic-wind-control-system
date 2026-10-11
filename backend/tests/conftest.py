@@ -28,6 +28,19 @@ def _committed() -> dict[str, dict[str, Any]]:
     return {e["id"]: e for e in json.loads(EVIDENCE_FILE.read_text(encoding="utf-8"))["items"]}
 
 
+@pytest.fixture(autouse=True)
+def _offline_site_wind(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No Open-Meteo calls from the SCADA historian in tests: its model wind is used."""
+    from app.services.p2 import pse_live
+    from app.services.p3 import historian
+
+    async def offline(day: str) -> list[float]:
+        raise pse_live.PseDataError("offline in tests")
+
+    monkeypatch.setattr(pse_live, "site_wind_hub", offline)
+    monkeypatch.setattr(historian, "_SITE_WIND", {})
+
+
 @pytest.fixture
 def evidence(request: pytest.FixtureRequest) -> Callable[..., None]:
     test_file = "backend/" + request.node.nodeid.split("::")[0].replace("\\", "/")

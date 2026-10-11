@@ -124,7 +124,7 @@ export function SkyDome({ sunDir, look }: { sunDir: [number, number, number]; lo
     // Clouds drift downwind; wind-from bearing θ is world (−sin θ, cos θ) in
     // xz, so they move along (sin θ, −cos θ). Stylised speed.
     const th = (kpis.windDirectionDeg * Math.PI) / 180;
-    const v = kpis.averageWindSpeedMs * 0.0012 * dt;
+    const v = kpis.freestreamWindMs * 0.0012 * dt;
     u.uDrift.value.x -= Math.sin(th) * v;
     u.uDrift.value.y += Math.cos(th) * v;
   });

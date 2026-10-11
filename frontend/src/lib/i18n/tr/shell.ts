@@ -297,6 +297,12 @@ export default {
     "IEA 15 MW doğrudan tahrikli türbinin fizik tabanlı referans modeli her 10 dakikalık SCADA kaydının ölçülen rüzgârıyla çalışır; artıklar üzerindeki kontrol grafikleri arızaları bulur, model tabanlı yalıtım onları adlandırır.",
   "Run the twin to see the fleet.": "Filoyu görmek için ikizi çalıştırın.",
   "Digital Twin · Condition Monitoring": "Dijital İkiz · Durum İzleme",
+  "Study data, not the live plant:": "Çalışma verisi, canlı santral değil:",
+  "measured output of Danish Baltic farms, 2024–2026 (Energinet, ENTSO-E). SB-510 is not built, so the method is trained and scored on real farms.":
+    "Danimarka'nın Baltık santrallerinin ölçülmüş üretimi, 2024–2026 (Energinet, ENTSO-E). SB-510 kurulmadığı için yöntem gerçek santrallerde eğitilip puanlanır.",
+  "one turbine under the wind scenario you choose below.": "aşağıda seçtiğiniz rüzgâr senaryosu altında tek bir türbin.",
+  "a seeded 10-min SCADA simulation of the farm (Weibull wind, injected faults) and, on the Real data tab, CARE to Compare turbine SCADA — not the control room's live wind.":
+    "santralin tohumlanmış 10 dakikalık SCADA benzetimi (Weibull rüzgârı, eklenmiş arızalar) ve Gerçek veri sekmesinde CARE to Compare türbin SCADA'sı — kontrol odasının canlı rüzgârı değil.",
   "ISO 13374-1 · ISO 13381-1 · EWMA control charts": "ISO 13374-1 · ISO 13381-1 · EWMA kontrol grafikleri",
   "Digital twin views": "Dijital ikiz görünümleri",
   "Fleet overview": "Filo genel bakışı",

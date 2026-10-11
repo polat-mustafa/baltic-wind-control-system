@@ -12,6 +12,7 @@ import { useFleet } from "../../lib/fleet";
 import { useGridEventSample } from "../../hooks/useGridEventSample";
 import type { FarmKPI } from "../../types/landing";
 import { gustMs as gustFromMean } from "../../utils/landingPhysics";
+import { useLandingStore } from "../../store/landingStore";
 import { useLiveGridStore, useStatcomQ } from "../../store/liveGridStore";
 
 interface MapKPIRibbonProps {
@@ -63,7 +64,11 @@ export default function MapKPIRibbon({ kpis: baseKpis }: MapKPIRibbonProps) {
   const reactiveQ = Math.round(useStatcomQ(kpis.totalOutputMW).q);
   const reactiveColor = Math.abs(reactiveQ) < 60 ? NORMAL : Math.abs(reactiveQ) < 100 ? WARN : ALARM;
 
-  const gustMs = gustFromMean(kpis.averageWindSpeedMs);
+  // The farm wind: hub 150 m freestream — the number the Environment panel and the map show too
+  const gustMs = gustFromMean(kpis.freestreamWindMs);
+  const weatherSource = useLandingStore((s) => s.weatherSource);
+  const live = useLandingStore((s) => s.liveWeather);
+  const windSource = weatherSource === "live" ? (live ? "live" : "sim (no live data)") : "sim";
   const gustColor = gustMs > 28 ? ALARM : gustMs > 22 ? WARN : NORMAL;
 
   // df/dt — frequency rate of change in mHz/s. Derived by tracking the
@@ -101,9 +106,10 @@ export default function MapKPIRibbon({ kpis: baseKpis }: MapKPIRibbonProps) {
       />
       <Cell
         label="Wind"
-        value={kpis.averageWindSpeedMs.toFixed(1)}
+        value={kpis.freestreamWindMs.toFixed(1)}
         unit="m/s"
-        sub={`from ${Math.round(kpis.windDirectionDeg)}° · gust ${gustMs.toFixed(1)}`}
+        sub={`${Math.round(kpis.windDirectionDeg)}° · gust ${gustMs.toFixed(1)} · ${windSource}`}
+        title={`Freestream wind at hub height 150 m, from ${Math.round(kpis.windDirectionDeg)}° (${windSource}). Mean wind at the rotors after wakes: ${kpis.averageWindSpeedMs.toFixed(1)} m/s`}
         color={gustColor}
       />
       <Cell

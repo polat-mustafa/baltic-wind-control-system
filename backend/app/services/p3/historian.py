@@ -15,9 +15,14 @@ ONE physical state so every tag agrees with every other:
   frequency  → Continental Europe: slow load-following swing + 15-min market
                steps, inside ±50 mHz most of the time
 
-The wind is a deterministic sum of a weather-front swing (hours) and
-turbulence-scale components (minutes), so the same instant always returns
-the same value. Time stamps are real UTC instants.
+The wind is the site's real hub-height wind where it is known — Open-Meteo
+hourly 100 m wind at the farm (``pse_live.site_wind_hub``, the same source and
+shear as the control room's live weather), interpolated per minute — plus
+deterministic turbulence-scale components (minutes). The async routes load the
+days they need with ``prefetch_site_wind`` first; the model itself never calls
+the network. Days that are not loaded (offline, tests) fall back to a
+deterministic weather-front swing, and ``wind_source`` says which one a minute
+used. Time stamps are real UTC instants.
 
 Standards: IEC 61400-25 (tag model, report rates), IEC 61850-7-4 logical
 nodes (MMXU, WMET, WGEN), ENTSO-E SO GL (frequency quality).
@@ -25,11 +30,13 @@ nodes (MMXU, WMET, WGEN), ENTSO-E SO GL (frequency quality).
 
 from __future__ import annotations
 
+import contextlib
 import math
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import lru_cache
+from zoneinfo import ZoneInfo
 
 from app.services.p1.turbine_models import get_turbine
 from app.services.p2.network_model import SB510, FarmSpec
@@ -235,11 +242,64 @@ def _wave(m: float, components: tuple[tuple[float, float, float], ...]) -> float
     return sum(a * math.sin(2 * math.pi * m / t + p) for a, t, p in components)
 
 
+#: Site hub wind per local (Polish) day: 24 hourly values, loaded by prefetch_site_wind.
+_SITE_WIND: dict[str, list[float]] = {}
+_WARSAW = ZoneInfo("Europe/Warsaw")
+
+
+def _local(m: float) -> datetime:
+    return datetime.fromtimestamp(m * 60, UTC).astimezone(_WARSAW)
+
+
+async def prefetch_site_wind(range_hours: float = 1.0) -> None:
+    """Load the site's hourly hub wind for the local days the last `range_hours` touch.
+
+    Uses ``pse_live.site_wind_hub`` (Open-Meteo, Redis-cached for an hour). A day
+    that cannot be fetched stays unloaded and the model uses its fallback swing.
+    """
+    from app.services.p2 import pse_live
+
+    now = datetime.now(UTC).timestamp() / 60
+    first = _local(now - range_hours * 60).date()
+    last = _local(now).date()
+    day = first
+    while day <= last:
+        key = day.isoformat()
+        # today's hours are refreshed (the forecast run moves on); past days are fixed
+        if key not in _SITE_WIND or day == last:
+            with contextlib.suppress(pse_live.PseDataError):
+                _SITE_WIND[key] = await pse_live.site_wind_hub(key)
+        day += timedelta(days=1)
+
+
+def _site_wind(m: float) -> float | None:
+    """Site hub wind at minute m from the loaded days, linear between hours; None if not loaded."""
+    t = _local(m)
+    hours = _SITE_WIND.get(t.date().isoformat())
+    if hours is None:
+        return None
+    h = t.hour
+    nxt = _SITE_WIND.get((t.date() + timedelta(days=1)).isoformat())
+    v1 = hours[h + 1] if h < 23 else (nxt[0] if nxt else hours[23])
+    frac = t.minute / 60 + t.second / 3600
+    return hours[h] + (v1 - hours[h]) * frac
+
+
+def wind_source(m: float) -> str:
+    """'open-meteo' when minute m uses the site's real wind, else 'model'."""
+    return "open-meteo" if _site_wind(m) is not None else "model"
+
+
 def wind_speed(m: float) -> float:
-    """Free-stream hub wind [m/s]: 31 h / 7.3 h fronts + turbulence (σ ≈ 0.6 m/s)."""
-    slow = _wave(m, ((3.0, 31 * 60, 0.4), (1.8, 7.3 * 60, 1.1)))
+    """Free-stream hub wind [m/s]: site wind (or 31 h / 7.3 h model fronts) + turbulence.
+
+    Turbulence σ ≈ 0.6 m/s.
+    """
     gusts = _wave(m, ((0.55, 47.0, 0.3), (0.4, 13.7, 2.0), (0.25, 5.3, 4.1)))
-    return max(0.0, 10.5 + slow + gusts)
+    site = _site_wind(m)
+    fronts = 10.5 + _wave(m, ((3.0, 31 * 60, 0.4), (1.8, 7.3 * 60, 1.1)))
+    base = site if site is not None else fronts
+    return max(0.0, base + gusts)
 
 
 def power_curve_mw(u: float) -> float:

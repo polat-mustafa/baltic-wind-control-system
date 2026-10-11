@@ -53,6 +53,10 @@ interface ViewerControlsProps {
   isRunning?: boolean;
   manualWindMs?: number;
   onWindSpeedChange?: (v: number) => void;
+  /** True while the rotor follows the turbine's live wind (no what-if set). */
+  windIsLive?: boolean;
+  /** Drop the what-if wind and follow the live wind again. */
+  onWindLive?: () => void;
 }
 
 const btn = cn(
@@ -135,6 +139,8 @@ export function ViewerControls({
   isRunning,
   manualWindMs,
   onWindSpeedChange,
+  windIsLive = true,
+  onWindLive,
 }: ViewerControlsProps) {
   // Narrow viewer (phone): the section stack hides behind one "Controls" button
   const [compactOpen, setCompactOpen] = useState(false);
@@ -358,6 +364,18 @@ export function ViewerControls({
             <span className="text-xs font-mono text-text-muted w-10 shrink-0 text-right tabular-nums">
               {(manualWindMs ?? 11).toFixed(1)} m/s
             </span>
+            {windIsLive ? (
+              <span className="text-xs text-text-muted shrink-0" title="The rotor follows this turbine's live wind">live</span>
+            ) : (
+              <button
+                type="button"
+                onClick={onWindLive}
+                className="text-xs text-accent shrink-0 hover:underline"
+                title="What-if wind set by the slider — back to the turbine's live wind"
+              >
+                use live
+              </button>
+            )}
           </div>
           <WindDirectionControl />
         </Section>

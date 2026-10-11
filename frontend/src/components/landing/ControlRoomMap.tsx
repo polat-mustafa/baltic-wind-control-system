@@ -654,8 +654,9 @@ function ControlRoomMapInner({
           </g>
         </svg>
         <div className="font-mono text-xs leading-tight">
-          <div className="text-text-primary">{kpis.averageWindSpeedMs.toFixed(1)} m/s</div>
-          <div className="text-text-muted">from {Math.round(kpis.windDirectionDeg)}°</div>
+          {/* same farm wind as the KPI strip and the Environment panel */}
+          <div className="text-text-primary" title="Freestream wind at hub height 150 m">{kpis.freestreamWindMs.toFixed(1)} m/s</div>
+          <div className="text-text-muted">from {Math.round(kpis.windDirectionDeg)}° · 150 m</div>
         </div>
       </div>
 

@@ -30,7 +30,7 @@ describe("MapKPIRibbon", () => {
   it("renders wind speed", () => {
     render(<MapKPIRibbon kpis={highAvailKPIs} />);
     expect(screen.getByText("Wind")).toBeDefined();
-    expect(screen.getByText("11.2")).toBeDefined();
+    expect(screen.getByText("11.8")).toBeDefined(); // the freestream at hub height, as the map and the Environment panel
   });
 
   it("renders availability, neutral above 95 % and amber below", () => {

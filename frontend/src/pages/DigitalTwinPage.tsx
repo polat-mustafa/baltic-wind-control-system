@@ -87,6 +87,7 @@ export default function DigitalTwinPage() {
           </>
         }
         meta="ISO 13374-1 · ISO 13381-1 · EWMA control charts"
+        studyData="a seeded 10-min SCADA simulation of the farm (Weibull wind, injected faults) and, on the Real data tab, CARE to Compare turbine SCADA — not the control room's live wind."
         actions={
           <>
             <TrainingGuide guide={digitalTwinGuide} />

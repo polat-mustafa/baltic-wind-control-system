@@ -62,11 +62,33 @@ describe("TutorPanel", () => {
     fireEvent.change(await screen.findByLabelText("Your question"), { target: { value: "Charging of one cable?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(await screen.findByText("About 312 Mvar per circuit.")).toBeDefined();
-    expect(screen.getByText(/Calculated with: export_cable/)).toBeDefined();
+    expect(screen.getByText("Export cable")).toBeDefined();
+    expect(screen.getByText("charging mvar per circuit")).toBeDefined(); // result as label / value rows
+    expect(screen.getByText("312")).toBeDefined();
     const [, history, page] = vi.mocked(api.ask).mock.calls[0];
     expect(history).toEqual([]);
     expect(page.route).toBe("/hv-grid");
     expect(page.title).toBe("Grid Integration");
     expect(page.text).toContain("±120 Mvar");
+  });
+
+  it("renders Markdown, rounds tool numbers with units and flags a cut-off answer", async () => {
+    vi.mocked(api.getStatus).mockResolvedValue(ON);
+    vi.mocked(api.ask).mockResolvedValueOnce({
+      answer: "## OSS\n\n**Toplama** noktası.\n\n| Etiket | Ne |\n|---|---|\n| TX | Trafo |",
+      model: "m",
+      truncated: true,
+      tools: [{ name: "plant_facts", arguments: "{}", result: { rated_ms: 10.6594, pse_frt_profile: [[0, 0], [0.15, 0]] } }],
+    });
+    renderPanel();
+    fireEvent.change(await screen.findByLabelText("Your question"), { target: { value: "oss nedir?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByRole("heading", { name: "OSS" })).toBeDefined();
+    expect(screen.getByText("Toplama").tagName).toBe("STRONG");
+    expect(screen.getByRole("table")).toBeDefined();
+    expect(screen.queryByText(/\|---\|/)).toBeNull();
+    expect(screen.getByText("10.659 m/s")).toBeDefined();
+    expect(screen.getByText("[[0,0],[0.15,0]]")).toBeDefined();
+    expect(screen.getByText(/cut off/)).toBeDefined();
   });
 });

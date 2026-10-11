@@ -56,3 +56,4 @@ class TutorChatResponse(BaseModel):
     answer: str
     model: str
     tools: list[TutorToolCall] = Field(description="Calculators the model ran, with results")
+    truncated: bool = Field(False, description="The answer hit the token limit")

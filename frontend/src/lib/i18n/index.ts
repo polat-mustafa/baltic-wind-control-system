@@ -200,7 +200,8 @@ function doElementText(el: Element) {
 }
 
 function doAttrs(el: Element) {
-  if (skipped(el)) return;
+  // a textarea's text is the user's, but its placeholder / aria-label are ours
+  if (skipped(el.tagName === "TEXTAREA" ? el.parentElement : el)) return;
   let recs = shownAttr.get(el);
   for (const a of ATTRS) {
     const v = el.getAttribute(a);

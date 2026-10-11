@@ -40,6 +40,8 @@ RATE_LIMIT = (30, 600.0)  # requests per window [s], per session
 MAX_TOOL_ROUNDS = 4
 MAX_PAGE_CHARS = 4000
 MAX_HISTORY = 12
+#: Room for the answer; reasoning models also spend hidden thinking tokens from this budget.
+MAX_ANSWER_TOKENS = 4000
 
 #: OpenAI-compatible chat endpoints a learner can bring a key for (fixed HTTPS base URLs).
 PROVIDERS: dict[str, dict[str, str]] = {
@@ -315,7 +317,9 @@ Rules:
 - For any SB-510 or turbine number, call a tool instead of recalling it. Never invent a number,
   a standard clause or a source. If no tool covers it, say what you are unsure about.
 - Use the page context below: it is what the learner sees right now.
-- Answer in the learner's language."""
+- Answer in the learner's language.
+- You write in a narrow chat panel (about 400 px): short paragraphs, Markdown with at most ###
+  headings, at most one small table (≤ 3 columns), formulas on their own line."""
 
 
 def _page_block(page: dict[str, Any]) -> str:
@@ -365,6 +369,9 @@ def chat(
     headers = {"Authorization": f"Bearer {session.api_key}"}
     if session.provider == "openrouter":
         headers |= {"HTTP-Referer": "https://offshoreforge.app", "X-Title": "OffshoreForge"}
+    extra: dict[str, Any] = {}
+    if session.provider == "openrouter":  # keep hidden thinking short so the answer fits
+        extra["reasoning"] = {"effort": "low", "exclude": True}
     trace: list[dict[str, Any]] = []
     with client or httpx.Client(timeout=90) as c:
         for _ in range(MAX_TOOL_ROUNDS + 1):
@@ -376,7 +383,8 @@ def chat(
                     "messages": messages,
                     "tools": tools,
                     "temperature": 0.2,
-                    "max_tokens": 900,
+                    "max_tokens": MAX_ANSWER_TOKENS,
+                    **extra,
                 },
             )
             if r.status_code != 200:
@@ -386,10 +394,16 @@ def chat(
                     detail = r.text[:300]
                 detail = detail.replace(session.api_key, "***")
                 raise TutorError(f"{p['title']} answered HTTP {r.status_code}: {detail}")
-            msg = r.json()["choices"][0]["message"]
+            choice = r.json()["choices"][0]
+            msg = choice["message"]
             calls = msg.get("tool_calls") or []
             if not calls:
-                return {"answer": msg.get("content") or "", "tools": trace, "model": session.model}
+                return {
+                    "answer": msg.get("content") or "",
+                    "tools": trace,
+                    "model": session.model,
+                    "truncated": choice.get("finish_reason") == "length",
+                }
             messages.append(
                 {"role": "assistant", "content": msg.get("content"), "tool_calls": calls}
             )

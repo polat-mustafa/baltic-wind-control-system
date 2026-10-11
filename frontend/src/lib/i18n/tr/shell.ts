@@ -142,6 +142,13 @@ export default {
   "Your question": "Sorunuz",
   "Speak your question": "Sorunuzu sesli sorun",
   Send: "Gönder",
+  "Calculated with": "Hesaplayan araçlar:",
+  "Plant facts": "Santral verileri",
+  "Turbine operating point": "Türbin çalışma noktası",
+  "Short circuit": "Kısa devre",
+  "Same result as above.": "Sonuç yukarıdakiyle aynı.",
+  "The answer hit the length limit and was cut off — ask “continue”.":
+    "Yanıt uzunluk sınırına takıldı ve kesildi — “devam et” yazın.",
 
   // Shared UI
   Exit: "Çık",

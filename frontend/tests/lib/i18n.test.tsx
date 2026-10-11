@@ -64,6 +64,7 @@ function Counter() {
         P<sub>max</sub> at <span translate="no">Layout</span>
       </p>
       <input aria-label="typed" value={text} onChange={(e) => setText(e.target.value)} />
+      <textarea aria-label="Your question" placeholder="Ask the tutor…" defaultValue="Collapse" />
       <button onClick={() => setN(n + 1)}>Next</button>
     </div>
   );
@@ -84,6 +85,10 @@ describe("applyLanguage (DOM layer)", () => {
     // formulas and symbols stay as written: "max" in a subscript is not "maks"
     expect(screen.getByTestId("formula").textContent).toBe("Pmax at Layout");
     expect(input.value).toBe("kept");
+    // a textarea's placeholder is ours, its text is the user's
+    const box = screen.getByLabelText("Sorunuz") as HTMLTextAreaElement;
+    expect(box.placeholder).toBe("Eğitmene sorun…");
+    expect(box.value).toBe("Collapse");
 
     // React updates one text node of the group: the new value is translated again
     act(() => screen.getByText("İleri").click());

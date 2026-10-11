@@ -8,12 +8,19 @@
 // (elements it translates carry data-i18n). Numbers, units and ids show up too —
 // skip what needs no translation; add the rest to src/lib/i18n/<lang>/.
 // Pass a base URL as the second argument when the dev server is not on :5173.
+//
+//   npm run i18n:missing -- tr <base-url> --check   → exits 1 if anything is left
+//
+// --check (CI) skips what scripts/i18n-allowlist.txt lists: names, citations, ids, units and
+// words that read the same in Turkish.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
-const lang = process.argv[2];
-const base = process.argv[3] ?? "http://localhost:5173";
+const args = process.argv.slice(2).filter((a) => a !== "--check");
+const check = process.argv.includes("--check");
+const lang = args[0];
+const base = args[1] ?? "http://localhost:5173";
 if (!lang) {
   console.error("usage: npm run i18n:missing -- <lang> [base-url]");
   process.exit(1);
@@ -65,6 +72,17 @@ for (const path of pages) {
 }
 await browser.close();
 
+const allow = readFileSync(new URL("./i18n-allowlist.txt", import.meta.url), "utf8")
+  .split(/\r?\n/)
+  .filter((l) => l.trim() && !l.startsWith("#"));
+const exact = new Set(allow.filter((l) => !l.startsWith("re:")));
+const patterns = allow.filter((l) => l.startsWith("re:")).map((l) => new RegExp(l.slice(3)));
+const left = [...found].filter(([s]) => !exact.has(s) && !patterns.some((re) => re.test(s)));
+
 const file = `i18n-missing-${lang}.tsv`;
-writeFileSync(file, [...found].map(([s, p]) => `${p}\t${s}`).join("\n") + "\n");
-console.log(`${found.size} texts → ${file}`);
+writeFileSync(file, left.map(([s, p]) => `${p}\t${s}`).join("\n") + "\n");
+console.log(`${left.length} texts → ${file} (${found.size - left.length} allow-listed)`);
+if (check && left.length) {
+  for (const [s, p] of left) console.log(`  ${p}\t${s}`);
+  process.exit(1);
+}

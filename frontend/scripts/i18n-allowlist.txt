@@ -1,0 +1,53 @@
+# Text i18n-missing.mjs may find in English on purpose: names, citations and data sources
+# (kept as written), ids, symbols, units, and words that are the same in Turkish (the
+# translator only marks text it changed). One entry per line; "re:" starts a regular expression.
+OffshoreForge
+OpenFreeMap
+OpenMapTiles
+OpenStreetMap
+Natura 2000
+Natura 2000.
+Normal
+Alarm
+# HTTP status text the server sends with an error
+Bad Gateway
+alarm
+Test
+Mvar
+f_grid
+Weibull k
+ω [rpm]
+Rotor [rpm]
+λ_opt (ROSCO VS_TSRopt)
+λ_opt (β = 0)
+R_ext [K·m/W]
+= P2 calc_sc
+XGBoost + LSTM + TFT
+XGBoost nRMSE
+XGBoost P50
+XGBoost P10–P90
+XGBoost (P50)
+PyWake Niayifar Gaussian
+PyWake (Niayifar Gaussian, STF2017)
+# feature columns of the forecast model (ids)
+re:^[a-z0-9]+(_[a-z0-9]+)+$
+# turbine health tooltips: "WTG-04 — Normal, HI 88" (Normal is the same in Turkish)
+re:^WTG-\d+ — Normal, HI \d+$
+# coastal station readings: "Ustka 6 m/s 210°"
+re:^[A-ZŁ][a-zł]+ \d+ m/s( \d+°)?$
+# farm names with their turbines and capacity (forecast sites)
+re:^[^()]+ \(\d+ × [^)]+\) — \d+ MW$
+# values that read the same in Turkish
+re:^Q ref \d+ MVAR$
+re:^Ik'' (min|max) \(IEC 60909\) [\d.]+ kA$
+re:^SB-510 reference \(\d+ MW\)$
+# data sources and citations
+re:^BALTICSEA_MULTIYEAR_
+re:^Open-Meteo (forecast|Previous Runs)
+re:^Energinet Energi Data Service
+re:^OpenStreetMap power lines
+re:^PSE S\.A\., Raporty PSE
+re:^CARE to Compare
+re:^IEC \d+
+re:^IEEE Std
+re:^Tautz-Weinert

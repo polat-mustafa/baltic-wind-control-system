@@ -17,6 +17,7 @@ import eduP1 from "./edu-p1";
 import eduP2 from "./edu-p2";
 import eduParts from "./edu-parts";
 import evidence from "./evidence";
+import glossary from "./glossary";
 import grid from "./grid";
 import guides from "./guides";
 import landing from "./landing";
@@ -41,6 +42,7 @@ const tr: Dictionary = {
   ...guides,
   ...contentMisc,
   ...evidence,
+  ...glossary,
   ...charts,
   ...academy,
   ...design,

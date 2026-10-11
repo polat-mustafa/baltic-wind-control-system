@@ -69,7 +69,6 @@ export default {
     "BAY-OSS-{n1}-{n2}: dizi topraklamasını kaldır, fideri kapat, {n3} türbini bağla ({n4} MW).",
   "Condensed from the P5 switching programme (S-001 … S-030); practise it in the Academy energisation mission.":
     "P5 manevra programından özetlenmiştir (S-001 … S-030); Akademi enerjilendirme görevinde pratik yapın.",
-  "As-built register — SB-{n} reference farm": "As-built kaydı — SB-{n} referans santrali",
   "{n1} × {n2} MW (IEA-{n3}-{n4}-RWT) = {n5} MW · {n6} array strings at {n7} kV · export {n8} km at {n9} kV · jacket foundations · printed {n10}-{n11}-{n12}":
     "{n1} × {n2} MW (IEA-{n3}-{n4}-RWT) = {n5} MW · {n7} kV'ta {n6} dizi · {n9} kV'ta {n8} km iletim · ceket temeller · basım {n10}-{n11}-{n12}",
   "Array cable {n1} km: {n2} mm² {n3} km, {n4} mm² {n5} km, {n6} mm² {n7} km.": "Dizi kablosu {n1} km: {n2} mm² {n3} km, {n4} mm² {n5} km, {n6} mm² {n7} km.",

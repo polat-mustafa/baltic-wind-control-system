@@ -126,8 +126,8 @@ export default {
   "another published implementation of the same model": "aynı modelin yayımlanmış başka bir uygulaması",
   "a limit set by a grid code or standard": "bir şebeke yönetmeliğinin ya da standardın koyduğu sınır",
   "P1 — other real farms": "P1 — diğer gerçek santraller",
-  "Kriegers Flak (SG 8.0-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used":
-    "Kriegers Flak (SG 8.0-167 DD) ve Rødsand 1 (SWT-2.3-82): açık güç eğrisi yok, bu yüzden ölçülen üretimleri kullanılmıyor",
+  "Kriegers Flak (SG 8.4-167 DD) and Rødsand 1 (SWT-2.3-82): no open power curve, so their metered output is not used":
+    "Kriegers Flak (SG 8.4-167 DD) ve Rødsand 1 (SWT-2.3-82): açık güç eğrisi yok, bu yüzden ölçülen üretimleri kullanılmıyor",
   "P1 — wind input at SB-510": "P1 — SB-510'da rüzgâr girdisi",
   "no offshore mast at the site; FINO2 (the nearest Baltic mast) needs a BSH data account — the owner's to-do":
     "sahada açık deniz ölçüm direği yok; FINO2 (en yakın Baltık direği) BSH veri hesabı gerektirir — sahibin yapacağı iş",

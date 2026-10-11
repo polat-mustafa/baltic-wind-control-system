@@ -291,7 +291,7 @@ class TestGeneration:
     def test_no_reactor_when_disabled(self):
         """Shunt reactors are absent when disabled; the harmonic filter stays."""
         net = build_network(enable_reactor=False)
-        assert list(net.shunt["name"]) == ["HF_OSS_66_2MVAR_h16"]
+        assert list(net.shunt["name"]) == ["HF_OSS_66_2MVAR_h10"]
 
     def test_string_layout(self):
         """String layout must produce exactly 34 WTGs across 6 strings (6-6-6-6-5-5)."""

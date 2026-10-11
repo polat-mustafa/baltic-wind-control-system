@@ -167,6 +167,22 @@ class TestCompensationValidation:
         assert result.poc_q_max_mvar >= result.pse_q_max_mvar
         assert result.poc_q_min_mvar <= result.pse_q_min_mvar
         assert result.pse_q_range_met
+        # Thermal ratings bind (export ≈ 99 % at P_max): +247 / −205, not +532 / −590
+        assert result.poc_q_max_mvar < 300
+        assert result.poc_q_min_mvar > -260
+
+    def test_q_through_the_cable_is_thermally_infeasible(self):
+        """Full WTG + STATCOM absorption at P_max overloads the export (≈ 138 %): rejected,
+        although every bus voltage stays within 0.90–1.10 p.u."""
+        from app.services.p2.load_flow import dispatch_with_reactor_switching
+        from app.services.p2.statcom_sizing import _poc_q_at
+
+        base = network_model.build_network(generation_fraction=1.0)
+        dispatch_with_reactor_switching(base, network_model.SB510.statcom_mvar)
+        _, ok_full = _poc_q_at(base, -1, 0, 1.0)
+        _, ok_reactor = _poc_q_at(base, -1, 1, 0.0)  # onshore reactor back in: no cable current
+        assert not ok_full
+        assert ok_reactor
 
     def test_statcom_range(self):
         """STATCOM Q range must be ±120 MVAR."""

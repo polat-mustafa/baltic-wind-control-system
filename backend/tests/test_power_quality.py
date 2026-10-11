@@ -12,7 +12,7 @@ from dataclasses import replace
 
 import pytest
 
-from app.services.p2.network_model import SB510
+from app.services.p2.network_model import SB510, array_charging_mvar, build_network
 from app.services.p2.power_quality import (
     DEFAULT_WTG_EMISSION_PCT,
     _impedance_column,
@@ -67,23 +67,34 @@ class TestNetworkModel:
         # |Z(50 Hz)| at 66 kV ≈ grid + both transformers + cable ≈ 0.06 pu on 100 MVA
         assert abs(_impedance_column(1.0, 10_000.0, 45.0)[3]) == pytest.approx(0.06, abs=0.005)
 
-    def test_low_order_cable_resonance_and_h17_peak_without_filter(self):
+    def test_array_charging_is_the_load_flow_cables(self):
+        """The harmonic model lumps the same graded array cables the load flow builds:
+        15 600 nF·km at 66 kV → 21.3 MVAR (it once used a flat 15 MVAR)."""
+        net = build_network()
+        array = net.line[net.line["name"].str.startswith("Array_")]
+        c_nf_km = float((array["c_nf_per_km"] * array["length_km"]).sum())
+        q = 2 * math.pi * 50 * c_nf_km * 1e-9 * 66e3**2 / 1e6
+        assert array_charging_mvar() == pytest.approx(q) == pytest.approx(21.35, abs=0.01)
+
+    def test_resonances_without_filter(self):
+        """Cable–grid peak at h2.3, array peak at 770 Hz (h15.4, ×12.5) and on the strong
+        grid a ×3 peak at 535 Hz next to h11 — what the filter is for."""
         bare = replace(SB510, harmonic_filter_mvar=0.0, harmonic_filter_tuned_order=0.0)
         scan = compute_resonance_scan(spec=bare)
         orders = [p["harmonic_order"] for p in scan["resonance_points"]]
         assert any(2.1 <= h <= 2.5 for h in orders)  # 108 km cable C vs grid/transformer L
-        assert any(17.4 <= h <= 17.8 for h in orders)  # array C vs OSS transformer L, 880 Hz
-        assert 17 in scan["critical_harmonics"]
+        assert any(15.2 <= h <= 15.6 for h in orders)  # array C vs OSS transformer L, 770 Hz
+        strong = compute_resonance_scan(spec=bare, grid_fault_level_mva=20_000.0)
+        assert 11 in strong["critical_harmonics"]
 
-    def test_filter_moves_the_h17_resonance_off_the_characteristic_orders(self):
-        """With the 2 Mvar h16 filter the 880 Hz peak (×15.7) drops to ≈ 840 Hz, × 1.5."""
+    def test_filter_damps_the_resonance_next_to_h11(self):
+        """With the 2 Mvar h10.34 filter no amplified peak is left next to a characteristic
+        order in any grid case; the 535 Hz peak drops to ≈ ×2."""
         for factor in (0.5, 1.0, 2.0):
             scan = compute_resonance_scan(grid_fault_level_mva=10_000.0 * factor)
             assert scan["critical_harmonics"] == []
-            high = [p for p in scan["resonance_points"] if p["harmonic_order"] > 5]
-            assert all(p["amplification"] < 3.0 for p in high)
-            peak = max(high, key=lambda p: p["frequency_hz"])
-            assert 830.0 <= peak["frequency_hz"] <= 850.0 and peak["amplification"] < 2.0
+            mid = [p for p in scan["resonance_points"] if 9.5 < p["harmonic_order"] < 11.5]
+            assert all(p["amplification"] < 2.5 for p in mid)
 
     def test_weaker_grid_lowers_the_first_resonance(self):
         strong = compute_resonance_scan(grid_fault_level_mva=10_000.0)["cable_resonant_freq_hz"]
@@ -102,32 +113,25 @@ class TestHarmonics:
         assert r["bus"].startswith("PSE 400")
         assert r["thd_voltage_pct"] < 1.0 and r["compliant"]
 
-    def test_resonance_amplifies_h17_at_66kv_without_filter(self):
+    def test_h11_is_the_worst_characteristic_order_without_filter(self):
         bare = replace(SB510, harmonic_filter_mvar=0.0, harmonic_filter_tuned_order=0.0)
-        r = compute_harmonics(DEFAULT_WTG_EMISSION_PCT, 66.0, spec=bare)
-        h17 = next(x for x in r["harmonics"] if x["order"] == 17)
-        h5 = next(x for x in r["harmonics"] if x["order"] == 5)
-        # a quarter of the h5 current, but a far larger voltage — past the plant's 50 % share
-        assert h17["magnitude_pct"] > 5 * h5["magnitude_pct"]
-        assert h17["impedance_ohm"] > 150.0
-        assert r["assessment"] == "BORDERLINE" and 70.0 < h17["utilisation_pct"] < 80.0
+        r = compute_harmonics(DEFAULT_WTG_EMISSION_PCT, 66.0, grid_ssc_mva=20_000.0, spec=bare)
+        worst = max(
+            (x for x in r["harmonics"] if x["order"] >= 5), key=lambda x: x["utilisation_pct"]
+        )
+        assert worst["order"] == 11 and 35.0 < worst["utilisation_pct"] < 42.0
 
     def test_designed_filter_brings_characteristic_orders_to_half_the_planning_level(self):
-        """SB-510: 2 Mvar tuned to h16; h ≥ 5 at ≤ 50 % at the POC, 220 and 66 kV for 0.5–2 × S_sc.
-        The h2 cable–grid resonance (105–120 Hz) stays ≤ 75 %: a 66 kV high-pass can't cure it."""
-        assert (SB510.harmonic_filter_mvar, SB510.harmonic_filter_tuned_order) == (2.0, 16.0)
-        assert size_harmonic_filter(SB510) == (2.0, 16.0)
+        """SB-510: 2 Mvar tuned to h10.34; h ≥ 5 at ≤ 50 % at the POC, 220 and 66 kV for
+        0.5–2 × S_sc. The h2 cable–grid resonance (105–120 Hz) reaches 84 % on the weak grid:
+        a 66 kV high-pass can't cure it (module docstring)."""
+        assert (SB510.harmonic_filter_mvar, SB510.harmonic_filter_tuned_order) == (2.0, 10.34)
+        assert size_harmonic_filter(SB510) == (2.0, 10.34)
         for factor in (0.5, 1.0, 2.0):
             for kv in (400.0, 220.0, 66.0):
                 r = compute_harmonics(DEFAULT_WTG_EMISSION_PCT, kv, grid_ssc_mva=10_000.0 * factor)
-                assert r["compliant"] and r["worst_utilisation_pct"] <= 75.0
-                assert all(x["utilisation_pct"] <= 50.0 for x in r["harmonics"] if x["order"] >= 5)
-        h17 = next(
-            x
-            for x in compute_harmonics(DEFAULT_WTG_EMISSION_PCT, 66.0)["harmonics"]
-            if x["order"] == 17
-        )
-        assert h17["utilisation_pct"] < 35.0
+                assert r["compliant"] and r["worst_utilisation_pct"] <= 85.0
+                assert all(x["utilisation_pct"] <= 30.0 for x in r["harmonics"] if x["order"] >= 5)
 
     def test_filter_elements(self):
         """X_C − X_L = U²/Q, X_L = X_C/h_t², R = q·h_t·ω₀L; 50 Hz output = Q."""

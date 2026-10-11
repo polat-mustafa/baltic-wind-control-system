@@ -68,7 +68,7 @@ class StepResponseRequest(BaseModel):
         description="Final wind speed [m/s]",
     )
     ramp_s: float = Field(
-        default=10.0,
+        default=30.0,  # 8 → 14 m/s in 30 s peaks ≈ 8.4 rpm; in 10 s it trips at 9.07 rpm
         ge=0.1,
         le=300.0,
         description="Ramp duration [s]",

@@ -78,3 +78,51 @@ def test_values_within_registry_ranges_and_registry_complete():
         ts = generate_time_series(tag, 24, TimeResolution.FIFTEEN_MINUTES, now_epoch_minutes=EPOCH)
         assert all(meta.range_min <= p.value <= meta.range_max for p in ts.points)
     assert set(get_latest_values(EPOCH)) == {t.value for t in HistorianTag}
+
+
+def test_site_wind_drives_the_historian_and_power_follows_the_curve(monkeypatch):
+    """Loaded site hub wind (Open-Meteo, as in the control room) replaces the model swing."""
+    import asyncio
+
+    from app.services.p2 import pse_live
+    from app.services.p3 import historian
+
+    calls: list[str] = []
+
+    async def wind(day: str) -> list[float]:
+        calls.append(day)
+        return [float(h) for h in range(24)]  # hour h → h m/s: easy to interpolate
+
+    monkeypatch.setattr(pse_live, "site_wind_hub", wind)
+    asyncio.run(historian.prefetch_site_wind(1))
+    assert calls  # today (and yesterday right after local midnight)
+
+    now = datetime.now(UTC).timestamp() / 60
+    m = now - (now % 60) + 30  # half past a whole hour
+    local = historian._local(m)
+    site = local.hour + 0.5 if local.hour < 23 else 23.0
+    gusts = historian.wind_speed(m) - site
+    assert historian.wind_source(m) == "open-meteo"
+    assert abs(gusts) < 1.3  # only the turbulence terms (Σ amplitudes 1.2 m/s) on top
+    u = historian.wind_speed(m)
+    state = plant_state(m)
+    assert state[T.WTG01_WIND_SPEED] == pytest.approx(u)
+    # rule 1 via the official curve
+    assert state[T.WTG01_POWER_MW] == pytest.approx(power_curve_mw(u))
+
+
+def test_unloaded_days_fall_back_to_the_model_wind():
+    from app.services.p3 import historian
+
+    assert historian.wind_source(EPOCH) == "model"
+    assert 0.0 <= historian.wind_speed(EPOCH) < 25.0
+
+
+def test_historian_route_reports_its_wind_source():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    r = TestClient(app).get("/api/v1/scada/historian/latest")
+    assert r.status_code == 200
+    assert r.json()["wind_source"] == "model"  # offline in tests

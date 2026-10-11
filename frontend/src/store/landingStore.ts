@@ -26,8 +26,11 @@ import type {
 } from "../types/landing";
 import type { TurbineFaultType } from "../types/scada";
 import type { LiveWeather } from "../services/openMeteoApi";
+import { readStored, writeStored } from "../lib/storage";
 import { frequencyEvent, voltageDipEvent, type GridEventKind, type GridSample } from "../utils/gridEvents";
 import {
+  HUB_HEIGHT_M,
+  SHEAR_ALPHA,
   V236,
   exportCableState,
   farmWakeDeficits,
@@ -292,14 +295,30 @@ let _simStartTime = Date.now();
 let _gridFreq = 50;
 /** Δ-reserve held by the power plant controller [% of available]. */
 let _reservePct = 0;
-let _weatherSource: "sim" | "live" = "sim";
+/** Remembered weather source; live Open-Meteo data is the default. */
+const WEATHER_KEY = "of.weather.v1";
+let _weatherSource: "sim" | "live" = readStored(WEATHER_KEY) === "sim" ? "sim" : "live";
 let _live: LiveWeather | null = null;
+/** Live data older than this is not used: the plant falls back to the simulation. */
+export const LIVE_MAX_AGE_MS = 3 * 3600 * 1000;
 /** Instructor / 3D-viewer override of the wind FROM bearing [°], null = sim/live. */
 let _manualWindDir: number | null = null;
 
-/** Beaufort and sea state are defined at 10 m: U10 = U150·(10/150)^0.1. */
+/** Start the farm wind at a live reading (every turbine's freestream too). */
+function snapToLive(w: LiveWeather): void {
+  _baseWindSpeed = w.hubWindMs;
+  _windDirDeg = w.windDir100Deg;
+  for (const id of _freeWind.keys()) _freeWind.set(id, w.hubWindMs);
+}
+
+/** Live data the plant may use now: live source chosen and a reading younger than LIVE_MAX_AGE_MS. */
+function usableLive(): LiveWeather | null {
+  return _weatherSource === "live" && _live && Date.now() - _live.fetchedAt < LIVE_MAX_AGE_MS ? _live : null;
+}
+
+/** Beaufort and sea state are defined at 10 m: U10 = U_hub·(10/hub)^α. */
 function hubTo10m(hubMs: number): number {
-  return hubMs * (10 / 150) ** 0.1;
+  return hubMs * (10 / HUB_HEIGHT_M) ** SHEAR_ALPHA;
 }
 
 /** Environment panel from Open-Meteo data (sim values kept where it has none). */
@@ -526,11 +545,15 @@ interface LandingState {
   /** Training: operator opens the switch at a chosen section. True if it was the faulted one. */
   isolateArrayFault: (segmentKey: string) => boolean;
 
-  /** Weather source: time-compressed simulation or live Open-Meteo data. */
+  /** Weather source: time-compressed simulation or live Open-Meteo data (remembered, default live). */
   weatherSource: "sim" | "live";
+  /** Last Open-Meteo reading; null until the first fetch or once it is too old to use. */
   liveWeather: LiveWeather | null;
+  /** Last fetch error (kept while the plant runs on older data or the simulation). */
+  liveError: string | null;
   setWeatherSource: (src: "sim" | "live") => void;
-  setLiveWeather: (w: LiveWeather) => void;
+  setLiveWeather: (w: LiveWeather | null) => void;
+  setLiveError: (e: string | null) => void;
   /** Force the farm wind direction (°, FROM) — turbines then yaw at ≤ 1 °/s. null = release. */
   manualWindDirDeg: number | null;
   setManualWindDir: (deg: number | null) => void;
@@ -716,16 +739,23 @@ export const useLandingStore = create<LandingState>((set, get) => {
       return true;
     },
 
-    weatherSource: "sim",
+    weatherSource: _weatherSource,
     liveWeather: null,
+    liveError: null,
     setWeatherSource: (src) => {
       _weatherSource = src;
+      writeStored(WEATHER_KEY, src);
+      if (src === "live" && _live) snapToLive(_live);
       set({ weatherSource: src });
     },
     setLiveWeather: (w) => {
+      // First reading (or back from the simulation): start the plant at the live wind
+      // instead of easing towards it over a minute of ticks.
+      if (w && !_live && _weatherSource === "live" && Date.now() - w.fetchedAt < LIVE_MAX_AGE_MS) snapToLive(w);
       _live = w;
       set({ liveWeather: w });
     },
+    setLiveError: (e) => set({ liveError: e }),
     manualWindDirDeg: null,
     setManualWindDir: (deg) => {
       _manualWindDir = deg === null ? null : ((deg % 360) + 360) % 360;
@@ -789,7 +819,7 @@ export const useLandingStore = create<LandingState>((set, get) => {
           // Previous generator (±30°, ±1° jitter, 20s period) produced visible flicker that
           // desynced from the compass/arrow visually. Smoothing keeps all consumers coherent.
           const elapsed = (Date.now() - _simStartTime) / 1000;
-          const live = _weatherSource === "live" ? _live : null;
+          const live = usableLive();
           const windDirTarget = _manualWindDir !== null
             ? _manualWindDir + rand(-1, 1)
             : live
@@ -817,13 +847,20 @@ export const useLandingStore = create<LandingState>((set, get) => {
           // Wake strength follows the rotor thrust at the current freestream wind (Ct(v))
           const wakeDeficits = farmWakeDeficits(_windDirDeg, liveFleet(), _baseWindSpeed);
           const posById = new Map(liveFleet().turbines.map((p) => [p.id, p]));
+          // Position along the wind: schematic x east, y south, so the FROM bearing θ
+          // points to (sin θ, −cos θ). Centred on the fleet mean, the spread across
+          // the array averages to zero and the farm wind stays the reported freestream.
+          const th = (_windDirDeg * Math.PI) / 180;
+          const upwind = (p: { x: number; y: number }) => p.x * Math.sin(th) - p.y * Math.cos(th);
+          const fleetPos = liveFleet().turbines;
+          const meanUpwind = fleetPos.reduce((s, p) => s + upwind(p), 0) / Math.max(fleetPos.length, 1);
 
           for (const id of state.turbineIds) {
             const t = state.turbineMap[id];
 
             // Per-turbine freestream varies slightly with position across the array
             const pos = posById.get(id);
-            const posOffset = pos ? (pos.x * Math.cos(_windDirDeg * Math.PI / 180) + pos.y * Math.sin(_windDirDeg * Math.PI / 180)) / 800 : 0;
+            const posOffset = pos ? (upwind(pos) - meanUpwind) / 800 : 0;
             const turbineBaseWind = _baseWindSpeed + posOffset * 0.5 + rand(-0.15, 0.15);
             // Smooth the FREESTREAM wind, then apply this turbine's wake deficit
             // (Bastankhah Gaussian, Katic root-sum-square, cached per 5° of direction) — the rotor sees u·(1−δ).
@@ -981,7 +1018,7 @@ export const useLandingStore = create<LandingState>((set, get) => {
 
           // Environment / sea state
           let environment = computeEnvironment(hubTo10m(_baseWindSpeed), elapsed);
-          if (_weatherSource === "live" && _live) environment = liveEnvironment(environment, _live);
+          if (live) environment = liveEnvironment(environment, live);
 
           return {
             turbineMap: newMap,

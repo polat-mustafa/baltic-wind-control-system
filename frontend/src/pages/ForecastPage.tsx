@@ -38,6 +38,7 @@ export default function ForecastPage() {
         title="AI Forecasting"
         description="Day-ahead wind power forecasts trained and scored on measured Baltic offshore output (Energinet DK2, 977 MW, or one farm from ENTSO-E) with the ECMWF / ICON forecasts issued the day before — no synthetic data."
         meta="XGBoost + LSTM + TFT · 5-fold TimeSeriesSplit · CRPS, reliability, skill vs persistence, climatology and the TSO"
+        studyData="measured output of Danish Baltic farms, 2024–2026 (Energinet, ENTSO-E). SB-510 is not built, so the method is trained and scored on real farms."
         actions={<TrainingGuide guide={p4Guide} />}
       />
 

@@ -37,6 +37,7 @@ export default function HistorianPanel() {
   const [selected, setSelected] = useState<string[]>(DEFAULT_TAGS);
   const [rangeIdx, setRangeIdx] = useState(1);
   const [series, setSeries] = useState<TagTimeSeries[]>([]);
+  const [windSource, setWindSource] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -52,6 +53,7 @@ export default function HistorianPanel() {
       const res = await api.queryHistorian({ tags: selected, range_hours: r.hours, resolution: r.resolution });
       // keep the user's selection order
       setSeries(selected.map((t) => res.series.find((s) => s.tag === t)).filter((s): s is TagTimeSeries => !!s));
+      setWindSource(res.wind_source);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -86,7 +88,9 @@ export default function HistorianPanel() {
     <section className="bg-bg-secondary rounded-lg border border-border-primary p-3 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-xs font-semibold text-text-primary">SCADA historian</h3>
-        <span className="text-xs text-text-muted" title="Deterministic synthetic history from one physical plant model; live values are in the overview bar">IEC 61400-25 tags · synthetic plant history · tiers raw 90 d / 1-min 2 y / 1-h lifetime</span>
+        <span className="text-xs text-text-muted" title="One physical plant model behind every tag; the wind is the site's Open-Meteo hub wind (as in the control room) when it can be loaded">
+          IEC 61400-25 tags · {windSource === "open-meteo" ? "site wind: Open-Meteo, as the control room" : "model wind (live site wind unavailable)"} · tiers raw 90 d / 1-min 2 y / 1-h lifetime
+        </span>
         <span className="flex-1" />
         {RANGES.map((r, i) => (
           <button

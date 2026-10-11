@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { liveFleet } from "../../src/lib/fleet";
 import { useLandingStore } from "../../src/store/landingStore";
 import { farmWakeDeficits } from "../../src/utils/landingPhysics";
 
@@ -19,12 +20,13 @@ it("keeps waked wind consistent with the freestream across direction bins", () =
     vi.advanceTimersByTime(5000);
     if (tick < 4) continue; // let the EWMA settle
     const { turbineMap, kpis } = useLandingStore.getState();
-    const deficits = farmWakeDeficits(kpis.windDirectionDeg);
+    // same thrust as the store: Ct at the current freestream wind
+    const deficits = farmWakeDeficits(kpis.windDirectionDeg, liveFleet(), kpis.freestreamWindMs);
     for (const [id, d] of deficits) {
       const implied = turbineMap[id].windSpeedMs / (1 - d);
-      // per-turbine spread (position offset ±0.5, noise ±0.15, smoothing lag) ≲ 1 m/s
+      // per-turbine spread (centred position offset ±0.2, noise ±0.15, smoothing lag) ≲ 1 m/s
       worst = Math.max(worst, Math.abs(implied - kpis.freestreamWindMs));
     }
   }
-  expect(worst).toBeLessThan(1.5); // measured ≈ 1.05–1.1
+  expect(worst).toBeLessThan(1.5);
 });

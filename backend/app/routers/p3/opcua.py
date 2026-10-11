@@ -21,6 +21,7 @@ from fastapi import APIRouter
 from app.routers.farm_spec import FarmSpecDep
 from app.schemas.opcua import OPCUAAddressSpaceResponse, OPCUAStatusResponse
 from app.services.p3 import opcua_server as svc
+from app.services.p3.historian import prefetch_site_wind
 
 router = APIRouter(tags=["M03 OPC-UA Server"])
 
@@ -66,4 +67,5 @@ async def get_address_space(spec: FarmSpecDep) -> OPCUAAddressSpaceResponse:
     IEC 61400-25 specifies the wind turbine information model (WTTR, WTUR,
     WNAC, WROT logical nodes) which this address space approximates.
     """
+    await prefetch_site_wind()
     return svc.get_address_space(spec)

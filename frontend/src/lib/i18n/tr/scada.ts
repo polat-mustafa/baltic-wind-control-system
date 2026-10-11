@@ -88,12 +88,14 @@ export default {
   "Sequence of events": "Olay sırası",
   "Published GOOSE PDU": "Yayınlanan GOOSE PDU",
   "SCADA historian": "SCADA geçmiş veri sunucusu",
-  "IEC 61400-25 tags · synthetic plant history · tiers raw 90 d / 1-min 2 y / 1-h lifetime":
-    "IEC 61400-25 etiketleri · sentetik tesis geçmişi · katmanlar: ham 90 g / 1 dk 2 y / 1 sa ömür boyu",
+  "IEC 61400-25 tags · {label} · tiers raw 90 d / 1-min 2 y / 1-h lifetime":
+    "IEC 61400-25 etiketleri · {label} · katmanlar: ham 90 g / 1 dk 2 y / 1 sa ömür boyu",
+  "site wind: Open-Meteo, as the control room": "saha rüzgârı: Open-Meteo, kontrol odasındaki gibi",
+  "model wind (live site wind unavailable)": "model rüzgârı (canlı saha rüzgârı yok)",
   Tag: "Etiket",
   Latest: "Son",
-  "Deterministic synthetic history from one physical plant model; live values are in the overview bar":
-    "Tek bir fiziksel tesis modelinden deterministik sentetik geçmiş; canlı değerler genel bakış çubuğundadır",
+  "One physical plant model behind every tag; the wind is the site's Open-Meteo hub wind (as in the control room) when it can be loaded":
+    "Her etiketin arkasında tek bir fiziksel tesis modeli; rüzgâr, yüklenebildiğinde sahanın Open-Meteo göbek rüzgârıdır (kontrol odasındaki gibi)",
   Tags: "Etiketler",
   "Interlock matrix · OSS 66 kV bays": "Kilitleme matrisi · OSS 66 kV hücreleri",
   "■ = rule currently blocking an operation in the bay. In service, ILK-002/003/005 block earthing, disconnector and rack-out operations because the breaker is closed — that is the interlock doing its job.":

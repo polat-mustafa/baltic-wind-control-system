@@ -367,8 +367,12 @@ export function wakePowerLossPct(freestreamMs: number, deficit: number): number 
 export const HUB_HEIGHT_M = REFERENCE_TURBINE.hubHeightM;
 /** Rotor diameter [m] (IEA 15 MW reference, 241.35 m; nominal 240 m). */
 export const ROTOR_DIAMETER_M = REFERENCE_TURBINE.rotorDiameterM;
-/** Offshore power-law shear exponent (neutral, low sea roughness). */
-export const SHEAR_ALPHA = 0.1;
+/**
+ * Offshore power-law shear exponent: IEC 61400-3-1 normal wind profile, α = 0.14.
+ * The backend uses the same value (lifecycle/weather.py SHEAR_ALPHA, pse_live hub wind),
+ * so the control room's live wind and the SCADA historian agree.
+ */
+export const SHEAR_ALPHA = 0.14;
 
 /** Offshore turbulence intensity [–]: falls with wind speed toward ~6 %. */
 export function turbulenceIntensity(windMs: number): number {

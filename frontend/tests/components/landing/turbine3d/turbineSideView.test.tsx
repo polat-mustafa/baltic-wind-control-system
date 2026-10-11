@@ -31,7 +31,7 @@ describe("TurbineSideView", () => {
   it("shows the shear across the rotor from the power law", () => {
     render(<TurbineSideView turbineId="WTG-09" />);
     const inflow = screen.getByRole("region", { name: "Inflow" });
-    expect(within(inflow).getByText("0.10")).toBeDefined(); // α
+    expect(within(inflow).getByText("0.14")).toBeDefined(); // α (IEC 61400-3-1, same as the backend)
     expect(screen.getByRole("img", { name: /WTG-09 side view/ })).toBeDefined();
   });
 });

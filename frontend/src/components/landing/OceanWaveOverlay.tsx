@@ -67,7 +67,7 @@ export default function OceanWaveOverlay({ view }: { view: MapView }) {
       dir = (dir + d * 0.03 + 360) % 360;
       const hs = environment.significantWaveHeightM;
       const sea = Math.min(1, Math.max(0.3, hs / 4)); // 0.3 calm … 1 at Hs ≥ 4 m
-      const whitecaps = Math.min(1, Math.max(0, (kpis.averageWindSpeedMs - 5.5) / 8.5));
+      const whitecaps = Math.min(1, Math.max(0, (kpis.freestreamWindMs - 5.5) / 8.5));
       const t = reduced ? 0 : now / 1000;
       const light = useLayerStore.getState().mapTheme === "storybook";
 

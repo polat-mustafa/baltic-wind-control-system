@@ -22,6 +22,11 @@ const ROUTES = [
 
 const THEMES = ["storybook", "hmi"] as const;
 
+/** Text a page shows only once its results and lazy sections are in (pages whose layout grows with them). */
+const READY: Partial<Record<(typeof ROUTES)[number][0], string[]>> = {
+  "p2-hv-grid": ["Power flow — voltages and loading", "Polish transmission system (KSE)"],
+};
+
 /** Network failures are expected when the backend (or AIS proxy) is not running. */
 const IGNORED = [/Failed to load resource/i, /ERR_CONNECTION_REFUSED/i, /net::ERR_/i, /backend not reachable/i, /status of (4|5)\d\d/i];
 
@@ -118,6 +123,7 @@ for (const [name, path] of ROUTES) {
       await page
         .waitForFunction(() => !/Running|Queued/.test(document.body.innerText), null, { timeout: 150_000, polling: 500 })
         .catch(() => undefined);
+      for (const text of READY[name] ?? []) await expect(page.getByText(text)).toBeVisible({ timeout: 150_000 });
       await page.waitForLoadState("networkidle").catch(() => undefined);
       await page.waitForTimeout(800);
       await expect(page).toHaveScreenshot(`${name}-${theme}.png`, {

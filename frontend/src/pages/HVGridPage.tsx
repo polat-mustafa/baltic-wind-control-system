@@ -37,7 +37,7 @@ import MarketDashboard from "../components/p2/MarketDashboard";
 import AdvancedAnalysisTab from "../components/p2/AdvancedAnalysisTab";
 import PlanningCouplingTab from "../components/p2/PlanningCouplingTab";
 import ProjectGridNote from "../components/p2/ProjectGridNote";
-import { useGridStore } from "../store/gridStore";
+import { useGridStore, useNetwork } from "../store/gridStore";
 import { usePPCStore } from "../store/ppcStore";
 import { Button } from "../components/ui/Button";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -82,8 +82,8 @@ export default function HVGridPage() {
   >(null);
 
   // Grid store (existing P2)
+  const network = useNetwork();
   const {
-    networkSpec,
     loading: gridLoading,
     error: gridError,
     analysisRun,
@@ -114,11 +114,8 @@ export default function HVGridPage() {
         title="HV Grid Integration"
         farm="live"
         description="Load flow, IEC 60909 short circuit, fault ride-through and reactive power for the export system, checked against the PSE grid code."
-        meta={
-          networkSpec
-            ? `${networkSpec.array_voltage_kv}/${networkSpec.export_voltage_kv}/${networkSpec.grid_voltage_kv} kV · ${networkSpec.num_export_cables} × ${networkSpec.export_length_km} km export`
-            : undefined
-        }
+        // SB-510's design until /network-spec answers: the header keeps its height (no layout jump)
+        meta={`${network.array_voltage_kv}/${network.export_voltage_kv}/${network.grid_voltage_kv} kV · ${network.num_export_cables} × ${network.export_length_km} km export`}
         actions={
           <>
             <TrainingGuide guide={p2Guide} />

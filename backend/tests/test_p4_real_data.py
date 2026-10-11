@@ -99,6 +99,7 @@ def test_endpoint_scores_every_forecast_on_the_same_hours(evidence):
         evidence(
             f"p4-{name.split()[0].lower()}-{metric}",
             area="P4 — forecasting",
+            kind="measured",
             claim=f"Day-ahead forecast: {name}",
             against=hours,
             metric=label,
@@ -117,6 +118,7 @@ def test_endpoint_scores_every_forecast_on_the_same_hours(evidence):
     evidence(
         "p4-xgboost-coverage",
         area="P4 — forecasting",
+        kind="measured",
         claim="XGBoost P10–P90 band (conformalised) is calibrated",
         against=hours,
         metric="share of measured hours inside P10–P90",

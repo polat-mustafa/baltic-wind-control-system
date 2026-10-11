@@ -25,6 +25,7 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parents[1]
 TESTS = [
     "tests/test_wake_validation.py",
+    "tests/test_aep_validation.py",
     "tests/test_p2_analytic.py",
     "tests/test_p4_real_data.py",
     "tests/test_goose_simulation.py",

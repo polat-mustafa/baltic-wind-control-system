@@ -1339,7 +1339,7 @@ All dashboards follow these principles:
 ### 10.1 GitHub Portfolio Structure
 
 ```
-baltic-wind-control-system/
+offshoreforge/
 ├── CLAUDE.md                    # Auto-loads engineering standards + roadmap
 ├── README.md                    # System overview + project summaries
 ├── docs/

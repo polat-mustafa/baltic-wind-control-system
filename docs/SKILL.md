@@ -27,7 +27,7 @@ Docs:       Auto-generated OpenAPI (Swagger) from FastAPI
 ### Monorepo Structure
 
 ```
-baltic-wind-control-system/
+offshoreforge/
 ├── backend/           # FastAPI Python service
 │   ├── app/
 │   │   ├── main.py

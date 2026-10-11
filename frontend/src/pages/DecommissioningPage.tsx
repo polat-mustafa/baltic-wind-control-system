@@ -95,6 +95,7 @@ export default function DecommissioningPage() {
     <div className="space-y-6">
       <PageHeader
         title="Decommissioning"
+        farm="live"
         description={
           <>
             After 25–30 years the farm comes out of the sea: choose what is removed, simulate the removal campaign in weather windows, and see

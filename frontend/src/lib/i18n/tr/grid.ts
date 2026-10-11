@@ -110,7 +110,7 @@ export default {
   "OSS 220 kV busbar": "OSS 220 kV barası",
   "phase-phase": "faz-faz",
   "Protection zones, {n1} kV string feeder (OSS end) — {n2} kA {n3}-phase": "Koruma bölgeleri, {n1} kV dizi fideri (OSS ucu) — {n2} kA {n3} faz",
-  "export cable 2 × 108 km · 220 kV · 87L + distance Z1 80 % / Z2 120 %": "iletim kablosu 2 × 108 km · 220 kV · 87L + mesafe Z1 %80 / Z2 %120",
+  "export cable {n1} × {n2} km · {n3} kV · 87L + distance Z1 {n4} % / Z2 {n5} %": "iletim kablosu {n1} × {n2} km · {n3} kV · 87L + mesafe Z1 %{n4} / Z2 %{n5}",
   "Hollow breaker = opened by PTOC-{n1} at {n2} ms (played back {n3}× slower)": "Boş kesici = PTOC-{n1} tarafından {n2} ms'de açıldı ({n3}× yavaş oynatılıyor)",
   "✓ Protection adequate": "✓ Koruma yeterli",
   "{n1} kV string feeder (OSS end) — {n2} kA {n3}-phase": "{n1} kV dizi fideri (OSS ucu) — {n2} kA {n3} faz",

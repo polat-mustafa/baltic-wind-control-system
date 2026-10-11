@@ -110,7 +110,7 @@ const controlRoom: Tour = {
       target: "layer-control",
       title: "Map layers",
       body:
-        "Switch overlays on and off, grouped plant, weather, marine and context: wind flow, waves, wake envelopes, " +
+        "Switch overlays on and off, grouped plant, weather, marine and context: wind flow, waves, wake field, " +
         "live AIS traffic, O&M vessels, navigation aids, 500 m safety zones, bathymetry and the export cable " +
         "temperature (DTS).",
     },

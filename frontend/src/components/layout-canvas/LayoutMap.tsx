@@ -15,18 +15,19 @@
 
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import type { PickingInfo } from "@deck.gl/core";
-import { IconLayer, LineLayer, PolygonLayer, TextLayer } from "@deck.gl/layers";
+import { BitmapLayer, IconLayer, LineLayer, PolygonLayer, TextLayer } from "@deck.gl/layers";
 import { Layers } from "lucide-react";
 
 import { ARRAY_SECTIONS, type CableResult } from "../../lib/layout/cables";
 import { MIN_SPACING_D } from "../../lib/layout/evaluate";
 import type { LonLat } from "../../lib/layout/geometry";
-import { wakeConePoly } from "../../utils/wakeModel";
 import { useLayerStore } from "../../store/layerStore";
 import { useProjectStore } from "../../store/projectStore";
 import { useSiteStore } from "../../store/siteStore";
 import { DROP_TYPE, rgba, svgIcon } from "../map/deckUtils";
 import PlanningMap, { type Bounds } from "../map/PlanningMap";
+import { WAKE_RGB, wakeField } from "../map/wakeField";
+import { computeWakeLosses } from "../../utils/wakeModel";
 import { LegendHeading, Swatch } from "../site/ScreeningMap";
 import { inDrawOrder, roleLayer, roleTooltip } from "../site/mapLayers";
 import { ROLE_STYLE } from "../site/mapStyles";
@@ -122,7 +123,10 @@ function Legend({ wakes }: { wakes: boolean }) {
             </div>
             {wakes && (
               <div className="flex items-center gap-2 text-text-secondary">
-                <Swatch color={SITE} fill={0.3} /> wakes (first 3 km, one direction)
+                <span className="flex w-[18px] shrink-0 justify-center">
+                  <span className="h-2 w-4 rounded-sm" style={{ background: `linear-gradient(90deg, rgba(${WAKE_RGB.join(",")},0.9), rgba(${WAKE_RGB.join(",")},0.1))` }} />
+                </span>
+                wake: slower air (one direction) · −% = turbine's loss below rated
               </div>
             )}
           </section>
@@ -210,6 +214,16 @@ export default function LayoutMap({
     [turbines, drag],
   );
   const ossAt: LonLat | null = drag?.id === "OSS" ? drag.p : oss;
+  // below-rated thrust (Ct 0.8): the worst case a layout is judged by; coarse cells keep dragging smooth
+  const wakes = useMemo(() => (wakeFrom == null ? null : wakeField(shown, wakeFrom, 0.8, 150)), [shown, wakeFrom]);
+  // Each waked turbine's loss for that direction, as on the control room map
+  const wakeLosses = useMemo(() => {
+    if (wakeFrom == null) return [];
+    const at = new Map(shown.map((t) => [t.id, t]));
+    return computeWakeLosses(shown, wakeFrom, 0.8)
+      .filter((w) => w.lossPct >= 3)
+      .map((w) => ({ loss: w.lossPct, position: [at.get(w.turbineId)!.lon, at.get(w.turbineId)!.lat] as LonLat }));
+  }, [shown, wakeFrom]);
   const pos = (k: number): LonLat => (k < 0 && ossAt ? ossAt : [shown[k].lon, shown[k].lat]);
 
   const bounds: Bounds = useMemo(() => {
@@ -238,14 +252,12 @@ export default function LayoutMap({
       getLineWidth: 2.5,
       lineWidthUnits: "pixels",
     }),
-    wakeFrom != null &&
-      new PolygonLayer({
+    wakes &&
+      new BitmapLayer({
         id: "wakes",
-        data: shown,
-        getPolygon: (t: TurbineView) => wakeConePoly(t.lat, t.lon, wakeFrom, 3000).map(([la, lo]) => [lo, la]),
-        getFillColor: rgba(SITE, 0.16),
-        stroked: false,
-        updateTriggers: { getPolygon: wakeFrom },
+        image: wakes.image,
+        bounds: wakes.bounds,
+        opacity: 0.75,
       }),
     cables &&
       new LineLayer({
@@ -285,6 +297,25 @@ export default function LayoutMap({
         characterSet: "auto",
         getPixelOffset: [0, 18],
         updateTriggers: { getColor: dark },
+      }),
+    wakeLosses.length > 0 &&
+      new TextLayer({
+        id: "wake-losses",
+        data: wakeLosses,
+        getPosition: (d: (typeof wakeLosses)[number]) => d.position,
+        getText: (d: (typeof wakeLosses)[number]) => `−${d.loss} %`,
+        getSize: 13,
+        // light copper on the dark map, deep copper on the light one: readable over the wake itself
+        getColor: dark ? [255, 196, 160, 255] : [130, 56, 22, 255],
+        outlineWidth: 3,
+        outlineColor: dark ? [10, 21, 32, 255] : [255, 255, 255, 255],
+        fontSettings: { sdf: true },
+        fontFamily: "IBM Plex Mono, monospace",
+        fontWeight: 600,
+        characterSet: "auto",
+        getTextAnchor: "start",
+        getPixelOffset: [12, -10],
+        updateTriggers: { getColor: dark, outlineColor: dark },
       }),
     ossAt &&
       new IconLayer({

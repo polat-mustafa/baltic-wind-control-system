@@ -7,13 +7,15 @@ Provides REST endpoints for dynamic turbine simulation:
 - GET  /cp-surface: Get Cp(λ, β) surface for visualization
 - GET  /config: Get module configuration (all constants)
 - GET  /support-structure: Tower + jacket natural frequencies vs 1P / 3P
+- GET  /tower-loads: 10-min turbulent run, rotor coupled to the tower fore-aft mode
+- GET  /tower-fatigue: tower-base DEL per wind bin and over the site Weibull
 
 All endpoints follow the convention: /api/v1/turbine-physics/{resource}
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.schemas.turbine_physics import (
     AerodynamicStateRequest,
@@ -24,6 +26,8 @@ from app.schemas.turbine_physics import (
     SimulationSummaryResponse,
     StepResponseRequest,
     SupportStructureResponse,
+    TowerFatigueResponse,
+    TowerLoadsResponse,
     TurbinePhysicsConfigResponse,
 )
 from app.services.p1.turbine_models import rosco
@@ -39,6 +43,12 @@ from app.services.turbine_physics.drivetrain import (
     GENERATOR_POLES,
     GENERATOR_VOLTAGE_V,
     RATED_TORQUE_NM,
+)
+from app.services.turbine_physics.loads import (
+    free_decay_damping,
+    lifetime_del,
+    simulate_loads,
+    turbulent_wind,
 )
 from app.services.turbine_physics.pitch_control import (
     GAIN_SCHEDULE_KI,
@@ -291,4 +301,51 @@ def get_support_structure() -> SupportStructureResponse:
             "3D Euler-Bernoulli frame FE: IEA-15-240-RWT ElastoDyn tower + DEME 50 m jacket "
             "(SubDyn); reference 0.221 Hz from DEME's OpenFAST free decay"
         ),
+    )
+
+
+_LOADS_SOURCE = (
+    "ROSCO-controlled IEA 15 MW rotor coupled to the first fore-aft mode of the tower on "
+    "the DEME 50 m jacket (frame FE); IEC 61400-1 NTM class B, Kaimal spectrum, disc-averaged "
+    "IEC coherence; rainflow per ASTM E1049, DEL at 1 Hz, m = 4"
+)
+
+
+@router.get("/tower-loads", response_model=TowerLoadsResponse)
+def get_tower_loads(
+    wind_ms: float = Query(11.0, ge=4.0, le=24.0, description="10-min mean hub wind"),
+    seed: int = Query(0, ge=0, le=99),
+) -> TowerLoadsResponse:
+    """Tower-base fore-aft moment in one 10-minute turbulent run (time series every 0.5 s)."""
+    r = simulate_loads(turbulent_wind(wind_ms, 660.0, seed=seed))
+    step = 5
+    return TowerLoadsResponse(
+        wind_mean_ms=round(r.wind_mean_ms, 2),
+        turbulence_intensity=round(r.turbulence_intensity, 4),
+        time_s=[round(float(x), 1) for x in r.time_s[::step]],
+        wind_ms=[round(float(x), 2) for x in r.wind_ms[::step]],
+        thrust_mn=[round(float(x) / 1e6, 3) for x in r.thrust_n[::step]],
+        tower_top_m=[round(float(x), 3) for x in r.tower_top_m[::step]],
+        base_moment_mnm=[round(float(x) / 1e6, 2) for x in r.base_moment_nm[::step]],
+        power_mw=[round(float(x), 3) for x in r.power_mw[::step]],
+        del_base_moment_mnm=round(r.del_base_moment_nm / 1e6, 2),
+        mean_base_moment_mnm=round(r.mean_base_moment_nm / 1e6, 2),
+        max_base_moment_mnm=round(r.max_base_moment_nm / 1e6, 2),
+        max_tower_top_m=round(r.max_tower_top_m, 3),
+        total_damping_ratio=round(free_decay_damping(wind_ms), 4),
+        source=_LOADS_SOURCE,
+    )
+
+
+@router.get("/tower-fatigue", response_model=TowerFatigueResponse)
+def get_tower_fatigue() -> TowerFatigueResponse:
+    """Tower-base DEL per wind bin (2 seeds × 10 min) and the SB-510 lifetime-weighted DEL."""
+    s = lifetime_del()
+    return TowerFatigueResponse(
+        bins_ms=list(s.bins_ms),
+        del_10min_mnm=list(s.del_10min_mnm),
+        probability=list(s.probability),
+        lifetime_del_mnm=s.lifetime_del_mnm,
+        wohler_m=s.wohler_m,
+        source=_LOADS_SOURCE + "; bins weighted by the SB-510 Weibull (A 10.80 m/s, k 2.04)",
     )

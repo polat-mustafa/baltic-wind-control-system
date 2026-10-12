@@ -215,3 +215,33 @@ class SupportStructureResponse(BaseModel):
     margin_to_3p: float
     required_margin: float
     source: str
+
+
+class TowerLoadsResponse(BaseModel):
+    """One 10-minute turbulent run: rotor coupled to the tower fore-aft mode."""
+
+    wind_mean_ms: float
+    turbulence_intensity: float = Field(description="Rotor-effective TI")
+    time_s: list[float]
+    wind_ms: list[float]
+    thrust_mn: list[float]
+    tower_top_m: list[float]
+    base_moment_mnm: list[float]
+    power_mw: list[float]
+    del_base_moment_mnm: float = Field(description="1 Hz DEL, Wöhler m = 4")
+    mean_base_moment_mnm: float
+    max_base_moment_mnm: float
+    max_tower_top_m: float
+    total_damping_ratio: float = Field(description="Structural + aerodynamic, free decay")
+    source: str
+
+
+class TowerFatigueResponse(BaseModel):
+    """Tower-base fore-aft DEL per wind bin and over the site's Weibull distribution."""
+
+    bins_ms: list[float]
+    del_10min_mnm: list[float]
+    probability: list[float]
+    lifetime_del_mnm: float
+    wohler_m: float
+    source: str

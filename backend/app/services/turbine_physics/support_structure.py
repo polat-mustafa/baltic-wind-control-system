@@ -228,9 +228,20 @@ def _rna_mass_matrix() -> np.ndarray:
     return m
 
 
+@dataclass(frozen=True)
+class _Assembly:
+    k_r: np.ndarray  # reduced stiffness
+    m_r: np.ndarray  # reduced mass
+    t_red: np.ndarray  # reduced → full DOFs
+    m_above: np.ndarray  # full mass matrix of tower + RNA only (above the interface)
+    nodes: tuple[np.ndarray, ...]
+    top: int
+    base: int
+
+
 @lru_cache(maxsize=4)
-def jacket_modes(tower_elements_per_station: int = 2, n_modes: int = 6) -> Modes:
-    """Natural frequencies of the IEA 15 MW on the 50 m jacket (module docstring)."""
+def _assemble(tower_elements_per_station: int = 2) -> _Assembly:
+    """Frame FE model of tower + jacket + RNA (module docstring)."""
     # nodes: jacket joints (0..32), tower nodes after them
     nodes = [np.array(j) for j in JACKET_JOINTS]
     elems: list[tuple[int, int, float, float, float, float, float]] = []
@@ -308,9 +319,22 @@ def jacket_modes(tower_elements_per_station: int = 2, n_modes: int = 6) -> Modes
     fixed = [6 * j + d for j in (18, 19, 20) for d in (0, 1, 3, 4, 5)]
     keep = [d for d in range(n_dof) if d not in slaves and d not in fixed]
     t_red = t_map[:, keep]
-    k_r = t_red.T @ k_g @ t_red
-    m_r = t_red.T @ m_g @ t_red
-    w2 = eigh(k_r, m_r, eigvals_only=True, subset_by_index=[0, n_modes - 1])
+    m_above = np.zeros((n_dof, n_dof))
+    for i1, i2, ea, ei, gj, ml, jm in elems[len(JACKET_MEMBERS) :]:
+        _, me = _element(nodes[i1], nodes[i2], ea, ei, gj, ml, jm)
+        dofs = list(range(6 * i1, 6 * i1 + 6)) + list(range(6 * i2, 6 * i2 + 6))
+        m_above[np.ix_(dofs, dofs)] += me
+    m_above[6 * top : 6 * top + 6, 6 * top : 6 * top + 6] += _rna_mass_matrix()
+    return _Assembly(
+        t_red.T @ k_g @ t_red, t_red.T @ m_g @ t_red, t_red, m_above, tuple(nodes), top, base
+    )
+
+
+@lru_cache(maxsize=4)
+def jacket_modes(tower_elements_per_station: int = 2, n_modes: int = 6) -> Modes:
+    """Natural frequencies of the IEA 15 MW on the 50 m jacket (module docstring)."""
+    a = _assemble(tower_elements_per_station)
+    w2 = eigh(a.k_r, a.m_r, eigvals_only=True, subset_by_index=[0, n_modes - 1])
     freqs = tuple(float(math.sqrt(max(x, 0.0)) / (2 * math.pi)) for x in w2)
     f1 = freqs[0]
     p1 = (RPM_MIN / 60, RPM_MAX / 60)
@@ -328,4 +352,49 @@ def jacket_modes(tower_elements_per_station: int = 2, n_modes: int = 6) -> Modes
         margin_to_3p=round(m3, 3),
         wave_band_hz=(round(1 / sea.tp_range_s[1], 4), round(1 / sea.tp_range_s[0], 4)),
         hs50_m=sea.hs_m,
+    )
+
+
+@dataclass(frozen=True)
+class ForeAftMode:
+    """First fore-aft mode as a 1-DOF model in the tower-top displacement q [m]."""
+
+    frequency_hz: float
+    modal_mass_kg: float  # φᵀMφ with φ = 1 at the tower top
+    stiffness_n_m: float
+    hub_participation: float  # hub x-displacement per unit q (tower-top rotation × shaft)
+    inertial_moment_kg_m: float  # base moment of the inertial forces per unit q̈
+    arm_m: float  # hub height above the interface (thrust lever arm)
+
+
+@lru_cache(maxsize=1)
+def fore_aft_mode() -> ForeAftMode:
+    """The first fore-aft (x, along the shaft) mode of the turbine on the jacket.
+
+    Interface (tower base, +30 m) bending moment of a thrust F at the hub:
+    M = F·arm − L·q̈, with L = r_θᵀ M_above φ the inertial participation of everything
+    above the interface (r_θ: rigid rotation about the base node).
+    """
+    a = _assemble()
+    w2, vecs = eigh(a.k_r, a.m_r, subset_by_index=[0, 3])
+    full = a.t_red @ vecs
+    xs = np.abs(full[6 * a.top, :])
+    i = int(np.argmax(xs))
+    phi = full[:, i] / full[6 * a.top, i]
+    v = vecs[:, i] / full[6 * a.top, i]
+    m_mod = float(v @ a.m_r @ v)
+    r_theta = np.zeros(len(phi))
+    zb = a.nodes[a.base]
+    for n, xyz in enumerate(a.nodes):
+        r_theta[6 * n] = xyz[2] - zb[2]
+        r_theta[6 * n + 2] = -(xyz[0] - zb[0])
+        r_theta[6 * n + 4] = 1.0
+    hub_z = TOWER_TOP_M + TWR2SHFT_M
+    return ForeAftMode(
+        frequency_hz=round(math.sqrt(w2[i]) / (2 * math.pi), 4),
+        modal_mass_kg=m_mod,
+        stiffness_n_m=float(w2[i]) * m_mod,
+        hub_participation=1.0 + float(phi[6 * a.top + 4]) * TWR2SHFT_M,
+        inertial_moment_kg_m=float(r_theta @ a.m_above @ phi),
+        arm_m=hub_z - INTERFACE_Z,
     )

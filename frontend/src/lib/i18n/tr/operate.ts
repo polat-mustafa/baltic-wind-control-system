@@ -121,6 +121,10 @@ export default {
   alarms: "alarm",
   "all clear": "her şey normal",
   "see SCADA alarms": "SCADA alarmlarına bakın",
+  "Active Faults ({n})": "Etkin arızalar ({n})",
+  "+{n} more": "+{n} daha",
+  "{n} SCADA alarm active →": "{n} SCADA alarmı etkin →",
+  "{n} SCADA alarms active →": "{n} SCADA alarmı etkin →",
   "Turbine faults at offshore failure rates (Carroll et al. 2016: {n1} stops per turbine per year), time compressed ×{n2}: one 5 s update is one plant hour. Curtailment: live RCE price below zero (PSE).":
     "Türbin arızaları açık deniz arıza oranlarıyla (Carroll vd. 2016: türbin başına yılda {n1} duruş), zaman ×{n2} sıkıştırılmış: 5 sn'lik bir güncelleme santralde bir saattir. Kısıtlama: canlı RCE fiyatı sıfırın altında (PSE).",
   "Onshore substation": "Kara trafo merkezi",

@@ -20,7 +20,7 @@ dependencies = [
     "alembic>=1.18.4",
     "redis>=5.2.0",
     "httpx>=0.28.0",
-    "numpy>=2.0.0",
+    "numpy>=2.0.0,<2.5",  # pandapower 3.5.5 requires numpy<2.5; without this cap the resolver downgrades pandapower
     "scipy>=1.17.1",
     "py-wake>=2.5.0",
     # PyWake's Gaussian-overlap table (TurbOPark) read without h5py's compiled HDF5

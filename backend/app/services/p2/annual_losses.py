@@ -53,8 +53,10 @@ class AnnualElectricalLoss:
 
 
 @lru_cache(maxsize=32)
-def loss_curve(spec: FarmSpec = SB510) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
-    """Output fractions, total loss [MW] and the loss by component at each [MW]."""
+def operating_curve(spec: FarmSpec = SB510) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
+    """Output fractions; total loss [MW]; loss by component [MW] plus "export_current_a",
+    the current of one export circuit at its more loaded end [A] — each point a load flow
+    with the operator's dispatch."""
     from app.services.p2.load_flow import dispatch_with_reactor_switching
 
     fractions = np.linspace(0.0, 1.0, LOSS_CURVE_POINTS)
@@ -68,12 +70,22 @@ def loss_curve(spec: FarmSpec = SB510) -> tuple[np.ndarray, np.ndarray, dict[str
         for k, v in breakdown.items():
             parts.setdefault(k, []).append(v)
         totals.append(sum(breakdown.values()) if breakdown else math.nan)
+        ex = net.res_line.loc[net.line.name == "Export_220kV"]
+        par = float(net.line.loc[ex.index, "parallel"].iloc[0]) if len(ex) else 1.0
+        i_end = float(ex[["i_from_ka", "i_to_ka"]].max(axis=1).iloc[0]) / par if len(ex) else 0.0
+        parts.setdefault("export_current_a", []).append(i_end * 1e3 if net.converged else math.nan)
     total = np.asarray(totals, dtype=np.float64)
     if np.isnan(total).any():  # a non-converged point: fill from its neighbours
         ok = ~np.isnan(total)
         total = np.interp(fractions, fractions[ok], total[ok])
         logger.warning("loss curve of %s: %d load flows did not converge", spec.name, (~ok).sum())
     return fractions, total, {k: np.asarray(v, dtype=np.float64) for k, v in parts.items()}
+
+
+def loss_curve(spec: FarmSpec = SB510) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
+    """Output fractions, total loss [MW] and the loss by component at each [MW]."""
+    fractions, total, parts = operating_curve(spec)
+    return fractions, total, {k: v for k, v in parts.items() if k != "export_current_a"}
 
 
 def annual_electrical_loss(

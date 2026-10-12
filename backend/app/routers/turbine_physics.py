@@ -6,6 +6,7 @@ Provides REST endpoints for dynamic turbine simulation:
 - POST /aerodynamic-state: Compute single-point aerodynamic state
 - GET  /cp-surface: Get Cp(λ, β) surface for visualization
 - GET  /config: Get module configuration (all constants)
+- GET  /support-structure: Tower + jacket natural frequencies vs 1P / 3P
 
 All endpoints follow the convention: /api/v1/turbine-physics/{resource}
 """
@@ -22,6 +23,7 @@ from app.schemas.turbine_physics import (
     SimulationResponse,
     SimulationSummaryResponse,
     StepResponseRequest,
+    SupportStructureResponse,
     TurbinePhysicsConfigResponse,
 )
 from app.services.p1.turbine_models import rosco
@@ -54,6 +56,11 @@ from app.services.turbine_physics.simulator import (
     SimulationConfig,
     run_simulation,
     run_step_response,
+)
+from app.services.turbine_physics.support_structure import (
+    REFERENCE_JACKET_HZ,
+    SOFT_STIFF_MARGIN,
+    jacket_modes,
 )
 from app.services.turbine_physics.yaw_control import (
     DEADBAND_DEG,
@@ -257,4 +264,31 @@ def get_config() -> TurbinePhysicsConfigResponse:
         yaw_deadband_deg=DEADBAND_DEG,
         yaw_power_loss_exponent=POWER_LOSS_EXPONENT,
         source=rosco()[1].source,
+    )
+
+
+@router.get("/support-structure", response_model=SupportStructureResponse)
+def get_support_structure() -> SupportStructureResponse:
+    """First natural frequencies of the IEA 15 MW on the DEME 50 m jacket (3D frame FE).
+
+    Soft-stiff check: f1 must clear the 1P and 3P bands by the DNV-ST-0126 margin; the
+    50-year sea state's 1/Tp band (Hs50 from the 30-year hindcast) must lie below f1.
+    """
+    m = jacket_modes()
+    return SupportStructureResponse(
+        frequencies_hz=list(m.frequencies_hz),
+        first_bending_hz=m.first_bending_hz,
+        reference_hz=REFERENCE_JACKET_HZ,
+        band_1p_hz=list(m.band_1p_hz),
+        band_3p_hz=list(m.band_3p_hz),
+        wave_band_hz=list(m.wave_band_hz),
+        hs50_m=m.hs50_m,
+        soft_stiff_ok=m.soft_stiff_ok,
+        margin_to_1p=m.margin_to_1p,
+        margin_to_3p=m.margin_to_3p,
+        required_margin=SOFT_STIFF_MARGIN,
+        source=(
+            "3D Euler-Bernoulli frame FE: IEA-15-240-RWT ElastoDyn tower + DEME 50 m jacket "
+            "(SubDyn); reference 0.221 Hz from DEME's OpenFAST free decay"
+        ),
     )

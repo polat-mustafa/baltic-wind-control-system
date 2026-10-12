@@ -27,6 +27,7 @@ from __future__ import annotations
 import csv
 import gzip
 import json
+from dataclasses import dataclass
 from datetime import date, timedelta
 from functools import cache
 from pathlib import Path
@@ -36,6 +37,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 STEP_HOURS = 6
+EULER_GAMMA = 0.5772156649
 STEPS_PER_DAY = 24 // STEP_HOURS
 HUB_HEIGHT_M = 150.0
 # Normal wind profile exponent for offshore sites (IEC 61400-3-1 NWP).
@@ -55,6 +57,41 @@ def hindcast() -> tuple[NDArray[np.datetime64], NDArray[np.float64], NDArray[np.
         rows = list(csv.reader(f))[1:]
     t = np.array([r[0].rstrip("Z") for r in rows], dtype="datetime64[h]")
     return t, np.array([float(r[1]) for r in rows]), np.array([float(r[2]) for r in rows])
+
+
+@dataclass(frozen=True)
+class ExtremeSeaState:
+    return_period_years: float
+    hs_m: float
+    annual_maxima_m: tuple[float, ...]
+    gumbel_mu_m: float
+    gumbel_beta_m: float
+    tp_range_s: tuple[float, float]
+
+
+@cache
+def extreme_hs(return_period_years: float = 50.0) -> ExtremeSeaState:
+    """Return-period Hs [m] from a Gumbel fit (method of moments) to the 30 annual maxima.
+
+    Each year's maximum of the 6-hourly worst-hour series; the Gumbel quantile
+    Hs_T = mu - beta * ln(-ln(1 - 1/T)). Tp range of that sea state per DNV-RP-C205 §3.5.5.4
+    (3.6 sqrt(Hs) <= Tp <= 5 sqrt(Hs)). 30 years give a 50-year value with a wide
+    confidence band (about +/- 1 m); design values come from a site-specific metocean study.
+    """
+    t, hs, _ = hindcast()
+    years = t.astype("datetime64[Y]").astype(int) + 1970
+    am = np.array([hs[years == y].max() for y in np.unique(years)])
+    beta = float(np.std(am, ddof=1) * np.sqrt(6) / np.pi)
+    mu = float(am.mean() - EULER_GAMMA * beta)
+    h = mu - beta * float(np.log(-np.log(1 - 1 / return_period_years)))
+    return ExtremeSeaState(
+        return_period_years=return_period_years,
+        hs_m=round(h, 2),
+        annual_maxima_m=tuple(round(float(x), 2) for x in am),
+        gumbel_mu_m=round(mu, 3),
+        gumbel_beta_m=round(beta, 3),
+        tp_range_s=(round(3.6 * h**0.5, 1), round(5.0 * h**0.5, 1)),
+    )
 
 
 def _month_index(t: NDArray[np.datetime64]) -> NDArray[np.int_]:

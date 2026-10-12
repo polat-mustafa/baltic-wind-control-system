@@ -633,4 +633,9 @@ export default {
   "Run it yourself ↗": "Kendin çalıştır ↗",
   "Static demo: this calculation runs on the backend. Clone the repository and run `docker compose up` to compute it live.":
     "Statik demo: bu hesap backend'de çalışır. Canlı hesaplamak için depoyu klonlayıp `docker compose up` çalıştırın.",
+  // engineering studies: earth fault, route rating, converter stability, EMT, structure, O&M
+  "Method:": "Yöntem:",
+  "Assumptions:": "Varsayımlar:",
+  "Study unavailable:": "Çalışma alınamadı:",
+  "computing…": "hesaplanıyor…",
 } satisfies Record<string, string>;

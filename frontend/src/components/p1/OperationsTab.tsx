@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import { useWeatherWindowStore } from "../../store/weatherWindowStore";
 import AvailabilityDashboard from "./AvailabilityDashboard";
 import OAMCostPanel from "./OAMCostPanel";
+import OMSimulationPanel from "./OMSimulationPanel";
 import RepairWindowPanel from "./RepairWindowPanel";
 import WeatherWindowPanel from "./WeatherWindowPanel";
 import AccessForecastPanel from "./AccessForecastPanel";
@@ -33,6 +34,7 @@ export default function OperationsTab() {
         wind limits per vessel), and what keeping them running costs.
       </p>
       <AvailabilityDashboard />
+      <OMSimulationPanel />
       {error && <p className="text-sm text-status-alarm">Weather-window data failed to load: {error}</p>}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <WeatherWindowPanel />

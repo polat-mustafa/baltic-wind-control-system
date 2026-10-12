@@ -174,7 +174,6 @@ export default {
     "IEA 15 MW eğrisi üzerinde canlı Open-Meteo rüzgârı, yayımlanmış açık deniz arıza oranlarıyla arızalar (Carroll vd. 2016), canlı RCE fiyatına göre kısıtlama; zaman sıkıştırılmış, gerçek bir santralin olay kaydıyla karşılaştırılmadı",
   "Turbine physics — structure": "Türbin fiziği — yapı",
   "Lifecycle — O&M": "Yaşam döngüsü — İ&B",
-  "P5 — commissioning": "P5 — devreye alma",
   "IEC 60287-1-1 / -2-1 cable rating engine (export route sections, DTS)":
     "IEC 60287-1-1 / -2-1 kablo akım taşıma hesabı (iletim güzergâhı bölümleri, DTS)",
   "CIGRE TB 880 case 0-1, 132 kV 630 mm² trefoil (open re-implementation cbl_CIGRE_TB880)":

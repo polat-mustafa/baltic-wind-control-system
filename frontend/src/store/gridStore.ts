@@ -33,6 +33,8 @@ export { SB510_NETWORK };
 
 export const DEFAULT_FRT_PARAMS: FRTParams = {
   faultBus: "PSE_400kV",
+  faultKind: "3ph",
+  k2Factor: 0,
   faultImpedancePu: 0.005,
   faultDurationS: 0.15,
   kFactor: 2,

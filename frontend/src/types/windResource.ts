@@ -91,6 +91,17 @@ export interface AEPCascadeResult {
   price_eur_mwh: number;
   /** AEP uncertainty components of this farm (1σ, % of AEP), each with its source. */
   uncertainty?: UncertaintyComponent[];
+  /** P75 / P90 / P99 averaged over 1 year, 10 years and the lifetime (p90_gwh = lifetime). */
+  exceedance_by_horizon?: ExceedanceHorizon[];
+}
+
+/** P-values for one averaging period: inter-annual variability shrinks with √years. */
+export interface ExceedanceHorizon {
+  years: number;
+  sigma_percent: number;
+  p75_gwh: number;
+  p90_gwh: number;
+  p99_gwh: number;
 }
 
 export interface UncertaintyComponent {

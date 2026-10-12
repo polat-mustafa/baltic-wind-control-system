@@ -25,7 +25,8 @@ Converter (grid-side VSC, grid-following, per unit on the converter rating S_c =
   resistor R_d = 1 / (3 ω_r C_f) (ω_r: L_f–C_f–WTG-transformer resonance; the passive
   damping of high-power LCL filters, Peña-Alzola et al., IEEE TPEL 28(6), 2013). Its Norton
   admittance
-  (Harnefors, Yepes & Wang, IEEE Trans. Ind. Electron. 63(10), 2016, eq. 6–8):
+  (the passivity form of Harnefors, Wang, Yepes & Blaabjerg, "Passivity-based stability
+  assessment of grid-connected VSCs — an overview", IEEE JESTPE 4(1), 2016):
 
       Y_a(jω) = (1 − F e^(−jωT_d)) / (jω L_f + K_p e^(−jωT_d)),
       Y_c = Y_a + 1 / (R_d + 1 / (jω C_f))

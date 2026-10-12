@@ -8,6 +8,8 @@
 import { useEffect } from "react";
 import { Activity } from "lucide-react";
 
+import SupportStructurePanel from "../components/turbine-physics/SupportStructurePanel";
+import TowerLoadsPanel from "../components/turbine-physics/TowerLoadsPanel";
 import TurbinePhysicsDashboard from "../components/turbine-physics/TurbinePhysicsDashboard";
 import { useTurbinePhysicsStore } from "../store/turbinePhysicsStore";
 import { Button } from "../components/ui/Button";
@@ -369,6 +371,10 @@ export default function TurbinePhysicsPage() {
           </div>
         </div>
       )}
+
+      {/* Support structure and tower loads: own studies, independent of the run above */}
+      <SupportStructurePanel />
+      <TowerLoadsPanel />
     </div>
   );
 }

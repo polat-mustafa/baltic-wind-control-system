@@ -147,3 +147,39 @@ export interface FaultClearanceResponse {
   relay_sequence: RelaySequenceEntry[];
   assessment: string;
 }
+
+// ── Earth fault on a 66 kV string feeder (NER-earthed array) ──────────
+
+/** One residual (51N) stage of GET /protection/earth-fault (primary amperes). */
+export interface EarthFaultSetting {
+  setting_id: string;
+  description: string;
+  pickup_a: number;
+  time_delay_s: number;
+  location: string;
+}
+
+/** GET /api/v1/grid/protection/earth-fault — IEC 60909 Ik1'' and the feeder / NER 51N stages. */
+export interface EarthFaultStudy {
+  fault_location: string;
+  fault_type: string;
+  fault_resistance_ohm: number;
+  /** IEC 60909 single-line-to-earth current at the OSS 66 kV bus, c_max / c_min [kA]. */
+  ik1_max_ka: number;
+  ik1_min_ka: number;
+  /** Current through the fault with the given fault resistance [A]. */
+  fault_current_a: number;
+  /** Neutral earthing resistor [Ω]. */
+  ner_ohm: number;
+  relay_sequence: RelaySequenceEntry[];
+  settings: EarthFaultSetting[];
+  /** Capacitive earth-fault current each healthy string feeds into the fault [A]. */
+  healthy_feeder_capacitive_a: number[];
+  no_sympathetic_trip: boolean;
+  backup_margin_ms: number | null;
+  selective: boolean;
+  ner_within_rating: boolean;
+  /** Highest fault resistance the feeder stage still detects [Ω]. */
+  max_detectable_resistance_ohm: number;
+  assessment: string;
+}

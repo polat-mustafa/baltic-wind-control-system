@@ -12,6 +12,7 @@ import FRTPanel from "../../../src/components/p2/FRTPanel";
 import GridConnectionDiagram from "../../../src/components/p2/GridConnectionDiagram";
 import GridDashboard from "../../../src/components/p2/GridDashboard";
 import GridKPIHeader from "../../../src/components/p2/GridKPIHeader";
+import LossBreakdownPanel from "../../../src/components/p2/LossBreakdownPanel";
 import ShortCircuitPanel from "../../../src/components/p2/ShortCircuitPanel";
 import STATCOMPanel from "../../../src/components/p2/STATCOMPanel";
 import VoltageProfilePanel from "../../../src/components/p2/VoltageProfilePanel";
@@ -42,6 +43,7 @@ describe("empty states", () => {
     ["FRTPanel", FRTPanel, { frtResult: null }],
     ["ConverterComparisonPanel", ConverterComparisonPanel, { converterComparison: null }],
     ["GridDashboard", GridDashboard, { loadFlowResults: null }],
+    ["LossBreakdownPanel", LossBreakdownPanel, { loadFlowResults: null }],
   ] as const)("%s renders nothing without data", (_, Component, overrides) => {
     withState(overrides);
     const { container } = render(<Component />);
@@ -113,6 +115,36 @@ describe("reactive power and faults", () => {
     expect(screen.getByText(/ΔIq\/ΔU = 2.00/)).toBeTruthy();
     expect(screen.getByText(/in 0.46 s \(limit 5 s\)/)).toBeTruthy();
     expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("PSE_400kV");
+  });
+});
+
+describe("loss breakdown, k sensitivity and unbalanced FRT", () => {
+  it("splits the selected case's losses by component", () => {
+    render(<LossBreakdownPanel />);
+    expect(screen.getByText("Where the losses go")).toBeTruthy();
+    expect(screen.getByText("Export cables")).toBeTruthy();
+    expect(screen.getByText("3.06 MW")).toBeTruthy(); // 510 × 0.006
+    expect(screen.getByText("48 %")).toBeTruthy(); // 3.06 / 6.375
+  });
+
+  it("stays empty when the response has no breakdown", () => {
+    withState({ loadFlowResults: gridState.loadFlowResults.map((r) => ({ ...r, loss_breakdown_mw: undefined })) });
+    const { container } = render(<LossBreakdownPanel />);
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("breaker duty panel shows the topology and the converter-k rows", () => {
+    render(<ShortCircuitPanel />);
+    expect(screen.getByText("both OSS units, converters at k = 1.2")).toBeTruthy();
+    expect(screen.getByText("22.20")).toBeTruthy();
+    expect(screen.getAllByText("✓ adequate")).toHaveLength(3);
+  });
+
+  it("FRT panel offers the fault kind and shows the unbalanced numbers", () => {
+    render(<FRTPanel />);
+    expect(screen.getByRole("tab", { name: "phase-earth" })).toBeTruthy();
+    expect(screen.getByText("Lowest POC phase voltage")).toBeTruthy();
+    expect(screen.getByText("1.089 pu")).toBeTruthy();
   });
 });
 

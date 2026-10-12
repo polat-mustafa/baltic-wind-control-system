@@ -14,7 +14,7 @@ import { faultRideThroughEducation } from "../../constants/education/p2";
 import { DARK_PLOTLY_LAYOUT, PLOTLY_CONFIG } from "../../constants/plotlyDefaults";
 import { useChartPalette } from "../../hooks/useChartPalette";
 import { useGridStore } from "../../store/gridStore";
-import type { FaultBus } from "../../types/grid";
+import type { FaultBus, FaultKind } from "../../types/grid";
 import { ChartWrapper } from "../ui/ChartWrapper";
 import { EducationButton } from "../ui/EducationButton";
 
@@ -23,6 +23,11 @@ const FAULT_BUSES: [FaultBus, string][] = [
   ["Onshore_220kV", "Onshore 220 kV"],
   ["OSS_220kV", "Offshore 220 kV"],
   ["OSS_66kV", "Offshore 66 kV (internal)"],
+];
+const FAULT_KINDS: [FaultKind, string][] = [
+  ["3ph", "3-phase"],
+  ["2ph", "phase-phase"],
+  ["1ph", "phase-earth"],
 ];
 const SWEEP_MS = 1200;
 
@@ -116,6 +121,8 @@ export default function FRTPanel() {
   const envT = r.envelope.map((e) => e.time_s);
   const envV = r.envelope.map((e) => e.voltage_pu);
   const pPre = r.time_series[0].active_power_mw;
+  // Unbalanced fault: the phase and negative-sequence voltages tell the story (older responses lack them)
+  const unbalanced = lvrt && (r.fault_kind === "2ph" || r.fault_kind === "1ph") && r.time_series[0].negative_sequence_pu !== undefined;
 
   return (
     <ChartWrapper
@@ -154,6 +161,21 @@ export default function FRTPanel() {
           </label>
         )}
         {frtType === "lvrt" && (
+          <div role="tablist" aria-label="Fault kind" className="flex gap-1">
+            {FAULT_KINDS.map(([k, l]) => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={frtParams.faultKind === k}
+                onClick={() => setFrtParams({ faultKind: k })}
+                className={`rounded px-2 py-1 text-xs font-medium ${frtParams.faultKind === k ? "bg-accent text-accent-ink" : "text-text-secondary hover:bg-bg-tertiary"}`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
+        {frtType === "lvrt" && (
           <Slider
             label="Fault impedance (100 MVA)"
             value={frtParams.faultImpedancePu}
@@ -182,6 +204,17 @@ export default function FRTPanel() {
           format={(v) => v.toFixed(1)}
           onChange={(v) => setFrtParams({ kFactor: v })}
         />
+        {frtType === "lvrt" && frtParams.faultKind !== "3ph" && (
+          <Slider
+            label="K2 negative-sequence gain"
+            value={frtParams.k2Factor}
+            min={0}
+            max={6}
+            step={0.5}
+            format={(v) => (v === 0 ? "none" : v.toFixed(1))}
+            onChange={(v) => setFrtParams({ k2Factor: v })}
+          />
+        )}
         {frtLoading && <span className="text-xs text-text-muted">simulating…</span>}
       </div>
 
@@ -222,6 +255,28 @@ export default function FRTPanel() {
                 line: { color: c.orange, width: 2 },
                 hovertemplate: "Terminals %{y:.3f} pu at %{x:.3f} s<extra></extra>",
               },
+              ...(unbalanced
+                ? [
+                    {
+                      type: "scatter" as const,
+                      mode: "lines" as const,
+                      name: "POC lowest phase",
+                      x: t,
+                      y: pts.map((p) => p.phase_min_pu ?? 0),
+                      line: { color: c.aqua, width: 1.5, dash: "dot" as const },
+                      hovertemplate: "Lowest phase %{y:.3f} pu at %{x:.3f} s<extra></extra>",
+                    },
+                    {
+                      type: "scatter" as const,
+                      mode: "lines" as const,
+                      name: "POC negative sequence U2",
+                      x: t,
+                      y: pts.map((p) => p.negative_sequence_pu ?? 0),
+                      line: { color: c.red, width: 1.5 },
+                      hovertemplate: "U2 %{y:.3f} pu at %{x:.3f} s<extra></extra>",
+                    },
+                  ]
+                : []),
             ]}
             layout={{
               ...DARK_PLOTLY_LAYOUT,
@@ -309,6 +364,20 @@ export default function FRTPanel() {
               ? `90 % of ${pPre.toFixed(0)} MW back ${Number.isFinite(r.recovery_time_s) ? `in ${r.recovery_time_s.toFixed(2)} s` : "— never"} (limit ${r.recovery_limit_s} s) · Art. 20(3)(a)`
               : "No pre-fault power — nothing to recover"}
           </Check>
+          {(r.min_phase_voltage_pu !== undefined || r.post_clearance_peak_pu !== undefined) && (
+            <li className="grid grid-cols-[1fr_auto] gap-x-2 gap-y-0.5 pt-1">
+              <span>Fault kind</span>
+              <span translate="no" className="font-mono text-text-primary">{r.fault_kind ?? "3ph"}</span>
+              <span>Lowest POC phase voltage</span>
+              <span translate="no" className="font-mono text-text-primary">{(r.min_phase_voltage_pu ?? 0).toFixed(3)} pu</span>
+              <span>Largest negative sequence U2</span>
+              <span translate="no" className="font-mono text-text-primary">{(r.max_negative_sequence_pu ?? 0).toFixed(3)} pu</span>
+              <span>Peak within 0.5 s after clearance</span>
+              <span translate="no" className={`font-mono ${(r.post_clearance_peak_pu ?? 0) > 1.1 ? "text-status-warning" : "text-text-primary"}`}>
+                {(r.post_clearance_peak_pu ?? 0).toFixed(3)} pu
+              </span>
+            </li>
+          )}
           <li className="pt-1 text-text-muted">
             End of event: POC {endOfEvent?.voltage_pu.toFixed(3)} pu with reactive current vs {r.passive_voltage_pu.toFixed(3)} pu
             without; terminals {endOfEvent?.terminal_voltage_pu.toFixed(2)} pu. STATCOM peak {r.statcom_peak_q_mvar.toFixed(0)} MVAR.

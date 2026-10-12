@@ -144,3 +144,52 @@ export interface FilterDesignResponse {
   network_impedance_ohm: number;
   assessment: string;
 }
+
+// ── Converter–array stability (POST /converter-stability) ─────────────
+
+/** Grid-side converter of one WTG (pu on its own rating) and the study case; every field optional (backend defaults = SB-510). */
+export interface ConverterStabilityRequest {
+  l_filter_pu?: number;
+  c_filter_pu?: number;
+  /** Series R of the C_f branch [pu]; null = 1/(3 ω_r C_f), 0 = no damping resistor. */
+  damping_r_pu?: number | null;
+  f_sw_hz?: number;
+  bandwidth_hz?: number;
+  feedforward?: number;
+  grid_ssc_factor?: number;
+  coupler_closed?: boolean;
+  turbines_in_service?: number | null;
+}
+
+export interface StabilityHarmonicRow {
+  bus: string;
+  order: number;
+  voltage_pct: number;
+  limit_pct: number;
+  utilisation_pct: number;
+}
+
+export interface ConverterStabilityResponse {
+  lcl_resonance_hz: number;
+  /** Converter admittance is non-passive (negative real part) from this frequency up. */
+  non_passive_from_hz: number;
+  damping_r_pu: number;
+  standalone_stable: boolean;
+  standalone_vector_margin: number;
+  stable: boolean;
+  unstable_poles: number;
+  /** Generalized-Nyquist vector margin: closest approach of the loci to −1 [–]. */
+  vector_margin: number;
+  vector_margin_hz: number;
+  phase_margin_deg: number;
+  phase_margin_hz: number;
+  loci_hz: number[];
+  /** min_i |1 + Y·λ_i| per frequency: distance of the characteristic loci from −1 (0 = on the stability boundary). */
+  loci_min_distance: number[];
+  /** THD per bus with Norton converter models / with ideal current sources / planning limit [%]. */
+  thd_norton_pct: Record<string, number>;
+  thd_ideal_sources_pct: Record<string, number>;
+  thd_limit_pct: Record<string, number>;
+  harmonics: StabilityHarmonicRow[];
+  assumptions: string[];
+}

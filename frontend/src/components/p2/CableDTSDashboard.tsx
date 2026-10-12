@@ -20,6 +20,7 @@ import { Slider } from "../ui/Slider";
 import DTSProfilePanel from "./DTSProfilePanel";
 import DTSRatingPanel from "./DTSRatingPanel";
 import DTSTransientPanel from "./DTSTransientPanel";
+import RouteRatingPanel from "./RouteRatingPanel";
 
 const item = {
   hidden: { opacity: 0, y: 12 },
@@ -135,6 +136,9 @@ export default function CableDTSDashboard() {
         <motion.div variants={item} className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <DTSRatingPanel />
           <DTSTransientPanel />
+        </motion.div>
+        <motion.div variants={item}>
+          <RouteRatingPanel />
         </motion.div>
       </motion.div>
     </MotionConfig>

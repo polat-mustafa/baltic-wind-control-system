@@ -14,7 +14,8 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": { "react-plotly.js": ["./src/lib/Plot.tsx"] }
   },
   "include": ["src", "tests", "showcase", "e2e-demo"]
 }

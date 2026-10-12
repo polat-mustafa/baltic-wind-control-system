@@ -35,7 +35,7 @@
     "@xyflow/react": "^12.12.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "framer-motion": "^13.5.0",
+    "framer-motion": "^14.0.0",
     "lucide-react": "^1.54.0",
     "maplibre-gl": "5.24.0",
     "plotly.js-dist-min": "^4.1.2",

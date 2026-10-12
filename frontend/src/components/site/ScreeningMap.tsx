@@ -270,7 +270,7 @@ export default function ScreeningMap() {
         ) : drawing ? (
           <>
             <span className="rounded-md bg-bg-secondary/95 px-2.5 py-1.5 text-xs text-text-secondary shadow">
-              Click the map to add corners ({drawing.length})
+              Add corners on the map ({drawing.length})
             </span>
             <ToolButton onClick={undoCorner} disabled={drawing.length === 0} icon={<Undo2 size={13} />} label="Undo" />
             <ToolButton

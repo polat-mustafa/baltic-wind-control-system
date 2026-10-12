@@ -10,6 +10,7 @@ const site: Record<string, string> = {
   "Draw site": "Sahayı çiz",
   Draw: "Çiz",
   Redraw: "Yeniden çiz",
+  "Add corners on the map ({n})": "Haritada köşeleri ekleyin ({n})",
   "— {label}": "— {label}",
   "no exclusion, good score": "dışlama yok, iyi puan",
   "allowed, weaker score": "izinli, daha zayıf puan",

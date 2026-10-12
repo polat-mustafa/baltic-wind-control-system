@@ -32,6 +32,7 @@ export default {
 
   // Layout
   "Add turbines": "Türbin ekle",
+  "Place on the map…": "Haritada yerleştirin…",
   selected: "seçili",
   "selected · IDs from zoom": "seçili · kimlikler şu yakınlaştırmadan itibaren",
   "offshore substation (drag to move)": "açık deniz trafo merkezi (taşımak için sürükleyin)",

@@ -232,4 +232,10 @@ export default {
   "the same network solved in EPRI OpenDSS (opendssdirect.py)": "aynı ağın EPRI OpenDSS ile çözümü (opendssdirect.py)",
   "largest bus-voltage difference": "en büyük bara gerilimi farkı",
   "< 0.001 pu; grid P within 0.1 MW, Q within 0.5 Mvar": "< 0.001 pu; şebeke P 0.1 MW, Q 0.5 Mvar içinde",
+  "SB-510 farm wake loss (34 × IEA 15 MW, TI 6 %, site Weibull): Jensen, TurbOPark and Gaussian models":
+    "SB-510 santral iz kaybı (34 × IEA 15 MW, TI %6, saha Weibull): Jensen, TurbOPark ve Gauss modelleri",
+  "NREL FLORIS 4.2.1 (jensen, turboparkgauss, gauss) on the same layout and power/thrust table":
+    "Aynı yerleşim ve güç/itki tablosuyla NREL FLORIS 4.2.1 (jensen, turboparkgauss, gauss)",
+  "largest wake-loss difference of the three pairs": "üç model çifti arasındaki en büyük iz kaybı farkı",
+  "< 1 pp (Jensen < 0.5 pp)": "< 1 yüzde puan (Jensen < 0.5 yüzde puan)",
 } satisfies Record<string, string>;

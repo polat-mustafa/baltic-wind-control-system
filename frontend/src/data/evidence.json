@@ -136,6 +136,19 @@
    "test": "backend/tests/test_wake_validation.py"
   },
   {
+   "id": "p1-wake-floris",
+   "area": "P1 — wind resource",
+   "kind": "reference",
+   "claim": "SB-510 farm wake loss (34 × IEA 15 MW, TI 6 %, site Weibull): Jensen, TurbOPark and Gaussian models",
+   "against": "NREL FLORIS 4.2.1 (jensen, turboparkgauss, gauss) on the same layout and power/thrust table",
+   "metric": "largest wake-loss difference of the three pairs",
+   "value": 0.4222,
+   "unit": "pp",
+   "limit": "< 1 pp (Jensen < 0.5 pp)",
+   "test": "backend/tests/test_floris_cross_check.py",
+   "tolerance": 0.1
+  },
+  {
    "id": "p1-wake-noj",
    "area": "P1 — wind resource",
    "kind": "measured",

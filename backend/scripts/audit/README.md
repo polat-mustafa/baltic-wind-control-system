@@ -13,6 +13,7 @@ own functions and compares them with an independent reference; none changes app 
 | `a6_energisation_soak.py` | cable current in the 24 h soak; line-reactor compensation | app energisation snapshot |
 | `a7_short_circuit_hand_calc.py` | IEC 60909 Ik″ max | hand calculation (IEC 60909-0) |
 | `a8_scl_schema.py` | SSD / ICD / SCD validity | IEC 61850-6 SCL XSD (not committed, IEC copyright) |
+| `c2_floris_wakes.py` | SB-510 farm wake loss: Jensen, TurbOPark, Gaussian | NREL FLORIS 4.2.1 on the same layout and turbine table (`pip install floris==4.2.1`) |
 | `c2_opendss_load_flow.py` | SB-510 load flow (72 buses, dispatched) | the same network solved in EPRI OpenDSS (`pip install opendssdirect.py`) |
 
 Run from `backend/` with `PYTHONPATH=.`; extra packages: `pip install rosco==2.10.6 lxml h5py`.

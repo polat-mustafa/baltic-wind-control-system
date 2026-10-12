@@ -200,7 +200,7 @@ class ShortCircuitBusResult(BaseModel):
 class ShortCircuitResponse(BaseModel):
     """Complete IEC 60909 short-circuit analysis result.
 
-    Contains max (c=1.1) and min (c=0.95) cases for breaker sizing
+    Contains max (c = 1.10) and min (c = 1.00) cases for breaker sizing
     and protection coordination.
     """
 
@@ -215,6 +215,15 @@ class ShortCircuitResponse(BaseModel):
     max_ikss_bus: str = Field(description="Bus with highest Ik''")
     breaker_adequate: bool = Field(
         description="True if all Ik'' values within breaker rated breaking capacity"
+    )
+    topology: str = Field(
+        "",
+        description="Network state of the case: max = both OSS units, every converter at k; "
+        "min = OSS bus coupler open (one unit), no converter infeed",
+    )
+    k_sensitivity: list[dict[str, float | bool]] = Field(
+        default_factory=list,
+        description="Max case: largest Ik'' at 66 / 220 kV for converter k = 1.0 / 1.2 / 1.5",
     )
 
 

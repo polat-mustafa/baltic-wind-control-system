@@ -33,11 +33,13 @@ SCL files are XML documents following the IEC 61850-6 schema. Key sections:
 
 Implementation Note
 ---------------------
-These are simplified educational SCL files. A production system integration
-tool (e.g., ABB PCM600, Siemens DIGSI 5, Hitachi Energy ITT600) generates
-the full schema with 200+ elements, XSD validation, and vendor-specific
-extensions. Our simplified SCL demonstrates the key structural concepts
-that interviewers test.
+The files validate against the IEC 61850-6 SCL schema (Ed. 2, 2007B; checked by
+tests/test_scl_schema.py with the official XSD when it is available). The data model is
+simplified: each common data class carries the attributes the platform uses plus the
+mandatory Beh (and Mod / Health / NamPlt on LLN0), not every optional attribute of
+IEC 61850-7-3; there are no vendor private sections or Services capabilities. A
+production integration tool (e.g., ABB PCM600, Siemens DIGSI 5, Hitachi Energy ITT600)
+adds those.
 
 References
 ----------
@@ -158,15 +160,36 @@ def _add_voltage_level(
     return vl
 
 
-def _add_logical_node_to_ld(
-    ld_elem: ET.Element,
-    ln: LogicalNode,
-) -> ET.Element:
+TypeKey = tuple[str, tuple[tuple[str, str], ...]]  # LN class + (DO name, CDC) set
+
+
+def _signature(ln: LogicalNode) -> TypeKey:
+    return ln.class_name, tuple((do.name, do.cdc) for do in ln.data_objects)
+
+
+def _lnode_type_ids(
+    devices: list[PhysicalDevice],
+) -> dict[TypeKey, str]:
+    """One LNodeType per LN class *and* data-object set (two GGIO with different
+    signals need two types); ids OF_<class>_<n>, deterministic in device order."""
+    ids: dict[TypeKey, str] = {}
+    count: dict[str, int] = {}
+    for device in devices:
+        for ld in device.logical_devices:
+            for ln in ld.logical_nodes:
+                sig = _signature(ln)
+                if sig not in ids:
+                    count[ln.class_name] = count.get(ln.class_name, 0) + 1
+                    ids[sig] = f"OF_{ln.class_name}_{count[ln.class_name]}"
+    return ids
+
+
+def _add_logical_node_to_ld(ld_elem: ET.Element, ln: LogicalNode, ln_type: str) -> ET.Element:
     """Add an <LN> element for a logical node."""
     ln_elem = ET.SubElement(ld_elem, _ns("LN"))
     ln_elem.set("lnClass", ln.class_name)
     ln_elem.set("inst", str(ln.instance))
-    ln_elem.set("lnType", f"{ln.class_name}_type")
+    ln_elem.set("lnType", ln_type)
     if ln.description:
         ln_elem.set("desc", ln.description)
     return ln_elem
@@ -175,6 +198,7 @@ def _add_logical_node_to_ld(
 def _add_logical_device(
     server: ET.Element,
     ld: LogicalDevice,
+    type_ids: dict[TypeKey, str],
     datasets: list[Dataset] | None = None,
     goose_control_blocks: list[GOOSEControlBlock] | None = None,
 ) -> ET.Element:
@@ -188,79 +212,205 @@ def _add_logical_device(
     ln0 = ET.SubElement(ld_elem, _ns("LN0"))
     ln0.set("lnClass", "LLN0")
     ln0.set("inst", "")
-    ln0.set("lnType", "LLN0_type")
+    ln0.set("lnType", LLN0_TYPE)
 
-    # Datasets inside LN0
-    if datasets:
-        for ds in datasets:
-            ds_elem = ET.SubElement(ln0, _ns("DataSet"))
-            ds_elem.set("name", ds.name)
-            if ds.description:
-                ds_elem.set("desc", ds.description)
-            for member in ds.members:
-                fcda = ET.SubElement(ds_elem, _ns("FCDA"))
-                fcda.set("ldInst", member.logical_device_inst)
-                fcda.set("lnClass", member.logical_node_name.rstrip("0123456789"))
-                # Extract instance number from LN name (e.g., "XCBR1" → "1")
-                ln_inst = "".join(c for c in member.logical_node_name if c.isdigit())
-                fcda.set("lnInst", ln_inst)
-                fcda.set("doName", member.data_object_name)
-                fcda.set("fc", member.fc.value)
-
-    # GOOSE Control Blocks inside LN0
-    if goose_control_blocks:
-        for gcb in goose_control_blocks:
-            gse_ctrl = ET.SubElement(ln0, _ns("GSEControl"))
-            gse_ctrl.set("name", gcb.name)
-            gse_ctrl.set("appID", gcb.app_id)
-            gse_ctrl.set("datSet", gcb.dataset_name)
-            gse_ctrl.set("confRev", "1")
-            if gcb.description:
-                gse_ctrl.set("desc", gcb.description)
+    # Datasets and GOOSE control blocks live in the LN0 of the LD whose data they publish
+    own = [ds for ds in datasets or [] if all(m.logical_device_inst == ld.inst for m in ds.members)]
+    for ds in own:
+        ds_elem = ET.SubElement(ln0, _ns("DataSet"))
+        ds_elem.set("name", ds.name)
+        if ds.description:
+            ds_elem.set("desc", ds.description)
+        for member in ds.members:
+            fcda = ET.SubElement(ds_elem, _ns("FCDA"))
+            fcda.set("ldInst", member.logical_device_inst)
+            fcda.set("lnClass", member.logical_node_name.rstrip("0123456789"))
+            # Extract instance number from LN name (e.g., "XCBR1" → "1")
+            ln_inst = "".join(c for c in member.logical_node_name if c.isdigit())
+            fcda.set("lnInst", ln_inst)
+            fcda.set("doName", member.data_object_name)
+            fcda.set("fc", member.fc.value)
+    names = {ds.name for ds in own}
+    for gcb in goose_control_blocks or []:
+        if gcb.dataset_name not in names:
+            continue
+        gse_ctrl = ET.SubElement(ln0, _ns("GSEControl"))
+        gse_ctrl.set("name", gcb.name)
+        gse_ctrl.set("appID", gcb.go_id)
+        gse_ctrl.set("datSet", gcb.dataset_name)
+        gse_ctrl.set("confRev", "1")
+        if gcb.description:
+            gse_ctrl.set("desc", gcb.description)
 
     # Regular logical nodes
     for ln in ld.logical_nodes:
-        _add_logical_node_to_ld(ld_elem, ln)
+        _add_logical_node_to_ld(ld_elem, ln, type_ids[_signature(ln)])
 
     return ld_elem
+
+
+def _add_ied(
+    root: ET.Element,
+    device: PhysicalDevice,
+    type_ids: dict[TypeKey, str],
+    datasets: list[Dataset] | None,
+    goose_control_blocks: list[GOOSEControlBlock] | None,
+) -> ET.Element:
+    """<IED> → <AccessPoint S1> → <Server> (with the mandatory <Authentication>) → LDs."""
+    ied = ET.SubElement(root, _ns("IED"))
+    ied.set("name", device.name)
+    ied.set("manufacturer", device.manufacturer)
+    ied.set("type", device.model)
+    if device.description:
+        ied.set("desc", device.description)
+    ap = ET.SubElement(ied, _ns("AccessPoint"))
+    ap.set("name", "S1")
+    server = ET.SubElement(ap, _ns("Server"))
+    ET.SubElement(server, _ns("Authentication"))
+    for ld in device.logical_devices:
+        _add_logical_device(server, ld, type_ids, datasets, goose_control_blocks)
+    return ied
+
+
+# ── Data type templates (IEC 61850-7-3 common data classes, simplified) ──
+
+LLN0_TYPE = "OF_LLN0"
+# Enumerations (IEC 61850-7-3 / 7-4); TurSt is this platform's teaching enumeration of the
+# IEC 61400-25-2 turbine states.
+ENUMS: dict[str, tuple[str, ...]] = {
+    "Beh": ("on", "blocked", "test", "test/blocked", "off"),
+    "Health": ("Ok", "Warning", "Alarm"),
+    "ctlModel": (
+        "status-only",
+        "direct-with-normal-security",
+        "sbo-with-normal-security",
+        "direct-with-enhanced-security",
+        "sbo-with-enhanced-security",
+    ),
+    "dirGeneral": ("unknown", "forward", "backward", "both"),
+    "TurSt": ("stopped", "starting", "running", "stopping", "error", "maintenance"),
+}
+ENUM_FIRST_ORD = {"ctlModel": 0, "dirGeneral": 0}  # others count from 1
+
+# (name, fc, bType, type) per CDC; bType Struct/Enum name a DAType/EnumType id
+_Q_T = [("q", "ST", "Quality", None), ("t", "ST", "Timestamp", None)]
+CDC_DAS: dict[str, list[tuple[str, str, str, str | None]]] = {
+    "SPS": [("stVal", "ST", "BOOLEAN", None), *_Q_T],
+    "INS": [("stVal", "ST", "INT32", None), *_Q_T],
+    "ENS": [("stVal", "ST", "Enum", None), *_Q_T],
+    "ACT": [("general", "ST", "BOOLEAN", None), *_Q_T],
+    "ACD": [
+        ("general", "ST", "BOOLEAN", None),
+        ("dirGeneral", "ST", "Enum", "dirGeneral"),
+        *_Q_T,
+    ],
+    "SPC": [
+        ("stVal", "ST", "BOOLEAN", None),
+        *_Q_T,
+        ("ctlVal", "CO", "BOOLEAN", None),
+        ("ctlModel", "CF", "Enum", "ctlModel"),
+    ],
+    "DPC": [
+        ("stVal", "ST", "Dbpos", None),
+        *_Q_T,
+        ("ctlVal", "CO", "BOOLEAN", None),
+        ("ctlModel", "CF", "Enum", "ctlModel"),
+    ],
+    "BCR": [("actVal", "ST", "INT64", None), *_Q_T],
+    "MV": [
+        ("mag", "MX", "Struct", "OF_AnalogueValue"),
+        ("q", "MX", "Quality", None),
+        ("t", "MX", "Timestamp", None),
+    ],
+    "CMV": [
+        ("cVal", "MX", "Struct", "OF_Vector"),
+        ("q", "MX", "Quality", None),
+        ("t", "MX", "Timestamp", None),
+    ],
+    "LPL": [
+        ("vendor", "DC", "VisString255", None),
+        ("swRev", "DC", "VisString255", None),
+        ("configRev", "DC", "VisString255", None),
+    ],
+}
+CDC_SDOS: dict[str, tuple[str, ...]] = {"WYE": ("phsA", "phsB", "phsC")}  # → CMV
+# Every LN carries Beh (IEC 61850-7-4 mandatory); LLN0 also Mod, Health and NamPlt
+COMMON_DOS = (("Beh", "ENS_Beh"),)
+LLN0_DOS = (("Mod", "ENS_Beh"), ("Beh", "ENS_Beh"), ("Health", "ENS_Health"), ("NamPlt", "LPL"))
+
+
+def _do_type_id(cdc: str, do_name: str) -> str:
+    if cdc == "INS" and do_name == "TurSt":
+        return "ENS_TurSt"  # an enumerated state, not an integer
+    return cdc
 
 
 def _add_data_type_templates(
     root: ET.Element,
     devices: list[PhysicalDevice],
+    type_ids: dict[TypeKey, str],
 ) -> ET.Element:
-    """Add <DataTypeTemplates> with LNodeType definitions.
-
-    Creates a type template for each unique LN class found across
-    all devices, listing their data objects.
-    """
+    """<DataTypeTemplates>: LNodeType per LN class and data-object set, DOType per CDC
+    (IEC 61850-7-3, simplified: the attributes the platform uses), DAType and EnumType.
+    The output validates against the IEC 61850-6 SCL schema (engineering audit F7)."""
     dtt = ET.SubElement(root, _ns("DataTypeTemplates"))
 
-    # Collect unique LN classes and their data objects
-    seen_classes: set[str] = set()
+    lln0 = ET.SubElement(dtt, _ns("LNodeType"))
+    lln0.set("id", LLN0_TYPE)
+    lln0.set("lnClass", "LLN0")
+    for name, t in LLN0_DOS:
+        ET.SubElement(lln0, _ns("DO"), {"name": name, "type": t})
+
+    used: set[str] = {t for _, t in LLN0_DOS}
+    reps: dict[str, LogicalNode] = {}
     for device in devices:
         for ld in device.logical_devices:
             for ln in ld.logical_nodes:
-                if ln.class_name in seen_classes:
-                    continue
-                seen_classes.add(ln.class_name)
+                reps.setdefault(type_ids[_signature(ln)], ln)
+    for type_id, ln in reps.items():
+        lnt = ET.SubElement(dtt, _ns("LNodeType"))
+        lnt.set("id", type_id)
+        lnt.set("lnClass", ln.class_name)
+        for name, t in COMMON_DOS:
+            ET.SubElement(lnt, _ns("DO"), {"name": name, "type": t})
+            used.add(t)
+        for do in ln.data_objects:
+            t = _do_type_id(do.cdc, do.name)
+            attrs = {"name": do.name, "type": t}
+            if do.description:
+                attrs["desc"] = do.description
+            ET.SubElement(lnt, _ns("DO"), attrs)
+            used.add(t)
 
-                lnode_type = ET.SubElement(dtt, _ns("LNodeType"))
-                lnode_type.set("id", f"{ln.class_name}_type")
-                lnode_type.set("lnClass", ln.class_name)
+    def do_type(type_id: str) -> None:
+        cdc, _, enum = type_id.partition("_")
+        dot = ET.SubElement(dtt, _ns("DOType"), {"id": type_id, "cdc": cdc})
+        for sdo in CDC_SDOS.get(cdc, ()):
+            ET.SubElement(dot, _ns("SDO"), {"name": sdo, "type": "CMV"})
+        for name, fc, btype, ref in CDC_DAS.get(cdc, []):
+            da = {"name": name, "fc": fc, "bType": btype}
+            if btype == "Enum":
+                da["type"] = ref or enum
+            elif ref:
+                da["type"] = ref
+            ET.SubElement(dot, _ns("DA"), da)
 
-                for do in ln.data_objects:
-                    do_elem = ET.SubElement(lnode_type, _ns("DO"))
-                    do_elem.set("name", do.name)
-                    do_elem.set("type", f"{do.cdc}_{do.name}")
-                    if do.description:
-                        do_elem.set("desc", do.description)
+    if any(t == "WYE" for t in used):
+        used.add("CMV")
+    for t in sorted(used):
+        do_type(t)
 
-    # Add LLN0 type (always present)
-    lln0_type = ET.SubElement(dtt, _ns("LNodeType"))
-    lln0_type.set("id", "LLN0_type")
-    lln0_type.set("lnClass", "LLN0")
+    av = ET.SubElement(dtt, _ns("DAType"), {"id": "OF_AnalogueValue"})
+    ET.SubElement(av, _ns("BDA"), {"name": "f", "bType": "FLOAT32"})
+    vec = ET.SubElement(dtt, _ns("DAType"), {"id": "OF_Vector"})
+    ET.SubElement(vec, _ns("BDA"), {"name": "mag", "bType": "Struct", "type": "OF_AnalogueValue"})
 
+    for enum_id, values in ENUMS.items():
+        et = ET.SubElement(dtt, _ns("EnumType"), {"id": enum_id})
+        first = ENUM_FIRST_ORD.get(enum_id, 1)
+        for k, v in enumerate(values):
+            ev = ET.SubElement(et, _ns("EnumVal"), {"ord": str(first + k)})
+            ev.text = v
     return dtt
 
 
@@ -350,34 +500,9 @@ def generate_icd(
     """
     root = _create_scl_root()
     _add_header(root, f"{device.name}_ICD")
-
-    # IED element
-    ied = ET.SubElement(root, _ns("IED"))
-    ied.set("name", device.name)
-    ied.set("manufacturer", device.manufacturer)
-    ied.set("type", device.model)
-    if device.description:
-        ied.set("desc", device.description)
-
-    # Access point
-    ap = ET.SubElement(ied, _ns("AccessPoint"))
-    ap.set("name", "S1")
-
-    # Server
-    server = ET.SubElement(ap, _ns("Server"))
-
-    # Logical devices
-    for ld in device.logical_devices:
-        _add_logical_device(
-            server,
-            ld,
-            datasets=datasets,
-            goose_control_blocks=goose_control_blocks,
-        )
-
-    # Data type templates
-    _add_data_type_templates(root, [device])
-
+    type_ids = _lnode_type_ids([device])
+    _add_ied(root, device, type_ids, datasets, goose_control_blocks)
+    _add_data_type_templates(root, [device], type_ids)
     return root
 
 
@@ -428,74 +553,60 @@ def generate_scd(
     _add_voltage_level(substation, "E66", 66.0, list(bays_66(spec)))
     _add_voltage_level(substation, "E220", 220.0, list(bays_220(spec)))
 
-    # Communication section — GOOSE multicast addressing
+    # Communication: one station bus, one ConnectedAP per IED with its IP and GOOSE
     comm = ET.SubElement(root, _ns("Communication"))
+    subnet = ET.SubElement(comm, _ns("SubNetwork"))
+    subnet.set("name", "StationBus")
+    subnet.set("type", "8-MMS")
     for device in devices:
         device_gcbs = goose_control_blocks.get(device.name, [])
         if not device_gcbs and not device.ip_address:
             continue
-
-        subnet = ET.SubElement(comm, _ns("SubNetwork"))
-        subnet.set("name", "StationBus")
-        subnet.set("type", "8-MMS")
-
         cap = ET.SubElement(subnet, _ns("ConnectedAP"))
         cap.set("iedName", device.name)
         cap.set("apName", "S1")
-
-        # IP address
         if device.ip_address:
             addr = ET.SubElement(cap, _ns("Address"))
             p_ip = ET.SubElement(addr, _ns("P"))
             p_ip.set("type", "IP")
             p_ip.text = device.ip_address
-
-        # GOOSE addresses
         for gcb in device_gcbs:
-            gse = ET.SubElement(cap, _ns("GSE"))
-            gse.set("ldInst", device.logical_devices[0].inst if device.logical_devices else "LD0")
-            gse.set("cbName", gcb.name)
-
-            gse_addr = ET.SubElement(gse, _ns("Address"))
-            p_mac = ET.SubElement(gse_addr, _ns("P"))
-            p_mac.set("type", "MAC-Address")
-            p_mac.text = gcb.mac_address
-
-            p_appid = ET.SubElement(gse_addr, _ns("P"))
-            p_appid.set("type", "APPID")
-            p_appid.text = gcb.app_id
-
-            p_vlan = ET.SubElement(gse_addr, _ns("P"))
-            p_vlan.set("type", "VLAN-ID")
-            p_vlan.text = str(gcb.vlan_id)
-
-    # IED sections (one per device)
-    for device in devices:
-        ied = ET.SubElement(root, _ns("IED"))
-        ied.set("name", device.name)
-        ied.set("manufacturer", device.manufacturer)
-        ied.set("type", device.model)
-        if device.description:
-            ied.set("desc", device.description)
-
-        ap = ET.SubElement(ied, _ns("AccessPoint"))
-        ap.set("name", "S1")
-        server = ET.SubElement(ap, _ns("Server"))
-
-        device_ds = datasets.get(device.name, [])
-        device_gcbs = goose_control_blocks.get(device.name, [])
-
-        for ld in device.logical_devices:
-            _add_logical_device(
-                server,
-                ld,
-                datasets=device_ds if device_ds else None,
-                goose_control_blocks=device_gcbs if device_gcbs else None,
+            ld_inst = next(
+                (
+                    ds.members[0].logical_device_inst
+                    for ds in datasets.get(device.name, [])
+                    if ds.name == gcb.dataset_name and ds.members
+                ),
+                device.logical_devices[0].inst if device.logical_devices else "LD0",
             )
+            gse = ET.SubElement(cap, _ns("GSE"))
+            gse.set("ldInst", ld_inst)
+            gse.set("cbName", gcb.name)
+            gse_addr = ET.SubElement(gse, _ns("Address"))
+            # IEC 61850-6 address formats: MAC with hyphens, APPID 4 and VLAN-ID 3 hex digits
+            for p_type, text in (
+                ("MAC-Address", gcb.mac_address.replace(":", "-").upper()),
+                ("APPID", f"{int(gcb.app_id, 16):04X}"),
+                ("VLAN-PRIORITY", "4"),
+                ("VLAN-ID", f"{gcb.vlan_id:03X}"),
+            ):
+                p_el = ET.SubElement(gse_addr, _ns("P"))
+                p_el.set("type", p_type)
+                p_el.text = text
+            for tag, ms in (("MinTime", gcb.min_time_ms), ("MaxTime", gcb.max_time_ms)):
+                t_el = ET.SubElement(gse, _ns(tag), {"unit": "s", "multiplier": "m"})
+                t_el.text = str(ms)
 
-    # Data type templates
-    _add_data_type_templates(root, devices)
-
+    type_ids = _lnode_type_ids(devices)
+    for device in devices:
+        _add_ied(
+            root,
+            device,
+            type_ids,
+            datasets.get(device.name) or None,
+            goose_control_blocks.get(device.name) or None,
+        )
+    _add_data_type_templates(root, devices, type_ids)
     return root
 
 

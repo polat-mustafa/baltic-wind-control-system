@@ -176,13 +176,18 @@ class TestICDGeneration:
         assert len(ln0s) >= 1
 
     def test_icd_has_goose_control(self):
-        """ICD with GoCB must contain GSEControl element."""
+        """ICD with GoCB must contain GSEControl element — in the LN0 that holds its
+        dataset; a control block whose dataset is missing would break the schema's datSet
+        reference and is left out."""
         ied = build_oss_protection_ied()
         gcb = build_oss_goose_control_block()
-        root = generate_icd(ied, goose_control_blocks=[gcb])
+        assert not generate_icd(ied, goose_control_blocks=[gcb]).findall(f".//{_ns('GSEControl')}")
+        ds = build_oss_goose_trip_dataset()
+        root = generate_icd(ied, goose_control_blocks=[gcb], datasets=[ds])
         gse_ctrls = root.findall(f".//{_ns('GSEControl')}")
         assert len(gse_ctrls) == 1
         assert gse_ctrls[0].get("name") == "gcb_trip"
+        assert gse_ctrls[0].get("datSet") == ds.name
 
     def test_icd_has_dataset(self):
         """ICD with dataset must contain DataSet with FCDA members."""

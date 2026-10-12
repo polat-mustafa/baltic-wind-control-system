@@ -150,3 +150,27 @@ def test_breaking_and_making_duty_per_bus():
         assert b.ikss_ka < b.breaker_ka
         assert b.ip_ka < b.making_ka
     assert r.breaker_adequate
+
+
+def test_min_case_is_one_oss_unit_without_converters():
+    """IEC 60909 minimum for protection sensitivity: coupler open, calm day (audit A-8)."""
+    from app.services.p2.short_circuit import calc_short_circuit
+
+    lo = calc_short_circuit("min")
+    hi = calc_short_circuit("max")
+    assert "coupler open" in lo.topology
+    i = {b.bus_name: b.ikss_ka for b in lo.bus_results}
+    assert i["OSS_66kV"] == pytest.approx(9.6, abs=0.2)
+    i_max = next(b.ikss_ka for b in hi.bus_results if b.bus_name == "OSS_66kV")
+    assert i["OSS_66kV"] < 0.55 * i_max
+
+
+def test_breakers_keep_margin_for_any_converter_k():
+    """Full-converter k is the manufacturer's (typically 1.0–1.5): duty rises with k, the
+    25 kA 66 kV and 40 kA 220 kV breakers still have margin at k = 1.5."""
+    from app.services.p2.short_circuit import k_sensitivity
+
+    rows = k_sensitivity()
+    assert [r["k"] for r in rows] == [1.0, 1.2, 1.5]
+    assert rows[0]["ikss_66kv_ka"] < rows[1]["ikss_66kv_ka"] < rows[2]["ikss_66kv_ka"] < 25.0
+    assert all(r["breaker_adequate"] for r in rows)

@@ -115,6 +115,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra dev
 
+      # Validation-only tools outside the app's lock: lxml for the IEC 61850-6 XSD check of
+      # the SCL files (tests/test_scl_schema.py; the test skips without it).
+      - name: Install validation tools
+        run: uv pip install "lxml>=5.3"
+
       - name: Run tests with coverage
         run: >-
           uv run --no-sync pytest -n auto -q -o addopts="--tb=short"

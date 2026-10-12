@@ -7,16 +7,20 @@ and write tags via the standardised UA binary protocol.
 
 Physics — Why OPC-UA?
 ----------------------
-IEC 61400-25 mandates OPC-UA as the interoperability layer for wind farm
-data exchange. Unlike Modbus (register-based, no semantics) or SOAP-based
-web services (fire-and-forget), OPC-UA provides:
+IEC 61400-25 defines the wind power plant information model; part 25-4 (2016) maps it
+to five protocol stacks — SOAP web services, OPC XML-DA, IEC 61850-8-1 MMS (the most
+used in wind), IEC 60870-5-104 and DNP3. OPC UA is not one of them; it is the common
+choice for vendor-neutral SCADA integration above the plant (companion specifications,
+e.g. OPC UA for IEC 61850 / IEC 61400-25 information models). Unlike Modbus
+(register-based, no semantics), OPC UA provides:
 
   1. Unified address space — tags are self-describing nodes with type,
      unit, engineering range, and alarm limits embedded in the model.
   2. Subscriptions — client registers interest in a node; server only
      sends updates when value changes (Δ-trigger or time-trigger).
-     This is critical for bandwidth-limited satellite links to offshore
-     substations (typically 10–100 Mbit/s, shared).
+     This matters on the links that leave the plant (to the operator's control
+     centre, OEM remote service); offshore the SCADA network itself runs on the
+     fibre in the export and array cables, with satellite or radio only as backup.
   3. Security — each session has a security policy (None / Basic256Sha256)
      and user authentication. IEC 62443 SL-2 requires encryption for
      remote connections.

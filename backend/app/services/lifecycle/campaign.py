@@ -3,8 +3,8 @@ Offshore construction and decommissioning campaigns in weather windows.
 
 Method (teaching version of a marine-operations campaign simulation):
 
-1. Weather: ``weather.simulate`` gives ``runs`` synthetic 6-hourly Hs / wind
-   series from the campaign start date.
+1. Weather: ``weather.simulate`` gives ``runs`` 6-hourly Hs / wind series from the
+   campaign start date, each a replay of one year of the real 30-year hindcast.
 2. Weather-restricted operations (DNV-ST-N001, Marine operations and marine
    warranty): every unit of work (one foundation, one turbine, one cable
    section …) is an operation of planned duration T_POP that needs a weather

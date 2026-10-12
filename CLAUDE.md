@@ -49,7 +49,7 @@ This repo is indexed (`.codegraph/`, auto-syncs). For "where is / what calls / h
 2. Per-unit consistent: Sbase 100 MVA, Vbase = bus nominal (66/220/400 kV); never mix pu and absolute.
 3. Short-circuit per IEC 60909 via `pandapower.shortcircuit.calc_sc()` (HV/MV: cmax 1.10, cmin 1.00; 0.95 is LV-only) — do not re-implement.
 4. Reactive power: generating Q positive (`reactive_power_mvar`).
-5. GOOSE is L2 Ethernet (<4 ms); HTTP/WS simulations must carry `# EDUCATIONAL SIMULATION — GOOSE is L2 Ethernet in real systems`.
+5. GOOSE is L2 Ethernet (<4 ms; trips ≤ 3 ms, IEC 61850-5 TT6); HTTP/WS simulations must carry `# EDUCATIONAL SIMULATION — GOOSE is L2 Ethernet in real systems`.
 6. Time series: `TimeSeriesSplit`, never shuffle.
 7. Cable Q is capacitive: `Q = ωCV²L` (positive).
 For rules 8–10 and details, read that section of `docs/SKILL.md`.

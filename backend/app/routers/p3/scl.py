@@ -15,6 +15,10 @@ from app.schemas.scada import (
 )
 from app.services.p2.network_model import SB510
 from app.services.p3.iec61850_model import (
+    Dataset,
+    GOOSEControlBlock,
+    build_oss_goose_control_block,
+    build_oss_goose_trip_dataset,
     build_substation_configuration,
     get_device_by_name,
 )
@@ -56,9 +60,14 @@ async def generate_scl_file(request: SCLGenerateRequest, spec: FarmSpecDep) -> S
                 status_code=404,
                 detail=f"Device '{request.device_name}' not found. Examples: {valid}",
             )
-        root = generate_icd(device)
+        ds, gcbs = _goose(device.name)
+        root = generate_icd(device, goose_control_blocks=gcbs or None, datasets=ds or None)
     elif request.file_type == SCLFileType.SCD:
-        root = generate_scd(substation, devices, spec=spec)
+        prot = devices[0].name
+        ds, gcbs = _goose(prot)
+        root = generate_scd(
+            substation, devices, goose_control_blocks={prot: gcbs}, datasets={prot: ds}, spec=spec
+        )
     else:
         raise HTTPException(
             status_code=422,
@@ -86,3 +95,10 @@ async def generate_scl_file(request: SCLGenerateRequest, spec: FarmSpecDep) -> S
         device_name=request.device_name,
         created_at=datetime.now(UTC),
     )
+
+
+def _goose(ied_name: str) -> tuple[list[Dataset], list[GOOSEControlBlock]]:
+    """The OSS protection IED publishes the busbar trip GOOSE (dataset + control block)."""
+    if ied_name != "OSS_PROT_IED01":
+        return [], []
+    return [build_oss_goose_trip_dataset(ied_name)], [build_oss_goose_control_block(ied_name)]

@@ -61,6 +61,11 @@ import pandapower.shortcircuit as sc
 from app.schemas.grid import ShortCircuitBusResult, ShortCircuitResponse
 from app.services.p2.network_model import SB510, FarmSpec, build_network
 
+#: Full-converter fault current per unit of rated current used by default (IEC 60909-0:2016
+#: leaves it to the manufacturer; 1.0 is the lower end, ``k_sensitivity`` checks 1.0–1.5).
+CONVERTER_K = 1.0
+K_RANGE = (1.0, 1.2, 1.5)
+
 MAKING_FACTOR = 2.5  # IEC 62271-100: rated making current = 2.5 × Isc at 50 Hz
 
 # Breaker rated breaking current per voltage level [kA]
@@ -76,6 +81,7 @@ def calc_short_circuit(
     export_length_km: float | None = None,
     grid_ssc_mva: float | None = None,
     spec: FarmSpec = SB510,
+    converter_k: float = CONVERTER_K,
 ) -> ShortCircuitResponse:
     """Run IEC 60909 short-circuit calculation for all buses.
 
@@ -91,11 +97,20 @@ def calc_short_circuit(
         Grid short-circuit power at PCC [MVA]. Default: 10,000.
     spec : FarmSpec
         Farm design. Default: SB-510.
+    converter_k : float
+        Ik'' of a full-converter unit (WTG, STATCOM) per unit of its rated current, the
+        manufacturer's value in IEC 60909-0:2016 (typically 1.0–1.5; ``k_sensitivity``).
 
     Returns
     -------
     ShortCircuitResponse
         Per-bus short-circuit results with breaker adequacy assessment.
+
+    Minimum case topology (engineering audit A-8): the OSS 66 kV bus coupler is normally
+    open, so a fault on one section is fed by its own 300 MVA unit only, and on a calm day
+    the converters feed nothing. The min case models exactly that — one OSS transformer,
+    no converter infeed — the lowest current protection must still detect; the max case
+    keeps both units and every converter (coupler closed, worst breaker duty).
     """
     grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
     if case not in ("max", "min"):
@@ -112,6 +127,13 @@ def calc_short_circuit(
         r_at_operating_temp=False,
         spec=spec,
     )
+
+    if case == "min":
+        oss = net.trafo.index[net.trafo["name"] == "Trafo_66_220kV"][0]
+        net.trafo.at[oss, "parallel"] = 1  # bus coupler open: the section's own unit
+        net.sgen.loc[:, "in_service"] = False  # calm: no converter infeed
+    else:
+        net.sgen.loc[:, "k"] = converter_k
 
     # IEC 60909 voltage factor
     c_factor = 1.1 if case == "max" else 1.0
@@ -172,4 +194,29 @@ def calc_short_circuit(
         max_ikss_ka=round(max_ikss, 3),
         max_ikss_bus=max_ikss_bus,
         breaker_adequate=all_breakers_adequate,
+        topology=(
+            f"both OSS units, converters at k = {converter_k:g}"
+            if case == "max"
+            else "OSS bus coupler open (one unit), no converter infeed"
+        ),
     )
+
+
+def k_sensitivity(spec: FarmSpec = SB510) -> list[dict[str, float | bool]]:
+    """Breaker duty for converter k = 1.0 / 1.2 / 1.5 (maximum case): the largest Ik'' at the
+    66 kV and 220 kV buses and whether every breaker still has margin."""
+    out: list[dict[str, float | bool]] = []
+    for k in K_RANGE:
+        r = calc_short_circuit("max", spec=spec, converter_k=k)
+        by_kv: dict[float, float] = {}
+        for b in r.bus_results:
+            by_kv[b.vn_kv] = max(by_kv.get(b.vn_kv, 0.0), b.ikss_ka)
+        out.append(
+            {
+                "k": k,
+                "ikss_66kv_ka": round(by_kv.get(66.0, 0.0), 2),
+                "ikss_220kv_ka": round(by_kv.get(220.0, 0.0), 2),
+                "breaker_adequate": r.breaker_adequate,
+            }
+        )
+    return out

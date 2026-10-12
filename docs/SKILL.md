@@ -72,7 +72,7 @@ offshoreforge/
 
 4. **Reactive power sign convention.** Generating reactive power = positive Q (capacitive source, inductive load compensation). Absorbing reactive power = negative Q (inductive source, capacitive load compensation). STATCOM absorbing cable reactive power → Q is negative from STATCOM perspective.
 
-5. **GOOSE messages operate at Layer 2 Ethernet.** They do NOT use IP/TCP. Latency must be < 4 ms. Never simulate GOOSE over HTTP/WebSocket and call it realistic — clearly label it as a simplified educational simulation.
+5. **GOOSE messages operate at Layer 2 Ethernet.** They do NOT use IP/TCP. Latency must be < 4 ms (trip messages ≤ 3 ms: IEC 61850-5 Ed. 2 transfer time class TT6, the limit `goose_simulation` checks). Never simulate GOOSE over HTTP/WebSocket and call it realistic — clearly label it as a simplified educational simulation.
 
 6. **Time-series cross-validation NEVER shuffles.** Use `TimeSeriesSplit` from scikit-learn. Training data is always before validation data. Violating temporal ordering creates data leakage and unrealistically high accuracy.
 

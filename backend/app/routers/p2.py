@@ -58,7 +58,7 @@ from app.services.p2.network_model import (
     FarmSpec,
 )
 from app.services.p2.power_plant_controller import get_ppc_status, run_ppc_simulation
-from app.services.p2.short_circuit import calc_short_circuit
+from app.services.p2.short_circuit import calc_short_circuit, k_sensitivity
 from app.services.p2.statcom_sizing import validate_compensation
 
 router = APIRouter(prefix="/api/v1/grid", tags=["P2 HV Grid"])
@@ -258,7 +258,10 @@ def short_circuit(case: str, spec: FarmSpecDep) -> ShortCircuitResponse:
     if case not in ("max", "min"):
         raise DomainValidationError(f"Invalid case: '{case}'. Must be 'max' or 'min'.")
     try:
-        return calc_short_circuit(case=case, spec=spec)
+        result = calc_short_circuit(case=case, spec=spec)
+        if case == "max":
+            result.k_sensitivity = k_sensitivity(spec)
+        return result
     except DomainError:
         raise
     except Exception as e:

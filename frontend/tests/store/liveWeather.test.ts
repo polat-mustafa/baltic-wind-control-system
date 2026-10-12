@@ -61,6 +61,14 @@ describe("live weather", () => {
     expect(Math.abs(mean - kpis.freestreamWindMs)).toBeLessThan(0.6);
   });
 
+  it("starts the nacelles in the live wind, so a veer from the sim's 225° is no yaw stop", () => {
+    useLandingStore.getState().setLiveWeather(reading(10, 335));
+    vi.advanceTimersByTime(5000);
+    const running = Object.values(useLandingStore.getState().turbineMap).filter((t) => t.status === "operating");
+    for (const t of running) expect(Math.abs(((335 - t.nacellePositionDeg + 540) % 360) - 180)).toBeLessThan(10);
+    expect(useLandingStore.getState().kpis.totalOutputMW).toBeGreaterThan(0);
+  });
+
   it("falls back to the simulation on a reading older than the limit", () => {
     useLandingStore.getState().setLiveWeather(reading(30, 270, LIVE_MAX_AGE_MS + 1000));
     vi.advanceTimersByTime(5000 * 3);

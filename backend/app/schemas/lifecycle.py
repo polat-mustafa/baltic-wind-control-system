@@ -137,3 +137,31 @@ class CampaignResponse(BaseModel):
     vessels: list[VesselSchema]
     months: list[str]
     assumptions: list[str]
+
+
+class OMYearRow(BaseModel):
+    year: int
+    time_based: float
+    energy_based: float
+    failures: int
+    jackup_days: float
+    jackup_mobilisations: int
+
+
+class OMSimulationResponse(BaseModel):
+    """Fleet O&M replay over the 30 hindcast years (services/lifecycle/om_simulation.py)."""
+
+    mode: str
+    n_ctv: int
+    crews_per_ctv: int
+    time_based_mean: float
+    energy_based_mean: float
+    energy_based_p90: float = Field(
+        description="Energy-based availability exceeded in 90 % of years"
+    )
+    analytic_time_based: float = Field(description="availability_model: unlimited crews")
+    mean_downtime_h: dict[str, float]
+    cost_eur_per_year: dict[str, float]
+    cost_eur_per_mw_year: float
+    years: list[OMYearRow]
+    source: str

@@ -2,6 +2,8 @@
 
   POST /campaign   construction or decommissioning campaign in weather windows
                    (Monte Carlo over synthetic Baltic sea states, P10/P50/P90)
+  GET  /om-simulation  fleet O&M replay: failures, CTV crews in shifts, jack-up campaigns,
+                   availability per hindcast year and corrective O&M cost
 
 Teaching model: vessel limits, durations and rates are illustrative and are
 returned with every result (``assumptions``, ``vessels``).
@@ -9,12 +11,19 @@ returned with every result (``assumptions``, ``vessels``).
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.concurrency import run_in_threadpool
 
-from app.schemas.lifecycle import CampaignRequest, CampaignResponse
+from app.schemas.lifecycle import (
+    CampaignRequest,
+    CampaignResponse,
+    OMSimulationResponse,
+    OMYearRow,
+)
 from app.services.lifecycle import weather
+from app.services.lifecycle.availability_model import FAILURE_CLASSES, availability
 from app.services.lifecycle.campaign import CampaignInput, run_campaign
+from app.services.lifecycle.om_simulation import simulate_om
 
 router = APIRouter(prefix="/api/v1/lifecycle", tags=["Lifecycle"])
 
@@ -82,3 +91,40 @@ async def campaign(req: CampaignRequest) -> CampaignResponse:
     )
     result = await run_in_threadpool(run_campaign, c)
     return CampaignResponse(**result, assumptions=ASSUMPTIONS)
+
+
+@router.get("/om-simulation", response_model=OMSimulationResponse)
+async def om_simulation(
+    n_ctv: int = Query(2, ge=1, le=6, description="Crew transfer vessels"),
+    crews_per_ctv: int = Query(3, ge=1, le=6),
+    mode: str = Query("shifts", pattern="^(shifts|continuous)$"),
+    seed: int = Query(0, ge=0, le=99),
+) -> OMSimulationResponse:
+    """SB-510's 34 turbines through every hindcast year with limited vessels and crews."""
+    r = await run_in_threadpool(simulate_om, n_ctv, crews_per_ctv, mode, seed)
+    return OMSimulationResponse(
+        mode=r.mode,
+        n_ctv=r.n_ctv,
+        crews_per_ctv=r.crews_per_ctv,
+        time_based_mean=round(r.time_based_mean, 4),
+        energy_based_mean=round(r.energy_based_mean, 4),
+        energy_based_p90=round(r.energy_based_p90, 4),
+        analytic_time_based=round(availability().time_based, 4),
+        mean_downtime_h={
+            c.name: d for c, d in zip(FAILURE_CLASSES, r.mean_downtime_h, strict=True)
+        },
+        cost_eur_per_year=r.cost_eur_per_year,
+        cost_eur_per_mw_year=r.cost_eur_per_mw_year,
+        years=[
+            OMYearRow(
+                year=y.year,
+                time_based=round(y.time_based, 4),
+                energy_based=round(y.energy_based, 4),
+                failures=y.failures,
+                jackup_days=round(y.jackup_days, 1),
+                jackup_mobilisations=y.jackup_mobilisations,
+            )
+            for y in r.years
+        ],
+        source=r.source,
+    )

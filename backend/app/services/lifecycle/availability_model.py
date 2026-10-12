@@ -7,7 +7,7 @@ sea state in which the vessel can work — on SB-510's 30-year hindcast (``weath
 
 Per failure class c (rate λ_c per turbine-year):
 
-    downtime = response + wait(T_window) + repair
+    downtime = response + wait(T_window) + transit + repair
     wait(T)  = mean, over every start time in the hindcast, of the time until a window of
                T hours opens in which Hs and wind stay within the vessel's limits
     T_window = repair + 2 × transit (round trip; the work must fit one weather window)
@@ -26,6 +26,9 @@ APPROXIMATIONS (no open source at this detail): major replacement 50 h on the tu
 jack-up lead time 30 days, response 4 h (CTV) / 24 h (spares for a major repair).
 The data are for 3–4 MW geared turbines; the IEA 15 MW is direct drive (no gearbox
 failures), so the rates are conservative for it — stated, not corrected.
+``om_simulation`` replays the fleet hour by hour with a limited number of vessels and crews
+(queueing, daylight shifts, jack-up campaigns); with unlimited crews and continuous windows
+it reproduces this model.
 Not included: balance-of-plant outages (export cable, OSS), which are rare but long.
 """
 
@@ -110,7 +113,7 @@ def availability(turbine_model: str | None = None) -> AvailabilityResult:
         steps = int(np.ceil((c.repair_h + 2 * CTV_TRANSIT_H) / weather.STEP_HOURS))
         wait = _mean_wait_h(ok, steps)
         wait_month = np.array([wait[month == m].mean() for m in range(12)])
-        down_month = c.response_h + wait_month + c.repair_h
+        down_month = c.response_h + wait_month + CTV_TRANSIT_H + c.repair_h
         down = float(np.sum(share * down_month))
         hours = c.rate_per_year * down
         lost_h += hours

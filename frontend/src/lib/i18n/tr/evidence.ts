@@ -227,4 +227,9 @@ export default {
   "1/(2π√((L_source + L_cable/3)·C_cable))": "1/(2π√((L_source + L_cable/3)·C_cable))",
   "dominant ringing frequency ÷ analytic": "baskın salınım frekansı ÷ analitik değer",
   "= 1 ± 0.08": "= 1 ± 0.08",
+  "SB-510 load flow at 510 MW (72 buses, dispatched reactors, STATCOM, taps)":
+    "510 MW'ta SB-510 yük akışı (72 bara, devreye alınmış reaktörler, STATCOM, kademeler)",
+  "the same network solved in EPRI OpenDSS (opendssdirect.py)": "aynı ağın EPRI OpenDSS ile çözümü (opendssdirect.py)",
+  "largest bus-voltage difference": "en büyük bara gerilimi farkı",
+  "< 0.001 pu; grid P within 0.1 MW, Q within 0.5 Mvar": "< 0.001 pu; şebeke P 0.1 MW, Q 0.5 Mvar içinde",
 } satisfies Record<string, string>;

@@ -118,7 +118,8 @@ jobs:
       # Validation-only tools outside the app's lock: lxml for the IEC 61850-6 XSD check of
       # the SCL files (tests/test_scl_schema.py; the test skips without it).
       - name: Install validation tools
-        run: uv pip install "lxml>=5.3"
+        # lxml: SCL schema check; opendssdirect.py: load flow re-solved in OpenDSS (C-2)
+        run: uv pip install "lxml>=5.3" "opendssdirect.py==0.9.4"
 
       - name: Run tests with coverage
         run: >-

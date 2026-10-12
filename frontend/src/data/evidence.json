@@ -281,6 +281,19 @@
    "test": "backend/tests/test_p2_analytic.py"
   },
   {
+   "id": "p2-loadflow-opendss",
+   "area": "P2 — HV grid",
+   "kind": "reference",
+   "claim": "SB-510 load flow at 510 MW (72 buses, dispatched reactors, STATCOM, taps)",
+   "against": "the same network solved in EPRI OpenDSS (opendssdirect.py)",
+   "metric": "largest bus-voltage difference",
+   "value": 0.0,
+   "unit": "pu",
+   "limit": "< 0.001 pu; grid P within 0.1 MW, Q within 0.5 Mvar",
+   "test": "backend/tests/test_opendss_cross_check.py",
+   "tolerance": 0.0005
+  },
+  {
    "id": "andes-frt-iq",
    "area": "P2 — grid dynamics (ANDES)",
    "kind": "standard",

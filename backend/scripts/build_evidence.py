@@ -39,6 +39,8 @@ TESTS = [
     "tests/test_harmonic_stability.py",
     "tests/test_emt_energisation.py",
     "tests/test_om_simulation.py",
+    # needs opendssdirect.py (not a project dependency); skipped where it is missing
+    "tests/test_opendss_cross_check.py",
     # ANDES runs on Linux only (Windows application control blocks it); its rows are
     # written from the backend Docker image, see the module docstring
     "tests/test_andes_dynamics.py",

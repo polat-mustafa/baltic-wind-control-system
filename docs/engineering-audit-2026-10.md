@@ -326,7 +326,7 @@ means not done in this round, with the reason.
 | # | Status |
 |---|---|
 | C-1 | `validation` marker and nine new Evidence rows (above). A1 (needs the compiled ROSCO) and A8 (needs the XSD download) stay scripts |
-| C-2 | Open: PyWake vs FLORIS, pandapower vs OpenDSS, app turbine vs OpenFAST |
+| C-2 | pandapower vs OpenDSS: the dispatched 72-bus SB-510 network re-solved in EPRI OpenDSS agrees within 8 × 10⁻⁵ pu on every bus, grid P within 0.01 MW and Q within 0.05 Mvar at 100 / 50 / 0 % output (`c2_opendss_load_flow.py`; ✔︎ `p2-loadflow-opendss`, runs in CI). Open: PyWake vs FLORIS, app turbine vs OpenFAST |
 | C-3 | Open: further measured datasets (owner's to-do: FINO2, Baltica 2 on ENTSO-E) |
 | C-4 | Open: model cards per module |
 | C-5 | `CITATION.cff`; SHA-256 manifest of all 49 bundled datasets with provenance (`backend/data_manifest.json`, enforced by `tests/test_data_manifest.py`). Zenodo DOI and a per-release PDF report are release-time actions for the owner |
@@ -347,6 +347,7 @@ python scripts/audit/a5_annual_electrical_loss.py
 python scripts/audit/a6_energisation_soak.py
 python scripts/audit/a7_short_circuit_hand_calc.py
 python scripts/audit/a8_scl_schema.py /path/to/SCL_2007B.xsd   # see the script docstring
+pip install opendssdirect.py==0.9.4 && python scripts/audit/c2_opendss_load_flow.py
 ```
 
 References for the external checks: [NREL ROSCO](https://github.com/NREL/ROSCO) (tag v2.10.6),

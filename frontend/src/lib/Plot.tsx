@@ -17,13 +17,22 @@
  *
  * All 40+ `import Plot from "react-plotly.js"` statements in the codebase
  * resolve here automatically — no component file needs to change.
- * TypeScript consumers still receive the correct types from @types/react-plotly.js.
+ * tsconfig `paths` points TypeScript at this file too, so consumers get the
+ * plotly.js-typed PlotParams below (react-plotly.js 4 types data/layout as unknown).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useMemo, useSyncExternalStore, type ComponentProps } from "react";
-import createPlotlyComponent from "react-plotly.js/factory";
+import { useMemo, useSyncExternalStore, type ComponentType } from "react";
+import type { Config, Data, Frame, Layout } from "plotly.js";
+import createPlotlyComponent, { type PlotParams as LoosePlotParams } from "react-plotly.js/factory";
 import Plotly from "plotly.js-dist-min";
+
+export type PlotParams = Omit<LoosePlotParams, "data" | "layout" | "frames" | "config"> & {
+  data: Data[];
+  layout: Partial<Layout>;
+  frames?: Frame[];
+  config?: Partial<Config>;
+};
 
 /**
  * Peel CJS interop layers until we reach the actual callable.
@@ -54,8 +63,7 @@ function derefPlotly(v: unknown): object {
   return v as object;
 }
 
-const BasePlot = deref(createPlotlyComponent)(derefPlotly(Plotly)) as typeof import("react-plotly.js").default;
-type PlotProps = ComponentProps<typeof BasePlot>;
+const BasePlot = deref(createPlotlyComponent)(derefPlotly(Plotly)) as ComponentType<PlotParams>;
 
 const PHONE = "(max-width: 639px)";
 const phoneQuery = () => window.matchMedia?.(PHONE);
@@ -72,7 +80,7 @@ const isPhone = () => phoneQuery()?.matches ?? false;
  * margins shrink to what the tick labels need (a right-hand axis keeps its
  * room) and the text steps down a size.
  */
-function phoneLayout(layout: PlotProps["layout"] = {}): PlotProps["layout"] {
+function phoneLayout(layout: PlotParams["layout"] = {}): PlotParams["layout"] {
   const m = layout.margin ?? {};
   const two = Object.keys(layout).some((k) => /^yaxis[2-9]$/.test(k));
   return {
@@ -86,7 +94,7 @@ function phoneLayout(layout: PlotProps["layout"] = {}): PlotProps["layout"] {
   };
 }
 
-export default function Plot(props: PlotProps) {
+export default function Plot(props: PlotParams) {
   const phone = useSyncExternalStore(subscribe, isPhone, () => false);
   // Plotly writes its autorange result (range) into the layout object it is given. So:
   // - one copy per chart, never the shared DARK_PLOTLY_LAYOUT axes (written by one chart,

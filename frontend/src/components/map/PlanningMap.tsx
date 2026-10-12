@@ -16,6 +16,7 @@ import { Map as MapLibre } from "react-map-gl/maplibre";
 import DeckGL from "@deck.gl/react";
 import { WebMercatorViewport, type Layer, type MapViewState, type PickingInfo } from "@deck.gl/core";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "./maplibreWorker";
 import { Minus, Plus } from "lucide-react";
 
 import { useLayerStore } from "../../store/layerStore";

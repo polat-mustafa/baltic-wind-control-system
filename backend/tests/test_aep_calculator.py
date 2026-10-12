@@ -146,21 +146,31 @@ class TestLossCascade:
         net, _ = apply_loss_cascade(gross, 0.0, 0.0, 0.0, 0.0, 0.0)
         assert net == pytest.approx(gross, rel=1e-6)
 
-    def test_loss_factors_list_has_five_entries(self):
-        """Should return exactly 5 loss factors."""
+    def test_loss_factors_list_has_six_entries(self):
+        """Should return exactly 6 loss factors (curtailment is the sixth)."""
         _, factors = apply_loss_cascade(2340.0, 0.087, 0.02)
-        assert len(factors) == 5
+        assert len(factors) == 6
 
     def test_loss_factor_names(self):
         """Loss factors should be named correctly."""
         _, factors = apply_loss_cascade(2340.0, 0.087, 0.02)
         names = [f.name for f in factors]
-        assert names == ["wake", "blockage", "electrical", "availability", "environmental"]
+        assert names == [
+            "wake",
+            "blockage",
+            "electrical",
+            "availability",
+            "environmental",
+            "curtailment",
+        ]
 
     def test_loss_factors_carry_provenance(self):
         """Defaults keep their source; an overridden loss becomes the user's input."""
         _, factors = apply_loss_cascade(2340.0, 0.087, 0.02)
-        assert all(f.source and f.quality in {"literature", "approximation"} for f in factors)
+        assessed = [f for f in factors if f.name != "curtailment"]
+        assert all(f.source and f.quality in {"literature", "approximation"} for f in assessed)
+        curtail = factors[-1]
+        assert curtail.loss_percent == 0.0 and curtail.source.startswith("Not assessed")
         _, factors = apply_loss_cascade(2340.0, 0.087, 0.02, availability_loss_fraction=0.03)
         avail = next(f for f in factors if f.name == "availability")
         assert (avail.quality, avail.source) == ("illustrative", "Your input")

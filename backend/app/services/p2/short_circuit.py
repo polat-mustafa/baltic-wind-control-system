@@ -132,8 +132,10 @@ def calc_short_circuit(
     max_ikss_bus = ""
     all_breakers_adequate = True
 
-    for idx in range(len(net.bus)):
+    for idx in net.bus.index:
         bus_name = str(net.bus.at[idx, "name"])
+        if bus_name.endswith("_LV"):
+            continue  # converter terminals: the turbine's own switchgear, not the HV study
         vn_kv = float(net.bus.at[idx, "vn_kv"])
         ikss_ka = float(net.res_bus_sc.at[idx, "ikss_ka"])
         ip_ka = float(net.res_bus_sc.at[idx, "ip_ka"])

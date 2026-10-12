@@ -98,7 +98,15 @@ class LoadFlowResponse(BaseModel):
     converged: bool = Field(description="Newton-Raphson convergence status")
     v_min_pu: float = Field(description="Minimum bus voltage [p.u.]")
     v_max_pu: float = Field(description="Maximum bus voltage [p.u.]")
-    total_loss_mw: float = Field(description="Total network active power losses [MW]")
+    total_loss_mw: float = Field(
+        description="All electrical losses + OSS auxiliary load = WTG output − POC export [MW]"
+    )
+    loss_breakdown_mw: dict[str, float] = Field(
+        default_factory=dict,
+        description="Losses by component [MW]: export_cable, array_cables, oss_transformers, "
+        "onshore_transformers, wtg_transformers, shunt_reactors, statcom, harmonic_filter, "
+        "auxiliary",
+    )
     total_generation_mw: float = Field(description="Total active power generation [MW]")
     poc_p_mw: float = Field(0.0, description="Active power delivered to PSE 400 kV [MW]")
     poc_q_mvar: float = Field(
@@ -146,7 +154,12 @@ class LiveLoadFlowResponse(BaseModel):
     total_generation_mw: float = Field(description="Sum of WTG output [MW]")
     poc_p_mw: float = Field(description="Active power delivered to PSE 400 kV [MW]")
     poc_q_mvar: float = Field(description="Reactive power delivered to PSE 400 kV [MVAR]")
-    total_loss_mw: float = Field(description="Cable + transformer losses [MW]")
+    total_loss_mw: float = Field(
+        description="All electrical losses + OSS auxiliary load = WTG output − POC export [MW]"
+    )
+    loss_breakdown_mw: dict[str, float] = Field(
+        default_factory=dict, description="Losses by component [MW] (as LoadFlowResponse)"
+    )
     statcom_q_mvar: float = Field(description="STATCOM set-point after auto-dispatch [MVAR]")
     reactors_in_service: int = Field(
         default=0, description="Shunt reactors in service after reactor switching"

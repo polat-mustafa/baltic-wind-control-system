@@ -25,7 +25,8 @@ Why two export cables?
 -----------------------
 One 1000 mm² cable carries √3 × 220 kV × 0.825 kA ≈ 314 MVA — less than 510 MW, and
 its charging current (≈ 820 A over 108 km, half of it at each compensated end) takes
-much of that. Two cables run at ≈ 99 % of their rating at full output (load flow) and
+much of that. Two cables run at ≈ 94 % of their rating at full output (load flow, with
+the thermal-aware reactor choice of ``load_flow.dispatch_with_reactor_switching``) and
 give N-1 export redundancy: losing one cable curtails the farm (runback) instead of
 stopping it.
 
@@ -270,6 +271,31 @@ SHUNT_REACTOR_MVAR = NUM_SHUNT_REACTORS * SHUNT_REACTOR_UNIT_MVAR  # 720 MVAR to
 HARMONIC_FILTER_MVAR = 2.0  # fundamental reactive output [Mvar], generating (Rule 4)
 HARMONIC_FILTER_TUNED_ORDER = 10.34  # 517 Hz
 
+# ── Losses and plant equipment outside the main path (engineering audit F2/F4) ──
+# XLPE dielectric loss factor, IEC 60287-1-1 Table 3 (official): the 220 kV cable's
+# shunt conductance G = ω·C·tan δ (≈ 0.31 MW per 108 km circuit at 220 kV).
+TAN_DELTA_XLPE = 0.001
+# WTG step-up transformer, one per turbine (66 kV / converter terminal), APPROXIMATION:
+# typical 15 MW-class offshore unit — 17 MVA (15 MW at cos φ 0.9 with margin), uk 9 %,
+# load loss 0.6 %, no-load loss 15 kW. The converter side is a 3.3 kV MV converter class
+# voltage; it sets only the base, the p.u. results do not depend on it.
+WTG_TRAFO_MVA_PER_MW = 17.0 / 15.0
+WTG_TRAFO_LV_KV = 3.3
+WTG_TRAFO_VK_PERCENT = 9.0
+WTG_TRAFO_VKR_PERCENT = 0.6
+WTG_TRAFO_PFE_KW_PER_MVA = 15.0 / 17.0
+WTG_TRAFO_I0_PERCENT = 0.1
+# Shunt reactor losses, APPROXIMATION: 0.2 % of rated Mvar at rated voltage (oil-immersed
+# EHV reactors, typically 0.15–0.3 %); pandapower scales shunt P with U².
+REACTOR_LOSS_PERCENT = 0.2
+# STATCOM losses, APPROXIMATION (MMC class): standby 0.2 % of the rating plus 1 % of |Q|.
+STATCOM_STANDBY_LOSS_PERCENT = 0.2
+STATCOM_LOAD_LOSS_PERCENT = 1.0
+# OSS auxiliary load (HVAC, cooling, lighting, accommodation), APPROXIMATION: 1 MW at
+# cos φ 0.95, scaled with the plant rating from SB-510.
+OSS_AUX_MW_PER_MW = 1.0 / 510.0
+OSS_AUX_PF = 0.95
+
 
 # ── Farm specification (SB-510 or the learner's project) ─────────
 
@@ -349,6 +375,91 @@ class FarmSpec:
     def cable_q_mvar(self) -> float:
         """Charging power of all export circuits at 220 kV, ωCV²L (Rule 7, positive)."""
         return export_charging_mvar(self.export_length_km) * self.num_export_cables
+
+    @property
+    def wtg_trafo_mva(self) -> float:
+        """Rating of one WTG step-up transformer [MVA]."""
+        return WTG_TRAFO_MVA_PER_MW * self.turbine_rated_mw
+
+    @property
+    def oss_aux_mw(self) -> float:
+        """OSS auxiliary load [MW] (approximation, scaled from SB-510's 1 MW)."""
+        return OSS_AUX_MW_PER_MW * self.capacity_mw
+
+
+def exact_pi_per_km(
+    cable: CableSpec, length_km: float, r_ohm_per_km: float
+) -> tuple[float, float, float, float]:
+    """Per-km parameters whose nominal π equals the exact long-line π of the whole cable.
+
+    Z' = Z_c·sinh(γl), Y'/2 = tanh(γl/2)/Z_c with z = R + jX, y = G + jωC, G = ωC·tan δ
+    (Grainger & Stevenson, Power System Analysis, §6.8). pandapower's line is a nominal π,
+    so dividing Z' and Y' by l gives (r, x, c, g) per km that reproduce the distributed
+    line exactly at the cable ends: end currents, charging and losses (audit F4: the
+    nominal π of 108 km under-states the cable loss by ≈ 10 %).
+
+    Returns (r [Ω/km], x [Ω/km], c [nF/km], g [µS/km]).
+    """
+    import cmath
+
+    c_f = cable.c_nf_per_km * 1e-9
+    z = complex(r_ohm_per_km, cable.x_ohm_per_km)
+    y = complex(OMEGA * c_f * TAN_DELTA_XLPE, OMEGA * c_f)
+    gamma, zc = cmath.sqrt(z * y), cmath.sqrt(z / y)
+    z_eq = zc * cmath.sinh(gamma * length_km)
+    y_eq = 2.0 * cmath.tanh(gamma * length_km / 2.0) / zc
+    return (
+        z_eq.real / length_km,
+        z_eq.imag / length_km,
+        y_eq.imag / (OMEGA * length_km) * 1e9,
+        y_eq.real / length_km * 1e6,
+    )
+
+
+def statcom_loss_mw(q_mvar: float, rating_mvar: float) -> float:
+    """STATCOM losses at a reactive output [MW] (approximation, see the constants)."""
+    return (
+        STATCOM_STANDBY_LOSS_PERCENT * rating_mvar + STATCOM_LOAD_LOSS_PERCENT * abs(q_mvar)
+    ) / 100.0
+
+
+def set_statcom_q(net: pp.pandapowerNet, idx: int, q_mvar: float) -> None:
+    """Set the STATCOM's reactive output and the active power its losses draw."""
+    net.sgen.at[idx, "q_mvar"] = q_mvar
+    net.sgen.at[idx, "p_mw"] = -statcom_loss_mw(q_mvar, float(net.sgen.at[idx, "sn_mva"]))
+
+
+def loss_breakdown_mw(net: pp.pandapowerNet) -> dict[str, float]:
+    """Electrical losses and auxiliary consumption of a solved network by component [MW].
+
+    Keys: export cable, array cables, OSS / onshore / WTG transformers, shunt reactors,
+    STATCOM, harmonic filter, OSS auxiliary load. Their sum equals the WTG output minus the
+    power delivered at the POC.
+    """
+    line = net.res_line.pl_mw.fillna(0.0)
+    is_export = net.line.name.str.startswith("Export_")
+    trafo = net.res_trafo.pl_mw.fillna(0.0)
+    tname = net.trafo.name.astype(str)
+    shunt = net.res_shunt.p_mw.fillna(0.0)
+    sname = net.shunt.name.astype(str)
+    statcom = net.sgen.name == "STATCOM"
+    aux = net.load.name.astype(str).str.startswith("AUX_") if len(net.load) else []
+    return {
+        "export_cable": float(line[is_export].sum()),
+        "array_cables": float(line[~is_export].sum()),
+        "oss_transformers": float(trafo[tname == "Trafo_66_220kV"].sum()),
+        "onshore_transformers": float(trafo[tname == "Trafo_220_400kV"].sum()),
+        "wtg_transformers": float(trafo[tname.str.startswith("WTG_TX_")].sum()),
+        "shunt_reactors": float(shunt[sname.str.startswith("Reactor_")].sum()),
+        "statcom": float(-net.res_sgen.p_mw[statcom].fillna(0.0).sum()),
+        "harmonic_filter": float(shunt[sname.str.startswith("HF_")].sum()),
+        "auxiliary": float(net.res_load.p_mw[aux].fillna(0.0).sum()) if len(net.load) else 0.0,
+    }
+
+
+def total_loss_mw(net: pp.pandapowerNet) -> float:
+    """All electrical losses plus auxiliary consumption of a solved network [MW]."""
+    return sum(loss_breakdown_mw(net).values())
 
 
 def export_charging_mvar(length_km: float) -> float:
@@ -504,18 +615,25 @@ def build_network(
     enable_reactor: bool = True,
     r_at_operating_temp: bool = True,
     spec: FarmSpec = SB510,
+    exact_export: bool | None = None,
+    wtg_transformers: bool = True,
+    auxiliary_load: bool = True,
 ) -> pp.pandapowerNet:
     """Build the complete 66/220/400 kV offshore wind farm network.
 
     Creates a Pandapower network with:
-    - 38 buses: 1 PSE 400kV + 1 onshore 220kV + 1 OSS 220kV + 1 OSS 66kV + 34 WTGs
-    - 35 line elements: 34 array (66 kV) + 1 export element with 2 parallel
-      220 kV circuits (``parallel=2``), all pi-model
+    - 72 buses: 1 PSE 400kV + 1 onshore 220kV + 1 OSS 220kV + 1 OSS 66kV + 34 WTG 66 kV
+      array buses (WTG_nn) + 34 converter-terminal buses (WTG_nn_LV)
+    - 35 line elements: 34 array (66 kV, nominal π) + 1 export element with 2 parallel
+      220 kV circuits (``parallel=2``) as the exact long-line π (``exact_pi_per_km``)
     - 2 transformer elements, each 2 × 300 MVA in parallel (``parallel=2``):
       66/220 kV Dyn11 (OSS) + 220/400 kV YNyn0 (onshore)
-    - 34 static generators (WTGs) with P and Q
-    - 1 STATCOM (sgen with Q control at OSS 220 kV)
-    - 4 shunt reactors (4 × 180 MVAR: 2 onshore 220 kV, 2 at OSS 220 kV) if enabled
+    - 34 WTG step-up transformers WTG_TX_nn (17 MVA, uk 9 %, approximation)
+    - 34 static generators (WTGs) with P and Q at the converter terminals
+    - 1 STATCOM (sgen with Q control at OSS 220 kV; P = −losses, ``set_statcom_q``)
+    - 4 shunt reactors (4 × 180 MVAR: 2 onshore 220 kV, 2 at OSS 220 kV) with their
+      losses, if enabled
+    - 1 OSS auxiliary load (AUX_OSS, 1 MW)
     - 1 external grid (slack bus) at 400 kV
 
     Parameters
@@ -536,6 +654,14 @@ def build_network(
     spec : FarmSpec
         Farm design (strings, export circuits, transformers, STATCOM, reactors).
         Default: SB-510; the counts in this docstring are SB-510's.
+    exact_export : bool | None
+        Export cable as the exact long-line π with XLPE dielectric loss (True) or the
+        nominal π of the series impedance (False). None = ``r_at_operating_temp``: exact for
+        load flow, nominal for IEC 60909 (which neglects line capacitance).
+    wtg_transformers : bool
+        One step-up transformer per turbine between its converter and the 66 kV array.
+    auxiliary_load : bool
+        OSS auxiliary load (approximation) at the OSS 66 kV busbar.
 
     Returns
     -------
@@ -545,6 +671,8 @@ def build_network(
     if export_length_km is None:
         export_length_km = spec.export_length_km
     grid_ssc_mva = spec.grid_ssc_mva if grid_ssc_mva is None else grid_ssc_mva
+    if exact_export is None:
+        exact_export = r_at_operating_temp
     net = pp.create_empty_network(name=f"{spec.name} — {spec.capacity_mw:.0f} MW OWF")
 
     # ── Buses ─────────────────────────────────────────────────────
@@ -618,14 +746,19 @@ def build_network(
     def r_ohm_per_km(spec: CableSpec) -> float:
         return spec.r_ac_ohm_per_km if r_at_operating_temp else spec.r_ohm_per_km
 
+    if exact_export:
+        r_km, x_km, c_km, g_km = exact_pi_per_km(cable, export_length_km, r_ohm_per_km(cable))
+    else:
+        r_km, x_km, c_km, g_km = r_ohm_per_km(cable), cable.x_ohm_per_km, cable.c_nf_per_km, 0.0
     pp.create_line_from_parameters(
         net,
         from_bus=bus_onshore_220,
         to_bus=bus_oss_220,
         length_km=export_length_km,
-        r_ohm_per_km=r_ohm_per_km(cable),
-        x_ohm_per_km=cable.x_ohm_per_km,
-        c_nf_per_km=cable.c_nf_per_km,
+        r_ohm_per_km=r_km,
+        x_ohm_per_km=x_km,
+        c_nf_per_km=c_km,
+        g_us_per_km=g_km,
         max_i_ka=cable.max_i_ka,
         endtemp_degree=80.0,  # XLPE max operating temperature for IEC 60909 min case
         parallel=spec.num_export_cables,
@@ -659,8 +792,26 @@ def build_network(
 
     # ── WTG Generators (static generators) ────────────────────────
     p_per_wtg = spec.turbine_rated_mw * generation_fraction
-    # WTGs operate at unity power factor (Q = 0) by default
+    # WTGs operate at unity power factor (Q = 0) by default, behind their step-up units
     for i, bus_id in enumerate(wtg_buses):
+        if wtg_transformers:
+            lv = pp.create_bus(net, vn_kv=WTG_TRAFO_LV_KV, name=f"WTG_{i + 1:02d}_LV")
+            pp.create_transformer_from_parameters(
+                net,
+                hv_bus=bus_id,
+                lv_bus=lv,
+                sn_mva=spec.wtg_trafo_mva,
+                vn_hv_kv=66.0,
+                vn_lv_kv=WTG_TRAFO_LV_KV,
+                vk_percent=WTG_TRAFO_VK_PERCENT,
+                vkr_percent=WTG_TRAFO_VKR_PERCENT,
+                pfe_kw=WTG_TRAFO_PFE_KW_PER_MVA * spec.wtg_trafo_mva,
+                i0_percent=WTG_TRAFO_I0_PERCENT,
+                vector_group="Dyn11",
+                shift_degree=330.0,
+                name=f"WTG_TX_{i + 1:02d}",
+            )
+            bus_id = lv
         pp.create_sgen(
             net,
             bus=bus_id,
@@ -676,7 +827,7 @@ def build_network(
     pp.create_sgen(
         net,
         bus=bus_oss_220,
-        p_mw=0.0,
+        p_mw=-statcom_loss_mw(statcom_q_mvar, spec.statcom_mvar),
         q_mvar=statcom_q_mvar,
         sn_mva=spec.statcom_mvar,  # needed for IEC 60909 short-circuit
         k=1.0,  # ratio of Ik'' to In for STATCOM (inverter-based)
@@ -696,7 +847,7 @@ def build_network(
                     net,
                     bus=bus,
                     q_mvar=spec.reactor_unit_mvar,  # positive = absorbing (load convention)
-                    p_mw=0.0,
+                    p_mw=REACTOR_LOSS_PERCENT / 100.0 * spec.reactor_unit_mvar,
                     name=f"Reactor_{end}_{c + 1}_{spec.reactor_unit_mvar:.0f}MVAR",
                 )
 
@@ -709,6 +860,16 @@ def build_network(
             q_mvar=-spec.harmonic_filter_mvar,
             p_mw=0.0,
             name=f"HF_OSS_66_{spec.harmonic_filter_mvar:.0f}MVAR_h{spec.harmonic_filter_tuned_order:.0f}",
+        )
+
+    if auxiliary_load and spec.oss_aux_mw > 0:
+        p_aux = spec.oss_aux_mw
+        pp.create_load(
+            net,
+            bus=bus_oss_66,
+            p_mw=p_aux,
+            q_mvar=p_aux * math.tan(math.acos(OSS_AUX_PF)),
+            name="AUX_OSS",
         )
 
     return net

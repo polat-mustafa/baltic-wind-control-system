@@ -32,7 +32,7 @@ router = APIRouter(prefix="/cable", tags=["M10 Cable DTS Thermal Monitoring"])
 )
 def get_dts_profile(
     spec: FarmSpecDep,
-    current_a: float = Query(818.0, ge=0.0, le=1600.0),
+    current_a: float = Query(778.0, ge=0.0, le=1600.0),
     ambient_temp_c: float = Query(15.0, ge=-5.0, le=35.0),
 ) -> DTSProfileResponse:
     """

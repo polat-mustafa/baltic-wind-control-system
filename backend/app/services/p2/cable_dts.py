@@ -5,9 +5,10 @@ One circuit of the 220 kV export cable (network_model.EXPORT_CABLE_1000: 3-core
 XLPE, 1000 mm² Cu, 825 A static rating — ABB/NKT 2GM5007 rev 5 Table 34, one cable
 1 m deep in a 20 °C seabed of 1.0 K·m/W — 108 km). The farm has two circuits,
 each with its own fibre, so ``current_a`` is the per-circuit current
-(≈ 818 A at the OSS end of each circuit at 510 MW, P2 load flow — 99 % of the
-rating, the charging current of 108 km takes much of it; ≈ 1 438 A on the
-survivor after an N-1 trip, before the runback).
+(≈ 778 A at the more loaded end of each circuit at 510 MW, P2 load flow — 94 % of
+the rating with the operator's thermal-aware reactor choice; the charging current of
+108 km takes much of it; ≈ 1 362 A on the survivor after an N-1 trip, before the
+runback).
 
 What DTS measures, and what it does not
 ---------------------------------------
@@ -61,8 +62,9 @@ layers (≈ 25 kJ/(m·K) per core) store heat, and longer where soil takes part:
 
 Limits: 90 °C continuous conductor temperature for XLPE (IEC 62067). The
 80 °C DTS alarm (10 K below the limit) is an operator setting, not a standard value;
-at full load the J-tube runs at ≈ 82 °C (818 A, 15 °C) —
-above the alarm, below the limit: the 108 km circuits run at 99 % of their rating.
+at full load the J-tube runs at ≈ 75 °C (778 A, 15 °C) — below the alarm: the 108 km
+circuits run at 94 % of their rating (99 % before the reactor choice also weighed the
+cable current, engineering audit F1).
 """
 
 from __future__ import annotations
@@ -182,8 +184,8 @@ def n1_current_a(normal_a: float, capacity_mw: float, num_circuits: int) -> floa
     and the rest (charging, reactive) I_q = √(I² − I_p²). The survivors take
     the whole P; each keeps its own charging current:
         I_N-1 = √((n·I_p/(n − 1))² + I_q²)
-    SB-510: 818 A → 1 418 A (the N-1 load flow gives 1 438 A; P taken at the
-    220 kV side without array losses). None with a single circuit.
+    SB-510: 778 A → 1 396 A (the N-1 load flow gives 1 362 A; P taken at the
+    220 kV side without the farm's losses). None with a single circuit.
     """
     if num_circuits < 2:
         return None
@@ -193,7 +195,7 @@ def n1_current_a(normal_a: float, capacity_mw: float, num_circuits: int) -> floa
 
 
 def simulate_dts(
-    current_a: float = 818.0,
+    current_a: float = 778.0,
     ambient_temp_c: float = 15.0,
     length_km: float = CABLE_LENGTH_KM,
     num_circuits: int = NUM_CIRCUITS,
@@ -285,8 +287,8 @@ def rating_curve() -> dict[str, Any]:
 
 
 def simulate_transient(
-    prefault_current_a: float = 818.0,
-    emergency_current_a: float = 1438.0,
+    prefault_current_a: float = 778.0,
+    emergency_current_a: float = 1362.0,
     ambient_temp_c: float = 15.0,
     duration_h: float = 24.0,
 ) -> dict[str, Any]:

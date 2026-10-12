@@ -75,6 +75,10 @@ DEFAULT_PRICE_EUR_MWH: float = 72.0
 DEFAULT_ELECTRICAL_LOSS: float = 0.02  # 2.0%
 DEFAULT_AVAILABILITY_LOSS: float = 0.05  # 5.0%
 DEFAULT_ENVIRONMENTAL_LOSS: float = 0.01  # 1.0%
+DEFAULT_CURTAILMENT_LOSS: float = 0.0  # not assessed without a price / redispatch series
+
+#: Horizons of the exceedance values [years]: 1 and 10 years (debt sizing), and the lifetime.
+P_HORIZONS_YEARS: tuple[int, ...] = (1, 10)
 
 # Provenance of each cascade step: (quality, source). Quality is one of
 # official | measured | literature | approximation | illustrative (frontend SourceBadge).
@@ -88,8 +92,14 @@ LOSS_SOURCES: dict[str, tuple[str, str]] = {
     ),
     "electrical": (
         "approximation",
-        "Typical annual value; the P2 load flow of SB-510 loses 10.2 MW at 510 MW "
-        "(2.0 % at full load, less averaged over the year)",
+        "Typical annual value, used when no electrical design matches the layout; the P2 "
+        "load flow of SB-510 loses 17 MW (3.4 %, incl. 1 MW auxiliary) at 510 MW and "
+        "≈ 3.9 % of the year's energy (p2.annual_losses)",
+    ),
+    "curtailment": (
+        "illustrative",
+        "Not assessed: needs an hourly day-ahead price and PSE redispatch series (the farm "
+        "offers nothing at negative prices, see the Market tab); enter your own value",
     ),
     "availability": (
         "approximation",
@@ -225,6 +235,18 @@ class LossFactor:
 
 
 @dataclass(frozen=True)
+class ExceedanceHorizon:
+    """P-values for an averaging period: P90 over 1 year (debt sizing, the full
+    interannual variability), 10 years, or the lifetime."""
+
+    years: int
+    sigma_percent: float
+    p75_gwh: float
+    p90_gwh: float
+    p99_gwh: float
+
+
+@dataclass(frozen=True)
 class AEPCascadeResult:
     """Complete gross-to-net AEP cascade result with uncertainty.
 
@@ -269,6 +291,7 @@ class AEPCascadeResult:
     loss_factors: list[LossFactor] = field(default_factory=list)
     price_eur_mwh: float = DEFAULT_PRICE_EUR_MWH
     uncertainty: list[UncertaintyComponent] = field(default_factory=list)
+    exceedance_by_horizon: list[ExceedanceHorizon] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -348,6 +371,8 @@ def apply_loss_cascade(
     electrical_loss_fraction: float = DEFAULT_ELECTRICAL_LOSS,
     availability_loss_fraction: float = DEFAULT_AVAILABILITY_LOSS,
     environmental_loss_fraction: float = DEFAULT_ENVIRONMENTAL_LOSS,
+    curtailment_loss_fraction: float = DEFAULT_CURTAILMENT_LOSS,
+    provenance: dict[str, tuple[str, str]] | None = None,
 ) -> tuple[float, list[LossFactor]]:
     """Apply sequential multiplicative loss cascade to gross AEP.
 
@@ -368,6 +393,11 @@ def apply_loss_cascade(
         Availability loss fraction. Default: 0.05 (5.0%).
     environmental_loss_fraction : float
         Environmental loss fraction. Default: 0.01 (1.0%).
+    curtailment_loss_fraction : float
+        Market / grid curtailment fraction. Default: 0 (not assessed).
+    provenance : dict | None
+        (quality, source) per step that replaces ``LOSS_SOURCES`` — e.g. the electrical
+        loss computed from the P2 load flow, the availability from failure rates.
 
     Returns
     -------
@@ -375,9 +405,13 @@ def apply_loss_cascade(
         (net_aep_gwh, list of LossFactor entries)
     """
 
+    given = provenance or {}
+
     def step(name: str, fraction: float, sigma: float, default: float | None = None) -> LossFactor:
         quality, source = LOSS_SOURCES[name]
-        if default is not None and not np.isclose(fraction, default):
+        if name in given:
+            quality, source = given[name]
+        elif default is not None and not np.isclose(fraction, default):
             quality, source = "illustrative", "Your input"
         return LossFactor(name, fraction * 100.0, sigma, quality, source)
 
@@ -387,6 +421,7 @@ def apply_loss_cascade(
         step("electrical", electrical_loss_fraction, 1.0, DEFAULT_ELECTRICAL_LOSS),
         step("availability", availability_loss_fraction, 2.0, DEFAULT_AVAILABILITY_LOSS),
         step("environmental", environmental_loss_fraction, 1.5, DEFAULT_ENVIRONMENTAL_LOSS),
+        step("curtailment", curtailment_loss_fraction, 0.0, DEFAULT_CURTAILMENT_LOSS),
     ]
 
     net = gross_aep_gwh
@@ -410,6 +445,9 @@ def compute_aep_cascade(
     weibull_a: float | None = None,
     weibull_k: float | None = None,
     turbine_model: str | None = None,
+    curtailment_loss_fraction: float = DEFAULT_CURTAILMENT_LOSS,
+    provenance: dict[str, tuple[str, str]] | None = None,
+    lifetime_years: int = LIFETIME_YEARS,
 ) -> AEPCascadeResult:
     """Compute full gross-to-net AEP cascade with uncertainty and revenue.
 
@@ -437,6 +475,12 @@ def compute_aep_cascade(
         Fixed uncertainty sources {name: σ %}; None = ``uncertainty_components``.
     weibull_a, weibull_k, turbine_model : optional
         Wind and turbine of the farm for the components (default: SB-510).
+    curtailment_loss_fraction : float
+        Market / grid curtailment fraction. Default: 0 (not assessed).
+    provenance : dict | None
+        (quality, source) per loss step for computed values (``apply_loss_cascade``).
+    lifetime_years : int
+        Horizon of the main P-values; ``exceedance_by_horizon`` adds 1 and 10 years.
 
     Returns
     -------
@@ -451,6 +495,8 @@ def compute_aep_cascade(
         electrical_loss_fraction,
         availability_loss_fraction,
         environmental_loss_fraction,
+        curtailment_loss_fraction,
+        provenance,
     )
 
     # Total loss
@@ -458,17 +504,28 @@ def compute_aep_cascade(
 
     # Uncertainty: the farm's components, unless fixed sources are given
     components: list[UncertaintyComponent] = []
+    horizons: list[ExceedanceHorizon] = []
     if uncertainty_sources is None:
         from app.services.site_assessment.wind_climate import SB510_WEIBULL_A, SB510_WEIBULL_K
 
-        components = uncertainty_components(
-            weibull_a if weibull_a is not None else SB510_WEIBULL_A,
-            weibull_k if weibull_k is not None else SB510_WEIBULL_K,
-            100.0 * wake_loss_fraction,
-            100.0 * blockage_loss_fraction,
-            turbine_model,
-        )
+        def comps(years: int) -> list[UncertaintyComponent]:
+            return uncertainty_components(
+                weibull_a if weibull_a is not None else SB510_WEIBULL_A,
+                weibull_k if weibull_k is not None else SB510_WEIBULL_K,
+                100.0 * wake_loss_fraction,
+                100.0 * blockage_loss_fraction,
+                turbine_model,
+                years,
+            )
+
+        components = comps(lifetime_years)
         uncertainty_sources = {c.name: c.sigma_percent for c in components}
+        # The future-variability component shrinks with the averaging period: a single
+        # year carries the full interannual variability, the lifetime only IAV/√N.
+        for years in (*P_HORIZONS_YEARS, lifetime_years):
+            sigma = compute_rss_uncertainty({c.name: c.sigma_percent for c in comps(years)})
+            pv = compute_exceedance_values(net_aep, sigma)
+            horizons.append(ExceedanceHorizon(years, sigma, pv["P75"], pv["P90"], pv["P99"]))
     combined_unc = compute_rss_uncertainty(uncertainty_sources)
 
     # Exceedance values (P50 = net AEP)
@@ -495,6 +552,7 @@ def compute_aep_cascade(
         loss_factors=loss_factors,
         price_eur_mwh=price_eur_mwh,
         uncertainty=components,
+        exceedance_by_horizon=horizons,
     )
 
 

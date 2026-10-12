@@ -56,10 +56,10 @@ capability (assumed ±0.33 p.u., cos φ = 0.95 at rated power — the V236 data
 sheet is not public), STATCOM ±120 MVAR, switching the shunt reactors, and
 both OLTCs regulating, with every farm bus kept within 0.90–1.10 p.u. AND every
 cable and transformer within its rating. The thermal limit is what binds: at P_max
-the export runs at ≈ 99 % of its 825 A rating, so Q that must pass through it (WTGs,
+the export runs at ≈ 94 % of its 825 A rating, so Q that must pass through it (WTGs,
 STATCOM, OSS reactors) is nearly used up. The range comes from the onshore reactors,
 which sit on the onshore busbar and move the POC Q without adding cable current:
-SB-510 reaches +247 / −205 MVAR (both onshore reactors out / in, then the WTG and
+SB-510 reaches +257 / −203 MVAR (both onshore reactors out / in, then the WTG and
 STATCOM headroom the cable still allows). Without the thermal check the same search
 reported +532 / −590 MVAR — at 138 % export-cable and 128 % transformer loading.
 
@@ -114,6 +114,7 @@ from app.services.p2.network_model import (
     SHUNT_REACTOR_UNIT_MVAR,
     FarmSpec,
     build_network,
+    set_statcom_q,
 )
 
 # System frequency
@@ -346,11 +347,11 @@ def _poc_q_at(
 
     statcom = net.sgen.index[net.sgen["name"] == "STATCOM"][0]
     q_statcom = float(net.sgen.at[statcom, "q_mvar"])
-    net.sgen.at[statcom, "q_mvar"] = q_statcom + share * (sign * spec.statcom_mvar - q_statcom)
+    set_statcom_q(net, statcom, q_statcom + share * (sign * spec.statcom_mvar - q_statcom))
     wtg = net.sgen["name"].str.startswith("WTG_")
     net.sgen.loc[wtg, "q_mvar"] = share * sign * WTG_Q_CAPABILITY_PU * spec.turbine_rated_mw
 
-    for idx in net.trafo.index:
+    for idx in net.trafo.index[net.trafo.tap_side.notna()]:  # the OLTC units, not WTG_TX
         DiscreteTapControl(net, idx, vm_lower_pu=0.99, vm_upper_pu=1.01, side="lv")
     try:
         pp.runpp(net, run_control=True, max_iteration=100, tolerance_mva=1e-6)
@@ -381,7 +382,7 @@ def poc_q_capability(
     From the normal P_max operating point, per direction: as many onshore reactors
     switched as stays feasible, then bisection on the WTG + STATCOM share; every trial
     is a load flow with OLTC control, accepted only within 0.90–1.10 p.u. and the
-    thermal ratings (``_poc_q_at``). At P_max SB-510's export runs at ≈ 99 % of its
+    thermal ratings (``_poc_q_at``). At P_max SB-510's export runs at ≈ 94 % of its
     rating, so Q that has to pass through the cable is almost exhausted; the PSE range
     comes from the onshore reactors.
     """

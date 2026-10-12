@@ -52,8 +52,14 @@ export default {
   "Environmental {n} %": "Çevresel %{n}",
   "PyWake Gaussian wake (Niayifar & Porté-Agel 2016) on this layout": "Bu yerleşimde PyWake Gauss izi (Niayifar & Porté-Agel 2016)",
   "Engineering scaling (array density × Ct, calibrated to the 1–4 % band of Bleeg et al. 2018) — not a published model": "Mühendislik ölçeklemesi (dizi yoğunluğu × Ct, Bleeg et al. 2018'in %1–4 bandına kalibre) — yayımlanmış bir model değil",
-  "Typical annual value; the P2 load flow of SB-510 loses 10.2 MW at 510 MW (2.0 % at full load, less averaged over the year)":
-    "Tipik yıllık değer; SB-510'un P2 yük akışı 510 MW'ta 10.2 MW kaybeder (tam yükte %2.0, yıl ortalamasında daha az)",
+  "Typical annual value, used when no electrical design matches the layout; the P2 load flow of SB-510 loses 17 MW (3.4 %, incl. 1 MW auxiliary) at 510 MW and ≈ 3.9 % of the year's energy (p2.annual_losses)":
+    "Tipik yıllık değer, yerleşime uyan bir elektrik tasarımı yoksa kullanılır; SB-510'un P2 yük akışı 510 MW'ta 17 MW kaybeder (%3.4, 1 MW yardımcı tüketim dahil) ve yılın enerjisinin ≈ %3.9'unu (p2.annual_losses)",
+  "Computed: P2 load flow of this design (cables, transformers incl. WTG units, reactors, STATCOM, OSS auxiliary) at 6 output levels, weighted with the site Weibull through the power curve and the wake loss":
+    "Hesaplandı: bu tasarımın P2 yük akışı (kablolar, WTG üniteleri dahil transformatörler, reaktörler, STATCOM, OSS yardımcı tüketimi) 6 çıkış seviyesinde, saha Weibull dağılımıyla güç eğrisi ve iz kaybı üzerinden ağırlıklandırılmış",
+  "Computed, energy-based {n1} % (time-based {n2} %): Carroll et al. 2016 failure rates and repair times; waiting for vessel windows on the SB-510 30-year Hs / wind hindcast":
+    "Hesaplandı, enerjiye dayalı %{n1} (zamana dayalı %{n2}): Carroll vd. 2016 arıza oranları ve onarım süreleri; SB-510'un 30 yıllık Hs / rüzgâr geçmiş verisinde gemi pencerelerini bekleme",
+  "Not assessed: needs an hourly day-ahead price and PSE redispatch series (the farm offers nothing at negative prices, see the Market tab); enter your own value":
+    "Değerlendirilmedi: saatlik gün öncesi fiyat ve PSE yeniden dağıtım serisi gerekir (santral negatif fiyatlarda teklif vermez, Piyasa sekmesine bakın); kendi değerinizi girin",
   "Typical planning value ({n} % availability); {name} model it against distance to port":
     "Tipik planlama değeri (%{n} kullanılabilirlik); {name} bunu limana uzaklığa göre modeller",
   "{name} assume {n1} % for temperature shutdown, icing, hysteresis and lightning; this default keeps {n2} %":

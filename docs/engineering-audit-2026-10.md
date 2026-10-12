@@ -26,6 +26,11 @@ inputs from the matching NREL/ROSCO tag.
 Test status on this commit: backend **1 417 passed** (two test modules need PyTorch);
 frontend typecheck and lint clean, **681 / 681** vitest tests passed. Playwright e2e was not run.
 
+> **Status, 12 October 2026:** the plan in §6 has been carried out as far as one session can
+> take it. Every H and M finding (F1–F9) is closed or reduced to a stated, quantified limit;
+> §8 lists what was built, how each piece is checked, the numbers it now gives, and what is
+> still open (external review, OpenFAST/WOMBAT/FLORIS cross-runs, a few sub-studies).
+
 ## 2. Retracted claims from the first review
 
 | Earlier claim | What the evidence shows | Script |
@@ -42,7 +47,7 @@ frontend typecheck and lint clean, **681 / 681** vitest tests passed. Playwright
 | Cluster-wake model | Ørsted TurbOPark reference port | Max difference 0.0004 — A2 |
 | Export cable currents | Exact hyperbolic long-line solution | Shore-end current within 2 A of the lumped model — A3 |
 | AEP chain | Rødsand II metered output (already in Evidence) | Bias +1.1 %, monthly R² 0.956 (re-run in this audit) |
-| Reactive capability at the PSE POC | App's own `poc_q_capability` | +247 / −205 Mvar against the required +204 / −178.5 Mvar (Q/Pmax +0.40 / −0.35) |
+| Reactive capability at the PSE POC | App's own `poc_q_capability` | +247 / −205 Mvar against the required +204 / −178.5 Mvar (Q/Pmax +0.40 / −0.35); +257 / −203 Mvar after Phase A |
 | Harmonic model | Code review | Export cable as an exact distributed π, IEC TR 61000-3-6 planning levels, damped filter sizing |
 | Forecasting | Code review | Real data, `TimeSeriesSplit` with a 48 h gap, conformalised quantiles, TSO benchmark |
 | Digital twin | Code review | Detector frozen on CARE Farm B and run once on held-out Farm C |
@@ -282,6 +287,50 @@ alongside from the start; every fix lands with its validation test.
 - **Assumed parameters:** the WTG transformer (A4) and reactor-loss (A5) values are generic
   typical values, marked as assumptions in the scripts. Sourced values should replace them
   in A-2.
+
+## 8. Implementation status (12 October 2026)
+
+Each item lands with tests; rows marked ✔︎ in *Evidence* also write a row to the in-app
+Evidence page (`pytest -m validation`, rebuilt by `scripts/build_evidence.py`). "Open"
+means not done in this round, with the reason.
+
+### Phase A
+
+| # | Built | Check | Result now |
+|---|---|---|---|
+| A-1 | Reactor switching ranks states by export loading (target 90 %), then STATCOM effort; trial states that do not converge are rejected | `test_load_flow`, `test_n1_security` | Export **94.3 %** at 510 MW (was 99.1 %, 101.2 % with WTG transformers) |
+| A-2 | 34 WTG step-up transformers (17 MVA, uk 9 %), OSS auxiliaries (1 MW), reactor (0.2 %) and STATCOM losses; `loss_breakdown_mw` in every load flow | `test_load_flow` | Full load: **17.15 MW** (export 7.86, WTG transformers 3.21, array 1.45, transformers 2.14, reactors 1.06, STATCOM 0.43, auxiliaries 1.0); POC **492.85 MW** |
+| A-3 | Export cable as an exact distributed π (per-km equivalent from γ, Z_c), XLPE tan δ 0.001 | A3 long-line solution | Same currents as the hyperbolic solution |
+| A-4 | Electrical loss = load flow integrated over the site Weibull; availability from Carroll 2016 failure rates + weather windows on the 30-year hindcast; P-values at 1 / 10 years and lifetime; curtailment step | `test_plant_losses`, `test_aep_calculator` | Annual electrical loss **3.85 %** (no-load 5.5 MW runs all year); availability **92.8 %** time / **92.6 %** energy. *Curtailment is shown as "Not assessed" (0 %): PSE redispatch and negative-price data are not in the repo — open* |
+| A-5 | Soak thermal check in the switching programme | `test_energisation`, `test_switching_programme` | 24 h soak: land cable ≈ 39 °C, within rating |
+| A-6 | Schema-valid SCD (TypeKey-deduplicated DataTypeTemplates, one StationBus, schema-formatted MAC/APPID/VLAN) | `test_scl_schema` validates against the IEC 61850-6 XSD from OpenSCD (pinned commit; skips offline) | 0 schema errors. *Opening in the OpenSCD GUI not tested* |
+| A-7 | GOOSE wording (L2, ≤ 3 ms trip class), IEC 61400-25-4 mappings, reactor text | review | — |
+| A-8 | IEC 60909 min topology (coupler open, no converters), converter k = 1.0 / 1.2 / 1.5 | `test_short_circuit` | Min 66 kV Ik″ **9.6 kA**; max 66 kV Ik″ 19.5 → 22.1 kA from k = 1.0 to 1.5, inside the 25 kA breaker |
+
+### Phase B
+
+| # | Built | Check | Result now |
+|---|---|---|---|
+| B-1 | Zero-sequence data (cables, transformers, grid), 38.1 Ω NERs (1 kA), single-phase faults, 51N feeder/backup settings, sympathetic-trip check; `GET /grid/protection/earth-fault` | ✔︎ hand calculation U0/R_N ⊕ 3ωC0U0 (`p2-earth-fault-ner`: 1.025) | Ik1 1.18 kA (min) / 3.2 kA (max); NER reach 234 Ω |
+| B-2 | IEC 60287 engine per route section (J-tube, subsea, HDD, land), HDD design options, 30-year hourly load-profile check; DTS defaults from it; `GET /grid/cable/route-rating` | ✔︎ CIGRE TB 880 case 0-1 (`p2-iec60287-tb880`: 821.78 A) | J-tube 851 A, subsea 914 A, HDD 839 A (1600 mm², grout), land 1465 A; the 1000 mm² HDD would rate only 672 A; 30-year peak HDD 67.9 °C. *TB 908 armour-loss method and IEC 60853 cyclic rating not implemented — open (the hourly 30-year profile is run through the thermal model instead)* |
+| B-3 | Sequence-network FRT (3ph, 2ph, 1ph) at the dispatched operating point with cable shunts and reactors; negative-sequence injection (k2) | `test_frt_simulation` (symmetrical-component checks) | Post-clearance overvoltage 1.32 pu |
+| B-4 | EMT of energising export cable 1 (Dommel trapezoidal π-sections, reactor, breaker poles, pre-insertion resistor, point-on-wave); `GET /commissioning/energisation/emt` | ✔︎ Ferranti (`p5-emt-ferranti`: 1.0006), ✔︎ ringing frequency (`p5-emt-ringing`: 1.018) | Closing at voltage zero: DC/AC 1.08, ≈ 90 ms zero-missing; PIR or point-on-wave closing cures it. *Transformer inrush, TOV after fault clearing and insulation coordination — open; own solver, not DPsim/ParaEMT* |
+| B-5 | Detailed array harmonic network (every section, WTG transformer, two busbar sections); converter Norton admittance (delayed current control, damped LCL); generalized Nyquist on det(I + Z·Y) with characteristic-loci margins; `POST /grid/power-quality/converter-stability` | ✔︎ Padé-delay closed-loop poles, 9 / 9 cases incl. unstable (`p2-converter-nyquist-poles`); ✔︎ lumped screen within 2.3 % to h11 (`p2-harmonic-detailed-vs-lumped`) | Stable: vector margin 0.50 at 712 Hz, phase margin 35.5°; unstable (10 RHP poles) without the C_f damping resistor; THD at 66 kV 0.70 % → 0.27 % with Norton models. *Converter data are generic (no vendor model)* |
+| B-6 | 3D frame FE of the IEA 15 MW tower (ElastoDyn data) on DEME's 50 m jacket with the rigid RNA; Gumbel EVA of the hindcast Hs; `GET /turbine-physics/support-structure` | ✔︎ DEME OpenFAST free decay 0.221 Hz (`ts-jacket-f1`: 0.2236 Hz, +1.2 %) | Soft-stiff: 77 % above 1P, 10.6 % below 3P; Hs50 7.96 m (Tp 10.2–14.1 s). *p-y soil springs and scour not modelled (the reference model also uses a vertical spring only); Hs50 not yet compared with a published Baltic study — open* |
+| B-7 | ROSCO rotor coupled to the tower fore-aft mode (modal data from B-6), IEC NTM class B Kaimal wind with disc-averaged coherence, rainflow + DEL; `GET /turbine-physics/tower-loads`, `/tower-fatigue` | ✔︎ ASTM E1049 example (`ts-rainflow-astm`); counts equal the `rainflow` package on random series | Total fore-aft damping 7–8 % in operation; lifetime tower-base DEL 36 MN·m (m = 4). *Drivetrain DOF, the DLC set and a comparison with OpenFAST runs — open* |
+| B-8 | DNV-ST-N001 reference period T_R = T_POP + T_C, α table by T_POP | `test_lifecycle` | Campaign windows use T_R, work uses T_POP |
+| B-9 | Hourly fleet O&M replay (Poisson failures, CTV crews in daylight shifts, jack-up campaigns, energy-based availability, itemised cost); `GET /lifecycle/om-simulation` | ✔︎ validation mode equals the analytic model (`lc-om-vs-analytic`: +0.26 pp) | 2 CTVs × 3 crews: 90.6 % time / 89.8 % energy, P90 88.0 %, ≈ €32 k/MW·yr corrective O&M. *Not run against WOMBAT itself — open* |
+
+### Phase C
+
+| # | Status |
+|---|---|
+| C-1 | `validation` marker and nine new Evidence rows (above). A1 (needs the compiled ROSCO) and A8 (needs the XSD download) stay scripts |
+| C-2 | Open: PyWake vs FLORIS, pandapower vs OpenDSS, app turbine vs OpenFAST |
+| C-3 | Open: further measured datasets (owner's to-do: FINO2, Baltica 2 on ENTSO-E) |
+| C-4 | Open: model cards per module |
+| C-5 | `CITATION.cff`; SHA-256 manifest of all 49 bundled datasets with provenance (`backend/data_manifest.json`, enforced by `tests/test_data_manifest.py`). Zenodo DOI and a per-release PDF report are release-time actions for the owner |
+| C-6 | Open: JOSS / methods paper and external review — cannot be self-certified |
 
 ## How to reproduce
 

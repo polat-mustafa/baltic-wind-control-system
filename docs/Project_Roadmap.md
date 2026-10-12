@@ -360,9 +360,11 @@ Two cables are needed because one 1000 mm² circuit carries only √3 × 220 kV 
 
 | Position in String | Cross-section | Ampacity | Cumulative Power |
 |-------------------|--------------|----------|-----------------|
-| Far end of string | 500 mm² Cu | 715 A | 1-2 × 15 MW |
-| Mid string | 630 mm² Cu | 818 A | 3-4 × 15 MW |
-| Near OSS | 800 mm² Cu | 900 A | 5-6 × 15 MW |
+| Far end of string | 500 mm² Cu | 655 A | 1-4 × 15 MW |
+| Mid string | 630 mm² Cu | 715 A | 5 × 15 MW |
+| Near OSS | 1000 mm² Cu | 825 A | 6 × 15 MW (787 A; 800 mm² at 775 A is too small) |
+
+Ratings: ABB/NKT XLPE submarine brochure Table 33 (`network_model._get_cable_grade`).
 
 *Values = `ARRAY_CABLE_500/630/800` in `services/p2/network_model.py`; both transformer stages also carry ±10 × 1.25 % OLTCs (typical, not vendor data).*
 
@@ -445,7 +447,7 @@ PSE compliance verification follows EON → ION → FON stages before granting o
 
 **Selected rating: ±120 MVAR** (checked for one reactor out: ~624 MVAR from the two export cables − 3 × 180 MVAR ≈ 84 MVAR net STATCOM absorption, × 1.15 for temperature derating + ageing = 97; and for all four in: (720 − 624) × 1.15 = 110 → 120 MVAR per `design()` / `size_statcom()`. In normal operation the STATCOM stays between −40 and +60 MVAR in the Grid-tab scenarios, keeping its range for dynamics) **+ 4 × 180 MVAR shunt reactors** (one per export cable at each end, so each cable end carries half the charging current; cheap continuous base-load compensation that keeps the STATCOM small).
 
-**PSE reactive range (Art. 21(3)(c), −0.35 … +0.40 P_max at the POC = −178.5 / +204 MVAR):** `poc_q_capability()` finds +247 / −205 MVAR at P = 510 MW using WTG capability (±0.33 pu assumed — the IEA 15 MW reference turbine defines none), the STATCOM, reactor switching and both OLTCs, with every farm bus within 0.90–1.10 pu and every cable and transformer within its rating. The thermal rating binds: at P_max the export cables run at ≈ 99 %, so the range comes from switching the two onshore reactors (which do not load the cable), not from WTG/STATCOM Q sent through it. (An earlier version checked voltages only and reported +532 / −590 MVAR at 138 % cable loading.) The STATCOM rating is set by the reactor N-1 case and fast voltage control, not by the steady-state Q range.
+**PSE reactive range (Art. 21(3)(c), −0.35 … +0.40 P_max at the POC = −178.5 / +204 MVAR):** `poc_q_capability()` finds +257 / −203 MVAR at P = 510 MW (WTG step-up transformers included since the 2026-10 engineering audit) using WTG capability (±0.33 pu assumed — the IEA 15 MW reference turbine defines none), the STATCOM, reactor switching and both OLTCs, with every farm bus within 0.90–1.10 pu and every cable and transformer within its rating. The thermal rating binds: at P_max the export cables run at ≈ 99 %, so the range comes from switching the two onshore reactors (which do not load the cable), not from WTG/STATCOM Q sent through it. (An earlier version checked voltages only and reported +532 / −590 MVAR at 138 % cable loading.) The STATCOM rating is set by the reactor N-1 case and fast voltage control, not by the steady-state Q range.
 
 ### 3.9 FRT Compliance — PSE type-D power park module
 

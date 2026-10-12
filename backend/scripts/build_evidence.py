@@ -32,6 +32,13 @@ TESTS = [
     "tests/test_protection_relay.py",
     "tests/test_dt_care_benchmark.py",
     "tests/test_turbine_physics_reference.py",
+    # engineering audit 2026-10: phases A–B (the ``validation`` marker selects these checks)
+    "tests/test_cable_rating.py",
+    "tests/test_support_structure.py",
+    "tests/test_turbine_loads.py",
+    "tests/test_harmonic_stability.py",
+    "tests/test_emt_energisation.py",
+    "tests/test_om_simulation.py",
     # ANDES runs on Linux only (Windows application control blocks it); its rows are
     # written from the backend Docker image, see the module docstring
     "tests/test_andes_dynamics.py",

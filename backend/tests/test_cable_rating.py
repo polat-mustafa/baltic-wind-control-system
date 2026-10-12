@@ -18,7 +18,8 @@ from app.services.p2.cable_rating import (
 from app.services.p2.network_model import EXPORT_CABLE_1000
 
 
-def test_tb880_case_0_1_is_reproduced():
+@pytest.mark.validation
+def test_tb880_case_0_1_is_reproduced(evidence):
     """132 kV 630 mm² Cu single cores in touching trefoil, 1 m, 20 °C, 1.0 K·m/W, solid
     bonding: 821.78 A (TB 880 §4.5, as the open re-implementation computes it), T1 0.4199,
     T3 0.0867 (× 1.6), T4 1.5947 K·m/W, W_d 0.385 W/m, λ1 0.294."""
@@ -29,6 +30,18 @@ def test_tb880_case_0_1_is_reproduced():
     assert r.t4 == pytest.approx(1.59469, abs=1e-4)
     assert r.w_d == pytest.approx(0.38514, abs=1e-4)
     assert r.lambda1 == pytest.approx(0.2939, abs=1e-3)
+    evidence(
+        "p2-iec60287-tb880",
+        area="P2 — HV grid",
+        kind="reference",
+        claim="IEC 60287-1-1 / -2-1 cable rating engine (export route sections, DTS)",
+        against="CIGRE TB 880 case 0-1, 132 kV 630 mm² trefoil (open re-implementation "
+        "cbl_CIGRE_TB880)",
+        metric="continuous rating",
+        value=r.current_a,
+        unit="A",
+        limit="= 821.78 A ± 0.05 A",
+    )
 
 
 def test_three_core_geometry_matches_the_datasheet():

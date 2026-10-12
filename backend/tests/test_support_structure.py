@@ -12,8 +12,20 @@ from app.services.turbine_physics.support_structure import (
 )
 
 
-def test_first_frequency_matches_deme_openfast_reference():
+@pytest.mark.validation
+def test_first_frequency_matches_deme_openfast_reference(evidence):
     m = jacket_modes()
+    evidence(
+        "ts-jacket-f1",
+        area="Turbine physics — structure",
+        kind="reference",
+        claim="3D frame FE of the IEA 15 MW tower on the 50 m jacket with the rigid RNA",
+        against="DEME's OpenFAST/SubDyn model of the same turbine and jacket (free decay)",
+        metric="first natural frequency",
+        value=m.first_bending_hz,
+        unit="Hz",
+        limit="= 0.221 Hz ± 3 %",
+    )
     # DEME's OpenFAST free decay of the same turbine on the same jacket: 0.221 Hz
     assert m.first_bending_hz == pytest.approx(REFERENCE_JACKET_HZ, rel=0.03)
 

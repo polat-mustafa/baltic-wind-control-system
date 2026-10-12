@@ -1,0 +1,348 @@
+{
+ "algorithm": "sha256",
+ "files": [
+  {
+   "path": "app/data/turbines/IEA-15-240-RWT.csv",
+   "bytes": 3268,
+   "sha256": "9b6f8a4c61f5cd3542408f366f74dfd2ddddb1186af347145c8b89b1f8d2443b",
+   "documented_in": "app/services/p1/turbine_models.py",
+   "produced_by": "scripts/fetch_turbine_curves.py"
+  },
+  {
+   "path": "app/data/turbines/IEA-15-240-RWT_rosco.json",
+   "bytes": 46877,
+   "sha256": "591dca7a898cb9c91a59098cd5e918409bbc12e6aa2da846524f2a9108c00940",
+   "documented_in": "app/services/p1/turbine_models.py",
+   "produced_by": "scripts/fetch_turbine_curves.py"
+  },
+  {
+   "path": "app/data/turbines/IEA-22-280-RWT.csv",
+   "bytes": 3270,
+   "sha256": "bb73e6147d0dfc5dd748c5b52731cc4159d741437ad17f464e504418ba19467f",
+   "documented_in": "app/services/p1/turbine_models.py",
+   "produced_by": "scripts/fetch_turbine_curves.py"
+  },
+  {
+   "path": "app/data/turbines/turbines.json",
+   "bytes": 3478,
+   "sha256": "6b4c66ffa3da07a9c589942c42fb2e1292056fc5500f97ed66f454d9ed0e7e6f",
+   "documented_in": "app/services/p1/turbine_models.py",
+   "produced_by": "scripts/fetch_turbine_curves.py"
+  },
+  {
+   "path": "app/services/digital_twin/data/care_farm_b.json",
+   "bytes": 16494,
+   "sha256": "ae4a5dd480391d42217fc18e646861ef3b10dfaad09920f71d5365dc9dfc3a67",
+   "documented_in": "app/services/digital_twin/care_benchmark.py",
+   "produced_by": "scripts/build_care_benchmark.py"
+  },
+  {
+   "path": "app/services/digital_twin/data/care_farm_c.json",
+   "bytes": 51239,
+   "sha256": "c202a77e6be13af712713daa59f13d0998f486584dbc3a2651b6c4fb5f811ba3",
+   "documented_in": "app/services/digital_twin/care_benchmark.py",
+   "produced_by": "scripts/build_care_benchmark.py"
+  },
+  {
+   "path": "app/services/lifecycle/data/sb510_ice.json",
+   "bytes": 1281,
+   "sha256": "b932f9167788c16ec7c732ceb694fc069cff4fc8e780cc9efb503602c3f55c08",
+   "documented_in": "app/services/lifecycle/weather.py",
+   "produced_by": "scripts/process_cmems.py"
+  },
+  {
+   "path": "app/services/lifecycle/data/sb510_metocean_6h.csv.gz",
+   "bytes": 267476,
+   "sha256": "fc725decd50b6dfdf9929c3735133d256a389e3b2717f1b22c007eff5191a3e5",
+   "documented_in": "app/services/lifecycle/weather.py",
+   "produced_by": "scripts/process_cmems.py"
+  },
+  {
+   "path": "app/services/p1/data/cmems_metocean.json",
+   "bytes": 2795,
+   "sha256": "f73f91a1a3bfac73a3f05a652ee25ba0991cd3e7cfb5784e7decaf53ee2b453f",
+   "documented_in": "app/services/p1/metocean.py",
+   "produced_by": "scripts/process_cmems.py"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Hornsrev1_LES_WFeff.dat",
+   "bytes": 1023,
+   "sha256": "e490650495c3c6fe0683dc2a1255d03e1d1db74e36c0592428c0375341d3c12f",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Hornsrev1_RANS_wd270_InnerRowMean.dat",
+   "bytes": 411,
+   "sha256": "6d82c2049f42629d2f3a20ec4a1b5f40e0844cbbc1bb53106a44d8f9783df6d6",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Hornsrev1_WFdata_wd270_InnerRowMean.dat",
+   "bytes": 844,
+   "sha256": "2b458082ba46adfb820a513bd64996124ac1812fa6be32b6dc32e20915077d6a",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/LICENSE",
+   "bytes": 1064,
+   "sha256": "7da18f39b4df83647b40276d8559a22f4a3d32b87e7d7b7f54eaff2dc69541e7",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_WFeff.dat",
+   "bytes": 3028,
+   "sha256": "2cd17b35ce9d7082b28d82eaa6ed0f19d9115842837156474a41b2b494510e39",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd105.dat",
+   "bytes": 550,
+   "sha256": "ad4e46f7985985f6c34559896d5c6135b1d3af964c09d978b8a4198f77d80374",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd105_Row4.dat",
+   "bytes": 282,
+   "sha256": "2ed4a1c0042541b0571bee46b9e1a748984927a897db53269bfec14e862a719d",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd105_Row6.dat",
+   "bytes": 293,
+   "sha256": "e0be0c0a2057b260cb0714a168173129654cb64e7e4fbff021a2d9320c7bbaf6",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd120.dat",
+   "bytes": 545,
+   "sha256": "b0d97cbc51f34b3c68c315b9adfc1706a39273c52a65c82914992d418e99ac90",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd120_Row4.dat",
+   "bytes": 282,
+   "sha256": "700f0d79e19f2d682e0acf0166d362807e16d982f7a14325e4a6e9a028ccafe2",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd120_Row6.dat",
+   "bytes": 333,
+   "sha256": "5210352c32f9595c42e0a8df231dd3d17ef591dedd90190caefd9638cc6a889e",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd207.dat",
+   "bytes": 567,
+   "sha256": "343de1b0582278e114c437bbbe16d7c031c1dde2c1d7c40bda723848df232343",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd207_RowB.dat",
+   "bytes": 341,
+   "sha256": "dae8b439417f249b038e0f068f83f69e5c65c2d1c3e5532d2963f3cbb830f4a8",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd207_RowD.dat",
+   "bytes": 308,
+   "sha256": "2833ff4c6256c10324458935326700c69fb2f399abedfb267101b7476f3bb64c",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd222.dat",
+   "bytes": 562,
+   "sha256": "d324a7e5cfde2660cc9eff3af699922aba601f9374f23725cd2e3b5b87f6cf30",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd222_RowB.dat",
+   "bytes": 295,
+   "sha256": "93450cf2df40117d2e4ae48b4ac9ad5e55b7dd3a5625194fc2dfed3d5845dd3f",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_RANS_wd222_RowD.dat",
+   "bytes": 309,
+   "sha256": "a8d5056002ed00eae28bc1ef85519b672c27fe76d1ef51a564d0051b6c0b7740",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_WFdata_WFeff.dat",
+   "bytes": 2416,
+   "sha256": "db849dda2c0c6802a30cfccc96b0c3c9b3328fa1b8d401ce8966de496746a20a",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_WFdata_wd105_Row4.dat",
+   "bytes": 268,
+   "sha256": "891462259aced4b7a7eb3ce0781754af4233770560ffbb44e898c89984dffe22",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_WFdata_wd105_Row6.dat",
+   "bytes": 305,
+   "sha256": "8defa055a32f51f05007f617fec27a9af69ba3794ca21da34a8d993ffeb83065",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_WFdata_wd120_Row4.dat",
+   "bytes": 269,
+   "sha256": "00cc2bc1248d08fd55f04d1268a70d5791f43036c7297be0679bc3a69b962d6a",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_WFdata_wd120_Row6.dat",
+   "bytes": 305,
+   "sha256": "9491de43621d1e7145239c7e05c1e294423e324ee7258f56b0911c1860618583",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_WFdata_wd207_RowB.dat",
+   "bytes": 297,
+   "sha256": "d1473f0d621845100451f50c8e3db1868c014b6392c4952ffc13fa5dedf344fa",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_WFdata_wd207_RowD.dat",
+   "bytes": 297,
+   "sha256": "7fcabbf37dfdd8c9595902f3fe288ca5e212900838bc6567c79e88f41a35e936",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_WFdata_wd222_RowB.dat",
+   "bytes": 330,
+   "sha256": "55e66cb97d6aa7d8c4494c6bcb3c5d2d57e53ed0b93528c101f68c99bfa8b0e0",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/Lillgrund_WFdata_wd222_RowD.dat",
+   "bytes": 290,
+   "sha256": "1f735bb3ceb7199f7df1de8273bffd5deccb7598565b72dcdefb62dc27370ac4",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "bytes": 778,
+   "sha256": "f5d67cee0415327c820dbe61cb25b121fa3828224cb1e5232111b817dbf25278",
+   "documented_in": "app/services/p1/validation_data/pywake/SOURCES.md",
+   "produced_by": "copied from PyWake v2.6.7 (MIT)"
+  },
+  {
+   "path": "app/services/p1/validation_data/roedsand2/SOURCES.md",
+   "bytes": 1211,
+   "sha256": "ff72a4316b4268db2a300a4c349eb17bf2284971d186d4b7c63052d28a2e9222",
+   "documented_in": "app/services/p1/validation_data/roedsand2/SOURCES.md",
+   "produced_by": "scripts/fetch_validation_farms.py"
+  },
+  {
+   "path": "app/services/p1/validation_data/roedsand2/era5.csv.gz",
+   "bytes": 129173,
+   "sha256": "5c6f5b5678c283c3313b72b299430eb999ea30ed2144202a76ba1b1d4804de7d",
+   "documented_in": "app/services/p1/validation_data/roedsand2/SOURCES.md",
+   "produced_by": "scripts/fetch_validation_farms.py"
+  },
+  {
+   "path": "app/services/p1/validation_data/roedsand2/layout.csv",
+   "bytes": 2971,
+   "sha256": "b2addfc835acb754dd5f8d004fe40c4bb9475a41cda7e0176262be5e1a0bca21",
+   "documented_in": "app/services/p1/validation_data/roedsand2/SOURCES.md",
+   "produced_by": "scripts/fetch_validation_farms.py"
+  },
+  {
+   "path": "app/services/p4/data/dk2_deep_predictions.csv.gz",
+   "bytes": 557423,
+   "sha256": "7ac545ef5c88176d7703bc482f1867fb1de3cfd4e165c6d41f4767d53a224785",
+   "documented_in": "app/services/p4/real_data.py",
+   "produced_by": "scripts/train_real_deep_models.py"
+  },
+  {
+   "path": "app/services/p4/data/dk2_offshore_dayahead.csv.gz",
+   "bytes": 434325,
+   "sha256": "3d03e7fa5afa0b740d4e0cc3e6653834289921eae691837ccf79160603d6d341",
+   "documented_in": "app/services/p4/real_data.py",
+   "produced_by": "scripts/fetch_real_forecast_data.py"
+  },
+  {
+   "path": "app/services/p4/data/dk2_tso_dayahead.csv.gz",
+   "bytes": 110773,
+   "sha256": "b67150ba7cbcb3b4c7d958623c8a49b1d2908d772095cdb1b1422e5025a68c34",
+   "documented_in": "app/services/p4/real_data.py",
+   "produced_by": "scripts/fetch_real_forecast_data.py"
+  },
+  {
+   "path": "app/services/p4/data/entsoe_kriegers_flak.csv.gz",
+   "bytes": 281700,
+   "sha256": "d0abfc69d2db0c8efa9472b221a564d52da86ecd00f6653a161211456092db05",
+   "documented_in": "app/services/p1/aep_validation.py",
+   "produced_by": "scripts/fetch_validation_farms.py"
+  },
+  {
+   "path": "app/services/p4/data/entsoe_roedsand1.csv.gz",
+   "bytes": 266731,
+   "sha256": "8909718bfbc07376d86c3c0f37ea524e5c9a575dad9c3ba86675bfec4a433192",
+   "documented_in": "app/services/p1/aep_validation.py",
+   "produced_by": "scripts/fetch_validation_farms.py"
+  },
+  {
+   "path": "app/services/p4/data/entsoe_roedsand2.csv.gz",
+   "bytes": 272776,
+   "sha256": "1586402768a4b7dbcd7f861fbb0ac7c6aa97f70813160ee6b6f7a42964eb6618",
+   "documented_in": "app/services/p1/aep_validation.py",
+   "produced_by": "scripts/fetch_validation_farms.py"
+  },
+  {
+   "path": "app/services/p4/data/entsoe_units.json",
+   "bytes": 538,
+   "sha256": "9fef55c080411d7f3a709abf9fe487b83a69eb32e88218f9df9503a5e11e2f0f",
+   "documented_in": "app/services/p4/real_data.py",
+   "produced_by": "scripts/fetch_entsoe_units.py"
+  },
+  {
+   "path": "app/services/p5/data/baltic_power_energisation.json",
+   "bytes": 9573,
+   "sha256": "30e36f778ea1fec47a8cffd4c6e51eff8aa9a583833d2c8bdadc048642874e54",
+   "documented_in": "app/routers/p5/real_data.py",
+   "produced_by": "scripts/fetch_entsoe_units.py"
+  },
+  {
+   "path": "app/services/site_assessment/data/SOURCES.md",
+   "bytes": 9674,
+   "sha256": "d3efb966ff67eacf7de960a9f4d19c87babd4f007a89543f0d4edaf614b6bc2a",
+   "documented_in": "app/services/site_assessment/data/SOURCES.md",
+   "produced_by": "(hand-written)"
+  },
+  {
+   "path": "app/services/site_assessment/data/southern_baltic.json",
+   "bytes": 1319301,
+   "sha256": "51aa9354cd21b2ef0f2f9c8e4664fb549c3ab3781f03c2c735d80d8596445866",
+   "documented_in": "app/services/site_assessment/data/SOURCES.md",
+   "produced_by": "scripts/fetch_marine_layers.py, scripts/fetch_wind_climate.py"
+  }
+ ]
+}

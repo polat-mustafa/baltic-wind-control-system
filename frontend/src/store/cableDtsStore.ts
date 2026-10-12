@@ -1,8 +1,8 @@
 /**
  * Cable DTS store — one 220 kV export circuit of the modelled farm (X-Farm header).
- * Defaults come from the farm (GET /cable/dts/farm): SB-510 ≈ 820 A at the OSS end of
- * each circuit at 510 MW (P2 load flow, 99 % of 825 A on the 108 km route) and
- * ≈ 1 420 A on the survivor after an N-1 trip, before the runback.
+ * Defaults come from the farm (GET /cable/dts/farm): SB-510 ≈ 778 A at the more loaded end
+ * of each circuit at 510 MW (P2 load flow, 94 % of 825 A on the 108 km route) and
+ * ≈ 1 362 A on the survivor after an N-1 trip, before the runback.
  */
 
 import { create } from "zustand";
@@ -12,8 +12,8 @@ import { farmKey } from "../lib/project/farmHeader";
 import type { DTSFarm, DTSProfileResponse, DTSTransientResponse } from "../types/cableDts";
 
 // SB-510 until the farm loads (per circuit, A)
-const NORMAL_CURRENT_A = 818;
-const N1_CURRENT_A = 1418;
+const NORMAL_CURRENT_A = 778;
+const N1_CURRENT_A = 1362;
 
 interface Params {
   currentA: number;

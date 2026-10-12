@@ -20,12 +20,24 @@ from app.services.turbine_physics.loads import (
 from app.services.turbine_physics.support_structure import fore_aft_mode
 
 
-def test_rainflow_astm_e1049_example():
+@pytest.mark.validation
+def test_rainflow_astm_e1049_example(evidence):
     # ASTM E1049-85 §5.4.4 example (Fig. 6 / Table 4)
     counts: dict[float, float] = {}
     for r, n in rainflow([-2, 1, -3, 5, -1, 3, -4, 4, -2]):
         counts[r] = counts.get(r, 0.0) + n
     assert counts == {3.0: 0.5, 4.0: 1.5, 6.0: 0.5, 8.0: 1.0, 9.0: 0.5}
+    evidence(
+        "ts-rainflow-astm",
+        area="Turbine physics — structure",
+        kind="standard",
+        claim="rainflow cycle counting behind the tower-base DEL",
+        against="ASTM E1049-85 §5.4.4 worked example",
+        metric="cycles counted (all ranges equal the standard's table)",
+        value=sum(counts.values()),
+        unit="cycles",
+        limit="= 4.0 (0.5 + 1.5 + 0.5 + 1.0 + 0.5)",
+    )
 
 
 def test_del_of_a_pure_sine():

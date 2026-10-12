@@ -133,4 +133,5 @@ asyncio_mode = "auto"
 addopts = "-v --tb=short"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "validation: checks against a published reference, standard or closed form; they feed the Evidence page (run: -m validation)",
 ]

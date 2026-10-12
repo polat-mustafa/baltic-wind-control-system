@@ -1048,7 +1048,7 @@ def computed_plant_losses(
     if spec is not None:
         loss = annual_electrical_loss(weibull_a, weibull_k, wake_loss_fraction, spec, turbine_model)
         elec = loss.fraction
-        provenance["electrical"] = ("approximation", f"Computed: {ANNUAL_LOSS_SOURCE}")
+        provenance["electrical"] = ("approximation", ANNUAL_LOSS_SOURCE)
     avail = availability(turbine_model)
     provenance["availability"] = (
         "literature",

@@ -36,9 +36,9 @@ logger = logging.getLogger(__name__)
 
 LOSS_CURVE_POINTS = 6  # 0, 20, 40, 60, 80, 100 % of rated output
 SOURCE = (
-    "P2 load flow of this design (cables, transformers incl. WTG units, reactors, STATCOM, "
-    "OSS auxiliary) at 6 output levels, weighted with the site Weibull through the power "
-    "curve and the wake loss"
+    "Computed: P2 load flow of this design (cables, transformers incl. WTG units, reactors, "
+    "STATCOM, OSS auxiliary) at 6 output levels, weighted with the site Weibull through the "
+    "power curve and the wake loss"
 )
 
 

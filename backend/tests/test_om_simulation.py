@@ -8,11 +8,25 @@ from app.services.lifecycle.availability_model import availability
 from app.services.lifecycle.om_simulation import simulate_om
 
 
-def test_continuous_mode_reproduces_the_analytic_model():
+@pytest.mark.validation
+def test_continuous_mode_reproduces_the_analytic_model(evidence):
     a = availability()
     sims = [simulate_om(mode="continuous", seed=s) for s in range(3)]
     mean_tb = sum(r.time_based_mean for r in sims) / len(sims)
     assert mean_tb == pytest.approx(a.time_based, abs=0.006)
+    evidence(
+        "lc-om-vs-analytic",
+        area="Lifecycle — O&M",
+        kind="analytic",
+        claim="hourly fleet O&M simulation in its validation mode (unlimited crews, "
+        "continuous weather windows)",
+        against="analytic availability model on the same hindcast and failure rates",
+        metric="time-based availability difference",
+        value=100 * (mean_tb - a.time_based),
+        unit="pp",
+        limit="|Δ| ≤ 0.6 pp",
+        tolerance=0.3,
+    )
     for c_idx, c in enumerate(a.classes):
         d = sum(r.mean_downtime_h[c_idx] for r in sims) / len(sims)
         # hourly vs 6-hourly window discretisation

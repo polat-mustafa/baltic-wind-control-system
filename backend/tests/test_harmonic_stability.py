@@ -53,24 +53,44 @@ def _rhp_roots_and_nyquist(conv: ConverterModel, l_grid_pu: float, r_grid_pu: fl
     return rhp, unstable_pole_count(np.unwrap(np.angle(1 + loop)))
 
 
-@pytest.mark.parametrize(
-    ("conv", "l_grid"),
-    [
-        (DEFAULT_CONVERTER, WTG_TRAFO_VK_PERCENT / 100),
-        (replace(DEFAULT_CONVERTER, c_filter_pu=0.05, damping_r_pu=0.0), 0.09),
-        (replace(DEFAULT_CONVERTER, damping_r_pu=0.0), 0.3),
-        (replace(DEFAULT_CONVERTER, bandwidth_hz=700.0), 0.09),
-        (replace(DEFAULT_CONVERTER, f_sw_hz=1500.0), 0.2),
-        # unstable: undamped / weakly damped LCL above f_s/6, a too-fast current loop
-        (replace(DEFAULT_CONVERTER, c_filter_pu=0.03, damping_r_pu=0.0, f_sw_hz=2000.0), 0.09),
-        (replace(DEFAULT_CONVERTER, c_filter_pu=0.05, damping_r_pu=0.02), 0.09),
-        (replace(DEFAULT_CONVERTER, bandwidth_hz=780.0), 0.5),
-        (replace(DEFAULT_CONVERTER, bandwidth_hz=600.0, damping_r_pu=0.0), 1.0),
-    ],
-)
+NYQUIST_CASES = [
+    (DEFAULT_CONVERTER, WTG_TRAFO_VK_PERCENT / 100),
+    (replace(DEFAULT_CONVERTER, c_filter_pu=0.05, damping_r_pu=0.0), 0.09),
+    (replace(DEFAULT_CONVERTER, damping_r_pu=0.0), 0.3),
+    (replace(DEFAULT_CONVERTER, bandwidth_hz=700.0), 0.09),
+    (replace(DEFAULT_CONVERTER, f_sw_hz=1500.0), 0.2),
+    # unstable: undamped / weakly damped LCL above f_s/6, a too-fast current loop
+    (replace(DEFAULT_CONVERTER, c_filter_pu=0.03, damping_r_pu=0.0, f_sw_hz=2000.0), 0.09),
+    (replace(DEFAULT_CONVERTER, c_filter_pu=0.05, damping_r_pu=0.02), 0.09),
+    (replace(DEFAULT_CONVERTER, bandwidth_hz=780.0), 0.5),
+    (replace(DEFAULT_CONVERTER, bandwidth_hz=600.0, damping_r_pu=0.0), 1.0),
+]
+
+
+@pytest.mark.parametrize(("conv", "l_grid"), NYQUIST_CASES)
 def test_nyquist_count_equals_rhp_closed_loop_poles(conv, l_grid):
     rhp, counted = _rhp_roots_and_nyquist(conv, l_grid)
     assert counted == rhp
+
+
+@pytest.mark.validation
+def test_nyquist_agrees_with_closed_loop_poles_on_every_case(evidence):
+    results = [_rhp_roots_and_nyquist(c, lg) for c, lg in NYQUIST_CASES]
+    agree = sum(rhp == counted for rhp, counted in results)
+    assert agree == len(NYQUIST_CASES)
+    assert any(rhp for rhp, _ in results) and any(not rhp for rhp, _ in results)
+    evidence(
+        "p2-converter-nyquist-poles",
+        area="P2 — HV grid",
+        kind="analytic",
+        claim="generalized-Nyquist stability verdict of converter–network interaction",
+        against="closed-loop poles of rational models (2nd-order Padé delay), stable and "
+        "unstable cases",
+        metric="cases where the Nyquist count equals the RHP poles",
+        value=agree,
+        unit=f"of {len(NYQUIST_CASES)}",
+        limit=f"= {len(NYQUIST_CASES)}",
+    )
 
 
 def test_rational_cases_cover_stable_and_unstable():
@@ -125,8 +145,10 @@ def test_grid_strength_barely_moves_the_array_mode():
 # ── Harmonic voltages on the detailed network ──
 
 
-def test_detailed_network_reproduces_lumped_screen_for_ideal_sources():
+@pytest.mark.validation
+def test_detailed_network_reproduces_lumped_screen_for_ideal_sources(evidence):
     rows = harmonic_voltages(norton=False, coupler_closed=True)
+    worst = 0.0
     for kv, node in ((66.0, BUS_A), (400.0, POC)):
         lumped = {
             r["order"]: r["magnitude_pct"]
@@ -135,6 +157,20 @@ def test_detailed_network_reproduces_lumped_screen_for_ideal_sources():
         for r in rows:
             if r["bus"] == BUS_NAMES[node] and r["order"] <= 11:
                 assert r["voltage_pct"] == pytest.approx(lumped[r["order"]], rel=0.05, abs=2e-3)
+                worst = max(worst, abs(r["voltage_pct"] / lumped[r["order"]] - 1))
+    evidence(
+        "p2-harmonic-detailed-vs-lumped",
+        area="P2 — HV grid",
+        kind="analytic",
+        claim="detailed harmonic network (every array section and WTG transformer) with ideal "
+        "current sources",
+        against="lumped harmonic screen (power_quality), h2–h11 at OSS 66 kV and the POC",
+        metric="largest relative difference of a harmonic voltage",
+        value=100 * worst,
+        unit="%",
+        limit="≤ 5 %",
+        tolerance=0.5,
+    )
 
 
 def test_converter_admittance_damps_harmonic_voltages():

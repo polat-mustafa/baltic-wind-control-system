@@ -185,7 +185,8 @@ class TestOwnFarm:
 class TestEarthFaults:
     """Engineering audit F5: the resistance-earthed 66 kV array and its residual stages."""
 
-    def test_earth_fault_current_is_set_by_the_ner_and_the_cable_capacitance(self):
+    @pytest.mark.validation
+    def test_earth_fault_current_is_set_by_the_ner_and_the_cable_capacitance(self, evidence):
         """Hand check (min case, c = 1.0, one NER): resistive NER current U0/R_N = 1 kA and
         the capacitive current of all strings 3ωC0U0 add in quadrature."""
         from app.services.p2.network_model import NER_OHM
@@ -197,6 +198,17 @@ class TestEarthFaults:
         hand = (u0 / NER_OHM) ** 2 + i_c**2
         lo = earth_fault_levels("min")["OSS_66kV"]
         assert lo["ik1_ka"] * 1e3 == pytest.approx(hand**0.5, rel=0.03)
+        evidence(
+            "p2-earth-fault-ner",
+            area="P2 — HV grid",
+            kind="analytic",
+            claim="pandapower IEC 60909 single-phase fault, NER-earthed 66 kV array (min case)",
+            against="hand calculation: U0/R_N and 3ωC0U0 of all strings in quadrature",
+            metric="I_k1 / hand value",
+            value=lo["ik1_ka"] * 1e3 / hand**0.5,
+            unit="−",
+            limit="= 1 ± 0.03",
+        )
         hi = earth_fault_levels("max")["OSS_66kV"]
         # coupler closed (two NERs) and the converters' share: still far below phase faults
         assert lo["ik1_ka"] < hi["ik1_ka"] < 0.25 * oss_66kv_fault_levels_ka()[0]
